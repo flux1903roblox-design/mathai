@@ -92,8 +92,51 @@ const auth = {
   async logout() { localStorage.removeItem(CUR_KEY); },
 };
 
-// --- integrations: Ollama replaces the cloud LLM API ---
-async function InvokeLLM({ prompt, file_urls, response_json_schema }) {
+// --- AI: shared cloud proxy (Cloudflare Worker holding the Groq key server-side) by default;
+// a personal key from Settings overrides it; local Ollama is the last fallback. ---
+export const SHARED_AI_URL = ''; // filled in by setup-cloud.ps1 after the worker is deployed
+
+export const aiConfig = {
+  get() { return read('mathai_ai', { apiKey: '', baseUrl: 'https://api.groq.com/openai/v1', model: 'meta-llama/llama-4-scout-17b-16e-instruct' }); },
+  set(cfg) { write('mathai_ai', cfg); },
+};
+
+function parseLLMText(text, response_json_schema) {
+  if (!response_json_schema) return text;
+  try { return JSON.parse(text); } catch { /* fall through */ }
+  const m = text.match(/\{[\s\S]*\}/); // model wrapped the JSON in prose or fences
+  if (m) { try { return JSON.parse(m[0]); } catch { /* fall through */ } }
+  throw new Error('המודל החזיר תשובה לא תקינה, נסה שוב');
+}
+
+async function invokeCloud({ prompt, file_urls, response_json_schema }, cfg) {
+  const content = file_urls?.length
+    ? [{ type: 'text', text: prompt }, ...file_urls.map((u) => ({ type: 'image_url', image_url: { url: u } }))]
+    : prompt;
+  const body = {
+    model: cfg.model || 'meta-llama/llama-4-scout-17b-16e-instruct',
+    messages: [{ role: 'user', content }],
+    temperature: 0.2,
+    ...(response_json_schema ? { response_format: { type: 'json_object' } } : {}),
+  };
+  const res = await fetch((cfg.baseUrl || 'https://api.groq.com/openai/v1') + '/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(cfg.apiKey ? { Authorization: 'Bearer ' + cfg.apiKey } : {}), // shared proxy needs no client key
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('מפתח ה-API לא תקין — בדוק אותו בהגדרות');
+    if (res.status === 429) throw new Error('חרגת ממכסת השימוש החינמית — נסה שוב בעוד רגע');
+    throw new Error('שגיאת שרת AI (' + res.status + ') — נסה שוב');
+  }
+  const data = await res.json();
+  return parseLLMText(data.choices?.[0]?.message?.content ?? '', response_json_schema);
+}
+
+async function invokeOllama({ prompt, file_urls, response_json_schema }) {
   const images = (file_urls || []).map((u) => (u || '').split(',')[1]).filter(Boolean); // data URLs → raw base64
   const body = {
     model: OLLAMA_MODEL,
@@ -110,16 +153,18 @@ async function InvokeLLM({ prompt, file_urls, response_json_schema }) {
       body: JSON.stringify(body),
     });
   } catch {
-    throw new Error('Ollama לא זמין — ודא שהוא רץ (ollama serve) בכתובת ' + OLLAMA_URL);
+    throw new Error('אין מנוע AI מוגדר — הזן מפתח Groq חינמי בהגדרות, או הפעל Ollama מקומי');
   }
   if (!res.ok) throw new Error('שגיאת Ollama ' + res.status + ' — ודא שהמודל ' + OLLAMA_MODEL + ' מותקן (ollama pull ' + OLLAMA_MODEL + ')');
   const data = await res.json();
-  const text = data.message?.content ?? '';
-  if (!response_json_schema) return text;
-  try { return JSON.parse(text); } catch { /* fall through */ }
-  const m = text.match(/\{[\s\S]*\}/); // model wrapped the JSON in prose or fences
-  if (m) { try { return JSON.parse(m[0]); } catch { /* fall through */ } }
-  throw new Error('המודל החזיר תשובה לא תקינה, נסה שוב');
+  return parseLLMText(data.message?.content ?? '', response_json_schema);
+}
+
+async function InvokeLLM(opts) {
+  const cfg = aiConfig.get();
+  if (cfg.apiKey) return invokeCloud(opts, cfg);
+  if (SHARED_AI_URL) return invokeCloud(opts, { baseUrl: SHARED_AI_URL, apiKey: '', model: cfg.model });
+  return invokeOllama(opts);
 }
 
 function UploadFile({ file }) { // no server: keep the image as a data URL
