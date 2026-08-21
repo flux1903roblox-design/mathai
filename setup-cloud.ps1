@@ -20,7 +20,7 @@ Set-Location ..
 
 Write-Host "=== 4/4: Wiring the site to $workerUrl and redeploying ===" -ForegroundColor Cyan
 $lib = "src\lib\localdb.js"
-$content = Get-Content $lib -Raw
+$content = Get-Content $lib -Raw -Encoding UTF8
 $content = $content -replace "export const SHARED_AI_URL = '[^']*'", "export const SHARED_AI_URL = '$workerUrl'"
 Set-Content $lib $content -Encoding utf8 -NoNewline
 

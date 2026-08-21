@@ -121,7 +121,7 @@ function Header() {
         <Crown className="w-5 h-5 text-white" />
       </div>
       <div>
-        <h1 className="text-xl font-extrabold">MathAI Pro</h1>
+        <h1 className="text-xl font-display">MathAI Pro</h1>
         <p className="text-xs text-muted-foreground">מנוי או חבילת פעולות</p>
       </div>
     </header>

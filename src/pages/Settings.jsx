@@ -26,7 +26,7 @@ export default function Settings() {
           <SettingsIcon className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-xl font-extrabold">הגדרות</h1>
+          <h1 className="text-xl font-display">הגדרות</h1>
           <p className="text-xs text-muted-foreground">החשבון והמנוי שלך</p>
         </div>
       </header>

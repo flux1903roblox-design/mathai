@@ -1,4 +1,4 @@
-import ReactMarkdown from 'react-markdown';
+import MathMarkdown from '@/components/MathMarkdown';
 import { Check, Copy, Sparkles, Tag } from 'lucide-react';
 import { useState } from 'react';
 
@@ -36,8 +36,8 @@ export default function SolutionSteps({ result, helpLevel }) {
         </button>
       </div>
 
-      <div className="math-prose text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap">
-        <ReactMarkdown>{result.solution || ''}</ReactMarkdown>
+      <div className="math-prose text-[15px] leading-relaxed text-foreground/90">
+        <MathMarkdown>{result.solution || ''}</MathMarkdown>
       </div>
 
       {result.final_answer && (

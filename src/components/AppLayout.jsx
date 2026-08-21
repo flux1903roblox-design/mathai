@@ -100,12 +100,17 @@ function OutletWrapper() {
 function SideLink({ to, label, icon: Icon, end }) {
   return (
     <NavLink to={to} end={end} className={({ isActive }) =>
-      `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${
+      `relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${
         isActive ? 'bg-gradient-to-l from-violet-500/20 to-cyan-400/10 text-white border border-white/10' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
       }`
     }>
-      <Icon className="w-4 h-4" />
-      {label}
+      {({ isActive }) => (
+        <>
+          {isActive && <span className="absolute right-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-full bg-gradient-to-b from-violet-400 to-cyan-300" aria-hidden="true" />}
+          <Icon className="w-4 h-4" aria-hidden="true" />
+          {label}
+        </>
+      )}
     </NavLink>
   );
 }
@@ -113,9 +118,9 @@ function SideLink({ to, label, icon: Icon, end }) {
 function BottomLink({ to, label, icon: Icon, end }) {
   return (
     <NavLink to={to} end={end} className={({ isActive }) =>
-      `flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition ${isActive ? 'text-violet-300' : 'text-muted-foreground'}`
+      `flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition pressable ${isActive ? 'text-violet-300 bg-white/[0.07]' : 'text-muted-foreground'}`
     }>
-      <Icon className="w-5 h-5" />
+      <Icon className="w-5 h-5" aria-hidden="true" />
       <span className="text-[10px] font-medium">{label}</span>
     </NavLink>
   );

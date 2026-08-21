@@ -81,7 +81,7 @@ export default function Scan() {
           <ScanLine className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-xl font-extrabold">סריקת שאלה</h1>
+          <h1 className="text-xl font-display">סריקת שאלה</h1>
           <p className="text-xs text-muted-foreground">צלם או העלה שאלה וקבל פתרון מיד</p>
         </div>
       </header>

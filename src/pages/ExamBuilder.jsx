@@ -169,7 +169,7 @@ function Header() {
         <ClipboardList className="w-5 h-5 text-white" />
       </div>
       <div>
-        <h1 className="text-xl font-extrabold">בניית מבחן</h1>
+        <h1 className="text-xl font-display">בניית מבחן</h1>
         <p className="text-xs text-muted-foreground">מבחן אמריקאי בסגנון בגרות</p>
       </div>
     </header>

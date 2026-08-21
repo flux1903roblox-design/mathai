@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { chatReply } from '@/lib/llm';
 import { consumeAction, getActions, isPro } from '@/lib/mathActions';
 import PaywallGate from '@/components/PaywallGate';
+import MathMarkdown from '@/components/MathMarkdown';
 
 const SUGGESTIONS = [
   'הסבר על נגזרת של פולינום',
@@ -57,7 +58,7 @@ export default function Chat() {
           <MessageCircle className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-xl font-extrabold">צ׳אט עם המורה</h1>
+          <h1 className="text-xl font-display">צ׳אט עם המורה</h1>
           <p className="text-xs text-muted-foreground">שאל כל שאלה — מאלגברה ועד חדו״א</p>
         </div>
       </header>
@@ -86,12 +87,12 @@ export default function Chat() {
             {messages.map((m, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 className={`flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap ${
+                <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed ${
                   m.role === 'user'
-                    ? 'bg-gradient-to-l from-violet-500 to-cyan-400 text-white rounded-bl-md'
-                    : 'glass rounded-br-md'
+                    ? 'bg-gradient-to-l from-violet-500 to-cyan-400 text-white rounded-bl-md whitespace-pre-wrap'
+                    : 'glass rounded-br-md math-prose'
                 }`}>
-                  {m.content}
+                  {m.role === 'user' ? m.content : <MathMarkdown>{m.content}</MathMarkdown>}
                 </div>
               </motion.div>
             ))}

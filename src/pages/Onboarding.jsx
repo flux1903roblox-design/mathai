@@ -46,7 +46,7 @@ export default function Onboarding() {
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-400 grid place-items-center mx-auto mb-3 btn-glow">
                 <GraduationCap className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-2xl font-extrabold">באיזה כיתה אתה?</h1>
+              <h1 className="text-2xl font-display">באיזה כיתה אתה?</h1>
               <p className="text-sm text-muted-foreground mt-1">נתאים את כל הפתרונות והתרגול לרמה שלך</p>
             </div>
             <div className="grid grid-cols-3 gap-2.5">
@@ -79,7 +79,7 @@ export default function Onboarding() {
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-400 grid place-items-center mx-auto mb-3 btn-glow">
                 <Layers className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-2xl font-extrabold">כמה יחידות לימוד?</h1>
+              <h1 className="text-2xl font-display">כמה יחידות לימוד?</h1>
               <p className="text-sm text-muted-foreground mt-1">כיתה {gradeLabel(grade)} · הנושאים יותאמו לרמת היחידות</p>
             </div>
             <div className="space-y-3">

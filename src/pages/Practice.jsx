@@ -189,7 +189,7 @@ function Header() {
         <PencilRuler className="w-5 h-5 text-white" />
       </div>
       <div>
-        <h1 className="text-xl font-extrabold">תרגול חכם</h1>
+        <h1 className="text-xl font-display">תרגול חכם</h1>
         <p className="text-xs text-muted-foreground">תרגולים מותאמים לרמה ולנושאים שלך</p>
       </div>
     </header>

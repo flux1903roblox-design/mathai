@@ -5,7 +5,7 @@ const ALLOWED = [
   'https://flux1903roblox-design.github.io',
   'http://localhost:5173',
 ];
-const DEFAULT_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+const DEFAULT_MODEL = 'openai/gpt-oss-120b';
 
 export default {
   async fetch(req, env) {
@@ -16,6 +16,12 @@ export default {
       'Access-Control-Allow-Headers': 'Content-Type',
     };
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+    if (req.method === 'GET' && new URL(req.url).pathname === '/models') {
+      const m = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { Authorization: `Bearer ${env.GROQ_API_KEY}` },
+      });
+      return new Response(m.body, { status: m.status, headers: { ...cors, 'Content-Type': 'application/json' } });
+    }
     if (req.method !== 'POST') return new Response('POST only', { status: 405, headers: cors });
     if (!ALLOWED.includes(origin)) return new Response('Forbidden', { status: 403, headers: cors });
 

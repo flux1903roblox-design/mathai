@@ -53,7 +53,7 @@ export async function solveFromImage({ imageUrl, helpLevel, user }) {
 - question_text: ניסוח השאלה בעברית.
 - topic: נושא השאלה (למשל: אלגברה, גאומטריה, טריגונומטריה, חדו"א, סטטיסטיקה, הסתברות).
 - final_answer: התשובה הסופית בקצרה (אם רמת העזרה היא רמז — השאר ריק).
-- solution: הסבר בעברית כתב חלקה ב-Markdown, עם שלבים ממוספרים, נוסחאות בסימון מתמטי תקני (השתמש בתווים √, ², ³, ÷, ×, ≤, ≥, π, ° וכד'). היה ברור ומדויק.`;
+- solution: הסבר בעברית ב-Markdown עם שלבים ממוספרים. כתוב כל נוסחה ב-LaTeX בין $...$ (למשל $x^2+3x=10$), ונוסחה מרכזית בשורה נפרדת בין $$...$$. היה ברור ומדויק.`;
   return db.integrations.Core.InvokeLLM({
     prompt,
     file_urls: [imageUrl],
@@ -67,7 +67,7 @@ export async function solveFromText({ text, helpLevel, user }) {
 פתור את השאלה הבאה שכתב התלמיד:
 "${text}"
 רמת העזרה המבוקשת: ${LEVEL_DESC[helpLevel] || LEVEL_DESC.full}.
-החזר JSON בלבד באותו מבנה (question_text, topic, final_answer, solution). הסבר בעברית כ-Markdown עם שלבים ממוספרים.`;
+החזר JSON בלבד באותו מבנה (question_text, topic, final_answer, solution). הסבר בעברית כ-Markdown עם שלבים ממוספרים, נוסחאות ב-LaTeX בין $...$ ונוסחה מרכזית בין $$...$$.`;
   return db.integrations.Core.InvokeLLM({
     prompt,
     response_json_schema: SOLUTION_SCHEMA,
@@ -81,7 +81,7 @@ export async function chatReply(history, newMessage, user) {
     .map((m) => `${m.role === 'user' ? 'תלמיד' : 'מורה'}: ${m.content}`)
     .join('\n');
   const prompt = `אתה מורה פרטי למתמטיקה בישראל. ${ctx(user)}
-ענה על שאלות התלמיד בעברית ברורה ומפורטת, בסימון מתמטי תקני. הסבר שלב-אחר-שלב כשצריך. היה מעודד וקצר כשאפשר.
+ענה על שאלות התלמיד בעברית ברורה ומפורטת. כתוב נוסחאות ב-LaTeX בין $...$ (ונוסחה מרכזית בין $$...$$). הסבר שלב-אחר-שלב כשצריך. היה מעודד וקצר כשאפשר.
 שיחה עד כה:
 ${convo || '(תחילת שיחה)'}
 

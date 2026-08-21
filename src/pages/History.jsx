@@ -6,7 +6,7 @@ import { History as HistoryIcon, Search, Star, ScanLine, X, ChevronLeft, Tag } f
 import { useAuth } from '@/lib/AuthContext';
 
 import { gradeLabel } from '@/lib/curriculum';
-import ReactMarkdown from 'react-markdown';
+import MathMarkdown from '@/components/MathMarkdown';
 import { Link } from 'react-router-dom';
 
 export default function History() {
@@ -52,7 +52,7 @@ export default function History() {
           <HistoryIcon className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-xl font-extrabold">היסטוריית שאלות</h1>
+          <h1 className="text-xl font-display">היסטוריית שאלות</h1>
           <p className="text-xs text-muted-foreground">כל מה שפתרת — חיפוש ומועדפים</p>
         </div>
       </header>
@@ -126,7 +126,7 @@ export default function History() {
             <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5"><Tag className="w-3 h-3" /> {active.topic || '—'} · כיתה {gradeLabel(user.grade)}</div>
             <div className="font-bold text-sm mb-3">{active.question_text}</div>
             <div className="math-prose text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap">
-              <ReactMarkdown>{active.solution || ''}</ReactMarkdown>
+              <MathMarkdown>{active.solution || ''}</MathMarkdown>
             </div>
             {active.final_answer && (
               <div className="mt-4 rounded-xl bg-gradient-to-l from-violet-500/15 to-cyan-400/15 border border-white/15 px-4 py-3 flex items-center justify-between">
