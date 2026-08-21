@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 210 20% 98%;
+    --card: 240 10% 6.5%;
+    --card-foreground: 210 20% 98%;
+    --popover: 240 12% 8%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 252 95% 68%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 8% 13%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 240 8% 13%;
+    --muted-foreground: 240 5% 64%;
+    --accent: 190 95% 50%;
+    --accent-foreground: 240 10% 4%;
+    --destructive: 0 72% 52%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 8% 15%;
+    --input: 240 8% 16%;
+    --ring: 252 95% 68%;
+    --chart-1: 252 95% 68%;
+    --chart-2: 190 95% 50%;
+    --chart-3: 280 85% 65%;
+    --chart-4: 43 90% 60%;
+    --chart-5: 340 80% 62%;
+    --radius: 0.9rem;
+    --font-heading: 'Heebo', ui-sans-serif, system-ui, sans-serif;
+    --font-body: 'Heebo', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Heebo', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --sidebar-background: 240 10% 5%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 252 95% 68%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 8% 13%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 240 8% 14%;
+    --sidebar-ring: 252 95% 68%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+    background-image: radial-gradient(60rem 60rem at 100% -10%, hsl(252 95% 68% / 0.12), transparent 60%),
+                      radial-gradient(50rem 50rem at 0% 0%, hsl(190 95% 50% / 0.10), transparent 55%);
+    background-attachment: fixed;
+  }
+  ::selection { background: hsl(var(--primary) / 0.35); color: white; }
+}
+
+@layer components {
+  .glass { @apply bg-white/[0.04] backdrop-blur-xl border border-white/10; }
+  .glass-strong { @apply bg-white/[0.07] backdrop-blur-2xl border border-white/15; }
+  .card-base { @apply glass rounded-2xl; }
+  .gradient-text { @apply bg-gradient-to-l from-violet-400 via-fuchsia-400 to-cyan-300 bg-clip-text text-transparent; }
+  .btn-glow { box-shadow: 0 0 0 1px hsl(var(--primary)/0.45), 0 10px 34px -10px hsl(var(--primary)/0.65); }
+  .ring-glow { box-shadow: 0 0 0 1px hsl(var(--primary)/0.35), 0 0 40px -6px hsl(var(--primary)/0.45); }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 9999px; }
+  .math-prose p { margin-bottom: 0.6rem; }
+  .math-prose ol, .math-prose ul { padding-inline-start: 1.4rem; margin: 0.4rem 0; }
+  .math-prose li { margin-bottom: 0.3rem; }
+  .math-prose code { @apply bg-white/10 rounded px-1.5 py-0.5 text-cyan-200 text-[0.95em] font-mono; }
+  .math-prose strong { color: hsl(var(--primary)); }
+}

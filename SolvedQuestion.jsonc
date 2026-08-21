@@ -1,0 +1,47 @@
+{
+  "name": "SolvedQuestion",
+  "type": "object",
+  "properties": {
+    "image_url": {
+      "type": "string"
+    },
+    "question_text": {
+      "type": "string"
+    },
+    "topic": {
+      "type": "string"
+    },
+    "help_level": {
+      "type": "string",
+      "enum": [
+        "hint",
+        "partial",
+        "full"
+      ],
+      "default": "full"
+    },
+    "solution": {
+      "type": "string"
+    },
+    "final_answer": {
+      "type": "string"
+    },
+    "is_favorite": {
+      "type": "boolean",
+      "default": false
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "scan",
+        "chat",
+        "practice"
+      ],
+      "default": "scan"
+    }
+  },
+  "required": [
+    "question_text",
+    "solution"
+  ]
+}

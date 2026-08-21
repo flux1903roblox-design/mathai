@@ -1,0 +1,55 @@
+{
+  "properties": {
+    "role": {
+      "type": "string",
+      "description": "The role of the user in the app",
+      "enum": [
+        "admin",
+        "user"
+      ]
+    },
+    "grade": {
+      "type": "string",
+      "description": "\u05db\u05d9\u05ea\u05ea \u05d4\u05ea\u05dc\u05de\u05d9\u05d3 (7-12 / \u05d6-\u05d9\u05d1)",
+      "enum": [
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12"
+      ]
+    },
+    "track": {
+      "type": "string",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05d9\u05d7\u05d9\u05d3\u05d5\u05ea \u05dc\u05d9\u05de\u05d5\u05d3 \u05dc\u05ea\u05d9\u05db\u05d5\u05df (3/4/5)",
+      "enum": [
+        "3",
+        "4",
+        "5"
+      ]
+    },
+    "actions_remaining": {
+      "type": "number",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05d4\u05e4\u05e2\u05d5\u05dc\u05d5\u05ea \u05d4\u05d7\u05d9\u05e0\u05de\u05d9\u05d5\u05ea \u05e9\u05e0\u05d5\u05ea\u05e8\u05d5 \u05dc\u05de\u05e9\u05ea\u05de\u05e9",
+      "default": 5
+    },
+    "subscription_plan": {
+      "type": "string",
+      "description": "\u05e1\u05d8\u05d8\u05d5\u05e1 \u05de\u05e0\u05d5\u05d9 \u05e4\u05e8\u05d9\u05de\u05d9\u05d5\u05dd",
+      "enum": [
+        "none",
+        "free",
+        "weekly",
+        "monthly",
+        "halfyear"
+      ],
+      "default": "none"
+    }
+  },
+  "required": [
+    "role"
+  ],
+  "name": "User",
+  "type": "object"
+}
