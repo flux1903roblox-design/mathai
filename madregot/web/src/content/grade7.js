@@ -1,0 +1,337 @@
+// Grade 7 (ז׳): signed numbers, the coordinate plane, angles.
+import { R, NZ, pick, shuffle, T, near } from './util.js';
+
+const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
+
+// ---------------------------------------------------------------- signed numbers
+function addSub() {
+  const a = NZ(-12, 12); const b = NZ(-12, 12); const op = pick(['+', '-']);
+  const ans = op === '+' ? a + b : a - b;
+  const display = `${T(a)} ${op} ${T(b, true)}`;
+  const bb = op === '-' ? -b : b; // what is really being added
+  let hint;
+  if (op === '-') hint = `חיסור הוא חיבור של הנגדי: $${T(a)} - ${T(b, true)} = ${T(a)} + ${T(-b, true)}$.`;
+  else if (sgn(a) === sgn(b)) hint = 'שני המספרים באותו סימן: מחברים את המרחקים מאפס ושומרים על הסימן.';
+  else hint = 'סימנים שונים: מחסרים את המרחקים מאפס, והסימן הוא של המספר הרחוק יותר מאפס.';
+  const steps = [];
+  if (op === '-') steps.push(`$${display} = ${T(a)} + ${T(bb, true)}$`);
+  if (sgn(a) === sgn(bb)) steps.push(`אותו סימן: $${Math.abs(a)} + ${Math.abs(bb)} = ${Math.abs(ans)}$, והסימן ${a < 0 ? 'שלילי' : 'חיובי'}.`);
+  else steps.push(`סימנים שונים: $${Math.max(Math.abs(a), Math.abs(bb))} - ${Math.min(Math.abs(a), Math.abs(bb))} = ${Math.abs(ans)}$, והסימן של המספר הרחוק יותר מאפס.`);
+  steps.push(`התשובה: $${T(ans)}$`);
+  return {
+    key: `sn1:${display}`, text: 'חשבו:', display, form: 'num', answer: ans, hint, solution: steps,
+    diag: (u) => {
+      if (ans !== 0 && near(u, -ans)) return 'sign';
+      if (sgn(a) !== sgn(bb) && near(u, sgn(a) * (Math.abs(a) + Math.abs(bb)))) return 'abs-add';
+      if (op === '-' && b < 0 && near(u, a + b)) return 'minus-minus';
+      return null;
+    },
+  };
+}
+
+function compare() {
+  let a = R(-15, 15); let b = R(-15, 15);
+  if (Math.random() < 0.6 && a > -2) a = -R(2, 15); // most items compare negatives
+  if (Math.random() < 0.1) b = a;
+  const ans = a < b ? 0 : a === b ? 1 : 2;
+  const choices = ['<', '=', '>'];
+  return {
+    key: `sn2:${a}:${b}`, text: 'איזה סימן מתאים במקום הריבוע?', display: `${T(a)} \\;\\square\\; {${T(b)}}`,
+    form: 'mc', choices: choices.map((c) => ({ tex: c })), answer: ans,
+    hint: 'על ציר המספרים, מספר שנמצא יותר ימינה הוא גדול יותר. בין שני מספרים שליליים, הקרוב יותר לאפס גדול יותר.',
+    solution: [
+      `על ציר המספרים $${T(Math.min(a, b))}$ נמצא משמאל ל־$${T(Math.max(a, b))}$${a === b ? ', וכאן המספרים שווים' : ''}.`,
+      `לכן $${T(a)} ${choices[ans]} ${T(b)}$`,
+    ],
+    diag: (u) => (a < 0 && b < 0 && a !== b && u !== ans && u !== 1 ? 'neg-compare' : null),
+  };
+}
+
+function mulDiv() {
+  const op = pick(['*', ':']);
+  let a; let b; let ans;
+  if (op === '*') { a = NZ(-12, 12); b = NZ(-9, 9); ans = a * b; } else { b = NZ(-9, 9); ans = NZ(-10, 10); a = ans * b; }
+  const display = `${T(a)} ${op === '*' ? '\\cdot' : ':'} ${T(b, true)}`;
+  return {
+    key: `sn3:${display}`, text: 'חשבו:', display, form: 'num', answer: ans,
+    hint: 'קודם קובעים את הסימן: סימנים זהים נותנים תוצאה חיובית, סימנים שונים נותנים תוצאה שלילית. אחר כך מחשבים בלי הסימנים.',
+    solution: [
+      `הסימנים ${sgn(a) === sgn(b) ? 'זהים, לכן התוצאה חיובית' : 'שונים, לכן התוצאה שלילית'}.`,
+      `$${Math.abs(a)} ${op === '*' ? '\\cdot' : ':'} ${Math.abs(b)} = ${Math.abs(ans)}$`,
+      `התשובה: $${T(ans)}$`,
+    ],
+    diag: (u) => (ans !== 0 && near(u, -ans) ? 'sign' : null),
+  };
+}
+
+function order() {
+  // a ± b·c  or  a·b ± c
+  for (;;) {
+    const a = NZ(-10, 10); const b = NZ(-6, 6); const c = NZ(-6, 6); const op = pick(['+', '-']);
+    const first = Math.random() < 0.5;
+    const display = first ? `${T(a)} ${op} ${T(b, true)} \\cdot ${T(c, true)}` : `${T(a)} \\cdot ${T(b, true)} ${op} ${T(c, true)}`;
+    const prod = first ? b * c : a * b;
+    const ans = first ? (op === '+' ? a + prod : a - prod) : (op === '+' ? prod + c : prod - c);
+    const leftToRight = first ? (op === '+' ? (a + b) * c : (a - b) * c) : ans;
+    if (first && leftToRight === ans) continue;
+    return {
+      key: `sn4:${display}`, text: 'חשבו:', display, form: 'num', answer: ans,
+      hint: 'כפל וחילוק לפני חיבור וחיסור. התחילו מהכפל.',
+      solution: [
+        `קודם הכפל: $${first ? `${T(b, true)} \\cdot ${T(c, true)}` : `${T(a)} \\cdot ${T(b, true)}`} = ${T(prod)}$`,
+        `עכשיו: $${first ? `${T(a)} ${op} ${T(prod, true)}` : `${T(prod)} ${op} ${T(c, true)}`} = ${T(ans)}$`,
+      ],
+      diag: (u) => {
+        if (first && near(u, leftToRight)) return 'order';
+        if (ans !== 0 && near(u, -ans)) return 'sign';
+        return null;
+      },
+    };
+  }
+}
+
+function brackets() {
+  for (;;) {
+    const a = NZ(-10, 10); const b = NZ(-8, 8); const c = NZ(-8, 8); const d = NZ(-4, 4);
+    const inner = b - c; if (inner === 0) continue;
+    const ans = a - inner * d;
+    const display = `${T(a)} - (${T(b)} - ${T(c, true)}) \\cdot ${T(d, true)}`;
+    const wrong = (a - inner) * d;
+    if (wrong === ans) continue;
+    return {
+      key: `sn5:${display}`, text: 'חשבו:', display, form: 'num', answer: ans,
+      hint: 'סדר הפעולות: סוגריים, אחר כך כפל, ובסוף החיסור.',
+      solution: [
+        `סוגריים: $${T(b)} - ${T(c, true)} = ${T(inner)}$`,
+        `כפל: $${T(inner, true)} \\cdot ${T(d, true)} = ${T(inner * d)}$`,
+        `חיסור: $${T(a)} - ${T(inner * d, true)} = ${T(ans)}$`,
+      ],
+      diag: (u) => {
+        if (near(u, wrong)) return 'order';
+        if (near(u, a + inner * d)) return 'minus-minus';
+        if (ans !== 0 && near(u, -ans)) return 'sign';
+        return null;
+      },
+    };
+  }
+}
+
+// ---------------------------------------------------------------- coordinate plane
+const QUAD = ['רביע ראשון', 'רביע שני', 'רביע שלישי', 'רביע רביעי'];
+const quadOf = (x, y) => (x > 0 ? (y > 0 ? 0 : 3) : y > 0 ? 1 : 2);
+
+function readPoint() {
+  const x = NZ(-6, 6); const y = NZ(-6, 6);
+  return {
+    key: `cp1:${x}:${y}`, text: 'מה השיעורים של הנקודה $A$?', form: 'pt', answer: [x, y], label: 'A',
+    fig: { type: 'coord', range: 6, points: [{ x, y, label: 'A' }] },
+    hint: 'קודם $x$: כמה צעדים ימינה (חיובי) או שמאלה (שלילי) מהראשית. אחר כך $y$: כמה צעדים למעלה או למטה.',
+    solution: [`$x = ${T(x)}$ (${x > 0 ? 'ימינה' : 'שמאלה'} ${Math.abs(x)})`, `$y = ${T(y)}$ (${y > 0 ? 'למעלה' : 'למטה'} ${Math.abs(y)})`, `$A(${x}, ${y})$`],
+    diag: ([u, v]) => {
+      if (near(u, y) && near(v, x) && x !== y) return 'swap';
+      if ((near(u, -x) && near(v, y)) || (near(u, x) && near(v, -y))) return 'sign';
+      return null;
+    },
+  };
+}
+
+function quadrant() {
+  const x = NZ(-9, 9); const y = NZ(-9, 9); const ans = quadOf(x, y);
+  return {
+    key: `cp2:${x}:${y}`, text: `באיזה רביע נמצאת הנקודה $B(${x}, ${y})$?`, form: 'mc',
+    choices: QUAD.map((t) => ({ text: t })), answer: ans,
+    hint: 'רביע ראשון: $x$ ו־$y$ חיוביים. אחר כך ממשיכים נגד כיוון השעון: שני, שלישי, רביעי.',
+    solution: [`$x = ${x}$ ${x > 0 ? 'חיובי' : 'שלילי'}, $y = ${y}$ ${y > 0 ? 'חיובי' : 'שלילי'}.`, `לכן הנקודה ב${QUAD[ans]}.`],
+    diag: (u) => (u === quadOf(y, x) && quadOf(y, x) !== ans ? 'swap' : null),
+  };
+}
+
+function segmentLength() {
+  const horizontal = Math.random() < 0.5;
+  const fixed = R(-5, 5); let p = R(-6, 5); let q = R(-6, 6);
+  while (q === p) q = R(-6, 6);
+  const [x1, y1, x2, y2] = horizontal ? [p, fixed, q, fixed] : [fixed, p, fixed, q];
+  const ans = Math.abs(q - p);
+  return {
+    key: `cp3:${x1}:${y1}:${x2}:${y2}`, text: `מה האורך של הקטע $CD$, כש־$C(${x1}, ${y1})$ ו־$D(${x2}, ${y2})$?`,
+    form: 'num', answer: ans, unit: 'יחידות',
+    fig: { type: 'coord', range: 6, points: [{ x: x1, y: y1, label: 'C' }, { x: x2, y: y2, label: 'D' }], segments: [[[x1, y1], [x2, y2]]] },
+    hint: `הקטע ${horizontal ? 'אופקי, אז רק $x$ משתנה' : 'אנכי, אז רק $y$ משתנה'}. האורך הוא המרחק בין שני הערכים.`,
+    solution: [`$${T(Math.max(p, q))} - ${T(Math.min(p, q), true)} = ${ans}$`, `האורך: ${ans} יחידות`],
+    diag: (u) => {
+      if (near(u, Math.abs(Math.abs(q) - Math.abs(p))) && Math.sign(p) !== Math.sign(q)) return 'add-coords';
+      if (near(u, -ans)) return 'sign';
+      return null;
+    },
+  };
+}
+
+function rectArea() {
+  const x1 = R(-6, 2); const x2 = x1 + R(2, 5); const y1 = R(-6, 2); const y2 = y1 + R(2, 4);
+  const w = x2 - x1; const h = y2 - y1; const ans = w * h;
+  const pts = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+  const names = ['A', 'B', 'C', 'D'];
+  return {
+    key: `cp4:${x1}:${x2}:${y1}:${y2}`,
+    text: `מה השטח של המלבן $ABCD$? $${pts.map((p, i) => `${names[i]}(${p[0]}, ${p[1]})`).join(',\\ ')}$`,
+    form: 'num', answer: ans, unit: 'יחידות ריבועיות',
+    fig: { type: 'coord', range: 6, polygon: pts, points: pts.map((p, i) => ({ x: p[0], y: p[1], label: names[i] })) },
+    hint: 'מוצאים את אורך הצלע האופקית (לפי $x$) ואת אורך הצלע האנכית (לפי $y$), וכופלים.',
+    solution: [`רוחב: $${T(x2)} - ${T(x1, true)} = ${w}$`, `גובה: $${T(y2)} - ${T(y1, true)} = ${h}$`, `שטח: $${w} \\cdot ${h} = ${ans}$`],
+    diag: (u) => (near(u, 2 * (w + h)) ? 'perimeter' : near(u, w + h) ? 'add-sides' : null),
+  };
+}
+
+function missingVertex() {
+  const x1 = R(-6, 2); const x2 = x1 + R(2, 5); const y1 = R(-6, 2); const y2 = y1 + R(2, 4);
+  const pts = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+  const miss = R(0, 3); const names = ['A', 'B', 'C', 'D'];
+  const shown = pts.map((p, i) => ({ x: p[0], y: p[1], label: names[i], hidden: i === miss }));
+  const [ax, ay] = pts[miss];
+  return {
+    key: `cp5:${x1}:${x2}:${y1}:${y2}:${miss}`,
+    text: `$ABCD$ הוא מלבן. נתון: $${shown.filter((p) => !p.hidden).map((p) => `${p.label}(${p.x}, ${p.y})`).join(',\\ ')}$. מה השיעורים של $${names[miss]}$?`,
+    form: 'pt', answer: [ax, ay], label: names[miss],
+    fig: { type: 'coord', range: 6, points: shown.filter((p) => !p.hidden) },
+    hint: `במלבן הצלעות מקבילות לצירים: ל־$${names[miss]}$ יש אותו $x$ כמו לשכנה אחת שלו, ואותו $y$ כמו לשכנה השנייה.`,
+    solution: [`השכנות של $${names[miss]}$: $${names[(miss + 1) % 4]}$ ו־$${names[(miss + 3) % 4]}$.`, `לכן $${names[miss]}(${ax}, ${ay})$`],
+    diag: ([u, v]) => (near(u, ay) && near(v, ax) && ax !== ay ? 'swap' : null),
+  };
+}
+
+// ---------------------------------------------------------------- angles
+const deg = (n) => `${n}^\\circ`;
+
+function linearPair() {
+  let a; do { a = R(4, 32) * 5; } while (a === 90);
+  const ans = 180 - a;
+  return {
+    key: `an1:${a}`, text: 'שתי זוויות צמודות. מה גודל הזווית המסומנת ב־$?$', form: 'num', answer: ans, unit: 'מעלות',
+    fig: { type: 'linear', a },
+    hint: 'זוויות צמודות משלימות זו את זו ל־$180^\\circ$, כי יחד הן יוצרות קו ישר.',
+    solution: [`$180^\\circ - ${deg(a)} = ${deg(ans)}$`],
+    diag: (u) => (near(u, a) ? 'equal-not-supp' : near(u, 90 - a) || near(u, 360 - a) ? 'wrong-total' : null),
+  };
+}
+
+function vertical() {
+  let a; do { a = R(4, 32) * 5; } while (a === 90);
+  const askVertical = Math.random() < 0.6;
+  const ans = askVertical ? a : 180 - a;
+  return {
+    key: `an2:${a}:${askVertical}`, text: 'שני ישרים נחתכים. מה גודל הזווית המסומנת ב־$?$', form: 'num', answer: ans, unit: 'מעלות',
+    fig: { type: 'cross', a, target: askVertical ? 'vertical' : 'adjacent' },
+    hint: askVertical ? 'זוויות קודקודיות (אחת מול השנייה) שוות זו לזו.' : 'הזווית המסומנת צמודה לזווית הנתונה: יחד הן $180^\\circ$.',
+    solution: askVertical ? [`זוויות קודקודיות שוות: $${deg(a)}$`] : [`זוויות צמודות: $180^\\circ - ${deg(a)} = ${deg(ans)}$`],
+    diag: (u) => (askVertical && near(u, 180 - a) ? 'supp-not-equal' : !askVertical && near(u, a) ? 'equal-not-supp' : null),
+  };
+}
+
+function triangleSum() {
+  const a = R(5, 16) * 5; const b = R(4, 16) * 5; const c = 180 - a - b;
+  if (c < 15) return triangleSum();
+  return {
+    key: `an3:${a}:${b}`, text: 'במשולש נתונות שתי זוויות. מה גודל הזווית השלישית?', form: 'num', answer: c, unit: 'מעלות',
+    fig: { type: 'triangle', angles: [a, b, c], show: [true, true, false] },
+    hint: 'סכום הזוויות במשולש הוא $180^\\circ$.',
+    solution: [`$180^\\circ - ${deg(a)} - ${deg(b)} = ${deg(c)}$`],
+    diag: (u) => (near(u, 360 - a - b) ? 'sum-360' : near(u, 180 - a) || near(u, 180 - b) ? 'one-angle' : null),
+  };
+}
+
+function parallel() {
+  let a; do { a = R(7, 29) * 5; } while (a === 90); // angle of the transversal
+  const kind = pick(['corresponding', 'alternate', 'cointerior']);
+  const ans = kind === 'cointerior' ? 180 - a : a;
+  const names = { corresponding: 'מתאימות', alternate: 'מתחלפות', cointerior: 'חד־צדדיות' };
+  return {
+    key: `an4:${a}:${kind}`, text: 'שני ישרים מקבילים נחתכים על ידי ישר שלישי. מה גודל הזווית המסומנת ב־$?$', form: 'num', answer: ans, unit: 'מעלות',
+    fig: { type: 'parallel', a, kind },
+    hint: 'בין ישרים מקבילים: זוויות מתאימות ומתחלפות שוות, וזוויות חד־צדדיות משלימות ל־$180^\\circ$.',
+    solution: [`הזוויות ${names[kind]}.`, kind === 'cointerior' ? `$180^\\circ - ${deg(a)} = ${deg(ans)}$` : `לכן הן שוות: $${deg(ans)}$`],
+    diag: (u) => (kind === 'cointerior' && near(u, a) ? 'equal-not-supp' : kind !== 'cointerior' && near(u, 180 - a) ? 'supp-not-equal' : null),
+  };
+}
+
+function isosceles() {
+  if (Math.random() < 0.5) {
+    const top = R(2, 15) * 10; const base = (180 - top) / 2;
+    return {
+      key: `an5:iso:${top}`, text: 'משולש שווה־שוקיים. זווית הראש נתונה. מה גודל זווית הבסיס?', form: 'num', answer: base, unit: 'מעלות',
+      fig: { type: 'triangle', angles: [base, base, top], show: [false, false, true], iso: true },
+      hint: 'במשולש שווה־שוקיים זוויות הבסיס שוות. מה נשאר מ־$180^\\circ$ אחרי זווית הראש? מחלקים לשתיים.',
+      solution: [`$180^\\circ - ${deg(top)} = ${deg(180 - top)}$`, `$${180 - top} : 2 = ${deg(base)}$`],
+      diag: (u) => (near(u, 180 - top) ? 'forgot-half' : null),
+    };
+  }
+  const a = R(4, 14) * 5; const b = R(4, 14) * 5;
+  const ext = a + b;
+  return {
+    key: `an5:ext:${a}:${b}`, text: 'מה גודל הזווית החיצונית המסומנת ב־$?$', form: 'num', answer: ext, unit: 'מעלות',
+    fig: { type: 'triangle', angles: [a, b, 180 - a - b], show: [true, true, false], exterior: true },
+    hint: 'זווית חיצונית שווה לסכום שתי הזוויות הפנימיות שלא צמודות לה.',
+    solution: [`$${deg(a)} + ${deg(b)} = ${deg(ext)}$`],
+    diag: (u) => (near(u, 180 - a - b) ? 'interior-not-exterior' : null),
+  };
+}
+
+export const GRADE7 = [
+  {
+    id: 'signed', grade: '7', title: 'מספרים מכוונים', color: 'cyan',
+    desc: 'חיבור, חיסור, כפל וחילוק, וסדר פעולות',
+    levels: [
+      { title: 'חיבור וחיסור', gen: addSub },
+      { title: 'השוואת מספרים', gen: compare },
+      { title: 'כפל וחילוק', gen: mulDiv },
+      { title: 'סדר פעולות', gen: order },
+      { title: 'סוגריים', gen: brackets },
+    ],
+    cats: {
+      sign: 'התשובה יצאה עם הסימן ההפוך',
+      'abs-add': 'חיברו מרחקים כשהסימנים שונים, במקום לחסר',
+      'minus-minus': 'מינוס ומינוס צמודים לא הפכו לפלוס',
+      'neg-compare': 'בין שני מספרים שליליים, הגדול הוא הקרוב לאפס',
+      order: 'חישבו משמאל לימין בלי לתת קדימות לכפל',
+    },
+  },
+  {
+    id: 'coord', grade: '7', title: 'מערכת צירים', color: 'magenta',
+    desc: 'קריאת נקודות, רביעים, אורכים ושטחים',
+    levels: [
+      { title: 'קריאת נקודה', gen: readPoint },
+      { title: 'רביעים', gen: quadrant },
+      { title: 'אורך קטע', gen: segmentLength },
+      { title: 'שטח מלבן', gen: rectArea },
+      { title: 'קודקוד חסר', gen: missingVertex },
+    ],
+    cats: {
+      swap: 'החליפו בין $x$ ל־$y$',
+      sign: 'טעות בסימן של אחד השיעורים',
+      'add-coords': 'לא חישבו מרחק כשהקטע עובר דרך הציר',
+      perimeter: 'חישבו היקף במקום שטח',
+      'add-sides': 'חיברו את הצלעות במקום לכפול',
+    },
+  },
+  {
+    id: 'angles', grade: '7', title: 'זוויות', color: 'orange',
+    desc: 'צמודות, קודקודיות, משולש וישרים מקבילים',
+    levels: [
+      { title: 'זוויות צמודות', gen: linearPair },
+      { title: 'זוויות קודקודיות', gen: vertical },
+      { title: 'סכום זוויות במשולש', gen: triangleSum },
+      { title: 'ישרים מקבילים', gen: parallel },
+      { title: 'שווה־שוקיים וזווית חיצונית', gen: isosceles },
+    ],
+    cats: {
+      'equal-not-supp': 'ענו שהזוויות שוות, אבל הן משלימות ל־180°',
+      'supp-not-equal': 'השלימו ל־180°, אבל הזוויות שוות',
+      'wrong-total': 'השלימו לסכום הלא נכון',
+      'sum-360': 'השתמשו ב־360° במקום ב־180°',
+      'one-angle': 'החסירו רק זווית אחת',
+      'forgot-half': 'שכחו לחלק לשתי זוויות הבסיס',
+      'interior-not-exterior': 'חישבו את הזווית הפנימית במקום החיצונית',
+    },
+  },
+];
+
+export { shuffle };
