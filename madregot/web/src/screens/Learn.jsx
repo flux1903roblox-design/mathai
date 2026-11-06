@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Flame, Zap, Snowflake, Star, Check, Lock, Trophy, BookOpen, ChevronDown, ArrowUp, ArrowDown, Route } from 'lucide-react';
 import { useApp, streakOf, today } from '@/lib/store.js';
+import { questProgress } from '@/lib/quests.js';
 import { topicsFor, TOPIC } from '@/content/index.js';
 import { unitNodes } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN, LESSON_LEN } from '@/lib/lesson.js';
@@ -79,6 +80,27 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey }) {
   );
 }
 
+/** Wide screens: the streak, the goal and today's quests sit beside the path. */
+function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
+  const quests = questProgress(today(), days[today()] || {});
+  return (
+    <aside className="learn-side" aria-label="היום שלי">
+      <Link to="/quests" className="side-card side-streak">
+        <Flame size={34} aria-hidden="true" className={clsx(streak > 0 && 'on')} />
+        <span><b>{streak === 1 ? 'יום אחד ברצף' : `${streak} ימים ברצף`}</b><span className="muted">{freezes > 0 ? `${freezes === 1 ? 'הקפאה אחת מוכנה' : `${freezes} הקפאות מוכנות`}` : 'שיעור ביום שומר על הרצף'}</span></span>
+      </Link>
+      <div className="side-card">
+        <div className="card-row"><b>היעד היומי</b><span className="card-num">{Math.min(todayXp, goalXp)}/{goalXp} XP</span></div>
+        <div className="bar" role="progressbar" aria-label="ההתקדמות ליעד היומי" aria-valuemin={0} aria-valuemax={goalXp} aria-valuenow={Math.min(todayXp, goalXp)}><i style={{ width: `${Math.min(1, todayXp / goalXp) * 100}%` }} /></div>
+      </div>
+      <Link to="/quests" className="side-card">
+        <div className="card-row"><b>המשימות של היום</b><span className="card-num">{quests.filter((q) => q.done).length}/3</span></div>
+        <ul className="side-quests">{quests.map((q) => <li key={q.id} className={clsx(q.done && 'done')}><span>{q.title}</span><span className="card-num">{q.have}/{q.target}</span></li>)}</ul>
+      </Link>
+    </aside>
+  );
+}
+
 export default function Learn() {
   const navigate = useNavigate();
   const { state } = useLocation();
@@ -125,6 +147,7 @@ export default function Learn() {
         <Link to="/quests" className="top-stat xp" aria-label={`היום ${todayXp} מתוך ${goalXp} XP, סך הכול ${xp}`}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
       </header>
 
+      <div className="learn-layout">
       <div className="learn-body">
         {nextStep && TOPIC[nextStep.topic] && (
           <Link to={`/lesson/${nextStep.topic}/${nextStep.level}?part=2&from=plan`} className="plan-banner">
@@ -136,6 +159,8 @@ export default function Learn() {
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} />
         ))}
         <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה.</p>
+      </div>
+      <SidePanel streak={streak} todayXp={todayXp} goalXp={goalXp} freezes={freezes} days={days} />
       </div>
 
       {away && (

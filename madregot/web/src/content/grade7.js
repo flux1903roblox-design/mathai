@@ -277,7 +277,7 @@ function isosceles() {
 
 export const GRADE7 = [
   {
-    id: 'signed', grade: '7', title: 'מספרים מכוונים', color: 'cyan',
+    id: 'signed', grade: '7', title: 'מספרים מכוונים', color: 'sky',
     desc: 'חיבור, חיסור, כפל וחילוק, וסדר פעולות',
     levels: [
       { title: 'חיבור וחיסור', gen: addSub },
@@ -295,7 +295,7 @@ export const GRADE7 = [
     },
   },
   {
-    id: 'coord', grade: '7', title: 'מערכת צירים', color: 'magenta',
+    id: 'coord', grade: '7', title: 'מערכת צירים', color: 'fuchsia',
     desc: 'קריאת נקודות, רביעים, אורכים ושטחים',
     levels: [
       { title: 'קריאת נקודה', gen: readPoint },
@@ -313,7 +313,7 @@ export const GRADE7 = [
     },
   },
   {
-    id: 'angles', grade: '7', title: 'זוויות', color: 'orange',
+    id: 'angles', grade: '7', title: 'זוויות', color: 'petrol',
     desc: 'צמודות, קודקודיות, משולש וישרים מקבילים',
     levels: [
       { title: 'זוויות צמודות', gen: linearPair },

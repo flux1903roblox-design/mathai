@@ -182,7 +182,7 @@ function meet() {
 }
 
 export const LINEAR = {
-  id: 'line', grade: '8', title: 'פונקציה קווית', color: 'green',
+  id: 'line', grade: '8', title: 'פונקציה קווית', color: 'cobalt',
   desc: 'טבלת ערכים, שיפוע, משוואת ישר, חיתוך עם הצירים ונקודת מפגש',
   levels: [
     { title: 'טבלת ערכים', gen: table },

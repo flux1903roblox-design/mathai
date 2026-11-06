@@ -190,7 +190,7 @@ export const GRADE8 = [
     },
   },
   {
-    id: 'stats', grade: '8', title: 'סטטיסטיקה', color: 'ochre',
+    id: 'stats', grade: '8', title: 'סטטיסטיקה', color: 'fuchsia',
     desc: 'שכיח, חציון, ממוצע וטבלת שכיחויות',
     levels: [
       { title: 'שכיח', gen: mode },

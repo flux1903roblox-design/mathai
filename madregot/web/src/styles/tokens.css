@@ -22,13 +22,13 @@
   --gold: #f5b400;      --gold-d: #d39600;    --gold-ink: #8a5c00;    --gold-tint: #fff4cc;
   --ai: #c0267a;        --ai-tint: #fde8f3;   --ai-ink: #a3165f;
 
-  /* chapter colours (one per topic): fill, 3D edge and text, tint */
-  --ch-cyan: #1a8fd6;    --ch-cyan-d: #0d6ba8;    --ch-cyan-tint: #e2f2fc;
-  --ch-magenta: #e0407e; --ch-magenta-d: #b8265f; --ch-magenta-tint: #fde7f0;
-  --ch-orange: #e2620c;  --ch-orange-d: #a64805;  --ch-orange-tint: #fdeee3;
-  --ch-green: #1f9d55;   --ch-green-d: #157a41;   --ch-green-tint: #dff6e7;
+  /* chapter colours (one per topic): fill, 3D edge and text, tint.
+     None is green, orange or gold: those mean correct, streak and XP. */
+  --ch-sky: #1a8fd6;     --ch-sky-d: #0d6ba8;     --ch-sky-tint: #e2f2fc;
+  --ch-fuchsia: #c0349f; --ch-fuchsia-d: #93246f; --ch-fuchsia-tint: #fbe6f5;
+  --ch-petrol: #0d8597;  --ch-petrol-d: #08606e;  --ch-petrol-tint: #ddf3f5;
+  --ch-cobalt: #2563d9;  --ch-cobalt-d: #1a47a3;  --ch-cobalt-tint: #e3ecfc;
   --ch-violet: #8a4fe0;  --ch-violet-d: #6a35bf;  --ch-violet-tint: #f1eafd;
-  --ch-ochre: #c57a00;   --ch-ochre-d: #875400;   --ch-ochre-tint: #fff1d6;
 
   /* older names, kept so every screen reads the new palette */
   --cyan: var(--brand); --cyan-tint: var(--brand-tint);

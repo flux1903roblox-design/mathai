@@ -86,4 +86,4 @@ export function itemPlain(it) {
   return `${strip(it.text)}${it.display ? ` ${it.display}` : ''}${fig}${choices}`.trim();
 }
 
-export const COLORS = ['cyan', 'magenta', 'orange', 'green', 'violet', 'ochre'];
+export const COLORS = ['sky', 'fuchsia', 'petrol', 'cobalt', 'violet'];

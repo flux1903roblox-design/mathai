@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { X, Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, Check, RotateCcw } from 'lucide-react';
+import { X, Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath } from '@/content/index.js';
 import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
@@ -28,7 +28,7 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
   const input = (k, extra = {}) => (
     <input
       key={k} id={`slot-${k}`} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false}
-      className={clsx('slot', active === k && 'active', struck && 'struck')}
+      className={clsx('slot', active === k && !struck && !locked && 'active', struck && 'struck')}
       aria-label={struck ? `${SLOT_LABEL[k]}, התשובה הקודמת: ${slots[k] || ''}. כתבו תשובה חדשה` : SLOT_LABEL[k]} placeholder={extra.ph || '?'}
       value={slots[k] || ''} readOnly={locked}
       onFocus={() => setActive(k)}
@@ -94,6 +94,8 @@ export default function Lesson() {
   const [nbCheck, setNbCheck] = useState({ state: 'idle' });
   const nbRef = useRef(null);
   const qRef = useRef(null);
+  const dockRef = useRef(null);
+  const [dockH, setDockH] = useState(380);
   const t = spec ? TOPIC[spec.topic] : null;
   const item = s?.item;
   const names = item ? slotsFor(item) : [];
@@ -103,8 +105,17 @@ export default function Lesson() {
     setSlots({}); setChoice(null); setStruck(false); setActive(names[0] || 'v'); setExplain({ state: 'idle', text: '' }); setShowSteps(false); setNbCheck({ state: 'idle' });
     qRef.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0 });
+    // On a tall question (a figure), bring the answer up above the keypad.
+    requestAnimationFrame(() => document.querySelector('.lesson .answer, .lesson .choices')?.scrollIntoView({ block: 'nearest' }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.key, s?.slot]);
+
+  useEffect(() => {
+    const el = dockRef.current; if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => setDockH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
 
   // Test hook: with localStorage 'madregot-debug' set, the current exercise is exposed for automated checks.
   useEffect(() => { try { if (localStorage.getItem('madregot-debug')) window.__madregotItem = item; } catch { /* storage blocked */ } }, [item]);
@@ -157,6 +168,7 @@ export default function Lesson() {
       play('wrong'); buzz(40); setShakeKey((v) => v + 1);
       if (result.reveal) {
         commit(result.event);
+        if (item.form !== 'mc') setStruck(true);
         // The second miss is the moment help matters most: ask the tutor without waiting to be asked.
         if (aiReady() && ns.kind !== 'jump') setTimeout(() => askExplainFor(ns), 0);
       }
@@ -218,7 +230,7 @@ export default function Lesson() {
   const pct = Math.round(progressOf(s) * 100);
 
   return (
-    <div className={clsx('lesson', `ch-${t.color}`, feedback && `fb-open fb-${feedback}`)}>
+    <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open')} style={{ '--dock-h': `${dockH}px` }}>
       <header className="lesson-top">
         <button type="button" className="icon-btn lesson-x" onClick={() => setExitOpen(true)} aria-label="יציאה מהשיעור"><X size={26} /></button>
         <div className="lesson-bar" role="progressbar" aria-label="התקדמות בשיעור" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
@@ -278,7 +290,7 @@ export default function Lesson() {
         <section className={clsx('fb', `fb-${feedback}`)} aria-live="assertive" aria-labelledby="fb-title">
           <div className="fb-inner">
             <div className="fb-head">
-              <span className="fb-icon" aria-hidden="true">{feedback === 'good' ? <Check size={26} strokeWidth={3} /> : <X size={26} strokeWidth={3} />}</span>
+              <Mascot mood={feedback === 'good' ? 'cheer' : feedback === 'retry' ? 'oops' : 'think'} size={58} className="fb-mascot" />
               <h2 id="fb-title" className="fb-title">{feedback === 'good' ? (last.first ? last.praise : 'יפה, תיקנתם!') : feedback === 'retry' ? 'עוד לא. נסו שוב' : 'התשובה הנכונה:'}</h2>
             </div>
             {feedback === 'retry' && (
@@ -310,11 +322,11 @@ export default function Lesson() {
           </div>
         </section>
       ) : (
-        <div className="lesson-dock">
+        <div className="lesson-dock" ref={dockRef}>
           {/* help sits next to the thumb, above the keypad */}
           <div className="tools" role="group" aria-label="עזרה">
             <button type="button" className="tool" onClick={() => setS(withHint(s))} disabled={s.hint || s.kind === 'jump'}><Lightbulb size={18} aria-hidden="true" />רמז</button>
-            {aiReady() && s.kind !== 'jump' && <button type="button" className="tool ai" onClick={() => setChatOpen(true)}><Sparkles size={18} aria-hidden="true" />שאלו את העוזר</button>}
+            {aiReady() && s.kind !== 'jump' && <button type="button" className="tool ai" aria-label="שאלו את העוזר" onClick={() => setChatOpen(true)}><Sparkles size={18} aria-hidden="true" />העוזר</button>}
             <button type="button" className={clsx('tool', nbOn && 'on')} aria-pressed={nbOn} onClick={() => setNbOn(!nbOn)}>{nbOn ? <Keyboard size={18} aria-hidden="true" /> : <NotebookPen size={18} aria-hidden="true" />}{nbOn ? 'תשובה' : 'מחברת'}</button>
             {inClass && <button type="button" className="tool" onClick={() => setHelpOpen(true)}><Hand size={18} aria-hidden="true" />למורה</button>}
           </div>
