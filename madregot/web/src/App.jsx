@@ -80,6 +80,7 @@ export default function App() {
             </Route>
             <Route path="/lesson/:topic/:level" element={<LessonRoute />} />
             <Route path="/practice/:id" element={<LessonRoute />} />
+            <Route path="/placement" element={<LessonRoute />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}

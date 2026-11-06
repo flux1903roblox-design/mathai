@@ -2,12 +2,11 @@ import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { Flame, Snowflake, Zap, Check, Target, Route, ChevronLeft } from 'lucide-react';
 import { useApp, streakOf, today } from '@/lib/store.js';
-import { questProgress } from '@/lib/quests.js';
+import { questProgress, GOALS } from '@/lib/quests.js';
 import { usePlan } from '@/lib/usePlan.js';
 import Mascot from '@/components/Mascot.jsx';
 import { Week } from './LessonDone.jsx';
 
-const GOALS = [{ xp: 10, label: 'קליל' }, { xp: 20, label: 'רגיל' }, { xp: 30, label: 'רציני' }, { xp: 50, label: 'אינטנסיבי' }];
 
 export default function Quests() {
   const { days, goalXp, setGoalXp, freezes, profile } = useApp();

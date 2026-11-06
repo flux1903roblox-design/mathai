@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { TOPIC } from '@/content/index.js';
 import { recordOnPath } from './path.js';
 import { questProgress } from './quests.js';
+import { noteGap, gapsFromExam } from './board.js';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
@@ -33,6 +34,8 @@ const empty = {
   practiceExams: [], // printable practice exams with their answer key
   planBase: {}, // topic -> { level, wins, at }: the focus level and wins counted there when the plan step started
   wins: {}, // 'topic:level' -> correct answers at that level
+  gaps: {}, // 'topic:cat' (or 'topic:exam:skill') -> { level, n, ok, at, text? }: what is not clear yet; clears after GAP_CLEAR right answers at that level
+  placement: null, // { at, grade, results: { topic: { level, asked, right } } }
 };
 
 export const useApp = create(
@@ -43,7 +46,7 @@ export const useApp = create(
       patchProfile: (patch) => set({ profile: { ...get().profile, ...patch } }),
       setAI: (patch) => set({ ai: { ...get().ai, ...patch } }),
       setSolveMode: (solveMode) => set({ solveMode }),
-      addExam: (exam) => set({ exams: [exam, ...get().exams].slice(0, 30) }),
+      addExam: (exam) => set({ exams: [exam, ...get().exams].slice(0, 30), gaps: gapsFromExam(get().gaps, exam) }),
       removeExam: (id) => set({ exams: get().exams.filter((e) => e.id !== id) }),
       addPracticeExam: (pe) => set({ practiceExams: [pe, ...get().practiceExams].slice(0, 20) }),
       resetPlanBase: (patch) => set({ planBase: { ...get().planBase, ...patch } }),
@@ -61,6 +64,7 @@ export const useApp = create(
           xp: get().xp + xpGain,
           mistakes,
           wins,
+          gaps: noteGap(get().gaps, event),
           outbox: get().profile?.token ? [...get().outbox, event].slice(-500) : get().outbox,
         });
       },
@@ -96,6 +100,24 @@ export const useApp = create(
         });
         return { streakExtended: !(cur.lessons > 0), streak: streakOf(days), nodeDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
       },
+      /** The placement test settles where each topic starts; it counts as the day's first lesson. */
+      completePlacement: (r) => {
+        const st = get(); const d = today(); const cur = st.days[d] || {};
+        const goalBefore = (cur.xp || 0) >= st.goalXp;
+        const path = { ...st.path }; const progress = { ...st.progress };
+        Object.entries(r.results).forEach(([topic, res]) => {
+          const t = TOPIC[topic]; if (!t) return;
+          const u = { parts: {}, reviews: 0, jumped: 0, ...(path[topic] || {}) };
+          path[topic] = { ...u, jumped: Math.max(u.jumped || 0, res.level) };
+          const p = progress[topic] || { level: 1, max: 1 };
+          const level = Math.min(t.levels.length, Math.max(p.level, res.level + 1));
+          progress[topic] = { level, max: Math.max(p.max, level) };
+        });
+        const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + r.xp, combo: Math.max(cur.combo || 0, r.bestCombo || 0) };
+        const days = { ...st.days, [d]: day };
+        set({ path, progress, days, xp: st.xp + r.xp, placement: { at: new Date().toISOString(), grade: r.grade, results: r.results } });
+        return { streakExtended: !(cur.lessons > 0), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp };
+      },
       /** On opening the app: spend freezes on missed days so the streak survives (at most two). */
       settleStreak: () => {
         const st = get(); if (!st.freezes) return 0;
@@ -113,7 +135,7 @@ export const useApp = create(
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
         set({ profile: rest, outbox: [] });
       },
-      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0 }),
+      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null }),
       signOut: () => set({ ...empty, ai: get().ai }),
     }),
     { name: 'madregot', storage: safeStorage, version: 1 },

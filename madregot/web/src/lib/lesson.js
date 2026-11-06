@@ -3,6 +3,7 @@
 // and a similar exercise comes back at the end of the lesson. The lesson ends
 // when every slot has been answered correctly (each slot can come back twice at most).
 import { TOPIC, makeItem, isCorrect } from '@/content/index.js';
+import { startPlacement, placementAnswer, placementNext, placementProgress, placementResult } from './placement.js';
 
 export const LESSON_LEN = 8;
 export const REVIEW_LEN = 10;
@@ -34,6 +35,7 @@ export function planLevels({ kind, topic, level, part = 1, max = level }) {
 }
 
 export function startLesson(opts) {
+  if (opts.kind === 'placement') return startPlacement(opts);
   const levels = planLevels(opts);
   return {
     kind: opts.kind || 'node', topic: opts.topic, level: opts.level, part: opts.part || 1,
@@ -47,13 +49,14 @@ export function startLesson(opts) {
 export const withHint = (s) => ({ ...s, hint: true });
 
 /** Share of the lesson already solved, 0..1 (only a correct answer moves the bar). */
-export const progressOf = (s) => (s.total ? s.solved / s.total : 0);
+export const progressOf = (s) => (s.kind === 'placement' ? placementProgress(s) : s.total ? s.solved / s.total : 0);
 
 /**
  * Grade an answer. Returns { s, result } where result is
  * { ok, first, retry, reveal, combo, comboMark, cat, event }.
  */
 export function answer(s, u) {
+  if (s.kind === 'placement') return placementAnswer(s, u);
   const it = s.item;
   const ok = isCorrect(it, u);
   const secs = Math.round((Date.now() - s.itemStartedAt) / 1000);
@@ -88,6 +91,7 @@ export function answer(s, u) {
 
 /** Move on after feedback. */
 export function next(s) {
+  if (s.kind === 'placement') return placementNext(s);
   if (s.kind === 'jump' && s.failed) return { ...s, finished: true };
   const slot = s.slot + 1;
   const fresh = { attempt: 1, hint: false, phase: 'answer', wrong: [], itemStartedAt: Date.now() };
@@ -101,6 +105,7 @@ export function next(s) {
 
 /** What the lesson earned. */
 export function resultOf(s) {
+  if (s.kind === 'placement') return placementResult(s);
   const answered = s.total;
   const accuracy = answered ? Math.round((100 * s.firstTry) / answered) : 0;
   const perfect = s.mistakes === 0 && s.firstTry === answered;

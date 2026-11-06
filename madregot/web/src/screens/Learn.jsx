@@ -1,15 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { Flame, Zap, Snowflake, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown, Route } from 'lucide-react';
+import { Flame, Zap, Snowflake, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
-import { topicsFor, TOPIC } from '@/content/index.js';
+import { topicsFor } from '@/content/index.js';
 import { unitNodes } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN, LESSON_LEN } from '@/lib/lesson.js';
-import { usePlan } from '@/lib/usePlan.js';
 import Mascot from '@/components/Mascot.jsx';
 import PathNode from '@/components/PathNode.jsx';
+import Board from '@/components/Board.jsx';
 import { Button } from '@/components/ui.jsx';
 
 // The path winds gently: each node sits a little to one side of the one before.
@@ -106,8 +106,7 @@ export default function Learn() {
   const [open, setOpen] = useState(null);
   const [away, setAway] = useState(null); // 'up' | 'down' when the current node is off screen
   const currentRef = useRef(null);
-  const plan = usePlan();
-  const nextStep = plan.weak.length ? plan.steps.find((x) => !x.done && x.kind === 'practice') : null;
+  const firstView = useRef(true);
   const topics = topicsFor(view);
   const streak = streakOf(days);
   const todayXp = days[today()]?.xp || 0;
@@ -117,10 +116,11 @@ export default function Learn() {
   const focusKey = focusNode ? `${focusTopic}:${focusNode.kind}:${focusNode.level}` : null;
 
   useEffect(() => { settleStreak(); }, [settleStreak]);
-  // Open on the place to continue from (or the unit just practised).
+  // The screen opens on the board; back from a lesson, or on another grade, it opens on the place to continue from.
   useLayoutEffect(() => {
-    const el = currentRef.current;
-    if (el) el.scrollIntoView({ block: 'center' });
+    const first = firstView.current; firstView.current = false;
+    if (first && !state?.from) { window.scrollTo(0, 0); return; }
+    currentRef.current?.scrollIntoView({ block: 'center' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
   useEffect(() => {
@@ -131,6 +131,7 @@ export default function Learn() {
   }, [view, path]);
 
   const onStart = (to) => navigate(to);
+  const onJump = (id) => document.getElementById(`unit-${id}`)?.closest('.unit')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   const otherGrade = view === '7' ? '8' : '7';
 
   return (
@@ -146,12 +147,8 @@ export default function Learn() {
 
       <div className="learn-layout">
       <div className="learn-body">
-        {nextStep && TOPIC[nextStep.topic] && (
-          <Link to={`/lesson/${nextStep.topic}/${nextStep.level}?part=2&from=plan`} className="plan-banner">
-            <Route size={24} aria-hidden="true" />
-            <span className="plan-banner-text"><b>הצעד הבא בתוכנית: <span className="hl">{nextStep.levelTitle}</span></b><span>{TOPIC[nextStep.topic].title}, {nextStep.have} מתוך {nextStep.need} תשובות נכונות</span></span>
-          </Link>
-        )}
+        <Board grade={view} next={focusNode} placed={!!state?.placed} onStart={onStart} onJump={onJump} />
+        <h2 className="map-title">מפת השיעורים</h2>
         {topics.map((t, i) => (
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from} />
         ))}

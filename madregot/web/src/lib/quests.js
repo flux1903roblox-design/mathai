@@ -24,3 +24,6 @@ export function questProgress(dayKey, day = {}) {
     return { id, title: q.title(q.target), have, target: q.target, done: have >= q.target };
   });
 }
+
+/** The daily goal in XP, with roughly how many minutes a day it takes. */
+export const GOALS = [{ xp: 10, label: 'קליל', mins: 5 }, { xp: 20, label: 'רגיל', mins: 10 }, { xp: 30, label: 'רציני', mins: 15 }, { xp: 50, label: 'אינטנסיבי', mins: 20 }];

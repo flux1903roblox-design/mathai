@@ -1,69 +1,108 @@
 ---
 name: Madregot
-description: Daily math practice for grades 7–8, set like a printed textbook, with a Claude tutor.
+description: A bright, chunky daily-practice path for grade 7–8 math in Hebrew, with a stair-block mascot and a Claude tutor.
 colors:
   paper: "#ffffff"
-  ground: "#f4f6f8"
-  ink: "#16191d"
-  ink-soft: "#4c5561"
-  rule: "#d6dde4"
-  rule-strong: "#85909d"
-  process-cyan: "#006fa8"
-  process-cyan-tint: "#e3f2fa"
-  process-magenta: "#b0105f"
-  process-magenta-tint: "#fbe6f0"
-  marker: "#fff1a6"
-  marker-strong: "#ffe25c"
-  correct-green: "#0b7340"
-  correct-green-tint: "#e2f3e9"
-  chapter-orange: "#b2470b"
-  chapter-orange-tint: "#fdeee3"
-  chapter-violet: "#6a3fa8"
-  chapter-violet-tint: "#efe9f8"
-  chapter-ochre: "#8a5a00"
-  chapter-ochre-tint: "#fbf1d6"
+  ground: "#f6f6fb"
+  ink: "#24253a"
+  ink-2: "#5f6178"
+  rule: "#e6e6f0"
+  rule-strong: "#c9cad9"
+  rule-press: "#d9dae6"
+  brand: "#5b4ff0"
+  brand-d: "#3f33c4"
+  brand-tint: "#ecebff"
+  good: "#1f9d55"
+  good-d: "#16803f"
+  good-tint: "#dff6e7"
+  good-ink: "#157a41"
+  bad: "#e5375a"
+  bad-d: "#b8213f"
+  bad-tint: "#ffe6ec"
+  bad-ink: "#c01d43"
+  streak: "#f07b0f"
+  streak-ink: "#b35400"
+  streak-tint: "#ffeedd"
+  gold: "#f5b400"
+  gold-d: "#d39600"
+  gold-ink: "#8a5c00"
+  gold-tint: "#fff4cc"
+  ai-tint: "#fde8f3"
+  ai-ink: "#a3165f"
+  ch-sky: "#1a8fd6"
+  ch-sky-d: "#0d6ba8"
+  ch-sky-tint: "#e2f2fc"
+  ch-fuchsia: "#c0349f"
+  ch-fuchsia-d: "#93246f"
+  ch-fuchsia-tint: "#fbe6f5"
+  ch-petrol: "#0d8597"
+  ch-petrol-d: "#08606e"
+  ch-petrol-tint: "#ddf3f5"
+  ch-cobalt: "#2563d9"
+  ch-cobalt-d: "#1a47a3"
+  ch-cobalt-tint: "#e3ecfc"
+  ch-violet: "#8a4fe0"
+  ch-violet-d: "#6a35bf"
+  ch-violet-tint: "#f1eafd"
 typography:
-  display-expression:
-    fontFamily: "KaTeX_Main, Times New Roman, serif"
-    fontSize: "38px"
-    lineHeight: 1.2
+  display:
+    fontFamily: "Fredoka Variable, Fredoka, Rubik Variable, Arial Hebrew, sans-serif"
+    fontSize: "36px"
+    fontWeight: 600
+    lineHeight: "44px"
+    letterSpacing: "-0.005em"
   headline:
-    fontFamily: "Secular One, Assistant Variable, Arial Hebrew, sans-serif"
+    fontFamily: "Fredoka Variable, Fredoka, Rubik Variable, Arial Hebrew, sans-serif"
     fontSize: "28px"
-    fontWeight: 400
+    fontWeight: 600
     lineHeight: "36px"
+    letterSpacing: "-0.005em"
   title:
-    fontFamily: "Secular One, Assistant Variable, Arial Hebrew, sans-serif"
+    fontFamily: "Fredoka Variable, Fredoka, Rubik Variable, Arial Hebrew, sans-serif"
     fontSize: "22px"
-    fontWeight: 400
+    fontWeight: 600
     lineHeight: "28px"
+  button:
+    fontFamily: "Fredoka Variable, Fredoka, Rubik Variable, Arial Hebrew, sans-serif"
+    fontSize: "18px"
+    fontWeight: 600
+    letterSpacing: "0.01em"
+  question:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontSize: "22px"
+    fontWeight: 600
+    lineHeight: "32px"
   body-large:
-    fontFamily: "Assistant Variable, Assistant, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
     fontSize: "18px"
     fontWeight: 400
     lineHeight: "28px"
   body:
-    fontFamily: "Assistant Variable, Assistant, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
     fontSize: "16px"
     fontWeight: 400
     lineHeight: "24px"
     fontFeature: "tnum"
   label:
-    fontFamily: "Assistant Variable, Assistant, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
     fontSize: "14px"
-    fontWeight: 700
+    fontWeight: 600
     lineHeight: "20px"
-  caption:
-    fontFamily: "Assistant Variable, Assistant, Segoe UI, Arial Hebrew, Arial, sans-serif"
+  label-small:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
     fontSize: "13px"
     fontWeight: 600
     lineHeight: "20px"
+  math-display:
+    fontFamily: "KaTeX_Main, Times New Roman, serif"
+    fontSize: "40px"
+    lineHeight: 1.2
 rounded:
-  sm: "8px"
-  control: "10px"
-  md: "12px"
-  lg: "16px"
+  sm: "10px"
+  md: "16px"
+  lg: "20px"
   pill: "999px"
+  circle: "50%"
 spacing:
   s1: "4px"
   s2: "8px"
@@ -76,219 +115,316 @@ spacing:
   s12: "48px"
 components:
   button-primary:
-    backgroundColor: "{colors.process-cyan}"
+    backgroundColor: "{colors.brand}"
     textColor: "{colors.paper}"
-    rounded: "{rounded.control}"
+    typography: "{typography.button}"
+    rounded: "{rounded.md}"
     padding: "0 20px"
     height: "48px"
-  button-primary-hover:
-    backgroundColor: "#005e8f"
+  button-primary-large:
+    backgroundColor: "{colors.brand}"
+    textColor: "{colors.paper}"
+    rounded: "{rounded.md}"
+    height: "54px"
   button-secondary:
     backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
+    textColor: "{colors.brand-d}"
+    typography: "{typography.button}"
+    rounded: "{rounded.md}"
+    padding: "0 20px"
     height: "48px"
-  button-ai:
-    backgroundColor: "{colors.process-magenta-tint}"
-    textColor: "{colors.process-magenta}"
-    rounded: "{rounded.control}"
+  button-good:
+    backgroundColor: "{colors.good}"
+    textColor: "{colors.paper}"
+    rounded: "{rounded.md}"
     height: "48px"
-  button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.process-cyan}"
-    rounded: "{rounded.control}"
-  input:
+  button-disabled:
+    backgroundColor: "{colors.rule}"
+    textColor: "#8a8ca0"
+    rounded: "{rounded.md}"
+    height: "48px"
+  choice:
     backgroundColor: "{colors.paper}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
-    height: "48px"
+    rounded: "{rounded.md}"
+    padding: "12px 16px"
+    height: "60px"
+  choice-selected:
+    backgroundColor: "{colors.brand-tint}"
+    textColor: "{colors.brand-d}"
+  choice-correct:
+    backgroundColor: "{colors.good-tint}"
+    textColor: "{colors.good-ink}"
+  choice-wrong:
+    backgroundColor: "{colors.bad-tint}"
+    textColor: "{colors.bad-ink}"
   answer-slot:
     backgroundColor: "{colors.paper}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.md}"
+    rounded: "14px"
     width: "104px"
     height: "56px"
   keypad-key:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "12px"
+    height: "46px"
+  path-node:
+    backgroundColor: "{colors.ch-sky}"
+    textColor: "{colors.paper}"
+    rounded: "{rounded.circle}"
+    size: "70px"
+  path-node-current:
+    size: "76px"
+  path-node-done:
+    backgroundColor: "{colors.gold}"
+    textColor: "#6b4500"
+    rounded: "{rounded.circle}"
+    size: "70px"
+  path-node-locked:
+    backgroundColor: "#e4e5ee"
+    textColor: "#a3a5bb"
+    rounded: "{rounded.circle}"
+    size: "70px"
+  unit-band:
+    backgroundColor: "{colors.ch-sky-d}"
+    textColor: "{colors.paper}"
+    typography: "{typography.title}"
+    rounded: "{rounded.md}"
+    padding: "12px 16px"
+  feedback-correct:
+    backgroundColor: "{colors.good-tint}"
+    textColor: "{colors.good-ink}"
+    typography: "{typography.headline}"
+    padding: "16px"
+  feedback-not-yet:
+    backgroundColor: "{colors.bad-tint}"
+    textColor: "{colors.bad-ink}"
+    typography: "{typography.headline}"
+    padding: "16px"
+  help-tool:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink-2}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: "0 12px"
+    height: "40px"
+  card:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+    padding: "16px"
+  tab-active:
+    backgroundColor: "{colors.brand-tint}"
+    textColor: "{colors.brand-d}"
+    typography: "{typography.label-small}"
+    rounded: "{rounded.md}"
+    height: "60px"
+  input:
     backgroundColor: "{colors.ground}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
-    height: "48px"
-  box-note:
-    backgroundColor: "{colors.process-cyan-tint}"
     rounded: "{rounded.md}"
-    padding: "24px 16px 16px"
-  box-attention:
-    backgroundColor: "{colors.process-magenta-tint}"
-    rounded: "{rounded.md}"
-    padding: "24px 16px 16px"
-  chapter-mark:
-    backgroundColor: "{colors.process-cyan}"
-    textColor: "{colors.paper}"
-    rounded: "{rounded.pill}"
-    size: "36px"
-  exercise-number:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.paper}"
-    rounded: "{rounded.pill}"
-    height: "28px"
+    padding: "8px 16px"
+    height: "50px"
 ---
 
 # Design System: Madregot
 
 ## Overview
 
-**Creative North Star: "The Printed Textbook, Working"**
+**Creative North Star: "The Friendly Staircase"**
 
-Madregot is a Hebrew math textbook that answers back. The page is white paper with black ink. Colour comes from offset printing: cyan, magenta and a yellow marker, laid down as flat tints. Every topic is a chapter with its own colour. Exercises carry circled numbers, math is set in serif italics, and help arrives the way a textbook prints it, in a tinted box with its label on the top edge, next to the exercise it is about. The app refuses the gamified-path look of learning apps: no mascots, confetti or emoji. Progress is drawn the way a book would draw it, as a fixed row of level squares.
+Madregot means stairs, and the whole system is a staircase a student climbs a few steps of every day. The ground is plain white, the ink a soft navy, and everything the thumb can press is a chunky, rounded block standing on a solid lip that sinks when pressed. A winding path of round coins carries the student from lesson to lesson; each topic is a unit with its own chapter colour; the mascot מדי, an indigo two-step stair block with a face, stands beside the next step and reacts to every answer.
 
-Density is that of a working page: one question at a time, read at arm's length on a phone, often in a quiet classroom. The expression is the only large type on the practice screen. Everything else (labels, help, navigation) stays at reading size, so the eye goes to the math first. The teacher dashboard uses the same paper and ink at desktop density, with tables and boxes and no decoration.
+The loop is Duolingo's (path, one big check button, a green or red panel after every answer, streak, XP) with its own identity: electric indigo instead of green as the brand, Fredoka and Rubik instead of a proprietary face, a stair block instead of an owl. The density is phone-first and generous: 44px minimum targets, one question per screen, the action dock within thumb reach. Colour is loud but semantic; every saturated hue has exactly one job.
 
-The layout is right to left (Hebrew), but math is always left to right and isolated, so a minus sign never wanders to the wrong side of a number.
+The genre's pressure devices are absent by design and stay absent: no hearts or energy meters, no global league tables, no guilt-tinted states. A mistake is shown, crossed out and explained, never charged for. Shabbat is drawn as a calm rest day in the streak week, never as a break.
 
 **Key Characteristics:**
-- White paper, black ink, process-colour tints; no gradients, no glass, no dark theme.
-- One chapter colour per topic, carried on the topic band, its circle mark, its level squares and its tinted boxes.
-- The expression at display size (38px) is the only large type during practice.
-- Help as textbook boxes: tinted panel, label set on the top edge.
-- Fixed marks with one meaning each: squares are levels, round dots are correct answers counted toward a goal, solid circles are exercise and chapter numbers.
-- A strict 4px spacing grid, and figures drawn on the same grid.
+- White ground, soft navy ink, electric indigo for action and selection.
+- Semantic colour: green right, red not yet, orange streak, gold XP and finished nodes.
+- Five chapter colours (sky, fuchsia, petrol, cobalt, violet), one per unit.
+- Chunky pressable controls on a solid lip that collapses on press; nothing else gets a lip.
+- Fredoka for the voice (headings, buttons, numbers), Rubik for reading, serif KaTeX for math, always LTR.
+- Hebrew RTL throughout, phone-first, with a side rail and side panel from 960px.
+- Short exponential ease-out motion; celebrations only after an answer, skippable, off under reduced motion.
 
 ## Colors
 
-Paper and ink carry the page. Three process colours carry meaning, and six chapter colours tell topics apart. All text colours reach at least 4.5:1 on paper and on their own tints.
+A bright, clean palette in which every saturated colour carries one meaning, set on white with soft navy ink.
 
 ### Primary
-- **Process Cyan** (`process-cyan`): structure and the primary action. Used for the main button on each screen, the active tab, focus rings, the docked check key, and the first chapter. Its tint (`process-cyan-tint`) fills the "note" box and the lesson summary.
+- **Electric Indigo** (brand): the primary action (the full-width check and continue buttons), the active tab, the selected choice, focused slots and inputs, the wordmark and the mascot's body.
+- **Deep Indigo** (brand-d): the lip under indigo buttons, indigo text on tints, the lesson-complete title.
+- **Indigo Mist** (brand-tint): selected and active fills (tab, choice, segmented option, help tool), focus halos. Its border partner is a literal lavender line (#b9b3ff; #cfcaff on the tab), used for selected borders and their lip.
 
-### Secondary
-- **Process Magenta** (`process-magenta`): "שימו לב" and the AI. Used for mistake feedback, the struck-through wrong answer, the AI tutor's buttons and boxes, the minus key, and destructive actions. Its tint (`process-magenta-tint`) fills the attention box and the AI box.
+### Secondary (meaning colours)
+- **Correct Green** (good, good-d, good-tint, good-ink): the lesson progress bar, the correct choice, the correct feedback panel, the "accuracy" stat. Green is the colour of being right.
+- **Not-Yet Red** (bad, bad-d, bad-tint, bad-ink): the wrong choice (struck through), the struck answer slot, the retry and reveal feedback panels, the keypad minus key.
+- **Streak Orange** (streak, streak-ink, streak-tint): the flame in the top bar, the combo count and combo pop, the streak screen and its week dots, the "comes back later" note.
+- **XP Gold** (gold, gold-d, gold-ink, gold-tint): finished path nodes, the XP stat and counter, daily-goal and quest bars, hints.
+- **Tutor Rose** (ai-tint, ai-ink): the AI help tool and the tutor's box. It is close to fuchsia by hue but never sits on a unit's path.
 
-### Tertiary
-- **Marker Yellow** (`marker`, `marker-strong`): a highlighter. It marks words that matter (the student's own note in a help request, the next step of the improvement plan), the "new" tag, the daily-goal bar, and text selection.
-- **Correct Green** (`correct-green`, tint): a right answer, a finished plan step, a score of 80% or more.
-
-### Chapter colours
-- **Cyan, Magenta, Burnt Orange, Green, Violet, Ochre** (`process-cyan`, `process-magenta`, `chapter-orange`, `correct-green`, `chapter-violet`, `chapter-ochre`, each with a `-tint`): one per topic, assigned in order within a grade. A chapter colour appears on that topic's band, circle mark, level squares and weak-topic panel, and nowhere else.
+### Tertiary (chapter colours)
+- **Sky, Fuchsia, Petrol, Cobalt, Violet** (ch-*): each topic owns one. The fill colours the unit's path coins and ring segments; the "-d" value is the unit band, the coin lip and coloured text; the tint is the unbuilt ring segments and the lesson's level line. Sky also marks streak freezes (snowflake, frozen week dot).
 
 ### Neutral
-- **Paper** (`paper`): every page background and card.
-- **Ground** (`ground`): keypad keys, read-only slots, segmented-control track, hover on rows.
-- **Ink** (`ink`): body text, headings, exercise-number circles, the active teacher tab.
-- **Soft Ink** (`ink-soft`): secondary text, descriptions, unselected tabs.
-- **Rule** (`rule`) and **Strong Rule** (`rule-strong`): hairlines between rows, and borders on controls that must be visible (inputs, secondary buttons, answer slots, empty level squares).
+- **Paper** (#ffffff): the ground of every screen, cards, buttons at rest, docks.
+- **Ground** (#f6f6fb): input fields, hover fills, rest-day dots, stat tiles on older screens.
+- **Soft Navy Ink** (ink): all primary text and the mascot's eyes.
+- **Slate** (ink-2): secondary text, inactive tabs, unpressed counts.
+- **Hairline / Strong Rule / Press Rule** (rule, rule-strong, rule-press): borders of cards and controls, empty bar tracks; rule-press is the lip under white controls.
 
 ### Named Rules
-**The Marker Rule.** Yellow highlights words; it does not fill cards. The one exception is the hint box, which a textbook prints on a yellow panel.
+**The One Meaning Rule.** Green means right, red means not yet, orange means streak, gold means XP and finished. No chapter colour is green, orange or gold, and none of the four is used for decoration.
 
-**The Chapter Rule.** A chapter colour belongs to its topic. It is never used for status or decoration on another topic's content.
+**The Ink Value Rule.** Fills may be light; text always takes an "-ink" or "-d" value (4.5:1 or more on its tint or on white). White text sits only on brand, good, bad and "-d" chapter fills.
 
-**The Magenta Means Look Rule.** Magenta always means "look at this": a mistake, the AI, or a destructive action. Never use it for neutral emphasis.
+**The Indigo Acts Rule.** Indigo is where the student acts or has chosen: the primary button, the selected option, the active tab, focus. It never marks correctness.
 
 ## Typography
 
-**Display Font:** Secular One (with Assistant, Arial Hebrew)
-**Body Font:** Assistant Variable (with Segoe UI, Arial Hebrew, Arial)
-**Math:** KaTeX's Computer Modern (serif, italic variables), always left to right
+**Display Font:** Fredoka (variable, rounded Hebrew), with Rubik and Arial Hebrew fallback
+**Body Font:** Rubik (variable), with Segoe UI and Arial Hebrew fallback
+**Math:** KaTeX's serif (KaTeX_Main), isolated left-to-right
 
-**Character:** Secular One is a round, sturdy Hebrew display face, like a textbook's chapter titles. Assistant is a plain, readable sans for everything a student reads in running text. Math is set the way it is printed, in serif italics, so an expression on screen looks like the one on the worksheet.
+**Character:** Fredoka's soft round terminals give the app its friendly voice on headings, buttons and celebrated numbers; Rubik is the sturdy, readable Hebrew text face. The math is the only serif on screen, so an expression always reads as math.
 
 ### Hierarchy
-- **Display expression** (KaTeX, 38px, line-height 1.2; 28px on printed exams): the question's expression. The only large type on the practice screen.
-- **Headline** (Secular One 400, 28px / 36px): page titles.
-- **Title** (Secular One 400, 22px / 28px): section titles; box labels use Secular One at 14px.
-- **Body large** (Assistant 400, 18px / 28px): question text, lead paragraphs (max 60ch), topic titles at 700.
-- **Body** (Assistant 400, 16px / 24px, tabular numbers): everything else.
-- **Label** (Assistant 700, 14px / 20px): buttons in small size, chips, field labels.
-- **Caption** (Assistant 600, 13px / 20px): tab-bar labels, level captions, footnotes.
+- **Display** (Fredoka 600, 36px/44px): the lesson-complete, streak and quests-done titles.
+- **Headline** (Fredoka 600, 28px/36px): page titles, the feedback panel verdict, the revealed answer.
+- **Title** (Fredoka 600, 22px/28px): unit band titles, node card titles, card titles, sheet titles.
+- **Button** (Fredoka 600, 18px, 0.01em): every chunky button; 22px on large buttons, 16px on small.
+- **Question** (Rubik 600, 22px/32px, pretty wrap): the question text in a lesson.
+- **Body Large** (Rubik 400, 18px/28px, 60ch max): leads under titles and on celebration screens.
+- **Body** (Rubik 400, 16px/24px, tabular numerals): everything else.
+- **Label** (Rubik 600, 14px/20px; 13px on tab labels): help tools, notes, stat labels.
+- **Math Display** (KaTeX, 40px/1.2, centred): the expression of the current question; inline math runs at 1.08em and never wraps.
+
+Celebration numerals are the one place type grows past the ramp: the streak count (Fredoka 700, 76px/80px) and the combo pop (Fredoka 700, 44px/52px).
 
 ### Named Rules
-**The One Large Thing Rule.** On a practice screen only the expression is set large. No headline, score or decoration competes with it.
+**The Rounded Voice Rule.** Fredoka speaks (headings, buttons, counts, stats); Rubik explains (questions, body, labels). Questions are Rubik so long Hebrew sentences stay readable.
 
-**The Math Stays Left-to-Right Rule.** Every number, coordinate and expression is set as isolated LTR (KaTeX, or a `bdi` with a real minus sign U+2212), and an inline expression never breaks across lines.
+**The LTR Math Rule.** Every expression is KaTeX in its own left-to-right isolate, and a short inline expression never splits across lines inside Hebrew text.
 
 ## Layout
 
-A single reading column, at most 600px wide, centred, with 16px side gutters plus the safe-area insets. Sections stack with 20px between them; related items stack with 12px or 16px. All spacing comes from the 4px grid (4, 8, 12, 16, 20, 24, 32, 40, 48).
+A single phone column on a 4px grid (s1 to s12). Pages cap at 600px, the path at 560px, celebration screens at 520px, centred, with safe-area insets on every edge.
 
-On phones the five-tab bar is fixed at the bottom (60px targets, safe-area padded). From 960px wide it moves to the top as a row of pill tabs next to the wordmark. The practice screen hides the tab bar: a 48px top bar, the exercise, and the keypad docked to the bottom.
-
-The teacher dashboard is a 1200px container. A four-cell stat strip (two by two under 700px) sits above pill tabs; boxes flow into up to three columns so a short box never leaves a hole beside a tall one; tables scroll horizontally inside their own wrapper.
-
-Printed practice exams drop the tab bar and every on-screen control, and set questions in one column with ruled working space and an answer line.
+- **Path screen:** a sticky 60px top bar (grade switch at the reading start, then streak, freezes and today's XP of the goal), then units stacked 32px apart. Each unit opens with a sticky chapter band, then the path: coins 42px apart, swung sideways on an 8-step curve (0, 52, 78, 52, 0, −52, −78, −52 px) so the path winds. מדי stands 18px beside the current coin on the side away from the swing. A round jump-back button appears when the current coin scrolls away.
+- **Lesson:** a top row (close, a 16px green progress bar, the combo count), the question column, then a sticky dock at the bottom with the help tools in one equal-width row, the keypad (4 columns, 8px gaps) and the full-width check button. The feedback panel takes the dock's place and is capped at 58dvh, scrolling inside.
+- **Navigation:** bottom tabs, five equal columns at 60px, under 960px; from 960px a 240px side rail with the wordmark, and the path gains a 320px side column (streak, goal, quests) 40px away.
+- **Breakpoints:** 400px (tighter pips), 700px (sheets become centred dialogs, taller keys), 960px (rail and side panel).
 
 ## Elevation & Depth
 
-The system is flat. Paper sits on paper; depth comes from hairlines and tints, not shadows. Two shadows exist, both functional: a soft lift for the bottom sheet that rises over the page, and an upward dock shadow under the keypad so it reads as attached to the screen edge. The selected segment of a segmented control carries a one-pixel lift to read as pressed out of the track.
+Depth is physical and almost entirely structural: a solid, unblurred lip under pressable things, which collapses when pressed. Soft shadows are reserved for things that float over the page.
 
 ### Shadow Vocabulary
-- **Sheet lift** (`box-shadow: 0 2px 4px rgba(22,25,29,0.06), 0 8px 24px rgba(22,25,29,0.08)`): the bottom sheet (chat, help). Toasts keep the toast library's own soft shadow.
-- **Dock** (`box-shadow: 0 -2px 6px rgba(22,25,29,0.05), 0 -8px 24px rgba(22,25,29,0.06)`): the docked keypad.
+- **Lip** (`box-shadow: 0 4px 0 <lip colour>`): buttons and answer choices; the lip is the fill's "-d" value, or rule-press under white controls. Pressing translates the control down by the lip and removes it (80ms).
+- **Small lip** (`box-shadow: 0 3px 0 <lip colour>`): keypad keys, segmented options, the grade switch.
+- **Coin lip** (`box-shadow: 0 7px 0 <chapter -d / gold-d / #c9cad9>`): path coins.
+- **Border lip** (`border-bottom-width: 4px`, 2px when pressed): pressable cards and banners (plan banner, linked cards, linked side cards) and the lesson's answer slots.
+- **Lift** (`box-shadow: 0 2px 4px rgba(36,37,58,.06), 0 8px 24px rgba(36,37,58,.1)`): floating layers only: sheets, the node card, the jump-back button.
+- **Dock** (`box-shadow: 0 -2px 6px rgba(36,37,58,.05), 0 -8px 24px rgba(36,37,58,.06)`): bottom docks on the older practice screens; the lesson dock uses a 2px top rule instead.
 
 ### Named Rules
-**The Flat Paper Rule.** Cards and boxes have no shadow. If something needs to stand out, give it a tint or a rule, not elevation.
+**The Lip Means Press Rule.** A lip promises that something can be pressed, and pressing collapses it. Static content (stat tiles, plain cards, the feedback panel, chips) sits flat with a 2px rule.
+
+**The Float Only Rule.** Blurred shadows are for layers above the page (sheets, the node card); nothing at rest on the page casts one.
 
 ## Shapes
 
-Gently rounded and consistent. Controls (buttons, inputs, keys) use a 10px radius; boxes and cards 12px; the topic band 16px; the bottom sheet 18px on its top corners. Circles are reserved for numbers (exercise numbers, chapter marks, plan step numbers) and for the round answer-count dots. Level squares are 14px squares with 4px corners (10px on narrow phones). Pills appear only for chips, the teacher's tabs and the desktop tab bar. Borders are 1px hairlines, or 1.5–2px on controls that must read as inputs.
+Generously rounded, never sharp. Controls and cards use 16px corners, small buttons and the grade switch 10px, unit openers 20px; keys and slots sit between (12px, 14px). Help tools, chips and bars are full pills. Path coins, week dots, quest checks and the feedback icon are true circles; the current coin wears a ring of rounded, evenly gapped segments (one per lesson, 6px gaps, 2px corner) in its unit colour. Borders are 2px on every interactive surface and 1px only for list hairlines. The mascot's geometry (13px-rounded rectangles stepping up) echoes the same rounded block.
 
 ## Components
 
 ### Buttons
-Calm and solid, sized for thumbs.
-- **Shape:** 10px radius, 48px tall (44px small, 56px large), Assistant 700.
-- **Primary:** process cyan with white text; one per screen, usually full width at the bottom of the content.
-- **Hover / Focus / Press:** hover darkens to `#005e8f`; focus shows a 2px cyan outline offset 2px; press moves the button down 1px.
-- **Secondary:** paper with a strong-rule border, ink text; the border turns ink on hover.
-- **AI:** magenta tint with magenta text and border, for anything that calls the tutor.
-- **Ghost:** cyan text, no border, cyan tint on hover.
-- **Danger:** solid magenta; danger outline is magenta text and border on paper. Destructive actions sit alone and confirm inline.
+Tactile and confident: a fat rounded block on its lip.
+- **Shape:** gently rounded (16px), 48px tall, 54px large, 40px small (10px corners); 2px border in the fill colour.
+- **Primary:** indigo fill, white Fredoka text, deep-indigo lip. The check and continue buttons are full-width and large.
+- **Secondary:** white fill, deep-indigo text, rule-strong border on a rule-press lip; inside a node card its text takes the unit's "-d" colour.
+- **Good:** green fill and lip, for continuing after a correct answer.
+- **Ghost:** no border or lip, indigo text, indigo-mist hover.
+- **Hover / Press / Disabled:** hover brightens 4%; press sinks by the lip in 80ms; disabled is a grey block (rule fill, #8a8ca0 text) that keeps its shape.
+- **Focus:** 2px indigo outline, 2px offset.
 
-### Textbook Box (signature)
-The help panel of a printed textbook.
-- **Shape:** 12px radius, 1px border in a darker shade of the tint, padding 24px top and 16px sides.
-- **Label:** set on the top edge in Secular One 14px, white on the box colour, 7px radius.
-- **Tones:** note (cyan, lesson and general), attention (magenta, "שימו לב"), AI (pale magenta), ok (green), hint (yellow).
+### Answer choices
+- **Style:** white 60px block, 2px rule border, 16px corners, rule-press lip, a 30px key badge at the reading start.
+- **States:** selected turns indigo mist with a lavender border and lip; correct turns green tint with green-ink text; wrong turns red tint, red-ink text, struck through. A three-number choice row centres its values and drops the badges.
 
-### Chips
-- **Status chips:** pill, 28px tall, Assistant 800 at 14px, colour and tint by result: green "נכון", ochre "נכון בחלקו", magenta "טעות" / "לא נענה".
-- **Score chips:** 56px wide, 10px radius, same three tones by percentage (80+, 60+, below).
+### Answer slot and keypad
+- **Slot:** 104px × 56px, 26px bold LTR value, 2px rule border with a 4px bottom, 14px corners; focus is an indigo border with a 3px indigo-mist halo; a wrong answer stays in the slot, struck through in red, until a new one is typed.
+- **Keypad:** the app's own keypad (phones have no minus key): four columns of 46px white keys with a small lip, Rubik 24px; the minus key is red ink; pressing sinks 3px in 60ms.
+
+### Feedback panel (signature)
+Rises 24px from the bottom in 250ms when an answer is checked and replaces the dock. Correct is green tint with a green top rule; retry and reveal are red tint with a pink top rule. It holds מדי (cheer, oops or think), the headline verdict in the panel's ink, then the body: the correct answer at headline size, the steps, and the tutor's note as plain text under a rule (never a card inside the panel). Announced assertively.
+
+### Path coin and lesson ring (signature)
+- **Coin:** a 70px circle in the unit colour with a white solid glyph (star, check, lock, trophy) and a 7px coin lip; the current coin is 76px, the unit review coin 82px.
+- **States:** done coins are gold with a dark-amber glyph; locked coins are pale grey on a grey lip; the current coin wears the segmented ring and a bobbing start bubble ("התחלה" / "המשך") in the unit colour.
+- **Ring:** segments fill in the unit colour as lessons finish; returning from a lesson, the earned segment fills 260ms after arrival (400ms ease-out).
+- **Node card:** tapping a coin opens a 320px white card under it with a 2px unit-colour border, a pointer, lift shadow, a Fredoka title and one full-width button.
+
+### Level board (signature)
+The learn screen opens on the board, and the map continues under it. A Fredoka title with the mascot, one line of stairs climbed in the grade, and a 14px track split into one pill segment per topic (as long as its stairs, chapter tint filled in the chapter colour from the reading start). One full-width primary button starts the next lesson. Topics sit in one 2px-bordered, 20px-rounded list with 2px dividers, not cards: each row is a stair meter with a done/total count in the chapter's dark colour, the topic name, the current stair and a status pill (done gold, on the way chapter tint, needs work red tint, not started ground). Under a row, "what is not clear yet" sits in a ground-filled block with each misconception and a small secondary "practise" button; cleared ones collapse into one green line. Under 400px the pill moves under the name.
+
+### Stair meter
+One rounded bar per level, rising from 14px to 32px toward the reading direction (right to left), 11px wide (9px when a topic has more than six levels). Done steps fill in the chapter colour, the current step in its tint (filling from its foot as lessons finish), the rest in rule grey. It is the product's own level meter: it appears on the board, on the placement result and in the onboarding answers.
+
+### Onboarding question
+One question per screen: a back arrow and an indigo progress bar on top, the mascot asking in a 2px-bordered speech bubble whose tail points at him, answers as 68px chunky rows (2px border, 4px lip; selected is indigo mist with a lavender lip and indigo title), and a sticky full-width button at the bottom. Small gold pills mark a recommendation.
+
+### Unit band
+A sticky 16px-rounded band in the unit's "-d" colour with white text: a translucent number tile, the Fredoka title, a one-line description, a done/total pill and a 64px outlined guidebook button.
+
+### Mascot מדי
+An SVG indigo two-step stair block with a deep-indigo edge, lighter treads, feet and a face; moods happy (slow bob), cheer (two jumps plus gold sparkles), think (eyes up) and oops (brows). It appears beside the current coin, in the feedback panel and on celebration screens. All motion stops under reduced motion.
+
+### Top bar and stats
+Streak, freezes and XP are Fredoka 22px counts with their icon in the meaning colour (orange flame filled when the streak is alive, grey when not; sky snowflake; gold bolt). Celebration stats are three bordered tiles with a solid label strip in gold, green-dark or indigo and a Fredoka value in the matching ink.
 
 ### Cards / Containers
-- **Rows, not cards:** topic lists, exam lists and actions are full-width rows (72px tall) divided by hairlines, with a chevron at the end.
-- **Exam feedback:** each question is a ruled section (strong rule on top), not a card: number circle, status chip, chapter-colour topic tag, the question, one comparison line, the feedback box.
-- **Plan steps:** 12px radius, 1px rule; a finished step turns green tint with a white check in its number circle.
+- **Corner Style:** 16px.
+- **Background:** paper, 2px rule border, flat; linked cards gain the border lip.
+- **Internal Padding:** 16px, 12px gaps.
+- **Box:** tinted notes (indigo, red, gold, green, rose) with a 2px matching border and a Fredoka title in the box ink.
+
+### Help tools and chips
+Pill-shaped 40px tools (36px in the dock) with a 2px rule border and slate text; the AI tool is rose; an active tool is indigo mist. Status chips are tinted pills in the meaning colours.
 
 ### Inputs / Fields
-- **Style:** paper, 1.5px strong-rule border, 10px radius, 48px tall; labels above in Assistant 700.
-- **Focus:** border turns cyan with a 3px cyan-tint ring.
-- **Answer slots:** 104×56px, 26px bold numerals, LTR. After a mistake the wrong answer stays in the slot, struck through in magenta, until a new key replaces it.
+- **Style:** 50px, ground fill, 2px rule border, 16px corners, 18px text.
+- **Focus:** indigo border, fill turns paper.
+- **Error:** red-ink message text under the field.
 
 ### Navigation
-- **Phone:** five tabs fixed at the bottom (היום, נושאים, מבחנים, עוזר AI, אני), icon over a 13px caption, cyan when active.
-- **Desktop:** the same tabs as pills in a top row beside the wordmark; the active pill has a cyan tint.
-- **Teacher:** pill tabs, ink fill when active; the open tab is kept in the address (`?tab=`).
+Hover styles apply only where a pointer can hover, so a tap on a phone never leaves a lit state; screens clip anything wider than the phone instead of scrolling sideways. Five tabs (לימוד, משימות, מבחנים, עוזר AI, אני) with 26px line icons and 13px labels; the active tab is an indigo-mist block with a lavender border and a heavier icon stroke. From 960px they become a side rail of 52px rows with hover in ground.
 
-### Keypad (signature)
-A custom keypad docked to the bottom of the practice screen: four columns of 48px keys (52px on tablets) on the ground colour, a magenta minus key, a fraction key, and a double-width cyan check key. It replaces the phone keyboard so the expression is never covered.
+### Streak week
+Seven 36px day dots: practised days solid orange with a white flame, frozen days sky tint with a snowflake, Shabbat a ground-grey dot with a moon (a rest day, never a broken day), today ringed in indigo mist.
 
-### Level Squares and Answer Dots (signature)
-- **Level squares:** one 14px square per level of the topic, filled with the chapter colour when passed, hatched for the current level, outlined when ahead. The same scale everywhere a level is shown.
-- **Answer dots:** 12px circles, filled when a correct answer counts toward a goal: two or four to move up a level, four to finish a plan step.
+### AI thinking line (exception)
+While the tutor works, a slate label shimmers with a gradient-clipped highlight and swaps labels with a blur-and-rise (transitions.dev "thinking states"). This is a contained, recorded exception for loading text only; gradient-clipped text is not a device for any other surface, and under reduced motion the shimmer is removed.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** keep the expression the only large type on any practice screen (38px display KaTeX).
-- **Do** put help, feedback and AI output in a textbook box with its label on the top edge.
-- **Do** use the topic's chapter colour for its band, circle, level squares and weak-topic panel.
-- **Do** set every number and expression as isolated LTR with a real minus sign (U+2212).
-- **Do** keep a mistake visible: the wrong answer stays struck through in magenta until the student replaces it.
-- **Do** keep spacing on the 4px grid and touch targets at 44px or more.
+- **Do** put every primary action in one full-width indigo button on its lip, within thumb reach in the bottom dock.
+- **Do** give anything pressable a lip that collapses on press (translate by the lip, 80ms ease-out), and nothing else.
+- **Do** keep each meaning colour to its one job: green right, red not yet, orange streak, gold XP and done nodes.
+- **Do** colour a unit's coins, ring, band and level line from its chapter colour, with text in the "-d" value.
+- **Do** set headings, buttons and counts in Fredoka 600, questions and text in Rubik, math in KaTeX inside an LTR isolate.
+- **Do** keep a wrong answer visible, struck through in red ink, next to the hint.
+- **Do** play celebrations (combo pop, mascot cheer, streak tick) only after an answer, let a tap skip them, and switch them off under reduced motion.
+- **Do** keep targets at 44px or more and text at 4.5:1 or more.
 
 ### Don't:
-- **Don't** fill whole cards with marker yellow; highlight the words that matter instead.
-- **Don't** reuse level squares for anything except levels, or answer dots for anything except correct answers counted toward a goal.
-- **Don't** add mascots, confetti, emoji icons or a gamified path.
-- **Don't** add shadows to cards or boxes; use a tint or a rule.
-- **Don't** use magenta for neutral emphasis; it means "look at this".
-- **Don't** put a small grey label above a title; fold it into the title or drop it.
+- **Don't** use Duolingo's green as the brand, or its owl, name, typeface or art.
+- **Don't** draw hearts, lives or energy meters, global or league leaderboards, or guilt-tinted states.
+- **Don't** draw Shabbat as a missed or broken day in the streak.
+- **Don't** make a chapter colour green, orange or gold, or use those colours decoratively.
+- **Don't** put a lip or a blurred shadow on static content (stat tiles, plain cards, the feedback panel, chips).
+- **Don't** nest a card inside the feedback panel; the tutor's note is text under a rule.
+- **Don't** use gradient-clipped text outside the AI thinking line.

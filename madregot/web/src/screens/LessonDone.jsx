@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import NumberFlow from '@number-flow/react';
 import clsx from 'clsx';
-import { Zap, Target, Timer, Flame, Snowflake, Moon, Check } from 'lucide-react';
+import { Zap, Target, Timer, Flame, Snowflake, Moon, Check, ChevronsUp } from 'lucide-react';
 import { useApp, today, dayBefore, isShabbat } from '@/lib/store.js';
 import Mascot from '@/components/Mascot.jsx';
+import Stairs from '@/components/Stairs.jsx';
+import { topicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
 
 const DAY = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -101,6 +103,43 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
       {result.fixed > 0 && <p className="muted">כולל {result.fixed * 2} XP על תיקון {result.fixed === 1 ? 'טעות' : `${result.fixed} טעויות`}.</p>}
       {award.goalReached && <p className="reward gold"><Zap size={20} aria-hidden="true" />הגעתם ליעד היומי!</p>}
       <div className="done-actions"><Button className="btn-block btn-lg" onClick={nextStage} autoFocus>המשך</Button></div>
+    </div>
+  );
+}
+
+/** After the placement test: where each topic starts, then the first day of the streak. */
+export function PlacementDone({ result, award, onExit }) {
+  const days = useApp((s) => s.days);
+  const freezes = useApp((s) => s.freezes);
+  const stages = ['result', award.streakExtended && 'streak'].filter(Boolean);
+  const [i, setI] = useState(0);
+  const last = i + 1 >= stages.length;
+  const nextStage = () => (last ? onExit() : setI(i + 1));
+  if (stages[i] === 'streak') return <StreakStage streak={award.streak} days={days} freezes={freezes} onNext={nextStage} />;
+  return (
+    <div className="done-screen place-done">
+      <Mascot mood="cheer" size={130} />
+      <h1 className="done-title">מצאנו את המדרגה שלכם!</h1>
+      <ol className="place-list">
+        {topicsFor(result.grade).map((t) => {
+          const L = result.results[t.id]?.level ?? 0; const top = t.levels.length;
+          return (
+            <li key={t.id} className={clsx('place-row', `ch-${t.color}`)}>
+              <Stairs steps={top} done={L} label={`${L} מתוך ${top} מדרגות`} />
+              <span className="place-text">
+                <b>{t.title}</b>
+                <span>{L >= top ? 'כל המדרגות פתוחות. נשארה החזרה על היחידה.' : `${L === 0 ? 'המדרגה הראשונה' : 'המדרגה הבאה'}: ${t.levels[L].title}`}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="stats">
+        <Stat tone="gold" icon={Zap} label="XP" value={result.xp} prefix="+" />
+        <Stat tone="good" icon={ChevronsUp} label="מדרגות" value={Object.values(result.results).reduce((a, r) => a + r.level, 0)} />
+        <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />
+      </div>
+      <div className="done-actions"><Button className="btn-block btn-lg" onClick={nextStage} autoFocus>{last ? 'ללוח שלי' : 'המשך'}</Button></div>
     </div>
   );
 }

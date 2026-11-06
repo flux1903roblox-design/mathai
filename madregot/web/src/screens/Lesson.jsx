@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { X, Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw } from 'lucide-react';
@@ -17,7 +17,7 @@ import Notebook from '@/components/Notebook.jsx';
 import CheckResult from '@/components/CheckResult.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/components/ui.jsx';
-import LessonDone from './LessonDone.jsx';
+import LessonDone, { PlacementDone } from './LessonDone.jsx';
 
 const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b' };
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
@@ -58,7 +58,9 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
 function useLessonSpec() {
   const { topic: tParam, id, level: lParam } = useParams();
   const [params] = useSearchParams();
-  const { path, progress } = useApp.getState();
+  const { pathname } = useLocation();
+  const { path, progress, profile } = useApp.getState();
+  if (pathname === '/placement') return { kind: 'placement', grade: ['7', '8'].includes(params.get('grade')) ? params.get('grade') : profile?.grade || '7', know: profile?.know ?? 1 };
   const topic = tParam || id;
   if (!TOPIC[topic]) return null;
   const kind = ['review', 'jump'].includes(params.get('kind')) ? params.get('kind') : 'node';
@@ -96,8 +98,11 @@ export default function Lesson() {
   const qRef = useRef(null);
   const dockRef = useRef(null);
   const [dockH, setDockH] = useState(380);
-  const t = spec ? TOPIC[spec.topic] : null;
   const item = s?.item;
+  // A placement test moves across topics: the colours and the misconceptions follow the question.
+  const t = spec ? TOPIC[item?.topic || spec.topic] : null;
+  const placement = spec?.kind === 'placement';
+  const isTest = (k) => k === 'jump' || k === 'placement'; // a check, not practice: one try, no hints
   const names = item ? slotsFor(item) : [];
 
   useEffect(() => {
@@ -170,7 +175,7 @@ export default function Lesson() {
         commit(result.event);
         if (item.form !== 'mc') setStruck(true);
         // The second miss is the moment help matters most: ask the tutor without waiting to be asked.
-        if (aiReady() && ns.kind !== 'jump') setTimeout(() => askExplainFor(ns), 0);
+        if (aiReady() && !isTest(ns.kind)) setTimeout(() => askExplainFor(ns), 0);
       }
       if (result.retry) { setStruck(true); setActive(names[0] || 'v'); if (item.form === 'mc') setChoice(null); }
     }
@@ -186,7 +191,7 @@ export default function Lesson() {
 
   const finish = (ns) => {
     const result = resultOf(ns);
-    const award = useApp.getState().completeLesson(result, { fromPlan: spec.fromPlan });
+    const award = placement ? useApp.getState().completePlacement(result) : useApp.getState().completeLesson(result, { fromPlan: spec.fromPlan });
     syncNow();
     play(result.passed ? 'complete' : 'wrong');
     setDone({ result, award });
@@ -220,6 +225,7 @@ export default function Lesson() {
   };
 
   if (!spec || !t) return <div className="page"><p>השיעור לא נמצא.</p></div>;
+  if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/', { replace: true, state: { placed: true } })} />;
   if (done) return <LessonDone {...done} topic={t} onExit={() => navigate('/', { replace: true, state: { from: spec.topic } })} onAgain={() => { setDone(null); setS(startLesson(spec)); }} />;
 
   const feedback = last && !last.invalid ? (last.ok ? 'good' : s.phase === 'retry' ? 'retry' : 'reveal') : null;
@@ -233,12 +239,16 @@ export default function Lesson() {
     <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open')} style={{ '--dock-h': `${dockH}px` }}>
       <header className="lesson-top">
         <button type="button" className="icon-btn lesson-x" onClick={() => setExitOpen(true)} aria-label="יציאה מהשיעור"><X size={26} /></button>
-        <div className="lesson-bar" role="progressbar" aria-label="התקדמות בשיעור" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+        <div className="lesson-bar" role="progressbar" aria-label={placement ? 'התקדמות בבדיקת הרמה' : 'התקדמות בשיעור'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
           <i style={{ width: `${Math.max(pct, 3)}%` }} />
         </div>
-        <span className={clsx('lesson-combo', s.combo >= 2 && 'on')} aria-live="polite">
-          {s.combo >= 2 && <><Flame size={18} aria-hidden="true" />{s.combo}<span className="visually-hidden"> ברצף</span></>}
-        </span>
+        {placement ? (
+          <span className="lesson-topic" aria-live="polite">{t.title}</span>
+        ) : (
+          <span className={clsx('lesson-combo', s.combo >= 2 && 'on')} aria-live="polite">
+            {s.combo >= 2 && <><Flame size={18} aria-hidden="true" />{s.combo}<span className="visually-hidden"> ברצף</span></>}
+          </span>
+        )}
       </header>
 
       <main className="lesson-main" ref={qRef} tabIndex={-1} aria-labelledby="qtext">
@@ -302,12 +312,12 @@ export default function Lesson() {
             {feedback === 'reveal' && (
               <div className="fb-body">
                 <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>
-                <Steps steps={item.solution} />
+                {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} />}
                 {explain.state === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['בודק את התשובה שלכם', 'מחפש איפה זה התפספס', 'מנסח הסבר']} /></Box>}
                 {explain.state === 'done' && <Box tone="ai" title="העוזר"><Markdown>{explain.text}</Markdown></Box>}
                 {explain.state === 'error' && <p className="form-error" role="alert">{explain.text}</p>}
-                {explain.state === 'idle' && aiReady() && s.kind !== 'jump' && <Button variant="ai" className="btn-sm" onClick={askExplain}><Sparkles size={16} aria-hidden="true" />למה טעיתי?</Button>}
-                {s.kind !== 'jump' && <p className="fb-note">תרגיל דומה יחזור בסוף השיעור.</p>}
+                {explain.state === 'idle' && aiReady() && !isTest(s.kind) && <Button variant="ai" className="btn-sm" onClick={askExplain}><Sparkles size={16} aria-hidden="true" />למה טעיתי?</Button>}
+                {!isTest(s.kind) && <p className="fb-note">תרגיל דומה יחזור בסוף השיעור.</p>}
               </div>
             )}
             {feedback === 'good' && (
@@ -325,8 +335,8 @@ export default function Lesson() {
         <div className="lesson-dock" ref={dockRef}>
           {/* help sits next to the thumb, above the keypad */}
           <div className="tools" role="group" aria-label="עזרה">
-            <button type="button" className="tool" onClick={() => setS(withHint(s))} disabled={s.hint || s.kind === 'jump'}><Lightbulb size={18} aria-hidden="true" />רמז</button>
-            {aiReady() && s.kind !== 'jump' && <button type="button" className="tool ai" aria-label="שאלו את העוזר" onClick={() => setChatOpen(true)}><Sparkles size={18} aria-hidden="true" />העוזר</button>}
+            <button type="button" className="tool" onClick={() => setS(withHint(s))} disabled={s.hint || isTest(s.kind)}><Lightbulb size={18} aria-hidden="true" />רמז</button>
+            {aiReady() && !isTest(s.kind) && <button type="button" className="tool ai" aria-label="שאלו את העוזר" onClick={() => setChatOpen(true)}><Sparkles size={18} aria-hidden="true" />העוזר</button>}
             <button type="button" className={clsx('tool', nbOn && 'on')} aria-pressed={nbOn} onClick={() => setNbOn(!nbOn)}>{nbOn ? <Keyboard size={18} aria-hidden="true" /> : <NotebookPen size={18} aria-hidden="true" />}{nbOn ? 'תשובה' : 'מחברת'}</button>
             {inClass && <button type="button" className="tool" onClick={() => setHelpOpen(true)}><Hand size={18} aria-hidden="true" />למורה</button>}
           </div>
@@ -335,11 +345,11 @@ export default function Lesson() {
         </div>
       )}
 
-      <Sheet open={exitOpen} onOpenChange={setExitOpen} title="לצאת מהשיעור?">
+      <Sheet open={exitOpen} onOpenChange={setExitOpen} title={placement ? 'לצאת מבדיקת הרמה?' : 'לצאת מהשיעור?'}>
         <div className="exit-sheet">
           <Mascot mood="oops" size={96} />
-          <p className="lead">ההתקדמות בשיעור הזה לא תישמר. התשובות שכבר עניתם נשמרות בתרגול שלכם.</p>
-          <Button className="btn-block btn-lg" onClick={() => setExitOpen(false)}>להמשיך ללמוד</Button>
+          <p className="lead">{placement ? 'כל נושא יתחיל מהמדרגה הראשונה. אפשר לחזור לבדיקה מהלוח בכל זמן.' : 'ההתקדמות בשיעור הזה לא תישמר. התשובות שכבר עניתם נשמרות בתרגול שלכם.'}</p>
+          <Button className="btn-block btn-lg" onClick={() => setExitOpen(false)}>{placement ? 'להמשיך בבדיקה' : 'להמשיך ללמוד'}</Button>
           <Button variant="danger-outline" className="btn-block" onClick={() => { syncNow(); navigate('/', { replace: true }); }}>יציאה</Button>
         </div>
       </Sheet>
@@ -347,7 +357,7 @@ export default function Lesson() {
         <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={item.text} />{item.display && <> <Tex tex={item.display} /></>}</div>
         <AIChat context={aiContext()} />
       </Sheet>
-      <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} payload={{ topic: spec.topic, level: item.level, question: itemMath(item), answer: s.wrong.map((w) => answerText(item, w)).join(' ; ') }} getImage={() => (page.strokes.length ? nbRef.current?.toImage() || null : null)} hasPage={page.strokes.length > 0} />
+      <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} payload={{ topic: item.topic, level: item.level, question: itemMath(item), answer: s.wrong.map((w) => answerText(item, w)).join(' ; ') }} getImage={() => (page.strokes.length ? nbRef.current?.toImage() || null : null)} hasPage={page.strokes.length > 0} />
     </div>
   );
 }

@@ -173,7 +173,7 @@ function rectArea() {
   const names = ['A', 'B', 'C', 'D'];
   return {
     key: `cp4:${x1}:${x2}:${y1}:${y2}`,
-    text: `מה השטח של המלבן $ABCD$? $${pts.map((p, i) => `${names[i]}(${p[0]}, ${p[1]})`).join(',\\ ')}$`,
+    text: `מה השטח של המלבן $ABCD$? ${pts.map((p, i) => `$${names[i]}(${p[0]}, ${p[1]})$`).join(', ')}`, // one expression per point: a narrow screen wraps between them
     form: 'num', answer: ans, unit: 'יחידות ריבועיות',
     fig: { type: 'coord', range: 6, polygon: pts, points: pts.map((p, i) => ({ x: p[0], y: p[1], label: names[i] })) },
     hint: 'מוצאים את אורך הצלע האופקית (לפי $x$) ואת אורך הצלע האנכית (לפי $y$), וכופלים.',
@@ -190,7 +190,7 @@ function missingVertex() {
   const [ax, ay] = pts[miss];
   return {
     key: `cp5:${x1}:${x2}:${y1}:${y2}:${miss}`,
-    text: `$ABCD$ הוא מלבן. נתון: $${shown.filter((p) => !p.hidden).map((p) => `${p.label}(${p.x}, ${p.y})`).join(',\\ ')}$. מה השיעורים של $${names[miss]}$?`,
+    text: `$ABCD$ הוא מלבן. נתון: ${shown.filter((p) => !p.hidden).map((p) => `$${p.label}(${p.x}, ${p.y})$`).join(', ')}. מה השיעורים של $${names[miss]}$?`,
     form: 'pt', answer: [ax, ay], label: names[miss],
     fig: { type: 'coord', range: 6, points: shown.filter((p) => !p.hidden) },
     hint: `במלבן הצלעות מקבילות לצירים: ל־$${names[miss]}$ יש אותו $x$ כמו לשכנה אחת שלו, ואותו $y$ כמו לשכנה השנייה.`,

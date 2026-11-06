@@ -1,10 +1,16 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight, Check, Footprints, Target } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
+import Stairs from '@/components/Stairs.jsx';
+import { topicsFor } from '@/content/index.js';
+import { KNOW } from '@/lib/placement.js';
+import { GOALS } from '@/lib/quests.js';
 
 export function GradeSwitch({ value, onChange, id }) {
   return (
@@ -21,63 +27,164 @@ export async function joinClass({ code, name, pin }) {
   return { classCode: r.classCode, className: r.className, grade: r.grade, token: r.token, studentId: r.studentId, name: r.name, returning: r.returning };
 }
 
-function Student({ onBack }) {
+const GRADE_NAME = { 7: 'כיתה ז׳', 8: 'כיתה ח׳' };
+
+/** One answer on an onboarding screen: a big pressable row. */
+function Option({ on, onPick, title, sub, glyph, aside, badge }) {
+  return (
+    <button type="button" role="radio" aria-checked={on} className={clsx('ob-opt', on && 'on')} onClick={onPick}>
+      {glyph && <span className="ob-opt-glyph" aria-hidden="true">{glyph}</span>}
+      <span className="ob-opt-text"><b>{title}{badge && <span className="ob-badge">{badge}</span>}</b>{sub && <span>{sub}</span>}</span>
+      {aside && <span className="ob-opt-aside">{aside}</span>}
+    </button>
+  );
+}
+
+/**
+ * First time on the app: a few short questions, one per screen, then a choice
+ * between a placement test and starting from the first stair.
+ */
+function Onboarding({ onTeacher }) {
+  const navigate = useNavigate();
   const setProfile = useApp((s) => s.setProfile);
-  const [name, setName] = useState('');
-  const [grade, setGrade] = useState('7');
-  const [code, setCode] = useState('');
-  const [pin, setPin] = useState('');
+  const setGoalXp = useApp((s) => s.setGoalXp);
+  const server = hasServer();
+  const steps = ['name', 'grade', 'know', 'goal', ...(server ? ['class'] : []), 'start'];
+  const [i, setI] = useState(-1); // -1: the hello screen
+  const [f, setF] = useState({ name: '', grade: null, know: null, goal: 20, code: '', pin: '', start: null });
+  const [joined, setJoined] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const server = hasServer();
+  const step = steps[i];
+  const set = (patch) => { setError(''); setF((v) => ({ ...v, ...patch })); };
+  const grade = joined?.grade || f.grade || '7';
+  const recommended = (f.know ?? 1) >= 1 ? 'test' : 'scratch';
+  const start = f.start || recommended;
 
-  const submit = async (e) => {
-    e.preventDefault();
-    setError('');
-    if (!name.trim()) { setError('כתבו את השם שלכם.'); return; }
-    if (code.trim()) {
-      setBusy(true);
-      try {
-        const c = await joinClass({ code, name: name.trim(), pin });
-        setProfile({ role: 'student', ...c });
-        toast.success(c.returning ? `ברוכים השבים לכיתה ${c.className}` : `הצטרפתם לכיתה ${c.className}`);
-      } catch (err) { setError(err.message); } finally { setBusy(false); }
-      return;
-    }
-    setProfile({ role: 'student', name: name.trim(), grade });
+  const finish = () => {
+    setGoalXp(f.goal);
+    setProfile({ role: 'student', name: joined?.name || f.name.trim(), grade, know: f.know ?? 1, ...(joined || {}) });
+    navigate(start === 'test' ? '/placement' : '/', { replace: true });
   };
 
-  return (
-    <form className="welcome-form" onSubmit={submit} noValidate>
-      <h1 className="h-page">נעים להכיר</h1>
-      <Field label="איך קוראים לך?" id="w-name">
-        <input id="w-name" className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" maxLength={30} placeholder="שם פרטי" />
-      </Field>
-      {!code.trim() && (
-        <div className="field">
-          <span className="field-label" id="w-grade">באיזו כיתה?</span>
-          <GradeSwitch value={grade} onChange={setGrade} id="w-grade" />
+  const go = async () => {
+    if (step === 'name' && !f.name.trim()) { setError('כתבו את השם שלכם.'); return; }
+    if (step === 'class' && f.code.trim() && !joined) {
+      if (!/^\d{4}$/.test(f.pin)) { setError('בחרו קוד אישי של 4 ספרות.'); return; }
+      setBusy(true);
+      try {
+        const c = await joinClass({ code: f.code, name: f.name.trim(), pin: f.pin });
+        setJoined(c);
+        toast.success(c.returning ? `ברוכים השבים לכיתה ${c.className}` : `הצטרפתם לכיתה ${c.className}`);
+      } catch (err) { setError(err.message); return; } finally { setBusy(false); }
+    }
+    if (step === 'start') { finish(); return; }
+    setError(''); setI(i + 1);
+  };
+  const back = () => { setError(''); setI(i - 1); };
+
+  if (i < 0) {
+    return (
+      <div className="ob ob-hello">
+        <Mascot mood="happy" size={150} className="welcome-mascot" />
+        <h1 className="wordmark">מדרגות</h1>
+        <p className="lead">תרגול מתמטיקה של כמה דקות ביום, לכיתות ז׳ וח׳. עונים על כמה שאלות קצרות, ומתחילים מהמדרגה שמתאימה לכם.</p>
+        <div className="form-actions">
+          <Button className="btn-lg" onClick={() => setI(0)}>מתחילים</Button>
+          <Button variant="secondary" onClick={onTeacher}>אני מורה</Button>
         </div>
-      )}
-      {server && (
-        <fieldset className="fieldset">
-          <legend>הצטרפות לכיתה (לא חובה)</legend>
-          <p className="field-hint">אם המורה נתן לכם קוד כיתה, הוא יראה את ההתקדמות שלכם ואת הבקשות לעזרה.</p>
-          <Field label="קוד כיתה" id="w-code">
-            <input id="w-code" className="input mono" dir="ltr" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={6} autoCapitalize="characters" autoComplete="off" placeholder="למשל K7Q2MD" />
-          </Field>
-          {code.trim() && (
-            <Field label="קוד אישי של 4 ספרות" id="w-pin" hint="בפעם הראשונה בוחרים קוד. בפעמים הבאות מקלידים את אותו קוד.">
-              <input id="w-pin" className="input mono" dir="ltr" inputMode="numeric" pattern="\d{4}" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} autoComplete="off" />
-            </Field>
-          )}
-        </fieldset>
-      )}
-      {error && <p className="form-error" role="alert">{error}</p>}
-      <div className="form-actions">
-        <Button type="submit" disabled={busy}>{busy ? 'מצטרפים…' : 'מתחילים'}</Button>
-        <Button variant="ghost" onClick={onBack}>חזרה</Button>
       </div>
+    );
+  }
+
+  const can = { name: !!f.name.trim(), grade: !!f.grade, know: f.know != null, goal: !!f.goal, class: true, start: true }[step];
+  const ask = {
+    name: 'היי, אני מדי! איך קוראים לך?',
+    grade: `נעים מאוד, ${f.name.trim()}! באיזו כיתה אתם?`,
+    know: `כמה מהחומר של ${GRADE_NAME[grade]} כבר מוכר לכם?`,
+    goal: 'כמה זמן ביום מתאים לכם?',
+    class: 'יש לכם קוד כיתה מהמורה?',
+    start: 'מאיפה מתחילים?',
+  }[step];
+  const cta = step === 'class' ? (joined ? 'המשך' : f.code.trim() ? 'הצטרפות לכיתה' : 'המשך בלי קוד') : step === 'start' ? (start === 'test' ? 'לבדיקת הרמה' : 'לשיעור הראשון') : 'המשך';
+
+  return (
+    <form className="ob" onSubmit={(e) => { e.preventDefault(); if (can && !busy) go(); }} noValidate>
+      <header className="ob-top">
+        <button type="button" className="icon-btn" onClick={back} aria-label="חזרה"><ArrowRight size={26} aria-hidden="true" /></button>
+        <div className="ob-bar" role="progressbar" aria-label="השאלות הראשונות" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={i + 1}>
+          <i style={{ width: `${((i + 1) / steps.length) * 100}%` }} />
+        </div>
+      </header>
+      <main className="ob-main">
+        <div className="ob-ask">
+          <Mascot mood={step === 'start' ? 'cheer' : 'happy'} size={84} className="ob-mascot" />
+          <p className="ob-bubble" id="ob-q">{ask}</p>
+        </div>
+
+        {step === 'name' && (
+          <div className="ob-field">
+            <label htmlFor="w-name" className="visually-hidden">השם שלכם</label>
+            <input id="w-name" className="input input-lg" value={f.name} onChange={(e) => set({ name: e.target.value })} autoComplete="given-name" maxLength={30} placeholder="שם פרטי" autoFocus enterKeyHint="next" />
+          </div>
+        )}
+        {step === 'grade' && (
+          <div className="ob-opts" role="radiogroup" aria-labelledby="ob-q">
+            {['7', '8'].map((g) => (
+              <Option key={g} on={f.grade === g} onPick={() => set({ grade: g, start: null })} title={GRADE_NAME[g]} sub={topicsFor(g).map((t) => t.title).join(', ')}
+                glyph={<span className="ob-grade">{g === '7' ? 'ז׳' : 'ח׳'}</span>} />
+            ))}
+          </div>
+        )}
+        {step === 'know' && (
+          <div className="ob-opts" role="radiogroup" aria-labelledby="ob-q">
+            {KNOW.map((k) => (
+              <Option key={k.id} on={f.know === k.id} onPick={() => set({ know: k.id, start: null })} title={k.title} sub={k.sub}
+                glyph={<Stairs steps={4} done={k.id + 1} />} />
+            ))}
+          </div>
+        )}
+        {step === 'goal' && (
+          <div className="ob-opts" role="radiogroup" aria-labelledby="ob-q">
+            {GOALS.map((g) => (
+              <Option key={g.xp} on={f.goal === g.xp} onPick={() => set({ goal: g.xp })} title={`${g.mins} דקות ביום`} sub={g.label}
+                aside={<bdi dir="ltr">{g.xp} XP</bdi>} badge={g.xp === 20 ? 'הכי נפוץ' : null} />
+            ))}
+            <p className="ob-note">אפשר לשנות את זה בכל יום במסך המשימות.</p>
+          </div>
+        )}
+        {step === 'class' && (
+          <div className="ob-field">
+            {joined ? (
+              <p className="ob-joined" role="status"><Check size={20} strokeWidth={3} aria-hidden="true" />אתם בכיתה {joined.className}{joined.teacherName ? ` של ${joined.teacherName}` : ''}.</p>
+            ) : (
+              <>
+                <p className="ob-note">עם קוד, המורה יראה את ההתקדמות ויוכל לעזור כשמשהו לא ברור. אפשר להמשיך גם בלי, ולהצטרף אחר כך מהמסך "אני".</p>
+                <Field label="קוד כיתה" id="w-code">
+                  <input id="w-code" className="input mono" dir="ltr" value={f.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} maxLength={6} autoCapitalize="characters" autoComplete="off" placeholder="למשל K7Q2MD" />
+                </Field>
+                {f.code.trim() && (
+                  <Field label="קוד אישי של 4 ספרות" id="w-pin" hint="בפעם הראשונה בוחרים קוד. בפעמים הבאות מקלידים את אותו קוד.">
+                    <input id="w-pin" className="input mono" dir="ltr" inputMode="numeric" pattern="\d{4}" maxLength={4} value={f.pin} onChange={(e) => set({ pin: e.target.value.replace(/\D/g, '') })} autoComplete="off" />
+                  </Field>
+                )}
+              </>
+            )}
+          </div>
+        )}
+        {step === 'start' && (
+          <div className="ob-opts" role="radiogroup" aria-labelledby="ob-q">
+            <Option on={start === 'test'} onPick={() => set({ start: 'test' })} title="בדיקת רמה קצרה" badge={recommended === 'test' ? 'מומלץ' : null}
+              sub="עד 9 שאלות, בערך 5 דקות. כל נושא יתחיל מהמדרגה שלכם." glyph={<Target size={30} strokeWidth={2.4} />} />
+            <Option on={start === 'scratch'} onPick={() => set({ start: 'scratch' })} title="מתחילים מההתחלה" badge={recommended === 'scratch' ? 'מומלץ' : null}
+              sub="מהמדרגה הראשונה בכל נושא. אפשר לעשות את הבדיקה אחר כך." glyph={<Footprints size={30} strokeWidth={2.4} />} />
+          </div>
+        )}
+        {error && <p className="form-error" role="alert">{error}</p>}
+      </main>
+      <footer className="ob-foot">
+        <Button type="submit" className="btn-block btn-lg" disabled={!can || busy}>{busy ? 'מצטרפים…' : cta}</Button>
+      </footer>
     </form>
   );
 }
@@ -146,22 +253,7 @@ function TeacherStart({ onBack }) {
 }
 
 export default function Welcome() {
-  const [step, setStep] = useState('choose');
-  return (
-    <div className="welcome">
-      {step === 'choose' && (
-        <div className="welcome-intro">
-          <Mascot mood="happy" size={150} className="welcome-mascot" />
-          <h1 className="wordmark">מדרגות</h1>
-          <p className="lead">תרגול מתמטיקה יומי לכיתות ז׳ וח׳. כל תרגיל מעלה אתכם מדרגה, ועוזר AI מסביר כל טעות.</p>
-          <div className="form-actions">
-            <Button onClick={() => setStep('student')}>אני תלמיד או תלמידה</Button>
-            <Button variant="secondary" onClick={() => setStep('teacher')}>אני מורה</Button>
-          </div>
-        </div>
-      )}
-      {step === 'student' && <Student onBack={() => setStep('choose')} />}
-      {step === 'teacher' && <TeacherStart onBack={() => setStep('choose')} />}
-    </div>
-  );
+  const [teacher, setTeacher] = useState(false);
+  if (!teacher) return <Onboarding onTeacher={() => setTeacher(true)} />;
+  return <div className="welcome"><TeacherStart onBack={() => setTeacher(false)} /></div>;
 }
