@@ -104,6 +104,21 @@ function AISection() {
   );
 }
 
+function SoundSetting() {
+  const sound = useApp((x) => x.sound);
+  const setSound = useApp((x) => x.setSound);
+  return (
+    <section className="section" aria-labelledby="snd-title">
+      <h2 id="snd-title" className="h-section">צלילים ורטט</h2>
+      <div className="segmented" role="radiogroup" aria-labelledby="snd-title">
+        <button type="button" role="radio" aria-checked={sound} className={clsx('seg', sound && 'on')} onClick={() => setSound(true)}>פועלים</button>
+        <button type="button" role="radio" aria-checked={!sound} className={clsx('seg', !sound && 'on')} onClick={() => setSound(false)}>כבויים</button>
+      </div>
+      <p className="field-hint">צליל קצר אחרי כל תשובה ובסוף שיעור. בטלפון אנדרואיד יש גם רטט קל אחרי טעות.</p>
+    </section>
+  );
+}
+
 export default function Me() {
   const { profile, patchProfile, resetProgress, signOut } = useApp();
   const [name, setName] = useState(profile.name);
@@ -122,6 +137,7 @@ export default function Me() {
       </section>
       <ClassSection />
       <AISection />
+      <SoundSetting />
       <section className="section danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="h-section">אזור מחיקה</h2>
         {danger === 'reset' ? (
