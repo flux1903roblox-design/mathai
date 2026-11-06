@@ -1,87 +1,6 @@
-// Grade 8 (ח׳): slope and the equation of a line, Pythagoras, statistics.
-import { R, NZ, pick, shuffle, T, ratioTex, reduce, near, TRIPLES } from './util.js';
-
-const lineTex = (m, b) => {
-  const mt = m === 1 ? '' : m === -1 ? '-' : ratioTex(Math.round(m * 1e6), 1e6);
-  const bt = b === 0 ? '' : b > 0 ? ` + ${T(b)}` : ` - ${T(-b)}`;
-  return `y = ${m === 0 ? '' : `${mt}x`}${m === 0 ? T(b) : bt}`;
-};
-const mFrac = (dy, dx) => ratioTex(dy, dx);
-
-// ---------------------------------------------------------------- slope & line
-function slopeTwoPoints() {
-  for (;;) {
-    const x1 = R(-5, 4); const x2 = R(-5, 5); const y1 = R(-5, 5); const y2 = R(-5, 5);
-    if (x1 === x2 || y1 === y2) continue;
-    const dy = y2 - y1; const dx = x2 - x1; const m = dy / dx;
-    const [p, q] = reduce(dy, dx);
-    if (Math.abs(q) > 6) continue;
-    return {
-      key: `ln1:${x1}:${y1}:${x2}:${y2}`, text: `מה השיפוע של הישר שעובר דרך $A(${x1}, ${y1})$ ו־$B(${x2}, ${y2})$?`,
-      form: 'num', answer: m, label: 'm =',
-      fig: { type: 'coord', range: 6, points: [{ x: x1, y: y1, label: 'A' }, { x: x2, y: y2, label: 'B' }], line: { m, b: y1 - m * x1 } },
-      hint: 'שיפוע = השינוי ב־$y$ חלקי השינוי ב־$x$: $m = \\frac{y_2 - y_1}{x_2 - x_1}$. אפשר לכתוב שבר, למשל 3/4.',
-      solution: [`$m = \\frac{${T(y2)} - ${T(y1, true)}}{${T(x2)} - ${T(x1, true)}} = \\frac{${dy}}{${dx}}$`, `$m = ${ratioTex(p, q)}$`],
-      diag: (u) => {
-        if (near(u, dx / dy) && !near(m, dx / dy)) return 'inverse';
-        if (near(u, -m)) return 'sign';
-        return null;
-      },
-    };
-  }
-}
-
-function readEquation() {
-  const m = NZ(-5, 5); const b = NZ(-8, 8); const askM = Math.random() < 0.5;
-  const style = R(0, 2);
-  const eq = style === 0 ? lineTex(m, b) : style === 1 ? `y = ${T(b)} ${m < 0 ? '-' : '+'} ${Math.abs(m) === 1 ? '' : Math.abs(m)}x` : lineTex(m, b);
-  const ans = askM ? m : b;
-  return {
-    key: `ln2:${m}:${b}:${askM}:${style}`, text: `נתון הישר $${eq}$. ${askM ? 'מה השיפוע שלו?' : 'באיזו נקודה על ציר $y$ הוא חותך? כתבו את ערך $y$.'}`,
-    form: 'num', answer: ans, label: askM ? 'm =' : 'b =',
-    hint: 'בצורה $y = mx + b$: המספר שכופל את $x$ הוא השיפוע $m$, והמספר הבודד הוא $b$, נקודת החיתוך עם ציר $y$.',
-    solution: [`$m = ${T(m)}$, $b = ${T(b)}$`, askM ? `השיפוע: $${T(m)}$` : `החיתוך עם ציר $y$: $(0, ${b})$`],
-    diag: (u) => (near(u, askM ? b : m) && m !== b ? 'm-b' : near(u, -ans) ? 'sign' : null),
-  };
-}
-
-function slopePoint() {
-  const m = NZ(-4, 4); const x0 = NZ(-4, 4); const y0 = R(-6, 6); const b = y0 - m * x0;
-  return {
-    key: `ln3:${m}:${x0}:${y0}`, text: `מצאו את משוואת הישר שהשיפוע שלו $${T(m)}$ והוא עובר דרך הנקודה $P(${x0}, ${y0})$.`,
-    form: 'line', answer: { m, b },
-    hint: 'מציבים את הנקודה ב־$y = mx + b$ ומוצאים את $b$.',
-    solution: [`$${y0} = ${T(m)} \\cdot ${T(x0, true)} + b$`, `$${y0} = ${m * x0} + b \\Rightarrow b = ${b}$`, `$${lineTex(m, b)}$`],
-    diag: (v) => (v && near(v.m, m) && near(v.b, -b) && b !== 0 ? 'b-sign' : v && near(v.m, m) && near(v.b, y0) ? 'b-is-y' : null),
-  };
-}
-
-function twoPoints() {
-  for (;;) {
-    const m = NZ(-3, 3); const x1 = R(-4, 3); const x2 = x1 + R(1, 3); const b = R(-5, 5);
-    const y1 = m * x1 + b; const y2 = m * x2 + b;
-    if (Math.abs(y1) > 9 || Math.abs(y2) > 9) continue;
-    return {
-      key: `ln4:${x1}:${y1}:${x2}:${y2}`, text: `מצאו את משוואת הישר שעובר דרך $A(${x1}, ${y1})$ ו־$B(${x2}, ${y2})$.`,
-      form: 'line', answer: { m, b },
-      hint: 'שני שלבים: קודם השיפוע מהשינויים, אחר כך מציבים נקודה אחת ומוצאים את $b$.',
-      solution: [`$m = \\frac{${y2} - ${T(y1, true)}}{${x2} - ${T(x1, true)}} = ${T(m)}$`, `$${y1} = ${T(m)} \\cdot ${T(x1, true)} + b \\Rightarrow b = ${b}$`, `$${lineTex(m, b)}$`],
-      diag: (v) => (v && near(v.m, 1 / m) && Math.abs(m) !== 1 ? 'inverse' : v && near(v.m, -m) ? 'sign' : null),
-    };
-  }
-}
-
-function parallelThrough() {
-  const m = NZ(-4, 4); const c = NZ(-6, 6); const x0 = NZ(-4, 4); const y0 = R(-6, 6); const b = y0 - m * x0;
-  if (b === c) return parallelThrough(); // P on the given line would make it the same line
-  return {
-    key: `ln5:${m}:${c}:${x0}:${y0}`, text: `מצאו את משוואת הישר שמקביל ל־$${lineTex(m, c)}$ ועובר דרך $P(${x0}, ${y0})$.`,
-    form: 'line', answer: { m, b },
-    hint: 'ישרים מקבילים הם בעלי אותו שיפוע. השיפוע ידוע, נשאר למצוא את $b$.',
-    solution: [`השיפוע זהה: $m = ${T(m)}$`, `$${y0} = ${T(m)} \\cdot ${T(x0, true)} + b \\Rightarrow b = ${b}$`, `$${lineTex(m, b)}$`],
-    diag: (v) => (v && near(v.m, -1 / m) ? 'perpendicular' : v && near(v.m, m) && near(v.b, c) ? 'same-line' : null),
-  };
-}
+// Grade 8 (ח׳): the linear function (linear.js), Pythagoras, statistics.
+import { R, pick, shuffle, near, TRIPLES } from './util.js';
+import { LINEAR } from './linear.js';
 
 // ---------------------------------------------------------------- Pythagoras
 const scaled = () => { const [a, b, c] = pick(TRIPLES); return Math.random() < 0.5 ? [a, b, c] : [b, a, c]; };
@@ -252,26 +171,7 @@ function missingValue() {
 }
 
 export const GRADE8 = [
-  {
-    id: 'line', grade: '8', title: 'שיפוע ומשוואת ישר', color: 'green',
-    desc: 'שיפוע, משוואה לפי נקודה, שתי נקודות וישר מקביל',
-    levels: [
-      { title: 'שיפוע בין שתי נקודות', gen: slopeTwoPoints },
-      { title: 'קריאת משוואה', gen: readEquation },
-      { title: 'משוואה לפי שיפוע ונקודה', gen: slopePoint },
-      { title: 'משוואה לפי שתי נקודות', gen: twoPoints },
-      { title: 'ישר מקביל', gen: parallelThrough },
-    ],
-    cats: {
-      inverse: 'חילקו את השינוי ב־$x$ בשינוי ב־$y$ (הפוך)',
-      sign: 'טעות בסימן של השיפוע',
-      'm-b': 'התבלבלו בין השיפוע לנקודת החיתוך',
-      'b-sign': 'טעות בסימן של $b$',
-      'b-is-y': 'הציבו את $y$ של הנקודה בתור $b$',
-      perpendicular: 'בחרו שיפוע של ישר מאונך, לא מקביל',
-      'same-line': 'כתבו את הישר הנתון עצמו',
-    },
-  },
+  LINEAR,
   {
     id: 'pyth', grade: '8', title: 'משפט פיתגורס', color: 'violet',
     desc: 'יתר, ניצב, בדיקת משולש ושאלות מילוליות',

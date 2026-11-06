@@ -13,6 +13,12 @@ import Practice from '@/screens/Practice.jsx';
 const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
 const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
+const Exams = lazy(() => import('@/screens/Exams.jsx'));
+const ExamCheck = lazy(() => import('@/screens/ExamCheck.jsx'));
+const ExamResult = lazy(() => import('@/screens/ExamResult.jsx'));
+const Plan = lazy(() => import('@/screens/Plan.jsx'));
+const NewPracticeExam = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.NewPracticeExam })));
+const PracticeSheet = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.PracticeSheet })));
 
 function useSync() {
   const token = useApp((s) => s.profile?.token);
@@ -55,6 +61,12 @@ export default function App() {
               <Route path="/topic/:id" element={<Topic />} />
               <Route path="/assistant" element={<Assistant />} />
               <Route path="/me" element={<Me />} />
+              <Route path="/exams" element={<Exams />} />
+              <Route path="/exams/check" element={<ExamCheck />} />
+              <Route path="/exams/new" element={<NewPracticeExam />} />
+              <Route path="/exams/practice/:id" element={<PracticeSheet />} />
+              <Route path="/exams/:id" element={<ExamResult />} />
+              <Route path="/plan" element={<Plan />} />
             </Route>
             <Route path="/practice/:id" element={<PracticeRoute />} />
             <Route path="*" element={<Navigate to="/" replace />} />

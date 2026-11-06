@@ -64,3 +64,15 @@ CREATE TABLE IF NOT EXISTS ai_usage (
   count INTEGER NOT NULL,
   PRIMARY KEY (who, day)
 );
+
+CREATE TABLE IF NOT EXISTS exams (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  correct INTEGER NOT NULL,
+  total INTEGER NOT NULL,
+  questions TEXT NOT NULL, -- JSON: [{ topic, status, skill }]
+  weak TEXT NOT NULL,      -- JSON: [topic ids]
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS exams_student ON exams (student_id);

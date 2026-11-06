@@ -115,6 +115,8 @@ img, svg { max-width: 100%; }
 
 /* math: KaTeX keeps left-to-right inside Hebrew lines */
 .katex { direction: ltr; unicode-bidi: isolate; font-size: 1.08em; }
+/* A short inline expression never splits across lines in RTL text (y = | 4x − 4 reads backwards). */
+:not(.katex-display) > .katex { white-space: nowrap; }
 .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; }
 .mathline { direction: ltr; unicode-bidi: isolate; }
 

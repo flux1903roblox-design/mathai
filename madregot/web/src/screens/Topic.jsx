@@ -1,9 +1,12 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import { ArrowRight, Sparkles, Check, Lock } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { TOPIC, TOPICS } from '@/content/index.js';
 import { Box, Button, ChapterMark } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
+
+const LineExplorer = lazy(() => import('@/components/LineExplorer.jsx'));
 
 export default function Topic() {
   const { id } = useParams();
@@ -25,6 +28,24 @@ export default function Topic() {
           <p className="chapter-desc">{t.desc}</p>
         </div>
       </header>
+
+      {t.lesson && (
+        <Box tone="note" title="תזכורת מהשיעור">
+          <ul className="lesson-list">{t.lesson.points.map((pt) => <li key={pt}><MathText text={pt} /></li>)}</ul>
+          {t.lesson.examples && (
+            <details className="sol">
+              <summary>דוגמאות מהשיעור</summary>
+              <ul className="lesson-list">{t.lesson.examples.map((ex) => <li key={ex}><MathText text={ex} /></li>)}</ul>
+            </details>
+          )}
+          {t.lesson.explore === 'line' && (
+            <details className="sol explorer-details">
+              <summary>גרף שמשנים: מזיזים את m ואת b</summary>
+              <Suspense fallback={<p className="muted">טוענים…</p>}><LineExplorer /></Suspense>
+            </details>
+          )}
+        </Box>
+      )}
 
       <ol className="level-list">
         {t.levels.map((L, i) => {

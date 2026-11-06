@@ -22,6 +22,10 @@ const empty = {
   ai: { mode: 'server', apiUrl: '', key: '' },
   helpSent: 0,
   solveMode: 'answer', // 'answer' (keypad) or 'notebook' (write the working on a squared page)
+  exams: [], // checked exams, newest first: { id, at, title, source, practiceId, result, score, levels }
+  practiceExams: [], // printable practice exams with their answer key
+  planBase: {}, // topic -> { level, wins, at }: the focus level and wins counted there when the plan step started
+  wins: {}, // 'topic:level' -> correct answers at that level
 };
 
 export const useApp = create(
@@ -32,6 +36,10 @@ export const useApp = create(
       patchProfile: (patch) => set({ profile: { ...get().profile, ...patch } }),
       setAI: (patch) => set({ ai: { ...get().ai, ...patch } }),
       setSolveMode: (solveMode) => set({ solveMode }),
+      addExam: (exam) => set({ exams: [exam, ...get().exams].slice(0, 30) }),
+      removeExam: (id) => set({ exams: get().exams.filter((e) => e.id !== id) }),
+      addPracticeExam: (pe) => set({ practiceExams: [pe, ...get().practiceExams].slice(0, 20) }),
+      resetPlanBase: (patch) => set({ planBase: { ...get().planBase, ...patch } }),
       setLevel: (topicId, level, max) => set({
         progress: { ...get().progress, [topicId]: { level, max: Math.max(max, get().progress[topicId]?.max || 1) } },
         lastTopic: topicId,
@@ -39,11 +47,13 @@ export const useApp = create(
       recordAnswer: (event, xpGain) => {
         const d = today(); const cur = get().days[d] || { q: 0, ok: 0, secs: 0 };
         const mistakes = { ...get().mistakes };
+        const wins = event.ok && event.level ? { ...get().wins, [`${event.topic}:${event.level}`]: (get().wins[`${event.topic}:${event.level}`] || 0) + 1 } : get().wins;
         if (event.cat && !event.ok) mistakes[`${event.topic}:${event.cat}`] = (mistakes[`${event.topic}:${event.cat}`] || 0) + 1;
         set({
           days: { ...get().days, [d]: { q: cur.q + 1, ok: cur.ok + (event.ok ? 1 : 0), secs: cur.secs + Math.min(event.secs || 0, 300) } },
           xp: get().xp + xpGain,
           mistakes,
+          wins,
           outbox: get().profile?.token ? [...get().outbox, event].slice(-500) : get().outbox,
         });
       },
@@ -55,7 +65,7 @@ export const useApp = create(
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
         set({ profile: rest, outbox: [] });
       },
-      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [] }),
+      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {} }),
       signOut: () => set({ ...empty, ai: get().ai }),
     }),
     { name: 'madregot', storage: safeStorage, version: 1 },

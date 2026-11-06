@@ -200,11 +200,14 @@ function Ladder({ fig }) {
   );
 }
 
+// Numbers stay left-to-right inside the RTL table, with a real minus sign.
+const cell = (v) => String(v).replace(/^-/, '\u2212');
+
 function Table({ fig }) {
   return (
     <table className="fg-table">
       <thead><tr>{fig.head.map((h) => <th key={h} scope="col">{h}</th>)}</tr></thead>
-      <tbody>{fig.rows.map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j}>{v}</td>)}</tr>)}</tbody>
+      <tbody>{fig.rows.map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j}><bdi dir="ltr">{cell(v)}</bdi></td>)}</tr>)}</tbody>
     </table>
   );
 }

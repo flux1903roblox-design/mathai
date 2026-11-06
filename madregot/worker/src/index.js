@@ -1,6 +1,6 @@
 // Madregot API: Claude proxy (the key never reaches browsers) + class data in D1.
 import Anthropic from '@anthropic-ai/sdk';
-import { AI_KINDS, buildRequest, readResult } from '../../shared/ai.js';
+import { AI_KINDS, STREAMED, TOPIC_IDS, buildRequest, readResult } from '../../shared/ai.js';
 
 const TZ = 'Asia/Jerusalem';
 const dayOf = (d = new Date()) => d.toLocaleDateString('en-CA', { timeZone: TZ });
@@ -136,7 +136,8 @@ async function handleAI(kind, req, env, ctx, cors) {
   }
 
   try {
-    const message = await client.beta.messages.create(params);
+    // Long outputs (a whole exam) stream so the request never times out; we wait for the final message.
+    const message = STREAMED(kind) ? await client.beta.messages.stream(params).finalMessage() : await client.beta.messages.create(params);
     return json(readResult(kind, message), 200, cors);
   } catch (e) {
     if (e instanceof HttpError) throw e;
@@ -228,6 +229,19 @@ async function saveProgress(req, env, cors) {
   return json({ saved: events.length }, 200, cors);
 }
 
+async function saveExam(req, env, cors) {
+  const s = await requireStudent(req, env);
+  const b = await body(req);
+  const qs = (Array.isArray(b.questions) ? b.questions : []).slice(0, 40).map((q) => ({
+    topic: TOPIC_IDS.includes(q.topic) ? q.topic : 'other', status: ['correct', 'partial', 'wrong', 'missing'].includes(q.status) ? q.status : 'missing', skill: String(q.skill || '').slice(0, 60),
+    level: Number.isInteger(q.level) && q.level > 0 && q.level <= 12 ? q.level : 0,
+  }));
+  const weak = (Array.isArray(b.weakTopics) ? b.weakTopics : []).filter((t) => TOPIC_IDS.includes(t)).slice(0, 6);
+  await env.DB.prepare('INSERT INTO exams (student_id, title, correct, total, questions, weak, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(s.id, String(b.title || 'מבחן').slice(0, 80), Number(b.correct) || 0, Number(b.total) || qs.length, JSON.stringify(qs), JSON.stringify(weak), nowIso()).run();
+  return json({ ok: true }, 200, cors);
+}
+
 async function askHelp(req, env, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req);
@@ -246,7 +260,7 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
@@ -262,6 +276,7 @@ async function dashboard(req, env, cors) {
        FROM help_requests h JOIN students s ON s.id = h.student_id
        WHERE s.class_code = ? AND (h.done_at IS NULL OR h.done_at >= ?) ORDER BY h.created_at DESC LIMIT 100`, cls.code, daysAgo(7)),
     q('SELECT a.student_id, MAX(a.at) AS last FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? GROUP BY a.student_id', cls.code),
+    q('SELECT e.id, e.student_id, e.title, e.correct, e.total, e.questions, e.weak, e.created_at, s.name FROM exams e JOIN students s ON s.id = e.student_id WHERE s.class_code = ? ORDER BY e.created_at DESC LIMIT 200', cls.code),
   ]);
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
   const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows);
@@ -276,6 +291,7 @@ async function dashboard(req, env, cors) {
       week: w[s.id] ? { n: w[s.id].n, first: w[s.id].first, days: w[s.id].days, minutes: Math.round((w[s.id].secs || 0) / 60) } : { n: 0, first: 0, days: 0, minutes: 0 },
       levels: lv[s.id] || {},
     })),
+    exams: examRows.map((e) => ({ id: e.id, studentId: e.student_id, name: e.name, title: e.title, correct: e.correct, total: e.total, weak: JSON.parse(e.weak || '[]'), questions: JSON.parse(e.questions || '[]'), at: e.created_at })),
     mistakes: catRows.map((r) => ({ ...r, names: catStudents.filter((c) => c.topic === r.topic && c.cat === r.cat).map((c) => c.name) })),
     help,
   }, 200, cors);
@@ -327,6 +343,7 @@ export default {
       if (req.method === 'POST' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})\/join$/))) return await joinClass(m[1], req, env, cors);
       if (req.method === 'POST' && p === '/api/progress') return await saveProgress(req, env, cors);
       if (req.method === 'POST' && p === '/api/help') return await askHelp(req, env, cors);
+      if (req.method === 'POST' && p === '/api/exams') return await saveExam(req, env, cors);
       if (req.method === 'GET' && p === '/api/teacher/dashboard') return await dashboard(req, env, cors);
       if (req.method === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)$/))) return await updateHelp(m[1], req, env, cors);
       if (req.method === 'GET' && (m = p.match(/^\/api\/teacher\/help\/(\d+)\/image$/))) return await helpImage(m[1], req, env, cors);

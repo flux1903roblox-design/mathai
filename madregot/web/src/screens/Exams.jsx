@@ -1,0 +1,77 @@
+import { Link } from 'react-router-dom';
+import { ClipboardCheck, Printer, Route, ChevronLeft } from 'lucide-react';
+import { useApp } from '@/lib/store.js';
+import { usePlan } from '@/lib/usePlan.js';
+
+const fmtDate = (iso) => new Date(iso).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit' });
+export const pctTone = (pct) => (pct >= 80 ? 'high' : pct >= 60 ? 'mid' : 'low');
+
+function ActionRow({ to, icon: Icon, title, desc }) {
+  return (
+    <li>
+      <Link to={to} className="action-row">
+        <span className="action-icon" aria-hidden="true"><Icon size={22} /></span>
+        <span className="topic-row-text"><span className="topic-row-title">{title}</span><span className="topic-row-desc">{desc}</span></span>
+        <ChevronLeft className="chev" size={20} aria-hidden="true" />
+      </Link>
+    </li>
+  );
+}
+
+export default function Exams() {
+  const { exams, practiceExams } = useApp();
+  const plan = usePlan();
+  return (
+    <div className="page">
+      <h1 className="h-page">מבחנים</h1>
+      <p className="lead">בודקים מבחן שפתרתם, מקבלים הסבר על כל שאלה, ורואים מה כדאי לתרגל עכשיו.</p>
+      <ul className="topic-list">
+        <ActionRow to="/exams/check" icon={ClipboardCheck} title="בדיקת מבחן שפתרתם" desc="מצלמים את הדפים או מעלים PDF, והעוזר בודק כל תשובה" />
+        <ActionRow to="/exams/new" icon={Printer} title="מבחן תרגול להדפסה" desc="מבחן מהנושאים שלכם, עם מפתח תשובות לבדיקה מדויקת" />
+        <ActionRow to="/plan" icon={Route} title="התוכנית שלי לשיפור" desc={`${plan.done} מתוך ${plan.steps.length} צעדים הושלמו`} />
+      </ul>
+
+      <section className="section" aria-labelledby="checked-title">
+        <h2 id="checked-title" className="h-section">מבחנים שנבדקו</h2>
+        {exams.length === 0 ? (
+          <p className="muted">עוד לא בדקתם מבחן. אחרי הבדיקה הראשונה הוא יופיע כאן, עם ציון ומשוב לכל שאלה.</p>
+        ) : (
+          <ul className="topic-list">
+            {exams.map((e) => (
+              <li key={e.id}>
+                <Link to={`/exams/${e.id}`} className="action-row">
+                  <span className={`score-chip ${pctTone(e.score.pct)}`}>{e.score.pct}%</span>
+                  <span className="topic-row-text">
+                    <span className="topic-row-title">{e.title}</span>
+                    <span className="topic-row-desc">{fmtDate(e.at)} · {e.score.correct} מתוך {e.score.total} שאלות</span>
+                  </span>
+                  <ChevronLeft className="chev" size={20} aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {practiceExams.length > 0 && (
+        <section className="section" aria-labelledby="practice-title">
+          <h2 id="practice-title" className="h-section">מבחני תרגול שהכנתם</h2>
+          <ul className="topic-list">
+            {practiceExams.map((pe) => (
+              <li key={pe.id} className="practice-exam-row">
+                <span className="topic-row-text">
+                  <span className="topic-row-title">{pe.title}</span>
+                  <span className="topic-row-desc">{fmtDate(pe.at)} · {pe.items.length} שאלות</span>
+                </span>
+                <span className="row-actions">
+                  <Link to={`/exams/practice/${pe.id}`} className="btn btn-secondary btn-sm">פתיחה</Link>
+                  <Link to={`/exams/check?practice=${pe.id}`} className="btn btn-primary btn-sm">בדיקה</Link>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}

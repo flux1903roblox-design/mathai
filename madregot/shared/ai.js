@@ -7,7 +7,10 @@ export const DEFAULT_MODEL = 'claude-opus-5-5';
 // recommended model for that refusal category instead of coming back empty.
 export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
-export const AI_KINDS = ['explain', 'chat', 'generate', 'check'];
+export const AI_KINDS = ['explain', 'chat', 'generate', 'check', 'exam'];
+// Topic ids the exam check maps each question to, so the app can recommend practice.
+export const TOPIC_IDS = ['signed', 'coord', 'angles', 'line', 'pyth', 'stats', 'other'];
+export const MAX_EXAM_PAGES = 8;
 
 const TUTOR = `You are the math tutor inside "Madregot", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).
 Always answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form ("נסו", "שימו לב").
@@ -20,6 +23,12 @@ const TASKS = {
   explain: `Task: the student answered an exercise incorrectly. Explain the specific mistake: compare their answer with the correct one, name the misconception that most likely produced their number, then show the correct method in 2-4 short steps. Do not lecture and do not repeat the whole topic.`,
   chat: `Task: the student is working on the exercise described in the context and asks you questions about it. Guide them toward the answer. If they have not tried yet, give the next step rather than the final answer; if they ask for the final answer after trying, you may give it with the method.`,
   generate: `Task: write new practice exercises for the topic and level given. Each exercise must have exactly one numeric answer (an integer, a terminating decimal, or a fraction a/b). Solve each exercise yourself and double-check the answer before writing it. Match the difficulty of the level. Hints must not reveal the answer. Solutions list 2-5 short steps.`,
+  exam: `Task: the student uploaded a practice exam they completed (photos of the pages, or a PDF). Check it like a careful teacher.
+For every question on the pages: transcribe the question, the student's final answer and the key line of their working; decide whether it is correct, partially correct, wrong, or not answered.
+If an answer key is provided, it is authoritative: compare the student's answer with it and never re-grade against your own solution. Without a key, solve each question yourself carefully and check your result before grading.
+Feedback must be personal: name the specific mistake in this student's working and why it happened, not only the right answer. For a correct answer, say briefly what was done well.
+Give a model solution in short steps for every question. Map each question to one topic id from the list and to the number of the level in that topic's list that it practises (0 if none fits), and name the skill in a few Hebrew words.
+Finally list the weak topics (only where the student lost points) with the reason, and 3 to 5 concrete next steps.`,
   check: `Task: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).`,
 };
 
@@ -42,6 +51,45 @@ const GENERATE_SCHEMA = {
         },
       },
     },
+  },
+};
+
+const EXAM_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['readable', 'title', 'questions', 'summary', 'weakTopics', 'nextSteps'],
+  properties: {
+    readable: { type: 'boolean' },
+    title: { type: 'string', description: 'A short name for the exam, from the pages' },
+    questions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['number', 'prompt', 'studentAnswer', 'status', 'correctAnswer', 'feedback', 'solution', 'topic', 'level', 'skill'],
+        properties: {
+          number: { type: 'string' },
+          prompt: { type: 'string', description: 'The question, math in $...$' },
+          studentAnswer: { type: 'string', description: 'What the student wrote as the final answer, math in $...$; empty if none' },
+          status: { type: 'string', enum: ['correct', 'partial', 'wrong', 'missing'] },
+          correctAnswer: { type: 'string', description: 'The correct final answer, math in $...$' },
+          feedback: { type: 'string', description: 'Personal feedback on this student\'s answer' },
+          solution: { type: 'array', items: { type: 'string' }, description: 'Model solution steps, math in $...$' },
+          topic: { type: 'string', enum: TOPIC_IDS },
+          level: { type: 'integer', description: "The level number in that topic's level list that this question practises; 0 if none fits" },
+          skill: { type: 'string', description: 'The skill in a few Hebrew words' },
+        },
+      },
+    },
+    summary: { type: 'string' },
+    weakTopics: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: false, required: ['topic', 'reason'],
+        properties: { topic: { type: 'string', enum: TOPIC_IDS }, reason: { type: 'string' } },
+      },
+    },
+    nextSteps: { type: 'array', items: { type: 'string' } },
   },
 };
 
@@ -143,6 +191,32 @@ export function buildRequest(kind, input = {}, { model } = {}) {
       }],
     };
   }
+  if (kind === 'exam') {
+    const pages = (Array.isArray(input.pages) ? input.pages : []).slice(0, MAX_EXAM_PAGES);
+    if (!pages.length) throw new Error('exam needs at least one page');
+    const blocks = pages.map((pg) => {
+      const data = String(pg.data || '').replace(/^data:[^,]+,/, '');
+      if (!data || data.length > 12_000_000) throw new Error('page missing or too large');
+      if (pg.mediaType === 'application/pdf') return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } };
+      const media = /^image\/(png|jpeg|webp|gif)$/.test(pg.mediaType) ? pg.mediaType : 'image/jpeg';
+      return { type: 'image', source: { type: 'base64', media_type: media, data } };
+    });
+    const key = Array.isArray(input.key) && input.key.length
+      ? `\n\nAnswer key (authoritative), in question order:\n${input.key.slice(0, 30).map((k, i) => `${i + 1}. ${clip(k.prompt, 300)} → ${clip(k.answer, 80)}`).join('\n')}`
+      : '';
+    const topics = Array.isArray(input.topics)
+      ? `\nTopics (id = title; levels in order):\n${input.topics.slice(0, 12).map((t) => `${t.id} = ${clip(t.title, 60)}${Array.isArray(t.levels) ? `; levels: ${t.levels.slice(0, 12).map((l, i) => `${i + 1} ${clip(l, 50)}`).join(', ')}` : ''}`).join('\n')}\nother = anything else (level 0).`
+      : '';
+    return {
+      ...base(model, 'high', 32000),
+      system,
+      output_config: { effort: 'high', format: { type: 'json_schema', schema: EXAM_SCHEMA } },
+      messages: [{
+        role: 'user',
+        content: [...blocks, { type: 'text', text: `${contextBlock(input)}${topics}${key}\n\nCheck my exam: ${pages.length} page(s) above.` }],
+      }],
+    };
+  }
   throw new Error(`unknown AI action: ${kind}`);
 }
 
@@ -155,14 +229,21 @@ export function readResult(kind, message) {
     throw err;
   }
   const text = (message.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
-  if (kind === 'generate' || kind === 'check') {
+  if (kind === 'generate' || kind === 'check' || kind === 'exam') {
     let data;
     try { data = JSON.parse(text); } catch { const e = new Error('bad json'); e.code = 'bad_output'; throw e; }
     if (kind === 'generate') {
       data.questions = (data.questions || []).filter((q) => q && q.prompt && q.answer).slice(0, 8);
+    }
+    if (kind === 'exam') {
+      data.questions = (data.questions || []).filter((q) => q && q.prompt)
+        .map((q) => ({ ...q, level: Number.isInteger(q.level) && q.level > 0 && q.level <= 12 ? q.level : 0 }));
     }
     return data;
   }
   if (!text.trim()) { const e = new Error('empty text'); e.code = 'bad_output'; throw e; }
   return { text };
 }
+
+/** Exams and other long outputs are streamed so a long check never hits an HTTP timeout. */
+export const STREAMED = (kind) => kind === 'exam';

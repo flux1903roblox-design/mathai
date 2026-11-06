@@ -1,7 +1,7 @@
 // AI actions. Server mode goes through the Worker (the class's key stays on the
 // server). Personal mode calls Claude straight from this device with a key the
 // user pasted in Settings; it is meant for one person practising alone.
-import { buildRequest, readResult } from '@shared/ai.js';
+import { buildRequest, readResult, STREAMED } from '@shared/ai.js';
 import { useApp } from './store.js';
 import { apiBase, ApiError, errorText } from './api.js';
 
@@ -50,6 +50,7 @@ export async function runAI(kind, input, { onText, signal } = {}) {
         const final = await stream.finalMessage();
         return readResult(kind, final);
       }
+      if (STREAMED(kind)) return readResult(kind, await client.beta.messages.stream(params, { signal }).finalMessage());
       return readResult(kind, await client.beta.messages.create(params, { signal }));
     } catch (e) {
       if (e?.name === 'AbortError' || e?.constructor?.name === 'APIUserAbortError') throw e;

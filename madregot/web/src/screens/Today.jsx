@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import NumberFlow from '@number-flow/react';
-import { Flame, Star, ChevronLeft } from 'lucide-react';
+import { Flame, Star, ChevronLeft, Route } from 'lucide-react';
+import { usePlan } from '@/lib/usePlan.js';
 import { useApp, streakOf, minutesToday } from '@/lib/store.js';
 import { TOPIC, topicsFor, TOPICS } from '@/content/index.js';
 import { GOAL_MINUTES } from '@/lib/ladder.js';
@@ -39,6 +40,9 @@ export default function Today() {
   const minutes = Math.min(minutesToday(days), GOAL_MINUTES);
   const n = TOPICS.filter((t) => t.grade === grade).indexOf(current) + 1;
 
+  const plan = usePlan();
+  const nextStep = plan.weak.length ? plan.steps.find((s) => !s.done) : null;
+
   const top = Object.entries(mistakes)
     .map(([k, v]) => { const [topic, cat] = k.split(':'); return { topic, cat, v }; })
     .filter((m) => m.v >= 2 && TOPIC[m.topic]?.cats[m.cat])
@@ -72,7 +76,15 @@ export default function Today() {
         <Button className="btn-block btn-lg" onClick={() => navigate(`/practice/${current.id}`)}>ממשיכים לתרגל</Button>
       </section>
 
-      {top && (
+      {nextStep && (
+        <Link to="/plan" className="plan-card">
+          <Route size={22} aria-hidden="true" />
+          <span className="topic-row-text"><span className="topic-row-desc">הצעד הבא בתוכנית לשיפור</span><span className="topic-row-title">{nextStep.title}</span><span className="topic-row-desc">{nextStep.kind === 'practice' ? `${nextStep.have} מתוך ${nextStep.need} תשובות נכונות` : `${plan.done} מתוך ${plan.steps.length} צעדים הושלמו`}</span></span>
+          <ChevronLeft className="chev" size={20} aria-hidden="true" />
+        </Link>
+      )}
+
+      {!nextStep && top && (
         <Box tone="attention" title="שימו לב">
           <p><MathText text={`טעות שחוזרת אצלכם ב${TOPIC[top.topic].title}: ${TOPIC[top.topic].cats[top.cat]}.`} /></p>
           <Button variant="secondary" className="btn-sm" onClick={() => navigate(`/practice/${top.topic}`)}>לתרגל את זה עכשיו</Button>

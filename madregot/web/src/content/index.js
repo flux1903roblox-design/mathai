@@ -1,8 +1,9 @@
 import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
 import { parseNum, near, plainNum } from './util.js';
+import { LESSONS } from './lessons.js';
 
-export const TOPICS = [...GRADE7, ...GRADE8];
+export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, lesson: t.lesson || LESSONS[t.id] || null }));
 export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
 export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grade));
 
@@ -49,9 +50,32 @@ export function answerText(it, u = it.answer) {
 }
 
 /** The exercise as one line of text for the AI and the teacher. */
+/** The drawing in words, so the AI (and an answer key) sees every number the student saw. */
+export function figPlain(f) {
+  if (!f) return '';
+  const pt = (p) => `${p.label || ''}(${p.x}, ${p.y})`;
+  const kinds = { corresponding: 'מתאימות', alternate: 'מתחלפות', cointerior: 'חד־צדדיות' };
+  switch (f.type) {
+    case 'table': return `טבלה: ${f.rows.map((r) => r.join(' → ')).join('; ')}`;
+    case 'coord': return [
+      f.points?.length ? `נקודות: ${f.points.map(pt).join(', ')}` : '',
+      f.line ? `ישר y = ${f.line.m}x + ${f.line.b}` : '',
+      f.polygon ? `מצולע: ${f.polygon.map(([x, y]) => `(${x}, ${y})`).join(' ')}` : '',
+    ].filter(Boolean).join('; ');
+    case 'linear': return `זוויות צמודות: זווית נתונה ${f.a}°`;
+    case 'cross': return `ישרים נחתכים: זווית נתונה ${f.a}°, הזווית המבוקשת ${f.target === 'vertical' ? 'קודקודית לה' : 'צמודה לה'}`;
+    case 'parallel': return `ישרים מקבילים וחותך: זווית נתונה ${f.a}°, הזווית המבוקשת ${kinds[f.kind] || ''} לה`;
+    case 'triangle': return `משולש${f.iso ? ' שווה־שוקיים' : ''}: ${f.angles.map((x, i) => (f.show[i] ? `${x}°` : '?')).join(', ')}${f.exterior ? '; מבקשים זווית חיצונית ליד הזווית החסרה' : ''}`;
+    case 'right': return `משולש ישר־זווית: ניצב ${f.a}, ניצב ${f.b}, יתר ${f.c}`;
+    case 'ladder': return `סולם: גובה על הקיר ${f.wall}, מרחק מהקיר ${f.foot}, אורך הסולם ${f.len}`;
+    default: return '';
+  }
+}
+
 export function itemPlain(it) {
   const strip = (s) => String(s || '').replace(/\$/g, '');
-  const fig = it.fig?.type === 'table' ? ` [טבלה: ${it.fig.rows.map((r) => r.join(' → ')).join('; ')}]` : '';
+  const desc = figPlain(it.fig);
+  const fig = desc ? ` [${desc}]` : '';
   const choices = it.form === 'mc' ? ` אפשרויות: ${it.choices.map((c) => c.text || c.tex).join(' / ')}` : '';
   return `${strip(it.text)}${it.display ? ` ${it.display}` : ''}${fig}${choices}`.trim();
 }

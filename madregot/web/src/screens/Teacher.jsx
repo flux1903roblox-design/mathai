@@ -73,6 +73,21 @@ function AddClass({ onClose }) {
   );
 }
 
+const Q_TONE = { correct: 'ok', partial: 'mid', wrong: 'bad', missing: 'bad' };
+const Q_LABEL = { correct: 'נכון', partial: 'נכון בחלקו', wrong: 'טעות', missing: 'לא נענה' };
+
+/** One small square per question, coloured by result; the skill shows on hover. */
+function QuestionStrip({ questions = [] }) {
+  const missed = questions.map((q, i) => (q.status === 'correct' ? null : i + 1)).filter(Boolean);
+  return (
+    <span className="qstrip" role="img" aria-label={missed.length ? `טעויות בשאלות ${missed.join(', ')}` : 'כל השאלות נכונות'}>
+      {questions.map((q, i) => (
+        <i key={i} className={Q_TONE[q.status] || 'bad'} title={`שאלה ${i + 1}: ${Q_LABEL[q.status] || ''}${q.skill ? ` · ${q.skill}` : ''}`}>{i + 1}</i>
+      ))}
+    </span>
+  );
+}
+
 export default function Teacher() {
   const { profile, setProfile, signOut } = useApp();
   const cls = profile.classes.find((c) => c.code === profile.active) || profile.classes[0];
@@ -103,6 +118,15 @@ export default function Teacher() {
   const idle = (s) => !s.lastPractice || (Date.now() - new Date(s.lastPractice)) > 3 * 864e5;
   const attention = students.filter((s) => idle(s) || (s.week.n >= 5 && pct(s.week.first, s.week.n) < 60));
   const topics = topicsFor(cls.grade);
+  // Topics where the class lost points in checked exams (last two weeks).
+  const examWeak = Object.values((data?.exams || []).filter((e) => Date.now() - new Date(e.at) < 14 * 864e5).reduce((acc, e) => {
+    e.questions.forEach((q) => {
+      if (q.status === 'correct') return;
+      const w = (acc[q.topic] ||= { topic: q.topic, lost: 0, skills: new Set(), names: new Set() });
+      w.lost += 1; if (q.skill) w.skills.add(q.skill); w.names.add(e.name);
+    });
+    return acc;
+  }, {})).map((w) => ({ ...w, skills: [...w.skills], names: [...w.names] })).sort((a, b) => b.names.length - a.names.length || b.lost - a.lost).slice(0, 5);
 
   return (
     <div className="teacher">
@@ -138,7 +162,7 @@ export default function Teacher() {
             </dl>
 
             <div className="t-tabs" role="tablist" aria-label="תצוגה">
-              {[['tomorrow', 'מה עושים מחר'], ['students', 'תלמידים'], ['help', `בקשות עזרה${openHelp.length ? ` (${openHelp.length})` : ''}`]].map(([id, label]) => (
+              {[['tomorrow', 'מה עושים מחר'], ['students', 'תלמידים'], ['exams', `מבחנים${data.exams?.length ? ` (${data.exams.length})` : ''}`], ['help', `בקשות עזרה${openHelp.length ? ` (${openHelp.length})` : ''}`]].map(([id, label]) => (
                 <button key={id} type="button" role="tab" aria-selected={tab === id} className={clsx('t-tab', tab === id && 'on')} onClick={() => setTab(id)}>{label}</button>
               ))}
             </div>
@@ -163,6 +187,18 @@ export default function Teacher() {
                     </ul>
                   )}
                 </Box>
+                {examWeak.length > 0 && (
+                  <Box tone="attention" title="נושאים חלשים במבחנים">
+                    <ul className="t-list">
+                      {examWeak.map((w) => (
+                        <li key={w.topic}>
+                          <span className="t-list-main"><b>{TOPIC[w.topic]?.title || 'נושא אחר'}</b>: {w.lost === 1 ? 'שאלה אחת עם טעות' : `${w.lost} שאלות עם טעות`}</span>
+                          <span className="muted">{w.skills.slice(0, 3).join(', ')}{w.skills.length ? ' · ' : ''}{w.names.length === 1 ? w.names[0] : `${w.names.length} תלמידים: ${w.names.slice(0, 6).join(', ')}`}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </Box>
+                )}
                 <Box tone="note" title="כדאי לבדוק איתם">
                   {attention.length === 0 ? <p className="muted">כולם מתרגלים ומצליחים.</p> : (
                     <ul className="t-list">
@@ -209,6 +245,28 @@ export default function Teacher() {
                   </tbody>
                 </table>
               </div>
+            )}
+
+            {tab === 'exams' && (
+              (data.exams || []).length === 0 ? <p className="muted">עוד אין מבחנים שנבדקו בכיתה. כשתלמידים יבדקו מבחן באפליקציה, התוצאות יופיעו כאן.</p> : (
+                <div className="table-wrap">
+                  <table className="t-table">
+                    <thead><tr><th scope="col">תלמיד</th><th scope="col">מבחן</th><th scope="col">תאריך</th><th scope="col">ציון</th><th scope="col">לפי שאלה</th><th scope="col">נושאים לחיזוק</th></tr></thead>
+                    <tbody>
+                      {data.exams.map((e) => (
+                        <tr key={e.id}>
+                          <th scope="row">{e.name}</th>
+                          <td>{e.title}</td>
+                          <td>{fmtDay(e.at)}</td>
+                          <td><Rate value={e.total ? Math.round((100 * e.correct) / e.total) : null} /> <span className="muted">{e.correct}/{e.total}</span></td>
+                          <td><QuestionStrip questions={e.questions} /></td>
+                          <td className="wrap">{e.weak.map((w) => TOPIC[w]?.title || 'אחר').join(', ') || '–'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
             )}
 
             {tab === 'help' && (

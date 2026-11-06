@@ -63,7 +63,7 @@
 /* The one authored moment: moving up a level. The level line resolves in
    with a soft cross-blur and the need-slots re-fill. */
 .pline.flash .pline-text { animation: t-level-in var(--duration-very-slow) var(--ease-smooth-out) both; }
-.pline.flash .chapter-mark { animation: t-level-pop var(--duration-very-slow) var(--ease-bounce) both; }
+.pline.flash .chapter-mark { animation: t-level-pop var(--duration-very-slow) var(--ease-smooth-out) both; }
 @keyframes t-level-in { from { opacity: 0; filter: blur(var(--blur-medium)); transform: translateY(var(--distance-micro)); } }
 @keyframes t-level-pop { from { transform: scale(0.6); } }
 
