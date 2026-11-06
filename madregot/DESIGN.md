@@ -362,10 +362,11 @@ Tactile and confident: a fat rounded block on its lip.
 Rises 24px from the bottom in 250ms when an answer is checked and replaces the dock. Correct is green tint with a green top rule; retry and reveal are red tint with a pink top rule. It holds מדי (cheer, oops or think), the headline verdict in the panel's ink, then the body: the correct answer at headline size, the steps, and the tutor's note as plain text under a rule (never a card inside the panel). Announced assertively.
 
 ### Path coin and lesson ring (signature)
-- **Coin:** a 70px circle in the unit colour with a white solid glyph (star, check, lock, trophy) and a 7px coin lip; the current coin is 76px, the unit review coin 82px.
-- **States:** done coins are gold with a dark-amber glyph; locked coins are pale grey on a grey lip; the current coin wears the segmented ring and a bobbing start bubble ("התחלה" / "המשך") in the unit colour.
-- **Ring:** segments fill in the unit colour as lessons finish; returning from a lesson, the earned segment fills 260ms after arrival (400ms ease-out).
-- **Node card:** tapping a coin opens a 320px white card under it with a 2px unit-colour border, a pointer, lift shadow, a Fredoka title and one full-width button.
+- **Coin:** a 70px circle lit from the top left (a radial highlight over the fill), a thin inner ring, a 7px solid lip in the edge colour and a soft drop under it; the current stop is 78px, the unit's trophy 86px. Glyphs are solid white SVG with a 2px drop.
+- **States:** locked is a pale grey stone with a grey lock; current wears the unit colour, floats 5px on a 2.8s loop, breathes a halo in its colour and carries the segmented lesson ring and the "התחלה" / "המשך" bubble; done is gold with a dark-amber check; mastered (the unit's review passed) is gold with a crown and a light glint every 5s; the unit's last stop is a trophy.
+- **Ring:** white segments that fill in the unit colour as lessons finish; back from a lesson, the earned segment fills 260ms after arrival.
+- **Completion:** back on the map after a lesson that finished a stop, that stop springs in from 70% scale and throws eight gold, white and unit-colour flecks.
+- **Node card:** a 320px white card under the stop with a 2px unit-colour border, a pointer, a lift shadow, a Fredoka title and one full-width button.
 
 ### Level board (signature)
 The learn screen opens on the board, and the map continues under it. A Fredoka title with the mascot, one line of stairs climbed in the grade, and a 14px track split into one pill segment per topic (as long as its stairs, chapter tint filled in the chapter colour from the reading start). One full-width primary button starts the next lesson. Topics sit in one 2px-bordered, 20px-rounded list with 2px dividers, not cards: each row is a stair meter with a done/total count in the chapter's dark colour, the topic name, the current stair and a status pill (done gold, on the way chapter tint, needs work red tint, not started ground). Under a row, "what is not clear yet" sits in a ground-filled block with each misconception and a small secondary "practise" button; cleared ones collapse into one green line. Under 400px the pill moves under the name.
@@ -376,11 +377,35 @@ One rounded bar per level, rising from 14px to 32px toward the reading direction
 ### Onboarding question
 One question per screen: a back arrow and an indigo progress bar on top, the mascot asking in a 2px-bordered speech bubble whose tail points at him, answers as 68px chunky rows (2px border, 4px lip; selected is indigo mist with a lavender lip and indigo title), and a sticky full-width button at the bottom. Small gold pills mark a recommendation.
 
-### Unit band
-A sticky 16px-rounded band in the unit's "-d" colour with white text: a translucent number tile, the Fredoka title, a one-line description, a done/total pill and a 64px outlined guidebook button.
+### Unit band and the unit's world (signature)
+- **Band:** sticky, 22px corners, a diagonal gradient from the unit colour to its "-d", white text, a white 58px emblem tile with the unit's first piece of scenery, a number tile, the title, a one-line description, a thin white progress bar with done/total, and an outlined guidebook button. A soft coloured drop, no lip (it is not pressed).
+- **World:** under the band, a land in the unit's tint that fades to white, with 32px bottom corners.
+- **Road:** a white road (21px) with a faint edge runs through the stop centres as smooth curves; the stretch walked so far is laid over it in the unit colour at half strength, and stepping dots run along it. Back from a lesson in that unit, the newest leg draws itself in (0.9s).
+- **Scenery:** three pieces of the topic's own world stand beside the stops the road swings away from, never beside the stop where מדי stands: a thermometer, the sea line and a cloud (signed numbers); a treasure grid, a compass and a pin (coordinates); a protractor, peaks and a kite (angles); slope stairs, a ramp with a flag and a paper plane (linear functions); the squares on a right triangle, a ladder and a pyramid (Pythagoras); a bar-chart skyline, a pie chart and dice (statistics). Drawn flat in the unit's fill, edge, tint, white and gold.
 
-### Mascot מדי
-An SVG indigo two-step stair block with a deep-indigo edge, lighter treads, feet and a face; moods happy (slow bob), cheer (two jumps plus gold sparkles), think (eyes up) and oops (brows). It appears beside the current coin, in the feedback panel and on celebration screens. All motion stops under reduced motion.
+### Mascot מדי (signature)
+An SVG indigo two-step stair block with a light-to-deep gradient, lighter treads, a highlight, a plus sign on the lower step, feet, hands and a face with brows. Motion drives six states from real events: idle (breathing and a blink every 3–5s), happy (a hop and a wave, replayed on every right answer), thinking (head tilt, eyes up, a question bubble while a hint or the notebook is open), encouraging (a lean and a thumbs up after a wrong answer), excited (two jumps and sparkles after a lesson) and achievement (a gold star held high for a unit, a perfect lesson, a placement). Arms, brows and pupils spring between poses; mouths cross-fade. He stands beside the current stop, asks each question from beside its speech bubble, and leads every celebration. Under reduced motion he holds still poses.
+
+### Exercise screen (signature)
+- **Top:** a close button, an 18px progress bar in a green gradient with a light stripe along its top that springs forward on each right answer, and the combo as an orange chip that pops in from two in a row.
+- **Question:** מדי (68px) on the reading-start side, the question in a white speech bubble with a 2px border and a tail pointing at him; the expression on a squared-paper card (22px grid in the unit tint, 20px corners).
+- **Answers:** chunky choices with a 4px lip that shrink to 96% under the finger; a right one turns green and swaps its number for a check, a wrong one red with a cross. Answer slots turn green on a right answer.
+- **Feedback:** the panel springs up from the bottom; its mark is a disc that pops in, with a check that draws itself and a small burst of green and gold dots, or a soft cross. Each question slides in from the reading side and the last one leaves the other way.
+
+### Celebrations
+- **Lesson summary:** confetti (Lottie, once) behind the hero, מדי excited (or holding the star), a Lottie trophy when the lesson finished a unit, stars when it had no mistakes. Medals pop in on ribbons for what the lesson really earned (a finished stair or unit, no mistakes, mistakes fixed, the daily goal), then three stat tiles rise in one after another and the XP counts up.
+- **Streak:** a looping Lottie flame over the number, which ticks up from yesterday's value; the week's dots pop in left to right.
+- **Daily quests done:** a treasure chest opens (Lottie); a snowflake marks an earned streak freeze.
+- Confetti is left out under reduced motion; the other animations hold a still frame.
+
+### Screen header
+Every secondary screen opens on its own land: a soft gradient in the screen's colour (exams sky, quests orange, plan petrol, assistant rose, profile indigo, practice exams fuchsia), two faint circles of the colour, a Fredoka title in the colour's dark, one line about the screen, and an unDraw illustration in the brand indigo (or מדי). Full-bleed with 32px bottom corners on phones, a 28px card from 640px.
+
+### Medals
+A medal is an SVG disc with a darker rim, a highlight arc and a two-colour ribbon, a white icon and a caption. Tones: gold, indigo, green, orange and the unit colour. On the profile, medals not earned yet are grey with how far along they are. Medals only ever reflect real history.
+
+### Motion system
+Motion for React through LazyMotion (DOM animation features only) and MotionConfig that follows the device's reduced-motion setting. Screens rise 12px into place as they open; celebration content staggers in by 90ms; springs for anything that answers a touch; CSS for loops (the floating stop, the halo, the start bubble, the mastered glint). Lottie (light player) loads on demand only on celebration screens, with a static fallback when it cannot load.
 
 ### Top bar and stats
 Streak, freezes and XP are Fredoka 22px counts with their icon in the meaning colour (orange flame filled when the streak is alive, grey when not; sky snowflake; gold bolt). Celebration stats are three bordered tiles with a solid label strip in gold, green-dark or indigo and a Fredoka value in the matching ink.

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useApp } from '@/lib/store.js';
 import { topicsFor } from '@/content/index.js';
 import { GradeSwitch } from './Welcome.jsx';
+import PageHero from '@/components/PageHero.jsx';
 
 export function TopicRow({ t, n, to }) {
   const p = useApp((s) => s.progress[t.id]);
@@ -33,7 +34,7 @@ export default function Topics() {
   const list = topicsFor(grade);
   return (
     <div className="page">
-      <h1 className="h-page">נושאים</h1>
+      <PageHero tone="brand" art="study" title="נושאים" sub="כל הנושאים של השנה, וכמה מדרגות כבר עליתם בכל אחד." />
       <div className="field">
         <span className="visually-hidden" id="tp-grade">שכבה</span>
         <GradeSwitch value={grade} onChange={setGrade} id="tp-grade" />

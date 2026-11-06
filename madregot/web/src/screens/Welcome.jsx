@@ -86,7 +86,7 @@ function Onboarding({ onTeacher }) {
   if (i < 0) {
     return (
       <div className="ob ob-hello">
-        <Mascot mood="happy" size={150} className="welcome-mascot" />
+        <Mascot mood="idle" size={150} className="welcome-mascot" />
         <h1 className="wordmark">מדרגות</h1>
         <p className="lead">תרגול מתמטיקה של כמה דקות ביום, לכיתות ז׳ וח׳. עונים על כמה שאלות קצרות, ומתחילים מהמדרגה שמתאימה לכם.</p>
         <div className="form-actions">
@@ -118,7 +118,7 @@ function Onboarding({ onTeacher }) {
       </header>
       <main className="ob-main">
         <div className="ob-ask">
-          <Mascot mood={step === 'start' ? 'cheer' : 'happy'} size={84} className="ob-mascot" />
+          <Mascot mood={step === 'start' ? 'excited' : 'idle'} size={84} className="ob-mascot" />
           <p className="ob-bubble" id="ob-q">{ask}</p>
         </div>
 

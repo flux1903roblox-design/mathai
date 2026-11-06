@@ -6,6 +6,7 @@ import { usePlan } from '@/lib/usePlan.js';
 import { TOPIC } from '@/content/index.js';
 import { Box, Button, NeedSlots } from '@/components/ui.jsx';
 import { Markdown } from '@/components/MathText.jsx';
+import PageHero from '@/components/PageHero.jsx';
 
 export default function Plan() {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ export default function Plan() {
   return (
     <div className="page">
       <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
-      <h1 className="h-page">התוכנית שלי לשיפור</h1>
+      <PageHero tone="petrol" art="plan" title="התוכנית שלי לשיפור" sub="צעדים לפי הסדר, מהמקומות שבהם ירדו נקודות." />
       {!hasData ? (
         <Box tone="note" title="התוכנית עוד ריקה">
           <p>אחרי בדיקת מבחן או כמה סבבי תרגול, האפליקציה תראה כאן מה כדאי לחזק ובאיזה סדר.</p>

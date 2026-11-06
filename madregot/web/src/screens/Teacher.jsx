@@ -9,6 +9,7 @@ import { TOPIC, topicsFor } from '@/content/index.js';
 import { Box, Button, ChapterMark, Field, LevelPips } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { GradeSwitch } from './Welcome.jsx';
+import { artUrl } from '@/components/PageHero.jsx';
 
 const fmtDay = (iso) => {
   if (!iso) return 'אף פעם';
@@ -90,7 +91,7 @@ function QuestionStrip({ questions = [] }) {
   return (
     <span className="qstrip" role="img" aria-label={missed.length ? `טעויות בשאלות ${missed.join(', ')}` : 'כל השאלות נכונות'}>
       {questions.map((q, i) => (
-        <i key={i} className={Q_TONE[q.status] || 'bad'} title={`שאלה ${i + 1}: ${Q_LABEL[q.status] || ''}${q.skill ? ` · ${q.skill}` : ''}`}>{i + 1}</i>
+        <i key={i} className={Q_TONE[q.status] || 'bad'} title={`שאלה ${i + 1}: ${Q_LABEL[q.status] || ''}${q.skill ? `, ${q.skill}` : ''}`}>{i + 1}</i>
       ))}
     </span>
   );
@@ -141,7 +142,7 @@ export default function Teacher() {
   return (
     <div className="teacher">
       <header className="t-head">
-        <div className="t-brand"><span className="wordmark sm">מדרגות</span><span className="muted">לוח המורה · {profile.name}</span></div>
+        <div className="t-brand"><img src={artUrl('teacher')} alt="" className="t-art" /><span><span className="wordmark sm">מדרגות</span><span className="muted">לוח המורה של {profile.name}</span></span></div>
         <div className="t-class">
           {profile.classes.length > 1 ? (
             <select className="input" aria-label="כיתה" value={cls.code} onChange={(e) => setProfile({ ...profile, active: e.target.value })}>
@@ -178,9 +179,12 @@ export default function Teacher() {
             </div>
 
             {students.length === 0 && (
-              <Box tone="note" title="עוד אין תלמידים">
-                <p>כשתלמידים יצטרפו עם הקוד <b dir="ltr">{cls.code}</b>, הם יופיעו כאן.</p>
-              </Box>
+              <div className="empty-state">
+                <img src={artUrl('empty')} alt="" className="empty-art" />
+                <h2 className="h-section">עוד אין תלמידים בכיתה</h2>
+                <p className="muted">כשתלמידים יצטרפו עם הקוד <b dir="ltr">{cls.code}</b>, הם יופיעו כאן עם ההתקדמות שלהם.</p>
+                <Button variant="secondary" className="btn-sm" onClick={() => copy(cls.code, 'קוד הכיתה')}><Copy size={16} aria-hidden="true" />העתקת הקוד</Button>
+              </div>
             )}
 
             {tab === 'tomorrow' && students.length > 0 && (
@@ -191,7 +195,7 @@ export default function Teacher() {
                       {data.mistakes.map((m) => (
                         <li key={`${m.topic}:${m.cat}`}>
                           <span className="t-list-main"><b>{TOPIC[m.topic]?.title}</b>: <MathText text={TOPIC[m.topic]?.cats[m.cat] || m.cat} /></span>
-                          <span className="muted">{m.students} תלמידים · {m.names.slice(0, 6).join(', ')}{m.names.length > 6 ? '…' : ''}</span>
+                          <span className="muted">{m.students === 1 ? 'תלמיד אחד' : `${m.students} תלמידים`}: {m.names.slice(0, 6).join(', ')}{m.names.length > 6 ? '…' : ''}</span>
                         </li>
                       ))}
                     </ul>
@@ -203,7 +207,7 @@ export default function Teacher() {
                       {examWeak.map((w) => (
                         <li key={w.topic}>
                           <span className="t-list-main"><b>{TOPIC[w.topic]?.title || 'נושא אחר'}</b>: {w.lost === 1 ? 'שאלה אחת עם טעות' : `${w.lost} שאלות עם טעות`}</span>
-                          <span className="muted">{w.skills.slice(0, 3).join(', ')}{w.skills.length ? ' · ' : ''}{w.names.length === 1 ? w.names[0] : `${w.names.length} תלמידים: ${w.names.slice(0, 6).join(', ')}`}</span>
+                          <span className="muted">{w.skills.slice(0, 3).join(', ')}{w.skills.length ? '. ' : ''}{w.names.length === 1 ? w.names[0] : `${w.names.length} תלמידים: ${w.names.slice(0, 6).join(', ')}`}</span>
                         </li>
                       ))}
                     </ul>
@@ -223,7 +227,7 @@ export default function Teacher() {
                 </Box>
                 <Box tone="ai" title="בקשות עזרה חדשות">
                   {openHelp.length === 0 ? <p className="muted">אין בקשות פתוחות.</p> : (
-                    <ul className="t-list">{openHelp.slice(0, 5).map((h) => <li key={h.id} className={clsx(!h.seen_at && 'unseen')}><span className="t-list-main"><b>{h.name}</b> · {TOPIC[h.topic]?.title || ''}</span><span className="muted">{h.note || <MathText text={h.question} />}</span></li>)}</ul>
+                    <ul className="t-list">{openHelp.slice(0, 5).map((h) => <li key={h.id} className={clsx(!h.seen_at && 'unseen')}><span className="t-list-main"><b>{h.name}</b>, {TOPIC[h.topic]?.title || ''}</span><span className="muted">{h.note || <MathText text={h.question} />}</span></li>)}</ul>
                   )}
                   {openHelp.length > 0 && <Button variant="secondary" className="btn-sm" onClick={() => setTab('help')}>לכל הבקשות</Button>}
                 </Box>
@@ -284,7 +288,7 @@ export default function Teacher() {
                 {(data.help || []).length === 0 && <li className="muted">אין בקשות עזרה בשבוע האחרון.</li>}
                 {(data.help || []).map((h) => (
                   <li key={h.id} className={clsx('help-item', !h.seen_at && !h.done_at && 'unseen', h.done_at && 'done')}>
-                    <div className="help-item-head"><Hand size={16} aria-hidden="true" /><b>{h.name}</b>{!h.seen_at && !h.done_at && <span className="new-tag">חדש</span>}<span className="muted">{TOPIC[h.topic]?.title} · {fmtDay(h.created_at)}</span></div>
+                    <div className="help-item-head"><Hand size={16} aria-hidden="true" /><b>{h.name}</b>{!h.seen_at && !h.done_at && <span className="new-tag">חדש</span>}<span className="muted">{TOPIC[h.topic]?.title}, {fmtDay(h.created_at)}</span></div>
                     <p className="help-q"><MathText text={h.question} /></p>
                     {h.answer && <p className="muted">מה כתב/ה: <span dir="ltr">{h.answer}</span></p>}
                     {h.note && <p><span className="hl">“{h.note}”</span></p>}

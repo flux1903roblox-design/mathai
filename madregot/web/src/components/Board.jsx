@@ -62,7 +62,7 @@ export default function Board({ grade, next, placed, onStart, onJump }) {
   return (
     <section className="board" aria-labelledby="board-title">
       <div className="board-hero">
-        <Mascot mood={placed ? 'cheer' : 'happy'} size={72} className="board-mascot" />
+        <Mascot mood={placed ? 'achievement' : 'idle'} size={72} className="board-mascot" />
         <div className="board-hero-text">
           <h1 id="board-title" className="board-title">{placed ? 'זה הלוח שלכם' : profile?.name ? `הלוח של ${profile.name}` : 'הלוח שלי'}</h1>
           <p className="board-level">עליתם <b>{b.done}</b> מתוך {b.total} מדרגות ב{GRADE_NAME[grade]}</p>

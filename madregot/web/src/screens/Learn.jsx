@@ -10,6 +10,8 @@ import { PARTS, JUMP_LEN, REVIEW_LEN, LESSON_LEN } from '@/lib/lesson.js';
 import Mascot from '@/components/Mascot.jsx';
 import PathNode from '@/components/PathNode.jsx';
 import Board from '@/components/Board.jsx';
+import PathTrail from '@/components/map/PathTrail.jsx';
+import { SCENERY, Emblem } from '@/components/map/Scenery.jsx';
 import { Button } from '@/components/ui.jsx';
 
 // The path winds gently: each node sits a little to one side of the one before.
@@ -39,40 +41,93 @@ function NodeCard({ n, t, onStart }) {
   );
 }
 
-function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh }) {
+/** The key of the last finished stop in a unit: the one a lesson just completed. */
+function lastDoneKey(topic) {
+  const { path, progress } = useApp.getState();
+  const done = unitNodes(topic, path, progress).filter((x) => x.state === 'done');
+  const last = done[done.length - 1];
+  return last ? `${topic}:${last.kind}:${last.level}` : null;
+}
+
+/** Which stops get a piece of scenery beside them: those the path swings away from, on the far side. */
+function sceneryAt(count, avoid = -1) {
+  // Not beside the stop where מדי stands: he takes that side.
+  const swung = Array.from({ length: count }, (_, i) => i).filter((i) => SWING[i % SWING.length] !== 0 && i !== avoid);
+  return [swung[0], swung[2], swung[4]].filter((i) => i != null);
+}
+
+function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh, mastered, celebrate, mascotMood }) {
   const done = nodes.filter((x) => x.kind === 'node' && x.state === 'done').length;
   const total = t.levels.length;
+  const worldRef = useRef(null);
+  const anchors = useRef([]);
+  const [geo, setGeo] = useState(null);
+  // The trail and the scenery follow the stops where they actually landed (an open card moves the ones below).
+  useLayoutEffect(() => {
+    const world = worldRef.current; if (!world) return undefined;
+    const measure = () => {
+      const w = world.getBoundingClientRect();
+      const pts = nodes.map((_, i) => anchors.current[i]).filter(Boolean).map((el) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.left - w.left + r.width / 2, y: r.top - w.top + r.height / 2 };
+      });
+      setGeo({ w: w.width, h: w.height, pts });
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure); ro.observe(world);
+    return () => ro.disconnect();
+  }, [nodes.length, open]);
+  const reached = Math.max(0, nodes.findIndex((x) => x.state !== 'done'));
+  const allDone = nodes.every((x) => x.state === 'done');
+  const props = SCENERY[t.id] || [];
   return (
-    <section className={clsx('unit', `ch-${t.color}`)} aria-labelledby={`unit-${t.id}`}>
+    <section className={clsx('unit', `ch-${t.color}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
       <header className="unit-head">
+        <Emblem topic={t.id} />
         <div className="unit-head-text">
           <h2 id={`unit-${t.id}`} className="unit-title"><span className="unit-num" aria-hidden="true">{n}</span>{t.title}</h2>
           <p className="unit-desc">{t.desc}</p>
+          <div className="unit-progress" aria-label={`${done} מתוך ${total} מדרגות הושלמו`}>
+            <span className="unit-bar"><i style={{ width: `${(done / total) * 100}%` }} /></span>
+            <bdi dir="ltr" className="unit-count">{done}/{total}</bdi>
+          </div>
         </div>
-        <span className="unit-count" aria-label={`${done} מתוך ${total} מדרגות הושלמו`}><bdi dir="ltr">{done}/{total}</bdi></span>
         <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={`תזכורת מהשיעור: ${t.title}`}><BookOpen size={22} aria-hidden="true" /><span>תזכורת</span></Link>
       </header>
-      <ol className="path">
-        {nodes.map((node, i) => {
-          const key = `${t.id}:${node.kind}:${node.level}`;
-          const isOpen = open === key;
-          const x = SWING[i % SWING.length];
-          const label = `${node.kind === 'review' ? 'חזרה על היחידה' : `מדרגה ${node.level}: ${node.title}`}. ${node.state === 'done' ? 'הושלם' : node.state === 'current' ? (node.kind === 'node' ? `השלב הבא, ${node.parts} מתוך ${PARTS} שיעורים` : 'השלב הבא') : 'נעול'}`;
-          return (
-            <li key={key} className="path-step" style={{ '--x': `${x}px` }}>
-              {node.state === 'current' && !isOpen && <span className="node-start" aria-hidden="true">{node.parts ? 'המשך' : 'התחלה'}</span>}
-              <PathNode
-                ref={key === focusKey ? currentRef : undefined}
-                state={node.state} kind={node.kind} parts={node.parts} of={PARTS}
-                fillLast={key === focusKey && fresh === t.id && node.parts > 0}
-                label={label} expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}
-              />
-              {key === focusKey && <Mascot mood="happy" size={86} className={clsx('path-mascot', x > 0 ? 'left' : 'right')} />}
-              {isOpen && <NodeCard n={node} t={t} onStart={onStart} />}
-            </li>
-          );
+      <div className="unit-world" ref={worldRef}>
+        {geo && <PathTrail points={geo.pts} reached={allDone ? nodes.length - 1 : reached} width={geo.w} height={geo.h} draw={fresh === t.id} />}
+        {geo && sceneryAt(nodes.length, nodes.findIndex((x) => `${t.id}:${x.kind}:${x.level}` === focusKey)).map((i, k) => {
+          const P = props[k]; const pt = geo.pts[i];
+          if (!P || !pt) return null;
+          const side = SWING[i % SWING.length] > 0 ? 'left' : 'right';
+          return <div key={k} className={clsx('scenery', side)} style={{ top: pt.y }} aria-hidden="true"><P /></div>;
         })}
-      </ol>
+        <ol className="path">
+          {nodes.map((node, i) => {
+            const key = `${t.id}:${node.kind}:${node.level}`;
+            const isOpen = open === key;
+            const x = SWING[i % SWING.length];
+            const label = `${node.kind === 'review' ? 'חזרה על היחידה' : `מדרגה ${node.level}: ${node.title}`}. ${node.state === 'done' ? (mastered ? 'נשלט' : 'הושלם') : node.state === 'current' ? (node.kind === 'node' ? `השלב הבא, ${node.parts} מתוך ${PARTS} שיעורים` : 'השלב הבא') : 'נעול'}`;
+            return (
+              <li key={key} className="path-step" style={{ '--x': `${x}px` }}>
+                {node.state === 'current' && !isOpen && <span className="node-start" aria-hidden="true">{node.parts ? 'המשך' : 'התחלה'}</span>}
+                <div className={clsx('node-anchor', node.state === 'current' && 'is-current')} ref={(el) => { anchors.current[i] = el; }}>
+                  <PathNode
+                    ref={key === focusKey ? currentRef : undefined}
+                    state={node.state} kind={node.kind} parts={node.parts} of={PARTS} mastered={mastered}
+                    fillLast={key === focusKey && fresh === t.id && node.parts > 0}
+                    celebrate={celebrate === key}
+                    label={label} expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}
+                  />
+                </div>
+                {key === focusKey && <Mascot mood={mascotMood} size={88} className={clsx('path-mascot', x > 0 ? 'left' : 'right')} />}
+                {isOpen && <NodeCard n={node} t={t} onStart={onStart} />}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
     </section>
   );
 }
@@ -150,7 +205,9 @@ export default function Learn() {
         <Board grade={view} next={focusNode} placed={!!state?.placed} onStart={onStart} onJump={onJump} />
         <h2 className="map-title">מפת השיעורים</h2>
         {topics.map((t, i) => (
-          <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from} />
+          <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
+            mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null}
+            mascotMood={state?.nodeDone ? 'excited' : state?.from ? 'happy' : 'idle'} />
         ))}
         <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה.</p>
       </div>

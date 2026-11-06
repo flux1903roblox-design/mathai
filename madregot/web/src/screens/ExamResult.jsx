@@ -104,7 +104,7 @@ export default function ExamResult() {
       <header className="result-head">
         <div>
           <h1 className="h-page">{exam.title}</h1>
-          <p className="muted">{new Date(exam.at).toLocaleDateString('he-IL')} · {qs.length} שאלות</p>
+          <p className="muted">{qs.length} שאלות, נבדק ב־{new Date(exam.at).toLocaleDateString('he-IL')}</p>
         </div>
         <div className={`big-score ${pctTone(exam.score.pct)}`}>
           <span className="big-score-num">{exam.score.pct}%</span>
@@ -123,7 +123,7 @@ export default function ExamResult() {
                 <li key={w.topic} className={t ? `ch-${t.color}` : ''}>
                   <div className="weak-main">
                     <TopicTag id={w.topic} mark />
-                    <span className="muted">{w.n === 1 ? 'שאלה אחת עם טעות' : `${w.n} שאלות עם טעות`}{w.skills.length ? ` · ${w.skills.slice(0, 3).join(', ')}` : ''}</span>
+                    <span className="muted">{w.n === 1 ? 'שאלה אחת עם טעות' : `${w.n} שאלות עם טעות`}{w.skills.length ? `: ${w.skills.slice(0, 3).join(', ')}` : ''}</span>
                     {w.reason && <Markdown className="weak-reason">{w.reason}</Markdown>}
                   </div>
                   {t && (

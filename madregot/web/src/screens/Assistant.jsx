@@ -9,6 +9,7 @@ import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
 import { Box, Button, Field, Thinking } from '@/components/ui.jsx';
 import { Markdown } from '@/components/MathText.jsx';
+import PageHero from '@/components/PageHero.jsx';
 
 const TABS = [
   { id: 'chat', label: 'שיחה', icon: MessageCircle },
@@ -178,7 +179,7 @@ export default function Assistant() {
   const ready = aiReady();
   return (
     <div className="page">
-      <h1 className="h-page">עוזר AI</h1>
+      <PageHero tone="ai" art="assistant" title="עוזר AI" sub="שואלים על כל תרגיל, מקבלים תרגילים חדשים, ובודקים פתרון מצולם." />
       {!ready && (
         <Box tone="attention" title="העוזר עוד לא מחובר">
           <p>כדי שהעוזר יעבוד, צריך לחבר אותו לשרת של הכיתה או למפתח Claude אישי.</p>

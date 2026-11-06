@@ -9,6 +9,7 @@ import { scoreOf, focusLevel, baseEntry } from '@/lib/exam.js';
 import { TOPICS } from '@/content/index.js';
 import { MAX_EXAM_PAGES } from '@shared/ai.js';
 import { Box, Button, Field, Thinking } from '@/components/ui.jsx';
+import PageHero from '@/components/PageHero.jsx';
 
 async function imageToJpeg(file) {
   const url = URL.createObjectURL(file);
@@ -101,12 +102,12 @@ export default function ExamCheck() {
   return (
     <div className="page">
       <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
-      <h1 className="h-page">בדיקת מבחן</h1>
+      <PageHero tone="sky" art="upload" title="בדיקת מבחן" sub="מצלמים את הדפים או מעלים PDF. העוזר בודק כל שאלה ומסביר." />
       {practice ? (
         <Box tone="note" title="בודקים מבחן תרגול">
           <p>{practice.title}, {practice.items.length} שאלות. התשובות הנכונות שמורות באפליקציה, אז העוזר רק קורא מה כתבתם ומשווה.</p>
         </Box>
-      ) : <p className="lead">מצלמים את הדפים של מבחן שפתרתם (או מעלים PDF). העוזר בודק כל שאלה, מסביר כל טעות, ומראה פתרון לדוגמה.</p>}
+      ) : null}
 
       {!aiReady() && (
         <Box tone="attention" title="העוזר עוד לא מחובר"><p>הבדיקה צריכה את העוזר. חברו אותו במסך "אני".</p></Box>

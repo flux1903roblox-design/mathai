@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
+import { AnimatePresence, m } from 'motion/react';
 import { toast } from 'sonner';
-import { X, Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw } from 'lucide-react';
+import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath } from '@/content/index.js';
 import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
@@ -18,17 +19,18 @@ import CheckResult from '@/components/CheckResult.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/components/ui.jsx';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
+import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 
 const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b' };
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
 
-function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKey, onEnter, struck, unstrike }) {
+function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKey, onEnter, struck, unstrike, good }) {
   const shakeRef = useShake(shakeKey);
   const names = slotsFor(item);
   const input = (k, extra = {}) => (
     <input
       key={k} id={`slot-${k}`} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false}
-      className={clsx('slot', active === k && !struck && !locked && 'active', struck && 'struck')}
+      className={clsx('slot', active === k && !struck && !locked && 'active', struck && 'struck', good && 'good')}
       aria-label={struck ? `${SLOT_LABEL[k]}, התשובה הקודמת: ${slots[k] || ''}. כתבו תשובה חדשה` : SLOT_LABEL[k]} placeholder={extra.ph || '?'}
       value={slots[k] || ''} readOnly={locked}
       onFocus={() => setActive(k)}
@@ -111,7 +113,8 @@ export default function Lesson() {
     qRef.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0 });
     // On a tall question (a figure), bring the answer up above the keypad.
-    requestAnimationFrame(() => document.querySelector('.lesson .answer, .lesson .choices')?.scrollIntoView({ block: 'nearest' }));
+    const t = setTimeout(() => document.querySelector('.lesson .answer, .lesson .choices')?.scrollIntoView({ block: 'nearest' }), 280);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.key, s?.slot]);
 
@@ -226,7 +229,7 @@ export default function Lesson() {
 
   if (!spec || !t) return <div className="page"><p>השיעור לא נמצא.</p></div>;
   if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/', { replace: true, state: { placed: true } })} />;
-  if (done) return <LessonDone {...done} topic={t} onExit={() => navigate('/', { replace: true, state: { from: spec.topic } })} onAgain={() => { setDone(null); setS(startLesson(spec)); }} />;
+  if (done) return <LessonDone {...done} topic={t} onExit={() => navigate('/', { replace: true, state: { from: spec.topic, nodeDone: !!(done.award.nodeDone || done.award.unitDone) } })} onAgain={() => { setDone(null); setS(startLesson(spec)); }} />;
 
   const feedback = last && !last.invalid ? (last.ok ? 'good' : s.phase === 'retry' ? 'retry' : 'reveal') : null;
   const inClass = !!st.profile?.token;
@@ -237,42 +240,42 @@ export default function Lesson() {
 
   return (
     <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open')} style={{ '--dock-h': `${dockH}px` }}>
-      <header className="lesson-top">
-        <button type="button" className="icon-btn lesson-x" onClick={() => setExitOpen(true)} aria-label="יציאה מהשיעור"><X size={26} /></button>
-        <div className="lesson-bar" role="progressbar" aria-label={placement ? 'התקדמות בבדיקת הרמה' : 'התקדמות בשיעור'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
-          <i style={{ width: `${Math.max(pct, 3)}%` }} />
-        </div>
-        {placement ? (
-          <span className="lesson-topic" aria-live="polite">{t.title}</span>
-        ) : (
-          <span className={clsx('lesson-combo', s.combo >= 2 && 'on')} aria-live="polite">
-            {s.combo >= 2 && <><Flame size={18} aria-hidden="true" />{s.combo}<span className="visually-hidden"> ברצף</span></>}
-          </span>
-        )}
-      </header>
+      <ProgressHeader pct={pct} label={placement ? 'התקדמות בבדיקת הרמה' : 'התקדמות בשיעור'} onExit={() => setExitOpen(true)} combo={s.combo} topic={placement ? t.title : null} />
 
       <main className="lesson-main" ref={qRef} tabIndex={-1} aria-labelledby="qtext">
-        <h1 className="qtext" id="qtext"><MathText text={item.text} /></h1>
+        <AnimatePresence mode="wait" initial={false}>
+        <m.div key={`${s.slot}-${item.key}`} className="q-stage" initial={{ opacity: 0, x: -32 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 32 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
+        <div className="q-head">
+          <Mascot mood={feedback === 'good' ? 'happy' : feedback ? 'encouraging' : s.hint || nbOn ? 'thinking' : 'idle'} beat={shakeKey + (last?.ok ? s.solved * 100 : 0)} size={68} className="q-mascot" />
+          <h1 className="qtext q-bubble" id="qtext"><MathText text={item.text} /></h1>
+        </div>
         {item.redo && <p className="redo-note"><RotateCcw size={16} aria-hidden="true" />תרגיל דומה לזה שהיה קשה קודם</p>}
         {item.display && <div className="qdisplay"><Tex tex={item.form === 'mc' ? item.display : `${item.display} = \\,?`} display /></div>}
         <Figure fig={item.fig} />
-        {s.hint && s.phase === 'answer' && !feedback && <Box tone="hint" title="רמז"><MathText as="p" text={item.hint} /></Box>}
+        <AnimatePresence>
+          {s.hint && s.phase === 'answer' && !feedback && (
+            <m.div key="hint" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+              <Box tone="hint" title="רמז"><MathText as="p" text={item.hint} /></Box>
+            </m.div>
+          )}
+        </AnimatePresence>
 
         {item.form === 'mc' ? (
           <div className={clsx('choices', item.choices.length === 3 && item.choices.every((c) => c.tex) && 'inline')} role="radiogroup" aria-label="אפשרויות">
             {item.choices.map((c, i) => {
               const state = locked && i === item.answer ? 'good' : (feedback && choice === i && i !== item.answer) || s.wrong.includes(i) ? 'bad' : '';
               return (
-                <button key={i} type="button" role="radio" aria-checked={choice === i} className={clsx('choice', choice === i && 'on', state)}
+                <m.button key={i} type="button" role="radio" aria-checked={choice === i} className={clsx('choice', choice === i && 'on', state)}
+                  whileTap={locked ? undefined : { scale: 0.96 }} animate={state === 'good' ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}
                   disabled={locked || s.wrong.includes(i)} onClick={() => { setChoice(i); play('tap'); if (feedback === 'retry') setLast(null); }}>
-                  <span className="choice-key" aria-hidden="true">{i + 1}</span>
+                  <span className="choice-key" aria-hidden="true">{state === 'good' ? <Check size={18} strokeWidth={3.4} /> : state === 'bad' ? <X size={18} strokeWidth={3.4} /> : i + 1}</span>
                   <span className="choice-text">{c.tex ? <Tex tex={c.tex} /> : c.text}</span>
-                </button>
+                </m.button>
               );
             })}
           </div>
         ) : !nbOn && (
-          <AnswerSlots item={item} slots={slots} setSlots={(v) => { setSlots(v); if (feedback === 'retry') setLast(null); }} active={active} setActive={setActive} locked={locked} shakeKey={shakeKey} onEnter={() => (feedback ? goOn() : check())} struck={struck} unstrike={() => setStruck(false)} />
+          <AnswerSlots item={item} slots={slots} setSlots={(v) => { setSlots(v); if (feedback === 'retry') setLast(null); }} active={active} setActive={setActive} locked={locked} shakeKey={shakeKey} onEnter={() => (feedback ? goOn() : check())} struck={struck} unstrike={() => setStruck(false)} good={feedback === 'good'} />
         )}
         {last?.invalid && <p className="form-error" role="alert">{last.text}</p>}
 
@@ -286,22 +289,29 @@ export default function Lesson() {
             {nbCheck.state === 'done' && <CheckResult r={nbCheck.r} />}
           </>
         )}
-
+        </m.div>
+        </AnimatePresence>
       </main>
 
-      {combo && (
-        <div className="combo-pop" role="status" onClick={() => setCombo(null)}>
-          <Mascot mood="cheer" size={110} />
-          <p className="combo-text">{combo} ברצף!</p>
-        </div>
-      )}
+      <AnimatePresence>
+        {combo && (
+          <m.div key="combo" className="combo-pop" role="status" onClick={() => setCombo(null)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <m.div className="combo-card" initial={{ scale: 0.6, y: 20 }} animate={{ scale: 1, y: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 16 }}>
+              <Mascot mood="excited" size={116} />
+              <p className="combo-text"><Flame size={30} aria-hidden="true" />{combo} ברצף!</p>
+            </m.div>
+          </m.div>
+        )}
+      </AnimatePresence>
 
       {feedback ? (
-        <section className={clsx('fb', `fb-${feedback}`)} aria-live="assertive" aria-labelledby="fb-title">
+        <m.section className={clsx('fb', `fb-${feedback}`)} aria-live="assertive" aria-labelledby="fb-title"
+          initial={{ y: '100%' }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 420, damping: 36 }}>
           <div className="fb-inner">
             <div className="fb-head">
-              <Mascot mood={feedback === 'good' ? 'cheer' : feedback === 'retry' ? 'oops' : 'think'} size={58} className="fb-mascot" />
+              <FeedbackBadge good={feedback === 'good'} />
               <h2 id="fb-title" className="fb-title">{feedback === 'good' ? (last.first ? last.praise : 'יפה, תיקנתם!') : feedback === 'retry' ? 'עוד לא. נסו שוב' : 'התשובה הנכונה:'}</h2>
+              {feedback === 'good' && s.combo >= 2 && <span className="fb-combo"><Flame size={16} aria-hidden="true" />{s.combo} ברצף</span>}
             </div>
             {feedback === 'retry' && (
               <div className="fb-body">
@@ -330,7 +340,7 @@ export default function Lesson() {
               {feedback === 'retry' ? 'לנסות שוב' : feedback === 'good' ? 'המשך' : 'הבנתי'}
             </Button>
           </div>
-        </section>
+        </m.section>
       ) : (
         <div className="lesson-dock" ref={dockRef}>
           {/* help sits next to the thumb, above the keypad */}

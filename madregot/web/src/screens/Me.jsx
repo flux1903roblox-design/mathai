@@ -5,6 +5,8 @@ import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
 import { Box, Button, Field } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass } from './Welcome.jsx';
+import PageHero from '@/components/PageHero.jsx';
+import Achievements from '@/components/Achievements.jsx';
 
 function ClassSection() {
   const { profile, setProfile, leaveClass } = useApp();
@@ -125,7 +127,8 @@ export default function Me() {
   const [danger, setDanger] = useState(null);
   return (
     <div className="page">
-      <h1 className="h-page">אני</h1>
+      <PageHero tone="brand" title={profile.name || 'אני'} sub={profile.className ? `כיתה ${profile.className}` : profile.grade === '8' ? 'כיתה ח׳' : 'כיתה ז׳'} mood="happy" />
+      <Achievements />
       <section className="section" aria-labelledby="prof-title">
         <h2 id="prof-title" className="h-section">הפרטים שלי</h2>
         <Field label="שם" id="me-name">
@@ -163,7 +166,7 @@ export default function Me() {
           </div>
         )}
       </section>
-      <p className="footnote">מדרגות{hasServer() ? '' : ' · עובד בלי שרת: ההתקדמות נשמרת רק במכשיר הזה'}</p>
+      <p className="footnote">מדרגות{hasServer() ? '' : '. בלי שרת: ההתקדמות נשמרת רק במכשיר הזה.'}</p>
     </div>
   );
 }

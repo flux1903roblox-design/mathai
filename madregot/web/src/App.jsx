@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
+import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
 import { syncNow } from '@/lib/api.js';
 import Shell from '@/components/Shell.jsx';
@@ -50,6 +51,8 @@ export default function App() {
   const role = useApp((s) => s.profile?.role);
   useSync();
   return (
+    <LazyMotion features={domAnimation} strict>
+    <MotionConfig reducedMotion="user">
     <HashRouter>
       <Toaster position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />
       <ToastReset />
@@ -87,5 +90,7 @@ export default function App() {
       </Routes>
       </Suspense>
     </HashRouter>
+    </MotionConfig>
+    </LazyMotion>
   );
 }

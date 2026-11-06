@@ -8,6 +8,7 @@ import { TOPIC, topicsFor } from '@/content/index.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
 import { MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
+import PageHero from '@/components/PageHero.jsx';
 
 /** Pick topics and a length; the exam is drawn from the generators with an exact answer key. */
 export function NewPracticeExam() {
@@ -31,8 +32,7 @@ export function NewPracticeExam() {
   return (
     <div className="page">
       <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
-      <h1 className="h-page">מבחן תרגול</h1>
-      <p className="lead">בוחרים נושאים, מדפיסים או פותרים על דף, ובסוף מצלמים לבדיקה. השאלות מותאמות למדרגה שלכם בכל נושא.</p>
+      <PageHero tone="fuchsia" art="study" title="מבחן תרגול" sub="בוחרים נושאים, מדפיסים או פותרים על דף, ובסוף מצלמים לבדיקה. השאלות מותאמות למדרגה שלכם." />
       <fieldset className="fieldset">
         <legend>נושאים</legend>
         <div className="pick-list">

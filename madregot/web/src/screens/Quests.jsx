@@ -6,6 +6,8 @@ import { questProgress, GOALS } from '@/lib/quests.js';
 import { usePlan } from '@/lib/usePlan.js';
 import Mascot from '@/components/Mascot.jsx';
 import { Week } from './LessonDone.jsx';
+import PageHero from '@/components/PageHero.jsx';
+import Lottie from '@/components/Lottie.jsx';
 
 
 export default function Quests() {
@@ -19,7 +21,7 @@ export default function Quests() {
 
   return (
     <div className="page quests">
-      <h1 className="h-page">משימות</h1>
+      <PageHero tone="streak" art="achievements" title="משימות" sub="שלוש משימות ביום. מסיימים את כולן ומקבלים הקפאת רצף." />
 
       <section className="card streak-card" aria-labelledby="streak-h">
         <div className="streak-card-top">
@@ -35,7 +37,10 @@ export default function Quests() {
 
       <section className="card" aria-labelledby="goal-h">
         <div className="card-row">
-          <h2 id="goal-h" className="card-title"><Zap size={22} aria-hidden="true" className="gold-icon" />היעד היומי</h2>
+          <h2 id="goal-h" className="card-title">
+            {todayXp >= goalXp ? <Lottie name="xp-star" className="goal-star" fallback={<Zap size={22} aria-hidden="true" className="gold-icon" />} /> : <Zap size={22} aria-hidden="true" className="gold-icon" />}
+            {todayXp >= goalXp ? 'היעד היומי הושג' : 'היעד היומי'}
+          </h2>
           <span className="card-num">{Math.min(todayXp, goalXp)}/{goalXp} XP</span>
         </div>
         <div className="bar" role="progressbar" aria-label="ההתקדמות ליעד היומי" aria-valuemin={0} aria-valuemax={goalXp} aria-valuenow={Math.min(todayXp, goalXp)}><i style={{ width: `${Math.min(1, todayXp / goalXp) * 100}%` }} /></div>

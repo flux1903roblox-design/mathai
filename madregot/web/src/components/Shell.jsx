@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { m } from 'motion/react';
 import { House, Target, ClipboardCheck, Sparkles, User } from 'lucide-react';
 
 const TABS = [
@@ -11,6 +12,7 @@ const TABS = [
 
 /** Student layout: content plus the tab bar (bottom on phones, top on wide screens). */
 export default function Shell() {
+  const { pathname } = useLocation();
   return (
     <div className="shell">
       <nav className="tabbar" aria-label="ניווט ראשי">
@@ -23,7 +25,10 @@ export default function Shell() {
         ))}
       </nav>
       <main className="shell-main">
-        <Outlet />
+        {/* each screen settles in as it opens: a short rise, from a visible start */}
+        <m.div key={pathname} className="screen" initial={{ opacity: 0.4, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}>
+          <Outlet />
+        </m.div>
       </main>
     </div>
   );

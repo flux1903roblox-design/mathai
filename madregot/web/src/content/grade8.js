@@ -35,7 +35,7 @@ function isRight() {
   const big = Math.max(...sides); const rest = sides.filter((s, i) => i !== sides.indexOf(big));
   const ok = rest[0] ** 2 + rest[1] ** 2 === big ** 2;
   return {
-    key: `py3:${sides.join(':')}`, text: `האם משולש שאורכי צלעותיו $${sides.join(',\\ ')}$ הוא משולש ישר־זווית?`, form: 'mc',
+    key: `py3:${sides.join(':')}`, text: `האם משולש שאורכי צלעותיו ${listMath(sides)} הוא משולש ישר־זווית?`, form: 'mc',
     choices: [{ text: 'כן' }, { text: 'לא' }], answer: ok ? 0 : 1,
     hint: 'בודקים אם סכום ריבועי שתי הצלעות הקצרות שווה לריבוע הצלע הארוכה.',
     solution: [`$${rest[0]}^2 + ${rest[1]}^2 = ${rest[0] ** 2 + rest[1] ** 2}$`, `$${big}^2 = ${big ** 2}$`, ok ? 'שווים, לכן המשולש ישר־זווית.' : 'לא שווים, לכן המשולש אינו ישר־זווית.'],
@@ -80,6 +80,9 @@ function distance() {
 // ---------------------------------------------------------------- statistics
 const sortNum = (arr) => [...arr].sort((x, y) => x - y);
 const listTex = (arr) => arr.join(',\\ ');
+// A list of numbers in a question: one expression per number inside a left-to-right isolate,
+// so it keeps its order in a Hebrew line and a narrow screen can wrap it between numbers.
+const listMath = (arr) => `\u2066${arr.map((v) => `$${v}$`).join(', ')}\u2069`;
 
 function mode() {
   for (;;) {
@@ -91,7 +94,7 @@ function mode() {
     const list = shuffle(arr); const max = Math.max(...arr);
     if (max === m) continue;
     return {
-      key: `st1:${list.join(',')}`, text: `מה השכיח של הנתונים $${listTex(list)}$?`, form: 'num', answer: m,
+      key: `st1:${list.join(',')}`, text: `מה השכיח של הנתונים ${listMath(list)}?`, form: 'num', answer: m,
       hint: 'השכיח הוא הערך שמופיע הכי הרבה פעמים.',
       solution: [`$${m}$ מופיע ${counts[m]} פעמים, יותר מכל ערך אחר.`],
       diag: (u) => (near(u, max) ? 'mode-max' : near(u, sortNum(list)[Math.floor(n / 2)]) ? 'mode-median' : near(u, counts[m]) ? 'mode-count' : null),
@@ -109,7 +112,7 @@ function median() {
     const unsortedMid = n % 2 ? list[(n - 1) / 2] : (list[n / 2 - 1] + list[n / 2]) / 2;
     if (near(unsortedMid, med)) continue;
     return {
-      key: `st2:${list.join(',')}`, text: `מה החציון של הנתונים $${listTex(list)}$?`, form: 'num', answer: med,
+      key: `st2:${list.join(',')}`, text: `מה החציון של הנתונים ${listMath(list)}?`, form: 'num', answer: med,
       hint: n % 2 ? 'מסדרים את הנתונים מהקטן לגדול. החציון הוא הערך שבאמצע.' : 'מסדרים מהקטן לגדול. במספר זוגי של נתונים, החציון הוא הממוצע של שני האמצעיים.',
       solution: [`מסודר: $${listTex(s)}$`, n % 2 ? `האמצעי: $${med}$` : `$\\frac{${s[n / 2 - 1]} + ${s[n / 2]}}{2} = ${med}$`],
       diag: (u) => (near(u, unsortedMid) ? 'unsorted' : near(u, arr.reduce((x, y) => x + y, 0) / n) ? 'mean-not-median' : null),
@@ -126,7 +129,7 @@ function mean() {
     const med = n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
     if (near(med, avg)) continue;
     return {
-      key: `st3:${arr.join(',')}`, text: `מה הממוצע של הנתונים $${listTex(arr)}$?`, form: 'num', answer: avg,
+      key: `st3:${arr.join(',')}`, text: `מה הממוצע של הנתונים ${listMath(arr)}?`, form: 'num', answer: avg,
       hint: 'מחברים את כל הנתונים ומחלקים במספר הנתונים.',
       solution: [`סכום: $${arr.join(' + ')} = ${sum}$`, `$${sum} : ${n} = ${avg}$`],
       diag: (u) => (near(u, med) ? 'median-not-mean' : near(u, sum) ? 'no-divide' : null),
@@ -161,7 +164,7 @@ function missingValue() {
     const x = avg * n - known.reduce((a, b) => a + b, 0);
     if (x < 0 || x > 30) continue;
     return {
-      key: `st5:${known.join(',')}:${avg}`, text: `הממוצע של ${n} מספרים הוא $${avg}$. ${n - 1} מהם הם $${listTex(known)}$. מה המספר החסר?`,
+      key: `st5:${known.join(',')}:${avg}`, text: `הממוצע של ${n} מספרים הוא $${avg}$. ${n - 1} מהם הם ${listMath(known)}. מה המספר החסר?`,
       form: 'num', answer: x,
       hint: 'ממוצע כפול מספר הנתונים נותן את הסכום של כולם. מה חסר כדי להגיע לסכום הזה?',
       solution: [`סכום כולם: $${avg} \\cdot ${n} = ${avg * n}$`, `סכום הידועים: $${known.reduce((a, b) => a + b, 0)}$`, `החסר: $${avg * n} - ${known.reduce((a, b) => a + b, 0)} = ${x}$`],

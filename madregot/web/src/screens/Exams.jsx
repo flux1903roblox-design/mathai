@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ClipboardCheck, Printer, Route, ChevronLeft } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { usePlan } from '@/lib/usePlan.js';
+import PageHero from '@/components/PageHero.jsx';
 
 const fmtDate = (iso) => new Date(iso).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit' });
 export const pctTone = (pct) => (pct >= 80 ? 'high' : pct >= 60 ? 'mid' : 'low');
@@ -23,8 +24,7 @@ export default function Exams() {
   const plan = usePlan();
   return (
     <div className="page">
-      <h1 className="h-page">מבחנים</h1>
-      <p className="lead">בודקים מבחן שפתרתם, מקבלים הסבר על כל שאלה, ורואים מה כדאי לתרגל עכשיו.</p>
+      <PageHero tone="sky" art="exams-empty" title="מבחנים" sub="בודקים מבחן שפתרתם, מקבלים הסבר על כל שאלה, ורואים מה כדאי לתרגל עכשיו." />
       <ul className="topic-list">
         <ActionRow to="/exams/check" icon={ClipboardCheck} title="בדיקת מבחן שפתרתם" desc="מצלמים את הדפים או מעלים PDF, והעוזר בודק כל תשובה" />
         <ActionRow to="/exams/new" icon={Printer} title="מבחן תרגול להדפסה" desc="מבחן מהנושאים שלכם, עם מפתח תשובות לבדיקה מדויקת" />
@@ -43,7 +43,7 @@ export default function Exams() {
                   <span className={`score-chip ${pctTone(e.score.pct)}`}>{e.score.pct}%</span>
                   <span className="topic-row-text">
                     <span className="topic-row-title">{e.title}</span>
-                    <span className="topic-row-desc">{fmtDate(e.at)} · {e.score.correct} מתוך {e.score.total} שאלות</span>
+                    <span className="topic-row-desc">{e.score.correct} מתוך {e.score.total} שאלות נכונות, {fmtDate(e.at)}</span>
                   </span>
                   <ChevronLeft className="chev" size={20} aria-hidden="true" />
                 </Link>
@@ -61,7 +61,7 @@ export default function Exams() {
               <li key={pe.id} className="practice-exam-row">
                 <span className="topic-row-text">
                   <span className="topic-row-title">{pe.title}</span>
-                  <span className="topic-row-desc">{fmtDate(pe.at)} · {pe.items.length} שאלות</span>
+                  <span className="topic-row-desc">{pe.items.length} שאלות, {fmtDate(pe.at)}</span>
                 </span>
                 <span className="row-actions">
                   <Link to={`/exams/practice/${pe.id}`} className="btn btn-secondary btn-sm">פתיחה</Link>
