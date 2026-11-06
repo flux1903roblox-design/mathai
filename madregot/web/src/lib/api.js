@@ -8,6 +8,7 @@ export function apiBase() {
   const fromSettings = useApp.getState().ai.apiUrl?.trim();
   // Default: a production build is served by the Worker (same address); `npm run dev` uses the local Worker.
   const url = fromSettings || import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/' : 'http://127.0.0.1:8787');
+  if (url === 'none') return ''; // a build with no server: solo practice only (e.g. a preview page)
   if (url === '/') return typeof window !== 'undefined' ? window.location.origin : '';
   return url.replace(/\/+$/, '');
 }
