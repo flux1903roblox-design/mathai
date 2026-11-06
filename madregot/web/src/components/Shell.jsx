@@ -1,9 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { House, BookOpen, ClipboardCheck, Sparkles, User } from 'lucide-react';
+import { House, Target, ClipboardCheck, Sparkles, User } from 'lucide-react';
 
 const TABS = [
-  { to: '/', label: 'היום', icon: House, end: true },
-  { to: '/topics', label: 'נושאים', icon: BookOpen },
+  { to: '/', label: 'לימוד', icon: House, end: true },
+  { to: '/quests', label: 'משימות', icon: Target },
   { to: '/exams', label: 'מבחנים', icon: ClipboardCheck },
   { to: '/assistant', label: 'עוזר AI', icon: Sparkles },
   { to: '/me', label: 'אני', icon: User },

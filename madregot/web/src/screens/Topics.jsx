@@ -1,8 +1,31 @@
+import { ChevronLeft } from 'lucide-react';
+import { ChapterMark, LevelPips } from '@/components/ui.jsx';
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { useApp } from '@/lib/store.js';
 import { topicsFor } from '@/content/index.js';
 import { GradeSwitch } from './Welcome.jsx';
-import { TopicRow } from './Today.jsx';
+
+export function TopicRow({ t, n, to }) {
+  const p = useApp((s) => s.progress[t.id]);
+  const level = p?.level || 1;
+  return (
+    <li>
+      <Link to={to || `/topic/${t.id}`} className="topic-row">
+        <ChapterMark color={t.color} n={n} />
+        <span className="topic-row-text">
+          <span className="topic-row-title">{t.title}</span>
+          <span className="topic-row-desc">{t.desc}</span>
+        </span>
+        <span className="topic-row-level">
+          <LevelPips total={t.levels.length} level={level} max={p?.max} color={t.color} />
+          <span className="topic-row-level-text">מדרגה {level}</span>
+        </span>
+        <ChevronLeft className="chev" size={20} aria-hidden="true" />
+      </Link>
+    </li>
+  );
+}
 
 export default function Topics() {
   const own = useApp((s) => s.profile.grade) || '7';

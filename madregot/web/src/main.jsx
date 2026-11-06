@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/assistant';
-import '@fontsource/secular-one';
+import '@fontsource-variable/rubik';
+import '@fontsource-variable/fredoka';
 import 'katex/dist/katex.min.css';
 import './styles/tokens.css';
 import './styles/app.css';

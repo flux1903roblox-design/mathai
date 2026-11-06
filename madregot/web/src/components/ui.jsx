@@ -55,15 +55,17 @@ export function Keypad({ onKey, primary, onPrimary, primaryDisabled }) {
   return (
     <div className="keypad" dir="ltr">
       {keys.map((k) => (
-        <button key={k} type="button" className={clsx('key', k === '-' && 'key-minus', k === 'del' && 'key-del')}
+        <button key={k} type="button" className={clsx('key', k === '-' && 'key-minus', k === 'del' && 'key-del', k === '0' && primary == null && 'key-wide')}
           aria-label={k === 'del' ? 'מחיקה' : k === '-' ? 'מינוס' : k === '/' ? 'שבר' : k === '.' ? 'נקודה עשרונית' : k}
           onPointerDown={(e) => e.preventDefault()} onClick={() => onKey(k)}>
           {k === 'del' ? <Delete size={22} aria-hidden="true" /> : k === '-' ? '−' : k}
         </button>
       ))}
-      <button type="button" className="key key-primary" onPointerDown={(e) => e.preventDefault()} onClick={onPrimary} disabled={primaryDisabled}>
-        {primary}
-      </button>
+      {primary != null && (
+        <button type="button" className="key key-primary" onPointerDown={(e) => e.preventDefault()} onClick={onPrimary} disabled={primaryDisabled}>
+          {primary}
+        </button>
+      )}
     </div>
   );
 }

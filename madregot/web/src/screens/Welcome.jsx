@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
-import StepsMark from '@/components/StepsMark.jsx';
+import Mascot from '@/components/Mascot.jsx';
 
 export function GradeSwitch({ value, onChange, id }) {
   return (
@@ -151,7 +151,7 @@ export default function Welcome() {
     <div className="welcome">
       {step === 'choose' && (
         <div className="welcome-intro">
-          <StepsMark />
+          <Mascot mood="happy" size={150} className="welcome-mascot" />
           <h1 className="wordmark">מדרגות</h1>
           <p className="lead">תרגול מתמטיקה יומי לכיתות ז׳ וח׳. כל תרגיל מעלה אתכם מדרגה, ועוזר AI מסביר כל טעות.</p>
           <div className="form-actions">

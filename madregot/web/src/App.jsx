@@ -1,14 +1,15 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { HashRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { syncNow } from '@/lib/api.js';
 import Shell from '@/components/Shell.jsx';
 import Welcome from '@/screens/Welcome.jsx';
-import Today from '@/screens/Today.jsx';
+import Learn from '@/screens/Learn.jsx';
 import Topics from '@/screens/Topics.jsx';
 import Topic from '@/screens/Topic.jsx';
-import Practice from '@/screens/Practice.jsx';
+import Lesson from '@/screens/Lesson.jsx';
+import Quests from '@/screens/Quests.jsx';
 // Screens that are not on the daily path load on demand.
 const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
@@ -32,7 +33,6 @@ function useSync() {
   }, [token]);
 }
 
-// A new topic or level starts a new session, so the screen remounts per route.
 /** A toast belongs to the screen that raised it: clear it when the route changes. */
 function ToastReset() {
   const { pathname } = useLocation();
@@ -40,9 +40,10 @@ function ToastReset() {
   return null;
 }
 
-function PracticeRoute() {
-  const { id } = useParams(); const { search } = useLocation();
-  return <Practice key={`${id}${search}`} />;
+// Each lesson route starts a fresh lesson, so the screen remounts per route.
+function LessonRoute() {
+  const { pathname, search } = useLocation();
+  return <Lesson key={`${pathname}${search}`} />;
 }
 
 export default function App() {
@@ -64,7 +65,8 @@ export default function App() {
         {role === 'student' && (
           <>
             <Route element={<Shell />}>
-              <Route path="/" element={<Today />} />
+              <Route path="/" element={<Learn />} />
+              <Route path="/quests" element={<Quests />} />
               <Route path="/topics" element={<Topics />} />
               <Route path="/topic/:id" element={<Topic />} />
               <Route path="/assistant" element={<Assistant />} />
@@ -76,7 +78,8 @@ export default function App() {
               <Route path="/exams/:id" element={<ExamResult />} />
               <Route path="/plan" element={<Plan />} />
             </Route>
-            <Route path="/practice/:id" element={<PracticeRoute />} />
+            <Route path="/lesson/:topic/:level" element={<LessonRoute />} />
+            <Route path="/practice/:id" element={<LessonRoute />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}
