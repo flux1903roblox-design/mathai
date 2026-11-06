@@ -671,37 +671,41 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 }
 .unit-guide:hover { background: rgba(255, 255, 255, 0.12); }
 
-.path { list-style: none; margin: 0; padding: var(--s10) 0 var(--s4); display: flex; flex-direction: column; align-items: center; gap: 22px; }
+.path { list-style: none; margin: 0; padding: 72px 0 var(--s4); display: flex; flex-direction: column; align-items: center; gap: 42px; }
 .path-step { position: relative; display: flex; flex-direction: column; align-items: center; transform: translateX(var(--x)); }
+/* a coin on the path: a true circle, a solid lip that collapses when pressed */
+.node-slot { position: relative; display: grid; place-items: center; width: 112px; height: 112px; margin-block: -14px -8px; }
+.node-slot.is-review { width: 120px; height: 120px; }
 .node {
-  position: relative; display: grid; place-items: center; width: 74px; height: 68px; margin-bottom: 7px;
-  border: 0; border-radius: 50%; background: var(--c); color: #fff; box-shadow: 0 7px 0 var(--c-d);
-  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out);
+  --face: 70px; --lip: 7px;
+  position: relative; z-index: 1; display: grid; place-items: center; width: var(--face); height: var(--face);
+  border: 0; border-radius: 50%; background: var(--c); color: #fff; box-shadow: 0 var(--lip) 0 var(--c-d);
+  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out), filter var(--duration-quick) var(--ease-out);
 }
-.node:active { transform: translateY(7px); box-shadow: 0 0 0 var(--c-d); }
-.node svg { fill: currentColor; fill-opacity: 0.18; }
-.node-done { background: var(--gold); color: #6b4500; box-shadow: 0 7px 0 var(--gold-d); }
-.node-done svg { fill: none; }
-.node-locked { background: #e4e5ee; color: #8d90a8; box-shadow: 0 7px 0 #c9cad9; }
-.node-locked svg { fill: none; }
-.node-review { width: 88px; height: 80px; }
-.node-current { width: 82px; height: 76px; }
-/* the current node wears a ring that fills as its lessons are done */
-.node-current::before {
-  content: ""; position: absolute; inset: -11px -11px -4px; border-radius: 50%;
-  background: conic-gradient(var(--c) var(--ring, 0deg), var(--rule) 0);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
-          mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
-}
+.node:hover { filter: brightness(1.06); }
+.node:active { transform: translateY(var(--lip)); box-shadow: 0 0 0 var(--c-d); }
+.node:focus-visible { outline: 3px solid var(--c); outline-offset: 5px; border-radius: 50%; }
+.node-glyph { width: 38px; height: 38px; }
+.node-current { --face: 76px; }
+.is-review .node { --face: 82px; }
+.is-review .node-glyph { width: 40px; height: 40px; }
+.node-done { background: var(--gold); color: #6b4500; box-shadow: 0 var(--lip) 0 var(--gold-d); }
+.node-done:active { box-shadow: 0 0 0 var(--gold-d); }
+.node-locked { background: #e4e5ee; color: #a3a5bb; box-shadow: 0 var(--lip) 0 #c9cad9; }
+.node-locked:active { box-shadow: 0 0 0 #c9cad9; }
+/* the ring: one segment per lesson in the node, in the unit's own colour */
+.node-ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.node-ring-seg { fill: var(--c-tint); stroke: var(--c-tint); transition: fill var(--duration-slow) var(--ease-smooth-out), stroke var(--duration-slow) var(--ease-smooth-out); }
+.node-ring-seg.on { fill: var(--c); stroke: var(--c); }
 .node-start {
-  position: absolute; bottom: calc(100% + 14px); z-index: 2; white-space: nowrap;
-  padding: 6px 14px; border: 2px solid var(--rule); border-radius: 12px; background: var(--paper);
+  position: absolute; bottom: calc(100% + 2px); z-index: 2; white-space: nowrap;
+  padding: 6px 14px; border: 2px solid var(--c); border-radius: 12px; background: var(--paper);
   font-family: var(--font-display); font-weight: 700; font-size: var(--t-md); color: var(--c-d);
   animation: start-bob 1.6s var(--ease-in-out) infinite;
 }
-.node-start::after { content: ""; position: absolute; top: 100%; inset-inline-start: calc(50% - 8px); border: 8px solid transparent; border-top-color: var(--rule); }
-@keyframes start-bob { 50% { transform: translateY(-5px); } }
-.path-mascot { position: absolute; top: -8px; pointer-events: none; }
+.node-start::after { content: ""; position: absolute; top: 100%; left: calc(50% - 8px); border: 8px solid transparent; border-top-color: var(--c); }
+@keyframes start-bob { 50% { transform: translateY(-4px); } }
+.path-mascot { position: absolute; top: 6px; pointer-events: none; }
 .path-mascot.left { right: calc(100% + 18px); }
 .path-mascot.right { left: calc(100% + 18px); }
 
@@ -717,7 +721,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 }
 .node-card-title { font-family: var(--font-display); font-weight: 600; font-size: var(--t-lg); line-height: var(--lh-lg); color: var(--c-d); }
 .node-card-sub { color: var(--ink-2); }
-.node-card .btn-primary { --btn-bg: var(--c); --btn-lip: var(--c-d); --btn-line: var(--c); font-size: var(--t-lg); min-height: 52px; }
+.node-card .btn-primary { font-size: var(--t-lg); min-height: 52px; }
 .node-card .btn-secondary { --btn-ink: var(--c-d); }
 
 .path-end { text-align: center; color: var(--ink-2); }
@@ -902,6 +906,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 @keyframes twinkle { 50% { opacity: 0.35; } }
 @media (prefers-reduced-motion: reduce) {
   .mascot-body, .mascot-sparkles, .node-start, .streak-big svg { animation: none !important; }
+  .node, .node-ring-seg { transition: none !important; }
   .fb, .combo-pop { animation: none !important; }
 }
 
@@ -925,7 +930,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 /* the tutor's note sits inside the panel as text, not a card in a card */
 .fb .box { background: transparent; border: 0; border-top: 2px solid var(--fb-line); border-radius: 0; padding: var(--s3) 0 0; }
 /* the current node lands below the sticky unit band, bubble included */
-.node { scroll-margin-top: 230px; scroll-margin-bottom: 120px; }
+.node { scroll-margin-top: 240px; scroll-margin-bottom: 120px; }
 
 /* ---------- wide screens: path in the middle, the day beside it ---------- */
 .learn-side { display: none; }
@@ -945,4 +950,6 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
 .side-streak svg.on { color: var(--streak); fill: var(--streak); fill-opacity: 0.25; }
 .side-quests { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); font-size: var(--t-sm); }
 .side-quests li { display: flex; justify-content: space-between; gap: var(--s2); }
-.side-quests li.done span:first-child { color: var(--good-ink); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.side-quests li > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+.side-quests li.done span:first-child { color: var(--good-ink); font-weight: 600; }
+.side-quests li svg { flex: none; color: var(--good); }

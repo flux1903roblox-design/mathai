@@ -51,7 +51,7 @@ export default function App() {
   useSync();
   return (
     <HashRouter>
-      <Toaster position="top-center" dir="rtl" offset={76} mobileOffset={{ top: 76 }} toastOptions={{ className: 'toast' }} />
+      <Toaster position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />
       <ToastReset />
       <Suspense fallback={<p className="page muted" role="status">טוענים…</p>}>
       <Routes>

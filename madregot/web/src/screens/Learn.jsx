@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { Flame, Zap, Snowflake, Star, Check, Lock, Trophy, BookOpen, ChevronDown, ArrowUp, ArrowDown, Route } from 'lucide-react';
+import { Flame, Zap, Snowflake, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown, Route } from 'lucide-react';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor, TOPIC } from '@/content/index.js';
@@ -9,6 +9,7 @@ import { unitNodes } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN, LESSON_LEN } from '@/lib/lesson.js';
 import { usePlan } from '@/lib/usePlan.js';
 import Mascot from '@/components/Mascot.jsx';
+import PathNode from '@/components/PathNode.jsx';
 import { Button } from '@/components/ui.jsx';
 
 // The path winds gently: each node sits a little to one side of the one before.
@@ -38,7 +39,7 @@ function NodeCard({ n, t, onStart }) {
   );
 }
 
-function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey }) {
+function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh }) {
   const done = nodes.filter((x) => x.kind === 'node' && x.state === 'done').length;
   const total = t.levels.length;
   return (
@@ -56,20 +57,16 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey }) {
           const key = `${t.id}:${node.kind}:${node.level}`;
           const isOpen = open === key;
           const x = SWING[i % SWING.length];
-          const Icon = node.kind === 'review' ? Trophy : node.state === 'done' ? Check : node.state === 'locked' ? Lock : Star;
-          const label = `${node.kind === 'review' ? 'חזרה על היחידה' : `מדרגה ${node.level}: ${node.title}`}. ${node.state === 'done' ? 'הושלם' : node.state === 'current' ? 'השלב הבא' : 'נעול'}`;
+          const label = `${node.kind === 'review' ? 'חזרה על היחידה' : `מדרגה ${node.level}: ${node.title}`}. ${node.state === 'done' ? 'הושלם' : node.state === 'current' ? (node.kind === 'node' ? `השלב הבא, ${node.parts} מתוך ${PARTS} שיעורים` : 'השלב הבא') : 'נעול'}`;
           return (
             <li key={key} className="path-step" style={{ '--x': `${x}px` }}>
               {node.state === 'current' && !isOpen && <span className="node-start" aria-hidden="true">{node.parts ? 'המשך' : 'התחלה'}</span>}
-              <button
-                type="button" ref={key === focusKey ? currentRef : undefined}
-                className={clsx('node', `node-${node.state}`, node.kind === 'review' && 'node-review')}
-                style={node.state === 'current' && node.kind === 'node' ? { '--ring': `${(node.parts / PARTS) * 360}deg` } : undefined}
-                aria-expanded={isOpen} aria-label={label}
-                onClick={() => setOpen(isOpen ? null : key)}
-              >
-                <Icon size={node.kind === 'review' ? 34 : 30} strokeWidth={2.6} aria-hidden="true" />
-              </button>
+              <PathNode
+                ref={key === focusKey ? currentRef : undefined}
+                state={node.state} kind={node.kind} parts={node.parts} of={PARTS}
+                fillLast={key === focusKey && fresh === t.id && node.parts > 0}
+                label={label} expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}
+              />
               {key === focusKey && <Mascot mood="happy" size={86} className={clsx('path-mascot', x > 0 ? 'left' : 'right')} />}
               {isOpen && <NodeCard n={node} t={t} onStart={onStart} />}
             </li>
@@ -95,7 +92,7 @@ function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
       </div>
       <Link to="/quests" className="side-card">
         <div className="card-row"><b>המשימות של היום</b><span className="card-num">{quests.filter((q) => q.done).length}/3</span></div>
-        <ul className="side-quests">{quests.map((q) => <li key={q.id} className={clsx(q.done && 'done')}><span>{q.title}</span><span className="card-num">{q.have}/{q.target}</span></li>)}</ul>
+        <ul className="side-quests">{quests.map((q) => <li key={q.id} className={clsx(q.done && 'done')}><span>{q.done && <Check size={16} strokeWidth={3} aria-hidden="true" />}{q.title}</span><span className="card-num">{q.have}/{q.target}</span></li>)}</ul>
       </Link>
     </aside>
   );
@@ -156,7 +153,7 @@ export default function Learn() {
           </Link>
         )}
         {topics.map((t, i) => (
-          <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} />
+          <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from} />
         ))}
         <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה.</p>
       </div>
