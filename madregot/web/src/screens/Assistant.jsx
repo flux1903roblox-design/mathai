@@ -13,7 +13,7 @@ import { Markdown } from '@/components/MathText.jsx';
 const TABS = [
   { id: 'chat', label: 'שיחה', icon: MessageCircle },
   { id: 'photo', label: 'בדיקת פתרון', icon: Camera },
-  { id: 'generate', label: 'תרגילים חדשים', icon: Wand2 },
+  { id: 'generate', label: 'תרגילים', icon: Wand2 },
 ];
 
 /** Segmented tabs with a sliding pill (transitions.dev #16). */

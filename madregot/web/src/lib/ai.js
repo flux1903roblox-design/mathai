@@ -6,8 +6,9 @@ import { useApp } from './store.js';
 import { apiBase, ApiError, errorText } from './api.js';
 
 export function aiMode() {
-  const { ai } = useApp.getState();
-  if (ai.mode === 'personal' && ai.key) return 'personal';
+  const { ai, profile } = useApp.getState();
+  // A personal key is for practising alone; a class always goes through its server.
+  if (ai.mode === 'personal' && ai.key && !profile?.classCode) return 'personal';
   return apiBase() ? 'server' : 'none';
 }
 export const aiReady = () => aiMode() !== 'none';

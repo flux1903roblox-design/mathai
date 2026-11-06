@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, ImagePlus, FileText, X } from 'lucide-react';
+import { ArrowRight, Camera, FileUp, FileText, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady } from '@/lib/ai.js';
@@ -30,6 +30,15 @@ export default function ExamCheck() {
   const [pages, setPages] = useState([]); // { data, mediaType, name }
   const [title, setTitle] = useState('');
   const [state, setState] = useState({ phase: 'idle' });
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
+  // Closing the tab mid-check would lose the request: ask first.
+  useEffect(() => {
+    if (state.phase !== 'loading') return undefined;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [state.phase]);
 
   const add = async (e) => {
     const files = [...(e.target.files || [])]; e.target.value = '';
@@ -50,6 +59,7 @@ export default function ExamCheck() {
 
   const check = async () => {
     setState({ phase: 'loading' });
+    requestAnimationFrame(() => document.querySelector('.check-status')?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
     try {
       const topics = TOPICS.filter((t) => t.grade === (profile.grade || '7') || practice?.items.some((i) => i.topic === t.id)).map((t) => ({ id: t.id, title: t.title, levels: t.levels.map((l) => l.title) }));
       const result = await runAI('exam', {
@@ -57,7 +67,8 @@ export default function ExamCheck() {
         key: practice ? practice.items.map((i) => ({ prompt: i.plain, answer: i.answer })) : undefined,
       });
       if (!result.readable || !result.questions?.length) {
-        setState({ phase: 'error', message: 'לא הצלחנו לקרוא את המבחן. צלמו שוב באור טוב, עם כל הדף בתמונה.' });
+        const message = 'לא הצלחנו לקרוא את המבחן. צלמו שוב באור טוב, עם כל הדף בתמונה.';
+        if (mounted.current) setState({ phase: 'error', message }); else toast.error(message);
         return;
       }
       // A practice exam's questions came from our generators: their topic and level are known exactly.
@@ -80,8 +91,11 @@ export default function ExamCheck() {
       if (profile.token) {
         api('/api/exams', { method: 'POST', body: { title: exam.title, correct: score.correct, total: score.total, questions: result.questions.map((q) => ({ topic: q.topic, status: q.status, skill: q.skill, level: q.level })), weakTopics: (result.weakTopics || []).map((w) => w.topic) } }).catch(() => {});
       }
-      navigate(`/exams/${exam.id}`, { replace: true });
-    } catch (e) { setState({ phase: 'error', message: e.message }); }
+      if (mounted.current) navigate(`/exams/${exam.id}`, { replace: true });
+      else toast.success('בדיקת המבחן מוכנה', { action: { label: 'לתוצאות', onClick: () => navigate(`/exams/${exam.id}`) } });
+    } catch (e) {
+      if (mounted.current) setState({ phase: 'error', message: e.message }); else toast.error(e.message);
+    }
   };
 
   return (
@@ -105,19 +119,28 @@ export default function ExamCheck() {
             <li key={`${p.name}-${i}`} className="page-thumb">
               {p.mediaType === 'application/pdf'
                 ? <span className="pdf-thumb"><FileText size={28} aria-hidden="true" /><span>{p.name}</span></span>
-                : <img src={p.data} alt={`דף ${i + 1}`} />}
+                : <img src={p.data} alt={`דף ${i + 1}`} width={96} height={128} />}
               <span className="page-num">{i + 1}</span>
               <button type="button" className="icon-btn page-remove" aria-label={`הסרת דף ${i + 1}`} onClick={() => setPages(pages.filter((_, k) => k !== i))}><X size={18} /></button>
             </li>
           ))}
           {pages.length < MAX_EXAM_PAGES && (
+            <>
             <li>
               <label className="page-add">
-                <input type="file" accept="image/*,application/pdf" multiple capture="environment" className="visually-hidden" onChange={add} />
-                <ImagePlus size={26} aria-hidden="true" />
-                <span>{pages.length ? 'עוד דף' : 'צילום או קובץ'}</span>
+                <input type="file" accept="image/*" capture="environment" className="visually-hidden" onChange={add} />
+                <Camera size={26} aria-hidden="true" />
+                <span>{pages.length ? 'צילום דף נוסף' : 'צילום דף'}</span>
               </label>
             </li>
+            <li>
+              <label className="page-add">
+                <input type="file" accept="image/*,application/pdf" multiple className="visually-hidden" onChange={add} />
+                <FileUp size={26} aria-hidden="true" />
+                <span>תמונה או PDF</span>
+              </label>
+            </li>
+            </>
           )}
         </ul>
         <p className="field-hint">לתמונה טובה: אור טוב, הדף שטוח וכולו בתמונה, דף אחד בכל צילום.</p>
@@ -125,13 +148,13 @@ export default function ExamCheck() {
 
       {!practice && (
         <Field label="שם המבחן (לא חובה)" id="ex-title">
-          <input id="ex-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="למשל: בוחן בפונקציה קווית" />
+          <input id="ex-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="למשל: בוחן בפונקציה קווית…" autoComplete="off" name="exam-title" />
         </Field>
       )}
 
-      <Button className="btn-block btn-lg" onClick={check} disabled={!pages.length || state.phase === 'loading' || !aiReady()}>בדיקת המבחן</Button>
+      {state.phase !== 'loading' && <Button className="btn-block btn-lg" onClick={check} disabled={!pages.length || !aiReady()}>בדיקת המבחן</Button>}
       {state.phase === 'loading' && (
-        <Box tone="ai" title="העוזר בודק" live>
+        <Box tone="ai" title="העוזר בודק" live className="check-status">
           <Thinking states={['קורא את הדפים', 'מזהה את השאלות', 'בודק כל תשובה', 'כותב משוב אישי', 'בונה תוכנית לשיפור']} />
           <p className="muted">בדיקה של מבחן שלם לוקחת בדרך כלל דקה או שתיים. אפשר להשאיר את המסך פתוח.</p>
         </Box>

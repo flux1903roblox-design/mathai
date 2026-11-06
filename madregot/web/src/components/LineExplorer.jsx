@@ -4,6 +4,7 @@ import { Tex } from './MathText.jsx';
 // Move m and b and watch y = mx + b: the "staircase" from (0, b) shows one
 // step right and m steps up or down, exactly as on the class whiteboard.
 const fmt = (v) => (Number.isInteger(v) ? `${v}` : v.toFixed(1));
+const num = (v) => fmt(v).replace(/^-/, '\u2212'); // for text outside KaTeX
 const lineTex = (m, b) => {
   const mt = m === 0 ? '' : m === 1 ? 'x' : m === -1 ? '-x' : `${fmt(m)}x`;
   if (!mt) return `y = ${fmt(b)}`;
@@ -38,9 +39,10 @@ export default function LineExplorer() {
           <line x1={X(1)} y1={Y(b + m)} x2={X(2)} y2={Y(b + m)} className="step-run" />
           <line x1={X(2)} y1={Y(b + m)} x2={X(2)} y2={Y(b + 2 * m)} className="step-rise" />
         </g>
-        <text x={X(1) + 6} y={Y(b + m / 2) + 4} className="step-label">{m > 0 ? `+${fmt(m)}` : fmt(m)}</text>
+        <text x={X(1) + 6} y={Y(b + m / 2) + 4} className="step-label" direction="ltr">{m > 0 ? `+${num(m)}` : num(m)}</text>
         <circle cx={X(0)} cy={Y(b)} r="5" className="fg-pt" />
-        <text x={X(0) - 8} y={Y(b) - 8} textAnchor="end" className="fg-pt-label" style={{ fontStyle: 'normal', fontSize: 13 }}>{`(0, ${fmt(b)})`}</text>
+        {/* the label sits right of the y-axis, on the side the line and the staircase leave free */}
+        <text x={X(0) + 10} y={m < 0 ? Y(b) - 10 : Y(b) + 20} textAnchor="start" className="fg-pt-label" direction="ltr" style={{ fontStyle: 'normal', fontSize: 13 }}>{`(0, ${num(b)})`}</text>
       </svg>
       <div className="explorer-controls">
         <label htmlFor={`${id}-m`} className="field-label">השיפוע <Tex tex={`m = ${fmt(m)}`} /></label>
@@ -53,8 +55,8 @@ export default function LineExplorer() {
       </p>
       <table className="fg-table explorer-table" dir="ltr">
         <tbody>
-          <tr><th scope="row">x</th>{xs.map((x) => <td key={x}>{x}</td>)}</tr>
-          <tr><th scope="row">y</th>{xs.map((x) => <td key={x}>{fmt(m * x + b)}</td>)}</tr>
+          <tr><th scope="row">x</th>{xs.map((x) => <td key={x}>{num(x)}</td>)}</tr>
+          <tr><th scope="row">y</th>{xs.map((x) => <td key={x}>{num(m * x + b)}</td>)}</tr>
         </tbody>
       </table>
     </div>

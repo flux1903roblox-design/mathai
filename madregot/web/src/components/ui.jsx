@@ -6,7 +6,7 @@ import { MathText } from './MathText.jsx';
 
 /** The chapter mark: a solid circle in the topic's colour with its number. */
 export function ChapterMark({ color, n, size = 'md' }) {
-  return <span className={clsx('chapter-mark', `ch-${color}`, size)} aria-hidden="true">{n}</span>;
+  return <span className={clsx('chapter-mark', `ch-${color}`, `cm-${size}`)} aria-hidden="true">{n}</span>;
 }
 
 /** Fixed level ramp: one pip per level, the same everywhere in the app. */
@@ -22,10 +22,10 @@ export function LevelPips({ total, level, max, color, label = true }) {
   );
 }
 
-/** Progress toward moving up a level: 2 or 4 slots. */
-export function NeedSlots({ need, have }) {
+/** Correct answers counted toward a goal (moving up a level, a plan step): round dots, never the level squares. */
+export function NeedSlots({ need, have, label = true }) {
   return (
-    <span className="need" role="img" aria-label={`${have} מתוך ${need} נכונות לעלייה`}>
+    <span className="need" role={label ? 'img' : undefined} aria-hidden={label ? undefined : true} aria-label={label ? `${have} מתוך ${need} נכונות לעלייה` : undefined}>
       {Array.from({ length: need }, (_, i) => <i key={i} className={i < have ? 'on' : ''} />)}
     </span>
   );
@@ -69,7 +69,8 @@ export function Keypad({ onKey, primary, onPrimary, primaryDisabled }) {
 }
 
 /** Thinking line (transitions.dev #28): shimmer while it holds, then swap the label. */
-export function Thinking({ states }) {
+export function Thinking({ states: raw }) {
+  const states = raw.map((x) => (x.endsWith('…') ? x : `${x}…`));
   const [i, setI] = useState(0);
   const [prev, setPrev] = useState(null);
   useEffect(() => {

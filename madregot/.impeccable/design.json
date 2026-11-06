@@ -1,0 +1,569 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-06T15:38:10+00:00",
+  "title": "Design System: Madregot",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#121212",
+          "#292929",
+          "#424242",
+          "#636363",
+          "#868686",
+          "#aeaeae",
+          "#d4d4d4",
+          "#eeeeee"
+        ]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Ground",
+        "canonical": "#f4f6f8",
+        "oklch": "oklch(97.2% 0.003 247.9)",
+        "tonalRamp": [
+          "#111212",
+          "#282929",
+          "#424243",
+          "#626364",
+          "#858687",
+          "#adaeaf",
+          "#d3d4d6",
+          "#edeff1"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#16191d",
+        "oklch": "oklch(21.2% 0.009 255.6)",
+        "tonalRamp": [
+          "#0f1216",
+          "#26292d",
+          "#404346",
+          "#616367",
+          "#848689",
+          "#acaeb0",
+          "#d3d4d6",
+          "#eeeef0"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Soft Ink",
+        "canonical": "#4c5561",
+        "oklch": "oklch(44.6% 0.023 255.6)",
+        "tonalRamp": [
+          "#0d1219",
+          "#232932",
+          "#3b434e",
+          "#5b6470",
+          "#7f8791",
+          "#a8afb8",
+          "#cfd5dc",
+          "#eaeff5"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#d6dde4",
+        "oklch": "oklch(89.4% 0.012 248.0)",
+        "tonalRamp": [
+          "#111213",
+          "#27292b",
+          "#404345",
+          "#606467",
+          "#82878b",
+          "#a9afb4",
+          "#ced5dc",
+          "#e9eff6"
+        ]
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Strong Rule",
+        "canonical": "#85909d",
+        "oklch": "oklch(64.9% 0.023 252.6)",
+        "tonalRamp": [
+          "#0e1217",
+          "#242930",
+          "#3c434b",
+          "#5c646e",
+          "#7d8794",
+          "#a5afbb",
+          "#ccd5e0",
+          "#e7eff9"
+        ]
+      },
+      "process-cyan": {
+        "role": "primary",
+        "displayName": "Process Cyan",
+        "canonical": "#006fa8",
+        "oklch": "oklch(51.9% 0.122 241.7)",
+        "tonalRamp": [
+          "#001230",
+          "#002c51",
+          "#004774",
+          "#0069a1",
+          "#428dc2",
+          "#78b5e3",
+          "#a9dbff",
+          "#c9f5ff"
+        ]
+      },
+      "process-cyan-tint": {
+        "role": "primary",
+        "displayName": "Cyan Tint",
+        "canonical": "#e3f2fa",
+        "oklch": "oklch(95.2% 0.019 230.7)",
+        "tonalRamp": [
+          "#101213",
+          "#26292b",
+          "#3f4345",
+          "#5e6468",
+          "#7f888c",
+          "#a5b0b6",
+          "#c9d7de",
+          "#e2f1f9"
+        ]
+      },
+      "process-magenta": {
+        "role": "secondary",
+        "displayName": "Process Magenta",
+        "canonical": "#b0105f",
+        "oklch": "oklch(49.6% 0.194 359.3)",
+        "tonalRamp": [
+          "#350010",
+          "#590027",
+          "#800040",
+          "#b11460",
+          "#d25283",
+          "#f486ab",
+          "#ffb4d2",
+          "#ffd4ed"
+        ]
+      },
+      "process-magenta-tint": {
+        "role": "secondary",
+        "displayName": "Magenta Tint",
+        "canonical": "#fbe6f0",
+        "oklch": "oklch(94.5% 0.026 347.1)",
+        "tonalRamp": [
+          "#131112",
+          "#2c2729",
+          "#474043",
+          "#696065",
+          "#8e8288",
+          "#b8a9b0",
+          "#e1ced7",
+          "#fde8f2"
+        ]
+      },
+      "marker": {
+        "role": "tertiary",
+        "displayName": "Marker Yellow",
+        "canonical": "#fff1a6",
+        "oklch": "oklch(95.2% 0.095 98.9)",
+        "tonalRamp": [
+          "#13120a",
+          "#2c291b",
+          "#47432d",
+          "#6a6444",
+          "#8f875c",
+          "#b9af78",
+          "#e2d693",
+          "#fef0a5"
+        ]
+      },
+      "marker-strong": {
+        "role": "tertiary",
+        "displayName": "Strong Marker",
+        "canonical": "#ffe25c",
+        "oklch": "oklch(91.3% 0.153 97.0)",
+        "tonalRamp": [
+          "#151203",
+          "#2f290b",
+          "#4c4216",
+          "#716324",
+          "#988634",
+          "#c4ae45",
+          "#efd456",
+          "#ffef71"
+        ]
+      },
+      "correct-green": {
+        "role": "tertiary",
+        "displayName": "Correct Green",
+        "canonical": "#0b7340",
+        "oklch": "oklch(48.9% 0.119 154.4)",
+        "tonalRamp": [
+          "#001a02",
+          "#003512",
+          "#005227",
+          "#157643",
+          "#4f986a",
+          "#83be96",
+          "#b1e2c0",
+          "#d1fbdd"
+        ]
+      },
+      "correct-green-tint": {
+        "role": "tertiary",
+        "displayName": "Green Tint",
+        "canonical": "#e2f3e9",
+        "oklch": "oklch(94.9% 0.022 160.2)",
+        "tonalRamp": [
+          "#101211",
+          "#262a28",
+          "#3f4441",
+          "#5e6561",
+          "#7f8983",
+          "#a5b2aa",
+          "#c9d9d0",
+          "#e2f3e9"
+        ]
+      },
+      "chapter-orange": {
+        "role": "chapter",
+        "displayName": "Burnt Orange",
+        "canonical": "#b2470b",
+        "oklch": "oklch(53.5% 0.153 43.2)",
+        "tonalRamp": [
+          "#2f0000",
+          "#510a00",
+          "#762200",
+          "#a43f01",
+          "#c9663b",
+          "#ec9571",
+          "#ffc0a1",
+          "#ffddc2"
+        ]
+      },
+      "chapter-orange-tint": {
+        "role": "chapter",
+        "displayName": "Orange Tint",
+        "canonical": "#fdeee3",
+        "oklch": "oklch(95.8% 0.022 58.8)",
+        "tonalRamp": [
+          "#131110",
+          "#2b2826",
+          "#46413e",
+          "#68625d",
+          "#8d847e",
+          "#b6aca4",
+          "#dfd1c8",
+          "#faebe0"
+        ]
+      },
+      "chapter-violet": {
+        "role": "chapter",
+        "displayName": "Violet",
+        "canonical": "#6a3fa8",
+        "oklch": "oklch(47.3% 0.162 298.9)",
+        "tonalRamp": [
+          "#1a0039",
+          "#330f5d",
+          "#4f2883",
+          "#7149af",
+          "#9272cc",
+          "#b89eeb",
+          "#dcc8ff",
+          "#f5e4ff"
+        ]
+      },
+      "chapter-violet-tint": {
+        "role": "chapter",
+        "displayName": "Violet Tint",
+        "canonical": "#efe9f8",
+        "oklch": "oklch(94.3% 0.021 304.0)",
+        "tonalRamp": [
+          "#121113",
+          "#29282b",
+          "#434146",
+          "#646268",
+          "#88848d",
+          "#b0acb7",
+          "#d7d1df",
+          "#f1ebfa"
+        ]
+      },
+      "chapter-ochre": {
+        "role": "chapter",
+        "displayName": "Ochre",
+        "canonical": "#8a5a00",
+        "oklch": "oklch(50.8% 0.108 73.3)",
+        "tonalRamp": [
+          "#230a00",
+          "#402000",
+          "#5f3900",
+          "#875800",
+          "#a97d41",
+          "#cda775",
+          "#efcea5",
+          "#ffeac6"
+        ]
+      },
+      "chapter-ochre-tint": {
+        "role": "chapter",
+        "displayName": "Ochre Tint",
+        "canonical": "#fbf1d6",
+        "oklch": "oklch(95.9% 0.037 90.1)",
+        "tonalRamp": [
+          "#12110f",
+          "#2b2924",
+          "#45423a",
+          "#676358",
+          "#8b8677",
+          "#b5ae9a",
+          "#ddd4bc",
+          "#f8eed3"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display-expression": {
+        "displayName": "Display expression",
+        "purpose": "The question expression; the only large type during practice."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles (Secular One)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section titles; box labels at 14px."
+      },
+      "body-large": {
+        "displayName": "Body large",
+        "purpose": "Question text, lead paragraphs, topic titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running text, tabular numbers."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, chips, field labels."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Tab captions, level captions, footnotes."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sheet-lift",
+        "value": "0 2px 4px rgba(22,25,29,0.06), 0 8px 24px rgba(22,25,29,0.08)",
+        "purpose": "Bottom sheet rising over the page."
+      },
+      {
+        "name": "dock",
+        "value": "0 -2px 6px rgba(22,25,29,0.05), 0 -8px 24px rgba(22,25,29,0.06)",
+        "purpose": "Keypad docked to the bottom edge."
+      },
+      {
+        "name": "segment-on",
+        "value": "0 1px 2px rgba(22,25,29,0.08), 0 2px 8px rgba(22,25,29,0.06)",
+        "purpose": "Selected segment of a segmented control."
+      }
+    ],
+    "motion": [
+      {
+        "name": "duration-quick",
+        "value": "150ms",
+        "purpose": "Hover and border changes on controls."
+      },
+      {
+        "name": "duration-fast",
+        "value": "250ms",
+        "purpose": "Small state changes, answer dots filling."
+      },
+      {
+        "name": "duration-slow",
+        "value": "400ms",
+        "purpose": "Bottom sheet entering."
+      },
+      {
+        "name": "duration-very-slow",
+        "value": "500ms",
+        "purpose": "Level-up mark."
+      },
+      {
+        "name": "ease-smooth-out",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Default easing for entering and settling; no overshoot."
+      },
+      {
+        "name": "error-shake",
+        "value": "6px, 80ms + 60ms",
+        "purpose": "Wrong or missing answer (transitions.dev #12)."
+      },
+      {
+        "name": "thinking",
+        "value": "hold 2000ms, swap 150ms, shimmer 2000ms",
+        "purpose": "AI status line (transitions.dev #28); off under reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow-phone",
+        "value": "400px"
+      },
+      {
+        "name": "tablet",
+        "value": "700px"
+      },
+      {
+        "name": "desktop",
+        "value": "960px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action on a screen, usually full width.",
+      "html": "<button class=\"ds-btn ds-btn-primary\" dir=\"rtl\">ממשיכים לתרגל</button>",
+      "css": ".ds-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:48px; padding:0 20px; border-radius:10px; border:1.5px solid transparent; font:700 16px/1 'Assistant Variable', Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif; cursor:pointer; transition: background-color 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out; } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline:2px solid #006fa8; outline-offset:2px; } .ds-btn-primary { background:#006fa8; color:#fff; } .ds-btn-primary:hover { background:#005e8f; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Second choice next to a primary action.",
+      "html": "<button class=\"ds-btn-secondary\" dir=\"rtl\">תרגול דומה</button>",
+      "css": ".ds-btn-secondary { min-height:48px; padding:0 20px; border-radius:10px; border:1.5px solid #85909d; background:#fff; color:#16191d; font:700 16px/1 'Assistant Variable', Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif; cursor:pointer; transition: border-color 150ms ease-out; } .ds-btn-secondary:hover { border-color:#16191d; } .ds-btn-secondary:focus-visible { outline:2px solid #006fa8; outline-offset:2px; }"
+    },
+    {
+      "name": "AI Button",
+      "kind": "button",
+      "refersTo": "button-ai",
+      "description": "Anything that calls the Claude tutor.",
+      "html": "<button class=\"ds-btn-ai\" dir=\"rtl\">למה טעיתי? הסבר מהעוזר</button>",
+      "css": ".ds-btn-ai { min-height:48px; padding:0 20px; border-radius:10px; border:1.5px solid #b0105f; background:#fbe6f0; color:#b0105f; font:700 16px/1 'Assistant Variable', Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif; cursor:pointer; transition: background-color 150ms ease-out; } .ds-btn-ai:hover { background:#f7d3e4; } .ds-btn-ai:focus-visible { outline:2px solid #006fa8; outline-offset:2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled input on paper.",
+      "html": "<label class=\"ds-field\" dir=\"rtl\"><span>שם המבחן</span><input class=\"ds-input\" placeholder=\"למשל: בוחן בפונקציה קווית…\"></label>",
+      "css": ".ds-field { display:flex; flex-direction:column; gap:4px; font:700 14px/20px 'Assistant Variable', Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif; color:#16191d; } .ds-input { min-height:48px; padding:8px 12px; border-radius:10px; border:1.5px solid #85909d; background:#fff; font:400 16px 'Assistant Variable', Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif; transition: border-color 150ms ease-out, box-shadow 150ms ease-out; } .ds-input:focus { outline:none; border-color:#006fa8; box-shadow:0 0 0 3px #e3f2fa; }"
+    },
+    {
+      "name": "Textbook Box",
+      "kind": "card",
+      "refersTo": "box-attention",
+      "description": "Help, feedback and AI output: a tinted panel with its label on the top edge.",
+      "html": "<section class=\"ds-box\" dir=\"rtl\"><h3 class=\"ds-box-tab\">שימו לב</h3><p>לחיתוך עם ציר x מציבים y = 0.</p></section>",
+      "css": ".ds-box { position:relative; margin-top:12px; padding:24px 16px 16px; border-radius:12px; background:#fbe6f0; border:1px solid #efbdd4; font:400 16px/24px 'Assistant Variable', Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif; color:#16191d; } .ds-box p { margin:0; } .ds-box-tab { position:absolute; top:-13px; inset-inline-start:12px; margin:0; padding:0 12px; border-radius:7px; background:#b0105f; color:#fff; font:400 14px/24px 'Secular One', 'Assistant Variable', 'Arial Hebrew', sans-serif; }"
+    },
+    {
+      "name": "Answer Slot (held mistake)",
+      "kind": "custom",
+      "refersTo": "answer-slot",
+      "description": "The answer box; after a mistake the wrong answer stays, struck through, until replaced.",
+      "html": "<span class=\"ds-slots\"><input class=\"ds-slot\" value=\"12\" aria-label=\"תשובה\"><input class=\"ds-slot ds-struck\" value=\"7\" aria-label=\"תשובה קודמת\"></span>",
+      "css": ".ds-slots { display:inline-flex; gap:12px; direction:ltr; } .ds-slot { width:104px; height:56px; text-align:center; font:700 26px 'Assistant Variable', Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif; border:2px solid #85909d; border-radius:12px; background:#fff; color:#16191d; } .ds-slot:focus { outline:none; border-color:#006fa8; box-shadow:0 0 0 3px #e3f2fa; } .ds-struck { color:#b0105f; border-color:#b0105f; text-decoration:line-through; text-decoration-thickness:2px; }"
+    },
+    {
+      "name": "Level Squares and Answer Dots",
+      "kind": "custom",
+      "refersTo": "chapter-mark",
+      "description": "Squares are levels (passed, current hatched, ahead); dots are correct answers counted toward a goal.",
+      "html": "<span class=\"ds-marks\"><span class=\"ds-cm\">1</span><span class=\"ds-pips\"><i class=\"d\"></i><i class=\"d\"></i><i class=\"c\"></i><i></i><i></i></span><span class=\"ds-need\"><i class=\"on\"></i><i class=\"on\"></i><i></i><i></i></span></span>",
+      "css": ".ds-marks { display:inline-flex; align-items:center; gap:16px; } .ds-cm { display:inline-grid; place-items:center; width:36px; height:36px; border-radius:50%; background:#006fa8; color:#fff; font:800 18px/1 'Assistant Variable', Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif; } .ds-pips, .ds-need { display:inline-flex; gap:4px; align-items:center; } .ds-pips i { width:14px; height:14px; border-radius:4px; border:1.5px solid #85909d; } .ds-pips i.d { background:#006fa8; border-color:#006fa8; } .ds-pips i.c { border-color:#006fa8; background: repeating-linear-gradient(-45deg, #006fa8 0 2px, transparent 2px 5px); } .ds-need { gap:5px; } .ds-need i { width:12px; height:12px; border-radius:50%; border:2px solid #85909d; } .ds-need i.on { background:#0b7340; border-color:#0b7340; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": null,
+      "description": "Result of one exam question.",
+      "html": "<span class=\"ds-chips\" dir=\"rtl\"><span class=\"ds-chip ok\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>נכון</span><span class=\"ds-chip mid\">נכון בחלקו</span><span class=\"ds-chip bad\">טעות</span></span>",
+      "css": ".ds-chips { display:inline-flex; gap:8px; } .ds-chip { display:inline-flex; align-items:center; gap:4px; min-height:28px; padding:0 8px; border-radius:999px; font:800 14px/1 'Assistant Variable', Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif; } .ds-chip.ok { color:#0b7340; background:#e2f3e9; } .ds-chip.mid { color:#8a5a00; background:#fbf1d6; } .ds-chip.bad { color:#b0105f; background:#fbe6f0; }"
+    },
+    {
+      "name": "Bottom Tab Bar",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Phone navigation: five tabs, icon over caption, cyan when active.",
+      "html": "<nav class=\"ds-tabbar\" dir=\"rtl\"><a class=\"ds-tab on\" href=\"#\">היום</a><a class=\"ds-tab\" href=\"#\">נושאים</a><a class=\"ds-tab\" href=\"#\">מבחנים</a><a class=\"ds-tab\" href=\"#\">עוזר AI</a><a class=\"ds-tab\" href=\"#\">אני</a></nav>",
+      "css": ".ds-tabbar { display:grid; grid-template-columns:repeat(5,1fr); background:#fff; border-top:1px solid #d6dde4; padding:4px 8px; } .ds-tab { display:flex; align-items:center; justify-content:center; min-height:60px; color:#4c5561; text-decoration:none; font:600 13px 'Assistant Variable', Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif; border-radius:8px; } .ds-tab:hover { background:#f4f6f8; } .ds-tab:focus-visible { outline:2px solid #006fa8; outline-offset:2px; } .ds-tab.on { color:#006fa8; }"
+    },
+    {
+      "name": "Highlighter",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Marker yellow on the words that matter, never a whole card.",
+      "html": "<p class=\"ds-hl-p\" dir=\"rtl\">הצעד הבא: <span class=\"ds-hl\">חיתוך עם הצירים</span></p>",
+      "css": ".ds-hl-p { font:700 18px/28px 'Assistant Variable', Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif; color:#16191d; margin:0; } .ds-hl { background: linear-gradient(transparent 48%, #ffe25c 48%, #ffe25c 92%, transparent 92%); padding:0 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Printed Textbook, Working",
+    "overview": "Madregot is a Hebrew math textbook that answers back. The page is white paper with black ink. Colour comes from offset printing: cyan, magenta and a yellow marker, laid down as flat tints. Every topic is a chapter with its own colour. Exercises carry circled numbers, math is set in serif italics, and help arrives the way a textbook prints it, in a tinted box with its label on the top edge, next to the exercise it is about. The app refuses the gamified-path look of learning apps: no mascots, confetti or emoji. Progress is drawn the way a book would draw it, as a fixed row of level squares.\n\nDensity is that of a working page: one question at a time, read at arm's length on a phone, often in a quiet classroom. The expression is the only large type on the practice screen. Everything else (labels, help, navigation) stays at reading size, so the eye goes to the math first. The teacher dashboard uses the same paper and ink at desktop density, with tables and boxes and no decoration.\n\nThe layout is right to left (Hebrew), but math is always left to right and isolated, so a minus sign never wanders to the wrong side of a number.",
+    "keyCharacteristics": [
+      "White paper, black ink, process-colour tints; no gradients, no glass, no dark theme.",
+      "One chapter colour per topic, carried on the topic band, its circle mark, its level squares and its tinted boxes.",
+      "The expression at display size (38px) is the only large type during practice.",
+      "Help as textbook boxes: tinted panel, label set on the top edge.",
+      "Fixed marks with one meaning each: squares are levels, round dots are correct answers counted toward a goal, solid circles are exercise and chapter numbers.",
+      "A strict 4px spacing grid, and figures drawn on the same grid."
+    ],
+    "rules": [
+      {
+        "name": "The Marker Rule",
+        "body": "Yellow highlights words; it does not fill cards. The one exception is the hint box, which a textbook prints on a yellow panel.",
+        "section": "colors"
+      },
+      {
+        "name": "The Chapter Rule",
+        "body": "A chapter colour belongs to its topic. It is never used for status or decoration on another topic's content.",
+        "section": "colors"
+      },
+      {
+        "name": "The Magenta Means Look Rule",
+        "body": "Magenta always means \"look at this\": a mistake, the AI, or a destructive action. Never use it for neutral emphasis.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Large Thing Rule",
+        "body": "On a practice screen only the expression is set large. No headline, score or decoration competes with it.",
+        "section": "typography"
+      },
+      {
+        "name": "The Math Stays Left-to-Right Rule",
+        "body": "Every number, coordinate and expression is set as isolated LTR (KaTeX, or a `bdi` with a real minus sign U+2212), and an inline expression never breaks across lines.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Paper Rule",
+        "body": "Cards and boxes have no shadow. If something needs to stand out, give it a tint or a rule, not elevation.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep the expression the only large type on any practice screen (38px display KaTeX).",
+      "**Do** put help, feedback and AI output in a textbook box with its label on the top edge.",
+      "**Do** use the topic's chapter colour for its band, circle, level squares and weak-topic panel.",
+      "**Do** set every number and expression as isolated LTR with a real minus sign (U+2212).",
+      "**Do** keep a mistake visible: the wrong answer stays struck through in magenta until the student replaces it.",
+      "**Do** keep spacing on the 4px grid and touch targets at 44px or more."
+    ],
+    "donts": [
+      "**Don't** fill whole cards with marker yellow; highlight the words that matter instead.",
+      "**Don't** reuse level squares for anything except levels, or answer dots for anything except correct answers counted toward a goal.",
+      "**Don't** add mascots, confetti, emoji icons or a gamified path.",
+      "**Don't** add shadows to cards or boxes; use a tint or a rule.",
+      "**Don't** use magenta for neutral emphasis; it means \"look at this\".",
+      "**Don't** put a small grey label above a title; fold it into the title or drop it."
+    ]
+  }
+}

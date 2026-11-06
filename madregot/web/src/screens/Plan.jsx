@@ -4,7 +4,7 @@ import { ArrowRight, Check } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { usePlan } from '@/lib/usePlan.js';
 import { TOPIC } from '@/content/index.js';
-import { Box, Button } from '@/components/ui.jsx';
+import { Box, Button, NeedSlots } from '@/components/ui.jsx';
 import { Markdown } from '@/components/MathText.jsx';
 
 export default function Plan() {
@@ -44,7 +44,7 @@ export default function Plan() {
                     {s.kind === 'practice' && (
                       <div className="plan-meter">
                         <span className="plan-target">{s.have} מתוך {s.need} תשובות נכונות, ממדרגה {s.level} ומעלה</span>
-                        <span className="pips" aria-hidden="true">{Array.from({ length: s.need }, (_, k) => <i key={k} className={clsx(k < s.have && 'on')} />)}</span>
+                        <NeedSlots need={s.need} have={s.have} label={false} />
                       </div>
                     )}
                     {!s.done && (

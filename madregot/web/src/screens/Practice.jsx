@@ -5,7 +5,7 @@ import NumberFlow from '@number-flow/react';
 import { toast } from 'sonner';
 import { X, Star, Lightbulb, Sparkles, Hand, RotateCcw, ArrowLeft, NotebookPen, Keyboard } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
-import { TOPIC, TOPICS, readAnswer, answerText, itemPlain, slotsFor } from '@/content/index.js';
+import { TOPIC, TOPICS, readAnswer, answerText, itemPlain, slotsFor, itemMath } from '@/content/index.js';
 import { startSession, nextQuestion, submit, withHint, needFor, GOAL_MINUTES } from '@/lib/ladder.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { api, syncNow } from '@/lib/api.js';
@@ -31,16 +31,21 @@ function SuccessCheck() {
   );
 }
 
-function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKey, onEnter }) {
+function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKey, onEnter, struck, unstrike }) {
   const shakeRef = useShake(shakeKey);
   const names = slotsFor(item);
   const input = (k, extra = {}) => (
     <input
       key={k} id={`slot-${k}`} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false}
-      className={clsx('slot', active === k && 'active')} aria-label={SLOT_LABEL[k]} placeholder={extra.ph || '?'}
+      className={clsx('slot', active === k && 'active', struck && 'struck')} aria-label={struck ? `${SLOT_LABEL[k]}, התשובה הקודמת: ${slots[k] || ''}. כתבו תשובה חדשה` : SLOT_LABEL[k]} placeholder={extra.ph || '?'}
       value={slots[k] || ''} readOnly={locked}
       onFocus={() => setActive(k)}
-      onChange={(e) => setSlots({ ...slots, [k]: e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9) })}
+      onChange={(e) => {
+        const typed = e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9);
+        // A struck (wrong) answer is replaced, not edited: the first new key starts a fresh answer.
+        if (struck) { unstrike(); setSlots({ [k]: typed.slice((slots[k] || '').length) || typed.slice(-1) }); return; }
+        setSlots({ ...slots, [k]: typed });
+      }}
       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter(); } }}
     />
   );
@@ -108,6 +113,7 @@ export default function Practice() {
 
   const [s, setS] = useState(() => (t ? nextQuestion(startSession(id, { level: startLevel, max: saved?.max })) : null));
   const [slots, setSlots] = useState({});
+  const [struck, setStruck] = useState(false); // after a mistake: the wrong answer stays visible, crossed out
   const [active, setActive] = useState('v');
   const [shakeKey, setShakeKey] = useState(0);
   const [last, setLast] = useState(null); // result of the last submit
@@ -133,7 +139,7 @@ export default function Practice() {
   const names = item ? slotsFor(item) : [];
   useEffect(() => {
     if (!item) return;
-    setSlots({}); setActive(names[0] || 'v'); setExplain({ state: 'idle', text: '' }); setNbCheck({ state: 'idle' });
+    setSlots({}); setStruck(false); setActive(names[0] || 'v'); setExplain({ state: 'idle', text: '' }); setNbCheck({ state: 'idle' });
     qRef.current?.focus({ preventScroll: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.key, s?.served]);
@@ -145,12 +151,14 @@ export default function Practice() {
 
   const onKey = (k) => {
     if (s.phase === 'done' || s.phase === 'revealed') return;
-    const cur = slots[active] || '';
+    const base = struck ? {} : slots;
+    if (struck) setStruck(false);
+    const cur = base[active] || '';
     let v = cur;
     if (k === 'del') v = cur.slice(0, -1);
     else if (k === '-') v = cur.startsWith('-') ? cur.slice(1) : `-${cur}`;
     else if (cur.length < 9) v = cur + k;
-    setSlots({ ...slots, [active]: v });
+    setSlots({ ...base, [active]: v });
     focusSlot(active);
   };
 
@@ -161,6 +169,11 @@ export default function Practice() {
 
   const check = (choice) => {
     if (!item || s.phase === 'done' || s.phase === 'revealed') return;
+    if (struck && item.form !== 'mc') {
+      setLast({ ...last, invalid: true, text: 'כתבו תשובה חדשה במקום התשובה המחוקה.' });
+      setShakeKey((v) => v + 1); focusSlot(active);
+      return;
+    }
     const u = item.form === 'mc' ? choice : readAnswer(item, slots);
     if (u == null) {
       const missing = names.find((k) => !String(slots[k] || '').trim()) || names[0];
@@ -179,7 +192,7 @@ export default function Practice() {
     } else {
       setShakeKey((v) => v + 1);
       if (result.reveal) commitEvent(result.event, 0);
-      if (result.retry) { setSlots({}); setActive(names[0] || 'v'); }
+      if (result.retry) { setStruck(true); setActive(names[0] || 'v'); }
     }
     setS(ns);
   };
@@ -274,7 +287,7 @@ export default function Practice() {
             })}
           </div>
         ) : !notebook && (
-          <AnswerSlots item={item} slots={slots} setSlots={setSlots} active={active} setActive={setActive} locked={isDone} shakeKey={shakeKey} onEnter={primary} />
+          <AnswerSlots item={item} slots={slots} setSlots={setSlots} active={active} setActive={setActive} locked={isDone} shakeKey={shakeKey} onEnter={primary} struck={struck} unstrike={() => setStruck(false)} />
         )}
 
         {!isDone && (
@@ -353,7 +366,7 @@ export default function Practice() {
         <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={item.text} />{item.display && <> <Tex tex={item.display} /></>}</div>
         <AIChat context={aiContext()} />
       </Sheet>
-      <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} payload={{ topic: id, level: item.level, question: itemPlain(item), answer: s.wrong.join(' ; ') }} getImage={() => (page.strokes.length ? nbRef.current?.toImage() || null : null)} hasPage={page.strokes.length > 0} />
+      <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} payload={{ topic: id, level: item.level, question: itemMath(item), answer: s.wrong.join(' ; ') }} getImage={() => (page.strokes.length ? nbRef.current?.toImage() || null : null)} hasPage={page.strokes.length > 0} />
     </div>
   );
 }

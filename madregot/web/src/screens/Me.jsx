@@ -2,7 +2,7 @@ import { useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
-import { api, apiBase } from '@/lib/api.js';
+import { api, hasServer } from '@/lib/api.js';
 import { Box, Button, Field } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass } from './Welcome.jsx';
 
@@ -49,11 +49,11 @@ function ClassSection() {
 }
 
 function AISection() {
-  const { ai, setAI } = useApp();
+  const { ai, setAI, profile } = useApp();
+  const inClass = !!profile?.classCode;
   const [url, setUrl] = useState(ai.apiUrl || '');
   const [key, setKey] = useState(ai.key || '');
   const [status, setStatus] = useState('');
-  const builtIn = import.meta.env.VITE_API_URL;
   const test = async () => {
     setAI({ apiUrl: url.trim() }); setStatus('בודקים…');
     try {
@@ -61,6 +61,16 @@ function AISection() {
       setStatus(h.ai ? `השרת מחובר ומוכן. מודל: ${h.model}` : 'השרת עונה, אבל עוד לא חובר אליו מפתח Claude.');
     } catch (e) { setStatus(e.message); }
   };
+  if (inClass) {
+    return (
+      <section className="section" aria-labelledby="ai-title">
+        <h2 id="ai-title" className="h-section">העוזר</h2>
+        <p>העוזר מחובר דרך הכיתה{profile.teacherName ? ` של ${profile.teacherName}` : ''}. אין צורך להגדיר כלום.</p>
+        <Button variant="ghost" className="btn-sm" onClick={test}>בדיקת חיבור</Button>
+        {status && <p className="muted" role="status">{status}</p>}
+      </section>
+    );
+  }
   return (
     <section className="section" aria-labelledby="ai-title">
       <h2 id="ai-title" className="h-section">חיבור העוזר</h2>
@@ -70,11 +80,16 @@ function AISection() {
       </div>
       {ai.mode !== 'personal' ? (
         <div className="stack">
-          <Field label="כתובת השרת" id="ai-url" hint={builtIn ? `אם משאירים ריק, משתמשים בשרת המובנה: ${builtIn}` : 'הכתובת שקיבלתם בסוף ההתקנה, למשל https://madregot-api.your-name.workers.dev'}>
-            <input id="ai-url" className="input mono" dir="ltr" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…workers.dev" />
-          </Field>
-          <Button variant="secondary" onClick={test}>שמירה ובדיקת חיבור</Button>
+          <p className="muted">העוזר עובד דרך השרת של האפליקציה.</p>
+          <Button variant="ghost" className="btn-sm" onClick={test}>בדיקת חיבור</Button>
           {status && <p className="muted" role="status">{status}</p>}
+          <details className="sol">
+            <summary>הגדרות מתקדמות (למי שהתקין שרת משלו)</summary>
+            <Field label="כתובת השרת" id="ai-url" hint="משאירים ריק כדי להשתמש בשרת שהאפליקציה הגיעה ממנו.">
+              <input id="ai-url" name="server-url" className="input mono" dir="ltr" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…workers.dev" autoComplete="off" spellCheck={false} />
+            </Field>
+            <Button variant="secondary" className="btn-sm" onClick={test}>שמירה ובדיקה</Button>
+          </details>
         </div>
       ) : (
         <div className="stack">
@@ -132,7 +147,7 @@ export default function Me() {
           </div>
         )}
       </section>
-      <p className="footnote">מדרגות · שרת: <span dir="ltr" className="mono">{apiBase() || 'לא מוגדר'}</span></p>
+      <p className="footnote">מדרגות{hasServer() ? '' : ' · עובד בלי שרת: ההתקדמות נשמרת רק במכשיר הזה'}</p>
     </div>
   );
 }

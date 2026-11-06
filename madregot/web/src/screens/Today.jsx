@@ -79,7 +79,7 @@ export default function Today() {
       {nextStep && (
         <Link to="/plan" className="plan-card">
           <Route size={22} aria-hidden="true" />
-          <span className="topic-row-text"><span className="topic-row-desc">הצעד הבא בתוכנית לשיפור</span><span className="topic-row-title">{nextStep.title}</span><span className="topic-row-desc">{nextStep.kind === 'practice' ? `${nextStep.have} מתוך ${nextStep.need} תשובות נכונות` : `${plan.done} מתוך ${plan.steps.length} צעדים הושלמו`}</span></span>
+          <span className="topic-row-text"><span className="topic-row-title">הצעד הבא: <span className="hl">{nextStep.kind === 'practice' ? nextStep.levelTitle : nextStep.title}</span></span><span className="topic-row-desc">{nextStep.kind === 'practice' ? `${TOPIC[nextStep.topic].title} · ${nextStep.have} מתוך ${nextStep.need} תשובות נכונות` : `${plan.done} מתוך ${plan.steps.length} צעדים הושלמו`}</span></span>
           <ChevronLeft className="chev" size={20} aria-hidden="true" />
         </Link>
       )}

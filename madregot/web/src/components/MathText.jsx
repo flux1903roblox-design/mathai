@@ -27,12 +27,16 @@ export const MathText = memo(function MathText({ text, as: As = 'span', classNam
 });
 
 /** Markdown with math, for text written by the AI. Raw HTML is not rendered. */
-export function Markdown({ children, className }) {
+const INLINE = { p: 'span' };
+
+/** Markdown with $...$ math. `inline` renders a short answer inside a line of text. */
+export function Markdown({ children, className, inline = false }) {
+  const Tag = inline ? 'span' : 'div';
   return (
-    <div className={className ? `md ${className}` : 'md'}>
-      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: 'ignore' }]]}>
+    <Tag className={[inline ? 'md-inline' : 'md', className].filter(Boolean).join(' ')}>
+      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: 'ignore' }]]} components={inline ? INLINE : undefined}>
         {String(children ?? '')}
       </ReactMarkdown>
-    </div>
+    </Tag>
   );
 }

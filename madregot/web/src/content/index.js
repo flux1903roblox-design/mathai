@@ -72,6 +72,12 @@ export function figPlain(f) {
   }
 }
 
+/** The question as the app shows it, for people: text with $...$ math, the expression, the drawing in words. */
+export function itemMath(it) {
+  const desc = figPlain(it.fig);
+  return `${it.text || ''}${it.display ? ` $${it.display}$` : ''}${desc ? ` [${desc}]` : ''}`.trim();
+}
+
 export function itemPlain(it) {
   const strip = (s) => String(s || '').replace(/\$/g, '');
   const desc = figPlain(it.fig);

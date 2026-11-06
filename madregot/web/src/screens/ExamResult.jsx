@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { ArrowRight, Check, X, Minus, CircleDashed, Sparkles, Route, PencilRuler } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
@@ -31,10 +31,10 @@ function Prompt({ q }) {
 }
 const topicN = (id) => { const t = TOPIC[id]; return t ? TOPICS.filter((x) => x.grade === t.grade).indexOf(t) + 1 : 0; };
 
-function TopicTag({ id }) {
+function TopicTag({ id, mark = false }) {
   const t = TOPIC[id];
   if (!t) return <span className="topic-tag muted">נושא אחר</span>;
-  return <span className={`topic-tag ch-${t.color}`}><ChapterMark color={t.color} n={topicN(id)} size="sm" />{t.title}</span>;
+  return <span className={`topic-tag ch-${t.color}`}>{mark && <ChapterMark color={t.color} n={topicN(id)} size="sm" />}{t.title}</span>;
 }
 
 function QuestionCard({ q, onAsk }) {
@@ -48,10 +48,13 @@ function QuestionCard({ q, onAsk }) {
         <TopicTag id={q.topic} />
       </header>
       <Prompt q={q} />
-      <dl className="q-answers">
-        <div><dt>התשובה שלכם</dt><dd className={clsx(!ok && q.studentAnswer && 'struck')}>{q.studentAnswer ? <Markdown>{asMath(q.studentAnswer)}</Markdown> : <span className="muted">לא נכתבה תשובה</span>}</dd></div>
-        {!ok && <div><dt>התשובה הנכונה</dt><dd className="right-answer"><Markdown>{asMath(q.correctAnswer)}</Markdown></dd></div>}
-      </dl>
+      <div className="q-compare">
+        <span className="q-compare-lab">כתבתם</span>
+        {q.studentAnswer
+          ? <span className={clsx('q-mine', !ok && 'struck')}><Markdown inline>{asMath(q.studentAnswer)}</Markdown></span>
+          : <span className="muted">לא נכתבה תשובה</span>}
+        {!ok && <><span className="q-compare-lab">נכון</span><span className="q-right"><Markdown inline>{asMath(q.correctAnswer)}</Markdown></span></>}
+      </div>
       <Box tone={ok ? 'ok' : 'attention'} title={ok ? 'יפה' : 'שימו לב'}><Markdown>{q.feedback}</Markdown></Box>
       {q.solution?.length > 0 && (
         <details className="sol">
@@ -72,7 +75,9 @@ export default function ExamResult() {
   const navigate = useNavigate();
   const { exams, progress, removeExam, profile } = useApp();
   const exam = exams.find((e) => e.id === id);
-  const [filter, setFilter] = useState('all');
+  const [params, setParams] = useSearchParams();
+  const filter = params.get('show') === 'wrong' ? 'wrong' : 'all';
+  const setFilter = (f) => setParams(f === 'wrong' ? { show: 'wrong' } : {}, { replace: true });
   const [asking, setAsking] = useState(null);
   const [confirmDel, setConfirmDel] = useState(false);
 
@@ -117,7 +122,7 @@ export default function ExamResult() {
               return (
                 <li key={w.topic} className={t ? `ch-${t.color}` : ''}>
                   <div className="weak-main">
-                    <TopicTag id={w.topic} />
+                    <TopicTag id={w.topic} mark />
                     <span className="muted">{w.n === 1 ? 'שאלה אחת עם טעות' : `${w.n} שאלות עם טעות`}{w.skills.length ? ` · ${w.skills.slice(0, 3).join(', ')}` : ''}</span>
                     {w.reason && <Markdown className="weak-reason">{w.reason}</Markdown>}
                   </div>

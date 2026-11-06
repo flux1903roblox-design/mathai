@@ -1,9 +1,14 @@
 import { useApp } from './store.js';
 
-/** The Worker's address: Settings override, else the one baked in at build time. */
+/**
+ * The Worker's address: Settings override, else the one baked in at build time.
+ * VITE_API_URL="/" means the Worker serves this app too: same address, no CORS.
+ */
 export function apiBase() {
   const fromSettings = useApp.getState().ai.apiUrl?.trim();
-  const url = fromSettings || import.meta.env.VITE_API_URL || '';
+  // Default: a production build is served by the Worker (same address); `npm run dev` uses the local Worker.
+  const url = fromSettings || import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/' : 'http://127.0.0.1:8787');
+  if (url === '/') return typeof window !== 'undefined' ? window.location.origin : '';
   return url.replace(/\/+$/, '');
 }
 export const hasServer = () => !!apiBase();
@@ -19,6 +24,9 @@ const MESSAGES = {
   not_signed_in: 'צריך להתחבר לכיתה מחדש. עברו למסך "אני".',
   not_teacher: 'קוד הכיתה או מפתח המורה לא נכונים.',
   daily_limit: 'הגעתם למכסה היומית של העוזר. אפשר לחזור מחר.',
+  too_many_classes: 'נוצרו היום הרבה כיתות מהרשת הזו. אפשר ליצור כיתה נוספת מחר.',
+  too_many_joins: 'היום היו הרבה הצטרפויות מהרשת הזו. נסו שוב מחר, או בקשו מהמורה עזרה.',
+  too_many_pin: 'היו יותר מדי ניסיונות עם קוד אישי שגוי. המורה יכול לאפס את הקוד שלכם מלוח המורה.',
   ai_not_configured: 'לשרת עוד לא חובר מפתח Claude.',
   solo_ai_off: 'העוזר פתוח רק לתלמידים בכיתה. הצטרפו לכיתה במסך "אני".',
   server_key: 'מפתח ה־Claude בשרת לא תקין. צריך לעדכן אותו.',

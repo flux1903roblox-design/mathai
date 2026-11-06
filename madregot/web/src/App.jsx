@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { syncNow } from '@/lib/api.js';
 import Shell from '@/components/Shell.jsx';
@@ -33,6 +33,13 @@ function useSync() {
 }
 
 // A new topic or level starts a new session, so the screen remounts per route.
+/** A toast belongs to the screen that raised it: clear it when the route changes. */
+function ToastReset() {
+  const { pathname } = useLocation();
+  useEffect(() => { toast.dismiss(); }, [pathname]);
+  return null;
+}
+
 function PracticeRoute() {
   const { id } = useParams(); const { search } = useLocation();
   return <Practice key={`${id}${search}`} />;
@@ -44,6 +51,7 @@ export default function App() {
   return (
     <HashRouter>
       <Toaster position="top-center" dir="rtl" toastOptions={{ className: 'toast' }} />
+      <ToastReset />
       <Suspense fallback={<p className="page muted" role="status">טוענים…</p>}>
       <Routes>
         {!role && <Route path="*" element={<Welcome />} />}

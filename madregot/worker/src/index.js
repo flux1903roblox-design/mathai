@@ -79,6 +79,9 @@ async function requireTeacher(req, env) {
 }
 
 // Daily counter per identity; returns false once the limit is reached.
+// Wrong personal-code attempts allowed per student per day; the teacher's reset clears the need.
+const PIN_TRIES = 10;
+
 async function spend(env, who, limit) {
   const day = dayOf();
   const row = await env.DB.prepare('SELECT count FROM ai_usage WHERE who = ? AND day = ?').bind(who, day).first();
@@ -161,7 +164,7 @@ async function createClass(req, env, cors) {
   const name = cleanName(b.className); const teacherName = cleanName(b.teacherName);
   const grade = b.grade === '8' ? '8' : '7';
   if (!name || !teacherName) throw new HttpError(400, 'missing_fields');
-  if (!(await spend(env, `create:${req.headers.get('CF-Connecting-IP') || 'unknown'}`, 10))) throw new HttpError(429, 'daily_limit');
+  if (!(await spend(env, `create:${req.headers.get('CF-Connecting-IP') || 'unknown'}`, 10))) throw new HttpError(429, 'too_many_classes');
   const teacherKey = randomToken(12);
   for (let i = 0; i < 5; i++) {
     const code = classCode();
@@ -185,7 +188,8 @@ async function joinClass(code, req, env, cors) {
   const name = cleanName(b.name); const pin = String(b.pin || '');
   if (!name) throw new HttpError(400, 'missing_name');
   if (!/^\d{4}$/.test(pin)) throw new HttpError(400, 'bad_pin');
-  if (!(await spend(env, `join:${req.headers.get('CF-Connecting-IP') || 'unknown'}`, 40))) throw new HttpError(429, 'daily_limit');
+  // A whole school can share one address, so this cap is generous; PIN guessing is capped per student below.
+  if (!(await spend(env, `join:${req.headers.get('CF-Connecting-IP') || 'unknown'}`, 300))) throw new HttpError(429, 'too_many_joins');
   const cls = await env.DB.prepare('SELECT * FROM classes WHERE code = ?').bind(code.toUpperCase()).first();
   if (!cls) throw new HttpError(404, 'no_class');
   const token = randomToken();
@@ -193,7 +197,11 @@ async function joinClass(code, req, env, cors) {
   let id;
   if (existing) {
     // An empty pin_hash means the teacher reset it: the next join sets a new PIN.
-    if (existing.pin_hash && !(await verifyPin(pin, existing.pin_hash))) throw new HttpError(403, 'wrong_pin');
+    if (existing.pin_hash) {
+      const tries = await env.DB.prepare('SELECT count FROM ai_usage WHERE who = ? AND day = ?').bind(`pin:${existing.id}`, dayOf()).first();
+      if (tries && tries.count >= PIN_TRIES) throw new HttpError(429, 'too_many_pin');
+      if (!(await verifyPin(pin, existing.pin_hash))) { await spend(env, `pin:${existing.id}`, PIN_TRIES); throw new HttpError(403, 'wrong_pin'); }
+    }
     id = existing.id;
     await env.DB.prepare('UPDATE students SET token_hash = ?, pin_hash = ?, last_seen = ? WHERE id = ?')
       .bind(await sha256(token), existing.pin_hash || (await hashPin(pin)), nowIso(), id).run();
@@ -320,8 +328,10 @@ async function helpImage(id, req, env, cors) {
 
 async function resetPin(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
-  await env.DB.prepare('UPDATE students SET pin_hash = \'\', token_hash = ? WHERE id = ? AND class_code = ?')
+  const r = await env.DB.prepare('UPDATE students SET pin_hash = \'\', token_hash = ? WHERE id = ? AND class_code = ?')
     .bind(await sha256(randomToken()), id, cls.code).run();
+  // A reset also clears today's wrong-code count, so the student can choose a new code right away.
+  if (r.meta?.changes) await env.DB.prepare('DELETE FROM ai_usage WHERE who = ?').bind(`pin:${id}`).run();
   return json({ ok: true }, 200, cors);
 }
 
