@@ -15,10 +15,12 @@ The device matrix and the screen-by-screen results are in [QA_MATRIX.md](QA_MATR
   GitHub Pages site serves (`VITE_API_URL=none`). Exercises were made repeatable with a seeded `Math.random`
   (`localStorage['madregot-seed']`) and a fixed clock.
 - **Tools** (all run, results below):
-  - `npm test` (vitest): 74 unit tests.
+  - `npm test` (vitest): 80 web unit tests; `npm test` in `worker/`: 5.
   - `npm run test:e2e` (Playwright, in the repo under `web/e2e/`): exercise layout for 14 exercise kinds on
-    4 devices, the app keypad, 6 user journeys on phone and desktop, 11 screens on 4 devices, and 39 visual
-    regression screenshots (13 screens on 2 phones and desktop).
+    4 devices, the app keypad, keyboard typing, 8 user journeys on phone and desktop (including the back button and
+    the plan quest), 11 screens on 4 devices, and 39 visual regression screenshots (13 screens on 2 phones and desktop).
+  - An independent adversarial review (round 4), then scripts that repeat each of its findings (47 checks).
+  - axe-core (WCAG 2.1 A/AA) on 15 screens at two sizes, and a keyboard focus walk through 7 screens.
   - Audit scripts (session scratchpad, not committed): exercise layout measured on 9 viewports × 14 exercises ×
     3 states (load, wrong answer, revealed answer) = 378 measurements per round; a screen audit of 19 screens ×
     4 viewports (sideways scroll, controls under the tab bar, tap targets under 32 px, broken images,
@@ -38,18 +40,23 @@ The device matrix and the screen-by-screen results are in [QA_MATRIX.md](QA_MATR
 
 | Status | Count |
 |---|---|
-| VERIFIED (fixed, retested by an automated check and by looking at the screenshots) | 23 |
-| ACCEPTED (known limitation, documented below) | 2 |
+| VERIFIED (fixed, retested by an automated check and by looking at the screenshots) | 53 (D-001 to D-022, R-01 to R-31) |
+| ACCEPTED (known limitation, documented below) | 4 (A-1 to A-4) |
 | OPEN | 0 |
+
+By severity: P0 1 (D-001), P1 15, P2 24, P3 13, all fixed and retested. Test-suite defects (T-1 to T-8) are listed
+separately; they were problems in the tests, not in the app.
 
 Measured before and after on the exercise screen (378 measurements per round):
 
 | Round | Load state failures | After a wrong answer | Answer revealed |
 |---|---|---|---|
 | Baseline (before) | 37 / 126 | 21 / 126 | 39 / 125 |
-| Iteration 4 (after) | 0 / 126 | 0 / 126 | 2 / 126 → fixed by D-021 |
+| Iteration 4 | 0 / 126 | 0 / 126 | 2 / 126 → fixed by D-021 |
+| Round 4, stricter (whole drawing, R-31), final build | 0 / 126 | 0 / 126 | 0 / 126 |
 
-Screen audit: round 1 found 14 problems in 76 checks; round 2: 0 problems, 0 tap targets under 32 px.
+Screen audit: round 1 found 14 problems in 76 checks; round 2: 0; round 3 (9 sizes, no-server build): 0 in 135;
+final round (19 screens × 9 sizes, both builds): 0 problems in 171 checks, 0 tap targets under 32 px.
 
 ---
 
