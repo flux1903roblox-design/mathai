@@ -2071,3 +2071,8 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .unit-head { background: linear-gradient(135deg, color-mix(in srgb, var(--c) 40%, var(--c-d)) 0%, var(--c-d) 100%); }
 .ss-step.fixed i { box-shadow: inset 0 0 0 1.5px var(--gold-ink), inset 0 3px 0 rgba(255, 255, 255, 0.35); }
 .ss-step.shown i { box-shadow: inset 0 0 0 1.5px var(--bad-ink); }
+/* the step just earned in the results staircase lights up once (a short glow, none under reduced motion) */
+.ss-step.first i, .ss-step.redone i { animation: ss-glow 700ms var(--ease-smooth-out) 1; }
+@keyframes ss-glow { 0% { filter: brightness(1.35) drop-shadow(0 0 0 var(--good)); } 40% { filter: brightness(1.2) drop-shadow(0 0 6px var(--good)); } 100% { filter: none; } }
+@media (prefers-reduced-motion: reduce) { .ss-step i { animation: none; } }
+.guide-step { margin-top: var(--s1); }

@@ -125,6 +125,7 @@ export default function Lesson() {
   const [last, setLast] = useState(null);
   const [explain, setExplain] = useState({ state: 'idle', text: '' });
   const [showSteps, setShowSteps] = useState(false);
+  const [guide, setGuide] = useState(false); // "איך מתחילים?": the first step of the solution, after a first miss
   const [chatOpen, setChatOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
@@ -175,7 +176,7 @@ export default function Lesson() {
 
   useEffect(() => {
     if (!item) return;
-    setSlots({}); setChoice(null); setStruck(false); setActive(names[0] || 'v'); setExplain({ state: 'idle', text: '' }); setShowSteps(false); setNbCheck({ state: 'idle' }); setZoom(false); setChat([]);
+    setSlots({}); setChoice(null); setStruck(false); setActive(names[0] || 'v'); setExplain({ state: 'idle', text: '' }); setShowSteps(false); setGuide(false); setNbCheck({ state: 'idle' }); setZoom(false); setChat([]);
     qRef.current?.focus({ preventScroll: true });
     qRef.current?.scrollTo?.({ top: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -497,6 +498,12 @@ export default function Lesson() {
                 <div className="fb-body">
                   {last?.cat && t.cats[last.cat] && <p><MathText text={`מה כנראה קרה: ${t.cats[last.cat]}.`} /></p>}
                   <p className="hint-line"><Lightbulb size={16} aria-hidden="true" /><MathText text={item.hint} /></p>
+                  {/* guide, don't just say "again": the first step of the way, never the whole solution */}
+                  {item.solution?.length > 1 && !isTest(s.kind) && (guide ? (
+                    <ol className="stair-list guide-step" aria-live="polite"><li className="stair-step" style={{ '--i': 0 }}><span className="stair-n" aria-hidden="true">1</span><span className="stair-text"><MathText text={item.solution[0]} /></span></li></ol>
+                  ) : (
+                    <button type="button" className="link-btn" onClick={() => setGuide(true)}>איך מתחילים?</button>
+                  ))}
                 </div>
               )}
               {feedback === 'reveal' && (

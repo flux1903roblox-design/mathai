@@ -43,6 +43,34 @@ November 2026. This note records a review of the current iPhone App Store listin
 - **XP on every answer:** Madregot awards XP per lesson, so a per-answer number would be invented.
 - **Tappable terms with definitions, a choice of method, a scratchpad rail, choosing מדי's colour:** good candidates for a next round; they need new content (a glossary, alternative solutions) rather than design work.
 
+## Second round: AppMonkey market data and user reviews
+
+AppMonkey (connected as an MCP connector) added figures and reviews the store pages do not show. The revenue and download figures are AppMonkey's own monthly estimates for the US App Store, not publisher-reported; the reviews are a recent sample from the US store, not every review.
+
+| App | Revenue a month | Downloads a month | Rating |
+|---|---|---|---|
+| Duolingo (languages, chess, maths) | about $33M | about 16M | 4.72 (5.57M ratings) |
+| Photomath | about $2.8M | about 1.4M | 4.77 |
+| ABCmouse | about $630K | about 330K | 4.12 |
+| ANTON (school subjects, preschool to grade 8) | about $610K | about 270K | 4.84 |
+| Prodigy Math | about $540K | about 260K | 4.76 |
+| Brilliant | about $280K | about 120K | 4.73 |
+| Vimi: My Math Tutor | about $67K | about 46K | 4.50 |
+
+- **The market:** AppMonkey matched 197 maths-learning apps in Education; 98% are free to download and the median earns about $200 a month, so the money sits with a few leaders. It tracks no apps for Hebrew maths keywords, so it cannot size the Israeli market (a gap in its coverage, not proof the market is empty). Go Math, the Israeli app from the first round, was added to AppMonkey during this review and its figures were not ready yet.
+- **What users complain about** (low-rated reviews in the sample): Duolingo Math "doesn't explain how to get the correct answer" after a mistake; Brilliant limits practice ("2 keys per day"), its AI "doesn't explain anything, just makes you do it again", problems are loosely worded ("understanding the wording is half the battle"), and trials and cancelling cause anger; Prodigy shows "more ads than actual math questions", puts most things behind a membership, and logs children out.
+- **New comparables:** ANTON shows a plain school look with one large figure to work on ("Find the line of symmetry") and a curriculum badge; it earns well as a free school-aligned app. Vimi leads with a character, tells a problem in an object's voice, celebrates at the progress bar, and offers "Guide me" beside "Solve it".
+
+**Adopted from this round:**
+
+| Pattern | Grounded in | Where it is now |
+|---|---|---|
+| Guide, don't only say "again" | Duolingo and Brilliant reviews, Vimi's "Guide me" | after a first miss, "איך מתחילים?" shows the first step of the solution only (when it has more than one) |
+| A small celebration at the progress | Vimi | the step just earned in the results staircase glows once |
+| Explain after a miss, never limit practice, no account or paywall in the way | the reviews above | already true: the worked solution after a second miss, no energy or keys, no login to practise |
+
+**Not adopted:** a curriculum badge like ANTON's needs a verified claim about the Israeli curriculum first, so it waits for the owner.
+
 ## A risk to decide on
 
 Mathins, an Israeli Hebrew maths app, uses a lavender and purple palette with a purple mascot. Madregot's brand is indigo with a purple mascot. The stairs geometry (the mascot is a stair block, the stops are stairs, the end of a lesson is a climb) and the per-topic worlds keep Madregot distinct, but the owner may want to weigh a different mascot colour if the two apps meet the same students.
