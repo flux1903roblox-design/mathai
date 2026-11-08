@@ -56,12 +56,12 @@ function coach(it, v, touched) {
   }
 }
 
-export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood }) {
+export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood, hint }) {
   const C = KINDS[item.manip.kind];
   if (!C) return null;
   return (
     <>
-      <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} />
+      <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} />
       <div className="manip-coach">
         <Mascot mood={mood} size={52} className="coach-mascot" />
         <p className="coach-say">{coach(item, value, touched)}</p>

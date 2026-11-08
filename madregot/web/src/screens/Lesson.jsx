@@ -146,6 +146,8 @@ export default function Lesson() {
     if (blocker.state === 'blocked') blocker.proceed(); else navigate(to, opts);
   };
   const [combo, setCombo] = useState(null);
+  // How each exercise went, for the steps in the header: first | fixed | shown | redone (by slot)
+  const [marks, setMarks] = useState([]);
   const [done, setDone] = useState(null); // { result, award } once the lesson ends
   const [nbOn, setNbOn] = useState(false);
   const [pages, setPages] = useState({});
@@ -244,6 +246,14 @@ export default function Lesson() {
       return;
     }
     const { s: ns, result } = answer(s, u);
+    if (!placement && (result.ok || result.reveal)) {
+      setMarks((mk) => {
+        const out = [...mk];
+        if (s.slot < s.total) out[s.slot] = result.ok ? (result.first ? 'first' : 'fixed') : 'shown';
+        else if (result.ok) { const k = out.indexOf('shown'); if (k >= 0) out[k] = 'redone'; } // a returned exercise, solved
+        return out;
+      });
+    }
     setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)] });
     if (result.ok) { play('correct'); commit(result.event); }
     else {
@@ -292,9 +302,11 @@ export default function Lesson() {
   useEffect(() => {
     const onDoc = (e) => {
       if (done || chatOpen || helpOpen || exitOpen) return;
-      if (e.key === 'Enter' && last && !last.invalid) { e.preventDefault(); goOn(); return; }
       // A computer keyboard types into the answer even when the focus is elsewhere on the screen.
       const tag = document.activeElement?.tagName;
+      // Enter goes on from the feedback, unless it is pressing another button there ("the next step", "how to solve")
+      const innerButton = tag === 'BUTTON' && !document.activeElement.closest('.fb-actions');
+      if (e.key === 'Enter' && last && !last.invalid && !innerButton) { e.preventDefault(); goOn(); return; }
       if (e.key === 'Enter' && !last && canCheck && !['INPUT', 'TEXTAREA', 'BUTTON', 'A', 'SUMMARY'].includes(tag)) { e.preventDefault(); check(); return; }
       // the numbers printed on the choices pick them
       if (item?.form === 'mc' && /^[1-9]$/.test(e.key) && tag !== 'INPUT' && tag !== 'TEXTAREA' && !locked) {
@@ -362,7 +374,7 @@ export default function Lesson() {
   }
   if (done) leaving.current = true; // the end screens lead back to the map without asking
   if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: { placed: true } })} />;
-  if (done) return <LessonDone {...done} topic={t} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: { from: spec.topic, nodeDone: !!(done.award.nodeDone || done.award.unitDone) } })} onAgain={() => { setDone(null); setS(startLesson(spec)); }} />;
+  if (done) return <LessonDone {...done} topic={t} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: { from: spec.topic, nodeDone: !!(done.award.nodeDone || done.award.unitDone) } })} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
 
   const feedback = last && !last.invalid ? (last.ok ? 'good' : s.phase === 'retry' ? 'retry' : 'reveal') : null;
   const inClass = !!st.profile?.token;
@@ -402,7 +414,7 @@ export default function Lesson() {
     <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed', isManip && !nbOn && 'is-manip')}>
       {/* top: progress and the question, always on screen */}
       <header className="lesson-head">
-        <ProgressHeader extra={compact ? tools : null} pct={pct} label={placement ? 'התקדמות בבדיקת הרמה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
+        <ProgressHeader extra={compact ? tools : null} pct={pct} marks={placement ? null : marks} total={s.total} at={s.slot < s.total ? s.slot : marks.indexOf('shown')} label={placement ? 'התקדמות בבדיקת הרמה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
         <AnimatePresence mode="wait" initial={false}>
           <m.div key={stage} className="q-pin" {...slide}>{question}</m.div>
         </AnimatePresence>
@@ -424,7 +436,7 @@ export default function Lesson() {
             )}
           </div>
         )}
-        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} />}
+        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} />}
         {item.form === 'mc' && (
           <div className={clsx('choices', item.choices.length === 3 && item.choices.every((c) => c.tex) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys}>
             {item.choices.map((c, i) => {
@@ -490,7 +502,7 @@ export default function Lesson() {
               {feedback === 'reveal' && (
                 <div className="fb-body">
                   <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>
-                  {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} />}
+                  {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} stepwise />}
                   {explain.state === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['בודק את התשובה שלכם', 'מחפש איפה זה התפספס', 'מנסח הסבר']} /></Box>}
                   {explain.state === 'done' && <Box tone="ai" title="העוזר"><Markdown>{explain.text}</Markdown></Box>}
                   {explain.state === 'error' && <p className="form-error" role="alert">{explain.text}</p>}
@@ -501,12 +513,12 @@ export default function Lesson() {
               {feedback === 'good' && (
                 <div className="fb-body">
                   <button type="button" className="link-btn" onClick={() => setShowSteps(!showSteps)} aria-expanded={showSteps}>{showSteps ? 'להסתיר את הפתרון' : 'איך פותרים?'}</button>
-                  {showSteps && <Steps steps={item.solution} />}
+                  {showSteps && <Steps steps={item.solution} stepwise />}
                 </div>
               )}
             </div>
             <div className="fb-actions">
-              <Button variant={feedback === 'good' ? 'good' : 'bad'} className="btn-block btn-lg" onClick={goOn} autoFocus>
+              <Button variant={feedback === 'good' ? 'good' : feedback === 'retry' ? 'warm' : 'bad'} className="btn-block btn-lg" onClick={goOn} autoFocus>
                 {feedback === 'retry' ? 'לנסות שוב' : feedback === 'good' ? 'המשך' : 'הבנתי'}
               </Button>
             </div>

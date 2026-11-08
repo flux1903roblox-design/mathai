@@ -4,7 +4,7 @@ import { clamp, useDrag, arrowKeys, Stepper, minus } from './core.jsx';
 
 const W = 360; const H = 224; const PAD = 20; const LINE = 166;
 
-export default function NumberLine({ m, value, onChange, locked, reveal, good, answer }) {
+export default function NumberLine({ m, value, onChange, locked, reveal, good, answer, hint }) {
   const { min, max, from } = m;
   const step = (W - 2 * PAD) / (max - min);
   const X = (v) => PAD + (v - min) * step;
@@ -44,6 +44,12 @@ export default function NumberLine({ m, value, onChange, locked, reveal, good, a
             {(v % 2 === 0) && <text x={X(v)} y={LINE + 24} textAnchor="middle" className={v === 0 ? 'mp-num zero' : 'mp-num'}>{minus(v)}</text>}
           </g>
         ))}
+        {/* the hint, drawn on the line: which way the marker goes from the start (not how far) */}
+        {hint && answer !== from && (() => { const dir = answer > from ? 1 : -1; const x0 = X(from); const x1 = x0 + dir * 2.2 * step; return (
+          <g className="mp-hint">
+            <path d={`M ${x0} ${LINE + 34} H ${x1}`} /><path d={`M ${x1} ${LINE + 34} l ${-dir * 8} -6 v 12 z`} className="fill" />
+            <text x={(x0 + x1) / 2} y={LINE + 54} textAnchor="middle">{dir > 0 ? 'ימינה' : 'שמאלה'}</text>
+          </g>); })()}
         {/* where the jump starts */}
         <circle cx={X(from)} cy={LINE} r="6" className="mp-from" />
         {reveal && answer !== value && <g className="mp-ghost-pin" transform={`translate(${X(answer)} ${LINE})`}><circle r="9" /><text y="44" textAnchor="middle">{minus(answer)}</text></g>}

@@ -6,7 +6,7 @@ import { gridGeometry, Plane } from './grid.jsx';
 
 const QUAD_RECT = { 1: [1, 1], 2: [-1, 1], 3: [-1, -1], 4: [1, -1] };
 
-export default function PlotPoint({ m, value, onChange, locked, reveal, good, answer }) {
+export default function PlotPoint({ m, value, onChange, locked, reveal, good, answer, hint }) {
   const g = gridGeometry(m.range || 6);
   const { r, X, Y, o } = g;
   const set = (p) => { if (!locked && (!value || p[0] !== value[0] || p[1] !== value[1])) onChange([clamp(p[0], -r, r), clamp(p[1], -r, r)]); };
@@ -20,6 +20,18 @@ export default function PlotPoint({ m, value, onChange, locked, reveal, good, an
         role="application" aria-roledescription="מערכת צירים" aria-label={value ? `הנקודה ${m.label} בשיעורים ${minus(value[0])}, ${minus(value[1])}` : `מערכת צירים. הקישו כדי לשים את הנקודה ${m.label}, או השתמשו בחצים`}
         onKeyDown={arrowKeys({ left: () => move(-1, 0), right: () => move(1, 0), up: () => move(0, 1), down: () => move(0, -1) })}>
         <Plane g={g}>
+          {hint && quad && (
+            <g className="mp-hint">{[[1, 1, 'I'], [2, -1, 'II'], [3, -1, 'III'], [4, 1, 'IV']].map(([q, sx]) => {
+              const sy = q <= 2 ? 1 : -1;
+              return <text key={q} x={X(sx * r * 0.55)} y={Y(sy * r * 0.55) + 8} textAnchor="middle" className="big">{['', 'ראשון', 'שני', 'שלישי', 'רביעי'][q]}</text>;
+            })}</g>
+          )}
+          {hint && !quad && (
+            <g className="mp-hint">
+              <rect x={X(-r - 0.5)} y={o - 9} width={(2 * r + 1) * g.c} height="18" rx="9" className="band" />
+              <text x={X(-r)} y={o - 14} textAnchor="end" direction="rtl">קודם לאורך ציר x</text>
+            </g>
+          )}
           {reveal && quad && <rect x={quad[0] > 0 ? o : X(-r - 0.5)} y={quad[1] > 0 ? Y(r + 0.5) : o} width={(r + 0.5) * g.c} height={(r + 0.5) * g.c} className="mp-ghost-area" />}
           {reveal && !quad && answer && (!value || answer[0] !== value[0] || answer[1] !== value[1]) && (
             <g className="mp-ghost-pt"><circle cx={X(answer[0])} cy={Y(answer[1])} r="9" /><text x={X(answer[0]) + 12} y={Y(answer[1]) - 10}>{m.label}</text></g>

@@ -46,10 +46,10 @@ export function arrowKeys(map) {
  * A pair of step buttons around a label: the way to move the object without dragging. `sub` is a longer
  * name shown beside the label where there is room ("חיתוך" for b); `icons` replaces the minus and plus.
  */
-export function Stepper({ label, sub, value, onDec, onInc, decLabel, incLabel, disabled, decDisabled, incDisabled, icons }) {
+export function Stepper({ label, sub, value, onDec, onInc, decLabel, incLabel, disabled, decDisabled, incDisabled, icons, className }) {
   const [Dec, Inc] = icons || [Minus, Plus];
   return (
-    <div className="stepper" role="group" aria-label={sub ? `${sub} ${label}` : label} dir="ltr">
+    <div className={className ? `stepper ${className}` : 'stepper'} role="group" aria-label={sub ? `${sub} ${label}` : label} dir="ltr">
       <button type="button" className="step-btn" onClick={onDec} disabled={disabled || decDisabled} aria-label={decLabel}><Dec size={20} strokeWidth={3} aria-hidden="true" /></button>
       <span className="step-label" dir="rtl" aria-hidden="true">
         <span className="step-name">{sub && <span className="step-sub">{sub} </span>}<span dir="auto">{label}</span></span>

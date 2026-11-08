@@ -1,16 +1,42 @@
 import { AnimatePresence, m, useReducedMotion } from 'motion/react';
+import clsx from 'clsx';
 import { X, Flame } from 'lucide-react';
 import { SPRING } from '@/lib/motion.js';
 
-/** The lesson's top bar: leave, the progress bar (springs forward on each right answer), and the combo or the tested topic. */
-export function ProgressHeader({ pct, label, onExit, combo, topic, extra = null }) {
+const MARK_WORD = { first: 'נכון בפעם הראשונה', fixed: 'תוקן בניסיון השני', shown: 'התשובה הוצגה, יחזור בסוף', redone: 'תוקן בסוף השיעור' };
+
+/**
+ * The lesson as a short staircase: one step per exercise, rising in the reading direction. A step fills when
+ * its exercise is answered: green right away, gold after a second try, a soft mark when the answer was shown
+ * (it turns green once the exercise comes back and is solved). The step being worked on is outlined.
+ */
+function StepStrip({ marks, total, at, pct, label }) {
+  const reduce = useReducedMotion();
+  const done = marks.filter((x) => x === 'first' || x === 'fixed' || x === 'redone').length;
+  const firsts = marks.filter((x) => x === 'first').length;
+  return (
+    <div className="step-strip" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
+      aria-valuetext={`${done} מתוך ${total} תרגילים, ${firsts} נכונים בפעם הראשונה`}>
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} className={clsx('ss-step', marks[i], i === at && !marks[i] && 'at')} style={{ '--h': `${10 + (12 * i) / Math.max(1, total - 1)}px` }} title={MARK_WORD[marks[i]]}>
+          {marks[i] && <m.i initial={reduce ? false : { scaleY: 0 }} animate={{ scaleY: 1 }} transition={SPRING.pop} />}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** The lesson's top bar: leave, the progress (a strip of steps, or a bar), and the combo or the tested topic. */
+export function ProgressHeader({ pct, label, onExit, combo, topic, extra = null, marks = null, total = 0, at = -1 }) {
   const reduce = useReducedMotion();
   return (
     <header className="lesson-top">
       <button type="button" className="icon-btn lesson-x" onClick={onExit} aria-label="יציאה מהשיעור"><X size={26} /></button>
-      <div className="lesson-bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
-        <m.i initial={false} animate={{ width: `${Math.max(pct, 4)}%` }} transition={reduce ? { duration: 0 } : SPRING.fill} />
-      </div>
+      {marks ? <StepStrip marks={marks} total={total} at={at} pct={pct} label={label} /> : (
+        <div className="lesson-bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+          <m.i initial={false} animate={{ width: `${Math.max(pct, 4)}%` }} transition={reduce ? { duration: 0 } : SPRING.fill} />
+        </div>
+      )}
       {topic ? (
         <span className="lesson-topic" aria-live="polite">{topic}</span>
       ) : (

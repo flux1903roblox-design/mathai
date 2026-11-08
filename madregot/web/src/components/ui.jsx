@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { Dialog } from '@base-ui/react/dialog';
-import { Delete, X, ArrowRightLeft } from 'lucide-react';
+import { Delete, X, ArrowRightLeft, ArrowLeft } from 'lucide-react';
 import { MathText } from './MathText.jsx';
 
 /** The chapter mark: a solid circle in the topic's colour with its number. */
@@ -41,8 +41,31 @@ export function Box({ tone = 'note', title, children, live = false, className })
   );
 }
 
-export function Steps({ steps }) {
-  return <ol className="steps">{steps.map((s, i) => <li key={i}><MathText text={s} /></li>)}</ol>;
+/**
+ * A worked solution. With `stepwise` it goes down like a staircase, one step at a time: each step on its own
+ * stair (numbered, a little further in than the one before), and a button for the next.
+ */
+export function Steps({ steps, stepwise = false }) {
+  const [n, setN] = useState(stepwise ? 1 : steps.length);
+  useEffect(() => { setN(stepwise ? 1 : steps.length); }, [steps, stepwise]);
+  if (!stepwise) return <ol className="steps">{steps.map((s, i) => <li key={i}><MathText text={s} /></li>)}</ol>;
+  return (
+    <div className="stair-steps">
+      <ol className="stair-list" aria-live="polite">
+        {steps.slice(0, n).map((s, i) => (
+          <li key={i} className="stair-step" style={{ '--i': i }}>
+            <span className="stair-n" aria-hidden="true">{i + 1}</span>
+            <span className="stair-text"><MathText text={s} /></span>
+          </li>
+        ))}
+      </ol>
+      {n < steps.length && (
+        <button type="button" className="stair-next" onClick={() => setN(n + 1)}>
+          השלב הבא<ArrowLeft size={18} aria-hidden="true" /><span className="stair-count"><bdi dir="ltr">{n}/{steps.length}</bdi></span>
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function Button({ variant = 'primary', className, children, ...rest }) {

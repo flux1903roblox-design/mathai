@@ -11,7 +11,7 @@ function shapes(a, b) {
   return { sqA, sqB, sqC, box: { x0: -b, x1: a + b, y0: -a, y1: a + b } };
 }
 
-export default function PythSquares({ m, value, onChange, locked, reveal, good, answer }) {
+export default function PythSquares({ m, value, onChange, locked, reveal, good, answer, hint }) {
   const { a, b } = value; const max = m.max || 12;
   const [frozen, setFrozen] = useState(null); // the frame stays still while dragging
   const which = useRef('a');
@@ -41,6 +41,7 @@ export default function PythSquares({ m, value, onChange, locked, reveal, good, 
         <polygon points={poly(sqA)} className="mp-sq a" vectorEffect="non-scaling-stroke" />
         <polygon points={poly(sqB)} className="mp-sq b" vectorEffect="non-scaling-stroke" />
         <polygon points={poly(sqC)} className={`mp-sq c ${sum === target ? 'hit' : ''}`} vectorEffect="non-scaling-stroke" />
+        {hint && <polygon points={poly(sqC)} className="mp-hint-sq" vectorEffect="non-scaling-stroke" />}
         <polygon points={poly([[0, 0], [a, 0], [0, b]])} className="mp-tri" vectorEffect="non-scaling-stroke" />
         <polyline points={poly([[0.7, 0], [0.7, 0.7], [0, 0.7]])} className="mp-right" vectorEffect="non-scaling-stroke" />
         {area(sqA, `${a * a}`, 'a')}

@@ -4,7 +4,7 @@ import { clamp, useDrag, arrowKeys, Stepper } from './core.jsx';
 
 const W = 360; const H = 232; const L = 34; const RGT = 344; const TOP = 32; const BOT = 204;
 
-export default function DataBars({ m, value, onChange, locked, reveal, good, answer }) {
+export default function DataBars({ m, value, onChange, locked, reveal, good, answer, hint }) {
   const { values, mean: target, max } = m;
   const all = [...values, value];
   const n = all.length; const mean = all.reduce((t, v) => t + v, 0) / n;
@@ -19,6 +19,7 @@ export default function DataBars({ m, value, onChange, locked, reveal, good, ans
   return (
     <div className={`manip manip-bars ${good ? 'good' : ''}`}>
       <div className="manip-readout" aria-live="polite">הממוצע עכשיו: <b dir="ltr">{meanText}</b><span className="manip-target">יעד {target}</span></div>
+      {hint && <p className="manip-hint-line">כל העמודות יחד צריכות להגיע ל־<bdi dir="ltr">{target} · {n} = {target * n}</bdi></p>}
       <svg ref={ref} {...drag} viewBox={`0 0 ${W} ${H}`} className="manip-canvas" dir="ltr" tabIndex={locked ? -1 : 0}
         role="slider" aria-label="העמודה האחרונה" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value} aria-valuetext={`העמודה האחרונה ${value}, הממוצע ${meanText}`}
         onKeyDown={arrowKeys({ up: () => set(value + 1), down: () => set(value - 1), right: () => set(value + 1), left: () => set(value - 1) })}>
