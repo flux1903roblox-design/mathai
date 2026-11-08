@@ -2373,3 +2373,5 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .num-n { font-family: var(--font-ui); font-weight: 600; font-size: var(--t-xs); color: var(--ink-2); }
 .nums-more summary { min-height: 44px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
 .jstage .level-badge { color: var(--c-d); }
+.ls-fig { display: flex; justify-content: center; padding: var(--s2); border-radius: 18px; background: var(--paper); border: 2px solid var(--rule); }
+.ls-fig .figure { width: 100%; max-width: 340px; height: auto; }

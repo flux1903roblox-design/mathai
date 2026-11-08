@@ -16,7 +16,7 @@ export type Source = 'gen' | 'diag' | 'transfer' | 'probe';
 export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source: Source) {
   return {
     key: `${c.skill}:${source}:${JSON.stringify(p)}`,
-    text: model.text(p), display: model.display?.(p), form: 'num' as const, unit: model.unit,
+    text: model.text(p), display: model.display?.(p), fig: model.fig?.(p), form: 'num' as const, unit: model.unit,
     answer: model.answer(p), hint: model.hint(p), solution: model.solution(p),
     diag: (u: number) => { const d = diagnose(model, p, u); return d.kind === 'misconception' ? d.candidates[0].id : null; },
     diagnosis: (u: number) => diagnose(model, p, u),

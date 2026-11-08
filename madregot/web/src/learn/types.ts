@@ -21,10 +21,13 @@ export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 // ------------------------------------------------------------------ Stage A: discover and understand
 
 /** מדי says one short thing (one or two sentences). */
-export interface SayStep { kind: 'say'; text: Text; display?: string; mood?: Mood }
+/** A drawing, in the shape components/Figure draws (e.g. { type: 'parallel', a, kind }). */
+export type FigSpec = { type: string; [field: string]: unknown };
+
+export interface SayStep { kind: 'say'; text: Text; display?: string; mood?: Mood; fig?: FigSpec }
 /** A prediction before the explanation: the student commits, then sees why. Any choice moves on. */
 export interface PredictStep {
-  kind: 'predict'; text: Text; display?: string;
+  kind: 'predict'; text: Text; display?: string; fig?: FigSpec;
   choices: Text[]; answer: number;
   /** Shown after the student chose: why the right choice is right. */
   why: Text;
@@ -41,7 +44,7 @@ export interface ExploreStep {
   success: Text;
 }
 /** The rule, stated only after the intuition, with the reason it works. */
-export interface RuleStep { kind: 'rule'; text: Text; display?: string; why: Text }
+export interface RuleStep { kind: 'rule'; text: Text; display?: string; why: Text; fig?: FigSpec }
 export type DiscoverStep = SayStep | PredictStep | ExploreStep | RuleStep;
 
 // ------------------------------------------------------------------ Stage B: a worked example
@@ -100,6 +103,8 @@ export interface DiagModel<P = Record<string, number>> {
   params: (rnd: Rng) => P;
   text: (p: P) => Text;
   display?: (p: P) => string;
+  /** A drawing for the question, when the question needs one. */
+  fig?: (p: P) => FigSpec;
   answer: (p: P) => number;
   bugs: Record<string, (p: P) => number | null>;
   solution: (p: P) => Text[];

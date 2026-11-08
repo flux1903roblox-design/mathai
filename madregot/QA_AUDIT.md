@@ -314,3 +314,27 @@ has a repo test that fails on the old code and passes on the new one.
 - **Stale baselines found:** the phone exercise baselines still had the old progress bar from before the lesson staircase. The difference was thin grey lines, under the 0.2% tolerance, so it passed until מדי's colour pushed it over. Every changed picture was measured (where the changed pixels are, and what share is in מדי's colours: 92–96% where he is the only change) and looked at before the 27 baselines were updated.
 - **T-9 · flaky once:** "a right answer" at 320×568 failed once in a full run (the page 28 px scrolled, the button in its pressed state) and passed 5/5 on its own. With real taps and the CPU slowed 1×, 4× and 8× (12 runs) the lesson never scrolled (`scrollY` 0, the page exactly the screen height), so it is Playwright scrolling a clicked button into view under load, not something a student sees. The test is unchanged.
 - **Suites:** unit 99/99, end-to-end 227/227 (45 skipped by design: each spec runs on its own devices).
+
+## Round 8: Madregot 2.0 (8 November 2026)
+
+- **Unit tests: 405/405.** Engines (prerequisites, mastery, misconceptions, recommendations, mission, Exam Rescue,
+  tutor, analytics), the store glue and migration, the lesson engine's checks, and the content of all 33 stairs:
+  every worked-example step's value, every guided problem's answer, every interactive goal reachable, every
+  misconception's prediction showing on at least 4% of questions and distinguishable from every other, the solution
+  reaching the answer, and a mastery check, a review and a verification for every misconception on every stair.
+  (Checkpoint 2's commit message says 415: that was a miscount; the run gave 405.)
+- **End-to-end: 274 passed, 0 failed (158 skipped by design).** New: `learn.spec.js` (learn before practising, keeping
+  the place, mastery only without hints, a misconception repaired and verified, Exam Rescue, profile numbers and
+  deletion, data from before 2.0) on phone and desktop, and `teach-all.spec.js` completing the teaching of all 33 stairs.
+  Changed on purpose: a new student starts with the first stair's teaching; Back from a lesson started on a stair
+  returns to the stair. Visual baselines updated after review (Madi purple, the new home).
+- **Accessibility:** axe (WCAG 2.1 A/AA) on 36 scans of the new screens and states (home, mission, journeys, each
+  teaching stage with a prediction chosen and a wrong guided move, the tutor open, repair, Exam Rescue setup and plan,
+  a check, the profile): 0 violations after fixing two (a badge's contrast, choice buttons whose text is only maths).
+- **Sizes:** 60 checks of the new screens at 320×568, 375×667, 390×844, 430×932, 768×1024 and 1440×900: no
+  sideways scroll, no control under the tab bar, no script error (one flag was a button inside a closed section).
+- **Found and fixed by the tests and walks:** two misconceptions that predict the same answer wherever both apply
+  (narrowed over two questions now); counter-evidence was taken from questions where the misconception could not show;
+  a mission item was completed by an unrelated activity; predictions that are not whole numbers needed the student's
+  rounding; the bars' median was wrong for an even count; statistics answers showed as fractions; a teaching step's
+  text contradicted its drawing.

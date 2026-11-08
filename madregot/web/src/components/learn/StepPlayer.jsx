@@ -12,6 +12,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { Tex, MathText, mathPlain } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { KINDS } from '@/components/manip/Manip.jsx';
+import Figure from '@/components/Figure.jsx';
 import { manipCorrect, manipSolution } from '@/content/manip.js';
 import { qaOn } from '@/lib/qa.js';
 import { enter } from '@/lib/motion.js';
@@ -19,12 +20,16 @@ import { play } from '@/lib/sound.js';
 
 function Say({ step }) {
   return (
+    <>
     <div className="ls-say">
       <Mascot mood={step.mood || 'idle'} size={72} className="ls-mascot" />
       <div className="ls-bubble"><p><MathText text={step.text} /></p>{step.display && <div className="ls-display"><Tex tex={step.display} display /></div>}</div>
     </div>
+    <Fig fig={step.fig} />
+    </>
   );
 }
+const Fig = ({ fig }) => (fig ? <div className="ls-fig"><Figure fig={fig} /></div> : null);
 
 function Predict({ step, onAnswered, chosen }) {
   const locked = chosen != null;
@@ -35,6 +40,7 @@ function Predict({ step, onAnswered, chosen }) {
         <div className="ls-bubble"><p><MathText text={step.text} /></p></div>
       </div>
       {step.display && <div className="ls-display big"><Tex tex={step.display} display /></div>}
+      <Fig fig={step.fig} />
       <div className="ls-choices" role="radiogroup" aria-label="מה לדעתכם?">
         {step.choices.map((c, i) => {
           const state = locked ? (i === step.answer ? 'good' : i === chosen ? 'bad' : '') : '';
@@ -98,6 +104,7 @@ function Rule({ step }) {
       <p className="ls-rule-label">הכלל</p>
       <p className="ls-rule-text"><MathText text={step.text} /></p>
       {step.display && <div className="ls-display big"><Tex tex={step.display} display /></div>}
+      <Fig fig={step.fig} />
       <div className="ls-rule-why"><p className="ls-why-title">למה זה עובד?</p><p><MathText text={step.why} /></p></div>
     </div>
   );
