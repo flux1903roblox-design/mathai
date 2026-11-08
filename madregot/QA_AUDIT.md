@@ -338,3 +338,20 @@ has a repo test that fails on the old code and passes on the new one.
   a mission item was completed by an unrelated activity; predictions that are not whole numbers needed the student's
   rounding; the bars' median was wrong for an even count; statistics answers showed as fractions; a teaching step's
   text contradicted its drawing.
+
+## Round 9: independent review of staging b151f978 (8 November 2026)
+
+Both findings were reproduced on the deployed files themselves (`gh-pages:madregot-staging/` at b151f978, served
+locally with its own storage key), following the reviewer's steps.
+
+| ID | Before (b151f978) | Cause | After |
+|---|---|---|---|
+| R-1 · P1 | Exam Rescue for signed:1 and signed:2, 4/4 right in the diagnostic: "כבר שולטים ב־2 מתוך 2 המדרגות במבחן", both rows badged "שולטים", the plan only "חזרה קצרה". The map at the same time: "שולטים לבד ב־0 מתוך 15". | Logic, not only words: two right diagnostic answers were treated as mastery ("strong") and scheduled as a review of something never mastered. | A separate standing, "עברו את הבדיקה הראשונה" (likely ready), and "שולטים לבד" only after a mastery check, as everywhere else. Message: "ב־2 מתוך 2 המדרגות עברתם את הבדיקה הראשונה: כנראה מוכנים, ובדיקת שליטה קצרה תאשר." The plan now schedules a mastery check for those stairs; a legend under the list explains the two terms. The map still says 0 of 15, and now agrees. |
+| R-2 · P2 | The mission item "מדרגה חדשה: חיבור וחיסור" was marked done after stage A only; the home card said "המשימה של היום הושלמה. כל הכבוד." while the stair page showed 1 of 5 stages. | The mission item named the stair but was meant as one short activity, and any learning on the stair completed it. | Learning items name their stage ("מבינים את הרעיון: חיבור וחיסור", "שלב 1 מתוך 5") and open it directly; an item is done only when that stage is (or a mastery check passes). On completion: "במדרגה "חיבור וחיסור" סיימתם את שלב 1 מתוך 5 (מבינים את הרעיון). המדרגה עצמה עוד לא הושלמה: השלבים הבאים מחכים בדף שלה." |
+| R-3 (found while retesting) | The home mission said "המבחן בעוד 4 ימים" while Exam Rescue said "עוד 3 ימים", and called a stair "עוד לא בטוח" right after Exam Rescue called it "כנראה מוכנים". | The mission counted to the end of the exam day; its reason made its own claim. | Days counted the same way in both; the mission says "המבחן בעוד 3 ימים. הצעד הבא בתוכנית ההכנה מחכה." |
+
+Regression tests: unit (Exam Rescue standings and message, mission stage naming and completion, day count) and
+end-to-end (`learn.spec.js`: the reviewer's two procedures, on phone and desktop). Retested at 320×568 and 375×667.
+Suites: unit 409/409, end-to-end 278 passed, 0 failed (162 skipped by design); axe 36 scans, 0 violations; size sweep
+60 checks, one flag that is a button inside a closed section. Two visual baselines (the home screen on two phones)
+updated after review: the mission item now reads "מבינים את הרעיון: אורך קטע · שלב 1 מתוך 5".

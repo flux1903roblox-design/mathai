@@ -4,7 +4,7 @@ import { ALL_SKILLS, PREREQS, ancestorsOf, prereqsOf } from './skills';
 import { addAttempt, markTaught, masteryState, recordMasteryCheck, recordReview, nextStage, dueReviews, MASTERY_N, REVIEW_DAYS, addDays } from './mastery';
 import { addEvidence, addCounter, slipOf, diagnose, discriminating, narrow, startRepair, finishVerify, canOffer, CONFIRM_SCORE } from './misconceptions';
 import { nextActions, smallestMissing, isMissing } from './recommend';
-import { buildMission, completeMissionItems, missionDone } from './mission';
+import { buildMission, completeMissionItems, missionDone, partialStairNote } from './mission';
 import { examPlan, newPlan, recordDiagnostic, validInput } from './examRescue';
 import { tutorReply } from './tutor';
 import { metrics, logEvent } from './analytics';
@@ -160,7 +160,7 @@ describe('misconceptions', () => {
 describe('recommendations', () => {
   it('starts a new grade-7 student at the first stair, with a reason', () => {
     const a = nextActions(ctx(empty()));
-    expect(a[0]).toMatchObject({ kind: 'new', skill: 'signed:1', to: '/learn/signed/1' });
+    expect(a[0]).toMatchObject({ kind: 'new', skill: 'signed:1', stage: 'A', to: '/learn/signed/1/A' });
     expect(a[0].reason).toBeTruthy();
   });
   it('puts a confirmed misconception first, then a due review', () => {
@@ -189,6 +189,25 @@ describe('recommendations', () => {
 });
 
 describe('the daily mission', () => {
+  it('names the one stage of a new stair it asks for, and is done only when that stage is (reviewer P2)', () => {
+    const items = buildMission(nextActions(ctx(empty())));
+    const first = items[0];
+    expect(first).toMatchObject({ kind: 'new', skill: 'signed:1', stage: 'A', to: '/learn/signed/1/A' });
+    expect(first.title).toBe('מבינים את הרעיון: חיבור וחיסור');
+    expect(first.reason).toContain('שלב 1 מתוך 5');
+    // another stage, or practice, does not complete it; its own stage does
+    expect(completeMissionItems(items, { skill: 'signed:1', kind: 'continue', stage: 'B' }, NOW)[0].done).toBeUndefined();
+    const done = completeMissionItems(items, { skill: 'signed:1', kind: 'continue', stage: 'A' }, NOW);
+    expect(done[0].done).toBe(NOW);
+    // and the completion message says the stair goes on
+    expect(partialStairNote(done)).toBe('במדרגה "חיבור וחיסור" סיימתם את שלב 1 מתוך 5 (מבינים את הרעיון). המדרגה עצמה עוד לא הושלמה: השלבים הבאים מחכים בדף שלה.');
+  });
+  it('continues a stair at its next stage, by name', () => {
+    const learn = empty();
+    learn.skills['signed:1'] = markTaught(markTaught(undefined, 'A', NOW), 'B', NOW);
+    const a = nextActions(ctx(learn)).find((x) => x.skill === 'signed:1')!;
+    expect(a).toMatchObject({ kind: 'continue', stage: 'C', title: 'פותרים יחד: חיבור וחיסור', to: '/learn/signed/1/C' });
+  });
   it('is short, mixed and completes', () => {
     const learn = empty();
     learn.skills['coord:1'] = recordMasteryCheck(undefined, 5, 5, addDays(NOW, -3));
@@ -202,7 +221,7 @@ describe('the daily mission', () => {
     // a repair does not complete learning a new stair on the same skill
     const fresh = items.find((i) => i.kind === 'new')!;
     expect(completeMissionItems(items, { skill: fresh.skill, kind: 'repair', misc: 'x' }, NOW).find((i) => i.kind === 'new')!.done).toBeUndefined();
-    items.forEach((i) => { done = completeMissionItems(done, { skill: i.skill, kind: i.kind }, NOW); });
+    items.forEach((i) => { done = completeMissionItems(done, { skill: i.skill, kind: i.kind === 'new' ? 'continue' : i.kind, stage: i.stage }, NOW); });
     expect(missionDone(done)).toBe(true);
   });
 });
@@ -225,10 +244,16 @@ describe('Exam Rescue', () => {
     const p = examPlan(plan, empty(), NOW, DAY);
     expect(p.diagnosed).toBe(true);
     expect(p.skills[0].skill).toBe('signed:3'); // the gap first
-    expect(p.skills.find((s) => s.skill === 'signed:1')!.standing).toBe('strong');
+    // two right diagnostic answers: a good first check, never "mastered" (reviewer P1)
+    expect(p.skills.find((s) => s.skill === 'signed:1')!.standing).toBe('ready');
+    expect(p.mastered).toBe(0);
+    expect(p.ready).toBe(1);
+    expect(p.message).toContain('ב־1 מתוך 3 המדרגות עברתם את הבדיקה הראשונה');
+    expect(p.message).not.toContain('שולטים');
+    // and it is confirmed by a mastery check, not assumed with a review
+    expect(p.days.flatMap((d) => d.tasks).find((t) => t.skill === 'signed:1')!.kind).toBe('mastery');
     expect(p.days).toHaveLength(3);
     expect(p.days[2].tasks.at(-1)!.kind).toBe('exam');
-    expect(p.message).toMatch(/כבר שולטים ב־1 מתוך 3/);
   });
   it('updates with real performance', () => {
     let plan = newPlan(input, NOW);
@@ -236,8 +261,24 @@ describe('Exam Rescue', () => {
     const learn = empty();
     learn.skills['signed:3'] = recordMasteryCheck(undefined, 5, 5, NOW);
     const p = examPlan(plan, learn, NOW, DAY);
-    expect(p.skills.find((s) => s.skill === 'signed:3')!.standing).toBe('strong');
-    expect(p.strong).toBe(1);
+    expect(p.skills.find((s) => s.skill === 'signed:3')!.standing).toBe('mastered');
+    expect(p.mastered).toBe(1);
+    expect(p.message).toContain('שולטים לבד ב־1 מתוך 3');
+  });
+  it('says "mastered" only for a passed mastery check, even when every diagnostic answer was right', () => {
+    let plan = newPlan({ ...input, skills: ['signed:1', 'signed:2'] }, NOW);
+    plan = recordDiagnostic(plan, 'signed:1', 2, 2, NOW);
+    plan = recordDiagnostic(plan, 'signed:2', 2, 2, NOW);
+    const p = examPlan(plan, empty(), NOW, DAY);
+    expect(p.skills.map((s) => s.standing)).toEqual(['ready', 'ready']);
+    expect(p.message).toBe('יש לכם עוד 3 ימים למבחן. ב־2 מתוך 2 המדרגות עברתם את הבדיקה הראשונה: כנראה מוכנים, ובדיקת שליטה קצרה תאשר. היום: בדיקת שליטה קצרה בכל מדרגה כזאת, ובסוף מבחן תרגול.');
+  });
+  it('counts the days to the exam the same way on the home mission and in Exam Rescue', () => {
+    const learn = empty();
+    learn.exam = newPlan(input, NOW); // the exam is on 2026-11-11, today is 2026-11-08
+    const action = nextActions(ctx(learn)).find((a) => a.kind === 'exam')!;
+    expect(action.reason).toContain('המבחן בעוד 3 ימים');
+    expect(examPlan(learn.exam, learn, NOW, DAY).message).toContain('עוד 3 ימים למבחן');
   });
   it('puts everything into today when the exam is today', () => {
     const p = examPlan(newPlan({ ...input, date: DAY }, NOW), empty(), NOW, DAY);

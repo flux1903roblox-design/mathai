@@ -2,7 +2,7 @@
 // so the student can always see why something was suggested. Order:
 //   exam soon > a confirmed misconception to repair > a review that is due > the smallest missing prerequisite
 //   of a stair that is hard right now > continue the stair in progress > a new stair.
-import type { Action, LearnState, MasteryState, SkillId } from './types';
+import type { Action, LearnState, MasteryState, SkillId, Stage } from './types';
 import { ALL_SKILLS, GRADE_OF, parseSkill, prereqsOf } from './skills';
 import { masteryState, nextStage, dueReviews, daysBetween, STATE_LABEL } from './mastery';
 import { openMisconceptions, canOffer } from './misconceptions';
@@ -28,11 +28,26 @@ const stairName = (id: SkillId) => `${topicTitleOf(id)}: ${titleOf(id)}`;
 
 export const MINUTES: Record<Action['kind'], number> = { exam: 5, repair: 3, review: 2, prereq: 4, continue: 4, new: 5, mastery: 3 };
 
+/** The five stages of a stair, as the student sees them. */
+export const STAGE_NAME: Record<Stage, string> = { A: 'מבינים את הרעיון', B: 'דוגמה פתורה', C: 'פותרים יחד', D: 'תרגול', E: 'בדיקת שליטה' };
+export const STAGE_N: Record<Stage, number> = { A: 1, B: 2, C: 3, D: 4, E: 5 };
+const STAGE_MIN: Record<Stage, number> = { A: 5, B: 3, C: 4, D: 5, E: 3 };
+
 export const routeOf = {
   journey: (id: SkillId) => { const { topic, level } = parseSkill(id); return `/learn/${topic}/${level}`; },
   check: (id: SkillId, purpose: 'mastery' | 'review') => { const { topic, level } = parseSkill(id); return `/lesson/${topic}/${level}?kind=check&purpose=${purpose}`; },
   repair: (id: SkillId, misc: string) => { const { topic, level } = parseSkill(id); return `/repair/${topic}/${level}/${misc}`; },
+  /** Straight into one stage of a stair. */
+  stage: (id: SkillId, stage: Stage) => {
+    const { topic, level } = parseSkill(id);
+    if (stage === 'D') return `/lesson/${topic}/${level}?part=1&from=journey`;
+    if (stage === 'E') return `/lesson/${topic}/${level}?kind=check&purpose=mastery`;
+    return `/learn/${topic}/${level}/${stage}`;
+  },
 };
+
+/** The next stage of a stair for this student (a stair without teaching content starts at practice). */
+const stageOf = (ctx: Context, id: SkillId): Stage => (contentOf(id) ? nextStage(ctx.learn.skills[id]) : (ctx.learn.skills[id]?.attempts.some((a) => a.purpose === 'practice' && a.ok) ? 'E' : 'D'));
 
 /** The state of every skill now. */
 export function states(ctx: Context): Record<SkillId, MasteryState> {
@@ -85,10 +100,11 @@ export function nextActions(ctx: Context): Action[] {
   // 1. an exam in the next two weeks
   const exam = ctx.learn.exam;
   if (exam) {
-    const left = Math.ceil(daysBetween(ctx.now, `${exam.date}T23:59:59`));
-    if (left >= 0 && left <= 14) {
+    // days counted the same way as Exam Rescue: from today to the exam's date
+    const left = Math.max(0, Math.round(daysBetween(`${ctx.day}T00:00:00`, `${exam.date}T00:00:00`)));
+    if (exam.date >= ctx.day && left <= 14) {
       const focus = exam.skills.find((id) => st[id] !== 'mastered') || exam.skills[0];
-      if (focus) add({ kind: 'exam', skill: focus, title: `הכנה למבחן: ${titleOf(focus)}`, reason: left === 0 ? 'המבחן היום. חזרה קצרה על מה שעוד לא בטוח.' : `המבחן בעוד ${left} ${left === 1 ? 'יום' : 'ימים'}, ו${titleOf(focus)} עוד לא בטוח.`, minutes: MINUTES.exam, to: '/rescue' });
+      if (focus) add({ kind: 'exam', skill: focus, title: `הכנה למבחן: ${titleOf(focus)}`, reason: left === 0 ? 'המבחן היום. הצעד הבא בתוכנית ההכנה מחכה.' : `המבחן בעוד ${left === 1 ? 'יום אחד' : `${left} ימים`}. הצעד הבא בתוכנית ההכנה מחכה.`, minutes: MINUTES.exam, to: '/rescue' });
     }
   }
 
@@ -111,20 +127,24 @@ export function nextActions(ctx: Context): Action[] {
   gradeSkills.forEach((id) => {
     if (!struggling(ctx, id, st[id])) return;
     const p = smallestMissing(ctx, id, st);
-    if (p) add({ kind: 'prereq', skill: p, title: `קודם: ${titleOf(p)}`, reason: `${titleOf(id)} נשען על ${titleOf(p)}. שיעור קצר שם יעזור לחזור לזה.`, minutes: MINUTES.prereq, to: routeOf.journey(p) });
+    if (p) { const sg = stageOf(ctx, p); add({ kind: 'prereq', skill: p, stage: sg, title: `קודם, ${titleOf(p)}: ${STAGE_NAME[sg]}`, reason: `${titleOf(id)} נשען על ${titleOf(p)}. שלב ${STAGE_N[sg]} מתוך 5 שם יעזור לחזור לזה.`, minutes: STAGE_MIN[sg], to: routeOf.stage(p, sg) }); }
   });
 
   // 5. the stair in progress: the next stage of its journey (or the mastery check)
   const inProgress = gradeSkills.filter((id) => ['learning', 'practicing', 'needs-support'].includes(st[id]));
   inProgress.forEach((id) => {
-    const stage = nextStage(ctx.learn.skills[id]);
-    if (stage === 'E') add({ kind: 'mastery', skill: id, title: `בדיקת שליטה: ${titleOf(id)}`, reason: 'תרגלתם מספיק. חמש שאלות בלי רמזים יראו אם אתם שולטים בזה לבד.', minutes: MINUTES.mastery, to: routeOf.check(id, 'mastery') });
-    else add({ kind: 'continue', skill: id, title: `ממשיכים: ${titleOf(id)}`, reason: `${STATE_LABEL[st[id]]}. ${stage === 'D' ? 'הצעד הבא: תרגול.' : 'הצעד הבא בשיעור מחכה.'}`, minutes: MINUTES.continue, to: routeOf.journey(id) });
+    const stage = stageOf(ctx, id);
+    if (stage === 'E') add({ kind: 'mastery', skill: id, stage, title: `בדיקת שליטה: ${titleOf(id)}`, reason: 'תרגלתם מספיק. חמש שאלות בלי רמזים יראו אם אתם שולטים בזה לבד.', minutes: MINUTES.mastery, to: routeOf.check(id, 'mastery') });
+    else add({ kind: 'continue', skill: id, stage, title: `${STAGE_NAME[stage]}: ${titleOf(id)}`, reason: `שלב ${STAGE_N[stage]} מתוך 5 במדרגה. ${STATE_LABEL[st[id]]}.`, minutes: STAGE_MIN[stage], to: routeOf.stage(id, stage) });
   });
 
   // 6. the next new stair: the first not started in the grade whose prerequisites are in place
   const fresh = gradeSkills.find((id) => st[id] === 'not-started' && !onPath(ctx, id) && prereqsOf(id).every((p) => !isMissing(ctx, p, st)));
-  if (fresh) add({ kind: 'new', skill: fresh, title: `מדרגה חדשה: ${titleOf(fresh)}`, reason: prereqsOf(fresh).length ? `מה שצריך בשבילה כבר אצלכם (${prereqsOf(fresh).map(titleOf).join(', ')}).` : `המדרגה הבאה ב${topicTitleOf(fresh)}.`, minutes: MINUTES.new, to: routeOf.journey(fresh) });
+  if (fresh) {
+    const sg = stageOf(ctx, fresh);
+    const why = prereqsOf(fresh).length ? `מה שצריך בשבילה כבר אצלכם (${prereqsOf(fresh).map(titleOf).join(', ')}).` : `המדרגה הבאה ב${topicTitleOf(fresh)}.`;
+    add({ kind: 'new', skill: fresh, stage: sg, title: `${STAGE_NAME[sg]}: ${titleOf(fresh)}`, reason: `מדרגה חדשה, שלב ${STAGE_N[sg]} מתוך 5. ${why}`, minutes: STAGE_MIN[sg], to: routeOf.stage(fresh, sg) });
+  }
   // when everything in the grade is mastered: the earliest mastered stair, for a stronger memory
   if (!out.length) {
     const any = gradeSkills.find((id) => st[id] === 'mastered');

@@ -6,9 +6,10 @@ import { open, student, item, answer, type, proceed, proceedToNext, saved, expec
 // Journeys run on one phone and on desktop; the layout spec covers every size.
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
 
-/** From the home screen: today's mission opens the stair, and its practice stage starts the lesson. */
+/** From the home screen: today's mission opens the first stage of the first stair; closing it shows the stair's page, whose practice stage starts the lesson. */
 async function startPractice(page) {
-  await page.locator('.continue-go').click();
+  await page.locator('.continue-go').click(); // today's mission: the first stage of the first stair
+  await page.getByRole('button', { name: 'סגירה. המקום נשמר' }).click(); // to the stair's page
   await page.getByRole('button', { name: 'מתרגלים לבד: פתיחה' }).click();
 }
 

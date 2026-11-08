@@ -18,7 +18,7 @@ import PageHero from '@/components/PageHero.jsx';
 
 const CONF = [{ v: 1, label: 'לא בטוחים בכלל' }, { v: 2, label: 'קצת בטוחים' }, { v: 3, label: 'די בטוחים' }, { v: 4, label: 'בטוחים' }];
 const MINUTES = [10, 15, 20, 30];
-const STANDING = { strong: 'שולטים', shaky: 'כמעט', gap: 'צריך לעבוד', untested: 'עוד לא נבדק' };
+const STANDING = { mastered: 'שולטים לבד', ready: 'עברו את הבדיקה הראשונה', shaky: 'כמעט', gap: 'צריך לעבוד', untested: 'עוד לא נבדק' };
 const dayName = (d) => { const t = today(); if (d === t) return 'היום'; const x = new Date(`${d}T12:00:00`); return x.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'numeric' }); };
 
 function Setup({ onSave }) {
@@ -111,12 +111,16 @@ function Plan({ plan }) {
             <ul className="rescue-standing">
               {p.skills.map((s) => (
                 <li key={s.skill} className={clsx('standing-row', `st-${s.standing}`)}>
-                  <span className="standing-badge">{s.standing === 'strong' && <Check size={14} strokeWidth={3} aria-hidden="true" />}{STANDING[s.standing]}</span>
+                  <span className="standing-badge">{s.standing === 'mastered' && <Check size={14} strokeWidth={3} aria-hidden="true" />}{STANDING[s.standing]}</span>
                   <span className="standing-name">{TOPIC[s.skill.split(':')[0]].title}: {titleOf(s.skill)}</span>
                   <span className="standing-why">{s.why}</span>
                 </li>
               ))}
             </ul>
+            <dl className="standing-legend">
+              <div><dt>שולטים לבד</dt><dd>עברתם בדיקת שליטה: 5 שאלות בלי רמזים, ו־4 לפחות נכונות.</dd></div>
+              <div><dt>עברו את הבדיקה הראשונה</dt><dd>ענו נכון על שתי שאלות הבדיקה. סימן טוב שאתם כנראה מוכנים, אבל זו עוד לא שליטה: בדיקת שליטה קצרה תאשר.</dd></div>
+            </dl>
           </section>
           <Button variant="secondary" className="btn-block" onClick={() => navigate('/rescue/exam')}>מבחן תרגול על כל הנושאים</Button>
         </>

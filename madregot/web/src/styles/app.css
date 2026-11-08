@@ -2358,7 +2358,11 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .rescue-standing { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .standing-row { display: grid; grid-template-columns: auto 1fr; gap: 2px var(--s2); align-items: center; padding: var(--s2) var(--s3); border-radius: 12px; background: var(--ground); }
 .standing-badge { grid-row: span 2; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: var(--t-xs); font-weight: 700; background: #fff; }
-.st-strong .standing-badge { background: var(--good); color: #fff; }
+.st-mastered .standing-badge { background: var(--good); color: #fff; }
+.st-ready .standing-badge { background: var(--good-tint); color: var(--good-ink); }
+.standing-legend { margin: var(--s3) 0 0; display: flex; flex-direction: column; gap: var(--s2); font-size: var(--t-sm); line-height: 1.5; }
+.standing-legend dt { font-weight: 700; }
+.standing-legend dd { margin: 0; color: var(--ink-2); }
 .st-shaky .standing-badge { background: var(--gold-tint); color: var(--gold-ink); }
 .st-gap .standing-badge { background: var(--bad-tint); color: var(--bad-ink); }
 .standing-name { font-weight: 600; }
@@ -2375,3 +2379,5 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .jstage .level-badge { color: var(--c-d); }
 .ls-fig { display: flex; justify-content: center; padding: var(--s2); border-radius: 18px; background: var(--paper); border: 2px solid var(--rule); }
 .ls-fig .figure { width: 100%; max-width: 340px; height: auto; }
+
+@media (max-width: 400px) { .standing-row { grid-template-columns: 1fr; } .standing-badge { grid-row: auto; justify-self: start; } }

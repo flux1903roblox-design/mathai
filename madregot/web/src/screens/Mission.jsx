@@ -5,7 +5,8 @@ import clsx from 'clsx';
 import { Check, Wrench, RotateCcw, Footprints, Sparkles, Award, CalendarClock, ArrowLeft } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { useMission } from '@/lib/useLearn.js';
-import { missionDone, missionMinutes } from '@/learn/mission.ts';
+import { missionDone, missionMinutes, partialStairNote } from '@/learn/mission.ts';
+import { STAGE_N } from '@/learn/recommend.ts';
 import { MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import PageHero from '@/components/PageHero.jsx';
@@ -29,7 +30,7 @@ export default function Mission() {
       {done && (
         <div className="mission-done" role="status">
           <Mascot mood="achievement" size={96} />
-          <p className="lead">המשימה של היום הושלמה! מה שעשיתם היום נשמר, ומחר תחכה משימה חדשה.</p>
+          <p className="lead">המשימה של היום הושלמה. {partialStairNote(items) || 'מה שעשיתם היום נשמר.'} מחר תחכה משימה חדשה.</p>
         </div>
       )}
       {!items.length && (
@@ -42,7 +43,7 @@ export default function Mission() {
             <li key={`${it.kind}-${it.skill}-${it.misc || ''}`} className={clsx('mission-item', it.done && 'done', it === nextItem && 'next')}>
               <span className="mission-icon" aria-hidden="true">{it.done ? <Check size={20} strokeWidth={3} /> : <Icon size={20} />}</span>
               <div className="mission-text">
-                <p className="mission-kind">{KIND_LABEL[it.kind]} · {it.minutes} דק׳</p>
+                <p className="mission-kind">{KIND_LABEL[it.kind]}{it.stage && it.kind !== 'mastery' ? ` · שלב ${STAGE_N[it.stage]} מתוך 5` : ''} · {it.minutes} דק׳</p>
                 <p className="mission-title"><MathText text={it.title} /></p>
                 <p className="mission-why"><MathText text={it.reason} /></p>
               </div>

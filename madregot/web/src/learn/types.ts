@@ -186,8 +186,11 @@ export interface LearnState {
 // ------------------------------------------------------------------ what to do next
 
 export type ActionKind = 'exam' | 'repair' | 'review' | 'prereq' | 'continue' | 'new' | 'mastery';
+export type Stage = 'A' | 'B' | 'C' | 'D' | 'E';
 export interface Action {
   kind: ActionKind; skill: SkillId; misc?: string;
+  /** For learning a stair: the one stage this action is (a mission item is done when this stage is, not the stair). */
+  stage?: Stage;
   title: Text; reason: Text; minutes: number;
   /** The route that starts it. */
   to: string;

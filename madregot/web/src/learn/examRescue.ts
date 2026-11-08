@@ -7,12 +7,17 @@ import { masteryState, independentAccuracy, daysBetween } from './mastery';
 import { openMisconceptions } from './misconceptions';
 import { titleOf, topicTitleOf, routeOf } from './recommend';
 
-export type Standing = 'strong' | 'shaky' | 'gap' | 'untested';
+/**
+ * Where a stair of the exam stands. Two levels of good news, never confused:
+ *   mastered  passed a mastery check (5 questions without hints): "שולטים לבד", as everywhere in the app;
+ *   ready     answered the first diagnostic right (or practises well): likely ready, not yet mastery.
+ */
+export type Standing = 'mastered' | 'ready' | 'shaky' | 'gap' | 'untested';
 export interface PlanSkill { skill: SkillId; standing: Standing; state: MasteryState; priority: number; why: string }
 export interface PlanTask { skill: SkillId | null; kind: 'learn' | 'practice' | 'mastery' | 'review' | 'exam'; title: string; to: string }
 export interface PlanDay { day: string; tasks: PlanTask[] }
 export interface ExamPlan {
-  daysLeft: number; strong: number; total: number; topicsStrong: number; topicsTotal: number;
+  daysLeft: number; mastered: number; ready: number; total: number; topicsMastered: number; topicsTotal: number;
   skills: PlanSkill[]; days: PlanDay[]; today: PlanTask[]; message: string; diagnosed: boolean;
 }
 
@@ -40,19 +45,20 @@ function standingOf(learn: LearnState, plan: ExamPlanState, id: SkillId, now: st
   const d = plan.diagnostic?.[id];
   const acc = independentAccuracy(learn.skills[id], 8);
   if (misc.length) return { standing: 'gap', state, why: 'נמצאה טעות שחוזרת על עצמה' };
-  if (state === 'mastered') return { standing: 'strong', state, why: 'עברתם בדיקת שליטה' };
+  if (state === 'mastered') return { standing: 'mastered', state, why: 'עברתם בדיקת שליטה, בלי רמזים' };
   if (state === 'needs-support') return { standing: 'gap', state, why: 'בתרגול האחרון רוב התשובות לא יצאו' };
+  if (state === 'needs-review') return { standing: 'shaky', state, why: 'שלטתם בזה, והגיע הזמן לחזור' };
   if (d && d.asked) {
-    if (d.right === d.asked && (acc == null || acc >= 0.75)) return { standing: 'strong', state, why: 'הבדיקה הראשונה הצליחה' };
-    if (d.right * 2 >= d.asked) return { standing: 'shaky', state, why: 'חלק מהבדיקה הצליח' };
+    // the first diagnostic is two questions: a good sign, not mastery
+    if (d.right === d.asked && (acc == null || acc >= 0.75)) return { standing: 'ready', state, why: 'ענו נכון על שאלות הבדיקה הראשונה. בדיקת שליטה תאשר' };
+    if (d.right * 2 >= d.asked) return { standing: 'shaky', state, why: 'חלק מהבדיקה הראשונה הצליח' };
     return { standing: 'gap', state, why: 'הבדיקה הראשונה לא הצליחה' };
   }
-  if (acc != null && acc >= 0.8 && (learn.skills[id]?.attempts.length || 0) >= 5) return { standing: 'shaky', state, why: 'מתרגלים בהצלחה, עוד בלי בדיקת שליטה' };
-  if (state === 'needs-review') return { standing: 'shaky', state, why: 'שלטתם בזה, והגיע הזמן לחזור' };
+  if (acc != null && acc >= 0.8 && (learn.skills[id]?.attempts.length || 0) >= 5) return { standing: 'ready', state, why: 'מתרגלים בהצלחה. בדיקת שליטה תאשר' };
   return { standing: 'untested', state, why: 'עוד לא בדקנו' };
 }
 
-const SCORE: Record<Standing, number> = { gap: 3, untested: 2, shaky: 1, strong: 0 };
+const SCORE: Record<Standing, number> = { gap: 6, untested: 4, shaky: 2, ready: 1, mastered: 0 };
 
 /** The plan, from the exam's skills and the evidence so far. */
 export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, today: string): ExamPlan {
@@ -63,7 +69,7 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
     const s = standingOf(learn, plan, id, now);
     const leanedOn = chosen.filter((o) => o !== id && ancestorsOf(o).includes(id)).length;
     const lowConfidence = plan.confidence <= 2 ? 0.5 : 0;
-    return { skill: id, ...s, priority: SCORE[s.standing] * 2 + leanedOn + (s.standing === 'strong' ? 0 : lowConfidence) };
+    return { skill: id, ...s, priority: SCORE[s.standing] + leanedOn + (s.standing === 'mastered' ? 0 : lowConfidence) };
   });
   // order: by priority, but never before a chosen prerequisite of the same standing or worse
   const order = [...skills].sort((a, b) => b.priority - a.priority || ALL_SKILLS.indexOf(a.skill) - ALL_SKILLS.indexOf(b.skill));
@@ -80,17 +86,19 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
       { skill: p.skill, kind: 'practice', title: `מחזקים: ${t}`, to: `/lesson/${parseSkill(p.skill).topic}/${parseSkill(p.skill).level}?part=2` },
       { skill: p.skill, kind: 'mastery', title: `בדיקת שליטה: ${t}`, to: routeOf.check(p.skill, 'mastery') },
     ];
+    // a good first diagnostic is confirmed by the mastery check, not assumed
+    if (p.standing === 'ready') return [{ skill: p.skill, kind: 'mastery', title: `בדיקת שליטה: ${t}`, to: routeOf.check(p.skill, 'mastery') }];
     return [{ skill: p.skill, kind: 'review', title: `חזרה קצרה: ${t}`, to: routeOf.check(p.skill, 'review') }];
   };
 
-  const queue = order.filter((p) => p.standing !== 'strong').flatMap(tasksOf);
+  const queue = order.filter((p) => p.standing !== 'mastered' && p.standing !== 'ready').flatMap(tasksOf);
   const finale: PlanTask[] = [{ skill: null, kind: 'exam', title: 'מבחן תרגול על כל הנושאים', to: '/rescue/exam' }];
-  const strongReviews = order.filter((p) => p.standing === 'strong').flatMap(tasksOf);
+  const confirmAndReview = [...order.filter((p) => p.standing === 'ready'), ...order.filter((p) => p.standing === 'mastered')].flatMap(tasksOf);
   const perDay = Math.max(1, Math.floor(plan.minutes / 5));
   const days: PlanDay[] = [];
-  const n = Math.max(1, daysLeft); // with 0 days left, everything goes into today
-  const all = [...queue, ...strongReviews];
-  for (let d = 0; d < n; d += 1) {
+  const nDays = Math.max(1, daysLeft); // with 0 days left, everything goes into today
+  const all = [...queue, ...confirmAndReview];
+  for (let d = 0; d < nDays; d += 1) {
     const date = new Date(`${today}T12:00:00`); date.setDate(date.getDate() + d);
     days.push({ day: date.toLocaleDateString('en-CA'), tasks: [] });
   }
@@ -104,16 +112,22 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
   for (let i = 0; k < all.length; i += 1, k += 1) days[i % days.length].tasks.push(all[k]);
   days[days.length - 1].tasks.push(...finale);
 
-  const strong = skills.filter((s) => s.standing === 'strong').length;
+  const mastered = skills.filter((s) => s.standing === 'mastered').length;
+  const ready = skills.filter((s) => s.standing === 'ready').length;
+  const n = skills.length;
   const topics = [...new Set(chosen.map((id) => parseSkill(id).topic))];
-  const topicsStrong = topics.filter((t) => skills.filter((s) => parseSkill(s.skill).topic === t).every((s) => s.standing === 'strong')).length;
-  const focus = order.filter((p) => p.standing !== 'strong').slice(0, 2).map((p) => titleOf(p.skill));
+  const topicsMastered = topics.filter((t) => skills.filter((s) => parseSkill(s.skill).topic === t).every((s) => s.standing === 'mastered')).length;
+  const focus = order.filter((p) => p.standing !== 'mastered' && p.standing !== 'ready').slice(0, 2).map((p) => titleOf(p.skill));
   const when = daysLeft === 0 ? 'המבחן היום.' : daysLeft === 1 ? 'המבחן מחר.' : `יש לכם עוד ${daysLeft} ימים למבחן.`;
-  const have = `כבר שולטים ב־${strong} מתוך ${skills.length} המדרגות במבחן.`;
-  const today_ = focus.length ? `היום מתמקדים ב${focus.join(' וב')}.` : 'הכול נראה טוב: היום חזרה קצרה ומבחן תרגול.';
+  // two different things, said with two different words: mastered (a mastery check) and ready (a good first diagnostic)
+  const have = [
+    mastered ? `שולטים לבד ב־${mastered} מתוך ${n} המדרגות במבחן.` : '',
+    ready ? `${mastered ? `ב־${ready} מדרגות נוספות` : `ב־${ready} מתוך ${n} המדרגות`} עברתם את הבדיקה הראשונה: כנראה מוכנים, ובדיקת שליטה קצרה תאשר.` : '',
+  ].filter(Boolean).join(' ');
+  const today_ = focus.length ? `היום מתמקדים ב${focus.join(' וב')}.` : ready ? 'היום: בדיקת שליטה קצרה בכל מדרגה כזאת, ובסוף מבחן תרגול.' : 'היום חזרה קצרה ומבחן תרגול.';
   const tight = overflow > 0 ? ' יש יותר עבודה מזמן, אז כל יום עמוס קצת יותר.' : '';
-  const message = diagnosed ? `${when} ${have} ${today_}${tight}` : `${when} נתחיל בבדיקה קצרה, ${DIAG_PER_SKILL} שאלות לכל מדרגה, כדי לדעת על מה לעבוד.`;
-  return { daysLeft, strong, total: skills.length, topicsStrong, topicsTotal: topics.length, skills: order, days, today: days[0]?.tasks || [], message, diagnosed };
+  const message = diagnosed ? `${when}${have ? ` ${have}` : ''} ${today_}${tight}` : `${when} נתחיל בבדיקה קצרה, ${DIAG_PER_SKILL} שאלות לכל מדרגה, כדי לדעת על מה לעבוד.`;
+  return { daysLeft, mastered, ready, total: n, topicsMastered, topicsTotal: topics.length, skills: order, days, today: days[0]?.tasks || [], message, diagnosed };
 }
 
 /** The skills of a topic in the student's grade (for the topic picker). */

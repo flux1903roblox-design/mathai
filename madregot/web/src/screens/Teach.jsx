@@ -32,7 +32,7 @@ export default function Teach() {
   const close = () => navigate(`/learn/${topic}/${level}`, { replace: true });
   const finish = () => {
     markTaught(skill, stage);
-    useApp.getState().completeMission({ skill, kind: 'continue' });
+    useApp.getState().completeMission({ skill, kind: 'continue', stage });
     setStagePos(skill, stage, 0);
     if (stage === 'A') navigate(`/learn/${topic}/${level}/B`, { replace: true });
     else if (stage === 'B') navigate(`/learn/${topic}/${level}/C`, { replace: true });

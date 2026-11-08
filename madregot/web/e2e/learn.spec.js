@@ -158,7 +158,7 @@ test('Exam Rescue: the exam\'s date and stairs, a short diagnostic, then a plan 
   for (let i = 0; i < 10; i += 1) { await answer(page, i % 2 === 0); await page.locator('section.fb .fb-actions .btn').click(); }
   await expect(page.getByRole('heading', { name: 'הבדיקה הסתיימה' })).toBeVisible();
   await page.getByRole('button', { name: /לתוכנית ההכנה/ }).click();
-  await expect(page.locator('.rescue-msg')).toContainText('מתוך 5');
+  await expect(page.locator('.rescue-msg')).toContainText('ימים למבחן');
   await expect(page.locator('.rescue-day').first()).toContainText('היום');
   await expect(page.locator('.rescue-day').last()).toContainText('מבחן תרגול');
   await expect(page.getByText('התוכנית לא מבטיחה ציון')).toBeVisible();
@@ -190,4 +190,47 @@ test('saved progress from before 2.0 survives the update', async ({ page }) => {
   expect(st.learn.miscon['signed:1|sign'].state).toBe('confirmed');
   // the stair finished on the map counts as practised, not as mastered
   await expect(page.locator('.mm-tile').first()).toHaveAttribute('aria-label', /מתרגלים/);
+});
+
+test('reviewer P1: two right diagnostic answers per stair are "passed the first check", never "mastered"', async ({ page }) => {
+  await open(page, '#/rescue', student('7'));
+  const d = new Date(); d.setDate(d.getDate() + 3);
+  await page.locator('#exam-date').fill(d.toLocaleDateString('en-CA'));
+  await page.getByText('חיבור וחיסור', { exact: true }).click();
+  await page.getByText('השוואת מספרים', { exact: true }).click();
+  await page.getByRole('button', { name: 'לבניית התוכנית' }).click();
+  await page.getByRole('button', { name: /לבדיקה הקצרה/ }).click();
+  await expect.poll(() => item(page)).toBeTruthy();
+  for (let i = 0; i < 4; i += 1) { await answer(page, true); await page.locator('section.fb .fb-actions .btn').click(); }
+  await expect(page.getByRole('heading', { name: 'הבדיקה הסתיימה' })).toBeVisible();
+  await page.getByRole('button', { name: /לתוכנית ההכנה/ }).click();
+  const msg = page.locator('.rescue-msg');
+  await expect(msg).toContainText('ב־2 מתוך 2 המדרגות עברתם את הבדיקה הראשונה: כנראה מוכנים, ובדיקת שליטה קצרה תאשר.');
+  await expect(msg).not.toContainText('שולטים');
+  await expect(page.locator('.standing-badge')).toHaveText(['עברו את הבדיקה הראשונה', 'עברו את הבדיקה הראשונה']);
+  await expect(page.locator('.standing-legend')).toContainText('זו עוד לא שליטה');
+  // the plan confirms with a mastery check instead of assuming mastery
+  await expect(page.locator('.rescue-day').first()).toContainText('בדיקת שליטה: חיבור וחיסור');
+  // and the map says the same thing in the same words
+  await page.goto('./#/');
+  await expect(page.locator('.mm-count')).toHaveText('שולטים לבד ב־0 מתוך 15');
+  const st = await saved(page);
+  expect(st.learn.skills['signed:1']?.mastered).toBeUndefined();
+});
+
+test('reviewer P2: the mission names the stage it asks for, and its completion says the stair is not done', async ({ page }) => {
+  await open(page, '#/', student('7'));
+  const first = page.locator('.today-items li').first();
+  await expect(first).toContainText('מבינים את הרעיון: חיבור וחיסור');
+  await expect(first).toContainText('שלב 1 מתוך 5');
+  await page.locator('.continue-go').click();
+  await expect(page).toHaveURL(/learn\/signed\/1\/A/);
+  await playDiscover(page);
+  await expect(page).toHaveURL(/learn\/signed\/1\/B/);
+  await page.goto('./#/');
+  await expect(page.locator('#continue-title')).toHaveText('המשימה של היום הושלמה');
+  await expect(page.locator('.today-head')).toContainText('במדרגה "חיבור וחיסור" סיימתם את שלב 1 מתוך 5 (מבינים את הרעיון). המדרגה עצמה עוד לא הושלמה: השלבים הבאים מחכים בדף שלה.');
+  await page.goto('./#/learn/signed/1');
+  await expect(page.locator('.jstage.done')).toHaveCount(1);
+  await expect(page.locator('.mastery-chip')).toHaveText('לומדים');
 });

@@ -8,7 +8,8 @@ import { Play, CalendarClock, Check, Footprints, Target } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { useMission } from '@/lib/useLearn.js';
 import { boardOf } from '@/lib/board.js';
-import { missionDone, missionMinutes } from '@/learn/mission.ts';
+import { missionDone, missionMinutes, partialStairNote } from '@/learn/mission.ts';
+import { STAGE_N } from '@/learn/recommend.ts';
 import { daysBetween } from '@/learn/mastery.ts';
 import { MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
@@ -26,7 +27,8 @@ export default function TodayCard({ grade, onBoard }) {
   const next = items.find((i) => !i.done);
   const done = missionDone(items);
   const started = items.some((i) => i.done);
-  const examDays = exam ? Math.max(0, Math.ceil(daysBetween(new Date().toISOString(), `${exam.date}T23:59:59`)) - 1) : null;
+  // days counted as Exam Rescue counts them: from today to the exam's date
+  const examDays = exam ? Math.max(0, Math.round(daysBetween(`${today()}T00:00:00`, `${exam.date}T00:00:00`))) : null;
   const name = profile?.name ? `שלום ${profile.name}!` : 'שלום!';
   return (
     <m.section className={clsx('continue', 'today', 'ch-brand')} aria-labelledby="continue-title"
@@ -37,7 +39,7 @@ export default function TodayCard({ grade, onBoard }) {
           <p className="today-hello">{name}</p>
           <h1 id="continue-title" className="continue-title">{done ? 'המשימה של היום הושלמה' : 'המשימה שלי להיום'}</h1>
           {next && <p className="continue-sub"><MathText text={next.reason} /></p>}
-          {done && <p className="continue-sub">כל הכבוד. מחר תחכה משימה חדשה.</p>}
+          {done && <p className="continue-sub">{partialStairNote(items) || 'כל החלקים של המשימה בוצעו.'} מחר תחכה משימה חדשה.</p>}
         </div>
       </div>
       {items.length > 0 && (
@@ -46,7 +48,7 @@ export default function TodayCard({ grade, onBoard }) {
             <li key={`${it.kind}-${it.skill}-${it.misc || ''}`} className={clsx(it.done && 'done', it === next && 'next')}>
               <span className="today-dot" aria-hidden="true">{it.done && <Check size={14} strokeWidth={3} />}</span>
               <span className="today-item-title"><MathText text={it.title} /></span>
-              <span className="today-min">{it.minutes} דק׳</span>
+              <span className="today-min">{it.stage && it.kind !== 'mastery' ? `שלב ${STAGE_N[it.stage]} מתוך 5 · ` : ''}{it.minutes} דק׳</span>
             </li>
           ))}
         </ol>

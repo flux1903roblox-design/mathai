@@ -1,6 +1,7 @@
 // "המשימה שלי להיום": about five minutes, chosen from the ranked actions and fixed for the day once made
 // (so it does not change under the student's feet). Mixed on purpose: something to strengthen and something new.
-import type { Action, LearnState, MissionItem } from './types';
+import type { Action, LearnState, MissionItem, Stage } from './types';
+import { STAGE_NAME, STAGE_N, titleOf } from './recommend';
 
 export const MISSION_MINUTES = 5;
 export const MISSION_MAX = 3;
@@ -32,27 +33,35 @@ export function missionFor(learn: LearnState, day: string, actions: Action[]): {
 }
 
 /**
- * What a finished activity completes: only items it really did. Learning or practising a stair (kind 'continue')
- * completes that stair's continue / new / prerequisite / exam items; a mastery check also those and its own;
- * a review only a review; a repair only that misconception's repair; Exam Rescue work only exam items.
+ * What a finished activity completes: only the item it really did.
+ *  - a learning item names one stage of a stair (A–D): it is done when that stage is (a mastery check also counts);
+ *  - a mastery check completes its own item; a review only a review; a repair only that misconception's repair;
+ *  - Exam Rescue work (the diagnostic, the practice exam) completes the exam item.
+ * Items saved before stages existed (no `stage`) are completed by any learning on their stair.
  */
-const COMPLETES: Record<string, Action['kind'][]> = {
-  continue: ['continue', 'new', 'prereq', 'exam'],
-  mastery: ['mastery', 'continue', 'new', 'prereq', 'exam'],
-  review: ['review'],
-  repair: ['repair'],
-  exam: ['exam'],
-};
-export function completeMissionItems(items: MissionItem[], done: { skill: string; kind: Action['kind']; misc?: string }, at: string): MissionItem[] {
-  return items.map((it) => {
-    if (it.done) return it;
-    const kinds = COMPLETES[done.kind] || [done.kind];
-    if (!kinds.includes(it.kind)) return it;
-    if (it.kind === 'exam' && done.kind === 'exam') return { ...it, done: at }; // the exam item is about the whole exam
-    if (it.skill !== done.skill) return it;
-    if (it.kind === 'repair' && it.misc !== done.misc) return it;
-    return { ...it, done: at };
-  });
+export interface Done { skill: string; kind: Action['kind']; stage?: Stage; misc?: string }
+function completes(it: MissionItem, done: Done): boolean {
+  if (it.kind === 'exam') return done.kind === 'exam' || (done.skill === it.skill && (done.kind === 'continue' || done.kind === 'mastery'));
+  if (it.skill !== done.skill) return false;
+  switch (it.kind) {
+    case 'repair': return done.kind === 'repair' && done.misc === it.misc;
+    case 'review': return done.kind === 'review';
+    case 'mastery': return done.kind === 'mastery';
+    default: // new, continue, prereq
+      if (done.kind === 'mastery') return true;
+      return done.kind === 'continue' && (!it.stage || done.stage === it.stage);
+  }
+}
+export function completeMissionItems(items: MissionItem[], done: Done, at: string): MissionItem[] {
+  return items.map((it) => (!it.done && completes(it, done) ? { ...it, done: at } : it));
+}
+
+/** When the mission is done but a stair in it is not: say exactly which stage was done, and that the stair goes on. */
+export function partialStairNote(items: MissionItem[]): string | null {
+  const parts = items.filter((i) => i.done && i.stage && i.stage !== 'E' && i.kind !== 'mastery');
+  if (!parts.length) return null;
+  const done = parts.map((i) => `במדרגה "${titleOf(i.skill)}" סיימתם את שלב ${STAGE_N[i.stage!]} מתוך 5 (${STAGE_NAME[i.stage!]}).`).join(' ');
+  return `${done} המדרגה עצמה עוד לא הושלמה: השלבים הבאים מחכים בדף שלה.`;
 }
 
 export const missionDone = (items: MissionItem[]) => items.length > 0 && items.every((i) => i.done);
