@@ -8,7 +8,7 @@ const phone = (width, height) => ({ viewport: { width, height }, isMobile: true,
 export default defineConfig({
   testDir: '.',
   timeout: 60_000,
-  expect: { timeout: 8_000, toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: 'disabled', caret: 'hide' } },
+  expect: { timeout: 8_000, toHaveScreenshot: { maxDiffPixelRatio: 0.002, threshold: 0.1, animations: 'disabled', caret: 'hide' } },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   reporter: [['list']],

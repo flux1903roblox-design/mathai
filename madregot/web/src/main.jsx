@@ -1,3 +1,5 @@
+// must run before the router is created (imports run in order)
+import './lib/historySeed.js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/rubik';

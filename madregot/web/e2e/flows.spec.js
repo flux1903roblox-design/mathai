@@ -1,7 +1,7 @@
 // Core journeys: first visit, placement test, a whole lesson with XP and saved progress,
 // the AI tutor and the teacher view when there is no server, and a printable practice exam.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, proceed, proceedToNext, saved, expectUsable, leaveEndScreens } from './helpers.js';
+import { open, student, item, answer, type, proceed, proceedToNext, saved, expectUsable, leaveEndScreens } from './helpers.js';
 
 // Journeys run on one phone and on desktop; the layout spec covers every size.
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
@@ -105,21 +105,64 @@ test('a practice exam is made from the chosen topics and prints without the app 
   await expect(page.locator('.tabbar')).toBeHidden();
 });
 
-test('the back button inside a started lesson asks first; staying keeps the progress', async ({ page }) => {
+test('Back from a lesson started on the map, with a partial answer: it asks, staying keeps the answer, fast repeated Backs keep asking', async ({ page }) => {
+  const sheet = page.getByRole('heading', { name: 'לצאת מהשיעור?' });
   await open(page, '#/', student('7'));
-  await page.locator('.continue-go').click(); // into the lesson the way a student does
+  await page.locator('.continue-go').click(); // from the learning map, the way a student starts
   await expect.poll(() => item(page)).toBeTruthy();
   const lessonUrl = page.url();
+  await page.locator('#slot-v').click();
+  await type(page, '7'); // a partial answer, not checked
+  await page.goBack();
+  await expect(sheet).toBeVisible();
+  await expect(page).toHaveURL(lessonUrl); // the router puts the address back right after it blocks
+  await page.getByRole('button', { name: 'להמשיך ללמוד' }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(page.locator('#slot-v')).toHaveValue('7');
+  // three quick Backs in a row: still in the lesson, still asking
+  await page.goBack(); await page.goBack(); await page.goBack();
+  await expect(sheet).toBeVisible();
+  await expect(page).toHaveURL(lessonUrl);
+  await page.getByRole('button', { name: 'יציאה', exact: true }).click();
+  await expect(page.locator('.continue')).toBeVisible();
+});
+
+test('Back after answering keeps the lesson progress when the student stays', async ({ page }) => {
+  await open(page, '#/', student('7'));
+  await page.locator('.continue-go').click();
+  await expect.poll(() => item(page)).toBeTruthy();
   for (let k = 0; k < 2; k += 1) await proceedToNext(page, await answer(page, true));
   const pct = await page.locator('[role="progressbar"]').getAttribute('aria-valuenow');
   await page.goBack();
-  await expect(page.getByRole('heading', { name: 'לצאת מהשיעור?' })).toBeVisible();
-  await expect(page).toHaveURL(lessonUrl); // the router puts the address back right after it blocks
   await page.getByRole('button', { name: 'להמשיך ללמוד' }).click();
   await expect(page.locator('[role="progressbar"]')).toHaveAttribute('aria-valuenow', pct);
+});
+
+test('a lesson opened straight from a link: Back asks, and leaving goes to the map, not out of the app', async ({ page }) => {
+  await open(page, '#/lesson/signed/1?part=1', student('7'));
+  await expect.poll(() => item(page)).toBeTruthy();
   await page.goBack();
+  await expect(page.getByRole('heading', { name: 'לצאת מהשיעור?' })).toBeVisible();
   await page.getByRole('button', { name: 'יציאה', exact: true }).click();
   await expect(page.locator('.continue')).toBeVisible();
+});
+
+test('the QA hook: the current exercise is in <html data-qa-item>, readable from an isolated script context', async ({ page, browserName }, info) => {
+  test.skip(info.project.name !== 'phone' || browserName !== 'chromium', 'one run is enough; isolated worlds are a Chromium feature');
+  await open(page, '#/lesson/coord/1?part=1', student('7'));
+  const it = await item(page);
+  const fromHtml = JSON.parse(await page.locator('html').getAttribute('data-qa-item'));
+  expect(fromHtml.key).toBe(it.key);
+  expect(fromHtml.answer).toEqual(it.answer);
+  const cdp = await page.context().newCDPSession(page);
+  const { frameTree } = await cdp.send('Page.getFrameTree');
+  const { executionContextId } = await cdp.send('Page.createIsolatedWorld', { frameId: frameTree.frame.id, worldName: 'qa-probe' });
+  const r = await cdp.send('Runtime.evaluate', { expression: 'JSON.parse(document.documentElement.dataset.qaItem).key', contextId: executionContextId, returnByValue: true });
+  expect(r.result.value).toBe(it.key);
+  // it follows the exercise
+  await proceedToNext(page, await answer(page, true));
+  const next = await item(page);
+  expect(JSON.parse(await page.locator('html').getAttribute('data-qa-item')).key).toBe(next.key);
 });
 
 test('a lesson from the improvement plan counts for the daily plan quest', async ({ page }) => {

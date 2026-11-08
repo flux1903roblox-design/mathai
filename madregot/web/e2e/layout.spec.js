@@ -35,7 +35,23 @@ for (const [what, route, grade] of CASES) {
     const mainBox = await main.boundingBox();
     expect(mainBox.height, 'room for the maths').toBeGreaterThanOrEqual(120);
 
+    // The whole drawing (or table) is inside the maths region, never cut by the answer row or the keypad.
+    const fig = page.locator('.lesson-main .figure, .lesson-main .fg-table').first();
+    if (await fig.count()) {
+      const f = await fig.boundingBox();
+      expect(f.y, 'the drawing starts inside the maths region').toBeGreaterThanOrEqual(mainBox.y - 1);
+      expect(f.y + f.height, 'the drawing ends inside the maths region').toBeLessThanOrEqual(mainBox.y + mainBox.height + 1);
+      // on the smallest phone a drawing still opens readable (the compact bottom gives it the room)
+      if (test.info().project.name === 'phone-small' && await page.locator('.lesson-main svg.figure').count()) {
+        expect(f.height, 'the drawing is readable on a 320×568 phone').toBeGreaterThanOrEqual(160);
+      }
+    }
+
     if (it.form === 'mc') {
+      // the choices come right under the question (with the expression or drawing between them), not far below
+      const q = await page.locator('#qtext').boundingBox();
+      const first = await page.locator('.lesson-main .q-stage > *').first().boundingBox();
+      expect(first.y - (q.y + q.height), 'the maths starts right under the question').toBeLessThanOrEqual(64);
       // every choice can be brought into view in the maths region and is not under the bottom bar
       const choices = page.locator('.choice');
       for (let k = 0; k < await choices.count(); k += 1) {
@@ -48,9 +64,13 @@ for (const [what, route, grade] of CASES) {
     }
     await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
 
-    // A wrong answer: the try-again panel, with the answer still in view.
+    // A wrong answer: the try-again panel, with the answer still in view and most of the drawing too.
     await answer(page, false);
     await expect(page.locator('section.fb-retry')).toBeVisible();
+    if (await fig.count()) {
+      const share = await page.evaluate(() => { const f = document.querySelector('.lesson-main .figure, .lesson-main .fg-table').getBoundingClientRect(); const m = document.querySelector('.lesson-main').getBoundingClientRect(); return Math.max(0, Math.min(f.bottom, m.bottom) - Math.max(f.top, m.top)) / f.height; });
+      expect(share, 'the drawing stays in view after a mistake').toBeGreaterThanOrEqual(0.6);
+    }
     await expectUsable(page, page.locator('section.fb .fb-actions .btn'), 'the try-again button');
     if (it.form !== 'mc') await expectUsable(page, page.locator('.answer-bar .answer'), 'the answer after a mistake');
     await proceed(page);

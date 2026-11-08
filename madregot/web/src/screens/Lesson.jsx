@@ -21,6 +21,40 @@ import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/compone
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 
+/** True while a media query matches (and follows it as the window changes). */
+function useMedia(query) {
+  const get = () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(query).matches : false);
+  const [on, setOn] = useState(get);
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const mq = window.matchMedia(query); const f = () => setOn(mq.matches);
+    mq.addEventListener?.('change', f); f();
+    return () => mq.removeEventListener?.('change', f);
+  }, [query]);
+  return on;
+}
+
+/**
+ * The hint above the answer. On a short phone it shows two lines first; the button for the rest sits under the
+ * word "רמז", so it does not cost the drawing another line.
+ */
+function HintBox({ text, clamp }) {
+  const ref = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [more, setMore] = useState(false);
+  useEffect(() => { setOpen(false); }, [text]);
+  useEffect(() => { const el = ref.current; setMore(!!el && clamp && el.scrollHeight > el.clientHeight + 2); }, [text, clamp, open]);
+  return (
+    <section className="box box-hint hint-box" aria-labelledby="hint-title">
+      <div className="hint-side">
+        <h3 className="box-tab" id="hint-title">רמז</h3>
+        {clamp && (more || open) && <button type="button" className="hint-more" aria-expanded={open} aria-controls="hint-text" onClick={() => setOpen(!open)}>{open ? 'פחות' : 'עוד'}</button>}
+      </div>
+      <div ref={ref} id="hint-text" className={clsx('hint-text', clamp && !open && 'clamp2')}><MathText as="p" text={text} /></div>
+    </section>
+  );
+}
+
 const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b' };
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
 
@@ -91,10 +125,10 @@ export default function Lesson() {
   const [chatOpen, setChatOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
-  // Once the student has answered, leaving by the back button asks first, like the close button does.
-  const answered = useRef(false);
   const leaving = useRef(false);
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => answered.current && !leaving.current && currentLocation.pathname !== nextLocation.pathname);
+  // While a lesson is under way (open, not finished), Back asks first, exactly like the close button.
+  const underway = useRef(false);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => underway.current && !leaving.current && currentLocation.pathname !== nextLocation.pathname);
   // Each time the question opens it is a fresh dialog: reopening one that is still closing (a quick second
   // back press) could otherwise leave it hidden while the lesson waits for an answer.
   const [exitKey, setExitKey] = useState(0);
@@ -115,6 +149,8 @@ export default function Lesson() {
   const [nbCheck, setNbCheck] = useState({ state: 'idle' });
   const [zoom, setZoom] = useState(false); // the drawing, enlarged in a sheet (small phones)
   const [chat, setChat] = useState([]); // the tutor conversation about this exercise
+  // Short phones: the hint opens as two lines, and typed answers get the compact bottom (see `compact`).
+  const short = useMedia('(max-height: 700px) and (max-width: 899px)');
   const nbRef = useRef(null);
   const qRef = useRef(null);
   const nbResRef = useRef(null);
@@ -134,8 +170,18 @@ export default function Lesson() {
   }, [item?.key, s?.slot]);
 
 
-  // Test hook: with localStorage 'madregot-debug' set, the current exercise is exposed for automated checks.
-  useEffect(() => { try { if (localStorage.getItem('madregot-debug')) window.__madregotItem = item; } catch { /* storage blocked */ } }, [item]);
+  // Test hook for automated checks: the current exercise (with its answer) as window.__madregotItem and, for tools
+  // that run their scripts in an isolated context and cannot see page variables, as JSON in <html data-qa-item>.
+  // On in a QA build (VITE_QA_HOOKS=1, the staging copy); elsewhere only with localStorage 'madregot-debug' set.
+  useEffect(() => {
+    let on = import.meta.env.VITE_QA_HOOKS === '1';
+    try { on = on || !!localStorage.getItem('madregot-debug'); } catch { /* storage blocked */ }
+    if (!on) return undefined;
+    window.__madregotItem = item;
+    const root = document.documentElement;
+    try { root.setAttribute('data-qa-item', JSON.stringify(item ?? null)); } catch { /* not serialisable */ }
+    return () => root.removeAttribute('data-qa-item');
+  }, [item]);
 
   const focusSlot = useCallback((k) => { document.getElementById(`slot-${k}`)?.focus({ preventScroll: true }); }, []);
 
@@ -182,7 +228,6 @@ export default function Lesson() {
       return;
     }
     const { s: ns, result } = answer(s, u);
-    answered.current = true;
     setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)] });
     if (result.ok) { play('correct'); commit(result.event); }
     else {
@@ -284,6 +329,7 @@ export default function Lesson() {
     try { const r = await runAI('check', { ...aiContext(), image, mediaType: 'image/jpeg' }); setNbCheck({ state: 'done', r }); } catch (e) { setNbCheck({ state: 'error', message: e.message }); }
   };
 
+  underway.current = !!(spec && t && !done);
   if (!spec || !t) {
     return (
       <div className="page not-found">
@@ -310,6 +356,18 @@ export default function Lesson() {
   // Each exercise slides in from the reading side; the last one leaves the other way.
   const slide = { initial: { opacity: 0, x: -28 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: 28 }, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } };
   const typed = item.form !== 'mc' && !nbOn;
+  // On a short phone a typed answer gets the room it needs: the check button joins the answer row and the help
+  // buttons move up beside the progress bar, so the drawing keeps the height of a whole row.
+  const compact = short && typed;
+  const tools = (
+    <div className="tools" role="group" aria-label="עזרה">
+      {!isTest(s.kind) && <button type="button" className={clsx('tool', s.hint && 'on')} onClick={() => setS(withHint(s))} disabled={s.hint} aria-pressed={!!s.hint} aria-label="רמז"><Lightbulb size={20} aria-hidden="true" /><span className="tool-label">רמז</span></button>}
+      {aiReady() && !isTest(s.kind) && <button type="button" className="tool ai" aria-label="שאלו את העוזר" onClick={() => setChatOpen(true)}><Sparkles size={20} aria-hidden="true" /><span className="tool-label">העוזר</span></button>}
+      <button type="button" className={clsx('tool', nbOn && 'on')} aria-pressed={nbOn} aria-label={nbOn ? 'תשובה' : 'מחברת'} onClick={() => setNbOn(!nbOn)}>{nbOn ? <Keyboard size={20} aria-hidden="true" /> : <NotebookPen size={20} aria-hidden="true" />}<span className="tool-label">{nbOn ? 'תשובה' : 'מחברת'}</span></button>
+      {inClass && <button type="button" className="tool" aria-label="למורה" onClick={() => setHelpOpen(true)}><Hand size={20} aria-hidden="true" /><span className="tool-label">למורה</span></button>}
+    </div>
+  );
+  const checkButton = <Button className="check-btn btn-lg" onClick={check} disabled={!canCheck}>בדיקה</Button>;
   // The question stays pinned on top on every screen; the drawing below fits whatever room is left.
   const question = (
     <div className="lesson-q">
@@ -322,7 +380,7 @@ export default function Lesson() {
     <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed')}>
       {/* top: progress and the question, always on screen */}
       <header className="lesson-head">
-        <ProgressHeader pct={pct} label={placement ? 'התקדמות בבדיקת הרמה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
+        <ProgressHeader extra={compact ? tools : null} pct={pct} label={placement ? 'התקדמות בבדיקת הרמה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
         <AnimatePresence mode="wait" initial={false}>
           <m.div key={stage} className="q-pin" {...slide}>{question}</m.div>
         </AnimatePresence>
@@ -380,13 +438,14 @@ export default function Lesson() {
         <AnimatePresence>
           {s.hint && (s.phase === 'answer' || s.phase === 'retry') && !feedback && (
             <m.div key="hint" className="hint-bar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-              <Box tone="hint" title="רמז"><MathText as="p" text={item.hint} /></Box>
+              <HintBox text={item.hint} clamp={short} />
             </m.div>
           )}
         </AnimatePresence>
         {typed && (
-          <div className="answer-bar">
+          <div className={clsx('answer-bar', compact && 'with-check')}>
             <AnswerSlots item={item} slots={slots} setSlots={(v) => { setSlots(v); if (feedback === 'retry') setLast(null); }} active={active} setActive={setActive} locked={locked} shakeKey={shakeKey} onEnter={() => (feedback ? goOn() : check())} struck={struck} unstrike={() => setStruck(false)} good={feedback === 'good'} />
+            {compact && !feedback && checkButton}
           </div>
         )}
         {last?.invalid && <p className="form-error answer-error" role="alert">{last.text}</p>}
@@ -432,16 +491,8 @@ export default function Lesson() {
         ) : (
           <div className="lesson-dock">
             {typed && <Keypad onKey={onKey} onNext={names.length > 1 ? nextSlot : undefined} nextLabel={`מעבר ל${SLOT_LABEL[names[(names.indexOf(active) + 1) % names.length]] || 'שדה הבא'}`} />}
-            <div className="dock-row">
-              {/* help sits next to the thumb: icon buttons with a short label */}
-              <div className="tools" role="group" aria-label="עזרה">
-                {!isTest(s.kind) && <button type="button" className={clsx('tool', s.hint && 'on')} onClick={() => setS(withHint(s))} disabled={s.hint} aria-pressed={!!s.hint} aria-label="רמז"><Lightbulb size={20} aria-hidden="true" /><span className="tool-label">רמז</span></button>}
-                {aiReady() && !isTest(s.kind) && <button type="button" className="tool ai" aria-label="שאלו את העוזר" onClick={() => setChatOpen(true)}><Sparkles size={20} aria-hidden="true" /><span className="tool-label">העוזר</span></button>}
-                <button type="button" className={clsx('tool', nbOn && 'on')} aria-pressed={nbOn} aria-label={nbOn ? 'תשובה' : 'מחברת'} onClick={() => setNbOn(!nbOn)}>{nbOn ? <Keyboard size={20} aria-hidden="true" /> : <NotebookPen size={20} aria-hidden="true" />}<span className="tool-label">{nbOn ? 'תשובה' : 'מחברת'}</span></button>
-                {inClass && <button type="button" className="tool" aria-label="למורה" onClick={() => setHelpOpen(true)}><Hand size={20} aria-hidden="true" /><span className="tool-label">למורה</span></button>}
-              </div>
-              <Button className="check-btn btn-lg" onClick={check} disabled={!canCheck}>בדיקה</Button>
-            </div>
+            {/* help sits next to the thumb: icon buttons with a short label (on a short phone, up by the progress bar) */}
+            {!compact && <div className="dock-row">{tools}{checkButton}</div>}
           </div>
         )}
       </div>

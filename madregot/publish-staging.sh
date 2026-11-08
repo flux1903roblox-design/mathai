@@ -5,6 +5,7 @@
 # - No server (VITE_API_URL=none): no AI, classes, teacher dashboard or sync, and no keys in the build.
 # - Its own saved-state key (madregot-staging), so it never reads or writes the public site's data.
 # - Not for search engines (noindex), with qa.html (test entry points) and version.json (the commit).
+# - QA hooks on (VITE_QA_HOOKS=1): the current exercise is in window.__madregotItem and <html data-qa-item>.
 # - Only the madregot-staging/ folder of gh-pages changes; the public Madregot (madregot/) and the
 #   MathAI site at the root are never touched. Remove it later with: ./publish-staging.sh --remove
 set -e
@@ -21,7 +22,7 @@ if [ "$1" != "--remove" ]; then
   if [ -z "$(git -C "$ROOT" branch -r --contains "$SHA")" ]; then echo "Push $SHA first: staging must match a commit on GitHub."; exit 1; fi
 
   cd "$ROOT/madregot/web"
-  VITE_API_URL=none VITE_STORE_KEY=madregot-staging npx vite build --base ./ --outDir "$WORK/site" --emptyOutDir
+  VITE_API_URL=none VITE_STORE_KEY=madregot-staging VITE_QA_HOOKS=1 npx vite build --base ./ --outDir "$WORK/site" --emptyOutDir
   node -e "const f=process.argv[1],fs=require('fs');fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace('<head>','<head>\n    <meta name=\"robots\" content=\"noindex, nofollow\">'))" "$WORK/site/index.html"
   cp "$ROOT/madregot/staging/qa.html" "$WORK/site/qa.html"
   printf '{ "commit": "%s", "built": "%s", "server": "none", "storageKey": "madregot-staging" }\n' "$SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$WORK/site/version.json"

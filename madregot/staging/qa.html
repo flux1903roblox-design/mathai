@@ -21,9 +21,13 @@
 <h1>Madregot staging: QA entry points</h1>
 <p>Temporary test copy of the Madregot app for an independent review. It has <b>no server</b>: no AI, no classes, no teacher dashboard, no sync.
 Every visitor is an anonymous local test user; saved progress stays in this browser under its own key (<code>madregot-staging</code>), separate from the public site.</p>
-<p>Each link below loads a ready-made anonymous test student into this browser and opens one screen. It also sets two test flags:
-<code>madregot-debug</code> (the current exercise, including its answer, is in <code>window.__madregotItem</code>) and, with <code>&amp;seed=1</code>, <code>madregot-seed</code> (the same exercises on every load).
+<p>Each link below loads a ready-made anonymous test student into this browser and opens one screen.
+With <code>&amp;seed=1</code> it also sets <code>madregot-seed</code>, so the same exercises come on every load.
 To start from a clean first visit, use "first visit". Build details: <a href="version.json">version.json</a>. The app itself: <a href="./">index.html</a>.</p>
+<p><b>The current exercise, with its answer</b>, is available on every lesson screen of this build, with no flag to set:
+as JSON in the <code>data-qa-item</code> attribute of the <code>&lt;html&gt;</code> element (readable from the page HTML and from scripts that run in an isolated context, for example
+<code>JSON.parse(document.documentElement.dataset.qaItem).answer</code>), and as <code>window.__madregotItem</code> for scripts that run in the page itself.
+It updates when the exercise changes. Answer formats: a number; <code>[x, y]</code> for a point; <code>{m, b}</code> for a line; for multiple choice, the index (0-based) of the right choice.</p>
 </section>
 <div id="lists"></div>
 </main>

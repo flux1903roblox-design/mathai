@@ -2,7 +2,7 @@ import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import { X, Flame } from 'lucide-react';
 
 /** The lesson's top bar: leave, the progress bar (springs forward on each right answer), and the combo or the tested topic. */
-export function ProgressHeader({ pct, label, onExit, combo, topic }) {
+export function ProgressHeader({ pct, label, onExit, combo, topic, extra = null }) {
   const reduce = useReducedMotion();
   return (
     <header className="lesson-top">
@@ -23,6 +23,7 @@ export function ProgressHeader({ pct, label, onExit, combo, topic }) {
           </AnimatePresence>
         </span>
       )}
+      {extra}
     </header>
   );
 }
