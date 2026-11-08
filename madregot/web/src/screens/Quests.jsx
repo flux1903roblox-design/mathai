@@ -9,6 +9,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { Week } from './LessonDone.jsx';
 import PageHero from '@/components/PageHero.jsx';
 import Lottie from '@/components/Lottie.jsx';
+import { EASE } from '@/lib/motion.js';
 
 
 const QUEST_ICON = { lessons: BookOpen, xp: Zap, combo: Flame, perfect: Star, correct: Target, review: Trophy };
@@ -71,7 +72,7 @@ export default function Quests() {
                 <div className="quest-main">
                   <span className="quest-title">{q.title}</span>
                   <div className="quest-bar" role="progressbar" aria-label={q.title} aria-valuemin={0} aria-valuemax={q.target} aria-valuenow={q.have}>
-                    <m.i initial={reduce ? false : { width: 0 }} animate={{ width: `${Math.min(1, q.have / q.target) * 100}%` }} transition={{ duration: 0.7, delay: 0.15 + i * 0.12, ease: [0.22, 1, 0.36, 1] }} />
+                    <m.i initial={reduce ? false : { width: 0 }} animate={{ width: `${Math.min(1, q.have / q.target) * 100}%` }} transition={{ duration: 0.7, delay: 0.15 + i * 0.12, ease: EASE.out }} />
                   </div>
                 </div>
                 <span className="quest-count"><bdi dir="ltr">{Math.min(q.have, q.target)}/{q.target}</bdi></span>

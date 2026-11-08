@@ -6,6 +6,7 @@ import { PARTS } from '@/lib/lesson.js';
 import { useApp } from '@/lib/store.js';
 import { Emblem } from './map/Scenery.jsx';
 import { Button } from './ui.jsx';
+import { enter } from '@/lib/motion.js';
 
 /**
  * The top of the learn screen: where to continue, in one card, so the map starts right below it.
@@ -22,7 +23,7 @@ export default function ContinueCard({ grade, next, onStart, onBoard }) {
   const go = () => onStart(next.kind === 'review' ? `/lesson/${next.topic}/${next.level}?kind=review` : `/lesson/${next.topic}/${next.level}?part=${Math.min(next.parts + 1, PARTS)}`);
   return (
     <m.section className={`continue ch-${t?.color || 'brand'}`} aria-labelledby="continue-title"
-      initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>
+      initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter()}>
       {t ? (
         <>
           <div className="continue-head">

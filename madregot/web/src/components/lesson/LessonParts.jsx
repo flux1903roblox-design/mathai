@@ -1,5 +1,6 @@
 import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import { X, Flame } from 'lucide-react';
+import { SPRING } from '@/lib/motion.js';
 
 /** The lesson's top bar: leave, the progress bar (springs forward on each right answer), and the combo or the tested topic. */
 export function ProgressHeader({ pct, label, onExit, combo, topic, extra = null }) {
@@ -8,7 +9,7 @@ export function ProgressHeader({ pct, label, onExit, combo, topic, extra = null 
     <header className="lesson-top">
       <button type="button" className="icon-btn lesson-x" onClick={onExit} aria-label="יציאה מהשיעור"><X size={26} /></button>
       <div className="lesson-bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
-        <m.i initial={false} animate={{ width: `${Math.max(pct, 4)}%` }} transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 140, damping: 20 }} />
+        <m.i initial={false} animate={{ width: `${Math.max(pct, 4)}%` }} transition={reduce ? { duration: 0 } : SPRING.fill} />
       </div>
       {topic ? (
         <span className="lesson-topic" aria-live="polite">{topic}</span>
@@ -16,7 +17,7 @@ export function ProgressHeader({ pct, label, onExit, combo, topic, extra = null 
         <span className="lesson-combo" aria-live="polite">
           <AnimatePresence>
             {combo >= 2 && (
-              <m.span key={combo} className="combo-chip" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }}>
+              <m.span key={combo} className="combo-chip" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }} transition={SPRING.pop}>
                 <Flame size={18} aria-hidden="true" />{combo}<span className="visually-hidden"> ברצף</span>
               </m.span>
             )}
@@ -41,7 +42,7 @@ export function FeedbackBadge({ good }) {
           })}
         </span>
       )}
-      <m.svg viewBox="0 0 40 40" width="40" height="40" initial={reduce ? false : { scale: 0.4, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 420, damping: 15 }}>
+      <m.svg viewBox="0 0 40 40" width="40" height="40" initial={reduce ? false : { scale: 0.4, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={SPRING.pop}>
         <circle cx="20" cy="20" r="19" className="fb-badge-disc" />
         {good ? (
           <m.path d="M11.5 20.5 L17.5 26.5 L29 14" fill="none" stroke="#fff" strokeWidth="4.6" strokeLinecap="round" strokeLinejoin="round"

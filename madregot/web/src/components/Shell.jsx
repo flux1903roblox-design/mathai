@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { m } from 'motion/react';
 import { House, Target, ClipboardCheck, Sparkles, User } from 'lucide-react';
+import { DUR, enter } from '@/lib/motion.js';
 
 const TABS = [
   { to: '/', label: 'לימוד', icon: House, end: true },
@@ -27,7 +28,7 @@ export default function Shell() {
       <main className="shell-main">
         {/* each screen fades in as it opens, from a visible start. Opacity only: a transform here would make
             every position: fixed element inside the screen (the jump-back button) scroll with the page. */}
-        <m.div key={pathname} className="screen" initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}>
+        <m.div key={pathname} className="screen" initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} transition={enter(DUR.fast)}>
           <Outlet />
         </m.div>
       </main>

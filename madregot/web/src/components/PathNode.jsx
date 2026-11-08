@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
+import { EASE, SPRING } from '@/lib/motion.js';
 
 // Solid, hand-drawn glyphs for the path: they read at a glance on a coloured coin.
 const GLYPH = {
@@ -33,7 +34,7 @@ function Burst() {
     <span className="node-burst" aria-hidden="true">
       {Array.from({ length: 8 }, (_, i) => {
         const a = (i / 8) * Math.PI * 2;
-        return <m.i key={i} initial={{ x: 0, y: 0, scale: 0.4, opacity: 1 }} animate={{ x: Math.cos(a) * 58, y: Math.sin(a) * 58, scale: 1, opacity: 0 }} transition={{ duration: 0.7, delay: 0.25, ease: 'easeOut' }} />;
+        return <m.i key={i} initial={{ x: 0, y: 0, scale: 0.4, opacity: 1 }} animate={{ x: Math.cos(a) * 58, y: Math.sin(a) * 58, scale: 1, opacity: 0 }} transition={{ duration: 0.7, delay: 0.25, ease: EASE.burst }} />;
       })}
     </span>
   );
@@ -50,7 +51,7 @@ const PathNode = forwardRef(function PathNode({ state, kind, parts, of, fillLast
   return (
     <m.div
       className={clsx('node-slot', state === 'current' && 'has-ring', kind === 'review' && 'is-review', `slot-${state}`, mastered && state === 'done' && 'is-mastered')}
-      initial={celebrate && !reduce ? { scale: 0.7 } : false} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 11, delay: 0.2 }}
+      initial={celebrate && !reduce ? { scale: 0.7 } : false} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.2 }}
     >
       {state === 'current' && <span className="node-halo" aria-hidden="true" />}
       {state === 'current' && kind === 'node' && <LessonMarks parts={parts} of={of} fillLast={fillLast} />}

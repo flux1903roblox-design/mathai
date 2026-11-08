@@ -13,6 +13,7 @@ import Lottie from '@/components/Lottie.jsx';
 import RewardBadge from '@/components/RewardBadge.jsx';
 import { topicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
+import { DUR, SPRING, enter } from '@/lib/motion.js';
 
 // The main button takes the focus (for a keyboard or a screen reader) without scrolling a tall celebration
 // down to it: on a small phone the climb at the top stays in view.
@@ -20,7 +21,7 @@ const focusQuietly = (el) => { if (el) el.focus({ preventScroll: true }); };
 const DAY = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const fmtTime = (secs) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 // Celebration content rises in one after another, once.
-const rise = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } } };
+const rise = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: enter(DUR.slow) } };
 const stagger = (delay = 0.25) => ({ hidden: {}, show: { transition: { staggerChildren: 0.09, delayChildren: delay } } });
 
 /** Counts up from 0 once the card is on screen (a still number under reduced motion). */
@@ -50,7 +51,7 @@ export function Week({ days }) {
         const state = on ? 'on' : d?.frozen ? 'frozen' : isShabbat(key) ? 'rest' : 'off';
         const label = { on: 'תרגלתם', frozen: 'הקפאת רצף', rest: 'שבת', off: 'לא תרגלתם' }[state];
         return (
-          <m.li key={key} className={clsx('week-day', state, key === today() && 'today')} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.25 + i * 0.05, type: 'spring', stiffness: 400, damping: 20 }}>
+          <m.li key={key} className={clsx('week-day', state, key === today() && 'today')} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...SPRING.pop, delay: 0.25 + i * 0.05 }}>
             <span className="week-dot" aria-hidden="true">{state === 'on' ? <Flame size={16} /> : state === 'frozen' ? <Snowflake size={16} /> : state === 'rest' ? <Moon size={14} /> : null}</span>
             <span className="week-name">{DAY[new Date(`${key}T12:00:00`).getDay()]}</span>
             <span className="visually-hidden">{label}</span>
@@ -207,7 +208,7 @@ function StreakStage({ streak, days, freezes, onNext }) {
       <div className="streak-hero" aria-hidden="true">
         <Lottie name="flame" loop className="streak-lottie" still="middle" fallback={<span className="streak-big"><Flame size={120} strokeWidth={1.6} /></span>} />
       </div>
-      <m.p className="streak-num" initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 12, delay: 0.3 }}><NumberFlow value={v} /></m.p>
+      <m.p className="streak-num" initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.3 }}><NumberFlow value={v} /></m.p>
       <h1 className="done-title">{streak === 1 ? 'התחלתם רצף!' : `${streak} ימים ברצף!`}</h1>
       <Week days={days} />
       <p className="lead">שיעור אחד ביום שומר על הרצף, ובשבת הרצף לא נשבר.{freezes > 0 ? ` יש לכם ${freezes === 1 ? 'הקפאה אחת' : `${freezes} הקפאות`} למקרה שתפספסו יום.` : ''}</p>

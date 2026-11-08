@@ -22,6 +22,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/components/ui.jsx';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
+import { DUR, SPRING, enter } from '@/lib/motion.js';
 
 /** True while a media query matches (and follows it as the window changes). */
 function useMedia(query) {
@@ -375,7 +376,7 @@ export default function Lesson() {
   const onManip = (v) => { setMvs({ key: mkey, v, touched: true }); if (struck) setStruck(false); if (feedback === 'retry') setLast(null); };
   const stage = `${s.slot}-${item.key}`;
   // Each exercise slides in from the reading side; the last one leaves the other way.
-  const slide = { initial: { opacity: 0, x: -28 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: 28 }, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } };
+  const slide = { initial: { opacity: 0, x: -28 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: 28 }, transition: enter(0.2) };
   const typed = item.form !== 'mc' && !isManip && !nbOn;
   // On a short phone a typed answer gets the room it needs: the check button joins the answer row and the help
   // buttons move up beside the progress bar, so the drawing keeps the height of a whole row.
@@ -459,7 +460,7 @@ export default function Lesson() {
         {/* the hint sits above the answer, on the first try and again on the second; the drawing above makes room */}
         <AnimatePresence>
           {s.hint && (s.phase === 'answer' || s.phase === 'retry') && !feedback && (
-            <m.div key="hint" className="hint-bar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+            <m.div key="hint" className="hint-bar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={enter(DUR.fast)}>
               <HintBox text={item.hint} clamp={short} />
             </m.div>
           )}
@@ -473,7 +474,7 @@ export default function Lesson() {
         {last?.invalid && <p className="form-error answer-error" role="alert">{last.text}</p>}
         {feedback ? (
           <m.section className={clsx('fb', `fb-${feedback}`)} aria-live="assertive" aria-labelledby="fb-title"
-            initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 420, damping: 34 }}>
+            initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={SPRING.settle}>
             <div className="fb-scroll">
               <div className="fb-head">
                 <FeedbackBadge good={feedback === 'good'} />
@@ -522,7 +523,7 @@ export default function Lesson() {
       <AnimatePresence>
         {combo && (
           <m.div key="combo" className="combo-pop" role="status" onClick={() => setCombo(null)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <m.div className="combo-card" initial={{ scale: 0.6, y: 20 }} animate={{ scale: 1, y: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 16 }}>
+            <m.div className="combo-card" initial={{ scale: 0.6, y: 20 }} animate={{ scale: 1, y: 0 }} transition={SPRING.pop}>
               <Mascot mood="excited" size={116} />
               <p className="combo-text"><Flame size={30} aria-hidden="true" />{combo} ברצף!</p>
             </m.div>

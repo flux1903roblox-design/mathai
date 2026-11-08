@@ -1,4 +1,5 @@
 import { m, useReducedMotion } from 'motion/react';
+import { DUR, enter } from '@/lib/motion.js';
 
 /** A smooth trail through the stops: each leg leaves one stop heading down and arrives at the next. */
 function curve(pts) {
@@ -28,7 +29,7 @@ export default function PathTrail({ points, reached, width, height, draw }) {
       <path d={full} className="trail-road" />
       {walked && (
         <m.path key={`${reached}-${draw}`} d={walked} className="trail-walked"
-          initial={{ pathLength: from }} animate={{ pathLength: 1 }} transition={{ duration: 0.9, delay: 0.2, ease: [0.22, 1, 0.36, 1] }} />
+          initial={{ pathLength: from }} animate={{ pathLength: 1 }} transition={enter(DUR.draw, 0.2)} />
       )}
       <path d={full} className="trail-dots" />
     </svg>

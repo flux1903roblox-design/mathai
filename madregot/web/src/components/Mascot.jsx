@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
+import { SPRING } from '@/lib/motion.js';
 
 /**
  * מדי, the Madregot mascot: a two-step stair block with a face, the shape of climbing one stair at a time.
@@ -41,7 +42,7 @@ const IDLE = { y: [0, -2.4, 0], scaleY: [1, 1.018, 1], rotate: 0, transition: { 
 const REACT = {
   idle: IDLE,
   happy: { y: [0, -14, 0, -5, 0], scaleY: [1, 1.04, 0.95, 1.02, 1], rotate: 0, transition: { duration: 0.85, times: [0, 0.3, 0.55, 0.78, 1], ease: 'easeOut' } },
-  thinking: { y: [0, -1.5, 0], rotate: -4, scaleY: 1, transition: { y: { duration: 2.6, repeat: Infinity, ease: 'easeInOut' }, rotate: { type: 'spring', stiffness: 120, damping: 14 } } },
+  thinking: { y: [0, -1.5, 0], rotate: -4, scaleY: 1, transition: { y: { duration: 2.6, repeat: Infinity, ease: 'easeInOut' }, rotate: SPRING.lean } },
   encouraging: { y: 0, rotate: [0, 5, 2.5], scaleY: [1, 0.97, 1], transition: { duration: 0.7, ease: 'easeOut' } },
   excited: { y: [0, -18, 0, -18, 0], scaleY: [1, 1.05, 0.94, 1.05, 1], rotate: [0, -3, 0, 3, 0], transition: { duration: 1.2, times: [0, 0.22, 0.5, 0.72, 1], ease: 'easeOut' } },
   achievement: { y: [0, -16, 0], scaleY: [1, 1.05, 1], rotate: 0, transition: { duration: 0.9, ease: 'easeOut' } },
@@ -83,7 +84,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
 
   const body = reduce ? { y: 0, scaleY: 1, rotate: mood === 'thinking' ? -4 : 0 } : rest ? IDLE : REACT[mood];
   const [lx, ly] = LOOK[mood];
-  const spring = reduce ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 18 };
+  const spring = reduce ? { duration: 0 } : SPRING.soft;
   const hands = HAND[mood];
   const showSparkles = mood === 'excited' || mood === 'achievement' || mood === 'happy';
 
@@ -181,7 +182,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
 
         {/* the star he holds up for a milestone */}
         {mood === 'achievement' && (
-          <m.g initial={reduce ? false : { scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: 0.15, type: 'spring', stiffness: 220, damping: 12 }} style={{ originX: 0.5, originY: 0.5 }}>
+          <m.g initial={reduce ? false : { scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={{ ...SPRING.bounce, delay: 0.15 }} style={{ originX: 0.5, originY: 0.5 }}>
             <path d="M124 14 l4.6 9.4 10.4 1.5 -7.5 7.3 1.8 10.3 -9.3 -4.9 -9.3 4.9 1.8 -10.3 -7.5 -7.3 10.4 -1.5Z" fill={`url(#s${id})`} stroke="#d39600" strokeWidth="2" strokeLinejoin="round" />
           </m.g>
         )}

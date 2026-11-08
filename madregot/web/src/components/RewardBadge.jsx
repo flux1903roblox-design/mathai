@@ -1,5 +1,6 @@
 import { m, useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
+import { SPRING } from '@/lib/motion.js';
 
 /**
  * A medal for something the student really did in this lesson (a perfect run, a finished stair,
@@ -10,7 +11,7 @@ export default function RewardBadge({ icon: Icon, label, tone = 'gold', delay = 
   const reduce = useReducedMotion();
   return (
     <m.figure className={clsx('badge', `badge-${tone}`)} initial={reduce ? false : { scale: 0, rotate: -25, y: 10 }} animate={{ scale: 1, rotate: 0, y: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 14, delay }}>
+      transition={{ ...SPRING.pop, delay }}>
       <span className="badge-medal">
         <svg viewBox="0 0 80 92" className="badge-art" aria-hidden="true">
           <path d="M23 50 L12 88 L26 80 L34 92 L41 56 Z" className="badge-ribbon-a" />

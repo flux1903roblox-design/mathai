@@ -1,6 +1,7 @@
 import { m } from 'motion/react';
 import clsx from 'clsx';
 import Mascot from './Mascot.jsx';
+import { DUR, enter } from '@/lib/motion.js';
 
 // unDraw illustrations shipped in src/assets/illustrations (credits in ASSETS.md).
 const ART = import.meta.glob('../assets/illustrations/*.svg', { eager: true, query: '?url', import: 'default' });
@@ -15,11 +16,11 @@ export default function PageHero({ tone = 'brand', title, sub, art, mood = 'idle
   return (
     <header className={clsx('page-hero', `ch-${tone}`)}>
       <div className="page-hero-text">
-        <m.h1 id={id} className="page-hero-title" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}>{title}</m.h1>
-        {sub && <m.p className="page-hero-sub" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}>{sub}</m.p>}
+        <m.h1 id={id} className="page-hero-title" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter()}>{title}</m.h1>
+        {sub && <m.p className="page-hero-sub" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter(DUR.medium, 0.06)}>{sub}</m.p>}
         {children}
       </div>
-      <m.div className="page-hero-art" aria-hidden="true" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}>
+      <m.div className="page-hero-art" aria-hidden="true" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={enter(DUR.slow, 0.08)}>
         {src ? <img src={src} alt="" /> : <Mascot mood={mood} size={104} />}
       </m.div>
     </header>
