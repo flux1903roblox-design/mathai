@@ -257,6 +257,15 @@ async function askHelp(req, env, cors) {
   if (open && open.n >= 10) throw new HttpError(429, 'too_many_open');
   // Optional notebook page: a JPEG data URL of the student's working, kept small.
   const image = typeof b.image === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(b.image) && b.image.length <= 600_000 ? b.image : null;
+  // The same exercise asked again while its request is still open: one request, with the newest note and page.
+  const question = String(b.question || '').slice(0, 600);
+  const same = await env.DB.prepare('SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL AND question = ? LIMIT 1').bind(s.id, question).first();
+  if (same) {
+    const note = String(b.note || '').slice(0, 300);
+    await env.DB.prepare('UPDATE help_requests SET note = CASE WHEN ? <> \'\' THEN ? ELSE note END, image = COALESCE(?, image), answer = ? WHERE id = ?')
+      .bind(note, note, image, String(b.answer || '').slice(0, 100), same.id).run();
+    return json({ ok: true, again: true }, 200, cors);
+  }
   await env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
     .bind(s.id, String(b.topic || '').slice(0, 20), Number(b.level) || null, String(b.question || '').slice(0, 600),
       String(b.answer || '').slice(0, 100), String(b.note || '').slice(0, 300), image, nowIso()).run();

@@ -30,8 +30,8 @@ function Coord({ fig }) {
       <text x={o + 8} y={Y(r + 0.7)} className="fg-axis-name" style={{ fontFamily: MATH_FONT }}>y</text>
       {ticks.filter((i) => i && i % 2 === 0).map((i) => (
         <g key={`t${i}`}>
-          <text x={X(i)} y={o + 15} textAnchor="middle" className="fg-tick">{label(i)}</text>
-          <text x={o - 6} y={Y(i) + 4} textAnchor="end" className="fg-tick">{label(i)}</text>
+          <text x={X(i)} y={o + 17} textAnchor="middle" className="fg-tick">{label(i)}</text>
+          <text x={o - 6} y={Y(i) + 5} textAnchor="end" className="fg-tick">{label(i)}</text>
         </g>
       ))}
       <g clipPath="url(#plane)">
@@ -43,7 +43,8 @@ function Coord({ fig }) {
       {visible.map((p) => (
         <g key={p.label}>
           <circle cx={X(p.x)} cy={Y(p.y)} r="5" className="fg-pt" />
-          <text x={X(p.x) + (p.x >= 0 ? 8 : -8)} y={Y(p.y) - 8} textAnchor={p.x >= 0 ? 'start' : 'end'} className="fg-pt-label" style={{ fontFamily: MATH_FONT }}>{p.label}</text>
+          {/* the letter sits on the side away from both axes, so it never lands on their numbers */}
+          <text x={X(p.x) + (p.x >= 0 ? 9 : -9)} y={p.y >= 0 ? Y(p.y) - 9 : Y(p.y) + 21} textAnchor={p.x >= 0 ? 'start' : 'end'} className="fg-pt-label" style={{ fontFamily: MATH_FONT }}>{p.label}</text>
         </g>
       ))}
     </svg>

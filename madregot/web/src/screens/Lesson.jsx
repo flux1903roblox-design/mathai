@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useBlocker, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { AnimatePresence, m } from 'motion/react';
 import { toast } from 'sonner';
-import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X } from 'lucide-react';
+import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2 } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath } from '@/content/index.js';
 import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
@@ -20,19 +20,6 @@ import Mascot from '@/components/Mascot.jsx';
 import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/components/ui.jsx';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
-
-/** True while a media query matches (and follows it as the window changes). */
-function useMedia(query) {
-  const get = () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(query).matches : false);
-  const [on, setOn] = useState(get);
-  useEffect(() => {
-    if (!window.matchMedia) return undefined;
-    const mq = window.matchMedia(query); const f = () => setOn(mq.matches);
-    mq.addEventListener?.('change', f); f();
-    return () => mq.removeEventListener?.('change', f);
-  }, [query]);
-  return on;
-}
 
 const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b' };
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
@@ -104,14 +91,33 @@ export default function Lesson() {
   const [chatOpen, setChatOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
+  // Once the student has answered, leaving by the back button asks first, like the close button does.
+  const answered = useRef(false);
+  const leaving = useRef(false);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => answered.current && !leaving.current && currentLocation.pathname !== nextLocation.pathname);
+  // Each time the question opens it is a fresh dialog: reopening one that is still closing (a quick second
+  // back press) could otherwise leave it hidden while the lesson waits for an answer.
+  const [exitKey, setExitKey] = useState(0);
+  const askExit = () => { setExitKey((k) => k + 1); setExitOpen(true); };
+  // Every blocked back press is a new blocker object: react to each one, even when "stay" and the next
+  // back press land in the same render (blocked, reset, blocked again).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (blocker.state === 'blocked') askExit(); }, [blocker]);
+  const stay = () => { setExitOpen(false); if (blocker.state === 'blocked') blocker.reset(); };
+  const leave = (to, opts) => {
+    leaving.current = true; setExitOpen(false); syncNow();
+    if (blocker.state === 'blocked') blocker.proceed(); else navigate(to, opts);
+  };
   const [combo, setCombo] = useState(null);
   const [done, setDone] = useState(null); // { result, award } once the lesson ends
   const [nbOn, setNbOn] = useState(false);
   const [pages, setPages] = useState({});
   const [nbCheck, setNbCheck] = useState({ state: 'idle' });
-  const short = useMedia('(max-height: 620px)');
+  const [zoom, setZoom] = useState(false); // the drawing, enlarged in a sheet (small phones)
+  const [chat, setChat] = useState([]); // the tutor conversation about this exercise
   const nbRef = useRef(null);
   const qRef = useRef(null);
+  const nbResRef = useRef(null);
   const item = s?.item;
   // A placement test moves across topics: the colours and the misconceptions follow the question.
   const t = spec ? TOPIC[item?.topic || spec.topic] : null;
@@ -121,7 +127,7 @@ export default function Lesson() {
 
   useEffect(() => {
     if (!item) return;
-    setSlots({}); setChoice(null); setStruck(false); setActive(names[0] || 'v'); setExplain({ state: 'idle', text: '' }); setShowSteps(false); setNbCheck({ state: 'idle' });
+    setSlots({}); setChoice(null); setStruck(false); setActive(names[0] || 'v'); setExplain({ state: 'idle', text: '' }); setShowSteps(false); setNbCheck({ state: 'idle' }); setZoom(false); setChat([]);
     qRef.current?.focus({ preventScroll: true });
     qRef.current?.scrollTo?.({ top: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -176,6 +182,7 @@ export default function Lesson() {
       return;
     }
     const { s: ns, result } = answer(s, u);
+    answered.current = true;
     setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)] });
     if (result.ok) { play('correct'); commit(result.event); }
     else {
@@ -224,6 +231,12 @@ export default function Lesson() {
       // A computer keyboard types into the answer even when the focus is elsewhere on the screen.
       const tag = document.activeElement?.tagName;
       if (e.key === 'Enter' && !last && canCheck && !['INPUT', 'TEXTAREA', 'BUTTON', 'A', 'SUMMARY'].includes(tag)) { e.preventDefault(); check(); return; }
+      // the numbers printed on the choices pick them
+      if (item?.form === 'mc' && /^[1-9]$/.test(e.key) && tag !== 'INPUT' && tag !== 'TEXTAREA' && !locked) {
+        const n = Number(e.key) - 1;
+        if (n < item.choices.length && !s.wrong.includes(n)) { e.preventDefault(); setChoice(n); if (feedback === 'retry') setLast(null); }
+        return;
+      }
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey || !item || item.form === 'mc' || nbOn) return;
       const k = /^[0-9./]$/.test(e.key) ? e.key : e.key === '-' ? '-' : e.key === 'Backspace' ? 'del' : null;
       if (k) { e.preventDefault(); onKey(k); }
@@ -238,6 +251,31 @@ export default function Lesson() {
   useEffect(() => {
     if (marked) qRef.current?.querySelector('.choice.good')?.scrollIntoView?.({ block: 'nearest' });
   }, [marked]);
+  // After checking, the focus goes to the feedback's button, so a keyboard or a screen reader is where the action is.
+  const fbKey = last && !last.invalid ? `${item?.key}:${s?.phase}:${last.ok}` : null;
+  useEffect(() => {
+    if (fbKey) requestAnimationFrame(() => document.querySelector('section.fb .fb-actions .btn')?.focus({ preventScroll: true }));
+  }, [fbKey]);
+  // Arrow keys move between the choices (one tab stop for the group, as a radio group should be).
+  const onChoiceKeys = (e) => {
+    // Enter on the chosen answer checks it (as Enter in an answer field does)
+    if (e.key === 'Enter' && !last && choice != null) { e.preventDefault(); e.stopPropagation(); check(); return; }
+    const dir = { ArrowDown: 1, ArrowLeft: 1, ArrowUp: -1, ArrowRight: -1 }[e.key];
+    if (!dir || !item || item.form !== 'mc' || locked) return;
+    e.preventDefault();
+    const open = item.choices.map((_, i) => i).filter((i) => !s.wrong.includes(i));
+    const at = open.indexOf(choice ?? open[0]);
+    const nextI = open[(at + dir + open.length) % open.length];
+    setChoice(nextI); if (feedback === 'retry') setLast(null);
+    qRef.current?.querySelectorAll('.choice')[nextI]?.focus();
+  };
+
+  // The notebook check (waiting, result or error) appears under the notebook: bring it into view.
+  useEffect(() => {
+    if (nbCheck.state === 'idle') return;
+    const el = nbResRef.current; const box = qRef.current;
+    if (el && box) box.scrollTo({ top: Math.max(0, box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top - 12), behavior: 'smooth' });
+  }, [nbCheck.state]);
 
   const checkWork = async () => {
     const image = nbRef.current?.toImage();
@@ -246,9 +284,19 @@ export default function Lesson() {
     try { const r = await runAI('check', { ...aiContext(), image, mediaType: 'image/jpeg' }); setNbCheck({ state: 'done', r }); } catch (e) { setNbCheck({ state: 'error', message: e.message }); }
   };
 
-  if (!spec || !t) return <div className="page"><p>השיעור לא נמצא.</p></div>;
-  if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/', { replace: true, state: { placed: true } })} />;
-  if (done) return <LessonDone {...done} topic={t} onExit={() => navigate('/', { replace: true, state: { from: spec.topic, nodeDone: !!(done.award.nodeDone || done.award.unitDone) } })} onAgain={() => { setDone(null); setS(startLesson(spec)); }} />;
+  if (!spec || !t) {
+    return (
+      <div className="page not-found">
+        <Mascot mood="oops" size={96} />
+        <h1 className="h-page">השיעור הזה לא נמצא</h1>
+        <p className="muted">אולי הקישור ישן. כל השיעורים מחכים במפה.</p>
+        <Button className="btn-block btn-lg" onClick={() => navigate('/', { replace: true })}>חזרה למפה</Button>
+      </div>
+    );
+  }
+  if (done) leaving.current = true; // the end screens lead back to the map without asking
+  if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: { placed: true } })} />;
+  if (done) return <LessonDone {...done} topic={t} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: { from: spec.topic, nodeDone: !!(done.award.nodeDone || done.award.unitDone) } })} onAgain={() => { setDone(null); setS(startLesson(spec)); }} />;
 
   const feedback = last && !last.invalid ? (last.ok ? 'good' : s.phase === 'retry' ? 'retry' : 'reveal') : null;
   const inClass = !!st.profile?.token;
@@ -262,7 +310,7 @@ export default function Lesson() {
   // Each exercise slides in from the reading side; the last one leaves the other way.
   const slide = { initial: { opacity: 0, x: -28 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: 28 }, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } };
   const typed = item.form !== 'mc' && !nbOn;
-  // On a short screen the question scrolls with the maths, so the drawing keeps room; elsewhere it stays pinned on top.
+  // The question stays pinned on top on every screen; the drawing below fits whatever room is left.
   const question = (
     <div className="lesson-q">
       <Mascot mood={mood} beat={shakeKey + (last?.ok ? s.solved * 100 : 0)} size={56} className="q-mascot" />
@@ -274,35 +322,34 @@ export default function Lesson() {
     <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed')}>
       {/* top: progress and the question, always on screen */}
       <header className="lesson-head">
-        <ProgressHeader pct={pct} label={placement ? 'התקדמות בבדיקת הרמה' : 'התקדמות בשיעור'} onExit={() => setExitOpen(true)} combo={s.combo} topic={placement ? t.title : null} />
-        {!short && (
-          <AnimatePresence mode="wait" initial={false}>
-            <m.div key={stage} className="q-pin" {...slide}>{question}</m.div>
-          </AnimatePresence>
-        )}
+        <ProgressHeader pct={pct} label={placement ? 'התקדמות בבדיקת הרמה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
+        <AnimatePresence mode="wait" initial={false}>
+          <m.div key={stage} className="q-pin" {...slide}>{question}</m.div>
+        </AnimatePresence>
       </header>
 
       {/* middle: the maths (expression, drawing, table, choices); the only part that scrolls */}
       <main className="lesson-main" ref={qRef} tabIndex={-1} aria-labelledby="qtext">
         <AnimatePresence mode="wait" initial={false}>
         <m.div key={stage} className="q-stage" {...slide}>
-        {short && question}
+        {/* nothing to draw: on a short phone (where the question has no מדי beside it) he waits here */}
+        {!item.display && !item.fig && item.form !== 'mc' && !nbOn && <Mascot mood={mood} beat={shakeKey + (last?.ok ? s.solved * 100 : 0)} size={96} className="stage-mascot" />}
         {item.redo && <p className="redo-note"><RotateCcw size={16} aria-hidden="true" />תרגיל דומה לזה שהיה קשה קודם</p>}
         {item.display && <div className="qdisplay"><Tex tex={item.form === 'mc' ? item.display : `${item.display} = \\,?`} display /></div>}
-        <Figure fig={item.fig} />
-        <AnimatePresence>
-          {s.hint && s.phase === 'answer' && !feedback && (
-            <m.div key="hint" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-              <Box tone="hint" title="רמז"><MathText as="p" text={item.hint} /></Box>
-            </m.div>
-          )}
-        </AnimatePresence>
+        {item.fig && (
+          <div className="fig-zoomable">
+            <Figure fig={item.fig} />
+            {item.fig.type !== 'table' && (
+              <button type="button" className="fig-zoom" aria-label="הגדלת השרטוט" onClick={() => setZoom(true)}><Maximize2 size={18} aria-hidden="true" /></button>
+            )}
+          </div>
+        )}
         {item.form === 'mc' && (
-          <div className={clsx('choices', item.choices.length === 3 && item.choices.every((c) => c.tex) && 'inline')} role="radiogroup" aria-label="אפשרויות">
+          <div className={clsx('choices', item.choices.length === 3 && item.choices.every((c) => c.tex) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys}>
             {item.choices.map((c, i) => {
               const state = locked && i === item.answer ? 'good' : (feedback && choice === i && i !== item.answer) || s.wrong.includes(i) ? 'bad' : '';
               return (
-                <m.button key={i} type="button" role="radio" aria-checked={choice === i} aria-label={c.tex ? texText(c.tex) : undefined} className={clsx('choice', choice === i && 'on', state)}
+                <m.button key={i} type="button" role="radio" aria-checked={choice === i} tabIndex={(choice ?? item.choices.findIndex((_, k) => !s.wrong.includes(k))) === i ? 0 : -1} aria-label={c.tex ? texText(c.tex) : undefined} className={clsx('choice', choice === i && 'on', state)}
                   whileTap={locked ? undefined : { scale: 0.96 }} animate={state === 'good' ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}
                   disabled={locked || s.wrong.includes(i)} onClick={() => { setChoice(i); play('tap'); if (feedback === 'retry') setLast(null); }}>
                   <span className="choice-key" aria-hidden="true">{state === 'good' ? <Check size={18} strokeWidth={3.4} /> : state === 'bad' ? <X size={18} strokeWidth={3.4} /> : i + 1}</span>
@@ -317,6 +364,7 @@ export default function Lesson() {
             <Notebook ref={nbRef} strokes={page.strokes} onStrokes={(strokes) => { setPage({ strokes }); if (nbCheck.state !== 'loading') setNbCheck({ state: 'idle' }); }} height={page.height} onGrow={() => setPage({ height: page.height + 240 })} />
             <p className="nb-note">כתבו את הדרך כמו במחברת. כשמסיימים, חוזרים ל"תשובה" וכותבים את התוצאה.</p>
             {aiReady() && <Button variant="ai" className="btn-sm" onClick={checkWork} disabled={nbCheck.state === 'loading' || !page.strokes.length}><Sparkles size={16} aria-hidden="true" />בדיקת הדרך עם העוזר</Button>}
+            <div className="nb-anchor" ref={nbResRef} aria-hidden="true" />
             {nbCheck.state === 'loading' && <Box tone="ai" title="בדיקת הדרך"><Thinking states={['קורא את מה שכתבתם', 'בודק כל שורה', 'מסכם']} /></Box>}
             {nbCheck.state === 'error' && <p className="form-error" role="alert">{nbCheck.message}</p>}
             {nbCheck.state === 'done' && <CheckResult r={nbCheck.r} />}
@@ -328,6 +376,14 @@ export default function Lesson() {
 
       {/* bottom: the answer row, then the keypad and the check button (or the feedback that replaces them) */}
       <div className="lesson-foot">
+        {/* the hint sits above the answer, on the first try and again on the second; the drawing above makes room */}
+        <AnimatePresence>
+          {s.hint && (s.phase === 'answer' || s.phase === 'retry') && !feedback && (
+            <m.div key="hint" className="hint-bar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+              <Box tone="hint" title="רמז"><MathText as="p" text={item.hint} /></Box>
+            </m.div>
+          )}
+        </AnimatePresence>
         {typed && (
           <div className="answer-bar">
             <AnswerSlots item={item} slots={slots} setSlots={(v) => { setSlots(v); if (feedback === 'retry') setLast(null); }} active={active} setActive={setActive} locked={locked} shakeKey={shakeKey} onEnter={() => (feedback ? goOn() : check())} struck={struck} unstrike={() => setStruck(false)} good={feedback === 'good'} />
@@ -379,7 +435,7 @@ export default function Lesson() {
             <div className="dock-row">
               {/* help sits next to the thumb: icon buttons with a short label */}
               <div className="tools" role="group" aria-label="עזרה">
-                <button type="button" className="tool" onClick={() => setS(withHint(s))} disabled={s.hint || isTest(s.kind)} aria-label="רמז"><Lightbulb size={20} aria-hidden="true" /><span className="tool-label">רמז</span></button>
+                {!isTest(s.kind) && <button type="button" className={clsx('tool', s.hint && 'on')} onClick={() => setS(withHint(s))} disabled={s.hint} aria-pressed={!!s.hint} aria-label="רמז"><Lightbulb size={20} aria-hidden="true" /><span className="tool-label">רמז</span></button>}
                 {aiReady() && !isTest(s.kind) && <button type="button" className="tool ai" aria-label="שאלו את העוזר" onClick={() => setChatOpen(true)}><Sparkles size={20} aria-hidden="true" /><span className="tool-label">העוזר</span></button>}
                 <button type="button" className={clsx('tool', nbOn && 'on')} aria-pressed={nbOn} aria-label={nbOn ? 'תשובה' : 'מחברת'} onClick={() => setNbOn(!nbOn)}>{nbOn ? <Keyboard size={20} aria-hidden="true" /> : <NotebookPen size={20} aria-hidden="true" />}<span className="tool-label">{nbOn ? 'תשובה' : 'מחברת'}</span></button>
                 {inClass && <button type="button" className="tool" aria-label="למורה" onClick={() => setHelpOpen(true)}><Hand size={20} aria-hidden="true" /><span className="tool-label">למורה</span></button>}
@@ -401,17 +457,20 @@ export default function Lesson() {
         )}
       </AnimatePresence>
 
-      <Sheet open={exitOpen} onOpenChange={setExitOpen} title={placement ? 'לצאת מבדיקת הרמה?' : 'לצאת מהשיעור?'}>
+      <Sheet open={zoom} onOpenChange={setZoom} title="השרטוט" wide>
+        <div className="fig-big"><Figure fig={item.fig} /></div>
+      </Sheet>
+      <Sheet key={`exit-${exitKey}`} open={exitOpen} onOpenChange={(o) => (o ? setExitOpen(true) : stay())} title={placement ? 'לצאת מבדיקת הרמה?' : 'לצאת מהשיעור?'}>
         <div className="exit-sheet">
           <Mascot mood="oops" size={96} />
           <p className="lead">{placement ? 'כל נושא יתחיל מהמדרגה הראשונה. אפשר לחזור לבדיקה מהלוח בכל זמן.' : 'ההתקדמות בשיעור הזה לא תישמר. התשובות שכבר עניתם נשמרות בתרגול שלכם.'}</p>
-          <Button className="btn-block btn-lg" onClick={() => setExitOpen(false)}>{placement ? 'להמשיך בבדיקה' : 'להמשיך ללמוד'}</Button>
-          <Button variant="danger-outline" className="btn-block" onClick={() => { syncNow(); navigate('/', { replace: true }); }}>יציאה</Button>
+          <Button className="btn-block btn-lg" onClick={stay}>{placement ? 'להמשיך בבדיקה' : 'להמשיך ללמוד'}</Button>
+          <Button variant="danger-outline" className="btn-block" onClick={() => leave('/', { replace: true })}>יציאה</Button>
         </div>
       </Sheet>
       <Sheet open={chatOpen} onOpenChange={setChatOpen} title="שאלו את העוזר">
         <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={item.text} />{item.display && <> <Tex tex={item.display} /></>}</div>
-        <AIChat context={aiContext()} />
+        <AIChat context={aiContext()} messages={chat} onMessages={setChat} />
       </Sheet>
       <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} payload={{ topic: item.topic, level: item.level, question: itemMath(item), answer: s.wrong.map((w) => answerText(item, w)).join(' ; ') }} getImage={() => (page.strokes.length ? nbRef.current?.toImage() || null : null)} hasPage={page.strokes.length > 0} />
     </div>

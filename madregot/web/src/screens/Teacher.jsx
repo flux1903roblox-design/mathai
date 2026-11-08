@@ -214,7 +214,7 @@ export default function Teacher() {
                   </Box>
                 )}
                 <Box tone="note" title="כדאי לבדוק איתם">
-                  {attention.length === 0 ? <p className="muted">כולם מתרגלים ומצליחים.</p> : (
+                  {attention.length === 0 ? <p className="muted">{openHelp.length ? 'כולם מתרגלים ומצליחים. יש בקשות עזרה שמחכות לכם למטה.' : 'כולם מתרגלים ומצליחים.'}</p> : (
                     <ul className="t-list">
                       {attention.map((s) => (
                         <li key={s.id}>

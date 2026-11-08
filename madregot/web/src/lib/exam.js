@@ -108,7 +108,7 @@ export function buildPlan({ exams = [], mistakes = {}, progress = {}, streak = 0
     return {
       id: `p-${w.topic}`, kind: 'practice', topic: w.topic, level, levelTitle: t.levels[level - 1].title,
       title: `${t.title}: ${t.levels[level - 1].title}`, why, have: Math.min(have, PLAN_WINS), need: PLAN_WINS,
-      done: have >= PLAN_WINS, to: `/practice/${w.topic}?level=${level}`,
+      done: have >= PLAN_WINS, to: `/practice/${w.topic}?level=${level}&from=plan`,
     };
   });
   if (weak.length) {

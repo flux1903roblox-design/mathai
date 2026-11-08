@@ -19,9 +19,13 @@ async function onboard(page, start) {
   await page.getByRole('button', { name: start === 'test' ? 'לבדיקת הרמה' : 'לשיעור הראשון', exact: true }).click();
 }
 
-test('first visit, starting from the first stair: the map is right under the continue card', async ({ page }) => {
+test('first visit, starting from the first stair: the first lesson opens, and the map waits under the continue card', async ({ page }) => {
   await open(page, '#/');
   await onboard(page, 'scratch');
+  await expect(page).toHaveURL(/#\/lesson\/signed\/1/);
+  await expect(page.locator('#qtext')).toBeVisible();
+  await page.getByRole('button', { name: 'יציאה מהשיעור' }).click();
+  await page.getByRole('button', { name: 'יציאה', exact: true }).click();
   await expect(page.locator('.continue')).toBeVisible();
   await expect(page.locator('.unit').first()).toBeVisible();
   await expect(page.locator('.node-current').first()).toBeVisible();
@@ -35,6 +39,7 @@ test('first visit with the placement test: every topic gets a starting stair', a
   await open(page, '#/');
   await onboard(page, 'test');
   await expect(page).toHaveURL(/#\/placement/);
+  await expect.poll(() => item(page)).toBeTruthy(); // the first question is on screen
   for (let n = 0; n < 12; n += 1) {
     if (await page.locator('.done-screen').count()) break;
     const it = await item(page);
@@ -98,4 +103,35 @@ test('a practice exam is made from the chosen topics and prints without the app 
   await expect(page.locator('.exam-sheet, .page-sheet, ol').first()).toBeVisible();
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('.tabbar')).toBeHidden();
+});
+
+test('the back button inside a started lesson asks first; staying keeps the progress', async ({ page }) => {
+  await open(page, '#/', student('7'));
+  await page.locator('.continue-go').click(); // into the lesson the way a student does
+  await expect.poll(() => item(page)).toBeTruthy();
+  const lessonUrl = page.url();
+  for (let k = 0; k < 2; k += 1) await proceedToNext(page, await answer(page, true));
+  const pct = await page.locator('[role="progressbar"]').getAttribute('aria-valuenow');
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'לצאת מהשיעור?' })).toBeVisible();
+  expect(page.url()).toBe(lessonUrl);
+  await page.getByRole('button', { name: 'להמשיך ללמוד' }).click();
+  await expect(page.locator('[role="progressbar"]')).toHaveAttribute('aria-valuenow', pct);
+  await page.goBack();
+  await page.getByRole('button', { name: 'יציאה', exact: true }).click();
+  await expect(page.locator('.continue')).toBeVisible();
+});
+
+test('a lesson from the improvement plan counts for the daily plan quest', async ({ page }) => {
+  await open(page, '#/plan', student('7', { mistakes: { 'signed:sign': 3 } }));
+  const link = page.locator('a[href*="from=plan"]').first();
+  await expect(link).toBeVisible();
+  await link.click();
+  await expect.poll(() => item(page)).toBeTruthy(); // the lesson's first exercise is on screen
+  for (let n = 0; n < 20 && !(await page.locator('.done-screen').count()); n += 1) {
+    await proceedToNext(page, await answer(page, true));
+    if (await page.locator('.combo-pop').count()) await page.locator('.combo-pop').click();
+  }
+  await expect(page.locator('.done-screen')).toBeVisible();
+  expect((await saved(page)).days['2026-11-05'].planLessons).toBe(1);
 });

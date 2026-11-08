@@ -110,8 +110,20 @@ export default function ExamCheck() {
       ) : null}
 
       {!aiReady() && (
-        <Box tone="attention" title="העוזר עוד לא מחובר"><p>הבדיקה צריכה את העוזר. חברו אותו במסך "אני".</p></Box>
+        <>
+          <Box tone="attention" title="הבדיקה צריכה את העוזר">
+            <p>בגרסה הזו העוזר עוד לא מחובר, אז אי אפשר לבדוק כאן דפים מצולמים.</p>
+            <p>{practice ? 'את מבחן התרגול הזה אפשר לבדוק מול מפתח התשובות שבדף המבחן.' : 'מבחן תרגול מודפס אפשר לבדוק מול מפתח התשובות שלו.'}</p>
+          </Box>
+          <div className="form-actions">
+            {practice
+              ? <Link to={`/exams/practice/${practice.id}`} className="btn btn-primary btn-block">חזרה למבחן ולמפתח התשובות</Link>
+              : <Link to="/exams/new" className="btn btn-primary btn-block">הכנת מבחן תרגול</Link>}
+            <Link to="/me" state={{ focus: 'ai' }} className="btn btn-secondary btn-block">איך מחברים את העוזר</Link>
+          </div>
+        </>
       )}
+      {aiReady() && (<>
 
       <section className="section" aria-labelledby="pages-title">
         <h2 id="pages-title" className="h-section">הדפים ({pages.length} מתוך {MAX_EXAM_PAGES})</h2>
@@ -153,7 +165,7 @@ export default function ExamCheck() {
         </Field>
       )}
 
-      {state.phase !== 'loading' && <Button className="btn-block btn-lg" onClick={check} disabled={!pages.length || !aiReady()}>בדיקת המבחן</Button>}
+      {state.phase !== 'loading' && <Button className="btn-block btn-lg" onClick={check} disabled={!pages.length}>בדיקת המבחן</Button>}
       {state.phase === 'loading' && (
         <Box tone="ai" title="העוזר בודק" live className="check-status">
           <Thinking states={['קורא את הדפים', 'מזהה את השאלות', 'בודק כל תשובה', 'כותב משוב אישי', 'בונה תוכנית לשיפור']} />
@@ -161,6 +173,7 @@ export default function ExamCheck() {
         </Box>
       )}
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
+      </>)}
     </div>
   );
 }

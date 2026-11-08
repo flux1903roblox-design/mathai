@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { ArrowRight, Sparkles, Check, Lock } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
+import { aiReady } from '@/lib/ai.js';
 import { TOPIC, TOPICS } from '@/content/index.js';
 import { Box, Button, ChapterMark } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
@@ -65,9 +66,11 @@ export default function Topic() {
 
       <div className="form-actions">
         <Button className="btn-block btn-lg" onClick={() => navigate(`/practice/${id}`)}>תרגול ממדרגה {p.level}</Button>
-        <Button variant="secondary" className="btn-block" onClick={() => navigate(`/assistant?generate=${id}&level=${p.level}`)}>
-          <Sparkles size={18} aria-hidden="true" />תרגילים נוספים מהעוזר
-        </Button>
+        {aiReady() && (
+          <Button variant="secondary" className="btn-block" onClick={() => navigate(`/assistant?generate=${id}&level=${p.level}`)}>
+            <Sparkles size={18} aria-hidden="true" />תרגילים נוספים מהעוזר
+          </Button>
+        )}
       </div>
 
       {mine.length > 0 && (

@@ -61,7 +61,7 @@ Screen audit: round 1 found 14 problems in 76 checks; round 2: 0 problems, 0 tap
 - **Expected:** the question, the maths and the answer field are visible together, above the keypad.
 - **Actual:** the page scrolled so the answer field was above the keypad; the question went off the top. 37 of 126 load-state measurements failed (13 of 14 exercises at 320×568).
 - **Root cause:** the lesson was one scrolling column with a fixed keypad dock laid over it, and the dock's height was measured in JavaScript and added as bottom padding. Everything competed for one scroll position.
-- **Fix:** the exercise screen is now three grid regions in `100dvh` (`grid-template-rows: auto minmax(0,1fr) auto`, `min-height: 0`): a top region (progress, close, question bubble with מדי), a middle region that is the only thing that scrolls (drawing, table, choices), and a bottom region (answer field, keypad, tools, check). The answer field moved out of the scrolling region into the bottom region, directly above the keypad. On very short screens (`max-height: 620px`) the question moves into the scrolling region so the maths keeps room (`Lesson.jsx` `useMedia`). Files: `screens/Lesson.jsx`, `styles/app.css` (exercise v4 block).
+- **Fix:** the exercise screen is now three grid regions in `100dvh` (`grid-template-rows: auto minmax(0,1fr) auto`, `min-height: 0`): a top region (progress, close, question bubble with מדי), a middle region that is the only thing that scrolls (drawing, table, choices), and a bottom region (answer field, keypad, tools, check). The answer field moved out of the scrolling region into the bottom region, directly above the keypad. (Round 4 replaced the short-screen part of this fix: the question now stays pinned everywhere and short phones get a 3-row keypad and drawings that fit the region; see R-01.) Files: `screens/Lesson.jsx`, `styles/app.css` (exercise v4 block).
 - **Tests:** `e2e/layout.spec.js` (14 exercise kinds × 4 devices: question usable, answer usable, check usable, page never scrolls, maths region ≥ 120 px, wrong answer, right answer, next exercise); exercise audit iteration 4: 0 failures at load.
 - **Evidence:** `qa-evidence/D-001-*.jpg` (before / after / after a wrong answer at 320×568 and 375×667).
 - **Status:** VERIFIED
@@ -126,7 +126,8 @@ Screen audit: round 1 found 14 problems in 76 checks; round 2: 0 problems, 0 tap
 
 ### D-022 · P3 · Keyboard users had no way to type on desktop without clicking a field
 - **Fix:** digits, `.`, `-`, `/` and Backspace typed anywhere on the exercise go to the active field; Enter checks / continues.
-- **Status:** VERIFIED (manual run with Playwright keyboard)
+- **Tests:** `layout.spec.js` "on a computer: digits typed anywhere go to the answer, Enter checks and Enter continues".
+- **Status:** VERIFIED
 
 ## AI assistant
 
@@ -202,6 +203,52 @@ Screen audit: round 1 found 14 problems in 76 checks; round 2: 0 problems, 0 tap
 - **Fix:** without a server the text says so and points to the advanced setting (class server address) or a personal key; "בדיקת חיבור" is only offered when there is a server.
 - **Status:** VERIFIED (visual `profile` desktop, reviewed)
 
+## Round 4: independent adversarial review
+
+A separate reviewer (a fresh agent, not shown my conclusions) tested both builds in a browser for 41 minutes and
+reported 28 findings: 0 P0, 5 P1, 13 P2, 10 P3, each with steps and screenshots. I reproduced each one before fixing it.
+All 28 are fixed and each fix was retested by a script that repeats the reviewer's steps
+(`p1check` 17, `p23check` 27, `toastcheck` 3: 47 checks, all passing on the final build) and, where it fits, by a repo test.
+
+| ID | Sev | Screen · viewport | What was wrong | Root cause | Fix | Retest | Status |
+|---|---|---|---|---|---|---|---|
+| R-01 | P1 | Lesson · 320×568, 360×640 | Drawings and tables mostly hidden behind the keypad; after a second mistake the feedback covered the graph | Three things competed for ~570 px: a 4-row keypad, the question and מדי moved into the maths region on short screens, and drawings had a fixed size. My own audit missed it: it only checked that a drawing *starts* on screen | Question always pinned on top (compact, no מדי on short phones); keypad in 3 rows (1–5 / 6–0 / − . / ⌫) under 700 px tall; the maths region is a size container and drawings fit it (`100cqh`); feedback capped at 46dvh on short phones; tap-to-enlarge sheet for drawings on phones; the audit now fails when a drawing is not whole, or less than 60 % visible after feedback | Exercise audit: 126 cases × 3 states on 9 sizes, 0 failures with the stricter checks | VERIFIED |
+| R-02 | P1 | Lesson · all | The phone/browser back button left a started lesson with no question; progress lost | The declarative `HashRouter` cannot block navigation | Moved to `createHashRouter` (data router); `useBlocker` asks "לצאת מהשיעור?" once the student has answered. While testing the fix I found a second bug in it (see R-29) | `flows.spec.js` back-button test; `p1check` on both builds | VERIFIED |
+| R-03 | P1 | Plan → lesson → quests | A lesson from the improvement plan never counted for the quest "שיעור חזרה או שיעור מהתוכנית" | The lesson counts `from=plan`, but no link set it | Plan steps and the exam result's weak-topic links carry `&from=plan` | `flows.spec.js` plan-quest test (`planLessons` = 1); unit test updated | VERIFIED |
+| R-04 | P1 | Assistant, lesson tutor | Switching tabs wiped the chat and the written exercises; closing the tutor sheet emptied the conversation | Inactive tabs and the closed sheet were unmounted, taking their state with them | All three tabs stay mounted (inactive ones `hidden`); the lesson keeps the tutor conversation per exercise, and a reply still arrives if the sheet was closed mid-answer | `p1check`: chat 2→2 messages, 3 exercises and the typed answer kept, tutor 2→2 | VERIFIED |
+| R-05 | P1 | Profile · no-server | Class-join form and "check connection" that cannot work | (D-017, D-018, already fixed before the review on a newer build) | — | `p1check` | VERIFIED |
+| R-06 | P2 | Lesson | The hint disappeared on the second try | It rendered only in the first-try phase | The hint shows on the second try too, above the answer (the drawing makes room for it) | `p23check` at 320×568: hint visible, drawing whole | VERIFIED |
+| R-07 | P2 | Map, quests | An abandoned lesson lit the streak | Answers created a day record without `lessons`, and a rule for very old data counts such days as active | Every answer writes `lessons: 0`; only genuinely old records use the old rule | Unit test; `p23check` (streak 0) | VERIFIED |
+| R-08 | P2 | All screens | A new screen kept the previous screen's scroll position | No scroll reset between routes | `ScrollRestoration` (top on new screens, restored on back); the map keeps its own target after a lesson (`preventScrollReset`) | `p23check`: quests at 0, back to "אני" at 1152 | VERIFIED |
+| R-09 | P2 | Lesson (class student) | Toasts covered the keypad and blocked taps | The toaster was placed for the tab bar, which lessons do not have | In lessons, toasts appear at the top | `toastcheck`: toast bottom 130 px, keypad top 458 px | VERIFIED |
+| R-10 | P2 | Lesson notebook | The notebook check result appeared under the bottom region | Nothing scrolled it into view | The maths region scrolls to the waiting state and to the result | `p23check` | VERIFIED |
+| R-11 | P2 | Topic, exams, practice sheet · no-server | AI-only actions led to dead ends | They were shown regardless of `aiReady()` | Hidden or reworded without the assistant; the practice sheet points to its answer key; exam check explains instead of offering an upload that cannot be checked | `p23check` | VERIFIED |
+| R-12 | P2 | Coordinate drawings | Axis numbers ~7–8 px; point letters on top of them | 11-unit text in a scaled-down SVG; letters always above-right | Numbers 14 units with a white halo; letters placed away from both axes; drawings now larger | `p23check`: axis numbers 15.9 px at 390 | VERIFIED |
+| R-13 | P2 | Map · 320 | Sticky unit header ~185 px tall | Title, three-line description and a labelled button in a narrow row | Under 400 px: smaller emblem, icon-only guide button (still named), no description in the sticky header | `p23check`: 90 px | VERIFIED |
+| R-14 | P2 | Practice exam answer key · phones | "10." clipped; answers misaligned; multiple choice could show raw TeX | Items were `dir=auto`; the raw answer string was printed | Right-to-left list; the choice letter with rendered maths; values as left-to-right runs with a real minus | `p23check` | VERIFIED |
+| R-15 | P2 | Teacher dashboard · 320–375 | Teacher key outside its box; tabs cut off; table cut | No wrapping; the tab row scrolled with no hint | The key wraps inside its chip; tabs wrap; wide tables show a scroll shadow | `p23check` with a real class | VERIFIED |
+| R-16 | P2 | Assistant · 320 | Tabs wrapped and clipped; selects truncated | Icons and labels too wide; two selects side by side | One-line tabs (icons dropped under 340 px); selects full width under 420 px | `p23check` | VERIFIED |
+| R-17 | P2 | Lesson end · 320–375 | "%" wrapped onto its own line | No `nowrap`, number too wide for the tile | `nowrap` and a smaller number and icon on narrow phones | Screen audit, screenshots | VERIFIED |
+| R-18 | P2 | Quests · 320 | Week row crossed the card's border | Fixed 36 px dots with gaps | Dots share the width under 400 px | `p23check` | VERIFIED |
+| R-19 | P3 | Onboarding · 320 | A step opened already scrolled | No scroll reset between steps | Each step opens at its top | `p23check` | VERIFIED |
+| R-20 | P3 | Onboarding | "לשיעור הראשון" opened the map | — | It opens the first lesson | `flows.spec.js` first-visit test | VERIFIED |
+| R-21 | P3 | Exams vs plan | The plan was "0 of 1 steps" on one screen and "empty" on the other | Different rules | The exams list uses the plan screen's rule | Screenshot | VERIFIED |
+| R-22 | P3 | Lesson · keyboard | Choices were separate tab stops; arrows and the printed numbers did nothing; focus stayed in the field after checking | — | One tab stop for the group, arrow keys move, number keys pick, Enter checks; focus moves to the feedback button | `p23check` | VERIFIED |
+| R-23 | P3 | Help requests | The same request could be sent again and again | No de-duplication on the server | One open request per exercise; a repeat updates its note and page | `toastcheck`: 2 sends → 1 open request | VERIFIED |
+| R-24 | P3 | Lesson · bad link | "השיעור לא נמצא." with no way back | — | מדי, a sentence and "חזרה למפה" | `p23check` | VERIFIED |
+| R-25 | P3 | Lesson · lines | The answer row named a point (E, A, B) the question never mentioned | — | The question names the point; a unit test checks every point answer | Unit test | VERIFIED |
+| R-26 | P3 | Assistant | "Works through the class server" for students outside a class | — | Says "the app's server" outside a class | `p23check` | VERIFIED |
+| R-27 | P3 | Lesson · tablet, desktop | Drawings did not grow | Fixed maximum sizes | Drawings fit the maths region (up to 560 px wide) | Screenshots at 768 and 1440 | VERIFIED |
+| R-28 | P3 | Jump test | A greyed-out hint button with no reason | — | No hint button in tests | `p23check` | VERIFIED |
+
+### Found while fixing round 4
+
+| ID | Sev | What | Root cause | Fix | Retest | Status |
+|---|---|---|---|---|---|---|
+| R-29 | P1 | After "להמשיך ללמוד", a quick second back press hid the question and the back button stopped working | The fix for R-02 opened the question when the blocker's *state* changed; "stay" reset it and the next back blocked it again within one render, so React saw `blocked → blocked` and nothing happened | Open the question for every new blocked navigation (the blocker object), and mount a fresh dialog each time | `backfast` script: question shown on the 1st, 2nd (100 ms later) and 3rd press; `flows.spec.js` | VERIFIED |
+| R-30 | P2 | Short phones, line-equation exercise: an empty maths region | My R-01 change took מדי out with the question | מדי waits in the maths region when there is nothing to draw (short phones only) | Visual baseline `exercise-line` (320×568), reviewed | VERIFIED |
+| R-31 | P2 | Audit gap: the exercise audit accepted a drawing that was mostly hidden | It checked only where a drawing starts | It now requires the whole drawing in the maths region, and 60 % of it in view after feedback | Ran on 9 sizes | VERIFIED |
+
 ## Test-suite defects found and fixed
 
 | ID | Problem | Fix |
@@ -211,10 +258,15 @@ Screen audit: round 1 found 14 problems in 76 checks; round 2: 0 problems, 0 tap
 | T-3 | End-screen loop raced the screen change | waits for the heading to change |
 | T-4 | Placement journey failed once in 3 full runs under load | the next answer could go to the previous exercise; `proceedToNext` waits for the exercise to change. 12/12 and 144/144 repeated runs passed after |
 | T-5 | The feedback panel can hold two buttons | selectors target `.fb-actions .btn` |
+| T-6 | New journey tests answered before the lesson had rendered | they wait for the exercise (`expect.poll(item)`); 48/48 over 3 repeats |
+| T-7 | A test entered the lesson by setting `location.hash`, which the router cannot block (not a real path) | it starts the lesson from the map's continue button, as a student does |
+| T-8 | The exercise audit treated the desktop side column as covering the maths | it knows when the bottom region is beside the maths |
 
 ## Accepted limitations
 
 | ID | What | Why it is accepted |
 |---|---|---|
-| A-1 | 320×568, "missing vertex" exercise: the drawing starts one short scroll below the long question | The question is in the scrolling region on short screens by design (D-001); the answer field, keypad and check stay in place. Scroll shadows show there is more. |
-| A-2 | Not tested on a real iPhone / iOS Safari / WebKit | No device or WebKit run in this environment. Needs one pass on a real iPhone (Safari, home-screen app) before calling mobile done. |
+| A-1 | 320×568 with the hint open, or after a second mistake: a coordinate drawing shrinks to about 85 px (whole, with the enlarge button on it) | The smallest supported phone has about 570 px for the question, the maths, the hint, the answer and the keypad. The drawing stays whole and opens full width with one tap. |
+| A-2 | Not tested on a real iPhone, in iOS Safari, in WebKit or on Android Chrome | No device or WebKit run in this environment. Needs one pass on a real iPhone (Safari, home-screen app) before calling mobile done. |
+| A-3 | No test with a real screen reader (VoiceOver, TalkBack) | axe-core and keyboard checks only. |
+| A-4 | The wording of the AI's answers was not reviewed | The local build uses a stand-in for the Claude API. |

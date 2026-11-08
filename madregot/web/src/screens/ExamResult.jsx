@@ -128,7 +128,7 @@ export default function ExamResult() {
                   </div>
                   {t && (
                     <div className="row-actions">
-                      <Link className="btn btn-primary btn-sm" to={`/practice/${w.topic}?level=${lv}`}>תרגול: {t.levels[lv - 1].title}</Link>
+                      <Link className="btn btn-primary btn-sm" to={`/practice/${w.topic}?level=${lv}&from=plan`}>תרגול: {t.levels[lv - 1].title}</Link>
                       {aiReady() && <Link className="btn btn-secondary btn-sm" to={`/assistant?generate=${w.topic}&level=${lv}`}>תרגילים דומים מהעוזר</Link>}
                     </div>
                   )}

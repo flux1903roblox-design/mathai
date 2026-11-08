@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import clsx from 'clsx';
 import { ArrowRight, Printer, ClipboardCheck, Check } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
+import { aiReady } from '@/lib/ai.js';
 import { makePracticeExam, weakTopics } from '@/lib/exam.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
@@ -57,20 +58,33 @@ export function NewPracticeExam() {
 }
 
 /** The printable sheet: questions, figures and room to write. The key stays folded away. */
+/** One line of the answer key: the choice letter and its maths, or the value left to right. */
+function KeyAnswer({ it }) {
+  if (it.form === 'mc' && it.choices) {
+    const k = it.choices.findIndex((c) => (c.text || c.tex) === it.answer);
+    const c = it.choices[k];
+    return <span>{k >= 0 && `${String.fromCharCode(1488 + k)}. `}{c?.tex ? <Tex tex={c.tex} /> : (c?.text ?? it.answer)}</span>;
+  }
+  return <bdi dir="ltr" className="mathline">{String(it.answer).replace(/-/g, '\u2212')}</bdi>;
+}
+
 export function PracticeSheet() {
   const { id } = useParams();
   const { profile, practiceExams } = useApp();
   const pe = practiceExams.find((p) => p.id === id);
   if (!pe) return <div className="page"><p>המבחן לא נמצא.</p><Link to="/exams">לרשימת המבחנים</Link></div>;
+  const openKey = () => { const d = document.getElementById('answer-key'); if (d) { d.open = true; d.scrollIntoView({ block: 'start', behavior: 'smooth' }); } };
   return (
     <div className="page print-page">
       <div className="no-print stack">
         <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
         <div className="form-actions row">
           <Button variant="secondary" onClick={() => window.print()}><Printer size={18} aria-hidden="true" />הדפסה</Button>
-          <Link to={`/exams/check?practice=${pe.id}`} className="btn btn-primary"><ClipboardCheck size={18} aria-hidden="true" />סיימתי, לבדיקה</Link>
+          {aiReady()
+            ? <Link to={`/exams/check?practice=${pe.id}`} className="btn btn-primary"><ClipboardCheck size={18} aria-hidden="true" />סיימתי, לבדיקה</Link>
+            : <Button onClick={openKey}><ClipboardCheck size={18} aria-hidden="true" />סיימתי, למפתח התשובות</Button>}
         </div>
-        <p className="muted">פותרים על דף או במחברת, עם הדרך. בסוף מצלמים את הדפים לבדיקה.</p>
+        <p className="muted">{aiReady() ? 'פותרים על דף או במחברת, עם הדרך. בסוף מצלמים את הדפים לבדיקה.' : 'פותרים על דף או במחברת, עם הדרך. בסוף בודקים מול מפתח התשובות שבתחתית העמוד.'}</p>
       </div>
       <article className="exam-sheet">
         <header className="exam-sheet-head">
@@ -90,9 +104,9 @@ export function PracticeSheet() {
           ))}
         </ol>
       </article>
-      <details className="sol no-print">
+      <details className="sol no-print" id="answer-key">
         <summary>מפתח תשובות (למורה או להורה)</summary>
-        <ol className="steps">{pe.items.map((it) => <li key={it.key} dir="auto"><span className="mathline">{it.answer}</span></li>)}</ol>
+        <ol className="steps answer-key">{pe.items.map((it) => <li key={it.key}><KeyAnswer it={it} /></li>)}</ol>
       </details>
     </div>
   );

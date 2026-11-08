@@ -124,4 +124,16 @@ describe('right-to-left text and answers', () => {
       }
     }
   });
+  it('a point answer is named in its question (the answer row shows that letter)', () => {
+    let points = 0;
+    for (let r = 0; r < 100; r++) {
+      for (const t of TOPICS) {
+        t.levels.forEach((L, i) => {
+          const it = makeItem(t.id, i + 1);
+          if (it.form === 'pt') { points += 1; expect(it.text).toContain(`$${it.label}$`); }
+        });
+      }
+    }
+    expect(points).toBeGreaterThan(100);
+  });
 });

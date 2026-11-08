@@ -8,9 +8,14 @@ import Mascot from './Mascot.jsx';
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
 const THINK = ['קורא את התרגיל', 'חושב על הדרך', 'מנסח הסבר'];
 
-/** Chat with the AI tutor, optionally about the exercise on screen. */
-export default function AIChat({ context, intro }) {
-  const [messages, setMessages] = useState([]);
+/**
+ * Chat with the AI tutor, optionally about the exercise on screen.
+ * Pass `messages` and `onMessages` to keep the conversation outside (it then survives closing the sheet).
+ */
+export default function AIChat({ context, intro, messages: kept, onMessages }) {
+  const [own, setOwn] = useState([]);
+  const messages = kept ?? own;
+  const setMessages = onMessages ?? setOwn;
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState(false);
   const [streaming, setStreaming] = useState('');
@@ -18,7 +23,9 @@ export default function AIChat({ context, intro }) {
   const listRef = useRef(null);
   const abortRef = useRef(null);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  // A conversation kept outside is not cut off when the chat closes: the reply still arrives there.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (!onMessages) abortRef.current?.abort(); }, []);
   useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' }); }, [messages, streaming, pending]);
 
   const send = async (text) => {

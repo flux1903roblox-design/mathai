@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { aiReady } from '@/lib/ai.js';
 import { ClipboardCheck, Printer, Route, ChevronLeft } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { usePlan } from '@/lib/usePlan.js';
@@ -22,13 +23,17 @@ function ActionRow({ to, icon: Icon, title, desc }) {
 export default function Exams() {
   const { exams, practiceExams } = useApp();
   const plan = usePlan();
+  const ai = aiReady();
+  // the same rule as the plan screen: without weak topics there is no plan yet
+  const planDesc = plan.weak.length ? `${plan.done} מתוך ${plan.steps.length} צעדים הושלמו` : 'התוכנית עוד ריקה. היא נבנית מטעויות בתרגול ובמבחנים';
   return (
     <div className="page wide exams-page">
       <PageHero tone="sky" art="exams-empty" title="מבחנים" sub="בודקים מבחן שפתרתם, מקבלים הסבר על כל שאלה, ורואים מה כדאי לתרגל עכשיו." />
       <ul className="topic-list">
-        <ActionRow to="/exams/check" icon={ClipboardCheck} title="בדיקת מבחן שפתרתם" desc="מצלמים את הדפים או מעלים PDF, והעוזר בודק כל תשובה" />
+        {ai && <ActionRow to="/exams/check" icon={ClipboardCheck} title="בדיקת מבחן שפתרתם" desc="מצלמים את הדפים או מעלים PDF, והעוזר בודק כל תשובה" />}
         <ActionRow to="/exams/new" icon={Printer} title="מבחן תרגול להדפסה" desc="מבחן מהנושאים שלכם, עם מפתח תשובות לבדיקה מדויקת" />
-        <ActionRow to="/plan" icon={Route} title="התוכנית שלי לשיפור" desc={`${plan.done} מתוך ${plan.steps.length} צעדים הושלמו`} />
+        <ActionRow to="/plan" icon={Route} title="התוכנית שלי לשיפור" desc={planDesc} />
+        {!ai && <ActionRow to="/exams/check" icon={ClipboardCheck} title="בדיקת מבחן שפתרתם" desc="צריך את העוזר, שעוד לא מחובר בגרסה הזו" />}
       </ul>
 
       <section className="section" aria-labelledby="checked-title">

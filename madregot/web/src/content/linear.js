@@ -127,7 +127,7 @@ function axes() {
     const onX = Math.random() < 0.65;
     const ans = onX ? [x0, 0] : [0, b];
     return {
-      key: `lf6:${m}:${b}:${onX}`, text: `נתונה הפונקציה $${lineTex(m, b, `${name}(x)`)}$. מצאו את נקודת החיתוך של הגרף עם ציר ${onX ? '$x$' : '$y$'}.`,
+      key: `lf6:${m}:${b}:${onX}`, text: `נתונה הפונקציה $${lineTex(m, b, `${name}(x)`)}$. מצאו את נקודת החיתוך ${onX ? '$B$' : '$A$'} של הגרף עם ציר ${onX ? '$x$' : '$y$'}.`,
       form: 'pt', answer: ans, label: onX ? 'B' : 'A',
       hint: onX ? `על ציר $x$ מתקיים $y = 0$: פותרים $0 = ${lineTex(m, b, '').replace(/^ = /, '')}$.` : `על ציר $y$ מתקיים $x = 0$: מחשבים $${name}(0)$.`,
       solution: onX
@@ -169,7 +169,7 @@ function meet() {
     const b1 = y - m1 * x; const b2 = y - m2 * x;
     if (Math.abs(b1) > 12 || Math.abs(b2) > 12) continue;
     return {
-      key: `lf8:${m1}:${b1}:${m2}:${b2}`, text: `מצאו את נקודת המפגש של הישרים $${lineTex(m1, b1)}$ ו־$${lineTex(m2, b2)}$.`,
+      key: `lf8:${m1}:${b1}:${m2}:${b2}`, text: `מצאו את נקודת המפגש $E$ של הישרים $${lineTex(m1, b1)}$ ו־$${lineTex(m2, b2)}$.`,
       form: 'pt', answer: [x, y], label: 'E',
       hint: 'בנקודת המפגש ה־$y$ של שני הישרים שווה: משווים $y = y$, מוצאים את $x$, ואז מציבים כדי למצוא את $y$.',
       solution: [

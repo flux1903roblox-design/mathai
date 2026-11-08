@@ -231,9 +231,9 @@ textarea.input { resize: vertical; min-height: 88px; line-height: var(--lh-base)
 .fg-axis { stroke: var(--ink-2); stroke-width: 1.5; }
 .fg-axis-head { fill: var(--ink-2); }
 .fg-axis-name { fill: var(--ink-2); font-size: 15px; font-style: italic; }
-.fg-tick { fill: var(--ink-2); font-size: 11px; }
+.fg-tick { fill: var(--ink-2); font-size: 14px; font-weight: 500; paint-order: stroke; stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round; }
 .fg-pt { fill: var(--cyan); stroke: #fff; stroke-width: 2; }
-.fg-pt-label { fill: var(--ink); font-size: 16px; font-weight: 700; font-style: italic; }
+.fg-pt-label { fill: var(--ink); font-size: 18px; font-weight: 700; font-style: italic; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
 .fg-seg { stroke: var(--cyan); stroke-width: 3; stroke-linecap: round; }
 .fg-line { stroke: var(--magenta); stroke-width: 2.5; }
 .fg-poly { fill: color-mix(in srgb, var(--cyan) 14%, transparent); stroke: var(--cyan); stroke-width: 2; }
@@ -1559,3 +1559,113 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .quest-chest .mascot { grid-column: 2; grid-row: 1; }
   .quest-say { grid-column: 1 / -1; grid-row: 2; text-align: center; }
 }
+
+/* ---------- exercise v5: the whole drawing stays on screen ---------- */
+/* The maths region is a size container, so a drawing is sized to the room the screen leaves it:
+   whole on a 320px phone, and larger on tablets and computers. Its proportions come from the viewBox. */
+.lesson-main { container-type: size; }
+.lesson .figure, .lesson .figure.coord { width: 100%; max-width: min(100%, 560px); max-height: max(120px, calc(100cqh - 6px)); }
+/* with answer choices under it, the drawing leaves them room */
+.lesson .q-stage:has(.choices) .figure { max-height: max(130px, calc(100cqh - 190px)); }
+.lesson .q-stage:has(.redo-note) .figure { max-height: max(120px, calc(100cqh - 36px)); }
+.lesson .q-stage { min-height: 100%; justify-content: center; }
+
+/* short phones (up to 700px tall): the keypad in three rows, the question compact and without מדי */
+@media (max-height: 700px) and (max-width: 899px) {
+  .lesson .keypad { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-areas: "d1 d2 d3 d4 d5" "d6 d7 d8 d9 d0" "minus dot frac del next"; }
+  .lesson .keypad:not(:has(.key-next)) { grid-template-areas: "d1 d2 d3 d4 d5" "d6 d7 d8 d9 d0" "minus dot frac del del"; }
+  .lesson .key[data-k="d0"] { grid-area: d0; } .lesson .key[data-k="d1"] { grid-area: d1; } .lesson .key[data-k="d2"] { grid-area: d2; }
+  .lesson .key[data-k="d3"] { grid-area: d3; } .lesson .key[data-k="d4"] { grid-area: d4; } .lesson .key[data-k="d5"] { grid-area: d5; }
+  .lesson .key[data-k="d6"] { grid-area: d6; } .lesson .key[data-k="d7"] { grid-area: d7; } .lesson .key[data-k="d8"] { grid-area: d8; }
+  .lesson .key[data-k="d9"] { grid-area: d9; } .lesson .key[data-k="minus"] { grid-area: minus; } .lesson .key[data-k="dot"] { grid-area: dot; }
+  .lesson .key[data-k="frac"] { grid-area: frac; } .lesson .key[data-k="del"] { grid-area: del; } .lesson .key[data-k="next"] { grid-area: next; }
+  .lesson .key { height: 42px; }
+  .lesson .fg-table th, .lesson .fg-table td { padding: 3px 12px; line-height: 1.35; }
+  .lesson .q-mascot { display: none; }
+  .lesson .q-bubble { max-height: 22dvh; font-size: 15px; line-height: 1.4; padding: 7px 12px; margin-bottom: 2px; }
+  .lesson .slot { height: 44px; }
+  .dock-row .tool, .check-btn { height: 46px; min-height: 46px; }
+  .lesson-foot .lesson-dock { gap: 6px; padding-top: 6px; padding-bottom: 6px; }
+  .lesson-main { padding-top: var(--s2); padding-bottom: var(--s2); }
+  /* the feedback panel leaves the drawing in view; its text scrolls inside */
+  .lesson-foot .fb { max-height: 46dvh; padding-top: var(--s2); }
+}
+
+/* a drawing can be enlarged on phones: a small button on its corner opens it full width in a sheet */
+.fig-zoomable { position: relative; }
+.fig-zoom {
+  display: none; position: absolute; inset-block-start: 0; inset-inline-start: 0; width: 40px; height: 40px;
+  align-items: center; justify-content: center; border-radius: 12px; color: var(--brand-d);
+  background: color-mix(in srgb, var(--paper) 88%, transparent); border: 2px solid var(--rule); box-shadow: 0 2px 0 var(--rule-press);
+}
+.fig-zoom:active { transform: translateY(2px); box-shadow: none; }
+@media (max-width: 899px) { .fig-zoom { display: inline-flex; } }
+.fig-big .figure { width: 100%; max-width: 100%; max-height: 70dvh; }
+.tab-panel[hidden] { display: none; }
+
+/* the hint above the answer: compact, scrolls inside when long */
+.hint-bar { width: 100%; max-width: 560px; margin-inline: auto; padding: var(--s2) max(var(--s3), env(safe-area-inset-right, 0px)) 0 max(var(--s3), env(safe-area-inset-left, 0px)); }
+.hint-bar .box { max-height: 22dvh; overflow-y: auto; overscroll-behavior: contain; padding: 8px 12px; margin: 0; }
+.hint-bar .box p { margin: 0; font-size: var(--t-sm); line-height: 1.5; }
+.dock-row .tool.on:disabled { opacity: 1; color: var(--gold-ink, var(--ink)); background: var(--gold-tint); border-color: color-mix(in srgb, var(--gold) 45%, var(--rule)); }
+.hint-bar .box { flex-direction: row; align-items: baseline; gap: var(--s2); }
+.hint-bar .box-tab { font-size: var(--t-sm); flex: none; }
+
+/* narrow phones: the sticky unit header stays compact so the map keeps the screen */
+@media (max-width: 400px) {
+  .unit-head { gap: var(--s2); padding: var(--s2) var(--s3); }
+  .unit-head .emblem { width: 44px; height: 44px; border-radius: 14px; }
+  .unit-head .emblem svg { width: 34px; height: 34px; }
+  .unit-title { font-size: var(--t-md); line-height: 1.25; }
+  .unit-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .unit-guide { min-width: 44px; min-height: 44px; padding: 0; }
+  .unit-guide span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* the week strip shares the card width instead of overflowing it */
+  .week { gap: 4px; justify-content: space-between; }
+  .week-day { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+  .week-dot { width: min(36px, 100%); height: auto; aspect-ratio: 1; }
+}
+/* narrow phones: the assistant's tabs stay on one line, and the topic and stair lists get the full width */
+@media (max-width: 420px) {
+  .tab-btn { white-space: nowrap; padding: 0 4px; gap: 4px; font-size: var(--t-xs); }
+  .tab-btn svg { width: 16px; height: 16px; }
+  .gen-pick { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 340px) { .tab-btn svg { display: none; } }
+/* a stat never breaks between the number and its unit (100%, 1:05) */
+.stat-value > span { white-space: nowrap; }
+@media (max-width: 400px) {
+  .stats { gap: var(--s2); }
+  .stat-value { gap: 3px; padding-inline: 4px; font-size: clamp(20px, 6.4vw, var(--t-xl)); }
+  .stat-value svg { width: 16px; height: 16px; flex: none; }
+}
+
+/* teacher dashboard on phones: long keys wrap inside their box, the view tabs wrap instead of hiding,
+   and the students table scrolls inside its own frame with the names kept in view */
+.code-chip { max-width: 100%; }
+.code-chip > span { min-width: 0; overflow-wrap: anywhere; text-align: start; }
+@media (max-width: 480px) {
+  .code-chip { font-size: var(--t-sm); letter-spacing: 0.02em; }
+  .t-tabs { flex-wrap: wrap; overflow-x: visible; }
+  .t-tabs > * { flex: 1 1 auto; }
+}
+/* a table wider than the phone shows a soft edge where more columns wait */
+.table-wrap {
+  background:
+    linear-gradient(to right, var(--paper) 30%, rgba(255, 255, 255, 0)) left / 28px 100% no-repeat local,
+    linear-gradient(to left, var(--paper) 30%, rgba(255, 255, 255, 0)) right / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(36, 37, 58, 0.16), transparent) left / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(36, 37, 58, 0.16), transparent) right / 12px 100% no-repeat scroll,
+    var(--paper);
+}
+.table-wrap .t-table td { background: transparent; }
+.not-found { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--s3); padding-top: var(--s12); max-width: 420px; }
+.stage-mascot { display: none; align-self: center; }
+@media (max-height: 700px) and (max-width: 899px) { .lesson .stage-mascot { display: block; } }
+/* short phones: with the hint open the drawing may shrink further, but it stays whole (and can be enlarged) */
+@media (max-height: 700px) and (max-width: 899px) {
+  .lesson .figure, .lesson .figure.coord { max-height: max(84px, calc(100cqh - 6px)); }
+  .lesson .q-stage:has(.redo-note) .figure { max-height: max(84px, calc(100cqh - 36px)); }
+  .hint-bar .box { max-height: 17dvh; }
+}
+@media (max-width: 400px) { .unit-head .unit-desc { display: none; } }

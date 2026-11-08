@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { createHashRouter, Navigate, Route, RouterProvider, Routes, ScrollRestoration, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
@@ -34,11 +34,17 @@ function useSync() {
   }, [token]);
 }
 
-/** A toast belongs to the screen that raised it: clear it when the route changes. */
-function ToastReset() {
+/**
+ * A toast belongs to the screen that raised it: cleared when the route changes. Above the tab bar on
+ * most screens; in a lesson (no tab bar, the keypad at the bottom) it appears at the top instead.
+ */
+function Toasts() {
   const { pathname } = useLocation();
   useEffect(() => { toast.dismiss(); }, [pathname]);
-  return null;
+  const lesson = /^\/(lesson|practice|placement)/.test(pathname);
+  return lesson
+    ? <Toaster key="top" position="top-center" dir="rtl" offset={72} mobileOffset={{ top: 72 }} toastOptions={{ className: 'toast' }} />
+    : <Toaster key="bottom" position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />;
 }
 
 // Each lesson route starts a fresh lesson, so the screen remounts per route.
@@ -47,15 +53,14 @@ function LessonRoute() {
   return <Lesson key={`${pathname}${search}`} />;
 }
 
-export default function App() {
+/** The app's screens. Rendered under a data router so a lesson can ask before the back button leaves it. */
+function Root() {
   const role = useApp((s) => s.profile?.role);
-  useSync();
   return (
-    <LazyMotion features={domAnimation} strict>
-    <MotionConfig reducedMotion="user">
-    <HashRouter>
-      <Toaster position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />
-      <ToastReset />
+    <>
+      <Toasts />
+      {/* a new screen opens at the top; back restores where the student was */}
+      <ScrollRestoration />
       <Suspense fallback={<p className="page muted" role="status">טוענים…</p>}>
       <Routes>
         {!role && <Route path="*" element={<Welcome />} />}
@@ -89,7 +94,18 @@ export default function App() {
         )}
       </Routes>
       </Suspense>
-    </HashRouter>
+    </>
+  );
+}
+
+const router = createHashRouter([{ path: '*', element: <Root /> }]);
+
+export default function App() {
+  useSync();
+  return (
+    <LazyMotion features={domAnimation} strict>
+    <MotionConfig reducedMotion="user">
+      <RouterProvider router={router} />
     </MotionConfig>
     </LazyMotion>
   );

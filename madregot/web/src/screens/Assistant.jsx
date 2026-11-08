@@ -186,7 +186,7 @@ function Generate({ initialTopic, initialLevel }) {
   return (
     <div className="stack">
       <p className="lead">העוזר כותב תרגילים חדשים באותה רמה. אחרי שמסיימים את המדרגות, זו דרך טובה להתאמן עוד.</p>
-      <div className="grid2">
+      <div className="grid2 gen-pick">
         <Field label="נושא" id="g-topic">
           <select id="g-topic" className="input" value={topic} onChange={(e) => { setTopic(e.target.value); setLevel(1); }}>
             {list.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
@@ -220,7 +220,11 @@ function Generate({ initialTopic, initialLevel }) {
 export default function Assistant() {
   const [params] = useSearchParams();
   const [tab, setTab] = useState(params.get('generate') ? 'generate' : 'chat');
+  // a link that asks for exercises on a topic opens that tab, even when the assistant is already open
+  const wants = params.get('generate');
+  useEffect(() => { if (wants) setTab('generate'); }, [wants]);
   const grade = useApp((s) => s.profile.grade) || '7';
+  const profile = useApp((s) => s.profile);
   const ready = aiReady();
   return (
     <div className="page">
@@ -228,14 +232,17 @@ export default function Assistant() {
       {!ready ? <AiOffline /> : (
         <>
           <Tabs value={tab} onChange={setTab} />
-          <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="tab-panel">
-            {tab === 'chat' && <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳. העוזר יסביר צעד אחר צעד." />}
-            {tab === 'photo' && <PhotoCheck />}
-            {tab === 'generate' && <Generate initialTopic={params.get('generate')} initialLevel={params.get('level')} />}
-          </div>
+          {/* every tab stays mounted, so a conversation or written exercises survive switching tabs */}
+          {TABS.map(({ id }) => (
+            <div key={id} id={`panel-${id}`} role="tabpanel" aria-labelledby={`tab-${id}`} className="tab-panel" hidden={tab !== id}>
+              {id === 'chat' && <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳. העוזר יסביר צעד אחר צעד." />}
+              {id === 'photo' && <PhotoCheck />}
+              {id === 'generate' && <Generate key={`${params.get('generate') || ''}:${params.get('level') || ''}`} initialTopic={params.get('generate')} initialLevel={params.get('level')} />}
+            </div>
+          ))}
         </>
       )}
-      {ready && <p className="footnote">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : 'העוזר פועל דרך השרת של הכיתה.'} Claude של Anthropic.</p>}
+      {ready && <p className="footnote">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>}
     </div>
   );
 }

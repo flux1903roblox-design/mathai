@@ -44,7 +44,7 @@ describe('exam', () => {
     const base = { line: baseEntry('line', 6, { 'line:6': 1 }, t0) };
     const before = buildPlan({ exams, progress: { line: { level: 2, max: 2 } }, streak: 1, base, wins: { 'line:6': 3 } });
     expect(before.steps.map((s) => s.kind)).toEqual(['practice', 'exam', 'habit']);
-    expect(before.steps[0]).toMatchObject({ level: 6, have: 2, need: PLAN_WINS, done: false, to: '/practice/line?level=6' });
+    expect(before.steps[0]).toMatchObject({ level: 6, have: 2, need: PLAN_WINS, done: false, to: '/practice/line?level=6&from=plan' });
     expect(before.steps[1].done).toBe(false);
     // two wins at level 6, then two more after climbing to level 7
     const after = buildPlan({ exams: [{ at: '2026-11-03T10:00:00.000Z', result: { questions: [] } }, ...exams], progress: {}, streak: 6, base, wins: { 'line:5': 9, 'line:6': 3, 'line:7': 2 } });

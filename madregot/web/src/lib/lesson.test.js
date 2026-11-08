@@ -88,6 +88,14 @@ describe('quests', () => {
 
 describe('store: lessons, streak and freezes', () => {
   beforeEach(() => { useApp.getState().resetProgress(); useApp.setState({ goalXp: 20 }); });
+  it('answers in a lesson that was left unfinished do not count as a streak day', () => {
+    for (let k = 0; k < 5; k += 1) useApp.getState().recordAnswer({ ok: true, secs: 10 }, 0);
+    const st = useApp.getState();
+    expect(st.days[today()]).toMatchObject({ q: 5, ok: 5, lessons: 0 });
+    expect(streakOf(st.days)).toBe(0);
+    // a day saved by an old version (answers, no lesson count) still counts, as before
+    expect(streakOf({ [today()]: { q: 8, ok: 8 } })).toBe(1);
+  });
   it('a finished lesson adds XP, counts for the streak, and a second lesson completes the node', () => {
     const r = { kind: 'node', topic: 'signed', level: 1, part: 1, xp: 15, perfect: true, passed: true, bestCombo: 8 };
     const a = useApp.getState().completeLesson(r);

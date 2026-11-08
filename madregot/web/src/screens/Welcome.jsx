@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Footprints, Target, Users, Repeat, Hand, ClipboardList } from 'lucide-react';
 import clsx from 'clsx';
@@ -65,8 +65,11 @@ function Onboarding({ onTeacher }) {
   const finish = () => {
     setGoalXp(f.goal);
     setProfile({ role: 'student', name: joined?.name || f.name.trim(), grade, know: f.know ?? 1, ...(joined || {}) });
-    navigate(start === 'test' ? '/placement' : '/', { replace: true });
+    // "to the first lesson" opens it: the first stair of the grade's first topic
+    navigate(start === 'test' ? '/placement' : `/lesson/${topicsFor(grade)[0].id}/1?part=1`, { replace: true });
   };
+  // each question of the first visit opens at its top
+  useEffect(() => { window.scrollTo(0, 0); }, [i]);
 
   const go = async () => {
     if (step === 'name' && !f.name.trim()) { setError('כתבו את השם שלכם.'); return; }
