@@ -2017,3 +2017,8 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .stepper.tone-m .step-label b, .stepper.tone-m .step-name { color: #b35400; }
 .manip-line .mp-handle.alt { stroke: #3f33c4; }
 .mp-hint text { paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
+/* onboarding: each level card carries a taste of its maths */
+.ob-opt-aside:has(.ob-sample) { color: var(--ink); font-family: var(--font-ui); }
+.ob-sample { display: inline-flex; align-items: center; direction: ltr; padding: 4px 10px; border-radius: 10px; background: var(--brand-tint); color: var(--brand-d); font-size: var(--t-sm); }
+.ob-opt.on .ob-sample { background: #fff; }
+@media (max-width: 360px) { .ob-sample { font-size: var(--t-xs); padding: 3px 7px; } }

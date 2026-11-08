@@ -11,7 +11,15 @@ import { artUrl } from '@/components/PageHero.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { topicsFor } from '@/content/index.js';
 import { KNOW } from '@/lib/placement.js';
+import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
+
+// A taste of each level, so the choice is about real maths and not a feeling: grade 7 (signed numbers,
+// coordinates, angles) and grade 8 (linear functions, Pythagoras, statistics), from the first stair to the last.
+const KNOW_SAMPLE = {
+  7: ['-3 + 5', '(-2)\\cdot(-4)', 'A(-3,\\,2)', '\\alpha + 2\\alpha = 180^\\circ'],
+  8: ['y = 2x + 1', '3^2 + 4^2', '\\bar{x}:\\ 4, 6, 8', 'm = \\tfrac{8-2}{3-1}'],
+};
 
 export function GradeSwitch({ value, onChange, id }) {
   return (
@@ -144,7 +152,8 @@ function Onboarding({ onTeacher }) {
           <div className="ob-opts" role="radiogroup" aria-labelledby="ob-q">
             {KNOW.map((k) => (
               <Option key={k.id} on={f.know === k.id} onPick={() => set({ know: k.id, start: null })} title={k.title} sub={k.sub}
-                glyph={<Stairs steps={4} done={k.id + 1} />} />
+                glyph={<Stairs steps={4} done={k.id + 1} />}
+                aside={<span className="ob-sample" title="תרגיל לדוגמה ברמה הזאת"><Tex tex={(KNOW_SAMPLE[grade] || KNOW_SAMPLE[7])[k.id]} /></span>} />
             ))}
           </div>
         )}
