@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Madregot staging: QA entry points</title>
+<style>
+  :root { --bg: #ffffff; --fg: #24253a; --muted: #5f6178; --rule: #e6e6f0; --link: #3f33c4; color-scheme: light; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Arial, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(safe-area-inset-left, 0px)); }
+  h1 { font-size: 24px; margin: 0 0 8px; } h2 { font-size: 18px; margin: 28px 0 8px; border-top: 1px solid var(--rule); padding-top: 16px; }
+  p, li { max-width: 70ch; } .muted { color: var(--muted); } code { direction: ltr; unicode-bidi: isolate; background: #f6f6fb; padding: 0 4px; border-radius: 4px; }
+  a { color: var(--link); } ul { padding-inline-start: 20px; } table { border-collapse: collapse; width: 100%; } td, th { border-bottom: 1px solid var(--rule); padding: 6px 4px; text-align: start; vertical-align: top; }
+  .en { direction: ltr; text-align: left; }
+</style>
+</head>
+<body>
+<main>
+<section class="en">
+<h1>Madregot staging: QA entry points</h1>
+<p>Temporary test copy of the Madregot app for an independent review. It has <b>no server</b>: no AI, no classes, no teacher dashboard, no sync.
+Every visitor is an anonymous local test user; saved progress stays in this browser under its own key (<code>madregot-staging</code>), separate from the public site.</p>
+<p>Each link below loads a ready-made anonymous test student into this browser and opens one screen. It also sets two test flags:
+<code>madregot-debug</code> (the current exercise, including its answer, is in <code>window.__madregotItem</code>) and, with <code>&amp;seed=1</code>, <code>madregot-seed</code> (the same exercises on every load).
+To start from a clean first visit, use "first visit". Build details: <a href="version.json">version.json</a>. The app itself: <a href="./">index.html</a>.</p>
+</section>
+<div id="lists"></div>
+</main>
+<script>
+const TOPICS = [{"id": "signed", "title": "מספרים מכוונים", "grade": "7", "levels": ["חיבור וחיסור", "השוואת מספרים", "כפל וחילוק", "סדר פעולות", "סוגריים"]}, {"id": "coord", "title": "מערכת צירים", "grade": "7", "levels": ["קריאת נקודה", "רביעים", "אורך קטע", "שטח מלבן", "קודקוד חסר"]}, {"id": "angles", "title": "זוויות", "grade": "7", "levels": ["זוויות צמודות", "זוויות קודקודיות", "סכום זוויות במשולש", "ישרים מקבילים", "שווה־שוקיים וזווית חיצונית"]}, {"id": "line", "title": "פונקציה קווית", "grade": "8", "levels": ["טבלת ערכים", "מה אומרים m ו־b", "שיפוע מהגרף: מדרגות", "שיפוע בין שתי נקודות", "משוואת ישר", "חיתוך עם הצירים", "משולש עם הצירים", "נקודת מפגש של שני ישרים"]}, {"id": "pyth", "title": "משפט פיתגורס", "grade": "8", "levels": ["מציאת היתר", "מציאת ניצב", "האם המשולש ישר־זווית?", "שאלה מילולית", "מרחק בין נקודות"]}, {"id": "stats", "title": "סטטיסטיקה", "grade": "8", "levels": ["שכיח", "חציון", "ממוצע", "ממוצע מטבלה", "נתון חסר"]}];
+const KEY = 'madregot-staging';
+const day = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toLocaleDateString('en-CA'); };
+function student(grade, extra) {
+  return { state: Object.assign({ profile: { role: 'student', name: 'בודק', grade: grade, know: 1 }, progress: {}, days: {}, xp: 0, mistakes: {}, outbox: [],
+    ai: { mode: 'server', apiUrl: '', key: '' }, path: {}, freezes: 0, goalXp: 20, sound: false, gaps: {}, placement: null, exams: [], practiceExams: [] }, extra || {}), version: 1 };
+}
+function lived(grade) {
+  const days = {}; [0, 1, 2, 3].forEach((n) => { days[day(n)] = { lessons: 2, xp: 30, q: 16, ok: 14, perfect: n === 1 ? 1 : 0, combo: 6 }; });
+  const path = grade === '7'
+    ? { signed: { parts: {}, reviews: 1, jumped: 5 }, coord: { parts: { 1: 2, 2: 2, 3: 1 }, reviews: 0, jumped: 0 } }
+    : { line: { parts: { 1: 2, 2: 2, 3: 1 }, reviews: 0, jumped: 0 } };
+  const topic = grade === '7' ? 'coord' : 'line';
+  return student(grade, { days: days, xp: 260, freezes: 1, lastTopic: topic, path: path, mistakes: grade === '7' ? { 'coord:swap': 2, 'signed:sign': 3 } : { 'line:slope': 2 },
+    gaps: grade === '7' ? { 'coord:swap': { level: 2, n: 2, ok: 1, at: day(1) } } : {} });
+}
+const PRESETS = { fresh: null, student7: () => student('7'), student8: () => student('8'), lived7: () => lived('7'), lived8: () => lived('8') };
+const q = new URLSearchParams(location.search);
+if (q.has('go')) {
+  try {
+    const p = q.get('state') || 'student7';
+    localStorage.removeItem(KEY);
+    if (PRESETS[p]) localStorage.setItem(KEY, JSON.stringify(PRESETS[p]()));
+    localStorage.setItem('madregot-debug', '1');
+    if (q.get('seed')) localStorage.setItem('madregot-seed', q.get('seed') === '1' ? '424242' : q.get('seed')); else localStorage.removeItem('madregot-seed');
+  } catch (e) { document.body.insertAdjacentHTML('afterbegin', '<p>Browser storage is blocked, so the test student cannot be loaded.</p>'); }
+  location.replace('./#' + q.get('go'));
+} else {
+  const link = (state, go, text) => `<a href="?state=${state}&go=${encodeURIComponent(go)}">${text}</a>`;
+  let h = '<section class="en"><h2>Screens</h2><table><tr><th>Screen</th><th>Links</th></tr>';
+  const rows = [
+    ['First visit (welcome, onboarding, teacher entry, placement)', link('fresh', '/', 'first visit')],
+    ['Learn: map, continue card, level board', link('student7', '/', 'grade 7, first day') + ' · ' + link('lived7', '/', 'grade 7, with history') + ' · ' + link('lived8', '/', 'grade 8, with history')],
+    ['Daily quests', link('student7', '/quests', 'first day') + ' · ' + link('lived7', '/quests', 'with history')],
+    ['Exams', link('lived7', '/exams', 'list') + ' · ' + link('lived7', '/exams/new', 'new practice exam') + ' · ' + link('lived7', '/exams/check', 'exam check (no server)')],
+    ['Improvement plan', link('student7', '/plan', 'empty') + ' · ' + link('lived7', '/plan', 'with steps')],
+    ['AI assistant (no server: offline state)', link('lived7', '/assistant', 'assistant')],
+    ['Profile and settings', link('lived7', '/me', 'profile')],
+    ['Topics and topic guides', link('lived7', '/topics', 'grade 7 topics') + ' · ' + link('lived8', '/topics', 'grade 8 topics')],
+    ['Placement test', link('student7', '/placement', 'grade 7') + ' · ' + link('student8', '/placement', 'grade 8')],
+    ['A lesson that does not exist', link('student7', '/lesson/nothing/1', 'not found')],
+  ];
+  rows.forEach(([a, b]) => { h += `<tr><td>${a}</td><td>${b}</td></tr>`; });
+  h += '</table><p class="muted">Lesson kinds: <code>?part=1</code> a normal lesson, <code>?kind=jump</code> a jump test (no hints), <code>?kind=review</code> a unit review. Add <code>&amp;seed=1</code> to any link for repeatable exercises.</p></section>';
+  TOPICS.forEach((t) => {
+    const st = t.grade === '8' ? 'student8' : 'student7';
+    h += `<h2>${t.title} <span class="muted">(grade ${t.grade === '8' ? 'ח׳' : 'ז׳'}, <code>${t.id}</code>)</span></h2><ul>`;
+    t.levels.forEach((L, i) => {
+      const n = i + 1;
+      h += `<li>${n}. ${L}: ${link(st, `/lesson/${t.id}/${n}?part=1`, 'lesson')} · ${link(st, `/lesson/${t.id}/${n}?part=1`, 'repeatable').replace('&go=', '&seed=1&go=')} · ${link(st, `/lesson/${t.id}/${n}?kind=jump`, 'jump test')}</li>`;
+    });
+    h += `<li>${link(st, `/topic/${t.id}`, 'topic guide')} · ${link(st, `/lesson/${t.id}/${t.levels.length}?kind=review`, 'unit review')}</li></ul>`;
+  });
+  document.getElementById('lists').innerHTML = h;
+}
+</script>
+</body>
+</html>

@@ -139,7 +139,8 @@ export const useApp = create(
       resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null }),
       signOut: () => set({ ...empty, ai: get().ai }),
     }),
-    { name: 'madregot', storage: safeStorage, version: 1 },
+    // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')
+    { name: import.meta.env.VITE_STORE_KEY || 'madregot', storage: safeStorage, version: 1 },
   ),
 );
 

@@ -114,7 +114,7 @@ test('the back button inside a started lesson asks first; staying keeps the prog
   const pct = await page.locator('[role="progressbar"]').getAttribute('aria-valuenow');
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'לצאת מהשיעור?' })).toBeVisible();
-  expect(page.url()).toBe(lessonUrl);
+  await expect(page).toHaveURL(lessonUrl); // the router puts the address back right after it blocks
   await page.getByRole('button', { name: 'להמשיך ללמוד' }).click();
   await expect(page.locator('[role="progressbar"]')).toHaveAttribute('aria-valuenow', pct);
   await page.goBack();

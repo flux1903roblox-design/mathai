@@ -54,6 +54,12 @@ madregot/
 
 הסקריפט בונה את האפליקציה ומחליף רק את התיקייה madregot בענף gh-pages. האתר MathAI שבשורש הענף לא משתנה.
 
+## עותק בדיקה (staging)
+
+`./madregot/publish-staging.sh` מעלה עותק בדיקה זמני לכתובת נפרדת: <https://flux1903roblox-design.github.io/mathai/madregot-staging/>.
+הוא בלי שרת (בלי עוזר, כיתות ולוח מורה), שומר התקדמות במפתח משלו (`madregot-staging`) כך שלא נוגע בנתונים של האתר הציבורי, לא נכנס למנועי חיפוש, ומשנה רק את התיקייה `madregot-staging/` בענף `gh-pages`.
+העותק נבנה רק מקומיט שכבר נמצא ב־GitHub, ו־`version.json` בתוכו מציין איזה. `qa.html` בתוכו פותח כל מסך וכל מדרגה עם תלמיד בדיקה אנונימי. הסרה: `./madregot/publish-staging.sh --remove`.
+
 ## העלאה לאוויר (Windows)
 
 צריך: Node.js 20 ומעלה, חשבון Cloudflare חינמי, ומפתח API של Anthropic.
