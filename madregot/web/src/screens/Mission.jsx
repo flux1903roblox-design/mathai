@@ -10,7 +10,7 @@ import { STAGE_N } from '@/learn/recommend.ts';
 import { MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import PageHero from '@/components/PageHero.jsx';
-import Mascot from '@/components/Mascot.jsx';
+import { Riser, StateCard } from '@/components/ds.jsx';
 
 export const KIND_ICON = { repair: Wrench, review: RotateCcw, prereq: Footprints, continue: ArrowLeft, new: Sparkles, mastery: Award, exam: CalendarClock };
 export const KIND_LABEL = { repair: 'תיקון', review: 'בדיקת זיכרון', prereq: 'מדרגה קודמת', continue: 'ממשיכים', new: 'חדש', mastery: 'בדיקת שליטה', exam: 'הכנה למבחן' };
@@ -27,14 +27,23 @@ export default function Mission() {
   return (
     <div className="page mission">
       <PageHero tone="brand" title="המשימה שלי להיום" sub={items.length ? `בערך ${missionMinutes(items)} דקות. כל חלק נבחר בשבילכם, והסיבה כתובה לידו.` : 'אין כרגע משימה.'} scene="climb" mood={done ? 'achievement' : 'happy'} />
+      {items.length > 0 && (
+        <section className="mission-progress" aria-label="ההתקדמות במשימה">
+          <div className="mission-progress-top"><span className="readiness-count">{done ? 'הושלמה' : `${items.filter((i) => i.done).length} מתוך ${items.length} חלקים`}</span><b>{missionMinutes(items)} דק׳</b></div>
+          <Riser steps={items.map((i) => (i.done ? 'done' : i === nextItem ? 'current' : 'todo'))} label="ההתקדמות במשימה" valueText={`${items.filter((i) => i.done).length} מתוך ${items.length} חלקים`} />
+        </section>
+      )}
       {done && (
         <div className="mission-done" role="status">
-          <Mascot mood="achievement" size={96} />
-          <p className="lead">המשימה של היום הושלמה. {partialStairNote(items) || 'מה שעשיתם היום נשמר.'} מחר תחכה משימה חדשה.</p>
+          <StateCard kind="celebrate" title="המשימה של היום הושלמה">
+            <p>{partialStairNote(items) || 'מה שעשיתם היום נשמר.'} מחר תחכה משימה חדשה.</p>
+          </StateCard>
         </div>
       )}
       {!items.length && (
-        <div className="mission-done"><Mascot mood="happy" size={88} /><p className="lead">הכול מעודכן להיום. אפשר לבחור מדרגה במפה.</p><Button className="btn-block" onClick={() => navigate('/')}>למפה</Button></div>
+        <StateCard kind="empty" mood="happy" title="הכול מעודכן להיום" action={<Button className="btn-block" onClick={() => navigate('/')}>למפה</Button>}>
+          <p>אפשר לבחור מדרגה במפה ולהמשיך משם.</p>
+        </StateCard>
       )}
       <ol className="mission-list">
         {items.map((it, i) => {
@@ -47,7 +56,7 @@ export default function Mission() {
                 <p className="mission-title"><MathText text={it.title} /></p>
                 <p className="mission-why"><MathText text={it.reason} /></p>
               </div>
-              <Button variant={it === nextItem ? 'primary' : 'ghost'} className="btn-sm" onClick={() => navigate(it.to)} aria-label={`${it.done ? 'שוב' : 'מתחילים'}: ${it.title.replace(/\$/g, '')}`}>{it.done ? 'שוב' : i === 0 || it === nextItem ? 'מתחילים' : 'פתיחה'}</Button>
+              <Button variant={it === nextItem ? 'secondary' : 'ghost'} className="btn-sm" onClick={() => navigate(it.to)} aria-label={`${it.done ? 'שוב' : 'מתחילים'}: ${it.title.replace(/\$/g, '')}`}>{it.done ? 'שוב' : i === 0 || it === nextItem ? 'מתחילים' : 'פתיחה'}</Button>
             </li>
           );
         })}

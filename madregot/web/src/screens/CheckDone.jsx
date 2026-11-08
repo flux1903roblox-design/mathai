@@ -51,16 +51,18 @@ export default function CheckDone({ result: r, onExit }) {
   const weak = Object.entries(r.perSkill || {}).filter(([, x]) => x.right < x.asked).map(([s]) => s);
   return (
     <div className="page check-done" role="main">
-      <Mascot mood={c.mood} size={140} className="check-mascot" />
-      <h1 ref={ref} tabIndex={-1} className={clsx('check-title', r.passed ? 'good' : 'warm')}>{c.title}</h1>
-      <p className="lead">{c.body}</p>
-      <ol className="check-dots" aria-label={`${r.right} נכונות מתוך ${r.asked}`}>
-        {Array.from({ length: r.asked }, (_, i) => <li key={i} className={i < r.right ? 'on' : ''} aria-hidden="true">{i < r.right ? <Check size={14} strokeWidth={3} /> : null}</li>)}
-      </ol>
+      <section className={clsx('check-card', !r.passed && !rescue && 'warm')}>
+        <Mascot mood={c.mood} size={140} className="check-mascot" />
+        <h1 ref={ref} tabIndex={-1} className={clsx('check-title', r.passed ? 'good' : 'warm')}>{c.title}</h1>
+        <p className="lead">{c.body}</p>
+        <ol className="check-dots" aria-label={`${r.right} נכונות מתוך ${r.asked}`}>
+          {Array.from({ length: r.asked }, (_, i) => <li key={i} className={i < r.right ? 'on' : ''} aria-hidden="true">{i < r.right ? <Check size={14} strokeWidth={3} /> : null}</li>)}
+        </ol>
+        {r.xp > 0 && <p className="check-xp"><Award size={18} aria-hidden="true" />+{r.xp} XP</p>}
+      </section>
       {rescue && weak.length > 0 && (
         <div className="box box-note"><h2 className="box-tab">מה עוד לא יצא</h2><div className="box-body"><ul className="plain-list">{weak.map((s) => <li key={s}>{titleOf(s)}</li>)}</ul></div></div>
       )}
-      {r.xp > 0 && <p className="check-xp"><Award size={18} aria-hidden="true" />+{r.xp} XP</p>}
       <div className="form-actions">
         {rescue ? (
           <Button className="btn-block btn-lg" onClick={() => navigate('/rescue', { replace: true })}>לתוכנית ההכנה<ArrowLeft size={18} aria-hidden="true" /></Button>

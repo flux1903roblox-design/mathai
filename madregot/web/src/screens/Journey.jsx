@@ -80,13 +80,27 @@ export default function Journey() {
         </div>
       </header>
 
-      {c && (
-        <section className="journey-goals" aria-labelledby="goals-title">
-          <h2 id="goals-title" className="h-section">מה נלמד</h2>
-          <ul className="plain-list">{c.objectives.map((o) => <li key={o}><MathText text={o} /></li>)}</ul>
-        </section>
-      )}
+      <section className="jclimb" aria-labelledby="climb-title">
+        <ol className="jstairs" aria-hidden="true">
+          {STAGES.map((st, i) => {
+            const s = status(st.id);
+            return (
+              <li key={st.id} className={clsx(s === 'done' && 'done', stage === st.id && 'current')} style={{ '--n': i }}>
+                <span className="js-madi">{stage === st.id && <Mascot mood="happy" size={44} />}</span>
+                <span className="js-block">{s === 'done' ? <Check size={18} strokeWidth={3} /> : i + 1}</span>
+                <span className="js-label">{st.title}</span>
+              </li>
+            );
+          })}
+        </ol>
+        <div className="jclimb-next">
+          <p className="jclimb-label" id="climb-title">{state === 'mastered' ? 'המדרגה בידיים שלכם. אפשר לחזור לכל שלב' : `הצעד הבא: שלב ${STAGES.findIndex((x) => x.id === stage) + 1} מתוך 5`}</p>
+          <Button className="btn-block btn-lg" onClick={() => toStage(stage)}>{cta}</Button>
+          <Button variant="ghost" className="btn-block btn-sm" onClick={() => setTutor(true)}><HelpCircle size={18} aria-hidden="true" />שאלה למדי</Button>
+        </div>
+      </section>
 
+      <h2 className="h-section journey-list-title">חמשת השלבים</h2>
       <ol className="journey-stages" aria-label="שלבי המדרגה">
         {STAGES.map((st) => {
           const s = status(st.id); const Icon = st.icon;
@@ -98,16 +112,18 @@ export default function Journey() {
                 <p className="jstage-title">{st.title}{stage === st.id && <span className="level-badge">הצעד הבא</span>}</p>
                 <p className="jstage-sub"><MathText text={sub[st.id]} /></p>
               </div>
-              {!disabled && <Button variant={stage === st.id ? 'primary' : 'ghost'} className="btn-sm" onClick={() => toStage(st.id)} aria-label={`${st.title}: ${s === 'done' ? 'שוב' : 'פתיחה'}`}>{s === 'done' ? 'שוב' : 'פתיחה'}</Button>}
+              {!disabled && <Button variant={stage === st.id ? 'secondary' : 'ghost'} className="btn-sm" onClick={() => toStage(st.id)} aria-label={`${st.title}: ${s === 'done' ? 'שוב' : 'פתיחה'}`}>{s === 'done' ? 'שוב' : 'פתיחה'}</Button>}
             </li>
           );
         })}
       </ol>
 
-      <div className="form-actions">
-        <Button className="btn-block btn-lg" onClick={() => toStage(stage)}>{cta}</Button>
-        <Button variant="secondary" className="btn-block" onClick={() => setTutor(true)}><HelpCircle size={18} aria-hidden="true" />שאלה למדי</Button>
-      </div>
+      {c && (
+        <section className="journey-goals" aria-labelledby="goals-title">
+          <h2 id="goals-title" className="h-section">מה נלמד</h2>
+          <ul className="plain-list">{c.objectives.map((o) => <li key={o}><MathText text={o} /></li>)}</ul>
+        </section>
+      )}
 
       {open.length > 0 && c && (
         <section className="journey-miscon box box-attention" aria-labelledby="mc-title">

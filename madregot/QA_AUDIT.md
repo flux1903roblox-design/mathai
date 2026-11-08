@@ -355,3 +355,31 @@ end-to-end (`learn.spec.js`: the reviewer's two procedures, on phone and desktop
 Suites: unit 409/409, end-to-end 278 passed, 0 failed (162 skipped by design); axe 36 scans, 0 violations; size sweep
 60 checks, one flag that is a button inside a closed section. Two visual baselines (the home screen on two phones)
 updated after review: the mission item now reads "מבינים את הרעיון: אורך קטע · שלב 1 מתוך 5".
+
+## Round 10: design system v4, the premium redesign (8 November 2026)
+
+Design language and components: `DESIGN.md` → "Design system v4". Screens redesigned: home (mission hero, exam
+entry, mastery snapshot), the teaching stages A, B, C and every remedy (one lesson module: prompt with מדי, the board,
+the response, pinned actions), practice (the board in the middle, the expression centred and larger), the stair's
+journey (five rising stages), Exam Rescue (countdown hero, readiness riser, three-step setup with stair chips),
+the mission (riser, celebration card), the check result (a celebration card), and the profile (progress summary).
+
+Before/after: the same 19 app states captured from the pre-redesign commit (6f96d5c, built locally with the same
+settings) and from the redesign, at 320×568, 375×667, 390×844, 430×932, 768×1024 and 1440×900.
+
+Defects found during the redesign review and fixed:
+
+| Where | Before | Cause | After |
+|---|---|---|---|
+| Check result, every phone | The whole page rendered zoomed out (tiny text) when the next step's title had maths in it | The button never wrapped (`white-space: nowrap`), so the page was wider than the phone | Long titles wrap inside the button; overflow 0 at 320, 390 and 1440 (scanned) |
+| Exam Rescue header | A black slab under מדי | The screen asked for a colour family that does not exist (`ch-exams`), so the drawing had no fill | The orange family, matching the countdown |
+| Lesson progress (new riser) | Steps stayed grey | An older rule (`.sp-progress i`) was more specific | Two-class selectors |
+| Stair chips in Exam Rescue (new) | An invisible checkbox lay over each chip and took the tap before its label | Overlay technique | A visually hidden input; the label takes the tap (the reviewer's procedure test caught it) |
+| Practice on a 320×568 phone (new) | A drawing shrank to 138px (the floor is 160) and the page could shift 28px | The new board's margins | On short screens the board runs edge to edge and the question card is tighter |
+| Home on a 320×568 phone (new) | The mission's button was below the fold | The parts were listed first | The button comes right after the reason; the parts follow |
+
+Suites on the final code: unit 409/409; typecheck clean; end-to-end 278 passed, 0 failed (162 skipped by design);
+axe 36 scans + 9 new (check results passed and not yet, the profile with work to do; 320, 390, 1440), 0 violations;
+size sweep 60 checks, one flag that is a button inside a closed section. Visual baselines: 50 images updated after
+side-by-side review (old against new, phone and short phone), then the 17 short-phone images again after the
+short-screen fix. These tests check that the screens work and fit; they say nothing about whether students learn more.

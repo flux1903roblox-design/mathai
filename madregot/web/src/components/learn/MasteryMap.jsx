@@ -7,6 +7,7 @@ import { topicsFor } from '@/content/index.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState, STATE_LABEL } from '@/learn/mastery.ts';
 import { doneUpTo } from '@/lib/path.js';
+import { Stat } from '@/components/ds.jsx';
 
 const LEGEND = ['mastered', 'practicing', 'needs-review', 'needs-support'];
 
@@ -16,7 +17,7 @@ export default function MasteryMap({ grade }) {
   const progress = useApp((s) => s.progress);
   const now = new Date().toISOString();
   const topics = topicsFor(grade);
-  let mastered = 0; let total = 0;
+  let mastered = 0; let total = 0; const n = { on: 0, back: 0, new: 0 };
   const rows = topics.map((t) => {
     const passed = doneUpTo(t.id, path, progress);
     const tiles = t.levels.map((L, i) => {
@@ -25,6 +26,9 @@ export default function MasteryMap({ grade }) {
       // a stair finished on the map before 2.0 is at least practised
       if (st === 'not-started' && i + 1 <= passed) st = 'practicing';
       total += 1; if (st === 'mastered') mastered += 1;
+      else if (st === 'learning' || st === 'practicing') n.on += 1;
+      else if (st === 'needs-review' || st === 'needs-support') n.back += 1;
+      else n.new += 1;
       return { id, level: i + 1, title: L.title, st };
     });
     return { t, tiles };
@@ -34,6 +38,11 @@ export default function MasteryMap({ grade }) {
       <div className="mm-head">
         <h2 id="mm-title" className="h-section">מה כבר למדתי</h2>
         <span className="mm-count">שולטים לבד ב־{mastered} מתוך {total}</span>
+      </div>
+      <div className="mm-stats">
+        <Stat tone="brand" value={n.on} label="בדרך לשליטה" />
+        <Stat tone="gold" value={n.back} label="כדאי לחזור אליהן" />
+        <Stat tone="neutral" value={n.new} label="עוד לא התחלנו" />
       </div>
       {rows.map(({ t, tiles }) => (
         <div key={t.id} className={clsx('mm-row', `ch-${t.color}`)}>

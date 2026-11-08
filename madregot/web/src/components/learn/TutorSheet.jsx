@@ -7,10 +7,9 @@ import clsx from 'clsx';
 import { Sparkles } from 'lucide-react';
 import { Sheet, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
-import Mascot from '@/components/Mascot.jsx';
 import { INTENTS, tutorReply } from '@/learn/tutor.ts';
 import { useApp } from '@/lib/store.js';
-import StepPlayer from './StepPlayer.jsx';
+import StepPlayer, { Prompt } from './StepPlayer.jsx';
 import WorkedExample from './WorkedExample.jsx';
 import RemedyFlow from './RemedyFlow.jsx';
 
@@ -45,7 +44,7 @@ export default function TutorSheet({ open, onOpenChange, content, item = null, w
     <Sheet open={open} onOpenChange={onOpenChange} title="שאלה למדי" footer={footer}>
       <div className="tutor">
         {!log.length && (
-          <div className="ls-say"><Mascot mood="thinking" size={56} className="ls-mascot" /><div className="ls-bubble"><p>מה לא ברור? בחרו שאלה.</p></div></div>
+          <Prompt mood="thinking"><p>מה לא ברור? בחרו שאלה.</p></Prompt>
         )}
         <div className="tutor-log" aria-live="polite">
           {log.map(({ intent, reply, id }) => (

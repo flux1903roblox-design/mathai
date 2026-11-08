@@ -10,6 +10,7 @@ import PageHero from '@/components/PageHero.jsx';
 import { useLocation } from 'react-router-dom';
 import { useEffect as useMeEffect } from 'react';
 import Achievements from '@/components/Achievements.jsx';
+import ProgressSummary from '@/components/learn/ProgressSummary.jsx';
 
 function ClassSection() {
   const { profile, setProfile, leaveClass } = useApp();
@@ -149,6 +150,7 @@ export default function Me() {
   return (
     <div className="page wide me-page">
       <PageHero tone="brand" title={profile.name || 'אני'} sub={profile.className ? `כיתה ${profile.className}` : profile.grade === '8' ? 'כיתה ח׳' : 'כיתה ז׳'} mood="happy" />
+      <ProgressSummary />
       <Achievements />
       <div className="me-settings">
       <section className="section" aria-labelledby="prof-title">

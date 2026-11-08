@@ -7,7 +7,7 @@ import { m } from 'motion/react';
 import { ArrowLeft, Check, Lightbulb, X } from 'lucide-react';
 import { Tex, MathText, mathPlain } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
-import Mascot from '@/components/Mascot.jsx';
+import { Prompt } from './StepPlayer.jsx';
 import { parseNum, near, T, plainNum } from '@/content/util.js';
 import { enter } from '@/lib/motion.js';
 import { play } from '@/lib/sound.js';
@@ -54,18 +54,20 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
   };
   const giveUp = finalMiss >= 3;
   return (
-    <div className="together">
-      <div className="ls-say">
-        <Mascot mood={solved ? 'happy' : hint ? 'encouraging' : 'thinking'} size={64} className="ls-mascot" />
-        <div className="ls-bubble"><p className="worked-of">פותרים יחד {n} מתוך {of}</p><p><MathText text={problem.problem} /></p></div>
-      </div>
-      {problem.display && <div className="ls-display big"><Tex tex={problem.display} display /></div>}
-      {built.length > 0 && (
-        <ol className="tg-built" aria-label="מה עשינו עד עכשיו">
-          {built.map((b, i) => <li key={i}><Check size={16} aria-hidden="true" /> <MathText text={b} /></li>)}
-        </ol>
+    <div className="together lm">
+      <section className="lm-card">
+      <Prompt mood={solved ? 'happy' : hint ? 'encouraging' : 'thinking'} tag={`פותרים יחד ${n} מתוך ${of}`}><p><MathText text={problem.problem} /></p></Prompt>
+      {(problem.display || built.length > 0) && (
+        <div className="lm-canvas big">
+          {problem.display && <div className="lm-expr"><Tex tex={problem.display} display /></div>}
+          {built.length > 0 && (
+            <ol className="tg-built" aria-label="מה עשינו עד עכשיו">
+              {built.map((b, i) => <li key={i}><Check size={16} aria-hidden="true" /> <MathText text={b} /></li>)}
+            </ol>
+          )}
+        </div>
       )}
-      <m.section key={k} ref={ref} tabIndex={-1} className="tg-step" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)} aria-label={onFinal ? 'הצעד האחרון' : `צעד ${k + 1}`}>
+      <m.section key={k} ref={ref} tabIndex={-1} className="tg-step lm-response" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)} aria-label={onFinal ? 'הצעד האחרון' : `צעד ${k + 1}`}>
         {!onFinal ? (
           <>
             <p className="tg-prompt"><MathText text={step.prompt} /></p>
@@ -109,7 +111,8 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
           </>
         )}
       </m.section>
-      {(solved || giveUp) && <Button className="btn-block btn-lg" onClick={onDone}>הלאה<ArrowLeft size={18} aria-hidden="true" /></Button>}
+      </section>
+      {(solved || giveUp) && <footer className="lm-actions"><Button className="btn-block btn-lg" onClick={onDone}>הלאה<ArrowLeft size={18} aria-hidden="true" /></Button></footer>}
     </div>
   );
 }
