@@ -111,14 +111,18 @@ test('Back from a lesson started on the map, with a partial answer: it asks, sta
   await page.locator('.continue-go').click(); // from the learning map, the way a student starts
   await expect.poll(() => item(page)).toBeTruthy();
   const lessonUrl = page.url();
-  await page.locator('#slot-v').click();
-  await type(page, '7'); // a partial answer, not checked
+  // a partial answer, not checked: a digit typed, or the interactive object moved one step
+  const manip = (await item(page)).form === 'manip';
+  const kept = manip ? page.locator('.manip .step-label b').first() : page.locator('#slot-v');
+  if (manip) await page.locator('.manip .step-btn:not(:disabled)').first().click();
+  else { await page.locator('#slot-v').click(); await type(page, '7'); }
+  const partial = manip ? await kept.textContent() : '7';
   await page.goBack();
   await expect(sheet).toBeVisible();
   await expect(page).toHaveURL(lessonUrl); // the router puts the address back right after it blocks
   await page.getByRole('button', { name: 'להמשיך ללמוד' }).click();
   await expect(sheet).toHaveCount(0);
-  await expect(page.locator('#slot-v')).toHaveValue('7');
+  if (manip) await expect(kept).toHaveText(partial); else await expect(kept).toHaveValue(partial);
   // three quick Backs in a row: still in the lesson, still asking
   await page.goBack(); await page.goBack(); await page.goBack();
   await expect(sheet).toBeVisible();

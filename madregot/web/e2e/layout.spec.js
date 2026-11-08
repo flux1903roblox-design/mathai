@@ -1,7 +1,7 @@
 // The exercise screen on every device: for each kind of exercise, the question, the maths, the answer field
 // and the check button stay usable, the keypad never covers them, and the page never scrolls.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { open, openOn, student, item, answer, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
 
 const CASES = [
   ['a number (signed numbers)', 'signed/1', '7'],
@@ -22,9 +22,9 @@ const CASES = [
 
 for (const [what, route, grade] of CASES) {
   test(`exercise layout: ${what}`, async ({ page }) => {
-    await open(page, `#/lesson/${route}`, student(grade));
+    // typed and multiple-choice exercises (the interactive ones have their own spec, manip.spec.js)
+    const it = await openOn(page, `#/lesson/${route}`, student(grade), (x) => x.form !== 'manip');
     await expect(page.locator('#qtext')).toBeVisible();
-    const it = await item(page);
     const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
     expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);
     await expectNoSidewaysScroll(page);
@@ -86,7 +86,7 @@ for (const [what, route, grade] of CASES) {
 }
 
 test('the keypad: minus, decimal point, fraction, next field and delete', async ({ page }) => {
-  await open(page, '#/lesson/coord/1', student('7'));
+  await openOn(page, '#/lesson/coord/1', student('7'), (x) => x.form === 'pt');
   const key = (name) => page.getByRole('button', { name, exact: true }).click();
   await page.locator('#slot-x').click();
   await key('מינוס'); await key('3');
@@ -96,7 +96,7 @@ test('the keypad: minus, decimal point, fraction, next field and delete', async 
   await expect(page.locator('#slot-x')).toHaveValue('-3');
   await expect(page.locator('#slot-y')).toHaveValue('4.5');
   await expect(page.locator('#slot-x')).toHaveAttribute('inputmode', 'none');
-  await open(page, '#/lesson/signed/1', student('7'));
+  await openOn(page, '#/lesson/signed/1', student('7'), (x) => x.form === 'num');
   await expect(page.getByRole('button', { name: /^מעבר ל/ })).toHaveCount(0);
   await page.locator('#slot-v').click();
   await key('3'); await key('שבר'); await key('4');
@@ -105,8 +105,7 @@ test('the keypad: minus, decimal point, fraction, next field and delete', async 
 
 test('on a computer: digits typed anywhere go to the answer, Enter checks and Enter continues', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'a physical keyboard is a computer case');
-  await open(page, '#/lesson/signed/1', student('7'));
-  const it = await item(page);
+  const it = await openOn(page, '#/lesson/signed/1', student('7'), (x) => x.form === 'num');
   await page.locator('#qtext').click(); // the focus is not in the answer field
   await page.keyboard.type(String(it.answer));
   await expect(page.locator('#slot-v')).toHaveValue(String(it.answer));

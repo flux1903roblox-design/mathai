@@ -1,5 +1,6 @@
 // Grade 7 (ז׳): signed numbers, the coordinate plane, angles.
 import { R, NZ, pick, shuffle, T, near } from './util.js';
+import { quadOf as quadOfPt } from './manip.js';
 
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 
@@ -26,6 +27,25 @@ function addSub() {
       if (op === '-' && b < 0 && near(u, a + b)) return 'minus-minus';
       return null;
     },
+  };
+}
+
+// The same skill on a number line: start at a, move the marker to the result.
+function addSubLine() {
+  let a; let b; let op; let ans;
+  do { a = NZ(-8, 8); b = NZ(-7, 7); op = pick(['+', '-']); ans = op === '+' ? a + b : a - b; } while (ans < -10 || ans > 10 || ans === a);
+  const display = `${T(a)} ${op} ${T(b, true)}`;
+  const move = ans - a; // how far, and which way, the marker travels from a
+  const way = (n) => (n > 0 ? `ימינה ${n}` : `שמאלה ${-n}`);
+  const hint = op === '+'
+    ? (b > 0 ? 'חיבור של מספר חיובי: זזים ימינה.' : 'חיבור של מספר שלילי: זזים שמאלה.')
+    : (b > 0 ? 'חיסור של מספר חיובי: זזים שמאלה.' : 'חיסור של מספר שלילי הוא כמו חיבור של חיובי: זזים ימינה.');
+  return {
+    key: `sn1n:${display}`, text: `מתחילים ב־$${T(a)}$. הזיזו את הסמן לתוצאה:`, display, form: 'manip',
+    manip: { kind: 'numberline', min: -10, max: 10, from: a, start: a },
+    answer: ans, hint,
+    solution: [`מ־$${T(a)}$ זזים ${way(move)}.`, `התשובה: $${T(ans)}$`],
+    diag: (u) => (u === a - move ? 'sign' : op === '-' && b < 0 && u === a + b ? 'minus-minus' : null),
   };
 }
 
@@ -135,6 +155,37 @@ function readPoint() {
   };
 }
 
+// Reading a point, the other way round: put A where its coordinates say.
+function plotPoint() {
+  const x = NZ(-6, 6); const y = NZ(-6, 6);
+  return {
+    key: `cp1p:${x}:${y}`, text: `הקישו או גררו כדי לשים את הנקודה $A(${x}, ${y})$ במקום שלה.`, form: 'manip',
+    manip: { kind: 'plot', range: 6, label: 'A', start: null }, answer: [x, y],
+    hint: 'קודם $x$: כמה צעדים ימינה (חיובי) או שמאלה (שלילי) מהראשית. אחר כך $y$: כמה צעדים למעלה או למטה.',
+    solution: [`$x = ${T(x)}$: ${x > 0 ? 'ימינה' : 'שמאלה'} ${Math.abs(x)} מהראשית.`, `$y = ${T(y)}$: ${y > 0 ? 'למעלה' : 'למטה'} ${Math.abs(y)}.`],
+    diag: (u) => {
+      if (!u) return null;
+      if (u[0] === y && u[1] === x && x !== y) return 'swap';
+      if ((u[0] === -x && u[1] === y) || (u[0] === x && u[1] === -y)) return 'sign';
+      return null;
+    },
+  };
+}
+
+// Quadrants by placing: any point in the quadrant is right.
+function plotQuadrant() {
+  const q = R(1, 4);
+  const example = [[3, 2], [-3, 2], [-3, -2], [3, -2]][q - 1];
+  const signs = [['חיובי', 'חיובי'], ['שלילי', 'חיובי'], ['שלילי', 'שלילי'], ['חיובי', 'שלילי']][q - 1];
+  return {
+    key: `cp2p:${q}`, text: `שימו נקודה כלשהי ב${QUAD[q - 1]}.`, form: 'manip',
+    manip: { kind: 'plot', range: 6, label: 'P', start: null, quadrant: q }, answer: example,
+    hint: 'רביע ראשון: $x$ ו־$y$ חיוביים. אחר כך ממשיכים נגד כיוון השעון: שני, שלישי, רביעי.',
+    solution: [`ב${QUAD[q - 1]} $x$ ${signs[0]} ו־$y$ ${signs[1]}.`, `למשל $(${example[0]}, ${example[1]})$.`],
+    diag: (u) => (u && quadOfPt([u[1], u[0]]) === q ? 'swap' : null),
+  };
+}
+
 function quadrant() {
   const x = NZ(-9, 9); const y = NZ(-9, 9); const ans = quadOf(x, y);
   return {
@@ -214,6 +265,19 @@ function linearPair() {
   };
 }
 
+// Adjacent angles by turning: the left angle must be t, so the right one is 180 - t.
+function linearPairTurn() {
+  let t; do { t = R(5, 31) * 5; } while (Math.abs(t - 90) < 15);
+  const ans = 180 - t;
+  return {
+    key: `an1t:${t}`, text: `סובבו את הקרן כך שהזווית השמאלית תהיה $${deg(t)}$.`, form: 'manip',
+    manip: { kind: 'angle', target: t, start: 90 }, answer: ans, unit: 'מעלות',
+    hint: 'שתי הזוויות יחד יוצרות קו ישר, כלומר $180^\\circ$. כמה צריכה להיות הזווית הימנית?',
+    solution: [`$180^\\circ - ${deg(t)} = ${deg(ans)}$`, `כשהזווית הימנית היא $${deg(ans)}$, השמאלית היא $${deg(t)}$.`],
+    diag: (u) => (u === t ? 'equal-not-supp' : null),
+  };
+}
+
 function vertical() {
   let a; do { a = R(4, 32) * 5; } while (a === 90);
   const askVertical = Math.random() < 0.6;
@@ -280,7 +344,7 @@ export const GRADE7 = [
     id: 'signed', grade: '7', title: 'מספרים מכוונים', color: 'sky',
     desc: 'חיבור, חיסור, כפל וחילוק, וסדר פעולות',
     levels: [
-      { title: 'חיבור וחיסור', gen: addSub },
+      { title: 'חיבור וחיסור', gen: () => (Math.random() < 0.5 ? addSubLine() : addSub()) },
       { title: 'השוואת מספרים', gen: compare },
       { title: 'כפל וחילוק', gen: mulDiv },
       { title: 'סדר פעולות', gen: order },
@@ -298,8 +362,8 @@ export const GRADE7 = [
     id: 'coord', grade: '7', title: 'מערכת צירים', color: 'fuchsia',
     desc: 'קריאת נקודות, רביעים, אורכים ושטחים',
     levels: [
-      { title: 'קריאת נקודה', gen: readPoint },
-      { title: 'רביעים', gen: quadrant },
+      { title: 'קריאת נקודה', gen: () => (Math.random() < 0.5 ? plotPoint() : readPoint()) },
+      { title: 'רביעים', gen: () => (Math.random() < 0.4 ? plotQuadrant() : quadrant()) },
       { title: 'אורך קטע', gen: segmentLength },
       { title: 'שטח מלבן', gen: rectArea },
       { title: 'קודקוד חסר', gen: missingVertex },
@@ -316,7 +380,7 @@ export const GRADE7 = [
     id: 'angles', grade: '7', title: 'זוויות', color: 'petrol',
     desc: 'צמודות, קודקודיות, משולש וישרים מקבילים',
     levels: [
-      { title: 'זוויות צמודות', gen: linearPair },
+      { title: 'זוויות צמודות', gen: () => (Math.random() < 0.5 ? linearPairTurn() : linearPair()) },
       { title: 'זוויות קודקודיות', gen: vertical },
       { title: 'סכום זוויות במשולש', gen: triangleSum },
       { title: 'ישרים מקבילים', gen: parallel },

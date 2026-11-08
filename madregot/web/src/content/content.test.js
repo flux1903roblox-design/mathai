@@ -51,8 +51,9 @@ describe('generators', () => {
 describe('math checks', () => {
   it('pythagoras answers satisfy a^2 + b^2 = c^2', () => {
     for (let r = 0; r < RUNS; r++) {
-      const h = makeItem('pyth', 1); const { a, b } = h.fig;
-      expect(a * a + b * b).toBe(h.answer * h.answer);
+      const h = makeItem('pyth', 1);
+      if (h.form === 'manip') expect(h.answer.a ** 2 + h.answer.b ** 2).toBe(h.answer.c ** 2);
+      else { const { a, b } = h.fig; expect(a * a + b * b).toBe(h.answer * h.answer); }
       const l = makeItem('pyth', 2); expect(l.fig.a ** 2 + l.answer ** 2).toBe(l.fig.c ** 2);
     }
   });

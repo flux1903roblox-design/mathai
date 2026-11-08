@@ -58,7 +58,11 @@ const values = (it) => (it.form === 'pt' ? it.answer : it.form === 'line' ? [it.
 /** Answer the current exercise, right or wrong (a wrong choice that is still enabled). */
 export async function answer(page, right) {
   const it = await item(page);
-  if (it.form === 'mc') {
+  if (it.form === 'manip') {
+    // an interactive exercise: the QA hook puts the object in a right state or a near miss
+    // (manip.spec.js drives the objects themselves with real drags, keys and step buttons)
+    await page.evaluate((ok) => window.__madregotSolve(ok), !!right);
+  } else if (it.form === 'mc') {
     if (right) await page.locator('.choice').nth(it.answer).click();
     else {
       const idx = await page.evaluate((a) => [...document.querySelectorAll('.choice')].findIndex((el, i) => i !== a && !el.disabled), it.answer);
@@ -73,6 +77,20 @@ export async function answer(page, right) {
   }
   await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
   return it;
+}
+
+/**
+ * Open a lesson on an exercise of a given form (and interactive kind): exercises are drawn at random, so this tries
+ * fixed seeds in turn until the first exercise is the one wanted. The same seeds give the same exercise every run.
+ */
+export async function openOn(page, route, state, want) {
+  for (let sd = 1; sd <= 40; sd += 1) {
+    await open(page, route, state, String(sd));
+    await expect.poll(() => item(page)).toBeTruthy();
+    const it = await item(page);
+    if (want(it)) return it;
+  }
+  throw new Error(`no seed opens ${route} on the exercise wanted`);
 }
 
 /** Press the main button of the feedback panel (continue, try again, got it). */

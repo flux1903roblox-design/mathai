@@ -2,6 +2,7 @@ import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
 import { parseNum, near, plainNum } from './util.js';
 import { LESSONS } from './lessons.js';
+import { manipCorrect, manipText, manipPlain } from './manip.js';
 
 export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, lesson: t.lesson || LESSONS[t.id] || null }));
 export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
@@ -19,7 +20,7 @@ export function makeItem(topicId, level, avoidKey) {
 }
 
 /** Which answer slots an item needs. */
-export const slotsFor = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : it.form === 'mc' ? [] : ['v']);
+export const slotsFor = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : it.form === 'mc' || it.form === 'manip' ? [] : ['v']);
 
 /** Read the typed slots into a value; null when something is missing or unreadable. */
 export function readAnswer(it, slots) {
@@ -31,6 +32,7 @@ export function readAnswer(it, slots) {
 
 export function isCorrect(it, u) {
   if (u == null) return false;
+  if (it.form === 'manip') return manipCorrect(it, u);
   if (it.form === 'mc') return u === it.answer;
   if (it.form === 'pt') return near(u[0], it.answer[0]) && near(u[1], it.answer[1]);
   if (it.form === 'line') return near(u.m, it.answer.m, 0.01) && near(u.b, it.answer.b, 0.01);
@@ -40,6 +42,7 @@ export function isCorrect(it, u) {
 /** Answers as plain text, for the screen and for the AI. */
 export function answerText(it, u = it.answer) {
   if (u == null) return '';
+  if (it.form === 'manip') return manipText(it, u);
   if (it.form === 'mc') { const c = it.choices[u]; return c ? (c.text || c.tex) : ''; }
   if (it.form === 'pt') return `(${plainNum(u[0])}, ${plainNum(u[1])})`;
   // Statistics answers are means and medians: they read as decimals, as in the worked solution.
@@ -84,7 +87,8 @@ export function itemPlain(it) {
   const desc = figPlain(it.fig);
   const fig = desc ? ` [${desc}]` : '';
   const choices = it.form === 'mc' ? ` אפשרויות: ${it.choices.map((c) => c.text || c.tex).join(' / ')}` : '';
-  return `${strip(it.text)}${it.display ? ` ${it.display}` : ''}${fig}${choices}`.trim();
+  const manip = it.form === 'manip' ? ` ${manipPlain(it)}` : '';
+  return `${strip(it.text)}${it.display ? ` ${it.display}` : ''}${fig}${choices}${manip}`.trim();
 }
 
 export const COLORS = ['sky', 'fuchsia', 'petrol', 'cobalt', 'violet'];

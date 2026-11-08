@@ -1,7 +1,7 @@
 // Visual regression: screenshots of the critical screens, compared with the approved ones in __screens__/.
 // After an intended design change, review the new pictures and update them: npm run test:e2e -- --update-snapshots
 import { test, expect } from '@playwright/test';
-import { open, student, livedIn, answer } from './helpers.js';
+import { open, openOn, student, livedIn, answer } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone-small', 'phone', 'desktop'].includes(info.project.name), 'screenshots on two phones and desktop'); });
 
@@ -23,22 +23,29 @@ test('visual: learn screen', async ({ page }) => {
   await shot(page, 'learn', '.continue');
 });
 
-for (const [name, route, grade] of [['exercise-number', 'signed/1', '7'], ['exercise-choice', 'signed/2', '7'], ['exercise-grid', 'coord/1', '7'], ['exercise-table', 'stats/4', '8'], ['exercise-line', 'line/5', '8']]) {
+// each picture is of one kind of exercise: the seed that opens the lesson on it is found once and is the same every run
+const form = (f, kind) => (it) => it.form === f && (!kind || it.manip.kind === kind);
+for (const [name, route, grade, want] of [
+  ['exercise-number', 'signed/1', '7', form('num')], ['exercise-choice', 'signed/2', '7', form('mc')], ['exercise-grid', 'coord/1', '7', form('pt')],
+  ['exercise-table', 'stats/4', '8', null], ['exercise-line', 'line/5', '8', null],
+  ['exercise-numberline', 'signed/1', '7', form('manip', 'numberline')], ['exercise-plot', 'coord/1', '7', form('manip', 'plot')],
+  ['exercise-squares', 'pyth/1', '8', form('manip', 'squares')], ['exercise-bars', 'stats/3', '8', form('manip', 'bars')],
+]) {
   test(`visual: ${name}`, async ({ page }) => {
-    await open(page, `#/lesson/${route}`, student(grade));
+    if (want) await openOn(page, `#/lesson/${route}`, student(grade), want); else await open(page, `#/lesson/${route}`, student(grade));
     await shot(page, name, '#qtext');
   });
 }
 
 test('visual: a wrong answer', async ({ page }) => {
-  await open(page, '#/lesson/coord/1', student('7'));
+  await openOn(page, '#/lesson/coord/1', student('7'), form('pt'));
   await answer(page, false);
   await expect(page.locator('section.fb-retry')).toBeVisible();
   await shot(page, 'feedback-retry', 'section.fb-retry');
 });
 
 test('visual: a right answer', async ({ page }) => {
-  await open(page, '#/lesson/signed/1', student('7'));
+  await openOn(page, '#/lesson/signed/1', student('7'), form('num'));
   await answer(page, true);
   await expect(page.locator('section.fb-good')).toBeVisible();
   await shot(page, 'feedback-good', 'section.fb-good');

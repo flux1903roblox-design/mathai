@@ -1701,3 +1701,162 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 /* the top row with the help buttons in it: no empty place kept for the streak chip, tighter gaps */
 .lesson-top:has(.tools) { gap: var(--s2); }
 .lesson-top:has(.tools) .lesson-combo:empty { display: none; }
+
+/* ---------- interactive exercises: the maths object the student moves ---------- */
+/* The object is the hero of the step: a tinted canvas in the topic's colour, as large as the room allows,
+   with the step buttons under it (the way to move it without dragging). Its proportions come from the viewBox. */
+.lesson.is-manip .q-stage { height: 100%; min-height: 0; justify-content: center; }
+.lesson.is-manip .qdisplay { padding: 0; }
+.manip { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: var(--s2); width: 100%; }
+.manip-canvas {
+  flex: 0 1 auto; min-height: 132px; width: 100%; max-width: 520px; height: auto; display: block;
+  border-radius: 22px; background: color-mix(in srgb, var(--c-tint) 70%, #fff);
+  border: 2px solid color-mix(in srgb, var(--c) 22%, var(--rule)); box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 18%, var(--rule-press));
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; cursor: pointer;
+  font-family: var(--font-ui); transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+.manip-canvas:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.manip.good .manip-canvas { border-color: color-mix(in srgb, var(--good) 55%, var(--rule)); box-shadow: 0 4px 0 color-mix(in srgb, var(--good) 35%, var(--rule-press)); }
+.manip-squares .manip-canvas { aspect-ratio: 1 / 1; max-width: 440px; }
+.manip-plot .manip-canvas, .manip-line .manip-canvas { max-width: 440px; }
+.mp-hit { fill: transparent; }
+
+/* the plane, the number line and the axes */
+.mp-grid { stroke: color-mix(in srgb, var(--c-d) 16%, transparent); stroke-width: 1; }
+.mp-axis { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.mp-axis-head { fill: var(--ink); }
+.mp-axis-name { fill: var(--ink-2); font-size: 15px; font-style: italic; font-weight: 600; }
+.mp-num { fill: var(--ink-2); font-size: 13px; font-weight: 500; }
+.mp-num.zero { fill: var(--ink); font-weight: 700; }
+.mp-tick { stroke: var(--ink); stroke-width: 2; }
+.mp-tick.zero { stroke-width: 3; }
+.mp-pt-label { fill: var(--ink-2); font-size: 15px; font-weight: 700; font-style: italic; }
+
+/* what the student holds: a coloured handle in a soft halo, which grows a little under the finger */
+.mp-halo { fill: color-mix(in srgb, var(--c) 22%, transparent); }
+.mp-handle { fill: var(--c); stroke: #fff; stroke-width: 3; }
+.mp-handle.alt { fill: #fff; stroke: var(--c); stroke-width: 4; }
+.mp-point { transition: transform var(--duration-fast) var(--ease-smooth-out); transform-box: fill-box; transform-origin: center; }
+.manip-canvas:active .mp-point .mp-halo { fill: color-mix(in srgb, var(--c) 32%, transparent); }
+.mp-guide { stroke: var(--c-d); stroke-width: 2; stroke-dasharray: 5 5; }
+
+/* number line: the jump arc and the pin */
+.mp-arc { fill: none; stroke: var(--c); stroke-width: 3.5; stroke-linecap: round; }
+.mp-arc.ghost { stroke: var(--good); stroke-dasharray: 7 6; }
+.mp-jump { fill: var(--c-d); font-family: var(--font-display); font-size: 19px; font-weight: 700; }
+.mp-from { fill: #fff; stroke: var(--c-d); stroke-width: 3; }
+.mp-pin path { fill: var(--c); stroke: var(--c-d); stroke-width: 2; }
+.mp-pin-dot { fill: #fff; stroke: var(--c-d); stroke-width: 3; }
+.mp-ghost-pin circle { fill: none; stroke: var(--good); stroke-width: 3; stroke-dasharray: 5 4; }
+.mp-ghost-pin text { fill: var(--good-ink); font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+
+/* coordinates */
+.mp-ghost-pt circle { fill: none; stroke: var(--good); stroke-width: 3; stroke-dasharray: 5 4; }
+.mp-ghost-pt text { fill: var(--good-ink); font-size: 15px; font-weight: 700; font-style: italic; }
+.mp-ghost-area { fill: color-mix(in srgb, var(--good) 16%, transparent); stroke: var(--good); stroke-width: 2; stroke-dasharray: 6 5; }
+
+/* building a line */
+.mp-line { stroke: var(--c); stroke-width: 4; stroke-linecap: round; }
+.mp-ghost-line { stroke: var(--good); stroke-width: 3; stroke-dasharray: 8 6; }
+.mp-step { fill: none; stroke: var(--streak); stroke-width: 3; stroke-dasharray: 6 4; stroke-linejoin: round; }
+.mp-step-label { fill: var(--streak-ink); font-family: var(--font-display); font-size: 16px; font-weight: 700; }
+
+/* angles */
+.mp-ray { stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
+.mp-ray.fixed { stroke: var(--ink-2); stroke-width: 3; }
+.mp-ghost-ray { stroke: var(--good); stroke-width: 3; stroke-dasharray: 8 6; stroke-linecap: round; }
+.mp-vertex { fill: var(--ink); }
+.mp-angle-arc { fill: none; stroke-width: 4; stroke-linecap: round; }
+.mp-angle-arc.right { stroke: var(--c); }
+.mp-angle-arc.left { stroke: var(--streak); }
+.mp-angle-label { font-family: var(--font-display); font-size: 19px; font-weight: 700; }
+.mp-angle-label.right { fill: var(--c-d); }
+.mp-angle-label.left { fill: var(--streak-ink); }
+
+/* Pythagoras: a square on each side, its area inside it */
+.mp-sq { stroke-width: 2.5; stroke-linejoin: round; transition: fill var(--duration-fast) var(--ease-out); }
+.mp-sq.a { fill: color-mix(in srgb, var(--streak) 18%, #fff); stroke: var(--streak); }
+.mp-sq.b { fill: color-mix(in srgb, var(--brand) 14%, #fff); stroke: var(--brand); }
+.mp-sq.c { fill: color-mix(in srgb, var(--c) 16%, #fff); stroke: var(--c); }
+.mp-sq.c.hit { fill: var(--good-tint); stroke: var(--good); }
+.mp-tri { fill: #fff; stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; }
+.mp-right { fill: none; stroke: var(--ink); stroke-width: 2; }
+.mp-area { font-family: var(--font-display); font-weight: 700; }
+.mp-area.a { fill: var(--streak-ink); } .mp-area.b { fill: var(--brand-d); } .mp-area.c { fill: var(--c-d); }
+.manip-squares .mp-handle { fill: var(--streak); stroke: #fff; stroke-width: 3; vector-effect: non-scaling-stroke; }
+.manip-squares .mp-handle.alt { fill: var(--brand); stroke: #fff; }
+.sq-a { color: var(--streak-ink); } .sq-b { color: var(--brand-d); } .sq-c { color: var(--c-d); }
+
+/* the mean, by moving one bar */
+.mp-bar { fill: color-mix(in srgb, var(--c) 30%, #fff); }
+.mp-bar.movable { fill: var(--c); }
+.mp-bar-value { fill: var(--ink-2); font-size: 13px; font-weight: 700; }
+.mp-bar-value.movable { fill: var(--c-d); font-family: var(--font-display); font-size: 16px; }
+.mp-handle.bar-grip { fill: #fff; stroke: var(--c-d); stroke-width: 2.5; }
+.mp-ghost-bar { fill: none; stroke: var(--good); stroke-width: 3; stroke-dasharray: 6 5; }
+.mp-target-line { stroke: var(--gold-d); stroke-width: 2.5; stroke-dasharray: 9 6; }
+.mp-mean-line { stroke: var(--c-d); stroke-width: 3; stroke-linecap: round; transition: transform var(--duration-fast) var(--ease-smooth-out); }
+.manip-legend { display: flex; gap: var(--s4); font-size: var(--t-xs); color: var(--ink-2); font-weight: 600; }
+.manip-legend .lg { display: inline-flex; align-items: center; gap: 6px; }
+.manip-legend .lg::before { content: ''; width: 22px; height: 0; border-top: 3px solid var(--c-d); }
+.manip-legend .lg.target::before { border-top: 3px dashed var(--gold-d); }
+
+/* live readouts above the object: the equation, the sum of the areas, the mean */
+.manip-readout {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 10px;
+  font-family: var(--font-display); font-size: var(--t-md); font-weight: 600; color: var(--ink); line-height: 1.3; text-align: center;
+}
+.manip-readout b { font-weight: 700; }
+.manip-line .manip-readout { min-height: 34px; font-size: 22px; }
+.manip-target { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; background: var(--gold-tint); color: var(--gold-ink); font-family: var(--font-ui); font-size: var(--t-sm); font-weight: 700; }
+.manip-note { margin: 0; font-size: var(--t-sm); font-weight: 600; color: var(--good-ink); text-align: center; }
+
+/* step buttons: chunky, thumb-sized, and the only controls a keyboard or switch user needs */
+.manip-controls { flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); }
+.stepper {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px; border-radius: 999px;
+  background: var(--paper); border: 2px solid var(--rule); box-shadow: 0 3px 0 var(--rule-press);
+}
+.step-btn {
+  display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 999px;
+  background: var(--c-tint); color: var(--c-d); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--c) 22%, transparent);
+  transition: transform var(--duration-micro) var(--ease-out);
+}
+.step-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+.step-btn:disabled { opacity: 0.35; }
+.step-btn:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.step-label { display: flex; flex-direction: column; align-items: center; min-width: 30px; padding-inline: 4px; line-height: 1.15; }
+.step-name { font-size: var(--t-xs); font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.step-label b { font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--ink); }
+@media (max-width: 420px) { .step-sub { display: none; } }
+@media (max-height: 700px) and (max-width: 899px) {
+  .lesson.is-manip .lesson-main { padding-top: var(--s2); }
+  .manip { gap: 6px; }
+  .manip-readout { font-size: var(--t-base); }
+  .manip-line .manip-readout { min-height: 28px; font-size: 19px; }
+  .step-btn { width: 42px; height: 42px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .manip-canvas, .mp-point, .mp-sq, .mp-mean-line, .step-btn { transition: none; }
+}
+/* the drawings read left to right: −8 keeps its minus on the left */
+.manip-canvas { direction: ltr; unicode-bidi: isolate; }
+/* מדי under the object, saying what just happened; only where the screen has room for him */
+.manip-coach { display: none; flex: none; align-items: flex-end; gap: var(--s2); width: 100%; max-width: 520px; margin-inline: auto; }
+.coach-mascot { flex: none; width: 52px; height: auto; }
+.coach-say {
+  position: relative; flex: 1 1 auto; margin: 0 0 6px; padding: 8px 12px; border-radius: 16px; border-end-start-radius: 4px;
+  background: var(--paper); border: 2px solid var(--rule); color: var(--ink); font-size: var(--t-sm); line-height: 1.45; font-weight: 500; text-wrap: pretty;
+}
+@container (min-height: 470px) { .lesson:not(.fb-open) .manip-coach { display: flex; } }
+/* on a tall screen מדי moves from the question down to the object, so there is one of him */
+@media (min-height: 701px), (min-width: 900px) { .lesson.is-manip:not(.fb-open) .q-mascot { display: none; } }
+/* signed numbers: cold below zero, warm above it */
+.nl-cold { stop-color: color-mix(in srgb, var(--ch-sky-tint) 80%, #cfe9fb); }
+.nl-zero { stop-color: #fff; }
+.nl-warm { stop-color: color-mix(in srgb, var(--streak-tint) 85%, #ffe0c2); }
+.nl-frost path { fill: none; stroke: var(--ch-sky); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
+.nl-fire path { fill: color-mix(in srgb, var(--streak) 75%, #fff); stroke: var(--streak); stroke-width: 1.5; stroke-linejoin: round; opacity: 0.8; }
+.manip-numberline .manip-canvas { border-color: color-mix(in srgb, var(--ch-sky) 22%, var(--rule)); }
+.ang-right { color: var(--c-d); } .ang-left { color: var(--streak-ink); }
+.manip-angle .manip-readout { font-size: 22px; }

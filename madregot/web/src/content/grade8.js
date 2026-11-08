@@ -16,6 +16,18 @@ function hypotenuse() {
   };
 }
 
+// The theorem by building: change the legs until the square on the hypotenuse has area c².
+function squaresHyp() {
+  const [a, b, c] = pick([[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15], [8, 6, 10], [4, 3, 5]]);
+  return {
+    key: `py1s:${c}:${a}`, text: `שנו את הניצבים כך שהיתר יהיה $${c}$: הריבוע על היתר צריך שטח $${c * c}$.`, form: 'manip',
+    manip: { kind: 'squares', start: { a: 2, b: 2 }, max: 12 }, answer: { c, a, b },
+    hint: `במשולש ישר־זווית שטח הריבוע על היתר שווה לסכום שטחי הריבועים על הניצבים: $a^2 + b^2 = c^2$. מחפשים שני ריבועים שיחד הם $${c * c}$.`,
+    solution: [`$${a}^2 + ${b}^2 = ${a * a} + ${b * b} = ${c * c} = ${c}^2$`, `לכן ניצבים $${a}$ ו־$${b}$ נותנים יתר $${c}$.`],
+    diag: (u) => (u && u.a + u.b === c ? 'add-legs' : null),
+  };
+}
+
 function leg() {
   const [a, b, c] = scaled();
   return {
@@ -137,6 +149,25 @@ function mean() {
   }
 }
 
+// The mean by moving one value: the mean line follows the bar.
+function meanBars() {
+  for (;;) {
+    const n = 5; const mean = R(3, 8);
+    const vals = Array.from({ length: n - 1 }, () => R(1, 10));
+    const sum = vals.reduce((t, v) => t + v, 0);
+    const last = mean * n - sum;
+    if (last < 0 || last > 12 || vals.includes(last)) continue;
+    let start; do { start = R(0, 12); } while (start === last);
+    return {
+      key: `st3b:${vals.join(',')}:${mean}`, text: `גררו את העמודה האחרונה כך שהממוצע של כל העמודות יהיה $${mean}$.`, form: 'manip',
+      manip: { kind: 'bars', values: vals, mean, max: 12, start }, answer: last,
+      hint: `ממוצע $${mean}$ של $${n}$ מספרים פירושו שהסכום שלהם הוא $${mean} \\cdot ${n} = ${mean * n}$.`,
+      solution: [`הסכום צריך להיות $${mean} \\cdot ${n} = ${mean * n}$.`, `סכום ארבע העמודות: $${vals.join(' + ')} = ${sum}$.`, `העמודה האחרונה: $${mean * n} - ${sum} = ${last}$.`],
+      diag: (u) => (u === mean ? 'no-divide' : null),
+    };
+  }
+}
+
 function freqMean() {
   for (;;) {
     const vals = sortNum(shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).slice(0, R(3, 4)));
@@ -179,7 +210,7 @@ export const GRADE8 = [
     id: 'pyth', grade: '8', title: 'משפט פיתגורס', color: 'violet',
     desc: 'יתר, ניצב, בדיקת משולש ושאלות מילוליות',
     levels: [
-      { title: 'מציאת היתר', gen: hypotenuse },
+      { title: 'מציאת היתר', gen: () => (Math.random() < 0.4 ? squaresHyp() : hypotenuse()) },
       { title: 'מציאת ניצב', gen: leg },
       { title: 'האם המשולש ישר־זווית?', gen: isRight },
       { title: 'שאלה מילולית', gen: ladder },
@@ -198,7 +229,7 @@ export const GRADE8 = [
     levels: [
       { title: 'שכיח', gen: mode },
       { title: 'חציון', gen: median },
-      { title: 'ממוצע', gen: mean },
+      { title: 'ממוצע', gen: () => (Math.random() < 0.5 ? meanBars() : mean()) },
       { title: 'ממוצע מטבלה', gen: freqMean },
       { title: 'נתון חסר', gen: missingValue },
     ],

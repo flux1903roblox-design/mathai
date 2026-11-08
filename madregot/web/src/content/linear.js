@@ -118,6 +118,18 @@ function lineEquation() {
   }
 }
 
+// 2b. m and b by building: drag the point on the y-axis to b, the step point one to the right to b + m.
+function buildLine() {
+  let m; let b; do { m = NZ(-3, 3); b = R(-4, 4); } while (Math.abs(m + b) > 6 || (m === 1 && b === 0));
+  return {
+    key: `lf2b:${m}:${b}`, text: `בנו את הישר $${lineTex(m, b)}$: גררו את שתי הנקודות.`, form: 'manip',
+    manip: { kind: 'line', range: 6, start: { m: 1, b: 0 } }, answer: { m, b },
+    hint: '$b$ הוא המקום שבו הישר חותך את ציר $y$. השיפוע $m$: צעד אחד ימינה, ו־$m$ צעדים למעלה (או למטה כשהוא שלילי).',
+    solution: [`חיתוך עם ציר $y$: $b = ${b}$, הנקודה $(0, ${b})$.`, `שיפוע $m = ${m}$: מ־$(0, ${b})$ צעד אחד ימינה ו־$${Math.abs(m)}$ ${m > 0 ? 'למעלה' : 'למטה'}, אל $(1, ${m + b})$.`],
+    diag: (u) => (u && u.m === b && u.b === m && m !== b ? 'm-b' : u && u.m === -m && u.b === b ? 'sign' : null),
+  };
+}
+
 // 6. where the graph meets the axes: x = 0 for the y-axis, y = 0 (f(x) = 0) for the x-axis
 function axes() {
   for (;;) {
@@ -186,7 +198,7 @@ export const LINEAR = {
   desc: 'טבלת ערכים, שיפוע, משוואת ישר, חיתוך עם הצירים ונקודת מפגש',
   levels: [
     { title: 'טבלת ערכים', gen: table },
-    { title: 'מה אומרים m ו־b', gen: meaning },
+    { title: 'מה אומרים m ו־b', gen: () => (Math.random() < 0.5 ? buildLine() : meaning()) },
     { title: 'שיפוע מהגרף: מדרגות', gen: stepsFromGraph },
     { title: 'שיפוע בין שתי נקודות', gen: slopeTwoPoints },
     { title: 'משוואת ישר', gen: lineEquation },

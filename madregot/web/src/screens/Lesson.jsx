@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2 } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath } from '@/content/index.js';
+import { manipSolution, manipWrong } from '@/content/manip.js';
 import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
@@ -13,6 +14,7 @@ import { api, syncNow } from '@/lib/api.js';
 import { play, buzz } from '@/lib/sound.js';
 import { Tex, MathText, Markdown, texText } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
+import Manip from '@/components/manip/Manip.jsx';
 import AIChat from '@/components/AIChat.jsx';
 import Notebook from '@/components/Notebook.jsx';
 import CheckResult from '@/components/CheckResult.jsx';
@@ -160,6 +162,13 @@ export default function Lesson() {
   const placement = spec?.kind === 'placement';
   const isTest = (k) => k === 'jump' || k === 'placement'; // a check, not practice: one try, no hints
   const names = item ? slotsFor(item) : [];
+  // An interactive exercise: the state of the object the student moves. It belongs to one exercise, so a new
+  // exercise starts from its own starting state even before the reset effect runs (the shapes differ by kind).
+  const mkey = item ? `${item.key}:${s.slot}` : null;
+  const [mvs, setMvs] = useState({ key: null, v: null, touched: false });
+  const isManip = item?.form === 'manip';
+  const mv = isManip ? (mvs.key === mkey ? mvs.v : item.manip.start ?? null) : null;
+  const touched = isManip && mvs.key === mkey && mvs.touched;
 
   useEffect(() => {
     if (!item) return;
@@ -178,10 +187,16 @@ export default function Lesson() {
     try { on = on || !!localStorage.getItem('madregot-debug'); } catch { /* storage blocked */ }
     if (!on) return undefined;
     window.__madregotItem = item;
+    // __madregotSolve(true) puts an interactive exercise in a right state, (false) in a near miss
+    window.__madregotSolve = (ok = true) => {
+      if (item?.form !== 'manip') return false;
+      setMvs({ key: mkey, v: ok ? manipSolution(item) : manipWrong(item), touched: true }); setStruck(false);
+      return true;
+    };
     const root = document.documentElement;
     try { root.setAttribute('data-qa-item', JSON.stringify(item ?? null)); } catch { /* not serialisable */ }
     return () => root.removeAttribute('data-qa-item');
-  }, [item]);
+  }, [item, mkey]);
 
   const focusSlot = useCallback((k) => { document.getElementById(`slot-${k}`)?.focus({ preventScroll: true }); }, []);
 
@@ -216,11 +231,11 @@ export default function Lesson() {
   // Two answer fields (a point, a line): the keypad's last key moves to the other one.
   const nextSlot = () => { const k = names[(names.indexOf(active) + 1) % names.length]; setActive(k); focusSlot(k); };
 
-  const canCheck = item && (item.form === 'mc' ? choice != null : !struck && names.every((k) => String(slots[k] || '').trim()));
+  const canCheck = item && (item.form === 'mc' ? choice != null : isManip ? touched && !struck && mv != null : !struck && names.every((k) => String(slots[k] || '').trim()));
 
   const check = () => {
     if (!item || !canCheck || (s.phase !== 'answer' && s.phase !== 'retry')) return;
-    const u = item.form === 'mc' ? choice : readAnswer(item, slots);
+    const u = item.form === 'mc' ? choice : isManip ? mv : readAnswer(item, slots);
     if (u == null) {
       const missing = names.find((k) => !String(slots[k] || '').trim()) || names[0];
       setLast({ invalid: true, text: item.form === 'pt' ? 'מלאו את שני השיעורים.' : item.form === 'line' ? 'מלאו את m ואת b.' : 'כתבו מספר. מינוס יש במקלדת.' });
@@ -258,7 +273,11 @@ export default function Lesson() {
     setDone({ result, award });
   };
 
-  const tryAgain = () => { setLast(null); focusSlot(active); };
+  const tryAgain = () => {
+    setLast(null);
+    if (isManip) requestAnimationFrame(() => qRef.current?.querySelector('.manip-canvas[tabindex="0"], .manip .step-btn:not(:disabled)')?.focus({ preventScroll: true }));
+    else focusSlot(active);
+  };
   const goOn = () => {
     if (s.phase === 'retry') { tryAgain(); return; }
     const mark = last?.comboMark;
@@ -282,7 +301,7 @@ export default function Lesson() {
         if (n < item.choices.length && !s.wrong.includes(n)) { e.preventDefault(); setChoice(n); if (feedback === 'retry') setLast(null); }
         return;
       }
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey || !item || item.form === 'mc' || nbOn) return;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey || !item || item.form === 'mc' || isManip || nbOn) return;
       const k = /^[0-9./]$/.test(e.key) ? e.key : e.key === '-' ? '-' : e.key === 'Backspace' ? 'del' : null;
       if (k) { e.preventDefault(); onKey(k); }
     };
@@ -351,11 +370,13 @@ export default function Lesson() {
   const locked = feedback === 'good' || feedback === 'reveal';
   const pct = Math.round(progressOf(s) * 100);
 
-  const mood = feedback === 'good' ? 'happy' : feedback ? 'encouraging' : s.hint || nbOn ? 'thinking' : 'idle';
+  // מדי follows the work: curious while the student experiments with the object, then glad or encouraging
+  const mood = feedback === 'good' ? 'happy' : feedback ? 'encouraging' : s.hint || nbOn || touched ? 'thinking' : 'idle';
+  const onManip = (v) => { setMvs({ key: mkey, v, touched: true }); if (struck) setStruck(false); if (feedback === 'retry') setLast(null); };
   const stage = `${s.slot}-${item.key}`;
   // Each exercise slides in from the reading side; the last one leaves the other way.
   const slide = { initial: { opacity: 0, x: -28 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: 28 }, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } };
-  const typed = item.form !== 'mc' && !nbOn;
+  const typed = item.form !== 'mc' && !isManip && !nbOn;
   // On a short phone a typed answer gets the room it needs: the check button joins the answer row and the help
   // buttons move up beside the progress bar, so the drawing keeps the height of a whole row.
   const compact = short && typed;
@@ -377,7 +398,7 @@ export default function Lesson() {
   );
 
   return (
-    <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed')}>
+    <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed', isManip && !nbOn && 'is-manip')}>
       {/* top: progress and the question, always on screen */}
       <header className="lesson-head">
         <ProgressHeader extra={compact ? tools : null} pct={pct} label={placement ? 'התקדמות בבדיקת הרמה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
@@ -391,7 +412,7 @@ export default function Lesson() {
         <AnimatePresence mode="wait" initial={false}>
         <m.div key={stage} className="q-stage" {...slide}>
         {/* nothing to draw: on a short phone (where the question has no מדי beside it) he waits here */}
-        {!item.display && !item.fig && item.form !== 'mc' && !nbOn && <Mascot mood={mood} beat={shakeKey + (last?.ok ? s.solved * 100 : 0)} size={96} className="stage-mascot" />}
+        {!item.display && !item.fig && item.form !== 'mc' && !isManip && !nbOn && <Mascot mood={mood} beat={shakeKey + (last?.ok ? s.solved * 100 : 0)} size={96} className="stage-mascot" />}
         {item.redo && <p className="redo-note"><RotateCcw size={16} aria-hidden="true" />תרגיל דומה לזה שהיה קשה קודם</p>}
         {item.display && <div className="qdisplay"><Tex tex={item.form === 'mc' ? item.display : `${item.display} = \\,?`} display /></div>}
         {item.fig && (
@@ -402,6 +423,7 @@ export default function Lesson() {
             )}
           </div>
         )}
+        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} />}
         {item.form === 'mc' && (
           <div className={clsx('choices', item.choices.length === 3 && item.choices.every((c) => c.tex) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys}>
             {item.choices.map((c, i) => {
