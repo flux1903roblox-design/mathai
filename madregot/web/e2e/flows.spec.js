@@ -6,6 +6,12 @@ import { open, student, item, answer, type, proceed, proceedToNext, saved, expec
 // Journeys run on one phone and on desktop; the layout spec covers every size.
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
 
+/** From the home screen: today's mission opens the stair, and its practice stage starts the lesson. */
+async function startPractice(page) {
+  await page.locator('.continue-go').click();
+  await page.getByRole('button', { name: 'מתרגלים לבד: פתיחה' }).click();
+}
+
 async function onboard(page, start) {
   await page.getByRole('button', { name: 'מתחילים', exact: true }).click();
   await page.fill('#w-name', 'נועה');
@@ -19,13 +25,14 @@ async function onboard(page, start) {
   await page.getByRole('button', { name: start === 'test' ? 'לבדיקת הרמה' : 'לשיעור הראשון', exact: true }).click();
 }
 
-test('first visit, starting from the first stair: the first lesson opens, and the map waits under the continue card', async ({ page }) => {
+test('first visit, starting from the first stair: it starts by understanding, and the map waits under today\'s mission', async ({ page }) => {
   await open(page, '#/');
   await onboard(page, 'scratch');
-  await expect(page).toHaveURL(/#\/lesson\/signed\/1/);
-  await expect(page.locator('#qtext')).toBeVisible();
-  await page.getByRole('button', { name: 'יציאה מהשיעור' }).click();
-  await page.getByRole('button', { name: 'יציאה', exact: true }).click();
+  await expect(page).toHaveURL(/#\/learn\/signed\/1\/A/);
+  await expect(page.locator('.step-player')).toBeVisible();
+  await page.getByRole('button', { name: 'סגירה. המקום נשמר' }).click();
+  await expect(page.locator('.journey')).toBeVisible();
+  await page.getByRole('link', { name: 'למפה' }).click();
   await expect(page.locator('.continue')).toBeVisible();
   await expect(page.locator('.unit').first()).toBeVisible();
   await expect(page.locator('.node-current').first()).toBeVisible();
@@ -122,7 +129,7 @@ test('a practice exam is made from the chosen topics and prints without the app 
 test('Back from a lesson started on the map, with a partial answer: it asks, staying keeps the answer, fast repeated Backs keep asking', async ({ page }) => {
   const sheet = page.getByRole('heading', { name: 'לצאת מהשיעור?' });
   await open(page, '#/', student('7'));
-  await page.locator('.continue-go').click(); // from the learning map, the way a student starts
+  await startPractice(page); // from the home screen, the way a student starts practising
   await expect.poll(() => item(page)).toBeTruthy();
   const lessonUrl = page.url();
   // a partial answer, not checked: a digit typed, or the interactive object moved one step
@@ -142,12 +149,12 @@ test('Back from a lesson started on the map, with a partial answer: it asks, sta
   await expect(sheet).toBeVisible();
   await expect(page).toHaveURL(lessonUrl);
   await page.getByRole('button', { name: 'יציאה', exact: true }).click();
-  await expect(page.locator('.continue')).toBeVisible();
+  await expect(page.locator('.journey')).toBeVisible(); // Back leaves to where the lesson was started: the stair
 });
 
 test('Back after answering keeps the lesson progress when the student stays', async ({ page }) => {
   await open(page, '#/', student('7'));
-  await page.locator('.continue-go').click();
+  await startPractice(page);
   await expect.poll(() => item(page)).toBeTruthy();
   for (let k = 0; k < 2; k += 1) await proceedToNext(page, await answer(page, true));
   const pct = await page.locator('[role="progressbar"]').getAttribute('aria-valuenow');

@@ -4,7 +4,10 @@ import { parseNum, near, plainNum } from './util.js';
 import { LESSONS } from './lessons.js';
 import { manipCorrect, manipText, manipPlain } from './manip.js';
 
-export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, lesson: t.lesson || LESSONS[t.id] || null }));
+import { NEW_CATS } from '@/learn/content/index.ts';
+
+// Each topic's misconception names include those the 2.0 teaching content adds.
+export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
 export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
 export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grade));
 

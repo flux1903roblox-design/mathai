@@ -2,7 +2,7 @@
 // and every rule here is tested without React. Called by lib/store.js.
 import type { Attempt, LearnState, MisconRecord, Purpose } from './types';
 import { addAttempt, recordMasteryCheck, recordReview, daysBetween, MASTERY_N, MASTERY_NEED } from './mastery';
-import { addEvidence, addCounter, finishVerify, GENERATOR_WEIGHT, COUNTER_WEIGHT, WEAK_COUNTER, misconKey } from './misconceptions';
+import { addEvidence, addCounter, finishVerify, GENERATOR_WEIGHT, COUNTER_WEIGHT, misconKey } from './misconceptions';
 import { recordDiagnostic } from './examRescue';
 import { logEvent } from './analytics';
 import { skillId } from './skills';
@@ -35,10 +35,10 @@ export function learnAfterAnswer(learn: LearnState, e: AnswerEvent): LearnState 
   if (!e.ok) {
     const cands = e.cands?.length ? e.cands : e.cat ? [{ id: e.cat, conf: GENERATOR_WEIGHT }] : [];
     cands.forEach((c) => { miscon = addEvidence(miscon, skill, c.id, c.conf, key, at); });
-  } else if (independent) {
-    Object.values(miscon).filter((r) => r.skill === skill).forEach((r) => {
-      if (e.could) { if (e.could.includes(r.id)) miscon = addCounter(miscon, skill, r.id, COUNTER_WEIGHT); } else miscon = addCounter(miscon, skill, r.id, WEAK_COUNTER);
-    });
+  } else if (independent && e.could) {
+    // a right answer counts against a misconception only where it could have shown (a diagnostic model knows where);
+    // a right answer to 3 + 5 says nothing about subtracting a negative
+    Object.values(miscon).filter((r) => r.skill === skill && e.could!.includes(r.id)).forEach((r) => { miscon = addCounter(miscon, skill, r.id, COUNTER_WEIGHT); });
   }
   const events = logEvent(learn.events, { e: 'answer', s: skill, ok: !!e.ok, ind: independent, p: purpose }, at);
   return { ...learn, skills, miscon, events };

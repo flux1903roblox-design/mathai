@@ -31,12 +31,26 @@ export function missionFor(learn: LearnState, day: string, actions: Action[]): {
   return { items: buildMission(actions), fresh: true };
 }
 
-/** Mark the items a finished activity completes (the same kind on the same skill, or any activity on its skill for "continue"). */
-export function completeMissionItems(items: MissionItem[], done: { skill: string; kind?: Action['kind']; misc?: string }, at: string): MissionItem[] {
+/**
+ * What a finished activity completes: only items it really did. Learning or practising a stair (kind 'continue')
+ * completes that stair's continue / new / prerequisite / exam items; a mastery check also those and its own;
+ * a review only a review; a repair only that misconception's repair; Exam Rescue work only exam items.
+ */
+const COMPLETES: Record<string, Action['kind'][]> = {
+  continue: ['continue', 'new', 'prereq', 'exam'],
+  mastery: ['mastery', 'continue', 'new', 'prereq', 'exam'],
+  review: ['review'],
+  repair: ['repair'],
+  exam: ['exam'],
+};
+export function completeMissionItems(items: MissionItem[], done: { skill: string; kind: Action['kind']; misc?: string }, at: string): MissionItem[] {
   return items.map((it) => {
-    if (it.done || it.skill !== done.skill) return it;
-    if (it.misc && done.misc && it.misc !== done.misc) return it;
-    if (done.kind && it.kind !== done.kind && !(it.kind === 'continue' || it.kind === 'new' || it.kind === 'prereq' || it.kind === 'exam')) return it;
+    if (it.done) return it;
+    const kinds = COMPLETES[done.kind] || [done.kind];
+    if (!kinds.includes(it.kind)) return it;
+    if (it.kind === 'exam' && done.kind === 'exam') return { ...it, done: at }; // the exam item is about the whole exam
+    if (it.skill !== done.skill) return it;
+    if (it.kind === 'repair' && it.misc !== done.misc) return it;
     return { ...it, done: at };
   });
 }

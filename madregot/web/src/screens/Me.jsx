@@ -1,3 +1,4 @@
+import MyNumbers from '@/components/learn/MyNumbers.jsx';
 import { useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
@@ -162,6 +163,7 @@ export default function Me() {
       <ClassSection />
       <AISection />
       <SoundSetting />
+      <MyNumbers />
       <section className="section danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="h-section">אזור מחיקה</h2>
         {danger === 'reset' ? (
@@ -180,9 +182,18 @@ export default function Me() {
               <Button variant="ghost" onClick={() => setDanger(null)}>ביטול</Button>
             </div>
           </Box>
+        ) : danger === 'wipe' ? (
+          <Box tone="attention" title="למחוק הכול?">
+            <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. אי אפשר לבטל.</p>
+            <div className="form-actions row">
+              <Button variant="danger" onClick={() => { useApp.persist.clearStorage(); signOut(); }}>כן, למחוק הכול</Button>
+              <Button variant="ghost" onClick={() => setDanger(null)}>ביטול</Button>
+            </div>
+          </Box>
         ) : (
           <div className="form-actions row">
             <Button variant="danger-outline" className="btn-sm" onClick={() => setDanger('reset')}>איפוס ההתקדמות</Button>
+            <Button variant="danger-outline" className="btn-sm" onClick={() => setDanger('wipe')}>מחיקת כל הנתונים</Button>
             <Button variant="danger-outline" className="btn-sm" onClick={() => setDanger('out')}>התנתקות מהמכשיר</Button>
           </div>
         )}

@@ -134,6 +134,12 @@ describe('misconceptions', () => {
       }
     });
   });
+  it('matches a prediction that is not whole when the student rounded it to tenths', () => {
+    const model = { params: () => ({ a: 6, b: 8 }), text: () => '', answer: (q: any) => Math.sqrt(q.a ** 2 + q.b ** 2), bugs: { 'no-root': (q: any) => q.a ** 2 + q.b ** 2, half: (q: any) => Math.sqrt(q.a ** 2 + q.b ** 2) / 3 }, solution: () => [''], hint: () => '' };
+    const d = diagnose(model as any, { a: 6, b: 8 }, 3.3); // 10/3 = 3.333…, typed as 3.3
+    expect(d.kind).toBe('misconception');
+    if (d.kind === 'misconception') expect(d.candidates[0].id).toBe('half');
+  });
   it('a slip and an unknown answer are not misconceptions', () => {
     expect(diagnose(addSubModel, { a: 9, b: -7, s: -1 }, 15).kind).toBe('slip'); // 16 expected
     expect(diagnose(addSubModel, { a: 9, b: -7, s: -1 }, 40).kind).toBe('unknown');
@@ -193,6 +199,9 @@ describe('the daily mission', () => {
     expect(items.some((i) => i.kind === 'new' || i.kind === 'continue')).toBe(true);
     let done = completeMissionItems(items, { skill: 'coord:1', kind: 'review' }, NOW);
     expect(done.find((i) => i.skill === 'coord:1')!.done).toBe(NOW);
+    // a repair does not complete learning a new stair on the same skill
+    const fresh = items.find((i) => i.kind === 'new')!;
+    expect(completeMissionItems(items, { skill: fresh.skill, kind: 'repair', misc: 'x' }, NOW).find((i) => i.kind === 'new')!.done).toBeUndefined();
     items.forEach((i) => { done = completeMissionItems(done, { skill: i.skill, kind: i.kind }, NOW); });
     expect(missionDone(done)).toBe(true);
   });

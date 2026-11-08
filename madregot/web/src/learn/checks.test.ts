@@ -6,6 +6,8 @@ import { isCorrect } from '@/content/index.js';
 import { learnAfterAnswer, learnAfterCheck, migrateLearn, emptyLearn } from './storeGlue';
 import { masteryState } from './mastery';
 import { addSubModel } from './content/signed';
+import { ALL_SKILLS } from './skills';
+import { contentOf } from './content/index';
 
 // the lesson engine is plain JS: its inferred types are too narrow for these tests
 const { startLesson, answer, next, resultOf } = lessonJs as any;
@@ -103,11 +105,39 @@ describe('the store glue', () => {
     expect(masteryState(L.skills['signed:1'], at)).toBe('mastered');
     expect(L.events.some((e) => e.e === 'check-done' && e.p === 'mastery' && e.ok)).toBe(true);
   });
+  it('takes evidence against a misconception only from questions where it could have shown', () => {
+    let L = learnAfterAnswer(emptyLearn(), { topic: 'signed', level: 1, ok: false, retry: true, at, key: 'q1', cands: [{ id: 'minus-minus', conf: 1 }] });
+    ['g1', 'g2', 'g3', 'g4'].forEach((key) => { L = learnAfterAnswer(L, { topic: 'signed', level: 1, ok: true, first: true, at, key }); });
+    expect(L.miscon['signed:1|minus-minus'].score).toBe(1); // right answers to other questions say nothing
+    L = learnAfterAnswer(L, { topic: 'signed', level: 1, ok: true, first: true, at, key: 'd1', could: ['minus-minus'] });
+    expect(L.miscon['signed:1|minus-minus'].score).toBe(0.5);
+  });
   it('migrates the misconceptions an older version recorded, without inventing any', () => {
     const L = migrateLearn({ 'signed:sign': { level: 1, n: 3, ok: 0, at }, 'coord:swap': { level: 2, n: 1, ok: 0, at }, 'stats:mode-max': { level: 1, n: 4, ok: 3 }, 'line:exam:שיפוע': { level: 4, n: 1, ok: 0, exam: true } });
     expect(L.miscon['signed:1|sign'].state).toBe('confirmed');
     expect(L.miscon['coord:2|swap'].state).toBe('suspected');
     expect(Object.keys(L.miscon)).toHaveLength(2);
     expect(L.skills).toEqual({});
+  });
+});
+
+describe('every stair supports its checks', () => {
+  it.each(ALL_SKILLS)('%s: a mastery check, a review, and a verification for every misconception it can diagnose', (skill) => {
+    const c = contentOf(skill)!;
+    expect(c, `${skill} has teaching content`).toBeTruthy();
+    for (const purpose of ['mastery', 'review']) {
+      const { s } = play(startLesson({ kind: 'check', purpose, skill }));
+      const r = resultOf(s);
+      expect(r.passed, `${skill} ${purpose}`).toBe(true);
+      expect(r.asked).toBe(purpose === 'mastery' ? 5 : 3);
+    }
+    const ids = new Set<string>([...Object.keys(c.diag.bugs), ...Object.keys(c.transfer?.bugs || {})]);
+    ids.forEach((misc) => {
+      const s0 = startLesson({ kind: 'check', purpose: 'verify', skill, misc });
+      // the verification asks questions where this misconception would show
+      expect(s0.item.could, `${skill} verify ${misc}`).toContain(misc);
+      const r = resultOf(play(s0).s);
+      expect(r.passed, `${skill} verify ${misc}`).toBe(true);
+    });
   });
 });

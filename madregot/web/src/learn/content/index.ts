@@ -1,10 +1,21 @@
 // The content registry: every stair's teaching journey, keyed by skill id ('signed:1' ... 'stats:5').
 // A stair that has no entry yet is not taught (the journey screen says so honestly) and keeps its practice.
-import type { StairContent, SkillId } from '../types';
-import { SIGNED } from './signed';
+import type { StairContent, SkillId, TopicId } from '../types';
+import { SIGNED, CATS_SIGNED } from './signed';
+import { COORD, CATS_COORD } from './coord';
+import { ANGLES, CATS_ANGLES } from './angles';
+import { LINE1, CATS_LINE1 } from './line1';
+import { LINE2, CATS_LINE2 } from './line2';
+import { PYTH, CATS_PYTH } from './pyth';
+import { STATS, CATS_STATS } from './stats';
 
-const ALL: StairContent[] = [...SIGNED];
+const ALL: StairContent[] = [...SIGNED, ...COORD, ...ANGLES, ...LINE1, ...LINE2, ...PYTH, ...STATS];
 
 export const CONTENT: Record<SkillId, StairContent> = Object.fromEntries(ALL.map((c) => [c.skill, c]));
 export const contentOf = (skill: SkillId): StairContent | null => CONTENT[skill] || null;
 export const hasContent = (skill: SkillId) => !!CONTENT[skill];
+
+/** Misconception names new in 2.0, by topic: merged into each topic's cats (content/index.js). */
+export const NEW_CATS: Record<TopicId, Record<string, string>> = {
+  signed: CATS_SIGNED, coord: CATS_COORD, angles: CATS_ANGLES, line: { ...CATS_LINE1, ...CATS_LINE2 }, pyth: CATS_PYTH, stats: CATS_STATS,
+};

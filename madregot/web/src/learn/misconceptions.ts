@@ -13,8 +13,6 @@ export const CONFIRM_SCORE = 1.5;
 export const GENERATOR_WEIGHT = 0.75;
 /** A right answer where the misconception could have shown. */
 export const COUNTER_WEIGHT = 0.5;
-/** A right first-try answer on the same stair, from a generator (we cannot tell whether it could have shown). */
-export const WEAK_COUNTER = 0.25;
 export const MAX_OFFERS_PER_DAY = 2;
 export const MAX_FAILED_VERIFY = 2;
 
@@ -43,9 +41,11 @@ export function diagnose<P>(model: DiagModel<P>, p: P, u: number | null): Diagno
   if (u == null || !Number.isFinite(u)) return { kind: 'unknown' };
   const ans = model.answer(p);
   if (same(u, ans)) return { kind: 'right' };
+  // a prediction that is not a whole number matches the student's answer rounded to tenths (as questions ask)
+  const matches = (v: number) => same(v, u) || (!Number.isInteger(v) && Math.abs(v - u) <= 0.05 + 1e-9);
   const hits = Object.entries(model.bugs)
     .map(([id, f]) => ({ id, v: f(p) }))
-    .filter((b) => b.v != null && Number.isFinite(b.v) && !same(b.v, ans) && same(b.v, u))
+    .filter((b) => b.v != null && Number.isFinite(b.v) && !same(b.v, ans) && matches(b.v!))
     .map((b) => b.id);
   if (hits.length) {
     const conf = 1 / hits.length;

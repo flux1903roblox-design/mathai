@@ -10,7 +10,9 @@ export default function DataBars({ m, value, onChange, locked, reveal, good, ans
   const target = byMedian ? m.target : m.mean;
   const all = [...values, value];
   const n = all.length; const mean = all.reduce((t, v) => t + v, 0) / n;
-  const median = [...all].sort((x, y) => x - y)[Math.floor(n / 2)];
+  const sorted = [...all].sort((x, y) => x - y);
+  // an even count has two middle values: the median is halfway between them
+  const median = n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
   const slot = (RGT - L) / n; const bw = slot * 0.56;
   const Y = (v) => BOT - (v / max) * (BOT - TOP);
   const toV = (sy) => clamp(Math.round(((BOT - sy) / (BOT - TOP)) * max), 0, max);

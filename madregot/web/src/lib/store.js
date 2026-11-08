@@ -77,8 +77,8 @@ export const useApp = create(
           learn: learnAfterAnswer(get().learn, event),
         });
       },
-      /** A first miss (the student gets another try): evidence for the learning model only, not a finished question. */
-      noteMiss: (event) => set({ learn: learnAfterAnswer(get().learn, event) }),
+      /** Evidence for the learning model only (a first miss before another try, a move in solve-together): not a finished question. */
+      noteLearn: (event) => set({ learn: learnAfterAnswer(get().learn, event) }),
       /** A finished check (mastery, review, verify, diagnostic, practice exam): mastery, reviews, misconceptions, the exam plan. */
       completeCheck: (r) => {
         // a check is a finished learning activity: it keeps the streak and earns XP when it passed

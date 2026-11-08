@@ -10,7 +10,8 @@ import { PARTS, JUMP_LEN, REVIEW_LEN, LESSON_LEN } from '@/lib/lesson.js';
 import Mascot from '@/components/Mascot.jsx';
 import PathNode from '@/components/PathNode.jsx';
 import Board from '@/components/Board.jsx';
-import ContinueCard from '@/components/ContinueCard.jsx';
+import TodayCard from '@/components/learn/TodayCard.jsx';
+import MasteryMap from '@/components/learn/MasteryMap.jsx';
 import PathTrail from '@/components/map/PathTrail.jsx';
 import { SCENERY, Emblem } from '@/components/map/Scenery.jsx';
 import WorldBackdrop from '@/components/map/WorldBackdrop.jsx';
@@ -37,8 +38,10 @@ function NodeCard({ n, t, onStart }) {
       {n.state === 'current' && <p className="node-card-sub">שיעור {Math.min(n.parts + 1, PARTS)} מתוך {PARTS}, {LESSON_LEN} תרגילים</p>}
       {n.state === 'done' && <p className="node-card-sub">הושלם. אפשר לחזור ולתרגל.</p>}
       {n.state === 'locked' && <p className="node-card-sub">יודעים כבר? מבחן קצר של {JUMP_LEN} תרגילים, טעות אחת מותרת, פותח את כל הדרך עד לכאן.</p>}
-      {n.state === 'current' && <Button className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${Math.min(n.parts + 1, PARTS)}`)}>{n.parts ? 'המשך' : 'התחלה'}</Button>}
-      {n.state === 'done' && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>תרגול חוזר</Button>}
+      {n.state === 'current' && <Button className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{n.parts ? 'המשך' : 'התחלה'}</Button>}
+      {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${Math.min(n.parts + 1, PARTS)}`)}>ישר לתרגול</Button>}
+      {n.state === 'done' && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור ולבדיקת שליטה</Button>}
+      {n.state === 'done' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>תרגול חוזר</Button>}
       {n.state === 'locked' && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${n.level}?kind=jump`)}>מבחן קפיצה</Button>}
     </div>
   );
@@ -223,7 +226,9 @@ export default function Learn() {
 
       <div className="learn-layout">
       <div className="learn-body">
-        <ContinueCard grade={view} next={focusNode} onStart={onStart} onBoard={onBoard} />
+        {/* one clear next action: today's mission (Madregot 2.0), then where the student stands */}
+        <TodayCard grade={view} onBoard={onBoard} />
+        <MasteryMap grade={view} />
         <h2 className="map-title">מפת השיעורים</h2>
         {topics.map((t, i) => (
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}

@@ -13,7 +13,7 @@ import { triangleAngles } from '@/content/manip.js';
 import Mascot from '../Mascot.jsx';
 import { minus } from './core.jsx';
 
-const KINDS = { numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag };
+export const KINDS = { numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag };
 
 // A number inside Hebrew text keeps its minus sign on the left.
 const N = ({ v }) => <bdi dir="ltr">{minus(v)}</bdi>;

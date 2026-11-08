@@ -61,3 +61,6 @@ export function Markdown({ children, className, inline = false }) {
     </Tag>
   );
 }
+
+/** Text with $...$ maths as plain words, for an accessible name (a button whose text is only maths). */
+export const mathPlain = (text) => String(text || '').replace(/\$([^$]+)\$/g, (_, t) => texText(t)).replace(/\s+/g, ' ').trim();

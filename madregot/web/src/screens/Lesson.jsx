@@ -3,7 +3,7 @@ import { useBlocker, useLocation, useNavigate, useParams, useSearchParams } from
 import clsx from 'clsx';
 import { AnimatePresence, m } from 'motion/react';
 import { toast } from 'sonner';
-import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2 } from 'lucide-react';
+import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
 import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath } from '@/content/index.js';
@@ -22,6 +22,11 @@ import CheckResult from '@/components/CheckResult.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/components/ui.jsx';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
+import CheckDone from './CheckDone.jsx';
+import TutorSheet from '@/components/learn/TutorSheet.jsx';
+import RemedyFlow from '@/components/learn/RemedyFlow.jsx';
+import { contentOf } from '@/learn/content/index.ts';
+import { skillId, parseSkill } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 
@@ -101,8 +106,20 @@ function useLessonSpec() {
   const { pathname } = useLocation();
   const { path, progress, profile } = useApp.getState();
   if (pathname === '/placement') return { kind: 'placement', grade: ['7', '8'].includes(params.get('grade')) ? params.get('grade') : profile?.grade || '7', know: profile?.know ?? 1 };
+  // Exam Rescue: the diagnostic and the practice exam run over the exam's stairs
+  if (pathname === '/rescue/check' || pathname === '/rescue/exam') {
+    const ex = useApp.getState().learn?.exam;
+    if (!ex?.skills?.length) return null;
+    const first = parseSkill(ex.skills[0]);
+    return { kind: 'check', purpose: pathname.endsWith('exam') ? 'exam' : 'diagnostic', skills: ex.skills, topic: first.topic, level: first.level };
+  }
   const topic = tParam || id;
   if (!TOPIC[topic]) return null;
+  if (params.get('kind') === 'check') {
+    const lv = Math.min(Math.max(Number(lParam) || 1, 1), TOPIC[topic].levels.length);
+    const purpose = ['mastery', 'review', 'verify'].includes(params.get('purpose')) ? params.get('purpose') : 'mastery';
+    return { kind: 'check', purpose, skill: skillId(topic, lv), misc: purpose === 'verify' ? params.get('misc') : null, topic, level: lv };
+  }
   const kind = ['review', 'jump'].includes(params.get('kind')) ? params.get('kind') : 'node';
   const nodes = unitNodes(topic, path, progress);
   const current = nodes.find((n) => n.kind === 'node' && n.state === 'current');
@@ -110,7 +127,7 @@ function useLessonSpec() {
   const node = nodes.find((n) => n.kind === 'node' && n.level === level);
   const part = Number(params.get('part')) || (node?.state === 'done' ? PARTS : Math.min(PARTS, (node?.parts || 0) + 1));
   const max = progress[topic]?.max || level;
-  return { kind, topic, level, part, max, fromPlan: params.get('from') === 'plan' };
+  return { kind, topic, level, part, max, fromPlan: params.get('from') === 'plan', fromJourney: params.get('from') === 'journey' };
 }
 
 export default function Lesson() {
@@ -165,7 +182,10 @@ export default function Lesson() {
   // A placement test moves across topics: the colours and the misconceptions follow the question.
   const t = spec ? TOPIC[item?.topic || spec.topic] : null;
   const placement = spec?.kind === 'placement';
-  const isTest = (k) => k === 'jump' || k === 'placement'; // a check, not practice: one try, no hints
+  const isTest = (k) => k === 'jump' || k === 'placement' || k === 'check'; // a check, not practice: one try, no hints
+  const isCheck = spec?.kind === 'check';
+  const [tutorOpen, setTutorOpen] = useState(false);
+  const [remedy, setRemedy] = useState(null); // a misconception's repair, opened from the feedback
   const names = item ? slotsFor(item) : [];
   // An interactive exercise: the state of the object the student moves. It belongs to one exercise, so a new
   // exercise starts from its own starting state even before the reset effect runs (the shapes differ by kind).
@@ -204,6 +224,9 @@ export default function Lesson() {
   }, [item, mkey]);
 
   const focusSlot = useCallback((k) => { document.getElementById(`slot-${k}`)?.focus({ preventScroll: true }); }, []);
+
+  // the learning record: a lesson or a check started (for the outcome metrics, on this device only)
+  useEffect(() => { if (spec && !placement) useApp.getState().learnEvent({ e: 'lesson-start', s: skillId(spec.topic, spec.level), p: spec.kind === 'check' ? spec.purpose : spec.kind }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const aiContext = () => ({
     grade: t.grade, topic: t.title, level: item.levelTitle, question: itemPlain(item),
@@ -266,7 +289,7 @@ export default function Lesson() {
         // The second miss is the moment help matters most: ask the tutor without waiting to be asked.
         if (aiReady() && !isTest(ns.kind)) setTimeout(() => askExplainFor(ns), 0);
       }
-      if (result.retry) { setStruck(true); setActive(names[0] || 'v'); if (item.form === 'mc') setChoice(null); }
+      if (result.retry) { setStruck(true); setActive(names[0] || 'v'); if (item.form === 'mc') setChoice(null); if (result.event) st.noteLearn(result.event); }
     }
     setS(ns);
   };
@@ -280,7 +303,14 @@ export default function Lesson() {
 
   const finish = (ns) => {
     const result = resultOf(ns);
-    const award = placement ? useApp.getState().completePlacement(result) : useApp.getState().completeLesson(result, { fromPlan: spec.fromPlan });
+    const app = useApp.getState();
+    const award = placement ? app.completePlacement(result) : isCheck ? app.completeCheck(result) : app.completeLesson(result, { fromPlan: spec.fromPlan });
+    // a finished activity completes its item of today's mission
+    if (!placement && result.topic && result.level) {
+      const kindOf = { mastery: 'mastery', review: 'review', verify: 'repair', diagnostic: 'exam', exam: 'exam' };
+      (result.skills || [skillId(result.topic, result.level)]).forEach((sk) => app.completeMission({ skill: sk, kind: isCheck ? kindOf[result.purpose] : 'continue', misc: result.misc || undefined }));
+      app.learnEvent({ e: 'lesson-done', s: skillId(result.topic, result.level), p: isCheck ? result.purpose : result.kind, ok: result.passed });
+    }
     syncNow();
     play(result.passed ? 'complete' : 'wrong');
     setDone({ result, award });
@@ -303,7 +333,7 @@ export default function Lesson() {
 
   useEffect(() => {
     const onDoc = (e) => {
-      if (done || chatOpen || helpOpen || exitOpen) return;
+      if (done || chatOpen || helpOpen || exitOpen || tutorOpen || remedy) return;
       // A computer keyboard types into the answer even when the focus is elsewhere on the screen.
       const tag = document.activeElement?.tagName;
       // Enter goes on from the feedback, unless it is pressing another button there ("the next step", "how to solve")
@@ -376,7 +406,8 @@ export default function Lesson() {
   }
   if (done) leaving.current = true; // the end screens lead back to the map without asking
   if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: { placed: true } })} />;
-  if (done) return <LessonDone {...done} topic={t} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: { from: spec.topic, nodeDone: !!(done.award.nodeDone || done.award.unitDone) } })} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
+  if (done && isCheck) return <CheckDone result={done.result} award={done.award} onExit={() => navigate('/', { replace: true, preventScrollReset: true })} />;
+  if (done) return <LessonDone {...done} topic={t} onExit={() => (spec.fromJourney ? navigate(`/learn/${spec.topic}/${spec.level}`, { replace: true }) : navigate('/', { replace: true, preventScrollReset: true, state: { from: spec.topic, nodeDone: !!(done.award.nodeDone || done.award.unitDone) } }))} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
 
   const feedback = last && !last.invalid ? (last.ok ? 'good' : s.phase === 'retry' ? 'retry' : 'reveal') : null;
   const inClass = !!st.profile?.token;
@@ -398,6 +429,7 @@ export default function Lesson() {
   const tools = (
     <div className="tools" role="group" aria-label="עזרה">
       {!isTest(s.kind) && <button type="button" className={clsx('tool', s.hint && 'on')} onClick={() => setS(withHint(s))} disabled={s.hint} aria-pressed={!!s.hint} aria-label="רמז"><Lightbulb size={20} aria-hidden="true" /><span className="tool-label">רמז</span></button>}
+      {!isTest(s.kind) && <button type="button" className="tool" aria-label="שאלה למדי" onClick={() => setTutorOpen(true)}><HelpCircle size={20} aria-hidden="true" /><span className="tool-label">מדי</span></button>}
       {aiReady() && !isTest(s.kind) && <button type="button" className="tool ai" aria-label="שאלו את העוזר" onClick={() => setChatOpen(true)}><Sparkles size={20} aria-hidden="true" /><span className="tool-label">העוזר</span></button>}
       <button type="button" className={clsx('tool', nbOn && 'on')} aria-pressed={nbOn} aria-label={nbOn ? 'תשובה' : 'מחברת'} onClick={() => setNbOn(!nbOn)}>{nbOn ? <Keyboard size={20} aria-hidden="true" /> : <NotebookPen size={20} aria-hidden="true" />}<span className="tool-label">{nbOn ? 'תשובה' : 'מחברת'}</span></button>
       {inClass && <button type="button" className="tool" aria-label="למורה" onClick={() => setHelpOpen(true)}><Hand size={20} aria-hidden="true" /><span className="tool-label">למורה</span></button>}
@@ -416,7 +448,7 @@ export default function Lesson() {
     <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed', isManip && !nbOn && 'is-manip')}>
       {/* top: progress and the question, always on screen */}
       <header className="lesson-head">
-        <ProgressHeader extra={compact ? tools : null} pct={pct} marks={placement ? null : marks} total={s.total} at={s.slot < s.total ? s.slot : marks.indexOf('shown')} label={placement ? 'התקדמות בבדיקת הרמה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
+        <ProgressHeader extra={compact ? tools : null} pct={pct} marks={placement ? null : marks} total={s.total} at={s.slot < s.total ? s.slot : marks.indexOf('shown')} label={placement ? 'התקדמות בבדיקת הרמה' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
         <AnimatePresence mode="wait" initial={false}>
           <m.div key={stage} className="q-pin" {...slide}>{question}</m.div>
         </AnimatePresence>
@@ -429,6 +461,7 @@ export default function Lesson() {
         {/* nothing to draw: on a short phone (where the question has no מדי beside it) he waits here */}
         {!item.display && !item.fig && item.form !== 'mc' && !isManip && !nbOn && <Mascot mood={mood} beat={shakeKey + (last?.ok ? s.solved * 100 : 0)} size={96} className="stage-mascot" />}
         {item.redo && <p className="redo-note"><RotateCcw size={16} aria-hidden="true" />תרגיל דומה לזה שהיה קשה קודם</p>}
+        {item.extra && <p className="redo-note"><Search size={16} aria-hidden="true" />עוד שאלה אחת, כדי להבין מה בדיוק בלבל</p>}
         {item.display && <div className="qdisplay"><Tex tex={item.form === 'mc' ? item.display : `${item.display} = \\,?`} display /></div>}
         {item.fig && (
           <div className="fig-zoomable">
@@ -497,7 +530,11 @@ export default function Lesson() {
               </div>
               {feedback === 'retry' && (
                 <div className="fb-body">
-                  {last?.cat && t.cats[last.cat] && <p><MathText text={`מה כנראה קרה: ${t.cats[last.cat]}.`} /></p>}
+                  {last?.cat && t.cats[last.cat] && !last.diagnosis?.ambiguous && <p><MathText text={`מה כנראה קרה: ${t.cats[last.cat]}.`} /></p>}
+                  {last?.diagnosis?.ambiguous && <p>התשובה יכולה להתאים לכמה טעויות שונות. בסוף השיעור תגיע שאלה אחת שתעזור להבין.</p>}
+                  {!isTest(s.kind) && last?.cat && !last.diagnosis?.ambiguous && contentOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
+                    <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
+                  )}
                   <p className="hint-line"><Lightbulb size={16} aria-hidden="true" /><MathText text={item.hint} /></p>
                   {/* guide, don't just say "again": the first step of the way, never the whole solution */}
                   {item.solution?.length > 1 && !isTest(s.kind) && (guide ? (
@@ -516,6 +553,9 @@ export default function Lesson() {
                   {explain.state === 'error' && <p className="form-error" role="alert">{explain.text}</p>}
                   {explain.state === 'idle' && aiReady() && !isTest(s.kind) && <Button variant="ai" className="btn-sm" onClick={askExplain}><Sparkles size={16} aria-hidden="true" />למה טעיתי?</Button>}
                   {!isTest(s.kind) && <p className="fb-note">תרגיל דומה יחזור בסוף השיעור.</p>}
+                  {!isTest(s.kind) && last?.cat && contentOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
+                    <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
+                  )}
                 </div>
               )}
               {feedback === 'good' && (
@@ -565,6 +605,11 @@ export default function Lesson() {
       <Sheet open={chatOpen} onOpenChange={setChatOpen} title="שאלו את העוזר">
         <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={item.text} />{item.display && <> <Tex tex={item.display} /></>}</div>
         <AIChat context={aiContext()} messages={chat} onMessages={setChat} />
+      </Sheet>
+      <TutorSheet open={tutorOpen} onOpenChange={setTutorOpen} content={contentOf(skillId(item.topic || spec.topic, item.level))} item={item}
+        wrong={s.wrong.length ? { cat: last?.cat ?? null, diagnosis: last?.diagnosis ?? null } : null} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null} />
+      <Sheet open={!!remedy} onOpenChange={(o) => { if (!o) setRemedy(null); }} title="בואו נראה את זה אחרת">
+        {remedy && <RemedyFlow content={contentOf(skillId(item.topic || spec.topic, item.level))} misc={remedy} compact onDone={() => setRemedy(null)} doneLabel="חזרה לשיעור" />}
       </Sheet>
       <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} payload={{ topic: item.topic, level: item.level, question: itemMath(item), answer: s.wrong.map((w) => answerText(item, w)).join(' ; ') }} getImage={() => (page.strokes.length ? nbRef.current?.toImage() || null : null)} hasPage={page.strokes.length > 0} />
     </div>

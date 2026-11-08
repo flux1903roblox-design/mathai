@@ -19,6 +19,11 @@ const Exams = lazy(() => import('@/screens/Exams.jsx'));
 const ExamCheck = lazy(() => import('@/screens/ExamCheck.jsx'));
 const ExamResult = lazy(() => import('@/screens/ExamResult.jsx'));
 const Plan = lazy(() => import('@/screens/Plan.jsx'));
+const Journey = lazy(() => import('@/screens/Journey.jsx'));
+const Teach = lazy(() => import('@/screens/Teach.jsx'));
+const Repair = lazy(() => import('@/screens/Repair.jsx'));
+const Mission = lazy(() => import('@/screens/Mission.jsx'));
+const Rescue = lazy(() => import('@/screens/Rescue.jsx'));
 const NewPracticeExam = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.NewPracticeExam })));
 const PracticeSheet = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.PracticeSheet })));
 
@@ -51,6 +56,11 @@ function Toasts() {
 function LessonRoute() {
   const { pathname, search } = useLocation();
   return <Lesson key={`${pathname}${search}`} />;
+}
+// Each teaching stage is its own screen: a new stage starts at its own beginning.
+function TeachRoute() {
+  const { pathname } = useLocation();
+  return <Teach key={pathname} />;
 }
 
 /** The app's screens. Rendered under a data router so a lesson can ask before the back button leaves it. */
@@ -85,10 +95,17 @@ function Root() {
               <Route path="/exams/practice/:id" element={<PracticeSheet />} />
               <Route path="/exams/:id" element={<ExamResult />} />
               <Route path="/plan" element={<Plan />} />
+              <Route path="/learn/:topic/:level" element={<Journey />} />
+              <Route path="/mission" element={<Mission />} />
+              <Route path="/rescue" element={<Rescue />} />
             </Route>
             <Route path="/lesson/:topic/:level" element={<LessonRoute />} />
             <Route path="/practice/:id" element={<LessonRoute />} />
             <Route path="/placement" element={<LessonRoute />} />
+            <Route path="/learn/:topic/:level/:stage" element={<TeachRoute />} />
+            <Route path="/repair/:topic/:level/:misc" element={<Repair />} />
+            <Route path="/rescue/check" element={<LessonRoute />} />
+            <Route path="/rescue/exam" element={<LessonRoute />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}
