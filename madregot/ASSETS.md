@@ -65,7 +65,7 @@ Versions are from `web/package.json`. Licences were confirmed in `node_modules/*
 
 ## 4. Mascot
 
-מדי, the mascot, is original to Madregot: a coral two-step stair block with teal hands and feet, a face and a plus sign on its lower
+מדי, the mascot, is original to Madregot: a purple two-step stair block with a face and a plus sign on its lower
 step (`web/src/components/Mascot.jsx`). It is drawn in SVG and animated with Motion (`motion/react`), with six states
 driven by app events: idle (breathing, blinking), happy (a hop and a wave after a right answer), thinking (head tilt,
 question bubble while a hint or the notebook is open), encouraging (a lean and a thumbs up after a wrong answer),

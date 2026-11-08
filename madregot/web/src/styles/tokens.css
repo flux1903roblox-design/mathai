@@ -22,10 +22,10 @@
   --gold: #f5b400;      --gold-d: #d39600;    --gold-ink: #8a5c00;    --gold-tint: #fff4cc;
   --ai: #c0267a;        --ai-tint: #fde8f3;   --ai-ink: #a3165f;
 
-  /* מדי, the mascot: a warm coral body with teal hands and feet. The only warm character on cool screens (indigo,
-     the chapter colours), so he stands out everywhere; the teal is his complement. Not red, orange or gold: those mean. */
-  --madi-hi: #ff9e82;   --madi-lo: #f46d55;   --madi-edge: #c44a33; --madi-tread: #ffd4c7; /* body gradient, 3D edge, treads */
-  --madi-limb: #0f8f9c; --madi-mark: rgba(255, 255, 255, 0.6); --madi-blush: #ff5c8a;     /* arms, hands, feet; plus sign; cheeks */
+  /* מדי, the mascot: his own colours, in one place (body gradient, 3D edge, treads; arms, hands and feet; plus sign; cheeks).
+     The brand's purple: the brief keeps the purple mascot. Another colour is a change of these tokens only. */
+  --madi-hi: #7a70ff;   --madi-lo: #5246ea;   --madi-edge: #3f33c4; --madi-tread: #a49dff;
+  --madi-limb: #3f33c4; --madi-mark: rgba(255, 255, 255, 0.45); --madi-blush: #ff8fb8;
 
   /* chapter colours (one per topic): fill, 3D edge and text, tint.
      None is green, orange or gold: those mean correct, streak and XP. */

@@ -4,6 +4,12 @@ import { TOPIC } from '@/content/index.js';
 import { recordOnPath } from './path.js';
 import { questProgress } from './quests.js';
 import { noteGap, gapsFromExam } from './board.js';
+import { learnAfterAnswer, learnAfterCheck, emptyLearn, migrateLearn } from '@/learn/storeGlue.ts';
+import { markTaught as markTaughtRec } from '@/learn/mastery.ts';
+import { logEvent } from '@/learn/analytics.ts';
+import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
+import { completeMissionItems } from '@/learn/mission.ts';
+import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
@@ -36,6 +42,7 @@ const empty = {
   wins: {}, // 'topic:level' -> correct answers at that level
   gaps: {}, // 'topic:cat' (or 'topic:exam:skill') -> { level, n, ok, at, text? }: what is not clear yet; clears after GAP_CLEAR right answers at that level
   placement: null, // { at, grade, results: { topic: { level, asked, right } } }
+  learn: emptyLearn(), // Madregot 2.0: skills (evidence, mastery, reviews), misconceptions, exam plan, missions, events (src/learn/types.ts)
 };
 
 export const useApp = create(
@@ -67,8 +74,32 @@ export const useApp = create(
           wins,
           gaps: noteGap(get().gaps, event),
           outbox: get().profile?.token ? [...get().outbox, event].slice(-500) : get().outbox,
+          learn: learnAfterAnswer(get().learn, event),
         });
       },
+      /** A first miss (the student gets another try): evidence for the learning model only, not a finished question. */
+      noteMiss: (event) => set({ learn: learnAfterAnswer(get().learn, event) }),
+      /** A finished check (mastery, review, verify, diagnostic, practice exam): mastery, reviews, misconceptions, the exam plan. */
+      completeCheck: (r) => {
+        // a check is a finished learning activity: it keeps the streak and earns XP when it passed
+        const st = get(); const d = today(); const cur = st.days[d] || {};
+        const goalBefore = (cur.xp || 0) >= st.goalXp;
+        const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + (r.xp || 0) };
+        const days = { ...st.days, [d]: day };
+        const learn = learnAfterCheck(st.learn, r, new Date().toISOString(), d);
+        set({ learn, days, xp: st.xp + (r.xp || 0) });
+        return { streakExtended: !(cur.lessons > 0), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp };
+      },
+      learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
+      /** A teaching stage finished (A discover, B example, C together). */
+      markTaught: (skill, stage) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, skills: { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) }, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) } }); },
+      /** Where the student is inside a teaching stage, so leaving keeps the place. */
+      setStagePos: (skill, stage, i) => { const L = get().learn; const r = L.skills[skill] || { attempts: [] }; set({ learn: { ...L, skills: { ...L.skills, [skill]: { ...r, pos: { ...(r.pos || {}), [stage]: i } } } } }); },
+      startRepair: (skill, misc) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, miscon: startRepairRec(L.miscon, skill, misc, today(), at), events: logEvent(L.events, { e: 'repair-start', s: skill, m: misc }, at) } }); },
+      saveMission: (day, items) => { const L = get().learn; const keep = Object.fromEntries(Object.entries(L.missions).filter(([d]) => d >= dayBefore(dayBefore(day)))); set({ learn: { ...L, missions: { ...keep, [day]: { items } } } }); },
+      completeMission: (done) => { const L = get().learn; const d = today(); const m = L.missions[d]; if (!m) return; set({ learn: { ...L, missions: { ...L.missions, [d]: { items: completeMissionItems(m.items, done, new Date().toISOString()) } } } }); },
+      setExam: (input) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, exam: input ? newPlan(input, at) : null, events: input ? logEvent(L.events, { e: 'rescue-created' }, at) : L.events } }); },
+      recordExamDiagnostic: (skill, right, asked) => { const L = get().learn; if (!L.exam) return; set({ learn: { ...L, exam: recordDiagnostic(L.exam, skill, right, asked, new Date().toISOString()) } }); },
       addXP: (n) => set({ xp: get().xp + n }),
       setGoalXp: (goalXp) => set({ goalXp }),
       setSound: (sound) => set({ sound }),
@@ -136,11 +167,20 @@ export const useApp = create(
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
         set({ profile: rest, outbox: [] });
       },
-      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null }),
-      signOut: () => set({ ...empty, ai: get().ai }),
+      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
+      signOut: () => set({ ...empty, learn: emptyLearn(), ai: get().ai }),
     }),
     // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')
-    { name: import.meta.env.VITE_STORE_KEY || 'madregot', storage: safeStorage, version: 1 },
+    {
+      name: import.meta.env.VITE_STORE_KEY || 'madregot', storage: safeStorage, version: 2,
+      // v1 → v2 (Madregot 2.0): nothing is removed or rewritten; the learning model is added, seeded from the
+      // misconceptions the app already recorded (gaps). Unknown or broken saved data falls back to the defaults.
+      migrate: (saved, version) => {
+        const st = saved && typeof saved === 'object' ? saved : {};
+        if (version < 2) return { ...st, learn: migrateLearn(st.gaps || {}) };
+        return { ...st, learn: st.learn && typeof st.learn === 'object' ? { ...emptyLearn(), ...st.learn } : emptyLearn() };
+      },
+    },
   ),
 );
 

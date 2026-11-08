@@ -27,10 +27,10 @@ colors:
   gold-d: "#d39600"
   gold-ink: "#8a5c00"
   gold-tint: "#fff4cc"
-  madi-hi: "#ff9e82"
-  madi-lo: "#f46d55"
-  madi-edge: "#c44a33"
-  madi-limb: "#0f8f9c"
+  madi-hi: "#7a70ff"
+  madi-lo: "#5246ea"
+  madi-edge: "#3f33c4"
+  madi-limb: "#3f33c4"
   ai-tint: "#fde8f3"
   ai-ink: "#a3165f"
   ch-sky: "#1a8fd6"
@@ -238,7 +238,7 @@ components:
 
 **Creative North Star: "The Friendly Staircase"**
 
-Madregot means stairs, and the whole system is a staircase a student climbs a few steps of every day. The ground is plain white, the ink a soft navy, and everything the thumb can press is a chunky, rounded block standing on a solid lip that sinks when pressed. A winding path of round coins carries the student from lesson to lesson; each topic is a unit with its own chapter colour; the mascot מדי, a coral two-step stair block with teal hands and feet and a face, stands beside the next step and reacts to every answer.
+Madregot means stairs, and the whole system is a staircase a student climbs a few steps of every day. The ground is plain white, the ink a soft navy, and everything the thumb can press is a chunky, rounded block standing on a solid lip that sinks when pressed. A winding path of round coins carries the student from lesson to lesson; each topic is a unit with its own chapter colour; the mascot מדי, a purple two-step stair block with a face, stands beside the next step and reacts to every answer.
 
 The loop is Duolingo's (path, one big check button, a green or red panel after every answer, streak, XP) with its own identity: electric indigo instead of green as the brand, Fredoka and Rubik instead of a proprietary face, a stair block instead of an owl. The density is phone-first and generous: 44px minimum targets, one question per screen, the action dock within thumb reach. Colour is loud but semantic; every saturated hue has exactly one job.
 
@@ -278,8 +278,7 @@ A bright, clean palette in which every saturated colour carries one meaning, set
 - **Soft Navy Ink** (ink): all primary text and the mascot's eyes.
 
 ### The mascot's own colours
-- **Madi Coral** (madi-hi, madi-lo, madi-edge, madi-tread): מדי's body, its 3D edge and the light on his treads. He is the only warm character on cool screens (indigo and the chapter colours), so he stands out in every world on the map. Coral is not red, orange or gold, which carry meanings.
-- **Madi Teal** (madi-limb): his arms, hands and feet, the complement of the coral. Changing his colour is a change to these tokens only.
+- **Madi Purple** (madi-hi, madi-lo, madi-edge, madi-tread, madi-limb): מדי's body, its 3D edge, the light on his treads, his arms, hands and feet. The brand's purple, kept by the product brief. Changing his colour is a change to these tokens only (a coral-and-teal version was tried on staging and set aside).
 - **Slate** (ink-2): secondary text, inactive tabs, unpressed counts.
 - **Hairline / Strong Rule / Press Rule** (rule, rule-strong, rule-press): borders of cards and controls, empty bar tracks; rule-press is the lip under white controls.
 
@@ -404,7 +403,7 @@ One question per screen: a back arrow and an indigo progress bar on top, the mas
 - **Scenery:** three pieces of the topic's own world stand beside the stops the road swings away from, never beside the stop where מדי stands: a thermometer, the sea line and a cloud (signed numbers); a treasure grid, a compass and a pin (coordinates); a protractor, peaks and a kite (angles); slope stairs, a ramp with a flag and a paper plane (linear functions); the squares on a right triangle, a ladder and a pyramid (Pythagoras); a bar-chart skyline, a pie chart and dice (statistics). Drawn flat in the unit's fill, edge, tint, white and gold.
 
 ### Mascot מדי (signature)
-An SVG coral two-step stair block with teal hands and feet, a light-to-deep gradient, lighter treads, a highlight, a plus sign on the lower step, feet, hands and a face with brows. Motion drives six states from real events: idle (breathing and a blink every 3–5s), happy (a hop and a wave, replayed on every right answer), thinking (head tilt, eyes up, a question bubble while a hint or the notebook is open), encouraging (a lean and a thumbs up after a wrong answer), excited (two jumps and sparkles after a lesson) and achievement (a gold star held high for a unit, a perfect lesson, a placement). Arms, brows and pupils spring between poses; mouths cross-fade. He stands beside the current stop, asks each question from beside its speech bubble, and leads every celebration. Under reduced motion he holds still poses.
+An SVG purple two-step stair block with a light-to-deep gradient, lighter treads, a highlight, a plus sign on the lower step, feet, hands and a face with brows. Motion drives six states from real events: idle (breathing and a blink every 3–5s), happy (a hop and a wave, replayed on every right answer), thinking (head tilt, eyes up, a question bubble while a hint or the notebook is open), encouraging (a lean and a thumbs up after a wrong answer), excited (two jumps and sparkles after a lesson) and achievement (a gold star held high for a unit, a perfect lesson, a placement). Arms, brows and pupils spring between poses; mouths cross-fade. He stands beside the current stop, asks each question from beside its speech bubble, and leads every celebration. Under reduced motion he holds still poses.
 
 ### Exercise screen (signature)
 - **Top:** a close button, the lesson as a short staircase of results (one step per exercise, rising in the reading direction: green right away, gold when fixed on the second try, hatched rose when the answer was shown and green once it is solved on its return, the current step outlined in indigo), and the combo as an orange chip that pops in from two in a row. A placement test keeps a plain bar.

@@ -19,13 +19,13 @@ const ALIAS = { cheer: 'happy', think: 'thinking', oops: 'encouraging' };
 
 const INK = '#231d5c';
 // His own colour lives in tokens.css (--madi-*), so it is set in one place.
-const HI = { stopColor: 'var(--madi-hi, #ff9e82)' };
-const LO = { stopColor: 'var(--madi-lo, #f46d55)' };
-const EDGE = 'var(--madi-edge, #c44a33)';
-const TREAD = 'var(--madi-tread, #ffd4c7)';
-const LIMB = 'var(--madi-limb, #0f8f9c)';
-const MARK = 'var(--madi-mark, rgba(255, 255, 255, 0.6))';
-const BLUSH = 'var(--madi-blush, #ff5c8a)';
+const HI = { stopColor: 'var(--madi-hi, #7a70ff)' };
+const LO = { stopColor: 'var(--madi-lo, #5246ea)' };
+const EDGE = 'var(--madi-edge, #3f33c4)';
+const TREAD = 'var(--madi-tread, #a49dff)';
+const LIMB = 'var(--madi-limb, #3f33c4)';
+const MARK = 'var(--madi-mark, rgba(255, 255, 255, 0.45))';
+const BLUSH = 'var(--madi-blush, #ff8fb8)';
 const ARMS = {
   //       left arm (shoulder 28,86)            right arm (shoulder 116,90)
   idle: ['M28 86 Q18 94 17 105', 'M116 90 Q126 98 127 109'],
