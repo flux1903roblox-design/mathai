@@ -6,13 +6,16 @@ import { useApp } from '@/lib/store.js';
 import { topicsFor } from '@/content/index.js';
 import { GradeSwitch } from './Welcome.jsx';
 import PageHero from '@/components/PageHero.jsx';
+import WorldBackdrop from '@/components/map/WorldBackdrop.jsx';
 
 export function TopicRow({ t, n, to }) {
   const p = useApp((s) => s.progress[t.id]);
   const level = p?.level || 1;
   return (
     <li>
-      <Link to={to || `/topic/${t.id}`} className="topic-row">
+      <Link to={to || `/topic/${t.id}`} className={`topic-row has-world ch-${t.color} world-${t.id}`}>
+        {/* the same world as the unit on the map */}
+        <span className="topic-world" aria-hidden="true"><WorldBackdrop topic={t.id} /></span>
         <ChapterMark color={t.color} n={n} />
         <span className="topic-row-text">
           <span className="topic-row-title">{t.title}</span>
@@ -34,7 +37,7 @@ export default function Topics() {
   const list = topicsFor(grade);
   return (
     <div className="page wide topics-page">
-      <PageHero tone="brand" art="study" title="נושאים" sub="כל הנושאים של השנה, וכמה מדרגות כבר עליתם בכל אחד." />
+      <PageHero tone="brand" scene="topics" title="נושאים" sub="כל הנושאים של השנה, וכמה מדרגות כבר עליתם בכל אחד." />
       <div className="field">
         <span className="visually-hidden" id="tp-grade">שכבה</span>
         <GradeSwitch value={grade} onChange={setGrade} id="tp-grade" />

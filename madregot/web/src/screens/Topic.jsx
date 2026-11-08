@@ -6,6 +6,7 @@ import { aiReady } from '@/lib/ai.js';
 import { TOPIC, TOPICS } from '@/content/index.js';
 import { Box, Button, ChapterMark } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
+import WorldBackdrop from '@/components/map/WorldBackdrop.jsx';
 
 const LineExplorer = lazy(() => import('@/components/LineExplorer.jsx'));
 
@@ -22,13 +23,17 @@ export default function Topic() {
   return (
     <div className="page">
       <Link to="/topics" className="back-link"><ArrowRight size={18} aria-hidden="true" />כל הנושאים</Link>
-      <header className={`chapter-opener ch-${t.color}`}>
-        <ChapterMark color={t.color} n={n} size="lg" />
-        <div>
-          <h1 className="chapter-title">{t.title}</h1>
-          <p className="chapter-desc">{t.desc}</p>
-        </div>
-      </header>
+      <div className={`chapter-card ch-${t.color} world-${t.id}`}>
+        {/* the unit's world, as on the map */}
+        <div className="chapter-world" aria-hidden="true"><WorldBackdrop topic={t.id} /></div>
+        <header className={`chapter-opener ch-${t.color}`}>
+          <ChapterMark color={t.color} n={n} size="lg" />
+          <div>
+            <h1 className="chapter-title">{t.title}</h1>
+            <p className="chapter-desc">{t.desc}</p>
+          </div>
+        </header>
+      </div>
 
       {t.lesson && (
         <Box tone="note" title="תזכורת מהשיעור">

@@ -379,6 +379,9 @@ The board sits below the map (the placement result scrolls to it once). A Fredok
 ### Stair meter
 One rounded bar per level, rising from 14px to 32px toward the reading direction (right to left), 11px wide (9px when a topic has more than six levels). Done steps fill in the chapter colour, the current step in its tint (filling from its foot as lessons finish), the rest in rule grey. It is the product's own level meter: it appears on the board, on the placement result and in the onboarding answers.
 
+### Screen headers (page scenes)
+Every screen's header pairs the title and one line about the screen with its scene, drawn in code in the screen's colour: מדי on a two-step stair beside the one thing the screen is for (an open chest for quests, a checked sheet for exams, a phone scanning a page for exam checking, a printed sheet and pencil for a practice exam, a flagged staircase for the plan, a maths speech bubble for the assistant, world tiles for the topics, a board with a graph for the teacher). No stock illustration. The topics list and each topic's page open on the same world landscape as the unit on the map.
+
 ### First screen (welcome)
 It says what Madregot is and for whom in one Fredoka headline ("תרגול מתמטיקה לכיתות ז׳ וח׳, מדרגה אחרי מדרגה"), one line of real numbers counted from the content (topics, stairs, minutes a day), and then shows the product itself: a live number line from the first stair (−2 + 5) to drag before signing up, with מדי describing each jump and the card turning green when it lands on 3. Nothing is saved. The two buttons follow; on a short phone they stay at the bottom while the demo stays whole above them. The hero enters once.
 

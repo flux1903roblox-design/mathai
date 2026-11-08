@@ -9,7 +9,7 @@ import { TOPIC, topicsFor } from '@/content/index.js';
 import { Box, Button, ChapterMark, Field, LevelPips } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { GradeSwitch } from './Welcome.jsx';
-import { artUrl } from '@/components/PageHero.jsx';
+import PageScene from '@/components/PageScene.jsx';
 
 const fmtDay = (iso) => {
   if (!iso) return 'אף פעם';
@@ -142,7 +142,7 @@ export default function Teacher() {
   return (
     <div className="teacher">
       <header className="t-head">
-        <div className="t-brand"><img src={artUrl('teacher')} alt="" className="t-art" /><span><span className="wordmark sm">מדרגות</span><span className="muted">לוח המורה של {profile.name}</span></span></div>
+        <div className="t-brand"><span className="t-art ch-brand"><PageScene name="teacher" mood="happy" /></span><span><span className="wordmark sm">מדרגות</span><span className="muted">לוח המורה של {profile.name}</span></span></div>
         <div className="t-class">
           {profile.classes.length > 1 ? (
             <select className="input" aria-label="כיתה" value={cls.code} onChange={(e) => setProfile({ ...profile, active: e.target.value })}>
@@ -180,7 +180,7 @@ export default function Teacher() {
 
             {students.length === 0 && (
               <div className="empty-state">
-                <img src={artUrl('empty')} alt="" className="empty-art" />
+                <span className="empty-art ch-brand"><PageScene name="empty" /></span>
                 <h2 className="h-section">עוד אין תלמידים בכיתה</h2>
                 <p className="muted">כשתלמידים יצטרפו עם הקוד <b dir="ltr">{cls.code}</b>, הם יופיעו כאן עם ההתקדמות שלהם.</p>
                 <Button variant="secondary" className="btn-sm" onClick={() => copy(cls.code, 'קוד הכיתה')}><Copy size={16} aria-hidden="true" />העתקת הקוד</Button>

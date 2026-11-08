@@ -7,7 +7,7 @@ import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
-import { artUrl } from '@/components/PageHero.jsx';
+import PageScene from '@/components/PageScene.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { topicsFor, TOPICS } from '@/content/index.js';
 import Manip from '@/components/manip/Manip.jsx';
@@ -233,7 +233,7 @@ function TeacherStart({ onBack }) {
     // and how a school turns it on, instead of a dead end.
     return (
       <div className="teacher-off">
-        <img src={artUrl('teacher')} alt="" className="teacher-off-art" />
+        <span className="teacher-off-art ch-brand"><PageScene name="teacher" mood="happy" /></span>
         <h1 className="h-page">לוח המורה עובד עם שרת הכיתה</h1>
         <p className="lead">הכתובת הזו היא גרסת תרגול לתלמידים, בלי שרת. לוח המורה צריך שרת קטן של הכיתה (Cloudflare, בחינם), כדי שהתלמידים יוכלו להצטרף בקוד והמורה יראה את ההתקדמות.</p>
         <ul className="teacher-off-list">

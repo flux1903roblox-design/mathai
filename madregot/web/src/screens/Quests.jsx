@@ -26,7 +26,7 @@ export default function Quests() {
 
   return (
     <div className="page wide quests">
-      <PageHero tone="streak" art="achievements" title="משימות" sub="שלוש משימות ביום. מסיימים את כולן ומקבלים הקפאת רצף." />
+      <PageHero tone="streak" scene="quests" mood="excited" title="משימות" sub="שלוש משימות ביום. מסיימים את כולן ומקבלים הקפאת רצף." />
 
       <section className="card streak-card" aria-labelledby="streak-h">
         <div className="streak-card-top">

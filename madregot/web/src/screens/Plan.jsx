@@ -18,7 +18,7 @@ export default function Plan() {
   return (
     <div className="page wide plan-page">
       <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
-      <PageHero tone="petrol" art="plan" title="התוכנית שלי לשיפור" sub="צעדים לפי הסדר, מהמקומות שבהם ירדו נקודות." />
+      <PageHero tone="petrol" scene="plan" mood="encouraging" title="התוכנית שלי לשיפור" sub="צעדים לפי הסדר, מהמקומות שבהם ירדו נקודות." />
       {!hasData ? (
         <Box tone="note" title="התוכנית עוד ריקה">
           <p>אחרי בדיקת מבחן או כמה סבבי תרגול, האפליקציה תראה כאן מה כדאי לחזק ובאיזה סדר.</p>

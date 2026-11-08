@@ -102,7 +102,7 @@ export default function ExamCheck() {
   return (
     <div className="page">
       <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
-      <PageHero tone="sky" art="upload" title="בדיקת מבחן" sub="מצלמים את הדפים או מעלים PDF. העוזר בודק כל שאלה ומסביר." />
+      <PageHero tone="sky" scene="check" mood="thinking" title="בדיקת מבחן" sub="מצלמים את הדפים או מעלים PDF. העוזר בודק כל שאלה ומסביר." />
       {practice ? (
         <Box tone="note" title="בודקים מבחן תרגול">
           <p>{practice.title}, {practice.items.length} שאלות. התשובות הנכונות שמורות באפליקציה, אז העוזר רק קורא מה כתבתם ומשווה.</p>

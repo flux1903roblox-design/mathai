@@ -46,40 +46,9 @@ Notes:
   - Several gold-coin animations were uploaded by more than one account or credit someone else, so their author is unclear.
   - Grey-to-lit "streak" flames were too close to Duolingo.
 
-## 2. Illustrations (`src/assets/illustrations/`)
+## 2. Illustrations (removed)
 
-Source: [unDraw](https://undraw.co) by **Katerina Limpitsouni**. Each SVG was downloaded with the
-site's own "Download SVG" button after setting the colour picker to `#5b4ff0`.
-The site recolours `fill="#6c63ff"` to the chosen colour and adds `artist="Katerina Limpitsouni"
-source="https://undraw.co/"` to the root `<svg>`.
-
-**Licence:** unDraw License (<https://undraw.co/license>), Copyright 2026 Katerina Limpitsouni. As read on 2026-11-06:
-- Free for commercial and non-commercial use. No permission or credit is needed. You may copy, modify and distribute.
-- **Not allowed:**
-  - compiling the assets to replicate a similar or competing service;
-  - distributing the assets in packs;
-  - extending that to automated or manual linking, embedding, scraping, searching or downloading of the assets without unDraw's consent.
-- **Not allowed:** using the assets to train, fine-tune, validate or test AI/ML models, or any automated processing for AI/ML development.
-- Brand logos in some illustrations remain their owners' trademarks. None of the files below contain logos.
-- The page's short summary says illustrations are fine for improving an app's appearance. It also says not to proceed if unDraw illustrations are "in the center of what you are doing" (selling or redistributing them, training AI, "add them in an app"). Here they are decorative empty-state and section art, not a feature built around unDraw.
-
-**Modification:** accent colour set to `#5b4ff0` (unDraw default `#6c63ff`), using unDraw's own colour picker; file renamed.
-No other changes. Checked: every `#6c63ff` in the CDN original became `#5b4ff0`, and no `#6c63ff` or `currentColor` is left.
-
-| File | Used for | Source page (unDraw title) | Author | Size | Modification |
-|---|---|---|---|---|---|
-| `src/assets/illustrations/exams-empty.svg` | Exams screen, empty state | [Grading Papers](https://undraw.co/illustration/grading-papers_lty0) | Katerina Limpitsouni | 6,027 B | accent → `#5b4ff0`; renamed from `undraw_grading-papers_lty0.svg` |
-| `src/assets/illustrations/upload.svg` | Uploading / scanning pages | [Files Uploading](https://undraw.co/illustration/files-uploading_qf8u) | Katerina Limpitsouni | 7,357 B | accent → `#5b4ff0`; renamed |
-| `src/assets/illustrations/assistant.svg` | Asking questions / tutor chat | [Question Answered](https://undraw.co/illustration/question-answered_ezyn) | Katerina Limpitsouni | 9,860 B | accent → `#5b4ff0`; renamed |
-| `src/assets/illustrations/plan.svg` | Progress / plan / goals | [Stepping Up](https://undraw.co/illustration/stepping-up_i0i7) | Katerina Limpitsouni | 5,648 B | accent → `#5b4ff0`; renamed |
-| `src/assets/illustrations/teacher.svg` | Teacher area / teaching a class | [Visual Explanation](https://undraw.co/illustration/visual-explanation_vd4l) | Katerina Limpitsouni | 12,577 B | accent → `#5b4ff0`; renamed |
-| `src/assets/illustrations/achievements.svg` | Achievements | [Winner](https://undraw.co/illustration/winner_x40e) | Katerina Limpitsouni | 5,614 B | accent → `#5b4ff0`; renamed |
-| `src/assets/illustrations/study.svg` | Studying / math | [Math](https://undraw.co/illustration/math_ldpv) | Katerina Limpitsouni | 7,993 B | accent → `#5b4ff0`; renamed |
-| `src/assets/illustrations/empty.svg` | Generic empty state | [Empty Mailbox](https://undraw.co/illustration/empty-mailbox_ef0e) | Katerina Limpitsouni | 2,947 B | accent → `#5b4ff0`; renamed |
-
-All eight are from unDraw's current illustration series (served from `cdn.undraw.co/illustration/`), so they share one look.
-They are plain vector SVGs: no `<image>`, no `data:` URIs, no scripts, no external references.
-`exams-empty.svg` shows a Latin "A" grade mark on the paper.
+Until November 2026 the screen headers and the teacher screens used eight unDraw illustrations by Katerina Limpitsouni (unDraw License, <https://undraw.co/license>: free for commercial and non-commercial use, no permission or credit needed, as read on 2026-11-06): Grading Papers, Files Uploading, Question Answered, Stepping Up, Visual Explanation, Winner, Math and Empty Mailbox, recoloured to `#5b4ff0`. They were replaced by original scenes drawn in code (`src/components/PageScene.jsx`, see section 4) and deleted from `src/assets/illustrations/`; nothing in the app uses them any more.
 
 ## 3. Code libraries used for visuals
 
@@ -123,3 +92,4 @@ Everything below was drawn for Madregot as SVG in the source code. None of it is
 | `src/components/Climb.jsx` | the staircase at the end of a lesson |
 | `src/components/manip/*.jsx` | the interactive maths objects (number line, plane, line builder, angle, Pythagoras squares, bars) |
 | `src/components/Mascot.jsx` | the mascot מדי |
+| `src/components/PageScene.jsx` | the scenes at the top of the screens (מדי on a stair with a chest, a checked sheet, a scanner, a printed sheet, a flagged staircase, a speech bubble, world tiles, a board, a tray) |

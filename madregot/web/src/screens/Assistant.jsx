@@ -228,7 +228,7 @@ export default function Assistant() {
   const ready = aiReady();
   return (
     <div className="page">
-      <PageHero tone="ai" art="assistant" title="עוזר AI" sub="שואלים על כל תרגיל, מקבלים תרגילים חדשים, ובודקים פתרון מצולם." />
+      <PageHero tone="ai" scene="assistant" mood="thinking" title="עוזר AI" sub="שואלים על כל תרגיל, מקבלים תרגילים חדשים, ובודקים פתרון מצולם." />
       {!ready ? <AiOffline /> : (
         <>
           <Tabs value={tab} onChange={setTab} />

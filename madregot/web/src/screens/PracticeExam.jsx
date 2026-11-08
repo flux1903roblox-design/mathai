@@ -33,7 +33,7 @@ export function NewPracticeExam() {
   return (
     <div className="page">
       <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
-      <PageHero tone="fuchsia" art="study" title="מבחן תרגול" sub="בוחרים נושאים, מדפיסים או פותרים על דף, ובסוף מצלמים לבדיקה. השאלות מותאמות למדרגה שלכם." />
+      <PageHero tone="fuchsia" scene="practice" title="מבחן תרגול" sub="בוחרים נושאים, מדפיסים או פותרים על דף, ובסוף מצלמים לבדיקה. השאלות מותאמות למדרגה שלכם." />
       <fieldset className="fieldset">
         <legend>נושאים</legend>
         <div className="pick-list">

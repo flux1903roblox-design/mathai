@@ -28,7 +28,7 @@ export default function Exams() {
   const planDesc = plan.weak.length ? `${plan.done} מתוך ${plan.steps.length} צעדים הושלמו` : 'התוכנית עוד ריקה. היא נבנית מטעויות בתרגול ובמבחנים';
   return (
     <div className="page wide exams-page">
-      <PageHero tone="sky" art="exams-empty" title="מבחנים" sub="בודקים מבחן שפתרתם, מקבלים הסבר על כל שאלה, ורואים מה כדאי לתרגל עכשיו." />
+      <PageHero tone="sky" scene="exams" mood="happy" title="מבחנים" sub="בודקים מבחן שפתרתם, מקבלים הסבר על כל שאלה, ורואים מה כדאי לתרגל עכשיו." />
       <ul className="topic-list">
         {ai && <ActionRow to="/exams/check" icon={ClipboardCheck} title="בדיקת מבחן שפתרתם" desc="מצלמים את הדפים או מעלים PDF, והעוזר בודק כל תשובה" />}
         <ActionRow to="/exams/new" icon={Printer} title="מבחן תרגול להדפסה" desc="מבחן מהנושאים שלכם, עם מפתח תשובות לבדיקה מדויקת" />
