@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { AnimatePresence, m } from 'motion/react';
 import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2 } from 'lucide-react';
+import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
@@ -73,7 +74,7 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
       onFocus={() => setActive(k)}
       onChange={(e) => {
         const typed = e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9);
-        if (struck) { unstrike(); setSlots({ [k]: typed.slice((slots[k] || '').length) || typed.slice(-1) }); return; }
+        if (struck) { unstrike(); setSlots({ [k]: afterStrike(slots[k], typed) }); return; }
         setSlots({ ...slots, [k]: typed });
       }}
       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter(); } }}

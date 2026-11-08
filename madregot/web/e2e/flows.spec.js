@@ -78,6 +78,20 @@ test('a whole lesson: a mistake, its retry, the reveal, the end screens, XP and 
   expect((await saved(page)).xp).toBe(st.xp);
 });
 
+test('after a wrong try, a pasted or replaced answer is taken whole (not only its last character)', async ({ page }) => {
+  await open(page, '#/lesson/signed/3', student('7'));
+  expect((await item(page)).form).toBe('num');
+  const box = page.locator('#slot-v');
+  await box.fill('97');
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).first().click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  await proceed(page);
+  await expect(box).toHaveClass(/struck/);
+  await box.fill('41');
+  await expect(box).toHaveValue('41');
+  await expect(box).not.toHaveClass(/struck/);
+});
+
 test('the AI tutor without a connection says so and offers a way on, without actions that would fail', async ({ page }) => {
   await open(page, '#/assistant', student('7'));
   await expect(page.getByRole('heading', { name: 'העוזר עוד לא מחובר' })).toBeVisible();

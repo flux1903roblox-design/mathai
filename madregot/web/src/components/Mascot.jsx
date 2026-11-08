@@ -18,6 +18,14 @@ import { SPRING } from '@/lib/motion.js';
 const ALIAS = { cheer: 'happy', think: 'thinking', oops: 'encouraging' };
 
 const INK = '#231d5c';
+// His own colour lives in tokens.css (--madi-*), so it is set in one place.
+const HI = { stopColor: 'var(--madi-hi, #ff9e82)' };
+const LO = { stopColor: 'var(--madi-lo, #f46d55)' };
+const EDGE = 'var(--madi-edge, #c44a33)';
+const TREAD = 'var(--madi-tread, #ffd4c7)';
+const LIMB = 'var(--madi-limb, #0f8f9c)';
+const MARK = 'var(--madi-mark, rgba(255, 255, 255, 0.6))';
+const BLUSH = 'var(--madi-blush, #ff5c8a)';
 const ARMS = {
   //       left arm (shoulder 28,86)            right arm (shoulder 116,90)
   idle: ['M28 86 Q18 94 17 105', 'M116 90 Q126 98 127 109'],
@@ -96,7 +104,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
     >
       <defs>
         <linearGradient id={`b${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#7a70ff" /><stop offset="1" stopColor="#5246ea" />
+          <stop offset="0" style={HI} /><stop offset="1" style={LO} />
         </linearGradient>
         <radialGradient id={`s${id}`} cx="0.5" cy="0.5" r="0.5">
           <stop offset="0" stopColor="#fff6c7" /><stop offset="1" stopColor="#f5b400" />
@@ -122,12 +130,12 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
       <m.g animate={body} onAnimationComplete={() => { if (!rest && !reduce && ['happy', 'excited', 'achievement', 'encouraging'].includes(mood)) setRest(true); }}
         style={{ originX: 0.5, originY: 1 }}>
         {/* arms behind the body */}
-        <g stroke="#3f33c4" strokeWidth="8.5" strokeLinecap="round" fill="none">
+        <g style={{ stroke: LIMB }} strokeWidth="8.5" strokeLinecap="round" fill="none">
           <m.path initial={false} animate={{ d: ARMS[mood][0] }} transition={spring} />
           <m.path initial={false} animate={{ d: ARMS[mood][1] }} transition={spring} />
         </g>
         {/* the 3D edge, then the two steps */}
-        <g fill="#3f33c4">
+        <g style={{ fill: EDGE }}>
           <rect x="26" y="36" width="62" height="94" rx="17" />
           <rect x="26" y="72" width="94" height="58" rx="17" />
         </g>
@@ -136,25 +144,25 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
           <rect x="26" y="66" width="94" height="58" rx="17" />
         </g>
         {/* treads catch the light; a soft highlight on the tall step */}
-        <g fill="#a49dff">
+        <g style={{ fill: TREAD }}>
           <rect x="35" y="34" width="44" height="6" rx="3" />
           <rect x="93" y="70" width="20" height="6" rx="3" />
         </g>
         <ellipse cx="40" cy="58" rx="7" ry="13" fill="#fff" opacity="0.12" />
         {/* a plus sign on the low step: the maths in him */}
-        <path d="M104 88 V102 M97 95 H111" stroke="#fff" strokeOpacity="0.45" strokeWidth="4" strokeLinecap="round" />
+        <path d="M104 88 V102 M97 95 H111" style={{ stroke: MARK }} strokeWidth="4" strokeLinecap="round" />
         {/* feet */}
-        <g fill="#3f33c4">
+        <g style={{ fill: LIMB }}>
           <rect x="34" y="124" width="22" height="12" rx="6" />
           <rect x="92" y="124" width="22" height="12" rx="6" />
         </g>
         {/* hands */}
-        <g fill="#3f33c4">
+        <g style={{ fill: LIMB }}>
           <m.circle r="6" initial={false} animate={{ cx: hands[0][0], cy: hands[0][1] }} transition={spring} />
           <m.circle r="6" initial={false} animate={{ cx: hands[1][0], cy: hands[1][1] }} transition={spring} />
         </g>
         {mood === 'encouraging' && (
-          <m.rect x="128" y="54" width="6" height="11" rx="3" fill="#3f33c4" initial={reduce ? false : { scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, ...spring }} style={{ originX: 0.5, originY: 1 }} />
+          <m.rect x="128" y="54" width="6" height="11" rx="3" style={{ fill: LIMB, originX: 0.5, originY: 1 }} initial={reduce ? false : { scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, ...spring }} />
         )}
 
         {/* face */}
@@ -172,8 +180,8 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
           <m.path initial={false} animate={{ d: BROWS[mood][0] }} transition={spring} />
           <m.path initial={false} animate={{ d: BROWS[mood][1] }} transition={spring} />
         </g>
-        <circle cx="35" cy="76" r="5" fill="#ff8fb8" opacity="0.75" />
-        <circle cx="79" cy="76" r="5" fill="#ff8fb8" opacity="0.75" />
+        <circle cx="35" cy="76" r="5" style={{ fill: BLUSH }} opacity="0.75" />
+        <circle cx="79" cy="76" r="5" style={{ fill: BLUSH }} opacity="0.75" />
         <AnimatePresence initial={false}>
           <m.g key={mood} initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }} transition={{ duration: reduce ? 0 : 0.18 }} style={{ originX: 0.5, originY: 0.5 }}>
             <Mouth mood={mood} />
