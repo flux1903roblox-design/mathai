@@ -1,8 +1,8 @@
 import { m } from 'motion/react';
-import { Zap, Flame, Footprints, Star, Trophy, Target, ClipboardCheck, Sparkles, Mountain } from 'lucide-react';
+import { Zap, Flame, Footprints, Star, Trophy, Target, ClipboardCheck, Sparkles, Mountain, Gift } from 'lucide-react';
 import { useApp, streakOf, isShabbat, dayBefore, today } from '@/lib/store.js';
 import { TOPICS } from '@/content/index.js';
-import { doneUpTo } from '@/lib/path.js';
+import { doneUpTo, chestOpen } from '@/lib/path.js';
 import RewardBadge from './RewardBadge.jsx';
 
 const active = (d) => !!d && ((d.lessons || 0) > 0 || (d.lessons == null && (d.q || 0) > 0));
@@ -35,12 +35,14 @@ export default function Achievements() {
   const perfect = Object.values(days).reduce((a, d) => a + (d.perfect || 0), 0);
   const stairs = TOPICS.reduce((a, t) => a + doneUpTo(t.id, path, progress), 0);
   const units = Object.values(path).filter((u) => (u.reviews || 0) > 0).length;
+  const chests = TOPICS.filter((t) => chestOpen(t.id, path, progress)).length; // halfway through a unit on the map
   const medals = [
     { id: 'first', icon: Footprints, label: 'השיעור הראשון', have: lessons, need: 1, tone: 'brand' },
     { id: 'streak3', icon: Flame, label: '3 ימים ברצף', have: best, need: 3, tone: 'streak' },
     { id: 'streak7', icon: Flame, label: 'שבוע ברצף', have: best, need: 7, tone: 'streak' },
     { id: 'perfect', icon: Star, label: 'שיעור בלי טעויות', have: perfect, need: 1, tone: 'gold' },
     { id: 'stairs10', icon: Mountain, label: '10 מדרגות', have: stairs, need: 10, tone: 'good' },
+    { id: 'chest', icon: Gift, label: 'תיבת אוצר', have: chests, need: 1, tone: 'streak' },
     { id: 'unit', icon: Trophy, label: 'יחידה שלמה', have: units, need: 1, tone: 'gold' },
     { id: 'xp500', icon: Zap, label: '500 XP', have: xp, need: 500, tone: 'gold' },
     { id: 'placement', icon: Target, label: 'בדיקת רמה', have: placement ? 1 : 0, need: 1, tone: 'brand' },

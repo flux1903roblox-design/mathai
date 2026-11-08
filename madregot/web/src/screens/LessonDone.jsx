@@ -2,15 +2,21 @@ import { useEffect, useState } from 'react';
 import NumberFlow from '@number-flow/react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
-import { Zap, Target, Timer, Flame, Snowflake, Moon, Star, Trophy, ChevronsUp, Footprints, Wrench } from 'lucide-react';
+import { Zap, Target, Timer, Flame, Snowflake, Moon, Star, Trophy, ChevronsUp, Footprints, Wrench, Gift } from 'lucide-react';
 import { useApp, today, dayBefore, isShabbat } from '@/lib/store.js';
 import Mascot from '@/components/Mascot.jsx';
 import Stairs from '@/components/Stairs.jsx';
+import Climb from '@/components/Climb.jsx';
+import { doneUpTo, partsOf, chestAfter } from '@/lib/path.js';
+import { PARTS } from '@/lib/lesson.js';
 import Lottie from '@/components/Lottie.jsx';
 import RewardBadge from '@/components/RewardBadge.jsx';
 import { topicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
 
+// The main button takes the focus (for a keyboard or a screen reader) without scrolling a tall celebration
+// down to it: on a small phone the climb at the top stays in view.
+const focusQuietly = (el) => { if (el) el.focus({ preventScroll: true }); };
 const DAY = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const fmtTime = (secs) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 // Celebration content rises in one after another, once.
@@ -68,6 +74,8 @@ function Hero({ children, confetti = true }) {
 export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   const days = useApp((s) => s.days);
   const freezes = useApp((s) => s.freezes);
+  const path = useApp((s) => s.path);
+  const progress = useApp((s) => s.progress);
   const stages = ['summary', award.streakExtended && result.passed && 'streak', award.questsDone && 'quests'].filter(Boolean);
   const [i, setI] = useState(0);
   const stage = stages[i];
@@ -116,15 +124,23 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
     result.perfect && { icon: Star, label: 'בלי אף טעות', tone: 'gold' },
     result.fixed > 0 && { icon: Wrench, label: result.fixed === 1 ? 'תיקנתם טעות' : `תיקנתם ${result.fixed} טעויות`, tone: 'good' },
     award.goalReached && { icon: Zap, label: 'הגעתם ליעד היומי', tone: 'gold' },
+    award.nodeDone && result.kind === 'node' && result.level === chestAfter(topic.id) && { icon: Gift, label: 'פתחתם תיבת אוצר', tone: 'streak' },
   ].filter(Boolean);
+  // The climb: the steps done now, and where מדי stood before this lesson (one step lower if it finished one)
+  const steps = topic.levels.length;
+  const doneNow = doneUpTo(topic.id, path, progress);
+  const from = award.nodeDone || result.kind === 'jump' ? Math.max(0, doneNow - 1) : doneNow;
+  const part = doneNow < steps ? partsOf(path, topic.id, doneNow + 1) / PARTS : 0;
   return (
     <div className={clsx('done-screen', `ch-${topic.color}`)}>
       <Hero>
         {award.unitDone && <Lottie name="trophy" className="done-trophy" label="גביע" fallback={null} />}
         {result.perfect && !award.unitDone && <Lottie name="stars" className="done-stars" decorative />}
-        <Mascot mood={award.unitDone || result.perfect ? 'achievement' : 'excited'} size={award.unitDone ? 120 : 150} />
+        <Climb steps={steps} from={from} to={doneNow} part={part} trophy={result.kind === 'review'} mood={award.unitDone || result.perfect ? 'achievement' : 'excited'} />
+        <p className="climb-caption">{topic.title}: <bdi>{doneNow}</bdi> מתוך <bdi>{steps}</bdi> מדרגות</p>
       </Hero>
-      <m.div className="done-copy" variants={stagger(0.15)} initial="hidden" animate="show">
+      {/* after the hop: the title, then the numbers, then the medals */}
+      <m.div className="done-copy" variants={stagger(0.85)} initial="hidden" animate="show">
         <m.h1 variants={rise} className="done-title">{title}</m.h1>
         {badges.length > 0 && (
           <m.div variants={rise} className="badges">
@@ -138,7 +154,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
         </m.div>
         {result.fixed > 0 && <m.p variants={rise} className="muted">כולל {result.fixed * 2} XP על תיקון {result.fixed === 1 ? 'טעות' : `${result.fixed} טעויות`}.</m.p>}
       </m.div>
-      <div className="done-actions"><Button className="btn-block btn-lg" onClick={nextStage} autoFocus>המשך</Button></div>
+      <div className="done-actions"><Button className="btn-block btn-lg" onClick={nextStage} ref={focusQuietly}>המשך</Button></div>
     </div>
   );
 }
@@ -177,7 +193,7 @@ export function PlacementDone({ result, award, onExit }) {
           <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />
         </m.div>
       </m.div>
-      <div className="done-actions"><Button className="btn-block btn-lg" onClick={nextStage} autoFocus>{last ? 'ללוח שלי' : 'המשך'}</Button></div>
+      <div className="done-actions"><Button className="btn-block btn-lg" onClick={nextStage} ref={focusQuietly}>{last ? 'ללוח שלי' : 'המשך'}</Button></div>
     </div>
   );
 }
@@ -195,7 +211,7 @@ function StreakStage({ streak, days, freezes, onNext }) {
       <h1 className="done-title">{streak === 1 ? 'התחלתם רצף!' : `${streak} ימים ברצף!`}</h1>
       <Week days={days} />
       <p className="lead">שיעור אחד ביום שומר על הרצף, ובשבת הרצף לא נשבר.{freezes > 0 ? ` יש לכם ${freezes === 1 ? 'הקפאה אחת' : `${freezes} הקפאות`} למקרה שתפספסו יום.` : ''}</p>
-      <div className="done-actions"><Button className="btn-block btn-lg" onClick={onNext} autoFocus>המשך</Button></div>
+      <div className="done-actions"><Button className="btn-block btn-lg" onClick={onNext} ref={focusQuietly}>המשך</Button></div>
     </div>
   );
 }

@@ -55,3 +55,7 @@ export function recordOnPath(path = {}, r) {
   const unitDone = r.kind === 'review' && r.passed && (path[r.topic]?.reviews || 0) === 0;
   return { path: { ...path, [r.topic]: u }, nodeDone, unitDone };
 }
+
+/** The treasure chest halfway along a unit: after this level, open once that level is done. */
+export const chestAfter = (topic) => Math.ceil(TOPIC[topic].levels.length / 2);
+export const chestOpen = (topic, path = {}, progress = {}) => doneUpTo(topic, path, progress) >= chestAfter(topic);

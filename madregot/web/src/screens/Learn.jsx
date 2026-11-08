@@ -5,7 +5,7 @@ import { Flame, Zap, Snowflake, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor } from '@/content/index.js';
-import { unitNodes } from '@/lib/path.js';
+import { unitNodes, chestAfter } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN, LESSON_LEN } from '@/lib/lesson.js';
 import Mascot from '@/components/Mascot.jsx';
 import PathNode from '@/components/PathNode.jsx';
@@ -13,6 +13,8 @@ import Board from '@/components/Board.jsx';
 import ContinueCard from '@/components/ContinueCard.jsx';
 import PathTrail from '@/components/map/PathTrail.jsx';
 import { SCENERY, Emblem } from '@/components/map/Scenery.jsx';
+import WorldBackdrop from '@/components/map/WorldBackdrop.jsx';
+import Chest from '@/components/map/Chest.jsx';
 import { Button } from '@/components/ui.jsx';
 
 // The path winds gently: each node sits a little to one side of the one before.
@@ -82,8 +84,9 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
   const reached = Math.max(0, nodes.findIndex((x) => x.state !== 'done'));
   const allDone = nodes.every((x) => x.state === 'done');
   const props = SCENERY[t.id] || [];
+  const half = chestAfter(t.id);
   return (
-    <section className={clsx('unit', `ch-${t.color}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
+    <section className={clsx('unit', `ch-${t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
       <header className="unit-head">
         <Emblem topic={t.id} />
         <div className="unit-head-text">
@@ -97,6 +100,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
         <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={`תזכורת מהשיעור: ${t.title}`}><BookOpen size={22} aria-hidden="true" /><span>תזכורת</span></Link>
       </header>
       <div className="unit-world" ref={worldRef}>
+        <WorldBackdrop topic={t.id} />
         {geo && <PathTrail points={geo.pts} reached={allDone ? nodes.length - 1 : reached} width={geo.w} height={geo.h} draw={fresh === t.id} />}
         {geo && sceneryAt(nodes.length, nodes.findIndex((x) => `${t.id}:${x.kind}:${x.level}` === focusKey)).map((i, k) => {
           const P = props[k]; const pt = geo.pts[i];
@@ -110,7 +114,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
             const isOpen = open === key;
             const x = SWING[i % SWING.length];
             const label = `${node.kind === 'review' ? 'חזרה על היחידה' : `מדרגה ${node.level}: ${node.title}`}. ${node.state === 'done' ? (mastered ? 'נשלט' : 'הושלם') : node.state === 'current' ? (node.kind === 'node' ? `השלב הבא, ${node.parts} מתוך ${PARTS} שיעורים` : 'השלב הבא') : 'נעול'}`;
-            return (
+            return [
               <li key={key} className="path-step" style={{ '--x': `${x}px` }}>
                 {node.state === 'current' && !isOpen && <span className="node-start" aria-hidden="true">{node.parts ? 'המשך' : 'התחלה'}</span>}
                 <div className={clsx('node-anchor', node.state === 'current' && 'is-current')} ref={(el) => { anchors.current[i] = el; }}>
@@ -124,8 +128,21 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
                 </div>
                 {key === focusKey && <Mascot mood={mascotMood} size={88} className={clsx('path-mascot', x > 0 ? 'left' : 'right')} />}
                 {isOpen && <NodeCard n={node} t={t} onStart={onStart} />}
-              </li>
-            );
+              </li>,
+              // halfway along the unit, a treasure chest sits on the road
+              node.kind === 'node' && node.level === half && (
+                <li key={`${t.id}:chest`} className="path-step path-chest" style={{ '--x': `${(x + SWING[(i + 1) % SWING.length]) / 2}px` }}>
+                  <Chest open={node.state === 'done'} celebrate={celebrate === key} expanded={open === `${t.id}:chest`}
+                    label={`תיבת אוצר. ${node.state === 'done' ? 'פתוחה' : `נפתחת אחרי מדרגה ${half}`}`} onClick={() => setOpen(open === `${t.id}:chest` ? null : `${t.id}:chest`)} />
+                  {open === `${t.id}:chest` && (
+                    <div className="node-card" role="group" aria-label="תיבת אוצר">
+                      <p className="node-card-title">{node.state === 'done' ? 'חצי היחידה מאחוריכם' : 'תיבת אוצר'}</p>
+                      <p className="node-card-sub">{node.state === 'done' ? 'פתחתם את התיבה של היחידה הזאת. היא מחכה באוסף המדליות שלכם בפרופיל.' : `התיבה נפתחת כשמסיימים את מדרגה ${half}: ${nodes[half - 1].title}.`}</p>
+                    </div>
+                  )}
+                </li>
+              ),
+            ];
           })}
         </ol>
       </div>

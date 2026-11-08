@@ -1860,3 +1860,102 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .manip-numberline .manip-canvas { border-color: color-mix(in srgb, var(--ch-sky) 22%, var(--rule)); }
 .ang-right { color: var(--c-d); } .ang-left { color: var(--streak-ink); }
 .manip-angle .manip-readout { font-size: 22px; }
+
+/* ---------- the adventure map: a world per unit, stairs for stops, a chest halfway ---------- */
+/* each world opens with its landscape behind the first stairs; the land below keeps the world's ground */
+.unit-world { overflow: hidden; }
+.world-horizon { position: absolute; top: 0; left: 0; width: 100%; height: 168px; pointer-events: none; }
+.unit .path { padding-top: 150px; }
+.wb-white { fill: #fff; }
+.wb-ground { fill: color-mix(in srgb, var(--c-tint) 70%, #fff); }
+.wb-far { fill: color-mix(in srgb, var(--c) 22%, #fff); }
+.wb-mid { fill: color-mix(in srgb, var(--c) 34%, #fff); }
+.wb-sun { fill: color-mix(in srgb, var(--gold) 55%, #fff); }
+.wb-frost { fill: color-mix(in srgb, var(--ch-sky) 28%, #fff); }
+.wb-fire { fill: color-mix(in srgb, var(--streak) 30%, #fff); }
+.wb-lava { fill: color-mix(in srgb, var(--streak) 80%, var(--gold)); }
+.wb-ember { fill: var(--gold); }
+.wb-flake path { fill: none; stroke: var(--ch-sky); stroke-width: 2; stroke-linecap: round; opacity: 0.7; }
+.wb-sea { fill: color-mix(in srgb, var(--ch-sky) 18%, #fff); }
+.wb-gridline { stroke: color-mix(in srgb, var(--ch-sky) 30%, transparent); stroke-width: 1; }
+.wb-wave { fill: none; stroke: color-mix(in srgb, var(--ch-sky) 55%, #fff); stroke-width: 2.5; stroke-linecap: round; }
+.wb-sand { fill: color-mix(in srgb, var(--gold) 26%, #fff); }
+.wb-trunk { fill: none; stroke: #b77b3d; stroke-width: 4; stroke-linecap: round; }
+.wb-leaf { fill: color-mix(in srgb, var(--good) 70%, #fff); }
+.wb-x { fill: none; stroke: var(--bad); stroke-width: 4; stroke-linecap: round; }
+.wb-boat { fill: color-mix(in srgb, var(--c) 60%, #fff); }
+.wb-gear { fill: none; stroke: color-mix(in srgb, var(--gold) 70%, #fff); stroke-width: 4; stroke-linecap: round; }
+.wb-arc { fill: none; stroke: var(--streak); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 4 5; }
+.wb-window { fill: rgba(255, 255, 255, 0.75); }
+.wb-road { fill: none; stroke: color-mix(in srgb, var(--c-d) 55%, #fff); stroke-width: 9; stroke-linecap: round; }
+.wb-road-dash { fill: none; stroke: #fff; stroke-width: 2; stroke-dasharray: 10 9; }
+.wb-blocks { fill: none; stroke: #fff; stroke-width: 2; opacity: 0.8; }
+.wb-awning { fill: color-mix(in srgb, var(--c) 70%, #fff); }
+.wb-awning.alt { fill: color-mix(in srgb, var(--gold) 70%, #fff); }
+.wb-flag { fill: color-mix(in srgb, var(--c-d) 60%, #fff); stroke: color-mix(in srgb, var(--c-d) 60%, #fff); stroke-width: 1.5; stroke-linejoin: round; }
+.wb-mean { fill: none; stroke: var(--c-d); stroke-width: 2.5; stroke-dasharray: 8 6; opacity: 0.7; }
+/* the ground of each world, under the road */
+.world-signed .unit-world { background: linear-gradient(90deg, color-mix(in srgb, var(--ch-sky-tint) 85%, #fff) 0%, #fff 50%, color-mix(in srgb, var(--streak-tint) 75%, #fff) 100%); }
+.world-coord .unit-world, .world-line .unit-world {
+  background:
+    linear-gradient(color-mix(in srgb, var(--c) 7%, transparent) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(90deg, color-mix(in srgb, var(--c) 7%, transparent) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(180deg, color-mix(in srgb, var(--c-tint) 70%, #fff), #fff);
+}
+.world-pyth .unit-world { background: radial-gradient(circle, color-mix(in srgb, var(--gold) 16%, transparent) 1.5px, transparent 2px) 0 0 / 22px 22px, linear-gradient(180deg, color-mix(in srgb, var(--gold-tint) 70%, #fff), #fff); }
+
+/* a stop is a stair block: a squared top face lit from above, and a deep riser that sinks when pressed */
+.node { --lip: 9px; border-radius: 30%; background: linear-gradient(180deg, rgba(255, 255, 255, 0.34) 0 22%, rgba(255, 255, 255, 0) 23%), var(--face-c); }
+.node-mastered::after { border-radius: 30%; }
+.node-halo { border-radius: 32%; }
+/* the current stair: a mark per lesson under it */
+.node-marks { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; z-index: 2; }
+.node-marks i { width: 18px; height: 8px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 30%, transparent); transition: background var(--duration-slow) var(--ease-smooth-out); }
+.node-marks i.on { background: var(--c); box-shadow: 0 0 0 2px #fff; }
+
+/* the chest on the road */
+.path-chest { z-index: 1; }
+.chest { display: block; width: 84px; padding: 0; border: 0; background: none; border-radius: 18px; cursor: pointer; }
+.chest svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chest:focus-visible { outline: 3px solid var(--c); outline-offset: 4px; }
+.chest:active svg { transform: translateY(2px); }
+.ch-shadow { fill: color-mix(in srgb, var(--c-d) 18%, transparent); }
+.ch-body { fill: #b07636; stroke: #7d4f1f; stroke-width: 3; stroke-linejoin: round; }
+.ch-lid { fill: #c98a43; stroke: #7d4f1f; stroke-width: 3; stroke-linejoin: round; }
+.ch-band { fill: none; stroke: var(--gold-d); stroke-width: 5; }
+.ch-lock { fill: var(--gold); stroke: #7d4f1f; stroke-width: 2.5; }
+.ch-glow { fill: #fff3b0; }
+.ch-rays { fill: none; stroke: var(--gold); stroke-width: 4; stroke-linecap: round; opacity: 0.85; }
+.ch-coin { fill: var(--gold); stroke: var(--gold-d); stroke-width: 2; }
+.chest:not(.is-open) .ch-body, .chest:not(.is-open) .ch-lid { filter: saturate(0.55); }
+@media (prefers-reduced-motion: reduce) { .node-marks i { transition: none; } }
+
+/* ---------- the end of a lesson: מדי climbs the unit's stairs ---------- */
+.climb { position: relative; width: min(100%, 380px); aspect-ratio: 360 / 210; margin: 0 auto; }
+.climb-steps { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.climb-face { fill: var(--c); }
+.climb-riser { fill: var(--c-d); }
+.climb-face { stroke: #fff; stroke-width: 2; }
+.climb-tread { fill: none; stroke: rgba(255, 255, 255, 0.45); stroke-width: 4; stroke-linecap: round; }
+.climb-step.off .climb-face { fill: color-mix(in srgb, var(--c-tint) 70%, #fff); stroke: color-mix(in srgb, var(--c) 18%, #fff); }
+.climb-step.cur .climb-face { fill: color-mix(in srgb, var(--c) 26%, #fff); }
+.climb-step.off .climb-tread, .climb-step.cur .climb-tread { stroke: #fff; }
+.climb-part { fill: color-mix(in srgb, var(--c) 70%, #fff); }
+.climb-num { font-family: var(--font-display); font-weight: 700; font-size: 15px; fill: rgba(255, 255, 255, 0.92); }
+.climb-step.off .climb-num, .climb-step.cur .climb-num { fill: var(--c-d); opacity: 0.6; }
+.climb-flag path { fill: var(--gold); stroke: var(--gold-d); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.climb-mascot { position: absolute; transform: translate(-50%, -100%); width: 84px; z-index: 2; pointer-events: none; }
+.climb-mascot .mascot { display: block; }
+.climb-caption { margin: var(--s2) 0 0; font-weight: 600; color: var(--c-d); font-size: var(--t-sm); }
+.done-screen .done-hero { flex-direction: column; }
+/* a celebration taller than a small phone scrolls from its top instead of being cut there */
+.done-screen { justify-content: safe center; }
+@media (max-height: 700px) { .climb { width: min(100%, 290px); } .done-screen { gap: var(--s3); padding-top: var(--s4); } }
+@media (max-height: 700px) {
+  .climb { width: min(100%, 250px); }
+  /* the button to go on stays under the thumb while the medals scroll above it */
+  .done-actions { position: sticky; bottom: 0; z-index: 3; margin-top: 0; padding: var(--s3) 0 calc(var(--s2) + env(safe-area-inset-bottom, 0px)); background: linear-gradient(rgba(255, 255, 255, 0), #fff 28%); }
+  .done-screen { padding-bottom: 0; }
+}
+/* the stars of a perfect lesson float over the hero; they never push it down */
+.done-hero > .done-stars { position: absolute; z-index: 0; }

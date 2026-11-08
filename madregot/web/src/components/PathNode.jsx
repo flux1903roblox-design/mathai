@@ -11,37 +11,19 @@ const GLYPH = {
   trophy: <path d="M9 4.5h14v2h3.3c.8 0 1.4.7 1.3 1.5-.4 3.8-2.6 6.4-5.6 7.1A7 7 0 0 1 17.5 19v3h3.5a1.5 1.5 0 0 1 0 3H11a1.5 1.5 0 0 1 0-3h3.5v-3A7 7 0 0 1 10 15.1C7 14.4 4.8 11.8 4.4 8c-.1-.8.5-1.5 1.3-1.5H9v-2Zm0 5H7.6A5 5 0 0 0 9.2 12V9.5Zm14 0V12a5 5 0 0 0 1.6-2.5H23Z" />,
 };
 
-/**
- * One even-gapped ring sector with rounded corners (transitions.dev #35, Donut chart):
- * angles run clockwise from the top; both gap edges stay parallel.
- */
-function ringPath(c, ro, ri, a0, a1, gap, cr) {
-  const Ro = ro - cr; const Ri = ri + cr; const h = gap / 2 + cr;
-  const dO = Math.asin(Math.min(1, h / Ro)); const dI = Math.asin(Math.min(1, h / Ri));
-  const o0 = a0 + dO; const o1 = a1 - dO; const i0 = a0 + dI; const i1 = a1 - dI;
-  const pt = (r, a) => `${(c + r * Math.sin(a)).toFixed(2)} ${(c - r * Math.cos(a)).toFixed(2)}`;
-  const lo = o1 - o0 > Math.PI ? 1 : 0; const li = i1 - i0 > Math.PI ? 1 : 0;
-  return `M${pt(Ro, o0)}A${Ro} ${Ro} 0 ${lo} 1 ${pt(Ro, o1)}L${pt(Ri, i1)}A${Ri} ${Ri} 0 ${li} 0 ${pt(Ri, i0)}Z`;
-}
-
-const SIZE = 112; const RO = 56; const RI = 48; const GAP = 6; const CORNER = 2;
-
-/** The ring around the current node: one segment per lesson, filled as lessons are done. */
-function LessonRing({ parts, of, fillLast }) {
-  // Coming back from a lesson, the segment it earned fills in front of the student.
+/** Under the current stair: one mark per lesson in it, filled as lessons are done. */
+function LessonMarks({ parts, of, fillLast }) {
+  // Coming back from a lesson, the mark it earned fills in front of the student.
   const [shown, setShown] = useState(fillLast ? Math.max(0, parts - 1) : parts);
   useEffect(() => {
     if (shown === parts) return undefined;
     const t = setTimeout(() => setShown(parts), 260);
     return () => clearTimeout(t);
   }, [parts, shown]);
-  const span = (Math.PI * 2) / of;
   return (
-    <svg className="node-ring" viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true">
-      {Array.from({ length: of }, (_, k) => (
-        <path key={k} className={clsx('node-ring-seg', k < shown && 'on')} d={ringPath(SIZE / 2, RO, RI, k * span, (k + 1) * span, GAP, CORNER)} strokeWidth={CORNER * 2} strokeLinejoin="round" />
-      ))}
-    </svg>
+    <span className="node-marks" aria-hidden="true">
+      {Array.from({ length: of }, (_, k) => <i key={k} className={clsx(k < shown && 'on')} />)}
+    </span>
   );
 }
 
@@ -58,8 +40,8 @@ function Burst() {
 }
 
 /**
- * A stop on the path: a dimensional coin with a solid lip that collapses when pressed.
- * locked (grey stone), current (the unit's colour, floating, with the lesson ring), done (gold, a check),
+ * A stop on the path: a stair block with a solid riser that sinks when pressed (the app is named for stairs).
+ * locked (grey stone), current (the unit's colour, floating, with a mark per lesson), done (gold, a check),
  * mastered (gold with a crown once the unit's review is passed), and the trophy that closes a unit.
  */
 const PathNode = forwardRef(function PathNode({ state, kind, parts, of, fillLast, label, expanded, onClick, mastered, celebrate }, ref) {
@@ -71,7 +53,7 @@ const PathNode = forwardRef(function PathNode({ state, kind, parts, of, fillLast
       initial={celebrate && !reduce ? { scale: 0.7 } : false} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 11, delay: 0.2 }}
     >
       {state === 'current' && <span className="node-halo" aria-hidden="true" />}
-      {state === 'current' && kind === 'node' && <LessonRing parts={parts} of={of} fillLast={fillLast} />}
+      {state === 'current' && kind === 'node' && <LessonMarks parts={parts} of={of} fillLast={fillLast} />}
       {celebrate && !reduce && <Burst />}
       <button type="button" ref={ref} className={clsx('node', `node-${state}`, mastered && state === 'done' && 'node-mastered')} aria-expanded={expanded} aria-label={label} onClick={onClick}>
         <svg viewBox="0 0 32 32" className="node-glyph" aria-hidden="true" fill="currentColor">{GLYPH[glyph]}</svg>
