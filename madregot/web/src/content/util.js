@@ -36,9 +36,13 @@ function fracTex(x, wrap) {
   return x < 0 && wrap ? `(${s})` : s;
 }
 
-/** Plain-text number for answers shown to students and sent to the AI. */
-export function plainNum(x) {
+/**
+ * Plain-text number for answers shown to students and sent to the AI.
+ * Fractions by default (a slope of 3/4); with { decimal: true } a short decimal stays a decimal (a mean of 5.4).
+ */
+export function plainNum(x, { decimal = false } = {}) {
   if (Number.isInteger(x)) return String(x);
+  if (decimal && Math.abs(Math.round(x * 100) / 100 - x) < 1e-9) return String(Math.round(x * 100) / 100);
   for (let q = 2; q <= 12; q++) {
     const p = Math.round(x * q);
     if (Math.abs(p / q - x) < 1e-9) { const [a, b] = reduce(p, q); return `${a}/${b}`; }

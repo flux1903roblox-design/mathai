@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { Flame, Snowflake, Zap, Check, Target, Route, ChevronLeft } from 'lucide-react';
+import { Flame, Snowflake, Zap, Check, Target, Route, ChevronLeft, BookOpen, Star, Trophy } from 'lucide-react';
+import { m, useReducedMotion } from 'motion/react';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress, GOALS } from '@/lib/quests.js';
 import { usePlan } from '@/lib/usePlan.js';
@@ -10,7 +11,10 @@ import PageHero from '@/components/PageHero.jsx';
 import Lottie from '@/components/Lottie.jsx';
 
 
+const QUEST_ICON = { lessons: BookOpen, xp: Zap, combo: Flame, perfect: Star, correct: Target, review: Trophy };
+
 export default function Quests() {
+  const reduce = useReducedMotion();
   const { days, goalXp, setGoalXp, freezes, profile } = useApp();
   const plan = usePlan();
   const d = today(); const day = days[d] || {};
@@ -20,7 +24,7 @@ export default function Quests() {
   const allDone = quests.every((q) => q.done);
 
   return (
-    <div className="page quests">
+    <div className="page wide quests">
       <PageHero tone="streak" art="achievements" title="משימות" sub="שלוש משימות ביום. מסיימים את כולן ומקבלים הקפאת רצף." />
 
       <section className="card streak-card" aria-labelledby="streak-h">
@@ -35,7 +39,7 @@ export default function Quests() {
         <p className="freeze-line"><Snowflake size={18} aria-hidden="true" />{freezes === 0 ? 'אין הקפאות רצף כרגע. מסיימים את שלוש המשימות של היום ומקבלים אחת.' : `${freezes === 1 ? 'הקפאת רצף אחת מוכנה' : `${freezes} הקפאות רצף מוכנות`}. אם תפספסו יום, היא תשמור על הרצף.`}</p>
       </section>
 
-      <section className="card" aria-labelledby="goal-h">
+      <section className="card goal-card" aria-labelledby="goal-h">
         <div className="card-row">
           <h2 id="goal-h" className="card-title">
             {todayXp >= goalXp ? <Lottie name="xp-star" className="goal-star" fallback={<Zap size={22} aria-hidden="true" className="gold-icon" />} /> : <Zap size={22} aria-hidden="true" className="gold-icon" />}
@@ -53,26 +57,38 @@ export default function Quests() {
         </div>
       </section>
 
-      <section className="card" aria-labelledby="q-h">
+      <section className="card quest-card" aria-labelledby="q-h">
         <div className="card-row">
           <h2 id="q-h" className="card-title"><Target size={22} aria-hidden="true" className="brand-icon" />המשימות של היום</h2>
           <span className="card-num">{quests.filter((q) => q.done).length}/3</span>
         </div>
         <ul className="quest-list">
-          {quests.map((q) => (
-            <li key={q.id} className={clsx('quest', q.done && 'done')}>
-              <span className="quest-check" aria-hidden="true">{q.done ? <Check size={18} strokeWidth={3} /> : null}</span>
-              <div className="quest-main">
-                <span className="quest-title">{q.title}</span>
-                <div className="bar thin" role="progressbar" aria-label={q.title} aria-valuemin={0} aria-valuemax={q.target} aria-valuenow={q.have}><i style={{ width: `${(q.have / q.target) * 100}%` }} /></div>
-              </div>
-              <span className="quest-count">{q.have}/{q.target}</span>
-            </li>
-          ))}
+          {quests.map((q, i) => {
+            const Icon = QUEST_ICON[q.id] || Target;
+            return (
+              <li key={q.id} className={clsx('quest', `quest-${q.id}`, q.done && 'done')}>
+                <span className="quest-icon" aria-hidden="true"><Icon size={24} />{q.done && <span className="quest-tick"><Check size={14} strokeWidth={3.5} /></span>}</span>
+                <div className="quest-main">
+                  <span className="quest-title">{q.title}</span>
+                  <div className="quest-bar" role="progressbar" aria-label={q.title} aria-valuemin={0} aria-valuemax={q.target} aria-valuenow={q.have}>
+                    <m.i initial={reduce ? false : { width: 0 }} animate={{ width: `${Math.min(1, q.have / q.target) * 100}%` }} transition={{ duration: 0.7, delay: 0.15 + i * 0.12, ease: [0.22, 1, 0.36, 1] }} />
+                  </div>
+                </div>
+                <span className="quest-count"><bdi dir="ltr">{Math.min(q.have, q.target)}/{q.target}</bdi></span>
+              </li>
+            );
+          })}
         </ul>
-        {allDone
-          ? <div className="quests-done"><Mascot mood="cheer" size={72} /><p>כל המשימות של היום הושלמו. מחר יחכו חדשות.</p></div>
-          : <p className="muted">מסיימים את שלוש המשימות ומקבלים הקפאת רצף (אפשר להחזיק עד שתיים).</p>}
+        {/* the day's chest: closed until all three missions are done; it holds a streak freeze */}
+        <div className={clsx('quest-chest', allDone && 'open')}>
+          <Lottie name="chest" frame={allDone ? 'end' : 'start'} className="quest-chest-art" label={allDone ? 'תיבה פתוחה' : 'תיבה סגורה'} fallback={<Trophy size={48} aria-hidden="true" />} />
+          <div className="quest-chest-text">
+            <Mascot mood={allDone ? 'happy' : 'idle'} size={46} />
+            <p className="quest-say">{allDone
+              ? (day.questsRewarded && freezes > 0 ? 'פתחתם את התיבה של היום! יש בה הקפאת רצף.' : 'פתחתם את התיבה של היום! מחר יחכו משימות חדשות.')
+              : `עוד ${3 - quests.filter((q) => q.done).length === 1 ? 'משימה אחת' : `${3 - quests.filter((q) => q.done).length} משימות`} והתיבה נפתחת. יש בה הקפאת רצף (אפשר להחזיק עד שתיים).`}</p>
+          </div>
+        </div>
       </section>
 
       {plan.weak.length > 0 && (

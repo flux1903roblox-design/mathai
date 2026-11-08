@@ -10,6 +10,7 @@ import { PARTS, JUMP_LEN, REVIEW_LEN, LESSON_LEN } from '@/lib/lesson.js';
 import Mascot from '@/components/Mascot.jsx';
 import PathNode from '@/components/PathNode.jsx';
 import Board from '@/components/Board.jsx';
+import ContinueCard from '@/components/ContinueCard.jsx';
 import PathTrail from '@/components/map/PathTrail.jsx';
 import { SCENERY, Emblem } from '@/components/map/Scenery.jsx';
 import { Button } from '@/components/ui.jsx';
@@ -171,9 +172,11 @@ export default function Learn() {
   const focusKey = focusNode ? `${focusTopic}:${focusNode.kind}:${focusNode.level}` : null;
 
   useEffect(() => { settleStreak(); }, [settleStreak]);
-  // The screen opens on the board; back from a lesson, or on another grade, it opens on the place to continue from.
+  // The screen opens at the top (continue card, then the map); after the placement test it opens on the board;
+  // back from a lesson, or on another grade, it opens on the place to continue from.
   useLayoutEffect(() => {
     const first = firstView.current; firstView.current = false;
+    if (first && state?.placed) { document.getElementById('board-title')?.scrollIntoView({ block: 'start' }); return; }
     if (first && !state?.from) { window.scrollTo(0, 0); return; }
     currentRef.current?.scrollIntoView({ block: 'center' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -186,6 +189,7 @@ export default function Learn() {
   }, [view, path]);
 
   const onStart = (to) => navigate(to);
+  const onBoard = () => document.getElementById('board-title')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   const onJump = (id) => document.getElementById(`unit-${id}`)?.closest('.unit')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   const otherGrade = view === '7' ? '8' : '7';
 
@@ -202,7 +206,7 @@ export default function Learn() {
 
       <div className="learn-layout">
       <div className="learn-body">
-        <Board grade={view} next={focusNode} placed={!!state?.placed} onStart={onStart} onJump={onJump} />
+        <ContinueCard grade={view} next={focusNode} onStart={onStart} onBoard={onBoard} />
         <h2 className="map-title">מפת השיעורים</h2>
         {topics.map((t, i) => (
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
@@ -210,6 +214,8 @@ export default function Learn() {
             mascotMood={state?.nodeDone ? 'excited' : state?.from ? 'happy' : 'idle'} />
         ))}
         <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה.</p>
+        {/* the board: the level in each topic and what is not clear yet, under the map */}
+        <Board grade={view} placed={!!state?.placed} onStart={onStart} onJump={onJump} />
       </div>
       <SidePanel streak={streak} todayXp={todayXp} goalXp={goalXp} freezes={freezes} days={days} />
       </div>

@@ -6,6 +6,8 @@ import { api, hasServer } from '@/lib/api.js';
 import { Box, Button, Field } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass } from './Welcome.jsx';
 import PageHero from '@/components/PageHero.jsx';
+import { useLocation } from 'react-router-dom';
+import { useEffect as useMeEffect } from 'react';
 import Achievements from '@/components/Achievements.jsx';
 
 function ClassSection() {
@@ -123,12 +125,15 @@ function SoundSetting() {
 
 export default function Me() {
   const { profile, patchProfile, resetProgress, signOut } = useApp();
+  const { state: nav } = useLocation();
+  useMeEffect(() => { if (nav?.focus === 'ai') document.getElementById('ai-title')?.scrollIntoView({ block: 'start' }); }, [nav]);
   const [name, setName] = useState(profile.name);
   const [danger, setDanger] = useState(null);
   return (
-    <div className="page">
+    <div className="page wide me-page">
       <PageHero tone="brand" title={profile.name || 'אני'} sub={profile.className ? `כיתה ${profile.className}` : profile.grade === '8' ? 'כיתה ח׳' : 'כיתה ז׳'} mood="happy" />
       <Achievements />
+      <div className="me-settings">
       <section className="section" aria-labelledby="prof-title">
         <h2 id="prof-title" className="h-section">הפרטים שלי</h2>
         <Field label="שם" id="me-name">
@@ -166,6 +171,7 @@ export default function Me() {
           </div>
         )}
       </section>
+      </div>
       <p className="footnote">מדרגות{hasServer() ? '' : '. בלי שרת: ההתקדמות נשמרת רק במכשיר הזה.'}</p>
     </div>
   );

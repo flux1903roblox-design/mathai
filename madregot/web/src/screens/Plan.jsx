@@ -16,7 +16,7 @@ export default function Plan() {
 
   const hasData = plan.weak.length > 0;
   return (
-    <div className="page">
+    <div className="page wide plan-page">
       <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
       <PageHero tone="petrol" art="plan" title="התוכנית שלי לשיפור" sub="צעדים לפי הסדר, מהמקומות שבהם ירדו נקודות." />
       {!hasData ? (

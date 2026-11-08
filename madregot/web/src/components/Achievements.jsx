@@ -57,7 +57,7 @@ export default function Achievements() {
           </m.div>
         ))}
       </m.dl>
-      <section className="section" aria-labelledby="medals-title">
+      <section className="section medals-section" aria-labelledby="medals-title">
         <h2 id="medals-title" className="h-section"><Sparkles size={20} aria-hidden="true" className="h-icon" />מדליות <span className="h-count">{earned} מתוך {medals.length}</span></h2>
         <div className="medals">
           {medals.map((x, k) => {

@@ -23,7 +23,7 @@ export default function Exams() {
   const { exams, practiceExams } = useApp();
   const plan = usePlan();
   return (
-    <div className="page">
+    <div className="page wide exams-page">
       <PageHero tone="sky" art="exams-empty" title="מבחנים" sub="בודקים מבחן שפתרתם, מקבלים הסבר על כל שאלה, ורואים מה כדאי לתרגל עכשיו." />
       <ul className="topic-list">
         <ActionRow to="/exams/check" icon={ClipboardCheck} title="בדיקת מבחן שפתרתם" desc="מצלמים את הדפים או מעלים PDF, והעוזר בודק כל תשובה" />

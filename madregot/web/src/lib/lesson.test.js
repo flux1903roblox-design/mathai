@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { startLesson, answer, next, resultOf, progressOf, planLevels, LESSON_LEN, REVIEW_LEN, PARTS, XP } from './lesson.js';
 import { unitNodes, recordOnPath, doneUpTo, nextNode } from './path.js';
 import { questsFor, questProgress } from './quests.js';
@@ -99,12 +99,15 @@ describe('store: lessons, streak and freezes', () => {
     expect(st.days[today()]).toMatchObject({ lessons: 2, xp: 30, perfect: 2, combo: 8 });
   });
   it('a freeze saves the streak over one missed day', () => {
+    // On a fixed Thursday, so the missed day (Wednesday) is never a Shabbat, which would not count as missed.
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-05T12:00:00'));
     const y2 = dayBefore(dayBefore(today())); const y3 = dayBefore(y2);
     useApp.setState({ days: { [y3]: { lessons: 1 }, [y2]: { lessons: 1 } }, freezes: 1 });
     expect(streakOf(useApp.getState().days)).toBe(0); // yesterday was missed
     expect(useApp.getState().settleStreak()).toBe(1);
     expect(streakOf(useApp.getState().days)).toBe(2);
     expect(useApp.getState().freezes).toBe(0);
+    vi.useRealTimers();
   });
 });
 

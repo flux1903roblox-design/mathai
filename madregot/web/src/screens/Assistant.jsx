@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import Mascot from '@/components/Mascot.jsx';
 import clsx from 'clsx';
 import { Camera, MessageCircle, Wand2, Check, X, ImageUp } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
@@ -37,6 +38,46 @@ function Tabs({ value, onChange }) {
   );
 }
 
+/** A result that appears below the fold scrolls up into view, clear of the tab bar. */
+function useReveal(dep) {
+  const ref = useRef(null);
+  useEffect(() => { if (dep) ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [dep]);
+  return ref;
+}
+
+/**
+ * The tutor is not connected (no server, no personal key): say so once, show what it will do,
+ * and give two clear ways on. Nothing on this screen pretends to work and then fails.
+ */
+function AiOffline() {
+  const inClass = useApp((s) => !!s.profile?.token);
+  const FEATURES = [
+    { icon: MessageCircle, title: 'שיחה עם המורה הפרטי', text: 'שואלים כל שאלה, ומקבלים הסבר צעד אחר צעד.' },
+    { icon: Camera, title: 'בדיקת פתרון מצולם', text: 'מצלמים את הדרך מהמחברת, והעוזר מסמן כל שלב.' },
+    { icon: Wand2, title: 'תרגילים חדשים', text: 'עוד תרגילים באותה מדרגה, עם רמז ופתרון.' },
+  ];
+  return (
+    <section className="ai-offline" aria-labelledby="ai-off-title">
+      <div className="ai-offline-head">
+        <Mascot mood="encouraging" size={84} />
+        <div className="ai-offline-text">
+          <h2 id="ai-off-title" className="h-section">העוזר עוד לא מחובר</h2>
+          <p className="muted">{inClass ? 'השרת של הכיתה לא עונה כרגע. כדאי לנסות שוב בעוד כמה דקות.' : 'בגרסה הזו העוזר כבוי. השיעורים, המפה והמשימות עובדים גם בלעדיו.'}</p>
+        </div>
+      </div>
+      <ul className="ai-features">
+        {FEATURES.map(({ icon: Icon, title, text }) => (
+          <li key={title}><span className="ai-feature-icon" aria-hidden="true"><Icon size={22} /></span><span><b>{title}</b><span>{text}</span></span></li>
+        ))}
+      </ul>
+      <div className="ai-offline-actions">
+        <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>
+        {!inClass && <Link to="/me" state={{ focus: 'ai' }} className="btn btn-secondary btn-block">איך מחברים את העוזר</Link>}
+      </div>
+    </section>
+  );
+}
+
 async function shrinkImage(file) {
   const url = URL.createObjectURL(file);
   try {
@@ -66,6 +107,7 @@ function PhotoCheck() {
     } catch (e) { setState({ phase: 'error', message: e.message }); }
   };
   const r = state.r;
+  const outRef = useReveal(state.phase !== 'idle' ? state.phase : null);
   return (
     <div className="stack">
       <p className="lead">צלמו את הדרך שכתבתם במחברת. העוזר יבדוק כל שלב ויראה איפה כדאי לתקן.</p>
@@ -77,6 +119,7 @@ function PhotoCheck() {
         <input id="pc-q" className="input" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={300} placeholder="למשל: פתרו את המשוואה 3x − 5 = 10" />
       </Field>
       <Button className="btn-block" onClick={send} disabled={!image || state.phase === 'loading'}>בדיקת הפתרון</Button>
+      <div ref={outRef} className="reveal-anchor" />
       {state.phase === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['קורא את כתב היד', 'בודק כל שלב', 'מסכם']} /></Box>}
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
       {state.phase === 'done' && (
@@ -130,6 +173,7 @@ function Generate({ initialTopic, initialLevel }) {
   const [count, setCount] = useState(3);
   const [state, setState] = useState({ phase: 'idle' });
   const t = TOPIC[topic];
+  const outRef = useReveal(state.phase !== 'idle' ? state.phase : null);
   const go = async () => {
     setState({ phase: 'loading' });
     try {
@@ -160,6 +204,7 @@ function Generate({ initialTopic, initialLevel }) {
         </div>
       </div>
       <Button className="btn-block" onClick={go} disabled={state.phase === 'loading'}>כתיבת תרגילים</Button>
+      <div ref={outRef} className="reveal-anchor" />
       {state.phase === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['כותב תרגילים', 'פותר כל תרגיל', 'בודק את התשובות']} /></Box>}
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
       {state.phase === 'done' && (
@@ -180,18 +225,16 @@ export default function Assistant() {
   return (
     <div className="page">
       <PageHero tone="ai" art="assistant" title="עוזר AI" sub="שואלים על כל תרגיל, מקבלים תרגילים חדשים, ובודקים פתרון מצולם." />
-      {!ready && (
-        <Box tone="attention" title="העוזר עוד לא מחובר">
-          <p>כדי שהעוזר יעבוד, צריך לחבר אותו לשרת של הכיתה או למפתח Claude אישי.</p>
-          <Link to="/me" className="btn btn-secondary btn-sm">לחיבור במסך "אני"</Link>
-        </Box>
+      {!ready ? <AiOffline /> : (
+        <>
+          <Tabs value={tab} onChange={setTab} />
+          <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="tab-panel">
+            {tab === 'chat' && <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳. העוזר יסביר צעד אחר צעד." />}
+            {tab === 'photo' && <PhotoCheck />}
+            {tab === 'generate' && <Generate initialTopic={params.get('generate')} initialLevel={params.get('level')} />}
+          </div>
+        </>
       )}
-      <Tabs value={tab} onChange={setTab} />
-      <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="tab-panel">
-        {tab === 'chat' && <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳. העוזר יסביר צעד אחר צעד." />}
-        {tab === 'photo' && <PhotoCheck />}
-        {tab === 'generate' && <Generate initialTopic={params.get('generate')} initialLevel={params.get('level')} />}
-      </div>
       {ready && <p className="footnote">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : 'העוזר פועל דרך השרת של הכיתה.'} Claude של Anthropic.</p>}
     </div>
   );

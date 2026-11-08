@@ -25,8 +25,9 @@ export default function Shell() {
         ))}
       </nav>
       <main className="shell-main">
-        {/* each screen settles in as it opens: a short rise, from a visible start */}
-        <m.div key={pathname} className="screen" initial={{ opacity: 0.4, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}>
+        {/* each screen fades in as it opens, from a visible start. Opacity only: a transform here would make
+            every position: fixed element inside the screen (the jump-back button) scroll with the page. */}
+        <m.div key={pathname} className="screen" initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}>
           <Outlet />
         </m.div>
       </main>

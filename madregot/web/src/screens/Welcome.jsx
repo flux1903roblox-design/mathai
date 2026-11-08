@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Check, Footprints, Target } from 'lucide-react';
+import { ArrowRight, Check, Footprints, Target, Users, Repeat, Hand, ClipboardList } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
+import { artUrl } from '@/components/PageHero.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { topicsFor } from '@/content/index.js';
 import { KNOW } from '@/lib/placement.js';
@@ -198,11 +199,27 @@ function TeacherStart({ onBack }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
   if (!hasServer()) {
+    // This copy of the app runs without a server (a demo or a student-only site). Say what the teacher view gives,
+    // and how a school turns it on, instead of a dead end.
     return (
-      <div className="welcome-form">
-        <h1 className="h-page">לוח המורה צריך שרת</h1>
-        <p className="lead">כדי לראות את התלמידים, האפליקציה צריכה להיות מחוברת לשרת של הכיתה. ההוראות להקמת השרת נמצאות בקובץ README שבתיקייה madregot.</p>
-        <Button variant="ghost" onClick={onBack}>חזרה</Button>
+      <div className="teacher-off">
+        <img src={artUrl('teacher')} alt="" className="teacher-off-art" />
+        <h1 className="h-page">לוח המורה עובד עם שרת הכיתה</h1>
+        <p className="lead">הכתובת הזו היא גרסת תרגול לתלמידים, בלי שרת. לוח המורה צריך שרת קטן של הכיתה (Cloudflare, בחינם), כדי שהתלמידים יוכלו להצטרף בקוד והמורה יראה את ההתקדמות.</p>
+        <ul className="teacher-off-list">
+          <li><Users size={20} aria-hidden="true" /><span><b>מי תרגל היום ובשבוע</b>וכמה תשובות נכונות בניסיון ראשון.</span></li>
+          <li><Repeat size={20} aria-hidden="true" /><span><b>טעויות שחוזרות בכיתה</b>לפי נושא, עם שמות התלמידים.</span></li>
+          <li><Hand size={20} aria-hidden="true" /><span><b>בקשות עזרה</b>עם התרגיל ודף המחברת של התלמיד.</span></li>
+          <li><ClipboardList size={20} aria-hidden="true" /><span><b>מבחנים שנבדקו</b>ריבוע לכל שאלה, ונושאים לחיזוק.</span></li>
+        </ul>
+        <h2 className="h-section">איך מפעילים</h2>
+        <ol className="teacher-off-steps">
+          <li>פותחים חשבון חינמי ב־Cloudflare.</li>
+          <li>במחשב, בתיקייה <span dir="ltr">madregot</span>, מריצים את <span dir="ltr">setup.ps1</span>. הוא יוצר את מסד הנתונים ומעלה את האפליקציה עם השרת.</li>
+          <li>נכנסים מהכתובת שהסקריפט מדפיס, בוחרים "אני מורה" ופותחים כיתה. התלמידים מצטרפים עם הקוד.</li>
+        </ol>
+        <p className="muted">הפרטים המלאים, כולל חיבור עוזר ה־AI, נמצאים בקובץ README שבתיקייה.</p>
+        <Button className="btn-block" variant="secondary" onClick={onBack}>חזרה</Button>
       </div>
     );
   }

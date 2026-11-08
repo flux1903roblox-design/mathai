@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { Dialog } from '@base-ui/react/dialog';
-import { Delete, X } from 'lucide-react';
+import { Delete, X, ArrowRightLeft } from 'lucide-react';
 import { MathText } from './MathText.jsx';
 
 /** The chapter mark: a solid circle in the topic's colour with its number. */
@@ -50,17 +50,26 @@ export function Button({ variant = 'primary', className, children, ...rest }) {
 }
 
 /** Number keypad with a minus key: phone keyboards have none in numeric mode. */
-export function Keypad({ onKey, primary, onPrimary, primaryDisabled }) {
+/**
+ * The maths keypad: digits, minus, fraction bar, decimal point, delete. With onNext (an answer in two fields,
+ * a point or a line) the last cell moves to the next field; otherwise the 0 key takes the row.
+ */
+export function Keypad({ onKey, primary, onPrimary, primaryDisabled, onNext, nextLabel = 'לשדה הבא' }) {
   const keys = ['7', '8', '9', 'del', '4', '5', '6', '-', '1', '2', '3', '/', '0', '.'];
   return (
     <div className="keypad" dir="ltr">
       {keys.map((k) => (
-        <button key={k} type="button" className={clsx('key', k === '-' && 'key-minus', k === 'del' && 'key-del', k === '0' && primary == null && 'key-wide')}
+        <button key={k} type="button" className={clsx('key', k === '-' && 'key-minus', k === 'del' && 'key-del', k === '0' && primary == null && (onNext ? 'key-wide' : 'key-wide3'))}
           aria-label={k === 'del' ? 'מחיקה' : k === '-' ? 'מינוס' : k === '/' ? 'שבר' : k === '.' ? 'נקודה עשרונית' : k}
           onPointerDown={(e) => e.preventDefault()} onClick={() => onKey(k)}>
           {k === 'del' ? <Delete size={22} aria-hidden="true" /> : k === '-' ? '−' : k}
         </button>
       ))}
+      {onNext && primary == null && (
+        <button type="button" className="key key-next" aria-label={nextLabel} onPointerDown={(e) => e.preventDefault()} onClick={onNext}>
+          <ArrowRightLeft size={22} aria-hidden="true" />
+        </button>
+      )}
       {primary != null && (
         <button type="button" className="key key-primary" onPointerDown={(e) => e.preventDefault()} onClick={onPrimary} disabled={primaryDisabled}>
           {primary}

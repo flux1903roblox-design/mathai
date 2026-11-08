@@ -3,6 +3,7 @@ import { Send } from 'lucide-react';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { Markdown } from './MathText.jsx';
 import { Thinking } from './ui.jsx';
+import Mascot from './Mascot.jsx';
 
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
 const THINK = ['קורא את התרגיל', 'חושב על הדרך', 'מנסח הסבר'];
@@ -45,13 +46,19 @@ export default function AIChat({ context, intro }) {
       <div className="chat-list" ref={listRef}>
         {intro && messages.length === 0 && <p className="chat-intro">{intro}</p>}
         {messages.map((m, i) => (
-          <div key={i} className={`msg ${m.role}`}>
-            {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : <p>{m.content}</p>}
+          <div key={i} className={`msg-row ${m.role}`}>
+            {m.role === 'assistant' && <Mascot mood="idle" size={34} className="msg-avatar" />}
+            <div className={`msg ${m.role}`}>
+              {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : <p>{m.content}</p>}
+            </div>
           </div>
         ))}
         {pending && (
-          <div className="msg assistant">
-            {streaming ? <p className="streaming">{streaming}</p> : <Thinking states={THINK} />}
+          <div className="msg-row assistant">
+            <Mascot mood="thinking" size={34} className="msg-avatar" />
+            <div className="msg assistant">
+              {streaming ? <p className="streaming">{streaming}</p> : <Thinking states={THINK} />}
+            </div>
           </div>
         )}
         {error && <p className="form-error" role="alert">{error}</p>}

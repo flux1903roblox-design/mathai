@@ -33,7 +33,7 @@ export default function Topics() {
   const [grade, setGrade] = useState(own);
   const list = topicsFor(grade);
   return (
-    <div className="page">
+    <div className="page wide topics-page">
       <PageHero tone="brand" art="study" title="נושאים" sub="כל הנושאים של השנה, וכמה מדרגות כבר עליתם בכל אחד." />
       <div className="field">
         <span className="visually-hidden" id="tp-grade">שכבה</span>

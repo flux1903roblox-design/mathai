@@ -42,11 +42,12 @@ export function answerText(it, u = it.answer) {
   if (u == null) return '';
   if (it.form === 'mc') { const c = it.choices[u]; return c ? (c.text || c.tex) : ''; }
   if (it.form === 'pt') return `(${plainNum(u[0])}, ${plainNum(u[1])})`;
+  // Statistics answers are means and medians: they read as decimals, as in the worked solution.
   if (it.form === 'line') {
     const b = u.b === 0 ? '' : u.b > 0 ? ` + ${plainNum(u.b)}` : ` - ${plainNum(-u.b)}`;
     return `y = ${plainNum(u.m)}x${b}`;
   }
-  return plainNum(u);
+  return plainNum(u, { decimal: it.topic === 'stats' });
 }
 
 /** The exercise as one line of text for the AI and the teacher. */
