@@ -12,4 +12,4 @@ Five frames for the iPhone 6.7" display (1290 × 2796, JPEG, no transparency), o
 
 Every screen inside the phone is the real app (a no-server build), captured at 430 × 932 at 3x: nothing is mocked. The framing follows the stageshow skill's rules: one thing said per frame, the product big and running off an edge, no plate behind it, real words only where the story is.
 
-To make them again: build and serve the app without a server on port 8950 (`VITE_API_URL=none VITE_QA_HOOKS=1`), then from this folder run `node capture.cjs` (the five screens) and `node frames.cjs` (the frames, as PNG); convert to JPEG for the store.
+To make them again: build and serve the app without a server on port 8950 (`VITE_API_URL=none VITE_QA_HOOKS=1`), then, in an empty working folder, run `node <this folder>/capture.cjs` (the five screens, `raw-*.png`) and `node <this folder>/frames.cjs` (the frames, `store-*.png`); convert them to JPEG for the store.

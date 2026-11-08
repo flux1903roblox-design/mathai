@@ -28,7 +28,7 @@ p { margin: 14px 0 0; font-size: 19px; line-height: 1.45; color: #5f6178; }
   const c = await b.newContext({ viewport: { width: 430, height: 932 }, deviceScaleFactor: 3 });
   const p = await c.newPage();
   for (const [n, title, sub, col, tint] of FRAMES) {
-    const f = path.resolve(`frame-${n}.html`); fs.writeFileSync(f, html(`raw-${n}.png`, title, sub, col, tint));
+    const f = path.join(require('os').tmpdir(), `madregot-frame-${n}.html`); fs.writeFileSync(f, html(`raw-${n}.png`, title, sub, col, tint)); // a working file, outside the repository
     await p.goto('file://' + f); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(300);
     await p.screenshot({ path: `store-${n}.png` });
   }
