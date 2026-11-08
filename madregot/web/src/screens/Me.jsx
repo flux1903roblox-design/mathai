@@ -25,6 +25,15 @@ function ClassSection() {
       </section>
     );
   }
+  // Without the class server there is nothing to join: say so, instead of a form that can only fail.
+  if (!hasServer()) {
+    return (
+      <section className="section" aria-labelledby="cls-title">
+        <h2 id="cls-title" className="h-section">הצטרפות לכיתה</h2>
+        <p className="muted">בגרסה הזו אין שרת כיתה, אז ההתקדמות נשמרת רק במכשיר הזה. כדי שהמורה יראה את ההתקדמות, נכנסים מהכתובת של הכיתה שהמורה נותן, ושם מצטרפים עם קוד הכיתה.</p>
+      </section>
+    );
+  }
   const join = async (e) => {
     e.preventDefault(); setError(''); setBusy(true);
     try {
@@ -58,6 +67,7 @@ function AISection() {
   const [url, setUrl] = useState(ai.apiUrl || '');
   const [key, setKey] = useState(ai.key || '');
   const [status, setStatus] = useState('');
+  const served = hasServer();
   const test = async () => {
     setAI({ apiUrl: url.trim() }); setStatus('בודקים…');
     try {
@@ -84,12 +94,18 @@ function AISection() {
       </div>
       {ai.mode !== 'personal' ? (
         <div className="stack">
-          <p className="muted">העוזר עובד דרך השרת של האפליקציה.</p>
-          <Button variant="ghost" className="btn-sm" onClick={test}>בדיקת חיבור</Button>
+          {served ? (
+            <>
+              <p className="muted">העוזר עובד דרך השרת של האפליקציה.</p>
+              <Button variant="ghost" className="btn-sm" onClick={test}>בדיקת חיבור</Button>
+            </>
+          ) : (
+            <p className="muted">בגרסה הזו אין שרת מחובר. אפשר לכתוב כתובת של שרת כיתה בהגדרות המתקדמות, או לבחור &quot;מפתח אישי&quot; כדי לתרגל עם העוזר לבד.</p>
+          )}
           {status && <p className="muted" role="status">{status}</p>}
           <details className="sol">
             <summary>הגדרות מתקדמות (למי שהתקין שרת משלו)</summary>
-            <Field label="כתובת השרת" id="ai-url" hint="משאירים ריק כדי להשתמש בשרת שהאפליקציה הגיעה ממנו.">
+            <Field label="כתובת השרת" id="ai-url" hint={served ? 'משאירים ריק כדי להשתמש בשרת שהאפליקציה הגיעה ממנו.' : 'הכתובת של שרת הכיתה, כמו שהמורה נתן.'}>
               <input id="ai-url" name="server-url" className="input mono" dir="ltr" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…workers.dev" autoComplete="off" spellCheck={false} />
             </Field>
             <Button variant="secondary" className="btn-sm" onClick={test}>שמירה ובדיקה</Button>

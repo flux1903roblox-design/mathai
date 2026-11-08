@@ -90,9 +90,9 @@
 .input {
   width: 100%; min-height: 50px; padding: var(--s2) var(--s4); border-radius: var(--r-md);
   border: 2px solid var(--rule); background: var(--ground); font-size: var(--t-md);
-  transition: border-color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
+  transition: border-color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out), box-shadow var(--duration-quick) var(--ease-out);
 }
-.input:focus { outline: none; border-color: var(--brand); background: var(--paper); }
+.input:focus { outline: none; border-color: var(--brand); background: var(--paper); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 30%, transparent); }
 textarea.input { resize: vertical; min-height: 88px; line-height: var(--lh-base); }
 .form-error { color: var(--magenta); font-weight: 600; }
 

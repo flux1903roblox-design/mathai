@@ -100,3 +100,28 @@ describe('math checks', () => {
     expect(parseNum('abc')).toBeNull();
   });
 });
+
+describe('right-to-left text and answers', () => {
+  const LRI = '⁦'; const PDI = '⁩';
+  it('lists of numbers in a Hebrew sentence keep their order (left-to-right isolate)', () => {
+    let lists = 0;
+    for (let r = 0; r < RUNS; r++) {
+      for (const [topic, level] of [['stats', 1], ['stats', 2], ['stats', 3], ['stats', 5], ['pyth', 3]]) {
+        const it = makeItem(topic, level);
+        const list = it.text.match(/\$-?[\d.]+\$(, \$-?[\d.]+\$)+/);
+        if (list) { lists += 1; expect(it.text).toContain(LRI + list[0] + PDI); }
+        expect(itemPlain(it)).not.toContain(LRI); // the isolate marks never reach the AI text
+        expect(itemPlain(it)).not.toContain(PDI);
+      }
+    }
+    expect(lists).toBeGreaterThan(RUNS); // the check really saw lists
+  });
+  it('statistics answers are shown as decimals, not fractions', () => {
+    for (let r = 0; r < RUNS; r++) {
+      for (const level of [1, 2, 3, 5]) {
+        const it = makeItem('stats', level);
+        if (it.form === 'num') expect(answerText(it)).not.toContain('/');
+      }
+    }
+  });
+});

@@ -8,6 +8,27 @@ const render = (tex, displayMode) => {
   try { return katex.renderToString(tex, { displayMode, throwOnError: false, strict: 'ignore' }); } catch { return tex; }
 };
 
+const RELATION = { '<': 'קטן מ־', '>': 'גדול מ־', '=': 'שווה ל־', '\\le': 'קטן או שווה ל־', '\\ge': 'גדול או שווה ל־', '\\ne': 'שונה מ־' };
+
+/**
+ * A TeX expression as plain text, for a screen-reader label where the rendered maths alone gives a
+ * control no name (a multiple-choice answer). A lone comparison sign is said in words.
+ */
+export function texText(tex) {
+  const t = String(tex ?? '').trim();
+  if (RELATION[t]) return RELATION[t];
+  return t
+    .replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2')
+    .replace(/\\sqrt\{([^{}]*)\}/g, '√$1')
+    .replace(/\\text\{([^{}]*)\}/g, '$1')
+    .replace(/\^\{?\\circ\}?/g, '°').replace(/\\(cdot|times)/g, '×').replace(/\\div/g, ':').replace(/\\circ/g, '°')
+    .replace(/\\leq?(?![a-z])/g, '≤').replace(/\\geq?(?![a-z])/g, '≥').replace(/\\neq?(?![a-z])/g, '≠')
+    .replace(/\^\{?2\}?/g, '²')
+    .replace(/\\(left|right)|\\[,;! ]/g, ' ')
+    .replace(/[{}]/g, '').replace(/\\([a-zA-Z]+)/g, '$1')
+    .replace(/\s+/g, ' ').trim();
+}
+
 /** One TeX expression. */
 export const Tex = memo(function Tex({ tex, display = false, className }) {
   const html = useMemo(() => render(tex, display), [tex, display]);

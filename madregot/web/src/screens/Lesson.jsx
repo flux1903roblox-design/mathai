@@ -11,7 +11,7 @@ import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { api, syncNow } from '@/lib/api.js';
 import { play, buzz } from '@/lib/sound.js';
-import { Tex, MathText, Markdown } from '@/components/MathText.jsx';
+import { Tex, MathText, Markdown, texText } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
 import AIChat from '@/components/AIChat.jsx';
 import Notebook from '@/components/Notebook.jsx';
@@ -223,6 +223,7 @@ export default function Lesson() {
       if (e.key === 'Enter' && last && !last.invalid) { e.preventDefault(); goOn(); return; }
       // A computer keyboard types into the answer even when the focus is elsewhere on the screen.
       const tag = document.activeElement?.tagName;
+      if (e.key === 'Enter' && !last && canCheck && !['INPUT', 'TEXTAREA', 'BUTTON', 'A', 'SUMMARY'].includes(tag)) { e.preventDefault(); check(); return; }
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey || !item || item.form === 'mc' || nbOn) return;
       const k = /^[0-9./]$/.test(e.key) ? e.key : e.key === '-' ? '-' : e.key === 'Backspace' ? 'del' : null;
       if (k) { e.preventDefault(); onKey(k); }
@@ -230,6 +231,13 @@ export default function Lesson() {
     window.addEventListener('keydown', onDoc);
     return () => window.removeEventListener('keydown', onDoc);
   });
+
+  // Once the right choice is marked, it is brought into view: on a small phone the feedback panel
+  // shrinks the maths region and the choice could otherwise sit below its fold.
+  const marked = !!(last && !last.invalid && (last.ok || s?.phase !== 'retry') && item?.form === 'mc');
+  useEffect(() => {
+    if (marked) qRef.current?.querySelector('.choice.good')?.scrollIntoView?.({ block: 'nearest' });
+  }, [marked]);
 
   const checkWork = async () => {
     const image = nbRef.current?.toImage();
@@ -294,7 +302,7 @@ export default function Lesson() {
             {item.choices.map((c, i) => {
               const state = locked && i === item.answer ? 'good' : (feedback && choice === i && i !== item.answer) || s.wrong.includes(i) ? 'bad' : '';
               return (
-                <m.button key={i} type="button" role="radio" aria-checked={choice === i} className={clsx('choice', choice === i && 'on', state)}
+                <m.button key={i} type="button" role="radio" aria-checked={choice === i} aria-label={c.tex ? texText(c.tex) : undefined} className={clsx('choice', choice === i && 'on', state)}
                   whileTap={locked ? undefined : { scale: 0.96 }} animate={state === 'good' ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}
                   disabled={locked || s.wrong.includes(i)} onClick={() => { setChoice(i); play('tap'); if (feedback === 'retry') setLast(null); }}>
                   <span className="choice-key" aria-hidden="true">{state === 'good' ? <Check size={18} strokeWidth={3.4} /> : state === 'bad' ? <X size={18} strokeWidth={3.4} /> : i + 1}</span>
