@@ -110,3 +110,16 @@ assets are used.
 The map scenery (thermometer, sea line, treasure grid, compass, protractor, peaks, kite, slope stairs, ramp, paper
 plane, the squares on a right triangle, ladder, pyramid, bar chart, pie chart, dice) and the reward medals are
 original SVG drawn for Madregot (`web/src/components/map/Scenery.jsx`, `web/src/components/RewardBadge.jsx`).
+
+## 4. Original artwork drawn in code (no third-party source)
+
+Everything below was drawn for Madregot as SVG in the source code. None of it is copied or traced from another app; the research that informed the design looked at store screenshots only and no image from it is in the repository.
+
+| Where | What |
+|---|---|
+| `src/components/map/WorldBackdrop.jsx` | the six world entrances on the map (frost and fire valley, gridded-sea island, angle peaks, slope city, square-block pyramids, market towers) |
+| `src/components/map/Chest.jsx` | the treasure chest halfway along each unit |
+| `src/components/map/Scenery.jsx` | the scenery pieces beside the stops |
+| `src/components/Climb.jsx` | the staircase at the end of a lesson |
+| `src/components/manip/*.jsx` | the interactive maths objects (number line, plane, line builder, angle, Pythagoras squares, bars) |
+| `src/components/Mascot.jsx` | the mascot מדי |

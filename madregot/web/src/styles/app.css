@@ -2022,3 +2022,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .ob-sample { display: inline-flex; align-items: center; direction: ltr; padding: 4px 10px; border-radius: 10px; background: var(--brand-tint); color: var(--brand-d); font-size: var(--t-sm); }
 .ob-opt.on .ob-sample { background: #fff; }
 @media (max-width: 360px) { .ob-sample { font-size: var(--t-xs); padding: 3px 7px; } }
+/* the "got it" button on a shown answer: white text on a red that reaches 4.5:1 (the marks keep the brighter red) */
+.btn-bad { --btn-bg: #d9304f; }
+/* around an interactive object only the object shrinks: the expression above it keeps its height (and never scrolls) */
+.lesson.is-manip .q-stage > :not(.manip):not(.manip-coach) { flex: none; }
