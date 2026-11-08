@@ -297,3 +297,10 @@ has a repo test that fails on the old code and passes on the new one.
 | A-2 | Not tested on a real iPhone, in iOS Safari, in WebKit or on Android Chrome | No device or WebKit run in this environment. Needs one pass on a real iPhone (Safari, home-screen app) before calling mobile done. |
 | A-3 | No test with a real screen reader (VoiceOver, TalkBack) | axe-core and keyboard checks only. |
 | A-4 | The wording of the AI's answers was not reviewed | The local build uses a stand-in for the Claude API. |
+
+## Round 6: the transformation, checked at every size (8 November 2026)
+
+- **Sweep:** every screen (welcome, both grades' maps, quests, profile, exams, practice exam, exam check, plan, assistant, topics, a topic, the teacher dashboard) and sixteen lesson types, at 320×568, 360×640, 375×667, 390×844, 430×932, 768×1024 and 1440×900: 203 screen-and-size checks, with no sideways scroll, the main action on screen and not covered, no script error and no text cut by its box. None found.
+- **Interactive exercises:** eleven kinds (number line, ordering, point, quadrant, rectangle vertex, point of a line, line builder, angle, triangle, Pythagoras squares, mean and median bars) driven with real drags, arrow keys and step buttons on four device sizes, through "not yet" and the right answer: 48/48.
+- **Accessibility:** axe (WCAG 2.1 A/AA) clean on 30 screen scans and on 24 interactive states (eight kinds, each open, with the hint and with the answer shown). Colour pairs checked with a WCAG contrast tool: 25 pairs, all AA, after raising five.
+- **Suites:** unit 94/94, end-to-end 225/225; visual baselines updated only after each changed picture was reviewed.
