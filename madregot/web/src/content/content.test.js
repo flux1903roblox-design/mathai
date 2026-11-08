@@ -60,7 +60,7 @@ describe('math checks', () => {
   const pointsIn = (text) => [...text.matchAll(/\((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\)/g)].map((m) => [Number(m[1]), Number(m[2])]);
   const lineIn = (text) => { const m = text.match(/= (-?\d*)x(?: ([+-]) (\d+))?/); if (!m) return null; const k = m[1] === '' ? 1 : m[1] === '-' ? -1 : Number(m[1]); return { m: k, b: m[2] ? (m[2] === '-' ? -1 : 1) * Number(m[3]) : 0 }; };
   it('linear: table value is y = mx + b', () => {
-    for (let r = 0; r < RUNS; r++) { const t = makeItem('line', 1); const L = lineIn(t.text); const x = Number(t.text.match(/x = (-?\d+)\$\?/)[1]); expect(L.m * x + L.b).toBe(t.answer); }
+    for (let r = 0; r < RUNS; r++) { const t = makeItem('line', 1); if (t.form === 'manip') continue; const L = lineIn(t.text); const x = Number(t.text.match(/x = (-?\d+)\$\?/)[1]); expect(L.m * x + L.b).toBe(t.answer); }
   });
   it('linear: slope from the graph matches the two marked points', () => {
     for (let r = 0; r < RUNS; r++) { const s3 = makeItem('line', 3); const [A, B] = s3.fig.points; expect(Math.abs((B.y - A.y) / (B.x - A.x) - s3.answer)).toBeLessThan(1e-9); }
@@ -89,6 +89,7 @@ describe('math checks', () => {
   it('triangle angles sum to 180', () => {
     for (let r = 0; r < RUNS; r++) {
       const t = makeItem('angles', 3);
+      if (t.form === 'manip') continue; // the draggable triangle: checked in manip.test.js
       expect(t.fig.angles.reduce((x, y) => x + y, 0)).toBe(180);
     }
   });

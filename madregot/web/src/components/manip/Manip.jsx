@@ -7,10 +7,13 @@ import LineBuilder from './LineBuilder.jsx';
 import AngleTurner from './AngleTurner.jsx';
 import PythSquares from './PythSquares.jsx';
 import DataBars from './DataBars.jsx';
+import NumberPins from './NumberPins.jsx';
+import TriangleDrag from './TriangleDrag.jsx';
+import { triangleAngles } from '@/content/manip.js';
 import Mascot from '../Mascot.jsx';
 import { minus } from './core.jsx';
 
-const KINDS = { numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars };
+const KINDS = { numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag };
 
 // A number inside Hebrew text keeps its minus sign on the left.
 const N = ({ v }) => <bdi dir="ltr">{minus(v)}</bdi>;
@@ -26,7 +29,19 @@ function coach(it, v, touched) {
       if (!j) return 'הסמן בנקודת ההתחלה.';
       return <>מ־<N v={m.from} /> קפצתם {steps(j, 'צעד אחד', 'צעדים')} {j > 0 ? 'ימינה. ימינה מוסיפים.' : 'שמאלה. שמאלה מחסירים.'}</>;
     }
+    case 'pins': {
+      if (!touched) return 'גררו כל סמן למספר שלו. הכפתורים למטה בוחרים איזה סמן זז.';
+      const placed = m.labels.filter((_, i) => v[i] !== m.start[i]).length;
+      return placed < m.labels.length ? `הזזתם ${placed} מתוך ${m.labels.length} סמנים. מה שמשמאל קטן יותר.` : 'כל הסמנים על הציר. הקטן ביותר הוא השמאלי.';
+    }
+    case 'triangle': {
+      if (!touched) return 'גררו את C. הזוויות משתנות, והסכום שלהן?';
+      const [, , c] = triangleAngles(m, v);
+      return <>הזווית C עכשיו <bdi dir="ltr">{Math.round(c)}°</bdi>, והסכום עדיין <bdi dir="ltr">180°</bdi>.</>;
+    }
     case 'plot': {
+      if (!v && m.shape) return 'הקישו במקום שבו הקודקוד החסר משלים את המלבן.';
+      if (!v && m.line) return 'הקישו על הנקודה של הישר שבה x הוא המספר מהשאלה.';
       if (!v) return 'הקישו על נקודה ברשת, או גררו אותה.';
       const [x, y] = v;
       if (!x && !y) return 'הנקודה בראשית הצירים.';
@@ -49,6 +64,7 @@ function coach(it, v, touched) {
     }
     case 'bars': {
       if (!touched) return 'גררו את העמודה האחרונה למעלה או למטה.';
+      if (m.stat === 'median') return 'עמודה גבוהה מאוד מושכת את הממוצע למעלה, אבל החציון כמעט לא זז.';
       const n = m.values.length + 1;
       return <>כל שינוי של 1 בעמודה מזיז את הממוצע ב־<bdi dir="ltr">{1 / n}</bdi>.</>;
     }

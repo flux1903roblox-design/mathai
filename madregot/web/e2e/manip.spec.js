@@ -12,6 +12,11 @@ const KINDS = [
   ['angle', 'angles/1', '7', [0.5, 0.2, 0.85, 0.4]],
   ['squares', 'pyth/1', '8', [0.6, 0.6, 0.85, 0.6]],
   ['bars', 'stats/3', '8', [0.88, 0.5, 0.88, 0.2]],
+  ['pins', 'signed/2', '7', [0.92, 0.6, 0.3, 0.6]],
+  ['triangle', 'angles/3', '7', [0.33, 0.27, 0.5, 0.1]],
+  ['plot', 'coord/5', '7', [0.5, 0.5, 0.3, 0.3], (it) => !!it.manip.shape, 'the missing vertex of a rectangle'],
+  ['plot', 'line/1', '8', [0.5, 0.5, 0.7, 0.3], (it) => !!it.manip.line, 'a point of a line'],
+  ['bars', 'stats/2', '8', [0.88, 0.2, 0.88, 0.6], (it) => it.manip.stat === 'median', 'the median and an outlier'],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');
@@ -19,9 +24,9 @@ const state = (page) => page.evaluate(() => {
 });
 const checkBtn = (page) => page.getByRole('button', { name: 'בדיקה', exact: true });
 
-for (const [kind, route, grade, [fx, fy, tx, ty]] of KINDS) {
-  test(`interactive exercise: ${kind}`, async ({ page }) => {
-    await openOn(page, `#/lesson/${route}?part=1`, student(grade), (it) => it.form === 'manip' && it.manip.kind === kind);
+for (const [kind, route, grade, [fx, fy, tx, ty], extra = () => true, name = kind] of KINDS) {
+  test(`interactive exercise: ${name}`, async ({ page }) => {
+    await openOn(page, `#/lesson/${route}?part=1`, student(grade), (it) => it.form === 'manip' && it.manip.kind === kind && extra(it));
     const canvas = page.locator('.manip-canvas');
     await expectNoSidewaysScroll(page);
     const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));

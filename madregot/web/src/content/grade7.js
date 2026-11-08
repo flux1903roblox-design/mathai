@@ -1,6 +1,6 @@
 // Grade 7 (ז׳): signed numbers, the coordinate plane, angles.
 import { R, NZ, pick, shuffle, T, near } from './util.js';
-import { quadOf as quadOfPt } from './manip.js';
+import { quadOf as quadOfPt, triangleAngles } from './manip.js';
 
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 
@@ -27,6 +27,24 @@ function addSub() {
       if (op === '-' && b < 0 && near(u, a + b)) return 'minus-minus';
       return null;
     },
+  };
+}
+
+// Comparing by placing: three numbers go to their places on the line, so the order is something you see.
+function orderPins() {
+  let vals;
+  do { vals = shuffle([R(-9, -1), R(-9, -1), R(1, 9), R(-9, 9)]).slice(0, 3); } while (new Set(vals).size < 3 || !vals.some((v) => v < 0) || !vals.some((v) => v > 0));
+  const labels = vals.map((v) => (v < 0 ? `−${-v}` : `${v}`));
+  // each marker starts on a free place that is not its own
+  const free = [10, -10, 0, 9, -9, 1, -1].filter((p) => !vals.includes(p));
+  const start = vals.map((v, i) => free[i]);
+  const sorted = [...vals].sort((a, b) => a - b);
+  return {
+    key: `sn2p:${vals.join(',')}`, text: `שימו כל מספר במקום שלו על ציר המספרים: ${vals.map((v) => `$${T(v)}$`).join(', ')}.`, form: 'manip',
+    manip: { kind: 'pins', min: -10, max: 10, labels, start }, answer: vals,
+    hint: 'מספר שלילי נמצא משמאל לאפס. ככל שהוא רחוק יותר שמאלה, הוא קטן יותר.',
+    solution: [`מהקטן לגדול: $${sorted.map(T).join(' < ')}$`, 'על הציר, הקטן ביותר הוא השמאלי ביותר.'],
+    diag: (u) => (Array.isArray(u) && u.some((p, i) => vals[i] < 0 && p === -vals[i]) ? 'neg-compare' : null),
   };
 }
 
@@ -233,6 +251,19 @@ function rectArea() {
   };
 }
 
+// The missing vertex, placed on the grid: three corners of rectangle ABCD are there; the student puts D.
+function rectVertexPlot() {
+  const x1 = R(-5, 3); const x2 = R(x1 + 2, 5); const y1 = R(-5, 3); const y2 = R(y1 + 2, 5);
+  const shape = [{ label: 'A', at: [x1, y1] }, { label: 'B', at: [x2, y1] }, { label: 'C', at: [x2, y2] }];
+  return {
+    key: `cp5r:${x1}:${x2}:${y1}:${y2}`, text: 'שלושה קודקודים של המלבן $ABCD$ כבר על הרשת. שימו את הקודקוד $D$.', form: 'manip',
+    manip: { kind: 'plot', range: 6, label: 'D', start: null, shape }, answer: [x1, y2],
+    hint: 'הצלעות של המלבן מקבילות לצירים: ל־$D$ אותו $x$ כמו ל־$A$, ואותו $y$ כמו ל־$C$.',
+    solution: [`$D$ מעל $A$, באותו $x$: $${T(x1)}$`, `ובגובה של $C$, באותו $y$: $${T(y2)}$`, `$D(${T(x1)}, ${T(y2)})$`],
+    diag: (u) => (u && u[0] === y2 && u[1] === x1 && x1 !== y2 ? 'swap' : null),
+  };
+}
+
 function missingVertex() {
   const x1 = R(-6, 2); const x2 = x1 + R(2, 5); const y1 = R(-6, 2); const y2 = y1 + R(2, 4);
   const pts = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
@@ -291,6 +322,20 @@ function vertical() {
   };
 }
 
+// Dragging a vertex: A and B stay, C moves on the grid; the three angles and their sum follow it live.
+function rightTriangleDrag() {
+  const m = { kind: 'triangle', A: [-5, 0], B: [5, 0], range: 6, start: [-2, 3] };
+  const ans = pick([[0, 5], [3, 4], [-3, 4], [4, 3], [-4, 3]]);
+  const [a, b] = triangleAngles(m, ans).map((d) => Math.round(d * 10) / 10);
+  return {
+    key: `an3d:${ans.join(',')}`, text: 'גררו את הקודקוד $C$ עד שהזווית $C$ תהיה ישרה ($90^\\circ$). שימו לב לסכום הזוויות.', form: 'manip',
+    manip: m, answer: ans,
+    hint: 'סכום הזוויות במשולש הוא תמיד $180^\\circ$. כשהזווית $C$ ישרה, $A$ ו־$B$ יחד הן $90^\\circ$.',
+    solution: [`למשל $C(${T(ans[0])}, ${T(ans[1])})$: הזוויות הן $${a}^\\circ$, $${b}^\\circ$ ו־$90^\\circ$.`, `$${a}^\\circ + ${b}^\\circ + 90^\\circ = 180^\\circ$`],
+    diag: () => null,
+  };
+}
+
 function triangleSum() {
   const a = R(5, 16) * 5; const b = R(4, 16) * 5; const c = 180 - a - b;
   if (c < 15) return triangleSum();
@@ -345,7 +390,7 @@ export const GRADE7 = [
     desc: 'חיבור, חיסור, כפל וחילוק, וסדר פעולות',
     levels: [
       { title: 'חיבור וחיסור', gen: () => (Math.random() < 0.5 ? addSubLine() : addSub()) },
-      { title: 'השוואת מספרים', gen: compare },
+      { title: 'השוואת מספרים', gen: () => (Math.random() < 0.4 ? orderPins() : compare()) },
       { title: 'כפל וחילוק', gen: mulDiv },
       { title: 'סדר פעולות', gen: order },
       { title: 'סוגריים', gen: brackets },
@@ -366,7 +411,7 @@ export const GRADE7 = [
       { title: 'רביעים', gen: () => (Math.random() < 0.4 ? plotQuadrant() : quadrant()) },
       { title: 'אורך קטע', gen: segmentLength },
       { title: 'שטח מלבן', gen: rectArea },
-      { title: 'קודקוד חסר', gen: missingVertex },
+      { title: 'קודקוד חסר', gen: () => (Math.random() < 0.5 ? rectVertexPlot() : missingVertex()) },
     ],
     cats: {
       swap: 'החליפו בין $x$ ל־$y$',
@@ -382,7 +427,7 @@ export const GRADE7 = [
     levels: [
       { title: 'זוויות צמודות', gen: () => (Math.random() < 0.5 ? linearPairTurn() : linearPair()) },
       { title: 'זוויות קודקודיות', gen: vertical },
-      { title: 'סכום זוויות במשולש', gen: triangleSum },
+      { title: 'סכום זוויות במשולש', gen: () => (Math.random() < 0.4 ? rightTriangleDrag() : triangleSum()) },
       { title: 'ישרים מקבילים', gen: parallel },
       { title: 'שווה־שוקיים וזווית חיצונית', gen: isosceles },
     ],

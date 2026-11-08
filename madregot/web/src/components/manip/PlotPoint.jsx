@@ -20,6 +20,27 @@ export default function PlotPoint({ m, value, onChange, locked, reveal, good, an
         role="application" aria-roledescription="מערכת צירים" aria-label={value ? `הנקודה ${m.label} בשיעורים ${minus(value[0])}, ${minus(value[1])}` : `מערכת צירים. הקישו כדי לשים את הנקודה ${m.label}, או השתמשו בחצים`}
         onKeyDown={arrowKeys({ left: () => move(-1, 0), right: () => move(1, 0), up: () => move(0, 1), down: () => move(0, -1) })}>
         <Plane g={g}>
+          {/* a line to find a point on, or the given corners of a shape to complete */}
+          {m.line && (() => {
+            const e = (x) => [X(x), Y(m.line.m * x + m.line.b)];
+            const [x1, y1] = e(-r - 0.5); const [x2, y2] = e(r + 0.5);
+            return (<>
+              <defs><clipPath id="pp-clip"><rect x={X(-r - 0.5)} y={Y(r + 0.5)} width={(2 * r + 1) * g.c} height={(2 * r + 1) * g.c} /></clipPath></defs>
+              <line x1={x1} y1={y1} x2={x2} y2={y2} className="mp-line" clipPath="url(#pp-clip)" />
+            </>);
+          })()}
+          {m.shape && (
+            <g className="mp-shape">
+              <polyline points={m.shape.map((q) => `${X(q.at[0])},${Y(q.at[1])}`).join(' ')} className="mp-shape-edge" />
+              {value && <polyline points={`${X(m.shape[m.shape.length - 1].at[0])},${Y(m.shape[m.shape.length - 1].at[1])} ${X(value[0])},${Y(value[1])} ${X(m.shape[0].at[0])},${Y(m.shape[0].at[1])}`} className="mp-shape-open" />}
+              {m.shape.map((q) => (
+                <g key={q.label}>
+                  <circle cx={X(q.at[0])} cy={Y(q.at[1])} r="6" className="mp-shape-pt" />
+                  <text x={X(q.at[0]) + (q.at[0] >= 0 ? 10 : -10)} y={Y(q.at[1]) + (q.at[1] >= 0 ? -10 : 20)} textAnchor={q.at[0] >= 0 ? 'start' : 'end'} className="mp-pt-label">{q.label}</text>
+                </g>
+              ))}
+            </g>
+          )}
           {hint && quad && (
             <g className="mp-hint">{[[1, 1, 'I'], [2, -1, 'II'], [3, -1, 'III'], [4, 1, 'IV']].map(([q, sx]) => {
               const sy = q <= 2 ? 1 : -1;

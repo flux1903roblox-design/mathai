@@ -150,6 +150,23 @@ function mean() {
 }
 
 // The mean by moving one value: the mean line follows the bar.
+// The median by moving one value: the last bar decides which value is in the middle, and the mean line shows
+// how far an outlier pulls the mean while the median hardly moves.
+function medianBars() {
+  const a = R(1, 3); const b = R(a + 1, 5); const c = R(b + 3, 9); const d = R(c + 1, 12);
+  const t = R(b + 1, c - 1);
+  const vals = shuffle([a, b, c, d]);
+  const start = t === 12 ? 11 : 12;
+  const sorted = [a, b, t, c, d];
+  return {
+    key: `st2b:${vals.join(',')}:${t}`, text: `גררו את העמודה האחרונה כך שהחציון של כל העמודות יהיה $${t}$.`, form: 'manip',
+    manip: { kind: 'bars', stat: 'median', values: vals, target: t, max: 12, start }, answer: t,
+    hint: 'מסדרים את חמשת המספרים מהקטן לגדול. החציון הוא המספר האמצעי, השלישי.',
+    solution: [`בסדר עולה: $${sorted.join(',\\ ')}$`, `כדי שהמספר האמצעי יהיה $${t}$, העמודה האחרונה צריכה להיות $${t}$.`],
+    diag: (u) => ((vals.reduce((s, v) => s + v, 0) + u) / 5 === t ? 'mean-not-median' : null),
+  };
+}
+
 function meanBars() {
   for (;;) {
     const n = 5; const mean = R(3, 8);
@@ -228,7 +245,7 @@ export const GRADE8 = [
     desc: 'שכיח, חציון, ממוצע וטבלת שכיחויות',
     levels: [
       { title: 'שכיח', gen: mode },
-      { title: 'חציון', gen: median },
+      { title: 'חציון', gen: () => (Math.random() < 0.4 ? medianBars() : (median)()) },
       { title: 'ממוצע', gen: () => (Math.random() < 0.5 ? meanBars() : mean()) },
       { title: 'ממוצע מטבלה', gen: freqMean },
       { title: 'נתון חסר', gen: missingValue },

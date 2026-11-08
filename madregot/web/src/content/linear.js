@@ -119,6 +119,19 @@ function lineEquation() {
 }
 
 // 2b. m and b by building: drag the point on the y-axis to b, the step point one to the right to b + m.
+// Prediction: the line is drawn with its equation; the student puts the line's point at a given x.
+function predictPoint() {
+  let m; let b; let x0; let y0;
+  do { m = NZ(-2, 2); b = R(-3, 3); x0 = NZ(-3, 3); y0 = m * x0 + b; } while (Math.abs(y0) > 6);
+  return {
+    key: `lf1p:${m}:${b}:${x0}`, text: `על הישר $${lineTex(m, b)}$ שימו את הנקודה שבה $x = ${T(x0)}$.`, form: 'manip',
+    manip: { kind: 'plot', range: 6, label: 'P', start: null, line: { m, b } }, answer: [x0, y0],
+    hint: 'מציבים את $x$ במשוואה ומחשבים את $y$. אפשר גם ללכת על הישר עד $x$ המבוקש.',
+    solution: [`$y = ${m} \\cdot (${T(x0)}) ${b < 0 ? '-' : '+'} ${Math.abs(b)} = ${T(y0)}$`, `הנקודה $(${T(x0)}, ${T(y0)})$`],
+    diag: (u) => (u && u[0] === x0 && u[1] === m * x0 ? 'forgot-b' : null),
+  };
+}
+
 function buildLine() {
   let m; let b; do { m = NZ(-3, 3); b = R(-4, 4); } while (Math.abs(m + b) > 6 || (m === 1 && b === 0));
   return {
@@ -197,7 +210,7 @@ export const LINEAR = {
   id: 'line', grade: '8', title: 'פונקציה קווית', color: 'cobalt',
   desc: 'טבלת ערכים, שיפוע, משוואת ישר, חיתוך עם הצירים ונקודת מפגש',
   levels: [
-    { title: 'טבלת ערכים', gen: table },
+    { title: 'טבלת ערכים', gen: () => (Math.random() < 0.4 ? predictPoint() : (table)()) },
     { title: 'מה אומרים m ו־b', gen: () => (Math.random() < 0.5 ? buildLine() : meaning()) },
     { title: 'שיפוע מהגרף: מדרגות', gen: stepsFromGraph },
     { title: 'שיפוע בין שתי נקודות', gen: slopeTwoPoints },

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeItem, isCorrect, answerText, itemPlain } from './index.js';
-import { quadOf, manipSolution, manipWrong } from './manip.js';
+import { quadOf, manipSolution, manipWrong, triangleAngles, rightAtC } from './manip.js';
 
 // Draw interactive items from their levels until each kind has been seen.
 function manipItems(topic, level, n = 400) {
@@ -99,12 +99,65 @@ describe('interactive exercises: deterministic checking', () => {
     }
   });
   it('the solve helpers: the solution is right, the near miss is wrong, and the start never answers', () => {
-    for (const [t, l] of [['signed', 1], ['coord', 1], ['coord', 2], ['line', 2], ['angles', 1], ['pyth', 1], ['stats', 3]]) {
+    for (const [t, l] of [['signed', 1], ['signed', 2], ['coord', 1], ['coord', 2], ['coord', 5], ['line', 1], ['line', 2], ['angles', 1], ['angles', 3], ['pyth', 1], ['stats', 2], ['stats', 3]]) {
       for (const it of manipItems(t, l, 120)) {
         expect(isCorrect(it, manipSolution(it))).toBe(true);
         expect(isCorrect(it, manipWrong(it))).toBe(false);
         if (it.manip.start != null) expect(isCorrect(it, it.manip.start)).toBe(false);
       }
+    }
+  });
+  it('ordering on a number line: every marker in its own place; a negative placed at its distance is diagnosed', () => {
+    const items = manipItems('signed', 2).filter((x) => x.manip.kind === 'pins');
+    expect(items.length).toBeGreaterThan(30);
+    for (const it of items) {
+      expect(isCorrect(it, it.answer)).toBe(true);
+      expect(isCorrect(it, it.manip.start)).toBe(false);
+      expect(new Set(it.manip.start).size).toBe(it.manip.start.length);
+      it.manip.start.forEach((p, i) => expect(p).not.toBe(it.answer[i]));
+    }
+  });
+  it('the missing vertex of a rectangle: only the fourth corner', () => {
+    const items = manipItems('coord', 5).filter((x) => x.manip.kind === 'plot');
+    expect(items.length).toBeGreaterThan(50);
+    for (const it of items) {
+      const [A, B, C] = it.manip.shape.map((q) => q.at);
+      expect(A[1]).toBe(B[1]); expect(B[0]).toBe(C[0]); // A-B horizontal, B-C vertical
+      expect(it.answer).toEqual([A[0], C[1]]);
+      expect(isCorrect(it, it.answer)).toBe(true);
+      expect(isCorrect(it, [C[0], A[1]])).toBe(false);
+    }
+  });
+  it('dragging the vertex of a triangle: right at C exactly when the vectors are perpendicular, angles sum to 180', () => {
+    const items = manipItems('angles', 3).filter((x) => x.manip.kind === 'triangle');
+    expect(items.length).toBeGreaterThan(50);
+    for (const it of items) {
+      expect(isCorrect(it, it.answer)).toBe(true);
+      expect(isCorrect(it, it.manip.start)).toBe(false);
+      const s = triangleAngles(it.manip, it.answer);
+      expect(Math.abs(s[2] - 90)).toBeLessThan(1e-9);
+      expect(Math.abs(s.reduce((x, y) => x + y, 0) - 180)).toBeLessThan(1e-9);
+    }
+    const m = { A: [-5, 0], B: [5, 0] };
+    expect(rightAtC(m, [3, 4])).toBe(true); expect(rightAtC(m, [3, -4])).toBe(false); expect(rightAtC(m, [2, 4])).toBe(false);
+  });
+  it('a point of the line: only the point at the asked x; forgetting b is diagnosed', () => {
+    const items = manipItems('line', 1).filter((x) => x.manip.kind === 'plot');
+    expect(items.length).toBeGreaterThan(50);
+    for (const it of items) {
+      const { m, b } = it.manip.line;
+      expect(it.answer[1]).toBe(m * it.answer[0] + b);
+      expect(isCorrect(it, it.answer)).toBe(true);
+      if (b !== 0) expect(it.diag([it.answer[0], m * it.answer[0]])).toBe('forgot-b');
+    }
+  });
+  it('the median bar: the middle value is the target only at the answer', () => {
+    const items = manipItems('stats', 2).filter((x) => x.manip.kind === 'bars');
+    expect(items.length).toBeGreaterThan(50);
+    const median = (a) => [...a].sort((x, y) => x - y)[2];
+    for (const it of items) {
+      for (let v = 0; v <= 12; v += 1) expect(isCorrect(it, v)).toBe(median([...it.manip.values, v]) === it.manip.target);
+      expect(isCorrect(it, it.manip.start)).toBe(false);
     }
   });
 });
