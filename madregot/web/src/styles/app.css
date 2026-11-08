@@ -605,7 +605,7 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .hl { background: linear-gradient(transparent 48%, var(--marker-strong) 48%, var(--marker-strong) 92%, transparent 92%); box-decoration-break: clone; -webkit-box-decoration-break: clone; padding: 0 2px; }
 
 /* =====================================================================
-   The learning path, the lesson and the celebrations (Duolingo-like loop)
+   The learning path, the lesson and the celebrations (a short daily practice loop)
    ===================================================================== */
 
 /* ---------- top bar of the path ---------- */
@@ -2014,7 +2014,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 @media (prefers-reduced-motion: reduce) { .mp-hint, .mp-hint-sq { animation: none; } }
 /* m and b keep their colours on the step buttons too */
 .stepper.tone-b .step-label b, .stepper.tone-b .step-name { color: #3f33c4; }
-.stepper.tone-m .step-label b, .stepper.tone-m .step-name { color: #b35400; }
+.stepper.tone-m .step-label b, .stepper.tone-m .step-name { color: #a84f00; }
 .manip-line .mp-handle.alt { stroke: #3f33c4; }
 .mp-hint text { paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
 /* onboarding: each level card carries a taste of its maths */
@@ -2026,3 +2026,48 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .btn-bad { --btn-bg: #d9304f; }
 /* around an interactive object only the object shrinks: the expression above it keeps its height (and never scrolls) */
 .lesson.is-manip .q-stage > :not(.manip):not(.manip-coach) { flex: none; }
+
+/* ---------- the first screen: what it is, for whom, and the product itself to try ---------- */
+.ob-hello { gap: var(--s4); justify-content: safe center; }
+.hello-brand { margin: 0; display: flex; align-items: center; gap: var(--s2); }
+.hello-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 7.4vw, 34px); line-height: 1.2; color: var(--ink); text-wrap: balance; }
+.hello-fact { margin: 0; color: var(--ink-2); font-size: var(--t-base); line-height: 1.5; }
+.try-it {
+  --c: var(--ch-sky); --c-d: var(--ch-sky-d); --c-tint: var(--ch-sky-tint);
+  display: flex; flex-direction: column; align-items: center; gap: var(--s2); padding: var(--s3); border-radius: 24px;
+  background: color-mix(in srgb, var(--brand-tint) 55%, #fff); border: 2px solid color-mix(in srgb, var(--brand) 18%, var(--rule));
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+.try-it.is-good { background: color-mix(in srgb, var(--good-tint) 70%, #fff); border-color: color-mix(in srgb, var(--good) 40%, var(--rule)); }
+.try-title { margin: 0; align-self: stretch; font-family: var(--font-display); font-weight: 600; font-size: var(--t-md); color: var(--brand-d); }
+.try-it.is-good .try-title { color: var(--good-ink); }
+.try-display { padding: 0; font-size: clamp(26px, 7vw, 34px); }
+.try-it .manip-coach { display: flex; }
+.try-it .manip-canvas { max-width: 100%; }
+/* the hero comes in once, as the page opens */
+.ob-hello > * { animation: hello-in var(--duration-slow) var(--ease-smooth-out) both; }
+.ob-hello > :nth-child(2) { animation-delay: 60ms; } .ob-hello > :nth-child(3) { animation-delay: 120ms; }
+.ob-hello > :nth-child(4) { animation-delay: 180ms; } .ob-hello > :nth-child(5) { animation-delay: 240ms; }
+@keyframes hello-in { from { opacity: 0; transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) { .ob-hello > * { animation: none; } .try-it { transition: none; } }
+/* short phones: the demo stays whole and the way in stays under the thumb */
+@media (max-height: 700px) {
+  .ob-hello { padding-top: var(--s4); padding-bottom: 0; gap: var(--s3); }
+  .hello-title { font-size: clamp(22px, 6.6vw, 28px); }
+  .hello-fact { font-size: var(--t-sm); }
+  .try-it { padding: var(--s2); gap: 4px; }
+  .try-it .manip-coach { display: none; }
+  .ob-hello .form-actions {
+    position: sticky; bottom: 0; z-index: 3; margin: 0 calc(var(--s4) * -1); padding: var(--s3) var(--s4) calc(var(--s3) + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(rgba(255, 255, 255, 0), #fff 24%);
+  }
+}
+/* step buttons stay 44px on every screen (the short-phone rule above made them 42px); the fact line never leaves one word alone */
+@media (max-height: 700px) and (max-width: 899px) { .step-btn { width: 44px; height: 44px; } }
+.hello-fact { text-wrap: pretty; }
+/* contrast (replica-design's checker): white text on green buttons at 4.68:1, on the unit bands at 4.7:1 or more,
+   and the gold and rose steps of the results staircase outlined so they stand out from the white at 3:1 or more */
+.btn-good { --btn-bg: #178548; }
+.unit-head { background: linear-gradient(135deg, color-mix(in srgb, var(--c) 40%, var(--c-d)) 0%, var(--c-d) 100%); }
+.ss-step.fixed i { box-shadow: inset 0 0 0 1.5px var(--gold-ink), inset 0 3px 0 rgba(255, 255, 255, 0.35); }
+.ss-step.shown i { box-shadow: inset 0 0 0 1.5px var(--bad-ink); }

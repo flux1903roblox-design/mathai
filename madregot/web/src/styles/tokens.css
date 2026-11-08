@@ -1,4 +1,4 @@
-/* Madregot tokens: a bright, playful practice app (Duolingo-like mechanics, own identity).
+/* Madregot tokens: a bright, playful practice app (daily practice mechanics, its own stairs identity).
    Indigo is the brand and the primary action; green means correct, red means "not yet";
    orange is the streak, gold is XP. Each topic owns a chapter colour for its unit on the path.
    Fills can be light; text always uses an "-ink" or "-d" value (4.5:1 or more). 4px grid. */
@@ -18,7 +18,7 @@
   --brand: #5b4ff0;     --brand-d: #3f33c4;   --brand-tint: #ecebff;
   --good: #1f9d55;      --good-d: #16803f;    --good-tint: #dff6e7;   --good-ink: #157a41;
   --bad: #e5375a;       --bad-d: #b8213f;     --bad-tint: #ffe6ec;    --bad-ink: #c01d43;
-  --streak: #f07b0f;    --streak-ink: #b35400; --streak-tint: #ffeedd;
+  --streak: #f07b0f;    --streak-ink: #a84f00; --streak-tint: #ffeedd;
   --gold: #f5b400;      --gold-d: #d39600;    --gold-ink: #8a5c00;    --gold-tint: #fff4cc;
   --ai: #c0267a;        --ai-tint: #fde8f3;   --ai-ink: #a3165f;
 

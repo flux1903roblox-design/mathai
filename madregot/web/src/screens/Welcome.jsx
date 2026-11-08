@@ -9,7 +9,8 @@ import { Button, Field } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { artUrl } from '@/components/PageHero.jsx';
 import Stairs from '@/components/Stairs.jsx';
-import { topicsFor } from '@/content/index.js';
+import { topicsFor, TOPICS } from '@/content/index.js';
+import Manip from '@/components/manip/Manip.jsx';
 import { KNOW } from '@/lib/placement.js';
 import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
@@ -20,6 +21,22 @@ const KNOW_SAMPLE = {
   7: ['-3 + 5', '(-2)\\cdot(-4)', 'A(-3,\\,2)', '\\alpha + 2\\alpha = 180^\\circ'],
   8: ['y = 2x + 1', '3^2 + 4^2', '\\bar{x}:\\ 4, 6, 8', 'm = \\tfrac{8-2}{3-1}'],
 };
+
+// The first screen shows the product itself: a real exercise from the first stair, to move before signing up.
+// Nothing is saved; it is the same number line and the same מדי as in a lesson.
+const DEMO = { form: 'manip', manip: { kind: 'numberline', min: -10, max: 10, from: -2, start: -2 }, answer: 3 };
+function TryIt() {
+  const [v, setV] = useState(DEMO.manip.start);
+  const [touched, setTouched] = useState(false);
+  const good = v === DEMO.answer;
+  return (
+    <section className={clsx('try-it', good && 'is-good')} aria-labelledby="try-title">
+      <h2 id="try-title" className="try-title">{good ? 'בדיוק! ככה נראה תרגול במדרגות.' : 'נסו עכשיו: כמה זה?'}</h2>
+      <div className="qdisplay try-display"><Tex tex="-2 + 5 = ?" display /></div>
+      <Manip item={DEMO} value={v} onChange={(x) => { setV(x); setTouched(true); }} good={good} touched={touched} mood={good ? 'happy' : touched ? 'thinking' : 'idle'} />
+    </section>
+  );
+}
 
 export function GradeSwitch({ value, onChange, id }) {
   return (
@@ -98,9 +115,10 @@ function Onboarding({ onTeacher }) {
   if (i < 0) {
     return (
       <div className="ob ob-hello">
-        <Mascot mood="idle" size={150} className="welcome-mascot" />
-        <h1 className="wordmark">מדרגות</h1>
-        <p className="lead">תרגול מתמטיקה של כמה דקות ביום, לכיתות ז׳ וח׳. עונים על כמה שאלות קצרות, ומתחילים מהמדרגה שמתאימה לכם.</p>
+        <p className="hello-brand"><span className="wordmark sm">מדרגות</span></p>
+        <h1 className="hello-title">תרגול מתמטיקה לכיתות ז׳ וח׳, מדרגה אחרי מדרגה</h1>
+        <p className="hello-fact">{TOPICS.length} נושאים, {TOPICS.reduce((n, t) => n + t.levels.length, 0)} מדרגות, כמה דקות ביום. מתחילים מהמדרגה שמתאימה לכם.</p>
+        <TryIt />
         <div className="form-actions">
           <Button className="btn-lg" onClick={() => setI(0)}>מתחילים</Button>
           <Button variant="secondary" onClick={onTeacher}>אני מורה</Button>

@@ -13,7 +13,7 @@ export const lineTex = ({ m, b }) => {
 };
 
 // m and b keep one colour each across the equation, the drawing and the step buttons (m: the step, b: the intercept)
-const M_INK = '#b35400'; const B_INK = '#3f33c4';
+const M_INK = '#a84f00'; const B_INK = '#3f33c4';
 const lineTexColored = ({ m, b }) => {
   const mm = m === 0 ? '' : m === 1 ? 'x' : m === -1 ? '-x' : `\\color{${M_INK}}{${fmt(m)}}x`;
   const bb = (v) => `\\color{${B_INK}}{${fmt(v)}}`;
