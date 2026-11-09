@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { ArrowRight, Check, X, Minus, CircleDashed, Sparkles, Route, PencilRuler } from 'lucide-react';
+import { Check, X, Minus, CircleDashed, Sparkles, Route, PencilRuler, ChevronLeft } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { STATUS, focusLevel } from '@/lib/exam.js';
 import { TOPIC, TOPICS } from '@/content/index.js';
@@ -10,6 +10,8 @@ import { Box, Button, ChapterMark, Sheet } from '@/components/ui.jsx';
 import { Markdown, MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
 import AIChat from '@/components/AIChat.jsx';
+import Mascot from '@/components/Mascot.jsx';
+import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { pctTone } from './Exams.jsx';
 
 const ICON = { correct: Check, partial: Minus, wrong: X, missing: CircleDashed };
@@ -93,79 +95,97 @@ export default function ExamResult() {
     return Object.values(by).sort((a, b) => b.lost - a.lost).map((w) => ({ ...w, skills: [...w.skills], reason: reasons[w.topic], level: focusLevel(w.topic, [exam]) }));
   }, [exam]);
 
-  if (!exam) return <div className="page"><p>המבחן לא נמצא.</p><Link to="/exams">לרשימת המבחנים</Link></div>;
+  if (!exam) return <div className="page pushed"><ScreenBar title="תוצאות המבחן" back="/exams" /><EmptyState mood="encouraging" title="המבחן לא נמצא"><p>אולי הבדיקה נמחקה מהמכשיר.</p></EmptyState><ScreenFoot><Link to="/exams" className="btn btn-primary btn-block btn-lg">לרשימת המבחנים</Link></ScreenFoot></div>;
   const qs = exam.result.questions;
   const wrong = qs.filter((q) => q.status !== 'correct');
   const shown = filter === 'wrong' ? wrong : qs;
+  const tone = pctTone(exam.score.pct);
+  const lvOf = (w) => Math.min(TOPIC[w.topic]?.levels.length || 1, w.level || progress[w.topic]?.level || 1);
+  const first = weak.find((w) => TOPIC[w.topic]);
 
+  // Duolingo's result screen (LAYOUT_SPEC A5/E4): מדי and the title in the middle, the score as tiles, then the
+  // review (what to strengthen as plain rows, the feedback per question), and ONE primary pinned at the bottom:
+  // practising the weakest topic. The rows open their own practice; nothing else on the screen is a primary.
   return (
-    <div className="page exam-result">
-      <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
-      <header className="result-head">
-        <div>
-          <h1 className="h-page">{exam.title}</h1>
-          <p className="muted">{qs.length} שאלות, נבדק ב־{new Date(exam.at).toLocaleDateString('he-IL')}</p>
+    <div className="page pushed exam-result">
+      <ScreenBar title="תוצאות המבחן" back="/exams" />
+      <section className="result-hero" data-region="content">
+        <Mascot mood={tone === 'high' ? 'achievement' : tone === 'mid' ? 'happy' : 'encouraging'} size={112} />
+        <h2 className="result-title">{exam.title}</h2>
+        <p className="result-sub">{qs.length} שאלות · נבדק ב־{new Date(exam.at).toLocaleDateString('he-IL')}</p>
+      </section>
+      <div className="stats result-stats" data-region="answers">
+        <div className={clsx('stat', tone === 'high' ? 'stat-good' : tone === 'mid' ? 'stat-gold' : 'stat-bad')}>
+          <span className="stat-label">ציון</span>
+          <span className="stat-value"><bdi dir="ltr">{exam.score.pct}%</bdi></span>
         </div>
-        <div className={`big-score ${pctTone(exam.score.pct)}`}>
-          <span className="big-score-num">{exam.score.pct}%</span>
-          <span className="big-score-sub">{exam.score.correct} מתוך {exam.score.total}</span>
+        <div className="stat stat-brand">
+          <span className="stat-label">נכונות</span>
+          <span className="stat-value" aria-label={`${exam.score.correct} נכונות מתוך ${exam.score.total}`}><Check size={20} aria-hidden="true" /><bdi dir="ltr">{exam.score.correct}/{exam.score.total}</bdi></span>
         </div>
-      </header>
-      {exam.result.summary && <Markdown className="lead">{exam.result.summary}</Markdown>}
+        <div className="stat stat-sky">
+          <span className="stat-label">לחיזוק</span>
+          <span className="stat-value"><Route size={20} aria-hidden="true" />{weak.length}</span>
+        </div>
+      </div>
+      {exam.result.summary && <div className="result-say"><Markdown>{exam.result.summary}</Markdown></div>}
 
       {weak.length > 0 && (
         <section className="section" aria-labelledby="weak-title">
-          <h2 id="weak-title" className="h-section">נושאים לחיזוק</h2>
-          <ul className="weak-list">
+          <h2 id="weak-title" className="set-head">מה לחזק</h2>
+          <ul className="hub-rows">
             {weak.map((w) => {
-              const t = TOPIC[w.topic]; const lv = Math.min(t?.levels.length || 1, w.level || progress[w.topic]?.level || 1);
-              return (
-                <li key={w.topic} className={t ? `ch-${t.color}` : ''}>
-                  <div className="weak-main">
-                    <TopicTag id={w.topic} mark />
-                    <span className="muted">{w.n === 1 ? 'שאלה אחת עם טעות' : `${w.n} שאלות עם טעות`}{w.skills.length ? `: ${w.skills.slice(0, 3).join(', ')}` : ''}</span>
+              const t = TOPIC[w.topic]; const lv = lvOf(w);
+              const body = (
+                <>
+                  <span className="hub-row-text">
+                    <span className="hub-row-title"><TopicTag id={w.topic} mark />{t && <span className="weak-level">{t.levels[lv - 1].title}</span>}</span>
+                    <span className="hub-row-desc">{w.n === 1 ? 'שאלה אחת עם טעות' : `${w.n} שאלות עם טעות`}{w.skills.length ? `: ${w.skills.slice(0, 3).join(', ')}` : ''}</span>
                     {w.reason && <Markdown className="weak-reason">{w.reason}</Markdown>}
-                  </div>
-                  {t && (
-                    <div className="row-actions">
-                      <Link className="btn btn-primary btn-sm" to={`/practice/${w.topic}?level=${lv}&from=plan`}>תרגול: {t.levels[lv - 1].title}</Link>
-                      {aiReady() && <Link className="btn btn-secondary btn-sm" to={`/assistant?generate=${w.topic}&level=${lv}`}>תרגילים דומים מהעוזר</Link>}
-                    </div>
-                  )}
-                </li>
+                  </span>
+                  {t && <ChevronLeft className="chev" size={20} aria-hidden="true" />}
+                </>
               );
+              return <li key={w.topic}>{t ? <Link className={clsx('hub-row', 'weak-row', `ch-${t.color}`)} to={`/practice/${w.topic}?level=${lv}&from=plan`} aria-label={`תרגול: ${t.title}, ${t.levels[lv - 1].title}`}>{body}</Link> : <div className="hub-row weak-row">{body}</div>}</li>;
             })}
+            <li><Link to="/plan" className="hub-row"><span className="hub-row-icon" aria-hidden="true"><Route size={22} /></span><span className="hub-row-text"><span className="hub-row-title">התוכנית לשיפור</span><span className="hub-row-desc">כל הצעדים, לפי הסדר</span></span><ChevronLeft className="chev" size={20} aria-hidden="true" /></Link></li>
           </ul>
-          <Button variant="secondary" className="btn-block" onClick={() => navigate('/plan')}><Route size={18} aria-hidden="true" />לתוכנית לשיפור</Button>
         </section>
       )}
 
       <section className="section" aria-labelledby="qs-title">
         <div className="qs-head">
-          <h2 id="qs-title" className="h-section">משוב לכל שאלה</h2>
+          <h2 id="qs-title" className="set-head">משוב לכל שאלה</h2>
           <div className="segmented small" role="radiogroup" aria-label="אילו שאלות להציג">
             <button type="button" role="radio" aria-checked={filter === 'all'} className={clsx('seg', filter === 'all' && 'on')} onClick={() => setFilter('all')}>הכול ({qs.length})</button>
             <button type="button" role="radio" aria-checked={filter === 'wrong'} className={clsx('seg', filter === 'wrong' && 'on')} onClick={() => setFilter('wrong')}>טעויות ({wrong.length})</button>
           </div>
         </div>
-        {shown.length === 0 ? <p className="muted">אין טעויות במבחן הזה.</p> : shown.map((q, i) => <QuestionCard key={`${q.number}-${i}`} q={q} onAsk={setAsking} />)}
+        {shown.length === 0 ? <p className="hub-empty">אין טעויות במבחן הזה.</p> : shown.map((q, i) => <QuestionCard key={`${q.number}-${i}`} q={q} onAsk={setAsking} />)}
       </section>
 
       {exam.result.nextSteps?.length > 0 && (
-        <Box tone="note" title="מה עושים עכשיו">
-          <ol className="steps">{exam.result.nextSteps.map((s, i) => <li key={i}><Markdown>{s}</Markdown></li>)}</ol>
-        </Box>
+        <section className="section" aria-labelledby="next-title">
+          <h2 id="next-title" className="set-head">מה עושים עכשיו</h2>
+          <ol className="steps result-next">{exam.result.nextSteps.map((s, i) => <li key={i}><Markdown>{s}</Markdown></li>)}</ol>
+        </section>
       )}
 
       <p className="footnote">תשובה נכונה בחלקה נספרת כחצי נקודה. המבחן נבדק על ידי העוזר (Claude).{exam.source === 'practice' ? ' התשובות הנכונות נלקחו ממפתח התשובות של האפליקציה.' : ' אם משהו נראה לא נכון, בדקו עם המורה.'}</p>
-      <section className="section danger-zone">
+      <section className="section set-group">
         {confirmDel ? (
-          <div className="form-actions row"><span>למחוק את הבדיקה הזו מהמכשיר?</span><Button variant="danger" className="btn-sm" onClick={() => { removeExam(exam.id); navigate('/exams'); }}>כן, למחוק</Button><Button variant="ghost" className="btn-sm" onClick={() => setConfirmDel(false)}>ביטול</Button></div>
-        ) : <Button variant="danger-outline" className="btn-sm" onClick={() => setConfirmDel(true)}>מחיקת הבדיקה</Button>}
+          <div className="set-box"><p>למחוק את הבדיקה הזו מהמכשיר?</p><div className="form-actions row"><Button variant="danger" className="btn-sm" onClick={() => { removeExam(exam.id); navigate('/exams'); }}>כן, למחוק</Button><Button variant="ghost" className="btn-sm" onClick={() => setConfirmDel(false)}>ביטול</Button></div></div>
+        ) : <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmDel(true)}>מחיקת הבדיקה</button></div></div>}
       </section>
 
+      <ScreenFoot>
+        {first
+          ? <Link className="btn btn-primary btn-block btn-lg" to={`/practice/${first.topic}?level=${lvOf(first)}&from=plan`} data-region="primary"><PencilRuler size={18} aria-hidden="true" />תרגול: {TOPIC[first.topic].levels[lvOf(first) - 1].title}</Link>
+          : <Link className="btn btn-primary btn-block btn-lg" to="/" data-region="primary">להמשיך במסלול</Link>}
+      </ScreenFoot>
+
       <Sheet open={!!asking} onOpenChange={(o) => !o && setAsking(null)} title={asking ? `שאלה ${asking.number}` : ''}>
-        {asking && <AIChat context={{ grade: profile.grade, topic: TOPIC[asking.topic]?.title, question: asking.prompt, correct: asking.correctAnswer, studentAnswer: asking.studentAnswer }} intro="שאלו מה לא ברור בשאלה הזו. העוזר מכיר את השאלה, את מה שכתבתם ואת התשובה הנכונה." />}
+        {asking && <AIChat context={{ grade: profile.grade, topic: TOPIC[asking.topic]?.title, question: asking.prompt, correct: asking.correctAnswer, studentAnswer: asking.studentAnswer }} intro="שאלו מה לא ברור בשאלה הזו. אני מכיר את השאלה, את מה שכתבתם ואת התשובה הנכונה." />}
       </Sheet>
     </div>
   );

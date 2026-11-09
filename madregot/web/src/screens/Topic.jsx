@@ -1,3 +1,4 @@
+import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { ArrowRight, Sparkles, Check, Lock } from 'lucide-react';
@@ -15,12 +16,12 @@ export default function Topic() {
   const t = TOPIC[id];
   const p = useApp((s) => s.progress[id]) || { level: 1, max: 1 };
   const mistakes = useApp((s) => s.mistakes);
-  if (!t) return <div className="page"><p>הנושא לא נמצא.</p><Link to="/topics">לרשימת הנושאים</Link></div>;
+  if (!t) return <div className="page pushed"><ScreenBar title="מדריך" back="/topics" /><EmptyState mood="encouraging" title="הנושא לא נמצא"><p>אולי הקישור ישן. כל הנושאים מחכים ברשימה.</p></EmptyState><ScreenFoot><Link to="/topics" className="btn btn-primary btn-block btn-lg">לרשימת הנושאים</Link></ScreenFoot></div>;
   const n = TOPICS.filter((x) => x.grade === t.grade).indexOf(t) + 1;
   const mine = Object.entries(mistakes).filter(([k]) => k.startsWith(`${id}:`)).map(([k, v]) => ({ cat: k.split(':')[1], v })).filter((m) => t.cats[m.cat]).sort((a, b) => b.v - a.v);
 
   return (
-    <div className="page">
+    <div className="page pushed">
       {/* laid out like Duolingo's guidebook: a bar with the way back, the unit's banner, then the key ideas, one card each */}
       <header className="screen-bar" data-region="header">
         <Link to="/topics" className="icon-btn" aria-label="כל הנושאים"><ArrowRight size={24} aria-hidden="true" /></Link>

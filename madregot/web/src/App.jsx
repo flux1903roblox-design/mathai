@@ -23,7 +23,6 @@ const Plan = lazy(() => import('@/screens/Plan.jsx'));
 const Journey = lazy(() => import('@/screens/Journey.jsx'));
 const Teach = lazy(() => import('@/screens/Teach.jsx'));
 const Repair = lazy(() => import('@/screens/Repair.jsx'));
-const Mission = lazy(() => import('@/screens/Mission.jsx'));
 const Rescue = lazy(() => import('@/screens/Rescue.jsx'));
 const NewPracticeExam = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.NewPracticeExam })));
 const PracticeSheet = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.PracticeSheet })));
@@ -98,7 +97,7 @@ function Root() {
               <Route path="/exams/:id" element={<ExamResult />} />
               <Route path="/plan" element={<Plan />} />
               <Route path="/learn/:topic/:level" element={<Journey />} />
-              <Route path="/mission" element={<Mission />} />
+              <Route path="/mission" element={<Navigate to="/quests" replace />} />
               <Route path="/rescue" element={<Rescue />} />
             </Route>
             <Route path="/lesson/:topic/:level" element={<LessonRoute />} />

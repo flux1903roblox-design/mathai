@@ -611,13 +611,15 @@ export default function Lesson() {
           <Button variant="ghost" className="btn-block exit-quit" onClick={() => leave('/', { replace: true })}>יציאה</Button>
         </div>
       </Sheet>
-      <Sheet open={chatOpen} onOpenChange={setChatOpen} title="שאלו את העוזר">
+      {/* every sheet in a lesson has the same build: its title and the way out at the top, the content, and its one
+          action pinned at the bottom (the chat's input, the remedy's button, the help request's "send") */}
+      <Sheet open={chatOpen} onOpenChange={setChatOpen} title="שאלו את העוזר" className="chat-sheet">
         <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={item.text} />{item.display && <> <Tex tex={item.display} /></>}</div>
-        <AIChat context={aiContext()} messages={chat} onMessages={setChat} />
+        <AIChat context={aiContext()} messages={chat} onMessages={setChat} intro="אני רואה את התרגיל ואת מה שכתבתם. מה לא ברור?" />
       </Sheet>
       <TutorSheet open={tutorOpen} onOpenChange={setTutorOpen} content={contentOf(skillId(item.topic || spec.topic, item.level))} item={item}
         wrong={s.wrong.length ? { cat: last?.cat ?? null, diagnosis: last?.diagnosis ?? null } : null} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null} />
-      <Sheet open={!!remedy} onOpenChange={(o) => { if (!o) setRemedy(null); }} title="בואו נראה את זה אחרת">
+      <Sheet open={!!remedy} onOpenChange={(o) => { if (!o) setRemedy(null); }} title="בואו נראה את זה אחרת" className="flow-sheet">
         {remedy && <RemedyFlow content={contentOf(skillId(item.topic || spec.topic, item.level))} misc={remedy} compact onDone={() => setRemedy(null)} doneLabel="חזרה לשיעור" />}
       </Sheet>
       <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} payload={{ topic: item.topic, level: item.level, question: itemMath(item), answer: s.wrong.map((w) => answerText(item, w)).join(' ; ') }} getImage={() => (page.strokes.length ? nbRef.current?.toImage() || null : null)} hasPage={page.strokes.length > 0} />
@@ -635,10 +637,13 @@ function HelpSheet({ open, onOpenChange, payload, getImage, hasPage }) {
       toast.success('הבקשה נשלחה למורה'); setNote(''); onOpenChange(false);
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
-  const footer = useMemo(() => <Button className="btn-block" onClick={send} disabled={busy}>{busy ? 'שולחים…' : 'שליחה למורה'}</Button>, [busy, note]); // eslint-disable-line react-hooks/exhaustive-deps
+  const footer = useMemo(() => <Button className="btn-block btn-lg" onClick={send} disabled={busy}>{busy ? 'שולחים…' : 'שליחה למורה'}</Button>, [busy, note]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title="לבקש עזרה מהמורה" footer={footer}>
-      <p className="lead">המורה יראה את התרגיל ואת מה שכתבתם{hasPage ? ', כולל הדף מהמחברת' : ''}, ויוכל לעבור עליו איתכם.</p>
+      <div className="ob-ask sheet-ask">
+        <Mascot mood="encouraging" size={56} className="ob-mascot" />
+        <p className="ob-bubble">המורה יראה את התרגיל ואת מה שכתבתם{hasPage ? ', כולל הדף מהמחברת' : ''}, ויוכל לעבור עליו איתכם.</p>
+      </div>
       <label htmlFor="help-note" className="field-label">מה לא ברור? (לא חובה)</label>
       <textarea id="help-note" className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
     </Sheet>

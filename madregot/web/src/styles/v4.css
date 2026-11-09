@@ -507,3 +507,187 @@ body { background: #fff; color: var(--ink); }
 .teach-main > .lm, .teach-main > .remedy > .lm { min-height: 100dvh; }
 .teach-main > .remedy { min-height: 100dvh; }
 .lm-actions { padding-bottom: calc(var(--s5) + env(safe-area-inset-bottom)); }
+
+/* ======================================================================================================
+   v7: the screen skeletons (LAYOUT_SPEC part E) for the routes finished in round 13.
+   A pushed screen: the bar with the way back, the content, ONE primary pinned at the bottom (ScreenFoot).
+   Every pushed screen (a bar with the way back) hides the tab bar on a phone, as Duolingo's pushed screens do; where
+   it has a primary, the primary is pinned in the tab bar's place. The tabs' own screens keep the tab bar.
+   ====================================================================================================== */
+@media (max-width: 959px) {
+  .shell:has(.pushed) .tabbar { display: none; }
+  .shell:has(.pushed) .shell-main { padding-bottom: 0; }
+}
+.pushed { min-height: 100dvh; padding-bottom: 0; }
+.screen-foot {
+  position: sticky; bottom: 0; z-index: 6; margin: auto calc(-1 * max(var(--s4), env(safe-area-inset-left, 0px))) 0;
+  display: flex; flex-direction: column; align-items: stretch; gap: var(--s2);
+  padding: var(--s3) max(var(--s4), env(safe-area-inset-right, 0px)) calc(var(--s3) + env(safe-area-inset-bottom, 0px)) max(var(--s4), env(safe-area-inset-left, 0px));
+  background: var(--paper); border-top: 2px solid var(--line);
+}
+.screen-foot .btn { width: 100%; margin-inline: 0; }
+.foot-link { align-self: center; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s3); font-weight: 700; color: var(--p-700); text-decoration: none; }
+.foot-link:hover { text-decoration: underline; }
+.icon-btn-spacer { width: 44px; }
+.screen-bar .icon-btn { color: var(--ink); }
+
+/* nothing here yet / this needs something first: מדי in the middle, a title, a line */
+.empty-state { border: 0; background: none; padding: var(--s6) var(--s2) var(--s4); gap: var(--s3); }
+.empty-madi { margin-bottom: var(--s1); }
+.empty-title { margin: 0; font-family: var(--font-display); font-size: 24px; line-height: 30px; font-weight: 700; color: var(--ink); text-wrap: balance; }
+.empty-text { max-width: 36ch; color: var(--ink-2); display: flex; flex-direction: column; gap: var(--s2); }
+.empty-text p { margin: 0; }
+.pushed > .empty-state { flex: 1; justify-content: center; }
+
+/* ---- the exams tab (Duolingo's practice hub): one featured card with its button, then plain rows */
+.hub-card { display: flex; flex-direction: column; gap: var(--s4); padding: var(--s5) var(--s4) var(--s4); border: 2px solid var(--line); border-radius: var(--r-m); background: #fff; box-shadow: 0 4px 0 var(--line); }
+.hub-card-head { display: flex; align-items: flex-start; gap: var(--s3); }
+.hub-card-icon { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--p-100); color: var(--p-700); }
+.hub-plan .hub-card-icon { background: color-mix(in srgb, var(--ch-petrol, #0f766e) 14%, #fff); color: var(--ch-petrol-d, #115e59); }
+.hub-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.hub-card-title { margin: 0; font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 700; }
+.hub-card-desc { margin: 0; color: var(--ink-2); }
+.hub-card .btn { margin-inline: 0; }
+.hub-rows { list-style: none; margin: 0; padding: 0; border: 2px solid var(--line); border-radius: var(--r-m); background: #fff; overflow: hidden; }
+.hub-rows > li + li { border-top: 2px solid var(--line); }
+.hub-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s3); min-height: 68px; padding: var(--s3) var(--s4); color: var(--ink); text-decoration: none; }
+a.hub-row:hover { background: var(--ground); }
+a.hub-row:active { background: var(--p-100); }
+.hub-row-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--ground); color: var(--p-700); }
+.hub-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hub-row-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-weight: 700; font-size: 16px; }
+.hub-row-desc { font-size: var(--fs-sm); color: var(--ink-2); }
+.hub-row .score-chip { min-width: 60px; height: 40px; }
+.hub-empty { margin: 0; padding: var(--s4); border: 2px dashed var(--line-2); border-radius: var(--r-m); color: var(--ink-2); }
+.exams-page .section { gap: var(--s2); }
+
+/* ---- exam check: מדי asks for the pages */
+.check-ask { margin-top: var(--s2); }
+.check-ask .ob-bubble { font-size: 17px; line-height: 25px; margin-bottom: var(--s3); }
+.exam-check .page-thumbs { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.check-status .thinking { justify-content: center; }
+.sheet-note { margin: 0; }
+
+/* ---- the results layout (exam result): מדי and the title in the middle, tiles, then the review */
+.result-hero { display: flex; flex-direction: column; align-items: center; gap: var(--s2); text-align: center; padding-top: var(--s3); }
+.result-title { margin: 0; font-family: var(--font-display); font-size: 26px; line-height: 32px; font-weight: 700; text-wrap: balance; }
+.result-sub { margin: 0; color: var(--ink-2); }
+.result-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.stat-bad { --tone: var(--bad-d); --tone-on: #fff; --tone-ink: var(--bad-ink); }
+.stat-sky { --tone: var(--ch-sky-d); --tone-on: #fff; --tone-ink: var(--ch-sky-d); }
+.result-say { padding: var(--s3) var(--s4); border-radius: var(--r-m); background: var(--ground); }
+.result-say p { margin: 0; }
+.weak-row .topic-tag { font-weight: 700; }
+.weak-level { font-weight: 600; color: var(--ink-2); }
+.weak-row .weak-reason { font-size: var(--fs-sm); color: var(--ink-2); }
+.weak-row .weak-reason p { margin: 0; }
+.result-next { margin: 0; }
+.set-rows-wrap { padding: 0 !important; }
+.set-rows-wrap .set-rows { margin: 0; }
+.set-row svg { margin-inline-end: var(--s2); }
+
+/* ---- the plan (course outline, as the stair page) */
+.plan-head { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4); border-radius: var(--r-m); background: color-mix(in srgb, var(--ch-petrol, #0f766e) 12%, #fff); }
+.plan-head-count { margin: 0; font-weight: 700; color: var(--ink-2); font-size: var(--fs-sm); }
+.plan-head-next { margin: 0; font-size: 17px; }
+.plan-stages .jstage-sub { margin: 2px 0 0; }
+.plan-stages .plan-meter { margin-top: var(--s2); }
+.plan-stages .jstage { align-items: flex-start; }
+.plan-stages .jstage-icon { margin-top: 2px; }
+
+/* ---- today's mission rows (the old mission page lives here now) */
+.today-row { position: relative; display: grid !important; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: var(--s3); }
+.today-row .chev { align-self: center; }
+.today-kind { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.today-link { color: var(--ink); text-decoration: none; font-weight: 700; }
+.today-link::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-s); }
+.today-link:focus-visible { outline: none; }
+.today-row:has(.today-link:focus-visible) { outline: 3px solid var(--p-500); outline-offset: 2px; border-radius: var(--r-s); }
+.today-why { font-size: var(--fs-sm); line-height: var(--lh-sm2); color: var(--ink-2); }
+.today-row .qbar { margin-top: 4px; }
+.today-row.done .today-link { color: var(--ink-2); }
+
+/* ---- topics: the units not being climbed jump there quietly */
+.section-card-jump { min-height: 44px; padding: 0 var(--s2); border: 0; background: none; color: #fff; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+
+/* ---- conversations (assistant, tutor, chat sheets): one layout */
+.chat-thread { display: flex; flex-direction: column; gap: var(--s3); }
+.chat-thread .tutor-turn { display: flex; flex-direction: column; gap: var(--s3); }
+.tutor-q p, .tutor-a p { margin: 0; }
+.tutor-a p + p { margin-top: 6px; }
+.msg-row .msg.tutor-a { background: var(--paper); }
+.tutor-action { margin-inline-start: 42px; padding: var(--s3); border: 2px solid var(--line); border-radius: var(--r-m); background: #fff; }
+.chat-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.sheet-foot .tutor-intents { position: static; padding: 0; background: none; }
+.sheet-foot .tutor-note { margin-top: var(--s2); }
+.chat-intro .msg { color: var(--ink); }
+.chat-dock-live { position: sticky; bottom: 0; z-index: 3; display: flex; flex-direction: column; gap: var(--s2); padding: var(--s2) 0 var(--s1); background: var(--paper); }
+.chat-tools { display: flex; gap: var(--s2); overflow-x: auto; }
+.chat-tool { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s3); border: 2px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); font-weight: 700; font-size: var(--fs-sm); cursor: pointer; }
+.chat-tool svg { color: var(--ai-ink); }
+.chat-tool:hover { border-color: var(--line-2); background: var(--ground); }
+.assistant-page { min-height: calc(100dvh - 76px - env(safe-area-inset-bottom, 0px)); padding-bottom: 0; }
+.assistant-chat { flex: 1; display: flex; flex-direction: column; gap: var(--s2); min-height: 0; }
+.assistant-chat .chat { flex: 1; display: flex; flex-direction: column; gap: var(--s2); }
+.assistant-chat .chat-list { flex: 1; max-height: none; }
+.assistant-note { margin: 0; text-align: center; }
+@media (max-width: 959px) { .assistant-chat .chat-dock-live { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); padding-bottom: var(--s3); } }
+@media (min-width: 960px) { .assistant-page { min-height: 100dvh; } }
+.sheet-cta { position: sticky; bottom: calc(-1 * var(--s4)); z-index: 2; margin: 0 calc(-1 * var(--s4)); padding: var(--s3) var(--s4); background: var(--paper); border-top: 2px solid var(--line); }
+.sheet-cta .btn { margin-inline: 0; }
+.chat-sheet .chat-list { max-height: none; }
+.chat-sheet .chat-dock-live { bottom: calc(-1 * var(--s4)); padding-bottom: var(--s3); }
+.flow-sheet .lm-actions { position: sticky; bottom: calc(-1 * var(--s4)); z-index: 2; background: var(--paper); }
+.sheet-ask { margin-bottom: var(--s2); }
+.sheet-ask .ob-bubble { font-size: 17px; line-height: 25px; margin-bottom: var(--s3); }
+
+/* ---- results: streak card, a quiet second way */
+.streak-card { width: 100%; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); border: 2px solid var(--line); border-radius: var(--r-m); background: #fff; }
+.streak-card-text { margin: 0; color: var(--ink-2); }
+.done-quiet { color: var(--p-700); }
+
+/* ---- the teacher's start and sign-in: the onboarding flow */
+.ob-top-title { flex: 1; text-align: center; margin-inline-end: 44px; font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.ob-bubble-title { margin: 0; font: inherit; }
+.teacher-off.ob { max-width: none; width: 100%; }
+.teacher-off .teacher-off-lead { margin: 0; color: var(--ink-2); }
+.teacher-off .set-group > ul, .teacher-off .set-group > ol { border: 0; padding: 0; background: none; }
+.teacher-off .teacher-off-steps { padding: var(--s3) var(--s4) var(--s3) var(--s6) !important; border: 2px solid var(--line) !important; border-radius: var(--r-m); background: #fff !important; }
+
+/* ---- the teacher's board: the solid header, 2×2 tiles, a segmented switch, groups of rows */
+.teacher { background: var(--ground); }
+.t-head { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: var(--s3); padding: var(--s3) max(var(--s4), env(safe-area-inset-right, 0px)) var(--s5) max(var(--s4), env(safe-area-inset-left, 0px)); background: color-mix(in srgb, var(--p-500) 30%, var(--p-700)); color: #fff; border-bottom: 0; }
+.t-head-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.t-head-who { display: flex; flex-direction: column; }
+.t-head .wordmark { color: #fff; }
+.t-head-sub { font-size: var(--fs-sm); color: #fff; }
+.t-head-actions { display: flex; gap: var(--s2); }
+.t-icon { background: rgba(255, 255, 255, 0.16); color: #fff; border-radius: 12px; }
+.t-icon:hover { background: rgba(255, 255, 255, 0.28); }
+.t-head .t-class { padding-inline-end: 84px; }
+.t-head .t-class-name { margin: 0; font-family: var(--font-display); font-size: 30px; line-height: 36px; color: #fff; }
+.t-class-select { min-width: 140px; }
+.t-code { background: #fff; color: var(--ink); border-color: #fff; }
+.t-code span:first-child { font-weight: 600; letter-spacing: 0; font-size: var(--fs-sm); color: var(--ink-2); }
+.t-head-madi { position: absolute; inset-inline-end: var(--s4); bottom: var(--s3); }
+.t-main { max-width: 1100px; }
+.t-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+@media (min-width: 900px) { .t-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.kpi-sky .kpi-icon { color: var(--ch-sky-d); }
+.t-tabs.segmented { overflow: visible; padding: 0; }
+.t-tabs .t-tab { border-radius: var(--r-md); padding: 0 var(--s2); }
+.t-tabs .t-tab.on { color: var(--brand-d); background: var(--brand-tint); box-shadow: 0 3px 0 #b9b3ff; }
+.t-group .set-head { color: var(--ink-2); }
+.t-group > .t-group-box { padding: 0 var(--s4); }
+.t-group-warm > .t-group-box { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); }
+.t-row { padding: var(--s3) 0; margin: 0; }
+.t-more { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 var(--s1); border: 0; background: none; font-weight: 700; color: var(--p-700); cursor: pointer; }
+.t-fresh { display: flex; flex-direction: column; align-items: center; gap: var(--s3); padding: var(--s5) var(--s4); text-align: center; border: 2px solid var(--good); border-radius: var(--r-m); background: #fff; }
+.t-fresh-title { margin: 0; font-family: var(--font-display); font-size: 26px; color: var(--good-ink); }
+.t-fresh .code-pair { justify-content: center; }
+.t-out { margin-top: var(--s6); }
+
+/* ---- guided solving: the typed last step fills the row, the check is the bottom button */
+.together .tg-final { display: block; }
+.together .tg-input { width: 100%; max-width: none; min-height: 58px; font-size: 1.6rem; }
+.together .tg-input.good { border-color: var(--good); background: var(--good-tint); }

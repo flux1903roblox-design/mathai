@@ -2,14 +2,16 @@ import { useSearchParams } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { Copy, RefreshCw, Hand, TriangleAlert, CircleCheck, CircleAlert, LogOut, Plus, KeyRound, NotebookPen } from 'lucide-react';
+import { Copy, RefreshCw, Hand, TriangleAlert, CircleCheck, CircleAlert, LogOut, Plus, KeyRound, NotebookPen, Users, CalendarDays, Target, ChevronLeft } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api, teacherHeaders } from '@/lib/api.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
-import { Box, Button, ChapterMark, Field, LevelPips } from '@/components/ui.jsx';
+import { Button, ChapterMark, Field, LevelPips, Sheet } from '@/components/ui.jsx';
+import { Stat } from '@/components/ds.jsx';
+import Mascot from '@/components/Mascot.jsx';
+import { EmptyState } from '@/components/Screen.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { GradeSwitch } from './Welcome.jsx';
-import PageScene from '@/components/PageScene.jsx';
 
 const fmtDay = (iso) => {
   if (!iso) return 'אף פעם';
@@ -50,35 +52,51 @@ function NotebookPage({ cls, id }) {
 
 function FreshClass({ cls, onDone }) {
   return (
-    <Box tone="ok" title="הכיתה מוכנה">
+    <section className="card t-fresh" aria-labelledby="fresh-title" data-region="card">
+      <Mascot mood="achievement" size={96} />
+      <h2 id="fresh-title" className="t-fresh-title">הכיתה מוכנה!</h2>
       <p>תנו לתלמידים את <b>קוד הכיתה</b>. הם בוחרים "אני תלמיד או תלמידה", כותבים שם, מקלידים את הקוד ובוחרים קוד אישי של 4 ספרות.</p>
       <div className="code-pair">
         <div><span className="field-label">קוד כיתה</span><button type="button" className="code-chip" onClick={() => copy(cls.code, 'קוד הכיתה')}><span dir="ltr">{cls.code}</span><Copy size={16} aria-hidden="true" /></button></div>
         <div><span className="field-label">מפתח מורה (רק לכם)</span><button type="button" className="code-chip" onClick={() => copy(cls.key, 'מפתח המורה')}><span dir="ltr">{cls.key}</span><Copy size={16} aria-hidden="true" /></button></div>
       </div>
       <p className="muted">שמרו את מפתח המורה במקום בטוח. בעזרתו פותחים את הלוח ממחשב אחר.</p>
-      <Button variant="secondary" className="btn-sm" onClick={onDone}>שמרתי, אפשר להמשיך</Button>
-    </Box>
+      <Button className="btn-block btn-lg" onClick={onDone}>שמרתי, אפשר להמשיך</Button>
+    </section>
   );
 }
 
-function AddClass({ onClose }) {
+function AddClass({ open, onClose }) {
   const { profile, setProfile } = useApp();
   const [f, setF] = useState({ className: '', grade: '7' }); const [busy, setBusy] = useState(false);
-  const submit = async (e) => {
-    e.preventDefault(); if (!f.className.trim()) return; setBusy(true);
+  const submit = async () => {
+    if (!f.className.trim()) return; setBusy(true);
     try {
       const r = await api('/api/classes', { method: 'POST', body: { teacherName: profile.name, className: f.className, grade: f.grade } });
       const cls = { code: r.code, key: r.teacherKey, className: r.className, grade: r.grade, fresh: true };
-      setProfile({ ...profile, classes: [...profile.classes, cls], active: cls.code }); onClose();
+      setProfile({ ...profile, classes: [...profile.classes, cls], active: cls.code }); setF({ className: '', grade: '7' }); onClose();
     } catch (err) { toast.error(err.message); } finally { setBusy(false); }
   };
+  // a sheet like every other one: the title and the way out, the fields, its one action pinned at the bottom
   return (
-    <form className="add-class" onSubmit={submit}>
-      <Field label="שם הכיתה החדשה" id="ac-name"><input id="ac-name" className="input" value={f.className} onChange={(e) => setF({ ...f, className: e.target.value })} maxLength={30} /></Field>
-      <div className="field"><span className="field-label" id="ac-grade">שכבה</span><GradeSwitch value={f.grade} onChange={(g) => setF({ ...f, grade: g })} id="ac-grade" /></div>
-      <div className="form-actions row"><Button type="submit" disabled={busy}>פתיחה</Button><Button variant="ghost" onClick={onClose}>ביטול</Button></div>
-    </form>
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()} title="כיתה נוספת"
+      footer={<Button className="btn-block btn-lg" onClick={submit} disabled={busy || !f.className.trim()}>{busy ? 'רגע…' : 'פתיחת הכיתה'}</Button>}>
+      <form className="add-class ob-field" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+        <Field label="שם הכיתה החדשה" id="ac-name"><input id="ac-name" className="input input-lg" value={f.className} onChange={(e) => setF({ ...f, className: e.target.value })} maxLength={30} placeholder="למשל: ח׳2" /></Field>
+        <div className="field"><span className="field-label" id="ac-grade">שכבה</span><GradeSwitch value={f.grade} onChange={(g) => setF({ ...f, grade: g })} id="ac-grade" /></div>
+      </form>
+    </Sheet>
+  );
+}
+
+/** A group in the "what to do tomorrow" view: a small heading over plain rows (the settings grammar). */
+function Group({ title, tone, children, more }) {
+  return (
+    <section className={clsx('set-group', 't-group', tone && `t-group-${tone}`)} aria-label={title}>
+      <h2 className="set-head">{title}</h2>
+      <div className="t-group-box">{children}</div>
+      {more}
+    </section>
   );
 }
 
@@ -139,98 +157,101 @@ export default function Teacher() {
     return acc;
   }, {})).map((w) => ({ ...w, skills: [...w.skills], names: [...w.names] })).sort((a, b) => b.names.length - a.names.length || b.lost - a.lost).slice(0, 5);
 
+  // The teacher's board in the app's own grammar (LAYOUT_SPEC E5): the solid header block with the class, its code and
+  // two icon actions (as the profile has its gear), a 2×2 overview of tiles, a segmented switch between four views,
+  // groups of plain rows, and leaving as a red row at the end. Adding a class opens a sheet.
   return (
     <div className="teacher">
-      <header className="t-head">
-        <div className="t-brand"><span className="t-art ch-brand"><PageScene name="teacher" mood="happy" /></span><span><span className="wordmark sm">מדרגות</span><span className="muted">לוח המורה של {profile.name}</span></span></div>
+      <header className="t-head" data-region="header">
+        <div className="t-head-row">
+          <span className="t-head-who"><span className="wordmark sm">מדרגות</span><span className="t-head-sub">לוח המורה של {profile.name}</span></span>
+          <span className="t-head-actions">
+            <button type="button" className="icon-btn t-icon" onClick={load} aria-label="רענון הנתונים"><RefreshCw size={20} aria-hidden="true" /></button>
+            <button type="button" className="icon-btn t-icon" onClick={() => setAdding(true)} aria-label="כיתה נוספת"><Plus size={22} aria-hidden="true" /></button>
+          </span>
+        </div>
         <div className="t-class">
           {profile.classes.length > 1 ? (
-            <select className="input" aria-label="כיתה" value={cls.code} onChange={(e) => setProfile({ ...profile, active: e.target.value })}>
+            <select className="input t-class-select" aria-label="כיתה" value={cls.code} onChange={(e) => setProfile({ ...profile, active: e.target.value })}>
               {profile.classes.map((c) => <option key={c.code} value={c.code}>{c.className}</option>)}
             </select>
           ) : <h1 className="t-class-name">{cls.className}</h1>}
-          <button type="button" className="code-chip" onClick={() => copy(cls.code, 'קוד הכיתה')} aria-label={`העתקת קוד הכיתה ${cls.code}`}><span className="muted">קוד</span><span dir="ltr">{cls.code}</span><Copy size={16} aria-hidden="true" /></button>
+          <button type="button" className="code-chip t-code" onClick={() => copy(cls.code, 'קוד הכיתה')} aria-label={`העתקת קוד הכיתה ${cls.code}`}><span>קוד</span><span dir="ltr">{cls.code}</span><Copy size={16} aria-hidden="true" /></button>
         </div>
-        <div className="t-actions">
-          <Button variant="secondary" className="btn-sm" onClick={load}><RefreshCw size={16} aria-hidden="true" />רענון</Button>
-          <Button variant="secondary" className="btn-sm" onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" />כיתה נוספת</Button>
-        </div>
+        <Mascot mood="happy" size={72} className="t-head-madi" />
       </header>
+      <AddClass open={adding} onClose={() => setAdding(false)} />
 
       <main className="t-main">
         {cls.fresh && <FreshClass cls={cls} onDone={dismissFresh} />}
-        {adding && <AddClass onClose={() => setAdding(false)} />}
         {error && <p className="form-error" role="alert">{error}</p>}
         {!data && !error && <p className="muted" role="status">טוענים את נתוני הכיתה…</p>}
 
         {data && (
           <>
-            <dl className="t-strip">
-              <div><dt>תרגלו היום</dt><dd>{practicedToday} מתוך {students.length}</dd></div>
-              <div><dt>תרגלו השבוע</dt><dd>{practicedWeek} מתוך {students.length}</dd></div>
-              <div><dt>נכון בניסיון ראשון השבוע</dt><dd>{weekN ? `${pct(weekFirst, weekN)}%` : 'אין עדיין'}</dd></div>
-              <div><dt>בקשות עזרה פתוחות</dt><dd>{openHelp.length}</dd></div>
-            </dl>
+            <div className="t-kpis" data-region="answers">
+              <Stat icon={Users} tone="brand" value={<bdi>{practicedToday}/{students.length}</bdi>} label="תרגלו היום" />
+              <Stat icon={CalendarDays} tone="sky" value={<bdi>{practicedWeek}/{students.length}</bdi>} label="תרגלו השבוע" />
+              <Stat icon={Target} tone="good" value={weekN ? <bdi>{pct(weekFirst, weekN)}%</bdi> : '–'} label="נכון בניסיון ראשון" />
+              <Stat icon={Hand} tone="gold" value={openHelp.length} label="בקשות עזרה פתוחות" />
+            </div>
 
-            <div className="t-tabs" role="tablist" aria-label="תצוגה">
-              {[['tomorrow', 'מה עושים מחר'], ['students', 'תלמידים'], ['exams', `מבחנים${data.exams?.length ? ` (${data.exams.length})` : ''}`], ['help', `בקשות עזרה${openHelp.length ? ` (${openHelp.length})` : ''}`]].map(([id, label]) => (
-                <button key={id} type="button" role="tab" aria-selected={tab === id} className={clsx('t-tab', tab === id && 'on')} onClick={() => setTab(id)}>{label}</button>
+            <div className="segmented t-tabs" role="tablist" aria-label="תצוגה">
+              {[['tomorrow', 'מחר'], ['students', 'תלמידים'], ['exams', `מבחנים${data.exams?.length ? ` (${data.exams.length})` : ''}`], ['help', `עזרה${openHelp.length ? ` (${openHelp.length})` : ''}`]].map(([id, label]) => (
+                <button key={id} type="button" role="tab" aria-selected={tab === id} className={clsx('seg', 't-tab', tab === id && 'on')} onClick={() => setTab(id)}>{label}</button>
               ))}
             </div>
 
             {students.length === 0 && (
-              <div className="empty-state">
-                <span className="empty-art ch-brand"><PageScene name="empty" /></span>
-                <h2 className="h-section">עוד אין תלמידים בכיתה</h2>
-                <p className="muted">כשתלמידים יצטרפו עם הקוד <b dir="ltr">{cls.code}</b>, הם יופיעו כאן עם ההתקדמות שלהם.</p>
+              <EmptyState mood="idle" title="עוד אין תלמידים בכיתה">
+                <p>כשתלמידים יצטרפו עם הקוד <b dir="ltr">{cls.code}</b>, הם יופיעו כאן עם ההתקדמות שלהם.</p>
                 <Button variant="secondary" className="btn-sm" onClick={() => copy(cls.code, 'קוד הכיתה')}><Copy size={16} aria-hidden="true" />העתקת הקוד</Button>
-              </div>
+              </EmptyState>
             )}
 
             {tab === 'tomorrow' && students.length > 0 && (
               <div className="t-grid">
-                <Box tone="attention" title="טעויות שחוזרות השבוע">
-                  {data.mistakes.length === 0 ? <p className="muted">לא זוהו טעויות שחוזרות.</p> : (
+                <Group title="טעויות שחוזרות השבוע" tone="warm">
+                  {data.mistakes.length === 0 ? <p className="t-row muted">לא זוהו טעויות שחוזרות.</p> : (
                     <ul className="t-list">
                       {data.mistakes.map((m) => (
-                        <li key={`${m.topic}:${m.cat}`}>
+                        <li key={`${m.topic}:${m.cat}`} className="t-row">
                           <span className="t-list-main"><b>{TOPIC[m.topic]?.title}</b>: <MathText text={TOPIC[m.topic]?.cats[m.cat] || m.cat} /></span>
                           <span className="muted">{m.students === 1 ? 'תלמיד אחד' : `${m.students} תלמידים`}: {m.names.slice(0, 6).join(', ')}{m.names.length > 6 ? '…' : ''}</span>
                         </li>
                       ))}
                     </ul>
                   )}
-                </Box>
+                </Group>
                 {examWeak.length > 0 && (
-                  <Box tone="attention" title="נושאים חלשים במבחנים">
+                  <Group title="נושאים חלשים במבחנים" tone="warm">
                     <ul className="t-list">
                       {examWeak.map((w) => (
-                        <li key={w.topic}>
+                        <li key={w.topic} className="t-row">
                           <span className="t-list-main"><b>{TOPIC[w.topic]?.title || 'נושא אחר'}</b>: {w.lost === 1 ? 'שאלה אחת עם טעות' : `${w.lost} שאלות עם טעות`}</span>
                           <span className="muted">{w.skills.slice(0, 3).join(', ')}{w.skills.length ? '. ' : ''}{w.names.length === 1 ? w.names[0] : `${w.names.length} תלמידים: ${w.names.slice(0, 6).join(', ')}`}</span>
                         </li>
                       ))}
                     </ul>
-                  </Box>
+                  </Group>
                 )}
-                <Box tone="note" title="כדאי לבדוק איתם">
-                  {attention.length === 0 ? <p className="muted">{openHelp.length ? 'כולם מתרגלים ומצליחים. יש בקשות עזרה שמחכות לכם למטה.' : 'כולם מתרגלים ומצליחים.'}</p> : (
+                <Group title="כדאי לבדוק איתם">
+                  {attention.length === 0 ? <p className="t-row muted">{openHelp.length ? 'כולם מתרגלים ומצליחים. יש בקשות עזרה שמחכות לכם.' : 'כולם מתרגלים ומצליחים.'}</p> : (
                     <ul className="t-list">
                       {attention.map((s) => (
-                        <li key={s.id}>
+                        <li key={s.id} className="t-row">
                           <span className="t-list-main"><b>{s.name}</b></span>
                           <span className="muted">{idle(s) ? (s.lastPractice ? `תרגול אחרון ${fmtDay(s.lastPractice)}` : 'עוד לא תרגלו אף פעם') : `נכון בניסיון ראשון: ${pct(s.week.first, s.week.n)}%`}</span>
                         </li>
                       ))}
                     </ul>
                   )}
-                </Box>
-                <Box tone="ai" title="בקשות עזרה חדשות">
-                  {openHelp.length === 0 ? <p className="muted">אין בקשות פתוחות.</p> : (
-                    <ul className="t-list">{openHelp.slice(0, 5).map((h) => <li key={h.id} className={clsx(!h.seen_at && 'unseen')}><span className="t-list-main"><b>{h.name}</b>, {TOPIC[h.topic]?.title || ''}</span><span className="muted">{h.note || <MathText text={h.question} />}</span></li>)}</ul>
+                </Group>
+                <Group title="בקשות עזרה חדשות" more={openHelp.length > 0 && <button type="button" className="t-more" onClick={() => setTab('help')}>לכל הבקשות<ChevronLeft size={18} aria-hidden="true" /></button>}>
+                  {openHelp.length === 0 ? <p className="t-row muted">אין בקשות פתוחות.</p> : (
+                    <ul className="t-list">{openHelp.slice(0, 5).map((h) => <li key={h.id} className={clsx('t-row', !h.seen_at && 'unseen')}><span className="t-list-main"><b>{h.name}</b>, {TOPIC[h.topic]?.title || ''}</span><span className="muted">{h.note || <MathText text={h.question} />}</span></li>)}</ul>
                   )}
-                  {openHelp.length > 0 && <Button variant="secondary" className="btn-sm" onClick={() => setTab('help')}>לכל הבקשות</Button>}
-                </Box>
+                </Group>
               </div>
             )}
 
@@ -304,14 +325,13 @@ export default function Teacher() {
           </>
         )}
 
-        <section className="section danger-zone t-out">
+        <section className="section set-group t-out">
           {confirmOut ? (
-            <div className="form-actions row">
-              <span>לצאת מהלוח במכשיר הזה? בלי מפתח המורה לא תוכלו לחזור.</span>
-              <Button variant="danger" className="btn-sm" onClick={() => signOut()}>כן, לצאת</Button>
-              <Button variant="ghost" className="btn-sm" onClick={() => setConfirmOut(false)}>ביטול</Button>
+            <div className="set-box">
+              <p>לצאת מהלוח במכשיר הזה? בלי מפתח המורה לא תוכלו לחזור.</p>
+              <div className="form-actions row"><Button variant="danger" className="btn-sm" onClick={() => signOut()}>כן, לצאת</Button><Button variant="ghost" className="btn-sm" onClick={() => setConfirmOut(false)}>ביטול</Button></div>
             </div>
-          ) : <Button variant="danger-outline" className="btn-sm" onClick={() => setConfirmOut(true)}><LogOut size={16} aria-hidden="true" />יציאה מהלוח</Button>}
+          ) : <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmOut(true)}><LogOut size={18} aria-hidden="true" />יציאה מהלוח</button></div></div>}
         </section>
       </main>
     </div>

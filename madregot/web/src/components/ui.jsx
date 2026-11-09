@@ -130,12 +130,12 @@ export function Thinking({ states: raw }) {
 }
 
 /** Bottom sheet built on Base UI's dialog (focus trap, escape, scroll lock). */
-export function Sheet({ open, onOpenChange, title, children, footer, wide }) {
+export function Sheet({ open, onOpenChange, title, children, footer, wide, className }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="sheet-backdrop" />
-        <Dialog.Popup className={clsx('sheet', wide && 'wide')} dir="rtl" data-region="feedback">
+        <Dialog.Popup className={clsx('sheet', wide && 'wide', className)} dir="rtl" data-region="feedback">
           <header className="sheet-head">
             <Dialog.Title className="sheet-title">{title}</Dialog.Title>
             <Dialog.Close className="icon-btn" aria-label="סגירה"><X size={22} aria-hidden="true" /></Dialog.Close>

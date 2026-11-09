@@ -1,6 +1,6 @@
 # Madregot layout specification: Duolingo for the daily loop, Brilliant for discovery
 
-Status: implemented (9 November 2026). Evidence: real reference captures collected and measured in this round
+Status: implemented (9 November 2026); part E added in round 13 (the remaining routes, the confirmation rules). Evidence: real reference captures collected and measured in this round
 (Duolingo: 67 images, about 40 of them raw device captures from 2024–2026; Brilliant: 71 images, 62 of them raw in-app
 captures published by Mobbin), each listed in a manifest with its source URL. The images stay outside the repository
 because they belong to their owners. Percentages are of the phone screen's height (H) or width (W), measured on
@@ -122,3 +122,73 @@ Madregot after with its measured regions, Madregot before) were produced for 16 
 | After check, practice (Duolingo 20) | sheet 73.0–100 (grows upward), button in place | sheet 78–100, button in place |
 | Home (Duolingo 30) | stats 7.8–10.6 · banner 11.9–22.6 · path 24–89.8 · tabs 89.8–100 | stats 0–7 · banner 9.5–18 · path 18 onward · tabs 91–100 |
 | Welcome (Duolingo 50) | character + name 27.8–53.8 · buttons 82.6–94.6 | centre column · buttons 81.5–100 |
+
+## E. One grammar for every screen (round 13)
+
+Round 12 rebuilt the main loop. Round 13 finished the routes that still had the old structure (exams, the plan, the
+mission page, the assistant's tools, the tutor, the lesson's sheets, the teacher's screens) with the same parts, so
+that navigation, feedback, where content starts and where the primary action sits are the same everywhere. The parts
+live in `src/components/Screen.jsx` (`ScreenBar`, `ScreenFoot`, `EmptyState`, `Flow`).
+
+### E1. Four kinds of screen
+| Kind | Structure | Navigation | Primary action | Screens |
+|---|---|---|---|---|
+| A tab's own screen | a solid header block in the screen's colour (Duolingo's quests and profile tabs), then cards | the tab bar | at most one solid button, inside the first card | home (the path), missions, exams, assistant, profile |
+| A pushed screen | `ScreenBar`: back at the start, the title in the middle, an optional icon at the end; then the content | back only; **no tab bar on a phone** (Duolingo's settings, guidebook and section overview are full screen) | **one**, pinned at the bottom in `ScreenFoot` (where the tab bar was); a second way is a quiet text link under it | settings, topics, guidebook, stair page, Exam Rescue plan, exam check, practice sheet, exam result, improvement plan |
+| A question flow | `Flow`: back and a thick progress bar; מדי asks in a speech bubble; the answers as full-width rows; the button at the bottom, grey until answered (Duolingo's onboarding) | back steps back | "המשך", the last step names what happens ("הכנת המבחן", "פתיחת הכיתה") | onboarding, Exam Rescue details, new practice exam, teacher sign-in, teacher without a server |
+| A result | מדי or the trophy in the upper half, a coloured title, three stat tiles, then any details, one wide button pinned at the bottom (Duolingo's lesson complete) | none until the button | the one button; a second way only as a quiet text button | lesson done, check done, placement done, streak, quests done, exam result (as a pushed screen with the same order) |
+
+Sheets (the quit sheet, the tutor, the assistant's chat and tools, the remedy, help from the teacher, adding a class)
+are one build too: a title and the close button at the top, the content, and the sheet's one action pinned at its
+bottom (the chat's input, the remedy's button, "שליחה למורה", "פתיחת הכיתה"). Conversations (the assistant, the
+tutor, the chat sheets) share one layout: מדי's messages as bubbles at the start side with his face, the student's at
+the end side, the starters or questions docked above the input at the bottom (LAYOUT_SPEC B3).
+
+### E2. When an answer is judged: explicit checking vs. immediate feedback
+The rule is the same in teaching (Brilliant), guided solving and practice (Duolingo):
+
+1. **A graded answer is never judged on tap.** Tapping a choice, typing a number or moving an object only *selects*.
+   The bottom button "בדיקה" (off until there is something to check) judges it. This holds for practice exercises,
+   teaching predictions, teaching objects, every step of "פותרים יחד" and its typed last step, the placement test and
+   the checks.
+2. **The result always appears in the same place:** a sheet rising from the bottom over the button row, green when
+   right, yellow (gold in practice) when not yet — never red for a first miss — with מדי beside the explanation.
+   The exercise stays in view above it.
+3. **The button changes in place.** After a right answer "בדיקה" becomes "המשך" in the same slot (in teaching, "למה?"
+   sits beside it and opens the explanation). After a miss it stays "בדיקה" (off until the answer changes), the
+   wrong choice is marked and locked, and the hints grow (in guided solving: a hint, then a stronger one; after a
+   third miss on the last step the answer is shown with the reason, and "המשך").
+4. **Immediate feedback only where nothing is graded:** live readouts while moving an object (the number line's value,
+   the slope's rise and run), revealing the next step of a worked example, the tutor's answers to a question chip,
+   choosing options in a flow (only highlighted, nothing judged), navigation.
+5. **One primary per screen state.** A row in a list opens its own screen (it is a link with a chevron, not a second
+   button); a card that is not the current one gets a quiet text button; secondary actions are secondary or ghost
+   buttons and never the solid primary.
+
+What changed in round 13 under these rules: guided solving judged a choice on tap and advanced by itself after 0.9 s,
+and its typed last step had its own "בדיקה" beside the input; now the choice is selected, "בדיקה" at the bottom judges
+it, the result rises in the sheet (that choice's own feedback), and "המשך" advances. Duplicate primaries removed: the
+exams tab's practice exams (each row had "פתיחה" and a solid "בדיקה"), the exam result's solid button per weak topic,
+the mission page (a button per row and one at the bottom), the practice sheet (print and check side by side), the
+empty plan (two buttons), the topics screen (a solid button on every unit card), the level board's own "המשך" (unused,
+removed), and the failed jump test (two stacked buttons; the second is now a quiet text button).
+
+### E3. The routes finished in round 13 (reference pattern → Madregot)
+| Route / state | Kind | Built as |
+|---|---|---|
+| `/exams` | tab | the solid header; ONE featured card (the plan in progress, else checking an exam, else a practice exam) with its button; the other ways as plain rows; checked exams and practice exams as rows (no buttons in rows) |
+| `/exams/check` (offline, no pages, pages, loading, error) | pushed | מדי asks for the pages in a bubble; the page thumbnails; the optional name; "בדיקת המבחן" pinned; loading: מדי and the steps of the check in the middle; error: the message above the pinned "לבדוק שוב"; offline: an empty state with "הכנת מבחן תרגול" pinned and the way to connect as a text link |
+| `/exams/new` | flow | two questions (which topics, how many questions), "המשך" then "הכנת המבחן" |
+| `/exams/practice/:id` | pushed | print as the bar's end icon; the sheet; "סיימתי, לבדיקה" (or "למפתח התשובות") pinned |
+| `/exams/:id` (all, wrong only, asking about a question) | pushed + result order | מדי and the exam's name; score, correct and topics-to-strengthen as three tiles; the summary; what to strengthen as rows; the feedback per question with its filter; delete as a red row; "תרגול: <the weakest stair>" pinned; the question chat as a sheet with the conversation layout |
+| `/plan` (empty, with steps) | pushed | a course outline like the stair page: a thin bar, "הצעד הבא", the steps as stops on one line (done ✓, current filled with its reason and count); the current step's button pinned; empty: מדי, one pinned button and a text link |
+| `/mission` | merged | now opens the missions tab; today's card there shows each part's kind, minutes, reason and bar, a part opens by tapping its row, and the one button starts the next part |
+| `/assistant` (online) | tab | one conversation: no tabs; the photo check and new exercises are tools docked above the input, each opens a sheet with its button pinned |
+| Tutor ("שאלה למדי") | sheet | a conversation: מדי's greeting, the question as the student's bubble, his answer as a bubble, the worked example or steps under it; the six questions docked at the bottom |
+| Lesson sheets (assistant chat, remedy, help from the teacher, zoom) | sheet | one build: title and close, content, the one action pinned at the bottom; the help request opens with מדי's bubble |
+| Placement done, streak, failed jump test | result | tiles before the details (placement); the week and its rule inside one card (streak); one button and a quiet text button (failed jump) |
+| "פותרים יחד" (choice, wrong, right, typed last step) | lesson (B1) | rules E2: select, "בדיקה", the sheet, "המשך" |
+| `/topics` | pushed | only the unit being climbed has the solid button; the others "מעבר ליחידה" as a text button |
+| Teacher without a server, sign-in, new class / existing class | flow | onboarding's flow: back, מדי's bubble, rows to choose, then the fields, the button at the bottom |
+| `/teacher` (tomorrow, students, exams, help, a fresh class, adding a class, no students) | tab-like | the solid header with the class, its code and two icon actions (refresh, add a class); four tiles; a segmented switch; groups of plain rows; leaving as a red row; a fresh class as a celebration card with one button; adding a class as a sheet with its button pinned; no students as an empty state |
+| Stair page, Exam Rescue plan, settings, topics, guidebook | pushed | the same `ScreenBar` (the stair page's old text link "למפה" and the plan's colour header were replaced), no tab bar on a phone |

@@ -89,9 +89,9 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
         <Mascot mood="encouraging" size={150} />
         <h1 className="done-title">כמעט! עוד קצת תרגול</h1>
         <p className="lead">במבחן הקפיצה מותרת טעות אחת. אפשר לנסות שוב, או להמשיך במסלול מהמקום שלכם.</p>
-        <div className="done-actions">
+        <div className="done-actions" data-region="footer">
           <Button className="btn-block btn-lg" onClick={onExit}>חזרה למפה</Button>
-          <Button variant="secondary" className="btn-block" onClick={onAgain}>לנסות שוב</Button>
+          <Button variant="ghost" className="btn-block done-quiet" onClick={onAgain}>לנסות שוב</Button>
         </div>
       </div>
     );
@@ -111,7 +111,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
             ? <m.p variants={rise} className="reward streak-freeze"><Lottie name="snowflake" className="freeze-flake" fallback={<Snowflake size={22} aria-hidden="true" />} />קיבלתם הקפאת רצף. היא שומרת על הרצף ביום שתפספסו.</m.p>
             : <m.p variants={rise} className="lead">כל הכבוד. מחר יחכו משימות חדשות.</m.p>}
         </m.div>
-        <div className="done-actions"><Button className="btn-block btn-lg" onClick={nextStage}>המשך</Button></div>
+        <div className="done-actions" data-region="footer"><Button className="btn-block btn-lg" onClick={nextStage}>המשך</Button></div>
       </div>
     );
   }
@@ -174,7 +174,13 @@ export function PlacementDone({ result, award, onExit }) {
       <Hero><Mascot mood="achievement" size={130} /></Hero>
       <m.div className="done-copy" variants={stagger(0.15)} initial="hidden" animate="show">
         <m.h1 variants={rise} className="done-title">מצאנו את המדרגה שלכם!</m.h1>
-        <m.ol variants={rise} className="place-list">
+        {/* Duolingo's result order: the title, the tiles, then the details (where each topic starts) */}
+        <m.div className="stats" variants={stagger(0.05)} data-region="answers">
+          <Stat tone="gold" icon={Zap} label="XP" value={result.xp} prefix="+" />
+          <Stat tone="good" icon={ChevronsUp} label="מדרגות" value={Object.values(result.results).reduce((a, r) => a + r.level, 0)} />
+          <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />
+        </m.div>
+        <m.ol variants={rise} className="place-list" aria-label="איפה מתחילים בכל נושא">
           {topicsFor(result.grade).map((t) => {
             const L = result.results[t.id]?.level ?? 0; const top = t.levels.length;
             return (
@@ -188,13 +194,8 @@ export function PlacementDone({ result, award, onExit }) {
             );
           })}
         </m.ol>
-        <m.div className="stats" variants={stagger(0.05)} data-region="answers">
-          <Stat tone="gold" icon={Zap} label="XP" value={result.xp} prefix="+" />
-          <Stat tone="good" icon={ChevronsUp} label="מדרגות" value={Object.values(result.results).reduce((a, r) => a + r.level, 0)} />
-          <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />
-        </m.div>
       </m.div>
-      <div className="done-actions"><Button className="btn-block btn-lg" onClick={nextStage} ref={focusQuietly}>{last ? 'ללוח שלי' : 'המשך'}</Button></div>
+      <div className="done-actions" data-region="footer"><Button className="btn-block btn-lg" onClick={nextStage} ref={focusQuietly}>{last ? 'ללוח שלי' : 'המשך'}</Button></div>
     </div>
   );
 }
@@ -210,9 +211,12 @@ function StreakStage({ streak, days, freezes, onNext }) {
       </div>
       <m.p className="streak-num" initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.3 }}><NumberFlow value={v} /></m.p>
       <h1 className="done-title">{streak === 1 ? 'התחלתם רצף!' : `${streak} ימים ברצף!`}</h1>
-      <Week days={days} />
-      <p className="lead">שיעור אחד ביום שומר על הרצף, ובשבת הרצף לא נשבר.{freezes > 0 ? ` יש לכם ${freezes === 1 ? 'הקפאה אחת' : `${freezes} הקפאות`} למקרה שתפספסו יום.` : ''}</p>
-      <div className="done-actions"><Button className="btn-block btn-lg" onClick={onNext} ref={focusQuietly}>המשך</Button></div>
+      {/* Duolingo's streak screen: the week in a card, and what keeps the streak written inside it */}
+      <section className="streak-card" aria-label="השבוע">
+        <Week days={days} />
+        <p className="streak-card-text">שיעור אחד ביום שומר על הרצף, ובשבת הרצף לא נשבר.{freezes > 0 ? ` יש לכם ${freezes === 1 ? 'הקפאה אחת' : `${freezes} הקפאות`} למקרה שתפספסו יום.` : ''}</p>
+      </section>
+      <div className="done-actions" data-region="footer"><Button className="btn-block btn-lg" onClick={onNext} ref={focusQuietly}>המשך</Button></div>
     </div>
   );
 }

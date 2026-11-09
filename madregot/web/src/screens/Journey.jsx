@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { ArrowRight, Check, Lightbulb, BookOpen, Users, PencilLine, Award, HelpCircle } from 'lucide-react';
+import { Check, Lightbulb, BookOpen, Users, PencilLine, Award, HelpCircle } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/index.js';
 import { contentOf } from '@/learn/content/index.ts';
@@ -19,6 +19,7 @@ import { MathText } from '@/components/MathText.jsx';
 import { Button, ChapterMark } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
+import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
 
 const STAGES = [
@@ -40,7 +41,7 @@ export default function Journey() {
   const path = useApp((s) => s.path);
   const progress = useApp((s) => s.progress);
   const [tutor, setTutor] = useState(false);
-  if (!t || !t.levels[level - 1]) return <div className="page"><p>המדרגה לא נמצאה.</p><Link to="/">למפה</Link></div>;
+  if (!t || !t.levels[level - 1]) return <div className="page pushed"><ScreenBar title="מדרגה" back="/" backLabel="למפה" /><EmptyState mood="encouraging" title="המדרגה לא נמצאה"><p>אולי הקישור ישן. המסלול שלכם מחכה במפה.</p></EmptyState><ScreenFoot><Link to="/" className="btn btn-primary btn-block btn-lg">חזרה למסלול</Link></ScreenFoot></div>;
   const c = contentOf(skill);
   const now = new Date().toISOString();
   const state = masteryState(rec, now);
@@ -72,8 +73,8 @@ export default function Journey() {
   const cta = { A: 'מתחילים ללמוד', B: 'לדוגמה הפתורה', C: 'פותרים יחד', D: 'לתרגול', E: 'לבדיקת השליטה' }[stage];
 
   return (
-    <div className={clsx('page', 'journey', `ch-${t.color}`)}>
-      <Link to="/" className="back-link"><ArrowRight size={18} aria-hidden="true" />למפה</Link>
+    <div className={clsx('page', 'pushed', 'journey', `ch-${t.color}`)}>
+      <ScreenBar title={t.title} back="/" backLabel="למפה" />
       <header className={clsx('journey-head', `ch-${t.color}`)}>
         <ChapterMark color={t.color} n={level} size="lg" />
         <div>

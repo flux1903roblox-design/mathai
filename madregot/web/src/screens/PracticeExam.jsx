@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { ArrowRight, Printer, ClipboardCheck, Check } from 'lucide-react';
+import { Printer, Check } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { aiReady } from '@/lib/ai.js';
 import { makePracticeExam, weakTopics } from '@/lib/exam.js';
@@ -9,7 +9,7 @@ import { TOPIC, topicsFor } from '@/content/index.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
 import { MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
-import PageHero from '@/components/PageHero.jsx';
+import { ScreenBar, ScreenFoot, EmptyState, Flow } from '@/components/Screen.jsx';
 
 /** Pick topics and a length; the exam is drawn from the generators with an exact answer key. */
 export function NewPracticeExam() {
@@ -30,30 +30,38 @@ export function NewPracticeExam() {
     navigate(`/exams/practice/${pe.id}`, { replace: true });
   };
 
+  const [step, setStep] = useState(0);
+  // A question flow (LAYOUT_SPEC E3), like the Exam Rescue details: one question per screen, "המשך" at the bottom.
   return (
-    <div className="page">
-      <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
-      <PageHero tone="fuchsia" scene="practice" title="מבחן תרגול" sub="בוחרים נושאים, מדפיסים או פותרים על דף, ובסוף מצלמים לבדיקה. השאלות מותאמות למדרגה שלכם." />
-      <fieldset className="fieldset">
-        <legend>נושאים</legend>
-        <div className="pick-list">
-          {list.map((t, i) => (
-            <button key={t.id} type="button" role="checkbox" aria-checked={picked.includes(t.id)} className={clsx('pick', `ch-${t.color}`, picked.includes(t.id) && 'on')} onClick={() => toggle(t.id)}>
-              <ChapterMark color={t.color} n={i + 1} size="sm" />
-              <span>{t.title}</span>
-              {picked.includes(t.id) && <Check size={18} aria-hidden="true" className="pick-check" />}
+    <Flow className="practice-flow" label="מבחן תרגול" step={step} steps={2} onBack={() => (step ? setStep(0) : navigate('/exams'))}
+      ask={step === 0 ? 'על אילו נושאים יהיה המבחן?' : 'כמה שאלות במבחן?'} mood={step === 0 ? 'excited' : 'idle'}
+      onSubmit={() => (step === 0 ? picked.length && setStep(1) : create())}
+      foot={<Button type="submit" className="btn-block btn-lg" disabled={!picked.length} data-region="primary">{step === 0 ? 'המשך' : 'הכנת המבחן'}</Button>}>
+      {step === 0 ? (
+        <div className="ob-opts" role="group" aria-labelledby="flow-q" data-region="answers">
+          {list.map((t, i) => {
+            const on = picked.includes(t.id);
+            return (
+              <button key={t.id} type="button" role="checkbox" aria-checked={on} className={clsx('ob-opt', `ch-${t.color}`, on && 'on')} onClick={() => toggle(t.id)}>
+                <span className="ob-opt-glyph"><ChapterMark color={t.color} n={i + 1} size="sm" /></span>
+                <span className="ob-opt-text"><b>{t.title}</b></span>
+                <span className="ob-check" aria-hidden="true">{on && <Check size={18} strokeWidth={3} />}</span>
+              </button>
+            );
+          })}
+          {fromWeak.length > 0 && !fromLink.length && <p className="field-hint">סימנתי מראש את הנושאים שבהם היו טעויות.</p>}
+        </div>
+      ) : (
+        <div className="ob-opts" role="radiogroup" aria-labelledby="flow-q" data-region="answers">
+          {[[6, 'כ־20 דקות'], [10, 'כ־35 דקות']].map(([n, t]) => (
+            <button key={n} type="button" role="radio" aria-checked={count === n} className={clsx('ob-opt', count === n && 'on')} onClick={() => setCount(n)}>
+              <span className="ob-opt-text"><b>{n} שאלות</b><span>{t}</span></span>
             </button>
           ))}
+          <p className="field-hint">השאלות מותאמות למדרגה שלכם בכל נושא. פותרים על דף, ובסוף בודקים.</p>
         </div>
-        {fromWeak.length > 0 && !fromLink.length && <p className="field-hint">סימנו מראש את הנושאים שבהם היו טעויות.</p>}
-      </fieldset>
-      <div className="field"><span className="field-label" id="pe-count">כמה שאלות</span>
-        <div className="segmented" role="radiogroup" aria-labelledby="pe-count">
-          {[6, 10].map((n) => <button key={n} type="button" role="radio" aria-checked={count === n} className={clsx('seg', count === n && 'on')} onClick={() => setCount(n)}>{n} שאלות</button>)}
-        </div>
-      </div>
-      <Button className="btn-block btn-lg" onClick={create} disabled={!picked.length}>הכנת המבחן</Button>
-    </div>
+      )}
+    </Flow>
   );
 }
 
@@ -72,21 +80,15 @@ export function PracticeSheet() {
   const { id } = useParams();
   const { profile, practiceExams } = useApp();
   const pe = practiceExams.find((p) => p.id === id);
-  if (!pe) return <div className="page"><p>המבחן לא נמצא.</p><Link to="/exams">לרשימת המבחנים</Link></div>;
+  if (!pe) return <div className="page pushed"><ScreenBar title="מבחן תרגול" back="/exams" /><EmptyState mood="encouraging" title="המבחן לא נמצא"><p>אולי הוא נמחק. אפשר להכין מבחן חדש.</p></EmptyState><ScreenFoot><Link to="/exams/new" className="btn btn-primary btn-block btn-lg">מבחן תרגול חדש</Link></ScreenFoot></div>;
   const openKey = () => { const d = document.getElementById('answer-key'); if (d) { d.open = true; d.scrollIntoView({ block: 'start', behavior: 'smooth' }); } };
+  const ai = aiReady();
+  // A pushed screen (LAYOUT_SPEC E2): the bar (with printing at its end), the sheet, ONE primary pinned at the bottom.
   return (
-    <div className="page print-page">
-      <div className="no-print stack">
-        <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
-        <div className="form-actions row">
-          <Button variant="secondary" onClick={() => window.print()}><Printer size={18} aria-hidden="true" />הדפסה</Button>
-          {aiReady()
-            ? <Link to={`/exams/check?practice=${pe.id}`} className="btn btn-primary"><ClipboardCheck size={18} aria-hidden="true" />סיימתי, לבדיקה</Link>
-            : <Button onClick={openKey}><ClipboardCheck size={18} aria-hidden="true" />סיימתי, למפתח התשובות</Button>}
-        </div>
-        <p className="muted">{aiReady() ? 'פותרים על דף או במחברת, עם הדרך. בסוף מצלמים את הדפים לבדיקה.' : 'פותרים על דף או במחברת, עם הדרך. בסוף בודקים מול מפתח התשובות שבתחתית העמוד.'}</p>
-      </div>
-      <article className="exam-sheet">
+    <div className="page pushed print-page">
+      <ScreenBar title="מבחן תרגול" back="/exams" className="no-print" end={<button type="button" className="icon-btn" onClick={() => window.print()} aria-label="הדפסה"><Printer size={22} aria-hidden="true" /></button>} />
+      <p className="muted no-print sheet-note">{ai ? 'פותרים על דף או במחברת, עם הדרך. בסוף מצלמים את הדפים לבדיקה.' : 'פותרים על דף או במחברת, עם הדרך. בסוף בודקים מול מפתח התשובות שבתחתית העמוד.'}</p>
+      <article className="exam-sheet" data-region="content">
         <header className="exam-sheet-head">
           <h1 className="h-page">{pe.title}</h1>
           <p className="exam-sheet-meta"><span>שם: {profile.name}</span><span>תאריך: ________</span><span>{pe.items.length} שאלות</span></p>
@@ -108,6 +110,11 @@ export function PracticeSheet() {
         <summary>מפתח תשובות (למורה או להורה)</summary>
         <ol className="steps answer-key">{pe.items.map((it) => <li key={it.key}><KeyAnswer it={it} /></li>)}</ol>
       </details>
+      <ScreenFoot className="no-print">
+        {ai
+          ? <Link to={`/exams/check?practice=${pe.id}`} className="btn btn-primary btn-block btn-lg" data-region="primary">סיימתי, לבדיקה</Link>
+          : <Button className="btn-block btn-lg" onClick={openKey} data-region="primary">סיימתי, למפתח התשובות</Button>}
+      </ScreenFoot>
     </div>
   );
 }

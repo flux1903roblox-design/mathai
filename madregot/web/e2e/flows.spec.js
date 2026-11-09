@@ -34,7 +34,7 @@ test('first visit, starting from the first stair: it starts by understanding, an
   await expect(page.locator('.step-player')).toBeVisible();
   await page.getByRole('button', { name: 'סגירה. המקום נשמר' }).click();
   await expect(page.locator('.journey')).toBeVisible();
-  await page.getByRole('link', { name: 'למפה' }).click();
+  await page.getByRole('button', { name: 'למפה' }).click();
   await expect(page.locator('.unit').first()).toBeVisible();
   await expect(page.locator('.node-current').first()).toBeVisible();
   const st = await saved(page);
@@ -121,7 +121,11 @@ test('the teacher view without a server explains it and how to turn it on', asyn
 
 test('a practice exam is made from the chosen topics and prints without the app around it', async ({ page }) => {
   await open(page, '#/exams/new', student('7'));
+  // a question flow: which topics, then how many questions
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('radio', { name: /10 שאלות/ }).click();
   await page.getByRole('button', { name: 'הכנת המבחן' }).click();
+  await expect(page.locator('.exam-q')).toHaveCount(10);
   await expect(page.locator('.exam-sheet, .page-sheet, ol').first()).toBeVisible();
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('.tabbar')).toBeHidden();

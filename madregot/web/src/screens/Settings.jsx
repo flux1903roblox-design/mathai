@@ -147,7 +147,7 @@ export default function Settings() {
   const [name, setName] = useState(profile.name);
   const [danger, setDanger] = useState(null);
   return (
-    <div className="page settings">
+    <div className="page pushed settings">
       <header className="screen-bar" data-region="header">
         <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label="חזרה"><ArrowRight size={24} aria-hidden="true" /></button>
         <h1 className="screen-bar-title">הגדרות</h1>

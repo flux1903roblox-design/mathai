@@ -8,34 +8,8 @@ import { runAI, aiReady, aiMode } from '@/lib/ai.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
-import { Box, Button, Field, Thinking } from '@/components/ui.jsx';
+import { Box, Button, Field, Sheet, Thinking } from '@/components/ui.jsx';
 import { Markdown } from '@/components/MathText.jsx';
-
-const TABS = [
-  { id: 'chat', label: 'שיחה', icon: MessageCircle },
-  { id: 'photo', label: 'בדיקת פתרון', icon: Camera },
-  { id: 'generate', label: 'תרגילים', icon: Wand2 },
-];
-
-/** Segmented tabs with a sliding pill (transitions.dev #16). */
-function Tabs({ value, onChange }) {
-  const refs = useRef({}); const [pill, setPill] = useState(null); const first = useRef(true);
-  useEffect(() => {
-    const el = refs.current[value]; if (!el) return;
-    setPill({ x: el.offsetLeft, w: el.offsetWidth, instant: first.current }); first.current = false;
-  }, [value]);
-  return (
-    <div className="tabs" role="tablist" aria-label="מה העוזר יעשה">
-      {pill && <span className={clsx('tabs-pill', pill.instant && 'instant')} style={{ transform: `translateX(${pill.x}px)`, width: pill.w }} aria-hidden="true" />}
-      {TABS.map(({ id, label, icon: Icon }) => (
-        <button key={id} ref={(el) => { refs.current[id] = el; }} type="button" role="tab" aria-selected={value === id} aria-controls={`panel-${id}`} id={`tab-${id}`}
-          className={clsx('tab-btn', value === id && 'on')} onClick={() => onChange(id)}>
-          <Icon size={18} aria-hidden="true" />{label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 /** A result that appears below the fold scrolls up into view, clear of the tab bar. */
 function useReveal(dep) {
@@ -123,7 +97,7 @@ function PhotoCheck() {
   const outRef = useReveal(state.phase !== 'idle' ? state.phase : null);
   return (
     <div className="stack">
-      <p className="lead">צלמו את הדרך שכתבתם במחברת. העוזר יבדוק כל שלב ויראה איפה כדאי לתקן.</p>
+      <p>צלמו את הדרך שכתבתם במחברת. אבדוק כל שלב ואראה איפה כדאי לתקן.</p>
       <label className="upload">
         <input type="file" accept="image/*" capture="environment" onChange={pick} className="visually-hidden" />
         {image ? <img src={image} alt="התמונה שבחרתם" className="upload-preview" /> : <span className="upload-empty"><ImageUp size={28} aria-hidden="true" />צילום או בחירת תמונה</span>}
@@ -131,7 +105,7 @@ function PhotoCheck() {
       <Field label="על איזה תרגיל מדובר? (לא חובה)" id="pc-q">
         <input id="pc-q" className="input" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={300} placeholder="למשל: פתרו את המשוואה 3x − 5 = 10" />
       </Field>
-      <Button className="btn-block" onClick={send} disabled={!image || state.phase === 'loading'}>בדיקת הפתרון</Button>
+      <div className="sheet-cta"><Button className="btn-block btn-lg" onClick={send} disabled={!image || state.phase === 'loading'}>בדיקת הפתרון</Button></div>
       <div ref={outRef} className="reveal-anchor" />
       {state.phase === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['קורא את כתב היד', 'בודק כל שלב', 'מסכם']} /></Box>}
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
@@ -198,7 +172,7 @@ function Generate({ initialTopic, initialLevel }) {
   };
   return (
     <div className="stack">
-      <p className="lead">העוזר כותב תרגילים חדשים באותה רמה. אחרי שמסיימים את המדרגות, זו דרך טובה להתאמן עוד.</p>
+      <p>אכתוב תרגילים חדשים באותה רמה, עם רמז ופתרון לכל אחד.</p>
       <div className="grid2 gen-pick">
         <Field label="נושא" id="g-topic">
           <select id="g-topic" className="input" value={topic} onChange={(e) => { setTopic(e.target.value); setLevel(1); }}>
@@ -216,7 +190,7 @@ function Generate({ initialTopic, initialLevel }) {
           {[3, 5].map((n) => <button key={n} type="button" role="radio" aria-checked={count === n} className={clsx('seg', count === n && 'on')} onClick={() => setCount(n)}>{n} תרגילים</button>)}
         </div>
       </div>
-      <Button className="btn-block" onClick={go} disabled={state.phase === 'loading'}>כתיבת תרגילים</Button>
+      <div className="sheet-cta"><Button className="btn-block btn-lg" onClick={go} disabled={state.phase === 'loading'}>כתיבת תרגילים</Button></div>
       <div ref={outRef} className="reveal-anchor" />
       {state.phase === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['כותב תרגילים', 'פותר כל תרגיל', 'בודק את התשובות']} /></Box>}
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
@@ -231,35 +205,39 @@ function Generate({ initialTopic, initialLevel }) {
 }
 
 export default function Assistant() {
-  const [params] = useSearchParams();
-  const [tab, setTab] = useState(params.get('generate') ? 'generate' : 'chat');
-  // a link that asks for exercises on a topic opens that tab, even when the assistant is already open
+  const [params, setParams] = useSearchParams();
+  // the photo check and new exercises are tools of the same conversation: each opens over it as a sheet
+  const [tool, setTool] = useState(params.get('generate') ? 'generate' : null);
   const wants = params.get('generate');
-  useEffect(() => { if (wants) setTab('generate'); }, [wants]);
+  useEffect(() => { if (wants) setTool('generate'); }, [wants]);
+  const close = () => { setTool(null); if (wants) setParams({}, { replace: true }); };
   const grade = useApp((s) => s.profile.grade) || '7';
   const profile = useApp((s) => s.profile);
   const ready = aiReady();
+  // A conversation (LAYOUT_SPEC B3): the bar with the title, מדי's messages, and the input docked at the bottom with
+  // the starters and the two tools above it. One screen, one way in: no tabs.
   return (
-    <div className="page">
+    <div className="page assistant-page">
       <header className="screen-bar" data-region="header">
         <span className="icon-btn-spacer" aria-hidden="true" />
         <h1 className="screen-bar-title">עוזר AI</h1>
         <span className="icon-btn-spacer" aria-hidden="true" />
       </header>
       {!ready ? <AiOffline /> : (
+        <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
+          <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>
+          <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."
+            tools={[{ label: 'בדיקת פתרון מצולם', icon: Camera, onClick: () => setTool('photo') }, { label: 'תרגילים חדשים', icon: Wand2, onClick: () => setTool('generate') }]} />
+        </section>
+      )}
+      {ready && (
         <>
-          <Tabs value={tab} onChange={setTab} />
-          {/* every tab stays mounted, so a conversation or written exercises survive switching tabs */}
-          {TABS.map(({ id }) => (
-            <div key={id} id={`panel-${id}`} role="tabpanel" aria-labelledby={`tab-${id}`} className="tab-panel" hidden={tab !== id}>
-              {id === 'chat' && <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳. העוזר יסביר צעד אחר צעד." />}
-              {id === 'photo' && <PhotoCheck />}
-              {id === 'generate' && <Generate key={`${params.get('generate') || ''}:${params.get('level') || ''}`} initialTopic={params.get('generate')} initialLevel={params.get('level')} />}
-            </div>
-          ))}
+          <Sheet open={tool === 'photo'} onOpenChange={(o) => !o && close()} title="בדיקת פתרון מצולם"><PhotoCheck /></Sheet>
+          <Sheet open={tool === 'generate'} onOpenChange={(o) => !o && close()} title="תרגילים חדשים">
+            <Generate key={`${params.get('generate') || ''}:${params.get('level') || ''}`} initialTopic={params.get('generate')} initialLevel={params.get('level')} />
+          </Sheet>
         </>
       )}
-      {ready && <p className="footnote">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>}
     </div>
   );
 }

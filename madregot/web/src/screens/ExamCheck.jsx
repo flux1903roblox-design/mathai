@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Camera, FileUp, FileText, X } from 'lucide-react';
+import { Camera, FileUp, FileText, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady } from '@/lib/ai.js';
@@ -8,8 +8,9 @@ import { api } from '@/lib/api.js';
 import { scoreOf, focusLevel, baseEntry } from '@/lib/exam.js';
 import { TOPICS } from '@/content/index.js';
 import { MAX_EXAM_PAGES } from '@shared/ai.js';
-import { Box, Button, Field, Thinking } from '@/components/ui.jsx';
-import PageHero from '@/components/PageHero.jsx';
+import { Button, Field, Thinking } from '@/components/ui.jsx';
+import Mascot from '@/components/Mascot.jsx';
+import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 
 async function imageToJpeg(file) {
   const url = URL.createObjectURL(file);
@@ -60,7 +61,7 @@ export default function ExamCheck() {
 
   const check = async () => {
     setState({ phase: 'loading' });
-    requestAnimationFrame(() => document.querySelector('.check-status')?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    window.scrollTo?.({ top: 0 });
     try {
       const topics = TOPICS.filter((t) => t.grade === (profile.grade || '7') || practice?.items.some((i) => i.topic === t.id)).map((t) => ({ id: t.id, title: t.title, levels: t.levels.map((l) => l.title) }));
       const result = await runAI('exam', {
@@ -99,81 +100,81 @@ export default function ExamCheck() {
     }
   };
 
+  const offline = !aiReady();
+  // A pushed screen (LAYOUT_SPEC E2): the bar with the way back, the pages, and ONE primary pinned at the bottom.
   return (
-    <div className="page">
-      <Link to="/exams" className="back-link"><ArrowRight size={18} aria-hidden="true" />מבחנים</Link>
-      <PageHero tone="sky" scene="check" mood="thinking" title="בדיקת מבחן" sub="מצלמים את הדפים או מעלים PDF. העוזר בודק כל שאלה ומסביר." />
-      {practice ? (
-        <Box tone="note" title="בודקים מבחן תרגול">
-          <p>{practice.title}, {practice.items.length} שאלות. התשובות הנכונות שמורות באפליקציה, אז העוזר רק קורא מה כתבתם ומשווה.</p>
-        </Box>
-      ) : null}
-
-      {!aiReady() && (
+    <div className="page pushed exam-check">
+      <ScreenBar title={practice ? 'בדיקת מבחן תרגול' : 'בדיקת מבחן'} back="/exams" />
+      {offline ? (
         <>
-          <Box tone="attention" title="הבדיקה צריכה את העוזר">
+          <EmptyState mood="encouraging" title="הבדיקה צריכה את העוזר">
             <p>בגרסה הזו העוזר עוד לא מחובר, אז אי אפשר לבדוק כאן דפים מצולמים.</p>
             <p>{practice ? 'את מבחן התרגול הזה אפשר לבדוק מול מפתח התשובות שבדף המבחן.' : 'מבחן תרגול מודפס אפשר לבדוק מול מפתח התשובות שלו.'}</p>
-          </Box>
-          <div className="form-actions">
+          </EmptyState>
+          <ScreenFoot>
             {practice
-              ? <Link to={`/exams/practice/${practice.id}`} className="btn btn-primary btn-block">חזרה למבחן ולמפתח התשובות</Link>
-              : <Link to="/exams/new" className="btn btn-primary btn-block">הכנת מבחן תרגול</Link>}
-            <Link to="/settings" state={{ focus: 'ai' }} className="btn btn-secondary btn-block">איך מחברים את העוזר</Link>
+              ? <Link to={`/exams/practice/${practice.id}`} className="btn btn-primary btn-block btn-lg" data-region="primary">חזרה למבחן ולמפתח התשובות</Link>
+              : <Link to="/exams/new" className="btn btn-primary btn-block btn-lg" data-region="primary">הכנת מבחן תרגול</Link>}
+            <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>
+          </ScreenFoot>
+        </>
+      ) : state.phase === 'loading' ? (
+        <section className="empty-state check-status" aria-live="polite" data-region="content">
+          <Mascot mood="thinking" size={120} className="empty-madi" />
+          <h2 className="empty-title">העוזר בודק את המבחן</h2>
+          <Thinking states={['קורא את הדפים', 'מזהה את השאלות', 'בודק כל תשובה', 'כותב משוב אישי', 'בונה תוכנית לשיפור']} />
+          <p className="empty-text">בדיקה של מבחן שלם לוקחת בדרך כלל דקה או שתיים. אפשר להשאיר את המסך פתוח.</p>
+        </section>
+      ) : (
+        <>
+          <div className="ob-ask check-ask" data-region="question">
+            <Mascot mood="thinking" size={72} className="ob-mascot" />
+            <p className="ob-bubble">{practice ? `${practice.title}: צלמו את הדפים שפתרתם. התשובות הנכונות כבר אצלי, אז אני רק קורא ומשווה.` : 'צלמו את דפי המבחן, דף אחד בכל צילום, או העלו PDF. אבדוק כל שאלה ואסביר.'}</p>
           </div>
+          <section className="section" aria-labelledby="pages-title" data-region="content">
+            <h2 id="pages-title" className="set-head">הדפים ({pages.length} מתוך {MAX_EXAM_PAGES})</h2>
+            <ul className="page-thumbs">
+              {pages.map((p, i) => (
+                <li key={`${p.name}-${i}`} className="page-thumb">
+                  {p.mediaType === 'application/pdf'
+                    ? <span className="pdf-thumb"><FileText size={28} aria-hidden="true" /><span>{p.name}</span></span>
+                    : <img src={p.data} alt={`דף ${i + 1}`} width={96} height={128} />}
+                  <span className="page-num">{i + 1}</span>
+                  <button type="button" className="icon-btn page-remove" aria-label={`הסרת דף ${i + 1}`} onClick={() => setPages(pages.filter((_, k) => k !== i))}><X size={18} /></button>
+                </li>
+              ))}
+              {pages.length < MAX_EXAM_PAGES && (
+                <>
+                <li>
+                  <label className="page-add">
+                    <input type="file" accept="image/*" capture="environment" className="visually-hidden" onChange={add} />
+                    <Camera size={26} aria-hidden="true" />
+                    <span>{pages.length ? 'צילום דף נוסף' : 'צילום דף'}</span>
+                  </label>
+                </li>
+                <li>
+                  <label className="page-add">
+                    <input type="file" accept="image/*,application/pdf" multiple className="visually-hidden" onChange={add} />
+                    <FileUp size={26} aria-hidden="true" />
+                    <span>תמונה או PDF</span>
+                  </label>
+                </li>
+                </>
+              )}
+            </ul>
+            <p className="field-hint">לתמונה טובה: אור טוב, הדף שטוח וכולו בתמונה.</p>
+          </section>
+          {!practice && (
+            <Field label="שם המבחן (לא חובה)" id="ex-title">
+              <input id="ex-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="למשל: בוחן בפונקציה קווית…" autoComplete="off" name="exam-title" />
+            </Field>
+          )}
+          {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
+          <ScreenFoot>
+            <Button className="btn-block btn-lg" onClick={check} disabled={!pages.length} data-region="primary">{state.phase === 'error' ? 'לבדוק שוב' : 'בדיקת המבחן'}</Button>
+          </ScreenFoot>
         </>
       )}
-      {aiReady() && (<>
-
-      <section className="section" aria-labelledby="pages-title">
-        <h2 id="pages-title" className="h-section">הדפים ({pages.length} מתוך {MAX_EXAM_PAGES})</h2>
-        <ul className="page-thumbs">
-          {pages.map((p, i) => (
-            <li key={`${p.name}-${i}`} className="page-thumb">
-              {p.mediaType === 'application/pdf'
-                ? <span className="pdf-thumb"><FileText size={28} aria-hidden="true" /><span>{p.name}</span></span>
-                : <img src={p.data} alt={`דף ${i + 1}`} width={96} height={128} />}
-              <span className="page-num">{i + 1}</span>
-              <button type="button" className="icon-btn page-remove" aria-label={`הסרת דף ${i + 1}`} onClick={() => setPages(pages.filter((_, k) => k !== i))}><X size={18} /></button>
-            </li>
-          ))}
-          {pages.length < MAX_EXAM_PAGES && (
-            <>
-            <li>
-              <label className="page-add">
-                <input type="file" accept="image/*" capture="environment" className="visually-hidden" onChange={add} />
-                <Camera size={26} aria-hidden="true" />
-                <span>{pages.length ? 'צילום דף נוסף' : 'צילום דף'}</span>
-              </label>
-            </li>
-            <li>
-              <label className="page-add">
-                <input type="file" accept="image/*,application/pdf" multiple className="visually-hidden" onChange={add} />
-                <FileUp size={26} aria-hidden="true" />
-                <span>תמונה או PDF</span>
-              </label>
-            </li>
-            </>
-          )}
-        </ul>
-        <p className="field-hint">לתמונה טובה: אור טוב, הדף שטוח וכולו בתמונה, דף אחד בכל צילום.</p>
-      </section>
-
-      {!practice && (
-        <Field label="שם המבחן (לא חובה)" id="ex-title">
-          <input id="ex-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="למשל: בוחן בפונקציה קווית…" autoComplete="off" name="exam-title" />
-        </Field>
-      )}
-
-      {state.phase !== 'loading' && <Button className="btn-block btn-lg" onClick={check} disabled={!pages.length}>בדיקת המבחן</Button>}
-      {state.phase === 'loading' && (
-        <Box tone="ai" title="העוזר בודק" live className="check-status">
-          <Thinking states={['קורא את הדפים', 'מזהה את השאלות', 'בודק כל תשובה', 'כותב משוב אישי', 'בונה תוכנית לשיפור']} />
-          <p className="muted">בדיקה של מבחן שלם לוקחת בדרך כלל דקה או שתיים. אפשר להשאיר את המסך פתוח.</p>
-        </Box>
-      )}
-      {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
-      </>)}
     </div>
   );
 }

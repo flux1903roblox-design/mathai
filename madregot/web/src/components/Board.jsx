@@ -54,11 +54,10 @@ function TopicRow({ t, path, progress, onStart, onJump }) {
  * The level board at the top of the learn screen: the stairs climbed in the grade,
  * each topic's stair and status, and what is not clear yet, with a way to practise it.
  */
-export default function Board({ grade, next, placed, onStart, onJump }) {
+export default function Board({ grade, placed, onStart, onJump }) {
   const { path, progress, gaps, placement, profile } = useApp();
   const b = boardOf({ grade, path, progress, gaps, placement });
   const tested = placement?.grade === String(grade);
-  const startNext = () => onStart(next.kind === 'review' ? `/lesson/${next.topic}/${next.level}?kind=review` : `/lesson/${next.topic}/${next.level}?part=${Math.min(next.parts + 1, PARTS)}`);
   return (
     <section className="board" aria-labelledby="board-title">
       <div className="board-hero">
@@ -71,7 +70,6 @@ export default function Board({ grade, next, placed, onStart, onJump }) {
       <div className="board-track" aria-hidden="true">
         {b.topics.map((t) => <span key={t.id} className={`ch-${t.color}`} style={{ flexGrow: t.top }}><i style={{ width: `${(t.done / t.top) * 100}%` }} /></span>)}
       </div>
-      {next && <Button className="btn-block btn-lg board-go" onClick={startNext}>{next.kind === 'review' ? 'חזרה על היחידה' : `${next.parts ? 'המשך' : 'התחלה'}: ${next.title}`}</Button>}
 
       <ul className="board-topics">
         {b.topics.map((t) => <TopicRow key={t.id} t={t} path={path} progress={progress} onStart={onStart} onJump={onJump} />)}

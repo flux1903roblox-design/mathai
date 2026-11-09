@@ -63,6 +63,8 @@ for (const [topic, n] of Object.entries(STAIRS)) {
           const ok = gd.step.choices.findIndex((c) => c.ok);
           const before = gd.step.prompt;
           await page.locator('.tg-step .ls-choice').nth(ok).click();
+          await page.locator('.lm-check').click();
+          await page.locator('.lm-actions.has-good .sp-next').click();
           await expect.poll(() => page.evaluate(() => window.__madregotGuided?.final ? 'final' : window.__madregotGuided?.step?.prompt)).not.toBe(before);
         }
       }

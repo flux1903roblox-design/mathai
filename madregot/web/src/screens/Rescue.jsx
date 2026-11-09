@@ -14,7 +14,7 @@ import { titleOf } from '@/learn/recommend.ts';
 import { aiReady } from '@/lib/ai.js';
 import { MathText } from '@/components/MathText.jsx';
 import { Button, Sheet } from '@/components/ui.jsx';
-import PageHero from '@/components/PageHero.jsx';
+import { ScreenBar } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
 import Mascot from '@/components/Mascot.jsx';
 
@@ -212,8 +212,8 @@ export default function Rescue() {
   // no plan yet: the question flow takes the whole screen (no tab bar), as an onboarding does
   if (!exam) return <Setup onSave={(input) => setExam(input)} />;
   return (
-    <div className="page rescue">
-      <PageHero tone="streak" title="מציל המבחנים" sub="התוכנית שלכם עד המבחן. היא מתעדכנת אחרי כל תרגול." scene="sheet" mood="happy" />
+    <div className="page pushed rescue">
+      <ScreenBar title="מציל המבחנים" back="/quests" />
       <Plan plan={exam} />
     </div>
   );

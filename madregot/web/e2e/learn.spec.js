@@ -55,16 +55,30 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   }
   await expect(page).toHaveURL(/learn\/signed\/1\/C/);
   // solve together: a wrong move gets its own feedback and a hint; the last step is typed by the student
+  // the same rule as teaching and practice: tapping a choice only selects it; "בדיקה" at the bottom judges it
+  const check = page.locator('.lm-check');
+  await expect(check).toBeDisabled();
   await page.locator('.tg-step .ls-choice').nth(1).click();
-  await expect(page.locator('.tg-step .ls-why.bad')).toBeVisible();
+  await expect(page.locator('.tg-step .ls-choice.bad')).toHaveCount(0);
+  await check.click();
+  await expect(page.locator('.lm-actions.has-warm .bl-result')).toBeVisible();
+  await expect(page.locator('.tg-step .ls-choice.bad')).toHaveCount(1);
   await expect(page.locator('.tg-hints')).toBeVisible();
+  await expect(check).toBeDisabled();
   await page.locator('.tg-step .ls-choice').nth(0).click();
+  await check.click();
+  await expect(page.locator('.lm-actions.has-good')).toContainText('נכון');
+  await page.getByRole('button', { name: 'המשך' }).click();
   await page.locator('.tg-step .ls-choice').nth(0).click();
+  await check.click();
+  await page.getByRole('button', { name: 'המשך' }).click();
   await page.locator('.tg-input').fill('5');
   await page.getByRole('button', { name: 'בדיקה' }).click();
   await expect(page.getByText('פתרתם את הצעד האחרון לבד')).toBeVisible();
   await page.getByRole('button', { name: 'המשך' }).click();
   await page.locator('.tg-step .ls-choice').nth(0).click();
+  await check.click();
+  await page.getByRole('button', { name: 'המשך' }).click();
   await page.locator('.tg-input').fill('0');
   await page.getByRole('button', { name: 'בדיקה' }).click();
   await page.getByRole('button', { name: 'המשך' }).click();
