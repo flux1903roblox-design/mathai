@@ -21,18 +21,6 @@
   --check-ease-opacity: ease-out; --check-ease-rotate: cubic-bezier(0.22, 1, 0.36, 1);
   --check-ease-out: cubic-bezier(0.22, 1, 0.36, 1); --check-ease-bob: cubic-bezier(0.22, 1, 0.36, 1); --check-ease-path: cubic-bezier(0.22, 1, 0.36, 1);
 }
-.t-success-check { display: inline-block; transform-origin: center; opacity: 0; will-change: transform, opacity, filter; }
-.t-success-check svg { display: block; overflow: visible; }
-.t-success-check circle { fill: var(--ok); }
-.t-success-check path { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 15; stroke-dashoffset: 15; }
-.t-success-check[data-state="in"] {
-  animation:
-    t-check-fade   var(--check-opacity-dur) var(--check-ease-opacity) forwards,
-    t-check-rotate var(--check-rotate-dur)  var(--check-ease-rotate)  forwards,
-    t-check-blur   var(--check-blur-dur)    var(--check-ease-out)     forwards,
-    t-check-bob    var(--check-bob-dur)     var(--check-ease-bob)     forwards;
-}
-.t-success-check[data-state="in"] path { animation: t-check-draw var(--check-path-dur) var(--check-ease-path) var(--check-path-delay, 0ms) forwards; }
 @keyframes t-check-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes t-check-rotate { from { transform: rotate(var(--check-rotate-from)); } to { transform: rotate(0deg); } }
 @keyframes t-check-blur { from { filter: blur(var(--check-blur-from)); } to { filter: blur(0); } }
@@ -62,8 +50,6 @@
 
 /* The one authored moment: moving up a level. The level line resolves in
    with a soft cross-blur and the need-slots re-fill. */
-.pline.flash .pline-text { animation: t-level-in var(--duration-very-slow) var(--ease-smooth-out) both; }
-.pline.flash .chapter-mark { animation: t-level-pop var(--duration-very-slow) var(--ease-smooth-out) both; }
 @keyframes t-level-in { from { opacity: 0; filter: blur(var(--blur-medium)); transform: translateY(var(--distance-micro)); } }
 @keyframes t-level-pop { from { transform: scale(0.6); } }
 
@@ -73,9 +59,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .answer { animation: none !important; transform: none !important; }
-  .t-success-check { animation: none !important; opacity: 1; }
-  .t-success-check path { animation: none !important; stroke-dashoffset: 0 !important; }
   .t-think-text { transition: none !important; transform: none !important; filter: none !important; animation: none !important; }
   .t-think-text::before { display: none !important; }
-  .pline.flash .pline-text, .pline.flash .chapter-mark, .feedback .box { animation: none !important; }
+  .feedback .box { animation: none !important; }
 }

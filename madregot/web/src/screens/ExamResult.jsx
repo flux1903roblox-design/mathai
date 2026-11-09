@@ -11,7 +11,7 @@ import { Markdown, MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
 import AIChat from '@/components/AIChat.jsx';
 import Mascot from '@/components/Mascot.jsx';
-import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
+import { ScreenBar, ScreenFoot, EmptyState, ConfirmSheet } from '@/components/Screen.jsx';
 import { pctTone } from './Exams.jsx';
 
 const ICON = { correct: Check, partial: Minus, wrong: X, missing: CircleDashed };
@@ -173,10 +173,11 @@ export default function ExamResult() {
 
       <p className="footnote">תשובה נכונה בחלקה נספרת כחצי נקודה. המבחן נבדק על ידי העוזר (Claude).{exam.source === 'practice' ? ' התשובות הנכונות נלקחו ממפתח התשובות של האפליקציה.' : ' אם משהו נראה לא נכון, בדקו עם המורה.'}</p>
       <section className="section set-group">
-        {confirmDel ? (
-          <div className="set-box"><p>למחוק את הבדיקה הזו מהמכשיר?</p><div className="form-actions row"><Button variant="danger" className="btn-sm" onClick={() => { removeExam(exam.id); navigate('/exams'); }}>כן, למחוק</Button><Button variant="ghost" className="btn-sm" onClick={() => setConfirmDel(false)}>ביטול</Button></div></div>
-        ) : <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmDel(true)}>מחיקת הבדיקה</button></div></div>}
+        <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmDel(true)}>מחיקת הבדיקה</button></div></div>
       </section>
+      <ConfirmSheet open={confirmDel} onOpenChange={setConfirmDel} title="למחוק את הבדיקה?" keep="להשאיר" confirm="כן, למחוק" onConfirm={() => { removeExam(exam.id); navigate('/exams'); }}>
+        <p>הבדיקה של "{exam.title}" תימחק מהמכשיר. מה שתרגלתם נשאר.</p>
+      </ConfirmSheet>
 
       <ScreenFoot>
         {first

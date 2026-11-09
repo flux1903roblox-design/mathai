@@ -13,8 +13,8 @@ import { skillId } from '@/learn/skills.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { aiReady } from '@/lib/ai.js';
 import { MathText } from '@/components/MathText.jsx';
-import { Button, Sheet } from '@/components/ui.jsx';
-import { ScreenBar } from '@/components/Screen.jsx';
+import { Button } from '@/components/ui.jsx';
+import { ScreenBar, ConfirmSheet } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
 import Mascot from '@/components/Mascot.jsx';
 
@@ -197,11 +197,9 @@ function Plan({ plan }) {
       )}
       <p className="field-hint rescue-honest">התוכנית לא מבטיחה ציון. היא מראה מה כבר יודעים, על מה כדאי לעבוד, ומתעדכנת לפי התשובות שלכם.</p>
       <Button variant="danger-outline" className="btn-block btn-sm" onClick={() => setConfirm(true)}><Trash2 size={16} aria-hidden="true" />מבחן אחר / מחיקת התוכנית</Button>
-      <Sheet open={confirm} onOpenChange={setConfirm} title="למחוק את התוכנית?">
-        <p className="lead">התשובות שלכם נשמרות בתרגול. רק התוכנית של המבחן הזה תימחק.</p>
-        <Button className="btn-block" onClick={() => setConfirm(false)}>להשאיר</Button>
-        <Button variant="danger-outline" className="btn-block" onClick={() => { setExam(null); setConfirm(false); }}>למחוק</Button>
-      </Sheet>
+      <ConfirmSheet open={confirm} onOpenChange={setConfirm} title="למחוק את התוכנית?" keep="להשאיר" confirm="למחוק" onConfirm={() => { setExam(null); setConfirm(false); }}>
+        <p>התשובות שלכם נשמרות בתרגול. רק התוכנית של המבחן הזה תימחק.</p>
+      </ConfirmSheet>
     </div>
   );
 }

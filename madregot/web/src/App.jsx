@@ -5,6 +5,7 @@ import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
 import { syncNow } from '@/lib/api.js';
 import Shell from '@/components/Shell.jsx';
+import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
 import Welcome from '@/screens/Welcome.jsx';
 import Learn from '@/screens/Learn.jsx';
 import Topics from '@/screens/Topics.jsx';
@@ -71,7 +72,8 @@ function Root() {
       <Toasts />
       {/* a new screen opens at the top; back restores where the student was */}
       <ScrollRestoration />
-      <Suspense fallback={<p className="page muted" role="status">טוענים…</p>}>
+      <ErrorBoundary>
+      <Suspense fallback={<LoadingState />}>
       <Routes>
         {!role && <Route path="*" element={<Welcome />} />}
         {role === 'teacher' && (
@@ -112,6 +114,7 @@ function Root() {
         )}
       </Routes>
       </Suspense>
+      </ErrorBoundary>
     </>
   );
 }

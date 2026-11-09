@@ -7,10 +7,12 @@
 //   a result               centred מדי and a title, tiles, one pinned button (LessonDone, CheckDone).
 // A screen with its own pinned primary has no tab bar on a phone: the primary takes the bar's place, as in
 // Duolingo's lessons, onboarding and results.
+import { Component } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { ArrowRight } from 'lucide-react';
 import Mascot from './Mascot.jsx';
+import { Button, Sheet } from './ui.jsx';
 
 /** A pushed screen's bar: the way back (to `back`, or one step back), the title, and an optional action at the end. */
 export function ScreenBar({ title, back, backLabel = 'חזרה', end, id, className }) {
@@ -62,4 +64,58 @@ export function Flow({ label, step, steps, onBack, ask, mood = 'idle', children,
       <footer className="ob-foot" data-region="footer">{foot}</footer>
     </form>
   );
+}
+
+/**
+ * Before anything is deleted or left behind: the quit sheet's build (Duolingo's, LAYOUT_SPEC A9) for every such
+ * question. מדי, what will happen, the big button keeps things as they are, and the destructive action is a quiet
+ * red text button under it, so it is never the obvious tap.
+ */
+export function ConfirmSheet({ open, onOpenChange, title, children, keep = 'ביטול', confirm, onConfirm, mood = 'oops' }) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} title={title}>
+      <div className="exit-sheet confirm-sheet">
+        <Mascot mood={mood} size={88} />
+        <div className="lead confirm-text">{children}</div>
+        <Button className="btn-block btn-lg" onClick={() => onOpenChange(false)}>{keep}</Button>
+        <Button variant="ghost" className="btn-block exit-quit" onClick={onConfirm}>{confirm}</Button>
+      </div>
+    </Sheet>
+  );
+}
+
+/** While a screen's code loads: מדי in the middle, one line. */
+export function LoadingState({ text = 'טוענים…' }) {
+  return (
+    <div className="page loading-state" role="status" aria-live="polite">
+      <Mascot mood="thinking" size={96} />
+      <p className="loading-text">{text}</p>
+    </div>
+  );
+}
+
+/**
+ * If a screen breaks, the app says so in its own voice instead of going blank, and offers the two ways out:
+ * load again, or back to the start. Nothing the student saved is touched.
+ */
+export class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { failed: false }; }
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error) { console.error('Madregot screen error', error); } // eslint-disable-line no-console
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="page pushed error-screen" role="alert">
+        <section className="empty-state" data-region="content">
+          <Mascot mood="oops" size={120} className="empty-madi" />
+          <h1 className="empty-title">משהו במסך הזה לא עבד</h1>
+          <div className="empty-text"><p>ההתקדמות שלכם שמורה במכשיר. אפשר לטעון את המסך מחדש, או לחזור להתחלה.</p></div>
+        </section>
+        <footer className="screen-foot" data-region="footer">
+          <Button className="btn-block btn-lg" onClick={() => window.location.reload()}>לטעון מחדש</Button>
+          <a href="#/" className="foot-link" onClick={() => setTimeout(() => window.location.reload(), 0)}>חזרה להתחלה</a>
+        </footer>
+      </div>
+    );
+  }
 }

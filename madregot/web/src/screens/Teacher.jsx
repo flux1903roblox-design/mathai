@@ -9,7 +9,7 @@ import { TOPIC, topicsFor } from '@/content/index.js';
 import { Button, ChapterMark, Field, LevelPips, Sheet } from '@/components/ui.jsx';
 import { Stat } from '@/components/ds.jsx';
 import Mascot from '@/components/Mascot.jsx';
-import { EmptyState } from '@/components/Screen.jsx';
+import { EmptyState, ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { GradeSwitch } from './Welcome.jsx';
 
@@ -184,8 +184,15 @@ export default function Teacher() {
 
       <main className="t-main">
         {cls.fresh && <FreshClass cls={cls} onDone={dismissFresh} />}
-        {error && <p className="form-error" role="alert">{error}</p>}
-        {!data && !error && <p className="muted" role="status">טוענים את נתוני הכיתה…</p>}
+        {error && !data && (
+          <EmptyState mood="oops" title="לא הצלחנו לטעון את הכיתה">
+            <p role="alert">{error}</p>
+            <p>הנתונים של הכיתה שמורים בשרת. בדקו את החיבור לאינטרנט ונסו שוב.</p>
+            <Button className="btn-lg" onClick={load}><RefreshCw size={18} aria-hidden="true" />לנסות שוב</Button>
+          </EmptyState>
+        )}
+        {error && data && <p className="form-error" role="alert">{error}</p>}
+        {!data && !error && <LoadingState text="טוענים את נתוני הכיתה…" />}
 
         {data && (
           <>
@@ -326,12 +333,10 @@ export default function Teacher() {
         )}
 
         <section className="section set-group t-out">
-          {confirmOut ? (
-            <div className="set-box">
-              <p>לצאת מהלוח במכשיר הזה? בלי מפתח המורה לא תוכלו לחזור.</p>
-              <div className="form-actions row"><Button variant="danger" className="btn-sm" onClick={() => signOut()}>כן, לצאת</Button><Button variant="ghost" className="btn-sm" onClick={() => setConfirmOut(false)}>ביטול</Button></div>
-            </div>
-          ) : <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmOut(true)}><LogOut size={18} aria-hidden="true" />יציאה מהלוח</button></div></div>}
+          <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmOut(true)}><LogOut size={18} aria-hidden="true" />יציאה מהלוח</button></div></div>
+          <ConfirmSheet open={confirmOut} onOpenChange={setConfirmOut} title="לצאת מהלוח?" keep="להישאר בלוח" confirm="כן, לצאת" onConfirm={() => signOut()}>
+            <p>הלוח ייסגר במכשיר הזה. כדי לחזור צריך את קוד הכיתה ואת מפתח המורה.</p>
+          </ConfirmSheet>
         </section>
       </main>
     </div>

@@ -58,7 +58,7 @@ function AiOffline() {
         <input id="ai-off-input" className="input" disabled placeholder="העוזר עוד לא מחובר" />
         <div className="ai-offline-actions">
           <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>
-          {!inClass && <Link to="/settings" state={{ focus: 'ai' }} className="btn btn-secondary btn-block">איך מחברים את העוזר</Link>}
+          {!inClass && <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>}
         </div>
       </div>
     </section>

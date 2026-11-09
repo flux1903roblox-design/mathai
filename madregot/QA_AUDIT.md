@@ -524,4 +524,66 @@ failed jump test (two stacked buttons). Each screen state now has one primary.
   in the screenshot script with synthetic data; no real class server or real AI was called in this round.
 - No screen-reader pass (A-3).
 
+### Suites on the round-13 code (b2f99ce)
+Unit 409/409; typecheck clean; end-to-end 278 passed, 0 failed (162 skipped by design); axe on the 40 round-13
+states at 320, 390 and 1440: 120 scans, 0 violations (after R13-4); the earlier axe scans 36 + 9, 0 violations; size
+sweep 60 checks, 0 problems. Six visual baselines (missions and exams tabs, three sizes) updated after review.
+
+## Round 14: the final pass over the whole app (9 November 2026)
+
+The owner asked for the whole redesign finished end to end. Starting point verified: branch at b2f99ce, staging
+serving 018ed1a, production tree `madregot/` 5f299f9b.
+
+### Inventory, completed
+Every route in `App.jsx`, every `Sheet`, every loading, empty, error and confirmation state (the full table is in
+round 13 above, with the additions below). Additional states found in this pass and finished:
+- **Destructive confirmations** were three different builds (inline boxes in settings, the exam result and the
+  teacher's board, a sheet with two equal buttons in Exam Rescue). Now one `ConfirmSheet` with the quit sheet's
+  build everywhere: מדי, what will happen, the big button keeps things as they are, the destructive action a quiet
+  red text button (settings: reset, delete everything, sign out, leave the class; exam result: delete; teacher:
+  leave the board; Exam Rescue: delete the plan).
+- **Loading:** the app's loading line became מדי with the line, centred; the teacher's board loads the same way.
+- **A screen that breaks:** there was no error screen (a crash left a blank page). Now an error boundary shows מדי,
+  what happened, "לטעון מחדש" pinned and "חזרה להתחלה"; saved progress is not touched.
+- **The class server failing:** the teacher's board showed one red line; now an error state with מדי and
+  "לנסות שוב".
+- **The assistant without a connection:** the dock's second button became a quiet text link (one primary).
+- **Tablet and computer:** a short pushed screen stretched to the window's bottom, leaving an empty field between its
+  content and its button; from 600 px wide the button follows the content (phones keep it pinned in the thumb zone).
+- **Legacy styling removed:** 230 CSS rules (about 23 KB) whose selectors matched no markup any more (the old mission
+  page, exam rows, plan steps, assistant tabs, the teacher's strip, old teaching headers, the welcome demo and
+  others), found by matching every class in the stylesheets against the source and removed with a CSS parser.
+
+### Found while testing this round
+- R14-1 (axe, `color-contrast`): the "mastered" badge in the Exam Rescue plan (white on the light green) at small
+  size; it appears only when a skill in the plan is already mastered, which the earlier scans' data never had. Now
+  white on the darker green. Fixed and retested.
+
+### The interaction system
+`LAYOUT_SPEC.md` part F: for every activity (teaching A, B, C, practice, checks, remedy, question flows,
+conversations), what appears first, what the student does, how a selection is made, when it is judged, hints, where
+feedback appears, how to continue, what leaving does, and what is saved. Part G: measured comparison of the
+round 13–14 screens with their references.
+
+### Visual QA
+Every state captured on the final build at 320×568, 375×667, 390×844, 430×932, 768×1024 and 1440×900: 36 main-loop
+states and 48 states of the rest of the app, 504 screenshots, each size reviewed on a contact sheet; before/after
+sheets for the 48 states at 390×844 and 320×568; nine reference proof sheets; a guided-solving sequence strip.
+
+### Route-by-route additions in round 14
+| Screen / state | Kind | Evidence | Status |
+|---|---|---|---|
+| Destructive confirmations (settings ×3, leave class, delete exam check, leave the teacher's board, delete the Exam Rescue plan) | sheet (`ConfirmSheet`) | r41, r42, r44, r48; learn test (delete everything) | Complete (leaving a class needs a class server; it was built but not rendered in this run) |
+| App loading | loading state | rendered in every lazy screen load; r45 for the teacher's board | Complete |
+| A screen that breaks | error boundary | code review only: not triggered in a test (no screen fails on purpose) | Complete, not exercised |
+| Teacher's board: loading, no students, server error | states | r45, r46, r47 | Complete |
+| Exam Rescue plan under the pushed bar; delete | pushed + sheet | r43, r44 | Complete |
+| Pushed screens on tablet and computer | layout | 768×1024 and 1440×900 sheets | Complete |
+
 ### Suites on the final code
+Typecheck clean; unit 409/409; end-to-end 275 passed and 3 failed on the first run: the assistant-offline visual
+baseline at three sizes, changed on purpose (the second way out became a text link); after review of baseline, new
+and diff, the three baselines were updated and the visual suite rerun: 51 passed, 0 failed (17 skipped by design). Accessibility: axe (WCAG 2.1 A/AA) on the 48 states at
+320×568, 375×667, 390×844, 430×932, 768×1024 and 1440×900 = 288 scans: 12 violations, all R14-1 (two states × six
+sizes); after the fix the affected states rescanned with 0; the earlier axe scans 36 + 9, 0 violations. Responsive:
+in all 288 scans no sideways scroll and every pinned primary fully on screen; the size sweep 60 checks, 0 problems.

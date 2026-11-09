@@ -7,8 +7,9 @@ import { toast } from 'sonner';
 import { ArrowRight } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
-import { Box, Button, Field } from '@/components/ui.jsx';
+import { Button, Field } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass } from './Welcome.jsx';
+import { ConfirmSheet } from '@/components/Screen.jsx';
 
 function ClassSection() {
   const { profile, setProfile, leaveClass } = useApp();
@@ -54,9 +55,12 @@ function ClassSection() {
         </Field>
         {error && <p className="form-error" role="alert">{error}</p>}
         <Button type="submit" disabled={busy}>{busy ? 'מצטרפים…' : 'הצטרפות'}</Button>
-        {profile.classCode && !confirmLeave && <Button variant="ghost" className="btn-sm" onClick={() => setConfirmLeave(true)}>לא רוצים כיתה</Button>}
-        {confirmLeave && <Button variant="ghost" className="btn-sm" onClick={() => { leaveClass(); setConfirmLeave(false); }}>אישור: להמשיך לבד</Button>}
+        {profile.classCode && <Button variant="ghost" className="btn-sm" onClick={() => setConfirmLeave(true)}>לא רוצים כיתה</Button>}
       </form>
+      <ConfirmSheet open={confirmLeave} onOpenChange={setConfirmLeave} title="להמשיך בלי כיתה?" keep="להישאר בכיתה" mood="idle"
+        confirm="כן, להמשיך לבד" onConfirm={() => { leaveClass(); setConfirmLeave(false); }}>
+        <p>ההתקדמות נשארת במכשיר, אבל המורה לא יראה אותה. אפשר להצטרף שוב עם הקוד.</p>
+      </ConfirmSheet>
     </section>
   );
 }
@@ -169,40 +173,26 @@ export default function Settings() {
       <SoundSetting />
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="set-head">אזור מחיקה</h2>
-        <div className="set-box">
-        {danger === 'reset' ? (
-          <Box tone="attention" title="בטוחים?">
-            <p>כל המדרגות, הנקודות וההיסטוריה במכשיר הזה יימחקו.</p>
-            <div className="form-actions row">
-              <Button variant="danger" onClick={() => { resetProgress(); setDanger(null); toast('ההתקדמות אופסה'); }}>כן, לאפס</Button>
-              <Button variant="ghost" onClick={() => setDanger(null)}>ביטול</Button>
-            </div>
-          </Box>
-        ) : danger === 'out' ? (
-          <Box tone="attention" title="בטוחים?">
-            <p>המכשיר יחזור למסך הפתיחה, וההתקדמות שנשמרה בו תימחק.</p>
-            <div className="form-actions row">
-              <Button variant="danger" onClick={() => signOut()}>כן, להתנתק</Button>
-              <Button variant="ghost" onClick={() => setDanger(null)}>ביטול</Button>
-            </div>
-          </Box>
-        ) : danger === 'wipe' ? (
-          <Box tone="attention" title="למחוק הכול?">
-            <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. אי אפשר לבטל.</p>
-            <div className="form-actions row">
-              <Button variant="danger" onClick={() => { useApp.persist.clearStorage(); signOut(); }}>כן, למחוק הכול</Button>
-              <Button variant="ghost" onClick={() => setDanger(null)}>ביטול</Button>
-            </div>
-          </Box>
-        ) : (
+        <div className="set-rows-wrap">
           <div className="set-rows">
             <button type="button" className="set-row danger" onClick={() => setDanger('reset')}>איפוס ההתקדמות</button>
             <button type="button" className="set-row danger" onClick={() => setDanger('wipe')}>מחיקת כל הנתונים</button>
             <button type="button" className="set-row danger" onClick={() => setDanger('out')}>התנתקות מהמכשיר</button>
           </div>
-        )}
         </div>
       </section>
+      <ConfirmSheet open={danger === 'reset'} onOpenChange={(o) => !o && setDanger(null)} title="לאפס את ההתקדמות?" keep="להשאיר את ההתקדמות"
+        confirm="כן, לאפס" onConfirm={() => { resetProgress(); setDanger(null); toast('ההתקדמות אופסה'); }}>
+        <p>כל המדרגות, הנקודות וההיסטוריה במכשיר הזה יימחקו.</p>
+      </ConfirmSheet>
+      <ConfirmSheet open={danger === 'wipe'} onOpenChange={(o) => !o && setDanger(null)} title="למחוק הכול?" keep="לא למחוק"
+        confirm="כן, למחוק הכול" onConfirm={() => { useApp.persist.clearStorage(); signOut(); }}>
+        <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. אי אפשר לבטל.</p>
+      </ConfirmSheet>
+      <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title="להתנתק מהמכשיר?" keep="להישאר מחוברים"
+        confirm="כן, להתנתק" onConfirm={() => signOut()}>
+        <p>המכשיר יחזור למסך הפתיחה, וההתקדמות שנשמרה בו תימחק.</p>
+      </ConfirmSheet>
       <p className="footnote">מדרגות{hasServer() ? '' : '. בלי שרת: ההתקדמות נשמרת רק במכשיר הזה.'}</p>
     </div>
   );
