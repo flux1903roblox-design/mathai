@@ -10,13 +10,13 @@
    Loaded after app.css: it refines, it does not fight it. */
 
 :root {
-  /* purple family */
-  --p-50: #f6f4ff; --p-100: #eeebff; --p-150: #e4e0ff; --p-200: #d6d0ff; --p-300: #b7aeff;
-  --p-400: #8b80ff; --p-500: #5b4ff0; --p-600: #4b3fe0; --p-700: #3f33c4; --p-800: #2f2696; --p-900: #1e1857;
+  /* the electric-blue family (the old purple scale's names, so every screen reads the new palette) */
+  --p-50: #f2f7ff; --p-100: #e6f0ff; --p-150: #d9e8ff; --p-200: #c2d9ff; --p-300: #8fb8ff;
+  --p-400: #4d8eff; --p-500: #0066ff; --p-600: #005ce6; --p-700: #0052cc; --p-800: #003d99; --p-900: #002966;
   /* surfaces: a white page, white cards with a border, a light panel for the maths */
-  --surface-0: #ffffff; --surface-1: #ffffff; --surface-2: #f6f6fa;
-  --line: #e5e5ef; --line-2: #d6d6e4;
-  --ink: #1f1d3a; --ink-2: #5a5875;
+  --surface-0: #ffffff; --surface-1: #ffffff; --surface-2: #f5f6f8;
+  --line: #e6e6e6; --line-2: #d4d4d4;
+  --ink: #000000; --ink-2: #4d4d4d;
   --r-s: 12px; --r-m: 16px; --r-l: 16px; --r-xl: 20px;
   --fs-display: 28px; --lh-display: 34px;
   --fs-h1: 24px; --lh-h1: 30px;
@@ -663,7 +663,7 @@ a.hub-row:active { background: var(--p-100); }
 .kpi-sky .kpi-icon { color: var(--ch-sky-d); }
 .t-tabs.segmented { overflow: visible; padding: 0; }
 .t-tabs .t-tab { border-radius: var(--r-md); padding: 0 var(--s2); }
-.t-tabs .t-tab.on { color: var(--brand-d); background: var(--brand-tint); box-shadow: 0 3px 0 #b9b3ff; }
+.t-tabs .t-tab.on { color: var(--brand-d); background: var(--brand-tint); box-shadow: 0 3px 0 #b3d1ff; }
 .t-group .set-head { color: var(--ink-2); }
 .t-group > .t-group-box { padding: 0 var(--s4); }
 .t-group-warm > .t-group-box { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); }
@@ -695,3 +695,9 @@ a.hub-row:active { background: var(--p-100); }
   .pushed > .empty-state { flex: none; padding-top: var(--s8); }
 }
 .st-mastered .standing-badge { background: var(--good-ink); color: #fff; } /* white on the darker green: 4.5:1 or more at this small size */
+
+/* ---- the welcome copy (Electric Premium) */
+.hello-center .wordmark { font-size: 48px; line-height: 52px; letter-spacing: -0.01em; }
+.hello-eyebrow { margin: -4px 0 var(--s2); font-family: var(--font-ui); font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.28em; color: var(--glow-ink); }
+.hello-center .hello-title { font-size: 28px; line-height: 34px; }
+.hello-center .hello-fact { font-size: 17px; color: var(--ink-2); }

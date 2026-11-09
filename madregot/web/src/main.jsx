@@ -9,6 +9,8 @@ import './styles/tokens.css';
 import './styles/app.css';
 import './styles/motion.css';
 import './styles/v4.css';
+import './styles/dark.gen.css';
+import './styles/theme-dark.css';
 import App from './App.jsx';
 
 // Test hook: with localStorage 'madregot-seed' set, exercises come out the same on every run (visual tests).

@@ -2,16 +2,21 @@
 name: Madregot
 description: A bright, chunky daily-practice path for grade 7–8 math in Hebrew, with a stair-block mascot and a Claude tutor.
 colors:
+  # Electric Premium, the white learning surface (lessons); the black screens are listed under "Electric Premium" below
   paper: "#ffffff"
-  ground: "#f6f6fb"
-  ink: "#24253a"
-  ink-2: "#5f6178"
-  rule: "#e6e6f0"
-  rule-strong: "#c9cad9"
-  rule-press: "#d9dae6"
-  brand: "#5b4ff0"
-  brand-d: "#3f33c4"
-  brand-tint: "#ecebff"
+  ground: "#f5f6f8"
+  ink: "#000000"
+  ink-2: "#4d4d4d"
+  rule: "#e6e6e6"
+  rule-strong: "#c7c7c7"
+  rule-press: "#d6d6d6"
+  brand: "#0066ff"
+  brand-d: "#0052cc"
+  brand-tint: "#e6f0ff"
+  brand-lip: "#0047b3"
+  on-brand: "#ffffff"
+  glow: "#00c8ff"
+  on-glow: "#000000"
   good: "#1f9d55"
   good-d: "#16803f"
   good-tint: "#dff6e7"
@@ -27,27 +32,15 @@ colors:
   gold-d: "#d39600"
   gold-ink: "#8a5c00"
   gold-tint: "#fff4cc"
-  madi-hi: "#7a70ff"
-  madi-lo: "#5246ea"
-  madi-edge: "#3f33c4"
-  madi-limb: "#3f33c4"
-  ai-tint: "#fde8f3"
-  ai-ink: "#a3165f"
-  ch-sky: "#1a8fd6"
-  ch-sky-d: "#0d6ba8"
-  ch-sky-tint: "#e2f2fc"
-  ch-fuchsia: "#c0349f"
-  ch-fuchsia-d: "#93246f"
-  ch-fuchsia-tint: "#fbe6f5"
-  ch-petrol: "#0d8597"
-  ch-petrol-d: "#08606e"
-  ch-petrol-tint: "#ddf3f5"
-  ch-cobalt: "#2563d9"
-  ch-cobalt-d: "#1a47a3"
-  ch-cobalt-tint: "#e3ecfc"
-  ch-violet: "#8a4fe0"
-  ch-violet-d: "#6a35bf"
-  ch-violet-tint: "#f1eafd"
+  madi-hi: "#5fdcff"
+  madi-lo: "#00b4f0"
+  madi-edge: "#0066ff"
+  madi-limb: "#0066ff"
+  ai-tint: "#e6f0ff"
+  ai-ink: "#0052cc"
+  chapter: "#0066ff"
+  chapter-d: "#0052cc"
+  chapter-tint: "#e6f0ff"
 typography:
   display:
     fontFamily: "Fredoka Variable, Fredoka, Rubik Variable, Arial Hebrew, sans-serif"
@@ -252,6 +245,32 @@ The genre's pressure devices are absent by design and stay absent: no hearts or 
 - Fredoka for the voice (headings, buttons, numbers), Rubik for reading, serif KaTeX for math, always LTR.
 - Hebrew RTL throughout, phone-first, with a side rail and side panel from 960px.
 - Short exponential ease-out motion; celebrations only after an answer, skippable, off under reduced motion.
+
+## Electric Premium (round 15, 9 November 2026)
+
+The owner's final palette: pure black `#000000` for dramatic backgrounds and headings, pure white `#FFFFFF` for
+exercises, graphs and learning surfaces, electric blue `#0066FF` for primary buttons and actions, glowing blue
+`#00C8FF` for progress, icons and highlights. The saturated blues are kept for what matters most: if everything
+glows, nothing stands out.
+
+Two surfaces:
+- **White, for learning:** the teaching stages, practice, checks, placement, repairs (and their sheets). Black text,
+  black headings, `#0066FF` buttons with white text (4.8:1), the drawings and graphs on white.
+- **Black, for everything around it:** welcome and onboarding, home (the path), missions, topics and the stair page,
+  exams, the plan, the assistant, profile, settings, the teacher's board, and every result and transition screen.
+  White text; `#0066FF` buttons with white text; `#00C8FF` for the current unit, the path, progress, icons and
+  highlights, with black text on it (10.7:1); blue *text* on black is always `#00C8FF` (electric blue text would be
+  4.3:1).
+
+How it is built: `<html data-theme="dark">` is the default; a learning screen calls `useTheme('light')`
+(`src/lib/theme.js`) while it is open, and a lesson's result screen goes back to dark. The light design is the
+stylesheets themselves; the black version is generated from them by `scripts/theme-dark.cjs` into
+`src/styles/dark.gen.css` (every colour declaration repeated under `[data-theme="dark"]` with its colour turned for
+black by role), and `src/styles/theme-dark.css` holds the black tokens and the few hand decisions (black tab headers,
+the glowing current unit, black text on glowing fills). After changing a stylesheet, run `node scripts/theme-dark.cjs`.
+
+Kept from before: green means correct, red "not yet", orange the streak, gold XP; a right or wrong answer never rests
+on wording alone. מדי is glowing blue with electric-blue edges. Every unit shares the blue.
 
 ## Colors
 

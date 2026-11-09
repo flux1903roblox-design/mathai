@@ -17,7 +17,7 @@ import { SPRING } from '@/lib/motion.js';
  */
 const ALIAS = { cheer: 'happy', think: 'thinking', oops: 'encouraging' };
 
-const INK = '#231d5c';
+const INK = '#001526';
 // His own colour lives in tokens.css (--madi-*), so it is set in one place.
 const HI = { stopColor: 'var(--madi-hi, #7a70ff)' };
 const LO = { stopColor: 'var(--madi-lo, #5246ea)' };

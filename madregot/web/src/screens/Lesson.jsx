@@ -29,6 +29,7 @@ import { contentOf } from '@/learn/content/index.ts';
 import { skillId, parseSkill } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
+import { useTheme } from '@/lib/theme.js';
 
 /** True while a media query matches (and follows it as the window changes). */
 function useMedia(query) {
@@ -405,6 +406,8 @@ export default function Lesson() {
       </div>
     );
   }
+  // white while learning (exercises, graphs), black for the result screens that follow
+  useTheme(done ? 'dark' : 'light');
   if (done) leaving.current = true; // the end screens lead back to the map without asking
   if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/topics', { replace: true, state: { placed: true } })} />;
   if (done && isCheck) return <CheckDone result={done.result} award={done.award} onExit={() => navigate('/', { replace: true, preventScrollReset: true })} />;

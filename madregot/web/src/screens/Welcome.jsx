@@ -11,7 +11,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { Flow } from '@/components/Screen.jsx';
 import PageScene from '@/components/PageScene.jsx';
 import Stairs from '@/components/Stairs.jsx';
-import { topicsFor, TOPICS } from '@/content/index.js';
+import { topicsFor } from '@/content/index.js';
 import { KNOW } from '@/lib/placement.js';
 import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
@@ -107,8 +107,9 @@ function Onboarding({ onTeacher }) {
         <main className="hello-center" data-region="content">
           <Mascot mood="excited" size={168} className="hello-madi" />
           <p className="hello-brand"><span className="wordmark">מדרגות</span></p>
-          <h1 className="hello-title">מתמטיקה של כיתות ז׳ וח׳, מדרגה אחרי מדרגה</h1>
-          <p className="hello-fact">{TOPICS.length} נושאים, {TOPICS.reduce((n, t) => n + t.levels.length, 0)} מדרגות, כמה דקות ביום.</p>
+          <p className="hello-eyebrow" dir="ltr" lang="en">LEVEL UP YOUR MATH</p>
+          <h1 className="hello-title">מתמטיקה שמבינים.<br />ומתקדמים.</h1>
+          <p className="hello-fact">כל יום מדרגה אחת קדימה.</p>
         </main>
         <footer className="hello-foot" data-region="footer">
           <Button className="btn-block btn-lg" onClick={() => setI(0)}>מתחילים</Button>

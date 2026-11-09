@@ -12,6 +12,7 @@ import StepPlayer, { LessonHeader } from '@/components/learn/StepPlayer.jsx';
 import WorkedExample from '@/components/learn/WorkedExample.jsx';
 import Together from '@/components/learn/Together.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
+import { useTheme } from '@/lib/theme.js';
 
 const TITLE = { A: 'מבינים את הרעיון', B: 'דוגמה פתורה', C: 'פותרים יחד' };
 
@@ -27,6 +28,7 @@ export default function Teach() {
   const [idx, setIdx] = useState(stage === 'A' ? 0 : pos); // B and C: which example / problem
   const [tutor, setTutor] = useState(false);
   useEffect(() => { if (c && stage === 'A') learnEvent({ e: 'teach-start', s: skill }); }, [skill, stage]); // eslint-disable-line react-hooks/exhaustive-deps
+  useTheme('light'); // the lessons are white: explanations, drawings and objects on a white surface
   if (!c || !t || !TITLE[stage]) return <Navigate to={`/learn/${topic}/${level}`} replace />;
 
   const close = () => navigate(`/learn/${topic}/${level}`, { replace: true });

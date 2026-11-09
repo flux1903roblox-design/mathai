@@ -9,7 +9,8 @@ visual, answers, footer, primary, feedback), measured in a browser at 390×844 a
 
 What is borrowed: the **layout structure** (where each region sits, its share of the screen, the order of things,
 how the bottom changes after an answer, the interaction sequence). What is not: art, characters, names, colours,
-fonts, icons, wording. Madregot keeps מדי, its purple family, Fredoka and Rubik, lucide icons and Hebrew right-to-left
+fonts, icons, wording. Madregot keeps מדי, its own palette (since round 15 "Electric Premium": black, white,
+electric blue #0066FF and glowing blue #00C8FF; see DESIGN.md), Fredoka and Rubik, lucide icons and Hebrew right-to-left
 (so "left" in a reference becomes the start side, the right, in Madregot).
 
 ## A. Duolingo: the daily loop
