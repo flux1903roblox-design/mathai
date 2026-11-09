@@ -1,32 +1,36 @@
-import { ChevronLeft } from 'lucide-react';
-import { ChapterMark, LevelPips } from '@/components/ui.jsx';
-import { Link } from 'react-router-dom';
+// All topics, laid out like Duolingo's sections overview: one large card per unit in its colour (its number, name,
+// what it covers, a thick progress bar, and one button back to its place on the path, plus its guidebook), then the
+// level board (where each topic stands and what is not clear yet) and the stair-by-stair mastery grid.
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { ArrowRight, BookOpen } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { topicsFor } from '@/content/index.js';
+import { doneUpTo } from '@/lib/path.js';
 import { GradeSwitch } from './Welcome.jsx';
-import PageHero from '@/components/PageHero.jsx';
-import WorldBackdrop from '@/components/map/WorldBackdrop.jsx';
+import { Bar } from '@/components/ds.jsx';
+import { Emblem } from '@/components/map/Scenery.jsx';
+import Board from '@/components/Board.jsx';
+import MasteryMap from '@/components/learn/MasteryMap.jsx';
 
-export function TopicRow({ t, n, to }) {
-  const p = useApp((s) => s.progress[t.id]);
-  const level = p?.level || 1;
+function SectionCard({ t, n }) {
+  const navigate = useNavigate();
+  const { path, progress } = useApp();
+  const done = doneUpTo(t.id, path, progress);
+  const total = t.levels.length;
   return (
-    <li>
-      <Link to={to || `/topic/${t.id}`} className={`topic-row has-world ch-${t.color} world-${t.id}`}>
-        {/* the same world as the unit on the map */}
-        <span className="topic-world" aria-hidden="true"><WorldBackdrop topic={t.id} /></span>
-        <ChapterMark color={t.color} n={n} />
-        <span className="topic-row-text">
-          <span className="topic-row-title">{t.title}</span>
-          <span className="topic-row-desc">{t.desc}</span>
-        </span>
-        <span className="topic-row-level">
-          <LevelPips total={t.levels.length} level={level} max={p?.max} color={t.color} />
-          <span className="topic-row-level-text">מדרגה {level}</span>
-        </span>
-        <ChevronLeft className="chev" size={20} aria-hidden="true" />
-      </Link>
+    <li className={`section-card ch-${t.color}`}>
+      <div className="section-card-text">
+        <p className="section-card-label">יחידה {n}</p>
+        <h2 className="section-card-title">{t.title}</h2>
+        <p className="section-card-desc">{t.desc}</p>
+        <Bar value={done} max={total} text={`${done} / ${total} מדרגות`} label={`${t.title}: ${done} מתוך ${total} מדרגות`} tone="light" />
+        <div className="section-card-actions">
+          <button type="button" className="btn btn-on-color" onClick={() => navigate('/', { state: { from: t.id } })}>{done === 0 ? 'התחלה' : done >= total ? 'חזרה ליחידה' : 'המשך'}</button>
+          <Link to={`/topic/${t.id}`} className="section-card-guide" aria-label={`תזכורת מהשיעור: ${t.title}`}><BookOpen size={20} aria-hidden="true" />תזכורת</Link>
+        </div>
+      </div>
+      <span className="section-card-art" aria-hidden="true"><Emblem topic={t.id} /></span>
     </li>
   );
 }
@@ -34,17 +38,25 @@ export function TopicRow({ t, n, to }) {
 export default function Topics() {
   const own = useApp((s) => s.profile.grade) || '7';
   const [grade, setGrade] = useState(own);
+  const navigate = useNavigate();
+  const { state } = useLocation();
   const list = topicsFor(grade);
   return (
-    <div className="page wide topics-page">
-      <PageHero tone="brand" scene="topics" title="נושאים" sub="כל הנושאים של השנה, וכמה מדרגות כבר עליתם בכל אחד." />
+    <div className="page topics-page">
+      <header className="screen-bar" data-region="header">
+        <button type="button" className="icon-btn" onClick={() => navigate('/')} aria-label="חזרה למפה"><ArrowRight size={24} aria-hidden="true" /></button>
+        <h1 className="screen-bar-title">נושאים</h1>
+        <span className="icon-btn-spacer" aria-hidden="true" />
+      </header>
       <div className="field">
         <span className="visually-hidden" id="tp-grade">שכבה</span>
         <GradeSwitch value={grade} onChange={setGrade} id="tp-grade" />
       </div>
-      <ul className="topic-list">
-        {list.map((t, i) => <TopicRow key={t.id} t={t} n={i + 1} />)}
+      <ul className="section-cards" data-region="content">
+        {list.map((t, i) => <SectionCard key={t.id} t={t} n={i + 1} />)}
       </ul>
+      <Board grade={grade} placed={!!state?.placed} onStart={(to) => navigate(to)} onJump={(id) => navigate('/', { state: { from: id } })} />
+      <MasteryMap grade={grade} />
     </div>
   );
 }

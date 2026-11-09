@@ -27,7 +27,7 @@ export function bestStreak(days) {
  * (lessons, streaks, perfect lessons, units, stairs, the placement test, a checked exam).
  * A medal not earned yet shows grey with how far along it is.
  */
-export default function Achievements() {
+export default function Achievements({ stats = true }) {
   const { days, xp, path, progress, exams, placement } = useApp();
   const streak = streakOf(days);
   const best = bestStreak(days);
@@ -51,14 +51,14 @@ export default function Achievements() {
   const earned = medals.filter((x) => x.have >= x.need).length;
   return (
     <>
-      <m.dl className="me-stats" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.07 } } }}>
+      {stats && <m.dl className="me-stats" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.07 } } }}>
         {[[Zap, 'xp', 'XP', xp], [Flame, 'streak', 'ימים ברצף', streak], [Footprints, 'stairs', 'מדרגות', stairs]].map(([Icon, k, label, v]) => (
           <m.div key={k} className={`me-stat me-${k}`} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
             <dt>{label}</dt>
             <dd><Icon size={20} aria-hidden="true" /><bdi dir="ltr">{v}</bdi></dd>
           </m.div>
         ))}
-      </m.dl>
+      </m.dl>}
       <section className="section medals-section" aria-labelledby="medals-title">
         <h2 id="medals-title" className="h-section"><Sparkles size={20} aria-hidden="true" className="h-icon" />מדליות <span className="h-count">{earned} מתוך {medals.length}</span></h2>
         <div className="medals">

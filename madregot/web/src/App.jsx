@@ -14,6 +14,7 @@ import Quests from '@/screens/Quests.jsx';
 // Screens that are not on the daily path load on demand.
 const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
+const Settings = lazy(() => import('@/screens/Settings.jsx'));
 const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
 const Exams = lazy(() => import('@/screens/Exams.jsx'));
 const ExamCheck = lazy(() => import('@/screens/ExamCheck.jsx'));
@@ -89,6 +90,7 @@ function Root() {
               <Route path="/topic/:id" element={<Topic />} />
               <Route path="/assistant" element={<Assistant />} />
               <Route path="/me" element={<Me />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="/exams" element={<Exams />} />
               <Route path="/exams/check" element={<ExamCheck />} />
               <Route path="/exams/new" element={<NewPracticeExam />} />

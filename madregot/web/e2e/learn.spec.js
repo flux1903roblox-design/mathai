@@ -21,12 +21,12 @@ async function playDiscover(page) {
         for (let k = 0; k < Math.abs(d); k += 1) await page.getByRole('button', { name: d > 0 ? 'הסמן ימינה' : 'הסמן שמאלה' }).first().click();
       }
       await page.locator('.lm-check').click();
-      await expect(page.locator('.ls-explore .ls-why.good')).toBeVisible();
+      await expect(page.locator('.lm-actions.has-good')).toBeVisible();
     }
     if (st.kind === 'predict') {
       await page.locator('.ls-choice').nth(st.answer).click();
       await page.locator('.lm-check').click();
-      await expect(page.locator('.ls-why.good')).toBeVisible();
+      await expect(page.locator('.lm-actions.has-good')).toBeVisible();
     }
     const next = page.locator('.sp-next');
     const last = (await next.textContent()).includes('לדוגמה');
@@ -117,7 +117,7 @@ test('a confirmed misconception is repaired with its own activity, then verified
   const st = student('7');
   st.state.learn = { skills: {}, events: [], missions: {}, exam: null, miscon: { 'signed:1|minus-minus': { skill: 'signed:1', id: 'minus-minus', score: 2, seen: ['a', 'b'], state: 'confirmed', at } } };
   st.version = 2;
-  await open(page, '#/', st);
+  await open(page, '#/quests', st);
   // today's mission starts with the repair, and says why
   await expect(page.locator('.today-items li').first()).toContainText('תיקון');
   await page.locator('.continue-go').click();
@@ -147,12 +147,16 @@ test('a confirmed misconception is repaired with its own activity, then verified
 
 test('Exam Rescue: the exam\'s date and stairs, a short diagnostic, then a plan that says where the student stands', async ({ page }) => {
   await open(page, '#/rescue', student('7'));
-  await page.getByRole('button', { name: 'לבניית התוכנית' }).click();
-  await expect(page.getByRole('alert')).toBeVisible(); // nothing chosen yet: it says what is missing
+  // one question per screen; the button stays off until the question has an answer
+  await expect(page.getByRole('button', { name: 'המשך', exact: true })).toBeDisabled();
   const d = new Date(); d.setDate(d.getDate() + 4);
   await page.locator('#exam-date').fill(d.toLocaleDateString('en-CA'));
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'המשך', exact: true })).toBeDisabled();
   await page.getByText('מספרים מכוונים (כל הנושא)').click();
-  await page.getByRole('button', { name: 'לבניית התוכנית' }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click(); // confidence: the default
+  await page.getByRole('button', { name: /לבניית התוכנית/ }).click();
   await expect(page.locator('.rescue-msg')).toContainText('בדיקה קצרה');
   await page.getByRole('button', { name: /לבדיקה הקצרה/ }).click();
   await expect.poll(() => item(page)).toBeTruthy();
@@ -165,7 +169,7 @@ test('Exam Rescue: the exam\'s date and stairs, a short diagnostic, then a plan 
   await expect(page.getByText('התוכנית לא מבטיחה ציון')).toBeVisible();
   const st = await saved(page);
   expect(Object.keys(st.learn.exam.diagnostic)).toHaveLength(5);
-  await page.goto('./#/');
+  await page.goto('./#/quests');
   await expect(page.locator('.today-exam')).toContainText('ההכנה למבחן');
 });
 
@@ -173,6 +177,7 @@ test('the profile shows what the evidence says, on this device, and can delete e
   await open(page, '#/me', student('7'));
   await expect(page.getByRole('heading', { name: 'הלמידה שלי במספרים' })).toBeVisible();
   await expect(page.getByText('עוד אין מספיק נתונים').first()).toBeVisible();
+  await page.getByRole('link', { name: 'הגדרות' }).click();
   await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
   await page.getByRole('button', { name: 'כן, למחוק הכול' }).click();
   await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible(); // back to the first screen
@@ -183,13 +188,14 @@ test('the profile shows what the evidence says, on this device, and can delete e
 test('saved progress from before 2.0 survives the update', async ({ page }) => {
   const old = student('7', { xp: 120, path: { signed: { parts: { 1: 2, 2: 1 }, reviews: 0, jumped: 0 } }, gaps: { 'signed:sign': { level: 1, n: 2, ok: 0, at: '2026-11-01T10:00:00Z' } } });
   await open(page, '#/', old);
-  await expect(page.locator('.continue')).toBeVisible();
+  await expect(page.locator('.node-current').first()).toBeVisible();
   const st = await saved(page);
   expect(st.xp).toBe(120);
   expect(st.path.signed.parts['1']).toBe(2);
   expect(st.gaps['signed:sign'].n).toBe(2);
   expect(st.learn.miscon['signed:1|sign'].state).toBe('confirmed');
   // the stair finished on the map counts as practised, not as mastered
+  await page.goto('./#/topics');
   await expect(page.locator('.mm-tile').first()).toHaveAttribute('aria-label', /מתרגלים/);
 });
 
@@ -197,9 +203,12 @@ test('reviewer P1: two right diagnostic answers per stair are "passed the first 
   await open(page, '#/rescue', student('7'));
   const d = new Date(); d.setDate(d.getDate() + 3);
   await page.locator('#exam-date').fill(d.toLocaleDateString('en-CA'));
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByText('חיבור וחיסור', { exact: true }).click();
   await page.getByText('השוואת מספרים', { exact: true }).click();
-  await page.getByRole('button', { name: 'לבניית התוכנית' }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('button', { name: /לבניית התוכנית/ }).click();
   await page.getByRole('button', { name: /לבדיקה הקצרה/ }).click();
   await expect.poll(() => item(page)).toBeTruthy();
   for (let i = 0; i < 4; i += 1) { await answer(page, true); await page.locator('section.fb .fb-actions .btn').click(); }
@@ -213,14 +222,14 @@ test('reviewer P1: two right diagnostic answers per stair are "passed the first 
   // the plan confirms with a mastery check instead of assuming mastery
   await expect(page.locator('.rescue-day').first()).toContainText('בדיקת שליטה: חיבור וחיסור');
   // and the map says the same thing in the same words
-  await page.goto('./#/');
+  await page.goto('./#/topics');
   await expect(page.locator('.mm-count')).toHaveText('שולטים לבד ב־0 מתוך 15');
   const st = await saved(page);
   expect(st.learn.skills['signed:1']?.mastered).toBeUndefined();
 });
 
 test('reviewer P2: the mission names the stage it asks for, and its completion says the stair is not done', async ({ page }) => {
-  await open(page, '#/', student('7'));
+  await open(page, '#/quests', student('7'));
   const first = page.locator('.today-items li').first();
   await expect(first).toContainText('מבינים את הרעיון: חיבור וחיסור');
   await expect(first).toContainText('שלב 1 מתוך 5');
@@ -228,7 +237,7 @@ test('reviewer P2: the mission names the stage it asks for, and its completion s
   await expect(page).toHaveURL(/learn\/signed\/1\/A/);
   await playDiscover(page);
   await expect(page).toHaveURL(/learn\/signed\/1\/B/);
-  await page.goto('./#/');
+  await page.goto('./#/quests');
   await expect(page.locator('#continue-title')).toHaveText('המשימה של היום הושלמה');
   await expect(page.locator('.today-head')).toContainText('במדרגה "חיבור וחיסור" סיימתם את שלב 1 מתוך 5 (מבינים את הרעיון). המדרגה עצמה עוד לא הושלמה: השלבים הבאים מחכים בדף שלה.');
   await page.goto('./#/learn/signed/1');

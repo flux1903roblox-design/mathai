@@ -402,3 +402,39 @@ countdown's "ימים" 3.8:1 (both now 4.5:1 or more, axe).
 Suites on the final code: unit 409/409; typecheck clean; end-to-end 278 passed, 0 failed (162 skipped by design);
 axe 36 + 9 scans, 0 violations; size sweep 60 checks, the one known flag (a button inside a closed section).
 Visual baselines: 50 images updated after an old/new review on phone and short phone.
+
+## Round 12: structural rebuild on the real Duolingo and Brilliant layouts (9 November 2026)
+
+The owner asked for the actual screen composition, navigation and interaction flow of the two apps, researched from
+real screens, not a restyle. Research: 67 Duolingo images (about 40 raw device captures, 2024–2026) and 71 Brilliant
+images (62 raw in-app captures), each with its source URL and measured region positions; kept outside the repository.
+Specification: `LAYOUT_SPEC.md`.
+
+What changed in structure (JSX, not only CSS):
+- Home is the path (top stats bar with today's mission count, sticky unit banner, nodes, icon-only tabs). The mission
+  card moved to the Missions tab; the mastery grid and level board moved to Topics; a path stop's first button opens
+  the next stage directly.
+- Practice: a bold instruction line under the bar (a word problem is said by מדי in a bubble); help moved to the top
+  bar; the footer holds only the answer and one full-width check, which sits right above the number pad; text answers
+  sit low; no divider behind the button.
+- Teaching stages, remedies: one header row (close, segmented bar, help) replaces the title bar; the lesson title on
+  the first screen only; the text at the top, then the visual and its controls in the middle band; answer cards in a
+  centred grid of two; select, then "בדיקה"; the result sheet with "למה?" beside "המשך" (the explanation opens on
+  request); a first miss shows a yellow hint and keeps "בדיקה".
+- Welcome: the character in the middle, two buttons pinned at the bottom (the demo exercise was removed from it).
+- Exam Rescue: the details are a one-question-per-screen flow without the tab bar; the plan's days are a path with
+  today's stop open and a trophy for the exam.
+- Profile and a new Settings screen (`/settings`); Topics as a sections overview; the guidebook; the assistant as a
+  conversation; the quit sheet with a quiet red "יציאה"; tab headers as solid colour blocks.
+
+Proof: 16 side-by-side sheets (reference with its measured bands, Madregot after with regions measured from
+`data-region` markers, Madregot before), 3 interaction-sequence strips, and before/after at 320×568, 375×667,
+390×844, 430×932, 768×1024 and 1440×900.
+
+Found and fixed during this round: the e2e run collided with another run on the same port (rerun cleanly); two
+desktop journeys matched two "משימות" links once the side panel existed (exact name); the white subtitle on the orange
+tab header was 4.39:1 (now darker, 4.5:1 or more).
+
+Suites on the final code: unit 409/409; typecheck clean; end-to-end 278 passed, 0 failed (162 skipped by design; the
+teaching drivers now pick, press "בדיקה" and read the result sheet); axe 45 scans, 0 violations; size sweep 60
+checks, 0 problems. Visual baselines: 51 images updated after an old/new review.

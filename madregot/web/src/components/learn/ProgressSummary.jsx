@@ -13,7 +13,7 @@ import { Badge, Stat } from '@/components/ds.jsx';
 
 const TONE = { 'needs-support': 'support', 'needs-review': 'review' };
 
-export default function ProgressSummary() {
+export default function ProgressSummary({ tiles = true }) {
   const navigate = useNavigate();
   const grade = useApp((s) => s.profile?.grade) || '7';
   const skills = useApp((s) => s.learn.skills);
@@ -27,11 +27,11 @@ export default function ProgressSummary() {
   return (
     <section className="progress-summary" aria-labelledby="ps-title">
       <h2 id="ps-title" className="h-section">ההתקדמות שלי</h2>
-      <div className="ps-stats">
+      {tiles && <div className="ps-stats">
         <Stat tone="good" icon={Award} value={mastered} label="שולטים לבד" />
         <Stat tone="brand" icon={Route} value={onWay} label="בדרך לשליטה" />
         <Stat tone="gold" icon={Target} value={work.length} label="צריכות חיזוק" />
-      </div>
+      </div>}
       {next && (
         <div className="ps-next">
           <div className="ps-next-text">

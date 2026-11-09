@@ -1,12 +1,13 @@
 // Stage A (and every remedy): a short run of teaching steps, one at a time, laid out like a Brilliant lesson:
-//   a thin segmented bar on top, the text (with מדי beside it), the maths on a light board in the middle, answer
-//   cards across the width, and at the bottom one button: "בדיקה" while there is something to check, then a result
-//   strip ("נכון!" in green, "כמעט" in yellow) with "המשך".
+//   one header row (close, a thin segmented progress bar, help), the lesson's title on its first screen only,
+//   the text, then one large visual (the expression, the drawing or the object to move) with its controls under it,
+//   answer cards across the width, and one button at the bottom: "בדיקה" while there is something to check, then a
+//   result sheet that opens above it ("נכון!" in green, "כמעט" in yellow) with the explanation and מדי, and "המשך".
 // Step kinds: say, predict (a guess, then why: any choice moves on), explore (move it until it is right), rule.
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { AnimatePresence, m } from 'motion/react';
-import { ArrowLeft, ArrowRight, Check, Lightbulb, X, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Lightbulb, X, Sparkles, HelpCircle } from 'lucide-react';
 import Mascot from '@/components/Mascot.jsx';
 import { Tex, MathText, mathPlain } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
@@ -18,13 +19,33 @@ import { qaOn } from '@/lib/qa.js';
 import { enter } from '@/lib/motion.js';
 import { play } from '@/lib/sound.js';
 
-/** The prompt: מדי and what he says. Shared by every lesson module. */
-export function Prompt({ mood = 'idle', children, tag }) {
+/** The text of a step: plain, first on the screen (מדי speaks in the result sheet, not beside every text). */
+export function Prompt({ children, tag }) {
   return (
-    <header className="lm-prompt">
-      <Mascot mood={mood} size={52} className="lm-madi" />
+    <header className="lm-prompt" data-region="question">
       <div className="lm-say">{tag && <p className="lm-tag">{tag}</p>}{children}</div>
     </header>
+  );
+}
+
+/** The lesson's one header row: close, the progress bar, help. */
+export function LessonHeader({ bar, onClose, closeLabel = 'סגירה', onHelp }) {
+  return (
+    <header className="bl-head" data-region="header">
+      {onClose ? <button type="button" className="icon-btn bl-x" onClick={onClose} aria-label={closeLabel}><X size={24} aria-hidden="true" /></button> : <span className="icon-btn-spacer" aria-hidden="true" />}
+      <div className="bl-bar">{bar}</div>
+      {onHelp ? <button type="button" className="icon-btn" onClick={onHelp} aria-label="שאלה למדי"><HelpCircle size={24} aria-hidden="true" /></button> : <span className="icon-btn-spacer" aria-hidden="true" />}
+    </header>
+  );
+}
+
+/** The result sheet's body: מדי beside the explanation, as a tutor would say it. */
+export function ResultWhy({ tone, children }) {
+  return (
+    <div className={clsx('ls-why', 'bl-why', tone)}>
+      <Mascot mood={tone === 'good' ? 'happy' : 'encouraging'} size={40} className="bl-why-madi" />
+      <div className="bl-why-text">{children}</div>
+    </div>
   );
 }
 
@@ -32,7 +53,7 @@ export function Prompt({ mood = 'idle', children, tag }) {
 export function Canvas({ display, fig, big = true, children, label }) {
   if (!display && !fig && !children) return null;
   return (
-    <div className={clsx('lm-canvas', big && 'big')} aria-label={label}>
+    <div className={clsx('lm-canvas', big && 'big')} aria-label={label} data-region="visual">
       {display && <div className="lm-expr"><Tex tex={display} display /></div>}
       {fig && <div className="lm-fig"><Figure fig={fig} /></div>}
       {children}
@@ -43,7 +64,7 @@ export function Canvas({ display, fig, big = true, children, label }) {
 function Say({ step }) {
   return (
     <>
-      <Prompt mood={step.mood || 'idle'}><p><MathText text={step.text} /></p></Prompt>
+      <Prompt><p><MathText text={step.text} /></p></Prompt>
       <Canvas display={step.display} fig={step.fig} />
     </>
   );
@@ -53,9 +74,9 @@ function Predict({ step, chosen, sel, onSelect }) {
   const locked = chosen != null;
   return (
     <>
-      <Prompt mood={locked ? (chosen === step.answer ? 'happy' : 'encouraging') : 'thinking'} tag="מה לדעתכם?"><p><MathText text={step.text} /></p></Prompt>
+      <Prompt tag="מה לדעתכם?"><p><MathText text={step.text} /></p></Prompt>
       <Canvas display={step.display} fig={step.fig} />
-      <div className="lm-response">
+      <div className="lm-response" data-region="answers">
         <div className="ls-choices" role="radiogroup" aria-label="מה לדעתכם?">
           {step.choices.map((c, i) => {
             const state = locked ? (i === step.answer ? 'good' : i === chosen ? 'bad' : '') : '';
@@ -68,12 +89,6 @@ function Predict({ step, chosen, sel, onSelect }) {
             );
           })}
         </div>
-        {locked && (
-          <m.div className={clsx('ls-why', chosen === step.answer ? 'good' : 'warm')} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={enter(0.25)}>
-            {chosen !== step.answer && step.wrongWhy?.[chosen] && <p><MathText text={step.wrongWhy[chosen]} /></p>}
-            <p><MathText text={step.why} /></p>
-          </m.div>
-        )}
       </div>
     </>
   );
@@ -101,14 +116,10 @@ function Explore({ step, done, onDone, onCtl }) {
   useEffect(() => { onCtl({ step, can: !ok && touched && v != null, miss: ok ? 0 : Math.max(0, miss), check }); }, [v, touched, miss, ok]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="ls-explore">
-      <Prompt mood={ok ? 'happy' : miss > 0 ? 'encouraging' : 'thinking'} tag="נסו בעצמכם"><p><MathText text={step.text} /></p></Prompt>
+      <Prompt tag="נסו בעצמכם"><p><MathText text={step.text} /></p></Prompt>
       <Canvas display={step.display ? `${step.display}${step.manip.kind === 'numberline' ? ' = \\,?' : ''}` : null}>
         {C ? <C m={step.manip} value={v} onChange={(x) => { setV(x); setTouched(true); if (miss > 0) setMiss(0); }} locked={ok} reveal={false} good={ok} answer={step.answer} hint={miss > 0} /> : <p className="form-error">האובייקט הזה לא זמין.</p>}
       </Canvas>
-      <div className="lm-response" aria-live="polite">
-        {ok && <p className="ls-why good"><Check size={16} strokeWidth={3} aria-hidden="true" /> <MathText text={step.success} /></p>}
-        {!ok && miss > 0 && <p className="ls-why warm"><Lightbulb size={16} aria-hidden="true" /> <MathText text={step.hint} /></p>}
-      </div>
     </div>
   );
 }
@@ -116,7 +127,7 @@ function Explore({ step, done, onDone, onCtl }) {
 function Rule({ step }) {
   return (
     <>
-      <Prompt mood="happy" tag="הכלל"><p className="lm-rule-text"><MathText text={step.text} /></p></Prompt>
+      <Prompt tag="הכלל"><p className="lm-rule-text"><MathText text={step.text} /></p></Prompt>
       <Canvas display={step.display} fig={step.fig} />
       <div className="lm-response"><div className="lm-why"><p className="lm-why-title"><Sparkles size={16} aria-hidden="true" />למה זה עובד?</p><p><MathText text={step.why} /></p></div></div>
     </>
@@ -125,13 +136,16 @@ function Rule({ step }) {
 
 /**
  * steps: DiscoverStep[]; start: the step to open on; onIndex(i): where the student is (saved, so leaving keeps it);
- * onDone(): after the last step. label: what this run is (for the progress).
+ * onDone(): after the last step. label: what this run is (for the progress). renderHead(bar): the screen's header
+ * row with this run's progress bar in it (without it, the bar stands on its own). title/kicker: the lesson's name,
+ * shown on its first screen.
  */
-export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 'שלב', doneLabel = 'סיימתי' }) {
+export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 'שלב', doneLabel = 'סיימתי', renderHead, title, kicker }) {
   const [i, setI] = useState(Math.min(start, steps.length - 1));
   const [answers, setAnswers] = useState({}); // step index → chosen (predict) or true (explore done)
   const [sel, setSel] = useState({}); // predict: the card picked, before it is checked
   const [ctl, setCtl] = useState(null); // explore: what the bottom button checks
+  const [why, setWhy] = useState(null); // the step whose explanation is open ("למה?")
   const ref = useRef(null);
   const step = steps[i];
   useEffect(() => { onIndex?.(i); ref.current?.focus({ preventScroll: true }); window.scrollTo?.({ top: 0, behavior: 'smooth' }); }, [i]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -151,37 +165,44 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
   const check = () => {
     if (step.kind === 'predict') { setAnswers((a) => ({ ...a, [i]: sel[i] })); play(sel[i] === step.answer ? 'correct' : 'wrong'); } else exp?.check();
   };
-  // the result strip, as both reference apps show it: green when right, yellow (not red) when not yet
-  const banner = step.kind === 'predict' && answers[i] != null
-    ? (answers[i] === step.answer ? { tone: 'good', text: 'נכון!' } : { tone: 'warm', text: 'ניחוש טוב לבדוק. הנה מה שקורה' })
-    : step.kind === 'explore' && answers[i] ? { tone: 'good', text: 'יפה! בדיוק כך' }
-      : step.kind === 'explore' && exp?.miss > 0 ? { tone: 'warm', text: 'עוד לא. הזיזו ונסו שוב' } : null;
+  // the result sheet: green when right, yellow (not red) when not yet, with the explanation in מדי's words
+  const result = step.kind === 'predict' && answers[i] != null
+    ? (answers[i] === step.answer
+      ? { tone: 'good', title: 'נכון!', body: <p><MathText text={step.why} /></p> }
+      : { tone: 'warm', title: 'ניחוש טוב לבדוק. הנה מה שקורה', body: <>{step.wrongWhy?.[answers[i]] && <p><MathText text={step.wrongWhy[answers[i]]} /></p>}<p><MathText text={step.why} /></p></> })
+    : step.kind === 'explore' && answers[i] ? { tone: 'good', title: 'יפה! בדיוק כך', body: <p><MathText text={step.success} /></p> }
+      : step.kind === 'explore' && exp?.miss > 0 ? { tone: 'warm', title: 'עוד לא. הזיזו ונסו שוב', body: <p><MathText text={step.hint} /></p> } : null;
+  const bar = <Segments steps={steps.length} done={i} current={i} size="thin" className="sp-progress" label={label} valueText={`צעד ${i + 1} מתוך ${steps.length}`} />;
   return (
     <div className="step-player lm">
-      <div className="lm-progress">
-        <Segments steps={steps.length} done={i} current={i} size="thin" className="sp-progress" label={label} valueText={`צעד ${i + 1} מתוך ${steps.length}`} />
-        <span className="lm-count" aria-hidden="true">{i + 1}/{steps.length}</span>
-      </div>
+      {renderHead ? renderHead(bar) : (
+        <div className="lm-progress">{bar}<span className="lm-count" aria-hidden="true">{i + 1}/{steps.length}</span></div>
+      )}
       <AnimatePresence mode="wait" initial={false}>
-        <m.section key={i} ref={ref} tabIndex={-1} className={clsx('sp-step', 'lm-card', `sp-${step.kind}`)} aria-label={`צעד ${i + 1} מתוך ${steps.length}`}
+        <m.section key={i} ref={ref} tabIndex={-1} className={clsx('sp-step', 'lm-card', `sp-${step.kind}`)} aria-label={`צעד ${i + 1} מתוך ${steps.length}`} data-region="content"
           initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 24 }} transition={enter(0.22)}>
+          {i === 0 && title && <div className="bl-intro">{kicker && <p className="bl-kicker">{kicker}</p>}<h1 className="bl-title">{title}</h1></div>}
           {step.kind === 'say' && <Say step={step} />}
           {step.kind === 'predict' && <Predict step={step} chosen={answers[i]} sel={sel[i]} onSelect={(c) => setSel((x) => ({ ...x, [i]: c }))} />}
           {step.kind === 'explore' && <Explore step={step} done={!!answers[i]} onDone={() => setAnswers((a) => ({ ...a, [i]: true }))} onCtl={setCtl} />}
           {step.kind === 'rule' && <Rule step={step} />}
         </m.section>
       </AnimatePresence>
-      <footer className={clsx('lm-actions', 'sp-nav', banner && `has-${banner.tone}`)}>
-        {banner && (
-          <p className="lm-banner" role="status">
-            <span className="lm-banner-icon" aria-hidden="true">{banner.tone === 'good' ? <Check size={18} strokeWidth={3.4} /> : <Lightbulb size={18} />}</span>{banner.text}
-          </p>
+      <footer className={clsx('lm-actions', 'sp-nav', result && `has-${result.tone}`)} data-region="footer">
+        {result && (
+          <m.div key={`${i}-${result.tone}`} className="bl-result" role="status" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)}>
+            <p className="lm-banner"><span className="lm-banner-icon" aria-hidden="true">{result.tone === 'good' ? <Check size={18} strokeWidth={3.4} /> : <Lightbulb size={18} />}</span>{result.title}</p>
+            {/* as in Brilliant: when right, the explanation waits behind "למה?"; when not yet, it is the help itself */}
+            {(result.tone !== 'good' || why === i) && <ResultWhy tone={result.tone}>{result.body}</ResultWhy>}
+          </m.div>
         )}
         <div className="lm-actions-row">
-          <Button variant="ghost" className="sp-back" onClick={() => setI(i - 1)} disabled={i === 0} aria-label="הצעד הקודם"><ArrowRight size={18} aria-hidden="true" />הקודם</Button>
+          {result?.tone === 'good' && why !== i
+            ? <Button variant="secondary" className="bl-why-btn" onClick={() => setWhy(i)}>למה?</Button>
+            : <Button variant="ghost" className="sp-back" onClick={() => setI(i - 1)} disabled={i === 0} aria-label="הצעד הקודם"><ArrowRight size={18} aria-hidden="true" />הקודם</Button>}
           {checking
-            ? <Button className="lm-check btn-lg" onClick={check} disabled={!canCheck}>בדיקה</Button>
-            : <Button className="sp-next btn-lg" onClick={go}>{last ? doneLabel : step.kind === 'say' ? 'הבנתי' : 'המשך'}{!last && <ArrowLeft size={18} aria-hidden="true" />}</Button>}
+            ? <Button className="lm-check btn-lg" onClick={check} disabled={!canCheck} data-region="primary">בדיקה</Button>
+            : <Button className="sp-next btn-lg" onClick={go} data-region="primary">{last ? doneLabel : step.kind === 'say' ? 'הבנתי' : 'המשך'}{!last && <ArrowLeft size={18} aria-hidden="true" />}</Button>}
         </div>
       </footer>
     </div>

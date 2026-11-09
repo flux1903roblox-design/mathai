@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { CalendarClock, Check, Trash2, ClipboardCheck } from 'lucide-react';
+import { CalendarClock, Check, Trash2, ClipboardCheck, ArrowRight, Star, Trophy } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { useLearnCtx } from '@/lib/useLearn.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
@@ -16,15 +16,27 @@ import { MathText } from '@/components/MathText.jsx';
 import { Button, Sheet } from '@/components/ui.jsx';
 import PageHero from '@/components/PageHero.jsx';
 import { Segments } from '@/components/ds.jsx';
+import Mascot from '@/components/Mascot.jsx';
 
 const CONF = [{ v: 1, label: 'לא בטוחים בכלל' }, { v: 2, label: 'קצת בטוחים' }, { v: 3, label: 'די בטוחים' }, { v: 4, label: 'בטוחים' }];
 const MINUTES = [10, 15, 20, 30];
 const ORDER = ['mastered', 'ready', 'shaky', 'gap', 'untested'];
+// the day path winds like the map's path
+const DAY_SWING = [0, 48, 72, 48, 0, -48, -72, -48];
 const STANDING = { mastered: 'שולטים לבד', ready: 'עברו את הבדיקה הראשונה', shaky: 'כמעט', gap: 'צריך לעבוד', untested: 'עוד לא נבדק' };
 const dayName = (d) => { const t = today(); if (d === t) return 'היום'; const x = new Date(`${d}T12:00:00`); return x.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'numeric' }); };
 
+const ASK = ['מתי המבחן?', 'מה יהיה במבחן?', 'כמה אתם מרגישים בטוחים?', 'כמה דקות ביום יש לכם?'];
+
+/**
+ * The exam's details, asked like Duolingo's onboarding: one question per screen, a progress bar and the way back on
+ * top, מדי asking in a speech bubble, the options under it, and one full-width button at the bottom that is off
+ * until the question has an answer.
+ */
 function Setup({ onSave }) {
+  const navigate = useNavigate();
   const grade0 = useApp((s) => s.profile?.grade) || '7';
+  const [step, setStep] = useState(0);
   const [grade, setGrade] = useState(grade0);
   const [date, setDate] = useState('');
   const [skills, setSkills] = useState([]);
@@ -34,59 +46,76 @@ function Setup({ onSave }) {
   const topics = topicsFor(grade);
   const toggle = (id) => setSkills((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const toggleTopic = (t) => { const ids = t.levels.map((_, i) => skillId(t.id, i + 1)); const all = ids.every((x) => skills.includes(x)); setSkills((s) => (all ? s.filter((x) => !ids.includes(x)) : [...new Set([...s, ...ids])])); };
+  const can = step === 0 ? !!date && date >= today() : step === 1 ? skills.length > 0 : true;
+  const last = step === ASK.length - 1;
   const submit = (e) => {
     e.preventDefault();
+    if (!can) return;
+    if (!last) { setStep(step + 1); setError(null); return; }
     const input = { grade, date, skills, confidence, minutes };
     const err = validInput(input, today());
     if (err) { setError(err); return; }
     onSave(input);
   };
   return (
-    <form className="rescue-form" onSubmit={submit} noValidate>
-      <section className="card rescue-step" aria-labelledby="rs-1">
-        <h2 id="rs-1" className="rescue-step-head"><span className="rescue-step-n" aria-hidden="true">1</span>מתי המבחן?</h2>
-        <fieldset className="field"><legend className="field-label">כיתה</legend>
-          <div className="opt-row" role="radiogroup">{['7', '8'].map((g) => <label key={g} className={clsx('opt', grade === g && 'on')}><input type="radio" name="grade" value={g} checked={grade === g} onChange={() => { setGrade(g); setSkills([]); }} />כיתה {g === '7' ? 'ז׳' : 'ח׳'}</label>)}</div>
-        </fieldset>
-        <div className="field">
-          <label htmlFor="exam-date" className="field-label">תאריך המבחן</label>
-          <input id="exam-date" type="date" className="input" min={today()} value={date} onChange={(e) => setDate(e.target.value)} />
+    <form className="ob ob-flow rescue-flow" onSubmit={submit} noValidate>
+      <header className="ob-top" data-region="header">
+        <button type="button" className="icon-btn" onClick={() => (step ? setStep(step - 1) : navigate(-1))} aria-label="חזרה"><ArrowRight size={26} aria-hidden="true" /></button>
+        <div className="ob-bar" role="progressbar" aria-label="פרטי המבחן" aria-valuemin={0} aria-valuemax={ASK.length} aria-valuenow={step + 1}><i style={{ width: `${((step + 1) / ASK.length) * 100}%` }} /></div>
+      </header>
+      <main className="ob-main" data-region="content">
+        <div className="ob-ask" data-region="question">
+          <Mascot mood={step === 0 ? 'excited' : 'idle'} size={84} className="ob-mascot" />
+          <p className="ob-bubble" id="rs-q">{ASK[step]}</p>
         </div>
-      </section>
-      <section className="card rescue-step" aria-labelledby="rs-2">
-        <h2 id="rs-2" className="rescue-step-head"><span className="rescue-step-n" aria-hidden="true">2</span>מה יהיה במבחן?</h2>
-        <p className="field-hint">{aiReady() ? 'בחרו את המדרגות שיהיו במבחן.' : 'בחרו את המדרגות שיהיו במבחן. צילום של רשימת הנושאים מהמורה יעבוד כשהעוזר החכם מחובר; בגרסה הזאת בוחרים ידנית.'}</p>
-        {topics.map((t) => {
-          const ids = t.levels.map((_, i) => skillId(t.id, i + 1));
-          const all = ids.every((x) => skills.includes(x));
-          const some = ids.filter((x) => skills.includes(x)).length;
-          return (
-            <fieldset key={t.id} className={clsx('rescue-topic', `ch-${t.color}`)}>
-              <legend className="visually-hidden">{t.title}</legend>
-              <div className="rescue-topic-head">
-                <label className="check-row topic-row"><input type="checkbox" checked={all} onChange={() => toggleTopic(t)} /><span>{t.title} (כל הנושא)</span></label>
-                {some > 0 && <span className="rescue-topic-count">{some}/{ids.length}</span>}
-              </div>
-              <div className="stair-chips">
-                {t.levels.map((L, i) => { const id = skillId(t.id, i + 1); const on = skills.includes(id); return <label key={id} className={clsx('chip-toggle', on && 'on')}><input type="checkbox" checked={on} onChange={() => toggle(id)} />{on && <Check size={15} strokeWidth={3} aria-hidden="true" />}<span>{L.title}</span></label>; })}
-              </div>
-            </fieldset>
-          );
-        })}
-      </section>
-      <section className="card rescue-step" aria-labelledby="rs-3">
-        <h2 id="rs-3" className="rescue-step-head"><span className="rescue-step-n" aria-hidden="true">3</span>כמה זמן ובאיזו הרגשה?</h2>
-        <fieldset className="field"><legend className="field-label">כמה אתם מרגישים בטוחים?</legend>
-          <div className="opt-row" role="radiogroup">{CONF.map((c) => <label key={c.v} className={clsx('opt', confidence === c.v && 'on')}><input type="radio" name="conf" checked={confidence === c.v} onChange={() => setConfidence(c.v)} />{c.label}</label>)}</div>
-        </fieldset>
-        <fieldset className="field"><legend className="field-label">כמה דקות ביום יש לכם?</legend>
-          <div className="opt-row" role="radiogroup">{MINUTES.map((m) => <label key={m} className={clsx('opt', minutes === m && 'on')}><input type="radio" name="min" checked={minutes === m} onChange={() => setMinutes(m)} />{m}</label>)}</div>
-        </fieldset>
-      </section>
-      <div className="rescue-submit">
+        {step === 0 && (
+          <>
+            <div className="ob-opts ob-opts-row" role="radiogroup" aria-label="כיתה">
+              {['7', '8'].map((g) => <button key={g} type="button" role="radio" aria-checked={grade === g} className={clsx('ob-opt', grade === g && 'on')} onClick={() => { setGrade(g); setSkills([]); }}><span className="ob-opt-text"><b>כיתה {g === '7' ? 'ז׳' : 'ח׳'}</b></span></button>)}
+            </div>
+            <div className="field">
+              <label htmlFor="exam-date" className="field-label">תאריך המבחן</label>
+              <input id="exam-date" type="date" className="input" min={today()} value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+          </>
+        )}
+        {step === 1 && (
+          <div className="rescue-topics" data-region="answers">
+            <p className="field-hint">{aiReady() ? 'בחרו את המדרגות שיהיו במבחן.' : 'בחרו את המדרגות שיהיו במבחן. צילום של רשימת הנושאים מהמורה יעבוד כשהעוזר החכם מחובר; בגרסה הזאת בוחרים ידנית.'}</p>
+            {topics.map((t) => {
+              const ids = t.levels.map((_, i) => skillId(t.id, i + 1));
+              const all = ids.every((x) => skills.includes(x));
+              const some = ids.filter((x) => skills.includes(x)).length;
+              return (
+                <fieldset key={t.id} className={clsx('rescue-topic', `ch-${t.color}`)}>
+                  <legend className="visually-hidden">{t.title}</legend>
+                  <div className="rescue-topic-head">
+                    <label className="check-row topic-row"><input type="checkbox" checked={all} onChange={() => toggleTopic(t)} /><span>{t.title} (כל הנושא)</span></label>
+                    {some > 0 && <span className="rescue-topic-count">{some}/{ids.length}</span>}
+                  </div>
+                  <div className="stair-chips">
+                    {t.levels.map((L, i) => { const id = skillId(t.id, i + 1); const on = skills.includes(id); return <label key={id} className={clsx('chip-toggle', on && 'on')}><input type="checkbox" checked={on} onChange={() => toggle(id)} />{on && <Check size={15} strokeWidth={3} aria-hidden="true" />}<span>{L.title}</span></label>; })}
+                  </div>
+                </fieldset>
+              );
+            })}
+          </div>
+        )}
+        {step === 2 && (
+          <div className="ob-opts" role="radiogroup" aria-labelledby="rs-q" data-region="answers">
+            {CONF.map((c) => <button key={c.v} type="button" role="radio" aria-checked={confidence === c.v} className={clsx('ob-opt', confidence === c.v && 'on')} onClick={() => setConfidence(c.v)}><span className="ob-opt-text"><b>{c.label}</b></span></button>)}
+          </div>
+        )}
+        {step === 3 && (
+          <div className="ob-opts" role="radiogroup" aria-labelledby="rs-q" data-region="answers">
+            {MINUTES.map((m) => <button key={m} type="button" role="radio" aria-checked={minutes === m} className={clsx('ob-opt', minutes === m && 'on')} onClick={() => setMinutes(m)}><span className="ob-opt-text"><b>{m} דקות ביום</b></span></button>)}
+          </div>
+        )}
         {error && <p className="form-error" role="alert">{error}</p>}
-        <Button type="submit" className="btn-block btn-lg">לבניית התוכנית{skills.length > 0 && ` (${skills.length} מדרגות)`}</Button>
-      </div>
+      </main>
+      <footer className="ob-foot" data-region="footer">
+        <Button type="submit" className="btn-block btn-lg" disabled={!can}>{last ? `לבניית התוכנית (${skills.length} מדרגות)` : 'המשך'}</Button>
+      </footer>
     </form>
   );
 }
@@ -117,22 +146,34 @@ function Plan({ plan }) {
               {ORDER.filter((k) => p.skills.some((x) => x.standing === k)).map((k) => <li key={k}><i className={`rs-${k}`} aria-hidden="true" />{STANDING[k]}: {p.skills.filter((x) => x.standing === k).length}</li>)}
             </ul>
           </section>
-          <section aria-labelledby="days-title">
+          {/* the days as a path, as Duolingo draws a unit: one stop per day on a winding road, today's stop open
+              with its tasks and its button, the exam a trophy at the end */}
+          <section aria-labelledby="days-title" className="day-path-wrap">
             <h2 id="days-title" className="h-section">התוכנית יום אחרי יום</h2>
-            <ol className="rescue-days">
-              {p.days.map((d) => (
-                <li key={d.day} className={clsx('rescue-day', d.day === today() && 'today')}>
-                  <p className="rescue-day-name">{dayName(d.day)}</p>
-                  <ul className="plain-list">
-                    {d.tasks.map((t, i) => (
-                      <li key={i} className="rescue-task">
-                        <span><MathText text={t.title} /></span>
-                        {d.day === today() && <Button variant={i === 0 ? 'primary' : 'ghost'} className="btn-sm" onClick={() => navigate(t.to)}>{i === 0 ? 'מתחילים' : 'פתיחה'}</Button>}
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
+            <ol className="rescue-days day-path">
+              {p.days.map((d, k) => {
+                const isToday = d.day === today();
+                return (
+                  <li key={d.day} className={clsx('rescue-day', isToday && 'today')} style={{ '--x': `${DAY_SWING[k % DAY_SWING.length]}px` }}>
+                    {isToday && <span className="day-start" aria-hidden="true">היום</span>}
+                    <span className="day-node" aria-hidden="true">{isToday ? <Star size={30} fill="currentColor" /> : k + 1}</span>
+                    <p className="rescue-day-name">{dayName(d.day)}</p>
+                    <ul className={clsx('plain-list', 'day-tasks', !isToday && 'visually-hidden')}>
+                      {d.tasks.map((t, i) => (
+                        <li key={i} className="rescue-task">
+                          <span><MathText text={t.title} /></span>
+                          {isToday && <Button variant={i === 0 ? 'primary' : 'ghost'} className="btn-sm" onClick={() => navigate(t.to)}>{i === 0 ? 'מתחילים' : 'פתיחה'}</Button>}
+                        </li>
+                      ))}
+                    </ul>
+                    {!isToday && <p className="day-count" aria-hidden="true">{d.tasks.length === 1 ? 'משימה אחת' : `${d.tasks.length} משימות`}</p>}
+                  </li>
+                );
+              })}
+              <li className="day-exam" style={{ '--x': `${DAY_SWING[p.days.length % DAY_SWING.length]}px` }}>
+                <span className="day-node day-node-exam" aria-hidden="true"><Trophy size={30} /></span>
+                <p className="rescue-day-name">המבחן: {dayName(plan.date)}</p>
+              </li>
             </ol>
           </section>
           <section aria-labelledby="standing-title">
@@ -168,10 +209,12 @@ function Plan({ plan }) {
 export default function Rescue() {
   const exam = useApp((s) => s.learn.exam);
   const setExam = useApp((s) => s.setExam);
+  // no plan yet: the question flow takes the whole screen (no tab bar), as an onboarding does
+  if (!exam) return <Setup onSave={(input) => setExam(input)} />;
   return (
     <div className="page rescue">
-      <PageHero tone="streak" title="מציל המבחנים" sub={exam ? 'התוכנית שלכם עד המבחן. היא מתעדכנת אחרי כל תרגול.' : 'תאריך, נושאים ובדיקה קצרה, ואז תוכנית יום אחרי יום.'} scene="sheet" mood="happy" />
-      {exam ? <Plan plan={exam} /> : <Setup onSave={(input) => setExam(input)} />}
+      <PageHero tone="streak" title="מציל המבחנים" sub="התוכנית שלכם עד המבחן. היא מתעדכנת אחרי כל תרגול." scene="sheet" mood="happy" />
+      <Plan plan={exam} />
     </div>
   );
 }

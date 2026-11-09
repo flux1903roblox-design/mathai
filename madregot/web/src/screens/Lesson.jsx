@@ -406,7 +406,7 @@ export default function Lesson() {
     );
   }
   if (done) leaving.current = true; // the end screens lead back to the map without asking
-  if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: { placed: true } })} />;
+  if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/topics', { replace: true, state: { placed: true } })} />;
   if (done && isCheck) return <CheckDone result={done.result} award={done.award} onExit={() => navigate('/', { replace: true, preventScrollReset: true })} />;
   if (done) return <LessonDone {...done} topic={t} onExit={() => (spec.fromJourney ? navigate(`/learn/${spec.topic}/${spec.level}`, { replace: true }) : navigate('/', { replace: true, preventScrollReset: true, state: { from: spec.topic, nodeDone: !!(done.award.nodeDone || done.award.unitDone) } }))} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
 
@@ -437,26 +437,33 @@ export default function Lesson() {
     </div>
   );
   const checkButton = <Button className="check-btn btn-lg" onClick={check} disabled={!canCheck}>בדיקה</Button>;
-  // The question stays pinned on top on every screen; the drawing below fits whatever room is left.
-  const question = (
-    <div className="lesson-q">
+  // The question stays pinned on top, as in a Duolingo exercise: a short instruction is the screen's bold title
+  // ("חשבו:"); a longer one (a word problem) is said by מדי in a speech bubble beside him. The drawing below fits
+  // whatever room is left.
+  const talk = (item.text || '').length > 64;
+  const question = talk ? (
+    <div className="lesson-q is-talk" data-region="question">
       <Mascot mood={mood} beat={shakeKey + (last?.ok ? s.solved * 100 : 0)} size={56} className="q-mascot" />
       <h1 className="qtext q-bubble" id="qtext"><MathText text={item.text} /></h1>
+    </div>
+  ) : (
+    <div className="lesson-q is-title" data-region="question">
+      <h1 className="qtext q-title" id="qtext"><MathText text={item.text} /></h1>
     </div>
   );
 
   return (
     <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed', isManip && !nbOn && 'is-manip')}>
       {/* top: progress and the question, always on screen */}
-      <header className="lesson-head">
-        <ProgressHeader extra={compact ? tools : null} pct={pct} marks={placement ? null : marks} total={s.total} label={placement ? 'התקדמות בבדיקת הרמה' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
+      <header className="lesson-head" data-region="header">
+        <ProgressHeader extra={tools} pct={pct} marks={placement ? null : marks} total={s.total} label={placement ? 'התקדמות בבדיקת הרמה' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
         <AnimatePresence mode="wait" initial={false}>
           <m.div key={stage} className="q-pin" {...slide}>{question}</m.div>
         </AnimatePresence>
       </header>
 
       {/* middle: the maths (expression, drawing, table, choices); the only part that scrolls */}
-      <main className="lesson-main" ref={qRef} tabIndex={-1} aria-labelledby="qtext">
+      <main className="lesson-main" ref={qRef} tabIndex={-1} aria-labelledby="qtext" data-region="content">
         <AnimatePresence mode="wait" initial={false}>
         <m.div key={stage} className="q-stage" {...slide}>
         {/* nothing to draw: on a short phone (where the question has no מדי beside it) he waits here */}
@@ -474,7 +481,7 @@ export default function Lesson() {
         )}
         {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} />}
         {item.form === 'mc' && (
-          <div className={clsx('choices', item.choices.length === 3 && item.choices.every((c) => c.tex) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys}>
+          <div className={clsx('choices', item.choices.length === 3 && item.choices.every((c) => c.tex) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
             {item.choices.map((c, i) => {
               const state = locked && i === item.answer ? 'good' : (feedback && choice === i && i !== item.answer) || s.wrong.includes(i) ? 'bad' : '';
               return (
@@ -504,7 +511,7 @@ export default function Lesson() {
       </main>
 
       {/* bottom: the answer row, then the keypad and the check button (or the feedback that replaces them) */}
-      <div className="lesson-foot">
+      <div className="lesson-foot" data-region="footer">
         {/* the hint sits above the answer, on the first try and again on the second; the drawing above makes room */}
         <AnimatePresence>
           {s.hint && (s.phase === 'answer' || s.phase === 'retry') && !feedback && (
@@ -514,14 +521,14 @@ export default function Lesson() {
           )}
         </AnimatePresence>
         {typed && (
-          <div className={clsx('answer-bar', compact && 'with-check')}>
+          <div className={clsx('answer-bar', compact && 'with-check')} data-region="answers">
             <AnswerSlots item={item} slots={slots} setSlots={(v) => { setSlots(v); if (feedback === 'retry') setLast(null); }} active={active} setActive={setActive} locked={locked} shakeKey={shakeKey} onEnter={() => (feedback ? goOn() : check())} struck={struck} unstrike={() => setStruck(false)} good={feedback === 'good'} />
             {compact && !feedback && checkButton}
           </div>
         )}
         {last?.invalid && <p className="form-error answer-error" role="alert">{last.text}</p>}
         {feedback ? (
-          <m.section className={clsx('fb', `fb-${feedback}`)} aria-live="assertive" aria-labelledby="fb-title"
+          <m.section className={clsx('fb', `fb-${feedback}`)} aria-live="assertive" aria-labelledby="fb-title" data-region="feedback"
             initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={SPRING.settle}>
             <div className="fb-scroll">
               <div className="fb-head">
@@ -574,9 +581,10 @@ export default function Lesson() {
           </m.section>
         ) : (
           <div className="lesson-dock">
-            {typed && <Keypad onKey={onKey} onNext={names.length > 1 ? nextSlot : undefined} nextLabel={`מעבר ל${SLOT_LABEL[names[(names.indexOf(active) + 1) % names.length]] || 'שדה הבא'}`} />}
-            {/* help sits next to the thumb: icon buttons with a short label (on a short phone, up by the progress bar) */}
-            {!compact && <div className="dock-row">{tools}{checkButton}</div>}
+            {/* as in Duolingo's maths exercises: the full-width check button sits right above the number pad, and the
+                pad fills the bottom of the screen; help sits in the top bar, where Duolingo keeps its counter */}
+            {!compact && <div className="dock-row" data-region="primary">{checkButton}</div>}
+            {typed && <div className="pad-panel"><Keypad onKey={onKey} onNext={names.length > 1 ? nextSlot : undefined} nextLabel={`מעבר ל${SLOT_LABEL[names[(names.indexOf(active) + 1) % names.length]] || 'שדה הבא'}`} /></div>}
           </div>
         )}
       </div>
@@ -600,7 +608,7 @@ export default function Lesson() {
           <Mascot mood="oops" size={96} />
           <p className="lead">{placement ? 'כל נושא יתחיל מהמדרגה הראשונה. אפשר לחזור לבדיקה מהלוח בכל זמן.' : 'ההתקדמות בשיעור הזה לא תישמר. התשובות שכבר עניתם נשמרות בתרגול שלכם.'}</p>
           <Button className="btn-block btn-lg" onClick={stay}>{placement ? 'להמשיך בבדיקה' : 'להמשיך ללמוד'}</Button>
-          <Button variant="danger-outline" className="btn-block" onClick={() => leave('/', { replace: true })}>יציאה</Button>
+          <Button variant="ghost" className="btn-block exit-quit" onClick={() => leave('/', { replace: true })}>יציאה</Button>
         </div>
       </Sheet>
       <Sheet open={chatOpen} onOpenChange={setChatOpen} title="שאלו את העוזר">

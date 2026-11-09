@@ -44,7 +44,7 @@ export default function TodayCard({ grade, onBoard }) {
   return (
     <m.section className={clsx('continue', 'today', 'ch-brand')} aria-labelledby="continue-title"
       initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter()}>
-      <div className="quest-card">
+      <div className="quest-card" data-region="card">
         <div className="today-head quest-head">
           <div className="quest-head-row">
             <h1 id="continue-title" className="continue-title">{done ? 'המשימה של היום הושלמה' : 'המשימה שלי להיום'}</h1>

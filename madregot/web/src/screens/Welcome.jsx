@@ -11,7 +11,6 @@ import Mascot from '@/components/Mascot.jsx';
 import PageScene from '@/components/PageScene.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { topicsFor, TOPICS } from '@/content/index.js';
-import Manip from '@/components/manip/Manip.jsx';
 import { KNOW } from '@/lib/placement.js';
 import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
@@ -22,22 +21,6 @@ const KNOW_SAMPLE = {
   7: ['-3 + 5', '(-2)\\cdot(-4)', 'A(-3,\\,2)', '\\alpha + 2\\alpha = 180^\\circ'],
   8: ['y = 2x + 1', '3^2 + 4^2', '\\bar{x}:\\ 4, 6, 8', 'm = \\tfrac{8-2}{3-1}'],
 };
-
-// The first screen shows the product itself: a real exercise from the first stair, to move before signing up.
-// Nothing is saved; it is the same number line and the same מדי as in a lesson.
-const DEMO = { form: 'manip', manip: { kind: 'numberline', min: -10, max: 10, from: -2, start: -2 }, answer: 3 };
-function TryIt() {
-  const [v, setV] = useState(DEMO.manip.start);
-  const [touched, setTouched] = useState(false);
-  const good = v === DEMO.answer;
-  return (
-    <section className={clsx('try-it', good && 'is-good')} aria-labelledby="try-title">
-      <h2 id="try-title" className="try-title">{good ? 'בדיוק! ככה נראה תרגול במדרגות.' : 'נסו עכשיו: כמה זה?'}</h2>
-      <div className="qdisplay try-display"><Tex tex="-2 + 5 = ?" display /></div>
-      <Manip item={DEMO} value={v} onChange={(x) => { setV(x); setTouched(true); }} good={good} touched={touched} mood={good ? 'happy' : touched ? 'thinking' : 'idle'} />
-    </section>
-  );
-}
 
 export function GradeSwitch({ value, onChange, id }) {
   return (
@@ -116,16 +99,20 @@ function Onboarding({ onTeacher }) {
   const back = () => { setError(''); setI(i - 1); };
 
   if (i < 0) {
+    // the first screen, laid out like Duolingo's: the character large in the middle, the name and one line under
+    // him, and the two ways in as full-width buttons pinned to the bottom
     return (
-      <div className="ob ob-hello">
-        <p className="hello-brand"><span className="wordmark sm">מדרגות</span></p>
-        <h1 className="hello-title">תרגול מתמטיקה לכיתות ז׳ וח׳, מדרגה אחרי מדרגה</h1>
-        <p className="hello-fact">{TOPICS.length} נושאים, {TOPICS.reduce((n, t) => n + t.levels.length, 0)} מדרגות, כמה דקות ביום. מתחילים מהמדרגה שמתאימה לכם.</p>
-        <TryIt />
-        <div className="form-actions">
-          <Button className="btn-lg" onClick={() => setI(0)}>מתחילים</Button>
-          <Button variant="secondary" onClick={onTeacher}>אני מורה</Button>
-        </div>
+      <div className="ob ob-hello hello-duo">
+        <main className="hello-center" data-region="content">
+          <Mascot mood="excited" size={168} className="hello-madi" />
+          <p className="hello-brand"><span className="wordmark">מדרגות</span></p>
+          <h1 className="hello-title">מתמטיקה של כיתות ז׳ וח׳, מדרגה אחרי מדרגה</h1>
+          <p className="hello-fact">{TOPICS.length} נושאים, {TOPICS.reduce((n, t) => n + t.levels.length, 0)} מדרגות, כמה דקות ביום.</p>
+        </main>
+        <footer className="hello-foot" data-region="footer">
+          <Button className="btn-block btn-lg" onClick={() => setI(0)}>מתחילים</Button>
+          <Button variant="secondary" className="btn-block" onClick={onTeacher}>אני מורה</Button>
+        </footer>
       </div>
     );
   }
@@ -143,14 +130,14 @@ function Onboarding({ onTeacher }) {
 
   return (
     <form className="ob" onSubmit={(e) => { e.preventDefault(); if (can && !busy) go(); }} noValidate>
-      <header className="ob-top">
+      <header className="ob-top" data-region="header">
         <button type="button" className="icon-btn" onClick={back} aria-label="חזרה"><ArrowRight size={26} aria-hidden="true" /></button>
         <div className="ob-bar" role="progressbar" aria-label="השאלות הראשונות" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={i + 1}>
           <i style={{ width: `${((i + 1) / steps.length) * 100}%` }} />
         </div>
       </header>
-      <main className="ob-main">
-        <div className="ob-ask">
+      <main className="ob-main" data-region="content">
+        <div className="ob-ask" data-region="question">
           <Mascot mood={step === 'start' ? 'excited' : 'idle'} size={84} className="ob-mascot" />
           <p className="ob-bubble" id="ob-q">{ask}</p>
         </div>
@@ -216,7 +203,7 @@ function Onboarding({ onTeacher }) {
         )}
         {error && <p className="form-error" role="alert">{error}</p>}
       </main>
-      <footer className="ob-foot">
+      <footer className="ob-foot" data-region="footer">
         <Button type="submit" className="btn-block btn-lg" disabled={!can || busy}>{busy ? 'מצטרפים…' : cta}</Button>
       </footer>
     </form>

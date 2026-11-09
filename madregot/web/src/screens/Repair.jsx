@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { X } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/index.js';
 import { contentOf } from '@/learn/content/index.ts';
@@ -12,6 +11,7 @@ import { MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import RemedyFlow from '@/components/learn/RemedyFlow.jsx';
+import { LessonHeader } from '@/components/learn/StepPlayer.jsx';
 
 export default function Repair() {
   const { topic, level: L, misc } = useParams();
@@ -26,17 +26,11 @@ export default function Repair() {
   if (!c || !def || !t) return <Navigate to={`/learn/${topic}/${level}`} replace />;
   return (
     <div className={clsx('teach', `ch-${t.color}`)}>
-      <header className="teach-head">
-        <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label="סגירה"><X size={22} aria-hidden="true" /></button>
-        <div className="teach-titles">
-          <p className="teach-topic">{t.levels[level - 1].title}</p>
-          <h1 className="teach-stage">מתקנים: <MathText text={def.title} /></h1>
-        </div>
-        <span className="icon-btn-spacer" aria-hidden="true" />
-      </header>
       <main className="teach-main">
         {!ready ? (
-          <RemedyFlow content={c} misc={misc} onDone={() => setReady(true)} doneLabel="עכשיו לבדיקה" />
+          <RemedyFlow content={c} misc={misc} onDone={() => setReady(true)} doneLabel="עכשיו לבדיקה"
+            title={<>מתקנים: <MathText text={def.title} /></>} kicker={t.levels[level - 1].title}
+            renderHead={(bar) => <LessonHeader bar={bar} onClose={() => navigate(-1)} closeLabel="סגירה" />} />
         ) : (
           <div className="repair-next">
             <Mascot mood="happy" size={88} />

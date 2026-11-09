@@ -148,14 +148,14 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
             {badges.map((b, k) => <RewardBadge key={b.label} {...b} delay={0.45 + k * 0.12} />)}
           </m.div>
         )}
-        <m.div className="stats" variants={stagger(0.05)}>
+        <m.div className="stats" variants={stagger(0.05)} data-region="answers">
           <Stat tone="gold" icon={Zap} label="XP" value={result.xp} prefix="+" />
           <Stat tone="good" icon={Target} label="דיוק" value={result.accuracy} suffix="%" />
           <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />
         </m.div>
         {result.fixed > 0 && <m.p variants={rise} className="muted">כולל {result.fixed * 2} XP על תיקון {result.fixed === 1 ? 'טעות' : `${result.fixed} טעויות`}.</m.p>}
       </m.div>
-      <div className="done-actions"><Button className="btn-block btn-lg" onClick={nextStage} ref={focusQuietly}>המשך</Button></div>
+      <div className="done-actions" data-region="footer"><Button className="btn-block btn-lg" onClick={nextStage} ref={focusQuietly}>המשך</Button></div>
     </div>
   );
 }
@@ -188,7 +188,7 @@ export function PlacementDone({ result, award, onExit }) {
             );
           })}
         </m.ol>
-        <m.div className="stats" variants={stagger(0.05)}>
+        <m.div className="stats" variants={stagger(0.05)} data-region="answers">
           <Stat tone="gold" icon={Zap} label="XP" value={result.xp} prefix="+" />
           <Stat tone="good" icon={ChevronsUp} label="מדרגות" value={Object.values(result.results).reduce((a, r) => a + r.level, 0)} />
           <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />

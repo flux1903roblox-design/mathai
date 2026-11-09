@@ -135,7 +135,7 @@ export function Sheet({ open, onOpenChange, title, children, footer, wide }) {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="sheet-backdrop" />
-        <Dialog.Popup className={clsx('sheet', wide && 'wide')} dir="rtl">
+        <Dialog.Popup className={clsx('sheet', wide && 'wide')} dir="rtl" data-region="feedback">
           <header className="sheet-head">
             <Dialog.Title className="sheet-title">{title}</Dialog.Title>
             <Dialog.Close className="icon-btn" aria-label="סגירה"><X size={22} aria-hidden="true" /></Dialog.Close>

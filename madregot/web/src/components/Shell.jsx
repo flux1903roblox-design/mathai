@@ -16,7 +16,7 @@ export default function Shell() {
   const { pathname } = useLocation();
   return (
     <div className="shell">
-      <nav className="tabbar" aria-label="ניווט ראשי">
+      <nav className="tabbar" aria-label="ניווט ראשי" data-region="nav">
         <span className="tabbar-brand" aria-hidden="true">מדרגות</span>
         {TABS.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => `tab${isActive ? ' active' : ''}`}>

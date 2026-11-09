@@ -8,6 +8,7 @@ import { ArrowLeft, Check, Lightbulb, X } from 'lucide-react';
 import { Tex, MathText, mathPlain } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Prompt } from './StepPlayer.jsx';
+import { Segments } from '@/components/ds.jsx';
 import { parseNum, near, T, plainNum } from '@/content/util.js';
 import { enter } from '@/lib/motion.js';
 import { play } from '@/lib/sound.js';
@@ -23,7 +24,7 @@ function Hints({ hints, level }) {
 }
 
 /** onAttempt(ok, independent): each move, for the learning record (all moves here count as learning with help). */
-export default function Together({ problem, n, of, onDone, onAttempt, decimal = false }) {
+export default function Together({ problem, n, of, onDone, onAttempt, decimal = false, renderHead }) {
   const [k, setK] = useState(0); // the step; problem.steps.length = the final answer
   const [picked, setPicked] = useState({}); // step → chosen indexes so far
   const [hint, setHint] = useState(0);
@@ -53,12 +54,15 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
     if (ok) { play('correct'); setSolved(true); } else { play('wrong'); setFinalMiss((x) => x + 1); setHint((h) => Math.min(2, h + 1)); }
   };
   const giveUp = finalMiss >= 3;
+  const moves = problem.steps.length + 1;
+  const bar = <Segments steps={moves} done={solved ? moves : k} current={k} size="thin" label={`פותרים יחד ${n} מתוך ${of}`} valueText={`צעד ${Math.min(k + 1, moves)} מתוך ${moves}`} />;
   return (
     <div className="together lm">
-      <section className="lm-card">
-      <Prompt mood={solved ? 'happy' : hint ? 'encouraging' : 'thinking'} tag={`פותרים יחד ${n} מתוך ${of}`}><p><MathText text={problem.problem} /></p></Prompt>
+      {renderHead ? renderHead(bar) : <div className="lm-progress">{bar}</div>}
+      <section className="lm-card" data-region="content">
+      <Prompt tag={`פותרים יחד ${n} מתוך ${of}`}><p><MathText text={problem.problem} /></p></Prompt>
       {(problem.display || built.length > 0) && (
-        <div className="lm-canvas big">
+        <div className="lm-canvas big" data-region="visual">
           {problem.display && <div className="lm-expr"><Tex tex={problem.display} display /></div>}
           {built.length > 0 && (
             <ol className="tg-built" aria-label="מה עשינו עד עכשיו">
@@ -67,7 +71,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
           )}
         </div>
       )}
-      <m.section key={k} ref={ref} tabIndex={-1} className="tg-step lm-response" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)} aria-label={onFinal ? 'הצעד האחרון' : `צעד ${k + 1}`}>
+      <m.section key={k} ref={ref} tabIndex={-1} className="tg-step lm-response" data-region="answers" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter(0.22)} aria-label={onFinal ? 'הצעד האחרון' : `צעד ${k + 1}`}>
         {!onFinal ? (
           <>
             <p className="tg-prompt"><MathText text={step.prompt} /></p>
@@ -113,7 +117,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
       </m.section>
       </section>
       {(solved || giveUp) && (
-        <footer className={clsx('lm-actions', solved ? 'has-good' : 'has-warm')}>
+        <footer className={clsx('lm-actions', solved ? 'has-good' : 'has-warm')} data-region="footer">
           <p className="lm-banner"><span className="lm-banner-icon" aria-hidden="true">{solved ? <Check size={18} strokeWidth={3.4} /> : <Lightbulb size={18} />}</span>{solved ? 'פתרתם לבד!' : 'נחזור על זה בתרגול'}</p>
           <div className="lm-actions-row"><Button className="btn-block btn-lg" onClick={onDone}>המשך<ArrowLeft size={18} aria-hidden="true" /></Button></div>
         </footer>

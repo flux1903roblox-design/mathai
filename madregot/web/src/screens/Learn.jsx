@@ -1,22 +1,23 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { Flame, Zap, Snowflake, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Flame, Zap, Snowflake, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown, Target } from 'lucide-react';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor } from '@/content/index.js';
 import { unitNodes, chestAfter } from '@/lib/path.js';
-import { PARTS, JUMP_LEN, REVIEW_LEN, LESSON_LEN } from '@/lib/lesson.js';
+import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
 import Mascot from '@/components/Mascot.jsx';
 import PathNode from '@/components/PathNode.jsx';
-import Board from '@/components/Board.jsx';
-import TodayCard from '@/components/learn/TodayCard.jsx';
-import MasteryMap from '@/components/learn/MasteryMap.jsx';
 import PathTrail from '@/components/map/PathTrail.jsx';
 import { SCENERY } from '@/components/map/Scenery.jsx';
 import WorldBackdrop from '@/components/map/WorldBackdrop.jsx';
 import Chest from '@/components/map/Chest.jsx';
 import { Button } from '@/components/ui.jsx';
+import { useMission } from '@/lib/useLearn.js';
+import { nextStage } from '@/learn/mastery.ts';
+import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
+import { skillId } from '@/learn/skills.ts';
 
 // The path winds gently: each node sits a little to one side of the one before.
 const SWING = [0, 52, 78, 52, 0, -52, -78, -52];
@@ -32,14 +33,23 @@ function NodeCard({ n, t, onStart }) {
       </div>
     );
   }
+  return <StairCard n={n} t={t} onStart={onStart} />;
+}
+
+/** A stair's card on the path (Duolingo's node popover): its name, the stage that comes next, and one START that opens it. */
+function StairCard({ n, t, onStart }) {
+  const skill = skillId(t.id, n.level);
+  const rec = useApp((s) => s.learn.skills[skill]);
+  const st = nextStage(rec);
+  const stageTo = st === 'D' ? `/lesson/${t.id}/${n.level}?part=${Math.min(n.parts + 1, PARTS)}` : st === 'E' ? routeOf.check(skill, 'mastery') : `/learn/${t.id}/${n.level}/${st}`;
   return (
     <div className="node-card" role="group" aria-label={n.title}>
       <p className="node-card-title">{n.title}</p>
-      {n.state === 'current' && <p className="node-card-sub">שיעור {Math.min(n.parts + 1, PARTS)} מתוך {PARTS}, {LESSON_LEN} תרגילים</p>}
+      {n.state === 'current' && <p className="node-card-sub">שלב {STAGE_N[st]} מתוך 5: {STAGE_NAME[st]}</p>}
+      {n.state === 'current' && <Button className="btn-block node-start-btn" onClick={() => onStart(stageTo)}>{rec?.taught?.A ? 'המשך' : 'התחלה'}</Button>}
+      {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>כל חמשת השלבים</Button>}
       {n.state === 'done' && <p className="node-card-sub">הושלם. אפשר לחזור ולתרגל.</p>}
       {n.state === 'locked' && <p className="node-card-sub">יודעים כבר? מבחן קצר של {JUMP_LEN} תרגילים, טעות אחת מותרת, פותח את כל הדרך עד לכאן.</p>}
-      {n.state === 'current' && <Button className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>{n.parts ? 'המשך' : 'התחלה'}</Button>}
-      {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${Math.min(n.parts + 1, PARTS)}`)}>ישר לתרגול</Button>}
       {n.state === 'done' && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור ולבדיקת שליטה</Button>}
       {n.state === 'done' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>תרגול חוזר</Button>}
       {n.state === 'locked' && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${n.level}?kind=jump`)}>מבחן קפיצה</Button>}
@@ -91,7 +101,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
   return (
     <section className={clsx('unit', `ch-${t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
       {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path scrolls */}
-      <header className="unit-head">
+      <header className="unit-head" data-region="banner">
         <div className="unit-head-text">
           <p className="unit-label">יחידה {n} · {done} מתוך {total} מדרגות</p>
           <h2 id={`unit-${t.id}`} className="unit-title">{t.title}</h2>
@@ -107,7 +117,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
           const side = SWING[i % SWING.length] > 0 ? 'left' : 'right';
           return <div key={k} className={clsx('scenery', side)} style={{ top: pt.y }} aria-hidden="true"><P /></div>;
         })}
-        <ol className="path">
+        <ol className="path" data-region="path">
           {nodes.map((node, i) => {
             const key = `${t.id}:${node.kind}:${node.level}`;
             const isOpen = open === key;
@@ -187,12 +197,12 @@ export default function Learn() {
   const focusNode = focusTopic && unitNodes(focusTopic, path, progress).find((x) => x.state === 'current');
   const focusKey = focusNode ? `${focusTopic}:${focusNode.kind}:${focusNode.level}` : null;
 
+  const mission = useMission();
+  const missionLeft = mission.items.filter((x) => !x.done).length;
   useEffect(() => { settleStreak(); }, [settleStreak]);
-  // The screen opens at the top (continue card, then the map); after the placement test it opens on the board;
-  // back from a lesson, or on another grade, it opens on the place to continue from.
+  // The screen opens at the top of the path; back from a lesson, or on another grade, it opens on the place to continue from.
   useLayoutEffect(() => {
     const first = firstView.current; firstView.current = false;
-    if (first && state?.placed) { document.getElementById('board-title')?.scrollIntoView({ block: 'start' }); return; }
     if (first && !state?.from) { window.scrollTo(0, 0); return; }
     currentRef.current?.scrollIntoView({ block: 'center' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -205,16 +215,15 @@ export default function Learn() {
   }, [view, path]);
 
   const onStart = (to) => navigate(to);
-  const onBoard = () => document.getElementById('board-title')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  const onJump = (id) => document.getElementById(`unit-${id}`)?.closest('.unit')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   const otherGrade = view === '7' ? '8' : '7';
 
   return (
     <div className="learn">
-      <header className="learn-top">
+      <header className="learn-top" data-region="header">
         <button type="button" className="grade-switch" onClick={() => { setView(otherGrade); setOpen(null); }} aria-label={`מציגים את כיתה ${view === '7' ? 'ז׳' : 'ח׳'}. מעבר לכיתה ${otherGrade === '7' ? 'ז׳' : 'ח׳'}`}>
           כיתה {view === '7' ? 'ז׳' : 'ח׳'}<ChevronDown size={18} aria-hidden="true" />
         </button>
+        <Link to="/quests" className={clsx('top-stat mission', missionLeft === 0 && 'on')} aria-label={missionLeft === 0 ? 'המשימה של היום הושלמה' : `המשימה של היום: נשארו ${missionLeft} חלקים`}><Target size={22} aria-hidden="true" /><bdi dir="ltr">{mission.items.filter((x) => x.done).length}/{mission.items.length}</bdi></Link>
         <Link to="/quests" className={clsx('top-stat streak', streak > 0 && 'on')} aria-label={`רצף של ${streak} ימים`}><Flame size={24} aria-hidden="true" />{streak}</Link>
         {freezes > 0 && <Link to="/quests" className="top-stat freeze" aria-label={`${freezes} הקפאות רצף`}><Snowflake size={22} aria-hidden="true" />{freezes}</Link>}
         <Link to="/quests" className="top-stat xp" aria-label={`היום ${todayXp} מתוך ${goalXp} XP, סך הכול ${xp}`}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
@@ -222,18 +231,13 @@ export default function Learn() {
 
       <div className="learn-layout">
       <div className="learn-body">
-        {/* one clear next action: today's mission (Madregot 2.0), then where the student stands */}
-        <TodayCard grade={view} onBoard={onBoard} />
-        <h2 className="map-title">מפת השיעורים</h2>
+        {/* the home screen is the path, as on Duolingo: units under their sticky banners, the current stop marked */}
         {topics.map((t, i) => (
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
             mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null}
             mascotMood={state?.nodeDone ? 'excited' : state?.from ? 'happy' : 'idle'} />
         ))}
-        <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה.</p>
-        <MasteryMap grade={view} />
-        {/* the board: the level in each topic and what is not clear yet, under the map */}
-        <Board grade={view} placed={!!state?.placed} onStart={onStart} onJump={onJump} />
+        <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה. <Link to="/topics">כל הנושאים והמצב בכל אחד</Link></p>
       </div>
       <SidePanel streak={streak} todayXp={todayXp} goalXp={goalXp} freezes={freezes} days={days} />
       </div>

@@ -11,7 +11,7 @@ import { DUR, enter } from '@/lib/motion.js';
  */
 export default function PageHero({ tone = 'brand', title, sub, scene, mood = 'idle', children, id }) {
   return (
-    <header className={clsx('page-hero', `ch-${tone}`)}>
+    <header className={clsx('page-hero', `ch-${tone}`)} data-region="header">
       <div className="page-hero-text">
         <m.h1 id={id} className="page-hero-title" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter()}>{title}</m.h1>
         {sub && <m.p className="page-hero-sub" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter(DUR.medium, 0.06)}>{sub}</m.p>}

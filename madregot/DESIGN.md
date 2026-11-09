@@ -496,6 +496,10 @@ One scale for every animation (`src/lib/motion.js`, matching the CSS tokens): th
 
 ## Layouts after Duolingo and Brilliant (9 November 2026)
 
+> Superseded in part the same day by the structural rebuild: the full, measured screen-by-screen specification is in
+> `LAYOUT_SPEC.md` (home is the path, practice follows Duolingo's measured exercise skeleton, lessons follow
+> Brilliant's measured step layout, settings are their own screen, Exam Rescue details are a one-question flow).
+
 At the owner's request the screens now follow the layouts of two apps students already know. The layout structure
 is borrowed; the colours, fonts (Fredoka, Rubik), icons, maths rendering and מדי stay Madregot's own, and no art,
 mascot, wording or brand asset of either app is used. Code: `src/styles/v4.css` (the layout layer, loaded last) and

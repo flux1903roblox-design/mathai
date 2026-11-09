@@ -6,8 +6,9 @@ import { open, student, item, answer, type, proceed, proceedToNext, saved, expec
 // Journeys run on one phone and on desktop; the layout spec covers every size.
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
 
-/** From the home screen: today's mission opens the first stage of the first stair; closing it shows the stair's page, whose practice stage starts the lesson. */
+/** From the missions tab: today's mission opens the first stage of the first stair; closing it shows the stair's page, whose practice stage starts the lesson. */
 async function startPractice(page) {
+  await page.getByRole('link', { name: 'משימות', exact: true }).click();
   await page.locator('.continue-go').click(); // today's mission: the first stage of the first stair
   await page.getByRole('button', { name: 'סגירה. המקום נשמר' }).click(); // to the stair's page
   await page.getByRole('button', { name: 'מתרגלים לבד: פתיחה' }).click();
@@ -26,7 +27,7 @@ async function onboard(page, start) {
   await page.getByRole('button', { name: start === 'test' ? 'לבדיקת הרמה' : 'לשיעור הראשון', exact: true }).click();
 }
 
-test('first visit, starting from the first stair: it starts by understanding, and the map waits under today\'s mission', async ({ page }) => {
+test('first visit, starting from the first stair: it starts by understanding, and the map is the home screen', async ({ page }) => {
   await open(page, '#/');
   await onboard(page, 'scratch');
   await expect(page).toHaveURL(/#\/learn\/signed\/1\/A/);
@@ -34,13 +35,12 @@ test('first visit, starting from the first stair: it starts by understanding, an
   await page.getByRole('button', { name: 'סגירה. המקום נשמר' }).click();
   await expect(page.locator('.journey')).toBeVisible();
   await page.getByRole('link', { name: 'למפה' }).click();
-  await expect(page.locator('.continue')).toBeVisible();
   await expect(page.locator('.unit').first()).toBeVisible();
   await expect(page.locator('.node-current').first()).toBeVisible();
   const st = await saved(page);
   expect(st.profile).toMatchObject({ name: 'נועה', grade: '7', know: 1 });
   await page.reload();
-  await expect(page.locator('.continue')).toBeVisible(); // the profile survives a reload
+  await expect(page.locator('.node-current').first()).toBeVisible(); // the profile survives a reload
 });
 
 test('first visit with the placement test: every topic gets a starting stair', async ({ page }) => {
@@ -170,7 +170,7 @@ test('a lesson opened straight from a link: Back asks, and leaving goes to the m
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'לצאת מהשיעור?' })).toBeVisible();
   await page.getByRole('button', { name: 'יציאה', exact: true }).click();
-  await expect(page.locator('.continue')).toBeVisible();
+  await expect(page.locator('.node-current').first()).toBeVisible();
 });
 
 test('the QA hook: the current exercise is in <html data-qa-item>, readable from an isolated script context', async ({ page, browserName }, info) => {

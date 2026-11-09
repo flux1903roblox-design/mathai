@@ -330,3 +330,180 @@ body { background: #fff; color: var(--ink); }
   .lesson .lesson-q { margin-inline: var(--s2); }
   .lesson .q-bubble { font-size: 16px; padding: 6px 12px; }
 }
+
+/* =============================================================== v6: structural layouts (see LAYOUT_SPEC.md) */
+/* ---- a lesson's one header row (Brilliant): close, the progress bar, help */
+.bl-head { position: sticky; top: 0; z-index: 7; display: flex; align-items: center; gap: var(--s3); margin: 0 calc(-1 * var(--gutter)); padding: calc(var(--s2) + env(safe-area-inset-top, 0px)) var(--gutter) var(--s2); background: #fff; }
+.bl-head .icon-btn { flex: none; color: var(--ink-2); }
+.bl-bar { flex: 1; min-width: 0; }
+.bl-bar .segs { width: 100%; }
+.teach-main { padding-top: 0; }
+.bl-intro { display: flex; flex-direction: column; gap: 2px; }
+.bl-kicker { margin: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--c-d, var(--p-700)); }
+.bl-title { margin: 0; font-family: var(--font-display); font-size: 26px; line-height: 32px; font-weight: 700; }
+.lm-prompt { display: block; }
+/* ---- the result sheet: opens at the bottom over the button, the visual stays in view */
+.bl-result { display: flex; flex-direction: column; gap: var(--s2); }
+.bl-why { display: flex; align-items: flex-start; gap: var(--s3); max-height: 34dvh; overflow-y: auto; background: rgba(255, 255, 255, 0.7) !important; border-inline-start: 0 !important; }
+.bl-why-madi { flex: none; }
+.bl-why-text { flex: 1; min-width: 0; }
+.bl-why-text p { margin: 0; }
+.bl-why-text p + p { margin-top: 6px; }
+.worked-answer { font-weight: 700; }
+@media (max-height: 640px) { .bl-why { max-height: 26dvh; } .bl-title { font-size: 22px; line-height: 28px; } }
+
+/* ---- full-screen question flows (the exam's details): no tab bar, as in an onboarding */
+.shell:has(.ob-flow) .tabbar { display: none; }
+.shell:has(.ob-flow) .shell-main { padding-bottom: 0; }
+.ob-opts-row { flex-direction: row; }
+.ob-opts-row .ob-opt { flex: 1; justify-content: center; }
+.rescue-topics { display: flex; flex-direction: column; gap: var(--s3); }
+
+/* ---- welcome (Duolingo): the character in the middle, the two ways in pinned to the bottom */
+.hello-duo { justify-content: space-between; gap: 0; padding: 0; max-width: none; }
+.hello-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--s3); padding: var(--s6) var(--gutter); }
+.hello-center .hello-title { max-width: 22ch; margin: 0; font-size: 22px; line-height: 30px; }
+.hello-center .hello-fact { margin: 0; color: var(--ink-2); }
+.hello-center .wordmark { font-size: 40px; }
+.hello-foot { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) var(--gutter) calc(var(--s5) + env(safe-area-inset-bottom, 0px)); width: 100%; max-width: 520px; margin: 0 auto; }
+.hello-foot .btn { margin-inline: 0; }
+
+/* ---- a screen's own bar (settings, topics): back, the title in the middle */
+.screen-bar { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; min-height: 52px; margin: calc(-1 * var(--s2)) 0 0; border-bottom: 2px solid var(--line); }
+.screen-bar-title { margin: 0; text-align: center; font-family: var(--font-display); font-size: 20px; font-weight: 700; }
+
+/* ---- settings (Duolingo): small headings over bordered groups */
+.set-group { display: flex; flex-direction: column; gap: var(--s2); }
+.set-head { margin: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); }
+.set-group > :not(.set-head) { border: 2px solid var(--line); border-radius: var(--r-m); padding: var(--s4); background: #fff; }
+.set-group > .set-box { padding: var(--s4); display: flex; flex-direction: column; gap: var(--s3); }
+.set-rows { display: flex; flex-direction: column; margin: calc(-1 * var(--s4)); }
+.set-row { display: flex; align-items: center; min-height: 54px; padding: 0 var(--s4); background: none; border: 0; text-align: start; font-weight: 700; font-size: 16px; color: var(--ink); cursor: pointer; }
+.set-row + .set-row { border-top: 2px solid var(--line); }
+.set-row.danger { color: var(--bad-ink); }
+
+/* ---- profile (Duolingo): a wide header with the avatar, the name, a 2×2 statistics grid */
+.profile-top { position: relative; display: grid; place-items: center; height: 180px; margin: calc(-1 * var(--s2)) calc(-1 * var(--gutter)) 0; background: var(--p-100); border-bottom: 2px solid var(--line); }
+.profile-gear { position: absolute; top: var(--s2); inset-inline-end: var(--s2); background: #fff; border-radius: 12px; }
+.profile-id { display: flex; flex-direction: column; gap: 2px; }
+.profile-name { margin: 0; font-family: var(--font-display); font-size: 26px; line-height: 32px; }
+.profile-sub { margin: 0; color: var(--ink-2); }
+.profile-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+
+/* ---- topics (Duolingo's sections overview): one large card per unit in its colour */
+.section-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s4); }
+.section-card { display: flex; align-items: stretch; gap: var(--s3); padding: var(--s4); border-radius: var(--r-m); color: #fff; background: color-mix(in srgb, var(--c) 40%, var(--c-d)); box-shadow: 0 4px 0 color-mix(in srgb, var(--c-d) 75%, #000); }
+.section-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.section-card-label { margin: 0; font-size: 13px; font-weight: 700; color: #fff; }
+.section-card-title { margin: 0; font-family: var(--font-display); font-size: 22px; line-height: 28px; }
+.section-card-desc { margin: 0; font-size: var(--fs-sm); line-height: var(--lh-sm2); color: #fff; }
+.qbar-light { background: rgba(255, 255, 255, 0.45); }
+.qbar-light > i { background: #fff; }
+.qbar-light .qbar-text { color: var(--ink); mix-blend-mode: normal; }
+.section-card-actions { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); }
+.btn-on-color { --btn-bg: #fff; --btn-ink: var(--c-d); --btn-line: #fff; --btn-lip: rgba(0, 0, 0, 0.22); background: #fff; color: var(--c-d); flex: 1; }
+.section-card-guide { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: #fff; font-weight: 700; text-decoration: none; }
+.section-card-art { flex: none; align-self: center; }
+
+/* ---- the top bar's mission count (Duolingo-style stat) */
+.top-stat.mission { color: var(--p-700); }
+.top-stat.mission svg { color: var(--p-500); }
+.top-stat.mission.on { color: var(--good-ink); }
+.top-stat.mission.on svg { color: var(--good); }
+/* ---- practice (Duolingo): the bold instruction line, help in the top bar, one full-width check button */
+.lesson .lesson-q.is-title { display: block; padding: 2px 0 0; }
+.lesson .q-title { margin: 0; text-align: start; font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1.35; color: var(--ink); }
+.lesson .lesson-q.is-talk { align-items: flex-end; }
+.lesson .dock-row { display: block; }
+.lesson .dock-row .check-btn { width: 100%; margin-inline: 0; }
+.lesson-top { gap: var(--s2); }
+@media (max-height: 640px) { .lesson .q-title { font-size: 18px; } }
+/* the tab bar: icons only, as on Duolingo (the names stay for screen readers) */
+@media (max-width: 899px) {
+  .tabbar .tab > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .tabbar .tab { min-height: 56px; }
+  .tabbar .tab svg { width: 28px; height: 28px; }
+}
+/* ---- the exam plan's days as a path (Duolingo): stops on a winding road, today's open, a trophy at the end */
+.day-path { list-style: none; margin: 0; padding: var(--s4) 0; display: flex; flex-direction: column; align-items: center; gap: var(--s5); background: none; }
+.day-path > li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translateX(calc(var(--x) * -1)); border: 0; background: none; padding: 0; width: auto; max-width: 100%; }
+.day-path > li.today { transform: none; width: 100%; }
+.day-node { display: grid; place-items: center; width: 64px; height: 58px; border-radius: 50%; background: var(--line); color: var(--ink-2); font-family: var(--font-display); font-weight: 700; font-size: 22px; box-shadow: 0 6px 0 var(--line-2); }
+.today .day-node { width: 76px; height: 68px; background: var(--streak); color: #fff; box-shadow: 0 6px 0 #a84f00, 0 0 0 8px var(--streak-tint); }
+.day-node-exam { background: var(--gold); color: var(--gold-ink); box-shadow: 0 6px 0 #c48f00; }
+.day-start { position: relative; padding: 4px 12px; border-radius: 12px; border: 2px solid var(--line); background: #fff; font-weight: 700; color: var(--streak-ink); }
+.day-path .rescue-day-name { margin: 4px 0 0; font-weight: 700; font-size: var(--fs-sm); }
+.day-count { margin: 0; font-size: var(--fs-xs); color: var(--ink-2); }
+.day-path .today .day-tasks { width: 100%; margin-top: var(--s2); padding: var(--s3); border-radius: var(--r-m); border: 2px solid var(--streak); background: #fff; display: flex; flex-direction: column; gap: var(--s2); }
+.day-path .today .rescue-task { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+/* ---- end screens (Duolingo): the content in the middle, the one button pinned to the bottom */
+.done-screen { min-height: 100dvh; }
+.done-screen .done-actions { position: sticky; bottom: 0; margin-top: auto; padding: var(--s3) 0 calc(var(--s4) + env(safe-area-inset-bottom, 0px)); background: #fff; width: 100%; }
+/* ---- the exit sheet (Duolingo): stay is the big button, leaving is a quiet red text button */
+.exit-quit { color: var(--bad-ink); border: 0; box-shadow: none; }
+/* ---- a remedy's first screen: the button pinned like the lesson's */
+.teach-main > .remedy { min-height: calc(100dvh - 8px); }
+.remedy > .lm-actions { margin-top: auto; }
+/* ---- the assistant as a conversation: מדי's messages, the input bar at the bottom */
+.chat-like { display: flex; flex-direction: column; gap: var(--s4); min-height: calc(100dvh - 160px); padding: 0; border: 0; background: none; box-shadow: none; }
+.chat-log { display: flex; flex-direction: column; gap: var(--s3); }
+.chat-msg { display: flex; align-items: flex-end; gap: var(--s2); }
+.chat-avatar, .chat-avatar-space { flex: none; width: 44px; }
+.chat-bubble { flex: 1; min-width: 0; padding: var(--s3) var(--s4); border-radius: 18px 18px 18px 6px; background: var(--surface-2); border: 2px solid var(--line); }
+[dir="rtl"] .chat-bubble { border-radius: 18px 18px 6px 18px; }
+.chat-bubble p { margin: 0; }
+.chat-bubble-title { margin: 0 0 4px; font-family: var(--font-display); font-size: 19px; }
+.chat-bubble .ai-features { margin: var(--s2) 0 0; }
+.chat-dock { position: sticky; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); margin-top: auto; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) 0; background: #fff; border-top: 2px solid var(--line); }
+@media (min-width: 900px) { .chat-dock { bottom: 0; } }
+/* ---- the guidebook (Duolingo): the unit's banner, then one card per key idea */
+.guide-banner { position: static; }
+.guide { display: flex; flex-direction: column; gap: var(--s3); }
+.guide-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.guide-card { padding: var(--s3) var(--s4); border-radius: var(--r-m); border: 2px solid var(--line); background: #fff; line-height: 1.6; }
+/* ---- Brilliant's lesson details: start-aligned text, answer cards in a grid of two, "למה?" beside "המשך" */
+.lm-say { font-size: 18px; line-height: 1.6; }
+.lm .ls-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+.lm .ls-choices:has(> :nth-child(5)) { grid-template-columns: 1fr; }
+.lm .tg-step .ls-choices { grid-template-columns: 1fr; }
+.bl-why-btn { flex: none; min-width: 96px; }
+.lm-actions-row .bl-why-btn { margin-inline: 0; }
+/* ---- practice refinements from the measured Duolingo captures (research/ref/duolingo/layout-notes.md) */
+/* no bar or divider behind the check button */
+.lesson .lesson-foot { border-top: 0; }
+/* the number pad: a grey panel across the bottom, the check button right above it */
+.lesson .pad-panel { margin: 0 calc(-1 * max(var(--s3), env(safe-area-inset-left, 0px))); padding: var(--s2) max(var(--s3), env(safe-area-inset-left, 0px)) calc(var(--s2) + env(safe-area-inset-bottom, 0px)); background: var(--surface-2); border-top: 2px solid var(--line); }
+.lesson .lesson-dock:has(.pad-panel) { padding-bottom: 0; }
+/* text answers sit low, near the button, with room between them and the question */
+.lesson .q-stage:has(> .choices) { flex: 1; display: flex; flex-direction: column; margin-block: 0; }
+.lesson .q-stage > .choices { margin-top: auto; }
+.lesson .lesson-main:has(.q-stage > .choices) > .q-stage, .lesson .lesson-main:has(.q-stage > .choices) > * > .q-stage { margin-block: 0; min-height: 100%; }
+/* the character beside a word problem: about a fifth of the width, the bubble beside him */
+.lesson .lesson-q.is-talk .q-mascot { width: clamp(64px, 18vw, 88px); }
+/* ---- tab headers (Duolingo's quests tab): a solid full-bleed block in the screen's colour, white title, art at the side */
+.page-hero { border-radius: 0; background: color-mix(in srgb, var(--c) 15%, var(--c-d)); color: #fff; }
+.page-hero::before, .page-hero::after { display: none; }
+.page-hero .page-hero-title { color: #fff; }
+.page-hero .page-hero-sub { color: #fff; }
+/* ---- settings (Duolingo): small section labels over plain rows, no cards; one hairline between sections */
+.set-group > :not(.set-head) { border: 0; padding: 0; background: none; }
+.set-group > .set-box { padding: 0; }
+.set-group + .set-group { padding-top: var(--s4); border-top: 2px solid var(--line); }
+.set-rows { margin: 0; }
+.set-row { padding: 0; min-height: 56px; }
+.set-row + .set-row { border-top: 0; }
+/* ---- Brilliant's measured vertical rhythm (research/ref/brilliant/layout-notes.md §1a, §2a): the text at the top, a gap,
+   the visual with its controls in the middle band of the screen, space, then the button. Answer tiles form a centred
+   grid about three quarters of the width. */
+.lm .sp-step.lm-card, .lm > .lm-card { flex: 1; }
+.lm-card > .lm-canvas, .lm-card > .ls-explore > .lm-canvas { margin-top: auto; }
+.lm-card > :last-child { margin-bottom: auto; }
+.lm-card > .ls-explore { flex: 1; }
+.lm .ls-choices { width: 100%; max-width: 380px; margin-inline: auto; }
+.lm .tg-step .ls-choices { max-width: none; }
+@media (max-height: 640px) { .lm-card > .lm-canvas, .lm-card > .ls-explore > .lm-canvas { margin-top: 0; } }
+/* the lesson's header row is now inside the module, so the module fills the whole screen and the button sits at the
+   bottom, where Brilliant's sits (88-94 % of the height on a phone with a home indicator) */
+.teach-main > .lm, .teach-main > .remedy > .lm { min-height: 100dvh; }
+.teach-main > .remedy { min-height: 100dvh; }
+.lm-actions { padding-bottom: calc(var(--s5) + env(safe-area-inset-bottom)); }

@@ -83,7 +83,7 @@ export default function Journey() {
         </div>
       </header>
 
-      <section className="jclimb" aria-labelledby="climb-title">
+      <section className="jclimb" aria-labelledby="climb-title" data-region="card">
         <Segments steps={STAGES.map((x) => (status(x.id) === 'done' ? 'done' : stage === x.id ? 'current' : 'todo'))} size="thin" label="השלבים שהושלמו" valueText={`${STAGES.filter((x) => status(x.id) === 'done').length} מתוך 5 שלבים`} />
         <div className="jclimb-next">
           <p className="jclimb-label" id="climb-title">{state === 'mastered' ? 'המדרגה בידיים שלכם. אפשר לחזור לכל שלב' : `הצעד הבא: שלב ${STAGES.findIndex((x) => x.id === stage) + 1} מתוך 5`}</p>
@@ -93,7 +93,7 @@ export default function Journey() {
       </section>
 
       <h2 className="h-section journey-list-title">חמשת השלבים של המדרגה</h2>
-      <ol className="journey-stages" aria-label="שלבי המדרגה">
+      <ol className="journey-stages" aria-label="שלבי המדרגה" data-region="path">
         {STAGES.map((st) => {
           const s = status(st.id); const Icon = st.icon;
           const disabled = !c && ['A', 'B', 'C'].includes(st.id);

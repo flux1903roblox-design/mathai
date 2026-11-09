@@ -7,23 +7,26 @@ import clsx from 'clsx';
 import { ArrowLeft, ArrowRight, Check, RotateCcw } from 'lucide-react';
 import { Tex, MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
-import { Prompt } from './StepPlayer.jsx';
+import { Prompt, ResultWhy } from './StepPlayer.jsx';
+import { Segments } from '@/components/ds.jsx';
 import { enter } from '@/lib/motion.js';
 import { T, plainNum } from '@/content/util.js';
 
-export default function WorkedExample({ example, n, of, onDone, doneLabel = 'הבנתי, הלאה', decimal = false }) {
+export default function WorkedExample({ example, n, of, onDone, doneLabel = 'הבנתי, הלאה', decimal = false, renderHead }) {
   const [shown, setShown] = useState(0); // how many steps are shown
   const endRef = useRef(null);
   const total = example.steps.length;
   useEffect(() => { if (shown) endRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); }, [shown]);
   const all = shown >= total;
+  const bar = <Segments steps={total} done={shown} current={shown} size="thin" label={`דוגמה ${n} מתוך ${of}`} valueText={`${shown} מתוך ${total} צעדים`} />;
   return (
     <div className="worked lm">
-      <section className="lm-card">
-      <Prompt mood={all ? 'happy' : 'thinking'} tag={`דוגמה ${n} מתוך ${of}`}>
+      {renderHead ? renderHead(bar) : <div className="lm-progress">{bar}</div>}
+      <section className="lm-card" data-region="content">
+      <Prompt tag={`דוגמה ${n} מתוך ${of}`}>
           <p><MathText text={example.problem} /></p>
         </Prompt>
-      <div className="lm-canvas big">
+      <div className="lm-canvas big" data-region="visual">
       {example.display && <div className="lm-expr"><Tex tex={example.display} display /></div>}
       <ol className="worked-steps" aria-live="polite">
         <AnimatePresence initial={false}>
@@ -41,11 +44,15 @@ export default function WorkedExample({ example, n, of, onDone, doneLabel = 'ה�
       </ol>
       </div>
       <div ref={endRef} />
-      {all && <p className="ls-why good" role="status">והתשובה: <Tex tex={decimal && !Number.isInteger(example.answer) ? plainNum(example.answer, { decimal: true }) : T(example.answer)} /></p>}
       {all && <button type="button" className="link-btn worked-again" onClick={() => setShown(0)}><RotateCcw size={16} aria-hidden="true" />שוב מההתחלה</button>}
       </section>
-      <footer className={clsx('lm-actions', 'sp-nav', all && 'has-good')}>
-        {all && <p className="lm-banner" role="status"><span className="lm-banner-icon" aria-hidden="true"><Check size={18} strokeWidth={3.4} /></span>זו כל הדרך</p>}
+      <footer className={clsx('lm-actions', 'sp-nav', all && 'has-good')} data-region="footer">
+        {all && (
+          <div className="bl-result" role="status">
+            <p className="lm-banner"><span className="lm-banner-icon" aria-hidden="true"><Check size={18} strokeWidth={3.4} /></span>זו כל הדרך</p>
+            <ResultWhy tone="good"><p className="worked-answer">והתשובה: <Tex tex={decimal && !Number.isInteger(example.answer) ? plainNum(example.answer, { decimal: true }) : T(example.answer)} /></p></ResultWhy>
+          </div>
+        )}
         <div className="lm-actions-row">
           <Button variant="ghost" onClick={() => setShown(Math.max(0, shown - 1))} disabled={shown === 0} aria-label="להסתיר את הצעד האחרון"><ArrowRight size={18} aria-hidden="true" />הקודם</Button>
           {all

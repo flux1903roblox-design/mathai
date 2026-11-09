@@ -53,10 +53,10 @@ export default function CheckDone({ result: r, onExit }) {
   return (
     <div className="page check-done" role="main">
       {/* laid out like Duolingo's lesson-complete screen: מדי, the title, what it showed, then the stat tiles */}
-      <Mascot mood={c.mood} size={150} className="check-mascot" />
+      <div className="check-hero" data-region="content"><Mascot mood={c.mood} size={150} className="check-mascot" /></div>
       <h1 ref={ref} tabIndex={-1} className={clsx('check-title', r.passed ? 'good' : 'warm')}>{c.title}</h1>
       <p className="lead">{c.body}</p>
-      <div className="stats check-stats">
+      <div className="stats check-stats" data-region="answers">
         <div className={clsx('stat', r.right === r.asked ? 'stat-good' : 'stat-brand')}>
           <span className="stat-label">נכונות</span>
           <span className="stat-value" aria-label={`${r.right} נכונות מתוך ${r.asked}`}><Check size={20} aria-hidden="true" /><bdi dir="ltr">{r.right}/{r.asked}</bdi></span>
@@ -71,7 +71,7 @@ export default function CheckDone({ result: r, onExit }) {
       {rescue && weak.length > 0 && (
         <div className="box box-note"><h2 className="box-tab">מה עוד לא יצא</h2><div className="box-body"><ul className="plain-list">{weak.map((s) => <li key={s}>{titleOf(s)}</li>)}</ul></div></div>
       )}
-      <div className="form-actions">
+      <div className="form-actions" data-region="footer">
         {rescue ? (
           <Button className="btn-block btn-lg" onClick={() => navigate('/rescue', { replace: true })}>לתוכנית ההכנה<ArrowLeft size={18} aria-hidden="true" /></Button>
         ) : !r.passed && skill ? (

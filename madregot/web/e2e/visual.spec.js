@@ -20,7 +20,7 @@ test('visual: welcome', async ({ page }) => {
 
 test('visual: learn screen', async ({ page }) => {
   await open(page, '#/', livedIn('7'));
-  await shot(page, 'learn', '.continue');
+  await shot(page, 'learn', '.learn-top');
 });
 
 // each picture is of one kind of exercise: the seed that opens the lesson on it is found once and is the same every run
@@ -51,9 +51,9 @@ test('visual: a right answer', async ({ page }) => {
   await shot(page, 'feedback-good', 'section.fb-good');
 });
 
-for (const [name, route] of [['quests', '#/quests'], ['assistant-offline', '#/assistant'], ['profile', '#/me'], ['exams', '#/exams']]) {
+for (const [name, route, ready] of [['quests', '#/quests', '.page-hero-title'], ['assistant-offline', '#/assistant', '.chat-bubble-title'], ['profile', '#/me', '.profile-name'], ['exams', '#/exams', '.page-hero-title']]) {
   test(`visual: ${name}`, async ({ page }) => {
     await open(page, route, livedIn('7'));
-    await shot(page, name, '.page-hero-title');
+    await shot(page, name, ready);
   });
 }

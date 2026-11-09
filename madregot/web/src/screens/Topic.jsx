@@ -4,9 +4,8 @@ import { ArrowRight, Sparkles, Check, Lock } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { aiReady } from '@/lib/ai.js';
 import { TOPIC, TOPICS } from '@/content/index.js';
-import { Box, Button, ChapterMark } from '@/components/ui.jsx';
+import { Box, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
-import WorldBackdrop from '@/components/map/WorldBackdrop.jsx';
 
 const LineExplorer = lazy(() => import('@/components/LineExplorer.jsx'));
 
@@ -22,27 +21,29 @@ export default function Topic() {
 
   return (
     <div className="page">
-      <Link to="/topics" className="back-link"><ArrowRight size={18} aria-hidden="true" />כל הנושאים</Link>
-      <div className={`chapter-card ch-${t.color} world-${t.id}`}>
-        {/* the unit's world, as on the map */}
-        <div className="chapter-world" aria-hidden="true"><WorldBackdrop topic={t.id} /></div>
-        <header className={`chapter-opener ch-${t.color}`}>
-          <ChapterMark color={t.color} n={n} size="lg" />
-          <div>
-            <h1 className="chapter-title">{t.title}</h1>
-            <p className="chapter-desc">{t.desc}</p>
-          </div>
-        </header>
+      {/* laid out like Duolingo's guidebook: a bar with the way back, the unit's banner, then the key ideas, one card each */}
+      <header className="screen-bar" data-region="header">
+        <Link to="/topics" className="icon-btn" aria-label="כל הנושאים"><ArrowRight size={24} aria-hidden="true" /></Link>
+        <h1 className="screen-bar-title">מדריך</h1>
+        <span className="icon-btn-spacer" aria-hidden="true" />
+      </header>
+      <div className={`unit-head guide-banner ch-${t.color}`}>
+        <div className="unit-head-text">
+          <p className="unit-label">יחידה {n}</p>
+          <h2 className="unit-title">{t.title}</h2>
+          <p className="unit-label">{t.desc}</p>
+        </div>
       </div>
 
       {t.lesson && (
-        <Box tone="note" title="תזכורת מהשיעור">
-          <ul className="lesson-list">{t.lesson.points.map((pt) => <li key={pt}><MathText text={pt} /></li>)}</ul>
+        <section className="guide" aria-labelledby="guide-key" data-region="content">
+          <h2 id="guide-key" className="h-section">רעיונות מרכזיים</h2>
+          <ul className="guide-cards">{t.lesson.points.map((pt) => <li key={pt} className="guide-card"><MathText text={pt} /></li>)}</ul>
           {t.lesson.examples && (
-            <details className="sol">
-              <summary>דוגמאות מהשיעור</summary>
-              <ul className="lesson-list">{t.lesson.examples.map((ex) => <li key={ex}><MathText text={ex} /></li>)}</ul>
-            </details>
+            <>
+              <h2 className="h-section">דוגמאות מהשיעור</h2>
+              <ul className="guide-cards">{t.lesson.examples.map((ex) => <li key={ex} className="guide-card"><MathText text={ex} /></li>)}</ul>
+            </>
           )}
           {t.lesson.explore === 'line' && (
             <details className="sol explorer-details">
@@ -50,9 +51,10 @@ export default function Topic() {
               <Suspense fallback={<p className="muted">טוענים…</p>}><LineExplorer /></Suspense>
             </details>
           )}
-        </Box>
+        </section>
       )}
 
+      <h2 className="h-section">המדרגות של היחידה</h2>
       <ol className="level-list">
         {t.levels.map((L, i) => {
           const lv = i + 1; const state = lv === p.level ? 'cur' : lv <= p.max ? 'done' : 'todo';

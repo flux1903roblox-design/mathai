@@ -10,7 +10,6 @@ import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
 import { Box, Button, Field, Thinking } from '@/components/ui.jsx';
 import { Markdown } from '@/components/MathText.jsx';
-import PageHero from '@/components/PageHero.jsx';
 
 const TABS = [
   { id: 'chat', label: 'שיחה', icon: MessageCircle },
@@ -56,23 +55,37 @@ function AiOffline() {
     { icon: Camera, title: 'בדיקת פתרון מצולם', text: 'מצלמים את הדרך מהמחברת, והעוזר מסמן כל שלב.' },
     { icon: Wand2, title: 'תרגילים חדשים', text: 'עוד תרגילים באותה מדרגה, עם רמז ופתרון.' },
   ];
+  // laid out as a conversation (like a tutor chat in Duolingo Max or Brilliant): מדי's messages, then the input bar
+  // at the bottom, switched off and saying why, with the two ways on
   return (
-    <section className="ai-offline" aria-labelledby="ai-off-title">
-      <div className="ai-offline-head">
-        <Mascot mood="encouraging" size={84} />
-        <div className="ai-offline-text">
-          <h2 id="ai-off-title" className="h-section">העוזר עוד לא מחובר</h2>
-          <p className="muted">{inClass ? 'השרת של הכיתה לא עונה כרגע. כדאי לנסות שוב בעוד כמה דקות.' : 'בגרסה הזו העוזר כבוי. השיעורים, המפה והמשימות עובדים גם בלעדיו.'}</p>
+    <section className="ai-offline chat-like" aria-labelledby="ai-off-title">
+      <div className="chat-log" data-region="content">
+        <div className="chat-msg">
+          <Mascot mood="encouraging" size={44} className="chat-avatar" />
+          <div className="chat-bubble">
+            <h2 id="ai-off-title" className="chat-bubble-title">העוזר עוד לא מחובר</h2>
+            <p>{inClass ? 'השרת של הכיתה לא עונה כרגע. כדאי לנסות שוב בעוד כמה דקות.' : 'בגרסה הזו העוזר כבוי. השיעורים, המפה והמשימות עובדים גם בלעדיו.'}</p>
+          </div>
+        </div>
+        <div className="chat-msg">
+          <span className="chat-avatar-space" aria-hidden="true" />
+          <div className="chat-bubble">
+            <p>כשהעוזר מחובר, אפשר:</p>
+            <ul className="ai-features">
+              {FEATURES.map(({ icon: Icon, title, text }) => (
+                <li key={title}><span className="ai-feature-icon" aria-hidden="true"><Icon size={20} /></span><span><b>{title}</b><span>{text}</span></span></li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
-      <ul className="ai-features">
-        {FEATURES.map(({ icon: Icon, title, text }) => (
-          <li key={title}><span className="ai-feature-icon" aria-hidden="true"><Icon size={22} /></span><span><b>{title}</b><span>{text}</span></span></li>
-        ))}
-      </ul>
-      <div className="ai-offline-actions">
-        <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>
-        {!inClass && <Link to="/me" state={{ focus: 'ai' }} className="btn btn-secondary btn-block">איך מחברים את העוזר</Link>}
+      <div className="chat-dock" data-region="footer">
+        <label htmlFor="ai-off-input" className="visually-hidden">הודעה לעוזר</label>
+        <input id="ai-off-input" className="input" disabled placeholder="העוזר עוד לא מחובר" />
+        <div className="ai-offline-actions">
+          <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>
+          {!inClass && <Link to="/settings" state={{ focus: 'ai' }} className="btn btn-secondary btn-block">איך מחברים את העוזר</Link>}
+        </div>
       </div>
     </section>
   );
@@ -228,7 +241,11 @@ export default function Assistant() {
   const ready = aiReady();
   return (
     <div className="page">
-      <PageHero tone="ai" scene="assistant" mood="thinking" title="עוזר AI" sub="שואלים על כל תרגיל, מקבלים תרגילים חדשים, ובודקים פתרון מצולם." />
+      <header className="screen-bar" data-region="header">
+        <span className="icon-btn-spacer" aria-hidden="true" />
+        <h1 className="screen-bar-title">עוזר AI</h1>
+        <span className="icon-btn-spacer" aria-hidden="true" />
+      </header>
       {!ready ? <AiOffline /> : (
         <>
           <Tabs value={tab} onChange={setTab} />

@@ -119,7 +119,7 @@ export default function ExamCheck() {
             {practice
               ? <Link to={`/exams/practice/${practice.id}`} className="btn btn-primary btn-block">חזרה למבחן ולמפתח התשובות</Link>
               : <Link to="/exams/new" className="btn btn-primary btn-block">הכנת מבחן תרגול</Link>}
-            <Link to="/me" state={{ focus: 'ai' }} className="btn btn-secondary btn-block">איך מחברים את העוזר</Link>
+            <Link to="/settings" state={{ focus: 'ai' }} className="btn btn-secondary btn-block">איך מחברים את העוזר</Link>
           </div>
         </>
       )}
