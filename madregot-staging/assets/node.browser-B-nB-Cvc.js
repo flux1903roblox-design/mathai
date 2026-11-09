@@ -1,0 +1,1 @@
+import{A as o}from"./index-CDOa0Ax8.js";import"./index-6i7-SNmJ.js";import"./markdown-Du8lbZoI.js";import"./katex-ClqbGnGP.js";function n(e){return new Proxy({},{get(i,t){if(typeof t!="symbol")throw new o(`\`${e}.${t}\` is not available in this environment; it needs a Node.js-compatible runtime`)}})}const p=n("fs"),f=n("path");export{p as fs,f as path};
