@@ -15,7 +15,7 @@ import { aiReady } from '@/lib/ai.js';
 import { MathText } from '@/components/MathText.jsx';
 import { Button, Sheet } from '@/components/ui.jsx';
 import PageHero from '@/components/PageHero.jsx';
-import { Riser } from '@/components/ds.jsx';
+import { Segments } from '@/components/ds.jsx';
 
 const CONF = [{ v: 1, label: 'לא בטוחים בכלל' }, { v: 2, label: 'קצת בטוחים' }, { v: 3, label: 'די בטוחים' }, { v: 4, label: 'בטוחים' }];
 const MINUTES = [10, 15, 20, 30];
@@ -112,7 +112,7 @@ function Plan({ plan }) {
         <>
           <section className="card readiness" aria-labelledby="ready-title">
             <div className="mission-progress-top"><h2 id="ready-title" className="h-section">המוכנות שלכם</h2><span className="readiness-count">שולטים לבד ב־{p.mastered} מתוך {p.total}</span></div>
-            <Riser size="lg" steps={[...p.skills].sort((x, y) => ORDER.indexOf(x.standing) - ORDER.indexOf(y.standing)).map((x) => x.standing)} label="המוכנות למבחן" valueText={`שולטים לבד ב־${p.mastered} מתוך ${p.total} מדרגות`} />
+            <Segments size="thick" steps={[...p.skills].sort((x, y) => ORDER.indexOf(x.standing) - ORDER.indexOf(y.standing)).map((x) => x.standing)} label="המוכנות למבחן" valueText={`שולטים לבד ב־${p.mastered} מתוך ${p.total} מדרגות`} />
             <ul className="readiness-legend">
               {ORDER.filter((k) => p.skills.some((x) => x.standing === k)).map((k) => <li key={k}><i className={`rs-${k}`} aria-hidden="true" />{STANDING[k]}: {p.skills.filter((x) => x.standing === k).length}</li>)}
             </ul>

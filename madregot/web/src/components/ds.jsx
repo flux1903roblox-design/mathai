@@ -1,24 +1,39 @@
-// Madregot design system v4: the pieces every screen shares.
-//   Riser      progress drawn as rising stairs (a lesson, the five stages, today's mission, exam readiness)
+// Madregot's shared pieces. The layouts follow two familiar apps (Duolingo for the daily loop, Brilliant for the
+// lessons); the colours, fonts, icons and מדי are Madregot's own.
+//   Segments   a segmented progress bar: thin (a lesson's steps) or thick (a breakdown such as exam readiness)
+//   Bar        a thick progress bar with its count written inside (a quest's progress)
 //   Badge      one status language: mastered, ready, practising, review, support, new, brand
-//   Stat       a number with its label, on a ledge (.kpi: .stat belongs to the lesson-end screen)
+//   Stat       a stat tile: an icon, a number and its label
 //   StateCard  empty, error and celebration states with מדי
 import clsx from 'clsx';
 import Mascot from './Mascot.jsx';
 
 /**
- * Stairs that rise in the reading direction. `steps` is a number (with `done` and `current`) or an array of
- * tones ('done' | 'current' | 'todo' | a status tone) for a breakdown such as exam readiness.
+ * A row of equal segments. `steps` is a number (with `done` and `current`) or an array of tones
+ * ('done' | 'current' | 'todo' | a status tone) for a breakdown.
  */
-export function Riser({ steps, done = 0, current = -1, label, valueText, size = 'md', className }) {
+export function Segments({ steps, done = 0, current = -1, label, valueText, size = 'thin', className }) {
   const list = Array.isArray(steps)
     ? steps
     : Array.from({ length: steps }, (_, i) => (i < done ? 'done' : i === current ? 'current' : 'todo'));
   const n = list.length;
   return (
-    <div className={clsx('riser', `riser-${size}`, className)} role="progressbar" aria-label={label}
+    <div className={clsx('segs', `segs-${size}`, className)} role="progressbar" aria-label={label}
       aria-valuemin={0} aria-valuemax={n} aria-valuenow={Array.isArray(steps) ? list.filter((t) => t !== 'todo').length : done} aria-valuetext={valueText}>
-      {list.map((tone, i) => <i key={i} className={clsx('riser-step', `rs-${tone}`)} style={{ '--h': `${32 + (68 * (i + 1)) / n}%` }} />)}
+      {list.map((tone, i) => <i key={i} className={clsx('seg-step', `rs-${tone}`)} />)}
+    </div>
+  );
+}
+/** Older name, kept so nothing breaks. */
+export const Riser = Segments;
+
+/** A thick bar with the count inside it, filling in the reading direction. */
+export function Bar({ value, max, label, text, tone = 'good' }) {
+  const pct = max ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  return (
+    <div className={clsx('qbar', `qbar-${tone}`)} role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={value} aria-valuetext={text}>
+      <i style={{ width: `${pct}%` }} />
+      <span className="qbar-text" dir="auto">{text ?? `${value} / ${max}`}</span>
     </div>
   );
 }
@@ -30,9 +45,11 @@ export function Badge({ tone = 'neutral', icon: Icon, children, className }) {
 export function Stat({ value, label, tone = 'brand', icon: Icon }) {
   return (
     <div className={clsx('kpi', `kpi-${tone}`)}>
-      {Icon && <Icon size={20} aria-hidden="true" className="kpi-icon" />}
-      <span className="kpi-num">{value}</span>
-      <span className="kpi-cap">{label}</span>
+      {Icon && <Icon size={24} aria-hidden="true" className="kpi-icon" />}
+      <span className="kpi-text">
+        <span className="kpi-num">{value}</span>
+        <span className="kpi-cap">{label}</span>
+      </span>
     </div>
   );
 }

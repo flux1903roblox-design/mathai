@@ -13,7 +13,7 @@ import Board from '@/components/Board.jsx';
 import TodayCard from '@/components/learn/TodayCard.jsx';
 import MasteryMap from '@/components/learn/MasteryMap.jsx';
 import PathTrail from '@/components/map/PathTrail.jsx';
-import { SCENERY, Emblem } from '@/components/map/Scenery.jsx';
+import { SCENERY } from '@/components/map/Scenery.jsx';
 import WorldBackdrop from '@/components/map/WorldBackdrop.jsx';
 import Chest from '@/components/map/Chest.jsx';
 import { Button } from '@/components/ui.jsx';
@@ -90,15 +90,11 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
   const half = chestAfter(t.id);
   return (
     <section className={clsx('unit', `ch-${t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
+      {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path scrolls */}
       <header className="unit-head">
-        <Emblem topic={t.id} />
         <div className="unit-head-text">
-          <h2 id={`unit-${t.id}`} className="unit-title"><span className="unit-num" aria-hidden="true">{n}</span>{t.title}</h2>
-          <p className="unit-desc">{t.desc}</p>
-          <div className="unit-progress" aria-label={`${done} מתוך ${total} מדרגות הושלמו`}>
-            <span className="unit-bar"><i style={{ width: `${(done / total) * 100}%` }} /></span>
-            <bdi dir="ltr" className="unit-count">{done}/{total}</bdi>
-          </div>
+          <p className="unit-label">יחידה {n} · {done} מתוך {total} מדרגות</p>
+          <h2 id={`unit-${t.id}`} className="unit-title">{t.title}</h2>
         </div>
         <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={`תזכורת מהשיעור: ${t.title}`}><BookOpen size={22} aria-hidden="true" /><span>תזכורת</span></Link>
       </header>
@@ -228,7 +224,6 @@ export default function Learn() {
       <div className="learn-body">
         {/* one clear next action: today's mission (Madregot 2.0), then where the student stands */}
         <TodayCard grade={view} onBoard={onBoard} />
-        <MasteryMap grade={view} />
         <h2 className="map-title">מפת השיעורים</h2>
         {topics.map((t, i) => (
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
@@ -236,6 +231,7 @@ export default function Learn() {
             mascotMood={state?.nodeDone ? 'excited' : state?.from ? 'happy' : 'idle'} />
         ))}
         <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה.</p>
+        <MasteryMap grade={view} />
         {/* the board: the level in each topic and what is not clear yet, under the map */}
         <Board grade={view} placed={!!state?.placed} onStart={onStart} onJump={onJump} />
       </div>

@@ -383,3 +383,22 @@ axe 36 scans + 9 new (check results passed and not yet, the profile with work to
 size sweep 60 checks, one flag that is a button inside a closed section. Visual baselines: 50 images updated after
 side-by-side review (old against new, phone and short phone), then the 17 short-phone images again after the
 short-screen fix. These tests check that the screens work and fit; they say nothing about whether students learn more.
+
+## Round 11: layouts after Duolingo and Brilliant (9 November 2026)
+
+The owner asked for the layouts of Duolingo and Brilliant rather than an original layout. Layout structure only:
+Madregot's colours, fonts, icons and מדי stay; no art, character, wording or brand asset of either app is used.
+Details in `DESIGN.md` → "Layouts after Duolingo and Brilliant".
+
+Behaviour change in the teaching stages (A and every remedy): an answer card is now selected and then checked with
+"בדיקה" at the bottom (as in both reference apps), and an object to move is checked from the same bottom button. The
+result strip ("נכון!" green, "ניחוש טוב לבדוק" / "עוד לא" yellow) replaces the inline verdict title. The end-to-end
+drivers were updated accordingly (`.lm-check`, "המשך").
+
+Found and fixed during this round: a count such as "0 / 2" read "2 / 0" in the right-to-left bar, and a score such
+as 4/5 could read 5/4 (both now isolated left to right); the unit banner's small label was 3.9:1 and the exam
+countdown's "ימים" 3.8:1 (both now 4.5:1 or more, axe).
+
+Suites on the final code: unit 409/409; typecheck clean; end-to-end 278 passed, 0 failed (162 skipped by design);
+axe 36 + 9 scans, 0 violations; size sweep 60 checks, the one known flag (a button inside a closed section).
+Visual baselines: 50 images updated after an old/new review on phone and short phone.

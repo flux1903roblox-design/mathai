@@ -1,9 +1,10 @@
-// Stage B: a worked example, revealed one step at a time. Each step is the action, what it gives, and why.
+// Stage B: a worked example, revealed one step at a time (a Brilliant-style step-by-step solution). Each step is the action, what it gives, and why.
 // The steps already seen stay on the page (to look back at), "הקודם" hides the last one again, and the whole
 // example can be replayed from the start. The full solution is never shown at once.
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, m } from 'motion/react';
-import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react';
+import clsx from 'clsx';
+import { ArrowLeft, ArrowRight, Check, RotateCcw } from 'lucide-react';
 import { Tex, MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Prompt } from './StepPlayer.jsx';
@@ -43,11 +44,14 @@ export default function WorkedExample({ example, n, of, onDone, doneLabel = 'ה�
       {all && <p className="ls-why good" role="status">והתשובה: <Tex tex={decimal && !Number.isInteger(example.answer) ? plainNum(example.answer, { decimal: true }) : T(example.answer)} /></p>}
       {all && <button type="button" className="link-btn worked-again" onClick={() => setShown(0)}><RotateCcw size={16} aria-hidden="true" />שוב מההתחלה</button>}
       </section>
-      <footer className="lm-actions sp-nav">
-        <Button variant="ghost" onClick={() => setShown(Math.max(0, shown - 1))} disabled={shown === 0} aria-label="להסתיר את הצעד האחרון"><ArrowRight size={18} aria-hidden="true" />הקודם</Button>
-        {all
-          ? <Button className="btn-lg" onClick={onDone}>{doneLabel}<ArrowLeft size={18} aria-hidden="true" /></Button>
-          : <Button className="btn-lg" onClick={() => setShown(shown + 1)}>{shown === 0 ? 'מתחילים' : 'הצעד הבא'}<ArrowLeft size={18} aria-hidden="true" /></Button>}
+      <footer className={clsx('lm-actions', 'sp-nav', all && 'has-good')}>
+        {all && <p className="lm-banner" role="status"><span className="lm-banner-icon" aria-hidden="true"><Check size={18} strokeWidth={3.4} /></span>זו כל הדרך</p>}
+        <div className="lm-actions-row">
+          <Button variant="ghost" onClick={() => setShown(Math.max(0, shown - 1))} disabled={shown === 0} aria-label="להסתיר את הצעד האחרון"><ArrowRight size={18} aria-hidden="true" />הקודם</Button>
+          {all
+            ? <Button className="btn-lg" onClick={onDone}>{doneLabel}<ArrowLeft size={18} aria-hidden="true" /></Button>
+            : <Button className="btn-lg" onClick={() => setShown(shown + 1)}>{shown === 0 ? 'מתחילים' : 'הצעד הבא'}<ArrowLeft size={18} aria-hidden="true" /></Button>}
+        </div>
       </footer>
     </div>
   );

@@ -1,4 +1,6 @@
 // A stair's journey: understand, see an example, solve together, practise alone, prove it alone.
+// Laid out like a Brilliant course page: the stair's header with the next step and its button, then the five stages
+// as an outline, each a node on one line, done ones checked and the current one filled.
 // The student sees where they are, what each stage is, what "mastered" means, and can go to any stage.
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -17,6 +19,7 @@ import { MathText } from '@/components/MathText.jsx';
 import { Button, ChapterMark } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
+import { Segments } from '@/components/ds.jsx';
 
 const STAGES = [
   { id: 'A', title: 'מבינים את הרעיון', icon: Lightbulb },
@@ -81,18 +84,7 @@ export default function Journey() {
       </header>
 
       <section className="jclimb" aria-labelledby="climb-title">
-        <ol className="jstairs" aria-hidden="true">
-          {STAGES.map((st, i) => {
-            const s = status(st.id);
-            return (
-              <li key={st.id} className={clsx(s === 'done' && 'done', stage === st.id && 'current')} style={{ '--n': i }}>
-                <span className="js-madi">{stage === st.id && <Mascot mood="happy" size={44} />}</span>
-                <span className="js-block">{s === 'done' ? <Check size={18} strokeWidth={3} /> : i + 1}</span>
-                <span className="js-label">{st.title}</span>
-              </li>
-            );
-          })}
-        </ol>
+        <Segments steps={STAGES.map((x) => (status(x.id) === 'done' ? 'done' : stage === x.id ? 'current' : 'todo'))} size="thin" label="השלבים שהושלמו" valueText={`${STAGES.filter((x) => status(x.id) === 'done').length} מתוך 5 שלבים`} />
         <div className="jclimb-next">
           <p className="jclimb-label" id="climb-title">{state === 'mastered' ? 'המדרגה בידיים שלכם. אפשר לחזור לכל שלב' : `הצעד הבא: שלב ${STAGES.findIndex((x) => x.id === stage) + 1} מתוך 5`}</p>
           <Button className="btn-block btn-lg" onClick={() => toStage(stage)}>{cta}</Button>
@@ -100,7 +92,7 @@ export default function Journey() {
         </div>
       </section>
 
-      <h2 className="h-section journey-list-title">חמשת השלבים</h2>
+      <h2 className="h-section journey-list-title">חמשת השלבים של המדרגה</h2>
       <ol className="journey-stages" aria-label="שלבי המדרגה">
         {STAGES.map((st) => {
           const s = status(st.id); const Icon = st.icon;

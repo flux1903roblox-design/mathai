@@ -1,4 +1,5 @@
 // "המשימה שלי להיום": about five minutes, chosen for this student today, each part with the reason for it.
+// Layout: Duolingo's quests screen (a progress card with a thick bar, then one card per quest).
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
@@ -10,7 +11,7 @@ import { STAGE_N } from '@/learn/recommend.ts';
 import { MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import PageHero from '@/components/PageHero.jsx';
-import { Riser, StateCard } from '@/components/ds.jsx';
+import { Bar, StateCard } from '@/components/ds.jsx';
 
 export const KIND_ICON = { repair: Wrench, review: RotateCcw, prereq: Footprints, continue: ArrowLeft, new: Sparkles, mastery: Award, exam: CalendarClock };
 export const KIND_LABEL = { repair: 'תיקון', review: 'בדיקת זיכרון', prereq: 'מדרגה קודמת', continue: 'ממשיכים', new: 'חדש', mastery: 'בדיקת שליטה', exam: 'הכנה למבחן' };
@@ -29,8 +30,8 @@ export default function Mission() {
       <PageHero tone="brand" title="המשימה שלי להיום" sub={items.length ? `בערך ${missionMinutes(items)} דקות. כל חלק נבחר בשבילכם, והסיבה כתובה לידו.` : 'אין כרגע משימה.'} scene="climb" mood={done ? 'achievement' : 'happy'} />
       {items.length > 0 && (
         <section className="mission-progress" aria-label="ההתקדמות במשימה">
-          <div className="mission-progress-top"><span className="readiness-count">{done ? 'הושלמה' : `${items.filter((i) => i.done).length} מתוך ${items.length} חלקים`}</span><b>{missionMinutes(items)} דק׳</b></div>
-          <Riser steps={items.map((i) => (i.done ? 'done' : i === nextItem ? 'current' : 'todo'))} label="ההתקדמות במשימה" valueText={`${items.filter((i) => i.done).length} מתוך ${items.length} חלקים`} />
+          <div className="mission-progress-top"><b>המשימה היומית</b><span className="readiness-count">בערך {missionMinutes(items)} דק׳</span></div>
+          <Bar value={items.filter((i) => i.done).length} max={items.length} label="ההתקדמות במשימה" text={done ? 'הושלמה' : `${items.filter((i) => i.done).length} / ${items.length}`} />
         </section>
       )}
       {done && (

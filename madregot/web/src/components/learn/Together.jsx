@@ -112,7 +112,12 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
         )}
       </m.section>
       </section>
-      {(solved || giveUp) && <footer className="lm-actions"><Button className="btn-block btn-lg" onClick={onDone}>הלאה<ArrowLeft size={18} aria-hidden="true" /></Button></footer>}
+      {(solved || giveUp) && (
+        <footer className={clsx('lm-actions', solved ? 'has-good' : 'has-warm')}>
+          <p className="lm-banner"><span className="lm-banner-icon" aria-hidden="true">{solved ? <Check size={18} strokeWidth={3.4} /> : <Lightbulb size={18} />}</span>{solved ? 'פתרתם לבד!' : 'נחזור על זה בתרגול'}</p>
+          <div className="lm-actions-row"><Button className="btn-block btn-lg" onClick={onDone}>המשך<ArrowLeft size={18} aria-hidden="true" /></Button></div>
+        </footer>
+      )}
     </div>
   );
 }

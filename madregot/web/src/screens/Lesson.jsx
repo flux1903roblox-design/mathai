@@ -449,7 +449,7 @@ export default function Lesson() {
     <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed', isManip && !nbOn && 'is-manip')}>
       {/* top: progress and the question, always on screen */}
       <header className="lesson-head">
-        <ProgressHeader extra={compact ? tools : null} pct={pct} marks={placement ? null : marks} total={s.total} at={s.slot < s.total ? s.slot : marks.indexOf('shown')} label={placement ? 'התקדמות בבדיקת הרמה' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
+        <ProgressHeader extra={compact ? tools : null} pct={pct} marks={placement ? null : marks} total={s.total} label={placement ? 'התקדמות בבדיקת הרמה' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
         <AnimatePresence mode="wait" initial={false}>
           <m.div key={stage} className="q-pin" {...slide}>{question}</m.div>
         </AnimatePresence>

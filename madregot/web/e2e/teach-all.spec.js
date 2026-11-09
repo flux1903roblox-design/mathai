@@ -24,10 +24,10 @@ for (const [topic, n] of Object.entries(STAIRS)) {
           await expect(page.locator('.ls-explore .manip')).toBeVisible();
           await expect.poll(() => page.evaluate(() => window.__madregotSolveStep?.forStep === window.__madregotStep)).toBe(true);
           await page.evaluate(() => window.__madregotSolveStep());
-          await page.locator('.ls-explore .btn').last().click();
+          await page.locator('.lm-check').click();
           await expect(page.locator('.ls-explore .ls-why.good')).toBeVisible();
         }
-        if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await expect(page.locator('.ls-why.good')).toBeVisible(); }
+        if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); await expect(page.locator('.ls-why.good')).toBeVisible(); }
         const next = page.locator('.sp-next');
         const last = (await next.textContent()).includes('לדוגמה');
         const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
@@ -55,7 +55,7 @@ for (const [topic, n] of Object.entries(STAIRS)) {
             await page.getByRole('button', { name: 'בדיקה' }).click();
             await expect(page.getByText('פתרתם את הצעד האחרון לבד')).toBeVisible();
             await page.evaluate(() => { window.__madregotGuided = null; });
-            await page.getByRole('button', { name: 'הלאה' }).click();
+            await page.getByRole('button', { name: 'המשך' }).click();
             // the next problem, or the stair's page after the last one
             await expect.poll(async () => (await page.locator('.journey').count()) > 0 || !!(await page.evaluate(() => window.__madregotGuided))).toBe(true);
             break;

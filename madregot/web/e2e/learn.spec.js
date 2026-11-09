@@ -20,11 +20,12 @@ async function playDiscover(page) {
         const d = st.answer - st.manip.start;
         for (let k = 0; k < Math.abs(d); k += 1) await page.getByRole('button', { name: d > 0 ? 'הסמן ימינה' : 'הסמן שמאלה' }).first().click();
       }
-      await page.locator('.ls-explore .btn').last().click();
+      await page.locator('.lm-check').click();
       await expect(page.locator('.ls-explore .ls-why.good')).toBeVisible();
     }
     if (st.kind === 'predict') {
       await page.locator('.ls-choice').nth(st.answer).click();
+      await page.locator('.lm-check').click();
       await expect(page.locator('.ls-why.good')).toBeVisible();
     }
     const next = page.locator('.sp-next');
@@ -62,11 +63,11 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await page.locator('.tg-input').fill('5');
   await page.getByRole('button', { name: 'בדיקה' }).click();
   await expect(page.getByText('פתרתם את הצעד האחרון לבד')).toBeVisible();
-  await page.getByRole('button', { name: 'הלאה' }).click();
+  await page.getByRole('button', { name: 'המשך' }).click();
   await page.locator('.tg-step .ls-choice').nth(0).click();
   await page.locator('.tg-input').fill('0');
   await page.getByRole('button', { name: 'בדיקה' }).click();
-  await page.getByRole('button', { name: 'הלאה' }).click();
+  await page.getByRole('button', { name: 'המשך' }).click();
   // back on the stair: understanding, the example and solving together are done; practice is next
   await expect(page.locator('.journey')).toBeVisible();
   await expect(page.locator('.jstage.done')).toHaveCount(3);
@@ -127,8 +128,8 @@ test('a confirmed misconception is repaired with its own activity, then verified
   for (let i = 0; i < 6; i += 1) {
     await expect.poll(() => step(page)).toBeTruthy();
     const s = await step(page);
-    if (s.kind === 'explore') { const d = s.answer - s.manip.start; for (let k = 0; k < Math.abs(d); k += 1) await page.getByRole('button', { name: d > 0 ? 'הסמן ימינה' : 'הסמן שמאלה' }).first().click(); await page.locator('.ls-explore .btn').last().click(); }
-    if (s.kind === 'predict') await page.locator('.ls-choice').nth(s.answer).click();
+    if (s.kind === 'explore') { const d = s.answer - s.manip.start; for (let k = 0; k < Math.abs(d); k += 1) await page.getByRole('button', { name: d > 0 ? 'הסמן ימינה' : 'הסמן שמאלה' }).first().click(); await page.locator('.lm-check').click(); }
+    if (s.kind === 'predict') { await page.locator('.ls-choice').nth(s.answer).click(); await page.locator('.lm-check').click(); }
     const last = (await page.locator('.sp-next').textContent()).includes('לבדיקה');
     await page.locator('.sp-next').click();
     if (last) break;

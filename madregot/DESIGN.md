@@ -494,55 +494,38 @@ The unit's staircase (one block per level, rising in the reading direction, the 
 One scale for every animation (`src/lib/motion.js`, matching the CSS tokens): the smooth-out easing, durations from 80ms (micro) to 500ms (very slow) plus a 900ms draw for paths, and springs by role: settle (a panel arriving, no overshoot), pop (a reward or a chip), bounce (a celebration: the streak number, the chest lid, a stair just completed), soft (the mascot's limbs), lean and fill. Movement answers what the student did; the only idle loops are the current stair's float, its halo and מדי's breathing. Under reduced motion transforms stop and opacity stays.
 
 
-## Design system v4 (8 November 2026)
+## Layouts after Duolingo and Brilliant (9 November 2026)
 
-v4 keeps everything above (מדי, the lip, the chapter colours, Fredoka and Rubik, RTL, no pressure devices) and adds one
-language for the whole app, grown from the name: **מדרגות, stairs**. Code: `src/styles/v4.css` (loaded last, it refines
-`app.css` without fighting it) and `src/components/ds.jsx`.
+At the owner's request the screens now follow the layouts of two apps students already know. The layout structure
+is borrowed; the colours, fonts (Fredoka, Rubik), icons, maths rendering and מדי stay Madregot's own, and no art,
+mascot, wording or brand asset of either app is used. Code: `src/styles/v4.css` (the layout layer, loaded last) and
+`src/components/ds.jsx`. This replaces the short-lived "v4" riser/staircase language of 8 November.
 
-### The four ideas
-- **The riser.** Progress is drawn as steps that rise in the reading direction (right to left), not as a flat bar,
-  wherever a climb is meant: the steps of a lesson, today's mission, the five stages of a stair, exam readiness.
-  `<Riser steps done current>` or `<Riser steps={[tones]}>` for a breakdown; it is a `progressbar` with a spoken value.
-- **The ledge.** What can be pressed stands on a solid lip in a darker tone of its own colour (as before). v4 extends
-  it to choice cards, stair chips, stat tiles and stage cards, so "pressable" and "on a ledge" stay the same thing.
-- **The board.** Maths sits on a calm white canvas with a faint purple dot grid (`--dots`), framed and central: in the
-  teaching stages (`.lm-canvas`) and in practice, where the whole middle of the screen is the board and the expression
-  stands in its centre with no second frame.
-- **מדי speaks from the prompt.** He sits in the prompt header beside what he says (`<Prompt>`), never over the maths.
+### Duolingo's layout: the daily loop
+- **Look:** a white page; flat cards with a 2px border and no shadow; solid buttons on a lip; thick progress bars
+  with a highlight stripe.
+- **Home:** the daily quests card first (header with the time it takes, one row per part: an icon tile, the title,
+  and a thick bar with the count written inside, then one big button), the exam entry as its own card, then the path.
+  Each unit has a sticky banner in its colour ("יחידה N · X מתוך Y מדרגות", the title, the guidebook behind a divider);
+  a stop's card opens in the unit's colour with a white button. The mastery snapshot sits under the path.
+- **Practice:** a close button and one thick continuous progress bar; מדי large beside a bordered speech bubble with
+  the question; the maths in the middle of a plain white page; the answer and a full-width check button at the
+  bottom; after checking, the coloured result strip (green / gold) with its button.
+- **Results:** the lesson-complete layout: מדי, the title, stat tiles with a coloured label strip (correct, XP), and
+  the next step at the bottom.
+- **Missions:** a progress card with the thick bar ("1 / 3"), then one bordered card per quest.
+- **Profile:** stat tiles (icon, number, label) in a grid, the next step, the stairs that need work, the medals.
 
-### Tokens (v4.css `:root`)
-- Purple family `--p-50 … --p-900` around the brand `#5b4ff0` (`--p-500`); surfaces `--surface-0` (the lilac-white
-  ground), `--surface-1` (cards), `--surface-2` (the board); lines `--line`, `--line-2`.
-- Radii by hierarchy: `--r-s` 14 (controls), `--r-m` 18 (choices, small cards), `--r-l` 24 (cards), `--r-xl` 30 (hero
-  surfaces and the lesson card). Elevation: `--e-1` (resting card), `--e-2` (the one card that leads the screen).
-- Type scale: display 30/36, h1 24/30, h2 19/26, body 16/25, small 14/21, xs 12.5/17. Rhythm: `--gutter` 16 (24 from
-  600px), `--stack` 16, `--section` 28.
+### Brilliant's layout: the lessons
+- **Teaching stages A, B, C and every remedy:** a thin segmented bar on top; the text first, large and plain, with a
+  small מדי beside it; the maths or the object to move on a light panel in the middle; answer cards across the width
+  (no numbers, centred). The student selects, then presses "בדיקה" at the bottom; the bottom bar turns into a result
+  strip ("נכון!" in green, "ניחוש טוב לבדוק" / "עוד לא" in yellow, never red) with "המשך"; the explanation appears in
+  the text above. Worked examples reveal their steps on the panel one at a time.
+- **The stair page:** a course outline. The header with the next step, a thin bar of the five stages and the button;
+  then the five stages as nodes on one vertical line (done ones green with a check, the current one filled in the unit
+  colour with a ring), each with its own button.
 
-### Components
-- **Buttons:** one family; primary is a soft vertical purple gradient on a purple lip; secondary is white on a grey
-  lip; one primary per screen region. Long labels (a title with maths) wrap inside the button instead of widening the page.
-- **Badge** (`.badge-{mastered|ready|practicing|review|support|neutral|brand}`): one status language.
-- **Stat** (`.kpi`): a number with its label on a ledge (named `.kpi` because `.stat` belongs to the lesson-end screen).
-- **StateCard** (`empty | error | celebrate`): מדי, a title, a line, one action.
-- **Lesson module** (`.lm`): progress riser and count → the lesson card (`.lm-card`: prompt, board, response) →
-  the actions footer (`.lm-actions`: back as a quiet link, the one next step as a large button), pinned to the bottom of
-  a phone and following the card on a wide screen. Used by stage A, B and C, every remedy, and the tutor sheet.
-- **Mission hero:** the one purple surface on the home screen: label and minutes, the mission's riser, the title, why
-  it was chosen, a white button, then the parts.
-- **Exam entry** (`.exam-cta`): a warm card with an orange tile, the days left, and a chevron.
-- **The five stages** (`.jclimb`): five blocks rising right to left, done in green, the current one in the unit colour
-  with מדי standing on it; the next step and its button under them; the detailed list follows.
-- **Exam Rescue:** a countdown hero (big number of days, the exam's day, the honest message), a readiness riser
-  ordered from mastered to untested with a counted legend, the day-by-day plan, the standing list. The setup is three
-  numbered steps (when, which stairs as toggle chips, how much time) with a sticky build button.
-- **Progress summary** (profile): mastered / on the way / needs strengthening, the next step with its button, and up
-  to four stairs that need work with their status badges.
-
-### Where the inspiration came from, and what is ours
-- From the Duolingo school: one primary action per screen, large pressable buttons, visible progress, a daily mission
-  and a motivating, never punishing tone. Not taken: its owl, green, typeface, path art, hearts or leagues.
-- From the Brilliant school: the lesson as a calm canvas with room to breathe, the maths visual and interactive first,
-  explanation beside exploration. Not taken: its layouts, colours, illustrations or motion.
-- Ours: the riser and the five-step staircase (the product's name drawn as its progress), מדי the stair block, the
-  purple family, the dot-grid board, the orange countdown for exams, the Hebrew-first right-to-left climb.
+### Shared pieces (`ds.jsx`)
+- `Segments` (thin for a lesson's steps, thick for a breakdown such as exam readiness), `Bar` (a thick bar with its
+  count inside), `Badge`, `Stat` (a stat tile), `StateCard` (empty, error, celebration).

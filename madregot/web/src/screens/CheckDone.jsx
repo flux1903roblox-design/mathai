@@ -1,4 +1,5 @@
 // The end of a check: what it showed, said honestly and kindly, and the next useful step.
+// Layout: Duolingo's lesson-complete screen (character, title, stat tiles, one button at the bottom).
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
@@ -51,15 +52,22 @@ export default function CheckDone({ result: r, onExit }) {
   const weak = Object.entries(r.perSkill || {}).filter(([, x]) => x.right < x.asked).map(([s]) => s);
   return (
     <div className="page check-done" role="main">
-      <section className={clsx('check-card', !r.passed && !rescue && 'warm')}>
-        <Mascot mood={c.mood} size={140} className="check-mascot" />
-        <h1 ref={ref} tabIndex={-1} className={clsx('check-title', r.passed ? 'good' : 'warm')}>{c.title}</h1>
-        <p className="lead">{c.body}</p>
-        <ol className="check-dots" aria-label={`${r.right} נכונות מתוך ${r.asked}`}>
-          {Array.from({ length: r.asked }, (_, i) => <li key={i} className={i < r.right ? 'on' : ''} aria-hidden="true">{i < r.right ? <Check size={14} strokeWidth={3} /> : null}</li>)}
-        </ol>
-        {r.xp > 0 && <p className="check-xp"><Award size={18} aria-hidden="true" />+{r.xp} XP</p>}
-      </section>
+      {/* laid out like Duolingo's lesson-complete screen: מדי, the title, what it showed, then the stat tiles */}
+      <Mascot mood={c.mood} size={150} className="check-mascot" />
+      <h1 ref={ref} tabIndex={-1} className={clsx('check-title', r.passed ? 'good' : 'warm')}>{c.title}</h1>
+      <p className="lead">{c.body}</p>
+      <div className="stats check-stats">
+        <div className={clsx('stat', r.right === r.asked ? 'stat-good' : 'stat-brand')}>
+          <span className="stat-label">נכונות</span>
+          <span className="stat-value" aria-label={`${r.right} נכונות מתוך ${r.asked}`}><Check size={20} aria-hidden="true" /><bdi dir="ltr">{r.right}/{r.asked}</bdi></span>
+        </div>
+        {r.xp > 0 && (
+          <div className="stat stat-gold">
+            <span className="stat-label">XP</span>
+            <span className="stat-value check-xp"><Award size={20} aria-hidden="true" /><span>+{r.xp}</span></span>
+          </div>
+        )}
+      </div>
       {rescue && weak.length > 0 && (
         <div className="box box-note"><h2 className="box-tab">מה עוד לא יצא</h2><div className="box-body"><ul className="plain-list">{weak.map((s) => <li key={s}>{titleOf(s)}</li>)}</ul></div></div>
       )}
