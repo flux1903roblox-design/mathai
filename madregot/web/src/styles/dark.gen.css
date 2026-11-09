@@ -42,7 +42,7 @@
 }
 [data-theme="dark"] .btn-primary { --btn-bg: var(--brand); --btn-ink: #fff; --btn-lip: var(--brand-d); --btn-line: var(--brand)
 }
-[data-theme="dark"] .btn-good { --btn-bg: var(--good); --btn-ink: #fff; --btn-lip: var(--good-d); --btn-line: var(--good)
+[data-theme="dark"] .btn-good { --btn-bg: var(--good); --btn-ink: var(--on-good); --btn-lip: var(--good-d); --btn-line: var(--good)
 }
 [data-theme="dark"] .btn-bad { --btn-bg: var(--bad); --btn-ink: #fff; --btn-lip: var(--bad-d); --btn-line: var(--bad)
 }
@@ -602,7 +602,7 @@
 }
 [data-theme="dark"] .lesson .choice.on .choice-key { border-color: #00265c; color: var(--brand-d)
 }
-[data-theme="dark"] .lesson .choice.good { border-color: var(--good); background: var(--good-tint); color: var(--good-ink); box-shadow: 0 4px 0 #9fdcb7
+[data-theme="dark"] .lesson .choice.good { border-color: var(--good-d); background: var(--good-tint); color: var(--good-ink); box-shadow: 0 4px 0 #9fdcb7
 }
 [data-theme="dark"] .lesson .choice.bad { border-color: #5f1c2a; background: var(--bad-tint); color: var(--bad-ink); box-shadow: 0 4px 0 #5f1c2b; text-decoration: line-through
 }
@@ -624,7 +624,7 @@
 [data-theme="dark"] .fb { border-top: 2px solid var(--fb-line);
   background: var(--fb-bg)
 }
-[data-theme="dark"] .fb-good { --fb-bg: var(--good-tint); --fb-line: #2b4f39; --fb-ink: var(--good-ink); --fb-mark: var(--good)
+[data-theme="dark"] .fb-good { --fb-bg: var(--good-tint); --fb-line: #2b4f39; --fb-ink: var(--good-ink); --fb-mark: var(--good-d)
 }
 [data-theme="dark"] .fb-retry, [data-theme="dark"] .fb-reveal { --fb-bg: var(--bad-tint); --fb-line: #5f1c2b; --fb-ink: var(--bad-ink); --fb-mark: var(--bad)
 }
@@ -657,7 +657,7 @@
 }
 [data-theme="dark"] .stat-gold { --tone: var(--gold); --tone-on: var(--ink); --tone-ink: var(--gold-ink)
 }
-[data-theme="dark"] .stat-good { --tone: var(--good-d); --tone-on: #fff; --tone-ink: var(--good-ink)
+[data-theme="dark"] .stat-good { --tone: var(--good-d); --tone-on: #ffffff; --tone-ink: var(--good-ink)
 }
 [data-theme="dark"] .stat-brand { --tone: var(--brand); --tone-on: #fff; --tone-ink: var(--brand-d)
 }
@@ -673,7 +673,7 @@
 }
 [data-theme="dark"] .week-dot { border: 2px solid var(--rule); background: var(--paper); color: var(--ink-2)
 }
-[data-theme="dark"] .week-day.on .week-dot { background: var(--streak); border-color: var(--streak); color: #fff
+[data-theme="dark"] .week-day.on .week-dot { background: var(--streak); border-color: var(--streak); color: var(--on-streak)
 }
 [data-theme="dark"] .week-day.on .week-dot svg { fill: #000000
 }
@@ -892,7 +892,7 @@
 [data-theme="dark"] .lesson-bar { background: color-mix(in srgb, var(--rule) 80%, #000000); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.05)
 }
 [data-theme="dark"] .lesson-bar i {
-  background: linear-gradient(180deg, #34c472 0%, var(--good) 100%);
+  background: linear-gradient(180deg, #5fd476 0%, var(--good) 100%);
   box-shadow: inset 0 -3px 0 rgba(255, 255, 255, 0.08)
 }
 [data-theme="dark"] .lesson-bar i::after { background: rgba(0, 0, 0, 0.45)
@@ -914,11 +914,11 @@
   background-color: #000000;
   background-image: linear-gradient(color-mix(in srgb, var(--c) 9%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--c) 9%, transparent) 1px, transparent 1px)
 }
-[data-theme="dark"] .lesson .choice.good .choice-key { background: var(--good); border-color: var(--good); color: #fff
+[data-theme="dark"] .lesson .choice.good .choice-key { background: var(--good); border-color: var(--good-d); color: var(--on-good)
 }
-[data-theme="dark"] .lesson .choice.bad .choice-key { background: var(--bad); border-color: var(--bad); color: #fff
+[data-theme="dark"] .lesson .choice.bad .choice-key { background: var(--bad); border-color: var(--bad); color: var(--on-bad)
 }
-[data-theme="dark"] .lesson .slot.good { color: var(--good-ink); border-color: var(--good); background: var(--good-tint); box-shadow: 0 0 0 3px #23432f
+[data-theme="dark"] .lesson .slot.good { color: var(--good-ink); border-color: var(--good-d); background: var(--good-tint); box-shadow: 0 0 0 3px #23432f
 }
 [data-theme="dark"] .fb { box-shadow: 0 -14px 30px -24px var(--fb-ink)
 }
@@ -1107,13 +1107,13 @@
 }
 [data-theme="dark"] .quest-review .quest-icon, [data-theme="dark"] .quest-correct .quest-icon { background: var(--ch-petrol-tint); color: var(--ch-petrol-d)
 }
-[data-theme="dark"] .quest-tick { background: var(--good); color: #fff; box-shadow: 0 0 0 2px var(--paper)
+[data-theme="dark"] .quest-tick { background: var(--good); color: var(--on-good); box-shadow: 0 0 0 2px var(--paper)
 }
 [data-theme="dark"] .quest-bar { background: var(--rule)
 }
 [data-theme="dark"] .quest-bar i { background: linear-gradient(180deg, #ffd34d, var(--gold)); box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.08)
 }
-[data-theme="dark"] .quest.done .quest-bar i { background: linear-gradient(180deg, #34c472, var(--good))
+[data-theme="dark"] .quest.done .quest-bar i { background: linear-gradient(180deg, #5fd476, var(--good))
 }
 [data-theme="dark"] .quest-count { color: var(--ink-2)
 }
@@ -1518,8 +1518,6 @@
     background: linear-gradient(rgba(0, 0, 0, 0), #000000 24%)
  }
 }
-[data-theme="dark"] .btn-good { --btn-bg: #178548
-}
 [data-theme="dark"] .unit-head { background: linear-gradient(135deg, color-mix(in srgb, var(--c) 40%, var(--c-d)) 0%, var(--c-d) 100%)
 }
 [data-theme="dark"] .scene-art { filter: drop-shadow(0 8px 12px color-mix(in srgb, var(--c-d) 16%, transparent))
@@ -1632,9 +1630,9 @@
 }
 [data-theme="dark"] .ls-choice .choice-key { background: var(--ground)
 }
-[data-theme="dark"] .ls-choice.good .choice-key { background: var(--good); color: #fff
+[data-theme="dark"] .ls-choice.good .choice-key { background: var(--good); color: var(--on-good)
 }
-[data-theme="dark"] .ls-choice.bad .choice-key { background: var(--bad); color: #fff
+[data-theme="dark"] .ls-choice.bad .choice-key { background: var(--bad); color: var(--on-bad)
 }
 [data-theme="dark"] .ls-choice.bad { text-decoration: none
 }
@@ -1688,7 +1686,7 @@
 }
 [data-theme="dark"] .jstage.current .jstage-icon { background: var(--c); color: #fff
 }
-[data-theme="dark"] .jstage.done .jstage-icon { background: var(--good); color: #fff
+[data-theme="dark"] .jstage.done .jstage-icon { background: var(--good); color: var(--on-good)
 }
 [data-theme="dark"] .jstage-sub { color: var(--ink-2)
 }
@@ -1761,7 +1759,7 @@
 }
 [data-theme="dark"] .standing-badge { background: #000000
 }
-[data-theme="dark"] .st-mastered .standing-badge { background: var(--good); color: #fff
+[data-theme="dark"] .st-mastered .standing-badge { background: var(--good); color: var(--on-good)
 }
 [data-theme="dark"] .st-ready .standing-badge { background: var(--good-tint); color: var(--good-ink)
 }
@@ -1832,7 +1830,7 @@
 }
 [data-theme="dark"] .qbar-text { color: var(--ink)
 }
-[data-theme="dark"] .badge-mastered { background: var(--good); color: #fff
+[data-theme="dark"] .badge-mastered { background: var(--good); color: var(--on-good)
 }
 [data-theme="dark"] .badge-ready { background: var(--good-tint); color: var(--good-ink)
 }
@@ -1882,7 +1880,7 @@
 }
 [data-theme="dark"] .lm .ls-choice.on:not(.good):not(.bad) { border-color: var(--p-400); background: var(--p-50); box-shadow: 0 3px 0 var(--p-300)
 }
-[data-theme="dark"] .lm .ls-choice.good { border-color: var(--good); background: var(--good-tint); box-shadow: 0 3px 0 #9fdcb7; color: var(--ink)
+[data-theme="dark"] .lm .ls-choice.good { border-color: var(--good-d); background: var(--good-tint); box-shadow: 0 3px 0 #9fdcb7; color: var(--ink)
 }
 [data-theme="dark"] .lm .ls-choice.bad { border-color: var(--gold); background: var(--gold-tint); box-shadow: 0 3px 0 #f1d27a; color: var(--ink)
 }
@@ -1909,7 +1907,7 @@
 }
 [data-theme="dark"] .has-warm .lm-banner { color: var(--gold-ink)
 }
-[data-theme="dark"] .lm-banner-icon { background: var(--good); color: #fff
+[data-theme="dark"] .lm-banner-icon { background: var(--good); color: var(--on-good)
 }
 [data-theme="dark"] .has-warm .lm-banner-icon { background: var(--gold); color: var(--ink)
 }
@@ -2004,7 +2002,7 @@
 }
 [data-theme="dark"] .jstage-icon { background: #000000; border: 3px solid var(--line-2); color: var(--ink-2)
 }
-[data-theme="dark"] .jstage.done .jstage-icon { background: var(--good); border-color: var(--good); color: #fff
+[data-theme="dark"] .jstage.done .jstage-icon { background: var(--good); border-color: var(--good); color: var(--on-good)
 }
 [data-theme="dark"] .jstage.going .jstage-icon { border-color: var(--good); color: var(--good-ink)
 }
@@ -2278,7 +2276,7 @@
 }
 [data-theme="dark"] .t-fresh-title { color: var(--good-ink)
 }
-[data-theme="dark"] .together .tg-input.good { border-color: var(--good); background: var(--good-tint)
+[data-theme="dark"] .together .tg-input.good { border-color: var(--good-d); background: var(--good-tint)
 }
 [data-theme="dark"] .check-error { background: var(--bad-tint)
 }

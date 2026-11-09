@@ -623,3 +623,33 @@ scans 36 + 9, 0 violations; no sideways scroll and every pinned button on screen
 0 problems. 504 screenshots (84 states × 6 sizes) reviewed on contact sheets (`qa-evidence/round15/`). Visual
 baselines: 48 of 51 changed by the theme, reviewed (phone, short phone, desktop) and updated. End-to-end on the final
 code: 278 passed, 0 failed (162 skipped by design), including all 33 stairs taught end to end.
+
+## Round 16: colours like the most successful apps (9 November 2026)
+
+The owner asked for colours like those of the most successful apps. Checked against their published or catalogued
+palettes (Duolingo, Brilliant, Khan Academy, Quizlet; Spotify, TikTok and iOS in dark mode): they differ in hue but
+share five rules (`DESIGN.md`, "The rules of the most successful apps"). Electric Premium already met two (one brand
+colour on the main action; neutral surfaces). What changed for the other three:
+- A raised layer on the black screens, as on iOS (`#000000` page, `#1C1C1E` cards) and Spotify: cards, lists,
+  stat tiles, quest cards, the guidebook cards and sheets sit on `--raised: #1C1C1E` (`theme-dark.css`). The black
+  page, the glowing current unit, the outline-style plan steps and the assistant's panel are unchanged.
+- One job per extra colour, told apart without colour vision: correct is a bright green `#2FBF4A` and "not yet" a
+  deep red `#C4213B` (2.4:1 apart in lightness; they were 1.2:1); XP and achievements gold `#FFC233`, the streak
+  orange `#FF8A1F`.
+- Readable coloured buttons: black text on the green (8.7:1, as Spotify does), white on the red (5.8:1); the green
+  button had white text at 3.5:1 before (on a darker override, 4.7:1). New tokens `--on-good`, `--on-bad`,
+  `--on-gold`, `--on-streak`; on white, the correct choice's border and mark use `--good-d` `#1A8A34`.
+
+Found and fixed while testing:
+- R16-1: on the black results screens the "accuracy" tile kept a generated white label on the dark green (4.4:1,
+  axe, two states × six sizes). It now takes the bright green with a black label (8.7:1); rescanned, 0.
+- R16-2: the raised layer first included the assistant's outer panel, which turned the whole chat area grey (seen in
+  the visual diff). Only the bubbles and cards are raised now.
+- R16-3: an older rule painted the green button `#178548` to keep white text legible; removed, since the button
+  now carries black text.
+
+Checks: typecheck clean; unit 409/409; axe (WCAG 2.1 A/AA) on the 48 states at 320, 375, 390, 430, 768 and 1440
+wide = 288 scans: 12 violations, all R16-1, then the affected states rescanned at all six sizes with 0, and the
+assistant states rescanned after R16-2 with 0; the learning-screen scans 36 with 0; the extra scans 0 problems; no
+sideways scroll and every pinned button on screen in all 288. Visual baselines: 16 of 51 changed (the green and gold
+feedback buttons, the raised cards), each reviewed as before/after pairs and updated; visual suite 51/51.

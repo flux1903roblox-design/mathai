@@ -17,19 +17,21 @@ colors:
   on-brand: "#ffffff"
   glow: "#00c8ff"
   on-glow: "#000000"
-  good: "#1f9d55"
-  good-d: "#16803f"
-  good-tint: "#dff6e7"
+  good: "#2fbf4a"
+  good-d: "#1a8a34"
+  good-tint: "#e3f8e7"
   good-ink: "#157a41"
-  bad: "#e5375a"
-  bad-d: "#b8213f"
-  bad-tint: "#ffe6ec"
-  bad-ink: "#c01d43"
-  streak: "#f07b0f"
+  on-good: "#000000"
+  bad: "#c4213b"
+  bad-d: "#96182c"
+  bad-tint: "#fde8ec"
+  bad-ink: "#b3203a"
+  on-bad: "#ffffff"
+  streak: "#ff8a1f"
   streak-ink: "#a84f00"
   streak-tint: "#ffeedd"
-  gold: "#f5b400"
-  gold-d: "#d39600"
+  gold: "#ffc233"
+  gold-d: "#e0a100"
   gold-ink: "#8a5c00"
   gold-tint: "#fff4cc"
   madi-hi: "#5fdcff"
@@ -272,6 +274,27 @@ the glowing current unit, black text on glowing fills). After changing a stylesh
 Kept from before: green means correct, red "not yet", orange the streak, gold XP; a right or wrong answer never rests
 on wording alone. מדי is glowing blue with electric-blue edges. Every unit shares the blue.
 
+### The rules of the most successful apps (round 16)
+
+The owner asked for colours like those of the most successful apps. Their palettes differ, but they share five
+rules, and Electric Premium now meets all five:
+1. **One brand colour, mostly on the main action** (Spotify's green on the play button; Brilliant's and Duolingo's
+   green main button). Madregot: `#0066FF` on buttons and actions.
+2. **Neutral surfaces, colour on a small area** (Duolingo, Brilliant, Khan Academy on white; Spotify and TikTok on
+   black or near-black). Madregot: white for learning, black around it.
+3. **A raised layer on dark screens** (iOS: `#000000` page, `#1C1C1E` cards; Spotify: `#121212`). Madregot: on the
+   black screens, cards, lists and sheets sit on `--raised: #1C1C1E` (`theme-dark.css`, "the raised layer"); inside
+   one, "paper" and the lines take the raised values, so its buttons and sticky feet belong to it. Outline-style
+   lists (the plan's steps) and the glowing current unit stay as they are.
+4. **Each extra colour has one job** (Duolingo: green right, red wrong, yellow points, orange streak). Madregot: a
+   bright green `#2FBF4A` for correct and a deep red `#C4213B` for "not yet", 2.4:1 apart in lightness so they
+   differ without colour vision too (they were 1.2:1); gold `#FFC233` for XP and achievements; orange `#FF8A1F` for
+   the streak.
+5. **The coloured button can be read.** Black text on the green (8.7:1, as Spotify does; Duolingo and Brilliant put
+   white on a light green at about 2.1:1), white on the red (5.8:1) and on the electric blue (4.8:1); black on the
+   gold, the orange and the glowing blue. Tokens `--on-good`, `--on-bad`, `--on-gold`, `--on-streak`. On white, the
+   correct choice's border and mark use `--good-d` `#1A8A34` (4.4:1); the bright green is a fill.
+
 ## Colors
 
 A bright, clean palette in which every saturated colour carries one meaning, set on white with soft navy ink.
@@ -304,7 +327,7 @@ A bright, clean palette in which every saturated colour carries one meaning, set
 ### Named Rules
 **The One Meaning Rule.** Green means right, red means not yet, orange means streak, gold means XP and finished. No chapter colour is green, orange or gold, and none of the four is used for decoration.
 
-**The Ink Value Rule.** Fills may be light; text always takes an "-ink" or "-d" value (4.5:1 or more on its tint or on white). White text sits only on brand, good, bad and "-d" chapter fills.
+**The Ink Value Rule.** Fills may be light; text always takes an "-ink" or "-d" value (4.5:1 or more on its tint or on white). Text on a fill takes the fill's "on-" token: white on brand, bad and "-d" chapter fills, black on good, gold, streak and the glowing blue.
 
 **The Indigo Acts Rule.** Indigo is where the student acts or has chosen: the primary button, the selected option, the active tab, focus. It never marks correctness.
 

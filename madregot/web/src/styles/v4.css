@@ -68,7 +68,7 @@ body { background: #fff; color: var(--ink); }
 
 /* ---------------------------------------------------------------- badges */
 .badge { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 10px; border-radius: 999px; font-size: var(--fs-xs); line-height: var(--lh-xs2); font-weight: 700; white-space: nowrap; }
-.badge-mastered { background: var(--good); color: #fff; }
+.badge-mastered { background: var(--good); color: var(--on-good); }
 .badge-ready { background: var(--good-tint); color: var(--good-ink); }
 .badge-practicing, .badge-learning, .badge-brand { background: var(--p-100); color: var(--p-700); }
 .badge-review { background: var(--gold-tint); color: var(--gold-ink); }
@@ -124,7 +124,7 @@ body { background: #fff; color: var(--ink); }
 .lm .ls-choice .choice-key { display: none; }
 .lm .ls-choice.good .choice-key, .lm .ls-choice.bad .choice-key { display: inline-grid; }
 .lm .ls-choice.on:not(.good):not(.bad) { border-color: var(--p-400); background: var(--p-50); box-shadow: 0 3px 0 var(--p-300); }
-.lm .ls-choice.good { border-color: var(--good); background: var(--good-tint); box-shadow: 0 3px 0 #9fdcb7; color: var(--ink); }
+.lm .ls-choice.good { border-color: var(--good-d); background: var(--good-tint); box-shadow: 0 3px 0 #9fdcb7; color: var(--ink); }
 .lm .ls-choice.bad { border-color: var(--gold); background: var(--gold-tint); box-shadow: 0 3px 0 #f1d27a; color: var(--ink); }
 .lm .ls-choice.bad .choice-key { background: var(--gold); border-color: var(--gold); color: var(--ink); }
 .lm .ls-choice:disabled { opacity: 1; }
@@ -148,7 +148,7 @@ body { background: #fff; color: var(--ink); }
 .lm-banner { margin: 0; display: flex; align-items: center; gap: var(--s2); font-family: var(--font-display); font-weight: 700; font-size: 20px; line-height: 26px; }
 .has-good .lm-banner { color: var(--good-ink); }
 .has-warm .lm-banner { color: var(--gold-ink); }
-.lm-banner-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; background: var(--good); color: #fff; }
+.lm-banner-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; background: var(--good); color: var(--on-good); }
 .has-warm .lm-banner-icon { background: var(--gold); color: var(--ink); }
 .lm-actions-row { display: flex; align-items: center; gap: var(--s3); }
 .lm-actions-row .btn-lg { flex: 1; max-width: none; margin-inline: 0; }
@@ -241,7 +241,7 @@ body { background: #fff; color: var(--ink); }
 .journey-stages::before { content: ""; position: absolute; inset-block: 30px; inset-inline-start: 22px; width: 4px; border-radius: 4px; background: var(--line); }
 .jstage { position: relative; display: flex; align-items: center; gap: var(--s3); padding: var(--s3) 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
 .jstage-icon { position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 999px; background: #fff; border: 3px solid var(--line-2); color: var(--ink-2); }
-.jstage.done .jstage-icon { background: var(--good); border-color: var(--good); color: #fff; }
+.jstage.done .jstage-icon { background: var(--good); border-color: var(--good); color: var(--on-good); }
 .jstage.going .jstage-icon { border-color: var(--good); color: var(--good-ink); }
 .jstage.current .jstage-icon { background: var(--c); border-color: var(--c); color: #fff; box-shadow: 0 0 0 6px color-mix(in srgb, var(--c) 22%, #fff); }
 .jstage.current { background: none; border: 0; box-shadow: none; }
@@ -677,7 +677,7 @@ a.hub-row:active { background: var(--p-100); }
 /* ---- guided solving: the typed last step fills the row, the check is the bottom button */
 .together .tg-final { display: block; }
 .together .tg-input { width: 100%; max-width: none; min-height: 58px; font-size: 1.6rem; }
-.together .tg-input.good { border-color: var(--good); background: var(--good-tint); }
+.together .tg-input.good { border-color: var(--good-d); background: var(--good-tint); }
 .check-error { margin: 0; padding: var(--s3) var(--s4); border-radius: var(--r-m); background: var(--bad-tint); }
 .sheet-body:focus-visible, .table-wrap:focus-visible { outline: 3px solid var(--p-500); outline-offset: -3px; }
 

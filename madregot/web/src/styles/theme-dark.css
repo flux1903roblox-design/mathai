@@ -2,7 +2,9 @@
    The lessons (teaching, practice, checks) stay white: white for exercises, graphs and learning surfaces.
    <html data-theme="dark"> is the default; a learning screen sets "light" while it is open (lib/theme.js).
    Tokens here; the rest of the black version is generated (dark.gen.css). Electric blue #0066FF is for buttons
-   and actions (white text); glowing blue #00C8FF for progress, icons and highlights (black text on it). */
+   and actions (white text); glowing blue #00C8FF for progress, icons and highlights (black text on it).
+   Two layers, as on iOS and Spotify: the page is pure black, and what sits on it (cards, lists, sheets) is raised
+   on #1C1C1E, so a screen reads as surfaces and not as outlines on black. */
 [data-theme="dark"] {
   color-scheme: dark;
   --paper: #000000; --ground: #0b0b0b;
@@ -28,6 +30,7 @@
   --line: #2a2a2a; --line-2: #3d3d3d;
   --think-base: #8c8c8c; --think-highlight: #ffffff;
   --shadow-lift: 0 0 0 1px var(--rule), 0 8px 24px rgba(0, 0, 0, 0.6);
+  --raised: #1c1c1e; --raised-line: #2c2c2e;
 }
 [data-theme="dark"] body { background: #000; color: #fff; }
 [data-theme="dark"] ::selection { background: #00c8ff; color: #000; }
@@ -47,8 +50,8 @@
 [data-theme="dark"] .node-card .btn-primary { --btn-bg: #000; --btn-ink: #fff; --btn-line: #000; --btn-lip: rgba(0, 0, 0, 0.35); background: #000; color: #fff; }
 [data-theme="dark"] .node-card .btn-secondary, [data-theme="dark"] .node-card .btn-ghost { --btn-ink: #000; --btn-line: rgba(0, 0, 0, 0.5); color: #000; }
 
-/* topics: black cards; the unit being climbed is the one glowing card */
-[data-theme="dark"] .section-card { color: #fff; background: #000; border: 2px solid var(--rule); box-shadow: none; }
+/* topics: raised cards; the unit being climbed is the one glowing card */
+[data-theme="dark"] .section-card { color: #fff; background: var(--raised); border: 2px solid var(--raised); box-shadow: none; }
 [data-theme="dark"] .section-card-label { color: var(--glow); }
 [data-theme="dark"] .section-card-desc, [data-theme="dark"] .section-card-guide { color: var(--ink-2); }
 [data-theme="dark"] .qbar-light { background: var(--rule); }
@@ -91,4 +94,42 @@
 /* text in blue glows on black (electric blue text would be 4.3:1); small labels on bright fills are black */
 [data-theme="dark"] a { color: var(--glow); }
 [data-theme="dark"] .stat-sky, [data-theme="dark"] .stat-gold { --tone-on: #000; }
+[data-theme="dark"] .stat-good { --tone: var(--good); --tone-on: #000; }
 [data-theme="dark"] .st-mastered .standing-badge { background: var(--good); color: #000; }
+
+/* the raised layer: cards, lists and sheets on the black page. Inside one, anything painted "paper" (a secondary
+   button, a sticky foot) takes the raised grey too, so it belongs to its card. */
+[data-theme="dark"] .card,
+[data-theme="dark"] .hub-card,
+[data-theme="dark"] .hub-rows,
+[data-theme="dark"] .side-card,
+[data-theme="dark"] .stat,
+[data-theme="dark"] .me-stat,
+[data-theme="dark"] .kpi,
+[data-theme="dark"] .state-card,
+[data-theme="dark"] .quest-card,
+[data-theme="dark"] .quest,
+[data-theme="dark"] .mastery-map,
+[data-theme="dark"] .jclimb,
+[data-theme="dark"] .today-items li,
+[data-theme="dark"] .stair-step,
+[data-theme="dark"] .guide-card,
+[data-theme="dark"] .sheet,
+[data-theme="dark"] .msg-row .msg.assistant {
+  --paper: var(--raised); --rule: var(--raised-line); --line: var(--raised-line); --rule-press: #0e0e0f;
+  background: var(--raised);
+}
+[data-theme="dark"] .card,
+[data-theme="dark"] .hub-card,
+[data-theme="dark"] .hub-rows,
+[data-theme="dark"] .side-card,
+[data-theme="dark"] .me-stat,
+[data-theme="dark"] .kpi,
+[data-theme="dark"] .state-card,
+[data-theme="dark"] .quest-card,
+[data-theme="dark"] .quest,
+[data-theme="dark"] .mastery-map,
+[data-theme="dark"] .jclimb,
+[data-theme="dark"] .today-items li,
+[data-theme="dark"] .stair-step,
+[data-theme="dark"] .guide-card { border-color: var(--raised); }
