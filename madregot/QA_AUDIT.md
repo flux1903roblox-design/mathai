@@ -587,3 +587,39 @@ and diff, the three baselines were updated and the visual suite rerun: 51 passed
 320×568, 375×667, 390×844, 430×932, 768×1024 and 1440×900 = 288 scans: 12 violations, all R14-1 (two states × six
 sizes); after the fix the affected states rescanned with 0; the earlier axe scans 36 + 9, 0 violations. Responsive:
 in all 288 scans no sideways scroll and every pinned primary fully on screen; the size sweep 60 checks, 0 problems.
+
+## Round 15: the "Electric Premium" theme (9 November 2026)
+
+The owner chose the final palette: pure black `#000000` for dramatic backgrounds and headings, pure white `#FFFFFF`
+for exercises, graphs and learning surfaces, electric blue `#0066FF` for primary buttons and actions, glowing blue
+`#00C8FF` for progress, icons and highlights; white and black for the learning screens, the glowing blue on the home,
+achievement and transition screens; black text on the brightest blue where contrast needs it. (A first attempt with a
+single neon blue `#00A3FF` and an all-black app was replaced by this direction before it was published.)
+
+What was built (`DESIGN.md`, "Electric Premium"):
+- Two surfaces. White: the teaching stages, practice, checks, placement, repairs and their sheets. Black: everything
+  around them, including every result and transition screen. `<html data-theme="dark">` is the default; learning
+  screens switch to light while open (`src/lib/theme.js`), a lesson's result screen switches back.
+- The light design is the stylesheets themselves, their purples moved to the electric-blue hue (50 colours) and the
+  tokens rewritten. The black version is generated from the same stylesheets (`scripts/theme-dark.cjs` →
+  `src/styles/dark.gen.css`, 1,081 rules) so the two can never drift; `src/styles/theme-dark.css` holds the black
+  tokens and the hand decisions (black tab headers, the glowing current unit, black text on glowing fills).
+- Contrast rules found while building it: black text on `#0066FF` is 4.3:1 (fails for normal text), so the electric
+  blue buttons carry white text (4.8:1); blue text on black is always the glowing `#00C8FF` (electric blue text would
+  be 4.3:1); black text on the glowing blue (10.7:1). מדי is glowing blue with electric-blue edges; every unit shares
+  the blue; the welcome carries the owner's copy ("LEVEL UP YOUR MATH", "מתמטיקה שמבינים. ומתקדמים.",
+  "כל יום מדרגה אחת קדימה.").
+
+Found and fixed while testing:
+- R15-1: electric-blue text on black screens (exam check tiles, the answer key's summary, links): 4.3:1. The generator
+  now turns every blue text colour into the glowing blue on black.
+- R15-2: white labels on the glowing and gold stat tiles, and the "mastered" badge, on black screens: now black text.
+- R15-3: on a tablet and a computer the progress text on the glowing current topic card sat on a light track; the
+  track is darker now.
+
+Checks on the final code: typecheck clean; unit 409/409; axe (WCAG 2.1 A/AA) on the 48 states at 320, 375, 390, 430,
+768 and 1440 wide: 288 scans, 2 violations (R15-3, rescanned at four sizes with 0 after the fix); the earlier axe
+scans 36 + 9, 0 violations; no sideways scroll and every pinned button on screen in all 288; the size sweep 60 checks,
+0 problems. 504 screenshots (84 states × 6 sizes) reviewed on contact sheets (`qa-evidence/round15/`). Visual
+baselines: 48 of 51 changed by the theme, reviewed (phone, short phone, desktop) and updated. End-to-end on the final
+code: 278 passed, 0 failed (162 skipped by design), including all 33 stairs taught end to end.

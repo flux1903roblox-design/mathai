@@ -58,7 +58,7 @@
 [data-theme="dark"] .section-card-jump { color: var(--glow); }
 [data-theme="dark"] .section-card.is-current { color: #000; background: var(--glow); border-color: var(--glow); box-shadow: 0 4px 0 #0099c7; }
 [data-theme="dark"] .section-card.is-current .section-card-label, [data-theme="dark"] .section-card.is-current .section-card-desc, [data-theme="dark"] .section-card.is-current .section-card-guide { color: #000; }
-[data-theme="dark"] .section-card.is-current .qbar-light { background: rgba(0, 0, 0, 0.25); }
+[data-theme="dark"] .section-card.is-current .qbar-light { background: rgba(0, 0, 0, 0.6); }
 [data-theme="dark"] .section-card.is-current .qbar-light > i { background: #000; }
 [data-theme="dark"] .section-card.is-current .qbar-light .qbar-text { color: #fff; }
 [data-theme="dark"] .section-card.is-current .btn-on-color { --btn-bg: #000; --btn-line: #000; --btn-lip: rgba(0, 0, 0, 0.35); background: #000; }
