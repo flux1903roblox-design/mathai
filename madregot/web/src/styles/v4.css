@@ -691,3 +691,5 @@ a.hub-row:active { background: var(--p-100); }
 .together .tg-final { display: block; }
 .together .tg-input { width: 100%; max-width: none; min-height: 58px; font-size: 1.6rem; }
 .together .tg-input.good { border-color: var(--good); background: var(--good-tint); }
+.check-error { margin: 0; padding: var(--s3) var(--s4); border-radius: var(--r-m); background: var(--bad-tint); }
+.sheet-body:focus-visible, .table-wrap:focus-visible { outline: 3px solid var(--p-500); outline-offset: -3px; }

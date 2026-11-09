@@ -131,6 +131,8 @@ export default function ExamCheck() {
             <Mascot mood="thinking" size={72} className="ob-mascot" />
             <p className="ob-bubble">{practice ? `${practice.title}: צלמו את הדפים שפתרתם. התשובות הנכונות כבר אצלי, אז אני רק קורא ומשווה.` : 'צלמו את דפי המבחן, דף אחד בכל צילום, או העלו PDF. אבדוק כל שאלה ואסביר.'}</p>
           </div>
+          {/* a failed check says so right under the question, where it is seen without scrolling */}
+          {state.phase === 'error' && <p className="form-error check-error" role="alert">{state.message}</p>}
           <section className="section" aria-labelledby="pages-title" data-region="content">
             <h2 id="pages-title" className="set-head">הדפים ({pages.length} מתוך {MAX_EXAM_PAGES})</h2>
             <ul className="page-thumbs">
@@ -169,7 +171,6 @@ export default function ExamCheck() {
               <input id="ex-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="למשל: בוחן בפונקציה קווית…" autoComplete="off" name="exam-title" />
             </Field>
           )}
-          {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
           <ScreenFoot>
             <Button className="btn-block btn-lg" onClick={check} disabled={!pages.length} data-region="primary">{state.phase === 'error' ? 'לבדוק שוב' : 'בדיקת המבחן'}</Button>
           </ScreenFoot>

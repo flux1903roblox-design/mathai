@@ -140,7 +140,8 @@ export function Sheet({ open, onOpenChange, title, children, footer, wide, class
             <Dialog.Title className="sheet-title">{title}</Dialog.Title>
             <Dialog.Close className="icon-btn" aria-label="סגירה"><X size={22} aria-hidden="true" /></Dialog.Close>
           </header>
-          <div className="sheet-body">{children}</div>
+          {/* a region the keyboard can reach and scroll, even when it holds only text (axe: scrollable-region-focusable) */}
+          <div className="sheet-body" tabIndex={0} role="region" aria-label={typeof title === 'string' ? title : undefined}>{children}</div>
           {footer && <div className="sheet-foot">{footer}</div>}
         </Dialog.Popup>
       </Dialog.Portal>

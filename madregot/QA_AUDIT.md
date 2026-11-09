@@ -438,3 +438,90 @@ tab header was 4.39:1 (now darker, 4.5:1 or more).
 Suites on the final code: unit 409/409; typecheck clean; end-to-end 278 passed, 0 failed (162 skipped by design; the
 teaching drivers now pick, press "בדיקה" and read the result sheet); axe 45 scans, 0 violations; size sweep 60
 checks, 0 problems. Visual baselines: 51 images updated after an old/new review.
+
+## Round 13: finishing the full-app redesign (9 November 2026)
+
+The independent review of staging 018ed1a found that several routes still had their old structure (exam creation and
+checking, the improvement plan, the separate mission page, the teacher's screens) and that answers were confirmed
+differently in teaching, guided solving and practice. This round finished them structurally with the same parts and
+defined the confirmation rules (`LAYOUT_SPEC.md`, part E).
+
+### Inventory: what still had the old layout at 018ed1a
+Exams tab (with and without the assistant); exam check (offline, no pages, pages, loading, error); new practice exam;
+practice sheet; exam result (all, wrong only, the question chat, delete); improvement plan (empty, with steps); the
+separate mission page; the assistant's three tabs (chat, photo check, new exercises); the tutor sheet; the lesson's
+sheets (assistant chat, remedy, help from the teacher, zoom); placement done; the streak screen; the failed jump test;
+guided solving's confirmation and its typed last step; the topics screen's repeated solid buttons; the teacher's
+start without a server, sign-in, board (four views), a fresh class, adding a class, a class with no students; and the
+stair page and Exam Rescue plan, which still used an old text link and a colour header instead of the pushed-screen
+bar. Captured before and after in 40 states (`r01`–`r40`).
+
+### Answer confirmation (defect R13-1, fixed)
+Guided solving judged a choice the moment it was tapped and moved on by itself after 0.9 s, and its typed last step
+had its own "בדיקה" next to the input; teaching and practice select first and check with the bottom button. Now every
+graded answer is selected first and judged by the bottom "בדיקה"; the result rises in the bottom sheet (green, or
+yellow with that choice's own feedback); "המשך" appears in the same slot. Immediate feedback is kept only where
+nothing is graded (live readouts while moving an object, revealing a worked example's steps, the tutor's answers,
+navigation). Tests: `learn.spec.js` checks that tapping a choice judges nothing, that "בדיקה" is off until a choice,
+the yellow sheet and hints after a miss, the green sheet after a right move; `teach-all.spec.js` drives every guided
+problem of all 33 stairs through select → "בדיקה" → "המשך".
+
+### Duplicate primaries removed (R13-2)
+The exams tab's practice-exam rows ("פתיחה" + a solid "בדיקה" each), the exam result's solid button per weak topic,
+the mission page (a button per row and one at the bottom), the practice sheet (print and check side by side), the
+empty plan (two buttons), the topics screen (a solid button on every unit card), the level board's unused "המשך", the
+failed jump test (two stacked buttons). Each screen state now has one primary.
+
+### Found while testing this round
+- R13-3: at 320×568 the exam check's error message fell below the fold, under the pages; it now sits right under
+  מדי's question. Fixed and retested.
+- R13-4 (axe, `scrollable-region-focusable`): the teacher's two tables and a sheet holding only text could not be
+  scrolled from the keyboard. They are now focusable labelled regions with a visible focus ring. Fixed and retested.
+- R13-5: the practice-exam test still drove the old one-screen form; updated for the two-question flow (and now also
+  checks that 10 questions are made when 10 are chosen).
+
+### Route-by-route completion (every screen of the app)
+"Rebuilt" means the JSX structure was replaced (not only styles), checked in before/after screenshots at 320×568,
+375×667, 390×844 and 430×932 (round 13 states) or the round-12 proof sheets, and covered by tests.
+
+| # | Route / screen | Kind (part E) | Rebuilt in | Evidence | Status |
+|---|---|---|---|---|---|
+| 1 | Welcome | result-like entry | round 12 | proof 05; visual `welcome` | Complete |
+| 2 | Onboarding questions | flow | round 12 | proof 06; flows tests | Complete |
+| 3 | Placement test `/placement` | practice (A1) | round 12 | proof 01–03; flows tests | Complete |
+| 4 | Placement done | result | round 13 | r19 | Complete |
+| 5 | Home, the path `/` | tab | round 12 | proof 04; visual `learn screen` | Complete |
+| 6 | Missions tab `/quests` (with today's mission) | tab | rounds 12–13 | proof 08; r12, r39; visual `quests` | Complete |
+| 7 | `/mission` | merged into the missions tab | round 13 | r12, r39 | Complete (route redirects) |
+| 8 | Topics `/topics` (sections, level board, mastery grid) | pushed | rounds 12–13 | proof 12; r23 | Complete |
+| 9 | Guidebook `/topic/:id` | pushed | rounds 12–13 | screens test | Complete |
+| 10 | Stair page `/learn/:t/:l` | pushed (course outline) | rounds 12–13 | proof 16; learn tests | Complete |
+| 11 | Teaching A (discover) | lesson (B1) | round 12 | proof 13–15; teach-all | Complete |
+| 12 | Teaching B (worked examples) | lesson (B1) | round 12 | teach-all | Complete |
+| 13 | Teaching C (solve together) | lesson (B1) + rules E2 | round 13 | r22, r30, r35; learn + teach-all | Complete |
+| 14 | Practice `/lesson`, feedback sheet, quit sheet | practice (A1) | round 12 | proof 01–03, 11; visual exercise set | Complete |
+| 15 | Lesson sheets: tutor, assistant chat, remedy, help from the teacher, zoom | sheet | round 13 | r16, r17, r18, r40 | Complete (zoom is the standard sheet holding the drawing; the remedy sheet runs the same repair flow that `learn.spec` tests on its own route, but the sheet itself was not screenshotted) |
+| 16 | Lesson done, streak, quests done, failed jump | result | rounds 12–13 | proof 07; r20, r21 | Complete |
+| 17 | Mastery and review checks, check done | practice + result | round 12 | axe-extra; learn tests | Complete |
+| 18 | Repair `/repair/...` | lesson (B1) | round 12 | learn test (repair) | Complete |
+| 19 | Exam Rescue: details, plan, diagnostic, practice exam | flow / pushed / practice | rounds 12–13 | proof 06; learn tests | Complete |
+| 20 | Exams tab `/exams` | tab | round 13 | r01, r02; visual `exams` | Complete |
+| 21 | Exam check `/exams/check` (offline, empty, pages, loading, error) | pushed | round 13 | r03, r04, r05, r31, r32 | Complete |
+| 22 | New practice exam `/exams/new` | flow | round 13 | r06, r33; flows test | Complete |
+| 23 | Practice sheet `/exams/practice/:id` (and print) | pushed | round 13 | r07; flows test (print) | Complete |
+| 24 | Exam result `/exams/:id` (all, wrong, question chat) | pushed, result order | round 13 | r08, r09, r34 | Complete |
+| 25 | Improvement plan `/plan` (empty, steps) | pushed (course outline) | round 13 | r10, r11; flows test (plan lesson) | Complete |
+| 26 | Assistant `/assistant` (offline; online chat, photo check, new exercises) | tab (conversation) | rounds 12–13 | r13, r14, r15; flows test (offline) | Complete |
+| 27 | Profile `/me` | tab | round 12 | proof 09; visual `profile` | Complete |
+| 28 | Settings `/settings` | pushed | round 12 | proof 10; learn test (deleting data) | Complete |
+| 29 | Teacher without a server | flow | round 13 | r24; flows test | Complete |
+| 30 | Teacher sign-in (new class, existing class) | flow | round 13 | r25, r36 | Complete (screens rendered and checked; signing in against a real class server was not run, see below) |
+| 31 | Teacher board: tomorrow, students, exams, help; fresh class; adding a class; no students | tab-like | round 13 | r26–r29, r37, r38 | Complete (rendered from a stub server with synthetic data) |
+
+### What was not verified
+- **Real Safari (iOS) and real devices: not tested.** All checks ran in Chromium with mobile emulation (A-2).
+- The teacher's sign-in, the help request and the assistant's tools were rendered against a stub server that answers
+  in the screenshot script with synthetic data; no real class server or real AI was called in this round.
+- No screen-reader pass (A-3).
+
+### Suites on the final code

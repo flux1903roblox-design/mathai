@@ -256,7 +256,7 @@ export default function Teacher() {
             )}
 
             {tab === 'students' && students.length > 0 && (
-              <div className="table-wrap">
+              <div className="table-wrap" tabIndex={0} role="region" aria-label="טבלת התלמידים">
                 <table className="t-table">
                   <thead>
                     <tr>
@@ -284,7 +284,7 @@ export default function Teacher() {
 
             {tab === 'exams' && (
               (data.exams || []).length === 0 ? <p className="muted">עוד אין מבחנים שנבדקו בכיתה. כשתלמידים יבדקו מבחן באפליקציה, התוצאות יופיעו כאן.</p> : (
-                <div className="table-wrap">
+                <div className="table-wrap" tabIndex={0} role="region" aria-label="טבלת המבחנים">
                   <table className="t-table">
                     <thead><tr><th scope="col">תלמיד</th><th scope="col">מבחן</th><th scope="col">תאריך</th><th scope="col">ציון</th><th scope="col">לפי שאלה</th><th scope="col">נושאים לחיזוק</th></tr></thead>
                     <tbody>
