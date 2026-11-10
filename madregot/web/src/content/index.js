@@ -58,8 +58,9 @@ export function fairForCheck(it) {
   if (it.practiceOnly) return false;
   if (it.topic !== 'signed') return true;
   const shown = [it.display, it.text, ...(it.manip?.labels || []), ...(it.choices || []).map((c) => c.tex || c.text)].join(' ');
-  // a minus at the start of a number: after a space, a bracket, a $ or a TeX brace ("12 \;\square\; {-12}")
-  return /(^|[\s($\{])[-−]\d/.test(shown) || (typeof it.answer === 'number' && it.answer < 0 && it.form !== 'mc');
+  // a minus at the start of a number: after a space, a bracket, a $ or a TeX brace ("12 \;\square\; {-12}"), before a
+  // digit or a fraction ("-\frac{1}{4} - \left(-\frac{3}{4}\right)" has a positive answer and two negative numbers)
+  return /(^|[\s($\{])[-−](\d|\\frac)/.test(shown) || (typeof it.answer === 'number' && it.answer < 0 && it.form !== 'mc');
 }
 
 /** An exercise of a stair for a check or the placement test (see fairForCheck). */

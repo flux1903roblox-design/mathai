@@ -55,6 +55,10 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { f: 0, a: 8, o: -1, b: 3, s: -1, c: 10, d: 1 } }, // 8 − (3 − 10)
     { model: 'diag', p: { f: 1, a: -3, o: 1, b: 4, s: -1, c: 6, d: 5 } }, // −3 + (4 − 6) · 5
   ],
+  'signed:6': [
+    { model: 'diag', p: { k: 0, a: -4.2, b: 2.5, ai: -42, bi: 25 } }, // −4.2 + 2.5: the distances added give −6.7
+    { model: 'diag', p: { k: 1, x: -1.5, y: 2.75, xi: -6, yi: 11 } }, // −1½ − (−2¾): subtracted as if positive, −4¼
+  ],
   'coord:1': [
     // L is under K(−4, 1) on the x-axis, so L(−4, 0) and its x is −4: "x is 0 on the x-axis" gives 0; the sign lost gives 4
     { bugs: { 'axis-zero': 0, sign: 4 } },

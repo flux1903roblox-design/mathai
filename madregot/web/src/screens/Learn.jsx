@@ -5,7 +5,7 @@ import { Flame, Zap, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown } from 'lu
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor } from '@/content/index.js';
-import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText } from '@/lib/path.js';
+import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
 import { MASTERY_N } from '@/learn/mastery.ts';
 import PathNode from '@/components/PathNode.jsx';
@@ -44,9 +44,12 @@ function StairCard({ n, t, onStart }) {
   const stageTo = st === 'D' ? `/lesson/${t.id}/${n.level}?part=${Math.min(n.parts + 1, PARTS)}` : st === 'E' ? routeOf.check(skill, 'mastery') : `/learn/${t.id}/${n.level}/${st}`;
   const check = routeOf.check(skill, 'mastery');
   const mastered = n.state === 'done' && !!rec?.mastered;
+  const path = useApp((s) => s.path);
+  const added = addedStairNote(n, path);
   return (
     <div className="node-card" role="group" aria-label={n.title}>
       <p className="node-card-title">{n.title}</p>
+      {added && <p className="node-card-sub node-card-added">{added}</p>}
       {n.state === 'current' && <p className="node-card-sub">שלב {STAGE_N[st]} מתוך 5: {STAGE_NAME[st]}</p>}
       {n.state === 'current' && <Button className="btn-block node-start-btn" onClick={() => onStart(stageTo)}>{rec?.taught?.A || n.parts ? 'המשך' : 'התחלה'}</Button>}
       {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>כל חמשת השלבים</Button>}

@@ -191,4 +191,16 @@ describe('checks ask every order of a comparison', () => {
       if (String(g.key).startsWith('sn2:') && /-\d/.test(g.display)) expect(fairForCheck(g), g.display).toBe(true);
     }
   });
+  it('a negative fraction counts as a negative number, so a signed fraction with a positive answer stays in checks', () => {
+    // −1/4 − (−3/4) = 1/2: both numbers are negative fractions, and the answer is positive
+    const it = { topic: 'signed', form: 'num', text: 'חשבו:', display: '-\\frac{1}{4} - \\left(-\\frac{3}{4}\\right)', answer: 0.5 };
+    expect(fairForCheck(it)).toBe(true);
+    expect(fairForCheck({ ...it, display: '1\\frac{1}{4} + \\left(-\\frac{3}{4}\\right)' })).toBe(true);
+    expect(fairForCheck({ ...it, display: '\\frac{1}{4} + \\frac{3}{4}', answer: 1 })).toBe(false);
+    // every signed:6 question with a typed answer is fair: each one has a negative number in it
+    for (let i = 0; i < 2000; i += 1) {
+      const g: any = makeItem('signed', 6);
+      if (!g.practiceOnly) expect(fairForCheck(g), `${g.key}`).toBe(true);
+    }
+  });
 });

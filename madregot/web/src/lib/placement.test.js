@@ -43,11 +43,12 @@ describe('placement', () => {
     expect(s.results.eq).toBeUndefined();
   });
   it('a level counts only when all three questions of its probe are right: one miss, even the last, does not pass it', () => {
-    let s = startLesson({ kind: 'placement', grade: '7', know: 1 }); // the first probe: signed numbers, level 2
-    expect(s.item.level).toBe(2);
-    for (let k = 0; k < PROBE_LEN - 1; k += 1) { s = answer(s, right(s)).s; s = next(s); expect(s.item.level).toBe(2); }
+    // the first probe: signed numbers, six stairs since signed:6, so a student who knows some starts at level 3 (6 · 0.4)
+    let s = startLesson({ kind: 'placement', grade: '7', know: 1 });
+    expect(s.item.level).toBe(3);
+    for (let k = 0; k < PROBE_LEN - 1; k += 1) { s = answer(s, right(s)).s; s = next(s); expect(s.item.level).toBe(3); }
     s = next(answer(s, wrongOf(s)).s); // the third question missed
-    expect(s.probe).toMatchObject({ lo: 0, hi: 2, asked: 1 });
+    expect(s.probe).toMatchObject({ lo: 0, hi: 3, asked: 1 });
     // and the three questions of a probe are of different kinds: an exercise, a diagnostic one, one on a new surface
     const kinds = []; let t = startLesson({ kind: 'placement', grade: '8', know: 1 });
     for (let k = 0; k < PROBE_LEN; k += 1) { kinds.push(t.item.source || 'gen'); t = next(answer(t, right(t)).s); }
@@ -125,16 +126,19 @@ describe('board', () => {
   });
   it('the board sums the stairs of the grade and marks each topic', () => {
     // a stair counts once it is done: mastered, or kept from before mastery checks
-    const done = { 1: 'mastered', 2: 'mastered', 3: 'kept', 4: 'mastered', 5: 'mastered' };
-    const path = { signed: { parts: {}, reviews: 0, jumped: 5, done }, coord: { parts: { 1: 1 }, reviews: 0, jumped: 0 } };
+    const done = { 1: 'mastered', 2: 'mastered', 3: 'kept', 4: 'mastered', 5: 'mastered', 6: 'mastered' };
+    const path = { signed: { parts: {}, reviews: 0, jumped: 6, done }, coord: { parts: { 1: 1 }, reviews: 0, jumped: 0 } };
     const gaps = { 'angles:sum-360': { level: 3, n: 1, ok: 0, at: '2026-01-01' } };
     const b = boardOf({ grade: '7', path, progress: {}, gaps });
     const total = topicsFor('7').reduce((a, t) => a + t.levels.length, 0);
-    expect(b).toMatchObject({ done: 5, total, open: 1 });
+    expect(b).toMatchObject({ done: 6, total, open: 1 });
     expect(['signed', 'coord', 'angles'].map((id) => b.topics.find((t) => t.id === id).status)).toEqual(['done', 'going', 'work']);
     expect(TOPIC.angles.cats['sum-360']).toBe(b.topics[2].open[0].text);
     // stairs only passed over by a placement are not counted as done
-    expect(boardOf({ grade: '7', path: { signed: { parts: {}, reviews: 0, jumped: 5 } }, progress: {}, gaps: {} }).done).toBe(0);
+    expect(boardOf({ grade: '7', path: { signed: { parts: {}, reviews: 0, jumped: 6 } }, progress: {}, gaps: {} }).done).toBe(0);
+    // signed:6 added to a unit finished with five stairs: the unit is not done until the new stair is
+    const five = { signed: { parts: {}, reviews: 1, jumped: 5, done: { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'mastered', 5: 'mastered' } } };
+    expect(boardOf({ grade: '7', path: five, progress: {}, gaps: {} }).topics.find((t) => t.id === 'signed').status).toBe('going');
   });
 });
 

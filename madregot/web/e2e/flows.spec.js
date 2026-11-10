@@ -60,13 +60,14 @@ test('the first session gives something back: the first stage earns XP and the s
   await expect(page.locator('.top-stat.xp')).toContainText('10/20');
   await expect(page.locator('.top-stat.streak')).toContainText('1');
   const unit = page.locator('.unit').first();
-  await expect(unit.locator('.unit-label')).toHaveText('יחידה 1 · 1 מתוך 25 שלבים');
+  // signed numbers: six stairs (signed:6, signed fractions and decimals), so 30 stages
+  await expect(unit.locator('.unit-label')).toHaveText('יחידה 1 · 1 מתוך 30 שלבים');
   await expect(unit.locator('.unit-bar')).toHaveAttribute('aria-valuenow', '1');
   await expect(unit.locator('.node-start')).toHaveText('המשך');
   await expect(page.locator('.unit-label').nth(1)).toHaveText('יחידה 2 · 5 מדרגות'); // a unit not started says its size, not "0 of 5"
   // the topics screen: the unit's bar moved, one board says it in words, and no counter reads zero
   await page.goto('./#/topics');
-  await expect(page.locator('.section-card').first().locator('.qbar')).toHaveAttribute('aria-valuetext', '1 מתוך 25 שלבים');
+  await expect(page.locator('.section-card').first().locator('.qbar')).toHaveAttribute('aria-valuetext', '1 מתוך 30 שלבים');
   await expect(page.locator('.section-card').first()).toContainText('עכשיו: חיבור וחיסור');
   await expect(page.locator('.board-level')).toHaveText('מדרגה אחת בדרך לשליטה');
   await expect(page.locator('.mm-tile').first()).toHaveAttribute('aria-label', /לומדים/);

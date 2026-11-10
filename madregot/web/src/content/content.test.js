@@ -343,6 +343,13 @@ function checkFracMaths(it) {
     expect(it.manip.marks.map((x) => Math.round(1 / x)), `${it.key}: the marks are not 1/${it.answer.of.join(' and 1/')}`).toEqual(it.answer.of);
     return true;
   }
+  // signed:6, between which two whole numbers: the chosen pair is consecutive and holds the number asked about
+  if (kind === 'sn6b') {
+    const v = value(firstMath(it.text)); const [lo, hi] = it.choices[it.answer].tex.match(/-?\d+/g).map(Number);
+    expect(hi - lo === 1 && lo < v && v < hi, `${it.key}: ${v} is not between ${lo} and ${hi}`).toBe(true);
+    return true;
+  }
+  if (kind === 'sn6p') { expect(same(value(firstMath(it.text)), it.answer), `${it.key}: ${firstMath(it.text)} is not ${it.answer}`).toBe(true); return true; }
   return false;
 }
 
@@ -358,6 +365,16 @@ describe('fractions: every answer is the computation its question shows', () => 
     }
     expect([...kinds].filter((k) => !checked.has(k)), 'kinds whose answer nothing reads back').toEqual([]);
     expect(kinds.size).toBeGreaterThanOrEqual(15);
+  });
+  it('signed:6 (signed fractions and decimals), every kind of question', () => {
+    const kinds = new Set(); const checked = new Set();
+    for (let r = 0; r < 800; r += 1) {
+      const it = makeItem('signed', 6); const kind = it.key.split(':')[0];
+      kinds.add(kind);
+      if (checkFracMaths(it)) checked.add(kind);
+    }
+    expect([...kinds].sort()).toEqual(['sn6a', 'sn6b', 'sn6m', 'sn6p', 'sn6s']);
+    expect([...kinds].filter((k) => !checked.has(k))).toEqual([]);
   });
   it('catches an answer that is not the computation shown', () => {
     const ok = (it) => expect(() => checkFracMaths({ key: 'x:1', ...it })).not.toThrow();

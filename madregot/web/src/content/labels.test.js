@@ -23,17 +23,24 @@ const median = (a) => { const s = sortN(a); const n = s.length; return n % 2 ? s
 const quadIndex = (x, y) => (x > 0 ? (y > 0 ? 0 : 3) : y > 0 ? 1 : 2);
 const ptEq = (u, p) => Array.isArray(u) && near(u[0], p[0]) && near(u[1], p[1]);
 
-/** The numbers of a signed-number exercise, read from what is on screen. */
+/**
+ * The numbers of a signed-number exercise, read from what is on screen: whole numbers, decimals (-2.5) and fractions,
+ * mixed numbers included (\frac{3}{4}, -\frac{3}{4}, -1\frac{1}{4}, in \left( \right) brackets or not).
+ */
 function signedFacts(it) {
-  const d = it.display.replace(/\\cdot/g, '*').replace(/[()]/g, '').trim();
-  const t = d.split(/\s+/);
-  return t.map((x) => (/^-?\d+$/.test(x) ? Number(x) : x));
+  const d = it.display.replace(/\\left|\\right/g, '').replace(/\\cdot/g, '*').replace(/[()]/g, '').trim();
+  const num = (x) => {
+    const f = x.match(/^(-?)(\d*)\\frac\{(\d+)\}\{(\d+)\}$/);
+    if (f) { const v = Number(f[2] || 0) + Number(f[3]) / Number(f[4]); return f[1] ? -v : v; }
+    return /^-?\d+(\.\d+)?$/.test(x) ? Number(x) : x;
+  };
+  return d.split(/\s+/).map(num);
 }
 /** The value subtracted in a signed exercise, when it is negative: the "minus-minus" spot. */
 function subtractedNegative(it) {
   const p = it.key.split(':')[0];
   const t = signedFacts(it);
-  if (p === 'sn1' || p === 'sn1n') return t[1] === '-' && t[2] < 0 ? t[2] : null; // a - b
+  if (p === 'sn1' || p === 'sn1n' || p === 'sn6s') return t[1] === '-' && t[2] < 0 ? t[2] : null; // a - b
   if (p === 'sn4') {
     if (t[3] === '*') return t[1] === '-' && t[2] * t[4] < 0 ? t[2] * t[4] : null; // a - b·c
     return t[3] === '-' && t[4] < 0 ? t[4] : null; // a·b - c
@@ -448,10 +455,24 @@ const PROPS = {
     },
   },
   signed: {
-    sign: (it, u) => it.answer !== 0 && near(u, -it.answer),
+    // a fraction's prediction may be typed rounded, as diagOf reads it (-2.25 as -2.2): fits is near for whole numbers
+    sign: (it, u) => it.answer !== 0 && fits(u, -it.answer),
     direction: (it, u) => it.manip?.kind === 'numberline' && u - it.manip.from === -(it.answer - it.manip.from),
-    'minus-minus': (it, u) => { const q = subtractedNegative(it); return q != null && near(u, it.answer - 2 * Math.abs(q)); },
-    'abs-add': (it, u) => { const [a, op, b] = signedFacts(it); const bb = op === '-' ? -b : b; return sgn(a) !== sgn(bb) && near(u, sgn(a) * (Math.abs(a) + Math.abs(bb))); },
+    'minus-minus': (it, u) => { const q = subtractedNegative(it); return q != null && fits(u, it.answer - 2 * Math.abs(q)); },
+    // whole numbers: the distances added, with the first number's sign; signed:6 (sn6a, decimals): with the sign of
+    // the one farther from zero, as the plan's model predicts (-2.5 + 1.2 as -3.7)
+    'abs-add': (it, u) => {
+      const [a, op, b] = signedFacts(it); const bb = op === '-' ? -b : b;
+      if (sgn(a) === sgn(bb)) return false;
+      const sign = it.key.startsWith('sn6a:') ? sgn(Math.abs(a) > Math.abs(bb) ? a : bb) : sgn(a);
+      return fits(u, sign * (Math.abs(a) + Math.abs(bb)));
+    },
+    // between which two whole numbers is v: the pair just to the right of the right one (toward zero)
+    'toward-zero': (it, u) => {
+      if (!it.key.startsWith('sn6b:') || it.form !== 'mc') return false;
+      const v = Number(it.key.split(':')[1]); const [lo, hi] = (chosen(it, u).match(/-?\d+/g) || []).map(Number);
+      return v < 0 && lo === Math.ceil(v) && hi === Math.ceil(v) + 1;
+    },
     'ignore-sign': (it, u) => Array.isArray(u) && it.answer.some((v, i) => v < 0 && u[i] === -v),
     'neg-compare': (it, u) => { const [a, b] = nums(it.key); return a < 0 && b < 0 && a !== b && u === 2 - it.answer; },
     order: (it, u) => {

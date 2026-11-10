@@ -138,6 +138,33 @@ test('the fraction answer row: two stacked fields, the next key between them', a
   await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
 });
 
+// signed:6 (signed fractions and decimals) is the sixth stair of the signed unit: a student who finished the five
+// before it finds it current, its card saying that the stair is new; the unit and the card fit every phone.
+test('a signed-number unit with six stairs: the new stair is current and says so', async ({ page }) => {
+  const done = { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'mastered', 5: 'mastered' };
+  await open(page, '#/', student('7', { path: { signed: { parts: {}, reviews: 1, jumped: 0, done } } }));
+  const unit = page.locator('.unit').first();
+  await expect(unit.locator('.unit-title')).toHaveText('מספרים מכוונים');
+  await expect(unit.locator('.unit-label')).toHaveText('יחידה 1 · 5 מתוך 6 מדרגות');
+  const nodes = unit.locator('.path-step:not(.path-chest) .node');
+  await expect(nodes).toHaveCount(7); // six stairs and the unit's review
+  for (let k = 0; k < 7; k += 1) { const b = await nodes.nth(k).boundingBox(); expect(Math.min(b.width, b.height), `node ${k + 1} is thumb-sized`).toBeGreaterThanOrEqual(44); }
+  await expect(nodes.nth(5)).toHaveClass(/node-current/);
+  await expect(nodes.nth(6)).toHaveClass(/node-locked/); // the unit review waits for the new stair
+  await expectNoSidewaysScroll(page);
+  await nodes.nth(5).click();
+  const card = page.locator('.node-card');
+  await expect(card.locator('.node-card-title')).toHaveText('שברים ועשרוניים מכוונים');
+  await expect(card.locator('.node-card-added')).toHaveText('נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.');
+  await card.locator('.node-start-btn').scrollIntoViewIfNeeded();
+  await expectUsable(page, card.locator('.node-start-btn'), 'the start button');
+  await expectNoSidewaysScroll(page);
+  // a stair already climbed says nothing about it
+  await nodes.nth(4).click();
+  await expect(page.locator('.node-card')).toHaveCount(1);
+  await expect(page.locator('.node-card-added')).toHaveCount(0);
+});
+
 test('on a computer: digits typed anywhere go to the answer, Enter checks and Enter continues', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'a physical keyboard is a computer case');
   const it = await openOn(page, '#/lesson/signed/1', student('7'), (x) => x.form === 'num');

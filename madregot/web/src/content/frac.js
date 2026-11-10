@@ -53,7 +53,7 @@ export function clean(model, p) {
   return true;
 }
 const draw = (model, raw) => (r) => { for (;;) { const p = raw(r); if (p && clean(model, p)) return p; } };
-function mk(m) { m.params = draw(m, m.raw); return m; }
+export function mk(m) { m.params = draw(m, m.raw); return m; }
 
 /** frac:1 — which number is marked on a number line (0..L, each unit cut into d parts, A at the k-th mark). */
 export const FRAC1 = mk({

@@ -17,6 +17,8 @@ import { withFormatNote } from '@/content/util.js';
 export type Source = 'gen' | 'diag' | 'transfer' | 'probe' | 'control';
 
 export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source: Source) {
+  // a model whose questions are of two kinds may choose the answer's form per question (decimals, or quarters)
+  const fmt = typeof model.fmt === 'function' ? model.fmt(p) : model.fmt;
   const it = {
     key: `${c.skill}:${source}:${JSON.stringify(p)}`,
     text: model.text(p), display: model.display?.(p), fig: model.fig?.(p), form: 'num' as const, unit: model.unit,
@@ -25,7 +27,7 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
     diagnosis: (u: number) => diagnose(model, p, u),
     could: couldShow(model, p),
     topic: c.topic, level: c.level, levelTitle: c.title, source,
-    ...(model.precise ? { precise: true } : {}), ...(model.fmt ? { fmt: model.fmt } : {}),
+    ...(model.precise ? { precise: true } : {}), ...(fmt ? { fmt } : {}),
   };
   // an exact answer with no short decimal (7/12) says once how to write it, as a generated exercise does
   return model.precise ? withFormatNote(it) : it;

@@ -8,7 +8,7 @@ import type { SkillId, TopicId } from './types';
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
 export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'line', 'pyth', 'stats', 'sys'];
 export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 5, coord: 5, angles: 5, expr: 5, eq: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -35,6 +35,7 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'signed:3': ['signed:1'], // multiplying is repeated adding; the sign rules build on it
   'signed:4': ['signed:1', 'signed:3'], // order of operations mixes all four operations
   'signed:5': ['signed:4'], // brackets change that order
+  'signed:6': ['signed:1', 'signed:3', 'frac:3'], // the sign rules of signed:1 and signed:3, with fraction and decimal sums (bridge edge)
   'coord:1': ['signed:2'], // a point's coordinates are signed numbers on two lines
   'coord:2': ['coord:1'], // quadrants are the signs of the two coordinates
   'coord:3': ['coord:1', 'signed:1'], // a length is a difference of coordinates

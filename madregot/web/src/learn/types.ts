@@ -163,8 +163,8 @@ export interface DiagModel<P = Record<string, number>> {
   unit?: string;
   /** Compare the typed answer exactly (content/util.js numRight), as an exercise marked `precise`. */
   precise?: boolean;
-  /** Show the answer as a decimal (-1.3, not -13/10). */
-  fmt?: 'dec';
+  /** Show the answer as a decimal (-1.3, not -13/10); a function chooses per question (decimals, or quarters as fractions). */
+  fmt?: 'dec' | ((p: P) => 'dec' | undefined);
 }
 
 // ------------------------------------------------------------------ the stair
