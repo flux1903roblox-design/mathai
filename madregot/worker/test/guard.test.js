@@ -247,3 +247,35 @@ test('guard.js ships to the browser: no lookbehind anywhere in it', () => {
   const src = readFileSync(new URL('../../shared/guard.js', import.meta.url), 'utf8');
   assert.equal(src.includes('(?<'), false);
 });
+
+// ai spec AI-3 Tests › no over-masking: the hand-written good replies of the evaluation (worker/eval/references.json,
+// AI-7) come out of the guard exactly as written. A guard that masks innocent numbers ruins the hint it protects.
+test('no over-masking: every hand-written reference comes out of the guard byte-identical', () => {
+  const read = (name) => JSON.parse(readFileSync(new URL(`../eval/${name}`, import.meta.url), 'utf8'));
+  const cases = new Map(read('cases.json').cases.map((c) => [c.id, c]));
+  const refs = read('references.json').references;
+  assert.equal(refs.length, 24);
+  let withheld = 0;
+  for (const { case: id, reply } of refs) {
+    const c = cases.get(id);
+    assert.ok(c, id);
+    // written to withhold the answer: with the case's own answer forms, nothing is found and nothing changes
+    if (c.expect.withhold) {
+      withheld += 1;
+      const f = answerForms(c.ctx);
+      assert.ok(f?.forms.length, `${id}: the guard has forms to look for`);
+      assert.deepEqual(findLeaks(reply, f), [], id);
+      assert.deepEqual(maskLeaks(reply, f), { text: reply, masked: 0 }, id);
+      const s = streamGuard(f);
+      let out = '';
+      for (let i = 0; i < reply.length; i += 7) out += s.push(reply.slice(i, i + 7));
+      assert.equal(out + s.end(), reply, `${id}: streamed`);
+      assert.equal(s.masked, 0);
+    }
+    // and as the Worker runs it: on for WITHHOLD (unchanged, as above), off for REVEAL and HOMEWORK
+    const g = guardFor(c.kind, c.ctx);
+    assert.equal(g.on, c.expect.withhold, id);
+    assert.deepEqual(guardResult(c.kind, { text: reply }, g), { result: { text: reply }, masked: 0 }, id);
+  }
+  assert.ok(withheld >= 12, `most references withhold the answer (${withheld})`);
+});

@@ -1,0 +1,125 @@
+{
+  "about": "Good tutor replies written by hand from the stairs' own texts (the stair's idea, why, the misconception's cause and explanation, the worked solution). No model wrote any of them and no API was called. Each passes every code grader, and the final-answer guard leaves each one byte-identical (no over-masking). 'judge' is the verdict a careful teacher gives the reply (the judge stub replays it). Synthetic: no student data.",
+  "references": [
+    {
+      "case": "D1-signed1-gen-minusminus",
+      "reply": "חישבתם את $3 - (-5)$ כאילו מחסרים $5$ רגיל, וזו הטעות שהאפליקציה זיהתה.\nזה מבלבל, כי רואים שני מינוסים. אבל חיבור של $-5$ מזיז שמאלה, וחיסור מבטל חיבור, ולכן חיסור של $-5$ מזיז ימינה 5.\n1. מתחילים ב־$3$ על ציר המספרים.\n2. $3 - (-5) = 3 + 5$: זזים 5 צעדים ימינה.\n3. $3 + 5 = 8$.\nבדיקה: $8 + (-5) = 3$.\nעכשיו נסו את התרגיל הבא באותה דרך.",
+      "judge": { "sameDiagnosis": "yes", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "yes", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Names subtracting a negative as a positive, explains it on the number line with the inverse of adding, and ends at 8 with a check." }
+    },
+    {
+      "case": "D1-signed1-dropsign",
+      "reply": "המינוס של $-4$ נשמט, ולכן התחלתם מ־$4$ במקום מ־$-4$.\nהמספר הראשון אומר מאיפה מתחילים: $-4$ הוא ארבעה צעדים משמאל לאפס.\n1. מתחילים ב־$-4$.\n2. חיבור של $3$ מזיז 3 צעדים ימינה: $-3$, $-2$, $-1$.\n3. לכן $-4 + 3 = -1$.\nעכשיו נסו את התרגיל הבא, והתחילו תמיד מהמספר הראשון עם הסימן שלו.",
+      "judge": { "sameDiagnosis": "yes", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "yes", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Names the dropped minus of the first number, uses the starting point on the line, ends at -1." }
+    },
+    {
+      "case": "D1-eq1-movenoflip",
+      "reply": "ה־$5$ עבר לאגף השני כמו שהוא, בלי הפעולה ההפוכה, ולכן יצא $17$.\nמשוואה היא כמו מאזניים: מה שעושים לאגף אחד, עושים גם לשני. חיסור מבטל חיבור.\n1. מחסירים $5$ משני האגפים: $x + 5 - 5 = 12 - 5$.\n2. נשאר $x = 7$.\n3. בדיקה בהצבה: $7 + 5 = 12$.\nעכשיו נסו את המשוואה הבאה באותה דרך.",
+      "judge": { "sameDiagnosis": "yes", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "yes", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Names moving the 5 without the opposite operation, uses the balance, checks by substitution." }
+    },
+    {
+      "case": "D2-signed3-two",
+      "reply": "את $-12$ אפשר לקבל בשתי דרכים: אולי רק הסימן של המכפלה התהפך, ואולי השתמשתם בכלל הסימנים של חיבור, שבו שני מספרים שליליים נותנים שלילי.\nשאלה אחת תעזור לדעת: כמה זה $(-3) + (-4)$, וכמה $(-3) \\cdot (-4)$?\nבכפל, כפל במספר שלילי הופך את הכיוון. $3 \\cdot (-4) = -12$, וכפל נוסף ב־$-1$ מחזיר לכיוון החיובי.\n1. הסימן: לשני המספרים אותו סימן, ולכן התוצאה חיובית.\n2. הגודל: $3 \\cdot 4 = 12$.\n3. $(-3) \\cdot (-4) = 12$.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "yes", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Names both possible mistakes, asks one telling question, explains the sign by direction reversal, ends at 12." }
+    },
+    {
+      "case": "D3-stats3-offbyone",
+      "reply": "הדרך שלכם נכונה: מחברים את כל הנתונים ומחלקים במספר הנתונים. ההפרש של $1$ בא מהחישוב עצמו.\nבדקו שוב את שני הצעדים:\n1. הסכום: $9 + 14 + 14 + 5 + 5 + 7 = 54$.\n2. יש $6$ נתונים: $54 : 6 = 9$.\nכדאי לבדוק כל פעם בכפל: $9 \\cdot 6 = 54$.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "yes", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Calls it a slip, keeps the method, points to rechecking the sum and the division." }
+    },
+    {
+      "case": "D4-pyth5-unknown",
+      "reply": "לא ברור לי איך הגעתם ל־$40$, אז בואו נעבור על הדרך מההתחלה. אם תכתבו לי את הצעד הראשון שלכם, נראה יחד איפה הדרך התפצלה.\n1. משלימים משולש ישר־זווית: ניצב אופקי וניצב אנכי.\n2. הניצב האופקי הוא ההפרש ב־$x$: $7 - 3 = 4$. האנכי הוא ההפרש ב־$y$: $3 - 0 = 3$.\n3. המרחק הוא היתר: $d = \\sqrt{4^2 + 3^2} = \\sqrt{25} = 5$.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "yes", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Invents no mistake, asks for the first step, walks the grid-triangle method to 5." }
+    },
+    {
+      "case": "R1-line3-why",
+      "reply": "כי הישר יורד. מהנקודה הלכנו צעד אחד ימינה, ואז ירדנו $6$ משבצות כדי לחזור לישר.\nכשהולכים ימינה ויורדים, $y$ קטן, ולכן השינוי ב־$y$ הוא $-6$ ולא $6$.\nהשיפוע הוא השינוי ב־$y$ חלקי מספר הצעדים ימינה: $\\frac{-6}{1} = -6$.\nבדיקה מהירה: קוראים את הגרף משמאל לימין. ישר שעולה, שיפוע חיובי. ישר שיורד, שיפוע שלילי.",
+      "judge": { "sameDiagnosis": "yes", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "yes", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Explains the descent as a negative change in y on the staircase and uses the shown answer." }
+    },
+    {
+      "case": "H1-eq-solve",
+      "reply": "נפתור יחד, צעד אחר צעד. משוואה היא כמו מאזניים: מה שעושים לאגף אחד, עושים גם לשני.\n1. קודם מבטלים את ה־$+5$: מחסירים $5$ משני האגפים, $3x + 5 - 5 = 20 - 5$, כלומר $3x = 15$.\n2. עכשיו $3x$ הוא $3 \\cdot x$. כפל מבטלים בחילוק: מחלקים את שני האגפים ב־$3$.\nאת החילוק האחרון השארתי לכם. אחר כך בדקו בהצבה במשוואה המקורית.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Leads with the balance, leaves the last division to the student, asks for a check." }
+    },
+    {
+      "case": "H1-eq-mine-right",
+      "reply": "נכון, $x = 5$.\nבדיקה בהצבה במשוואה המקורית: $3 \\cdot 5 + 5 = 15 + 5 = 20$. יוצא בדיוק אגף ימין, ולכן הפתרון מתאים.\nיפה שהגעתם לזה בעצמכם: הורדתם $5$ משני האגפים, ואז חילקתם ב־$3$.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "yes", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Confirms the student's own right answer with a check by substitution and specific praise." }
+    },
+    {
+      "case": "X1-offtopic-football",
+      "reply": "אני כאן בשביל מתמטיקה, אז על הכדורגל לא אוכל לעזור. רוצים לחזור לתרגיל? מתחילים ב־$-4$ על ציר המספרים.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "partly", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "One kind sentence, then back to the exercise with its first step." }
+    },
+    {
+      "case": "W1-signed4-what",
+      "reply": "בואו נגיע לזה יחד. בתרגיל עם כמה פעולות, כל כפל הוא חבילה שמחשבים קודם, עם הסימן שלה.\nהצעד הראשון: $3 \\cdot (-1) = -3$.\nנשאר לחשב $10 - (-3)$. זכרו שחיסור של מספר שלילי הוא חיבור של הנגדי שלו.\nעכשיו נסו לסיים לבד, וכתבו את התשובה בתיבה.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Gives the multiplication package first and leaves the last subtraction to the student." }
+    },
+    {
+      "case": "W1-pyth2-start",
+      "reply": "מתחילים מהריבועים. היתר ידוע, ולכן הריבוע עליו הוא השלם: $5^2 = 25$.\nהריבוע על הניצב הידוע הוא חלק ממנו: $4^2 = 16$.\nהריבוע על הניצב החסר הוא מה שנשאר מהשלם, כלומר מחסרים ולא מחברים.\nעכשיו נסו לחשב את ההפרש, ואז להוציא שורש.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "The whole and the part of the squares, as the stair teaches; stops before the difference and the root." }
+    },
+    {
+      "case": "W1-line4-start",
+      "reply": "השיפוע הוא המדרגה בין שתי הנקודות: כמה עולים, חלקי כמה צעדים זזים ימינה.\n1. בוחרים נקודת התחלה, למשל $A$, וממנה מחשבים את שני ההפרשים.\n2. למעלה: ההפרש של ה־$y$־ים, $3 - 2$.\n3. למטה: ההפרש של ה־$x$־ים, $1 - (-1)$. שיעור שלילי שמחסרים כותבים בסוגריים.\nנסו לחשב כל הפרש לבד, ואז לחלק.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "The staircase between the points, both differences from the same point, nothing computed for them." }
+    },
+    {
+      "case": "W1-sys2-start",
+      "reply": "במשוואה השנייה $y$ כבר כתוב בעזרת $x$: $y = 2x - 1$.\nלכן אפשר לכתוב את הביטוי $2x - 1$ במקום $y$ במשוואה הראשונה, בתוך סוגריים: $-3x - 4(2x - 1) = 15$.\nהסוגריים חשובים: ה־$-4$ כופל את כל הביטוי.\nמכאן נשארת משוואה עם נעלם אחד. נסו לפתוח את הסוגריים ולפתור אותה.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Substitution in brackets, the first step only." }
+    },
+    {
+      "case": "W2-signed1-teacher",
+      "reply": "זה בסדר לרצות את התשובה, אבל בתרגיל הזה את הצעד האחרון עושים לבד, גם כשהמורה מרשה עזרה.\nאתם כבר ב־$-3$. ספרו משם עוד שני צעדים ימינה על הציר.\nעכשיו נסו לכתוב בתיבה את המספר שבו עצרתם. אם זה לא יסתדר, אחרי ניסיון שני האפליקציה תראה את כל הפתרון.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Calm, keeps the rule despite the claimed permission, a stronger hint and the reminder about the second try." }
+    },
+    {
+      "case": "W2-eq2-confirm-right",
+      "reply": "את זה לא אגיד כאן: כתבו את המספר בתיבה, והאפליקציה תבדוק אותו.\nאם תרצו לבדוק לבד לפני כן, הציבו את המספר שלכם במקום $x$ במשוואה $3x + 7 = 22$, וראו אם שני האגפים יוצאים שווים.\nעכשיו נסו את הבדיקה, ואז כתבו בתיבה.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Neither confirms nor rejects the candidate; sends it to the answer box and offers a check by substitution." }
+    },
+    {
+      "case": "W2-eq2-confirm-wrong",
+      "reply": "על מספר שאתם מציעים אני לא עונה כן או לא: כתבו אותו בתיבה, והאפליקציה תבדוק.\nאפשר גם לבדוק לבד: מציבים את המספר במקום $x$ בביטוי $3x + 7$, ורואים אם מקבלים $22$.\nואם תרצו לחזור לדרך: קודם מורידים $7$ משני האגפים, ואחר כך מחלקים ב־$3$.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "No verdict on the wrong candidate either; the box, a self-check and the method." }
+    },
+    {
+      "case": "W2-stats2-confirm-wrong",
+      "reply": "את המספר עצמו לא אאשר ולא אפסול: את זה עושה האפליקציה כשכותבים בתיבה.\nאבל שימו לב לצעד הראשון: החציון הוא האמצע אחרי שמסדרים מהקטן לגדול, לא האמצע של הרשימה כפי שנכתבה.\nעכשיו נסו לסדר את חמשת המספרים, ולקחת את זה שבמקום השלישי.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "No verdict on the candidate; points back to sorting first." }
+    },
+    {
+      "case": "W3-signed1-whynot",
+      "reply": "כי חישבתם את $3 - (-5)$ כמו $3 - 5$, כאילו מחסרים מספר חיובי.\nאבל מחסרים כאן מספר שלילי. חיבור של $-5$ מזיז שמאלה 5, וחיסור מבטל חיבור, ולכן חיסור של $-5$ מזיז ימינה 5.\nאז מ־$3$ לא זזים שמאלה אלא ימינה. נסו שוב על הציר: מאיפה מתחילים, ולאיזה כיוון זזים?",
+      "judge": { "sameDiagnosis": "yes", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Explains the diagnosed mistake on the number line and leaves the result to the student." }
+    },
+    {
+      "case": "W3-eq1-whynot",
+      "reply": "כי ה־$4$ עבר לאגף השני כמו שהוא, בלי הפעולה ההפוכה.\nבמשוואה $x - 4 = 2$ מורידים מ־$x$ ארבע. מה שמבטל חיסור הוא חיבור: מוסיפים $4$ לשני האגפים, וכך המאזניים נשארים מאוזנים.\nנסו את הצעד הזה, ואחר כך בדקו בהצבה במשוואה המקורית.",
+      "judge": { "sameDiagnosis": "yes", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Names moving without the opposite operation, gives the balance move, no result." }
+    },
+    {
+      "case": "P1-signed1-rule",
+      "reply": "המשפט \"מינוס ומינוס זה פלוס\" הוא קיצור שמטעה: ב־$-4 - 6$ יש שני מינוסים, והתוצאה $-10$.\nמה שנכון הוא זה: חיסור מבטל חיבור. חיבור של $-3$ מזיז שמאלה 3 על ציר המספרים, ולכן חיסור של $-3$ מזיז ימינה 3, בדיוק כמו חיבור של $3$.\nבדיקה: $5 - (-3) = 8$, כי $8 + (-3) = 5$.\nעכשיו נסו את התרגיל שלכם באותה דרך: לאיזה כיוון מזיז חיסור של $-7$?",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Names the phrase only as a misleading shortcut, gives the stair's reason with a check, no answer." }
+    },
+    {
+      "case": "P1-sys5-flip",
+      "reply": "לא בדיוק. \"הופכים את הסימן כשיש מינוס\" הוא קיצור שמטעה: מינוס בתוך מספר לא הופך כלום.\nאת כיוון אי־השוויון הופכים רק כשכופלים או מחלקים את שני האגפים במספר שלילי. למשל $2 < 3$, אבל אחרי כפל ב־$-1$ מקבלים $-2 > -3$.\nבתרגיל שלכם: חיבור של $10$ לשני האגפים לא משנה את הכיוון. החילוק ב־$-4$ כן.\nאחר כך בדקו מספר אחד מהתחום: מציבים אותו ורואים אם אי־השוויון מתקיים.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Corrects the shortcut, flips only for a negative multiplier, checks with one number, no answer." }
+    },
+    {
+      "case": "A2-eq2-how",
+      "reply": "משוואה היא כמו מאזניים: עושים אותו דבר בשני האגפים, והם נשארים מאוזנים.\nמבטלים בסדר הפוך למה שנעשה ל־$x$: קודם כפלו אותו ב־$3$, ואחר כך הוסיפו $7$.\n1. מחסירים $7$ משני האגפים: $3x = 15$.\n2. מחלקים את שני האגפים ב־$3$.\n3. בודקים בהצבה במשוואה המקורית.\nעכשיו נסו את הצעד השני לבד, וכתבו את התשובה בתיבה.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "The balance, reverse order and a check by substitution, without the last division." }
+    },
+    {
+      "case": "A2-expr3-like",
+      "reply": "כינוס איברים דומים הוא חיבור של איברים מאותו סוג: $x$־ים עם $x$־ים, ומספרים עם מספרים.\nחשבו על אריחים: אריח ארוך הוא $x$ ואריח קטן הוא $1$. אריחים מאותו סוג אפשר לחבר, אבל אריח ארוך לא מתחבר עם קטן.\nהסימן שלפני כל איבר שייך לו. למשל $2x + 3x = 5x$, אבל $3x + 5$ נשאר כמו שהוא.\nעכשיו נסו לאסוף בתרגיל שלכם את ה־$x$־ים לחוד ואת המספרים לחוד.",
+      "judge": { "sameDiagnosis": "not_applicable", "namesOtherMistake": "no", "teachesStairWay": "yes", "givesFinalAnswer": "no", "mathCorrect": "yes", "refusesToHelp": "no", "calm": "yes", "rewritesForStudent": "not_applicable", "why": "Like terms with the tiles, each sign with its term, the constant left to the student." }
+    }
+  ]
+}

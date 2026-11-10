@@ -135,9 +135,7 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
 
 test('no lookbehind in the lane\'s shared files: they ship to the browser (Safari before 16.4 cannot load them)', () => {
   for (const f of ['pedagogy.js', 'tutorContext.js', 'stairs.js', 'ai.js', 'guard.js', 'verify.js']) {
-    let src;
-    try { src = read(new URL(f, SHARED)); } catch (e) { if (f === 'verify.js') continue; throw e; } // verify.js comes with AI-4
-    assert.equal(src.includes('(?<'), false, f);
+    assert.equal(read(new URL(f, SHARED)).includes('(?<'), false, f);
   }
   for (const id of TOPICS) TOPIC_WAYS[id].avoidRe.forEach((r) => assert.equal(r.source.includes('(?<'), false, `${id}: ${r.source}`));
   assert.equal(SINGULAR_RE.source.includes('(?<'), false);
