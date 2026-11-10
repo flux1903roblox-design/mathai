@@ -758,3 +758,35 @@ a.btn { text-decoration: none; }
 .aw-extend { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
 .aw-extend .input { width: 100%; }
 .aw-actions .set-row { width: 100%; gap: var(--s2); }
+
+/* ------------------------------------------------------------------ class work, the student's side (TEACHER-5 §5-6)
+   The teacher's work sits first inside today's mission card, on a quiet tint with its own small heading; its rows are
+   the mission rows. Calm everywhere: no red, no "late". */
+.cw { display: flex; flex-direction: column; gap: var(--s2); margin: 0 calc(-1 * var(--s2)); padding: var(--s3) var(--s3) var(--s2); border-radius: 16px; background: var(--brand-tint); }
+.cw-head { margin: 0; display: flex; align-items: center; gap: var(--s2); font-size: 16px; line-height: 22px; font-weight: 700; color: var(--brand-d); }
+.today .cw .quest-rows li { border-top-color: rgba(0, 102, 255, 0.14); }
+.today .cw .quest-rows li:first-child { border-top: 0; }
+.qk-class { background: #fff; color: var(--brand-d); }
+.today-row.done .qk-class { background: var(--good-tint, #e6f6ec); color: var(--good-d, #1a7f3c); }
+.cw-note { font-style: normal; overflow-wrap: anywhere; }
+.cw-done-mark { display: inline-flex; align-items: center; gap: 3px; color: var(--good-d, #1a7f3c); }
+.cw-all { margin: 0; font-size: 15px; line-height: 21px; color: var(--ink); font-weight: 600; }
+.cw-fold { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0; border: 0; background: none; color: var(--brand-d); font: inherit; font-weight: 700; cursor: pointer; }
+.cw-fold svg { transition: transform var(--duration-fast, 160ms) var(--ease-out, ease-out); }
+.cw-fold-open { transform: rotate(180deg); }
+.cw-fold:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }
+
+/* the dot on the missions tab: work from the teacher the student has not seen yet */
+.tabbar .tab { position: relative; }
+.tab-dot { position: absolute; top: 6px; inset-inline-start: calc(50% + 6px); width: 10px; height: 10px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 2px #fff; }
+@media (min-width: 900px) { .tab-dot { top: 50%; inset-inline-start: calc(var(--s3) + 18px); margin-top: -14px; } }
+
+/* the learning home's chip: the most urgent work from the teacher, a tap away */
+.learn-work-chip { display: flex; align-items: center; gap: var(--s2); min-height: 44px; margin: var(--s2) var(--gutter, 16px) 0; padding: 6px var(--s3); border: 2px solid var(--brand-line); border-radius: 14px; background: var(--brand-tint); color: var(--brand-d); font-weight: 700; font-size: 15px; line-height: 20px; text-decoration: none; }
+.learn-work-chip svg { flex: none; }
+.learn-work-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.learn-work-chip:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+
+/* the stair page opened from the teacher's work */
+.journey-work { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); padding: var(--s2) var(--s3); border-radius: 12px; background: var(--brand-tint); color: var(--brand-d); font-weight: 700; font-size: 15px; line-height: 21px; }
+.journey-work svg { flex: none; }

@@ -15,6 +15,7 @@ import { autoAskAllowed, gate, aiAccess, useAIStatus } from '@/lib/account.js';
 import AIAllowance from '@/components/AIAllowance.jsx';
 import ToolLocked from '@/components/ToolLocked.jsx';
 import { api, syncNow } from '@/lib/api.js';
+import { checkAssignment, reportWork, reportStairs } from '@/lib/classWork.js';
 import { play, buzz } from '@/lib/sound.js';
 import { Tex, MathText, Markdown, texText, FitDisplay } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
@@ -143,7 +144,10 @@ function useLessonSpec() {
   if (params.get('kind') === 'check') {
     const lv = Math.min(Math.max(Number(lParam) || 1, 1), TOPIC[topic].levels.length);
     const purpose = ['mastery', 'review', 'verify'].includes(params.get('purpose')) ? params.get('purpose') : 'mastery';
-    return { kind: 'check', purpose, skill: skillId(topic, lv), misc: purpose === 'verify' ? params.get('misc') : null, topic, level: lv };
+    // a mastery check the teacher gave: its address names the assignment (TEACHER-5 §4)
+    const assignment = params.get('assignment');
+    const assignmentId = purpose === 'mastery' && /^[a-f0-9]{16}$/.test(assignment || '') ? assignment : null;
+    return { kind: 'check', purpose, skill: skillId(topic, lv), misc: purpose === 'verify' ? params.get('misc') : null, topic, level: lv, assignmentId };
   }
   const kind = ['review', 'jump'].includes(params.get('kind')) ? params.get('kind') : 'node';
   const nodes = unitNodes(topic, path);
@@ -259,6 +263,9 @@ export default function Lesson() {
 
   // the learning record: a lesson or a check started (for the outcome metrics, on this device only)
   useEffect(() => { if (spec && !placement) useApp.getState().learnEvent({ e: 'lesson-start', s: skillId(spec.topic, spec.level), p: spec.kind === 'check' ? spec.purpose : spec.kind }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // a mastery check the teacher gave (named by the address, or an open one on this stair): the teacher sees it started
+  const [workId] = useState(() => (spec?.kind === 'check' && spec.purpose === 'mastery' ? checkAssignment(spec.skill, spec.assignmentId) : null));
+  useEffect(() => { if (workId) reportWork(workId, { state: 'started' }); }, [workId]);
 
   const aiContext = () => ({
     grade: t.grade, topic: t.title, level: item.levelTitle, question: itemPlain(item),
@@ -345,6 +352,9 @@ export default function Lesson() {
       (result.skills || [skillId(result.topic, result.level)]).forEach((sk) => app.completeMission({ skill: sk, kind: isCheck ? kindOf[result.purpose] : 'continue', stage: isCheck ? (result.purpose === 'mastery' ? 'E' : undefined) : result.kind === 'node' ? 'D' : undefined, misc: result.misc || undefined }));
       app.learnEvent({ e: 'lesson-done', s: skillId(result.topic, result.level), p: isCheck ? result.purpose : result.kind, ok: result.passed });
     }
+    // the teacher's work: a mastery check reports its first finished result; the stairs report how far they are
+    if (workId) reportWork(workId, { state: 'done', right: result.right, asked: result.asked, passed: !!result.passed });
+    reportStairs();
     syncNow();
     play(result.passed ? 'complete' : 'wrong');
     setDone({ result, award });

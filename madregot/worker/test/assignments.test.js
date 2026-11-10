@@ -391,8 +391,9 @@ test('student: the list has only this student\'s started assignments of their ow
   assert.deepEqual([w.today, w.teacherName, w.help], ['2026-11-12', 'רונית', []]);
   assert.deepEqual(w.assignments.map((a) => a.title), ['מחר', 'שבוע הבא', 'היום']);
   assert.deepEqual(w.assignments[0], {
-    id: soon.id, kind: 'check', skill: 'signed:1', title: 'מחר', note: '', startsOn: '2026-11-12', dueOn: '2026-11-13', hasExam: false, examCount: null, mine: null,
+    id: soon.id, kind: 'check', skill: 'signed:1', title: 'מחר', note: '', startsOn: '2026-11-12', dueOn: '2026-11-13', createdAt: soon.createdAt, hasExam: false, examCount: null, mine: null,
   });
+  assert.match(w.assignments[0].createdAt, /^2026-11-12T/);
   assert.deepEqual({ ...w.assignments[2].mine, doneAt: 0 }, { state: 'done', stage: 5, right: null, asked: null, passed: true, doneAt: 0 });
   assert.equal(later.id, w.assignments[1].id);
   // the one that starts on Sunday shows from Sunday

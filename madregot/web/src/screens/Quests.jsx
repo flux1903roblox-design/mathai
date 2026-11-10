@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Flame, Snowflake, Zap, Check, Target, Route, ChevronLeft, BookOpen, Star, Trophy } from 'lucide-react';
@@ -10,6 +11,7 @@ import PageHero from '@/components/PageHero.jsx';
 import Lottie from '@/components/Lottie.jsx';
 import { EASE } from '@/lib/motion.js';
 import TodayCard from '@/components/learn/TodayCard.jsx';
+import { markSeen } from '@/lib/classWork.js';
 
 
 const QUEST_ICON = { lessons: BookOpen, xp: Zap, combo: Flame, perfect: Star, correct: Target, review: Trophy };
@@ -24,6 +26,9 @@ export default function Quests() {
   const streak = streakOf(days);
   const todayXp = day.xp || 0;
   const allDone = quests.every((q) => q.done);
+  // the teacher's work is seen here: the tab's dot goes (and stays gone for work that arrives while this tab is open)
+  const workAt = useApp((s) => s.classWork.at);
+  useEffect(() => { if (profile.token) markSeen(); }, [profile.token, workAt]);
 
   return (
     <div className="page wide quests">

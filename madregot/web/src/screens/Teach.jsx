@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { useApp } from '@/lib/store.js';
+import { reportStairs } from '@/lib/classWork.js';
 import { TOPIC } from '@/content/index.js';
 import { contentOf } from '@/learn/content/index.ts';
 import { diagnoseFinal } from '@/learn/content/togetherDiag.ts';
@@ -42,6 +43,7 @@ export default function Teach() {
   const finish = () => {
     const award = completeStage(skill, stage);
     useApp.getState().completeMission({ skill, kind: 'continue', stage });
+    reportStairs(); // a stair the teacher gave: the teacher sees the stage done (TEACHER-5 §3)
     setStagePos(skill, stage, 0);
     const { path, learn } = useApp.getState();
     setDone({ award, steps: stagesDone(learn.skills[skill], partsOf(path, topic, level), isDone(path, topic, level)) });

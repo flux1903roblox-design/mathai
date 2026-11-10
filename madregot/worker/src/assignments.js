@@ -323,15 +323,16 @@ const mineView = (w) => (w && w.state ? {
 
 /**
  * GET /api/class/work → {today, teacherName, assignments, help}: the started assignments for this student due in the
- * last 14 days or later, and older ones (30 days) not done yet; not done first, by due date; at most 20. `help` (the
- * teacher's replies) comes with TEACHER-6.
+ * last 14 days or later, and older ones (30 days) not done yet; not done first, by due date; at most 20. Each carries
+ * createdAt, so the app can mark work that is new since the student last looked. `help` (the teacher's replies) comes
+ * with TEACHER-6.
  */
 export async function classWork(req, env, cors) {
   const s = await requireStudent(req, env);
   const today = dayOf();
   const [cls, list] = await Promise.all([
     first(env, 'SELECT teacher_name FROM classes WHERE code = ?', s.class_code),
-    all(env, `SELECT a.id, a.kind, a.skill, a.title, a.note, a.starts_on, a.due_on, a.exam IS NOT NULL AS has_exam,
+    all(env, `SELECT a.id, a.kind, a.skill, a.title, a.note, a.starts_on, a.due_on, a.created_at, a.exam IS NOT NULL AS has_exam,
         CASE WHEN a.exam IS NOT NULL THEN json_array_length(a.exam) END AS exam_count,
         w.state, w.stage, w.right_n, w.asked, w.passed, w.done_at
       FROM assignments a LEFT JOIN assignment_work w ON w.assignment_id = a.id AND w.student_id = ?1
@@ -342,7 +343,7 @@ export async function classWork(req, env, cors) {
   return json({
     today, teacherName: cls?.teacher_name || '',
     assignments: list.map((a) => ({
-      id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.starts_on, dueOn: a.due_on,
+      id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.starts_on, dueOn: a.due_on, createdAt: a.created_at,
       hasExam: !!a.has_exam, examCount: a.exam_count == null ? null : Number(a.exam_count), mine: mineView(a),
     })),
     help: [],

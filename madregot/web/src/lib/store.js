@@ -15,6 +15,11 @@ import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
 
+/** Nothing from a teacher yet (and after leaving the class). */
+export function emptyClassWork() {
+  return { at: null /* iso of the last fetch */, today: null, teacherName: '', assignments: [], help: [], exams: {} /* assignmentId -> frozen items */, seenAt: null /* the last opening of /quests */, noticed: {} /* help messageId -> true */ };
+}
+
 const safeStorage = createJSONStorage(() => {
   try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); return localStorage; } catch {
     const mem = new Map();
@@ -50,6 +55,10 @@ const empty = {
   gaps: {}, // 'topic:cat' (or 'topic:exam:skill') -> { level, n, ok, at, text? }: what is not clear yet; clears after GAP_CLEAR right answers at that level
   placement: null, // { at, grade, results: { topic: { level, asked, right } } }
   learn: emptyLearn(), // Madregot 2.0: skills (evidence, mastery, reviews), misconceptions, exam plan, missions, events (src/learn/types.ts)
+  // the teacher's work for a student in a class (TEACHER-5, lib/classWork.js): the last GET /api/class/work, kept so it
+  // shows offline too; when the student last opened the missions tab; and the reports not yet confirmed by the server
+  classWork: emptyClassWork(),
+  workOutbox: {}, // assignmentId -> the newest report waiting for the server (merged with learn/assignments.ts mergeWork)
 };
 
 /** The saved-state key (a staging copy on the same address keeps its own); the parent session lives beside it. */
@@ -67,6 +76,7 @@ export const PERSONAL_KEY = import.meta.env.VITE_ALLOW_PERSONAL_KEY === '1';
  * v3 → v4: a stair is done only after its mastery check. Every stair that was done before stays done ('kept', and its
  * mastery check is offered); stairs already mastered are marked so. Evidence a number-line exercise recorded under the
  * wrong name is moved to the mistake it really showed.
+ * v4 → v5 (class work from the teacher): an empty classWork and workOutbox.
  */
 export function migrateState(saved, version, { personal = PERSONAL_KEY } = {}) {
   let st = saved && typeof saved === 'object' ? { ...saved } : {};
@@ -82,6 +92,7 @@ export function migrateState(saved, version, { personal = PERSONAL_KEY } = {}) {
     const progress = st.progress && typeof st.progress === 'object' ? st.progress : {};
     st = { ...st, path: migratePath(path, progress, st.learn.skills || {}), learn: relabelLegacyEvidence(st.learn) };
   }
+  if (version < 5) st = { ...st, classWork: emptyClassWork(), workOutbox: {} };
   return st;
 }
 
@@ -250,14 +261,14 @@ export const useApp = create(
       leaveClass: () => {
         const p = get().profile; if (!p) return;
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
-        set({ profile: rest, outbox: [] });
+        set({ profile: rest, outbox: [], classWork: emptyClassWork(), workOutbox: {} });
       },
       resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
-      signOut: () => set({ ...empty, learn: emptyLearn(), ai: { ...get().ai, pendingLink: null, lastTier: null } }),
+      signOut: () => set({ ...empty, learn: emptyLearn(), classWork: emptyClassWork(), workOutbox: {}, ai: { ...get().ai, pendingLink: null, lastTier: null } }),
     }),
     // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')
-    { name: STORE_KEY, storage: safeStorage, version: 4, migrate: (saved, version) => migrateState(saved, version) },
+    { name: STORE_KEY, storage: safeStorage, version: 5, migrate: (saved, version) => migrateState(saved, version) },
   ),
 );
 

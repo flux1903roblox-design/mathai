@@ -860,3 +860,115 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     expect(log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST').body).toMatchObject({ kind: 'stair', skill: 'signed:3', targets: ['b2'] });
   });
 });
+
+// TEACHER-5: the student sees the teacher's work at the top of today's mission, in calm words; the stairs the teacher
+// gave report how far they are; the missions tab has a dot for new work; a student with no class sees none of it.
+test.describe('TEACHER-5: the teacher\'s work on the student\'s side', () => {
+  const MONDAY = new Date('2026-11-09T10:00:00');
+  const inClass = (extra = {}) => withServer({ profile: { role: 'student', name: 'דנה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', teacherName: 'רונית', token: 'stok-a1', studentId: 'a1' }, ...extra });
+  const given = (over = {}) => ({ id: 'a000000000000001', kind: 'stair', skill: 'signed:1', title: 'מספרים מכוונים: חיבור וחיסור', note: 'לקראת המבחן ביום חמישי',
+    startsOn: '2026-11-09', dueOn: '2026-11-12', forAll: true, targets: [], createdAt: '2026-11-09T07:00:00.000Z', ...over });
+  const check = (over = {}) => given({ id: 'a000000000000002', kind: 'check', skill: 'signed:2', title: 'בדיקת שליטה: השוואת מספרים', note: '', startsOn: '2026-11-02', dueOn: '2026-11-06', createdAt: '2026-11-02T07:00:00.000Z', ...over });
+  const later = given({ id: 'a000000000000003', skill: 'coord:1', title: 'מערכת צירים: קריאת נקודה', note: '', dueOn: '2026-11-19', createdAt: '2026-11-09T07:05:00.000Z' });
+  const workPosts = (log) => log.filter((r) => r.path.startsWith('/api/class/work/') && r.method === 'POST');
+  const missionsTab = (page) => page.getByRole('navigation', { name: 'ניווט ראשי' }).getByRole('link', { name: /^משימות/ });
+
+  test('1. "מהמורה רונית" first in today\'s mission, in calm words; the big button starts the earliest work', async ({ page }) => {
+    const { log } = await fakeServer(page, { today: '2026-11-09', assignments: [given(), check(), later] }, baseOf());
+    await open(page, '#/quests', inClass(), { at: MONDAY });
+    const block = page.getByRole('region', { name: 'מהמורה רונית' });
+    await expect(block).toBeVisible();
+    const rows = block.getByRole('list', { name: 'מהמורה רונית' }).getByRole('listitem');
+    await expect(rows).toHaveCount(2);
+    // the check whose date passed comes first, without pressure; the stair is due on Thursday, with the teacher's note
+    await expect(rows.nth(0)).toContainText('בדיקת שליטה: השוואת מספרים');
+    await expect(rows.nth(0)).toContainText('בדיקת שליטה · המועד עבר, ועדיין אפשר להשלים');
+    await expect(rows.nth(1)).toContainText('מספרים מכוונים: חיבור וחיסור');
+    await expect(rows.nth(1)).toContainText('מדרגה ללמוד · עד יום חמישי, 12.11');
+    await expect(rows.nth(1)).toContainText('“לקראת המבחן ביום חמישי”');
+    await expect(rows.nth(1).getByRole('progressbar')).toHaveAttribute('aria-valuetext', 'שלב 1 מתוך 5');
+    // the one due in ten days waits folded
+    const fold = block.getByRole('button', { name: 'עוד משימות מהמורה (1)' });
+    await expect(fold).toHaveAttribute('aria-expanded', 'false');
+    await fold.click();
+    await expect(block.getByRole('list', { name: 'עוד משימות מהמורה' })).toContainText('מערכת צירים: קריאת נקודה');
+    await fold.click();
+    // no red and no "late" for a child
+    await expect(page.locator('.teacher, .tw-chip-late, .aw-late')).toHaveCount(0);
+    await expect(page.getByText('באיחור')).toHaveCount(0);
+    const go = page.locator('.continue-go');
+    await expect(go).toHaveText('מתחילים במשימה מהמורה');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'student-today-teacher-work');
+    // the big button opens the check the teacher gave; starting it tells the teacher, and nothing more
+    await go.click();
+    await expect(page).toHaveURL(/#\/lesson\/signed\/2\?kind=check&purpose=mastery&assignment=a000000000000002$/);
+    await expect.poll(() => workPosts(log).length).toBe(1);
+    expect(workPosts(log)[0]).toMatchObject({ path: '/api/class/work/a000000000000002', body: { state: 'started' }, headers: { authorization: 'Bearer stok-a1' } });
+    // the stair's row leads to its page, which says it is the teacher's work
+    await page.goto('./#/quests');
+    await page.getByRole('link', { name: 'מספרים מכוונים: חיבור וחיסור' }).click();
+    await expect(page).toHaveURL(/#\/learn\/signed\/1\?assignment=a000000000000001$/);
+    await expect(page.getByText('משימה מהמורה, עד יום חמישי, 12.11')).toBeVisible();
+  });
+
+  test('2. finishing stage A of the stair the teacher gave reports stage 1', async ({ page }) => {
+    const { log, st } = await fakeServer(page, { today: '2026-11-09', assignments: [given()] }, baseOf());
+    await open(page, '#/learn/signed/1?assignment=a000000000000001', inClass(), { at: MONDAY });
+    await expect(page.getByText('משימה מהמורה, עד יום חמישי, 12.11')).toBeVisible();
+    await page.getByRole('button', { name: 'מבינים את הרעיון: פתיחה' }).click();
+    await expect(page.locator('.step-player')).toBeVisible();
+    for (let i = 0; i < 20; i += 1) {
+      await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+      const s = await page.evaluate(() => window.__madregotStep);
+      if (s.kind === 'explore') {
+        await expect.poll(() => page.evaluate(() => window.__madregotSolveStep?.forStep === window.__madregotStep)).toBe(true);
+        await page.evaluate(() => window.__madregotSolveStep());
+        await page.locator('.lm-check').click();
+        await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+      }
+      if (s.kind === 'predict') { await page.locator('.ls-choice').nth(s.answer).click(); await page.locator('.lm-check').click(); await expect(page.locator('.lm-actions.has-good')).toBeVisible(); }
+      const nextBtn = page.locator('.sp-next');
+      const last = (await nextBtn.textContent()).includes('לדוגמה');
+      await nextBtn.click();
+      if (last) break;
+    }
+    await expect(page.locator('.stage-done')).toContainText('שלב 1 הושלם!');
+    await expect.poll(() => workPosts(log).length).toBe(1);
+    expect(workPosts(log)[0]).toMatchObject({ path: '/api/class/work/a000000000000001', body: { state: 'started', stage: 1, passed: false } });
+    expect(st.work.a000000000000001.a1).toMatchObject({ state: 'started', stage: 1 });
+    // the report was confirmed: nothing waits on the device
+    await expect.poll(async () => (await saved(page)).workOutbox).toEqual({});
+  });
+
+  test('5. a student with no class sees no "מהמורה" block, and nothing is asked', async ({ page }) => {
+    const { log } = await fakeServer(page, { today: '2026-11-09', assignments: [given()] }, baseOf());
+    await open(page, '#/quests', withServer(), { at: MONDAY });
+    await expect(page.getByRole('heading', { name: 'המשימה שלי להיום' })).toBeVisible();
+    await expect(page.getByText(/מהמורה/)).toHaveCount(0);
+    await expect(missionsTab(page)).toHaveAccessibleName('משימות');
+    await page.goto('./#/');
+    await expect(page.locator('.learn-work-chip')).toHaveCount(0);
+    expect(log.filter((r) => r.path.startsWith('/api/class/'))).toHaveLength(0);
+  });
+
+  test('6. the missions tab has a dot for new work, the home has a chip, and opening the missions clears the dot', async ({ page }) => {
+    await fakeServer(page, { today: '2026-11-09', assignments: [given()] }, baseOf());
+    await open(page, '#/', inClass(), { at: MONDAY });
+    await expect(missionsTab(page)).toHaveAccessibleName('משימות · יש משהו חדש מהמורה');
+    await expect(page.locator('.tab-dot')).toHaveCount(1);
+    const chip = page.getByRole('link', { name: 'משימה מהמורה: מספרים מכוונים: חיבור וחיסור · עד יום חמישי' });
+    await expect(chip).toBeVisible();
+    expect((await chip.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await shot(page, 'student-home-teacher-chip');
+    await chip.click();
+    await expect(page).toHaveURL(/#\/quests$/);
+    await expect(page.getByRole('region', { name: 'מהמורה רונית' })).toBeVisible();
+    await expect(missionsTab(page)).toHaveAccessibleName('משימות');
+    await expect(page.locator('.tab-dot')).toHaveCount(0);
+    // and it stays gone after a reload
+    await page.reload();
+    await expect(page.getByRole('region', { name: 'מהמורה רונית' })).toBeVisible();
+    await expect(page.locator('.tab-dot')).toHaveCount(0);
+  });
+});

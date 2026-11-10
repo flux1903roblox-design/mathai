@@ -2,6 +2,8 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { m } from 'motion/react';
 import { House, Target, ClipboardCheck, Sparkles, User } from 'lucide-react';
 import { DUR, enter } from '@/lib/motion.js';
+import { useApp } from '@/lib/store.js';
+import { hasNewWork } from '@/lib/classWork.js';
 
 const TABS = [
   { to: '/', label: 'לימוד', icon: House, end: true },
@@ -11,9 +13,13 @@ const TABS = [
   { to: '/me', label: 'אני', icon: User },
 ];
 
-/** Student layout: content plus the tab bar (bottom on phones, top on wide screens). */
+/**
+ * Student layout: content plus the tab bar (bottom on phones, top on wide screens). The missions tab carries a dot
+ * when the teacher gave work since the student last opened it (TEACHER-5 §6); only in a class.
+ */
 export default function Shell() {
   const { pathname } = useLocation();
+  const newWork = useApp((s) => !!s.profile?.token && hasNewWork(s.classWork, s.workOutbox));
   return (
     <div className="shell">
       <nav className="tabbar" aria-label="ניווט ראשי" data-region="nav">
@@ -21,7 +27,8 @@ export default function Shell() {
         {TABS.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => `tab${isActive ? ' active' : ''}`}>
             <Icon size={22} aria-hidden="true" />
-            <span>{label}</span>
+            {to === '/quests' && newWork && <i className="tab-dot" aria-hidden="true" />}
+            <span>{label}{to === '/quests' && newWork && <span className="visually-hidden"> · יש משהו חדש מהמורה</span>}</span>
           </NavLink>
         ))}
       </nav>

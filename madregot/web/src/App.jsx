@@ -4,6 +4,7 @@ import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
+import { fetchClassWork, flushWork } from '@/lib/classWork.js';
 import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import { previewBack } from '@/lib/teacher.js';
@@ -52,6 +53,22 @@ function useSync() {
     const onHide = () => { if (document.visibilityState === 'hidden') syncNow(); };
     document.addEventListener('visibilitychange', onHide);
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', onHide); };
+  }, [token]);
+}
+
+/**
+ * The teacher's work for a student in a class (TEACHER-5 §2): asked on opening (and the reports left from last time
+ * sent), again when the app comes back into view, and at most every 5 minutes while it stays open.
+ */
+function useClassWork() {
+  const token = useApp((s) => s.profile?.token);
+  useEffect(() => {
+    if (!token || !hasServer()) return undefined;
+    flushWork().then(() => fetchClassWork({ force: true }));
+    const onShow = () => { if (document.visibilityState === 'visible') fetchClassWork(); };
+    document.addEventListener('visibilitychange', onShow);
+    const t = setInterval(() => fetchClassWork(), 5 * 60_000);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onShow); };
   }, [token]);
 }
 
@@ -212,6 +229,7 @@ const router = createHashRouter([{ path: '*', element: <Root /> }]);
 
 export default function App() {
   useSync();
+  useClassWork();
   return (
     <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="user">

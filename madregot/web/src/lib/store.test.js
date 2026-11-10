@@ -47,3 +47,12 @@ describe('saved data v3: the parent account never lives in the child store', () 
     expect(migrateState(v2(ai), 3, { personal: false }).ai).toEqual(ai);
   });
 });
+
+describe('saved data v5: class work from the teacher', () => {
+  it('a v4 save gets an empty classWork and workOutbox, and keeps the rest', () => {
+    const out = migrateState({ ...v2({ mode: 'server', apiUrl: '', key: '' }), path: {}, progress: {} }, 4, { personal: false });
+    expect(out.classWork).toEqual({ at: null, today: null, teacherName: '', assignments: [], help: [], exams: {}, seenAt: null, noticed: {} });
+    expect(out.workOutbox).toEqual({});
+    expect(out.xp).toBe(40);
+  });
+});

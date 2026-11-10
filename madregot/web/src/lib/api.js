@@ -1,4 +1,5 @@
 import { useApp } from './store.js';
+import { flushWork, fetchClassWork } from './classWork.js';
 
 /**
  * The Worker's address: Settings override, else the one baked in at build time.
@@ -154,7 +155,10 @@ export function serverHealth() {
   return health;
 }
 
-/** Send queued answers and current levels to the class server. */
+/**
+ * Send queued answers and current levels to the class server; then the reports of the teacher's work waiting on this
+ * device, and the teacher's work as the server has it now (lib/classWork.js, at most every 5 minutes).
+ */
 let syncing = false;
 export async function syncNow() {
   const st = useApp.getState();
@@ -163,6 +167,8 @@ export async function syncNow() {
   syncing = true;
   try {
     await api('/api/progress', { method: 'POST', body: { events, levels: st.progress } });
+    await flushWork();
+    await fetchClassWork();
   } catch (e) {
     useApp.getState().returnOutbox(events);
     if (e.code === 'not_signed_in') useApp.getState().patchProfile({ token: null });
