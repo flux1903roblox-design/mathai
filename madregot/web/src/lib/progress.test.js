@@ -72,7 +72,7 @@ describe.each([['signed:1'], ['expr:1']])('a finished teaching stage is a real s
     try {
       expect(today()).toBe(key);
       // every other quest of the day is done; the XP quest is one stage short
-      const day = { lessons: 5, combo: 10, perfect: 1, ok: 30, reviews: 1, xp: QUESTS.xp.target - STAGE_XP.A };
+      const day = { lessons: 5, combo: 10, perfect: 1, ok: 30, missionDone: 1, xp: QUESTS.xp.target - STAGE_XP.A };
       useApp.setState({ days: { [key]: day }, freezes: 0 });
       expect(questProgress(key, day).every((q) => q.done)).toBe(false);
       const a = useApp.getState().completeStage(S, 'A');

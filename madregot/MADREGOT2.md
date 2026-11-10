@@ -63,7 +63,10 @@ Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm 
   prerequisite counts as missing only on evidence (or, in the student's own grade, never started and not passed on
   the map); stairs passed on the old map count as known. The home map focuses the plan's top when it is a stair of the
   map, and shows it in a banner above the path when it is not; today's mission starts with it; Exam Rescue's "today"
-  is the plan's exam steps. So two buttons never send the student to two different next things.
+  is the plan's exam steps. So two buttons never send the student to two different next things. The older improvement
+  plan (raw mistake counts, `/plan`) is retired: its exam evidence is the exam-loss band, listed as "מה לחזק אחרי
+  המבחן" on the quests and the exams tab, and `/plan` redirects to the quests. The daily quests suggest no work of their
+  own: one of them is "finish today's mission" (days[d].missionDone, set when the mission's last item is done).
 - **Exam Rescue** starts with a 2-question diagnostic per stair, sorts stairs into strong / shaky / gap / untested,
   orders gaps (and stairs others lean on) first, and spreads learn → practice → mastery tasks over the days, with a
   practice exam on the last day. It is recomputed from the evidence every time, so it follows real performance. It

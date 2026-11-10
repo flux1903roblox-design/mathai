@@ -169,7 +169,7 @@ function useLessonSpec() {
   const node = nodes.find((n) => n.kind === 'node' && n.level === level);
   const part = Number(params.get('part')) || (node?.state === 'done' ? PARTS : Math.min(PARTS, (node?.parts || 0) + 1));
   const max = progress[topic]?.max || level;
-  return { kind, topic, level, part, max, fromPlan: params.get('from') === 'plan', fromJourney: params.get('from') === 'journey' };
+  return { kind, topic, level, part, max, fromJourney: params.get('from') === 'journey' };
 }
 
 export default function Lesson() {
@@ -365,15 +365,17 @@ export default function Lesson() {
   const finish = (ns) => {
     const result = resultOf(ns);
     const app = useApp.getState();
-    const award = placement ? app.completePlacement(result) : isCheck ? app.completeCheck(result) : app.completeLesson(result, { fromPlan: spec.fromPlan });
+    let award = placement ? app.completePlacement(result) : isCheck ? app.completeCheck(result) : app.completeLesson(result);
     // a finished activity completes its item of today's mission. Multiplication facts are on no stair (level 0), and the
-    // floor check is about the whole floor, not one stair: it completes the floor check's own item only.
+    // floor check is about the whole floor, not one stair: it completes the floor check's own item only. When that
+    // finishes the mission and its quest is the day's last, the chest opens: the celebration says so.
+    const ticked = (m) => { if (m?.questsDone) award = { ...award, questsDone: true, freezeEarned: award.freezeEarned || m.freezeEarned }; };
     const onStair = !!(result.topic && result.level) && result.purpose !== 'floor';
-    if (result.purpose === 'floor') app.completeMission({ kind: 'floor' });
+    if (result.purpose === 'floor') ticked(app.completeMission({ kind: 'floor' }));
     if (!placement && onStair) {
       const kindOf = { mastery: 'mastery', review: 'review', verify: 'repair', diagnostic: 'exam', exam: 'exam' };
       // practice (stage D) or a check: each completes only the mission item it is
-      (result.skills || [skillId(result.topic, result.level)]).forEach((sk) => app.completeMission({ skill: sk, kind: isCheck ? kindOf[result.purpose] : 'continue', stage: isCheck ? (result.purpose === 'mastery' ? 'E' : undefined) : result.kind === 'node' ? 'D' : undefined, misc: result.misc || undefined }));
+      (result.skills || [skillId(result.topic, result.level)]).forEach((sk) => ticked(app.completeMission({ skill: sk, kind: isCheck ? kindOf[result.purpose] : 'continue', stage: isCheck ? (result.purpose === 'mastery' ? 'E' : undefined) : result.kind === 'node' ? 'D' : undefined, misc: result.misc || undefined })));
     }
     if (!placement) app.learnEvent({ e: 'lesson-done', ...(onStair ? { s: skillId(result.topic, result.level) } : {}), p: isCheck ? result.purpose : result.kind, ok: result.passed });
     syncNow();

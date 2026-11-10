@@ -4,11 +4,10 @@
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { aiAccess, hasTool, useAIStatus } from '@/lib/account.js';
-import { ClipboardCheck, Printer, Route, ChevronLeft, FileText } from 'lucide-react';
+import { ClipboardCheck, Printer, ChevronLeft, FileText } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
-import { usePlan } from '@/lib/usePlan.js';
 import PageHero from '@/components/PageHero.jsx';
-import { Bar } from '@/components/ds.jsx';
+import ExamLoss from '@/components/learn/ExamLoss.jsx';
 
 const fmtDate = (iso) => new Date(iso).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit' });
 export const pctTone = (pct) => (pct >= 80 ? 'high' : pct >= 60 ? 'mid' : 'low');
@@ -27,21 +26,17 @@ function Row({ to, icon: Icon, title, desc, lead }) {
 
 export default function Exams() {
   const { exams, practiceExams } = useApp();
-  const plan = usePlan();
   const status = useAIStatus((x) => x.status);
   const ai = hasTool('exam', status);
   const examState = aiAccess('exam', status).state;
-  const planOn = plan.weak.length > 0 && plan.done < plan.steps.length;
-  // the one thing to do now: a plan in progress, else checking an exam (with the assistant), else a practice exam
-  const lead = planOn
-    ? { key: 'plan', to: '/plan', icon: Route, title: 'התוכנית שלי לשיפור', desc: `${plan.done} מתוך ${plan.steps.length} צעדים. הצעד הבא מחכה.`, go: 'המשך בתוכנית', bar: [plan.done, plan.steps.length] }
-    : ai
-      ? { key: 'check', to: '/exams/check', icon: ClipboardCheck, title: 'בדיקת מבחן שפתרתם', desc: 'מצלמים את הדפים או מעלים PDF. העוזר בודק כל שאלה ומסביר מה לתרגל.', go: 'לבדיקת מבחן' }
-      : { key: 'new', to: '/exams/new', icon: Printer, title: 'מבחן תרגול להדפסה', desc: 'מבחן מהנושאים שלכם, עם מפתח תשובות לבדיקה מדויקת.', go: 'הכנת מבחן תרגול' };
+  // the one thing to do now: checking an exam (with the assistant), else a practice exam. What to strengthen after a
+  // checked exam is the one plan's exam-loss items, listed under it.
+  const lead = ai
+    ? { key: 'check', to: '/exams/check', icon: ClipboardCheck, title: 'בדיקת מבחן שפתרתם', desc: 'מצלמים את הדפים או מעלים PDF. העוזר בודק כל שאלה ומסביר מה לתרגל.', go: 'לבדיקת מבחן' }
+    : { key: 'new', to: '/exams/new', icon: Printer, title: 'מבחן תרגול להדפסה', desc: 'מבחן מהנושאים שלכם, עם מפתח תשובות לבדיקה מדויקת.', go: 'הכנת מבחן תרגול' };
   const rows = [
     lead.key !== 'check' && { to: '/exams/check', icon: ClipboardCheck, title: 'בדיקת מבחן שפתרתם', desc: ai ? 'צילום או PDF, והעוזר בודק כל תשובה' : examState === 'offline' ? 'צריך את העוזר, שעוד לא מחובר בגרסה הזו' : examState === 'economy' ? 'הבדיקה הזו חוזרת ב־1 בחודש' : 'את הבדיקה הזו עושה העוזר החכם המלא' },
     lead.key !== 'new' && { to: '/exams/new', icon: Printer, title: 'מבחן תרגול להדפסה', desc: 'מהנושאים שלכם, עם מפתח תשובות' },
-    lead.key !== 'plan' && { to: '/plan', icon: Route, title: 'התוכנית שלי לשיפור', desc: plan.weak.length ? `${plan.done} מתוך ${plan.steps.length} צעדים הושלמו` : 'נבנית מהטעויות בתרגול ובמבחנים' },
   ].filter(Boolean);
   const LeadIcon = lead.icon;
   return (
@@ -56,9 +51,10 @@ export default function Exams() {
             <p className="hub-card-desc">{lead.desc}</p>
           </div>
         </div>
-        {lead.bar && <Bar value={lead.bar[0]} max={lead.bar[1]} label="צעדים בתוכנית" />}
         <Link to={lead.to} className="btn btn-primary btn-block btn-lg" data-region="primary">{lead.go}</Link>
       </section>
+
+      <ExamLoss id="exams-loss" />
 
       <section className="section" aria-labelledby="more-title">
         <h2 id="more-title" className="set-head">עוד במבחנים</h2>

@@ -574,14 +574,6 @@ a.hub-row:active { background: var(--p-100); }
 .set-rows-wrap .set-rows { margin: 0; }
 .set-row svg { margin-inline-end: var(--s2); }
 
-/* ---- the plan (course outline, as the stair page) */
-.plan-head { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4); border-radius: var(--r-m); background: color-mix(in srgb, var(--ch-petrol, #0f766e) 12%, #fff); }
-.plan-head-count { margin: 0; font-weight: 700; color: var(--ink-2); font-size: var(--fs-sm); }
-.plan-head-next { margin: 0; font-size: 17px; }
-.plan-stages .jstage-sub { margin: 2px 0 0; }
-.plan-stages .plan-meter { margin-top: var(--s2); }
-.plan-stages .jstage { align-items: flex-start; }
-.plan-stages .jstage-icon { margin-top: 2px; }
 
 /* ---- today's mission rows (the old mission page lives here now) */
 .today-row { position: relative; display: grid !important; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: var(--s3); }

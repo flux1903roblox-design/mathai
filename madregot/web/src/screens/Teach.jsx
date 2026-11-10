@@ -40,8 +40,10 @@ export default function Teach() {
 
   const close = () => navigate(`/learn/${topic}/${level}`, { replace: true });
   const finish = () => {
-    const award = completeStage(skill, stage);
-    useApp.getState().completeMission({ skill, kind: 'continue', stage });
+    let award = completeStage(skill, stage);
+    // the stage may finish today's mission, and with it the day's last quest: the chest opens then
+    const m = useApp.getState().completeMission({ skill, kind: 'continue', stage });
+    if (m.questsDone) award = { ...award, questsDone: true, freezeEarned: award.freezeEarned || m.freezeEarned };
     setStagePos(skill, stage, 0);
     const { path, learn } = useApp.getState();
     setDone({ award, steps: stagesDone(learn.skills[skill], partsOf(path, topic, level), isDone(path, topic, level)) });

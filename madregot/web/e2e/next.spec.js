@@ -2,7 +2,7 @@
 // same step and lead to the same route. The student has a review due and an exam in three days; the exam's steps come
 // first, and the review is under them.
 import { test, expect } from '@playwright/test';
-import { open, student, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { open, student, item, answer, saved, expectUsable, expectNoSidewaysScroll } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the next step runs on both phones'); });
 
@@ -83,4 +83,65 @@ test('with the next step a stair of the map, there is no banner and the map open
   await shot(page, 'card-kept');
   await check.click();
   await expect(page).toHaveURL(/lesson\/signed\/1\?kind=check&purpose=mastery/);
+});
+
+// The improvement plan is retired (CURRICULUM-7): its evidence is the plan's exam-loss band, and the daily quests point
+// at the one mission instead of suggesting work of their own.
+const review = { kind: 'review', skill: 'coord:1', title: 'בדיקת זיכרון: קריאת נקודה', reason: 'שלטתם בזה לפני 4 ימים. שלוש שאלות כדי לוודא שזה נשאר.', minutes: 2, to: '/lesson/coord/1?kind=check&purpose=review' };
+/** A student whose mission today is one due review (saved, so it is fixed for the day), with practice mistakes and a checked exam. */
+function missionOfOne({ exam = false } = {}) {
+  const st = student('7', { mistakes: { 'signed:sign': 3 }, path: { coord: { parts: { 1: 2 }, reviews: 0, jumped: 0, done: { 1: 'mastered' } } } });
+  if (exam) {
+    st.state.exams = [{ id: 'e1', at: '2026-11-03T10:00:00.000Z', title: 'מבחן', source: 'upload', score: { correct: 1, total: 2, pct: 50 },
+      result: { readable: true, questions: [{ number: 1, topic: 'coord', level: 2, status: 'wrong' }, { number: 2, topic: 'coord', level: 1, status: 'correct' }] } }];
+  }
+  st.state.learn = { skills: { 'coord:1': mastered }, miscon: {}, events: [], exam: null, floor: null, challenges: {}, missions: { '2026-11-05': { items: [review] } } };
+  return { ...st, version: 4 };
+}
+
+test('an old /plan bookmark lands on the quests, which show no improvement plan', async ({ page }) => {
+  await open(page, '#/plan', missionOfOne());
+  await expect(page).toHaveURL(/#\/quests$/);
+  await expect(page.getByRole('heading', { name: 'המשימה שלי להיום' })).toBeVisible();
+  await expect(page.getByText('התוכנית שלי לשיפור')).toHaveCount(0);
+  await expect(page.locator('a[href*="plan"]')).toHaveCount(0);
+  // with no checked exam there is nothing lost to list
+  await expect(page.getByRole('region', { name: 'מה לחזק אחרי המבחן' })).toHaveCount(0);
+  await shot(page, 'quests-no-exam');
+  // with a checked exam, the stair it lost is listed (the exams tab lists the same)
+  await open(page, '#/quests', missionOfOne({ exam: true }));
+  const lost = page.getByRole('region', { name: 'מה לחזק אחרי המבחן' });
+  await expect(lost.locator('li')).toHaveCount(1);
+  await lost.scrollIntoViewIfNeeded();
+  await expectUsable(page, lost.locator('a.hub-row'), 'the exam-loss row');
+  await expectNoSidewaysScroll(page);
+  await shot(page, 'quests-exam-loss');
+  await open(page, '#/exams', missionOfOne({ exam: true }));
+  await expect(page.getByText('התוכנית שלי לשיפור')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'מה לחזק אחרי המבחן' }).locator('li')).toHaveCount(1);
+  await expectNoSidewaysScroll(page);
+  await shot(page, 'exams-exam-loss');
+});
+
+test('finishing the mission ticks the quest "השלימו את המשימה שלי להיום"', async ({ page }) => {
+  await open(page, '#/quests', missionOfOne());
+  const quest = page.locator('.quest-mission');
+  await expect(quest).toContainText('השלימו את "המשימה שלי להיום"');
+  await expect(quest).not.toHaveClass(/done/);
+  await expect(quest.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  // the mission's one part is the due review: three questions
+  await page.locator('.continue-go').click();
+  await expect(page).toHaveURL(/lesson\/coord\/1\?kind=check&purpose=review/);
+  for (let n = 0; n < 6 && !(await page.locator('.check-done').count()); n += 1) {
+    await expect.poll(async () => (await page.locator('.check-done').count()) > 0 || !!(await item(page))).toBe(true);
+    if (await page.locator('.check-done').count()) break;
+    await answer(page, true);
+    await page.locator('section.fb .fb-actions .btn').click();
+  }
+  await expect(page.locator('.check-done')).toBeVisible();
+  expect((await saved(page)).days['2026-11-05'].missionDone).toBe(1);
+  await page.goto('./#/quests');
+  await expect(page.getByRole('heading', { name: 'המשימה של היום הושלמה' })).toBeVisible();
+  await expect(page.locator('.quest-mission')).toHaveClass(/done/);
+  await expect(page.locator('.quest-mission').getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1');
 });

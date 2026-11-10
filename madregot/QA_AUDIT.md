@@ -510,7 +510,7 @@ failed jump test (two stacked buttons). Each screen state now has one primary.
 | 22 | New practice exam `/exams/new` | flow | round 13 | r06, r33; flows test | Complete |
 | 23 | Practice sheet `/exams/practice/:id` (and print) | pushed | round 13 | r07; flows test (print) | Complete |
 | 24 | Exam result `/exams/:id` (all, wrong, question chat) | pushed, result order | round 13 | r08, r09, r34 | Complete |
-| 25 | Improvement plan `/plan` (empty, steps) | pushed (course outline) | round 13 | r10, r11; flows test (plan lesson) | Complete |
+| 25 | Improvement plan `/plan` (empty, steps) | retired: redirects to `/quests` (CURRICULUM-7) | round 13 | flows and next tests (the redirect, "מה לחזק אחרי המבחן") | Retired |
 | 26 | Assistant `/assistant` (offline; online chat, photo check, new exercises) | tab (conversation) | rounds 12–13 | r13, r14, r15; flows test (offline) | Complete |
 | 27 | Profile `/me` | tab | round 12 | proof 09; visual `profile` | Complete |
 | 28 | Settings `/settings` | pushed | round 12 | proof 10; learn test (deleting data) | Complete |

@@ -9,7 +9,7 @@ import { learnAfterAnswer, learnAfterCheck, emptyLearn, migrateLearn, relabelLeg
 import { markTaught as markTaughtRec } from '@/learn/mastery.ts';
 import { logEvent } from '@/learn/analytics.ts';
 import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
-import { completeMissionItems } from '@/learn/mission.ts';
+import { completeMissionItems, missionDone } from '@/learn/mission.ts';
 import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
@@ -25,7 +25,7 @@ const safeStorage = createJSONStorage(() => {
 const empty = {
   profile: null, // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? } | { role: 'teacher', name, classes: [], active }
   progress: {}, // topicId -> { level, max }
-  days: {}, // 'YYYY-MM-DD' -> { q, ok, secs, lessons, stages (teaching stages finished), xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
+  days: {}, // 'YYYY-MM-DD' -> { q, ok, secs, lessons, stages (teaching stages finished), xp, combo, perfect, reviews, missionDone, frozen, questsRewarded }
   xp: 0,
   path: {}, // topicId -> { parts: { level: practice lessons }, reviews, jumped, done: { level: 'mastered' | 'kept' } } (lib/path.js)
   freezes: 0, // streak freezes ready to use (at most 2), earned by finishing the daily quests
@@ -42,8 +42,10 @@ const empty = {
   solveMode: 'answer', // 'answer' (keypad) or 'notebook' (write the working on a squared page)
   exams: [], // checked exams, newest first: { id, at, title, source, practiceId, result, score, levels }
   practiceExams: [], // printable practice exams with their answer key
-  planBase: {}, // topic -> { level, wins, at }: the focus level and wins counted there when the plan step started
-  wins: {}, // 'topic:level' -> correct answers at that level
+  // the retired improvement plan's baselines and counts (CURRICULUM-7): nothing writes them any more. Older saves keep
+  // theirs until a DURABLE migration drops the fields; a reset or a sign-out clears them.
+  planBase: {},
+  wins: {},
   gaps: {}, // 'topic:cat' (or 'topic:exam:skill') -> { level, n, ok, at, text? }: what is not clear yet; clears after GAP_CLEAR right answers at that level
   placement: null, // { at, grade, results: { topic: { level, asked, right } } }
   learn: emptyLearn(), // Madregot 2.0: skills (evidence, mastery, reviews), misconceptions, exam plan, missions, events (src/learn/types.ts)
@@ -103,7 +105,6 @@ export const useApp = create(
       addExam: (exam) => set({ exams: [exam, ...get().exams].slice(0, 30), gaps: gapsFromExam(get().gaps, exam) }),
       removeExam: (id) => set({ exams: get().exams.filter((e) => e.id !== id) }),
       addPracticeExam: (pe) => set({ practiceExams: [pe, ...get().practiceExams].slice(0, 20) }),
-      resetPlanBase: (patch) => set({ planBase: { ...get().planBase, ...patch } }),
       setLevel: (topicId, level, max) => set({
         progress: { ...get().progress, [topicId]: { level, max: Math.max(max, get().progress[topicId]?.max || 1) } },
         lastTopic: topicId,
@@ -111,14 +112,12 @@ export const useApp = create(
       recordAnswer: (event, xpGain) => {
         const d = today(); const cur = get().days[d] || { q: 0, ok: 0, secs: 0 };
         const mistakes = { ...get().mistakes };
-        const wins = event.ok && event.level ? { ...get().wins, [`${event.topic}:${event.level}`]: (get().wins[`${event.topic}:${event.level}`] || 0) + 1 } : get().wins;
         if (event.cat && !event.ok) mistakes[`${event.topic}:${event.cat}`] = (mistakes[`${event.topic}:${event.cat}`] || 0) + 1;
         set({
           // lessons: 0 marks a day of this version: answers alone do not keep the streak, a finished lesson does
           days: { ...get().days, [d]: { ...cur, lessons: cur.lessons ?? 0, q: (cur.q || 0) + 1, ok: (cur.ok || 0) + (event.ok ? 1 : 0), secs: (cur.secs || 0) + Math.min(event.secs || 0, 300) } },
           xp: get().xp + xpGain,
           mistakes,
-          wins,
           gaps: noteGap(get().gaps, event),
           outbox: get().profile?.token ? [...get().outbox, event].slice(-500) : get().outbox,
           learn: learnAfterAnswer(get().learn, event),
@@ -194,7 +193,30 @@ export const useApp = create(
       setStagePos: (skill, stage, i) => { const L = get().learn; const r = L.skills[skill] || { attempts: [] }; set({ learn: { ...L, skills: { ...L.skills, [skill]: { ...r, pos: { ...(r.pos || {}), [stage]: i } } } } }); },
       startRepair: (skill, misc) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, miscon: startRepairRec(L.miscon, skill, misc, today(), at), events: logEvent(L.events, { e: 'repair-start', s: skill, m: misc }, at) } }); },
       saveMission: (day, items) => { const L = get().learn; const keep = Object.fromEntries(Object.entries(L.missions).filter(([d]) => d >= dayBefore(dayBefore(day)))); set({ learn: { ...L, missions: { ...keep, [day]: { items } } } }); },
-      completeMission: (done) => { const L = get().learn; const d = today(); const m = L.missions[d]; if (!m) return; set({ learn: { ...L, missions: { ...L.missions, [d]: { items: completeMissionItems(m.items, done, new Date().toISOString()) } } } }); },
+      /**
+       * A finished activity ticks its item of today's mission. When that finishes the mission, the day records it
+       * (days[d].missionDone: the daily quest "השלימו את המשימה שלי להיום"), and when that quest is the day's last, the
+       * chest opens here (a streak freeze, as completeLesson does). Returns what to celebrate: { questsDone, freezeEarned }.
+       */
+      completeMission: (done) => {
+        const st = get(); const L = st.learn; const d = today(); const m = L.missions[d];
+        if (!m) return { questsDone: false, freezeEarned: false };
+        const items = completeMissionItems(m.items, done, new Date().toISOString());
+        const patch = { learn: { ...L, missions: { ...L.missions, [d]: { items } } } };
+        const cur = st.days[d] || {};
+        let questsDone = false; let freezeEarned = false;
+        if (missionDone(items) && !cur.missionDone) {
+          const questsBefore = questProgress(d, cur).every((q) => q.done);
+          const day = { ...cur, missionDone: 1 };
+          questsDone = !questsBefore && questProgress(d, day).every((q) => q.done);
+          freezeEarned = questsDone && !cur.questsRewarded && st.freezes < 2;
+          if (questsDone) day.questsRewarded = true;
+          patch.days = { ...st.days, [d]: day };
+          patch.freezes = Math.min(2, st.freezes + (freezeEarned ? 1 : 0));
+        }
+        set(patch);
+        return { questsDone, freezeEarned };
+      },
       setExam: (input) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, exam: input ? newPlan(input, at) : null, events: input ? logEvent(L.events, { e: 'rescue-created' }, at) : L.events } }); },
       recordExamDiagnostic: (skill, right, asked) => { const L = get().learn; if (!L.exam) return; set({ learn: { ...L, exam: recordDiagnostic(L.exam, skill, right, asked, new Date().toISOString()) } }); },
       addXP: (n) => set({ xp: get().xp + n }),
@@ -205,14 +227,13 @@ export const useApp = create(
        * Returns what to celebrate: { streakExtended, streak, practiceDone, unitDone, questsDone, freezeEarned, goalReached }.
        * Practice never marks a stair done (only its mastery check does): practiceDone says the check is next.
        */
-      completeLesson: (r, { fromPlan = false } = {}) => {
+      completeLesson: (r) => {
         const st = get(); const d = today(); const cur = st.days[d] || {};
         const questsBefore = questProgress(d, cur).every((q) => q.done);
         const goalBefore = (cur.xp || 0) >= st.goalXp;
         const day = {
           ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + r.xp, combo: Math.max(cur.combo || 0, r.bestCombo || 0),
           perfect: (cur.perfect || 0) + (r.perfect ? 1 : 0), reviews: (cur.reviews || 0) + (r.kind === 'review' ? 1 : 0),
-          planLessons: (cur.planLessons || 0) + (fromPlan ? 1 : 0),
         };
         const questsDone = !questsBefore && questProgress(d, day).every((q) => q.done);
         const freezeEarned = questsDone && !cur.questsRewarded && st.freezes < 2;

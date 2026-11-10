@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { api } from '@/lib/api.js';
-import { scoreOf, focusLevel, baseEntry } from '@/lib/exam.js';
+import { scoreOf } from '@/lib/exam.js';
 import { TOPICS, rescueTopicsFor } from '@/content/index.js';
 import { MAX_EXAM_PAGES } from '@shared/ai.js';
 import { Button, Field, Thinking } from '@/components/ui.jsx';
@@ -29,7 +29,7 @@ const readDataUrl = (file) => new Promise((res, rej) => { const r = new FileRead
 export default function ExamCheck() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { profile, practiceExams, progress, exams, wins, addExam, resetPlanBase } = useApp();
+  const { profile, practiceExams, progress, addExam } = useApp();
   const practice = practiceExams.find((p) => p.id === params.get('practice')) || null;
   const [pages, setPages] = useState([]); // { data, mediaType, name }
   const [title, setTitle] = useState('');
@@ -92,10 +92,8 @@ export default function ExamCheck() {
         title: title.trim() || practice?.title || result.title || 'מבחן', source: practice ? 'practice' : 'upload', practiceId: practice?.id || null,
         result, score, levels: Object.fromEntries(Object.entries(progress).map(([k, v]) => [k, v.level])),
       };
+      // the stairs where it lost points become the plan's exam-loss items (learn/next.ts), until they are recovered
       addExam(exam);
-      // A new exam restarts the plan's steps for the topics it found weak, at the level where points were lost.
-      const weakIds = [...new Set(result.questions.filter((q) => q.status !== 'correct').map((q) => q.topic))].filter((t) => TOPICS.some((x) => x.id === t));
-      resetPlanBase(Object.fromEntries(weakIds.map((t) => [t, baseEntry(t, focusLevel(t, [exam, ...exams]) ?? progress[t]?.level ?? 1, wins, exam.at)])));
       if (profile.token) {
         api('/api/exams', { method: 'POST', body: { title: exam.title, correct: score.correct, total: score.total, questions: result.questions.map((q) => ({ topic: q.topic, status: q.status, skill: q.skill, level: q.level })), weakTopics: (result.weakTopics || []).map((w) => w.topic) } }).catch(() => {});
       }

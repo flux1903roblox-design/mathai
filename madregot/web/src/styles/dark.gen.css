@@ -1105,7 +1105,7 @@
 }
 [data-theme="dark"] .quest-combo .quest-icon { background: var(--streak-tint); color: var(--streak-ink)
 }
-[data-theme="dark"] .quest-review .quest-icon, [data-theme="dark"] .quest-correct .quest-icon { background: var(--ch-petrol-tint); color: var(--ch-petrol-d)
+[data-theme="dark"] .quest-mission .quest-icon, [data-theme="dark"] .quest-correct .quest-icon { background: var(--ch-petrol-tint); color: var(--ch-petrol-d)
 }
 [data-theme="dark"] .quest-tick { background: var(--good); color: var(--on-good); box-shadow: 0 0 0 2px var(--paper)
 }
@@ -2193,10 +2193,6 @@
 [data-theme="dark"] .weak-level { color: var(--ink-2)
 }
 [data-theme="dark"] .weak-row .weak-reason { color: var(--ink-2)
-}
-[data-theme="dark"] .plan-head { background: color-mix(in srgb, var(--ch-petrol, #0f766e) 12%, #000000)
-}
-[data-theme="dark"] .plan-head-count { color: var(--ink-2)
 }
 [data-theme="dark"] .today-kind { color: var(--ink-2)
 }

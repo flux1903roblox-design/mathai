@@ -6,9 +6,11 @@ export const QUESTS = {
   combo: { title: (n) => `ענו נכון ${n} פעמים ברצף`, target: 5, of: (d) => d.combo || 0 },
   perfect: { title: () => 'שיעור אחד בלי אף טעות', target: 1, of: (d) => d.perfect || 0 },
   correct: { title: (n) => `${n} תשובות נכונות`, target: 15, of: (d) => d.ok || 0 },
-  review: { title: () => 'שיעור חזרה או שיעור מהתוכנית', target: 1, of: (d) => (d.reviews || 0) + (d.planLessons || 0) },
+  // the quests are a habit layer: they suggest no work of their own, and this one reinforces the day's one mission
+  mission: { title: () => 'השלימו את "המשימה שלי להיום"', target: 1, of: (d) => (d.missionDone ? 1 : 0) },
 };
-const ORDER = ['lessons', 'combo', 'correct', 'xp', 'perfect', 'review'];
+// six ids, in the order the old list had them ('mission' took the place of the retired plan's 'review')
+const ORDER = ['lessons', 'combo', 'correct', 'xp', 'perfect', 'mission'];
 
 /** Three quests for a date key (YYYY-MM-DD): one about lessons, two that rotate. */
 export function questsFor(dayKey) {
