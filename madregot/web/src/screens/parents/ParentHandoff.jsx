@@ -3,6 +3,7 @@
 // there, and, if they choose to, links this device. This device then collects its AI-only token by itself.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import QrCode from '@/components/QrCode.jsx';
 import { useApp } from '@/lib/store.js';
 import { hasServer } from '@/lib/api.js';
@@ -34,7 +35,8 @@ export default function ParentHandoff() {
   // the device asks every 5 seconds while this screen is in view (and when it comes back), for up to 15 minutes
   const check = useCallback(async () => {
     try {
-      const r = await pollLink();
+      // once linked, the family keeps this device's code, or the kept progress the parent chose comes here
+      const r = await pollLink({ onEscrow: (x) => { if (x.toast) (x.restored ? toast.success : toast)(x.toast); } });
       if (r === 'linked') setState('linked');
       else if (r === 'expired') setState('expired');
     } catch (e) { setError(e.message); }

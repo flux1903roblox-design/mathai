@@ -13,7 +13,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { student, open, item, answer, proceedToNext, leaveEndScreens, saved, appReady, NOW } from './helpers.js';
-import { API, fakeServer } from './fakeServer.js';
+import { API, fakeServer, livePlan as livePlanOf } from './fakeServer.js';
 import { derive, open as openSealed } from '../src/lib/durable/crypto.js';
 import { makeCode as newCode, formatCode, CODE_ALPHABET } from '../src/lib/durable/code.js';
 
@@ -426,5 +426,214 @@ test.describe('the backup question', () => {
     await appReady(page);
     await page.waitForTimeout(2500);
     await expect(ask).toHaveCount(0);
+  });
+});
+
+// ---------------------------------------------------------------- the class and the family keep the code (Stage 14)
+/** Welcome's first questions up to the class step (a fresh device with a server). */
+async function toClassStep(page, name) {
+  await page.getByRole('button', { name: 'מתחילים', exact: true }).click();
+  await page.locator('#w-name').fill(name);
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('radio', { name: /כיתה ז׳/ }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('radio', { name: /קצת מוכר/ }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click(); // the goal: the one already chosen
+  await expect(page.getByText('יש לכם קוד כיתה מהמורה?')).toBeVisible();
+}
+/** The class code and the personal PIN, then "הצטרפות לכיתה". */
+async function joinWith(page, pin) {
+  await page.getByLabel('קוד כיתה').fill('K7Q2MD');
+  await page.getByLabel('קוד אישי של 4 ספרות').fill(pin);
+  await page.getByRole('button', { name: 'הצטרפות לכיתה' }).click();
+}
+/** Sign in on the parents page with the emailed code. */
+async function parentSignIn(page) {
+  await page.getByLabel('כתובת המייל שלכם').fill('parent@example.test');
+  await page.getByRole('button', { name: 'שליחת קוד' }).click();
+  await page.getByLabel('הקוד מהמייל').fill('123456');
+}
+/** A second device on the same fake server (a new phone, or the parent's own). */
+async function secondDevice(browser, attach, errors) {
+  const ctx = await browser.newContext(test.info().project.use);
+  await attach(ctx);
+  const p = await ctx.newPage();
+  p.on('pageerror', (e) => errors.push(e.message));
+  return { ctx, p };
+}
+const toasts = (page) => page.locator('[data-sonner-toast]');
+
+test.describe('the class and the family keep the code', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+
+  test('class: A joins, learns and syncs; a fresh phone types the class code, the name and the PIN and is back', async ({ page, browser }) => {
+    test.setTimeout(240_000);
+    const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    const { st, log, attach } = await fakeServer(page.context(), {}, baseOf());
+    // A: a new student joins the class in the first questions; the class keeps the backup code once the profile is made
+    await open(page, '#/', fresh());
+    await toClassStep(page, 'נועה');
+    await expect(page.getByText('עותק של ההתקדמות נשמר גם בשרת, כדי שתוכלו להמשיך מכל מכשיר עם הקוד האישי.')).toBeVisible();
+    await expect(page.getByText(/מוצפן/)).toHaveCount(0);
+    await joinWith(page, '4821');
+    await expect(toasts(page).filter({ hasText: 'הצטרפתם לכיתה ז׳3' })).toBeVisible();
+    // joining went on to the last question by itself
+    await page.getByRole('radio', { name: /מתחילים מההתחלה/ }).click();
+    await page.getByRole('button', { name: 'לשיעור הראשון' }).click();
+    await expect.poll(() => st.escrows.length, { timeout: 20_000 }).toBe(1);
+    const kept = st.escrows[0];
+    expect(kept).toMatchObject({ kind: 'student', owner: 's1' });
+    const escrowCall = log.find((r) => r.path === '/api/vault/escrow');
+    expect(escrowCall.headers.authorization).toBe('Bearer stu_s1_1');
+    expect(escrowCall.headers['x-family-device']).toBeUndefined();
+    expect((await saved(page)).backup).toMatchObject({ on: true, code: kept.code, escrow: 'class' });
+
+    // two lessons, then out of view: the vault has them
+    await lesson(page);
+    await lesson(page);
+    await hide(page);
+    const a = await saved(page);
+    await expect.poll(async () => (await vaultOf(st, kept.code))?.xp, { timeout: 20_000 }).toBe(a.xp);
+    expect(a.xp).toBeGreaterThan(0);
+    // Settings: the switch is on, the class note, and the class sentence with its clause; never "מוצפן"
+    await show(page, new Date(NOW.getTime() + 5_000));
+    await page.evaluate(() => { window.location.hash = '#/settings'; });
+    const sw = page.getByRole('switch', { name: 'שמירת עותק בשרת הכיתה' });
+    await expect(sw).toBeChecked();
+    expect((await page.locator('.save-switch').boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await expect(page.getByText('עותק של ההתקדמות נשמר בשרת של מדרגות. במכשיר חדש מתחברים לכיתה עם הקוד האישי, וההתקדמות חוזרת.')).toBeVisible();
+    await expect(page.locator('.footnote')).toHaveText('מדרגות. ההתקדמות נשמרת במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה. עותק של ההתקדמות נשמר גם בשרת, כדי שתוכלו להמשיך מכל מכשיר עם הקוד האישי.');
+    expect(await page.locator('body').innerText()).not.toContain('מוצפן');
+    await page.locator('.save-backup').scrollIntoViewIfNeeded();
+    await shot(page, 'save-section-class-copy');
+
+    // B: a fresh phone. A wrong PIN first: no code, and the questions wait
+    const { ctx, p: b } = await secondDevice(browser, attach, errors);
+    await open(b, '#/', fresh());
+    await toClassStep(b, 'נועה');
+    await joinWith(b, '1111');
+    await expect(b.getByRole('alert')).toHaveText('הקוד האישי לא נכון. אם שכחתם אותו, המורה יכול לאפס אותו.');
+    await b.getByLabel('קוד אישי של 4 ספרות').fill('4821');
+    await b.getByRole('button', { name: 'הצטרפות לכיתה' }).click();
+    await expect(toasts(b).filter({ hasText: 'ברוכים השבים לכיתה ז׳3. ההתקדמות שלכם חזרה.' })).toBeVisible({ timeout: 20_000 });
+    await expect(b.locator('.learn')).toBeVisible();
+    await shot(b, 'class-rejoin-restored');
+    const back = await saved(b);
+    expect(back.xp).toBe(a.xp);
+    expect(progressOf(back).days).toEqual(progressOf(a).days);
+    expect(back.profile).toMatchObject({ role: 'student', name: 'נועה', classCode: 'K7Q2MD', token: 'stu_s1_2', studentId: 's1' });
+    expect(back.backup).toMatchObject({ on: true, code: kept.code, escrow: 'class' });
+    // the vault GET carried B's new class token, and the class still keeps one code
+    const get = log.filter((r) => r.path === '/api/vault' && r.method === 'GET').at(-1);
+    expect(get.headers.authorization).toBe('Bearer stu_s1_2');
+    expect(st.escrows).toHaveLength(1);
+
+    // A turns the switch off: asked first, then the class's copy is deleted; the backup code itself stays
+    await sw.click();
+    const ask = page.getByRole('dialog', { name: 'להפסיק לשמור עותק בכיתה?' });
+    await expect(ask).toContainText('ההתקדמות תישאר במכשיר הזה ובקוד הגיבוי שלכם. בכיתה כבר לא יהיה עותק שאפשר להחזיר עם הקוד האישי.');
+    await ask.getByRole('button', { name: 'להפסיק', exact: true }).click();
+    await expect(sw).not.toBeChecked();
+    expect(st.escrows).toEqual([]);
+    expect(log.filter((r) => r.path === '/api/vault/escrow/delete').at(-1).headers.authorization).toBe('Bearer stu_s1_1');
+    expect((await saved(page)).durable.escrowClass).toBe(false);
+    expect((await saved(page)).backup).toMatchObject({ on: true, escrow: null });
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+
+  test('family: A is linked and its code kept, the parent unlinks it, a new phone linked "continue from" gets A\'s progress', async ({ page, browser }) => {
+    test.setTimeout(240_000);
+    const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    const { st, log, attach } = await fakeServer(page.context(), { plan: livePlanOf() }, baseOf());
+    // A: the child's tablet shows its link code; the parent's phone claims it
+    await open(page, '#/parents/info', withServer());
+    await expect(page.locator('.handoff-code')).toHaveText('K7M4QX');
+    const { ctx: phone, p: pp } = await secondDevice(browser, attach, errors);
+    await open(pp, '#/parents', fresh());
+    await parentSignIn(pp);
+    await expect(pp.getByRole('heading', { name: /המנוי פעיל/ })).toBeVisible();
+    const first = pp.locator('section', { has: pp.getByRole('heading', { name: 'חיבור המכשיר של הילד' }) });
+    await first.getByLabel('הקוד מהמכשיר של הילד').fill('K7M4QX');
+    await first.getByLabel('איך לקרוא למכשיר? (לא חובה, למשל: הטאבלט)').fill('הטאבלט');
+    await expect(first.getByText('להמשיך מההתקדמות של:')).toHaveCount(0); // nothing kept yet: no choice
+    await first.getByRole('button', { name: 'חיבור המכשיר' }).click();
+    // A collects its token, then the family keeps its code (X-Family-Device, never a class Bearer)
+    await expect(page.getByText('העוזר החכם פתוח! אפשר לשאול אותו על כל תרגיל.')).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => st.escrows.length, { timeout: 20_000 }).toBe(1);
+    const kept = st.escrows[0];
+    expect(kept).toMatchObject({ kind: 'account', label: 'הטאבלט' });
+    expect(log.find((r) => r.path === '/api/vault/escrow').headers['x-family-device']).toMatch(/^fd1\./);
+    const a = await saved(page);
+    expect(a.backup).toMatchObject({ on: true, code: kept.code, escrow: 'family' });
+    await expect.poll(async () => (await vaultOf(st, kept.code))?.xp).toBe(a.xp);
+    // A's Settings: the family note and sentence, never "מוצפן"
+    await page.evaluate(() => { window.location.hash = '#/settings'; });
+    await expect(page.getByText('עותק של ההתקדמות נשמר בשרת דרך המנוי המשפחתי. כשמחליפים מכשיר, ההורים מחברים את החדש וההתקדמות עוברת אליו.')).toBeVisible();
+    await expect(page.locator('.footnote')).toHaveText('מדרגות. ההתקדמות נשמרת במכשיר, ועותק שלה נשמר בשרת דרך המנוי המשפחתי, כדי שאפשר יהיה להעביר אותה למכשיר חדש.');
+    expect(await page.locator('body').innerText()).not.toContain('מוצפן');
+
+    // the parent's phone: the device's line, then unlink: its progress is kept in the account
+    await pp.reload(); await appReady(pp);
+    await pp.getByRole('button', { name: /מכשירים מחוברים/ }).click();
+    await expect(pp.locator('.parents-device-saved')).toHaveText(/^ההתקדמות נשמרת · עודכנה \d\d\.\d\d\.\d{4}$/);
+    await pp.getByRole('button', { name: 'ניתוק' }).click();
+    await pp.getByRole('dialog', { name: 'לנתק את המכשיר?' }).getByRole('button', { name: 'כן, לנתק' }).click();
+    const keptCard = pp.locator('.parents-kept');
+    await expect(keptCard.getByRole('heading', { name: 'התקדמות שמורה' })).toBeVisible();
+    await expect(keptCard.locator('.parents-kept-name')).toHaveText(/^הטאבלט · עודכנה \d\d\.\d\d\.\d{4}$/);
+    for (const name of ['להעביר למכשיר חדש', 'למחוק']) expect((await keptCard.getByRole('button', { name }).boundingBox()).height, name).toBeGreaterThanOrEqual(44);
+    expect(kept.device).toBeNull();
+    await keptCard.scrollIntoViewIfNeeded();
+    await shot(pp, 'parents-kept-progress');
+    // the delete sheet asks, and "לא למחוק" keeps it
+    await keptCard.getByRole('button', { name: 'למחוק' }).click();
+    const del = pp.getByRole('dialog', { name: 'למחוק את ההתקדמות השמורה של הטאבלט?' });
+    await expect(del).toContainText('המכשיר עצמו לא מושפע. אי אפשר לבטל.');
+    await del.getByRole('button', { name: 'לא למחוק' }).click();
+    expect(st.escrows).toHaveLength(1);
+
+    // B: the new phone (the child made a profile, nothing learned yet) shows its code; "להעביר למכשיר חדש" chooses A's
+    const { ctx, p: b } = await secondDevice(browser, attach, errors);
+    await open(b, '#/parents/info', { ...student('7', { ai: { mode: 'server', apiUrl: API, key: '', device: '' } }), version: 3 });
+    await expect(b.locator('.handoff-code')).toHaveText('K7M4QX');
+    await keptCard.getByRole('button', { name: 'להעביר למכשיר חדש' }).click();
+    const form = pp.locator('form.parents-link');
+    await expect(form.getByText('להמשיך מההתקדמות של:')).toBeVisible();
+    await expect(form.getByRole('radio', { name: /הטאבלט/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(form.getByRole('radio', { name: 'להתחיל מחדש' })).toHaveAttribute('aria-checked', 'false');
+    await form.getByLabel('הקוד מהמכשיר של הילד').fill('K7M4QX');
+    await form.getByLabel('איך לקרוא למכשיר? (לא חובה, למשל: הטאבלט)').fill('הטלפון החדש');
+    await form.scrollIntoViewIfNeeded();
+    await shot(pp, 'parents-link-continue-from');
+    await form.getByRole('button', { name: 'חיבור המכשיר' }).click();
+    const claims = () => log.filter((r) => r.path === '/api/family/link/claim');
+    await expect.poll(() => claims().length).toBe(2);
+    expect(claims().at(-1).body).toEqual({ code: 'K7M4QX', label: 'הטלפון החדש', restoreFrom: kept.id });
+    // B collects its token with the kept code, and A's progress comes over
+    await expect(toasts(b).filter({ hasText: 'ההתקדמות עברה למכשיר הזה.' })).toBeVisible({ timeout: 20_000 });
+    await expect.poll(async () => (await saved(b)).xp).toBe(a.xp);
+    const moved = await saved(b);
+    expect(progressOf(moved).days).toEqual(progressOf(a).days);
+    expect(moved.backup).toMatchObject({ on: true, code: kept.code, escrow: 'family' });
+    expect(kept.device).toBe(st.devices.at(-1).id);
+    // the parent's phone never holds the code: not on the page, not in its storage
+    expect(await pp.content()).not.toContain(kept.code);
+    expect(await pp.evaluate(() => JSON.stringify([{ ...localStorage }, { ...sessionStorage }]))).not.toContain(kept.code);
+    expect(errors).toEqual([]);
+    await ctx.close(); await phone.close();
+  });
+
+  test('a family device\'s Settings and profile never say "מוצפן" about the copy the family keeps', async ({ page }) => {
+    await fakeServer(page.context(), {}, baseOf());
+    const code = newCode();
+    const { lookup } = await derive(code);
+    const seed = { ...withServer(), state: { ...withServer().state, ai: { mode: 'server', apiUrl: API, key: '', device: '', familyDevice: { token: `fd1.${'f'.repeat(64)}`, label: 'הטאבלט' } }, backup: { on: true, code, lookup, rev: null, at: null, hash: null, escrow: 'family', state: 'idle' } } };
+    for (const route of ['#/settings', '#/me']) {
+      await open(page, route, seed);
+      await expect(page.getByText(/עותק שלה נשמר בשרת דרך המנוי המשפחתי/).first()).toBeVisible();
+      expect(await page.locator('body').innerText(), route).not.toContain('מוצפן');
+    }
   });
 });

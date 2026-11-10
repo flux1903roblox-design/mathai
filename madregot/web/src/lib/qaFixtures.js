@@ -3,6 +3,9 @@
 // with no request at all, so every state can be screenshotted. The choice is kept for the visit (sessionStorage).
 //   qa-ai:      free2 | free1 | free0 | family | class | shared | paused | economy | ended
 //   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | nosrv
+// The family state's tablet (qa-ai=family names it 'הטאבלט') keeps its backup code with the family, and an older phone's
+// progress is kept in the account (DURABLE-6): every parents state with a plan lists both, so the device line, the kept
+// list and the "continue from" choice can be seen without a server.
 import { qaOn } from './qa.js';
 
 const AI_STATES = ['free2', 'free1', 'free0', 'family', 'class', 'shared', 'paused', 'economy', 'ended'];
@@ -93,11 +96,17 @@ const account = (p) => ({
   classes: [],
 });
 
-/** The parents page in a QA state: { view, plans, account, step }. null when no QA state is chosen. */
+/** The progress the QA family keeps (GET /api/family/vaults): the tablet's own, and an older phone's in the account. */
+export const QA_VAULTS = [
+  { id: 'qa00000000000011', label: 'הטאבלט', device: { id: 'qa00000000000002', label: 'הטאבלט' }, updatedAt: '2026-11-10T08:00:00Z' },
+  { id: 'qa00000000000012', label: 'הטלפון הקודם', device: null, updatedAt: '2026-10-28T17:30:00Z' },
+];
+
+/** The parents page in a QA state: { view, plans, account, step, vaults }. null when no QA state is chosen. */
 export function qaParentView() {
   const s = qaParent();
   if (!s) return null;
-  const base = { state: s, plans: PLANS, session: { token: 'qa', email: 'parent@example.test' } };
+  const base = { state: s, plans: PLANS, session: { token: 'qa', email: 'parent@example.test' }, vaults: QA_VAULTS };
   switch (s) {
     case 'nosrv': return { ...base, nosrv: true };
     case 'signed-out': return { ...base, session: null };

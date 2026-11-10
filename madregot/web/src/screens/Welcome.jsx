@@ -19,6 +19,7 @@ import FileRestore from '@/components/durable/FileRestore.jsx';
 import RestorePreview from '@/components/durable/RestorePreview.jsx';
 import { isStandalone } from '@/lib/durable/install.js';
 import { findCode, formatCode } from '@/lib/durable/code.js';
+import { afterClassJoin } from '@/lib/durable/escrow.js';
 
 /**
  * The first open of the Home Screen app (DURABLE-3): on an iPhone it keeps its data apart from Safari, so the front page
@@ -49,10 +50,18 @@ export function GradeSwitch({ value, onChange, id }) {
   );
 }
 
+/**
+ * Join a class (or come back to it with the personal PIN). `vault`: the code the class kept for a returning student
+ * (DURABLE-6), handed to durable/escrow.js afterClassJoin() and never kept in the profile.
+ */
 export async function joinClass({ code, name, pin }) {
   const r = await api(`/api/classes/${code.trim().toUpperCase()}/join`, { method: 'POST', body: { name, pin } });
-  return { classCode: r.classCode, className: r.className, grade: r.grade, token: r.token, studentId: r.studentId, name: r.name, returning: r.returning };
+  return { classCode: r.classCode, className: r.className, grade: r.grade, token: r.token, studentId: r.studentId, name: r.name, returning: r.returning, ...(r.vault?.code ? { vault: { code: r.vault.code } } : {}) };
 }
+/** What of a join goes into the profile (never the kept code). */
+export const joinedProfile = ({ vault, returning, ...c }) => c; // eslint-disable-line no-unused-vars
+/** The sentence under the class step: the class keeps a copy (DURABLE-6), said without "מוצפן". */
+export const CLASS_COPY_NOTE = 'עותק של ההתקדמות נשמר גם בשרת, כדי שתוכלו להמשיך מכל מכשיר עם הקוד האישי.';
 
 const GRADE_NAME = { 7: 'כיתה ז׳', 8: 'כיתה ח׳' };
 
@@ -90,7 +99,9 @@ function Onboarding({ onTeacher, onRestore }) {
 
   const finish = () => {
     setGoalXp(f.goal);
-    setProfile({ role: 'student', name: joined?.name || f.name.trim(), grade, know: f.know ?? 1, ...(joined || {}) });
+    setProfile({ role: 'student', name: joined?.name || f.name.trim(), grade, know: f.know ?? 1, ...(joined ? joinedProfile(joined) : {}) });
+    // a class keeps this student's code (DURABLE-6): made in the background once the profile is here, never in the way
+    if (joined) afterClassJoin(joined).then((r) => { if (r.toast) toast(r.toast); });
     // "to the first lesson" opens it: the first stair of the grade's first topic
     // from the first stair: it starts by understanding (the stair's first teaching stage), not with exercises
     const first = topicsFor(grade)[0].id;
@@ -113,7 +124,8 @@ function Onboarding({ onTeacher, onRestore }) {
       setBusy(true);
       try {
         const c = await joinClass({ code: f.code, name: f.name.trim(), pin: f.pin });
-        setJoined(c);
+        if (c.vault && await rejoin(c)) return;
+        setJoined({ ...c, vault: undefined });
         toast.success(c.returning ? `ברוכים השבים לכיתה ${c.className}` : `הצטרפתם לכיתה ${c.className}`);
       } catch (err) { setError(err.message); return; } finally { setBusy(false); }
     }
@@ -121,6 +133,17 @@ function Onboarding({ onTeacher, onRestore }) {
     setError(''); setI(i + 1);
   };
   const back = () => { setError(''); setI(i - 1); };
+  // A returning class student whose class kept their code (DURABLE-6): the progress comes back and the app opens on the
+  // map, with no more questions. The profile is made first (this student, this class, the goal just chosen), in the same
+  // moment as the merge, so the map never shows an empty start. Resolves false when the copy could not be read: then
+  // the questions go on, and a new copy is kept at the end.
+  const rejoin = async (c) => {
+    const base = { role: 'student', name: c.name || f.name.trim(), grade: c.grade || grade, know: f.know ?? 1 };
+    const r = await afterClassJoin(c, { keep: false, before: () => { setGoalXp(f.goal); setProfile({ ...base, ...joinedProfile(c) }); } });
+    if (!r.restored) return false;
+    toast.success(r.toast);
+    return true;
+  };
   const standalone = isStandalone();
   // "להדביק קוד גיבוי": the code from the clipboard when the browser lets us read it there (straight from the tap), else
   // the restore screen with an empty field. Only a code is taken from the clipboard, never other text.
@@ -236,7 +259,7 @@ function Onboarding({ onTeacher, onRestore }) {
               <p className="ob-joined" role="status"><Check size={20} strokeWidth={3} aria-hidden="true" />אתם בכיתה {joined.className}{joined.teacherName ? ` של ${joined.teacherName}` : ''}.</p>
             ) : (
               <>
-                <p className="ob-note">עם קוד, המורה יראה את ההתקדמות ויוכל לעזור כשמשהו לא ברור. אפשר להמשיך גם בלי, ולהצטרף אחר כך מהמסך "אני".</p>
+                <p className="ob-note">עם קוד, המורה יראה את ההתקדמות ויוכל לעזור כשמשהו לא ברור. אפשר להמשיך גם בלי, ולהצטרף אחר כך מהמסך "אני". {CLASS_COPY_NOTE}</p>
                 <Field label="קוד כיתה" id="w-code">
                   <input id="w-code" className="input mono" dir="ltr" value={f.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} maxLength={6} autoCapitalize="characters" autoComplete="off" placeholder="למשל K7Q2MD" />
                 </Field>

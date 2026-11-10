@@ -11,6 +11,7 @@ import { hasServer } from '@/lib/api.js';
 import {
   useParent, overview, plans as loadPlans, startCheckout, pollOrder, cancelPlan, resumePlan, portal, claimLink, unlinkDevice,
   linkThisDevice, signOut, exportData, deleteAccount, keepLinkCode, keptLinkCode, dropLinkCode, endAttempt, dropOrder, openInvoice,
+  familyVaults, deleteFamilyVault,
 } from '@/lib/parent.js';
 import { qaParentView } from '@/lib/qaFixtures.js';
 import { formatAgorot, vatLine, perMonth, dateNum } from '@/lib/price.js';
@@ -182,17 +183,58 @@ function CancelSheet({ open, onOpenChange, plan, onCancelled, qa }) {
 const LINK_HOW = 'במכשיר של הילד פותחים אני ← הגדרות ← העוזר החכם ← חיבור למנוי משפחתי, ומקלידים כאן את הקוד שמופיע שם.';
 // A claimed code: the child's device takes its token when the screen with the code is open on it (it asks every few seconds)
 const LINKED_TEXT = 'קיבלנו את הקוד. המכשיר של הילד יתחבר ברגע שהמסך עם הקוד פתוח בו.';
-function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro = `חיבור המכשיר של הילד: ${LINK_HOW.replace('במכשיר של הילד', 'במכשיר שלו')}` }) {
+
+// ---------------------------------------------------------------- the progress the family keeps (DURABLE-6)
+// Each linked device keeps its backup code with the family; an unlinked device's stays in the account ("התקדמות
+// שמורה"), and a new device can continue from it. The page never sees the code or the progress itself.
+const FRESH = 'fresh';
+const savedLine = (v) => `ההתקדמות נשמרת · עודכנה ${dateNum(v.updatedAt)}`;
+const keptName = (v) => v.label || v.device?.label || 'מכשיר';
+/** The choice for a new device's progress: '' (not chosen yet), FRESH, or a kept progress' id. */
+const CHOOSE_ERROR = 'בחרו אם להמשיך מהתקדמות שמורה או להתחיל מחדש.';
+/** "להמשיך מההתקדמות של:": one option per progress the family keeps, and "להתחיל מחדש". */
+function ContinueFrom({ vaults, value, onChange, id }) {
+  return (
+    <div className="parents-continue">
+      <p id={id} className="parents-continue-head">להמשיך מההתקדמות של:</p>
+      <div className="ob-opts" role="radiogroup" aria-labelledby={id}>
+        {vaults.map((v) => (
+          <button key={v.id} type="button" role="radio" aria-checked={value === v.id} className={clsx('ob-opt', value === v.id && 'on')} onClick={() => onChange(v.id)}>
+            <span className="ob-opt-text"><b>{keptName(v)}</b><span>עודכנה {dateNum(v.updatedAt)}</span></span>
+          </button>
+        ))}
+        <button type="button" role="radio" aria-checked={value === FRESH} className={clsx('ob-opt', value === FRESH && 'on')} onClick={() => onChange(FRESH)}>
+          <span className="ob-opt-text"><b>להתחיל מחדש</b></span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro = `חיבור המכשיר של הילד: ${LINK_HOW.replace('במכשיר של הילד', 'במכשיר שלו')}`, vaults = [], from = '' }) {
   const [code, setCode] = useState(initial);
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [choice, setChoice] = useState(from);
+  const formRef = useRef(null);
+  // "להעביר למכשיר חדש": that progress is chosen, and the form comes into view with its code field ready
+  useEffect(() => {
+    setChoice(from);
+    if (!from) return;
+    formRef.current?.scrollIntoView?.({ block: 'start' });
+    formRef.current?.querySelector('#pl-code')?.focus({ preventScroll: true });
+  }, [from]);
+  const choose = vaults.length > 0;
   const go = async (e) => {
-    e.preventDefault(); setError(''); setBusy(true);
-    try { const r = qa ? { device: { label } } : await claimLink(code, label.trim()); setCode(''); setLabel(''); onLinked(r); } catch (err) { setError(err.message); onFailed?.(err); } finally { setBusy(false); }
+    e.preventDefault(); setError('');
+    if (choose && !choice) { setError(CHOOSE_ERROR); return; }
+    const restoreFrom = choose && choice !== FRESH ? choice : null;
+    setBusy(true);
+    try { const r = qa ? { device: { label } } : await claimLink(code, label.trim(), restoreFrom); setCode(''); setLabel(''); onLinked(r); } catch (err) { setError(err.message); onFailed?.(err); } finally { setBusy(false); }
   };
   return (
-    <form className="stack parents-link" onSubmit={go} noValidate>
+    <form ref={formRef} className="stack parents-link" onSubmit={go} noValidate>
       <p>{intro}</p>
       {notice && <p className="parents-note">{notice}</p>}
       <Field label="הקוד מהמכשיר של הילד" id="pl-code">
@@ -202,6 +244,7 @@ function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro =
       <Field label="איך לקרוא למכשיר? (לא חובה, למשל: הטאבלט)" id="pl-label">
         <input id="pl-label" className="input" value={label} maxLength={30} onChange={(e) => setLabel(e.target.value)} />
       </Field>
+      {choose && <ContinueFrom vaults={vaults} value={choice} onChange={(v) => { setError(''); setChoice(v); }} id="pl-from" />}
       {error && <p className="form-error" role="alert">{error}</p>}
       <Button type="submit" variant="secondary" className="btn-block" disabled={busy || code.length !== 6}>{busy ? 'מחברים…' : 'חיבור המכשיר'}</Button>
     </form>
@@ -209,9 +252,11 @@ function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro =
 }
 
 // ---------------------------------------------------------------- the plan card with its rows
-function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing }) {
+function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing, vaults = [], linkFrom = '', onLinkFrom }) {
   const p = acct.plan;
   const [open, setOpen] = useState(null); // 'devices' | 'link' | 'payments' | 'card'
+  // "להעביר למכשיר חדש" opens the link form with that kept progress chosen
+  useEffect(() => { if (linkFrom) setOpen('link'); }, [linkFrom]);
   const [unlink, setUnlink] = useState(null);
   const [busy, setBusy] = useState(false);
   const canceled = p.status === 'canceled' || p.cancelAtPeriodEnd;
@@ -252,17 +297,23 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing }) {
         {open === 'devices' && (
           <ul className="parents-devices">
             {devices.length === 0 && <li className="muted">עוד לא חובר מכשיר.</li>}
-            {devices.map((d) => (
-              <li key={d.id}>
-                {/* a claimed code the child's device has yet to collect: it joins once the screen with the code is open on it */}
-                <span>{d.label || 'מכשיר'} · {d.pending ? 'ממתין לחיבור: פותחים במכשיר את המסך עם הקוד' : `חובר ב־${dateNum(d.linkedAt)} · שימוש אחרון ${dateNum(d.lastSeen)}`}</span>
-                <Button variant="ghost" className="btn-sm" onClick={() => setUnlink(d)}>ניתוק</Button>
-              </li>
-            ))}
+            {devices.map((d) => {
+              const kept = vaults.find((v) => v.device?.id === d.id);
+              return (
+                <li key={d.id}>
+                  <span className="parents-device-text">
+                    {/* a claimed code the child's device has yet to collect: it joins once the screen with the code is open on it */}
+                    <span>{d.label || 'מכשיר'} · {d.pending ? 'ממתין לחיבור: פותחים במכשיר את המסך עם הקוד' : `חובר ב־${dateNum(d.linkedAt)} · שימוש אחרון ${dateNum(d.lastSeen)}`}</span>
+                    {kept && <span className="parents-device-saved">{savedLine(kept)}</span>}
+                  </span>
+                  <Button variant="ghost" className="btn-sm" onClick={() => setUnlink(d)}>ניתוק</Button>
+                </li>
+              );
+            })}
           </ul>
         )}
         {devices.length < (acct.maxDevices || 3) && <button type="button" className="set-row" aria-expanded={open === 'link'} onClick={() => setOpen(open === 'link' ? null : 'link')}>חיבור מכשיר נוסף</button>}
-        {open === 'link' && <LinkForm qa={qa} onLinked={() => { toast.success(LINKED_TEXT); setOpen('devices'); onChanged(); }} />}
+        {open === 'link' && <LinkForm qa={qa} vaults={vaults} from={linkFrom} onLinked={() => { toast.success(LINKED_TEXT); setOpen('devices'); onLinkFrom?.(''); onChanged(); }} />}
         {(p.portal || pastDue) && <button type="button" className="set-row" aria-expanded={p.portal ? undefined : open === 'card'} onClick={openPortal}>עדכון אמצעי תשלום</button>}
         {open === 'card' && (
           <p className="parents-note">עדכון אמצעי תשלום נעשה מול חברת הסליקה. כתבו לנו{plans?.contact ? <> אל <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a></> : ''} ונעזור.</p>
@@ -273,6 +324,36 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing }) {
       </div>
       <ConfirmSheet open={!!unlink} onOpenChange={(o) => !o && setUnlink(null)} title="לנתק את המכשיר?" keep="להשאיר מחובר" confirm="כן, לנתק" onConfirm={doUnlink} mood="idle">
         <p>העוזר החכם יחזור {unlinkName} ל־2 שאלות ביום. אפשר לחבר אותו שוב בכל זמן.</p>
+      </ConfirmSheet>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- progress kept from devices that are no longer linked
+function KeptCard({ kept, qa, onMove, onChanged }) {
+  const [del, setDel] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const remove = async () => {
+    const v = del; setBusy(true);
+    try { if (!qa) await deleteFamilyVault(v.id); setDel(null); toast('ההתקדמות השמורה נמחקה'); onChanged(); } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <section className="card parents-card parents-kept" aria-labelledby="kept-title">
+      <h2 id="kept-title" className="card-title">התקדמות שמורה</h2>
+      <ul className="parents-kept-list">
+        {kept.map((v) => (
+          <li key={v.id}>
+            <p className="parents-kept-name">{keptName(v)} · עודכנה {dateNum(v.updatedAt)}</p>
+            <div className="parents-kept-actions">
+              <Button variant="secondary" className="btn-sm" onClick={() => onMove(v.id)}>להעביר למכשיר חדש</Button>
+              <Button variant="ghost" className="btn-sm" onClick={() => setDel(v)}>למחוק</Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <ConfirmSheet open={!!del} onOpenChange={(o) => { if (!o && !busy) setDel(null); }} title={`למחוק את ההתקדמות השמורה של ${del ? keptName(del) : ''}?`}
+        keep="לא למחוק" confirm={busy ? 'מוחקים…' : 'למחוק'} onConfirm={remove} mood="idle">
+        <p>המכשיר עצמו לא מושפע. אי אפשר לבטל.</p>
       </ConfirmSheet>
     </section>
   );
@@ -407,6 +488,11 @@ export default function Parents({ mode = 'home' }) {
   const role = useApp((s) => s.profile?.role);
   const [plans, setPlans] = useState(qa?.plans || null);
   const [acct, setAcct] = useState(qa?.account ?? null);
+  // the progress the family keeps (DURABLE-6); "להעביר למכשיר חדש" opens the link form with one chosen
+  const [vaults, setVaults] = useState(qa?.vaults ?? []);
+  const [linkFrom, setLinkFrom] = useState('');
+  const [hereFrom, setHereFrom] = useState('');
+  const [hereError, setHereError] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   // What just happened, one line at a time (a newer one replaces it, so old news never contradicts the plan card):
@@ -442,7 +528,10 @@ export default function Parents({ mode = 'home' }) {
     if (qa || !server) return;
     if (!useParent.getState().session) { setAcct(null); return; }
     setLoading(true);
+    // the kept progress is asked for beside the account; a page that cannot list it still works (nothing to continue from)
+    const kept = familyVaults().catch(() => []);
     try { setAcct(await overview()); setError(''); } catch (e) { setAcct(null); if (e.code !== 'not_account') setError(e.message); } finally { setLoading(false); }
+    setVaults(await kept);
   }, [qa, server]);
 
   useEffect(() => {
@@ -467,7 +556,7 @@ export default function Parents({ mode = 'home' }) {
   // A code from the child's device (the QR) is never claimed by itself: a link someone else sent would otherwise attach
   // their device to this plan at a tap. The code waits, filled in, for the parent to press "חיבור המכשיר".
   const linked = () => {
-    dropLinkCode(); setClaimed(true);
+    dropLinkCode(); setClaimed(true); setLinkFrom('');
     if (params.get('c')) { const next = new URLSearchParams(params); next.delete('c'); setParams(next, { replace: true }); }
     say({ tone: 'good', text: LINKED_TEXT }); loadAccount();
   };
@@ -478,7 +567,7 @@ export default function Parents({ mode = 'home' }) {
   }, [mode, plan]);
 
   const signedIn = (r) => { if (qa) setQaSession({ token: 'qa', email: r?.email || 'parent@example.test' }); };
-  const gone = () => { if (qa) setQaSession(null); setAcct(null); setBanner(null); };
+  const gone = () => { if (qa) setQaSession(null); setAcct(null); setBanner(null); setVaults([]); };
   const cancelled = (r, { licence = false } = {}) => {
     setCancelOpen(false);
     const refund = r.refundAgorot > 0 ? ' ההחזר יגיע לאמצעי התשלום תוך 14 ימים לכל היותר.' : '';
@@ -487,8 +576,17 @@ export default function Parents({ mode = 'home' }) {
     if (qa) { if (!licence) setAcct({ ...acct, plan: { ...acct.plan, status: r.status, cancelAtPeriodEnd: true } }); } else loadAccount();
   };
   const thisDevice = async () => {
-    try { await linkThisDevice(''); flag.set(false); setLinkedHere(true); setAcct(null); } catch (e) { say({ tone: 'note', text: e.message }); }
+    setHereError('');
+    if (vaults.length && !hereFrom) { setHereError(CHOOSE_ERROR); return; }
+    const restoreFrom = vaults.length && hereFrom !== FRESH ? hereFrom : null;
+    // the kept progress comes to this device in the background; it says so when it is here
+    const onEscrow = (x) => { if (x.toast) (x.restored ? toast.success : toast)(x.toast); };
+    try { await linkThisDevice('', { restoreFrom, onEscrow }); flag.set(false); setLinkedHere(true); setAcct(null); } catch (e) { say({ tone: 'note', text: e.message }); }
   };
+  const kept = vaults.filter((v) => !v.device);
+  const moveKept = (id) => { setLinkFrom(id); setBanner(null); };
+  // a link card of its own (the code from the QR, or the first device) takes the chosen progress; else the plan card's form
+  const linkCard = !!plan && !here && !claimed && (!!linkCode || (acct?.devices?.length || 0) === 0);
   const dropOrderParam = () => { const next = new URLSearchParams(params); next.delete('order'); setParams(next, { replace: true }); };
   const orderDone = (o) => {
     say({ tone: 'good', text: o?.plan === 'class_year' ? 'רישיון הכיתה פעיל' : 'המנוי פעיל' });
@@ -556,10 +654,14 @@ export default function Parents({ mode = 'home' }) {
         {banner?.text === 'רישיון הכיתה פעיל' && role === 'teacher' && <Link to="/teacher" className="btn btn-primary btn-block">חזרה ללוח המורה</Link>}
         {acct.billingHold && <p className="parents-warn">יש בירור פתוח על תשלום קודם. כתבו אלינו אל {plans.contact ? <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a> : 'מדרגות'}.</p>}
         {plans.paywall === false && <section className="card parents-card"><p className="card-title">כרגע העוזר החכם פתוח בלי מנוי.</p></section>}
-        {plan && <PlanCard acct={acct} plans={plans} qa={!!qa} onChanged={loadAccount} onCancel={() => setCancelOpen(true)} onRenew={() => setRenewing(true)} renewing={renewing} />}
+        {plan && <PlanCard acct={acct} plans={plans} qa={!!qa} onChanged={loadAccount} onCancel={() => setCancelOpen(true)} onRenew={() => setRenewing(true)} renewing={renewing}
+          vaults={vaults} linkFrom={here || linkCard ? '' : linkFrom} onLinkFrom={setLinkFrom} />}
+        {plan && kept.length > 0 && <KeptCard kept={kept} qa={!!qa} onMove={(id) => { if (here) { setHereFrom(id); document.getElementById('here-title')?.scrollIntoView({ block: 'start' }); } else moveKept(id); }} onChanged={loadAccount} />}
         {plan && here && (
           <section className="card parents-card" aria-labelledby="here-title">
             <h2 id="here-title" className="card-title">המכשיר הזה</h2>
+            {vaults.length > 0 && <ContinueFrom vaults={vaults} value={hereFrom} onChange={(v) => { setHereError(''); setHereFrom(v); }} id="here-from" />}
+            {hereError && <p className="form-error" role="alert">{hereError}</p>}
             <Button className="btn-block btn-lg" onClick={thisDevice}>להפעיל את העוזר החכם במכשיר הזה</Button>
           </section>
         )}
@@ -567,13 +669,13 @@ export default function Parents({ mode = 'home' }) {
           <section className="card parents-card" aria-labelledby="qr-link">
             <h2 id="qr-link" className="card-title">חיבור המכשיר של הילד</h2>
             <LinkForm qa={!!qa} initial={linkCode} intro="הקוד מהמכשיר של הילד כבר כאן. אפשר לתת למכשיר שם, ואז ללחוץ על חיבור המכשיר."
-              notice="המכשיר שמציג את הקוד הזה יקבל את העוזר החכם דרך המנוי שלכם. חברו רק מכשיר של הילד שלכם." onLinked={linked} onFailed={linkFailed} />
+              notice="המכשיר שמציג את הקוד הזה יקבל את העוזר החכם דרך המנוי שלכם. חברו רק מכשיר של הילד שלכם." onLinked={linked} onFailed={linkFailed} vaults={vaults} from={linkFrom} />
           </section>
         )}
         {plan && !here && !linkCode && !claimed && (acct.devices?.length || 0) === 0 && (
           <section className="card parents-card" aria-labelledby="first-link">
             <h2 id="first-link" className="card-title">חיבור המכשיר של הילד</h2>
-            <LinkForm qa={!!qa} intro={LINK_HOW} onLinked={linked} />
+            <LinkForm qa={!!qa} intro={LINK_HOW} onLinked={linked} vaults={vaults} from={linkFrom} />
           </section>
         )}
         {classLicences.map((c) => (

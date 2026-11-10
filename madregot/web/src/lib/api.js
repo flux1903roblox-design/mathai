@@ -116,6 +116,9 @@ const MESSAGES = {
   vault_off: 'אי אפשר ליצור גיבוי בשרת כרגע. אפשר לשמור קובץ גיבוי במקום.',
   too_many_vaults: 'נוצרו היום הרבה גיבויים מהרשת הזו. נסו שוב מחר, או שמרו קובץ.',
   vault_too_big: 'הגיבוי גדול מדי. שמרו קובץ במקום.',
+  // the class and the family keep the backup code (DURABLE-6)
+  escrow_off: 'שמירת עותק בשרת עוד לא הוגדרה. שמרו את קוד הגיבוי.',
+  escrow_not_found: 'לא מצאנו את ההתקדמות השמורה. אולי היא נמחקה.',
 };
 export const errorText = (code) => MESSAGES[code] || 'משהו השתבש. נסו שוב.';
 

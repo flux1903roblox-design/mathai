@@ -16,6 +16,10 @@
 //     deleting it: it is the other student's). After the vault was made again, a one-time note says so.
 //     "לשחזר מקוד או מקובץ" opens the restore screen (#/restore), which takes the code or the file. The file part keeps
 //     its own "לשחזר מקובץ" (the file's share text names that button).
+//   - a class student (DURABLE-6): the switch "שמירת עותק בשרת הכיתה" (on while the class keeps the code; turning it off
+//     asks first, then POST /api/vault/escrow/delete and durable.escrowClass off; on again keeps the code again), and the
+//     class note while it is on; a family device whose code the family keeps: the family note. Neither says "מוצפן":
+//     the server could open those copies.
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Info, ChevronLeft } from 'lucide-react';
@@ -28,6 +32,7 @@ import { persistedText, canAsk, askFromSettings, PERSIST_TOAST } from '@/lib/dur
 import { guideHere } from '@/lib/durable/install.js';
 import { hasServer } from '@/lib/api.js';
 import { createBackup, stopBackup, detachBackup, clearBackupNote, backupText, vaultErrorText, BACKUP_TEXT } from '@/lib/durable/vault.js';
+import { escrowHas, setClassCopy, ESCROW_TEXT } from '@/lib/durable/escrow.js';
 import { Button, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import BackupCodeSheet from './BackupCodeSheet.jsx';
@@ -39,6 +44,16 @@ import InstallSheet from './InstallSheet.jsx';
 /** Under "ליצור קוד גיבוי": what the code keeps, and who can read it. */
 export const BACKUP_NOTE = 'קוד גיבוי שומר עותק מוצפן. בלי הקוד אף אחד לא יכול לקרוא אותו, גם לא אנחנו.';
 export const STOPPED = 'הגיבוי הופסק, והעותק בשרת נמחק.';
+/** Stopping the backup: the copy on the server goes (said without "מוצפן" when the class or the family kept its code). */
+export const STOP_TEXT = {
+  code: 'העותק המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד. ההתקדמות במכשיר הזה נשארת.',
+  kept: 'העותק בשרת יימחק, וקוד הגיבוי יפסיק לעבוד. ההתקדמות במכשיר הזה נשארת.',
+};
+/** The class and the family keep the code (DURABLE-6): what that copy is for, said plainly. */
+export const KEPT_NOTE = {
+  class: 'עותק של ההתקדמות נשמר בשרת של מדרגות. במכשיר חדש מתחברים לכיתה עם הקוד האישי, וההתקדמות חוזרת.',
+  family: 'עותק של ההתקדמות נשמר בשרת דרך המנוי המשפחתי. כשמחליפים מכשיר, ההורים מחברים את החדש וההתקדמות עוברת אליו.',
+};
 /** The backup is working (or about to): the row shows the check. */
 const backupOk = (b) => !!b?.on && (b.state == null || b.state === 'idle' || b.state === 'gone');
 
@@ -64,6 +79,19 @@ export default function SaveSection({ role = 'student' }) {
   const [backupMsg, setBackupMsg] = useState('');
   const [codeOpen, setCodeOpen] = useState(false);
   const [stopAsk, setStopAsk] = useState(false);
+  const inClass = useApp((s) => s.profile?.role === 'student' && !!s.profile?.token);
+  const classKept = escrowHas(backup, 'class');
+  const familyKept = escrowHas(backup, 'family');
+  const [copyAsk, setCopyAsk] = useState(false);
+  // "שמירת עותק בשרת הכיתה": off asks first; on keeps the code with the class again (a backup is made when there is none)
+  const classCopy = async (on) => {
+    setBusy('copy'); setBackupMsg('');
+    try {
+      const r = await setClassCopy(on);
+      if (r === 'escrow_off') setBackupMsg(ESCROW_TEXT.off);
+      else if (r === 'error') setBackupMsg(vaultErrorText({ code: 'server_error' }));
+    } catch (e) { setBackupMsg(vaultErrorText(e)); } finally { setBusy(null); setCopyAsk(false); }
+  };
   const create = async () => {
     setBusy('create'); setBackupMsg('');
     try { await createBackup(); setCodeOpen(true); } catch (e) { setBackupMsg(vaultErrorText(e)); } finally { setBusy(null); }
@@ -133,6 +161,15 @@ export default function SaveSection({ role = 'student' }) {
               <Button variant="ghost" className="btn-block" onClick={() => detachBackup()}>להשאיר כך</Button>
             </div>
           )}
+          {server && inClass && (
+            <label className="check-row save-switch">
+              <span>שמירת עותק בשרת הכיתה</span>
+              <input type="checkbox" role="switch" checked={classKept} disabled={busy === 'copy'} aria-busy={busy === 'copy'}
+                onChange={(e) => (e.target.checked ? classCopy(true) : setCopyAsk(true))} />
+            </label>
+          )}
+          {inClass && classKept && <p className="save-note save-kept">{KEPT_NOTE.class}</p>}
+          {!inClass && familyKept && <p className="save-note save-kept">{KEPT_NOTE.family}</p>}
           {backup?.on && backup.note === 'recreated' && (
             <div className="save-backup-note">
               <p>{BACKUP_TEXT.recreated}</p>
@@ -172,7 +209,11 @@ export default function SaveSection({ role = 'student' }) {
       <BackupCodeSheet code={backup?.code} open={codeOpen && !!backup?.code} onOpenChange={setCodeOpen} />
       <ConfirmSheet open={stopAsk} onOpenChange={(o) => { if (!o && busy !== 'stop') setStopAsk(false); }} title="להפסיק את הגיבוי?" keep="להשאיר את הגיבוי"
         confirm={busy === 'stop' ? 'מפסיקים…' : 'כן, להפסיק'} onConfirm={stop}>
-        <p>העותק המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד. ההתקדמות במכשיר הזה נשארת.</p>
+        <p>{backup?.escrow ? STOP_TEXT.kept : STOP_TEXT.code}</p>
+      </ConfirmSheet>
+      <ConfirmSheet open={copyAsk} onOpenChange={(o) => { if (!o && busy !== 'copy') setCopyAsk(false); }} title="להפסיק לשמור עותק בכיתה?" keep="להשאיר"
+        confirm={busy === 'copy' ? 'מפסיקים…' : 'להפסיק'} onConfirm={() => classCopy(false)} mood="idle">
+        <p>ההתקדמות תישאר במכשיר הזה ובקוד הגיבוי שלכם. בכיתה כבר לא יהיה עותק שאפשר להחזיר עם הקוד האישי.</p>
       </ConfirmSheet>
       <PersistInfoSheet open={info} onOpenChange={setInfo} />
       <InstallSheet open={install} onOpenChange={setInstall} />

@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { ArrowRight, ChevronLeft } from 'lucide-react';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
-import { GradeSwitch, joinClass } from './Welcome.jsx';
+import { GradeSwitch, joinClass, joinedProfile } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import { useAIStatus, leaveFamily } from '@/lib/account.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
@@ -17,9 +17,12 @@ import SaveSection from '@/components/durable/SaveSection.jsx';
 import SupportInfo from '@/components/durable/SupportInfo.jsx';
 import { whereSavedText } from '@/lib/durable/copy.js';
 import { stopBackup, syncVault, vaultErrorText } from '@/lib/durable/vault.js';
+import { afterClassJoin } from '@/lib/durable/escrow.js';
 
 /** The danger zone's lines about the backup code (DURABLE-5), added while it is on. */
 export const WIPE_VAULT = 'גם הגיבוי המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.';
+/** The same, when the class or the family keeps the code (DURABLE-6): that copy is not called "מוצפן". */
+export const WIPE_KEPT = 'גם הגיבוי בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.';
 export const SIGNOUT_VAULT = 'הגיבוי בשרת נשאר. כדי לחזור להתקדמות, פותחים את מדרגות ובוחרים "יש לי קוד גיבוי".';
 /** "Delete all" could not delete the backup on the server, so it deleted nothing (the reason follows). */
 export const WIPE_FAILED = 'לא הצלחנו למחוק את הגיבוי בשרת, ולכן לא מחקנו כלום.';
@@ -54,8 +57,14 @@ function ClassSection() {
     e.preventDefault(); setError(''); setBusy(true);
     try {
       const c = await joinClass({ code: code || profile.classCode, name: profile.name, pin });
-      setProfile({ ...profile, ...c, role: 'student' });
-      toast.success(`הצטרפתם לכיתה ${c.className}`);
+      setProfile({ ...profile, ...joinedProfile(c), role: 'student' });
+      // the class's copy comes back (merged with what is here), or this device's code is kept by the class (DURABLE-6)
+      const hello = () => toast.success(c.returning ? `ברוכים השבים לכיתה ${c.className}` : `הצטרפתם לכיתה ${c.className}`);
+      if (!c.vault) hello();
+      const r = await afterClassJoin(c);
+      if (r.restored) toast.success(r.toast);
+      else if (c.vault) hello();
+      if (r.toast && !r.restored) toast(r.toast);
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   };
   return (
@@ -326,7 +335,7 @@ export default function Settings() {
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'wipe'} onOpenChange={(o) => { if (!o && !wiping) { setDanger(null); setWipeError(''); } }} title="למחוק הכול?" keep="לא למחוק"
         confirm={wiping ? 'מוחקים…' : 'כן, למחוק הכול'} onConfirm={wipe}>
-        <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. {vaultOn && `${WIPE_VAULT} `}אי אפשר לבטל.</p>
+        <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. {vaultOn && `${backup?.escrow ? WIPE_KEPT : WIPE_VAULT} `}אי אפשר לבטל.</p>
         {wipeError && <p className="form-error" role="alert">{wipeError}</p>}
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title="להתנתק מהמכשיר?" keep="להישאר מחוברים"

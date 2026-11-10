@@ -53,7 +53,7 @@ function vaultHeaders(st, lookup) {
   if (fd) h['X-Family-Device'] = fd;
   return h;
 }
-const call = (store, lookup, path, { method = 'GET', body, keepalive = false } = {}) => api(path, { method, body, keepalive, headers: vaultHeaders(store.getState(), lookup) });
+const call = (store, lookup, path, { method = 'GET', body, keepalive = false, headers = {} } = {}) => api(path, { method, body, keepalive, headers: { ...vaultHeaders(store.getState(), lookup), ...headers } });
 
 // ---------------------------------------------------------------- the sealed copy
 /**
@@ -272,12 +272,13 @@ export async function stopBackup({ store = useApp } = {}) {
  * The vault a typed code opens: `{ code, lookup, rev, updatedAt, state, at }`, the state brought up to this version.
  * `code` has passed normalise() already, so a typing mistake never reaches the network. Rejects with the server's
  * ApiError (vault_not_found, too_many_tries, slow_down, network…) or a VaultOpenError (found, but this code does not
- * open it). Nothing on the device changes here.
+ * open it). Nothing on the device changes here. `headers`: an identity the store does not hold yet (a class rejoin during
+ * the first questions passes the new class token, so the vault counts its caps for that student).
  */
-export async function findVault(code, { store = useApp } = {}) {
+export async function findVault(code, { store = useApp, headers = {} } = {}) {
   if (!hasServer()) throw new ApiError('no_server');
   const { key, lookup } = await derive(code);
-  const r = await call(store, lookup, '/api/vault');
+  const r = await call(store, lookup, '/api/vault', { headers });
   const copy = await openCopy(r.blob, key);
   return { code, lookup, rev: r.rev, updatedAt: r.updatedAt || null, state: copy.state, at: copy.at };
 }
@@ -286,11 +287,12 @@ export async function findVault(code, { store = useApp } = {}) {
  * After a restore from a code: this device keeps that code and syncs with its vault from now on (the code it had
  * before, if any, is let go without deleting anything). `rev` is the rev of the copy that was restored; the hash is
  * unknown here, so the sync that starts at once (no need to wait for a moment) sends what this device now holds: the
- * restore's own line, and with a merge the progress that was only here.
+ * restore's own line, and with a merge the progress that was only here. `escrow`: who keeps this code too ('class' |
+ * 'family', after a class rejoin or a family move; durable/escrow.js), else null (a code the student typed).
  */
-export function adoptCode({ code, lookup, rev }, { store = useApp, now = () => new Date(), sync = true } = {}) {
+export function adoptCode({ code, lookup, rev }, { store = useApp, now = () => new Date(), sync = true, escrow = null } = {}) {
   const b = backupOf(store);
-  store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil, on: true, code, lookup, rev: rev ?? null, at: now().toISOString(), hash: null, state: 'idle', note: null } });
+  store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil, on: true, code, lookup, rev: rev ?? null, at: now().toISOString(), hash: null, state: 'idle', note: null, escrow } });
   return sync ? syncVault({ moment: 'manual', store, now }) : Promise.resolve('off');
 }
 

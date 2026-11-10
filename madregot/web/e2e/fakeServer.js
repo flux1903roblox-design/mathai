@@ -5,7 +5,12 @@
 // POST /api/errors keeps each report it is sent (st.errors, DURABLE-9). The backup code's vault (DURABLE-5) keeps sealed
 // copies by their X-Vault header in st.vaults, with the Worker's revisions: create with ifRev null (409 when it exists),
 // compare-and-swap with ifRev n (409 with the current rev, 404 vault_gone), both reads, and delete (`failVaultDelete`
-// makes the delete answer 500).
+// makes the delete answer 500). Escrow (DURABLE-6): joining class K7Q2MD by name and PIN (st.members; a returning
+// student with the right PIN gets back the code its class keeps), POST /api/vault/escrow and /delete by the class Bearer
+// or X-Family-Device (st.escrows: the fake keeps the code as it came, the Worker seals it; `escrowOff` answers 503
+// server_config, as a Worker with no VAULT_SECRET does), the family's GET /api/family/vaults and its delete, restoreFrom
+// on claim and on devices/this, and the finish that hands the kept code to the new device. An unlink keeps the escrow
+// in the account (device null).
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -48,7 +53,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     licence: { status: 'none', until: null, seats: null, students: 2, aiWeek: 0, joinLocked: false, request: null, legacyUntil: null, offer: { seatYearAgorot: 4900, minSeats: 10, vatMode: 'included', online: true } },
     classes: [], classPayments: [], failPayment: false,
     joinLocked: false, students: [{ id: 'a1', name: 'דנה' }, { id: 'b2', name: 'יואב' }],
-    answers: [], loseProgressReplies: 0, errors: [], vaults: {},
+    answers: [], loseProgressReplies: 0, errors: [], vaults: {}, members: [], escrows: [], escrowOff: false,
     ...over,
   };
   const log = [];
@@ -153,6 +158,40 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       st.vaults[id] = { rev: v.rev + 1, blob: body.blob, updatedAt };
       return reply(route, 200, { rev: v.rev + 1, updatedAt });
     }
+    // ---- escrow (DURABLE-6): the code kept for a class student (Bearer) or a family device (X-Family-Device)
+    if (path === '/api/vault/escrow' || path === '/api/vault/escrow/delete') {
+      const bearer = String(h.authorization || '').replace(/^Bearer /, '');
+      const m = bearer && st.members.find((x) => x.tokens.includes(bearer));
+      const fd = !m && famOf(h);
+      if (!m && !fd) return reply(route, 401, { error: 'not_signed_in' });
+      const mine = (e) => (m ? e.kind === 'student' && e.owner === m.id : e.kind === 'account' && e.device === fd.id);
+      if (path === '/api/vault/escrow/delete') {
+        const before = st.escrows.length; st.escrows = st.escrows.filter((e) => !mine(e));
+        return reply(route, 200, { deleted: before - st.escrows.length });
+      }
+      if (st.escrowOff) return reply(route, 503, { error: 'server_config' });
+      if (!/^[A-HJ-KMNP-Z2-9]{16}$/.test(body.code || '') || !/^[0-9a-f]{64}$/.test(body.lookup || '')) return reply(route, 400, { error: 'bad_vault' });
+      if (!st.vaults[body.lookup]) return reply(route, 404, { error: 'vault_not_found' });
+      const at = new Date().toISOString();
+      const e = st.escrows.find(mine);
+      if (e) Object.assign(e, { code: body.code, lookup: body.lookup, updatedAt: at });
+      else st.escrows.push({ id: `e${String(st.escrows.length + 1).padStart(15, '0')}`, kind: m ? 'student' : 'account', owner: m ? m.id : 'acct', device: m ? null : fd.id, label: m ? '' : fd.label, code: body.code, lookup: body.lookup, updatedAt: at });
+      return reply(route, 200, { escrow: m ? 'class' : 'family' });
+    }
+    // joining class K7Q2MD: a name is a student; their first PIN is theirs; a returning student with that PIN gets a new
+    // token (up to 3 devices) and the code the class keeps, when its vault is still there
+    const join = path.match(/^\/api\/classes\/([A-Z0-9]+)\/join$/);
+    if (join) {
+      if (join[1] !== 'K7Q2MD') return reply(route, 404, { error: 'no_class' });
+      if (!/^\d{4}$/.test(body.pin || '')) return reply(route, 400, { error: 'bad_pin' });
+      let m = st.members.find((x) => x.name === body.name);
+      if (m && m.pin !== body.pin) return reply(route, 403, { error: 'wrong_pin' });
+      const returning = !!m;
+      if (!m) { m = { id: `s${st.members.length + 1}`, name: body.name, pin: body.pin, tokens: [] }; st.members.push(m); }
+      const token = `stu_${m.id}_${m.tokens.length + 1}`; m.tokens = [...m.tokens, token].slice(-3);
+      const e = st.escrows.find((x) => x.kind === 'student' && x.owner === m.id && st.vaults[x.lookup]);
+      return reply(route, 200, { studentId: m.id, token, name: m.name, className: 'ז׳3', grade: '7', classCode: 'K7Q2MD', returning, ...(e ? { vault: { code: e.code } } : {}) });
+    }
     // the app's error reports (DURABLE-9): a text/plain body holding JSON, kept as they came
     if (path === '/api/errors' && req.method() === 'POST') { st.errors.push(body); return reply(route, 202, { ok: true }); }
     if (path === '/api/progress') {
@@ -175,8 +214,11 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (!l || l.secret !== body.secret) return reply(route, 404, { error: 'link_not_found' });
       if (l.collected) return reply(route, 410, { error: 'link_expired' });
       if (!l.claimed) return reply(route, 202, { state: 'waiting' });
-      l.collected = true; const d = st.devices.find((x) => x.id === l.device); d.token = `fd1.${'f'.repeat(64)}`;
-      return reply(route, 200, { deviceToken: d.token, label: d.label });
+      l.collected = true; const d = st.devices.find((x) => x.id === l.device); d.token = `fd1.${String(st.devices.indexOf(d) + 1).repeat(64).slice(0, 64)}`;
+      // the parent chose to continue from kept progress: it now belongs to this device, whose code comes with the token
+      const kept = l.restoreFrom && st.escrows.find((e) => e.id === l.restoreFrom);
+      if (kept) kept.device = d.id;
+      return reply(route, 200, { deviceToken: d.token, label: d.label, ...(kept && st.vaults[kept.lookup] ? { vault: { code: kept.code } } : {}) });
     }
     if (path === '/api/family/devices/leave') { st.devices = st.devices.filter((d) => d.token !== h['x-family-device']); return reply(route, 200, { ok: true }); }
     // ---- sign-in
@@ -188,7 +230,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       return reply(route, 200, { token: t, email: body.email });
     }
     if (path === '/api/billing/plans') return reply(route, 200, { ...PLANS, paywall: st.paywall, online: st.online });
-    if (path.startsWith('/api/account') || path.startsWith('/api/billing') || path === '/api/family/link/claim' || path.startsWith('/api/family/devices') || path === '/api/teacher/licence/request') {
+    if (path.startsWith('/api/account') || path.startsWith('/api/billing') || path === '/api/family/link/claim' || path.startsWith('/api/family/devices') || path.startsWith('/api/family/vaults') || path === '/api/teacher/licence/request') {
       if (path.startsWith('/api/teacher')) { /* checked below with the class too */ } else if (!signed) return reply(route, 401, { error: 'not_account' });
     }
     if (path === '/api/account') return reply(route, 200, account());
@@ -226,22 +268,46 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       return reply(route, 200, { ok: true, status: 'canceled', endsAt: p.periodEnd, refundAgorot: 0, refundManual: false, synced: true, reference: 'C-7F3A' });
     }
     if (path === '/api/billing/resume') { st.plan = { ...st.plan, status: 'active', cancelAtPeriodEnd: false, cancelRequestedAt: null }; return reply(route, 200, { ok: true, status: 'active', renewsAt: st.plan.periodEnd }); }
+    // restoreFrom (DURABLE-6): an escrow of this account, else 404 escrow_not_found
+    const restoreOf = () => (body.restoreFrom ? st.escrows.find((e) => e.kind === 'account' && e.id === body.restoreFrom) || false : null);
     if (path === '/api/family/link/claim') {
       if (!live()) return reply(route, 402, { error: 'needs_subscription' });
+      const restore = restoreOf();
+      if (restore === false) return reply(route, 404, { error: 'escrow_not_found' });
       const l = st.links[body.code];
       if (!l) return reply(route, 404, { error: 'link_not_found' });
       if (l.claimed) return reply(route, 409, { error: 'link_used' });
       const d = { id: `d${'0'.repeat(14)}${st.devices.length + 1}`, label: body.label || '', token: null };
-      st.devices.push(d); l.claimed = true; l.device = d.id; st.claimedBy = token;
+      st.devices.push(d); l.claimed = true; l.device = d.id; l.restoreFrom = restore?.id || null; st.claimedBy = token;
       return reply(route, 200, { ok: true, device: { id: d.id, label: d.label } });
     }
     if (path === '/api/family/devices/this') {
       if (!live()) return reply(route, 402, { error: 'needs_subscription' });
+      const restore = restoreOf();
+      if (restore === false) return reply(route, 404, { error: 'escrow_not_found' });
       const d = { id: `d${'0'.repeat(14)}${st.devices.length + 1}`, label: body.label || '', token: `fd1.${'e'.repeat(64)}` };
       st.devices.push(d); st.sessions.delete(token);
-      return reply(route, 200, { deviceToken: d.token, label: d.label });
+      if (restore) restore.device = d.id;
+      return reply(route, 200, { deviceToken: d.token, label: d.label, ...(restore && st.vaults[restore.lookup] ? { vault: { code: restore.code } } : {}) });
     }
-    if (/^\/api\/family\/devices\/[a-z0-9]+\/unlink$/.test(path)) { st.devices = st.devices.filter((d) => d.id !== path.split('/')[4]); return reply(route, 200, { ok: true }); }
+    if (/^\/api\/family\/devices\/[a-z0-9]+\/unlink$/.test(path)) {
+      const id = path.split('/')[4];
+      // the device's escrow stays with the account ("התקדמות שמורה")
+      for (const e of st.escrows) if (e.device === id) e.device = null;
+      st.devices = st.devices.filter((d) => d.id !== id); return reply(route, 200, { ok: true });
+    }
+    if (path === '/api/family/vaults') {
+      const vaults = st.escrows.filter((e) => e.kind === 'account' && st.vaults[e.lookup]).map((e) => {
+        const d = e.device && st.devices.find((x) => x.id === e.device);
+        return { id: e.id, label: e.label, device: d ? { id: d.id, label: d.label } : null, updatedAt: e.updatedAt };
+      });
+      return reply(route, 200, { vaults });
+    }
+    const kd = path.match(/^\/api\/family\/vaults\/([a-z0-9]+)\/delete$/);
+    if (kd) {
+      if (!st.escrows.some((e) => e.kind === 'account' && e.id === kd[1])) return reply(route, 404, { error: 'not_found' });
+      st.escrows = st.escrows.filter((e) => e.id !== kd[1]); return reply(route, 200, { ok: true });
+    }
     // ---- the teacher
     if (path.startsWith('/api/teacher/')) {
       if (h['x-class-code'] !== 'K7Q2MD' || h['x-teacher-key'] !== 'tkey-123') return reply(route, 401, { error: 'not_teacher' });

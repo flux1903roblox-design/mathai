@@ -309,3 +309,56 @@ table of the council's probes comes with the proof pack (DURABLE-15); this file 
 - **Owner.** `openssl rand -hex 32`, then `cd madregot/worker && npx wrangler secret put VAULT_SECRET` (never in a file);
   `npm run db:migrate` (the same `0003_durable.sql`). Do not rotate the secret once escrows exist: every escrow sealed
   with the old one stops opening, and students then need their own code (a re-seal script is out of scope).
+
+## The class and the family keep the code, on the device (DURABLE-6, client half)
+
+- **One module** (`web/src/lib/durable/escrow.js`). `backup.escrow` says who keeps this device's backup code:
+  `'class'`, `'family'`, `'both'` or none. `keepCode(kind)` makes a backup first when there is none (it pushes the first
+  copy), then `POST /api/vault/escrow { code, lookup }`: the class with its Bearer only, the family with
+  `X-Family-Device` only, so a class student on a family tablet gets one escrow of each. Another student's copy
+  (`backup.state = 'other_student'`) is never handed over. A 503 `server_config` (no `VAULT_SECRET`) resolves
+  `escrow_off` ("שמירת עותק בשרת עוד לא הוגדרה. שמרו את קוד הגיבוי."), said once as a quiet toast; nothing throws, so
+  joining and linking go on.
+- **Class rejoin.** `joinClass()` (Welcome) passes `r.vault` through; the profile never keeps it. Welcome's class step,
+  on `r.vault`: derive, `GET /api/vault` with the new class token, then in one moment the profile (this student, this
+  class, the goal just chosen) and `applyRestored(copy, 'class', { merge: true })`, then the code is adopted
+  (`adoptCode(…, { escrow: 'class' })`, which syncs at once) and the app opens on the map with "ברוכים השבים לכיתה
+  {className}. ההתקדמות שלכם חזרה." A copy that cannot be read lets the questions go on, and a new copy is kept at the
+  end. With no `r.vault`, the class keeps the code once the profile is made (in the background, never in the way).
+  Settings' class section does the same after its join; a device with progress of its own hears "ברוכים השבים לכיתה
+  {className}. איחדנו את ההתקדמות מהכיתה עם מה שיש במכשיר הזה." Another student's progress on the device is never
+  merged by a rejoin (the class's code is left alone).
+- **Family.** After `pollLink()` says linked and after `linkThisDevice()`: with `r.vault` (the parent chose kept
+  progress) the copy comes here, merged, or, when the device holds another name's progress, it replaces it with the
+  30-day undo (the parent chose it); then "ההתקדמות עברה למכשיר הזה." Else the family keeps this device's code.
+  `claimLink(code, label, restoreFrom)` and `linkThisDevice(label, { restoreFrom })` send the choice.
+- **Parents page** (the block this lane supplies). Each linked device that syncs a kept copy has the line "ההתקדמות
+  נשמרת · עודכנה {date}". "התקדמות שמורה" lists copies with no device: "{label} · עודכנה {date}", with "להעביר למכשיר
+  חדש" (the link form opens with that copy chosen and its code field focused) and "למחוק" (a sheet: "למחוק את ההתקדמות
+  השמורה של {label}?", "המכשיר עצמו לא מושפע. אי אפשר לבטל.", "למחוק" / "לא למחוק"). Every link form, and "המכשיר
+  הזה", asks "להמשיך מההתקדמות של:" with each copy and "להתחיל מחדש" when the family keeps any; nothing is chosen for
+  the parent, and linking without a choice says "בחרו אם להמשיך מהתקדמות שמורה או להתחיל מחדש.". `familyVaults()` and
+  `deleteFamilyVault()` in `lib/parent.js`; the page never sees a code (the e2e reads the parent's page and storage).
+- **Settings.** For a class student, the switch "שמירת עותק בשרת הכיתה" (`role="switch"`, a 48 px row, on while the
+  class keeps the code). Off asks "להפסיק לשמור עותק בכיתה?" ("ההתקדמות תישאר במכשיר הזה ובקוד הגיבוי שלכם. בכיתה
+  כבר לא יהיה עותק שאפשר להחזיר עם הקוד האישי.", "להפסיק" / "להשאיר"), then `POST /api/vault/escrow/delete` and
+  `durable.escrowClass = false`; the backup code itself stays. On keeps the code again. The class note and the family
+  note follow the spec's words. `whereSavedText`: the class sentence plus "עותק של ההתקדמות נשמר גם בשרת, כדי שתוכלו
+  להמשיך מכל מכשיר עם הקוד האישי.", the family sentence "ההתקדמות נשמרת במכשיר, ועותק שלה נשמר בשרת דרך המנוי
+  המשפחתי, כדי שאפשר יהיה להעביר אותה למכשיר חדש.", and for a student who left the class with a kept copy "ההתקדמות
+  נשמרת במכשיר, ועותק שלה נשמר בשרת.". Stopping the backup and "delete all" leave out "מוצפן" when the code is kept.
+  Welcome's class step adds the class sentence to its note.
+- **Tests.** `web/src/lib/durable/escrow.test.js` (16: the class's join, rejoin on an empty device and with progress,
+  another student, a copy that cannot be read, no secret, the switch both ways and a failed delete, the family's link,
+  move and replace with the undo, the code only on the escrow route), `copy.test.js` (each new sentence, never
+  "מוצפן"). `e2e/restore.spec.js`: the class (A joins in the first questions, two lessons, the vault holds A's XP;
+  Settings' switch, note and sentence; a fresh phone with a wrong PIN and then the right one is back with `saved().xp`
+  equal to A's and a new token; A turns the switch off), the family (A linked by the parent's phone and its code kept,
+  the device line, unlinked to "התקדמות שמורה", the delete sheet kept, "להעביר למכשיר חדש" on a new phone that gets A's
+  progress), and a family-device seed whose Settings and profile never say "מוצפן". The fake server
+  (`e2e/fakeServer.js`) joins class K7Q2MD by name and PIN, keeps escrows, lists and deletes the family's, and takes
+  `restoreFrom` on claim and on `devices/this`.
+- **QA fixture.** The parents page's QA states with a plan list the tablet's own copy and an older phone's kept copy
+  (`QA_VAULTS`), so the block can be seen with no server.
+- **Evidence.** `qa-evidence/durable/class-rejoin-restored.png`, `parents-kept-progress.png`,
+  `parents-link-continue-from.png`, `save-section-class-copy.png` (390x844) and the same names with `-320` (320x568).
