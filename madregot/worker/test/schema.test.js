@@ -2,13 +2,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const schema = read('../schema.sql');
-const m0 = read('../migrations/0000_base.sql');
-const m1 = read('../migrations/0001_paid_tutor.sql');
-const m2 = read('../migrations/0002_refund_once.sql');
+// Every migration, in the order wrangler applies them (by file name). A new migration is picked up here by itself.
+const MIGRATIONS = readdirSync(new URL('../migrations/', import.meta.url)).filter((f) => /^\d{4}_[a-z0-9_]+\.sql$/.test(f)).sort();
+const migration = (f) => read(`../migrations/${f}`);
+const m0 = migration('0000_base.sql');
+const m1 = migration('0001_paid_tutor.sql');
 const objects = (db) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
   .map((r) => `${r.type}:${r.name}:${String(r.sql).replace(/\s+/g, ' ')}`);
 
@@ -28,9 +30,18 @@ test('schema.sql runs twice without error', () => {
   assert.ok(objects(db).length > 30);
 });
 
-test('migrations 0000 + 0001 + 0002 on an empty database give the same tables and indexes as schema.sql', () => {
+test('each migration has its own number (two lanes that took the same one must renumber), and nothing else is in the folder', () => {
+  const all = readdirSync(new URL('../migrations/', import.meta.url));
+  assert.deepEqual(all.filter((f) => !MIGRATIONS.includes(f)), [], 'only NNNN_name.sql files');
+  const numbers = MIGRATIONS.map((f) => f.slice(0, 4));
+  assert.equal(new Set(numbers).size, numbers.length, `a number is used twice: ${numbers.join(', ')}`);
+  assert.deepEqual(MIGRATIONS.slice(0, 3), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql']);
+});
+
+test('every migration in order on an empty database gives the same tables and indexes as schema.sql', () => {
   const a = new DatabaseSync(':memory:'); a.exec(schema);
-  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1); b.exec(m2);
+  const b = new DatabaseSync(':memory:');
+  for (const f of MIGRATIONS) b.exec(migration(f));
   assert.deepEqual(objects(b), objects(a));
   assert.equal(m0.trim(), schema.slice(0, m0.length).trim(), '0000_base is the start of schema.sql, word for word');
 });
