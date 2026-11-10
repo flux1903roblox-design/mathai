@@ -39,7 +39,8 @@ export function makeItem(topicId, level, avoidKey) {
 export function fairForCheck(it) {
   if (it.topic !== 'signed') return true;
   const shown = [it.display, it.text, ...(it.manip?.labels || []), ...(it.choices || []).map((c) => c.tex || c.text)].join(' ');
-  return /(^|[\s($])[-−]\d/.test(shown) || (typeof it.answer === 'number' && it.answer < 0 && it.form !== 'mc');
+  // a minus at the start of a number: after a space, a bracket, a $ or a TeX brace ("12 \;\square\; {-12}")
+  return /(^|[\s($\{])[-−]\d/.test(shown) || (typeof it.answer === 'number' && it.answer < 0 && it.form !== 'mc');
 }
 
 /** An exercise of a stair for a check or the placement test (see fairForCheck). */
@@ -60,6 +61,9 @@ export function readAnswer(it, slots) {
   return parseNum(slots.v);
 }
 
+/** Is the answer a length that is not whole, asked rounded to tenths (its exact value is on the item)? */
+export const roundedLength = (it) => it.exact != null && Math.abs(it.exact - Math.round(it.exact)) > 1e-9;
+
 export function isCorrect(it, u) {
   if (u == null) return false;
   if (it.form === 'manip') return manipCorrect(it, u);
@@ -67,8 +71,9 @@ export function isCorrect(it, u) {
   if (it.form === 'pt') return near(u[0], it.answer[0]) && near(u[1], it.answer[1]);
   if (it.form === 'line') return near(u.m, it.answer.m, 0.01) && near(u.b, it.answer.b, 0.01);
   // a length rounded to tenths (a root that is not whole): right within half a tenth of the exact value, so 7.1 and
-  // 7.07 are both right for √50, and 7 or 7.0 are not
-  if (it.exact != null && !Number.isInteger(it.answer)) return Math.abs(u - it.exact) <= 0.05 + 1e-9;
+  // 7.07 are both right for √50, and 7 or 7.0 are not. The exact value decides, not the rounded answer: √288 = 16.97…
+  // rounds to 17.0, a whole number, and 16.97 is still right
+  if (roundedLength(it)) return Math.abs(u - it.exact) <= 0.05 + 1e-9;
   return near(u, it.answer, 0.01);
 }
 

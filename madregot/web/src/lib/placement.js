@@ -15,6 +15,8 @@ export const PER_TOPIC = 2;
 /** Questions in one probe: all of them right to pass the level. */
 export const PROBE_LEN = 3;
 export const PLACEMENT_XP = 10;
+/** The most questions the placement test of a grade can ask (every probe of every topic to its last question). */
+export const placementMax = (grade = '7') => topicsFor(grade).length * PER_TOPIC * PROBE_LEN;
 /** How much of the grade's material feels familiar (onboarding answer) → where the first question sits, as a share of the topic. */
 export const KNOW = [
   { id: 0, title: 'הכול חדש לי', sub: 'מתחילים מהמדרגה הראשונה', share: 0 },
@@ -51,7 +53,7 @@ export function startPlacement({ grade = '7', know = 1 } = {}) {
   const probe = probeFor(topics[0], know);
   return {
     kind: 'placement', grade: String(grade), know, topics, ti: 0, probe, results: {},
-    topic: topics[0], level: probe.first, slot: 0, total: topics.length * PER_TOPIC * PROBE_LEN, answered: 0,
+    topic: topics[0], level: probe.first, slot: 0, total: placementMax(grade), answered: 0,
     item: probeItem(topics[0], probe.first, 0), attempt: 1, hint: false, phase: 'answer', wrong: [],
     combo: 0, bestCombo: 0, firstTry: 0, mistakes: 0, fixed: 0, cats: {}, lastCat: null, redo: [],
     finished: false, failed: false, startedAt: Date.now(), itemStartedAt: Date.now(),

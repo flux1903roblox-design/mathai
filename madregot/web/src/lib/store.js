@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { TOPIC } from '@/content/index.js';
-import { recordOnPath, markMastered, migratePath, reachedUpTo, doneCount, chestOpen } from './path.js';
+import { recordOnPath, markMastered, reopenKept, migratePath, reachedUpTo, doneCount, chestOpen } from './path.js';
 import { questProgress } from './quests.js';
 import { STAGE_XP } from './lesson.js';
 import { noteGap, gapsFromExam } from './board.js';
@@ -91,7 +91,7 @@ export const useApp = create(
         const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + (r.xp || 0) };
         const days = { ...st.days, [d]: day };
         const learn = learnAfterCheck(st.learn, r, new Date().toISOString(), d);
-        let { path, progress } = st; let stairDone = false; let chestOpened = false;
+        let { path, progress } = st; let stairDone = false; let chestOpened = false; let reopened = false;
         if (r.purpose === 'mastery' && r.passed && r.topic && r.level && TOPIC[r.topic]) {
           const chestBefore = chestOpen(r.topic, path);
           ({ path, stairDone } = markMastered(path, r.topic, r.level));
@@ -100,9 +100,14 @@ export const useApp = create(
           const top = TOPIC[r.topic].levels.length; const p = progress[r.topic] || { level: 1, max: 1 };
           const level = Math.min(top, Math.max(p.level, reachedUpTo(r.topic, path) + 1));
           progress = { ...progress, [r.topic]: { level, max: Math.max(p.max, level) } };
+        } else if (r.purpose === 'mastery' && !r.passed && r.topic && r.level && TOPIC[r.topic]) {
+          // a stair kept from before mastery checks stays done only until its check says otherwise
+          const before = path;
+          path = reopenKept(path, r.topic, r.level);
+          reopened = path !== before;
         }
         set({ learn, days, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic });
-        return { streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
+        return { streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
       /**

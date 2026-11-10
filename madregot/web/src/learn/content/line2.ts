@@ -312,6 +312,8 @@ const axesModel: DiagModel<AxP> = {
       const m = rnz(rnd, -6, 6); const b = rnz(rnd, -12, 12); const x0 = -b / m;
       if (!Number.isInteger(2 * x0) || abs(x0) > 12) continue;
       if (abs(m) === 1 && rnd() < 0.75) continue; // dividing by 1 teaches nothing (and makes the bugs agree)
+      // with m = −1 both intercepts are b, a number the question prints: copying it would answer either axis
+      if (m === -1) continue;
       return { m, b, ax: rnd() < 0.8 ? 0 : 1, f: rnd() < 0.3 ? 1 : 0, n: rint(rnd, 0, 2) };
     }
   },

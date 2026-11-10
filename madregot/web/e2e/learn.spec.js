@@ -121,10 +121,14 @@ test('mastery comes only from a check without hints, and a missed check takes no
   await expect.poll(() => item(page)).toBeTruthy();
   for (let i = 0; i < 5; i += 1) { await answer(page, true); await page.locator('section.fb .fb-actions .btn').click(); }
   await expect(page.getByRole('heading', { name: 'שולטים לבד!' })).toBeVisible();
+  // the first review is the next day: "מחר", never "בעוד 1 יום"
+  await expect(page.locator('.check-done .lead')).toContainText('מחר נבדוק בקצרה שזה נשאר.');
+  await expect(page.locator('.check-done .lead')).not.toContainText('1 יום');
   const st = await saved(page);
   expect(st.learn.skills['signed:1'].mastered.box).toBe(0);
   await page.goto('./#/learn/signed/1');
   await expect(page.locator('.mastery-chip')).toContainText('שולטים לבד');
+  await expect(page.locator('.mastery-chip')).toContainText('בדיקה חוזרת מחר');
 });
 
 test('a confirmed misconception is repaired with its own activity, then verified', async ({ page }) => {
@@ -303,4 +307,29 @@ test('a stair that was done before mastery checks stays done, and is offered its
   await expect(page.locator('.node-card')).toContainText('לפני שהיו בדיקות שליטה');
   await page.getByRole('button', { name: 'לבדיקת שליטה' }).click();
   await expect(page).toHaveURL(/lesson\/signed\/1\?kind=check&purpose=mastery/);
+  // the check is missed: the stair is not counted as done any more, it is open again, and the practice stays
+  for (let i = 0; i < 5; i += 1) { await expect.poll(() => item(page)).toBeTruthy(); await answer(page, i > 2); await proceed(page); }
+  await expect(page.getByRole('heading', { name: 'עוד לא, וזה בסדר' })).toBeVisible();
+  await expect(page.locator('.check-done .lead')).toContainText('המדרגה חוזרת להיות פתוחה במפה');
+  const st = await saved(page);
+  expect(st.path.signed.done).toEqual({});
+  expect(st.path.signed.parts).toEqual({ 1: 2, 2: 1 });
+  await page.getByRole('button', { name: 'למפה' }).click();
+  await expect(unit.locator('.unit-label')).not.toContainText('מדרגות');
+  await expect(unit.locator('.node').first()).toHaveClass(/node-open/);
+});
+
+test('a stair mastered out of order: the stairs before it are open, not locked, and the chest stays closed', async ({ page }) => {
+  // Exam Rescue sent pyth:3 straight to its mastery check, and it was passed
+  const at = '2026-11-04T10:00:00.000Z';
+  const st = student('8', { path: { pyth: { parts: {}, reviews: 0, jumped: 0, done: { 3: 'mastered' } } }, learn: { skills: { 'pyth:3': { attempts: [], mastered: { at, box: 0, due: '2026-11-05T10:00:00.000Z' } } }, miscon: {}, exam: null, missions: {}, events: [] } });
+  await open(page, '#/', { ...st, version: 3 });
+  const unit = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: 'פיתגורס' }) });
+  const nodes = unit.locator('.node');
+  await expect(nodes.nth(0)).toHaveClass(/node-current/);
+  await expect(nodes.nth(1)).toHaveClass(/node-open/);
+  await expect(nodes.nth(2)).toHaveClass(/node-done/);
+  await expect(nodes.nth(3)).toHaveClass(/node-locked/);
+  // the halfway chest opens with every stair up to it done, as the store awards it
+  await expect(unit.getByRole('button', { name: /^תיבת אוצר\. נפתחת/ })).toBeVisible();
 });

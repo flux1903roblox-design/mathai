@@ -229,7 +229,7 @@ const stair1: StairContent = {
 
 const legBugs: DiagModel<Legs>['bugs'] = {
   // added the squares as for a hypotenuse, so the "leg" came out longer than the hypotenuse
-  'add-not-sub': (p) => r1(Math.sqrt(p.c * p.c + p.a * p.a)),
+  'add-not-sub': (p) => Math.sqrt(p.c * p.c + p.a * p.a),
   // subtracted the lengths, not the areas
   'subtract-sides': (p) => p.c - p.a,
   // stopped at the area of the square on the missing leg
@@ -447,8 +447,9 @@ const testBugs: DiagModel<Sides>['bugs'] = {
   'wrong-hyp': (s) => (s.k === 1 ? null : s.sets.filter(lastIsHyp).length),
   // did not test at all: every triangle "has" a hypotenuse, its longest side
   'assume-right': () => 4,
-  // compared the sides themselves, a + b with c: in a triangle that is never equal
-  'add-legs': () => 0,
+  // compared the sides themselves, a + b with c: in a triangle that is never equal, so none is right-angled. Only where
+  // at least two are: a 0 there misses every one of them, while a 0 for a single one is as likely one slip
+  'add-legs': (s) => (countRight(s) >= 2 ? 0 : null),
 };
 
 const checkLine = (s: number[], i: number, name: string) => {
@@ -615,9 +616,9 @@ const stair3: StairContent = {
     { id: 'assume-right', title: 'קבעו שהמשולש ישר־זווית בלי לבדוק',
       cause: 'לכל משולש יש צלע ארוכה, אבל לא לכל משולש יש זווית ישרה. משפט פיתגורס נכון רק במשולש ישר־זווית, ולכן קודם בודקים.',
       explain: [
-        'נראה שכתבתם את הצלע הארוכה בלי לבדוק אם המשולש באמת ישר־זווית.',
-        'ברוב המשולשים אין זווית ישרה. הצלע הארוכה היא יתר רק אם ריבוע שלה שווה בדיוק לסכום הריבועים של שתי האחרות.',
-        'למשל $6$, $8$, $11$: $36 + 64 = 100$, אבל $11^2 = 121$. אין זווית ישרה, והתשובה $0$.',
+        'נראה שספרתם את כל ארבעת המשולשים כישרי־זווית, בלי לבדוק כל אחד.',
+        'לכל משולש יש צלע ארוכה, אבל לא בכל משולש יש זווית ישרה. הצלע הארוכה היא יתר רק אם הריבוע שלה שווה בדיוק לסכום הריבועים של שתי האחרות.',
+        'למשל שני משולשים: $6, 8, 10$ ו־$6, 8, 11$. בראשון $36 + 64 = 100 = 10^2$, ולכן הוא ישר־זווית. בשני $11^2 = 121$, ולא $100$, ולכן הוא לא. מתוך השניים רק $1$ ישר־זווית, ולא $2$.',
       ],
       remedy: [
         { kind: 'explore', text: 'הצלע $AB$ קבועה. גררו את $C$ למקומות שונים: ברוב המקומות הזווית $C$ לא ישרה. מצאו מקום שבו היא כן ישרה.',
@@ -675,8 +676,8 @@ const rtBugs: DiagModel<RT>['bugs'] = {
   'add-legs': (p) => (p.ask === 0 ? p.big + p.small : null),
   'no-root': rtSq,
   // the larger given leg taken as the hypotenuse: subtracted when the hypotenuse was missing
-  'wrong-hyp': (p) => (p.ask === 0 ? r1(Math.sqrt(p.big * p.big - p.small * p.small)) : null),
-  'add-not-sub': (p) => (p.ask === 0 ? null : r1(Math.sqrt(p.c * p.c + rtKnown(p) ** 2))),
+  'wrong-hyp': (p) => (p.ask === 0 ? Math.sqrt(p.big * p.big - p.small * p.small) : null),
+  'add-not-sub': (p) => (p.ask === 0 ? null : Math.sqrt(p.c * p.c + rtKnown(p) ** 2)),
   'subtract-sides': (p) => (p.ask === 0 ? null : p.c - rtKnown(p)),
 };
 
@@ -932,7 +933,7 @@ const distBugs: DiagModel<Pts>['bugs'] = {
   'no-root': (p) => dX(p) ** 2 + dY(p) ** 2,
   'coord-diff': (p) => {
     const ex = blind(p.x1, p.x2); const ey = blind(p.y1, p.y2);
-    return ex === dX(p) && ey === dY(p) ? null : r1(Math.hypot(ex, ey));
+    return ex === dX(p) && ey === dY(p) ? null : Math.hypot(ex, ey);
   },
 };
 const distSolution = (p: Pts) => [

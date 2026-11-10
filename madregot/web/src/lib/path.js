@@ -3,9 +3,11 @@
 // "Done" means mastered. A stair is done (drawn as done, counted in "X מתוך 5 מדרגות") only after its mastery check
 // is passed; practice fills its ring, and two practice lessons lead to that check, but never mark it done.
 // Stairs a student already had as done before this rule (practice on the old ladder, a placement or jump test) were
-// kept as they were (v3 migration in lib/store.js) and are offered their mastery check.
+// kept as they were (v3 migration in lib/store.js) and are offered their mastery check; a kept stair whose mastery
+// check is then failed is done no longer: it goes back to open, with its practice kept (reopenKept).
 // The placement and jump tests let a student pass over stairs they seem to know: the path goes on after them, and
-// they stay open (not done) until their mastery check.
+// they stay open (not done) until their mastery check. A stair mastered out of order (Exam Rescue sends a stair
+// straight to its check) leaves the stairs before it open, not locked; the path still continues from the first one.
 //
 // path[topic] = { parts: { level: practice lessons }, reviews, jumped: highest level passed over, done: { level: 'mastered' | 'kept' } }
 import { TOPIC } from '@/content/index.js';
@@ -42,16 +44,24 @@ export function reachedUpTo(topic, path = {}) {
   return k;
 }
 
+/** The highest stair of a unit that is done (0 when none is). */
+function highestDone(topic, path = {}) {
+  for (let L = TOPIC[topic].levels.length; L >= 1; L -= 1) if (isDone(path, topic, L)) return L;
+  return 0;
+}
+
 /**
  * Every stair of a unit with its state, plus the review: done (mastered) | open (passed over, its check waiting) |
- * current (the next stair to work on) | locked.
+ * current (the next stair to work on) | locked. A stair below one done out of order is open, never locked: a locked
+ * stair always lies ahead of everything done.
  */
 export function unitNodes(topic, path = {}) {
   const t = TOPIC[topic];
   const reached = reachedUpTo(topic, path);
+  const top = highestDone(topic, path);
   const nodes = t.levels.map((L, i) => {
     const level = i + 1;
-    const state = isDone(path, topic, level) ? 'done' : level <= reached ? 'open' : level === reached + 1 ? 'current' : 'locked';
+    const state = isDone(path, topic, level) ? 'done' : level <= reached ? 'open' : level === reached + 1 ? 'current' : level < top ? 'open' : 'locked';
     return { kind: 'node', topic, level, title: L.title, state, parts: Math.min(partsOf(path, topic, level), PARTS), kept: isKept(path, topic, level) };
   });
   const allPassed = reached >= t.levels.length;
@@ -84,6 +94,18 @@ export function recordOnPath(path = {}, r) {
   }
   const unitDone = r.kind === 'review' && r.passed && (path[r.topic]?.reviews || 0) === 0;
   return { path: { ...path, [r.topic]: u }, practiceDone, unitDone };
+}
+
+/**
+ * A failed mastery check on a stair kept from before mastery checks: it is not done any more. It goes back to open
+ * (reached, its check waiting), with its practice kept, and the path after it stays where it was.
+ */
+export function reopenKept(path = {}, topic, level) {
+  if (!isKept(path, topic, level)) return path;
+  const u = path[topic];
+  const done = { ...u.done };
+  delete done[level];
+  return { ...path, [topic]: { ...u, done, jumped: Math.max(u.jumped || 0, level) } };
 }
 
 /** A passed mastery check: the stair is done. Returns the new path and whether it just became done. */

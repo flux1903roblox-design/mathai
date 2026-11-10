@@ -5,7 +5,7 @@ import { Flame, Zap, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown } from 'lu
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor } from '@/content/index.js';
-import { unitNodes, chestAfter, stairProgress, unitProgress, unitCountText } from '@/lib/path.js';
+import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
 import { MASTERY_N } from '@/learn/mastery.ts';
 import PathNode from '@/components/PathNode.jsx';
@@ -52,7 +52,7 @@ function StairCard({ n, t, onStart }) {
       {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>כל חמשת השלבים</Button>}
       {mastered && <p className="node-card-sub">שולטים בזה: עברתם את בדיקת השליטה.</p>}
       {n.state === 'done' && !mastered && <p className="node-card-sub">המדרגה הושלמה לפני שהיו בדיקות שליטה. בדיקה קצרה, {MASTERY_N} שאלות, תראה שזה נשאר.</p>}
-      {n.state === 'open' && <p className="node-card-sub">דילגתם על המדרגה הזאת. בדיקת שליטה קצרה, {MASTERY_N} שאלות, תסמן אותה כמדרגה שעברתם.</p>}
+      {n.state === 'open' && <p className="node-card-sub">המדרגה הזאת פתוחה. בדיקת שליטה קצרה, {MASTERY_N} שאלות, תסמן אותה כמדרגה שעברתם.</p>}
       {n.state === 'locked' && <p className="node-card-sub">יודעים כבר? מבחן קצר של {JUMP_LEN} תרגילים, טעות אחת מותרת, פותח את כל הדרך עד לכאן.</p>}
       {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button className="btn-block" onClick={() => onStart(check)}>לבדיקת שליטה</Button>}
       {n.state === 'open' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור</Button>}
@@ -78,6 +78,8 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
   // and a thin bar of all its stages under the name
   const prog = unitProgress(t.id, path, skills);
   const half = chestAfter(t.id);
+  // the chest opens as the store awards it: once every stair up to it is done (not a stair done out of order)
+  const chest = chestOpen(t.id, path);
   return (
     <section className={clsx('unit', `ch-${t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
       {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path scrolls */}
@@ -115,12 +117,12 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
               // halfway along the unit, a treasure chest sits on the road
               node.kind === 'node' && node.level === half && (
                 <li key={`${t.id}:chest`} className="path-step path-chest" style={{ '--x': `${(x + SWING[(i + 1) % SWING.length]) / 2}px` }}>
-                  <Chest open={node.state === 'done'} celebrate={celebrate === key} expanded={open === `${t.id}:chest`}
-                    label={`תיבת אוצר. ${node.state === 'done' ? 'פתוחה' : `נפתחת אחרי מדרגה ${half}`}`} onClick={() => setOpen(open === `${t.id}:chest` ? null : `${t.id}:chest`)} />
+                  <Chest open={chest} celebrate={chest && celebrate === key} expanded={open === `${t.id}:chest`}
+                    label={`תיבת אוצר. ${chest ? 'פתוחה' : `נפתחת אחרי מדרגה ${half}`}`} onClick={() => setOpen(open === `${t.id}:chest` ? null : `${t.id}:chest`)} />
                   {open === `${t.id}:chest` && (
                     <div className="node-card" role="group" aria-label="תיבת אוצר">
-                      <p className="node-card-title">{node.state === 'done' ? 'חצי היחידה מאחוריכם' : 'תיבת אוצר'}</p>
-                      <p className="node-card-sub">{node.state === 'done' ? 'פתחתם את התיבה של היחידה הזאת. היא מחכה באוסף המדליות שלכם בפרופיל.' : `התיבה נפתחת כשמסיימים את מדרגה ${half}: ${nodes[half - 1].title}.`}</p>
+                      <p className="node-card-title">{chest ? 'חצי היחידה מאחוריכם' : 'תיבת אוצר'}</p>
+                      <p className="node-card-sub">{chest ? 'פתחתם את התיבה של היחידה הזאת. היא מחכה באוסף המדליות שלכם בפרופיל.' : `התיבה נפתחת כשמסיימים את כל המדרגות עד מדרגה ${half}: ${nodes[half - 1].title}.`}</p>
                     </div>
                   )}
                 </li>

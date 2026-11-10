@@ -131,9 +131,10 @@ function ladder() {
   const n = askHeight ? len * len - foot * foot : wall * wall + foot * foot;
   return {
     key: `py4:${askHeight ? 'h' : 'L'}:${foot}:${askHeight ? len : wall}`,
+    // short enough to stay three lines on a 320px phone, so the drawing below keeps its room (e2e/layout.spec.js)
     text: askHeight
-      ? `סולם באורך ${len} דצ״מ נשען על קיר. רגל הסולם נמצאת ${foot} דצ״מ מהקיר. לאיזה גובה על הקיר מגיע הסולם? ${ROUND}`
-      : `סולם נשען על קיר ומגיע לגובה ${wall} דצ״מ. רגל הסולם נמצאת ${foot} דצ״מ מהקיר. מה אורך הסולם? ${ROUND}`,
+      ? `סולם באורך ${len} דצ״מ נשען על קיר, ורגלו ${foot} דצ״מ מהקיר. לאיזה גובה הוא מגיע? ${ROUND}`
+      : `סולם נשען על קיר ומגיע לגובה ${wall} דצ״מ, ורגלו ${foot} דצ״מ מהקיר. מה אורך הסולם? ${ROUND}`,
     form: 'num', answer: isSquare(n) ? exact : r1(exact), exact, unit: 'דצ״מ',
     fig: { type: 'ladder', wall: askHeight ? '?' : wall, foot, len: askHeight ? len : '?' },
     hint: 'הקיר, הרצפה והסולם יוצרים משולש ישר־זווית. הסולם הוא היתר.',
@@ -171,13 +172,15 @@ const listTex = (arr) => arr.join(',\\ ');
 // so it keeps its order in a Hebrew line and a narrow screen can wrap it between numbers.
 const listMath = (arr) => `\u2066${arr.map((v) => `$${v}$`).join(', ')}\u2069`;
 
+// The mode is a value that repeats three times among 13 or 15, with at least two others close behind (twice each):
+// a value picked from the list at random is the mode only about one time in five (src/learn/guessing.test.ts).
 function mode() {
   for (;;) {
-    const n = R(7, 9); const m = R(2, 12);
+    const n = pick([13, 15]); const m = R(2, 12);
     const arr = [m, m, m];
     while (arr.length < n) { const v = R(1, 15); if (arr.filter((x) => x === v).length < 2 && v !== m) arr.push(v); }
     const counts = {}; arr.forEach((v) => { counts[v] = (counts[v] || 0) + 1; });
-    if (Object.values(counts).filter((c) => c >= 3).length !== 1) continue;
+    if (Object.values(counts).filter((c) => c >= 3).length !== 1 || Object.values(counts).filter((c) => c === 2).length < 2) continue;
     const list = shuffle(arr); const max = Math.max(...arr);
     if (max === m) continue;
     return {

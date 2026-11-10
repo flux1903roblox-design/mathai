@@ -1,10 +1,15 @@
 // Can a check be passed by guessing? For every check (mastery, review, jump test, the verification after a repair)
 // and every placement level, a student who answers without thinking must pass under 2% of the time.
 //
-// Two guessing strategies, the better one counts:
+// Five guessing strategies, the best one counts:
 //  - most common answer: for each kind of question (its form and where it comes from), the answer that question
 //    has most often, learned from a sample of the same check's questions;
-//  - best constant: one fixed answer per form (number, choice, point, line, object), the one right most often.
+//  - best constant: one fixed answer per form (number, choice, point, line, object), the one right most often;
+//  - a number from the question: one of the numbers printed in it (its text, its expression, its table), picked at
+//    random, or always the first one, or always the last one. Not yet the number inside a drawing: an angle check can
+//    still be passed by copying the angle drawn (angles:2 about 31%, angles:4 about 47%, from a run with drawings in),
+//    because its questions are one step, equal or adding to 180°. That needs the angle checks to mix in other kinds of
+//    questions, and is left for that change.
 // Each question's chance is measured on a fresh sample; a check's pass rate is then exact (its questions are drawn
 // independently): mastery and jump tests need 4 of 5, a review 3 of 3, a verification 3 of 3; a placement probe needs
 // all three of its questions, and a topic's placement is followed through both its probes.
@@ -17,7 +22,7 @@ import { MASTERY_N, MASTERY_NEED, REVIEW_NEED } from './mastery';
 import { VERIFY_N, VERIFY_NEED } from './misconceptions';
 import { seeded } from './expr';
 // @ts-ignore: plain JS
-import { isCorrect, TOPIC, topicsFor } from '@/content/index.js';
+import { isCorrect, TOPIC, topicsFor, figPlain } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { manipSolution } from '@/content/manip.js';
 // @ts-ignore: plain JS
@@ -26,6 +31,7 @@ import { probeItem, startLevel, nextProbe, PER_TOPIC, PROBE_LEN, KNOW } from '@/
 import { JUMP_SOURCES, JUMP_MISTAKES } from '@/lib/lesson.js';
 
 const LIMIT = 0.02;
+const SLOW = 60_000; // each test generates thousands of questions
 const N = 500; // questions sampled per kind of question, to learn the guess and again to measure it
 
 // a fixed random source (the exercise generators use Math.random), so the measure is the same on every run
@@ -70,6 +76,22 @@ function chances(draws: Draw[], guess: (it: Item) => unknown) {
   return draws.map((d) => { let ok = 0; for (let i = 0; i < N; i += 1) { const it = d(); const g = guess(it); if (g !== undefined && isCorrect(it, g)) ok += 1; } return ok / N; });
 }
 
+/** The numbers a typed question prints: in its text, its expression and its table, in reading order. */
+export function shownNumbers(it: Item): number[] {
+  if (it.form !== 'num') return [];
+  const shown = [it.text, it.display, it.fig?.type === 'table' ? figPlain(it.fig) : ''].filter(Boolean).join(' ')
+    .replace(/\\(qquad|quad|[,;:! ])/g, ' ').replace(/\\[a-zA-Z]+/g, ' ').replace(/−/g, '-')
+    .replace(/-\s+(?=\d)/g, '-'); // "3x - 4" reads b as -4
+  return (shown.match(/-?\d+(\.\d+)?/g) || []).map(Number);
+}
+/** Guessing from the numbers in the question: the chance a guess is right on one question. */
+const SHOWN: ((it: Item) => number)[] = [
+  (it) => { const ns = shownNumbers(it); return ns.length ? ns.filter((v) => isCorrect(it, v)).length / ns.length : 0; }, // one at random
+  (it) => { const ns = shownNumbers(it); return ns.length && isCorrect(it, ns[0]) ? 1 : 0; }, // the first
+  (it) => { const ns = shownNumbers(it); return ns.length && isCorrect(it, ns[ns.length - 1]) ? 1 : 0; }, // the last
+];
+
+
 /** P(at least `need` right) for independent questions with these chances. */
 function atLeast(qs: number[], need: number) {
   let dist = [1];
@@ -79,8 +101,10 @@ function atLeast(qs: number[], need: number) {
 
 /** The best guessing strategy's pass rate for a check made of these draws. */
 function passRate(draws: Draw[], need: number) {
-  const train = draws.flatMap((d) => Array.from({ length: N }, d));
-  return Math.max(...learnGuesses(train).map((g) => atLeast(chances(draws, g), need)));
+  const samples = draws.map((d) => Array.from({ length: N }, d));
+  // the numbers-from-the-question guesses learn nothing, so they are measured on the same sample
+  const fromQuestion = SHOWN.map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
+  return Math.max(...learnGuesses(samples.flat()).map((g) => atLeast(chances(draws, g), need)), ...fromQuestion);
 }
 
 const rnd = () => Math.random();
@@ -98,7 +122,7 @@ describe('a check cannot be passed by guessing', () => {
     const jump = passRate((JUMP_SOURCES as Source[]).map((src) => (src === 'gen' || !c ? drawOf(skill, 'gen') : drawOf(skill, src === 'transfer' && !c.transfer ? 'diag' : src))), JUMP_SOURCES.length - JUMP_MISTAKES);
     expect(jump, `${topic}:${level} jump: ${(100 * jump).toFixed(2)}%`).toBeLessThan(LIMIT);
     expect(MASTERY_N).toBe(5);
-  });
+  }, SLOW);
 
   const miscs = Object.values(CONTENT).flatMap((c) => [...new Set([...Object.keys(c.diag.bugs), ...Object.keys(c.transfer?.bugs || {})])].map((m) => [c.skill, m] as const));
   it.each(miscs)('%s: the verification after repairing %s', (skill, misc) => {
@@ -106,7 +130,7 @@ describe('a check cannot be passed by guessing', () => {
     expect(plan).toHaveLength(VERIFY_N);
     const rate = passRate(plan.map((q) => drawOf(q.skill, q.source, q.candidates)), VERIFY_NEED);
     expect(rate, `${skill} verify ${misc}: ${(100 * rate).toFixed(2)}%`).toBeLessThan(LIMIT);
-  });
+  }, SLOW);
 });
 
 describe('the placement test cannot be passed by guessing', () => {
@@ -137,10 +161,16 @@ describe('the placement test cannot be passed by guessing', () => {
       }
     });
     expect(PER_TOPIC).toBe(2);
-  });
+  }, SLOW);
 });
 
 describe('the guessing measure itself', () => {
+  it('sees a guesser who types a number from the question: the old two-number comparison', () => {
+    // "which is bigger? -8 or -10": typing either number shown is a coin flip, and three of them pass 1 in 8
+    const pair: Draw = () => { const a = -2 - Math.floor(Math.random() * 9); const b = a - 1 - Math.floor(Math.random() * 5); return { form: 'num', text: 'איזה מספר גדול יותר? כתבו אותו.', display: `${b} \\qquad ${a}`, answer: a, key: 'pair:x' }; };
+    expect(passRate([pair, pair, pair], 3)).toBeGreaterThan(0.1);
+    expect(shownNumbers({ form: 'num', text: 'מה $y$ כש־$x = -3$?', display: 'y = 2x - 4', fig: { type: 'table', rows: [['א', '1, 10, 10']] } })).toEqual([-3, 2, -4, 1, 10, 10]);
+  });
   it('sees the old pyth:5 hole: always typing 5 when the answers are 5 or 10', () => {
     // a check of five questions whose answers are 5 three times out of four: the measure must catch it
     const old: Draw = () => ({ form: 'num', answer: Math.random() < 0.75 ? 5 : 10, key: 'old:x' });

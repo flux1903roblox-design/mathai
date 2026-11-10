@@ -221,36 +221,53 @@ const hadPoints = (who: string, n: number) => (n === 1 ? `${who} הייתה נק
 // ---------------------------------------------------------------- stair 2: comparing
 // The model: the place on the line. Right is bigger; among negatives the one closer to zero is bigger.
 
-type Cmp = { a: number; b: number };
+/**
+ * k 0: the largest of the numbers, k 1: the smallest. Five numbers in a question (two in a guided problem), with
+ * different distances from zero: picking one of the numbers shown is right only one time in five, so a check cannot be
+ * passed by typing a number from the question (src/learn/guessing.test.ts).
+ */
+type Cmp = { k: number; v: number[] };
+const negOf = (p: Cmp) => p.v.filter((x) => x < 0);
+const listMath = (a: number[]) => `⁦${a.map((v) => `$${T(v)}$`).join(', ')}⁩`;
 const compareModel: DiagModel<Cmp> = {
-  // mostly two negatives (the heart of the stair); then a negative against a smaller positive, or against zero
+  // mostly negatives only (the heart of the stair); then negatives with zero or a positive closer to zero than some of
+  // them; and some with a positive farther from zero than every negative
   params: (rnd) => {
-    const r = rnd();
-    if (r < 0.55) { const a = -rint(rnd, 1, 15); let b = a; while (b === a) b = -rint(rnd, 1, 15); return { a, b }; }
-    const n = r < 0.85 ? -rint(rnd, 3, 15) : -rint(rnd, 1, 12);
-    const o = r < 0.85 ? rint(rnd, 1, -n - 1) : 0;
-    return rnd() < 0.5 ? { a: n, b: o } : { a: o, b: n };
+    const k = rnd() < 0.5 ? 0 : 1;
+    for (;;) {
+      const r = rnd();
+      const neg = (lo: number, hi: number) => [1, 2, 3, 4].map(() => -rint(rnd, lo, hi));
+      const v = r < 0.55 ? [...neg(1, 15), -rint(rnd, 1, 15)] : r < 0.85 ? [...neg(3, 15), rint(rnd, 0, 9)] : [...neg(1, 9), rint(rnd, 10, 15)];
+      const far = Math.max(...v.map(Math.abs));
+      // five different distances from zero, and a small positive (or zero) always nearer to zero than some negative
+      if (new Set(v.map(Math.abs)).size === 5 && !(r >= 0.55 && r < 0.85 && v[4] >= far)) return { k, v: mix(v, rnd) };
+    }
   },
-  text: () => 'איזה מספר גדול יותר? כתבו אותו.',
-  display: (p) => `${T(p.a)} \\qquad ${T(p.b)}`,
-  answer: (p) => Math.max(p.a, p.b),
+  // the numbers in the sentence, one expression each inside a left-to-right isolate: they keep their order in Hebrew,
+  // and a narrow phone wraps the list between numbers (five do not fit one line of display maths at 320px)
+  text: (p) => `מה המספר ${p.k === 0 ? 'הגדול' : 'הקטן'} ביותר מבין ${listMath(p.v)}?`,
+  answer: (p) => (p.k === 0 ? Math.max(...p.v) : Math.min(...p.v)),
   bugs: {
-    // between two negatives, the one farther from zero taken for the bigger
-    'neg-compare': (p) => (p.a < 0 && p.b < 0 ? Math.min(p.a, p.b) : null),
-    // the minus ignored altogether: the bigger distance from zero wins, even against zero or a positive number
-    'ignore-sign': (p) => (Math.abs(p.a) > Math.abs(p.b) ? p.a : p.b),
+    // among negatives, the one farther from zero taken for the bigger: the "largest" of negatives only is then the one
+    // farthest from zero, and the "smallest" negative the one closest to it (a positive or zero is still bigger)
+    'neg-compare': (p) => { const n = negOf(p); if (n.length < 2) return null; return p.k === 0 ? (n.length === p.v.length ? Math.min(...n) : null) : Math.max(...n); },
+    // the minus ignored altogether: sizes compared, even against zero or a positive number
+    'ignore-sign': (p) => { const byAbs = [...p.v].sort((x, y) => Math.abs(x) - Math.abs(y)); return p.k === 0 ? byAbs[byAbs.length - 1] : byAbs[0]; },
   },
   solution: (p) => {
-    const hi = Math.max(p.a, p.b); const lo = Math.min(p.a, p.b);
-    const first = hi < 0
-      ? `שני המספרים שליליים. $${T(hi)}$ קרוב יותר לאפס, ולכן הוא ימינה יותר על הציר.`
-      : hi === 0 ? `$${T(lo)}$ נמצא משמאל לאפס, ואפס גדול מכל מספר שלילי.`
-        : `$${T(lo)}$ נמצא משמאל לאפס ו־$${T(hi)}$ מימינו. כל מספר חיובי גדול מכל מספר שלילי.`;
-    return [first, `על הציר $${T(lo)}$ משמאל ל־$${T(hi)}$, ולכן $${T(hi)} > ${T(lo)}$.`, `הגדול הוא $${T(hi)}$.`];
+    const s = [...p.v].sort((x, y) => x - y);
+    const ans = p.k === 0 ? s[s.length - 1] : s[0];
+    return [
+      negOf(p).length === p.v.length
+        ? 'כל המספרים שליליים. על הציר מי שקרוב יותר לאפס נמצא ימינה יותר, ולכן הוא גדול יותר.'
+        : 'השליליים נמצאים משמאל לאפס, ולכן הם קטנים מאפס ומכל מספר חיובי. ביניהם, הקרוב יותר לאפס גדול יותר.',
+      `מהקטן לגדול, כמו משמאל לימין על הציר: $${s.map((x) => T(x)).join(' < ')}$.`,
+      `${p.k === 0 ? 'הגדול ביותר' : 'הקטן ביותר'} הוא $${T(ans)}$.`,
+    ];
   },
-  hint: (p) => (p.a < 0 && p.b < 0
-    ? 'שני המספרים שליליים. מי מהם קרוב יותר לאפס? הוא נמצא ימינה יותר, ולכן הוא הגדול.'
-    : 'מספר שלילי נמצא משמאל לאפס, ולכן הוא קטן מאפס ומכל מספר חיובי.'),
+  hint: (p) => (p.k === 0
+    ? 'הגדול ביותר הוא הימני ביותר על ציר המספרים. בין מספרים שליליים, הקרוב יותר לאפס גדול יותר.'
+    : 'הקטן ביותר הוא השמאלי ביותר על ציר המספרים. בין מספרים שליליים, הרחוק יותר מאפס קטן יותר.'),
 };
 
 type Temps = { k: number; v: number[] }; // k = 0: the coldest of three mornings; k = 1: the highest of three divers

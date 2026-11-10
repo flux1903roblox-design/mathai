@@ -291,6 +291,9 @@ const quadModel: DiagModel<QuadP> = {
     'quad-order': (p) => (p.k === 2 ? countPts(p.pts, (x, y) => quadOf(x, y) === cw(p.t)) : p.k === 3 ? (p.t === 2 || p.t === 4 ? -(p.ask ? p.y : p.x) : null) : cw(p.k === 0 ? quadOf(p.x, p.y) : p.t)),
     // counted points on the axes at the quadrant's edge as inside it
     'axis-quadrant': (p) => (p.k === 2 ? quadAns(p) + countPts(p.pts, (x, y) => nextTo(p.t, x, y)) : null),
+    // the distance to the axis written as the coordinate, its minus dropped (in the second quadrant "x = 4" can also be a
+    // clockwise count, which gives the same number: a question where the two differ tells them apart)
+    sign: (p) => (p.k === 3 && quadAns(p) < 0 ? -quadAns(p) : null),
   },
   solution: (p) => {
     if (p.k === 2) {
@@ -340,6 +343,8 @@ const cityModel: DiagModel<CityP> = {
     // k 2: the distance to the other road taken (north-south read as x)
     swap: (p) => (p.k === 1 ? quadOf(p.sy, p.sx) : p.k === 2 ? (p.ask ? p.sy * p.dx! : p.sx * p.dy!) : null),
     'quad-order': (p) => (p.k === 2 ? null : cw(quadOf(p.sx, p.sy))),
+    // k 2: the distance to the road written as the coordinate, without the minus of west or south
+    sign: (p) => { if (p.k !== 2) return null; const v = p.ask ? p.sy * p.dy! : p.sx * p.dx!; return v < 0 ? -v : null; },
   },
   solution: (p) => {
     if (p.k === 2) {
@@ -472,6 +477,19 @@ const stair2: StairContent = {
         { kind: 'explore', text: 'שימו נקודה ברביע השני.', manip: plot('P', { quadrant: 2 }), answer: [-3, 2], hint: 'מהרביע הראשון, למעלה מימין, זזים נגד כיוון השעון: הרביע הבא הוא למעלה משמאל.', success: 'הרביע השני: למעלה משמאל, $(-, +)$.' },
         { kind: 'explore', text: 'ועכשיו ברביע הרביעי.', manip: plot('P', { quadrant: 4 }), answer: [3, -2], hint: 'הרביע האחרון בסיבוב נגד כיוון השעון: למטה מימין.', success: 'הרביע הרביעי: למטה מימין, $(+, -)$.' },
         { kind: 'predict', text: 'באיזה רביע $(6, -2)$?', choices: ['שני', 'רביעי'], answer: 1, why: '$(+, -)$: למטה מימין. בסיבוב נגד כיוון השעון זה הרביע האחרון, הרביעי.' },
+      ] },
+    { id: 'sign', title: 'כתבו את המרחק מהציר בלי הסימן שהרביע נותן', prereq: 'coord:1',
+      cause: 'מרחק הוא תמיד חיובי, ולכן קל להעתיק אותו כמו שהוא. אבל השיעור הוא המרחק עם סימן: משמאל לציר $y$ שיעור ה־$x$ שלילי, ומתחת לציר $x$ שיעור ה־$y$ שלילי.',
+      explain: [
+        'נראה שכתבתם את המרחק מהציר, בלי המינוס שהרביע נותן.',
+        'המרחק מציר $y$ אומר כמה צעדים הצידה, והרביע אומר לאיזה צד. ברביע השני והשלישי הנקודה משמאל לציר $y$, ולכן $x$ שלילי. ברביע השלישי והרביעי היא מתחת לציר $x$, ולכן $y$ שלילי.',
+        'למשל נקודה ברביע השלישי, במרחק $4$ מציר $y$ ובמרחק $2$ מציר $x$: היא $(-4, -2)$. שני השיעורים שליליים, כי היא משמאל ולמטה.',
+      ],
+      remedy: [
+        { kind: 'explore', text: 'שימו את $P$ ברביע השלישי, במרחק $4$ מציר $y$ ובמרחק $2$ מציר $x$.', manip: plot('P'), answer: [-4, -2],
+          hint: 'ברביע השלישי הולכים שמאלה ולמטה: 4 צעדים שמאלה, ואז 2 למטה.', success: '$P(-4, -2)$: המרחקים הם $4$ ו־$2$, והרביע נתן לשניהם מינוס.' },
+        { kind: 'predict', text: 'נקודה ברביע הרביעי נמצאת במרחק $5$ מציר $x$. מה שיעור ה־$y$ שלה?', choices: ['$5$', '$-5$'], answer: 1,
+          why: 'הרביע הרביעי הוא למטה מימין, ולכן $y$ שלילי. המרחק $5$, והשיעור $-5$.' },
       ] },
     { id: 'axis-quadrant', title: 'שייכו לרביע נקודה שנמצאת על ציר',
       cause: 'נקודה כמו $(0, 6)$ נראית "למעלה", ולכן נדמה שהיא ברביע. אבל $x = 0$ הוא לא חיובי ולא שלילי: היא בדיוק על הגבול.',

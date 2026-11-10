@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { startLesson, answer, next, resultOf, progressOf, planLevels, LESSON_LEN, REVIEW_LEN, PARTS, XP } from './lesson.js';
-import { unitNodes, recordOnPath, nextNode, markMastered, doneCount, reachedUpTo, stairProgress, migratePath, isKept } from './path.js';
+import { unitNodes, recordOnPath, nextNode, markMastered, doneCount, reachedUpTo, stairProgress, migratePath, isKept, chestOpen, reopenKept } from './path.js';
 import { questsFor, questProgress } from './quests.js';
 import { useApp, streakOf, today, dayBefore } from './store.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
@@ -91,9 +91,13 @@ describe('path: done means mastered', () => {
   });
   it('a stair mastered out of order is done; the path still continues from the first one not passed', () => {
     const p = markMastered({}, 'signed', 3).path;
-    expect(unitNodes('signed', p).slice(0, 4).map((n) => n.state)).toEqual(['current', 'locked', 'done', 'locked']);
+    // the stair between is open (its lesson and check wait), not locked behind a stair already done
+    expect(unitNodes('signed', p).slice(0, 4).map((n) => n.state)).toEqual(['current', 'open', 'done', 'locked']);
     expect(doneCount('signed', p)).toBe(1);
     expect(nextNode(topicsFor('7'), p)).toMatchObject({ topic: 'signed', level: 1 });
+    // the halfway chest is the store's: it opens with every stair up to it done, not with the halfway stair alone
+    expect(chestOpen('signed', p)).toBe(false);
+    expect(chestOpen('signed', markMastered(markMastered(p, 'signed', 1).path, 'signed', 2).path)).toBe(true);
   });
   it('the ring shows how far the five stages went, and is full only with the mastery check', () => {
     expect(stairProgress(undefined, 0)).toBe(0);
@@ -134,6 +138,17 @@ describe('v3 migration: nobody loses a stair they earned', () => {
     expect(st.learn.miscon['signed:1|minus-minus'].seen).toEqual(['sn1n:-4 - (-6)']);
     // adding a positive product is no "minus-minus": that evidence goes, the real one stays (now only a suspicion)
     expect(st.learn.miscon['signed:5|minus-minus']).toMatchObject({ seen: ['sn5:6 - (2 - 3) \\cdot 3'], state: 'suspected' });
+  });
+  it('a kept stair stays done only until its mastery check is failed: then it is open again, its practice kept', () => {
+    const path = { coord: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'kept', 2: 'kept' } } };
+    const p = reopenKept(path, 'coord', 2);
+    expect(isKept(p, 'coord', 2)).toBe(false);
+    expect(doneCount('coord', p)).toBe(1);
+    expect(unitNodes('coord', p).slice(0, 3).map((n) => n.state)).toEqual(['done', 'open', 'current']);
+    expect(p.coord.parts).toEqual({ 1: 2, 2: 2 });
+    // a mastered stair is never reopened by this
+    const m = markMastered(path, 'coord', 1).path;
+    expect(reopenKept(m, 'coord', 1)).toBe(m);
   });
 });
 
@@ -182,6 +197,15 @@ describe('store: lessons, streak and freezes', () => {
     expect(st.progress.signed).toEqual({ level: 2, max: 2 });
     // mastering the halfway stair opens the unit's chest
     ['signed:2', 'signed:3'].forEach((sk, i) => { const out = useApp.getState().completeCheck({ purpose: 'mastery', skill: sk, topic: 'signed', level: i + 2, right: 4, asked: 5, perSkill: {}, passed: true, xp: 15 }); expect(out.chestOpened).toBe(i === 1); });
+  });
+  it('a failed mastery check on a kept stair takes it out of the done count; a passed one makes it mastered', () => {
+    useApp.setState({ path: { signed: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'kept', 2: 'kept' } } } });
+    const failed = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:2', topic: 'signed', level: 2, right: 2, asked: 5, perSkill: {}, passed: false, xp: 0 });
+    expect(failed).toMatchObject({ reopened: true, done: 1 });
+    expect(unitNodes('signed', useApp.getState().path).slice(0, 3).map((n) => n.state)).toEqual(['done', 'open', 'current']);
+    const passed = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:1', topic: 'signed', level: 1, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+    expect(passed).toMatchObject({ reopened: false, done: 1 });
+    expect(useApp.getState().path.signed.done).toEqual({ 1: 'mastered' });
   });
   it('a freeze saves the streak over one missed day', () => {
     // On a fixed Thursday, so the missed day (Wednesday) is never a Shabbat, which would not count as missed.

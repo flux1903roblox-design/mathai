@@ -2,7 +2,7 @@
 // and every rule here is tested without React. Called by lib/store.js.
 import type { Attempt, LearnState, MisconRecord, Purpose } from './types';
 import { addAttempt, recordMasteryCheck, recordReview, daysBetween, MASTERY_N, MASTERY_NEED } from './mastery';
-import { addEvidence, addCounter, finishVerify, GENERATOR_WEIGHT, COUNTER_WEIGHT, CONFIRM_SCORE, misconKey } from './misconceptions';
+import { addEvidence, addCounter, finishVerify, GENERATOR_WEIGHT, COUNTER_WEIGHT, GUIDED_WEIGHT, CONFIRM_SCORE, misconKey } from './misconceptions';
 import { recordDiagnostic } from './examRescue';
 import { logEvent } from './analytics';
 import { skillId } from './skills';
@@ -34,7 +34,9 @@ export function learnAfterAnswer(learn: LearnState, e: AnswerEvent): LearnState 
   const key = e.key || `${skill}@${at}`;
   if (!e.ok) {
     const cands = e.cands?.length ? e.cands : e.cat ? [{ id: e.cat, conf: GENERATOR_WEIGHT }] : [];
-    cands.forEach((c) => { miscon = addEvidence(miscon, skill, c.id, c.conf, key, at); });
+    // a guided step weighs less than an answer given alone
+    const w = purpose === 'guided' ? GUIDED_WEIGHT : 1;
+    cands.forEach((c) => { miscon = addEvidence(miscon, skill, c.id, c.conf * w, key, at); });
   } else if (independent && e.could) {
     // a right answer counts against a misconception only where it could have shown (a diagnostic model knows where);
     // a right answer to 3 + 5 says nothing about subtracting a negative

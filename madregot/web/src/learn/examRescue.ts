@@ -63,6 +63,23 @@ function standingOf(learn: LearnState, plan: ExamPlanState, id: SkillId, now: st
 }
 
 const SCORE: Record<Standing, number> = { gap: 6, untested: 4, shaky: 2, ready: 1, mastered: 0 };
+const toWork = (p: PlanSkill) => p.standing !== 'mastered' && p.standing !== 'ready';
+
+/**
+ * The skills in the given order, except that a skill still to work on comes after every chosen prerequisite (direct or
+ * through others) that is still to work on too. Stable: the given order decides everything else.
+ */
+export function prereqsFirst(list: PlanSkill[]): PlanSkill[] {
+  const out: PlanSkill[] = []; const placed = new Set<SkillId>();
+  const place = (p: PlanSkill) => {
+    if (placed.has(p.skill)) return;
+    placed.add(p.skill);
+    if (toWork(p)) { const anc = ancestorsOf(p.skill); list.filter((q) => toWork(q) && anc.includes(q.skill)).forEach(place); }
+    out.push(p);
+  };
+  list.forEach(place);
+  return out;
+}
 
 /** The plan, from the exam's skills and the evidence so far. */
 export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, today: string): ExamPlan {
@@ -75,8 +92,10 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
     const lowConfidence = plan.confidence <= 2 ? 0.5 : 0;
     return { skill: id, ...s, priority: SCORE[s.standing] + leanedOn + (s.standing === 'mastered' ? 0 : lowConfidence) };
   });
-  // order: by priority, but never before a chosen prerequisite of the same standing or worse
-  const order = [...skills].sort((a, b) => b.priority - a.priority || ALL_SKILLS.indexOf(a.skill) - ALL_SKILLS.indexOf(b.skill));
+  // order: by priority, then a stable pass that puts every chosen prerequisite still to work on (not mastered, not
+  // ready) before the stairs that lean on it: a stair's lesson never comes before strengthening what it uses
+  const byPriority = [...skills].sort((a, b) => b.priority - a.priority || ALL_SKILLS.indexOf(a.skill) - ALL_SKILLS.indexOf(b.skill));
+  const order = prereqsFirst(byPriority);
   const diagnosed = chosen.every((id) => (plan.diagnostic?.[id]?.asked || 0) > 0);
 
   const tasksOf = (p: PlanSkill): PlanTask[] => {
@@ -95,7 +114,7 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
     return [{ skill: p.skill, kind: 'review', title: `חזרה קצרה: ${t}`, to: routeOf.check(p.skill, 'review') }];
   };
 
-  const queue = order.filter((p) => p.standing !== 'mastered' && p.standing !== 'ready').flatMap(tasksOf);
+  const queue = order.filter(toWork).flatMap(tasksOf);
   const finale: PlanTask[] = [{ skill: null, kind: 'exam', title: 'מבחן תרגול על כל הנושאים', to: '/rescue/exam' }];
   const confirmAndReview = [...order.filter((p) => p.standing === 'ready'), ...order.filter((p) => p.standing === 'mastered')].flatMap(tasksOf);
   const perDay = Math.max(1, Math.floor(plan.minutes / 5));
@@ -129,7 +148,7 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
   const n = skills.length;
   const topics = [...new Set(chosen.map((id) => parseSkill(id).topic))];
   const topicsMastered = topics.filter((t) => skills.filter((s) => parseSkill(s.skill).topic === t).every((s) => s.standing === 'mastered')).length;
-  const focus = order.filter((p) => p.standing !== 'mastered' && p.standing !== 'ready').slice(0, 2).map((p) => titleOf(p.skill));
+  const focus = order.filter(toWork).slice(0, 2).map((p) => titleOf(p.skill));
   const when = daysLeft === 0 ? 'המבחן היום.' : daysLeft === 1 ? 'המבחן מחר.' : `יש לכם עוד ${daysLeft} ימים למבחן.`;
   // two different things, said with two different words: mastered (a mastery check) and ready (a good first diagnostic)
   const have = [

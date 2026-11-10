@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { Check, Target } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { boardOf, gapTarget, GAP_CLEAR } from '@/lib/board.js';
+import { placementMax } from '@/lib/placement.js';
 import MasteryMap, { gradeTiles, tilesSummary } from './learn/MasteryMap.jsx';
 import { MathText } from './MathText.jsx';
 import { Button } from './ui.jsx';
@@ -69,7 +70,7 @@ export default function Board({ grade, placed, onStart }) {
 
       <div className="board-foot">
         <Link to={`/placement?grade=${grade}`} className="board-link"><Target size={18} aria-hidden="true" />{tested ? 'בדיקת רמה מחדש' : 'בדיקת רמה קצרה'}</Link>
-        <span className="board-foot-note">{tested ? 'מדרגות שכבר עליתם נשארות פתוחות.' : 'עד 9 שאלות. פותחת את המדרגות שכבר יודעים.'}</span>
+        <span className="board-foot-note">{tested ? 'מדרגות שכבר עליתם נשארות פתוחות.' : `עד ${placementMax(grade)} שאלות. פותחת את המדרגות שכבר יודעים.`}</span>
       </div>
     </section>
   );

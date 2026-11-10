@@ -14,17 +14,18 @@ import { useActions } from '@/lib/useLearn.js';
 import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import Mascot from '@/components/Mascot.jsx';
+import { inDays } from '@/content/util.js';
 
-function copy(r, rec, def) {
+function copy(r, rec, def, award) {
   const days = (box) => REVIEW_DAYS[box] ?? 1;
   switch (r.purpose) {
     case 'mastery':
       return r.passed
-        ? { mood: 'achievement', title: 'שולטים לבד!', body: `${r.right} מתוך ${r.asked} נכונות, בלי רמזים. בעוד ${days(0)} ${days(0) === 1 ? 'יום' : 'ימים'} נבדוק בקצרה שזה נשאר.` }
-        : { mood: 'encouraging', title: 'עוד לא, וזה בסדר', body: `${r.right} מתוך ${r.asked}. כדי לשלוט צריך ${MASTERY_NEED} מתוך ${MASTERY_N} בלי רמזים. עוד קצת תרגול, ואז מנסים שוב.` };
+        ? { mood: 'achievement', title: 'שולטים לבד!', body: `${r.right} מתוך ${r.asked} נכונות, בלי רמזים. ${inDays(days(0))} נבדוק בקצרה שזה נשאר.` }
+        : { mood: 'encouraging', title: 'עוד לא, וזה בסדר', body: `${r.right} מתוך ${r.asked}. כדי לשלוט צריך ${MASTERY_NEED} מתוך ${MASTERY_N} בלי רמזים. ${award?.reopened ? 'המדרגה חוזרת להיות פתוחה במפה, והתרגול שכבר עשיתם נשמר. ' : ''}עוד קצת תרגול, ואז מנסים שוב.` };
     case 'review':
       return r.passed
-        ? { mood: 'happy', title: 'זה נשאר!', body: `הבדיקה הבאה בעוד ${days(rec?.mastered?.box ?? 1)} ימים. כל פעם המרווח גדל.` }
+        ? { mood: 'happy', title: 'זה נשאר!', body: `הבדיקה הבאה ${inDays(days(rec?.mastered?.box ?? 1))}. כל פעם המרווח גדל.` }
         : { mood: 'encouraging', title: 'שכחנו קצת', body: 'זה קורה, וזה לא מוחק את מה שלמדתם. חזרה קצרה תחזיר את זה, ומחר בודקים שוב.' };
     case 'verify':
       return r.passed
@@ -45,7 +46,7 @@ export default function CheckDone({ result: r, award, onExit }) {
   const rec = useApp((s) => (skill ? s.learn.skills[skill] : null));
   const def = r.misc ? contentOf(skill)?.misconceptions.find((m) => m.id === r.misc) : null;
   const actions = useActions();
-  const c = copy(r, rec, def);
+  const c = copy(r, rec, def, award);
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
   const rescue = r.purpose === 'diagnostic' || r.purpose === 'exam';

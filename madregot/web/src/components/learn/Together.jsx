@@ -15,6 +15,7 @@ import { parseNum, near, T, plainNum } from '@/content/util.js';
 import { enter } from '@/lib/motion.js';
 import { play } from '@/lib/sound.js';
 import { qaOn } from '@/lib/qa.js';
+import { namedMistake } from '@/learn/content/togetherDiag.ts';
 
 function Hints({ hints, level }) {
   if (!level) return null;
@@ -23,14 +24,6 @@ function Hints({ hints, level }) {
       {hints.slice(0, level).map((h, i) => <p key={i} className="ls-why warm"><Lightbulb size={16} aria-hidden="true" /> <span className="tg-hint-n">{i === 0 ? 'רמז' : 'רמז חזק יותר'}:</span> <MathText text={h} /></p>)}
     </div>
   );
-}
-
-/** What a wrong last step most likely shows: the misconceptions it fits, by name (one, or "maybe this, maybe that"). */
-function namedMistake(ids, names) {
-  const t = ids.map((id) => names[id]).filter(Boolean);
-  if (!t.length) return null;
-  // more than one fits: the first (the stair's main one) said as a possibility, so the sheet stays short on a phone
-  return t.length === 1 ? `מה כנראה קרה: ${t[0]}.` : `אולי ${t[0]}.`;
 }
 
 /**

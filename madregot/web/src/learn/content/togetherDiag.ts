@@ -7,6 +7,7 @@
 // with the reasoning in a comment. `{ bugs: {} }` says that no misconception of the stair can show on that number.
 import type { SkillId, StairContent } from '../types';
 import { same } from '../expr';
+import { matchesValue } from '../misconceptions';
 
 export type FinalDiag =
   | { model: 'diag' | 'transfer'; p: Record<string, unknown> }
@@ -18,7 +19,7 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)
   ],
   'signed:2': [
-    { model: 'diag', p: { a: -15, b: -4 } },
+    { model: 'diag', p: { k: 0, v: [-15, -4] } }, // the larger of −15 and −4
     // the smallest of −3, 0, −11, 2: among negatives the one closest to zero taken as smaller (−3); by distance only (0)
     { bugs: { 'neg-compare': -3, 'ignore-sign': 0 } },
   ],
@@ -41,11 +42,13 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { k: 0, x: -6, y: -2, ask: 0, rev: 0 } },
   ],
   'coord:2': [
-    // Q(−8, 3) is in the second quadrant. Swapped, (3, −8) is in the fourth; counted clockwise, the second is called the fourth
-    { bugs: { swap: 4, 'quad-order': 4 } },
-    // (−1, 4) and (−5, 2) are in the second quadrant; (0, 6) and (−3, 0) are on the axes. Counting those too gives 4;
-    // swapped, no point lands in the second; counted clockwise, the "second" is the fourth, where there is none
-    { bugs: { 'axis-quadrant': 4, swap: 0, 'quad-order': 0 } },
+    // Q(−8, 3) is in the second quadrant; counted clockwise, the second is called the fourth. Swapped, (3, −8) would be
+    // in the fourth too, but the steps above ruled that out: the student read x = −8 as left and y = 3 as up
+    { bugs: { 'quad-order': 4 } },
+    // (−1, 4) and (−5, 2) are in the second quadrant; (0, 6) and (−3, 0) are on the axes, as the student just said in
+    // the steps (so counting them, 4, is ruled out). Swapped, no point lands in the second; counted clockwise, the
+    // "second" is the fourth, where there is none
+    { bugs: { swap: 0, 'quad-order': 0 } },
   ],
   'coord:3': [
     { model: 'diag', p: { h: 0, f: -1, p: -6, q: 3 } }, // M(−1, −6), N(−1, 3)
@@ -141,11 +144,13 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { a: 24, b: 10, c: 26 } },
   ],
   'pyth:3': [
-    // 20, 29, 21 is right-angled, with the hypotenuse written in the middle: the side written last checked as the
-    // hypotenuse (20² + 29² ≠ 21²) gives "not right", 0; the sides compared without squaring (20 + 21 ≠ 29) give 0 too
-    { bugs: { 'wrong-hyp': 0, 'add-legs': 0 } },
-    // 9, 12, 16 is not right-angled; a right angle needs 15. Taken as right as it is: 16. The sides added: 9 + 12 = 21
-    { bugs: { 'assume-right': 16, 'add-legs': 21 } },
+    // 20, 29, 21 is right-angled, with the hypotenuse written in the middle. A 0 ("not right") would fit the side written
+    // last checked as the hypotenuse, or the sides compared without squaring, but the steps above it ruled both out: the
+    // student chose 29, the longest side, compared the squares and concluded "right-angled". So no misconception is named
+    { bugs: {} },
+    // 9, 12, 16 is not right-angled; a right angle needs 15. Taken as right as it is (16) is ruled out by step 2, where
+    // the student chose "not right-angled". The legs added as if the hypotenuse were their sum: 9 + 12 = 21
+    { bugs: { 'add-legs': 21 } },
   ],
   'pyth:4': [
     { model: 'diag', p: { k: 0, ask: 1, c: 17, big: 15, small: 8 } }, // the kite: string 17, 8 along the ground
@@ -154,8 +159,8 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
   ],
   'pyth:5': [
     // P(−5, 4), Q(4, −8): legs 9 and 12, distance 15. Legs added: 21. Not rooted: 225. Differences without the signs:
-    // |4| − |−5| → 1 and |−8| − |4| → 4, so √17 ≈ 4.1
-    { bugs: { 'add-legs': 21, 'no-root': 225, 'coord-diff': Math.round(Math.sqrt(17) * 10) / 10 } },
+    // |4| − |−5| → 1 and |−8| − |4| → 4, so √17 ≈ 4.1 (kept exact: 4.1 and 4.12 both match it)
+    { bugs: { 'add-legs': 21, 'no-root': 225, 'coord-diff': Math.sqrt(17) } },
   ],
   'stats:1': [
     // 12, 8, 15, 8, 12, 8, 3: the mode is 8. The biggest value: 15. How many times 8 appears: 3
@@ -209,6 +214,17 @@ export function finalPredictions(c: StairContent, k: number): [string, number][]
 /** The misconceptions a typed last step fits (a prediction that is not whole matches the answer rounded to tenths). */
 export function diagnoseFinal(c: StairContent, k: number, u: number): string[] {
   if (!Number.isFinite(u)) return [];
-  const ids = finalPredictions(c, k).filter(([, v]) => same(v, u) || (!Number.isInteger(v) && Math.abs(v - u) <= 0.05 + 1e-9)).map(([id]) => id);
+  const ids = finalPredictions(c, k).filter(([, v]) => matchesValue(v, u)).map(([id]) => id);
   return [...new Set(ids)];
+}
+
+/**
+ * What a wrong last step most likely shows, in words: the misconceptions it fits, by name. The names are past-tense
+ * descriptions ("החליפו בין $x$ ל־$y$") that read as advice without a frame, so they always come after "מה כנראה קרה:";
+ * when more than one fits, each is said as a possibility, as in practice (screens/Lesson.jsx). Null when none fits.
+ */
+export function namedMistake(ids: string[], names: Record<string, string>): string | null {
+  const t = [...new Set(ids.map((id) => names[id]).filter(Boolean))];
+  if (!t.length) return null;
+  return t.length === 1 ? `מה כנראה קרה: ${t[0]}.` : `מה כנראה קרה: אולי ${t.join(', ואולי ')}.`;
 }
