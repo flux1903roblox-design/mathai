@@ -17,7 +17,6 @@ import { LESSON_LEN, PARTS } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { MathText } from '@/components/MathText.jsx';
 import { Button, ChapterMark } from '@/components/ui.jsx';
-import Mascot from '@/components/Mascot.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
@@ -78,8 +77,8 @@ export default function Journey() {
       <header className={clsx('journey-head', `ch-${t.color}`)}>
         <ChapterMark color={t.color} n={level} size="lg" />
         <div>
-          <p className="journey-topic">{t.title} · מדרגה {level}</p>
           <h1 className="journey-title">{t.levels[level - 1].title}</h1>
+          <p className="journey-topic">{t.title} · מדרגה {level}</p>
           <p className={clsx('mastery-chip', `ms-${state}`)}>{STATE_LABEL[state]}{state === 'mastered' && due != null ? ` · בדיקה חוזרת בעוד ${due || 1} ${due <= 1 ? 'יום' : 'ימים'}` : ''}</p>
         </div>
       </header>
@@ -142,7 +141,6 @@ export default function Journey() {
 
       {!c && (
         <div className="journey-wip">
-          <Mascot mood="thinking" size={64} />
           <p>השיעור עם ההסבר והדוגמאות למדרגה הזאת עוד נכתב. בינתיים אפשר לתרגל עם רמזים ולעבור בדיקת שליטה.</p>
         </div>
       )}

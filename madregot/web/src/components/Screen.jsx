@@ -56,7 +56,6 @@ export function Flow({ label, step, steps, onBack, ask, mood = 'idle', children,
       </header>
       <main className="ob-main" data-region="content">
         <div className="ob-ask" data-region="question">
-          <Mascot mood={mood} size={84} className="ob-mascot" />
           <p className="ob-bubble" id={askId}>{ask}</p>
         </div>
         {children}

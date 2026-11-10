@@ -8,7 +8,6 @@ import { TOPICS, topicsFor } from '@/content/index.js';
 import { doneUpTo } from '@/lib/path.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState } from '@/learn/mastery.ts';
-import Mascot from '@/components/Mascot.jsx';
 import { Stat } from '@/components/ds.jsx';
 import Achievements from '@/components/Achievements.jsx';
 import ProgressSummary from '@/components/learn/ProgressSummary.jsx';
@@ -25,7 +24,7 @@ export default function Me() {
     <div className="page profile">
       <header className="profile-top" data-region="header">
         <Link to="/settings" className="icon-btn profile-gear" aria-label="הגדרות"><Gear size={24} aria-hidden="true" /></Link>
-        <div className="profile-avatar" aria-hidden="true"><Mascot mood="happy" size={112} /></div>
+        <div className="profile-avatar" aria-hidden="true"><span className="avatar-initial">{(profile.name || "א").trim().charAt(0)}</span></div>
       </header>
       <section className="profile-id" aria-labelledby="profile-name">
         <h1 id="profile-name" className="profile-name">{profile.name || 'אני'}</h1>

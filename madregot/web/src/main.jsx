@@ -3,14 +3,12 @@ import './lib/historySeed.js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/rubik';
-import '@fontsource-variable/fredoka';
 import 'katex/dist/katex.min.css';
 import './styles/tokens.css';
 import './styles/app.css';
 import './styles/motion.css';
 import './styles/v4.css';
-import './styles/dark.gen.css';
-import './styles/theme-dark.css';
+import './styles/canon.css';
 import App from './App.jsx';
 
 // Test hook: with localStorage 'madregot-seed' set, exercises come out the same on every run (visual tests).

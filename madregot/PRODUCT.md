@@ -43,7 +43,8 @@ Built-in question generators with exact answers drive the practice and decide wh
 
 ## Brand Commitments
 
-None confirmed. The app must not use the Vibewise name, its logos, or the school's logo.
+- The app must not use the Vibewise name, its logos, or the school's logo.
+- Standing preference (10 November 2026): the category standard, executed at the level of Brilliant, Duolingo, Apple and Photomath. Light and calm, one brand colour, large readable type, consistent across every screen; nothing that looks childish or cheap.
 
 ## Evidence on Hand
 

@@ -4,7 +4,6 @@ import { Check, Target } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { boardOf, gapTarget, GAP_CLEAR } from '@/lib/board.js';
 import { PARTS } from '@/lib/lesson.js';
-import Mascot from './Mascot.jsx';
 import Stairs from './Stairs.jsx';
 import { MathText } from './MathText.jsx';
 import { Button } from './ui.jsx';
@@ -61,7 +60,6 @@ export default function Board({ grade, placed, onStart, onJump }) {
   return (
     <section className="board" aria-labelledby="board-title">
       <div className="board-hero">
-        <Mascot mood={placed ? 'achievement' : 'idle'} size={72} className="board-mascot" />
         <div className="board-hero-text">
           <h2 id="board-title" className="board-title">{placed ? 'זה הלוח שלכם' : profile?.name ? `הלוח של ${profile.name}` : 'הלוח שלי'}</h2>
           <p className="board-level">עליתם <b>{b.done}</b> מתוך {b.total} מדרגות ב{GRADE_NAME[grade]}</p>

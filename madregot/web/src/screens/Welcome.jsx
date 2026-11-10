@@ -9,7 +9,6 @@ import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { Flow } from '@/components/Screen.jsx';
-import PageScene from '@/components/PageScene.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { topicsFor } from '@/content/index.js';
 import { KNOW } from '@/lib/placement.js';
@@ -140,7 +139,6 @@ function Onboarding({ onTeacher }) {
       </header>
       <main className="ob-main" data-region="content">
         <div className="ob-ask" data-region="question">
-          <Mascot mood={step === 'start' ? 'excited' : 'idle'} size={84} className="ob-mascot" />
           <p className="ob-bubble" id="ob-q">{ask}</p>
         </div>
 
@@ -233,7 +231,6 @@ function TeacherStart({ onBack }) {
         </header>
         <main className="ob-main" data-region="content">
           <div className="ob-ask" data-region="question">
-            <Mascot mood="happy" size={84} className="ob-mascot" />
             <div className="ob-bubble"><h1 className="ob-bubble-title">לוח המורה עובד עם שרת הכיתה</h1></div>
           </div>
           <p className="teacher-off-lead">הכתובת הזו היא גרסת תרגול לתלמידים, בלי שרת. לוח המורה צריך שרת קטן של הכיתה (Cloudflare, בחינם), כדי שהתלמידים יוכלו להצטרף בקוד והמורה יראה את ההתקדמות.</p>

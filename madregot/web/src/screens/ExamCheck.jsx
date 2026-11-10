@@ -128,7 +128,6 @@ export default function ExamCheck() {
       ) : (
         <>
           <div className="ob-ask check-ask" data-region="question">
-            <Mascot mood="thinking" size={72} className="ob-mascot" />
             <p className="ob-bubble">{practice ? `${practice.title}: צלמו את הדפים שפתרתם. התשובות הנכונות כבר אצלי, אז אני רק קורא ומשווה.` : 'צלמו את דפי המבחן, דף אחד בכל צילום, או העלו PDF. אבדוק כל שאלה ואסביר.'}</p>
           </div>
           {/* a failed check says so right under the question, where it is seen without scrolling */}

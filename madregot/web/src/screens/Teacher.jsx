@@ -178,7 +178,6 @@ export default function Teacher() {
           ) : <h1 className="t-class-name">{cls.className}</h1>}
           <button type="button" className="code-chip t-code" onClick={() => copy(cls.code, 'קוד הכיתה')} aria-label={`העתקת קוד הכיתה ${cls.code}`}><span>קוד</span><span dir="ltr">{cls.code}</span><Copy size={16} aria-hidden="true" /></button>
         </div>
-        <Mascot mood="happy" size={72} className="t-head-madi" />
       </header>
       <AddClass open={adding} onClose={() => setAdding(false)} />
 

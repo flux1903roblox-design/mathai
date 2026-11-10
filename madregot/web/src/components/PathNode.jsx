@@ -52,6 +52,7 @@ const PathNode = forwardRef(function PathNode({ state, kind, parts, of, fillLast
     <m.div
       className={clsx('node-slot', state === 'current' && 'has-ring', kind === 'review' && 'is-review', `slot-${state}`, mastered && state === 'done' && 'is-mastered')}
       initial={celebrate && !reduce ? { scale: 0.7 } : false} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.2 }}
+      style={state === 'current' && kind === 'node' ? { '--pct': `${Math.round(((parts || 0) / (of || 1)) * 100)}%` } : undefined}
     >
       {state === 'current' && <span className="node-halo" aria-hidden="true" />}
       {state === 'current' && kind === 'node' && <LessonMarks parts={parts} of={of} fillLast={fillLast} />}

@@ -69,8 +69,8 @@ export default function TodayCard({ grade, onBoard }) {
                 <li key={`${it.kind}-${it.skill}-${it.misc || ''}`} className={clsx('today-row', it.done && 'done', it === next && 'next')}>
                   <span className={clsx('quest-icon', `qk-${it.kind}`)} aria-hidden="true"><Icon size={22} strokeWidth={it.done ? 3 : 2} /></span>
                   <span className="quest-body">
-                    <span className="today-kind">{KIND_LABEL[it.kind]} · {it.minutes} דק׳</span>
                     <Link to={it.to} className="today-item-title today-link"><MathText text={it.title} /></Link>
+                    <span className="today-kind">{KIND_LABEL[it.kind]} · {it.minutes} דק׳</span>
                     <span className="today-why"><MathText text={it.reason} /></span>
                     <Bar value={bar.value} max={bar.max} text={bar.text} label={plain} tone={it.done ? 'good' : 'brand'} />
                   </span>

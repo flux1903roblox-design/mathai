@@ -23,7 +23,7 @@ import { play } from '@/lib/sound.js';
 export function Prompt({ children, tag }) {
   return (
     <header className="lm-prompt" data-region="question">
-      <div className="lm-say">{tag && <p className="lm-tag">{tag}</p>}{children}</div>
+      <div className="lm-say">{children}</div>
     </header>
   );
 }
@@ -181,7 +181,7 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
       <AnimatePresence mode="wait" initial={false}>
         <m.section key={i} ref={ref} tabIndex={-1} className={clsx('sp-step', 'lm-card', `sp-${step.kind}`)} aria-label={`צעד ${i + 1} מתוך ${steps.length}`} data-region="content"
           initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 24 }} transition={enter(0.22)}>
-          {i === 0 && title && <div className="bl-intro">{kicker && <p className="bl-kicker">{kicker}</p>}<h1 className="bl-title">{title}</h1></div>}
+          {i === 0 && title && <div className="bl-intro"><h1 className="bl-title">{title}</h1>{kicker && <p className="bl-kicker">{kicker}</p>}</div>}
           {step.kind === 'say' && <Say step={step} />}
           {step.kind === 'predict' && <Predict step={step} chosen={answers[i]} sel={sel[i]} onSelect={(c) => setSel((x) => ({ ...x, [i]: c }))} />}
           {step.kind === 'explore' && <Explore step={step} done={!!answers[i]} onDone={() => setAnswers((a) => ({ ...a, [i]: true }))} onCtl={setCtl} />}

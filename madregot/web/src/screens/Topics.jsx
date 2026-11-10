@@ -22,8 +22,8 @@ function SectionCard({ t, n, current }) {
   return (
     <li className={`section-card ch-${t.color}${current ? ' is-current' : ''}`}>
       <div className="section-card-text">
-        <p className="section-card-label">יחידה {n}</p>
         <h2 className="section-card-title">{t.title}</h2>
+        <p className="section-card-label">יחידה {n}</p>
         <p className="section-card-desc">{t.desc}</p>
         <Bar value={done} max={total} text={`${done} / ${total} מדרגות`} label={`${t.title}: ${done} מתוך ${total} מדרגות`} tone="light" />
         <div className="section-card-actions">

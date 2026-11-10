@@ -6,11 +6,8 @@ import { Zap, Target, Timer, Flame, Snowflake, Moon, Star, Trophy, ChevronsUp, F
 import { useApp, today, dayBefore, isShabbat } from '@/lib/store.js';
 import Mascot from '@/components/Mascot.jsx';
 import Stairs from '@/components/Stairs.jsx';
-import Climb from '@/components/Climb.jsx';
-import { doneUpTo, partsOf, chestAfter } from '@/lib/path.js';
-import { PARTS } from '@/lib/lesson.js';
+import { doneUpTo, chestAfter } from '@/lib/path.js';
 import Lottie from '@/components/Lottie.jsx';
-import RewardBadge from '@/components/RewardBadge.jsx';
 import { topicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
@@ -130,22 +127,20 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   // The climb: the steps done now, and where מדי stood before this lesson (one step lower if it finished one)
   const steps = topic.levels.length;
   const doneNow = doneUpTo(topic.id, path, progress);
-  const from = award.nodeDone || result.kind === 'jump' ? Math.max(0, doneNow - 1) : doneNow;
-  const part = doneNow < steps ? partsOf(path, topic.id, doneNow + 1) / PARTS : 0;
   return (
     <div className={clsx('done-screen', `ch-${topic.color}`)}>
       <Hero>
         {award.unitDone && <Lottie name="trophy" className="done-trophy" label="גביע" fallback={null} />}
         {result.perfect && !award.unitDone && <Lottie name="stars" className="done-stars" decorative />}
-        <Climb steps={steps} from={from} to={doneNow} part={part} trophy={result.kind === 'review'} mood={award.unitDone || result.perfect ? 'achievement' : 'excited'} />
-        <p className="climb-caption">{topic.title}: <bdi>{doneNow}</bdi> מתוך <bdi>{steps}</bdi> מדרגות</p>
+        <Mascot mood={award.unitDone || result.perfect ? 'achievement' : 'excited'} size={120} className="done-madi" />
       </Hero>
       {/* after the hop: the title, then the numbers, then the medals */}
       <m.div className="done-copy" variants={stagger(0.85)} initial="hidden" animate="show">
         <m.h1 variants={rise} className="done-title">{title}</m.h1>
+        <m.p variants={rise} className="climb-caption">{topic.title}: <bdi>{doneNow}</bdi> מתוך <bdi>{steps}</bdi> מדרגות</m.p>
         {badges.length > 0 && (
           <m.div variants={rise} className="badges">
-            {badges.map((b, k) => <RewardBadge key={b.label} {...b} delay={0.45 + k * 0.12} />)}
+            {badges.map((b) => <span key={b.label} className={`done-earned tone-${b.tone}`}><b.icon size={16} aria-hidden="true" />{b.label}</span>)}
           </m.div>
         )}
         <m.div className="stats" variants={stagger(0.05)} data-region="answers">

@@ -35,8 +35,8 @@ export default function ProgressSummary({ tiles = true }) {
       {next && (
         <div className="ps-next">
           <div className="ps-next-text">
-            <p className="ps-next-label">הצעד הבא</p>
             <p className="ps-next-title"><MathText text={next.title} /></p>
+            <p className="ps-next-label">הצעד הבא</p>
           </div>
           <Button className="btn-sm" onClick={() => navigate(next.to)}>מתחילים<ArrowLeft size={16} aria-hidden="true" /></Button>
         </div>

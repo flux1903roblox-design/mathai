@@ -4,3 +4,5 @@ dist/
 web/dist-test/
 web/test-results/
 web/playwright-report/
+.impeccable/review/
+.impeccable/build/

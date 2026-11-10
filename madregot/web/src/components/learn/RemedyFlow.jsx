@@ -15,7 +15,7 @@ export default function RemedyFlow({ content, misc, onDone, compact = false, don
         <>
           {renderHead && renderHead(null)}
           <section className="lm-card remedy-card" data-region="content">
-            {title && <div className="bl-intro">{kicker && <p className="bl-kicker">{kicker}</p>}<h1 className="bl-title">{title}</h1></div>}
+            {title && <div className="bl-intro"><h1 className="bl-title">{title}</h1>{kicker && <p className="bl-kicker">{kicker}</p>}</div>}
             <Prompt tag="מה כנראה קרה">
               {def.explain.map((t, i) => <p key={i}><MathText text={t} /></p>)}
             </Prompt>

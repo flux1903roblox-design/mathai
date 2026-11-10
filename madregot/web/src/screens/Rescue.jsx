@@ -16,7 +16,6 @@ import { MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { ScreenBar, ConfirmSheet } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
-import Mascot from '@/components/Mascot.jsx';
 
 const CONF = [{ v: 1, label: 'לא בטוחים בכלל' }, { v: 2, label: 'קצת בטוחים' }, { v: 3, label: 'די בטוחים' }, { v: 4, label: 'בטוחים' }];
 const MINUTES = [10, 15, 20, 30];
@@ -65,7 +64,6 @@ function Setup({ onSave }) {
       </header>
       <main className="ob-main" data-region="content">
         <div className="ob-ask" data-region="question">
-          <Mascot mood={step === 0 ? 'excited' : 'idle'} size={84} className="ob-mascot" />
           <p className="ob-bubble" id="rs-q">{ASK[step]}</p>
         </div>
         {step === 0 && (

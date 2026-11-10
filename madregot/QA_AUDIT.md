@@ -653,3 +653,67 @@ wide = 288 scans: 12 violations, all R16-1, then the affected states rescanned a
 assistant states rescanned after R16-2 with 0; the learning-screen scans 36 with 0; the extra scans 0 problems; no
 sideways scroll and every pinned button on screen in all 288. Visual baselines: 16 of 51 changed (the green and gold
 feedback buttons, the raised cards), each reviewed as before/after pairs and updated; visual suite 51/51.
+
+## Round 17: the whole UI redesigned to the category standard (10 November 2026)
+
+The owner called the UI "really bad" and asked for a redesign of all of it with every design skill. Asked what was
+wrong, they named all four problems offered: it looks childish or cheap; inconsistent and too many colours; small and
+hard to read; the black is heavy and depressing. The palette was opened, and the bar set at Brilliant, Duolingo,
+Apple and Photomath. Of three directions (Israeli road signs, a graph-paper notebook, the category standard) the owner
+chose the category standard. The design skills' direction roll ran without its online service, so it offered no
+outside challengers; this was said at the time.
+
+What changed (`DESIGN.md`, rewritten from the build; contract in `.impeccable/surfaces/web-src-app-jsx.md`):
+- One light look everywhere. The black screens and their generated stylesheet are no longer used.
+- One brand blue `#1A5CF5` for buttons, selection, progress and "where I am". Green, red, gold and orange each keep one
+  meaning (correct, not yet, XP, streak). Units no longer take a colour each.
+- Rubik only (Fredoka dropped). Body 17px, nothing under 14px, titles 26–32px in 800.
+- One flat card (white, 2px border, radius 16). Lipped press only on things that can be pressed.
+- Home: the scenery, the backdrop, the winding trail, the mascot on the path and the extra top-bar counters are gone.
+  The path is round stops; the current one has a progress ring. The chest is a round gift stop.
+- Tab screens open with their name on white; the colour blocks and illustrations behind headers are gone.
+- Questions are plain headings, not speech bubbles. מדי appears only on the welcome screen, in feedback, empty
+  states, results and as the tutor's chat avatar. The profile shows the student's initial.
+- Labels that sat above headings now sit under them.
+- Lessons: the maths on a light panel at the top, a larger answer field, the keypad and one check button at the
+  bottom; on a computer, one centred column. "Not yet" is red in lessons and teaching stages.
+- Results: מדי, one title, what was earned as quiet labels, three neutral tiles, one button.
+- The tab bar shows names under the icons.
+
+Found and fixed while testing:
+- R17-1: on 320×568 phones the larger question title left drawings under 160px tall (four layout tests). Short-phone
+  sizes restored.
+- R17-2: the independent finish review returned "fix" with eight items (the mascot in too many places, eyebrows
+  above headings, "not yet" in gold, an invisible ring on the current stop, an oversized gift icon, a small answer
+  field and a two-column desktop lesson, colours outside their meaning and 12px tab labels, an out-of-date
+  DESIGN.md). All were addressed, except leading the teacher board with tomorrow's answer (its first tab already
+  is that answer).
+- R17-3: at 320 wide one teaching-stage formula overflowed into a scroll box that the keyboard could not reach
+  (axe, three states). Made smaller on the narrowest phones; rescanned with 0.
+- R17-4: lips on things that cannot be pressed (unit header, countdown, day nodes, start bubble) removed.
+
+- R17-5: the reviewer's verdict pass scored the first batch: resolved: "not yet" in red, the current stop, the gift,
+  DESIGN.md; partial: mascot scope, eyebrows, the answer field, colours on the teacher board; three new regressions
+  (the result caption above the title, the profile's initial in a tall band, the bubble under the sticky unit card).
+  Second batch: the coaching line under drawings lost its character; the result caption moved under the title; the
+  profile initial is small with no band; the teacher's icons are one blue and its groups are cards with ink
+  headings; a single typed answer is a wide field (70% of the screen, up to 300px).
+
+- R17-6: the wide answer field wrapped the answer row on 320×568 phones and shrank two drawings below 160px (two
+  layout tests). The wide field now applies only on screens taller than 640px.
+
+Checks on the final code: typecheck clean; unit 409/409; end-to-end 277 passed, 1 failed, 162 skipped by design. The
+failure was the desktop "fast repeated Backs" navigation test, which had passed in the two runs before it; rerun 5
+times on each project it passed 10 of 10, so it is recorded as intermittent under load, not as fixed. Visual
+baselines: all 51 changed by the redesign, reviewed as contact sheets and pairs, and updated; visual suite 51/51.
+Accessibility (axe, WCAG 2.1 A/AA): the 48 states at 320, 375, 390, 430, 768 and 1440 wide = 288 scans, 0 violations
+on the build before the last two CSS fixes (the answer field width and the teacher board cards), with no sideways
+scroll and every pinned button on screen; the learning-stage scans 36 with 0; the extra scans 0 problems. Earlier in
+the round, 3 violations (R17-3) were fixed and rescanned. The impeccable detector found nothing. Evidence:
+`qa-evidence/round17/`.
+
+Open after two review rounds (reported to the owner, not fixed): מדי on the welcome screen and "LEVEL UP YOUR MATH"
+above the headline (both the owner's from round 15; the reviewer counts them against the "no eyebrow" and mascot
+rules); the teacher board still opens on its number tiles above the "מחר" tab; a stop's "התחלה" bubble can slide
+under the sticky unit card while scrolling; some empty space remains between the maths and the answer on tall
+phones. Not done in this round: a dark mode option; testing on a real iPhone with Safari and with students.

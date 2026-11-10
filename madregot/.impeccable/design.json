@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-06T18:17:59+00:00",
+  "generatedAt": "2026-11-10T05:39:59+00:00",
   "title": "Design System: Madregot",
   "extensions": {
     "colorMeta": {
@@ -11,829 +11,712 @@
         "oklch": "oklch(100.0% 0.000 89.9)",
         "tonalRamp": [
           "#0b0b0b",
-          "#252525",
-          "#424242",
-          "#616161",
-          "#828282",
-          "#a5a5a5",
-          "#c9c9c9",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
           "#eeeeee"
         ]
       },
       "ground": {
         "role": "neutral",
-        "displayName": "Ground",
-        "canonical": "#f6f6fb",
-        "oklch": "oklch(97.5% 0.007 286.3)",
+        "displayName": "Cool Ground",
+        "canonical": "#f4f6f9",
+        "oklch": "oklch(97.2% 0.005 258.3)",
         "tonalRamp": [
-          "#0b0b0e",
-          "#252528",
-          "#414145",
-          "#616165",
-          "#828286",
-          "#a4a4a9",
-          "#c8c8cd",
-          "#eeeef3"
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
         ]
       },
       "ink": {
         "role": "neutral",
-        "displayName": "Soft Navy Ink",
-        "canonical": "#24253a",
-        "oklch": "oklch(27.4% 0.039 281.4)",
+        "displayName": "Ink",
+        "canonical": "#14161a",
+        "oklch": "oklch(20.0% 0.009 264.4)",
         "tonalRamp": [
-          "#0a0a11",
-          "#23242f",
-          "#3f4150",
-          "#5e5f74",
-          "#7e8099",
-          "#a1a3b9",
-          "#c6c8da",
-          "#ecedfc"
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
         ]
       },
       "ink-2": {
         "role": "neutral",
-        "displayName": "Slate",
-        "canonical": "#5f6178",
-        "oklch": "oklch(50.0% 0.037 281.1)",
+        "displayName": "Secondary Ink",
+        "canonical": "#565b66",
+        "oklch": "oklch(47.1% 0.019 266.1)",
         "tonalRamp": [
-          "#0a0b11",
-          "#23242e",
-          "#3f414f",
-          "#5e5f73",
-          "#7e8098",
-          "#a1a3b8",
-          "#c6c8d9",
-          "#ecedfb"
+          "#090b10",
+          "#23262d",
+          "#41454e",
+          "#616671",
+          "#858992",
+          "#aaaeb5",
+          "#ced1d7",
+          "#eceef3"
+        ]
+      },
+      "quiet": {
+        "role": "neutral",
+        "displayName": "Quiet Grey",
+        "canonical": "#6b7280",
+        "oklch": "oklch(55.1% 0.023 264.4)",
+        "tonalRamp": [
+          "#090b10",
+          "#23262e",
+          "#40454f",
+          "#606673",
+          "#838996",
+          "#a9aeb9",
+          "#cdd1da",
+          "#ebeff6"
         ]
       },
       "rule": {
         "role": "neutral",
-        "displayName": "Hairline",
-        "canonical": "#e6e6f0",
-        "oklch": "oklch(92.8% 0.013 286.1)",
+        "displayName": "Rule",
+        "canonical": "#e4e7ec",
+        "oklch": "oklch(92.7% 0.007 260.7)",
         "tonalRamp": [
-          "#0b0a11",
-          "#24242b",
-          "#414149",
-          "#606069",
-          "#81818a",
-          "#a4a4ad",
-          "#c8c8d2",
-          "#ededf7"
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
         ]
       },
       "rule-strong": {
         "role": "neutral",
-        "displayName": "Strong Rule",
-        "canonical": "#c9cad9",
-        "oklch": "oklch(84.3% 0.021 282.9)",
+        "displayName": "Rule Strong",
+        "canonical": "#cdd2da",
+        "oklch": "oklch(86.2% 0.012 259.8)",
         "tonalRamp": [
-          "#0b0b0e",
-          "#24242a",
-          "#41414a",
-          "#5f606b",
-          "#80818f",
-          "#a3a4b0",
-          "#c7c8d2",
-          "#edeef6"
+          "#0b0b0c",
+          "#262627",
+          "#444547",
+          "#64666a",
+          "#86898e",
+          "#aaaeb5",
+          "#ccd1d9",
+          "#eaeff6"
         ]
       },
       "rule-press": {
         "role": "neutral",
-        "displayName": "Press Rule",
-        "canonical": "#d9dae6",
-        "oklch": "oklch(89.1% 0.016 282.2)",
+        "displayName": "Press Edge",
+        "canonical": "#d5dae2",
+        "oklch": "oklch(88.7% 0.012 259.8)",
         "tonalRamp": [
-          "#0a0a12",
-          "#24242d",
-          "#40414b",
-          "#5f606b",
-          "#80818c",
-          "#a3a4af",
-          "#c7c8d4",
-          "#ecedfa"
+          "#0b0b0c",
+          "#262627",
+          "#444547",
+          "#646669",
+          "#86898e",
+          "#aaaeb4",
+          "#ccd1d9",
+          "#eaeff6"
+        ]
+      },
+      "track": {
+        "role": "neutral",
+        "displayName": "Track",
+        "canonical": "#e9ecf1",
+        "oklch": "oklch(94.2% 0.007 260.7)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
+        ]
+      },
+      "track-edge": {
+        "role": "neutral",
+        "displayName": "Track Edge",
+        "canonical": "#d3d8e0",
+        "oklch": "oklch(88.1% 0.012 259.8)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#262627",
+          "#444547",
+          "#646669",
+          "#86898e",
+          "#aaaeb4",
+          "#ccd1d9",
+          "#eaeff6"
         ]
       },
       "brand": {
         "role": "primary",
-        "displayName": "Electric Indigo",
-        "canonical": "#5b4ff0",
-        "oklch": "oklch(54.2% 0.231 278.7)",
+        "displayName": "Brand Blue",
+        "canonical": "#1a5cf5",
+        "oklch": "oklch(53.9% 0.238 263.2)",
         "tonalRamp": [
-          "#08022d",
-          "#1d155d",
-          "#352e93",
-          "#4f49cc",
-          "#6c66ff",
-          "#8f96ff",
-          "#b8c1ff",
-          "#e3ebff"
+          "#000037",
+          "#00176d",
+          "#0535a7",
+          "#1654e5",
+          "#427fff",
+          "#75aaff",
+          "#a4d0ff",
+          "#cbefff"
         ]
       },
       "brand-d": {
         "role": "primary",
-        "displayName": "Deep Indigo",
-        "canonical": "#3f33c4",
-        "oklch": "oklch(44.1% 0.213 276.8)",
+        "displayName": "Deep Brand",
+        "canonical": "#1246c4",
+        "oklch": "oklch(45.2% 0.203 263.4)",
         "tonalRamp": [
-          "#06032a",
-          "#1b1959",
-          "#32328d",
-          "#4c4ec5",
-          "#676cfd",
-          "#8b97ff",
-          "#b6c3ff",
-          "#e3ecff"
+          "#00003b",
+          "#00166e",
+          "#0835a6",
+          "#295ccf",
+          "#5785e5",
+          "#87adf9",
+          "#b3d1ff",
+          "#d9efff"
         ]
       },
       "brand-tint": {
         "role": "primary",
-        "displayName": "Indigo Mist",
-        "canonical": "#ecebff",
-        "oklch": "oklch(94.7% 0.027 288.2)",
+        "displayName": "Brand Tint",
+        "canonical": "#eaf1ff",
+        "oklch": "oklch(95.7% 0.020 264.5)",
         "tonalRamp": [
-          "#0b0b0f",
-          "#25242c",
-          "#41414b",
-          "#605f6e",
-          "#818092",
-          "#a4a3b3",
-          "#c8c8d4",
-          "#eeedf7"
+          "#0a0b0c",
+          "#262628",
+          "#444547",
+          "#64666b",
+          "#868990",
+          "#a9aeb7",
+          "#cbd1dd",
+          "#e8effd"
+        ]
+      },
+      "brand-line": {
+        "role": "primary",
+        "displayName": "Brand Line",
+        "canonical": "#a9c3ff",
+        "oklch": "oklch(81.9% 0.090 266.3)",
+        "tonalRamp": [
+          "#090b11",
+          "#222631",
+          "#3c4559",
+          "#586684",
+          "#7789b2",
+          "#96ade2",
+          "#b7d0ff",
+          "#d8eeff"
+        ]
+      },
+      "selection": {
+        "role": "primary",
+        "displayName": "Selection Blue",
+        "canonical": "#cfdcff",
+        "oklch": "oklch(89.6% 0.050 269.3)",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#25262a",
+          "#42454d",
+          "#616674",
+          "#81899d",
+          "#a4adc8",
+          "#c4d0f1",
+          "#e2eeff"
+        ]
+      },
+      "on-brand": {
+        "role": "primary",
+        "displayName": "On Brand",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
         ]
       },
       "good": {
         "role": "secondary",
         "displayName": "Correct Green",
-        "canonical": "#1f9d55",
-        "oklch": "oklch(61.4% 0.150 152.3)",
+        "canonical": "#2fbf4a",
+        "oklch": "oklch(70.6% 0.198 145.8)",
         "tonalRamp": [
-          "#001102",
-          "#002f10",
-          "#005125",
-          "#04753b",
-          "#1e9b54",
-          "#62bb7e",
-          "#97dca9",
-          "#c9fed6"
+          "#011002",
+          "#04300c",
+          "#0e541b",
+          "#1a7a2c",
+          "#27a43e",
+          "#4ecc5f",
+          "#89ec91",
+          "#b4ffb9"
         ]
       },
       "good-d": {
         "role": "secondary",
-        "displayName": "Correct Green Edge",
-        "canonical": "#16803f",
-        "oklch": "oklch(52.8% 0.135 150.6)",
+        "displayName": "Correct Green Deep",
+        "canonical": "#1a8a34",
+        "oklch": "oklch(55.5% 0.157 146.4)",
         "tonalRamp": [
-          "#001002",
-          "#012e11",
-          "#104f26",
-          "#22733d",
-          "#399856",
-          "#6eb980",
-          "#9edaab",
-          "#cffcd7"
+          "#001200",
+          "#003104",
+          "#005517",
+          "#117b2c",
+          "#479f53",
+          "#7cc282",
+          "#abe1ae",
+          "#d1fcd3"
         ]
       },
       "good-tint": {
         "role": "secondary",
-        "displayName": "Correct Green Tint",
-        "canonical": "#dff6e7",
-        "oklch": "oklch(95.2% 0.031 157.2)",
+        "displayName": "Correct Tint",
+        "canonical": "#e3f8e7",
+        "oklch": "oklch(95.9% 0.032 151.2)",
         "tonalRamp": [
-          "#070d09",
-          "#1f2822",
-          "#39463d",
-          "#55665b",
-          "#74887b",
-          "#98aa9f",
-          "#bfcdc4",
-          "#e6f2ea"
+          "#0a0c0a",
+          "#252725",
+          "#434643",
+          "#616863",
+          "#828c84",
+          "#a4b2a7",
+          "#c5d6c8",
+          "#e0f5e4"
         ]
       },
       "good-ink": {
         "role": "secondary",
-        "displayName": "Correct Green Ink",
+        "displayName": "Correct Ink",
         "canonical": "#157a41",
         "oklch": "oklch(51.1% 0.125 152.5)",
         "tonalRamp": [
-          "#001003",
-          "#032e14",
-          "#134f2a",
-          "#267242",
-          "#3d975d",
-          "#70b885",
-          "#a0d9af",
-          "#d0fbda"
+          "#001201",
+          "#003110",
+          "#005428",
+          "#157a41",
+          "#549b6a",
+          "#85be95",
+          "#b2debd",
+          "#d7f8df"
+        ]
+      },
+      "good-line": {
+        "role": "secondary",
+        "displayName": "Correct Line",
+        "canonical": "#bfe9c9",
+        "oklch": "oklch(89.6% 0.062 152.2)",
+        "tonalRamp": [
+          "#080c09",
+          "#232824",
+          "#3e4840",
+          "#5a6b5e",
+          "#78907e",
+          "#97b79f",
+          "#b5ddbf",
+          "#d3fadc"
+        ]
+      },
+      "on-good": {
+        "role": "secondary",
+        "displayName": "On Green",
+        "canonical": "#000000",
+        "oklch": "oklch(0.0% 0.000 0.0)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
         ]
       },
       "bad": {
         "role": "secondary",
         "displayName": "Not-Yet Red",
-        "canonical": "#e5375a",
-        "oklch": "oklch(61.2% 0.208 15.0)",
+        "canonical": "#c4213b",
+        "oklch": "oklch(53.3% 0.195 19.6)",
         "tonalRamp": [
-          "#220003",
-          "#4d0013",
-          "#7c0b28",
-          "#af1f3f",
-          "#e23659",
-          "#fe7082",
-          "#ffacb2",
-          "#ffe4e6"
+          "#260000",
+          "#53000a",
+          "#850120",
+          "#ba1c36",
+          "#dc565e",
+          "#f8888b",
+          "#ffb5b5",
+          "#ffd9d8"
         ]
       },
       "bad-d": {
         "role": "secondary",
-        "displayName": "Not-Yet Red Edge",
-        "canonical": "#b8213f",
-        "oklch": "oklch(51.1% 0.184 16.8)",
+        "displayName": "Not-Yet Red Deep",
+        "canonical": "#96182c",
+        "oklch": "oklch(43.8% 0.159 19.4)",
         "tonalRamp": [
-          "#200003",
-          "#490613",
-          "#771a29",
-          "#a72e40",
-          "#d9465a",
-          "#f57983",
-          "#ffaeb1",
-          "#ffe4e4"
+          "#270000",
+          "#53000b",
+          "#820c22",
+          "#a83b44",
+          "#c66a6c",
+          "#e19797",
+          "#f9c1c0",
+          "#ffe3e2"
         ]
       },
       "bad-tint": {
         "role": "secondary",
-        "displayName": "Not-Yet Red Tint",
-        "canonical": "#ffe6ec",
-        "oklch": "oklch(94.7% 0.028 1.3)",
+        "displayName": "Not-Yet Tint",
+        "canonical": "#fde8ec",
+        "oklch": "oklch(94.9% 0.023 4.5)",
         "tonalRamp": [
-          "#0f090b",
-          "#2c2224",
-          "#4b3e41",
-          "#6e5c60",
-          "#927c81",
-          "#b39fa4",
-          "#d5c4c8",
-          "#f7ebee"
+          "#0d0b0b",
+          "#282626",
+          "#484445",
+          "#6b6465",
+          "#918688",
+          "#b8aaac",
+          "#decccf",
+          "#fde8ec"
         ]
       },
       "bad-ink": {
         "role": "secondary",
-        "displayName": "Not-Yet Red Ink",
-        "canonical": "#c01d43",
-        "oklch": "oklch(52.5% 0.194 15.6)",
+        "displayName": "Not-Yet Ink",
+        "canonical": "#b3203a",
+        "oklch": "oklch(50.1% 0.180 18.1)",
         "tonalRamp": [
-          "#210003",
-          "#4b0314",
-          "#791529",
-          "#aa2941",
-          "#dd405b",
-          "#f97583",
-          "#ffacb1",
-          "#ffe4e5"
+          "#260000",
+          "#53000d",
+          "#830624",
+          "#b5263d",
+          "#d35e67",
+          "#ef8e92",
+          "#ffbabb",
+          "#ffddde"
         ]
       },
-      "streak": {
+      "bad-line": {
         "role": "secondary",
-        "displayName": "Streak Orange",
-        "canonical": "#f07b0f",
-        "oklch": "oklch(70.4% 0.174 53.5)",
+        "displayName": "Not-Yet Line",
+        "canonical": "#f6c3cd",
+        "oklch": "oklch(86.5% 0.060 5.3)",
         "tonalRamp": [
-          "#1e0200",
-          "#451300",
-          "#702900",
-          "#9e4200",
-          "#ce5d00",
-          "#ea8944",
-          "#ffb480",
-          "#ffe7d1"
+          "#0f0a0b",
+          "#2b2426",
+          "#4f4143",
+          "#765f64",
+          "#9f7f86",
+          "#cba1a9",
+          "#f4c2cb",
+          "#ffe1e9"
         ]
       },
-      "streak-ink": {
+      "on-bad": {
         "role": "secondary",
-        "displayName": "Streak Orange Ink",
-        "canonical": "#b35400",
-        "oklch": "oklch(55.5% 0.145 50.8)",
+        "displayName": "On Red",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
         "tonalRamp": [
-          "#1b0300",
-          "#411700",
-          "#6a2f00",
-          "#96480c",
-          "#c46421",
-          "#e18e5c",
-          "#fdb790",
-          "#ffe7d5"
-        ]
-      },
-      "streak-tint": {
-        "role": "secondary",
-        "displayName": "Streak Orange Tint",
-        "canonical": "#ffeedd",
-        "oklch": "oklch(95.8% 0.029 67.5)",
-        "tonalRamp": [
-          "#0e0a07",
-          "#2a241d",
-          "#494037",
-          "#6b5f53",
-          "#8e7f70",
-          "#b0a395",
-          "#d2c7bc",
-          "#f5ede4"
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
         ]
       },
       "gold": {
-        "role": "secondary",
+        "role": "tertiary",
         "displayName": "XP Gold",
-        "canonical": "#f5b400",
-        "oklch": "oklch(80.9% 0.167 82.3)",
+        "canonical": "#ffc233",
+        "oklch": "oklch(84.7% 0.161 83.4)",
         "tonalRamp": [
-          "#170700",
-          "#391e00",
-          "#5f3900",
-          "#885600",
-          "#b27500",
-          "#cf9b26",
-          "#edc271",
-          "#ffeab2"
+          "#100a02",
+          "#2e2514",
+          "#54421e",
+          "#7d6125",
+          "#aa822c",
+          "#d8a530",
+          "#ffc63e",
+          "#ffe67b"
         ]
       },
       "gold-d": {
-        "role": "secondary",
-        "displayName": "XP Gold Edge",
-        "canonical": "#d39600",
-        "oklch": "oklch(71.4% 0.148 79.5)",
+        "role": "tertiary",
+        "displayName": "XP Gold Deep",
+        "canonical": "#e0a100",
+        "oklch": "oklch(75.0% 0.155 80.4)",
         "tonalRamp": [
-          "#170700",
-          "#381f00",
-          "#5e3900",
-          "#865600",
-          "#b07500",
-          "#ce9b40",
-          "#ebc27d",
-          "#ffeab6"
+          "#110a02",
+          "#332304",
+          "#5a4006",
+          "#845e07",
+          "#b17f05",
+          "#e0a101",
+          "#fec765",
+          "#ffe796"
         ]
       },
       "gold-ink": {
-        "role": "secondary",
+        "role": "tertiary",
         "displayName": "XP Gold Ink",
         "canonical": "#8a5c00",
         "oklch": "oklch(51.2% 0.108 75.1)",
         "tonalRamp": [
-          "#140800",
-          "#352000",
-          "#593b09",
-          "#7f591a",
-          "#a7782e",
-          "#c69d64",
-          "#e5c395",
-          "#ffeac7"
+          "#170600",
+          "#3a2000",
+          "#603c00",
+          "#895c00",
+          "#a98147",
+          "#c9a87b",
+          "#e7cda9",
+          "#ffebd0"
         ]
       },
       "gold-tint": {
-        "role": "secondary",
+        "role": "tertiary",
         "displayName": "XP Gold Tint",
-        "canonical": "#fff4cc",
-        "oklch": "oklch(96.6% 0.053 94.4)",
+        "canonical": "#fff6d6",
+        "oklch": "oklch(97.2% 0.043 94.1)",
         "tonalRamp": [
-          "#0e0b03",
-          "#292515",
-          "#48422b",
-          "#696144",
-          "#8c825e",
-          "#aea586",
-          "#d0c9b0",
-          "#f4efdb"
+          "#0c0b08",
+          "#272623",
+          "#464540",
+          "#69665d",
+          "#8d897a",
+          "#b4ae99",
+          "#d8d1b7",
+          "#f7efd0"
         ]
       },
-      "ai-tint": {
-        "role": "secondary",
-        "displayName": "Tutor Rose Tint",
-        "canonical": "#fde8f3",
-        "oklch": "oklch(95.1% 0.027 344.6)",
-        "tonalRamp": [
-          "#0e0a0c",
-          "#2a2227",
-          "#4a3e44",
-          "#6b5c64",
-          "#8f7c86",
-          "#b0a0a8",
-          "#d2c5cc",
-          "#f6ebf1"
-        ]
-      },
-      "ai-ink": {
-        "role": "secondary",
-        "displayName": "Tutor Rose Ink",
-        "canonical": "#a3165f",
-        "oklch": "oklch(47.5% 0.181 356.3)",
-        "tonalRamp": [
-          "#1e000c",
-          "#450826",
-          "#711c44",
-          "#a03164",
-          "#d04985",
-          "#ed7aa8",
-          "#ffa8cb",
-          "#ffe2ef"
-        ]
-      },
-      "ch-sky": {
+      "on-gold": {
         "role": "tertiary",
-        "displayName": "Chapter Sky",
-        "canonical": "#1a8fd6",
-        "oklch": "oklch(62.4% 0.143 242.9)",
+        "displayName": "On Gold",
+        "canonical": "#5c3d00",
+        "oklch": "oklch(38.6% 0.081 76.6)",
         "tonalRamp": [
-          "#000c1f",
-          "#002846",
-          "#004671",
-          "#0067a0",
-          "#128acf",
-          "#5cade9",
-          "#92d1ff",
-          "#c8f5ff"
+          "#170700",
+          "#392100",
+          "#5d3e02",
+          "#7c6138",
+          "#9c8565",
+          "#bdab92",
+          "#dbcfbe",
+          "#f5ede2"
         ]
       },
-      "ch-sky-d": {
+      "streak": {
         "role": "tertiary",
-        "displayName": "Chapter Sky Edge",
-        "canonical": "#0d6ba8",
-        "oklch": "oklch(51.0% 0.124 245.2)",
+        "displayName": "Streak Orange",
+        "canonical": "#ff8a1f",
+        "oklch": "oklch(74.8% 0.176 55.4)",
         "tonalRamp": [
-          "#000c1d",
-          "#012742",
-          "#10456c",
-          "#226699",
-          "#3788c7",
-          "#6bace2",
-          "#9ccffc",
-          "#ccf4ff"
+          "#140802",
+          "#3c1e06",
+          "#68360c",
+          "#985113",
+          "#ca6d19",
+          "#ff8b21",
+          "#ffb56b",
+          "#ffd89a"
         ]
       },
-      "ch-sky-tint": {
+      "streak-ink": {
         "role": "tertiary",
-        "displayName": "Chapter Sky Tint",
-        "canonical": "#e2f2fc",
-        "oklch": "oklch(95.2% 0.022 235.0)",
+        "displayName": "Streak Ink",
+        "canonical": "#a84f00",
+        "oklch": "oklch(53.1% 0.138 51.1)",
         "tonalRamp": [
-          "#080c0e",
-          "#20262a",
-          "#3b4349",
-          "#58636a",
-          "#76858e",
-          "#9ba7af",
-          "#c1cbd1",
-          "#e8f0f5"
+          "#1e0100",
+          "#461500",
+          "#712e00",
+          "#a04a00",
+          "#c17241",
+          "#df9c76",
+          "#fac4a5",
+          "#ffe5cd"
         ]
       },
-      "ch-fuchsia": {
+      "streak-tint": {
         "role": "tertiary",
-        "displayName": "Chapter Fuchsia",
-        "canonical": "#c0349f",
-        "oklch": "oklch(57.2% 0.207 339.1)",
+        "displayName": "Streak Tint",
+        "canonical": "#fff1e3",
+        "oklch": "oklch(96.5% 0.024 67.5)",
         "tonalRamp": [
-          "#1d0015",
-          "#430436",
-          "#6e165a",
-          "#9c2a81",
-          "#cb42aa",
-          "#e875c8",
-          "#ffa5e7",
-          "#ffe0fc"
-        ]
-      },
-      "ch-fuchsia-d": {
-        "role": "tertiary",
-        "displayName": "Chapter Fuchsia Edge",
-        "canonical": "#93246f",
-        "oklch": "oklch(46.4% 0.165 344.1)",
-        "tonalRamp": [
-          "#1b0111",
-          "#400e2f",
-          "#692350",
-          "#953a74",
-          "#c3539a",
-          "#e080ba",
-          "#fcacdb",
-          "#ffe1f7"
-        ]
-      },
-      "ch-fuchsia-tint": {
-        "role": "tertiary",
-        "displayName": "Chapter Fuchsia Tint",
-        "canonical": "#fbe6f5",
-        "oklch": "oklch(94.6% 0.030 335.9)",
-        "tonalRamp": [
-          "#0e090d",
-          "#2a2228",
-          "#493e46",
-          "#6b5c67",
-          "#8e7c89",
-          "#b09fab",
-          "#d2c4ce",
-          "#f5ebf2"
-        ]
-      },
-      "ch-petrol": {
-        "role": "tertiary",
-        "displayName": "Chapter Petrol",
-        "canonical": "#0d8597",
-        "oklch": "oklch(56.7% 0.096 211.7)",
-        "tonalRamp": [
-          "#000f14",
-          "#002b33",
-          "#004b56",
-          "#106d7c",
-          "#2791a3",
-          "#65b3c2",
-          "#98d5e1",
-          "#caf8ff"
-        ]
-      },
-      "ch-petrol-d": {
-        "role": "tertiary",
-        "displayName": "Chapter Petrol Edge",
-        "canonical": "#08606e",
-        "oklch": "oklch(45.0% 0.076 212.4)",
-        "tonalRamp": [
-          "#000e12",
-          "#082a30",
-          "#1a4952",
-          "#2f6b77",
-          "#468e9d",
-          "#76b0bc",
-          "#a4d3dd",
-          "#d2f6fe"
-        ]
-      },
-      "ch-petrol-tint": {
-        "role": "tertiary",
-        "displayName": "Chapter Petrol Tint",
-        "canonical": "#ddf3f5",
-        "oklch": "oklch(94.9% 0.023 203.4)",
-        "tonalRamp": [
-          "#070c0d",
-          "#1e2728",
-          "#384546",
-          "#556566",
-          "#738788",
-          "#98a9aa",
-          "#beccce",
-          "#e6f1f2"
-        ]
-      },
-      "ch-cobalt": {
-        "role": "tertiary",
-        "displayName": "Chapter Cobalt",
-        "canonical": "#2563d9",
-        "oklch": "oklch(53.2% 0.192 261.7)",
-        "tonalRamp": [
-          "#000728",
-          "#062055",
-          "#163d87",
-          "#285bbc",
-          "#3d7bf2",
-          "#6ca3ff",
-          "#a0caff",
-          "#d6f0ff"
-        ]
-      },
-      "ch-cobalt-d": {
-        "role": "tertiary",
-        "displayName": "Chapter Cobalt Edge",
-        "canonical": "#1a47a3",
-        "oklch": "oklch(42.7% 0.157 262.3)",
-        "tonalRamp": [
-          "#010923",
-          "#0d224c",
-          "#213f7a",
-          "#365eac",
-          "#4d7ede",
-          "#78a4f6",
-          "#a4c9ff",
-          "#d8efff"
-        ]
-      },
-      "ch-cobalt-tint": {
-        "role": "tertiary",
-        "displayName": "Chapter Cobalt Tint",
-        "canonical": "#e3ecfc",
-        "oklch": "oklch(94.1% 0.024 262.1)",
-        "tonalRamp": [
-          "#090b0f",
-          "#22252b",
-          "#3d424b",
-          "#5b616d",
-          "#7b8391",
-          "#9ea5b2",
-          "#c4c9d4",
-          "#eaeff7"
-        ]
-      },
-      "ch-violet": {
-        "role": "tertiary",
-        "displayName": "Chapter Violet",
-        "canonical": "#8a4fe0",
-        "oklch": "oklch(57.1% 0.210 298.1)",
-        "tonalRamp": [
-          "#100126",
-          "#2d1152",
-          "#4d2883",
-          "#7041b7",
-          "#955cec",
-          "#b489ff",
-          "#d4b6ff",
-          "#f5e4ff"
-        ]
-      },
-      "ch-violet-d": {
-        "role": "tertiary",
-        "displayName": "Chapter Violet Edge",
-        "canonical": "#6a35bf",
-        "oklch": "oklch(47.8% 0.201 295.2)",
-        "tonalRamp": [
-          "#0f0226",
-          "#2b1451",
-          "#4a2b82",
-          "#6b45b6",
-          "#8e60ea",
-          "#ae8cff",
-          "#cfb8ff",
-          "#f1e6ff"
-        ]
-      },
-      "ch-violet-tint": {
-        "role": "tertiary",
-        "displayName": "Chapter Violet Tint",
-        "canonical": "#f1eafd",
-        "oklch": "oklch(94.8% 0.026 302.6)",
-        "tonalRamp": [
-          "#0c0a0f",
-          "#26242b",
-          "#44404a",
-          "#635e6c",
-          "#857f90",
-          "#a7a2b1",
-          "#cbc7d3",
-          "#f0ecf6"
+          "#0c0b0a",
+          "#282625",
+          "#474542",
+          "#6a6561",
+          "#8f8881",
+          "#b5aca3",
+          "#dacfc3",
+          "#faecde"
         ]
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Lesson-complete, streak and quests-done titles."
+        "purpose": "The lesson result title."
+      },
+      "page-title": {
+        "displayName": "Page title",
+        "purpose": "A tab's own screen title, ink on white; 36px/44px from 1100px wide."
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "Page titles, the feedback verdict, the revealed answer."
+        "purpose": "The question in lessons and onboarding, the unit name, the feedback title, empty-state titles. 18-19px under 640px tall."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "Unit bands, node cards, cards and sheets."
+        "purpose": "Section headings, card titles, the lesson instruction; sheet and popover titles at 800."
       },
-      "button": {
-        "displayName": "Button",
-        "purpose": "Every chunky button; 22px large, 16px small."
-      },
-      "question": {
-        "displayName": "Question",
-        "purpose": "The question text in a lesson."
-      },
-      "body-large": {
-        "displayName": "Body Large",
-        "purpose": "Leads under titles and on celebration screens, 60ch max."
+      "teaching": {
+        "displayName": "Teaching",
+        "purpose": "Prose of the teaching stages and worked examples."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Default text, tabular numerals."
+        "purpose": "All running text; tabular numbers on."
+      },
+      "body-sm": {
+        "displayName": "Small body",
+        "purpose": "Row descriptions and the label under a heading, in ink-2."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Help tools, notes, stat labels."
+        "purpose": "Stat labels, phone tab names, mission kind; the 14px floor."
       },
-      "label-small": {
-        "displayName": "Label Small",
-        "purpose": "Tab labels and small metadata."
+      "button": {
+        "displayName": "Button",
+        "purpose": "Every button; 18px large, 16px small."
       },
-      "math-display": {
-        "displayName": "Math Display",
-        "purpose": "The current question's expression, KaTeX, always LTR."
-      },
-      "celebration-numerals": {
-        "displayName": "Celebration numerals",
-        "purpose": "Streak count Fredoka 700 76px/80px; combo pop Fredoka 700 44px/52px. Off the ramp by design."
+      "number": {
+        "displayName": "Number",
+        "purpose": "Stat values and profile numbers; top-bar counts at 18px."
       }
     },
     "shadows": [
       {
         "name": "lip",
-        "value": "0 4px 0 <fill -d or rule-press>",
-        "purpose": "Buttons and answer choices; collapses to 0 with translateY(4px) on press."
+        "value": "0 4px 0 var(--brand-lip)",
+        "purpose": "The pressable edge; tone follows the surface (brand-d, rule-press, brand-line, track-edge). 3px on keys and segments, 6px on path stops. Collapses to 0 on press with translateY of the same height."
       },
       {
-        "name": "lip-small",
-        "value": "0 3px 0 <rule-press or lavender>",
-        "purpose": "Keypad keys, segmented options, the grade switch."
+        "name": "lift",
+        "value": "0 2px 6px rgba(20, 22, 26, 0.06), 0 12px 32px rgba(20, 22, 26, 0.12)",
+        "purpose": "Floating layers only: the path stop popover and bottom sheets."
       },
       {
-        "name": "lip-coin",
-        "value": "0 7px 0 <chapter -d | gold-d | #c9cad9>",
-        "purpose": "Path coins."
-      },
-      {
-        "name": "lip-border",
-        "value": "border-bottom-width: 4px (2px pressed)",
-        "purpose": "Pressable cards and banners, the lesson's answer slots."
-      },
-      {
-        "name": "shadow-lift",
-        "value": "0 2px 4px rgba(36, 37, 58, 0.06), 0 8px 24px rgba(36, 37, 58, 0.1)",
-        "purpose": "Floating layers only: sheets, the node card, the jump-back button."
-      },
-      {
-        "name": "shadow-dock",
-        "value": "0 -2px 6px rgba(36, 37, 58, 0.05), 0 -8px 24px rgba(36, 37, 58, 0.06)",
-        "purpose": "Bottom docks on the older practice screens."
+        "name": "backdrop",
+        "value": "rgba(20, 22, 26, 0.45)",
+        "purpose": "Scrim behind sheets and dialogs."
       }
     ],
     "motion": [
       {
-        "name": "press",
-        "value": "80ms ease-out (keys 60ms)",
-        "purpose": "Lip collapse on press."
+        "name": "ease-smooth-out",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Default easing: panels arriving, feedback rising, the error shake."
+      },
+      {
+        "name": "duration-micro",
+        "value": "80ms",
+        "purpose": "The lipped press."
       },
       {
         "name": "duration-quick",
         "value": "150ms",
-        "purpose": "Hover and border/colour state changes."
+        "purpose": "Hover and filter changes, thinking-label swaps."
       },
       {
         "name": "duration-fast",
         "value": "250ms",
-        "purpose": "Feedback panel rise, combo count fade, sheet backdrop."
+        "purpose": "The feedback panel rising 24px from the bottom; feedback boxes."
       },
       {
         "name": "duration-medium",
         "value": "350ms",
-        "purpose": "Combo pop-in, sheet exit."
-      },
-      {
-        "name": "duration-slow",
-        "value": "400ms",
-        "purpose": "Progress bar width, ring segment fill, sheet entry."
+        "purpose": "Streaming text fade, check path draw."
       },
       {
         "name": "duration-very-slow",
         "value": "500ms",
-        "purpose": "Level-up line resolve."
+        "purpose": "The success check's settle."
       },
       {
-        "name": "ease-smooth-out",
-        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
-        "purpose": "Default exponential ease-out for arrivals."
-      },
-      {
-        "name": "ease-in-out",
-        "value": "ease-in-out",
-        "purpose": "Idle loops: start bubble bob (1.6s), mascot bob (2.6s), flame (1.8s)."
-      },
-      {
-        "name": "fb-rise",
-        "value": "translateY(24px) + opacity, 250ms ease-smooth-out",
-        "purpose": "Feedback panel arrival."
-      },
-      {
-        "name": "error-shake",
-        "value": "6px / 4px overshoot, 80ms + 60ms phases",
-        "purpose": "Answer row after a wrong answer."
-      },
-      {
-        "name": "ring-fill-delay",
-        "value": "260ms",
-        "purpose": "Delay before the earned lesson segment fills on return to the path."
-      },
-      {
-        "name": "think-shimmer (exception)",
-        "value": "2000ms linear gradient sweep, 150ms swap",
-        "purpose": "AI thinking line only; not a reusable device."
+        "name": "shake",
+        "value": "6px, overshoot 4px, 80ms + 60ms phases",
+        "purpose": "The answer row after a wrong answer."
       },
       {
         "name": "reduced-motion",
-        "value": "all animations and transitions off",
-        "purpose": "Celebrations, bobs, shimmer, panel rise and ring fill stop under prefers-reduced-motion."
+        "value": "all durations 0.01ms",
+        "purpose": "Every animation and transition stops under prefers-reduced-motion."
       }
     ],
     "breakpoints": [
       {
-        "name": "xs",
-        "value": "400px"
+        "name": "short",
+        "value": "max-height: 640px",
+        "purpose": "Question and teaching type step down; panels tighten."
       },
       {
-        "name": "md",
-        "value": "700px"
+        "name": "gutter-wide",
+        "value": "600px",
+        "purpose": "Gutter grows from 20px to 24px."
       },
       {
-        "name": "lg",
-        "value": "960px"
+        "name": "page-padding",
+        "value": "640px",
+        "purpose": "Page header gains top padding."
+      },
+      {
+        "name": "lesson-desktop",
+        "value": "900px wide and 560px tall",
+        "purpose": "Lesson becomes one centred column; tab bar loses phone label sizing."
+      },
+      {
+        "name": "rail",
+        "value": "960px",
+        "purpose": "Tab bar becomes a side rail with the wordmark."
+      },
+      {
+        "name": "readable-column",
+        "value": "1024px",
+        "purpose": "A tab's screen keeps a column of at most 880px."
+      },
+      {
+        "name": "large-title",
+        "value": "1100px",
+        "purpose": "Page title grows to 36px."
       }
     ]
   },
@@ -842,150 +725,152 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The one big action (check, continue, start): indigo block on a deep-indigo lip that sinks on press.",
+      "description": "The one main action on a screen: brand blue on a deep-blue lip that collapses on press.",
       "html": "<button class=\"ds-btn ds-btn-primary\">בדיקה</button>",
-      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 16px; border: 2px solid var(--brand, #5b4ff0); background: var(--brand, #5b4ff0); color: #fff; box-shadow: 0 4px 0 var(--brand-d, #3f33c4); margin-bottom: 4px; font-family: 'Fredoka Variable', 'Fredoka', 'Rubik', sans-serif; font-weight: 600; font-size: 18px; letter-spacing: 0.01em; cursor: pointer; transition: transform 80ms ease-out, box-shadow 80ms ease-out, filter 150ms ease-out; } .ds-btn-primary { min-width: 280px; } .ds-btn:hover { filter: brightness(1.04); } .ds-btn:focus-visible { outline: 2px solid var(--brand, #5b4ff0); outline-offset: 2px; } .ds-btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--brand-d, #3f33c4); }"
+      "css": ".ds-btn { min-height: 52px; padding: 0 20px; border-radius: 16px; border: 2px solid var(--brand, #1a5cf5); background: var(--brand, #1a5cf5); color: #fff; font-family: 'Rubik Variable', Rubik, 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 17px; box-shadow: 0 4px 0 var(--brand-d, #1246c4); margin-bottom: 4px; cursor: pointer; transition: transform 80ms ease-out, box-shadow 80ms ease-out; } .ds-btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--brand-d, #1246c4); } .ds-btn:focus-visible { outline: 3px solid var(--brand-line, #a9c3ff); outline-offset: 2px; } .ds-btn:disabled { background: #eceef2; border-color: #eceef2; color: #6b7280; box-shadow: 0 4px 0 #dfe2e8; cursor: default; }"
     },
     {
       "name": "Secondary Button",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "White block on a grey lip with indigo text, for the second choice.",
-      "html": "<button class=\"ds-btn-secondary\">תרגול חוזר</button>",
-      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 16px; border: 2px solid var(--rule-strong, #c9cad9); background: var(--paper, #fff); color: var(--brand-d, #3f33c4); box-shadow: 0 4px 0 var(--rule-press, #d9dae6); margin-bottom: 4px; font-family: 'Fredoka Variable', 'Fredoka', 'Rubik', sans-serif; font-weight: 600; font-size: 18px; cursor: pointer; transition: transform 80ms ease-out, box-shadow 80ms ease-out, filter 150ms ease-out; } .ds-btn-secondary:hover { filter: brightness(1.04); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--brand, #5b4ff0); outline-offset: 2px; } .ds-btn-secondary:active { transform: translateY(4px); box-shadow: 0 0 0 var(--rule-press, #d9dae6); }"
+      "description": "A second action: white with blue text on a light grey lip.",
+      "html": "<button class=\"ds-btn-secondary\">דילוג</button>",
+      "css": ".ds-btn-secondary { min-height: 52px; padding: 0 20px; border-radius: 16px; border: 2px solid var(--rule, #e4e7ec); background: #fff; color: var(--brand-d, #1246c4); font-family: 'Rubik Variable', Rubik, 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 17px; box-shadow: 0 4px 0 var(--rule-press, #d5dae2); margin-bottom: 4px; cursor: pointer; transition: transform 80ms ease-out, box-shadow 80ms ease-out; } .ds-btn-secondary:active { transform: translateY(4px); box-shadow: 0 0 0 var(--rule-press, #d5dae2); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--brand-line, #a9c3ff); outline-offset: 2px; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The one container: white, 2px rule border, 16px corners, flat.",
+      "html": "<section class=\"ds-card\" dir=\"rtl\"><h3 class=\"ds-card-title\">מספרים מכוונים</h3><p class=\"ds-card-desc\">חיבור, חיסור, כפל וחילוק של מספרים עם סימן</p></section>",
+      "css": ".ds-card { background: #fff; border: 2px solid var(--rule, #e4e7ec); border-radius: 16px; padding: 20px 20px 16px; color: var(--ink, #14161a); font-family: 'Rubik Variable', Rubik, 'Segoe UI', Arial, sans-serif; max-width: 360px; } .ds-card-title { margin: 0 0 6px; font-size: 20px; line-height: 26px; font-weight: 700; } .ds-card-desc { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink-2, #565b66); }"
     },
     {
       "name": "Answer Choice",
       "kind": "custom",
       "refersTo": "choice",
-      "description": "Chunky choice block with a key badge; selected indigo, correct green, wrong red and struck.",
-      "html": "<div dir=\"rtl\" class=\"ds-choices\"><button class=\"ds-choice\"><span class=\"ds-key\">1</span>שלילי</button><button class=\"ds-choice on\"><span class=\"ds-key\">2</span>חיובי</button><button class=\"ds-choice good\"><span class=\"ds-key\">3</span>אפס</button><button class=\"ds-choice bad\"><span class=\"ds-key\">4</span>אי אפשר לדעת</button></div>",
-      "css": ".ds-choices { display: grid; gap: 12px; font-family: 'Rubik Variable', 'Rubik', sans-serif; } .ds-choice { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 12px 16px; text-align: start; border: 2px solid var(--rule, #e6e6f0); border-radius: 16px; background: var(--paper, #fff); box-shadow: 0 4px 0 var(--rule-press, #d9dae6); margin-bottom: 4px; font: inherit; font-size: 18px; font-weight: 600; color: var(--ink, #24253a); cursor: pointer; transition: transform 80ms ease-out, box-shadow 80ms ease-out, background-color 150ms ease-out; } .ds-choice:focus-visible { outline: 2px solid var(--brand, #5b4ff0); outline-offset: 2px; } .ds-choice:active { transform: translateY(4px); box-shadow: 0 0 0 var(--rule-press, #d9dae6); } .ds-key { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 2px solid var(--rule, #e6e6f0); border-radius: 8px; font-size: 14px; color: var(--ink-2, #5f6178); } .ds-choice.on { border-color: #b9b3ff; background: var(--brand-tint, #ecebff); color: var(--brand-d, #3f33c4); box-shadow: 0 4px 0 #b9b3ff; } .ds-choice.good { border-color: var(--good, #1f9d55); background: var(--good-tint, #dff6e7); color: var(--good-ink, #157a41); box-shadow: 0 4px 0 #9fdcb7; } .ds-choice.bad { border-color: #ffb3c3; background: var(--bad-tint, #ffe6ec); color: var(--bad-ink, #c01d43); box-shadow: 0 4px 0 #ffc9d5; text-decoration: line-through; }"
-    },
-    {
-      "name": "Path Coins",
-      "kind": "custom",
-      "refersTo": "path-node",
-      "description": "Round coins on a 7px lip: unit colour for the current step (with lesson ring), gold when done, grey when locked.",
-      "html": "<div class=\"ds-path\"><span class=\"ds-slot\"><svg class=\"ds-ring\" viewBox=\"0 0 112 112\"><circle cx=\"56\" cy=\"56\" r=\"52\" fill=\"none\" stroke=\"#e2f2fc\" stroke-width=\"8\"/><path d=\"M56 4 A52 52 0 0 1 101 82\" fill=\"none\" stroke=\"#1a8fd6\" stroke-width=\"8\" stroke-linecap=\"round\"/></svg><button class=\"ds-node cur\" aria-label=\"current\"><svg viewBox=\"0 0 32 32\" width=\"38\" height=\"38\" fill=\"currentColor\"><path d=\"M16 3.2l3.9 7.9 8.7 1.3-6.3 6.1 1.5 8.7L16 23.1l-7.8 4.1 1.5-8.7-6.3-6.1 8.7-1.3z\"/></svg></button></span><button class=\"ds-node done\" aria-label=\"done\"><svg viewBox=\"0 0 32 32\" width=\"38\" height=\"38\"><path d=\"M7 16.5l6 6L25.5 10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"4.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></button><button class=\"ds-node locked\" aria-label=\"locked\"><svg viewBox=\"0 0 32 32\" width=\"38\" height=\"38\" fill=\"currentColor\"><path d=\"M10.5 13v-2.8a5.5 5.5 0 0 1 11 0V13h.8A2.7 2.7 0 0 1 25 15.7v8.6A2.7 2.7 0 0 1 22.3 27H9.7A2.7 2.7 0 0 1 7 24.3v-8.6A2.7 2.7 0 0 1 9.7 13h.8Zm3 0h5v-2.8a2.5 2.5 0 0 0-5 0V13Z\"/></svg></button></div>",
-      "css": ".ds-path { display: flex; align-items: center; gap: 28px; padding: 12px; } .ds-slot { position: relative; display: grid; place-items: center; width: 112px; height: 112px; } .ds-ring { position: absolute; inset: 0; } .ds-node { --c: var(--ch-sky, #1a8fd6); --c-d: var(--ch-sky-d, #0d6ba8); position: relative; display: grid; place-items: center; width: 70px; height: 70px; border: 0; border-radius: 50%; background: var(--c); color: #fff; box-shadow: 0 7px 0 var(--c-d); cursor: pointer; transition: transform 80ms ease-out, box-shadow 80ms ease-out, filter 150ms ease-out; } .ds-node.cur { width: 76px; height: 76px; } .ds-node:hover { filter: brightness(1.06); } .ds-node:focus-visible { outline: 3px solid var(--c); outline-offset: 5px; } .ds-node:active { transform: translateY(7px); box-shadow: 0 0 0 var(--c-d); } .ds-node.done { --c: var(--gold, #f5b400); --c-d: var(--gold-d, #d39600); color: #6b4500; } .ds-node.locked { --c: #e4e5ee; --c-d: #c9cad9; color: #a3a5bb; }"
-    },
-    {
-      "name": "Unit Band",
-      "kind": "custom",
-      "refersTo": "unit-band",
-      "description": "Sticky chapter band at the head of each unit, in the unit's deep colour.",
-      "html": "<header dir=\"rtl\" class=\"ds-unit\"><div class=\"ds-unit-text\"><h2 class=\"ds-unit-title\"><span class=\"ds-unit-num\">1</span>מספרים מכוונים</h2><p class=\"ds-unit-desc\">חיבור, חיסור וכפל של מספרים חיוביים ושליליים</p></div><span class=\"ds-unit-count\">2/6</span><a class=\"ds-unit-guide\" href=\"#\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z\"/></svg><span>תזכורת</span></a></header>",
-      "css": ".ds-unit { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 16px; background: var(--ch-sky-d, #0d6ba8); color: #fff; font-family: 'Rubik Variable', 'Rubik', sans-serif; } .ds-unit-text { flex: 1; display: flex; flex-direction: column; gap: 2px; } .ds-unit-title { margin: 0; display: flex; align-items: center; gap: 8px; font-family: 'Fredoka Variable', 'Fredoka', sans-serif; font-weight: 600; font-size: 22px; line-height: 28px; } .ds-unit-num { display: inline-grid; place-items: center; min-width: 30px; height: 30px; border-radius: 10px; background: rgba(255,255,255,.22); font-size: 16px; } .ds-unit-desc { margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; } .ds-unit-count { align-self: flex-start; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.22); font-family: 'Fredoka Variable', 'Fredoka', sans-serif; font-weight: 600; font-size: 14px; direction: ltr; } .ds-unit-guide { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-width: 64px; min-height: 52px; border: 2px solid rgba(255,255,255,.45); border-radius: 10px; color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; } .ds-unit-guide:hover { background: rgba(255,255,255,.12); } .ds-unit-guide:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }"
-    },
-    {
-      "name": "Feedback Panel",
-      "kind": "custom",
-      "refersTo": "feedback-correct",
-      "description": "Rises from the bottom after every check: green for correct, red for not yet, with the mascot and the verdict.",
-      "html": "<section dir=\"rtl\" class=\"ds-fb good\"><div class=\"ds-fb-head\"><span class=\"ds-fb-icon\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg></span><h2 class=\"ds-fb-title\">מצוין!</h2></div><button class=\"ds-fb-btn\">המשך</button></section><section dir=\"rtl\" class=\"ds-fb bad\"><div class=\"ds-fb-head\"><span class=\"ds-fb-icon\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\"><path d=\"M7 7l10 10M17 7L7 17\"/></svg></span><h2 class=\"ds-fb-title\">עוד לא. נסו שוב</h2></div><button class=\"ds-fb-btn\">נסו שוב</button></section>",
-      "css": ".ds-fb { --bg: var(--good-tint, #dff6e7); --line: #b4e8c8; --ink: var(--good-ink, #157a41); --mark: var(--good, #1f9d55); --mark-d: var(--good-d, #16803f); display: flex; flex-direction: column; gap: 12px; padding: 16px; border-top: 2px solid var(--line); background: var(--bg); font-family: 'Rubik Variable', 'Rubik', sans-serif; animation: ds-fb-rise 250ms cubic-bezier(0.22, 1, 0.36, 1) both; } .ds-fb.bad { --bg: var(--bad-tint, #ffe6ec); --line: #ffc9d5; --ink: var(--bad-ink, #c01d43); --mark: var(--bad, #e5375a); --mark-d: var(--bad-d, #b8213f); } .ds-fb-head { display: flex; align-items: center; gap: 12px; } .ds-fb-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #fff; color: var(--mark); } .ds-fb-title { margin: 0; font-family: 'Fredoka Variable', 'Fredoka', sans-serif; font-weight: 600; font-size: 28px; line-height: 36px; color: var(--ink); } .ds-fb-btn { min-height: 54px; border-radius: 16px; border: 2px solid var(--mark); background: var(--mark); color: #fff; box-shadow: 0 4px 0 var(--mark-d); margin-bottom: 4px; font-family: 'Fredoka Variable', 'Fredoka', sans-serif; font-weight: 600; font-size: 22px; cursor: pointer; transition: transform 80ms ease-out, box-shadow 80ms ease-out; } .ds-fb-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; } .ds-fb-btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--mark-d); } @keyframes ds-fb-rise { from { transform: translateY(24px); opacity: 0; } } @media (prefers-reduced-motion: reduce) { .ds-fb { animation: none; } }"
-    },
-    {
-      "name": "Keypad",
-      "kind": "custom",
-      "refersTo": "keypad-key",
-      "description": "The app's own number keypad with a red minus; keys sink 3px on press.",
-      "html": "<div class=\"ds-keypad\" dir=\"ltr\"><button class=\"ds-k\">7</button><button class=\"ds-k\">8</button><button class=\"ds-k\">9</button><button class=\"ds-k\" aria-label=\"delete\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 5h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H10l-7-7z\"/><path d=\"M18 9l-6 6M12 9l6 6\"/></svg></button><button class=\"ds-k\">4</button><button class=\"ds-k\">5</button><button class=\"ds-k\">6</button><button class=\"ds-k minus\">−</button></div>",
-      "css": ".ds-keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-width: 360px; } .ds-k { height: 46px; border: 2px solid var(--rule, #e6e6f0); border-radius: 12px; background: var(--paper, #fff); box-shadow: 0 3px 0 var(--rule-press, #d9dae6); margin-bottom: 3px; font-family: 'Rubik Variable', 'Rubik', sans-serif; font-size: 24px; font-weight: 600; color: var(--ink, #24253a); cursor: pointer; transition: transform 60ms ease-out, box-shadow 60ms ease-out; } .ds-k:focus-visible { outline: 2px solid var(--brand, #5b4ff0); outline-offset: 2px; } .ds-k:active { transform: translateY(3px); box-shadow: 0 0 0 var(--rule-press, #d9dae6); background: var(--ground, #f6f6fb); } .ds-k.minus { color: var(--bad-ink, #c01d43); font-size: 30px; }"
+      "description": "A pressable answer card; selected turns brand tint with a blue border.",
+      "html": "<div dir=\"rtl\" style=\"display:grid;gap:12px;max-width:340px\"><button class=\"ds-choice\">−12</button><button class=\"ds-choice is-on\" aria-pressed=\"true\">12</button></div>",
+      "css": ".ds-choice { min-height: 56px; border: 2px solid var(--rule, #e4e7ec); border-radius: 16px; background: #fff; color: var(--ink, #14161a); box-shadow: 0 4px 0 var(--rule-press, #d5dae2); font: 700 18px 'Rubik Variable', Rubik, sans-serif; cursor: pointer; transition: transform 80ms ease-out, box-shadow 80ms ease-out; } .ds-choice:active { transform: translateY(4px); box-shadow: 0 0 0 transparent; } .ds-choice:focus-visible { outline: 3px solid var(--brand-line, #a9c3ff); outline-offset: 2px; } .ds-choice.is-on { border-color: var(--brand, #1a5cf5); background: var(--brand-tint, #eaf1ff); color: var(--brand-d, #1246c4); box-shadow: 0 4px 0 var(--brand-line, #a9c3ff); }"
     },
     {
       "name": "Answer Slot",
       "kind": "input",
       "refersTo": "answer-slot",
-      "description": "Chunky LTR answer field; indigo focus halo; a wrong value stays struck in red.",
-      "html": "<div style=\"display:flex;gap:12px\"><input class=\"ds-slot-in\" value=\"-12\" aria-label=\"answer\"><input class=\"ds-slot-in struck\" value=\"12\" aria-label=\"wrong answer\"></div>",
-      "css": ".ds-slot-in { width: 104px; height: 56px; text-align: center; direction: ltr; font-family: 'Rubik Variable', 'Rubik', sans-serif; font-size: 26px; font-weight: 700; color: var(--ink, #24253a); border: 2px solid var(--rule, #e6e6f0); border-bottom-width: 4px; border-radius: 14px; background: var(--paper, #fff); transition: border-color 150ms ease-out, box-shadow 150ms ease-out; } .ds-slot-in:hover { border-color: var(--rule-strong, #c9cad9); } .ds-slot-in:focus { outline: none; border-color: var(--brand, #5b4ff0); box-shadow: 0 0 0 3px var(--brand-tint, #ecebff); } .ds-slot-in.struck { color: var(--bad-ink, #c01d43); border-color: var(--bad, #e5375a); text-decoration: line-through; text-decoration-thickness: 2px; }"
+      "description": "The typed-answer field: big digits, strong border, a 4px bottom edge; active gets a brand border and tint ring.",
+      "html": "<input class=\"ds-slot\" inputmode=\"none\" value=\"-7\" aria-label=\"תשובה\">",
+      "css": ".ds-slot { width: 160px; height: 64px; border: 2px solid var(--rule-strong, #cdd2da); border-bottom-width: 4px; border-radius: 14px; background: #fff; color: var(--ink, #14161a); font: 700 30px 'Rubik Variable', Rubik, sans-serif; text-align: center; direction: ltr; } .ds-slot:focus, .ds-slot:focus-visible { outline: none; border-color: var(--brand, #1a5cf5); box-shadow: 0 0 0 3px var(--brand-tint, #eaf1ff); }"
     },
     {
-      "name": "Help Tools",
-      "kind": "chip",
-      "refersTo": "help-tool",
-      "description": "Pill tools in the lesson dock; the AI tool is rose, an active tool indigo mist.",
-      "html": "<div dir=\"rtl\" class=\"ds-tools\"><button class=\"ds-tool\">רמז</button><button class=\"ds-tool on\">מחברת</button><button class=\"ds-tool ai\">שאלו את העוזר</button></div>",
-      "css": ".ds-tools { display: flex; gap: 8px; flex-wrap: wrap; font-family: 'Rubik Variable', 'Rubik', sans-serif; } .ds-tool { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border: 2px solid var(--rule, #e6e6f0); border-radius: 999px; background: var(--paper, #fff); color: var(--ink-2, #5f6178); font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; } .ds-tool:hover { border-color: var(--rule-strong, #c9cad9); color: var(--ink, #24253a); } .ds-tool:focus-visible { outline: 2px solid var(--brand, #5b4ff0); outline-offset: 2px; } .ds-tool.ai { color: var(--ai-ink, #a3165f); border-color: #f4c3dc; } .ds-tool.on { color: var(--brand-d, #3f33c4); border-color: #b9b3ff; background: var(--brand-tint, #ecebff); }"
+      "name": "Feedback Panel",
+      "kind": "custom",
+      "refersTo": "feedback-good",
+      "description": "Rises from the bottom after a check: green tint for correct, red tint for not yet.",
+      "html": "<div dir=\"rtl\" style=\"display:grid;gap:12px;max-width:390px\"><div class=\"ds-fb ds-fb-good\"><p class=\"ds-fb-title\">נכון!</p><p class=\"ds-fb-text\">מינוס כפול מינוס נותן פלוס.</p></div><div class=\"ds-fb ds-fb-bad\"><p class=\"ds-fb-title\">עוד לא</p><p class=\"ds-fb-text\">בדקו את הסימן של התוצאה.</p></div></div>",
+      "css": ".ds-fb { padding: 16px; border-top: 2px solid; font-family: 'Rubik Variable', Rubik, sans-serif; animation: ds-fb-rise 250ms cubic-bezier(0.22, 1, 0.36, 1) both; } .ds-fb-good { background: var(--good-tint, #e3f8e7); border-top-color: #bfe9c9; } .ds-fb-good .ds-fb-title { color: var(--good-ink, #157a41); } .ds-fb-bad { background: var(--bad-tint, #fde8ec); border-top-color: #f6c3cd; } .ds-fb-bad .ds-fb-title { color: var(--bad-ink, #b3203a); } .ds-fb-title { margin: 0 0 4px; font-size: 22px; line-height: 28px; font-weight: 800; } .ds-fb-text { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink, #14161a); } @keyframes ds-fb-rise { from { transform: translateY(24px); opacity: 0; } } @media (prefers-reduced-motion: reduce) { .ds-fb { animation: none; } }"
+    },
+    {
+      "name": "Path Stops",
+      "kind": "custom",
+      "refersTo": "path-stop-current",
+      "description": "Round stops on a 6px lip: done brand, current brand with a progress ring, locked grey.",
+      "html": "<div style=\"display:flex;gap:28px;align-items:center;padding:16px\"><button class=\"ds-node\" aria-label=\"done\"><svg width=\"30\" height=\"30\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg></button><button class=\"ds-node ds-node-current\" style=\"--pct:40%\" aria-label=\"current\"><svg width=\"30\" height=\"30\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z\"/></svg></button><button class=\"ds-node ds-node-locked\" aria-label=\"locked\"><svg width=\"30\" height=\"30\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><rect x=\"5\" y=\"11\" width=\"14\" height=\"10\" rx=\"2\"/><path d=\"M8 11V8a4 4 0 0 1 8 0v3\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\"/></svg></button></div>",
+      "css": ".ds-node { position: relative; display: grid; place-items: center; width: 68px; height: 68px; border: 0; border-radius: 50%; background: var(--brand, #1a5cf5); color: #fff; box-shadow: 0 6px 0 var(--brand-d, #1246c4); cursor: pointer; transition: transform 80ms ease-out, box-shadow 80ms ease-out; } .ds-node:active { transform: translateY(6px); box-shadow: 0 0 0 transparent; } .ds-node:focus-visible { outline: 3px solid var(--brand-line, #a9c3ff); outline-offset: 6px; } .ds-node-current { width: 76px; height: 76px; } .ds-node-current::before { content: ''; position: absolute; inset: -11px; border-radius: 50%; background: conic-gradient(var(--brand, #1a5cf5) var(--pct, 0%), var(--brand-tint, #eaf1ff) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); } .ds-node-locked { background: #e9ecf1; color: #9aa1ac; box-shadow: 0 6px 0 #d3d8e0; }"
+    },
+    {
+      "name": "Unit Header",
+      "kind": "custom",
+      "refersTo": "unit-header",
+      "description": "The current unit on the home path: a brand-blue card with the unit name and count, guidebook at the end.",
+      "html": "<div class=\"ds-unit\" dir=\"rtl\"><div><p class=\"ds-unit-title\">מספרים מכוונים</p><p class=\"ds-unit-label\">יחידה 1 · 2 מתוך 5 מדרגות</p></div><button class=\"ds-unit-guide\" aria-label=\"guidebook\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z\"/><path d=\"M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z\"/></svg></button></div>",
+      "css": ".ds-unit { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-radius: 16px; background: var(--brand, #1a5cf5); color: #fff; font-family: 'Rubik Variable', Rubik, sans-serif; max-width: 360px; } .ds-unit-title { margin: 0; font-size: 22px; line-height: 28px; font-weight: 800; } .ds-unit-label { margin: 2px 0 0; font-size: 15px; line-height: 22px; font-weight: 500; color: rgba(255, 255, 255, 0.92); } .ds-unit-guide { border: 0; border-inline-start: 2px solid rgba(255, 255, 255, 0.35); background: none; color: #fff; padding: 8px 0 8px 0; padding-inline-start: 16px; cursor: pointer; } .ds-unit-guide:focus-visible { outline: 3px solid var(--brand-line, #a9c3ff); outline-offset: 2px; }"
     },
     {
       "name": "Tab Bar",
       "kind": "nav",
-      "refersTo": "tab-active",
-      "description": "Five bottom tabs on phones; the active tab is an indigo-mist block.",
-      "html": "<nav dir=\"rtl\" class=\"ds-tabbar\"><a class=\"ds-tab on\" href=\"#\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/></svg>לימוד</a><a class=\"ds-tab\" href=\"#\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"5\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/></svg>משימות</a><a class=\"ds-tab\" href=\"#\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z\"/><path d=\"M14 3v5h5\"/></svg>מבחנים</a><a class=\"ds-tab\" href=\"#\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/></svg>עוזר AI</a><a class=\"ds-tab\" href=\"#\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg>אני</a></nav>",
-      "css": ".ds-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--paper, #fff); border-top: 2px solid var(--rule, #e6e6f0); padding: 4px 8px; font-family: 'Rubik Variable', 'Rubik', sans-serif; } .ds-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 60px; margin: 4px 2px; color: var(--ink-2, #5f6178); text-decoration: none; font-size: 13px; font-weight: 600; border-radius: 16px; border: 2px solid transparent; transition: background-color 150ms ease-out, border-color 150ms ease-out; } .ds-tab:hover { background: var(--ground, #f6f6fb); } .ds-tab:focus-visible { outline: 2px solid var(--brand, #5b4ff0); outline-offset: 2px; } .ds-tab.on { color: var(--brand-d, #3f33c4); background: var(--brand-tint, #ecebff); border-color: #cfcaff; }"
+      "refersTo": "tab",
+      "description": "Five tabs, icon over a 14px name; the active tab in brand.",
+      "html": "<nav class=\"ds-tabbar\" dir=\"rtl\"><a class=\"ds-tab is-active\" href=\"#\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/></svg><span>לימוד</span></a><a class=\"ds-tab\" href=\"#\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"5\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/></svg><span>משימות</span></a><a class=\"ds-tab\" href=\"#\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg><span>אני</span></a></nav>",
+      "css": ".ds-tabbar { display: grid; grid-template-columns: repeat(3, 1fr); background: #fff; border-top: 1px solid var(--rule, #e4e7ec); max-width: 390px; font-family: 'Rubik Variable', Rubik, sans-serif; } .ds-tab { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 58px; padding: 6px 4px 4px; color: #6b7280; text-decoration: none; font-size: 14px; line-height: 18px; font-weight: 600; border-radius: 14px; } .ds-tab:hover { color: var(--ink, #14161a); } .ds-tab.is-active { color: var(--brand, #1a5cf5); } .ds-tab:focus-visible { outline: 3px solid var(--brand-line, #a9c3ff); outline-offset: 2px; }"
+    },
+    {
+      "name": "Result Stat Tile",
+      "kind": "card",
+      "refersTo": "stat-tile",
+      "description": "A neutral card; the meaning colour is on the number only.",
+      "html": "<div dir=\"rtl\" style=\"display:flex;gap:12px\"><div class=\"ds-stat\"><span class=\"ds-stat-label\">נכונות</span><span class=\"ds-stat-value\" style=\"color:#157a41\">9/10</span></div><div class=\"ds-stat\"><span class=\"ds-stat-label\">XP</span><span class=\"ds-stat-value\" style=\"color:#8a5c00\">+20</span></div></div>",
+      "css": ".ds-stat { display: flex; flex-direction: column; align-items: center; min-width: 100px; border: 2px solid var(--rule, #e4e7ec); border-radius: 16px; background: #fff; font-family: 'Rubik Variable', Rubik, sans-serif; } .ds-stat-label { padding: 10px 0 0; font-size: 14px; font-weight: 700; color: var(--ink-2, #565b66); } .ds-stat-value { padding: 4px 8px 12px; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }"
     }
   ],
   "narrative": {
-    "northStar": "The Friendly Staircase",
-    "overview": "Madregot means stairs, and the whole system is a staircase a student climbs a few steps of every day. The ground is plain white, the ink a soft navy, and everything the thumb can press is a chunky, rounded block standing on a solid lip that sinks when pressed. A winding path of round coins carries the student from lesson to lesson; each topic is a unit with its own chapter colour; the mascot מדי, an indigo two-step stair block with a face, stands beside the next step and reacts to every answer.\n\nThe loop is Duolingo's (path, one big check button, a green or red panel after every answer, streak, XP) with its own identity: electric indigo instead of green as the brand, Fredoka and Rubik instead of a proprietary face, a stair block instead of an owl. The density is phone-first and generous: 44px minimum targets, one question per screen, the action dock within thumb reach. Colour is loud but semantic; every saturated hue has exactly one job.\n\nThe genre's pressure devices are absent by design and stay absent: no hearts or energy meters, no global league tables, no guilt-tinted states. A mistake is shown, crossed out and explained, never charged for. Shabbat is drawn as a calm rest day in the streak week, never as a break.",
+    "northStar": "The Category Standard",
+    "overview": "Madregot is played straight at the level of Brilliant and Duolingo, for Hebrew-speaking grade 7-8 students. Screens are white, the ink is a near-black `ink`, and there is one brand blue. Blue marks what you can do and where you are: the main button, a selection, progress, the current unit and the current stop on the path. Four other colours each have one job: green for correct, red for \"not yet\", gold for XP and achievements, orange for the streak. Nothing else on a screen is coloured.\n\nThere is one card and one button on every screen. A card is white with a 2px light border and 16px corners and no soft shadow. Anything the thumb presses (buttons, answer choices, keypad keys, path stops, segmented choices) stands on a solid lip of a darker tone that disappears when pressed. Type is Rubik only, large: body text is 17px and nothing is smaller than 14px. Maths is rendered by KaTeX in its serif, left to right inside the right-to-left Hebrew, at display size on a light grey panel.\n\nThe build rejects what made earlier rounds look childish and loud: scenery illustrations behind the path, neon glow, black screens, a colour per unit or per element, small grey text, and small labels above headings. The mascot מדי appears only where a character helps: feedback, empty and error states, results, the welcome screen, and as the tutor's avatar in chat.",
     "keyCharacteristics": [
-      "White ground, soft navy ink, electric indigo for action and selection.",
-      "Semantic colour: green right, red not yet, orange streak, gold XP and finished nodes.",
-      "Five chapter colours (sky, fuchsia, petrol, cobalt, violet), one per unit.",
-      "Chunky pressable controls on a solid lip that collapses on press; nothing else gets a lip.",
-      "Fredoka for the voice (headings, buttons, numbers), Rubik for reading, serif KaTeX for math, always LTR.",
-      "Hebrew RTL throughout, phone-first, with a side rail and side panel from 960px.",
-      "Short exponential ease-out motion; celebrations only after an answer, skippable, off under reduced motion."
+      "White screens; cool grey `ground` only as the panel the maths or grouped content sits on.",
+      "One brand blue for action, selection, progress and \"where I am\"; four meaning colours, one job each.",
+      "One card (white, 2px `rule` border, 16px radius, flat) and one button grammar everywhere.",
+      "The lipped press: pressable things sit on a 3-6px solid lip that collapses when pressed.",
+      "Rubik only, weights 400 to 800; body 17px; nothing under 14px; tabular numbers.",
+      "Hebrew right to left, maths isolated left to right; phone first, one column.",
+      "Short ease-out motion; the feedback panel rises from the bottom; everything stops under reduced motion."
     ],
     "rules": [
       {
-        "name": "The One Meaning Rule",
-        "body": "Green means right, red means not yet, orange means streak, gold means XP and finished. No chapter colour is green, orange or gold, and none of the four is used for decoration.",
+        "name": "The One Blue Rule",
+        "body": "Brand blue means \"act here\" or \"you are here\". Units do not get their own colours; every unit is the brand blue.",
         "section": "colors"
       },
       {
-        "name": "The Ink Value Rule",
-        "body": "Fills may be light; text always takes an \"-ink\" or \"-d\" value (4.5:1 or more on its tint or on white). White text sits only on brand, good, bad and \"-d\" chapter fills.",
+        "name": "The One Job Rule",
+        "body": "Green only for correct, red only for \"not yet\", gold only for XP and achievements, orange only for the streak. A meaning colour on a result tile goes on the icon and the number, never on the tile.",
         "section": "colors"
       },
       {
-        "name": "The Indigo Acts Rule",
-        "body": "Indigo is where the student acts or has chosen: the primary button, the selected option, the active tab, focus. It never marks correctness.",
+        "name": "The Readable Fill Rule",
+        "body": "Black text on green and gold, white on blue and red. A right or wrong answer never relies on colour alone: it carries an icon and words.",
         "section": "colors"
       },
       {
-        "name": "The Rounded Voice Rule",
-        "body": "Fredoka speaks (headings, buttons, counts, stats); Rubik explains (questions, body, labels). Questions are Rubik so long Hebrew sentences stay readable.",
+        "name": "The 14px Floor Rule",
+        "body": "No text below 14px; body is 17px. Small text is secondary ink, never light grey.",
         "section": "typography"
       },
       {
-        "name": "The LTR Math Rule",
-        "body": "Every expression is KaTeX in its own left-to-right isolate, and a short inline expression never splits across lines inside Hebrew text.",
+        "name": "The Label Under Rule",
+        "body": "A label that says what a heading belongs to sits under the heading, at 15px in `ink-2`. Nothing sits above a heading.",
         "section": "typography"
       },
       {
-        "name": "The Lip Means Press Rule",
-        "body": "A lip promises that something can be pressed, and pressing collapses it. Static content (stat tiles, plain cards, the feedback panel, chips) sits flat with a 2px rule.",
+        "name": "The Lipped Press Rule",
+        "body": "Something that can be pressed stands on a solid lip of its own darker tone; on press it moves down by the lip's height and the lip goes to zero, in 80ms. Something that cannot be pressed does not get a lip.",
         "section": "elevation"
       },
       {
-        "name": "The Float Only Rule",
-        "body": "Blurred shadows are for layers above the page (sheets, the node card); nothing at rest on the page casts one.",
+        "name": "The Flat Card Rule",
+        "body": "Cards never carry a soft shadow. Only floating layers (popover, sheet) do.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "Do put every primary action in one full-width indigo button on its lip, within thumb reach in the bottom dock.",
-      "Do give anything pressable a lip that collapses on press (translate by the lip, 80ms ease-out), and nothing else.",
-      "Do keep each meaning colour to its one job: green right, red not yet, orange streak, gold XP and done nodes.",
-      "Do colour a unit's coins, ring, band and level line from its chapter colour, with text in the \"-d\" value.",
-      "Do set headings, buttons and counts in Fredoka 600, questions and text in Rubik, math in KaTeX inside an LTR isolate.",
-      "Do keep a wrong answer visible, struck through in red ink, next to the hint.",
-      "Do play celebrations (combo pop, mascot cheer, streak tick) only after an answer, let a tap skip them, and switch them off under reduced motion.",
-      "Do keep targets at 44px or more and text at 4.5:1 or more."
+      "**Do** use the brand blue for the one main action, selection, progress and the current place, and nothing else.",
+      "**Do** keep every screen white; use `ground` only under the maths or grouped content.",
+      "**Do** build every container as the one card: white, 2px `rule`, 16px corners, no soft shadow.",
+      "**Do** give every pressable thing a solid lip that collapses on press, and nothing else.",
+      "**Do** set body text at 17px and keep all text at 14px or larger, in ink or `ink-2`.",
+      "**Do** put a heading's label under it, at 15px `ink-2`.",
+      "**Do** isolate maths left to right inside Hebrew and keep inline expressions on one line.",
+      "**Do** show \"not yet\" in red and correct in green, each with an icon and words, in lessons and teaching stages alike.",
+      "**Do** keep touch targets at 44px or more and turn motion off under reduced motion."
     ],
     "donts": [
-      "Don't use Duolingo's green as the brand, or its owl, name, typeface or art.",
-      "Don't draw hearts, lives or energy meters, global or league leaderboards, or guilt-tinted states.",
-      "Don't draw Shabbat as a missed or broken day in the streak.",
-      "Don't make a chapter colour green, orange or gold, or use those colours decoratively.",
-      "Don't put a lip or a blurred shadow on static content (stat tiles, plain cards, the feedback panel, chips).",
-      "Don't nest a card inside the feedback panel; the tutor's note is text under a rule.",
-      "Don't use gradient-clipped text outside the AI thinking line."
+      "**Don't** give a unit, topic or section its own colour.",
+      "**Don't** use black or dark screens, glow or neon effects.",
+      "**Don't** put scenery or tinted worlds behind the path or colour blocks behind page titles.",
+      "**Don't** put a small label or eyebrow above a heading. The welcome screen's \"LEVEL UP YOUR MATH\" line under the wordmark is an owner-pinned exception for that screen only.",
+      "**Don't** use gold for \"not yet\"; gold is XP.",
+      "**Don't** colour a whole result tile; colour its icon and number.",
+      "**Don't** put מדי beside questions, in onboarding, on the profile or in headers.",
+      "**Don't** add a second typeface; Fredoka is gone."
     ]
   }
 }

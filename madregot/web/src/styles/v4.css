@@ -10,21 +10,21 @@
    Loaded after app.css: it refines, it does not fight it. */
 
 :root {
-  /* the electric-blue family (the old purple scale's names, so every screen reads the new palette) */
-  --p-50: #f2f7ff; --p-100: #e6f0ff; --p-150: #d9e8ff; --p-200: #c2d9ff; --p-300: #8fb8ff;
-  --p-400: #4d8eff; --p-500: #0066ff; --p-600: #005ce6; --p-700: #0052cc; --p-800: #003d99; --p-900: #002966;
+  /* the brand-blue family (the old purple scale's names, so every screen reads the new palette) */
+  --p-50: #f5f8ff; --p-100: #eaf1ff; --p-150: #dde8ff; --p-200: #c9d9ff; --p-300: #a9c3ff;
+  --p-400: #5b8cff; --p-500: #1a5cf5; --p-600: #1651db; --p-700: #1246c4; --p-800: #0e3796; --p-900: #0a2768;
   /* surfaces: a white page, white cards with a border, a light panel for the maths */
-  --surface-0: #ffffff; --surface-1: #ffffff; --surface-2: #f5f6f8;
-  --line: #e6e6e6; --line-2: #d4d4d4;
-  --ink: #000000; --ink-2: #4d4d4d;
+  --surface-0: #ffffff; --surface-1: #ffffff; --surface-2: #f4f6f9;
+  --line: #e4e7ec; --line-2: #cdd2da;
+  --ink: #14161a; --ink-2: #565b66;
   --r-s: 12px; --r-m: 16px; --r-l: 16px; --r-xl: 20px;
-  --fs-display: 28px; --lh-display: 34px;
-  --fs-h1: 24px; --lh-h1: 30px;
-  --fs-h2: 19px; --lh-h2: 26px;
-  --fs-body: 16px; --lh-body: 25px;
-  --fs-sm: 14px; --lh-sm2: 21px;
-  --fs-xs: 12.5px; --lh-xs2: 17px;
-  --gutter: 16px;
+  --fs-display: 32px; --lh-display: 38px;
+  --fs-h1: 26px; --lh-h1: 32px;
+  --fs-h2: 21px; --lh-h2: 28px;
+  --fs-body: 17px; --lh-body: 26px;
+  --fs-sm: 15px; --lh-sm2: 22px;
+  --fs-xs: 14px; --lh-xs2: 20px;
+  --gutter: 20px;
 }
 @media (min-width: 600px) { :root { --gutter: 24px; } }
 

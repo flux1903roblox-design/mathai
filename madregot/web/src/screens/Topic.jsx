@@ -30,8 +30,8 @@ export default function Topic() {
       </header>
       <div className={`unit-head guide-banner ch-${t.color}`}>
         <div className="unit-head-text">
-          <p className="unit-label">יחידה {n}</p>
           <h2 className="unit-title">{t.title}</h2>
+          <p className="unit-label">יחידה {n}</p>
           <p className="unit-label">{t.desc}</p>
         </div>
       </div>

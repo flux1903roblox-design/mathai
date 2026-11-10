@@ -10,7 +10,6 @@ import DataBars from './DataBars.jsx';
 import NumberPins from './NumberPins.jsx';
 import TriangleDrag from './TriangleDrag.jsx';
 import { triangleAngles } from '@/content/manip.js';
-import Mascot from '../Mascot.jsx';
 import { minus } from './core.jsx';
 
 export const KINDS = { numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag };
@@ -79,7 +78,6 @@ export default function Manip({ item, value, onChange, locked, reveal, good, tou
     <>
       <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} />
       <div className="manip-coach">
-        <Mascot mood={mood} size={52} className="coach-mascot" />
         <p className="coach-say">{coach(item, value, touched)}</p>
       </div>
     </>

@@ -1,20 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { Flame, Zap, Snowflake, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown, Target } from 'lucide-react';
+import { Flame, Zap, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor } from '@/content/index.js';
 import { unitNodes, chestAfter } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
-import Mascot from '@/components/Mascot.jsx';
 import PathNode from '@/components/PathNode.jsx';
-import PathTrail from '@/components/map/PathTrail.jsx';
-import { SCENERY } from '@/components/map/Scenery.jsx';
-import WorldBackdrop from '@/components/map/WorldBackdrop.jsx';
 import Chest from '@/components/map/Chest.jsx';
 import { Button } from '@/components/ui.jsx';
-import { useMission } from '@/lib/useLearn.js';
 import { nextStage } from '@/learn/mastery.ts';
 import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
 import { skillId } from '@/learn/skills.ts';
@@ -65,58 +60,21 @@ function lastDoneKey(topic) {
   return last ? `${topic}:${last.kind}:${last.level}` : null;
 }
 
-/** Which stops get a piece of scenery beside them: those the path swings away from, on the far side. */
-function sceneryAt(count, avoid = -1) {
-  // Not beside the stop where מדי stands: he takes that side.
-  const swung = Array.from({ length: count }, (_, i) => i).filter((i) => SWING[i % SWING.length] !== 0 && i !== avoid);
-  return [swung[0], swung[2], swung[4]].filter((i) => i != null);
-}
-
-function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh, mastered, celebrate, mascotMood }) {
+function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh, mastered, celebrate }) {
   const done = nodes.filter((x) => x.kind === 'node' && x.state === 'done').length;
   const total = t.levels.length;
-  const worldRef = useRef(null);
-  const anchors = useRef([]);
-  const [geo, setGeo] = useState(null);
-  // The trail and the scenery follow the stops where they actually landed (an open card moves the ones below).
-  useLayoutEffect(() => {
-    const world = worldRef.current; if (!world) return undefined;
-    const measure = () => {
-      const w = world.getBoundingClientRect();
-      const pts = nodes.map((_, i) => anchors.current[i]).filter(Boolean).map((el) => {
-        const r = el.getBoundingClientRect();
-        return { x: r.left - w.left + r.width / 2, y: r.top - w.top + r.height / 2 };
-      });
-      setGeo({ w: w.width, h: w.height, pts });
-    };
-    measure();
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const ro = new ResizeObserver(measure); ro.observe(world);
-    return () => ro.disconnect();
-  }, [nodes.length, open]);
-  const reached = Math.max(0, nodes.findIndex((x) => x.state !== 'done'));
-  const allDone = nodes.every((x) => x.state === 'done');
-  const props = SCENERY[t.id] || [];
   const half = chestAfter(t.id);
   return (
     <section className={clsx('unit', `ch-${t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
       {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path scrolls */}
       <header className="unit-head" data-region="banner">
         <div className="unit-head-text">
-          <p className="unit-label">יחידה {n} · {done} מתוך {total} מדרגות</p>
           <h2 id={`unit-${t.id}`} className="unit-title">{t.title}</h2>
+          <p className="unit-label">יחידה {n} · {done} מתוך {total} מדרגות</p>
         </div>
         <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={`תזכורת מהשיעור: ${t.title}`}><BookOpen size={22} aria-hidden="true" /><span>תזכורת</span></Link>
       </header>
-      <div className="unit-world" ref={worldRef}>
-        <WorldBackdrop topic={t.id} />
-        {geo && <PathTrail points={geo.pts} reached={allDone ? nodes.length - 1 : reached} width={geo.w} height={geo.h} draw={fresh === t.id} />}
-        {geo && sceneryAt(nodes.length, nodes.findIndex((x) => `${t.id}:${x.kind}:${x.level}` === focusKey)).map((i, k) => {
-          const P = props[k]; const pt = geo.pts[i];
-          if (!P || !pt) return null;
-          const side = SWING[i % SWING.length] > 0 ? 'left' : 'right';
-          return <div key={k} className={clsx('scenery', side)} style={{ top: pt.y }} aria-hidden="true"><P /></div>;
-        })}
+      <div className="unit-world">
         <ol className="path" data-region="path">
           {nodes.map((node, i) => {
             const key = `${t.id}:${node.kind}:${node.level}`;
@@ -126,7 +84,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
             return [
               <li key={key} className="path-step" style={{ '--x': `${x}px` }}>
                 {node.state === 'current' && !isOpen && <span className="node-start" aria-hidden="true">{node.parts ? 'המשך' : 'התחלה'}</span>}
-                <div className={clsx('node-anchor', node.state === 'current' && 'is-current')} ref={(el) => { anchors.current[i] = el; }}>
+                <div className={clsx('node-anchor', node.state === 'current' && 'is-current')}>
                   <PathNode
                     ref={key === focusKey ? currentRef : undefined}
                     state={node.state} kind={node.kind} parts={node.parts} of={PARTS} mastered={mastered}
@@ -135,7 +93,6 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
                     label={label} expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}
                   />
                 </div>
-                {key === focusKey && <Mascot mood={mascotMood} size={88} className={clsx('path-mascot', x > 0 ? 'left' : 'right')} />}
                 {isOpen && <NodeCard n={node} t={t} onStart={onStart} />}
               </li>,
               // halfway along the unit, a treasure chest sits on the road
@@ -197,8 +154,6 @@ export default function Learn() {
   const focusNode = focusTopic && unitNodes(focusTopic, path, progress).find((x) => x.state === 'current');
   const focusKey = focusNode ? `${focusTopic}:${focusNode.kind}:${focusNode.level}` : null;
 
-  const mission = useMission();
-  const missionLeft = mission.items.filter((x) => !x.done).length;
   useEffect(() => { settleStreak(); }, [settleStreak]);
   // The screen opens at the top of the path; back from a lesson, or on another grade, it opens on the place to continue from.
   useLayoutEffect(() => {
@@ -223,9 +178,7 @@ export default function Learn() {
         <button type="button" className="grade-switch" onClick={() => { setView(otherGrade); setOpen(null); }} aria-label={`מציגים את כיתה ${view === '7' ? 'ז׳' : 'ח׳'}. מעבר לכיתה ${otherGrade === '7' ? 'ז׳' : 'ח׳'}`}>
           כיתה {view === '7' ? 'ז׳' : 'ח׳'}<ChevronDown size={18} aria-hidden="true" />
         </button>
-        <Link to="/quests" className={clsx('top-stat mission', missionLeft === 0 && 'on')} aria-label={missionLeft === 0 ? 'המשימה של היום הושלמה' : `המשימה של היום: נשארו ${missionLeft} חלקים`}><Target size={22} aria-hidden="true" /><bdi dir="ltr">{mission.items.filter((x) => x.done).length}/{mission.items.length}</bdi></Link>
         <Link to="/quests" className={clsx('top-stat streak', streak > 0 && 'on')} aria-label={`רצף של ${streak} ימים`}><Flame size={24} aria-hidden="true" />{streak}</Link>
-        {freezes > 0 && <Link to="/quests" className="top-stat freeze" aria-label={`${freezes} הקפאות רצף`}><Snowflake size={22} aria-hidden="true" />{freezes}</Link>}
         <Link to="/quests" className="top-stat xp" aria-label={`היום ${todayXp} מתוך ${goalXp} XP, סך הכול ${xp}`}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
       </header>
 
@@ -234,8 +187,7 @@ export default function Learn() {
         {/* the home screen is the path, as on Duolingo: units under their sticky banners, the current stop marked */}
         {topics.map((t, i) => (
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
-            mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null}
-            mascotMood={state?.nodeDone ? 'excited' : state?.from ? 'happy' : 'idle'} />
+            mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null} />
         ))}
         <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה. <Link to="/topics">כל הנושאים והמצב בכל אחד</Link></p>
       </div>

@@ -1,0 +1,381 @@
+/* ======================================================================= Round 17: the category standard
+   The owner's call (10 November 2026): the level of Brilliant and Duolingo, light and calm, one brand blue, big
+   readable Hebrew, and one grammar on every screen. Loaded last, it is the source of truth for:
+   - type: Rubik only; titles 26–32px/800, section headings 20px/700, body 17px, nothing under 14px;
+   - surfaces: white screens; one card (white, 2px #E4E7EC, radius 16, no soft shadow); grey #F4F6F9 only as the
+     panel the maths sits on;
+   - controls: pressable things have a 4px lip that collapses on press; the primary is the brand blue;
+   - colour: brand blue for action, selection, progress and "where I am"; green, red, gold and orange only for their
+     one meaning. No scenery, no colour blocks behind headers, no eyebrows over headings. */
+
+/* ------------------------------------------------------------------ base */
+html, body { background: #fff; }
+body { color: var(--ink); font-size: var(--t-base); line-height: var(--lh-base); }
+.muted, .lead { color: var(--ink-2); }
+.lead { font-size: var(--t-md); line-height: var(--lh-md); }
+::selection { background: #cfdcff; color: var(--ink); }
+:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+a { color: var(--brand-d); }
+
+/* ------------------------------------------------------------------ buttons */
+.btn { min-height: 52px; border-radius: 16px; font-family: var(--font-ui); font-weight: 700; font-size: 17px; letter-spacing: 0; }
+.btn-lg { min-height: 56px; font-size: 18px; }
+.btn-sm { min-height: 44px; font-size: 16px; border-radius: 14px; }
+.btn-primary { --btn-bg: var(--brand); --btn-ink: #fff; --btn-lip: var(--brand-lip); --btn-line: var(--brand); }
+.btn-secondary { --btn-bg: #fff; --btn-ink: var(--brand-d); --btn-line: var(--rule); --btn-lip: var(--rule-press); }
+.btn-ghost { --btn-bg: transparent; --btn-line: transparent; --btn-lip: transparent; color: var(--brand-d); }
+.btn:disabled { --btn-bg: #eceef2; --btn-ink: #6b7280; --btn-lip: #dfe2e8; --btn-line: #eceef2; }
+.btn:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.icon-btn { color: var(--ink-2); }
+
+/* ------------------------------------------------------------------ the tab bar: icon and name, the active tab in brand */
+.tabbar { background: #fff; border-top: 1px solid var(--rule); box-shadow: none; }
+.tab { flex-direction: column; gap: 2px; min-height: 56px; padding: 6px 4px 4px; border: 0; border-radius: 14px; color: #6b7280; background: transparent; font-size: 12px; font-weight: 600; line-height: 16px; }
+.tab span { display: block; }
+.tab svg { width: 24px; height: 24px; }
+.tab.active { color: var(--brand); background: transparent; border-color: transparent; }
+.tab.active svg { transform: none; stroke-width: 2.4; }
+@media (min-width: 960px) {
+  .tab { flex-direction: row; gap: 12px; font-size: 16px; padding: 10px 14px; justify-content: flex-start; }
+  .tab.active { background: var(--brand-tint); }
+  .tabbar-brand { color: var(--brand); font-weight: 800; font-size: 26px; }
+}
+
+/* ------------------------------------------------------------------ a tab's own screen: the name, big, on white */
+.page-hero { position: relative; display: block; margin: 0; padding: var(--s6) var(--gutter) var(--s2); background: #fff; color: var(--ink); border: 0; border-radius: 0; box-shadow: none; overflow: visible; isolation: auto; min-height: 0; }
+.page-hero::before, .page-hero::after { content: none; display: none; }
+.page-hero-text { gap: 6px; }
+.page-hero-title { font-size: 30px; line-height: 36px; font-weight: 800; color: var(--ink); letter-spacing: -0.015em; }
+.page-hero-sub { font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink-2); max-width: 46ch; }
+.page-hero-art { display: none; }
+
+/* section headings inside a screen: 20px, ink, with room above */
+.set-head, .h-section, .section > h2, .section-title { font-family: var(--font-ui); font-size: 20px; line-height: 26px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; margin: 0 0 var(--s3); text-transform: none; }
+.section { margin-top: var(--s6); }
+
+/* pushed screens: the bar with the way back and the title */
+.screen-bar { background: #fff; border-bottom: 1px solid var(--rule); min-height: 56px; }
+.screen-bar-title { font-family: var(--font-ui); font-size: 18px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.screen-foot { background: #fff; border-top: 1px solid var(--rule); }
+.foot-link { color: var(--brand-d); font-weight: 600; }
+
+/* ------------------------------------------------------------------ one card */
+.card, .hub-card, .hub-rows, .side-card, .quest-card, .me-stat, .kpi, .state-card, .stair-step, .guide-card, .mastery-map, .jclimb, .section-card {
+  background: #fff; border: 2px solid var(--rule); border-radius: 16px; box-shadow: none; color: var(--ink);
+}
+.card, .hub-card, .quest-card, .state-card { padding: var(--s5) var(--s5) var(--s4); }
+.hub-card { box-shadow: none; gap: var(--s4); }
+.hub-card-title, .card-title, .quest-card .continue-title { font-family: var(--font-ui); font-size: 20px; line-height: 26px; font-weight: 700; color: var(--ink); }
+.hub-card-desc, .quest-card .continue-sub { font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink-2); }
+.hub-card-icon, .hub-row-icon, .exam-cta-icon, .quest-icon, .qk-repair, .qk-review, .qk-mastery, .qk-new, .qk-continue, .qk-prereq, .qk-exam {
+  background: var(--brand-tint); color: var(--brand); border: 0; box-shadow: none;
+}
+.hub-rows > li + li { border-top: 2px solid var(--rule); }
+.hub-row { min-height: 72px; padding: var(--s3) var(--s4); color: var(--ink); }
+.hub-row-title { font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.hub-row-desc { font-size: 15px; line-height: 22px; color: var(--ink-2); }
+.hub-row .chev { color: #9aa1ac; }
+.hub-empty { border: 2px dashed var(--rule-strong); border-radius: 16px; padding: var(--s4); color: var(--ink-2); font-size: 16px; line-height: 24px; background: #fff; }
+.empty-state { border: 0; background: transparent; }
+.empty-title { font-size: 22px; line-height: 28px; font-weight: 800; }
+.empty-text { color: var(--ink-2); font-size: 17px; line-height: 26px; }
+
+
+/* ------------------------------------------------------------------ home: the path */
+.learn { background: #fff; }
+.learn-top { background: #fff; border-bottom: 1px solid var(--rule); box-shadow: none; min-height: 60px; gap: var(--s4); }
+.grade-switch { min-height: 44px; padding: 0 var(--s3); border: 2px solid var(--rule); border-radius: 12px; background: #fff; color: var(--ink); font-weight: 700; font-size: 16px; box-shadow: 0 2px 0 var(--rule-press); }
+.top-stat { font-family: var(--font-ui); font-weight: 800; font-size: 18px; color: var(--ink); gap: 6px; }
+.top-stat.streak, .top-stat.streak.on, .top-stat.xp { color: var(--ink); }
+.top-stat.streak svg { color: #b7bdc7; fill: none; }
+.top-stat.streak.on svg { color: var(--streak); fill: var(--streak); }
+.top-stat.xp svg { color: var(--gold); fill: var(--gold); }
+.top-stat-of { color: var(--ink-2); font-weight: 600; font-size: 15px; }
+
+.unit-head { margin: var(--s4) var(--gutter) 0; padding: var(--s4) var(--s5); border-radius: 16px; background: var(--brand); color: #fff; box-shadow: none; border: 0; }
+.unit-head-text { gap: 2px; }
+.unit-title { font-family: var(--font-ui); font-size: 22px; line-height: 28px; font-weight: 800; color: #fff; }
+.unit-label { font-size: 15px; line-height: 22px; font-weight: 500; color: rgba(255, 255, 255, 0.92); }
+.unit-guide { color: #fff; border-inline-start: 2px solid rgba(255, 255, 255, 0.35); font-weight: 700; font-size: 15px; }
+.unit-world { background: transparent; overflow: visible; }
+.unit .path { padding-top: 48px; padding-bottom: 40px; gap: 28px; }
+.path-end { color: var(--ink-2); font-size: 16px; text-align: center; padding: var(--s4) var(--gutter) var(--s8); }
+
+/* the stops: round, brand when done or current, light grey when locked */
+.node-slot { width: 96px; height: 96px; margin-block: -10px -6px; }
+.node-slot.is-review { width: 104px; height: 104px; }
+.node { --face: 68px; --lip: 6px; width: var(--face); height: var(--face); border-radius: 50%; border: 0;
+  background: var(--face-c); color: #fff; box-shadow: 0 var(--lip) 0 var(--edge); }
+.node:active { transform: translateY(var(--lip)); box-shadow: 0 0 0 var(--edge); }
+.node-glyph { width: 30px; height: 30px; filter: none; }
+.node-current { --face: 76px; --face-c: var(--brand); --edge: var(--brand-lip); color: #fff; }
+.node-done { --face-c: var(--brand); --edge: var(--brand-lip); color: #fff; }
+.node-mastered { --face-c: var(--gold); --edge: var(--gold-d); color: #5c3d00; }
+.node-mastered::after { content: none; }
+.node-locked { --face-c: #e9ecf1; --edge: #d3d8e0; color: #9aa1ac; }
+.node:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 6px; }
+.node-anchor.is-current { animation: none; }
+.node-halo { display: none; }
+.node-ring-seg { fill: #e9ecf1; stroke: #e9ecf1; }
+.node-ring-seg.on { fill: var(--brand); stroke: var(--brand); }
+.node-marks { bottom: 0; gap: 4px; }
+.node-marks i { width: 14px; height: 6px; background: #e9ecf1; box-shadow: none; }
+.node-marks i.on { background: var(--brand); box-shadow: none; }
+.node-start { background: #fff; color: var(--brand); border: 2px solid var(--rule); border-radius: 12px; font-family: var(--font-ui); font-weight: 800; font-size: 15px; padding: 6px 14px; box-shadow: none; animation: none; }
+.node-start::after { border-top-color: var(--rule); }
+.node-card { background: #fff; color: var(--ink); border: 2px solid var(--rule); border-radius: 16px; box-shadow: 0 12px 32px rgba(20, 22, 26, 0.12); }
+.node-card::before { border-bottom-color: var(--rule); }
+.node-card-title { color: var(--ink); font-family: var(--font-ui); font-size: 20px; line-height: 26px; font-weight: 800; }
+.node-card-sub { color: var(--ink-2); font-size: 16px; line-height: 24px; }
+.node-card .btn-primary { --btn-bg: var(--brand); --btn-ink: #fff; --btn-line: var(--brand); --btn-lip: var(--brand-lip); background: var(--brand); color: #fff; }
+.node-card .btn-secondary { --btn-bg: #fff; --btn-ink: var(--brand-d); --btn-line: var(--rule); --btn-lip: var(--rule-press); background: #fff; color: var(--brand-d); }
+.node-card .btn-ghost { color: var(--brand-d); }
+
+.chest { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; border: 0; background: #e9ecf1; color: #9aa1ac; box-shadow: 0 6px 0 #d3d8e0; margin-bottom: 6px; }
+.chest.is-open { background: var(--gold); color: #5c3d00; box-shadow: 0 6px 0 var(--gold-d); }
+.chest:active { transform: translateY(6px); box-shadow: 0 0 0 transparent; }
+.chest:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 6px; }
+.jump-current { background: #fff; color: var(--brand); border: 2px solid var(--rule); box-shadow: 0 4px 0 var(--rule-press); }
+
+/* wide screens: the side cards */
+.side-card { padding: var(--s4) var(--s5); }
+.side-streak svg.on { color: var(--streak); fill: var(--streak); }
+
+/* ------------------------------------------------------------------ topics */
+.section-card { padding: var(--s5); color: var(--ink); }
+.section-card.is-current { border-color: var(--brand); box-shadow: 0 4px 0 var(--brand-lip); }
+.section-card-title { color: var(--ink); font-family: var(--font-ui); font-size: 21px; line-height: 27px; font-weight: 800; }
+.section-card-label { color: var(--ink-2); font-size: 15px; font-weight: 500; }
+.section-card-desc { color: var(--ink-2); font-size: 16px; line-height: 24px; }
+.section-card-guide, .section-card-jump { color: var(--brand-d); }
+.btn-on-color { --btn-bg: var(--brand); --btn-ink: #fff; --btn-line: var(--brand); --btn-lip: var(--brand-lip); background: var(--brand); color: #fff; }
+.qbar-light { background: #e9ecf1; }
+.qbar-light > i { background: var(--brand); }
+.qbar-light .qbar-text { color: var(--ink); }
+
+/* segmented choices (grade, settings) */
+.seg { border: 2px solid var(--rule); background: #fff; color: var(--ink); box-shadow: 0 3px 0 var(--rule-press); font-weight: 700; }
+.seg.on, .seg[aria-pressed="true"], .seg[aria-checked="true"] { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-d); box-shadow: 0 3px 0 var(--brand-line); }
+
+/* ------------------------------------------------------------------ the lesson: the question owns the screen */
+.lesson { background: #fff; }
+.lesson-head { background: #fff; }
+.lesson-bar { height: 14px; background: #e9ecf1; box-shadow: none; }
+.lesson-bar i { background: var(--brand); box-shadow: none; }
+.lesson-bar i::after { background: rgba(255, 255, 255, 0.35); }
+.lesson .q-title { font-family: var(--font-ui); font-size: 22px; line-height: 30px; font-weight: 800; color: var(--ink); }
+.lesson .q-bubble { font-family: var(--font-ui); font-size: 19px; line-height: 28px; font-weight: 600; border: 2px solid var(--rule); border-radius: 16px; background: #fff; box-shadow: none; }
+.qdisplay { padding: var(--s5) var(--s3); border-radius: 16px; background: var(--ground); }
+.lesson .slot { border: 2px solid var(--rule-strong); border-bottom-width: 4px; border-radius: 14px; background: #fff; font-weight: 700; color: var(--ink); }
+.lesson .slot.active { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-tint); }
+.lesson .key { border: 2px solid var(--rule); border-radius: 12px; background: #fff; box-shadow: 0 3px 0 var(--rule-press); font-weight: 700; color: var(--ink); }
+.lesson .choice, .ls-choice { border: 2px solid var(--rule); border-radius: 16px; background: #fff; box-shadow: 0 4px 0 var(--rule-press); color: var(--ink); font-size: 18px; }
+.lesson .choice.on, .ls-choice.on, .ls-choice[aria-checked="true"] { border-color: var(--brand); background: var(--brand-tint); box-shadow: 0 4px 0 var(--brand-line); color: var(--brand-d); }
+.choice-key { border: 2px solid var(--rule); border-radius: 10px; color: var(--ink-2); background: #fff; }
+.redo-note { color: var(--ink-2); font-size: 15px; }
+.lesson-tool, .lesson .tool, .dock-row .tool { color: var(--ink-2); border-color: var(--rule); }
+
+/* feedback: the panel that rises from the bottom */
+.fb-good { --fb-bg: var(--good-tint); --fb-line: #bfe9c9; --fb-ink: var(--good-ink); --fb-mark: var(--good-d); }
+.fb-title { font-family: var(--font-ui); font-weight: 800; font-size: 22px; line-height: 28px; }
+.fb-text, .fb p { font-size: 17px; line-height: 26px; color: var(--ink); }
+
+/* the teaching stages (Brilliant): clean text, the maths on a light panel */
+.lm-canvas { background: var(--ground); border-radius: 16px; }
+.lm .ls-why { border-inline-start: 0; border: 2px solid var(--rule); background: #fff; border-radius: 16px; }
+.lm .ls-why.good { border-color: #bfe9c9; background: var(--good-tint); }
+.lm-say, .lm-prompt, .ls-text, .lm .ls-q { font-size: 19px; line-height: 29px; color: var(--ink); }
+.ob-bubble { font-family: var(--font-ui); font-size: 19px; line-height: 28px; font-weight: 600; border-color: var(--rule); }
+.ob-bar { background: #e9ecf1; }
+.ob-bar > i { background: var(--brand); }
+
+/* ------------------------------------------------------------------ results */
+.done-screen { background: #fff; }
+.done-title { font-family: var(--font-ui); font-size: 32px; line-height: 38px; font-weight: 800; color: var(--ink); }
+.climb-caption { color: var(--ink-2); font-size: 16px; font-weight: 600; }
+.stat { border-width: 2px; border-radius: 16px; background: #fff; }
+.stat-label { font-family: var(--font-ui); font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.stat-value { font-family: var(--font-ui); font-weight: 800; font-size: 22px; }
+.stat-brand, .stat-sky { --tone: var(--brand); --tone-on: #fff; --tone-ink: var(--brand-d); }
+.stat-good { --tone: var(--good); --tone-on: #000; --tone-ink: var(--good-ink); }
+.stat-gold { --tone: var(--gold); --tone-on: #000; --tone-ink: var(--gold-ink); }
+.reward-badge, .badge { font-weight: 700; }
+
+/* ------------------------------------------------------------------ profile */
+.profile-top { background: var(--brand-tint); border: 0; }
+.profile-name { font-family: var(--font-ui); font-size: 28px; line-height: 34px; font-weight: 800; }
+.profile-sub { color: var(--ink-2); font-size: 17px; }
+.me-stat dd, .me-stat-value { font-family: var(--font-ui); font-weight: 800; font-size: 22px; color: var(--ink); }
+.me-stat dt, .me-stat-label { color: var(--ink-2); font-size: 15px; }
+
+/* ------------------------------------------------------------------ sheets */
+.sheet { border-radius: 20px 20px 0 0; background: #fff; }
+.sheet-title { font-family: var(--font-ui); font-size: 20px; line-height: 26px; font-weight: 800; }
+.sheet-backdrop { background: rgba(20, 22, 26, 0.45); }
+
+/* ------------------------------------------------------------------ chips and bars */
+.chip { border: 2px solid var(--rule); background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 2px 0 var(--rule-press); }
+.bar { background: #e9ecf1; }
+.bar i { background: var(--gold); box-shadow: none; }
+.segs .rs-done, .segs .rs-mastered { background: var(--brand); }
+.segs .rs-current { background: var(--brand-line); }
+.score-chip.high { color: var(--good-ink); background: var(--good-tint); }
+.score-chip.mid { color: var(--gold-ink); background: var(--gold-tint); }
+.score-chip.low { color: var(--bad-ink); background: var(--bad-tint); }
+
+/* ------------------------------------------------------------------ the teacher's board */
+.t-head { background: #fff; color: var(--ink); border-bottom: 1px solid var(--rule); }
+.t-head .wordmark, .t-head .t-class-name { color: var(--ink); }
+.t-icon { background: #fff; color: var(--ink); border: 2px solid var(--rule); }
+
+/* ------------------------------------------------------------------ fixes after the first look */
+/* the page title and line stay ink on the white header (an older rule painted them white on a colour block) */
+.page-hero .page-hero-title { color: var(--ink); }
+.page-hero .page-hero-sub { color: var(--ink-2); }
+@media (min-width: 640px) { .page-hero { margin: 0; border-radius: 0; padding: var(--s8) var(--gutter) var(--s2); } }
+@media (min-width: 1100px) { .page-hero .page-hero-title { font-size: 36px; line-height: 44px; } }
+/* the tab names are shown, under the icons */
+@media (max-width: 899px) {
+  .tabbar .tab > span { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: nowrap; }
+  .tabbar .tab { min-height: 58px; }
+  .tabbar .tab svg { width: 24px; height: 24px; }
+}
+/* the path sits on plain white: no tinted world behind it */
+.unit-world, .world-signed .unit-world, .world-coord .unit-world, .world-line .unit-world, .world-pyth .unit-world, .world-angles .unit-world, .world-stats .unit-world { background: none; }
+.world-horizon { display: none; }
+.node-marks { display: none; }
+/* the maths sits on its light panel */
+.lesson .qdisplay { background: var(--ground); border-radius: 16px; padding: var(--s5) var(--s3); font-size: clamp(30px, 5dvh, 44px); }
+.lesson.is-manip .qdisplay { background: none; padding: 0; }
+/* a region focused by the app (the lesson's main area after each question) shows no ring; keyboard focus on controls does */
+[tabindex="-1"]:focus, [tabindex="-1"]:focus-visible { outline: none; }
+/* the teaching stages: the words at 19px */
+.lm-say { font-size: 19px; line-height: 1.6; }
+.lm-rule-text { font-family: var(--font-ui); font-weight: 700; }
+@media (max-height: 640px) { .lm-say { font-size: 17px; } }
+
+/* the mission rows: the title first, then what kind and how long, then why */
+.quest-body .today-item-title { font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.today-kind { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--ink-2); }
+.today-why { font-size: 15px; line-height: 22px; }
+/* Exam Rescue: a white card, the days left in the brand blue */
+.rescue-hero { background: #fff; color: var(--ink); border: 2px solid var(--rule); box-shadow: none; }
+.rescue-hero .rescue-msg { color: var(--ink-2); font-weight: 500; font-size: 16px; }
+.rescue-hero-title { font-family: var(--font-ui); font-weight: 800; color: var(--ink); }
+.rescue-count { background: var(--brand); color: #fff; border: 0; box-shadow: none; }
+.today .day-node { background: var(--brand); color: #fff; box-shadow: 0 0 0 8px var(--brand-tint); }
+.day-node-exam { background: var(--gold); color: #5c3d00; box-shadow: none; }
+/* the stair page's header: a plain card */
+.journey-head { background: #fff; border: 2px solid var(--rule); }
+/* the lesson: the question and its maths at the top, the answer and the keypad at the bottom (Duolingo) */
+.lesson.is-typed .lesson-main > .q-stage { margin-block: var(--s3) auto; justify-content: flex-start; min-height: 0; }
+/* the header sits in the page's own padding, aligned with the cards under it */
+.page-hero { padding: var(--s2) 0 var(--s1); }
+@media (min-width: 640px) { .page-hero { padding: var(--s4) 0 var(--s1); } }
+/* on a computer, a tab's screen keeps a readable column */
+@media (min-width: 1024px) { .page.wide { max-width: 880px; } }
+.day-path .today .day-tasks { border-color: var(--brand); }
+/* short phones (320×568 and the like): the drawing keeps its room */
+@media (max-height: 640px) {
+  .lesson .q-title { font-size: 18px; line-height: 25px; }
+  .lesson .qdisplay { padding: var(--s3) var(--s2); }
+  .lesson.is-typed .lesson-main > .q-stage { margin-block: var(--s1) auto; }
+}
+
+/* ======================================================================= after the finish review */
+/* a question is said plainly, as a heading: no speech bubble, no character beside it */
+.ob-ask { display: block; }
+.ob-bubble, .lesson .q-bubble { position: static; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; max-width: none;
+  font-family: var(--font-ui); font-size: 22px; line-height: 30px; font-weight: 800; color: var(--ink); }
+.ob-bubble::before, .ob-bubble::after, .lesson .q-bubble::before, .lesson .q-bubble::after { content: none; display: none; }
+.lesson .q-bubble { font-size: 20px; line-height: 28px; font-weight: 700; }
+@media (max-height: 640px) { .ob-bubble { font-size: 19px; line-height: 26px; } .lesson .q-bubble { font-size: 17px; line-height: 24px; } }
+/* a label that names what a heading belongs to sits under it, quietly */
+.bl-kicker, .journey-topic, .ps-next-label { font-size: 15px; line-height: 22px; font-weight: 500; color: var(--ink-2); }
+
+/* "not yet" is red, its one meaning; gold stays for XP */
+.fb-retry, .fb-reveal { --fb-bg: var(--bad-tint); --fb-line: #f6c3cd; --fb-ink: var(--bad-ink); --fb-mark: var(--bad); }
+.lesson-foot:has(.fb-retry), .lesson-foot:has(.fb-reveal) { --fb-foot: var(--bad-tint); border-top-color: #f6c3cd; }
+.btn-bad { --btn-bg: var(--bad); --btn-ink: #fff; --btn-lip: var(--bad-d); --btn-line: var(--bad); }
+
+/* the result tiles: neutral cards; the meaning colour is on the icon and the number only */
+.stat { border: 2px solid var(--rule); background: #fff; }
+.stat-label { background: none; color: var(--ink-2); padding: 10px 0 0; font-size: 14px; font-weight: 700; }
+.stat-value { color: var(--tone-ink); padding: 4px var(--s2) var(--s3); }
+.stat-brand, .stat-sky { --tone-ink: var(--brand-d); }
+.stat-good { --tone-ink: var(--good-ink); }
+.stat-gold { --tone-ink: var(--gold-ink); }
+/* the numbers on the profile and the teacher's board: one icon colour, the brand */
+.profile-stats svg, .me-stat svg, .t-kpis svg, .kpi-icon, .kpi-good .kpi-icon, .kpi-bad .kpi-icon { color: var(--brand); fill: none; }
+
+/* the profile: the student's initial instead of a character */
+.profile-top { height: 140px; background: var(--brand-tint); }
+.avatar-initial { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 44px; font-weight: 800; box-shadow: 0 0 0 6px #fff; }
+
+/* the current stop: its ring in the brand on a tint track, with room for the bubble above */
+.node-slot.has-ring { width: 104px; height: 104px; }
+.node-ring-seg { fill: var(--brand-tint); stroke: var(--brand-tint); }
+.node-ring-seg.on { fill: var(--brand); stroke: var(--brand); }
+.path-step:has(.node-start) { margin-top: 26px; }
+.node-start { top: -40px; }
+/* the gift: an icon the size of the lock, inside its disk */
+.chest svg { width: 30px; height: 30px; }
+
+/* the typed answer: a big field, big digits */
+.lesson .slot { width: clamp(104px, 36vw, 200px); height: clamp(48px, 7dvh, 64px); font-size: clamp(22px, 3.8dvh, 30px); }
+@media (max-height: 640px) { .lesson .slot { height: 46px; font-size: 22px; width: clamp(84px, 28vw, 140px); } }
+
+/* tab names at 14px */
+@media (max-width: 959px) { .tabbar .tab { font-size: 14px; line-height: 18px; } }
+
+/* on a computer the lesson is one column: the question, the maths, then the answer, the check and the keypad under it */
+@media (min-width: 900px) and (min-height: 560px) {
+  .lesson { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "head" "main" "foot"; }
+  .lesson .lesson-foot, .lesson-foot { width: 100%; max-width: 560px; justify-self: center; margin-inline: auto; border-inline-start: 0; border-top: 0; background: #fff; padding: var(--s3) var(--s4) var(--s6); }
+}
+
+/* the teacher's board: white, its sections as cards */
+.teacher, .teacher .t-body { background: #fff; }
+.t-section, .t-panel, .t-block { background: #fff; border: 2px solid var(--rule); border-radius: 16px; padding: var(--s4); }
+.t-section h2, .t-panel h2, .t-block h2 { color: var(--ink); font-size: 18px; font-weight: 800; }
+/* the result: מדי, one title, what was earned as quiet labels, three tiles, one button */
+.done-madi { margin-inline: auto; }
+.badges { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); }
+.done-earned { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--ground); color: var(--ink); font-size: 15px; font-weight: 600; }
+.done-earned svg { color: var(--brand); }
+.done-earned.tone-gold svg { color: var(--gold-d); }
+.done-earned.tone-good svg { color: var(--good-d); }
+.done-earned.tone-streak svg { color: var(--streak); }
+/* the teacher's board on white; its groups in cards */
+.teacher { background: #fff; }
+.t-group-box { background: #fff; border: 2px solid var(--rule); border-radius: 16px; padding: var(--s4); }
+/* the current stop's ring: how much of its lessons are done, in the brand on a tint track, around the button */
+.node-current { position: relative; overflow: visible; }
+.node-slot.has-ring .node-current::before { content: ""; position: absolute; inset: -11px; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(var(--brand) var(--pct, 0%), var(--brand-tint) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); }
+.node-current:active::before { transform: translateY(calc(-1 * var(--lip))); }
+/* the teaching stages say "not yet" in the same red as the lessons */
+.lm-actions.has-warm { background: var(--bad-tint); }
+.has-warm .lm-banner { color: var(--bad-ink); }
+.has-warm .lm-banner-icon { background: var(--bad); color: #fff; }
+.ls-why.warm { background: #fff; color: var(--ink); border: 2px solid #f6c3cd; }
+.lm .ls-why.warm, .lm .ls-why.bad { border-color: #f6c3cd; }
+.ls-choice.bad, .lm .ls-choice.bad { border-color: var(--bad); background: var(--bad-tint); box-shadow: 0 4px 0 #f6c3cd; }
+.check-title.warm { color: var(--bad-ink); }
+.lm .ls-choice.bad .choice-key { background: var(--bad); border-color: var(--bad); color: #fff; }
+@media (min-width: 900px) and (min-height: 560px) { .lesson .lesson-top, .lesson .lesson-q { max-width: 760px; margin-inline: auto; } }
+/* the narrowest phones: the teaching-stage maths fits its panel without a scroll box */
+@media (max-width: 360px) { .lm-expr { font-size: 1.4rem; padding-inline: 0; } .ls-display.big { font-size: 1.3rem; } }
+/* the profile: the initial sits small at the top, with no band behind it */
+.profile-top { height: auto; background: none; border: 0; padding: var(--s4) 0 0; margin-bottom: 0; }
+.avatar-initial { width: 72px; height: 72px; font-size: 32px; box-shadow: none; }
+/* the teacher's numbers: one icon colour */
+.kpi-icon, .kpi-good .kpi-icon, .kpi-brand .kpi-icon, .kpi-gold .kpi-icon, .kpi-bad .kpi-icon, .kpi-sky .kpi-icon { color: var(--brand); }
+/* one typed answer: a wide field */
+@media (min-height: 641px) { .lesson .answer-bar .answer-row > input.slot:only-of-type { width: min(60vw, 300px); } }
+/* the coaching line under a drawing, without a character beside it */
+.manip-coach { gap: 0; }
+.t-group > .t-group-box, .t-group-warm > .t-group-box { background: #fff; border: 2px solid var(--rule); border-radius: 16px; padding: var(--s1) var(--s4); }
+.t-group .set-head { color: var(--ink); }

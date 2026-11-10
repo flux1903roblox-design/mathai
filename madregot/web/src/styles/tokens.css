@@ -1,66 +1,64 @@
-/* Madregot tokens, "Electric Premium": pure black for dramatic backgrounds and headings, pure white for exercises,
-   graphs and learning surfaces, electric blue #0066FF for primary buttons and actions (white text, 4.8:1), glowing
-   blue #00C8FF for progress, icons and highlights (black text on it, 10.7:1). The saturated blues are kept for what
-   matters most. As in the most-used learning and media apps, the other colours each have one job: a bright green
-   for correct (black text on it, 8.7:1) and a deep red for "not yet" (white text, 5.8:1), far apart in lightness
-   (2.4:1) so they differ without colour vision too; warm gold for XP and achievements, orange for the streak.
-   These are the light (learning) values; the black screens get theirs from theme-dark.css. 4px grid. */
+/* Madregot tokens, round 17: the category standard (the level of Brilliant and Duolingo), light and calm.
+   White screens, ink #14161A, one brand blue #1A5CF5 for buttons, selection, progress and the current level (white
+   text on it, 5.4:1). The other colours each have one job: green correct (black text, 8.7:1), red "not yet" (white
+   text, 5.8:1), gold XP and achievements, orange the streak. No black screens, no glow, no colour per unit.
+   One family, Rubik, from 14px; body 17px. 4px grid. */
 :root {
   color-scheme: light;
 
   /* ground and ink */
   --paper: #ffffff;
-  --ground: #f5f6f8;
-  --ink: #000000;
-  --ink-2: #4d4d4d;
-  --rule: #e6e6e6;
-  --rule-strong: #c7c7c7;
-  --rule-press: #d6d6d6; /* the bottom edge of a white chunky card or button */
+  --ground: #f4f6f9;
+  --ink: #14161a;
+  --ink-2: #565b66;
+  --rule: #e4e7ec;
+  --rule-strong: #cdd2da;
+  --rule-press: #d5dae2; /* the bottom edge of a white pressable card or button */
 
   /* brand and meaning */
-  --brand: #0066ff;     --brand-d: #0052cc;   --brand-tint: #e6f0ff;  --brand-lip: #0047b3; --on-brand: #ffffff;
-  --glow: #00c8ff;      --glow-ink: #0052cc;  --on-glow: #000000;
+  --brand: #1a5cf5;     --brand-d: #1246c4;   --brand-tint: #eaf1ff;  --brand-lip: #1246c4; --on-brand: #ffffff;
+  --brand-line: #a9c3ff;
+  --glow: #1a5cf5;      --glow-ink: #1246c4;  --on-glow: #ffffff;
   --good: #2fbf4a;      --good-d: #1a8a34;    --good-tint: #e3f8e7;   --good-ink: #157a41;  --on-good: #000000;
   --bad: #c4213b;       --bad-d: #96182c;     --bad-tint: #fde8ec;    --bad-ink: #b3203a;   --on-bad: #ffffff;
-  --streak: #ff8a1f;    --streak-ink: #a84f00; --streak-tint: #ffeedd; --on-streak: #000000;
-  --gold: #ffc233;      --gold-d: #e0a100;    --gold-ink: #8a5c00;    --gold-tint: #fff4cc; --on-gold: #000000;
-  --ai: #0066ff;        --ai-tint: #e6f0ff;   --ai-ink: #0052cc;
+  --streak: #ff8a1f;    --streak-ink: #a84f00; --streak-tint: #fff1e3; --on-streak: #000000;
+  --gold: #ffc233;      --gold-d: #e0a100;    --gold-ink: #8a5c00;    --gold-tint: #fff6d6; --on-gold: #000000;
+  --ai: #1a5cf5;        --ai-tint: #eaf1ff;   --ai-ink: #1246c4;
 
-  /* מדי, the mascot: his own colours, in one place (body gradient, 3D edge, treads; arms, hands and feet; plus sign; cheeks).
-     Glowing blue with electric-blue edges. Another colour is a change of these tokens only. */
-  --madi-hi: #5fdcff;   --madi-lo: #00b4f0;   --madi-edge: #0066ff; --madi-tread: #a6ecff;
-  --madi-limb: #0066ff; --madi-mark: rgba(255, 255, 255, 0.55); --madi-blush: #ff8fb8;
+  /* מדי, the mascot: his own colours, in one place. The brand blue. */
+  --madi-hi: #5b8cff;   --madi-lo: #1a5cf5;   --madi-edge: #1246c4; --madi-tread: #c9d9ff;
+  --madi-limb: #1246c4; --madi-mark: rgba(255, 255, 255, 0.6); --madi-blush: #ff9cbc;
 
-  /* chapter colours: every unit shares the electric blue (fill, the darker blue for text and edges, the tint) */
-  --ch-sky: #0066ff;     --ch-sky-d: #0052cc;     --ch-sky-tint: #e6f0ff;
-  --ch-fuchsia: #0066ff; --ch-fuchsia-d: #0052cc; --ch-fuchsia-tint: #e6f0ff;
-  --ch-petrol: #0066ff;  --ch-petrol-d: #0052cc;  --ch-petrol-tint: #e6f0ff;
-  --ch-cobalt: #0066ff;  --ch-cobalt-d: #0052cc;  --ch-cobalt-tint: #e6f0ff;
-  --ch-violet: #0066ff;  --ch-violet-d: #0052cc;  --ch-violet-tint: #e6f0ff;
+  /* units: one colour for all of them, the brand blue */
+  --ch-sky: #1a5cf5;     --ch-sky-d: #1246c4;     --ch-sky-tint: #eaf1ff;
+  --ch-fuchsia: #1a5cf5; --ch-fuchsia-d: #1246c4; --ch-fuchsia-tint: #eaf1ff;
+  --ch-petrol: #1a5cf5;  --ch-petrol-d: #1246c4;  --ch-petrol-tint: #eaf1ff;
+  --ch-cobalt: #1a5cf5;  --ch-cobalt-d: #1246c4;  --ch-cobalt-tint: #eaf1ff;
+  --ch-violet: #1a5cf5;  --ch-violet-d: #1246c4;  --ch-violet-tint: #eaf1ff;
 
   /* older names, kept so every screen reads the new palette */
   --cyan: var(--brand); --cyan-tint: var(--brand-tint);
   --magenta: var(--bad-ink); --magenta-tint: var(--bad-tint);
-  --marker: var(--gold-tint); --marker-strong: #ffe066;
+  --marker: var(--gold-tint); --marker-strong: #cfdcff;
   --ok: var(--good-ink); --ok-tint: var(--good-tint);
 
-  /* type */
+  /* type: Rubik only; body 17px, nothing below 14px */
   --font-ui: 'Rubik Variable', 'Rubik', 'Segoe UI', 'Arial Hebrew', Arial, sans-serif;
-  --font-display: 'Fredoka Variable', 'Fredoka', 'Rubik Variable', 'Arial Hebrew', sans-serif;
-  --t-xs: 13px; --lh-xs: 20px;
-  --t-sm: 14px; --lh-sm: 20px;
-  --t-base: 16px; --lh-base: 24px;
-  --t-md: 18px; --lh-md: 28px;
-  --t-lg: 22px; --lh-lg: 28px;
+  --font-display: var(--font-ui);
+  --t-xs: 14px; --lh-xs: 20px;
+  --t-sm: 15px; --lh-sm: 22px;
+  --t-base: 17px; --lh-base: 26px;
+  --t-md: 19px; --lh-md: 28px;
+  --t-lg: 22px; --lh-lg: 30px;
   --t-xl: 28px; --lh-xl: 36px;
-  --t-2xl: 36px; --lh-2xl: 44px;
+  --t-2xl: 34px; --lh-2xl: 42px;
 
   /* 4px cell grid, rounded geometry */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px; --s12: 48px;
-  --r-sm: 10px; --r-md: 16px; --r-lg: 20px;
+  --r-sm: 12px; --r-md: 16px; --r-lg: 20px;
   /* the chunky edge: a solid lip under buttons and cards that collapses when pressed */
   --lip: 4px;
-  --shadow-lift: 0 2px 4px rgba(36, 37, 58, 0.06), 0 8px 24px rgba(36, 37, 58, 0.1);
+  --shadow-lift: 0 2px 6px rgba(20, 22, 26, 0.06), 0 12px 32px rgba(20, 22, 26, 0.12);
   --shadow-dock: 0 -2px 6px rgba(36, 37, 58, 0.05), 0 -8px 24px rgba(36, 37, 58, 0.06);
 
   /* motion tokens (transitions.dev scale) */
@@ -95,8 +93,8 @@
   --think-distance: 8px;
   --think-blur: 2px;
   --think-shimmer: 2000ms;
-  --think-base: #6b6b6b;
-  --think-highlight: #000000;
+  --think-base: #6b7280;
+  --think-highlight: #14161a;
   --think-ease: ease-in-out;
   /* streaming text (#30) */
   --stream-gap: 60ms;
@@ -118,7 +116,7 @@ body {
   -webkit-font-smoothing: antialiased;
   caret-color: var(--cyan);
 }
-h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: 600; letter-spacing: -0.005em; text-wrap: balance; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
 p { margin: 0; }
 button, input, textarea, select { font: inherit; color: inherit; }
 button { cursor: pointer; }

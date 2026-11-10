@@ -5,7 +5,6 @@ import { m, useReducedMotion } from 'motion/react';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress, GOALS } from '@/lib/quests.js';
 import { usePlan } from '@/lib/usePlan.js';
-import Mascot from '@/components/Mascot.jsx';
 import { Week } from './LessonDone.jsx';
 import PageHero from '@/components/PageHero.jsx';
 import Lottie from '@/components/Lottie.jsx';
@@ -58,7 +57,6 @@ export default function Quests() {
         <div className={clsx('quest-chest', allDone && 'open')}>
           <Lottie name="chest" frame={allDone ? 'end' : 'start'} className="quest-chest-art" label={allDone ? 'תיבה פתוחה' : 'תיבה סגורה'} fallback={<Trophy size={48} aria-hidden="true" />} />
           <div className="quest-chest-text">
-            <Mascot mood={allDone ? 'happy' : 'idle'} size={46} />
             <p className="quest-say">{allDone
               ? (day.questsRewarded && freezes > 0 ? 'פתחתם את התיבה של היום! יש בה הקפאת רצף.' : 'פתחתם את התיבה של היום! מחר יחכו משימות חדשות.')
               : `עוד ${3 - quests.filter((q) => q.done).length === 1 ? 'משימה אחת' : `${3 - quests.filter((q) => q.done).length} משימות`} והתיבה נפתחת. יש בה הקפאת רצף (אפשר להחזיק עד שתיים).`}</p>

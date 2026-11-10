@@ -446,7 +446,6 @@ export default function Lesson() {
   const talk = (item.text || '').length > 64;
   const question = talk ? (
     <div className="lesson-q is-talk" data-region="question">
-      <Mascot mood={mood} beat={shakeKey + (last?.ok ? s.solved * 100 : 0)} size={56} className="q-mascot" />
       <h1 className="qtext q-bubble" id="qtext"><MathText text={item.text} /></h1>
     </div>
   ) : (
@@ -469,8 +468,6 @@ export default function Lesson() {
       <main className="lesson-main" ref={qRef} tabIndex={-1} aria-labelledby="qtext" data-region="content">
         <AnimatePresence mode="wait" initial={false}>
         <m.div key={stage} className="q-stage" {...slide}>
-        {/* nothing to draw: on a short phone (where the question has no מדי beside it) he waits here */}
-        {!item.display && !item.fig && item.form !== 'mc' && !isManip && !nbOn && <Mascot mood={mood} beat={shakeKey + (last?.ok ? s.solved * 100 : 0)} size={96} className="stage-mascot" />}
         {item.redo && <p className="redo-note"><RotateCcw size={16} aria-hidden="true" />תרגיל דומה לזה שהיה קשה קודם</p>}
         {item.extra && <p className="redo-note"><Search size={16} aria-hidden="true" />עוד שאלה אחת, כדי להבין מה בדיוק בלבל</p>}
         {item.display && <div className="qdisplay"><Tex tex={item.form === 'mc' ? item.display : `${item.display} = \\,?`} display /></div>}
@@ -577,7 +574,7 @@ export default function Lesson() {
               )}
             </div>
             <div className="fb-actions">
-              <Button variant={feedback === 'good' ? 'good' : feedback === 'retry' ? 'warm' : 'bad'} className="btn-block btn-lg" onClick={goOn} autoFocus>
+              <Button variant={feedback === 'good' ? 'good' : 'bad'} className="btn-block btn-lg" onClick={goOn} autoFocus>
                 {feedback === 'retry' ? 'לנסות שוב' : feedback === 'good' ? 'המשך' : 'הבנתי'}
               </Button>
             </div>
@@ -644,7 +641,6 @@ function HelpSheet({ open, onOpenChange, payload, getImage, hasPage }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title="לבקש עזרה מהמורה" footer={footer}>
       <div className="ob-ask sheet-ask">
-        <Mascot mood="encouraging" size={56} className="ob-mascot" />
         <p className="ob-bubble">המורה יראה את התרגיל ואת מה שכתבתם{hasPage ? ', כולל הדף מהמחברת' : ''}, ויוכל לעבור עליו איתכם.</p>
       </div>
       <label htmlFor="help-note" className="field-label">מה לא ברור? (לא חובה)</label>
