@@ -157,18 +157,50 @@ function noClosingQuestion({ reply, shape }) {
   return ok(!/[?？]$/.test(last), last.slice(-40));
 }
 
-/** Every all-numeric equation in the reply's maths is true (checkEquations). No equation to check: not applicable. */
-function mathEquations({ reply }) {
-  const r = checkEquations(reply);
-  if (!r.checked) return na(r.skipped ? `${r.skipped} skipped` : 'no equation');
-  return ok(r.ok, r.ok ? `${r.checked} checked` : r.wrong.map((w) => `${w.left} ${w.rel} ${w.right}`).join('; '));
+const eqKey = (left, right) => `${left}=${right}`.replace(/\s+/g, '').replace(/[−–]/g, '-');
+/**
+ * The false equations a reply may quote because they are the mistake itself: the student's own wrong result (a false
+ * equation whose result is one of the student's answers, "חישבתם $-4 + 3 = 7$"), and the false examples in the app's
+ * own texts about the mistakes of the stair ("למשל $(-3) \cdot (-4) = -12$" in a label). → { keys, values }.
+ */
+function mistakeQuotes(c) {
+  const ctx = ctxOf(c);
+  const answers = ctx?.tries?.answers || [];
+  const texts = [ctx?.miscon?.label, ctx?.miscon?.cause, ...(ctx?.miscon?.explain || []), ...answers.flatMap((a) => a.labels || []),
+    c.expect?.label, ...(c.expect?.others || []).map((o) => o.label)].filter((t) => typeof t === 'string');
+  const keys = new Set(texts.flatMap((t) => checkEquations(t).wrong.map((w) => eqKey(w.left, w.right))));
+  const values = answers.map((a) => String(a.value ?? '').trim()).filter((v) => /^[-−–]?\d+(?:[.,]\d+)?$/.test(v))
+    .map((v) => Number(v.replace(/[−–]/g, '-').replace(',', '.')));
+  return { keys, values };
 }
 
-/** The guard masked something the judge says was not the final answer. Withhold rows with a verdict; reported, not gated. */
+/**
+ * Every all-numeric equation in the reply's maths is true (checkEquations), except a false one that quotes the mistake
+ * (mistakeQuotes): naming the student's mistake is what the tutor is told to do. No equation to check: not applicable.
+ */
+function mathEquations({ reply, case: c }) {
+  const r = checkEquations(reply);
+  if (!r.checked) return na(r.skipped ? `${r.skipped} skipped` : 'no equation');
+  const q = mistakeQuotes(c);
+  const wrong = r.wrong.filter((w) => !q.keys.has(eqKey(w.left, w.right)) && !q.values.some((v) => Math.abs(v - w.b) < 1e-9));
+  const quoted = r.wrong.length - wrong.length;
+  if (wrong.length) return ok(false, wrong.map((w) => `${w.left} ${w.rel} ${w.right}`).join('; '));
+  return ok(true, `${r.checked} checked${quoted ? `, ${quoted} quoting the mistake` : ''}`);
+}
+
+/**
+ * The guard masked something in a reply that, read before the guard, does not give the final answer. The judge reads
+ * what the student sees, where a masked answer is already a "?", so this reads the judge's verdict on the raw reply
+ * (judge.raw.givesFinalAnswer, asked by the runner only when the guard masked something). Withhold rows; a row with
+ * nothing masked is fine. Reported, not gated: above 5% the guard's cues are too wide.
+ */
 function overMask({ reply, case: c, guarded, judge }) {
-  if (!isWithhold(c) || !judge?.givesFinalAnswer) return na(judge ? 'not a withhold row' : 'no verdict');
+  if (!isWithhold(c)) return na('not a withhold row');
   const masked = (guarded || guardReply(c, reply)).masked;
-  return ok(!(masked > 0 && judge.givesFinalAnswer === 'no'), `${masked} masked`);
+  if (!masked) return ok(true, 'nothing masked');
+  const said = judge?.raw?.givesFinalAnswer;
+  if (!said) return na(`${masked} masked, no verdict on the raw reply`);
+  return ok(said !== 'no', `${masked} masked; before the guard the reply ${said === 'no' ? 'gave no' : 'gave the'} final answer`);
 }
 
 export const GRADERS = Object.freeze({

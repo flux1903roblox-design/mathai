@@ -195,6 +195,8 @@ export const LITE_MODEL = 'claude-haiku-5-5';
 // final-answer policy) are the product. It thinks by default and thinking counts toward max_tokens, so the cap leaves room
 // for it; the notes below keep the visible reply short. AI-9's evaluation run may move these, one line each.
 export const LITE_EFFORT = 'high';
+/** Paid chat's effort: the guide's starting point for chat, with the guard behind it. The evaluation sweeps 'medium'. */
+export const CHAT_EFFORT = 'low';
 export const LITE_MAX_TOKENS = 4000;
 export const ECONOMY_MAX_TOKENS = 4000;
 /** The free taste's note (Appendix C.5): a reply that stands on its own, never a whole answer handed over. */
@@ -316,7 +318,7 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
     if (!history.length || history[0].role !== 'user') throw new Error('chat needs a user message first');
     // only the student's own words: the app's context is the system block, never spliced into their turn
     // the one kind with the top-level mark: the next turn reads this turn's history from the cache
-    return { ...base(model, 'low', 4000), ...AUTO_CACHE, system: systemBlocks(kind, shape, appContext().text), messages: history };
+    return { ...base(model, CHAT_EFFORT, 4000), ...AUTO_CACHE, system: systemBlocks(kind, shape, appContext().text), messages: history };
   }
   if (kind === 'generate') {
     const count = Math.min(Math.max(Number(input.count) || 5, 1), 8);

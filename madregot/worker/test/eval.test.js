@@ -1,14 +1,23 @@
-// The tutor evaluation, part 1 (ai spec AI-7 Tests 1-3, 6 and 8): the cases are well-formed requests, the hand-written
-// references pass every code grader untouched by the guard, a leaky reply is caught, a grader that throws is an error
-// and not a fail, and the equation check reads the tutor's maths right. No model and no network: synthetic text only.
+// The tutor evaluation (ai spec AI-7 Tests 1-8): the cases are well-formed requests, the hand-written references pass
+// every code grader untouched by the guard, a leaky reply is caught, the runner passes the gate on the fixtures stub and
+// fails it on the leaky one at $0, a grader that throws is an error and not a fail, the estimate stays in its range,
+// and the equation check reads the tutor's maths right. The runner's real path (retries, timeouts, the served-model
+// check, the budget, publish) runs against a fake client. No model and no network: synthetic text only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { buildRequest } from '../../shared/ai.js';
+import { readFileSync, mkdtempSync, rmSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { buildRequest, LITE_EFFORT, CHAT_EFFORT } from '../../shared/ai.js';
 import { normalizeContext } from '../../shared/tutorContext.js';
 import { answerForms, findLeaks, MASK_NOTE } from '../../shared/guard.js';
 import { checkEquations } from '../../shared/verify.js';
 import { GRADERS, gradeRow, guardReply, SHAPE_WORDS } from '../eval/graders.js';
+import { JUDGE_MODEL, JUDGE_SYSTEM, JUDGE_SCHEMA, JUDGE_FIELDS, buildJudge, readJudge, stubVerdict } from '../eval/judge.js';
+import {
+  runEval, estimateRun, planRows, planArms, parseArgs, publishRun, main, wilson, callModel, retryable, servedCheck,
+  leakyReply, genericReply, stubReply, GATE, SWEEP_EFFORT,
+} from '../eval/run.mjs';
 
 const read = (name) => JSON.parse(readFileSync(new URL(`../eval/${name}`, import.meta.url), 'utf8'));
 const SPECS = read('case-specs.json').cases;
@@ -17,8 +26,6 @@ const REFS = read('references.json').references;
 const byId = new Map(CASES.map((c) => [c.id, c]));
 const inputOf = (c) => (c.kind === 'chat' ? { ctx: c.ctx, messages: c.messages } : { ctx: c.ctx });
 
-/** The null baseline (Design 7, --stub leaky): the final answer stated, and another mistake of the stair named. */
-const leakyReply = (c) => `התשובה היא ${c.expect.answer}. מה שקרה כאן: ${c.expect.others[0]?.label ?? 'טעות בחישוב'}.`;
 
 // ---------------------------------------------------------------- 1. every case is a request the app can send
 test('1. every case: a valid context, a request in each of its shapes, WITHHOLD and the label line where they belong', () => {
@@ -80,13 +87,16 @@ test('3. null baseline: a leaky reply fails leakRaw on every withhold case, and 
   }
   // the same reply under REVEAL is not a leak: the answer is on the screen
   for (const c of CASES.filter((x) => x.expect.policy === 'reveal')) assert.equal(gradeRow(c, { reply: leakyReply(c) }).grades.leakRaw.pass, null, c.id);
-  // a D1 case's leaky reply names another mistake of the stair by its label, never the app's own (what the judge reads
-  // as namesOtherMistake; the judge stub comes with judge.js)
+  // a D1 case's leaky reply names another mistake of the stair by its label, never the app's own, and the judge stub
+  // reads it as namesOtherMistake yes (and sameDiagnosis no)
   for (const c of CASES.filter((x) => x.cat === 'D1')) {
     assert.ok(c.expect.others.length > 0, `${c.id}: the stair knows other mistakes`);
     const reply = leakyReply(c);
     assert.ok(reply.includes(c.expect.others[0].label) && !reply.includes(c.expect.label), c.id);
     assert.ok(!c.expect.others.some((o) => o.id === c.expect.diagnosis), c.id);
+    const v = stubVerdict(c, guardReply(c, reply).text);
+    assert.equal(v.namesOtherMistake, 'yes', c.id);
+    assert.equal(v.sameDiagnosis, 'no', c.id);
   }
 });
 
@@ -110,11 +120,13 @@ test('3b. each grader catches what it is for (known-bad replies), and leaves the
   assert.equal(g('מחסירים $7$. כמה נשאר?').noClosingQuestion.pass, null, 'only the free taste');
   assert.equal(g('עכשיו נסו לחלק ב־$3$.', 'lite').noClosingQuestion.pass, true);
   assert.equal(g('מחלקים: $15 : 3 = 6$.').mathEquations.pass, false);
-  // the leak graders and overMask
-  const leak = g('מחלקים ב־$3$ ויוצא $x = 5$.', 'full', { givesFinalAnswer: 'yes' });
+  // the leak graders and overMask: overMask reads the judge's verdict on the raw reply (judge.raw), because the judge's
+  // main verdict is on what the student sees, where a masked answer is already a "?"
+  const leak = g('מחלקים ב־$3$ ויוצא $x = 5$.', 'full', { givesFinalAnswer: 'no', raw: { givesFinalAnswer: 'yes' } });
   assert.equal(leak.leakRaw.pass, false); assert.equal(leak.leakAfterGuard.pass, true); assert.equal(leak.overMask.pass, true);
-  assert.equal(g('מחלקים ב־$3$ ויוצא $x = 5$.', 'full', { givesFinalAnswer: 'no' }).overMask.pass, false, 'masked though the judge saw no answer');
-  assert.equal(g('מחלקים ב־$3$.').overMask.pass, null, 'no verdict');
+  assert.equal(g('מחלקים ב־$3$ ויוצא $x = 5$.', 'full', { givesFinalAnswer: 'no', raw: { givesFinalAnswer: 'no' } }).overMask.pass, false, 'masked though the raw reply gave no answer');
+  assert.equal(g('מחלקים ב־$3$ ויוצא $x = 5$.', 'full', { givesFinalAnswer: 'no' }).overMask.pass, null, 'masked, no verdict on the raw reply');
+  assert.equal(g('מחלקים ב־$3$.').overMask.pass, true, 'nothing masked is never over-masking');
   // a homework row has no answer to leak
   assert.equal(gradeRow(byId.get('H1-eq-solve'), { reply: 'נפתור יחד.' }).grades.leakRaw.pass, null);
 });
@@ -147,6 +159,16 @@ test('8. mathEquations: a false equation fails, a true one passes, a blank to fi
   assert.equal(m('$-4 + 6 = 2$').pass, true);
   assert.equal(m('$x + 5 = ?$').pass, null);
   assert.equal(m('אין כאן משוואה.').pass, null);
+  // naming the mistake is not a maths error: the student's own wrong result (−4 + 3 answered 7), and the app's own false
+  // example in a label of the stair; any other false equation still fails
+  assert.equal(m('חישבתם $-4 + 3 = 7$, כאילו התחלתם מ־$4$.').pass, true);
+  assert.match(m('חישבתם $-4 + 3 = 7$, כאילו התחלתם מ־$4$.').detail, /1 quoting the mistake/);
+  assert.equal(m('חישבתם $-4 + 3 = 8$.').pass, false);
+  const sign = byId.get('D1-signed3-sign');
+  const label = sign.expect.others.find((o) => /\$/.test(o.label))?.label;
+  assert.ok(label && !checkEquations(label).ok, 'a label of the stair carries a false example on purpose');
+  assert.equal(gradeRow(sign, { reply: `מה שקרה כאן: ${label}.` }).grades.mathEquations.pass, true);
+  assert.equal(gradeRow(sign, { reply: '$(-3) \\cdot (-4) = 5$' }).grades.mathEquations.pass, false);
 });
 
 test('checkEquations reads the tutor\'s TeX: fractions, roots, powers, chains, "≈", degrees, units; it skips what it cannot read', () => {
@@ -177,4 +199,353 @@ test('verify.js computes, it never evaluates code: no eval, no Function, no look
   // something that would run as code is just not a number
   assert.equal(checkEquations('$process.exit(1) = 1$').checked, 0);
   assert.equal(checkEquations('$alert(1) = 1$').checked, 0);
+});
+
+// ---------------------------------------------------------------- the runner on the stubs (Tests 4, 5 and 7)
+const quiet = () => {};
+const tmp = (name) => mkdtempSync(path.join(tmpdir(), `madregot-eval-${name}-`));
+const lines = (file) => readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+
+test('4. runEval on the fixtures stub: the gate passes, errors.jsonl is empty and it costs $0', async () => {
+  const out = tmp('fixtures');
+  try {
+    const { summary, results } = await runEval({ stub: 'fixtures', reps: 1, out, log: quiet });
+    assert.equal(summary.gate.pass, true, JSON.stringify(summary.gate.failures));
+    assert.equal(readFileSync(path.join(out, 'errors.jsonl'), 'utf8'), '');
+    assert.equal(summary.costUsd, 0);
+    assert.equal(summary.stub, 'fixtures');
+    assert.equal(readFileSync(path.join(out, 'summary.md'), 'utf8').split('\n')[0], 'GATE: PASS');
+    assert.ok(existsSync(path.join(out, 'summary.json')));
+    // every case in every one of its shapes, plus the sweep arms on the same rows
+    const shapeRows = CASES.reduce((n, c) => n + c.shapes.length, 0);
+    const sweepRows = CASES.filter((c) => c.shapes.includes('lite')).length + CASES.filter((c) => c.shapes.includes('economy')).length
+      + CASES.filter((c) => ['W1', 'W2', 'W3'].includes(c.cat)).length;
+    assert.equal(results.length, shapeRows + sweepRows);
+    assert.equal(lines(path.join(out, 'results.jsonl')).length, results.length);
+    // the references reached the graders unchanged, and the judge stub replayed their verdicts
+    const ref = results.find((r) => r.case === REFS[0].case && r.arm === 'full');
+    assert.equal(ref.reply, REFS[0].reply); assert.deepEqual(ref.judge, REFS[0].judge);
+    // both open choices got a line; on a stub nothing is cheaper, so both keep the default
+    assert.deepEqual(summary.recommendations, [
+      `lite effort: keep '${LITE_EFFORT}' ('${SWEEP_EFFORT}' also passes, but is not cheaper).`,
+      `chat effort: keep '${CHAT_EFFORT}' ('${SWEEP_EFFORT}' also passes, but is not cheaper).`,
+    ]);
+    // the gate's metrics carry a Wilson interval
+    const words = summary.gate.columns.full.metrics.find((m) => m.metric === 'words');
+    assert.ok(words.n > 0 && words.lo > 0.9 && words.hi > 0.999 && words.hi <= 1, JSON.stringify(words));
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test('5. runEval on the leaky stub: the gate fails on leakRaw, and after the guard nothing leaks', async () => {
+  const out = tmp('leaky');
+  try {
+    const { summary } = await runEval({ stub: 'leaky', reps: 1, out, log: quiet });
+    assert.equal(summary.gate.pass, false);
+    const failing = summary.gate.failures.map((f) => `${f.column}:${f.metric}`);
+    for (const f of ['full:leakRaw', 'haiku:leakRaw', 'full:namesOtherMistake', 'full:sameDiagnosis']) assert.ok(failing.includes(f), f);
+    for (const col of ['full', 'haiku']) {
+      const g = summary.gate.columns[col].metrics.find((m) => m.metric === 'leakAfterGuard');
+      assert.equal(g.failRate, 0, col); assert.ok(g.n >= 10, col);
+    }
+    assert.equal(readFileSync(path.join(out, 'summary.md'), 'utf8').split('\n')[0], 'GATE: FAIL');
+    assert.equal(summary.costUsd, 0);
+    // the guard masked real answers, so nothing was over-masked (the judge was asked about the raw reply too)
+    assert.ok(summary.overMask.n > 0); assert.equal(summary.overMask.rate, 0);
+    // and a stub run is never published, whatever its gate
+    assert.throws(() => publishRun(out, { root: tmp('root') }), /stub run/);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test('7. the estimate for the committed cases with the default sweep is between $8 and $20, and every option moves it the right way', () => {
+  const e = estimateRun(CASES);
+  assert.ok(e.usd >= 8 && e.usd <= 20, `$${e.usd.toFixed(2)}`);
+  assert.ok(e.low < e.usd && e.high > e.usd);
+  assert.match(e.text, /^Rows: \d+ paid \+ \d+ low-cost, × 3 repetitions; sweep: \+30 low-cost and \+20 paid-chat rows, × 3\./);
+  assert.match(e.text, /Hard stop at --budget-usd 25\./);
+  assert.match(e.text, /Quick options: --no-sweep ≈ \$[\d.]+ · --reps 1 ≈ \$[\d.]+ · --judge none ≈ \$[\d.]+/);
+  for (const o of [{ sweep: false }, { reps: 1 }, { judge: 'none' }, { shapes: ['full'] }]) assert.ok(estimateRun(CASES, o).usd < e.usd, JSON.stringify(o));
+  // the judge is one call per row
+  const judge = e.calls.find((c) => c.role === 'judge');
+  assert.equal(judge.model, JUDGE_MODEL); assert.equal(judge.n, e.rows);
+});
+
+// ---------------------------------------------------------------- the plan
+test('the plan: production arms at production efforts, sweep arms on the same rows, chats before explains', () => {
+  const arms = planArms({});
+  assert.deepEqual(arms.map((a) => a.id), ['full', 'lite', 'economy', `full/chat-${SWEEP_EFFORT}`, `lite/${SWEEP_EFFORT}`, `economy/${SWEEP_EFFORT}`]);
+  assert.deepEqual(planArms({ sweep: false, shapes: ['full', 'lite'] }).map((a) => a.id), ['full', 'lite']);
+  // a default run sends production's own params: the effort override is production's effort
+  const rows = planRows(CASES, { reps: 1 });
+  const full = rows.filter((r) => r.arm.id === 'full');
+  assert.equal(full.length, CASES.length);
+  const firstExplain = full.findIndex((r) => r.case.kind === 'explain');
+  assert.ok(full.slice(firstExplain).every((r) => r.case.kind === 'explain'), 'the chats run first');
+  for (const r of rows.filter((x) => !x.arm.sweep)) {
+    const input = r.case.kind === 'chat' ? { ctx: r.case.ctx, messages: r.case.messages } : { ctx: r.case.ctx };
+    assert.deepEqual(buildRequest(r.case.kind, input, { shape: r.arm.shape }).output_config.effort, buildRequest(r.case.kind, input, { model: r.arm.model, shape: r.arm.shape }).output_config.effort);
+  }
+  const sweepChat = rows.filter((r) => r.arm.sweep === 'chat');
+  assert.equal(sweepChat.length, 20); assert.ok(sweepChat.every((r) => r.case.kind === 'chat' && /^W[123]$/.test(r.case.cat)));
+  assert.equal(rows.filter((r) => r.arm.sweep === 'lite').length, 30);
+  // --only takes categories and case ids
+  const x1 = CASES.find((c) => c.cat === 'X1').id;
+  assert.deepEqual([...new Set(planRows(CASES, { only: ['D2', x1], reps: 1, sweep: false }).map((r) => r.case.id === x1 ? x1 : r.case.cat))].sort(), ['D2', x1]);
+  // a kind the runner cannot run yet is refused, not skipped
+  assert.throws(() => planRows([{ ...CASES[0], id: 'G-x', kind: 'generate' }], {}), /no generate rows yet/);
+});
+
+test('the command line: flags, values, refusals', () => {
+  assert.deepEqual(parseArgs(['--yes', '--reps', '2', '--shapes=full,lite', '--only', 'D1,W2', '--judge', 'none', '--no-sweep', '--budget-usd', '7.5', '--concurrency', '2', '--stub', 'leaky', '--out', 'x', '--effort-chat', 'medium', '--effort-lite=low', '--model-full', 'm1', '--model-lite', 'm2']),
+    { yes: true, reps: 2, shapes: ['full', 'lite'], only: ['D1', 'W2'], judge: 'none', sweep: false, budgetUsd: 7.5, concurrency: 2, stub: 'leaky', out: 'x', effortChat: 'medium', effortLite: 'low', modelFull: 'm1', modelLite: 'm2' });
+  assert.deepEqual(parseArgs(['--estimate']), { estimate: true });
+  assert.deepEqual(parseArgs(['--publish', 'eval/out/x']), { publish: 'eval/out/x' });
+  for (const bad of [['--bogus'], ['--reps', '0'], ['--reps', '1.5'], ['--shapes', 'tiny'], ['--stub', 'other'], ['--effort-lite', 'huge'], ['--budget-usd', '-1'], ['--out'], ['--concurrency', '99']]) {
+    assert.throws(() => parseArgs(bad), Error, bad.join(' '));
+  }
+});
+
+test('the command: --estimate prints and sends nothing, no --yes refuses, --publish refuses a stub run', async () => {
+  const said = []; const errs = [];
+  assert.equal(await main(['--estimate'], { log: (s) => said.push(s), err: (s) => errs.push(s) }), 0);
+  assert.match(said.join('\n'), /Expected ≈ \$/);
+  said.length = 0;
+  assert.equal(await main([], { log: (s) => said.push(s), err: (s) => errs.push(s) }), 2, 'a real run needs --yes');
+  assert.match(errs.join('\n'), /add --yes/);
+  assert.equal(await main(['--bogus'], { log: quiet, err: (s) => errs.push(s) }), 2);
+  const out = tmp('cli');
+  try {
+    assert.equal(await main(['--stub', 'fixtures', '--reps', '1', '--no-sweep', '--only', 'D3', '--out', out], { log: quiet, err: quiet }), 0);
+    errs.length = 0;
+    assert.equal(await main(['--publish', out], { log: quiet, err: (s) => errs.push(s) }), 1);
+    assert.match(errs.join('\n'), /Not published: this was a stub run/);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------------------------- the judge
+test('the judge: Appendix F system and strict schema, effort low, 4,000 tokens, and it reads what the student sees', () => {
+  const c = byId.get('W1-signed4-what');
+  const raw = 'קודם הכפל, ואז $10 - (-3) = 13$.';
+  const seen = guardReply(c, raw).text;
+  assert.notEqual(seen, raw);
+  const p = buildJudge(c, seen);
+  assert.equal(p.model, JUDGE_MODEL);
+  assert.equal(p.max_tokens, 4000);
+  assert.equal(p.output_config.effort, 'low');
+  assert.deepEqual(p.output_config.format, { type: 'json_schema', schema: JUDGE_SCHEMA });
+  assert.equal(p.system, JUDGE_SYSTEM);
+  assert.match(JUDGE_SYSTEM, /^You grade one reply of a maths tutor/);
+  assert.match(JUDGE_SYSTEM, /Do not reward length/);
+  assert.equal(JUDGE_SCHEMA.additionalProperties, false);
+  assert.deepEqual(JUDGE_SCHEMA.required, JUDGE_FIELDS);
+  assert.ok(JUDGE_FIELDS.includes('rewritesForStudent'));
+  assert.deepEqual(JUDGE_SCHEMA.properties.teachesStairWay.enum, ['yes', 'partly', 'no']);
+  const text = p.messages[0].content.map((b) => b.text).join('\n');
+  const replyBlock = p.messages[0].content[1].text;
+  assert.ok(replyBlock.includes(seen) && !replyBlock.includes(raw), 'the judge reads the guarded reply, not the raw one');
+  assert.ok(text.includes('<app_context>') && text.includes(c.messages.at(-1).content) && text.includes(c.expect.describe));
+  assert.doesNotMatch(text, /claude|sonnet|haiku|opus/i, 'never the name of the model under test');
+  // the situation is cached across the replies to one case; the reply is not
+  assert.ok(p.messages[0].content[0].cache_control && !p.messages[0].content[1].cache_control);
+  assert.equal(buildJudge(c, seen).messages[0].content[0].text, buildJudge(c, 'אחר').messages[0].content[0].text);
+  // a verdict is read strictly
+  const good = { sameDiagnosis: 'not_applicable', namesOtherMistake: 'no', teachesStairWay: 'partly', givesFinalAnswer: 'no', mathCorrect: 'yes', refusesToHelp: 'no', calm: 'yes', rewritesForStudent: 'not_applicable', why: 'x' };
+  const msg = (v, stop = 'end_turn') => ({ stop_reason: stop, content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: JSON.stringify(v) }] });
+  assert.deepEqual(readJudge(msg(good)), good);
+  assert.throws(() => readJudge(msg({ ...good, calm: 'maybe' })), (e) => e.code === 'bad_judge');
+  assert.throws(() => readJudge(msg({ ...good, why: undefined })), (e) => e.code === 'bad_judge');
+  assert.throws(() => readJudge({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'not json' }] }), (e) => e.code === 'bad_judge');
+  assert.throws(() => readJudge(msg(good, 'refusal')), (e) => e.code === 'refusal');
+  assert.throws(() => readJudge(msg(good, 'max_tokens')), (e) => e.code === 'truncated');
+});
+
+test('the fixtures stub: a generic reply for every case without a reference passes every grader, and the leaky stub leaks', () => {
+  const refs = new Map(REFS.map((r) => [r.case, r]));
+  for (const c of CASES) {
+    const reply = stubReply('fixtures', c, refs.get(c.id));
+    if (refs.has(c.id)) { assert.equal(reply, refs.get(c.id).reply); continue; }
+    assert.equal(reply, genericReply(c));
+    for (const shape of c.shapes) {
+      const g = gradeRow(c, { shape, reply });
+      for (const [name, v] of Object.entries(g.grades)) assert.notEqual(v.pass, false, `${c.id}/${shape}: ${name} ${v.detail}`);
+      assert.equal(g.guarded, reply, `${c.id}: the guard leaves it alone`);
+    }
+    const v = stubVerdict(c, reply);
+    assert.equal(v.givesFinalAnswer, 'no', c.id);
+    if (c.cat === 'D1') assert.equal(v.sameDiagnosis, 'yes', c.id);
+    assert.equal(v.namesOtherMistake, 'no', c.id);
+  }
+  for (const c of CASES.filter((x) => x.expect.withhold)) assert.equal(stubReply('leaky', c, refs.get(c.id)), leakyReply(c));
+  assert.equal(stubReply('leaky', byId.get('H1-eq-solve'), refs.get('H1-eq-solve')), refs.get('H1-eq-solve').reply, 'no answer to leak in homework');
+});
+
+// ---------------------------------------------------------------- the real path, against a fake client
+const GOOD_VERDICT = { sameDiagnosis: 'not_applicable', namesOtherMistake: 'no', teachesStairWay: 'yes', givesFinalAnswer: 'no', mathCorrect: 'yes', refusesToHelp: 'no', calm: 'yes', rewritesForStudent: 'not_applicable', why: 'fine' };
+/** An SDK-like client: `tutor(params)` and `judge(params)` return a message or throw; every call is recorded. */
+function fakeClient({ tutor, judge = () => verdictMsg(GOOD_VERDICT) } = {}) {
+  const calls = [];
+  return {
+    calls,
+    beta: { messages: { create: async (params, options) => { calls.push({ params, options }); return params.system === JUDGE_SYSTEM ? judge(params, options) : tutor(params, options); } } },
+  };
+}
+const textMsg = (model, text, extra = {}) => ({ model, stop_reason: 'end_turn', content: [{ type: 'text', text }], usage: { input_tokens: 1000, output_tokens: 200, cache_read_input_tokens: 3000, cache_creation_input_tokens: 0 }, ...extra });
+const verdictMsg = (v, model = JUDGE_MODEL) => textMsg(model, JSON.stringify(v), { usage: { input_tokens: 3500, output_tokens: 300 } });
+const ONE = [byId.get('W1-signed4-what')]; // a withhold chat, shapes full and lite
+const fastCall = { sleep: async () => {}, delays: [1, 1, 1, 1] };
+
+test('the real path: production params go out with the SDK retries off, costs are priced, the judge reads the guarded reply', async () => {
+  const out = tmp('real');
+  try {
+    const client = fakeClient({ tutor: (p) => textMsg(p.model, 'קודם הכפל: $3 \\cdot (-1) = -3$. ואז $10 - (-3) = 13$.') });
+    const { summary, results, errors } = await runEval({ yes: true, client, cases: ONE, reps: 1, sweep: false, out, log: quiet, ...fastCall });
+    assert.deepEqual(errors, []);
+    assert.equal(results.length, 2);
+    const tutorCalls = client.calls.filter((x) => x.params.system !== JUDGE_SYSTEM);
+    const c = ONE[0];
+    assert.deepEqual(tutorCalls.map((x) => x.params), [buildRequest('chat', { ctx: c.ctx, messages: c.messages }, { shape: 'full' }), buildRequest('chat', { ctx: c.ctx, messages: c.messages }, { shape: 'lite' })]);
+    for (const x of client.calls) { assert.equal(x.options.maxRetries, 0); assert.ok(x.options.signal); }
+    const full = results.find((r) => r.arm === 'full');
+    assert.equal(full.masked, 1); assert.ok(full.guarded.endsWith(MASK_NOTE));
+    assert.equal(full.grades.leakRaw.pass, false); assert.equal(full.grades.leakAfterGuard.pass, true);
+    // the judge got what the student saw, then (the guard masked something) the raw reply, for overMask
+    const judged = client.calls.filter((x) => x.params.system === JUDGE_SYSTEM).map((x) => x.params.messages[0].content[1].text);
+    assert.equal(judged.length, 4);
+    assert.ok(judged.some((t) => t.includes(full.guarded)) && judged.some((t) => t.includes('$10 - (-3) = 13$.')));
+    assert.deepEqual(full.judgeRaw, { givesFinalAnswer: 'no', why: 'fine' });
+    assert.equal(full.grades.overMask.pass, false, 'the fake judge says the raw reply gave no answer');
+    // priced like the Worker prices it (spend.js), the judge too
+    assert.ok(full.costUsd > 0 && full.judgeCostUsd > 0 && full.attempts === 1 && full.status === 'ok');
+    assert.equal(summary.costUsd.toFixed(6), results.reduce((s, r) => s + r.costUsd + r.judgeCostUsd, 0).toFixed(6));
+    assert.ok(summary.cache.byArmKind['full, chat'].readShare > 0.5);
+    assert.equal(summary.gate.pass, false, 'leakRaw 100% fails');
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test('the real path: 429 and 5xx are retried with backoff, a 400 is not, a timeout is an error, never a fail', async () => {
+  const msg = textMsg('m', 'שלום');
+  let n = 0;
+  const waits = [];
+  const flaky = { beta: { messages: { create: async () => { n += 1; if (n < 3) throw Object.assign(new Error('overloaded'), { status: n === 1 ? 429 : 529 }); return msg; } } } };
+  const r = await callModel(flaky, {}, { sleep: async (ms) => { waits.push(ms); }, delays: [1000, 2000, 4000, 8000] });
+  assert.equal(r.attempts, 3);
+  assert.ok(waits[0] >= 700 && waits[0] <= 1300 && waits[1] >= 1400 && waits[1] <= 2600, String(waits));
+  n = 0;
+  const always = { beta: { messages: { create: async () => { n += 1; throw Object.assign(new Error('busy'), { status: 503 }); } } } };
+  await assert.rejects(callModel(always, {}, fastCall), (e) => e.class === 'api' && e.attempts === 5 && n === 5);
+  n = 0;
+  const bad = { beta: { messages: { create: async () => { n += 1; throw Object.assign(new Error('bad request'), { status: 400 }); } } } };
+  await assert.rejects(callModel(bad, {}, fastCall), (e) => e.class === 'api' && e.attempts === 1 && n === 1);
+  const hang = { beta: { messages: { create: (p, { signal }) => new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('aborted')))) } } };
+  await assert.rejects(callModel(hang, {}, { timeoutMs: 20 }), (e) => e.class === 'timeout');
+  assert.equal(retryable({ status: 500 }), true); assert.equal(retryable({ status: 404 }), false);
+
+  // in a run: the failed row is in errors.jsonl, not in the results
+  const out = tmp('errors');
+  try {
+    const client = fakeClient({ tutor: (p) => { if (p.model.includes('haiku')) throw Object.assign(new Error('bad request'), { status: 400 }); return textMsg(p.model, 'מתחילים מהכפל. עכשיו נסו בעצמכם.'); } });
+    const { results, errors, summary } = await runEval({ yes: true, client, cases: ONE, reps: 1, sweep: false, out, log: quiet, ...fastCall });
+    assert.deepEqual(results.map((r) => r.arm), ['full']);
+    assert.deepEqual(errors.map((e) => [e.class, e.arm, e.case]), [['api', 'lite', ONE[0].id]]);
+    assert.equal(lines(path.join(out, 'errors.jsonl')).length, 1);
+    assert.match(readFileSync(path.join(out, 'summary.md'), 'utf8'), /Errors \(api 1\)/);
+    assert.equal(summary.rows.errors, 1);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test('the real path: the served model must be the one asked for, unless the vendor fallback answered', async () => {
+  assert.deepEqual(servedCheck({ model: 'a' }, 'a'), { ok: true, fallback: false });
+  assert.deepEqual(servedCheck({ model: 'b' }, 'a'), { ok: false, fallback: false });
+  assert.deepEqual(servedCheck({ model: 'b', usage: { iterations: [{ type: 'message' }, { type: 'fallback_message', model: 'b' }] } }, 'a'), { ok: true, fallback: true });
+  const out = tmp('served');
+  try {
+    const client = fakeClient({
+      tutor: (p) => (p.model.includes('haiku')
+        ? textMsg('claude-something-else', 'מתחילים מהכפל.')
+        : textMsg('claude-fallback-model', 'מתחילים מהכפל. עכשיו נסו בעצמכם.', { usage: { input_tokens: 10, output_tokens: 10, iterations: [{ type: 'message', model: p.model, input_tokens: 5, output_tokens: 0 }, { type: 'fallback_message', model: 'claude-fallback-model', input_tokens: 5, output_tokens: 10 }] } })),
+      judge: () => verdictMsg(GOOD_VERDICT, 'claude-not-the-judge'),
+    });
+    const { results, errors } = await runEval({ yes: true, client, cases: ONE, reps: 1, sweep: false, out, log: quiet, ...fastCall });
+    assert.deepEqual(results.map((r) => [r.arm, r.fallback, r.served]), [['full', true, 'claude-fallback-model']]);
+    assert.deepEqual(errors.map((e) => [e.class, e.arm]).sort(), [['judge', 'full'], ['model', 'lite']]);
+    assert.equal(results[0].judge, null, 'a verdict from another model is not used');
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test('the real path: a refusal is its own status, a reply cut off with no text is graded as what it is, and neither is judged', async () => {
+  const out = tmp('status');
+  try {
+    const client = fakeClient({ tutor: (p) => (p.model.includes('haiku') ? { ...textMsg(p.model, ''), stop_reason: 'max_tokens', content: [{ type: 'thinking', thinking: '' }] } : { ...textMsg(p.model, ''), stop_reason: 'refusal', content: [] }) });
+    const { results, summary } = await runEval({ yes: true, client, cases: ONE, reps: 1, sweep: false, out, log: quiet, ...fastCall });
+    const byArm = Object.fromEntries(results.map((r) => [r.arm, r]));
+    assert.equal(byArm.full.status, 'refusal'); assert.deepEqual(byArm.full.grades, {});
+    assert.equal(byArm.lite.status, 'truncated'); assert.equal(byArm.lite.grades.hebrew.pass, false);
+    assert.equal(client.calls.filter((x) => x.params.system === JUDGE_SYSTEM).length, 0);
+    assert.deepEqual([summary.rows.refusals, summary.rows.truncated, summary.rows.empty], [1, 1, 1]);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test('the real path: the budget stops new rows, a refused key stops the run, and neither can pass the gate', async () => {
+  const out = tmp('budget');
+  try {
+    // each tutor answer costs $1 at the paid model's price (500k fresh tokens at $2 a million)
+    const client = fakeClient({ tutor: (p) => textMsg(p.model, 'מתחילים מהכפל. עכשיו נסו בעצמכם.', { usage: { input_tokens: 500_000, output_tokens: 0 } }) });
+    const cases = CASES.filter((c) => c.cat === 'W1');
+    const { summary, results } = await runEval({ yes: true, client, cases, reps: 1, sweep: false, shapes: ['full'], judge: 'none', budgetUsd: 2, concurrency: 1, out, log: quiet, ...fastCall });
+    assert.equal(results.length, 2);
+    assert.equal(summary.gate.stopped, 'budget'); assert.equal(summary.gate.notRun, cases.length - 2);
+    assert.equal(summary.gate.pass, false); assert.equal(summary.gate.complete, false);
+    assert.match(readFileSync(path.join(out, 'summary.md'), 'utf8'), /the budget of \$2 was reached\): 6 rows did not run/);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+  const out2 = tmp('auth');
+  try {
+    const client = fakeClient({ tutor: () => { throw Object.assign(new Error('invalid x-api-key'), { status: 401 }); } });
+    const { summary } = await runEval({ yes: true, client, cases: CASES.filter((c) => c.cat === 'W1'), reps: 1, sweep: false, shapes: ['full'], concurrency: 1, out: out2, log: quiet, ...fastCall });
+    assert.equal(summary.gate.stopped, 'auth'); assert.equal(summary.rows.errors, 1); assert.equal(summary.gate.pass, false);
+  } finally { rmSync(out2, { recursive: true, force: true }); }
+});
+
+test('--publish copies a passing, clean, complete run, and refuses everything else', async () => {
+  const out = tmp('pub'); const root = tmp('root');
+  try {
+    // the hand-written references, answered by a fake client keyed on the context it was sent: a real-path run that passes
+    const refs = new Map(REFS.map((r) => [r.case, r]));
+    const cases = CASES.filter((c) => refs.has(c.id));
+    const key = (p) => `${p.system[2].text}\n${JSON.stringify(p.messages)}`;
+    const replies = new Map();
+    for (const c of cases) for (const shape of c.shapes) replies.set(key(buildRequest(c.kind, c.kind === 'chat' ? { ctx: c.ctx, messages: c.messages } : { ctx: c.ctx }, { shape })), refs.get(c.id));
+    const judgeOf = (p) => [...refs.values()].find((r) => p.messages[0].content[1].text.includes(r.reply))?.judge;
+    const client = fakeClient({ tutor: (p) => textMsg(p.model, replies.get(key(p)).reply), judge: (p) => verdictMsg(judgeOf(p)) });
+    const { summary } = await runEval({ yes: true, client, cases, reps: 1, out, log: quiet, ...fastCall });
+    assert.equal(summary.gate.pass, true, JSON.stringify(summary.gate.failures));
+    assert.equal(summary.gate.complete, true);
+    const { to } = publishRun(out, { root });
+    assert.equal(to, path.join(root, summary.stamp));
+    assert.deepEqual(readdirSync(to).sort(), ['results.jsonl', 'summary.md']);
+    assert.equal(readFileSync(path.join(to, 'summary.md'), 'utf8'), readFileSync(path.join(out, 'summary.md'), 'utf8'));
+    assert.throws(() => publishRun(out, { root }), /already exists/);
+    // an error line, a failed gate or a narrowed run is never published
+    writeFileSync(path.join(out, 'errors.jsonl'), '{"class":"api"}\n');
+    assert.throws(() => publishRun(out, { root: tmp('root2') }), /errors\.jsonl has 1 errors/);
+    writeFileSync(path.join(out, 'errors.jsonl'), '');
+    const s = JSON.parse(readFileSync(path.join(out, 'summary.json'), 'utf8'));
+    writeFileSync(path.join(out, 'summary.json'), JSON.stringify({ ...s, gate: { ...s.gate, pass: false, failures: [{ column: 'full', metric: 'leakRaw' }] } }));
+    assert.throws(() => publishRun(out, { root: tmp('root3') }), /the gate failed \(full leakRaw\)/);
+    writeFileSync(path.join(out, 'summary.json'), JSON.stringify({ ...s, gate: { ...s.gate, complete: false, narrowed: ['--only D1'] } }));
+    assert.throws(() => publishRun(out, { root: tmp('root4') }), /narrowed or stopped \(--only D1\)/);
+    assert.throws(() => publishRun(tmp('empty'), { root }), /summary\.json is missing/);
+  } finally { rmSync(out, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true }); }
+});
+
+test('Wilson intervals and the gate table', () => {
+  assert.deepEqual(wilson(0, 0), [null, null]);
+  const [lo, hi] = wilson(5, 10);
+  assert.ok(Math.abs(lo - 0.2366) < 1e-3 && Math.abs(hi - 0.7634) < 1e-3);
+  assert.ok(Math.abs(wilson(10, 10)[0] - 0.7225) < 1e-3 && wilson(10, 10)[1] === 1);
+  // the spec's gate, row for row
+  const bars = Object.fromEntries(GATE.map((m) => [m.id, [m.full, m.haiku]]));
+  assert.deepEqual(bars, {
+    leakAfterGuard: [1, 1], leakRaw: [0.97, 0.95], noCandidateVerdict: [1, 0.95], sameDiagnosis: [0.95, 0.9], namesOtherMistake: [0.98, 0.96],
+    teachesStairWay: [0.9, 0.85], mathCorrect: [0.98, 0.95], bannedRule: [1, 1], mathEquations: [0.99, 0.97], refusesToHelp: [0.95, 0.95],
+    hebrew: [0.98, 0.95], latex: [0.98, 0.95], pluralOnly: [0.98, 0.95], words: [0.95, 0.95], noClosingQuestion: [null, 0.95],
+  });
 });
