@@ -3,7 +3,7 @@
 // m and b, slope as "steps" on the graph, slope between two points, the line
 // through two points, meeting the axes, the triangle with the axes, and the
 // point where two lines meet.
-import { R, NZ, pick, T, ratioTex, reduce, near, plainNum } from './util.js';
+import { R, NZ, pick, shuffle, T, ratioTex, reduce, near, plainNum } from './util.js';
 
 export const lineTex = (m, b, name = 'y') => {
   const mt = m === 1 ? '' : m === -1 ? '-' : ratioTex(Math.round(m * 1e6), 1e6);
@@ -33,9 +33,30 @@ function table() {
   };
 }
 
+// Which of four functions is increasing (or decreasing)? Two of the others have b with the asked sign and m with the
+// other one: chosen by b, not by m (sign-from-b). Four choices, so a verification of that misconception, which asks
+// these, is not a coin flip between "עולה" and "יורדת".
+function dirPick() {
+  for (;;) {
+    const up = Math.random() < 0.5; const s = up ? 1 : -1;
+    const fs = [{ m: s * R(1, 5), b: NZ(-8, 8) }, { m: -s * R(1, 5), b: s * R(1, 8) }, { m: -s * R(1, 5), b: s * R(1, 8) }, { m: 0, b: NZ(-8, 8) }];
+    if (new Set(fs.map((f) => `${f.m},${f.b}`)).size < 4) continue;
+    const choices = shuffle(fs.map((f, i) => ({ tex: lineTex(f.m, f.b), ok: i === 0, bug: i === 1 || i === 2 ? 'sign-from-b' : undefined })));
+    const r = fs[0];
+    return {
+      key: `lf2p:${up ? 'up' : 'down'}:${fs.map((f) => `${f.m},${f.b}`).join(';')}`, text: `איזו מהפונקציות ${up ? 'עולה' : 'יורדת'}?`, form: 'mc',
+      choices, answer: choices.findIndex((c) => c.ok),
+      hint: 'מסתכלים רק על $m$, המספר שלפני $x$: חיובי זה עולה, שלילי זה יורד, ואפס זה קו אופקי. $b$ לא משנה את הכיוון.',
+      solution: [`ב־$${lineTex(r.m, r.b)}$ השיפוע $m = ${T(r.m)}$, ${up ? 'חיובי, לכן היא עולה' : 'שלילי, לכן היא יורדת'}.`, `בשתיים אחרות $b$ ${up ? 'חיובי' : 'שלילי'}, אבל $m$ ${up ? 'שלילי' : 'חיובי'}: הן ${up ? 'יורדות' : 'עולות'}. ו־$m = 0$ הוא קו אופקי.`],
+      diag: (u) => choices[u]?.bug || null,
+    };
+  }
+}
+
 // 2. reading the equation: m is the number before x, b is where it meets the y-axis, the sign of m
 function meaning() {
-  const kind = pick(['m', 'b', 'dir', 'dir']);
+  const kind = pick(['m', 'b', 'dir', 'dir', 'pick']);
+  if (kind === 'pick') return dirPick();
   const m = kind === 'dir' && Math.random() < 0.15 ? 0 : NZ(-5, 5); const b = NZ(-8, 8);
   const written = Math.random() < 0.35 && m !== 0 ? `y = ${T(b)} ${m < 0 ? '-' : '+'} ${Math.abs(m) === 1 ? '' : Math.abs(m)}x` : lineTex(m, b);
   if (kind === 'dir') {

@@ -44,13 +44,58 @@ export function makeItem(topicId, level, avoidKey) {
 
 /**
  * Can this question show the skill in a check? A signed-number question with no negative number in it ("6 · 1",
- * "5 + 3") says nothing about signs: checks and the placement test skip it. Practice keeps it.
+ * "5 + 3") says nothing about signs, and a question that is always the same (`fixed`: the curriculum's own equations,
+ * the laundry story) can be remembered from practice, where its solution is shown: checks and the placement test skip
+ * them. Practice keeps them.
  */
 export function fairForCheck(it) {
+  if (it.fixed) return false;
   if (it.topic !== 'signed') return true;
   const shown = [it.display, it.text, ...(it.manip?.labels || []), ...(it.choices || []).map((c) => c.tex || c.text)].join(' ');
   // a minus at the start of a number: after a space, a bracket, a $ or a TeX brace ("12 \;\square\; {-12}")
   return /(^|[\s($\{])[-−]\d/.test(shown) || (typeof it.answer === 'number' && it.answer < 0 && it.form !== 'mc');
+}
+
+/**
+ * Wrong answers to try on an exercise, in its form: wide enough to reach what its diag() names (a chosen choice, a pair
+ * written the other way round, an expression's coefficient and constant, a number in the question). Objects (manip)
+ * have none.
+ */
+function* tryAnswers(it) {
+  const range = function* (a, b, step = 1) { for (let v = a; v <= b + 1e-9; v += step) yield Math.round(v * 100) / 100; };
+  // whole numbers from zero outwards (0, 1, −1, 2, −2, …): a prediction near zero is met first
+  const out = function* (n) { yield 0; for (let v = 1; v <= n; v += 1) { yield v; yield -v; } };
+  if (it.form === 'mc') { for (let i = 0; i < it.choices.length; i += 1) yield i; return; }
+  if (it.form === 'pt') {
+    const [x, y] = it.answer; yield [y, x];
+    for (const a of range(-20, 20)) for (const b of range(-20, 20)) yield [a, b];
+    return;
+  }
+  if (it.form === 'line') { for (const m of range(-8, 8, 0.5)) for (const b of range(-20, 20)) yield { m, b }; return; }
+  if (it.form === 'lin') { for (const c of out(100)) for (const k of out(100)) yield { k, c }; return; }
+  // an object whose answer is one number (a bar's height, a point on the number line): every place it can be put
+  if (it.form === 'manip') { if (typeof it.answer === 'number') yield* range(it.manip.min ?? 0, it.manip.max ?? 20); return; }
+  if (it.form !== 'num') return;
+  // the numbers of the question (a mean, a total) and their neighbours, then whole numbers and tenths
+  for (const v of String(it.key).split(/[:,]/).map(Number).filter(Number.isFinite)) { yield v; yield -v; }
+  yield* range(-200, 1000);
+  yield* range(-100, 100, 0.1);
+  yield* range(-20, 20, 0.05);
+}
+
+/**
+ * The misconceptions an exercise's own diag() can name, for some wrong answer: where a misconception can show. A
+ * verification after a repair asks such exercises when no diagnostic model of the stair predicts that misconception
+ * (learn/items.ts). `want`: stop as soon as all of these are found.
+ */
+export function namesOf(it, want = []) {
+  const found = new Set();
+  for (const u of tryAnswers(it)) {
+    if (isCorrect(it, u)) continue;
+    const cat = it.diag(u);
+    if (cat) { found.add(cat); if (want.length && want.every((w) => found.has(w))) break; }
+  }
+  return [...found];
 }
 
 /** An exercise of a stair for a check or the placement test (see fairForCheck). */

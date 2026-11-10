@@ -43,6 +43,19 @@ export function balanceDivisor(u, x) {
   if (balanceTilt(u, x) !== 0) return null;
   return countsDivisor(u);
 }
+/**
+ * In a check: "divide" is offered by the shape of the scale, never by its counts: two or more boxes alone on one pan
+ * and only weights on the other, divided by the number of boxes. Whether the weights split into that many equal groups
+ * is the student's own sum (a press that cannot split them says so and changes nothing), so the button appearing
+ * says nothing about having reached the right state.
+ */
+export function boxesDivisor(u) {
+  if (u.lx >= 2 && !u.l1 && !u.rx) return u.lx;
+  if (u.rx >= 2 && !u.r1 && !u.lx) return u.rx;
+  return null;
+}
+/** Can every count be split into g equal groups? */
+export const balanceSplits = (u, g) => !!g && [u.lx, u.l1, u.rx, u.r1].every((n) => n % g === 0);
 export const balanceDivide = (u, g) => ({ lx: u.lx / g, l1: u.l1 / g, rx: u.rx / g, r1: u.r1 / g });
 export const BALANCE_GROUPS = ['lx', 'l1', 'rx', 'r1'];
 /** One item less in a group ('lx' a box on the left, 'r1' a weight on the right...), or null when it is empty. */

@@ -6,6 +6,7 @@ import { CONTENT } from './content/index';
 import type { DiscoverStep, DiagModel, StairContent, WorkedExample } from './types';
 import { evaluate, same, seeded, identical, texToExpr, texRelation, holds } from './expr';
 import { discriminating, diagnose } from './misconceptions';
+import { checkPlan, itemFor } from './items';
 import { ALL_SKILLS } from './skills';
 import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togetherDiag';
 // @ts-ignore: plain JS
@@ -18,6 +19,27 @@ import { T } from '@/content/util.js';
 const stairs = Object.values(CONTENT) as StairContent[];
 const DRAWS = 400;
 
+/** A side of an equation as { k, c } (k·x + c). */
+const sideOf = (tex: string) => { const e = texToExpr(tex); const f = (x: number) => evaluate(e, { x }); return { k: f(1) - f(0), c: f(0) }; };
+/**
+ * A wrong choice explained as "the number N moved to the other side without changing its sign" must be what that
+ * slip gives: in 7 − x = 3 the 7 moved over gives −x = 10, so x = −10 (10 needs a second slip, the minus of −x lost).
+ */
+function checkMovedNumber(s: Extract<DiscoverStep, { kind: 'predict' }>, at: string) {
+  if (!s.display || !s.wrongWhy || (s.display.match(/=/g) || []).length !== 1 || /[<>]|\\(le|ge)/.test(s.display)) return;
+  Object.entries(s.wrongWhy).forEach(([i, why]) => {
+    const m = why.match(/ה־\$(-?\d+(?:\.\d+)?)\$ (?:עובר|עבר) לאגף השני בלי להתהפך/);
+    if (!m) return;
+    const N = Number(m[1]);
+    const [L, R] = s.display!.split('=').map(sideOf);
+    // the number keeps its sign on the other side; the x-terms are moved the right way
+    const moved = L.c === N ? (R.c + L.c) / (L.k - R.k) : R.c === N ? -(L.c + R.c) / (L.k - R.k) : NaN;
+    expect(Number.isFinite(moved), `${at}: ${N} is not a number term of ${s.display}`).toBe(true);
+    const chosen = evaluate(texToExpr(s.choices[Number(i)].replace(/\$/g, '')));
+    expect(same(chosen, moved), `${at}: moving ${N} without its sign gives ${moved}, not ${s.choices[Number(i)]}`).toBe(true);
+  });
+}
+
 function checkSteps(steps: DiscoverStep[], where: string) {
   steps.forEach((s, i) => {
     const at = `${where} step ${i + 1}`;
@@ -28,6 +50,7 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       expect(s.answer, at).toBeLessThan(s.choices.length);
       expect(new Set(s.choices).size, `${at}: duplicate choices`).toBe(s.choices.length);
       expect(s.why, at).toBeTruthy();
+      checkMovedNumber(s, at);
     }
     if (s.kind === 'explore') {
       const it = { form: 'manip', manip: s.manip, answer: s.answer };
@@ -269,6 +292,49 @@ describe.each(stairs.map((c) => [c.skill, c] as const))('stair %s', (_id, c) => 
     [c.diag, c.transfer].filter(Boolean).forEach((model) => Object.keys(model!.bugs).forEach((id) => expect(explained.has(id), `bug ${id} has no explanation`).toBe(true)));
     // and the board can name it
     c.misconceptions.forEach((m) => expect((TOPIC[c.topic].cats as Record<string, string>)[m.id], `cats.${m.id} missing in the topic`).toBeTruthy());
+  });
+
+  it('verifies every repaired misconception with questions where it can show again', () => {
+    // a repair is offered for any misconception the stair can confirm, from a model or from its exercises' labels;
+    // its verification must be able to see a relapse: each of its probes can show it
+    c.misconceptions.forEach((m) => {
+      for (let r = 0; r < 3; r += 1) {
+        const plan = checkPlan({ purpose: 'verify', skill: c.skill, misc: m.id }, Math.random);
+        expect(plan.filter((q) => q.source === 'probe').length, `${c.skill} verify ${m.id}`).toBeGreaterThanOrEqual(2);
+        plan.filter((q) => q.source === 'probe').forEach((q) => {
+          const it = itemFor(q.skill, q.source, Math.random, undefined, q.candidates, { test: true });
+          expect(it.could || [], `${c.skill} verify ${m.id}: "${it.text}" cannot show it`).toContain(m.id);
+        });
+      }
+    });
+  });
+
+  it('never sets two pieces of maths side by side in a line of text (in a right-to-left line they read backwards)', () => {
+    // "$= 106 + 114$ $= 220$" shows as "= 220 = 106 + 114": each piece is isolated, so the line orders them right to left
+    const bad: string[] = [];
+    const walk = (v: unknown) => {
+      // a piece that goes on the one before it (it starts with =, +, −, · or a comparison) and only a space between them
+      const goesOn = (q: string) => /^\$\s*(=|\+|-|\\cdot|:|<|>|\\le|\\ge)/.test(q);
+      if (typeof v === 'string') { const parts = v.split(/(\$[^$]+\$)/).filter(Boolean); parts.forEach((q, i) => { if (i > 1 && goesOn(q) && parts[i - 2].startsWith('$') && !parts[i - 1].trim()) bad.push(v); }); }
+      else if (Array.isArray(v)) v.forEach(walk);
+      else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+    };
+    walk([c.discover, c.examples, c.together, c.misconceptions, c.why, c.alt, c.idea, c.objectives]);
+    const rnd = seeded(5);
+    [c.diag, c.transfer].filter(Boolean).forEach((m) => { for (let i = 0; i < 50; i += 1) { const p = m!.params(rnd); walk([m!.text(p), m!.hint(p), m!.solution(p)]); } });
+    expect(bad).toEqual([]);
+  });
+
+  it('writes "מספר" with a definite noun and a definite adjective (מספר הקוראים הרשומים)', () => {
+    const rnd = seeded(7);
+    [c.diag, c.transfer].filter(Boolean).forEach((m) => {
+      for (let i = 0; i < 300; i += 1) {
+        const p = m!.params(rnd);
+        const words = [m!.text(p), m!.hint(p), ...m!.solution(p)].join(' ');
+        // an adjective after the noun (not a phrase that starts with ב, ל, מ, כ, ש or ו: "מספר הכרטיסים למבוגרים")
+        expect(words, words).not.toMatch(/מספר ה\S+ים (?![הבלמכשו])\S+ים(?=[\s.,?:])/);
+      }
+    });
   });
 
   it('diagnoses its own predictions back', () => {

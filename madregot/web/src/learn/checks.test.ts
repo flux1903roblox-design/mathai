@@ -57,6 +57,21 @@ describe('the verification after a repair', () => {
   });
 });
 
+describe('a verification for a misconception no model predicts', () => {
+  it('sys:2, the pair written the other way round: asks for pairs, and a pair written (y, x) again fails it', () => {
+    // the council's walk: three single-number questions passed a student who still writes (y, x)
+    const s0 = startLesson({ kind: 'check', purpose: 'verify', skill: 'sys:2', misc: 'swap' });
+    expect(s0.item.could).toContain('swap');
+    const swapped = (it: any) => (it.form === 'pt' ? [it.answer[1], it.answer[0]] : it.form === 'mc' ? it.choices.findIndex((ch: any) => ch.bug === 'swap') : null);
+    const { s } = play(s0, (_i, it) => (it.probe ? swapped(it) : null));
+    const r = resultOf(s);
+    expect(r.showed).toBe(2);
+    expect(r.passed).toBe(false);
+    // and answered right, it passes
+    expect(resultOf(play(startLesson({ kind: 'check', purpose: 'verify', skill: 'sys:2', misc: 'swap' })).s).passed).toBe(true);
+  });
+});
+
 describe('the Exam Rescue diagnostic', () => {
   it('asks every chosen stair and reports each', () => {
     const { s } = play(startLesson({ kind: 'check', purpose: 'diagnostic', skills: ['signed:1', 'coord:1', 'angles:1'] }));
@@ -132,7 +147,8 @@ describe('every stair supports its checks', () => {
       expect(r.passed, `${skill} ${purpose}`).toBe(true);
       expect(r.asked).toBe(purpose === 'mastery' ? 5 : 3);
     }
-    const ids = new Set<string>([...Object.keys(c.diag.bugs), ...Object.keys(c.transfer?.bugs || {})]);
+    // every misconception it can confirm: its models' and the ones only its exercises name (the pair written the other way)
+    const ids = new Set<string>([...c.misconceptions.map((m) => m.id), ...Object.keys(c.diag.bugs), ...Object.keys(c.transfer?.bugs || {})]);
     ids.forEach((misc) => {
       const s0 = startLesson({ kind: 'check', purpose: 'verify', skill, misc });
       // the verification asks questions where this misconception would show

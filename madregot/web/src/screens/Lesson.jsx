@@ -169,6 +169,9 @@ export default function Lesson() {
   const [explain, setExplain] = useState({ state: 'idle', text: '' });
   const [showSteps, setShowSteps] = useState(false);
   const [guide, setGuide] = useState(false); // "איך מתחילים?": the first step of the solution, after a first miss
+  // a short phone with an object: the feedback after a miss opens as its title and its button, the explanation on a tap,
+  // so the object keeps its size (a plot shrunk to a thumbnail cannot be read)
+  const [fbOpen, setFbOpen] = useState(null); // which feedback was opened (a new miss folds again)
   const [chatOpen, setChatOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
@@ -229,7 +232,7 @@ export default function Lesson() {
 
   useEffect(() => {
     if (!item) return;
-    setSlots({}); setChoice(null); setStruck(false); setActive(names[0] || 'v'); setExplain({ state: 'idle', text: '' }); setShowSteps(false); setGuide(false); setNbCheck({ state: 'idle' }); setZoom(false); setChat([]);
+    setSlots({}); setChoice(null); setStruck(false); setActive(names[0] || 'v'); setExplain({ state: 'idle', text: '' }); setShowSteps(false); setGuide(false); setFbOpen(null); setNbCheck({ state: 'idle' }); setZoom(false); setChat([]);
     qRef.current?.focus({ preventScroll: true });
     qRef.current?.scrollTo?.({ top: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -450,6 +453,8 @@ export default function Lesson() {
   if (done) return <LessonDone {...done} topic={t} onExit={() => (spec.fromJourney ? navigate(`/learn/${spec.topic}/${spec.level}`, { replace: true }) : navigate('/', { replace: true, preventScrollReset: true, state: { from: spec.topic, nodeDone: !!done.award.unitDone } }))} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
 
   const feedback = last && !last.invalid ? (last.ok ? 'good' : s.phase === 'retry' ? 'retry' : 'reveal') : null;
+  const fbToken = `${item.key}|${feedback}|${s.wrong.length}`;
+  const folded = short && isManip && (feedback === 'retry' || feedback === 'reveal') && fbOpen !== fbToken;
   const inClass = !!st.profile?.token;
   const page = pages[item.key] || { strokes: [], height: 420 };
   const setPage = (patch) => setPages((all) => ({ ...all, [item.key]: { ...page, ...patch } }));
@@ -491,7 +496,7 @@ export default function Lesson() {
   );
 
   return (
-    <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed', isManip && !nbOn && 'is-manip')}>
+    <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed', isManip && !nbOn && 'is-manip', folded && 'fb-folded-on', feedback === 'reveal' && 'is-reveal')}>
       {/* top: progress and the question, always on screen */}
       <header className="lesson-head" data-region="header">
         <ProgressHeader extra={tools} pct={pct} marks={placement ? null : marks} total={s.total} label={placement ? 'התקדמות בבדיקת הרמה' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
@@ -565,7 +570,7 @@ export default function Lesson() {
         )}
         {last?.invalid && <p className="form-error answer-error" role="alert">{last.text}</p>}
         {feedback ? (
-          <m.section className={clsx('fb', `fb-${feedback}`)} aria-live="assertive" aria-labelledby="fb-title" data-region="feedback"
+          <m.section className={clsx('fb', `fb-${feedback}`, folded && 'fb-folded')} aria-live="assertive" aria-labelledby="fb-title" data-region="feedback"
             initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={SPRING.settle}>
             <div className="fb-scroll">
               <div className="fb-head">
@@ -573,7 +578,13 @@ export default function Lesson() {
                 <h2 id="fb-title" className="fb-title">{feedback === 'good' ? (last.first ? last.praise : 'יפה, תיקנתם!') : feedback === 'retry' ? 'עוד לא. נסו שוב' : 'התשובה הנכונה:'}</h2>
                 {feedback === 'good' && s.combo >= 2 && <span className="fb-combo"><Flame size={16} aria-hidden="true" />{s.combo} ברצף</span>}
               </div>
-              {feedback === 'retry' && (
+              {folded && (
+                <div className="fb-body">
+                  {feedback === 'reveal' && <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>}
+                  <button type="button" className="link-btn" onClick={() => setFbOpen(fbToken)} aria-expanded="false">{feedback === 'retry' ? 'רמז' : 'הפתרון'}</button>
+                </div>
+              )}
+              {feedback === 'retry' && !folded && (
                 <div className="fb-body">
                   {last?.cat && catLabel(item.topic || spec.topic, item.level, last.cat) && !last.diagnosis?.ambiguous && <p><MathText text={`מה כנראה קרה: ${catLabel(item.topic || spec.topic, item.level, last.cat)}.`} /></p>}
                   {last?.diagnosis?.ambiguous && <p><MathText text={ambiguousText(item.topic || spec.topic, item.level, last.diagnosis.candidates)} /></p>}
@@ -589,7 +600,7 @@ export default function Lesson() {
                   ))}
                 </div>
               )}
-              {feedback === 'reveal' && (
+              {feedback === 'reveal' && !folded && (
                 <div className="fb-body">
                   <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>
                   {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} stepwise />}

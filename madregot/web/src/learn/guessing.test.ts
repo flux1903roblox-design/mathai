@@ -139,7 +139,8 @@ describe('a check cannot be passed by guessing', () => {
     expect(MASTERY_N).toBe(5);
   }, SLOW);
 
-  const miscs = Object.values(CONTENT).flatMap((c) => [...new Set([...Object.keys(c.diag.bugs), ...Object.keys(c.transfer?.bugs || {})])].map((m) => [c.skill, m] as const));
+  // every misconception a stair can confirm and repair: its models' and the ones only its exercises name
+  const miscs = Object.values(CONTENT).flatMap((c) => [...new Set([...c.misconceptions.map((m) => m.id), ...Object.keys(c.diag.bugs), ...Object.keys(c.transfer?.bugs || {})])].map((m) => [c.skill, m] as const));
   it.each(miscs)('%s: the verification after repairing %s', (skill, misc) => {
     const plan = checkPlan({ purpose: 'verify', skill, misc }, rnd);
     expect(plan).toHaveLength(VERIFY_N);

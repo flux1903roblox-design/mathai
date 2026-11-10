@@ -252,27 +252,33 @@ function levelItem() {
 }
 
 /** Which pair solves it? One on both lines, one on each line only, and the swapped pair (the curriculum's own task). */
+// The choices: the solution, the solution written (y, x), a pair on one of the lines only, and that pair written the
+// other way round. Two pairs of swapped twins, and the wrong pair's x drawn anywhere on the grid: neither "one of the
+// twins" nor "the twin whose x is nearest the others" picks the solution; putting each pair in both equations does.
 function whichPair() {
   for (;;) {
     const x = rint(rnd0, -4, 4); const y = rint(rnd0, -6, 6); const m1 = rint(rnd0, -3, 3); const m2 = rint(rnd0, -3, 3);
     if (m1 === m2 || x === y) continue;
     const b1 = y - m1 * x; const b2 = y - m2 * x; if (abs(b1) > 10 || abs(b2) > 10) continue;
-    const d1 = x + NZ(-3, 3); const d2 = x + NZ(-3, 3);
-    const P1 = [d1, m1 * d1 + b1]; const P2 = [d2, m2 * d2 + b2]; const S = [y, x];
-    const all = [[x, y], P1, P2, S];
+    const which = rint(rnd0, 1, 2); const [m, b] = which === 1 ? [m1, b1] : [m2, b2];
+    const d = rint(rnd0, -6, 6); if (d === x) continue;
+    const P = [d, m * d + b]; const Q = [P[1], P[0]]; const S = [y, x];
+    const all = [[x, y], P, S, Q];
     if (new Set(all.map((p) => p.join(','))).size !== 4 || all.some((p) => abs(p[0]) > 12 || abs(p[1]) > 12)) continue;
-    const on = (P, m, b) => P[1] === m * P[0] + b;
+    const on = (A, mm, bb) => A[1] === mm * A[0] + bb;
     // only the solution is on both lines
-    if (all.filter((P) => on(P, m1, b1) && on(P, m2, b2)).length !== 1) continue;
-    const choices = shuffle(all.map((P, i) => ({ ...tex(pairTex(P[0], P[1])), ok: i === 0, bug: i === 3 ? 'swap' : undefined })));
+    if (all.filter((A) => on(A, m1, b1) && on(A, m2, b2)).length !== 1) continue;
+    const choices = shuffle(all.map((A, i) => ({ ...tex(pairTex(A[0], A[1])), ok: i === 0, bug: i === 2 ? 'swap' : undefined })));
+    const holdsWhich = (A) => (on(A, m1, b1) ? 'מקיים רק את הראשונה' : on(A, m2, b2) ? 'מקיים רק את השנייה' : 'לא מקיים אף אחת מהן');
+    const other = which === 1 ? [m2, b2, 'בשנייה'] : [m1, b1, 'בראשונה'];
     return {
-      key: `sy2w:${m1}:${b1}:${m2}:${b2}:${d1}:${d2}`, text: 'איזה זוג הוא הפתרון של המערכת?', display: cases(`y = ${linTex(m1, b1)}`, `y = ${linTex(m2, b2)}`),
+      key: `sy2w:${m1}:${b1}:${m2}:${b2}:${d}:${which}`, text: 'איזה זוג הוא הפתרון של המערכת?', display: cases(`y = ${linTex(m1, b1)}`, `y = ${linTex(m2, b2)}`),
       form: 'mc', choices, answer: choices.findIndex((c) => c.ok),
       hint: 'מציבים כל זוג בשתי המשוואות. הפתרון מקיים את שתיהן, לא רק אחת.',
       solution: [
         `$${pairTex(x, y)}$: בראשונה $${at(m1, b1, x)} = ${T(y)}$, ובשנייה $${at(m2, b2, x)} = ${T(y)}$. שתיהן מתקיימות.`,
-        `$${pairTex(P1[0], P1[1])}$ מקיים רק את הראשונה: בשנייה $${at(m2, b2, P1[0])} = ${T(m2 * P1[0] + b2)}$, ולא $${T(P1[1])}$.`,
-        `$${pairTex(S[0], S[1])}$ הוא הפתרון בסדר הפוך: קודם $x$, אחר כך $y$.`,
+        `$${pairTex(P[0], P[1])}$ ${holdsWhich(P)}: ${other[2]} $${at(other[0], other[1], P[0])} = ${T(other[0] * P[0] + other[1])}$, ולא $${T(P[1])}$.`,
+        `$${pairTex(S[0], S[1])}$ הוא הפתרון בסדר הפוך: קודם $x$, אחר כך $y$. ו־$${pairTex(Q[0], Q[1])}$ ${holdsWhich(Q)}.`,
       ],
       diag: (u) => choices[u]?.bug || null,
     };
@@ -510,7 +516,7 @@ function sumDiffItem() {
 function laundryItem() {
   const q = rint(rnd0, 0, 1);
   return {
-    key: `sy4l:${q}`, form: 'num', answer: q ? 3 : 2, unit: '₪',
+    key: `sy4l:${q}`, form: 'num', answer: q ? 3 : 2, unit: '₪', fixed: true,
     text: `רות שילמה $29$ ₪ על כביסה של $4$ מגבות ו־$7$ סדינים. במבצע של $20\\%$ הנחה היא שילמה $20$ ₪ על $5$ מגבות ו־$5$ סדינים. מה המחיר הרגיל לכביסה של ${q ? 'סדין' : 'מגבת'}?`,
     hint: 'נסמנו ב־$x$ את המחיר הרגיל למגבת וב־$y$ לסדין. במבצע משלמים $80\\%$ מהמחיר הרגיל.',
     solution: ['$4x + 7y = 29$, ובמבצע $0.8(5x + 5y) = 20$.', 'מחלקים את השנייה ב־$0.8$: $5x + 5y = 25$, ואחר כך ב־$5$: $x + y = 5$.', 'מציבים $y = 5 - x$: $4x + 7(5 - x) = 29$, כלומר $35 - 3x = 29$, ולכן $x = 2$ ו־$y = 3$.', 'בדיקה: $4 \\cdot 2 + 7 \\cdot 3 = 29$, ו־$0.8(5 \\cdot 2 + 5 \\cdot 3) = 20$.', `${q ? 'סדין' : 'מגבת'}: $${q ? 3 : 2}$ ₪.`],
@@ -522,10 +528,12 @@ function laundryItem() {
 function pickSystem() {
   for (;;) {
     const st = storyDraw(rnd0, ['tickets', 'coins']); const { p, q, n, M, x, y } = st;
-    const opts = [[`x + y = ${n},\\; ${p}x + ${q}y = ${M}`, true], [`x + y = ${n},\\; ${q}x + ${p}y = ${M}`], [`x + y = ${M},\\; ${p}x + ${q}y = ${n}`], [`${p}x + ${q}y = ${n},\\; x + y = ${M}`]];
-    const both = (t) => t.split(',\\;').every((e) => holds(e, { x, y }));
-    if (opts.filter(([t]) => both(t)).length !== 1 || !both(opts[0][0])) continue;
-    const choices = shuffle(opts.map(([t, ok]) => ({ ...tex(t), ok: ok === true })));
+    const rows = [[[`x + y = ${n}`, `${p}x + ${q}y = ${M}`], true], [[`x + y = ${n}`, `${q}x + ${p}y = ${M}`]], [[`x + y = ${M}`, `${p}x + ${q}y = ${n}`]], [[`${p}x + ${q}y = ${n}`, `x + y = ${M}`]]];
+    const both = (r) => r.every((e) => holds(e, { x, y }));
+    if (rows.filter(([r]) => both(r)).length !== 1 || !both(rows[0][0])) continue;
+    // each choice is a system, its two equations one under the other: on a single line the longest is wider than a
+    // 320 phone's card
+    const choices = shuffle(rows.map(([r, ok]) => ({ ...tex(cases(...r)), ok: ok === true })));
     const who = st.s === 'tickets' ? `$x$ מספר הכרטיסים למבוגרים ו־$y$ לילדים` : `$x$ מספר המטבעות של $${p}$ ₪ ו־$y$ של $${q}$ ₪`;
     const story = st.s === 'tickets' ? `להצגה נמכרו $${n}$ כרטיסים: למבוגרים ב־$${p}$ ₪ ולילדים ב־$${q}$ ₪. הקופה קיבלה $${M}$ ₪.` : `בקופה $${n}$ מטבעות של $${p}$ ₪ ושל $${q}$ ₪, ובסך הכול $${M}$ ₪.`;
     return {
@@ -690,12 +698,39 @@ function memberItem() {
   }
 }
 
+/**
+ * The smallest whole number that solves it (or the largest, for a ray to the left): the boundary itself when it is
+ * included, the next whole number when it is not. The choices are four whole numbers in a row around the boundary, so
+ * the answer is one of the middle two and which one is the < or ≤ question itself; with "which number solves it"
+ * (memberItem), whose answer is always the largest or the smallest choice, no rank of a choice is the answer.
+ */
+function extremeItem() {
+  const q = ineqDraw(rnd0); const up = q.sol[0] === '>'; const strict = q.sol.length === 1;
+  const step = up ? 1 : -1;
+  const ans = strict ? q.B + step : q.B;
+  const edge = strict ? q.B : q.B + step; // < and ≤ confused
+  const vals = up ? [q.B - 1, q.B, q.B + 1, q.B + 2] : [q.B - 2, q.B - 1, q.B, q.B + 1];
+  const choices = shuffle(vals.map((v) => ({ ...tex(T(v)), ok: v === ans, bug: v === edge ? 'boundary' : undefined })));
+  const which = up ? 'הקטן' : 'הגדול';
+  return {
+    key: `sy5g:${q.show}`, text: `מה המספר השלם ${which} ביותר שפותר את אי־השוויון?`, display: q.show, form: 'mc', choices, answer: choices.findIndex((c) => c.ok),
+    hint: `${ineqHint(q)} אחר כך: האם הקצה עצמו פותר?`,
+    solution: [...ineqSteps(q),
+      strict ? `$${T(q.B)}$ עצמו לא פותר, כי ב־$${REL[q.sol]}$ השוויון לא כלול. המספר השלם ${which} ביותר הוא $${T(ans)}$.`
+        : `גם $${T(q.B)}$ עצמו פותר, כי ב־$${REL[q.sol]}$ השוויון כלול. ולכן הוא ${which} ביותר.`],
+    diag: (u) => choices[u]?.bug || null,
+  };
+}
+
 /** From words to an inequality ("לכל היותר" includes the limit; the curriculum's model planes keep their own distractors). */
 function buildItem() {
   const kind = rint(rnd0, 0, 2);
   let text; let opts; let sol;
+  // the limit is reached exactly by a whole n ((W − P) and (G − b0) divide by the step): only then does the strict
+  // choice lose a solution (60 + 20n < 400 leaves out n = 17), so calling it the boundary mistake is honest
   if (kind === 0) {
-    const W = pick([400, 500, 600, 800]); const P = R5(60, 95); const w = pick([15, 20, 25, 30]);
+    let W; let P; let w;
+    do { W = pick([400, 500, 600, 800]); P = R5(60, 95); w = pick([15, 20, 25, 30]); } while ((W - P) % w !== 0);
     text = `מעלית מעמיסה לכל היותר $${W}$ ק״ג. אדם ששוקל $${P}$ ק״ג עולה איתה עם ארגזים של $${w}$ ק״ג כל אחד. $n$ הוא מספר הארגזים. איזה אי־שוויון מתאים?`;
     opts = [[`${P} + ${w}n \\le ${W}`, true], [`${P} + ${w}n < ${W}`, 'boundary'], [`${P} + ${w}n \\ge ${W}`], [`${P}n + ${w} \\le ${W}`]];
     sol = [`המשקל: האדם ועוד $n$ ארגזים, $${P} + ${w}n$.`, `"לכל היותר $${W}$" פירושו $${W}$ או פחות: $\\le$, כולל $${W}$ עצמו.`];
@@ -705,7 +740,8 @@ function buildItem() {
     opts = [[`${tA}a + ${tB}b \\le ${T0}`, true], [`${tB}a + ${tA}b \\le ${T0}`], [`a + b \\le ${T0}`], [`a + b + ${tA + tB} \\le ${T0}`]];
     sol = [`$a$ טיסנים מדגם א׳ לוקחים $${tA}a$ דקות, ו־$b$ מדגם ב׳ לוקחים $${tB}b$ דקות.`, `כל הזמן יחד צריך להיות לכל היותר $${T0}$: $${tA}a + ${tB}b \\le ${T0}$.`];
   } else {
-    const G = pick([56, 60, 70, 75]); const b0 = pick([10, 12, 15]); const w = pick([4, 5, 6]);
+    let G; let b0; let w;
+    do { G = pick([56, 60, 70, 75]); b0 = pick([10, 12, 15]); w = pick([4, 5, 6]); } while ((G - b0) % w !== 0);
     text = `במשחק מקבלים $${b0}$ נקודות בונוס ועוד $${w}$ נקודות לכל תשובה נכונה. כדי לעבור שלב צריך לפחות $${G}$ נקודות. $n$ מספר התשובות הנכונות. איזה אי־שוויון מתאים?`;
     opts = [[`${b0} + ${w}n \\ge ${G}`, true], [`${b0} + ${w}n > ${G}`, 'boundary'], [`${b0} + ${w}n \\le ${G}`], [`${b0}n + ${w} \\ge ${G}`]];
     sol = [`הנקודות: $${b0} + ${w}n$.`, `"לפחות $${G}$" פירושו $${G}$ או יותר: $\\ge$, כולל $${G}$ עצמו.`];
@@ -791,7 +827,7 @@ export const SYS = {
     { title: 'שיטת ההצבה', gen: () => { const r = Math.random(); return r < 0.42 ? substItem() : r < 0.5 ? levelItem() : r < 0.7 ? whichPair() : r < 0.85 ? meetItem() : howMany2(); } },
     { title: 'השוואת מקדמים', gen: () => { const r = Math.random(); return r < 0.6 ? elimItem() : r < 0.8 ? methodItem() : howMany3(); } },
     { title: 'בעיות עם שני נעלמים', gen: () => { const r = Math.random(); return r < 0.5 ? storyItem() : r < 0.62 ? sumDiffItem() : r < 0.7 ? laundryItem() : pickSystem(); } },
-    { title: 'אי־שוויונות', gen: () => { const r = Math.random(); return r < 0.3 ? rayItem() : r < 0.5 ? countItem() : r < 0.7 ? memberItem() : r < 0.8 ? buildItem() : r < 0.9 ? atMostItem() : bothItem(); } },
+    { title: 'אי־שוויונות', gen: () => { const r = Math.random(); return r < 0.3 ? rayItem() : r < 0.5 ? countItem() : r < 0.6 ? memberItem() : r < 0.7 ? extremeItem() : r < 0.8 ? buildItem() : r < 0.9 ? atMostItem() : bothItem(); } },
   ],
   cats: {
     'pct-of-new': 'האחוזים חושבו מהמחיר החדש במקום מהמחיר המקורי',

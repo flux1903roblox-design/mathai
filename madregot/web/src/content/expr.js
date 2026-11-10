@@ -90,17 +90,22 @@ function substTable() {
   }
 }
 
-// 3x at x = 4 is 12, not 34 and not 7: the three readings side by side.
+// 3x at x = 4 is 12, not 34 and not 7: the three readings side by side. With x = 1 or a negative x the product is
+// the smallest of the three (3 · 1 = 3 against 31 and 4; 3 · (−4) = −12 against 12 and −1), so "the middle number"
+// is not the answer by itself; a negative x put in without brackets loses its minus (neg-sub).
 function substMc() {
   for (;;) {
-    const a = R(2, 9); const x = R(2, 9);
-    if (a + x === a * x) continue; // 2x at x = 2: two choices would be the same
-    const choices = shuffle([{ ...tex(String(a * x)), ok: true }, { ...tex(String(10 * a + x)), bug: 'concat' }, tex(String(a + x))]);
+    const a = R(2, 9); const r = Math.random(); const x = r < 0.4 ? -R(1, 6) : r < 0.5 ? 1 : R(2, 9);
+    const wrong = x > 0 ? [[10 * a + x, 'concat'], [a + x]] : [[-a * x, 'neg-sub'], [a + x]];
+    if (new Set([a * x, ...wrong.map(([v]) => v)]).size < 3) continue; // 2x at x = 2: two choices would be the same
+    const choices = shuffle([{ ...tex(T(a * x)), ok: true }, ...wrong.map(([v, bug]) => ({ ...tex(T(v)), bug }))]);
     return {
-      key: `ex1m:${a}:${x}`, text: `מה ערך הביטוי כש־$x = ${x}$?`, display: `${a}x`, form: 'mc',
+      key: `ex1m:${a}:${x}`, text: `מה ערך הביטוי כש־$x = ${T(x)}$?`, display: `${a}x`, form: 'mc',
       choices, answer: choices.findIndex((c) => c.ok),
-      hint: `$${a}x$ הוא קיצור של $${a} \\cdot x$: מספר צמוד לאות כופל אותה.`,
-      solution: [`$${a}x = ${a} \\cdot x$`, `$${a} \\cdot ${x} = ${a * x}$`, `$${10 * a + x}$ הוא מה שיוצא כשכותבים את הספרות זו ליד זו, ו־$${a + x}$ הוא חיבור.`],
+      hint: x < 0 ? `$${a}x$ הוא $${a} \\cdot x$. מספר שלילי מציבים בסוגריים: $${a} \\cdot ${T(x, true)}$.` : `$${a}x$ הוא קיצור של $${a} \\cdot x$: מספר צמוד לאות כופל אותה.`,
+      solution: [`$${a}x = ${a} \\cdot x$`, `$${a} \\cdot ${T(x, true)} = ${T(a * x)}$`,
+        x > 0 ? `$${10 * a + x}$ הוא מה שיוצא כשכותבים את הספרות זו ליד זו, ו־$${a + x}$ הוא חיבור.`
+          : `$${T(-a * x)}$ יוצא כשהמינוס של $${T(x)}$ נעלם, ו־$${T(a + x)}$ הוא חיבור.`],
       diag: (u) => choices[u]?.bug || null,
     };
   }
@@ -149,31 +154,34 @@ function patternTerm() {
   };
 }
 
-// Choose the expression. The right one is written simplified half the time, and a distractor with (n + 1) is there
-// too, so "the one with n − 1" is not a give-away: substituting n = 1 is.
+// Choose the expression. The right one is written simplified half the time. Every choice is written the way the
+// right one is, and one more has the start and the step swapped (d + s(n − 1)), so neither "the one with n − 1" nor
+// "the only one with a minus" is a give-away: substituting n = 1 is.
 function patternMc() {
   const { s, d, P } = patternParams();
   const simple = Math.random() < 0.5;
   const choices = shuffle([
     { ...tex(simple ? linTex(d, s - d, 'n') : `${s} + ${d}(n - 1)`), ok: true },
-    { ...tex(`${s} + ${d}n`), bug: 'start-n' },
+    { ...tex(simple ? linTex(d, s, 'n') : `${s} + ${d}n`), bug: 'start-n' },
     { ...tex(`${d}n`), bug: 'diff-only' },
-    tex(`${s} + ${d}(n + 1)`),
+    tex(simple ? linTex(s, d - s, 'n') : `${d} + ${s}(n - 1)`),
   ]);
   return {
     key: `ex2m:${s}:${d}:${simple}:${P.head[0]}`, text: `${P.story(s, d)} איזה ביטוי נותן את ${P.what} ה־$n$?`, form: 'mc',
     choices, answer: choices.findIndex((c) => c.ok), fig: { type: 'table', head: P.head, rows: patternRows(s, d, 3) },
     hint: 'הציבו $n = 1$ ו־$n = 2$ בכל ביטוי, והשוו לטבלה.',
-    solution: [stepsWhy(s, d), simple ? `$${s} + ${d}(n - 1) = ${linTex(d, s - d, 'n')}$` : `כש־$n = 1$: $${s} + ${d} \\cdot 0 = ${s}$, כמו בטבלה.`, `$${s} + ${d}n$ נותן $${s + d}$ כבר באיבר הראשון, ו־$${d}n$ נותן רק $${d}$.`],
+    solution: [stepsWhy(s, d), simple ? `$${s} + ${d}(n - 1) = ${linTex(d, s - d, 'n')}$` : `כש־$n = 1$: $${s} + ${d} \\cdot 0 = ${s}$, כמו בטבלה.`, `$${s} + ${d}n$ נותן $${s + d}$ כבר באיבר הראשון, ו־$${d}n$ נותן רק $${d}$. ו־$${d} + ${s}(n - 1)$ מתחיל ב־$${d}$ ומוסיף $${s}$ בכל צעד.`],
     diag: (u) => choices[u]?.bug || null,
   };
 }
 
 // From a sentence to an expression. The check is a number, never a key word: "if Amit has 5, David has 11".
+// c − x for "c less than x" is a wrong choice with no name: it reverses the subtraction, but it does not give more
+// to the one who has less (at x = 20 it gives c − 20), which is what 'reversal' says.
 const WORDS = [
   (c) => ({ v: 'x', text: `לעמית יש $x$ ספרים. לדוד יש $${c}$ ספרים יותר מלעמית. כמה ספרים יש לדוד?`, right: `x + ${c}`, wrong: [[`${c}x`, 'times-plus'], [`x - ${c}`, 'reversal']], at: 5, value: (x) => x + c, story: (x) => `לעמית $${x}$ ספרים, ולדוד $${c}$ יותר: $${x + c}$.` }),
   (c) => ({ v: 'x', text: `לעמית יש $x$ ספרים. ליובל יש פי $${c}$ מספר הספרים של עמית. כמה ספרים יש ליובל?`, right: `${c}x`, wrong: [[`x + ${c}`, 'times-plus'], [`x : ${c}`, 'reversal']], at: 5, value: (x) => c * x, story: (x) => `לעמית $${x}$ ספרים, וליובל פי $${c}$: $${c * x}$.` }),
-  (c) => ({ v: 'x', text: `לנועה יש $x$ ₪. לשירה יש $${c}$ ₪ פחות מלנועה. כמה כסף יש לשירה?`, right: `x - ${c}`, wrong: [[`${c} - x`, 'reversal'], [`x + ${c}`, 'reversal']], at: 20, value: (x) => x - c, story: (x) => `לנועה $${x}$ ₪, ולשירה $${c}$ פחות: $${x - c}$.` }),
+  (c) => ({ v: 'x', text: `לנועה יש $x$ ₪. לשירה יש $${c}$ ₪ פחות מלנועה. כמה כסף יש לשירה?`, right: `x - ${c}`, wrong: [[`${c} - x`], [`x + ${c}`, 'reversal']], at: 20, value: (x) => x - c, story: (x) => `לנועה $${x}$ ₪, ולשירה $${c}$ פחות: $${x - c}$.` }),
   (c) => ({ v: 'a', text: `האורך של מלבן גדול פי $${c}$ מהרוחב שלו. הרוחב הוא $a$ ס״מ. מה האורך?`, right: `${c}a`, wrong: [[`a + ${c}`, 'times-plus'], [`a : ${c}`, 'reversal']], at: 5, value: (x) => c * x, story: (x) => `אם הרוחב $${x}$ ס״מ, האורך פי $${c}$: $${c * x}$ ס״מ.` }),
   (c) => ({ v: 'n', text: `תמר מבוגרת מאחיה ב־$${c}$ שנים. אחיה בן $n$. בת כמה תמר?`, right: `n + ${c}`, wrong: [[`n - ${c}`, 'reversal'], [`${c}n`, 'times-plus']], at: 10, value: (x) => x + c, story: (x) => `אם האח בן $${x}$, תמר מבוגרת ממנו ב־$${c}$: $${x + c}$.` }),
 ];
@@ -418,7 +426,7 @@ function equalMc() {
     return {
       key: `ex5e:${show}`, text: 'איזה ביטוי שווה לביטוי הזה?', display: show, form: 'mc', choices, answer: choices.findIndex((c) => c.ok),
       hint: 'פתחו את שני הסוגריים. מינוס לפני סוגריים הופך את הסימן של כל איבר בתוכם.',
-      solution: [`$${show} = ${a}x ${a * b < 0 ? '-' : '+'} ${abs(a * b)} - x ${e < 0 ? '+' : '-'} ${abs(e)}$`, `$= ${linTex(K, right)}$`, `בדיקה בהצבה $x = 0$: הביטוי נותן $${T(a)} \\cdot ${T(b, true)} - ${T(e, true)} = ${T(right)}$, וגם $${linTex(K, right)}$ נותן $${T(right)}$.`],
+      solution: [`פותחים את שני הסוגריים: $${a}x ${a * b < 0 ? '-' : '+'} ${abs(a * b)} - x ${e < 0 ? '+' : '-'} ${abs(e)}$`, `מכנסים: $${linTex(K, right)}$`, `בדיקה בהצבה $x = 0$: הביטוי נותן $${T(a)} \\cdot ${T(b, true)} - ${T(e, true)} = ${T(right)}$, וגם $${linTex(K, right)}$ נותן $${T(right)}$.`],
       diag: (u) => choices[u]?.bug || null,
     };
   }

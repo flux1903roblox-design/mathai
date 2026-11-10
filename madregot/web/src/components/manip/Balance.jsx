@@ -3,15 +3,16 @@
 // is the student's own decision, "the same on both sides". A level scale whose counts share a divisor can be divided
 // into equal parts, both pans together. Nothing can be added, only undone; the goal is one box alone on a pan.
 // In a check or the placement test (`test`) nothing says whether the pans are level: the beam stays still, the
-// equation above it is left out, the spoken state does not say it, and "divide" is offered whenever every count can
-// be divided (not only when the scale is level). Keeping it level is then the student's own reasoning, as on paper.
+// equation above it is left out, the spoken state does not say it, and "divide" is offered by the scale's shape alone
+// (boxes alone on one pan, weights alone on the other; content/manip.js boxesDivisor), whether or not the counts
+// divide: its appearing never signals the target. Keeping it level is then the student's own reasoning, as on paper.
 // The weights are drawn in bars of five and singles, so twelve reads at a glance.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { Undo2, RotateCcw, Divide } from 'lucide-react';
 import { useDrag } from './core.jsx';
 import { Tex } from '../MathText.jsx';
-import { balanceTilt, balanceSolved, balanceDivisor, countsDivisor, balanceDivide, balanceRemove, balanceTex, balanceWords } from '@/content/manip.js';
+import { balanceTilt, balanceSolved, balanceDivisor, boxesDivisor, balanceSplits, balanceDivide, balanceRemove, balanceTex, balanceWords } from '@/content/manip.js';
 
 const W = 360; const H = 236;
 const PIVOT = [180, 168]; const ARM = 94; const TILT = 6; // degrees, when the pans differ
@@ -121,11 +122,15 @@ export default function Balance({ m, value, onChange, locked, reveal, good, answ
   const past = useRef([]); const mine = useRef(u);
   useEffect(() => { if (!same(value, mine.current)) { past.current = []; mine.current = value; } }, [value]);
   useEffect(() => { past.current = []; }, [m]);
+  // a press of "divide" that cannot split the weights (only in a check): said, and nothing changes
+  const [noSplit, setNoSplit] = useState(null);
+  useEffect(() => { setNoSplit(null); }, [u.lx, u.l1, u.rx, u.r1]);
   const go = (next) => { if (locked || !next) return; past.current = [...past.current, u]; mine.current = next; onChange(next); };
   const undo = () => { if (locked || !past.current.length) return; const prev = past.current[past.current.length - 1]; past.current = past.current.slice(0, -1); mine.current = prev; onChange(prev); };
   const reset = () => { if (locked || same(u, m.start)) return; past.current = []; mine.current = m.start; onChange(m.start); };
   const tilt = test ? 0 : balanceTilt(u, x);
-  const div = test ? countsDivisor(u) : balanceDivisor(u, x);
+  const div = test ? boxesDivisor(u) : balanceDivisor(u, x);
+  const divide = () => { if (locked || !div) return; if (balanceSplits(u, div)) go(balanceDivide(u, div)); else setNoSplit(div); };
   // a tap or a drag that starts on a group takes one item off that pan
   const grabbed = useRef(null);
   const groupAt = (p) => {
@@ -160,11 +165,12 @@ export default function Balance({ m, value, onChange, locked, reveal, good, answ
         <ScaleArt u={u} tilt={tilt} targets={targets} top={scaleTop(m.start)} />
       </svg>
       <span className="visually-hidden" aria-live="polite">{`${said}.`}</span>
+      {noSplit && <p className="manip-note" role="status">המשקולות לא מתחלקות ל־<bdi dir="ltr">{noSplit}</bdi> קבוצות שוות.</p>}
       {reveal && !balanceSolved(u, x) && <p className="manip-note">כל קופסה שוקלת <bdi dir="ltr">{x}</bdi> משקולות: <bdi dir="ltr">x = {x}</bdi></p>}
       <div className="manip-controls mp-bal-controls">
         <button type="button" className="step-btn mp-bal-btn" onClick={undo} disabled={locked || !past.current.length} aria-label="ביטול: להחזיר את הצעד האחרון"><Undo2 size={20} strokeWidth={2.6} aria-hidden="true" /><span>ביטול</span></button>
         <button type="button" className="step-btn mp-bal-btn" onClick={reset} disabled={locked || same(u, m.start)} aria-label="מההתחלה: להחזיר את המאזניים למצב הראשון"><RotateCcw size={20} strokeWidth={2.6} aria-hidden="true" /><span>מההתחלה</span></button>
-        {div && <button type="button" className="step-btn mp-bal-btn div" onClick={() => go(balanceDivide(u, div))} disabled={locked} aria-label={`לחלק את שתי הכפות ב־${div}: להשאיר חלק אחד מתוך ${div} בכל כף`}><Divide size={20} strokeWidth={2.6} aria-hidden="true" /><span>לחלק ב־<bdi dir="ltr">{div}</bdi></span></button>}
+        {div && <button type="button" className="step-btn mp-bal-btn div" onClick={divide} disabled={locked} aria-label={`לחלק את שתי הכפות ב־${div}: להשאיר חלק אחד מתוך ${div} בכל כף`}><Divide size={20} strokeWidth={2.6} aria-hidden="true" /><span>לחלק ב־<bdi dir="ltr">{div}</bdi></span></button>}
       </div>
     </div>
   );

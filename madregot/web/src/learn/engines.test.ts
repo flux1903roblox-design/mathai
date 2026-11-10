@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import type { LearnState, SkillRecord } from './types';
 import { TOPIC_ORDER, ALL_SKILLS, PREREQS, ancestorsOf, prereqsOf } from './skills';
 import { addAttempt, markTaught, masteryState, recordMasteryCheck, recordReview, nextStage, dueReviews, MASTERY_N, REVIEW_DAYS, addDays } from './mastery';
-import { addEvidence, addCounter, slipOf, diagnose, discriminating, narrow, startRepair, finishVerify, canOffer, CONFIRM_SCORE } from './misconceptions';
+import { addEvidence, addCounter, slipOf, slipLike, matchesValue, diagnose, discriminating, narrow, startRepair, finishVerify, canOffer, CONFIRM_SCORE } from './misconceptions';
+// @ts-ignore: plain JS
+import { diagOf } from '@/content/eq.js';
 import { nextActions, smallestMissing, isMissing } from './recommend';
 import { buildMission, completeMissionItems, missionDone, partialStairNote } from './mission';
 import { examPlan, newPlan, recordDiagnostic, validInput } from './examRescue';
@@ -175,6 +177,53 @@ describe('misconceptions', () => {
     expect(slipOf(21, 12)).toBe('swapped-digits');
     expect(slipOf(-13, 13)).toBeNull(); // a sign is about signs
     expect(slipOf(2, 13)).toBeNull();
+  });
+  it('matches a prediction that is not whole only by its rounding, the same way in practice and in the models', () => {
+    // 4.5 is matched by 4.5 itself; 4.45 is near it but is not 4.5 rounded
+    expect(matchesValue(4.5, 4.5)).toBe(true);
+    expect(matchesValue(4.5, 4.45)).toBe(false);
+    expect(matchesValue(0.48, 0.43)).toBe(false); // eq:3 transfer, gym fees: was named
+    expect(matchesValue(56.25, 56.2)).toBe(false); // sys:1, 56.25 rounds to 56.3: was named
+    expect(matchesValue(56.25, 56.3)).toBe(true);
+    // halves away from zero, as at school: x : 4 = −3 moved over as a division is −0.75, typed −0.8
+    expect(matchesValue(-0.75, -0.8)).toBe(true);
+    expect(matchesValue(-0.75, -0.7)).toBe(false);
+    expect(diagOf(-12, { 'move-no-flip': -0.75 })(-0.8)).toBe('move-no-flip');
+    // a root is kept exact: 32 and 32.02 both match √1025
+    expect(matchesValue(Math.sqrt(1025), 32)).toBe(true);
+    expect(matchesValue(Math.sqrt(1025), 32.02)).toBe(true);
+    // the practice generators read a number near a prediction the same way
+    expect(diagOf(12, { m: 0.48 })(0.43)).toBe(null);
+    expect(diagOf(60, { m: 56.25 })(56.2)).toBe(null);
+  });
+  it('never names a slip through a rounded prediction', () => {
+    // sys:1 practice: +5%, now 441, before 420; the percent of the new price predicts 418.95, and 419 is one off 420
+    expect(slipOf(419, 420)).toBe('off-by-one');
+    expect(matchesValue(418.95, 419, 420)).toBe(false);
+    expect(diagOf(420, { 'pct-of-new': 418.95 })(419)).toBe(null);
+    expect(diagOf(420, { 'pct-of-new': 418.95 })(418.95)).toBe('pct-of-new');
+    // sys:4 tickets: partial-dist predicts 16 − 40/39 = 14.97…; 15 is one off the answer 14, 14.97 is the prediction
+    expect(diagOf(14, { 'partial-dist': 16 - 40 / 39 })(15)).toBe(null);
+    expect(diagOf(14, { 'partial-dist': 16 - 40 / 39 })(14.97)).toBe('partial-dist');
+    expect(slipLike(16 - 40 / 39, 14)).toBe(true);
+    // the diagnostic models: a draw whose prediction rounds to a slip is never asked, and if it were, it names nothing
+    const rnd = seeded(41);
+    for (const skill of ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'expr:1', 'expr:2', 'expr:3', 'expr:4', 'expr:5', 'sys:1', 'sys:2', 'sys:3', 'sys:4', 'sys:5']) {
+      const c = contentOf(skill)!;
+      for (const m of [c.diag, c.transfer].filter(Boolean)) {
+        for (let i = 0; i < 400; i += 1) {
+          const p = m!.params(rnd); const ans = m!.answer(p);
+          Object.entries(m!.bugs).forEach(([id, f]) => {
+            const v = f(p); if (v == null || !Number.isFinite(v) || Math.abs(v - ans) < 1e-9) return;
+            expect(slipLike(v, ans), `${skill} ${id}: ${v} for ${ans}`).toBe(false);
+            [Math.round(v), ans + 1, ans - 1].filter((u) => slipOf(u, ans)).forEach((u) => {
+              const d = diagnose(m!, p, u);
+              expect(d.kind === 'misconception' && d.candidates.some((x) => x.id === id && !(Math.abs(v - u) < 1e-9)), `${skill} ${id}: ${u} named`).toBe(false);
+            });
+          });
+        }
+      }
+    }
   });
   it('splits the evidence when two misconceptions explain one answer, and finds a question that tells them apart', () => {
     // −4 − (−7): "minus-minus", "abs-add" and "direction" all predict −11

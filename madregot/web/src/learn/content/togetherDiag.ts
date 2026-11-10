@@ -310,7 +310,8 @@ export function finalPredictions(c: StairContent, k: number): [string, number][]
 /** The misconceptions a typed last step fits (a prediction that is not whole matches the answer rounded to tenths). */
 export function diagnoseFinal(c: StairContent, k: number, u: number): string[] {
   if (!Number.isFinite(u)) return [];
-  const ids = finalPredictions(c, k).filter(([, v]) => matchesValue(v, u)).map(([id]) => id);
+  const ans = c.together[k]?.final.answer;
+  const ids = finalPredictions(c, k).filter(([, v]) => matchesValue(v, u, ans)).map(([id]) => id);
   return [...new Set(ids)];
 }
 

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
-import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer } from './index.js';
+import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, fairForCheck, testItem } from './index.js';
 import { parseNum, plainNum } from './util.js';
-import { holds, identical, texToExpr, texRelation } from '@/learn/expr.ts';
+import { holds, identical, texToExpr, texRelation, seeded } from '@/learn/expr.ts';
 
 /**
  * The maths a student sees, checked as displayed (not from the generator's parameters), for every topic:
@@ -294,5 +294,50 @@ describe('the displayed maths is checked as the student sees it', () => {
     ok({ form: 'num', display: 'x > -2,\\quad x \\le 3', answer: 5, whole: ['x > -2', 'x \\le 3'] });
     bad({ form: 'num', display: 'x > -2,\\quad x \\le 3', answer: 6, whole: ['x > -2', 'x \\le 3'] });
     bad({ form: 'pt', display: '\\begin{cases} y = 2x - 1 \\\\ x + y = 5 \\end{cases}', answer: [3, 2], label: '' });
+  });
+});
+
+describe('a choice is not given away by its look', () => {
+  // surface rules a student could use without the maths, each measured over the generators (the council's list):
+  // none may pick the right choice much more often than a guess between two
+  const plain = (c) => String(c.tex ?? c.text);
+  const numOf = (c) => Number(plain(c));
+  const pairOf = (c) => plain(c).replace(/[()]/g, '').split(',').map(Number);
+  const real = Math.random;
+  it('the middle number, the only minus, the swapped twin, the extreme choice, a number tied to the others', () => {
+    Math.random = seeded(2611);
+    const tally = {}; const add = (k, ok) => { (tally[k] ||= [0, 0]); tally[k][1] += 1; if (ok) tally[k][0] += 1; };
+    // a rule that names several choices picks one of them at random (its expected share is counted)
+    const share = (k, win, ans) => { (tally[k] ||= [0, 0]); tally[k][1] += 1; if (win.includes(ans)) tally[k][0] += 1 / win.length; };
+    try {
+      for (let i = 0; i < 8000; i += 1) {
+        const L = 1 + (i % 5);
+        for (const topic of ['expr', 'eq', 'sys']) {
+          const it = makeItem(topic, L); const k = String(it.key).split(':')[0];
+          if (it.form !== 'mc') continue;
+          if (k === 'ex1m') { const v = it.choices.map(numOf); const s = [...v].sort((a, b) => a - b); add('expr:1 the middle number', v[it.answer] === s[1]); add('expr:1 the smallest', v[it.answer] === s[0]); }
+          if (k === 'ex2m') { const m = it.choices.map((c) => plain(c).includes('-')); share('expr:2 a choice with a minus', m.some(Boolean) ? m.map((x, j) => (x ? j : -1)).filter((j) => j >= 0) : it.choices.map((_, j) => j), it.answer); }
+          if (k === 'eq1w' && !/^x\^2|^x\(/.test(it.display)) {
+            const v = it.choices.map(numOf); const sc = v.map((x) => (v.includes(-x) && x !== 0 ? 1 : 0) + (v.includes(x + 2) ? 1 : 0) + (v.includes(x - 2) ? 1 : 0));
+            const best = Math.max(...sc); share('eq:1 the number whose negative or ±2 is offered', sc.map((s, j) => (s === best ? j : -1)).filter((j) => j >= 0), it.answer);
+          }
+          if (k === 'sy2w') {
+            const ps = it.choices.map(pairOf); const tw = ps.map((p, j) => (ps.some((q) => q[0] === p[1] && q[1] === p[0]) ? j : -1)).filter((j) => j >= 0);
+            const d = (j) => ps.reduce((a, q, m) => a + (m === j ? 0 : Math.abs(ps[j][0] - q[0])), 0); const b = Math.min(...tw.map(d));
+            share('sys:2 the swapped twin whose x is nearest the others', tw.filter((j) => d(j) === b), it.answer);
+          }
+          if (k === 'sy5m' || k === 'sy5g') { const v = it.choices.map(numOf); share('sys:5 the largest or the smallest choice', v.map((x, j) => (x === Math.max(...v) || x === Math.min(...v) ? j : -1)).filter((j) => j >= 0), it.answer); }
+        }
+      }
+    } finally { Math.random = real; }
+    Object.entries(tally).forEach(([rule, [ok, n]]) => {
+      expect(n, rule).toBeGreaterThan(100);
+      expect(ok / n, `${rule}: ${(100 * ok / n).toFixed(1)}% of ${n}`).toBeLessThan(0.55);
+    });
+  });
+  it('the same question every time is practice only, never a check', () => {
+    expect(fairForCheck({ key: 'sy4l:0', fixed: true, topic: 'sys' })).toBe(false);
+    expect(fairForCheck({ key: 'eq4f:10x = 3(x + 7)', fixed: true, topic: 'eq' })).toBe(false);
+    for (let i = 0; i < 400; i += 1) { expect(testItem('sys', 4).fixed).toBeFalsy(); expect(testItem('eq', 4).fixed).toBeFalsy(); }
   });
 });

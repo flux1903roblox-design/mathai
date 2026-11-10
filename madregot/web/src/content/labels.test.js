@@ -8,7 +8,7 @@ import { TOPICS, makeItem, isCorrect, catLabel } from './index.js';
 import { quadOf as quadOfPt } from './manip.js';
 import { startLesson, answer } from '@/lib/lesson.js';
 import { learnAfterAnswer, emptyLearn } from '@/learn/storeGlue.ts';
-import { evaluate, texToExpr, texRelation } from '@/learn/expr.ts';
+import { evaluate, texToExpr, texRelation, holds } from '@/learn/expr.ts';
 import { roundsTo, EQ } from './eq.js';
 import { EXPR } from './expr.js';
 import { SYS } from './sys.js';
@@ -226,7 +226,7 @@ const PROPS = {
   expr: {
     concat: (it, u) => { const q = substOf(it); return q.x >= 1 && q.x <= 9 && near(substVal(it, u), withProd(q, 10 * q.a + q.x)); },
     order: (it, u) => { const q = substOf(it); return q.f < 2 && near(u, (q.f === 0 ? q.b + q.a : q.b - q.a) * q.x); },
-    'neg-sub': (it, u) => { const q = substOf(it); return q.x < 0 && near(u, withProd(q, q.a * -q.x)); },
+    'neg-sub': (it, u) => { const q = substOf(it); return q.x < 0 && near(substVal(it, u), withProd(q, q.a * -q.x)); },
     // n steps of d from the first term instead of n − 1, and the step times n with the start forgotten
     'start-n': (it, u) => {
       const [s, d] = nums(it.key);
@@ -253,7 +253,9 @@ const PROPS = {
       const { c, kind } = wordsOf(it);
       if (kind === 'times') return isFn(it, u, (v) => v / c);
       if (kind === 'more') return isFn(it, u, (v) => v - c);
-      return isFn(it, u, (v) => c - v) || isFn(it, u, (v) => v + c);
+      // "c less": only x + c gives the one with less more; c − x reverses a subtraction's order, and at the hint's
+      // number (x = 20) it still gives her less, so it is not this mistake
+      return isFn(it, u, (v) => v + c);
     },
     // unlike terms joined into one x-term
     conjoin: asLin((it, w) => { const { k, c } = openSum(exprTerms(it)); return !!w && c !== 0 && linEq(w, k + c, 0); }),
@@ -368,9 +370,17 @@ const PROPS = {
     boundary: (it, u) => {
       if (it.key.startsWith('sy5b:')) {
         const right = it.key.slice('sy5b:'.length); const t = chosen(it, u);
-        return t === right.replace('\\le', '<') || t === right.replace('\\ge', '>');
+        // the strict choice is the boundary mistake only where it loses a whole n that the right one keeps: a limit
+        // no whole n reaches (90 + 30n ≤ 400) is passed by the same n either way
+        const loses = Array.from({ length: 201 }, (_, n) => n).some((n) => holds(right, { n }) !== holds(t, { n }));
+        return loses && (t === right.replace('\\le', '<') || t === right.replace('\\ge', '>'));
       }
       if (it.key.startsWith('sy5m:')) { const q = ineqOf(it.display); return near(Number(chosen(it, u)), q.B); }
+      // the smallest (or largest) whole solution with the boundary's inclusion the other way
+      if (it.key.startsWith('sy5g:')) {
+        const q = ineqOf(it.display); const B = Math.round(q.B); const rel = TOGGLE[q.sol];
+        return near(Number(chosen(it, u)), rel === '>' ? B + 1 : rel === '<' ? B - 1 : B);
+      }
       return ineqProp(it, u, (q) => Number.isInteger(q.B) || it.form === 'manip', (q) => TOGGLE[q.sol], true);
     },
     // a number moved to the other side keeping its sign: the boundary moves
@@ -432,7 +442,11 @@ const PROPS = {
     },
     'neg-sub': (it, u) => { const [m, b, x] = nums(it.key); return x < 0 && near(u, m * -x + b); },
     'added-m': (it, u) => { const [m, b, x] = nums(it.key); return near(u, m + x + b); },
-    'sign-from-b': (it, u) => { const [, , m, b] = it.key.split(':').map(Number); return it.answer !== 2 && m !== 0 && sgn(m) !== sgn(b) && u === (b > 0 ? 0 : 1); },
+    'sign-from-b': (it, u) => {
+      // which of four functions goes the asked way: one whose b has that sign and whose m has the other
+      if (it.key.startsWith('lf2p:')) { const s = it.key.split(':')[1] === 'up' ? 1 : -1; const f = fnOf(chosen(it, u).split('=')[1]); const m = f(1) - f(0); const b = f(0); return m !== 0 && sgn(m) === -s && sgn(b) === s; }
+      const [, , m, b] = it.key.split(':').map(Number); return it.answer !== 2 && m !== 0 && sgn(m) !== sgn(b) && u === (b > 0 ? 0 : 1);
+    },
     'm-b': (it, u) => {
       if (it.key.startsWith('lf2b:')) { const [m, b] = nums(it.key); return u.m === b && u.b === m; }
       const [, kind, m, b] = it.key.split(':'); return near(u, Number(kind === 'm' ? b : m));

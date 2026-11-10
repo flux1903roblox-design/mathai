@@ -10,7 +10,7 @@
 // Teaching content: see MADREGOT2.md (content conventions) and content/signed.ts (the quality bar).
 import type { DiagModel, ManipSpec, StairContent } from '../types';
 import { rint, same } from '../expr';
-import { slipOf } from '../misconceptions';
+import { slipLike } from '../misconceptions';
 // @ts-ignore: plain JS, the practice generators' draws, texts and worked solutions
 import * as G from '@/content/sys.js';
 // @ts-ignore: plain JS helpers shared with the exercise generators
@@ -18,16 +18,18 @@ import { T } from '@/content/util.js';
 
 /**
  * Draws until no misconception of the model predicts what a slip of the hand gives (one off, ten off, two digits
- * swapped): diagnose() reads a matching prediction before a slip, so such a draw would turn a slip into evidence.
+ * swapped), itself or typed rounded (418.95 as 419 when the answer is 420): diagnose() reads a matching prediction
+ * before a slip, so such a draw would turn a slip into evidence.
  */
 function fair<P>(draw: () => P, answer: (p: P) => number, bugs: Record<string, (p: P) => number | null>): P {
   for (;;) {
     const p = draw(); const a = answer(p);
-    if (Object.values(bugs).every((f) => { const v = f(p); return v == null || same(v, a) || !slipOf(v, a); })) return p;
+    if (Object.values(bugs).every((f) => { const v = f(p); return v == null || same(v, a) || !slipLike(v, a); })) return p;
   }
 }
 const lines = (a: [number, number], b: [number, number]): ManipSpec => ({ kind: 'plot', range: 6, label: '', start: null, lines: [{ m: a[0], b: a[1] }, { m: b[0], b: b[1] }] });
-const area = (): ManipSpec => ({ kind: 'area', start: { a: 1, b: 0 }, maxA: 6, maxB: 9 });
+// the rectangle starts two units high: one unit high, its labels and both handles crowd a strip of 23px
+const area = (): ManipSpec => ({ kind: 'area', start: { a: 2, b: 0 }, maxA: 6, maxB: 9 });
 const ray = (start: { at: number; dir: 1 | -1; closed: boolean }): ManipSpec => ({ kind: 'ray', min: -10, max: 10, start });
 const pins = (vals: number[], start: number[]): ManipSpec => ({ kind: 'pins', min: -10, max: 10, labels: vals.map((v) => (v < 0 ? `−${-v}` : `${v}`)), start });
 
@@ -53,7 +55,8 @@ const pctModel: DiagModel<Pct> = {
 };
 
 type Growth = { up: boolean; p: number; x: number; N: number; c: number; q: number };
-const PLACES = [['במועדון הספורט', 'חברים'], ['בבית הספר', 'תלמידים'], ['בספרייה העירונית', 'קוראים רשומים']];
+/** Where, who, and who after "מספר" (a definite noun takes a definite adjective: מספר הקוראים הרשומים). */
+const PLACES = [['במועדון הספורט', 'חברים', 'החברים'], ['בבית הספר', 'תלמידים', 'התלמידים'], ['בספרייה העירונית', 'קוראים רשומים', 'הקוראים הרשומים']];
 const growthAnswer = (p: Growth) => (p.q === 0 ? p.x : (p.x * p.p) / 100);
 const growthBugs: Record<string, (p: Growth) => number | null> = {
   // the percent taken of this year's number: before, or the change itself
@@ -70,15 +73,15 @@ const growthModel: DiagModel<Growth> = {
     return { up, p, x, N: G.change(x, up, p), c: rint(rnd, 0, PLACES.length - 1), q: rnd() < 0.6 ? 0 : 1 };
   }, growthAnswer, growthBugs),
   text: (p) => {
-    const [where, who] = PLACES[p.c];
-    return `השנה יש ${where} $${p.N}$ ${who}, $${p.p}\\%$ ${p.up ? 'יותר' : 'פחות'} מבשנה שעברה. ${p.q === 0 ? `כמה ${who} היו ${where} בשנה שעברה?` : `בכמה ${p.up ? 'עלה' : 'ירד'} מספר ה${who} מהשנה שעברה?`}`;
+    const [where, who, theWho] = PLACES[p.c];
+    return `השנה יש ${where} $${p.N}$ ${who}, $${p.p}\\%$ ${p.up ? 'יותר' : 'פחות'} מבשנה שעברה. ${p.q === 0 ? `כמה ${who} היו ${where} בשנה שעברה?` : `בכמה ${p.up ? 'עלה' : 'ירד'} מספר ${theWho} מהשנה שעברה?`}`;
   },
   answer: growthAnswer,
   bugs: growthBugs,
   solution: (p) => {
-    const who = PLACES[p.c][1]; const m = G.dec(G.mult(p.up, p.p)); const d = (p.x * p.p) / 100;
+    const theWho = PLACES[p.c][2]; const m = G.dec(G.mult(p.up, p.p)); const d = (p.x * p.p) / 100;
     return [
-      `נסמן ב־$x$ את מספר ה${who} בשנה שעברה. השנה יש $${p.up ? 100 + p.p : 100 - p.p}\\%$ ממנו: $${m}x = ${p.N}$`,
+      `נסמן ב־$x$ את מספר ${theWho} בשנה שעברה. השנה יש $${p.up ? 100 + p.p : 100 - p.p}\\%$ ממנו: $${m}x = ${p.N}$`,
       `מחלקים ב־$${m}$: $x = ${p.x}$`,
       ...(p.q === 1 ? [`השינוי: $${p.p}\\%$ מ־$${p.x}$ הם $${d}$.`] : []),
       `בדיקה: $${p.x} ${p.up ? '+' : '-'} ${d} = ${p.N}$.`,
@@ -311,7 +314,7 @@ const stair2: StairContent = {
         { action: 'מציבים, בסוגריים.', why: '$3y$ הוא $3$ כפול כל המחיר לילד.', result: '2x + 3(x - 15) = 220', eq: '2*x + 3*(x - 15) = 220' },
         { action: 'פותחים סוגריים ומכנסים.', why: '$3 \\cdot (-15) = -45$.', result: '5x - 45 = 220', eq: '5*x - 45 = 220' },
         { action: 'מוסיפים $45$ ומחלקים ב־$5$.', why: '$265 : 5 = 53$.', result: 'x = 53', eq: 'x = 53' },
-        { action: 'מציבים בחזרה ובודקים.', why: '$y = 53 - 15 = 38$, ו־$2 \\cdot 53 + 3 \\cdot 38 = 106 + 114 = 220$.', result: 'y = 38', eq: 'y = 38' },
+        { action: 'מציבים בחזרה ובודקים.', why: '$y = 53 - 15 = 38$. בדיקה: $2 \\cdot 53 + 3 \\cdot 38$, כלומר $106 + 114 = 220$.', result: 'y = 38', eq: 'y = 38' },
       ] },
   ],
   together: [
@@ -636,7 +639,7 @@ const stair4: StairContent = {
         { action: 'מציבים $y = 20 - x$, בסוגריים.', why: 'מהמשוואה הראשונה.', result: '4x + 2(20 - x) = 56', eq: '4*x + 2*(20 - x) = 56' },
         { action: 'פותחים סוגריים ומכנסים.', why: '$2 \\cdot 20 = 40$, ו־$2 \\cdot (-x) = -2x$.', result: '2x + 40 = 56', eq: '2*x + 40 = 56' },
         { action: 'פותרים.', why: '$2x = 16$.', result: 'x = 8', eq: 'x = 8' },
-        { action: 'מוצאים את $y$ ובודקים בסיפור.', why: '$y = 20 - 8 = 12$. רגליים: $4 \\cdot 8 + 2 \\cdot 12 = 32 + 24 = 56$.', result: 'y = 12', eq: 'y = 12' },
+        { action: 'מוצאים את $y$ ובודקים בסיפור.', why: '$y = 20 - 8 = 12$. רגליים: $4 \\cdot 8 + 2 \\cdot 12$, כלומר $32 + 24 = 56$.', result: 'y = 12', eq: 'y = 12' },
       ] },
     { problem: 'רות שילמה $29$ ₪ על כביסה של $4$ מגבות ו־$7$ סדינים. במבצע של $20\\%$ הנחה היא שילמה $20$ ₪ על $5$ מגבות ו־$5$ סדינים. מה המחיר הרגיל לכביסה של מגבת, ושל סדין?', answer: 2, check: 'x', vars: { x: 2, y: 3 }, answerTex: 'x = 2,\\; y = 3',
       steps: [

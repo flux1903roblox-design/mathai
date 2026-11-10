@@ -10,7 +10,7 @@
 // Teaching content: see MADREGOT2.md (content conventions) and content/signed.ts (the quality bar).
 import type { DiagModel, FigSpec, ManipSpec, StairContent } from '../types';
 import { rint, rnz, rpick, same } from '../expr';
-import { slipOf } from '../misconceptions';
+import { slipLike } from '../misconceptions';
 // @ts-ignore: plain JS helpers shared with the exercise generators
 import { T } from '@/content/util.js';
 // @ts-ignore: plain JS, the same TeX the expression generators print
@@ -20,16 +20,18 @@ const abs = Math.abs;
 /** A still scale: boxes and weights on each pan; tilt 1 when the right pan is down, −1 the left. */
 const scale = (lx: number, l1: number, rx: number, r1: number, tilt = 0): FigSpec => ({ type: 'scale', left: { x: lx, n: l1 }, right: { x: rx, n: r1 }, ...(tilt ? { tilt } : {}) });
 const balance = (lx: number, l1: number, rx: number, r1: number): ManipSpec => ({ kind: 'balance', start: { lx, l1, rx, r1 } });
-const area = (): ManipSpec => ({ kind: 'area', start: { a: 1, b: 0 }, maxA: 6, maxB: 9 });
+// the rectangle starts two units high: one unit high, its labels and both handles crowd a strip of 23px
+const area = (): ManipSpec => ({ kind: 'area', start: { a: 2, b: 0 }, maxA: 6, maxB: 9 });
 
 /**
  * Draws until no misconception of the model predicts what a slip of the hand gives (one off, ten off, two digits
- * swapped): diagnose() reads a matching prediction before a slip, so such a draw would turn a slip into evidence.
+ * swapped), itself or typed rounded (418.95 as 419 when the answer is 420): diagnose() reads a matching prediction
+ * before a slip, so such a draw would turn a slip into evidence.
  */
 function fair<P>(draw: () => P, answer: (p: P) => number, bugs: Record<string, (p: P) => number | null>): P {
   for (;;) {
     const p = draw(); const a = answer(p);
-    if (Object.values(bugs).every((f) => { const v = f(p); return v == null || same(v, a) || !slipOf(v, a); })) return p;
+    if (Object.values(bugs).every((f) => { const v = f(p); return v == null || same(v, a) || !slipLike(v, a); })) return p;
   }
 }
 /** "Remove b from both sides", in words. */
@@ -316,9 +318,9 @@ const stair2: StairContent = {
     { kind: 'predict', text: 'מה $x$?', display: '20 - 3x = 8', choices: ['$4$', '$-4$', '$-\\dfrac{28}{3}$'], answer: 0,
       why: 'מחסירים $20$: $-3x = -12$. מחלקים ב־$-3$: $x = 4$. בדיקה: $20 - 3 \\cdot 4 = 8$.',
       wrongWhy: { 1: 'המינוס של $-3x$ נשכח בחילוק. בדיקה: $20 - 3 \\cdot (-4) = 32$.', 2: 'ה־$20$ עבר לאגף השני בלי להתהפך: $-3x = 28$. מחסירים $20$ משני האגפים: $8 - 20 = -12$.' } },
-    { kind: 'predict', text: 'ומה $x$ כאן?', display: '7 - x = 3', choices: ['$4$', '$-4$', '$10$'], answer: 0,
+    { kind: 'predict', text: 'ומה $x$ כאן?', display: '7 - x = 3', choices: ['$4$', '$-4$', '$-10$'], answer: 0,
       why: 'מחסירים $7$: $-x = -4$, כלומר $x = 4$. בדיקה: $7 - 4 = 3$.',
-      wrongWhy: { 1: '$-x$ הוא $-1 \\cdot x$. מ־$-x = -4$ יוצא $x = 4$. בדיקה: $7 - (-4) = 11$.', 2: '$10$ יוצא כשה־$7$ עובר לאגף השני בלי להתהפך. בדיקה: $7 - 10 = -3$.' } },
+      wrongWhy: { 1: '$-x$ הוא $-1 \\cdot x$. מ־$-x = -4$ יוצא $x = 4$. בדיקה: $7 - (-4) = 11$.', 2: 'ה־$7$ עבר לאגף השני בלי להתהפך: $-x = 10$, ולכן $x = -10$. בדיקה: $7 - (-10) = 17$.' } },
     { kind: 'rule', text: 'גם עם מספרים שליליים: מבטלים את המספר, מחלקים במקדם עם הסימן שלו, ובודקים.', display: '\\begin{aligned} 7 - x &= 3 \\\\ -x &= -4 \\\\ x &= 4 \\end{aligned}',
       why: '$-x$ הוא $-1 \\cdot x$, ולכן המקדם שלו $-1$. מחלקים ב־$-1$, והסימן מתהפך.' },
   ],
@@ -751,7 +753,7 @@ const storyBugs: Record<string, (p: Story) => number | null> = {
   // the unknown answered, not what was asked
   'wrong-unknown': (p) => (p.q === 0 ? null : storyX(p)),
 };
-const AGES = [['דן', 'יואב'], ['אורי', 'עידו'], ['גיל', 'רון']];
+const AGES = [['דן', 'יואב'], ['אורי', 'עידו'], ['אלון', 'רון']];
 const STAMPS = [['דני', 'רינה'], ['עומר', 'מאיה'], ['איתי', 'שירה']];
 const storyModel: DiagModel<Story & { n: number }> = {
   params: (rnd) => fair(() => {

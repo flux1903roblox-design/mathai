@@ -25,6 +25,8 @@ export function texText(tex) {
   const t = String(tex ?? '').trim();
   if (RELATION[t]) return RELATION[t];
   return t
+    // a system (cases, aligned) is read row by row
+    .replace(/\\(begin|end)\{[a-z]+\}/g, ' ').replace(/\\\\/g, ', ').replace(/&/g, '')
     .replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2')
     .replace(/\\sqrt\{([^{}]*)\}/g, '√$1')
     .replace(/\\text\{([^{}]*)\}/g, '$1')

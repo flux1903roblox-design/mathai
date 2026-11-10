@@ -3,11 +3,11 @@ import katex from 'katex';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, slotsFor, figPlain } from './index.js';
 import {
   quadOf, manipSolution, manipWrong, manipText, manipPlain, triangleAngles, rightAtC,
-  balanceTilt, balanceSolved, balanceDivisor, balanceReachable, balanceTex, balanceWords, panWords,
+  balanceTilt, balanceSolved, balanceDivisor, balanceReachable, boxesDivisor, balanceSplits, balanceDivide, balanceTex, balanceWords, panWords,
   tilesTex, tilesPairs, tilesWords, areaTex, areaSumTex, rayText, rayTex, rayHas, TILES_MAX,
 } from './manip.js';
 import { linText, listMath } from './util.js';
-import { holds, texToExpr, identical } from '@/learn/expr.ts';
+import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
 
 // Draw interactive items from their levels until each kind has been seen.
 function manipItems(topic, level, n = 400) {
@@ -357,15 +357,43 @@ describe('generated algebra exercises meet the rules of their object', () => {
   const NEW = ['balance', 'tiles', 'area', 'ray'];
   const found = [];
   for (const t of TOPICS) t.levels.forEach((_, i) => { for (let k = 0; k < 60; k += 1) { const it = makeItem(t.id, i + 1); if (it.form === 'manip' && (NEW.includes(it.manip.kind) || it.manip.lines)) found.push(it); } });
-  it('balance: level at the start, solvable, never by one pan alone, within 6 boxes and 12 weights a pan', () => {
+  it('balance: level at the start, solvable, never by one pan alone, within 6 boxes and 15 weights a pan', () => {
     for (const it of found.filter((x) => x.manip.kind === 'balance')) {
       const st = it.manip.start; const at = it.key;
       expect(balanceTilt(st, it.answer), at).toBe(0);
       expect(balanceReachable(st, it.answer), at).toBe(true);
       expect(balanceReachable(st, it.answer, 'l') || balanceReachable(st, it.answer, 'r'), at).toBe(false);
-      expect(st.lx <= 6 && st.rx <= 6 && st.l1 <= 12 && st.r1 <= 12, at).toBe(true);
+      // 15 weights are three bars of five, the most a pan's half holds (components/manip/Balance.jsx)
+      expect(st.lx <= 6 && st.rx <= 6 && st.l1 <= 15 && st.r1 <= 15, at).toBe(true);
       if (it.display) expect(holds(it.display, { x: it.answer }), at).toBe(true);
     }
+  });
+  it('balance in a check: "divide" is offered by the shape, so following it does not find x', () => {
+    // boxes alone against weights alone, whether or not the weights split; a press that cannot split them changes nothing
+    expect(boxesDivisor({ lx: 3, l1: 0, rx: 0, r1: 8 })).toBe(3);
+    expect(balanceSplits({ lx: 3, l1: 0, rx: 0, r1: 8 }, 3)).toBe(false);
+    expect(boxesDivisor({ lx: 3, l1: 2, rx: 0, r1: 8 })).toBe(null);
+    expect(boxesDivisor({ lx: 0, l1: 6, rx: 2, r1: 0 })).toBe(2);
+    expect(boxesDivisor({ lx: 1, l1: 0, rx: 0, r1: 4 })).toBe(null);
+    // the council's strategy, never keeping the scale level: boxes off the pan with fewer, weights off the boxes' pan,
+    // then weights off the other pan one at a time until "divide" is offered, and divide
+    const real = Math.random; Math.random = seeded(5);
+    const bal = []; try { for (let k = 0; k < 4000; k += 1) { const it = makeItem('eq', 2 + (k % 2)); if (it.form === 'manip' && it.manip.kind === 'balance') bal.push(it); } } finally { Math.random = real; }
+    let wins = 0; const xs = {};
+    bal.forEach((it) => {
+      const s = it.manip.start; const left = s.lx >= s.rx;
+      let u = left ? { lx: s.lx - s.rx, l1: 0, rx: 0, r1: s.r1 } : { lx: 0, l1: s.l1, rx: s.rx - s.lx, r1: 0 };
+      const w = left ? 'r1' : 'l1';
+      while (!boxesDivisor(u) && u[w] > 0) u = { ...u, [w]: u[w] - 1 };
+      const d = boxesDivisor(u); if (d && balanceSplits(u, d)) u = balanceDivide(u, d);
+      if (isCorrect(it, u)) wins += 1;
+      if (it.key.startsWith('eq2b:')) xs[it.answer] = (xs[it.answer] || 0) + 1;
+    });
+    expect(bal.length).toBeGreaterThan(300);
+    expect(wins / bal.length, `${wins} of ${bal.length}`).toBeLessThan(0.05);
+    // and no one value of x is a likely guess in two steps (one box against one or two weights)
+    const n2 = Object.values(xs).reduce((a, b) => a + b, 0);
+    Object.entries(xs).forEach(([x, n]) => expect(n / n2, `x = ${x}`).toBeLessThan(0.33));
   });
   it('tiles, area, ray and two lines: the start is not the answer, the near miss is wrong, the answer is reachable', () => {
     for (const it of found) {

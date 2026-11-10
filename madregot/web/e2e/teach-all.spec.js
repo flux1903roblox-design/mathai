@@ -3,7 +3,7 @@
 // ends in its completion moment. The stairs come from the skill catalogue itself, so a topic registered there is walked
 // here with no change.
 import { test, expect } from '@playwright/test';
-import { open, student } from './helpers.js';
+import { open, student, expectNoSidewaysScroll } from './helpers.js';
 import { STAIRS, GRADE_OF as GRADE } from '../src/learn/skills.ts';
 
 test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone', 'one phone is enough for the content walk'); });
@@ -84,6 +84,30 @@ for (const [topic, n] of Object.entries(STAIRS)) {
       await expect(page.locator('.journey')).toBeVisible();
       await expect(page.locator('.jstage.done')).toHaveCount(3);
       expect(errors).toEqual([]);
+    });
+  }
+}
+
+// The worked examples on the smallest phone (320 wide): no step widens the page, and no line of maths in a step needs
+// a sideways scroll inside its box (a 12-year-old does not find a scroll with no bar). Run in the phone project at 320.
+for (const [topic, n] of Object.entries(STAIRS)) {
+  for (let level = 1; level <= n; level += 1) {
+    test(`${topic}:${level} worked examples fit a 320 phone`, async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 568 });
+      await open(page, `#/learn/${topic}/${level}/B`, student(GRADE[topic]));
+      for (let e = 0; e < 6; e += 1) {
+        await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+        while (await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).count()) await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).click();
+        await page.evaluate(() => document.fonts.ready);
+        const wide = await page.evaluate(() => [...document.querySelectorAll('.worked-why, .worked-result, .worked-answer, .worked-action')]
+          .filter((el) => el.scrollWidth > el.clientWidth + 1).map((el) => `${el.className}: ${el.textContent.slice(0, 60)}`));
+        expect(wide, `${topic}:${level} example ${e + 1}`).toEqual([]);
+        await expectNoSidewaysScroll(page);
+        const go = page.getByRole('button', { name: /לדוגמה הבאה|לפתור יחד/ });
+        const label = await go.textContent();
+        if (label.includes('לפתור')) break;
+        await go.click();
+      }
     });
   }
 }

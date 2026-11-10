@@ -41,12 +41,26 @@ export function slipOf(u: number, ans: number): Extract<Diagnosis, { kind: 'slip
   return null;
 }
 
+/** v rounded to d decimal places, halves away from zero as at school: −0.75 to tenths is −0.8, not −0.7. */
+export const roundAway = (v: number, d: number) => { const f = 10 ** d; return (Math.sign(v) * Math.round(Math.abs(v) * f + 1e-9)) / f; };
+const whole = (v: number) => Math.abs(v - Math.round(v)) <= 1e-9;
+/** A prediction that is not whole, as a student types it: rounded to tenths and to hundredths. */
+export const roundings = (v: number) => (whole(v) ? [] : [roundAway(v, 1), roundAway(v, 2)]);
+
 /**
- * Does a typed answer match a value? A value that is not a whole number matches the answer rounded to tenths (as the
- * questions ask), within half a tenth. A root a misconception predicts is kept exact (√1025 = 32.02…, not 32.0), so
- * 32 and 32.02 both match it.
+ * Does a typed answer u match a predicted value v? The one rule of every diagnosis (practice exercises, the
+ * diagnostic models, the last step of solving together). A whole prediction matches only itself. A prediction that is
+ * not whole matches itself and its rounding to tenths or to hundredths, and nothing else near it: 4.45 is not 4.5
+ * rounded. A root a misconception predicts is kept exact (√1025 = 32.02…), so 32 and 32.02 both match it.
+ * With the right answer `ans`: a rounding that is also a slip of the hand from the answer (418.95 typed as 419 when
+ * the answer is 420) matches nothing, since a slip is not a misconception.
  */
-export const matchesValue = (v: number, u: number) => same(v, u) || (Math.abs(v - Math.round(v)) > 1e-9 && Math.abs(v - u) <= 0.05 + 1e-9);
+export function matchesValue(v: number, u: number, ans?: number) {
+  if (same(v, u)) return true;
+  return roundings(v).some((r) => same(r, u) && !(ans != null && slipOf(r, ans)));
+}
+/** A prediction a slip of the hand also gives, itself or as it is typed rounded (fair draws avoid them). */
+export const slipLike = (v: number, ans: number) => !!slipOf(v, ans) || roundings(v).some((r) => !!slipOf(r, ans));
 
 /** Is a typed answer right? A rounded length is right within half a tenth of its exact value (as content/index.js isCorrect). */
 function isRight<P>(model: DiagModel<P>, p: P, u: number) {
@@ -60,7 +74,7 @@ export function diagnose<P>(model: DiagModel<P>, p: P, u: number | null): Diagno
   if (u == null || !Number.isFinite(u)) return { kind: 'unknown' };
   const ans = model.answer(p);
   if (isRight(model, p, u)) return { kind: 'right' };
-  const matches = (v: number) => matchesValue(v, u);
+  const matches = (v: number) => matchesValue(v, u, ans);
   const hits = Object.entries(model.bugs)
     .map(([id, f]) => ({ id, v: f(p) }))
     .filter((b) => b.v != null && Number.isFinite(b.v) && !same(b.v, ans) && matches(b.v!))
@@ -104,7 +118,7 @@ export function discriminating<P>(model: DiagModel<P>, candidates: string[], rnd
 /** After the student answered a discriminating question: the candidates still consistent with that answer. */
 export function narrow<P>(model: DiagModel<P>, candidates: string[], p: P, u: number): string[] {
   const ans = model.answer(p);
-  return candidates.filter((c) => { const v = model.bugs[c]?.(p); return matchesValue(v == null || !Number.isFinite(v) ? ans : v, u); });
+  return candidates.filter((c) => { const v = model.bugs[c]?.(p); return matchesValue(v == null || !Number.isFinite(v) ? ans : v, u, ans); });
 }
 
 const keyOf = (skill: SkillId, id: string) => `${skill}|${id}`;

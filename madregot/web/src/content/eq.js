@@ -6,15 +6,15 @@
 // Exam Rescue offers it to grade 8 too (alsoFor).
 import { R, NZ, pick, shuffle, T, near } from './util.js';
 import { linTex, sumTex, bracketTex } from './expr.js';
-import { slipOf } from '@/learn/misconceptions.ts';
+import { slipOf, matchesValue, roundings } from '@/learn/misconceptions.ts';
 import { holds } from '@/learn/expr.ts';
 
 const abs = Math.abs;
 const tex = (t) => ({ tex: t });
 const txt = (t) => ({ text: t });
 
-/** Is u the value v rounded to tenths or to hundredths (v not whole)? */
-export const roundsTo = (u, v) => !Number.isInteger(v) && (near(u, Math.round(v * 10) / 10, 1e-9) || near(u, Math.round(v * 100) / 100, 1e-9));
+/** Is u the value v rounded to tenths or to hundredths (v not whole), halves away from zero (−0.75 is −0.8)? */
+export const roundsTo = (u, v) => roundings(v).some((r) => near(u, r, 1e-9));
 /**
  * The first error whose prediction the answer u matches. A prediction that is the right answer, or that an ordinary
  * slip of the hand also gives (one off, ten off, two digits swapped), names nothing: a slip is not a misconception.
@@ -26,8 +26,9 @@ export function diagOf(ans, bugs) {
     const exact = real.find(([, v]) => near(u, v, 1e-6));
     if (exact) return exact[0];
     // a fraction typed rounded to tenths or hundredths (−35/9 as −3.9 or −3.89) names an error only when no other one
-    // rounds there too; a number near the prediction that is not its rounding (4.45 for 4.5) names nothing
-    const close = [...new Set(real.filter(([, v]) => roundsTo(u, v)).map(([id]) => id))];
+    // rounds there too; a number near the prediction that is not its rounding (4.45 for 4.5) names nothing, and nor
+    // does a rounding that is also a slip from the answer (418.95 typed 419 for 420): the rule of learn/misconceptions
+    const close = [...new Set(real.filter(([, v]) => !Number.isInteger(v) && matchesValue(v, u, ans)).map(([id]) => id))];
     return close.length === 1 ? close[0] : null;
   };
 }
@@ -109,8 +110,11 @@ function whichSolves() {
       const x = NZ(-6, 8); const b = NZ(-12, 12); const d = (a - c) * x + b;
       right = x; display = `${linTex(a, b)} = ${linTex(c, d)}`;
       lhs = (v) => `${at(a, b, v)} = ${a * v + b}`; rhs = (v) => `${at(c, d, v)} = ${c * v + d}`;
-      // the answers of the errors first: the number moved without its sign, the x-term moved without its sign
-      pool = [(d + b) / (a - c), (d - b) / (a + c), -x, d - b, x + 2, x - 2].filter(Number.isInteger);
+      // two answers of the errors (the number moved without its sign, the x-term moved without its sign, the division
+      // forgotten), and numbers not tied to x: −x and x ± 2 beside x would point at it
+      const errs = shuffle([...new Set([(d + b) / (a - c), (d - b) / (a + c), d - b].filter((v) => Number.isInteger(v) && v !== x && abs(v) <= 40))]).slice(0, 2);
+      while (errs.length < 3) { const v = R(-8, 10); if (v !== x && v !== -x && abs(v - x) !== 2 && !errs.includes(v)) errs.push(v); }
+      pool = shuffle(errs);
     }
     const wrong = [...new Set(pool.filter((v) => v !== right))];
     if (wrong.length < 3) continue;
@@ -272,8 +276,11 @@ function rentItem() {
   };
 }
 
+// x is rarely 1 and spread up to 7 (a pan holds up to 15 weights, three bars of five): "leave one box against one
+// weight" or "against two" is not a likely answer
+const BAL2 = [2, 3, 4].flatMap((a) => Array.from({ length: Math.floor(14 / a) - 1 }, (_, i) => [a, i + 2])); // a·x ≤ 14, x ≥ 2
 function balance2() {
-  const a = R(2, 4); const x = R(1, Math.floor(10 / a)); const b = R(1, 12 - a * x); const c = a * x + b;
+  const [a, x] = Math.random() < 0.1 ? [R(2, 4), 1] : pick(BAL2); const b = R(1, 15 - a * x); const c = a * x + b;
   let start = { lx: a, l1: b, rx: 0, r1: c };
   if (Math.random() < 0.3) start = mirrorPans(start);
   return balanceItem(start, x, `eq2b:${start.lx}:${start.l1}:${start.rx}:${start.r1}`,
@@ -422,7 +429,7 @@ function bracketItem() {
   if (Math.random() < 0.15) {
     const F = pick(FIXED);
     return {
-      key: `eq4f:${F.display}`, text: 'פתרו את המשוואה.', display: F.display, var: F.v, form: 'num', answer: F.answer,
+      key: `eq4f:${F.display}`, text: 'פתרו את המשוואה.', display: F.display, var: F.v, form: 'num', answer: F.answer, fixed: true,
       hint: F.hint || 'קודם פותחים סוגריים: המספר שלפני הסוגריים כופל כל איבר בתוכם. אחר כך פותרים כמו קודם.',
       solution: F.solution, diag: diagOf(F.answer, F.bugs),
     };
@@ -465,7 +472,7 @@ function examItem() {
 // (reversal: Clement 1982, "6S = P").
 
 const PAIRS_MF = [['דני', 'רינה'], ['עומר', 'מאיה'], ['איתי', 'שירה']];
-const PAIRS_M = [['דן', 'יואב'], ['אורי', 'עידו'], ['גיל', 'רון']];
+const PAIRS_M = [['דן', 'יואב'], ['אורי', 'עידו'], ['אלון', 'רון']];
 const story = (key, text, answer, unit, hint, solution, bugs) => ({ key, text, form: 'num', answer, unit, hint, solution, diag: diagOf(answer, bugs) });
 
 function stampsStory() {

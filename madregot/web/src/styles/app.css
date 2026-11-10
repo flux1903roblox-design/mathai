@@ -696,6 +696,8 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .tool.on { color: var(--brand-d); border-color: #b3d1ff; background: var(--brand-tint); }
 
 .lesson .choices { display: grid; gap: var(--s3); }
+/* a choice is never wider than the screen: its column is the width there is, and long maths scrolls inside the card */
+.lesson .choices:not(.inline) { grid-template-columns: minmax(0, 1fr); }
 .lesson .choices.inline { grid-template-columns: repeat(3, 1fr); }
 .lesson .choice {
   display: flex; align-items: center; gap: var(--s3); min-height: 60px; padding: var(--s3) var(--s4); text-align: start;
@@ -703,6 +705,8 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
   font-size: var(--t-md); font-weight: 600; color: var(--ink); text-decoration: none;
   transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out), background-color var(--duration-quick) var(--ease-out);
 }
+.lesson .choice { min-width: 0; max-width: 100%; }
+.lesson .choice .choice-text { min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; }
 .lesson .choices.inline .choice { justify-content: center; }
 .lesson .choices.inline .choice-key { display: none; }
 .lesson .choice:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--rule-press); }
@@ -1546,6 +1550,17 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .answer-bar.with-check .answer-lab { font-size: 18px; }
   .lesson-foot .fb { max-height: 40dvh; }
 }
+/* a short phone with an object, after a miss: the feedback is its title, a link to the explanation and its button, in
+   as little height as it takes, so the object keeps its size; once the answer is shown, the locked step buttons go */
+.fb-folded .fb-scroll { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); }
+.fb-folded .fb-head { flex: 0 1 auto; }
+.fb-folded .fb-body { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); }
+.fb-folded .fb-body .link-btn { align-self: center; min-height: 40px; }
+.fb-folded .fb-answer { margin: 0; }
+@media (max-height: 700px) and (max-width: 899px) {
+  .lesson.is-manip.is-reveal .manip-controls { display: none; }
+}
+
 /* the hint: two lines first on a short phone, the rest on request */
 .hint-text p { margin: 0; }
 .hint-text.clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -1688,6 +1703,15 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .step-name { font-size: var(--t-xs); font-weight: 600; color: var(--ink-2); white-space: nowrap; }
 .step-label b { font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--ink); }
 @media (max-width: 420px) { .step-sub { display: none; } }
+/* two steppers in one row on a narrow phone, as the plot's x and y are (the tiles' two zero pairs, the rectangle's
+   height and units): one under the other, the second sat below the footer at 320 with nothing showing it was there.
+   The row may use the teaching panel's padding. */
+@media (max-width: 389px) {
+  .manip-tiles .manip-controls, .manip-area .manip-controls { flex-wrap: nowrap; gap: 6px; align-self: stretch; margin-inline: calc(-1 * var(--s3)); }
+  .manip-tiles .stepper, .manip-area .stepper { gap: 2px; padding: 2px; }
+  .manip-tiles .step-btn, .manip-area .step-btn { width: 40px; height: 40px; }
+  .manip-tiles .step-label, .manip-area .step-label { min-width: 0; padding-inline: 2px; }
+}
 @media (max-height: 700px) and (max-width: 899px) {
   .lesson.is-manip .lesson-main { padding-top: var(--s2); }
   .manip { gap: 6px; }
@@ -1787,7 +1811,11 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .mp-iq-seg { display: inline-flex; gap: 4px; }
 .mp-iq-seg .seg { min-height: 44px; min-width: 44px; margin-bottom: 3px; padding: 0 10px; gap: 4px; border-radius: 12px; font-size: var(--t-sm); font-weight: 700; }
 .mp-iq-seg .seg:disabled { opacity: 0.55; }
-@media (max-width: 389px) { .mp-iq-seg .seg span { display: none; } .mp-iq-seg .seg { padding: 0; } }
+/* a narrow phone keeps the words (the open or closed end is the boundary question itself): the two groups one under the other */
+@media (max-width: 389px) {
+  .mp-iq-toggles { flex-direction: column; align-items: stretch; gap: 2px; }
+  .mp-iq-seg .seg { flex: 1; padding: 0 8px; }
+}
 
 /* two lines on the plane, and where they meet */
 .mp-line.two { stroke: var(--ink-2); stroke-width: 3.5; stroke-dasharray: 10 6; }
@@ -2087,6 +2115,12 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .worked-action { margin: 0; font-weight: 700; }
 .worked-result { direction: ltr; text-align: center; font-size: 1.2rem; padding: 6px; border-radius: 10px; background: var(--ground); overflow-x: auto; }
 .worked-why { margin: 0; color: var(--ink-2); line-height: 1.5; }
+/* a line of maths that does not fit scrolls inside its own box: it never widens the page (a 320 phone); so does a
+   step of a solution in the feedback, and the result sheet is never wider than the screen */
+.worked-why, .bl-why-text { overflow-x: auto; overflow-y: hidden; }
+.fb .stair-text { min-width: 0; overflow-x: auto; overflow-y: hidden; }
+.bl-result { box-sizing: border-box; max-width: 100%; min-width: 0; }
+.worked-result .katex-display { margin: 0; }
 .worked-why-tag { display: inline-block; font-size: var(--t-xs); font-weight: 700; color: var(--c-d, var(--brand-d)); background: var(--c-tint, var(--brand-tint)); border-radius: 999px; padding: 0 8px; }
 .worked-again { align-self: center; }
 

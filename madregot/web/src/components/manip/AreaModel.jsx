@@ -44,6 +44,18 @@ export const AREA_VIEW = `0 0 ${W} ${H}`;
 /** A still figure frames only its rectangle and labels (the object keeps room to grow). */
 export const areaView = ({ a, b }) => { const x0 = OX - 34; const y0 = BOT - a * U - 38; return `${x0} ${y0} ${XW + b * U + 34 + 14} ${a * U + 38 + 26}`; };
 export const AREA_GEOM = { OX, BOT, U, XW };
+/**
+ * The line above the rectangle: the product written out and its parts added, 3(x + 4) = 3x + 12. A product that
+ * would read the same on both sides is written with its multiplication (2 · x = 2x, 1 · (x + 4) = x + 4), so the line
+ * always says what the height multiplies.
+ */
+export function areaLine({ a, b }) {
+  if (!b) return `${a} \\cdot x = ${linText({ k: a, c: 0 })}`;
+  if (a === 1) return `1 \\cdot (x + ${b}) = x + ${b}`;
+  return `${areaTex({ a, b })} = ${areaSumTex({ a, b })}`;
+}
+/** Where the height's handle sits on the top edge: three quarters along, clear of the break mark and the x label. */
+const topHandleX = (right) => OX + (right - OX) * 0.75;
 
 export default function AreaModel({ m, value, onChange, locked, reveal, good, answer, hint, test = false }) {
   const maxA = m.maxA || 6; const maxB = m.maxB || 9;
@@ -54,7 +66,7 @@ export default function AreaModel({ m, value, onChange, locked, reveal, good, an
   const [ref, drag] = useDrag((p, phase) => {
     if (phase === 'start') {
       // the handle nearer the touch: the top edge sets the height, the right edge the units
-      const dTop = Math.hypot(p.x - (OX + (right - OX) / 2), p.y - top); const dRight = Math.hypot(p.x - right, p.y - (top + BOT) / 2);
+      const dTop = Math.hypot(p.x - topHandleX(right), p.y - top); const dRight = Math.hypot(p.x - right, p.y - (top + BOT) / 2);
       which.current = dRight < dTop ? 'b' : 'a';
     }
     if (which.current === 'a') set(Math.round((BOT - p.y) / U), b); else set(a, Math.round((p.x - OX - XW) / U));
@@ -62,7 +74,7 @@ export default function AreaModel({ m, value, onChange, locked, reveal, good, an
   const showGhost = reveal && answer && (answer.a !== a || answer.b !== b);
   return (
     <div className={clsx('manip', 'manip-area', good && 'good')}>
-      {!test && <div className="manip-readout" aria-live="polite"><Tex tex={`${areaTex({ a, b })} = ${areaSumTex({ a, b })}`} /></div>}
+      {!test && <div className="manip-readout" aria-live="polite"><Tex tex={areaLine({ a, b })} /></div>}
       {hint && <p className="manip-hint-line">הגובה כופל את כל האורך: גם את x וגם את היחידות.</p>}
       <svg ref={ref} {...drag} viewBox={AREA_VIEW} className="manip-canvas" dir="ltr" tabIndex={locked ? -1 : 0}
         role="application" aria-roledescription="מלבן" aria-label={test ? `מלבן בגובה ${a} ובאורך x ועוד ${b}` : `מלבן בגובה ${a} ובאורך x ועוד ${b}. השטח ${areaSumTex({ a, b })}`}
@@ -70,7 +82,7 @@ export default function AreaModel({ m, value, onChange, locked, reveal, good, an
         <rect x="0" y="0" width={W} height={H} className="mp-hit" />
         <AreaArt a={a} b={b} areas={!test} ghost={showGhost ? answer : null} />
         {hint && <path d={`M ${OX - 22} ${BOT} V ${top}`} className="mp-area-hint" />}
-        <g className="mp-point"><circle cx={OX + (right - OX) / 2} cy={top} r="13" className="mp-halo" /><circle cx={OX + (right - OX) / 2} cy={top} r="8" className="mp-handle" /></g>
+        <g className="mp-point"><circle cx={topHandleX(right)} cy={top} r="13" className="mp-halo" /><circle cx={topHandleX(right)} cy={top} r="8" className="mp-handle" /></g>
         <g className="mp-point"><circle cx={right} cy={(top + BOT) / 2} r="13" className="mp-halo" /><circle cx={right} cy={(top + BOT) / 2} r="8" className="mp-handle alt" /></g>
       </svg>
       <div className="manip-controls">

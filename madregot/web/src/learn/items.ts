@@ -9,7 +9,7 @@ import { MASTERY_N, REVIEW_N } from './mastery';
 import { VERIFY_N } from './misconceptions';
 import { DIAG_PER_SKILL } from './examRescue';
 // @ts-ignore: plain JS
-import { makeItem, fairForCheck } from '@/content/index.js';
+import { makeItem, fairForCheck, namesOf } from '@/content/index.js';
 
 /** probe: where a misconception would show; control: where it would not (so a fixed answer cannot pass a verification). */
 export type Source = 'gen' | 'diag' | 'transfer' | 'probe' | 'control';
@@ -26,6 +26,41 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
   };
 }
 
+/** The forms of a stair's exercises that can show some misconceptions, learned once from a sample (see genProbe). */
+const PROBE_FORMS = new Map<string, Set<string>>();
+const PROBE_SAMPLE = 80;
+const PROBE_TRIES = 400;
+const PROBE_PICK = 4;
+/**
+ * An exercise of the stair's own generator where these misconceptions can show (its diag() names each of them for
+ * some wrong answer): the probe of a verification when no diagnostic model predicts the misconception (the pair
+ * written the other way round, a relation reversed in words, a bar set to the mean). Null when none can.
+ */
+function genProbe(topic: string, level: number, ids: string[], avoidKey?: string) {
+  const k = `${topic}:${level}|${ids.join(',')}`;
+  let forms = PROBE_FORMS.get(k);
+  if (!forms) {
+    // which kinds of exercise can show them at all, so a search skips the others at once
+    forms = new Set();
+    for (let i = 0; i < PROBE_SAMPLE; i += 1) { const it = makeItem(topic, level); const n = namesOf(it, ids); if (ids.every((id) => n.includes(id))) forms.add(it.form); }
+    PROBE_FORMS.set(k, forms);
+  }
+  if (!forms.size) return null;
+  // of a few that can show it, the one a guesser is least likely to get right: typed, else the most choices
+  const odds = (it: any) => (it.form === 'mc' ? 1 / it.choices.length : 0);
+  let best: any = null;
+  for (let i = 0, found = 0; i < PROBE_TRIES && found < PROBE_PICK; i += 1) {
+    const it = makeItem(topic, level, avoidKey);
+    if (!forms.has(it.form) || it.key === avoidKey) continue;
+    const could = namesOf(it, ids);
+    if (!ids.every((id) => could.includes(id))) continue;
+    found += 1;
+    if (!best || odds(it) < odds(best)) best = { ...it, source: 'probe' as const, probe: ids, could };
+    if (!odds(best)) break; // a typed answer: none better
+  }
+  return best;
+}
+
 /** One question of a skill from a source; falls back to the stair's exercise generator. */
 function itemOnce(skill: SkillId, source: Source, rnd: Rng, avoidKey?: string, candidates?: string[]) {
   const { topic, level } = parseSkill(skill);
@@ -33,7 +68,11 @@ function itemOnce(skill: SkillId, source: Source, rnd: Rng, avoidKey?: string, c
   if (c && source !== 'gen') {
     const model = source === 'transfer' && c.transfer ? c.transfer : c.diag;
     if (source === 'probe' && candidates?.length) {
-      const m = [c.diag, c.transfer].find((x) => x && candidates.every((id) => id in x.bugs)) || c.diag;
+      const inModel = [c.diag, c.transfer].find((x) => x && candidates.every((id) => id in x.bugs));
+      // a misconception no model predicts (the generators name it): one of the stair's exercises where it can show
+      const g = inModel ? null : genProbe(topic, level, candidates, avoidKey);
+      if (g) return g;
+      const m = inModel || c.diag;
       const p = discriminating(m!, candidates.filter((id) => id in m!.bugs), rnd);
       if (p) return { ...modelItem(c, m!, p, 'probe'), probe: candidates };
     } else if (source === 'control' && candidates?.length) {

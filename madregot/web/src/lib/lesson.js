@@ -117,8 +117,9 @@ export function answer(s, u) {
     const sk = skillId(it.topic || s.topic, it.level);
     const cur = s.perSkill[sk] || { right: 0, asked: 0 };
     const perSkill = { ...s.perSkill, [sk]: { right: cur.right + (ok ? 1 : 0), asked: cur.asked + 1 } };
-    const showed = s.showed + (!ok && s.misc && cands?.some((c) => c.id === s.misc) ? 1 : 0);
     const cat = ok ? null : (it.diag ? it.diag(u) : null);
+    // the misconception showed again: a model's diagnosis names it, or an exercise's own label does
+    const showed = s.showed + (!ok && s.misc && (cands ? cands.some((c) => c.id === s.misc) : cat === s.misc) ? 1 : 0);
     const common = { ...s, perSkill, showed, right: s.right + (ok ? 1 : 0), solved: s.solved + 1, wrong: ok ? s.wrong : [...s.wrong, u], firstTry: s.firstTry + (ok ? 1 : 0), mistakes: s.mistakes + (ok ? 0 : 1) };
     const event = { ...base, ok, first: true, cat };
     return ok

@@ -8,7 +8,7 @@
 // Teaching content: see MADREGOT2.md (content conventions) and content/signed.ts (the quality bar).
 import type { DiagModel, FigSpec, ManipSpec, StairContent } from '../types';
 import { rint, rnz, same } from '../expr';
-import { slipOf } from '../misconceptions';
+import { slipLike } from '../misconceptions';
 // @ts-ignore: plain JS helpers shared with the exercise generators
 import { T } from '@/content/util.js';
 // @ts-ignore: plain JS, the same TeX the expression generators print
@@ -18,18 +18,20 @@ const abs = Math.abs;
 /** A number line for a substitution: start at the first number, move by the product. */
 const nl = (from: number, min = -10, max = 10): ManipSpec => ({ kind: 'numberline', min, max, from, start: from });
 const tiles = (px: number, nx: number, p1: number, n1: number): ManipSpec => ({ kind: 'tiles', start: { px, nx, p1, n1 } });
-const area = (): ManipSpec => ({ kind: 'area', start: { a: 1, b: 0 }, maxA: 6, maxB: 9 });
+// the rectangle starts two units high: one unit high, its labels and both handles crowd a strip of 23px
+const area = (): ManipSpec => ({ kind: 'area', start: { a: 2, b: 0 }, maxA: 6, maxB: 9 });
 /** A table of a pattern: its terms by place. */
 const table = (head: [string, string], rows: (number | string)[][]) => ({ type: 'table', head, rows });
 
 /**
  * Draws until no misconception of the model predicts what a slip of the hand gives (one off, ten off, two digits
- * swapped): diagnose() reads a matching prediction before a slip, so such a draw would turn a slip into evidence.
+ * swapped), itself or typed rounded (418.95 as 419 when the answer is 420): diagnose() reads a matching prediction
+ * before a slip, so such a draw would turn a slip into evidence.
  */
 function fair<P>(draw: () => P, answer: (p: P) => number, bugs: Record<string, (p: P) => number | null>): P {
   for (;;) {
     const p = draw(); const a = answer(p);
-    if (Object.values(bugs).every((f) => { const v = f(p); return v == null || same(v, a) || !slipOf(v, a); })) return p;
+    if (Object.values(bugs).every((f) => { const v = f(p); return v == null || same(v, a) || !slipLike(v, a); })) return p;
   }
 }
 
@@ -104,7 +106,7 @@ const stair1: StairContent = {
     { kind: 'rule', text: 'הצבה: שמים את המספר במקום האות, ומחשבים לפי סדר הפעולות.', display: 'x = 4:\\quad 5 + 3 \\cdot 4 = 17',
       why: 'אחרי שהמספר נכנס במקום האות, זה תרגיל רגיל. כותבים את סימן הכפל שהיה מוסתר, וכפל קודם לחיבור.' },
     { kind: 'predict', text: 'ומספר שלילי? כמה זה $10 - 2x$ כש־$x = -3$?', choices: ['$16$', '$4$', '$-24$'], answer: 0,
-      why: 'מציבים בסוגריים: $10 - 2 \\cdot (-3) = 10 - (-6) = 16$.',
+      why: 'מציבים בסוגריים: $10 - 2 \\cdot (-3)$, כלומר $10 - (-6) = 16$.',
       wrongWhy: { 1: '$4$ הוא $10 - 2 \\cdot 3$: המינוס של $-3$ נעלם. מספר שלילי מציבים בסוגריים.', 2: '$-24$ הוא $(10 - 2) \\cdot (-3)$, חישוב משמאל לימין. כפל קודם לחיסור.' } },
     { kind: 'explore', text: 'נראה את זה על הציר: $3 + 2x$ כש־$x = -2$. מתחילים ב־$3$ וזזים $2 \\cdot (-2)$.', display: '3 + 2 \\cdot (-2)', manip: nl(3), answer: -1,
       hint: '$2 \\cdot (-2) = -4$: ארבעה צעדים שמאלה מ־$3$.', success: '$3 + 2 \\cdot (-2) = 3 + (-4) = -1$. הכפל אמר כמה לזוז, והסימן שלו אמר לאן.' },
@@ -643,7 +645,7 @@ const stair4: StairContent = {
         { action: 'כופלים את $2x$ ב־$-3$.', why: 'סימנים שונים נותנים שלילי: $-3 \\cdot 2 = -6$.', result: '-3 \\cdot 2x = -6x' },
         { action: 'כופלים את $-4$ ב־$-3$.', why: 'מינוס כפול מינוס הוא פלוס.', result: '-3 \\cdot (-4) = 12', calc: { expr: '-3*(-4)', value: 12 } },
         { action: 'כותבים את הביטוי.', why: 'שני האיברים, כל אחד עם הסימן שיצא לו.', result: '-6x + 12', ident: '-6*x + 12' },
-        { action: 'בודקים כש־$x = 1$.', why: 'בביטוי המקורי: $-3(2 - 4) = -3 \\cdot (-2) = 6$.', result: '-6 \\cdot 1 + 12 = 6', value: '-6*1 + 12' },
+        { action: 'בודקים כש־$x = 1$.', why: 'בביטוי המקורי: $-3(2 - 4)$, כלומר $-3 \\cdot (-2) = 6$.', result: '-6 \\cdot 1 + 12 = 6', value: '-6*1 + 12' },
       ] },
   ],
   together: [
@@ -793,14 +795,14 @@ const stair5: StairContent = {
         { action: 'פותחים את הסוגריים הראשונים.', why: '$5 \\cdot x = 5x$, ו־$5 \\cdot (-1) = -5$.', result: '5x - 5 - 2(x - 4)', ident: '5*x - 5 - 2*(x - 4)' },
         { action: 'פותחים את הסוגריים השניים, עם המינוס.', why: '$-2 \\cdot x = -2x$, ו־$-2 \\cdot (-4) = 8$.', result: '5x - 5 - 2x + 8', ident: '5*x - 5 - 2*x + 8', calc: { expr: '-2*(-4)', value: 8 } },
         { action: 'מכנסים.', why: '$5x - 2x = 3x$, ו־$-5 + 8 = 3$.', result: '3x + 3', ident: '3*x + 3' },
-        { action: 'בודקים כש־$x = 2$.', why: 'בביטוי המקורי: $5 \\cdot 1 - 2 \\cdot (-2) = 5 + 4 = 9$.', result: '3 \\cdot 2 + 3 = 9', value: '3*2 + 3' },
+        { action: 'בודקים כש־$x = 2$.', why: 'בביטוי המקורי: $5 \\cdot 1 - 2 \\cdot (-2)$, כלומר $5 + 4 = 9$.', result: '3 \\cdot 2 + 3 = 9', value: '3*2 + 3' },
       ] },
-    { problem: 'נתון: $a + b = -4$. מה הערך של $-3(a + b)$?', display: '-3(a + b)', answer: 12, check: '-3*(-4)',
+    { problem: 'נתון: $a + b = -4$. מה הערך של כל אחד משלושת הביטויים?', display: '-3(a + b) \\qquad (a + b) : 2 \\qquad (a + b)^2', answer: 12, check: '-3*(-4)', answerTex: '12,\\; -2,\\; 16',
       steps: [
-        { action: 'מציבים $-4$ במקום $a + b$.', why: 'לא צריך לדעת מה $a$ ומה $b$: הסוגריים הם מספר אחד.', result: '-3 \\cdot (-4)', value: '-3*(-4)' },
+        { action: 'בביטוי הראשון מציבים $-4$ במקום $a + b$.', why: 'לא צריך לדעת מה $a$ ומה $b$: הסוגריים הם מספר אחד.', result: '-3 \\cdot (-4)', value: '-3*(-4)' },
         { action: 'כופלים.', why: 'מינוס כפול מינוס הוא פלוס.', result: '-3 \\cdot (-4) = 12', value: '12' },
-        { action: 'באותה דרך מחשבים גם את $(a + b) : 2$.', why: 'מציבים $-4$ במקום $a + b$.', result: '-4 : 2 = -2', calc: { expr: '(-4)/2', value: -2 } },
-        { action: 'ואת $(a + b)^2$.', why: 'מספר שלילי בריבוע הוא חיובי.', result: '(-4)^2 = 16', calc: { expr: '(-4)^2', value: 16 } },
+        { action: 'בביטוי השני: אותה הצבה.', why: 'מציבים $-4$ במקום $a + b$, ומחלקים.', result: '-4 : 2 = -2', calc: { expr: '(-4)/2', value: -2 } },
+        { action: 'ובשלישי.', why: 'מספר שלילי בריבוע הוא חיובי.', result: '(-4)^2 = 16', calc: { expr: '(-4)^2', value: 16 } },
       ] },
   ],
   together: [

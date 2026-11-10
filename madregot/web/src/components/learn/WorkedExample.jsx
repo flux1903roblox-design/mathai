@@ -35,7 +35,8 @@ export default function WorkedExample({ example, n, of, onDone, doneLabel = 'ה�
               <span className="stair-n" aria-hidden="true">{i + 1}</span>
               <div className="worked-body">
                 <p className="worked-action"><MathText text={s.action} /></p>
-                <div className="worked-result"><Tex tex={s.result} /></div>
+                {/* set smaller until it fits a 320 phone, never a sideways scroll inside the box */}
+                <FitDisplay className="worked-result" tex={s.result} />
                 <p className="worked-why"><span className="worked-why-tag">למה?</span> <MathText text={s.why} /></p>
               </div>
             </m.li>

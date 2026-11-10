@@ -5,7 +5,7 @@
 // test (`test`): there the student solves the inequality, and reading the ray back as "x ≤ 4" would let them match a
 // line of text instead. The ray, its circle and its side stay; so does the spoken description of what is drawn.
 import clsx from 'clsx';
-import { ArrowLeft, ArrowRight, Circle, CircleDot } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Circle } from 'lucide-react';
 import { clamp, useDrag, arrowKeys, Stepper, minus } from './core.jsx';
 import { Tex } from '../MathText.jsx';
 import { rayTex, rayText } from '@/content/manip.js';
@@ -79,7 +79,7 @@ export default function Ray({ m, value, onChange, locked, reveal, good, answer, 
           </div>
           <div className="mp-iq-seg" role="group" aria-label="העיגול בנקודה">
             <button type="button" className="seg" aria-pressed={!v.closed} onClick={() => set({ closed: false })} disabled={locked} aria-label="עיגול ריק: הנקודה לא בין הפתרונות"><Circle size={18} strokeWidth={2.6} aria-hidden="true" /><span>ריק</span></button>
-            <button type="button" className="seg" aria-pressed={!!v.closed} onClick={() => set({ closed: true })} disabled={locked} aria-label="עיגול מלא: הנקודה בין הפתרונות"><CircleDot size={18} strokeWidth={2.6} aria-hidden="true" /><span>מלא</span></button>
+            <button type="button" className="seg" aria-pressed={!!v.closed} onClick={() => set({ closed: true })} disabled={locked} aria-label="עיגול מלא: הנקודה בין הפתרונות"><Circle size={18} strokeWidth={2.6} fill="currentColor" aria-hidden="true" /><span>מלא</span></button>
           </div>
         </div>
       </div>
