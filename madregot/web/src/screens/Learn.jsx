@@ -18,6 +18,7 @@ import { nextStage } from '@/learn/mastery.ts';
 import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
 import { skillId } from '@/learn/skills.ts';
 import { chestItem } from '@/lib/wardrobe.js';
+import ClassGoalCard, { ClassGoalMoment } from '@/components/learn/ClassGoalCard.jsx';
 
 // the picture of what a unit's chest holds loads with the first chest card opened (Madi's accessories are not in the boot bundle)
 const ItemArt = lazy(() => import('@/components/mascot/Accessories.jsx').then((m) => ({ default: m.ItemArt })));
@@ -184,6 +185,8 @@ function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
         <div className="card-row"><b>המשימות של היום</b><span className="card-num">{quests.filter((q) => q.done).length}/3</span></div>
         <ul className="side-quests">{quests.map((q) => <li key={q.id} className={clsx(q.done && 'done')}><span>{q.done && <Check size={16} strokeWidth={3} aria-hidden="true" />}{q.title}</span><span className="card-num">{q.have}/{q.target}</span></li>)}</ul>
       </Link>
+      {/* the class goal of the week, small (STUDENT-4); nothing for a student with no class */}
+      <ClassGoalCard compact />
     </aside>
   );
 }
@@ -234,6 +237,8 @@ export default function Learn() {
         <Link to="/quests" className="top-stat xp" aria-label={`היום ${todayXp} מתוך ${goalXp} XP, סך הכול ${xp}`}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
       </header>
       <OfflineChip />
+      {/* the class reached a week's goal this student added to: a short shared moment, once (STUDENT-4) */}
+      <ClassGoalMoment />
 
       <div className="learn-layout">
       <div className="learn-body">

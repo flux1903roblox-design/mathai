@@ -131,17 +131,34 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
 
 export const teacherHeaders = (cls) => ({ 'X-Class-Code': cls.code, 'X-Teacher-Key': cls.key });
 
-/** Send queued answers and current levels to the class server. */
-let syncing = false;
-export async function syncNow() {
+/** The server reads at most this many class-goal steps a sync (worker/src/goal.js GOAL.maxItems). */
+export const STEPS_PER_SYNC = 50;
+
+/**
+ * Send queued answers, current levels and the class goal's steps (STUDENT-4) to the class server. Steps go 50 at a time,
+ * so a device that kept more (offline for a while) sends the rest in the next rounds; anything not saved goes back to
+ * its queue and is sent again later (each step's id makes a resend count once). One sync at a time: a call while one
+ * runs gets that one's promise.
+ */
+let inflight = null;
+export function syncNow() {
+  if (inflight) return inflight;
   const st = useApp.getState();
-  if (syncing || !st.profile?.token || !hasServer()) return;
-  const events = st.takeOutbox();
-  syncing = true;
-  try {
-    await api('/api/progress', { method: 'POST', body: { events, levels: st.progress } });
-  } catch (e) {
-    useApp.getState().returnOutbox(events);
-    if (e.code === 'not_signed_in') useApp.getState().patchProfile({ token: null });
-  } finally { syncing = false; }
+  if (!st.profile?.token || !hasServer()) return Promise.resolve();
+  inflight = (async () => {
+    for (let round = 0; round < 4; round += 1) {
+      const app = useApp.getState();
+      const events = app.takeOutbox(); const steps = app.takeSteps(STEPS_PER_SYNC);
+      try {
+        await api('/api/progress', { method: 'POST', body: { events, levels: app.progress, steps } });
+      } catch (e) {
+        const now = useApp.getState();
+        now.returnOutbox(events); now.returnSteps(steps);
+        if (e.code === 'not_signed_in') now.patchProfile({ token: null });
+        return;
+      }
+      if (!useApp.getState().stepsOut?.length || !useApp.getState().profile?.token) return;
+    }
+  })().finally(() => { inflight = null; });
+  return inflight;
 }

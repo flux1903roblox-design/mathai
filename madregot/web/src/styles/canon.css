@@ -517,6 +517,16 @@ a { color: var(--brand-d); }
 .t-lock { margin-bottom: var(--s4); }
 .t-lock-row { font-weight: 700; }
 .t-lock .field-hint { margin: 0; }
+/* the weekly class goal's block (STUDENT-4; TEACHER-9's settings page takes it over) and its chip in the header */
+.t-goal { display: flex; flex-direction: column; gap: var(--s3); margin-bottom: var(--s4); }
+.t-goal .set-head { margin: 0; }
+.t-goal-seg { max-width: 360px; }
+.t-goal-size { display: flex; flex-direction: column; gap: var(--s2); }
+.t-goal-size .field-label { margin: 0; }
+.t-goal-row { display: flex; gap: var(--s2); align-items: stretch; max-width: 360px; }
+.t-goal-row .input { flex: 1; min-width: 0; min-height: 48px; }
+.t-goal-size .form-error, .t-goal .field-hint { margin: 0; }
+.t-goal-chip { min-height: 36px; }
 .t-actions { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); white-space: nowrap; }
 
 /* sign-in by code */
@@ -707,3 +717,22 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .unlock-reason { margin: 0; max-width: 34ch; color: var(--ink); font-size: 18px; line-height: 27px; text-align: center; text-wrap: pretty; }
 .unlock-more { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-align: center; }
 @media (max-height: 640px) { .unlock-stage .done-hero { min-height: 128px; } .unlock-madi { width: 112px; height: auto; } }
+/* the class goal of the week (STUDENT-4): one shared total and the student's own share, no names; brand blue on the
+   way, gold once the class reached it */
+.class-goal-card { display: flex; flex-direction: column; gap: var(--s3); }
+.class-goal-card .card-title { margin: 0; }
+.cg-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.cg-count { margin: 0; color: var(--ink); font-size: 17px; line-height: 24px; font-weight: 600; }
+.cg-top .cg-count { flex: 1; min-width: 0; }
+.cg-madi { flex: none; margin-block: calc(-1 * var(--s3)) calc(-1 * var(--s1)); }
+.cg-track .cg-fill { height: 100%; border-radius: 999px; background: var(--brand); box-shadow: none; transition: width var(--duration-slow) var(--ease-smooth-out); }
+.is-reached .cg-track .cg-fill { background: var(--gold); }
+.cg-reached { margin: 0; color: var(--ink); font-size: 16px; line-height: 24px; font-weight: 600; text-wrap: pretty; }
+.cg-mine { margin: 0; color: var(--ink); font-size: 16px; line-height: 24px; }
+.cg-last { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 22px; }
+.class-goal-card .field-hint { margin: 0; }
+.side-goal { gap: var(--s2); }
+.side-goal-count { font-weight: 600; }
+.goal-moment-hero { min-height: 150px; }
+.goal-moment-text { margin: var(--s2) auto 0; max-width: 34ch; color: var(--ink); font-size: 18px; line-height: 27px; text-align: center; text-wrap: pretty; }
+@media (prefers-reduced-motion: reduce) { .cg-track .cg-fill { transition: none; } }

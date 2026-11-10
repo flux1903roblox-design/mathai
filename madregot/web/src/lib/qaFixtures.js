@@ -3,6 +3,7 @@
 // with no request at all, so every state can be screenshotted. The choice is kept for the visit (sessionStorage).
 //   qa-ai:      free2 | free1 | free0 | family | class | shared | paused | economy | ended
 //   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | nosrv
+//   qa-goal:    mid | reached | off   (the class goal of the week, STUDENT-4: shown with or without a class)
 import { qaOn } from './qa.js';
 
 const AI_STATES = ['free2', 'free1', 'free0', 'family', 'class', 'shared', 'paused', 'economy', 'ended'];
@@ -21,6 +22,17 @@ function param(name, allowed) {
 }
 
 export const qaAI = () => param('qa-ai', AI_STATES);
+export const qaGoal = () => param('qa-goal', ['mid', 'reached', 'off']);
+
+/** The class goal in a QA state, as GET /api/class/goal would answer it in the week that starts on `week`. */
+export function qaGoalView(week, lastWeek) {
+  switch (qaGoal()) {
+    case 'mid': return { on: true, week, target: 60, have: 23, mine: 4, reached: false, last: { week: lastWeek, target: 55, have: 61, reached: true, mine: 7 } };
+    case 'reached': return { on: true, week, target: 60, have: 64, mine: 9, reached: true, last: null };
+    case 'off': return { on: false };
+    default: return null;
+  }
+}
 export const qaParent = () => param('qa-parent', PARENT_STATES);
 export const qaActive = () => !!qaAI();
 

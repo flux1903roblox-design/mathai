@@ -37,7 +37,8 @@ const empty = {
   streak: { lastRepair: null }, // the day of the last earned repair ('YYYY-MM-DD'), at most one in 30 days (lib/streak.js)
   // one-time notes already seen: the repair card closed today (repairDismissed: day), the week a new best was shown
   // (pbWeek: its Sunday). Later items add their own keys here; a missing key reads as not seen.
-  nudges: { repairDismissed: null, pbWeek: null },
+  // goalSeen: { [week]: day } the class goal's moment was shown for that week (STUDENT-4), at most 8 weeks kept
+  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {} },
   goalXp: 20, // daily goal in XP
   sound: true, // short sounds; off from the start for a student who joins a class and never chose (quietForClass)
   haptics: true, // short vibrations where the phone can (lib/sound.js haptic), never under reduced motion
@@ -50,6 +51,11 @@ const empty = {
   mistakes: {}, // 'topic:cat' -> count
   lastTopic: null,
   outbox: [],
+  // the class goal of the week (STUDENT-4), for a student in a class only: the steps not sent yet ({ sid, at, pts },
+  // at most 200; lib/api.js syncNow sends them), and the weeks the server reported ({ [week]: { target, have, mine,
+  // reached } }, at most 8), which the wardrobe's class scarf and the Sunday recap read
+  stepsOut: [],
+  classGoals: {},
   // the tutor on this device: the server (or a personal key, only in builds with VITE_ALLOW_PERSONAL_KEY=1), an anonymous
   // device id, the family-device token (AI only, never the parent's session), a link code waiting for a parent, and the
   // tier the server reported last (to say once that a plan ended)
@@ -64,6 +70,32 @@ const empty = {
   placement: null, // { at, grade, results: { topic: { level, asked, right } } }
   learn: emptyLearn(), // Madregot 2.0: skills (evidence, mastery, reviews), misconceptions, exam plan, missions, events (src/learn/types.ts)
 };
+
+/** How many class-goal steps wait on the device, and how many weeks of the class goal (and of its moment) are kept. */
+export const STEPS_MAX = 200;
+export const GOAL_WEEKS = 8;
+
+/** A random UUID (v4): the id of a class-goal step, so the server counts each step once (crypto.randomUUID where there is one). */
+export function uuid() {
+  const c = globalThis.crypto;
+  if (typeof c?.randomUUID === 'function') return c.randomUUID();
+  const b = c.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/**
+ * A finished item's step for the class goal (STUDENT-4): a lesson, a teaching stage, a check or the placement is 1, a
+ * passed mastery check 3. Queued only for a student in a class (profile.token); a solo student's device keeps none.
+ */
+function withStep(st, pts) {
+  const out = st.stepsOut || [];
+  if (!st.profile?.token) return out;
+  return [...out, { sid: uuid(), at: new Date().toISOString(), pts }].slice(-STEPS_MAX);
+}
+/** The newest n weeks of a { [week]: … } map. */
+const lastWeeks = (map, n = GOAL_WEEKS) => Object.fromEntries(Object.entries(map || {}).sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0)).slice(0, n));
 
 /** The saved-state key (a staging copy on the same address keeps its own); the parent session lives beside it. */
 export const STORE_KEY = import.meta.env.VITE_STORE_KEY || 'madregot';
@@ -162,7 +194,8 @@ export const useApp = create(
         }
         // what the path unlocks for Madi is earned for good, before this check (a kept stair it reopens) and after it
         const look = earnIds(st.look, [...lookIds(st, st.path), ...lookIds(st, path)], d, { seen: false });
-        set({ learn, days, streak, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic, look });
+        const stepsOut = withStep(st, r.purpose === 'mastery' && r.passed ? 3 : 1);
+        set({ learn, days, streak, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic, look, stepsOut });
         return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
@@ -186,6 +219,7 @@ export const useApp = create(
         set({
           days, streak, xp: st.xp + xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), lastTopic: TOPIC[topic] ? topic : st.lastTopic,
           learn: { ...L, skills: { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) }, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) },
+          stepsOut: withStep(st, 1),
         });
         return { xp, first, streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
       },
@@ -234,7 +268,7 @@ export const useApp = create(
         const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         set({
           days, streak, path, xp: st.xp + r.xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
-          progress: { ...st.progress, [r.topic]: { level, max } }, lastTopic: r.topic,
+          progress: { ...st.progress, [r.topic]: { level, max } }, lastTopic: r.topic, stepsOut: withStep(st, 1),
         });
         return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
       },
@@ -253,7 +287,7 @@ export const useApp = create(
         });
         const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + r.xp, combo: Math.max(cur.combo || 0, r.bestCombo || 0) };
         const days = { ...st.days, [d]: day };
-        set({ path, progress, days, xp: st.xp + r.xp, placement: { at: new Date().toISOString(), grade: r.grade, results: r.results } });
+        set({ path, progress, days, xp: st.xp + r.xp, placement: { at: new Date().toISOString(), grade: r.grade, results: r.results }, stepsOut: withStep(st, 1) });
         return { streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp };
       },
       /** On opening the app: spend freezes on missed days so the streak survives (at most two). */
@@ -268,12 +302,36 @@ export const useApp = create(
       },
       takeOutbox: () => { const items = get().outbox; set({ outbox: [] }); return items; },
       returnOutbox: (items) => set({ outbox: [...items, ...get().outbox].slice(-500) }),
+      /** The oldest n class-goal steps, taken out to send (lib/api.js syncNow); returnSteps puts them back after a failure. */
+      takeSteps: (n = 50) => { const all = get().stepsOut || []; set({ stepsOut: all.slice(n) }); return all.slice(0, n); },
+      returnSteps: (items) => { if (items?.length) set({ stepsOut: [...items, ...(get().stepsOut || [])].slice(-STEPS_MAX) }); },
+      /**
+       * The class goal as the server sent it (GET /api/class/goal): this week and the one before go into classGoals (8
+       * weeks kept). A week the class reached with this student's part earns the class scarf for good (look.earned
+       * outlives the cache); it stays unseen until the goal's moment, or the unlock moment, shows it.
+       */
+      setClassGoal: (g) => {
+        if (!g?.on || !g.week) return;
+        const st = get();
+        const weeks = { ...(st.classGoals || {}) };
+        for (const w of [g.last, g]) if (w?.week) weeks[w.week] = { target: w.target, have: w.have, mine: w.mine, reached: !!w.reached };
+        const classGoals = lastWeeks(weeks);
+        const earned = Object.values(classGoals).some((w) => w.reached && w.mine > 0);
+        const look = earned ? earnIds(st.look, ['class-scarf'], today(), { seen: false }) : st.look;
+        if (look === st.look && JSON.stringify(classGoals) === JSON.stringify(lastWeeks(st.classGoals))) return;
+        set({ classGoals, look });
+      },
+      /** The class goal's moment was shown for this week: it never comes again for it. */
+      markGoalSeen: (week) => {
+        const n = get().nudges || {};
+        set({ nudges: { ...n, goalSeen: lastWeeks({ ...(n.goalSeen || {}), [week]: today() }) } });
+      },
       leaveClass: () => {
         const p = get().profile; if (!p) return;
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
-        set({ profile: rest, outbox: [] });
+        set({ profile: rest, outbox: [], stepsOut: [] });
       },
-      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null }, nudges: { ...empty.nudges }, gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook() }),
+      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], stepsOut: [], classGoals: {}, exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null }, nudges: { ...empty.nudges, goalSeen: {} }, gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook() }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
       // the theme chosen for this device (prefs) stays too; Madi's look belongs to the student and goes back to the default
       // (sound goes back to its default, so the next student's own choice starts unset)

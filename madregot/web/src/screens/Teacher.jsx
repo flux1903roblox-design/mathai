@@ -14,6 +14,7 @@ import { MathText } from '@/components/MathText.jsx';
 import { GradeSwitch } from './Welcome.jsx';
 import { useAIStatus } from '@/lib/account.js';
 import LicenceCard from '@/components/teacher/LicenceCard.jsx';
+import ClassGoalSettings from '@/components/teacher/ClassGoalSettings.jsx';
 
 const fmtDay = (iso) => {
   if (!iso) return 'אף פעם';
@@ -199,6 +200,8 @@ export default function Teacher() {
             </select>
           ) : <h1 className="t-class-name">{cls.className}</h1>}
           <button type="button" className="code-chip t-code" onClick={() => copy(cls.code, 'קוד הכיתה')} aria-label={`העתקת קוד הכיתה ${cls.code}`}><span>קוד</span><span dir="ltr">{cls.code}</span><Copy size={16} aria-hidden="true" /></button>
+          {/* the class goal of the week (STUDENT-4): the class total only, as the students see it */}
+          {data?.goal?.on && <span className="chip t-goal-chip">מטרת הכיתה: <bdi dir="ltr">{data.goal.have}/{data.goal.target}</bdi></span>}
         </div>
       </header>
       <AddClass open={adding} onClose={() => setAdding(false)} />
@@ -294,6 +297,8 @@ export default function Teacher() {
                 <p className="field-hint">תלמידים שכבר בכיתה ממשיכים להיכנס עם הקוד האישי שלהם.</p>
               </section>
             )}
+            {/* the weekly class goal's settings: here until TEACHER-9's class settings page takes them over */}
+            {tab === 'students' && data.goal && <ClassGoalSettings cls={cls} goal={data.goal} onSaved={load} />}
             {tab === 'students' && students.length > 0 && (
               <div className="table-wrap" tabIndex={0} role="region" aria-label="טבלת התלמידים">
                 <table className="t-table">

@@ -13,6 +13,7 @@ import PageHero from '@/components/PageHero.jsx';
 import Lottie from '@/components/Lottie.jsx';
 import { EASE } from '@/lib/motion.js';
 import TodayCard from '@/components/learn/TodayCard.jsx';
+import ClassGoalCard, { ClassGoalMoment } from '@/components/learn/ClassGoalCard.jsx';
 
 
 const QUEST_ICON = { lessons: BookOpen, xp: Zap, combo: Flame, perfect: Star, correct: Target, review: Trophy };
@@ -59,6 +60,9 @@ export default function Quests() {
       <PageHero tone="streak" scene="quests" mood="excited" title="משימות" sub="המשימה שלכם להיום, ועוד שלוש משימות קטנות שפותחות תיבה." />
       {/* the day's own mission first (chosen for this student), as the first quest card */}
       <TodayCard grade={profile.grade || '7'} onBoard={() => navigate('/topics')} />
+      {/* the class goal of the week, for a student in a class (STUDENT-4): the class total and the student's own share */}
+      <ClassGoalCard />
+      <ClassGoalMoment />
 
       <section className="card quest-card" aria-labelledby="q-h" data-region="card">
         <div className="card-row">

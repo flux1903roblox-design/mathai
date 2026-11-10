@@ -164,8 +164,109 @@ describe('the earned repair (STUDENT-5), through the store', async () => {
   it('resetProgress clears the repair and the one-time notes', () => {
     start('2026-11-01');
     useApp.getState().setNudge({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08' });
-    expect(useApp.getState().nudges).toEqual({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08' });
+    expect(useApp.getState().nudges).toEqual({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08', goalSeen: {} });
     useApp.getState().resetProgress();
-    expect(useApp.getState()).toMatchObject({ streak: { lastRepair: null }, nudges: { repairDismissed: null, pbWeek: null } });
+    expect(useApp.getState()).toMatchObject({ streak: { lastRepair: null }, nudges: { repairDismissed: null, pbWeek: null, goalSeen: {} } });
+  });
+});
+
+describe('the class goal (STUDENT-4): steps for a class student, the weeks the server sent, the moment', async () => {
+  const { useApp, STEPS_MAX, uuid } = await import('./store.js');
+  const L = { kind: 'node', topic: 'signed', level: 1, part: 1, xp: 10, passed: true };
+  const inClass = { role: 'student', name: 'נועה', grade: '7', classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' };
+  const solo = { role: 'student', name: 'נועה', grade: '7' };
+  const begin = (profile) => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-11T12:00:00'));
+    useApp.getState().resetProgress();
+    useApp.setState({ profile, stepsOut: [], classGoals: {} });
+  };
+  afterEach(() => { vi.useRealTimers(); });
+  const SID = /^[0-9a-f-]{36}$/;
+  const pts = () => useApp.getState().stepsOut.map((x) => x.pts);
+
+  it('a finished lesson pushes one step of 1, with its own id and time', () => {
+    begin(inClass);
+    useApp.getState().completeLesson(L);
+    const [st] = useApp.getState().stepsOut;
+    expect(useApp.getState().stepsOut).toHaveLength(1);
+    expect(st).toEqual({ sid: expect.stringMatching(SID), at: new Date('2026-11-11T12:00:00').toISOString(), pts: 1 });
+    useApp.getState().completeLesson({ ...L, part: 2 });
+    const [a, b] = useApp.getState().stepsOut;
+    expect(a.sid).not.toBe(b.sid);
+  });
+  it('a passed mastery check pushes 3; a check that did not pass, a teaching stage and the placement push 1', () => {
+    begin(inClass);
+    useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:1', topic: 'signed', level: 1, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+    useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:2', topic: 'signed', level: 2, right: 1, asked: 5, perSkill: {}, passed: false, xp: 0 });
+    useApp.getState().completeCheck({ purpose: 'review', skill: 'signed:1', right: 4, asked: 5, perSkill: {}, passed: true, xp: 5 });
+    useApp.getState().completeStage('signed:3', 'A');
+    useApp.getState().completePlacement({ grade: '7', xp: 10, bestCombo: 2, results: { signed: { level: 1, asked: 4, right: 3 } } });
+    expect(pts()).toEqual([3, 1, 1, 1, 1]);
+  });
+  it('a student with no class keeps no steps at all', () => {
+    begin(solo);
+    useApp.getState().completeLesson(L);
+    useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:1', topic: 'signed', level: 1, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+    useApp.getState().completeStage('signed:2', 'A');
+    expect(useApp.getState().stepsOut).toEqual([]);
+  });
+  it('at most 200 steps wait on the device; takeSteps sends the oldest 50 and returnSteps puts them back first', () => {
+    begin(inClass);
+    useApp.setState({ stepsOut: Array.from({ length: STEPS_MAX }, (_, i) => ({ sid: `old-${i}`, at: 'x', pts: 1 })) });
+    useApp.getState().completeLesson(L);
+    expect(useApp.getState().stepsOut).toHaveLength(STEPS_MAX);
+    expect(useApp.getState().stepsOut[0].sid).toBe('old-1');
+    const sent = useApp.getState().takeSteps(50);
+    expect(sent.map((x) => x.sid)).toEqual(Array.from({ length: 50 }, (_, i) => `old-${i + 1}`));
+    expect(useApp.getState().stepsOut).toHaveLength(STEPS_MAX - 50);
+    useApp.getState().returnSteps(sent);
+    expect(useApp.getState().stepsOut[0].sid).toBe('old-1'); // back at the front of the queue
+    expect(useApp.getState().stepsOut).toHaveLength(STEPS_MAX);
+    // a full queue keeps the newest 200: the oldest goes
+    useApp.getState().completeLesson({ ...L, part: 2 });
+    expect(useApp.getState().stepsOut).toHaveLength(STEPS_MAX);
+    expect(useApp.getState().stepsOut[0].sid).toBe('old-2');
+  });
+  it('leaving the class drops the steps not sent yet', () => {
+    begin(inClass);
+    useApp.getState().completeLesson(L);
+    useApp.getState().leaveClass();
+    expect(useApp.getState().stepsOut).toEqual([]);
+    expect(useApp.getState().profile.token).toBeUndefined();
+  });
+  it('setClassGoal keeps this week and last week, at most 8 weeks; a reached week with a share earns the class scarf, unseen', () => {
+    begin(inClass);
+    const old = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`2026-0${1 + Math.floor(i / 4)}-0${1 + (i % 4)}`, { target: 10, have: 3, mine: 1, reached: false }]));
+    useApp.setState({ classGoals: old });
+    useApp.getState().setClassGoal({ on: true, week: '2026-11-08', target: 60, have: 23, mine: 4, reached: false, last: { week: '2026-11-01', target: 55, have: 61, reached: true, mine: 0 } });
+    const cg = useApp.getState().classGoals;
+    expect(Object.keys(cg)).toHaveLength(8);
+    expect(cg['2026-11-08']).toEqual({ target: 60, have: 23, mine: 4, reached: false });
+    expect(cg['2026-11-01']).toEqual({ target: 55, have: 61, mine: 0, reached: true });
+    expect(useApp.getState().look.earned).not.toContain('class-scarf'); // reached, but without this student's part
+    useApp.getState().setClassGoal({ on: true, week: '2026-11-08', target: 60, have: 64, mine: 9, reached: true, last: null });
+    expect(useApp.getState().look.earned).toContain('class-scarf');
+    expect(useApp.getState().look.seen).not.toContain('class-scarf');
+    expect(useApp.getState().look.earnedAt['class-scarf']).toBe('2026-11-11');
+    useApp.getState().setClassGoal({ on: false });
+    expect(useApp.getState().classGoals['2026-11-08'].reached).toBe(true); // an answer with the goal off changes nothing
+  });
+  it('markGoalSeen remembers the week (8 weeks kept), and a reset forgets the class goal', () => {
+    begin(inClass);
+    for (let d = 1; d <= 9; d += 1) useApp.getState().markGoalSeen(`2026-10-0${d}`);
+    const seen = useApp.getState().nudges.goalSeen;
+    expect(Object.keys(seen)).toHaveLength(8);
+    expect(seen['2026-10-09']).toBe('2026-11-11');
+    expect(seen['2026-10-01']).toBeUndefined();
+    useApp.getState().resetProgress();
+    expect(useApp.getState()).toMatchObject({ stepsOut: [], classGoals: {}, nudges: { goalSeen: {} } });
+  });
+  it('uuid() has the server\'s shape, also where crypto.randomUUID is missing', () => {
+    expect(uuid()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    const real = globalThis.crypto.randomUUID;
+    try {
+      Object.defineProperty(globalThis.crypto, 'randomUUID', { value: undefined, configurable: true });
+      expect(uuid()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    } finally { Object.defineProperty(globalThis.crypto, 'randomUUID', { value: real, configurable: true }); }
   });
 });
