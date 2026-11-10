@@ -7,6 +7,7 @@ import { useApp } from '@/lib/store.js';
 import { runAI, aiReady, aiMode } from '@/lib/ai.js';
 import { gate, aiAccess, useAIStatus } from '@/lib/account.js';
 import ToolLocked from '@/components/ToolLocked.jsx';
+import { CLASS_OFF } from '@/components/limitCopy.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
@@ -23,8 +24,10 @@ function useReveal(dep) {
 /**
  * The tutor is not connected (no server, no personal key): say so once, show what it will do,
  * and give two clear ways on. Nothing on this screen pretends to work and then fails.
+ * `classOff`: the class's AI is off (the Ministry of Education's rules, TRUST-11 §6): the calm words of the class rules,
+ * the way back to practice, and nothing else (no list of what it would do, no settings, no price, no parents).
  */
-function AiOffline() {
+function AiOffline({ classOff = false }) {
   const inClass = useApp((s) => !!s.profile?.token);
   // a teacher's assistant (TEACHER-2) runs through the class's server too: when it does not answer, the way on is the board
   const teacher = useApp((s) => s.profile?.role === 'teacher');
@@ -41,11 +44,11 @@ function AiOffline() {
         <div className="chat-msg">
           <Mascot mood="encouraging" size={44} className="chat-avatar" />
           <div className="chat-bubble">
-            <h2 id="ai-off-title" className="chat-bubble-title">העוזר עוד לא מחובר</h2>
-            <p>{inClass || teacher ? 'השרת של הכיתה לא עונה כרגע. כדאי לנסות שוב בעוד כמה דקות.' : 'בגרסה הזו העוזר כבוי. השיעורים, המפה והמשימות עובדים גם בלעדיו.'}</p>
+            <h2 id="ai-off-title" className="chat-bubble-title">{classOff ? CLASS_OFF.title : 'העוזר עוד לא מחובר'}</h2>
+            <p>{classOff ? CLASS_OFF.text : inClass || teacher ? 'השרת של הכיתה לא עונה כרגע. כדאי לנסות שוב בעוד כמה דקות.' : 'בגרסה הזו העוזר כבוי. השיעורים, המפה והמשימות עובדים גם בלעדיו.'}</p>
           </div>
         </div>
-        <div className="chat-msg">
+        {!classOff && <div className="chat-msg">
           <span className="chat-avatar-space" aria-hidden="true" />
           <div className="chat-bubble">
             <p>כשהעוזר מחובר, אפשר:</p>
@@ -55,14 +58,14 @@ function AiOffline() {
               ))}
             </ul>
           </div>
-        </div>
+        </div>}
       </div>
       <div className="chat-dock" data-region="footer">
         <label htmlFor="ai-off-input" className="visually-hidden">הודעה לעוזר</label>
-        <input id="ai-off-input" className="input" disabled placeholder="העוזר עוד לא מחובר" />
+        <input id="ai-off-input" className="input" disabled placeholder={classOff ? 'העוזר החכם כבוי בכיתה הזו' : 'העוזר עוד לא מחובר'} />
         <div className="ai-offline-actions">
           {teacher ? <Link to="/teacher" className="btn btn-primary btn-block">חזרה ללוח</Link> : <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>}
-          {!inClass && !teacher && <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>}
+          {!inClass && !teacher && !classOff && <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>}
         </div>
       </div>
     </section>
@@ -222,7 +225,9 @@ export default function Assistant({ head = null, lead = null, className }) {
   const profile = useApp((s) => s.profile);
   const ready = aiReady();
   const status = useAIStatus((x) => x.status); // the tools follow what the server says
-  const lockOf = (kind) => { const st = aiAccess(kind, status).state; return st === 'locked' || st === 'economy' ? st : null; };
+  const lockOf = (kind) => { const st = aiAccess(kind, status).state; return st === 'locked' || st === 'economy' || st === 'class_off' ? st : null; };
+  // the class's AI is off (TRUST-11): the screen says so calmly instead of the conversation
+  const classOff = aiAccess('chat', status).state === 'class_off';
   useEffect(() => { if (wants) { setLocked(lockOf('generate')); setTool('generate'); } }, [wants]); // eslint-disable-line react-hooks/exhaustive-deps
   const close = () => { setTool(null); setLocked(null); if (wants) setParams({}, { replace: true }); };
   const open = (kind, name) => {
@@ -242,7 +247,7 @@ export default function Assistant({ head = null, lead = null, className }) {
         </header>
       )}
       {lead}
-      {!ready ? <AiOffline /> : (
+      {!ready || classOff ? <AiOffline classOff={ready && classOff} /> : (
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
           <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode || profile?.role === 'teacher' ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>
           <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."
@@ -252,7 +257,7 @@ export default function Assistant({ head = null, lead = null, className }) {
             ]} />
         </section>
       )}
-      {ready && (
+      {ready && !classOff && (
         <>
           <Sheet open={tool === 'photo'} onOpenChange={(o) => !o && close()} title="בדיקת פתרון מצולם">
             {locked ? <ToolLocked kind="check" state={locked} /> : <PhotoCheck />}

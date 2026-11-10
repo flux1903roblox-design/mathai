@@ -80,7 +80,7 @@ test('an upstream 500 and a refusal give the question back; the tries guard stop
 
 test('the network cap applies to anonymous devices only: a class student on a busy network is served', async () => {
   h = await setup({ FREE_NET_DAILY: '3' });
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { ai: true, students: ['נועה'] });
   for (const d of ['b', 'c', 'd']) assert.equal((await ai(h, 'explain', { 'X-Device': d.repeat(32) })).status, 200);
   const r = await ai(h, 'explain', { 'X-Device': 'e'.repeat(32) });
   assert.equal(r.status, 429);
@@ -101,7 +101,7 @@ test('IPv6 addresses in one /64 share the network cap', async () => {
 
 test('an unlicensed class past FREE_CLASS_DAILY gets 429 shared_limit {scope: class}', async () => {
   h = await setup({ FREE_CLASS_DAILY: '2' });
-  const cls = await makeClass(h, { students: ['א', 'ב', 'ג'] });
+  const cls = await makeClass(h, { ai: true, students: ['א', 'ב', 'ג'] });
   assert.equal((await ai(h, 'explain', bearer(cls.students[0]))).status, 200);
   assert.equal((await ai(h, 'explain', bearer(cls.students[1]))).status, 200);
   const r = await ai(h, 'explain', bearer(cls.students[2]));

@@ -582,3 +582,59 @@ test.describe('the smart tutor', () => {
     await expect(page.getByRole('link', { name: 'להורים' })).toHaveCount(0);
   });
 });
+
+// TRUST-11 §6: a class whose students have no AI by the Ministry of Education's rules (a school class while Madregot is
+// not in the catalogue, or the teacher's switch). The child sees calm words about the class's rules and the way back to
+// practice: never a price, a plan, or a link to parents.
+test.describe('TRUST-11: a class whose AI is off', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const CALM = 'כך החליטו בכיתה, לפי ההנחיות של משרד החינוך. מדי, השיעורים והתרגול פתוחים כמו תמיד.';
+  const noPrice = async (page) => {
+    const text = await page.locator('body').innerText();
+    expect(text).not.toMatch(FORBIDDEN);
+    expect(text).not.toContain('מנוי');
+    expect(text).not.toContain('₪');
+  };
+
+  test('the server says the class\'s AI is off: the assistant shows the calm card, with nothing to buy and no parents', async ({ page }) => {
+    const { log } = await fakeServer(page, { classAiOff: true }, baseOf());
+    await open(page, '#/assistant', classStudent());
+    await expect(page.getByRole('heading', { name: 'בכיתה הזו העוזר החכם כבוי' })).toBeVisible();
+    await expect(page.getByText(CALM)).toBeVisible();
+    await expect(page.getByLabel('הודעה לעוזר')).toBeDisabled();
+    await expect(page.getByRole('link', { name: 'להמשיך לתרגל' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'איך מחברים את העוזר' })).toHaveCount(0);
+    await expect(page.getByText('כשהעוזר מחובר, אפשר:')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'מידע להורים' })).toHaveCount(0);
+    await noPrice(page);
+    expect(aiCalls(log)).toHaveLength(0);
+    await shot(page, 'class-ai-off-assistant');
+  });
+
+  test('a call refused with class_ai_off (the status was older): the calm sheet, then the screen says it too', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { classAiOff: true, staleStatus: true, classLicence: true }, baseOf());
+    await open(page, '#/assistant', classStudent());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך מחסרים מספר שלילי?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: 'בכיתה הזו העוזר החכם כבוי' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText(CALM)).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'להמשיך לתרגל' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'מידע להורים' })).toHaveCount(0);
+    await expect(sheet.getByRole('button', { name: 'על רישיון כיתה' })).toHaveCount(0);
+    await noPrice(page);
+    await shot(page, 'class-ai-off-sheet');
+    expect(aiCalls(log).at(-1).headers.authorization).toBe('Bearer stu_token_1');
+    // behind the sheet the screen already says it, with the input switched off
+    await expect(page.locator('#ai-off-title')).toHaveText('בכיתה הזו העוזר החכם כבוי');
+    await expect(page.locator('#ai-off-input')).toBeDisabled();
+    const calls = aiCalls(log).length;
+    // "להמשיך לתרגל" goes back to practice; nothing more is asked
+    st.staleStatus = false;
+    await sheet.getByRole('button', { name: 'להמשיך לתרגל' }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(page).toHaveURL(/#\/$/);
+    await noPrice(page);
+    expect(aiCalls(log)).toHaveLength(calls);
+  });
+});

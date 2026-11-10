@@ -47,6 +47,8 @@ async function practise(s, teacher = null) {
     assert.equal((await h.call('POST', `/api/help/${id}/reply`, { headers: bearer(s), body: { quick: 'thanks' } })).status, 201);
   }
   await h.call('POST', '/api/exams', { headers: bearer(s), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } });
+  // the teacher turns the AI off for the student (TRUST-11: student_ai_off)
+  if (teacher) assert.equal((await h.call('POST', `/api/teacher/students/${s.studentId}/ai`, { headers: teacher, body: { off: true } })).status, 200);
 }
 /** The replies of a student's help requests (they carry the request's id, not the student's). */
 const messagesOf = (studentId) => rows(h.env, 'SELECT m.* FROM help_messages m JOIN help_requests r ON r.id = m.help_id WHERE r.student_id = ?', studentId);
@@ -71,7 +73,7 @@ async function assignWork(cls) {
 /** The counters a student and a class have, written for today. */
 async function counters(studentIds, code) {
   for (const id of studentIds) for (const who of [`pin:${id}`, `s:${id}`, `s:${id}:tutor`, `free:s:${id}`, `care:s:${id}`, `work:s:${id}`, `helpreply:s:${id}`]) await setCount(h.env, who, 1);
-  for (const who of [`t:${code}`, `t:${code}:tutor`, `free:t:${code}`, `free:c:${code}`, `cls:${code}`, `licreq:c:${code}`, `licclaim:c:${code}`, `assign:c:${code}`, `report:c:${code}`]) await setCount(h.env, who, 1);
+  for (const who of [`t:${code}`, `t:${code}:tutor`, `free:t:${code}`, `free:c:${code}`, `cls:${code}`, `licreq:c:${code}`, `licclaim:c:${code}`, `assign:c:${code}`, `report:c:${code}`, `aioff:c:${code}`]) await setCount(h.env, who, 1);
 }
 /** Make a student, everything of them, and their class look `days` old. */
 function age(code, days) {

@@ -17,6 +17,7 @@ import {
 } from './util.js';
 import { daySpendUsd, monthSpendUsd, queueNotices, ownerNotice } from './spend.js';
 import { accountFrom } from './account.js';
+import { classAiPolicy, studentAiAllowed, moeEnv } from '../../shared/schoolRules.js';
 
 // ---------------------------------------------------------------- limits
 export const DEFAULT_LIMITS = {
@@ -77,15 +78,43 @@ export const paywallOn = (env) => String(env.AI_PAYWALL || 'off') === 'on';
 const soloOff = (env) => String(env.ALLOW_SOLO_AI) === 'false';
 
 // ---------------------------------------------------------------- who is asking
+/**
+ * The class student a request carries (Authorization: Bearer <token>), with what the Ministry's rules need (TRUST-11):
+ * the class's setting, the teacher's switch and consent (no class_settings row: school, off, none), and whether the
+ * teacher turned the AI off for this student. (The durable lane's multi-device tokens rewrite this query too: whichever
+ * lands second keeps both joins.)
+ */
 export async function studentFrom(req, env) {
   const auth = req.headers.get('Authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   if (!token || token.length > 128) return null;
   const row = await env.DB.prepare(
-    'SELECT s.id, s.name, s.class_code, c.grade, c.created_at AS class_created_at FROM students s JOIN classes c ON c.code = s.class_code WHERE s.token_hash = ?',
+    `SELECT s.id, s.name, s.class_code, c.grade, c.created_at AS class_created_at,
+       COALESCE(cs.setting, 'school') AS setting, COALESCE(cs.student_ai, 'off') AS student_ai, cs.ai_consent_at,
+       so.student_id IS NOT NULL AS ai_off
+     FROM students s JOIN classes c ON c.code = s.class_code
+     LEFT JOIN class_settings cs ON cs.code = s.class_code LEFT JOIN student_ai_off so ON so.student_id = s.id
+     WHERE s.token_hash = ?`,
   ).bind(await sha256(token)).first();
   return row || null;
 }
+
+/**
+ * The Ministry's rules for a class student (TRUST-11 §4): null when the student may use the AI, or when there is no
+ * class student. When the rules give the student no AI: on a device a parent linked or approved (X-Family-Device), the
+ * request goes on as that device's, without the student (home use, by the parent's choice), and 'family' is returned;
+ * otherwise 'off'. Teachers are never gated here.
+ */
+export function classAiGate(env, id) {
+  const s = id.student;
+  if (!s) return null;
+  const policy = classAiPolicy({ setting: s.setting, grade: s.grade, studentAi: s.student_ai, consentAt: s.ai_consent_at }, moeEnv(env));
+  if (studentAiAllowed(policy, { aiOff: !!s.ai_off })) return null;
+  if (id.fam) { id.student = null; return 'family'; }
+  return 'off';
+}
+/** One more refused request in a class whose AI is off (ai_usage aioff:c:<code>, a day; the owner's view of it). */
+const noteClassOff = (env, code) => take(env, [key(`aioff:c:${code}`, 1e9)]).catch(() => null);
 export async function requireStudent(req, env) {
   const s = await studentFrom(req, env);
   if (!s) throw new HttpError(401, 'not_signed_in');
@@ -305,6 +334,13 @@ export async function resolve(req, env, kind, input) {
 
 async function decide(req, env, kind, input, id) {
   const g = KIND_GROUP[kind];
+  // the Ministry's rules first: a class student whose class gives them no AI is refused (or, on a parent's device,
+  // asks as that device), whatever the switch and the tiers say
+  const code = id.student?.class_code;
+  if (classAiGate(env, id) === 'off') {
+    await noteClassOff(env, code);
+    throw new HttpError(403, 'class_ai_off');
+  }
   if (!paywallOn(env)) {
     const k = await openKey(req, env, id, { strict: true });
     const p = params(env, kind, input, 'full');
@@ -363,6 +399,10 @@ export async function aiStatus(req, env) {
   const id = await identify(req, env);
   const aiReady = !!env.ANTHROPIC_API_KEY;
   const headers = id.famBad ? { 'X-AI-Linked': '0' } : {};
+  // a class student whose class gives them no AI (TRUST-11): the status says so, and nothing is offered
+  if (classAiGate(env, id) === 'off') {
+    return { headers, body: { paywall: paywallOn(env), tier: 'class_off', classAi: 'off', kinds: [], groups: Object.fromEntries(AI_GROUPS.map((x) => [x, null])), resetsAt: resetsAt('day'), aiReady } };
+  }
   if (!paywallOn(env)) {
     const k = await openKey(req, env, id);
     const [c] = k ? await peek(env, [k]) : [0];

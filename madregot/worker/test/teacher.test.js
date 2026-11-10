@@ -70,7 +70,7 @@ test('removing a student deletes their rows, and their token stops working', asy
 
 test('a licence request needs the teacher key and an account; one open per kind per class; the owner email is HTML-escaped', async () => {
   h = await setup();
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { ai: true, students: ['נועה'] });
   const token = await signIn(h, 'teacher@example.test');
   const req = (headers, body) => h.call('POST', '/api/teacher/licence/request', { headers, body });
   const body = { wants: 'quote', school: '<b>אורט</b> & "גבעה"', classes: 3, students: 32, note: 'שלום <script>alert(1)</script>' };
@@ -114,7 +114,7 @@ test('a licence request needs the teacher key and an account; one open per kind 
 
 test('a trial request never grants anything by itself', async () => {
   h = await setup();
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { ai: true, students: ['נועה'] });
   const token = await signIn(h, 'teacher@example.test');
   await h.call('POST', '/api/teacher/licence/request', { headers: { ...cls.teacher, 'X-Account-Token': token }, body: { wants: 'trial', school: 'אורט', classes: 1 } });
   await h.ctx.flush();
@@ -130,9 +130,9 @@ test('a school licence code attaches a class once, uses up one place, and expire
   h = await setup();
   const code = 'ABCD-EFGH-JKMN';
   h.env.DB.raw.exec(build('grant-school', { classes: '2', seats: '35', until: '2099-08-31', invoice: 'INV-9' }, { code }).sql);
-  const a = await makeClass(h, { students: ['נועה'] });
-  const b = await makeClass(h);
-  const c = await makeClass(h);
+  const a = await makeClass(h, { ai: true, students: ['נועה'] });
+  const b = await makeClass(h, { ai: true });
+  const c = await makeClass(h, { ai: true });
   const claimL = (cls, value) => h.call('POST', '/api/teacher/licence/claim', { headers: cls.teacher, body: { code: value } });
   assert.equal((await h.call('POST', '/api/teacher/licence/claim', { body: { code } })).status, 401);
   const bad = await claimL(a, 'ABCD-EFGH-JKMP');
@@ -167,7 +167,7 @@ test('a school licence code attaches a class once, uses up one place, and expire
 
 test('licence claims are limited per network (10 an hour) and per class (10 a day)', async () => {
   h = await setup();
-  const cls = await makeClass(h);
+  const cls = await makeClass(h, { ai: true });
   const claimL = (ip) => h.call('POST', '/api/teacher/licence/claim', { headers: cls.teacher, body: { code: 'ABCD-EFGH-JKMN' }, ip });
   await setCount(h.env, `licclaim:c:${cls.code}`, 10);
   assert.equal((await claimL()).status, 429);
@@ -181,7 +181,7 @@ test('licence claims are limited per network (10 an hour) and per class (10 a da
 
 test('the licence card reports the status, seats, students and the class total only', async () => {
   h = await setup({ BILLING_START: '2099-01-01', LEGACY_CLASS_AI_UNTIL: '2099-01-31' });
-  const cls = await makeClass(h, { students: ['נועה', 'איתי', 'מאיה'] });
+  const cls = await makeClass(h, { ai: true, students: ['נועה', 'איתי', 'מאיה'] });
   let card = await (await licence(cls)).json();
   assert.equal(card.status, 'legacy', 'a class made before BILLING_START');
   assert.equal(card.legacyUntil, '2099-01-31');

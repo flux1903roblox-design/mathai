@@ -79,7 +79,7 @@ test('refused: no adult box (400), no terms (400), a live plan (409), a billing 
 test('class_year needs the class teacher key and 10 to 45 seats; the amount is seats x the seat price', async () => {
   h = await setup();
   const t = await signIn(h, 'teacher@example.test');
-  const cls = await makeClass(h);
+  const cls = await makeClass(h, { ai: true });
   const bad = await buy(t, { plan: 'class_year', seats: 30 }, { headers: { 'X-Class-Code': cls.code, 'X-Teacher-Key': 'nope' } });
   assert.equal(bad.status, 401); assert.equal((await bad.json()).error, 'not_teacher');
   assert.equal((await buy(t, { plan: 'class_year', seats: 9 }, { headers: cls.teacher })).status, 422);

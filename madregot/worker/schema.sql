@@ -443,3 +443,17 @@ CREATE INDEX IF NOT EXISTS help_messages_help ON help_messages (help_id, id);
 --   audit_log.action  'help.reply' (target help:<id>, detail {} : never the text) | 'class.digest' (detail {on})
 --   notices.kind      'help_digest:<YYYY-MM-DD>' (ref = the class code, to_account = the owner, params {className, n})
 --   ai_usage.who      helpreply:s:<student> (a student's replies a day)  report:c:<class> (hourly: the class report)
+
+-- The students a teacher turned the AI off for (spec TRUST-11 §2): the Ministry's "alternative activity" for a student
+-- without a parent's consent, or the teacher's choice. A row means off, in a class whose students otherwise have it.
+-- Deleted with the student (forget.js STUDENT_ROWS: teacher removal, class delete, the night purge).
+CREATE TABLE IF NOT EXISTS student_ai_off (
+  student_id TEXT PRIMARY KEY,
+  at TEXT NOT NULL
+);
+-- New values elsewhere (no table change):
+--   class_settings  setting 'private' only with private_attested_at (the teacher said the group is not a school's);
+--                   student_ai and ai_consent_at follow shared/schoolRules.js (POST /api/teacher/class/ai)
+--   audit_log.action  'class.setting' (detail {setting}) | 'class.ai' (detail {studentAi?, consent?, setting?})
+--                     | 'student.ai' (target student:<id>, detail {off})
+--   ai_usage.who      aioff:c:<class> (a day: student AI requests refused because the class's AI is off)

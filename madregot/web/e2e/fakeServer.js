@@ -17,6 +17,8 @@
 // Each student's page (TEACHER-8): GET /api/teacher/students/:id (st.studentPages by id adds or replaces its parts:
 // days14, levels, mistakes, work, help, exams), a PIN reset, and the board's rows with whose help it is, joinedOn and
 // the late work count (a student in st.students may set lastPractice, week, late, joinedOn… for the attention list).
+// Student AI by the Ministry's rules (TRUST-11): st.classAiOff makes a class student's AI calls 403 class_ai_off and
+// their status 'class_off' (st.staleStatus keeps the status as it was, as on a device that asked before the change).
 // `st.down = true` makes every call fail as a lost connection.
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -72,6 +74,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     work: {}, // assignmentId -> studentId -> { state, stage, right, asked, passed, questions, tries, startedAt, doneAt, doneDay }
     studentTokens: { 'stok-a1': 'a1' }, // a student's class token -> their id
     down: false, // every call fails as a lost connection
+    classAiOff: false, staleStatus: false, // a class student's AI is off by the class's rules (TRUST-11)
     // help requests with their threads (TEACHER-6): [{ id, studentId, name, topic, level, question, answer, note,
     // has_image, created_at, seen_at, done_at, messages: [{ id, from, body, at, read }] }]
     help: [],
@@ -93,6 +96,9 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
   const who = (h) => h['x-family-device'] || h['x-device'] || h.authorization || h['x-class-code'] || 'anon';
   const limitsOf = (tier) => (tier === 'family' ? FAMILY : CLASS);
   const status = (h) => {
+    if (h.authorization && st.classAiOff && !st.staleStatus) {
+      return { paywall: st.paywall, tier: 'class_off', classAi: 'off', kinds: [], groups: { tutor: null, check: null, generate: null, exam: null }, resetsAt: '2026-11-06T00:00:00+02:00', aiReady: true };
+    }
     const tier = tierOf(h);
     const fam = famOf(h);
     if (tier === 'open') return { paywall: false, tier: 'open', kinds: Object.keys(GROUP), groups: { all: { left: 40, limit: 40 } }, aiReady: true };
@@ -215,6 +221,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       const kind = path.split('/').pop(); const g = GROUP[kind]; const tier = tierOf(h);
       let left;
       if (st.breakNext) { const e = st.breakNext; st.breakNext = null; return reply(route, e.status, e.body); }
+      if (h.authorization && st.classAiOff) return reply(route, 403, { error: 'class_ai_off', message: 'class_ai_off' });
       if (tier === 'free') {
         if (!['explain', 'chat'].includes(kind)) return reply(route, 402, { error: 'paid_only', kind });
         if (st.shared === 'paused') return reply(route, 503, { error: 'free_paused' });

@@ -234,10 +234,20 @@ export async function signIn(h, email, headers = {}) {
 }
 export const accountId = (env, email) => one(env, 'SELECT id FROM accounts WHERE email = ?', email)?.id;
 
-/** A class made through the API (createdAt can be moved back), with students joined by name. */
-export async function makeClass(h, { students = [], createdAt } = {}) {
-  const c = await (await h.call('POST', '/api/classes', { body: { className: 'ז׳3', teacherName: 'רונית', grade: '7' } })).json();
+/**
+ * A class made through the API (createdAt can be moved back), with students joined by name. As created, a class is a
+ * school class whose students have no AI (the Ministry's rules, TRUST-11). `ai: true` makes it a group whose students
+ * may use the AI: a private group (the teacher's attestation), the parents' consent, the switch on; the tests of the
+ * tutor's tiers use it.
+ */
+export async function makeClass(h, { students = [], createdAt, ai = false } = {}) {
+  const extra = ai ? { setting: 'private', privateAttest: true } : {};
+  const c = await (await h.call('POST', '/api/classes', { body: { className: 'ז׳3', teacherName: 'רונית', grade: '7', ...extra } })).json();
   if (createdAt) h.env.DB.raw.prepare('UPDATE classes SET created_at = ? WHERE code = ?').run(createdAt, c.code);
+  if (ai) {
+    const on = await h.call('POST', '/api/teacher/class/ai', { headers: { 'X-Class-Code': c.code, 'X-Teacher-Key': c.teacherKey }, body: { consent: true, studentAi: 'on' } });
+    if (on.status !== 200) throw new Error(`class ai: ${on.status} ${await on.text()}`);
+  }
   const tokens = [];
   for (const name of students) {
     const s = await (await h.call('POST', `/api/classes/${c.code}/join`, { body: { name, pin: '1234' } })).json();

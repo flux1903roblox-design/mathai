@@ -159,3 +159,31 @@ describe('a tab that stays open across midnight', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('the class\'s AI is off (TRUST-11): every action says so, nothing is offered, the calm sheet opens', () => {
+  const OFF = { paywall: true, tier: 'class_off', classAi: 'off', kinds: [], groups: { tutor: null, check: null, generate: null, exam: null }, aiReady: true };
+  it('aiAccess and hasTool', () => {
+    for (const kind of ALL) {
+      expect(aiAccess(kind, OFF)).toMatchObject({ state: 'class_off' });
+      expect(hasTool(kind, OFF)).toBe(false);
+    }
+  });
+  it('gate opens the sheet with its own reason', () => {
+    useAIStatus.setState({ status: OFF });
+    expect(gate('chat')).toBe('class_off');
+    expect(useLimitSheet.getState()).toMatchObject({ open: true, reason: 'class_ai_off' });
+  });
+  it('a refused call (403 class_ai_off) marks the status off at once, even with no status yet; runAI opens the sheet', async () => {
+    noteLimit({ error: 'class_ai_off' }, 'explain');
+    expect(useAIStatus.getState().status).toMatchObject({ tier: 'class_off', classAi: 'off', kinds: [] });
+    useAIStatus.setState({ status: null });
+    useApp.getState().setProfile({ role: 'student', name: 'נועה', grade: '7', token: 'stok' });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'class_ai_off', message: 'class_ai_off' }), { status: 403, headers: { 'Content-Type': 'application/json' } })));
+    const e = await runAI('explain', { question: '3 - 8' }).catch((x) => x);
+    expect(e.limit).toBe(true);
+    expect(e.code).toBe('class_ai_off');
+    expect(e.message).toBe('בכיתה הזו העוזר החכם כבוי.');
+    expect(useLimitSheet.getState()).toMatchObject({ open: true, reason: 'class_ai_off' });
+    expect(aiAccess('chat').state).toBe('class_off');
+  });
+});

@@ -98,6 +98,7 @@ function readLinked(res) {
  *   paused   the free tutor rests today (its daily budget is spent)
  *   resting  a shared ceiling (this network or this class) is reached today
  *   economy  a paid plan's month is over its fair use: checks come back on the 1st
+ *   class_off  the class's students have no AI (the Ministry of Education's rules, or the teacher's switch: TRUST-11)
  * An unknown status gives 'open', so a failed status call never blocks anything.
  */
 export function aiAccess(kind, status = useAIStatus.getState().status) {
@@ -105,6 +106,7 @@ export function aiAccess(kind, status = useAIStatus.getState().status) {
   if (mode === 'none') return { state: 'offline', left: null, tier: null };
   if (mode === 'personal') return { state: 'open', left: null, tier: 'personal' };
   if (!status || !status.tier) return { state: 'open', left: null, tier: null };
+  if (status.classAi === 'off') return { state: 'class_off', left: null, tier: status.tier };
   const tier = status.tier;
   const group = KIND_GROUP[kind] || 'tutor';
   const kinds = Array.isArray(status.kinds) ? status.kinds : null;
@@ -163,6 +165,7 @@ export function gate(kind, { onMadi } = {}) {
   if (a.state === 'used') { openLimitSheet({ reason: 'daily_limit', tier: a.tier, onMadi }); return a.state; }
   if (a.state === 'paused') { openLimitSheet({ reason: 'free_paused', tier: a.tier, onMadi }); return a.state; }
   if (a.state === 'resting') { openLimitSheet({ reason: 'shared_limit', tier: a.tier, scope: a.scope, onMadi }); return a.state; }
+  if (a.state === 'class_off') { openLimitSheet({ reason: 'class_ai_off', tier: a.tier }); return a.state; }
   return null;
 }
 
@@ -181,6 +184,8 @@ export function noteUsage(res) {
 /** A limit the server reported (an AI call refused): remember it, so the screens show the calm state at once. */
 export function noteLimit(data = {}, kind) {
   const prev = useAIStatus.getState().status;
+  // the class's AI is off (TRUST-11): every screen shows it at once, with nothing offered
+  if (data.error === 'class_ai_off') { useAIStatus.setState({ status: { ...(prev || {}), tier: 'class_off', classAi: 'off', kinds: [] } }); return; }
   if (!prev) return;
   const groups = { ...(prev.groups || {}) };
   if (data.error === 'daily_limit') {
@@ -195,12 +200,12 @@ export function noteLimit(data = {}, kind) {
 }
 
 // ---------------------------------------------------------------- the calm sheet when the tutor says "not now"
-// Mounted once in the app. reason: daily_limit | shared_limit | free_paused | monthly_fair_use | paid_only.
+// Mounted once in the app. reason: daily_limit | shared_limit | free_paused | monthly_fair_use | paid_only | class_ai_off.
 // onMadi: the opener's way to ask Madi instead (the lesson opens its TutorSheet), or none.
 export const useLimitSheet = create(() => ({ open: false, reason: null, tier: null, scope: null, onMadi: null }));
 export const openLimitSheet = ({ reason, tier = null, scope = null, onMadi = null }) => useLimitSheet.setState({ open: true, reason, tier, scope, onMadi });
 export const closeLimitSheet = () => useLimitSheet.setState({ open: false, onMadi: null });
-export const LIMIT_ERRORS = ['paid_only', 'daily_limit', 'shared_limit', 'monthly_fair_use', 'free_paused'];
+export const LIMIT_ERRORS = ['paid_only', 'daily_limit', 'shared_limit', 'monthly_fair_use', 'free_paused', 'class_ai_off'];
 
 // ---------------------------------------------------------------- linking this device to a family plan (spec §3.3)
 /** A link code for this device: the one already waiting, or a new one. The secret never leaves this device. */

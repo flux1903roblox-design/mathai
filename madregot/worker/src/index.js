@@ -25,6 +25,7 @@ import {
   listAssignments, createAssignment, getAssignment, updateAssignment, deleteAssignment, classWork, workExam, postWork, classAssignments,
 } from './assignments.js';
 import { classReport, studentDetail } from './report.js';
+import { setClassAi, setStudentAi, classAiView, aiOffIds, newClassSetting, newClassSettingStmts } from './classai.js';
 import { teacherReply, studentReply, readHelp, setDigest, helpThreads, markReadStmt } from './help.js';
 import { RETENTION } from '../../shared/retention.js';
 import { run as runCron } from './cron.js';
@@ -211,15 +212,18 @@ async function mintDevice(req, env, cors) {
 
 // ---------- classes ----------
 /**
- * POST /api/classes {className, teacherName, grade}: a new class and its teacher key (shown once). With a session
- * (X-Account-Token) the class is bound to that account in the same batch and the answer says owned: true; a session
- * that is sent but not valid is 401 not_account, never a class left unbound by mistake.
+ * POST /api/classes {className, teacherName, grade, setting?, privateAttest?}: a new class and its teacher key (shown
+ * once). With a session (X-Account-Token) the class is bound to that account in the same batch and the answer says
+ * owned: true; a session that is sent but not valid is 401 not_account, never a class left unbound by mistake.
+ * setting (TRUST-11): missing is 'school' (student AI off by the Ministry's rules); 'private' needs privateAttest: true
+ * (400 private_attest_required), and stores the attestation with an audit row.
  */
 async function createClass(req, env, cors) {
   const b = await body(req, LIMIT.small);
   const name = cleanName(b.className); const teacherName = cleanName(b.teacherName);
   const grade = b.grade === '8' ? '8' : '7';
   if (!name || !teacherName) throw new HttpError(400, 'missing_fields');
+  const setting = newClassSetting(b);
   const account = String(req.headers.get('X-Account-Token') || '').trim() ? await requireAccount(req, env) : null;
   if (account) await checkOwnedCap(env, account.id);
   await limitOrThrow(env, `create:n:${await netKey(req, env)}`, 10, 429, 'too_many_classes');
@@ -230,13 +234,19 @@ async function createClass(req, env, cors) {
     const now = nowIso();
     try {
       if (account) {
-        const res = await env.DB.batch(ownedClassStmts(env, { code, name, grade, teacherName, keyHash, now }, account.id));
+        const res = await env.DB.batch([
+          ...ownedClassStmts(env, { code, name, grade, teacherName, keyHash, now }, account.id),
+          ...newClassSettingStmts(env, code, setting, { now, via: 'account' }),
+        ]);
         if (Number(res[0].meta?.changes) !== 1) throw new HttpError(409, 'too_many_classes_owned');
       } else {
-        await env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-          .bind(code, name, grade, teacherName, keyHash, now).run();
+        await env.DB.batch([
+          env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+            .bind(code, name, grade, teacherName, keyHash, now),
+          ...newClassSettingStmts(env, code, setting, { now }),
+        ]);
       }
-      return json({ code, teacherKey, className: name, grade, teacherName, ...(account ? { owned: true } : {}) }, 200, cors);
+      return json({ code, teacherKey, className: name, grade, teacherName, setting, ...(account ? { owned: true } : {}) }, 200, cors);
     } catch (e) { if (!String(e?.message).includes('UNIQUE')) throw e; }
   }
   throw new HttpError(500, 'code_collision');
@@ -364,7 +374,7 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, , assignments, classExams, threads, owner, lateRows] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, , assignments, classExams, threads, owner, lateRows, aiPolicy, aiOff] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
@@ -407,6 +417,9 @@ async function dashboard(req, env, cors) {
        WHERE a.class_code = ?1 AND a.due_on < ?2 AND a.due_on >= ?3 AND (w.state IS NULL OR w.state != 'done')
          AND (a.for_all = 1 OR EXISTS (SELECT 1 FROM assignment_targets t WHERE t.assignment_id = a.id AND t.student_id = s.id))
        GROUP BY s.id`, cls.code, today, daysAgo(30)),
+    // student AI by the Ministry's rules (TRUST-11): the class's policy and the students the teacher turned it off for
+    classAiView(env, cls),
+    aiOffIds(env, cls.code),
   ]);
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
   const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows); const late = by(lateRows);
@@ -418,7 +431,7 @@ async function dashboard(req, env, cors) {
     joinLocked: locked,
     students: students.map((s) => ({
       id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset,
-      joinedOn: s.created_at ? dayOf(new Date(s.created_at)) : null, late: Number(late[s.id]?.late || 0),
+      joinedOn: s.created_at ? dayOf(new Date(s.created_at)) : null, late: Number(late[s.id]?.late || 0), aiOff: aiOff.has(s.id),
       today: t[s.id] ? { n: t[s.id].n, ok: t[s.id].ok, first: t[s.id].first, minutes: Math.round((t[s.id].secs || 0) / 60) } : { n: 0, ok: 0, first: 0, minutes: 0 },
       week: w[s.id] ? { n: w[s.id].n, first: w[s.id].first, days: w[s.id].days, minutes: Math.round((w[s.id].secs || 0) / 60) } : { n: 0, first: 0, days: 0, minutes: 0 },
       levels: lv[s.id] || {},
@@ -437,6 +450,7 @@ async function dashboard(req, env, cors) {
     assignments,
     help: help.map((x) => ({ ...x, messages: threads[x.id]?.messages || [], unreadFromStudent: threads[x.id]?.unreadFromStudent || 0 })),
     helpDigest: owner ? !!owner.help_digest : null,
+    aiPolicy,
   }, 200, cors);
 }
 
@@ -547,6 +561,9 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]{1,32})$/))) return studentDetail(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/remove$/))) return removeStudent(m[1], req, env, cors);
+  // student AI by the Ministry's rules (classai.js, TRUST-11)
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/ai$/))) return setStudentAi(m[1], req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/ai') return setClassAi(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/rename') return renameClass(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/delete') return deleteClass(req, env, cors);

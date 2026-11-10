@@ -12,6 +12,7 @@ import { requireAccount, accountFrom, requireRecentCode } from './account.js';
 import { studentDeleteStmts, studentCountersStmt, classDeleteSteps, countSteps } from './forget.js';
 import { prices, vatExempt, onlineCheckout, SEATS } from './billing.js';
 import { flushNotices } from './email.js';
+import { requireSellable } from './classai.js';
 
 const SMALL = 4096;
 const DAY = 864e5;
@@ -90,6 +91,8 @@ export async function licenceRequest(req, env, ctx, cors) {
   const b = await body(req, SMALL);
   const wants = String(b.wants || '');
   if (!['trial', 'quote'].includes(wants)) throw new HttpError(400, 'bad_request');
+  // a trial is student AI: not for a class the Ministry's rules keep it from (TRUST-11 §5); a quote stays open
+  if (wants === 'trial') await requireSellable(env, cls);
   const school = cleanText(b.school, 80);
   if (!school) throw new HttpError(400, 'missing_fields');
   const classes = intIn(b.classes, 1, 30, 1);
@@ -134,6 +137,9 @@ export const licenceCodeHash = (code) => sha256(code);
 export async function licenceClaim(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const b = await body(req, SMALL);
+  // a school licence code is student AI for a school class: not while the Ministry's rules keep it off there (TRUST-11
+  // §5: 409 school_ai_not_approved); checked first, so it uses up no try and no place of the code
+  await requireSellable(env, cls);
   const net = await netKey(req, env);
   const tooMany = new HttpError(429, 'too_many_tries');
   const r = await take(env, [

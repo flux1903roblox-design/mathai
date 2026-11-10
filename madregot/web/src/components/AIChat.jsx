@@ -7,6 +7,7 @@ import { Button } from './ui.jsx';
 import { Markdown } from './MathText.jsx';
 import { Thinking } from './ui.jsx';
 import AIAllowance from './AIAllowance.jsx';
+import { CLASS_OFF } from './limitCopy.js';
 import Mascot from './Mascot.jsx';
 
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
@@ -22,7 +23,9 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
   const navigate = useNavigate();
   const status = useAIStatus((x) => x.status);
   const access = aiAccess('chat', status);
-  const resting = ['used', 'paused', 'resting'].includes(access.state);
+  // the class's AI is off (TRUST-11): the input waits as when the tutor rests, with the calm words of the class rules
+  const classOff = access.state === 'class_off';
+  const resting = ['used', 'paused', 'resting'].includes(access.state) || classOff;
   const [own, setOwn] = useState([]);
   const messages = kept ?? own;
   const setMessages = onMessages ?? setOwn;
@@ -105,7 +108,7 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
       <div className="chat-dock-live" data-region="footer" ref={dockRef}>
         {resting && (
           <section className="chat-rest" role="status" aria-label="העוזר החכם">
-            <p>{access.state === 'used' ? 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.' : 'העוזר החכם נח היום. מחר הוא חוזר.'}</p>
+            <p>{classOff ? CLASS_OFF.text : access.state === 'used' ? 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.' : 'העוזר החכם נח היום. מחר הוא חוזר.'}</p>
             <div className="chat-rest-actions">
               <Button className="btn-sm" onClick={() => (onDone ? onDone() : navigate('/'))}>להמשיך לתרגל</Button>
               <Button variant="secondary" className="btn-sm" onClick={() => navigate('/topics')}>מה מדי יודע להסביר</Button>
@@ -124,7 +127,7 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
         )}
         <form className="chat-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
           <label htmlFor="chat-draft" className="visually-hidden">ההודעה שלכם</label>
-          <textarea id="chat-draft" rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={resting ? 'העוזר החכם חוזר מחר' : 'כתבו שאלה…'} maxLength={1000}
+          <textarea id="chat-draft" rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={classOff ? 'העוזר החכם כבוי בכיתה הזו' : resting ? 'העוזר החכם חוזר מחר' : 'כתבו שאלה…'} maxLength={1000}
             disabled={resting} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
           <button type="submit" className="icon-btn send" disabled={!draft.trim() || pending || resting} aria-label="שליחה"><Send size={20} aria-hidden="true" /></button>
         </form>

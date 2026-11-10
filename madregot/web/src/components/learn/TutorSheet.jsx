@@ -10,6 +10,7 @@ import { Sparkles } from 'lucide-react';
 import { Sheet, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { INTENTS, tutorReply } from '@/learn/tutor.ts';
+import { CLASS_OFF } from '@/components/limitCopy.js';
 import { useApp } from '@/lib/store.js';
 import AIAllowance from '@/components/AIAllowance.jsx';
 import StepPlayer from './StepPlayer.jsx';
@@ -47,7 +48,7 @@ export default function TutorSheet({ open, onOpenChange, content, item = null, w
     if (open && startIntent && started.current !== startIntent) { started.current = startIntent; ask(startIntent); }
     if (!open) started.current = null;
   }, [open, startIntent]); // eslint-disable-line react-hooks/exhaustive-deps
-  const resting = aiState === 'used' ? 'העוזר החכם חוזר מחר' : aiState === 'paused' || aiState === 'resting' ? 'העוזר החכם נח היום' : null;
+  const resting = aiState === 'used' ? 'העוזר החכם חוזר מחר' : aiState === 'paused' || aiState === 'resting' ? 'העוזר החכם נח היום' : aiState === 'class_off' ? CLASS_OFF.line : null;
   // A conversation (LAYOUT_SPEC B3, the same layout as the assistant): מדי's messages as bubbles at the start side,
   // the question asked as the student's bubble, and the questions to ask docked at the bottom, where a chat's input is.
   const footer = (

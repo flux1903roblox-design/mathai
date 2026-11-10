@@ -116,3 +116,28 @@ test('read-only commands are marked read-only; arguments parse as --name value a
   assert.throws(() => build('events', { outcome: "x' OR 1=1" }, fixed), InputError);
   assert.deepEqual(parseArgs(['grant-class', '--class', 'ABC234', '--trial', '--seats', '10', '--local']), { cmd: 'grant-class', o: { class: 'ABC234', trial: true, seats: '10', local: true } });
 });
+
+test('the Ministry\'s rules (TRUST-11): run as a process, grant-school and grant-class stop before wrangler with exit 1', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const script = new URL('../scripts/owner.mjs', import.meta.url).pathname;
+  const run = (args, env = {}) => spawnSync(process.execPath, [script, ...args], { encoding: 'utf8', env: { PATH: process.env.PATH, MOE_AI_APPROVAL: 'none', ...env }, timeout: 20_000 });
+  const school = run(['grant-school', '--classes', '2', '--seats', '30', '--until', '2099-08-31', '--invoice', 'INV-1', '--local']);
+  assert.equal(school.status, 1);
+  assert.match(school.stderr, /refused: a school licence code is for school classes/);
+  assert.doesNotMatch(school.stdout + school.stderr, /wrangler|done/i);
+  const noNote = run(['grant-school', '--classes', '2', '--seats', '30', '--until', '2099-08-31', '--invoice', 'INV-1', '--private-ok', '--local']);
+  assert.equal(noNote.status, 1);
+  assert.match(noNote.stderr, /--note/);
+  // a bad argument is refused the same way, before any database read
+  const bad = run(['grant-class', '--class', 'nope', '--until', '2099-08-31', '--seats', '30', '--local']);
+  assert.equal(bad.status, 1);
+  assert.match(bad.stderr, /bad class code/);
+});
+
+test('with --private-ok the audit row of a grant records privateOk and the note', () => {
+  const c = build('grant-class', { class: 'ABC234', until: '2027-08-31', seats: '20', 'private-ok': true, note: 'מרכז תגבור פרטי' }, fixed);
+  assert.ok(c.sql.includes('"privateOk":true,"note":"מרכז תגבור פרטי"'));
+  const s = build('grant-school', { classes: '2', seats: '20', until: '2027-08-31', invoice: 'INV-3', 'private-ok': true, note: 'רשת חוגים' }, fixed);
+  assert.ok(s.sql.includes('"privateOk":true,"note":"רשת חוגים"'));
+  assert.ok(!build('grant-class', { class: 'ABC234', until: '2027-08-31', seats: '20' }, fixed).sql.includes('privateOk'));
+});

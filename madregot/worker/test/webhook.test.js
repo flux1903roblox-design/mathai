@@ -232,7 +232,7 @@ test('failed: past_due and one email; a full refund ends the plan now; a chargeb
 
 test('a paid class licence replaces a running trial of the same class', async () => {
   h = await setup();
-  const cls = await makeClass(h);
+  const cls = await makeClass(h, { ai: true });
   const { insertSub } = await import('./helpers.js');
   insertSub(h.env, { kind: 'class', class_code: cls.code, plan: 'trial', seats: 10 });
   const token = await signIn(h, 't@example.test');
@@ -267,7 +267,7 @@ const classOrder = async (cls, seats = 20) => {
 
 test('a second charge for a paid class licence order is a duplicate: refunded, the owner told, the licence not extended', async () => {
   h = await setup();
-  const cls = await makeClass(h);
+  const cls = await makeClass(h, { ai: true });
   const o = await classOrder(cls);
   assert.deepEqual((await send({ id: 'c1', type: 'paid', order: o.id, payment: 'pay_c1', amountAgorot: o.amount, currency: 'ILS', occurredAt: iso(0) })).body.results, ['applied']);
   const end1 = one(h.env, 'SELECT current_period_end FROM subscriptions').current_period_end;

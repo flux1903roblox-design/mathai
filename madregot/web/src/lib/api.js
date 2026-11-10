@@ -113,6 +113,12 @@ const MESSAGES = {
   free_paused: 'העוזר החכם נח היום. מחר הוא חוזר.',
   monthly_fair_use: 'הבדיקות של החודש נגמרו. הן חוזרות ב־1 בחודש.',
   too_large: 'הקובץ גדול מדי. נסו תמונה קטנה יותר.',
+  // student AI by the Ministry of Education's rules (TRUST-11, Appendix E §E.8): calm, no price
+  class_ai_off: 'בכיתה הזו העוזר החכם כבוי.',
+  class_ai_locked: 'לפי ההנחיות של משרד החינוך אי אפשר עדיין להפעיל את העוזר לתלמידים בכיתה הזו.',
+  consent_needed: 'קודם צריך לאשר שיש הסכמת הורים.',
+  school_ai_not_approved: 'רישיון עם עוזר חכם לתלמידים בבית ספר אפשר לקנות אחרי האישור בקטלוג. בינתיים אפשר לבקש הצעת מחיר.',
+  private_attest_required: 'כדי לבחור קבוצה פרטית צריך לאשר שהיא לא פועלת במסגרת בית ספר.',
 };
 /**
  * A code the server uses for two things, told apart by the status: too_many_open is 429 for a student's help requests

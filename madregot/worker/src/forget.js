@@ -20,6 +20,10 @@ export const STUDENT_ROWS = [
   ['help_messages', 'help_id', 'SELECT id FROM help_requests WHERE student_id'],
   ['help_requests', 'student_id'], ['exams', 'student_id'],
   ['assignment_work', 'student_id'], ['assignment_targets', 'student_id'],
+  // the teacher turned the AI off for this student (TRUST-11), and the audit rows of the teacher's actions on the
+  // student (student.ai): they carry the student's id, so they go with the student
+  ['student_ai_off', 'student_id'],
+  ['audit_log', 'target', "SELECT 'student:' || id FROM students WHERE id"],
 ];
 /** The WHERE of one STUDENT_ROWS entry, for a student test `match` ("= ?" or "IN (<a SELECT of ids>)"). */
 export const studentWhere = ([, col, via], match) => (via ? `${col} IN (${via} ${match})` : `${col} ${match}`);
@@ -30,9 +34,10 @@ export const studentWhere = ([, col, via], match) => (via ? `${col} IN (${via} $
 export const STUDENT_COUNTERS = ['pin:', 's:', 'free:s:', 'care:s:', 'work:s:', 'helpreply:s:'];
 /**
  * ai_usage keys that carry a class code: the teacher's AI, the class's free and paid pools, licence requests and claims,
- * the assignments made a day (TEACHER-4) and the class report's exports (TEACHER-7).
+ * the assignments made a day (TEACHER-4), the class report's exports (TEACHER-7) and the student AI requests refused in
+ * a class whose AI is off (TRUST-11).
  */
-export const CLASS_COUNTERS = ['t:', 'free:t:', 'free:c:', 'cls:', 'licreq:c:', 'licclaim:c:', 'assign:c:', 'report:c:'];
+export const CLASS_COUNTERS = ['t:', 'free:t:', 'free:c:', 'cls:', 'licreq:c:', 'licclaim:c:', 'assign:c:', 'report:c:', 'aioff:c:'];
 
 /**
  * SQL that is true for an ai_usage row whose key is <prefix><id> or <prefix><id>:<more>, with <id> in `sel` (a SELECT

@@ -7,8 +7,8 @@
 //
 // Mutating commands also write an audit_log row (actor 'owner:cli'). Without --local the remote database is used.
 //
-//   grant-class --class C --until D --seats N [--invoice R] [--note T] [--trial]
-//   grant-school --classes K --seats N --until D --invoice R [--note T]        prints a licence code once
+//   grant-class --class C --until D --seats N [--invoice R] [--note T] [--trial] [--private-ok --note T]
+//   grant-school --classes K --seats N --until D --invoice R [--note T] [--private-ok --note T]   prints a code once
 //   grant-family --email E --until D [--note T]
 //   end --id S [--reason owner]
 //   cancel --id S --mode period_end|refund_now|prorata
@@ -18,14 +18,23 @@
 //   forget --email E
 //   list [--class C | --email E | --status S]   requests [--open]   request-done --id R
 //   usage --from D --to D                        events [--outcome mismatch]
+//
+// Licences within the Ministry of Education's rules (shared/schoolRules.js, TRUST-11 §5): while MOE_AI_APPROVAL is
+// "none" (read from the environment, else from wrangler.toml), grant-class refuses a school class (it reads the class's
+// setting first) and grant-school refuses outright, since a school code is student AI for school classes. When the owner
+// knows the group is private (a tutoring centre, a course outside a school), --private-ok with a --note saying why, and
+// the word "private" typed at the prompt, lets the grant through; the audit row records privateOk and the note. The
+// students of a class still marked "school" keep the AI off until its teacher marks the group private in the app.
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { createInterface } from 'node:readline/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { endOfDayIso, CODE_ALPHABET } from '../src/util.js';
 import { cleanEmail } from '../src/account.js';
+import { classAiPolicy, moeEnv, NOT_SELLABLE } from '../../shared/schoolRules.js';
 
 const DAY = 864e5;
 export class InputError extends Error {}
@@ -70,6 +79,48 @@ export function licenceCode() {
 }
 export const licenceHash = (code) => sha256(String(code).toUpperCase().replace(/[^A-Z0-9]/g, ''));
 
+// ---------------------------------------------------------------- the Ministry's rules (TRUST-11 §5)
+/** With --private-ok, what the audit row records: { privateOk: true, note }. */
+const privateOkDetail = (o) => (o['private-ok'] ? { privateOk: true, note: noteArg(o.note) } : {});
+
+/**
+ * The approval the rules run on: MOE_AI_APPROVAL and MOE_AI_FROM_GRADE from the environment, else from wrangler.toml's
+ * vars (the deployed values). `toml` is the file's text (read from disk when not given).
+ */
+export function moeVars(env = process.env, toml = null) {
+  const text = toml ?? (() => { try { return readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8'); } catch { return ''; } })();
+  const fromToml = (name) => (text.match(new RegExp(`^${name}\\s*=\\s*"(.*)"`, 'm')) || [])[1];
+  return moeEnv({
+    MOE_AI_APPROVAL: env.MOE_AI_APPROVAL ?? fromToml('MOE_AI_APPROVAL') ?? 'none',
+    MOE_AI_FROM_GRADE: env.MOE_AI_FROM_GRADE ?? fromToml('MOE_AI_FROM_GRADE') ?? '7',
+  });
+}
+
+/** The read the grant-class gate needs: is the class there, its grade and its setting (no settings row: school). */
+export const classSettingSql = (cls) => `SELECT c.code, c.grade, COALESCE(cs.setting, 'school') AS setting FROM classes c
+  LEFT JOIN class_settings cs ON cs.code = c.code WHERE c.code = ${q(classArg(cls))};`;
+
+/**
+ * May this grant go ahead under the rules? null: yes. 'confirm': only with --private-ok, after the typed confirmation.
+ * Throws InputError when it may not (and says how the owner can proceed when the group is really private).
+ *   grant-class: the class's students must be able to have the AI (a private group, or a school class once approved
+ *                and at an approved grade); `cls` is the row classSettingSql reads (null: no such class).
+ *   grant-school: a school code, so not while MOE_AI_APPROVAL is "none".
+ */
+export function schoolGate(cmd, o, { moe, cls = null }) {
+  if (cmd !== 'grant-class' && cmd !== 'grant-school') return null;
+  let why = null;
+  if (cmd === 'grant-class') {
+    if (!cls) fail(`no class with the code ${o.class}`);
+    const p = classAiPolicy({ setting: cls.setting, grade: cls.grade, studentAi: 'on', consentAt: 'given' }, moe);
+    if (NOT_SELLABLE.includes(p.reason)) why = p.reason === 'grade' ? `the class is a school class in grade ${cls.grade}, below the approved grade` : 'the class is a school class and Madregot is not in the Ministry of Education\'s catalogue (MOE_AI_APPROVAL is "none")';
+  } else if (moe.approval !== 'approved') why = 'a school licence code is for school classes, and Madregot is not in the Ministry of Education\'s catalogue (MOE_AI_APPROVAL is "none")';
+  if (!why) return null;
+  if (!o['private-ok']) fail(`refused: ${why}. Nothing was granted. Only if the group is private (not a school's), run it again with --private-ok and a --note saying why.`);
+  if (!noteArg(o.note)) fail('--private-ok needs a --note that says why the group is private');
+  return 'confirm';
+}
+
 // ---------------------------------------------------------------- commands → SQL
 /**
  * Build one command. Returns { sql, readOnly, print? }. `now`, `id` and `code` can be fixed for tests.
@@ -96,7 +147,7 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
   SELECT ${q(id)}, 'class', NULL, ${q(cls)}, ${q(plan)}, 'active', 'manual', ${seats}, ${q(invoice)}, ${q(now)}, ${q(until)}, ${q(note)}, ${q(now)}, ${q(now)}
   WHERE EXISTS (SELECT 1 FROM classes WHERE code = ${q(cls)})
     AND NOT EXISTS (SELECT 1 FROM subscriptions WHERE kind = 'class' AND class_code = ${q(cls)} AND ${LIVE});`,
-          audit(now, 'licence.grant', `class:${cls}`, { plan, until, seats, invoice }),
+          audit(now, 'licence.grant', `class:${cls}`, { plan, until, seats, invoice, ...privateOkDetail(o) }),
         ].join('\n'),
       };
     }
@@ -112,7 +163,7 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
         sql: [
           `INSERT INTO licence_codes (code_hash, seats, classes_left, until, invoice_ref, note, created_at, expires_at)
   VALUES (${q(licenceHash(code))}, ${seats}, ${classes}, ${q(until)}, ${q(invoice)}, ${q(note)}, ${q(now)}, ${q(new Date(Date.parse(now) + 60 * DAY).toISOString())});`,
-          audit(now, 'licence.grant', `school:${invoice}`, { classes, seats, until }),
+          audit(now, 'licence.grant', `school:${invoice}`, { classes, seats, until, ...privateOkDetail(o) }),
         ].join('\n'),
       };
     }
@@ -272,26 +323,53 @@ export function parseArgs(argv) {
   return { cmd, o };
 }
 
-function main(argv) {
-  const { cmd, o } = parseArgs(argv);
-  if (!cmd) { console.log('usage: npm run owner -- <command> [options] [--local]  (see scripts/owner.mjs)'); return; }
-  const b = build(cmd, o);
-  const dir = mkdtempSync(path.join(tmpdir(), 'madregot-owner-'));
-  const file = path.join(dir, 'command.sql');
-  writeFileSync(file, `${b.sql}\n`);
+const WORKER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const wrangler = (o, args) => execFileSync('npx', ['wrangler', 'd1', 'execute', 'madregot', o.local ? '--local' : '--remote', ...args, '--json'], { cwd: WORKER, encoding: 'utf8' });
+/** What the CLI does outside itself: the database through wrangler, the terminal. Tests pass their own. */
+const realIo = {
+  env: process.env,
+  /** One read-only SELECT: its first row, or null. */
+  query: async (sql, o) => (JSON.parse(wrangler(o, ['--command', sql]))?.[0]?.results || [])[0] || null,
+  /** Run a built command (its SQL in a file); returns what wrangler printed. */
+  exec: async (b, o) => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'madregot-owner-'));
+    const file = path.join(dir, 'command.sql');
+    writeFileSync(file, `${b.sql}\n`);
+    try { return wrangler(o, ['--file', file]); } finally { rmSync(dir, { recursive: true, force: true }); }
+  },
+  prompt: async (question) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    try { return await rl.question(question); } finally { rl.close(); }
+  },
+  log: (...a) => console.log(...a),
+  error: (...a) => console.error(...a),
+};
+
+/** The whole command line: 0 when it ran, 1 when it was refused or failed (nothing written then). */
+export async function cli(argv, io = realIo) {
   try {
-    const worker = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-    const out = execFileSync('npx', ['wrangler', 'd1', 'execute', 'madregot', o.local ? '--local' : '--remote', '--file', file, '--json'], { cwd: worker, encoding: 'utf8' });
-    console.log(b.readOnly ? out : 'done');
-    if (b.print) console.log(b.print);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
+    const { cmd, o } = parseArgs(argv);
+    if (!cmd) { io.log('usage: npm run owner -- <command> [options] [--local]  (see scripts/owner.mjs)'); return 0; }
+    // the Ministry's rules come first: nothing is built or written for a grant they refuse
+    if (cmd === 'grant-class' || cmd === 'grant-school') {
+      const moe = moeVars(io.env);
+      const cls = cmd === 'grant-class' ? await io.query(classSettingSql(o.class), o) : null;
+      if (schoolGate(cmd, o, { moe, cls }) === 'confirm') {
+        const typed = await io.prompt('This grant is outside the school rules: only for a private group. Type "private" to go on: ');
+        if (String(typed ?? '').trim() !== 'private') fail('not confirmed: nothing was granted');
+      }
+    }
+    const b = build(cmd, o);
+    const out = await io.exec(b, o);
+    io.log(b.readOnly ? out : 'done');
+    if (b.print) io.log(b.print);
+    return 0;
+  } catch (e) {
+    io.error(e instanceof InputError ? e.message : e);
+    return 1;
   }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  try { main(process.argv.slice(2)); } catch (e) {
-    console.error(e instanceof InputError ? e.message : e);
-    process.exitCode = 1;
-  }
+  cli(process.argv.slice(2)).then((code) => { process.exitCode = code; });
 }

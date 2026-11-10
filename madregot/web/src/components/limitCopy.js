@@ -5,6 +5,8 @@
 export function limitVariant({ reason, tier = null, scope = null, role = 'student' } = {}) {
   const free = tier === 'free';
   const teacher = role === 'teacher';
+  // the class's AI is off (the Ministry of Education's rules, TRUST-11 §6): a school context, so no price and no parents
+  if (reason === 'class_ai_off') return { title: CLASS_OFF.title, text: [CLASS_OFF.text], actions: ['practice'], parents: false };
   if (reason === 'daily_limit' && free && teacher) {
     return {
       title: 'השאלות של היום לעוזר החכם נגמרו',
@@ -49,8 +51,16 @@ export function limitVariant({ reason, tier = null, scope = null, role = 'studen
   };
 }
 
+/** The class's AI is off: the sheet's title and text, and the quiet line (TRUST-11 §6, Appendix E §E.8). */
+export const CLASS_OFF = Object.freeze({
+  title: 'בכיתה הזו העוזר החכם כבוי',
+  text: 'כך החליטו בכיתה, לפי ההנחיות של משרד החינוך. מדי, השיעורים והתרגול פתוחים כמו תמיד.',
+  line: 'בכיתה הזו העוזר החכם כבוי.',
+});
+
 /** The quiet line about today's questions (AIAllowance), or null for nothing to say. */
 export function allowanceText({ state, left, tier, ended = false }) {
+  if (state === 'class_off') return CLASS_OFF.line;
   if (ended && tier === 'free') return 'העוזר החכם עובד עכשיו עם 2 שאלות ביום.';
   if (tier === 'free') {
     if (state === 'used' || left === 0) return 'העוזר החכם חוזר מחר. מדי כאן בינתיים.';
@@ -66,6 +76,7 @@ export function allowanceText({ state, left, tier, ended = false }) {
 
 /** What a tool says instead of opening the camera (ToolLocked). */
 export function lockedText(kind, { state = 'locked', inClass = false } = {}) {
+  if (state === 'class_off') return { lines: [CLASS_OFF.line, 'מדי, השיעורים והתרגול פתוחים כמו תמיד.'], teacher: false, parents: false };
   if (state === 'economy') return { lines: ['הבדיקה הזו חוזרת ב־1 בחודש.'], teacher: false, parents: false };
   if (kind === 'check') {
     return inClass
