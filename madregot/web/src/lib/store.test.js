@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { migrateState } from './store.js';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { migrateState, mergeSaved } from './store.js';
 
 const v2 = (ai) => ({ profile: { role: 'student', name: 'נועה', grade: '7' }, xp: 40, days: { '2026-11-05': { q: 3 } }, learn: { skills: {} }, ai });
 
@@ -45,5 +45,39 @@ describe('saved data v3: the parent account never lives in the child store', () 
   it('a v3 save is left as it is', () => {
     const ai = { mode: 'server', apiUrl: '', key: '', device: 'b'.repeat(32), familyDevice: { token: 'fd1.x', label: 'הטאבלט' }, pendingLink: null, lastTier: 'family' };
     expect(migrateState(v2(ai), 3, { personal: false }).ai).toEqual(ai);
+  });
+});
+
+// A save already at version 4 is not migrated: zustand only merges it over the defaults, and its own merge is shallow.
+// learn.floor and learn.challenges (curriculum stage 1) came after v4, so the persist merge fills them in.
+describe('saved data v4 without the new learn fields', () => {
+  const v4 = { profile: { role: 'student', name: 'נועה', grade: '7' }, xp: 120, learn: { skills: { 'signed:1': { attempts: [] } }, miscon: {}, exam: null, missions: {}, events: [] } };
+  afterEach(() => { vi.unstubAllGlobals(); vi.resetModules(); });
+
+  it('rehydrates with floor === null and challenges equal to {}, and keeps what was saved', async () => {
+    const mem = new Map([['madregot', JSON.stringify({ state: v4, version: 4 })]]);
+    vi.stubGlobal('localStorage', { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) });
+    vi.resetModules();
+    const { useApp } = await import('./store.js');
+    await useApp.persist.rehydrate();
+    const { learn, xp, profile } = useApp.getState();
+    expect(learn.floor).toBeNull();
+    expect(learn.challenges).toEqual({});
+    expect(learn.skills['signed:1']).toEqual({ attempts: [] });
+    expect(xp).toBe(120);
+    expect(profile.name).toBe('נועה');
+  });
+  it('keeps a saved floor record and saved challenges as they are', () => {
+    const floor = { at: '2026-11-05T10:00:00.000Z', on: true, results: { 'frac:3': { asked: 1, right: 0 } }, facts: { asked: 2, right: 2 } };
+    const out = mergeSaved({ ...v4, learn: { ...v4.learn, floor, challenges: { 'eq:c1': { startedAt: 'x', firstTry: 1, parts: 3 } } } }, { xp: 0, learn: {} });
+    expect(out.learn.floor).toEqual(floor);
+    expect(out.learn.challenges).toEqual({ 'eq:c1': { startedAt: 'x', firstTry: 1, parts: 3 } });
+  });
+  it('a first visit (nothing saved) starts from the defaults', () => {
+    const cur = { xp: 0, learn: { skills: {} }, setFloor: () => {} };
+    const out = mergeSaved(undefined, cur);
+    expect(out.xp).toBe(0);
+    expect(out.setFloor).toBe(cur.setFloor);
+    expect(out.learn).toMatchObject({ skills: {}, floor: null, challenges: {} });
   });
 });

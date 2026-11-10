@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import katex from 'katex';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput } from './index.js';
 import { parseNum, plainNum } from './util.js';
+import { factsItem } from './frac.js';
 import { holds, identical, texToExpr, texRelation, evaluate, same } from '@/learn/expr.ts';
 
 /**
@@ -391,5 +392,32 @@ describe('fractions: every answer is the computation its question shows', () => 
     bad({ form: 'num', text: 'כמה הם $\\frac{3}{4}$ מ־$20$?', answer: 5 });
     ok({ key: 'fr4g:12:0.8:mul', form: 'mc', text: '$12 \\cdot 0.8$: התוצאה גדולה מ־$12$ או קטנה ממנו?', choices: [{ text: 'גדולה מ־12' }, { text: 'קטנה מ־12' }], answer: 1 });
     bad({ key: 'fr4g:12:0.8:mul', form: 'mc', text: '$12 \\cdot 0.8$: התוצאה גדולה מ־$12$ או קטנה ממנו?', choices: [{ text: 'גדולה מ־12' }, { text: 'קטנה מ־12' }], answer: 0 });
+  });
+});
+
+describe('multiplication facts (the floor check and /facts)', () => {
+  it('a·b or ab : a with a and b from 3 to 9, and every answer is the computation shown', () => {
+    const seen = new Set();
+    for (let r = 0; r < 600; r += 1) {
+      const it = factsItem();
+      const [tag, a, b, op] = it.key.split(':');
+      expect(tag).toBe('facts');
+      expect(Number(a)).toBeGreaterThanOrEqual(3); expect(Number(a)).toBeLessThanOrEqual(9);
+      expect(Number(b)).toBeGreaterThanOrEqual(3); expect(Number(b)).toBeLessThanOrEqual(9);
+      expect(['mul', 'div']).toContain(op);
+      seen.add(op);
+      expect(it).toMatchObject({ topic: 'facts', level: 0, form: 'num' });
+      expect(same(evaluate(texToExpr(it.display)), it.answer), `${it.key}: ${it.display} is not ${it.answer}`).toBe(true);
+      expect(it.answer).toBe(op === 'mul' ? Number(a) * Number(b) : Number(b));
+      // every equation in the worked solution is true
+      it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1)).filter((m) => m.includes('=')).forEach((m) => expect(holds(m, {}), `${it.key}: ${m}`).toBe(true)));
+      expect(isCorrect(it, it.answer)).toBe(true);
+      expect(it.diag(it.answer + 1)).toBeNull(); // a missed fact names no misconception
+      expect(() => katex.renderToString(it.display, { throwOnError: true })).not.toThrow();
+    }
+    expect([...seen].sort()).toEqual(['div', 'mul']);
+  });
+  it('never repeats the question it is asked to avoid', () => {
+    for (let r = 0; r < 200; r += 1) { const a = factsItem(); expect(factsItem(a.key).key).not.toBe(a.key); }
   });
 });

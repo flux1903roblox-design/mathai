@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { Award, RotateCcw, Check, ArrowLeft, Gift } from 'lucide-react';
 import { TOPIC } from '@/content/index.js';
 import { useApp } from '@/lib/store.js';
-import { skillId } from '@/learn/skills.ts';
+import { skillId, parseSkill } from '@/learn/skills.ts';
 import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS } from '@/learn/mastery.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { contentOf } from '@/learn/content/index.ts';
@@ -40,7 +40,69 @@ function copy(r, rec, def, award) {
   }
 }
 
+/** The floor check's facts line: the same words on its end screen and in Topics → יסודות לחיזוק. */
+export const FACTS_LINE = 'לוח הכפל הוא בסיס לשברים. תרגול קצר עוזר לכל השאר.';
+
+/**
+ * The end of the floor check (בדיקת יסודות), in one of three forms: a fractions stair missed (the unit is now on the
+ * map, at the top, and the first missed stair is one tap away), nothing missed (back to where the student was), or
+ * only the multiplication facts missed (a short practice of them). Calm and short: it is a check of the basics, and a
+ * miss is a place to start, not a grade.
+ */
+export function floorEnd(r) {
+  const missed = Object.entries(r.perSkill || {}).filter(([s, x]) => s.startsWith('frac:') && x.right < x.asked)
+    .map(([s]) => s).sort((a, b) => parseSkill(a).level - parseSkill(b).level);
+  const facts = r.perSkill?.['facts:0'];
+  const factsMissed = !!facts && facts.right < facts.asked;
+  if (missed.length) {
+    return {
+      variant: 'frac', mood: 'encouraging', title: 'בדיקת היסודות הסתיימה',
+      lines: [`כדאי לחזק: ${missed.map(titleOf).join(', ')}. הוספנו את "שברים ועשרוניים" למפה, בראש הדרך.`, ...(factsMissed ? [FACTS_LINE] : [])],
+      primary: { label: 'ליסודות', to: `/learn/${missed[0].replace(':', '/')}` },
+    };
+  }
+  if (factsMissed) return { variant: 'facts', mood: 'encouraging', title: 'בדיקת היסודות הסתיימה', lines: [FACTS_LINE], primary: { label: 'לתרגול לוח הכפל', to: '/facts' } };
+  return { variant: 'none', mood: 'achievement', title: 'היסודות במקום', lines: ['שברים ולוח הכפל עובדים לכם. ממשיכים מאיפה שהייתם.'], primary: null };
+}
+
+function FloorDone({ r, onExit }) {
+  const navigate = useNavigate();
+  const end = floorEnd(r);
+  const ref = useRef(null);
+  useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
+  return (
+    <div className={clsx('page check-done floor-done', `floor-${end.variant}`)} role="main">
+      <div className="check-hero" data-region="content"><Mascot mood={end.mood} size={150} className="check-mascot" /></div>
+      <h1 ref={ref} tabIndex={-1} className={clsx('check-title', end.variant === 'none' && 'good')}>{end.title}</h1>
+      {end.lines.map((line) => <p key={line} className="lead">{line}</p>)}
+      <div className="stats check-stats" data-region="answers">
+        <div className={clsx('stat', r.right === r.asked ? 'stat-good' : 'stat-brand')}>
+          <span className="stat-label">נכונות</span>
+          <span className="stat-value" aria-label={`${r.right} נכונות מתוך ${r.asked}`}><Check size={20} aria-hidden="true" /><bdi dir="ltr">{r.right}/{r.asked}</bdi></span>
+        </div>
+        {r.xp > 0 && (
+          <div className="stat stat-gold">
+            <span className="stat-label">XP</span>
+            <span className="stat-value check-xp"><Award size={20} aria-hidden="true" /><span>+{r.xp}</span></span>
+          </div>
+        )}
+      </div>
+      <div className="form-actions" data-region="footer">
+        {end.primary && (
+          <Button className="btn-block btn-lg" onClick={() => navigate(end.primary.to, { replace: true })}>{end.primary.label}<ArrowLeft size={18} aria-hidden="true" /></Button>
+        )}
+        <Button variant={end.primary ? 'ghost' : 'primary'} className={clsx('btn-block', !end.primary && 'btn-lg')} onClick={onExit}>חזרה למפה</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function CheckDone({ result: r, award, onExit }) {
+  if (r.purpose === 'floor') return <FloorDone r={r} onExit={onExit} />;
+  return <StairCheckDone result={r} award={award} onExit={onExit} />;
+}
+
+function StairCheckDone({ result: r, award, onExit }) {
   const navigate = useNavigate();
   const skill = r.skill || (r.topic && r.level ? skillId(r.topic, r.level) : null);
   const rec = useApp((s) => (skill ? s.learn.skills[skill] : null));

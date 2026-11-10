@@ -85,7 +85,7 @@ function StatusWatch() {
 function Toasts() {
   const { pathname } = useLocation();
   useEffect(() => { toast.dismiss(); }, [pathname]);
-  const lesson = /^\/(lesson|practice|placement)/.test(pathname);
+  const lesson = /^\/(lesson|practice|placement|floor|facts)/.test(pathname);
   return lesson
     ? <Toaster key="top" position="top-center" dir="rtl" offset={72} mobileOffset={{ top: 72 }} toastOptions={{ className: 'toast' }} />
     : <Toaster key="bottom" position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />;
@@ -159,6 +159,9 @@ function Root() {
             <Route path="/lesson/:topic/:level" element={<LessonRoute />} />
             <Route path="/practice/:id" element={<LessonRoute />} />
             <Route path="/placement" element={<LessonRoute />} />
+            {/* the floor check and multiplication facts: like the placement test, outside the tab bar */}
+            <Route path="/floor" element={<LessonRoute />} />
+            <Route path="/facts" element={<LessonRoute />} />
             <Route path="/learn/:topic/:level/:stage" element={<TeachRoute />} />
             <Route path="/repair/:topic/:level/:misc" element={<Repair />} />
             <Route path="/rescue/check" element={<LessonRoute />} />

@@ -82,6 +82,16 @@ export function migrateState(saved, version, { personal = PERSONAL_KEY } = {}) {
   return st;
 }
 
+/**
+ * Saved state over the defaults. zustand's own merge is shallow: a saved `learn` would replace emptyLearn() whole, so a
+ * save from before a new learn field (floor, challenges: curriculum stage 1) would come back without it, and migrate
+ * does not run for a save already at this version. The learn fields are merged one level deeper instead.
+ */
+export const mergeSaved = (saved, cur) => ({
+  ...cur, ...(saved && typeof saved === 'object' ? saved : {}),
+  learn: { ...emptyLearn(), ...(saved?.learn && typeof saved.learn === 'object' ? saved.learn : {}) },
+});
+
 export const useApp = create(
   persist(
     (set, get) => ({
@@ -142,10 +152,21 @@ export const useApp = create(
           path = reopenKept(path, r.topic, r.level);
           reopened = path !== before;
         }
-        set({ learn, days, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic });
+        // the floor check is about the fractions floor, not practice in it: the map's "where I am" stays where it was
+        set({ learn, days, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.purpose === 'floor' ? st.lastTopic : r.topic || st.lastTopic });
         return { streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
+      /**
+       * The student's own say over the floor (Topics → יסודות לחיזוק): { on: false } takes the bridge unit off the map.
+       * The evidence of the floor check stays; a later check that misses a fractions question puts the unit back.
+       * Only an existing record changes: with no floor check there is nothing to switch.
+       */
+      setFloor: (patch) => {
+        const L = get().learn; const floor = L.floor ?? null;
+        if (!floor) return;
+        set({ learn: { ...L, floor: { ...floor, ...patch } } });
+      },
       /**
        * A teaching stage finished, as the student lives it: the stage is recorded as learning (never mastery), the
        * first time it earns XP towards the daily goal (STAGE_XP), and the day counts for the streak like a lesson.
@@ -196,6 +217,12 @@ export const useApp = create(
         const questsDone = !questsBefore && questProgress(d, day).every((q) => q.done);
         const freezeEarned = questsDone && !cur.questsRewarded && st.freezes < 2;
         if (questsDone) day.questsRewarded = true;
+        // multiplication facts (/facts) are a lesson of the day (XP, streak, quests) on no stair: no path, no topic level
+        if (r.kind === 'facts') {
+          const days = { ...st.days, [d]: day };
+          set({ days, xp: st.xp + r.xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)) });
+          return { streakExtended: !learnedOn(cur), streak: streakOf(days), practiceDone: false, unitDone: false, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
+        }
         const { path, practiceDone, unitDone } = recordOnPath(st.path, r);
         // The topic level follows the path: a passed jump test moves it on (a stair's own move is its mastery check).
         const p = st.progress[r.topic] || { level: 1, max: 1 };
@@ -248,7 +275,7 @@ export const useApp = create(
       signOut: () => set({ ...empty, learn: emptyLearn(), ai: { ...get().ai, pendingLink: null, lastTier: null } }),
     }),
     // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')
-    { name: STORE_KEY, storage: safeStorage, version: 4, migrate: (saved, version) => migrateState(saved, version) },
+    { name: STORE_KEY, storage: safeStorage, version: 4, migrate: (saved, version) => migrateState(saved, version), merge: mergeSaved },
   ),
 );
 

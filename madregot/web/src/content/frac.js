@@ -568,6 +568,41 @@ function bigger() {
   };
 }
 
+// ---------------------------------------------------------------- multiplication facts
+
+export const FACTS_TITLE = 'לוח הכפל';
+/** What a lesson screen needs of a topic for the facts items: their name and the floor unit's colour (no stairs). */
+export const FACTS = { id: 'facts', grade: '7', title: FACTS_TITLE, color: 'violet', levels: [], cats: {} };
+
+/**
+ * One multiplication fact, as the floor check and the facts practice (/facts) ask it: a · b, or the product divided by
+ * a (ab : a), with a and b from 3 to 9. Multiplication facts are not a stair: the programme assumes them, so these
+ * items carry topic 'facts' and level 0, record nothing about any stair (learn/storeGlue.ts learnAfterAnswer) and name
+ * no misconception. key: facts:{a}:{b}:{op}.
+ */
+export function factsItem(avoidKey) {
+  for (let i = 0; ; i += 1) {
+    const a = rint(rnd, 3, 9); const b = rint(rnd, 3, 9); const op = Math.random() < 0.6 ? 'mul' : 'div';
+    const key = `facts:${a}:${b}:${op}`;
+    if (key === avoidKey && i < 20) continue;
+    const p = a * b;
+    const common = { key, text: 'חשבו:', form: 'num', diag: () => null, topic: 'facts', level: 0, levelTitle: FACTS_TITLE };
+    if (op === 'mul') {
+      return {
+        ...common, display: `${a} \\cdot ${b}`, answer: p,
+        // a fact not remembered is built from a near one: one group fewer, then one more group
+        hint: `אם לא זוכרים, מתחילים ממה שקרוב: $${a} \\cdot ${b - 1} = ${a * (b - 1)}$, ועוד $${a}$.`,
+        solution: [`$${a} \\cdot ${b - 1} = ${a * (b - 1)}$`, `ועוד $${a}$: $${a * (b - 1)} + ${a} = ${p}$`, `$${a} \\cdot ${b} = ${p}$`],
+      };
+    }
+    return {
+      ...common, display: `${p} : ${a}`, answer: b,
+      hint: `חילוק הוא כפל הפוך: איזה מספר כפול $${a}$ נותן $${p}$?`,
+      solution: [`$${a} \\cdot ${b} = ${p}$`, `ולכן $${p} : ${a} = ${b}$`],
+    };
+  }
+}
+
 // ---------------------------------------------------------------- the topic
 
 export const FRAC = {

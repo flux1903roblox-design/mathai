@@ -234,7 +234,9 @@ export interface LearnEvent { t: string; e: string; s?: SkillId; m?: string; ok?
 
 /**
  * The floor check of the bridge unit (בדיקת יסודות): when it ran, whether the unit is on the map, what each fractions
- * stair showed, and the multiplication facts. Written by the floor check (curriculum stage 8); read by recommend.ts.
+ * stair showed, and the multiplication facts. Written by the floor check (storeGlue.ts learnAfterCheck, purpose 'floor');
+ * read by recommend.ts. `on` puts the bridge unit on the map: a missed fractions question switches it on, and only the
+ * student switches it off again (Topics, "להסתיר את היסודות מהמפה"), which keeps the evidence.
  */
 export interface FloorState {
   at: string;
@@ -243,14 +245,22 @@ export interface FloorState {
   facts: { asked: number; right: number };
 }
 
+/** A challenge task (curriculum stage 1, CURRICULUM-6): when it started, when it was finished, parts right first time. */
+export interface ChallengeRecord { startedAt: string; doneAt?: string; firstTry: number; parts: number }
+
 export interface LearnState {
   skills: Record<SkillId, SkillRecord>;
   miscon: Record<string, MisconRecord>; // key `${skill}|${id}`
   exam: ExamPlanState | null;
   missions: Record<string, { items: MissionItem[] }>; // by day 'YYYY-MM-DD'
   events: LearnEvent[];
-  /** The floor check's record; absent or null until it runs (a v4 save has none). */
+  /**
+   * The floor check's record; null until it runs. A save from before it existed has none: the store's persist merge
+   * fills null in (lib/store.js), and every reader still reads it as `learn.floor ?? null`.
+   */
   floor?: FloorState | null;
+  /** Challenge tasks by id ({} until one starts; read as `learn.challenges ?? {}`, as floor is). */
+  challenges?: Record<string, ChallengeRecord>;
 }
 
 // ------------------------------------------------------------------ what to do next

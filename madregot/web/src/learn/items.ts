@@ -11,10 +11,20 @@ import { DIAG_PER_SKILL } from './examRescue';
 // @ts-ignore: plain JS
 import { makeItem, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
+import { factsItem } from '@/content/frac.js';
+// @ts-ignore: plain JS
 import { withFormatNote } from '@/content/util.js';
 
-/** probe: where a misconception would show; control: where it would not (so a fixed answer cannot pass a verification). */
-export type Source = 'gen' | 'diag' | 'transfer' | 'probe' | 'control';
+/**
+ * probe: where a misconception would show; control: where it would not (so a fixed answer cannot pass a verification);
+ * facts: a multiplication fact (content/frac.js factsItem), which belongs to no stair.
+ */
+export type Source = 'gen' | 'diag' | 'transfer' | 'probe' | 'control' | 'facts';
+/** The skill a facts question is filed under in a check's plan and its per-skill count: no stair (level 0). */
+export const FACTS_SKILL = 'facts:0';
+/** The floor check: one question from each fractions stair, and two multiplication facts. */
+export const FLOOR_SKILLS = ['frac:1', 'frac:2', 'frac:3', 'frac:4'];
+export const FLOOR_FACTS = 2;
 
 export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source: Source) {
   // a model whose questions are of two kinds may choose the answer's form per question (decimals, or quarters)
@@ -35,6 +45,7 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
 
 /** One question of a skill from a source; falls back to the stair's exercise generator. */
 function itemOnce(skill: SkillId, source: Source, rnd: Rng, avoidKey?: string, candidates?: string[]) {
+  if (source === 'facts') return factsItem(avoidKey);
   const { topic, level } = parseSkill(skill);
   const c = contentOf(skill);
   if (c && source !== 'gen') {
@@ -69,7 +80,7 @@ export function itemFor(skill: SkillId, source: Source, rnd: Rng, avoidKey?: str
   return it;
 }
 
-export type CheckPurpose = 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam';
+export type CheckPurpose = 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam' | 'floor';
 export interface CheckSpec { purpose: CheckPurpose; skill?: SkillId; skills?: SkillId[]; misc?: string }
 
 const shuffle = <T>(a: T[], rnd: Rng) => { const b = [...a]; for (let i = b.length - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
@@ -103,6 +114,13 @@ export function checkPlan(spec: CheckSpec, rnd: Rng): { skill: SkillId; source: 
       const list = spec.skills || [];
       const per = list.length >= 6 ? 1 : 2;
       return shuffle(list.flatMap((s) => Array.from({ length: per }, (_, i) => ({ skill: s, source: (hasT(s) && i === 1 ? 'transfer' : 'gen') as Source }))), rnd).slice(0, 14);
+    }
+    case 'floor': {
+      // the floor check (בדיקת יסודות): a diagnostic question of each fractions stair, so a wrong answer names its
+      // misconception, and two multiplication facts; six questions in all, in a shuffled order
+      const list = spec.skills?.length ? spec.skills : FLOOR_SKILLS;
+      const facts = Array.from({ length: FLOOR_FACTS }, () => ({ skill: FACTS_SKILL, source: 'facts' as Source }));
+      return shuffle([...list.map((s) => ({ skill: s, source: (has(s) ? 'diag' : 'gen') as Source })), ...facts], rnd);
     }
     default: return [];
   }
