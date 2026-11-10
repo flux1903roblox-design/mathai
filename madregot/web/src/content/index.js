@@ -2,7 +2,7 @@ import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
 import { parseNum, near, plainNum, linText } from './util.js';
 import { LESSONS } from './lessons.js';
-import { manipCorrect, manipText, manipPlain, panWords, tilesWords, rayText, areaTex } from './manip.js';
+import { manipCorrect, manipText, manipPlain, panWords, tilesWords, rayText, areaTex, figWords, lineText } from './manip.js';
 
 import { NEW_CATS, CONTENT } from '@/learn/content/index.ts';
 
@@ -126,6 +126,7 @@ export function figPlain(f) {
     case 'coord': return [
       f.points?.length ? `נקודות: ${f.points.map(pt).join(', ')}` : '',
       f.line ? `ישר y = ${f.line.m}x + ${f.line.b}` : '',
+      f.lines?.length ? `ישרים: ${f.lines.map(lineText).join(', ')}` : '',
       f.polygon ? `מצולע: ${f.polygon.map(([x, y]) => `(${x}, ${y})`).join(' ')}` : '',
     ].filter(Boolean).join('; ');
     case 'linear': return `זוויות צמודות: זווית נתונה ${f.a}°`;
@@ -138,7 +139,8 @@ export function figPlain(f) {
     case 'area': return `מלבן: גובה ${f.a}, אורך ${f.b ? `x ועוד ${f.b}` : 'x'}${f.areas ? `; שטחי החלקים ${plainNum(f.a)}x ו־${plainNum(f.a * f.b)}, השטח כולו ${areaTex(f)}` : ''}`;
     case 'ray': return `ציר מספרים: עיגול ${f.closed ? 'מלא' : 'ריק'} ב־${plainNum(f.at)} וקרן ${f.dir > 0 ? 'ימינה' : 'שמאלה'} (${rayText(f)})`;
     case 'tiles': return `אריחים: ${tilesWords(f)}`;
-    default: return '';
+    // the teaching figures (STUDENT-8) say in words what they draw
+    default: return figWords(f);
   }
 }
 

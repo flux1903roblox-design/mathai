@@ -114,6 +114,52 @@ export const rayTex = ({ at, dir, closed }, v = 'x') => `${v} ${dir > 0 ? (close
 /** Is a number on the ray? */
 export const rayHas = ({ at, dir, closed }, n) => (n === at ? !!closed : dir > 0 ? n > at : n < at);
 
+// ---------------------------------------------------------------- the teaching figures in words (STUDENT-8)
+// The spoken name of each drawing (components/Figure.jsx puts it in aria-label): what a sighted student sees, never
+// more. A coordinate plane names its points but not where they are, because an exercise may ask exactly that.
+
+/** A number as the drawings write it: a real minus sign, a half as 2.5 (as 1/2 with decimal false: a line cut in parts). */
+export const figNum = (v, decimal = true) => plainNum(v, { decimal }).replace(/^-/, '−');
+/** A rule written in TeX (2x + 1, x \cdot 3 - 2) as the text a drawing can hold. */
+export const ruleText = (tex) => String(tex ?? '').replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2').replace(/\\(cdot|times)/g, '×')
+  .replace(/\\div/g, ':').replace(/\\[a-zA-Z]+|[{}\\]/g, '').replace(/-/g, '−').replace(/\s+/g, ' ').trim();
+/** Where two lines y = mx + b cross, or null when they are parallel (or one line). */
+export const linesMeet = (p, q) => (p.m === q.m ? null : [(q.b - p.b) / (p.m - q.m), (p.m * (q.b - p.b)) / (p.m - q.m) + p.b]);
+/** What a machine takes in or gives out, as drawn: x and y when nothing is given. */
+export const machineIO = (v, letter) => (v == null ? letter : typeof v === 'number' ? figNum(v) : String(v));
+
+export function figWords(f) {
+  switch (f.type) {
+    case 'numline': {
+      const at = (v) => figNum(v, !f.den);
+      return `ציר מספרים מ־${at(f.from)} עד ${at(f.to)}${f.den ? `, כל יחידה מחולקת ל־${f.den} חלקים` : ''}${(f.marks || []).map((k) => `, נקודה${/^[A-Z]$/.test(k.label || '') ? ` ${k.label}` : ''} ב־${at(k.x)}`).join('')}${(f.jumps || []).map((j) => `, קפיצה מ־${at(j.from)} ל־${at(j.to)}`).join('')}`;
+    }
+    case 'thermo': return `מדחום שמראה ${figNum(f.value)} מעלות${f.label ? `, ${f.label}` : ''}`;
+    case 'machine': {
+      const out = machineIO(f.outY, 'y');
+      return `מכונה: נכנס ${machineIO(f.inX, 'x')}, הכלל ${ruleText(f.rule)}, יוצא ${out === '?' ? 'סימן שאלה' : out}`;
+    }
+    case 'dots': {
+      const k = f.mark || {};
+      return `תרשים נקודות של ${f.values.length} ערכים בין ${figNum(f.axis[0])} ל־${figNum(f.axis[1])}${k.mode != null ? ', השכיח מסומן' : ''}${k.median != null ? ', החציון מסומן' : ''}${k.mean != null ? ', הממוצע מסומן' : ''}`;
+    }
+    case 'bars': return `תרשים עמודות: ${f.labels.map((l, i) => `${l} ${figNum(f.values[i])}`).join(', ')}${f.unit ? ` (${f.unit})` : ''}`;
+    case 'coord': {
+      const names = (f.points || []).filter((p) => !p.hidden).map((p) => p.label);
+      const lines = [...(f.line ? [f.line] : []), ...(f.lines || [])];
+      const meet = f.meet && f.lines?.length > 1 ? linesMeet(f.lines[0], f.lines[1]) : null;
+      const rr = f.riseRun && lines[0] ? { run: f.riseRun.run, rise: lines[0].m * f.riseRun.run } : null;
+      const said = lines.map((l) => l.label).filter(Boolean);
+      return ['מערכת צירים', f.quadrants && 'ארבעה רביעים', names.length && `${names.length === 1 ? 'הנקודה' : 'הנקודות'} ${names.join(', ')}`,
+        lines.length && (lines.length === 1 ? `ישר${said.length ? ` ${said[0]}` : ''}` : `${lines.length} ישרים${said.length ? `: ${said.join(', ')}` : ''}`),
+        meet && `הישרים נפגשים ב־(${figNum(meet[0])}, ${figNum(meet[1])})`,
+        f.path?.length && 'מסלול מראשית הצירים',
+        rr && `צעד של ${figNum(Math.abs(rr.run))} ${rr.run > 0 ? 'ימינה' : 'שמאלה'} ו־${figNum(Math.abs(rr.rise))} ${rr.rise >= 0 ? 'למעלה' : 'למטה'}`].filter(Boolean).join(', ');
+    }
+    default: return '';
+  }
+}
+
 // ---------------------------------------------------------------- checking, words and test states
 
 export function manipCorrect(it, u) {

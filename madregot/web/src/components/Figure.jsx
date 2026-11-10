@@ -6,32 +6,91 @@
 //   area   { a, b, areas? }                             a rectangle a high and x + b long; areas: write each part's area
 //   ray    { at, dir, closed, min?, max? }              an inequality's solutions on the number line
 //   tiles  { px, nx, p1, n1 }                           algebra tiles: x, −x, 1 and −1
-import { useId } from 'react';
+// The teaching figures (STUDENT-8), so every teaching step can draw what its text names (learn/types.ts has their shapes):
+//   numline { from, to, step?, den?, marks?: [{ x, label?, tone? }], jumps?: [{ from, to, label? }], anim? }
+//          a number line: points, and moves as arcs; a point labelled with its own number lights that number up;
+//          den cuts every unit into parts (labels on whole numbers only)
+//   thermo  { value, min, max, label? }                  a thermometer at value, its scale from min to max
+//   machine { inX?, rule, outY?, anim? }                 a function machine: inX goes in, rule (TeX) inside, outY comes out
+//                                                       (x and y when not given; '?' when the step asks for it)
+//   dots    { values, axis: [min, max], mark?: { mode?, median?, mean? }, anim? }   a dot plot: equal values stack; the
+//          mode's column or the middle dot(s) are marked, the mean is a fulcrum under the axis (a balance point)
+//   bars    { labels, values, highlight?, unit? }        a bar chart, the first bar on the right, each value over its bar
+//   coord   also { quadrants?, path?, lines?: [{ m, b, label?, tone? }], meet?, riseRun?: { x, run }, anim? }
+//          (see Coord). Never draw a function's graph with 'linear': that one is a linear pair of angles.
+// With anim, a figure draws itself once as its step comes in (useDraw); under reduced motion it is there at once.
+import { useEffect, useId, useState } from 'react';
 import clsx from 'clsx';
+import { m, useReducedMotion } from 'motion/react';
+import { DUR, EASE } from '@/lib/motion.js';
 import { ScaleArt, scaleView, scaleTop } from './manip/Balance.jsx';
 import { AreaArt, areaView } from './manip/AreaModel.jsx';
 import { RayArt, RAY_VIEW } from './manip/Ray.jsx';
 import { TilesArt, TILES_VIEW } from './manip/Tiles.jsx';
-import { panWords, tilesWords, rayText, areaTex } from '@/content/manip.js';
+import { panWords, tilesWords, rayText, areaTex, figWords, figNum, ruleText, linesMeet, machineIO } from '@/content/manip.js';
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
 
+// ---------------------------------------------------------------- drawing in, once (STUDENT-8)
+// With anim, each part of a figure is drawn in turn: a path from nothing to its full length in DUR.medium, the next one
+// DUR.stagger × 4 later; what sits at a path's end (its head, its label) appears when the path is there, and a dot fades
+// in at its turn. It starts after the step's own slide-in and plays once, as the step comes in (a step is a new element
+// each time). Under reduced motion, or without anim, the figure is there at once. A dashed line only fades: drawing its
+// length would replace its dashes.
+// The parts start hidden and are told to show once the figure is on the page (an effect), not through `initial`: the
+// first step of a lesson sits in an AnimatePresence with initial={false}, which would skip every entrance inside it.
+const LEAD = 0.2; const STEP = DUR.stagger * 4;
+function useDraw(on) {
+  const still = useReducedMotion() || !on;
+  const [go, setGo] = useState(false);
+  useEffect(() => { if (!still) setGo(true); }, [still]);
+  return (k, kind = 'path') => {
+    if (still) return {};
+    const delay = LEAD + k * STEP + (kind === 'end' ? DUR.medium : 0);
+    const path = kind === 'path';
+    const hidden = path ? { pathLength: 0, opacity: 0 } : { opacity: 0 };
+    if (!go) return { initial: hidden, animate: hidden };
+    return path
+      ? { initial: hidden, animate: { pathLength: 1, opacity: 1 }, transition: { delay, duration: DUR.medium, ease: EASE.out, opacity: { delay, duration: 0.01 } } }
+      : { initial: hidden, animate: { opacity: 1 }, transition: { delay, duration: DUR.quick } };
+  };
+}
+const toneOf = (t) => `tone-${t === 'good' || t === 'bad' || t === 'alt' ? t : 'brand'}`;
+/** An arrow's head at (x, y), pointing along the angle th (radians, screen axes). */
+const head = (x, y, th, n = 9) => `M ${x - n * Math.cos(th + 0.5)} ${y - n * Math.sin(th + 0.5)} L ${x} ${y} L ${x - n * Math.cos(th - 0.5)} ${y - n * Math.sin(th - 0.5)}`;
+/** Text with its single letters in the maths font (2x + 1, x and y on a machine). */
+const withVars = (t) => String(t).split(/([a-zA-Z])/).map((p, i) => (i % 2 ? <tspan key={i} className="fig-var">{p}</tspan> : p));
+
+// The coordinate plane: points, a polygon, segments and one line { m, b } (the generators' figures), and for teaching
+// (STUDENT-8): quadrants (רביע 1…4), path (a walk from the origin, one arrow a leg), lines (more than one line, each with
+// an optional label and tone), meet (a dot and the coordinates where lines[0] and lines[1] cross) and riseRun { x, run }
+// (on the first line: a dashed run of `run` from x, then the rise, each with its number).
 function Coord({ fig }) {
   const r = fig.range || 6; const c = 22; const pad = 26;
   const size = 2 * r * c + 2 * pad; const o = size / 2;
   const X = (x) => o + x * c; const Y = (y) => o - y * c;
   const ticks = []; for (let i = -r; i <= r; i++) ticks.push(i);
   const label = (n) => (n < 0 ? `−${-n}` : `${n}`);
+  const draw = useDraw(fig.anim);
+  const clip = `plane-${useId().replace(/[^\w-]/g, '')}`;
+  const ends = (l) => { const x1 = -r - 0.5; const x2 = r + 0.5; return [X(x1), Y(l.m * x1 + l.b), X(x2), Y(l.m * x2 + l.b)]; };
   let lineEl = null;
   if (fig.line) {
-    const { m, b } = fig.line; const x1 = -r - 0.5; const x2 = r + 0.5;
-    lineEl = <line x1={X(x1)} y1={Y(m * x1 + b)} x2={X(x2)} y2={Y(m * x2 + b)} className="fg-line" />;
+    const [x1, y1, x2, y2] = ends(fig.line);
+    lineEl = <line x1={x1} y1={y1} x2={x2} y2={y2} className="fg-line" />;
   }
+  const lines = fig.lines || [];
+  // a line's label sits near where it leaves the plane on the right (or at the top or bottom, when it is steep)
+  const tagAt = (l) => { const e = r - 0.7; let x = e; let y = l.m * x + l.b; if (Math.abs(y) > e && l.m) { y = Math.sign(y) * e; x = (y - l.b) / l.m; } return [X(x) - 6, Y(y) + (l.m > 0 ? -10 : 22)]; };
+  const meet = fig.meet && lines.length > 1 ? linesMeet(lines[0], lines[1]) : null;
+  const first = fig.line || lines[0];
+  const rr = fig.riseRun && first ? (() => { const { x, run } = fig.riseRun; const y0 = first.m * x + first.b; return { x, x1: x + run, y0, y1: first.m * (x + run) + first.b, run }; })() : null;
+  const walk = fig.path?.length ? (fig.path[0][0] === 0 && fig.path[0][1] === 0 ? fig.path : [[0, 0], ...fig.path]) : [];
   const visible = (fig.points || []).filter((p) => !p.hidden);
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} className="figure coord" role="img" aria-label="מערכת צירים">
+    <svg viewBox={`0 0 ${size} ${size}`} className="figure coord" role="img" aria-label={figWords(fig)}>
       <defs>
-        <clipPath id="plane"><rect x={X(-r - 0.5)} y={Y(r + 0.5)} width={(2 * r + 1) * c} height={(2 * r + 1) * c} /></clipPath>
+        <clipPath id={clip}><rect x={X(-r - 0.5)} y={Y(r + 0.5)} width={(2 * r + 1) * c} height={(2 * r + 1) * c} /></clipPath>
       </defs>
       {ticks.map((i) => <line key={`v${i}`} x1={X(i)} y1={Y(r + 0.5)} x2={X(i)} y2={Y(-r - 0.5)} className="fg-grid" />)}
       {ticks.map((i) => <line key={`h${i}`} x1={X(-r - 0.5)} y1={Y(i)} x2={X(r + 0.5)} y2={Y(i)} className="fg-grid" />)}
@@ -47,12 +106,37 @@ function Coord({ fig }) {
           <text x={o - 6} y={Y(i) + 5} textAnchor="end" className="fg-tick">{label(i)}</text>
         </g>
       ))}
-      <g clipPath="url(#plane)">
+      {/* each quadrant's name in its outer corner, clear of the axes' numbers and of most points */}
+      {fig.quadrants && [[1, 1, 1], [2, -1, 1], [3, -1, -1], [4, 1, -1]].map(([q, sx, sy]) => (
+        <text key={`q${q}`} x={X(sx * (r - 1.3))} y={Y(sy * (r - 0.45)) + 6} textAnchor="middle" direction="rtl" className="fig-cd-quad">{`רביע ${q}`}</text>
+      ))}
+      <g clipPath={`url(#${clip})`}>
         {fig.polygon && <polygon points={fig.polygon.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ')} className="fg-poly" />}
         {lineEl}
+        {lines.map((l, i) => { const [x1, y1, x2, y2] = ends(l); return <m.path key={`l${i}`} d={`M ${x1} ${y1} L ${x2} ${y2}`} className={clsx('fig-cd-line', toneOf(l.tone || (i ? 'alt' : 'brand')))} {...draw(i)} />; })}
         {fig.helper && <polyline points={fig.helper.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ')} className="fg-helper" />}
         {(fig.segments || []).map(([[x1, y1], [x2, y2]], i) => <line key={i} x1={X(x1)} y1={Y(y1)} x2={X(x2)} y2={Y(y2)} className="fg-seg" />)}
       </g>
+      {lines.map((l, i) => l.label && (
+        <m.text key={`lt${i}`} x={tagAt(l)[0]} y={tagAt(l)[1]} textAnchor="end" className={clsx('fig-cd-tag', toneOf(l.tone || (i ? 'alt' : 'brand')))} style={{ fontFamily: MATH_FONT }} {...draw(i, 'end')}>{l.label}</m.text>
+      ))}
+      {rr && (
+        <g className="fig-cd-rr">
+          <m.path d={`M ${X(rr.x)} ${Y(rr.y0)} H ${X(rr.x1)}`} {...draw(lines.length, 'fade')} />
+          <m.path d={`M ${X(rr.x1)} ${Y(rr.y0)} V ${Y(rr.y1)}`} {...draw(lines.length + 1, 'fade')} />
+          <m.text x={(X(rr.x) + X(rr.x1)) / 2} y={Y(rr.y0) + (rr.y1 > rr.y0 ? 22 : -10)} textAnchor="middle" className="fig-cd-rr-num" {...draw(lines.length, 'fade')}>{figNum(rr.run)}</m.text>
+          <m.text x={X(rr.x1) + (rr.run > 0 ? 9 : -9)} y={(Y(rr.y0) + Y(rr.y1)) / 2 + 6} textAnchor={rr.run > 0 ? 'start' : 'end'} className="fig-cd-rr-num" {...draw(lines.length + 1, 'fade')}>{figNum(rr.y1 - rr.y0)}</m.text>
+        </g>
+      )}
+      {walk.slice(1).map(([x, y], i) => {
+        const a = [X(walk[i][0]), Y(walk[i][1])]; const b = [X(x), Y(y)]; const k = lines.length + i;
+        return (
+          <g key={`w${i}`} className="fig-cd-walk">
+            <m.path d={`M ${a[0]} ${a[1]} L ${b[0]} ${b[1]}`} {...draw(k)} />
+            <m.path d={head(b[0], b[1], Math.atan2(b[1] - a[1], b[0] - a[0]), 10)} {...draw(k, 'end')} />
+          </g>
+        );
+      })}
       {visible.map((p) => (
         <g key={p.label}>
           <circle cx={X(p.x)} cy={Y(p.y)} r="5" className="fg-pt" />
@@ -60,6 +144,12 @@ function Coord({ fig }) {
           <text x={X(p.x) + (p.x >= 0 ? 9 : -9)} y={p.y >= 0 ? Y(p.y) - 9 : Y(p.y) + 21} textAnchor={p.x >= 0 ? 'start' : 'end'} className="fg-pt-label" style={{ fontFamily: MATH_FONT }}>{p.label}</text>
         </g>
       ))}
+      {meet && (
+        <m.g className="fig-cd-meet" {...draw(lines.length, 'end')}>
+          <circle cx={X(meet[0])} cy={Y(meet[1])} r="6" />
+          <text x={X(meet[0]) + 10} y={Y(meet[1]) + 24} className="fig-cd-meet-num">{`(${figNum(meet[0])}, ${figNum(meet[1])})`}</text>
+        </m.g>
+      )}
     </svg>
   );
 }
@@ -379,8 +469,179 @@ function TilesFig({ fig }) {
   );
 }
 
+// ---------------------------------------------------------------- the teaching figures (STUDENT-8)
+const whole = (v) => Math.abs(v - Math.round(v)) < 1e-9;
+
+/** A number line: ticks every step (or every 1/den), points, and moves as arcs over the line. */
+function NumLine({ fig }) {
+  const { from, to, den } = fig; const step = fig.step || 1;
+  const marks = fig.marks || []; const jumps = fig.jumps || [];
+  const draw = useDraw(fig.anim);
+  const W = 320; const PAD = 22; const u = (W - 2 * PAD) / (to - from);
+  const X = (v) => PAD + (v - from) * u;
+  const num = (v) => figNum(Math.round(v * 1000) / 1000);
+  // a point labelled with its own number lights that number up instead of writing it twice
+  const lit = new Map(marks.filter((k) => k.label === num(k.x)).map((k) => [num(k.x), k]));
+  const named = marks.filter((k) => k.label && !lit.has(num(k.x)));
+  // an arc rises with its length; with arcs over the line, the points' letters go under the numbers
+  const lift = (j) => Math.min(56, 14 + Math.abs(j.to - j.from) * u * 0.28);
+  const under = jumps.length > 0;
+  const L = under ? Math.max(...jumps.map(lift)) + 40 : named.length ? 46 : 22;
+  const H = L + (under && named.length ? 62 : 38);
+  const per = den || 1 / step; const n = Math.round((to - from) * per);
+  const every = Math.max(1, Math.ceil(22 / (u / per)));
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="figure fig-obj fig-numline" role="img" aria-label={figWords(fig)}>
+      <line x1={PAD - 12} y1={L} x2={W - PAD + 12} y2={L} className="fig-nl-axis" />
+      <path d={`M ${W - PAD + 15} ${L} l -9 -5.5 v 11 z`} className="fig-nl-head" />
+      {Array.from({ length: n + 1 }, (_, i) => {
+        const v = from + i / per; const w = !den || whole(v); const z = Math.abs(v) < 1e-9; const k = lit.get(num(v));
+        if (!w && u / den < 3) return null; // parts too close to tell apart
+        const t = w ? (z ? 9 : 6) : 4;
+        return (
+          <g key={i}>
+            <line x1={X(v)} y1={L - t} x2={X(v)} y2={L + t} className={clsx('fig-nl-tick', z && 'zero', !w && 'part')} />
+            {(k || (den ? w : i % every === 0)) && <text x={X(v)} y={L + 26} textAnchor="middle" className={clsx('fig-nl-num', z && 'zero', k && `on ${toneOf(k.tone)}`)}>{num(v)}</text>}
+          </g>
+        );
+      })}
+      {marks.map((k, i) => (
+        <m.g key={`m${i}`} className={clsx('fig-nl-mark', toneOf(k.tone))} {...draw(i, 'fade')}>
+          <circle cx={X(k.x)} cy={L} r="6.5" />
+          {k.label && !lit.has(num(k.x)) && <text x={X(k.x)} y={under ? L + 52 : L - 17} textAnchor="middle" className={clsx('fig-nl-name', /^[A-Z]$/.test(k.label) && 'fig-var')}>{k.label}</text>}
+        </m.g>
+      ))}
+      {jumps.map((j, i) => {
+        const a = X(j.from); const b = X(j.to); const h = lift(j); const y = L - 7; const mid = (a + b) / 2; const k = marks.length + i;
+        return (
+          <g key={`j${i}`} className="fig-nl-jump">
+            <m.path d={`M ${a} ${y} Q ${mid} ${y - 2 * h} ${b} ${y}`} {...draw(k)} />
+            <m.path d={head(b, y, Math.atan2(2 * h, b - mid))} {...draw(k, 'end')} />
+            {j.label && <m.text x={mid} y={y - h - 9} textAnchor="middle" className="fig-nl-move" {...draw(k, 'end')}>{String(j.label).replace(/^-/, '−')}</m.text>}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** A thermometer: the scale from min to max, the red column up to value, and the reading beside it. */
+function Thermo({ fig }) {
+  const { value, min, max } = fig;
+  const T = 30; const B = 212; const Y = (v) => B - ((v - min) / (max - min)) * (B - T);
+  // numbers every k degrees (at most 8 of them), a small tick for each degree between (or every k/5)
+  const k = [1, 2, 5, 10, 20].find((s) => (max - min) / s <= 8) || 50;
+  const sub = k >= 5 ? k / 5 : 1;
+  const ticks = []; for (let v = Math.ceil(min / sub) * sub; v <= max + 1e-9; v += sub) ticks.push(Math.round(v * 1e6) / 1e6);
+  const y = Y(value);
+  return (
+    <svg viewBox={`0 0 240 ${fig.label ? 300 : 280}`} className="figure fig-obj fig-thermo" role="img" aria-label={figWords(fig)}>
+      <path d={`M 106 ${T - 12} a 14 14 0 0 1 28 0 V 233 A 22 22 0 1 1 106 233 Z`} className="fig-th-glass" />
+      <circle cx="120" cy="250" r="15" className="fig-th-fill" />
+      <rect x="114" y={y} width="12" height={250 - y} className="fig-th-fill" />
+      {ticks.map((v) => {
+        const big = Math.abs(v / k - Math.round(v / k)) < 1e-9;
+        return (
+          <g key={v}>
+            <line x1="134" x2={v === 0 ? 152 : big ? 146 : 140} y1={Y(v)} y2={Y(v)} className={clsx('fig-th-tick', v === 0 && 'zero', !big && 'sub')} />
+            {big && <text x="157" y={Y(v) + 5} className={clsx('fig-th-num', v === 0 && 'zero')}>{figNum(v)}</text>}
+          </g>
+        );
+      })}
+      <line x1="84" x2="111" y1={y} y2={y} className="fig-th-pointer" />
+      <text x="80" y={y + 7} textAnchor="end" className="fig-th-read">{`${figNum(value)}°`}</text>
+      {fig.label && <text x="120" y="294" textAnchor="middle" direction="rtl" className="fg-word">{fig.label}</text>}
+    </svg>
+  );
+}
+
+/** A function machine, top to bottom so it reads the same in Hebrew: what goes in, the rule, what comes out. */
+function Machine({ fig }) {
+  const draw = useDraw(fig.anim);
+  const io = [machineIO(fig.inX, 'x'), machineIO(fig.outY, 'y')];
+  const pill = (t, y, cls) => {
+    const w = Math.max(60, t.length * 14 + 30);
+    return (
+      <g className={cls}>
+        <rect x={150 - w / 2} y={y - 22} width={w} height="44" rx="22" />
+        <text x="150" y={y + 8} textAnchor="middle">{withVars(t)}</text>
+      </g>
+    );
+  };
+  return (
+    <svg viewBox="0 0 300 266" className="figure fig-obj fig-machine" role="img" aria-label={figWords(fig)}>
+      {pill(io[0], 26, 'fig-mc-io')}
+      <m.path d="M 150 52 V 84" className="fig-mc-arrow" {...draw(0)} />
+      <m.path d={head(150, 85, Math.PI / 2)} className="fig-mc-arrow" {...draw(0, 'end')} />
+      <rect x="36" y="92" width="228" height="82" rx="18" className="fig-mc-box" />
+      <text x="150" y="142" textAnchor="middle" className="fig-mc-rule">{withVars(ruleText(fig.rule))}</text>
+      <m.path d="M 150 182 V 212" className="fig-mc-arrow" {...draw(1)} />
+      <m.path d={head(150, 213, Math.PI / 2)} className="fig-mc-arrow" {...draw(1, 'end')} />
+      <m.g {...draw(1, 'end')}>{pill(io[1], 240, clsx('fig-mc-io', io[1] === '?' && 'target'))}</m.g>
+    </svg>
+  );
+}
+
+/** A dot plot: one dot a value, equal values stacked; the mode's column or the middle dot(s) marked, the mean a fulcrum. */
+function Dots({ fig }) {
+  const { values } = fig; const [lo, hi] = fig.axis; const k = fig.mark || {};
+  const draw = useDraw(fig.anim);
+  const W = 320; const PAD = 24; const u = (W - 2 * PAD) / (hi - lo); const X = (v) => PAD + (v - lo) * u;
+  const r = Math.max(4, Math.min(9, u * 0.4)); const g = 2 * r + 3;
+  const high = new Map(); const row = values.map((v) => { const n = high.get(v) || 0; high.set(v, n + 1); return n; });
+  const L = 14 + Math.max(1, ...high.values()) * g;
+  // the median's dot(s): the middle of the values in order (equal values in the order given, as they stack)
+  const order = values.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((p) => p[1]);
+  const n = values.length;
+  const mids = k.median == null || !n ? [] : n % 2 ? [order[(n - 1) / 2]] : [order[n / 2 - 1], order[n / 2]];
+  const lit = (i) => (k.mode != null && values[i] === k.mode) || mids.includes(i);
+  const every = [1, 2, 5, 10, 20, 50].find((s) => s * u >= 22) || 100;
+  const ticks = []; for (let v = Math.ceil(lo); v <= hi; v += 1) ticks.push(v);
+  const numY = L + (k.mean != null ? 38 : 24);
+  return (
+    <svg viewBox={`0 0 ${W} ${numY + 10}`} className="figure fig-obj fig-dots" role="img" aria-label={figWords(fig)}>
+      <line x1={PAD - 12} y1={L} x2={W - PAD + 12} y2={L} className="fig-nl-axis" />
+      {ticks.map((v) => (
+        <g key={v}>
+          {u >= 6 || v % every === 0 ? <line x1={X(v)} y1={L} x2={X(v)} y2={L + 6} className="fig-nl-tick" /> : null}
+          {v % every === 0 && <text x={X(v)} y={numY} textAnchor="middle" className="fig-nl-num">{figNum(v)}</text>}
+        </g>
+      ))}
+      {k.mean != null && <path d={`M ${X(k.mean)} ${L + 2} l -9 16 h 18 z`} className="fig-dt-fulcrum" />}
+      {values.map((v, i) => (
+        <m.circle key={i} cx={X(v)} cy={L - 3 - r - row[i] * g} r={r} className={clsx('fig-dt-dot', lit(i) && 'hi')} {...draw(i * Math.min(1, 12 / n), 'fade')} />
+      ))}
+    </svg>
+  );
+}
+
+/** A bar chart: the first bar on the right, as a Hebrew reader starts; each value over its bar, its name under it. */
+function Bars({ fig }) {
+  const { labels, values } = fig; const n = values.length;
+  const W = 320; const PAD = 14; const B = 188; const top = fig.unit ? 46 : 30; const max = Math.max(1, ...values);
+  const slot = (W - 2 * PAD) / n; const bw = Math.min(56, slot * 0.62);
+  const cx = (i) => W - PAD - slot * (i + 0.5);
+  const size = Math.min(15, (slot - 4) / (0.56 * Math.max(...labels.map((l) => l.length))));
+  return (
+    <svg viewBox={`0 0 ${W} 220`} className="figure fig-obj fig-bars" role="img" aria-label={figWords(fig)}>
+      {fig.unit && <text x={W / 2} y="18" textAnchor="middle" direction="rtl" className="fg-word">{fig.unit}</text>}
+      {values.map((v, i) => {
+        const h = (v / max) * (B - top);
+        return (
+          <g key={i} className={clsx('fig-bar', fig.highlight === i && 'hi')}>
+            <rect x={cx(i) - bw / 2} y={B - h} width={bw} height={h} rx="4" />
+            <text x={cx(i)} y={B - h - 8} textAnchor="middle" className="fig-bar-num">{figNum(v)}</text>
+            <text x={cx(i)} y={B + 22} textAnchor="middle" direction="rtl" className="fig-bar-name" style={{ fontSize: `${size}px` }}>{labels[i]}</text>
+          </g>
+        );
+      })}
+      <line x1={PAD} x2={W - PAD} y1={B} y2={B} className="fig-bar-base" />
+    </svg>
+  );
+}
+
 export default function Figure({ fig }) {
   if (!fig) return null;
-  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig }[fig.type];
+  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars }[fig.type];
   return C ? <div className="figure-wrap"><C fig={fig} /></div> : null;
 }

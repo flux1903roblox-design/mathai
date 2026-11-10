@@ -20,7 +20,7 @@ const nl = (from: number, min = -10, max = 10): ManipSpec => ({ kind: 'numberlin
 const tiles = (px: number, nx: number, p1: number, n1: number): ManipSpec => ({ kind: 'tiles', start: { px, nx, p1, n1 } });
 const area = (): ManipSpec => ({ kind: 'area', start: { a: 1, b: 0 }, maxA: 6, maxB: 9 });
 /** A table of a pattern: its terms by place. */
-const table = (head: [string, string], rows: (number | string)[][]) => ({ type: 'table', head, rows });
+const table = (head: [string, string], rows: (number | string)[][]) => ({ type: 'table' as const, head, rows });
 
 /**
  * Draws until no misconception of the model predicts what a slip of the hand gives (one off, ten off, two digits

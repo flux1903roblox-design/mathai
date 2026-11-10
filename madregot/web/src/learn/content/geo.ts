@@ -5,7 +5,7 @@
 // Points are in units with y up. A name that starts with "_" is drawn without a letter, so a drawing has letters only
 // where its step's text has them. learn/figures.test.ts checks the letters against each step's text, and every number
 // in a drawing against its geometry (angles in degrees, lengths in proportion, squares as the side squared).
-import type { FigSpec } from '../types';
+import type { GeoFig } from '../types';
 
 type Pt = [number, number];
 const R = (v: number) => Math.round(v * 1e4) / 1e4;
@@ -13,12 +13,12 @@ const R = (v: number) => Math.round(v * 1e4) / 1e4;
 export const dir = (deg: number, len = 1, from: Pt = [0, 0]): Pt => [R(from[0] + len * Math.cos((deg * Math.PI) / 180)), R(from[1] + len * Math.sin((deg * Math.PI) / 180))];
 type Angle = { at: string; from: string; to: string; text?: string; target?: boolean; right?: boolean; r?: number; n?: number };
 type Seg = { a: string; b: string; ext?: [number, number]; dash?: boolean; thin?: boolean; hi?: boolean; label?: string; side?: 'in'; t?: number; ticks?: number; arrows?: number };
-const geo = (label: string, f: Record<string, unknown>): FigSpec => ({ type: 'geo', label, ...f });
+const geo = (label: string, f: Record<string, unknown>): GeoFig => ({ type: 'geo', label, ...f }) as GeoFig;
 
 // ---------------------------------------------------------------- angles
 
 /** Two rays from one point, the vertex, with the opening between them: what an angle is. */
-export const rays = (): FigSpec => geo('זווית: שתי קרניים שיוצאות מקודקוד', {
+export const rays = (): GeoFig => geo('זווית: שתי קרניים שיוצאות מקודקוד', {
   pts: { _O: [0, 0], _P: [3.2, 0], _Q: dir(48, 3.2) },
   segs: [{ a: '_O', b: '_P', label: 'קרן' }, { a: '_O', b: '_Q', label: 'קרן' }],
   angles: [{ at: '_O', from: '_P', to: '_Q', r: 30 }],
@@ -26,7 +26,7 @@ export const rays = (): FigSpec => geo('זווית: שתי קרניים שיוצ
 });
 
 /** A straight line through a point and the half turn over it. */
-export const halfTurn = (): FigSpec => geo('קו ישר וחצי סיבוב סביב נקודה עליו', {
+export const halfTurn = (): GeoFig => geo('קו ישר וחצי סיבוב סביב נקודה עליו', {
   pts: { _L: [-3, 0], _O: [0, 0], _R: [3, 0] },
   segs: [{ a: '_L', b: '_R' }],
   angles: [{ at: '_O', from: '_R', to: '_L', text: '?', target: true, r: 46 }],
@@ -38,7 +38,7 @@ export const halfTurn = (): FigSpec => geo('קו ישר וחצי סיבוב סב
  * are the marks of the angle on each side of the ray ({ text, target, n }), `o` the point's letter ('' for none),
  * `before` an earlier place of the ray (dashed) when the ray was turned.
  */
-export function onLine(ray: number, { right, left, o = '', before, rightAngle }: { right?: Partial<Angle>; left?: Partial<Angle>; o?: string; before?: number; rightAngle?: boolean } = {}): FigSpec {
+export function onLine(ray: number, { right, left, o = '', before, rightAngle }: { right?: Partial<Angle>; left?: Partial<Angle>; o?: string; before?: number; rightAngle?: boolean } = {}): GeoFig {
   const O = o || '_O';
   const pts: Record<string, Pt> = { _L: [-3, 0], [O]: [0, 0], _R: [3, 0], _B: dir(ray, 2.7) };
   const segs: Seg[] = [{ a: '_L', b: '_R' }, { a: O, b: '_B', hi: true }];
@@ -56,7 +56,7 @@ export function onLine(ray: number, { right, left, o = '', before, rightAngle }:
  * from the right: 1 between the right ray and the upper one, then 2, 3 (opposite 1) and 4 (opposite 2).
  * `marks[i]` is the mark of angle i+1 (null: no mark); `ray` draws the second line as a ray up and a dashed half down.
  */
-export function crossing(theta: number, marks: (Partial<Angle> | null)[], { ray = false, second = false }: { ray?: boolean; second?: boolean } = {}): FigSpec {
+export function crossing(theta: number, marks: (Partial<Angle> | null)[], { ray = false, second = false }: { ray?: boolean; second?: boolean } = {}): GeoFig {
   const pts: Record<string, Pt> = { _O: [0, 0], _R: [3, 0], _L: [-3, 0], _U: dir(theta, 3), _D: dir(theta + 180, 3) };
   const segs: Seg[] = ray
     ? [{ a: '_L', b: '_R', hi: true }, { a: '_O', b: '_U', hi: true }, { a: '_O', b: '_D', dash: true, thin: true }]
@@ -67,7 +67,7 @@ export function crossing(theta: number, marks: (Partial<Angle> | null)[], { ray 
 }
 
 /** Scissors: two crossing bars, the blades open to the right by `open` degrees, the handles to the left. */
-export const scissors = (open: number): FigSpec => {
+export const scissors = (open: number): GeoFig => {
   const h = open / 2;
   return geo('מספריים: שני מוטות נחתכים, הלהבים מצד אחד והידיות מהצד השני', {
     pts: { _O: [0, 0], _a: dir(-h, 3.2), _b: dir(h, 3.2), _c: dir(180 - h, 2.2), _d: dir(180 + h, 2.2) },
@@ -88,7 +88,7 @@ export function apex(a: number, b: number, base = 5): Pt {
  * A triangle with its corners at `pts` (three names, counterclockwise: base left, base right, top) and the marks of
  * its angles, keyed by corner name.
  */
-export function triangle(names: [string, string, string], corners: [Pt, Pt, Pt], marks: Record<string, Partial<Angle> | null> = {}, extra: Record<string, unknown> = {}): FigSpec {
+export function triangle(names: [string, string, string], corners: [Pt, Pt, Pt], marks: Record<string, Partial<Angle> | null> = {}, extra: Record<string, unknown> = {}): GeoFig {
   const [p, q, r] = names;
   const pts: Record<string, Pt> = { [p]: corners[0], [q]: corners[1], [r]: corners[2] };
   const span: Record<string, [string, string]> = { [p]: [q, r], [q]: [r, p], [r]: [p, q] };
@@ -98,7 +98,7 @@ export function triangle(names: [string, string, string], corners: [Pt, Pt, Pt],
 }
 
 /** A triangle whose three corners are torn off along the dashed lines. */
-export function torn(): FigSpec {
+export function torn(): GeoFig {
   const A: Pt = [0, 0]; const B: Pt = [5, 0]; const C: Pt = [1.8, 3];
   const cut = (v: Pt, p: Pt, q: Pt, k = 0.32): Record<string, Pt> => ({ [`_${v.join('_')}a`]: [R(v[0] + (p[0] - v[0]) * k), R(v[1] + (p[1] - v[1]) * k)], [`_${v.join('_')}b`]: [R(v[0] + (q[0] - v[0]) * k), R(v[1] + (q[1] - v[1]) * k)] });
   const f = triangle(['_A', '_B', '_C'], [A, B, C], { _A: { n: 1 }, _B: { n: 2 }, _C: { n: 3, r: 22 } });
@@ -108,7 +108,7 @@ export function torn(): FigSpec {
 }
 
 /** A small and a large triangle of the same shape, each corner marked like its partner. */
-export function similar(): FigSpec {
+export function similar(): GeoFig {
   const k = 3; const small: Pt[] = [[0, 0], [1.6, 0], [0.58, 0.96]];
   const big = small.map(([x, y]) => [R(2.6 + x * k), R(y * k)] as Pt);
   const marks = (p: string, q: string, r: string): Angle[] => [{ at: p, from: q, to: r, r: 14 }, { at: q, from: r, to: p, r: 14, n: 2 }, { at: r, from: p, to: q, r: 12, n: 3 }];
@@ -121,7 +121,7 @@ export function similar(): FigSpec {
 }
 
 /** Why the three angles make 180°: the line through C parallel to AB, with A's and B's angles again beside C's. */
-export function triangleSum(): FigSpec {
+export function triangleSum(): GeoFig {
   const C: Pt = [1.8, 3];
   return triangle(['A', 'B', 'C'], [[0, 0], [5, 0], C], { A: { n: 1 }, B: { n: 2 }, C: { n: 3, r: 22 } }, {
     pts: { _L: [R(C[0] - 2.4), 3], _R: [R(C[0] + 2.6), 3] },
@@ -132,7 +132,7 @@ export function triangleSum(): FigSpec {
 }
 
 /** A side with a right angle at each end: the two other sides go up side by side and never meet. */
-export const twoRights = (): FigSpec => geo('צלע עם זווית ישרה בכל קצה', {
+export const twoRights = (): GeoFig => geo('צלע עם זווית ישרה בכל קצה', {
   pts: { _A: [0, 0], _B: [4, 0], _P: [0, 3.2], _Q: [4, 3.2] },
   segs: [{ a: '_A', b: '_B' }, { a: '_A', b: '_P', hi: true }, { a: '_B', b: '_Q', hi: true }],
   angles: [{ at: '_A', from: '_B', to: '_P', right: true }, { at: '_B', from: '_Q', to: '_A', right: true }],
@@ -143,7 +143,7 @@ export const twoRights = (): FigSpec => geo('צלע עם זווית ישרה ב�
  * Triangle ABC, B at the left end of the base and C at the right, with the angle `a` at A and `b` at B; the side BC
  * goes on past C (dashed), and the exterior angle at C lies between that and CA. Marks keyed A, B, C (inside), ext.
  */
-export function exterior(a: number, b: number, marks: { A?: Partial<Angle>; B?: Partial<Angle>; C?: Partial<Angle>; ext?: Partial<Angle> }): FigSpec {
+export function exterior(a: number, b: number, marks: { A?: Partial<Angle>; B?: Partial<Angle>; C?: Partial<Angle>; ext?: Partial<Angle> }): GeoFig {
   const A = apex(b, 180 - a - b);
   const span: Record<string, [string, string, string]> = { A: ['A', 'B', 'C'], B: ['B', 'C', 'A'], C: ['C', 'A', 'B'], ext: ['C', '_E', 'A'] };
   const angles = Object.entries(marks).flatMap(([k, m]) => (m ? [{ at: span[k][0], from: span[k][1], to: span[k][2], r: k === 'ext' ? 30 : 24, ...m }] : []));
@@ -157,7 +157,7 @@ export function exterior(a: number, b: number, marks: { A?: Partial<Angle>; B?: 
  * Two parallel lines (y = 0 and y = 2) and a transversal at `a` degrees; marks at the upper (U) and lower (L) crossing
  * by position: ur (above its line, right of the transversal), ul, ll, lr. `tilt` turns the upper line (not parallel).
  */
-export function parallels(a: number, marks: { at: 'U' | 'L'; pos: 'ur' | 'ul' | 'll' | 'lr'; text?: string; target?: boolean; n?: number }[] = [], { tilt = 0, slide = false, words }: { tilt?: number; slide?: boolean; words?: { at: Pt | string; text: string; dx?: number; dy?: number }[] } = {}): FigSpec {
+export function parallels(a: number, marks: { at: 'U' | 'L'; pos: 'ur' | 'ul' | 'll' | 'lr'; text?: string; target?: boolean; n?: number }[] = [], { tilt = 0, slide = false, words }: { tilt?: number; slide?: boolean; words?: { at: Pt | string; text: string; dx?: number; dy?: number }[] } = {}): GeoFig {
   const L: Pt = [0, 0]; const U: Pt = [R(2 / Math.tan((a * Math.PI) / 180)), 2];
   const pts: Record<string, Pt> = {
     _L: L, _U: U, _l1: [-2.6, 0], _r1: [3.4, 0], _l2: dir(180 + tilt, 3, U), _r2: dir(tilt, 3, U),
@@ -174,7 +174,7 @@ export function parallels(a: number, marks: { at: 'U' | 'L'; pos: 'ur' | 'ul' | 
 }
 
 /** An isosceles triangle, apex angle `top` degrees: legs marked equal, the base below; marks keyed top/left/right. */
-export function isosceles(top: number, marks: { top?: Partial<Angle>; left?: Partial<Angle>; right?: Partial<Angle> } = {}, { names = ['_B', '_C', '_A'] as [string, string, string], words = false, fold = false } = {}): FigSpec {
+export function isosceles(top: number, marks: { top?: Partial<Angle>; left?: Partial<Angle>; right?: Partial<Angle> } = {}, { names = ['_B', '_C', '_A'] as [string, string, string], words = false, fold = false } = {}): GeoFig {
   const h = 3.4; const w = R(h * Math.tan(((top / 2) * Math.PI) / 180));
   const [b, c, a] = names;
   const f = triangle([b, c, a], [[-w, 0], [w, 0], [0, h]], { [a]: marks.top ? { r: 26, ...marks.top } : null, [b]: marks.left || null, [c]: marks.right || null });
@@ -194,7 +194,7 @@ export function isosceles(top: number, marks: { top?: Partial<Angle>; left?: Par
  * and the hypotenuse c ('' for none), `squares` the text of the square on each side (absent: no square), `names` the
  * corner letters [right angle, end of b, end of a] (default: none).
  */
-export function rightTri(a: number, b: number, { labels = {}, squares, names = ['_C', '_B', '_A'], right = true, hiHyp = false }: { labels?: { a?: string; b?: string; c?: string }; squares?: { a?: string; b?: string; c?: string }; names?: [string, string, string]; right?: boolean; hiHyp?: boolean } = {}): FigSpec {
+export function rightTri(a: number, b: number, { labels = {}, squares, names = ['_C', '_B', '_A'], right = true, hiHyp = false }: { labels?: { a?: string; b?: string; c?: string }; squares?: { a?: string; b?: string; c?: string }; names?: [string, string, string]; right?: boolean; hiHyp?: boolean } = {}): GeoFig {
   const [C, B, A] = names;
   const pts: Record<string, Pt> = { [C]: [0, 0], [B]: [b, 0], [A]: [0, a] };
   // a side with a square on it has its label inside the triangle, off the square
@@ -213,7 +213,7 @@ export function rightTri(a: number, b: number, { labels = {}, squares, names = [
 }
 
 /** A triangle drawn to scale from its three sides: `base` along the bottom, `left` and `right` meeting above it. */
-export function sides(base: number, left: number, right: number, { labels = true, mark = '?', names = ['_P', '_Q', '_R'] as [string, string, string] } = {}): FigSpec {
+export function sides(base: number, left: number, right: number, { labels = true, mark = '?', names = ['_P', '_Q', '_R'] as [string, string, string] } = {}): GeoFig {
   const x = (left * left - right * right + base * base) / (2 * base);
   const y = Math.sqrt(left * left - x * x);
   const [P, Q, Rr] = names;
@@ -225,14 +225,14 @@ export function sides(base: number, left: number, right: number, { labels = true
 }
 
 /** Sides 3 and 4 with an obtuse angle between them: the third side is what the question asks. */
-export const obtuse = (): FigSpec => geo('שתי צלעות, 3 ו־4, וזווית קהה ביניהן', {
+export const obtuse = (): GeoFig => geo('שתי צלעות, 3 ו־4, וזווית קהה ביניהן', {
   pts: { _V: [0, 0], _P: [4, 0], _Q: dir(120, 3) }, polys: [{ pts: ['_V', '_P', '_Q'] }],
   segs: [{ a: '_V', b: '_P', label: '4' }, { a: '_V', b: '_Q', label: '3' }, { a: '_P', b: '_Q', hi: true, label: '?' }],
   angles: [{ at: '_V', from: '_P', to: '_Q', r: 22, target: true }],
 });
 
 /** Two sticks, 8 and 6, on a hinge: at a right angle the ends are 10 apart; then opened to `deg` degrees. */
-export function hinge(deg: number): FigSpec {
+export function hinge(deg: number): GeoFig {
   return geo('שני מקלות מחוברים בציר', {
     pts: { _V: [0, 0], _E: [8, 0], _S: [0, 6], _T: dir(deg, 6) },
     segs: [
@@ -246,7 +246,7 @@ export function hinge(deg: number): FigSpec {
 }
 
 /** A ladder against a wall: the floor, the wall and the ladder; with the right angle marked, or not yet. */
-export function ladder({ right = true, labels }: { right?: boolean; labels?: { len?: string; wall?: string; foot?: string } } = {}): FigSpec {
+export function ladder({ right = true, labels }: { right?: boolean; labels?: { len?: string; wall?: string; foot?: string } } = {}): GeoFig {
   const [foot, wall] = labels ? [6, 8] : [2.6, 4.4];
   return geo('סולם שנשען על קיר', {
     pts: { _F: [0, 0], _W: [foot, 0], _T: [foot, wall], _G0: [-0.8, 0], _K: [foot, wall + (labels ? 1.4 : 0.9)] },
@@ -263,7 +263,7 @@ export function ladder({ right = true, labels }: { right?: boolean; labels?: { l
 }
 
 /** A screen, `w` by `h`, and its diagonal; its sides labelled with words or numbers. */
-export function screen(w: number, h: number, { width = 'רוחב', height = 'גובה', diag = 'אלכסון' } = {}): FigSpec {
+export function screen(w: number, h: number, { width = 'רוחב', height = 'גובה', diag = 'אלכסון' } = {}): GeoFig {
   return geo('מסך: הרוחב, הגובה והאלכסון', {
     pts: { _P: [0, 0], _Q: [w, 0], _S: [w, h], _T: [0, h] }, polys: [{ pts: ['_P', '_Q', '_S', '_T'] }],
     segs: [{ a: '_P', b: '_Q', label: width }, { a: '_Q', b: '_S', label: height }, { a: '_P', b: '_S', hi: true, label: diag, side: 'in' }],
@@ -272,7 +272,7 @@ export function screen(w: number, h: number, { width = 'רוחב', height = 'ג�
 }
 
 /** A pole `h` high and a cable from its top to a point on the ground `d` from its foot. */
-export function pole(h: number, d: number): FigSpec {
+export function pole(h: number, d: number): GeoFig {
   return geo('עמוד וכבל מראשו אל הקרקע', {
     pts: { _B: [0, 0], _T: [0, h], _G: [d, 0] }, polys: [{ pts: ['_B', '_G', '_T'] }],
     segs: [{ a: '_B', b: '_T', label: String(h) }, { a: '_B', b: '_G', label: String(d) }, { a: '_T', b: '_G', hi: true, label: '?' }],

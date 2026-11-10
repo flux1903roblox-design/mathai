@@ -601,6 +601,81 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .fg-move-head { fill: var(--brand); }
 @media (max-height: 700px) { .lm-fig .figure.geo { max-height: 34dvh; } }
 
+/* ------------------------------------------------------------------ the teaching figures (STUDENT-8)
+   Number line, thermometer, function machine, dot plot and bar chart, and the plane's quadrants, walks, lines, meeting
+   point and rise-and-run. Ink for the frame, the brand for what the text is about, orange for the one thing marked
+   (orange next to blue reads for every kind of colour vision). Every colour is a token, so dark mode is the same
+   drawing; text has a halo of the panel it sits on. */
+.figure.fig-numline, .figure.fig-dots, .figure.fig-bars { max-width: 360px; }
+.figure.fig-thermo { max-width: 200px; }
+.figure.fig-machine { max-width: 280px; }
+.fig-var { font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; }
+.fig-nl-axis { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fig-nl-head { fill: var(--ink); }
+.fig-nl-tick { stroke: var(--ink); stroke-width: 2; }
+.fig-nl-tick.zero { stroke-width: 3; }
+.fig-nl-tick.part { stroke: var(--ink-2); stroke-width: 1.4; }
+.fig-nl-num { fill: var(--ink-2); font-size: 15px; font-weight: 500; }
+.fig-nl-num.zero { fill: var(--ink); font-weight: 700; }
+.fig-nl-num.on { fill: var(--brand-d); font-size: 17px; font-weight: 800; }
+.fig-nl-num.on.tone-good { fill: var(--good-ink); }
+.fig-nl-num.on.tone-bad { fill: var(--bad-ink); }
+.fig-nl-mark circle { fill: var(--brand); stroke: var(--ground); stroke-width: 2.5; }
+.fig-nl-mark.tone-good circle { fill: var(--good-d); }
+.fig-nl-mark.tone-bad circle { fill: var(--bad); }
+.fig-nl-name { fill: var(--ink); font-size: 19px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-nl-jump path { fill: none; stroke: var(--brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.fig-nl-move { fill: var(--brand-d); font-size: 18px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-th-glass { fill: var(--surface); stroke: var(--ink-2); stroke-width: 2.5; }
+.fig-th-fill { fill: var(--bad); }
+.fig-th-tick { stroke: var(--ink-2); stroke-width: 2; }
+.fig-th-tick.sub { stroke-width: 1.25; }
+.fig-th-tick.zero { stroke: var(--ink); stroke-width: 2.5; }
+.fig-th-num { fill: var(--ink-2); font-size: 15px; font-weight: 500; }
+.fig-th-num.zero { fill: var(--ink); font-weight: 700; }
+.fig-th-pointer { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 3 3; }
+.fig-th-read { fill: var(--ink); font-size: 22px; font-weight: 800; }
+.fig-mc-io rect { fill: var(--surface); stroke: var(--control-line); stroke-width: 2; }
+.fig-mc-io text { fill: var(--ink); font-size: 24px; font-weight: 700; }
+.fig-mc-io.target rect { stroke: var(--brand); stroke-width: 2.5; }
+.fig-mc-io.target text { fill: var(--brand-d); }
+.fig-mc-box { fill: var(--brand-tint); stroke: var(--brand); stroke-width: 2.5; }
+.fig-mc-rule { fill: var(--ink); font-family: KaTeX_Main, 'Times New Roman', serif; font-size: 30px; }
+.fig-mc-arrow { fill: none; stroke: var(--ink-2); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.fig-dt-dot { fill: var(--brand); stroke: var(--ground); stroke-width: 1.5; }
+.fig-dt-dot.hi { fill: var(--streak); stroke: var(--streak-d); stroke-width: 2; }
+.fig-dt-fulcrum { fill: var(--ink-2); }
+.fig-bar rect { fill: var(--brand); }
+.fig-bar.hi rect { fill: var(--streak); stroke: var(--streak-d); stroke-width: 2; }
+.fig-bar-num { fill: var(--ink); font-size: 16px; font-weight: 700; }
+.fig-bar-name { fill: var(--ink-2); font-weight: 600; }
+.fig-bar-base { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fig-cd-quad { fill: var(--ink-2); font-size: 15px; font-weight: 600; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-line { fill: none; stroke-width: 3; stroke-linecap: round; }
+.fig-cd-line.tone-brand { stroke: var(--brand); }
+.fig-cd-line.tone-alt { stroke: var(--streak-d); }
+.fig-cd-line.tone-good { stroke: var(--good-d); }
+.fig-cd-line.tone-bad { stroke: var(--bad); }
+.fig-cd-tag { font-size: 17px; font-weight: 700; font-style: italic; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-tag.tone-brand { fill: var(--brand-d); }
+.fig-cd-tag.tone-alt { fill: var(--streak-ink); }
+.fig-cd-tag.tone-good { fill: var(--good-ink); }
+.fig-cd-tag.tone-bad { fill: var(--bad-ink); }
+.fig-cd-rr path { fill: none; stroke: var(--streak-d); stroke-width: 2.5; stroke-dasharray: 6 4; }
+.fig-cd-rr-num { fill: var(--streak-ink); font-size: 17px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-walk path { fill: none; stroke: var(--brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.fig-cd-meet circle { fill: var(--good-d); stroke: var(--ground); stroke-width: 2.5; }
+.fig-cd-meet-num { fill: var(--good-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+
+/* on a short phone the tall drawings shrink to keep the text and the button in view */
+@media (max-height: 700px) { .lm-fig .figure.fig-machine, .lm-fig .figure.fig-thermo { max-height: 30dvh; } }
+
+/* a say step with a drawing (STUDENT-8 §4): on a phone the drawing sits right under the sentence and takes a good part of
+   the screen, so a teaching screen is never one line of text over an empty page */
+@media (max-width: 899px) {
+  .lm-card.sp-say > .lm-canvas.big:has(.lm-fig) { margin-top: 0; min-height: 40vh; }
+}
+
 /* ------------------------------------------------------------------ both themes (STUDENT-2)
    Control edges reach 3:1 against what they sit on, in light and in dark (WCAG 1.4.11): inputs and segmented controls
    take --control-line. Three things stay light in the dark theme, each with its own light tokens: the notebook page

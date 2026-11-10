@@ -26,8 +26,30 @@ export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 // ------------------------------------------------------------------ Stage A: discover and understand
 
 /** מדי says one short thing (one or two sentences). */
-/** A drawing, in the shape components/Figure draws (e.g. { type: 'parallel', a, kind }). */
-export type FigSpec = { type: string; [field: string]: unknown };
+/**
+ * A drawing, in the shape components/Figure draws. The teaching figures of STUDENT-8 have their fields checked; the older
+ * types are listed by name (a catch-all `{ type: string }` member would swallow the new ones and check nothing).
+ * A function's graph is a `coord` with `line` or `lines`, never `linear` (that one draws a linear pair of angles).
+ */
+export type FigTone = 'brand' | 'good' | 'bad';
+export type FigSpec =
+  | { type: 'numline'; from: number; to: number; step?: number; den?: number; marks?: { x: number; label?: string; tone?: FigTone }[]; jumps?: { from: number; to: number; label?: string }[]; anim?: boolean }
+  | { type: 'thermo'; value: number; min: number; max: number; label?: string }
+  | { type: 'machine'; inX?: number | string; rule: string; outY?: number | string; anim?: boolean }
+  | { type: 'dots'; values: number[]; axis: [number, number]; mark?: { mode?: number; median?: number; mean?: number }; anim?: boolean }
+  | { type: 'bars'; labels: string[]; values: number[]; highlight?: number; unit?: string }
+  | {
+    type: 'coord'; range?: number;
+    points?: { x: number; y: number; label: string; hidden?: boolean }[];
+    polygon?: [number, number][]; segments?: [[number, number], [number, number]][]; helper?: [number, number][];
+    line?: { m: number; b: number };
+    lines?: { m: number; b: number; label?: string; tone?: FigTone }[];
+    meet?: boolean; riseRun?: { x: number; run: number }; quadrants?: boolean; path?: [number, number][]; anim?: boolean;
+  }
+  | GeoFig
+  | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'table' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
+/** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
+export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };
 
 export interface SayStep { kind: 'say'; text: Text; display?: string; mood?: Mood; fig?: FigSpec }
 /** A prediction before the explanation: the student commits, then sees why. Any choice moves on. */
