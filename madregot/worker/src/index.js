@@ -1,9 +1,22 @@
-// Madregot API: Claude proxy (the key never reaches browsers) + class data in D1 + the paid AI subscription.
+// Madregot API: Claude proxy (the key never reaches browsers), class data in D1, and the paid AI tutor
+// (entitlement, sign-in by email code, checkout and payments, cancellation). The owner works through
+// scripts/owner.mjs; there is no HTTP admin.
 import Anthropic from '@anthropic-ai/sdk';
-import { AI_KINDS, STREAMED, TOPIC_IDS, buildRequest, readResult } from '../../shared/ai.js';
-import { dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, spend, refund, usedToday as usedOf, clientIp } from './util.js';
-import { startLogin, verifyLogin, accountFrom, signOut, deleteAccount } from './account.js';
-import { entitlement, aiStatus, checkout, webhook, cancel, adminGrant, adminEnd, adminList, activeFamilySub } from './billing.js';
+import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult } from '../../shared/ai.js';
+import {
+  dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, take, key, giveBack,
+  limitOrThrow, hmacHex,
+} from './util.js';
+import { startLogin, verifyLogin, signOut } from './account.js';
+import { resolve, aiStatus, requireStudent, requireTeacher, paywallOn } from './entitle.js';
+import { recordSpend } from './spend.js';
+import { emailReady } from './email.js';
+import {
+  plansView, checkout, orderStatus, webhook, cancel, resume, portal, invoice, testPayPage, testPaySubmit, accountOverview, accountExport, deleteAccount,
+  onlineCheckout,
+} from './billing.js';
+import { currentProvider } from './providers/index.js';
+import { run as runCron } from './cron.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -13,12 +26,17 @@ function corsHeaders(req, env) {
   return {
     'Access-Control-Allow-Origin': ok ? origin : allowed[0] || '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Class-Code, X-Teacher-Key, X-Account-Token, X-Device',
-    'Access-Control-Expose-Headers': 'X-AI-Tier, X-AI-Left',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Class-Code, X-Teacher-Key, X-Account-Token, X-Device, X-Family-Device, Idempotency-Key',
+    'Access-Control-Expose-Headers': 'X-AI-Tier, X-AI-Group, X-AI-Left, X-AI-Economy, X-AI-Linked',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
 }
+
+// Body limits, checked before JSON.parse (413 too_large above them).
+const KB = 1024;
+const AI_BODY_MAX = { chat: 32 * KB, explain: 32 * KB, generate: 16 * KB, check: 8 * KB * KB, exam: 100 * KB * KB };
+const LIMIT = { small: 4 * KB, help: 700 * KB, progress: 256 * KB, exams: 64 * KB };
 
 // ---------- secrets ----------
 async function hashPin(pin) {
@@ -30,100 +48,83 @@ async function verifyPin(pin, stored) {
   if (!salt || !h) return false;
   return (await sha256(`${salt}:${pin}`)) === h;
 }
-const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-function classCode() {
-  const r = crypto.getRandomValues(new Uint8Array(6));
-  return [...r].map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
-}
+const classCode = () => randomFrom(CODE_ALPHABET, 6);
 const cleanName = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 30);
-
-// ---------- identity ----------
-async function studentFrom(req, env) {
-  const auth = req.headers.get('Authorization') || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-  if (!token) return null;
-  const row = await env.DB.prepare(
-    'SELECT s.id, s.name, s.class_code, c.grade FROM students s JOIN classes c ON c.code = s.class_code WHERE s.token_hash = ?',
-  ).bind(await sha256(token)).first();
-  return row || null;
-}
-async function requireStudent(req, env) {
-  const s = await studentFrom(req, env);
-  if (!s) throw new HttpError(401, 'not_signed_in');
-  return s;
-}
-async function requireTeacher(req, env) {
-  const code = String(req.headers.get('X-Class-Code') || '').toUpperCase();
-  const key = req.headers.get('X-Teacher-Key') || '';
-  if (!code || !key) throw new HttpError(401, 'not_teacher');
-  const cls = await env.DB.prepare('SELECT * FROM classes WHERE code = ?').bind(code).first();
-  if (!cls || cls.teacher_key_hash !== (await sha256(key))) throw new HttpError(401, 'not_teacher');
-  return cls;
-}
-/** Everyone this request speaks for: a class student, a teacher, a signed-in parent account (any may be null). */
-async function callerOf(req, env) {
-  const [student, account] = await Promise.all([studentFrom(req, env), accountFrom(req, env)]);
-  const teacher = req.headers.get('X-Teacher-Key') ? await requireTeacher(req, env) : null;
-  return { student, teacher, account };
-}
 
 // Wrong personal-code attempts allowed per student per day; the teacher's reset clears the need.
 const PIN_TRIES = 10;
 
 // ---------- AI ----------
+function aiHeaders(r) {
+  return {
+    'X-AI-Tier': r.tier, 'X-AI-Group': r.group, 'X-AI-Left': String(Math.max(0, r.left)),
+    ...(r.economy ? { 'X-AI-Economy': '1' } : {}),
+    ...(r.linkedBad ? { 'X-AI-Linked': '0' } : {}),
+  };
+}
+
 async function handleAI(kind, req, env, ctx, cors) {
   if (!AI_KINDS.includes(kind)) throw new HttpError(404, 'not_found');
   if (!env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
-  const input = await body(req);
-  const ent = await entitlement(req, env, await callerOf(req, env));
-  if (ent.tier === 'free') {
-    if (ent.anonymous && String(env.ALLOW_SOLO_AI) === 'false') throw new HttpError(403, 'solo_ai_off');
-    if (!ent.kinds.includes(kind)) throw new HttpError(402, 'paid_only', undefined, { tier: 'free' });
-  }
-  let params;
-  try { params = buildRequest(kind, input, { model: ent.model, lite: ent.tier === 'free' }); } catch (e) { throw new HttpError(400, 'bad_input', e.message); }
-  if (!(await spend(env, ent.who, ent.limit))) throw new HttpError(429, 'daily_limit', undefined, { tier: ent.tier, limit: ent.limit });
-  if (ent.ipKey && !(await spend(env, ent.ipKey, ent.ipLimit))) { await refund(env, ent.who); throw new HttpError(429, 'daily_limit', undefined, { tier: ent.tier, limit: ent.limit }); }
-  const left = Math.max(0, ent.limit - (await usedOf(env, ent.who)));
-  const tierHeaders = { 'X-AI-Tier': ent.tier, 'X-AI-Left': String(left) };
-  // a call that fails before Claude did any work gives the question back
-  const giveBack = async () => { await refund(env, ent.who); if (ent.ipKey) await refund(env, ent.ipKey); };
+  const input = await body(req, AI_BODY_MAX[kind]);
+  const r = await resolve(req, env, kind, input);
+  const headers = aiHeaders(r);
+  let returned = false;
+  // a call where Claude did no work gives the person's question back (never the shared or tries counters)
+  const giveBackOnce = async () => { if (!returned) { returned = true; await giveBack(env, r.refund); } };
+  const record = (message) => recordSpend(env, { pool: r.pool, kind, message }).catch((e) => console.error('spend', e?.message));
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, ...(env.ANTHROPIC_BASE_URL ? { baseURL: env.ANTHROPIC_BASE_URL } : {}) });
 
   if (kind === 'chat' && input.stream) {
     const enc = new TextEncoder();
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
+    let aborted = false;
+    const write = (text) => writer.write(enc.encode(text)).catch(() => { aborted = true; });
     const pump = (async () => {
+      let stream;
       try {
-        const stream = client.beta.messages.stream(params);
+        stream = client.beta.messages.stream(r.params);
         for await (const ev of stream) {
-          if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') await writer.write(enc.encode(ev.delta.text));
+          if (aborted) { stream.abort(); break; }
+          if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') await write(ev.delta.text);
         }
-        const final = await stream.finalMessage();
-        if (final.stop_reason === 'refusal') await writer.write(enc.encode('\n[[refusal]]'));
+        if (!aborted) {
+          const final = await stream.finalMessage();
+          await record(final);
+          if (final.stop_reason === 'refusal') { await giveBackOnce(); await write('\n[[refusal]]'); }
+        }
       } catch (e) {
-        console.error('chat stream', e?.status, e?.message);
-        await giveBack();
-        await writer.write(enc.encode(`\n[[error:${aiErrorCode(e)}]]`));
+        if (!aborted) {
+          console.error('chat stream', e?.status, e?.message);
+          await giveBackOnce();
+          await write(`\n[[error:${aiErrorCode(e)}]]`);
+        }
       } finally {
-        await writer.close();
+        try { await writer.close(); } catch { /* the client went away */ }
       }
     })();
     ctx.waitUntil(pump);
-    return new Response(readable, { headers: { ...cors, ...tierHeaders, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+    return new Response(readable, { headers: { ...cors, ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 
+  let message;
   try {
     // Long outputs (a whole exam) stream so the request never times out; we wait for the final message.
-    const message = STREAMED(kind) ? await client.beta.messages.stream(params).finalMessage() : await client.beta.messages.create(params);
-    return json(readResult(kind, message), 200, cors, tierHeaders);
+    message = STREAMED(kind) ? await client.beta.messages.stream(r.params).finalMessage() : await client.beta.messages.create(r.params);
   } catch (e) {
-    if (e instanceof HttpError) throw e;
     const code = aiErrorCode(e);
-    if (code !== 'refusal') await giveBack();
+    await giveBackOnce();
     console.error('ai', kind, code, e?.status, e?.message);
-    throw new HttpError(code === 'refusal' ? 422 : code === 'busy' ? 429 : 502, code);
+    throw new HttpError(code === 'busy' ? 429 : 502, code, undefined, undefined, headers);
+  }
+  ctx.waitUntil(record(message));
+  try {
+    return json(readResult(kind, message), 200, cors, headers);
+  } catch (e) {
+    const code = e?.code === 'refusal' || e?.code === 'bad_output' ? e.code : 'bad_output';
+    await giveBackOnce();
+    throw new HttpError(code === 'refusal' ? 422 : 502, code, undefined, undefined, headers);
   }
 }
 function aiErrorCode(e) {
@@ -135,13 +136,34 @@ function aiErrorCode(e) {
   return 'upstream';
 }
 
+// ---------- devices (only with FREE_DEVICE_MINT = "turnstile") ----------
+async function mintDevice(req, env, cors) {
+  if (String(env.FREE_DEVICE_MINT || 'off') !== 'turnstile' || !env.TURNSTILE_SECRET || !env.DEVICE_SECRET) throw new HttpError(404, 'not_found');
+  const b = await body(req, LIMIT.small);
+  const net = await netKey(req, env);
+  await limitOrThrow(env, `mint:n:${net}`, 300, 429, 'too_many_devices');
+  const form = new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: String(b.turnstile || '').slice(0, 2048) });
+  const ip = req.headers.get('CF-Connecting-IP');
+  if (ip) form.set('remoteip', ip);
+  let ok = false;
+  try {
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form });
+    const v = await res.json();
+    const host = (() => { try { return new URL(env.PUBLIC_URL).hostname; } catch { return ''; } })();
+    ok = v.success === true && v.action === 'device' && (!host || v.hostname === host);
+  } catch { ok = false; }
+  if (!ok) throw new HttpError(403, 'bot_check');
+  const id = randomToken(16);
+  return json({ device: `dv1.${id}.${(await hmacHex(env.DEVICE_SECRET, `device:${id}`)).slice(0, 32)}` }, 201, cors);
+}
+
 // ---------- classes ----------
 async function createClass(req, env, cors) {
-  const b = await body(req);
+  const b = await body(req, LIMIT.small);
   const name = cleanName(b.className); const teacherName = cleanName(b.teacherName);
   const grade = b.grade === '8' ? '8' : '7';
   if (!name || !teacherName) throw new HttpError(400, 'missing_fields');
-  if (!(await spend(env, `create:${clientIp(req)}`, 10))) throw new HttpError(429, 'too_many_classes');
+  await limitOrThrow(env, `create:n:${await netKey(req, env)}`, 10, 429, 'too_many_classes');
   const teacherKey = randomToken(12);
   for (let i = 0; i < 5; i++) {
     const code = classCode();
@@ -154,30 +176,34 @@ async function createClass(req, env, cors) {
   throw new HttpError(500, 'code_collision');
 }
 
-async function classInfo(code, env, cors) {
+async function classInfo(code, req, env, cors) {
+  // a whole school shares one network, so this is generous; it stops guessing class codes
+  await limitOrThrow(env, `classinfo:n:${await netKey(req, env)}`, 500, 429, 'too_many_lookups');
   const cls = await env.DB.prepare('SELECT name, grade, teacher_name FROM classes WHERE code = ?').bind(code.toUpperCase()).first();
   if (!cls) throw new HttpError(404, 'no_class');
   return json({ className: cls.name, grade: cls.grade, teacherName: cls.teacher_name }, 200, cors);
 }
 
 async function joinClass(code, req, env, cors) {
-  const b = await body(req);
+  const b = await body(req, LIMIT.small);
   const name = cleanName(b.name); const pin = String(b.pin || '');
   if (!name) throw new HttpError(400, 'missing_name');
   if (!/^\d{4}$/.test(pin)) throw new HttpError(400, 'bad_pin');
-  // A whole school can share one address, so this cap is generous; PIN guessing is capped per student below.
-  if (!(await spend(env, `join:${clientIp(req)}`, 300))) throw new HttpError(429, 'too_many_joins');
+  // A whole school can share one network, so this cap is generous; PIN guessing is capped per student below.
+  await limitOrThrow(env, `join:n:${await netKey(req, env)}`, 300, 429, 'too_many_joins');
   const cls = await env.DB.prepare('SELECT * FROM classes WHERE code = ?').bind(code.toUpperCase()).first();
   if (!cls) throw new HttpError(404, 'no_class');
   const token = randomToken();
   const existing = await env.DB.prepare('SELECT * FROM students WHERE class_code = ? AND name = ?').bind(cls.code, name).first();
+  // a class its teacher closed to new names still lets its students back in with their PIN
+  if (!existing && (await env.DB.prepare('SELECT 1 AS x FROM class_locks WHERE class_code = ?').bind(cls.code).first())) throw new HttpError(403, 'class_locked');
   let id;
   if (existing) {
     // An empty pin_hash means the teacher reset it: the next join sets a new PIN.
     if (existing.pin_hash) {
       const tries = await env.DB.prepare('SELECT count FROM ai_usage WHERE who = ? AND day = ?').bind(`pin:${existing.id}`, dayOf()).first();
       if (tries && tries.count >= PIN_TRIES) throw new HttpError(429, 'too_many_pin');
-      if (!(await verifyPin(pin, existing.pin_hash))) { await spend(env, `pin:${existing.id}`, PIN_TRIES); throw new HttpError(403, 'wrong_pin'); }
+      if (!(await verifyPin(pin, existing.pin_hash))) { await take(env, [key(`pin:${existing.id}`, PIN_TRIES)]); throw new HttpError(403, 'wrong_pin'); }
     }
     id = existing.id;
     await env.DB.prepare('UPDATE students SET token_hash = ?, pin_hash = ?, last_seen = ? WHERE id = ?')
@@ -193,7 +219,7 @@ async function joinClass(code, req, env, cors) {
 // ---------- student data ----------
 async function saveProgress(req, env, cors) {
   const s = await requireStudent(req, env);
-  const b = await body(req);
+  const b = await body(req, LIMIT.progress);
   const events = (Array.isArray(b.events) ? b.events : []).slice(0, 300);
   const now = Date.now();
   const stmts = [];
@@ -216,7 +242,7 @@ async function saveProgress(req, env, cors) {
 
 async function saveExam(req, env, cors) {
   const s = await requireStudent(req, env);
-  const b = await body(req);
+  const b = await body(req, LIMIT.exams);
   const qs = (Array.isArray(b.questions) ? b.questions : []).slice(0, 40).map((q) => ({
     topic: TOPIC_IDS.includes(q.topic) ? q.topic : 'other', status: ['correct', 'partial', 'wrong', 'missing'].includes(q.status) ? q.status : 'missing', skill: String(q.skill || '').slice(0, 60),
     level: Number.isInteger(q.level) && q.level > 0 && q.level <= 12 ? q.level : 0,
@@ -229,7 +255,7 @@ async function saveExam(req, env, cors) {
 
 async function askHelp(req, env, cors) {
   const s = await requireStudent(req, env);
-  const b = await body(req);
+  const b = await body(req, LIMIT.help);
   const open = await env.DB.prepare('SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ? AND done_at IS NULL').bind(s.id).first();
   if (open && open.n >= 10) throw new HttpError(429, 'too_many_open');
   // Optional notebook page: a JPEG data URL of the student's working, kept small.
@@ -293,7 +319,7 @@ async function dashboard(req, env, cors) {
 
 async function updateHelp(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
-  const b = await body(req);
+  const b = await body(req, LIMIT.small);
   const col = b.action === 'done' ? 'done_at' : b.action === 'seen' ? 'seen_at' : null;
   const sql = b.action === 'reopen'
     ? 'UPDATE help_requests SET done_at = NULL WHERE id = ? AND student_id IN (SELECT id FROM students WHERE class_code = ?)'
@@ -322,44 +348,76 @@ async function resetPin(id, req, env, cors) {
 }
 
 // ---------- router ----------
+function health(env) {
+  const provider = currentProvider(env);
+  return {
+    ok: true, ai: !!env.ANTHROPIC_API_KEY, model: env.CLAUDE_MODEL || null, freeModel: env.FREE_MODEL || LITE_MODEL,
+    soloAI: String(env.ALLOW_SOLO_AI) !== 'false', paywall: paywallOn(env), email: emailReady(env), checkout: onlineCheckout(env),
+    billing: provider?.id || 'none', mode: env.BILLING_MODE === 'test' ? 'test' : 'live',
+    deviceMint: String(env.FREE_DEVICE_MINT || 'off') === 'turnstile' ? 'turnstile' : 'off', turnstileSiteKey: env.TURNSTILE_SITE_KEY || null,
+  };
+}
+
+async function route(req, env, ctx, cors) {
+  const url = new URL(req.url);
+  const p = url.pathname.replace(/\/+$/, '');
+  const M = req.method;
+  let m;
+  if (M === 'GET' && p === '/api/health') return json(health(env), 200, cors);
+  // child side: AI
+  if (M === 'GET' && p === '/api/ai/status') {
+    const s = await aiStatus(req, env);
+    return json(s.body, 200, cors, s.headers);
+  }
+  if (M === 'POST' && (m = p.match(/^\/api\/ai\/(\w+)$/))) return handleAI(m[1], req, env, ctx, cors);
+  if (M === 'POST' && p === '/api/devices') return mintDevice(req, env, cors);
+  // parent and teacher accounts
+  if (M === 'POST' && p === '/api/account/code') return startLogin(req, env, cors);
+  if (M === 'POST' && p === '/api/account/verify') return verifyLogin(req, env, cors);
+  if (M === 'POST' && p === '/api/account/signout') return signOut(req, env, cors);
+  if (M === 'GET' && p === '/api/account') return accountOverview(req, env, cors);
+  if (M === 'GET' && p === '/api/account/export') return accountExport(req, env, cors);
+  if (M === 'POST' && p === '/api/account/delete') return deleteAccount(req, env, ctx, cors);
+  // billing
+  if (M === 'GET' && p === '/api/billing/plans') return json(plansView(env), 200, cors);
+  if (M === 'POST' && p === '/api/billing/checkout') return checkout(req, env, cors);
+  if (M === 'GET' && (m = p.match(/^\/api\/billing\/orders\/([a-f0-9]{16})$/))) return orderStatus(m[1], req, env, cors);
+  if (M === 'POST' && p === '/api/billing/cancel') return cancel(req, env, ctx, cors);
+  if (M === 'POST' && p === '/api/billing/resume') return resume(req, env, cors);
+  if (M === 'GET' && p === '/api/billing/portal') return portal(req, env, cors);
+  if (M === 'GET' && (m = p.match(/^\/api\/billing\/payments\/([a-f0-9]{16})\/invoice$/))) return invoice(m[1], req, env);
+  if (M === 'POST' && (m = p.match(/^\/api\/billing\/webhook\/([a-z]{2,20})\/([A-Za-z0-9]{1,128})$/))) return webhook(m[1], m[2], req, env, ctx, cors);
+  if (M === 'GET' && (m = p.match(/^\/api\/billing\/test-pay\/([a-f0-9]{16})$/))) return testPayPage(m[1], env);
+  if (M === 'POST' && (m = p.match(/^\/api\/billing\/test-pay\/([a-f0-9]{16})$/))) return testPaySubmit(m[1], req, env, ctx);
+  // classes and students
+  if (M === 'POST' && p === '/api/classes') return createClass(req, env, cors);
+  if (M === 'GET' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})$/))) return classInfo(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})\/join$/))) return joinClass(m[1], req, env, cors);
+  if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, cors);
+  if (M === 'POST' && p === '/api/help') return askHelp(req, env, cors);
+  if (M === 'POST' && p === '/api/exams') return saveExam(req, env, cors);
+  // teacher
+  if (M === 'GET' && p === '/api/teacher/dashboard') return dashboard(req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)$/))) return updateHelp(m[1], req, env, cors);
+  if (M === 'GET' && (m = p.match(/^\/api\/teacher\/help\/(\d+)\/image$/))) return helpImage(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);
+  return json({ error: 'not_found' }, 404, cors);
+}
+
 export default {
   async fetch(req, env, ctx) {
     const cors = corsHeaders(req, env);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-    const url = new URL(req.url);
-    const p = url.pathname.replace(/\/+$/, '');
-    let m;
     try {
-      if (req.method === 'GET' && p === '/api/health') {
-        return json({ ok: true, ai: !!env.ANTHROPIC_API_KEY, model: env.CLAUDE_MODEL || null, soloAI: String(env.ALLOW_SOLO_AI) !== 'false', billing: env.BILLING_PROVIDER || 'manual' }, 200, cors);
-      }
-      if (req.method === 'GET' && p === '/api/ai/status') return await aiStatus(req, env, cors, await callerOf(req, env));
-      if (req.method === 'POST' && p === '/api/account/code') return await startLogin(req, env, cors);
-      if (req.method === 'POST' && p === '/api/account/verify') return await verifyLogin(req, env, cors);
-      if (req.method === 'POST' && p === '/api/account/signout') return await signOut(req, env, cors);
-      if (req.method === 'POST' && p === '/api/account/delete') return await deleteAccount(req, env, cors, { activeFamilySub });
-      if (req.method === 'POST' && p === '/api/billing/checkout') return await checkout(req, env, cors);
-      if (req.method === 'POST' && p === '/api/billing/cancel') return await cancel(req, env, cors);
-      if (req.method === 'POST' && (m = p.match(/^\/api\/billing\/webhook\/([a-z]+)$/))) return await webhook(m[1], req, env, cors);
-      if (req.method === 'GET' && p === '/api/admin/subscriptions') return await adminList(req, env, cors);
-      if (req.method === 'POST' && p === '/api/admin/grant') return await adminGrant(req, env, cors);
-      if (req.method === 'POST' && p === '/api/admin/end') return await adminEnd(req, env, cors);
-      if (req.method === 'POST' && (m = p.match(/^\/api\/ai\/(\w+)$/))) return await handleAI(m[1], req, env, ctx, cors);
-      if (req.method === 'POST' && p === '/api/classes') return await createClass(req, env, cors);
-      if (req.method === 'GET' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})$/))) return await classInfo(m[1], env, cors);
-      if (req.method === 'POST' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})\/join$/))) return await joinClass(m[1], req, env, cors);
-      if (req.method === 'POST' && p === '/api/progress') return await saveProgress(req, env, cors);
-      if (req.method === 'POST' && p === '/api/help') return await askHelp(req, env, cors);
-      if (req.method === 'POST' && p === '/api/exams') return await saveExam(req, env, cors);
-      if (req.method === 'GET' && p === '/api/teacher/dashboard') return await dashboard(req, env, cors);
-      if (req.method === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)$/))) return await updateHelp(m[1], req, env, cors);
-      if (req.method === 'GET' && (m = p.match(/^\/api\/teacher\/help\/(\d+)\/image$/))) return await helpImage(m[1], req, env, cors);
-      if (req.method === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return await resetPin(m[1], req, env, cors);
-      return json({ error: 'not_found' }, 404, cors);
+      return await route(req, env, ctx, cors);
     } catch (e) {
-      if (e instanceof HttpError) return json({ error: e.code, message: e.message, ...(e.extra || {}) }, e.status, cors);
-      console.error('unhandled', e?.stack || e);
+      if (e instanceof HttpError) return json({ error: e.code, message: e.message, ...(e.extra || {}) }, e.status, cors, e.headers || {});
+      // never log the request URL: the webhook route carries a secret in its path
+      console.error('unhandled', e?.message);
       return json({ error: 'server_error' }, 500, cors);
     }
+  },
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runCron(env, { now: new Date(event?.scheduledTime || Date.now()) }));
   },
 };

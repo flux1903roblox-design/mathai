@@ -1,255 +1,585 @@
-// The paid AI tutor: who gets which tier, subscriptions, the payment-provider adapter, webhooks, cancellation and the
-// owner's admin endpoints.
-//
-// Tiers (decided per AI request, on the server):
-//   paid  - a signed-in parent account with an active family subscription (its devices share one daily limit), or a
-//           student / teacher of a class with an active class licence. Model CLAUDE_MODEL, limit AI_DAILY_LIMIT
-//           (teachers TEACHER_DAILY_LIMIT), every AI kind.
-//   free  - everyone else: FREE_DAILY_LIMIT questions a day (2), only the short kinds (explain, chat), on FREE_MODEL
-//           (default the low-cost claude-haiku-5-5) with short answers. Counted per student, per account or per device
-//           (X-Device), and capped per network address (FREE_IP_DAILY) because a whole school can share one address.
-// A subscription counts while status is active, past_due (the provider is retrying) or canceled (it runs to the end of
-// the paid period), and current_period_end is still ahead.
-import { HttpError, body, json, sha256, randomToken, nowIso, spend, usedToday, clientIp, safeEqual, hmacHex } from './util.js';
-import { cleanEmail, requireAccount } from './account.js';
+// Paying for the AI tutor: plans and prices (server-side, from vars), checkout, the provider webhook (a hint that makes
+// us pull the truth, applied in one atomic batch behind its billing_events row), cancellation (which stands even when
+// the provider is down), resume, refunds, and the parent's account page (overview, export, deletion).
+import {
+  HttpError, body, json, rawBody, sha256, randomToken, nowIso, dayOf, daysAgo, secretEqual, limitOrThrow,
+} from './util.js';
+import { requireAccount, requireRecentCode } from './account.js';
+import { requireTeacher, limits, paywallOn } from './entitle.js';
+import { decide, endAt, cleanDetail } from './apply.js';
+import { providerById, currentProvider, webhookProvider } from './providers/index.js';
+import { testSignature } from './providers/test.js';
+import { noticeStmt, ownerNotice, monthSpendUsd } from './spend.js';
+import { flushNotices, escapeHtml, shekels } from './email.js';
 
-export const FREE_KINDS = ['explain', 'chat'];
-const num = (v, d) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : d);
-export const limits = (env) => ({
-  free: num(env.FREE_DAILY_LIMIT, 2),
-  freeIp: num(env.FREE_IP_DAILY, 80),
-  paid: num(env.AI_DAILY_LIMIT, 40),
-  teacher: num(env.TEACHER_DAILY_LIMIT, 200),
-});
-export const freeModel = (env) => env.FREE_MODEL || 'claude-haiku-5-5';
+const DAY = 864e5;
+export const ORDER_TTL_MIN = 120;
+export const CHECKOUT_PER_HOUR = 10;
+const LIVE_STRICT = "status IN ('active', 'past_due')";
+const RUNNING = "status IN ('active', 'past_due', 'canceled')";
 
-const LIVE = "status IN ('active', 'past_due', 'canceled') AND current_period_end > ?";
-export async function activeFamilySub(env, accountId) {
-  if (!accountId) return null;
-  return env.DB.prepare(`SELECT * FROM subscriptions WHERE kind = 'family' AND account_id = ? AND ${LIVE} ORDER BY current_period_end DESC LIMIT 1`)
-    .bind(accountId, nowIso()).first();
+// ---------------------------------------------------------------- plans and prices
+const agorot = (env, name, d) => { const v = Number(env[name]); return Number.isInteger(v) && v > 0 ? v : d; };
+export function prices(env) {
+  return {
+    family_month: agorot(env, 'PRICE_FAMILY_MONTH_AGOROT', 2990),
+    family_year: agorot(env, 'PRICE_FAMILY_YEAR_AGOROT', 24900),
+    seat: agorot(env, 'PRICE_CLASS_SEAT_YEAR_AGOROT', 4900),
+  };
 }
-export async function activeClassSub(env, classCode) {
-  if (!classCode) return null;
-  return env.DB.prepare(`SELECT * FROM subscriptions WHERE kind = 'class' AND class_code = ? AND ${LIVE} ORDER BY current_period_end DESC LIMIT 1`)
-    .bind(String(classCode).toUpperCase(), nowIso()).first();
+export const vatExempt = (env) => String(env.VAT_MODE) === 'exempt';
+/** The VAT inside a VAT-included price, in whole agorot (0 for an exempt dealer). */
+export const vatOf = (env, amount) => (vatExempt(env) ? 0 : Math.round((amount * 18) / 118));
+export const termsVersion = (env) => String(env.TERMS_VERSION || '2026-11');
+export const SEATS = { min: 10, max: 45 };
+const publicUrl = (env) => String(env.PUBLIC_URL || '').replace(/\/+$/, '');
+
+/** Online sign-up opens only when the switch is on and the provider can both take payments and cancel them online. */
+export function onlineCheckout(env) {
+  const p = currentProvider(env);
+  return paywallOn(env) && !!p && p.capabilities.online && p.capabilities.cancelApi;
+}
+function checkoutHosts(env) {
+  const hosts = String(env.BILLING_CHECKOUT_HOSTS || '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
+  const p = currentProvider(env);
+  if (p?.id === 'test' && env.PUBLIC_URL) { try { hosts.push(new URL(env.PUBLIC_URL).host.toLowerCase()); } catch { /* no public url */ } }
+  return [...new Set(hosts)];
 }
 
-const cleanDevice = (v) => (/^[a-f0-9]{16,64}$/.test(String(v || '')) ? String(v) : null);
-
-/** Which tier this caller gets, and the counters that apply. */
-export async function entitlement(req, env, { student, teacher, account }) {
+/** GET /api/billing/plans */
+export function plansView(env) {
+  const pr = prices(env);
   const L = limits(env);
-  if (account) {
-    const sub = await activeFamilySub(env, account.id);
-    if (sub) return { tier: 'paid', who: `a:${account.id}`, limit: L.paid, model: env.CLAUDE_MODEL, sub };
-  }
-  if (student) {
-    const sub = await activeClassSub(env, student.class_code);
-    if (sub) return { tier: 'paid', who: `s:${student.id}`, limit: L.paid, model: env.CLAUDE_MODEL, sub };
-  }
-  if (teacher) {
-    const sub = await activeClassSub(env, teacher.code);
-    if (sub) return { tier: 'paid', who: `t:${teacher.code}`, limit: L.teacher, model: env.CLAUDE_MODEL, sub };
-  }
-  const device = cleanDevice(req.headers.get('X-Device'));
-  const ip = clientIp(req);
-  const who = student ? `free:s:${student.id}` : account ? `free:a:${account.id}` : teacher ? `free:t:${teacher.code}` : device ? `free:d:${device}` : `free:ip:${ip}`;
-  return { tier: 'free', who, limit: L.free, model: freeModel(env), kinds: FREE_KINDS, ipKey: `free-ip:${ip}`, ipLimit: L.freeIp, anonymous: !student && !account && !teacher };
+  const p = currentProvider(env);
+  return {
+    paywall: paywallOn(env), online: onlineCheckout(env), vatMode: vatExempt(env) ? 'exempt' : 'included', vatRate: vatExempt(env) ? 0 : 0.18,
+    currency: 'ILS', termsVersion: termsVersion(env), billing: p?.id || null,
+    plans: [
+      { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: pr.family_month, vatAgorot: vatOf(env, pr.family_month), renews: true },
+      { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: pr.family_year, vatAgorot: vatOf(env, pr.family_year), renews: true },
+      { id: 'class_year', kind: 'class', interval: 'year', seatAgorot: pr.seat, minSeats: SEATS.min, maxSeats: SEATS.max, renews: false },
+    ],
+    limits: {
+      family: { tutor: L.family.tutor, check: L.family.check, generate: L.family.generate, exam: L.family.exam, examMonthly: L.family.examMonthly, devices: L.family.devices },
+      class: { ...L.class.student },
+      free: { tutor: L.free.student },
+    },
+    checkoutHosts: checkoutHosts(env),
+    business: { name: env.BUSINESS_NAME || '', id: env.BUSINESS_ID || '', address: env.BUSINESS_ADDRESS || '', email: env.CONTACT_EMAIL || '', phone: env.CONTACT_PHONE || '' },
+    contact: env.CONTACT_EMAIL || '',
+  };
 }
 
-// ---------------------------------------------------------------- subscriptions
-async function upsertSubscription(env, s) {
-  // one row per provider subscription; a manual grant always makes a new row
-  const now = nowIso();
-  const existing = s.providerRef ? await env.DB.prepare('SELECT * FROM subscriptions WHERE provider = ? AND provider_ref = ?').bind(s.provider, s.providerRef).first() : null;
-  if (existing) {
-    await env.DB.prepare(
-      'UPDATE subscriptions SET status = ?, current_period_end = ?, cancel_at_period_end = ?, account_id = COALESCE(?, account_id), class_code = COALESCE(?, class_code), updated_at = ? WHERE id = ?',
-    ).bind(s.status, s.periodEnd || existing.current_period_end, s.cancelAtPeriodEnd ? 1 : 0, s.accountId || null, s.classCode || null, now, existing.id).run();
-    return existing.id;
-  }
-  const id = randomToken(8);
-  await env.DB.prepare(
-    'INSERT INTO subscriptions (id, kind, account_id, class_code, status, provider, provider_ref, current_period_end, cancel_at_period_end, created_at, updated_at, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-  ).bind(id, s.kind, s.accountId || null, s.classCode ? String(s.classCode).toUpperCase() : null, s.status, s.provider, s.providerRef || null, s.periodEnd, s.cancelAtPeriodEnd ? 1 : 0, now, now, s.note || null).run();
-  return id;
-}
+// ---------------------------------------------------------------- shared queries
+const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
+const all = async (env, sql, ...a) => (await env.DB.prepare(sql).bind(...a).all()).results || [];
+const liveFamilyStrict = (env, accountId) => first(env, `SELECT * FROM subscriptions WHERE kind = 'family' AND account_id = ? AND ${LIVE_STRICT} LIMIT 1`, accountId);
+const latestCharge = (env, subId) => first(env, "SELECT * FROM payments WHERE subscription_id = ? AND kind = 'charge' AND status = 'ok' ORDER BY occurred_at DESC LIMIT 1", subId);
+const auditStmt = (env, actor, action, target, detail = {}) => env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
+  .bind(nowIso(), actor, action, target, JSON.stringify(detail));
+/** The confirmation number of a cancellation: the same for the same plan and moment of notice. */
+export const cancelReference = async (subId, requestedAt) => `C-${(await sha256(`${subId}${requestedAt}`)).slice(0, 4).toUpperCase()}`;
 
-/**
- * Apply one verified provider event, once. Event: { provider, eventId, type, ref, kind, accountId, email, classCode,
- * periodEnd }. type: activated | renewed | payment_failed | canceled | ended.
- */
-export async function applyEvent(env, ev) {
-  const fresh = await env.DB.prepare('INSERT INTO billing_events (provider, event_id, received_at, kind) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING')
-    .bind(ev.provider, String(ev.eventId), nowIso(), ev.type).run();
-  if (!fresh.meta?.changes) return { duplicate: true };
-  let accountId = ev.accountId || null;
-  if (!accountId && ev.email) {
-    const email = cleanEmail(ev.email);
-    const a = await env.DB.prepare('SELECT id FROM accounts WHERE email = ?').bind(email).first();
-    accountId = a?.id || randomToken(8);
-    if (!a) await env.DB.prepare('INSERT INTO accounts (id, email, created_at) VALUES (?, ?, ?)').bind(accountId, email, nowIso()).run();
-  }
-  const status = { activated: 'active', renewed: 'active', payment_failed: 'past_due', canceled: 'canceled', ended: 'ended' }[ev.type];
-  if (!status) return { ignored: true };
-  const prev = ev.ref ? await env.DB.prepare('SELECT * FROM subscriptions WHERE provider = ? AND provider_ref = ?').bind(ev.provider, ev.ref).first() : null;
-  const periodEnd = ev.type === 'ended' ? nowIso() : ev.periodEnd || prev?.current_period_end || nowIso();
-  const id = await upsertSubscription(env, {
-    provider: ev.provider, providerRef: ev.ref, kind: ev.kind || prev?.kind || 'family', accountId, classCode: ev.classCode,
-    status, periodEnd, cancelAtPeriodEnd: ev.type === 'canceled' || (ev.type !== 'activated' && ev.type !== 'renewed' && !!prev?.cancel_at_period_end),
-  });
-  return { id, status };
-}
-
-// ---------------------------------------------------------------- payment providers
-// A provider is { name, checkout(env, { account, plan, returnUrl }) -> { url }, webhook(req, env) -> [event], cancel(env, sub) }.
-// "manual": no online payment; the owner grants subscriptions with the admin endpoints (school invoices, tests).
-// "generic": a provider-neutral webhook signed with HMAC-SHA256 (header X-Signature over the raw body, secret
-// BILLING_WEBHOOK_SECRET) and a hosted payment link per plan (BILLING_FAMILY_URL, with ?ref=<account id> appended);
-// it lets a payment page or an automation tool (e.g. Make or Zapier relaying the provider's notification) drive
-// subscriptions until a dedicated adapter for the chosen provider is added here.
-const PROVIDERS = {
-  manual: {
-    name: 'manual',
-    async checkout() { throw new HttpError(501, 'checkout_not_configured'); },
-    async webhook() { throw new HttpError(404, 'not_found'); },
-    async cancel() { /* nothing to stop: the owner does not charge again */ },
-  },
-  generic: {
-    name: 'generic',
-    async checkout(env, { account, plan }) {
-      if (plan !== 'family' || !env.BILLING_FAMILY_URL || !env.BILLING_CANCEL_URL) throw new HttpError(501, 'checkout_not_configured');
-      const url = new URL(env.BILLING_FAMILY_URL);
-      url.searchParams.set('ref', account.id);
-      return { url: url.toString() };
-    },
-    async webhook(req, env) {
-      if (!env.BILLING_WEBHOOK_SECRET) throw new HttpError(503, 'billing_not_configured');
-      const raw = await req.text();
-      if (raw.length > 64_000) throw new HttpError(413, 'too_large');
-      const sig = String(req.headers.get('X-Signature') || '').replace(/^sha256=/, '');
-      if (!safeEqual(await hmacHex(env.BILLING_WEBHOOK_SECRET, raw), sig)) throw new HttpError(401, 'bad_signature');
-      let data; try { data = JSON.parse(raw); } catch { throw new HttpError(400, 'bad_json'); }
-      const list = Array.isArray(data) ? data : [data];
-      return list.slice(0, 20).map((e) => ({
-        provider: 'generic', eventId: String(e.id || ''), type: String(e.type || ''), ref: e.subscription ? String(e.subscription) : null,
-        kind: e.kind === 'class' ? 'class' : 'family', accountId: e.ref ? String(e.ref) : null, email: e.email || null,
-        classCode: e.classCode || null, periodEnd: e.periodEnd ? new Date(e.periodEnd).toISOString() : null,
-      })).filter((e) => e.eventId && e.type);
-    },
-    async cancel(env, sub) {
-      // A provider-neutral relay cannot stop billing by itself: the relay must cancel at the payment company, or the
-      // parent would see "cancelled" here and still be charged there. Without a relay the cancel is refused.
-      if (!env.BILLING_CANCEL_URL || !env.BILLING_WEBHOOK_SECRET) throw new HttpError(501, 'cancel_failed');
-      const payload = JSON.stringify({ subscription: sub.provider_ref, at: nowIso() });
-      const res = await fetch(env.BILLING_CANCEL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Signature': await hmacHex(env.BILLING_WEBHOOK_SECRET, payload) }, body: payload });
-      if (!res.ok) throw new HttpError(502, 'cancel_failed');
-    },
-  },
-};
-export const providerOf = (env, name) => PROVIDERS[name || env.BILLING_PROVIDER || 'manual'] || PROVIDERS.manual;
-
-// ---------------------------------------------------------------- endpoints
-const subView = (s) => (s ? { kind: s.kind, status: s.status, endsAt: s.current_period_end, cancelAtPeriodEnd: !!s.cancel_at_period_end, provider: s.provider } : null);
-
-/** What this caller gets today, and what they could buy. No sign-in needed. */
-export async function aiStatus(req, env, cors, who) {
-  const ent = await entitlement(req, env, who);
-  const used = await usedToday(env, ent.who);
-  const provider = providerOf(env);
-  return json({
-    tier: ent.tier, limit: ent.limit, used, left: Math.max(0, ent.limit - used), kinds: ent.tier === 'free' ? FREE_KINDS : null,
-    signedIn: !!who.account, email: who.account?.email || null,
-    plan: subView(ent.sub || (who.account ? await activeFamilySub(env, who.account.id) : null)),
-    offer: {
-      daily: { free: limits(env).free, paid: limits(env).paid, teacher: limits(env).teacher },
-      // online sign-up only when online cancelling works too (the consumer law asks for both)
-      family: { price: env.PRICE_FAMILY_TEXT || null, online: provider.name !== 'manual' && !!env.BILLING_FAMILY_URL && !!env.BILLING_CANCEL_URL },
-      school: { contact: env.CONTACT_EMAIL || null },
-    },
-    aiReady: !!env.ANTHROPIC_API_KEY,
-  }, 200, cors);
-}
-
+// ---------------------------------------------------------------- checkout
+/** POST /api/billing/checkout: an order priced here, then the provider's hosted payment page. */
 export async function checkout(req, env, cors) {
   const account = await requireAccount(req, env);
+  if (!paywallOn(env)) throw new HttpError(503, 'paywall_off');
   const b = await body(req);
-  const plan = b.plan === 'family' ? 'family' : null;
-  if (!plan) throw new HttpError(400, 'bad_plan');
-  if (await activeFamilySub(env, account.id)) throw new HttpError(409, 'already_subscribed');
-  const { url } = await providerOf(env).checkout(env, { account, plan });
+  const idem = String(req.headers.get('Idempotency-Key') || '');
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(idem)) throw new HttpError(400, 'bad_idempotency_key');
+  const provider = currentProvider(env);
+
+  // the same attempt again: the same order and payment page
+  const existing = await first(env, 'SELECT * FROM orders WHERE account_id = ? AND idempotency_key = ?', account.id, idem);
+  if (existing) return json({ orderId: existing.id, url: await checkoutUrl(env, provider, existing, account, idem) }, 201, cors);
+
+  const plan = String(b.plan || '');
+  if (!['family_month', 'family_year', 'class_year'].includes(plan)) throw new HttpError(422, 'bad_plan');
+  if (b.adult !== true) throw new HttpError(400, 'adult_required');
+  if (String(b.terms || '') !== termsVersion(env)) throw new HttpError(400, 'terms_required');
+  if (account.billingHoldAt) throw new HttpError(403, 'billing_hold');
+  if (!provider || !provider.capabilities.online || !provider.capabilities.cancelApi) throw new HttpError(501, 'checkout_not_configured');
+
+  const pr = prices(env);
+  let amount; let classCode = null; let seats = null;
+  if (plan === 'class_year') {
+    const cls = await requireTeacher(req, env);
+    seats = Number(b.seats);
+    if (!Number.isInteger(seats) || seats < SEATS.min || seats > SEATS.max) throw new HttpError(422, 'bad_plan');
+    classCode = cls.code;
+    const lic = await first(env, `SELECT id FROM subscriptions WHERE kind = 'class' AND class_code = ? AND plan != 'trial' AND ${LIVE_STRICT} LIMIT 1`, classCode);
+    if (lic) throw new HttpError(409, 'class_has_licence');
+    amount = seats * pr.seat;
+  } else {
+    if (await liveFamilyStrict(env, account.id)) throw new HttpError(409, 'already_subscribed');
+    amount = pr[plan];
+  }
+  await limitOrThrow(env, `checkout:a:${account.id}`, CHECKOUT_PER_HOUR, 429, 'too_many_checkouts', 'hour');
+
+  const now = nowIso();
+  const order = {
+    id: randomToken(8), account_id: account.id, plan, class_code: classCode, seats, amount_agorot: amount, vat_agorot: vatOf(env, amount),
+    provider: provider.id, mode: env.BILLING_MODE === 'test' ? 'test' : 'live', idempotency_key: idem, status: 'open',
+    created_at: now, expires_at: new Date(Date.now() + ORDER_TTL_MIN * 60_000).toISOString(),
+  };
+  try {
+    await env.DB.batch([
+      env.DB.prepare('UPDATE accounts SET adult_confirmed_at = ?, terms_version = ? WHERE id = ?').bind(now, termsVersion(env), account.id),
+      env.DB.prepare(
+        `INSERT INTO orders (id, account_id, plan, class_code, seats, amount_agorot, vat_agorot, currency, provider, mode, idempotency_key, status, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'ILS', ?, ?, ?, 'open', ?, ?)`,
+      ).bind(order.id, order.account_id, plan, classCode, seats, amount, order.vat_agorot, order.provider, order.mode, idem, now, order.expires_at),
+    ]);
+  } catch (e) {
+    if (!/UNIQUE/.test(String(e?.message))) throw e;
+    const again = await first(env, 'SELECT * FROM orders WHERE account_id = ? AND idempotency_key = ?', account.id, idem);
+    if (!again) throw e;
+    return json({ orderId: again.id, url: await checkoutUrl(env, provider, again, account, idem) }, 201, cors);
+  }
+  return json({ orderId: order.id, url: await checkoutUrl(env, provider, order, account, idem) }, 201, cors);
+}
+
+export async function checkoutUrl(env, provider, order, account, idempotencyKey) {
+  if (!provider) throw new HttpError(501, 'checkout_not_configured');
+  const base = publicUrl(env);
+  const { url, providerCheckoutId } = await provider.createCheckout(env, {
+    order, plan: order.plan, customerEmail: account.email, idempotencyKey,
+    returnUrl: `${base}/parents?order=${order.id}`, cancelUrl: `${base}/parents`,
+    notifyUrl: `${base}/api/billing/webhook/${provider.id}/${env.WEBHOOK_PATH_SECRET || ''}`,
+  });
+  let host = '';
+  try { host = new URL(url).host.toLowerCase(); } catch { /* not a url */ }
+  if (!host || !checkoutHosts(env).includes(host)) throw new HttpError(502, 'bad_checkout_url');
+  if (providerCheckoutId) await env.DB.prepare('UPDATE orders SET provider_checkout_id = ? WHERE id = ?').bind(providerCheckoutId, order.id).run();
+  return url;
+}
+
+/** GET /api/billing/orders/:id: the order's own account only. The return URL is never proof of payment. */
+export async function orderStatus(id, req, env, cors) {
+  const account = await requireAccount(req, env);
+  const o = await first(env, 'SELECT * FROM orders WHERE id = ? AND account_id = ?', String(id), account.id);
+  if (!o) throw new HttpError(404, 'not_found');
+  const status = o.status === 'open' && o.expires_at < nowIso() ? 'expired' : o.status;
+  const sub = o.subscription_id ? await first(env, 'SELECT status, current_period_end FROM subscriptions WHERE id = ?', o.subscription_id) : null;
+  return json({ status, plan: o.plan, subscription: sub ? { status: sub.status, periodEnd: sub.current_period_end } : null }, 200, cors);
+}
+
+// ---------------------------------------------------------------- webhook: verify, pull the truth, apply once
+/** POST /api/billing/webhook/:provider/:pathSecret. Never log the URL of this route: the secret is in the path. */
+export async function webhook(providerId, pathSecret, req, env, ctx, cors) {
+  const provider = webhookProvider(env, providerId);
+  const secret = String(env.WEBHOOK_PATH_SECRET || '');
+  if (!provider || !/^[a-f0-9]{32,}$/i.test(secret) || !(await secretEqual(pathSecret, secret))) throw new HttpError(404, 'not_found');
+  const raw = await rawBody(req, 64 * 1024);
+  await provider.verify(env, req, raw);
+  const hints = provider.parse(env, raw, req.headers);
+  const results = [];
+  for (const hint of hints) {
+    const seen = await first(env, 'SELECT outcome FROM billing_events WHERE provider = ? AND event_id = ?', provider.id, hint.eventId);
+    if (seen) { results.push('duplicate'); continue; }
+    let truth;
+    try { truth = await provider.fetchTruth(env, hint); } catch (e) {
+      console.error('billing: provider unreachable', provider.id);
+      throw new HttpError(503, 'retry_later');
+    }
+    results.push(await applyTruth(env, provider, hint, truth));
+  }
+  ctx.waitUntil(flushNotices(env));
+  return json({ ok: true, results }, 200, cors);
+}
+
+async function loadCtx(env, provider, hint, truth) {
+  const order = truth?.orderRef ? await first(env, 'SELECT * FROM orders WHERE id = ?', truth.orderRef) : null;
+  let sub = truth?.providerSubscriptionId
+    ? await first(env, 'SELECT * FROM subscriptions WHERE provider = ? AND provider_subscription_id = ?', provider.id, truth.providerSubscriptionId) : null;
+  const charge = truth?.providerPaymentId
+    ? await first(env, "SELECT * FROM payments WHERE provider = ? AND provider_payment_id = ? AND kind = 'charge'", provider.id, truth.providerPaymentId) : null;
+  if (!sub && order?.subscription_id) sub = await first(env, 'SELECT * FROM subscriptions WHERE id = ?', order.subscription_id);
+  if (!sub && charge?.subscription_id && truth.status !== 'paid') sub = await first(env, 'SELECT * FROM subscriptions WHERE id = ?', charge.subscription_id);
+  let live = null; let liveTrial = null;
+  if (truth?.status === 'paid' && order) {
+    if (order.plan === 'class_year') {
+      live = await first(env, `SELECT * FROM subscriptions WHERE kind = 'class' AND class_code = ? AND plan != 'trial' AND ${LIVE_STRICT} LIMIT 1`, order.class_code);
+      liveTrial = await first(env, `SELECT * FROM subscriptions WHERE kind = 'class' AND class_code = ? AND plan = 'trial' AND ${LIVE_STRICT} LIMIT 1`, order.class_code);
+    } else if (order.account_id) {
+      live = await liveFamilyStrict(env, order.account_id);
+    }
+  }
+  return {
+    mode: env.BILLING_MODE === 'test' ? 'test' : 'live', now: nowIso(), provider: provider.id, eventId: hint.eventId, graceDays: limits(env).graceDays,
+    order, sub, live, liveTrial, charge, latestCharge: sub ? await latestCharge(env, sub.id) : null,
+    paymentExists: truth?.status === 'paid' && !!charge, ids: { sub: randomToken(8), payment: randomToken(8) },
+  };
+}
+
+const SUB_COLS = ['id', 'kind', 'account_id', 'class_code', 'plan', 'status', 'provider', 'provider_subscription_id', 'price_agorot', 'seats', 'invoice_ref',
+  'current_period_start', 'current_period_end', 'first_paid_at', 'refund_until', 'last_event_at', 'note', 'created_at', 'updated_at'];
+const PAY_COLS = ['id', 'provider', 'provider_payment_id', 'kind', 'subscription_id', 'order_id', 'amount_agorot', 'status', 'period_end', 'invoice_url', 'occurred_at', 'recorded_at'];
+const insert = (env, table, cols, row) => env.DB.prepare(`INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).bind(...cols.map((c) => row[c] ?? null));
+
+/** The SQL for one write that decide() asked for. */
+function opStmt(env, op) {
+  switch (op.op) {
+    case 'sub.insert': return insert(env, 'subscriptions', SUB_COLS, op.row);
+    case 'sub.end': return env.DB.prepare(
+      "UPDATE subscriptions SET status = 'ended', ended_reason = ?, current_period_end = ?, updated_at = ? WHERE id = ? AND status != 'ended'",
+    ).bind(op.reason, op.end, op.now, op.id);
+    case 'sub.renew': return env.DB.prepare(
+      `UPDATE subscriptions SET current_period_start = CASE WHEN ?1 > current_period_end THEN ?2 ELSE current_period_start END,
+       current_period_end = MAX(current_period_end, ?1), status = CASE WHEN ?3 THEN 'active' ELSE status END,
+       ended_reason = CASE WHEN ?3 THEN NULL ELSE ended_reason END, last_event_at = MAX(COALESCE(last_event_at, ''), ?4), updated_at = ?5 WHERE id = ?6`,
+    ).bind(op.newEnd, op.newStart, op.activate ? 1 : 0, op.lastEventAt, op.now, op.id);
+    case 'sub.pastDue': return env.DB.prepare(
+      "UPDATE subscriptions SET status = CASE WHEN status = 'active' THEN 'past_due' ELSE status END, last_event_at = MAX(COALESCE(last_event_at, ''), ?), updated_at = ? WHERE id = ?",
+    ).bind(op.lastEventAt, nowIso(), op.id);
+    case 'sub.providerCancel': return env.DB.prepare(
+      `UPDATE subscriptions SET cancel_at_period_end = 1, status = CASE WHEN status IN ('active', 'past_due') THEN 'canceled' ELSE status END,
+       cancel_requested_at = COALESCE(cancel_requested_at, ?), cancel_synced_at = COALESCE(cancel_synced_at, ?), updated_at = ? WHERE id = ?`,
+    ).bind(op.at, op.now, op.now, op.id);
+    case 'order.paid': return env.DB.prepare(
+      "UPDATE orders SET status = 'paid', subscription_id = COALESCE(?, subscription_id), paid_at = COALESCE(paid_at, ?) WHERE id = ? AND status != 'paid'",
+    ).bind(op.subscriptionId, op.at, op.id);
+    case 'payment': return insert(env, 'payments', PAY_COLS, op.row);
+    case 'refund': return env.DB.prepare('INSERT INTO refund_queue (subscription_id, payment_id, amount_agorot, reason, requested_at) VALUES (?, ?, ?, ?, ?)')
+      .bind(op.row.subscription_id, op.row.payment_id, op.row.amount_agorot, op.row.reason, op.row.requested_at);
+    case 'hold': return env.DB.prepare('UPDATE accounts SET billing_hold_at = COALESCE(billing_hold_at, ?) WHERE id = ?').bind(op.at, op.accountId);
+    case 'audit': return env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
+      .bind(op.row.at, op.row.actor, op.row.action, op.row.target, op.row.detail);
+    default: throw new Error(`unknown write ${op.op}`);
+  }
+}
+
+/** Apply one truth in one batch whose first statement is the billing_events row. Returns the outcome. */
+export async function applyTruth(env, provider, hint, truth) {
+  for (let attempt = 0; ; attempt++) {
+    const c = await loadCtx(env, provider, hint, truth);
+    const d = decide(truth, c);
+    for (const n of d.notices) {
+      if (n.kind.startsWith('canceled:') && !n.params.reference) n.params.reference = await cancelReference(n.ref, n.params.requestedAt);
+    }
+    const event = env.DB.prepare(
+      'INSERT INTO billing_events (provider, event_id, type, outcome, subscription_id, amount_agorot, detail, occurred_at, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(provider.id, hint.eventId, String(hint.type || truth?.status || 'unknown').slice(0, 20), d.outcome, d.subscriptionId, d.amount, cleanDetail(d.detail),
+      truth?.occurredAt || hint.occurredAt || null, nowIso());
+    try {
+      await env.DB.batch([event, ...d.ops.map((op) => opStmt(env, op)), ...d.notices.map((n) => noticeStmt(env, n))]);
+    } catch (e) {
+      const msg = String(e?.message || '');
+      if (/UNIQUE/.test(msg) && /billing_events/.test(msg)) return 'duplicate';
+      if (/UNIQUE/.test(msg) && attempt === 0) continue; // the state moved under us: read it again and decide once more
+      throw e;
+    }
+    if (d.acknowledge) { try { await provider.acknowledge(env, truth); } catch { console.error('billing: acknowledge failed', provider.id); } }
+    return d.outcome;
+  }
+}
+
+// ---------------------------------------------------------------- the test provider's payment page
+const testPayAllowed = (env) => String(env.BILLING_PROVIDER) === 'test' && !!providerById(env, 'test');
+const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+
+/** GET /api/billing/test-pay/:orderId: a fake hosted payment page with two buttons (test mode only). */
+export async function testPayPage(orderId, env) {
+  if (!testPayAllowed(env)) throw new HttpError(404, 'not_found');
+  const o = await first(env, 'SELECT * FROM orders WHERE id = ?', String(orderId));
+  if (!o) throw new HttpError(404, 'not_found');
+  const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>תשלום לבדיקה</title></head><body style="font-family:Rubik,Arial,sans-serif;max-width:28rem;margin:2rem auto;padding:0 16px;color:#14161a;background:#fff">
+<h1 style="font-size:1.4rem">תשלום לבדיקה</h1>
+<p>זה דף תשלום מדומה של סביבת הבדיקה. שום כרטיס לא מחויב.</p>
+<p>הזמנה ${escapeHtml(o.id)} · ${escapeHtml(shekels(o.amount_agorot))}</p>
+<form method="post"><button name="result" value="paid" style="font-size:1rem;padding:.75rem 1.25rem">תשלום מוצלח</button>
+<button name="result" value="failed" style="font-size:1rem;padding:.75rem 1.25rem">תשלום שנכשל</button></form></body></html>`;
+  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': PAGE_CSP, 'X-Content-Type-Options': 'nosniff' } });
+}
+
+/** POST /api/billing/test-pay/:orderId {result}: sign a test event, run it through the webhook in-process, go back. */
+export async function testPaySubmit(orderId, req, env, ctx) {
+  if (!testPayAllowed(env)) throw new HttpError(404, 'not_found');
+  const raw = await rawBody(req, 4096);
+  let result = '';
+  if (/json/.test(req.headers.get('Content-Type') || '')) { try { result = JSON.parse(raw).result; } catch { /* below */ } } else result = new URLSearchParams(raw).get('result');
+  if (!['paid', 'failed'].includes(result)) throw new HttpError(400, 'bad_result');
+  const o = await first(env, 'SELECT * FROM orders WHERE id = ?', String(orderId));
+  if (!o) throw new HttpError(404, 'not_found');
+  if (o.status === 'open') {
+    const event = {
+      id: `tev_${randomToken(8)}`, type: result, order: o.id, payment: `tpay_${o.id}${result === 'failed' ? `_${randomToken(4)}` : ''}`,
+      subscription: o.plan === 'class_year' ? undefined : `tsub_${o.id}`, amountAgorot: o.amount_agorot, currency: 'ILS', occurredAt: nowIso(),
+    };
+    const rawEvent = JSON.stringify(event);
+    const at = Math.floor(Date.now() / 1000);
+    const hook = new Request(`${publicUrl(env) || 'https://localhost'}/api/billing/webhook/test/x`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Test-Signature': await testSignature(env.TEST_WEBHOOK_SECRET || '', at, rawEvent) }, body: rawEvent,
+    });
+    await webhook('test', env.WEBHOOK_PATH_SECRET, hook, env, ctx, {});
+  }
+  return new Response(null, { status: 303, headers: { Location: `${publicUrl(env)}/parents?order=${o.id}`, 'Cache-Control': 'no-store' } });
+}
+
+// ---------------------------------------------------------------- cancel, resume, refunds
+/** POST /api/billing/cancel {subscriptionId, mode}: the payer's notice takes effect here and now, whatever the provider says. */
+export async function cancel(req, env, ctx, cors) {
+  const account = await requireAccount(req, env);
+  const b = await body(req);
+  const mode = String(b.mode || 'period_end');
+  if (!['period_end', 'refund_now', 'prorata'].includes(mode)) throw new HttpError(400, 'bad_mode');
+  const sub = await first(env, 'SELECT * FROM subscriptions WHERE id = ? AND account_id = ?', String(b.subscriptionId || ''), account.id);
+  if (!sub) throw new HttpError(404, 'no_subscription');
+  const answer = await cancelSubscription(env, ctx, sub, mode, { actor: `account:${account.id}` });
+  return json(answer, 200, cors);
+}
+
+async function cancelAnswer(env, sub) {
+  const provider = providerById(env, sub.provider);
+  const refunds = await first(env, "SELECT COALESCE(SUM(amount_agorot), 0) AS n FROM refund_queue WHERE subscription_id = ? AND reason IN ('cooling_off', 'prorata')", sub.id);
+  return {
+    ok: true, status: sub.status, endsAt: sub.current_period_end, refundAgorot: Number(refunds?.n || 0),
+    refundManual: !provider?.capabilities.refundApi, synced: !!sub.cancel_synced_at,
+    reference: await cancelReference(sub.id, sub.cancel_requested_at),
+  };
+}
+
+/** The writes of a cancellation (§6.6), then the provider call and refund attempt after the commit. */
+export async function cancelSubscription(env, ctx, sub, mode, { actor, inline = true } = {}) {
+  // a repeat changes nothing and returns the same answer
+  if (sub.cancel_requested_at && (mode === 'period_end' || sub.status === 'ended')) return cancelAnswer(env, sub);
+  if (sub.status === 'ended') throw new HttpError(404, 'no_subscription');
+  const now = nowIso();
+  const requestedAt = sub.cancel_requested_at || now;
+  let status = ['active', 'past_due'].includes(sub.status) ? 'canceled' : sub.status;
+  let endsAt = sub.current_period_end; let endedReason = null; let refund = null;
+  const charge = await latestCharge(env, sub.id);
+  if (mode === 'refund_now') {
+    if (!sub.refund_until || now >= sub.refund_until || !charge) throw new HttpError(409, 'refund_window_closed');
+    status = 'ended'; endedReason = 'refunded'; endsAt = endAt(sub, now);
+    refund = { amount: charge.amount_agorot, reason: 'cooling_off' };
+  } else if (mode === 'prorata') {
+    if (!['family_year', 'class_year'].includes(sub.plan) || !sub.refund_until || now < sub.refund_until || !charge) throw new HttpError(409, 'prorata_not_offered');
+    const start = Date.parse(sub.current_period_start); const end = Date.parse(sub.current_period_end);
+    const unused = Math.max(0, Math.floor((end - Date.now()) / DAY)); const total = Math.max(1, Math.round((end - start) / DAY));
+    const amount = Math.floor((sub.price_agorot || 0) * unused / total);
+    status = 'ended'; endedReason = 'canceled'; endsAt = endAt(sub, now);
+    if (amount > 0) refund = { amount, reason: 'prorata' };
+  }
+  const reference = await cancelReference(sub.id, requestedAt);
+  const stmts = [
+    env.DB.prepare(
+      `UPDATE subscriptions SET cancel_requested_at = COALESCE(cancel_requested_at, ?), cancel_at_period_end = 1, status = ?, ended_reason = COALESCE(?, ended_reason),
+       current_period_end = ?, updated_at = ? WHERE id = ?`,
+    ).bind(now, status, endedReason, endsAt, now, sub.id),
+    refund && env.DB.prepare('INSERT INTO refund_queue (subscription_id, payment_id, amount_agorot, reason, requested_at) VALUES (?, ?, ?, ?, ?) RETURNING id')
+      .bind(sub.id, charge?.id || null, refund.amount, refund.reason, now),
+    sub.account_id && noticeStmt(env, { ref: sub.id, kind: `canceled:${mode}:${requestedAt}`, to: sub.account_id, params: { requestedAt, endsAt, refundAgorot: refund?.amount || 0, reference } }),
+    auditStmt(env, actor, 'subscription.cancel', `sub:${sub.id}`, { mode, refundAgorot: refund?.amount || 0 }),
+  ].filter(Boolean);
+  const res = await env.DB.batch(stmts);
+  const refundId = refund ? res[1]?.results?.[0]?.id : null;
+  let synced = false;
+  if (inline) {
+    synced = await syncCancel(env, { ...sub, cancel_requested_at: requestedAt }, actor);
+    if (refundId) await processRefund(env, await first(env, 'SELECT * FROM refund_queue WHERE id = ?', refundId));
+    ctx?.waitUntil?.(flushNotices(env));
+  }
+  const provider = providerById(env, sub.provider);
+  return { ok: true, status, endsAt, refundAgorot: refund?.amount || 0, refundManual: !provider?.capabilities.refundApi, synced, reference };
+}
+
+/** Tell the provider to stop charging. A failure leaves cancel_synced_at empty for the hourly retry and is recorded. */
+export async function syncCancel(env, sub, actor = 'cron') {
+  const provider = providerById(env, sub.provider);
+  try {
+    if (!provider) throw new Error('provider not available');
+    await provider.cancel(env, sub, { idempotencyKey: `cancel:${sub.id}` });
+    await env.DB.prepare('UPDATE subscriptions SET cancel_synced_at = COALESCE(cancel_synced_at, ?) WHERE id = ?').bind(nowIso(), sub.id).run();
+    return true;
+  } catch {
+    const notices = Date.parse(sub.cancel_requested_at) < Date.now() - DAY
+      ? [noticeStmt(env, ownerNotice(sub.id, 'owner:unsynced_cancel', { subscription: sub.id, since: sub.cancel_requested_at }))] : [];
+    await env.DB.batch([auditStmt(env, actor, 'subscription.cancel_sync', `sub:${sub.id}`, { ok: false }), ...notices]);
+    return false;
+  }
+}
+
+/** The hourly retry of cancellations the provider has not confirmed. */
+export async function retryCancels(env, { limit = 50 } = {}) {
+  const list = await all(env, 'SELECT * FROM subscriptions WHERE cancel_requested_at IS NOT NULL AND cancel_synced_at IS NULL ORDER BY cancel_requested_at LIMIT ?', limit);
+  let synced = 0;
+  for (const sub of list) if (await syncCancel(env, sub)) synced++;
+  return { tried: list.length, synced };
+}
+
+export const REFUND_TRIES = 3;
+/** One refund: through the provider's API, or marked manual (with an owner notice) when there is none or it keeps failing. */
+export async function processRefund(env, row) {
+  if (!row || row.done_at || row.manual) return;
+  const sub = await first(env, 'SELECT * FROM subscriptions WHERE id = ?', row.subscription_id);
+  const provider = sub ? providerById(env, sub.provider) : null;
+  const manual = async (why) => env.DB.batch([
+    env.DB.prepare('UPDATE refund_queue SET manual = 1, result = ? WHERE id = ?').bind(why, row.id),
+    noticeStmt(env, ownerNotice(`refund:${row.id}`, 'owner:manual_refund', { subscription: row.subscription_id, amountAgorot: row.amount_agorot, reason: row.reason })),
+  ]);
+  if (!provider || !provider.capabilities.refundApi) return manual('no refund api');
+  const payment = row.payment_id ? await first(env, 'SELECT * FROM payments WHERE id = ?', row.payment_id) : null;
+  try {
+    const r = await provider.refund(env, payment, { amountAgorot: row.amount_agorot, idempotencyKey: `refund:${row.id}` });
+    if (!r?.refunded || r.manual) return manual('provider asks for a manual refund');
+    await env.DB.batch([
+      env.DB.prepare('UPDATE refund_queue SET done_at = ?, result = ? WHERE id = ?').bind(nowIso(), cleanDetail(`refunded ${r.providerRefundId || ''}`), row.id),
+      auditStmt(env, `provider:${provider.id}`, 'refund', `sub:${row.subscription_id}`, { amountAgorot: row.amount_agorot, reason: row.reason }),
+    ]);
+  } catch {
+    const tries = row.tries + 1;
+    await env.DB.prepare('UPDATE refund_queue SET tries = ?, result = ? WHERE id = ?').bind(tries, 'failed', row.id).run();
+    if (tries >= REFUND_TRIES) await manual('failed 3 times');
+  }
+}
+/** The hourly pass over the refund queue. */
+export async function processRefundQueue(env, { limit = 50 } = {}) {
+  const list = await all(env, 'SELECT * FROM refund_queue WHERE done_at IS NULL AND manual = 0 ORDER BY requested_at LIMIT ?', limit);
+  for (const row of list) await processRefund(env, row);
+  return { tried: list.length };
+}
+
+/** POST /api/billing/resume {subscriptionId}: undo a cancellation before the period ends, where the provider allows it. */
+export async function resume(req, env, cors) {
+  const account = await requireAccount(req, env);
+  const b = await body(req);
+  const sub = await first(env, 'SELECT * FROM subscriptions WHERE id = ? AND account_id = ?', String(b.subscriptionId || ''), account.id);
+  if (!sub) throw new HttpError(404, 'no_subscription');
+  const provider = providerById(env, sub.provider);
+  const ok = sub.status === 'canceled' && sub.cancel_at_period_end && nowIso() < sub.current_period_end && !sub.ended_reason && provider?.capabilities.resumeApi;
+  if (!ok) throw new HttpError(409, 'not_resumable');
+  try { await provider.resume(env, sub); } catch { throw new HttpError(409, 'not_resumable'); }
+  try {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE subscriptions SET cancel_at_period_end = 0, status = 'active', cancel_requested_at = NULL, cancel_synced_at = NULL, updated_at = ? WHERE id = ? AND status = 'canceled'")
+        .bind(nowIso(), sub.id),
+      auditStmt(env, `account:${account.id}`, 'subscription.resume', `sub:${sub.id}`),
+    ]);
+  } catch (e) {
+    if (/UNIQUE/.test(String(e?.message))) throw new HttpError(409, 'not_resumable'); // a newer plan is already live
+    throw e;
+  }
+  return json({ ok: true, status: 'active', renewsAt: sub.current_period_end }, 200, cors);
+}
+
+/** GET /api/billing/portal: the provider's page for updating the card, where there is one. */
+export async function portal(req, env, cors) {
+  const account = await requireAccount(req, env);
+  const sub = await first(env, `SELECT * FROM subscriptions WHERE kind = 'family' AND account_id = ? AND ${RUNNING} ORDER BY current_period_end DESC LIMIT 1`, account.id);
+  const url = sub ? providerById(env, sub.provider)?.portalUrl(env, sub) : null;
+  if (!url) throw new HttpError(404, 'no_portal');
   return json({ url }, 200, cors);
 }
 
-export async function webhook(name, req, env, cors) {
-  const provider = PROVIDERS[name];
-  if (!provider || provider.name === 'manual') throw new HttpError(404, 'not_found');
-  const events = await provider.webhook(req, env);
-  const results = [];
-  for (const ev of events) results.push(await applyEvent(env, ev));
-  return json({ ok: true, applied: results.length }, 200, cors);
-}
-
-/** Cancel the family subscription online: it stops renewing and runs to the end of the paid period. */
-export async function cancel(req, env, cors) {
+/** GET /api/billing/payments/:id/invoice: the provider's tax invoice, for the payer only. */
+export async function invoice(id, req, env) {
   const account = await requireAccount(req, env);
-  const sub = await activeFamilySub(env, account.id);
-  if (!sub) throw new HttpError(404, 'no_subscription');
-  if (!sub.cancel_at_period_end) {
-    await providerOf(env, sub.provider).cancel(env, sub);
-    await env.DB.prepare("UPDATE subscriptions SET status = 'canceled', cancel_at_period_end = 1, updated_at = ? WHERE id = ?").bind(nowIso(), sub.id).run();
-  }
-  return json({ ok: true, endsAt: sub.current_period_end }, 200, cors);
+  const p = await first(env, 'SELECT p.invoice_url FROM payments p JOIN subscriptions s ON s.id = p.subscription_id WHERE p.id = ? AND s.account_id = ?', String(id), account.id);
+  if (!p?.invoice_url || !/^https:\/\//.test(p.invoice_url)) throw new HttpError(404, 'not_found');
+  return new Response(null, { status: 302, headers: { Location: p.invoice_url, 'Cache-Control': 'no-store' } });
 }
 
-// ---------------------------------------------------------------- the owner's admin endpoints (X-Admin-Key)
-async function requireAdmin(req, env) {
-  if (!env.ADMIN_KEY || String(env.ADMIN_KEY).length < 24) throw new HttpError(404, 'not_found');
-  const ip = clientIp(req);
-  if ((await usedToday(env, `admin-fail:${ip}`)) >= 20) throw new HttpError(429, 'too_many_tries');
-  const key = String(req.headers.get('X-Admin-Key') || '');
-  if (!safeEqual(await sha256(key), await sha256(env.ADMIN_KEY))) {
-    await spend(env, `admin-fail:${ip}`, 1000);
-    throw new HttpError(401, 'not_admin');
+// ---------------------------------------------------------------- the parent's account page
+function planView(env, sub, charge, economy) {
+  if (!sub) return null;
+  const now = nowIso();
+  const provider = providerById(env, sub.provider);
+  const running = ['active', 'past_due', 'canceled'].includes(sub.status);
+  const canProrata = running && sub.plan === 'family_year' && !!sub.refund_until && now >= sub.refund_until && !!charge;
+  let prorataAgorot = null;
+  if (canProrata) {
+    const unused = Math.max(0, Math.floor((Date.parse(sub.current_period_end) - Date.now()) / DAY));
+    const total = Math.max(1, Math.round((Date.parse(sub.current_period_end) - Date.parse(sub.current_period_start)) / DAY));
+    prorataAgorot = Math.floor((sub.price_agorot || 0) * unused / total);
   }
+  return {
+    id: sub.id, plan: sub.plan, status: sub.status, priceAgorot: sub.price_agorot, periodEnd: sub.current_period_end,
+    cancelAtPeriodEnd: !!sub.cancel_at_period_end, cancelRequestedAt: sub.cancel_requested_at, refundUntil: sub.refund_until,
+    canRefundNow: running && !!sub.refund_until && now < sub.refund_until && !!charge,
+    canProrata, prorataAgorot,
+    canResume: sub.status === 'canceled' && !!sub.cancel_at_period_end && now < sub.current_period_end && !sub.ended_reason && !!provider?.capabilities.resumeApi,
+    portal: !!provider?.portalUrl(env, sub), economy,
+  };
 }
-const monthsAhead = (m) => { const d = new Date(); d.setMonth(d.getMonth() + Math.min(Math.max(Number(m) || 1, 1), 36)); return d.toISOString(); };
 
-export async function adminGrant(req, env, cors) {
-  await requireAdmin(req, env);
+/** GET /api/account: the signed-in parent's or teacher's own page. A family-device token gets 401 not_account. */
+export async function accountOverview(req, env, cors) {
+  const a = await requireAccount(req, env);
+  const L = limits(env);
+  const live = await first(env, `SELECT * FROM subscriptions WHERE kind = 'family' AND account_id = ? AND ${RUNNING} ORDER BY current_period_end DESC LIMIT 1`, a.id);
+  const charge = live ? await latestCharge(env, live.id) : null;
+  const economy = live ? (await monthSpendUsd(env, `fam:${a.id}`)) >= L.budgets.familyMonthlyUsd : false;
+  const devices = await all(env, 'SELECT id, label, created_at, last_seen FROM family_devices WHERE account_id = ? AND token_hash IS NOT NULL ORDER BY created_at', a.id);
+  const usage = await all(env, `SELECT who, SUM(count) AS n FROM ai_usage WHERE who IN (?, ?, ?, ?) AND length(day) = 10 AND day >= ? GROUP BY who`,
+    `fam:${a.id}:tutor`, `fam:${a.id}:check`, `fam:${a.id}:generate`, `fam:${a.id}:exam`, daysAgo(6));
+  const used = (g) => Number(usage.find((u) => u.who === `fam:${a.id}:${g}`)?.n || 0);
+  const payments = await all(env, `SELECT p.id, p.occurred_at, p.amount_agorot, p.kind, p.invoice_url FROM payments p JOIN subscriptions s ON s.id = p.subscription_id
+    WHERE s.account_id = ? ORDER BY p.occurred_at DESC LIMIT 24`, a.id);
+  const classes = await all(env, "SELECT class_code, status, current_period_end FROM subscriptions WHERE kind = 'class' AND account_id = ? ORDER BY current_period_end DESC LIMIT 20", a.id);
+  return json({
+    email: a.email, billingHold: !!a.billingHoldAt, maxDevices: L.family.devices,
+    plan: planView(env, live, charge, economy),
+    devices: devices.map((d) => ({ id: d.id, label: d.label, linkedAt: d.created_at, lastSeen: d.last_seen })),
+    usageWeek: { tutor: used('tutor'), check: used('check'), generate: used('generate'), exam: used('exam') },
+    payments: payments.map((p) => ({ id: p.id, at: p.occurred_at, amountAgorot: p.amount_agorot, kind: p.kind, hasInvoice: !!p.invoice_url })),
+    classes: classes.map((c) => ({ classCode: c.class_code, status: c.status, until: c.current_period_end })),
+  }, 200, cors);
+}
+
+/** GET /api/account/export: everything kept about the caller, as a file. No card data exists to export. */
+export async function accountExport(req, env, cors) {
+  const a = await requireAccount(req, env);
+  const acc = await first(env, 'SELECT email, created_at, last_seen, adult_confirmed_at, terms_version, billing_hold_at FROM accounts WHERE id = ?', a.id);
+  const subs = await all(env, `SELECT id, kind, class_code, plan, status, provider, price_agorot, seats, current_period_start, current_period_end, cancel_requested_at,
+    first_paid_at, refund_until, ended_reason, created_at FROM subscriptions WHERE account_id = ?`, a.id);
+  const data = {
+    exportedAt: nowIso(), account: acc,
+    devices: await all(env, 'SELECT id, label, created_at, last_seen FROM family_devices WHERE account_id = ?', a.id),
+    subscriptions: subs,
+    payments: await all(env, `SELECT p.id, p.kind, p.amount_agorot, p.currency, p.status, p.occurred_at, p.period_end FROM payments p JOIN subscriptions s ON s.id = p.subscription_id
+      WHERE s.account_id = ?`, a.id),
+    orders: await all(env, 'SELECT id, plan, class_code, seats, amount_agorot, status, created_at, paid_at FROM orders WHERE account_id = ?', a.id),
+  };
+  return json(data, 200, cors, { 'Content-Disposition': `attachment; filename="madregot-${dayOf()}.json"` });
+}
+
+/**
+ * POST /api/account/delete {confirm: "DELETE"}: needs a code entered in the last 10 minutes. Ends any family plan now
+ * (the provider is told; the hourly retry finishes it if it is down), deletes the sessions, devices, links, requests and
+ * the account; subscriptions and orders lose the account id; payments are kept for the tax records.
+ */
+export async function deleteAccount(req, env, ctx, cors) {
+  const a = await requireAccount(req, env);
+  requireRecentCode(a);
   const b = await body(req);
-  const until = b.until && !Number.isNaN(Date.parse(b.until)) ? new Date(b.until).toISOString() : monthsAhead(b.months);
-  const note = String(b.note || '').slice(0, 200) || null;
-  if (b.kind === 'class') {
-    const code = String(b.classCode || '').toUpperCase();
-    const cls = await env.DB.prepare('SELECT code FROM classes WHERE code = ?').bind(code).first();
-    if (!cls) throw new HttpError(404, 'no_class');
-    const id = await upsertSubscription(env, { provider: 'manual', kind: 'class', classCode: code, status: 'active', periodEnd: until, note });
-    return json({ id, kind: 'class', classCode: code, until }, 200, cors);
-  }
-  if (b.kind === 'family') {
-    const email = cleanEmail(b.email);
-    let a = await env.DB.prepare('SELECT id FROM accounts WHERE email = ?').bind(email).first();
-    if (!a) { a = { id: randomToken(8) }; await env.DB.prepare('INSERT INTO accounts (id, email, created_at) VALUES (?, ?, ?)').bind(a.id, email, nowIso()).run(); }
-    const id = await upsertSubscription(env, { provider: 'manual', kind: 'family', accountId: a.id, status: 'active', periodEnd: until, note });
-    return json({ id, kind: 'family', email, until }, 200, cors);
-  }
-  throw new HttpError(400, 'bad_kind');
-}
-
-export async function adminEnd(req, env, cors) {
-  await requireAdmin(req, env);
-  const b = await body(req);
-  const r = await env.DB.prepare("UPDATE subscriptions SET status = 'ended', current_period_end = ?, updated_at = ? WHERE id = ?").bind(nowIso(), nowIso(), String(b.id || '')).run();
-  if (!r.meta?.changes) throw new HttpError(404, 'no_subscription');
+  if (b.confirm !== 'DELETE') throw new HttpError(400, 'confirm_required');
+  await forgetAccount(env, a.id, { actor: `account:${a.id}` });
+  ctx?.waitUntil?.(retryCancels(env));
   return json({ ok: true }, 200, cors);
 }
 
-export async function adminList(req, env, cors) {
-  await requireAdmin(req, env);
-  const rows = (await env.DB.prepare(
-    'SELECT s.id, s.kind, s.status, s.provider, s.provider_ref, s.class_code, s.current_period_end, s.cancel_at_period_end, s.created_at, s.note, a.email FROM subscriptions s LEFT JOIN accounts a ON a.id = s.account_id ORDER BY s.created_at DESC LIMIT 500',
-  ).all()).results || [];
-  return json({ subscriptions: rows }, 200, cors);
+/** The writes of an account deletion (shared with the owner CLI's forget). Provider calls happen after, by retryCancels. */
+export async function forgetAccount(env, accountId, { actor }) {
+  const now = nowIso();
+  const subs = await all(env, `SELECT * FROM subscriptions WHERE kind = 'family' AND account_id = ? AND ${RUNNING}`, accountId);
+  await env.DB.batch([
+    ...subs.map((s) => env.DB.prepare(
+      `UPDATE subscriptions SET cancel_requested_at = COALESCE(cancel_requested_at, ?), cancel_at_period_end = 1, status = 'ended', ended_reason = 'account_deleted',
+       current_period_end = ?, updated_at = ? WHERE id = ?`,
+    ).bind(now, endAt(s, now), now, s.id)),
+    env.DB.prepare('DELETE FROM account_sessions WHERE account_id = ?').bind(accountId),
+    env.DB.prepare('DELETE FROM link_codes WHERE account_id = ?').bind(accountId),
+    env.DB.prepare('DELETE FROM family_devices WHERE account_id = ?').bind(accountId),
+    env.DB.prepare('DELETE FROM licence_requests WHERE account_id = ?').bind(accountId),
+    env.DB.prepare('DELETE FROM notices WHERE to_account = ? AND sent_at IS NULL').bind(accountId),
+    env.DB.prepare('UPDATE subscriptions SET account_id = NULL, updated_at = ? WHERE account_id = ?').bind(now, accountId),
+    env.DB.prepare('UPDATE orders SET account_id = NULL WHERE account_id = ?').bind(accountId),
+    env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(accountId),
+    auditStmt(env, actor, 'account.delete', `account:${accountId}`, { endedPlans: subs.length }),
+  ]);
+  return { endedPlans: subs.length };
 }
+

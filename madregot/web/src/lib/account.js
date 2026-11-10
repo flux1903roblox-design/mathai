@@ -31,16 +31,51 @@ const statusHeaders = () => {
   return { ...accountHeaders(), ...(cls ? { 'X-Class-Code': cls.code, 'X-Teacher-Key': cls.key } : {}) };
 };
 
-// What the server said last: { tier: 'free' | 'paid', left, limit, plan, offer, signedIn, email, aiReady }
+// What the server said last, in the shape the screens read: { tier: 'free' | 'paid' | 'open', left, limit, used, kinds,
+// plan, offer, signedIn, email, aiReady }. A server with the rebuilt tutor answers in a new shape (tiers family, class,
+// teacher, trial, legacy, open; counts per group; the parent's plan only on GET /api/account), so viewOf() maps it.
 export const useAIStatus = create(() => ({ status: null, loading: false, error: null }));
+
+const PAID_TIERS = ['family', 'class', 'teacher', 'trial', 'legacy'];
+const viewTier = (t) => (t === 'free' || t === 'open' ? t : PAID_TIERS.includes(t) ? 'paid' : t);
+const priceText = (agorot) => `₪${(agorot / 100).toFixed(2)}`;
+
+/** The new status shape, plus the signed-in account and the public plans, as the screens read it. */
+function viewOf(s, account, plans) {
+  const g = s.groups?.tutor || s.groups?.all || null;
+  const fam = account?.plan || null;
+  const month = plans?.plans?.find((x) => x.id === 'family_month');
+  return {
+    ...s, serverTier: s.tier, tier: viewTier(s.tier),
+    left: g ? g.left : undefined, limit: g ? g.limit : undefined, used: g ? Math.max(0, g.limit - g.left) : 0,
+    signedIn: account === undefined ? undefined : !!account,
+    email: account?.email || null,
+    plan: fam ? { kind: 'family', id: fam.id, status: fam.status, endsAt: fam.periodEnd, cancelAtPeriodEnd: fam.cancelAtPeriodEnd }
+      : PAID_TIERS.includes(s.tier) && s.tier !== 'family' ? { kind: 'class' } : null,
+    offer: {
+      daily: { free: plans?.limits?.free?.tutor ?? 2, paid: plans?.limits?.family?.tutor ?? null, teacher: null },
+      // online sign-up waits for the new parents page (it asks for the adult and terms confirmations)
+      family: { price: month ? `${priceText(month.amountAgorot)} לחודש` : null, online: false },
+      school: { contact: plans?.contact || null },
+    },
+  };
+}
 
 export async function refreshStatus() {
   if (!hasServer()) { useAIStatus.setState({ status: null, loading: false, error: 'no_server' }); return null; }
   useAIStatus.setState({ loading: true, error: null });
   try {
-    const status = await api('/api/ai/status', { headers: statusHeaders() });
+    let status = await api('/api/ai/status', { headers: statusHeaders() });
+    if (status && 'groups' in status) {
+      const token = useApp.getState().ai.account?.token;
+      const [account, plans] = await Promise.all([
+        token ? api('/api/account', { headers: { 'X-Account-Token': token } }).catch((e) => (e.status === 401 ? null : undefined)) : Promise.resolve(null),
+        api('/api/billing/plans').catch(() => null),
+      ]);
+      status = viewOf(status, account, plans);
+    }
     // the server signed this device out (a newer device took its place, or the account was deleted)
-    if (!status.signedIn && useApp.getState().ai.account) useApp.getState().setAI({ account: null });
+    if (status.signedIn === false && useApp.getState().ai.account) useApp.getState().setAI({ account: null });
     useAIStatus.setState({ status, loading: false });
     return status;
   } catch (e) {
@@ -57,7 +92,8 @@ export async function refreshStatus() {
 export function autoAskAllowed() {
   const { ai, profile } = useApp.getState();
   if (ai.mode === 'personal' && ai.key && !profile?.classCode) return true;
-  return useAIStatus.getState().status?.tier === 'paid';
+  const tier = useAIStatus.getState().status?.tier;
+  return tier === 'paid' || tier === 'open';
 }
 
 /** Is this tutor action part of the subscription, on this device today (the free taste covers explain and chat)? */
@@ -76,10 +112,12 @@ export function gate(kind) {
 
 /** The server's count after an AI answer (sent in the X-AI-Tier / X-AI-Left headers). */
 export function noteUsage(res) {
-  const tier = res.headers.get('X-AI-Tier'); const left = res.headers.get('X-AI-Left');
+  const tier = res.headers.get('X-AI-Tier'); const left = res.headers.get('X-AI-Left'); const group = res.headers.get('X-AI-Group');
   if (!tier) return;
   const prev = useAIStatus.getState().status;
-  useAIStatus.setState({ status: { ...(prev || {}), tier, left: Number(left) } });
+  // the count shown is the tutor's (explain and chat); a photo check or new exercises count in their own group
+  const counts = !group || group === 'tutor' || group === 'all';
+  useAIStatus.setState({ status: { ...(prev || {}), tier: viewTier(tier), ...(counts ? { left: Number(left) } : {}) } });
 }
 
 export async function sendCode(email) {
@@ -97,7 +135,7 @@ export async function signOutAccount() {
   await refreshStatus();
 }
 export async function deleteAccount() {
-  await api('/api/account/delete', { method: 'POST', headers: accountHeaders() });
+  await api('/api/account/delete', { method: 'POST', body: { confirm: 'DELETE' }, headers: accountHeaders() });
   useApp.getState().setAI({ account: null });
   await refreshStatus();
 }
@@ -106,7 +144,8 @@ export async function startCheckout() {
   return url;
 }
 export async function cancelPlan() {
-  const r = await api('/api/billing/cancel', { method: 'POST', headers: accountHeaders() });
+  const plan = useAIStatus.getState().status?.plan;
+  const r = await api('/api/billing/cancel', { method: 'POST', body: { subscriptionId: plan?.id, mode: 'period_end' }, headers: accountHeaders() });
   await refreshStatus();
   return r;
 }

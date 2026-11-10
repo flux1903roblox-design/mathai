@@ -120,12 +120,12 @@ const CHECK_SCHEMA = {
 
 const clip = (s, n) => String(s ?? '').slice(0, n);
 
-function contextBlock(ctx = {}) {
+function contextBlock(ctx = {}, { questionChars = 800 } = {}) {
   const lines = [];
   if (ctx.grade) lines.push(`Grade: ${ctx.grade === '8' ? '8 (ח׳)' : '7 (ז׳)'}`);
   if (ctx.topic) lines.push(`Topic: ${clip(ctx.topic, 120)}`);
   if (ctx.level) lines.push(`Level: ${clip(ctx.level, 120)}`);
-  if (ctx.question) lines.push(`Exercise on screen: ${clip(ctx.question, 800)}`);
+  if (ctx.question) lines.push(`Exercise on screen: ${clip(ctx.question, questionChars)}`);
   if (ctx.correct != null && ctx.correct !== '') lines.push(`Correct answer (authoritative): ${clip(ctx.correct, 200)}`);
   if (ctx.studentAnswer) lines.push(`Student's answer: ${clip(ctx.studentAnswer, 200)}`);
   if (ctx.attempts) lines.push(`Attempts so far: ${Number(ctx.attempts) || 0}`);
@@ -141,46 +141,70 @@ const base = (model, effort, maxTokens) => ({
   output_config: { effort },
 });
 
-/** Free-taste requests (lite): a short answer from a low-cost model. Haiku has no server-side refusal fallback, so its
- *  requests carry neither the fallback beta nor `fallbacks`. */
+// Which AI kinds share a daily limit (a "group"), and what each kind weighs against a class-wide cap.
+export const KIND_GROUP = { explain: 'tutor', chat: 'tutor', check: 'check', generate: 'generate', exam: 'exam' };
+export const AI_UNITS = { explain: 1, chat: 1, check: 4, generate: 3, exam: 20 };
+export const AI_GROUPS = ['tutor', 'check', 'generate', 'exam'];
+// The free taste covers only the short kinds.
+export const FREE_KINDS = ['explain', 'chat'];
+// The model for the free taste and for economy mode when FREE_MODEL is empty. Never the main model.
+export const LITE_MODEL = 'claude-haiku-5-5';
 export const LITE_MAX_TOKENS = 1500;
-const supportsFallback = (model) => !/^claude-haiku/.test(String(model || DEFAULT_MODEL));
-function liteify(params) {
-  const out = { ...params, max_tokens: Math.min(params.max_tokens, LITE_MAX_TOKENS), output_config: { ...params.output_config, effort: 'low' } };
-  if (!supportsFallback(out.model)) { delete out.fallbacks; out.betas = (out.betas || []).filter((b) => b !== FALLBACK_BETA); }
-  return out;
-}
+export const ECONOMY_MAX_TOKENS = 2500;
+export const LITE_NOTE = 'This student has only a few questions to the tutor today. Answer completely in one reply of at most 100 words, and do not end with a question the student has to answer.';
 
-/** Build the request params for one AI action. Throws on invalid input. lite: the free taste (short, low cost). */
-export function buildRequest(kind, input = {}, { model, lite = false } = {}) {
-  if (lite && kind === 'chat' && Array.isArray(input.messages)) {
-    // a free chat keeps the last few turns, starting from a student turn, so the exercise context still leads it
-    const recent = input.messages.slice(-6);
-    while (recent.length > 1 && recent[0]?.role !== 'user') recent.shift();
-    input = { ...input, messages: recent };
-  }
-  const params = buildFull(kind, input, { model });
-  if (lite) return liteify(params);
-  if (!supportsFallback(params.model)) { delete params.fallbacks; params.betas = (params.betas || []).filter((b) => b !== FALLBACK_BETA); }
+/** The low-cost model family has no server-side refusal fallback, so its requests carry neither the fallback beta nor `fallbacks`. */
+export function supportsFallback(model) { return !/^claude-haiku/.test(String(model || DEFAULT_MODEL)); }
+function dropFallback(params) {
+  delete params.fallbacks;
+  params.betas = (params.betas || []).filter((b) => b !== FALLBACK_BETA);
   return params;
 }
 
-function buildFull(kind, input = {}, { model } = {}) {
+/**
+ * Build the request params for one AI action. Throws on invalid input.
+ * shape: 'full' (every kind, the main model), 'lite' (the free taste: explain and chat only, a low-cost model, one
+ * short answer) or 'economy' (a paid pool over its monthly budget: explain and chat on the low-cost model, shorter).
+ * `lite: true` is kept as an alias of shape 'lite'.
+ */
+export function buildRequest(kind, input = {}, { model, shape, lite = false } = {}) {
+  const sh = shape || (lite ? 'lite' : 'full');
+  if (sh === 'full') {
+    const params = buildFull(kind, input, { model });
+    return supportsFallback(params.model) ? params : dropFallback(params);
+  }
+  if (sh !== 'lite' && sh !== 'economy') throw new Error(`unknown request shape: ${sh}`);
+  if (!FREE_KINDS.includes(kind)) throw new Error(`${kind} has no ${sh} form`);
+  const short = sh === 'lite';
+  const params = buildFull(kind, input, {
+    model: model || LITE_MODEL,
+    ...(short ? { maxMessages: 6, messageChars: 600, questionChars: 400, fromUser: true } : {}),
+  });
+  params.max_tokens = short ? LITE_MAX_TOKENS : ECONOMY_MAX_TOKENS;
+  params.output_config = { ...params.output_config, effort: 'low' };
+  if (short) params.system = `${params.system}\n\n${LITE_NOTE}`;
+  return supportsFallback(params.model) ? params : dropFallback(params);
+}
+
+function buildFull(kind, input = {}, { model, maxMessages = 12, messageChars = 2000, questionChars = 800, fromUser = false } = {}) {
   const system = `${TUTOR}\n\n${TASKS[kind] || ''}`;
+  const cb = (ctx) => contextBlock(ctx, { questionChars });
   if (kind === 'explain') {
     return {
       ...base(model, 'medium', 4000),
       system,
-      messages: [{ role: 'user', content: `${contextBlock(input)}\n\nExplain my mistake.` }],
+      messages: [{ role: 'user', content: `${cb(input)}\n\nExplain my mistake.` }],
     };
   }
   if (kind === 'chat') {
     const history = (Array.isArray(input.messages) ? input.messages : [])
       .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
-      .slice(-12)
-      .map((m) => ({ role: m.role, content: clip(m.content, 2000) }));
+      .slice(-maxMessages)
+      .map((m) => ({ role: m.role, content: clip(m.content, messageChars) }));
+    // a shortened chat starts from a student turn, so the exercise context still leads it
+    if (fromUser) while (history.length > 1 && history[0].role !== 'user') history.shift();
     if (!history.length || history[0].role !== 'user') throw new Error('chat needs a user message first');
-    const ctx = contextBlock(input.context);
+    const ctx = cb(input.context);
     if (ctx) history[0] = { role: 'user', content: `${ctx}\n\n${history[0].content}` };
     return { ...base(model, 'low', 4000), system, messages: history };
   }

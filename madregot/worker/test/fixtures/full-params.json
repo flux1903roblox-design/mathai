@@ -1,0 +1,1387 @@
+{
+ "explain": {
+  "input": {
+   "grade": "8",
+   "topic": "מספרים מכוונים",
+   "level": "חיבור",
+   "question": "3 - 8 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+   "correct": "-5",
+   "studentAnswer": "5",
+   "attempts": 2
+  },
+  "opus": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 4000,
+   "betas": [
+    "server-side-fallback-2026-07-01"
+   ],
+   "fallbacks": "default",
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "medium"
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student answered an exercise incorrectly. Explain the specific mistake: compare their answer with the correct one, name the misconception that most likely produced their number, then show the correct method in 2-4 short steps. Do not lecture and do not repeat the whole topic.",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Grade: 8 (ח׳)\nTopic: מספרים מכוונים\nLevel: חיבור\nExercise on screen: 3 - 8 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\nCorrect answer (authoritative): -5\nStudent's answer: 5\nAttempts so far: 2\n\nExplain my mistake."
+    }
+   ]
+  },
+  "haiku": {
+   "model": "claude-haiku-5-5",
+   "max_tokens": 4000,
+   "betas": [],
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "medium"
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student answered an exercise incorrectly. Explain the specific mistake: compare their answer with the correct one, name the misconception that most likely produced their number, then show the correct method in 2-4 short steps. Do not lecture and do not repeat the whole topic.",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Grade: 8 (ח׳)\nTopic: מספרים מכוונים\nLevel: חיבור\nExercise on screen: 3 - 8 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\nCorrect answer (authoritative): -5\nStudent's answer: 5\nAttempts so far: 2\n\nExplain my mistake."
+    }
+   ]
+  },
+  "dflt": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 4000,
+   "betas": [
+    "server-side-fallback-2026-07-01"
+   ],
+   "fallbacks": "default",
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "medium"
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student answered an exercise incorrectly. Explain the specific mistake: compare their answer with the correct one, name the misconception that most likely produced their number, then show the correct method in 2-4 short steps. Do not lecture and do not repeat the whole topic.",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Grade: 8 (ח׳)\nTopic: מספרים מכוונים\nLevel: חיבור\nExercise on screen: 3 - 8 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\nCorrect answer (authoritative): -5\nStudent's answer: 5\nAttempts so far: 2\n\nExplain my mistake."
+    }
+   ]
+  }
+ },
+ "chat": {
+  "input": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "turn 0 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 1 "
+    },
+    {
+     "role": "user",
+     "content": "turn 2 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 3 "
+    },
+    {
+     "role": "user",
+     "content": "turn 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "role": "assistant",
+     "content": "turn 5 "
+    },
+    {
+     "role": "user",
+     "content": "turn 6 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 7 "
+    },
+    {
+     "role": "user",
+     "content": "turn 8 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 9 "
+    },
+    {
+     "role": "user",
+     "content": "turn 10 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 11 "
+    },
+    {
+     "role": "user",
+     "content": "turn 12 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 13 "
+    }
+   ],
+   "context": {
+    "grade": "7",
+    "question": "3 - 8"
+   }
+  },
+  "opus": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 4000,
+   "betas": [
+    "server-side-fallback-2026-07-01"
+   ],
+   "fallbacks": "default",
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "low"
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student is working on the exercise described in the context and asks you questions about it. Guide them toward the answer. If they have not tried yet, give the next step rather than the final answer; if they ask for the final answer after trying, you may give it with the method.",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Grade: 7 (ז׳)\nExercise on screen: 3 - 8\n\nturn 2 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 3 "
+    },
+    {
+     "role": "user",
+     "content": "turn 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "role": "assistant",
+     "content": "turn 5 "
+    },
+    {
+     "role": "user",
+     "content": "turn 6 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 7 "
+    },
+    {
+     "role": "user",
+     "content": "turn 8 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 9 "
+    },
+    {
+     "role": "user",
+     "content": "turn 10 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 11 "
+    },
+    {
+     "role": "user",
+     "content": "turn 12 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 13 "
+    }
+   ]
+  },
+  "haiku": {
+   "model": "claude-haiku-5-5",
+   "max_tokens": 4000,
+   "betas": [],
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "low"
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student is working on the exercise described in the context and asks you questions about it. Guide them toward the answer. If they have not tried yet, give the next step rather than the final answer; if they ask for the final answer after trying, you may give it with the method.",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Grade: 7 (ז׳)\nExercise on screen: 3 - 8\n\nturn 2 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 3 "
+    },
+    {
+     "role": "user",
+     "content": "turn 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "role": "assistant",
+     "content": "turn 5 "
+    },
+    {
+     "role": "user",
+     "content": "turn 6 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 7 "
+    },
+    {
+     "role": "user",
+     "content": "turn 8 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 9 "
+    },
+    {
+     "role": "user",
+     "content": "turn 10 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 11 "
+    },
+    {
+     "role": "user",
+     "content": "turn 12 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 13 "
+    }
+   ]
+  },
+  "dflt": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 4000,
+   "betas": [
+    "server-side-fallback-2026-07-01"
+   ],
+   "fallbacks": "default",
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "low"
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student is working on the exercise described in the context and asks you questions about it. Guide them toward the answer. If they have not tried yet, give the next step rather than the final answer; if they ask for the final answer after trying, you may give it with the method.",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Grade: 7 (ז׳)\nExercise on screen: 3 - 8\n\nturn 2 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 3 "
+    },
+    {
+     "role": "user",
+     "content": "turn 4 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "role": "assistant",
+     "content": "turn 5 "
+    },
+    {
+     "role": "user",
+     "content": "turn 6 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 7 "
+    },
+    {
+     "role": "user",
+     "content": "turn 8 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 9 "
+    },
+    {
+     "role": "user",
+     "content": "turn 10 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 11 "
+    },
+    {
+     "role": "user",
+     "content": "turn 12 "
+    },
+    {
+     "role": "assistant",
+     "content": "turn 13 "
+    }
+   ]
+  }
+ },
+ "generate": {
+  "input": {
+   "grade": "7",
+   "topic": "מספרים מכוונים",
+   "level": "חיבור",
+   "count": 3,
+   "examples": "1+1"
+  },
+  "opus": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 16000,
+   "betas": [
+    "server-side-fallback-2026-07-01"
+   ],
+   "fallbacks": "default",
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "high",
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "questions"
+      ],
+      "properties": {
+       "questions": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "prompt",
+          "answer",
+          "hint",
+          "solution"
+         ],
+         "properties": {
+          "prompt": {
+           "type": "string",
+           "description": "The exercise in Hebrew, math in $...$"
+          },
+          "answer": {
+           "type": "string",
+           "description": "The exact numeric answer: integer, decimal or a/b"
+          },
+          "hint": {
+           "type": "string"
+          },
+          "solution": {
+           "type": "array",
+           "items": {
+            "type": "string"
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: write new practice exercises for the topic and level given. Each exercise must have exactly one numeric answer (an integer, a terminating decimal, or a fraction a/b). Solve each exercise yourself and double-check the answer before writing it. Match the difficulty of the level. Hints must not reveal the answer. Solutions list 2-5 short steps.",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Grade: 7 (ז׳)\nTopic: מספרים מכוונים\nLevel: חיבור\n\nWrite 3 new exercises for this topic and level.\nExamples of exercises at this level:\n1+1"
+    }
+   ]
+  },
+  "haiku": {
+   "model": "claude-haiku-5-5",
+   "max_tokens": 16000,
+   "betas": [],
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "high",
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "questions"
+      ],
+      "properties": {
+       "questions": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "prompt",
+          "answer",
+          "hint",
+          "solution"
+         ],
+         "properties": {
+          "prompt": {
+           "type": "string",
+           "description": "The exercise in Hebrew, math in $...$"
+          },
+          "answer": {
+           "type": "string",
+           "description": "The exact numeric answer: integer, decimal or a/b"
+          },
+          "hint": {
+           "type": "string"
+          },
+          "solution": {
+           "type": "array",
+           "items": {
+            "type": "string"
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: write new practice exercises for the topic and level given. Each exercise must have exactly one numeric answer (an integer, a terminating decimal, or a fraction a/b). Solve each exercise yourself and double-check the answer before writing it. Match the difficulty of the level. Hints must not reveal the answer. Solutions list 2-5 short steps.",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Grade: 7 (ז׳)\nTopic: מספרים מכוונים\nLevel: חיבור\n\nWrite 3 new exercises for this topic and level.\nExamples of exercises at this level:\n1+1"
+    }
+   ]
+  },
+  "dflt": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 16000,
+   "betas": [
+    "server-side-fallback-2026-07-01"
+   ],
+   "fallbacks": "default",
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "high",
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "questions"
+      ],
+      "properties": {
+       "questions": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "prompt",
+          "answer",
+          "hint",
+          "solution"
+         ],
+         "properties": {
+          "prompt": {
+           "type": "string",
+           "description": "The exercise in Hebrew, math in $...$"
+          },
+          "answer": {
+           "type": "string",
+           "description": "The exact numeric answer: integer, decimal or a/b"
+          },
+          "hint": {
+           "type": "string"
+          },
+          "solution": {
+           "type": "array",
+           "items": {
+            "type": "string"
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: write new practice exercises for the topic and level given. Each exercise must have exactly one numeric answer (an integer, a terminating decimal, or a fraction a/b). Solve each exercise yourself and double-check the answer before writing it. Match the difficulty of the level. Hints must not reveal the answer. Solutions list 2-5 short steps.",
+   "messages": [
+    {
+     "role": "user",
+     "content": "Grade: 7 (ז׳)\nTopic: מספרים מכוונים\nLevel: חיבור\n\nWrite 3 new exercises for this topic and level.\nExamples of exercises at this level:\n1+1"
+    }
+   ]
+  }
+ },
+ "check": {
+  "input": {
+   "grade": "8",
+   "image": "data:image/jpeg;base64,/9j/4AAQ",
+   "mediaType": "image/png",
+   "question": "2x=4"
+  },
+  "opus": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 16000,
+   "betas": [
+    "server-side-fallback-2026-07-01"
+   ],
+   "fallbacks": "default",
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "high",
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "readable",
+       "transcript",
+       "steps",
+       "final",
+       "summary"
+      ],
+      "properties": {
+       "readable": {
+        "type": "boolean"
+       },
+       "transcript": {
+        "type": "string",
+        "description": "What is written, math in $...$"
+       },
+       "steps": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "text",
+          "ok",
+          "comment"
+         ],
+         "properties": {
+          "text": {
+           "type": "string",
+           "description": "The step as written, math in $...$"
+          },
+          "ok": {
+           "type": "boolean"
+          },
+          "comment": {
+           "type": "string",
+           "description": "Empty when the step is fine"
+          }
+         }
+        }
+       },
+       "final": {
+        "type": "string",
+        "enum": [
+         "correct",
+         "wrong",
+         "unfinished",
+         "unknown"
+        ]
+       },
+       "summary": {
+        "type": "string",
+        "description": "One or two sentences for the student"
+       }
+      }
+     }
+    }
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).",
+   "messages": [
+    {
+     "role": "user",
+     "content": [
+      {
+       "type": "image",
+       "source": {
+        "type": "base64",
+        "media_type": "image/png",
+        "data": "/9j/4AAQ"
+       }
+      },
+      {
+       "type": "text",
+       "text": "Grade: 8 (ח׳)\nExercise on screen: 2x=4\n\nCheck my handwritten work in the photo."
+      }
+     ]
+    }
+   ]
+  },
+  "haiku": {
+   "model": "claude-haiku-5-5",
+   "max_tokens": 16000,
+   "betas": [],
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "high",
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "readable",
+       "transcript",
+       "steps",
+       "final",
+       "summary"
+      ],
+      "properties": {
+       "readable": {
+        "type": "boolean"
+       },
+       "transcript": {
+        "type": "string",
+        "description": "What is written, math in $...$"
+       },
+       "steps": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "text",
+          "ok",
+          "comment"
+         ],
+         "properties": {
+          "text": {
+           "type": "string",
+           "description": "The step as written, math in $...$"
+          },
+          "ok": {
+           "type": "boolean"
+          },
+          "comment": {
+           "type": "string",
+           "description": "Empty when the step is fine"
+          }
+         }
+        }
+       },
+       "final": {
+        "type": "string",
+        "enum": [
+         "correct",
+         "wrong",
+         "unfinished",
+         "unknown"
+        ]
+       },
+       "summary": {
+        "type": "string",
+        "description": "One or two sentences for the student"
+       }
+      }
+     }
+    }
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).",
+   "messages": [
+    {
+     "role": "user",
+     "content": [
+      {
+       "type": "image",
+       "source": {
+        "type": "base64",
+        "media_type": "image/png",
+        "data": "/9j/4AAQ"
+       }
+      },
+      {
+       "type": "text",
+       "text": "Grade: 8 (ח׳)\nExercise on screen: 2x=4\n\nCheck my handwritten work in the photo."
+      }
+     ]
+    }
+   ]
+  },
+  "dflt": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 16000,
+   "betas": [
+    "server-side-fallback-2026-07-01"
+   ],
+   "fallbacks": "default",
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "high",
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "readable",
+       "transcript",
+       "steps",
+       "final",
+       "summary"
+      ],
+      "properties": {
+       "readable": {
+        "type": "boolean"
+       },
+       "transcript": {
+        "type": "string",
+        "description": "What is written, math in $...$"
+       },
+       "steps": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "text",
+          "ok",
+          "comment"
+         ],
+         "properties": {
+          "text": {
+           "type": "string",
+           "description": "The step as written, math in $...$"
+          },
+          "ok": {
+           "type": "boolean"
+          },
+          "comment": {
+           "type": "string",
+           "description": "Empty when the step is fine"
+          }
+         }
+        }
+       },
+       "final": {
+        "type": "string",
+        "enum": [
+         "correct",
+         "wrong",
+         "unfinished",
+         "unknown"
+        ]
+       },
+       "summary": {
+        "type": "string",
+        "description": "One or two sentences for the student"
+       }
+      }
+     }
+    }
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).",
+   "messages": [
+    {
+     "role": "user",
+     "content": [
+      {
+       "type": "image",
+       "source": {
+        "type": "base64",
+        "media_type": "image/png",
+        "data": "/9j/4AAQ"
+       }
+      },
+      {
+       "type": "text",
+       "text": "Grade: 8 (ח׳)\nExercise on screen: 2x=4\n\nCheck my handwritten work in the photo."
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "exam": {
+  "input": {
+   "grade": "8",
+   "pages": [
+    {
+     "data": "data:image/jpeg;base64,/9j/4AAQ",
+     "mediaType": "image/jpeg"
+    },
+    {
+     "data": "data:application/pdf;base64,JVBERi0x",
+     "mediaType": "application/pdf"
+    }
+   ],
+   "topics": [
+    {
+     "id": "line",
+     "title": "פונקציה קווית",
+     "levels": [
+      "א",
+      "ב"
+     ]
+    }
+   ],
+   "key": [
+    {
+     "prompt": "מה השיפוע?",
+     "answer": "3"
+    }
+   ]
+  },
+  "opus": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 32000,
+   "betas": [
+    "server-side-fallback-2026-07-01"
+   ],
+   "fallbacks": "default",
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "high",
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "readable",
+       "title",
+       "questions",
+       "summary",
+       "weakTopics",
+       "nextSteps"
+      ],
+      "properties": {
+       "readable": {
+        "type": "boolean"
+       },
+       "title": {
+        "type": "string",
+        "description": "A short name for the exam, from the pages"
+       },
+       "questions": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "number",
+          "prompt",
+          "studentAnswer",
+          "status",
+          "correctAnswer",
+          "feedback",
+          "solution",
+          "topic",
+          "level",
+          "skill"
+         ],
+         "properties": {
+          "number": {
+           "type": "string"
+          },
+          "prompt": {
+           "type": "string",
+           "description": "The question, math in $...$"
+          },
+          "studentAnswer": {
+           "type": "string",
+           "description": "What the student wrote as the final answer, math in $...$; empty if none"
+          },
+          "status": {
+           "type": "string",
+           "enum": [
+            "correct",
+            "partial",
+            "wrong",
+            "missing"
+           ]
+          },
+          "correctAnswer": {
+           "type": "string",
+           "description": "The correct final answer, math in $...$"
+          },
+          "feedback": {
+           "type": "string",
+           "description": "Personal feedback on this student's answer"
+          },
+          "solution": {
+           "type": "array",
+           "items": {
+            "type": "string"
+           },
+           "description": "Model solution steps, math in $...$"
+          },
+          "topic": {
+           "type": "string",
+           "enum": [
+            "signed",
+            "coord",
+            "angles",
+            "line",
+            "pyth",
+            "stats",
+            "other"
+           ]
+          },
+          "level": {
+           "type": "integer",
+           "description": "The level number in that topic's level list that this question practises; 0 if none fits"
+          },
+          "skill": {
+           "type": "string",
+           "description": "The skill in a few Hebrew words"
+          }
+         }
+        }
+       },
+       "summary": {
+        "type": "string"
+       },
+       "weakTopics": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "topic",
+          "reason"
+         ],
+         "properties": {
+          "topic": {
+           "type": "string",
+           "enum": [
+            "signed",
+            "coord",
+            "angles",
+            "line",
+            "pyth",
+            "stats",
+            "other"
+           ]
+          },
+          "reason": {
+           "type": "string"
+          }
+         }
+        }
+       },
+       "nextSteps": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student uploaded a practice exam they completed (photos of the pages, or a PDF). Check it like a careful teacher.\nFor every question on the pages: transcribe the question, the student's final answer and the key line of their working; decide whether it is correct, partially correct, wrong, or not answered.\nIf an answer key is provided, it is authoritative: compare the student's answer with it and never re-grade against your own solution. Without a key, solve each question yourself carefully and check your result before grading.\nFeedback must be personal: name the specific mistake in this student's working and why it happened, not only the right answer. For a correct answer, say briefly what was done well.\nGive a model solution in short steps for every question. Map each question to one topic id from the list and to the number of the level in that topic's list that it practises (0 if none fits), and name the skill in a few Hebrew words.\nFinally list the weak topics (only where the student lost points) with the reason, and 3 to 5 concrete next steps.",
+   "messages": [
+    {
+     "role": "user",
+     "content": [
+      {
+       "type": "image",
+       "source": {
+        "type": "base64",
+        "media_type": "image/jpeg",
+        "data": "/9j/4AAQ"
+       }
+      },
+      {
+       "type": "document",
+       "source": {
+        "type": "base64",
+        "media_type": "application/pdf",
+        "data": "JVBERi0x"
+       }
+      },
+      {
+       "type": "text",
+       "text": "Grade: 8 (ח׳)\nTopics (id = title; levels in order):\nline = פונקציה קווית; levels: 1 א, 2 ב\nother = anything else (level 0).\n\nAnswer key (authoritative), in question order:\n1. מה השיפוע? → 3\n\nCheck my exam: 2 page(s) above."
+      }
+     ]
+    }
+   ]
+  },
+  "haiku": {
+   "model": "claude-haiku-5-5",
+   "max_tokens": 32000,
+   "betas": [],
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "high",
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "readable",
+       "title",
+       "questions",
+       "summary",
+       "weakTopics",
+       "nextSteps"
+      ],
+      "properties": {
+       "readable": {
+        "type": "boolean"
+       },
+       "title": {
+        "type": "string",
+        "description": "A short name for the exam, from the pages"
+       },
+       "questions": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "number",
+          "prompt",
+          "studentAnswer",
+          "status",
+          "correctAnswer",
+          "feedback",
+          "solution",
+          "topic",
+          "level",
+          "skill"
+         ],
+         "properties": {
+          "number": {
+           "type": "string"
+          },
+          "prompt": {
+           "type": "string",
+           "description": "The question, math in $...$"
+          },
+          "studentAnswer": {
+           "type": "string",
+           "description": "What the student wrote as the final answer, math in $...$; empty if none"
+          },
+          "status": {
+           "type": "string",
+           "enum": [
+            "correct",
+            "partial",
+            "wrong",
+            "missing"
+           ]
+          },
+          "correctAnswer": {
+           "type": "string",
+           "description": "The correct final answer, math in $...$"
+          },
+          "feedback": {
+           "type": "string",
+           "description": "Personal feedback on this student's answer"
+          },
+          "solution": {
+           "type": "array",
+           "items": {
+            "type": "string"
+           },
+           "description": "Model solution steps, math in $...$"
+          },
+          "topic": {
+           "type": "string",
+           "enum": [
+            "signed",
+            "coord",
+            "angles",
+            "line",
+            "pyth",
+            "stats",
+            "other"
+           ]
+          },
+          "level": {
+           "type": "integer",
+           "description": "The level number in that topic's level list that this question practises; 0 if none fits"
+          },
+          "skill": {
+           "type": "string",
+           "description": "The skill in a few Hebrew words"
+          }
+         }
+        }
+       },
+       "summary": {
+        "type": "string"
+       },
+       "weakTopics": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "topic",
+          "reason"
+         ],
+         "properties": {
+          "topic": {
+           "type": "string",
+           "enum": [
+            "signed",
+            "coord",
+            "angles",
+            "line",
+            "pyth",
+            "stats",
+            "other"
+           ]
+          },
+          "reason": {
+           "type": "string"
+          }
+         }
+        }
+       },
+       "nextSteps": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student uploaded a practice exam they completed (photos of the pages, or a PDF). Check it like a careful teacher.\nFor every question on the pages: transcribe the question, the student's final answer and the key line of their working; decide whether it is correct, partially correct, wrong, or not answered.\nIf an answer key is provided, it is authoritative: compare the student's answer with it and never re-grade against your own solution. Without a key, solve each question yourself carefully and check your result before grading.\nFeedback must be personal: name the specific mistake in this student's working and why it happened, not only the right answer. For a correct answer, say briefly what was done well.\nGive a model solution in short steps for every question. Map each question to one topic id from the list and to the number of the level in that topic's list that it practises (0 if none fits), and name the skill in a few Hebrew words.\nFinally list the weak topics (only where the student lost points) with the reason, and 3 to 5 concrete next steps.",
+   "messages": [
+    {
+     "role": "user",
+     "content": [
+      {
+       "type": "image",
+       "source": {
+        "type": "base64",
+        "media_type": "image/jpeg",
+        "data": "/9j/4AAQ"
+       }
+      },
+      {
+       "type": "document",
+       "source": {
+        "type": "base64",
+        "media_type": "application/pdf",
+        "data": "JVBERi0x"
+       }
+      },
+      {
+       "type": "text",
+       "text": "Grade: 8 (ח׳)\nTopics (id = title; levels in order):\nline = פונקציה קווית; levels: 1 א, 2 ב\nother = anything else (level 0).\n\nAnswer key (authoritative), in question order:\n1. מה השיפוע? → 3\n\nCheck my exam: 2 page(s) above."
+      }
+     ]
+    }
+   ]
+  },
+  "dflt": {
+   "model": "claude-opus-5-5",
+   "max_tokens": 32000,
+   "betas": [
+    "server-side-fallback-2026-07-01"
+   ],
+   "fallbacks": "default",
+   "cache_control": {
+    "type": "ephemeral"
+   },
+   "output_config": {
+    "effort": "high",
+    "format": {
+     "type": "json_schema",
+     "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "readable",
+       "title",
+       "questions",
+       "summary",
+       "weakTopics",
+       "nextSteps"
+      ],
+      "properties": {
+       "readable": {
+        "type": "boolean"
+       },
+       "title": {
+        "type": "string",
+        "description": "A short name for the exam, from the pages"
+       },
+       "questions": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "number",
+          "prompt",
+          "studentAnswer",
+          "status",
+          "correctAnswer",
+          "feedback",
+          "solution",
+          "topic",
+          "level",
+          "skill"
+         ],
+         "properties": {
+          "number": {
+           "type": "string"
+          },
+          "prompt": {
+           "type": "string",
+           "description": "The question, math in $...$"
+          },
+          "studentAnswer": {
+           "type": "string",
+           "description": "What the student wrote as the final answer, math in $...$; empty if none"
+          },
+          "status": {
+           "type": "string",
+           "enum": [
+            "correct",
+            "partial",
+            "wrong",
+            "missing"
+           ]
+          },
+          "correctAnswer": {
+           "type": "string",
+           "description": "The correct final answer, math in $...$"
+          },
+          "feedback": {
+           "type": "string",
+           "description": "Personal feedback on this student's answer"
+          },
+          "solution": {
+           "type": "array",
+           "items": {
+            "type": "string"
+           },
+           "description": "Model solution steps, math in $...$"
+          },
+          "topic": {
+           "type": "string",
+           "enum": [
+            "signed",
+            "coord",
+            "angles",
+            "line",
+            "pyth",
+            "stats",
+            "other"
+           ]
+          },
+          "level": {
+           "type": "integer",
+           "description": "The level number in that topic's level list that this question practises; 0 if none fits"
+          },
+          "skill": {
+           "type": "string",
+           "description": "The skill in a few Hebrew words"
+          }
+         }
+        }
+       },
+       "summary": {
+        "type": "string"
+       },
+       "weakTopics": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "topic",
+          "reason"
+         ],
+         "properties": {
+          "topic": {
+           "type": "string",
+           "enum": [
+            "signed",
+            "coord",
+            "angles",
+            "line",
+            "pyth",
+            "stats",
+            "other"
+           ]
+          },
+          "reason": {
+           "type": "string"
+          }
+         }
+        }
+       },
+       "nextSteps": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   "system": "You are the math tutor inside \"Madregot\", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).\nAlways answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form (\"נסו\", \"שימו לב\").\nWrite every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.\nKeep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.\nStay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.\nNever say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.\n\nTask: the student uploaded a practice exam they completed (photos of the pages, or a PDF). Check it like a careful teacher.\nFor every question on the pages: transcribe the question, the student's final answer and the key line of their working; decide whether it is correct, partially correct, wrong, or not answered.\nIf an answer key is provided, it is authoritative: compare the student's answer with it and never re-grade against your own solution. Without a key, solve each question yourself carefully and check your result before grading.\nFeedback must be personal: name the specific mistake in this student's working and why it happened, not only the right answer. For a correct answer, say briefly what was done well.\nGive a model solution in short steps for every question. Map each question to one topic id from the list and to the number of the level in that topic's list that it practises (0 if none fits), and name the skill in a few Hebrew words.\nFinally list the weak topics (only where the student lost points) with the reason, and 3 to 5 concrete next steps.",
+   "messages": [
+    {
+     "role": "user",
+     "content": [
+      {
+       "type": "image",
+       "source": {
+        "type": "base64",
+        "media_type": "image/jpeg",
+        "data": "/9j/4AAQ"
+       }
+      },
+      {
+       "type": "document",
+       "source": {
+        "type": "base64",
+        "media_type": "application/pdf",
+        "data": "JVBERi0x"
+       }
+      },
+      {
+       "type": "text",
+       "text": "Grade: 8 (ח׳)\nTopics (id = title; levels in order):\nline = פונקציה קווית; levels: 1 א, 2 ב\nother = anything else (level 0).\n\nAnswer key (authoritative), in question order:\n1. מה השיפוע? → 3\n\nCheck my exam: 2 page(s) above."
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

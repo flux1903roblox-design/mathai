@@ -82,7 +82,7 @@ cd worker
 npx wrangler login
 npx wrangler d1 create madregot --binding DB --update-config=false
 # העתיקו את ה־database_id מהפלט אל worker/wrangler.toml במקום REPLACE_WITH_DATABASE_ID
-npx wrangler d1 execute madregot --remote --file=schema.sql --yes
+npx wrangler d1 migrations apply madregot --remote   # שינויים במסד הנתונים רק דרך worker/migrations
 cd .. && npm run build --prefix web && cd worker
 npx wrangler deploy
 npx wrangler secret put ANTHROPIC_API_KEY
@@ -97,6 +97,9 @@ npx wrangler secret put ANTHROPIC_API_KEY
 | `SOLO_DAILY_LIMIT` | פעולות AI ביום למכשיר של תלמיד בלי כיתה | 20 |
 | `ALLOW_SOLO_AI` | `false` משאיר את העוזר רק לתלמידים בכיתה | `true` |
 | `ALLOWED_ORIGINS` | כתובות נוספות שמותר להן לפנות לשרת (פיתוח מקומי, או עותק של האפליקציה שמתארח במקום אחר) | localhost |
+| `AI_PAYWALL` | `on` מפעיל את המנוי לעוזר (טעימה חינם, מנוי משפחתי, רישיון כיתה). כל השאר ב־`SUBSCRIPTION.md` | `off` |
+
+מאז המנוי לעוזר, השרת צריך גם את הסודות `AUTH_SECRET` ו־`IP_HASH_SECRET` (כל אחד `openssl rand -hex 32`, עם `npx wrangler secret put`). בלי `IP_HASH_SECRET` השרת עונה `server_config` בפעולות שסופרות לפי רשת, כי הוא לא שומר כתובות רשת.
 
 גרסה בלי שרת בכלל (רק תרגול לבד, בלי כיתה ובלי עוזר): בונים עם `VITE_API_URL=none npm run build --prefix web` ומעלים את `web/dist` לכל אחסון של קבצים סטטיים.
 
@@ -109,7 +112,7 @@ npx wrangler secret put ANTHROPIC_API_KEY
 cd madregot/worker
 npm ci
 echo "ANTHROPIC_API_KEY=sk-ant-..." > .dev.vars     # לא נכנס ל־git
-npm run db:init:local
+npm run db:migrate:local
 npm run dev                                          # http://127.0.0.1:8787
 
 # חלון 2: האפליקציה
@@ -122,7 +125,7 @@ npm run dev                                          # http://localhost:5173
 
 ```bash
 npm test --prefix madregot/web      # מחוללי התרגילים (כל מדרגה 300 פעמים), מנוע השיעור, המפה, המשימות והרצף, ציון מבחן, התוכנית
-npm test --prefix madregot/worker   # צורת הבקשות ל־Claude וקריאת התשובות
+npm test --prefix madregot/worker   # צורת הבקשות ל־Claude, המכסות, הכניסה במייל, התשלום, הביטול והסקריפט של הבעלים
 npm run test:e2e --prefix madregot/web   # בדפדפן (Playwright): מסך התרגיל ב־14 סוגי תרגילים על 4 מכשירים, המקלדת, מסלולי משתמש, כל המסכים, וצילומי מסך להשוואה
 ```
 

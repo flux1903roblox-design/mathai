@@ -7,37 +7,73 @@ compatibility_flags = ["nodejs_compat"]
 # Comma-separated origins allowed to call the API from another address (local dev, or a copy of the
 # app hosted elsewhere). The app served by this Worker itself is same-origin and needs no entry.
 ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
-# Claude model for every AI action. Cheaper option: claude-haiku-5-5.
+# The address of the app (links, QR codes, payment return pages and emails use it), e.g. https://madregot.example
+PUBLIC_URL = ""
+
+# ---- the paid AI tutor (see SUBSCRIPTION.md) ----
+# "off" (the default) keeps the AI limits from before the paid tutor; "on" turns on the free taste and the paid tiers.
+AI_PAYWALL = "off"
+# Classes created before BILLING_START keep the old limits until LEGACY_CLASS_AI_UNTIL (both YYYY-MM-DD, Jerusalem).
+BILLING_START = ""
+LEGACY_CLASS_AI_UNTIL = ""
+# Claude model for every full answer; FREE_MODEL for the free taste and economy mode (empty = the low-cost default in shared/ai.js).
 CLAUDE_MODEL = "claude-opus-5-5"
-# The paid AI tutor. Subscribers (a family subscription, or a class with a class licence): AI_DAILY_LIMIT questions a
-# day per student or family, TEACHER_DAILY_LIMIT for a licensed teacher, on CLAUDE_MODEL, every AI action.
+FREE_MODEL = "claude-haiku-5-5"
+# With the switch off: AI actions a day per class student, per teacher, and per network for students without a class.
 AI_DAILY_LIMIT = "40"
 TEACHER_DAILY_LIMIT = "200"
-# Everyone else gets a free taste: FREE_DAILY_LIMIT short questions a day (explain a mistake, chat) on FREE_MODEL, a
-# low-cost model, with short answers. FREE_IP_DAILY caps free questions per network address (a school shares one).
-FREE_DAILY_LIMIT = "2"
-FREE_MODEL = "claude-haiku-5-5"
-FREE_IP_DAILY = "80"
-# "false" turns off the free taste for people who are not in a class and not signed in.
+SOLO_DAILY_LIMIT = "20"
+# "false" turns off AI for people who are not in a class (and, with the switch on, without a family plan).
 ALLOW_SOLO_AI = "true"
-# Payments: "manual" (the owner grants subscriptions with the admin endpoints; schools pay by invoice) or "generic"
-# (a hosted payment page + a signed webhook; see SUBSCRIPTION.md). Prices shown in the app, with VAT.
+# The free taste: questions a day per person, and the shared ceilings behind it (per network for anonymous devices,
+# per class, and in total). Other limits are overridable with AI_LIMITS (JSON), see worker/src/entitle.js.
+FREE_DAILY_LIMIT = "2"
+FREE_NET_DAILY = "80"
+FREE_CLASS_DAILY = "80"
+FREE_GLOBAL_DAILY = "3000"
+# Budgets in US dollars, read from what Claude really cost (table ai_spend).
+FREE_DAILY_BUDGET_USD = "5"
+TRIAL_DAILY_BUDGET_USD = "10"
+FAMILY_MONTHLY_BUDGET_USD = "5"
+CLASS_SEAT_MONTHLY_BUDGET_USD = "0.8"
+OWNER_ALERT_USD = "20"
+# Prices in agorot, VAT included (VAT_MODE "included", or "exempt" for an exempt dealer).
+PRICE_FAMILY_MONTH_AGOROT = "2990"
+PRICE_FAMILY_YEAR_AGOROT = "24900"
+PRICE_CLASS_SEAT_YEAR_AGOROT = "4900"
+VAT_MODE = "included"
+TERMS_VERSION = "2026-11"
+# Payments: "manual" (the owner grants plans with npm run owner; schools pay by invoice) until a provider is chosen.
+# "test" rehearses the whole flow on a preview Worker (also needs BILLING_MODE "test" and ALLOW_TEST_BILLING "true").
 BILLING_PROVIDER = "manual"
-PRICE_FAMILY_TEXT = ""
-# With "generic": the payment page for the family plan, and the relay that cancels at the payment company. Online
-# sign-up opens only when both are set, so an online cancel always stops the charges too.
-BILLING_FAMILY_URL = ""
-BILLING_CANCEL_URL = ""
-# Where schools and teachers ask for a class licence (shown in the app).
+BILLING_MODE = "live"
+# Hosts the payment page may be on (comma-separated); checkout refuses any other.
+BILLING_CHECKOUT_HOSTS = ""
+# Turnstile for new devices on the free taste: "off" unless free-tier abuse shows in ai_spend.
+FREE_DEVICE_MINT = "off"
+# Business details for the checkout disclosure and the emails.
+BUSINESS_NAME = ""
+BUSINESS_ID = ""
+BUSINESS_ADDRESS = ""
 CONTACT_EMAIL = ""
-# Sign-in codes are sent from this address through Resend (the domain must be verified there).
+CONTACT_PHONE = ""
+OWNER_EMAIL = ""
+# Codes and notices are sent from this address through Resend (the domain must be verified there).
 EMAIL_FROM = ""
 
 # Secrets (never in this file, never in the app), each set with: npx wrangler secret put <NAME>
 #   ANTHROPIC_API_KEY       the owner's Claude API key
-#   RESEND_API_KEY          sends the sign-in codes
-#   ADMIN_KEY               the owner's key for the admin endpoints (at least 24 characters)
-#   BILLING_WEBHOOK_SECRET  verifies payment notifications (only with BILLING_PROVIDER = "generic")
+#   RESEND_API_KEY          sends codes and notices
+#   AUTH_SECRET             keys sign-in codes (openssl rand -hex 32)
+#   IP_HASH_SECRET          turns network addresses into counters, so no address is stored (openssl rand -hex 32)
+#   WEBHOOK_PATH_SECRET     the secret part of the payment webhook's path (openssl rand -hex 32)
+#   BILLING_WEBHOOK_SECRET  verifies a signing provider's webhooks (+ BILLING_WEBHOOK_SECRET_OLD while rotating)
+#   TURNSTILE_SECRET, DEVICE_SECRET   only with FREE_DEVICE_MINT = "turnstile"
+# TEST_WEBHOOK_SECRET belongs in .dev.vars only (the test provider).
+
+# The hourly jobs: notices, cancellation retries, refunds, expired orders and plans; old counters at night.
+[triggers]
+crons = ["7 * * * *"]
 
 # The same Worker serves the built web app (web/dist), so the app and its API share one address
 # (production builds call the API on their own address unless VITE_API_URL says otherwise).
@@ -51,3 +87,5 @@ run_worker_first = ["/api/*"]
 binding = "DB"
 database_name = "madregot"
 database_id = "REPLACE_WITH_DATABASE_ID"
+# Real databases change only through these migrations (npm run db:migrate); schema.sql is the reference.
+migrations_dir = "migrations"

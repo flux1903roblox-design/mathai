@@ -25,7 +25,7 @@ if ($toml -match 'REPLACE_WITH_DATABASE_ID') {
 } else {
   Write-Host "worker\wrangler.toml already has a database id; using it."
 }
-npx wrangler d1 execute madregot --remote --file=schema.sql --yes
+npx wrangler d1 migrations apply madregot --remote   # database changes go only through worker/migrations
 
 Write-Host "=== 4/6: Building the app ===" -ForegroundColor Cyan
 Pop-Location

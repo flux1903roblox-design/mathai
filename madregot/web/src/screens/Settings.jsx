@@ -134,7 +134,8 @@ function AISection() {
 function PlanRow() {
   const status = useAIStatus((x) => x.status);
   useApp((x) => x.ai.mode); // a change of mode re-renders the row
-  if (!hasServer() || aiMode() !== 'server') return null;
+  // with the paywall off the tutor works as before the subscription: no plan row
+  if (!hasServer() || aiMode() !== 'server' || status?.tier === 'open') return null;
   const text = status?.tier === 'paid' ? (status.plan?.kind === 'family' ? 'המנוי המשפחתי פעיל' : 'העוזר כלול ברישיון של הכיתה')
     : `${status?.offer?.daily?.free ?? 2} שאלות חינם ביום. פרטים על המנוי`;
   return (

@@ -24,6 +24,13 @@ const dateText = (iso) => {
 /** Where things stand today: one card. */
 function StatusCard({ status, teacher }) {
   const plan = status.plan;
+  if (status.tier === 'open') {
+    return (
+      <section className="card sub-status" aria-labelledby="sub-now">
+        <h2 id="sub-now" className="card-title">כרגע העוזר החכם פתוח בלי מנוי.</h2>
+      </section>
+    );
+  }
   if (status.tier === 'paid') {
     const family = plan?.kind === 'family';
     const ends = plan?.endsAt ? dateText(plan.endsAt) : '';

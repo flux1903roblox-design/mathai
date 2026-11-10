@@ -108,7 +108,7 @@ const Q_LABEL = { correct: 'נכון', partial: 'נכון בחלקו', wrong: '�
 /** The tutor in this class: a licence and until when, or the free questions each student gets without one. */
 function Licence() {
   const status = useAIStatus((x) => x.status);
-  if (!status) return null;
+  if (!status || status.tier === 'open') return null;
   const paid = status.tier === 'paid';
   const until = status.plan?.endsAt ? new Date(status.plan.endsAt).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jerusalem' }) : '';
   return (
