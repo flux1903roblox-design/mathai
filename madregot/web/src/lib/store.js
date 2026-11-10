@@ -12,9 +12,10 @@ import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
 import { completeMissionItems } from '@/learn/mission.ts';
 import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
 import { applyTheme } from './theme.js';
+import { today, dayBefore, learnedOn, isActiveDay, keptDay, streakAt, streakRepair, itemsOn } from './streak.js';
+import { isRestDay } from '@shared/restDays.js';
 
-export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
-export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
+export { today, dayBefore, learnedOn, isActiveDay };
 
 const safeStorage = createJSONStorage(() => {
   try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); return localStorage; } catch {
@@ -26,10 +27,16 @@ const safeStorage = createJSONStorage(() => {
 const empty = {
   profile: null, // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? } | { role: 'teacher', name, classes: [], active }
   progress: {}, // topicId -> { level, max }
-  days: {}, // 'YYYY-MM-DD' -> { q, ok, secs, lessons, stages (teaching stages finished), xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
+  // 'YYYY-MM-DD' -> { q, ok, secs, lessons, stages (teaching stages finished), mp (passed mastery checks), xp, combo,
+  // perfect, reviews, planLessons, frozen (true: a freeze; 'repair': an earned repair), questsRewarded }
+  days: {},
   xp: 0,
   path: {}, // topicId -> { parts: { level: practice lessons }, reviews, jumped, done: { level: 'mastered' | 'kept' } } (lib/path.js)
   freezes: 0, // streak freezes ready to use (at most 2), earned by finishing the daily quests
+  streak: { lastRepair: null }, // the day of the last earned repair ('YYYY-MM-DD'), at most one in 30 days (lib/streak.js)
+  // one-time notes already seen: the repair card closed today (repairDismissed: day), the week a new best was shown
+  // (pbWeek: its Sunday). Later items add their own keys here; a missing key reads as not seen.
+  nudges: { repairDismissed: null, pbWeek: null },
   goalXp: 20, // daily goal in XP
   sound: true, // short sounds; off from the start for a student who joins a class and never chose (quietForClass)
   haptics: true, // short vibrations where the phone can (lib/sound.js haptic), never under reduced motion
@@ -130,7 +137,9 @@ export const useApp = create(
         const st = get(); const d = today(); const cur = st.days[d] || {};
         const goalBefore = (cur.xp || 0) >= st.goalXp;
         const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + (r.xp || 0) };
-        const days = { ...st.days, [d]: day };
+        // passed mastery checks per day: the weekly best counts them as 3 steps (lib/streak.js weekSteps)
+        if (r.purpose === 'mastery' && r.passed) day.mp = (cur.mp || 0) + 1;
+        const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         const learn = learnAfterCheck(st.learn, r, new Date().toISOString(), d);
         let { path, progress } = st; let stairDone = false; let chestOpened = false; let reopened = false;
         if (r.purpose === 'mastery' && r.passed && r.topic && r.level && TOPIC[r.topic]) {
@@ -147,8 +156,8 @@ export const useApp = create(
           path = reopenKept(path, r.topic, r.level);
           reopened = path !== before;
         }
-        set({ learn, days, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic });
-        return { streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
+        set({ learn, days, streak, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic });
+        return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
       /**
@@ -166,13 +175,13 @@ export const useApp = create(
         const questsDone = !questsBefore && questProgress(d, day).every((q) => q.done);
         const freezeEarned = questsDone && !cur.questsRewarded && st.freezes < 2;
         if (questsDone) day.questsRewarded = true;
-        const days = { ...st.days, [d]: day };
+        const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         const topic = skill.split(':')[0];
         set({
-          days, xp: st.xp + xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), lastTopic: TOPIC[topic] ? topic : st.lastTopic,
+          days, streak, xp: st.xp + xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), lastTopic: TOPIC[topic] ? topic : st.lastTopic,
           learn: { ...L, skills: { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) }, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) },
         });
-        return { xp, first, streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
+        return { xp, first, streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
       },
       /** Where the student is inside a teaching stage, so leaving keeps the place. */
       setStagePos: (skill, stage, i) => { const L = get().learn; const r = L.skills[skill] || { attempts: [] }; set({ learn: { ...L, skills: { ...L.skills, [skill]: { ...r, pos: { ...(r.pos || {}), [stage]: i } } } } }); },
@@ -188,9 +197,11 @@ export const useApp = create(
       /** Joining a class: sounds start off (a classroom is quiet), unless the student already chose them. */
       quietForClass: () => { if (!get().prefs?.soundSet) set({ sound: false }); },
       setTheme: (theme) => { set({ prefs: { ...get().prefs, theme } }); applyTheme(theme); },
+      /** A one-time note was seen: e.g. { repairDismissed: today() } or { pbWeek: '2026-11-01' }. */
+      setNudge: (patch) => set({ nudges: { ...get().nudges, ...patch } }),
       /**
        * A finished lesson: XP, today's counters, the path, the topic level, and the daily quests.
-       * Returns what to celebrate: { streakExtended, streak, practiceDone, unitDone, questsDone, freezeEarned, goalReached }.
+       * Returns what to celebrate: { streakExtended, streakRepaired, streak, practiceDone, unitDone, questsDone, freezeEarned, goalReached }.
        * Practice never marks a stair done (only its mastery check does): practiceDone says the check is next.
        */
       completeLesson: (r, { fromPlan = false } = {}) => {
@@ -210,12 +221,12 @@ export const useApp = create(
         const p = st.progress[r.topic] || { level: 1, max: 1 };
         let level = p.level; let max = p.max;
         if (r.kind === 'jump' && r.passed) { level = Math.max(level, r.level); max = Math.max(max, r.level); }
-        const days = { ...st.days, [d]: day };
+        const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         set({
-          days, path, xp: st.xp + r.xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
+          days, streak, path, xp: st.xp + r.xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
           progress: { ...st.progress, [r.topic]: { level, max } }, lastTopic: r.topic,
         });
-        return { streakExtended: !learnedOn(cur), streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
+        return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
       },
       /** The placement test settles where each topic starts (the stairs before it are passed over, not done); it counts as the day's first lesson. */
       completePlacement: (r) => {
@@ -239,7 +250,7 @@ export const useApp = create(
       settleStreak: () => {
         const st = get(); if (!st.freezes) return 0;
         const days = { ...st.days }; let key = dayBefore(today()); const missed = [];
-        while (missed.length <= st.freezes && !active(days[key]) && !days[key]?.frozen) { if (!isShabbat(key)) missed.push(key); key = dayBefore(key); }
+        while (missed.length <= st.freezes && !active(days[key]) && !days[key]?.frozen) { if (!isRestDay(key)) missed.push(key); key = dayBefore(key); }
         if (!missed.length || missed.length > st.freezes || !active(days[key])) return 0;
         missed.forEach((k) => { days[k] = { ...(days[k] || {}), frozen: true }; });
         set({ days, freezes: st.freezes - missed.length });
@@ -252,7 +263,7 @@ export const useApp = create(
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
         set({ profile: rest, outbox: [] });
       },
-      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
+      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null }, nudges: { ...empty.nudges }, gaps: {}, placement: null, learn: emptyLearn() }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
       // the look chosen for this device (prefs) stays too
       // (sound goes back to its default, so the next student's own choice starts unset)
@@ -263,28 +274,23 @@ export const useApp = create(
   ),
 );
 
-/** Something was finished that day: a lesson or check, or a teaching stage (understand, worked examples, solve together). */
-export const learnedOn = (d) => !!d && ((d.lessons || 0) > 0 || (d.stages || 0) > 0);
-/** A day counts for the streak with one finished lesson or teaching stage (or answers saved before lessons existed). */
-export const isActiveDay = (d) => learnedOn(d) || (!!d && d.lessons == null && (d.q || 0) > 0);
 const active = isActiveDay;
-/** Shabbat never breaks a streak: a Saturday without practice is skipped, not missed. */
+/** A Saturday. Kept for old callers: the streak's rule is isRestDay (Shabbat and Yom Tov, shared/restDays.js). */
 export const isShabbat = (key) => new Date(`${key}T12:00:00`).getDay() === 6;
-const kept = (days, key) => days[key]?.frozen || isShabbat(key);
+export { keptDay };
 
-/** Consecutive active days ending today (or yesterday, if today has none yet). A frozen day keeps the chain without adding to it. */
-export function streakOf(days) {
-  let key = today();
-  if (!active(days[key])) key = dayBefore(key);
-  let n = 0;
-  // Walk back: an active day adds one; a frozen day or a Shabbat is passed over; any other day ends the streak.
-  for (;;) {
-    if (active(days[key])) n += 1;
-    else if (!kept(days, key)) break;
-    key = dayBefore(key);
-  }
-  return n;
+/**
+ * The finished item that makes today the second (or later) one may earn the streak's repair (lib/streak.js
+ * streakRepair): the missed school day is saved as frozen: 'repair', and lastRepair is today.
+ */
+function withRepair(st, d, days) {
+  const r = streakRepair(st.days, d, st.streak?.lastRepair);
+  if (!r || itemsOn(days[d]) < 2) return { days, streak: st.streak, streakRepaired: false };
+  return { days: { ...days, [r.gap]: { ...(days[r.gap] || {}), frozen: 'repair' } }, streak: { ...st.streak, lastRepair: d }, streakRepaired: true };
 }
+
+/** Consecutive active days ending today (or yesterday, if today has none yet). Rest days, freezes and repairs keep the chain without adding to it. */
+export const streakOf = (days) => streakAt(days, today());
 export const activeToday = (days) => active(days[today()]);
 
 export const minutesToday = (days) => Math.floor((days[today()]?.secs || 0) / 60);

@@ -2,8 +2,9 @@
 // the name and the class, a "סטטיסטיקה" grid of four tiles, then what to do next, the stairs that need work, the
 // medals, and the learning numbers. Settings (details, class, assistant, sound, deleting data) live on /settings.
 import { Link } from 'react-router-dom';
-import { Settings as Gear, Flame, Zap, Footprints, Award } from 'lucide-react';
+import { Settings as Gear, Flame, CalendarCheck, Footprints, Award } from 'lucide-react';
 import { useApp, streakOf } from '@/lib/store.js';
+import { learnDaysTotal } from '@/lib/streak.js';
 import { TOPICS, topicsFor } from '@/content/index.js';
 import { doneCount } from '@/lib/path.js';
 import { skillId } from '@/learn/skills.ts';
@@ -14,7 +15,7 @@ import ProgressSummary from '@/components/learn/ProgressSummary.jsx';
 import MyNumbers from '@/components/learn/MyNumbers.jsx';
 
 export default function Me() {
-  const { profile, days, xp, path } = useApp();
+  const { profile, days, path } = useApp();
   const skills = useApp((s) => s.learn.skills);
   const streak = streakOf(days);
   const stairs = TOPICS.reduce((a, t) => a + doneCount(t.id, path), 0);
@@ -34,7 +35,8 @@ export default function Me() {
         <h2 id="stats-title" className="h-section">סטטיסטיקה</h2>
         <div className="profile-stats">
           <Stat tone="gold" icon={Flame} value={streak} label="ימים ברצף" />
-          <Stat tone="gold" icon={Zap} value={xp} label="סך הכול XP" />
+          {/* a number that only grows (STUDENT-5); XP stays on Quests and in the header */}
+          <Stat tone="brand" icon={CalendarCheck} value={learnDaysTotal(days)} label="ימי לימוד" />
           <Stat tone="brand" icon={Footprints} value={stairs} label="מדרגות שעליתם" />
           <Stat tone="good" icon={Award} value={mastered} label="שולטים לבד" />
         </div>

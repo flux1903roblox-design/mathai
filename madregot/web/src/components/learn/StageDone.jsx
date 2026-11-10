@@ -36,7 +36,9 @@ function StageMoment({ stage, stair, award, steps, onNext, onMap }) {
   useEffect(() => { play('correct'); haptic('correct'); ref.current?.focus({ preventScroll: true }); }, []);
   const pills = [
     award.xp > 0 && { icon: Zap, tone: 'gold', label: `+${award.xp} XP` },
-    award.streakExtended && { icon: Flame, tone: 'streak', label: award.streak > 1 ? `${award.streak} ימים ברצף` : 'התחלתם רצף' },
+    award.streakRepaired
+      ? { icon: Flame, tone: 'streak', label: `הרצף נשמר: ${award.streak} ימים` }
+      : award.streakExtended && { icon: Flame, tone: 'streak', label: award.streak > 1 ? `${award.streak} ימים ברצף` : 'התחלתם רצף' },
     award.freezeEarned && { icon: Snowflake, tone: 'brand', label: 'קיבלתם הקפאת רצף' },
     award.questsDone && !award.freezeEarned && { icon: Check, tone: 'good', label: 'סיימתם את המשימות של היום' },
   ].filter(Boolean);

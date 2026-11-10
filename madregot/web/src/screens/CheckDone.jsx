@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { Award, RotateCcw, Check, ArrowLeft, Gift } from 'lucide-react';
+import { Award, RotateCcw, Check, ArrowLeft, Gift, Flame } from 'lucide-react';
 import { TOPIC } from '@/content/index.js';
 import { useApp } from '@/lib/store.js';
 import { skillId } from '@/learn/skills.ts';
@@ -62,7 +62,12 @@ export default function CheckDone({ result: r, award, onExit }) {
       {r.purpose === 'mastery' && r.passed && award?.done != null && TOPIC[r.topic] && (
         <p className="climb-caption">{TOPIC[r.topic].title}: <bdi>{award.done}</bdi> מתוך <bdi>{TOPIC[r.topic].levels.length}</bdi> מדרגות</p>
       )}
-      {award?.chestOpened && <div className="badges"><span className="done-earned tone-streak"><Gift size={16} aria-hidden="true" />פתחתם תיבת אוצר</span></div>}
+      {(award?.chestOpened || award?.streakRepaired) && (
+        <div className="badges">
+          {award.chestOpened && <span className="done-earned tone-streak"><Gift size={16} aria-hidden="true" />פתחתם תיבת אוצר</span>}
+          {award.streakRepaired && <span className="done-earned tone-streak"><Flame size={16} aria-hidden="true" />הרצף נשמר: {award.streak} ימים</span>}
+        </div>
+      )}
       <div className="stats check-stats" data-region="answers">
         <div className={clsx('stat', r.right === r.asked ? 'stat-good' : 'stat-brand')}>
           <span className="stat-label">נכונות</span>

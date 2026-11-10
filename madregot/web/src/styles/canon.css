@@ -649,3 +649,24 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .bl-why-text .link-btn { position: relative; min-height: 0; padding: 0 2px; vertical-align: baseline; }
 .bl-why-text .link-btn::after { content: ''; position: absolute; inset: -9px -10px; } /* "עוד" sits in the text line; its touch area is 44px tall */
 .bl-why-more:focus { outline: none; } /* focused only to keep a keyboard's place after "עוד" */
+
+/* ------------------------------------------------------------------ a calm streak (STUDENT-5) */
+/* the repair card on the home screen: quiet, no red, Madi at rest, closable for the day */
+.repair-card { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--s3); padding: var(--s4); padding-inline-end: 52px; border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
+.repair-madi { margin-top: 2px; }
+.repair-main { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s3); min-width: 0; }
+.repair-text { margin: 0; color: var(--ink); font-size: 16px; line-height: 24px; text-wrap: pretty; }
+.repair-go { min-height: 44px; }
+.repair-close { position: absolute; top: 4px; inset-inline-end: 4px; }
+/* the streak card on Quests: the month's learning days (a number that does not reset) and the repair, in words */
+.streak-month { margin: 4px 0 0; color: var(--ink); font-size: 15px; line-height: 22px; font-weight: 600; }
+.streak-repair-line { margin: 0; padding: var(--s3) var(--s4); border-radius: 12px; background: var(--ground); color: var(--ink); font-size: 15px; line-height: 22px; }
+/* השבוע שלי: this week's steps against the best week */
+.week-best-card { display: flex; flex-direction: column; gap: var(--s3); }
+.week-best-card .card-title { margin: 0; }
+.wk-line { margin: 0; color: var(--ink); font-size: 17px; line-height: 24px; font-weight: 600; }
+.wk-track { position: relative; height: 14px; }
+.wk-fill { height: 100%; border-radius: 999px; background: var(--brand); transition: width var(--duration-slow) var(--ease-smooth-out); }
+.wk-best { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 22px; }
+.week-best-card .field-hint { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .wk-fill { transition: none; } }

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { migrateState } from './store.js';
 
 const v2 = (ai) => ({ profile: { role: 'student', name: 'נועה', grade: '7' }, xp: 40, days: { '2026-11-05': { q: 3 } }, learn: { skills: {} }, ai });
@@ -102,5 +102,70 @@ describe('sound in a class (STUDENT-7): quiet from the start, unless the student
     useApp.getState().signOut();
     expect(useApp.getState()).toMatchObject({ sound: true, prefs: { theme: 'dark', soundSet: false } });
     useApp.getState().setTheme('system');
+  });
+});
+
+describe('the earned repair (STUDENT-5), through the store', async () => {
+  const { useApp, streakOf } = await import('./store.js');
+  const L = { kind: 'node', topic: 'signed', level: 1, part: 1, xp: 10, passed: true };
+  // a streak of 5 ending Monday 9 Nov, nothing on Tuesday the 10th; today is Wednesday the 11th
+  const five = { '2026-11-04': { lessons: 1 }, '2026-11-05': { lessons: 1 }, '2026-11-06': { lessons: 1 }, '2026-11-08': { lessons: 1 }, '2026-11-09': { lessons: 1 } };
+  const start = (lastRepair = null) => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-11T12:00:00'));
+    useApp.getState().resetProgress();
+    useApp.setState({ days: structuredClone(five), streak: { lastRepair }, freezes: 0, goalXp: 20 });
+  };
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('completeLesson returns streakRepaired on the second item of the day only', () => {
+    start();
+    const first = useApp.getState().completeLesson(L);
+    expect(first).toMatchObject({ streakRepaired: false, streakExtended: true, streak: 1 });
+    const second = useApp.getState().completeLesson({ ...L, part: 2 });
+    expect(second).toMatchObject({ streakRepaired: true, streakExtended: false, streak: 6 });
+    const st = useApp.getState();
+    expect(st.days['2026-11-10']).toEqual({ frozen: 'repair' });
+    expect(st.streak.lastRepair).toBe('2026-11-11');
+    expect(streakOf(st.days)).toBe(6);
+    expect(useApp.getState().completeLesson({ ...L, part: 3 }).streakRepaired).toBe(false); // once
+  });
+  it('not when the last repair was less than 30 days ago', () => {
+    start('2026-10-20');
+    useApp.getState().completeLesson(L);
+    expect(useApp.getState().completeLesson({ ...L, part: 2 })).toMatchObject({ streakRepaired: false, streak: 1 });
+    expect(useApp.getState().days['2026-11-10']).toBeUndefined();
+  });
+  it('a teaching stage and a check count as items too, and a passed mastery check is saved in days[d].mp', () => {
+    start();
+    expect(useApp.getState().completeStage('signed:1', 'A').streakRepaired).toBe(false);
+    const check = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:1', topic: 'signed', level: 1, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+    expect(check).toMatchObject({ streakRepaired: true, streak: 6 });
+    expect(useApp.getState().days['2026-11-11']).toMatchObject({ stages: 1, lessons: 1, mp: 1 });
+    const failed = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:2', topic: 'signed', level: 2, right: 1, asked: 5, perSkill: {}, passed: false, xp: 0 });
+    expect(failed.streakRepaired).toBe(false);
+    expect(useApp.getState().days['2026-11-11'].mp).toBe(1); // a check that did not pass is not a mastery pass
+  });
+  it('a freeze is spent first: settleStreak covers the gap, and then there is nothing to repair', () => {
+    start();
+    useApp.setState({ freezes: 1 });
+    expect(useApp.getState().settleStreak()).toBe(1);
+    useApp.getState().completeLesson(L);
+    expect(useApp.getState().completeLesson({ ...L, part: 2 })).toMatchObject({ streakRepaired: false, streak: 6 });
+    expect(useApp.getState().days['2026-11-10'].frozen).toBe(true);
+  });
+  it('settleStreak passes over Yom Tov like Shabbat', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-22T12:00:00')); // the day after Yom Kippur
+    useApp.getState().resetProgress();
+    useApp.setState({ days: { '2026-09-20': { lessons: 1 }, '2026-09-18': { lessons: 1 } }, freezes: 2 });
+    expect(useApp.getState().settleStreak()).toBe(0); // nothing missed: no freeze spent
+    expect(useApp.getState().freezes).toBe(2);
+    expect(streakOf(useApp.getState().days)).toBe(2);
+  });
+  it('resetProgress clears the repair and the one-time notes', () => {
+    start('2026-11-01');
+    useApp.getState().setNudge({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08' });
+    expect(useApp.getState().nudges).toEqual({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08' });
+    useApp.getState().resetProgress();
+    expect(useApp.getState()).toMatchObject({ streak: { lastRepair: null }, nudges: { repairDismissed: null, pbWeek: null } });
   });
 });

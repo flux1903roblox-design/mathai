@@ -13,6 +13,7 @@ import Chest from '@/components/map/Chest.jsx';
 import { Emblem, SCENERY } from '@/components/map/Scenery.jsx';
 import { Button } from '@/components/ui.jsx';
 import OfflineChip from '@/components/durable/OfflineChip.jsx';
+import RepairCard from '@/components/learn/RepairCard.jsx';
 import { nextStage } from '@/learn/mastery.ts';
 import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
 import { skillId } from '@/learn/skills.ts';
@@ -219,6 +220,8 @@ export default function Learn() {
 
       <div className="learn-layout">
       <div className="learn-body">
+        {/* a missed school day: two items today keep the streak (STUDENT-5); closed for the day with its X */}
+        <RepairCard />
         {/* the home screen is the path, as on Duolingo: units under their sticky banners, the current stop marked */}
         {topics.map((t, i) => (
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
