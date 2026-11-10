@@ -474,4 +474,16 @@ describe('analytics', () => {
     expect(m.returned.d1).toBe(true);
     expect(m.returned.d30).toBe(false);
   });
+  it('events about the saved data (a merge, a restore) and unknown ones count as no learning day', () => {
+    const learn = empty();
+    let ev = logEvent([], { e: 'check-done', s: 'signed:1', p: 'mastery', n: 1, ok: true }, '2026-11-01T10:00:00.000Z');
+    ev = logEvent(ev, { e: 'merge', m: 'tab' }, '2026-11-20T10:00:00.000Z');
+    ev = logEvent(ev, { e: 'restore', m: 'file' }, '2026-12-20T10:00:00.000Z');
+    learn.events = ev;
+    const m = metrics(learn, NOW);
+    expect(m.activeDays).toBe(1);
+    expect(m.returned).toEqual({ d1: false, d7: false, d30: false });
+    expect(Object.values(m.adoption).every((n) => n === 0)).toBe(true);
+    expect(m.lessonsDone).toBe(0);
+  });
 });

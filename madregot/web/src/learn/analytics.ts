@@ -8,6 +8,11 @@ import { daysBetween } from './mastery';
 
 export const MAX_EVENTS = 3000;
 export const MIN_N = 3;
+/**
+ * Events about the saved data, not about learning (lib/durable: a merge of two tabs or devices, a restore). They have
+ * no content, and no metric counts them: a day with only a merge is not an active day.
+ */
+export const NOT_LEARNING = new Set(['merge', 'restore']);
 
 export function logEvent(events: LearnEvent[], e: Omit<LearnEvent, 't'>, at: string): LearnEvent[] {
   return [...events, { t: at, ...e }].slice(-MAX_EVENTS);
@@ -36,7 +41,7 @@ export interface Metrics {
 const day = (iso: string) => iso.slice(0, 10);
 
 export function metrics(learn: LearnState, now: string): Metrics {
-  const ev = learn.events;
+  const ev = learn.events.filter((x) => !NOT_LEARNING.has(x.e));
   const count = (e: string) => ev.filter((x) => x.e === e).length;
   const attempts = Object.values(learn.skills).flatMap((r) => r.attempts);
   const ind = attempts.filter((a) => a.independent && a.purpose !== 'guided');

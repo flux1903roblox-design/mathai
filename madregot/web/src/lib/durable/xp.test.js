@@ -92,6 +92,7 @@ describe('XP in the store', () => {
     expect(s.backup.on).toBe(false);
     expect(s.xp).toBe(0);
     expect(s.xpBy).toEqual({});
-    expect(s.resetAt).toBeNull();
+    // a sign-out clears the progress on purpose: a tab still open with the old progress cannot merge it back
+    expect(Date.parse(s.resetAt)).toBeGreaterThan(Date.now() - 5000);
   });
 });

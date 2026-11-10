@@ -4,7 +4,7 @@
 // reloads on its own, so the copy survives the reload.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { open, student, livedIn, saved, DURABLE_DB } from './helpers.js';
+import { open, student, livedIn, saved, appReady, answer, proceedToNext, leaveEndScreens, NOW, DURABLE_DB } from './helpers.js';
 
 /**
  * Fill localStorage until it takes no more (the council's probe: 100 KB pieces, then 1 KB), then down to single
@@ -57,7 +57,7 @@ test.describe('storage full', () => {
     const meta = await page.evaluate(() => JSON.parse(localStorage.getItem('madregot')).meta);
     expect(meta).toMatchObject({ rev: 1, parent: { rev: 0 } });
     expect(meta.app).toMatch(/^([0-9a-f]{7,}|dev)$/);
-    expect(await page.evaluate(() => localStorage.getItem('madregot:rev'))).toBe('1');
+    expect(await page.evaluate(() => localStorage.getItem('madregot:rev'))).toMatch(/^1 [0-9a-f]{8}$/); // the revision and the tab
     expect(await fillStorage(page)).toBeGreaterThan(1000);
     await radio(page, 'כבויים').click();
     await expect(radio(page, 'כבויים')).toHaveAttribute('aria-checked', 'true');
@@ -131,4 +131,77 @@ test('"delete all" deletes the copy on the device too: a reload does not bring t
   await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('madregot'))).toBeNull();
   expect(await readDb(page, 'mirror')).toEqual([]); // the new page made a new, empty database
+});
+
+// ------------------------------------------------------------------ two tabs (DURABLE-2)
+
+/**
+ * A second tab of the same browser, opened on `route` after the first one was seeded. `deaf`: it never hears the other
+ * tab's saves (its `storage` events are stopped before the app sees them), the race the write path must handle alone.
+ */
+async function secondTab(page, route, { deaf = false } = {}) {
+  const b = await page.context().newPage();
+  await b.clock.setFixedTime(NOW);
+  if (deaf) await b.addInitScript(() => { window.addEventListener('storage', (e) => e.stopImmediatePropagation(), true); });
+  await b.goto(`./${route}`);
+  await appReady(b);
+  return b;
+}
+
+/** Answer every exercise of the open lesson right, up to its first end screen. */
+async function playLesson(page) {
+  await expect.poll(() => page.evaluate(() => !!window.__madregotItem)).toBe(true);
+  for (let n = 0; n < 20 && !(await page.locator('.done-screen').count()); n += 1) {
+    await proceedToNext(page, await answer(page, true));
+    if (await page.locator('.combo-pop').count()) await page.locator('.combo-pop').click();
+  }
+  await expect(page.locator('.done-screen')).toBeVisible();
+}
+
+for (const deaf of [false, true]) {
+  test(`two tabs: the sound turned off in one stays off when a tab opened earlier changes another setting${deaf ? ' before it hears of it' : ''}`, async ({ page }) => {
+    const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    await open(page, '#/settings', student('7', { sound: true }));
+    const b = await secondTab(page, '#/settings', { deaf });
+    b.on('pageerror', (e) => errors.push(e.message));
+    await expect(radio(b, 'פועלים')).toHaveAttribute('aria-checked', 'true');
+    // the council's probe, reversed: A turns the sound off, then stale B saves a change of its own
+    await radio(page, 'כבויים').click();
+    await expect.poll(async () => (await saved(page)).sound).toBe(false);
+    if (!deaf) await expect(radio(b, 'כבויים')).toHaveAttribute('aria-checked', 'true'); // B loaded A's save
+    // (the solve mode has no control on this build: the grade is B's setting)
+    await radio(b, 'כיתה ח׳').click();
+    await expect.poll(async () => (await saved(page)).profile.grade).toBe('8');
+    expect((await saved(page)).sound).toBe(false);
+    await expect(radio(b, 'כבויים')).toHaveAttribute('aria-checked', 'true'); // and B shows it
+    const events = (await saved(page)).learn.events.filter((e) => e.e === 'merge');
+    expect(events).toEqual(deaf ? [expect.objectContaining({ e: 'merge', m: 'tab' })] : []);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('two tabs: a lesson finished in each, the second in a tab that never heard of the first, counts both', async ({ page }) => {
+  const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+  await open(page, '#/lesson/signed/1', student('7'));
+  const b = await secondTab(page, '#/', { deaf: true });
+  b.on('pageerror', (e) => errors.push(e.message));
+  await expect(b.locator('.learn')).toBeVisible(); // B sits on the map
+  await playLesson(page);
+  await leaveEndScreens(page);
+  const afterA = await saved(page);
+  expect(afterA.days['2026-11-05'].lessons).toBe(1);
+  expect(afterA.xp).toBeGreaterThan(0);
+  await b.evaluate(() => { location.hash = '#/lesson/signed/1'; });
+  await playLesson(b);
+  await leaveEndScreens(b);
+  await expect.poll(async () => (await saved(page)).days['2026-11-05'].lessons).toBe(2);
+  const st = await saved(page);
+  // every XP of this student was earned by these two lessons (answers earn none), so the total is the sum of the
+  // two lessons' XP exactly when it equals today's XP, and today's XP grew by B's lesson
+  expect(st.days['2026-11-05'].xp).toBeGreaterThan(afterA.days['2026-11-05'].xp);
+  expect(st.xp).toBe(st.days['2026-11-05'].xp);
+  expect(afterA.xp).toBe(afterA.days['2026-11-05'].xp);
+  expect(st.path.signed.parts['1']).toBe(2);
+  expect(st.learn.events.filter((e) => e.e === 'merge')).toHaveLength(1); // B merged once, at its first save
+  expect(errors).toEqual([]);
 });

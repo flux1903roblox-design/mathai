@@ -15,6 +15,7 @@ import { randomHex } from './random.js';
 import { migrate, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS } from './durable/migrations.js';
 import { addXp, newTag } from './durable/xp.js';
 import { durableStorage, bindDurableStore, STORE_KEY } from './durable/storage.js';
+import { EXAMS_KEEP, PRACTICE_EXAMS_KEEP, OUTBOX_KEEP } from './durable/merge.js';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
@@ -49,7 +50,7 @@ const empty = {
 };
 
 /** A class student's answers waiting for the server, at most (the oldest give way first). */
-export const OUTBOX_MAX = 1000;
+export const OUTBOX_MAX = OUTBOX_KEEP;
 /** What the class server stores of an answer (worker saveProgress), and all the outbox keeps of it. */
 export const toWire = (e) => ({ id: e.id, topic: e.topic, level: e.level, ok: e.ok, first: e.first, hint: e.hint, cat: e.cat, secs: e.secs, at: e.at });
 
@@ -66,17 +67,19 @@ export function migrateState(saved, version, { personal = PERSONAL_KEY } = {}) {
   return migrate(saved, version, { personal });
 }
 
-export const useApp = create(
-  persist(
-    (set, get) => ({
+/**
+ * The store's state and actions, without the saving around them: useApp below wraps it in persist; the tests of the
+ * merges between tabs make two stores of it on one storage (durable/tabs.test.js).
+ */
+export const appState = (set, get) => ({
       ...empty,
       setProfile: (profile) => set({ profile }),
       patchProfile: (patch) => set({ profile: { ...get().profile, ...patch } }),
       setAI: (patch) => set({ ai: { ...get().ai, ...patch } }),
       setSolveMode: (solveMode) => set({ solveMode }),
-      addExam: (exam) => set({ exams: [exam, ...get().exams].slice(0, 30), gaps: gapsFromExam(get().gaps, exam) }),
+      addExam: (exam) => set({ exams: [exam, ...get().exams].slice(0, EXAMS_KEEP), gaps: gapsFromExam(get().gaps, exam) }),
       removeExam: (id) => set({ exams: get().exams.filter((e) => e.id !== id) }),
-      addPracticeExam: (pe) => set({ practiceExams: [pe, ...get().practiceExams].slice(0, 20) }),
+      addPracticeExam: (pe) => set({ practiceExams: [pe, ...get().practiceExams].slice(0, PRACTICE_EXAMS_KEEP) }),
       resetPlanBase: (patch) => set({ planBase: { ...get().planBase, ...patch } }),
       setLevel: (topicId, level, max) => set({
         progress: { ...get().progress, [topicId]: { level, max: Math.max(max, get().progress[topicId]?.max || 1) } },
@@ -241,14 +244,19 @@ export const useApp = create(
         set({
           ...empty, xpBy: {}, learn: emptyLearn(), ai: { ...get().ai, pendingLink: null, lastTier: null },
           durable: { ...DURABLE_DEFAULTS, persistAsked: persistAsked ?? null, installHintAt: installHintAt ?? null, tag: newTag() }, backup: { ...BACKUP_DEFAULTS },
+          // a sign-out clears the progress on purpose, like a reset: another tab still open cannot bring it back
+          resetAt: new Date().toISOString(),
         });
       },
-    }),
-    // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot').
-    // Saved through the safe write path (lib/durable/storage.js): one write per tick, the copy on the device, quarantine.
-    { name: STORE_KEY, storage: durableStorage, version: CURRENT_VERSION, migrate: (saved, version) => migrateState(saved, version) },
-  ),
-);
+});
+
+/** How the store is saved: under STORE_KEY, at CURRENT_VERSION, migrated from older saves. */
+export const persistOptions = (storage) => ({ name: STORE_KEY, storage, version: CURRENT_VERSION, migrate: (saved, version) => migrateState(saved, version) });
+
+// VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot').
+// Saved through the safe write path (lib/durable/storage.js): one write per tick, the copy on the device, quarantine,
+// and the merge with another tab's writes (durable/tabs.js).
+export const useApp = create(persist(appState, persistOptions(durableStorage)));
 // a restore from the copy on the device loads into this store
 bindDurableStore(useApp);
 

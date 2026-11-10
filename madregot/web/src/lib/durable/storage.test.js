@@ -43,7 +43,7 @@ describe('one write per tick, with its revision', () => {
     expect(first.state).toMatchObject({ n: 2, sound: false });
     expect(first.meta).toMatchObject({ rev: 1, tab: 'tab00001', parent: { rev: 0, tab: null }, app: 'test' });
     expect(Object.keys(first.meta.keyAt).sort()).toEqual(['big', 'n', 'sound']); // the first save stamps every slice
-    expect(ls.getItem(REV)).toBe('1');
+    expect(ls.getItem(REV)).toBe('1 tab00001'); // the stamp: the revision and the tab that saved it
     s.bump();
     await tick();
     expect(ls.writes).toEqual([KEY, REV, KEY, REV]);
@@ -63,13 +63,15 @@ describe('one write per tick, with its revision', () => {
     expect(saved(ls).meta.parent).toEqual({ rev: 3, tab: 'other000' });
   });
 
-  it('a write counts past a revision another tab wrote meanwhile, and the last writer wins', async () => {
+  it('a write counts past a revision another tab wrote meanwhile, and merges with it instead of replacing it', async () => {
     const { useS, ls } = setup();
     useS.getState().bump(); await tick();
-    ls.setItem(KEY, env({ sound: false, n: 40 }, 7)); ls.setItem(REV, '7'); // another tab
+    ls.setItem(KEY, env({ sound: false, n: 40 }, 7)); ls.setItem(REV, '7'); // another tab (an older stamp, with no tab)
     useS.getState().bump(); await tick();
-    expect(saved(ls).meta).toMatchObject({ rev: 8, parent: { rev: 1 } });
-    expect(saved(ls).state.n).toBe(2);
+    expect(saved(ls).meta).toMatchObject({ rev: 8, parent: { rev: 7, tab: 'other000' }, seen: { other000: 7, tab00001: 8 } });
+    // the other tab's sound change stays; `n` changed on both sides and is not a known counter: the later change wins
+    expect(saved(ls).state).toMatchObject({ sound: false, n: 2 });
+    expect(useS.getState()).toMatchObject({ sound: false, n: 2 }); // and the page has the merge too
   });
 });
 
