@@ -2,7 +2,7 @@
 // Wrong once: try again with a hint. Wrong twice: see the answer and the steps,
 // and a similar exercise comes back at the end of the lesson. The lesson ends
 // when every slot has been answered correctly (each slot can come back twice at most).
-import { TOPIC, makeItem, isCorrect } from '@/content/index.js';
+import { TOPIC, makeItem, testItem, isCorrect } from '@/content/index.js';
 import { startPlacement, placementAnswer, placementNext, placementProgress, placementResult } from './placement.js';
 import { checkPlan, itemFor } from '@/learn/items.ts';
 import { contentOf } from '@/learn/content/index.ts';
@@ -54,7 +54,7 @@ function startCheck(opts) {
     kind: 'check', purpose: opts.purpose, skill: opts.skill || null, skills: opts.skills || null, misc: opts.misc || null,
     topic: opts.topic || topic, level: opts.level || level, part: 1, plan,
     levels: plan.map((q) => parseSkill(q.skill).level), slot: 0, total: plan.length, solved: 0, redo: [], redoing: false, probes: [],
-    item: itemFor(first.skill, first.source, Math.random, undefined, first.candidates), attempt: 1, hint: false, phase: 'answer', wrong: [],
+    item: itemFor(first.skill, first.source, Math.random, undefined, first.candidates, { test: true }), attempt: 1, hint: false, phase: 'answer', wrong: [],
     combo: 0, bestCombo: 0, firstTry: 0, mistakes: 0, fixed: 0, missedSlots: [], cats: {}, lastCat: null,
     right: 0, perSkill: {}, showed: 0,
     finished: false, failed: false, startedAt: Date.now(), itemStartedAt: Date.now(),
@@ -69,6 +69,15 @@ function practiceItem(topic, level, slot, avoidKey) {
   return makeItem(topic, level, avoidKey);
 }
 
+/** A jump test is a check: the stair's exercises, a diagnostic and a transfer question, each one able to show the skill. */
+export const JUMP_SOURCES = ['gen', 'diag', 'gen', 'transfer', 'gen'];
+function jumpItem(topic, level, slot, avoidKey) {
+  const c = contentOf(skillId(topic, level));
+  const source = JUMP_SOURCES[slot] || 'gen';
+  if (c && source !== 'gen') return itemFor(c.skill, source === 'transfer' && !c.transfer ? 'diag' : source, Math.random, avoidKey, undefined, { test: true });
+  return testItem(topic, level, avoidKey);
+}
+
 export function startLesson(opts) {
   if (opts.kind === 'placement') return startPlacement(opts);
   if (opts.kind === 'check') return startCheck(opts);
@@ -76,7 +85,7 @@ export function startLesson(opts) {
   return {
     kind: opts.kind || 'node', topic: opts.topic, level: opts.level, part: opts.part || 1,
     levels, slot: 0, total: levels.length, solved: 0, redo: [], redoing: false, probes: [],
-    item: practiceItem(opts.topic, levels[0], 0), attempt: 1, hint: false, phase: 'answer', wrong: [],
+    item: opts.kind === 'jump' ? jumpItem(opts.topic, levels[0], 0) : practiceItem(opts.topic, levels[0], 0), attempt: 1, hint: false, phase: 'answer', wrong: [],
     combo: 0, bestCombo: 0, firstTry: 0, mistakes: 0, fixed: 0, missedSlots: [], cats: {}, lastCat: null,
     finished: false, failed: false, startedAt: Date.now(), itemStartedAt: Date.now(),
   };
@@ -153,9 +162,9 @@ export function next(s) {
   if (s.kind === 'check') {
     if (slot >= s.plan.length) return { ...s, finished: true };
     const q = s.plan[slot];
-    return { ...s, ...fresh, slot, wrong: s.wrong, item: itemFor(q.skill, q.source, Math.random, s.item.key, q.candidates) };
+    return { ...s, ...fresh, slot, wrong: s.wrong, item: itemFor(q.skill, q.source, Math.random, s.item.key, q.candidates, { test: true }) };
   }
-  if (slot < s.levels.length) return { ...s, ...fresh, slot, item: practiceItem(s.topic, s.levels[slot], slot, s.item.key) };
+  if (slot < s.levels.length) return { ...s, ...fresh, slot, item: s.kind === 'jump' ? jumpItem(s.topic, s.levels[slot], slot, s.item.key) : practiceItem(s.topic, s.levels[slot], slot, s.item.key) };
   if (s.probes?.length) {
     // the question that tells two possible misconceptions apart
     const [pr, ...rest] = s.probes;

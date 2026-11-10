@@ -48,7 +48,8 @@ test('first visit with the placement test: every topic gets a starting stair', a
   await onboard(page, 'test');
   await expect(page).toHaveURL(/#\/placement/);
   await expect.poll(() => item(page)).toBeTruthy(); // the first question is on screen
-  for (let n = 0; n < 12; n += 1) {
+  // a probe is up to three questions at a level, all right to pass it; two probes per topic at most
+  for (let n = 0; n < 24; n += 1) {
     if (await page.locator('.done-screen').count()) break;
     const it = await item(page);
     await answer(page, it.level <= 2);

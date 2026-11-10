@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { startLesson, answer, next, resultOf, progressOf, planLevels, LESSON_LEN, REVIEW_LEN, PARTS, XP } from './lesson.js';
-import { unitNodes, recordOnPath, doneUpTo, nextNode } from './path.js';
+import { unitNodes, recordOnPath, nextNode, markMastered, doneCount, reachedUpTo, stairProgress, migratePath, isKept } from './path.js';
 import { questsFor, questProgress } from './quests.js';
 import { useApp, streakOf, today, dayBefore } from './store.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
@@ -60,20 +60,80 @@ describe('lesson', () => {
   });
 });
 
-describe('path', () => {
-  it('opens nodes in order and closes the unit with a review', () => {
+describe('path: done means mastered', () => {
+  it('practice fills a stair\'s ring but never marks it done; its passed mastery check does, and the path moves on', () => {
     let path = {};
-    let nodes = unitNodes('stats', path, {});
+    let nodes = unitNodes('stats', path);
     expect(nodes.map((n) => n.state)).toEqual(['current', 'locked', 'locked', 'locked', 'locked', 'locked']);
-    for (let i = 0; i < PARTS; i++) path = recordOnPath(path, { kind: 'node', topic: 'stats', level: 1, passed: true }).path;
-    nodes = unitNodes('stats', path, {});
+    let r;
+    for (let i = 0; i < PARTS; i++) { r = recordOnPath(path, { kind: 'node', topic: 'stats', level: 1, passed: true }); path = r.path; }
+    expect(r.practiceDone).toBe(true); // the mastery check is next
+    nodes = unitNodes('stats', path);
+    expect(nodes[0]).toMatchObject({ state: 'current', parts: PARTS });
+    expect(nodes[1].state).toBe('locked');
+    expect(doneCount('stats', path)).toBe(0);
+    // the mastery check passed: done, counted, and the next stair is current
+    const m = markMastered(path, 'stats', 1);
+    expect(m.stairDone).toBe(true);
+    nodes = unitNodes('stats', m.path);
     expect(nodes[0].state).toBe('done'); expect(nodes[1].state).toBe('current');
-    const jump = recordOnPath(path, { kind: 'jump', topic: 'stats', level: 5, passed: true });
-    expect(doneUpTo('stats', jump.path, {})).toBe(4);
+    expect(doneCount('stats', m.path)).toBe(1);
+    expect(markMastered(m.path, 'stats', 1).stairDone).toBe(false); // a second pass is not a new stair
   });
-  it('keeps levels climbed before the path existed', () => {
-    expect(doneUpTo('signed', {}, { signed: { level: 3, max: 3 } })).toBe(2);
-    expect(nextNode(topicsFor('7'), {}, { signed: { level: 3, max: 3 } })).toMatchObject({ topic: 'signed', level: 3 });
+  it('a stair passed over by a test stays open, not done, and the path goes on after it', () => {
+    const jump = recordOnPath({}, { kind: 'jump', topic: 'stats', level: 5, passed: true });
+    const nodes = unitNodes('stats', jump.path);
+    expect(nodes.slice(0, 5).map((n) => n.state)).toEqual(['open', 'open', 'open', 'open', 'current']);
+    expect(doneCount('stats', jump.path)).toBe(0);
+    expect(reachedUpTo('stats', jump.path)).toBe(4);
+    // its mastery check makes it done
+    expect(unitNodes('stats', markMastered(jump.path, 'stats', 2).path)[1].state).toBe('done');
+  });
+  it('a stair mastered out of order is done; the path still continues from the first one not passed', () => {
+    const p = markMastered({}, 'signed', 3).path;
+    expect(unitNodes('signed', p).slice(0, 4).map((n) => n.state)).toEqual(['current', 'locked', 'done', 'locked']);
+    expect(doneCount('signed', p)).toBe(1);
+    expect(nextNode(topicsFor('7'), p)).toMatchObject({ topic: 'signed', level: 1 });
+  });
+  it('the ring shows how far the five stages went, and is full only with the mastery check', () => {
+    expect(stairProgress(undefined, 0)).toBe(0);
+    expect(stairProgress({ taught: { A: 'x' }, attempts: [] }, 0)).toBeCloseTo(1 / 5);
+    expect(stairProgress({ taught: { A: 'x', B: 'x', C: 'x' }, attempts: [] }, PARTS)).toBeCloseTo(4 / 5);
+    expect(stairProgress({ taught: { A: 'x', B: 'x', C: 'x' }, attempts: [], mastered: { at: 'x', box: 0, due: 'x' } }, PARTS)).toBe(1);
+  });
+});
+
+describe('v3 migration: nobody loses a stair they earned', () => {
+  it('stairs done under the old rule stay done and are offered their mastery check; mastered stairs are marked mastered', () => {
+    const path = migratePath(
+      { coord: { parts: { 1: 2, 2: 2, 3: 1 }, reviews: 0, jumped: 0 }, angles: { parts: {}, reviews: 0, jumped: 3 } },
+      { signed: { level: 3, max: 3 } },
+      { 'coord:3': { attempts: [], mastered: { at: 'x', box: 0, due: 'x' } } },
+    );
+    // the older ladder: two stairs; two practice lessons: coord 1 and 2; a placement: angles 1 to 3
+    expect(unitNodes('signed', path).slice(0, 3).map((n) => [n.state, n.kept])).toEqual([['done', true], ['done', true], ['current', false]]);
+    expect(unitNodes('coord', path).slice(0, 4).map((n) => n.state)).toEqual(['done', 'done', 'done', 'current']);
+    expect(isKept(path, 'coord', 1)).toBe(true);
+    expect(isKept(path, 'coord', 3)).toBe(false); // its mastery check was passed
+    expect(doneCount('angles', path)).toBe(3);
+    // the practice already done on a stair is kept too
+    expect(path.coord.parts).toEqual({ 1: 2, 2: 2, 3: 1 });
+  });
+  it('a saved v2 state is migrated: green stays green, and mislabelled evidence moves to the mistake it showed', () => {
+    const { migrate } = useApp.persist.getOptions();
+    const miscon = {
+      'signed:1|sign': { skill: 'signed:1', id: 'sign', score: 1.5, seen: ['sn1n:2 + 4', 'sn1n:-4 - (-6)'], state: 'confirmed', at: 'x' },
+      'signed:5|minus-minus': { skill: 'signed:5', id: 'minus-minus', score: 1.5, seen: ['sn5:6 - (2 - 3) \\cdot (-3)', 'sn5:6 - (2 - 3) \\cdot 3'], state: 'confirmed', at: 'x' },
+    };
+    const st = migrate({ path: { coord: { parts: { 1: 2 }, reviews: 0, jumped: 0 } }, progress: {}, learn: { skills: {}, miscon, exam: null, missions: {}, events: [] } }, 2);
+    expect(st.path.coord.done).toEqual({ 1: 'kept' });
+    expect(unitNodes('coord', st.path)[0].state).toBe('done');
+    // the number line's wrong-direction moves were never sign mistakes
+    expect(st.learn.miscon['signed:1|sign']).toBeUndefined();
+    expect(st.learn.miscon['signed:1|direction'].seen).toEqual(['sn1n:2 + 4']);
+    expect(st.learn.miscon['signed:1|minus-minus'].seen).toEqual(['sn1n:-4 - (-6)']);
+    // adding a positive product is no "minus-minus": that evidence goes, the real one stays (now only a suspicion)
+    expect(st.learn.miscon['signed:5|minus-minus']).toMatchObject({ seen: ['sn5:6 - (2 - 3) \\cdot 3'], state: 'suspected' });
   });
 });
 
@@ -96,15 +156,32 @@ describe('store: lessons, streak and freezes', () => {
     // a day saved by an old version (answers, no lesson count) still counts, as before
     expect(streakOf({ [today()]: { q: 8, ok: 8 } })).toBe(1);
   });
-  it('a finished lesson adds XP, counts for the streak, and a second lesson completes the node', () => {
+  it('a finished lesson adds XP and counts for the streak; a second one completes the practice, not the stair', () => {
     const r = { kind: 'node', topic: 'signed', level: 1, part: 1, xp: 15, perfect: true, passed: true, bestCombo: 8 };
     const a = useApp.getState().completeLesson(r);
-    expect(a).toMatchObject({ streakExtended: true, streak: 1, nodeDone: false });
+    expect(a).toMatchObject({ streakExtended: true, streak: 1, practiceDone: false });
     const b = useApp.getState().completeLesson({ ...r, part: 2 });
-    expect(b).toMatchObject({ streakExtended: false, nodeDone: true, goalReached: true });
+    expect(b).toMatchObject({ streakExtended: false, practiceDone: true, goalReached: true });
     const st = useApp.getState();
-    expect(st.xp).toBe(30); expect(st.progress.signed).toEqual({ level: 2, max: 2 });
+    expect(st.xp).toBe(30);
+    expect(doneCount('signed', st.path)).toBe(0);
+    expect(unitNodes('signed', st.path)[0].state).toBe('current');
     expect(st.days[today()]).toMatchObject({ lessons: 2, xp: 30, perfect: 2, combo: 8 });
+  });
+  it('a passed mastery check marks the stair done and moves the path and its counter (the council\'s 0 of 5)', () => {
+    // a stair mastered with one practice lesson behind it
+    useApp.getState().completeLesson({ kind: 'node', topic: 'signed', level: 1, part: 1, xp: 10, passed: true });
+    const failed = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:1', topic: 'signed', level: 1, right: 3, asked: 5, perSkill: {}, passed: false, xp: 0 });
+    expect(failed).toMatchObject({ stairDone: false, done: 0 });
+    expect(unitNodes('signed', useApp.getState().path)[0].state).toBe('current');
+    const passed = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:1', topic: 'signed', level: 1, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+    expect(passed).toMatchObject({ stairDone: true, done: 1 });
+    const st = useApp.getState();
+    expect(st.learn.skills['signed:1'].mastered).toBeTruthy();
+    expect(unitNodes('signed', st.path).slice(0, 2).map((n) => n.state)).toEqual(['done', 'current']);
+    expect(st.progress.signed).toEqual({ level: 2, max: 2 });
+    // mastering the halfway stair opens the unit's chest
+    ['signed:2', 'signed:3'].forEach((sk, i) => { const out = useApp.getState().completeCheck({ purpose: 'mastery', skill: sk, topic: 'signed', level: i + 2, right: 4, asked: 5, perSkill: {}, passed: true, xp: 15 }); expect(out.chestOpened).toBe(i === 1); });
   });
   it('a freeze saves the streak over one missed day', () => {
     // On a fixed Thursday, so the missed day (Wednesday) is never a Shabbat, which would not count as missed.

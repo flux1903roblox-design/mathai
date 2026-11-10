@@ -183,8 +183,12 @@ describe('recommendations', () => {
     expect(nextActions(c).find((x) => x.kind === 'prereq')).toMatchObject({ skill: 'coord:1' });
   });
   it('counts stairs already passed on the map as known', () => {
-    const c = ctx(empty(), '7', { path: { signed: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0 } } });
-    expect(nextActions(c)[0]).toMatchObject({ kind: 'new', skill: 'signed:3' });
+    // done before mastery checks existed (kept), or passed over by the placement test
+    const kept = ctx(empty(), '7', { path: { signed: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'kept', 2: 'kept' } } } });
+    expect(nextActions(kept)[0]).toMatchObject({ kind: 'new', skill: 'signed:3' });
+    expect(nextActions(ctx(empty(), '7', { path: { signed: { parts: {}, reviews: 0, jumped: 2 } } }))[0]).toMatchObject({ kind: 'new', skill: 'signed:3' });
+    // and a stair kept green is offered its mastery check
+    expect(nextActions(kept).find((a) => a.kind === 'mastery')).toMatchObject({ skill: 'signed:1', to: '/lesson/signed/1?kind=check&purpose=mastery' });
   });
 });
 
@@ -279,6 +283,60 @@ describe('Exam Rescue', () => {
     const action = nextActions(ctx(learn)).find((a) => a.kind === 'exam')!;
     expect(action.reason).toContain('המבחן בעוד 3 ימים');
     expect(examPlan(learn.exam, learn, NOW, DAY).message).toContain('עוד 3 ימים למבחן');
+  });
+  // the council's run: exam on Sunday 15.11, 15 minutes a day, five coordinate stairs, all of them gaps, today Tuesday 10.11
+  const rescueOf = (skills: string[], date: string, minutes: number, today: string) => {
+    let plan = newPlan({ grade: '7', date, skills, confidence: 1, minutes }, `${today}T08:00:00.000Z`);
+    skills.forEach((sk) => { plan = recordDiagnostic(plan, sk, 0, 2, `${today}T08:00:00.000Z`); });
+    return examPlan(plan, empty(), `${today}T09:00:00.000Z`, today);
+  };
+  /** Where each task sits: [day index, place in the day]. */
+  const placeOf = (p: ReturnType<typeof examPlan>, skill: string, kind: string) => {
+    for (let d = 0; d < p.days.length; d += 1) { const i = p.days[d].tasks.findIndex((t) => t.skill === skill && t.kind === kind); if (i >= 0) return [d, i]; }
+    return null;
+  };
+  const before = (a: number[] | null, b: number[] | null) => !!a && !!b && (a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]));
+  it('never plans a mastery check before the lesson that teaches it', () => {
+    const coord = ['coord:1', 'coord:2', 'coord:3', 'coord:4', 'coord:5'];
+    const p = rescueOf(coord, '2026-11-15', 15, '2026-11-10');
+    coord.forEach((sk) => {
+      expect(before(placeOf(p, sk, 'learn'), placeOf(p, sk, 'practice')), `${sk}: practice before the lesson`).toBe(true);
+      expect(before(placeOf(p, sk, 'practice'), placeOf(p, sk, 'mastery')), `${sk}: mastery check before practice`).toBe(true);
+    });
+    // and for any exam: a few random plans, short and long, with little time and with a lot
+    const rnd = seeded(5);
+    for (let n = 0; n < 60; n += 1) {
+      const skills = ALL_SKILLS.filter(() => rnd() < 0.3).slice(0, 12);
+      if (!skills.length) continue;
+      const date = new Date('2026-11-10T12:00:00'); date.setDate(date.getDate() + 1 + Math.floor(rnd() * 12));
+      const day = date.toLocaleDateString('en-CA');
+      if (new Date(`${day}T12:00:00`).getDay() === 6) continue;
+      const q = rescueOf(skills, day, [5, 10, 15, 30][Math.floor(rnd() * 4)], '2026-11-10');
+      skills.forEach((sk) => {
+        const m = placeOf(q, sk, 'mastery'); const l = placeOf(q, sk, 'learn');
+        if (m && l) expect(before(l, m), `${sk} ${day}: mastery check before the lesson`).toBe(true);
+      });
+      expect(q.days.flatMap((d) => d.tasks).filter((t) => t.kind !== 'exam')).toHaveLength(skills.length * 3);
+    }
+  });
+  it('puts no task on Shabbat, as the streak never asks for one', () => {
+    const coord = ['coord:1', 'coord:2', 'coord:3', 'coord:4', 'coord:5'];
+    const p = rescueOf(coord, '2026-11-15', 15, '2026-11-10');
+    expect(p.days.map((d) => d.day)).toEqual(['2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13']); // Saturday 14.11 is not a work day
+    p.days.forEach((d) => expect(new Date(`${d.day}T12:00:00`).getDay(), d.day).not.toBe(6));
+    // everything is still planned, and the practice exam closes the last day before the exam
+    expect(p.days.flatMap((d) => d.tasks).filter((t) => t.kind !== 'exam')).toHaveLength(15);
+    expect(p.days.at(-1)!.tasks.at(-1)!.kind).toBe('exam');
+    // planned on Shabbat itself: today has no tasks, and the plan says so calmly
+    const sat = rescueOf(['signed:1'], '2026-11-17', 15, '2026-11-14');
+    expect(sat.today).toEqual([]);
+    expect(sat.days[0].day).toBe('2026-11-15');
+    expect(sat.message).toContain('היום שבת');
+    // a Sunday exam planned on Shabbat: the work waits for the morning of the exam, never for Shabbat
+    const sun = rescueOf(['signed:1'], '2026-11-15', 15, '2026-11-14');
+    expect(sun.days.map((d) => d.day)).toEqual(['2026-11-15']);
+    // an exam on Shabbat is a typo in the date
+    expect(validInput({ ...input, date: '2026-11-14' }, DAY)).toContain('שבת');
   });
   it('puts everything into today when the exam is today', () => {
     const p = examPlan(newPlan({ ...input, date: DAY }, NOW), empty(), NOW, DAY);

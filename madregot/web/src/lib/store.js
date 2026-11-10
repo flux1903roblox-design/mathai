@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { TOPIC } from '@/content/index.js';
-import { recordOnPath } from './path.js';
+import { recordOnPath, markMastered, migratePath, reachedUpTo, doneCount, chestOpen } from './path.js';
 import { questProgress } from './quests.js';
 import { noteGap, gapsFromExam } from './board.js';
-import { learnAfterAnswer, learnAfterCheck, emptyLearn, migrateLearn } from '@/learn/storeGlue.ts';
+import { learnAfterAnswer, learnAfterCheck, emptyLearn, migrateLearn, relabelLegacyEvidence } from '@/learn/storeGlue.ts';
 import { markTaught as markTaughtRec } from '@/learn/mastery.ts';
 import { logEvent } from '@/learn/analytics.ts';
 import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
@@ -26,7 +26,7 @@ const empty = {
   progress: {}, // topicId -> { level, max }
   days: {}, // 'YYYY-MM-DD' -> { q, ok, secs, lessons, xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
   xp: 0,
-  path: {}, // topicId -> { parts: { level: lessonsDone }, reviews, jumped }
+  path: {}, // topicId -> { parts: { level: practice lessons }, reviews, jumped, done: { level: 'mastered' | 'kept' } } (lib/path.js)
   freezes: 0, // streak freezes ready to use (at most 2), earned by finishing the daily quests
   goalXp: 20, // daily goal in XP
   sound: true,
@@ -79,7 +79,10 @@ export const useApp = create(
       },
       /** Evidence for the learning model only (a first miss before another try, a move in solve-together): not a finished question. */
       noteLearn: (event) => set({ learn: learnAfterAnswer(get().learn, event) }),
-      /** A finished check (mastery, review, verify, diagnostic, practice exam): mastery, reviews, misconceptions, the exam plan. */
+      /**
+       * A finished check (mastery, review, verify, diagnostic, practice exam): mastery, reviews, misconceptions, the exam
+       * plan. A passed mastery check is what marks a stair done on the path, and moves the path on.
+       */
       completeCheck: (r) => {
         // a check is a finished learning activity: it keeps the streak and earns XP when it passed
         const st = get(); const d = today(); const cur = st.days[d] || {};
@@ -87,8 +90,18 @@ export const useApp = create(
         const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + (r.xp || 0) };
         const days = { ...st.days, [d]: day };
         const learn = learnAfterCheck(st.learn, r, new Date().toISOString(), d);
-        set({ learn, days, xp: st.xp + (r.xp || 0) });
-        return { streakExtended: !(cur.lessons > 0), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp };
+        let { path, progress } = st; let stairDone = false; let chestOpened = false;
+        if (r.purpose === 'mastery' && r.passed && r.topic && r.level && TOPIC[r.topic]) {
+          const chestBefore = chestOpen(r.topic, path);
+          ({ path, stairDone } = markMastered(path, r.topic, r.level));
+          chestOpened = !chestBefore && chestOpen(r.topic, path);
+          // the topic's level is the next stair the path leads to
+          const top = TOPIC[r.topic].levels.length; const p = progress[r.topic] || { level: 1, max: 1 };
+          const level = Math.min(top, Math.max(p.level, reachedUpTo(r.topic, path) + 1));
+          progress = { ...progress, [r.topic]: { level, max: Math.max(p.max, level) } };
+        }
+        set({ learn, days, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic });
+        return { streakExtended: !(cur.lessons > 0), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
       /** A teaching stage finished (A discover, B example, C together). */
@@ -105,7 +118,8 @@ export const useApp = create(
       setSound: (sound) => set({ sound }),
       /**
        * A finished lesson: XP, today's counters, the path, the topic level, and the daily quests.
-       * Returns what to celebrate: { streakExtended, streak, nodeDone, unitDone, questsDone, freezeEarned, goalReached }.
+       * Returns what to celebrate: { streakExtended, streak, practiceDone, unitDone, questsDone, freezeEarned, goalReached }.
+       * Practice never marks a stair done (only its mastery check does): practiceDone says the check is next.
        */
       completeLesson: (r, { fromPlan = false } = {}) => {
         const st = get(); const d = today(); const cur = st.days[d] || {};
@@ -119,27 +133,26 @@ export const useApp = create(
         const questsDone = !questsBefore && questProgress(d, day).every((q) => q.done);
         const freezeEarned = questsDone && !cur.questsRewarded && st.freezes < 2;
         if (questsDone) day.questsRewarded = true;
-        const { path, nodeDone, unitDone } = recordOnPath(st.path, r);
-        // The topic level follows the path: a finished node opens the next level.
-        const t = TOPIC[r.topic]; const top = t.levels.length; const p = st.progress[r.topic] || { level: 1, max: 1 };
+        const { path, practiceDone, unitDone } = recordOnPath(st.path, r);
+        // The topic level follows the path: a passed jump test moves it on (a stair's own move is its mastery check).
+        const p = st.progress[r.topic] || { level: 1, max: 1 };
         let level = p.level; let max = p.max;
-        if (nodeDone) { level = Math.min(top, Math.max(level, r.level + 1)); max = Math.max(max, level); }
         if (r.kind === 'jump' && r.passed) { level = Math.max(level, r.level); max = Math.max(max, r.level); }
         const days = { ...st.days, [d]: day };
         set({
           days, path, xp: st.xp + r.xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
           progress: { ...st.progress, [r.topic]: { level, max } }, lastTopic: r.topic,
         });
-        return { streakExtended: !(cur.lessons > 0), streak: streakOf(days), nodeDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
+        return { streakExtended: !(cur.lessons > 0), streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
       },
-      /** The placement test settles where each topic starts; it counts as the day's first lesson. */
+      /** The placement test settles where each topic starts (the stairs before it are passed over, not done); it counts as the day's first lesson. */
       completePlacement: (r) => {
         const st = get(); const d = today(); const cur = st.days[d] || {};
         const goalBefore = (cur.xp || 0) >= st.goalXp;
         const path = { ...st.path }; const progress = { ...st.progress };
         Object.entries(r.results).forEach(([topic, res]) => {
           const t = TOPIC[topic]; if (!t) return;
-          const u = { parts: {}, reviews: 0, jumped: 0, ...(path[topic] || {}) };
+          const u = { parts: {}, reviews: 0, jumped: 0, done: {}, ...(path[topic] || {}) };
           path[topic] = { ...u, jumped: Math.max(u.jumped || 0, res.level) };
           const p = progress[topic] || { level: 1, max: 1 };
           const level = Math.min(t.levels.length, Math.max(p.level, res.level + 1));
@@ -172,13 +185,22 @@ export const useApp = create(
     }),
     // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')
     {
-      name: import.meta.env.VITE_STORE_KEY || 'madregot', storage: safeStorage, version: 2,
+      name: import.meta.env.VITE_STORE_KEY || 'madregot', storage: safeStorage, version: 3,
       // v1 → v2 (Madregot 2.0): nothing is removed or rewritten; the learning model is added, seeded from the
       // misconceptions the app already recorded (gaps). Unknown or broken saved data falls back to the defaults.
+      // v2 → v3: a stair is done only after its mastery check. Every stair that was done before stays done ('kept',
+      // and its mastery check is offered); stairs already mastered are marked so. Evidence a number-line exercise
+      // recorded under the wrong name is moved to the mistake it really showed.
       migrate: (saved, version) => {
-        const st = saved && typeof saved === 'object' ? saved : {};
-        if (version < 2) return { ...st, learn: migrateLearn(st.gaps || {}) };
-        return { ...st, learn: st.learn && typeof st.learn === 'object' ? { ...emptyLearn(), ...st.learn } : emptyLearn() };
+        let st = saved && typeof saved === 'object' ? saved : {};
+        if (version < 2) st = { ...st, learn: migrateLearn(st.gaps || {}) };
+        else st = { ...st, learn: st.learn && typeof st.learn === 'object' ? { ...emptyLearn(), ...st.learn } : emptyLearn() };
+        if (version < 3) {
+          const path = st.path && typeof st.path === 'object' ? st.path : {};
+          const progress = st.progress && typeof st.progress === 'object' ? st.progress : {};
+          st = { ...st, path: migratePath(path, progress, st.learn.skills || {}), learn: relabelLegacyEvidence(st.learn) };
+        }
+        return st;
       },
     },
   ),

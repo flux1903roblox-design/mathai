@@ -42,17 +42,18 @@ function Burst() {
 
 /**
  * A stop on the path: a stair block with a solid riser that sinks when pressed (the app is named for stairs).
- * locked (grey stone), current (the unit's colour, floating, with a mark per lesson), done (gold, a check),
- * mastered (gold with a crown once the unit's review is passed), and the trophy that closes a unit.
+ * locked (grey stone), current (the unit's colour, with a ring of how far its five stages went), done (its mastery check
+ * passed: a check), open (passed over by a test, its mastery check waiting: an outlined star), mastered (gold with a
+ * crown once the unit's review is passed), and the trophy that closes a unit.
  */
-const PathNode = forwardRef(function PathNode({ state, kind, parts, of, fillLast, label, expanded, onClick, mastered, celebrate }, ref) {
+const PathNode = forwardRef(function PathNode({ state, kind, parts, of, pct, fillLast, label, expanded, onClick, mastered, celebrate }, ref) {
   const reduce = useReducedMotion();
   const glyph = kind === 'review' ? 'trophy' : state === 'done' ? (mastered ? 'crown' : 'check') : state === 'locked' ? 'lock' : 'star';
   return (
     <m.div
       className={clsx('node-slot', state === 'current' && 'has-ring', kind === 'review' && 'is-review', `slot-${state}`, mastered && state === 'done' && 'is-mastered')}
       initial={celebrate && !reduce ? { scale: 0.7 } : false} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.2 }}
-      style={state === 'current' && kind === 'node' ? { '--pct': `${Math.round(((parts || 0) / (of || 1)) * 100)}%` } : undefined}
+      style={state === 'current' && kind === 'node' ? { '--pct': `${Math.round((pct ?? (parts || 0) / (of || 1)) * 100)}%` } : undefined}
     >
       {state === 'current' && <span className="node-halo" aria-hidden="true" />}
       {state === 'current' && kind === 'node' && <LessonMarks parts={parts} of={of} fillLast={fillLast} />}

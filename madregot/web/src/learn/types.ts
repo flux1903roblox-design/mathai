@@ -106,6 +106,8 @@ export interface DiagModel<P = Record<string, number>> {
   /** A drawing for the question, when the question needs one. */
   fig?: (p: P) => FigSpec;
   answer: (p: P) => number;
+  /** The exact value when the answer is rounded (a root that is not whole): an answer within half a tenth of it is right. */
+  exact?: (p: P) => number;
   bugs: Record<string, (p: P) => number | null>;
   solution: (p: P) => Text[];
   hint: (p: P) => Text;

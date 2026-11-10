@@ -10,7 +10,7 @@ function manipItems(topic, level, n = 400) {
 }
 
 describe('interactive exercises: deterministic checking', () => {
-  it('number line: only the exact result is right; the opposite move is diagnosed as a sign mistake', () => {
+  it('number line: only the exact result is right; the opposite move is a direction mistake, never a sign mistake', () => {
     const items = manipItems('signed', 1);
     expect(items.length).toBeGreaterThan(50);
     for (const it of items) {
@@ -20,7 +20,12 @@ describe('interactive exercises: deterministic checking', () => {
       expect(isCorrect(it, it.answer)).toBe(true);
       expect(isCorrect(it, it.answer + 1)).toBe(false);
       const opposite = it.manip.from - (it.answer - it.manip.from);
-      if (opposite !== it.answer) expect(it.diag(opposite)).toBe('sign');
+      // subtracting a negative number moved like subtracting a positive one is that misconception; any other
+      // opposite move is the direction (the answer is not the negative of the right one: the start is not 0)
+      const subNeg = / - \(-\d+\)$/.test(it.display);
+      if (opposite !== it.answer) expect(it.diag(opposite)).toBe(subNeg ? 'minus-minus' : 'direction');
+      // the real negative of the answer is a sign mistake
+      if (it.answer !== 0) expect(it.diag(-it.answer)).toBe('sign');
     }
   });
   it('plotting a point: only the exact point; swapped coordinates are diagnosed', () => {
@@ -34,18 +39,29 @@ describe('interactive exercises: deterministic checking', () => {
       if (x !== y) expect(it.diag([y, x])).toBe('swap');
     }
   });
-  it('a point in a quadrant: any point inside is right, points on the axes are not', () => {
+  it('a point in a quadrant: any point inside (on the given line, when a coordinate is given) is right; points on the axes are not', () => {
     const items = manipItems('coord', 2);
     expect(items.length).toBeGreaterThan(50);
+    let fixed = 0;
     for (const it of items) {
-      const q = it.manip.quadrant;
+      const q = it.manip.quadrant; const { fixX, fixY } = it.manip;
       const sx = q === 1 || q === 4 ? 1 : -1; const sy = q === 1 || q === 2 ? 1 : -1;
-      expect(isCorrect(it, [sx * 5, sy * 1])).toBe(true);
-      expect(isCorrect(it, [sx * 1, sy * 6])).toBe(true);
-      expect(isCorrect(it, [0, sy * 3])).toBe(false);
+      const at = (x, y) => [fixX ?? x, fixY ?? y];
+      expect(isCorrect(it, at(sx * 5, sy * 1))).toBe(true);
+      expect(isCorrect(it, at(sx * 1, sy * 6))).toBe(true);
+      expect(isCorrect(it, at(0, sy * 3))).toBe(fixX != null && fixX !== 0 ? true : false);
       expect(isCorrect(it, [-sx * 2, sy * 2])).toBe(false);
       expect(quadOf(it.answer)).toBe(q);
+      expect(isCorrect(it, it.answer)).toBe(true);
+      if (fixX != null || fixY != null) {
+        fixed += 1;
+        // in the right quadrant but off the given line: not right
+        expect(isCorrect(it, fixX != null ? [fixX + sx, sy * 2] : [sx * 2, fixY + sy])).toBe(false);
+        // the given coordinate's sign agrees with the quadrant
+        if (fixX != null) expect(Math.sign(fixX)).toBe(sx); else expect(Math.sign(fixY)).toBe(sy);
+      }
     }
+    expect(fixed).toBeGreaterThan(0);
   });
   it('building a line: exactly the slope and the intercept asked for', () => {
     const items = manipItems('line', 2);

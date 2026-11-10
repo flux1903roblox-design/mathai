@@ -403,7 +403,7 @@ White, its sections and groups as the standard card, headings at 18px/800, stat 
 - **Don't** give a unit, topic or section its own colour.
 - **Don't** use black or dark screens, glow or neon effects.
 - **Don't** put scenery or tinted worlds behind the path or colour blocks behind page titles.
-- **Don't** put a small label or eyebrow above a heading. The welcome screen's "LEVEL UP YOUR MATH" line under the wordmark is an owner-pinned exception for that screen only.
+- **Don't** put a small label or eyebrow above a heading, on any screen (the welcome screen's English line is gone too).
 - **Don't** use gold for "not yet"; gold is XP.
 - **Don't** colour a whole result tile; colour its icon and number.
 - **Don't** put מדי beside questions, in onboarding, on the profile or in headers.

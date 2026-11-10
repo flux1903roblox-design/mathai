@@ -1,7 +1,8 @@
 // Stage C: solve together. The student picks each next step and checks it with the bottom "בדיקה", as everywhere
 // else in the app; the result rises in the bottom sheet (green, or yellow with that choice's own feedback, and the
-// hints grow stronger). The last move is the student's: a typed answer. After two hints and a third miss the answer
-// is shown with the reason, so nobody is stuck in a loop.
+// hints grow stronger). The last move is the student's: a typed answer. A wrong number there is checked against the
+// stair's misconceptions (learn/content/togetherDiag.ts) and the one it fits is named. After two hints and a third miss
+// the answer is shown with the reason, so nobody is stuck in a loop. Praise is honest: "לבד" only without a hint.
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
@@ -24,8 +25,19 @@ function Hints({ hints, level }) {
   );
 }
 
-/** onAttempt(ok, independent): each move, for the learning record (all moves here count as learning with help). */
-export default function Together({ problem, n, of, onDone, onAttempt, decimal = false, renderHead }) {
+/** What a wrong last step most likely shows: the misconceptions it fits, by name (one, or "maybe this, maybe that"). */
+function namedMistake(ids, names) {
+  const t = ids.map((id) => names[id]).filter(Boolean);
+  if (!t.length) return null;
+  // more than one fits: the first (the stair's main one) said as a possibility, so the sheet stays short on a phone
+  return t.length === 1 ? `מה כנראה קרה: ${t[0]}.` : `אולי ${t[0]}.`;
+}
+
+/**
+ * onAttempt(ok, cands): each move, for the learning record (all moves here count as learning with help); cands are the
+ * misconceptions a wrong last step fits. diagnose(u) gives those ids; names maps an id to its words.
+ */
+export default function Together({ problem, n, of, onDone, onAttempt, decimal = false, renderHead, diagnose, names = {} }) {
   const [k, setK] = useState(0); // the step; problem.steps.length = the final answer
   const [picked, setPicked] = useState({}); // step → choices already checked
   const [sel, setSel] = useState(null); // the choice picked now, before "בדיקה"
@@ -35,6 +47,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
   const [finalMiss, setFinalMiss] = useState(0);
   const [solved, setSolved] = useState(false);
   const [wrongVal, setWrongVal] = useState(null); // the typed answer that was just checked and missed
+  const [missIds, setMissIds] = useState([]); // the misconceptions that wrong answer fits
   const ref = useRef(null);
   useEffect(() => { setHint(0); setSel(null); ref.current?.focus({ preventScroll: true }); }, [k]);
   const onFinal = k >= problem.steps.length;
@@ -61,8 +74,9 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
     if (u == null) return;
     // the same tolerance as practice (isCorrect): -2/3 typed as -0.67 is right
     const ok = near(u, problem.final.answer, 0.01);
-    onAttempt?.(ok);
-    if (ok) { play('correct'); setSolved(true); } else { play('wrong'); setWrongVal(typed); setFinalMiss((x) => x + 1); setHint((h) => Math.min(2, h + 1)); }
+    const ids = ok ? [] : (diagnose?.(u) || []);
+    onAttempt?.(ok, ids.length ? ids.map((id) => ({ id, conf: 1 / ids.length })) : undefined);
+    if (ok) { play('correct'); setSolved(true); } else { play('wrong'); setWrongVal(typed); setMissIds(ids); setFinalMiss((x) => x + 1); setHint((h) => Math.min(2, h + 1)); }
   };
   const next = () => {
     if (onFinal) { onDone?.(); return; }
@@ -75,9 +89,12 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
     ? (last == null ? null : stepOk
       ? { tone: 'good', title: 'נכון!', body: <MathText text={step.choices[last].feedback} /> }
       : sel == null ? { tone: 'warm', title: 'עוד לא. בחרו צעד אחר', body: <MathText text={step.choices[last].feedback} /> } : null)
-    : solved ? { tone: 'good', title: 'פתרתם לבד!', body: <>בדיוק! פתרתם את הצעד האחרון לבד.</> }
+    // "לבד" only when no hint was shown (a miss shows one too); after a hint, the praise says so, warmly
+    : solved ? (hint === 0
+      ? { tone: 'good', title: 'פתרתם לבד!', body: <>בדיוק! פתרתם את הצעד האחרון לבד.</> }
+      : { tone: 'good', title: 'נכון, בעזרת רמז', body: <>הגעתם לתשובה, והרמז עזר בדרך. בתרגול תפתרו תרגילים כאלה לבד.</> })
       : giveUp ? { tone: 'warm', title: 'נחזור על זה בתרגול', body: <>התשובה היא <Tex tex={answerTex} />. נעבור על זה שוב בתרגול.</> }
-        : finalMiss > 0 && typed === wrongVal ? { tone: 'warm', title: 'עוד לא. נסו שוב', body: <>בדקו את החישוב, והרמז למטה יכול לעזור.</> } : null;
+        : finalMiss > 0 && typed === wrongVal ? { tone: 'warm', title: 'עוד לא. נסו שוב', body: namedMistake(missIds, names) ? <MathText text={namedMistake(missIds, names)} /> : <>בדקו את החישוב, והרמז למטה יכול לעזור.</> } : null;
   const done = stepOk || solved || giveUp;
   const canCheck = onFinal ? parseNum(typed) != null && typed !== wrongVal : sel != null;
   const moves = problem.steps.length + 1;

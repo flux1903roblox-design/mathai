@@ -34,7 +34,7 @@ Built-in question generators with exact answers drive the practice and decide wh
 ## Capabilities and Constraints
 
 - Topics carried over from the school practice app the user pointed to (Vibewise): grade 7 signed numbers, the coordinate plane and angles; grade 8 slope and the equation of a line, the Pythagorean theorem, and statistics (frequency, mean, median, mode). Each topic is a ladder of levels.
-- Ladder rules: two correct answers in a row without a mistake or hint move up a level; after a mistake or hint, four are needed. A question answered wrong comes back three questions later.
+- Path rules: a stair is done (and counted, and the path moves on) only after its mastery check, five questions without hints with at least four right; practice fills the stair's ring and leads to that check. Checks and the placement test are built so that guessing passes them less than 2% of the time. A question answered wrong comes back at the end of the lesson.
 - AI features (all four were requested): explain a mistake, chat about the current question, generate new questions, and check a photo of handwritten work.
 - The Anthropic key never reaches student browsers. A personal key stored on one device is allowed only in solo mode.
 - A daily AI limit per student keeps cost predictable.

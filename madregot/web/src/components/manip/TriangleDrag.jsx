@@ -6,13 +6,17 @@ import { triangleAngles, rightAtC } from '@/content/manip.js';
 
 const deg = (d) => `${Math.round(d)}°`;
 
-export default function TriangleDrag({ m, value, onChange, locked, reveal, good, answer, hint }) {
+/**
+ * test: in a check, the angle at C is not shown and nothing marks it right: ∠A and ∠B stay, so the student finds C from
+ * the angle sum (A and B together 90°).
+ */
+export default function TriangleDrag({ m, value, onChange, locked, reveal, good, answer, hint, test = false }) {
   const g = gridGeometry(m.range || 6);
   const { r, X, Y } = g;
   const set = (c) => { const n = [clamp(c[0], -r, r), clamp(c[1], 1, r)]; if (!locked && (n[0] !== value[0] || n[1] !== value[1])) onChange(n); };
   const [ref, drag] = useDrag((p) => set([g.toX(p.x), g.toY(p.y)]), locked);
   const [a, b, c] = triangleAngles(m, value);
-  const right = rightAtC(m, value);
+  const right = rightAtC(m, value) && !test;
   const P = (q) => `${X(q[0])},${Y(q[1])}`;
   // the angle marks: an arc at A and at B, a square at C when it is right
   const arcAt = (p, q1, q2, rad) => {
@@ -24,10 +28,10 @@ export default function TriangleDrag({ m, value, onChange, locked, reveal, good,
   return (
     <div className={`manip manip-triangle ${good ? 'good' : ''}`}>
       <div className="manip-readout" dir="ltr" aria-live="polite">
-        <span className="tri-a">∠A {deg(a)}</span> + <span className="tri-b">∠B {deg(b)}</span> + <span className={right ? 'tri-c hit' : 'tri-c'}>∠C {deg(c)}</span> = <b>180°</b>
+        <span className="tri-a">∠A {deg(a)}</span> + <span className="tri-b">∠B {deg(b)}</span> + <span className={right ? 'tri-c hit' : 'tri-c'}>∠C {test ? '?' : deg(c)}</span> = <b>180°</b>
       </div>
       <svg ref={ref} {...drag} viewBox={`0 0 ${g.size} ${g.size}`} className="manip-canvas" dir="ltr" tabIndex={locked ? -1 : 0}
-        role="application" aria-roledescription="משולש" aria-label={`הקודקוד C בשיעורים ${minus(value[0])}, ${minus(value[1])}. הזווית C ${deg(c)}`}
+        role="application" aria-roledescription="משולש" aria-label={test ? `הקודקוד C בשיעורים ${minus(value[0])}, ${minus(value[1])}. הזווית A ${deg(a)}, הזווית B ${deg(b)}` : `הקודקוד C בשיעורים ${minus(value[0])}, ${minus(value[1])}. הזווית C ${deg(c)}`}
         onKeyDown={arrowKeys({ left: () => set([value[0] - 1, value[1]]), right: () => set([value[0] + 1, value[1]]), up: () => set([value[0], value[1] + 1]), down: () => set([value[0], value[1] - 1]) })}>
         <Plane g={g}>
           {hint && <circle cx={X(0)} cy={Y(0)} r={5 * g.c} className="mp-hint-circle" />}

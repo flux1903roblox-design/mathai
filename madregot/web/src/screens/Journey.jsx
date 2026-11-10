@@ -38,7 +38,6 @@ export default function Journey() {
   const rec = useApp((s) => s.learn.skills[skill]);
   const miscon = useApp((s) => s.learn.miscon);
   const path = useApp((s) => s.path);
-  const progress = useApp((s) => s.progress);
   const [tutor, setTutor] = useState(false);
   if (!t || !t.levels[level - 1]) return <div className="page pushed"><ScreenBar title="מדרגה" back="/" backLabel="למפה" /><EmptyState mood="encouraging" title="המדרגה לא נמצאה"><p>אולי הקישור ישן. המסלול שלכם מחכה במפה.</p></EmptyState><ScreenFoot><Link to="/" className="btn btn-primary btn-block btn-lg">חזרה למסלול</Link></ScreenFoot></div>;
   const c = contentOf(skill);
@@ -46,7 +45,7 @@ export default function Journey() {
   const state = masteryState(rec, now);
   const stage = c ? nextStage(rec) : (rec?.attempts?.some((a) => a.purpose === 'practice' && a.ok) ? 'E' : 'D');
   const practiced = (rec?.attempts || []).filter((a) => a.purpose === 'practice' && a.ok).length;
-  const node = unitNodes(topic, path, progress).find((n) => n.kind === 'node' && n.level === level);
+  const node = unitNodes(topic, path).find((n) => n.kind === 'node' && n.level === level);
   const part = node?.state === 'done' ? PARTS : Math.min(PARTS, (node?.parts || 0) + 1);
   const practiceTo = `/lesson/${topic}/${level}?part=${part}&from=journey`;
   const open = openMisconceptions(miscon).filter((m) => m.skill === skill);

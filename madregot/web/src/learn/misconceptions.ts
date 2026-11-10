@@ -123,11 +123,12 @@ export function startRepair(all: Record<string, MisconRecord>, skill: SkillId, i
 }
 
 /**
- * The verification after a remediation: VERIFY_N discriminating questions. Resolved when at least
- * VERIFY_NEED are right and the misconception did not show again; otherwise back to confirmed.
+ * The verification after a remediation: VERIFY_N questions, two where the misconception would show and one where it
+ * would not. Resolved when all of them are right (so it is not passed by a fixed answer or by luck) and the
+ * misconception did not show again; otherwise back to confirmed.
  */
 export const VERIFY_N = 3;
-export const VERIFY_NEED = 2;
+export const VERIFY_NEED = 3;
 export function finishVerify(all: Record<string, MisconRecord>, skill: SkillId, id: string, right: number, showedAgain: number, at: string): Record<string, MisconRecord> {
   const k = keyOf(skill, id); const r = all[k]; if (!r) return all;
   if (right >= VERIFY_NEED && showedAgain === 0) return { ...all, [k]: { ...r, state: 'resolved', score: 0, resolvedAt: at, at, failedVerify: 0 } };

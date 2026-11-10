@@ -3,7 +3,8 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { Award, RotateCcw, Check, ArrowLeft } from 'lucide-react';
+import { Award, RotateCcw, Check, ArrowLeft, Gift } from 'lucide-react';
+import { TOPIC } from '@/content/index.js';
 import { useApp } from '@/lib/store.js';
 import { skillId } from '@/learn/skills.ts';
 import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS } from '@/learn/mastery.ts';
@@ -38,7 +39,7 @@ function copy(r, rec, def) {
   }
 }
 
-export default function CheckDone({ result: r, onExit }) {
+export default function CheckDone({ result: r, award, onExit }) {
   const navigate = useNavigate();
   const skill = r.skill || (r.topic && r.level ? skillId(r.topic, r.level) : null);
   const rec = useApp((s) => (skill ? s.learn.skills[skill] : null));
@@ -56,6 +57,11 @@ export default function CheckDone({ result: r, onExit }) {
       <div className="check-hero" data-region="content"><Mascot mood={c.mood} size={150} className="check-mascot" /></div>
       <h1 ref={ref} tabIndex={-1} className={clsx('check-title', r.passed ? 'good' : 'warm')}>{c.title}</h1>
       <p className="lead">{c.body}</p>
+      {/* a passed mastery check is what moves the path: the stair is done, and the unit's count goes up */}
+      {r.purpose === 'mastery' && r.passed && award?.done != null && TOPIC[r.topic] && (
+        <p className="climb-caption">{TOPIC[r.topic].title}: <bdi>{award.done}</bdi> מתוך <bdi>{TOPIC[r.topic].levels.length}</bdi> מדרגות</p>
+      )}
+      {award?.chestOpened && <div className="badges"><span className="done-earned tone-streak"><Gift size={16} aria-hidden="true" />פתחתם תיבת אוצר</span></div>}
       <div className="stats check-stats" data-region="answers">
         <div className={clsx('stat', r.right === r.asked ? 'stat-good' : 'stat-brand')}>
           <span className="stat-label">נכונות</span>

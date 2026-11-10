@@ -13,8 +13,16 @@ const ALL = TRIPLES as Triple[];
 /** The squares object: the student changes the two legs and sees the three areas (max 12 per leg). */
 const sq = (a: number, b: number) => ({ kind: 'squares' as const, start: { a, b }, max: 12 });
 const r1 = (x: number) => Math.round(x * 10) / 10;
-/** Every right answer of these questions is whole; a misconception often is not, and the student rounds it. */
+/**
+ * About half the triangles are whole (Pythagorean triples); the rest need a root that is not whole, rounded to tenths,
+ * as the grade-8 programme asks. A rounded answer is right within half a tenth of the exact length (`exact`).
+ */
 const ROUND = 'אם יוצא מספר לא שלם, עגלו לעשירית.';
+const isSq = (n: number) => Number.isInteger(Math.sqrt(n));
+/** "= 13" for a whole root, "≈ 7.1" for one that is not. */
+const eqRoot = (n: number) => (isSq(n) ? `= ${Math.sqrt(n)}` : `\\approx ${r1(Math.sqrt(n))}`);
+/** A length as the question asks for it: whole, or rounded to tenths. */
+const len = (x: number) => (Math.abs(x - Math.round(x)) < 1e-9 ? Math.round(x) : r1(x));
 const shuffle = <X>(rnd: Rng, arr: X[]) => {
   const b = [...arr];
   for (let i = b.length - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
@@ -27,25 +35,34 @@ const legsOf = (rnd: Rng, pool: Triple[] = ALL): Legs => {
   const [x, y, c] = rpick(rnd, pool);
   return rnd() < 0.5 ? { a: x, b: y, c } : { a: y, b: x, c };
 };
+/** Two whole legs whose hypotenuse is not whole (each up to 12). */
+const rootLegsOf = (rnd: Rng): Legs => { for (;;) { const a = rint(rnd, 2, 12); const b = rint(rnd, 2, 12); if (!isSq(a * a + b * b)) return { a, b, c: Math.sqrt(a * a + b * b) }; } };
+/** A whole hypotenuse and leg whose other leg is not whole. */
+const rootLegOf = (rnd: Rng): Legs => { for (;;) { const c = rint(rnd, 5, 20); const a = rint(rnd, Math.ceil(c / 3), c - 1); if (!isSq(c * c - a * a)) return { a, b: Math.sqrt(c * c - a * a), c }; } };
+/** Half whole triangles, half with the missing side a root that is not whole. */
+const hypLegs = (rnd: Rng): Legs => (rnd() < 0.5 ? legsOf(rnd) : rootLegsOf(rnd));
+const legLegs = (rnd: Rng): Legs => (rnd() < 0.5 ? legsOf(rnd) : rootLegOf(rnd));
+const sq2 = (p: Legs) => p.a * p.a + p.b * p.b;
 type Story = Legs & { k: number };
 
 // ---------------------------------------------------------------- stair 1: the hypotenuse
 
 const hypModel: DiagModel<Legs> = {
-  params: (rnd) => legsOf(rnd),
-  text: (p) => `במשולש ישר־זווית הניצבים $${p.a}$ ס״מ ו־$${p.b}$ ס״מ. מה אורך היתר?`,
+  params: hypLegs,
+  text: (p) => `במשולש ישר־זווית הניצבים $${p.a}$ ס״מ ו־$${p.b}$ ס״מ. מה אורך היתר? ${ROUND}`,
   display: (p) => `a = ${p.a},\\ b = ${p.b},\\ c = ?`,
-  answer: (p) => p.c,
+  answer: (p) => len(p.c),
+  exact: (p) => p.c,
   bugs: {
     // the lengths were added, not the areas of the squares
     'add-legs': (p) => p.a + p.b,
     // stopped at the area of the square on the hypotenuse
-    'no-root': (p) => p.c * p.c,
+    'no-root': sq2,
   },
   solution: (p) => [
     `מרבעים כל ניצב: $${p.a}^2 = ${p.a * p.a}$, $${p.b}^2 = ${p.b * p.b}$.`,
-    `מחברים את השטחים: $c^2 = ${p.a * p.a} + ${p.b * p.b} = ${p.c * p.c}$.`,
-    `זה שטח הריבוע על היתר. האורך הוא השורש: $c = \\sqrt{${p.c * p.c}} = ${p.c}$ ס״מ.`,
+    `מחברים את השטחים: $c^2 = ${p.a * p.a} + ${p.b * p.b} = ${sq2(p)}$.`,
+    `זה שטח הריבוע על היתר. האורך הוא השורש: $c = \\sqrt{${sq2(p)}} ${eqRoot(sq2(p))}$ ס״מ.`,
   ],
   hint: (p) => `מחברים את שטחי הריבועים על הניצבים, $${p.a}^2 + ${p.b}^2$, ובסוף מוציאים שורש.`,
   unit: 'ס״מ',
@@ -53,24 +70,25 @@ const hypModel: DiagModel<Legs> = {
 
 const hypStory: DiagModel<Story> = {
   // the same skill on two unfamiliar surfaces: a walk east then north, and the areas of the squares given instead of the legs
-  params: (rnd) => ({ k: rnd() < 0.5 ? 0 : 1, ...legsOf(rnd) }),
+  params: (rnd) => ({ k: rnd() < 0.5 ? 0 : 1, ...hypLegs(rnd) }),
   text: (p) => (p.k === 0
-    ? `יואב הלך $${p.a}$ מטר מזרחה, ואז $${p.b}$ מטר צפונה. כמה מטרים הוא רחוק עכשיו מנקודת ההתחלה, בקו ישר?`
-    : `על הניצבים של משולש ישר־זווית בנו ריבועים. לאחד שטח $${p.a * p.a}$ סמ״ר ולשני $${p.b * p.b}$ סמ״ר. מה אורך היתר, בס״מ?`),
-  answer: (p) => p.c,
+    ? `יואב הלך $${p.a}$ מטר מזרחה, ואז $${p.b}$ מטר צפונה. כמה מטרים הוא רחוק עכשיו מנקודת ההתחלה, בקו ישר? ${ROUND}`
+    : `על הניצבים של משולש ישר־זווית בנו ריבועים. לאחד שטח $${p.a * p.a}$ סמ״ר ולשני $${p.b * p.b}$ סמ״ר. מה אורך היתר, בס״מ? ${ROUND}`),
+  answer: (p) => len(p.c),
+  exact: (p) => p.c,
   bugs: {
     'add-legs': (p) => p.a + p.b,
-    'no-root': (p) => p.c * p.c,
+    'no-root': sq2,
   },
   solution: (p) => (p.k === 0
     ? [
       'מזרחה וצפונה נפגשים בזווית ישרה. הדרך בקו ישר היא היתר.',
-      `$d^2 = ${p.a}^2 + ${p.b}^2 = ${p.a * p.a} + ${p.b * p.b} = ${p.c * p.c}$`,
-      `$d = \\sqrt{${p.c * p.c}} = ${p.c}$ מטר.`,
+      `$d^2 = ${p.a}^2 + ${p.b}^2 = ${p.a * p.a} + ${p.b * p.b} = ${sq2(p)}$`,
+      `$d = \\sqrt{${sq2(p)}} ${eqRoot(sq2(p))}$ מטר.`,
     ]
     : [
-      `השטחים כבר נתונים. הריבוע על היתר הוא הסכום שלהם: $${p.a * p.a} + ${p.b * p.b} = ${p.c * p.c}$.`,
-      `אורך היתר הוא הצלע של הריבוע הזה: $\\sqrt{${p.c * p.c}} = ${p.c}$ ס״מ.`,
+      `השטחים כבר נתונים. הריבוע על היתר הוא הסכום שלהם: $${p.a * p.a} + ${p.b * p.b} = ${sq2(p)}$.`,
+      `אורך היתר הוא הצלע של הריבוע הזה: $\\sqrt{${sq2(p)}} ${eqRoot(sq2(p))}$ ס״מ.`,
     ]),
   hint: (p) => (p.k === 0
     ? 'מזרחה וצפונה נפגשים בזווית ישרה, והדרך בקו ישר היא היתר.'
@@ -214,19 +232,21 @@ const legBugs: DiagModel<Legs>['bugs'] = {
   // subtracted the lengths, not the areas
   'subtract-sides': (p) => p.c - p.a,
   // stopped at the area of the square on the missing leg
-  'no-root': (p) => p.b * p.b,
+  'no-root': (p) => p.c * p.c - p.a * p.a,
 };
+const legSq = (p: Legs) => p.c * p.c - p.a * p.a;
 
 const legModel: DiagModel<Legs> = {
-  params: (rnd) => legsOf(rnd),
+  params: legLegs,
   text: (p) => `במשולש ישר־זווית היתר $${p.c}$ ס״מ, וניצב אחד $${p.a}$ ס״מ. מה אורך הניצב השני? ${ROUND}`,
   display: (p) => `c = ${p.c},\\ a = ${p.a},\\ b = ?`,
-  answer: (p) => p.b,
+  answer: (p) => len(p.b),
+  exact: (p) => p.b,
   bugs: legBugs,
   solution: (p) => [
     `היתר ידוע, ולכן הריבוע עליו הוא השלם: $${p.c}^2 = ${p.c * p.c}$.`,
-    `מחסרים את הריבוע על הניצב הידוע: $b^2 = ${p.c * p.c} - ${p.a * p.a} = ${p.b * p.b}$.`,
-    `מוציאים שורש: $b = \\sqrt{${p.b * p.b}} = ${p.b}$ ס״מ, קצר מהיתר כמו שצריך.`,
+    `מחסרים את הריבוע על הניצב הידוע: $b^2 = ${p.c * p.c} - ${p.a * p.a} = ${legSq(p)}$.`,
+    `מוציאים שורש: $b = \\sqrt{${legSq(p)}} ${eqRoot(legSq(p))}$ ס״מ, קצר מהיתר כמו שצריך.`,
   ],
   hint: (p) => `הריבוע על היתר הוא השלם. מחסרים ממנו את הריבוע על הניצב הידוע: $${p.c}^2 - ${p.a}^2$.`,
   unit: 'ס״מ',
@@ -234,21 +254,22 @@ const legModel: DiagModel<Legs> = {
 
 const legStory: DiagModel<Story> = {
   // a rectangle's side from its diagonal, and the areas of two squares given instead of the sides
-  params: (rnd) => ({ k: rnd() < 0.5 ? 0 : 1, ...legsOf(rnd) }),
+  params: (rnd) => ({ k: rnd() < 0.5 ? 0 : 1, ...legLegs(rnd) }),
   text: (p) => (p.k === 0
     ? `האלכסון של מלבן $${p.c}$ ס״מ, ואחת מצלעותיו $${p.a}$ ס״מ. מה אורך הצלע השנייה? ${ROUND}`
     : `במשולש ישר־זווית, לריבוע שבנוי על היתר שטח $${p.c * p.c}$ סמ״ר, ולריבוע שבנוי על אחד הניצבים שטח $${p.a * p.a}$ סמ״ר. מה אורך הניצב השני, בס״מ? ${ROUND}`),
-  answer: (p) => p.b,
+  answer: (p) => len(p.b),
+  exact: (p) => p.b,
   bugs: legBugs,
   solution: (p) => (p.k === 0
     ? [
       'שתי צלעות של מלבן נפגשות בזווית ישרה, והאלכסון מולה: הוא היתר.',
-      `$b^2 = ${p.c}^2 - ${p.a}^2 = ${p.c * p.c} - ${p.a * p.a} = ${p.b * p.b}$`,
-      `$b = \\sqrt{${p.b * p.b}} = ${p.b}$ ס״מ.`,
+      `$b^2 = ${p.c}^2 - ${p.a}^2 = ${p.c * p.c} - ${p.a * p.a} = ${legSq(p)}$`,
+      `$b = \\sqrt{${legSq(p)}} ${eqRoot(legSq(p))}$ ס״מ.`,
     ]
     : [
-      `הריבוע על היתר הוא השלם. הריבוע על הניצב החסר הוא מה שנשאר: $${p.c * p.c} - ${p.a * p.a} = ${p.b * p.b}$.`,
-      `אורך הניצב הוא הצלע של הריבוע הזה: $\\sqrt{${p.b * p.b}} = ${p.b}$ ס״מ.`,
+      `הריבוע על היתר הוא השלם. הריבוע על הניצב החסר הוא מה שנשאר: $${p.c * p.c} - ${p.a * p.a} = ${legSq(p)}$.`,
+      `אורך הניצב הוא הצלע של הריבוע הזה: $\\sqrt{${legSq(p)}} ${eqRoot(legSq(p))}$ ס״מ.`,
     ]),
   hint: (p) => (p.k === 0
     ? 'האלכסון של המלבן הוא היתר. מחפשים צלע, כלומר ניצב: מחסרים ריבועים.'
@@ -391,73 +412,89 @@ const stair2: StairContent = {
 
 // ---------------------------------------------------------------- stair 3: is it right-angled?
 
-type Sides = { p: number; q: number; r: number; k?: number };
-const sorted = (s: Sides) => [s.p, s.q, s.r].sort((x, y) => x - y);
-const rightOf = (s: Sides) => { const [u, v, w] = sorted(s); return u * u + v * v === w * w; };
-const testAnswer = (s: Sides) => (rightOf(s) ? sorted(s)[2] : 0);
-const listTex = (s: Sides) => `${s.p},\\ ${s.q},\\ ${s.r}`;
+/**
+ * Stair 3 asks about four triangles at once: how many of them are right-angled (0 to 4, each as likely), so a fixed
+ * answer ("no", "yes, the longest side") cannot pass a check: every triangle has to be tested.
+ */
+type Sides = { sets: number[][]; k?: number };
+const sorted = (s: number[]) => [...s].sort((x, y) => x - y);
+const isRight = (s: number[]) => { const [u, v, w] = sorted(s); return u * u + v * v === w * w; };
+/** The side written last checked as the hypotenuse. */
+const lastIsHyp = (s: number[]) => s[0] * s[0] + s[1] * s[1] === s[2] * s[2];
+const countRight = (p: Sides) => p.sets.filter(isRight).length;
+const LETTER = ['א', 'ב', 'ג', 'ד'];
 
-/** Three sides of a real triangle with one longest side: half from a triple, half a triple nudged off it. */
-function threeSides(rnd: Rng): number[] {
+/** Three sides of a real triangle that just miss a right angle: a triple with one side moved by one or two. */
+function nearMiss(rnd: Rng, pool: Triple[]): number[] {
   for (;;) {
-    const [a, b, c] = rpick(rnd, ALL);
-    let s = [a, b, c];
-    if (rnd() < 0.5) {
-      const v = rint(rnd, 0, 2);
-      s = v === 0 ? [a, b, c + rint(rnd, 1, 2)] : v === 1 ? [a, b, c - 1] : rnd() < 0.5 ? [a + 1, b, c] : [a, b + 1, c];
-    }
-    const [u, w, L] = [...s].sort((x, y) => x - y);
-    if (u + w > L && w < L) return shuffle(rnd, s);
+    const [a, b, c] = rpick(rnd, pool);
+    const v = rint(rnd, 0, 3);
+    const s = v === 0 ? [a, b, c + rint(rnd, 1, 2)] : v === 1 ? [a, b, c - 1] : v === 2 ? [a + 1, b, c] : [a, b + 1, c];
+    const [u, w, L] = sorted(s);
+    if (u + w > L && w < L && !isRight(s)) return shuffle(rnd, s);
   }
+}
+/** Four triangles, of which 0 to 4 (each as likely) are right-angled. */
+function fourSets(rnd: Rng, pool: Triple[] = ALL): number[][] {
+  const n = rint(rnd, 0, 4);
+  const right = shuffle(rnd, [0, 1, 2, 3]).slice(0, n);
+  return [0, 1, 2, 3].map((i) => (right.includes(i) ? shuffle(rnd, [...rpick(rnd, pool)]) : nearMiss(rnd, pool)));
 }
 
 const testBugs: DiagModel<Sides>['bugs'] = {
   // took the side written last as the hypotenuse
-  'wrong-hyp': (s) => (s.k === 1 ? null : s.p * s.p + s.q * s.q === s.r * s.r ? s.r : 0),
+  'wrong-hyp': (s) => (s.k === 1 ? null : s.sets.filter(lastIsHyp).length),
   // did not test at all: every triangle "has" a hypotenuse, its longest side
-  'assume-right': (s) => sorted(s)[2],
+  'assume-right': () => 4,
   // compared the sides themselves, a + b with c: in a triangle that is never equal
-  'add-legs': (s) => { const [u, v, w] = sorted(s); return u + v === w ? w : 0; },
+  'add-legs': () => 0,
 };
 
-const testSolution = (s: Sides, name = 'היתר') => {
+const checkLine = (s: number[], i: number, name: string) => {
   const [u, v, w] = sorted(s);
-  return [
-    `הצלע הארוכה היא $${w}$: אם יש זווית ישרה, היא מולה.`,
-    `$${u}^2 + ${v}^2 = ${u * u} + ${v * v} = ${u * u + v * v}$, ו־$${w}^2 = ${w * w}$.`,
-    rightOf(s) ? `שווים, ולכן המשולש ישר־זווית, ו${name} הוא $${w}$.` : `לא שווים, ולכן אין זווית ישרה. התשובה: $0$.`,
-  ];
+  return `${name} ${LETTER[i]}, $${s.join(',\\ ')}$: $${u}^2 + ${v}^2 = ${u * u + v * v}$ ו־$${w}^2 = ${w * w}$. ${isRight(s) ? 'שווים: ישר־זווית.' : 'לא שווים.'}`;
 };
+const testSolution = (p: Sides, name = 'משולש') => [
+  'בכל משולש הזווית הישרה, אם יש, מול הצלע הארוכה. משווים את הריבוע שלה לסכום הריבועים של שתי האחרות.',
+  ...p.sets.map((s, i) => checkLine(s, i, name)),
+  `ישרי־זווית: $${countRight(p)}$.`,
+];
 
 const testModel: DiagModel<Sides> = {
-  params: (rnd) => { const [p, q, r] = threeSides(rnd); return { p, q, r }; },
-  text: () => 'האם משולש עם הצלעות האלה ישר־זווית? אם כן, כתבו את אורך היתר. אם לא, כתבו $0$.',
-  display: listTex,
-  answer: testAnswer,
+  params: (rnd) => ({ sets: fourSets(rnd) }),
+  text: () => 'כמה מהמשולשים בטבלה ישרי־זווית?',
+  fig: (p) => ({ type: 'table', head: ['משולש', 'אורכי הצלעות'], rows: p.sets.map((s, i) => [LETTER[i], s.join(', ')]) }),
+  answer: countRight,
   bugs: testBugs,
-  solution: (s) => testSolution(s),
-  hint: () => 'מוצאים את הצלע הארוכה, ומשווים את הריבוע שלה לסכום הריבועים של שתי האחרות.',
+  solution: (p) => testSolution(p),
+  hint: () => 'בודקים כל משולש לבד: מוצאים את הצלע הארוכה, ומשווים את הריבוע שלה לסכום הריבועים של שתי האחרות.',
 };
 
-const FRAMES: Triple[] = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15]];
+const FRAMES: Triple[] = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15], [8, 15, 17]];
 const testStory: DiagModel<Sides> = {
-  // three sticks laid as a triangle, and a carpenter's frame checked by its diagonal
+  // four carpenter's frames checked by their diagonals, and four bundles of sticks laid as triangles
   params: (rnd) => {
-    if (rnd() < 0.5) { const [p, q, r] = threeSides(rnd); return { k: 0, p, q, r }; }
-    const [a, b, c] = rpick(rnd, FRAMES);
-    const d = 10 * c + (rnd() < 0.5 ? 0 : rpick(rnd, [-2, -1, 1, 2]));
-    return { k: 1, p: 10 * Math.max(a, b), q: 10 * Math.min(a, b), r: d };
+    if (rnd() < 0.5) return { k: 0, sets: fourSets(rnd) };
+    const n = rint(rnd, 0, 4);
+    const right = shuffle(rnd, [0, 1, 2, 3]).slice(0, n);
+    return { k: 1, sets: [0, 1, 2, 3].map((i) => {
+      const [a, b, c] = rpick(rnd, FRAMES);
+      const d = 10 * c + (right.includes(i) ? 0 : rpick(rnd, [-2, -1, 1, 2]));
+      return [10 * Math.max(a, b), 10 * Math.min(a, b), d];
+    }) };
   },
-  text: (s) => (s.k === 1
-    ? `נגר בנה מסגרת ברוחב $${s.p}$ ס״מ ובגובה $${s.q}$ ס״מ, ומדד את האלכסון: $${s.r}$ ס״מ. האם הפינות ישרות? אם כן, כתבו את אורך האלכסון. אם לא, כתבו $0$.`
-    : 'לנועה שלושה מקלות, באורכים שבתרגיל (בס״מ). היא מניחה אותם כמשולש. האם יש בו זווית ישרה? אם כן, כתבו את אורך המקל שמולה. אם לא, כתבו $0$.'),
-  display: (s) => (s.k === 1 ? `w = ${s.p},\\ h = ${s.q},\\ d = ${s.r}` : listTex(s)),
-  answer: testAnswer,
+  text: (p) => (p.k === 1
+    ? 'נגר בנה ארבע מסגרות, ומדד בכל אחת את הרוחב, הגובה והאלכסון (בס״מ). בכמה מהמסגרות הפינות ישרות?'
+    : 'לנועה ארבע ערמות של שלושה מקלות (האורכים בס״מ). מכל ערמה היא מניחה משולש. בכמה מהמשולשים יש זווית ישרה?'),
+  fig: (p) => (p.k === 1
+    ? { type: 'table', head: ['מסגרת', 'רוחב', 'גובה', 'אלכסון'], rows: p.sets.map((s, i) => [LETTER[i], ...s]) }
+    : { type: 'table', head: ['ערמה', 'אורכי המקלות'], rows: p.sets.map((s, i) => [LETTER[i], s.join(', ')]) }),
+  answer: countRight,
   bugs: testBugs,
-  solution: (s) => testSolution(s, s.k === 1 ? 'האלכסון' : 'המקל שמול הזווית הישרה'),
-  hint: (s) => (s.k === 1
-    ? 'בפינה ישרה הרוחב, הגובה והאלכסון יוצרים משולש ישר־זווית. האם $w^2 + h^2 = d^2$?'
-    : 'הזווית הישרה, אם יש, מול המקל הארוך. השוו את הריבוע שלו לסכום הריבועים של שני האחרים.'),
+  solution: (p) => testSolution(p, p.k === 1 ? 'מסגרת' : 'ערמה'),
+  hint: (p) => (p.k === 1
+    ? 'בפינה ישרה הרוחב, הגובה והאלכסון יוצרים משולש ישר־זווית: בודקים בכל מסגרת אם רוחב² + גובה² = אלכסון².'
+    : 'הזווית הישרה, אם יש, מול המקל הארוך. בכל ערמה משווים את הריבוע שלו לסכום הריבועים של שני האחרים.'),
 };
 
 const stair3: StairContent = {
@@ -542,7 +579,7 @@ const stair3: StairContent = {
           { text: 'אי אפשר לדעת בלי לראות את המשולש', ok: false, feedback: 'זה בדיוק מה שהמשפט ההפוך נותן: מספיק לדעת את שלוש הצלעות.' },
         ], hints: ['מה אומר המשפט ההפוך כשהשוויון מתקיים?', 'שווים, ולכן ישר־זווית. הזווית הישרה מול הצלע שבדקנו כיתר.'], done: 'ישר־זווית, והזווית הישרה מול $29$.' },
       ],
-      final: { prompt: 'כמו בתרגול: אם המשולש ישר־זווית, כתבו את אורך היתר. אם לא, כתבו $0$.', answer: 29, check: 'sqrt(20^2 + 21^2)', hints: ['המשולש ישר־זווית. איזו צלע היא היתר?', 'היתר הוא הצלע הארוכה: $29$.'] } },
+      final: { prompt: 'אם המשולש ישר־זווית, כתבו את אורך היתר. אם לא, כתבו $0$.', answer: 29, check: 'sqrt(20^2 + 21^2)', hints: ['המשולש ישר־זווית. איזו צלע היא היתר?', 'היתר הוא הצלע הארוכה: $29$.'] } },
     { problem: 'ועכשיו משולש אחר.', display: '9,\\ 12,\\ 16',
       steps: [
         { prompt: 'מה משווים?', choices: [
@@ -609,17 +646,33 @@ const stair3: StairContent = {
 
 /** A right triangle hidden in a story. big, small: the legs; c: the hypotenuse; ask 0 the hypotenuse, 1 big, 2 small. */
 type RT = { k: number; ask: number; c: number; big: number; small: number };
-const rtAnswer = (p: RT) => (p.ask === 0 ? p.c : p.ask === 1 ? p.big : p.small);
+const rtExact = (p: RT) => (p.ask === 0 ? p.c : p.ask === 1 ? p.big : p.small);
+const rtAnswer = (p: RT) => len(rtExact(p));
+/** The square of the missing side: a whole number even when the side is not. */
+const rtSq = (p: RT) => (p.ask === 0 ? p.big * p.big + p.small * p.small : p.c * p.c - rtKnown(p) ** 2);
 const rtKnown = (p: RT) => (p.ask === 1 ? p.small : p.big);
 const askOf = (rnd: Rng) => { const r = rnd(); return r < 0.4 ? 0 : r < 0.75 ? 1 : 2; };
 const rtOf = (rnd: Rng, k: number, pool: Triple[]): RT => {
   const [a, b, c] = rpick(rnd, pool);
   return { k, ask: askOf(rnd), c, big: Math.max(a, b), small: Math.min(a, b) };
 };
+/** A right triangle in a story with whole given sides, and a missing side that is a root that is not whole. */
+const rtRootOf = (rnd: Rng, k: number): RT => {
+  const ask = askOf(rnd);
+  for (;;) {
+    if (ask === 0) { const big = rint(rnd, 5, 24); const small = rint(rnd, 2, big - 1); if (!isSq(big * big + small * small)) return { k, ask, c: Math.sqrt(big * big + small * small), big, small }; continue; }
+    const c = rint(rnd, 8, 30); const known = rint(rnd, Math.ceil(c / 3), c - 1); const n = c * c - known * known;
+    if (isSq(n)) continue;
+    const other = Math.sqrt(n);
+    // ask 1: the bigger leg is missing; ask 2: the smaller one
+    if (ask === 1 && other > known) return { k, ask, c, big: other, small: known };
+    if (ask === 2 && other < known) return { k, ask, c, big: known, small: other };
+  }
+};
 
 const rtBugs: DiagModel<RT>['bugs'] = {
   'add-legs': (p) => (p.ask === 0 ? p.big + p.small : null),
-  'no-root': (p) => rtAnswer(p) ** 2,
+  'no-root': rtSq,
   // the larger given leg taken as the hypotenuse: subtracted when the hypotenuse was missing
   'wrong-hyp': (p) => (p.ask === 0 ? r1(Math.sqrt(p.big * p.big - p.small * p.small)) : null),
   'add-not-sub': (p) => (p.ask === 0 ? null : r1(Math.sqrt(p.c * p.c + rtKnown(p) ** 2))),
@@ -636,13 +689,13 @@ const rtSolution = (p: RT) => {
   const first = `הזווית הישרה היא בין ${n.angle}, ו${n.hyp} מולה: ${n.hyp} הוא היתר.`;
   if (p.ask === 0) {
     return [first,
-      `חסר היתר, ולכן מחברים ריבועים: $${p.big}^2 + ${p.small}^2 = ${p.big ** 2} + ${p.small ** 2} = ${p.c ** 2}$.`,
-      `מוציאים שורש: $\\sqrt{${p.c ** 2}} = ${p.c}$ ${n.unit}.`];
+      `חסר היתר, ולכן מחברים ריבועים: $${p.big}^2 + ${p.small}^2 = ${p.big ** 2} + ${p.small ** 2} = ${rtSq(p)}$.`,
+      `מוציאים שורש: $\\sqrt{${rtSq(p)}} ${eqRoot(rtSq(p))}$ ${n.unit}.`];
   }
-  const k = rtKnown(p); const x = rtAnswer(p);
+  const k = rtKnown(p);
   return [first,
-    `חסר ניצב, ולכן מחסרים מריבוע היתר: $${p.c}^2 - ${k}^2 = ${p.c ** 2} - ${k ** 2} = ${x ** 2}$.`,
-    `מוציאים שורש: $\\sqrt{${x ** 2}} = ${x}$ ${n.unit}.`];
+    `חסר ניצב, ולכן מחסרים מריבוע היתר: $${p.c}^2 - ${k}^2 = ${p.c ** 2} - ${k ** 2} = ${rtSq(p)}$.`,
+    `מוציאים שורש: $\\sqrt{${rtSq(p)}} ${eqRoot(rtSq(p))}$ ${n.unit}.`];
 };
 const rtHint = (p: RT) => {
   const n = ROLES[p.k];
@@ -652,13 +705,14 @@ const rtHint = (p: RT) => {
 };
 
 const ladderModel: DiagModel<RT> = {
-  params: (rnd) => rtOf(rnd, 0, ALL.filter((t) => t[2] <= 26)),
+  params: (rnd) => (rnd() < 0.5 ? rtOf(rnd, 0, ALL.filter((t) => t[2] <= 26)) : rtRootOf(rnd, 0)),
   text: (p) => [
     `סולם נשען על קיר ומגיע לגובה $${p.big}$ דצ״מ. רגל הסולם רחוקה $${p.small}$ דצ״מ מהקיר. מה אורך הסולם?`,
     `סולם באורך $${p.c}$ דצ״מ נשען על קיר. רגל הסולם רחוקה $${p.small}$ דצ״מ מהקיר. לאיזה גובה על הקיר מגיע הסולם?`,
     `סולם באורך $${p.c}$ דצ״מ נשען על קיר ומגיע לגובה $${p.big}$ דצ״מ. כמה רחוקה רגל הסולם מהקיר?`,
   ][p.ask] + ` ${ROUND}`,
   answer: rtAnswer,
+  exact: rtExact,
   bugs: rtBugs,
   solution: rtSolution,
   hint: rtHint,
@@ -669,7 +723,7 @@ const storyModel: DiagModel<RT> = {
   // a screen measured by its diagonal (legs 4n and 3n), and a pole held by a cable
   params: (rnd) => {
     if (rnd() < 0.5) { const n = rint(rnd, 2, 10); return { k: 1, ask: askOf(rnd), c: 5 * n, big: 4 * n, small: 3 * n }; }
-    return rtOf(rnd, 2, ALL.filter((t) => t[2] <= 30));
+    return rnd() < 0.5 ? rtOf(rnd, 2, ALL.filter((t) => t[2] <= 30)) : rtRootOf(rnd, 2);
   },
   text: (p) => (p.k === 1 ? [
     `למסך רוחב $${p.big}$ אינץ׳ וגובה $${p.small}$ אינץ׳. הגודל של מסך הוא אורך האלכסון שלו. מה הגודל של המסך הזה?`,
@@ -681,6 +735,7 @@ const storyModel: DiagModel<RT> = {
     `כבל באורך $${p.c}$ מטר מתוח מראש עמוד בגובה $${p.big}$ מטר אל נקודה בקרקע. כמה רחוקה הנקודה מבסיס העמוד?`,
   ])[p.ask] + ` ${ROUND}`,
   answer: rtAnswer,
+  exact: rtExact,
   bugs: rtBugs,
   solution: rtSolution,
   hint: rtHint,
@@ -853,7 +908,8 @@ type Pts = { x1: number; y1: number; x2: number; y2: number };
 const GRID: Triple[] = ALL.filter((t) => t[1] <= 12);
 function pointsOf(rnd: Rng): Pts {
   for (;;) {
-    const [u, v] = rpick(rnd, GRID);
+    // half from a triple, half any two differences (most of them give a root that is not whole)
+    const [u, v] = rnd() < 0.5 ? rpick(rnd, GRID) : [rint(rnd, 1, 9), rint(rnd, 1, 9)];
     const [dx, dy] = rnd() < 0.5 ? [u, v] : [v, u];
     const x1 = rint(rnd, -6, 6); const y1 = rint(rnd, -6, 6);
     const x2 = x1 + (rnd() < 0.5 ? dx : -dx); const y2 = y1 + (rnd() < 0.5 ? dy : -dy);
@@ -862,8 +918,10 @@ function pointsOf(rnd: Rng): Pts {
 }
 const dX = (p: Pts) => Math.abs(p.x2 - p.x1);
 const dY = (p: Pts) => Math.abs(p.y2 - p.y1);
-/** Whole: the legs come from a Pythagorean triple. */
-const dist = (p: Pts) => Math.round(Math.hypot(dX(p), dY(p)));
+const distSq = (p: Pts) => dX(p) ** 2 + dY(p) ** 2;
+const distExact = (p: Pts) => Math.sqrt(distSq(p));
+/** Whole when the differences come from a Pythagorean triple; otherwise rounded to tenths. */
+const dist = (p: Pts) => len(distExact(p));
 /** The difference worked out with the signs ignored, as when a segment that crosses an axis is miscounted. */
 const blind = (a: number, b: number) => Math.abs(Math.abs(b) - Math.abs(a));
 
@@ -879,7 +937,7 @@ const distBugs: DiagModel<Pts>['bugs'] = {
 const distSolution = (p: Pts) => [
   `הניצב האופקי הוא ההפרש ב־$x$: $|${T(p.x2)} - ${T(p.x1, true)}| = ${dX(p)}$.`,
   `הניצב האנכי הוא ההפרש ב־$y$: $|${T(p.y2)} - ${T(p.y1, true)}| = ${dY(p)}$.`,
-  `$d = \\sqrt{${dX(p)}^2 + ${dY(p)}^2} = \\sqrt{${dX(p) ** 2 + dY(p) ** 2}} = ${dist(p)}$`,
+  `$d = \\sqrt{${dX(p)}^2 + ${dY(p)}^2} = \\sqrt{${distSq(p)}} ${eqRoot(distSq(p))}$`,
 ];
 const distHint = (p: Pts) => `השלימו משולש ישר־זווית: ניצב אחד הוא כמה זזים ב־$x$, מ־$${T(p.x1)}$ עד $${T(p.x2)}$, והשני כמה זזים ב־$y$.`;
 
@@ -888,6 +946,7 @@ const distModel: DiagModel<Pts> = {
   text: () => `מה המרחק בין הנקודות $A$ ו־$B$? ${ROUND}`,
   display: (p) => `A(${T(p.x1)}, ${T(p.y1)}) \\qquad B(${T(p.x2)}, ${T(p.y2)})`,
   answer: dist,
+  exact: distExact,
   bugs: distBugs,
   solution: distSolution,
   hint: distHint,
@@ -900,6 +959,7 @@ const droneModel: DiagModel<Pts> = {
   text: () => `שני רחפנים מרחפים באותו גובה. המיקום של כל אחד במפה, בקילומטרים, כתוב בטבלה. מה המרחק ביניהם בקו ישר, בקילומטרים? ${ROUND}`,
   display: (p) => `\\begin{array}{c|c|c} & x & y \\\\ \\hline A & ${T(p.x1)} & ${T(p.y1)} \\\\ B & ${T(p.x2)} & ${T(p.y2)} \\end{array}`,
   answer: dist,
+  exact: distExact,
   bugs: distBugs,
   solution: distSolution,
   hint: (p) => `במפה כמו במערכת צירים: ההפרש ב־$x$ וההפרש ב־$y$ הם הניצבים, והמרחק בקו ישר הוא היתר. ${distHint(p)}`,

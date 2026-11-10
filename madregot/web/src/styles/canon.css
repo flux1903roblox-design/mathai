@@ -113,6 +113,9 @@ a { color: var(--brand-d); }
 .node-mastered { --face-c: var(--gold); --edge: var(--gold-d); color: #5c3d00; }
 .node-mastered::after { content: none; }
 .node-locked { --face-c: #e9ecf1; --edge: #d3d8e0; color: #9aa1ac; }
+/* passed over by a placement or jump test: open, not done, its mastery check waiting */
+.node-open { --face-c: #fff; --edge: var(--rule-press); color: var(--brand); box-shadow: inset 0 0 0 3px var(--brand-line), 0 var(--lip) 0 var(--edge); }
+.node-open:active { box-shadow: inset 0 0 0 3px var(--brand-line), 0 0 0 var(--edge); }
 .node:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 6px; }
 .node-anchor.is-current { animation: none; }
 .node-halo { display: none; }
@@ -193,6 +196,9 @@ a { color: var(--brand-d); }
 .done-screen { background: #fff; }
 .done-title { font-family: var(--font-ui); font-size: 32px; line-height: 38px; font-weight: 800; color: var(--ink); }
 .climb-caption { color: var(--ink-2); font-size: 16px; font-weight: 600; }
+/* after practice: the stair counts once its mastery check is passed */
+.climb-next { margin: 0 auto; max-width: 32ch; color: var(--ink-2); font-size: 15px; line-height: 22px; text-wrap: balance; }
+@media (max-height: 600px) { .done-screen .done-hero { min-height: 128px; } }
 .stat { border-width: 2px; border-radius: 16px; background: #fff; }
 .stat-label { font-family: var(--font-ui); font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .stat-value { font-family: var(--font-ui); font-weight: 800; font-size: 22px; }

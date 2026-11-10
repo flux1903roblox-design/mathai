@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/index.js';
 import { contentOf } from '@/learn/content/index.ts';
+import { diagnoseFinal } from '@/learn/content/togetherDiag.ts';
 import { skillId } from '@/learn/skills.ts';
 import StepPlayer, { LessonHeader } from '@/components/learn/StepPlayer.jsx';
 import WorkedExample from '@/components/learn/WorkedExample.jsx';
@@ -55,7 +56,8 @@ export default function Teach() {
         {stage === 'B' && <WorkedExample key={`B${idx}`} example={c.examples[Math.min(idx, c.examples.length - 1)]} n={Math.min(idx, c.examples.length - 1) + 1} of={c.examples.length} decimal={c.topic === 'stats'} onDone={nextOf(c.examples, 'example-done')} doneLabel={idx + 1 < c.examples.length ? 'לדוגמה הבאה' : 'לפתור יחד'} renderHead={head} />}
         {stage === 'C' && (
           <Together key={`C${idx}`} problem={c.together[Math.min(idx, c.together.length - 1)]} n={Math.min(idx, c.together.length - 1) + 1} of={c.together.length} decimal={c.topic === 'stats'}
-            onAttempt={(ok) => noteLearn({ topic, level, ok, purpose: 'guided', key: `${skill}:together:${idx}`, at: new Date().toISOString() })}
+            diagnose={(u) => diagnoseFinal(c, Math.min(idx, c.together.length - 1), u)} names={Object.fromEntries(c.misconceptions.map((x) => [x.id, x.title]))}
+            onAttempt={(ok, cands) => noteLearn({ topic, level, ok, purpose: 'guided', key: `${skill}:together:${idx}`, cands, at: new Date().toISOString() })}
             onDone={nextOf(c.together, 'together-done')} renderHead={head} />
         )}
       </main>

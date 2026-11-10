@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import NumberFlow from '@number-flow/react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
-import { Zap, Target, Timer, Flame, Snowflake, Moon, Star, Trophy, ChevronsUp, Footprints, Wrench, Gift } from 'lucide-react';
+import { Zap, Target, Timer, Flame, Snowflake, Moon, Star, Trophy, ChevronsUp, Wrench } from 'lucide-react';
 import { useApp, today, dayBefore, isShabbat } from '@/lib/store.js';
 import Mascot from '@/components/Mascot.jsx';
 import Stairs from '@/components/Stairs.jsx';
-import { doneUpTo, chestAfter } from '@/lib/path.js';
+import { doneCount } from '@/lib/path.js';
 import Lottie from '@/components/Lottie.jsx';
 import { topicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
@@ -73,7 +73,6 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   const days = useApp((s) => s.days);
   const freezes = useApp((s) => s.freezes);
   const path = useApp((s) => s.path);
-  const progress = useApp((s) => s.progress);
   const stages = ['summary', award.streakExtended && result.passed && 'streak', award.questsDone && 'quests'].filter(Boolean);
   const [i, setI] = useState(0);
   const stage = stages[i];
@@ -117,16 +116,15 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   // Medals only for what this lesson really earned.
   const badges = [
     award.unitDone && { icon: Trophy, label: `${topic.title}: היחידה הושלמה`, tone: 'gold' },
-    !award.unitDone && award.nodeDone && { icon: Footprints, label: `${levelTitle}: המדרגה הושלמה`, tone: 'chapter' },
     result.kind === 'jump' && { icon: ChevronsUp, label: `עכשיו ב${levelTitle}`, tone: 'brand' },
     result.perfect && { icon: Star, label: 'בלי אף טעות', tone: 'gold' },
     result.fixed > 0 && { icon: Wrench, label: result.fixed === 1 ? 'תיקנתם טעות' : `תיקנתם ${result.fixed} טעויות`, tone: 'good' },
     award.goalReached && { icon: Zap, label: 'הגעתם ליעד היומי', tone: 'gold' },
-    award.nodeDone && result.kind === 'node' && result.level === chestAfter(topic.id) && { icon: Gift, label: 'פתחתם תיבת אוצר', tone: 'streak' },
   ].filter(Boolean);
   // The climb: the steps done now, and where מדי stood before this lesson (one step lower if it finished one)
   const steps = topic.levels.length;
-  const doneNow = doneUpTo(topic.id, path, progress);
+  // stairs done: a stair counts once its mastery check is passed
+  const doneNow = doneCount(topic.id, path);
   return (
     <div className={clsx('done-screen', `ch-${topic.color}`)}>
       <Hero>
@@ -138,6 +136,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
       <m.div className="done-copy" variants={stagger(0.85)} initial="hidden" animate="show">
         <m.h1 variants={rise} className="done-title">{title}</m.h1>
         <m.p variants={rise} className="climb-caption">{topic.title}: <bdi>{doneNow}</bdi> מתוך <bdi>{steps}</bdi> מדרגות</m.p>
+        {award.practiceDone && !award.unitDone && <m.p variants={rise} className="climb-next">סיימתם לתרגל. אחרי בדיקת שליטה קצרה, המדרגה נספרת.</m.p>}
         {badges.length > 0 && (
           <m.div variants={rise} className="badges">
             {badges.map((b) => <span key={b.label} className={`done-earned tone-${b.tone}`}><b.icon size={16} aria-hidden="true" />{b.label}</span>)}

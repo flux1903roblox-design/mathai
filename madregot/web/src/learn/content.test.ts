@@ -7,6 +7,7 @@ import type { DiscoverStep, DiagModel, StairContent } from './types';
 import { evaluate, same, seeded } from './expr';
 import { discriminating, diagnose } from './misconceptions';
 import { ALL_SKILLS } from './skills';
+import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togetherDiag';
 // @ts-ignore: plain JS
 import { manipCorrect, manipSolution } from '@/content/manip.js';
 // @ts-ignore: plain JS
@@ -144,6 +145,26 @@ describe.each(stairs.map((c) => [c.skill, c] as const))('stair %s', (_id, c) => 
     });
   });
 
+  it('diagnoses a wrong last step of solving together by the stair\'s own misconceptions', () => {
+    const specs = TOGETHER_DIAG[c.skill];
+    expect(specs?.length, 'one entry per guided problem').toBe(c.together.length);
+    const ids = c.misconceptions.map((m) => m.id);
+    specs.forEach((sp, k) => {
+      const ans = c.together[k].final.answer;
+      if ('model' in sp) {
+        const model = sp.model === 'transfer' ? c.transfer! : c.diag;
+        // the parameters are this very problem: the model's right answer is the problem's
+        expect(same(model.answer(sp.p), ans), `together ${k + 1}: the model gives ${model.answer(sp.p)}, not ${ans}`).toBe(true);
+      } else {
+        Object.keys(sp.bugs).forEach((id) => expect(ids, `together ${k + 1}: ${id} is not a misconception of the stair`).toContain(id));
+        Object.values(sp.bugs).flat().forEach((v) => expect(same(v, ans), `together ${k + 1}: a prediction equals the answer`).toBe(false));
+      }
+      // every prediction is diagnosed back to its misconception
+      finalPredictions(c, k).forEach(([id, v]) => expect(diagnoseFinal(c, k, Math.round(v * 10) / 10), `together ${k + 1}: ${v}`).toContain(id));
+      expect(diagnoseFinal(c, k, ans), `together ${k + 1}: the right answer is no mistake`).toEqual([]);
+    });
+  });
+
   it('diagnoses with a model whose predictions are real, reachable and distinguishable', () => {
     checkModel(c.diag, c, 'diag');
     if (c.transfer) checkModel(c.transfer, c, 'transfer');
@@ -168,5 +189,16 @@ describe.each(stairs.map((c) => [c.skill, c] as const))('stair %s', (_id, c) => 
         if (d.kind === 'misconception') expect(d.candidates.map((x) => x.id)).toContain(id);
       });
     }
+  });
+});
+
+describe('solving together: the last step names the mistake', () => {
+  it('the council\'s cases', () => {
+    // stats:3, mean 10 of four numbers, 8 added to one: 18 is the 8 not shared among the four
+    expect(diagnoseFinal(CONTENT['stats:3'], 1, 18)).toEqual(['no-divide']);
+    // signed:1, −3 − (−8): −11 is subtracting −8 as if it were 8 (or two other readings of the same number)
+    expect(diagnoseFinal(CONTENT['signed:1'], 0, -11)).toContain('minus-minus');
+    // a number no misconception predicts gets the general hint, not a made-up name
+    expect(diagnoseFinal(CONTENT['signed:1'], 0, 4)).toEqual([]);
   });
 });

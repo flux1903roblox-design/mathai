@@ -2,7 +2,7 @@
 // is not clear yet. A gap is a misconception the app diagnosed (or a question an
 // exam marked wrong); it clears after GAP_CLEAR right first-try answers at its level.
 import { TOPIC, topicsFor } from '@/content/index.js';
-import { unitNodes, doneUpTo } from './path.js';
+import { unitNodes, doneCount, reachedUpTo } from './path.js';
 import { PARTS } from './lesson.js';
 
 export const GAP_CLEAR = 3;
@@ -56,10 +56,10 @@ export function gapsOf(topic, gaps = {}) {
 
 /** Where to practise a gap: its own level when it is open on the path, else the next node. */
 export function gapTarget(topic, level, path = {}, progress = {}) {
-  const done = doneUpTo(topic, path, progress);
+  const done = reachedUpTo(topic, path);
   const top = TOPIC[topic].levels.length;
   if (level <= done) return `/lesson/${topic}/${level}?part=${PARTS}`;
-  const cur = unitNodes(topic, path, progress).find((n) => n.kind === 'node' && n.state === 'current');
+  const cur = unitNodes(topic, path).find((n) => n.kind === 'node' && n.state === 'current');
   const L = cur?.level ?? Math.min(top, done + 1);
   return `/lesson/${topic}/${L}?part=${Math.min(PARTS, (cur?.parts || 0) + 1)}`;
 }
@@ -68,8 +68,8 @@ export function gapTarget(topic, level, path = {}, progress = {}) {
 export function boardOf({ grade, path = {}, progress = {}, gaps = {}, placement = null }) {
   const topics = topicsFor(grade).map((t) => {
     const top = t.levels.length;
-    const done = doneUpTo(t.id, path, progress);
-    const nodes = unitNodes(t.id, path, progress);
+    const done = doneCount(t.id, path);
+    const nodes = unitNodes(t.id, path);
     const current = nodes.find((n) => n.kind === 'node' && n.state === 'current') || null;
     const { open, cleared } = gapsOf(t.id, gaps);
     const status = done >= top ? 'done' : open.length ? 'work' : done === 0 && !current?.parts ? 'new' : 'going';

@@ -3,25 +3,54 @@ import { R, pick, shuffle, near, TRIPLES } from './util.js';
 import { LINEAR } from './linear.js';
 
 // ---------------------------------------------------------------- Pythagoras
+// About half the questions come from whole-number triangles (Pythagorean triples), the rest need a root that is not
+// whole, rounded to tenths, as the grade-8 programme asks (roots of numbers that are not perfect squares, and
+// estimating a root). A rounded answer is right when it is within half a tenth of the exact length (`exact`).
 const scaled = () => { const [a, b, c] = pick(TRIPLES); return Math.random() < 0.5 ? [a, b, c] : [b, a, c]; };
+const r1 = (x) => Math.round(x * 10) / 10;
+const isSquare = (n) => Number.isInteger(Math.sqrt(n));
+const ROUND = 'אם יוצא מספר לא שלם, עגלו לעשירית.';
+/** "= 13" for a whole root, "≈ 7.1" for one that is not. */
+const eqRoot = (n) => (isSquare(n) ? `= ${Math.sqrt(n)}` : `\\approx ${r1(Math.sqrt(n))}`);
+/** Two legs (each up to max) whose hypotenuse is not whole. */
+function rootLegs(max = 12) { for (;;) { const a = R(2, max); const b = R(2, max); if (!isSquare(a * a + b * b)) return [a, b]; } }
+/** A hypotenuse and a leg (whole) whose other leg is not whole. */
+function rootLeg() { for (;;) { const c = R(5, 20); const a = R(Math.ceil(c / 3), c - 1); if (!isSquare(c * c - a * a)) return [a, c]; } }
 
 function hypotenuse() {
-  const [a, b, c] = scaled();
+  const whole = Math.random() < 0.5;
+  const [a, b] = whole ? scaled() : rootLegs();
+  const n = a * a + b * b; const c = Math.sqrt(n);
   return {
-    key: `py1:${a}:${b}`, text: 'במשולש ישר־זווית נתונים שני הניצבים. מה אורך היתר?', form: 'num', answer: c, unit: 'ס״מ',
+    key: `py1:${a}:${b}`, text: `במשולש ישר־זווית נתונים שני הניצבים. מה אורך היתר? ${ROUND}`, form: 'num', answer: whole ? c : r1(c), exact: c, unit: 'ס״מ',
     fig: { type: 'right', a, b, c: '?' },
     hint: 'במשולש ישר־זווית: $a^2 + b^2 = c^2$, כש־$c$ הוא היתר (מול הזווית הישרה).',
-    solution: [`$c^2 = ${a}^2 + ${b}^2 = ${a * a} + ${b * b} = ${c * c}$`, `$c = \\sqrt{${c * c}} = ${c}$`],
-    diag: (u) => (near(u, a + b) ? 'add-legs' : near(u, c * c) ? 'no-root' : null),
+    solution: [`$c^2 = ${a}^2 + ${b}^2 = ${a * a} + ${b * b} = ${n}$`, `$c = \\sqrt{${n}} ${eqRoot(n)}$`],
+    diag: (u) => (near(u, a + b) ? 'add-legs' : near(u, n) ? 'no-root' : null),
+  };
+}
+
+// Estimating a root without a calculator: between which two whole numbers is it?
+function estimateRoot() {
+  const [a, b] = rootLegs(9);
+  const n = a * a + b * b; const lo = Math.floor(Math.sqrt(n));
+  return {
+    key: `py1e:${a}:${b}`, text: `בלי מחשבון: הניצבים $${a}$ ו־$${b}$, ולכן היתר הוא $\\sqrt{${n}}$. הוא נמצא בין שני מספרים שלמים עוקבים. כתבו את הקטן מהשניים.`,
+    form: 'num', answer: lo,
+    fig: { type: 'right', a, b, c: '?' },
+    hint: `מחפשים את הריבוע השלם הגדול ביותר שעדיין קטן מ־$${n}$: $1, 4, 9, 16, 25, 36, 49, 64, 81, 100, \\ldots$`,
+    solution: [`$${lo}^2 = ${lo * lo}$ ו־$${lo + 1}^2 = ${(lo + 1) ** 2}$`, `$${lo * lo} < ${n} < ${(lo + 1) ** 2}$, ולכן $${lo} < \\sqrt{${n}} < ${lo + 1}$`, `הקטן מהשניים: $${lo}$`],
+    diag: (u) => (near(u, n) ? 'no-root' : null),
   };
 }
 
 // The theorem by building: change the legs until the square on the hypotenuse has area c².
+const SQUARES = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15], [8, 15, 17], [12, 16, 20]];
 function squaresHyp() {
-  const [a, b, c] = pick([[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15], [8, 6, 10], [4, 3, 5]]);
+  const [x, y, c] = pick(SQUARES); const [a, b] = Math.random() < 0.5 ? [x, y] : [y, x];
   return {
     key: `py1s:${c}:${a}`, text: `שנו את הניצבים כך שהיתר יהיה $${c}$: הריבוע על היתר צריך שטח $${c * c}$.`, form: 'manip',
-    manip: { kind: 'squares', start: { a: 2, b: 2 }, max: 12 }, answer: { c, a, b },
+    manip: { kind: 'squares', start: { a: 2, b: 2 }, max: 16 }, answer: { c, a, b },
     hint: `במשולש ישר־זווית שטח הריבוע על היתר שווה לסכום שטחי הריבועים על הניצבים: $a^2 + b^2 = c^2$. מחפשים שני ריבועים שיחד הם $${c * c}$.`,
     solution: [`$${a}^2 + ${b}^2 = ${a * a} + ${b * b} = ${c * c} = ${c}^2$`, `לכן ניצבים $${a}$ ו־$${b}$ נותנים יתר $${c}$.`],
     diag: (u) => (u && u.a + u.b === c ? 'add-legs' : null),
@@ -29,64 +58,110 @@ function squaresHyp() {
 }
 
 function leg() {
-  const [a, b, c] = scaled();
+  const whole = Math.random() < 0.5;
+  let a; let c; let n;
+  if (whole) { const t = scaled(); [a, , c] = t; n = t[1] * t[1]; } else { [a, c] = rootLeg(); n = c * c - a * a; }
+  const b = Math.sqrt(n);
   return {
-    key: `py2:${a}:${c}`, text: 'במשולש ישר־זווית נתונים היתר וניצב אחד. מה אורך הניצב השני?', form: 'num', answer: b, unit: 'ס״מ',
+    key: `py2:${a}:${c}`, text: `במשולש ישר־זווית נתונים היתר וניצב אחד. מה אורך הניצב השני? ${ROUND}`, form: 'num', answer: whole ? b : r1(b), exact: b, unit: 'ס״מ',
     fig: { type: 'right', a, b: '?', c },
     hint: 'מחפשים ניצב, אז מחסרים: $b^2 = c^2 - a^2$.',
-    solution: [`$b^2 = ${c}^2 - ${a}^2 = ${c * c} - ${a * a} = ${b * b}$`, `$b = \\sqrt{${b * b}} = ${b}$`],
-    diag: (u) => (near(u, Math.sqrt(a * a + c * c)) || near(u, Math.round(Math.sqrt(a * a + c * c) * 100) / 100) ? 'add-not-sub' : near(u, c - a) ? 'subtract-sides' : near(u, b * b) ? 'no-root' : null),
+    solution: [`$b^2 = ${c}^2 - ${a}^2 = ${c * c} - ${a * a} = ${n}$`, `$b = \\sqrt{${n}} ${eqRoot(n)}$`],
+    diag: (u) => (near(u, Math.sqrt(a * a + c * c), 0.06) ? 'add-not-sub' : near(u, c - a) ? 'subtract-sides' : near(u, n) ? 'no-root' : null),
   };
 }
 
-function isRight() {
-  const yes = Math.random() < 0.5;
-  let [a, b, c] = scaled();
-  if (!yes) c += pick(a + b > c + 2 ? [-1, 1, 2] : [-1, 1]); // 3, 4, 7 is not a triangle
-  const sides = shuffle([a, b, c]);
-  const big = Math.max(...sides); const rest = sides.filter((s, i) => i !== sides.indexOf(big));
-  const ok = rest[0] ** 2 + rest[1] ** 2 === big ** 2;
+/** Three sides of a real triangle that just miss being right-angled (a triple with one side moved by one). */
+function nearMiss() {
+  for (;;) {
+    const [a, b, c] = pick(TRIPLES);
+    const s = pick([[a, b, c + 1], [a, b, c - 1], [a + 1, b, c], [a, b + 1, c], [a, b, c + 2]]);
+    const [u, v, w] = [...s].sort((x, y) => x - y);
+    if (u + v > w && v < w && u * u + v * v !== w * w) return shuffle(s);
+  }
+}
+const isRightSet = (s) => { const [u, v, w] = [...s].sort((x, y) => x - y); return u * u + v * v === w * w; };
+const setTex = (s) => s.join(',\\ ');
+const checkLine = (s) => { const [u, v, w] = [...s].sort((x, y) => x - y); return `$${setTex(s)}$: $${u}^2 + ${v}^2 = ${u * u + v * v}$, $${w}^2 = ${w * w}$, ${u * u + v * v === w * w ? 'שווים: ישר־זווית' : 'לא שווים'}.`; };
+/** Four triangles: each one right-angled (a triple, its sides in any order) or a near miss. */
+function fourSets(right) { return Array.from({ length: 4 }, (_, i) => (right(i) ? shuffle(scaled()) : nearMiss())); }
+
+// Which of four triangles is right-angled (or none): five answers, each as likely, so testing is the only way.
+function whichRight() {
+  const k = R(0, 4); // 4: none of them
+  const sets = fourSets((i) => i === k);
+  const rightSet = sets[k];
   return {
-    key: `py3:${sides.join(':')}`, text: `האם משולש שאורכי צלעותיו ${listMath(sides)} הוא משולש ישר־זווית?`, form: 'mc',
-    choices: [{ text: 'כן' }, { text: 'לא' }], answer: ok ? 0 : 1,
-    hint: 'בודקים אם סכום ריבועי שתי הצלעות הקצרות שווה לריבוע הצלע הארוכה.',
-    solution: [`$${rest[0]}^2 + ${rest[1]}^2 = ${rest[0] ** 2 + rest[1] ** 2}$`, `$${big}^2 = ${big ** 2}$`, ok ? 'שווים, לכן המשולש ישר־זווית.' : 'לא שווים, לכן המשולש אינו ישר־זווית.'],
-    diag: () => null,
+    key: `py3w:${sets.map((s) => s.join(',')).join(';')}`, text: 'איזה מהמשולשים האלה ישר־זווית? (אורכי הצלעות בס״מ)', form: 'mc',
+    choices: [...sets.map((s) => ({ tex: setTex(s) })), { text: 'אף אחד מהם' }], answer: k,
+    hint: 'בכל משולש: הצלע הארוכה היא המועמדת להיות היתר. בודקים אם הריבוע שלה שווה לסכום הריבועים של שתי האחרות.',
+    solution: sets.map(checkLine),
+    // the side written last taken as the hypotenuse: a right triangle whose hypotenuse is not last is missed
+    diag: (u) => (u === 4 && k < 4 && rightSet[2] !== Math.max(...rightSet) ? 'wrong-hyp' : null),
+  };
+}
+
+// How many of four triangles are right-angled: 0 to 4, each as likely.
+function howManyRight() {
+  const n = R(0, 4);
+  const pickRight = shuffle([0, 1, 2, 3]).slice(0, n);
+  const sets = fourSets((i) => pickRight.includes(i));
+  const lastHyp = sets.filter((s) => isRightSet(s) && s[2] === Math.max(...s)).length;
+  return {
+    key: `py3n:${sets.map((s) => s.join(',')).join(';')}`, text: 'כמה מהמשולשים בטבלה ישרי־זווית?', form: 'num', answer: n,
+    fig: { type: 'table', head: ['משולש', 'אורכי הצלעות (ס״מ)'], rows: sets.map((s, i) => [['א', 'ב', 'ג', 'ד'][i], s.join(', ')]) },
+    hint: 'בודקים כל משולש לבד: האם הריבוע של הצלע הארוכה שווה לסכום הריבועים של שתי האחרות?',
+    solution: [...sets.map(checkLine), `ישרי־זווית: $${n}$`],
+    diag: (u) => (u === 4 && n < 4 ? 'assume-right' : u === lastHyp && lastHyp !== n ? 'wrong-hyp' : null),
   };
 }
 
 function ladder() {
-  const [a, b, c] = pick(TRIPLES.filter((t) => t[2] <= 26));
-  const wall = Math.max(a, b); const foot = Math.min(a, b);
   const askHeight = Math.random() < 0.6;
+  const whole = Math.random() < 0.5;
+  let wall; let foot; let len;
+  if (whole) { const [a, b, c] = pick(TRIPLES.filter((t) => t[2] <= 26)); wall = Math.max(a, b); foot = Math.min(a, b); len = c; } else if (askHeight) {
+    for (;;) { len = R(8, 26); foot = R(2, Math.floor(len / 2)); if (!isSquare(len * len - foot * foot)) break; }
+    wall = Math.sqrt(len * len - foot * foot);
+  } else {
+    for (;;) { wall = R(6, 24); foot = R(2, Math.min(12, wall - 1)); if (!isSquare(wall * wall + foot * foot)) break; }
+    len = Math.sqrt(wall * wall + foot * foot);
+  }
+  const exact = askHeight ? wall : len;
+  const n = askHeight ? len * len - foot * foot : wall * wall + foot * foot;
   return {
-    key: `py4:${a}:${b}:${askHeight}`,
+    key: `py4:${askHeight ? 'h' : 'L'}:${foot}:${askHeight ? len : wall}`,
     text: askHeight
-      ? `סולם באורך ${c} דצ״מ נשען על קיר. רגל הסולם נמצאת ${foot} דצ״מ מהקיר. לאיזה גובה על הקיר מגיע הסולם?`
-      : `סולם נשען על קיר ומגיע לגובה ${wall} דצ״מ. רגל הסולם נמצאת ${foot} דצ״מ מהקיר. מה אורך הסולם?`,
-    form: 'num', answer: askHeight ? wall : c, unit: 'דצ״מ',
-    fig: { type: 'ladder', wall: askHeight ? '?' : wall, foot, len: askHeight ? c : '?' },
+      ? `סולם באורך ${len} דצ״מ נשען על קיר. רגל הסולם נמצאת ${foot} דצ״מ מהקיר. לאיזה גובה על הקיר מגיע הסולם? ${ROUND}`
+      : `סולם נשען על קיר ומגיע לגובה ${wall} דצ״מ. רגל הסולם נמצאת ${foot} דצ״מ מהקיר. מה אורך הסולם? ${ROUND}`,
+    form: 'num', answer: isSquare(n) ? exact : r1(exact), exact, unit: 'דצ״מ',
+    fig: { type: 'ladder', wall: askHeight ? '?' : wall, foot, len: askHeight ? len : '?' },
     hint: 'הקיר, הרצפה והסולם יוצרים משולש ישר־זווית. הסולם הוא היתר.',
     solution: askHeight
-      ? [`$h^2 = ${c}^2 - ${foot}^2 = ${c * c - foot * foot}$`, `$h = ${wall}$`]
-      : [`$L^2 = ${wall}^2 + ${foot}^2 = ${c * c}$`, `$L = ${c}$`],
-    diag: (u) => (askHeight && near(u, Math.round(Math.sqrt(c * c + foot * foot) * 100) / 100) ? 'add-not-sub' : !askHeight && near(u, wall + foot) ? 'add-legs' : null),
+      ? [`$h^2 = ${len}^2 - ${foot}^2 = ${n}$`, `$h = \\sqrt{${n}} ${eqRoot(n)}$`]
+      : [`$L^2 = ${wall}^2 + ${foot}^2 = ${n}$`, `$L = \\sqrt{${n}} ${eqRoot(n)}$`],
+    diag: (u) => (askHeight && near(u, Math.sqrt(len * len + foot * foot), 0.06) ? 'add-not-sub' : !askHeight && near(u, wall + foot) ? 'add-legs' : null),
   };
 }
 
 function distance() {
-  const [a, b, c] = pick(TRIPLES.filter((t) => t[1] <= 8));
-  const sx = pick([1, -1]); const sy = pick([1, -1]);
-  const x1 = R(-3, 0) * sx; const y1 = R(-2, 0) * sy;
-  const x2 = x1 + sx * a; const y2 = y1 + sy * b;
-  if (Math.abs(x2) > 6 || Math.abs(y2) > 6) return distance();
-  return {
-    key: `py5:${x1}:${y1}:${x2}:${y2}`, text: `מה המרחק בין $A(${x1}, ${y1})$ ל־$B(${x2}, ${y2})$?`, form: 'num', answer: c, unit: 'יחידות',
-    fig: { type: 'coord', range: 6, points: [{ x: x1, y: y1, label: 'A' }, { x: x2, y: y2, label: 'B' }], segments: [[[x1, y1], [x2, y2]]], helper: [[x1, y1], [x2, y1], [x2, y2]] },
-    hint: 'משלימים משולש ישר־זווית: הניצבים הם השינוי ב־$x$ והשינוי ב־$y$.',
-    solution: [`$\\Delta x = ${a}$, $\\Delta y = ${b}$`, `$d = \\sqrt{${a}^2 + ${b}^2} = \\sqrt{${c * c}} = ${c}$`],
-    diag: (u) => (near(u, a + b) ? 'add-legs' : near(u, c * c) ? 'no-root' : null),
-  };
+  for (;;) {
+    const whole = Math.random() < 0.35;
+    const [a, b] = whole ? scaled() : [R(1, 8), R(1, 8)];
+    if (a > 12 || b > 12 || (!whole && isSquare(a * a + b * b))) continue;
+    const sx = pick([1, -1]); const sy = pick([1, -1]);
+    const x1 = R(-6, 6); const y1 = R(-6, 6);
+    const x2 = x1 + sx * a; const y2 = y1 + sy * b;
+    if (Math.abs(x2) > 6 || Math.abs(y2) > 6) continue;
+    const n = a * a + b * b; const d = Math.sqrt(n);
+    return {
+      key: `py5:${x1}:${y1}:${x2}:${y2}`, text: `מה המרחק בין $A(${x1}, ${y1})$ ל־$B(${x2}, ${y2})$? ${ROUND}`, form: 'num', answer: whole ? d : r1(d), exact: d, unit: 'יחידות',
+      fig: { type: 'coord', range: 6, points: [{ x: x1, y: y1, label: 'A' }, { x: x2, y: y2, label: 'B' }], segments: [[[x1, y1], [x2, y2]]], helper: [[x1, y1], [x2, y1], [x2, y2]] },
+      hint: 'משלימים משולש ישר־זווית: הניצבים הם השינוי ב־$x$ והשינוי ב־$y$.',
+      solution: [`$\\Delta x = ${a}$, $\\Delta y = ${b}$`, `$d = \\sqrt{${a}^2 + ${b}^2} = \\sqrt{${n}} ${eqRoot(n)}$`],
+      diag: (u) => (near(u, a + b) ? 'add-legs' : near(u, n) ? 'no-root' : null),
+    };
+  }
 }
 
 // ---------------------------------------------------------------- statistics
@@ -227,9 +302,9 @@ export const GRADE8 = [
     id: 'pyth', grade: '8', title: 'משפט פיתגורס', color: 'violet',
     desc: 'יתר, ניצב, בדיקת משולש ושאלות מילוליות',
     levels: [
-      { title: 'מציאת היתר', gen: () => (Math.random() < 0.4 ? squaresHyp() : hypotenuse()) },
+      { title: 'מציאת היתר', gen: () => { const r = Math.random(); return r < 0.3 ? squaresHyp() : r < 0.5 ? estimateRoot() : hypotenuse(); } },
       { title: 'מציאת ניצב', gen: leg },
-      { title: 'האם המשולש ישר־זווית?', gen: isRight },
+      { title: 'האם המשולש ישר־זווית?', gen: () => (Math.random() < 0.5 ? whichRight() : howManyRight()) },
       { title: 'שאלה מילולית', gen: ladder },
       { title: 'מרחק בין נקודות', gen: distance },
     ],
@@ -238,6 +313,8 @@ export const GRADE8 = [
       'no-root': 'שכחו להוציא שורש',
       'add-not-sub': 'חיברו ריבועים במקום לחסר (כשמחפשים ניצב)',
       'subtract-sides': 'חיסרו צלעות בלי לרבע',
+      'wrong-hyp': 'בדקו את הצלע שכתובה אחרונה כאילו היא היתר',
+      'assume-right': 'קבעו שהמשולש ישר־זווית בלי לבדוק',
     },
   },
   {

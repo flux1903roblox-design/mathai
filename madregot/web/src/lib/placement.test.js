@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { startLesson, answer, next, resultOf, progressOf } from './lesson.js';
-import { nextProbe, startLevel, PER_TOPIC, PLACEMENT_XP } from './placement.js';
+import { nextProbe, startLevel, PER_TOPIC, PROBE_LEN, PLACEMENT_XP } from './placement.js';
 import { noteGap, gapsFromExam, gapsOf, gapTarget, boardOf, GAP_CLEAR } from './board.js';
-import { unitNodes, doneUpTo } from './path.js';
+import { unitNodes, doneCount, reachedUpTo } from './path.js';
 import { useApp, today, streakOf } from './store.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
 
@@ -25,18 +25,30 @@ describe('placement', () => {
     expect(startLevel(5, 2)).toBe(3);
     expect(startLevel(8, 3)).toBe(7);
   });
-  it('the probe searches between the last right and the last wrong level', () => {
-    expect(nextProbe({ lo: 3, hi: 6, asked: 1 })).toBe(4);
-    expect(nextProbe({ lo: 0, hi: 3, asked: 1 })).toBe(1);
+  it('the probe searches between the last right and the last wrong level (halfway, rounded up)', () => {
+    expect(nextProbe({ lo: 3, hi: 6, asked: 1 })).toBe(5);
+    expect(nextProbe({ lo: 0, hi: 3, asked: 1 })).toBe(2);
+    expect(nextProbe({ lo: 0, hi: 2, asked: 1 })).toBe(1);
     expect(nextProbe({ lo: 2, hi: 3, asked: 2 })).toBe(null); // settled
     expect(nextProbe({ lo: 1, hi: 6, asked: PER_TOPIC })).toBe(null); // out of questions
   });
-  it('a student who knows everything is placed at the top of every topic in at most three questions each', () => {
+  it('a student who knows everything is placed at the top of every topic, in two probes of three questions each', () => {
     const s = take(startLesson({ kind: 'placement', grade: '7', know: 2 }), () => true);
     expect(s.finished).toBe(true);
     expect(progressOf(s)).toBe(1);
     topicsFor('7').forEach((t) => expect(s.results[t.id]).toMatchObject({ level: t.levels.length }));
-    expect(s.answered).toBeLessThanOrEqual(PER_TOPIC * 3);
+    expect(s.answered).toBeLessThanOrEqual(PER_TOPIC * PROBE_LEN * 3);
+  });
+  it('a level counts only when all three questions of its probe are right: one miss, even the last, does not pass it', () => {
+    let s = startLesson({ kind: 'placement', grade: '7', know: 1 }); // the first probe: signed numbers, level 2
+    expect(s.item.level).toBe(2);
+    for (let k = 0; k < PROBE_LEN - 1; k += 1) { s = answer(s, right(s)).s; s = next(s); expect(s.item.level).toBe(2); }
+    s = next(answer(s, wrongOf(s)).s); // the third question missed
+    expect(s.probe).toMatchObject({ lo: 0, hi: 2, asked: 1 });
+    // and the three questions of a probe are of different kinds: an exercise, a diagnostic one, one on a new surface
+    const kinds = []; let t = startLesson({ kind: 'placement', grade: '8', know: 1 });
+    for (let k = 0; k < PROBE_LEN; k += 1) { kinds.push(t.item.source || 'gen'); t = next(answer(t, right(t)).s); }
+    expect(kinds).toEqual(['gen', 'diag', 'transfer']);
   });
   it('a student who knows up to level 2 is placed at level 2', () => {
     const s = take(startLesson({ kind: 'placement', grade: '7', know: 1 }), (L) => L <= 2);
@@ -59,14 +71,17 @@ describe('placement', () => {
 
 describe('store: placement sets the path', () => {
   beforeEach(() => { useApp.getState().resetProgress(); useApp.setState({ goalXp: 20 }); });
-  it('placed levels count as done, the next node is current, and the day counts for the streak', () => {
+  it('placed levels are passed over (open, not done), the next node is current, and the day counts for the streak', () => {
     const r = { kind: 'placement', grade: '7', xp: PLACEMENT_XP, bestCombo: 3, results: { signed: { level: 3 }, coord: { level: 0 }, angles: { level: 5 } } };
     const award = useApp.getState().completePlacement(r);
-    const { path, progress, days, placement } = useApp.getState();
-    expect(doneUpTo('signed', path, progress)).toBe(3);
-    expect(unitNodes('signed', path, progress).find((n) => n.state === 'current').level).toBe(4);
-    expect(doneUpTo('coord', path, progress)).toBe(0);
-    expect(unitNodes('angles', path, progress).find((n) => n.state === 'current').kind).toBe('review');
+    const { path, days, placement } = useApp.getState();
+    // a placement is a few questions, not a mastery check: the stairs it passes over stay open and offer their check
+    expect(reachedUpTo('signed', path)).toBe(3);
+    expect(doneCount('signed', path)).toBe(0);
+    expect(unitNodes('signed', path).slice(0, 3).map((n) => n.state)).toEqual(['open', 'open', 'open']);
+    expect(unitNodes('signed', path).find((n) => n.state === 'current').level).toBe(4);
+    expect(reachedUpTo('coord', path)).toBe(0);
+    expect(unitNodes('angles', path).find((n) => n.state === 'current').kind).toBe('review');
     expect(days[today()]).toMatchObject({ lessons: 1, xp: PLACEMENT_XP });
     expect(streakOf(days)).toBe(1);
     expect(award.streakExtended).toBe(true);
@@ -104,12 +119,16 @@ describe('board', () => {
     expect(gapTarget('signed', 5, path, {})).toBe('/lesson/signed/3?part=1');
   });
   it('the board sums the stairs of the grade and marks each topic', () => {
-    const path = { signed: { parts: {}, reviews: 0, jumped: 5 }, coord: { parts: { 1: 1 }, reviews: 0, jumped: 0 } };
+    // a stair counts once it is done: mastered, or kept from before mastery checks
+    const done = { 1: 'mastered', 2: 'mastered', 3: 'kept', 4: 'mastered', 5: 'mastered' };
+    const path = { signed: { parts: {}, reviews: 0, jumped: 5, done }, coord: { parts: { 1: 1 }, reviews: 0, jumped: 0 } };
     const gaps = { 'angles:sum-360': { level: 3, n: 1, ok: 0, at: '2026-01-01' } };
     const b = boardOf({ grade: '7', path, progress: {}, gaps });
     const total = topicsFor('7').reduce((a, t) => a + t.levels.length, 0);
     expect(b).toMatchObject({ done: 5, total, open: 1 });
     expect(b.topics.map((t) => t.status)).toEqual(['done', 'going', 'work']);
     expect(TOPIC.angles.cats['sum-360']).toBe(b.topics[2].open[0].text);
+    // stairs only passed over by a placement are not counted as done
+    expect(boardOf({ grade: '7', path: { signed: { parts: {}, reviews: 0, jumped: 5 } }, progress: {}, gaps: {} }).done).toBe(0);
   });
 });

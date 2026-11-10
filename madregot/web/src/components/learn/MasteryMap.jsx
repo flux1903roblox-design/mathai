@@ -6,7 +6,7 @@ import { useApp } from '@/lib/store.js';
 import { topicsFor } from '@/content/index.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState, STATE_LABEL } from '@/learn/mastery.ts';
-import { doneUpTo } from '@/lib/path.js';
+import { isDone } from '@/lib/path.js';
 import { Stat } from '@/components/ds.jsx';
 
 const LEGEND = ['mastered', 'practicing', 'needs-review', 'needs-support'];
@@ -14,17 +14,15 @@ const LEGEND = ['mastered', 'practicing', 'needs-review', 'needs-support'];
 export default function MasteryMap({ grade }) {
   const skills = useApp((s) => s.learn.skills);
   const path = useApp((s) => s.path);
-  const progress = useApp((s) => s.progress);
   const now = new Date().toISOString();
   const topics = topicsFor(grade);
   let mastered = 0; let total = 0; const n = { on: 0, back: 0, new: 0 };
   const rows = topics.map((t) => {
-    const passed = doneUpTo(t.id, path, progress);
     const tiles = t.levels.map((L, i) => {
       const id = skillId(t.id, i + 1);
       let st = masteryState(skills[id], now);
       // a stair finished on the map before 2.0 is at least practised
-      if (st === 'not-started' && i + 1 <= passed) st = 'practicing';
+      if (st === 'not-started' && isDone(path, t.id, i + 1)) st = 'practicing';
       total += 1; if (st === 'mastered') mastered += 1;
       else if (st === 'learning' || st === 'practicing') n.on += 1;
       else if (st === 'needs-review' || st === 'needs-support') n.back += 1;

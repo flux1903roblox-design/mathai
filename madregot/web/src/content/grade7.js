@@ -45,7 +45,8 @@ function orderPins() {
     manip: { kind: 'pins', min: -10, max: 10, labels, start }, answer: vals,
     hint: 'מספר שלילי נמצא משמאל לאפס. ככל שהוא רחוק יותר שמאלה, הוא קטן יותר.',
     solution: [`מהקטן לגדול: $${sorted.map(T).join(' < ')}$`, 'על הציר, הקטן ביותר הוא השמאלי ביותר.'],
-    diag: (u) => (Array.isArray(u) && u.some((p, i) => vals[i] < 0 && p === -vals[i]) ? 'neg-compare' : null),
+    // a negative number put where its distance from zero is, on the positive side: the minus was ignored
+    diag: (u) => (Array.isArray(u) && u.some((p, i) => vals[i] < 0 && p === -vals[i]) ? 'ignore-sign' : null),
   };
 }
 
@@ -64,7 +65,15 @@ function addSubLine() {
     manip: { kind: 'numberline', min: -10, max: 10, from: a, start: a },
     answer: ans, hint,
     solution: [`מ־$${T(a)}$ זזים ${way(move)}.`, `התשובה: $${T(ans)}$`],
-    diag: (u) => (u === a - move ? 'sign' : op === '-' && b < 0 && u === a + b ? 'minus-minus' : null),
+    diag: (u) => {
+      // a − (−b) moved like a − b: the subtraction of a negative number went left
+      if (op === '-' && b < 0 && u === a + b) return 'minus-minus';
+      // the right distance, the wrong way: a move, not the sign of the answer
+      if (u === a - move) return 'direction';
+      // only an answer that really is the negative of the right one is a sign error
+      if (ans !== 0 && u === -ans) return 'sign';
+      return null;
+    },
   };
 }
 
@@ -147,7 +156,8 @@ function brackets() {
       ],
       diag: (u) => {
         if (near(u, wrong)) return 'order';
-        if (near(u, a + inner * d)) return 'minus-minus';
+        // subtracting a negative product as if it were positive: only when the product really is negative
+        if (inner * d < 0 && near(u, a + inner * d)) return 'minus-minus';
         if (ans !== 0 && near(u, -ans)) return 'sign';
         return null;
       },
@@ -191,17 +201,23 @@ function plotPoint() {
   };
 }
 
-// Quadrants by placing: any point in the quadrant is right.
+// Quadrants by placing: any point in the quadrant is right. Most of the time one coordinate is given too ("whose x
+// is −4"), so the sign of the other one is what the student decides, and no one point answers every question.
 function plotQuadrant() {
   const q = R(1, 4);
-  const example = [[3, 2], [-3, 2], [-3, -2], [3, -2]][q - 1];
+  const sx = [1, -1, -1, 1][q - 1]; const sy = [1, 1, -1, -1][q - 1];
   const signs = [['חיובי', 'חיובי'], ['שלילי', 'חיובי'], ['שלילי', 'שלילי'], ['חיובי', 'שלילי']][q - 1];
+  const fix = Math.random() < 0.7 ? pick(['x', 'y']) : null;
+  const v = R(1, 5);
+  const example = fix === 'x' ? [sx * v, sy * 2] : fix === 'y' ? [sx * 2, sy * v] : [sx * 3, sy * 2];
+  const what = fix === 'x' ? ` ששיעור ה־$x$ שלה הוא $${T(sx * v)}$` : fix === 'y' ? ` ששיעור ה־$y$ שלה הוא $${T(sy * v)}$` : ' כלשהי';
+  // e.g. שימו ברביע השלישי נקודה ששיעור ה־x שלה הוא −4
   return {
-    key: `cp2p:${q}`, text: `שימו נקודה כלשהי ב${QUAD[q - 1]}.`, form: 'manip',
-    manip: { kind: 'plot', range: 6, label: 'P', start: null, quadrant: q }, answer: example,
+    key: `cp2p:${q}:${fix || '-'}:${fix ? (fix === 'x' ? sx * v : sy * v) : ''}`, text: `שימו ב${QUAD[q - 1].replace('רביע ', 'רביע ה')} נקודה${what}.`, form: 'manip',
+    manip: { kind: 'plot', range: 6, label: 'P', start: null, quadrant: q, ...(fix === 'x' ? { fixX: sx * v } : fix === 'y' ? { fixY: sy * v } : {}) }, answer: example,
     hint: 'רביע ראשון: $x$ ו־$y$ חיוביים. אחר כך ממשיכים נגד כיוון השעון: שני, שלישי, רביעי.',
     solution: [`ב${QUAD[q - 1]} $x$ ${signs[0]} ו־$y$ ${signs[1]}.`, `למשל $(${example[0]}, ${example[1]})$.`],
-    diag: (u) => (u && quadOfPt([u[1], u[0]]) === q ? 'swap' : null),
+    diag: (u) => (u && quadOfPt([u[1], u[0]]) === q && quadOfPt(u) !== q ? 'swap' : null),
   };
 }
 
@@ -227,7 +243,7 @@ function segmentLength() {
     form: 'num', answer: ans, unit: 'יחידות',
     fig: { type: 'coord', range: 6, points: [{ x: x1, y: y1, label: 'C' }, { x: x2, y: y2, label: 'D' }], segments: [[[x1, y1], [x2, y2]]] },
     hint: `הקטע ${horizontal ? 'אופקי, אז רק $x$ משתנה' : 'אנכי, אז רק $y$ משתנה'}. האורך הוא המרחק בין שני הערכים.`,
-    solution: [`$${T(Math.max(p, q))} - ${T(Math.min(p, q), true)} = ${ans}$`, `האורך: ${ans} יחידות`],
+    solution: [`$${T(Math.max(p, q))} - ${T(Math.min(p, q), true)} = ${ans}$`, `האורך: ${ans === 1 ? 'יחידה אחת' : `${ans} יחידות`}`],
     diag: (u) => {
       if (near(u, Math.abs(Math.abs(q) - Math.abs(p))) && Math.sign(p) !== Math.sign(q)) return 'add-coords';
       if (near(u, -ans)) return 'sign';
@@ -324,12 +340,24 @@ function vertical() {
 }
 
 // Dragging a vertex: A and B stay, C moves on the grid; the three angles and their sum follow it live.
+/** Bases A(a, 0), B(b, 0) on the grid with the grid points C above them where the angle C is right (C on the circle on AB). */
+const RIGHT_BASES = (() => {
+  const out = [];
+  for (let a = -6; a <= 4; a += 1) for (let b = a + 2; b <= 6; b += 1) {
+    const cs = [];
+    for (let x = -6; x <= 6; x += 1) for (let y = 1; y <= 6; y += 1) if ((a - x) * (b - x) + y * y === 0) cs.push([x, y]);
+    if (cs.length) out.push({ A: [a, 0], B: [b, 0], cs });
+  }
+  return out;
+})();
 function rightTriangleDrag() {
-  const m = { kind: 'triangle', A: [-5, 0], B: [5, 0], range: 6, start: [-2, 3] };
-  const ans = pick([[0, 5], [3, 4], [-3, 4], [4, 3], [-4, 3]]);
+  const base = pick(RIGHT_BASES);
+  const free = [[-2, 3], [2, 3], [0, 1], [-1, 6], [1, 6]].filter((c) => !base.cs.some((r) => r[0] === c[0] && r[1] === c[1]));
+  const m = { kind: 'triangle', A: base.A, B: base.B, range: 6, start: free[0] };
+  const ans = pick(base.cs);
   const [a, b] = triangleAngles(m, ans).map((d) => Math.round(d * 10) / 10);
   return {
-    key: `an3d:${ans.join(',')}`, text: 'גררו את הקודקוד $C$ עד שהזווית $C$ תהיה ישרה ($90^\\circ$). שימו לב לסכום הזוויות.', form: 'manip',
+    key: `an3d:${base.A[0]}:${base.B[0]}:${ans.join(',')}`, text: 'גררו את הקודקוד $C$ עד שהזווית $C$ תהיה ישרה ($90^\\circ$). שימו לב לסכום הזוויות.', form: 'manip',
     manip: m, answer: ans,
     hint: 'סכום הזוויות במשולש הוא תמיד $180^\\circ$. כשהזווית $C$ ישרה, $A$ ו־$B$ יחד הן $90^\\circ$.',
     solution: [`למשל $C(${T(ans[0])}, ${T(ans[1])})$: הזוויות הן $${a}^\\circ$, $${b}^\\circ$ ו־$90^\\circ$.`, `$${a}^\\circ + ${b}^\\circ + 90^\\circ = 180^\\circ$`],
@@ -399,7 +427,7 @@ export const GRADE7 = [
     cats: {
       sign: 'התשובה יצאה עם הסימן ההפוך',
       'abs-add': 'חיברו מרחקים כשהסימנים שונים, במקום לחסר',
-      'minus-minus': 'מינוס ומינוס צמודים לא הפכו לפלוס',
+      'minus-minus': 'חיסור של מספר שלילי חושב כמו חיסור של חיובי',
       'neg-compare': 'חשבו שמספר שלילי רחוק יותר מאפס הוא גדול יותר (בין שליליים, הגדול הוא הקרוב לאפס)',
       order: 'חישבו משמאל לימין בלי לתת קדימות לכפל',
       'drop-sign': 'התעלמו מהמינוס של המספר הראשון',
@@ -412,7 +440,7 @@ export const GRADE7 = [
     desc: 'קריאת נקודות, רביעים, אורכים ושטחים',
     levels: [
       { title: 'קריאת נקודה', gen: () => (Math.random() < 0.5 ? plotPoint() : readPoint()) },
-      { title: 'רביעים', gen: () => (Math.random() < 0.4 ? plotQuadrant() : quadrant()) },
+      { title: 'רביעים', gen: () => (Math.random() < 0.6 ? plotQuadrant() : quadrant()) },
       { title: 'אורך קטע', gen: segmentLength },
       { title: 'שטח מלבן', gen: rectArea },
       { title: 'קודקוד חסר', gen: () => (Math.random() < 0.5 ? rectVertexPlot() : missingVertex()) },

@@ -698,6 +698,5 @@ a.hub-row:active { background: var(--p-100); }
 
 /* ---- the welcome copy (Electric Premium) */
 .hello-center .wordmark { font-size: 48px; line-height: 52px; letter-spacing: -0.01em; }
-.hello-eyebrow { margin: -4px 0 var(--s2); font-family: var(--font-ui); font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.28em; color: var(--glow-ink); }
 .hello-center .hello-title { font-size: 28px; line-height: 34px; }
 .hello-center .hello-fact { font-size: 17px; color: var(--ink-2); }

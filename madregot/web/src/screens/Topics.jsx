@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { topicsFor } from '@/content/index.js';
-import { doneUpTo } from '@/lib/path.js';
+import { doneCount } from '@/lib/path.js';
 import { GradeSwitch } from './Welcome.jsx';
 import { Bar } from '@/components/ds.jsx';
 import { Emblem } from '@/components/map/Scenery.jsx';
@@ -16,8 +16,8 @@ import MasteryMap from '@/components/learn/MasteryMap.jsx';
 
 function SectionCard({ t, n, current }) {
   const navigate = useNavigate();
-  const { path, progress } = useApp();
-  const done = doneUpTo(t.id, path, progress);
+  const { path } = useApp();
+  const done = doneCount(t.id, path);
   const total = t.levels.length;
   return (
     <li className={`section-card ch-${t.color}${current ? ' is-current' : ''}`}>
@@ -45,8 +45,8 @@ export default function Topics() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const list = topicsFor(grade);
-  const { path, progress } = useApp();
-  const current = list.find((t) => doneUpTo(t.id, path, progress) < t.levels.length);
+  const { path } = useApp();
+  const current = list.find((t) => doneCount(t.id, path) < t.levels.length);
   return (
     <div className="page pushed topics-page">
       <header className="screen-bar" data-region="header">

@@ -2,7 +2,7 @@
 // keeping the place, mastery only from a check without hints, a misconception repaired and verified,
 // Exam Rescue from a diagnostic to a plan, today's mission, and the profile's numbers and data deletion.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, saved } from './helpers.js';
+import { open, student, item, answer, saved, proceed, NOW } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
 
@@ -79,8 +79,16 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await page.locator('.tg-step .ls-choice').nth(0).click();
   await check.click();
   await page.getByRole('button', { name: 'המשך' }).click();
+  // a wrong last step is diagnosed: −10 is subtracting −5 as if it were 5 (or another reading of the same number)
+  await page.locator('.tg-input').fill('-10');
+  await page.getByRole('button', { name: 'בדיקה' }).click();
+  await expect(page.locator('.lm-actions.has-warm')).toContainText('חיסור של מספר שלילי חושב כמו חיסור של חיובי');
+  await expect(page.locator('.lm-actions.has-warm')).not.toContainText('בדקו את החישוב');
   await page.locator('.tg-input').fill('0');
   await page.getByRole('button', { name: 'בדיקה' }).click();
+  // right after a hint: said warmly and truthfully, never "solved alone"
+  await expect(page.locator('.lm-actions.has-good')).toContainText('נכון, בעזרת רמז');
+  await expect(page.getByText('פתרתם לבד')).toHaveCount(0);
   await page.getByRole('button', { name: 'המשך' }).click();
   // back on the stair: understanding, the example and solving together are done; practice is next
   await expect(page.locator('.journey')).toBeVisible();
@@ -91,6 +99,8 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   expect(Object.keys(st.learn.skills['signed:1'].taught).sort()).toEqual(['A', 'B', 'C']);
   expect(st.learn.skills['signed:1'].attempts.every((a) => !a.independent)).toBe(true);
   expect(st.learn.skills['signed:1'].mastered).toBeUndefined();
+  // the diagnosed last step is evidence about the misconception it fits (learning with help is still evidence of it)
+  expect(st.learn.miscon['signed:1|minus-minus']).toBeTruthy();
   await page.reload();
   await expect(page.locator('.jstage.done')).toHaveCount(3);
 });
@@ -163,7 +173,11 @@ test('Exam Rescue: the exam\'s date and stairs, a short diagnostic, then a plan 
   await open(page, '#/rescue', student('7'));
   // one question per screen; the button stays off until the question has an answer
   await expect(page.getByRole('button', { name: 'המשך', exact: true })).toBeDisabled();
-  const d = new Date(); d.setDate(d.getDate() + 4);
+  // the app's clock is fixed (NOW, a Thursday): a date on Shabbat is caught at once, then the exam is on Monday
+  await page.locator('#exam-date').fill('2026-11-07');
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('שבת');
+  const d = new Date(NOW); d.setDate(d.getDate() + 4);
   await page.locator('#exam-date').fill(d.toLocaleDateString('en-CA'));
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await expect(page.getByRole('button', { name: 'המשך', exact: true })).toBeDisabled();
@@ -180,6 +194,9 @@ test('Exam Rescue: the exam\'s date and stairs, a short diagnostic, then a plan 
   await expect(page.locator('.rescue-msg')).toContainText('ימים למבחן');
   await expect(page.locator('.rescue-day').first()).toContainText('היום');
   await expect(page.locator('.rescue-day').last()).toContainText('מבחן תרגול');
+  // no day of the plan is Shabbat (Saturday 7.11 lies between today and the exam)
+  await expect(page.locator('.rescue-day')).toHaveCount(3);
+  await expect(page.locator('.rescue-day-name').filter({ hasText: 'שבת' })).toHaveCount(0);
   await expect(page.getByText('התוכנית לא מבטיחה ציון')).toBeVisible();
   const st = await saved(page);
   expect(Object.keys(st.learn.exam.diagnostic)).toHaveLength(5);
@@ -257,4 +274,39 @@ test('reviewer P2: the mission names the stage it asks for, and its completion s
   await page.goto('./#/learn/signed/1');
   await expect(page.locator('.jstage.done')).toHaveCount(1);
   await expect(page.locator('.mastery-chip')).toHaveText('לומדים');
+});
+
+test('done means mastered: practice fills the ring, and only a passed mastery check marks the stair done and moves the path', async ({ page }) => {
+  const at = '2026-11-04T10:00:00.000Z';
+  const practised = { taught: { A: at, B: at, C: at }, attempts: Array.from({ length: 6 }, () => ({ at, ok: true, independent: true, purpose: 'practice' })) };
+  const st = student('7', { path: { signed: { parts: { 1: 2 }, reviews: 0, jumped: 0, done: {} } }, learn: { skills: { 'signed:1': practised }, miscon: {}, exam: null, missions: {}, events: [] } });
+  await open(page, '#/', { ...st, version: 3 });
+  const unit = page.locator('.unit').first();
+  // two practice lessons done: still not done, still 0 of 5; the next stage is the mastery check
+  await expect(unit.locator('.unit-label')).toContainText('0 מתוך 5 מדרגות');
+  await expect(unit.locator('.node').first()).toHaveClass(/node-current/);
+  await unit.locator('.node').first().click();
+  await expect(page.locator('.node-card')).toContainText('בדיקת שליטה');
+  await page.locator('.node-start-btn').click();
+  await expect(page).toHaveURL(/kind=check&purpose=mastery/);
+  for (let i = 0; i < 5; i += 1) { await expect.poll(() => item(page)).toBeTruthy(); await answer(page, true); await proceed(page); }
+  await expect(page.getByRole('heading', { name: 'שולטים לבד!' })).toBeVisible();
+  // the check moves the count (the council's "0 of 5" after mastery)
+  await expect(page.locator('.climb-caption')).toContainText('1 מתוך 5 מדרגות');
+  await page.getByRole('button', { name: 'למפה' }).click();
+  await expect(unit.locator('.unit-label')).toContainText('1 מתוך 5 מדרגות');
+  await expect(unit.locator('.node').first()).toHaveClass(/node-done/);
+  await expect(unit.locator('.node').nth(1)).toHaveClass(/node-current/);
+});
+
+test('a stair that was done before mastery checks stays done, and is offered its check', async ({ page }) => {
+  // saved by an older version: two practice lessons made a stair done then
+  await open(page, '#/', student('7', { path: { signed: { parts: { 1: 2, 2: 1 }, reviews: 0, jumped: 0 } } }));
+  const unit = page.locator('.unit').first();
+  await expect(unit.locator('.unit-label')).toContainText('1 מתוך 5 מדרגות');
+  await expect(unit.locator('.node').first()).toHaveClass(/node-done/);
+  await unit.locator('.node').first().click();
+  await expect(page.locator('.node-card')).toContainText('לפני שהיו בדיקות שליטה');
+  await page.getByRole('button', { name: 'לבדיקת שליטה' }).click();
+  await expect(page).toHaveURL(/lesson\/signed\/1\?kind=check&purpose=mastery/);
 });

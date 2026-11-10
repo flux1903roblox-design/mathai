@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
 import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
-import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath } from '@/content/index.js';
+import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath, catLabel } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
@@ -68,6 +68,19 @@ function HintBox({ text, clamp }) {
 }
 
 const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b' };
+
+/**
+ * Is the display an expression to work out ("-3 - (-8)" → "= ?")? A list of numbers, a pair to compare, a table or
+ * givens that already say what is missing ("c = ?") is shown as it is.
+ */
+const asksValue = (display) => !/\?|=|\\qquad|\\quad|\\begin|,/.test(display);
+
+/** An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. */
+function ambiguousText(topic, level, candidates) {
+  const names = (candidates || []).map((c) => catLabel(topic, level, c.id)).filter(Boolean);
+  if (names.length < 2) return 'עוד שאלה אחת בסוף השיעור תעזור לדעת מה בדיוק בלבל.';
+  return `מה כנראה קרה: אולי ${names.join(', ואולי ')}. עוד שאלה אחת בסוף השיעור תעזור לדעת מה מהן.`;
+}
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
 
 function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKey, onEnter, struck, unstrike, good }) {
@@ -124,7 +137,7 @@ function useLessonSpec() {
     return { kind: 'check', purpose, skill: skillId(topic, lv), misc: purpose === 'verify' ? params.get('misc') : null, topic, level: lv };
   }
   const kind = ['review', 'jump'].includes(params.get('kind')) ? params.get('kind') : 'node';
-  const nodes = unitNodes(topic, path, progress);
+  const nodes = unitNodes(topic, path);
   const current = nodes.find((n) => n.kind === 'node' && n.state === 'current');
   const level = Number(lParam || params.get('level')) || current?.level || TOPIC[topic].levels.length;
   const node = nodes.find((n) => n.kind === 'node' && n.level === level);
@@ -414,8 +427,8 @@ export default function Lesson() {
   useTheme(done ? 'dark' : 'light');
   if (done) leaving.current = true; // the end screens lead back to the map without asking
   if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/topics', { replace: true, state: { placed: true } })} />;
-  if (done && isCheck) return <CheckDone result={done.result} award={done.award} onExit={() => navigate('/', { replace: true, preventScrollReset: true })} />;
-  if (done) return <LessonDone {...done} topic={t} onExit={() => (spec.fromJourney ? navigate(`/learn/${spec.topic}/${spec.level}`, { replace: true }) : navigate('/', { replace: true, preventScrollReset: true, state: { from: spec.topic, nodeDone: !!(done.award.nodeDone || done.award.unitDone) } }))} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
+  if (done && isCheck) return <CheckDone result={done.result} award={done.award} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: done.award?.stairDone ? { from: spec.topic, nodeDone: true } : undefined })} />;
+  if (done) return <LessonDone {...done} topic={t} onExit={() => (spec.fromJourney ? navigate(`/learn/${spec.topic}/${spec.level}`, { replace: true }) : navigate('/', { replace: true, preventScrollReset: true, state: { from: spec.topic, nodeDone: !!done.award.unitDone } }))} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
 
   const feedback = last && !last.invalid ? (last.ok ? 'good' : s.phase === 'retry' ? 'retry' : 'reveal') : null;
   const inClass = !!st.profile?.token;
@@ -474,7 +487,7 @@ export default function Lesson() {
         <m.div key={stage} className="q-stage" {...slide}>
         {item.redo && <p className="redo-note"><RotateCcw size={16} aria-hidden="true" />תרגיל דומה לזה שהיה קשה קודם</p>}
         {item.extra && <p className="redo-note"><Search size={16} aria-hidden="true" />עוד שאלה אחת, כדי להבין מה בדיוק בלבל</p>}
-        {item.display && <div className="qdisplay"><Tex tex={item.form === 'mc' ? item.display : `${item.display} = \\,?`} display /></div>}
+        {item.display && <div className="qdisplay"><Tex tex={item.form === 'mc' || !asksValue(item.display) ? item.display : `${item.display} = \\,?`} display /></div>}
         {item.fig && (
           <div className="fig-zoomable">
             <Figure fig={item.fig} />
@@ -483,7 +496,7 @@ export default function Lesson() {
             )}
           </div>
         )}
-        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} />}
+        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} test={isTest(s.kind)} />}
         {item.form === 'mc' && (
           <div className={clsx('choices', item.choices.length === 3 && item.choices.every((c) => c.tex) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
             {item.choices.map((c, i) => {
@@ -542,8 +555,8 @@ export default function Lesson() {
               </div>
               {feedback === 'retry' && (
                 <div className="fb-body">
-                  {last?.cat && t.cats[last.cat] && !last.diagnosis?.ambiguous && <p><MathText text={`מה כנראה קרה: ${t.cats[last.cat]}.`} /></p>}
-                  {last?.diagnosis?.ambiguous && <p>התשובה יכולה להתאים לכמה טעויות שונות. בסוף השיעור תגיע שאלה אחת שתעזור להבין.</p>}
+                  {last?.cat && catLabel(item.topic || spec.topic, item.level, last.cat) && !last.diagnosis?.ambiguous && <p><MathText text={`מה כנראה קרה: ${catLabel(item.topic || spec.topic, item.level, last.cat)}.`} /></p>}
+                  {last?.diagnosis?.ambiguous && <p><MathText text={ambiguousText(item.topic || spec.topic, item.level, last.diagnosis.candidates)} /></p>}
                   {!isTest(s.kind) && last?.cat && !last.diagnosis?.ambiguous && contentOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
                     <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
                   )}
