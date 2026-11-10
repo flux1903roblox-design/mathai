@@ -6,6 +6,7 @@ import { useApp } from '@/lib/store.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { api } from '@/lib/api.js';
 import { scoreOf, focusLevel, baseEntry } from '@/lib/exam.js';
+import { gradeExam } from '@/lib/examGrade.js';
 import { TOPICS, rescueTopicsFor } from '@/content/index.js';
 import { MAX_EXAM_PAGES } from '@shared/ai.js';
 import { Button, Field, Thinking } from '@/components/ui.jsx';
@@ -85,13 +86,13 @@ export default function ExamCheck() {
         if (mounted.current) setState({ phase: 'error', message }); else toast.error(message);
         return;
       }
-      // A practice exam's questions came from our generators: their topic and level are known exactly.
-      if (practice && result.questions.length === practice.items.length) {
-        result.questions = result.questions.map((q, i) => {
-          const it = practice.items[i];
-          return { ...q, topic: it.topic, level: it.level, correctAnswer: it.answer, item: { text: it.text, display: it.display, fig: it.fig, form: it.form, choices: it.choices } };
-        });
-      }
+      // A practice exam's questions came from our generators: their topic, level and answer are known exactly, and code
+      // decides each one right or wrong against the key (ai spec AI-8); the model only read the handwriting. When the
+      // model found another number of questions, or the exam was uploaded without a key, every question keeps the
+      // model's grade and says so (graded 'ai').
+      result.questions = gradeExam(result.questions, practice, (q, it) => ({
+        ...q, topic: it.topic, level: it.level, correctAnswer: it.answer, item: { text: it.text, display: it.display, fig: it.fig, form: it.form, choices: it.choices },
+      }));
       const score = scoreOf(result);
       const exam = {
         id: Math.random().toString(36).slice(2) + Date.now().toString(36), at: new Date().toISOString(),

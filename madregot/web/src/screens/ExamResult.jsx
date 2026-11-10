@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { Check, X, Minus, CircleDashed, Sparkles, Route, PencilRuler, ChevronLeft } from 'lucide-react';
+import { Check, X, Minus, CircleDashed, Sparkles, Route, PencilRuler, ChevronLeft, KeyRound } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { STATUS, focusLevel } from '@/lib/exam.js';
+import { gradedBy } from '@/lib/examGrade.js';
 import { TOPIC, TOPICS, displayTex } from '@/content/index.js';
 import { aiReady } from '@/lib/ai.js';
 import { Box, Button, ChapterMark, Sheet } from '@/components/ui.jsx';
@@ -34,6 +35,20 @@ function Prompt({ q }) {
     </div>
   );
 }
+// Who decided right or wrong (ai spec AI-8): the app against its answer key, or the AI. Said on every question, in calm
+// words, with the same neutral chip; an exam stored before this has no mark and was graded by the AI.
+const GRADE_COPY = {
+  key: 'נבדק מול מפתח התשובות',
+  ai: 'נבדק על ידי העוזר החכם',
+  overridden: 'בדקנו את התשובה שכתבתם מול מפתח התשובות.',
+  keyLine: 'את הכתב קרא העוזר החכם, ואת ההשוואה למפתח התשובות עשתה האפליקציה. אם הוא קרא משהו לא נכון, כדאי להראות למורה.',
+  aiLine: 'את השאלות שמסומנות כך בדק העוזר החכם, ולפעמים הוא טועה. אם משהו נראה לא נכון, כדאי להראות למורה.',
+};
+function GradeChip({ by }) {
+  const Icon = by === 'key' ? KeyRound : Sparkles;
+  return <span className={clsx('grade-chip', `by-${by}`)}><Icon size={14} aria-hidden="true" />{GRADE_COPY[by]}</span>;
+}
+
 const topicN = (id) => { const t = TOPIC[id]; return t ? TOPICS.filter((x) => x.grade === t.grade).indexOf(t) + 1 : 0; };
 
 function TopicTag({ id, mark = false }) {
@@ -51,6 +66,7 @@ function QuestionCard({ q, onAsk }) {
         <span className="ex-num" id={`q-${q.number}`} aria-label={`שאלה ${q.number}`}>{q.number}</span>
         <span className={clsx('status-chip', st.tone)}><Icon size={15} aria-hidden="true" />{st.label}</span>
         <TopicTag id={q.topic} />
+        <GradeChip by={gradedBy(q)} />
       </header>
       <Prompt q={q} />
       <div className="q-compare">
@@ -60,6 +76,7 @@ function QuestionCard({ q, onAsk }) {
           : <span className="muted">לא נכתבה תשובה</span>}
         {!ok && <><span className="q-compare-lab">נכון</span><span className="q-right"><Markdown inline>{asMath(q.correctAnswer)}</Markdown></span></>}
       </div>
+      {q.graded === 'key' && q.overridden && <p className="q-overridden">{GRADE_COPY.overridden}</p>}
       <Box tone={ok ? 'ok' : 'attention'} title={ok ? 'יפה' : 'שימו לב'}><Markdown>{q.feedback}</Markdown></Box>
       {q.solution?.length > 0 && (
         <details className="sol">
@@ -177,7 +194,11 @@ export default function ExamResult() {
         </section>
       )}
 
-      <p className="footnote">תשובה נכונה בחלקה נספרת כחצי נקודה. המבחן נבדק על ידי העוזר (Claude).{exam.source === 'practice' ? ' התשובות הנכונות נלקחו ממפתח התשובות של האפליקציה.' : ' אם משהו נראה לא נכון, בדקו עם המורה.'}</p>
+      <div className="exam-notes">
+        <p className="footnote">תשובה נכונה בחלקה נספרת כחצי נקודה.</p>
+        {qs.some((q) => gradedBy(q) === 'key') && <p className="footnote">{GRADE_COPY.keyLine}</p>}
+        {qs.some((q) => gradedBy(q) === 'ai') && <p className="footnote exam-ai-note"><GradeChip by="ai" /> {GRADE_COPY.aiLine}</p>}
+      </div>
       <section className="section set-group">
         <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmDel(true)}>מחיקת הבדיקה</button></div></div>
       </section>

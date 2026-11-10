@@ -626,6 +626,14 @@ button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .gen-why { display: block; margin-top: 2px; color: var(--ink); font-weight: 400; }
 .gen-shown { display: flex; flex-direction: column; gap: var(--s1); }
 .gen-q .input:disabled { background: var(--ground); color: var(--ink-2); }
+/* who graded an exam question (ai spec AI-8): the app against its key, or the AI; the same neutral chip for both, only
+   the words and the icon differ, so neither reads as a verdict. The line under an answer code re-graded, and the notes. */
+.grade-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 26px; padding: 2px 10px; border-radius: 999px; background: var(--ground); color: var(--ink-2); font-size: 14px; line-height: 20px; font-weight: 600; }
+.grade-chip svg { flex: none; }
+.q-overridden { margin: 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.exam-notes { display: flex; flex-direction: column; gap: var(--s2); }
+.exam-notes .footnote { margin: 0; }
+.exam-ai-note .grade-chip { vertical-align: middle; margin-inline-end: 2px; }
 .q-actions .q-report { margin-inline-start: auto; }
 .report-reasons { display: flex; flex-direction: column; gap: var(--s2); margin: 0; padding: 0; border: 0; }
 .report-reason { display: flex; align-items: center; gap: var(--s3); min-height: 52px; padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 14px; background: #fff; font-size: var(--t-base); line-height: var(--lh-base); cursor: pointer; }

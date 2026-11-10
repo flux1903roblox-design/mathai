@@ -319,3 +319,52 @@ test.describe('generated exercises', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------- exam checks: who decided right or wrong (ai spec AI-8)
+test.describe('exam labels', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+
+  test('exam labels', async ({ page }, info) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    // a practice exam of two questions: the first matched the app's key and code re-graded it; the second could not be
+    // read, so the model's grade stands
+    const keyQ = {
+      number: '1', prompt: 'חשבו: $3 - (-5)$', studentAnswer: '$8$', status: 'correct', correctAnswer: '8', feedback: 'חיסור של שלילי הוא חיבור, ועשיתם את זה נכון.',
+      solution: ['$3 - (-5) = 3 + 5 = 8$'], topic: 'signed', level: 1, skill: 'חיבור וחיסור', graded: 'key', overridden: true,
+      item: { text: 'חשבו:', display: '3 - (-5)', fig: null, form: 'num', choices: null },
+    };
+    const aiQ = {
+      number: '2', prompt: 'פתרו: $2x + 3 = 11$', studentAnswer: 'x = ?', status: 'partial', correctAnswer: '$x = 4$', feedback: 'הצעד הראשון נכון. בדקו את החילוק.',
+      solution: ['$2x = 8$', '$x = 4$'], topic: 'eq', level: 2, skill: 'משוואה בשני צעדים', graded: 'ai',
+    };
+    const exam = {
+      id: 'ex-labels', at: '2026-11-04T10:00:00.000Z', title: 'מבחן תרגול', source: 'practice', practiceId: 'p1',
+      result: { readable: true, title: 'מבחן תרגול', questions: [keyQ, aiQ], summary: 'כמעט הכול נכון.', weakTopics: [], nextSteps: [], care: false },
+      score: { correct: 1.5, total: 2, pct: 75 }, levels: {},
+    };
+    // an exam stored before the labels has no mark: its questions read as graded by the AI
+    const old = { ...exam, id: 'ex-old', source: 'upload', practiceId: null, result: { ...exam.result, questions: [{ ...aiQ, graded: undefined }] } };
+    await open(page, '#/exams/ex-labels', family({ exams: [exam, old] }));
+    const cards = page.locator('.q-card');
+    await expect(cards).toHaveCount(2);
+    await expect(cards.nth(0).locator('.grade-chip')).toHaveText('נבדק מול מפתח התשובות');
+    await expect(cards.nth(0).getByText('בדקנו את התשובה שכתבתם מול מפתח התשובות.')).toBeVisible();
+    await expect(cards.nth(1).locator('.grade-chip')).toHaveText('נבדק על ידי העוזר החכם');
+    await expect(cards.nth(1).locator('.q-overridden')).toHaveCount(0);
+    const notes = page.locator('.exam-notes');
+    await expect(notes.getByText('את הכתב קרא העוזר החכם, ואת ההשוואה למפתח התשובות עשתה האפליקציה. אם הוא קרא משהו לא נכון, כדאי להראות למורה.')).toBeVisible();
+    await expect(notes.getByText('את השאלות שמסומנות כך בדק העוזר החכם, ולפעמים הוא טועה. אם משהו נראה לא נכון, כדאי להראות למורה.')).toBeVisible();
+    await cards.nth(0).scrollIntoViewIfNeeded();
+    await page.evaluate(() => document.fonts.ready);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/exam-labels-${info.project.name}.png` });
+    if (info.project.name === 'phone') await expect(page).toHaveScreenshot('exam-labels.png', { fullPage: false });
+    await notes.scrollIntoViewIfNeeded();
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/exam-labels-notes-${info.project.name}.png` });
+    // the older exam: one AI chip, the AI footnote, and no key line
+    await page.evaluate(() => { window.location.hash = '#/exams/ex-old'; });
+    await expect(page.locator('.q-card')).toHaveCount(1);
+    await expect(page.locator('.q-card .grade-chip')).toHaveText('נבדק על ידי העוזר החכם');
+    await expect(page.locator('.exam-notes .footnote')).toHaveCount(2);
+    await expect(page.getByText('את הכתב קרא העוזר החכם', { exact: false })).toHaveCount(0);
+  });
+});
