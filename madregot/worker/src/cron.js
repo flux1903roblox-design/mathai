@@ -6,9 +6,9 @@
 //
 // In the 03:00 hour in Jerusalem: reconcile renewing plans whose period is over with the provider (extend only from the
 // truth pulled from it, or end the plan), queue the yearly renewal reminder (45 days ahead) and the licence-ending email
-// (30 days ahead), purge what is no longer needed (spec §6.9, and the safety records), alert the owner when yesterday's
-// safety events jumped, and queue the owner's daily summary when OWNER_DAILY_SUMMARY = "true". Each step runs on its
-// own: one failing step never stops the others.
+// (30 days ahead), purge what is no longer needed (spec §6.9, the safety records, and the class data by TRUST-7:
+// shared/retention.js), alert the owner when yesterday's safety events jumped, and queue the owner's daily summary when
+// OWNER_DAILY_SUMMARY = "true". Each step runs on its own: one failing step never stops the others.
 import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
 import { retryCancels, processRefundQueue } from './billing.js';
@@ -18,6 +18,7 @@ import { providerById } from './providers/index.js';
 import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
 import { SUPPORT } from '../../shared/safety.js';
+import { studentsDeleteSteps, classDeleteSteps, countSteps } from './forget.js';
 import { RETENTION } from '../../shared/retention.js';
 
 const DAY = 864e5;
@@ -149,9 +150,83 @@ export function purgeSafetySql(env, now = new Date()) {
   ];
 }
 
+/** Rows one purge statement touches at the most, so one night never runs out of time; the next batch or night goes on. */
+export const PURGE_BATCH = 2000;
+/** Class purge batches in one night, at the most (each one runs again only while a step was full). */
+export const PURGE_ROUNDS = 5;
+
+/**
+ * Class data past its time (spec TRUST-7; the periods are in shared/retention.js), as [name, statement] steps:
+ * notebook pages 30 days after the request was closed (60 at most), help requests 180 days after closing (365 at most),
+ * attempts and exams after 400 days, assignments 400 days after their due date (with their work and targets),
+ * students nobody has seen for 400 days (with all their rows and counters), and
+ * classes with no activity for 400 days and no running licence (their students, lock, settings, owner, counters, notices
+ * and the class row). Every step is limited to PURGE_BATCH rows (or students, or classes).
+ */
+export function purgeClassSteps(env, now = new Date()) {
+  const t = now.getTime();
+  const iso = (days) => new Date(t - days * DAY).toISOString();
+  const oldDay = (days) => dayOf(new Date(t - days * DAY));
+  const R = RETENTION;
+  const N = PURGE_BATCH;
+  const stmt = (sql, ...a) => env.DB.prepare(sql).bind(...a);
+  const idleStudents = `SELECT id FROM students WHERE last_seen < ?1 OR (last_seen IS NULL AND created_at < ?1) ORDER BY id LIMIT ${N}`;
+  // a class with no activity of its own (class_settings.last_seen, else the day it was made), no student seen in the
+  // period, and no class licence that still runs (a trial included)
+  const idleClasses = `SELECT c.code FROM classes c LEFT JOIN class_settings cs ON cs.code = c.code
+    WHERE COALESCE(cs.last_seen, substr(c.created_at, 1, 10)) < ?1
+      AND NOT EXISTS (SELECT 1 FROM students st WHERE st.class_code = c.code AND COALESCE(st.last_seen, st.created_at) >= ?2)
+      AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.kind = 'class' AND s.class_code = c.code AND s.status IN ('active', 'past_due', 'canceled'))
+    ORDER BY c.code LIMIT ${N}`;
+  return [
+    ['helpImages', stmt(`UPDATE help_requests SET image = NULL WHERE id IN (SELECT id FROM help_requests WHERE image IS NOT NULL
+      AND ((done_at IS NOT NULL AND done_at < ?1) OR created_at < ?2) LIMIT ${N})`, iso(R.helpImageAfterDoneDays), iso(R.helpImageMaxDays))],
+    ['help', stmt(`DELETE FROM help_requests WHERE id IN (SELECT id FROM help_requests
+      WHERE (done_at IS NOT NULL AND done_at < ?1) OR created_at < ?2 LIMIT ${N})`, iso(R.helpAfterDoneDays), iso(R.helpMaxDays))],
+    // a help request's help_meta row (TRUST-3) goes with it (its foreign key cascades on D1; this also covers a
+    // database without it)
+    ['helpMeta', stmt(`DELETE FROM help_meta WHERE help_id IN (SELECT m.help_id FROM help_meta m
+      LEFT JOIN help_requests h ON h.id = m.help_id WHERE h.id IS NULL LIMIT ${N})`)],
+    ['attempts', stmt(`DELETE FROM attempts WHERE id IN (SELECT id FROM attempts WHERE at < ? LIMIT ${N})`, iso(R.attemptsDays))],
+    ['exams', stmt(`DELETE FROM exams WHERE id IN (SELECT id FROM exams WHERE created_at < ? LIMIT ${N})`, iso(R.examsDays))],
+    // assignments 400 days after their due date (a Jerusalem day): what was done on them and who they were for first,
+    // then each assignment that has none left, every step at most PURGE_BATCH rows
+    ['assignmentWork', stmt(`DELETE FROM assignment_work WHERE rowid IN (SELECT w.rowid FROM assignment_work w
+      JOIN assignments a ON a.id = w.assignment_id WHERE a.due_on < ? LIMIT ${N})`, oldDay(R.assignmentsDays))],
+    ['assignmentTargets', stmt(`DELETE FROM assignment_targets WHERE rowid IN (SELECT t.rowid FROM assignment_targets t
+      JOIN assignments a ON a.id = t.assignment_id WHERE a.due_on < ? LIMIT ${N})`, oldDay(R.assignmentsDays))],
+    ['assignmentsOld', stmt(`DELETE FROM assignments WHERE id IN (SELECT a.id FROM assignments a WHERE a.due_on < ?
+      AND NOT EXISTS (SELECT 1 FROM assignment_work w WHERE w.assignment_id = a.id)
+      AND NOT EXISTS (SELECT 1 FROM assignment_targets t WHERE t.assignment_id = a.id) LIMIT ${N})`, oldDay(R.assignmentsDays))],
+    ...studentsDeleteSteps(env, idleStudents, [iso(R.studentIdleDays)]),
+    ...classDeleteSteps(env, idleClasses, [dayOf(new Date(t - R.classIdleDays * DAY)), iso(R.classIdleDays)], { limit: N }),
+  ];
+}
+export const purgeClassSql = (env, now = new Date()) => purgeClassSteps(env, now).map(([, s]) => s);
+
+/** The class purge: batches of purgeClassSteps while a step was full, PURGE_ROUNDS at the most. Counts by step. */
+export async function purgeClass(env, now = new Date()) {
+  const total = {};
+  for (let round = 0; round < PURGE_ROUNDS; round++) {
+    const steps = purgeClassSteps(env, now);
+    const counts = countSteps(steps, await env.DB.batch(steps.map(([, s]) => s)));
+    for (const [k, v] of Object.entries(counts)) total[k] = (total[k] || 0) + v;
+    if (!Object.values(counts).some((v) => v >= PURGE_BATCH)) break;
+  }
+  return total;
+}
+
+/** The night purge: the records, counters and safety records in one batch, then the class data. The counts go into the cron report. */
 export async function purge(env, now = new Date()) {
   const r = await env.DB.batch([...purgeCountersSql(env, now), ...purgeAccountsSql(env), ...purgeFamilySql(env), ...purgeRecordsSql(env), ...purgeSafetySql(env, now)]);
-  return changes(r);
+  const cls = await purgeClass(env, now);
+  return {
+    rows: changes(r),
+    class: {
+      helpImages: cls.helpImages, help: cls.help, attempts: cls.attempts, exams: cls.exams, assignments: (cls.assignmentsOld || 0) + (cls.assignments || 0),
+      students: cls.students, classes: cls.classes,
+    },
+  };
 }
 
 // ---------------------------------------------------------------- safety counts and the spike alert (TRUST-4 §4.4)

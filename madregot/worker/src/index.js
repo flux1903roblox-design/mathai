@@ -6,9 +6,9 @@ import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare } from
 import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
-  limitOrThrow, hmacHex,
+  limitOrThrow, hmacHex, cleanName,
 } from './util.js';
-import { startLogin, verifyLogin, signOut } from './account.js';
+import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
 import { resolve, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify } from './entitle.js';
 import { recordSafety } from './safety.js';
 import { recordSpend } from './spend.js';
@@ -19,7 +19,14 @@ import {
 } from './billing.js';
 import { currentProvider } from './providers/index.js';
 import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily } from './family.js';
-import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked, pinKeysWhere } from './licence.js';
+import {
+  licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked, pinKeysWhere, renameClass, deleteClass, classSeenStmt,
+} from './licence.js';
+import { myClasses, bindClass, rekeyClass, ownedClassStmts, checkOwnedCap } from './teacherAccount.js';
+import {
+  listAssignments, createAssignment, getAssignment, updateAssignment, deleteAssignment, classWork, workExam, postWork, classAssignments,
+} from './assignments.js';
+import { RETENTION } from '../../shared/retention.js';
 import { run as runCron } from './cron.js';
 import { newClassSetting, newClassStmts, classSettings, aiPolicyView, setClassAi, setStudentAi } from './classai.js';
 
@@ -54,7 +61,6 @@ async function verifyPin(pin, stored) {
   return (await sha256(`${salt}:${pin}`)) === h;
 }
 const classCode = () => randomFrom(CODE_ALPHABET, 6);
-const cleanName = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 30);
 
 // Personal-code tries (trust spec TRUST-12 §1): 5 an hour from one network and 30 a day in all, per student. Each try is
 // taken before the code is compared and given back when it is right, so parallel guesses cannot pass the cap and a
@@ -434,6 +440,11 @@ async function mintDevice(req, env, cors) {
 }
 
 // ---------- classes ----------
+/**
+ * POST /api/classes {className, teacherName, grade}: a new class and its teacher key (shown once). With a session
+ * (X-Account-Token) the class is bound to that account in the same batch and the answer says owned: true; a session
+ * that is sent but not valid is 401 not_account, never a class left unbound by mistake.
+ */
 async function createClass(req, env, cors) {
   const b = await body(req, LIMIT.small);
   const name = cleanName(b.className); const teacherName = cleanName(b.teacherName);
@@ -441,18 +452,37 @@ async function createClass(req, env, cors) {
   if (!name || !teacherName) throw new HttpError(400, 'missing_fields');
   // where the class learns (trust spec TRUST-11 §3): a school (the default) or a private group its teacher attests to
   const setting = newClassSetting(b);
+  const account = String(req.headers.get('X-Account-Token') || '').trim() ? await requireAccount(req, env) : null;
+  if (account) await checkOwnedCap(env, account.id);
   await limitOrThrow(env, `create:n:${await netKey(req, env)}`, 10, 429, 'too_many_classes');
   const teacherKey = randomToken(12);
+  const keyHash = await sha256(teacherKey);
   for (let i = 0; i < 5; i++) {
     const code = classCode();
     const now = nowIso();
     try {
-      await env.DB.batch([
-        env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-          .bind(code, name, grade, teacherName, await sha256(teacherKey), now),
-        ...newClassStmts(env, code, setting, now),
-      ]);
-      return json({ code, teacherKey, className: name, grade, teacherName, setting }, 200, cors);
+      const settingStmts = newClassStmts(env, code, setting, now);
+      if (account) {
+        // the class row, its owner and its setting in one batch; when the cap stopped the class row (another request at
+        // the same moment), the last statements take the setting rows back, so nothing is left of a class never made
+        const res = await env.DB.batch([
+          ...ownedClassStmts(env, { code, name, grade, teacherName, keyHash, now }, account.id),
+          ...settingStmts,
+          ...(settingStmts.length ? [
+            env.DB.prepare('DELETE FROM class_settings WHERE code = ?1 AND NOT EXISTS (SELECT 1 FROM classes WHERE code = ?1)').bind(code),
+            env.DB.prepare(`DELETE FROM audit_log WHERE action = 'class.setting' AND target = 'class:' || ?1 AND at = ?2
+              AND NOT EXISTS (SELECT 1 FROM classes WHERE code = ?1)`).bind(code, now),
+          ] : []),
+        ]);
+        if (Number(res[0].meta?.changes) !== 1) throw new HttpError(409, 'too_many_classes_owned');
+      } else {
+        await env.DB.batch([
+          env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+            .bind(code, name, grade, teacherName, keyHash, now),
+          ...settingStmts,
+        ]);
+      }
+      return json({ code, teacherKey, className: name, grade, teacherName, setting, ...(account ? { owned: true } : {}) }, 200, cors);
     } catch (e) { if (!String(e?.message).includes('UNIQUE')) throw e; }
   }
   throw new HttpError(500, 'code_collision');
@@ -510,12 +540,12 @@ async function joinClass(code, req, env, cors) {
 // ---------- student data ----------
 const PROGRESS_EVENTS = 500; // one request; the app sends batches of 300
 const EVENT_ID = /^[a-f0-9]{12}$/; // the app's id for one answer (12 hex), so a retried batch is stored once
-const KEEP_DAYS = 400; // older answers are not stored: the retention purge would remove them anyway
 
 /**
  * A class student's answers and levels (DURABLE-7). Every event the app sent is acknowledged ({ saved } = how many it
  * sent, at most 500): an answer already stored (same id, from a retry) is ignored, an answer older than 400 days is
- * dropped, and both count as saved, because there is nothing more to send. An answer from an older app has no id and is
+ * dropped (RETENTION.attemptsDays, shared/retention.js: an old outbox cannot bring back what the night purge removed),
+ * and both count as saved, because there is nothing more to send. An answer from an older app has no id and is
  * stored as it comes. One statement writes them all (json_each), so a full batch stays one query.
  */
 async function saveProgress(req, env, cors) {
@@ -524,7 +554,7 @@ async function saveProgress(req, env, cors) {
   const events = (Array.isArray(b.events) ? b.events : []).slice(0, PROGRESS_EVENTS);
   if (events.some((e) => e && typeof e === 'object' && e.id != null && !EVENT_ID.test(String(e.id)))) throw new HttpError(400, 'bad_input');
   const now = Date.now();
-  const oldest = now - KEEP_DAYS * 864e5;
+  const oldest = now - RETENTION.attemptsDays * 864e5;
   const rows = [];
   for (const e of events) {
     if (!e || typeof e !== 'object') continue;
@@ -550,6 +580,7 @@ async function saveProgress(req, env, cors) {
     ).bind(s.id, String(topic).slice(0, 20), Number(v.level) || 1, Number(v.max) || 1, nowIso()));
   }
   stmts.push(env.DB.prepare('UPDATE students SET last_seen = ? WHERE id = ?').bind(nowIso(), s.id));
+  stmts.push(classSeenStmt(env, s.class_code));
   await env.DB.batch(stmts);
   return json({ saved: events.length }, 200, cors);
 }
@@ -565,8 +596,11 @@ async function saveExam(req, env, cors) {
     level: Number.isInteger(q.level) && q.level > 0 && q.level <= 12 ? q.level : 0,
   }));
   const weak = (Array.isArray(b.weakTopics) ? b.weakTopics : []).filter((t) => TOPIC_IDS.includes(t)).slice(0, 6);
-  await env.DB.prepare('INSERT INTO exams (student_id, title, correct, total, questions, weak, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(s.id, examTitle(b.title), Number(b.correct) || 0, Number(b.total) || qs.length, JSON.stringify(qs), JSON.stringify(weak), nowIso()).run();
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO exams (student_id, title, correct, total, questions, weak, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(s.id, examTitle(b.title), Number(b.correct) || 0, Number(b.total) || qs.length, JSON.stringify(qs), JSON.stringify(weak), nowIso()),
+    classSeenStmt(env, s.class_code),
+  ]);
   return json({ ok: true }, 200, cors);
 }
 
@@ -588,6 +622,7 @@ async function askHelp(req, env, ctx, cors) {
     await env.DB.batch([
       env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, \'\', NULL, \'\', \'\', \'\', NULL, ?)').bind(s.id, nowIso()),
       env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) SELECT MAX(id), \'talk\', 0 FROM help_requests WHERE student_id = ?').bind(s.id),
+      classSeenStmt(env, s.class_code),
     ]);
     return json({ ok: true }, 200, cors);
   }
@@ -610,6 +645,7 @@ async function askHelp(req, env, ctx, cors) {
         .bind(note, note, image, String(b.answer || '').slice(0, 100), same.id),
       // once a note read as distress, the request stays marked for the teacher
       ...(hit.flag ? [env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) VALUES (?, \'help\', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1').bind(same.id)] : []),
+      classSeenStmt(env, s.class_code),
     ]);
     return json({ ok: true, again: true }, 200, cors);
   }
@@ -617,6 +653,7 @@ async function askHelp(req, env, ctx, cors) {
     env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(s.id, String(b.topic || '').slice(0, 20), Number(b.level) || null, question, String(b.answer || '').slice(0, 100), note, image, nowIso()),
     ...(hit.flag ? [env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) SELECT MAX(id), \'help\', 1 FROM help_requests WHERE student_id = ?').bind(s.id)] : []),
+    classSeenStmt(env, s.class_code),
   ]);
   return json({ ok: true }, 200, cors);
 }
@@ -626,18 +663,23 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings, , assignments, classExams] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.first_try) AS first, COUNT(DISTINCT a.day) AS days, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day >= ? GROUP BY a.student_id`, cls.code, weekStart),
     q('SELECT l.student_id, l.topic, l.level, l.max_level FROM levels l JOIN students s ON s.id = l.student_id WHERE s.class_code = ?', cls.code),
-    q(`SELECT a.topic, a.cat, COUNT(*) AS n, COUNT(DISTINCT a.student_id) AS students
+    // each repeated mistake, with the stair it happened on most this week (a tie: the lower one), so "מחר" can give
+    // practice on that stair (TEACHER-4 §5)
+    q(`SELECT a.topic, a.cat, COUNT(*) AS n, COUNT(DISTINCT a.student_id) AS students,
+         (SELECT a2.level FROM attempts a2 JOIN students s2 ON s2.id = a2.student_id
+          WHERE s2.class_code = ?1 AND a2.day >= ?2 AND a2.topic = a.topic AND a2.cat = a.cat
+          GROUP BY a2.level ORDER BY COUNT(*) DESC, a2.level LIMIT 1) AS level
        FROM attempts a JOIN students s ON s.id = a.student_id
-       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL GROUP BY a.topic, a.cat ORDER BY students DESC, n DESC LIMIT 12`, cls.code, weekStart),
-    q(`SELECT DISTINCT a.topic, a.cat, s.name FROM attempts a JOIN students s ON s.id = a.student_id
-       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL`, cls.code, weekStart),
+       WHERE s.class_code = ?1 AND a.day >= ?2 AND a.cat IS NOT NULL GROUP BY a.topic, a.cat ORDER BY students DESC, n DESC LIMIT 12`, cls.code, weekStart),
+    q(`SELECT DISTINCT a.topic, a.cat, s.id, s.name FROM attempts a JOIN students s ON s.id = a.student_id
+       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL ORDER BY s.name`, cls.code, weekStart),
     // kind 'help' or 'talk' and care 0/1 (trust spec TRUST-3 §3.5): a request with no help_meta row is a plain 'help', care 0
     q(`SELECT h.id, h.topic, h.level, h.question, h.answer, h.note, h.image IS NOT NULL AS has_image, h.created_at, h.seen_at, h.done_at, s.name,
        COALESCE(m.kind, 'help') AS kind, COALESCE(m.care, 0) AS care
@@ -649,6 +691,14 @@ async function dashboard(req, env, cors) {
     // the Ministry's AI rules for this class (trust spec TRUST-11 §3): the class's switch and each student's own
     q('SELECT so.student_id FROM student_ai_off so JOIN students s ON s.id = so.student_id WHERE s.class_code = ?', cls.code),
     classSettings(env, cls.code),
+    classSeenStmt(env, cls.code).run(),
+    // the open assignments with their counts (due in the last 7 days or later, soonest first), and the class exams done
+    // in the app, shown with the other exams (TEACHER-4 §5)
+    classAssignments(env, cls.code, { open: 7, limit: 10 }),
+    q(`SELECT w.assignment_id, w.student_id, s.name, a.title, w.right_n, w.asked, w.questions, w.done_at
+       FROM assignment_work w JOIN assignments a ON a.id = w.assignment_id JOIN students s ON s.id = w.student_id
+       WHERE a.class_code = ? AND a.kind = 'exam' AND w.state = 'done' AND s.class_code = a.class_code
+       ORDER BY w.done_at DESC LIMIT 200`, cls.code),
   ]);
   const aiOff = new Set(aiOffRows.map((r) => r.student_id));
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
@@ -666,8 +716,18 @@ async function dashboard(req, env, cors) {
       week: w[s.id] ? { n: w[s.id].n, first: w[s.id].first, days: w[s.id].days, minutes: Math.round((w[s.id].secs || 0) / 60) } : { n: 0, first: 0, days: 0, minutes: 0 },
       levels: lv[s.id] || {},
     })),
-    exams: examRows.map((e) => ({ id: e.id, studentId: e.student_id, name: e.name, title: e.title, correct: e.correct, total: e.total, weak: JSON.parse(e.weak || '[]'), questions: JSON.parse(e.questions || '[]'), at: e.created_at })),
-    mistakes: catRows.map((r) => ({ ...r, names: catStudents.filter((c) => c.topic === r.topic && c.cat === r.cat).map((c) => c.name) })),
+    exams: [
+      ...examRows.map((e) => ({ id: e.id, studentId: e.student_id, name: e.name, title: e.title, correct: e.correct, total: e.total, weak: JSON.parse(e.weak || '[]'), questions: JSON.parse(e.questions || '[]'), at: e.created_at })),
+      ...classExams.map((w) => ({
+        id: `a:${w.assignment_id}:${w.student_id}`, studentId: w.student_id, name: w.name, title: w.title, correct: w.right_n, total: w.asked,
+        weak: [], questions: JSON.parse(w.questions || '[]'), at: w.done_at, assignmentId: w.assignment_id,
+      })),
+    ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, 200),
+    mistakes: catRows.map((r) => {
+      const who = catStudents.filter((c) => c.topic === r.topic && c.cat === r.cat);
+      return { ...r, level: r.level == null ? null : Number(r.level), ids: who.map((c) => c.id), names: who.map((c) => c.name) };
+    }),
+    assignments,
     help,
   }, 200, cors);
 }
@@ -761,6 +821,10 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, cors);
   if (M === 'POST' && p === '/api/help') return askHelp(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/exams') return saveExam(req, env, cors);
+  // the teacher's assignments, as the student sees them (assignments.js)
+  if (M === 'GET' && p === '/api/class/work') return classWork(req, env, cors);
+  if (M === 'GET' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})\/exam$/))) return workExam(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})$/))) return postWork(m[1], req, env, cors);
   // teacher
   if (M === 'GET' && p === '/api/teacher/dashboard') return dashboard(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)$/))) return updateHelp(m[1], req, env, cors);
@@ -770,9 +834,20 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/ai') return setClassAi(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/ai$/))) return setStudentAi(m[1], req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/rename') return renameClass(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/delete') return deleteClass(req, env, cors);
+  if (M === 'GET' && p === '/api/teacher/assignments') return listAssignments(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/assignments') return createAssignment(req, env, cors);
+  if (M === 'GET' && (m = p.match(/^\/api\/teacher\/assignments\/([a-f0-9]{16})$/))) return getAssignment(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/assignments\/([a-f0-9]{16})$/))) return updateAssignment(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/assignments\/([a-f0-9]{16})\/delete$/))) return deleteAssignment(m[1], req, env, cors);
   if (M === 'GET' && p === '/api/teacher/licence') return licenceStatus(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/licence/request') return licenceRequest(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/teacher/licence/claim') return licenceClaim(req, env, cors);
+  // the teacher's account: the classes follow the email (teacherAccount.js)
+  if (M === 'GET' && p === '/api/teacher/classes') return myClasses(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/owner') return bindClass(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/rekey') return rekeyClass(req, env, ctx, cors);
   return json({ error: 'not_found' }, 404, cors);
 }
 

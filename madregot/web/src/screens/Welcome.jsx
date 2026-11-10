@@ -1,7 +1,7 @@
 import { hasContent } from '@/learn/content/index.ts';
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Check, Footprints, Target, Users, Repeat, Hand, ClipboardList } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowRight, Check, Footprints, Target } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { useApp, STORE_KEY } from '@/lib/store.js';
@@ -9,7 +9,7 @@ import { api, hasServer } from '@/lib/api.js';
 import { useAIStatus, refreshStatus } from '@/lib/account.js';
 import { Button, Field } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
-import { Flow } from '@/components/Screen.jsx';
+import { LoadingState } from '@/components/Screen.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { topicsFor } from '@/content/index.js';
 import { KNOW, placementMax } from '@/lib/placement.js';
@@ -28,15 +28,7 @@ const KNOW_SAMPLE = {
   8: ['y = 2x + 1', '3^2 + 4^2', '\\bar{x}:\\ 4, 6, 8', 'm = \\tfrac{8-2}{3-1}'],
 };
 
-export function GradeSwitch({ value, onChange, id }) {
-  return (
-    <div className="segmented" role="radiogroup" aria-labelledby={id}>
-      {[['7', 'כיתה ז׳'], ['8', 'כיתה ח׳']].map(([v, label]) => (
-        <button key={v} type="button" role="radio" aria-checked={value === v} className={clsx('seg', value === v && 'on')} onClick={() => onChange(v)}>{label}</button>
-      ))}
-    </div>
-  );
-}
+export { GradeSwitch } from '@/components/GradeSwitch.jsx';
 
 export async function joinClass({ code, name, pin }) {
   const r = await api(`/api/classes/${code.trim().toUpperCase()}/join`, { method: 'POST', body: { name, pin } });
@@ -245,104 +237,9 @@ function Onboarding({ onTeacher, onRestore }) {
   );
 }
 
-function TeacherStart({ onBack }) {
-  const setProfile = useApp((s) => s.setProfile);
-  const [mode, setMode] = useState('new');
-  const [step, setStep] = useState(0);
-  const [f, setF] = useState({ teacherName: '', className: '', grade: '7', code: '', key: '' });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-
-  if (!hasServer()) {
-    // This copy of the app runs without a server (a demo or a student-only site). Laid out like the onboarding
-    // (LAYOUT_SPEC A3/E3): back at the top, מדי says what the teacher view needs, what it gives and how a school turns
-    // it on, and one way on at the bottom.
-    return (
-      <div className="ob ob-flow teacher-off">
-        <header className="ob-top" data-region="header">
-          <button type="button" className="icon-btn" onClick={onBack} aria-label="חזרה"><ArrowRight size={26} aria-hidden="true" /></button>
-          <span className="ob-top-title">לוח המורה</span>
-        </header>
-        <main className="ob-main" data-region="content">
-          <div className="ob-ask" data-region="question">
-            <div className="ob-bubble"><h1 className="ob-bubble-title">לוח המורה עובד עם שרת הכיתה</h1></div>
-          </div>
-          <p className="teacher-off-lead">הכתובת הזו היא גרסת תרגול לתלמידים, בלי שרת. לוח המורה צריך שרת קטן של הכיתה (Cloudflare, בחינם), כדי שהתלמידים יוכלו להצטרף בקוד והמורה יראה את ההתקדמות.</p>
-          <section className="set-group" aria-labelledby="t-gives">
-            <h2 id="t-gives" className="set-head">מה המורה רואה</h2>
-            <ul className="teacher-off-list">
-              <li><Users size={20} aria-hidden="true" /><span><b>מי תרגל היום ובשבוע</b>וכמה תשובות נכונות בניסיון ראשון.</span></li>
-              <li><Repeat size={20} aria-hidden="true" /><span><b>טעויות שחוזרות בכיתה</b>לפי נושא, עם שמות התלמידים.</span></li>
-              <li><Hand size={20} aria-hidden="true" /><span><b>בקשות עזרה</b>עם התרגיל ודף המחברת של התלמיד.</span></li>
-              <li><ClipboardList size={20} aria-hidden="true" /><span><b>מבחנים שנבדקו</b>ריבוע לכל שאלה, ונושאים לחיזוק.</span></li>
-            </ul>
-          </section>
-          <section className="set-group" aria-labelledby="t-how">
-            <h2 id="t-how" className="set-head">איך מפעילים</h2>
-            <ol className="teacher-off-steps">
-              <li>פותחים חשבון חינמי ב־Cloudflare.</li>
-              <li>במחשב, בתיקייה <span dir="ltr">madregot</span>, מריצים את <span dir="ltr">setup.ps1</span>. הוא יוצר את מסד הנתונים ומעלה את האפליקציה עם השרת.</li>
-              <li>נכנסים מהכתובת שהסקריפט מדפיס, בוחרים "אני מורה" ופותחים כיתה. התלמידים מצטרפים עם הקוד.</li>
-            </ol>
-          </section>
-          <p className="muted">הפרטים המלאים, כולל חיבור עוזר ה־AI, נמצאים בקובץ README שבתיקייה.</p>
-        </main>
-        <footer className="ob-foot" data-region="footer">
-          <Button className="btn-block btn-lg" onClick={onBack}>לנסות את התרגול כתלמידים</Button>
-        </footer>
-      </div>
-    );
-  }
-
-  const submit = async () => {
-    if (step === 0) { setStep(1); setError(''); return; }
-    setError(''); setBusy(true);
-    try {
-      if (mode === 'new') {
-        if (!f.teacherName.trim() || !f.className.trim()) throw new Error('מלאו את השם שלכם ואת שם הכיתה.');
-        const r = await api('/api/classes', { method: 'POST', body: { teacherName: f.teacherName, className: f.className, grade: f.grade } });
-        const cls = { code: r.code, key: r.teacherKey, className: r.className, grade: r.grade, fresh: true };
-        setProfile({ role: 'teacher', name: r.teacherName, classes: [cls], active: cls.code });
-      } else {
-        const code = f.code.trim().toUpperCase();
-        const d = await api('/api/teacher/dashboard', { headers: { 'X-Class-Code': code, 'X-Teacher-Key': f.key.trim() } });
-        const cls = { code, key: f.key.trim(), className: d.class.name, grade: d.class.grade };
-        setProfile({ role: 'teacher', name: d.class.teacherName, classes: [cls], active: code });
-      }
-    } catch (err) { setError(err.message); } finally { setBusy(false); }
-  };
-  const can = step === 0 || (mode === 'new' ? f.teacherName.trim() && f.className.trim() : f.code.trim().length >= 4 && f.key.trim());
-
-  // The same one-question flow as the students' onboarding: which kind of start, then its details.
-  return (
-    <Flow className="teacher-flow" label="כניסת מורה" step={step} steps={2} onBack={() => (step ? setStep(0) : onBack())} onSubmit={() => can && !busy && submit()}
-      ask={step === 0 ? 'שלום! פותחים כיתה חדשה, או שכבר יש לכם כיתה?' : mode === 'new' ? 'איך קוראים לכם ולכיתה?' : 'מה הקוד של הכיתה והמפתח שלכם?'} mood={step === 0 ? 'excited' : 'idle'}
-      foot={<Button type="submit" className="btn-block btn-lg" disabled={!can || busy}>{busy ? 'רגע…' : step === 0 ? 'המשך' : mode === 'new' ? 'פתיחת הכיתה' : 'כניסה ללוח'}</Button>}>
-      {step === 0 ? (
-        <div className="ob-opts" role="radiogroup" aria-labelledby="flow-q" data-region="answers">
-          {[['new', 'כיתה חדשה', 'מקבלים קוד שהתלמידים מצטרפים איתו'], ['open', 'כבר יש לי כיתה', 'נכנסים עם קוד הכיתה ומפתח המורה']].map(([id, t, sub]) => (
-            <button key={id} type="button" role="radio" aria-checked={mode === id} className={clsx('ob-opt', mode === id && 'on')} onClick={() => setMode(id)}>
-              <span className="ob-opt-text"><b>{t}</b><span>{sub}</span></span>
-            </button>
-          ))}
-        </div>
-      ) : mode === 'new' ? (
-        <div className="ob-field" data-region="answers">
-          <Field label="השם שלכם (כך התלמידים יראו אותו)" id="t-name"><input id="t-name" className="input input-lg" value={f.teacherName} onChange={set('teacherName')} maxLength={30} placeholder="למשל: רונית כהן" /></Field>
-          <Field label="שם הכיתה" id="t-class"><input id="t-class" className="input input-lg" value={f.className} onChange={set('className')} maxLength={30} placeholder="למשל: ז׳3" /></Field>
-          <div className="field"><span className="field-label" id="t-grade">שכבה</span><GradeSwitch value={f.grade} onChange={(g) => setF({ ...f, grade: g })} id="t-grade" /></div>
-        </div>
-      ) : (
-        <div className="ob-field" data-region="answers">
-          <Field label="קוד כיתה" id="t-code"><input id="t-code" className="input input-lg mono" dir="ltr" value={f.code} onChange={set('code')} maxLength={6} /></Field>
-          <Field label="מפתח מורה" id="t-key" hint="קיבלתם אותו כשפתחתם את הכיתה."><input id="t-key" className="input input-lg mono" dir="ltr" value={f.key} onChange={set('key')} autoComplete="off" /></Field>
-        </div>
-      )}
-      {error && <p className="form-error" role="alert">{error}</p>}
-    </Flow>
-  );
-}
+// The teacher's way in (sign-in by email, the classes on any device, the key flow, and the public site's page) is its
+// own screen: screens/teacher/TeacherStart.jsx, loaded when a teacher asks for it.
+const TeacherStart = lazy(() => import('./teacher/TeacherStart.jsx'));
 
 /**
  * "יש לי קובץ גיבוי" on a new device (DURABLE-4): choose the file, see what it holds, continue from it. Once the
@@ -374,9 +271,17 @@ function RestoreStart({ onBack }) {
   );
 }
 
+/**
+ * The first screen with no profile: the student's onboarding, the teacher's way in, or a restore from a backup file. A
+ * link to the app with ?start=teacher (the public site's "ללוח המורה") or ?role=teacher (the landing pages) opens the
+ * teacher's way in.
+ */
 export default function Welcome() {
-  const [mode, setMode] = useState(null); // null: the first visit; 'teacher'; 'restore'
-  if (mode === 'teacher') return <TeacherStart onBack={() => setMode(null)} />;
+  const [params, setParams] = useSearchParams();
+  const asked = params.get('start') === 'teacher' || params.get('role') === 'teacher';
+  const [mode, setMode] = useState(asked ? 'teacher' : null); // null: the first visit; 'teacher'; 'restore'
+  const back = () => { setMode(null); if (asked) setParams({}, { replace: true }); };
   if (mode === 'restore') return <RestoreStart onBack={() => setMode(null)} />;
-  return <Onboarding onTeacher={() => setMode('teacher')} onRestore={() => setMode('restore')} />;
+  if (mode !== 'teacher' && !asked) return <Onboarding onTeacher={() => setMode('teacher')} onRestore={() => setMode('restore')} />;
+  return <Suspense fallback={<LoadingState />}><TeacherStart onBack={back} /></Suspense>;
 }

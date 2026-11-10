@@ -3,7 +3,7 @@
 // no student's own AI use and no sign of which family pays for its own plan.
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { api, teacherHeaders } from '@/lib/api.js';
+import { teacherApi } from '@/lib/teacher.js';
 import { formatAgorot, vatLine, dateNum } from '@/lib/price.js';
 import { Button, Field } from '@/components/ui.jsx';
 import LicenceSheet from './LicenceSheet.jsx';
@@ -18,7 +18,7 @@ function CodeForm({ cls, onDone }) {
   const go = async (e) => {
     e.preventDefault(); setError(''); setBusy(true);
     try {
-      const r = await api('/api/teacher/licence/claim', { method: 'POST', body: { code }, headers: teacherHeaders(cls), auth: false });
+      const r = await teacherApi('/api/teacher/licence/claim', { method: 'POST', body: { code } }, cls);
       toast.success(`הרישיון הופעל עד ${dateNum(r.until)}`); setCode(''); onDone();
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   };
@@ -39,7 +39,7 @@ export default function LicenceCard({ cls }) {
   const [sheet, setSheet] = useState(null); // 'trial' | 'quote' | 'buy'
   const [codeOpen, setCodeOpen] = useState(false);
   const load = useCallback(async () => {
-    try { setLic(await api('/api/teacher/licence', { headers: teacherHeaders(cls), auth: false })); setError(''); } catch (e) { setError(e.message); }
+    try { setLic(await teacherApi('/api/teacher/licence', {}, cls)); setError(''); } catch (e) { setError(e.message); }
   }, [cls]);
   useEffect(() => { setLic(null); load(); }, [load]);
   if (!lic) return error ? <section id="t-licence" className="card licence-card"><p className="form-error" role="alert">{error}</p></section> : null;

@@ -9,7 +9,8 @@
 // mergeDevices(local, remote): two devices of one student (a restore from a file now; the vault and class restores
 // later). They share no base this device keeps, so nothing is added: every counter takes the larger value and every
 // log is joined, so a merge never lowers anything and merging the same copy twice changes nothing. This device's
-// settings and its device-only slices (the tutor, the class outbox, the save settings, the backup) always stay.
+// settings and its device-only slices (the tutor, the class outbox, the save settings, the backup, the class work)
+// always stay.
 //
 // In both, a reset on purpose (resetAt) wins every progress field whole: a sync must not bring old progress back.
 import { sumXp } from './xp.js';
@@ -22,8 +23,12 @@ export const PRACTICE_EXAMS_KEEP = 20;
 /** A class student's answers waiting for the server, at most (the oldest give way first). */
 export const OUTBOX_KEEP = 1000;
 
-/** Never taken from another device: they describe this device, not the student's progress. */
-export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup'];
+/**
+ * Never taken from another device: they describe this device, not the student's progress. The teacher's class work
+ * (classWork, the last copy fetched with this device's class token) and its reports waiting for the server (workOutbox)
+ * are this device's like the answers' outbox: the class server has the truth, and the app fetches it again.
+ */
+export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox'];
 /** This device's settings: a restore never changes them. */
 export const SETTINGS = ['sound', 'goalXp', 'solveMode', 'helpSent'];
 /** What a reset on purpose clears (store.js resetProgress): the side with the later reset gives all of it. */

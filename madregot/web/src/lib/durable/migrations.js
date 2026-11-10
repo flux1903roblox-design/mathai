@@ -13,13 +13,15 @@
 //           under the wrong name is moved to the mistake it really showed.
 //   v4 → v5: XP becomes a per-device counter (xpBy, this device's tag), with room for a deliberate reset (resetAt), the
 //           save prompts (durable) and the backup settings (backup).
+//   v5 → v6 (class work from the teacher, TEACHER-5): the last class work fetched (classWork) and the reports waiting
+//           for the server (workOutbox). A save that has them already keeps them.
 // Fields this module does not know are kept as they are, so a field another part of the app adds survives.
 import { emptyLearn, migrateLearn, relabelLegacyEvidence } from '@/learn/storeGlue.ts';
 import { migratePath } from '../path.js';
 import { newTag as makeNewTag, sumXp, TAG } from './xp.js';
 import { validateState } from './validate.js';
 
-export const CURRENT_VERSION = 5;
+export const CURRENT_VERSION = 6;
 
 /**
  * The tutor on this device: the server (or a personal key, only in builds with VITE_ALLOW_PERSONAL_KEY=1), an anonymous
@@ -32,6 +34,14 @@ export const AI_DEFAULTS = Object.freeze({ mode: 'server', apiUrl: '', key: '', 
 export const DURABLE_DEFAULTS = Object.freeze({ tag: null, persistAsked: null, installHintAt: null, nudgeAt: null, nudgeCount: 0, escrowClass: true });
 /** The backup of this student's progress: off until the student or a parent turns it on. */
 export const BACKUP_DEFAULTS = Object.freeze({ on: false, code: null, lookup: null, rev: null, at: null, hash: null, escrow: null, undoUntil: null, forcePush: false });
+
+/**
+ * Nothing from a teacher yet (and after leaving the class): the last GET /api/class/work of a class student (lib/classWork.js).
+ * A new object each time: the store keeps it and replaces it whole.
+ */
+export function emptyClassWork() {
+  return { at: null /* iso of the last fetch */, today: null, teacherName: '', assignments: [], help: [], exams: {} /* assignmentId -> frozen items */, seenAt: null /* the last opening of /quests */, noticed: {} /* help messageId -> true */ };
+}
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -89,6 +99,15 @@ export const MIGRATIONS = [
         backup: { ...BACKUP_DEFAULTS, ...(isObj(st.backup) ? st.backup : {}) },
       };
     },
+  },
+  {
+    to: 6,
+    // the teacher's class work (TEACHER-5); what an older build wrote back under v5 is kept, its missing parts added
+    up: (st) => ({
+      ...st,
+      classWork: { ...emptyClassWork(), ...(isObj(st.classWork) ? st.classWork : {}) },
+      workOutbox: isObj(st.workOutbox) ? st.workOutbox : {},
+    }),
   },
 ];
 

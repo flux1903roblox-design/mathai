@@ -6,7 +6,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const schema = read('../schema.sql');
-// Every migration, in name order, as wrangler applies them. A lane that adds a file needs no change here.
+// Every migration, in name order, as wrangler applies them. A lane that adds a file needs no change here (apart from the
+// name list in the test below).
 const MIGRATIONS = readdirSync(new URL('../migrations/', import.meta.url)).filter((f) => /^\d{4}_[a-z0-9_]+\.sql$/.test(f)).sort()
   .map((name) => ({ name, sql: read(`../migrations/${name}`) }));
 const m0 = read('../migrations/0000_base.sql');
@@ -34,6 +35,14 @@ test('schema.sql runs twice without error', () => {
   assert.ok(objects(db).length > 30);
 });
 
+test('each migration has its own number (two lanes that took the same one must renumber), and nothing else is in the folder', () => {
+  const all = readdirSync(new URL('../migrations/', import.meta.url));
+  const names = MIGRATIONS.map((m) => m.name);
+  assert.deepEqual(all.filter((f) => !names.includes(f)), [], 'only NNNN_name.sql files');
+  const numbers = names.map((f) => f.slice(0, 4));
+  assert.equal(new Set(numbers).size, numbers.length, `a number is used twice: ${numbers.join(', ')}`);
+});
+
 // What a later migration adds to a table of 0000_base: SQLite writes an ALTER's column as ", <coldef>" before the table's
 // closing parenthesis (schema.sql says the same), and its new indexes are the same lines in both files.
 const ALTERS_BASE = MIGRATIONS.filter((m) => m.name >= '0003' && /^ALTER TABLE /m.test(m.sql)).map((m) => m.sql);
@@ -41,7 +50,7 @@ const withoutAlters = (sql) => sql.replace(/\n, [^\n]*\);/g, '\n);').split('\n')
   .filter((line) => !(line.startsWith('CREATE ') && ALTERS_BASE.some((m) => m.includes(line)))).join('\n');
 
 test('every migration, in name order, on an empty database gives the same tables and indexes as schema.sql', () => {
-  assert.deepEqual(MIGRATIONS.slice(0, 5).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql']);
+  assert.deepEqual(MIGRATIONS.slice(0, 6).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql']);
   assert.equal(new Set(MIGRATIONS.map((m) => m.name.slice(0, 4))).size, MIGRATIONS.length, 'each migration number is used once');
   const a = new DatabaseSync(':memory:'); a.exec(schema);
   const b = new DatabaseSync(':memory:'); for (const m of MIGRATIONS) b.exec(m.sql);

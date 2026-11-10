@@ -12,7 +12,7 @@ import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
 import { completeMissionItems } from '@/learn/mission.ts';
 import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
 import { randomHex } from './random.js';
-import { migrate, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS } from './durable/migrations.js';
+import { migrate, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS, emptyClassWork } from './durable/migrations.js';
 import { addXp, newTag } from './durable/xp.js';
 import { durableStorage, bindDurableStore, STORE_KEY } from './durable/storage.js';
 import { EXAMS_KEEP, PRACTICE_EXAMS_KEEP, OUTBOX_KEEP } from './durable/merge.js';
@@ -20,8 +20,14 @@ import { EXAMS_KEEP, PRACTICE_EXAMS_KEEP, OUTBOX_KEEP } from './durable/merge.js
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
 
+/** Nothing from a teacher yet (and after leaving the class): the class work slice (its shape: durable/migrations.js). */
+export { emptyClassWork };
+
 const empty = {
-  profile: null, // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? } | { role: 'teacher', name, classes: [], active }
+  // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? }
+  // | { role: 'teacher', name, grade, classes: [{ code, key: string|null, className, grade, owned?: boolean, fresh?: boolean, bindLater?: 'YYYY-MM-DD', pilot?: {...} }], active, demo?: true }
+  // A teacher's email is never kept here: it is read from the signed-in session (lib/parent.js).
+  profile: null,
   progress: {}, // topicId -> { level, max }
   days: {}, // 'YYYY-MM-DD' -> { q, ok, secs, lessons, stages (teaching stages finished), xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
   xp: 0, // always the sum of xpBy: every XP write goes through addXp (lib/durable/xp.js)
@@ -50,6 +56,10 @@ const empty = {
   gaps: {}, // 'topic:cat' (or 'topic:exam:skill') -> { level, n, ok, at, text? }: what is not clear yet; clears after GAP_CLEAR right answers at that level
   placement: null, // { at, grade, results: { topic: { level, asked, right } } }
   learn: emptyLearn(), // Madregot 2.0: skills (evidence, mastery, reviews), misconceptions, exam plan, missions, events (src/learn/types.ts)
+  // the teacher's work for a student in a class (TEACHER-5, lib/classWork.js): the last GET /api/class/work, kept so it
+  // shows offline too; when the student last opened the missions tab; and the reports not yet confirmed by the server
+  classWork: emptyClassWork(),
+  workOutbox: {}, // assignmentId -> the newest report waiting for the server (merged with learn/assignments.ts mergeWork)
 };
 
 /** A class student's answers waiting for the server, at most (the oldest give way first). */
@@ -78,6 +88,12 @@ export const appState = (set, get) => ({
       ...empty,
       setProfile: (profile) => set({ profile }),
       patchProfile: (patch) => set({ profile: { ...get().profile, ...patch } }),
+      /** The teacher opens another of their classes: the board and the student screens follow its grade. */
+      setActiveClass: (code) => {
+        const p = get().profile;
+        const cls = p?.role === 'teacher' ? p.classes?.find((c) => c.code === code) : null;
+        if (cls) set({ profile: { ...p, active: cls.code, ...(cls.grade ? { grade: cls.grade } : {}) } });
+      },
       setAI: (patch) => set({ ai: { ...get().ai, ...patch } }),
       setSolveMode: (solveMode) => set({ solveMode }),
       addExam: (exam) => set({ exams: [exam, ...get().exams].slice(0, EXAMS_KEEP), gaps: gapsFromExam(get().gaps, exam) }),
@@ -235,7 +251,7 @@ export const appState = (set, get) => ({
       leaveClass: () => {
         const p = get().profile; if (!p) return;
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
-        set({ profile: rest, outbox: [] });
+        set({ profile: rest, outbox: [], classWork: emptyClassWork(), workOutbox: {} });
       },
       // a reset on purpose: its time travels with the progress, so a later merge cannot bring the old progress back
       resetProgress: () => set({ progress: {}, days: {}, xp: 0, xpBy: {}, resetAt: new Date().toISOString(), mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
@@ -245,7 +261,7 @@ export const appState = (set, get) => ({
       signOut: () => {
         const { persistAsked, installHintAt } = get().durable || {};
         set({
-          ...empty, xpBy: {}, learn: emptyLearn(), ai: { ...get().ai, pendingLink: null, lastTier: null },
+          ...empty, xpBy: {}, learn: emptyLearn(), classWork: emptyClassWork(), workOutbox: {}, ai: { ...get().ai, pendingLink: null, lastTier: null },
           durable: { ...DURABLE_DEFAULTS, persistAsked: persistAsked ?? null, installHintAt: installHintAt ?? null, tag: newTag() }, backup: { ...BACKUP_DEFAULTS },
           // a sign-out clears the progress on purpose, like a reset: another tab still open cannot bring it back
           resetAt: new Date().toISOString(),

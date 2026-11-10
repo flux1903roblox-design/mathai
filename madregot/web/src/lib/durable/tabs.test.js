@@ -10,6 +10,7 @@ import { includes, joinSeen, pruneSeen, seenOf, tabAction, listenTabs, SEEN_WIND
 import { memoryLocalStorage } from './testing.js';
 import { appState, persistOptions, today } from '../store.js';
 import { emptyLearn } from '@/learn/storeGlue.ts';
+import { CURRENT_VERSION } from './migrations.js';
 
 const KEY = 'madregot';
 const REV = `${KEY}:rev`;
@@ -17,7 +18,7 @@ const tick = () => new Promise((r) => { setTimeout(r, 0); });
 const saved = (ls) => JSON.parse(ls.getItem(KEY));
 const lesson = { topic: 'signed', level: 1, xp: 10, kind: 'node' }; // a practice lesson on a stair
 
-/** The save both tabs start from: a student at revision 5, written by an earlier page. */
+/** The save both tabs start from: a student at revision 5, written by an earlier page at the current version. */
 function seed(ls) {
   const state = {
     profile: { role: 'student', name: 'נועה', grade: '7' }, progress: {}, days: {}, xp: 40, xpBy: { a1b2c3d4: 40 }, resetAt: null,
@@ -25,7 +26,7 @@ function seed(ls) {
     durable: { tag: 'a1b2c3d4' }, backup: { on: false }, helpSent: 0, solveMode: 'answer', exams: [], practiceExams: [],
     planBase: {}, wins: {}, gaps: {}, placement: null, learn: emptyLearn(),
   };
-  ls.setItem(KEY, JSON.stringify({ state, version: 5, meta: { rev: 5, at: '2026-11-05T08:00:00.000Z', tab: 'seed0000', parent: { rev: 4, tab: 'seed0000' }, keyAt: {}, seen: { seed0000: 5 }, app: 'test' } }));
+  ls.setItem(KEY, JSON.stringify({ state, version: CURRENT_VERSION, meta: { rev: 5, at: '2026-11-05T08:00:00.000Z', tab: 'seed0000', parent: { rev: 4, tab: 'seed0000' }, keyAt: {}, seen: { seed0000: 5 }, app: 'test' } }));
   ls.setItem(REV, '5 seed0000');
 }
 

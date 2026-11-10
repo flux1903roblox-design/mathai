@@ -30,6 +30,8 @@ function useReveal(dep) {
  */
 function AiOffline() {
   const inClass = useApp((s) => !!s.profile?.token);
+  // a teacher's assistant (TEACHER-2) runs through the class's server too: when it does not answer, the way on is the board
+  const teacher = useApp((s) => s.profile?.role === 'teacher');
   const FEATURES = [
     { icon: MessageCircle, title: 'שיחה עם העוזר החכם', text: 'שואלים כל שאלה, ומקבלים הסבר צעד אחר צעד.' },
     { icon: Camera, title: 'בדיקת פתרון מצולם', text: 'מצלמים את הדרך מהמחברת, והעוזר מסמן כל שלב.' },
@@ -44,7 +46,7 @@ function AiOffline() {
           <Mascot mood="encouraging" size={44} className="chat-avatar" />
           <div className="chat-bubble">
             <h2 id="ai-off-title" className="chat-bubble-title">העוזר עוד לא מחובר</h2>
-            <p>{inClass ? 'השרת של הכיתה לא עונה כרגע. כדאי לנסות שוב בעוד כמה דקות.' : 'בגרסה הזו העוזר כבוי. השיעורים, המפה והמשימות עובדים גם בלעדיו.'}</p>
+            <p>{inClass || teacher ? 'השרת של הכיתה לא עונה כרגע. כדאי לנסות שוב בעוד כמה דקות.' : 'בגרסה הזו העוזר כבוי. השיעורים, המפה והמשימות עובדים גם בלעדיו.'}</p>
           </div>
         </div>
         <div className="chat-msg">
@@ -63,9 +65,10 @@ function AiOffline() {
         <label htmlFor="ai-off-input" className="visually-hidden">הודעה לעוזר</label>
         <input id="ai-off-input" className="input" disabled placeholder="העוזר עוד לא מחובר" />
         <div className="ai-offline-actions">
-          <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>
-          {!inClass && <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>}
-          <SupportLink className="ai-offline-support" />
+          {teacher ? <Link to="/teacher" className="btn btn-primary btn-block">חזרה ללוח</Link> : <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>}
+          {!inClass && !teacher && <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>}
+          {/* the support card is for a student; a teacher's assistant leads back to the board */}
+          {!teacher && <SupportLink className="ai-offline-support" />}
         </div>
       </div>
     </section>
@@ -218,7 +221,11 @@ function Generate({ initialTopic, initialLevel }) {
   );
 }
 
-export default function Assistant() {
+/**
+ * The tutor's screen. A student opens it from the tab bar; the teacher's assistant (screens/teacher/TeacherAssistant.jsx)
+ * gives it its own bar (`head`, with the way back to the board) and a note above the conversation (`lead`).
+ */
+export default function Assistant({ head = null, lead = null, className }) {
   const [params, setParams] = useSearchParams();
   // the photo check and new exercises are tools of the same conversation: each opens over it as a sheet
   const [tool, setTool] = useState(params.get('generate') ? 'generate' : null);
@@ -248,15 +255,18 @@ export default function Assistant() {
   // A conversation (LAYOUT_SPEC B3): the bar with the title, מדי's messages, and the input docked at the bottom with
   // the starters and the two tools above it. One screen, one way in: no tabs.
   return (
-    <div className="page assistant-page">
-      <header className="screen-bar" data-region="header">
-        <span className="icon-btn-spacer" aria-hidden="true" />
-        <h1 className="screen-bar-title">עוזר AI</h1>
-        <span className="icon-btn-spacer" aria-hidden="true" />
-      </header>
+    <div className={clsx('page assistant-page', className)}>
+      {head || (
+        <header className="screen-bar" data-region="header">
+          <span className="icon-btn-spacer" aria-hidden="true" />
+          <h1 className="screen-bar-title">עוזר AI</h1>
+          <span className="icon-btn-spacer" aria-hidden="true" />
+        </header>
+      )}
+      {lead}
       {!ready ? <AiOffline /> : (
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
-          {!off && <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>}
+          {!off && <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode || profile?.role === 'teacher' ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>}
           {off ? (
             <AIChat context={{ grade }} introTitle={off.title} intro={off.text[0]} restLine={null} />
           ) : (

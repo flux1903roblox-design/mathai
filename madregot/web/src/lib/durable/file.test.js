@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { resolveObjectURL } from 'node:buffer';
 import { exportBackup, importBackup, backupName, backupJson, FILE_ERRORS, SHARE_TITLE, SHARE_TEXT, BACKUP_MAX_BYTES } from './file.js';
 import { snapshotForBackup } from './payload.js';
-import { migrate } from './migrations.js';
+import { migrate, CURRENT_VERSION } from './migrations.js';
 import { validateState } from './validate.js';
 import { sumXp } from './xp.js';
 import { heavyYear } from './testing.js';
@@ -49,7 +49,7 @@ describe('saving the file', () => {
     expect({ title, text }).toEqual({ title: SHARE_TITLE, text: SHARE_TEXT });
     expect(doc.downloads).toEqual([]);
     const data = JSON.parse(await files[0].text());
-    expect(data).toMatchObject({ app: 'madregot', kind: 'backup', v: 1, at: NOW.toISOString(), schema: 5 });
+    expect(data).toMatchObject({ app: 'madregot', kind: 'backup', v: 1, at: NOW.toISOString(), schema: CURRENT_VERSION });
     expect(typeof data.release).toBe('string');
   });
 
@@ -70,10 +70,10 @@ describe('saving the file', () => {
     await exportBackup(st, { nav: {}, doc, now: NOW });
     const back = await importBackup(doc.downloads[0].blob);
     expect(back.ok).toBe(true);
-    const { ai, outbox, durable, backup, setSound, ...rest } = st; // eslint-disable-line no-unused-vars
+    const { ai, outbox, durable, backup, classWork, workOutbox, setSound, ...rest } = st; // eslint-disable-line no-unused-vars
     const { token, studentId, ...profile } = st.profile; // eslint-disable-line no-unused-vars
     expect(back.state).toEqual({ ...rest, profile });
-    for (const k of ['ai', 'outbox', 'durable', 'backup']) expect(back.state[k]).toBeUndefined();
+    for (const k of ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox']) expect(back.state[k]).toBeUndefined();
     expect(back.at).toBe(NOW.toISOString());
     expect(validateState(back.state)).toEqual([]);
   });

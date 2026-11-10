@@ -1,9 +1,10 @@
-// Saved data from every earlier version reaches v5 sound (DURABLE-1): frozen synthetic saves of v1, v2, v3 and v4, plus
+// Saved data from every earlier version reaches the current version (v6) sound (DURABLE-1): frozen synthetic saves of
+// v1, v2, v3 and v4, plus
 // a heavy year made from a seed (durable/testing.js). Each one validates after migrating, migrating twice changes
 // nothing, the XP counter adds up, an unknown field survives, and the v1→v4 steps give exactly what the code before
 // this module gave (its migrateState is kept below as the reference).
 import { describe, it, expect, vi } from 'vitest';
-import { migrate, MIGRATIONS, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS } from './migrations.js';
+import { migrate, MIGRATIONS, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS, emptyClassWork } from './migrations.js';
 import { validateState } from './validate.js';
 import { sumXp, TAG } from './xp.js';
 import { deepFreeze, heavyYear } from './testing.js';
@@ -36,16 +37,17 @@ function legacyMigrateState(saved, version, { personal = false } = {}) {
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const TAG1 = 'a1b2c3d4';
 const fixed = { newTag: () => TAG1 };
-const V5_ONLY = ['xpBy', 'resetAt', 'durable', 'backup'];
+// what the v5 step (family) and the v6 step (the teacher's class work) add
+const V5_ONLY = ['xpBy', 'resetAt', 'durable', 'backup', 'classWork', 'workOutbox'];
 const withoutV5 = (st) => Object.fromEntries(Object.entries(st).filter(([k]) => !V5_ONLY.includes(k) && k !== 'xp'));
 
 const FIXTURES = { v1, v2, v3, v4, heavy: heavyYear() };
 Object.values(FIXTURES).forEach(deepFreeze);
 
-describe('every saved version reaches v5 sound', () => {
+describe('every saved version reaches v6 sound', () => {
   it('the steps are in order and end at the current version', () => {
-    expect(MIGRATIONS.map((m) => m.to)).toEqual([2, 3, 4, 5]);
-    expect(CURRENT_VERSION).toBe(5);
+    expect(MIGRATIONS.map((m) => m.to)).toEqual([2, 3, 4, 5, 6]);
+    expect(CURRENT_VERSION).toBe(6);
   });
 
   for (const [name, f] of Object.entries(FIXTURES)) {
@@ -119,6 +121,24 @@ describe('what each step keeps', () => {
     const out = migrate(v4.state, 4, fixed);
     expect(out.path).toEqual(v4.state.path);
     expect(out.learn).toEqual(v4.state.learn);
+  });
+  // the school lane's step (its own v5 before the lanes were merged): class work from the teacher
+  it('a v5 save gets an empty classWork and workOutbox, and keeps the rest', () => {
+    const v5 = migrate(v4.state, 4, fixed);
+    const { classWork, workOutbox, ...rest } = v5; // eslint-disable-line no-unused-vars
+    const out = migrate(rest, 5, fixed);
+    expect(out.classWork).toEqual({ at: null, today: null, teacherName: '', assignments: [], help: [], exams: {}, seenAt: null, noticed: {} });
+    expect(out.classWork).toEqual(emptyClassWork());
+    expect(out.workOutbox).toEqual({});
+    expect(out).toEqual({ ...rest, classWork: emptyClassWork(), workOutbox: {} });
+  });
+  it('class work an older build wrote back under v5 is kept, with its missing parts added', () => {
+    const cw = { at: '2026-11-09T08:00:00.000Z', teacherName: 'רונית', assignments: [{ id: 'a1b2c3d4e5f60718' }] };
+    const box = { a1b2c3d4e5f60718: { state: 'started', stage: 1 } };
+    const out = migrate({ ...migrate(v4.state, 4, fixed), classWork: cw, workOutbox: box }, 5, fixed);
+    expect(out.classWork).toEqual({ ...emptyClassWork(), ...cw });
+    expect(out.workOutbox).toEqual(box);
+    expect(migrate(out, 5, fixed)).toEqual(out);
   });
 });
 

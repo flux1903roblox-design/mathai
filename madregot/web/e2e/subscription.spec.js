@@ -417,8 +417,12 @@ test.describe('the smart tutor', () => {
     await shot(page, 'licence-card');
     await card.getByRole('button', { name: 'הצעת מחיר לבית הספר' }).click();
     const sheet = page.getByRole('dialog', { name: 'הצעת מחיר לבית הספר' });
+    // the staff-room computer: the sign-in lasts for this tab only
+    await sheet.getByRole('checkbox', { name: /מחשב משותף/ }).check();
+    await shot(page, 'licence-signin-shared');
     await signIn(sheet);
     await sheet.getByLabel('שם בית הספר').fill('חטיבת הביניים <הדר>');
+    expect(await page.evaluate(() => [!!sessionStorage.getItem('madregot-parent'), localStorage.getItem('madregot-parent')])).toEqual([true, null]);
     await sheet.getByLabel('כמה תלמידים בכיתה').fill('32');
     await shot(page, 'licence-request');
     await sheet.getByRole('button', { name: 'שליחה' }).click();
@@ -515,8 +519,7 @@ test.describe('the smart tutor', () => {
     const { st, log } = await fakeServer(page, { parentOk: true, classes: [lic], classPayments: [{ id: 'p000000000000009', subscriptionId: 'c1a0000000000001', planKind: 'class', at: '2026-11-05T09:00:00Z', amountAgorot: 58800, kind: 'charge', hasInvoice: true }] }, baseOf());
     st.sessions.add(TOKEN(7));
     await open(page, '#/parents', teacher(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(7), email: 'teacher@example.test' }) } });
-    // (a session in localStorage on a device with a profile is not used: this device signs in again)
-    await signIn(page);
+    // a teacher's device keeps the teacher's session (it is what opens a class bound to the email): no new code
     const card = page.locator('section', { has: page.getByRole('heading', { name: /רישיון הכיתה K7Q2MD פעיל עד 05\.11\.2027/ }) });
     await expect(card).toBeVisible();
     await expect(card.getByText('12 מקומות')).toBeVisible();
@@ -529,6 +532,38 @@ test.describe('the smart tutor', () => {
     await expect(page.getByText('ביטלתם את רישיון הכיתה. שלחנו אישור למייל. מספר אישור: C-1B00.')).toBeVisible();
     expect(log.find((r) => r.path === '/api/billing/cancel').body).toEqual({ subscriptionId: 'c1a0000000000001', mode: 'refund_now' });
     await expect(page.getByRole('heading', { name: /רישיון הכיתה K7Q2MD/ })).toHaveCount(0);
+  });
+
+  test('a class bound to the teacher\'s email opens with the session, with no key on this device; leaving the board ends the session', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { owned: true }, baseOf());
+    st.sessions.add(TOKEN(5));
+    const profile = { role: 'teacher', name: 'רונית', grade: '7', classes: [{ code: 'K7Q2MD', key: null, className: 'ז׳3', grade: '7', owned: true }], active: 'K7Q2MD' };
+    await open(page, '#/teacher', withServer({ profile }), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(5), email: 'teacher@example.test', shared: false }) } });
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    await expect(page.locator('#t-licence').getByRole('heading', { name: 'העוזר החכם בכיתה' })).toBeVisible();
+    await shot(page, 'teacher-board-by-email');
+    const teacherCalls = log.filter((r) => r.path.startsWith('/api/teacher/') || r.path === '/api/ai/status');
+    expect(teacherCalls.length).toBeGreaterThan(1);
+    for (const r of teacherCalls) {
+      expect(r.headers['x-class-code']).toBe('K7Q2MD');
+      expect(r.headers['x-account-token']).toBe(TOKEN(5));
+      expect(r.headers['x-teacher-key']).toBeUndefined();
+    }
+    // the session survives a reload
+    await page.reload();
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    // the account page: deleting the account would leave the class in place
+    await page.goto('./#/parents');
+    await page.getByRole('button', { name: 'מחיקת החשבון' }).click();
+    await expect(page.getByRole('dialog', { name: 'למחוק את החשבון?' }).getByText('הכיתות שלכם לא נמחקות עם החשבון, והן ימשיכו להיפתח עם מפתח המורה. כדי למחוק כיתה: לוח המורה › הגדרות הכיתה › מחיקת הכיתה.')).toBeVisible();
+    await shot(page, 'account-delete-owned-classes');
+    await page.getByRole('button', { name: 'לא למחוק' }).click();
+    await page.goto('./#/teacher');
+    await page.getByRole('button', { name: 'יציאה מהלוח' }).click();
+    await page.getByRole('dialog', { name: 'לצאת מהלוח?' }).getByRole('button', { name: 'כן, לצאת' }).click();
+    await expect.poll(() => log.filter((r) => r.path === '/api/account/signout').map((r) => r.headers['x-account-token'])).toEqual([TOKEN(5)]);
+    expect(st.sessions.has(TOKEN(5))).toBe(false);
+    await expect.poll(() => page.evaluate(() => [localStorage.getItem('madregot-parent'), sessionStorage.getItem('madregot-parent')])).toEqual([null, null]);
   });
 
   test('the licence card: an ending licence offers only the renewal quote; a trial takes a school licence code', async ({ page }) => {

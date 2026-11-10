@@ -1,6 +1,7 @@
 import { useApp, toWire } from './store.js';
 import { keepaliveBudget, bodyBytes } from './durable/moments.js';
 import { randomHex } from './random.js';
+import { flushWork, fetchClassWork } from './classWork.js';
 
 /**
  * The Worker's address: Settings override, else the one baked in at build time.
@@ -90,10 +91,17 @@ const MESSAGES = {
   school_ai_not_approved: 'רישיון עם עוזר חכם לתלמידים בבית ספר אפשר לקנות אחרי האישור בקטלוג. בינתיים אפשר לבקש הצעת מחיר.',
   private_attest_required: 'כדי לבחור קבוצה פרטית צריך לאשר שהיא לא פועלת במסגרת בית ספר.',
   bad_licence_code: 'קוד הרישיון לא נכון, פג או כבר נוצל.',
+  owned_by_other: 'הכיתה הזו כבר מקושרת לחשבון אחר. אם זו טעות, כתבו לנו.',
+  not_owner: 'את זה יכול לעשות רק מי שהכיתה מקושרת למייל שלו.',
+  too_many_classes_owned: 'אפשר לקשר עד 20 כיתות לחשבון אחד. כתבו לנו אם צריך יותר.',
+  too_many_lists: 'ביקשתם את רשימת הכיתות הרבה פעמים בשעה האחרונה. נסו שוב בעוד שעה.',
   request_open: 'כבר שלחתם בקשה כזו. נחזור אליכם במייל.',
   too_many_requests: 'נשלחו היום הרבה בקשות מהכיתה הזו. נסו שוב מחר.',
   bad_request: 'משהו בפרטים לא תקין. בדקו ונסו שוב.',
   too_many_lookups: 'היו היום הרבה בדיקות קוד כיתה מהרשת הזו. נסו שוב מחר.',
+  // class work (TEACHER-4)
+  bad_assignment: 'משהו בפרטי המשימה לא תקין. בדקו את התאריך ואת המדרגה.',
+  too_many_assignments: 'נוצרו היום הרבה משימות בכיתה הזו. אפשר להמשיך מחר.',
   // other
   bot_check: 'לא הצלחנו לאשר את המכשיר. נסו שוב.',
   server_config: 'השרת עוד לא הוגדר עד הסוף.',
@@ -117,10 +125,17 @@ const MESSAGES = {
   monthly_fair_use: 'הבדיקות של החודש נגמרו. הן חוזרות ב־1 בחודש.',
   too_large: 'הקובץ גדול מדי. נסו תמונה קטנה יותר.',
 };
-export const errorText = (code) => MESSAGES[code] || 'משהו השתבש. נסו שוב.';
+/**
+ * A code the server uses for two things, told apart by the status: too_many_open is 429 for a student's help requests
+ * and 409 for a class's open assignments.
+ */
+const BY_STATUS = {
+  'too_many_open:409': 'יש כבר 20 משימות פתוחות בכיתה. אפשר למחוק משימות ישנות ולנסות שוב.',
+};
+export const errorText = (code, status) => BY_STATUS[`${code}:${status}`] || MESSAGES[code] || 'משהו השתבש. נסו שוב.';
 
 export class ApiError extends Error {
-  constructor(code, status, data = {}) { super(errorText(code)); this.code = code; this.status = status; this.data = data; }
+  constructor(code, status, data = {}) { super(errorText(code, status)); this.code = code; this.status = status; this.data = data; }
 }
 
 /**
@@ -149,7 +164,16 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
   return data;
 }
 
-export const teacherHeaders = (cls) => ({ 'X-Class-Code': cls.code, 'X-Teacher-Key': cls.key });
+/**
+ * The server's GET /api/health, asked once per visit: what it is set up for (email codes, the tutor, checkout). null
+ * with no server, or when it does not answer (asked again next time).
+ */
+let health = null;
+export function serverHealth() {
+  if (!hasServer()) return Promise.resolve(null);
+  health ||= api('/api/health', { auth: false }).catch(() => { health = null; return null; });
+  return health;
+}
 
 /** At most this many answers in one request (the server takes 500), and this many requests in one sync. */
 export const SYNC_BATCH = 300;
@@ -161,7 +185,8 @@ const SYNC_ROUNDS = 5;
  * batch), so a lost request, a closed page or an answer given meanwhile loses nothing; the server ignores an answer it
  * already has. `hidden`: the page is going out of view, so a batch is sent with keepalive when this page and the server
  * share an address and the bytes fit the hidden moment's budget. `levels`: send the levels even with no answers waiting
- * (just after joining a class, so the teacher sees where the student stands).
+ * (just after joining a class, so the teacher sees where the student stands). Then the reports of the teacher's work
+ * waiting on this device, and the teacher's work as the server has it now (lib/classWork.js, at most every 5 minutes).
  */
 let syncing = false;
 export async function syncNow({ hidden = false, levels = false } = {}) {
@@ -181,6 +206,9 @@ export async function syncNow({ hidden = false, levels = false } = {}) {
       useApp.getState().ackOutbox(batch.slice(0, n).map((e) => e.id));
       if (n < batch.length || !batch.length) break;
     }
+    await flushWork();
+    // a page going out of view sends what is waiting, and fetches nothing new
+    if (!hidden) await fetchClassWork();
   } catch (e) {
     // everything not acknowledged stays queued for the next moment
     if (e.code === 'not_signed_in') useApp.getState().patchProfile({ token: null });

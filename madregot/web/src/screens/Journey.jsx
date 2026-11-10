@@ -3,9 +3,9 @@
 // as an outline, each a node on one line, done ones checked and the current one filled.
 // The student sees where they are, what each stage is, what "mastered" means, and can go to any stage.
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { Check, Lightbulb, BookOpen, Users, PencilLine, Award, HelpCircle } from 'lucide-react';
+import { Check, Lightbulb, BookOpen, Users, PencilLine, Award, HelpCircle, School } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/index.js';
 import { contentOf } from '@/learn/content/index.ts';
@@ -21,6 +21,7 @@ import { Button, ChapterMark } from '@/components/ui.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
+import { workBanner } from '@/lib/classWork.js';
 
 const STAGES = [
   { id: 'A', title: 'מבינים את הרעיון', icon: Lightbulb },
@@ -40,6 +41,9 @@ export default function Journey() {
   const miscon = useApp((s) => s.learn.miscon);
   const path = useApp((s) => s.path);
   const [tutor, setTutor] = useState(false);
+  // opened from the teacher's work (?assignment=): one line says so, with the due day (TEACHER-5 §5)
+  const [params] = useSearchParams();
+  const work = useApp((s) => (s.profile?.token ? s.classWork.assignments.find((a) => a.id === params.get('assignment') && a.skill === skill) : null));
   if (!t || !t.levels[level - 1]) return <div className="page pushed"><ScreenBar title="מדרגה" back="/" backLabel="למפה" /><EmptyState mood="encouraging" title="המדרגה לא נמצאה"><p>אולי הקישור ישן. המסלול שלכם מחכה במפה.</p></EmptyState><ScreenFoot><Link to="/" className="btn btn-primary btn-block btn-lg">חזרה למסלול</Link></ScreenFoot></div>;
   const c = contentOf(skill);
   const now = new Date().toISOString();
@@ -74,6 +78,9 @@ export default function Journey() {
   return (
     <div className={clsx('page', 'pushed', 'journey', `ch-${t.color}`)}>
       <ScreenBar title={t.title} back="/" backLabel="למפה" />
+      {work && (
+        <p className="journey-work"><School size={18} aria-hidden="true" />{workBanner(work.dueOn)}</p>
+      )}
       <header className={clsx('journey-head', `ch-${t.color}`)}>
         <ChapterMark color={t.color} n={level} size="lg" />
         <div>

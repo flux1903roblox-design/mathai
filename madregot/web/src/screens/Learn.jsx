@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { Flame, Zap, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Flame, Zap, Check, BookOpen, ChevronDown, ChevronLeft, ArrowUp, ArrowDown, School } from 'lucide-react';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor } from '@/content/index.js';
@@ -17,6 +17,7 @@ import { Button } from '@/components/ui.jsx';
 import { nextStage } from '@/learn/mastery.ts';
 import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
 import { skillId } from '@/learn/skills.ts';
+import { urgentWork, urgentText } from '@/lib/classWork.js';
 
 // The path winds gently: each node sits a little to one side of the one before.
 const SWING = [0, 52, 78, 52, 0, -52, -78, -52];
@@ -195,6 +196,10 @@ export default function Learn() {
 
   const onStart = (to) => navigate(to);
   const otherGrade = view === '7' ? '8' : '7';
+  // the teacher's most urgent work, due within 3 days (only in a class): a chip to the missions tab
+  const classWork = useApp((s) => s.classWork);
+  const workOutbox = useApp((s) => s.workOutbox);
+  const urgent = profile.token ? urgentWork(classWork, workOutbox) : null;
 
   return (
     <div className="learn">
@@ -205,6 +210,11 @@ export default function Learn() {
         <Link to="/quests" className={clsx('top-stat streak', streak > 0 && 'on')} aria-label={`רצף של ${streak} ימים`}><Flame size={24} aria-hidden="true" />{streak}</Link>
         <Link to="/quests" className="top-stat xp" aria-label={`היום ${todayXp} מתוך ${goalXp} XP, סך הכול ${xp}`}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
       </header>
+      {urgent && (
+        <Link to="/quests" className="learn-work-chip">
+          <School size={18} aria-hidden="true" /><span className="learn-work-text">{urgentText(urgent)}</span><ChevronLeft size={18} aria-hidden="true" />
+        </Link>
+      )}
       <StorageBanner />
       {/* on an iPhone in the browser, from the 3rd day: the Home Screen guide, offered once (lib/durable/install.js) */}
       {showLearnCard({ profile, days, xp, durable: { installHintAt } }) && <InstallCard onOpen={() => setInstall(true)} />}

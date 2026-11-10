@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { createHashRouter, Navigate, Route, RouterProvider, Routes, ScrollRestoration, useLocation } from 'react-router-dom';
+import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
@@ -9,6 +9,8 @@ import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import { useDurable } from '@/lib/durable/useDurable.js';
 import { watchPersisted } from '@/lib/durable/persist.js';
+import { fetchClassWork, flushWork } from '@/lib/classWork.js';
+import { previewBack } from '@/lib/teacher.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import SupportSheet from '@/components/SupportSheet.jsx';
 import AIIntro from '@/components/AIIntro.jsx';
@@ -25,7 +27,13 @@ const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
 const Settings = lazy(() => import('@/screens/Settings.jsx'));
 const AdvancedSettings = lazy(() => import('@/screens/Settings.jsx').then((m) => ({ default: m.AdvancedSettings })));
-const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
+// The teacher's screens (the board, the class settings, the lessons, the assistant, the student view's frame): one chunk.
+const fromTeacher = (name) => lazy(() => import('@/screens/teacher/teacher.js').then((m) => ({ default: m[name] })));
+const Teacher = fromTeacher('Teacher');
+const ClassSettings = fromTeacher('ClassSettings');
+const TeacherLibrary = fromTeacher('TeacherLibrary');
+const TeacherAssistant = fromTeacher('TeacherAssistant');
+const PreviewFrame = fromTeacher('PreviewFrame');
 // The parents' area (its own header, no tab bar) works with or without a profile: one chunk, loaded on demand.
 const Parents = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Parents })));
 const ParentHandoff = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.ParentHandoff })));
@@ -52,6 +60,22 @@ function useSync() {
     if (!token) return undefined;
     syncNow({ levels: true });
     return onMoment(['boot', 'lesson', 'tick', 'online', 'hidden'], (m) => syncNow({ hidden: m === 'hidden' }), { priority: MOMENT_ORDER.classOutbox });
+  }, [token]);
+}
+
+/**
+ * The teacher's work for a student in a class (TEACHER-5 §2): asked on opening (and the reports left from last time
+ * sent), again when the app comes back into view, and at most every 5 minutes while it stays open.
+ */
+function useClassWork() {
+  const token = useApp((s) => s.profile?.token);
+  useEffect(() => {
+    if (!token || !hasServer()) return undefined;
+    flushWork().then(() => fetchClassWork({ force: true }));
+    const onShow = () => { if (document.visibilityState === 'visible') fetchClassWork(); };
+    document.addEventListener('visibilitychange', onShow);
+    const t = setInterval(() => fetchClassWork(), 5 * 60_000);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onShow); };
   }, [token]);
 }
 
@@ -122,6 +146,22 @@ function TeachRoute() {
   return <Teach key={pathname} />;
 }
 
+/** Every /teacher screen: opening one ends the student view, so the stored way back is cleared (lib/teacher.js). */
+function TeacherArea() {
+  const { pathname } = useLocation();
+  useEffect(() => { previewBack.clear(); }, [pathname]);
+  return <Outlet />;
+}
+/**
+ * A teacher on a student landing path ("/", "/quests", ...): a student screen of the preview ended there (a check
+ * goes to "/", a repair to "/", CheckDone to "/rescue"), so it leads back to where the preview was opened; with no
+ * preview open (a bookmark, a typed address) it is the board.
+ */
+function PreviewHome() {
+  return <Navigate to={previewBack.get() || '/teacher'} replace />;
+}
+const PREVIEW_HOME = ['/', '/quests', '/topics', '/topic/:id', '/rescue', '/rescue/*', '/exams/*', '/me', '/plan', '/assistant', '/settings/*', '/mission', '/placement', '/practice/:id'];
+
 /** The app's screens. Rendered under a data router so a lesson can ask before the back button leaves it. */
 function Root() {
   const role = useApp((s) => s.profile?.role);
@@ -151,8 +191,23 @@ function Root() {
         {!role && <Route path="*" element={<Welcome />} />}
         {role === 'teacher' && (
           <>
-            <Route path="/teacher/*" element={<Teacher />} />
+            {/* the teacher's own screens (TEACHER-2 §1); later items add theirs here */}
+            <Route element={<TeacherArea />}>
+              <Route path="/teacher" element={<Teacher />} />
+              <Route path="/teacher/lessons" element={<TeacherLibrary />} />
+              <Route path="/teacher/assistant" element={<TeacherAssistant />} />
+              <Route path="/teacher/settings" element={<ClassSettings />} />
+            </Route>
+            {/* the student view: the student screens of a stair, under the "תצוגת תלמיד" bar */}
+            <Route element={<PreviewFrame />}>
+              <Route path="/learn/:topic/:level" element={<Journey />} />
+              <Route path="/learn/:topic/:level/:stage" element={<TeachRoute />} />
+              <Route path="/lesson/:topic/:level" element={<LessonRoute />} />
+              <Route path="/repair/:topic/:level/:misc" element={<Repair />} />
+            </Route>
+            <Route path="/teacher/*" element={<Navigate to="/teacher" replace />} />
             <Route path="/subscription" element={<Navigate to="/teacher" replace />} />
+            {PREVIEW_HOME.map((p) => <Route key={p} path={p} element={<PreviewHome />} />)}
             <Route path="*" element={<Navigate to="/teacher" replace />} />
           </>
         )}
@@ -200,6 +255,7 @@ const router = createHashRouter([{ path: '*', element: <Root /> }]);
 export default function App() {
   useMoments();
   useSync();
+  useClassWork();
   // whether the browser promised to keep the data: read on every open and whenever the app comes back into view
   useEffect(() => watchPersisted(), []);
   return (

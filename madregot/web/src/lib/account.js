@@ -1,13 +1,15 @@
 // The tutor on the child's side of the app: an anonymous device id (the free taste is counted per device), the AI-only
 // token of a device linked to a family plan, and what the server says this device may ask today. The parent's account
-// never lives here (lib/parent.js keeps it apart, and only on the parent's own pages): AI calls carry X-Device and
-// X-Family-Device, never X-Account-Token. Nothing secret is stored: the Claude key stays on the server.
+// never lives here (lib/parent.js keeps it apart, and only on the parent's own pages): a child's AI calls carry X-Device
+// and X-Family-Device, never X-Account-Token. A teacher's carry the class's credentials (lib/teacher.js), which for a
+// class bound to the teacher's email are the class code and the teacher's session. Nothing secret is stored: the Claude key stays on the server.
 import { create } from 'zustand';
 import { KIND_GROUP, FREE_KINDS } from '@shared/ai.js';
 import { useApp, PERSONAL_KEY } from './store.js';
 import { api, apiBase, hasServer, ApiError } from './api.js';
 import { qaStatus, qaActive } from './qaFixtures.js';
 import { randomHex } from './random.js';
+import { teacherHeaders, previewMode } from './teacher.js';
 
 /** A random id for this device, made once. The server counts the free questions per device. */
 export function deviceId() {
@@ -33,7 +35,7 @@ export function teacherClass() {
 }
 const statusHeaders = () => {
   const cls = teacherClass();
-  return { ...aiHeaders(), ...(cls ? { 'X-Class-Code': cls.code, 'X-Teacher-Key': cls.key } : {}) };
+  return { ...aiHeaders(), ...(cls ? teacherHeaders(cls) : {}) };
 };
 
 /** How the tutor runs on this device: through the server, with a personal key (only where compiled in), or not at all. */
@@ -157,8 +159,12 @@ export function aiAccess(kind, status = useAIStatus.getState().status) {
 /** Does this device have the tool at all today (even if today's count is used)? Locked, economy and offline do not. */
 export const hasTool = (kind, status) => ['open', 'free', 'used', 'paused', 'resting'].includes(aiAccess(kind, status).state);
 
-/** May the app ask the tutor without being asked (the explanation after a second miss)? Never on the free taste. */
+/**
+ * May the app ask the tutor without being asked (the explanation after a second miss)? Never on the free taste, and
+ * never in a teacher's student view: there the teacher's own questions would be spent without asking.
+ */
 export function autoAskAllowed() {
+  if (previewMode()) return false;
   const mode = aiMode();
   if (mode === 'personal') return true;
   if (mode !== 'server') return false;

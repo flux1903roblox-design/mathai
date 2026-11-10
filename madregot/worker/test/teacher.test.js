@@ -1,6 +1,8 @@
-// The teacher's side of a class: the licence card, requests for a trial or a quote, school licence codes (spec §5.4,
-// §6.8), the join lock, removing a student, the dashboard, help requests and the PIN reset (DURABLE-12).
-// Claude and the email service are stubbed.
+// The teacher's side of a class: the dashboard against D1 (practice today and this week, first-try, mistakes with names,
+// help requests and exams), help requests (one per exercise, seen/done/reopen, the notebook page), resetting a PIN
+// (DURABLE-12) and the PIN check (TRUST-12), the join lock, removing a student, renaming and deleting a class, and class
+// licences (spec §5.4, §6.8): the licence card, requests for a trial or a quote, school licence codes. Claude and the
+// email service are stubbed; every name and address is synthetic.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from '../scripts/owner.mjs';
@@ -44,6 +46,8 @@ test('removing a student deletes their rows, and their token stops working', asy
   await h.call('POST', '/api/exams', { headers: bearer(noa), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } });
   await h.call('POST', '/api/progress', { headers: bearer(itai), body: { events: [{ topic: 'neg', level: 1, ok: true, first: true, secs: 5 }] } });
   await setCount(h.env, `pin:${noa.studentId}`, 3);
+  for (const who of [`s:${noa.studentId}`, `s:${noa.studentId}:tutor`, `free:s:${noa.studentId}`]) await setCount(h.env, who, 1);
+  await setCount(h.env, `s:${itai.studentId}`, 1);
   // another class's teacher cannot remove her
   const other = await makeClass(h);
   assert.equal((await h.call('POST', `/api/teacher/students/${noa.studentId}/remove`, { headers: other.teacher, body: {} })).status, 404);
@@ -52,7 +56,8 @@ test('removing a student deletes their rows, and their token stops working', asy
   for (const t of ['attempts', 'levels', 'help_requests', 'exams']) {
     assert.equal(rows(h.env, `SELECT * FROM ${t} WHERE student_id = ?`, noa.studentId).length, 0, t);
   }
-  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who = ?', `pin:${noa.studentId}`).length, 0);
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who LIKE ?', `%${noa.studentId}%`).length, 0, 'her PIN and AI counters go too');
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who = ?', `s:${itai.studentId}`).length, 1, "his counter stays");
   assert.equal(rows(h.env, 'SELECT * FROM students WHERE id = ?', noa.studentId).length, 0);
   assert.equal(rows(h.env, 'SELECT * FROM attempts WHERE student_id = ?', itai.studentId).length, 1, 'the other student keeps everything');
   assert.equal((await h.call('POST', '/api/progress', { headers: bearer(noa), body: { events: [] } })).status, 401, 'the token stops working');
@@ -268,8 +273,10 @@ test('the dashboard counts today and the last 7 days per student, and lists leve
     week: { n: 0, first: 0, days: 0, minutes: 0 }, levels: {}, lastPractice: null }, 'a student who has not practised yet');
   // the mistake two students share comes first, with their names
   const [shared, ...rest] = dash.mistakes;
-  assert.deepEqual({ ...shared, names: [...shared.names].sort() }, { topic: 'signed', cat: 'sign', n: 2, students: 2, names: ['איתי', 'נועה'].sort() });
-  assert.deepEqual(rest, [{ topic: 'coord', cat: 'axes', n: 1, students: 1, names: ['איתי'] }]);
+  // with the stair it happened on most and the students' ids, so "מחר" can give practice on it (TEACHER-4 §5)
+  assert.deepEqual({ ...shared, names: [...shared.names].sort(), ids: [...shared.ids].sort() },
+    { topic: 'signed', cat: 'sign', n: 2, students: 2, level: 1, names: ['איתי', 'נועה'].sort(), ids: [noa.studentId, itai.studentId].sort() });
+  assert.deepEqual(rest, [{ topic: 'coord', cat: 'axes', n: 1, students: 1, level: 1, names: ['איתי'], ids: [itai.studentId] }]);
   assert.equal(dash.exams.length, 1);
   const [exam] = dash.exams;
   assert.equal(exam.name, 'נועה'); assert.equal(exam.studentId, noa.studentId); assert.equal(exam.correct, 1); assert.equal(exam.total, 2);
@@ -467,4 +474,269 @@ test('removing a student removes every PIN counter of theirs, and no one else\'s
   assert.equal((await h.call('POST', `/api/teacher/students/${noa.studentId}/remove`, { headers: cls.teacher, body: {} })).status, 200);
   assert.equal(pinRows(noa.studentId).length, 0);
   assert.equal(pinRows(itai.studentId).length, 2, 'the classmate keeps his');
+});
+
+// ---------------------------------------------------------------- the dashboard and help, against D1
+// A fixed "now": Thursday 12 November 2026, 10:00 in Jerusalem (UTC+2). The week is 6 to 12 November.
+const NOW = Date.parse('2026-11-12T08:00:00Z');
+const pinClock = () => advanceClock(NOW - Date.now());
+const ev = (topic, at, { ok = true, first = ok, cat = null, secs = 30 } = {}) => ({ topic, level: 1, ok, first, hint: false, cat, secs, at });
+const dashboardOf = async (cls) => (await h.call('GET', '/api/teacher/dashboard', { headers: cls.teacher })).json();
+const progress = (s, body) => h.call('POST', '/api/progress', { headers: bearer(s), body });
+// (a help request on stair 1; the DURABLE-12 tests above use askHelp, on stair 2, and the same PAGE)
+const askHelpL1 = (s, body) => h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'signed', level: 1, answer: '5', ...body } });
+
+test('the dashboard of a 3-student class: today, the week by Jerusalem days, first-try, mistakes with names, help and exams', async () => {
+  h = await setup();
+  pinClock();
+  const cls = await makeClass(h, { students: ['דנה', 'יואב', 'נועה'] });
+  const [dana, yoav, noa] = cls.students;
+  // דנה: four today (one wrong with a mistake; one sent with a future time counts as now), two on Tuesday
+  assert.equal((await progress(dana, { events: [
+    ev('signed', '2026-11-12T07:00:00Z'), ev('signed', '2026-11-12T07:01:00Z'),
+    ev('signed', '2026-11-12T07:05:00Z', { ok: false, cat: 'sign' }), ev('signed', '2026-11-20T00:00:00Z'),
+    ev('signed', '2026-11-10T15:00:00Z'), ev('signed', '2026-11-10T15:02:00Z', { first: false }),
+  ], levels: { signed: { level: 2, max: 3 } } })).status, 200);
+  // a later sync with a lower stair keeps the highest stair reached
+  await progress(dana, { events: [], levels: { signed: { level: 1, max: 1 } } });
+  // יואב: three on Monday, one just after midnight on 6 November in Jerusalem (in the week), one just before it (not)
+  await progress(yoav, { events: [
+    ev('signed', '2026-11-09T12:00:00Z'), ev('signed', '2026-11-09T12:01:00Z', { ok: false, cat: 'sign' }),
+    ev('signed', '2026-11-09T12:02:00Z', { ok: false, cat: 'order' }),
+    ev('coord', '2026-11-05T22:30:00Z'), ev('signed', '2026-11-05T21:30:00Z', { ok: false, cat: 'sign' }),
+  ], levels: { signed: { level: 1, max: 1 }, coord: { level: 2, max: 2 } } });
+  // נועה: once, ten days ago
+  await progress(noa, { events: [ev('signed', '2026-11-02T12:00:00Z', { ok: false, cat: 'sign' })] });
+  // another class practises the same mistake today: none of it shows here
+  const other = await makeClass(h, { students: ['זר'] });
+  await progress(other.students[0], { events: [ev('signed', '2026-11-12T07:00:00Z', { ok: false, cat: 'sign' })] });
+  // help: דנה first, then יואב with a notebook page
+  advanceClock(60_000); await askHelpL1(dana, { question: '3 - 8', note: 'לא הבנתי' });
+  advanceClock(60_000); await askHelpL1(yoav, { question: '-2 + 7', image: PAGE });
+  await h.call('POST', '/api/help', { headers: bearer(other.students[0]), body: { topic: 'signed', question: '1 - 9' } });
+  // an exam checked in the app; unknown topics and statuses are cleaned, weak topics filtered
+  assert.equal((await h.call('POST', '/api/exams', { headers: bearer(noa), body: {
+    title: 'מבחן בשברים', correct: 3, total: 5, weakTopics: ['signed', 'bogus'],
+    questions: [{ topic: 'signed', status: 'correct', skill: 'חיבור', level: 2 }, { topic: 'bogus', status: 'weird', skill: 'x'.repeat(100), level: 99 }],
+  } })).status, 200);
+
+  const d = await dashboardOf(cls);
+  assert.equal(d.today, '2026-11-12');
+  assert.deepEqual(d.class, { code: cls.code, name: 'ז׳3', grade: '7', teacherName: 'רונית' });
+  assert.equal(d.joinLocked, false);
+  assert.deepEqual(d.students.map((s) => s.name), ['דנה', 'יואב', 'נועה'], 'by name, this class only');
+  const [sd, sy, sn] = d.students;
+  assert.deepEqual(sd.today, { n: 4, ok: 3, first: 3, minutes: 2 });
+  assert.deepEqual(sd.week, { n: 6, first: 4, days: 2, minutes: 3 });
+  assert.deepEqual(sd.levels, { signed: { level: 1, max: 3 } });
+  assert.match(sd.lastPractice, /^2026-11-12T08:0/, 'the future time was stored as now');
+  assert.equal(sd.pinReset, false);
+  assert.deepEqual(sy.today, { n: 0, ok: 0, first: 0, minutes: 0 });
+  assert.deepEqual(sy.week, { n: 4, first: 2, days: 2, minutes: 2 }, '6 November in Jerusalem is in the week, 5 November is not');
+  assert.equal(sy.lastPractice, '2026-11-09T12:02:00.000Z');
+  assert.deepEqual(sy.levels, { signed: { level: 1, max: 1 }, coord: { level: 2, max: 2 } });
+  assert.deepEqual(sn.week, { n: 0, first: 0, days: 0, minutes: 0 });
+  assert.equal(sn.lastPractice, '2026-11-02T12:00:00.000Z');
+  // first-try this week, as the board's tile computes it: (4 + 2 + 0) of (6 + 4 + 0)
+  const sum = (k) => d.students.reduce((a, s) => a + s.week[k], 0);
+  assert.equal(Math.round((100 * sum('first')) / sum('n')), 60);
+  // mistakes this week: most students first, with their names; נועה's is too old, the other class's is not here
+  // each with the stair it happened on most and the students' ids (TEACHER-4 §5: "give practice on this")
+  assert.deepEqual(d.mistakes.map((m) => ({ ...m, ids: [...m.ids].sort(), names: [...m.names].sort() })), [
+    { topic: 'signed', cat: 'sign', n: 2, students: 2, level: 1, ids: [dana.studentId, yoav.studentId].sort(), names: ['דנה', 'יואב'] },
+    { topic: 'signed', cat: 'order', n: 1, students: 1, level: 1, ids: [yoav.studentId], names: ['יואב'] },
+  ]);
+  assert.deepEqual(d.assignments, [], 'no assignments yet');
+  // help: newest first, names, the page as a flag only (never the image itself)
+  assert.deepEqual(d.help.map((x) => [x.name, x.question, x.note, x.has_image, x.seen_at, x.done_at]), [
+    ['יואב', '-2 + 7', '', 1, null, null],
+    ['דנה', '3 - 8', 'לא הבנתי', 0, null, null],
+  ]);
+  assert.ok(!('image' in d.help[0]));
+  assert.equal(d.exams.length, 1);
+  const { at, id, ...exam } = d.exams[0];
+  assert.ok(id && at.startsWith('2026-11-12'));
+  assert.deepEqual(exam, {
+    studentId: noa.studentId, name: 'נועה', title: 'מבחן בשברים', correct: 3, total: 5, weak: ['signed'],
+    questions: [{ topic: 'signed', status: 'correct', skill: 'חיבור', level: 2 }, { topic: 'other', status: 'missing', skill: 'x'.repeat(60), level: 0 }],
+  });
+  assert.doesNotMatch(JSON.stringify(d), /זר|1 - 9/, 'nothing from the other class');
+  assert.equal((await h.call('GET', '/api/teacher/dashboard')).status, 401);
+  assert.equal((await h.call('GET', '/api/teacher/dashboard', { headers: { ...cls.teacher, 'X-Teacher-Key': other.teacherKey } })).status, 401, 'another class\'s key');
+});
+
+test('asking for help twice on one exercise gives one request with the newest note and page; a done one opens a new request', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['דנה'] });
+  const [dana] = cls.students;
+  assert.deepEqual(await (await askHelpL1(dana, { question: '3 - 8', note: 'לא הבנתי', answer: '5' })).json(), { ok: true });
+  // again, without a note: the first note stays; the page and the latest answer arrive
+  assert.deepEqual(await (await askHelpL1(dana, { question: '3 - 8', note: '', answer: '11', image: PAGE })).json(), { ok: true, again: true });
+  let all = rows(h.env, 'SELECT * FROM help_requests WHERE student_id = ?', dana.studentId);
+  assert.equal(all.length, 1);
+  assert.equal(all[0].note, 'לא הבנתי'); assert.equal(all[0].answer, '11'); assert.equal(all[0].image, PAGE);
+  // again, with a new note and no page: the newest note, and the page is kept
+  await askHelpL1(dana, { question: '3 - 8', note: 'עדיין לא' });
+  all = rows(h.env, 'SELECT * FROM help_requests WHERE student_id = ?', dana.studentId);
+  assert.equal(all.length, 1); assert.equal(all[0].note, 'עדיין לא'); assert.equal(all[0].image, PAGE);
+  // another exercise is another request
+  await askHelpL1(dana, { question: '-4 - 4' });
+  assert.equal(rows(h.env, 'SELECT * FROM help_requests WHERE student_id = ?', dana.studentId).length, 2);
+  // once the teacher marks it done, the same exercise opens a new request
+  await h.call('POST', `/api/teacher/help/${all[0].id}`, { headers: cls.teacher, body: { action: 'done' } });
+  assert.deepEqual(await (await askHelpL1(dana, { question: '3 - 8' })).json(), { ok: true });
+  assert.equal(rows(h.env, "SELECT * FROM help_requests WHERE student_id = ? AND question = '3 - 8'", dana.studentId).length, 2);
+  // at most 10 open requests per student
+  for (let i = 0; i < 8; i += 1) assert.equal((await askHelpL1(dana, { question: `q${i}` })).status, 200);
+  const r = await askHelpL1(dana, { question: 'one more' });
+  assert.equal(r.status, 429); assert.equal((await r.json()).error, 'too_many_open');
+  assert.equal((await h.call('POST', '/api/help', { body: { question: '3 - 8' } })).status, 401, 'students only');
+});
+
+test('help requests: seen keeps its first time, done, reopen; another class cannot touch them; done ones leave the board after 7 days', async () => {
+  h = await setup();
+  pinClock();
+  const cls = await makeClass(h, { students: ['דנה', 'יואב'] });
+  const [dana, yoav] = cls.students;
+  await askHelpL1(dana, { question: '3 - 8' });
+  await askHelpL1(yoav, { question: '-2 + 7' });
+  const [a, b] = rows(h.env, 'SELECT id FROM help_requests ORDER BY id').map((r) => r.id);
+  const mark = (id, action, headers = cls.teacher) => h.call('POST', `/api/teacher/help/${id}`, { headers, body: { action } });
+  const row = (id) => ({ ...one(h.env, 'SELECT seen_at, done_at FROM help_requests WHERE id = ?', id) });
+  assert.deepEqual(await (await mark(a, 'seen')).json(), { ok: true });
+  const seen = row(a).seen_at;
+  assert.match(seen, /^2026-11-12T08:/);
+  advanceClock(60 * 60_000);
+  await mark(a, 'seen');
+  assert.equal(row(a).seen_at, seen, 'seen twice keeps the first time');
+  await mark(a, 'done');
+  assert.match(row(a).done_at, /^2026-11-12T09:/);
+  await mark(a, 'reopen');
+  assert.deepEqual(row(a), { seen_at: seen, done_at: null }, 'reopened, still seen');
+  assert.equal((await mark(a, 'delete')).status, 400);
+  assert.equal((await mark(a, 'done', {})).status, 401);
+  // another class's teacher: the answer is the same, and nothing changes
+  const other = await makeClass(h);
+  assert.equal((await mark(b, 'done', other.teacher)).status, 200);
+  assert.deepEqual(row(b), { seen_at: null, done_at: null });
+  // a done request stays on the board for 7 days; an open one stays however old it is
+  await mark(a, 'done');
+  advanceClock(6 * DAY);
+  assert.deepEqual((await dashboardOf(cls)).help.map((x) => x.id).sort(), [a, b].sort());
+  advanceClock(2 * DAY);
+  assert.deepEqual((await dashboardOf(cls)).help.map((x) => x.id), [b]);
+});
+
+test('the notebook page: only for its own class (another class gets 404), 404 without a page, never in the dashboard', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['דנה'] });
+  const other = await makeClass(h, { students: ['זר'] });
+  await askHelpL1(cls.students[0], { question: '3 - 8', image: PAGE });
+  await askHelpL1(cls.students[0], { question: '-4 - 4' });
+  await askHelpL1(other.students[0], { question: '1 - 9', image: PAGE });
+  const id = (q) => one(h.env, 'SELECT id FROM help_requests WHERE question = ?', q).id;
+  const image = (helpId, headers = cls.teacher) => h.call('GET', `/api/teacher/help/${helpId}/image`, { headers });
+  assert.deepEqual(await (await image(id('3 - 8'))).json(), { image: PAGE });
+  const none = await image(id('-4 - 4'));
+  assert.equal(none.status, 404); assert.equal((await none.json()).error, 'not_found');
+  assert.equal((await image(id('3 - 8'), other.teacher)).status, 404, 'another class\'s teacher');
+  assert.equal((await image(id('1 - 9'))).status, 404, 'a page from another class');
+  assert.equal((await image(999999)).status, 404);
+  assert.equal((await image(id('3 - 8'), {})).status, 401);
+  assert.doesNotMatch(JSON.stringify(await dashboardOf(cls)), /base64/);
+});
+
+test('resetting a PIN: the old token and the old PIN stop working, the wrong-PIN count clears, the student chooses a new PIN, even in a locked class', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['דנה', 'יואב'] });
+  const [dana, yoav] = cls.students;
+  const join = (name, pin) => h.call('POST', `/api/classes/${cls.code}/join`, { body: { name, pin } });
+  // three wrong PINs today
+  for (let i = 0; i < 3; i += 1) assert.equal((await join('דנה', '0000')).status, 403);
+  assert.equal(one(h.env, 'SELECT count FROM ai_usage WHERE who = ?', `pin:${dana.studentId}`).count, 3);
+  // another class's teacher: the answer is the same, and nothing changes
+  const other = await makeClass(h);
+  assert.deepEqual(await (await h.call('POST', `/api/teacher/students/${dana.studentId}/reset-pin`, { headers: other.teacher, body: {} })).json(), { ok: true });
+  assert.equal((await progress(dana, { events: [] })).status, 200, 'still signed in');
+  assert.equal((await dashboardOf(cls)).students[0].pinReset, false);
+  assert.equal((await h.call('POST', `/api/teacher/students/${dana.studentId}/reset-pin`, { body: {} })).status, 401);
+  // the teacher locks the class, then resets
+  await h.call('POST', '/api/teacher/class/lock', { headers: cls.teacher, body: { locked: true } });
+  assert.deepEqual(await (await h.call('POST', `/api/teacher/students/${dana.studentId}/reset-pin`, { headers: cls.teacher, body: {} })).json(), { ok: true });
+  assert.equal((await progress(dana, { events: [] })).status, 401, 'the old token stops working');
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who = ?', `pin:${dana.studentId}`).length, 0, 'the wrong-PIN count is cleared');
+  const d = await dashboardOf(cls);
+  assert.deepEqual(d.students.map((s) => [s.name, s.pinReset]), [['דנה', true], ['יואב', false]]);
+  // she comes back under her name with a new PIN (the lock is for new names only)
+  const back = await join('דנה', '5678');
+  assert.equal(back.status, 200);
+  const again = await back.json();
+  assert.equal(again.studentId, dana.studentId); assert.equal(again.returning, true);
+  assert.equal((await progress(again, { events: [] })).status, 200);
+  assert.equal((await dashboardOf(cls)).students[0].pinReset, false);
+  assert.equal((await join('דנה', '1234')).status, 403, 'the old PIN is wrong now');
+  assert.equal((await join('דנה', '5678')).status, 200);
+  assert.equal((await progress(yoav, { events: [] })).status, 200, 'the other student is not touched');
+});
+
+test('the join lock is per class: locking one class leaves another open', async () => {
+  h = await setup();
+  const a = await makeClass(h, { students: ['דנה'] });
+  const b = await makeClass(h);
+  await h.call('POST', '/api/teacher/class/lock', { headers: a.teacher, body: { locked: true } });
+  assert.equal((await h.call('POST', `/api/classes/${a.code}/join`, { body: { name: 'יואב', pin: '1111' } })).status, 403);
+  assert.equal((await h.call('POST', `/api/classes/${b.code}/join`, { body: { name: 'יואב', pin: '1111' } })).status, 200);
+  assert.equal((await dashboardOf(b)).joinLocked, false);
+  // locking twice and unlocking twice are both fine
+  assert.equal((await h.call('POST', '/api/teacher/class/lock', { headers: a.teacher, body: { locked: true } })).status, 200);
+  assert.equal(rows(h.env, 'SELECT * FROM class_locks WHERE class_code = ?', a.code).length, 1);
+  await h.call('POST', '/api/teacher/class/lock', { headers: a.teacher, body: { locked: false } });
+  assert.equal((await h.call('POST', '/api/teacher/class/lock', { headers: a.teacher, body: { locked: false } })).status, 200);
+  assert.equal((await h.call('POST', `/api/classes/${a.code}/join`, { body: { name: 'יואב', pin: '1111' } })).status, 200);
+  assert.deepEqual(rows(h.env, "SELECT action FROM audit_log WHERE action = 'class.lock'").length, 4, 'every change is audited');
+});
+
+test('renaming a class: the teacher only, a cleaned name, an audit row without the name; an empty name is 400', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const other = await makeClass(h);
+  const rename = (className, headers = cls.teacher) => h.call('POST', '/api/teacher/class/rename', { headers, body: { className } });
+  const r = await rename('  ז׳3   מתמטיקה  מורחבת ');
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, className: 'ז׳3 מתמטיקה מורחבת' });
+  assert.equal((await (await h.call('GET', '/api/teacher/dashboard', { headers: cls.teacher })).json()).class.name, 'ז׳3 מתמטיקה מורחבת');
+  assert.equal((await (await h.call('GET', `/api/classes/${cls.code}`)).json()).className, 'ז׳3 מתמטיקה מורחבת', 'students joining see the new name');
+  const audit = rows(h.env, "SELECT actor, target, detail FROM audit_log WHERE action = 'class.rename'").map((x) => ({ ...x }));
+  assert.deepEqual(audit, [{ actor: `teacher:${cls.code}`, target: `class:${cls.code}`, detail: '{}' }]);
+  const empty = await rename('   ');
+  assert.equal(empty.status, 400); assert.equal((await empty.json()).error, 'missing_fields');
+  const notMine = await rename('שלי', { 'X-Class-Code': cls.code, 'X-Teacher-Key': other.teacherKey });
+  assert.equal(notMine.status, 401); assert.equal((await notMine.json()).error, 'not_teacher');
+  assert.equal(one(h.env, 'SELECT name FROM classes WHERE code = ?', cls.code).name, 'ז׳3 מתמטיקה מורחבת');
+  assert.equal(rows(h.env, "SELECT * FROM audit_log WHERE action = 'class.rename'").length, 1);
+});
+
+test('deleting a class bound to an email: the key alone is 403 not_owner, an older sign-in 401 reauth_needed, a fresh code deletes it', async () => {
+  h = await setup();
+  let t = await signIn(h, 'teacher@example.test');
+  const stranger = await signIn(h, 'other@example.test');
+  const c = await (await h.call('POST', '/api/classes', { body: { className: 'ז׳3', teacherName: 'רונית', grade: '7' }, headers: { 'X-Account-Token': t } })).json();
+  assert.equal(c.owned, true);
+  await h.call('POST', `/api/classes/${c.code}/join`, { body: { name: 'נועה', pin: '1234' } });
+  const key = { 'X-Class-Code': c.code, 'X-Teacher-Key': c.teacherKey };
+  const del = (headers) => h.call('POST', '/api/teacher/class/delete', { headers, body: { confirm: 'DELETE' } });
+  const errorOf = async (res) => [res.status, (await res.json()).error];
+  assert.deepEqual(await errorOf(await del(key)), [403, 'not_owner'], 'a co-teacher with the key');
+  assert.deepEqual(await errorOf(await del({ ...key, 'X-Account-Token': stranger })), [403, 'not_owner'], 'the key with another account');
+  advanceClock(11 * 60_000);
+  assert.deepEqual(await errorOf(await del({ 'X-Class-Code': c.code, 'X-Account-Token': t })), [401, 'reauth_needed'], 'a sign-in older than 10 minutes');
+  assert.ok(one(h.env, 'SELECT * FROM classes WHERE code = ?', c.code), 'nothing was deleted');
+  t = await signIn(h, 'teacher@example.test', { 'X-Account-Token': t });
+  const r = await del({ 'X-Class-Code': c.code, 'X-Account-Token': t });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, students: 1 });
+  assert.equal(rows(h.env, 'SELECT * FROM classes WHERE code = ?', c.code).length, 0);
+  assert.equal(rows(h.env, 'SELECT * FROM class_owners WHERE class_code = ?', c.code).length, 0);
+  assert.deepEqual(rows(h.env, "SELECT detail FROM audit_log WHERE action = 'class.delete'").map((x) => JSON.parse(x.detail)), [{ students: 1, via: 'account' }]);
+  assert.equal((await (await h.call('GET', '/api/teacher/classes', { headers: { 'X-Account-Token': t } })).json()).classes.length, 0, "gone from the teacher's list");
 });

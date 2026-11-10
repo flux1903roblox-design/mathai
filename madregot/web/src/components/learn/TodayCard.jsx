@@ -3,6 +3,9 @@
 // inside), and ONE big button that starts the next part. A row can be tapped to open that part (it is a link, not a
 // second button). This card is the whole mission: the old separate mission page (/mission) now opens this tab.
 // Under it the exam entry as its own card. The mission is fixed for the day once shown.
+// A student in a class sees the teacher's work first, inside the card (ClassWork, TEACHER-5 §5): the big button starts
+// the earliest unfinished work from the teacher, and the minutes count it too. The stairs the teacher gave report how
+// far they are whenever this card opens or the learning record changes (lib/classWork.js).
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
@@ -16,6 +19,8 @@ import { missionDone, missionMinutes, partialStairNote } from '@/learn/mission.t
 import { STAGE_N } from '@/learn/recommend.ts';
 import { daysBetween } from '@/learn/mastery.ts';
 import { MathText } from '@/components/MathText.jsx';
+import { classRows, reportStairs } from '@/lib/classWork.js';
+import ClassWork from './ClassWork.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Bar } from '@/components/ds.jsx';
 import Mascot from '@/components/Mascot.jsx';
@@ -39,6 +44,13 @@ export default function TodayCard({ grade, onBoard }) {
   const { path, progress, gaps, placement, saveMission, learnEvent } = useApp();
   const exam = useApp((s) => s.learn.exam);
   const { items, fresh } = useMission();
+  // the teacher's work (only in a class, with a server: classWork stays empty otherwise)
+  const inClass = useApp((s) => !!s.profile?.token);
+  const classWork = useApp((s) => s.classWork);
+  const workOutbox = useApp((s) => s.workOutbox);
+  const skills = useApp((s) => s.learn.skills);
+  const work = inClass ? classRows(classWork, workOutbox, today()) : null;
+  useEffect(() => { if (inClass) reportStairs(); }, [inClass, classWork.at, skills]);
   useEffect(() => { if (fresh && items.length) { saveMission(today(), items); learnEvent({ e: 'mission-start' }); } }, [fresh]); // eslint-disable-line react-hooks/exhaustive-deps
   const b = boardOf({ grade, path, progress, gaps, placement });
   const next = items.find((i) => !i.done);
@@ -54,11 +66,12 @@ export default function TodayCard({ grade, onBoard }) {
         <div className="today-head quest-head">
           <div className="quest-head-row">
             <h1 id="continue-title" className="continue-title">{done ? 'המשימה של היום הושלמה' : 'המשימה שלי להיום'}</h1>
-            {items.length > 0 && <span className="quest-time">{done ? 'מחר תחכה חדשה' : `בערך ${missionMinutes(items)} דק׳`}</span>}
+            {(items.length > 0 || work?.minutes > 0) && <span className="quest-time">{done && !work?.minutes ? 'מחר תחכה חדשה' : `בערך ${(done ? 0 : missionMinutes(items)) + (work?.minutes || 0)} דק׳`}</span>}
           </div>
           {done && <p className="continue-sub">{partialStairNote(items) || 'כל החלקים של המשימה בוצעו.'} מחר תחכה משימה חדשה.</p>}
-          {!items.length && <p className="continue-sub">הכול מעודכן להיום. אפשר לבחור מדרגה במסלול ולהמשיך משם.</p>}
+          {!items.length && !work?.show.length && <p className="continue-sub">הכול מעודכן להיום. אפשר לבחור מדרגה במסלול ולהמשיך משם.</p>}
         </div>
+        {work && <ClassWork rows={work} teacherName={classWork.teacherName} />}
         {items.length > 0 && (
           <ol className="today-items quest-rows" aria-label={`המשימה: ${items.length} חלקים, בערך ${missionMinutes(items)} דקות`}>
             {items.map((it) => {
@@ -80,7 +93,9 @@ export default function TodayCard({ grade, onBoard }) {
             })}
           </ol>
         )}
-        {next && <Button className="btn-block btn-lg continue-go" onClick={() => navigate(next.to)} data-region="primary"><Play size={20} aria-hidden="true" fill="currentColor" />{started ? 'ממשיכים במשימה' : 'מתחילים את המשימה שלי'}</Button>}
+        {work?.next
+          ? <Button className="btn-block btn-lg continue-go" onClick={() => navigate(work.next.to)} data-region="primary"><Play size={20} aria-hidden="true" fill="currentColor" />{work.next.started ? 'ממשיכים במשימה מהמורה' : 'מתחילים במשימה מהמורה'}</Button>
+          : next && <Button className="btn-block btn-lg continue-go" onClick={() => navigate(next.to)} data-region="primary"><Play size={20} aria-hidden="true" fill="currentColor" />{started ? 'ממשיכים במשימה' : 'מתחילים את המשימה שלי'}</Button>}
         {done && <Mascot mood="achievement" size={72} className="quest-mascot" />}
       </div>
       <button type="button" className="exam-cta today-exam" onClick={() => navigate('/rescue')}>

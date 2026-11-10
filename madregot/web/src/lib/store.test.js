@@ -70,3 +70,14 @@ describe('the introduction to the tutor is remembered without a new store versio
     expect(introSeen()).toBe(true);
   });
 });
+
+describe('saved data v6 (the school lane\'s class work step, its v5 before the lanes merged)', () => {
+  it('a v4 or v5 save gets an empty classWork and workOutbox, and keeps the rest', () => {
+    for (const from of [4, 5]) {
+      const out = migrateState({ ...v2({ mode: 'server', apiUrl: '', key: '' }), path: {}, progress: {} }, from, { personal: false });
+      expect(out.classWork).toEqual({ at: null, today: null, teacherName: '', assignments: [], help: [], exams: {}, seenAt: null, noticed: {} });
+      expect(out.workOutbox).toEqual({});
+      expect(out.xp).toBe(40);
+    }
+  });
+});

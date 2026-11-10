@@ -40,8 +40,9 @@ test('save a backup file (a download), and restore it on a fresh browser through
   const path = info.outputPath('backup.json');
   await download.saveAs(path);
   const file = JSON.parse(readFileSync(path, 'utf8'));
-  expect(file).toMatchObject({ app: 'madregot', kind: 'backup', v: 1, schema: 5 });
-  for (const k of ['ai', 'outbox', 'durable', 'backup']) expect(file.state[k]).toBeUndefined();
+  // schema: the store's version (6 since the teacher's class work, durable/migrations.js CURRENT_VERSION)
+  expect(file).toMatchObject({ app: 'madregot', kind: 'backup', v: 1, schema: 6 });
+  for (const k of ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox']) expect(file.state[k]).toBeUndefined();
 
   // a fresh browser: nothing saved, the first screen
   const ctx = await browser.newContext(info.project.use);

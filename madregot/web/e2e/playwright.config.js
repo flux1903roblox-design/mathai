@@ -20,7 +20,8 @@ export default defineConfig({
   webServer: {
     command: `npx vite build --base ./ --outDir dist-test --emptyOutDir && npx vite preview --outDir dist-test --port ${PORT} --strictPort --host 127.0.0.1`,
     cwd: '..',
-    env: { VITE_API_URL: 'none' },
+    // no server, as the public site; VITE_TEACHER_URL: the public teacher page points to the full app (TEACHER-1)
+    env: { VITE_API_URL: 'none', VITE_TEACHER_URL: 'https://example.test/' },
     url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

@@ -54,6 +54,8 @@ export function resetsAt(period = 'day', now = new Date()) {
 export const endOfDayIso = (day) => jerusalemMidnight(nextDay(day)).iso;
 /** A YYYY-MM-DD date that means "the start of that day in Jerusalem". */
 export const startOfDayIso = (day) => jerusalemMidnight(day).iso;
+/** A name as people type it (a class, a teacher, a student): one space between words, at most 30 characters. */
+export const cleanName = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 30);
 export const isDay = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
 
 export const json = (data, status, cors, extra = {}) => new Response(JSON.stringify(data), {

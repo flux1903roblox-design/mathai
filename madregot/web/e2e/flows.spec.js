@@ -166,11 +166,12 @@ test('settings: a student sees no server address or key, and this build has no a
   await expect(page.locator('#ai-url, #ai-key')).toHaveCount(0);
 });
 
-test('the teacher view without a server explains it and how to turn it on', async ({ page }) => {
+test('the teacher view without a server sends the teacher to the full app (no server set-up steps)', async ({ page }) => {
   await open(page, '#/');
   await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'לוח המורה עובד עם שרת הכיתה' })).toBeVisible();
-  await expect(page.locator('.teacher-off-steps li')).toHaveCount(3);
+  await expect(page.getByRole('heading', { name: 'לוח המורה נמצא באתר המלא' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'ללוח המורה' })).toHaveAttribute('href', 'https://example.test/#/?start=teacher');
+  await expect(page.locator('.teacher-off-steps')).toHaveCount(0);
   await page.getByRole('button', { name: 'חזרה', exact: true }).click();
   await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
 });

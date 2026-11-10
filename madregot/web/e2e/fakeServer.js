@@ -3,6 +3,14 @@
 // from subscription.spec.js so every spec can use it (PARENTS-10): seed `ai.apiUrl` with API, then call fakeServer; its
 // state and call log are returned. Since the move, POST /api/progress keeps the answers it is sent (st.answers) and
 // acknowledges them, as the Worker does (DURABLE-7), and a device alone waits for a parent's OK (TRUST-9, `parentOk`).
+// The teacher's account (TEACHER-1): GET /api/health, a new class bound to the email, the email's class list, binding a
+// class and a new teacher key. The class K7Q2MD opens with its key, or with the session of the email it is bound to.
+// The class settings (TEACHER-9): renaming a class, and deleting one (TRUST-7: the word DELETE, the owner's fresh code
+// for a class bound to an email, 409 while a licence runs); a deleted class opens no more.
+// Class work (TEACHER-4 and TEACHER-5): the teacher's assignments (list, create with a due date moved off Saturday, one
+// with a row per student, a later date, delete), the dashboard's open assignments and the ids of the students behind
+// each repeated mistake, and the student's side (GET /api/class/work with what they did, and their reports, merged so
+// they never go backwards). `st.down = true` makes every call fail as a lost connection.
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -48,8 +56,22 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     classes: [], classPayments: [], failPayment: false,
     joinLocked: false, students: [{ id: 'a1', name: 'דנה' }, { id: 'b2', name: 'יואב' }],
     answers: [], loseProgressReplies: 0,
+    owned: false, // the class K7Q2MD is bound to the signed-in account: its session opens it like the key (TEACHER-1)
+    ownerEmail: null, // the email it is bound to (null: any signed-in session, as tests that seed a session expect)
+    key: 'tkey-123', // K7Q2MD's teacher key (a new key replaces it)
+    className: 'ז׳3', classGrade: '7',
+    accountClasses: [], // more classes bound to the same email: [{ code, name, grade, teacherName, students }]
+    email: true, // GET /api/health: the server can send sign-in codes
+    deleted: [], // classes deleted through /api/teacher/class/delete
+    today: '2026-11-05', // the server's day (Jerusalem): the e2e clock's Thursday
+    mistakes: [], // the dashboard's repeated mistakes: [{ topic, cat, level, n, students, ids, names }]
+    assignments: [], // [{ id, kind, skill, title, note, startsOn, dueOn, forAll, targets, createdAt, version }]
+    work: {}, // assignmentId -> studentId -> { state, stage, right, asked, passed, questions, tries, startedAt, doneAt, doneDay }
+    studentTokens: { 'stok-a1': 'a1' }, // a student's class token -> their id
+    down: false, // every call fails as a lost connection
     ...over,
   };
+  const emails = new Map(); // session token → the email it signed in with
   const log = [];
   const reply = (route, code, data, headers = {}) => route.fulfill({ status: code, contentType: 'application/json', headers: { ...CORS, ...headers }, body: JSON.stringify(data) });
   const famOf = (h) => st.devices.find((d) => d.token && d.token === h['x-family-device']) || null;
@@ -90,10 +112,29 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     devices: st.devices.map((d) => ({ id: d.id, label: d.label, linkedAt: '2026-11-05T09:00:00Z', lastSeen: '2026-11-05', ...(d.token ? {} : { pending: true }) })),
     usageWeek: { tutor: st.famUsed.tutor, check: st.famUsed.check, generate: 0, exam: 0 },
     payments: [...(live() ? [{ id: 'p000000000000001', subscriptionId: st.plan.id, planKind: 'family', at: '2026-11-05T09:00:00Z', amountAgorot: 2990, kind: 'charge', hasInvoice: true }] : []), ...st.classPayments],
-    classes: st.classes,
+    classes: st.classes, ownedClasses: st.owned ? 1 : 0,
   });
-  const dashboard = () => ({
-    class: { name: 'ז׳3', grade: '7', teacherName: 'רונית' }, joinLocked: st.joinLocked, help: [], mistakes: [], exams: [],
+  // ---- class work, as worker/src/assignments.js keeps it
+  const plus = (day, n) => { const [y, m, d] = day.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };
+  const saturday = (day) => new Date(`${day}T12:00:00Z`).getUTCDay() === 6;
+  const forWhom = (a) => (a.forAll ? st.students.map((x) => x.id) : a.targets.filter((id) => st.students.some((x) => x.id === id)));
+  const workOf = (a, sid) => st.work[a.id]?.[sid] || null;
+  const lateOf = (a, w) => (w?.state === 'done' ? w.doneDay > a.dueOn : a.dueOn < st.today);
+  const viewOf = (a) => {
+    const who = forWhom(a); const ws = who.map((sid) => workOf(a, sid));
+    const started = ws.filter((w) => w?.state === 'started').length; const done = ws.filter((w) => w?.state === 'done').length;
+    return {
+      id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn, forAll: a.forAll,
+      targets: a.forAll ? [] : [...a.targets].sort(), createdAt: a.createdAt, hasExam: false, examCount: null, version: null,
+      counts: { assigned: who.length, notStarted: who.length - started - done, started, done, late: who.filter((sid) => lateOf(a, workOf(a, sid))).length },
+    };
+  };
+  const mineOf = (w) => (w ? { state: w.state, stage: w.stage ?? null, right: w.right ?? null, asked: w.asked ?? null, passed: w.passed ?? null, doneAt: w.doneAt || null } : null);
+  const dashboard = (code = 'K7Q2MD') => ({
+    class: code === 'K7Q2MD' ? { name: st.className, grade: st.classGrade, teacherName: 'רונית' }
+      : (({ name, grade }) => ({ name, grade, teacherName: 'רונית' }))(st.accountClasses.find((c) => c.code === code)), joinLocked: st.joinLocked, help: [], mistakes: st.mistakes, exams: [],
+    today: st.today,
+    assignments: st.assignments.filter((a) => a.dueOn >= plus(st.today, -7)).sort((a, b) => (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0)).slice(0, 10).map(viewOf),
     students: st.students.map((s) => ({ ...s, lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false })),
   });
 
@@ -103,6 +144,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     const url = new URL(req.url()); const path = url.pathname; const h = req.headers();
     const body = req.postData() ? JSON.parse(req.postData()) : {};
     log.push({ path, method: req.method(), body, headers: h });
+    if (st.down) return route.abort('internetdisconnected');
     const token = h['x-account-token'];
     const signed = token && st.sessions.has(token);
     // ---- the child's side
@@ -142,6 +184,35 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (st.loseProgressReplies > 0) { st.loseProgressReplies -= 1; return reply(route, 503, { error: 'server_error' }); }
       return reply(route, 200, { saved: events.length });
     }
+    // ---- the student's class work (TEACHER-5)
+    if (path.startsWith('/api/class/work')) {
+      const sid = st.studentTokens[String(h.authorization || '').replace(/^Bearer /, '')];
+      if (!sid) return reply(route, 401, { error: 'not_signed_in' });
+      const mine = (a) => a.startsOn <= st.today && (a.forAll || a.targets.includes(sid));
+      if (path === '/api/class/work') {
+        const list = st.assignments.filter((a) => mine(a) && (a.dueOn >= plus(st.today, -14) || (workOf(a, sid)?.state !== 'done' && a.dueOn >= plus(st.today, -30))))
+          .sort((a, b) => ((workOf(a, sid)?.state === 'done') - (workOf(b, sid)?.state === 'done')) || (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0));
+        return reply(route, 200, {
+          today: st.today, teacherName: 'רונית', help: [],
+          assignments: list.map((a) => ({ id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn, createdAt: a.createdAt, hasExam: false, examCount: null, mine: mineOf(workOf(a, sid)) })),
+        });
+      }
+      const wm = path.match(/^\/api\/class\/work\/([a-f0-9]{16})$/);
+      const a = wm && st.assignments.find((x) => x.id === wm[1]);
+      if (!a || !mine(a) || req.method() !== 'POST') return reply(route, 404, { error: 'not_found' });
+      if (!['started', 'done'].includes(body.state)) return reply(route, 400, { error: 'bad_work', field: 'state' });
+      const old = workOf(a, sid); const done = body.state === 'done'; const at = '2026-11-05T10:00:00.000Z';
+      const max = (x, y) => (x == null ? (y ?? null) : y == null ? x : Math.max(x, y));
+      const first = old?.doneAt ? old : done ? body : old || {};
+      const w = {
+        state: old?.state === 'done' || done ? 'done' : 'started', stage: max(old?.stage, body.stage), passed: max(old?.passed == null ? null : +old.passed, body.passed == null ? null : +body.passed),
+        right: first.right ?? null, asked: first.asked ?? null, questions: first.questions ?? null, tries: (old?.tries || 0) + (done ? 1 : 0),
+        startedAt: old?.startedAt || at, doneAt: old?.doneAt || (done ? at : null), doneDay: old?.doneDay || (done ? st.today : null),
+      };
+      w.passed = w.passed == null ? null : !!w.passed;
+      (st.work[a.id] ||= {})[sid] = w;
+      return reply(route, 200, { mine: mineOf(w) });
+    }
     if (path === '/api/family/link/start') {
       if (!/^[a-f0-9]{32}$/.test(h['x-device'] || '')) return reply(route, 400, { error: 'need_device' });
       const code = 'K7M4QX';
@@ -162,7 +233,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     if (path === '/api/account/verify') {
       if (body.code !== '123456') return reply(route, 403, { error: 'wrong_code', left: 4 });
       if (token) st.sessions.delete(token);
-      st.n += 1; const t = TOKEN(st.n); st.sessions.add(t); st.recent.add(t);
+      st.n += 1; const t = TOKEN(st.n); st.sessions.add(t); st.recent.add(t); emails.set(t, body.email);
       return reply(route, 200, { token: t, email: body.email });
     }
     if (path === '/api/billing/plans') return reply(route, 200, { ...PLANS, paywall: st.paywall, online: st.online });
@@ -227,9 +298,43 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     }
     if (/^\/api\/family\/devices\/[a-z0-9]+\/unlink$/.test(path)) { st.devices = st.devices.filter((d) => d.id !== path.split('/')[4]); return reply(route, 200, { ok: true }); }
     // ---- the teacher
+    if (path === '/api/health') return reply(route, 200, { ok: true, ai: true, email: st.email !== false, paywall: st.paywall, checkout: st.online });
+    // the session's email is the one the class is bound to (or any session, when the test did not say which)
+    const mine = () => signed && (!st.ownerEmail || emails.get(token) === st.ownerEmail);
+    if (path === '/api/classes' && req.method() === 'POST') {
+      // with a session the class is bound to its email at once; a session that has ended makes no class
+      if (token && !signed) return reply(route, 401, { error: 'not_account' });
+      st.className = body.className; st.classGrade = body.grade === '8' ? '8' : '7';
+      if (signed) { st.owned = true; st.ownerEmail = emails.get(token) || null; }
+      return reply(route, 200, { code: 'K7Q2MD', teacherKey: st.key, className: st.className, grade: st.classGrade, teacherName: body.teacherName, ...(signed ? { owned: true } : {}) });
+    }
+    if (path === '/api/teacher/classes') {
+      if (!signed) return reply(route, 401, { error: 'not_account' });
+      const own = st.owned && mine() ? [{ code: 'K7Q2MD', name: st.className, grade: st.classGrade, teacherName: 'רונית', students: st.students.length, createdAt: '2026-11-01T08:00:00.000Z', boundAt: '2026-11-01T08:00:00.000Z' }] : [];
+      return reply(route, 200, { classes: [...st.accountClasses, ...own] });
+    }
     if (path.startsWith('/api/teacher/')) {
-      if (h['x-class-code'] !== 'K7Q2MD' || h['x-teacher-key'] !== 'tkey-123') return reply(route, 401, { error: 'not_teacher' });
-      if (path === '/api/teacher/dashboard') return reply(route, 200, dashboard());
+      // the key is checked first; else the session of the account the class is bound to; an ended session alone is not_account
+      const code = h['x-class-code'];
+      const gone = st.deleted.includes(code);
+      const byKey = !gone && code === 'K7Q2MD' && h['x-teacher-key'] === st.key;
+      const byAccount = !gone && [...(st.owned ? ['K7Q2MD'] : []), ...st.accountClasses.map((c) => c.code)].includes(code) && mine();
+      if (path === '/api/teacher/class/owner') {
+        if (!signed) return reply(route, 401, { error: 'not_account' });
+        if (!byKey) return reply(route, 401, { error: 'not_teacher' });
+        if (st.owned && !mine()) return reply(route, 409, { error: 'owned_by_other' });
+        st.owned = true; st.ownerEmail = emails.get(token) || null;
+        return reply(route, 200, { owner: 'you', email: emails.get(token) || 'teacher@example.test' });
+      }
+      if (path === '/api/teacher/class/rekey') {
+        if (!signed) return reply(route, 401, { error: 'not_account' });
+        if (!byAccount) return reply(route, 403, { error: 'not_owner' });
+        if (!st.recent.has(token)) return reply(route, 401, { error: 'reauth_needed' });
+        st.key = 'tkey-456';
+        return reply(route, 200, { teacherKey: st.key });
+      }
+      if (!byKey && !byAccount) return reply(route, 401, { error: token && !signed && !h['x-teacher-key'] ? 'not_account' : 'not_teacher' });
+      if (path === '/api/teacher/dashboard') return reply(route, 200, dashboard(code));
       if (path === '/api/teacher/licence') return reply(route, 200, { ...st.licence, students: st.students.length, joinLocked: st.joinLocked });
       if (path === '/api/teacher/licence/request') {
         if (!signed) return reply(route, 401, { error: 'not_account' });
@@ -242,6 +347,72 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         return reply(route, 200, { ok: true, until: st.licence.until, seats: 35 });
       }
       if (path === '/api/teacher/class/lock') { st.joinLocked = !!body.locked; return reply(route, 200, { joinLocked: st.joinLocked }); }
+      if (path === '/api/teacher/class/rename') {
+        const name = String(body.className || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+        if (!name) return reply(route, 400, { error: 'missing_fields' });
+        if (code === 'K7Q2MD') st.className = name; else st.accountClasses = st.accountClasses.map((c) => (c.code === code ? { ...c, name } : c));
+        return reply(route, 200, { ok: true, className: name });
+      }
+      if (path === '/api/teacher/class/delete') {
+        if (body.confirm !== 'DELETE') return reply(route, 400, { error: 'confirm_required' });
+        // a class bound to an email: only its owner, with a code from the last 10 minutes
+        const owned = code === 'K7Q2MD' ? st.owned : true;
+        if (owned && !mine()) return reply(route, 403, { error: 'not_owner' });
+        if (owned && !st.recent.has(token)) return reply(route, 401, { error: 'reauth_needed' });
+        if (code === 'K7Q2MD' && ['trial', 'active', 'ending'].includes(st.licence.status)) return reply(route, 409, { error: 'class_has_licence' });
+        const students = code === 'K7Q2MD' ? st.students.length : (st.accountClasses.find((c) => c.code === code)?.students || 0);
+        st.deleted.push(code);
+        st.accountClasses = st.accountClasses.filter((c) => c.code !== code);
+        if (code === 'K7Q2MD') st.owned = false;
+        return reply(route, 200, { ok: true, students });
+      }
+      // ---- the teacher's assignments (TEACHER-4)
+      if (path === '/api/teacher/assignments' && req.method() === 'GET') {
+        return reply(route, 200, { today: st.today, assignments: [...st.assignments].sort((a, b) => (a.dueOn < b.dueOn ? 1 : a.dueOn > b.dueOn ? -1 : 0)).slice(0, 60).map(viewOf) });
+      }
+      if (path === '/api/teacher/assignments') {
+        const bad = (field) => reply(route, 400, { error: 'bad_assignment', field });
+        if (!['stair', 'check'].includes(body.kind)) return bad('kind');
+        if (!/^[a-z]{2,10}:\d{1,2}$/.test(body.skill || '')) return bad('skill');
+        const raw = String(body.dueOn || '');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(raw) || raw < st.today || raw > plus(st.today, 120)) return bad('dueOn');
+        const targets = Array.isArray(body.targets) ? [...new Set(body.targets)] : [];
+        if (targets.some((id) => !st.students.some((x) => x.id === id))) return bad('targets');
+        if (st.assignments.filter((x) => x.dueOn >= plus(st.today, -14)).length >= 20) return reply(route, 409, { error: 'too_many_open' });
+        let dueOn = raw; while (saturday(dueOn)) dueOn = plus(dueOn, 1);
+        const a = {
+          id: `a${String(st.assignments.length + 1).padStart(15, '0')}`, kind: body.kind, skill: body.skill, title: String(body.title || body.skill).slice(0, 80),
+          note: String(body.note || '').slice(0, 200), startsOn: st.today, dueOn, forAll: !targets.length, targets, createdAt: `${st.today}T10:00:00.000Z`,
+        };
+        st.assignments.push(a);
+        return reply(route, 201, { assignment: viewOf(a), moved: dueOn !== raw });
+      }
+      const am = path.match(/^\/api\/teacher\/assignments\/([a-f0-9]{16})(\/delete)?$/);
+      if (am) {
+        const a = st.assignments.find((x) => x.id === am[1]);
+        if (!a) return reply(route, 404, { error: 'not_found' });
+        if (am[2]) { st.assignments = st.assignments.filter((x) => x !== a); delete st.work[a.id]; return reply(route, 200, { ok: true }); }
+        if (req.method() === 'POST') {
+          let moved = false;
+          if (body.dueOn !== undefined) {
+            const raw = String(body.dueOn);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(raw) || raw < st.today || raw > plus(st.today, 120)) return reply(route, 400, { error: 'bad_assignment', field: 'dueOn' });
+            let d = raw; while (saturday(d)) d = plus(d, 1);
+            a.dueOn = d; moved = d !== raw;
+          }
+          if (body.note !== undefined) a.note = String(body.note).slice(0, 200);
+          if (body.title !== undefined) a.title = String(body.title).slice(0, 80);
+          return reply(route, 200, { assignment: viewOf(a), moved });
+        }
+        const rank = (w) => (w?.state === 'done' ? 2 : w?.state === 'started' ? 1 : 0);
+        const work = forWhom(a).map((sid) => ({ sid, name: st.students.find((x) => x.id === sid).name, w: workOf(a, sid) }))
+          .sort((x, y) => rank(x.w) - rank(y.w) || x.name.localeCompare(y.name, 'he'))
+          .map(({ sid, name, w }) => ({
+            studentId: sid, name, state: w?.state || 'none', stage: w?.stage ?? null, right: w?.right ?? null, asked: w?.asked ?? null, passed: w?.passed ?? null,
+            questions: w?.questions ?? null, tries: w?.tries || 0, startedAt: w?.startedAt || null, doneAt: w?.doneAt || null, late: lateOf(a, w),
+          }));
+        return reply(route, 200, { assignment: viewOf(a), exam: null, work });
+      }
       const rm = path.match(/^\/api\/teacher\/students\/([a-z0-9]+)\/remove$/);
       if (rm) { st.students = st.students.filter((s) => s.id !== rm[1]); return reply(route, 200, { ok: true }); }
     }
