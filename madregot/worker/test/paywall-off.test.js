@@ -22,7 +22,7 @@ test('off: a student gets 40 actions a day of every kind, all on CLAUDE_MODEL', 
   assert.equal(over.status, 429);
   assert.equal((await over.json()).error, 'daily_limit');
   assert.equal(h.net.log.claude.length, 40);
-  assert.ok(h.net.log.claude.every((p) => p.model === 'claude-opus-5-5'));
+  assert.ok(h.net.log.claude.every((p) => p.model === 'claude-sonnet-5-5'));
   assert.equal(countOf(h.env, `s:${cls.students[0].studentId}`), 40);
 });
 
@@ -100,7 +100,7 @@ test('off (a rollback while families still pay): a device of a live family plan 
   assert.equal(r.headers.get('X-AI-Tier'), 'open');
   assert.equal(r.headers.get('X-AI-Left'), '39', 'the student limit, not the network\'s solo 20');
   assert.equal(countOf(h.env, `fam:${acc}`), 1);
-  assert.equal(h.net.log.claude.at(-1).model, 'claude-opus-5-5');
+  assert.equal(h.net.log.claude.at(-1).model, 'claude-sonnet-5-5');
   const st = await (await h.call('GET', '/api/ai/status', { headers: dev.headers })).json();
   assert.deepEqual(st.groups.all, { left: 39, limit: 40 });
   // a device whose family plan ended is a solo device again (refused here, as ALLOW_SOLO_AI is false)

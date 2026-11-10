@@ -92,7 +92,7 @@ npx wrangler secret put ANTHROPIC_API_KEY
 
 | משתנה | מה הוא עושה | ברירת מחדל |
 |---|---|---|
-| `CLAUDE_MODEL` | המודל לכל פעולות העוזר | `claude-opus-5-5` |
+| `CLAUDE_MODEL` | המודל לכל פעולות העוזר | `claude-sonnet-5-5` |
 | `AI_DAILY_LIMIT` | פעולות AI ביום לתלמיד בכיתה | 40 |
 | `SOLO_DAILY_LIMIT` | פעולות AI ביום למכשיר של תלמיד בלי כיתה | 20 |
 | `ALLOW_SOLO_AI` | `false` משאיר את העוזר רק לתלמידים בכיתה | `true` |

@@ -67,7 +67,7 @@ export function makeEnv(over = {}) {
     DB: memoryD1(),
     ANTHROPIC_API_KEY: 'test-key',
     AI_PAYWALL: 'on',
-    CLAUDE_MODEL: 'claude-opus-5-5',
+    CLAUDE_MODEL: 'claude-sonnet-5-5',
     FREE_MODEL: 'claude-haiku-5-5',
     AI_DAILY_LIMIT: '40',
     TEACHER_DAILY_LIMIT: '200',

@@ -48,7 +48,7 @@ test('free taste, sign in, pay on the test page, the family plan on a linked dev
   const r = await ai(h, 'check', { ...dev.headers, 'X-Device': DEVICE });
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('X-AI-Tier'), 'family');
-  assert.equal(h.net.log.claude.at(-1).model, 'claude-opus-5-5');
+  assert.equal(h.net.log.claude.at(-1).model, 'claude-sonnet-5-5');
 
   // cancel within 14 days: a full refund, the tutor closes at once
   const page2 = await (await h.call('GET', '/api/account', { headers: { 'X-Account-Token': token } })).json();

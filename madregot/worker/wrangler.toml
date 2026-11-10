@@ -17,7 +17,7 @@ AI_PAYWALL = "off"
 BILLING_START = ""
 LEGACY_CLASS_AI_UNTIL = ""
 # Claude model for every full answer; FREE_MODEL for the free taste and economy mode (empty = the low-cost default in shared/ai.js).
-CLAUDE_MODEL = "claude-opus-5-5"
+CLAUDE_MODEL = "claude-sonnet-5-5"
 FREE_MODEL = "claude-haiku-5-5"
 # With the switch off: AI actions a day per class student, per teacher, and per network for students without a class.
 AI_DAILY_LIMIT = "40"
@@ -34,7 +34,7 @@ FREE_GLOBAL_DAILY = "3000"
 # Budgets in US dollars, read from what Claude really cost (table ai_spend).
 FREE_DAILY_BUDGET_USD = "5"
 TRIAL_DAILY_BUDGET_USD = "10"
-FAMILY_MONTHLY_BUDGET_USD = "5"
+FAMILY_MONTHLY_BUDGET_USD = "4"
 CLASS_SEAT_MONTHLY_BUDGET_USD = "0.8"
 OWNER_ALERT_USD = "20"
 # "true": every night the owner gets a summary of yesterday (spend, plans, what needs a hand, invariant checks).

@@ -2,7 +2,7 @@
 // and the browser (personal-key mode). Each builder returns the params for
 // client.beta.messages.create / .stream from @anthropic-ai/sdk.
 
-export const DEFAULT_MODEL = 'claude-opus-5-5';
+export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 // Server-side refusal fallback: a declined request is re-run on Anthropic's
 // recommended model for that refusal category instead of coming back empty.
 export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';

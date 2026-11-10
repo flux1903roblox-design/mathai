@@ -37,7 +37,7 @@ test('family: linked devices share the family limits per kind group (30 / 6 / 5 
     assert.equal((await r2.json()).limit, limit);
   }
   assert.equal(countOf(h.env, `fam:${a}:check`), 6);
-  assert.ok(h.net.log.claude.every((p) => p.model === 'claude-opus-5-5'));
+  assert.ok(h.net.log.claude.every((p) => p.model === 'claude-sonnet-5-5'));
 });
 
 test('family: the exam check is capped at 10 a month', async () => {
@@ -212,7 +212,8 @@ test('every answer adds priced usage to ai_spend: pool day and month, all, kind'
   const { a, d1 } = await family();
   await ai(h, 'explain', d1.headers);
   await h.ctx.flush();
-  const nano = 1000 * 4000 + 200 * 20000 + 500 * 200 + 100 * 5000;
+  const P = PRICES[h.env.CLAUDE_MODEL];
+  const nano = 1000 * P.input + 200 * P.output + 500 * P.cacheRead + 100 * P.cacheWrite;
   const spend = Object.fromEntries(rows(h.env, 'SELECT pool, period, nano_usd, cache_tokens, calls FROM ai_spend').map((r) => [`${r.pool}|${r.period}`, r]));
   for (const k of [`fam:${a}|${dayOf()}`, `fam:${a}|${monthOf()}`, `all|${dayOf()}`, `all|${monthOf()}`, `kind:explain|${monthOf()}`]) {
     assert.equal(spend[k]?.nano_usd, nano, k);
@@ -261,7 +262,7 @@ test('full-shape requests are byte-for-byte the params from before, for every ki
   insertSub(h.env, { kind: 'class', class_code: cls.code });
   await ai(h, 'explain', cls.teacher, { body: fx.explain.input });
   const { betas, ...sent } = fx.explain.opus;
-  assert.deepEqual(h.net.log.claude.at(-1), sent, 'the body sent to Claude (betas travel in a header)');
+  assert.deepEqual(h.net.log.claude.at(-1), { ...sent, model: h.env.CLAUDE_MODEL }, 'the body sent to Claude (betas travel in a header)');
   assert.ok(betas.length);
 });
 
