@@ -15,6 +15,8 @@ export const RETENTION = Object.freeze({
   attempts: 400,
   /** Exam results, counted from the upload. */
   exams: 400,
+  /** An assignment, with what each student did on it, counted from its due date (spec TEACHER-4). */
+  assignments: 400,
   /** A student nobody has seen for this many days is deleted with everything they have on the server. */
   idleStudent: 400,
   /** A class with no activity (teacher or student) for this many days and no running licence is deleted. */

@@ -8,12 +8,24 @@
 // before help_requests); a table or counter keyed by the class goes into classDeleteSteps and CLASS_COUNTERS.
 // The practice saved on the devices themselves is never touched from here.
 
-/** [table, column] pairs: every row of a student, deleted before the student row itself. */
-export const STUDENT_ROWS = [['attempts', 'student_id'], ['levels', 'student_id'], ['help_requests', 'student_id'], ['exams', 'student_id']];
-/** ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN tries, every AI tier, care). */
-export const STUDENT_COUNTERS = ['pin:', 's:', 'free:s:', 'care:s:'];
-/** ai_usage keys that carry a class code: the teacher's AI, the class's free and paid pools, licence requests and claims. */
-export const CLASS_COUNTERS = ['t:', 'free:t:', 'free:c:', 'cls:', 'licreq:c:', 'licclaim:c:'];
+/**
+ * [table, column] pairs: every row of a student, deleted before the student row itself. The teacher's assignments
+ * (TEACHER-4): what the student did on each, and the assignments given to them by name.
+ */
+export const STUDENT_ROWS = [
+  ['attempts', 'student_id'], ['levels', 'student_id'], ['help_requests', 'student_id'], ['exams', 'student_id'],
+  ['assignment_work', 'student_id'], ['assignment_targets', 'student_id'],
+];
+/**
+ * ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN tries, every AI tier, care, the
+ * student's assignment reports, and their replies to the teacher, TEACHER-6).
+ */
+export const STUDENT_COUNTERS = ['pin:', 's:', 'free:s:', 'care:s:', 'work:s:', 'helpreply:s:'];
+/**
+ * ai_usage keys that carry a class code: the teacher's AI, the class's free and paid pools, licence requests and claims,
+ * the assignments made a day (TEACHER-4) and the class report's exports (TEACHER-7).
+ */
+export const CLASS_COUNTERS = ['t:', 'free:t:', 'free:c:', 'cls:', 'licreq:c:', 'licclaim:c:', 'assign:c:', 'report:c:'];
 
 /**
  * SQL that is true for an ai_usage row whose key is <prefix><id> or <prefix><id>:<more>, with <id> in `sel` (a SELECT
@@ -49,7 +61,7 @@ export function studentsDeleteSteps(env, sel, args = []) {
 /**
  * Everything of the classes a query selects, as [name, statement] steps for one batch: first their students with all
  * their rows (at most `limit` students in one batch, when given), then, for each class that has no student left, its
- * join lock, settings, owner, counters, the notices about it and its audit rows (a licence's audit rows stay, as the
+ * join lock, settings, owner, assignments (with their work and targets), counters, the notices about it and its audit rows (a licence's audit rows stay, as the
  * licence itself does: subscriptions, payments and licence requests keep the code, which names no one), and the class
  * row last. `sel` is a SELECT of class codes with numbered parameters, bound to `args`. A class whose students were
  * not all deleted in this batch (the limit) keeps its own rows until the next one.
@@ -63,6 +75,10 @@ export function classDeleteSteps(env, sel, args = [], { limit } = {}) {
     ['classLocks', stmt(`DELETE FROM class_locks WHERE class_code IN (${empty})`)],
     ['classSettings', stmt(`DELETE FROM class_settings WHERE code IN (${empty})`)],
     ['classOwners', stmt(`DELETE FROM class_owners WHERE class_code IN (${empty})`)],
+    // the class's assignments: what was done on them and who they were for go first (their students are gone already)
+    ['assignmentWork', stmt(`DELETE FROM assignment_work WHERE assignment_id IN (SELECT id FROM assignments WHERE class_code IN (${empty}))`)],
+    ['assignmentTargets', stmt(`DELETE FROM assignment_targets WHERE assignment_id IN (SELECT id FROM assignments WHERE class_code IN (${empty}))`)],
+    ['assignments', stmt(`DELETE FROM assignments WHERE class_code IN (${empty})`)],
     ['classCounters', countersStmt(env, CLASS_COUNTERS, empty, args)],
     ['classNotices', stmt(`DELETE FROM notices WHERE ref IN (${empty})`)],
     ['classAudit', stmt(`DELETE FROM audit_log WHERE action NOT LIKE 'licence.%' AND action != 'class.delete'

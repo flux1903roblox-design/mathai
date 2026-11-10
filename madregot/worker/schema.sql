@@ -372,3 +372,56 @@ CREATE INDEX IF NOT EXISTS help_created ON help_requests (created_at);
 CREATE INDEX IF NOT EXISTS attempts_at ON attempts (at);
 CREATE INDEX IF NOT EXISTS exams_created ON exams (created_at);
 CREATE INDEX IF NOT EXISTS students_last_seen ON students (last_seen);
+
+-- Work a teacher gives the class, or chosen students, with a due date (spec TEACHER-4). Dates are YYYY-MM-DD in
+-- Jerusalem. Deleted with the class, and by the night purge 400 days after the due date (shared/retention.js).
+CREATE TABLE IF NOT EXISTS assignments (
+  id TEXT PRIMARY KEY,                           -- 16 hex
+  class_code TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('stair', 'check', 'exam')),
+  skill TEXT CHECK (skill IS NULL OR length(skill) <= 20),       -- '<topic>:<level>' for stair and check
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 80),
+  note TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 200),
+  exam TEXT CHECK (exam IS NULL OR length(exam) <= 49152),        -- kind 'exam': the frozen questions, JSON
+  version TEXT CHECK (version IS NULL OR version IN ('a', 'b')),  -- kind 'exam': which printed version was sent
+  for_all INTEGER NOT NULL DEFAULT 1 CHECK (for_all IN (0, 1)),
+  starts_on TEXT NOT NULL,                       -- YYYY-MM-DD, Jerusalem
+  due_on TEXT NOT NULL,                          -- YYYY-MM-DD, Jerusalem
+  created_at TEXT NOT NULL,
+  CHECK ((kind = 'exam') = (exam IS NOT NULL)),
+  CHECK (kind = 'exam' OR skill IS NOT NULL),
+  CHECK (due_on >= starts_on)
+);
+CREATE INDEX IF NOT EXISTS assignments_class ON assignments (class_code, due_on);
+CREATE INDEX IF NOT EXISTS assignments_due ON assignments (due_on);
+
+-- The students an assignment is for, when it is not for the whole class.
+CREATE TABLE IF NOT EXISTS assignment_targets (
+  assignment_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  PRIMARY KEY (assignment_id, student_id)
+);
+CREATE INDEX IF NOT EXISTS assignment_targets_student ON assignment_targets (student_id);
+
+-- What each student did on it. Results are worked out on the student's device: practice, not a graded test.
+CREATE TABLE IF NOT EXISTS assignment_work (
+  assignment_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('started', 'done')),
+  stage INTEGER CHECK (stage IS NULL OR stage BETWEEN 0 AND 5),           -- stair: stages done
+  right_n INTEGER CHECK (right_n IS NULL OR right_n BETWEEN 0 AND 40),    -- check and exam: first finished try
+  asked INTEGER CHECK (asked IS NULL OR asked BETWEEN 1 AND 40),
+  passed INTEGER CHECK (passed IS NULL OR passed IN (0, 1)),             -- stair and check: the mastery check passed
+  questions TEXT CHECK (questions IS NULL OR length(questions) <= 4096), -- exam: [{"topic","level","status"}]
+  tries INTEGER NOT NULL DEFAULT 0 CHECK (tries BETWEEN 0 AND 99),       -- finished tries
+  started_at TEXT NOT NULL,
+  done_at TEXT,
+  done_day TEXT,                                 -- YYYY-MM-DD in Jerusalem (dayOf at the first 'done'): compared with due_on
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (assignment_id, student_id)
+);
+CREATE INDEX IF NOT EXISTS assignment_work_student ON assignment_work (student_id);
+-- New values elsewhere (no table change):
+--   audit_log.action  'assignment.create' (detail {kind, skill, targets}) | 'assignment.update' | 'assignment.delete'
+--                     (target assignment:<id>)
+--   ai_usage.who      assign:c:<class> (assignments made a day)  work:s:<student> (work reports a day)

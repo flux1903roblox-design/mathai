@@ -282,10 +282,12 @@ test('the dashboard of a 3-student class: today, the week by Jerusalem days, fir
   const sum = (k) => d.students.reduce((a, s) => a + s.week[k], 0);
   assert.equal(Math.round((100 * sum('first')) / sum('n')), 60);
   // mistakes this week: most students first, with their names; נועה's is too old, the other class's is not here
-  assert.deepEqual(d.mistakes.map((m) => ({ ...m, names: [...m.names].sort() })), [
-    { topic: 'signed', cat: 'sign', n: 2, students: 2, names: ['דנה', 'יואב'] },
-    { topic: 'signed', cat: 'order', n: 1, students: 1, names: ['יואב'] },
+  // each with the stair it happened on most and the students' ids (TEACHER-4 §5: "give practice on this")
+  assert.deepEqual(d.mistakes.map((m) => ({ ...m, ids: [...m.ids].sort(), names: [...m.names].sort() })), [
+    { topic: 'signed', cat: 'sign', n: 2, students: 2, level: 1, ids: [dana.studentId, yoav.studentId].sort(), names: ['דנה', 'יואב'] },
+    { topic: 'signed', cat: 'order', n: 1, students: 1, level: 1, ids: [yoav.studentId], names: ['יואב'] },
   ]);
+  assert.deepEqual(d.assignments, [], 'no assignments yet');
   // help: newest first, names, the page as a flag only (never the image itself)
   assert.deepEqual(d.help.map((x) => [x.name, x.question, x.note, x.has_image, x.seen_at, x.done_at]), [
     ['יואב', '-2 + 7', '', 1, null, null],

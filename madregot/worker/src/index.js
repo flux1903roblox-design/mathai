@@ -21,6 +21,9 @@ import {
   licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked, renameClass, deleteClass, classSeenStmt,
 } from './licence.js';
 import { myClasses, bindClass, rekeyClass, ownedClassStmts, checkOwnedCap } from './teacherAccount.js';
+import {
+  listAssignments, createAssignment, getAssignment, updateAssignment, deleteAssignment, classWork, workExam, postWork, classAssignments,
+} from './assignments.js';
 import { RETENTION } from '../../shared/retention.js';
 import { run as runCron } from './cron.js';
 
@@ -359,18 +362,23 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, , assignments, classExams] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.first_try) AS first, COUNT(DISTINCT a.day) AS days, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day >= ? GROUP BY a.student_id`, cls.code, weekStart),
     q('SELECT l.student_id, l.topic, l.level, l.max_level FROM levels l JOIN students s ON s.id = l.student_id WHERE s.class_code = ?', cls.code),
-    q(`SELECT a.topic, a.cat, COUNT(*) AS n, COUNT(DISTINCT a.student_id) AS students
+    // each repeated mistake, with the stair it happened on most this week (a tie: the lower one), so "מחר" can give
+    // practice on that stair (TEACHER-4 §5)
+    q(`SELECT a.topic, a.cat, COUNT(*) AS n, COUNT(DISTINCT a.student_id) AS students,
+         (SELECT a2.level FROM attempts a2 JOIN students s2 ON s2.id = a2.student_id
+          WHERE s2.class_code = ?1 AND a2.day >= ?2 AND a2.topic = a.topic AND a2.cat = a.cat
+          GROUP BY a2.level ORDER BY COUNT(*) DESC, a2.level LIMIT 1) AS level
        FROM attempts a JOIN students s ON s.id = a.student_id
-       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL GROUP BY a.topic, a.cat ORDER BY students DESC, n DESC LIMIT 12`, cls.code, weekStart),
-    q(`SELECT DISTINCT a.topic, a.cat, s.name FROM attempts a JOIN students s ON s.id = a.student_id
-       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL`, cls.code, weekStart),
+       WHERE s.class_code = ?1 AND a.day >= ?2 AND a.cat IS NOT NULL GROUP BY a.topic, a.cat ORDER BY students DESC, n DESC LIMIT 12`, cls.code, weekStart),
+    q(`SELECT DISTINCT a.topic, a.cat, s.id, s.name FROM attempts a JOIN students s ON s.id = a.student_id
+       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL ORDER BY s.name`, cls.code, weekStart),
     q(`SELECT h.id, h.topic, h.level, h.question, h.answer, h.note, h.image IS NOT NULL AS has_image, h.created_at, h.seen_at, h.done_at, s.name
        FROM help_requests h JOIN students s ON s.id = h.student_id
        WHERE s.class_code = ? AND (h.done_at IS NULL OR h.done_at >= ?) ORDER BY h.created_at DESC LIMIT 100`, cls.code, daysAgo(7)),
@@ -378,6 +386,13 @@ async function dashboard(req, env, cors) {
     q('SELECT e.id, e.student_id, e.title, e.correct, e.total, e.questions, e.weak, e.created_at, s.name FROM exams e JOIN students s ON s.id = e.student_id WHERE s.class_code = ? ORDER BY e.created_at DESC LIMIT 200', cls.code),
     joinLocked(env, cls.code),
     classSeenStmt(env, cls.code).run(),
+    // the open assignments with their counts (due in the last 7 days or later, soonest first), and the class exams done
+    // in the app, shown with the other exams (TEACHER-4 §5)
+    classAssignments(env, cls.code, { open: 7, limit: 10 }),
+    q(`SELECT w.assignment_id, w.student_id, s.name, a.title, w.right_n, w.asked, w.questions, w.done_at
+       FROM assignment_work w JOIN assignments a ON a.id = w.assignment_id JOIN students s ON s.id = w.student_id
+       WHERE a.class_code = ? AND a.kind = 'exam' AND w.state = 'done' AND s.class_code = a.class_code
+       ORDER BY w.done_at DESC LIMIT 200`, cls.code),
   ]);
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
   const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows);
@@ -393,8 +408,18 @@ async function dashboard(req, env, cors) {
       week: w[s.id] ? { n: w[s.id].n, first: w[s.id].first, days: w[s.id].days, minutes: Math.round((w[s.id].secs || 0) / 60) } : { n: 0, first: 0, days: 0, minutes: 0 },
       levels: lv[s.id] || {},
     })),
-    exams: examRows.map((e) => ({ id: e.id, studentId: e.student_id, name: e.name, title: e.title, correct: e.correct, total: e.total, weak: JSON.parse(e.weak || '[]'), questions: JSON.parse(e.questions || '[]'), at: e.created_at })),
-    mistakes: catRows.map((r) => ({ ...r, names: catStudents.filter((c) => c.topic === r.topic && c.cat === r.cat).map((c) => c.name) })),
+    exams: [
+      ...examRows.map((e) => ({ id: e.id, studentId: e.student_id, name: e.name, title: e.title, correct: e.correct, total: e.total, weak: JSON.parse(e.weak || '[]'), questions: JSON.parse(e.questions || '[]'), at: e.created_at })),
+      ...classExams.map((w) => ({
+        id: `a:${w.assignment_id}:${w.student_id}`, studentId: w.student_id, name: w.name, title: w.title, correct: w.right_n, total: w.asked,
+        weak: [], questions: JSON.parse(w.questions || '[]'), at: w.done_at, assignmentId: w.assignment_id,
+      })),
+    ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, 200),
+    mistakes: catRows.map((r) => {
+      const who = catStudents.filter((c) => c.topic === r.topic && c.cat === r.cat);
+      return { ...r, level: r.level == null ? null : Number(r.level), ids: who.map((c) => c.id), names: who.map((c) => c.name) };
+    }),
+    assignments,
     help,
   }, 200, cors);
 }
@@ -487,6 +512,10 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, cors);
   if (M === 'POST' && p === '/api/help') return askHelp(req, env, cors);
   if (M === 'POST' && p === '/api/exams') return saveExam(req, env, cors);
+  // the teacher's assignments, as the student sees them (assignments.js)
+  if (M === 'GET' && p === '/api/class/work') return classWork(req, env, cors);
+  if (M === 'GET' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})\/exam$/))) return workExam(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})$/))) return postWork(m[1], req, env, cors);
   // teacher
   if (M === 'GET' && p === '/api/teacher/dashboard') return dashboard(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)$/))) return updateHelp(m[1], req, env, cors);
@@ -496,6 +525,11 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/rename') return renameClass(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/delete') return deleteClass(req, env, cors);
+  if (M === 'GET' && p === '/api/teacher/assignments') return listAssignments(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/assignments') return createAssignment(req, env, cors);
+  if (M === 'GET' && (m = p.match(/^\/api\/teacher\/assignments\/([a-f0-9]{16})$/))) return getAssignment(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/assignments\/([a-f0-9]{16})$/))) return updateAssignment(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/assignments\/([a-f0-9]{16})\/delete$/))) return deleteAssignment(m[1], req, env, cors);
   if (M === 'GET' && p === '/api/teacher/licence') return licenceStatus(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/licence/request') return licenceRequest(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/teacher/licence/claim') return licenceClaim(req, env, cors);

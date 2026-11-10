@@ -26,6 +26,7 @@ describe('the retention words follow shared/retention.js', () => {
     expect(help).toContain(`ולכל היותר ${daysText(RETENTION.helpMax)}.`);
     expect(kept).toContain(daysText(RETENTION.attempts));
     expect(RETENTION.exams).toBe(RETENTION.attempts);
+    expect(RETENTION.assignments).toBe(RETENTION.attempts);
     expect(idle).toContain(`שלא נכנס ${daysText(RETENTION.idleStudent)} נמחק`);
     expect(idle).toContain(`אליה ${daysText(RETENTION.idleClass)} נמחקת`);
     expect(daysText(30)).toBe('חודש'); expect(daysText(60)).toBe('חודשיים'); expect(daysText(180)).toBe('חצי שנה'); expect(daysText(365)).toBe('שנה');
@@ -39,6 +40,9 @@ describe('the retention words follow shared/retention.js', () => {
     expect(lines[2]).toBe('תשובות בתרגול: 300 יום. מבחנים ומשימות: 250 יום.');
     expect(lines[3]).toBe('תלמיד שלא נכנס 500 יום נמחק, עם כל המידע שלו. כיתה שאף אחד לא נכנס אליה 600 יום נמחקת.');
     expect(helpRetentionNote(R)).toBe('דפי מחברת נמחקים 14 יום אחרי שסוגרים בקשה, ובקשות נמחקות אחרי 90 יום.');
+    // assignments kept for their own time get their own sentence; kept as long as practice, they join it
+    expect(retentionLines({ ...R, assignments: 500 })[2]).toBe('תשובות בתרגול: 300 יום. מבחנים: 250 יום. משימות: 500 יום.');
+    expect(retentionLines({ ...R, assignments: 300 })[2]).toBe('תשובות בתרגול ומשימות: 300 יום. מבחנים: 250 יום.');
   });
 
   it('the screens that show these words take them from the builder, with no number of days of their own', () => {

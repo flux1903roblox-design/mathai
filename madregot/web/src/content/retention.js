@@ -8,11 +8,22 @@ const WORDS = { 30: 'חודש', 60: 'חודשיים', 180: 'חצי שנה', 365:
 /** A number of days as a teacher says it: "חודש", "חצי שנה", "שנה", or "400 יום". */
 export const daysText = (days) => WORDS[days] || `${days} יום`;
 
+/** Names joined as a list is said: "א", "א וב", "א, ב וג". */
+const joinNames = (names) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} ו${names.at(-1)}`);
+/** Practice answers, exams and assignments: one sentence for the ones kept as long, in this order. */
+function keptText(R) {
+  const parts = [['תשובות בתרגול', R.attempts], ['מבחנים', R.exams], ['משימות', R.assignments ?? R.exams]];
+  const groups = [];
+  for (const [name, days] of parts) {
+    const g = groups.find((x) => x.days === days);
+    if (g) g.names.push(name); else groups.push({ days, names: [name] });
+  }
+  return groups.map((g) => `${joinNames(g.names)}: ${daysText(g.days)}.`).join(' ');
+}
+
 /** The list under "כמה זמן נשמר המידע", one sentence a line. */
 export function retentionLines(R = RETENTION) {
-  const kept = R.attempts === R.exams
-    ? `תשובות בתרגול, מבחנים ומשימות: ${daysText(R.attempts)}.`
-    : `תשובות בתרגול: ${daysText(R.attempts)}. מבחנים ומשימות: ${daysText(R.exams)}.`;
+  const kept = keptText(R);
   return [
     `דפי מחברת שנשלחו עם בקשת עזרה: ${daysText(R.helpImageAfterDone)} אחרי שסוגרים את הבקשה, ולכל היותר ${daysText(R.helpImageMax)}.`,
     `בקשות עזרה והתשובות עליהן: ${daysText(R.helpAfterDone)} אחרי שסוגרים אותן, ולכל היותר ${daysText(R.helpMax)}.`,

@@ -40,10 +40,27 @@ async function practise(s) {
   await h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'neg', question: '3 - 8', answer: '5', image: IMAGE } });
   await h.call('POST', '/api/exams', { headers: bearer(s), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } });
 }
+/**
+ * The class's assignments (TEACHER-4) through the API: one for the whole class and one naming each student, and each
+ * student's work on both. Every student then has rows in assignment_work and assignment_targets.
+ */
+async function assignWork(cls) {
+  const due = dayOf(new Date(Date.now() + 3 * DAY));
+  const make = (body) => h.call('POST', '/api/teacher/assignments', { headers: cls.teacher, body: { kind: 'stair', skill: 'signed:1', dueOn: due, ...body } });
+  const ids = [(await (await make({})).json()).assignment.id];
+  for (const s of cls.students) ids.push((await (await make({ targets: [s.studentId], note: 'לקראת המבחן' })).json()).assignment.id);
+  for (const s of cls.students) {
+    for (const id of [ids[0], ids[cls.students.indexOf(s) + 1]]) {
+      const r = await h.call('POST', `/api/class/work/${id}`, { headers: bearer(s), body: { state: 'started', stage: 1 } });
+      assert.equal(r.status, 200);
+    }
+  }
+  return ids;
+}
 /** The counters a student and a class have, written for today. */
 async function counters(studentIds, code) {
-  for (const id of studentIds) for (const who of [`pin:${id}`, `s:${id}`, `s:${id}:tutor`, `free:s:${id}`, `care:s:${id}`]) await setCount(h.env, who, 1);
-  for (const who of [`t:${code}`, `t:${code}:tutor`, `free:t:${code}`, `free:c:${code}`, `cls:${code}`, `licreq:c:${code}`, `licclaim:c:${code}`]) await setCount(h.env, who, 1);
+  for (const id of studentIds) for (const who of [`pin:${id}`, `s:${id}`, `s:${id}:tutor`, `free:s:${id}`, `care:s:${id}`, `work:s:${id}`, `helpreply:s:${id}`]) await setCount(h.env, who, 1);
+  for (const who of [`t:${code}`, `t:${code}:tutor`, `free:t:${code}`, `free:c:${code}`, `cls:${code}`, `licreq:c:${code}`, `licclaim:c:${code}`, `assign:c:${code}`, `report:c:${code}`]) await setCount(h.env, who, 1);
 }
 /** Make a student, everything of them, and their class look `days` old. */
 function age(code, days) {
@@ -54,7 +71,7 @@ function age(code, days) {
 
 test('the retention numbers are the ones the privacy wording promises', () => {
   assert.deepEqual({ ...R }, {
-    helpImageAfterDone: 30, helpImageMax: 60, helpAfterDone: 180, helpMax: 365, attempts: 400, exams: 400, idleStudent: 400, idleClass: 400,
+    helpImageAfterDone: 30, helpImageMax: 60, helpAfterDone: 180, helpMax: 365, attempts: 400, exams: 400, assignments: 400, idleStudent: 400, idleClass: 400,
   });
   assert.ok(Object.isFrozen(R));
 });
@@ -111,6 +128,7 @@ test('a student nobody has seen for 400 days is deleted with all their rows and 
   const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
   const [noa, itai] = cls.students;
   for (const s of cls.students) await practise(s);
+  await assignWork(cls);
   await counters([noa.studentId, itai.studentId], cls.code);
   raw().prepare('UPDATE students SET last_seen = ? WHERE id = ?').run(ago(R.idleStudent, HOUR), noa.studentId);
   raw().prepare('UPDATE students SET last_seen = ? WHERE id = ?').run(ago(R.idleStudent - 1), itai.studentId);
@@ -119,7 +137,8 @@ test('a student nobody has seen for 400 days is deleted with all their rows and 
   assert.deepEqual(mentions(noa.studentId), [], 'nothing of her is left in any table');
   assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM students WHERE id = ?', itai.studentId).n, 1);
   for (const [t, col] of STUDENT_ROWS) assert.ok(rows(h.env, `SELECT * FROM ${t} WHERE ${col} = ?`, itai.studentId).length > 0, `${t} of the other student stays`);
-  assert.equal(rows(h.env, "SELECT * FROM ai_usage WHERE who LIKE ?", `%${itai.studentId}%`).length, 5, 'his counters stay');
+  assert.equal(rows(h.env, "SELECT * FROM ai_usage WHERE who LIKE ?", `%${itai.studentId}%`).length, 7, 'his counters stay');
+  assert.equal(rows(h.env, 'SELECT * FROM assignments WHERE class_code = ?', cls.code).length, 3, "the class's assignments stay");
   assert.ok(one(h.env, 'SELECT * FROM classes WHERE code = ?', cls.code), 'the class stays');
 });
 
@@ -143,6 +162,7 @@ test('a class idle for 400 days with no running licence is deleted from every ta
   const aStudents = [];
   for (const name of ['נועה', 'איתי']) aStudents.push(await (await h.call('POST', `/api/classes/${a.code}/join`, { body: { name, pin: '1234' } })).json());
   for (const s of aStudents) await practise(s);
+  await assignWork({ teacher: aTeacher, students: aStudents });
   await counters(aStudents.map((s) => s.studentId), a.code);
   await h.call('POST', '/api/teacher/class/lock', { headers: aTeacher, body: { locked: true } });
   await h.call('GET', '/api/teacher/dashboard', { headers: aTeacher });
@@ -174,6 +194,7 @@ test('a class idle for 400 days with no running licence is deleted from every ta
   const codes = rows(h.env, 'SELECT code FROM classes ORDER BY code').map((x) => x.code);
   assert.deepEqual(codes, [b.code, c.code, d.code, f.code].sort());
   assert.deepEqual(mentions(a.code, (table) => ['subscriptions', 'licence_requests'].includes(table)), [], 'nothing of class A is left');
+  assert.equal(rows(h.env, 'SELECT * FROM assignments').length, 0, "class A's assignments went with it");
   for (const s of aStudents) assert.deepEqual(mentions(s.studentId), [], `nothing of ${s.name} is left`);
   assert.deepEqual(mentions(e.code, (table) => table === 'subscriptions'), []);
   assert.equal(rows(h.env, 'SELECT * FROM subscriptions WHERE class_code = ?', e.code).length, 1, 'the ended licence keeps its row');
@@ -197,7 +218,7 @@ test('the night purge runs in batches of 2000 rows, goes on until done, and repo
   const report = await run(h.env, { now: night });
   assert.equal(report.purge.class.attempts, PURGE_BATCH + 500);
   assert.equal(report.purge.class.helpImages, 1);
-  assert.deepEqual(Object.keys(report.purge.class).sort(), ['attempts', 'classes', 'exams', 'help', 'helpImages', 'students']);
+  assert.deepEqual(Object.keys(report.purge.class).sort(), ['assignments', 'attempts', 'classes', 'exams', 'help', 'helpImages', 'students']);
   assert.equal(rows(h.env, 'SELECT * FROM attempts').length, 1);
 });
 
@@ -236,6 +257,7 @@ test('deleting a class: confirm needed, not while a licence runs, then every tab
   const cls = await makeClass(h, { students: ['נועה', 'איתי', 'מיה'] });
   const other = await makeClass(h, { students: ['דנה'] });
   for (const s of [...cls.students, ...other.students]) await practise(s);
+  await assignWork(cls); await assignWork(other);
   await counters(cls.students.map((s) => s.studentId), cls.code);
   await counters(other.students.map((s) => s.studentId), other.code);
   await h.call('POST', '/api/teacher/class/lock', { headers: cls.teacher, body: { locked: true } });
@@ -259,6 +281,10 @@ test('deleting a class: confirm needed, not while a licence runs, then every tab
   assert.equal(r.status, 200);
   assert.deepEqual(await r.json(), { ok: true, students: 2 });
   for (const s of cls.students) assert.deepEqual(mentions(s.studentId), [], `nothing of ${s.name} is left`);
+  for (const t of ['assignments', 'assignment_targets', 'assignment_work']) {
+    assert.equal(rows(h.env, `SELECT * FROM ${t} WHERE ${t === 'assignments' ? 'class_code' : 'assignment_id IN (SELECT id FROM assignments WHERE class_code = ?)'} ${t === 'assignments' ? '= ?' : ''}`, cls.code).length, 0, `${t} of the class`);
+  }
+  assert.equal(rows(h.env, 'SELECT * FROM assignments WHERE class_code = ?', other.code).length, 2, "the other class's assignments stay");
   assert.deepEqual(mentions(cls.code, (table, row) => table === 'subscriptions' || (table === 'audit_log' && row.includes('"class.delete"'))), []);
   const audit = rows(h.env, "SELECT actor, target, detail FROM audit_log WHERE action = 'class.delete'").map((x) => ({ ...x }));
   assert.deepEqual(audit.find((x) => x.target === `class:${cls.code}`), { actor: `teacher:${cls.code}`, target: `class:${cls.code}`, detail: '{"students":2}' });
@@ -272,6 +298,7 @@ test('the other class keeps everything when one class is deleted', async () => {
   const cls = await makeClass(h, { students: ['נועה'] });
   const other = await makeClass(h, { students: ['דנה'] });
   for (const s of [...cls.students, ...other.students]) await practise(s);
+  await assignWork(cls); await assignWork(other);
   await counters(other.students.map((s) => s.studentId), other.code);
   const before = tablesText().map(({ name, rows: list }) => [name, list.filter((x) => x.includes(other.code) || x.includes(other.students[0].studentId)).length]);
   assert.equal((await h.call('POST', '/api/teacher/class/delete', { headers: cls.teacher, body: { confirm: 'DELETE' } })).status, 200);

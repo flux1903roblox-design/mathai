@@ -145,13 +145,15 @@ export const PURGE_ROUNDS = 5;
 /**
  * Class data past its time (spec TRUST-7; the periods are in shared/retention.js), as [name, statement] steps:
  * notebook pages 30 days after the request was closed (60 at most), help requests 180 days after closing (365 at most),
- * attempts and exams after 400 days, students nobody has seen for 400 days (with all their rows and counters), and
+ * attempts and exams after 400 days, assignments 400 days after their due date (with their work and targets),
+ * students nobody has seen for 400 days (with all their rows and counters), and
  * classes with no activity for 400 days and no running licence (their students, lock, settings, owner, counters, notices
  * and the class row). Every step is limited to PURGE_BATCH rows (or students, or classes).
  */
 export function purgeClassSteps(env, now = new Date()) {
   const t = now.getTime();
   const iso = (days) => new Date(t - days * DAY).toISOString();
+  const oldDay = (days) => dayOf(new Date(t - days * DAY));
   const R = RETENTION;
   const N = PURGE_BATCH;
   const stmt = (sql, ...a) => env.DB.prepare(sql).bind(...a);
@@ -170,6 +172,15 @@ export function purgeClassSteps(env, now = new Date()) {
       WHERE (done_at IS NOT NULL AND done_at < ?1) OR created_at < ?2 LIMIT ${N})`, iso(R.helpAfterDone), iso(R.helpMax))],
     ['attempts', stmt(`DELETE FROM attempts WHERE id IN (SELECT id FROM attempts WHERE at < ? LIMIT ${N})`, iso(R.attempts))],
     ['exams', stmt(`DELETE FROM exams WHERE id IN (SELECT id FROM exams WHERE created_at < ? LIMIT ${N})`, iso(R.exams))],
+    // assignments 400 days after their due date (a Jerusalem day): what was done on them and who they were for first,
+    // then each assignment that has none left, every step at most PURGE_BATCH rows
+    ['assignmentWork', stmt(`DELETE FROM assignment_work WHERE rowid IN (SELECT w.rowid FROM assignment_work w
+      JOIN assignments a ON a.id = w.assignment_id WHERE a.due_on < ? LIMIT ${N})`, oldDay(R.assignments))],
+    ['assignmentTargets', stmt(`DELETE FROM assignment_targets WHERE rowid IN (SELECT t.rowid FROM assignment_targets t
+      JOIN assignments a ON a.id = t.assignment_id WHERE a.due_on < ? LIMIT ${N})`, oldDay(R.assignments))],
+    ['assignmentsOld', stmt(`DELETE FROM assignments WHERE id IN (SELECT a.id FROM assignments a WHERE a.due_on < ?
+      AND NOT EXISTS (SELECT 1 FROM assignment_work w WHERE w.assignment_id = a.id)
+      AND NOT EXISTS (SELECT 1 FROM assignment_targets t WHERE t.assignment_id = a.id) LIMIT ${N})`, oldDay(R.assignments))],
     ...studentsDeleteSteps(env, idleStudents, [iso(R.idleStudent)]),
     ...classDeleteSteps(env, idleClasses, [dayOf(new Date(t - R.idleClass * DAY)), iso(R.idleClass)], { limit: N }),
   ];
@@ -194,7 +205,10 @@ export async function purge(env, now = new Date()) {
   const cls = await purgeClass(env, now);
   return {
     rows: changes(r),
-    class: { helpImages: cls.helpImages, help: cls.help, attempts: cls.attempts, exams: cls.exams, students: cls.students, classes: cls.classes },
+    class: {
+      helpImages: cls.helpImages, help: cls.help, attempts: cls.attempts, exams: cls.exams, assignments: (cls.assignmentsOld || 0) + (cls.assignments || 0),
+      students: cls.students, classes: cls.classes,
+    },
   };
 }
 
