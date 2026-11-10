@@ -20,6 +20,7 @@ import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFa
 import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked } from './licence.js';
 import { run as runCron } from './cron.js';
 import { postErrors, recordServerError } from './errors.js';
+import { getVault, putVault, deleteVault, vaultOn, vaultFull } from './vault.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -29,7 +30,7 @@ function corsHeaders(req, env) {
   return {
     'Access-Control-Allow-Origin': ok ? origin : allowed[0] || '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Class-Code, X-Teacher-Key, X-Account-Token, X-Device, X-Family-Device, Idempotency-Key',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Class-Code, X-Teacher-Key, X-Account-Token, X-Device, X-Family-Device, X-Vault, Idempotency-Key',
     'Access-Control-Expose-Headers': 'X-AI-Tier, X-AI-Group, X-AI-Left, X-AI-Economy, X-AI-Linked',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
@@ -422,7 +423,7 @@ async function resetPin(id, req, env, cors) {
 }
 
 // ---------- router ----------
-function health(env) {
+async function health(env) {
   const provider = currentProvider(env);
   return {
     ok: true, ai: !!env.ANTHROPIC_API_KEY, model: env.CLAUDE_MODEL || null, freeModel: env.FREE_MODEL || LITE_MODEL,
@@ -431,6 +432,8 @@ function health(env) {
     deviceMint: String(env.FREE_DEVICE_MINT || 'off') === 'turnstile' ? 'turnstile' : 'off', turnstileSiteKey: env.TURNSTILE_SITE_KEY || null,
     // whether the secrets that classes, sign-in and network counters need are set (never their values)
     netKeys: !!env.IP_HASH_SECRET, auth: !!env.AUTH_SECRET,
+    // the encrypted backup: its switch, and whether the size limit is reached (never the meter's value)
+    vault: vaultOn(env) ? 'on' : 'off', vaultFull: await vaultFull(env),
   };
 }
 
@@ -439,9 +442,14 @@ async function route(req, env, ctx, cors) {
   const p = url.pathname.replace(/\/+$/, '');
   const M = req.method;
   let m;
-  if (M === 'GET' && p === '/api/health') return json(health(env), 200, cors);
+  if (M === 'GET' && p === '/api/health') return json(await health(env), 200, cors);
   // error reports from the app (DURABLE-9): counts per day, no per-user trail
   if (M === 'POST' && p === '/api/errors') return postErrors(req, env, cors);
+  // the encrypted backup (DURABLE-5): ciphertext only, found by the SHA-256 of a token derived from the restore code
+  if (M === 'POST' && p === '/api/vault') return putVault(req, env, cors);
+  if (M === 'GET' && p === '/api/vault') return getVault(req, env, cors, { blob: true });
+  if (M === 'GET' && p === '/api/vault/rev') return getVault(req, env, cors, { blob: false });
+  if (M === 'POST' && p === '/api/vault/delete') return deleteVault(req, env, cors);
   // child side: AI
   if (M === 'GET' && p === '/api/ai/status') {
     const s = await aiStatus(req, env);

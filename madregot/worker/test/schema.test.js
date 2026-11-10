@@ -92,3 +92,15 @@ test('the live-plan indexes, CHECKs and the billing_events key hold', () => {
   db.exec("DELETE FROM accounts WHERE id = 'a1'");
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM account_sessions').get().n, 0, 'sessions go with the account');
 });
+
+test('0003 adds the vault tables: the meter starts at 0 once, and a blob is 40 to 349,526 characters', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(m0); db.exec(m1); db.exec(m2); db.exec(m3);
+  db.exec(m3.split('\n').filter((l) => l.startsWith('INSERT OR IGNORE INTO meters')).join('\n'));
+  assert.deepEqual(db.prepare('SELECT name, value FROM meters').all().map((r) => ({ ...r })), [{ name: 'vault_bytes', value: 0 }]);
+  const put = (id, n) => db.prepare("INSERT INTO vaults (id_hash, rev, blob, bytes, created_at, updated_at) VALUES (?, 1, ?, ?, 'x', 'x')").run(id, 'A'.repeat(n), n);
+  put('a', 349_526); put('b', 40);
+  assert.throws(() => put('c', 349_527), /CHECK/);
+  assert.throws(() => put('d', 39), /CHECK/);
+  assert.throws(() => db.prepare("INSERT INTO vaults (id_hash, rev, blob, bytes, created_at, updated_at) VALUES ('e', 0, ?, 40, 'x', 'x')").run('A'.repeat(40)), /CHECK/);
+});

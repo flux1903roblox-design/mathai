@@ -339,6 +339,8 @@ CREATE INDEX IF NOT EXISTS audit_target ON audit_log (target);
 --                 link:d:<device>  link:n:<net>  linkpoll:<code_hash[0:16]>  linkpoll:n:<net>  claim:a:<account>
 --                 checkout:a:<account> (hourly)  licreq:c:<class>  licclaim:n:<net> (hourly)  licclaim:c:<class>  mint:n:<net>
 --   app errors:   err:n:<net> (items a day)  err:all
+--   vaults:       vault:miss:s:<student> | vault:miss:fd:<family device> | vault:miss:n:<net> (lookups that found nothing)
+--                 vault:new:n:<net> (anonymous creates)  vault:new:all  vault:w:<id_hash[0:16]> (writes to one vault)
 
 -- DURABLE-9: the app's error reports, counted per day and fingerprint, with no per-user trail: no device id, no address,
 -- no name, no route values (a route is its pattern). fp = the first 16 hex of SHA-256(kind|name|message|frame). Kept 30
@@ -358,3 +360,22 @@ CREATE TABLE IF NOT EXISTS client_errors (
   last_at TEXT NOT NULL,
   PRIMARY KEY (day, fp, release, agent, route)
 );
+
+-- DURABLE-5: the encrypted backup vault. The server keeps ciphertext and the SHA-256 of a lookup token that the app
+-- derives from the restore code; never the token, the code, the key, an address, a device id or a name. A vault nobody
+-- wrote or read for 400 days is deleted (cron.js). meters.vault_bytes is the size breaker: it changes in the same batch
+-- as the vault row (vault.js) and is recomputed from SUM(bytes) every night.
+CREATE TABLE IF NOT EXISTS vaults (
+  id_hash TEXT PRIMARY KEY,                 -- SHA-256 hex of the 64-hex lookup token
+  rev INTEGER NOT NULL CHECK (rev >= 1),
+  blob TEXT NOT NULL CHECK (length(blob) BETWEEN 40 AND 349526),   -- base64url(0x01 | iv | AES-GCM(gzip(JSON))), at most 256 KiB binary
+  prev_rev INTEGER,
+  prev_blob TEXT CHECK (prev_blob IS NULL OR length(prev_blob) <= 349526),   -- the version before, kept for undo
+  bytes INTEGER NOT NULL,                   -- length(blob) + length(prev_blob)
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  read_at TEXT                              -- the last day a device read it (retention counts the later of the two)
+);
+CREATE INDEX IF NOT EXISTS vaults_updated ON vaults (updated_at);
+CREATE TABLE IF NOT EXISTS meters (name TEXT PRIMARY KEY, value INTEGER NOT NULL DEFAULT 0);
+INSERT OR IGNORE INTO meters (name, value) VALUES ('vault_bytes', 0);

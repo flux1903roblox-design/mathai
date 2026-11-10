@@ -7,7 +7,8 @@
 // In the 03:00 hour in Jerusalem: reconcile renewing plans whose period is over with the provider (extend only from the
 // truth pulled from it, or end the plan), queue the yearly renewal reminder (45 days ahead) and the licence-ending email
 // (30 days ahead), purge what is no longer needed (spec §6.9; error reports after 30 days), queue the owner's notice of
-// yesterday's app errors when there were many (errors.js), and queue the owner's daily summary when
+// yesterday's app errors when there were many (errors.js), run the encrypted vaults' night (vault.js: purge vaults unused
+// for 400 days, recompute the size meter, the 70% notice), and queue the owner's daily summary when
 // OWNER_DAILY_SUMMARY = "true". Each step runs on its own: one failing step never stops the others.
 import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
@@ -18,6 +19,7 @@ import { providerById } from './providers/index.js';
 import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
 import { errorsOf, errorsNoticeDue, purgeErrorsSql } from './errors.js';
+import { vaultNight, vaultStats } from './vault.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -157,8 +159,8 @@ export async function errorsNotice(env, now = new Date()) {
 /**
  * The owner's daily summary of yesterday (Jerusalem): spend by pool, free calls, plans started, cancelled and ended;
  * what needs a hand (unsynced cancels, manual refunds, odd provider events, open licence requests); the app's error
- * reports (the total and the 5 most frequent); and the invariant checks: a running paid plan with no payment covering
- * now, a paid order with no plan, spend over a budget.
+ * reports (the total and the 5 most frequent); the encrypted vaults (how many, their MB, how many were created); and
+ * the invariant checks: a running paid plan with no payment covering now, a paid order with no plan, spend over a budget.
  */
 export async function dailySummary(env, now = new Date()) {
   const L = limits(env);
@@ -184,6 +186,7 @@ export async function dailySummary(env, now = new Date()) {
     badEvents: await count("SELECT COUNT(*) AS n FROM billing_events WHERE outcome IN ('mismatch', 'unknown', 'test_mode') AND received_at >= ? AND received_at < ?", startIso, endIso),
     openRequests: await count('SELECT COUNT(*) AS n FROM licence_requests WHERE handled_at IS NULL'),
     errors: await errorsOf(env, day).then(({ total, top }) => ({ total, top })),
+    vaults: await vaultStats(env, startIso, endIso),
     violations: [],
   };
   const v = params.violations;
@@ -222,6 +225,7 @@ export async function run(env, { now = new Date() } = {}) {
     await step('reminders', () => reminders(env));
     await step('purge', () => purge(env, now));
     await step('errors', () => errorsNotice(env, now));
+    await step('vaults', () => vaultNight(env, now));
     if (String(env.OWNER_DAILY_SUMMARY) === 'true') await step('summary', () => dailySummary(env, now));
   }
   await step('notices', () => flushNotices(env));

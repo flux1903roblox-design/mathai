@@ -119,3 +119,46 @@ table of the council's probes comes with the proof pack (DURABLE-15); this file 
 - **Evidence.** `qa-evidence/durable/support-info.png`, `error-screen.png` (390x844).
 - **For the trust lane's privacy notice:** "כשמשהו לא עובד באפליקציה, נשלח לשרת דיווח תקלה קצר: איזה מסך, איזו שגיאה
   ואיזה סוג דפדפן. בלי שם, בלי מזהה מכשיר ובלי כתובת רשת. הדיווחים נשמרים 30 יום."
+
+## The encrypted vault on the server (DURABLE-5, Worker)
+
+- **What the server keeps** (`worker/src/vault.js`, tables `vaults` and `meters` in `0003_durable.sql`). A vault row is
+  the SHA-256 of the 64-hex lookup token the app derives from the restore code, the sealed blob (base64url, 40 to
+  349,526 characters, always a bound parameter), the previous blob for undo, `bytes`, and three times. No token, no code,
+  no key, no address, no device id, no name: a test scans every table for the token and the test address.
+- **Routes.** `POST /api/vault` (`ifRev: null` creates; `ifRev: n` is one compare-and-swap statement), `GET /api/vault`,
+  `GET /api/vault/rev`, `POST /api/vault/delete`, all with the `X-Vault` header (allowed by CORS). A stale `ifRev` is
+  409 with the current rev; an update of a vault that is gone is 404 `vault_gone`.
+- **Caps.** Counted per class student or family device when the request carries a valid credential, per network only
+  otherwise, so a school behind one address is never blocked. Lookups that find nothing: 20 a day, taken before the
+  lookup and given back on a hit (updates and deletes count too, because their answer would tell whether a vault
+  exists). Anonymous creates: 60 a day per network; all creates: 5,000 a day; writes: 300 a day per vault. The
+  `VAULT_RL` binding (`[[ratelimits]]`, 120 a minute per credential or network) is checked before any database call.
+- **Size breaker.** `meters.vault_bytes` changes in the same batch as the vault row, under the same guard. A create
+  stamps `created_at` with a one-time value until the end of its batch, so the meter's guard can only match the row
+  that batch inserted: with the spec's plain `created_at = now` guard, ten parallel creates of one new vault in the
+  same millisecond counted it up to ten times (the test "10 parallel creates of one new vault" fails that way). New
+  vaults stop at `VAULT_MAX_MB` (200 by default) with 503 `vault_full`; existing vaults keep updating. The owner gets
+  `owner:vault:70` once a month at 70%. Every night the meter is recomputed from `SUM(bytes)`; a drift becomes
+  `owner:vault_drift:<day>`.
+- **Retention.** Deleted when both the last write and the last read are more than 400 days ago; a read writes `read_at`
+  at most once a day. `VAULT = "off"` answers 503 `vault_off` (deleting still works). `/api/health` adds `vault` and
+  `vaultFull` (true when the largest backup would no longer fit; never the meter's value). The daily summary adds
+  `vaults { count, mb, newYesterday }`. `forgetVault(env, req)` gives TRUST-6's `/api/me/forget` the statements that
+  delete the vault and its bytes in its one batch.
+- **Tests.** `worker/test/vault.test.js`: create and update (rev 2, `prev_blob`), stale `ifRev`, 20 parallel updates
+  with one `ifRev` (exactly one 200), 10 parallel creates of one id (the meter counts it once), 50 parallel wrong
+  lookups from one network (at most 20 reach the table), the school case (40 students and 10 anonymous devices behind
+  one address all succeed), a family device counted as itself, 61 anonymous creates, the meter exact after 60 random
+  parallel operations (three seeds), the meter blocking creates but not updates, the blob bounds, delete and
+  `forgetVault`, `read_at` once a day and the purge at 399 and 401 days, the night job's drift notice and the summary,
+  the rate-limit stub refusing before any database call, CORS, and the table scan. `schema.test.js` checks the tables'
+  CHECKs and the meter's seed row; `logs.test.js` already forbids the vault's words in any log line.
+- **Cost to watch.** Every vault read takes and gives back its miss counter, so a read that finds the vault is two small
+  counter writes. With about 1,000 devices syncing all day, that approaches the D1 Free plan's 100,000 writes a day.
+- **Owner steps.** At deploy, `cd madregot/worker && npm run db:migrate` (the new tables come with the existing step).
+  Only on Workers Paid: raise `VAULT_MAX_MB` in `worker/wrangler.toml` (up to 3000) before `npm run deploy`; on the
+  Free plan leave 200, because the whole database stops at 500 MB and it holds billing. `VAULT_SECRET` is needed only
+  for the class and family copies (DURABLE-6).
+- **For the trust lane's privacy notice:** "אם יוצרים קוד גיבוי, נשמר בשרת עותק מוצפן של ההתקדמות. רק הקוד פותח אותו,
+  והוא לא נשמר אצלנו. עותק שלא השתמשו בו 400 יום נמחק, וגם 'להפסיק את הגיבוי' מוחק אותו."

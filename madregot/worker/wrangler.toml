@@ -66,6 +66,11 @@ CONTACT_PHONE = ""
 OWNER_EMAIL = ""
 # Codes and notices are sent from this address through Resend (the domain must be verified there).
 EMAIL_FROM = ""
+# The encrypted backup (restore code). "off" stops it: the app then offers only the backup file.
+VAULT = "on"
+# All encrypted backups together, in MB. Raise only on Workers Paid; the database also holds billing
+# (on the Free plan the whole database stops at 500 MB). Up to 3000 on Workers Paid.
+VAULT_MAX_MB = "200"
 
 # Secrets (never in this file, never in the app), each set with: npx wrangler secret put <NAME>
 #   ANTHROPIC_API_KEY       the owner's Claude API key
@@ -75,6 +80,7 @@ EMAIL_FROM = ""
 #   WEBHOOK_PATH_SECRET     the secret part of the payment webhook's path (openssl rand -hex 32)
 #   BILLING_WEBHOOK_SECRET  verifies a signing provider's webhooks (+ BILLING_WEBHOOK_SECRET_OLD while rotating)
 #   TURNSTILE_SECRET, DEVICE_SECRET   only with FREE_DEVICE_MINT = "turnstile"
+#   VAULT_SECRET            seals the class and family copies of a restore code (openssl rand -hex 32); the vault itself does not need it
 # TEST_WEBHOOK_SECRET belongs in .dev.vars only (the test provider).
 
 # The hourly jobs: notices, cancellation retries, refunds, expired orders and plans. At 03:00 (Jerusalem): reconciliation
@@ -96,3 +102,10 @@ database_name = "madregot"
 database_id = "REPLACE_WITH_DATABASE_ID"
 # Real databases change only through these migrations (npm run db:migrate); schema.sql is the reference.
 migrations_dir = "migrations"
+
+# Flood control for the encrypted backup: a burst filter per credential or network, counted by Cloudflare per location
+# and approximate. It writes nothing to the database; the exact daily caps are the counters in src/vault.js.
+[[ratelimits]]
+name = "VAULT_RL"
+namespace_id = "1101"
+simple = { limit = 120, period = 60 }
