@@ -54,10 +54,10 @@ export function FeedbackBadge({ good }) {
       <m.svg viewBox="0 0 40 40" width="40" height="40" initial={reduce ? false : { scale: 0.4, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={SPRING.pop}>
         <circle cx="20" cy="20" r="19" className="fb-badge-disc" />
         {good ? (
-          <m.path d="M11.5 20.5 L17.5 26.5 L29 14" fill="none" stroke="#fff" strokeWidth="4.6" strokeLinecap="round" strokeLinejoin="round"
+          <m.path d="M11.5 20.5 L17.5 26.5 L29 14" fill="none" stroke="currentColor" strokeWidth="4.6" strokeLinecap="round" strokeLinejoin="round"
             initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.32, delay: 0.1, ease: 'easeOut' }} />
         ) : (
-          <path d="M14 14 L26 26 M26 14 L14 26" fill="none" stroke="#fff" strokeWidth="4.4" strokeLinecap="round" />
+          <path d="M14 14 L26 26 M26 14 L14 26" fill="none" stroke="currentColor" strokeWidth="4.4" strokeLinecap="round" />
         )}
       </m.svg>
     </span>
