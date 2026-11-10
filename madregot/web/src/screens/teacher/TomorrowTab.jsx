@@ -1,6 +1,8 @@
 // "מחר": what to do in tomorrow's lesson. The class licence card (when the paywall is on), mistakes that repeat this
 // week (each with "לתת תרגול על זה": that stair, for the students who made the mistake, TEACHER-4 §6), weak topics in
-// checked exams, who to check in with, and the newest help requests (those the student answered again count as new).
+// checked exams, who to check in with (TEACHER-8: at most 6, ranked by learn/attention.ts with the reasons as chips, and
+// the rest one tap away on the students tab, sorted the same way), and the newest help requests (those the student
+// answered again count as new). A student's name opens their page.
 import clsx from 'clsx';
 import { ChevronLeft, Send } from 'lucide-react';
 import { TOPIC } from '@/content/index.js';
@@ -9,7 +11,8 @@ import { useAIStatus } from '@/lib/account.js';
 import LicenceCard from '@/components/teacher/LicenceCard.jsx';
 import { isStair } from '@/lib/assign.js';
 import { lastMessage } from '@/lib/help.js';
-import { fmtDay, pct } from './common.jsx';
+import { attentionList, openHelpBy, reasonText } from '@/learn/attention';
+import { StudentName } from './common.jsx';
 
 /** A help request that needs the teacher: not seen yet, or the student wrote last (TEACHER-6 §3). */
 const isFresh = (h) => !h.seen_at || lastMessage(h)?.from === 'student';
@@ -27,10 +30,11 @@ function Group({ title, tone, children, more }) {
   );
 }
 
-export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp, onAssign }) {
+export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp, onAssign, onStudent, onAll }) {
   const paywall = useAIStatus((x) => x.status?.paywall === true);
-  const idle = (s) => !s.lastPractice || (Date.now() - new Date(s.lastPractice)) > 3 * 864e5;
-  const attention = students.filter((s) => idle(s) || (s.week.n >= 5 && pct(s.week.first, s.week.n) < 60));
+  const helpBy = openHelpBy(data.help);
+  const day = data.today || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
+  const { top: attention, more } = attentionList(students.map((s) => ({ ...s, openHelp: helpBy[s.id] || 0 })), day);
   // Topics where the class lost points in checked exams (last two weeks).
   const examWeak = Object.values((data?.exams || []).filter((e) => Date.now() - new Date(e.at) < 14 * 864e5).reduce((acc, e) => {
     e.questions.forEach((q) => {
@@ -81,16 +85,16 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
               </ul>
             </Group>
           )}
-          <Group title="כדאי לבדוק איתם">
-            {attention.length === 0 ? <p className="t-row muted">{openHelp.length ? 'כולם מתרגלים ומצליחים. יש בקשות עזרה שמחכות לכם.' : 'כולם מתרגלים ומצליחים.'}</p> : (
-              <ul className="t-list">
-                {attention.map((s) => (
+          <Group title="כדאי לבדוק איתם" more={more > 0 && onAll && <button type="button" className="t-more" onClick={onAll}>ועוד {more}. לרשימה המלאה<ChevronLeft size={18} aria-hidden="true" /></button>}>
+            {attention.length === 0 ? <p className="t-row muted">כולם מתרגלים ומצליחים.</p> : (
+              <ol className="t-list t-attn">
+                {attention.map(({ student: s, reasons }) => (
                   <li key={s.id} className="t-row">
-                    <span className="t-list-main"><b>{s.name}</b></span>
-                    <span className="muted">{idle(s) ? (s.lastPractice ? `תרגול אחרון ${fmtDay(s.lastPractice)}` : 'עוד לא תרגלו אף פעם') : `נכון בניסיון ראשון: ${pct(s.week.first, s.week.n)}%`}</span>
+                    <span className="t-list-main"><StudentName id={s.id} name={s.name} onOpen={onStudent} /></span>
+                    <span className="t-chips">{reasons.map((r) => <span key={r.kind} className={`t-chip t-chip-${r.kind}`}>{reasonText(r)}</span>)}</span>
                   </li>
                 ))}
-              </ul>
+              </ol>
             )}
           </Group>
           <Group title="בקשות עזרה חדשות" more={openHelp.length > 0 && <button type="button" className="t-more" onClick={onOpenHelp}>לכל הבקשות<ChevronLeft size={18} aria-hidden="true" /></button>}>
@@ -99,7 +103,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
                 const last = lastMessage(h);
                 return (
                   <li key={h.id} className={clsx('t-row', isFresh(h) && 'unseen')}>
-                    <span className="t-list-main"><b>{h.name}</b>, {TOPIC[h.topic]?.title || ''}</span>
+                    <span className="t-list-main"><StudentName id={h.studentId} name={h.name} onOpen={onStudent} />, {TOPIC[h.topic]?.title || ''}</span>
                     <span className="muted">{last?.from === 'student' ? `“${last.body}”` : h.note || <MathText text={h.question} />}</span>
                   </li>
                 );

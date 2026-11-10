@@ -433,7 +433,9 @@ test.describe('the smart tutor', () => {
     await expect(page.getByRole('switch', { name: 'נעילת הכיתה לתלמידים חדשים' })).toBeChecked();
     expect(st.joinLocked).toBe(true);
     await shot(page, 'teacher-students');
-    await page.getByRole('row', { name: /יואב/ }).getByRole('button', { name: 'הסרה מהכיתה' }).click();
+    // removing a student is on the student's page (TEACHER-8): the row's "פרטים", then "הסרה מהכיתה"
+    await page.getByRole('row', { name: /יואב/ }).getByRole('button', { name: 'פרטים על יואב' }).click();
+    await page.getByRole('dialog', { name: 'יואב' }).getByRole('button', { name: 'הסרה מהכיתה' }).click();
     const rm = page.getByRole('dialog', { name: 'להסיר את יואב מהכיתה?' });
     await expect(rm.getByText('כדי שלא תהיה הצטרפות מחדש באותו שם, נעלו את הכיתה.')).toBeVisible();
     await rm.getByRole('button', { name: 'כן, להסיר' }).click();

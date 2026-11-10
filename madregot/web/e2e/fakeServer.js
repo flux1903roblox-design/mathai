@@ -14,6 +14,9 @@
 // Help both ways (TEACHER-6): st.help holds the requests with their threads; the dashboard's rows, the teacher's reply
 // (three at most, no contact details), ראיתי/טופל/לפתוח שוב, the owner's daily email switch (st.digest), and the
 // student's side (GET /api/class/work's help, the student's answer only after the teacher's, /read).
+// Each student's page (TEACHER-8): GET /api/teacher/students/:id (st.studentPages by id adds or replaces its parts:
+// days14, levels, mistakes, work, help, exams), a PIN reset, and the board's rows with whose help it is, joinedOn and
+// the late work count (a student in st.students may set lastPractice, week, late, joinedOn… for the attention list).
 // `st.down = true` makes every call fail as a lost connection.
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -134,12 +137,28 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
   const dashboard = (code = 'K7Q2MD') => ({
     class: code === 'K7Q2MD' ? { name: st.className, grade: st.classGrade, teacherName: 'רונית' }
       : (({ name, grade }) => ({ name, grade, teacherName: 'רונית' }))(st.accountClasses.find((c) => c.code === code)), joinLocked: st.joinLocked,
-    help: code === 'K7Q2MD' ? st.help.map(({ studentId, ...x }) => ({ ...x, messages: x.messages.slice(0, 6), unreadFromStudent: x.messages.filter((m) => m.from === 'student' && !m.read).length })) : [],
+    help: code === 'K7Q2MD' ? st.help.map((x) => ({ ...x, messages: x.messages.slice(0, 6), unreadFromStudent: x.messages.filter((m) => m.from === 'student' && !m.read).length })) : [],
     helpDigest: st.digest, mistakes: st.mistakes, exams: [],
     today: st.today,
     assignments: st.assignments.filter((a) => a.dueOn >= plus(st.today, -7)).sort((a, b) => (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0)).slice(0, 10).map(viewOf),
-    students: st.students.map((s) => ({ ...s, lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false })),
+    students: st.students.map((s) => ({ lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false, joinedOn: '2026-09-02', late: 0, ...s })),
   });
+  // one student's page, as worker/src/report.js studentDetail gives it
+  const pageOf = (s) => {
+    const row = dashboard().students.find((x) => x.id === s.id);
+    return {
+      student: { id: s.id, name: s.name, joinedOn: row.joinedOn, lastPractice: row.lastPractice, pinReset: !!row.pinReset },
+      days14: Array.from({ length: 14 }, (_, i) => ({ day: plus(st.today, i - 13), n: 0, first: 0, minutes: 0 })),
+      levels: row.levels || {}, mistakes: [],
+      work: st.assignments.filter((a) => forWhom(a).includes(s.id)).map((a) => {
+        const w = workOf(a, s.id);
+        return { assignmentId: a.id, title: a.title, kind: a.kind, dueOn: a.dueOn, state: w?.state || 'none', stage: w?.stage ?? null, right: w?.right ?? null, asked: w?.asked ?? null, passed: w?.passed ?? null, late: lateOf(a, w) };
+      }),
+      help: st.help.filter((x) => x.studentId === s.id).map((x) => ({ id: x.id, topic: x.topic, question: x.question, createdAt: x.created_at, status: statusOf(x) })),
+      exams: [],
+      ...(st.studentPages?.[s.id] || {}),
+    };
+  };
 
   // ---- help both ways (TEACHER-6), as worker/src/help.js keeps it
   const contact = (t) => /https?:\/\/|www\.|[^\s@]+@[^\s@]+\.[^\s@]+|\.(com|co|il|net|org|test)\b/i.test(t) || /\d{7,}/.test(t.replace(/[\s.\-()]+/g, ''));
@@ -509,6 +528,13 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       }
       const rm = path.match(/^\/api\/teacher\/students\/([a-z0-9]+)\/remove$/);
       if (rm) { st.students = st.students.filter((s) => s.id !== rm[1]); return reply(route, 200, { ok: true }); }
+      const pm = path.match(/^\/api\/teacher\/students\/([a-z0-9]+)(\/reset-pin)?$/);
+      if (pm) {
+        const s = code === 'K7Q2MD' && st.students.find((x) => x.id === pm[1]);
+        if (!s) return reply(route, 404, { error: 'not_found' });
+        if (pm[2]) { s.pinReset = true; return reply(route, 200, { ok: true }); }
+        return reply(route, 200, pageOf(s));
+      }
     }
     return reply(route, 404, { error: 'not_found' });
   };

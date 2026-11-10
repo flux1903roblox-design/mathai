@@ -2,11 +2,12 @@
 // weeks, this month, from the start of the school year, or one the teacher picks), four tiles, a table of the students
 // (by name, the CSV's columns), the class's repeated mistakes in the range, and two actions: the CSV for Excel and a
 // printout (landscape, the table only, a header with the class and the range, 25 students a page). The report has no
-// student ids (worker/src/report.js); TEACHER-8 turns the names into buttons with the board's name → id map.
+// student ids (worker/src/report.js): the names on screen open the student's page through the board's name → id map
+// (lib/teacherBoard.js, TEACHER-8), and its "לתת תרגול" opens the assign sheet here.
 // ?range=year&csv=1 (the class settings' "הורדת הדוח של כל השנה") opens the year and starts the CSV once.
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { Users, CalendarDays, Target, ListChecks, FileDown, Printer } from 'lucide-react';
@@ -20,7 +21,10 @@ import { Stat } from '@/components/ds.jsx';
 import { Button, ChapterMark, LevelPips } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
-import { Rate } from './common.jsx';
+import { Rate, StudentName } from './common.jsx';
+import { useBoard, idsByName } from '@/lib/teacherBoard.js';
+import StudentSheet from '@/components/teacher/StudentSheet.jsx';
+import AssignSheet from '@/components/teacher/AssignSheet.jsx';
 import { printSheet } from './ExamSheet.jsx';
 
 export const REPORT_NOTE = 'בקובץ יש רק את השמות כפי שהתלמידים כתבו אותם, בלי תעודות זהות ובלי מספרים מזהים. שמרו אותו במקום מוגן, ומחקו אותו כשכבר לא צריך.';
@@ -129,6 +133,13 @@ export default function ClassReport() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [tries, setTries] = useState(0);
+  // a student's page from a name, with the board's ids; its "לתת תרגול" opens the assign sheet on this screen
+  const { board, reload: reloadBoard } = useBoard(cls);
+  const ids = useMemo(() => idsByName(board), [board]);
+  const [sheetFor, setSheetFor] = useState(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [assign, setAssign] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!want) return undefined;
@@ -211,7 +222,7 @@ export default function ClassReport() {
                 <tbody>
                   {students.map((s, i) => (
                     <tr key={i}>
-                      <th scope="row">{s.name}</th>
+                      <th scope="row"><StudentName id={ids[s.name]} name={s.name} onOpen={(x) => { setSheetFor(x); setSheetOpen(true); }} /></th>
                       <td>{s.activeDays}</td>
                       <td>{s.exercises}</td>
                       <td><Rate value={pctOf(s.firstTry, s.exercises)} /></td>
@@ -250,6 +261,17 @@ export default function ClassReport() {
           <p className="footnote t-report-note">{REPORT_NOTE}</p>
           <PrintReport report={shown} topics={topics} title={title} />
         </>
+      )}
+
+      {sheetFor && (
+        <StudentSheet cls={cls} student={sheetFor} today={board?.today || day} open={sheetOpen} onOpenChange={setSheetOpen}
+          onChanged={() => { reloadBoard(); setTries((n) => n + 1); }}
+          onAssign={(preset) => { setSheetOpen(false); setAssign({ preset, n: (assign?.n || 0) + 1 }); }}
+          onHelp={(id) => navigate(`/teacher?tab=help&student=${id}`)} />
+      )}
+      {assign && (
+        <AssignSheet key={assign.n} cls={cls} students={board?.students} today={board?.today} preset={assign.preset} open
+          onOpenChange={(o) => { if (!o) setAssign(null); }} onSent={() => reloadBoard()} />
       )}
 
       {shown && students.length > 0 && !empty && (

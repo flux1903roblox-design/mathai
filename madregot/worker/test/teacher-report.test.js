@@ -201,3 +201,100 @@ test('60 reports an hour per class (429 too_many_reports); the next hour opens a
   assert.equal((await h.call('POST', '/api/teacher/class/delete', { headers: cls.teacher, body: { confirm: 'DELETE' } })).status, 200);
   assert.equal(rows(h.env, 'SELECT who FROM ai_usage WHERE who = ?', `report:c:${cls.code}`).length, 0);
 });
+
+// ---------------------------------------------------------------- one student's page (TEACHER-8 §1)
+const detail = (cls, id, headers = cls.teacher) => h.call('GET', `/api/teacher/students/${id}`, { headers });
+const detailOf = async (cls, id) => {
+  const res = await detail(cls, id);
+  const b = await res.json();
+  assert.equal(res.status, 200, JSON.stringify(b));
+  return b;
+};
+
+test('a student\'s page: 14 day rows with the empty days as zeros, the stairs, the last 30 days\' mistakes, last practice', async () => {
+  h = await setup();
+  const { cls, dana, yoav, noa } = await practisedClass();
+  const d = await detailOf(cls, dana.studentId);
+  assert.deepEqual(d.student, { id: dana.studentId, name: 'דנה', joinedOn: '2026-11-12', lastPractice: '2026-11-12T07:06:00.000Z', pinReset: false });
+  assert.equal(d.days14.length, 14);
+  assert.deepEqual([d.days14[0].day, d.days14.at(-1).day], ['2026-10-30', '2026-11-12'], 'oldest first, ending today');
+  const byDay = Object.fromEntries(d.days14.map((x) => [x.day, x]));
+  assert.deepEqual(byDay['2026-11-12'], { day: '2026-11-12', n: 4, first: 2, minutes: 3 });
+  assert.deepEqual(byDay['2026-11-10'], { day: '2026-11-10', n: 2, first: 1, minutes: 1 });
+  assert.deepEqual(byDay['2026-11-01'], { day: '2026-11-01', n: 1, first: 0, minutes: 1 });
+  assert.deepEqual(byDay['2026-11-11'], { day: '2026-11-11', n: 0, first: 0, minutes: 0 }, 'a day with no practice');
+  assert.equal(d.days14.filter((x) => x.n > 0).length, 3);
+  assert.deepEqual(d.levels, { signed: { level: 2, max: 3 } });
+  assert.deepEqual(d.mistakes, [
+    { topic: 'signed', cat: 'sign', level: 1, n: 1, lastAt: '2026-11-12T07:05:00.000Z' },
+    { topic: 'coord', cat: 'swap', level: 2, n: 1, lastAt: '2026-11-01T09:00:00.000Z' },
+  ]);
+  assert.deepEqual([d.work, d.help, d.exams], [[], [], []]);
+  // יואב: his two mistakes on 9 November and the one of 5 November (all in 30 days); the stair it happened on most
+  const y = await detailOf(cls, yoav.studentId);
+  assert.deepEqual(y.mistakes.map((m) => [m.cat, m.level, m.n]), [['sign', 1, 2], ['order', 2, 1]]);
+  // never practised: no last practice, every day zero
+  const fresh = await makeClass(h, { students: ['רוני'] });
+  const r = await detailOf(fresh, fresh.students[0].studentId);
+  assert.equal(r.student.lastPractice, null);
+  assert.ok(r.days14.every((x) => x.n === 0 && x.minutes === 0));
+  // 30 days later, the mistakes have aged out and the strip is empty; the stairs stay
+  advanceClock(31 * 864e5);
+  const later = await detailOf(cls, noa.studentId);
+  assert.deepEqual(later.mistakes, []);
+  assert.ok(later.days14.every((x) => x.n === 0));
+  assert.equal(later.student.lastPractice, '2026-11-02T12:00:00.000Z');
+});
+
+test('a student\'s page opens only that class\'s student: 404 for another class\'s, an unknown id, and 401 without the key', async () => {
+  h = await setup();
+  const { cls, dana } = await practisedClass();
+  const other = await makeClass(h, { students: ['זר'] });
+  for (const [c, id] of [[cls, other.students[0].studentId], [other, dana.studentId], [cls, 'abcdef0123456789']]) {
+    const res = await detail(c, id);
+    assert.equal(res.status, 404);
+    assert.equal((await res.json()).error, 'not_found');
+  }
+  assert.equal((await detail(cls, dana.studentId, { ...cls.teacher, 'X-Teacher-Key': other.teacherKey })).status, 401);
+  assert.equal((await h.call('GET', `/api/teacher/students/${dana.studentId}`)).status, 401);
+  // a PIN reset shows on the page
+  await h.call('POST', `/api/teacher/students/${dana.studentId}/reset-pin`, { headers: cls.teacher, body: {} });
+  assert.equal((await detailOf(cls, dana.studentId)).student.pinReset, true);
+});
+
+test('a student\'s page: the work given to that student (late as in the report), their help with its status, their exams', async () => {
+  h = await setup();
+  const { cls, dana, yoav } = await practisedClass();
+  const make = async (body) => (await (await h.call('POST', '/api/teacher/assignments', { headers: cls.teacher, body })).json()).assignment;
+  const all = await make({ kind: 'stair', skill: 'signed:1', title: 'חיבור וחיסור', dueOn: '2026-11-12' });
+  const forYoav = await make({ kind: 'check', skill: 'signed:2', title: 'בדיקה ליואב', dueOn: '2026-11-16', targets: [yoav.studentId] });
+  const work = (s, id, body) => h.call('POST', `/api/class/work/${id}`, { headers: bearer(s), body });
+  assert.equal((await work(dana, all.id, { state: 'done', stage: 5, passed: true })).status, 200);
+  assert.equal((await work(yoav, forYoav.id, { state: 'done', right: 4, asked: 5, passed: true })).status, 200);
+  // help: דנה asks twice; the teacher answers one; the other is closed
+  const ask = (s, question) => h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'signed', level: 1, question, answer: '5', note: 'לא הבנתי' } });
+  await ask(dana, '3 - 8'); await ask(dana, '-2 - 4'); await ask(yoav, '7 - 9');
+  const ids = rows(h.env, 'SELECT h.id, h.question FROM help_requests h ORDER BY h.id').map((r) => r.id);
+  assert.equal((await h.call('POST', `/api/teacher/help/${ids[0]}/reply`, { headers: cls.teacher, body: { body: 'מתחילים מ־3 והולכים 8 שמאלה.' } })).status, 201);
+  assert.equal((await h.call('POST', `/api/teacher/help/${ids[1]}`, { headers: cls.teacher, body: { action: 'done' } })).status, 200);
+  // an exam checked in the app
+  assert.equal((await h.call('POST', '/api/exams', { headers: bearer(dana), body: { title: 'מבחן במספרים מכוונים', correct: 7, total: 10, questions: [{ topic: 'signed', status: 'correct', level: 1 }, { topic: 'signed', status: 'wrong', level: 2 }] } })).status, 200);
+
+  const d = await detailOf(cls, dana.studentId);
+  assert.deepEqual(d.work, [{ assignmentId: all.id, title: 'חיבור וחיסור', kind: 'stair', dueOn: '2026-11-12', state: 'done', stage: 5, right: null, asked: null, passed: true, late: false }]);
+  assert.deepEqual(d.help.map((x) => [x.question, x.status]), [['-2 - 4', 'done'], ['3 - 8', 'answered']]);
+  assert.deepEqual(Object.keys(d.help[0]).sort(), ['createdAt', 'id', 'question', 'status', 'topic']);
+  assert.deepEqual(d.exams.map((e) => [e.title, e.correct, e.total, e.questions.length]), [['מבחן במספרים מכוונים', 7, 10, 2]]);
+  const y = await detailOf(cls, yoav.studentId);
+  assert.deepEqual(y.work.map((w) => [w.title, w.state, w.late]), [['בדיקה ליואב', 'done', false], ['חיבור וחיסור', 'none', false]]);
+  assert.deepEqual(y.help.map((x) => [x.question, x.status]), [['7 - 9', 'sent']]);
+  assert.deepEqual(y.exams, []);
+  // the next day the class's stair is late for יואב, who did not start it; and the board counts it for the attention list
+  advanceClock(864e5);
+  const next = await detailOf(cls, yoav.studentId);
+  assert.deepEqual(next.work.find((w) => w.assignmentId === all.id).late, true);
+  const board = await dashboardOf(cls);
+  assert.deepEqual(board.students.map((s) => [s.name, s.late]), [['דנה', 0], ['יואב', 1], ['נועה', 1]]);
+  assert.ok(board.students.every((s) => s.joinedOn === '2026-11-12'));
+  assert.deepEqual(board.help.map((x) => x.studentId).sort(), [dana.studentId, dana.studentId, yoav.studentId].sort(), 'help rows say whose they are');
+});

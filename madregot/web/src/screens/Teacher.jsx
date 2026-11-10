@@ -22,6 +22,8 @@ import ExamsTab from './teacher/ExamsTab.jsx';
 import HelpTab from './teacher/HelpTab.jsx';
 import { takePendingToast } from './teacher/DeleteClass.jsx';
 import AssignSheet from '@/components/teacher/AssignSheet.jsx';
+import StudentSheet from '@/components/teacher/StudentSheet.jsx';
+import { rememberBoard } from '@/lib/teacherBoard.js';
 
 const TABS = ['tomorrow', 'work', 'students', 'exams', 'help'];
 
@@ -62,13 +64,18 @@ export default function Teacher() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [params, setParams] = useSearchParams();
   const tab = TABS.includes(params.get('tab')) ? params.get('tab') : 'tomorrow';
-  const setTab = (t) => setParams(t === 'tomorrow' ? {} : { tab: t }, { replace: true });
+  // a view, with its own parameters: the students tab's ?sort=need, the help view's ?student=<id> (TEACHER-8)
+  const setTab = (t, extra = {}) => setParams(t === 'tomorrow' ? {} : { tab: t, ...extra }, { replace: true });
   const [adding, setAdding] = useState(false);
   // the assign sheet (TEACHER-4): opened from "משימות" or a repeated mistake on "מחר"; each opening starts fresh
   const [assign, setAssign] = useState(null); // { preset, n } while open
   const [workVersion, setWorkVersion] = useState(0);
   const opened = useRef(0);
   const openAssign = (preset = {}) => { opened.current += 1; setAssign({ preset, n: opened.current }); };
+  // a student's page (TEACHER-8): any name on the board opens it; its actions lead to the assign sheet or the help view
+  const [sheetFor, setSheetFor] = useState(null); // { id, name } while open
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const openStudent = (s) => { setSheetFor(s); setSheetOpen(true); };
   const [confirmOut, setConfirmOut] = useState(false);
   const { state: nav } = useLocation();
   // a class deleted from its settings page: the board opens on the next class and says so
@@ -82,7 +89,11 @@ export default function Teacher() {
   }, [nav]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
-    try { setData(await teacherApi('/api/teacher/dashboard', {}, cls)); setError(''); setErrorCode(''); } catch (e) { setError(e.message); setErrorCode(e.code || ''); }
+    try {
+      const d = await teacherApi('/api/teacher/dashboard', {}, cls);
+      rememberBoard(cls.code, d);
+      setData(d); setError(''); setErrorCode('');
+    } catch (e) { setError(e.message); setErrorCode(e.code || ''); }
   }, [cls]);
   useEffect(() => { setData(null); load(); const t = setInterval(load, 120_000); return () => clearInterval(t); }, [load]);
 
@@ -149,6 +160,11 @@ export default function Teacher() {
           onOpenChange={(o) => { if (!o) setAssign(null); }} onSent={() => { setWorkVersion((v) => v + 1); load(); }} />
       )}
       {session && <MoreClasses open={moreOpen} onOpenChange={setMoreOpen} />}
+      {sheetFor && data && (
+        <StudentSheet cls={cls} student={sheetFor} today={data.today} open={sheetOpen} onOpenChange={setSheetOpen} onChanged={load}
+          onAssign={(preset) => { setSheetOpen(false); openAssign(preset); }}
+          onHelp={(id) => { setSheetOpen(false); setTab('help', { student: id }); }} />
+      )}
 
       <main className="t-main">
         {cls.fresh && <FreshClass cls={cls} onDone={dismissFresh} />}
@@ -199,11 +215,14 @@ export default function Teacher() {
               </EmptyState>
             )}
 
-            {tab === 'tomorrow' && <TomorrowTab cls={cls} data={data} students={students} openHelp={openHelp} onOpenHelp={() => setTab('help')} onAssign={openAssign} />}
+            {tab === 'tomorrow' && (
+              <TomorrowTab cls={cls} data={data} students={students} openHelp={openHelp} onOpenHelp={() => setTab('help')} onAssign={openAssign}
+                onStudent={openStudent} onAll={() => setTab('students', { sort: 'need' })} />
+            )}
             {tab === 'work' && <WorkTab cls={cls} today={data.today} version={workVersion} onNew={() => openAssign()} onChanged={load} />}
-            {tab === 'students' && <StudentsTab cls={cls} data={data} students={students} onChanged={load} />}
-            {tab === 'exams' && <ExamsTab data={data} />}
-            {tab === 'help' && <HelpTab cls={cls} data={data} onChanged={load} />}
+            {tab === 'students' && <StudentsTab cls={cls} data={data} students={students} onChanged={load} onStudent={openStudent} />}
+            {tab === 'exams' && <ExamsTab data={data} onStudent={openStudent} />}
+            {tab === 'help' && <HelpTab key={params.get('student') || ''} cls={cls} data={data} onChanged={load} onStudent={openStudent} />}
           </>
         )}
 

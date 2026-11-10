@@ -24,7 +24,7 @@ import { myClasses, bindClass, rekeyClass, ownedClassStmts, checkOwnedCap } from
 import {
   listAssignments, createAssignment, getAssignment, updateAssignment, deleteAssignment, classWork, workExam, postWork, classAssignments,
 } from './assignments.js';
-import { classReport } from './report.js';
+import { classReport, studentDetail } from './report.js';
 import { teacherReply, studentReply, readHelp, setDigest, helpThreads, markReadStmt } from './help.js';
 import { RETENTION } from '../../shared/retention.js';
 import { run as runCron } from './cron.js';
@@ -364,7 +364,7 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, , assignments, classExams, threads, owner] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, , assignments, classExams, threads, owner, lateRows] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
@@ -381,7 +381,7 @@ async function dashboard(req, env, cors) {
        WHERE s.class_code = ?1 AND a.day >= ?2 AND a.cat IS NOT NULL GROUP BY a.topic, a.cat ORDER BY students DESC, n DESC LIMIT 12`, cls.code, weekStart),
     q(`SELECT DISTINCT a.topic, a.cat, s.id, s.name FROM attempts a JOIN students s ON s.id = a.student_id
        WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL ORDER BY s.name`, cls.code, weekStart),
-    q(`SELECT h.id, h.topic, h.level, h.question, h.answer, h.note, h.image IS NOT NULL AS has_image, h.created_at, h.seen_at, h.done_at, s.name
+    q(`SELECT h.id, h.topic, h.level, h.question, h.answer, h.note, h.image IS NOT NULL AS has_image, h.created_at, h.seen_at, h.done_at, s.name, s.id AS studentId
        FROM help_requests h JOIN students s ON s.id = h.student_id
        WHERE s.class_code = ? AND (h.done_at IS NULL OR h.done_at >= ?) ORDER BY h.created_at DESC LIMIT 100`, cls.code, daysAgo(7)),
     q('SELECT a.student_id, MAX(a.at) AS last FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? GROUP BY a.student_id', cls.code),
@@ -400,9 +400,16 @@ async function dashboard(req, env, cors) {
       WHERE s.class_code = ?1 AND (h.done_at IS NULL OR h.done_at >= ?2)`, [cls.code, daysAgo(7)]),
     // the daily help email: only the owner, signed in, sees (and changes) it
     cls.via === 'account' ? env.DB.prepare('SELECT help_digest FROM class_owners WHERE class_code = ? AND account_id = ?').bind(cls.code, cls.accountId).first() : null,
+    // each student's work that is behind (TEACHER-8, the attention list): given to them, due before today and at most 30
+    // days ago (the work a student still sees), and not finished
+    q(`SELECT s.id AS student_id, COUNT(*) AS late FROM assignments a JOIN students s ON s.class_code = a.class_code
+       LEFT JOIN assignment_work w ON w.assignment_id = a.id AND w.student_id = s.id
+       WHERE a.class_code = ?1 AND a.due_on < ?2 AND a.due_on >= ?3 AND (w.state IS NULL OR w.state != 'done')
+         AND (a.for_all = 1 OR EXISTS (SELECT 1 FROM assignment_targets t WHERE t.assignment_id = a.id AND t.student_id = s.id))
+       GROUP BY s.id`, cls.code, today, daysAgo(30)),
   ]);
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
-  const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows);
+  const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows); const late = by(lateRows);
   const lv = {};
   for (const r of levelRows) (lv[r.student_id] ||= {})[r.topic] = { level: r.level, max: r.max_level };
   return json({
@@ -411,6 +418,7 @@ async function dashboard(req, env, cors) {
     joinLocked: locked,
     students: students.map((s) => ({
       id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset,
+      joinedOn: s.created_at ? dayOf(new Date(s.created_at)) : null, late: Number(late[s.id]?.late || 0),
       today: t[s.id] ? { n: t[s.id].n, ok: t[s.id].ok, first: t[s.id].first, minutes: Math.round((t[s.id].secs || 0) / 60) } : { n: 0, ok: 0, first: 0, minutes: 0 },
       week: w[s.id] ? { n: w[s.id].n, first: w[s.id].first, days: w[s.id].days, minutes: Math.round((w[s.id].secs || 0) / 60) } : { n: 0, first: 0, days: 0, minutes: 0 },
       levels: lv[s.id] || {},
@@ -536,6 +544,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && (m = p.match(/^\/api\/teacher\/help\/(\d+)\/image$/))) return helpImage(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)\/reply$/))) return teacherReply(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/digest') return setDigest(req, env, cors);
+  if (M === 'GET' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]{1,32})$/))) return studentDetail(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/remove$/))) return removeStudent(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);

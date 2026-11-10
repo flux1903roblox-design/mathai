@@ -928,3 +928,44 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 /* a toast's action ("לקריאה", "לתוצאות"): a 44px button in the app's blue, not the library's small default */
 [data-sonner-toast].toast [data-button] { height: auto !important; min-height: 44px; padding: 0 var(--s4) !important; border-radius: 12px !important; background: var(--brand) !important; color: #fff !important; font-family: var(--font-ui) !important; font-size: 15px !important; font-weight: 700 !important; }
 [data-sonner-toast].toast [data-button]:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+
+/* ------------------------------------------------------------------ each student has a page (TEACHER-8): names as
+   quiet links on the board, the ranked "כדאי לבדוק איתם" with its reason chips, the students tab's sort, and the
+   student's sheet (sections, a 14-day strip of squares, the student's two actions at the end). Calm: no red. */
+.link-btn.t-name { min-height: 44px; padding: 0; font-weight: 700; color: var(--brand-d); text-align: start; overflow-wrap: anywhere; }
+.t-table th .link-btn.t-name { font-size: inherit; }
+.t-attn { list-style: none; margin: 0; padding: 0; }
+.t-attn .t-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.t-attn .t-row + .t-row { border-top: 1px solid var(--rule); }
+.t-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.t-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 14px; line-height: 20px; font-weight: 700; background: var(--ground); color: var(--ink-2); }
+.t-chip-help { background: var(--brand-tint); color: var(--brand-d); }
+.t-chip-late { background: #fff4e5; color: #8a4b00; }
+.t-sort { flex-direction: row; align-items: center; gap: var(--s3); margin: 0 0 var(--s3); }
+.t-sort .field-label { margin: 0; flex: none; }
+.t-sort-select { min-height: 44px; width: auto; max-width: 100%; }
+.hf-who { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); margin-bottom: var(--s3); padding: var(--s2) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); }
+
+.ss-body { display: flex; flex-direction: column; gap: var(--s5); }
+.ss-sub { margin: 0; color: var(--ink-2); font-weight: 600; }
+.ss-part { display: flex; flex-direction: column; gap: var(--s2); }
+.ss-h { margin: 0; font-size: 18px; line-height: 24px; font-weight: 800; color: var(--ink); }
+.ss-empty, .ss-line { margin: 0; }
+.ss-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ss-list > li + li { border-top: 1px solid var(--rule); }
+.ss-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: var(--s2) 0; }
+.ss-row-main { overflow-wrap: anywhere; }
+.ss-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.ss-act { align-self: flex-start; margin-top: var(--s1); min-height: 44px; }
+.ss-level { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); min-height: 44px; padding: 6px 0; }
+.ss-level-name { display: inline-flex; align-items: center; gap: var(--s2); font-weight: 600; }
+.ss-strip-wrap { display: inline-flex; flex-direction: column; gap: 4px; align-self: flex-start; }
+.ss-strip { display: inline-flex; gap: 4px; }
+.ss-strip i { width: 18px; height: 18px; border-radius: 5px; background: var(--ground); border: 1px solid var(--rule); }
+.ss-strip i.some { background: #b8ccff; border-color: #b8ccff; }
+.ss-strip i.lots { background: var(--brand); border-color: var(--brand); }
+.ss-strip-ends { display: flex; justify-content: space-between; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+@media (max-width: 359px) { .ss-strip { gap: 3px; } .ss-strip i { width: 15px; height: 15px; } }
+.ss-actions .set-row { width: 100%; gap: var(--s2); }
+.ss-done { margin: 0; color: var(--ink-2); font-weight: 600; }
+.ss-error { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); }

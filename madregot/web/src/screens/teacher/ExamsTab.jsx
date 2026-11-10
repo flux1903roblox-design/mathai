@@ -1,6 +1,7 @@
-// "מבחנים": exams students checked in the app, one row each, with the score and a strip of results by question.
+// "מבחנים": exams students checked in the app, one row each, with the score and a strip of results by question. A name
+// opens the student's page (TEACHER-8).
 import { TOPIC } from '@/content/index.js';
-import { fmtDay, Rate } from './common.jsx';
+import { fmtDay, Rate, StudentName } from './common.jsx';
 
 const Q_TONE = { correct: 'ok', partial: 'mid', wrong: 'bad', missing: 'bad' };
 const Q_LABEL = { correct: 'נכון', partial: 'נכון בחלקו', wrong: 'טעות', missing: 'לא נענה' };
@@ -17,7 +18,7 @@ export function QuestionStrip({ questions = [] }) {
   );
 }
 
-export default function ExamsTab({ data }) {
+export default function ExamsTab({ data, onStudent }) {
   if ((data.exams || []).length === 0) return <p className="muted">עוד אין מבחנים שנבדקו בכיתה. כשתלמידים יבדקו מבחן באפליקציה, התוצאות יופיעו כאן.</p>;
   return (
     <div className="table-wrap" tabIndex={0} role="region" aria-label="טבלת המבחנים">
@@ -26,7 +27,7 @@ export default function ExamsTab({ data }) {
         <tbody>
           {data.exams.map((e) => (
             <tr key={e.id}>
-              <th scope="row">{e.name}</th>
+              <th scope="row"><StudentName id={e.studentId} name={e.name} onOpen={onStudent} /></th>
               <td>{e.title}</td>
               <td>{fmtDay(e.at)}</td>
               <td><Rate value={e.total ? Math.round((100 * e.correct) / e.total) : null} /> <span className="muted">{e.correct}/{e.total}</span></td>

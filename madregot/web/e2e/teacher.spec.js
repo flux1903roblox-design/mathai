@@ -1633,3 +1633,122 @@ test.describe('TEACHER-6: help both ways', () => {
     expect(replies(log, '/api/help').at(-1).body).toMatchObject({ topic: 'signed', level: 1, note: 'לא הבנתי את הסימן' });
   });
 });
+
+// TEACHER-8: each student has a page, and "כדאי לבדוק איתם" is a short ranked list. The list shows six names with the
+// reasons as chips and "ועוד n" for the rest (the students tab, sorted by need); a name opens the student's sheet; a
+// mistake's "לתת תרגול" opens the assign sheet for that student alone; the sheet's help link filters the help view;
+// the PIN reset and the removal live on the sheet; and the class report's names open the same sheet.
+test.describe('TEACHER-8: each student has a page, and a short ranked list', () => {
+  // the server's day is Thursday 5 November 2026
+  const nine = () => [
+    { id: 's1', name: 'דנה', lastPractice: '2026-10-20T08:00:00Z' }, // idle 16 days: 10
+    { id: 's2', name: 'יואב', week: { n: 10, first: 2, days: 3 } }, // 20% first try: 16
+    { id: 's3', name: 'נועה', late: 2 }, // two late (4) and a help request waiting (3): 7
+    { id: 's4', name: 'איתי', lastPractice: null, joinedOn: '2026-10-31', today: { n: 0 }, week: { n: 0, first: 0, days: 0 } }, // never, 5 days: 5.5
+    { id: 's5', name: 'מאיה', lastPractice: '2026-11-01T08:00:00Z' }, // idle 4: 5
+    { id: 's6', name: 'רוני', week: { n: 8, first: 4, days: 2 } }, // 50%: 4
+    { id: 's7', name: 'עדי', lastPractice: '2026-11-02T08:00:00Z' }, // idle 3: 4.5
+    { id: 's8', name: 'שירה', late: 1 }, // 2
+    { id: 's9', name: 'תמר' }, // practising and doing well
+  ];
+  const helpNoa = () => [{ id: 7, studentId: 's3', name: 'נועה', topic: 'signed', level: 1, question: '$3 - 8$', answer: '5', note: '', has_image: 0, created_at: '2026-11-05T07:00:00.000Z', seen_at: null, done_at: null, messages: [] }];
+  const yoavPage = () => ({
+    days14: Array.from({ length: 14 }, (_, i) => {
+      const day = new Date(Date.UTC(2026, 9, 23 + i)).toISOString().slice(0, 10);
+      const n = [0, 4, 0, 0, 12, 0, 0, 3, 0, 6, 0, 0, 5, 2][i];
+      return { day, n, first: Math.floor(n / 3), minutes: n * 2 };
+    }),
+    levels: { signed: { level: 2, max: 2 } },
+    mistakes: [{ topic: 'signed', cat: 'sign', level: 1, n: 4, lastAt: '2026-11-04T10:00:00.000Z' }],
+    exams: [{ id: '31', title: 'מבחן במספרים מכוונים', correct: 6, total: 10, at: '2026-11-02T10:00:00.000Z', questions: [{ topic: 'signed', status: 'correct' }, { topic: 'signed', status: 'wrong' }] }],
+  });
+
+  test('1. "מחר" ranks six with their reasons; a name opens the sheet; "לתת תרגול" gives practice to that student alone', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { students: nine(), help: helpNoa(), studentPages: { s2: yoavPage() } }, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    const group = page.getByRole('region', { name: 'כדאי לבדוק איתם' });
+    const rows = group.locator('.t-row');
+    await expect(rows).toHaveCount(6);
+    await expect(rows.locator('.t-name')).toHaveText(['יואב', 'דנה', 'נועה', 'איתי', 'מאיה', 'עדי']);
+    await expect(rows.nth(0)).toContainText('20% נכון בניסיון ראשון השבוע');
+    await expect(rows.nth(1)).toContainText('לא תרגל/ה 16 ימים');
+    await expect(rows.nth(2).locator('.t-chip')).toHaveText(['2 משימות באיחור', 'בקשת עזרה מחכה']);
+    await expect(rows.nth(3)).toContainText('עוד לא התחיל/ה לתרגל');
+    await expect(group.getByRole('button', { name: 'ועוד 2. לרשימה המלאה' })).toBeVisible();
+    for (const b of await rows.locator('.t-name').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await group.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    await shot(page, 'teacher-attention');
+
+    // the name opens the student's page, titled with the name
+    await group.getByRole('button', { name: 'יואב', exact: true }).click();
+    const sheet = page.getByRole('dialog', { name: 'יואב' });
+    await expect(sheet).toBeVisible();
+    expect(log.some((r) => r.path === '/api/teacher/students/s2' && r.headers['x-teacher-key'] === 'tkey-123')).toBe(true);
+    for (const h of ['השבוע', 'מדרגות', 'טעויות שחוזרות', 'משימות', 'בקשות עזרה', 'מבחנים']) await expect(sheet.getByRole('heading', { name: h, exact: true })).toBeVisible();
+    await expect(sheet.getByText('הצטרף/ה ב־2.9 · תרגול אחרון היום')).toBeVisible();
+    await expect(sheet.getByRole('img', { name: 'ב־14 הימים האחרונים: 6 ימים עם תרגול' })).toBeVisible();
+    await expect(sheet.getByText('4 ימים עם תרגול · 16 תרגילים · 32 דקות')).toBeVisible();
+    await expect(sheet.getByRole('img', { name: 'מדרגה 2 מתוך 5' }).first()).toBeVisible();
+    await expect(sheet.getByText('4 פעמים בחודש האחרון')).toBeVisible();
+    await expect(sheet.locator('#ss-work').locator('..').getByText('אין עדיין')).toBeVisible();
+    await expect(sheet.getByText('מבחן במספרים מכוונים')).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'איפוס קוד אישי' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'הסרה מהכיתה' })).toBeVisible();
+    await shot(page, 'teacher-student-sheet');
+    await sheet.getByRole('button', { name: 'הסרה מהכיתה' }).scrollIntoViewIfNeeded();
+    await shot(page, 'teacher-student-sheet-end');
+
+    // "לתת תרגול" on the mistake: the assign sheet on that stair, for יואב alone
+    await sheet.getByRole('button', { name: 'לתת תרגול' }).click();
+    await expect(sheet).toHaveCount(0);
+    const assign = page.getByRole('dialog', { name: 'משימה לכיתה ז׳3' });
+    await expect(assign).toBeVisible();
+    await expect(assign.getByLabel('איזו מדרגה?')).toHaveValue('signed:1');
+    await expect(assign.getByRole('radio', { name: /רק ליואב/ })).toBeChecked();
+    await assign.getByRole('button', { name: 'שליחה לכיתה' }).click();
+    await expect.poll(() => log.some((r) => r.path === '/api/teacher/assignments' && r.method === 'POST')).toBe(true);
+    expect(log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST').body).toMatchObject({ kind: 'stair', skill: 'signed:1', targets: ['s2'] });
+    expect(st.assignments[0].targets).toEqual(['s2']);
+  });
+
+  test('2. "ועוד": the students tab sorted by need; "פרטים" opens the sheet, with the PIN reset; the help link filters the help view', async ({ page }) => {
+    const { st } = await fakeServer(page, { students: nine(), help: helpNoa() }, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await page.getByRole('button', { name: 'ועוד 2. לרשימה המלאה' }).click();
+    await expect(page.getByRole('tab', { name: 'תלמידים' })).toHaveAttribute('aria-selected', 'true');
+    expect(page.url()).toContain('sort=need');
+    await expect(page.getByLabel('סדר הרשימה')).toHaveValue('need');
+    const names = page.locator('.t-table tbody th');
+    await expect(names).toHaveText(['יואב', 'דנה', 'נועה', 'איתי', 'מאיה', 'עדי', 'רוני', 'שירה', 'תמר']);
+    // no PIN reset or removal on the row any more: they are on the student's page
+    await expect(page.locator('.t-table').getByRole('button', { name: 'הסרה מהכיתה' })).toHaveCount(0);
+    await page.getByLabel('סדר הרשימה').selectOption('name');
+    await expect(names.first()).toHaveText('איתי');
+    expect(page.url()).not.toContain('sort=');
+    await page.getByRole('row', { name: /דנה/ }).getByRole('button', { name: 'פרטים על דנה' }).click();
+    const dana = page.getByRole('dialog', { name: 'דנה' });
+    await dana.getByRole('button', { name: 'איפוס קוד אישי' }).click();
+    await expect(page.getByText('הקוד האישי של דנה אופס. בכניסה הבאה ייבחר קוד חדש.')).toBeVisible();
+    await expect(dana.getByText('הקוד האישי אופס. בכניסה הבאה ייבחר קוד חדש.')).toBeVisible();
+    expect(st.students.find((s) => s.id === 's1').pinReset).toBe(true);
+    await dana.getByRole('button', { name: 'סגירה' }).click();
+    // נועה's page: her request, and the way to her requests in the help view
+    await page.getByRole('button', { name: 'נועה', exact: true }).click();
+    const noa = page.getByRole('dialog', { name: 'נועה' });
+    await expect(noa.getByText('נשלחה')).toBeVisible();
+    await noa.getByRole('button', { name: 'לבקשות של נועה' }).click();
+    await expect(page.getByRole('tab', { name: /^עזרה/ })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByText('הבקשות של נועה בשבוע האחרון')).toBeVisible();
+    await expect(page.locator('.help-item')).toHaveCount(1);
+    await page.getByRole('button', { name: 'לכל הבקשות' }).click();
+    await expect(page.getByText('הבקשות של נועה בשבוע האחרון')).toHaveCount(0);
+  });
+
+  test('3. the class report\'s names open the same sheet, with the board\'s ids', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher/report', keyTeacher());
+    await page.getByRole('region', { name: 'טבלת הדוח' }).getByRole('button', { name: 'יואב', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'יואב' })).toBeVisible();
+    expect(log.some((r) => r.path === '/api/teacher/students/b2')).toBe(true);
+  });
+});

@@ -1,10 +1,12 @@
-// The class report (spec TEACHER-7): the class over a range of days, for the screen, the printout and the CSV the
+// The class report (spec TEACHER-7), and one student's page (TEACHER-8, studentDetail at the end of this file).
+// The class report: the class over a range of days, for the screen, the printout and the CSV the
 // teacher downloads. Per student: active days, exercises, first-try and correct answers, hints, minutes, last practice,
 // the stair on each topic and their most frequent mistakes; the assignments due in the range with each student's work;
 // and the class's repeated mistakes. The numbers are the dashboard's own queries (index.js dashboard) over
 // a.day BETWEEN from AND to, so the report's week is the board's week.
 //
 //   GET /api/teacher/report?from=YYYY-MM-DD&to=YYYY-MM-DD   (requireTeacher)
+//   GET /api/teacher/students/:id                           (requireTeacher; the student's page, with the student's id)
 //
 // No student id is in the answer: students are rows ordered by name, an assignment's work is keyed by the row's index,
 // and nothing else carries an id (the assignments' ids neither). Only what the students typed as their names, never an
@@ -12,6 +14,7 @@
 import { HttpError, json, dayOf, isDay, nowIso, limitOrThrow } from './util.js';
 import { requireTeacher } from './entitle.js';
 import { plusDays } from './assignments.js';
+import { myHelp } from './help.js';
 
 export const REPORT = Object.freeze({
   /** The longest range, in days (from and to both counted). A longer one is cut to its last 400 days. */
@@ -143,5 +146,105 @@ export async function classReport(req, env, cors) {
       topic: r.topic, cat: r.cat, level: r.level == null ? null : Number(r.level), n: num(r.n), students: num(r.students),
       names: catNames.filter((c) => c.topic === r.topic && c.cat === r.cat).map((c) => c.name),
     })),
+  }, 200, cors);
+}
+
+// ---------------------------------------------------------------- one student's page (spec TEACHER-8 §1)
+export const DETAIL = Object.freeze({
+  /** The strip of days: the last 14, today included, zero days filled. */
+  days: 14,
+  /** Repeated mistakes: this many days back, the most frequent this many. */
+  mistakeDays: 30,
+  mistakes: 8,
+  /** Given work: due this many days back, or later; at most this many, the latest due first. */
+  workDays: 60,
+  work: 40,
+  /** Exams checked in the app and class exams solved in it: the newest this many. */
+  exams: 20,
+});
+
+/**
+ * GET /api/teacher/students/:id (requireTeacher): one student of the class, for the student's sheet on the board.
+ * A student of another class, or none, is 404 not_found.
+ *   { student: { id, name, joinedOn, lastPractice, pinReset },
+ *     days14: [{ day, n, first, minutes }]          the last 14 Jerusalem days, oldest first, a day with no practice as zeros
+ *     levels: { [topic]: { level, max } },
+ *     mistakes: [{ topic, cat, level, n, lastAt }]   the last 30 days, most frequent first, at most 8; level: the stair it
+ *                                                   happened on most (a tie: the lower one)
+ *     work: [{ assignmentId, title, kind, dueOn, state, stage, right, asked, passed, late }]   given to the student, due
+ *                                                   in the last 60 days or later; late as in the class report
+ *     help: [{ id, topic, question, createdAt, status }]   the last 30 days, newest first (status as the student sees it)
+ *     exams: [{ id, title, correct, total, at, questions }] }   newest first, class exams solved in the app included
+ */
+export async function studentDetail(id, req, env, cors) {
+  const cls = await requireTeacher(req, env);
+  const s = await env.DB.prepare('SELECT id, name, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE id = ? AND class_code = ?')
+    .bind(String(id), cls.code).first();
+  if (!s) throw new HttpError(404, 'not_found');
+  const today = dayOf();
+  const from14 = plusDays(today, -(DETAIL.days - 1));
+  const from30 = plusDays(today, -(DETAIL.mistakeDays - 1));
+  const workFrom = plusDays(today, -DETAIL.workDays);
+  const [dayRows, lastRow, levelRows, catRows, work, help, examRows, classExams] = await Promise.all([
+    all(env, `SELECT day, COUNT(*) AS n, SUM(first_try) AS first, SUM(secs) AS secs FROM attempts
+      WHERE student_id = ? AND day >= ? GROUP BY day`, s.id, from14),
+    env.DB.prepare('SELECT MAX(at) AS last FROM attempts WHERE student_id = ?').bind(s.id).first(),
+    all(env, 'SELECT topic, level, max_level FROM levels WHERE student_id = ?', s.id),
+    all(env, `SELECT topic, cat, level, COUNT(*) AS n, MAX(at) AS last_at FROM attempts
+      WHERE student_id = ? AND day >= ? AND cat IS NOT NULL GROUP BY topic, cat, level`, s.id, from30),
+    all(env, `SELECT a.id, a.title, a.kind, a.due_on, w.state, w.stage, w.right_n, w.asked, w.passed, w.done_day
+      FROM assignments a LEFT JOIN assignment_work w ON w.assignment_id = a.id AND w.student_id = ?1
+      WHERE a.class_code = ?2 AND a.due_on >= ?3 AND a.starts_on <= ?4
+        AND (a.for_all = 1 OR EXISTS (SELECT 1 FROM assignment_targets t WHERE t.assignment_id = a.id AND t.student_id = ?1))
+      ORDER BY a.due_on DESC, a.created_at DESC, a.id LIMIT ${DETAIL.work}`, s.id, cls.code, workFrom, today),
+    myHelp(env, s.id),
+    all(env, `SELECT id, title, correct, total, questions, created_at FROM exams WHERE student_id = ?
+      ORDER BY created_at DESC LIMIT ${DETAIL.exams}`, s.id),
+    all(env, `SELECT w.assignment_id, a.title, w.right_n, w.asked, w.questions, w.done_at FROM assignment_work w
+      JOIN assignments a ON a.id = w.assignment_id WHERE w.student_id = ? AND a.class_code = ? AND a.kind = 'exam' AND w.state = 'done'
+      ORDER BY w.done_at DESC LIMIT ${DETAIL.exams}`, s.id, cls.code),
+  ]);
+
+  const byDay = Object.fromEntries(dayRows.map((r) => [r.day, r]));
+  const days14 = Array.from({ length: DETAIL.days }, (_, i) => {
+    const day = plusDays(from14, i); const r = byDay[day];
+    return { day, n: num(r?.n), first: num(r?.first), minutes: Math.round(num(r?.secs) / 60) };
+  });
+  const levels = Object.fromEntries(levelRows.map((r) => [r.topic, { level: r.level, max: r.max_level }]));
+  // one row per topic and mistake, at the stair it happened on most (a tie: the lower one), with the latest time
+  const cats = {};
+  for (const r of catRows) {
+    const m = (cats[`${r.topic}\u0000${r.cat}`] ||= { topic: r.topic, cat: r.cat, level: r.level, n: 0, top: 0, lastAt: r.last_at });
+    m.n += num(r.n);
+    if (num(r.n) > m.top || (num(r.n) === m.top && r.level < m.level)) { m.top = num(r.n); m.level = r.level; }
+    if (r.last_at > m.lastAt) m.lastAt = r.last_at;
+  }
+  const mistakes = Object.values(cats)
+    .sort((a, b) => b.n - a.n || (a.lastAt < b.lastAt ? 1 : a.lastAt > b.lastAt ? -1 : 0) || (a.topic < b.topic ? -1 : a.topic > b.topic ? 1 : 0))
+    .slice(0, DETAIL.mistakes).map(({ topic, cat, level, n, lastAt }) => ({ topic, cat, level: Number(level), n, lastAt }));
+  const parse = (v) => { try { return JSON.parse(v || '[]'); } catch { return []; } };
+  const exams = [
+    ...examRows.map((e) => ({ id: String(e.id), title: e.title, correct: num(e.correct), total: num(e.total), at: e.created_at, questions: parse(e.questions) })),
+    ...classExams.map((w) => ({ id: `a:${w.assignment_id}`, title: w.title, correct: num(w.right_n), total: num(w.asked), at: w.done_at, questions: parse(w.questions) })),
+  ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, DETAIL.exams);
+
+  return json({
+    student: {
+      id: s.id, name: s.name, joinedOn: s.created_at ? dayOf(new Date(s.created_at)) : null,
+      lastPractice: lastRow?.last || null, pinReset: !!s.pin_reset,
+    },
+    days14,
+    levels,
+    mistakes,
+    work: work.map((a) => {
+      const state = a.state || 'none';
+      return {
+        assignmentId: a.id, title: a.title, kind: a.kind, dueOn: a.due_on, state,
+        stage: a.stage ?? null, right: a.right_n ?? null, asked: a.asked ?? null, passed: a.passed == null ? null : !!a.passed,
+        late: state === 'done' ? a.done_day > a.due_on : a.due_on < today,
+      };
+    }),
+    help: help.map(({ id: hid, topic, question, createdAt, status }) => ({ id: hid, topic, question, createdAt, status })),
+    exams,
   }, 200, cors);
 }

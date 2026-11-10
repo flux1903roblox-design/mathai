@@ -20,3 +20,12 @@ export function Rate({ value }) {
   const Icon = tone === 'low' ? TriangleAlert : tone === 'mid' ? CircleAlert : CircleCheck;
   return <span className={`rate ${tone}`}><Icon size={15} aria-hidden="true" />{value}%</span>;
 }
+
+/**
+ * A student's name that opens their page (TEACHER-8): a link-style button wherever the board names a student. With no
+ * id (a student no longer in the class) or no `onOpen`, the name stays plain text.
+ */
+export function StudentName({ id, name, onOpen, className }) {
+  if (!id || !onOpen) return <b className={className}>{name}</b>;
+  return <button type="button" className={`link-btn t-name${className ? ` ${className}` : ''}`} onClick={() => onOpen({ id, name })}>{name}</button>;
+}

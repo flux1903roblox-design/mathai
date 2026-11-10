@@ -1,8 +1,11 @@
 // "עזרה": the class's help requests from the last week, each with the exercise, what the student wrote, their note, the
 // notebook page if they sent one, the thread of replies (TEACHER-6 §3), a reply box (three quick replies that fill it,
 // 500 characters, three replies a request) and the actions "ראיתי", "טופל" and "לפתוח שוב". Filters: the open requests,
-// those waiting for the teacher's answer (no reply yet, or the student wrote last), or all of them.
+// those waiting for the teacher's answer (no reply yet, or the student wrote last), or all of them. From a student's
+// page (TEACHER-8), ?student=<id> shows only that student's requests, all of them, until "לכל הבקשות"; a name opens the
+// student's page.
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { Hand, NotebookPen, Send } from 'lucide-react';
@@ -12,7 +15,7 @@ import { TOPIC } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { helpRetentionNote } from '@/content/retention.js';
-import { fmtDay } from './common.jsx';
+import { fmtDay, StudentName } from './common.jsx';
 
 const FILTERS = [['open', 'פתוחות'], ['waiting', 'מחכות לתשובה שלכם'], ['all', 'הכול']];
 const PICK = { open: (h) => !h.done_at, waiting: waitsForTeacher, all: () => true };
@@ -83,16 +86,27 @@ function ReplyBox({ cls, h, onSent }) {
   );
 }
 
-export default function HelpTab({ cls, data, onChanged }) {
-  const [filter, setFilter] = useState('open');
-  const all = data.help || [];
+export default function HelpTab({ cls, data, onChanged, onStudent }) {
+  const [params, setParams] = useSearchParams();
+  const only = params.get('student');
+  const who = only ? (data.students || []).find((s) => s.id === only) : null;
+  const [filter, setFilter] = useState(only ? 'all' : 'open');
+  const everyone = data.help || [];
+  const all = who ? everyone.filter((h) => h.studentId === who.id) : everyone;
   const list = all.filter(PICK[filter]);
+  const clearStudent = () => setParams((p) => { const n = new URLSearchParams(p); n.delete('student'); return n; }, { replace: true });
   const markHelp = async (id, action) => {
     try { await teacherApi(`/api/teacher/help/${id}`, { method: 'POST', body: { action } }, cls); onChanged(); } catch (e) { toast.error(e.message); }
   };
   const count = (f) => all.filter(PICK[f]).length;
   return (
     <>
+      {who && (
+        <div className="hf-who" role="status">
+          <span>הבקשות של <b>{who.name}</b> בשבוע האחרון</span>
+          <button type="button" className="link-btn" onClick={clearStudent}>לכל הבקשות</button>
+        </div>
+      )}
       <fieldset className="as-set hf-filters">
         <legend className="visually-hidden">אילו בקשות להציג</legend>
         <div className="as-chips">
@@ -106,13 +120,13 @@ export default function HelpTab({ cls, data, onChanged }) {
       </fieldset>
       <ul className="help-list">
         {list.length === 0 && (
-          <li className="muted">{all.length === 0 ? 'אין בקשות עזרה בשבוע האחרון.' : filter === 'waiting' ? 'אין בקשות שמחכות לתשובה שלכם.' : 'אין בקשות פתוחות.'}</li>
+          <li className="muted">{all.length === 0 ? (who ? `ל${who.name} אין בקשות עזרה בשבוע האחרון.` : 'אין בקשות עזרה בשבוע האחרון.') : filter === 'waiting' ? 'אין בקשות שמחכות לתשובה שלכם.' : 'אין בקשות פתוחות.'}</li>
         )}
         {list.map((h) => {
           const fresh = !h.done_at && (!h.seen_at || h.unreadFromStudent > 0);
           return (
             <li key={h.id} className={clsx('help-item', fresh && 'unseen', h.done_at && 'done')}>
-              <div className="help-item-head"><Hand size={16} aria-hidden="true" /><b>{h.name}</b>{fresh && <span className="new-tag">{h.seen_at ? 'תשובה חדשה' : 'חדש'}</span>}<span className="muted">{TOPIC[h.topic]?.title}, {fmtDay(h.created_at)}</span></div>
+              <div className="help-item-head"><Hand size={16} aria-hidden="true" /><StudentName id={h.studentId} name={h.name} onOpen={onStudent} />{fresh && <span className="new-tag">{h.seen_at ? 'תשובה חדשה' : 'חדש'}</span>}<span className="muted">{TOPIC[h.topic]?.title}, {fmtDay(h.created_at)}</span></div>
               <p className="help-q"><MathText text={h.question} /></p>
               {h.answer && <p className="muted">מה כתב/ה: <span dir="ltr">{h.answer}</span></p>}
               {h.note && <p><span className="hl">“{h.note}”</span></p>}
