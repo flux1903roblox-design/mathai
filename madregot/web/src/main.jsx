@@ -10,6 +10,7 @@ import './styles/app.css';
 import './styles/motion.css';
 import './styles/v4.css';
 import './styles/canon.css';
+import './styles/dark.css'; // last: the dark values of the tokens (STUDENT-2)
 import App from './App.jsx';
 
 // Test hook: with localStorage 'madregot-seed' set, exercises come out the same on every run (visual tests).

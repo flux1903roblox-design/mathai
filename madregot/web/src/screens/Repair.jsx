@@ -12,7 +12,6 @@ import { Button } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import RemedyFlow from '@/components/learn/RemedyFlow.jsx';
 import { LessonHeader } from '@/components/learn/StepPlayer.jsx';
-import { useTheme } from '@/lib/theme.js';
 
 export default function Repair() {
   const { topic, level: L, misc } = useParams();
@@ -24,7 +23,6 @@ export default function Repair() {
   const def = c?.misconceptions.find((m) => m.id === misc);
   const [ready, setReady] = useState(false);
   useEffect(() => { if (def) useApp.getState().startRepair(skill, misc); }, [skill, misc]); // eslint-disable-line react-hooks/exhaustive-deps
-  useTheme('light');
   if (!c || !def || !t) return <Navigate to={`/learn/${topic}/${level}`} replace />;
   return (
     <div className={clsx('teach', `ch-${t.color}`)}>

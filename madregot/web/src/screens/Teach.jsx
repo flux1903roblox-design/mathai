@@ -18,7 +18,6 @@ import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import StageDone from '@/components/learn/StageDone.jsx';
 import { partsOf, isDone, stagesDone } from '@/lib/path.js';
 import { PARTS } from '@/lib/lesson.js';
-import { useTheme } from '@/lib/theme.js';
 
 const TITLE = { A: 'מבינים את הרעיון', B: 'דוגמה פתורה', C: 'פותרים יחד' };
 
@@ -35,7 +34,7 @@ export default function Teach() {
   const [tutor, setTutor] = useState(false);
   const [done, setDone] = useState(null); // the stage just finished: what it earned, and the stair's stages done now
   useEffect(() => { if (c && stage === 'A') learnEvent({ e: 'teach-start', s: skill }); }, [skill, stage]); // eslint-disable-line react-hooks/exhaustive-deps
-  useTheme('light'); // the lessons are white: explanations, drawings and objects on a white surface
+  // lessons follow the theme (light or dark, lib/theme.js); the maths sits on the --ground panel in both
   if (!c || !t || !TITLE[stage]) return <Navigate to={`/learn/${topic}/${level}`} replace />;
 
   const close = () => navigate(`/learn/${topic}/${level}`, { replace: true });

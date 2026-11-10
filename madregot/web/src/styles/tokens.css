@@ -16,14 +16,16 @@
   --rule: #e4e7ec;
   --rule-strong: #cdd2da;
   --rule-press: #d5dae2; /* the bottom edge of a white pressable card or button */
-  --control-line: #8a919e; /* edges of inputs, checkboxes and segmented controls (3:1) */
+  --control-line: #848b98; /* edges of inputs, checkboxes and segmented controls: 3:1 on --ground and on a card */
   --track: #e9ecf1;     --track-edge: #d3d8e0;  /* locked stops, empty bars, a closed chest */
   --disabled-bg: #eceef2; --disabled-ink: #6b7280; --disabled-lip: #dfe2e8;
   --scrim: rgba(20, 22, 26, 0.45); /* behind sheets */
+  --stop-ring: 0px;     /* a ring in the unit's -ink around a done or current stop: none in light, 2px in dark (dark.css) */
 
   /* brand and meaning */
   --brand: #1a5cf5;     --brand-d: #1246c4;   --brand-tint: #eaf1ff;  --brand-lip: #1246c4; --on-brand: #ffffff;
   --brand-line: #a9c3ff; /* borders of selected and brand-tinted things */
+  --brand-ink: #1a5cf5;  /* the brand blue as text or an icon on the page or a card (lighter in dark) */
   --p-50: #f5f8ff;      --p-400: #5b8cff;     --p-600: #1651db; /* three steps of the v4 brand scale still in use (v4.css) */
   --glow: #1a5cf5;      --glow-ink: #1246c4;  --on-glow: #ffffff;
   --good: #2fbf4a;      --good-d: #1a8a34;    --good-tint: #e3f8e7;   --good-ink: #157a41;  --on-good: #000000; --good-line: #bfe9c9;

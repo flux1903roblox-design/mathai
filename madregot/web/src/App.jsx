@@ -6,6 +6,7 @@ import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
 import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
+import { applyTheme } from '@/lib/theme.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
@@ -174,6 +175,8 @@ const router = createHashRouter([{ path: '*', element: <Root /> }]);
 
 export default function App() {
   useSync();
+  // the saved look (Settings, מראה); public/theme-boot.js already applied an explicit choice before the first paint
+  useEffect(() => { applyTheme(useApp.getState().prefs?.theme); }, []);
   return (
     <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="user">

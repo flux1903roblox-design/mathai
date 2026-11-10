@@ -214,6 +214,25 @@ function AISection() {
   );
 }
 
+const LOOKS = [['system', 'כמו במכשיר'], ['light', 'בהיר'], ['dark', 'כהה']];
+
+/** מראה: follow the phone (the default), or always light, or always dark (lib/theme.js). */
+function ThemeSetting() {
+  const theme = useApp((x) => x.prefs?.theme || 'system');
+  const setTheme = useApp((x) => x.setTheme);
+  return (
+    <section className="section set-group" aria-labelledby="look-title">
+      <h2 id="look-title" className="set-head">מראה</h2>
+      <div className="segmented" role="radiogroup" aria-labelledby="look-title" aria-describedby="look-hint">
+        {LOOKS.map(([v, label]) => (
+          <button key={v} type="button" role="radio" aria-checked={theme === v} className={clsx('seg', theme === v && 'on')} onClick={() => setTheme(v)}>{label}</button>
+        ))}
+      </div>
+      <p className="field-hint" id="look-hint">"כמו במכשיר" עובר לכהה כשהטלפון במצב כהה.</p>
+    </section>
+  );
+}
+
 function SoundSetting() {
   const sound = useApp((x) => x.sound);
   const setSound = useApp((x) => x.setSound);
@@ -261,6 +280,7 @@ export default function Settings() {
       </section>
       <ClassSection />
       <AISection />
+      <ThemeSetting />
       <SoundSetting />
       <AdvancedRow />
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
@@ -278,7 +298,7 @@ export default function Settings() {
         <p>כל המדרגות, הנקודות וההיסטוריה במכשיר הזה יימחקו.</p>
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'wipe'} onOpenChange={(o) => !o && setDanger(null)} title="למחוק הכול?" keep="לא למחוק"
-        confirm="כן, למחוק הכול" onConfirm={async () => { await leaveFamily(); await forgetParent(); useApp.persist.clearStorage(); signOut(); }}>
+        confirm="כן, למחוק הכול" onConfirm={async () => { await leaveFamily(); await forgetParent(); useApp.persist.clearStorage(); signOut(); useApp.getState().setTheme('system'); }}>
         <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. אי אפשר לבטל.</p>
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title="להתנתק מהמכשיר?" keep="להישאר מחוברים"

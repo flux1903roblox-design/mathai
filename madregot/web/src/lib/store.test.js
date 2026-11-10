@@ -47,3 +47,20 @@ describe('saved data v3: the parent account never lives in the child store', () 
     expect(migrateState(v2(ai), 3, { personal: false }).ai).toEqual(ai);
   });
 });
+
+describe('the look (STUDENT-2): prefs.theme', async () => {
+  const { useApp } = await import('./store.js');
+  it('follows the phone by default, and an old save without prefs keeps that default', () => {
+    expect(useApp.getState().prefs).toEqual({ theme: 'system' });
+    const migrated = migrateState({ profile: null, xp: 3 }, 4);
+    expect(migrated.prefs).toBeUndefined(); // no transform: the store's defaults fill it in
+  });
+  it('setTheme keeps the choice, and signing out of the device keeps the look', () => {
+    useApp.getState().setTheme('dark');
+    expect(useApp.getState().prefs.theme).toBe('dark');
+    useApp.getState().signOut();
+    expect(useApp.getState().prefs.theme).toBe('dark');
+    useApp.getState().setTheme('system');
+    expect(useApp.getState().prefs.theme).toBe('system');
+  });
+});

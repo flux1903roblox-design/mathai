@@ -206,6 +206,9 @@ export function tokenize(css, file) {
         changes.push({ file, line: lineOf(off), selector: d.selector, prop: d.prop, from: m[0], to: '(fallback removed)', rule: 'fallback' });
         continue;
       }
+      // a line that already says why its colour stays (colour-ok) was decided by a person: leave it
+      const lineText = css.slice(css.lastIndexOf('\n', off) + 1, css.indexOf('\n', off) < 0 ? css.length : css.indexOf('\n', off));
+      if (lineText.includes('colour-ok:')) continue;
       const r = decide(m[0], ctx);
       if (!r) { unmapped.push({ file, line: lineOf(off), selector: d.selector, prop: d.prop, literal: m[0] }); continue; }
       if (r.keep) { keepLines.set(lineOf(off), r.keep); changes.push({ file, line: lineOf(off), selector: d.selector, prop: d.prop, from: m[0], to: `kept: colour-ok: ${r.keep}`, rule: 'keep' }); continue; }

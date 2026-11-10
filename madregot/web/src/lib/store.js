@@ -11,6 +11,7 @@ import { logEvent } from '@/learn/analytics.ts';
 import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
 import { completeMissionItems } from '@/learn/mission.ts';
 import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
+import { applyTheme } from './theme.js';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
@@ -31,6 +32,7 @@ const empty = {
   freezes: 0, // streak freezes ready to use (at most 2), earned by finishing the daily quests
   goalXp: 20, // daily goal in XP
   sound: true,
+  prefs: { theme: 'system' }, // 'system' (follow the phone) | 'light' | 'dark' (lib/theme.js); new fields come with defaults
   mistakes: {}, // 'topic:cat' -> count
   lastTopic: null,
   outbox: [],
@@ -179,6 +181,7 @@ export const useApp = create(
       addXP: (n) => set({ xp: get().xp + n }),
       setGoalXp: (goalXp) => set({ goalXp }),
       setSound: (sound) => set({ sound }),
+      setTheme: (theme) => { set({ prefs: { ...get().prefs, theme } }); applyTheme(theme); },
       /**
        * A finished lesson: XP, today's counters, the path, the topic level, and the daily quests.
        * Returns what to celebrate: { streakExtended, streak, practiceDone, unitDone, questsDone, freezeEarned, goalReached }.
@@ -245,7 +248,8 @@ export const useApp = create(
       },
       resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
-      signOut: () => set({ ...empty, learn: emptyLearn(), ai: { ...get().ai, pendingLink: null, lastTier: null } }),
+      // the look chosen for this device (prefs) stays too
+      signOut: () => set({ ...empty, learn: emptyLearn(), prefs: get().prefs, ai: { ...get().ai, pendingLink: null, lastTier: null } }),
     }),
     // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')
     { name: STORE_KEY, storage: safeStorage, version: 4, migrate: (saved, version) => migrateState(saved, version) },

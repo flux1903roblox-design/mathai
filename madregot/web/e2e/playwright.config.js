@@ -28,6 +28,8 @@ export default defineConfig({
   projects: [
     { name: 'phone-small', use: phone(320, 568) },
     { name: 'phone', use: phone(390, 844) },
+    // the same phone in dark mode (STUDENT-2): only the screenshots of visual.spec run here, kept in __screens__/phone-dark/
+    { name: 'phone-dark', use: { ...phone(390, 844), colorScheme: 'dark' }, testMatch: /visual\.spec\.js/ },
     { name: 'tablet', use: { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 1 } },
     { name: 'desktop', use: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 } },
   ],

@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import { clamp, useDrag, Stepper, minus } from './core.jsx';
 import { gridGeometry, Plane } from './grid.jsx';
 import { Tex } from '../MathText.jsx';
+import { useThemeName } from '@/lib/theme.js';
 
 const fmt = (v) => `${v}`;
 export const lineTex = ({ m, b }) => {
@@ -14,7 +15,8 @@ export const lineTex = ({ m, b }) => {
 
 // m and b keep one colour each across the equation, the drawing and the step buttons (m: the step, b: the intercept):
 // m is the streak ink and b the violet unit ink. KaTeX's \color{} takes a name or a hex value, not var(), so the
-// equation reads the two tokens when it is drawn; a value that is not hex (or no stylesheet, in a unit test) leaves it plain.
+// equation reads the two tokens when it is drawn, and draws again when the theme changes (useThemeName); a value that
+// is not hex (or no stylesheet, in a unit test) leaves it plain.
 const HEX = /^#[0-9a-f]{3,8}$/i;
 export function lineInks(root = typeof document === 'undefined' ? null : document.documentElement) {
   if (!root) return { m: '', b: '' };
@@ -52,6 +54,7 @@ export default function LineBuilder({ m: spec, value, onChange, locked, reveal, 
   const ends = (mm, bb) => [X(-r - 0.5), Y(mm * (-r - 0.5) + bb), X(r + 0.5), Y(mm * (r + 0.5) + bb)];
   const [x1, y1, x2, y2] = ends(m, b);
   const showGhost = reveal && answer && (answer.m !== m || answer.b !== b);
+  useThemeName(); // the readout's two colours are read again when the theme changes
   return (
     <div className={`manip manip-line ${good ? 'good' : ''}`}>
       {!test && <div className="manip-readout" aria-live="polite"><Tex tex={lineTexColored(value, lineInks())} /></div>}

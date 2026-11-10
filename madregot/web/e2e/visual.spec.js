@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test';
 import { open, openOn, student, livedIn, answer } from './helpers.js';
 
-test.beforeEach(({}, info) => { test.skip(!['phone-small', 'phone', 'desktop'].includes(info.project.name), 'screenshots on two phones and desktop'); });
+test.beforeEach(({}, info) => { test.skip(!['phone-small', 'phone', 'phone-dark', 'desktop'].includes(info.project.name), 'screenshots on two phones, the phone in dark mode and desktop'); });
 
 // Each screen is photographed only once its real content is there (some screens load on demand).
 async function shot(page, name, ready) {

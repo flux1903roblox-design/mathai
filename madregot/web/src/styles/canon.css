@@ -2,8 +2,9 @@
    The owner's call (10 November 2026): the level of Brilliant and Duolingo, light and calm, one brand blue, big
    readable Hebrew, and one grammar on every screen. Loaded last, it is the source of truth for:
    - type: Rubik only; titles 26–32px/800, section headings 20px/700, body 17px, nothing under 14px;
-   - surfaces: white screens; one card (--surface, 2px --rule, radius 16, no soft shadow); grey --ground only as the
-     panel the maths sits on;
+   - surfaces: white screens (--paper); one card (--surface, 2px --rule, radius 16, no soft shadow); grey --ground only
+     as the panel the maths sits on. In dark mode (dark.css, following the phone or the student's choice) the same
+     tokens take dark values; no rule here names a colour;
    - controls: pressable things have a 4px lip that collapses on press; the primary is the brand blue;
    - colour: brand blue for action, selection, progress and "where I am"; green, red, gold and orange only for their
      one meaning. Each unit has its own colour (tokens.css, units) for its banner, emblem and stops on the path; buttons
@@ -16,7 +17,7 @@ body { color: var(--ink); font-size: var(--t-base); line-height: var(--lh-base);
 .muted, .lead { color: var(--ink-2); }
 .lead { font-size: var(--t-md); line-height: var(--lh-md); }
 ::selection { background: var(--marker-strong); color: var(--ink); }
-:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; } /* 7.8:1 on white, 8.8:1 on the dark page */
 a { color: var(--brand-d); }
 
 /* ------------------------------------------------------------------ buttons */
@@ -27,7 +28,7 @@ a { color: var(--brand-d); }
 .btn-secondary { --btn-bg: var(--surface); --btn-ink: var(--brand-d); --btn-line: var(--rule); --btn-lip: var(--rule-press); }
 .btn-ghost { --btn-bg: transparent; --btn-line: transparent; --btn-lip: transparent; color: var(--brand-d); }
 .btn:disabled { --btn-bg: var(--disabled-bg); --btn-ink: var(--disabled-ink); --btn-lip: var(--disabled-lip); --btn-line: var(--disabled-bg); }
-.btn:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.btn:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; }
 .icon-btn { color: var(--ink-2); }
 
 /* ------------------------------------------------------------------ the tab bar: icon and name, the active tab in brand */
@@ -35,12 +36,12 @@ a { color: var(--brand-d); }
 .tab { flex-direction: column; gap: 2px; min-height: 56px; padding: 6px 4px 4px; border: 0; border-radius: 14px; color: var(--ink-3); background: transparent; font-size: 12px; font-weight: 600; line-height: 16px; }
 .tab span { display: block; }
 .tab svg { width: 24px; height: 24px; }
-.tab.active { color: var(--brand); background: transparent; border-color: transparent; }
+.tab.active { color: var(--brand-ink); background: transparent; border-color: transparent; }
 .tab.active svg { transform: none; stroke-width: 2.4; }
 @media (min-width: 960px) {
   .tab { flex-direction: row; gap: 12px; font-size: 16px; padding: 10px 14px; justify-content: flex-start; }
   .tab.active { background: var(--brand-tint); }
-  .tabbar-brand { color: var(--brand); font-weight: 800; font-size: 26px; }
+  .tabbar-brand { color: var(--brand-ink); font-weight: 800; font-size: 26px; }
 }
 
 /* ------------------------------------------------------------------ a tab's own screen: the name, big, on white */
@@ -70,7 +71,7 @@ a { color: var(--brand-d); }
 .hub-card-title, .card-title, .quest-card .continue-title { font-family: var(--font-ui); font-size: 20px; line-height: 26px; font-weight: 700; color: var(--ink); }
 .hub-card-desc, .quest-card .continue-sub { font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink-2); }
 .hub-card-icon, .hub-row-icon, .exam-cta-icon, .quest-icon, .qk-repair, .qk-review, .qk-mastery, .qk-new, .qk-continue, .qk-prereq, .qk-exam {
-  background: var(--brand-tint); color: var(--brand); border: 0; box-shadow: none;
+  background: var(--brand-tint); color: var(--brand-ink); border: 0; box-shadow: none;
 }
 .hub-rows > li + li { border-top: 2px solid var(--rule); }
 .hub-row { min-height: 72px; padding: var(--s3) var(--s4); color: var(--ink); }
@@ -98,7 +99,7 @@ a { color: var(--brand-d); }
 .unit-head-text { gap: 2px; }
 /* the practice surface is the same in every unit: the lesson and teaching screens keep the brand blue, whatever the
    unit's colour (council, Nov 2026) */
-.lesson, .teach { --c: var(--brand); --c-d: var(--brand-d); --c-tint: var(--brand-tint); --c-ink: var(--brand-d); }
+.lesson, .teach { --c: var(--brand); --c-d: var(--brand-lip); --c-tint: var(--brand-tint); --c-ink: var(--brand-d); }
 /* small phones: the banner takes the full width and a tighter padding, so the unit's name stays on one line beside
    its emblem and the sticky banner stays short */
 @media (max-width: 360px) {
@@ -121,13 +122,20 @@ a { color: var(--brand-d); }
 .node-glyph { width: 30px; height: 30px; filter: none; }
 .node-current { --face: 76px; --face-c: var(--c, var(--brand)); --edge: var(--c-d, var(--brand-lip)); color: var(--on-brand); }
 .node-done { --face-c: var(--c, var(--brand)); --edge: var(--c-d, var(--brand-lip)); color: var(--on-brand); }
+/* in dark, a stop in a dark unit colour (cobalt is 1.8:1 on the page) gets a ring in its light -ink: --stop-ring is 0 in
+   light and 2px in dark (dark.css), so a stop reaches 3:1 against the page in both */
+.node-current, .node-done { box-shadow: 0 0 0 var(--stop-ring) var(--c-ink, var(--brand-d)), 0 var(--lip) 0 var(--edge); }
+.node-current:active, .node-done:active { box-shadow: 0 0 0 var(--stop-ring) var(--c-ink, var(--brand-d)), 0 0 0 var(--edge); }
 .node-mastered { --face-c: var(--gold); --edge: var(--gold-d); color: var(--on-gold-ink); }
+/* gold is 1.6:1 on a white page, so a mastered stop has a 2px ring in the darker gold (5.6:1), in both themes */
+.node-mastered { box-shadow: 0 0 0 2px var(--gold-ink), 0 var(--lip) 0 var(--edge); }
+.node-mastered:active { box-shadow: 0 0 0 2px var(--gold-ink), 0 0 0 var(--edge); }
 .node-mastered::after { content: none; }
 .node-locked { --face-c: var(--track); --edge: var(--track-edge); color: var(--ink-3); }
 /* passed over by a placement or jump test: open, not done, its mastery check waiting */
 .node-open { --open-line: color-mix(in srgb, var(--c, var(--brand)) 45%, var(--surface)); --face-c: var(--surface); --edge: var(--rule-press); color: var(--c-ink, var(--brand)); box-shadow: inset 0 0 0 3px var(--open-line), 0 var(--lip) 0 var(--edge); }
 .node-open:active { box-shadow: inset 0 0 0 3px var(--open-line), 0 0 0 var(--edge); }
-.node:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 6px; }
+.node:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 6px; }
 .node-anchor.is-current { animation: none; }
 .node-halo { display: none; }
 .node-ring-seg { fill: var(--c-tint, var(--track)); stroke: var(--c-tint, var(--track)); }
@@ -148,8 +156,8 @@ a { color: var(--brand-d); }
 .chest { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--track); color: var(--ink-3); box-shadow: 0 6px 0 var(--track-edge); margin-bottom: 6px; }
 .chest.is-open { background: var(--gold); color: var(--on-gold-ink); box-shadow: 0 6px 0 var(--gold-d); }
 .chest:active { transform: translateY(6px); box-shadow: 0 0 0 transparent; }
-.chest:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 6px; }
-.jump-current { background: var(--surface); color: var(--brand); border: 2px solid var(--rule); box-shadow: 0 4px 0 var(--rule-press); }
+.chest:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 6px; }
+.jump-current { background: var(--surface); color: var(--brand-ink); border: 2px solid var(--rule); box-shadow: 0 4px 0 var(--rule-press); }
 
 /* wide screens: the side cards */
 .side-card { padding: var(--s4) var(--s5); }
@@ -168,7 +176,7 @@ a { color: var(--brand-d); }
 .qbar-light .qbar-text { color: var(--ink); }
 
 /* segmented choices (grade, settings) */
-.seg { border: 2px solid var(--rule); background: var(--surface); color: var(--ink); box-shadow: 0 3px 0 var(--rule-press); font-weight: 700; }
+.seg { border: 2px solid var(--control-line); background: var(--surface); color: var(--ink); box-shadow: 0 3px 0 var(--rule-press); font-weight: 700; }
 .seg.on, .seg[aria-pressed="true"], .seg[aria-checked="true"] { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-d); box-shadow: 0 3px 0 var(--brand-line); }
 
 /* ------------------------------------------------------------------ the lesson: the question owns the screen */
@@ -243,6 +251,7 @@ a { color: var(--brand-d); }
 /* ------------------------------------------------------------------ the teacher's board */
 .t-head { background: var(--surface); color: var(--ink); border-bottom: 1px solid var(--rule); }
 .t-head .wordmark, .t-head .t-class-name { color: var(--ink); }
+.t-head-sub { color: var(--ink-2); } /* was white on the white header (v4.css), so the teacher's name did not show */
 .t-icon { background: var(--surface); color: var(--ink); border: 2px solid var(--rule); }
 
 /* ------------------------------------------------------------------ fixes after the first look */
@@ -330,7 +339,7 @@ a { color: var(--brand-d); }
 .stat-good { --tone-ink: var(--good-ink); }
 .stat-gold { --tone-ink: var(--gold-ink); }
 /* the numbers on the profile and the teacher's board: one icon colour, the brand */
-.profile-stats svg, .me-stat svg, .t-kpis svg, .kpi-icon, .kpi-good .kpi-icon, .kpi-bad .kpi-icon { color: var(--brand); fill: none; }
+.profile-stats svg, .me-stat svg, .t-kpis svg, .kpi-icon, .kpi-good .kpi-icon, .kpi-bad .kpi-icon { color: var(--brand-ink); fill: none; }
 
 /* the profile: the student's initial instead of a character */
 .profile-top { height: 140px; background: var(--brand-tint); }
@@ -366,7 +375,7 @@ a { color: var(--brand-d); }
 .done-madi { margin-inline: auto; }
 .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); }
 .done-earned { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--ground); color: var(--ink); font-size: 15px; font-weight: 600; }
-.done-earned svg { color: var(--brand); }
+.done-earned svg { color: var(--brand-ink); }
 .done-earned.tone-gold svg { color: var(--gold-d); }
 .done-earned.tone-good svg { color: var(--good-d); }
 .done-earned.tone-streak svg { color: var(--streak); }
@@ -396,7 +405,7 @@ a { color: var(--brand-d); }
 .profile-top { height: auto; background: none; border: 0; padding: var(--s4) 0 0; margin-bottom: 0; }
 .avatar-initial { width: 72px; height: 72px; font-size: 32px; box-shadow: none; }
 /* the teacher's numbers: one icon colour */
-.kpi-icon, .kpi-good .kpi-icon, .kpi-brand .kpi-icon, .kpi-gold .kpi-icon, .kpi-bad .kpi-icon, .kpi-sky .kpi-icon { color: var(--brand); }
+.kpi-icon, .kpi-good .kpi-icon, .kpi-brand .kpi-icon, .kpi-gold .kpi-icon, .kpi-bad .kpi-icon, .kpi-sky .kpi-icon { color: var(--brand-ink); }
 /* one typed answer: a wide field */
 @media (min-height: 641px) { .lesson .answer-bar .answer-row > input.slot:only-of-type { width: min(60vw, 300px); } }
 /* the coaching line under a drawing, without a character beside it */
@@ -566,3 +575,16 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .fg-move { stroke: var(--brand); stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
 .fg-move-head { fill: var(--brand); }
 @media (max-height: 700px) { .lm-fig .figure.geo { max-height: 34dvh; } }
+
+/* ------------------------------------------------------------------ both themes (STUDENT-2)
+   Control edges reach 3:1 against what they sit on, in light and in dark (WCAG 1.4.11): inputs and segmented controls
+   take --control-line. Three things stay light in the dark theme, each with its own light tokens: the notebook page
+   (squared paper, drawn in dark ink), the QR code (a scanner needs dark on light), and printouts (dark.css, last). */
+.input { border-color: var(--control-line); }
+.input:disabled { border-color: var(--rule); } /* an input that cannot be used yet stays quiet (WCAG exempts it) */
+.nb-page, .handoff-qr {
+  color-scheme: light;
+  --surface: #ffffff; --paper: #ffffff; --ink: #14161a; --ink-2: #565b66; /* colour-ok: stays light in both themes */
+  --rule: #e4e7ec; --rule-strong: #cdd2da; /* colour-ok: stays light in both themes */
+  color: var(--ink);
+}
