@@ -3,7 +3,7 @@
 // fails it on the leaky one at $0, a grader that throws is an error and not a fail, the estimate stays in its range,
 // and the equation check reads the tutor's maths right. The runner's real path (retries, timeouts, the served-model
 // check, the budget, publish) runs against a fake client. No model and no network: synthetic text only.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, rmSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -203,7 +203,10 @@ test('verify.js computes, it never evaluates code: no eval, no Function, no look
 
 // ---------------------------------------------------------------- the runner on the stubs (Tests 4, 5 and 7)
 const quiet = () => {};
-const tmp = (name) => mkdtempSync(path.join(tmpdir(), `madregot-eval-${name}-`));
+// every folder a test makes is removed at the end, whatever the test did with it
+const made = [];
+const tmp = (name) => { const dir = mkdtempSync(path.join(tmpdir(), `madregot-eval-${name}-`)); made.push(dir); return dir; };
+after(() => { for (const dir of made) rmSync(dir, { recursive: true, force: true }); });
 const lines = (file) => readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
 
 test('4. runEval on the fixtures stub: the gate passes, errors.jsonl is empty and it costs $0', async () => {

@@ -74,6 +74,54 @@ const GENERATE_SCHEMA = {
   },
 };
 
+// ---------------------------------------------------------------- the blind solve of generated exercises (AI-4)
+/** Appendix C.7: the blind solve's system text. It sees only the stories, never the seeds or their answers. */
+export const BLIND_SYSTEM = 'Solve each exercise on your own. Answer with the final answer only: an integer, a decimal, a fraction a/b, or a point (x, y). If an exercise can be read in more than one way, or is missing information, answer "unclear".';
+export const BLIND_SCHEMA = Object.freeze({
+  type: 'object',
+  additionalProperties: false,
+  required: ['answers'],
+  properties: {
+    answers: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['seed', 'answer'],
+        properties: {
+          seed: { type: 'integer', description: 'The number of the exercise' },
+          answer: { type: 'string', description: 'The final answer only: "-3", "2.5", "3/4", "(2, -1)", or "unclear"' },
+        },
+      },
+    },
+  },
+});
+// strict instruction following on the low-cost model, with room for the thinking it does by default (AI-6 table)
+export const BLIND_EFFORT = 'high';
+export const BLIND_MAX_TOKENS = 6000;
+
+/**
+ * The blind solve (ai spec AI-4 Design 4): the stories the rewrite wrote, numbered by their seed, and nothing else: no
+ * seed, no answer, no solution, no context. A story that kept the app's own wording (kept) is not sent: it has no new
+ * wording to check. model: BLIND_MODEL, else the low-cost model. Throws when there is no story to solve.
+ */
+export function buildBlind(items, { model } = {}) {
+  const stories = (Array.isArray(items) ? items : [])
+    .filter((it) => it && Number.isInteger(it.seed) && !it.kept && typeof it.prompt === 'string' && it.prompt.trim())
+    .map((it) => `${it.seed}. ${clip(it.prompt, 800).replace(/\s+/g, ' ').trim()}`);
+  if (!stories.length) throw new Error('the blind solve needs at least one story');
+  const params = {
+    model: model || LITE_MODEL,
+    max_tokens: BLIND_MAX_TOKENS,
+    betas: [FALLBACK_BETA],
+    fallbacks: 'default',
+    system: BLIND_SYSTEM,
+    output_config: { effort: BLIND_EFFORT, format: { type: 'json_schema', schema: BLIND_SCHEMA } },
+    messages: [{ role: 'user', content: `Exercises:\n${stories.join('\n')}\n\nGive the answer to each exercise, by its number.` }],
+  };
+  return supportsFallback(params.model) ? params : dropFallback(params);
+}
+
 const CARE_FIELD = 'true if the page, the notes or the question show the student is in distress or danger';
 
 const EXAM_SCHEMA = {

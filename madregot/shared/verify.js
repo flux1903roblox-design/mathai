@@ -1,10 +1,15 @@
 // Code checks of maths an AI wrote (ai spec AI-4 Design 5, AI-7 Design 3). The same kind of check the math judge ran
 // over the app's own worked solutions (53,694 equation pairs, 0 mismatches), applied to what the tutor writes.
 //
-//   checkEquations(text)   every all-numeric equation in the $…$ runs of a text: is it true?
+//   checkEquations(text)            every all-numeric equation in the $…$ runs of a text: is it true?
+//   numbersIn(text)                 the numbers a Hebrew + TeX text states
+//   parseAnswer(s)                  an answer as written ("x = -3", "$\frac{3}{4}$", "2,5", "(2, -1)") → a number, [x, y] or null
+//   verifyRewrite(seed, item, b)    one AI-written exercise against the app's seed: the checks of AI-4, in order
+//   finishRewrite(seeds, data, b)   every exercise of a reply: the ones that pass, in seed order, and why the others did not
 //
-// The eval grader mathEquations runs it on every tutor reply; AI-4's verifyRewrite will run it on every AI-written
-// solution and add numbersIn, parseAnswer and verifyRewrite to this file.
+// The eval grader mathEquations runs checkEquations on every tutor reply. For generated exercises (AI-4) the app makes
+// the numbers and the answer (the seed); the AI only writes a story, a hint and a solution, and these functions decide
+// whether that text may be shown. No number the AI wrote is ever used to grade.
 //
 // Plain JS with no dependencies. It ships to the browser (shared/ai.js will import it), so there is no regex lookbehind
 // (trust spec §0.3 rule 3), and nothing is ever evaluated as code: no eval, no Function. A small recursive-descent parser
@@ -216,4 +221,189 @@ export function checkEquations(text) {
   }
   out.ok = out.wrong.length === 0;
   return out;
+}
+
+// ---------------------------------------------------------------- numbers in a text
+const SIGN_BEFORE = /[\s($=[{,:;־]/;
+/** A point written "(a,b)" is two numbers, never the decimal "a,b". */
+const POINT_COMMA = /\(\s*([-−–]?\d+(?:\.\d+)?)\s*,\s*([-−–]?\d+(?:\.\d+)?)\s*\)/g;
+const FRACTION = /([-−–]?)\\[dt]?frac\s*\{\s*([-−–]?\d+(?:\.\d+)?)\s*\}\s*\{\s*([-−–]?\d+(?:\.\d+)?)\s*\}/g;
+const SLASH = /(^|[^\d.,])([-−–]?)(\d+)\s*\/\s*(\d+)(?![\d.])/g;
+// thousands (1,500), a decimal comma (2,5), a decimal point, a whole number; a minus right before it is kept apart
+const NUMBER = /(-?)(\d{1,3}(?:,\d{3})+(?![\d,])|\d+,\d{1,2}(?!\d)|\d+(?:\.\d+)?)/g;
+
+/**
+ * The numbers a text states (fractions first): TeX and Hebrew as the app and the tutor write them. \frac{a}{b} (and a/b) gives
+ * a/b and also a and b; "1,500" is 1500 and "2,5" is 2.5; a degree mark is dropped; a minus is a sign only right
+ * before a digit at the start or after a space, "(", "$", "=" and the like (in "3-5" or "x - 5" it subtracts).
+ * A number said below zero in words ("6 מעלות מתחת לאפס") is just 6: callers compare by absolute value, and the
+ * blind solve checks the sign.
+ */
+export function numbersIn(text) {
+  const out = [];
+  const num = (v) => Number(String(v).replace(/[−–]/g, '-').replace(/\s+/g, ''));
+  let s = ` ${String(text ?? '')} `
+    .replace(/[⁦-⁩‎‏]/g, '')
+    .replace(/\^\s*\{?\s*\\circ\s*\}?|°/g, ' ')
+    .replace(POINT_COMMA, '($1; $2)');
+  const signAt = (str, at) => at === 0 || SIGN_BEFORE.test(str[at - 1]);
+  s = s.replace(FRACTION, (m, sign, a, b, at, str) => {
+    const v = num(a) / num(b);
+    if (Number.isFinite(v)) out.push(sign && signAt(str, at) ? -v : v);
+    return `${sign} ${a} ; ${b} `;
+  });
+  s = s.replace(SLASH, (m, before, sign, a, b) => {
+    const v = Number(a) / Number(b);
+    if (Number.isFinite(v)) out.push(sign ? -v : v);
+    return `${before} ${sign}${a} ; ${b} `;
+  });
+  s = s.replace(/[−–]/g, '-');
+  for (const m of s.matchAll(NUMBER)) {
+    const raw = m[2];
+    const v = /^\d{1,3}(?:,\d{3})+$/.test(raw) ? Number(raw.replace(/,/g, '')) : Number(raw.replace(',', '.'));
+    // a minus is a sign only where a number starts: the start, a space, a bracket, "$", "=" …
+    const signed = m[1] === '-' && (m.index === 0 || SIGN_BEFORE.test(s[m.index - 1]));
+    out.push(signed ? -v : v);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- an answer as written
+const parseNumLike = (s) => {
+  // the app's own reading of a typed answer (web/src/content/util.js parseNum), so both read every answer alike
+  const t = String(s ?? '').trim().replace(/[−–—]/g, '-').replace(/\s+/g, '').replace(',', '.');
+  if (!t) return null;
+  let m = t.match(/^([+-]?\d+)\/([+-]?\d+)$/);
+  if (m) { const d = Number(m[2]); return d === 0 ? null : Number(m[1]) / d; }
+  m = t.match(/^[+-]?(\d+\.?\d*|\.\d+)$/);
+  return m ? Number(t) : null;
+};
+
+/**
+ * An answer as a person or a model writes it → a number, [x, y], or null. Reads "$…$", "x = …", \frac and \dfrac, a
+ * Unicode minus, a decimal comma, a/b and (x, y); "unclear" and anything else is null. On every string the app's
+ * parseNum reads, it gives the same value (a test holds it to that).
+ */
+export function parseAnswer(s) {
+  let t = String(s ?? '')
+    .replace(/[⁦-⁩‎‏]/g, '')
+    .replace(/\$/g, '')
+    .replace(/\\left|\\right|\\[,;:! ]/g, '')
+    .replace(/[−–—]/g, '-')
+    .trim();
+  if (!t || /^unclear$/i.test(t)) return null;
+  t = t.replace(/^[a-zA-Z]\s*=\s*/, '');
+  const frac = t.replace(/\s+/g, '').match(/^([+-]?)\\[dt]?frac\{([+-]?\d+(?:[.,]\d+)?)\}\{([+-]?\d+(?:[.,]\d+)?)\}$/);
+  if (frac) {
+    const a = parseNumLike(frac[2]); const b = parseNumLike(frac[3]);
+    if (a == null || !b) return null;
+    return (frac[1] === '-' ? -1 : 1) * (a / b);
+  }
+  const pt = t.match(/^\((.*)\)$/);
+  if (pt) {
+    const parts = pt[1].includes(';') ? pt[1].split(';') : pt[1].split(',');
+    if (parts.length !== 2) return null;
+    const x = parseNumLike(parts[0]); const y = parseNumLike(parts[1]);
+    return x == null || y == null ? null : [x, y];
+  }
+  return parseNumLike(t);
+}
+
+// ---------------------------------------------------------------- one AI-written exercise against its seed
+/** Why an exercise is not shown, in the order the checks run (finishRewrite counts each). */
+export const DROP_REASONS = Object.freeze(['kept', 'latex', 'numbers', 'leak', 'solution', 'equations', 'blind']);
+
+const dollars = (text) => {
+  let n = 0;
+  const t = String(text ?? '');
+  for (let i = 0; i < t.length; i += 1) { if (t[i] === '\\') i += 1; else if (t[i] === '$') n += 1; }
+  return n;
+};
+const evenDollars = (text) => dollars(text) % 2 === 0;
+/** The wording of an exercise without its maths marks and spacing: what "kept the seed's wording" compares. */
+const wording = (text) => String(text ?? '').replace(/[⁦-⁩‎‏$]/g, '').replace(/\s+/g, ' ').trim();
+const absHas = (list, v) => list.some((x) => Math.abs(Math.abs(x) - Math.abs(v)) < 1e-9);
+
+/**
+ * The value at the end of a solution: the right-hand side of the last "=" (or "≈") of the $…$ run that ends its last
+ * step. After the run only a short word or two without digits may follow (a unit: "ס״מ", "מעלות"), never more maths.
+ */
+function finalValue(step) {
+  const t = String(step ?? '').trim();
+  const runs = mathRuns(t);
+  const last = runs.at(-1);
+  if (!last) return null;
+  if (!/^[^\d$]{0,24}$/.test(t.slice(last.end).replace(/^\$+/, ''))) return null;
+  const parts = last.body.split(/=|≈|\\approx(?![A-Za-z])/);
+  if (parts.length < 2) return null;
+  const rhs = parts.at(-1).trim();
+  const read = parseAnswer(rhs);
+  if (typeof read === 'number') return read;
+  return valueOf(rhs);
+}
+
+/**
+ * One exercise the AI wrote for a seed. seed: { i, text, answer, round, fig } as the request carried it. item: { seed,
+ * prompt, hint, solution, kept } from the reply. blindAnswer: the blind solve's answer for this story, undefined when the
+ * blind solve did not run (the item is then 'skipped' on that check only). → { ok, reason, fixed, blind, item }.
+ * The checks, in order: a seed with a drawing keeps its wording (kept); an even number of "$" in the prompt and in every
+ * step (latex); every number of the seed is in the story (numbers); the answer's value is not in the story unless the
+ * seed had it (leak); the last step ends "= answer" with its sign (solution); every numeric equation of the solution is
+ * true (equations); the blind solve gives the answer (blind). Only the hint is ever repaired: a hint with the answer or
+ * an odd "$" becomes '' and fixed is 'hint' (the client shows the seed's own hint). A value is never repaired.
+ */
+export function verifyRewrite(seed, item, blindAnswer) {
+  const fail = (reason) => ({ ok: false, reason, fixed: null, blind: null, item: null });
+  const answer = parseAnswer(seed?.answer);
+  const tol = seed?.round ? 0.05 : 0.01;
+  const prompt = String(item?.prompt ?? '');
+  const solution = Array.isArray(item?.solution) ? item.solution.map((x) => String(x ?? '')) : [];
+  const kept = item?.kept === true;
+  // a seed with a drawing is never re-storied, and a kept seed is the app's own wording
+  if ((seed?.fig && !kept) || (kept && wording(prompt) !== wording(seed?.text))) return fail('kept');
+  if (!evenDollars(prompt) || !solution.every(evenDollars)) return fail('latex');
+  const seedNums = numbersIn(seed?.text);
+  const storyNums = numbersIn(prompt);
+  if (!seedNums.every((v) => absHas(storyNums, v))) return fail('numbers');
+  if (typeof answer !== 'number') return fail('solution');
+  if (!kept && absHas(storyNums, answer) && !absHas(seedNums, answer)) return fail('leak');
+  const end = finalValue(solution.at(-1));
+  if (end == null || Math.abs(end - answer) > tol + 1e-9) return fail('solution');
+  if (!checkEquations(solution.join('\n')).ok) return fail('equations');
+  let blind = 'skipped';
+  if (!kept && blindAnswer !== undefined) {
+    const b = parseAnswer(blindAnswer);
+    if (typeof b !== 'number' || Math.abs(b - answer) > tol + 1e-9) return fail('blind');
+    blind = 'ok';
+  }
+  const hint = String(item?.hint ?? '');
+  const badHint = !evenDollars(hint) || (absHas(numbersIn(hint), answer) && !absHas(seedNums, answer));
+  return {
+    ok: true, reason: null, fixed: badHint ? 'hint' : null, blind,
+    item: { seed: seed.i, prompt, hint: badHint ? '' : hint, solution, kept, blind, ...(badHint ? { fixed: 'hint' } : {}) },
+  };
+}
+
+/**
+ * Every exercise of a rewrite reply. seeds: the request's seeds; data: the reply ({ items }); blind: the blind solve's
+ * reply ({ answers: [{ seed, answer }] }), or null when it did not run. One exercise per seed (the first), in seed order.
+ * → { items, dropped: { kept, latex, numbers, leak, solution, equations, blind } }.
+ */
+export function finishRewrite(seeds, data, blind) {
+  const dropped = Object.fromEntries(DROP_REASONS.map((r) => [r, 0]));
+  const bySeed = new Map();
+  for (const it of Array.isArray(data?.items) ? data.items : []) {
+    if (it && Number.isInteger(it.seed) && !bySeed.has(it.seed)) bySeed.set(it.seed, it);
+  }
+  const answers = blind && Array.isArray(blind.answers) ? blind.answers : null;
+  const items = [];
+  for (const seed of Array.isArray(seeds) ? seeds : []) {
+    const it = bySeed.get(seed.i);
+    if (!it) continue;
+    // undefined: the blind solve did not run; null: it ran and gave nothing for this story (a fail)
+    const b = answers ? (answers.find((a) => a && a.seed === seed.i)?.answer ?? null) : undefined;
+    const r = verifyRewrite(seed, it, b);
+    if (r.ok) items.push(r.item); else dropped[r.reason] += 1;
+  }
+  return { items, dropped };
 }
