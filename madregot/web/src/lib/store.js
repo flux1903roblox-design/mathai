@@ -20,11 +20,25 @@ export function emptyClassWork() {
   return { at: null /* iso of the last fetch */, today: null, teacherName: '', assignments: [], help: [], exams: {} /* assignmentId -> frozen items */, seenAt: null /* the last opening of /quests */, noticed: {} /* help messageId -> true */ };
 }
 
+/**
+ * Saving can be held (the demo class, TEACHER-15): while it is, nothing is written to the device's saved state, so a
+ * demo opened on a device someone uses never touches their profile or progress, and leaving the demo reads the saved
+ * state back as it was (lib/demo.js).
+ */
+let saving = true;
+export const holdSaving = (hold) => { saving = !hold; };
+export const savingHeld = () => !saving;
 const safeStorage = createJSONStorage(() => {
-  try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); return localStorage; } catch {
+  let store;
+  try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); store = localStorage; } catch {
     const mem = new Map();
-    return { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: (k) => mem.delete(k) };
+    store = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: (k) => mem.delete(k) };
   }
+  return {
+    getItem: (k) => store.getItem(k),
+    setItem: (k, v) => { if (saving) store.setItem(k, v); },
+    removeItem: (k) => { if (saving) store.removeItem(k); },
+  };
 });
 
 const empty = {

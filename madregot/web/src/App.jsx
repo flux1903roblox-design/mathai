@@ -10,6 +10,7 @@ import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import { previewBack } from '@/lib/teacher.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
+import DemoAsk from '@/components/DemoAsk.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
 import Welcome from '@/screens/Welcome.jsx';
@@ -33,6 +34,7 @@ const TeacherExamNew = fromTeacher('TeacherExamNew');
 const TeacherExamSheet = fromTeacher('TeacherExamSheet');
 const ClassReport = fromTeacher('ClassReport');
 const PreviewFrame = fromTeacher('PreviewFrame');
+const DemoBanner = fromTeacher('DemoBanner');
 // The parents' area (its own header, no tab bar) works with or without a profile: one chunk, loaded on demand.
 const Parents = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Parents })));
 const ParentHandoff = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.ParentHandoff })));
@@ -150,11 +152,16 @@ function TeachRoute() {
   return <Teach key={pathname} />;
 }
 
-/** Every /teacher screen: opening one ends the student view, so the stored way back is cleared (lib/teacher.js). */
+/**
+ * Every /teacher screen: opening one ends the student view, so the stored way back is cleared (lib/teacher.js). In the
+ * demo class (TEACHER-15) the banner sits above each of them; the student view keeps its own bar, which already says
+ * nothing is sent.
+ */
 function TeacherArea() {
   const { pathname } = useLocation();
+  const demo = useApp((s) => s.profile?.demo === true);
   useEffect(() => { previewBack.clear(); }, [pathname]);
-  return <Outlet />;
+  return <>{demo && <DemoBanner />}<Outlet /></>;
 }
 /**
  * A teacher on a student landing path ("/", "/quests", ...): a student screen of the preview ended there (a check
@@ -176,6 +183,8 @@ function Root() {
       {role === 'student' && <HelpNotice />}
       {role && <LimitSheet />}
       {role && <StatusWatch />}
+      {/* the demo class asked for on a device someone uses: it opens in a new tab (lib/demo.js) */}
+      <DemoAsk />
       {/* a new screen opens at the top; back restores where the student was */}
       <ScrollRestoration />
       <ErrorBoundary>

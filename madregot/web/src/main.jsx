@@ -11,6 +11,7 @@ import './styles/motion.css';
 import './styles/v4.css';
 import './styles/canon.css';
 import App from './App.jsx';
+import { bootDemo } from './lib/demo.js';
 
 // Test hook: with localStorage 'madregot-seed' set, exercises come out the same on every run (visual tests).
 try {
@@ -20,6 +21,9 @@ try {
     Math.random = () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
   }
 } catch { /* storage blocked */ }
+
+// The demo class (TEACHER-15): a reload inside it, or an address that asks for it, opens it before the first screen.
+bootDemo();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

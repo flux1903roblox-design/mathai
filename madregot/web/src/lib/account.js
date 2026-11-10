@@ -41,6 +41,8 @@ const statusHeaders = () => {
 /** How the tutor runs on this device: through the server, with a personal key (only where compiled in), or not at all. */
 export function aiMode() {
   const { ai, profile } = useApp.getState();
+  // the demo class (TEACHER-15): a fixed sample answer on the device, no AI call
+  if (profile?.demo === true) return 'demo';
   // A personal key is for practising alone; a class always goes through its server.
   if (PERSONAL_KEY && ai.mode === 'personal' && ai.key && !profile?.classCode) return 'personal';
   if (qaActive()) return 'server';
@@ -56,6 +58,8 @@ export const useAIStatus = create(() => ({ status: null, loading: false, error: 
 
 let refreshing = null;
 export async function refreshStatus() {
+  // the demo class asks no server: no status, so nothing is offered for sale in it
+  if (useApp.getState().profile?.demo === true) { useAIStatus.setState({ status: null, loading: false, error: null }); return null; }
   const qa = qaStatus();
   if (qa) { useAIStatus.setState({ status: qa.status, loading: false, error: null, ended: !!qa.ended }); return qa.status; }
   if (!hasServer()) { useAIStatus.setState({ status: null, loading: false, error: 'no_server' }); return null; }

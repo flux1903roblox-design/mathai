@@ -11,6 +11,7 @@ import { teacherApi } from '@/lib/teacher.js';
 import { topicsFor } from '@/content/index.js';
 import { rankAll, openHelpBy } from '@/learn/attention';
 import { AI_COPY, perStudentAi } from '@/content/classAi.js';
+import { useDemo, DEMO_COPY } from '@/lib/demo.js';
 import { ChapterMark, LevelPips } from '@/components/ui.jsx';
 import { fmtDay, pct, Rate, StudentName } from './common.jsx';
 import DeleteClassSheet, { useClassDeleted } from './DeleteClass.jsx';
@@ -19,6 +20,7 @@ export const SORTS = [['name', 'לפי שם'], ['need', 'מי צריך תשומ�
 
 export default function StudentsTab({ cls, data, students, onChanged, onStudent }) {
   const [deleting, setDeleting] = useState(false);
+  const demo = useDemo();
   const [params, setParams] = useSearchParams();
   const sort = params.get('sort') === 'need' ? 'need' : 'name';
   const setSort = (v) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', 'students'); if (v === 'need') n.set('sort', 'need'); else n.delete('sort'); return n; }, { replace: true });
@@ -91,9 +93,10 @@ export default function StudentsTab({ cls, data, students, onChanged, onStudent 
         </>
       )}
       <div className="set-rows-wrap t-quiet-rows"><div className="set-rows">
-        <button type="button" className="set-row t-quiet-row" onClick={() => setDeleting(true)}><Trash2 size={18} aria-hidden="true" />מחיקת הכיתה</button>
+        <button type="button" className="set-row t-quiet-row" onClick={() => setDeleting(true)} disabled={demo} aria-describedby={demo ? 't-demo-delete' : undefined}><Trash2 size={18} aria-hidden="true" />מחיקת הכיתה</button>
       </div></div>
-      <DeleteClassSheet cls={cls} open={deleting} onOpenChange={setDeleting} onDeleted={() => { setDeleting(false); gone(cls); }} />
+      {demo && <p className="muted t-demo-line" id="t-demo-delete">{DEMO_COPY.noDelete}</p>}
+      <DeleteClassSheet cls={cls} open={deleting && !demo} onOpenChange={setDeleting} onDeleted={() => { setDeleting(false); gone(cls); }} />
     </>
   );
 }

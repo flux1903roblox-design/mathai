@@ -9,6 +9,7 @@ import { useApp } from '@/lib/store.js';
 import { api } from '@/lib/api.js';
 import { teacherApi, useEmailSignIn, offerBind } from '@/lib/teacher.js';
 import { useParent, accountCall, signOut as endSession } from '@/lib/parent.js';
+import { DEMO_COPY, exitDemo } from '@/lib/demo.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { Stat } from '@/components/ds.jsx';
 import { EmptyState, ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
@@ -65,7 +66,10 @@ export default function Teacher() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [errorCode, setErrorCode] = useState('');
-  const session = useParent((s) => s.session);
+  // the demo class (TEACHER-15): no account, no other class to add, and leaving is leaving the demo
+  const demo = profile.demo === true;
+  const signedIn = useParent((s) => s.session);
+  const session = demo ? null : signedIn;
   const emailOn = useEmailSignIn();
   const [moreOpen, setMoreOpen] = useState(false);
   const [params, setParams] = useSearchParams();
@@ -138,7 +142,7 @@ export default function Teacher() {
           <span className="t-head-who"><span className="wordmark sm">מדרגות</span><span className="t-head-sub">לוח המורה של {profile.name}</span></span>
           <span className="t-head-actions">
             <button type="button" className="icon-btn t-icon" onClick={load} aria-label="רענון הנתונים"><RefreshCw size={20} aria-hidden="true" /></button>
-            <button type="button" className="icon-btn t-icon" onClick={() => setAdding(true)} aria-label="כיתה נוספת"><Plus size={22} aria-hidden="true" /></button>
+            {!demo && <button type="button" className="icon-btn t-icon" onClick={() => setAdding(true)} aria-label="כיתה נוספת"><Plus size={22} aria-hidden="true" /></button>}
           </span>
         </div>
         <div className="t-class">
@@ -152,7 +156,7 @@ export default function Teacher() {
         {/* signed in: the email's other classes can be added to this device */}
         {session && <button type="button" className="link-btn t-more" onClick={() => setMoreOpen(true)}>עוד כיתות מהחשבון שלי…</button>}
       </header>
-      <AddClass open={adding} onClose={() => setAdding(false)} />
+      {!demo && <AddClass open={adding} onClose={() => setAdding(false)} />}
       {assign && data && (
         <AssignSheet key={`${cls.code}-${assign.n}`} cls={cls} students={students} today={data.today} preset={assign.preset} open
           onOpenChange={(o) => { if (!o) setAssign(null); }} onSent={() => { setWorkVersion((v) => v + 1); load(); }} />
@@ -225,7 +229,11 @@ export default function Teacher() {
         )}
 
         <section className="section set-group t-out">
-          <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmOut(true)}><LogOut size={18} aria-hidden="true" />יציאה מהלוח</button></div></div>
+          <div className="set-rows-wrap"><div className="set-rows">
+            {demo
+              ? <button type="button" className="set-row" onClick={exitDemo}><LogOut size={18} aria-hidden="true" />{DEMO_COPY.exit}</button>
+              : <button type="button" className="set-row danger" onClick={() => setConfirmOut(true)}><LogOut size={18} aria-hidden="true" />יציאה מהלוח</button>}
+          </div></div>
           <ConfirmSheet open={confirmOut} onOpenChange={setConfirmOut} title="לצאת מהלוח?" keep="להישאר בלוח" confirm="כן, לצאת" onConfirm={leave}>
             {profile.classes.every((c) => c.owned)
               ? <p>הלוח ייסגר במכשיר הזה. כדי לחזור, נכנסים עם המייל {session?.email ? <bdi dir="ltr">{session.email}</bdi> : 'שלכם'}.</p>

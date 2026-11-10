@@ -6,6 +6,7 @@ import { teacherApi } from './teacher.js';
 import { today as todayOf } from './store.js';
 import { plusDays } from './workDates.js';
 import { reportCsv, csvName, downloadCsv } from './teacherCsv.js';
+import { isDemo } from './demo.js';
 
 /** The range chips, in order. */
 export const RANGES = [['week', 'השבוע'], ['two', 'שבועיים'], ['month', 'החודש'], ['year', 'מתחילת השנה'], ['custom', 'טווח אחר']];
@@ -45,8 +46,13 @@ export function rangeText(from, to) {
 /** GET /api/teacher/report for a range. */
 export const fetchReport = (cls, { from, to }) => teacherApi(`/api/teacher/report?from=${from}&to=${to}`, {}, cls);
 
-/** The report's CSV, handed to the device (lib/teacherCsv.js downloadCsv): 'saved', 'shared' or 'closed'. */
-export const saveReportCsv = (report) => downloadCsv(reportCsv(report), csvName(report.class?.name, report.from, report.to));
+/**
+ * The report's CSV, handed to the device (lib/teacherCsv.js downloadCsv): 'saved', 'shared' or 'closed'. The demo
+ * class's file says so in its name: madregot-demo-{from}-{to}.csv (TEACHER-15).
+ */
+export const saveReportCsv = (report) => downloadCsv(reportCsv(report), isDemo()
+  ? `madregot-demo-${report.from}-${report.to}.csv`
+  : csvName(report.class?.name, report.from, report.to));
 
 /** The whole school year's report as a CSV, in one step (the class settings and the delete sheet). */
 export async function saveYearCsv(cls) {

@@ -12,6 +12,7 @@ import { useParent } from '@/lib/parent.js';
 import { teacherApi, renameClass, rekey, useEmailSignIn } from '@/lib/teacher.js';
 import { useAIStatus } from '@/lib/account.js';
 import { rememberBoard, boardOf } from '@/lib/teacherBoard.js';
+import { DEMO_COPY } from '@/lib/demo.js';
 import { retentionLines } from '@/content/retention.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
@@ -109,11 +110,20 @@ function RekeySheet({ cls, email, open, onOpenChange }) {
 }
 
 /** הכניסה לכיתה: the email the class is bound to (or binding it), the teacher key, a new key. */
-function AccessSection({ cls }) {
+function AccessSection({ cls, demo }) {
   const session = useParent((s) => s.session);
   const emailOn = useEmailSignIn();
   const bind = useBind(cls);
   const [rekeying, setRekeying] = useState(false);
+  // the demo class has no email and no key to give
+  if (demo) {
+    return (
+      <section className="section set-group t-set" aria-labelledby="ts-access">
+        <h2 id="ts-access" className="set-head">הכניסה לכיתה</h2>
+        <div className="set-box"><p className="t-set-line muted" id="ts-demo-access">{DEMO_COPY.noDelete}</p></div>
+      </section>
+    );
+  }
   return (
     <section className="section set-group t-set" aria-labelledby="ts-access">
       <h2 id="ts-access" className="set-head">הכניסה לכיתה</h2>
@@ -182,6 +192,7 @@ export default function ClassSettings() {
   const profile = useApp((s) => s.profile);
   const navigate = useNavigate();
   const cls = profile.classes.find((c) => c.code === profile.active) || profile.classes[0];
+  const demo = profile.demo === true;
   const [locked, setLocked] = useState(null);
   const [digest, setDigest] = useState(null);
   const [aiPolicy, setAiPolicy] = useState(null);
@@ -224,7 +235,7 @@ export default function ClassSettings() {
       </header>
       {error && <p className="form-error t-set-error" role="alert">{error}</p>}
       <ClassSection cls={cls} locked={locked} onLock={lock} />
-      <AccessSection cls={cls} />
+      <AccessSection cls={cls} demo={demo} />
       <ClassAICard cls={cls} policy={aiPolicy} onPolicy={onPolicy} />
       {paywall && aiPolicy && (
         <section className="section set-group t-set" aria-labelledby="ts-licence">
@@ -243,10 +254,11 @@ export default function ClassSettings() {
         <div className="set-rows-wrap"><div className="set-rows">
           {/* the year's report opens, and its CSV starts once (TEACHER-7) */}
           <Link className="set-row t-set-year" to="/teacher/report?range=year&csv=1"><FileDown size={18} aria-hidden="true" />הורדת הדוח של כל השנה</Link>
-          <button type="button" className="set-row danger" onClick={() => setDeleting(true)}><Trash2 size={18} aria-hidden="true" />מחיקת הכיתה</button>
+          <button type="button" className="set-row danger" onClick={() => setDeleting(true)} disabled={demo} aria-describedby={demo ? 'ts-demo-delete' : undefined}><Trash2 size={18} aria-hidden="true" />מחיקת הכיתה</button>
         </div></div>
+        {demo && <p className="t-set-line muted t-demo-line" id="ts-demo-delete">{DEMO_COPY.noDelete}</p>}
       </section>
-      <DeleteClassSheet cls={cls} open={deleting} onOpenChange={setDeleting} onDeleted={() => { setDeleting(false); gone(cls, { toBoard: true }); }} />
+      <DeleteClassSheet cls={cls} open={deleting && !demo} onOpenChange={setDeleting} onDeleted={() => { setDeleting(false); gone(cls, { toBoard: true }); }} />
     </div>
   );
 }

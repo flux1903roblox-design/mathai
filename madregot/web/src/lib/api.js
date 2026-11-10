@@ -92,6 +92,10 @@ const MESSAGES = {
   reply_has_contact: 'בלי קישורים, מספרי טלפון או כתובות מייל בתשובה. כל השאר אפשר להמשיך בכיתה.',
   no_reply_yet: 'אפשר לענות אחרי שהמורה כותב תשובה. עד אז הבקשה מחכה אצל המורה.',
   bad_reply: 'ההודעה ריקה או ארוכה מדי. כתבו כמה מילים על התרגיל.',
+  // the demo class (TEACHER-15)
+  demo_offline: 'בכיתה לדוגמה שום דבר לא נשלח לשרת.',
+  demo_readonly: 'בכיתה לדוגמה אי אפשר למחוק או להחליף מפתח.',
+  demo_ai: 'בכיתה לדוגמה העוזר מראה רק תשובה לדוגמה בשיחה. בכיתה אמיתית הוא גם יוצר תרגילים ובודק פתרונות.',
   // other
   bot_check: 'לא הצלחנו לאשר את המכשיר. נסו שוב.',
   server_config: 'השרת עוד לא הוגדר עד הסוף.',
@@ -138,6 +142,8 @@ export class ApiError extends Error {
  * device carries only the parent's own headers). `onResponse(res)` sees the response first (its status and headers).
  */
 export async function api(path, { method = 'GET', body, headers = {}, signal, auth = true, onResponse } = {}) {
+  // the demo class (TEACHER-15) never reaches a server: its teacher calls are answered on the device (lib/teacherDemo.js)
+  if (useApp.getState().profile?.demo === true) throw new ApiError('demo_offline');
   const base = apiBase();
   if (!base) throw new ApiError('no_server');
   const token = auth ? useApp.getState().profile?.token : null;
@@ -164,7 +170,7 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
  */
 let health = null;
 export function serverHealth() {
-  if (!hasServer()) return Promise.resolve(null);
+  if (!hasServer() || useApp.getState().profile?.demo === true) return Promise.resolve(null);
   health ||= api('/api/health', { auth: false }).catch(() => { health = null; return null; });
   return health;
 }

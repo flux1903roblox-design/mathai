@@ -997,3 +997,20 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .ss-badges { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .t-actions .t-ai-off { white-space: nowrap; }
 .cai-where { padding-top: var(--s4); border-top: 2px solid var(--rule); }
+
+/* the demo class (TEACHER-15): the banner above every teacher screen, the disabled lines, the public page's button */
+.demo-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); padding: var(--s2) var(--gutter); background: var(--brand-tint); border-bottom: 2px solid var(--brand-line); color: var(--ink); }
+.demo-banner-text { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; flex: 1 1 220px; font-size: 15px; line-height: 21px; font-weight: 600; }
+.demo-banner-text svg { flex: none; margin-top: 2px; color: var(--brand-d); }
+.demo-banner-actions { display: flex; flex-wrap: wrap; gap: 0 var(--s3); }
+.demo-banner-btn { min-height: 44px; padding: 0 var(--s1); border: 0; background: none; color: var(--brand-d); font: inherit; font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.demo-banner-btn.strong { text-decoration: none; }
+.demo-banner-btn:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }
+@media print { .demo-banner { display: none !important; } }
+.t-demo-line { margin: var(--s2) 0 0; font-size: 15px; }
+.set-row:disabled { color: var(--ink-2); cursor: default; opacity: 0.7; }
+.teacher-off-demo { margin-top: var(--s4); }
+.demo-ask .lead { margin: 0; }
+/* a scrolling table contains what is positioned inside it: KaTeX's hidden MathML (position: absolute) in a far column
+   would otherwise widen the whole page on a phone (the report's mistake column) */
+.table-wrap { position: relative; }

@@ -249,7 +249,9 @@ export default function Assistant({ head = null, lead = null, className }) {
       {lead}
       {!ready || classOff ? <AiOffline classOff={ready && classOff} /> : (
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
-          <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode || profile?.role === 'teacher' ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>
+          {aiMode() === 'demo'
+            ? <p className="footnote assistant-note">בכיתה לדוגמה העוזר מראה תשובה לדוגמה, ושום שאלה לא נשלחת.</p>
+            : <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode || profile?.role === 'teacher' ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>}
           <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."
             tools={[
               { label: 'בדיקת פתרון מצולם', icon: Camera, onClick: () => open('check', 'photo') },

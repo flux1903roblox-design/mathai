@@ -35,6 +35,12 @@
 // switch once approved; the per-student switch and badge; "איפה הכיתה הזו לומדת?" in TeacherStart, AddClass and the
 // settings (a change asks first; a private group needs the attestation).
 //
+// TEACHER-15: the demo class on this suite's own build (no server): from "אני מורה" to a board of 24 invented students
+// under the demo banner, every tab, a student's page, the settings (no delete, no new key), assigning, a reply, the
+// library and a stage, the exam key under print media, the report's CSV (the demo's file name, the BOM) and the
+// assistant's labelled sample, with no request to /api at all; a reload keeps it; on a student's device it opens in a
+// new tab and the student's saved state is untouched; #/?start=demo and ?qa-teacher=demo open it directly.
+//
 // Screenshots for a look at the screens (TEACHER_SHOTS=<folder>), at the project's size and at 320×568; nothing is
 // compared.
 import { test, expect } from '@playwright/test';
@@ -1923,5 +1929,219 @@ test.describe('TEACHER-8: each student has a page, and a short ranked list', () 
     await page.getByRole('region', { name: 'טבלת הדוח' }).getByRole('button', { name: 'יואב', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'יואב' })).toBeVisible();
     expect(log.some((r) => r.path === '/api/teacher/students/b2')).toBe(true);
+  });
+});
+
+test.describe('TEACHER-15: the demo class, with no server and no sign-in', () => {
+  const tools = (page) => page.getByRole('navigation', { name: 'כלים' });
+  const banner = (page) => page.getByRole('region', { name: 'כיתה לדוגמה' });
+  /** Every request this page makes to a /api/ address. */
+  const apiCalls = (page) => { const calls = []; page.on('request', (r) => { if (r.url().includes('/api/')) calls.push(r.url()); }); return calls; };
+  /** Also a desktop shot (1440×900), for the screens the spec asks to see wide. */
+  async function wideShot(page, name) {
+    const dir = process.env.TEACHER_SHOTS; if (!dir) return;
+    await shot(page, name);
+    const size = page.viewportSize();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: `${dir}/desktop-${name}.png` });
+    await page.setViewportSize(size);
+  }
+  /** From the first screen of a device with no profile: "אני מורה", then the demo. */
+  async function enter(page) {
+    await open(page, '#/');
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'לוח המורה נמצא באתר המלא' })).toBeVisible();
+    await shot(page, 'teacher-public-demo-button');
+    await page.getByRole('button', { name: 'לראות לוח לדוגמה, בלי הרשמה' }).click();
+    await expect(page.getByRole('heading', { name: 'ז׳3 (דוגמה)' })).toBeVisible();
+  }
+
+  test('1. "אני מורה" → the demo: the board of 24 with the banner, every tab, a student\'s page, the settings; no /api request', async ({ page }) => {
+    const calls = apiCalls(page);
+    await enter(page);
+    await expect(banner(page)).toContainText('כיתה לדוגמה: השמות והנתונים בדויים, ושום דבר כאן לא נשלח.');
+    await expect(banner(page).getByRole('button', { name: 'יציאה מהדוגמה' })).toBeVisible();
+    await expect(banner(page).getByRole('button', { name: 'לפתיחת כיתה אמיתית' })).toHaveCount(0); // no server in this build
+    await expect(page.getByText('תרגלו השבוע')).toBeVisible();
+    await expect(page.locator('.t-kpis')).toContainText('/24');
+    // "מחר": repeated mistakes with their students, the ranked six and "ועוד", new help requests
+    await expect(page.getByRole('region', { name: 'טעויות שחוזרות השבוע' }).locator('.t-row').first()).toBeVisible();
+    const attn = page.getByRole('region', { name: 'כדאי לבדוק איתם' });
+    await expect(attn.locator('.t-attn > li')).toHaveCount(6);
+    await expect(attn.getByRole('button', { name: /^ועוד \d+/ })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'בקשות עזרה חדשות' }).locator('.t-row')).toHaveCount(3);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await wideShot(page, 'teacher-demo-board');
+    // the profile is the demo's, kept in this tab only: nothing of it was saved to the device
+    expect(await page.evaluate(() => localStorage.getItem('madregot') || '')).not.toContain('DEMO01');
+    expect(await page.evaluate(() => !!sessionStorage.getItem('madregot-demo'))).toBe(true);
+    // each tab
+    await page.getByRole('tab', { name: /משימות/ }).click();
+    await expect(page.getByRole('list', { name: 'משימות פתוחות' }).locator('.tw-row')).toHaveCount(2);
+    await page.getByRole('tab', { name: 'תלמידים' }).click();
+    await expect(page.getByRole('region', { name: 'טבלת התלמידים' }).locator('tbody tr')).toHaveCount(24);
+    await expect(page.getByRole('button', { name: 'מחיקת הכיתה' })).toBeDisabled();
+    await expect(page.getByText('בכיתה לדוגמה אי אפשר למחוק או להחליף מפתח.')).toBeVisible();
+    await page.getByRole('tab', { name: /מבחנים/ }).click();
+    await expect(page.getByRole('region', { name: 'טבלת המבחנים' }).locator('tbody tr')).toHaveCount(6);
+    await page.getByRole('tab', { name: /עזרה/ }).click();
+    await expect(page.locator('.help-item').first()).toBeVisible();
+    // a student's page from a name
+    await page.getByRole('tab', { name: 'מחר' }).click();
+    const first = attn.locator('.t-attn > li').first().getByRole('button');
+    const name = (await first.textContent()).trim();
+    await first.click();
+    const sheet = page.getByRole('dialog', { name });
+    await expect(sheet.getByRole('heading', { name: 'השבוע' })).toBeVisible();
+    await expect(sheet.getByRole('heading', { name: 'מדרגות' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    // the settings: the AI card in a school class before approval, and no delete or new key
+    await tools(page).getByRole('link', { name: 'הגדרות הכיתה' }).click();
+    await expect(page.getByRole('heading', { name: 'הגדרות הכיתה ז׳3 (דוגמה)' })).toBeVisible();
+    await expect(banner(page)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'העוזר החכם לתלמידים' })).toContainText('לתלמידים בכיתה: כבוי');
+    await expect(page.getByRole('button', { name: 'מחיקת הכיתה' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'החלפת מפתח המורה' })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'הכניסה לכיתה' })).toContainText('בכיתה לדוגמה אי אפשר למחוק או להחליף מפתח.');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'teacher-demo-settings');
+    await page.getByRole('button', { name: 'מחיקת הכיתה' }).scrollIntoViewIfNeeded();
+    await shot(page, 'teacher-demo-settings-end');
+    expect(calls).toEqual([]);
+    // leaving the demo: the first screen again, and nothing left on the device
+    await banner(page).getByRole('button', { name: 'יציאה מהדוגמה' }).click();
+    await expect(page.getByRole('button', { name: 'אני מורה', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => sessionStorage.getItem('madregot-demo'))).toBeNull();
+    expect(calls).toEqual([]);
+  });
+
+  test('2. assigning, a reply, a lesson stage, the exam key printed, the report\'s CSV and the assistant\'s sample, all on the device', async ({ page }) => {
+    const calls = apiCalls(page);
+    await enter(page);
+    // assign: practice on a repeated mistake, for the students who made it; the row appears in "משימות"
+    await page.getByRole('region', { name: 'טעויות שחוזרות השבוע' }).getByRole('button', { name: 'לתת תרגול על זה' }).first().click();
+    const assign = page.getByRole('dialog', { name: 'משימה לכיתה ז׳3 (דוגמה)' });
+    await expect(assign).toBeVisible();
+    await wideShot(page, 'teacher-demo-assign');
+    await assign.getByRole('button', { name: 'שליחה לכיתה' }).click();
+    await expect(page.getByText('בכיתה לדוגמה זה נשמר רק כאן, עד שתסגרו את הלשונית.')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.getByRole('tab', { name: /משימות/ }).click();
+    await expect(page.getByRole('list', { name: 'משימות פתוחות' }).locator('.tw-row')).toHaveCount(3);
+    // a reply to a help request: its bubble appears
+    await page.getByRole('tab', { name: /עזרה/ }).click();
+    // a request with no thread yet: found again by the student's name once the reply is in it
+    const label = await page.locator('.help-item').filter({ hasNot: page.locator('.hb-who') }).first().locator('label.field-label').textContent();
+    const item = page.locator('.help-item').filter({ has: page.getByLabel(label.trim(), { exact: true }) });
+    const box = item.getByLabel(label.trim(), { exact: true });
+    await box.fill('בדקו באיזה כיוון זזים על הציר, ונסו שוב.');
+    await item.getByRole('button', { name: 'שליחה' }).click();
+    await expect(item.locator('.hb-text').last()).toHaveText('בדקו באיזה כיוון זזים על הציר, ונסו שוב.');
+    // reload: the demo and what was done in it stay for the visit
+    await page.reload();
+    await expect(banner(page)).toBeVisible();
+    await page.getByRole('tab', { name: /עזרה/ }).click();
+    await expect(page.getByText('בדקו באיזה כיוון זזים על הציר, ונסו שוב.')).toBeVisible();
+    // the library and a lesson stage, in the student view
+    await page.getByRole('tab', { name: 'מחר' }).click();
+    await tools(page).getByRole('link', { name: 'השיעורים' }).click();
+    await page.getByRole('region', { name: 'מספרים מכוונים' }).getByRole('link', { name: /^לשיעור: / }).first().click();
+    await expect(page.getByRole('region', { name: 'תצוגת תלמיד' })).toBeVisible();
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
+    // the exam builder, and its key under print media
+    await page.goto('./#/teacher');
+    await tools(page).getByRole('link', { name: 'מבחן להדפסה' }).click();
+    await page.getByRole('checkbox', { name: '1. חיבור וחיסור' }).click();
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await page.getByRole('radio', { name: /6 שאלות/ }).click();
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await page.getByRole('button', { name: 'הכנת המבחן' }).click();
+    await expect(page.locator('.xs-screen')).toContainText('כיתה: ז׳3 (דוגמה)');
+    await page.evaluate(() => { document.documentElement.dataset.print = 'key'; });
+    await page.emulateMedia({ media: 'print' });
+    await expect(page.locator('.print-sheet[data-mode="key"]')).toBeVisible();
+    await expect(banner(page)).toBeHidden();
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate(() => { delete document.documentElement.dataset.print; });
+    // the report and its CSV: the demo's file name, the BOM first
+    await page.goto('./#/teacher/report');
+    await expect(page.getByRole('heading', { name: 'דוח הכיתה' })).toBeVisible();
+    await expect(page.locator('.t-report-table tbody tr')).toHaveCount(24);
+    // the wide table scrolls inside its frame: the page itself never scrolls sideways (KaTeX in the mistakes column)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize().width);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await wideShot(page, 'teacher-demo-report');
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'הורדת קובץ CSV (לאקסל)' }).click()]);
+    expect(download.suggestedFilename()).toMatch(/^madregot-demo-\d{4}-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}\.csv$/);
+    const dir = path.join(process.cwd(), 'test-results'); mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, 'teacher-demo-report.csv');
+    await download.saveAs(file);
+    const bytes = readFileSync(file);
+    expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(bytes.toString('utf8').split('\r\n').length).toBe(24 + 2);
+    // the assistant: its note, and a sample answer that says it is one
+    await page.goto('./#/teacher/assistant');
+    await page.getByLabel('ההודעה שלכם').fill('איך להסביר חיבור של מספרים מכוונים?');
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    await expect(page.getByText('תשובה לדוגמה. בכיתה אמיתית העוזר עונה על השאלה שלכם.')).toBeVisible();
+    await expect(page.getByText('בכיתה לדוגמה העוזר מראה תשובה לדוגמה, ושום שאלה לא נשלחת.')).toBeVisible();
+    await shot(page, 'teacher-demo-assistant');
+    expect(calls).toEqual([]);
+  });
+
+  test('3. on a student\'s device the demo asks, opens in a new tab, and the student\'s profile is unchanged', async ({ page, context }) => {
+    const mine = student('7', { profile: { role: 'student', name: 'נועה', grade: '7' } });
+    await open(page, '#/?start=demo', mine);
+    const before = await page.evaluate(() => localStorage.getItem('madregot'));
+    const ask = page.getByRole('dialog', { name: 'לוח לדוגמה' });
+    await expect(ask).toContainText('הלוח לדוגמה ייפתח בלשונית חדשה');
+    await shot(page, 'demo-ask');
+    const [tab] = await Promise.all([context.waitForEvent('page'), ask.getByRole('button', { name: 'לפתוח בלשונית חדשה' }).click()]);
+    await tab.waitForLoadState();
+    await expect(tab.getByRole('heading', { name: 'ז׳3 (דוגמה)' })).toBeVisible();
+    await expect(tab.getByRole('region', { name: 'כיתה לדוגמה' })).toBeVisible();
+    // the demo tab offers no "real class": this device belongs to a student
+    await expect(tab.getByRole('button', { name: 'לפתיחת כיתה אמיתית' })).toHaveCount(0);
+    await tab.getByRole('tab', { name: 'תלמידים' }).click();
+    await tab.getByRole('switch', { name: 'נעילת הכיתה לתלמידים חדשים' }).click();
+    await expect(tab.getByText('הכיתה נעולה לתלמידים חדשים.')).toBeVisible();
+    // the student's saved state is exactly as it was, in both tabs
+    expect(await tab.evaluate(() => localStorage.getItem('madregot'))).toBe(before);
+    expect(JSON.parse(before).state.profile).toMatchObject({ role: 'student', name: 'נועה' });
+    // leaving the demo in that tab gives the student's app back there
+    await tab.getByRole('region', { name: 'כיתה לדוגמה' }).getByRole('button', { name: 'יציאה מהדוגמה' }).click();
+    await expect(tab.getByRole('region', { name: 'כיתה לדוגמה' })).toHaveCount(0);
+    expect(await tab.evaluate(() => JSON.parse(localStorage.getItem('madregot')).state.profile.name)).toBe('נועה');
+    await expect(page.getByRole('heading', { name: 'ז׳3 (דוגמה)' })).toHaveCount(0);
+  });
+
+  test('5. in the app with a server: TeacherStart\'s link opens the demo, nothing reaches the server, and "לפתיחת כיתה אמיתית" leads to a real class', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await open(page, '#/', fresh());
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toBeVisible();
+    const before = log.length;
+    await page.getByRole('button', { name: 'לראות לוח לדוגמה, בלי הרשמה' }).click();
+    await expect(page.getByRole('heading', { name: 'ז׳3 (דוגמה)' })).toBeVisible();
+    await page.getByRole('tab', { name: /עזרה/ }).click();
+    await tools(page).getByRole('link', { name: 'הגדרות הכיתה' }).click();
+    await expect(page.getByRole('region', { name: 'העוזר החכם לתלמידים' })).toBeVisible();
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    expect(log.slice(before).map((r) => r.path)).toEqual([]);
+    await banner(page).getByRole('button', { name: 'לפתיחת כיתה אמיתית' }).click();
+    await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toBeVisible();
+    expect(await page.evaluate(() => sessionStorage.getItem('madregot-demo'))).toBeNull();
+  });
+
+  test('4. #/?start=demo on a fresh device and ?qa-teacher=demo open it directly', async ({ page }) => {
+    const calls = apiCalls(page);
+    await open(page, '#/?start=demo');
+    await expect(page.getByRole('heading', { name: 'ז׳3 (דוגמה)' })).toBeVisible();
+    await expect(page).toHaveURL(/#\/teacher$/);
+    await open(page, '#/?qa-teacher=demo');
+    await expect(page.getByRole('heading', { name: 'ז׳3 (דוגמה)' })).toBeVisible();
+    expect(calls).toEqual([]);
   });
 });

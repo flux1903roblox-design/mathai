@@ -5,6 +5,8 @@
 // - With a server that has no email set up: new classes use the key flow, with the warning.
 // - With no server at all (the public practice site): the page says where the real teacher app is (VITE_TEACHER_URL)
 //   or how to ask for it (VITE_CONTACT_EMAIL). It never tells a teacher to set up a server.
+// Both offer the demo class (TEACHER-15): "לראות לוח לדוגמה, בלי הרשמה" opens a full board of invented students with
+// no server and no sign-in.
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { ArrowRight, Users, Repeat, Hand, ClipboardList, CalendarCheck, Printer } from 'lucide-react';
@@ -12,6 +14,7 @@ import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
 import { useParent, accountCall } from '@/lib/parent.js';
 import { myClasses, restore, useEmailSignIn, teacherSiteLink } from '@/lib/teacher.js';
+import { openDemo, DEMO_COPY } from '@/lib/demo.js';
 import { Button, Field } from '@/components/ui.jsx';
 import { Flow, ConfirmSheet } from '@/components/Screen.jsx';
 import { GradeSwitch } from '@/components/GradeSwitch.jsx';
@@ -61,6 +64,8 @@ function PublicTeacherPage({ onBack }) {
         ) : CONTACT && (
           <p className="teacher-off-lead">רוצים לנסות אותו בכיתה שלכם? כתבו לנו: <a href={`mailto:${CONTACT}`}><bdi dir="ltr">{CONTACT}</bdi></a></p>
         )}
+        {/* something real to try even here: the board with a class of invented students, nothing sent (TEACHER-15) */}
+        <Button variant="secondary" className="btn-block teacher-off-demo" onClick={openDemo}>{DEMO_COPY.link}</Button>
         <WhatTeachersSee />
       </main>
       <footer className="ob-foot" data-region="footer">
@@ -180,6 +185,7 @@ function ServerTeacherStart({ onBack }) {
           {emailOn !== false && <Way on={pickedWay === 'restore'} onPick={() => setWay('restore')} title="כבר יש לי כיתה" sub="נכנסים עם המייל, מכל מכשיר" />}
         </div>
         <p className="ob-links"><button type="button" className="link-btn" onClick={() => go('key')}>יש לי קוד כיתה ומפתח מורה</button></p>
+        <p className="ob-links"><button type="button" className="link-btn" onClick={openDemo}>{DEMO_COPY.link}</button></p>
         {err}
       </Flow>
     );
