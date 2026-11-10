@@ -1,11 +1,12 @@
 // Settings, laid out like Duolingo's settings screen: a bar with the way back and the title, then grouped sections,
-// each a bordered group with a small heading (my details, class, the assistant, sound, deleting data).
+// each a bordered group with a small heading (my details, class, the assistant, the look, sound, vibration, deleting data).
 // A student sees nothing about servers or keys: those are for the adult who sets the app up, behind "מתקדם".
 import { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { ArrowRight, ChevronLeft } from 'lucide-react';
+import { useReducedMotion } from 'motion/react';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass } from './Welcome.jsx';
@@ -42,6 +43,7 @@ function ClassSection() {
     try {
       const c = await joinClass({ code: code || profile.classCode, name: profile.name, pin });
       setProfile({ ...profile, ...c, role: 'student' });
+      useApp.getState().quietForClass(); // sounds start off in a class, unless the student already chose them
       toast.success(`הצטרפתם לכיתה ${c.className}`);
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   };
@@ -233,18 +235,39 @@ function ThemeSetting() {
   );
 }
 
-function SoundSetting() {
+/** Two choices made the same way (a radio group of two segments), with a short line under them. */
+function OnOff({ id, title, value, onChange, on, off, hint, children }) {
+  return (
+    <section className="section set-group" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`} className="set-head">{title}</h2>
+      {children ?? (
+        <>
+          <div className="segmented" role="radiogroup" aria-labelledby={`${id}-title`} aria-describedby={`${id}-hint`}>
+            <button type="button" role="radio" aria-checked={value} className={clsx('seg', value && 'on')} onClick={() => onChange(true)}>{on}</button>
+            <button type="button" role="radio" aria-checked={!value} className={clsx('seg', !value && 'on')} onClick={() => onChange(false)}>{off}</button>
+          </div>
+          <p className="field-hint" id={`${id}-hint`}>{hint}</p>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Sound and vibration are two choices (STUDENT-7). Vibration is offered only where the browser can vibrate. */
+function SoundSettings() {
   const sound = useApp((x) => x.sound);
   const setSound = useApp((x) => x.setSound);
+  const haptics = useApp((x) => x.haptics ?? true);
+  const setHaptics = useApp((x) => x.setHaptics);
+  const reduce = useReducedMotion();
+  const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
   return (
-    <section className="section set-group" aria-labelledby="snd-title">
-      <h2 id="snd-title" className="set-head">צלילים ורטט</h2>
-      <div className="segmented" role="radiogroup" aria-labelledby="snd-title">
-        <button type="button" role="radio" aria-checked={sound} className={clsx('seg', sound && 'on')} onClick={() => setSound(true)}>פועלים</button>
-        <button type="button" role="radio" aria-checked={!sound} className={clsx('seg', !sound && 'on')} onClick={() => setSound(false)}>כבויים</button>
-      </div>
-      <p className="field-hint">צליל קצר אחרי כל תשובה ובסוף שיעור. בטלפון אנדרואיד יש גם רטט קל אחרי טעות.</p>
-    </section>
+    <>
+      <OnOff id="snd" title="צלילים" value={sound} onChange={setSound} on="פועלים" off="כבויים" hint="צליל קצר אחרי תשובה ובסוף שיעור. למי שהצטרף לכיתה הם כבויים בהתחלה." />
+      {canVibrate
+        ? <OnOff id="vib" title="רטט" value={haptics} onChange={setHaptics} on="פועל" off="כבוי" hint={reduce ? 'רטט קצר אחרי תשובה, בטלפונים שתומכים בזה. בטלפון מופעלת הפחתת תנועה, ולכן עכשיו אין רטט.' : 'רטט קצר אחרי תשובה, בטלפונים שתומכים בזה.'} />
+        : <OnOff id="vib" title="רטט"><p className="field-hint" id="vib-hint">בדפדפן הזה אין רטט.</p></OnOff>}
+    </>
   );
 }
 
@@ -281,7 +304,7 @@ export default function Settings() {
       <ClassSection />
       <AISection />
       <ThemeSetting />
-      <SoundSetting />
+      <SoundSettings />
       <AdvancedRow />
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="set-head">אזור מחיקה</h2>

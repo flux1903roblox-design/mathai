@@ -51,7 +51,7 @@ describe('saved data v3: the parent account never lives in the child store', () 
 describe('the look (STUDENT-2): prefs.theme', async () => {
   const { useApp } = await import('./store.js');
   it('follows the phone by default, and an old save without prefs keeps that default', () => {
-    expect(useApp.getState().prefs).toEqual({ theme: 'system' });
+    expect(useApp.getState().prefs).toEqual({ theme: 'system', soundSet: false });
     const migrated = migrateState({ profile: null, xp: 3 }, 4);
     expect(migrated.prefs).toBeUndefined(); // no transform: the store's defaults fill it in
   });
@@ -62,5 +62,45 @@ describe('the look (STUDENT-2): prefs.theme', async () => {
     expect(useApp.getState().prefs.theme).toBe('dark');
     useApp.getState().setTheme('system');
     expect(useApp.getState().prefs.theme).toBe('system');
+  });
+});
+
+describe('sound in a class (STUDENT-7): quiet from the start, unless the student chose', async () => {
+  const { useApp } = await import('./store.js');
+  const fresh = () => useApp.setState({ sound: true, haptics: true, prefs: { theme: 'system', soundSet: false } });
+  it('sound and vibration are on by default, and vibration is its own setting', () => {
+    fresh();
+    expect(useApp.getState()).toMatchObject({ sound: true, haptics: true });
+    useApp.getState().setHaptics(false);
+    expect(useApp.getState()).toMatchObject({ sound: true, haptics: false });
+    expect(useApp.getState().prefs.soundSet).toBe(false); // vibration says nothing about the sound choice
+  });
+  it('joining a class with prefs.soundSet === false turns sound off', () => {
+    fresh();
+    useApp.getState().quietForClass();
+    expect(useApp.getState().sound).toBe(false);
+  });
+  it('a student who chose sound keeps it on joining (soundSet: true)', () => {
+    fresh();
+    useApp.getState().setSound(true);
+    expect(useApp.getState().prefs.soundSet).toBe(true);
+    useApp.getState().quietForClass();
+    expect(useApp.getState().sound).toBe(true);
+    useApp.getState().setSound(false); // and a choice of "off" stays off
+    useApp.getState().quietForClass();
+    expect(useApp.getState().sound).toBe(false);
+  });
+  it('an existing save keeps its value: no transform, and the theme stays', () => {
+    const migrated = migrateState({ sound: true, prefs: { theme: 'dark' } }, 4);
+    expect(migrated.sound).toBe(true);
+    expect(migrated.prefs).toEqual({ theme: 'dark' });
+  });
+  it('signing out keeps the look; the next student\'s sound choice starts unset', () => {
+    fresh();
+    useApp.getState().setTheme('dark');
+    useApp.getState().setSound(false);
+    useApp.getState().signOut();
+    expect(useApp.getState()).toMatchObject({ sound: true, prefs: { theme: 'dark', soundSet: false } });
+    useApp.getState().setTheme('system');
   });
 });

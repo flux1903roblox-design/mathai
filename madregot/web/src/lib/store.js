@@ -31,8 +31,11 @@ const empty = {
   path: {}, // topicId -> { parts: { level: practice lessons }, reviews, jumped, done: { level: 'mastered' | 'kept' } } (lib/path.js)
   freezes: 0, // streak freezes ready to use (at most 2), earned by finishing the daily quests
   goalXp: 20, // daily goal in XP
-  sound: true,
-  prefs: { theme: 'system' }, // 'system' (follow the phone) | 'light' | 'dark' (lib/theme.js); new fields come with defaults
+  sound: true, // short sounds; off from the start for a student who joins a class and never chose (quietForClass)
+  haptics: true, // short vibrations where the phone can (lib/sound.js haptic), never under reduced motion
+  // theme: 'system' (follow the phone) | 'light' | 'dark' (lib/theme.js); soundSet: the student chose sound themselves.
+  // New fields come with defaults (an old save without one reads it as missing, which code treats as the default).
+  prefs: { theme: 'system', soundSet: false },
   mistakes: {}, // 'topic:cat' -> count
   lastTopic: null,
   outbox: [],
@@ -180,7 +183,10 @@ export const useApp = create(
       recordExamDiagnostic: (skill, right, asked) => { const L = get().learn; if (!L.exam) return; set({ learn: { ...L, exam: recordDiagnostic(L.exam, skill, right, asked, new Date().toISOString()) } }); },
       addXP: (n) => set({ xp: get().xp + n }),
       setGoalXp: (goalXp) => set({ goalXp }),
-      setSound: (sound) => set({ sound }),
+      setSound: (sound) => set({ sound, prefs: { ...get().prefs, soundSet: true } }),
+      setHaptics: (haptics) => set({ haptics }),
+      /** Joining a class: sounds start off (a classroom is quiet), unless the student already chose them. */
+      quietForClass: () => { if (!get().prefs?.soundSet) set({ sound: false }); },
       setTheme: (theme) => { set({ prefs: { ...get().prefs, theme } }); applyTheme(theme); },
       /**
        * A finished lesson: XP, today's counters, the path, the topic level, and the daily quests.
@@ -249,7 +255,8 @@ export const useApp = create(
       resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
       // the look chosen for this device (prefs) stays too
-      signOut: () => set({ ...empty, learn: emptyLearn(), prefs: get().prefs, ai: { ...get().ai, pendingLink: null, lastTier: null } }),
+      // (sound goes back to its default, so the next student's own choice starts unset)
+      signOut: () => set({ ...empty, learn: emptyLearn(), prefs: { ...get().prefs, soundSet: false }, ai: { ...get().ai, pendingLink: null, lastTier: null } }),
     }),
     // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')
     { name: STORE_KEY, storage: safeStorage, version: 4, migrate: (saved, version) => migrateState(saved, version) },

@@ -72,10 +72,14 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await expect(page.locator('.lm-actions.has-good')).toContainText('נכון, בעזרת רמז');
   await expect(page.getByText('פתרתם לבד')).toHaveCount(0);
   await page.getByRole('button', { name: 'המשך' }).click();
-  // three stages: 25 XP, past the day's goal of 20; practice is next
+  // three stages: 25 XP, past the day's goal of 20: the goal's own moment comes first (STUDENT-7), then the stage's
+  const goal = page.locator('.goal-stage');
+  await expect(goal.getByRole('heading', { level: 1 })).toHaveText('הגעתם ליעד היומי!');
+  await expect(goal.locator('.goal-sub')).toContainText('XP היום. מחר מתחילים יעד חדש.');
+  await goal.getByRole('button', { name: 'המשך', exact: true }).click();
   const c = await stageDone(page, 3);
   await expect(c.locator('.badges')).toContainText('+10 XP');
-  await expect(c.locator('.badges')).toContainText('הגעתם ליעד היומי');
+  await expect(c).not.toContainText('יעד היומי'); // said once, on its own screen
   await expect(c.locator('.climb-caption')).toHaveText('3 מתוך 5 שלבים במדרגה');
   await expect(c.getByRole('button', { name: 'לתרגול', exact: true })).toBeVisible();
   const day = (await saved(page)).days['2026-11-05'];

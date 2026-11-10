@@ -17,7 +17,7 @@ import Figure from '@/components/Figure.jsx';
 import { manipCorrect, manipSolution } from '@/content/manip.js';
 import { qaOn } from '@/lib/qa.js';
 import { enter } from '@/lib/motion.js';
-import { play } from '@/lib/sound.js';
+import { play, haptic } from '@/lib/sound.js';
 
 /** The text of a step: plain, first on the screen (מדי speaks in the result sheet, not beside every text). */
 export function Prompt({ children, tag }) {
@@ -134,7 +134,7 @@ function Explore({ step, done, onDone, onCtl }) {
     return () => { if (window.__madregotSolveStep === solve) delete window.__madregotSolveStep; };
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   const check = () => {
-    if (manipCorrect(it, v)) { setMiss(-1); play('correct'); onDone(); } else { setMiss((n) => n + 1); play('wrong'); }
+    if (manipCorrect(it, v)) { setMiss(-1); play('correct'); haptic('correct'); onDone(); } else { setMiss((n) => n + 1); play('wrong'); haptic('wrong'); }
   };
   // the bottom button checks this step: tell it whether there is something to check, and how
   useEffect(() => { onCtl({ step, can: !ok && touched && v != null, miss: ok ? 0 : Math.max(0, miss), check }); }, [v, touched, miss, ok]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -189,7 +189,7 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
   const checking = !answered;
   const canCheck = step.kind === 'predict' ? sel[i] != null : !!exp?.can;
   const check = () => {
-    if (step.kind === 'predict') { setAnswers((a) => ({ ...a, [i]: sel[i] })); play(sel[i] === step.answer ? 'correct' : 'wrong'); } else exp?.check();
+    if (step.kind === 'predict') { setAnswers((a) => ({ ...a, [i]: sel[i] })); const k = sel[i] === step.answer ? 'correct' : 'wrong'; play(k); haptic(k); } else exp?.check();
   };
   // the result sheet: green when right, yellow (not red) when not yet, with the explanation in מדי's words
   const result = step.kind === 'predict' && answers[i] != null

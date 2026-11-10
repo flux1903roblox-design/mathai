@@ -13,6 +13,7 @@ import Lottie from '@/components/Lottie.jsx';
 import { placementTopicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
+import GoalStage from '@/components/learn/GoalStage.jsx';
 
 // The main button takes the focus (for a keyboard or a screen reader) without scrolling a tall celebration
 // down to it: on a small phone the climb at the top stays in view.
@@ -76,7 +77,8 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   const freezes = useApp((s) => s.freezes);
   const path = useApp((s) => s.path);
   const skills = useApp((s) => s.learn.skills);
-  const stages = ['summary', award.streakExtended && result.passed && 'streak', award.questsDone && 'quests'].filter(Boolean);
+  // the screens after a lesson, in order: what it earned, the daily goal (its own moment), the streak, the day's chest
+  const stages = ['summary', award.goalReached && 'goal', award.streakExtended && result.passed && 'streak', award.questsDone && 'quests'].filter(Boolean);
   const [i, setI] = useState(0);
   const stage = stages[i];
   const nextStage = () => (i + 1 < stages.length ? setI(i + 1) : onExit());
@@ -96,6 +98,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
     );
   }
 
+  if (stage === 'goal') return <GoalStage onNext={nextStage} />;
   if (stage === 'streak') return <StreakStage streak={award.streak} days={days} freezes={freezes} onNext={nextStage} />;
 
   if (stage === 'quests') {
@@ -122,7 +125,6 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
     result.kind === 'jump' && { icon: ChevronsUp, label: `עכשיו ב${levelTitle}`, tone: 'brand' },
     result.perfect && { icon: Star, label: 'בלי אף טעות', tone: 'gold' },
     result.fixed > 0 && { icon: Wrench, label: result.fixed === 1 ? 'תיקנתם טעות' : `תיקנתם ${result.fixed} טעויות`, tone: 'good' },
-    award.goalReached && { icon: Zap, label: 'הגעתם ליעד היומי', tone: 'gold' },
   ].filter(Boolean);
   // What moved: this stair's five stages (practice fills the fourth), and the unit's stairs once one is done (a stair
   // counts once its mastery check is passed). A review or a jump test speaks of the unit only.
@@ -174,10 +176,11 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
 export function PlacementDone({ result, award, onExit }) {
   const days = useApp((s) => s.days);
   const freezes = useApp((s) => s.freezes);
-  const stages = ['result', award.streakExtended && 'streak'].filter(Boolean);
+  const stages = ['result', award.goalReached && 'goal', award.streakExtended && 'streak'].filter(Boolean);
   const [i, setI] = useState(0);
   const last = i + 1 >= stages.length;
   const nextStage = () => (last ? onExit() : setI(i + 1));
+  if (stages[i] === 'goal') return <GoalStage onNext={nextStage} label={last ? 'ללוח שלי' : 'המשך'} />;
   if (stages[i] === 'streak') return <StreakStage streak={award.streak} days={days} freezes={freezes} onNext={nextStage} />;
   return (
     <div className="done-screen place-done">

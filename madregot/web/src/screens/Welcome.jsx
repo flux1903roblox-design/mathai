@@ -78,6 +78,7 @@ function Onboarding({ onTeacher }) {
   const finish = () => {
     setGoalXp(f.goal);
     setProfile({ role: 'student', name: joined?.name || f.name.trim(), grade, know: f.know ?? 1, ...(joined || {}) });
+    if (joined) useApp.getState().quietForClass(); // a classroom is quiet: sounds start off (STUDENT-7)
     // "to the first lesson" opens it: the first stair of the grade's first topic
     // from the first stair: it starts by understanding (the stair's first teaching stage), not with exercises
     const first = topicsFor(grade)[0].id;

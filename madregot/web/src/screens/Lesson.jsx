@@ -15,7 +15,7 @@ import { autoAskAllowed, gate, aiAccess, useAIStatus } from '@/lib/account.js';
 import AIAllowance from '@/components/AIAllowance.jsx';
 import ToolLocked from '@/components/ToolLocked.jsx';
 import { api, syncNow } from '@/lib/api.js';
-import { play, buzz } from '@/lib/sound.js';
+import { play, haptic } from '@/lib/sound.js';
 import { Tex, MathText, Markdown, texText, FitDisplay } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
 import Manip from '@/components/manip/Manip.jsx';
@@ -311,9 +311,9 @@ export default function Lesson() {
       });
     }
     setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)] });
-    if (result.ok) { play('correct'); commit(result.event); }
+    if (result.ok) { play('correct'); haptic('correct'); commit(result.event); }
     else {
-      play('wrong'); buzz(40); setShakeKey((v) => v + 1);
+      play('wrong'); haptic('wrong'); setShakeKey((v) => v + 1);
       if (result.reveal) {
         commit(result.event);
         if (item.form !== 'mc') setStruck(true);
@@ -345,7 +345,8 @@ export default function Lesson() {
       app.learnEvent({ e: 'lesson-done', s: skillId(result.topic, result.level), p: isCheck ? result.purpose : result.kind, ok: result.passed });
     }
     syncNow();
-    play(result.passed ? 'complete' : 'wrong');
+    // the end of a lesson, a check or the placement test: the sound and its vibration, as the end screen appears
+    play(result.passed ? 'complete' : 'wrong'); haptic(result.passed ? 'complete' : 'wrong');
     setDone({ result, award });
   };
 

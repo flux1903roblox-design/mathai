@@ -124,6 +124,50 @@ test('a whole lesson: a mistake, its retry, the reveal, the end screens, XP and 
   expect((await saved(page)).xp).toBe(st.xp);
 });
 
+test('the daily goal has its own moment after the lesson, before the streak, and is said once (STUDENT-7)', async ({ page }) => {
+  await open(page, '#/lesson/signed/1', student('7', { goalXp: 10 }));
+  for (let n = 0; n < 16 && !(await page.locator('.done-screen').count()); n += 1) {
+    await proceedToNext(page, await answer(page, true));
+    if (await page.locator('.combo-pop').count()) await page.locator('.combo-pop').click();
+  }
+  expect((await saved(page)).days['2026-11-05'].xp).toBeGreaterThanOrEqual(10);
+  // the lesson's summary: no goal chip any more
+  await expect(page.locator('.done-screen .stats')).toBeVisible();
+  await expect(page.getByText('הגעתם ליעד היומי')).toHaveCount(0);
+  await page.locator('.done-screen .done-actions .btn').click();
+  // the goal's moment: the title, today's XP, one button; the streak comes after it
+  const goal = page.locator('.goal-stage');
+  await expect(goal.getByRole('heading', { level: 1 })).toHaveText('הגעתם ליעד היומי!');
+  await expect(goal.locator('.goal-sub')).toContainText('XP היום. מחר מתחילים יעד חדש.');
+  await expect(page.getByText('הגעתם ליעד היומי')).toHaveCount(1);
+  await expect(page.locator('.streak-screen')).toHaveCount(0);
+  const go = goal.getByRole('button', { name: 'המשך', exact: true });
+  await expectUsable(page, go, 'the way on from the goal');
+  await expect(go).toBeFocused();
+  await go.click();
+  await expect(page.locator('.streak-screen')).toBeVisible();
+  await expect(page.getByText('הגעתם ליעד היומי')).toHaveCount(0);
+});
+
+test('settings: sound and vibration are two choices, and changing sound is remembered as a choice (STUDENT-7)', async ({ page }) => {
+  await open(page, '#/settings', student('7', { sound: true }));
+  const snd = page.getByRole('radiogroup', { name: 'צלילים', exact: true });
+  const vib = page.getByRole('radiogroup', { name: 'רטט', exact: true });
+  await expect(snd).toBeVisible();
+  await expect(vib).toBeVisible(); // Chromium can vibrate
+  await expect(page.getByRole('heading', { name: 'צלילים ורטט' })).toHaveCount(0);
+  await expect(snd.getByRole('radio', { name: 'פועלים' })).toHaveAttribute('aria-checked', 'true');
+  await expect(vib.getByRole('radio', { name: 'פועל', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await vib.getByRole('radio', { name: 'כבוי', exact: true }).click();
+  await expect(vib.getByRole('radio', { name: 'כבוי', exact: true })).toHaveAttribute('aria-checked', 'true');
+  let st = await saved(page);
+  expect(st).toMatchObject({ haptics: false, sound: true });
+  expect(st.prefs?.soundSet).toBeFalsy(); // vibration is not a sound choice
+  await snd.getByRole('radio', { name: 'כבויים' }).click();
+  st = await saved(page);
+  expect(st).toMatchObject({ sound: false, prefs: { soundSet: true } });
+});
+
 test('after a wrong try, a pasted or replaced answer is taken whole (not only its last character)', async ({ page }) => {
   await open(page, '#/lesson/signed/3', student('7'));
   expect((await item(page)).form).toBe('num');

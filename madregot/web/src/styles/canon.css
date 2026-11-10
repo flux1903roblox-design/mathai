@@ -543,6 +543,22 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .stage-done-min { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-2); font-size: 15px; }
 .stage-done-min svg { color: var(--ink-2); }
 @media (max-height: 640px) { .stage-done .done-hero { min-height: 96px; } .stage-done-title { font-size: 26px; line-height: 32px; } }
+/* the daily goal reached (STUDENT-7): a gold ring closes around מדי; calm, no confetti */
+/* the ring and the words sit in the middle of the room above the button (it keeps margin-top: auto) */
+.goal-stage .goal-hero { min-height: 0; margin-top: auto; }
+.goal-ring { position: relative; display: grid; place-items: center; width: 200px; height: 200px; }
+.goal-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.goal-track, .goal-arc { fill: none; stroke-width: 12; }
+.goal-track { stroke: var(--gold-tint); }
+.goal-arc { stroke: var(--gold); stroke-linecap: round; }
+.goal-madi { margin-top: 6px; }
+.goal-sub { margin: 0; max-width: 30ch; color: var(--ink-2); font-size: 17px; line-height: 26px; text-wrap: balance; }
+.goal-xp { color: var(--gold-ink); font-weight: 800; }
+.goal-xp bdi { font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-height: 640px) { .goal-ring { width: 164px; height: 164px; } .goal-madi { width: 88px; height: auto; } }
+/* the pinned button's band is the page's own colour (in dark, --surface would show as a lighter box) */
+.done-screen .done-actions { background: var(--paper); }
+@media (max-height: 700px) { .done-screen .done-actions { background: linear-gradient(transparent, var(--paper) 28%); } }
 
 /* the unit header's thin bar: every stage of every stair in the unit, so it moves from the first stage */
 .unit-bar { flex: none; position: relative; height: 6px; margin-top: 8px; border-radius: 999px; background: color-mix(in srgb, var(--on-brand) 32%, transparent); overflow: hidden; }

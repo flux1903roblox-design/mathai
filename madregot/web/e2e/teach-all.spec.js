@@ -14,7 +14,8 @@ for (const [topic, n] of Object.entries(STAIRS)) {
     test(`${topic}:${level} can be learned from start to end`, async ({ page }) => {
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
-      await open(page, `#/learn/${topic}/${level}/A`, student(GRADE[topic]));
+      // a daily goal the three stages do not reach: the goal's own moment (STUDENT-7) is tested in learn.spec.js
+      await open(page, `#/learn/${topic}/${level}/A`, student(GRADE[topic], { goalXp: 50 }));
       await expect(page.locator('.step-player')).toBeVisible();
       // A: every step
       for (let i = 0; i < 20; i += 1) {
