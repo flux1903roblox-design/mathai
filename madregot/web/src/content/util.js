@@ -39,20 +39,52 @@ function fracTex(x, wrap) {
 /**
  * Plain-text number for answers shown to students and sent to the AI.
  * Fractions by default (a slope of 3/4); with { decimal: true } a short decimal stays a decimal (a mean of 5.4).
+ * `maxDen` is the largest denominator tried (12; an item marked `precise` asks for 100, so 11/36 prints as 11/36 and
+ * not as 0.31), and `places` the decimal places a decimal keeps (2; 3 for precise and `fmt: 'dec'` items).
  */
-export function plainNum(x, { decimal = false } = {}) {
+export function plainNum(x, { decimal = false, maxDen = 12, places = 2 } = {}) {
   if (Number.isInteger(x)) return String(x);
-  if (decimal && Math.abs(Math.round(x * 100) / 100 - x) < 1e-9) return String(Math.round(x * 100) / 100);
-  for (let q = 2; q <= 12; q++) {
+  const k = 10 ** places;
+  if (decimal && Math.abs(Math.round(x * k) / k - x) < 1e-9) return String(Math.round(x * k) / k);
+  for (let q = 2; q <= maxDen; q++) {
     const p = Math.round(x * q);
     if (Math.abs(p / q - x) < 1e-9) { const [a, b] = reduce(p, q); return `${a}/${b}`; }
   }
-  return String(Math.round(x * 100) / 100);
+  return String(Math.round(x * k) / k);
 }
 
-/** Parse what a student typed: "−3", "-3", "2.5", "2,5", "3/4", "-3/4". */
+/** A value as an exact fraction in lowest terms, { n, d } with d > 0, or null when no denominator up to maxDen fits. */
+export function toFrac(x, maxDen = 1000) {
+  if (typeof x !== 'number' || !Number.isFinite(x)) return null;
+  for (let q = 1; q <= maxDen; q++) {
+    const p = Math.round(x * q);
+    if (Math.abs(p / q - x) < 1e-9) { const [n, d] = reduce(p, q); return { n: n || 0, d }; }
+  }
+  return null;
+}
+
+/** A value as exact TeX: a fraction in lowest terms up to /100 (\frac{11}{36}), else as T writes it. */
+export const exactTex = (x) => { const f = toFrac(x, 100); return f ? ratioTex(f.n, f.d) : T(x); };
+
+const DASHES = /[−–—]/g;
+/** A mixed number as typed on a computer keyboard: "2 1/2", "-1 3/4" (a whole number, a space, a fraction). */
+const MIXED = /^([+-]?)(\d+)\s+(\d+)\/(\d+)$/;
+
+/**
+ * Parse what a student typed: "−3", "-3", "2.5", "2,5", "3/4", "-3/4", and, on a computer keyboard, a mixed number:
+ * "2 1/2" is 2.5 and "-1 3/4" is −1.75 (the sign is the whole number's). "13/4" stays 3.25. Any other space is
+ * dropped ("- 3" is −3). A comma is the decimal comma ("2,5" is 2.5); "2,000" has a second reading, see readNumCandidates.
+ */
 export function parseNum(s) {
-  const t = String(s ?? '').trim().replace(/[−–—]/g, '-').replace(/\s+/g, '').replace(',', '.');
+  const raw = String(s ?? '').trim().replace(DASHES, '-');
+  const mixed = raw.match(MIXED);
+  if (mixed) {
+    const d = Number(mixed[4]);
+    if (d === 0) return null;
+    const v = Number(mixed[2]) + Number(mixed[3]) / d;
+    return mixed[1] === '-' ? -v : v;
+  }
+  const t = raw.replace(/\s+/g, '').replace(',', '.');
   if (!t) return null;
   let m = t.match(/^([+-]?\d+)\/([+-]?\d+)$/);
   if (m) { const d = Number(m[2]); return d === 0 ? null : Number(m[1]) / d; }
@@ -60,7 +92,55 @@ export function parseNum(s) {
   return m ? Number(t) : null;
 }
 
+/** "2,000" or "-1,250,000": groups of three digits after each comma, which an Israeli reader reads as thousands. */
+const THOUSANDS = /^[+-]?\d{1,3}(,\d{3})+$/;
+
+/**
+ * Every number a typed answer can mean, the app's usual reading first. "2,000" has two: the decimal comma the app
+ * already accepts (2), and Israeli thousands (2000). Anything else has one reading (parseNum's), or none (an empty
+ * list). readAnswer (content/index.js) keeps the reading the question accepts.
+ */
+export function readNumCandidates(s) {
+  const raw = String(s ?? '').trim().replace(DASHES, '-');
+  const one = parseNum(raw);
+  if (!THOUSANDS.test(raw)) return one == null ? [] : [one];
+  return [...new Set([one, Number(raw.replace(/,/g, ''))].filter((v) => v != null))];
+}
+
 export const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
+
+/** At most three decimal places: 0.125, 2.5, 7 (and not 7/12 = 0.5833…, not 1/36). */
+export const shortDec = (x) => Math.abs(Math.round(x * 1000) - x * 1000) < 1e-6;
+
+/**
+ * Is a typed number right for an answer? The one rule for every typed number: isCorrect, and the last step of
+ * "solve together". By default within ±0.01, as always. An item marked `precise` (the fractions, percent and ratio
+ * stairs) is compared exactly: the exact value is right, and when the answer has no short decimal (7/12, 1/36) a
+ * decimal of at most three places within half a hundredth is right too (0.58 or 0.583 for 7/12, never 0.59). So 1/35
+ * is wrong for 1/36, and 0.12 and 0.13 are wrong for 0.125.
+ */
+export function numRight(u, a, precise = false) {
+  if (typeof u !== 'number' || !Number.isFinite(u) || typeof a !== 'number') return false;
+  if (!precise) return near(u, a, 0.01);
+  return near(u, a, 1e-6) || (!shortDec(a) && shortDec(u) && Math.abs(u - a) < 0.005 + 1e-9);
+}
+
+/** Example fractions for the format note, in order of preference: never the question's own answer or its negative. */
+const NOTE_EXAMPLES = ['7/12', '5/9', '-4/3'];
+/** How to write an answer that has no short decimal, with an example fraction. */
+export const fractionHint = (example = NOTE_EXAMPLES[0]) => `אפשר לכתוב כשבר (למשל $${example}$) או כמספר עשרוני מעוגל לשתי ספרות אחרי הנקודה.`;
+const HINT_START = 'אפשר לכתוב כשבר';
+
+/**
+ * A question whose answer has no short decimal (7/12, 1/36) says once how to write it (CURRICULUM-2 item 6): the item
+ * comes back with the sentence after its text. An item that already says it, or whose answer is whole or a short
+ * decimal, comes back as it is. The example is never the answer itself.
+ */
+export function withFormatNote(it) {
+  if (typeof it?.answer !== 'number' || shortDec(it.answer) || String(it.text || '').includes(HINT_START)) return it;
+  const example = NOTE_EXAMPLES.find((e) => !near(Math.abs(parseNum(e)), Math.abs(it.answer), 1e-9));
+  return { ...it, text: `${it.text ? `${it.text} ` : ''}${fractionHint(example)}` };
+}
 
 /**
  * A list of numbers inside a Hebrew sentence, kept in its order: each number is maths ($4$), and the whole list is

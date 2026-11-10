@@ -27,6 +27,8 @@ import { isCorrect, TOPIC, topicsFor, figPlain } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { manipSolution } from '@/content/manip.js';
 // @ts-ignore: plain JS
+import { toFrac } from '@/content/util.js';
+// @ts-ignore: plain JS
 import { probeItem, startLevel, nextProbe, PER_TOPIC, PROBE_LEN, KNOW } from '@/lib/placement.js';
 // @ts-ignore: plain JS
 import { JUMP_SOURCES, JUMP_MISTAKES } from '@/lib/lesson.js';
@@ -44,7 +46,8 @@ type Item = any;
 type Draw = () => Item;
 /** What a guesser can tell apart without reading the question: its form and its source. */
 const kindOf = (it: Item) => `${it.form}|${it.source ? `${it.topic}:${it.level}:${it.source === 'probe' || it.source === 'control' ? 'diag' : it.source}` : String(it.key).split(':')[0]}`;
-const answerOf = (it: Item) => (it.form === 'manip' ? manipSolution(it) : it.answer);
+// a fraction answer is typed as its numerator and denominator (in lowest terms, which every fraction item accepts)
+const answerOf = (it: Item) => (it.form === 'manip' ? manipSolution(it) : it.form === 'frac' ? toFrac(it.answer) : it.answer);
 const formOf = (it: Item) => (it.form === 'manip' ? `manip:${it.manip.kind}` : it.form);
 
 /** The two guessing strategies, learned from a sample of a check's questions (all its sources together). */
@@ -90,11 +93,11 @@ function printed(it: Item): number[] {
   return (shown.match(/-?\d+(\.\d+)?/g) || []).map(Number);
 }
 /**
- * An answer of two typed numbers (a point, or an expression's coefficient and constant: 3(x + 4) read as 3 and 4)
- * guessed from two numbers printed in the question.
+ * An answer of two typed numbers (a point, an expression's coefficient and constant: 3(x + 4) read as 3 and 4, or a
+ * fraction's numerator and denominator: "reduce 6/8" read as 6 and 8) guessed from two numbers printed in the question.
  */
-const twoOf = (it: Item, a: number, b: number) => (it.form === 'pt' ? [a, b] : it.form === 'lin' ? { k: a, c: b } : it.form === 'line' ? { m: a, b } : null);
-const TWO = new Set(['pt', 'lin', 'line']);
+const twoOf = (it: Item, a: number, b: number) => (it.form === 'pt' ? [a, b] : it.form === 'lin' ? { k: a, c: b } : it.form === 'line' ? { m: a, b } : it.form === 'frac' ? { n: a, d: b } : null);
+const TWO = new Set(['pt', 'lin', 'line', 'frac']);
 /** Guessing from the numbers in the question: the chance a guess is right on one question. */
 const SHOWN: ((it: Item) => number)[] = [
   (it) => { const ns = shownNumbers(it); return ns.length ? ns.filter((v) => isCorrect(it, v)).length / ns.length : 0; }, // one at random

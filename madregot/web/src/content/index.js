@@ -1,6 +1,6 @@
 import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
-import { parseNum, near, plainNum, linText } from './util.js';
+import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
 import { LESSONS } from './lessons.js';
 import { manipCorrect, manipText, manipPlain, panWords, tilesWords, rayText, areaTex } from './manip.js';
 
@@ -38,16 +38,21 @@ export function makeItem(topicId, level, avoidKey) {
   const L = t.levels[Math.min(Math.max(level, 1), t.levels.length) - 1];
   let it; let guard = 0;
   do { it = L.gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
+  // a typed answer that has no short decimal (7/12) says once how to write it
+  if (it.precise && it.form === 'num') it = withFormatNote(it);
   // A misconception can only be diagnosed for an answer that is actually wrong.
   const diag = (u) => (isCorrect(it, u) ? null : it.diag(u));
   return { ...it, diag, topic: topicId, level, levelTitle: L.title };
 }
 
 /**
- * Can this question show the skill in a check? A signed-number question with no negative number in it ("6 · 1",
- * "5 + 3") says nothing about signs: checks and the placement test skip it. Practice keeps it.
+ * Can this question show the skill in a check? A question marked practiceOnly (a choice among two or three, or an
+ * object whose target the question names) is guessed too easily: checks, jump tests and the placement test skip it.
+ * A signed-number question with no negative number in it ("6 · 1", "5 + 3") says nothing about signs: they skip it
+ * too. Practice keeps both.
  */
 export function fairForCheck(it) {
+  if (it.practiceOnly) return false;
   if (it.topic !== 'signed') return true;
   const shown = [it.display, it.text, ...(it.manip?.labels || []), ...(it.choices || []).map((c) => c.tex || c.text)].join(' ');
   // a minus at the start of a number: after a space, a bracket, a $ or a TeX brace ("12 \;\square\; {-12}")
@@ -62,9 +67,16 @@ export function testItem(topicId, level, avoidKey) {
 }
 
 // Answer forms: 'num' (one number), 'pt' (a point), 'line' (y = mx + b), 'lin' (an expression kx + c: two typed
-// slots, the coefficient and the constant; item.var is the letter, x by default), 'mc' (a choice), 'manip' (an object).
+// slots, the coefficient and the constant; item.var is the letter, x by default), 'frac' (a fraction: two typed
+// slots, the numerator and the denominator, whole numbers; item.answer is the value, and with item.reduced the
+// fraction must be in lowest terms), 'mc' (a choice), 'manip' (an object).
+// Flags a typed number may carry: precise (compared exactly, see numRight in util.js), fmt: 'dec' (the answer is shown
+// as a decimal, -1.3 and not -13/10).
 /** Which answer slots an item needs. */
-export const slotsFor = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : it.form === 'lin' ? ['k', 'c'] : it.form === 'mc' || it.form === 'manip' ? [] : ['v']);
+export const slotsFor = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : it.form === 'lin' ? ['k', 'c'] : it.form === 'frac' ? ['n', 'd'] : it.form === 'mc' || it.form === 'manip' ? [] : ['v']);
+
+/** A whole number typed in a slot, or null. */
+const wholeOf = (s) => { const v = parseNum(s); return v != null && Number.isInteger(v) ? v : null; };
 
 /** Read the typed slots into a value; null when something is missing or unreadable. */
 export function readAnswer(it, slots) {
@@ -72,7 +84,19 @@ export function readAnswer(it, slots) {
   if (it.form === 'pt') { const x = parseNum(slots.x); const y = parseNum(slots.y); return x == null || y == null ? null : [x, y]; }
   if (it.form === 'line') { const m = parseNum(slots.m); const b = parseNum(slots.b); return m == null || b == null ? null : { m, b }; }
   if (it.form === 'lin') { const k = parseNum(slots.k); const c = parseNum(slots.c); return k == null || c == null ? null : { k, c }; }
-  return parseNum(slots.v);
+  if (it.form === 'frac') {
+    const n = wholeOf(slots.n); const d = wholeOf(slots.d);
+    if (n == null || d == null || d === 0) return null;
+    // a minus in the denominator moves up: 7/(-12) is -7/12, the same fraction
+    return d < 0 ? { n: n === 0 ? 0 : -n, d: -d } : { n, d };
+  }
+  // a number: "2,000" can be 2 (a decimal comma) or 2000 (thousands); keep the reading the question accepts, else
+  // the one nearest its answer, which the diagnosis then sees
+  const cands = readNumCandidates(slots.v);
+  if (cands.length < 2) return cands.length ? cands[0] : null;
+  const right = cands.find((v) => isCorrect(it, v));
+  if (right !== undefined) return right;
+  return typeof it.answer === 'number' ? cands.reduce((a, b) => (Math.abs(b - it.answer) < Math.abs(a - it.answer) ? b : a)) : cands[0];
 }
 
 /** Is the answer a length that is not whole, asked rounded to tenths (its exact value is on the item)? */
@@ -85,12 +109,31 @@ export function isCorrect(it, u) {
   if (it.form === 'pt') return near(u[0], it.answer[0]) && near(u[1], it.answer[1]);
   if (it.form === 'line') return near(u.m, it.answer.m, 0.01) && near(u.b, it.answer.b, 0.01);
   if (it.form === 'lin') return typeof u === 'object' && near(u.k, it.answer.k, 0.01) && near(u.c, it.answer.c, 0.01);
+  // a fraction is compared exactly; with `reduced` it must be in lowest terms, with a positive denominator
+  if (it.form === 'frac') {
+    return typeof u === 'object' && Number.isInteger(u.n) && Number.isInteger(u.d) && u.d !== 0 && near(u.n / u.d, it.answer, 1e-9)
+      && (!it.reduced || (u.d > 0 && gcd(u.n, u.d) === 1));
+  }
   // a length rounded to tenths (a root that is not whole): right within half a tenth of the exact value, so 7.1 and
   // 7.07 are both right for √50, and 7 or 7.0 are not. The exact value decides, not the rounded answer: √288 = 16.97…
   // rounds to 17.0, a whole number, and 16.97 is still right
   if (roundedLength(it)) return Math.abs(u - it.exact) <= 0.05 + 1e-9;
-  return near(u, it.answer, 0.01);
+  // within ±0.01, or exactly when the item is marked precise (util.js numRight)
+  return numRight(u, it.answer, !!it.precise);
 }
+
+/**
+ * A right value in a form the question does not take yet: 'not-reduced' when a fraction has the right value but the
+ * question asks for lowest terms. It is a note on the form, not a mistake: the lesson says so and keeps the question
+ * open, records no attempt and no answer event, and nothing reaches the misconception record. Otherwise null.
+ */
+export function partialOf(it, u) {
+  if (it?.form !== 'frac' || !it.reduced || u == null || typeof u !== 'object') return null;
+  return near(u.n / u.d, it.answer, 1e-9) && !isCorrect(it, u) ? 'not-reduced' : null;
+}
+
+/** How a typed number is written back: decimals for stats, Pythagoras and fmt: 'dec'; exact fractions up to /100 when precise. */
+const numFormat = (it) => ({ decimal: it.topic === 'stats' || it.topic === 'pyth' || it.fmt === 'dec', maxDen: it.precise ? 100 : 12, places: it.precise || it.fmt === 'dec' ? 3 : 2 });
 
 /** Answers as plain text, for the screen and for the AI. */
 export function answerText(it, u = it.answer) {
@@ -105,7 +148,9 @@ export function answerText(it, u = it.answer) {
   }
   // an expression as a student writes it: 5x + 4, x - 3, -x, 7
   if (it.form === 'lin') return linText(u, it.var || 'x');
-  return plainNum(u, { decimal: it.topic === 'stats' || it.topic === 'pyth' });
+  // a fraction as written: the student's own n/d, or the answer in lowest terms
+  if (it.form === 'frac') { const f = typeof u === 'object' ? u : toFrac(u); return f ? `${f.n}/${f.d}` : plainNum(u, { maxDen: 100, places: 3 }); }
+  return plainNum(u, numFormat(it));
 }
 
 /**

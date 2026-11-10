@@ -69,9 +69,17 @@ function HintBox({ text, clamp }) {
   );
 }
 
-const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b', k: 'המקדם של x', c: 'המספר החופשי' };
+const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b', k: 'המקדם של x', c: 'המספר החופשי', n: 'המונה', d: 'המכנה' };
 /** A slot's name for a screen reader; an expression's letter may be another one than x (3n + 1). */
 const slotLabel = (item, k) => (k === 'k' && item?.var ? `המקדם של ${item.var}` : SLOT_LABEL[k]);
+/** "to" a slot: ל־ takes the place of the article (למונה, לשיפוע m), as people say it. */
+const toSlot = (label) => (!label ? 'לשדה הבא' : /^[a-z]/i.test(label) ? `ל־${label}` : `ל${label.startsWith('ה') ? label.slice(1) : label}`);
+/** A fraction's two fields, as a screen reader names them. */
+const FRAC_FIELD = { n: 'מונה', d: 'מכנה' };
+/** What to type when a slot is empty or unreadable. */
+const INVALID = { pt: 'מלאו את שני השיעורים.', line: 'מלאו את m ואת b.', lin: 'מלאו את המקדם ואת המספר החופשי.', frac: 'מלאו מונה ומכנה, מספרים שלמים.' };
+/** A right value in a form the question does not take yet (lib/lesson.js answer): a note on its form, not a mistake. */
+const PARTIAL = { 'not-reduced': 'נכון, ואפשר לצמצם עוד. צמצמו עד הסוף.' };
 
 /** An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. */
 function ambiguousText(topic, level, candidates) {
@@ -96,11 +104,12 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
     <input
       key={k} id={`slot-${k}`} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false}
       className={clsx('slot', active === k && !struck && !locked && 'active', struck && 'struck', good && 'good')}
-      aria-label={struck ? `${slotLabel(item, k)}, התשובה הקודמת: ${slots[k] || ''}. כתבו תשובה חדשה` : slotLabel(item, k)} placeholder={extra.ph || '?'}
+      aria-label={struck ? `${extra.aria || slotLabel(item, k)}, התשובה הקודמת: ${slots[k] || ''}. כתבו תשובה חדשה` : extra.aria || slotLabel(item, k)} placeholder={extra.ph || '?'}
       value={slots[k] || ''} readOnly={locked}
       onFocus={() => setActive(k)}
       onChange={(e) => {
-        const typed = e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9);
+        // a computer keyboard may also type a space: "2 1/2" is a mixed number (the phone keypad has no space)
+        const typed = e.target.value.replace(/[^\d\-−./, ]/g, '').slice(0, 9);
         if (struck) { unstrike(); setSlots({ [k]: afterStrike(slots[k], typed) }); return; }
         setSlots({ ...slots, [k]: typed });
       }}
@@ -115,6 +124,9 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
         {/* an expression: the coefficient, the letter, the constant (□x + □) */}
         {item.form === 'lin' && (<>{input('k')}<span className="answer-lab"><Tex tex={`${item.var || 'x'}\\,+`} /></span>{input('c')}</>)}
         {item.form === 'num' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}{input('v')}</>)}
+        {/* a fraction: the numerator over a bar over the denominator */}
+        {item.form === 'frac' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}
+          <span className="answer-frac" role="group" aria-label="שבר">{input('n', { aria: FRAC_FIELD.n })}<span className="answer-frac-bar" aria-hidden="true" />{input('d', { aria: FRAC_FIELD.d })}</span></>)}
       </div>
       {item.unit && <span className="answer-unit">{item.unit}</span>}
       {item.form === 'line' && <p className="answer-note">b שלילי? כותבים מינוס בתיבה. שבר כותבים כך: 3/4</p>}
@@ -288,7 +300,7 @@ export default function Lesson() {
     focusSlot(active);
   };
 
-  // Two answer fields (a point, a line): the keypad's last key moves to the other one.
+  // Two answer fields (a point, a line, a fraction): the keypad's last key moves to the other one.
   const nextSlot = () => { const k = names[(names.indexOf(active) + 1) % names.length]; setActive(k); focusSlot(k); };
 
   const canCheck = item && (item.form === 'mc' ? choice != null : isManip ? touched && !struck && mv != null : !struck && names.every((k) => String(slots[k] || '').trim()));
@@ -298,11 +310,18 @@ export default function Lesson() {
     const u = item.form === 'mc' ? choice : isManip ? mv : readAnswer(item, slots);
     if (u == null) {
       const missing = names.find((k) => !String(slots[k] || '').trim()) || names[0];
-      setLast({ invalid: true, text: item.form === 'pt' ? 'מלאו את שני השיעורים.' : item.form === 'line' ? 'מלאו את m ואת b.' : item.form === 'lin' ? 'מלאו את המקדם ואת המספר החופשי.' : 'כתבו מספר. מינוס יש במקלדת.' });
+      setLast({ invalid: true, text: INVALID[item.form] || 'כתבו מספר. מינוס יש במקלדת.' });
       setShakeKey((v) => v + 1); setActive(missing); focusSlot(missing);
       return;
     }
     const { s: ns, result } = answer(s, u);
+    // the right value in a form the question does not take yet (a fraction that can still be reduced): say so and keep
+    // the question open; answer() changed nothing, so no attempt and no answer event are recorded
+    if (result.partial) {
+      setLast({ invalid: true, partial: true, text: PARTIAL[result.partial] });
+      setActive(names[0]); focusSlot(names[0]);
+      return;
+    }
     if (!placement && (result.ok || result.reveal)) {
       setMarks((mk) => {
         const out = [...mk];
@@ -563,7 +582,9 @@ export default function Lesson() {
             {compact && !feedback && checkButton}
           </div>
         )}
-        {last?.invalid && <p className="form-error answer-error" role="alert">{last.text}</p>}
+        {last?.invalid && (last.partial
+          ? <p className="answer-error answer-partial" role="status">{last.text}</p>
+          : <p className="form-error answer-error" role="alert">{last.text}</p>)}
         {feedback ? (
           <m.section className={clsx('fb', `fb-${feedback}`)} aria-live="assertive" aria-labelledby="fb-title" data-region="feedback"
             initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={SPRING.settle}>
@@ -629,7 +650,7 @@ export default function Lesson() {
             {/* as in Duolingo's maths exercises: the full-width check button sits right above the number pad, and the
                 pad fills the bottom of the screen; help sits in the top bar, where Duolingo keeps its counter */}
             {!compact && <div className="dock-row" data-region="primary">{checkButton}</div>}
-            {typed && <div className="pad-panel"><Keypad onKey={onKey} onNext={names.length > 1 ? nextSlot : undefined} nextLabel={`מעבר ל${slotLabel(item, names[(names.indexOf(active) + 1) % names.length]) || 'שדה הבא'}`} /></div>}
+            {typed && <div className="pad-panel"><Keypad onKey={onKey} onNext={names.length > 1 ? nextSlot : undefined} nextLabel={`מעבר ${toSlot(slotLabel(item, names[(names.indexOf(active) + 1) % names.length]))}`} /></div>}
           </div>
         )}
       </div>

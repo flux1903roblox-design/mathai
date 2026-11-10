@@ -11,7 +11,7 @@ import { Tex, MathText, mathPlain, FitDisplay } from '@/components/MathText.jsx'
 import { Button } from '@/components/ui.jsx';
 import { Prompt, ResultWhy } from './StepPlayer.jsx';
 import { Segments } from '@/components/ds.jsx';
-import { parseNum, near, T, plainNum } from '@/content/util.js';
+import { readNumCandidates, numRight, T, plainNum, exactTex } from '@/content/util.js';
 import { enter } from '@/lib/motion.js';
 import { play } from '@/lib/sound.js';
 import { qaOn } from '@/lib/qa.js';
@@ -24,6 +24,19 @@ function Hints({ hints, level }) {
       {hints.slice(0, level).map((h, i) => <p key={i} className="ls-why warm"><Lightbulb size={16} aria-hidden="true" /> <span className="tg-hint-n">{i === 0 ? 'רמז' : 'רמז חזק יותר'}:</span> <MathText text={h} /></p>)}
     </div>
   );
+}
+
+/**
+ * The last step's typed answer, checked with the rule every typed number follows (util.js numRight): within ±0.01, or
+ * exactly when the final is marked precise. "2,000" is read as 2 or 2000, whichever is right (else the one nearest the
+ * answer, which the diagnosis then sees). Null when nothing readable was typed.
+ */
+export function finalCheck(final, typed) {
+  const cands = readNumCandidates(typed);
+  if (!cands.length) return null;
+  const ok = (v) => numRight(v, final.answer, !!final.precise);
+  const u = cands.find(ok) ?? cands.reduce((a, b) => (Math.abs(b - final.answer) < Math.abs(a - final.answer) ? b : a));
+  return { u, ok: ok(u) };
 }
 
 /**
@@ -63,10 +76,10 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
       if (c.ok) play('correct'); else { play('wrong'); setHint((h) => Math.min(2, h + 1)); }
       return;
     }
-    const u = parseNum(typed);
-    if (u == null) return;
-    // the same tolerance as practice (isCorrect): -2/3 typed as -0.67 is right
-    const ok = near(u, problem.final.answer, 0.01);
+    const read = finalCheck(problem.final, typed);
+    if (read == null) return;
+    // the same rule as practice (isCorrect): -2/3 typed as -0.67 is right; a precise final is compared exactly
+    const { u, ok } = read;
     const ids = ok ? [] : (diagnose?.(u) || []);
     onAttempt?.(ok, ids.length ? ids.map((id) => ({ id, conf: 1 / ids.length })) : undefined);
     if (ok) { play('correct'); setSolved(true); } else { play('wrong'); setWrongVal(typed); setMissIds(ids); setFinalMiss((x) => x + 1); setHint((h) => Math.min(2, h + 1)); }
@@ -76,7 +89,11 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
     setBuilt([...built, step.done]);
     setK(k + 1);
   };
-  const answerTex = decimal && !Number.isInteger(problem.final.answer) ? plainNum(problem.final.answer, { decimal: true }) : T(problem.final.answer);
+  // the answer shown after the third miss is exact: 11/36, not 0.31; a decimal final (fmt: 'dec') stays a decimal
+  const fin = problem.final;
+  const answerTex = (decimal || fin.fmt === 'dec') && !Number.isInteger(fin.answer)
+    ? plainNum(fin.answer, { decimal: true, maxDen: fin.precise ? 100 : 12, places: fin.precise || fin.fmt === 'dec' ? 3 : 2 })
+    : fin.precise ? exactTex(fin.answer) : T(fin.answer);
   // the result sheet, as in teaching: green when right, yellow (never red) when not yet
   const result = !onFinal
     ? (last == null ? null : stepOk
@@ -89,7 +106,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
       : giveUp ? { tone: 'warm', title: 'נחזור על זה בתרגול', body: <>התשובה היא <Tex tex={answerTex} />. נעבור על זה שוב בתרגול.</> }
         : finalMiss > 0 && typed === wrongVal ? { tone: 'warm', title: 'עוד לא. נסו שוב', body: namedMistake(missIds, names) ? <MathText text={namedMistake(missIds, names)} /> : <>בדקו את החישוב, והרמז למטה יכול לעזור.</> } : null;
   const done = stepOk || solved || giveUp;
-  const canCheck = onFinal ? parseNum(typed) != null && typed !== wrongVal : sel != null;
+  const canCheck = onFinal ? readNumCandidates(typed).length > 0 && typed !== wrongVal : sel != null;
   const moves = problem.steps.length + 1;
   const bar = <Segments steps={moves} done={solved ? moves : k + (stepOk ? 1 : 0)} current={k} size="thin" label={`פותרים יחד ${n} מתוך ${of}`} valueText={`צעד ${Math.min(k + 1, moves)} מתוך ${moves}`} />;
   return (

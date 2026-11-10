@@ -586,3 +586,11 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 /* the end of the path: two ways on, each a full-height target */
 .path-end { display: flex; flex-direction: column; align-items: center; gap: var(--s1); }
 .path-end a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; text-wrap: balance; }
+
+/* ------------------------------------------------------------------ a fraction answer (form 'frac', CURRICULUM-2)
+   The numerator over a bar over the denominator, each a full 44px field; the keypad's next key moves between them.
+   "Right, and it can be reduced" is a note on the form, not a mistake: brand ink, never the error colour. */
+.answer-frac { display: inline-flex; flex-direction: column; align-items: stretch; gap: 3px; }
+.answer-frac-bar { display: block; height: 3px; border-radius: 2px; background: var(--ink); }
+.lesson .answer-frac .slot { width: clamp(84px, 26vw, 140px); height: 44px; font-size: 22px; }
+.answer-partial { color: var(--brand-d); font-weight: 600; }

@@ -94,8 +94,11 @@ export interface GuidedStep { prompt: Text; display?: string; choices: GuidedCho
 export interface GuidedProblem {
   problem: Text; display?: string;
   steps: GuidedStep[];
-  /** The last move is the student's alone: a typed number, checked against `check`. */
-  final: { prompt: Text; answer: number; check: string; hints: [Text, Text] };
+  /**
+   * The last move is the student's alone: a typed number, checked against `check`. `precise` compares it exactly (as an
+   * item's `precise`, content/util.js numRight); `fmt: 'dec'` shows the answer as a decimal.
+   */
+  final: { prompt: Text; answer: number; check: string; hints: [Text, Text]; precise?: boolean; fmt?: 'dec' };
 }
 
 // ------------------------------------------------------------------ misconceptions
@@ -136,6 +139,10 @@ export interface DiagModel<P = Record<string, number>> {
   solution: (p: P) => Text[];
   hint: (p: P) => Text;
   unit?: string;
+  /** Compare the typed answer exactly (content/util.js numRight), as an exercise marked `precise`. */
+  precise?: boolean;
+  /** Show the answer as a decimal (-1.3, not -13/10). */
+  fmt?: 'dec';
 }
 
 // ------------------------------------------------------------------ the stair
