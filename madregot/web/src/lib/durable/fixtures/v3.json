@@ -1,0 +1,49 @@
+{
+  "version": 3,
+  "state": {
+    "profile": { "role": "student", "name": "מאיה", "grade": "7", "know": 1, "classCode": "K7Q2MD", "className": "ז׳3", "token": "stu_token_fixture", "studentId": "s9" },
+    "progress": { "signed": { "level": 4, "max": 4 }, "coord": { "level": 2, "max": 2 } },
+    "days": {
+      "2026-09-01": { "q": 16, "ok": 12, "secs": 900, "lessons": 2, "xp": 30, "combo": 5 },
+      "2026-09-02": { "q": 0, "ok": 0, "secs": 0, "lessons": 0, "frozen": true },
+      "2026-09-03": { "q": 8, "ok": 8, "secs": 400, "lessons": 1, "xp": 15, "perfect": 1, "questsRewarded": true }
+    },
+    "xp": 210,
+    "path": {
+      "signed": { "parts": { "1": 2, "2": 2, "3": 2 }, "reviews": 0, "jumped": 0 },
+      "coord": { "parts": { "1": 1 }, "reviews": 0, "jumped": 1 }
+    },
+    "freezes": 1,
+    "goalXp": 20,
+    "sound": true,
+    "mistakes": { "signed:sign": 3 },
+    "lastTopic": "coord",
+    "outbox": [{ "id": "a1b2c3d4e5f6", "topic": "coord", "level": 2, "ok": true, "first": true, "hint": false, "cat": null, "secs": 12, "at": "2026-09-03T09:00:00.000Z" }],
+    "ai": { "mode": "server", "apiUrl": "", "key": "", "device": "fedcba9876543210fedcba9876543210", "familyDevice": null, "pendingLink": null, "lastTier": "class" },
+    "helpSent": 0,
+    "solveMode": "notebook",
+    "exams": [],
+    "practiceExams": [],
+    "planBase": { "signed": { "level": 3, "wins": 2, "at": "2026-09-01T08:00:00.000Z" } },
+    "wins": { "signed:3": 9 },
+    "gaps": {},
+    "placement": null,
+    "learn": {
+      "skills": {
+        "signed:2": { "taught": { "A": "2026-08-30T10:00:00.000Z", "B": "2026-08-30T10:10:00.000Z" }, "attempts": [
+          { "at": "2026-09-01T10:00:00.000Z", "ok": true, "independent": true, "purpose": "mastery" }
+        ], "mastered": { "at": "2026-09-01T10:05:00.000Z", "box": 1, "due": "2026-09-04T10:05:00.000Z", "lastReview": { "at": "2026-09-03T10:00:00.000Z", "ok": true } } },
+        "signed:3": { "attempts": [{ "at": "2026-09-03T10:00:00.000Z", "ok": false, "independent": true, "purpose": "practice" }], "pos": { "A": 3 } }
+      },
+      "miscon": {
+        "signed:1|sign": { "skill": "signed:1", "id": "sign", "score": 2, "seen": ["sn1n:3 - (-2)", "sn1n:-4 + 6"], "state": "confirmed", "at": "2026-09-01T10:00:00.000Z" }
+      },
+      "exam": null,
+      "missions": { "2026-09-03": { "items": [{ "kind": "practice", "skill": "signed:3", "done": false }] } },
+      "events": [
+        { "t": "2026-09-01T10:05:00.000Z", "e": "mastered", "s": "signed:2" },
+        { "t": "2026-09-03T10:00:00.000Z", "e": "answer", "s": "signed:3", "ok": false }
+      ]
+    }
+  }
+}

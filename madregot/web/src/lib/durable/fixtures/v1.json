@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "state": {
+    "profile": { "role": "student", "name": "נועה", "grade": "7", "know": 1 },
+    "progress": { "signed": { "level": 3, "max": 3 }, "coord": { "level": 1, "max": 2 } },
+    "days": {
+      "2026-03-01": { "q": 12, "ok": 9, "secs": 600 },
+      "2026-03-02": { "q": 8, "ok": 8, "secs": 420, "lessons": 1, "xp": 15 }
+    },
+    "xp": 120,
+    "mistakes": { "signed:sign": 2, "coord:swap": 1 },
+    "lastTopic": "signed",
+    "outbox": [],
+    "ai": { "mode": "server", "apiUrl": "https://old-class-server.example.test", "key": "" },
+    "path": { "signed": { "parts": { "1": 2, "2": 1 }, "reviews": 0, "jumped": 0 } },
+    "freezes": 1,
+    "goalXp": 20,
+    "sound": true,
+    "gaps": {
+      "signed:sign": { "level": 1, "n": 2, "ok": 0, "at": "2026-03-02T10:00:00Z" },
+      "coord:swap": { "level": 2, "n": 1, "ok": 3, "at": "2026-03-01T10:00:00Z" },
+      "signed:exam:signed:2": { "level": 2, "n": 1, "ok": 0, "at": "2026-03-02T11:00:00Z", "exam": true }
+    },
+    "placement": null
+  }
+}

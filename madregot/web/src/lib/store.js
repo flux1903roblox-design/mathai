@@ -1,17 +1,19 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { TOPIC } from '@/content/index.js';
-import { recordOnPath, markMastered, reopenKept, migratePath, reachedUpTo, doneCount, chestOpen } from './path.js';
+import { recordOnPath, markMastered, reopenKept, reachedUpTo, doneCount, chestOpen } from './path.js';
 import { questProgress } from './quests.js';
 import { STAGE_XP } from './lesson.js';
 import { noteGap, gapsFromExam } from './board.js';
-import { learnAfterAnswer, learnAfterCheck, emptyLearn, migrateLearn, relabelLegacyEvidence } from '@/learn/storeGlue.ts';
+import { learnAfterAnswer, learnAfterCheck, emptyLearn } from '@/learn/storeGlue.ts';
 import { markTaught as markTaughtRec } from '@/learn/mastery.ts';
 import { logEvent } from '@/learn/analytics.ts';
 import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
 import { completeMissionItems } from '@/learn/mission.ts';
 import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
 import { randomHex } from './random.js';
+import { migrate, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS } from './durable/migrations.js';
+import { addXp, newTag } from './durable/xp.js';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
@@ -27,7 +29,9 @@ const empty = {
   profile: null, // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? } | { role: 'teacher', name, classes: [], active }
   progress: {}, // topicId -> { level, max }
   days: {}, // 'YYYY-MM-DD' -> { q, ok, secs, lessons, stages (teaching stages finished), xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
-  xp: 0,
+  xp: 0, // always the sum of xpBy: every XP write goes through addXp (lib/durable/xp.js)
+  xpBy: {}, // device tag -> XP earned on that device
+  resetAt: null, // when the progress was last reset on purpose (ISO)
   path: {}, // topicId -> { parts: { level: practice lessons }, reviews, jumped, done: { level: 'mastered' | 'kept' } } (lib/path.js)
   freezes: 0, // streak freezes ready to use (at most 2), earned by finishing the daily quests
   goalXp: 20, // daily goal in XP
@@ -35,10 +39,10 @@ const empty = {
   mistakes: {}, // 'topic:cat' -> count
   lastTopic: null,
   outbox: [],
-  // the tutor on this device: the server (or a personal key, only in builds with VITE_ALLOW_PERSONAL_KEY=1), an anonymous
-  // device id, the family-device token (AI only, never the parent's session), a link code waiting for a parent, and the
-  // tier the server reported last (to say once that a plan ended)
-  ai: { mode: 'server', apiUrl: '', key: '', device: '', familyDevice: null /* {token, label} */, pendingLink: null /* {code, secret, expiresAt, url} */, lastTier: null },
+  ai: { ...AI_DEFAULTS }, // the tutor on this device (lib/durable/migrations.js says what each field is)
+  // this device's tag and save prompts; the tag is made by the v5 migration, on sign-out, or with a new device's first XP
+  durable: { ...DURABLE_DEFAULTS },
+  backup: { ...BACKUP_DEFAULTS }, // the backup of this student's progress, off until it is turned on
   helpSent: 0,
   solveMode: 'answer', // 'answer' (keypad) or 'notebook' (write the working on a squared page)
   exams: [], // checked exams, newest first: { id, at, title, source, practiceId, result, score, levels }
@@ -61,31 +65,11 @@ export const STORE_KEY = import.meta.env.VITE_STORE_KEY || 'madregot';
 export const PERSONAL_KEY = import.meta.env.VITE_ALLOW_PERSONAL_KEY === '1';
 
 /**
- * Saved data from an older version, brought up to date. Unknown or broken saved data falls back to the defaults.
- * v1 → v2 (Madregot 2.0): the learning model is added, seeded from the misconceptions already recorded (gaps).
- * v2 → v3 (the paid tutor): the parent's account never lives in the child's store (ai.account is dropped), and a
- * personal Claude key and a saved server address are dropped from builds that cannot use them: these builds have no
- * setting to change or clear the address (it lives in "מתקדם", compiled in only with
- * VITE_ALLOW_PERSONAL_KEY=1), so an old one would point the app at a server for good. Everything else is kept.
- * v3 → v4: a stair is done only after its mastery check. Every stair that was done before stays done ('kept', and its
- * mastery check is offered); stairs already mastered are marked so. Evidence a number-line exercise recorded under the
- * wrong name is moved to the mistake it really showed.
+ * Saved data from an older version, brought up to date (the steps and why each exists: lib/durable/migrations.js).
+ * Unknown or broken saved data falls back to the defaults. `personal`: this build can use a personal Claude key.
  */
 export function migrateState(saved, version, { personal = PERSONAL_KEY } = {}) {
-  let st = saved && typeof saved === 'object' ? { ...saved } : {};
-  if (version < 2) st = { ...st, learn: migrateLearn(st.gaps || {}) };
-  else st = { ...st, learn: st.learn && typeof st.learn === 'object' ? { ...emptyLearn(), ...st.learn } : emptyLearn() };
-  if (version < 3) {
-    const { account, ...ai } = st.ai && typeof st.ai === 'object' ? st.ai : {}; // eslint-disable-line no-unused-vars
-    st.ai = { ...empty.ai, ...ai };
-    if (!personal) st.ai = { ...st.ai, key: '', mode: 'server', apiUrl: '' };
-  }
-  if (version < 4) {
-    const path = st.path && typeof st.path === 'object' ? st.path : {};
-    const progress = st.progress && typeof st.progress === 'object' ? st.progress : {};
-    st = { ...st, path: migratePath(path, progress, st.learn.skills || {}), learn: relabelLegacyEvidence(st.learn) };
-  }
-  return st;
+  return migrate(saved, version, { personal });
 }
 
 export const useApp = create(
@@ -112,7 +96,7 @@ export const useApp = create(
         set({
           // lessons: 0 marks a day of this version: answers alone do not keep the streak, a finished lesson does
           days: { ...get().days, [d]: { ...cur, lessons: cur.lessons ?? 0, q: (cur.q || 0) + 1, ok: (cur.ok || 0) + (event.ok ? 1 : 0), secs: (cur.secs || 0) + Math.min(event.secs || 0, 300) } },
-          xp: get().xp + xpGain,
+          ...addXp(get(), xpGain),
           mistakes,
           wins,
           gaps: noteGap(get().gaps, event),
@@ -149,7 +133,7 @@ export const useApp = create(
           path = reopenKept(path, r.topic, r.level);
           reopened = path !== before;
         }
-        set({ learn, days, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic });
+        set({ learn, days, ...addXp(st, r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic });
         return { streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
@@ -171,7 +155,7 @@ export const useApp = create(
         const days = { ...st.days, [d]: day };
         const topic = skill.split(':')[0];
         set({
-          days, xp: st.xp + xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), lastTopic: TOPIC[topic] ? topic : st.lastTopic,
+          days, ...addXp(st, xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), lastTopic: TOPIC[topic] ? topic : st.lastTopic,
           learn: { ...L, skills: { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) }, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) },
         });
         return { xp, first, streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
@@ -183,7 +167,7 @@ export const useApp = create(
       completeMission: (done) => { const L = get().learn; const d = today(); const m = L.missions[d]; if (!m) return; set({ learn: { ...L, missions: { ...L.missions, [d]: { items: completeMissionItems(m.items, done, new Date().toISOString()) } } } }); },
       setExam: (input) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, exam: input ? newPlan(input, at) : null, events: input ? logEvent(L.events, { e: 'rescue-created' }, at) : L.events } }); },
       recordExamDiagnostic: (skill, right, asked) => { const L = get().learn; if (!L.exam) return; set({ learn: { ...L, exam: recordDiagnostic(L.exam, skill, right, asked, new Date().toISOString()) } }); },
-      addXP: (n) => set({ xp: get().xp + n }),
+      addXP: (n) => set(addXp(get(), n)),
       setGoalXp: (goalXp) => set({ goalXp }),
       setSound: (sound) => set({ sound }),
       /**
@@ -210,7 +194,7 @@ export const useApp = create(
         if (r.kind === 'jump' && r.passed) { level = Math.max(level, r.level); max = Math.max(max, r.level); }
         const days = { ...st.days, [d]: day };
         set({
-          days, path, xp: st.xp + r.xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
+          days, path, ...addXp(st, r.xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
           progress: { ...st.progress, [r.topic]: { level, max } }, lastTopic: r.topic,
         });
         return { streakExtended: !learnedOn(cur), streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
@@ -230,7 +214,7 @@ export const useApp = create(
         });
         const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + r.xp, combo: Math.max(cur.combo || 0, r.bestCombo || 0) };
         const days = { ...st.days, [d]: day };
-        set({ path, progress, days, xp: st.xp + r.xp, placement: { at: new Date().toISOString(), grade: r.grade, results: r.results } });
+        set({ path, progress, days, ...addXp(st, r.xp), placement: { at: new Date().toISOString(), grade: r.grade, results: r.results } });
         return { streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp };
       },
       /** On opening the app: spend freezes on missed days so the streak survives (at most two). */
@@ -253,12 +237,21 @@ export const useApp = create(
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
         set({ profile: rest, outbox: [] });
       },
-      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
-      // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
-      signOut: () => set({ ...empty, learn: emptyLearn(), ai: { ...get().ai, pendingLink: null, lastTier: null } }),
+      // a reset on purpose: its time travels with the progress, so a later merge cannot bring the old progress back
+      resetProgress: () => set({ progress: {}, days: {}, xp: 0, xpBy: {}, resetAt: new Date().toISOString(), mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
+      // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive.
+      // The next student here gets a new device tag (their XP is counted apart) and no backup; what the browser was
+      // asked, and the install hint, belong to the device and stay.
+      signOut: () => {
+        const { persistAsked, installHintAt } = get().durable || {};
+        set({
+          ...empty, xpBy: {}, learn: emptyLearn(), ai: { ...get().ai, pendingLink: null, lastTier: null },
+          durable: { ...DURABLE_DEFAULTS, persistAsked: persistAsked ?? null, installHintAt: installHintAt ?? null, tag: newTag() }, backup: { ...BACKUP_DEFAULTS },
+        });
+      },
     }),
     // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')
-    { name: STORE_KEY, storage: safeStorage, version: 4, migrate: (saved, version) => migrateState(saved, version) },
+    { name: STORE_KEY, storage: safeStorage, version: CURRENT_VERSION, migrate: (saved, version) => migrateState(saved, version) },
   ),
 );
 

@@ -1,0 +1,41 @@
+{
+  "version": 4,
+  "state": {
+    "profile": { "role": "student", "name": "נועה", "grade": "7", "know": 1 },
+    "progress": { "signed": { "level": 2, "max": 2 } },
+    "days": {
+      "2026-11-03": { "q": 8, "ok": 8, "secs": 380, "lessons": 1, "xp": 15, "perfect": 1 },
+      "2026-11-04": { "q": 12, "ok": 10, "secs": 610, "lessons": 2, "stages": 3, "xp": 40 }
+    },
+    "xp": 85,
+    "mistakes": {},
+    "outbox": [],
+    "ai": { "mode": "server", "apiUrl": "", "key": "" },
+    "path": {
+      "signed": { "parts": { "1": 2 }, "reviews": 0, "jumped": 0, "done": {} },
+      "pyth": { "parts": {}, "reviews": 0, "jumped": 0, "done": { "3": "mastered" } }
+    },
+    "freezes": 0,
+    "goalXp": 20,
+    "sound": false,
+    "gaps": {},
+    "placement": null,
+    "learn": {
+      "skills": {
+        "signed:1": { "taught": { "A": "2026-11-04T10:00:00.000Z", "B": "2026-11-04T10:00:00.000Z", "C": "2026-11-04T10:00:00.000Z" }, "attempts": [
+          { "at": "2026-11-04T10:00:00.000Z", "ok": true, "independent": true, "purpose": "practice" },
+          { "at": "2026-11-04T10:00:00.000Z", "ok": true, "independent": true, "purpose": "practice" },
+          { "at": "2026-11-04T10:00:00.000Z", "ok": true, "independent": true, "purpose": "practice" },
+          { "at": "2026-11-04T10:00:00.000Z", "ok": true, "independent": true, "purpose": "practice" },
+          { "at": "2026-11-04T10:00:00.000Z", "ok": true, "independent": true, "purpose": "practice" },
+          { "at": "2026-11-04T10:00:00.000Z", "ok": true, "independent": true, "purpose": "practice" }
+        ] },
+        "pyth:3": { "attempts": [], "mastered": { "at": "2026-11-04T10:00:00.000Z", "box": 0, "due": "2026-11-05T10:00:00.000Z" } }
+      },
+      "miscon": {},
+      "exam": null,
+      "missions": {},
+      "events": []
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "version": 2,
+  "state": {
+    "profile": { "role": "student", "name": "איתי", "grade": "8", "know": 2 },
+    "progress": { "pyth": { "level": 2, "max": 2 }, "line": { "level": 1, "max": 1 } },
+    "days": {
+      "2026-05-10": { "q": 10, "ok": 7, "secs": 540, "lessons": 1, "xp": 12, "combo": 4 },
+      "2026-05-11": { "q": 6, "ok": 6, "secs": 300, "lessons": 1, "xp": 10, "perfect": 1 }
+    },
+    "xp": 64,
+    "path": { "pyth": { "parts": { "1": 2 }, "reviews": 0, "jumped": 0 } },
+    "freezes": 0,
+    "goalXp": 30,
+    "sound": false,
+    "mistakes": { "pyth:square": 1 },
+    "lastTopic": "pyth",
+    "outbox": [],
+    "ai": {
+      "mode": "personal", "apiUrl": "https://my-class.example.test", "key": "k-fixture-not-a-key", "device": "0123456789abcdef0123456789abcdef",
+      "account": { "token": "tttttttttttttttttttttttttttttttt", "email": "parent@example.test" }
+    },
+    "helpSent": 1,
+    "solveMode": "answer",
+    "exams": [
+      { "id": "ex1", "at": "2026-05-09T09:00:00.000Z", "title": "בוחן פיתגורס", "source": "photo", "result": { "questions": [
+        { "number": "1", "prompt": "מצאו את היתר", "studentAnswer": "$5$", "status": "right", "correctAnswer": "$5$", "feedback": "נכון", "solution": ["$3^2+4^2=25$"], "topic": "pyth", "level": 1 },
+        { "number": "2", "prompt": "מצאו את הניצב", "studentAnswer": "$7$", "status": "wrong", "correctAnswer": "$8$", "feedback": "בדקו את ההפרש", "solution": ["$17^2-15^2=64$"], "topic": "pyth", "level": 2 }
+      ], "summary": "כמעט", "weakTopics": ["pyth"], "nextSteps": ["תרגול"] }, "score": 50, "levels": { "pyth": 2 } }
+    ],
+    "practiceExams": [],
+    "planBase": {},
+    "wins": { "pyth:1": 6 },
+    "gaps": { "pyth:square": { "level": 2, "n": 1, "ok": 0, "at": "2026-05-11T10:00:00Z" } },
+    "placement": { "at": "2026-05-01T08:00:00.000Z", "grade": "8", "results": { "pyth": { "level": 1, "asked": 3, "right": 3 } } },
+    "learn": {
+      "skills": {
+        "pyth:1": { "taught": { "A": "2026-05-02T10:00:00.000Z" }, "attempts": [
+          { "at": "2026-05-10T10:00:00.000Z", "ok": true, "independent": true, "purpose": "practice" },
+          { "at": "2026-05-10T10:01:00.000Z", "ok": true, "independent": true, "purpose": "mastery" }
+        ], "mastered": { "at": "2026-05-10T10:05:00.000Z", "box": 0, "due": "2026-05-11T10:05:00.000Z" } }
+      },
+      "miscon": {
+        "pyth:2|square": { "skill": "pyth:2", "id": "square", "score": 1, "seen": ["py2:17,15"], "state": "suspected", "at": "2026-05-11T10:00:00.000Z" }
+      },
+      "missions": {},
+      "events": [
+        { "t": "2026-05-10T10:00:00.000Z", "e": "answer", "s": "pyth:1", "ok": true },
+        { "t": "2026-05-10T10:05:00.000Z", "e": "mastered", "s": "pyth:1" }
+      ]
+    }
+  }
+}
