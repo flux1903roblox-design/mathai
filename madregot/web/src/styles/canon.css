@@ -565,6 +565,12 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 /* ------------------------------------------------------------------ saving the progress (DURABLE-1)
    The storage banner: one calm line at the top of Learn when nothing could be saved, with the way to Settings.
    Settings › שמירת ההתקדמות: a row per place the progress is kept, its state at the far end. */
+/* no connection (DURABLE-10): one calm line, the same quiet ground as the storage banner */
+.offline-chip { display: flex; align-items: center; gap: var(--s2); margin: var(--s3) var(--gutter) 0; padding: var(--s2) var(--s4); min-height: 44px; border-radius: 16px; background: var(--ground); color: var(--ink); font-size: 16px; line-height: 24px; }
+.offline-chip svg { flex: none; color: var(--ink-2); }
+.offline-chip.offline-need { margin: 0; }
+.page > .offline-chip { margin-inline: 0; }
+.restore-form > .offline-need { margin-bottom: var(--s2); }
 .storage-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s3); margin: var(--s3) var(--gutter) 0; padding: var(--s2) var(--s4); border-radius: 16px; background: var(--ground); color: var(--ink); }
 .storage-banner p { margin: 0; flex: 1 1 14em; padding: var(--s2) 0; font-size: 16px; line-height: 24px; }
 .storage-banner-link { flex: none; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--brand-d); text-decoration: underline; text-underline-offset: 3px; }

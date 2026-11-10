@@ -362,3 +362,50 @@ table of the council's probes comes with the proof pack (DURABLE-15); this file 
   (`QA_VAULTS`), so the block can be seen with no server.
 - **Evidence.** `qa-evidence/durable/class-rejoin-restored.png`, `parents-kept-progress.png`,
   `parents-link-continue-from.png`, `save-section-class-copy.png` (390x844) and the same names with `-320` (320x568).
+
+## Offline: a service worker that keeps the whole app usable (DURABLE-10)
+
+- **The worker** (`web/src/sw/sw.js`, hand-written, no Workbox). Install caches `madregot-<release>` with the release's
+  files, all or none (`cache: 'reload'`, so no stale copy from the HTTP cache). It never calls `skipWaiting` by itself:
+  only the page's `SKIP_WAITING` message does. Activate deletes the other releases' caches and takes over the open
+  pages. Fetch handles only this site's own GET requests: `/api/` and every other address (the class server, the
+  payment page) are never handled. A page load asks the network first and falls back to the cached `index.html` after
+  3 s or on an error; `/assets/` comes from the cache first (a file not kept yet is kept once it arrives); anything else
+  is the network, else the cache. Cache lookups ignore `Vary`: a module script asks with an `Origin` header, and a
+  server that answers `Vary: Origin` would otherwise make every lazy screen miss the cache offline (found by the e2e).
+  A marked, empty section waits for STUDENT-11's push handlers.
+- **The build** (`web/scripts/vite-plugin-sw.mjs`, `enforce: 'post'`, so it runs after Vite emits `index.html` and the
+  CSS). `sw.js` starts with `self.__PRECACHE` and `self.__RELEASE`: `index.html`, the manifest and the icons, every
+  script and stylesheet, Rubik's Hebrew and Latin woff2 and KaTeX's woff2; never a source map, a `.ttf` or `.woff`, or
+  Rubik's Arabic, Cyrillic or Latin Extended subsets. Measured on this branch: 65 files, 3.4 MiB raw (under DURABLE-11's
+  4.5 MB cap). The release is `VITE_RELEASE` when it is set (the update test builds two), else the commit.
+  `check-dist.mjs` scans `sw.js` with every other file and checks it: the list is at its top, holds `index.html`, names
+  only files the build has, and no map, `.ttf`, `.woff` or `api/`. `_headers`: `/sw.js` no-cache, `/assets/*` public,
+  a year, immutable (GitHub Pages ignores the file; browsers still check `sw.js` past the HTTP cache).
+- **The page** (`web/src/lib/swClient.js`, from `main.jsx` once the page has loaded). Registers only in a production
+  build with service workers and unless `VITE_SW=off`, at `BASE_URL + 'sw.js'` with scope `BASE_URL`. A waiting worker is
+  let in only when the app comes back into view after 30 minutes or more away and the route is not a lesson, practice,
+  the placement, a teaching stage, a repair, an Exam Rescue check or the exam check: then `SKIP_WAITING`, and one
+  reload once the new worker controls the page. A return after a minute or more asks for a new release. A
+  registration, an install (a worker that became redundant before it was installed) or an update check that fails while
+  online is reported to the error monitor (kind `sw`). `window.__RELEASE` names the running release.
+- **Offline words** (`components/durable/OfflineChip.jsx`). On Learn and the assistant, while the browser is offline, one
+  calm line with `role="status"`: "אין אינטרנט כרגע. אפשר להמשיך לתרגל, והכול יישמר." The restore screen's code form and
+  the parents' area say "כדי להמשיך צריך חיבור לאינטרנט." (the backup file still works offline, so its form says
+  nothing). The class outbox and the vault already wait for the `online` moment.
+- **Tests.** `web/scripts/vite-plugin-sw.test.mjs` (the filter keeps and drops what the spec lists; the list is sorted
+  and once each; `sw.js` starts with the list and the release; the worker skips waiting only on the message, never
+  handles `/api/`, leaves the push section empty; the plugin refuses a bundle with no `index.html`) and
+  `web/src/lib/swClient.test.js` (busy routes, the 30-minute rule, one reload after `controllerchange`, no reload in a
+  lesson, update checks, install and update failures reported, registration only where it should). Every other e2e
+  spec runs with `serviceWorkers: 'block'` (`playwright.config.js`). `e2e/offline.spec.js` allows it: a class student
+  visits once, the cache holds the whole list, then offline the profile, Settings, a lesson, a teaching stage and Exam
+  Rescue open with no error screen; a reload offline opens the app; the line shows on the map (44 px) and the
+  assistant; an answer given offline stays in the outbox and reaches the fake class server once back online; the
+  restore and parents screens say they need the connection. The update test builds a second release
+  (`VITE_RELEASE=e2e-next`) into `test-results/sw-next` and serves both from the test's own server on port 4203: the new
+  worker waits; in a lesson, 31 minutes away (`page.clock`) reloads nothing; on the map it reloads into `e2e-next`, and
+  only that release's cache is left.
+- **Evidence.** `qa-evidence/durable/offline-me.png`, `offline-lesson.png`, `offline-learn.png` (390x844) and the same
+  with `-320` (320x568); `offline-assistant.png`, `offline-restore.png` (390x844). They replace the council's
+  `03-offline-open-me.png` failure ("משהו במסך הזה לא עבד").

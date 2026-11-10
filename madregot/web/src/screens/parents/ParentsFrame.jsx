@@ -3,6 +3,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
+import { NeedOnline } from '@/components/durable/OfflineChip.jsx';
 
 /** Back only where there is somewhere in the app to go back to: a profile on this device, or a page before this one. */
 function useBack() {
@@ -40,7 +41,8 @@ export default function ParentsFrame({ title = 'מדרגות · להורים', b
         <h1 className="screen-bar-title">{title}</h1>
         <span className="icon-btn-spacer" aria-hidden="true" />
       </header>
-      <main className="parents-main" data-region="content">{children}</main>
+      {/* the parents' area works only online (sign-in, the plan, the devices): said once at its top (DURABLE-10) */}
+      <main className="parents-main" data-region="content"><NeedOnline />{children}</main>
       <ParentsFooter business={business} />
     </div>
   );

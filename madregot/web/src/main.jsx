@@ -16,6 +16,10 @@ import App from './App.jsx';
 import { durableBoot, errorLog } from './lib/durable/storage.js';
 import { apiBase } from './lib/api.js';
 import { onMoment, keepaliveBudget, MOMENT_ORDER } from './lib/durable/moments.js';
+import { registerSW } from './lib/swClient.js';
+
+// Which release this page runs (the update test reads it; error reports carry the same name).
+window.__RELEASE = import.meta.env.VITE_RELEASE;
 
 // Error reports go to this app's server, if it has one (never with VITE_MONITOR=off), and always to the errors kept on
 // the device; when the page is hidden, they are sent with what the keepalive budget has left after the class outbox.
@@ -41,3 +45,7 @@ try {
     </StrictMode>,
   );
 })();
+
+// The service worker (DURABLE-10): once the page has loaded, so it never competes with the first screen.
+if (document.readyState === 'complete') registerSW();
+else window.addEventListener('load', () => { registerSW(); }, { once: true });

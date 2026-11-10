@@ -18,6 +18,7 @@ import { Button } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import FileRestore from '@/components/durable/FileRestore.jsx';
 import RestorePreview from '@/components/durable/RestorePreview.jsx';
+import { NeedOnline } from '@/components/durable/OfflineChip.jsx';
 
 export const RESTORE = {
   title: 'יש לי קוד גיבוי',
@@ -94,6 +95,8 @@ export default function Restore() {
           <RestorePreview backup={found} source={found.vault ? 'vault' : 'file'} heading="h1" quiet onDone={restored} onCancel={() => setFound(null)} />
         ) : mode === 'code' ? (
           <form className="restore-form" onSubmit={look} noValidate>
+            {/* the code is looked up on the server: offline, it says so (the file below works offline) */}
+            <NeedOnline />
             <div className="field">
               <label htmlFor="restore-code" className="field-label">{RESTORE.label}</label>
               <input id="restore-code" ref={input} className="input input-lg mono restore-input" dir="ltr" value={text}
