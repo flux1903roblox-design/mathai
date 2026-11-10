@@ -59,7 +59,13 @@ const empty = {
   // shows offline too; when the student last opened the missions tab; and the reports not yet confirmed by the server
   classWork: emptyClassWork(),
   workOutbox: {}, // assignmentId -> the newest report waiting for the server (merged with learn/assignments.ts mergeWork)
+  // the teacher's printable class exams on this device (TEACHER-3), newest first, at most TEACHER_EXAMS:
+  // { id (12 hex), classCode, at, title, skills: ['signed:2', ...], count, versions: [{ label: 'א', items }, { label: 'ב', items }?],
+  //   skipped: stairs left out (dragging only), assignmentId: null }
+  teacherExams: [],
 };
+/** Class exams a teacher keeps on a device. */
+export const TEACHER_EXAMS = 8;
 
 /** The saved-state key (a staging copy on the same address keeps its own); the parent session lives beside it. */
 export const STORE_KEY = import.meta.env.VITE_STORE_KEY || 'madregot';
@@ -113,6 +119,9 @@ export const useApp = create(
       addExam: (exam) => set({ exams: [exam, ...get().exams].slice(0, 30), gaps: gapsFromExam(get().gaps, exam) }),
       removeExam: (id) => set({ exams: get().exams.filter((e) => e.id !== id) }),
       addPracticeExam: (pe) => set({ practiceExams: [pe, ...get().practiceExams].slice(0, 20) }),
+      /** A new class exam (TEACHER-3): first in the list, and the oldest beyond TEACHER_EXAMS goes. */
+      addTeacherExam: (te) => set({ teacherExams: [te, ...(get().teacherExams || []).filter((x) => x.id !== te.id)].slice(0, TEACHER_EXAMS) }),
+      updateTeacherExam: (id, patch) => set({ teacherExams: (get().teacherExams || []).map((x) => (x.id === id ? { ...x, ...patch } : x)) }),
       resetPlanBase: (patch) => set({ planBase: { ...get().planBase, ...patch } }),
       setLevel: (topicId, level, max) => set({
         progress: { ...get().progress, [topicId]: { level, max: Math.max(max, get().progress[topicId]?.max || 1) } },

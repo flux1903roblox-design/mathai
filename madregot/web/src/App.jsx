@@ -28,6 +28,8 @@ const Teacher = fromTeacher('Teacher');
 const ClassSettings = fromTeacher('ClassSettings');
 const TeacherLibrary = fromTeacher('TeacherLibrary');
 const TeacherAssistant = fromTeacher('TeacherAssistant');
+const TeacherExamNew = fromTeacher('TeacherExamNew');
+const TeacherExamSheet = fromTeacher('TeacherExamSheet');
 const PreviewFrame = fromTeacher('PreviewFrame');
 // The parents' area (its own header, no tab bar) works with or without a profile: one chunk, loaded on demand.
 const Parents = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Parents })));
@@ -172,6 +174,8 @@ function Root() {
               <Route path="/teacher/lessons" element={<TeacherLibrary />} />
               <Route path="/teacher/assistant" element={<TeacherAssistant />} />
               <Route path="/teacher/settings" element={<ClassSettings />} />
+              <Route path="/teacher/exam/new" element={<TeacherExamNew />} />
+              <Route path="/teacher/exam/:id" element={<TeacherExamSheet />} />
             </Route>
             {/* the student view: the student screens of a stair, under the "תצוגת תלמיד" bar */}
             <Route element={<PreviewFrame />}>

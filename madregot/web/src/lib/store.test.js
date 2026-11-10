@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { migrateState } from './store.js';
+import { migrateState, useApp, TEACHER_EXAMS } from './store.js';
 
 const v2 = (ai) => ({ profile: { role: 'student', name: 'נועה', grade: '7' }, xp: 40, days: { '2026-11-05': { q: 3 } }, learn: { skills: {} }, ai });
 
@@ -54,5 +54,26 @@ describe('saved data v5: class work from the teacher', () => {
     expect(out.classWork).toEqual({ at: null, today: null, teacherName: '', assignments: [], help: [], exams: {}, seenAt: null, noticed: {} });
     expect(out.workOutbox).toEqual({});
     expect(out.xp).toBe(40);
+  });
+});
+
+describe('the teacher\'s class exams on the device (TEACHER-3 §2)', () => {
+  const exam = (n) => ({ id: `e${String(n).padStart(11, '0')}`, classCode: 'K7Q2MD', at: `2026-11-0${(n % 9) + 1}T10:00:00.000Z`, title: `מבחן ${n}`, skills: ['signed:2'], count: 6, versions: [{ label: 'א', items: [] }], skipped: [], assignmentId: null });
+  it('keeps the newest first, at most 8; a change reaches only that exam; a reset of progress keeps them; signing out clears them', () => {
+    const st = useApp.getState();
+    st.signOut();
+    for (let n = 1; n <= 10; n += 1) useApp.getState().addTeacherExam(exam(n));
+    const list = useApp.getState().teacherExams;
+    expect(TEACHER_EXAMS).toBe(8);
+    expect(list.map((x) => x.title)).toEqual(['מבחן 10', 'מבחן 9', 'מבחן 8', 'מבחן 7', 'מבחן 6', 'מבחן 5', 'מבחן 4', 'מבחן 3']);
+    useApp.getState().updateTeacherExam(exam(9).id, { title: 'מבחן לפני החנוכה' });
+    expect(useApp.getState().teacherExams.map((x) => x.title).slice(0, 3)).toEqual(['מבחן 10', 'מבחן לפני החנוכה', 'מבחן 8']);
+    useApp.getState().addTeacherExam({ ...exam(9), title: 'שוב' }); // the same id again: one row, now first
+    expect(useApp.getState().teacherExams.filter((x) => x.id === exam(9).id)).toHaveLength(1);
+    expect(useApp.getState().teacherExams[0].title).toBe('שוב');
+    useApp.getState().resetProgress();
+    expect(useApp.getState().teacherExams).toHaveLength(8);
+    useApp.getState().signOut();
+    expect(useApp.getState().teacherExams).toEqual([]);
   });
 });

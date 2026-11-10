@@ -12,6 +12,10 @@
 // credentials. A student screen that ends on "/" (or "/quests", "/rescue") comes back to where the preview was opened;
 // with no preview open, those addresses are the board.
 //
+// TEACHER-3: a class practice exam from the board's tools: stairs (a whole unit at once), a length, one or two versions;
+// the sheet with its title and version switch; printing the exam (the name line, the questions) or the key (a page per
+// version, answers and steps, no question text), and a PDF of each (test-results/teacher-exam-{exam,key}.pdf).
+//
 // TEACHER-9: the class settings, opened from the board's tools: the class's name, grade, code and join lock; the email
 // it is bound to and the teacher key, with a new key after a fresh code; how long the data is kept (the words come from
 // shared/retention.js); and deleting the class, which waits for its name to be typed and, for a class bound to an
@@ -21,6 +25,7 @@
 // compared.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
+import path from 'node:path';
 import { NOW, student, item, answer, proceed } from './helpers.js';
 import { API, TOKEN, fakeServer } from './fakeServer.js';
 
@@ -686,6 +691,157 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
 
 // TEACHER-4: the teacher gives work with a due date, from "מחר", the "משימות" tab and the library; sees each student's
 // state; extends a date; deletes after asking; and tells the class with a message to copy (no names) and a Classroom link.
+test.describe('TEACHER-3: a class practice exam, printed with its key, in two versions', () => {
+  const tools = (page) => page.getByRole('navigation', { name: 'כלים' });
+  const PDF_DIR = path.join(process.cwd(), 'test-results');
+  /** Print a mode as the buttons do (<html data-print>), under print media. */
+  const printAs = async (page, mode) => {
+    await page.evaluate((m) => { document.documentElement.dataset.print = m; }, mode);
+    await page.emulateMedia({ media: 'print' });
+  };
+
+  test('6 questions on 2 stairs in two versions: the sheet, the print of each mode, the key, and the PDFs', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    await tools(page).getByRole('link', { name: 'מבחן להדפסה' }).click();
+    await expect(page).toHaveURL(/#\/teacher\/exam\/new$/);
+    await expect(page.getByText('על אילו מדרגות יהיה המבחן?')).toBeVisible();
+    await expect(page.getByText('עוד לא הכנתם מבחן. מבחן תרגול מוכן בשתי דקות, עם מפתח תשובות.')).toBeVisible();
+    const next = page.getByRole('button', { name: 'המשך', exact: true });
+    await expect(next).toBeDisabled();
+    // "כל היחידה" ticks a whole topic, and again clears it
+    const unit = page.getByRole('checkbox', { name: 'כל היחידה: מספרים מכוונים' });
+    await unit.click();
+    await expect(unit).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByRole('group', { name: 'מספרים מכוונים' }).getByRole('checkbox', { checked: true })).toHaveCount(5);
+    await page.getByRole('checkbox', { name: '1. חיבור וחיסור' }).click();
+    await expect(unit).toHaveAttribute('aria-checked', 'mixed');
+    await unit.click(); await unit.click();
+    await expect(unit).toHaveAttribute('aria-checked', 'false');
+    await page.getByRole('checkbox', { name: '3. כפל וחילוק' }).click();
+    await page.getByRole('checkbox', { name: '3. אורך קטע' }).click();
+    await expect(page.getByText('נבחרו 2 מדרגות.')).toBeVisible();
+    await shot(page, 'teacher-exam-new');
+    await next.click();
+    await expect(page.getByText('כמה שאלות?')).toBeVisible();
+    await page.getByRole('radio', { name: /6 שאלות/ }).click();
+    await next.click();
+    await expect(page.getByText('גרסה אחת או שתיים?')).toBeVisible();
+    await expect(page.getByRole('radio', { name: /שתי גרסאות, א׳ ו־ב׳/ })).toHaveAttribute('aria-checked', 'true');
+    await page.getByRole('button', { name: 'הכנת המבחן' }).click();
+
+    await expect(page).toHaveURL(/#\/teacher\/exam\/[a-f0-9]{12}$/);
+    const sheet = page.locator('.xs-screen');
+    await expect(sheet.locator('.exam-q')).toHaveCount(6);
+    await expect(sheet.getByRole('heading', { name: 'מבחן תרגול: מספרים מכוונים, מערכת צירים' })).toBeVisible();
+    await expect(sheet).toContainText('כיתה: ז׳3');
+    const [te] = (await saved(page)).teacherExams;
+    expect(te).toMatchObject({ classCode: 'K7Q2MD', skills: ['signed:3', 'coord:3'], count: 6, assignmentId: null });
+    expect(te.versions.map((v) => v.label)).toEqual(['א', 'ב']);
+    for (const v of te.versions) {
+      expect(v.items.map((x) => x.topic)).toEqual(['signed', 'coord', 'signed', 'coord', 'signed', 'coord']);
+      expect(v.items.every((x) => x.answerText && !('diag' in x))).toBe(true);
+    }
+    const keysA = te.versions[0].items.map((x) => x.key);
+    expect(te.versions[1].items.filter((x) => keysA.includes(x.key))).toEqual([]);
+    // the version switch: ב shows ב's questions
+    const vB = page.getByRole('radio', { name: 'גרסה ב׳' });
+    await expect(page.getByRole('radio', { name: 'גרסה א׳' })).toBeChecked();
+    await shot(page, 'teacher-exam-sheet');
+    await vB.check();
+    await expect(sheet).toContainText('גרסה ב׳');
+    await page.getByRole('radio', { name: 'גרסה א׳' }).check();
+    // the title can change, up to 80 characters
+    const title = page.getByLabel('כותרת המבחן');
+    await title.fill('מבחן תרגול לפני החנוכה');
+    await expect(sheet.getByRole('heading', { name: 'מבחן תרגול לפני החנוכה' })).toBeVisible();
+    await expect(title).toHaveAttribute('maxlength', '80');
+    expect((await saved(page)).teacherExams[0].title).toBe('מבחן תרגול לפני החנוכה');
+
+    // the buttons say which mode prints, and the mode ends when the print dialog closes
+    await page.evaluate(() => { window.__printed = []; window.print = () => window.__printed.push(document.documentElement.dataset.print); });
+    await page.getByRole('button', { name: 'הדפסת המבחן' }).click();
+    await page.getByRole('button', { name: 'הדפסת מפתח התשובות' }).click();
+    expect(await page.evaluate(() => window.__printed)).toEqual(['exam', 'key']);
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    expect(await page.evaluate(() => document.documentElement.dataset.print || null)).toBe(null);
+
+    // printed, the exam: no bar and no buttons, the name line and the 6 questions of version א
+    const exam = page.locator('.print-sheet[data-mode="exam"]');
+    const key = page.locator('.print-sheet[data-mode="key"]');
+    await printAs(page, 'exam');
+    await expect(page.locator('.screen-bar')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'הדפסת המבחן' })).toBeHidden();
+    await expect(exam).toBeVisible();
+    await expect(key).toBeHidden();
+    await expect(exam.locator('.ps-name')).toBeVisible();
+    await expect(exam.locator('.ps-name')).toHaveText(/^שם:/);
+    await expect(exam.locator('.ps-lines')).toContainText('כיתה: ז׳3');
+    await expect(exam.locator('.ps-version')).toHaveText('גרסה א׳');
+    await expect(exam.locator('.exam-q')).toHaveCount(6);
+    await expect(exam.locator('.exam-work').first()).toBeVisible();
+    const colour = await exam.locator('.ps-title b').evaluate((el) => getComputedStyle(el).color);
+    expect(colour).toBe('rgb(0, 0, 0)');
+    mkdirSync(PDF_DIR, { recursive: true });
+    const examPdf = await page.pdf({ path: path.join(PDF_DIR, 'teacher-exam-exam.pdf'), preferCSSPageSize: true });
+    expect((examPdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length).toBeGreaterThanOrEqual(1);
+
+    // printed, the key: a page per version, 6 answers each with the steps, no question text, and the footnote
+    await printAs(page, 'key');
+    await expect(exam).toBeHidden();
+    await expect(key).toBeVisible();
+    const pages = key.locator('.ps-key-page');
+    await expect(pages).toHaveCount(2);
+    await expect(pages.nth(0).locator('.ps-key-title')).toHaveText('מפתח תשובות: מבחן תרגול לפני החנוכה · גרסה א׳ (למורה)');
+    await expect(pages.nth(0).locator('.ps-key-line')).toHaveCount(6);
+    await expect(pages.nth(1).locator('.ps-key-line')).toHaveCount(6);
+    await expect(key.locator('.qtext, .exam-q, .exam-work')).toHaveCount(0);
+    const firstText = te.versions[0].items[0].text.replace(/\$[^$]*\$/g, '').trim();
+    if (firstText.length > 6) await expect(key).not.toContainText(firstText);
+    await expect(pages.nth(0).locator('.ps-key-line').first()).toContainText(te.versions[0].items[0].answerText.replace(/-/g, '−'));
+    await expect(pages.nth(0).locator('.ps-key-steps').first()).toContainText('הדרך:');
+    await expect(pages.nth(0).locator('.ps-key-foot')).toContainText('וכל תשובה חושבה ונבדקה בקוד, לא בבינה מלאכותית');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'teacher-exam-key');
+    const keyPdf = await page.pdf({ path: path.join(PDF_DIR, 'teacher-exam-key.pdf'), preferCSSPageSize: true });
+    expect((keyPdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length).toBeGreaterThanOrEqual(2);
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate(() => { delete document.documentElement.dataset.print; });
+
+    // the exam is listed under "מבחנים להדפסה" and opens again
+    await page.getByRole('button', { name: 'חזרה למבחנים' }).click();
+    const list = page.getByRole('region', { name: 'מבחנים להדפסה' });
+    await expect(list.getByRole('link', { name: /מבחן תרגול לפני החנוכה/ })).toContainText('6 שאלות · שתי גרסאות');
+    await list.getByRole('link', { name: /מבחן תרגול לפני החנוכה/ }).click();
+    await expect(page.locator('.xs-screen .exam-q')).toHaveCount(6);
+  });
+
+  test('?skills preselects the stairs; one version prints without a version mark; an unknown exam says so', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher/exam/new?skills=pyth:2,signed:4', keyTeacher());
+    // a grade-8 stair given by the address joins the list with its topic
+    await expect(page.getByRole('checkbox', { name: '4. סדר פעולות' })).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByRole('group', { name: 'משפט פיתגורס' }).getByRole('checkbox', { checked: true })).toHaveCount(1);
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await page.getByRole('radio', { name: /14 שאלות/ }).click();
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await page.getByRole('radio', { name: 'גרסה אחת' }).click();
+    await page.getByRole('button', { name: 'הכנת המבחן' }).click();
+    await expect(page.locator('.xs-screen .exam-q')).toHaveCount(14);
+    await expect(page.getByRole('radio', { name: 'גרסה ב׳' })).toHaveCount(0);
+    await printAs(page, 'exam');
+    await expect(page.locator('.print-sheet[data-mode="exam"] .ps-version')).toHaveCount(0);
+    await printAs(page, 'key');
+    await expect(page.locator('.ps-key-page')).toHaveCount(1);
+    await expect(page.locator('.ps-key-title')).not.toContainText('גרסה');
+    await page.emulateMedia({ media: 'screen' });
+    await page.goto('./#/teacher/exam/000000000000');
+    await expect(page.getByRole('heading', { name: 'המבחן לא נמצא' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'מבחן חדש' })).toBeVisible();
+  });
+});
+
 test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
   const NAMES = ['אביגיל ב.', 'אורי כ.', 'איתי ל.', 'אלה מ.', 'בן נ.', 'גאיה ס.', 'דניאל ע.', 'הדר פ.', 'יהלי צ.', 'יונתן ק.', 'לביא ר.', 'מאיה ש.',
     'נגה ת.', 'נועם א.', 'עדי ב.', 'עומר ג.', 'רוני ד.', 'שירה ה.', 'תמר ו.', 'יואב ז.', 'דנה ח.', 'אלון ט.', 'מיכל י.', 'רועי כ.'];

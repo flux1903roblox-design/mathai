@@ -468,6 +468,57 @@ details.sol[open] summary { margin-bottom: var(--s2); }
   body { font-size: 14px; }
   @page { margin: 16mm; }
 }
+/* The teacher's class exam (TEACHER-3 §4). Its printed copy sits at the end of <body> (ExamSheet.jsx PrintSheets) and
+   is hidden on screen. Printing it hides the app; <html data-print> says which mode prints, 'exam' (the version on
+   screen) or 'key' (a page per version); with none set (the browser's own print), the exam. It has its own named page
+   (A4, 14 mm), so the 16 mm above stays for every other print. Black on white whatever the theme. */
+.print-root { display: none; }
+@media print {
+  :root:has(body > .print-root), body:has(> .print-root) { background: #fff !important; }
+  body:has(> .print-root) > :not(.print-root) { display: none !important; }
+  .print-root { display: block; color: #000; background: #fff; font-family: var(--font-ui); font-size: 11.5pt; line-height: 1.45; }
+  .print-root *, [data-theme="dark"] .print-root * { color: #000 !important; background: transparent !important; box-shadow: none !important; text-shadow: none !important; }
+  .print-sheet { display: none; page: exam; }
+  :root:not([data-print]) .print-sheet[data-mode="exam"], :root[data-print="exam"] .print-sheet[data-mode="exam"], :root[data-print="key"] .print-sheet[data-mode="key"] { display: block; }
+  @page exam {
+    size: A4; margin: 14mm 14mm 16mm;
+    @bottom-center { content: "מדרגות · עמוד " counter(page); direction: rtl; font-family: "Rubik Variable", Rubik, sans-serif; font-size: 9pt; color: #000; }
+  }
+  .print-sheet .katex { font-size: 12pt; }
+  /* the exam: the header (title, version, the name, class and date lines) repeats on every page as the table's head */
+  .ps-frame { width: 100%; border-collapse: collapse; }
+  .ps-frame > thead > tr > td, .ps-frame > tbody > tr > td { padding: 0; vertical-align: top; }
+  .ps-frame > tbody > tr { break-inside: avoid; }
+  .ps-head { display: flex; flex-direction: column; gap: 2mm; margin-bottom: 3mm; padding-bottom: 2.5mm; border-bottom: 1.5pt solid #000; }
+  .ps-title { margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 4mm; font-size: 14pt; line-height: 1.3; }
+  .ps-title b { font-weight: 800; }
+  .ps-version { flex: none; padding: 0 2.5mm; border: 1pt solid #000; border-radius: 2mm; font-weight: 700; font-size: 11pt; }
+  .ps-lines { margin: 0; display: flex; flex-wrap: wrap; gap: 3mm 8mm; font-weight: 600; }
+  .ps-blank { display: inline-block; width: 28mm; height: 1em; border-bottom: 1pt solid #000; vertical-align: baseline; }
+  .ps-blank.wide { width: 52mm; }
+  .ps-q { display: flex; flex-direction: column; gap: 2mm; padding: 3mm 0 4mm; break-inside: avoid; border-bottom: 0.5pt solid #bbb; }
+  .ps-q .qtext { font-size: 12pt; line-height: 1.45; font-weight: 600; }
+  .ps-q .ex-num { border: 1pt solid #000; }
+  .ps-q .qdisplay.small { font-size: 12pt; }
+  .ps-q .figure { max-width: 70mm; max-height: 62mm; margin-inline: auto; }
+  .ps-q .fg-grid { stroke: #999 !important; }
+  .ps-q .exam-choices { gap: 3mm 8mm; font-size: 12pt; }
+  .ps-q .exam-work { height: 28mm; border: 0.75pt dashed #777; border-radius: 1.5mm; background-image: none; }
+  .ps-q.has-fig .exam-work { height: 48mm; }
+  .ps-q .exam-answer-line .blank { border-bottom: 1pt solid #000; }
+  /* the key: one page per version, each answer with its steps, the footnote at the end */
+  .ps-key-page + .ps-key-page { break-before: page; }
+  .ps-key-title { margin: 0 0 4mm; padding-bottom: 2.5mm; border-bottom: 1.5pt solid #000; font-size: 14pt; line-height: 1.3; font-weight: 800; }
+  .ps-key { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3mm; }
+  .ps-key-line { break-inside: avoid; display: flex; flex-direction: column; gap: 1mm; }
+  .ps-key-ans { margin: 0; font-size: 12pt; font-weight: 700; }
+  .ps-key-n { display: inline-block; min-width: 7mm; }
+  .ps-key-steps { display: flex; gap: 2mm; padding-inline-start: 7mm; font-size: 10pt; line-height: 1.45; }
+  .ps-key-way { flex: none; font-weight: 700; }
+  .ps-key-steps ol { margin: 0; padding-inline-start: 5mm; }
+  .ps-key-steps .katex { font-size: 10.5pt; }
+  .ps-key-foot { margin: 6mm 0 0; padding-top: 2mm; border-top: 0.75pt solid #000; font-size: 9pt; line-height: 1.45; }
+}
 .plan-meter { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 .qstrip { display: inline-flex; flex-wrap: wrap; gap: 3px; max-width: 220px; }
 .qstrip i { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 5px; font-style: normal; font-size: 11px; font-weight: 800; }

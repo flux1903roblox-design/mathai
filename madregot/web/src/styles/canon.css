@@ -790,3 +790,35 @@ a.btn { text-decoration: none; }
 /* the stair page opened from the teacher's work */
 .journey-work { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); padding: var(--s2) var(--s3); border-radius: 12px; background: var(--brand-tint); color: var(--brand-d); font-weight: 700; font-size: 15px; line-height: 21px; }
 .journey-work svg { flex: none; }
+
+/* ------------------------------------------------------------------ the class exam (TEACHER-3): its builder and its sheet */
+.xn-step { display: flex; flex-direction: column; gap: var(--s5); }
+.xn-topic { display: flex; flex-direction: column; gap: var(--s2); }
+.xn-topic-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
+.xn-topic-title { margin: 0; display: flex; align-items: center; gap: var(--s2); font-size: 18px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.xn-all { flex: none; font-size: 15px; }
+.xn-all[aria-checked="mixed"] { border-color: var(--brand-line); }
+.xn-stairs { gap: var(--s2); }
+.ob-opt.xn-stair { min-height: 52px; padding: var(--s2) var(--s4); }
+.xn-stair .ob-opt-text b { font-size: 17px; line-height: 24px; }
+.xn-n { color: var(--ink-2); font-weight: 700; }
+.ob-opt.on .xn-n { color: var(--brand-d); }
+.xn-count { margin: 0; }
+.xn-notes { display: flex; flex-direction: column; gap: var(--s2); }
+.xn-notes p { margin: 0; }
+.xn-saved { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s4); padding-top: var(--s5); border-top: 2px solid var(--rule); }
+.xn-saved .set-head { margin: 0; }
+.xn-saved-empty { margin: 0; }
+.xn-saved .tw-row { text-decoration: none; }
+
+.xs .xs-top { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4) 0 var(--s3); }
+.xs .xs-top .field { margin: 0; }
+.xs .xs-top .input { width: 100%; }
+.xs-versions { gap: 0; }
+.xs-lead { margin: 0; }
+.xs .as-hint { margin: 0; }
+.xs-screen { margin-bottom: var(--s4); }
+.xs-screen .h-page { margin: 0; font-size: 22px; line-height: 28px; overflow-wrap: anywhere; }
+.xs-screen .exam-sheet-meta { gap: var(--s2) var(--s5); font-size: 15px; }
+.xs-screen .figure { max-width: min(100%, 300px); margin-inline: auto; }
+.xs .screen-foot .btn svg { flex: none; }
