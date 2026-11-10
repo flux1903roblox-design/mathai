@@ -190,6 +190,11 @@ function SoundSetting() {
   );
 }
 
+/** A parent's session and the parents' pages' leftovers on this device go too (lib/parent.js, loaded on demand). */
+async function forgetParent() {
+  try { const { forgetParentHere } = await import('@/lib/parent.js'); await forgetParentHere(); } catch { /* nothing kept */ }
+}
+
 export default function Settings() {
   const { profile, patchProfile, resetProgress, signOut } = useApp();
   const { state: nav } = useLocation();
@@ -233,11 +238,11 @@ export default function Settings() {
         <p>כל המדרגות, הנקודות וההיסטוריה במכשיר הזה יימחקו.</p>
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'wipe'} onOpenChange={(o) => !o && setDanger(null)} title="למחוק הכול?" keep="לא למחוק"
-        confirm="כן, למחוק הכול" onConfirm={async () => { await leaveFamily(); useApp.persist.clearStorage(); signOut(); }}>
+        confirm="כן, למחוק הכול" onConfirm={async () => { await leaveFamily(); await forgetParent(); useApp.persist.clearStorage(); signOut(); }}>
         <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. אי אפשר לבטל.</p>
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title="להתנתק מהמכשיר?" keep="להישאר מחוברים"
-        confirm="כן, להתנתק" onConfirm={() => signOut()}>
+        confirm="כן, להתנתק" onConfirm={async () => { await forgetParent(); signOut(); }}>
         <p>המכשיר יחזור למסך הפתיחה, וההתקדמות שנשמרה בו תימחק.</p>
       </ConfirmSheet>
       <p className="footnote">מדרגות{hasServer() ? '' : '. בלי שרת: ההתקדמות נשמרת רק במכשיר הזה.'}</p>

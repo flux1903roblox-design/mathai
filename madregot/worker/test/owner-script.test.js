@@ -92,6 +92,13 @@ test('grant-family upserts the account and a term plan; cancel and forget write 
   assert.equal(c.status, 'canceled'); assert.equal(c.cancel_requested_at, NOW); assert.equal(c.cancel_synced_at, null, 'the cron calls the provider');
   assert.ok(one(env, "SELECT * FROM notices WHERE kind LIKE 'canceled:period_end:%'"));
   assert.throws(() => build('cancel', { id: sub.id, mode: 'later' }, fixed), InputError);
+  // the owner's end: ended now, and the provider is told to stop charging (the cron's retry)
+  const env2 = makeEnv();
+  run(env2, build('grant-family', { email: 'end@example.test', until: '2027-01-31' }, fixed).sql);
+  const s2 = one(env2, 'SELECT id FROM subscriptions');
+  run(env2, build('end', { id: s2.id }, fixed).sql);
+  const e2 = one(env2, 'SELECT status, ended_reason, cancel_requested_at, cancel_at_period_end FROM subscriptions');
+  assert.equal(e2.status, 'ended'); assert.equal(e2.ended_reason, 'owner'); assert.equal(e2.cancel_requested_at, NOW); assert.equal(e2.cancel_at_period_end, 1);
   run(env, build('forget', { email: 'parent@example.test' }, fixed).sql);
   assert.equal(rows(env, 'SELECT * FROM accounts').length, 0);
   const f = one(env, 'SELECT * FROM subscriptions');

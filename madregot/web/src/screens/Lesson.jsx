@@ -33,6 +33,7 @@ import { skillId, parseSkill } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 import { useTheme } from '@/lib/theme.js';
+import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
 
 /** True while a media query matches (and follows it as the window changes). */
 function useMedia(query) {
@@ -647,7 +648,7 @@ export default function Lesson() {
       <Sheet open={!!remedy} onOpenChange={(o) => { if (!o) setRemedy(null); }} title="בואו נראה את זה אחרת" className="flow-sheet">
         {remedy && <RemedyFlow content={contentOf(skillId(item.topic || spec.topic, item.level))} misc={remedy} compact onDone={() => setRemedy(null)} doneLabel="חזרה לשיעור" />}
       </Sheet>
-      <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} payload={{ topic: item.topic, level: item.level, question: itemMath(item), answer: s.wrong.map((w) => answerText(item, w)).join(' ; ') }} getImage={() => (page.strokes.length ? nbRef.current?.toImage() || null : null)} hasPage={page.strokes.length > 0} />
+      <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} payload={{ topic: item.topic, level: item.level, question: itemMath(item), answer: s.wrong.map((w) => answerText(item, w)).join(' ; ') }} getImage={() => (page.strokes.length ? nbRef.current?.toImage({ max: HELP_IMAGE_MAX }) || null : null)} hasPage={page.strokes.length > 0} />
     </div>
   );
 }
@@ -658,8 +659,11 @@ function HelpSheet({ open, onOpenChange, payload, getImage, hasPage }) {
   const send = async () => {
     setBusy(true);
     try {
-      await api('/api/help', { method: 'POST', body: { ...payload, note, image: getImage() } });
-      toast.success('הבקשה נשלחה למורה'); setNote(''); onOpenChange(false);
+      // the page goes only as large as the server keeps it (shrunk if needed); a page that cannot fit stays behind
+      const image = getImage();
+      await api('/api/help', { method: 'POST', body: { ...payload, note, image } });
+      toast.success(hasPage && !image ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: הוא גדול מדי לשליחה.' : 'הבקשה נשלחה למורה');
+      setNote(''); onOpenChange(false);
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   const footer = useMemo(() => <Button className="btn-block btn-lg" onClick={send} disabled={busy}>{busy ? 'שולחים…' : 'שליחה למורה'}</Button>, [busy, note]); // eslint-disable-line react-hooks/exhaustive-deps

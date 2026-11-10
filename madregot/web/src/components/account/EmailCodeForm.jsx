@@ -1,10 +1,26 @@
 // Sign-in for a parent or a teacher: an email address, then the 6-digit code sent to it. No password. Signing up and
 // signing in are one flow. `lockedEmail` asks for a fresh code to the signed-in address (a step-up before deleting).
+// `purpose` says what the address is for where it is asked (the privacy notice at the point of collection):
+//   join     a parent joining (receipts and notices; it goes to Resend and the payment company)
+//   cancel   a parent signing in to cancel
+//   teacher  a teacher's trial or quote request (replies and the quote; Resend only)
+//   buy      a teacher buying a class licence by card (receipts; Resend and the payment company)
+//   stepup   a fresh code before deleting the account: no notice, and the button says what it does
 import { useEffect, useRef, useState } from 'react';
 import { requestCode, verifyCode } from '@/lib/parent.js';
 import { Button, Field } from '@/components/ui.jsx';
 
-export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend = false, idPrefix = 'ec', note = true, startStep = 'email', presetEmail = '' }) {
+const NOTES = {
+  join: 'המייל משמש לכניסה, לקבלות ולהודעות על המנוי. צריך אותו רק כדי להצטרף. הוא עובר לשירות שליחת המיילים (Resend) ולחברת הסליקה.',
+  cancel: 'נכנסים עם המייל שאיתו נרשמתם, כדי שרק אתם תוכלו לבטל. הקוד נשלח דרך שירות שליחת המיילים (Resend).',
+  teacher: 'המייל משמש לכניסה, לתשובה על הבקשה ולהצעת המחיר. הוא עובר לשירות שליחת המיילים (Resend).',
+  buy: 'המייל משמש לכניסה, לקבלות ולהודעות על הרישיון. הוא עובר לשירות שליחת המיילים (Resend) ולחברת הסליקה.',
+  stepup: null,
+};
+
+export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend = false, idPrefix = 'ec', purpose = 'join', startStep = 'email', presetEmail = '' }) {
+  const note = NOTES[purpose] ?? null;
+  const submitLabel = purpose === 'stepup' ? 'אישור ומחיקה' : 'כניסה';
   const [step, setStep] = useState(lockedEmail ? 'sending' : startStep);
   const [email, setEmail] = useState(lockedEmail || presetEmail);
   const [code, setCode] = useState('');
@@ -50,7 +66,7 @@ export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend
           <input id={`${idPrefix}-email`} type="email" inputMode="email" autoComplete="email" dir="ltr" className="input" value={email}
             onChange={(e) => setEmail(e.target.value)} maxLength={254} readOnly={!!lockedEmail} />
         </Field>
-        {note && <p className="footnote">המייל משמש לכניסה, לקבלות ולהודעות על המנוי. צריך אותו רק כדי להצטרף. הוא עובר לשירות שליחת המיילים (Resend) ולחברת הסליקה.</p>}
+        {note && <p className="footnote">{note}</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
         <Button type="submit" className="btn-block" disabled={busy || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())}>{busy ? 'שולחים…' : 'שליחת קוד'}</Button>
       </form>
@@ -64,7 +80,7 @@ export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend
           onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 6); setCode(v); if (v.length === 6) verify(v); }} />
       </Field>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <Button type="submit" className="btn-block" disabled={busy || code.length !== 6}>{busy ? 'בודקים…' : 'כניסה'}</Button>
+      <Button type="submit" className="btn-block" disabled={busy || code.length !== 6}>{busy ? 'בודקים…' : submitLabel}</Button>
       <p className="footnote">לא הגיע? בדקו בתיקיית הספאם.</p>
       <div className="sub-links">
         <Button variant="ghost" className="btn-sm" disabled={busy || wait > 0} onClick={ask}>{wait > 0 ? `קוד חדש בעוד ${wait} שניות` : 'שליחת קוד חדש'}</Button>

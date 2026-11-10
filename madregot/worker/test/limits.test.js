@@ -75,3 +75,16 @@ test('class codes use the whole alphabet evenly (no modulo bias)', async () => {
   const chi = Object.values(counts).reduce((s, n) => s + (n - 1000) ** 2 / 1000, 0);
   assert.ok(chi < 59.7, `chi2 ${chi}`); // 30 degrees of freedom, p = 0.001
 });
+
+test('a help request keeps a notebook page of up to 600,000 characters; a larger page in a body under 700 KB arrives without it; over 700 KB is 413', async () => {
+  const { bearer, one } = await import('./helpers.js');
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const page = (n) => `data:image/jpeg;base64,${'A'.repeat(n - 'data:image/jpeg;base64,'.length)}`;
+  const ask = (image, question) => h.call('POST', '/api/help', { headers: bearer(cls.students[0]), body: { topic: 'signed', level: 1, question, answer: '5', note: 'לא הבנתי', image } });
+  assert.equal((await ask(page(600_000), 'q1')).status, 200);
+  assert.equal(one(h.env, "SELECT length(image) AS n FROM help_requests WHERE question = 'q1'").n, 600_000);
+  assert.equal((await ask(page(650_000), 'q2')).status, 200);
+  assert.equal(one(h.env, "SELECT image FROM help_requests WHERE question = 'q2'").image, null, 'the question arrives, the page is dropped');
+  assert.equal((await ask(page(720_000), 'q3')).status, 413, 'the app never sends this: it shrinks the page first (lib/fitImage.js)');
+});

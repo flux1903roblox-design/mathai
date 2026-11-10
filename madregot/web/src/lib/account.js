@@ -183,7 +183,9 @@ export function noteLimit(data = {}, kind) {
   }
   const shared = data.error === 'free_paused' ? 'paused' : data.error === 'shared_limit' ? (data.scope === 'class' ? 'class' : 'network') : prev.shared;
   const economy = data.error === 'monthly_fair_use' ? true : prev.economy;
-  useAIStatus.setState({ status: { ...prev, groups, shared, economy } });
+  // when the count starts again (in every mode, also with the switch off): a screen left open asks again then
+  const resetsAt = data.resetsAt && (!prev.resetsAt || Date.parse(data.resetsAt) < Date.parse(prev.resetsAt)) ? data.resetsAt : prev.resetsAt;
+  useAIStatus.setState({ status: { ...prev, groups, shared, economy, ...(resetsAt ? { resetsAt } : {}) } });
 }
 
 // ---------------------------------------------------------------- the calm sheet when the tutor says "not now"

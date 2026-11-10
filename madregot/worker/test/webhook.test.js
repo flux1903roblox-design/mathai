@@ -256,3 +256,152 @@ test('billing_events.detail never holds an address or a long number', async () =
     assert.doesNotMatch(detail, /@/); assert.doesNotMatch(detail, /\d{8,}/);
   }
 });
+
+// ---------------------------------------------------------------- charges and refunds that must never be lost or doubled
+const classOrder = async (cls, seats = 20) => {
+  const token = await signIn(h, 't@example.test');
+  const r = await h.call('POST', '/api/billing/checkout', { headers: { 'X-Account-Token': token, 'Idempotency-Key': `class-buy-${n++}-0123456789`, ...cls.teacher }, body: { plan: 'class_year', seats, adult: true, terms: '2026-11' } });
+  assert.equal(r.status, 201);
+  return { token, id: (await r.json()).orderId, amount: seats * 4900 };
+};
+
+test('a second charge for a paid class licence order is a duplicate: refunded, the owner told, the licence not extended', async () => {
+  h = await setup();
+  const cls = await makeClass(h);
+  const o = await classOrder(cls);
+  assert.deepEqual((await send({ id: 'c1', type: 'paid', order: o.id, payment: 'pay_c1', amountAgorot: o.amount, currency: 'ILS', occurredAt: iso(0) })).body.results, ['applied']);
+  const end1 = one(h.env, 'SELECT current_period_end FROM subscriptions').current_period_end;
+  const again = await send({ id: 'c2', type: 'paid', order: o.id, payment: 'pay_c2', amountAgorot: o.amount, currency: 'ILS', occurredAt: iso(60_000) });
+  assert.deepEqual(again.body.results, ['duplicate_payment']);
+  assert.equal(one(h.env, 'SELECT current_period_end FROM subscriptions').current_period_end, end1, 'not a second year');
+  assert.equal(one(h.env, "SELECT status FROM payments WHERE provider_payment_id = 'pay_c2'").status, 'duplicate');
+  assert.deepEqual(rows(h.env, 'SELECT amount_agorot, reason FROM refund_queue').map((r) => ({ ...r })), [{ amount_agorot: o.amount, reason: 'duplicate' }]);
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind = 'owner:duplicate_payment'").length, 1);
+});
+
+test('a family order paid again from another standing order is a duplicate; its own renewal is still a renewal', async () => {
+  h = await setup();
+  const o = await order('twice@example.test');
+  await send(paid(o, { occurredAt: iso(-1000) }));
+  const other = await send(paid(o, { payment: 'pay_other', subscription: 'sub_other', occurredAt: iso(0) }));
+  assert.deepEqual(other.body.results, ['duplicate_payment']);
+  const renewal = await send(paid(o, { payment: 'pay_renewal', occurredAt: iso(28 * DAY) }));
+  assert.deepEqual(renewal.body.results, ['applied'], 'the same standing order with the order reference is a renewal');
+  assert.equal(one(h.env, "SELECT status FROM payments WHERE provider_payment_id = 'pay_renewal'").status, 'ok');
+});
+
+test('a renewal charge on a plan ended by a full refund, a chargeback or the owner is refunded, and the provider is told to stop', async () => {
+  const { build } = await import('../scripts/owner.mjs');
+  const { retryCancels } = await import('../src/billing.js');
+  h = await setup();
+  // a full refund from the provider
+  const o = await order('refunded@example.test');
+  await send(paid(o, { occurredAt: iso(-3 * DAY) }));
+  assert.deepEqual((await send({ id: 'r1', type: 'refunded', payment: `pay_${o.id}`, amountAgorot: 2990, currency: 'ILS', occurredAt: iso(0) })).body.results, ['applied']);
+  const s1 = one(h.env, 'SELECT * FROM subscriptions WHERE account_id = ?', o.account);
+  assert.equal(s1.status, 'ended'); assert.ok(s1.cancel_requested_at, 'the standing order is to be cancelled');
+  const ren = await send(paid(o, { id: 'ren1', payment: 'pay_ren1', order: undefined, occurredAt: iso(28 * DAY) }));
+  assert.deepEqual(ren.body.results, ['after_cancel']);
+  assert.equal(one(h.env, "SELECT status FROM payments WHERE provider_payment_id = 'pay_ren1'").status, 'after_cancel');
+  // a chargeback
+  const o2 = await order('cb@example.test');
+  await send(paid(o2, { occurredAt: iso(-3 * DAY) }));
+  await send({ id: 'cb', type: 'chargeback', payment: `pay_${o2.id}`, subscription: `sub_${o2.id}`, amountAgorot: 2990, currency: 'ILS', occurredAt: iso(0) });
+  assert.ok(one(h.env, 'SELECT cancel_requested_at FROM subscriptions WHERE account_id = ?', o2.account).cancel_requested_at);
+  assert.deepEqual((await send(paid(o2, { id: 'ren_cb', payment: 'pay_ren_cb', order: undefined, occurredAt: iso(28 * DAY) }))).body.results, ['after_cancel']);
+  // the owner's end command (the SQL the CLI runs)
+  const o3 = await order('end@example.test');
+  await send(paid(o3, { occurredAt: iso(-3 * DAY) }));
+  const s3 = one(h.env, 'SELECT id FROM subscriptions WHERE account_id = ?', o3.account);
+  h.env.DB.raw.exec(build('end', { id: s3.id }).sql);
+  assert.ok(one(h.env, 'SELECT cancel_requested_at FROM subscriptions WHERE id = ?', s3.id).cancel_requested_at);
+  assert.deepEqual((await send(paid(o3, { id: 'ren_end', payment: 'pay_ren_end', order: undefined, occurredAt: iso(28 * DAY) }))).body.results, ['after_cancel']);
+  // three refunds queued, three parent notices, owner notices; and the hourly retry cancels the three standing orders
+  assert.deepEqual(rows(h.env, 'SELECT reason, amount_agorot FROM refund_queue ORDER BY id').map((r) => r.reason), ['after_cancel', 'after_cancel', 'after_cancel']);
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind = 'owner:after_cancel'").length, 3);
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind LIKE 'refunded:%' AND to_account IS NOT NULL").length >= 3, true);
+  await retryCancels(h.env);
+  assert.equal(rows(h.env, 'SELECT * FROM subscriptions WHERE cancel_requested_at IS NOT NULL AND cancel_synced_at IS NULL').length, 0);
+  // the children stay on the free taste
+  const { linkDevice } = await import('./helpers.js');
+  const dev = await linkDevice(h.env, o.account);
+  assert.equal((await (await h.call('GET', '/api/ai/status', { headers: dev.headers })).json()).tier, 'free');
+});
+
+test('a late charge of a plan that ended for a failed payment, after the family joined again, is a refunded duplicate (not a 500)', async () => {
+  const { endFinished } = await import('../src/cron.js');
+  h = await setup();
+  const o = await order('late@example.test');
+  await send(paid(o, { occurredAt: iso(-40 * DAY), periodEnd: iso(-10 * DAY) }));
+  const old = one(h.env, 'SELECT * FROM subscriptions');
+  await send({ id: 'f1', type: 'failed', subscription: `sub_${o.id}`, payment: 'pay_f1', amountAgorot: 2990, currency: 'ILS', occurredAt: iso(-10 * DAY) });
+  await endFinished(h.env);
+  assert.equal(one(h.env, 'SELECT ended_reason FROM subscriptions WHERE id = ?', old.id).ended_reason, 'payment_failed');
+  const o2 = await order('late@example.test');
+  await send(paid(o2, { occurredAt: iso(-1000) }));
+  const late = await send(paid(o, { id: 'late1', payment: 'pay_late1', order: undefined, occurredAt: iso(0) }));
+  assert.equal(late.status, 200);
+  assert.deepEqual(late.body.results, ['duplicate_payment']);
+  assert.equal(one(h.env, "SELECT status FROM payments WHERE provider_payment_id = 'pay_late1'").status, 'duplicate');
+  assert.deepEqual(rows(h.env, 'SELECT subscription_id, reason, amount_agorot FROM refund_queue').map((r) => ({ ...r })), [{ subscription_id: old.id, reason: 'duplicate', amount_agorot: 2990 }]);
+  const now = one(h.env, 'SELECT status, cancel_requested_at FROM subscriptions WHERE id = ?', old.id);
+  assert.equal(now.status, 'ended'); assert.ok(now.cancel_requested_at, 'its standing order is stopped');
+  assert.equal(rows(h.env, "SELECT * FROM subscriptions WHERE status = 'active'").length, 1);
+});
+
+test('one refund or dispute reported twice is recorded once; partial refunds with their own ids add up and end the plan when full', async () => {
+  h = await setup();
+  const o = await order('two@example.test');
+  await send(paid(o, { occurredAt: iso(-3 * DAY) }));
+  const a = await send({ id: 'refund.created', type: 'refunded', payment: `pay_${o.id}`, amountAgorot: 2990, currency: 'ILS', occurredAt: iso(0) });
+  const b = await send({ id: 'refund.succeeded', type: 'refunded', payment: `pay_${o.id}`, amountAgorot: 2990, currency: 'ILS', occurredAt: iso(1000) });
+  assert.deepEqual([a.status, b.status], [200, 200]);
+  assert.deepEqual(b.body.results, ['ignored_old']);
+  assert.equal(rows(h.env, "SELECT * FROM payments WHERE kind = 'refund'").length, 1);
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind = 'owner:refund_unmatched'").length, 0, 'the same amount: a plain repeat');
+  // a dispute opened, then closed
+  const o2 = await order('cb2@example.test');
+  await send(paid(o2, { occurredAt: iso(-3 * DAY) }));
+  const c1 = await send({ id: 'dispute.created', type: 'chargeback', payment: `pay_${o2.id}`, subscription: `sub_${o2.id}`, amountAgorot: 2990, currency: 'ILS', occurredAt: iso(0) });
+  const c2 = await send({ id: 'dispute.closed', type: 'chargeback', payment: `pay_${o2.id}`, subscription: `sub_${o2.id}`, amountAgorot: 2990, currency: 'ILS', occurredAt: iso(1000) });
+  assert.deepEqual([c1.status, c2.status], [200, 200]);
+  assert.deepEqual(c2.body.results, ['ignored_old']);
+  assert.equal(rows(h.env, "SELECT * FROM payments WHERE kind = 'chargeback'").length, 1);
+  // two partial refunds of a yearly plan, each with the provider's refund id
+  const y = await order('year@example.test', 'family_year');
+  await send(paid(y, { amountAgorot: 24900, occurredAt: iso(-30 * DAY) }));
+  assert.deepEqual((await send({ id: 'rf1', type: 'refunded', payment: `pay_${y.id}`, refund: 'r_1', amountAgorot: 5000, currency: 'ILS', occurredAt: iso(-1000) })).body.results, ['applied']);
+  assert.equal(one(h.env, 'SELECT status FROM subscriptions WHERE account_id = ?', y.account).status, 'active', 'partly refunded: still running');
+  assert.deepEqual((await send({ id: 'rf1b', type: 'refunded', payment: `pay_${y.id}`, refund: 'r_1', amountAgorot: 5000, currency: 'ILS', occurredAt: iso(-500) })).body.results, ['ignored_old']);
+  assert.deepEqual((await send({ id: 'rf2', type: 'refunded', payment: `pay_${y.id}`, refund: 'r_2', amountAgorot: 19900, currency: 'ILS', occurredAt: iso(0) })).body.results, ['applied']);
+  assert.deepEqual(rows(h.env, "SELECT amount_agorot FROM payments WHERE kind = 'refund' AND provider_payment_id LIKE ?", `pay_${y.id}%`).map((r) => r.amount_agorot).sort(), [-19900, -5000]);
+  assert.equal(one(h.env, 'SELECT status, ended_reason FROM subscriptions WHERE account_id = ?', y.account).ended_reason, 'refunded', 'refunded in full: ended');
+  assert.deepEqual((await send({ id: 'rf3', type: 'refunded', payment: `pay_${y.id}`, refund: 'r_3', amountAgorot: 100, currency: 'ILS', occurredAt: iso(1000) })).body.results, ['ignored_old'], 'nothing left to refund');
+  // a second report without a refund id and with another amount: recorded once, and the owner looks
+  const z = await order('z@example.test');
+  await send(paid(z, { occurredAt: iso(-3 * DAY) }));
+  await send({ id: 'rz1', type: 'refunded', payment: `pay_${z.id}`, amountAgorot: 1000, currency: 'ILS', occurredAt: iso(0) });
+  assert.deepEqual((await send({ id: 'rz2', type: 'refunded', payment: `pay_${z.id}`, amountAgorot: 1990, currency: 'ILS', occurredAt: iso(1000) })).body.results, ['ignored_old']);
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind = 'owner:refund_unmatched' AND ref = 'rz2'").length, 1);
+  assert.equal(rows(h.env, "SELECT * FROM payments WHERE kind = 'refund' AND provider_payment_id = ?", `pay_${z.id}`).length, 1);
+});
+
+test('a payment that arrives after the account was deleted starts no plan: it is refunded and its standing order stopped', async () => {
+  const { forgetAccount } = await import('../src/billing.js');
+  h = await setup();
+  const o = await order('gone@example.test');
+  await forgetAccount(h.env, o.account, { actor: 'test' });
+  assert.equal(one(h.env, 'SELECT status, account_id FROM orders WHERE id = ?', o.id).status, 'expired');
+  const r = await send(paid(o));
+  assert.deepEqual(r.body.results, ['after_cancel']);
+  const sub = one(h.env, 'SELECT * FROM subscriptions');
+  assert.equal(sub.status, 'ended'); assert.equal(sub.account_id, null); assert.equal(sub.ended_reason, 'account_deleted');
+  assert.ok(sub.cancel_requested_at);
+  assert.equal(one(h.env, 'SELECT status FROM payments').status, 'after_cancel');
+  assert.equal(rows(h.env, "SELECT * FROM refund_queue WHERE reason = 'after_cancel'").length, 1);
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind = 'owner:orphan_payment'").length, 1);
+  assert.equal(one(h.env, 'SELECT status, subscription_id FROM orders WHERE id = ?', o.id).subscription_id, sub.id);
+  // the next charge of the same standing order is refunded too
+  assert.deepEqual((await send(paid(o, { id: 'ren_orphan', payment: 'pay_ren_orphan', order: undefined, occurredAt: iso(30 * DAY) }))).body.results, ['after_cancel']);
+  assert.equal(rows(h.env, 'SELECT * FROM refund_queue').length, 2);
+});

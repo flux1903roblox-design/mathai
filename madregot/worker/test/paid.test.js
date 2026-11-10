@@ -4,7 +4,7 @@ import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildRequest, AI_KINDS } from '../../shared/ai.js';
-import { priceOf } from '../src/spend.js';
+import { priceOf, PRICES } from '../src/spend.js';
 import { dayOf, monthOf, resetsAt } from '../src/util.js';
 import {
   setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, setCount, setSpend, countOf, rows, one, claudeReply,
@@ -220,7 +220,7 @@ test('every answer adds priced usage to ai_spend: pool day and month, all, kind'
   }
 });
 
-test('pricing: cache tokens, fallback iterations each at their own model, and an unknown model at the highest rate', () => {
+test('pricing: cache tokens, fallback iterations each at their own model, and an unknown model above every known rate', () => {
   assert.equal(priceOf({ model: 'claude-haiku-5-5', usage: { input_tokens: 10, output_tokens: 5 } }).nano, 10 * 100 + 5 * 500);
   const fb = priceOf({
     model: 'claude-opus-5', usage: {
@@ -233,7 +233,12 @@ test('pricing: cache tokens, fallback iterations each at their own model, and an
   });
   assert.equal(fb.nano, (100 * 4000 + 10 * 20000 + 50 * 200) + (100 * 2000 + 20 * 10000 + 10 * 2500));
   assert.equal(fb.cache, 60);
-  assert.equal(priceOf({ model: 'claude-future-9', usage: { input_tokens: 1, output_tokens: 1 } }).nano, 4000 + 20000);
+  // the fallback models cost more than the main model, and an unknown model costs more than any of them
+  assert.equal(priceOf({ model: 'claude-opus-4-8', usage: { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 1, cache_creation_input_tokens: 1 } }).nano, 5000 + 25000 + 500 + 6250);
+  assert.equal(priceOf({ model: 'claude-opus-5', usage: { input_tokens: 1, output_tokens: 1 } }).nano, 5000 + 25000);
+  const unknown = priceOf({ model: 'claude-future-9', usage: { input_tokens: 1, output_tokens: 1 } }).nano;
+  assert.equal(unknown, 10000 + 50000);
+  for (const [model, p] of Object.entries(PRICES)) assert.ok(p.input + p.output < unknown, model);
 });
 
 test('the owner gets one notice when all spend in a day passes OWNER_ALERT_USD', async () => {
@@ -293,4 +298,30 @@ test('a streamed chat sends the headers before the body and counts once', async 
   await h.ctx.flush();
   assert.equal(countOf(h.env, `fam:${a}:tutor`), 1);
   assert.equal(rows(h.env, "SELECT * FROM ai_spend WHERE pool = 'kind:chat'").length, 1);
+});
+
+test('a streamed chat the child leaves part-way, or that breaks, is still priced in ai_spend', async () => {
+  h = await setup();
+  const { a, d1 } = await family();
+  const left = await ai(h, 'chat', d1.headers, { body: { messages: [{ role: 'user', content: 'שלום' }], stream: true } });
+  assert.equal(left.status, 200);
+  await left.body.cancel(); // the child closes the sheet
+  await h.ctx.flush();
+  assert.equal(h.net.log.claude.length, 1);
+  const spent = one(h.env, 'SELECT calls, input_tokens, output_tokens, nano_usd FROM ai_spend WHERE pool = ? AND length(period) = 10', `fam:${a}`);
+  assert.equal(spent?.calls, 1, 'the abandoned stream is recorded');
+  assert.equal(spent.input_tokens, 10);
+  assert.ok(spent.nano_usd >= 10 * 4000, 'at least its input at the main model\'s price');
+  // a stream that breaks after Claude started: what it did is priced as well
+  h.done();
+  h = await setup({}, {
+    claude: () => new Response('event: message_start\ndata: {"type":"message_start","message":{"id":"m","type":"message","role":"assistant","model":"claude-opus-5-5","content":[],"stop_reason":null,"usage":{"input_tokens":30,"output_tokens":1}}}\n\nevent: error\ndata: {"type":"error","error":{"type":"overloaded_error","message":"x"}}\n\n',
+      { status: 200, headers: { 'Content-Type': 'text/event-stream' } }),
+  });
+  const f = await family('broken@example.test');
+  const r = await ai(h, 'chat', f.d1.headers, { body: { messages: [{ role: 'user', content: 'שלום' }], stream: true } });
+  assert.match(await r.text(), /\[\[error:/);
+  await h.ctx.flush();
+  const broke = one(h.env, 'SELECT calls, input_tokens FROM ai_spend WHERE pool = ? AND length(period) = 10', `fam:${f.a}`);
+  assert.equal(broke?.calls, 1); assert.equal(broke.input_tokens, 30);
 });

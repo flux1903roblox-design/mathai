@@ -255,6 +255,9 @@ CREATE TABLE IF NOT EXISTS refund_queue (
   result TEXT NOT NULL DEFAULT '' CHECK (length(result) <= 200)
 );
 CREATE INDEX IF NOT EXISTS refund_queue_open ON refund_queue (done_at, requested_at);
+-- At most one cooling-off and one pro-rata refund per plan, whatever two cancel requests do at the same moment
+-- (added by migration 0002).
+CREATE UNIQUE INDEX IF NOT EXISTS refund_queue_once ON refund_queue (subscription_id, reason) WHERE reason IN ('cooling_off', 'prorata');
 
 -- An outbox of service emails: written in the same batch as the change it reports, sent after, retried by the cron.
 CREATE TABLE IF NOT EXISTS notices (

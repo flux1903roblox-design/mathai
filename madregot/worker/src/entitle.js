@@ -250,6 +250,23 @@ async function freeKeys(req, env, id) {
   return { keys, anon, limit };
 }
 
+/**
+ * With the switch off (the behaviour before the paid tutor, and the one-variable rollback): a class student, a
+ * teacher, a device of a family whose plan is still live (it keeps its own key, so a family that is still paying is
+ * never counted as a stranger on its network, nor refused when ALLOW_SOLO_AI is "false"), else the network's solo key.
+ * strict: refuse with 403 solo_ai_off instead of returning null.
+ */
+async function openKey(req, env, id, { strict = false } = {}) {
+  const L = limits(env).open;
+  if (id.student) return key(`s:${id.student.id}`, L.student, { refundable: true, err: dailyErr('open', 'all', L.student) });
+  if (id.teacher) return key(`t:${id.teacher.code}`, L.teacher, { refundable: true, err: dailyErr('open', 'all', L.teacher) });
+  if (id.fam && (await liveFamily(env, id.fam.account_id))) {
+    return key(`fam:${id.fam.account_id}`, L.student, { refundable: true, err: dailyErr('open', 'all', L.student) });
+  }
+  if (soloOff(env)) { if (strict) throw new HttpError(403, 'solo_ai_off'); return null; }
+  return key(`solo:n:${await netKey(req, env)}`, L.solo, { refundable: true, err: dailyErr('open', 'all', L.solo) });
+}
+
 // ---------------------------------------------------------------- resolve: decide and count one AI request
 /**
  * Decide the tier for one AI request and count it. Returns
@@ -269,14 +286,7 @@ export async function resolve(req, env, kind, input) {
 async function decide(req, env, kind, input, id) {
   const g = KIND_GROUP[kind];
   if (!paywallOn(env)) {
-    const L = limits(env).open;
-    let k;
-    if (id.student) k = key(`s:${id.student.id}`, L.student, { refundable: true, err: dailyErr('open', 'all', L.student) });
-    else if (id.teacher) k = key(`t:${id.teacher.code}`, L.teacher, { refundable: true, err: dailyErr('open', 'all', L.teacher) });
-    else {
-      if (soloOff(env)) throw new HttpError(403, 'solo_ai_off');
-      k = key(`solo:n:${await netKey(req, env)}`, L.solo, { refundable: true, err: dailyErr('open', 'all', L.solo) });
-    }
+    const k = await openKey(req, env, id, { strict: true });
     const p = params(env, kind, input, 'full');
     const r = await take(env, [k]);
     if (!r.ok) throw r.error;
@@ -334,15 +344,12 @@ export async function aiStatus(req, env) {
   const aiReady = !!env.ANTHROPIC_API_KEY;
   const headers = id.famBad ? { 'X-AI-Linked': '0' } : {};
   if (!paywallOn(env)) {
-    const L = limits(env).open;
-    let k = null;
-    if (id.student) k = key(`s:${id.student.id}`, L.student);
-    else if (id.teacher) k = key(`t:${id.teacher.code}`, L.teacher);
-    else if (!soloOff(env)) k = key(`solo:n:${await netKey(req, env)}`, L.solo);
+    const k = await openKey(req, env, id);
     const [c] = k ? await peek(env, [k]) : [0];
     return {
       headers,
-      body: { paywall: false, tier: 'open', kinds: k ? AI_KINDS : [], groups: { all: k ? { left: left(k, c), limit: k.limit } : null }, aiReady },
+      // resetsAt: when today's count starts again, so a screen that stays open asks again after midnight
+      body: { paywall: false, tier: 'open', kinds: k ? AI_KINDS : [], groups: { all: k ? { left: left(k, c), limit: k.limit } : null }, resetsAt: resetsAt('day'), aiReady },
     };
   }
   const L = limits(env);

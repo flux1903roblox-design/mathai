@@ -52,6 +52,7 @@ const MESSAGES = {
   bad_plan: 'המסלול שנבחר לא קיים.',
   too_many_checkouts: 'היו הרבה ניסיונות תשלום בשעה האחרונה. נסו שוב בעוד שעה.',
   bad_idempotency_key: 'משהו בבקשה לא תקין. נסו שוב.',
+  order_closed: 'ההזמנה הקודמת כבר נסגרה. נסו שוב.',
   // cancel and resume
   no_subscription: 'לא מצאנו מנוי פעיל בחשבון הזה.',
   refund_window_closed: 'עברו 14 הימים להחזר מלא. אפשר לבטל, והעוזר נשאר פתוח עד סוף התקופה.',

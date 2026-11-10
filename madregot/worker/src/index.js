@@ -57,6 +57,31 @@ const cleanName = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 30
 const PIN_TRIES = 10;
 
 // ---------- AI ----------
+/**
+ * Follows what a streamed answer has cost so far (message_start, then message_delta), so a stream that is abandoned or
+ * breaks part-way is still priced: the input and the output already made are billed all the same. Output tokens are
+ * never counted below what was streamed (a rough count of 2 characters a token).
+ */
+function usageTracker() {
+  let seen = null; let chars = 0;
+  return {
+    event(ev) {
+      if (ev?.type === 'message_start') {
+        seen = { model: ev.message?.model, usage: { ...(ev.message?.usage || {}) } };
+      } else if (ev?.type === 'message_delta') {
+        if (seen && ev.usage) for (const [k, v] of Object.entries(ev.usage)) if (v !== null && v !== undefined) seen.usage[k] = v;
+      } else if (ev?.type === 'content_block_delta') {
+        chars += String(ev.delta?.text || ev.delta?.partial_json || ev.delta?.thinking || '').length;
+      }
+    },
+    /** What was spent so far, as a message priceOf reads; null when Claude was never reached. */
+    message() {
+      if (!seen) return null;
+      return { model: seen.model, usage: { ...seen.usage, output_tokens: Math.max(Number(seen.usage.output_tokens) || 0, Math.ceil(chars / 2)) } };
+    },
+  };
+}
+
 function aiHeaders(r) {
   return {
     'X-AI-Tier': r.tier, 'X-AI-Group': r.group, 'X-AI-Left': String(Math.max(0, r.left)),
@@ -85,14 +110,18 @@ async function handleAI(kind, req, env, ctx, cors) {
     const write = (text) => writer.write(enc.encode(text)).catch(() => { aborted = true; });
     const pump = (async () => {
       let stream;
+      let recorded = false;
+      const usage = usageTracker();
       try {
         stream = client.beta.messages.stream(r.params);
         for await (const ev of stream) {
+          usage.event(ev);
           if (aborted) { stream.abort(); break; }
           if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') await write(ev.delta.text);
         }
         if (!aborted) {
           const final = await stream.finalMessage();
+          recorded = true;
           await record(final);
           if (final.stop_reason === 'refusal') { await giveBackOnce(); await write('\n[[refusal]]'); }
         }
@@ -103,6 +132,9 @@ async function handleAI(kind, req, env, ctx, cors) {
           await write(`\n[[error:${aiErrorCode(e)}]]`);
         }
       } finally {
+        // the reader left, or the stream broke: what Claude already did is still priced
+        const partial = recorded ? null : usage.message();
+        if (partial) await record(partial);
         try { await writer.close(); } catch { /* the client went away */ }
       }
     })();
@@ -111,11 +143,21 @@ async function handleAI(kind, req, env, ctx, cors) {
   }
 
   let message;
+  const usage = usageTracker();
   try {
     // Long outputs (a whole exam) stream so the request never times out; we wait for the final message.
-    message = STREAMED(kind) ? await client.beta.messages.stream(r.params).finalMessage() : await client.beta.messages.create(r.params);
+    if (STREAMED(kind)) {
+      const stream = client.beta.messages.stream(r.params);
+      stream.on('streamEvent', (ev) => usage.event(ev));
+      message = await stream.finalMessage();
+    } else {
+      message = await client.beta.messages.create(r.params);
+    }
   } catch (e) {
     const code = aiErrorCode(e);
+    // a stream that broke part-way was billed for what it did
+    const partial = usage.message();
+    if (partial) ctx.waitUntil(record(partial));
     await giveBackOnce();
     console.error('ai', kind, code, e?.status, e?.message);
     throw new HttpError(code === 'busy' ? 429 : 502, code, undefined, undefined, headers);
@@ -359,6 +401,8 @@ function health(env) {
     soloAI: String(env.ALLOW_SOLO_AI) !== 'false', paywall: paywallOn(env), email: emailReady(env), checkout: onlineCheckout(env),
     billing: provider?.id || 'none', mode: env.BILLING_MODE === 'test' ? 'test' : 'live',
     deviceMint: String(env.FREE_DEVICE_MINT || 'off') === 'turnstile' ? 'turnstile' : 'off', turnstileSiteKey: env.TURNSTILE_SITE_KEY || null,
+    // whether the secrets that classes, sign-in and network counters need are set (never their values)
+    netKeys: !!env.IP_HASH_SECRET, auth: !!env.AUTH_SECRET,
   };
 }
 

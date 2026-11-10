@@ -87,7 +87,7 @@ function Checkout({ plans, linkCode, onError }) {
         )}
       </div>
       {picked && <p className="parents-sum">סה״כ לתשלום היום: {formatAgorot(picked.amountAgorot)} ({exempt ? 'המחיר סופי' : 'כולל מע״מ 18%'}). החיוב הבא: {next}.</p>}
-      {linkCode && <p className="muted">אחרי התשלום נחבר את המכשיר של הילד עם הקוד <bdi dir="ltr" className="mono">{linkCode}</bdi>.</p>}
+      {linkCode && <p className="muted">אחרי התשלום אפשר יהיה לחבר את המכשיר של הילד עם הקוד <bdi dir="ltr" className="mono">{linkCode}</bdi>.</p>}
       <section className="parents-disclosure" aria-label="פרטי העסק">
         <p><b>{b.name || 'מדרגות'}</b>{b.id ? ` · ${b.id}` : ''}</p>
         {b.address && <p>{b.address}</p>}
@@ -104,8 +104,10 @@ function Checkout({ plans, linkCode, onError }) {
 }
 
 // ---------------------------------------------------------------- back from the payment page: the order, until it is paid
-function OrderWait({ id, onDone }) {
-  const [state, setState] = useState('waiting'); // waiting | active | late | expired
+// The URL is never proof of payment: the order is asked for every 3 s, for up to 90 s. A payment that did not go
+// through (the order expired) or has not arrived yet hands the page back (onClosed): the plans and the pay button show
+// again, with a line that promises nothing.
+function OrderWait({ id, onDone, onClosed }) {
   const [planId, setPlanId] = useState(null);
   useEffect(() => {
     let stop = false; const started = Date.now();
@@ -114,21 +116,18 @@ function OrderWait({ id, onDone }) {
       try {
         const o = await pollOrder(id);
         setPlanId(o.plan);
-        if (o.status === 'paid' && o.subscription) { setState('active'); dropOrder(); endAttempt(o.plan); onDone?.(o); return; }
-        if (o.status === 'expired') { setState('expired'); dropOrder(); endAttempt(o.plan); return; }
+        if (o.status === 'paid' && o.subscription) { dropOrder(); endAttempt(o.plan); onDone?.(o); return; }
+        if (o.status === 'expired') { dropOrder(); endAttempt(o.plan); onClosed?.('expired'); return; }
       } catch { /* try again */ }
-      if (Date.now() - started >= 90_000) { setState('late'); return; }
+      if (Date.now() - started >= 90_000) { onClosed?.('late'); return; }
       setTimeout(tick, 3000);
     };
     tick();
     return () => { stop = true; };
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <section className={clsx('card parents-card parents-order', state === 'active' && 'is-good')} role="status" aria-live="polite">
-      {state === 'waiting' && <p className="parents-order-line">מאשרים את התשלום…</p>}
-      {state === 'active' && <p className="parents-order-line">{planId === 'class_year' ? 'רישיון הכיתה פעיל' : 'המנוי פעיל'}</p>}
-      {state === 'late' && <p>התשלום עוד בדרך אלינו. לפעמים זה לוקח כמה דקות. נשלח מייל ברגע שהמנוי פעיל, ואפשר לסגור את העמוד.</p>}
-      {state === 'expired' && <p>התשלום לא הושלם. אפשר לנסות שוב.</p>}
+    <section className="card parents-card parents-order" role="status" aria-live="polite">
+      <p className="parents-order-line">{planId === 'class_year' ? 'מאשרים את התשלום על הרישיון…' : 'מאשרים את התשלום…'}</p>
     </section>
   );
 }
@@ -141,6 +140,9 @@ function CancelSheet({ open, onOpenChange, plan, onCancelled, qa }) {
   useEffect(() => { if (open) { setMode('period_end'); setError(''); } }, [open]);
   if (!plan) return null;
   const ends = dateNum(plan.periodEnd);
+  // a failed payment: the grace days end with the cancellation, so the tutor works only to the period end, which may
+  // already have passed
+  const endsNow = plan.status === 'past_due' && Date.parse(plan.periodEnd) <= Date.now();
   const go = async () => {
     setBusy(true); setError('');
     try {
@@ -149,14 +151,16 @@ function CancelSheet({ open, onOpenChange, plan, onCancelled, qa }) {
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
   const options = [
-    { id: 'period_end', text: `לבטל בסוף התקופה (העוזר החכם פתוח עד ${ends})` },
+    { id: 'period_end', text: endsNow ? 'לבטל עכשיו, בלי חיובים נוספים' : `לבטל בסוף התקופה (העוזר החכם פתוח עד ${ends})` },
     plan.canRefundNow && { id: 'refund_now', text: `לבטל עכשיו ולקבל החזר מלא של ${formatAgorot(plan.priceAgorot)} (העוזר החכם ייסגר מיד)` },
     plan.canProrata && plan.prorataAgorot > 0 && { id: 'prorata', text: `לבטל עכשיו ולקבל החזר יחסי של ${formatAgorot(plan.prorataAgorot)} (העוזר החכם ייסגר מיד)` },
   ].filter(Boolean);
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title="לבטל את המנוי?">
       <div className="cancel-sheet stack">
-        <p className="lead">לא יהיו חיובים נוספים. העוזר החכם ימשיך לעבוד עד {ends}, ואז יחזור ל־2 שאלות ביום. התרגול, ההתקדמות ומדי נשארים כמו שהם.</p>
+        <p className="lead">{endsNow
+          ? 'לא יהיו חיובים נוספים. התשלום האחרון לא עבר, אז העוזר החכם יחזור עכשיו ל־2 שאלות ביום. התרגול, ההתקדמות ומדי נשארים כמו שהם.'
+          : `לא יהיו חיובים נוספים. העוזר החכם ימשיך לעבוד עד ${ends}, ואז יחזור ל־2 שאלות ביום. התרגול, ההתקדמות ומדי נשארים כמו שהם.`}</p>
         {options.length > 1 && (
           <div className="ob-opts" role="radiogroup" aria-label="איך לבטל">
             {options.map((o) => (
@@ -176,18 +180,21 @@ function CancelSheet({ open, onOpenChange, plan, onCancelled, qa }) {
 
 // ---------------------------------------------------------------- linking a child's device by its code
 const LINK_HOW = 'במכשיר של הילד פותחים אני ← הגדרות ← העוזר החכם ← חיבור למנוי משפחתי, ומקלידים כאן את הקוד שמופיע שם.';
-function LinkForm({ onLinked, qa, initial = '', intro = `חיבור המכשיר של הילד: ${LINK_HOW.replace('במכשיר של הילד', 'במכשיר שלו')}` }) {
+// A claimed code: the child's device takes its token when the screen with the code is open on it (it asks every few seconds)
+const LINKED_TEXT = 'קיבלנו את הקוד. המכשיר של הילד יתחבר ברגע שהמסך עם הקוד פתוח בו.';
+function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro = `חיבור המכשיר של הילד: ${LINK_HOW.replace('במכשיר של הילד', 'במכשיר שלו')}` }) {
   const [code, setCode] = useState(initial);
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const go = async (e) => {
     e.preventDefault(); setError(''); setBusy(true);
-    try { const r = qa ? { device: { label } } : await claimLink(code, label.trim()); setCode(''); setLabel(''); onLinked(r); } catch (err) { setError(err.message); } finally { setBusy(false); }
+    try { const r = qa ? { device: { label } } : await claimLink(code, label.trim()); setCode(''); setLabel(''); onLinked(r); } catch (err) { setError(err.message); onFailed?.(err); } finally { setBusy(false); }
   };
   return (
     <form className="stack parents-link" onSubmit={go} noValidate>
       <p>{intro}</p>
+      {notice && <p className="parents-note">{notice}</p>}
       <Field label="הקוד מהמכשיר של הילד" id="pl-code">
         <input id="pl-code" className="input mono sub-code" dir="ltr" value={code} maxLength={6} autoCapitalize="characters" autoComplete="off"
           onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} />
@@ -204,10 +211,14 @@ function LinkForm({ onLinked, qa, initial = '', intro = `חיבור המכשיר
 // ---------------------------------------------------------------- the plan card with its rows
 function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing }) {
   const p = acct.plan;
-  const [open, setOpen] = useState(null); // 'devices' | 'link' | 'payments'
+  const [open, setOpen] = useState(null); // 'devices' | 'link' | 'payments' | 'card'
   const [unlink, setUnlink] = useState(null);
   const [busy, setBusy] = useState(false);
   const canceled = p.status === 'canceled' || p.cancelAtPeriodEnd;
+  const pastDue = p.status === 'past_due' && !canceled;
+  const devices = acct.devices || [];
+  // receipts of the family's plans (a class licence the same account bought has its own card)
+  const payments = (acct.payments || []).filter((x) => x.planKind !== 'class');
   const resume = async () => {
     if (!p.canResume) { onRenew(); return; }
     setBusy(true);
@@ -217,59 +228,127 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing }) {
     const d = unlink; setUnlink(null);
     try { if (!qa) await unlinkDevice(d.id); toast('המכשיר נותק'); onChanged(); } catch (e) { toast.error(e.message); }
   };
-  const openPortal = async () => { try { if (!qa) await portal(); } catch (e) { toast.error(e.message); } };
+  // no payment page for the card at this provider: say who updates it, and how to reach us
+  const openPortal = async () => {
+    if (!p.portal) { setOpen(open === 'card' ? null : 'card'); return; }
+    try { if (!qa) await portal(); } catch (e) { toast.error(e.message); }
+  };
   const u = acct.usageWeek || {};
   let status;
   if (canceled) status = `המנוי בוטל. העוזר החכם פתוח עד ${dateNum(p.periodEnd)}, ולא יהיו חיובים נוספים.`;
+  else if (pastDue) status = 'התשלום האחרון לא עבר';
   else if (p.priceAgorot) status = `המנוי פעיל · החיוב הבא: ${formatAgorot(p.priceAgorot)} ב־${dateNum(p.periodEnd)}`;
   else status = `המנוי פעיל עד ${dateNum(p.periodEnd)}`;
+  const unlinkName = unlink?.label ? `במכשיר "${unlink.label}"` : 'במכשיר של הילד';
   return (
     <section className={clsx('card parents-card parents-plan', !canceled && 'is-on')} aria-labelledby="plan-title">
       <h2 id="plan-title" className="card-title">{status}</h2>
-      {p.status === 'past_due' && <p className="parents-warn">התשלום האחרון לא עבר. חברת הסליקה תנסה שוב בימים הקרובים, והעוזר החכם ממשיך לעבוד בינתיים.</p>}
+      {pastDue && <p className="parents-warn">חברת הסליקה תנסה שוב בימים הקרובים, והעוזר החכם ממשיך לעבוד עד {dateNum(p.accessUntil || p.periodEnd)}.</p>}
       {p.economy && <p className="parents-note">החודש השימוש גבוה במיוחד, אז עד ה־1 בחודש העוזר עונה בשיחה בגרסה קצרה, ובדיקות הצילום והמבחן נחות. כך כתוב בתקנון, בסעיף שימוש הוגן.</p>}
       {canceled && !renewing && <Button className="btn-block" onClick={resume} disabled={busy}>לחדש את המנוי</Button>}
       <p className="parents-usage">השבוע: {u.tutor || 0} שאלות לעוזר, {u.check || 0} בדיקות דף</p>
       <div className="parents-rows">
-        <button type="button" className="set-row" aria-expanded={open === 'devices'} onClick={() => setOpen(open === 'devices' ? null : 'devices')}>מכשירים מחוברים ({acct.devices?.length || 0})</button>
+        <button type="button" className="set-row" aria-expanded={open === 'devices'} onClick={() => setOpen(open === 'devices' ? null : 'devices')}>מכשירים מחוברים ({devices.length})</button>
         {open === 'devices' && (
           <ul className="parents-devices">
-            {(acct.devices || []).length === 0 && <li className="muted">עוד לא חובר מכשיר.</li>}
-            {(acct.devices || []).map((d) => (
+            {devices.length === 0 && <li className="muted">עוד לא חובר מכשיר.</li>}
+            {devices.map((d) => (
               <li key={d.id}>
-                <span>{d.label || 'מכשיר'} · חובר ב־{dateNum(d.linkedAt)} · שימוש אחרון {dateNum(d.lastSeen)}</span>
+                {/* a claimed code the child's device has yet to collect: it joins once the screen with the code is open on it */}
+                <span>{d.label || 'מכשיר'} · {d.pending ? 'ממתין לחיבור: פותחים במכשיר את המסך עם הקוד' : `חובר ב־${dateNum(d.linkedAt)} · שימוש אחרון ${dateNum(d.lastSeen)}`}</span>
                 <Button variant="ghost" className="btn-sm" onClick={() => setUnlink(d)}>ניתוק</Button>
               </li>
             ))}
           </ul>
         )}
-        {(acct.devices?.length || 0) < (acct.maxDevices || 3) && <button type="button" className="set-row" aria-expanded={open === 'link'} onClick={() => setOpen(open === 'link' ? null : 'link')}>חיבור מכשיר נוסף</button>}
-        {open === 'link' && <LinkForm qa={qa} onLinked={() => { toast.success('המכשיר של הילד חובר.'); setOpen('devices'); onChanged(); }} />}
-        {p.portal && <button type="button" className="set-row" onClick={openPortal}>עדכון אמצעי תשלום</button>}
+        {devices.length < (acct.maxDevices || 3) && <button type="button" className="set-row" aria-expanded={open === 'link'} onClick={() => setOpen(open === 'link' ? null : 'link')}>חיבור מכשיר נוסף</button>}
+        {open === 'link' && <LinkForm qa={qa} onLinked={() => { toast.success(LINKED_TEXT); setOpen('devices'); onChanged(); }} />}
+        {(p.portal || pastDue) && <button type="button" className="set-row" aria-expanded={p.portal ? undefined : open === 'card'} onClick={openPortal}>עדכון אמצעי תשלום</button>}
+        {open === 'card' && (
+          <p className="parents-note">עדכון אמצעי תשלום נעשה מול חברת הסליקה. כתבו לנו{plans?.contact ? <> אל <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a></> : ''} ונעזור.</p>
+        )}
         {!canceled && <button type="button" className="set-row" onClick={onCancel}>ביטול המנוי</button>}
         <button type="button" className="set-row" aria-expanded={open === 'payments'} onClick={() => setOpen(open === 'payments' ? null : 'payments')}>קבלות וחשבוניות</button>
-        {open === 'payments' && (
-          <div className="parents-payments">
-            {(acct.payments || []).length === 0 ? <p className="muted">עוד אין תשלומים.</p> : (
-              <ul>
-                {acct.payments.map((x) => (
-                  <li key={x.id}>
-                    <span>{dateNum(x.at)} · {formatAgorot(Math.abs(x.amountAgorot))} · {x.kind === 'charge' ? 'חיוב' : x.kind === 'refund' ? 'החזר' : 'ביטול עסקה'}</span>
-                    {x.hasInvoice && <Button variant="ghost" className="btn-sm" onClick={() => (qa ? null : openInvoice(x.id).catch((e) => toast.error(e.message)))}>חשבונית</Button>}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="footnote">חברת הסליקה שולחת קבלה או חשבונית על כל חיוב והחזר גם במייל.</p>
-          </div>
-        )}
+        {open === 'payments' && <Receipts payments={payments} qa={qa} />}
       </div>
       <ConfirmSheet open={!!unlink} onOpenChange={(o) => !o && setUnlink(null)} title="לנתק את המכשיר?" keep="להשאיר מחובר" confirm="כן, לנתק" onConfirm={doUnlink} mood="idle">
-        <p>העוזר החכם יחזור במכשיר הזה ל־2 שאלות ביום. אפשר לחבר אותו שוב בכל זמן.</p>
+        <p>העוזר החכם יחזור {unlinkName} ל־2 שאלות ביום. אפשר לחבר אותו שוב בכל זמן.</p>
       </ConfirmSheet>
     </section>
   );
 }
+
+// ---------------------------------------------------------------- class licences this account bought by card
+// A teacher sees each licence with its end date, its receipts and, while the licence can be refunded (14 days in
+// full, later pro rata), a cancel sheet. A licence does not renew, so there is nothing to stop at the period end.
+function ClassLicenceCard({ c, payments, plans, qa, onCancelled }) {
+  const p = c.plan;
+  const [open, setOpen] = useState(false);
+  const [sheet, setSheet] = useState(false);
+  const [mode, setMode] = useState(p.canRefundNow ? 'refund_now' : 'prorata');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const options = [
+    p.canRefundNow && { id: 'refund_now', text: `לבטל עכשיו ולקבל החזר מלא של ${formatAgorot(p.priceAgorot)}` },
+    p.canProrata && p.prorataAgorot > 0 && { id: 'prorata', text: `לבטל עכשיו ולקבל החזר יחסי של ${formatAgorot(p.prorataAgorot)}` },
+  ].filter(Boolean);
+  const mine = payments.filter((x) => x.subscriptionId === p.id);
+  const go = async () => {
+    setBusy(true); setError('');
+    try {
+      const r = qa ? { ok: true, status: 'ended', refundAgorot: p.priceAgorot, reference: 'C-7F3A' } : await cancelPlan(p.id, mode);
+      setSheet(false); onCancelled(r);
+    } catch (e) { setError(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <section className="card parents-card parents-plan is-on" aria-labelledby={`lic-${p.id}`}>
+      <h2 id={`lic-${p.id}`} className="card-title">רישיון הכיתה <bdi dir="ltr" className="mono">{c.classCode}</bdi> פעיל עד {dateNum(p.periodEnd)}</h2>
+      <p className="muted">{p.seats} מקומות · {formatAgorot(p.priceAgorot)} לשנה, {vatLine(plans?.vatMode)} · הרישיון לא מתחדש מעצמו</p>
+      <div className="parents-rows">
+        <button type="button" className="set-row" aria-expanded={open} onClick={() => setOpen(!open)}>קבלות וחשבוניות</button>
+        {open && <Receipts payments={mine} qa={qa} />}
+        {options.length > 0 && <button type="button" className="set-row" onClick={() => { setMode(options[0].id); setError(''); setSheet(true); }}>ביטול הרישיון</button>}
+      </div>
+      <Sheet open={sheet} onOpenChange={setSheet} title="לבטל את רישיון הכיתה?">
+        <div className="cancel-sheet stack">
+          <p className="lead">התלמידים בכיתה יחזרו ל־2 שאלות ביום לעוזר החכם. התרגול וההתקדמות שלהם נשארים כמו שהם.</p>
+          <div className="ob-opts" role="radiogroup" aria-label="איך לבטל">
+            {options.map((o) => (
+              <button key={o.id} type="button" role="radio" aria-checked={mode === o.id} className={clsx('ob-opt', mode === o.id && 'on')} onClick={() => setMode(o.id)}>
+                <span className="ob-opt-text"><span className="cancel-opt">{o.text}</span></span>
+              </button>
+            ))}
+          </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <Button className="btn-block btn-lg" onClick={go} disabled={busy}>{busy ? 'מבטלים…' : 'כן, לבטל'}</Button>
+          <Button variant="secondary" className="btn-block" onClick={() => setSheet(false)}>להשאיר את הרישיון</Button>
+        </div>
+      </Sheet>
+    </section>
+  );
+}
+
+/** Receipts and invoices: each charge or refund, with the payment company's invoice where there is one. */
+function Receipts({ payments, qa }) {
+  return (
+    <div className="parents-payments">
+      {payments.length === 0 ? <p className="muted">עוד אין תשלומים.</p> : (
+        <ul>
+          {payments.map((x) => (
+            <li key={x.id}>
+              <span>{dateNum(x.at)} · {formatAgorot(Math.abs(x.amountAgorot))} · {x.kind === 'charge' ? 'חיוב' : x.kind === 'refund' ? 'החזר' : 'ביטול עסקה'}</span>
+              {x.hasInvoice && <Button variant="ghost" className="btn-sm" onClick={() => (qa ? null : openInvoice(x.id).catch((e) => toast.error(e.message)))}>חשבונית</Button>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="footnote">חברת הסליקה שולחת קבלה או חשבונית על כל חיוב והחזר גם במייל.</p>
+    </div>
+  );
+}
+
+/** The cancellation number in an RTL line: isolated, left to right, never broken at its hyphen. */
+const Reference = ({ value }) => <bdi dir="ltr" className="mono" style={{ whiteSpace: 'nowrap' }}>{value}</bdi>;
 
 // ---------------------------------------------------------------- the account: sign out, the data, deleting
 function AccountRows({ email, qa, onGone }) {
@@ -301,7 +380,7 @@ function AccountRows({ email, qa, onGone }) {
           {del === 'code' ? (
             <>
               <p className="lead">כדי למחוק, שלחנו קוד חדש למייל.</p>
-              <EmailCodeForm lockedEmail={email} idPrefix="del" note={false} onSignedIn={remove} />
+              <EmailCodeForm lockedEmail={email} idPrefix="del" purpose="stepup" onSignedIn={remove} />
             </>
           ) : (
             <>
@@ -330,13 +409,23 @@ export default function Parents({ mode = 'home' }) {
   const [acct, setAcct] = useState(qa?.account ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [banners, setBanners] = useState([]); // what just happened: { tone, text }
-  const say = (b) => setBanners((list) => [...list.filter((x) => x.text !== b.text), b]);
+  // What just happened, one line at a time (a newer one replaces it, so old news never contradicts the plan card):
+  // { tone, text, node? }. It is focused and scrolled into view, so the result of an action is never off-screen.
+  const [banner, setBanner] = useState(null);
+  const bannerRef = useRef(null);
+  const say = (b) => setBanner({ ...b, at: Date.now() });
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!banner || !el) return;
+    el.focus?.({ preventScroll: true });
+    el.scrollIntoView?.({ block: 'center', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [banner]);
   const [claimed, setClaimed] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [renewing, setRenewing] = useState(false);
   const [linkedHere, setLinkedHere] = useState(false);
-  const autoCancel = useRef(false); const claiming = useRef(false);
+  const autoCancel = useRef(false);
+  const pendingPolls = useRef(0);
   const server = !qa?.nosrv && (qa || hasServer());
   const orderId = params.get('order');
 
@@ -365,34 +454,50 @@ export default function Parents({ mode = 'home' }) {
   useEffect(() => { window.scrollTo?.(0, 0); }, [liveSession?.token, qaSession?.token, linkedHere]);
 
   const plan = acct?.plan && RUNNING.includes(acct.plan.status) ? acct.plan : null;
-  const live = plan && ['active', 'past_due'].includes(plan.status) || (plan?.status === 'canceled');
+  const classLicences = (acct?.classes || []).filter((c) => c.plan && RUNNING.includes(c.plan.status));
 
-  // a code from the child's device is claimed as soon as there is a plan
+  // A device whose code was claimed shows as waiting until it collects its token: look again for a minute.
   useEffect(() => {
-    if (!live || !linkCode || claiming.current || qa) return;
-    claiming.current = true;
-    claimLink(linkCode).then(() => { dropLinkCode(); setClaimed(true); say({ tone: 'good', text: 'המכשיר של הילד חובר.' }); loadAccount(); })
-      .catch((e) => { say({ tone: 'note', text: e.message }); if (['link_expired', 'link_not_found', 'link_used'].includes(e.code)) dropLinkCode(); });
-  }, [live, linkCode]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (qa || !acct?.devices?.some((d) => d.pending)) { pendingPolls.current = 0; return undefined; }
+    if (pendingPolls.current >= 12) return undefined;
+    const t = setTimeout(() => { pendingPolls.current += 1; loadAccount(); }, 5000);
+    return () => clearTimeout(t);
+  }, [acct, qa, loadAccount]);
+
+  // A code from the child's device (the QR) is never claimed by itself: a link someone else sent would otherwise attach
+  // their device to this plan at a tap. The code waits, filled in, for the parent to press "חיבור המכשיר".
+  const linked = () => {
+    dropLinkCode(); setClaimed(true);
+    if (params.get('c')) { const next = new URLSearchParams(params); next.delete('c'); setParams(next, { replace: true }); }
+    say({ tone: 'good', text: LINKED_TEXT }); loadAccount();
+  };
+  const linkFailed = (e) => { if (['link_expired', 'link_not_found', 'link_used'].includes(e.code)) dropLinkCode(); };
   // /cancel after sign-in: the cancel sheet opens by itself
   useEffect(() => {
     if (mode === 'cancel' && plan && !plan.cancelAtPeriodEnd && plan.status !== 'canceled' && !autoCancel.current) { autoCancel.current = true; setCancelOpen(true); }
   }, [mode, plan]);
 
   const signedIn = (r) => { if (qa) setQaSession({ token: 'qa', email: r?.email || 'parent@example.test' }); };
-  const gone = () => { if (qa) setQaSession(null); setAcct(null); setBanners([]); };
-  const cancelled = (r) => {
+  const gone = () => { if (qa) setQaSession(null); setAcct(null); setBanner(null); };
+  const cancelled = (r, { licence = false } = {}) => {
     setCancelOpen(false);
     const refund = r.refundAgorot > 0 ? ' ההחזר יגיע לאמצעי התשלום תוך 14 ימים לכל היותר.' : '';
-    say({ tone: 'good', text: `ביטלתם. שלחנו אישור למייל. מספר אישור: ${r.reference}.${refund}` });
-    if (qa) setAcct({ ...acct, plan: { ...acct.plan, status: r.status, cancelAtPeriodEnd: true } }); else loadAccount();
+    const lead = licence ? 'ביטלתם את רישיון הכיתה.' : 'ביטלתם.';
+    say({ tone: 'good', text: `${lead} שלחנו אישור למייל. מספר אישור: ${r.reference}.${refund}`, node: <>{lead} שלחנו אישור למייל. מספר אישור: <Reference value={r.reference} />.{refund}</> });
+    if (qa) { if (!licence) setAcct({ ...acct, plan: { ...acct.plan, status: r.status, cancelAtPeriodEnd: true } }); } else loadAccount();
   };
   const thisDevice = async () => {
     try { await linkThisDevice(''); flag.set(false); setLinkedHere(true); setAcct(null); } catch (e) { say({ tone: 'note', text: e.message }); }
   };
+  const dropOrderParam = () => { const next = new URLSearchParams(params); next.delete('order'); setParams(next, { replace: true }); };
   const orderDone = (o) => {
     say({ tone: 'good', text: o?.plan === 'class_year' ? 'רישיון הכיתה פעיל' : 'המנוי פעיל' });
-    const next = new URLSearchParams(params); next.delete('order'); setParams(next, { replace: true }); loadAccount();
+    dropOrderParam(); loadAccount();
+  };
+  // a payment that did not go through, or has not arrived after 90 s: the plans and the pay button come back
+  const orderClosed = (why) => {
+    say({ tone: 'note', text: why === 'expired' ? 'התשלום לא הושלם. אפשר לנסות שוב.' : 'אם התשלום עבר, יגיע מייל ברגע שהמנוי פעיל. אם לא, אפשר לנסות שוב.' });
+    dropOrderParam(); loadAccount();
   };
 
   let body;
@@ -425,7 +530,7 @@ export default function Parents({ mode = 'home' }) {
         {(plans.paywall !== false || mode === 'cancel') && (
           <section className="card parents-card" aria-labelledby="signin-title">
             <h2 id="signin-title" className="card-title">כניסה עם המייל</h2>
-            <EmailCodeForm onSignedIn={signedIn} idPrefix="pa" startStep={qa?.step === 'code' ? 'code' : 'email'} presetEmail={qa?.step === 'code' ? 'parent@example.test' : ''} />
+            <EmailCodeForm onSignedIn={signedIn} idPrefix="pa" purpose={mode === 'cancel' ? 'cancel' : 'join'} startStep={qa?.step === 'code' ? 'code' : 'email'} presetEmail={qa?.step === 'code' ? 'parent@example.test' : ''} />
           </section>
         )}
       </>
@@ -441,10 +546,14 @@ export default function Parents({ mode = 'home' }) {
   } else {
     body = (
       <>
-        {orderId && <OrderWait id={orderId} onDone={orderDone} />}
+        {orderId && <OrderWait id={orderId} onDone={orderDone} onClosed={orderClosed} />}
         {qa?.confirming && <section className="card parents-card parents-order" role="status"><p className="parents-order-line">מאשרים את התשלום…</p></section>}
-        {banners.map((b) => <section key={b.text} className={clsx('card parents-card parents-banner', b.tone === 'good' && 'is-good')} role="status"><p>{b.text}</p></section>)}
-        {banners.some((b) => b.text === 'רישיון הכיתה פעיל') && role === 'teacher' && <Link to="/teacher" className="btn btn-primary btn-block">חזרה ללוח המורה</Link>}
+        {banner && (
+          <section key={banner.at} ref={bannerRef} tabIndex={-1} className={clsx('card parents-card parents-banner', banner.tone === 'good' && 'is-good')} role="status">
+            <p>{banner.node || banner.text}</p>
+          </section>
+        )}
+        {banner?.text === 'רישיון הכיתה פעיל' && role === 'teacher' && <Link to="/teacher" className="btn btn-primary btn-block">חזרה ללוח המורה</Link>}
         {acct.billingHold && <p className="parents-warn">יש בירור פתוח על תשלום קודם. כתבו אלינו אל {plans.contact ? <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a> : 'מדרגות'}.</p>}
         {plans.paywall === false && <section className="card parents-card"><p className="card-title">כרגע העוזר החכם פתוח בלי מנוי.</p></section>}
         {plan && <PlanCard acct={acct} plans={plans} qa={!!qa} onChanged={loadAccount} onCancel={() => setCancelOpen(true)} onRenew={() => setRenewing(true)} renewing={renewing} />}
@@ -454,12 +563,22 @@ export default function Parents({ mode = 'home' }) {
             <Button className="btn-block btn-lg" onClick={thisDevice}>להפעיל את העוזר החכם במכשיר הזה</Button>
           </section>
         )}
+        {plan && !here && linkCode && !claimed && (
+          <section className="card parents-card" aria-labelledby="qr-link">
+            <h2 id="qr-link" className="card-title">חיבור המכשיר של הילד</h2>
+            <LinkForm qa={!!qa} initial={linkCode} intro="הקוד מהמכשיר של הילד כבר כאן. אפשר לתת למכשיר שם, ואז ללחוץ על חיבור המכשיר."
+              notice="המכשיר שמציג את הקוד הזה יקבל את העוזר החכם דרך המנוי שלכם. חברו רק מכשיר של הילד שלכם." onLinked={linked} onFailed={linkFailed} />
+          </section>
+        )}
         {plan && !here && !linkCode && !claimed && (acct.devices?.length || 0) === 0 && (
           <section className="card parents-card" aria-labelledby="first-link">
             <h2 id="first-link" className="card-title">חיבור המכשיר של הילד</h2>
-            <LinkForm qa={!!qa} intro={LINK_HOW} onLinked={() => { setClaimed(true); say({ tone: 'good', text: 'המכשיר של הילד חובר.' }); loadAccount(); }} />
+            <LinkForm qa={!!qa} intro={LINK_HOW} onLinked={linked} />
           </section>
         )}
+        {classLicences.map((c) => (
+          <ClassLicenceCard key={c.plan.id} c={c} payments={acct.payments || []} plans={plans} qa={!!qa} onCancelled={(r) => cancelled(r, { licence: true })} />
+        ))}
         {(!plan || renewing) && !acct.billingHold && plans.paywall !== false && !orderId && role !== 'teacher' && (
           <section className="card parents-card" aria-labelledby="join-title">
             <h2 id="join-title" className="card-title">{plan ? 'מנוי חדש' : 'אין מנוי פעיל'}</h2>

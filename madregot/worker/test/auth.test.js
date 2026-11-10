@@ -33,7 +33,7 @@ test('code: the same reply for a new and a known address; the email holds the co
   assert.equal(rows(h.env, "SELECT * FROM accounts WHERE email = 'new@example.test'").length, 0, 'an address that never signed in is not stored');
 });
 
-test('code: a 60-second wait to resend, 5 per address a day, 40 per network, 1000 in total', async () => {
+test('code: a 60-second wait to resend, 5 per address from one network, 15 per address, 40 per network, a global cap', async () => {
   h = await setup();
   assert.equal((await sendCode('a@example.test')).status, 200);
   const wait = await sendCode('a@example.test');
@@ -44,12 +44,77 @@ test('code: a 60-second wait to resend, 5 per address a day, 40 per network, 100
   advanceClock(61_000);
   const sixth = await sendCode('a@example.test');
   assert.equal(sixth.status, 429); assert.equal((await sixth.json()).error, 'too_many_codes');
+  // the same address from other networks: 15 in all
+  for (let i = 0; i < 10; i++) { advanceClock(61_000); assert.equal((await sendCode('a@example.test', { ip: `198.51.100.${100 + Math.floor(i / 5)}` })).status, 200, `send ${i}`); }
+  advanceClock(61_000);
+  assert.equal((await sendCode('a@example.test', { ip: '198.51.100.120' })).status, 429, 'the 16th to one address');
   await setCount(h.env, `mail:n:${await netOf(h.env)}`, 40);
   assert.equal((await sendCode('b@example.test')).status, 429);
   assert.equal((await sendCode('b@example.test', { ip: '198.51.100.20' })).status, 200);
-  await setCount(h.env, 'mail:all', 1000);
-  assert.equal((await sendCode('c@example.test', { ip: '198.51.100.21' })).status, 429);
-  assert.equal(h.net.log.email.length, 6);
+  await setCount(h.env, 'mail:all', 3000);
+  const full = await sendCode('c@example.test', { ip: '198.51.100.21' });
+  assert.equal(full.status, 429);
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind LIKE 'owner:mail_cap:%'").length, 1, 'the owner hears that sign-in stopped');
+  await sendCode('d@example.test', { ip: '198.51.100.22' });
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind LIKE 'owner:mail_cap:%'").length, 1, 'once a day');
+  assert.equal(h.net.log.email.length, 16);
+});
+
+test('code: the global cap is a var (MAIL_DAILY_CAP); IPv6 counts by its /48, so 25 /64s of one allocation share one network cap', async () => {
+  h = await setup({ MAIL_DAILY_CAP: '5000' });
+  let sent = 0;
+  for (let net = 0; net < 25; net++) {
+    for (let i = 0; i < 4; i++) {
+      const r = await sendCode(`x${net}-${i}@example.test`, { ip: `2001:db8:0:${net.toString(16)}::${i + 1}` });
+      if (r.status === 200) sent++;
+    }
+  }
+  assert.equal(sent, 40, 'one /48 sends 40 codes a day, however many /64s it has');
+  const other = await sendCode('parent@example.test', { ip: '2001:db8:1:1::1' });
+  assert.equal(other.status, 200, 'another allocation is not affected');
+  await setCount(h.env, 'mail:all', 4999);
+  assert.equal((await sendCode('one-more@example.test', { ip: '203.0.113.60' })).status, 200);
+  assert.equal((await sendCode('too-many@example.test', { ip: '203.0.113.61' })).status, 429);
+});
+
+test('verify: a stranger who knows the address cannot lock its owner out (30 wrong codes a day per network)', async () => {
+  h = await setup();
+  const victim = 'parent@example.test';
+  const attacker = '198.51.100.9';
+  const guess = () => h.call('POST', '/api/account/verify', { body: { email: victim, code: '000000' }, ip: attacker });
+  // the attacker asks for codes (they go to the victim) and sends wrong ones after each: 5 sends, 25 wrong codes
+  for (let i = 0; i < 5; i++) {
+    assert.equal((await sendCode(victim, { ip: attacker })).status, 200);
+    for (let k = 0; k < 5; k++) assert.equal((await guess()).status, 403);
+    advanceClock(61_000);
+  }
+  assert.equal((await sendCode(victim, { ip: attacker })).status, 429, 'its 5 sends to that address are used up');
+  // the victim's own sends are untouched; the attacker can still spoil one code with its last 5 wrong codes...
+  assert.equal((await sendCode(victim, { ip: '203.0.113.50' })).status, 200);
+  for (let k = 0; k < 5; k++) assert.equal((await guess()).status, 403);
+  // ...and is stopped there: the victim's next code is safe from that network for the rest of the day
+  advanceClock(61_000);
+  assert.equal((await sendCode(victim, { ip: '203.0.113.50' })).status, 200);
+  const code = codeFromEmail(h.net.log.email.at(-1));
+  const late = await guess();
+  assert.equal(late.status, 429); assert.equal((await late.json()).error, 'too_many_tries');
+  assert.equal(one(h.env, 'SELECT tries FROM login_codes').tries, 0, 'the stopped network spent no try of the new code');
+  const ok = await h.call('POST', '/api/account/verify', { body: { email: victim, code }, ip: '203.0.113.50' });
+  assert.equal(ok.status, 200);
+});
+
+test('verify: a right code, an expired code or no code at all never counts against the network', async () => {
+  h = await setup();
+  const net = await netOf(h.env);
+  await sendCode('fine@example.test');
+  const code = codeFromEmail(h.net.log.email.at(-1));
+  await verify('nobody@example.test', '123456');
+  assert.equal((await verify('fine@example.test', code)).status, 200);
+  assert.equal(rows(h.env, 'SELECT count FROM ai_usage WHERE who = ?', `verify:n:${net}`)[0]?.count || 0, 0);
+  advanceClock(61_000);
+  await sendCode('fine@example.test');
+  await verify('fine@example.test', '000000');
+  assert.equal(rows(h.env, 'SELECT count FROM ai_usage WHERE who = ?', `verify:n:${net}`)[0].count, 1);
 });
 
 test('verify: a wrong code counts down; 5 wrong end the code; 10 parallel wrong guesses never pass 5 tries', async () => {

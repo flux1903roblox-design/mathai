@@ -99,7 +99,7 @@ npx wrangler secret put ANTHROPIC_API_KEY
 | `ALLOWED_ORIGINS` | כתובות נוספות שמותר להן לפנות לשרת (פיתוח מקומי, או עותק של האפליקציה שמתארח במקום אחר) | localhost |
 | `AI_PAYWALL` | `on` מפעיל את המנוי לעוזר (טעימה חינם, מנוי משפחתי, רישיון כיתה). כל השאר ב־`SUBSCRIPTION.md` | `off` |
 
-מאז המנוי לעוזר, השרת צריך גם את הסודות `AUTH_SECRET` ו־`IP_HASH_SECRET` (כל אחד `openssl rand -hex 32`, עם `npx wrangler secret put`). בלי `IP_HASH_SECRET` השרת עונה `server_config` בפעולות שסופרות לפי רשת, כי הוא לא שומר כתובות רשת.
+מאז המנוי לעוזר, השרת צריך גם את הסודות `AUTH_SECRET` ו־`IP_HASH_SECRET` (כל אחד `openssl rand -hex 32`, עם `npx wrangler secret put`). בלי `IP_HASH_SECRET` השרת עונה `server_config` בפעולות שסופרות לפי רשת (יצירת כיתה, הצטרפות, העוזר בלי כיתה), כי הוא לא שומר כתובות רשת. `setup.ps1` יוצר את שניהם, ו־`deploy.ps1` עוצר לפני הפרסום אם אחד מהם חסר. ב־`/api/health` השדות `netKeys` ו־`auth` אומרים אם הם מוגדרים.
 
 גרסה בלי שרת בכלל (רק תרגול לבד, בלי כיתה ובלי עוזר): בונים עם `VITE_API_URL=none npm run build --prefix web` ומעלים את `web/dist` לכל אחסון של קבצים סטטיים.
 

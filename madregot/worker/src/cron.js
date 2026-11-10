@@ -49,13 +49,15 @@ export const expireOrders = (env) => env.DB.prepare("UPDATE orders SET status = 
 export async function reconcile(env, { limit = 100 } = {}) {
   const now = nowIso();
   const grace = addDays(now, -limits(env).graceDays);
+  // every renewing plan past its period, also one stored without the provider's subscription id (nothing can be pulled
+  // for it, so it ends after the grace days like a plan the provider does not know, instead of staying 'active' forever)
   const due = await all(env, `SELECT * FROM subscriptions WHERE kind = 'family' AND plan IN ('family_month', 'family_year')
-    AND status IN ('active', 'past_due') AND provider_subscription_id IS NOT NULL AND current_period_end <= ? ORDER BY current_period_end LIMIT ?`, now, limit);
+    AND status IN ('active', 'past_due') AND current_period_end <= ? ORDER BY current_period_end LIMIT ?`, now, limit);
   const out = { checked: due.length, extended: 0, ended: 0, failed: 0 };
   for (const sub of due) {
     const provider = providerById(env, sub.provider);
     let truth = null;
-    try { truth = provider ? await provider.fetchSubscription(env, sub) : null; } catch { out.failed++; continue; }
+    try { truth = provider && sub.provider_subscription_id ? await provider.fetchSubscription(env, sub) : null; } catch { out.failed++; continue; }
     const periodEnd = truth?.periodEnd && Number.isFinite(Date.parse(truth.periodEnd)) ? new Date(Date.parse(truth.periodEnd)).toISOString() : null;
     if (truth?.status === 'active' && periodEnd && periodEnd > sub.current_period_end && periodEnd > now) {
       await env.DB.batch([

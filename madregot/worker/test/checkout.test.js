@@ -121,3 +121,44 @@ test('an order is visible to its own account only', async () => {
   const stranger = await signIn(h, 'other@example.test');
   assert.equal((await h.call('GET', `/api/billing/orders/${orderId}`, { headers: { 'X-Account-Token': stranger } })).status, 404);
 });
+
+test('an old Idempotency-Key opens no payment page for a paid or expired order, nor on hold, nor beside a live plan', async () => {
+  h = await setup();
+  const t = await signIn(h, 'replay@example.test');
+  const err = async (r, status, code) => { assert.equal(r.status, status); assert.equal((await r.json()).error, code); };
+  const first = await (await buy(t, { plan: 'family_month' })).json();
+  // the same attempt while its order is open: the same order again
+  assert.equal((await (await buy(t, { plan: 'family_month' })).json()).orderId, first.orderId);
+  // the order is paid: the old key no longer opens a page (the app makes a new key)
+  h.env.DB.raw.prepare("UPDATE orders SET status = 'paid' WHERE id = ?").run(first.orderId);
+  await err(await buy(t, { plan: 'family_month' }), 409, 'order_closed');
+  // an expired order under its key: the same
+  const second = await (await buy(t, { plan: 'family_month' }, { key: 'second-attempt-0123456' })).json();
+  h.env.DB.raw.prepare('UPDATE orders SET expires_at = ? WHERE id = ?').run(new Date(Date.now() - 1000).toISOString(), second.orderId);
+  await err(await buy(t, { plan: 'family_month' }, { key: 'second-attempt-0123456' }), 409, 'order_closed');
+  // an open order, but a plan went live in the meantime
+  const third = await (await buy(t, { plan: 'family_month' }, { key: 'third-attempt-01234567' })).json();
+  assert.ok(third.orderId);
+  const sub = insertSub(h.env, { kind: 'family', account_id: accountId(h.env, 'replay@example.test') });
+  await err(await buy(t, { plan: 'family_month' }, { key: 'third-attempt-01234567' }), 409, 'already_subscribed');
+  // a billing hold (a chargeback): no page at all, even for an open attempt
+  h.env.DB.raw.prepare("UPDATE subscriptions SET status = 'ended' WHERE id = ?").run(sub.id);
+  h.env.DB.raw.prepare('UPDATE accounts SET billing_hold_at = ?').run(new Date().toISOString());
+  await err(await buy(t, { plan: 'family_month' }, { key: 'third-attempt-01234567' }), 403, 'billing_hold');
+});
+
+test('a family plan still marked active long after its period and grace ended does not block a new checkout', async () => {
+  h = await setup();
+  const t = await signIn(h, 'stale@example.test');
+  const a = accountId(h.env, 'stale@example.test');
+  // no renewal and no provider id: it was never going to be reconciled
+  const old = insertSub(h.env, { kind: 'family', account_id: a, start: new Date(Date.now() - 40 * 864e5).toISOString(), end: new Date(Date.now() - 4 * 864e5).toISOString() });
+  const r = await buy(t, { plan: 'family_month' });
+  assert.equal(r.status, 201);
+  const s = one(h.env, 'SELECT status, ended_reason FROM subscriptions WHERE id = ?', old.id);
+  assert.equal(s.status, 'ended'); assert.equal(s.ended_reason, 'payment_failed');
+  // inside the grace days it still counts as live
+  const t2 = await signIn(h, 'grace@example.test');
+  insertSub(h.env, { kind: 'family', account_id: accountId(h.env, 'grace@example.test'), start: new Date(Date.now() - 31 * 864e5).toISOString(), end: new Date(Date.now() - 864e5).toISOString() });
+  assert.equal((await buy(t2, { plan: 'family_month' }, { key: 'grace-attempt-0123456789' })).status, 409);
+});

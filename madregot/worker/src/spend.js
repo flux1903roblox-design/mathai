@@ -11,13 +11,17 @@ export const PRICES = {
   'claude-sonnet-5-5': { input: 2000, output: 10000, cacheRead: 100, cacheWrite: 2500 },
   // the low-cost model's cache prices assume the usual 0.1x read and 1.25x write ratios
   'claude-haiku-5-5': { input: 100, output: 500, cacheRead: 10, cacheWrite: 125 },
+  // models a declined request may be rerun on by the server-side fallback; they cost more than the main model
+  'claude-opus-5': { input: 5000, output: 25000, cacheRead: 500, cacheWrite: 6250 },
+  'claude-opus-4-8': { input: 5000, output: 25000, cacheRead: 500, cacheWrite: 6250 },
 };
-const HIGHEST = Object.values(PRICES).reduce((m, p) => ({
-  input: Math.max(m.input, p.input), output: Math.max(m.output, p.output),
-  cacheRead: Math.max(m.cacheRead, p.cacheRead), cacheWrite: Math.max(m.cacheWrite, p.cacheWrite),
-}), { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
-/** The price of a model; an unknown model is priced at the highest rate in the table. */
-export const priceFor = (model) => PRICES[String(model || '')] || HIGHEST;
+/**
+ * Any other model: a deliberately high price (above every model the tutor may run on, fallbacks included), so the
+ * ledger, the breakers and economy mode never count less than was spent.
+ */
+export const UNKNOWN_PRICE = { input: 10000, output: 50000, cacheRead: 1000, cacheWrite: 12500 };
+/** The price of a model; an unknown model is priced at UNKNOWN_PRICE. */
+export const priceFor = (model) => PRICES[String(model || '')] || UNKNOWN_PRICE;
 
 const n = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.floor(Number(v)) : 0);
 function tokensOf(u) {

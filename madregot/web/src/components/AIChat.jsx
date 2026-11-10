@@ -31,12 +31,25 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
   const [streaming, setStreaming] = useState('');
   const [error, setError] = useState('');
   const listRef = useRef(null);
+  const endRef = useRef(null);
+  const dockRef = useRef(null);
   const abortRef = useRef(null);
 
   // A conversation kept outside is not cut off when the chat closes: the reply still arrives there.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => () => { if (!onMessages) abortRef.current?.abort(); }, []);
-  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' }); }, [messages, streaming, pending]);
+  // The newest answer is scrolled into view above the docked input (and the calm card when the tutor rests), in
+  // whatever scrolls: the page on the assistant screen, the sheet in a lesson. Nothing moves before the first message.
+  useEffect(() => {
+    if (!messages.length && !pending) return;
+    const end = endRef.current;
+    if (!end?.scrollIntoView) return;
+    const dockTop = dockRef.current?.getBoundingClientRect().top;
+    const covered = Number.isFinite(dockTop) ? Math.max(0, window.innerHeight - dockTop) : 0;
+    end.style.scrollMarginBottom = `${Math.round(covered) + 8}px`;
+    const still = streaming || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    end.scrollIntoView({ block: 'end', behavior: still ? 'auto' : 'smooth' });
+  }, [messages, streaming, pending, resting]);
 
   const send = async (text) => {
     const content = (text ?? draft).trim();
@@ -71,7 +84,7 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={i} className={`msg-row ${m.role}`}>
+          <div key={i} className={`msg-row ${m.role}`} ref={!pending && i === messages.length - 1 ? endRef : undefined}>
             {m.role === 'assistant' && <Mascot mood="idle" size={34} className="msg-avatar" />}
             <div className={`msg ${m.role}`}>
               {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : <p>{m.content}</p>}
@@ -79,7 +92,7 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
           </div>
         ))}
         {pending && (
-          <div className="msg-row assistant">
+          <div className="msg-row assistant" ref={endRef}>
             <Mascot mood="thinking" size={34} className="msg-avatar" />
             <div className="msg assistant">
               {streaming ? <p className="streaming">{streaming}</p> : <Thinking states={THINK} />}
@@ -89,7 +102,7 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
         {error && <p className="form-error" role="alert">{error}</p>}
         {!pending && !resting && <AIAllowance className="chat-left" kind="chat" />}
       </div>
-      <div className="chat-dock-live" data-region="footer">
+      <div className="chat-dock-live" data-region="footer" ref={dockRef}>
         {resting && (
           <section className="chat-rest" role="status" aria-label="העוזר החכם">
             <p>{access.state === 'used' ? 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.' : 'העוזר החכם נח היום. מחר הוא חוזר.'}</p>

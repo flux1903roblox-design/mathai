@@ -4,8 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Footprints, Target, Users, Repeat, Hand, ClipboardList } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { useApp } from '@/lib/store.js';
+import { useApp, STORE_KEY } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
+import { useAIStatus, refreshStatus } from '@/lib/account.js';
 import { Button, Field } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { Flow } from '@/components/Screen.jsx';
@@ -81,6 +82,13 @@ function Onboarding({ onTeacher }) {
   };
   // each question of the first visit opens at its top
   useEffect(() => { window.scrollTo(0, 0); }, [i]);
+  // The parents' links (and the cancel link) are for a server that sells the tutor: they show once the server says
+  // the switch is on, or when a parent already signed in on this device. With AI_PAYWALL off there is nothing to
+  // join or cancel.
+  const status = useAIStatus((x) => x.status);
+  useEffect(() => { if (server && !useAIStatus.getState().status) refreshStatus(); }, [server]);
+  const parentHere = (() => { try { return !!(localStorage.getItem(`${STORE_KEY}-parent`) || sessionStorage.getItem(`${STORE_KEY}-parent`)); } catch { return false; } })();
+  const billing = server && (status?.paywall === true || parentHere);
 
   const go = async () => {
     if (step === 'name' && !f.name.trim()) { setError('כתבו את השם שלכם.'); return; }
@@ -113,11 +121,12 @@ function Onboarding({ onTeacher }) {
         <footer className="hello-foot" data-region="footer">
           <Button className="btn-block btn-lg" onClick={() => setI(0)}>מתחילים</Button>
           <Button variant="secondary" className="btn-block" onClick={onTeacher}>אני מורה</Button>
-          {/* the site's front page carries the dedicated cancel link, and the parents' and legal pages (with a server) */}
-          {hasServer() && (
-            <nav className="hello-legal" aria-label="להורים ומידע משפטי">
-              <Link to="/parents">להורים</Link>
-              <Link to="/cancel">ביטול מנוי</Link>
+          {/* the site's front page carries the dedicated cancel link and the parents' page while the tutor is sold,
+              and the legal pages (with a server) */}
+          {server && (
+            <nav className="hello-legal" aria-label={billing ? 'להורים ומידע משפטי' : 'מידע משפטי'}>
+              {billing && <Link to="/parents">להורים</Link>}
+              {billing && <Link to="/cancel">ביטול מנוי</Link>}
               <Link to="/terms">תקנון</Link>
               <Link to="/privacy">פרטיות</Link>
               <Link to="/accessibility">נגישות</Link>

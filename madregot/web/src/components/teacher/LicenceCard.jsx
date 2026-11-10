@@ -46,7 +46,10 @@ export default function LicenceCard({ cls }) {
 
   const offer = lic.offer || {};
   const until = lic.until ? dateNum(lic.until) : '';
-  const asks = !['trial', 'active'].includes(lic.status);
+  // a running licence (also one that is ending: its renewal is a quote) offers no trial, card purchase or code; the
+  // server refuses those while a licence runs. A trial gives way to a school's licence code.
+  const asks = !['trial', 'active', 'ending'].includes(lic.status);
+  const codeAllowed = !['active', 'ending'].includes(lic.status);
   const kinds = { trial: 'ניסיון', quote: 'הצעת מחיר' };
   let title = 'העוזר החכם בכיתה';
   let lines = [];
@@ -80,7 +83,7 @@ export default function LicenceCard({ cls }) {
           )}
         </div>
       )}
-      {lic.status !== 'trial' && lic.status !== 'active' && (
+      {codeAllowed && (
         codeOpen ? <CodeForm cls={cls} onDone={() => { setCodeOpen(false); load(); }} />
           : <button type="button" className="link-btn" onClick={() => setCodeOpen(true)}>יש לי קוד רישיון מבית הספר</button>
       )}

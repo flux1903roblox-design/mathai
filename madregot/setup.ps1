@@ -37,7 +37,20 @@ $out = npx wrangler deploy 2>&1 | Out-String
 Write-Host $out
 $url = [regex]::Match($out, 'https://[\w.-]+\.workers\.dev').Value
 
-Write-Host "=== 6/6: Saving the Claude API key on the server ===" -ForegroundColor Cyan
+Write-Host "=== 6/6: Secrets on the server ===" -ForegroundColor Cyan
+# AUTH_SECRET (sign-in codes, link codes) and IP_HASH_SECRET (network counters without storing any address): random
+# 32-byte values made here, sent straight to Cloudflare and never written to a file. An existing value is kept.
+function New-HexSecret {
+  $bytes = New-Object byte[] 32
+  [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+  ($bytes | ForEach-Object { $_.ToString('x2') }) -join ''
+}
+$existing = (npx wrangler secret list 2>&1 | Out-String)
+foreach ($name in @('AUTH_SECRET', 'IP_HASH_SECRET')) {
+  if ($existing -match ('"' + $name + '"')) { Write-Host "$name is already set; keeping it." }
+  else { New-HexSecret | npx wrangler secret put $name; Write-Host "$name created." -ForegroundColor Green }
+}
+Write-Host "Saving the Claude API key on the server" -ForegroundColor Cyan
 Write-Host "Paste your Anthropic API key (starts with sk-ant-) when asked. It stays on Cloudflare, never in the app." -ForegroundColor Yellow
 npx wrangler secret put ANTHROPIC_API_KEY
 Pop-Location
@@ -45,5 +58,5 @@ Pop-Location
 Write-Host ""
 Write-Host "Done. Madregot is live at:" -ForegroundColor Green
 if ($url) { Write-Host $url } else { Write-Host "(see the workers.dev address in the deploy output above)" }
-Write-Host "Check the AI connection at: $url/api/health  (ai should be true)"
+Write-Host "Check the server at: $url/api/health  (ai, netKeys and auth should all be true)"
 Write-Host "Later updates: .\deploy.ps1"

@@ -1,6 +1,8 @@
 // Payment providers, chosen by BILLING_PROVIDER. Each adapter has the same shape (see manual.js and test.js):
 // capabilities, createCheckout, verify, parse (hints only, never trusted to grant), fetchTruth (the state pulled with
 // our credentials), acknowledge, cancel, resume, refund, fetchSubscription and portalUrl.
+// A refund or chargeback truth carries the charge's providerPaymentId and, where the provider has one, its own
+// providerRefundId: without it, one refund per charge is recorded (a later report about it counts as a repeat).
 // A provider for real payments (Grow, Cardcom, PayPlus or Paddle) is added here once the owner chooses one.
 import manual from './manual.js';
 import test from './test.js';

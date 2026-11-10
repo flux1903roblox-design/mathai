@@ -4,9 +4,10 @@
 // hashed and sent as X-Account-Token. Sessions are for a parent's or teacher's own browser, never a child's device
 // (those get family-device tokens that work for the AI routes only).
 import {
-  HttpError, body, json, sha256, hmacHex, randomToken, nowIso, addDays, dayOf, safeEqual, netKey, key, take,
+  HttpError, body, json, sha256, hmacHex, randomToken, nowIso, addDays, dayOf, safeEqual, netKey, key, take, giveBack,
 } from './util.js';
 import { sendLoginCode, emailReady } from './email.js';
+import { queueNotices, ownerNotice } from './spend.js';
 
 export const CODE_TTL_MIN = 10;
 export const CODE_TRIES = 5;
@@ -14,7 +15,15 @@ export const RESEND_SECONDS = 60;
 export const MAX_SESSIONS = 3;
 export const SESSION_IDLE_DAYS = 180;
 export const STEP_UP_MINUTES = 10;
-const SEND_CAPS = { email: 5, net: 40, all: 1000 };
+// Codes sent a day: 5 to one address from one network, 15 to one address in all (so a stranger on another network
+// cannot use up the owner's own sends), 40 from one network (IPv6 counted by its /48), and a global ceiling
+// (MAIL_DAILY_CAP, an owner notice when it trips). Wrong codes: 30 a day from one network (VERIFY_FAIL_NET_DAILY),
+// never given back, so nobody can burn the tries of the codes sent to someone else's address all day.
+export const SEND_CAPS = { pair: 5, email: 15, net: 40, all: 3000 };
+export const VERIFY_FAILS_PER_NET = 30;
+const capVar = (env, name, d) => { const v = Number(env[name]); return env[name] !== undefined && env[name] !== '' && Number.isInteger(v) && v >= 0 ? v : d; };
+export const mailDailyCap = (env) => capVar(env, 'MAIL_DAILY_CAP', SEND_CAPS.all);
+const verifyFailsPerNet = (env) => capVar(env, 'VERIFY_FAIL_NET_DAILY', VERIFY_FAILS_PER_NET);
 
 const EMAIL_RE = /^[^\s@<>()[\]\\,;:"]{1,64}@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
 /** Trimmed, NFKC, lower-case, at most 254 characters, a plain address. Else 400 bad_email. */
@@ -53,7 +62,7 @@ export async function startLogin(req, env, cors) {
   const devLog = devLogAllowed(req, env);
   if (!emailReady(env) && !devLog) throw new HttpError(503, 'email_not_configured');
   const eh = await emailHash(env, email);
-  const net = await netKey(req, env);
+  const net = await netKey(req, env, { wide: true });
   const prev = await env.DB.prepare('SELECT sent_at FROM login_codes WHERE email_hash = ?').bind(eh).first();
   const since = prev ? Date.now() - Date.parse(prev.sent_at) : Infinity;
   if (since < RESEND_SECONDS * 1000) {
@@ -61,11 +70,19 @@ export async function startLogin(req, env, cors) {
   }
   const tooMany = new HttpError(429, 'too_many_codes');
   const r = await take(env, [
+    key(`mail:e:${eh}:${net}`, SEND_CAPS.pair, { err: tooMany }),
     key(`mail:e:${eh}`, SEND_CAPS.email, { err: tooMany }),
     key(`mail:n:${net}`, SEND_CAPS.net, { err: tooMany }),
-    key('mail:all', SEND_CAPS.all, { err: tooMany }),
+    key('mail:all', mailDailyCap(env), { err: tooMany }),
   ]);
-  if (!r.ok) throw r.error;
+  if (!r.ok) {
+    // the global ceiling stops every sign-in today: the owner hears of it at once (once a day)
+    if (r.key?.who === 'mail:all') {
+      const day = dayOf();
+      await queueNotices(env, [ownerNotice(day, `owner:mail_cap:${day}`, { day, cap: mailDailyCap(env) })]);
+    }
+    throw r.error;
+  }
   const code = sixDigits();
   const now = nowIso();
   // a new code replaces the old one and resets its tries
@@ -91,17 +108,29 @@ export async function verifyLogin(req, env, cors) {
   if (!/^\d{6}$/.test(code)) throw new HttpError(400, 'bad_code');
   const eh = await emailHash(env, email);
   const now = nowIso();
-  // one statement counts the try, so parallel guesses can never pass 5
-  const row = await env.DB.prepare(
-    'UPDATE login_codes SET tries = tries + 1 WHERE email_hash = ? AND tries < ? AND expires_at > ? RETURNING code_hash, tries',
-  ).bind(eh, CODE_TRIES, now).first();
-  if (!row) {
-    const ex = await env.DB.prepare('SELECT tries, expires_at FROM login_codes WHERE email_hash = ?').bind(eh).first();
-    if (ex && ex.expires_at > now && ex.tries >= CODE_TRIES) throw new HttpError(429, 'too_many_tries');
-    throw new HttpError(410, 'code_expired');
-  }
-  if (!safeEqual(await codeHash(env, eh, code), row.code_hash)) {
-    throw new HttpError(403, 'wrong_code', undefined, { left: Math.max(0, CODE_TRIES - row.tries) });
+  // A network that already sent too many wrong codes today is stopped before it spends a try of anyone's code. The
+  // counter is taken first (so parallel guesses cannot pass it) and given back unless a wrong code was entered.
+  const fails = key(`verify:n:${await netKey(req, env, { wide: true })}`, verifyFailsPerNet(env), { refundable: true, err: new HttpError(429, 'too_many_tries') });
+  const counted = await take(env, [fails]);
+  if (!counted.ok) throw counted.error;
+  let wrong = false;
+  let row;
+  try {
+    // one statement counts the try, so parallel guesses can never pass 5
+    row = await env.DB.prepare(
+      'UPDATE login_codes SET tries = tries + 1 WHERE email_hash = ? AND tries < ? AND expires_at > ? RETURNING code_hash, tries',
+    ).bind(eh, CODE_TRIES, now).first();
+    if (!row) {
+      const ex = await env.DB.prepare('SELECT tries, expires_at FROM login_codes WHERE email_hash = ?').bind(eh).first();
+      if (ex && ex.expires_at > now && ex.tries >= CODE_TRIES) throw new HttpError(429, 'too_many_tries');
+      throw new HttpError(410, 'code_expired');
+    }
+    if (!safeEqual(await codeHash(env, eh, code), row.code_hash)) {
+      wrong = true;
+      throw new HttpError(403, 'wrong_code', undefined, { left: Math.max(0, CODE_TRIES - row.tries) });
+    }
+  } finally {
+    if (!wrong) await giveBack(env, [fails]);
   }
   // single use: exactly one request can delete the row
   const del = await env.DB.prepare('DELETE FROM login_codes WHERE email_hash = ? AND code_hash = ?').bind(eh, row.code_hash).run();

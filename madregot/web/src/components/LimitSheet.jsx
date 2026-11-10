@@ -8,19 +8,24 @@ import { limitVariant } from './limitCopy.js';
 import { Button, Sheet } from './ui.jsx';
 import Mascot from './Mascot.jsx';
 
+const PRACTICE = /^\/(lesson|practice|placement|learn|repair|rescue\/)/;
+
 export default function LimitSheet() {
   const { open, reason, tier, scope, onMadi } = useLimitSheet();
   const role = useApp((s) => s.profile?.role);
   const navigate = useNavigate();
   const v = limitVariant({ reason, tier, scope, role });
   const go = (to, state) => { closeLimitSheet(); navigate(to, state ? { state } : undefined); };
-  // "להמשיך לתרגל" closes the sheet where practice is (a lesson); elsewhere it goes to the map
-  // (read at the tap, not subscribed: the sheet does not re-render on every navigation)
+  // Where practice is (a lesson, a check, a teaching stage): read when the sheet opens or is tapped, not subscribed,
+  // so the sheet does not re-render on every navigation.
+  const inPractice = () => PRACTICE.test(window.location.hash.replace(/^#/, ''));
+  // "להמשיך לתרגל" closes the sheet where practice is; elsewhere it goes to the map
   const practice = () => {
     closeLimitSheet();
-    const path = window.location.hash.replace(/^#/, '');
-    if (!/^\/(lesson|practice|placement|learn|repair|rescue\/)/.test(path) && role !== 'teacher') navigate('/');
+    if (!inPractice() && role !== 'teacher') navigate('/');
   };
+  // "מידע להורים" would leave the lesson (and ask the child to give it up): it is offered only outside practice
+  const parentsLink = v.parents && role !== 'teacher' && !inPractice();
   const madi = onMadi && v.actions.includes('madi');
   const buttons = v.actions.filter((a) => a !== 'madi' || madi);
   return (
@@ -35,7 +40,7 @@ export default function LimitSheet() {
           if (a === 'licence') return <Button key={a} variant={variant} className={cls} onClick={() => go('/teacher', { focus: 'licence' })}>על רישיון כיתה</Button>;
           return <Button key={a} variant={variant} className={cls} onClick={practice}>להמשיך לתרגל</Button>;
         })}
-        {v.parents && role !== 'teacher' && <button type="button" className="link-btn limit-parents" onClick={() => go('/parents/info')}>מידע להורים</button>}
+        {parentsLink && <button type="button" className="link-btn limit-parents" onClick={() => go('/parents/info')}>מידע להורים</button>}
       </div>
     </Sheet>
   );

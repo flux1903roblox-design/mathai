@@ -86,7 +86,7 @@ test('claim links the device and queues one device_linked email; finish returns 
   const mail = h.net.log.email.filter((m) => m.subject === 'מכשיר חדש חובר למנוי');
   assert.equal(mail.length, 1);
   assert.deepEqual(mail[0].to, ['parent@example.test']);
-  assert.match(mail[0].text, /חובר מכשיר הטאבלט של נועה ב־/);
+  assert.match(mail[0].text, /חובר מכשיר חדש \(הטאבלט של נועה\) ב־/);
   assert.match(mail[0].text, /https:\/\/madregot\.example\.test\/parents/);
   assert.equal(mail[0].reply_to, 'hello@example.test');
   assert.ok(one(h.env, "SELECT * FROM audit_log WHERE action = 'device.link'"));

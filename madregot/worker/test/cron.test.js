@@ -244,3 +244,19 @@ test('without Resend, notices go to the dev log only on a local Worker, and neve
   assert.equal(logged.length, 1); assert.match(logged[0], /^\[dev\] notice owner:spend:x: \[מדרגות\] spend:x$/);
   assert.equal(h.net.log.email.length, 0);
 });
+
+test('a renewing family plan stored without the provider\'s subscription id ends after the grace days instead of staying active', async () => {
+  h = await setup();
+  const asked = [];
+  const real = testProvider.fetchSubscription;
+  testProvider.fetchSubscription = async (env, s) => { asked.push(s.id); return null; };
+  try {
+    const gone = insertSub(h.env, { kind: 'family', provider: 'test', provider_subscription_id: null, price_agorot: 2990, start: ago(40 * DAY), end: ago(9 * DAY) });
+    const fresh = insertSub(h.env, { kind: 'family', provider: 'test', provider_subscription_id: null, price_agorot: 2990, start: ago(31 * DAY), end: ago(DAY) });
+    const report = await run(h.env, { now: night() });
+    assert.equal(report.reconcile.ended, 1);
+    assert.deepEqual(asked, [], 'there is nothing to ask the provider about');
+    assert.equal(one(h.env, 'SELECT ended_reason FROM subscriptions WHERE id = ?', gone.id).ended_reason, 'payment_failed');
+    assert.equal(one(h.env, 'SELECT status FROM subscriptions WHERE id = ?', fresh.id).status, 'active', 'still inside the grace days');
+  } finally { testProvider.fetchSubscription = real; }
+});

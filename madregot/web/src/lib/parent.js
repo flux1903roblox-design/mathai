@@ -11,14 +11,30 @@ import { deviceId, randomHex, refreshStatus } from './account.js';
 const KEY = `${STORE_KEY}-parent`;
 const store = (kind) => { try { return kind === 'session' ? window.sessionStorage : window.localStorage; } catch { return null; } };
 const read = (s) => { try { const v = JSON.parse(s?.getItem(KEY) || 'null'); return v?.token ? v : null; } catch { return null; } };
+const drop = (kind, key) => { try { store(kind)?.removeItem(key); } catch { /* blocked */ } };
 
+/** Tell the server to end a session (best effort: it is forgotten here either way). */
+function revoke(token) {
+  if (!token) return;
+  api('/api/account/signout', { method: 'POST', body: {}, auth: false, headers: { 'X-Account-Token': token } }).catch(() => {});
+}
+
+/**
+ * The session saved on this device. One kept in localStorage belongs to a device with no profile (the parent's own
+ * phone); once a student or teacher profile exists here, it is a child's or a class device, so that session is ended
+ * (on the server too) instead of being kept where a child could open the parents' page with it.
+ */
 function loadSession() {
   if (typeof window === 'undefined') return null;
-  return read(store('session')) || read(store('local'));
+  const inTab = read(store('session'));
+  if (inTab) return inTab;
+  const kept = read(store('local'));
+  if (kept && useApp.getState().profile) { drop('local', KEY); revoke(kept.token); return null; }
+  return kept;
 }
 function saveSession(session) {
   const hasProfile = !!useApp.getState().profile;
-  for (const kind of ['session', 'local']) { try { store(kind)?.removeItem(KEY); } catch { /* blocked */ } }
+  for (const kind of ['session', 'local']) drop(kind, KEY);
   if (!session) return;
   try { store(hasProfile ? 'session' : 'local')?.setItem(KEY, JSON.stringify(session)); } catch { /* the session lasts for this page only */ }
 }
@@ -27,6 +43,17 @@ function saveSession(session) {
 export const useParent = create(() => ({ session: loadSession() }));
 const setSession = (session) => { saveSession(session); useParent.setState({ session }); };
 export const clearSession = () => setSession(null);
+
+// A profile created on this device after a parent signed in here (a family tablet: the parent joined first, then the
+// child made a profile): the parent's session must not stay behind for the child.
+useApp.subscribe((st, prev) => {
+  if (!st.profile || prev.profile) return;
+  const kept = read(store('local'));
+  if (!kept) return;
+  drop('local', KEY);
+  revoke(kept.token);
+  if (useParent.getState().session?.token === kept.token) useParent.setState({ session: null });
+});
 
 const auth = () => {
   const t = useParent.getState().session?.token;
@@ -57,6 +84,27 @@ export async function signOut({ all = false } = {}) {
   clearSession();
 }
 
+/**
+ * "Delete all data" (and signing out of the device) on this device: the parent's session is ended on the server, and
+ * everything the parents' pages kept here goes, in both storages: the session, a waiting link code, an order being
+ * paid, "continue on this device", and the checkout attempt keys.
+ */
+export async function forgetParentHere() {
+  const token = useParent.getState().session?.token || read(store('session'))?.token || read(store('local'))?.token;
+  if (token) {
+    try { await api('/api/account/signout', { method: 'POST', body: {}, auth: false, headers: { 'X-Account-Token': token } }); } catch { /* forgotten here either way */ }
+  }
+  const fixed = [KEY, `${STORE_KEY}-link-code`, `${STORE_KEY}-order`, `${STORE_KEY}-here`];
+  for (const kind of ['session', 'local']) {
+    const s = store(kind);
+    if (!s) continue;
+    let keys = [];
+    try { keys = Array.from({ length: s.length }, (_, i) => s.key(i)).filter(Boolean); } catch { /* blocked */ }
+    for (const k of new Set([...fixed, ...keys.filter((k) => k.startsWith(`${STORE_KEY}-checkout-`))])) drop(kind, k);
+  }
+  useParent.setState({ session: null });
+}
+
 // ---------------------------------------------------------------- the account and the plans
 export const overview = () => call('/api/account');
 let plansCache = null;
@@ -84,10 +132,17 @@ export const endAttempt = (plan) => { try { store('session')?.removeItem(idemKey
  */
 export async function startCheckout(plan, { seats, classHeaders, terms, navigate = (url) => window.location.assign(url) } = {}) {
   const p = await plans();
-  const r = await call('/api/billing/checkout', {
+  const order = () => call('/api/billing/checkout', {
     method: 'POST', body: { plan, adult: true, terms: terms || p.termsVersion, ...(seats ? { seats } : {}) },
     headers: { 'Idempotency-Key': attemptKey(plan), ...(classHeaders || {}) },
   });
+  let r;
+  try { r = await order(); } catch (e) {
+    // the last attempt's order was paid or has expired: this is a new attempt, with a new key
+    if (e.code !== 'order_closed') throw e;
+    endAttempt(plan);
+    r = await order();
+  }
   let host = '';
   try { host = new URL(r.url).host.toLowerCase(); } catch { /* not a url */ }
   if (!host || !(p.checkoutHosts || []).includes(host)) throw new ApiError('bad_checkout_url', 502);

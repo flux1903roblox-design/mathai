@@ -92,7 +92,8 @@ test('the test payment page exists only with the test provider in test mode', as
 test('health reports the switches and no secrets', async () => {
   h = await setup();
   const r = await (await h.call('GET', '/api/health')).json();
-  assert.deepEqual(Object.keys(r).sort(), ['ai', 'billing', 'checkout', 'deviceMint', 'email', 'freeModel', 'mode', 'model', 'ok', 'paywall', 'soloAI', 'turnstileSiteKey'].sort());
+  assert.deepEqual(Object.keys(r).sort(), ['ai', 'auth', 'billing', 'checkout', 'deviceMint', 'email', 'freeModel', 'mode', 'model', 'netKeys', 'ok', 'paywall', 'soloAI', 'turnstileSiteKey'].sort());
+  assert.equal(r.netKeys, true); assert.equal(r.auth, true);
   assert.equal(r.paywall, true); assert.equal(r.billing, 'test'); assert.equal(r.mode, 'test'); assert.equal(r.deviceMint, 'off');
   assert.doesNotMatch(JSON.stringify(r), /secret|resend-test|test-key/);
 });

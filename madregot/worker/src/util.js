@@ -133,8 +133,11 @@ export function randomFrom(alphabet, n) {
   return out.join('');
 }
 
-/** The network part of an address: a whole IPv4 address, or the /64 prefix of an IPv6 address (expanded). */
-export function ipPrefix(ip) {
+/**
+ * The network part of an address: a whole IPv4 address, or the first `v6Groups` hextets of an IPv6 address (expanded):
+ * 4 is its /64 (one home or phone), 3 its /48 (a whole allocation, for the sign-in mail counters).
+ */
+export function ipPrefix(ip, v6Groups = 4) {
   const a = String(ip || '').trim().toLowerCase();
   if (!a.includes(':')) return a || 'unknown';
   let [head, tail = ''] = a.split('::');
@@ -144,13 +147,17 @@ export function ipPrefix(ip) {
   // an embedded IPv4 tail (::ffff:1.2.3.4) counts as two groups
   if (t.length && t.at(-1).includes('.')) t = [...t.slice(0, -1), '0', '0'];
   const groups = a.includes('::') ? [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t] : h;
-  return groups.slice(0, 4).map((g) => g.padStart(4, '0')).join(':');
+  return groups.slice(0, v6Groups).map((g) => g.padStart(4, '0')).join(':');
 }
 
-/** The key a network is counted under: an HMAC of its prefix, never the address itself. 503 without IP_HASH_SECRET. */
-export async function netKey(req, env) {
+/**
+ * The key a network is counted under: an HMAC of its prefix, never the address itself. 503 without IP_HASH_SECRET.
+ * `wide`: an IPv6 address counts by its /48, not its /64 (one IPv6 allocation holds many /64s, so a /64 key is cheap
+ * to multiply). Used for the sign-in counters, whose global cap must not be exhausted from one allocation.
+ */
+export async function netKey(req, env, { wide = false } = {}) {
   if (!env.IP_HASH_SECRET) throw new HttpError(503, 'server_config');
-  const prefix = ipPrefix(req.headers.get('CF-Connecting-IP'));
+  const prefix = ipPrefix(req.headers.get('CF-Connecting-IP'), wide ? 3 : 4);
   return (await hmacHex(env.IP_HASH_SECRET, `net:${prefix}`)).slice(0, 16);
 }
 

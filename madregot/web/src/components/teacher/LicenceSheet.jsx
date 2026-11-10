@@ -87,7 +87,7 @@ export default function LicenceSheet({ cls, mode, students, offer = {}, onOpenCh
       ) : !session ? (
         <div className="stack">
           <p className="muted">כדי שנוכל לחזור אליכם, נכנסים עם המייל של בית הספר או שלכם.</p>
-          <EmailCodeForm idPrefix="lic" />
+          <EmailCodeForm idPrefix="lic" purpose={mode === 'buy' ? 'buy' : 'teacher'} />
         </div>
       ) : mode === 'buy' ? <BuyForm cls={cls} students={students} offer={offer} />
         : mode ? <RequestForm cls={cls} wants={mode} students={students} onSent={() => { setSent(true); onSent?.(); }} /> : null}

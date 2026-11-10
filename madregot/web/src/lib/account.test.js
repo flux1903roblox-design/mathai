@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useApp } from './store.js';
-import { aiAccess, autoAskAllowed, aiHeaders, useAIStatus, gate, useLimitSheet, closeLimitSheet, hasTool } from './account.js';
+import { aiAccess, autoAskAllowed, aiHeaders, useAIStatus, gate, useLimitSheet, closeLimitSheet, hasTool, noteLimit, refreshIfNewDay } from './account.js';
 import { runAI } from './ai.js';
 
 const groups = (tutor, rest = null) => ({ tutor, check: rest, generate: rest, exam: rest });
@@ -142,5 +142,20 @@ describe('AI calls carry the device and its family link, never the parent sessio
     expect(r.text).toBe('הסבר');
     expect(useApp.getState().ai.familyDevice).toBeNull();
     expect(aiAccess('explain')).toMatchObject({ state: 'free', left: 1 });
+  });
+});
+
+describe('a tab that stays open across midnight', () => {
+  it('a refused call keeps its resetsAt, so the status is asked again once the day changes (also with the switch off)', async () => {
+    const past = new Date(Date.now() - 1000).toISOString();
+    useAIStatus.setState({ status: { ...OPEN, groups: { all: { left: 1, limit: 40 } } } }); // no resetsAt yet
+    noteLimit({ error: 'daily_limit', tier: 'open', group: 'all', limit: 40, left: 0, resetsAt: past }, 'explain');
+    expect(aiAccess('explain').state).toBe('used');
+    expect(useAIStatus.getState().status.resetsAt).toBe(past);
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ ...OPEN, resetsAt: new Date(Date.now() + 864e5).toISOString() }), { status: 200 }));
+    vi.stubGlobal('fetch', fetch);
+    refreshIfNewDay();
+    await vi.waitFor(() => expect(aiAccess('explain').state).toBe('open'));
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

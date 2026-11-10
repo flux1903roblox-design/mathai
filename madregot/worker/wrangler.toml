@@ -53,6 +53,10 @@ BILLING_MODE = "live"
 BILLING_CHECKOUT_HOSTS = ""
 # Turnstile for new devices on the free taste: "off" unless free-tier abuse shows in ai_spend.
 FREE_DEVICE_MINT = "off"
+# Sign-in codes: at most this many sent a day in all (the owner gets a notice when it trips: nobody can sign in until
+# midnight), and at most this many wrong codes a day from one network (so a stranger cannot burn a parent's codes).
+MAIL_DAILY_CAP = "3000"
+VERIFY_FAIL_NET_DAILY = "30"
 # Business details for the checkout disclosure and the emails.
 BUSINESS_NAME = ""
 BUSINESS_ID = ""

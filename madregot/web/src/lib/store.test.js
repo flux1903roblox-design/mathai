@@ -8,7 +8,6 @@ describe('saved data v3: the parent account never lives in the child store', () 
     const out = migrateState(v2({ mode: 'server', apiUrl: 'https://x.example', key: '', device: 'a'.repeat(32), account: { token: 't'.repeat(64), email: 'p@example.test' } }), 2, { personal: false });
     expect(out.ai.account).toBeUndefined();
     expect(out.ai.device).toBe('a'.repeat(32));
-    expect(out.ai.apiUrl).toBe('https://x.example');
     expect(out.ai.familyDevice).toBeNull();
     expect(out.ai.pendingLink).toBeNull();
     expect(out.xp).toBe(40);
@@ -20,10 +19,18 @@ describe('saved data v3: the parent account never lives in the child store', () 
     expect(out.ai.key).toBe('');
     expect(out.ai.mode).toBe('server');
   });
-  it('keeps the personal key in a build made with VITE_ALLOW_PERSONAL_KEY=1', () => {
-    const out = migrateState(v2({ mode: 'personal', key: 'k-123', apiUrl: '', device: '' }), 2, { personal: true });
+  it('keeps the personal key and the server address in a build made with VITE_ALLOW_PERSONAL_KEY=1', () => {
+    const out = migrateState(v2({ mode: 'personal', key: 'k-123', apiUrl: 'https://my-class.example.test', device: '' }), 2, { personal: true });
     expect(out.ai.key).toBe('k-123');
     expect(out.ai.mode).toBe('personal');
+    expect(out.ai.apiUrl).toBe('https://my-class.example.test');
+  });
+  it('drops a saved server address where the build has no setting to change or clear it', () => {
+    const out = migrateState(v2({ mode: 'server', apiUrl: 'https://old-class-server.example.test', key: '', device: 'c'.repeat(32) }), 2, { personal: false });
+    expect(out.ai.apiUrl).toBe('');
+    expect(out.ai.device).toBe('c'.repeat(32));
+    const v1 = migrateState({ gaps: {}, ai: { mode: 'server', apiUrl: 'https://old-class-server.example.test', key: '' } }, 1, { personal: false });
+    expect(v1.ai.apiUrl).toBe('');
   });
   it('a v1 save gets the learning model and the v3 ai shape', () => {
     const out = migrateState({ gaps: {}, ai: { mode: 'server', apiUrl: '', key: '' } }, 1, { personal: false });

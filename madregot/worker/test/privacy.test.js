@@ -82,3 +82,51 @@ test('an invoice opens for its payer only: a redirect, or its address as JSON fo
   const theirs = await h.call('GET', `/api/billing/payments/${pay.id}/invoice`, { headers: { 'X-Account-Token': other, Accept: 'application/json' } });
   assert.equal(theirs.status, 404);
 });
+
+test('the account page lists a claimed device that has yet to collect its token as pending, and says until when a failed payment keeps access', async () => {
+  h = await setup();
+  const token = await paidFamily('pending@example.test');
+  const a = accountId(h.env, 'pending@example.test');
+  // the child's device shows a code; the parent claims it; the device has not collected its token yet
+  const start = await (await h.call('POST', '/api/family/link/start', { headers: { 'X-Device': 'd'.repeat(32) }, body: { secret: 'e'.repeat(32) } })).json();
+  const claim = await h.call('POST', '/api/family/link/claim', { headers: { 'X-Account-Token': token }, body: { code: start.code, label: 'הטאבלט' } });
+  assert.equal(claim.status, 200);
+  let page = await (await h.call('GET', '/api/account', { headers: { 'X-Account-Token': token } })).json();
+  assert.deepEqual(page.devices.map((d) => [d.label, !!d.pending]), [['הטאבלט', true]]);
+  // collected: linked
+  const fin = await h.call('POST', '/api/family/link/finish', { body: { code: start.code, secret: 'e'.repeat(32) } });
+  assert.equal(fin.status, 200);
+  page = await (await h.call('GET', '/api/account', { headers: { 'X-Account-Token': token } })).json();
+  assert.deepEqual(page.devices.map((d) => [d.label, !!d.pending]), [['הטאבלט', false]]);
+  // a failed payment: the tutor keeps working for the grace days after the period end
+  h.env.DB.raw.prepare("UPDATE subscriptions SET status = 'past_due' WHERE account_id = ?").run(a);
+  page = await (await h.call('GET', '/api/account', { headers: { 'X-Account-Token': token } })).json();
+  assert.equal(Date.parse(page.plan.accessUntil) - Date.parse(page.plan.periodEnd), 3 * 864e5);
+});
+
+test('a class licence bought by card shows on its buyer\'s page with its end, its refund options and its receipts', async () => {
+  const { makeClass } = await import('./helpers.js');
+  h = await setup();
+  const cls = await makeClass(h);
+  const token = await signIn(h, 'teacher@example.test');
+  const r = await h.call('POST', '/api/billing/checkout', { headers: { 'X-Account-Token': token, 'Idempotency-Key': 'class-licence-0123456789', ...cls.teacher }, body: { plan: 'class_year', seats: 12, adult: true, terms: '2026-11' } });
+  const { orderId } = await r.json();
+  const s = await signedTestEvent(h.env, { id: 'ev_class', type: 'paid', order: orderId, payment: 'pay_class', amountAgorot: 12 * 4900, currency: 'ILS', occurredAt: new Date().toISOString(), invoiceUrl: 'https://pay.example.test/inv/1' });
+  await h.call('POST', `/api/billing/webhook/test/${h.env.WEBHOOK_PATH_SECRET}`, { body: s.body, headers: s.headers });
+  const page = await (await h.call('GET', '/api/account', { headers: { 'X-Account-Token': token } })).json();
+  assert.equal(page.plan, null, 'no family plan');
+  assert.equal(page.classes.length, 1);
+  const c = page.classes[0];
+  assert.equal(c.classCode, cls.code); assert.equal(c.status, 'active');
+  assert.equal(c.plan.kind, 'class'); assert.equal(c.plan.seats, 12); assert.equal(c.plan.priceAgorot, 12 * 4900);
+  assert.equal(c.plan.canRefundNow, true, 'a 14-day refund applies');
+  const receipt = page.payments.find((p) => p.subscriptionId === c.plan.id);
+  assert.ok(receipt && receipt.hasInvoice);
+  assert.equal(receipt.planKind, 'class');
+  // the buyer cancels with the full refund; the class is back on the free taste
+  const cancel = await h.call('POST', '/api/billing/cancel', { headers: { 'X-Account-Token': token }, body: { subscriptionId: c.plan.id, mode: 'refund_now' } });
+  assert.equal(cancel.status, 200);
+  assert.equal((await cancel.json()).refundAgorot, 12 * 4900);
+  const after = await (await h.call('GET', '/api/account', { headers: { 'X-Account-Token': token } })).json();
+  assert.equal(after.classes[0].status, 'ended'); assert.equal(after.classes[0].plan, undefined);
+});

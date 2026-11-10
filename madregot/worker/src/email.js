@@ -128,7 +128,7 @@ export function renderNotice(env, row) {
     case 'device_linked':
       return {
         subject: 'מכשיר חדש חובר למנוי',
-        lines: billing(['שלום,', `חובר מכשיר ${p.label || 'מכשיר'} ב־${hebDate(p.at)}. לא אתם? אפשר לנתק אותו בעמוד ההורים: ${env.PUBLIC_URL || ''}/parents`]),
+        lines: billing(['שלום,', `חובר מכשיר חדש${p.label ? ` (${p.label})` : ''} ב־${hebDate(p.at)}. לא אתם? אפשר לנתק אותו בעמוד ההורים: ${env.PUBLIC_URL || ''}/parents`]),
       };
     case 'licence_ending':
       return {

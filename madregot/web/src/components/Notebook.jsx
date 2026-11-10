@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { Pencil, Eraser, Undo2, Trash2, Plus } from 'lucide-react';
+import { fitImage } from '@/lib/fitImage.js';
 
 // A squared notebook page (like an Israeli math notebook: 5mm squares, red
 // margin on the right) that students write their working on with a finger,
@@ -81,18 +82,23 @@ const Notebook = forwardRef(function Notebook({ strokes, onStrokes, height, onGr
 
   useImperativeHandle(ref, () => ({
     /** The page as a JPEG data URL: white paper, grid and ink, trimmed below the last line written. */
-    toImage() {
+    /** The page as a JPEG data URL; with `max`, encoded smaller until it is at most that long (null if it never fits). */
+    toImage({ max = Infinity } = {}) {
       if (!strokes.length || !width) return null;
       const maxY = Math.max(...strokes.flatMap((s) => s.points.map((p) => p[1])));
       const h = Math.min(height, Math.ceil((maxY + 2 * SQUARE) / SQUARE) * SQUARE);
-      const scale = Math.min(2, 1400 / width);
-      const out = document.createElement('canvas'); out.width = Math.round(width * scale); out.height = Math.round(h * scale);
-      const ctx = out.getContext('2d'); ctx.scale(scale, scale);
-      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, h); drawGrid(ctx, width, h);
-      const ink = document.createElement('canvas'); ink.width = out.width; ink.height = out.height;
-      const ictx = ink.getContext('2d'); ictx.scale(scale, scale); strokes.forEach((s) => drawStroke(ictx, s));
-      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(ink, 0, 0);
-      return out.toDataURL('image/jpeg', 0.82);
+      const base = Math.min(2, 1400 / width);
+      const encode = (factor, quality) => {
+        const scale = base * factor;
+        const out = document.createElement('canvas'); out.width = Math.round(width * scale); out.height = Math.round(h * scale);
+        const ctx = out.getContext('2d'); ctx.scale(scale, scale);
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, h); drawGrid(ctx, width, h);
+        const ink = document.createElement('canvas'); ink.width = out.width; ink.height = out.height;
+        const ictx = ink.getContext('2d'); ictx.scale(scale, scale); strokes.forEach((s) => drawStroke(ictx, s));
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(ink, 0, 0);
+        return out.toDataURL('image/jpeg', quality);
+      };
+      return fitImage(encode, max);
     },
   }), [strokes, width, height]);
 

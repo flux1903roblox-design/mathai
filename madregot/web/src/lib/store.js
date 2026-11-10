@@ -57,7 +57,9 @@ export const PERSONAL_KEY = import.meta.env.VITE_ALLOW_PERSONAL_KEY === '1';
  * Saved data from an older version, brought up to date. Unknown or broken saved data falls back to the defaults.
  * v1 → v2 (Madregot 2.0): the learning model is added, seeded from the misconceptions already recorded (gaps).
  * v2 → v3 (the paid tutor): the parent's account never lives in the child's store (ai.account is dropped), and a
- * personal Claude key is dropped from builds that cannot use one. Everything else is kept.
+ * personal Claude key and a saved server address are dropped from builds that cannot use them: these builds have no
+ * setting to change or clear the address (it lives in "הגדרות מתקדמות", compiled in only with
+ * VITE_ALLOW_PERSONAL_KEY=1), so an old one would point the app at a server for good. Everything else is kept.
  */
 export function migrateState(saved, version, { personal = PERSONAL_KEY } = {}) {
   let st = saved && typeof saved === 'object' ? { ...saved } : {};
@@ -66,7 +68,7 @@ export function migrateState(saved, version, { personal = PERSONAL_KEY } = {}) {
   if (version < 3) {
     const { account, ...ai } = st.ai && typeof st.ai === 'object' ? st.ai : {}; // eslint-disable-line no-unused-vars
     st.ai = { ...empty.ai, ...ai };
-    if (!personal) st.ai = { ...st.ai, key: '', mode: 'server' };
+    if (!personal) st.ai = { ...st.ai, key: '', mode: 'server', apiUrl: '' };
   }
   return st;
 }

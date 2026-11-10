@@ -141,8 +141,10 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
       return {
         readOnly: false,
         sql: [
+          // the provider is told to stop charging too (the hourly cron): an ended plan never renews
           `UPDATE subscriptions SET status = 'ended', ended_reason = ${q(reason)},
-  current_period_end = MAX(MIN(current_period_end, ${q(now)}), strftime('%Y-%m-%dT%H:%M:%fZ', current_period_start, '+1 second')), updated_at = ${q(now)}
+  current_period_end = MAX(MIN(current_period_end, ${q(now)}), strftime('%Y-%m-%dT%H:%M:%fZ', current_period_start, '+1 second')),
+  cancel_requested_at = COALESCE(cancel_requested_at, ${q(now)}), cancel_at_period_end = 1, updated_at = ${q(now)}
   WHERE id = ${q(sub)} AND status != 'ended';`,
           audit(now, 'licence.end', `sub:${sub}`, { reason }),
         ].join('\n'),
@@ -219,7 +221,7 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
           `DELETE FROM licence_requests WHERE account_id = ${acc};`,
           `DELETE FROM notices WHERE to_account = ${acc} AND sent_at IS NULL;`,
           `UPDATE subscriptions SET account_id = NULL, updated_at = ${q(now)} WHERE account_id = ${acc};`,
-          `UPDATE orders SET account_id = NULL WHERE account_id = ${acc};`,
+          `UPDATE orders SET status = CASE WHEN status = 'open' THEN 'expired' ELSE status END, account_id = NULL WHERE account_id = ${acc};`,
           `DELETE FROM accounts WHERE email = ${q(email)};`,
         ].join('\n'),
       };

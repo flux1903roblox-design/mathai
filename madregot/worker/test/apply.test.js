@@ -137,3 +137,46 @@ test('cleanDetail keeps no address and no long number', () => {
   assert.equal(cleanDetail('from a@b.c paid 123456789012'), 'from a at b.c paid #');
   assert.equal(cleanDetail('x'.repeat(300)).length, 200);
 });
+
+test('decide: a further charge for a paid order: a class licence never renews; another standing order is not a renewal', () => {
+  const cls = decide(truth({ providerSubscriptionId: null, amountAgorot: 98000 }), ctx({ order: order({ status: 'paid', plan: 'class_year', amount_agorot: 98000, class_code: 'ABC234', seats: 20 }), sub: sub({ plan: 'class_year', price_agorot: 98000, provider_subscription_id: null }) }));
+  assert.equal(cls.outcome, 'duplicate_payment'); assert.deepEqual(ops(cls), ['payment', 'refund']);
+  assert.equal(cls.ops[0].row.status, 'duplicate'); assert.equal(cls.notices[0].kind, 'owner:duplicate_payment');
+  const other = decide(truth({ providerSubscriptionId: 'ps_other' }), ctx({ order: order({ status: 'paid' }), sub: sub({ provider_subscription_id: 'ps1' }) }));
+  assert.equal(other.outcome, 'duplicate_payment');
+  const same = decide(truth({ occurredAt: '2026-12-10T10:00:00.000Z' }), ctx({ order: order({ status: 'paid' }), sub: sub({ provider_subscription_id: 'ps1' }) }));
+  assert.equal(same.outcome, 'applied', 'its own standing order: a renewal');
+});
+
+test('decide: a charge on a plan ended for anything but a failed payment is refunded, and the charging stopped', () => {
+  for (const reason of ['refunded', 'chargeback', 'owner', 'account_deleted', 'expired']) {
+    const d = decide(truth({ orderRef: null }), ctx({ sub: sub({ status: 'ended', ended_reason: reason }) }));
+    assert.equal(d.outcome, 'after_cancel', reason);
+    assert.deepEqual(ops(d), ['payment', 'refund', 'sub.stopCharging'], reason);
+    assert.equal(d.ops[0].row.status, 'after_cancel');
+  }
+  const failed = decide(truth({ orderRef: null }), ctx({ sub: sub({ status: 'ended', ended_reason: 'payment_failed' }) }));
+  assert.equal(failed.outcome, 'applied', 'a failed payment that finally went through brings the plan back');
+  const late = decide(truth({ orderRef: null }), ctx({ sub: sub({ status: 'ended', ended_reason: 'payment_failed' }), liveOther: sub({ id: 's2' }) }));
+  assert.equal(late.outcome, 'duplicate_payment', 'unless the family already took a new plan');
+  assert.deepEqual(ops(late), ['payment', 'refund', 'sub.stopCharging']);
+});
+
+test('decide: a refund or chargeback already recorded is ignored; refunds add up against their charge', () => {
+  const charge = { id: 'c1', amount_agorot: 24900, subscription_id: 's1', order_id: 'o1', provider_payment_id: 'p1' };
+  const base = { sub: sub({ plan: 'family_year', price_agorot: 24900 }), charge, latestCharge: charge };
+  assert.equal(decide(truth({ status: 'refunded' }), ctx({ ...base, chargeRefunds: [{ provider_payment_id: 'p1', amount_agorot: -2990 }] })).outcome, 'ignored_old');
+  const second = decide(truth({ status: 'refunded', providerRefundId: 'r2', amountAgorot: 19900 }), ctx({ ...base, chargeRefunds: [{ provider_payment_id: 'p1:r:r1', amount_agorot: -5000 }] }));
+  assert.equal(second.outcome, 'applied'); assert.equal(second.ops[0].row.provider_payment_id, 'p1:r:r2');
+  assert.equal(second.ops.find((o) => o.op === 'sub.end')?.stop, true, 'refunded in full: ended, and the charging stopped');
+  assert.equal(decide(truth({ status: 'chargeback' }), ctx({ ...base, chargebackExists: true })).outcome, 'ignored_old');
+});
+
+test('decide: a payment for the order of a deleted account starts no plan: an ended one keeps the charge, which is refunded', () => {
+  const d = decide(truth(), ctx({ order: order({ account_id: null }) }));
+  assert.equal(d.outcome, 'after_cancel');
+  assert.deepEqual(ops(d), ['sub.insert', 'payment', 'refund', 'order.paid']);
+  const row = d.ops[0].row;
+  assert.equal(row.status, 'ended'); assert.equal(row.account_id, null); assert.equal(row.provider_subscription_id, 'ps1'); assert.ok(row.cancel_requested_at);
+  assert.equal(d.notices[0].kind, 'owner:orphan_payment');
+});

@@ -187,3 +187,29 @@ test('online checkout stays closed when the provider has no cancel API', async (
     assert.equal(r.status, 501);
   } finally { testProvider.capabilities = caps; }
 });
+
+test('cancel requests at the same moment (two tabs, a retry) cancel once and refund once, and all get the same answer', async () => {
+  h = await setup();
+  const b = await bought();
+  const answers = await Promise.all([cancel(b, 'refund_now'), cancel(b, 'refund_now'), cancel(b, 'refund_now')]);
+  assert.deepEqual(answers.map((r) => r.status), [200, 200, 200]);
+  const bodies = await Promise.all(answers.map((r) => r.json()));
+  assert.equal(new Set(bodies.map((x) => x.reference)).size, 1, 'one reference');
+  assert.ok(bodies.every((x) => x.refundAgorot === 2990 && x.status === 'ended'));
+  const q = rows(h.env, 'SELECT amount_agorot, reason, done_at FROM refund_queue');
+  assert.equal(q.length, 1, 'one refund of ₪29.90, not two or three');
+  assert.equal(q[0].amount_agorot, 2990);
+  assert.equal(rows(h.env, "SELECT * FROM audit_log WHERE action = 'refund'").length, 1, 'the provider refunded once');
+  assert.equal(cancelNotices().length, 1);
+  // yearly, pro rata
+  const y = await bought({ plan: 'family_year', ago: 30 * DAY });
+  await Promise.all([cancel(y, 'prorata'), cancel(y, 'prorata'), cancel(y, 'prorata')]);
+  assert.equal(rows(h.env, "SELECT * FROM refund_queue WHERE reason = 'prorata'").length, 1);
+  // at the period end: one notice, one moment of notice
+  const m = await bought();
+  const pe = await Promise.all([cancel(m, 'period_end'), cancel(m, 'period_end')]);
+  const pb = await Promise.all(pe.map((r) => r.json()));
+  assert.equal(pb[0].reference, pb[1].reference);
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE ref = ? AND kind LIKE 'canceled:%'", m.sub.id).length, 1);
+  assert.equal(rows(h.env, "SELECT * FROM audit_log WHERE action = 'subscription.cancel' AND target = ?", `sub:${m.sub.id}`).length, 1);
+});

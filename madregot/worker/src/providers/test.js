@@ -35,6 +35,7 @@ export default {
       .filter((e) => e && typeof e.id === 'string' && TYPES.includes(e.type))
       .map((e) => ({
         eventId: e.id.slice(0, 80), type: e.type, providerPaymentId: e.payment ? String(e.payment).slice(0, 80) : null,
+        providerRefundId: e.refund ? String(e.refund).slice(0, 80) : null,
         providerSubscriptionId: e.subscription ? String(e.subscription).slice(0, 80) : null, orderRef: e.order ? String(e.order).slice(0, 40) : null,
         occurredAt: e.occurredAt || null, event: e,
       }));
@@ -47,6 +48,7 @@ export default {
     return {
       status: hint.type, mode: 'test', currency: e.currency || 'ILS', amountAgorot: Number(e.amountAgorot) || 0,
       orderRef: hint.orderRef, providerPaymentId: hint.providerPaymentId, providerSubscriptionId: hint.providerSubscriptionId,
+      providerRefundId: hint.providerRefundId || null,
       periodStart: e.periodStart || null, periodEnd: e.periodEnd || null, occurredAt: e.occurredAt || new Date().toISOString(),
       invoiceUrl: e.invoiceUrl || null,
     };

@@ -8,6 +8,7 @@ const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const schema = read('../schema.sql');
 const m0 = read('../migrations/0000_base.sql');
 const m1 = read('../migrations/0001_paid_tutor.sql');
+const m2 = read('../migrations/0002_refund_once.sql');
 const objects = (db) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
   .map((r) => `${r.type}:${r.name}:${String(r.sql).replace(/\s+/g, ' ')}`);
 
@@ -27,9 +28,9 @@ test('schema.sql runs twice without error', () => {
   assert.ok(objects(db).length > 30);
 });
 
-test('migrations 0000 + 0001 on an empty database give the same tables and indexes as schema.sql', () => {
+test('migrations 0000 + 0001 + 0002 on an empty database give the same tables and indexes as schema.sql', () => {
   const a = new DatabaseSync(':memory:'); a.exec(schema);
-  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1);
+  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1); b.exec(m2);
   assert.deepEqual(objects(b), objects(a));
   assert.equal(m0.trim(), schema.slice(0, m0.length).trim(), '0000_base is the start of schema.sql, word for word');
 });
@@ -62,6 +63,10 @@ test('the live-plan indexes, CHECKs and the billing_events key hold', () => {
   db.exec("INSERT INTO billing_events (provider, event_id, type, outcome, received_at) VALUES ('test', 'e1', 'paid', 'applied', 'x')");
   assert.throws(() => db.exec("BEGIN; INSERT INTO billing_events (provider, event_id, type, outcome, received_at) VALUES ('test', 'e1', 'paid', 'applied', 'x'); COMMIT;"), /UNIQUE/);
   db.exec('ROLLBACK');
+  const refund = (reason) => db.prepare("INSERT INTO refund_queue (subscription_id, amount_agorot, reason, requested_at) VALUES ('s1', 100, ?, 'x')").run(reason);
+  refund('cooling_off');
+  assert.throws(() => refund('cooling_off'), /UNIQUE/, 'one cooling-off refund per plan');
+  refund('after_cancel'); refund('after_cancel');
   db.exec("INSERT INTO account_sessions (token_hash, account_id, created_at, last_seen, verified_at) VALUES ('t', 'a1', 'x', 'x', 'x')");
   db.exec('PRAGMA foreign_keys = ON');
   db.exec("DELETE FROM accounts WHERE id = 'a1'");
