@@ -1,7 +1,7 @@
 // A child's device joins a family plan the way a TV joins a streaming account (spec §3.3):
 //
 //   1. the child's device makes a secret and asks for a code       POST /api/family/link/start   {secret}      (X-Device)
-//   2. a signed-in parent with a live family plan claims the code  POST /api/family/link/claim   {code, label} (X-Account-Token)
+//   2. a signed-in parent claims the code                          POST /api/family/link/claim   {code, label, purpose, consent} (X-Account-Token)
 //   3. the child's device collects its token, exactly once         POST /api/family/link/finish  {code, secret}
 //
 // The token (X-Family-Device: fd1.<64 hex>) works for the AI routes only; the parent's session never reaches the child's
@@ -9,8 +9,15 @@
 // parent is holding and deletes the session that asked, so nothing on that device can change the plan afterwards.
 // A family has at most 3 devices. The parent unlinks a device from the parents page; a device can leave by itself.
 // Every link is emailed to the parent. Only hashes of codes, secrets and tokens are stored.
+//
+// A link has a purpose (trust spec TRUST-9 §3). 'plan' needs a live family plan (402 needs_subscription without one).
+// 'consent' is the parent's free, one-time OK for the tutor on this child's device: no plan, but `consent: true` (the
+// parent ticked "I am the parent or guardian, and I approve"), else 400 consent_required. With no purpose given it is
+// 'plan' when the account has a live plan and 'consent' when it has none. Either way the device row is the same: it
+// gets the free taste (free:fd:<id>) until the account has a plan, and then the plan's limits with no new link. The
+// purpose goes into the audit row and picks the email (a consent email carries the AI and privacy summary).
 import {
-  HttpError, body, json, sha256, hmacHex, randomToken, randomFrom, CODE_ALPHABET, nowIso, dayOf, netKey, key, take, limitOrThrow, safeEqual,
+  HttpError, body, json, sha256, hmacHex, randomToken, randomFrom, CODE_ALPHABET, nowIso, dayOf, netKey, devKey, key, take, limitOrThrow, safeEqual,
 } from './util.js';
 import { requireAccount } from './account.js';
 import { deviceFrom, liveFamily, limits } from './entitle.js';
@@ -52,14 +59,14 @@ async function deviceLimitError(env, accountId) {
 }
 
 // The notice and audit rows of a new device, written only when the device row exists (the same batch inserts it).
-const linkedNoticeStmt = (env, { id, accountId, label, at }) => env.DB.prepare(
+const linkedNoticeStmt = (env, { id, accountId, label, at, purpose }) => env.DB.prepare(
   `INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at)
    SELECT ?1, 'device_linked:' || ?1, ?2, ?3, ?4 WHERE EXISTS (SELECT 1 FROM family_devices WHERE id = ?1)`,
-).bind(id, accountId, JSON.stringify({ label, at }), at);
-const linkedAuditStmt = (env, { id, accountId, at, how }) => env.DB.prepare(
+).bind(id, accountId, JSON.stringify({ label, at, purpose }), at);
+const linkedAuditStmt = (env, { id, accountId, at, how, purpose }) => env.DB.prepare(
   `INSERT INTO audit_log (at, actor, action, target, detail)
    SELECT ?1, ?2, 'device.link', ?3, ?4 WHERE EXISTS (SELECT 1 FROM family_devices WHERE id = ?5)`,
-).bind(at, `account:${accountId}`, `device:${id}`, JSON.stringify({ how }), id);
+).bind(at, `account:${accountId}`, `device:${id}`, JSON.stringify({ how, purpose }), id);
 
 // ---------------------------------------------------------------- the child's device
 /** POST /api/family/link/start {secret}: a 6-character code for the parent, valid 60 minutes. 10 a day per device, 200 per network. */
@@ -72,16 +79,16 @@ export async function linkStart(req, env, cors) {
   if (!env.AUTH_SECRET) throw new HttpError(503, 'server_config');
   const net = await netKey(req, env);
   const tooMany = new HttpError(429, 'too_many_links');
-  const r = await take(env, [key(`link:d:${device}`, LINK_LIMITS.device, { err: tooMany }), key(`link:n:${net}`, LINK_LIMITS.net, { err: tooMany })]);
+  const r = await take(env, [key(`link:d:${await devKey(env, device)}`, LINK_LIMITS.device, { err: tooMany }), key(`link:n:${net}`, LINK_LIMITS.net, { err: tooMany })]);
   if (!r.ok) throw r.error;
   const now = nowIso();
   const expiresAt = new Date(Date.parse(now) + LINK_TTL_MIN * 60_000).toISOString();
-  const [secretHash, hint] = [await sha256(secret), await sha256(device)];
+  const secretHash = await sha256(secret);
   for (let i = 0; i < 5; i++) {
     const code = randomFrom(CODE_ALPHABET, 6);
     try {
-      await env.DB.prepare('INSERT INTO link_codes (code_hash, secret_hash, device_hint, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
-        .bind(await linkHash(env, code), secretHash, hint, now, expiresAt).run();
+      await env.DB.prepare('INSERT INTO link_codes (code_hash, secret_hash, device_hint, created_at, expires_at) VALUES (?, ?, NULL, ?, ?)')
+        .bind(await linkHash(env, code), secretHash, now, expiresAt).run();
       return json({ code, expiresAt, url: `${publicBase(req, env)}/parents/link?c=${code}` }, 201, cors);
     } catch (e) { if (!/UNIQUE|PRIMARY KEY/.test(String(e?.message))) throw e; }
   }
@@ -145,13 +152,27 @@ export async function leaveFamily(req, env, cors) {
 async function requireLivePlan(env, accountId) {
   if (!(await liveFamily(env, accountId))) throw new HttpError(402, 'needs_subscription');
 }
+export const LINK_PURPOSES = Object.freeze(['plan', 'consent']);
+/**
+ * Why this device is being linked (TRUST-9 §3): 'plan' (needs a live plan) or 'consent' (needs the parent's tick).
+ * With no purpose, 'plan' when the account has a live plan, else 'consent'.
+ */
+async function linkPurpose(env, accountId, b) {
+  const purpose = LINK_PURPOSES.includes(b.purpose) ? b.purpose : (await liveFamily(env, accountId)) ? 'plan' : 'consent';
+  if (purpose === 'plan') await requireLivePlan(env, accountId);
+  else if (b.consent !== true) throw new HttpError(400, 'consent_required');
+  return purpose;
+}
 
-/** POST /api/family/link/claim {code, label?}: a signed-in parent with a live family plan claims a child's code. */
+/**
+ * POST /api/family/link/claim {code, label?, purpose?, consent?}: a signed-in parent claims a child's code, for the
+ * family plan or as the free one-time OK for the tutor (see linkPurpose).
+ */
 export async function linkClaim(req, env, ctx, cors) {
   const a = await requireAccount(req, env);
   const b = await body(req, SMALL);
   await limitOrThrow(env, `claim:a:${a.id}`, LINK_LIMITS.claim, 429, 'too_many_links');
-  await requireLivePlan(env, a.id);
+  const purpose = await linkPurpose(env, a.id, b);
   const code = normCode(b.code);
   if (!code) throw new HttpError(404, 'link_not_found');
   const ch = await linkHash(env, code);
@@ -181,8 +202,8 @@ export async function linkClaim(req, env, ctx, cors) {
       AND (SELECT COUNT(*) FROM family_devices d WHERE ${IN_USE}) < ?7`).bind(a.id, now, id, label, dayOf(), ch, max),
     env.DB.prepare(`UPDATE link_codes SET account_id = ?, device_id = ?, claimed_at = ?, expires_at = MAX(expires_at, ?)
       WHERE code_hash = ? AND claimed_at IS NULL AND EXISTS (SELECT 1 FROM family_devices WHERE id = ?)`).bind(a.id, id, now, collectBy, ch, id),
-    linkedNoticeStmt(env, { id, accountId: a.id, label, at: now }),
-    linkedAuditStmt(env, { id, accountId: a.id, at: now, how: 'code' }),
+    linkedNoticeStmt(env, { id, accountId: a.id, label, at: now, purpose }),
+    linkedAuditStmt(env, { id, accountId: a.id, at: now, how: 'code', purpose }),
   ]);
   if (Number(res[0].meta?.changes) !== 1) {
     const again = await first(env, 'SELECT * FROM link_codes WHERE code_hash = ?', ch);
@@ -196,15 +217,16 @@ export async function linkClaim(req, env, ctx, cors) {
 }
 
 /**
- * POST /api/family/devices/this {label?} with X-Account-Token and X-Device: the parent is holding the child's device.
- * Returns the device token and deletes the session that asked, so the parent's sign-in does not stay on the child's device.
+ * POST /api/family/devices/this {label?, purpose?, consent?} with X-Account-Token and X-Device: the parent is holding
+ * the child's device, for the plan or as the free OK (see linkPurpose). Returns the device token and deletes the session
+ * that asked, so the parent's sign-in does not stay on the child's device.
  */
 export async function linkThisDevice(req, env, ctx, cors) {
   const a = await requireAccount(req, env);
   const b = await body(req, SMALL);
   if (!(await deviceFrom(req, env))) throw new HttpError(400, 'need_device');
   await limitOrThrow(env, `claim:a:${a.id}`, LINK_LIMITS.claim, 429, 'too_many_links');
-  await requireLivePlan(env, a.id);
+  const purpose = await linkPurpose(env, a.id, b);
   const label = cleanLabel(b.label);
   const now = nowIso();
   const max = limits(env).family.devices;
@@ -216,8 +238,8 @@ export async function linkThisDevice(req, env, ctx, cors) {
       SELECT ?3, ?1, ?4, ?5, ?2, ?6 WHERE (SELECT COUNT(*) FROM family_devices d WHERE ${IN_USE}) < ?7`)
       .bind(a.id, now, id, await sha256(token), label, dayOf(), max),
     env.DB.prepare('DELETE FROM account_sessions WHERE token_hash = ? AND EXISTS (SELECT 1 FROM family_devices WHERE id = ?)').bind(a.tokenHash, id),
-    linkedNoticeStmt(env, { id, accountId: a.id, label, at: now }),
-    linkedAuditStmt(env, { id, accountId: a.id, at: now, how: 'this_device' }),
+    linkedNoticeStmt(env, { id, accountId: a.id, label, at: now, purpose }),
+    linkedAuditStmt(env, { id, accountId: a.id, at: now, how: 'this_device', purpose }),
   ]);
   if (Number(res[0].meta?.changes) !== 1) throw await deviceLimitError(env, a.id);
   ctx?.waitUntil?.(flushNotices(env));

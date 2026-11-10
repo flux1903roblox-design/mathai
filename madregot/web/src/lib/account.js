@@ -48,6 +48,20 @@ export const aiReady = () => aiMode() !== 'none';
 
 export const PAID_TIERS = ['family', 'class', 'teacher', 'trial', 'legacy'];
 
+/**
+ * What the device knows when the server says class_ai_off (trust spec TRUST-11): the student's class has the tutor
+ * off under the Ministry's rules. A state of its own, not an error: every screen shows the calm line, and nothing is
+ * asked of the tutor (a message that reads as distress still goes, and the server answers it with the fixed reply).
+ */
+export const CLASS_OFF = Object.freeze({ classOff: true, tier: null, kinds: Object.freeze([]), groups: Object.freeze({}) });
+/**
+ * What the device knows when the server says parent_ok_needed (trust spec TRUST-9): a child alone, on a device no
+ * parent has approved. The status call says so itself ({ state: 'parent_ok_needed' }); a refused request leaves the
+ * same state. Like CLASS_OFF, a state and not an error: the screens send the child to the screen for their parents.
+ */
+export const PARENT_OK_NEEDED = Object.freeze({ state: 'parent_ok_needed', tier: null, kinds: Object.freeze([]), groups: Object.freeze({}) });
+const waitsForParent = (status) => status?.state === 'parent_ok_needed';
+
 // What the server said last: GET /api/ai/status, kept up to date by the headers of each answer.
 // `ended` is true for this visit when the device was on a paid tier and is now on the free taste (said once).
 export const useAIStatus = create(() => ({ status: null, loading: false, error: null, ended: false }));
@@ -68,6 +82,8 @@ export async function refreshStatus() {
       useAIStatus.setState({ status, loading: false, ...(ended ? { ended: true } : {}) });
       return status;
     } catch (e) {
+      if (e.code === 'class_ai_off') { useAIStatus.setState({ status: CLASS_OFF, loading: false, error: null }); return CLASS_OFF; }
+      if (e.code === 'parent_ok_needed') { useAIStatus.setState({ status: PARENT_OK_NEEDED, loading: false, error: null }); return PARENT_OK_NEEDED; }
       useAIStatus.setState({ loading: false, error: e.code || 'network' });
       return null;
     } finally { refreshing = null; }
@@ -96,12 +112,16 @@ function readLinked(res) {
  *   paused   the free tutor rests today (its daily budget is spent)
  *   resting  a shared ceiling (this network or this class) is reached today
  *   economy  a paid plan's month is over its fair use: checks come back on the 1st
+ *   class_off  the student's class has the tutor off, under the Ministry's rules (TRUST-11)
+ *   parent_ok_needed  a child alone: a parent approves the tutor on this device once, for free (TRUST-9)
  * An unknown status gives 'open', so a failed status call never blocks anything.
  */
 export function aiAccess(kind, status = useAIStatus.getState().status) {
   const mode = aiMode();
   if (mode === 'none') return { state: 'offline', left: null, tier: null };
   if (mode === 'personal') return { state: 'open', left: null, tier: 'personal' };
+  if (status?.classOff) return { state: 'class_off', left: null, tier: null };
+  if (waitsForParent(status)) return { state: 'parent_ok_needed', left: null, tier: null };
   if (!status || !status.tier) return { state: 'open', left: null, tier: null };
   const tier = status.tier;
   const group = KIND_GROUP[kind] || 'tutor';
@@ -149,15 +169,45 @@ export function autoAskAllowed() {
 /**
  * Before a tool that sends a photo or asks for new exercises: what to show instead of the camera, or null when it
  * can go ahead. 'locked' and 'economy' are the tool's own info state (ToolLocked); a used, resting or paused tutor
- * opens the calm sheet (LimitSheet) and also returns its state.
+ * opens the calm sheet (LimitSheet) and also returns its state. Before the first AI action on this device it opens the
+ * introduction instead and returns 'intro'; `then` (the action itself) runs after "הבנתי".
  */
-export function gate(kind, { onMadi } = {}) {
+export function gate(kind, { onMadi, then } = {}) {
   const a = aiAccess(kind);
   if (a.state === 'locked' || a.state === 'economy') return a.state;
+  if (a.state === 'class_off') { openLimitSheet({ reason: 'class_ai_off', onMadi }); return a.state; }
+  if (a.state === 'parent_ok_needed') { openLimitSheet({ reason: 'parent_ok_needed', onMadi }); return a.state; }
   if (a.state === 'used') { openLimitSheet({ reason: 'daily_limit', tier: a.tier, onMadi }); return a.state; }
   if (a.state === 'paused') { openLimitSheet({ reason: 'free_paused', tier: a.tier, onMadi }); return a.state; }
   if (a.state === 'resting') { openLimitSheet({ reason: 'shared_limit', tier: a.tier, scope: a.scope, onMadi }); return a.state; }
+  if (needIntro(then)) return 'intro';
   return null;
+}
+
+// ---------------------------------------------------------------- the introduction before the first AI action (TRUST-4 §4.6)
+// Mounted once in the app (AIIntro.jsx). Shown once per device: ai.introSeen === true afterwards (an older saved state
+// has no such field, so it shows once there too; no store version is needed). The action that opened it is kept and
+// runs after "הבנתי", so nothing the child asked for is lost; closing the sheet any other way runs nothing.
+export const useAIIntro = create(() => ({ open: false, then: null }));
+export const introSeen = () => useApp.getState().ai?.introSeen === true;
+export const openAIIntro = (then = null) => useAIIntro.setState({ open: true, then });
+export const closeAIIntro = () => useAIIntro.setState({ open: false, then: null });
+/** "הבנתי": remembered on this device, then the action that was waiting runs. */
+export function acceptAIIntro() {
+  const { then } = useAIIntro.getState();
+  useApp.getState().setAI({ introSeen: true });
+  closeAIIntro();
+  then?.();
+}
+/**
+ * Is the introduction still due before an AI action here? Then it opens (with `then`, the action, to run after it) and
+ * this returns true: the caller stops. Never on a device with no tutor (nothing would be sent), and never for a
+ * message that reads as distress (the caller checks that first: a child in distress never meets the introduction).
+ */
+export function needIntro(then) {
+  if (introSeen() || aiMode() === 'none') return false;
+  openAIIntro(then || null);
+  return true;
 }
 
 /** The server's count after an answer (the headers X-AI-Tier, X-AI-Group, X-AI-Left, X-AI-Economy, X-AI-Linked). */
@@ -165,15 +215,22 @@ export function noteUsage(res) {
   readLinked(res);
   const tier = res.headers.get('X-AI-Tier'); const group = res.headers.get('X-AI-Group'); const left = Number(res.headers.get('X-AI-Left'));
   if (!tier) return;
-  const prev = useAIStatus.getState().status || {};
+  // an answer while the class's tutor was off means the teacher has turned it on since (or, on a device waiting for a
+  // parent, that a parent has approved it): start again from this answer, and ask for the whole status
+  const cur = useAIStatus.getState().status || {};
+  const reopened = !!cur.classOff || waitsForParent(cur);
+  const prev = reopened ? {} : cur;
   const groups = { ...(prev.groups || {}) };
   const g = tier === 'open' ? 'all' : group;
   if (g && Number.isFinite(left)) groups[g] = { ...(groups[g] || { limit: left }), left };
   useAIStatus.setState({ status: { ...prev, tier, groups, economy: res.headers.get('X-AI-Economy') === '1' ? true : !!prev.economy } });
+  if (reopened) refreshStatus();
 }
 
 /** A limit the server reported (an AI call refused): remember it, so the screens show the calm state at once. */
 export function noteLimit(data = {}, kind) {
+  if (data.error === 'class_ai_off') { useAIStatus.setState({ status: CLASS_OFF }); return; }
+  if (data.error === 'parent_ok_needed') { useAIStatus.setState({ status: PARENT_OK_NEEDED }); return; }
   const prev = useAIStatus.getState().status;
   if (!prev) return;
   const groups = { ...(prev.groups || {}) };
@@ -189,12 +246,12 @@ export function noteLimit(data = {}, kind) {
 }
 
 // ---------------------------------------------------------------- the calm sheet when the tutor says "not now"
-// Mounted once in the app. reason: daily_limit | shared_limit | free_paused | monthly_fair_use | paid_only.
-// onMadi: the opener's way to ask Madi instead (the lesson opens its TutorSheet), or none.
+// Mounted once in the app. reason: daily_limit | shared_limit | free_paused | monthly_fair_use | paid_only | class_ai_off |
+// parent_ok_needed. onMadi: the opener's way to ask Madi instead (the lesson opens its TutorSheet), or none.
 export const useLimitSheet = create(() => ({ open: false, reason: null, tier: null, scope: null, onMadi: null }));
 export const openLimitSheet = ({ reason, tier = null, scope = null, onMadi = null }) => useLimitSheet.setState({ open: true, reason, tier, scope, onMadi });
 export const closeLimitSheet = () => useLimitSheet.setState({ open: false, onMadi: null });
-export const LIMIT_ERRORS = ['paid_only', 'daily_limit', 'shared_limit', 'monthly_fair_use', 'free_paused'];
+export const LIMIT_ERRORS = ['paid_only', 'daily_limit', 'shared_limit', 'monthly_fair_use', 'free_paused', 'class_ai_off', 'parent_ok_needed'];
 
 // ---------------------------------------------------------------- linking this device to a family plan (spec §3.3)
 /** A link code for this device: the one already waiting, or a new one. The secret never leaves this device. */

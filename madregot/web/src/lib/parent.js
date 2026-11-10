@@ -164,14 +164,18 @@ export async function openInvoice(paymentId) {
 }
 
 // ---------------------------------------------------------------- the child's devices
-export const claimLink = (code, label) => call('/api/family/link/claim', { method: 'POST', body: { code: String(code || '').toUpperCase().trim(), ...(label ? { label } : {}) } });
+/**
+ * Claim the code a child's device shows. `extra` is { purpose: 'consent', consent: true } for the parent's free OK for
+ * the tutor (trust spec TRUST-9); with nothing, the server links for the plan when the account has one.
+ */
+export const claimLink = (code, label, extra = {}) => call('/api/family/link/claim', { method: 'POST', body: { code: String(code || '').toUpperCase().trim(), ...(label ? { label } : {}), ...extra } });
 export const unlinkDevice = (id) => call(`/api/family/devices/${encodeURIComponent(id)}/unlink`, { method: 'POST', body: {} });
 /**
  * The parent holds the child's device: link it straight away. The server deletes the session that asked, and this page
  * forgets it too, so nobody can change the plan from the child's device afterwards.
  */
-export async function linkThisDevice(label) {
-  const r = await call('/api/family/devices/this', { method: 'POST', body: label ? { label } : {}, headers: { 'X-Device': deviceId() } });
+export async function linkThisDevice(label, extra = {}) {
+  const r = await call('/api/family/devices/this', { method: 'POST', body: { ...(label ? { label } : {}), ...extra }, headers: { 'X-Device': deviceId() } });
   useApp.getState().setAI({ familyDevice: { token: r.deviceToken, label: r.label || '' }, pendingLink: null });
   clearSession();
   refreshStatus();

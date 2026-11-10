@@ -8,6 +8,7 @@ import { requireTeacher, liveLicence, legacyWindow } from './entitle.js';
 import { requireAccount } from './account.js';
 import { prices, vatExempt, onlineCheckout, SEATS } from './billing.js';
 import { flushNotices } from './email.js';
+import { refuseSchoolSale } from './classai.js';
 
 const SMALL = 4096;
 const DAY = 864e5;
@@ -76,6 +77,8 @@ function intIn(v, min, max, fallback) {
 /**
  * POST /api/teacher/licence/request {wants, school, classes, students?, note?}: also needs X-Account-Token (the teacher's
  * verified email, for the owner's answer). One open request per kind per class, 5 a day per class. The owner gets an email.
+ * A trial is an AI class licence: none where the Ministry's rules keep student AI off (409 school_ai_not_approved, trust
+ * spec TRUST-11 §5). A quote request stays open: the school hears that student AI turns on after the catalogue approval.
  */
 export async function licenceRequest(req, env, ctx, cors) {
   const cls = await requireTeacher(req, env);
@@ -83,6 +86,7 @@ export async function licenceRequest(req, env, ctx, cors) {
   const b = await body(req, SMALL);
   const wants = String(b.wants || '');
   if (!['trial', 'quote'].includes(wants)) throw new HttpError(400, 'bad_request');
+  if (wants === 'trial') await refuseSchoolSale(env, cls);
   const school = cleanText(b.school, 80);
   if (!school) throw new HttpError(400, 'missing_fields');
   const classes = intIn(b.classes, 1, 30, 1);
@@ -123,6 +127,8 @@ export const licenceCodeHash = (code) => sha256(code);
 /**
  * POST /api/teacher/licence/claim {code}: a school licence code (from npm run owner -- grant-school) attaches this class.
  * Each class takes one of the code's places; the code works for 60 days. 10 an hour per network, 10 a day per class.
+ * No code attaches a class where the Ministry's rules keep student AI off (409 school_ai_not_approved, trust spec
+ * TRUST-11 §5), and the code is not looked at then, so it keeps all its places.
  */
 export async function licenceClaim(req, env, cors) {
   const cls = await requireTeacher(req, env);
@@ -134,6 +140,7 @@ export async function licenceClaim(req, env, cors) {
     key(`licclaim:c:${cls.code}`, CLAIM_LIMITS.classDay, { err: tooMany }),
   ]);
   if (!r.ok) throw r.error;
+  await refuseSchoolSale(env, cls);
   const code = normLicenceCode(b.code);
   if (!code) throw new HttpError(400, 'bad_licence_code');
   const hash = await licenceCodeHash(code);
@@ -179,9 +186,12 @@ export async function lockClass(req, env, cors) {
   return json({ joinLocked: b.locked }, 200, cors);
 }
 
+/** The PIN counters of a student (trust spec TRUST-12 §1): pin:<id> and every pin:<id>:<net>. Bind the student id as ?1. */
+export const pinKeysWhere = "(who = 'pin:' || ?1 OR who LIKE 'pin:' || ?1 || ':%')";
+
 /**
- * POST /api/teacher/students/:id/remove {}: one batch deletes the student's attempts, levels, help requests and exams, the
- * PIN counter and the student; the student's token stops working. The practice saved on the device itself stays there.
+ * POST /api/teacher/students/:id/remove {}: one batch deletes the student's attempts, levels, help requests (and their
+ * help_meta rows) and exams, the PIN counters, the student's AI switch (student_ai_off) and the student; the student's token stops working. The practice saved on the device itself stays there.
  */
 export async function removeStudent(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
@@ -191,7 +201,10 @@ export async function removeStudent(id, req, env, cors) {
   const mine = 'SELECT id FROM students WHERE id = ? AND class_code = ?';
   await env.DB.batch([
     ...['attempts', 'levels', 'help_requests', 'exams'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE student_id IN (${mine})`).bind(st.id, cls.code)),
-    env.DB.prepare('DELETE FROM ai_usage WHERE who = ?').bind(`pin:${st.id}`),
+    // help_meta goes with its requests (its foreign key cascades too; this also covers a database without it)
+    env.DB.prepare('DELETE FROM help_meta WHERE help_id NOT IN (SELECT id FROM help_requests)'),
+    env.DB.prepare(`DELETE FROM ai_usage WHERE ${pinKeysWhere}`).bind(st.id),
+    env.DB.prepare('DELETE FROM student_ai_off WHERE student_id = ?').bind(st.id),
     env.DB.prepare('DELETE FROM students WHERE id = ? AND class_code = ?').bind(st.id, cls.code),
     audit(env, cls.code, 'student.remove', `student:${st.id}`),
   ]);

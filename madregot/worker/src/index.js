@@ -2,13 +2,15 @@
 // (entitlement, sign-in by email code, family devices, class licences, checkout and payments, cancellation).
 // The owner works through scripts/owner.mjs; there is no HTTP admin.
 import Anthropic from '@anthropic-ai/sdk';
-import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult } from '../../shared/ai.js';
+import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare } from '../../shared/ai.js';
+import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import {
-  dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, take, key, giveBack,
+  dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
   limitOrThrow, hmacHex,
 } from './util.js';
 import { startLogin, verifyLogin, signOut } from './account.js';
-import { resolve, aiStatus, requireStudent, requireTeacher, paywallOn } from './entitle.js';
+import { resolve, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify } from './entitle.js';
+import { recordSafety } from './safety.js';
 import { recordSpend } from './spend.js';
 import { emailReady } from './email.js';
 import {
@@ -17,8 +19,9 @@ import {
 } from './billing.js';
 import { currentProvider } from './providers/index.js';
 import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily } from './family.js';
-import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked } from './licence.js';
+import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked, pinKeysWhere } from './licence.js';
 import { run as runCron } from './cron.js';
+import { newClassSetting, newClassStmts, classSettings, aiPolicyView, setClassAi, setStudentAi } from './classai.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -53,8 +56,13 @@ async function verifyPin(pin, stored) {
 const classCode = () => randomFrom(CODE_ALPHABET, 6);
 const cleanName = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 30);
 
-// Wrong personal-code attempts allowed per student per day (each try is counted before the compare); the teacher's reset clears the count.
-const PIN_TRIES = 10;
+// Personal-code tries (trust spec TRUST-12 §1): 5 an hour from one network and 30 a day in all, per student. Each try is
+// taken before the code is compared and given back when it is right, so parallel guesses cannot pass the cap and a
+// student who types the right code never uses one up. On a school network a classmate can still cause a one-hour lock
+// with a 4-digit code; the teacher's reset (which clears these counters) is the remedy. 30 a day across networks keeps
+// guessing 10,000 codes at about half a year on average.
+const PIN_NET_HOUR = 5;
+const PIN_DAY = 30;
 
 // ---------- AI ----------
 /**
@@ -90,15 +98,107 @@ function aiHeaders(r) {
   };
 }
 
+/** The last thing the student typed in a chat: the only free text a child sends the AI (photos rely on the model's flag). */
+function lastUser(messages) {
+  const list = Array.isArray(messages) ? messages : [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = list[i];
+    if (m && m.role === 'user' && typeof m.content === 'string') return m.content.slice(0, 4000);
+  }
+  return '';
+}
+
+/** The fixed care reply, with no AI call: JSON, or for a streamed chat the same text followed by the care marker. */
+function careStaticReply(kind, input, cors, headers) {
+  if (kind === 'chat' && input.stream) {
+    return new Response(`${CARE_STATIC}\n${CARE_MARK}`, { headers: { ...cors, ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+  }
+  return json({ text: CARE_STATIC, care: true }, 200, cors, headers);
+}
+
+/** What a child typed that this request sends to the AI for the first time: the newest chat message, or a typed answer. */
+function childText(kind, input) {
+  // the answers the student typed, as the app's context carries them (ai spec AI-1), or as an older app sent them
+  const typed = Array.isArray(input?.ctx?.tries?.answers) ? input.ctx.tries.answers.map((a) => a?.value) : [];
+  if (kind === 'chat') return [lastUser(input.messages), input.context?.studentAnswer, ...typed];
+  if (kind === 'explain') return [input.studentAnswer, ...typed];
+  // the question typed next to a photo of the student's own work
+  if (kind === 'check') return [input.question, ...typed];
+  return [];
+}
+
+const hostOf = (url) => { try { return new URL(url).hostname.toLowerCase(); } catch { return ''; } };
+
+/**
+ * Screen every string of a JSON reply (trust spec TRUST-4 §4.2). → { data, blocked, linksRemoved }. `care`: a care
+ * result is never checked against the blocklist; its links still are.
+ */
+function screenJson(data, opts) {
+  let blocked = false; let linksRemoved = 0;
+  const walk = (v) => {
+    if (typeof v === 'string') {
+      const s = screenOutput(v, opts);
+      if (s.blocked) blocked = true;
+      linksRemoved += s.linksRemoved;
+      return s.text;
+    }
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+    return v;
+  };
+  const out = walk(data);
+  return { data: out, blocked, linksRemoved };
+}
+
+// The streamed reply is screened as it goes: the last, unfinished word is held back (a word is judged whole), and only
+// the new text is checked, from the start of the word where the last check stopped.
+const WORD_CHAR = /[\p{L}\p{N}_'"]/u;
+const HOLD_MAX = 60; // a "word" longer than this is not held back any longer
+const OVERLAP = 40; // longer than any blocklist term, so a term across two checks is still seen whole
+function stableEnd(text) {
+  let i = text.length;
+  while (i > 0 && WORD_CHAR.test(text[i - 1]) && text.length - i < HOLD_MAX) i -= 1;
+  return i;
+}
+function wordStart(text, i) {
+  let j = Math.max(0, i);
+  while (j > 0 && WORD_CHAR.test(text[j - 1])) j -= 1;
+  return j;
+}
+
 async function handleAI(kind, req, env, ctx, cors) {
   if (!AI_KINDS.includes(kind)) throw new HttpError(404, 'not_found');
-  if (!env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
+  // Distress first (trust spec TRUST-3 §3.4): the body is read and checked before anything can refuse, so a child who
+  // writes that they are in distress gets an answer even when the server has no AI key, the day's questions are used
+  // up, or the plan does not cover the AI. That answer is never counted against a question.
   const input = await body(req, AI_BODY_MAX[kind]);
-  const r = await resolve(req, env, kind, input);
-  const headers = aiHeaders(r);
+  const hit = detectDistress(kind === 'chat' ? lastUser(input.messages) : '');
+  if (!hit.flag && !env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
+  const r = hit.flag ? await resolveCare(req, env, kind, input) : await resolve(req, env, kind, input);
+  const careTier = r.tier === 'care';
+  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: kind, source: 'regex', tier: r.static ? 'static' : 'care' }, ctx);
+  // a care answer says nothing about the person's questions (no X-AI-Tier or X-AI-Left), so the screen's count stays
+  const headers = careTier ? (r.linkedBad ? { 'X-AI-Linked': '0' } : {}) : aiHeaders(r);
+  if (r.static) return careStaticReply(kind, input, cors, headers);
+  // Personal details were masked in the request itself (shared/ai.js); here they are only counted, one event per kind
+  // of detail, with nothing of the text (trust spec TRUST-4 §4.1).
+  const pii = scanPersonal(childText(kind, input));
+  if (pii.length) recordSafety(env, pii.map((category) => ({ kind: 'pii_masked', category, surface: kind, source: 'regex', tier: r.tier })), ctx);
+  const screen = { hosts: [hostOf(env.PUBLIC_URL)].filter(Boolean) };
+  const event = (k) => recordSafety(env, { kind: k, surface: kind, source: 'server', tier: r.tier }, ctx);
   let returned = false;
   // a call where Claude did no work gives the person's question back (never the shared or tries counters)
   const giveBackOnce = async () => { if (!returned) { returned = true; await giveBack(env, r.refund); } };
+  // the question was given back: the count the screen shows says so
+  const leftBack = () => {
+    if (headers['X-AI-Left'] !== undefined) headers['X-AI-Left'] = String(Math.min(r.limit ?? Infinity, Math.max(0, r.left) + 1));
+  };
+  // only the model noticed: the reply is a care reply, and the question it took is given back
+  const modelCare = async () => {
+    if (careTier) return;
+    await giveBackOnce();
+    recordSafety(env, { kind: 'distress', surface: kind, source: 'model', tier: r.tier }, ctx);
+  };
   const record = (message) => recordSpend(env, { pool: r.pool, kind, message }).catch((e) => console.error('spend', e?.message));
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, ...(env.ANTHROPIC_BASE_URL ? { baseURL: env.ANTHROPIC_BASE_URL } : {}) });
 
@@ -107,7 +207,50 @@ async function handleAI(kind, req, env, ctx, cors) {
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
     let aborted = false;
-    const write = (text) => writer.write(enc.encode(text)).catch(() => { aborted = true; });
+    let wrote = false;
+    const write = (text) => { if (text) wrote = true; return writer.write(enc.encode(text)).catch(() => { aborted = true; }); };
+    // The start of the reply is held back until it has 9 characters or a line, so a care line the model puts first
+    // ([[care]]) is taken out before anything reaches the screen, and sent as a marker at the end instead. Then, in
+    // this order (trust spec TRUST-4 §4.2): a care reply goes out as it comes; any other reply is checked against the
+    // blocklist before each piece is sent, and on a hit the stream stops and ends with [[blocked]].
+    let care = careTier; let held = ''; let decided = false;
+    let acc = ''; let sent = 0; let checked = 0; let blocked = false;
+    const pass = async (final) => {
+      if (blocked) return;
+      const end = care || final ? acc.length : stableEnd(acc);
+      if (end <= sent) return;
+      if (!care) {
+        const from = wordStart(acc, checked - OVERLAP);
+        if (blockHit(acc.slice(from, end))) { blocked = true; return; }
+        checked = end;
+      }
+      const piece = acc.slice(sent, end); sent = end;
+      await write(piece);
+    };
+    const settle = async () => {
+      if (decided) return;
+      decided = true;
+      const lead = splitCare(held); held = '';
+      if (lead.care) care = true;
+      acc += lead.text;
+      await pass(false);
+    };
+    const out = async (text) => {
+      if (decided) { acc += text; return pass(false); }
+      held += text;
+      const lead = held.replace(/^\s+/, '');
+      if (lead.length > CARE_MARK.length || lead.includes('\n')) await settle();
+    };
+    // a care request that failed or was declined still answers the child: the fixed reply, never an error
+    const careFallback = async () => { if (!wrote) await write(CARE_STATIC); await write(`\n${CARE_MARK}`); };
+    // a reply that was not fit to show: nothing more of it goes out, the question is given back, and the app shows a
+    // calm sentence in its place
+    let endedBlocked = false;
+    const endBlocked = async () => {
+      if (endedBlocked) return;
+      endedBlocked = true;
+      await giveBackOnce(); event('output_blocked'); await write('\n[[blocked]]');
+    };
     const pump = (async () => {
       let stream;
       let recorded = false;
@@ -116,23 +259,48 @@ async function handleAI(kind, req, env, ctx, cors) {
         stream = client.beta.messages.stream(r.params);
         for await (const ev of stream) {
           usage.event(ev);
-          if (aborted) { stream.abort(); break; }
-          if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') await write(ev.delta.text);
+          if (aborted || blocked) { stream.abort(); break; }
+          if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') await out(ev.delta.text);
+          if (blocked) { stream.abort(); break; }
         }
-        if (!aborted) {
-          const final = await stream.finalMessage();
-          recorded = true;
-          await record(final);
-          if (final.stop_reason === 'refusal') { await giveBackOnce(); await write('\n[[refusal]]'); }
+        if (blocked) await endBlocked();
+        else if (!aborted) {
+          await settle();
+          await pass(true);
+          if (blocked) {
+            await endBlocked();
+          } else {
+            const final = await stream.finalMessage();
+            recorded = true;
+            await record(final);
+            // the links were sent as written; the app shows any it may not open as plain text (SafeLink)
+            if (screenOutput(acc, { ...screen, care: true }).linksRemoved) event('link_removed');
+            if (careTier) {
+              if (final.stop_reason === 'refusal') { event('refusal'); await careFallback(); }
+              else await write(`\n${CARE_MARK}`);
+            } else {
+              if (care) { await modelCare(); await write(`\n${CARE_MARK}`); }
+              // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
+              if (final.stop_reason === 'refusal') { event('refusal'); await giveBackOnce(); await write('\n[[refusal]]'); }
+            }
+          }
         }
       } catch (e) {
-        if (!aborted) {
+        // stopping a blocked stream can end it with an error of its own: the reply still ends as blocked
+        if (blocked && !aborted) await endBlocked();
+        else if (!aborted) {
           console.error('chat stream', e?.status, e?.message);
-          await giveBackOnce();
-          await write(`\n[[error:${aiErrorCode(e)}]]`);
+          await settle();
+          await pass(true);
+          if (blocked) await endBlocked();
+          else if (careTier) await careFallback();
+          else {
+            await giveBackOnce();
+            await write(`\n[[error:${aiErrorCode(e)}]]`);
+          }
         }
       } finally {
-        // the reader left, or the stream broke: what Claude already did is still priced
+        // the reader left, or the stream broke or was stopped: what Claude already did is still priced
         const partial = recorded ? null : usage.message();
         if (partial) await record(partial);
         try { await writer.close(); } catch { /* the client went away */ }
@@ -158,19 +326,83 @@ async function handleAI(kind, req, env, ctx, cors) {
     // a stream that broke part-way was billed for what it did
     const partial = usage.message();
     if (partial) ctx.waitUntil(record(partial));
-    await giveBackOnce();
     console.error('ai', kind, code, e?.status, e?.message);
+    if (careTier) return careStaticReply(kind, input, cors, headers);
+    await giveBackOnce();
     throw new HttpError(code === 'busy' ? 429 : 502, code, undefined, undefined, headers);
   }
   ctx.waitUntil(record(message));
+  let result;
   try {
-    return json(readResult(kind, message), 200, cors, headers);
+    result = readResult(kind, message);
   } catch (e) {
+    if (e?.code === 'refusal') event('refusal'); // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
+    if (careTier) return careStaticReply(kind, input, cors, headers);
     const code = e?.code === 'refusal' || e?.code === 'bad_output' ? e.code : 'bad_output';
     await giveBackOnce();
     throw new HttpError(code === 'refusal' ? 422 : 502, code, undefined, undefined, headers);
   }
+  // Every reply is screened before the child sees it (trust spec TRUST-4 §4.2). A care reply (the care path, or one the
+  // model marked) is never checked against the blocklist; its links are.
+  const isCare = careTier || result?.care === true;
+  const checkedOut = screenJson(result, { ...screen, care: isCare });
+  if (checkedOut.blocked) {
+    await giveBackOnce();
+    event('output_blocked');
+    // a text reply becomes a calm sentence; a structured result (a check, an exam, exercises) cannot be shown in part
+    if (kind === 'explain' || kind === 'chat') { leftBack(); return json({ text: BLOCKED_TEXT, blocked: true }, 200, cors, headers); }
+    leftBack();
+    throw new HttpError(502, 'bad_output', undefined, undefined, headers);
+  }
+  if (checkedOut.linksRemoved) event('link_removed');
+  result = checkedOut.data;
+  if (careTier) return json({ ...result, care: true }, 200, cors, headers);
+  if (result?.care === true) {
+    await modelCare();
+    leftBack();
+  }
+  return json(result, 200, cors, headers);
 }
+// ---------- a child reports an AI answer (trust spec TRUST-4 §4.5) ----------
+const REPORT_REASONS = Object.freeze(['wrong_math', 'not_nice', 'not_for_kids', 'other']);
+const REPORT_KINDS = Object.freeze(['chat', 'explain', 'check', 'exam', 'generate']);
+const REPORT_TIERS = ['free', 'family', 'class', 'teacher', 'trial', 'legacy', 'open', 'care', 'personal'];
+const REPORT_MAX = 4000;
+// 10 a day from one child or device, and a ceiling for a whole network (a school shares one), so the table cannot be
+// filled by inventing device ids
+const REPORTS_PER_DAY = 10;
+const REPORTS_PER_NET = 100;
+
+/**
+ * POST /api/ai/report { reason, kind, reply, tier? }: the tutor's answer a child marked as wrong or not fit for them.
+ * Only the reply is kept: masked here (maskPersonal) and clipped to 4,000 characters. Nothing else in the body is read,
+ * so a child's own message is never stored even if a client sent it, and the row says nothing about who reported it.
+ * A user_report safety event counts it (no text). The owner reads them with npm run owner -- reports.
+ */
+async function reportAnswer(req, env, ctx, cors) {
+  const b = await body(req, 16 * KB);
+  const reason = String(b.reason || ''); const kind = String(b.kind || '');
+  const raw = typeof b.reply === 'string' ? b.reply : '';
+  if (!REPORT_REASONS.includes(reason) || !REPORT_KINDS.includes(kind) || !raw.trim()) throw new HttpError(400, 'bad_request');
+  const tier = REPORT_TIERS.includes(b.tier) ? b.tier : '';
+  // masked before it is clipped, so a phone number cut at the edge is never kept in part
+  const reply = maskPersonal(raw.slice(0, 2 * REPORT_MAX)).text.slice(0, REPORT_MAX);
+  const id = await identify(req, env);
+  const net = await netKey(req, env);
+  const who = id.student ? `s:${id.student.id}`
+    : id.fam ? `fd:${id.fam.device_id}`
+      : id.teacher ? `t:${id.teacher.code}`
+        : id.device ? `d:${await devKey(env, id.device)}`
+          : `x:${net}`;
+  const err = new HttpError(429, 'too_many_reports');
+  const r = await take(env, [key(`report:${who}`, REPORTS_PER_DAY, { err }), key(`report:n:${net}`, REPORTS_PER_NET, { err })]);
+  if (!r.ok) throw r.error;
+  await env.DB.prepare('INSERT INTO answer_reports (created_at, reason, kind, reply, tier) VALUES (?, ?, ?, ?, ?)')
+    .bind(nowIso(), reason, kind, reply, tier).run();
+  recordSafety(env, { kind: 'user_report', category: reason, surface: kind, source: 'client', tier }, ctx);
+  return json({ ok: true }, 200, cors);
+}
+
 function aiErrorCode(e) {
   if (e?.code === 'refusal' || e?.code === 'bad_output') return e.code;
   if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) return 'server_key';
@@ -207,14 +439,20 @@ async function createClass(req, env, cors) {
   const name = cleanName(b.className); const teacherName = cleanName(b.teacherName);
   const grade = b.grade === '8' ? '8' : '7';
   if (!name || !teacherName) throw new HttpError(400, 'missing_fields');
+  // where the class learns (trust spec TRUST-11 §3): a school (the default) or a private group its teacher attests to
+  const setting = newClassSetting(b);
   await limitOrThrow(env, `create:n:${await netKey(req, env)}`, 10, 429, 'too_many_classes');
   const teacherKey = randomToken(12);
   for (let i = 0; i < 5; i++) {
     const code = classCode();
+    const now = nowIso();
     try {
-      await env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(code, name, grade, teacherName, await sha256(teacherKey), nowIso()).run();
-      return json({ code, teacherKey, className: name, grade, teacherName }, 200, cors);
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .bind(code, name, grade, teacherName, await sha256(teacherKey), now),
+        ...newClassStmts(env, code, setting, now),
+      ]);
+      return json({ code, teacherKey, className: name, grade, teacherName, setting }, 200, cors);
     } catch (e) { if (!String(e?.message).includes('UNIQUE')) throw e; }
   }
   throw new HttpError(500, 'code_collision');
@@ -234,7 +472,8 @@ async function joinClass(code, req, env, cors) {
   if (!name) throw new HttpError(400, 'missing_name');
   if (!/^\d{4}$/.test(pin)) throw new HttpError(400, 'bad_pin');
   // A whole school can share one network, so this cap is generous; PIN guessing is capped per student below.
-  await limitOrThrow(env, `join:n:${await netKey(req, env)}`, 300, 429, 'too_many_joins');
+  const net = await netKey(req, env);
+  await limitOrThrow(env, `join:n:${net}`, 300, 429, 'too_many_joins');
   const cls = await env.DB.prepare('SELECT * FROM classes WHERE code = ?').bind(code.toUpperCase()).first();
   if (!cls) throw new HttpError(404, 'no_class');
   const token = randomToken();
@@ -245,13 +484,17 @@ async function joinClass(code, req, env, cors) {
   if (existing) {
     // An empty pin_hash means the teacher reset it: the next join sets a new PIN.
     if (existing.pin_hash) {
-      // A try is counted before the PIN is compared, so parallel guesses cannot all be compared against one stale count.
-      // A wrong PIN keeps its try; the right one gives it back.
-      const k = key(`pin:${existing.id}`, PIN_TRIES, { refundable: true, err: new HttpError(429, 'too_many_pin') });
-      const t = await take(env, [k]);
-      if (!t.ok) throw t.error;
+      // Each try is taken before the PIN is compared (DURABLE-8), so parallel guesses cannot all be compared against one
+      // stale count. A wrong PIN keeps its tries; the right one gives them back.
+      const err = new HttpError(429, 'too_many_pin');
+      const tries = [
+        key(`pin:${existing.id}:${net}`, PIN_NET_HOUR, { period: 'hour', refundable: true, err }),
+        key(`pin:${existing.id}`, PIN_DAY, { refundable: true, err }),
+      ];
+      const r = await take(env, tries);
+      if (!r.ok) throw r.error;
       if (!(await verifyPin(pin, existing.pin_hash))) throw new HttpError(403, 'wrong_pin');
-      await giveBack(env, [k]);
+      await giveBack(env, tries); // the right code costs no try
     }
     id = existing.id;
     await env.DB.prepare('UPDATE students SET token_hash = ?, pin_hash = ?, last_seen = ? WHERE id = ?')
@@ -311,6 +554,9 @@ async function saveProgress(req, env, cors) {
   return json({ saved: events.length }, 200, cors);
 }
 
+/** The title a class exam is kept under: no name-like ID, phone or long number (trust spec TRUST-5 §6). */
+const examTitle = (t) => scrubTitle(String(t || '').trim() || 'מבחן').slice(0, 80);
+
 async function saveExam(req, env, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.exams);
@@ -320,29 +566,58 @@ async function saveExam(req, env, cors) {
   }));
   const weak = (Array.isArray(b.weakTopics) ? b.weakTopics : []).filter((t) => TOPIC_IDS.includes(t)).slice(0, 6);
   await env.DB.prepare('INSERT INTO exams (student_id, title, correct, total, questions, weak, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(s.id, String(b.title || 'מבחן').slice(0, 80), Number(b.correct) || 0, Number(b.total) || qs.length, JSON.stringify(qs), JSON.stringify(weak), nowIso()).run();
+    .bind(s.id, examTitle(b.title), Number(b.correct) || 0, Number(b.total) || qs.length, JSON.stringify(qs), JSON.stringify(weak), nowIso()).run();
   return json({ ok: true }, 200, cors);
 }
 
-async function askHelp(req, env, cors) {
+/**
+ * POST /api/help: a class student asks the teacher. Either help with an exercise ({ topic, level, question, answer,
+ * note?, image? }) or, with { kind: 'talk' } and no text, "I want the teacher to talk with me" (trust spec TRUST-3
+ * §3.5): stored with an empty question and note and help_meta.kind = 'talk', one open at a time, and never refused for
+ * the number of open requests. A note that reads as distress is checked here again (the device's own check is never
+ * trusted) and marks the request help_meta.care = 1, so the teacher sees "כדאי לבדוק מה שלום התלמיד/ה". The note is
+ * the child's own message to their teacher; the safety log keeps only a count.
+ */
+async function askHelp(req, env, ctx, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.help);
-  const open = await env.DB.prepare('SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ? AND done_at IS NULL').bind(s.id).first();
+  if (b.kind === 'talk') {
+    const talking = await env.DB.prepare(`SELECT h.id FROM help_requests h JOIN help_meta m ON m.help_id = h.id
+      WHERE h.student_id = ? AND h.done_at IS NULL AND m.kind = 'talk' LIMIT 1`).bind(s.id).first();
+    if (talking) return json({ ok: true, again: true }, 200, cors);
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, \'\', NULL, \'\', \'\', \'\', NULL, ?)').bind(s.id, nowIso()),
+      env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) SELECT MAX(id), \'talk\', 0 FROM help_requests WHERE student_id = ?').bind(s.id),
+    ]);
+    return json({ ok: true }, 200, cors);
+  }
+  const note = String(b.note || '').slice(0, 300);
+  const hit = detectDistress(note);
+  // a note that reads as distress always reaches the teacher, however many requests are open
+  const open = hit.flag ? null : await env.DB.prepare('SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ? AND done_at IS NULL').bind(s.id).first();
   if (open && open.n >= 10) throw new HttpError(429, 'too_many_open');
+  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: 'help_note', source: 'regex' }, ctx);
   // Optional notebook page: a JPEG data URL of the student's working, kept small.
   const image = typeof b.image === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(b.image) && b.image.length <= 600_000 ? b.image : null;
-  // The same exercise asked again while its request is still open: one request, with the newest note and page.
+  // The same exercise asked again while its request is still open: one request, with the newest note and page (a
+  // talk request, with its empty question, is never one of them).
   const question = String(b.question || '').slice(0, 600);
-  const same = await env.DB.prepare('SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL AND question = ? LIMIT 1').bind(s.id, question).first();
+  const same = await env.DB.prepare(`SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL AND question = ?
+    AND id NOT IN (SELECT help_id FROM help_meta WHERE kind = 'talk') LIMIT 1`).bind(s.id, question).first();
   if (same) {
-    const note = String(b.note || '').slice(0, 300);
-    await env.DB.prepare('UPDATE help_requests SET note = CASE WHEN ? <> \'\' THEN ? ELSE note END, image = COALESCE(?, image), answer = ? WHERE id = ?')
-      .bind(note, note, image, String(b.answer || '').slice(0, 100), same.id).run();
+    await env.DB.batch([
+      env.DB.prepare('UPDATE help_requests SET note = CASE WHEN ? <> \'\' THEN ? ELSE note END, image = COALESCE(?, image), answer = ? WHERE id = ?')
+        .bind(note, note, image, String(b.answer || '').slice(0, 100), same.id),
+      // once a note read as distress, the request stays marked for the teacher
+      ...(hit.flag ? [env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) VALUES (?, \'help\', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1').bind(same.id)] : []),
+    ]);
     return json({ ok: true, again: true }, 200, cors);
   }
-  await env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(s.id, String(b.topic || '').slice(0, 20), Number(b.level) || null, String(b.question || '').slice(0, 600),
-      String(b.answer || '').slice(0, 100), String(b.note || '').slice(0, 300), image, nowIso()).run();
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(s.id, String(b.topic || '').slice(0, 20), Number(b.level) || null, question, String(b.answer || '').slice(0, 100), note, image, nowIso()),
+    ...(hit.flag ? [env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) SELECT MAX(id), \'help\', 1 FROM help_requests WHERE student_id = ?').bind(s.id)] : []),
+  ]);
   return json({ ok: true }, 200, cors);
 }
 
@@ -351,7 +626,7 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
@@ -363,13 +638,19 @@ async function dashboard(req, env, cors) {
        WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL GROUP BY a.topic, a.cat ORDER BY students DESC, n DESC LIMIT 12`, cls.code, weekStart),
     q(`SELECT DISTINCT a.topic, a.cat, s.name FROM attempts a JOIN students s ON s.id = a.student_id
        WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL`, cls.code, weekStart),
-    q(`SELECT h.id, h.topic, h.level, h.question, h.answer, h.note, h.image IS NOT NULL AS has_image, h.created_at, h.seen_at, h.done_at, s.name
-       FROM help_requests h JOIN students s ON s.id = h.student_id
+    // kind 'help' or 'talk' and care 0/1 (trust spec TRUST-3 §3.5): a request with no help_meta row is a plain 'help', care 0
+    q(`SELECT h.id, h.topic, h.level, h.question, h.answer, h.note, h.image IS NOT NULL AS has_image, h.created_at, h.seen_at, h.done_at, s.name,
+       COALESCE(m.kind, 'help') AS kind, COALESCE(m.care, 0) AS care
+       FROM help_requests h JOIN students s ON s.id = h.student_id LEFT JOIN help_meta m ON m.help_id = h.id
        WHERE s.class_code = ? AND (h.done_at IS NULL OR h.done_at >= ?) ORDER BY h.created_at DESC LIMIT 100`, cls.code, daysAgo(7)),
     q('SELECT a.student_id, MAX(a.at) AS last FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? GROUP BY a.student_id', cls.code),
     q('SELECT e.id, e.student_id, e.title, e.correct, e.total, e.questions, e.weak, e.created_at, s.name FROM exams e JOIN students s ON s.id = e.student_id WHERE s.class_code = ? ORDER BY e.created_at DESC LIMIT 200', cls.code),
     joinLocked(env, cls.code),
+    // the Ministry's AI rules for this class (trust spec TRUST-11 §3): the class's switch and each student's own
+    q('SELECT so.student_id FROM student_ai_off so JOIN students s ON s.id = so.student_id WHERE s.class_code = ?', cls.code),
+    classSettings(env, cls.code),
   ]);
+  const aiOff = new Set(aiOffRows.map((r) => r.student_id));
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
   const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows);
   const lv = {};
@@ -378,8 +659,9 @@ async function dashboard(req, env, cors) {
     class: { code: cls.code, name: cls.name, grade: cls.grade, teacherName: cls.teacher_name },
     today,
     joinLocked: locked,
+    aiPolicy: aiPolicyView(env, cls, aiSettings),
     students: students.map((s) => ({
-      id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset,
+      id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset, aiOff: aiOff.has(s.id),
       today: t[s.id] ? { n: t[s.id].n, ok: t[s.id].ok, first: t[s.id].first, minutes: Math.round((t[s.id].secs || 0) / 60) } : { n: 0, ok: 0, first: 0, minutes: 0 },
       week: w[s.id] ? { n: w[s.id].n, first: w[s.id].first, days: w[s.id].days, minutes: Math.round((w[s.id].secs || 0) / 60) } : { n: 0, first: 0, days: 0, minutes: 0 },
       levels: lv[s.id] || {},
@@ -415,8 +697,8 @@ async function resetPin(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
   const r = await env.DB.prepare('UPDATE students SET pin_hash = \'\', token_hash = ? WHERE id = ? AND class_code = ?')
     .bind(await sha256(randomToken()), id, cls.code).run();
-  // A reset also clears today's wrong-code count, so the student can choose a new code right away.
-  if (r.meta?.changes) await env.DB.prepare('DELETE FROM ai_usage WHERE who = ?').bind(`pin:${id}`).run();
+  // A reset also clears every wrong-code count (each network's and the day's), so the student can choose a new code now.
+  if (r.meta?.changes) await env.DB.prepare(`DELETE FROM ai_usage WHERE ${pinKeysWhere}`).bind(id).run();
   return json({ ok: true }, 200, cors);
 }
 
@@ -444,6 +726,7 @@ async function route(req, env, ctx, cors) {
     const s = await aiStatus(req, env);
     return json(s.body, 200, cors, s.headers);
   }
+  if (M === 'POST' && p === '/api/ai/report') return reportAnswer(req, env, ctx, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/ai\/(\w+)$/))) return handleAI(m[1], req, env, ctx, cors);
   if (M === 'POST' && p === '/api/devices') return mintDevice(req, env, cors);
   // parent and teacher accounts
@@ -476,7 +759,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})$/))) return classInfo(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})\/join$/))) return joinClass(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, cors);
-  if (M === 'POST' && p === '/api/help') return askHelp(req, env, cors);
+  if (M === 'POST' && p === '/api/help') return askHelp(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/exams') return saveExam(req, env, cors);
   // teacher
   if (M === 'GET' && p === '/api/teacher/dashboard') return dashboard(req, env, cors);
@@ -485,6 +768,8 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/remove$/))) return removeStudent(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/ai') return setClassAi(req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/ai$/))) return setStudentAi(m[1], req, env, cors);
   if (M === 'GET' && p === '/api/teacher/licence') return licenceStatus(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/licence/request') return licenceRequest(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/teacher/licence/claim') return licenceClaim(req, env, cors);

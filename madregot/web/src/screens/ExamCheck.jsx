@@ -13,6 +13,8 @@ import Mascot from '@/components/Mascot.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { aiAccess, gate, useAIStatus } from '@/lib/account.js';
 import ToolLocked from '@/components/ToolLocked.jsx';
+import SupportCard from '@/components/SupportCard.jsx';
+import { scrubTitle } from '@shared/safety.js';
 
 async function imageToJpeg(file) {
   const url = URL.createObjectURL(file);
@@ -62,7 +64,9 @@ export default function ExamCheck() {
   };
 
   const check = async () => {
-    if (gate('exam')) return; // the tutor is done for today: the calm sheet says so, nothing is sent
+    // the tutor is done for today (the calm sheet says so), or this is the first AI action here (the introduction
+    // opens, and the check runs after it): nothing is sent yet
+    if (gate('exam', { then: check })) return;
     setState({ phase: 'loading' });
     window.scrollTo?.({ top: 0 });
     try {
@@ -75,6 +79,8 @@ export default function ExamCheck() {
         key: practice ? practice.items.map((i) => ({ prompt: i.plain, answer: i.answer })) : undefined,
       });
       if (!result.readable || !result.questions?.length) {
+        // the tutor stopped the maths because the pages worry it: the support card, never "try again"
+        if (result.care) { if (mounted.current) setState({ phase: 'care' }); return; }
         const message = 'לא הצלחנו לקרוא את המבחן. צלמו שוב באור טוב, עם כל הדף בתמונה.';
         if (mounted.current) setState({ phase: 'error', message }); else toast.error(message);
         return;
@@ -89,7 +95,8 @@ export default function ExamCheck() {
       const score = scoreOf(result);
       const exam = {
         id: Math.random().toString(36).slice(2) + Date.now().toString(36), at: new Date().toISOString(),
-        title: title.trim() || practice?.title || result.title || 'מבחן', source: practice ? 'practice' : 'upload', practiceId: practice?.id || null,
+        // the subject, never a person: no ID, phone or long number is kept (trust spec TRUST-5 §6; the server does the same)
+        title: scrubTitle(title.trim() || practice?.title || result.title || 'מבחן'), source: practice ? 'practice' : 'upload', practiceId: practice?.id || null,
         result, score, levels: Object.fromEntries(Object.entries(progress).map(([k, v]) => [k, v.level])),
       };
       addExam(exam);
@@ -111,7 +118,7 @@ export default function ExamCheck() {
   // the exam check is the full tutor's: where this device does not have it, say so before any page is photographed
   const status = useAIStatus((x) => x.status);
   const access = aiAccess('exam', status).state;
-  const locked = !offline && (access === 'locked' || access === 'economy') ? access : null;
+  const locked = !offline && ['locked', 'economy', 'class_off'].includes(access) ? access : null;
   // A pushed screen (LAYOUT_SPEC E2): the bar with the way back, the pages, and ONE primary pinned at the bottom.
   return (
     <div className="page pushed exam-check">
@@ -154,6 +161,7 @@ export default function ExamCheck() {
           </div>
           {/* a failed check says so right under the question, where it is seen without scrolling */}
           {state.phase === 'error' && <p className="form-error check-error" role="alert">{state.message}</p>}
+          {state.phase === 'care' && <SupportCard variant="after-message" className="exam-support" />}
           <section className="section" aria-labelledby="pages-title" data-region="content">
             <h2 id="pages-title" className="set-head">הדפים ({pages.length} מתוך {MAX_EXAM_PAGES})</h2>
             <ul className="page-thumbs">

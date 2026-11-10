@@ -11,6 +11,8 @@ import { Markdown, MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
 import AIChat from '@/components/AIChat.jsx';
 import Mascot from '@/components/Mascot.jsx';
+import SupportCard from '@/components/SupportCard.jsx';
+import ReportAnswer, { examText } from '@/components/ReportAnswer.jsx';
 import { ScreenBar, ScreenFoot, EmptyState, ConfirmSheet } from '@/components/Screen.jsx';
 import { pctTone } from './Exams.jsx';
 
@@ -67,6 +69,7 @@ function QuestionCard({ q, onAsk }) {
       <div className="q-actions">
         {TOPIC[q.topic] && <Link className="btn btn-secondary btn-sm" to={`/practice/${q.topic}${q.level ? `?level=${q.level}` : ''}`}><PencilRuler size={16} aria-hidden="true" />תרגול דומה</Link>}
         {aiReady() && <Button variant="ghost" className="btn-sm" onClick={() => onAsk(q)}><Sparkles size={16} aria-hidden="true" />שאלו על השאלה</Button>}
+        <ReportAnswer kind="exam" reply={examText(q)} className="q-report" />
       </div>
     </article>
   );
@@ -129,6 +132,8 @@ export default function ExamResult() {
         </div>
       </div>
       {exam.result.summary && <div className="result-say"><Markdown>{exam.result.summary}</Markdown></div>}
+      {/* the tutor saw something on the pages that worries it: people to talk to come before the review */}
+      {exam.result.care === true && <SupportCard variant="after-message" className="exam-support" />}
 
       {weak.length > 0 && (
         <section className="section" aria-labelledby="weak-title">

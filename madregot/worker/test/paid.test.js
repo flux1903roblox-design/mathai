@@ -8,7 +8,7 @@ import { limits } from '../src/entitle.js';
 import { priceOf, PRICES } from '../src/spend.js';
 import { dayOf, monthOf, resetsAt } from '../src/util.js';
 import {
-  setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, setCount, setSpend, countOf, rows, one, claudeReply,
+  setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, setCount, setSpend, countOf, rows, one, claudeReply, devOf,
 } from './helpers.js';
 
 let h;
@@ -88,7 +88,7 @@ test('the family budget and the main model are the same in code and in wrangler.
 
 test('class: each student has their own limits; seats x 25 units stop a leaked-code flood', async () => {
   h = await setup();
-  const cls = await makeClass(h, { students: ['א', 'ב', 'ג'] });
+  const cls = await makeClass(h, { studentAi: true, students: ['א', 'ב', 'ג'] });
   insertSub(h.env, { kind: 'class', class_code: cls.code, seats: 1 });
   const [a, b, c] = cls.students;
   await setCount(h.env, `s:${a.studentId}:tutor`, 20);
@@ -124,7 +124,7 @@ test('a licensed teacher counts into the class and has the teacher limits', asyn
 
 test('a licensed student on a linked family device uses the class bucket first, then the family bucket for that kind', async () => {
   h = await setup();
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה'] });
   insertSub(h.env, { kind: 'class', class_code: cls.code, seats: 30 });
   const { a, d1 } = await family();
   const both = { ...bearer(cls.students[0]), ...d1.headers };
@@ -171,7 +171,7 @@ test('past_due keeps access for FAMILY_GRACE_DAYS after the period end; canceled
 
 test('trial: tutor and check only, lower limits, paused by TRIAL_DAILY_BUDGET_USD', async () => {
   h = await setup();
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה'] });
   insertSub(h.env, { kind: 'class', class_code: cls.code, plan: 'trial', seats: 10 });
   const s = bearer(cls.students[0]);
   const g = await ai(h, 'generate', s);
@@ -194,7 +194,7 @@ test('legacy: a class created before BILLING_START keeps 40 / 200 until LEGACY_C
   const tomorrow = dayOf(new Date(Date.now() + 864e5));
   const later = dayOf(new Date(Date.now() + 60 * 864e5));
   h = await setup({ BILLING_START: tomorrow, LEGACY_CLASS_AI_UNTIL: later });
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה'] });
   const r = await ai(h, 'generate', bearer(cls.students[0]));
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('X-AI-Tier'), 'legacy'); assert.equal(r.headers.get('X-AI-Left'), '39');
@@ -209,11 +209,11 @@ test('legacy: a class created before BILLING_START keeps 40 / 200 until LEGACY_C
   assert.equal((await ai(h, 'explain', bearer(cls.students[0]))).status, 429);
   h.done();
   h = await setup({ BILLING_START: tomorrow, LEGACY_CLASS_AI_UNTIL: dayOf(new Date(Date.now() - 864e5)) });
-  const ended = await makeClass(h, { students: ['דנה'] });
+  const ended = await makeClass(h, { studentAi: true, students: ['דנה'] });
   assert.equal((await ai(h, 'explain', bearer(ended.students[0]))).headers.get('X-AI-Tier'), 'free');
   h.done();
   h = await setup({ BILLING_START: dayOf(new Date(Date.now() - 864e5)), LEGACY_CLASS_AI_UNTIL: later });
-  const fresh = await makeClass(h, { students: ['גל'] });
+  const fresh = await makeClass(h, { studentAi: true, students: ['גל'] });
   assert.equal((await ai(h, 'explain', bearer(fresh.students[0]))).headers.get('X-AI-Tier'), 'free', 'new classes are never legacy');
 });
 
@@ -295,7 +295,7 @@ test('X-AI-Tier, X-AI-Group, X-AI-Left, X-AI-Economy and X-AI-Linked are sent an
   assert.equal(stale.headers.get('X-AI-Tier'), 'free');
   const st = await h.call('GET', '/api/ai/status', { headers: { 'X-Family-Device': `fd1.${'0'.repeat(64)}` } });
   assert.equal(st.headers.get('X-AI-Linked'), '0');
-  await setCount(h.env, `free:d:${'e'.repeat(32)}`, 2);
+  await setCount(h.env, `free:d:${await devOf(h.env, 'e'.repeat(32))}`, 2);
   const refused = await ai(h, 'explain', { 'X-Family-Device': `fd1.${'0'.repeat(64)}`, 'X-Device': 'e'.repeat(32) });
   assert.equal(refused.status, 429);
   assert.equal(refused.headers.get('X-AI-Linked'), '0', 'also on a refusal');

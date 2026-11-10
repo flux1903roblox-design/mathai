@@ -7,8 +7,13 @@
 //
 // Mutating commands also write an audit_log row (actor 'owner:cli'). Without --local the remote database is used.
 //
-//   grant-class --class C --until D --seats N [--invoice R] [--note T] [--trial]
-//   grant-school --classes K --seats N --until D --invoice R [--note T]        prints a licence code once
+//   grant-class --class C --until D --seats N [--invoice R] [--note T] [--trial] [--private-ok]
+//   grant-school --classes K --seats N --until D --invoice R [--note T] [--private-ok]   prints a licence code once
+//
+// While MOE_AI_APPROVAL is not "approved" (the Ministry's catalogue, trust spec TRUST-11 §5 and TRUST-14), grant-class
+// and grant-school refuse: no AI class licence goes to a school before the approval. A private group outside any school
+// can still get one with --private-ok, a --note saying which group it is, and "private" typed when asked. The approval
+// is read from the environment (MOE_AI_APPROVAL), else from wrangler.toml.
 //   grant-family --email E --until D [--note T]
 //   end --id S [--reason owner]
 //   cancel --id S --mode period_end|refund_now|prorata
@@ -18,14 +23,17 @@
 //   forget --email E
 //   list [--class C | --email E | --status S]   requests [--open]   request-done --id R
 //   usage --from D --to D                        events [--outcome mismatch]
+//   reports [--since D]                          AI answers children reported (the tutor's text only, masked)
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { endOfDayIso, CODE_ALPHABET } from '../src/util.js';
+import { endOfDayIso, startOfDayIso, CODE_ALPHABET } from '../src/util.js';
 import { cleanEmail } from '../src/account.js';
+import { rulesEnv } from '../../shared/schoolRules.js';
 
 const DAY = 864e5;
 export class InputError extends Error {}
@@ -36,13 +44,13 @@ export const CLASS_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/;
 export const ID_RE = /^[a-f0-9]{16}$/;
 export function classArg(v) { const c = String(v || '').toUpperCase(); if (!CLASS_RE.test(c)) fail(`bad class code: ${v}`); return c; }
 export function idArg(v, what = 'id') { const s = String(v || ''); if (!ID_RE.test(s)) fail(`bad ${what}: ${v}`); return s; }
-/** A YYYY-MM-DD date, meaning the end of that day in Jerusalem, as an ISO instant. */
-export function dateArg(v) {
+/** A YYYY-MM-DD date, meaning the end of that day in Jerusalem, as an ISO instant (`start`: its start instead). */
+export function dateArg(v, { start = false } = {}) {
   const s = String(v || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) fail(`bad date: ${v}`);
   const t = new Date(`${s}T00:00:00Z`);
   if (Number.isNaN(t.getTime()) || t.toISOString().slice(0, 10) !== s) fail(`bad date: ${v}`);
-  return endOfDayIso(s);
+  return start ? startOfDayIso(s) : endOfDayIso(s);
 }
 export function intArg(v, min, max, what) {
   const n = Number(v);
@@ -70,11 +78,44 @@ export function licenceCode() {
 }
 export const licenceHash = (code) => sha256(String(code).toUpperCase().replace(/[^A-Z0-9]/g, ''));
 
+// ---------------------------------------------------------------- the Ministry's catalogue (TRUST-11 §5)
+const WRANGLER_TOML = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'wrangler.toml');
+/** MOE_AI_APPROVAL as the Worker has it: the environment first, else wrangler.toml; 'approved' or 'none'. */
+export function moeApproval(env = process.env, toml = WRANGLER_TOML) {
+  if (env.MOE_AI_APPROVAL !== undefined && env.MOE_AI_APPROVAL !== '') return rulesEnv({ MOE_AI_APPROVAL: env.MOE_AI_APPROVAL }).approval;
+  try {
+    const m = readFileSync(toml, 'utf8').match(/^MOE_AI_APPROVAL\s*=\s*"(.*)"/m);
+    if (m) return rulesEnv({ MOE_AI_APPROVAL: m[1] }).approval;
+  } catch { /* no file: the safe default */ }
+  return 'none';
+}
+/** The commands that grant an AI class licence. */
+export const CLASS_GRANTS = Object.freeze(['grant-class', 'grant-school']);
+/** Does this command, with these options, need the owner to type "private" first? */
+export const needsPrivateConfirm = (cmd, o, approval) => CLASS_GRANTS.includes(cmd) && approval !== 'approved' && !!o['private-ok'];
+/**
+ * No AI class licence for a school before the catalogue approval. The CLI cannot see whether a class or a school code
+ * is a school's, so it refuses unless the owner says this is a private group outside any school: --private-ok, a note
+ * saying which group (kept on the licence), and "private" typed when asked (`confirmed`). → { privateOk } for the audit.
+ */
+function catalogueGate(cmd, o, approval, confirmed) {
+  if (approval === 'approved') return {};
+  if (!o['private-ok']) {
+    fail(`${cmd} refused: student AI in school classes waits for the Ministry's catalogue approval (MOE_AI_APPROVAL is "${approval}"), so no class licence goes to a school yet. `
+      + 'For a private group outside any school, run it again with --private-ok and --note "<which group>", and type private when asked.');
+  }
+  if (typeof o.note !== 'string' || !noteArg(o.note)) fail('--private-ok needs --note saying which private group this is');
+  if (confirmed !== 'private') fail('not confirmed: nothing was granted (type private to confirm a private group)');
+  return { privateOk: true };
+}
+
 // ---------------------------------------------------------------- commands → SQL
 /**
- * Build one command. Returns { sql, readOnly, print? }. `now`, `id` and `code` can be fixed for tests.
+ * Build one command. Returns { sql, readOnly, print? }. `now`, `id` and `code` can be fixed for tests; `approval` is
+ * MOE_AI_APPROVAL (read with moeApproval() when not given) and `confirmed` what the owner typed for --private-ok.
  */
-export function build(cmd, o = {}, { now = new Date().toISOString(), id = randomHex(8), code = licenceCode() } = {}) {
+export function build(cmd, o = {}, { now = new Date().toISOString(), id = randomHex(8), code = licenceCode(), approval, confirmed = null } = {}) {
+  const gate = () => catalogueGate(cmd, o, approval ?? moeApproval(), confirmed);
   switch (cmd) {
     case 'grant-class': {
       const cls = classArg(o.class);
@@ -85,8 +126,10 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
       if (until <= now) fail('--until must be in the future');
       const plan = trial ? 'trial' : 'term';
       const invoice = o.invoice ? refArg(o.invoice) : null; const note = o.note ? noteArg(o.note) : null;
+      const allowed = gate();
       return {
         readOnly: false,
+        ...(allowed.privateOk ? { print: 'Granted to a private group. Its teacher marks the class as a private group and records the parents\' consent before students use the tutor.' } : {}),
         sql: [
           // a live licence is extended (never shortened); a term grant turns a running trial into a licence
           `UPDATE subscriptions SET current_period_end = MAX(current_period_end, ${q(until)}), seats = ${seats},
@@ -96,7 +139,7 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
   SELECT ${q(id)}, 'class', NULL, ${q(cls)}, ${q(plan)}, 'active', 'manual', ${seats}, ${q(invoice)}, ${q(now)}, ${q(until)}, ${q(note)}, ${q(now)}, ${q(now)}
   WHERE EXISTS (SELECT 1 FROM classes WHERE code = ${q(cls)})
     AND NOT EXISTS (SELECT 1 FROM subscriptions WHERE kind = 'class' AND class_code = ${q(cls)} AND ${LIVE});`,
-          audit(now, 'licence.grant', `class:${cls}`, { plan, until, seats, invoice }),
+          audit(now, 'licence.grant', `class:${cls}`, { plan, until, seats, invoice, ...allowed }),
         ].join('\n'),
       };
     }
@@ -106,13 +149,15 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
       const until = dateArg(o.until);
       if (!o.invoice) fail('--invoice is required');
       const invoice = refArg(o.invoice); const note = o.note ? noteArg(o.note) : null;
+      const allowed = gate();
       return {
         readOnly: false,
-        print: `Licence code (shown once; give it to the school): ${code}`,
+        // a code attaches only classes whose rule allows student AI: before the approval, private groups only
+        print: `Licence code (shown once; give it to the ${allowed.privateOk ? 'private group' : 'school'}): ${code}`,
         sql: [
           `INSERT INTO licence_codes (code_hash, seats, classes_left, until, invoice_ref, note, created_at, expires_at)
   VALUES (${q(licenceHash(code))}, ${seats}, ${classes}, ${q(until)}, ${q(invoice)}, ${q(note)}, ${q(now)}, ${q(new Date(Date.parse(now) + 60 * DAY).toISOString())});`,
-          audit(now, 'licence.grant', `school:${invoice}`, { classes, seats, until }),
+          audit(now, 'licence.grant', `school:${invoice}`, { classes, seats, until, ...allowed }),
         ].join('\n'),
       };
     }
@@ -253,6 +298,12 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
       if (outcome && !['applied', 'duplicate_payment', 'after_cancel', 'ignored_old', 'unknown', 'mismatch', 'test_mode'].includes(outcome)) fail(`bad outcome: ${outcome}`);
       return { readOnly: true, sql: `SELECT provider, event_id, type, outcome, subscription_id, amount_agorot, detail, received_at FROM billing_events ${outcome ? `WHERE outcome = ${q(outcome)}` : ''} ORDER BY received_at DESC LIMIT 200;` };
     }
+    case 'reports': {
+      // what a child reported about an AI answer: the reason, where, and the tutor's own text (masked on the server);
+      // nothing in the table says who reported it. Kept 60 days (RETENTION.answerReportsDays).
+      const since = o.since ? dateArg(o.since, { start: true }) : null;
+      return { readOnly: true, sql: `SELECT id, created_at, reason, kind, tier, reply FROM answer_reports ${since ? `WHERE created_at >= ${q(since)}` : ''} ORDER BY created_at DESC LIMIT 200;` };
+    }
     default:
       return fail(`unknown command: ${cmd}`);
   }
@@ -271,10 +322,50 @@ export function parseArgs(argv) {
   return { cmd, o };
 }
 
-function main(argv) {
+/** The commands, one line each (printed with no command, or with help). */
+export const HELP = `usage: npm run owner -- <command> [options] [--local]   (without --local: the remote database)
+  grant-class --class C --until D --seats N [--invoice R] [--note T] [--trial] [--private-ok]
+  grant-school --classes K --seats N --until D --invoice R [--note T] [--private-ok]   prints a licence code once
+    (until MOE_AI_APPROVAL is "approved": refused for schools; a private group needs --private-ok --note T and "private" typed)
+  grant-family --email E --until D [--note T]
+  end --id S [--reason owner]
+  cancel --id S --mode period_end|refund_now|prorata
+  refund --id S [--agorot N]
+  clear-hold --email E
+  revoke-device --id D
+  forget --email E
+  list [--class C | --email E | --status S]
+  requests [--open]
+  request-done --id R
+  usage --from D --to D
+  events [--outcome mismatch]
+  reports [--since D]   AI answers children reported (the tutor's text only, masked; kept 60 days)
+Dates are YYYY-MM-DD (Jerusalem).`;
+
+/**
+ * One line typed by the owner (the prompt goes to stderr, so a command's output stays clean). No answer at all (the
+ * input closed) is '': nothing is confirmed, and the command fails rather than end quietly.
+ */
+async function ask(question) {
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    return await new Promise((resolve) => {
+      rl.once('close', () => resolve(''));
+      rl.question(question).then((a) => resolve(String(a).trim()), () => resolve(''));
+    });
+  } finally { rl.close(); }
+}
+
+async function main(argv) {
   const { cmd, o } = parseArgs(argv);
-  if (!cmd) { console.log('usage: npm run owner -- <command> [options] [--local]  (see scripts/owner.mjs)'); return; }
-  const b = build(cmd, o);
+  if (!cmd || cmd === 'help' || cmd === '--help') { console.log(HELP); return; }
+  const approval = moeApproval();
+  let confirmed = null;
+  if (needsPrivateConfirm(cmd, o, approval)) {
+    build(cmd, o, { approval, confirmed: 'private' }); // every other input is checked before anything is asked
+    confirmed = await ask('MOE_AI_APPROVAL is not "approved": this licence may go only to a private group outside any school. Type private to confirm: ');
+  }
+  const b = build(cmd, o, { approval, confirmed });
   const dir = mkdtempSync(path.join(tmpdir(), 'madregot-owner-'));
   const file = path.join(dir, 'command.sql');
   writeFileSync(file, `${b.sql}\n`);
@@ -289,8 +380,8 @@ function main(argv) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  try { main(process.argv.slice(2)); } catch (e) {
+  main(process.argv.slice(2)).catch((e) => {
     console.error(e instanceof InputError ? e.message : e);
     process.exitCode = 1;
-  }
+  });
 }

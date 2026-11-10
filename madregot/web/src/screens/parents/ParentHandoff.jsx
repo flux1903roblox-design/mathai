@@ -1,6 +1,7 @@
 // /parents/info on the child's device: a screen to hand to a parent. No price and no plan here. It shows a QR code (made
 // on this device) and the link code in large type; the parent scans it with their own phone, reads about the tutor
-// there, and, if they choose to, links this device. This device then collects its AI-only token by itself.
+// there, and, if they choose to, approves it on this device: for free (the one-time parent's OK, trust spec TRUST-9) or
+// with a plan. This device then collects its AI-only token by itself.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import qrcode from 'qrcode-generator';
@@ -34,10 +35,11 @@ export function QrCode({ text, size = 208, label }) {
 }
 
 export default function ParentHandoff() {
-  // linked, and the plan behind it still live (a plan that ended leaves the token on the free taste: link again)
+  // a token means a parent approved this device (for free or with a plan): it stays approved when a plan ends, and a
+  // plan later needs no new link
   const device = useApp((s) => s.ai.familyDevice);
   const tier = useAIStatus((x) => x.status?.tier);
-  const linked = !!device && (!tier || tier === 'family');
+  const linked = !!device;
   const pending = useApp((s) => s.ai.pendingLink);
   const [state, setState] = useState(linked ? 'linked' : 'starting'); // starting | waiting | idle | expired | linked | error
   const [error, setError] = useState('');
@@ -77,7 +79,7 @@ export default function ParentHandoff() {
     body = (
       <section className="card parents-card handoff-done" role="status">
         <Mascot mood="happy" size={96} />
-        <h2 className="card-title">העוזר החכם פתוח! אפשר לשאול אותו על כל תרגיל.</h2>
+        <h2 className="card-title">{tier === 'free' ? 'ההורים אישרו את העוזר החכם במכשיר הזה.' : 'העוזר החכם פתוח! אפשר לשאול אותו על כל תרגיל.'}</h2>
         <Link to="/assistant" className="btn btn-primary btn-block btn-lg">לעוזר החכם</Link>
       </section>
     );
@@ -86,7 +88,7 @@ export default function ParentHandoff() {
     body = (
       <>
         <section className="card parents-card handoff" aria-labelledby="handoff-title">
-          <p id="handoff-title" className="handoff-lead">הורים, סרקו את הקוד במצלמה של הטלפון שלכם כדי לקרוא על העוזר החכם, ואם תרצו, לחבר אותו למכשיר הזה.</p>
+          <p id="handoff-title" className="handoff-lead">הורים, סרקו את הקוד בטלפון שלכם. שם תקראו על העוזר החכם ותוכלו לאשר אותו במכשיר הזה, בחינם או עם מנוי.</p>
           {state === 'starting' && <p className="muted" role="status">מכינים קוד…</p>}
           {state === 'error' && (
             <>

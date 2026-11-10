@@ -11,11 +11,27 @@
 //   family           a child's device linked to a live family plan (X-Family-Device): limits shared by the family
 //   free             everyone else: 2 short questions a day on the low-cost model, with network, class, global and
 //                    dollar ceilings behind the person's own count
-import { AI_KINDS, AI_GROUPS, KIND_GROUP, AI_UNITS, FREE_KINDS, LITE_MODEL, buildRequest } from '../../shared/ai.js';
+//
+// A chat message that reads as distress never comes here: resolveCare (below) answers it on its own capped keys, never
+// counted against a question and never refused.
+//
+// Before any tier, the Ministry of Education's rules for the student's class (trust spec TRUST-11, shared/schoolRules.js):
+// a class student whose class has the tutor off (a school class before the catalogue approval, a class without the
+// parents' consent, or a teacher's switch) gets 403 class_ai_off, unless the device is linked to a family (then the
+// request is the family's, not the class's). Teachers always pass.
+//
+// Then a parent's OK (trust spec TRUST-9): with AI_PARENT_OK = "required" (the default), a child alone (no class, no
+// teacher, no device a parent linked) gets 403 parent_ok_needed, before the free taste and before the switch-off path.
+// A parent approves a device once, for free, from the parents' page (family.js, purpose 'consent'): the approval is a
+// signed-in adult email, an audit row and an email with the AI and privacy summary. "off" is the one-variable rollback.
+import { AI_KINDS, AI_GROUPS, KIND_GROUP, AI_UNITS, FREE_KINDS, LITE_MODEL, buildRequest, buildCare } from '../../shared/ai.js';
 import {
-  HttpError, key, take, peek, sha256, hmacHex, netKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual,
+  HttpError, key, take, peek, sha256, hmacHex, netKey, devKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual,
 } from './util.js';
 import { daySpendUsd, monthSpendUsd, queueNotices, ownerNotice } from './spend.js';
+import { classAiPolicy, studentAiAllowed, rulesEnv } from '../../shared/schoolRules.js';
+import { maskPersonal } from '../../shared/safety.js';
+import { recordSafety } from './safety.js';
 
 // ---------------------------------------------------------------- limits
 export const DEFAULT_LIMITS = {
@@ -26,6 +42,8 @@ export const DEFAULT_LIMITS = {
   trial: { student: { tutor: 10, check: 2, generate: 0, exam: 0 }, teacher: { tutor: 50, check: 10, generate: 0, exam: 0 }, seatUnits: 10, maxSeats: 40, days: 14 },
   legacy: { student: 40, teacher: 200, classUnits: 600 },
   budgets: { freeDailyUsd: 5, trialDailyUsd: 10, familyMonthlyUsd: 4, classSeatMonthlyUsd: 0.8, ownerAlertUsd: 20 },
+  // care replies (trust spec TRUST-3 §3.4): a day, per person, per network and for everyone; past them the fixed reply
+  care: { person: 5, net: 30, global: 1000 },
   graceDays: 3,
 };
 // Owner overrides through plain vars; AI_LIMITS (JSON) is deep-merged last for everything else.
@@ -74,16 +92,59 @@ export function limits(env) {
 }
 export const paywallOn = (env) => String(env.AI_PAYWALL || 'off') === 'on';
 const soloOff = (env) => String(env.ALLOW_SOLO_AI) === 'false';
+/** Does a child alone need a parent's OK before the tutor (TRUST-9)? Anything but "off" means yes. */
+export const parentOkRequired = (env) => String(env.AI_PARENT_OK ?? 'required').trim() !== 'off';
+/**
+ * A caller who would reach the tutor on their own, with no adult behind them: no class student (their class's rule
+ * covers them), no teacher (an adult), and no device a parent linked (a plan or a free OK). With ALLOW_SOLO_AI "false"
+ * such a caller has no tutor at all (solo_ai_off), and a parent's OK would not change that, so it is not asked for.
+ */
+const needsParentOk = (env, id) => parentOkRequired(env) && !id.student && !id.teacher && !id.fam && !soloOff(env);
 
 // ---------------------------------------------------------------- who is asking
 export async function studentFrom(req, env) {
   const auth = req.headers.get('Authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   if (!token || token.length > 128) return null;
+  // the class's AI rule rides along (trust spec TRUST-11 §4): no class_settings row is a school class with student AI
+  // off, and a student_ai_off row is the teacher's switch for this one student
   const row = await env.DB.prepare(
-    'SELECT s.id, s.name, s.class_code, c.grade, c.created_at AS class_created_at FROM students s JOIN classes c ON c.code = s.class_code WHERE s.token_hash = ?',
+    `SELECT s.id, s.name, s.class_code, c.grade, c.created_at AS class_created_at,
+       COALESCE(cs.setting, 'school') AS setting, COALESCE(cs.student_ai, 'off') AS student_ai, cs.ai_consent_at, so.student_id IS NOT NULL AS ai_off
+     FROM students s JOIN classes c ON c.code = s.class_code
+     LEFT JOIN class_settings cs ON cs.code = s.class_code LEFT JOIN student_ai_off so ON so.student_id = s.id
+     WHERE s.token_hash = ?`,
   ).bind(await sha256(token)).first();
   return row || null;
+}
+
+/** May this class student reach the tutor? The Ministry's rule for their class (shared/schoolRules.js), then their own switch. */
+export function studentAiOn(env, s) {
+  const policy = classAiPolicy({ setting: s.setting, grade: s.grade, studentAi: s.student_ai, consentAt: s.ai_consent_at }, rulesEnv(env));
+  return studentAiAllowed(policy, { aiOff: !!s.ai_off });
+}
+
+/**
+ * The class's AI switch for one AI request (trust spec TRUST-11 §4): 'on', 'home' or 'off'. A teacher always passes
+ * (what a teacher may do with the tutor only changes the copy). A class student whose class, or whose own switch, has
+ * the tutor off gets 'off', except on a device a parent linked to the family (X-Family-Device): that is home use by the
+ * parent's choice, so the request is no longer the class's ('home': the student identity is dropped here, the request
+ * is decided as the family's or as that device's free taste, and no class counter moves).
+ */
+function classGate(env, id) {
+  if (!id.student || studentAiOn(env, id.student)) return 'on';
+  if (id.fam) { id.student = null; return 'home'; }
+  return 'off';
+}
+
+// Free text a teacher sends the tutor is masked like a child's (TRUST-11 §7, the Ministry's §5.1: nothing identifying
+// goes into an AI tool). Every string of the request is masked except the pictures themselves.
+const PICTURE = new Set(['image', 'data', 'mediaType']);
+function maskFields(v, name = '') {
+  if (typeof v === 'string') return PICTURE.has(name) ? v : maskPersonal(v).text;
+  if (Array.isArray(v)) return v.map((x) => maskFields(x));
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, maskFields(x, k)]));
+  return v;
 }
 export async function requireStudent(req, env) {
   const s = await studentFrom(req, env);
@@ -238,7 +299,7 @@ async function freeKeys(req, env, id) {
   const [person, limit] = id.student ? [`free:s:${id.student.id}`, L.student]
     : id.fam ? [`free:fd:${id.fam.device_id}`, L.student]
       : id.teacher ? [`free:t:${id.teacher.code}`, L.teacher]
-        : id.device ? [`free:d:${id.device}`, L.student]
+        : id.device ? [`free:d:${await devKey(env, id.device)}`, L.student]
           : [`free:x:${net}`, L.student];
   const keys = {
     person: key(person, limit, { refundable: true, err: dailyErr('free', 'tutor', limit) }),
@@ -276,7 +337,7 @@ async function openKey(req, env, id, { strict = false } = {}) {
 export async function resolve(req, env, kind, input) {
   const id = await identify(req, env);
   try {
-    return { ...(await decide(req, env, kind, input, id)), linkedBad: id.famBad, linked: id.fam };
+    return { ...(await decide(req, env, kind, id.teacher ? maskFields(input) : input, id)), linkedBad: id.famBad, linked: id.fam };
   } catch (e) {
     if (e instanceof HttpError && id.famBad) e.headers = { ...(e.headers || {}), 'X-AI-Linked': '0' };
     throw e;
@@ -285,6 +346,17 @@ export async function resolve(req, env, kind, input) {
 
 async function decide(req, env, kind, input, id) {
   const g = KIND_GROUP[kind];
+  if (classGate(env, id) === 'off') {
+    // counted with no person and no text (trust spec TRUST-4 §4.4); the child sees a calm sheet, never a price
+    await recordSafety(env, { kind: 'class_ai_off', surface: kind, source: 'server' });
+    throw new HttpError(403, 'class_ai_off');
+  }
+  if (needsParentOk(env, id)) {
+    // counted the same way (the owner's summary shows how many children wait for a parent); the child sees a calm
+    // sheet that sends them to the screen for their parents, never a price
+    await recordSafety(env, { kind: 'parent_ok_needed', surface: kind, source: 'server' });
+    throw new HttpError(403, 'parent_ok_needed');
+  }
   if (!paywallOn(env)) {
     const k = await openKey(req, env, id, { strict: true });
     const p = params(env, kind, input, 'full');
@@ -335,6 +407,52 @@ async function decide(req, env, kind, input, id) {
   return { tier: 'free', pool: 'free', group: 'tutor', shape: 'lite', params: p, refund: [keys.person], left: keys.person.limit - r.counts[0], limit: keys.person.limit, economy: false };
 }
 
+// ---------------------------------------------------------------- care: a message that reads as distress
+/** The answer when no AI reply is possible or allowed: the fixed care text (CARE_STATIC), no Claude call. */
+const careStatic = (id) => ({ static: true, tier: 'care', pool: 'care', group: 'care', refund: [], linkedBad: !!id?.famBad });
+
+/**
+ * A chat message that reads as distress (trust spec TRUST-3 §3.4). Never counted against a question, never refused and
+ * never paywalled: it takes its own keys, care:<who> (5 a day; who is s:<student>, fd:<family device>, t:<class>,
+ * d:<device key> or x:<network>), care:n:<network> (30) and care:all (1,000), and builds a care-only request with no
+ * maths in it. When any key is full, the server has no AI key, or anything about the caller cannot be read, it returns
+ * { static: true }: the fixed reply, with no AI call. It never throws.
+ * A class whose tutor is off for this student (TRUST-11), and a child alone whose parent has not approved the tutor
+ * (TRUST-9), lead to { static: true } too: what such a child writes is not sent to the AI company at all.
+ */
+export async function resolveCare(req, env, kind, input) {
+  let id = null;
+  try {
+    id = await identify(req, env);
+    // a class whose tutor is off for this student: the fixed reply, with no AI call (TRUST-11 §4); on a device a parent
+    // linked, the care path is the family's, as any other request there
+    if (classGate(env, id) === 'off') return careStatic(id);
+    // no parent's OK (TRUST-9): distress text is health data, and it does not go to a US AI company for a child whose
+    // parent has not agreed to the tutor; the card and the fixed reply are there at once
+    if (needsParentOk(env, id)) return careStatic(id);
+    if (!env.ANTHROPIC_API_KEY) return careStatic(id);
+    const L = limits(env).care;
+    const net = await netKey(req, env);
+    const who = id.student ? `s:${id.student.id}`
+      : id.fam ? `fd:${id.fam.device_id}`
+        : id.teacher ? `t:${id.teacher.code}`
+          : id.device ? `d:${await devKey(env, id.device)}`
+            : `x:${net}`;
+    const p = buildCare(input, { model: env.CLAUDE_MODEL });
+    const r = await take(env, [key(`care:${who}`, L.person), key(`care:n:${net}`, L.net), key('care:all', L.global)]);
+    if (!r.ok) return careStatic(id);
+    return {
+      tier: 'care', pool: 'care', group: 'care', shape: 'care', params: p, refund: [],
+      left: L.person - r.counts[0], limit: L.person, economy: false, linkedBad: id.famBad, linked: id.fam,
+    };
+  } catch (e) {
+    // a caller that cannot be read (a wrong teacher key, no hashing secret) still gets the fixed reply; nothing from the
+    // request goes to the log
+    if (!(e instanceof HttpError)) console.error('care: fixed reply after an error');
+    return careStatic(id);
+  }
+}
+
 // ---------------------------------------------------------------- status: the same decision, counting nothing
 const left = (k, count) => Math.max(0, k.limit - count);
 
@@ -343,6 +461,14 @@ export async function aiStatus(req, env) {
   const id = await identify(req, env);
   const aiReady = !!env.ANTHROPIC_API_KEY;
   const headers = id.famBad ? { 'X-AI-Linked': '0' } : {};
+  // the class's tutor is off for this student (TRUST-11 §4): the same answer an AI request gets, so the screens show the
+  // calm state before anything is asked
+  if (classGate(env, id) === 'off') throw new HttpError(403, 'class_ai_off', undefined, undefined, headers);
+  // a child alone with no parent's OK (TRUST-9): no tool and no count, only the state, so the screens show the calm
+  // card before anything is asked (nothing is logged here: a screen that loads is not a request)
+  if (needsParentOk(env, id)) {
+    return { headers, body: { paywall: paywallOn(env), tier: null, state: 'parent_ok_needed', kinds: [], groups: {}, resetsAt: resetsAt('day'), aiReady } };
+  }
   if (!paywallOn(env)) {
     const k = await openKey(req, env, id);
     const [c] = k ? await peek(env, [k]) : [0];

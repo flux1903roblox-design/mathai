@@ -9,7 +9,8 @@ export function student(grade = '7', extra = {}) {
   return {
     state: {
       profile: { role: 'student', name: 'נועה', grade, know: 1 }, progress: {}, days: {}, xp: 0, mistakes: {}, outbox: [],
-      ai: { mode: 'server', apiUrl: '', key: '' }, path: {}, freezes: 0, goalXp: 20, sound: false, gaps: {}, placement: null, ...extra,
+      // introSeen: the one-time introduction to the tutor was read on this device (trust.spec.js tests it on its own)
+      ai: { mode: 'server', apiUrl: '', key: '', introSeen: true }, path: {}, freezes: 0, goalXp: 20, sound: false, gaps: {}, placement: null, ...extra,
     },
     version: 1,
   };

@@ -10,7 +10,10 @@ import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
+import { openSupport } from '@/components/SupportSheet.jsx';
+import { SUPPORT_LINK } from '@/content/support.js';
 import { useAIStatus, leaveFamily } from '@/lib/account.js';
+import { PARENT_OK_LINE } from '@/components/limitCopy.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
 import { durableWipe } from '@/lib/durable/storage.js';
 import SaveSection from '@/components/durable/SaveSection.jsx';
@@ -99,7 +102,7 @@ function AdvancedRow() {
 /**
  * "מתקדם": the settings a student does not need, for the adult who sets the app up: the address of a class server, and
  * a personal Claude key on this device (an Anthropic account is an adult's, and a class always goes through its server).
- * Only the copies without a server of their own have it (VITE_ALLOW_PERSONAL_KEY=1); elsewhere it leads back to Settings.
+ * Only the owner's own test builds have it (VITE_ALLOW_PERSONAL_KEY=1, never a public copy); elsewhere it leads back to Settings.
  */
 export function AdvancedSettings() {
   const { ai, setAI, profile } = useApp();
@@ -158,7 +161,8 @@ export function AdvancedSettings() {
 /**
  * העוזר החכם: what the tutor is on this device and the ways a parent links or cancels. On the free taste: two
  * questions a day, with the rows for parents. On a linked device: the family plan, and unlinking. In a licensed class:
- * open for the class. With the paywall off or no server: as before.
+ * open for the class. With no parent's OK yet on a device alone: the screen for the parents. With the paywall off or
+ * no server: as before.
  */
 function AISection() {
   const { ai, profile } = useApp();
@@ -193,7 +197,12 @@ function AISection() {
     rows.push(<Link key="info" to="/parents/info" className="set-row"><span>מידע להורים</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
   }
   if (paid) rows.push(<Link key="cancel" to="/cancel" className="set-row"><span>ביטול מנוי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
-  if (!paid) {
+  // a child alone, on a device no parent has approved (trust spec TRUST-9): the one way on is the screen for the parents
+  const waiting = served && status?.state === 'parent_ok_needed';
+  if (waiting) {
+    text = `${PARENT_OK_LINE} מדי, השיעורים והתרגול פתוחים תמיד.`;
+    rows.push(<Link key="ok" to="/parents/info" className="set-row"><span>אישור של הורה</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
+  } else if (!paid) {
     text = inClass ? `העוזר מחובר דרך הכיתה${profile.teacherName ? ` של ${profile.teacherName}` : ''}. אין צורך להגדיר כלום.`
       : served ? 'העוזר עובד דרך השרת של האפליקציה.'
         : PERSONAL_KEY && ai.mode === 'personal' && ai.key ? 'העוזר מחובר במכשיר הזה, דרך ההגדרות המתקדמות.'
@@ -237,6 +246,21 @@ async function forgetParent() {
   try { const { forgetParentHere } = await import('@/lib/parent.js'); await forgetParentHere(); } catch { /* nothing kept */ }
 }
 
+/**
+ * Privacy and safety: a person to talk to, one tap away (trust spec TRUST-3 §3.5). The legal pages join this group
+ * later (TRUST-2).
+ */
+function SafetySection() {
+  return (
+    <section className="section set-group" aria-labelledby="safe-title">
+      <h2 id="safe-title" className="set-head">פרטיות ובטיחות</h2>
+      <div className="set-rows-wrap"><div className="set-rows">
+        <button type="button" className="set-row" onClick={openSupport} aria-haspopup="dialog"><span>{SUPPORT_LINK}</span><ChevronLeft size={18} aria-hidden="true" /></button>
+      </div></div>
+    </section>
+  );
+}
+
 export default function Settings() {
   const { profile, patchProfile, resetProgress, signOut } = useApp();
   const { state: nav, hash } = useLocation();
@@ -274,6 +298,7 @@ export default function Settings() {
       <ClassSection />
       <AISection />
       <SoundSetting />
+      <SafetySection />
       <AdvancedRow />
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="set-head">אזור מחיקה</h2>

@@ -5,8 +5,12 @@ import clsx from 'clsx';
 import { Camera, MessageCircle, Wand2, Check, X, ImageUp } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady, aiMode } from '@/lib/ai.js';
-import { gate, aiAccess, useAIStatus } from '@/lib/account.js';
+import { gate, aiAccess, useAIStatus, needIntro } from '@/lib/account.js';
 import ToolLocked from '@/components/ToolLocked.jsx';
+import { limitVariant } from '@/components/limitCopy.js';
+import ReportAnswer, { checkText, generateText } from '@/components/ReportAnswer.jsx';
+import SupportCard from '@/components/SupportCard.jsx';
+import { SupportLink } from '@/components/SupportSheet.jsx';
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
@@ -27,7 +31,7 @@ function useReveal(dep) {
 function AiOffline() {
   const inClass = useApp((s) => !!s.profile?.token);
   const FEATURES = [
-    { icon: MessageCircle, title: 'שיחה עם המורה הפרטי', text: 'שואלים כל שאלה, ומקבלים הסבר צעד אחר צעד.' },
+    { icon: MessageCircle, title: 'שיחה עם העוזר החכם', text: 'שואלים כל שאלה, ומקבלים הסבר צעד אחר צעד.' },
     { icon: Camera, title: 'בדיקת פתרון מצולם', text: 'מצלמים את הדרך מהמחברת, והעוזר מסמן כל שלב.' },
     { icon: Wand2, title: 'תרגילים חדשים', text: 'עוד תרגילים באותה מדרגה, עם רמז ופתרון.' },
   ];
@@ -61,6 +65,7 @@ function AiOffline() {
         <div className="ai-offline-actions">
           <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>
           {!inClass && <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>}
+          <SupportLink className="ai-offline-support" />
         </div>
       </div>
     </section>
@@ -113,7 +118,7 @@ function PhotoCheck() {
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
       {state.phase === 'done' && (
         <Box tone="ai" title="בדיקת העוזר" live>
-          {!r.readable && <p>קשה לקרוא את התמונה. {r.summary}</p>}
+          {!r.readable && <p>{r.care ? '' : 'קשה לקרוא את התמונה. '}{r.summary}</p>}
           {r.readable && (
             <>
               <p className="check-final">{{ correct: 'התשובה הסופית נכונה.', wrong: 'יש טעות בדרך.', unfinished: 'הפתרון עוד לא גמור.', unknown: 'לא ברור מה התשובה הסופית.' }[r.final]}</p>
@@ -130,6 +135,8 @@ function PhotoCheck() {
           )}
         </Box>
       )}
+      {state.phase === 'done' && <div className="ai-report-row"><ReportAnswer kind="check" reply={checkText(r)} /></div>}
+      {state.phase === 'done' && r.care && <SupportCard variant="after-message" />}
     </div>
   );
 }
@@ -164,6 +171,8 @@ function Generate({ initialTopic, initialLevel }) {
   const t = TOPIC[topic];
   const outRef = useReveal(state.phase !== 'idle' ? state.phase : null);
   const go = async () => {
+    // opened from a topic's "new exercises" link, this can be the first AI action on the device: the introduction first
+    if (needIntro(go)) return;
     setState({ phase: 'loading' });
     try {
       const sample = t.levels[level - 1].gen();
@@ -198,7 +207,10 @@ function Generate({ initialTopic, initialLevel }) {
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
       {state.phase === 'done' && (
         <>
-          <p className="muted">התרגילים נכתבו על ידי העוזר. אם משהו נראה לא נכון, ספרו למורה.</p>
+          <div className="gen-note">
+            <p className="muted">התרגילים נכתבו על ידי העוזר. אם משהו נראה לא נכון, ספרו למורה.</p>
+            <ReportAnswer kind="generate" reply={generateText(state.qs)} />
+          </div>
           <ol className="gen-list">{state.qs.map((q, i) => <GeneratedQuestion key={i} q={q} i={i} />)}</ol>
         </>
       )}
@@ -216,11 +228,20 @@ export default function Assistant() {
   const profile = useApp((s) => s.profile);
   const ready = aiReady();
   const status = useAIStatus((x) => x.status); // the tools follow what the server says
-  const lockOf = (kind) => { const st = aiAccess(kind, status).state; return st === 'locked' || st === 'economy' ? st : null; };
+  const lockOf = (kind) => { const st = aiAccess(kind, status).state; return ['locked', 'economy', 'class_off', 'parent_ok_needed'].includes(st) ? st : null; };
+  // the class has the tutor off under the Ministry's rules (TRUST-11 §6), or no parent has approved the tutor on this
+  // device yet (TRUST-9 §4): Madi's bubble says so calmly, with no tools, and the card under it leads on (for a parent's
+  // OK, to the screen for the parents); the input stays usable, so a message that reads as distress still shows the
+  // card and still gets an answer
+  const chatState = ready ? aiAccess('chat', status).state : null;
+  const classOff = chatState === 'class_off';
+  const waiting = chatState === 'parent_ok_needed';
+  const off = classOff ? limitVariant({ reason: 'class_ai_off' }) : waiting ? limitVariant({ reason: 'parent_ok_needed' }) : null;
   useEffect(() => { if (wants) { setLocked(lockOf('generate')); setTool('generate'); } }, [wants]); // eslint-disable-line react-hooks/exhaustive-deps
   const close = () => { setTool(null); setLocked(null); if (wants) setParams({}, { replace: true }); };
   const open = (kind, name) => {
-    const g = gate(kind);
+    // before the first AI action on this device the introduction opens, and the tool after it ('intro')
+    const g = gate(kind, { then: () => open(kind, name) });
     if (g === 'locked' || g === 'economy') { setLocked(g); setTool(name); return; }
     if (!g) { setLocked(null); setTool(name); }
   };
@@ -235,12 +256,16 @@ export default function Assistant() {
       </header>
       {!ready ? <AiOffline /> : (
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
-          <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>
-          <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."
-            tools={[
-              { label: 'בדיקת פתרון מצולם', icon: Camera, onClick: () => open('check', 'photo') },
-              { label: 'תרגילים חדשים', icon: Wand2, onClick: () => open('generate', 'generate') },
-            ]} />
+          {!off && <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>}
+          {off ? (
+            <AIChat context={{ grade }} introTitle={off.title} intro={off.text[0]} restLine={null} />
+          ) : (
+            <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."
+              tools={[
+                { label: 'בדיקת פתרון מצולם', icon: Camera, onClick: () => open('check', 'photo') },
+                { label: 'תרגילים חדשים', icon: Wand2, onClick: () => open('generate', 'generate') },
+              ]} />
+          )}
         </section>
       )}
       {ready && (

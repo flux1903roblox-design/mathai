@@ -34,7 +34,10 @@ const empty = {
   mistakes: {}, // 'topic:cat' -> count
   lastTopic: null,
   outbox: [],
-  ai: { ...AI_DEFAULTS }, // the tutor on this device (lib/durable/migrations.js says what each field is)
+  // the tutor on this device (lib/durable/migrations.js says what each field is), and whether the introduction to the
+  // tutor was read here (introSeen: read as `=== true`, so a state saved before it existed shows the introduction once;
+  // trust spec TRUST-4 §4.6, no version of its own)
+  ai: { ...AI_DEFAULTS, introSeen: false },
   // this device's tag and save prompts; the tag is made by the v5 migration, on sign-out, or with a new device's first XP
   durable: { ...DURABLE_DEFAULTS },
   backup: { ...BACKUP_DEFAULTS }, // the backup of this student's progress, off until it is turned on
@@ -56,7 +59,7 @@ export const toWire = (e) => ({ id: e.id, topic: e.topic, level: e.level, ok: e.
 
 /** The saved-state key (a staging copy on the same address keeps its own); the parent session lives beside it. */
 export { STORE_KEY };
-/** A personal Claude key is compiled in only for the no-server copies (VITE_ALLOW_PERSONAL_KEY=1). */
+/** A personal Claude key is compiled in only for the owner's own local testing (VITE_ALLOW_PERSONAL_KEY=1); no public build has it. */
 export const PERSONAL_KEY = import.meta.env.VITE_ALLOW_PERSONAL_KEY === '1';
 
 /**

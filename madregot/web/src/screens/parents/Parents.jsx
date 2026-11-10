@@ -1,13 +1,13 @@
 // The parents' area (/parents, /parents/link, /cancel): what the smart tutor does and costs, sign-in by an emailed
-// code, joining through the payment company's page, the plan with its devices, and an online cancellation that always
-// stands. It works on the parent's own phone with no profile, and on the child's device only when a parent chose to
+// code, the parent's free one-time OK for the tutor on a child's device (trust spec TRUST-9), joining through the
+// payment company's page, the plan with its devices, and an online cancellation that always stands. It works on the parent's own phone with no profile, and on the child's device only when a parent chose to
 // continue there. A child never lands here by accident: the child's screens lead to /parents/info, which has no prices.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import { useApp, STORE_KEY } from '@/lib/store.js';
-import { hasServer } from '@/lib/api.js';
+import { hasServer, errorText } from '@/lib/api.js';
 import {
   useParent, overview, plans as loadPlans, startCheckout, pollOrder, cancelPlan, resumePlan, portal, claimLink, unlinkDevice,
   linkThisDevice, signOut, exportData, deleteAccount, keepLinkCode, keptLinkCode, dropLinkCode, endAttempt, dropOrder, openInvoice,
@@ -15,6 +15,8 @@ import {
 import { qaParentView } from '@/lib/qaFixtures.js';
 import { formatAgorot, vatLine, perMonth, dateNum } from '@/lib/price.js';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
+import AdultGate from '@/components/account/AdultGate.jsx';
+import { needsAdultStep } from '@/lib/parentGate.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
@@ -182,6 +184,7 @@ function CancelSheet({ open, onOpenChange, plan, onCancelled, qa }) {
 const LINK_HOW = 'במכשיר של הילד פותחים אני ← הגדרות ← העוזר החכם ← חיבור למנוי משפחתי, ומקלידים כאן את הקוד שמופיע שם.';
 // A claimed code: the child's device takes its token when the screen with the code is open on it (it asks every few seconds)
 const LINKED_TEXT = 'קיבלנו את הקוד. המכשיר של הילד יתחבר ברגע שהמסך עם הקוד פתוח בו.';
+const OK_TEXT = 'אישרתם את העוזר החכם, ושלחנו לכם מייל עם הפרטים. המכשיר של הילד יתחבר ברגע שהמסך עם הקוד פתוח בו.';
 function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro = `חיבור המכשיר של הילד: ${LINK_HOW.replace('במכשיר של הילד', 'במכשיר שלו')}` }) {
   const [code, setCode] = useState(initial);
   const [label, setLabel] = useState('');
@@ -272,7 +275,79 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing }) {
         {open === 'payments' && <Receipts payments={payments} qa={qa} />}
       </div>
       <ConfirmSheet open={!!unlink} onOpenChange={(o) => !o && setUnlink(null)} title="לנתק את המכשיר?" keep="להשאיר מחובר" confirm="כן, לנתק" onConfirm={doUnlink} mood="idle">
-        <p>העוזר החכם יחזור {unlinkName} ל־2 שאלות ביום. אפשר לחבר אותו שוב בכל זמן.</p>
+        <p>{plans?.parentOk === false ? `העוזר החכם יחזור ${unlinkName} ל־${plans?.limits?.free?.tutor ?? 2} שאלות ביום.` : `העוזר החכם ${unlinkName} יחכה שוב לאישור שלכם.`} אפשר לחבר אותו שוב בכל זמן.</p>
+      </ConfirmSheet>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- the parent's free OK for the tutor (TRUST-9)
+// A signed-in parent with no plan approves the tutor on a child's device once, for free: the code from the child's
+// screen (or this device, when the parent holds it), what the approval means, and a box the parent ticks. The server
+// records it (an audit row) and emails the AI and privacy summary. No price here; the plan offer stays below.
+function ConsentCard({ plans, linkCode, here, qa, onDone, onFailed }) {
+  const [code, setCode] = useState(linkCode || '');
+  const [label, setLabel] = useState('');
+  const [ok, setOk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const free = plans?.limits?.free?.tutor ?? 2;
+  const ask = plans?.paywall === false ? 'כרגע העוזר החכם פתוח בחינם.' : `בחינם, העוזר עונה על ${free === 1 ? 'שאלה קצרה אחת' : `${free} שאלות קצרות`} ביום.`;
+  const go = async (e) => {
+    e.preventDefault();
+    if (!ok) { setError(errorText('consent_required')); return; }
+    setError(''); setBusy(true);
+    const consent = { purpose: 'consent', consent: true };
+    try {
+      if (!qa) await (here ? linkThisDevice(label.trim(), consent) : claimLink(code, label.trim(), consent));
+      onDone({ here });
+    } catch (err) { setError(err.message); onFailed?.(err); setBusy(false); }
+  };
+  return (
+    <section className="card parents-card parents-consent" aria-labelledby="consent-title">
+      <h2 id="consent-title" className="card-title">אישור העוזר החכם במכשיר של הילד</h2>
+      <form className="stack" onSubmit={go} noValidate>
+        <p>{ask} מה שהילד כותב לעוזר נשלח ל־Anthropic בארה״ב כדי לקבל תשובה, ולא נשמר אצלנו. אפשר לבטל את האישור בכל רגע כאן.</p>
+        {!here && (
+          <Field label="הקוד מהמכשיר של הילד" id="pc-code">
+            <input id="pc-code" className="input mono sub-code" dir="ltr" value={code} maxLength={6} autoCapitalize="characters" autoComplete="off"
+              onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} />
+          </Field>
+        )}
+        {!here && !linkCode && <p className="muted">{LINK_HOW}</p>}
+        <Field label="איך לקרוא למכשיר? (לא חובה, למשל: הטאבלט)" id="pc-label">
+          <input id="pc-label" className="input" value={label} maxLength={30} onChange={(e) => setLabel(e.target.value)} />
+        </Field>
+        <label className="check-row parents-check"><input type="checkbox" checked={ok} onChange={(e) => { setOk(e.target.checked); if (e.target.checked) setError(''); }} required aria-describedby={error ? 'pc-error' : undefined} /><span>אני ההורה או האפוטרופוס, ואני מאשר/ת לילד/ה להשתמש בעוזר החכם</span></label>
+        {error && <p id="pc-error" className="form-error" role="alert">{error}</p>}
+        <Button type="submit" className="btn-block btn-lg" disabled={busy || (!here && code.length !== 6)}>{busy ? 'מאשרים…' : 'אישור וחיבור המכשיר'}</Button>
+      </form>
+    </section>
+  );
+}
+
+// The devices a parent approved with no plan: each can be taken back here (the email says so).
+function ApprovedDevices({ acct, plans, qa, onChanged }) {
+  const [unlink, setUnlink] = useState(null);
+  const devices = acct.devices || [];
+  const doUnlink = async () => {
+    const d = unlink; setUnlink(null);
+    try { if (!qa) await unlinkDevice(d.id); toast('האישור בוטל'); onChanged(); } catch (e) { toast.error(e.message); }
+  };
+  const name = unlink?.label ? `במכשיר "${unlink.label}"` : 'במכשיר של הילד';
+  return (
+    <section className="card parents-card" aria-labelledby="approved-title">
+      <h2 id="approved-title" className="card-title">{devices.length === 1 ? 'העוזר החכם מאושר במכשיר אחד' : `העוזר החכם מאושר ב־${devices.length} מכשירים`}</h2>
+      <ul className="parents-devices">
+        {devices.map((d) => (
+          <li key={d.id}>
+            <span>{d.label || 'מכשיר'} · {d.pending ? 'ממתין לחיבור: פותחים במכשיר את המסך עם הקוד' : `אושר ב־${dateNum(d.linkedAt)} · שימוש אחרון ${dateNum(d.lastSeen)}`}</span>
+            <Button variant="ghost" className="btn-sm" onClick={() => setUnlink(d)}>ביטול האישור</Button>
+          </li>
+        ))}
+      </ul>
+      <ConfirmSheet open={!!unlink} onOpenChange={(o) => !o && setUnlink(null)} title="לבטל את האישור?" keep="להשאיר" confirm="כן, לבטל" onConfirm={doUnlink} mood="idle">
+        <p>{plans?.parentOk === false ? `העוזר החכם יחזור ${name} ל־${plans?.limits?.free?.tutor ?? 2} שאלות ביום.` : `העוזר החכם לא יענה ${name} עד שתאשרו אותו שוב.`} מדי, השיעורים והתרגול נשארים פתוחים.</p>
       </ConfirmSheet>
     </section>
   );
@@ -426,6 +501,10 @@ export default function Parents({ mode = 'home' }) {
   const [linkedHere, setLinkedHere] = useState(false);
   const autoCancel = useRef(false);
   const pendingPolls = useRef(0);
+  // On a child's device, an adult step comes before signing in (trust spec TRUST-8): not on /cancel, not with a parent
+  // already signed in here, not on a device with no student profile. Passed once per tab.
+  const [adultOk, setAdultOk] = useState(false);
+  const adultStep = !qa && !adultOk && needsAdultStep({ mode, role, session });
   const server = !qa?.nosrv && (qa || hasServer());
   const orderId = params.get('order');
 
@@ -437,6 +516,9 @@ export default function Parents({ mode = 'home' }) {
   }, [params]);
   const linkCode = qa ? null : keptLinkCode();
   const here = !qa && flag.get();
+  // the parent's free OK for the tutor (TRUST-9): offered to a parent with no plan who came to approve a device (the QR
+  // code, /parents/link, or "continue on this device"), whether or not the paywall is on
+  const wantsOk = plans?.parentOk !== false && role !== 'teacher' && (mode === 'link' || !!linkCode || here);
 
   const loadAccount = useCallback(async () => {
     if (qa || !server) return;
@@ -487,7 +569,15 @@ export default function Parents({ mode = 'home' }) {
     if (qa) { if (!licence) setAcct({ ...acct, plan: { ...acct.plan, status: r.status, cancelAtPeriodEnd: true } }); } else loadAccount();
   };
   const thisDevice = async () => {
-    try { await linkThisDevice(''); flag.set(false); setLinkedHere(true); setAcct(null); } catch (e) { say({ tone: 'note', text: e.message }); }
+    try { await linkThisDevice(''); flag.set(false); setLinkedHere('plan'); setAcct(null); } catch (e) { say({ tone: 'note', text: e.message }); }
+  };
+  // the free OK went through: on this device the session is already gone (as with the plan); a code waits for the
+  // child's device to collect it
+  const consented = ({ here: onThis }) => {
+    if (onThis) { flag.set(false); setLinkedHere('consent'); setAcct(null); return; }
+    dropLinkCode(); setClaimed(true);
+    if (params.get('c')) { const next = new URLSearchParams(params); next.delete('c'); setParams(next, { replace: true }); }
+    say({ tone: 'good', text: OK_TEXT }); loadAccount();
   };
   const dropOrderParam = () => { const next = new URLSearchParams(params); next.delete('order'); setParams(next, { replace: true }); };
   const orderDone = (o) => {
@@ -510,13 +600,16 @@ export default function Parents({ mode = 'home' }) {
         <Button variant="secondary" onClick={() => { setError(''); loadPlans({ fresh: true }).then(setPlans).catch((e) => setError(e.message)); }}>לנסות שוב</Button>
       </section>
     );
+  } else if (!session && adultStep) {
+    // in place of the sign-in, and of the prices above it: this screen is for the parent
+    body = <AdultGate onPass={() => setAdultOk(true)} />;
   } else if (!session) {
     body = (
       <>
         {linkedHere && (
           <section className="card parents-card is-good" role="status">
             <Mascot mood="happy" size={72} />
-            <p>המכשיר חובר. כדי שאי אפשר יהיה לשנות את המנוי מהמכשיר הזה, יצאנו מהחשבון שלכם בו.</p>
+            <p>{linkedHere === 'consent' ? 'אישרתם את העוזר החכם במכשיר הזה, ושלחנו לכם מייל עם הפרטים. כדי ששום דבר לא ישתנה מהמכשיר הזה, יצאנו מהחשבון שלכם בו.' : 'המכשיר חובר. כדי שאי אפשר יהיה לשנות את המנוי מהמכשיר הזה, יצאנו מהחשבון שלכם בו.'}</p>
             {role && <Button className="btn-block" onClick={() => navigate(role === 'teacher' ? '/teacher' : '/assistant')}>חזרה לאפליקציה</Button>}
           </section>
         )}
@@ -527,7 +620,7 @@ export default function Parents({ mode = 'home' }) {
             <p>כדי לבטל, נכנסים עם המייל שאיתו נרשמתם. אחרי הכניסה הביטול לוקח שתי לחיצות. אפשר לבטל גם במייל אל {plans.contact ? <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a> : 'מדרגות'}{plans.business?.phone ? <> או בטלפון <a href={`tel:${plans.business.phone}`} dir="ltr">{plans.business.phone}</a></> : ''}.</p>
           </section>
         ) : plans.paywall !== false && <About plans={plans} />}
-        {(plans.paywall !== false || mode === 'cancel') && (
+        {(plans.paywall !== false || mode === 'cancel' || wantsOk) && (
           <section className="card parents-card" aria-labelledby="signin-title">
             <h2 id="signin-title" className="card-title">כניסה עם המייל</h2>
             <EmailCodeForm onSignedIn={signedIn} idPrefix="pa" purpose={mode === 'cancel' ? 'cancel' : 'join'} startStep={qa?.step === 'code' ? 'code' : 'email'} presetEmail={qa?.step === 'code' ? 'parent@example.test' : ''} />
@@ -576,6 +669,10 @@ export default function Parents({ mode = 'home' }) {
             <LinkForm qa={!!qa} intro={LINK_HOW} onLinked={linked} />
           </section>
         )}
+        {!plan && wantsOk && !claimed && (
+          <ConsentCard plans={plans} linkCode={linkCode} here={here} qa={!!qa} onDone={consented} onFailed={linkFailed} />
+        )}
+        {!plan && (acct.devices?.length || 0) > 0 && <ApprovedDevices acct={acct} plans={plans} qa={!!qa} onChanged={loadAccount} />}
         {classLicences.map((c) => (
           <ClassLicenceCard key={c.plan.id} c={c} payments={acct.payments || []} plans={plans} qa={!!qa} onCancelled={(r) => cancelled(r, { licence: true })} />
         ))}

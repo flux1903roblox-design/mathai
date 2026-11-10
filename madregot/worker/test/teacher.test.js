@@ -66,7 +66,7 @@ test('removing a student deletes their rows, and their token stops working', asy
 
 test('a licence request needs the teacher key and an account; one open per kind per class; the owner email is HTML-escaped', async () => {
   h = await setup();
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { setting: 'private', students: ['נועה'] });
   const token = await signIn(h, 'teacher@example.test');
   const req = (headers, body) => h.call('POST', '/api/teacher/licence/request', { headers, body });
   const body = { wants: 'quote', school: '<b>אורט</b> & "גבעה"', classes: 3, students: 32, note: 'שלום <script>alert(1)</script>' };
@@ -110,7 +110,7 @@ test('a licence request needs the teacher key and an account; one open per kind 
 
 test('a trial request never grants anything by itself', async () => {
   h = await setup();
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה'] });
   const token = await signIn(h, 'teacher@example.test');
   await h.call('POST', '/api/teacher/licence/request', { headers: { ...cls.teacher, 'X-Account-Token': token }, body: { wants: 'trial', school: 'אורט', classes: 1 } });
   await h.ctx.flush();
@@ -125,10 +125,10 @@ test('a trial request never grants anything by itself', async () => {
 test('a school licence code attaches a class once, uses up one place, and expires after 60 days', async () => {
   h = await setup();
   const code = 'ABCD-EFGH-JKMN';
-  h.env.DB.raw.exec(build('grant-school', { classes: '2', seats: '35', until: '2099-08-31', invoice: 'INV-9' }, { code }).sql);
-  const a = await makeClass(h, { students: ['נועה'] });
-  const b = await makeClass(h);
-  const c = await makeClass(h);
+  h.env.DB.raw.exec(build('grant-school', { classes: '2', seats: '35', until: '2099-08-31', invoice: 'INV-9' }, { code, approval: 'approved' }).sql);
+  const a = await makeClass(h, { studentAi: true, students: ['נועה'] });
+  const b = await makeClass(h, { setting: 'private' });
+  const c = await makeClass(h, { setting: 'private' });
   const claimL = (cls, value) => h.call('POST', '/api/teacher/licence/claim', { headers: cls.teacher, body: { code: value } });
   assert.equal((await h.call('POST', '/api/teacher/licence/claim', { body: { code } })).status, 401);
   const bad = await claimL(a, 'ABCD-EFGH-JKMP');
@@ -156,14 +156,14 @@ test('a school licence code attaches a class once, uses up one place, and expire
   assert.equal((await claimL(c, code)).status, 400);
   assert.equal(rows(h.env, "SELECT * FROM audit_log WHERE action = 'licence.claim'").length, 2);
   // a fresh code expires after 60 days
-  h.env.DB.raw.exec(build('grant-school', { classes: '5', seats: '30', until: '2099-08-31', invoice: 'INV-10' }, { code: 'MNPQ-RSTU-VWXY' }).sql);
+  h.env.DB.raw.exec(build('grant-school', { classes: '5', seats: '30', until: '2099-08-31', invoice: 'INV-10' }, { code: 'MNPQ-RSTU-VWXY', approval: 'approved' }).sql);
   advanceClock(61 * DAY);
   assert.equal((await claimL(c, 'MNPQ-RSTU-VWXY')).status, 400);
 });
 
 test('licence claims are limited per network (10 an hour) and per class (10 a day)', async () => {
   h = await setup();
-  const cls = await makeClass(h);
+  const cls = await makeClass(h, { setting: 'private' });
   const claimL = (ip) => h.call('POST', '/api/teacher/licence/claim', { headers: cls.teacher, body: { code: 'ABCD-EFGH-JKMN' }, ip });
   await setCount(h.env, `licclaim:c:${cls.code}`, 10);
   assert.equal((await claimL()).status, 429);
@@ -177,7 +177,7 @@ test('licence claims are limited per network (10 an hour) and per class (10 a da
 
 test('the licence card reports the status, seats, students and the class total only', async () => {
   h = await setup({ BILLING_START: '2099-01-01', LEGACY_CLASS_AI_UNTIL: '2099-01-31' });
-  const cls = await makeClass(h, { students: ['נועה', 'איתי', 'מאיה'] });
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה', 'איתי', 'מאיה'] });
   let card = await (await licence(cls)).json();
   assert.equal(card.status, 'legacy', 'a class made before BILLING_START');
   assert.equal(card.legacyUntil, '2099-01-31');
@@ -399,4 +399,72 @@ test('a PIN reset needs the class\'s own teacher; it ends the old token, clears 
   assert.equal((await join('5678')).status, 200);
   dash = await dashboard(cls);
   assert.equal(dash.students.find((s) => s.name === 'נועה').pinReset, false);
+});
+
+// ---------------------------------------------------------------- the PIN check (trust spec TRUST-12 §1)
+const join = (code, pin, ip, name = 'נועה') => h.call('POST', `/api/classes/${code}/join`, { body: { name, pin }, ip });
+const pinRows = (id) => rows(h.env, "SELECT who, day, count FROM ai_usage WHERE who = 'pin:' || ? OR who LIKE 'pin:' || ? || ':%' ORDER BY who", id, id);
+
+test('a PIN is tried 5 times an hour from one network: a classmate there locks it for an hour at most, never elsewhere', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const id = cls.students[0].studentId;
+  const A = '198.51.100.10'; const B = '203.0.113.99';
+  for (let i = 0; i < 5; i++) assert.equal((await join(cls.code, '9999', A)).status, 403, `wrong ${i + 1}`);
+  const sixth = await join(cls.code, '9999', A);
+  assert.equal(sixth.status, 429); assert.equal((await sixth.json()).error, 'too_many_pin');
+  assert.equal((await join(cls.code, '1234', A)).status, 429, 'that network waits an hour, even with the right code');
+  // her own phone on another network: the right code works, and costs no try
+  const home = await join(cls.code, '1234', B);
+  assert.equal(home.status, 200); assert.equal((await home.json()).returning, true);
+  const [netA, netB] = [await netOf(h.env, A), await netOf(h.env, B)];
+  assert.equal(countOf(h.env, `pin:${id}`), 5, 'the day counts the 5 wrong tries only');
+  assert.equal(countOf(h.env, `pin:${id}:${netB}`), 0, 'the right code gave its try back');
+  assert.equal(countOf(h.env, `pin:${id}:${netA}`), 5);
+  assert.ok(pinRows(id).every((r) => !r.who.includes(A) && !r.who.includes(B)), 'networks are counted by their key, never the address');
+  assert.match(pinRows(id).find((r) => r.who === `pin:${id}:${netA}`).day, /^\d{4}-\d{2}-\d{2}T\d{2}$/, 'an hourly key');
+  // an hour later network A may try again
+  advanceClock(3600e3);
+  assert.equal((await join(cls.code, '9999', A)).status, 403);
+  assert.equal((await join(cls.code, '1234', A)).status, 200);
+});
+
+test('30 wrong PINs a day in all: from a 7th network the next try is 429, and the teacher\'s reset clears every PIN counter', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const id = cls.students[0].studentId;
+  for (let n = 1; n <= 6; n++) for (let i = 0; i < 5; i++) assert.equal((await join(cls.code, '9999', `198.51.100.${n}`)).status, 403, `net ${n} try ${i + 1}`);
+  const seventh = await join(cls.code, '1234', '198.51.100.7');
+  assert.equal(seventh.status, 429); assert.equal((await seventh.json()).error, 'too_many_pin');
+  assert.equal(countOf(h.env, `pin:${id}`), 30);
+  assert.equal(pinRows(id).filter((r) => r.count > 0).length, 7, 'the day key and 6 network keys');
+  assert.equal(countOf(h.env, `pin:${id}:${await netOf(h.env, '198.51.100.7')}`), 0, 'the refused try took nothing');
+  const reset = await h.call('POST', `/api/teacher/students/${id}/reset-pin`, { headers: cls.teacher, body: {} });
+  assert.equal(reset.status, 200);
+  assert.equal(pinRows(id).length, 0, 'every pin:<id> and pin:<id>:<net> key is gone');
+  // the next join sets a new code, from anywhere
+  assert.equal((await join(cls.code, '4321', '198.51.100.1')).status, 200);
+  assert.equal((await join(cls.code, '4321', '198.51.100.7')).status, 200);
+});
+
+test('the PIN check is atomic: 12 wrong codes at once from one network are 5 tries and 7 refusals', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const id = cls.students[0].studentId;
+  const res = await Promise.all(Array.from({ length: 12 }, () => join(cls.code, '9999', '198.51.100.20')));
+  const st = res.map((r) => r.status).sort();
+  assert.deepEqual(st, [...Array(5).fill(403), ...Array(7).fill(429)]);
+  assert.equal(countOf(h.env, `pin:${id}`), 5);
+});
+
+test('removing a student removes every PIN counter of theirs, and no one else\'s', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
+  const [noa, itai] = cls.students;
+  await join(cls.code, '9999', '198.51.100.1'); await join(cls.code, '9999', '198.51.100.2');
+  await join(cls.code, '9999', '198.51.100.1', 'איתי');
+  assert.equal(pinRows(noa.studentId).length, 3);
+  assert.equal((await h.call('POST', `/api/teacher/students/${noa.studentId}/remove`, { headers: cls.teacher, body: {} })).status, 200);
+  assert.equal(pinRows(noa.studentId).length, 0);
+  assert.equal(pinRows(itai.studentId).length, 2, 'the classmate keeps his');
 });

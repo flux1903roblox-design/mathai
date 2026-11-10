@@ -10,6 +10,8 @@ import { qaActive } from '@/lib/qaFixtures.js';
 import { useDurable } from '@/lib/durable/useDurable.js';
 import { watchPersisted } from '@/lib/durable/persist.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
+import SupportSheet from '@/components/SupportSheet.jsx';
+import AIIntro from '@/components/AIIntro.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
 import Welcome from '@/screens/Welcome.jsx';
@@ -129,6 +131,8 @@ function Root() {
       <Toasts />
       <RestoreToast />
       {role && <LimitSheet />}
+      {role && <SupportSheet />}
+      {role && <AIIntro />}
       {role && <StatusWatch />}
       {/* a new screen opens at the top; back restores where the student was */}
       <ScrollRestoration />

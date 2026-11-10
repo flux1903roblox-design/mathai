@@ -15,6 +15,9 @@ import { GradeSwitch } from './Welcome.jsx';
 import { useAIStatus } from '@/lib/account.js';
 import LicenceCard from '@/components/teacher/LicenceCard.jsx';
 
+// A student asked the teacher to talk (trust spec TRUST-3 §3.5); the teacher lane gives these requests their full design.
+const TALK = 'ביקש/ה לדבר איתך';
+
 const fmtDay = (iso) => {
   if (!iso) return 'אף פעם';
   const d = new Date(iso); const days = Math.floor((Date.now() - d.getTime()) / 864e5);
@@ -278,7 +281,7 @@ export default function Teacher() {
                 </Group>
                 <Group title="בקשות עזרה חדשות" more={openHelp.length > 0 && <button type="button" className="t-more" onClick={() => setTab('help')}>לכל הבקשות<ChevronLeft size={18} aria-hidden="true" /></button>}>
                   {openHelp.length === 0 ? <p className="t-row muted">אין בקשות פתוחות.</p> : (
-                    <ul className="t-list">{openHelp.slice(0, 5).map((h) => <li key={h.id} className={clsx('t-row', !h.seen_at && 'unseen')}><span className="t-list-main"><b>{h.name}</b>, {TOPIC[h.topic]?.title || ''}</span><span className="muted">{h.note || <MathText text={h.question} />}</span></li>)}</ul>
+                    <ul className="t-list">{openHelp.slice(0, 5).map((h) => <li key={h.id} className={clsx('t-row', !h.seen_at && 'unseen')}><span className="t-list-main"><b>{h.name}</b>{h.kind === 'talk' ? '' : `, ${TOPIC[h.topic]?.title || ''}`}</span><span className="muted">{h.kind === 'talk' ? TALK : h.note || <MathText text={h.question} />}</span></li>)}</ul>
                   )}
                 </Group>
               </div>
@@ -351,8 +354,9 @@ export default function Teacher() {
                 {(data.help || []).length === 0 && <li className="muted">אין בקשות עזרה בשבוע האחרון.</li>}
                 {(data.help || []).map((h) => (
                   <li key={h.id} className={clsx('help-item', !h.seen_at && !h.done_at && 'unseen', h.done_at && 'done')}>
-                    <div className="help-item-head"><Hand size={16} aria-hidden="true" /><b>{h.name}</b>{!h.seen_at && !h.done_at && <span className="new-tag">חדש</span>}<span className="muted">{TOPIC[h.topic]?.title}, {fmtDay(h.created_at)}</span></div>
-                    <p className="help-q"><MathText text={h.question} /></p>
+                    <div className="help-item-head"><Hand size={16} aria-hidden="true" /><b>{h.name}</b>{!h.seen_at && !h.done_at && <span className="new-tag">חדש</span>}<span className="muted">{h.kind === 'talk' ? fmtDay(h.created_at) : `${TOPIC[h.topic]?.title || ''}, ${fmtDay(h.created_at)}`}</span></div>
+                    {!!h.care && <p className="help-care">כדאי לבדוק מה שלום התלמיד/ה</p>}
+                    {h.kind === 'talk' ? <p className="help-q">{h.name} {TALK}</p> : <p className="help-q"><MathText text={h.question} /></p>}
                     {h.answer && <p className="muted">מה כתב/ה: <span dir="ltr">{h.answer}</span></p>}
                     {h.note && <p><span className="hl">“{h.note}”</span></p>}
                     {!!h.has_image && <NotebookPage cls={cls} id={h.id} />}

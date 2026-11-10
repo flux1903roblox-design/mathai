@@ -161,6 +161,16 @@ export async function netKey(req, env, { wide = false } = {}) {
   return (await hmacHex(env.IP_HASH_SECRET, `net:${prefix}`)).slice(0, 16);
 }
 
+/**
+ * The key an install (its X-Device id) is counted under: the first 16 hex of an HMAC of the id, never the id itself (an
+ * install id is an online identifier, so personal data). Same secret and same 503 as netKey; the 'dev:' prefix keeps the
+ * two key spaces apart.
+ */
+export async function devKey(env, id) {
+  if (!env.IP_HASH_SECRET) throw new HttpError(503, 'server_config');
+  return (await hmacHex(env.IP_HASH_SECRET, `dev:${id}`)).slice(0, 16);
+}
+
 // ---------------------------------------------------------------- usage counters (table ai_usage)
 /**
  * One counter of a request: { who, day, limit, n = 1, refundable, err }. `day` is YYYY-MM-DD (daily), YYYY-MM

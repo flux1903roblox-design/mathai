@@ -3,12 +3,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { build, parseArgs, licenceCode, licenceHash, noteArg, InputError } from '../scripts/owner.mjs';
+import { build, parseArgs, licenceCode, licenceHash, noteArg, InputError, HELP } from '../scripts/owner.mjs';
 import { endOfDayIso } from '../src/util.js';
 import { makeEnv, rows, one } from './helpers.js';
 
 const NOW = '2026-11-10T10:00:00.000Z';
-const fixed = { now: NOW, id: '0123456789abcdef', code: 'ABCD-EFGH-JKLM' };
+// approval: the Ministry's catalogue approval (MOE_AI_APPROVAL) is given here, so the grants build; the refusal before it
+// has its own tests below
+const fixed = { now: NOW, id: '0123456789abcdef', code: 'ABCD-EFGH-JKLM', approval: 'approved' };
 const run = (env, sql) => env.DB.raw.exec(sql);
 function withClass(code = 'ABC234') {
   const env = makeEnv();
@@ -110,4 +112,23 @@ test('read-only commands are marked read-only; arguments parse as --name value a
   assert.equal(build('events', { outcome: 'mismatch' }, fixed).readOnly, true);
   assert.throws(() => build('events', { outcome: "x' OR 1=1" }, fixed), InputError);
   assert.deepEqual(parseArgs(['grant-class', '--class', 'ABC234', '--trial', '--seats', '10', '--local']), { cmd: 'grant-class', o: { class: 'ABC234', trial: true, seats: '10', local: true } });
+});
+
+test('reports lists reported AI answers, read-only, newest first, from a Jerusalem day; never a person', () => {
+  const env = makeEnv();
+  const ins = env.DB.raw.prepare('INSERT INTO answer_reports (created_at, reason, kind, reply, tier) VALUES (?, ?, ?, ?, ?)');
+  ins.run('2026-11-08T21:59:00.000Z', 'other', 'chat', 'לפני', 'free'); // 23:59 on 8 November in Jerusalem
+  ins.run('2026-11-08T22:00:00.000Z', 'wrong_math', 'explain', 'מ־9 בנובמבר', 'family');
+  ins.run('2026-11-10T09:00:00.000Z', 'not_for_kids', 'check', 'היום', '');
+  const b = build('reports', { since: '2026-11-09' }, fixed);
+  assert.equal(b.readOnly, true);
+  assert.match(b.sql, /^SELECT id, created_at, reason, kind, tier, reply FROM answer_reports WHERE created_at >= '2026-11-08T22:00:00.000Z' ORDER BY created_at DESC LIMIT 200;$/);
+  assert.deepEqual(env.DB.raw.prepare(b.sql).all().map((r) => r.reply), ['היום', 'מ־9 בנובמבר']);
+  assert.equal(env.DB.raw.prepare(build('reports', {}, fixed).sql).all().length, 3);
+  for (const since of ['2026-13-01', "2026-11-09' OR 1=1 --", 'yesterday']) assert.throws(() => build('reports', { since }, fixed), InputError, since);
+  assert.match(HELP, /^ {2}reports \[--since D\]/m);
+  for (const cmd of ['grant-class', 'grant-school', 'grant-family', 'end', 'cancel', 'refund', 'clear-hold', 'revoke-device', 'forget', 'list', 'requests', 'request-done', 'usage', 'events', 'reports']) {
+    assert.match(HELP, new RegExp(`^ {2}${cmd}\\b`, 'm'), `${cmd} is in the help`);
+    if (cmd !== 'reports') assert.doesNotThrow(() => { try { build(cmd, {}, fixed); } catch (e) { if (!(e instanceof InputError)) throw e; } }, cmd);
+  }
 });

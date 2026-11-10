@@ -11,7 +11,7 @@ import { manipSolution, manipWrong } from '@/content/manip.js';
 import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
-import { autoAskAllowed, gate, aiAccess, useAIStatus } from '@/lib/account.js';
+import { autoAskAllowed, gate, aiAccess, useAIStatus, needIntro, introSeen } from '@/lib/account.js';
 import AIAllowance from '@/components/AIAllowance.jsx';
 import ToolLocked from '@/components/ToolLocked.jsx';
 import { api, syncNow } from '@/lib/api.js';
@@ -22,8 +22,11 @@ import Manip from '@/components/manip/Manip.jsx';
 import AIChat from '@/components/AIChat.jsx';
 import Notebook from '@/components/Notebook.jsx';
 import CheckResult from '@/components/CheckResult.jsx';
+import ReportAnswer, { checkText } from '@/components/ReportAnswer.jsx';
 import Mascot from '@/components/Mascot.jsx';
+import SupportCard from '@/components/SupportCard.jsx';
 import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/components/ui.jsx';
+import { detectDistress } from '@shared/safety.js';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import CheckDone from './CheckDone.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
@@ -269,8 +272,10 @@ export default function Lesson() {
   });
 
   const askExplain = async () => {
+    // the first AI action on this device: the introduction first, then this same question
+    if (needIntro(askExplain)) return;
     setExplain({ state: 'loading', text: '' });
-    try { const r = await runAI('explain', aiContext(), { onMadi: askMadi }); setExplain({ state: 'done', text: r.text }); } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
+    try { const r = await runAI('explain', aiContext(), { onMadi: askMadi }); setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true }); } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
   };
 
   const commit = (event) => {
@@ -322,8 +327,9 @@ export default function Lesson() {
         commit(result.event);
         if (item.form !== 'mc') setStruck(true);
         // The second miss is the moment help matters most: ask the tutor without waiting to be asked.
-        // (only when that is not one of the few free questions: on the free taste the student chooses when to ask)
-        if (aiReady() && !isTest(ns.kind) && autoAskAllowed() && aiAccess('explain').state === 'open') setTimeout(() => askExplainFor(ns), 0);
+        // (only when that is not one of the few free questions: on the free taste the student chooses when to ask; and
+        // never before the introduction to the tutor was read: then "למה טעיתי?" waits for the student to ask)
+        if (aiReady() && !isTest(ns.kind) && autoAskAllowed() && introSeen() && aiAccess('explain').state === 'open') setTimeout(() => askExplainFor(ns), 0);
       }
       if (result.retry) { setStruck(true); setActive(names[0] || 'v'); if (item.form === 'mc') setChoice(null); if (result.event) st.noteLearn(result.event); }
     }
@@ -333,7 +339,7 @@ export default function Lesson() {
     setExplain({ state: 'loading', text: '' });
     try {
       const r = await runAI('explain', { ...aiContext(), studentAnswer: ns.wrong.map((w) => answerText(ns.item, w)).join(' ; ') }, { onMadi: askMadi });
-      setExplain({ state: 'done', text: r.text });
+      setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true });
     } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
   };
 
@@ -425,7 +431,7 @@ export default function Lesson() {
 
   const checkWork = async () => {
     // the photo check is the full tutor's: on the free taste its info state shows instead (and the teacher is one tap away)
-    const g = gate('check', { onMadi: askMadi });
+    const g = gate('check', { onMadi: askMadi, then: checkWork });
     if (g === 'locked' || g === 'economy') { setNbCheck({ state: 'locked', kind: g }); return; }
     if (g) return;
     const image = nbRef.current?.toImage();
@@ -540,11 +546,14 @@ export default function Lesson() {
           <>
             <Notebook ref={nbRef} strokes={page.strokes} onStrokes={(strokes) => { setPage({ strokes }); if (nbCheck.state !== 'loading') setNbCheck({ state: 'idle' }); }} height={page.height} onGrow={() => setPage({ height: page.height + 240 })} />
             <p className="nb-note">כתבו את הדרך כמו במחברת. כשמסיימים, חוזרים ל"תשובה" וכותבים את התוצאה.</p>
-            {aiReady() && <Button variant="ai" className="btn-sm" onClick={checkWork} disabled={nbCheck.state === 'loading' || !page.strokes.length}><Sparkles size={16} aria-hidden="true" />בדיקת הדרך עם העוזר</Button>}
+            {/* a class whose tutor is off (TRUST-11) offers no AI check at all */}
+            {aiReady() && explainState !== 'class_off' && <Button variant="ai" className="btn-sm" onClick={checkWork} disabled={nbCheck.state === 'loading' || !page.strokes.length}><Sparkles size={16} aria-hidden="true" />בדיקת הדרך עם העוזר</Button>}
             <div className="nb-anchor" ref={nbResRef} aria-hidden="true" />
             {nbCheck.state === 'loading' && <Box tone="ai" title="בדיקת הדרך"><Thinking states={['קורא את מה שכתבתם', 'בודק כל שורה', 'מסכם']} /></Box>}
             {nbCheck.state === 'error' && <p className="form-error" role="alert">{nbCheck.message}</p>}
             {nbCheck.state === 'done' && <CheckResult r={nbCheck.r} />}
+            {nbCheck.state === 'done' && <div className="ai-report-row"><ReportAnswer kind="check" reply={checkText(nbCheck.r)} /></div>}
+            {nbCheck.state === 'done' && nbCheck.r?.care && <SupportCard variant="after-message" />}
             {nbCheck.state === 'locked' && <ToolLocked kind="check" state={nbCheck.kind} compact onTeacher={inClass ? () => setHelpOpen(true) : undefined} />}
           </>
         )}
@@ -606,6 +615,8 @@ export default function Lesson() {
                   {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} stepwise />}
                   {explain.state === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['בודק את התשובה שלכם', 'מחפש איפה זה התפספס', 'מנסח הסבר']} /></Box>}
                   {explain.state === 'done' && <Box tone="ai" title="העוזר"><Markdown>{explain.text}</Markdown></Box>}
+                  {explain.state === 'done' && !explain.blocked && <div className="ai-report-row"><ReportAnswer kind="explain" reply={explain.text} /></div>}
+                  {explain.state === 'done' && explain.care && <SupportCard variant="after-message" />}
                   {explain.state === 'error' && <p className="form-error" role="alert">{explain.text}</p>}
                   {explain.state === 'idle' && !isTest(s.kind) && ['free', 'open'].includes(explainState) && (
                     <>
@@ -613,7 +624,7 @@ export default function Lesson() {
                       <AIAllowance />
                     </>
                   )}
-                  {explain.state === 'idle' && !isTest(s.kind) && ['used', 'paused', 'resting'].includes(explainState) && (
+                  {explain.state === 'idle' && !isTest(s.kind) && ['used', 'paused', 'resting', 'class_off', 'parent_ok_needed'].includes(explainState) && (
                     <Button variant="secondary" className="btn-sm" onClick={askMadi}><HelpCircle size={16} aria-hidden="true" />שאלה למדי</Button>
                   )}
                   {!isTest(s.kind) && <p className="fb-note">תרגיל דומה יחזור בסוף השיעור.</p>}
@@ -684,27 +695,56 @@ export default function Lesson() {
   );
 }
 
+/**
+ * Ask the teacher for help with this exercise, with an optional note and the notebook page. A note that reads as
+ * distress (trust spec TRUST-3 §3.5, Appendix E.2): after sending, the sheet stays open and says the request went,
+ * above the support card, in place of the toast. The server checks the note again on its own and marks the request
+ * for the teacher; the child's own words go only to the teacher they chose to write to.
+ */
 function HelpSheet({ open, onOpenChange, payload, getImage, hasPage }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  // a note that read as distress: 'sent' (the sheet shows the card) or 'failed' (the card still shows, and the note
+  // waits in the form to be sent again)
+  const [care, setCare] = useState(null);
+  const close = (o) => { if (!o) setCare(null); onOpenChange(o); };
   const send = async () => {
     setBusy(true);
+    const flagged = detectDistress(note).flag;
     try {
       // the page goes only as large as the server keeps it (shrunk if needed); a page that cannot fit stays behind
       const image = getImage();
       await api('/api/help', { method: 'POST', body: { ...payload, note, image } });
+      setNote('');
+      if (flagged) { setCare('sent'); return; }
       toast.success(hasPage && !image ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: הוא גדול מדי לשליחה.' : 'הבקשה נשלחה למורה');
-      setNote(''); onOpenChange(false);
-    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+      onOpenChange(false);
+    } catch (e) {
+      if (flagged) setCare('failed'); else toast.error(e.message);
+    } finally { setBusy(false); }
   };
-  const footer = useMemo(() => <Button className="btn-block btn-lg" onClick={send} disabled={busy}>{busy ? 'שולחים…' : 'שליחה למורה'}</Button>, [busy, note]); // eslint-disable-line react-hooks/exhaustive-deps
+  const footer = useMemo(() => (care === 'sent'
+    ? <Button variant="secondary" className="btn-block" onClick={() => close(false)}>חזרה</Button>
+    : care === 'failed'
+      ? <Button className="btn-block btn-lg" onClick={() => setCare(null)}>לנסות לשלוח שוב</Button>
+      : <Button className="btn-block btn-lg" onClick={send} disabled={busy}>{busy ? 'שולחים…' : 'שליחה למורה'}</Button>), [busy, note, care]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title="לבקש עזרה מהמורה" footer={footer}>
-      <div className="ob-ask sheet-ask">
-        <p className="ob-bubble">המורה יראה את התרגיל ואת מה שכתבתם{hasPage ? ', כולל הדף מהמחברת' : ''}, ויוכל לעבור עליו איתכם.</p>
-      </div>
-      <label htmlFor="help-note" className="field-label">מה לא ברור? (לא חובה)</label>
-      <textarea id="help-note" className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
+    <Sheet open={open} onOpenChange={close} title="לבקש עזרה מהמורה" footer={footer}>
+      {care ? (
+        <div className="help-sent">
+          <p className="help-sent-line" role="status">{care === 'sent' ? 'הבקשה נשלחה למורה.' : 'לא הצלחנו לשלוח את הבקשה למורה. בדקו את החיבור לאינטרנט ונסו שוב.'}</p>
+          {/* when it did not go, the card says nothing about the teacher seeing the note */}
+          <SupportCard variant={care === 'sent' ? 'help-note' : 'opened'} />
+        </div>
+      ) : (
+        <>
+          <div className="ob-ask sheet-ask">
+            <p className="ob-bubble">המורה יראה את התרגיל ואת מה שכתבתם{hasPage ? ', כולל הדף מהמחברת' : ''}, ויוכל לעבור עליו איתכם.</p>
+          </div>
+          <label htmlFor="help-note" className="field-label">מה לא ברור? (לא חובה)</label>
+          <textarea id="help-note" className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
+        </>
+      )}
     </Sheet>
   );
 }

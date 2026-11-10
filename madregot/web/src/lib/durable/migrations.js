@@ -24,7 +24,8 @@ export const CURRENT_VERSION = 5;
 /**
  * The tutor on this device: the server (or a personal key, only in builds with VITE_ALLOW_PERSONAL_KEY=1), an anonymous
  * device id, the family-device token (AI only, never the parent's session), a link code waiting for a parent, and the
- * tier the server reported last (to say once that a plan ended).
+ * tier the server reported last (to say once that a plan ended). A new store adds introSeen (store.js), which no step
+ * writes: it is read as `=== true`, so a state saved before it existed shows the introduction to the tutor once.
  */
 export const AI_DEFAULTS = Object.freeze({ mode: 'server', apiUrl: '', key: '', device: '', familyDevice: null /* {token, label} */, pendingLink: null /* {code, secret, expiresAt, url} */, lastTier: null });
 /** This device's save settings: its tag (xpBy), when the browser was asked to keep the data, and the save prompts. */

@@ -625,3 +625,79 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .hello-foot .hello-restore { min-height: 44px; font-size: 16px; text-decoration: underline; text-underline-offset: 3px; }
 .restore-start .ob-main { gap: var(--s4); }
 .restore-hint { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 24px; }
+
+/* ------------------------------------------------------------------ people to talk to (trust spec TRUST-3 §3.5)
+   One calm card: Madi still beside the words, a trusted adult first, then each free service with one tap per way in
+   (every tap target at least 44px). No red, no urgency colour, no motion. */
+.support-card { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: #fff; color: var(--ink); text-align: start; }
+.support-card.bare { padding: 0; border: 0; border-radius: 0; }
+.support-card p { margin: 0; }
+.support-head { display: flex; align-items: flex-start; gap: var(--s3); }
+.support-madi { flex: none; }
+.support-head-text { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+.support-title { font-size: var(--t-md); line-height: var(--lh-md); font-weight: 700; }
+.support-opening, .support-adult { font-size: var(--t-base); line-height: var(--lh-base); }
+.support-now { font-weight: 600; }
+.support-services { display: flex; flex-direction: column; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+.support-service { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s3); border-top: 2px solid var(--rule); }
+.support-name { font-weight: 700; }
+.support-detail { font-weight: 400; color: var(--ink-2); }
+.support-links { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
+.support-link { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: var(--s2) var(--s3); border: 2px solid var(--rule); border-bottom-width: 4px; border-bottom-color: var(--rule-press); border-radius: 14px; background: #fff; color: var(--brand-d); font-weight: 700; font-size: 16px; line-height: 22px; text-decoration: none; }
+.support-link:active { border-bottom-width: 2px; transform: translateY(2px); }
+.support-link svg { flex: none; color: var(--brand); }
+.support-hours { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.support-talk { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s3); border-top: 2px solid var(--rule); }
+.support-talk-btn { white-space: normal; line-height: 1.25; }
+.support-talk-sent { padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); font-weight: 600; }
+.support-note { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.support-foot { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+@media (prefers-reduced-motion: reduce) { .support-link:active { transform: none; } }
+
+/* the quiet way in: a small underlined link, a full 44px tall, wherever the child might need it */
+.support-open { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); text-decoration-color: var(--rule-strong); }
+.support-open:hover { color: var(--brand-d); }
+.chat-support-link { align-self: center; min-height: 44px; margin-top: calc(-1 * var(--s1)); }
+.chat-rest-support { align-self: center; }
+.limit-support { align-self: center; }
+.ai-offline-support { align-self: center; }
+.chat-off { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); }
+.chat-support { display: flex; flex-direction: column; gap: var(--s3); }
+.help-sent { display: flex; flex-direction: column; gap: var(--s3); }
+.help-sent-line { margin: 0; font-weight: 700; font-size: var(--t-md); line-height: var(--lh-md); }
+.exam-support { margin-top: var(--s4); }
+/* under a child's message: what the tutor did not receive (personal details are masked before it is sent) */
+.msg-pii { margin: calc(-1 * var(--s1)) 0 0; max-width: min(86%, 560px); align-self: flex-end; text-align: end; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+/* the teacher's list: a request whose note read as distress (the teacher lane gives it its full design) */
+.help-care { margin: 0; font-weight: 700; color: var(--ink); }
+button.set-row { justify-content: space-between; gap: var(--s3); width: 100%; font-family: inherit; }
+button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
+
+/* ------------------------------------------------------------------ the tutor's introduction and "report this answer"
+   (trust spec TRUST-4 §4.5, §4.6). The introduction is a calm sheet read once: Madi still, five short lines, one
+   button. The report flag is quiet: an ink-2 icon with a full 44px target under each answer, never a colour. */
+.ai-intro { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s3); }
+.ai-intro-madi { flex: none; }
+.ai-intro-list { display: flex; flex-direction: column; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+.ai-intro-list li { position: relative; padding-inline-start: var(--s4); font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
+.ai-intro-list li::before { content: ''; position: absolute; inset-inline-start: 0; top: 0.62em; width: 7px; height: 7px; border-radius: 50%; background: var(--brand); }
+.report-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; color: var(--ink-2); background: transparent; }
+.report-btn:hover:not(:disabled) { color: var(--brand-d); background: var(--brand-tint); }
+.report-btn.is-sent, .report-btn:disabled { color: var(--ink-2); opacity: 0.75; cursor: default; }
+.msg-tools { display: flex; margin-top: calc(-1 * var(--s2)); padding-inline-start: calc(34px + var(--s2)); }
+.ai-report-row { display: flex; justify-content: flex-end; margin-top: calc(-1 * var(--s1)); }
+.gen-note { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.gen-note p { margin: 0; }
+.q-actions .q-report { margin-inline-start: auto; }
+.report-reasons { display: flex; flex-direction: column; gap: var(--s2); margin: 0; padding: 0; border: 0; }
+.report-reason { display: flex; align-items: center; gap: var(--s3); min-height: 52px; padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 14px; background: #fff; font-size: var(--t-base); line-height: var(--lh-base); cursor: pointer; }
+.report-reason.on { border-color: var(--brand); background: var(--brand-tint); }
+.report-reason input { width: 22px; height: 22px; margin: 0; accent-color: var(--brand); flex: none; }
+.report-reason:focus-within { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.report-note { margin: var(--s3) 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+
+/* ------------------------------------------------------------------ the adult step before the parents' area (TRUST-8) */
+.adult-form { display: flex; flex-direction: column; gap: var(--s3); }
+.adult-form .input { align-self: flex-start; width: 12ch; max-width: 100%; font-size: 22px; letter-spacing: 0.08em; text-align: center; }
+.adult-closed { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); font-weight: 600; }
+.adult-back { align-self: center; min-height: 44px; display: inline-flex; align-items: center; }

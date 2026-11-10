@@ -45,6 +45,12 @@ export async function joinClass({ code, name, pin }) {
 
 const GRADE_NAME = { 7: 'כיתה ז׳', 8: 'כיתה ח׳' };
 
+/**
+ * Under the PIN field once a class code is typed (trust spec TRUST-12 §3). The first to join a class takes a name, so
+ * the step says which name the teacher will see, and how to tell two children with the same name apart.
+ */
+export const nameClaimHint = (name) => `המורה יראה את השם ${String(name || '').replace(/\s+/g, ' ').trim().slice(0, 30)}. אם יש בכיתה עוד מישהו עם אותו שם, חזרו אחורה והוסיפו אות משם המשפחה, למשל: נועה כ.`;
+
 /** One answer on an onboarding screen: a big pressable row. */
 function Option({ on, onPick, title, sub, glyph, aside, badge }) {
   return (
@@ -210,9 +216,13 @@ function Onboarding({ onTeacher, onRestore }) {
                   <input id="w-code" className="input mono" dir="ltr" value={f.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} maxLength={6} autoCapitalize="characters" autoComplete="off" placeholder="למשל K7Q2MD" />
                 </Field>
                 {f.code.trim() && (
-                  <Field label="קוד אישי של 4 ספרות" id="w-pin" hint="בפעם הראשונה בוחרים קוד. בפעמים הבאות מקלידים את אותו קוד.">
-                    <input id="w-pin" className="input mono" dir="ltr" inputMode="numeric" pattern="\d{4}" maxLength={4} value={f.pin} onChange={(e) => set({ pin: e.target.value.replace(/\D/g, '') })} autoComplete="off" />
-                  </Field>
+                  <>
+                    <Field label="קוד אישי של 4 ספרות" id="w-pin" hint="בפעם הראשונה בוחרים קוד. בפעמים הבאות מקלידים את אותו קוד.">
+                      <input id="w-pin" className="input mono" dir="ltr" inputMode="numeric" pattern="\d{4}" maxLength={4} value={f.pin} onChange={(e) => set({ pin: e.target.value.replace(/\D/g, '') })} autoComplete="off" />
+                    </Field>
+                    {/* the first to join takes a name (trust spec TRUST-12 §3): say which name the teacher will see */}
+                    <p className="ob-note ob-name-claim">{nameClaimHint(f.name)}</p>
+                  </>
                 )}
               </>
             )}

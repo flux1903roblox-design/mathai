@@ -6,6 +6,8 @@
 // request (school, note) goes only to the owner. With EMAIL_DEV_LOG = "true" on a local Worker (PUBLIC_URL on
 // localhost) and no Resend key, notices are printed to the log instead (subjects only, never a code).
 import { HttpError, nowIso, sha256, TZ } from './util.js';
+import { rulesEnv } from '../../shared/schoolRules.js';
+import { limits, paywallOn } from './entitle.js';
 
 export function emailReady(env) {
   return !!(env.RESEND_API_KEY && env.EMAIL_FROM);
@@ -93,6 +95,9 @@ export function renderNotice(env, row) {
           'אפשר לבטל בכל רגע באתר, במייל או בטלפון. ב־14 הימים הראשונים מקבלים החזר מלא.',
           'שימוש הוגן: יש מכסה יומית לכל סוג פעולה. בחודש עם שימוש גבוה במיוחד השיחה ממשיכה בגרסה קצרה, ובדיקות הצילום והמבחן חוזרות ב־1 בחודש.',
           `התקנון (גרסה ${env.TERMS_VERSION || ''}): ${env.PUBLIC_URL || ''}/terms`,
+          // the payer's own mailbox is one of the real adult checks (trust spec TRUST-8 §5): someone who did not sign up
+          // can say so, and gets everything back
+          'קיבלתם את המייל הזה כי נרשמתם למנוי במדרגות עם הכתובת הזו. לא אתם נרשמתם? השיבו למייל הזה ונבטל ונחזיר את כל הסכום.',
           business(env),
         ]),
       };
@@ -126,6 +131,7 @@ export function renderNotice(env, row) {
         lines: billing(['שלום,', `המנוי השנתי מתחדש ב־${hebDate(p.periodEnd)} במחיר ${shekels(p.priceAgorot)}, ${vatWords(env)}.`]),
       };
     case 'device_linked':
+      if (p.purpose === 'consent') return consentNotice(env, p);
       return {
         subject: 'מכשיר חדש חובר למנוי',
         lines: billing(['שלום,', `חובר מכשיר חדש${p.label ? ` (${p.label})` : ''} ב־${hebDate(p.at)}. לא אתם? אפשר לנתק אותו בעמוד ההורים: ${env.PUBLIC_URL || ''}/parents`]),
@@ -142,8 +148,9 @@ export function renderNotice(env, row) {
       };
     case 'owner': {
       const what = String(row.kind).slice('owner:'.length);
-      if (what === 'licence_request') return licenceRequestNotice(p);
+      if (what === 'licence_request') return licenceRequestNotice(p, rulesEnv(env).approval === 'approved');
       if (what.startsWith('summary:')) return summaryNotice(p, what.slice('summary:'.length));
+      if (what.startsWith('safety_spike:')) return safetySpikeNotice(p, what.slice('safety_spike:'.length));
       return { subject: `[מדרגות] ${what}`, lines: [`${what}`, `ref: ${row.ref}`, ...Object.entries(p).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)] };
     }
     default:
@@ -151,20 +158,55 @@ export function renderNotice(env, row) {
   }
 }
 
-/** A teacher asked for a trial or a quote. The owner answers by email and grants with npm run owner. */
-function licenceRequestNotice(p) {
+/**
+ * A parent approved the tutor on a child's device, for free (trust spec TRUST-9, Appendix E §E.4). This email is the
+ * notice at the moment the child's data starts to be collected (Privacy Protection Law s.11): what the tutor is, what
+ * goes to it and where, what happens when a child writes something worrying, and how to take the OK back. No price and
+ * no plan: it is not a billing email. The number of free questions is read from the limits in force when it is sent.
+ */
+function consentNotice(env, p) {
+  const base = env.PUBLIC_URL || '';
+  const free = limits(env).free.student;
+  const questions = free === 1 ? 'שאלה קצרה אחת' : `${free} שאלות קצרות`;
+  // with the paywall off there is no free taste to count: the tutor is open, within the day's limits
+  const what = paywallOn(env) ? `בחינם, העוזר עונה במכשיר הזה על ${questions} ביום במתמטיקה.` : 'כרגע העוזר פתוח בחינם, ועונה במכשיר הזה על שאלות במתמטיקה.';
+  return {
+    subject: 'אישרתם את העוזר החכם במכשיר של הילד',
+    lines: [
+      'שלום,',
+      `ב־${hebDate(p.at)} אישרתם את העוזר החכם של מדרגות במכשיר ${p.label ? `"${p.label}"` : 'של הילד'}.`,
+      `מה זה אומר: ${what} הוא תוכנת בינה מלאכותית (Claude של Anthropic), לא אדם, והוא יכול לטעות.`,
+      'מה עובר אליו: התרגיל, התשובה של הילד ומה שהוא כותב או מצלם. לא שם, מייל או טלפון. המידע נשלח ל־Anthropic בארה״ב כדי לקבל תשובה, ומדרגות לא שומרת את השיחות.',
+      'בטיחות: אם הילד כותב משהו מדאיג, העוזר מפסיק את המתמטיקה ומפנה למבוגר שסומכים עליו ולקווי סיוע (ער״ן 1201). אנחנו לא שולחים לכם את מה שהילד כתב.',
+      `לביטול האישור: ${base}/parents, או השיבו למייל הזה.`,
+      `מדיניות הפרטיות: ${base}/privacy`,
+      'לא אתם אישרתם? השיבו למייל הזה ונבטל.',
+      [env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean).join(' · '),
+    ],
+  };
+}
+
+/**
+ * A teacher asked for a trial or a quote. The owner answers by email and grants with npm run owner. Before the Ministry's
+ * catalogue approval (MOE_AI_APPROVAL, trust spec TRUST-11 §5) a trial request can only come from a private group (the
+ * server refuses a school's), so its command carries --private-ok; a school's quote is answered with the same rule.
+ */
+function licenceRequestNotice(p, approved = false) {
   const trial = p.wants === 'trial';
   return {
     subject: `[מדרגות] בקשה ${trial ? 'לניסיון' : 'להצעת מחיר'} לכיתה ${p.classCode || ''}`.trim(),
     lines: [
       trial ? 'מורה ביקש ניסיון של שבועיים לכיתה. ניסיון לא נפתח לבד: מאשרים אותו בסקריפט.' : 'מורה ביקש הצעת מחיר לבית הספר.',
+      approved ? '' : trial
+        ? 'הכיתה סומנה כקבוצה פרטית שלא פועלת במסגרת בית ספר. עד האישור בקטלוג של משרד החינוך, ניסיון ניתן רק לקבוצה כזו.'
+        : 'עד האישור בקטלוג של משרד החינוך העוזר החכם כבוי לתלמידים בכיתות של בית ספר. כתבו בתשובה שהוא יופעל אחרי האישור.',
       `בית הספר: ${p.school || ''}`,
       `כמה כיתות: ${p.classes ?? ''}`,
       p.students ? `תלמידים בכיתה: ${p.students}` : '',
       p.note ? `הערה: ${p.note}` : '',
       `קוד הכיתה: ${p.classCode || ''}`,
       `מייל המורה: ${p.email || 'לא ידוע (החשבון נמחק)'}`,
-      trial ? `לאישור: npm run owner -- grant-class --class ${p.classCode || ''} --seats ${Math.min(40, Number(p.students) || 30)} --trial` : '',
+      trial ? `לאישור: npm run owner -- grant-class --class ${p.classCode || ''} --seats ${Math.min(40, Number(p.students) || 30)} --trial${approved ? '' : ' --private-ok --note "<שם הקבוצה>"'}` : '',
       `כשמטפלים בבקשה: npm run owner -- request-done --id ${p.requestId || ''}`,
     ],
   };
@@ -179,14 +221,33 @@ function summaryNotice(p, day) {
     lines: [
       `סיכום ליום ${day}`,
       `עלות כוללת: ${usd(p.allUsd)} · שאלות בחינם: ${p.freeCalls ?? 0}`,
+      `תשובות תמיכה (care): ${p.careCalls ?? 0} · ${usd(p.careUsd)}`,
       ...(Array.isArray(p.spend) ? p.spend : []).map((x) => `${x.pool}: ${usd(x.usd)} (${x.calls} קריאות)`),
       `מנויים ורישיונות חדשים: ${p.newPlans ?? 0} · ביטולים: ${p.canceled ?? 0} · הסתיימו: ${p.ended ?? 0}`,
       `ביטולים שהספק עוד לא אישר: ${p.unsyncedCancels ?? 0}`,
       `החזרים שצריך לעשות ידנית: ${p.manualRefunds ?? 0}`,
       `הודעות תשלום חריגות (mismatch, unknown, test_mode): ${p.badEvents ?? 0}`,
       `בקשות רישיון פתוחות: ${p.openRequests ?? 0}`,
+      p.safety ? safetyLine(p.safety) : '',
+      p.parentOkNeeded != null ? `בקשות לעוזר ממכשירים שמחכים לאישור של הורה: ${p.parentOkNeeded}` : '',
       v.length ? 'בדיקות שנכשלו:' : 'כל הבדיקות עברו.',
       ...v.map((x) => `- ${x}`),
+    ],
+  };
+}
+
+/** A day's safety counts in one line (trust spec TRUST-4 §4.4): numbers only, never who or what was written. */
+const safetyLine = (c) => `אירועי בטיחות: מצוקה ${c.distress ?? 0} · פרטים אישיים שהוסתרו ${c.pii_masked ?? 0} · תשובות שנעצרו ${c.output_blocked ?? 0} · סירובים ${c.refusal ?? 0} · דיווחים על תשובות ${c.user_report ?? 0}`;
+
+/** Yesterday's safety events jumped (cron.js safetySpike): the counts only, and where to look next. */
+function safetySpikeNotice(p, day) {
+  return {
+    subject: '[מדרגות] קפיצה באירועי בטיחות',
+    lines: [
+      `ביום ${day} היו יותר אירועי בטיחות מהרגיל.`,
+      safetyLine(p),
+      `ממוצע יומי של מצוקה ב־14 הימים שלפני: ${p.distressAvg ?? 0}`,
+      'אין כאן שום דבר ממה שנכתב. הדיווחים על תשובות: npm run owner -- reports',
     ],
   };
 }

@@ -22,9 +22,10 @@ if [ "$1" != "--remove" ]; then
   if [ -z "$(git -C "$ROOT" branch -r --contains "$SHA")" ]; then echo "Push $SHA first: staging must match a commit on GitHub."; exit 1; fi
 
   cd "$ROOT/madregot/web"
-  # VITE_ALLOW_PERSONAL_KEY=1: a copy without a server keeps the personal-key mode (the tutor with a key of your own)
-  VITE_API_URL=none VITE_ALLOW_PERSONAL_KEY=1 VITE_STORE_KEY=madregot-staging VITE_QA_HOOKS=1 npx vite build --base ./ --outDir "$WORK/site" --emptyOutDir
-  VITE_ALLOW_PERSONAL_KEY=1 node scripts/check-dist.mjs "$WORK/site"
+  # No personal-key mode in a public copy (trust spec TRUST-4 §4.8): a child's app never offers a field for an Anthropic
+  # key. check-dist refuses the build if the Claude SDK for the browser got in anyway.
+  VITE_API_URL=none VITE_STORE_KEY=madregot-staging VITE_QA_HOOKS=1 npx vite build --base ./ --outDir "$WORK/site" --emptyOutDir
+  node scripts/check-dist.mjs "$WORK/site"
   node -e "const f=process.argv[1],fs=require('fs');fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace('<head>','<head>\n    <meta name=\"robots\" content=\"noindex, nofollow\">'))" "$WORK/site/index.html"
   cp "$ROOT/madregot/staging/qa.html" "$WORK/site/qa.html"
   printf '{ "commit": "%s", "built": "%s", "server": "none", "storageKey": "madregot-staging" }\n' "$SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$WORK/site/version.json"

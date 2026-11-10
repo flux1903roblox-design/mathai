@@ -41,7 +41,7 @@ async function open(page, route, state = null, { local = {}, seed = '424242' } =
 
 /** A device with the app pointed at the fake server. `profile: null` is the parent's own phone. */
 // (seeded as a current, v3 save: the v3 migration drops a saved server address in builds that cannot change it)
-const withServer = (extra = {}, grade = '7') => ({ ...student(grade, { ai: { mode: 'server', apiUrl: API, key: '', device: '' }, ...extra }), version: 3 });
+const withServer = (extra = {}, grade = '7') => ({ ...student(grade, { ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true }, ...extra }), version: 3 });
 const classStudent = (extra = {}) => withServer({ profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' }, ...extra });
 const parentPhone = () => withServer({ profile: null });
 const teacher = () => withServer({ profile: { role: 'teacher', name: 'רונית', classes: [{ code: 'K7Q2MD', key: 'tkey-123', className: 'ז׳3', grade: '7' }], active: 'K7Q2MD' } });
@@ -72,7 +72,7 @@ test.describe('the smart tutor', () => {
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
 
   test('the free taste: two questions, then the chat rests calmly and Madi takes over', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/assistant', withServer());
     await expect(page.getByText('היום אפשר לשאול את העוזר החכם עוד 2 שאלות.')).toBeVisible();
     const draft = page.getByLabel('ההודעה שלכם');
@@ -80,7 +80,11 @@ test.describe('the smart tutor', () => {
     await expect(page.getByText('היום אפשר לשאול את העוזר החכם עוד שאלה אחת.')).toBeVisible();
     await draft.fill('ועוד שאלה'); await draft.press('Enter');
     await expect(page.getByText('להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.')).toBeVisible();
-    await expect(draft).toBeDisabled();
+    // the input stays usable (a child in distress must always be able to write: trust spec TRUST-3 §3.5), but a
+    // question now waits as a draft and is not sent
+    await expect(draft).toBeEnabled();
+    await draft.fill('ועוד אחת'); await draft.press('Enter');
+    await expect(draft).toHaveValue('ועוד אחת');
     // the answer just received is on screen, above the docked card and input (not hidden behind them)
     const lastAnswer = page.locator('.msg-row.assistant').last();
     await expect(lastAnswer).toBeInViewport();
@@ -108,7 +112,7 @@ test.describe('the smart tutor', () => {
   });
 
   test('when the server says today is done, a calm sheet opens and "ask Madi" opens Madi', async ({ page }) => {
-    const { st, log } = await fakeServer(page, {}, baseOf());
+    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/lesson/signed/1', withServer());
     await answer(page, false); await proceed(page); await answer(page, false);
     await expect(page.locator('section.fb-reveal')).toBeVisible();
@@ -131,7 +135,7 @@ test.describe('the smart tutor', () => {
   });
 
   test('busy networks, a resting free tutor and the month\'s fair use show calm sheets, never a red error', async ({ page }) => {
-    const { st } = await fakeServer(page, {}, baseOf());
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/assistant', withServer());
     const draft = page.getByLabel('ההודעה שלכם');
     st.breakNext = { status: 429, body: { error: 'shared_limit', scope: 'network' } };
@@ -140,7 +144,8 @@ test.describe('the smart tutor', () => {
     await expect(busy.getByText('מאותה רשת אינטרנט')).toBeVisible();
     await busy.getByRole('button', { name: 'סגירה' }).click();
     await expect(page.locator('.form-error')).toHaveCount(0);
-    await expect(draft).toBeDisabled(); // the draft waits for tomorrow
+    await expect(draft).toBeEnabled(); // the draft waits for tomorrow, in an input that still works
+    await expect(draft).toHaveValue('שאלה');
     // a resting free tutor
     await open(page, '#/assistant', withServer());
     st.breakNext = { status: 503, body: { error: 'free_paused' } };
@@ -149,7 +154,7 @@ test.describe('the smart tutor', () => {
     await expect(page.locator('.form-error')).toHaveCount(0);
     // a family plan over its month: the photo check says when it is back, and a stale screen gets the calm sheet
     st.devices.push({ id: 'd1', label: 'הטאבלט', token: `fd1.${'c'.repeat(64)}` }); st.plan = livePlan(); st.economy = true;
-    await open(page, '#/assistant', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', familyDevice: { token: `fd1.${'c'.repeat(64)}`, label: 'הטאבלט' } } }));
+    await open(page, '#/assistant', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true, familyDevice: { token: `fd1.${'c'.repeat(64)}`, label: 'הטאבלט' } } }));
     await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
     await expect(page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' }).getByText('הבדיקה הזו חוזרת ב־1 בחודש.')).toBeVisible();
     await page.keyboard.press('Escape');
@@ -160,7 +165,7 @@ test.describe('the smart tutor', () => {
   });
 
   test('tools of the full tutor show their info state before any upload; a class student can send the page to the teacher', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/assistant', withServer());
     await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
     const photo = page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' });
@@ -196,9 +201,9 @@ test.describe('the smart tutor', () => {
   });
 
   test('the lesson asks the tutor by itself on a family plan and in a licensed class, never on the free taste', async ({ page }) => {
-    const { st, log } = await fakeServer(page, {}, baseOf());
+    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
     st.devices.push({ id: 'd1', label: 'הטאבלט', token: `fd1.${'c'.repeat(64)}` }); st.plan = livePlan();
-    await open(page, '#/lesson/signed/1', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', familyDevice: { token: `fd1.${'c'.repeat(64)}`, label: 'הטאבלט' } } }));
+    await open(page, '#/lesson/signed/1', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true, familyDevice: { token: `fd1.${'c'.repeat(64)}`, label: 'הטאבלט' } } }));
     await answer(page, false); await proceed(page); await answer(page, false);
     await expect(page.getByText('הסבר קצר מהעוזר.')).toBeVisible();
     const fam = aiCalls(log).find((r) => r.path === '/api/ai/explain');
@@ -214,7 +219,7 @@ test.describe('the smart tutor', () => {
 
   test('a parent on their own phone signs in, pays and links the child\'s device, which then asks as the family', async ({ browser, page }) => {
     const base = baseOf();
-    const { log, attach } = await fakeServer(page.context(), {}, base);
+    const { log, attach } = await fakeServer(page.context(), { parentOk: true }, base);
     // the child's device: settings → the family plan → a QR code and the code, no price
     await open(page, '#/settings', withServer());
     await page.locator('#ai-title').scrollIntoViewIfNeeded();
@@ -282,9 +287,12 @@ test.describe('the smart tutor', () => {
   });
 
   test('the parent finishes on the child\'s device: it is linked, and the parent is signed out there', async ({ page }) => {
-    const { st, log } = await fakeServer(page, { plan: livePlan() }, baseOf());
+    const { st, log } = await fakeServer(page, { parentOk: true, plan: livePlan() }, baseOf());
     await open(page, '#/parents/info', withServer());
     await page.getByRole('link', { name: 'להמשיך במכשיר הזה (להורים)' }).click();
+    // on the child's device the parent first passes the adult step (trust spec TRUST-8); the year goes nowhere
+    await page.getByLabel('שנת הלידה שלכם').fill('1985');
+    await page.getByRole('button', { name: 'המשך' }).click();
     await signIn(page);
     await expect(page.getByRole('heading', { name: /המנוי פעיל/ })).toBeVisible();
     // a device with a profile keeps the parent's session for this tab only
@@ -307,7 +315,7 @@ test.describe('the smart tutor', () => {
   });
 
   test('cancelling takes two taps from the plan card, names the end date and the 14-day refund, and can be undone', async ({ page }) => {
-    const { st, log } = await fakeServer(page, { plan: livePlan() }, baseOf());
+    const { st, log } = await fakeServer(page, { parentOk: true, plan: livePlan() }, baseOf());
     st.sessions.add(TOKEN(9));
     await open(page, '#/parents', parentPhone(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(9), email: 'parent@example.test' }) } });
     await expect(page.getByRole('heading', { name: 'המנוי פעיל · החיוב הבא: ₪29.90 ב־10.12.2026' })).toBeVisible();
@@ -333,7 +341,8 @@ test.describe('the smart tutor', () => {
     await page.getByRole('button', { name: 'מכשירים מחוברים (1)' }).click();
     await expect(page.getByText('הטאבלט · חובר ב־05.11.2026 · שימוש אחרון 05.11.2026')).toBeVisible();
     await page.getByRole('button', { name: 'ניתוק' }).click();
-    await expect(page.getByText('העוזר החכם יחזור במכשיר "הטאבלט" ל־2 שאלות ביום.')).toBeVisible();
+    // a device alone needs a parent's OK again (trust spec TRUST-9)
+    await expect(page.getByText('העוזר החכם במכשיר "הטאבלט" יחכה שוב לאישור שלכם. אפשר לחבר אותו שוב בכל זמן.')).toBeVisible();
     await page.getByRole('button', { name: 'כן, לנתק' }).click();
     await expect(page.getByRole('button', { name: 'מכשירים מחוברים (0)' })).toBeVisible();
     // deleting the account asks for a fresh code first
@@ -349,7 +358,7 @@ test.describe('the smart tutor', () => {
   });
 
   test('the front page\'s cancel link → /cancel → a code → cancel', async ({ page }) => {
-    const { st } = await fakeServer(page, { plan: livePlan({ canRefundNow: false }) }, baseOf());
+    const { st } = await fakeServer(page, { parentOk: true, plan: livePlan({ canRefundNow: false }) }, baseOf());
     await open(page, '#/', parentPhone());
     await expect(page.getByRole('navigation', { name: 'להורים ומידע משפטי' })).toBeVisible();
     await shot(page, 'welcome-footer');
@@ -370,7 +379,7 @@ test.describe('the smart tutor', () => {
   });
 
   test('past_due, economy and an ended plan on the parents page', async ({ page }) => {
-    const { st } = await fakeServer(page, { plan: livePlan({ status: 'past_due', portal: true, accessUntil: '2026-12-13T10:00:00Z' }) }, baseOf());
+    const { st } = await fakeServer(page, { parentOk: true, plan: livePlan({ status: 'past_due', portal: true, accessUntil: '2026-12-13T10:00:00Z' }) }, baseOf());
     st.sessions.add(TOKEN(8));
     await open(page, '#/parents', parentPhone(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(8), email: 'parent@example.test' }) } });
     await expect(page.getByRole('heading', { name: 'התשלום האחרון לא עבר' })).toBeVisible();
@@ -400,7 +409,7 @@ test.describe('the smart tutor', () => {
   });
 
   test('a teacher: the licence card, a request with code sign-in, a licence code, the join lock and removing a student', async ({ page }) => {
-    const { st, log } = await fakeServer(page, {}, baseOf());
+    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/teacher', teacher());
     const card = page.locator('#t-licence');
     await expect(card.getByRole('heading', { name: 'העוזר החכם בכיתה' })).toBeVisible();
@@ -477,7 +486,7 @@ test.describe('the smart tutor', () => {
     expect(calls).toEqual([]);
   });
   test('a payment that did not go through hands the page back: a calm line and the pay button again', async ({ page }) => {
-    const { st, log } = await fakeServer(page, { failPayment: true }, baseOf());
+    const { st, log } = await fakeServer(page, { parentOk: true, failPayment: true }, baseOf());
     await open(page, '#/parents', parentPhone());
     await signIn(page);
     await page.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
@@ -503,7 +512,7 @@ test.describe('the smart tutor', () => {
       classCode: 'K7Q2MD', status: 'active', until: '2027-11-05T10:00:00Z',
       plan: { id: 'c1a0000000000001', kind: 'class', plan: 'class_year', status: 'active', priceAgorot: 58800, periodEnd: '2027-11-05T10:00:00Z', accessUntil: '2027-11-05T10:00:00Z', seats: 12, classCode: 'K7Q2MD', canRefundNow: true, canProrata: false, prorataAgorot: null },
     };
-    const { st, log } = await fakeServer(page, { classes: [lic], classPayments: [{ id: 'p000000000000009', subscriptionId: 'c1a0000000000001', planKind: 'class', at: '2026-11-05T09:00:00Z', amountAgorot: 58800, kind: 'charge', hasInvoice: true }] }, baseOf());
+    const { st, log } = await fakeServer(page, { parentOk: true, classes: [lic], classPayments: [{ id: 'p000000000000009', subscriptionId: 'c1a0000000000001', planKind: 'class', at: '2026-11-05T09:00:00Z', amountAgorot: 58800, kind: 'charge', hasInvoice: true }] }, baseOf());
     st.sessions.add(TOKEN(7));
     await open(page, '#/parents', teacher(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(7), email: 'teacher@example.test' }) } });
     // (a session in localStorage on a device with a profile is not used: this device signs in again)
@@ -523,7 +532,7 @@ test.describe('the smart tutor', () => {
   });
 
   test('the licence card: an ending licence offers only the renewal quote; a trial takes a school licence code', async ({ page }) => {
-    const { st } = await fakeServer(page, {}, baseOf());
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
     st.licence = { ...st.licence, status: 'ending', until: '2026-11-20T10:00:00Z', seats: 30 };
     await open(page, '#/teacher', teacher());
     const card = page.locator('#t-licence');
@@ -540,7 +549,7 @@ test.describe('the smart tutor', () => {
   });
 
   test('with the switch off, the front page offers no parents\' or cancel link (there is nothing to join or cancel)', async ({ page }) => {
-    await fakeServer(page, { paywall: false }, baseOf());
+    await fakeServer(page, { parentOk: true, paywall: false }, baseOf());
     await open(page, '#/', parentPhone());
     const nav = page.getByRole('navigation', { name: 'מידע משפטי' });
     await expect(nav.getByRole('link', { name: 'תקנון' })).toBeVisible();

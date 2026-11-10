@@ -1,7 +1,7 @@
 // The hourly cron jobs of this release: notices, expired orders and plans, cancellation retries, refunds, purge.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { run, endFinished } from '../src/cron.js';
+import { run, endFinished, supportCheckLine, safetySpike, safetyCounts } from '../src/cron.js';
 import { flushNotices, MAX_NOTICE_TRIES } from '../src/email.js';
 import { setup, signIn, accountId, insertSub, rows, one, advanceClock } from './helpers.js';
 
@@ -215,7 +215,8 @@ test('the daily summary lists yesterday and the invariant violations, only when 
   assert.deepEqual(p.spend.map((x) => x.pool), ['free'], 'pools only, not the totals by kind');
   const mail = h.net.log.email.find((m) => m.subject.startsWith(`[מדרגות] סיכום יומי ${yesterday}`));
   assert.deepEqual(mail.to, ['owner@example.test']);
-  assert.match(mail.subject, /4 בעיות/);
+  // a 5th line once the support numbers are due for a check (shared/safety.js); covered on its own in care.test.js
+  assert.match(mail.subject, new RegExp(`${4 + (supportCheckLine(night()) ? 1 : 0)} בעיות`));
   assert.match(mail.text, new RegExp(`מנוי פעיל בלי תשלום שמכסה את היום: ${unpaid.id}`));
   assert.doesNotMatch(mail.text, new RegExp(paid.id));
   assert.match(mail.text, /הזמנה ששולמה בלי מנוי: 0123456789abcdef/);
@@ -259,4 +260,66 @@ test('a renewing family plan stored without the provider\'s subscription id ends
     assert.equal(one(h.env, 'SELECT ended_reason FROM subscriptions WHERE id = ?', gone.id).ended_reason, 'payment_failed');
     assert.equal(one(h.env, 'SELECT status FROM subscriptions WHERE id = ?', fresh.id).status, 'active', 'still inside the grace days');
   } finally { testProvider.fetchSubscription = real; }
+});
+
+// ---------------------------------------------------------------- safety counts and the spike alert (TRUST-4 §4.4)
+/** n safety events of a kind on a day (counts only: the table has nothing else). */
+const events = (env, day, kind, n, surface = 'chat') => {
+  const st = env.DB.raw.prepare("INSERT INTO safety_events (day, kind, surface, source) VALUES (?, ?, ?, 'server')");
+  for (let i = 0; i < n; i++) st.run(day, kind, surface);
+};
+const dayBack = (k) => today(new Date(night().getTime() - k * DAY));
+
+test('the daily summary carries yesterday\'s safety counts, numbers only', async () => {
+  h = await setup({ OWNER_DAILY_SUMMARY: 'true' });
+  const y = dayBack(1);
+  events(h.env, y, 'distress', 2); events(h.env, y, 'pii_masked', 4); events(h.env, y, 'output_blocked', 1); events(h.env, y, 'refusal', 3);
+  events(h.env, y, 'user_report', 2); events(h.env, y, 'link_removed', 5); events(h.env, dayBack(2), 'distress', 7);
+  assert.deepEqual(await safetyCounts(h.env, y), { distress: 2, pii_masked: 4, output_blocked: 1, refusal: 3, user_report: 2 });
+  await run(h.env, { now: night() });
+  const p = JSON.parse(one(h.env, 'SELECT params FROM notices WHERE kind = ?', `owner:summary:${y}`).params);
+  assert.deepEqual(p.safety, { distress: 2, pii_masked: 4, output_blocked: 1, refusal: 3, user_report: 2 });
+  const mail = h.net.log.email.find((m) => m.subject.startsWith(`[מדרגות] סיכום יומי ${y}`));
+  assert.match(mail.text, /אירועי בטיחות: מצוקה 2 · פרטים אישיים שהוסתרו 4 · תשובות שנעצרו 1 · סירובים 3 · דיווחים על תשובות 2/);
+  // below both rules: no alert
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind LIKE 'owner:safety_spike:%'").length, 0);
+});
+
+test('a spike in blocked or reported answers alerts the owner once, with the counts only, also without the daily summary', async () => {
+  h = await setup();
+  const y = dayBack(1);
+  events(h.env, y, 'output_blocked', 6); events(h.env, y, 'user_report', 3);
+  assert.deepEqual(await safetySpike(h.env, night()), { day: y, alert: false }, '9 is not yet a spike');
+  events(h.env, y, 'user_report', 1);
+  await run(h.env, { now: night() });
+  const n = one(h.env, 'SELECT * FROM notices WHERE kind = ?', `owner:safety_spike:${y}`);
+  assert.ok(n, 'queued');
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind LIKE 'owner:summary:%'").length, 0, 'the summary is off');
+  const mail = h.net.log.email.find((m) => m.subject === '[מדרגות] קפיצה באירועי בטיחות');
+  assert.deepEqual(mail.to, ['owner@example.test']);
+  assert.match(mail.text, new RegExp(`ביום ${y} היו יותר אירועי בטיחות מהרגיל`));
+  assert.match(mail.text, /תשובות שנעצרו 6 · סירובים 0 · דיווחים על תשובות 4/);
+  // once a day, however often the night runs
+  await run(h.env, { now: night() });
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind LIKE 'owner:safety_spike:%'").length, 1);
+});
+
+test('distress alerts at max(3, 3 × its 14-day average): one event on a quiet day never does', async () => {
+  h = await setup();
+  const y = dayBack(1);
+  events(h.env, y, 'distress', 2);
+  assert.equal((await safetySpike(h.env, night())).alert, false, 'the floor of 3 when the average is 0');
+  events(h.env, y, 'distress', 1);
+  assert.equal((await safetySpike(h.env, night())).alert, true, '3 on a quiet fortnight');
+  h.done();
+  // a busier fortnight raises the bar: 28 in 14 days is 2 a day, so 6 is needed
+  h = await setup();
+  for (let k = 2; k <= 15; k++) events(h.env, dayBack(k), 'distress', 2);
+  events(h.env, dayBack(16), 'distress', 50); // older than the 14 days: not counted
+  events(h.env, y, 'distress', 5);
+  assert.equal((await safetySpike(h.env, night())).alert, false, '5 is under 3 × 2');
+  events(h.env, y, 'distress', 1);
+  assert.equal((await safetySpike(h.env, night())).alert, true, '6 is 3 × 2');
+  const p = JSON.parse(one(h.env, 'SELECT params FROM notices WHERE kind = ?', `owner:safety_spike:${y}`).params);
+  assert.deepEqual(p, { distress: 6, pii_masked: 0, output_blocked: 0, refusal: 0, user_report: 0, distressAvg: 2, reported: false, distressHigh: true });
 });

@@ -47,3 +47,26 @@ describe('saved data v3: the parent account never lives in the child store', () 
     expect(migrateState(v2(ai), 3, { personal: false }).ai).toEqual(ai);
   });
 });
+
+describe('the introduction to the tutor is remembered without a new store version (trust spec TRUST-4 §4.6)', () => {
+  it('migrateState keeps ai.introSeen from any older save, and a save without it shows the introduction once', async () => {
+    const seen = { mode: 'server', apiUrl: '', key: '', device: 'b'.repeat(32), familyDevice: null, pendingLink: null, lastTier: null, introSeen: true };
+    expect(migrateState(v2(seen), 3, { personal: false }).ai.introSeen).toBe(true);
+    expect(migrateState(v2(seen), 2, { personal: false }).ai.introSeen).toBe(true);
+    expect(migrateState(v2({ mode: 'server', apiUrl: '', key: '', device: '' }), 2, { personal: false }).ai.introSeen).not.toBe(true);
+    const { useApp } = await import('./store.js');
+    const { CURRENT_VERSION } = await import('./durable/migrations.js');
+    expect(useApp.persist.getOptions().version).toBe(CURRENT_VERSION); // the field added no version of its own
+  });
+  it('introSeen() is true only for true: a state saved before the field existed still shows it', async () => {
+    const { useApp } = await import('./store.js');
+    const { introSeen } = await import('./account.js');
+    const { introSeen: _drop, ...old } = useApp.getState().ai; // eslint-disable-line no-unused-vars
+    useApp.setState({ ai: old });
+    expect(introSeen()).toBe(false);
+    useApp.setState({ ai: { ...old, introSeen: 'yes' } });
+    expect(introSeen()).toBe(false);
+    useApp.setState({ ai: { ...old, introSeen: true } });
+    expect(introSeen()).toBe(true);
+  });
+});
