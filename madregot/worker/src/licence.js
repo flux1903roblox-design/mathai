@@ -180,8 +180,9 @@ export async function lockClass(req, env, cors) {
 }
 
 /**
- * POST /api/teacher/students/:id/remove {}: one batch deletes the student's attempts, levels, help requests and exams, the
- * PIN counter and the student; the student's token stops working. The practice saved on the device itself stays there.
+ * POST /api/teacher/students/:id/remove {}: one batch deletes the student's attempts, levels, help requests, exams and
+ * class-goal steps, the PIN counter and the student; the student's token stops working. The practice saved on the
+ * device itself stays there. (A class goal already reached stays reached: reached_at is kept.)
  */
 export async function removeStudent(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
@@ -190,7 +191,7 @@ export async function removeStudent(id, req, env, cors) {
   if (!st) throw new HttpError(404, 'not_found');
   const mine = 'SELECT id FROM students WHERE id = ? AND class_code = ?';
   await env.DB.batch([
-    ...['attempts', 'levels', 'help_requests', 'exams'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE student_id IN (${mine})`).bind(st.id, cls.code)),
+    ...['attempts', 'levels', 'help_requests', 'exams', 'class_steps'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE student_id IN (${mine})`).bind(st.id, cls.code)),
     env.DB.prepare('DELETE FROM ai_usage WHERE who = ?').bind(`pin:${st.id}`),
     env.DB.prepare('DELETE FROM students WHERE id = ? AND class_code = ?').bind(st.id, cls.code),
     audit(env, cls.code, 'student.remove', `student:${st.id}`),

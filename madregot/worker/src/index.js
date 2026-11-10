@@ -19,6 +19,7 @@ import { currentProvider } from './providers/index.js';
 import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily } from './family.js';
 import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked } from './licence.js';
 import { run as runCron } from './cron.js';
+import { stepStatements, classGoal, setClassGoal, teacherGoal } from './goal.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -279,9 +280,13 @@ async function saveProgress(req, env, cors) {
       'INSERT INTO levels (student_id, topic, level, max_level, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (student_id, topic) DO UPDATE SET level = excluded.level, max_level = MAX(levels.max_level, excluded.max_level), updated_at = excluded.updated_at',
     ).bind(s.id, String(topic).slice(0, 20), Number(v.level) || 1, Number(v.max) || 1, nowIso()));
   }
+  // the class goal's steps (goal.js): idempotent by sid, capped per student and day
+  const steps = stepStatements(env, s, b.steps, now);
+  stmts.push(...steps);
   stmts.push(env.DB.prepare('UPDATE students SET last_seen = ? WHERE id = ?').bind(nowIso(), s.id));
-  await env.DB.batch(stmts);
-  return json({ saved: events.length }, 200, cors);
+  const res = await env.DB.batch(stmts);
+  const counted = res.slice(stmts.length - 1 - steps.length, stmts.length - 1).reduce((n, r) => n + Number(r?.meta?.changes || 0), 0);
+  return json({ saved: events.length, steps: counted }, 200, cors);
 }
 
 async function saveExam(req, env, cors) {
@@ -324,7 +329,7 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, goal] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
@@ -342,6 +347,7 @@ async function dashboard(req, env, cors) {
     q('SELECT a.student_id, MAX(a.at) AS last FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? GROUP BY a.student_id', cls.code),
     q('SELECT e.id, e.student_id, e.title, e.correct, e.total, e.questions, e.weak, e.created_at, s.name FROM exams e JOIN students s ON s.id = e.student_id WHERE s.class_code = ? ORDER BY e.created_at DESC LIMIT 200', cls.code),
     joinLocked(env, cls.code),
+    teacherGoal(env, cls.code),
   ]);
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
   const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows);
@@ -351,6 +357,8 @@ async function dashboard(req, env, cors) {
     class: { code: cls.code, name: cls.name, grade: cls.grade, teacherName: cls.teacher_name },
     today,
     joinLocked: locked,
+    // the class goal of the week: the class total only (goal.js)
+    goal,
     students: students.map((s) => ({
       id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset,
       today: t[s.id] ? { n: t[s.id].n, ok: t[s.id].ok, first: t[s.id].first, minutes: Math.round((t[s.id].secs || 0) / 60) } : { n: 0, ok: 0, first: 0, minutes: 0 },
@@ -451,6 +459,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, cors);
   if (M === 'POST' && p === '/api/help') return askHelp(req, env, cors);
   if (M === 'POST' && p === '/api/exams') return saveExam(req, env, cors);
+  if (M === 'GET' && p === '/api/class/goal') return classGoal(req, env, cors);
   // teacher
   if (M === 'GET' && p === '/api/teacher/dashboard') return dashboard(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)$/))) return updateHelp(m[1], req, env, cors);
@@ -458,6 +467,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/remove$/))) return removeStudent(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/goal') return setClassGoal(req, env, cors);
   if (M === 'GET' && p === '/api/teacher/licence') return licenceStatus(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/licence/request') return licenceRequest(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/teacher/licence/claim') return licenceClaim(req, env, cors);

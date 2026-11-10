@@ -9,6 +9,7 @@ const schema = read('../schema.sql');
 const m0 = read('../migrations/0000_base.sql');
 const m1 = read('../migrations/0001_paid_tutor.sql');
 const m2 = read('../migrations/0002_refund_once.sql');
+const m3 = read('../migrations/0003_student.sql');
 const objects = (db) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
   .map((r) => `${r.type}:${r.name}:${String(r.sql).replace(/\s+/g, ' ')}`);
 
@@ -28,9 +29,9 @@ test('schema.sql runs twice without error', () => {
   assert.ok(objects(db).length > 30);
 });
 
-test('migrations 0000 + 0001 + 0002 on an empty database give the same tables and indexes as schema.sql', () => {
+test('migrations 0000 to 0003 on an empty database give the same tables and indexes as schema.sql', () => {
   const a = new DatabaseSync(':memory:'); a.exec(schema);
-  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1); b.exec(m2);
+  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1); b.exec(m2); b.exec(m3);
   assert.deepEqual(objects(b), objects(a));
   assert.equal(m0.trim(), schema.slice(0, m0.length).trim(), '0000_base is the start of schema.sql, word for word');
 });
@@ -71,4 +72,17 @@ test('the live-plan indexes, CHECKs and the billing_events key hold', () => {
   db.exec('PRAGMA foreign_keys = ON');
   db.exec("DELETE FROM accounts WHERE id = 'a1'");
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM account_sessions').get().n, 0, 'sessions go with the account');
+});
+
+test('0003_student: the class goal tables run twice, keep one row per step id and only 1 or 3 points', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(m0); db.exec(m1); db.exec(m2); db.exec(m3); db.exec(m3);
+  const step = (sid, pts) => db.prepare("INSERT INTO class_steps (sid, student_id, class_code, day, pts, at) VALUES (?, 's1', 'ABCDEF', '2026-11-08', ?, 'x')").run(sid, pts);
+  step('11111111-1111-4111-8111-111111111111', 1);
+  assert.throws(() => step('11111111-1111-4111-8111-111111111111', 3), /UNIQUE/, 'one row per step id');
+  assert.throws(() => step('22222222-2222-4222-8222-222222222222', 2), /CHECK/, 'a step is worth 1 or 3');
+  db.exec("INSERT INTO class_goal_weeks (class_code, week, target) VALUES ('ABCDEF', '2026-11-08', 15)");
+  assert.throws(() => db.exec("INSERT INTO class_goal_weeks (class_code, week, target) VALUES ('ABCDEF', '2026-11-08', 20)"), /UNIQUE/, 'one target per class and week');
+  db.exec("INSERT INTO class_goal_settings (class_code, updated_at) VALUES ('ABCDEF', 'x')");
+  assert.equal(db.prepare('SELECT on_flag, target FROM class_goal_settings').get().on_flag, 1, 'on by default, automatic size');
 });

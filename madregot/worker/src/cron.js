@@ -119,7 +119,8 @@ export function purgeCountersSql(env, now = new Date()) {
 }
 
 /** Retention (spec §6.9): notices 90 days after sending, expired orders after 30 days, spend after 400 days, the audit
- *  log after 2 years, provider events after 7 years. Payments are kept. */
+ *  log after 2 years, provider events after 7 years. Payments are kept. The class goal (STUDENT-4): steps after 120
+ *  days, its weeks after 400 days (Jerusalem days). */
 export function purgeRecordsSql(env, now = new Date()) {
   const t = now.getTime();
   const iso = (days) => new Date(t - days * DAY).toISOString();
@@ -131,6 +132,8 @@ export function purgeRecordsSql(env, now = new Date()) {
       .bind(dayOf(new Date(t - 400 * DAY)), monthOf(new Date(t - 400 * DAY))),
     env.DB.prepare('DELETE FROM audit_log WHERE at < ?').bind(iso(730)),
     env.DB.prepare('DELETE FROM billing_events WHERE received_at < ?').bind(iso(7 * 365 + 2)),
+    env.DB.prepare('DELETE FROM class_steps WHERE day < ?').bind(dayOf(new Date(t - 120 * DAY))),
+    env.DB.prepare('DELETE FROM class_goal_weeks WHERE week < ?').bind(dayOf(new Date(t - 400 * DAY))),
   ];
 }
 
