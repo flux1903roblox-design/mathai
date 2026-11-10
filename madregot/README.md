@@ -54,6 +54,14 @@ madregot/
 
 הסקריפט בונה את האפליקציה ומחליף רק את התיקייה madregot בענף gh-pages. האתר MathAI שבשורש הענף לא משתנה.
 
+מורה שלוחץ "אני מורה" באתר הזה מקבל קישור ללוח המורה באתר המלא. לפני הפרסום מגדירים פעם אחת בטרמינל את הכתובת ואת מייל התמיכה:
+
+```sh
+export TEACHER_URL=https://<הכתובת של האפליקציה עם השרת>/ CONTACT_EMAIL=<מייל התמיכה>
+```
+
+בלי `TEACHER_URL` הדף אומר שלוח המורה עוד לא פתוח לכולם, ומציג את `CONTACT_EMAIL` אם הוגדר. `publish-staging.sh` קורא את אותם משתנים.
+
 ## עותק בדיקה (staging)
 
 `./madregot/publish-staging.sh` מעלה עותק בדיקה זמני לכתובת נפרדת: <https://flux1903roblox-design.github.io/mathai/madregot-staging/>.

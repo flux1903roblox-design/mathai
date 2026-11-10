@@ -155,3 +155,28 @@ describe('the account\'s classes', () => {
     expect(useApp.getState().profile).toMatchObject({ active: 'AAA222', grade: '8' });
   });
 });
+
+describe('the bind card and the public site\'s link', () => {
+  it('the card is offered for a class that only its key opens here, and "לא עכשיו" hides it for a week', async () => {
+    const { teacher, useApp } = await load({ classes: [keyOnly] });
+    expect(teacher.offerBind(keyOnly, '2026-11-10')).toBe(true);
+    expect(teacher.offerBind(owned, '2026-11-10')).toBe(false); // bound already
+    expect(teacher.offerBind({ ...keyOnly, key: null }, '2026-11-10')).toBe(false); // nothing to bind with
+    teacher.remindBindLater(keyOnly, '2026-11-10');
+    const later = classOf(useApp);
+    expect(later.bindLater).toBe('2026-11-17');
+    expect(teacher.offerBind(later, '2026-11-16')).toBe(false);
+    expect(teacher.offerBind(later, '2026-11-17')).toBe(true);
+    // a week across a month end
+    expect(teacher.dayPlus('2026-11-28', 7)).toBe('2026-12-05');
+  });
+
+  it('teacherSiteLink opens the hosted app on the teacher\'s way in, and refuses anything but an http(s) address', async () => {
+    const { teacher } = await load();
+    expect(teacher.teacherSiteLink('https://example.test/')).toBe('https://example.test/#/?start=teacher');
+    expect(teacher.teacherSiteLink(' https://madregot.example.test/#/old ')).toBe('https://madregot.example.test/#/?start=teacher');
+    expect(teacher.teacherSiteLink('')).toBe('');
+    expect(teacher.teacherSiteLink(undefined)).toBe('');
+    expect(teacher.teacherSiteLink('javascript:alert(1)')).toBe('');
+  });
+});

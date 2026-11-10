@@ -3,6 +3,10 @@
 # https://flux1903roblox-design.github.io/mathai/madregot/
 # It builds the app and replaces only the madregot/ folder of the gh-pages branch;
 # the MathAI site at the root of that branch is left as it is.
+#
+# The teacher page of this no-server site points teachers to the full app. Set once in the shell before publishing:
+#   export TEACHER_URL=https://<the hosted app's address>/ CONTACT_EMAIL=<the support address>
+# Without TEACHER_URL the page says the teacher board is not open to everyone yet (and gives CONTACT_EMAIL if set).
 set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(mktemp -d)
@@ -10,7 +14,7 @@ trap 'git -C "$ROOT" worktree remove --force "$WORK/pages" >/dev/null 2>&1 || tr
 
 cd "$ROOT/madregot/web"
 # VITE_ALLOW_PERSONAL_KEY=1: a copy without a server keeps the personal-key mode (the tutor with a key of your own)
-VITE_API_URL=none VITE_ALLOW_PERSONAL_KEY=1 npx vite build --base ./ --outDir "$WORK/site" --emptyOutDir
+VITE_API_URL=none VITE_ALLOW_PERSONAL_KEY=1 VITE_TEACHER_URL="${TEACHER_URL:-}" VITE_CONTACT_EMAIL="${CONTACT_EMAIL:-}" npx vite build --base ./ --outDir "$WORK/site" --emptyOutDir
 VITE_ALLOW_PERSONAL_KEY=1 node scripts/check-dist.mjs "$WORK/site"
 
 git -C "$ROOT" fetch origin gh-pages

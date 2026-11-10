@@ -6,6 +6,8 @@
 //   teacher  a teacher's trial or quote request (replies and the quote; Resend only)
 //   buy      a teacher buying a class licence by card (receipts; Resend and the payment company)
 //   stepup   a fresh code before deleting the account: no notice, and the button says what it does
+//   teacherAccount  a teacher signing in to the board (the classes follow the email; never shown to students)
+//   rekey    a fresh code before replacing a class's teacher key: no notice, and the button says what it does
 // `askShared` (a teacher's sign-in) offers "shared computer": the session is then kept for this tab only (lib/parent.js).
 import { useEffect, useRef, useState } from 'react';
 import { requestCode, verifyCode } from '@/lib/parent.js';
@@ -17,11 +19,15 @@ const NOTES = {
   teacher: 'המייל משמש לכניסה, לתשובה על הבקשה ולהצעת המחיר. הוא עובר לשירות שליחת המיילים (Resend).',
   buy: 'המייל משמש לכניסה, לקבלות ולהודעות על הרישיון. הוא עובר לשירות שליחת המיילים (Resend) ולחברת הסליקה.',
   stepup: null,
+  teacherAccount: 'המייל משמש רק לכניסה ללוח המורה ולהודעות על הכיתות שלכם. הוא עובר לשירות שליחת המיילים (Resend). התלמידים לא רואים אותו.',
+  rekey: null,
 };
+/** The code step's button: what a step-up does, or plain sign-in. */
+const SUBMIT = { stepup: 'אישור ומחיקה', rekey: 'אישור והחלפת המפתח' };
 
 export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend = false, idPrefix = 'ec', purpose = 'join', startStep = 'email', presetEmail = '', askShared = false }) {
   const note = NOTES[purpose] ?? null;
-  const submitLabel = purpose === 'stepup' ? 'אישור ומחיקה' : 'כניסה';
+  const submitLabel = SUBMIT[purpose] || 'כניסה';
   const [step, setStep] = useState(lockedEmail ? 'sending' : startStep);
   const [email, setEmail] = useState(lockedEmail || presetEmail);
   const [code, setCode] = useState('');

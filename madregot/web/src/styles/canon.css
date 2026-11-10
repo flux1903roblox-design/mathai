@@ -548,3 +548,21 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .fg-move { stroke: var(--brand); stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
 .fg-move-head { fill: var(--brand); }
 @media (max-height: 700px) { .lm-fig .figure.geo { max-height: 34dvh; } }
+
+/* the teacher's way in and the class on the email (TEACHER-1): a quiet link under the ways in, the email's classes as
+   a ticked list, the bind card at the top of "מחר", signing in again, and more classes from the email */
+.ob-links { margin: 0; display: flex; justify-content: center; }
+.t-pick { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.t-pick-row { gap: var(--s3); min-height: 56px; padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: #fff; font-size: var(--t-base); line-height: var(--lh-base); }
+.t-pick-row:has(input:checked) { border-color: var(--brand); background: var(--brand-tint); }
+.t-pick-row b { font-weight: 800; }
+.t-bind, .t-signin { gap: var(--s3); }
+.t-bind { border-color: var(--brand-line); }
+.t-bind p, .t-signin p { margin: 0; }
+.t-bind-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.t-bind-actions .btn { flex: 1 1 auto; }
+.t-signin-title { margin: 0; font-size: 20px; line-height: 28px; font-weight: 700; color: var(--ink); }
+.t-head .t-more { align-self: flex-start; min-height: 44px; padding: 0; font-size: var(--t-sm); }
+.t-more-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.t-more-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 56px; padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
+a.btn { text-decoration: none; }

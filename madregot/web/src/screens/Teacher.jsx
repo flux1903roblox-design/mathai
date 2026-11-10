@@ -7,34 +7,18 @@ import { toast } from 'sonner';
 import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api } from '@/lib/api.js';
-import { teacherApi } from '@/lib/teacher.js';
-import { signOut as endSession } from '@/lib/parent.js';
+import { teacherApi, useEmailSignIn, offerBind } from '@/lib/teacher.js';
+import { useParent, accountCall, signOut as endSession } from '@/lib/parent.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { Stat } from '@/components/ds.jsx';
-import Mascot from '@/components/Mascot.jsx';
 import { EmptyState, ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
-import { GradeSwitch } from './Welcome.jsx';
+import { GradeSwitch } from '@/components/GradeSwitch.jsx';
 import { copy, pct } from './teacher/common.jsx';
+import { FreshClass, BindCard, SignInAgain, MoreClasses } from './teacher/ClassAccount.jsx';
 import TomorrowTab from './teacher/TomorrowTab.jsx';
 import StudentsTab from './teacher/StudentsTab.jsx';
 import ExamsTab from './teacher/ExamsTab.jsx';
 import HelpTab from './teacher/HelpTab.jsx';
-
-function FreshClass({ cls, onDone }) {
-  return (
-    <section className="card t-fresh" aria-labelledby="fresh-title" data-region="card">
-      <Mascot mood="achievement" size={96} />
-      <h2 id="fresh-title" className="t-fresh-title">הכיתה מוכנה!</h2>
-      <p>תנו לתלמידים את <b>קוד הכיתה</b>. הם בוחרים "אני תלמיד או תלמידה", כותבים שם, מקלידים את הקוד ובוחרים קוד אישי של 4 ספרות.</p>
-      <div className="code-pair">
-        <div><span className="field-label">קוד כיתה</span><button type="button" className="code-chip" onClick={() => copy(cls.code, 'קוד הכיתה')}><span dir="ltr">{cls.code}</span><Copy size={16} aria-hidden="true" /></button></div>
-        <div><span className="field-label">מפתח מורה (רק לכם)</span><button type="button" className="code-chip" onClick={() => copy(cls.key, 'מפתח המורה')}><span dir="ltr">{cls.key}</span><Copy size={16} aria-hidden="true" /></button></div>
-      </div>
-      <p className="muted">שמרו את מפתח המורה במקום בטוח. בעזרתו פותחים את הלוח ממחשב אחר.</p>
-      <Button className="btn-block btn-lg" onClick={onDone}>שמרתי, אפשר להמשיך</Button>
-    </section>
-  );
-}
 
 function AddClass({ open, onClose }) {
   const { profile, setProfile } = useApp();
@@ -42,9 +26,12 @@ function AddClass({ open, onClose }) {
   const submit = async () => {
     if (!f.className.trim()) return; setBusy(true);
     try {
-      const r = await api('/api/classes', { method: 'POST', body: { teacherName: profile.name, className: f.className, grade: f.grade } });
-      const cls = { code: r.code, key: r.teacherKey, className: r.className, grade: r.grade, fresh: true };
-      setProfile({ ...profile, classes: [...profile.classes, cls], active: cls.code }); setF({ className: '', grade: '7' }); onClose();
+      const body = { teacherName: profile.name, className: f.className, grade: f.grade };
+      // signed in: the new class is bound to the email at once (owned), like the first one
+      const session = useParent.getState().session;
+      const r = session ? await accountCall('/api/classes', { method: 'POST', body }) : await api('/api/classes', { method: 'POST', body });
+      const cls = { code: r.code, key: r.owned && session?.shared ? null : r.teacherKey, className: r.className, grade: r.grade, fresh: true, ...(r.owned ? { owned: true } : {}) };
+      setProfile({ ...profile, classes: [...profile.classes, cls], active: cls.code, grade: cls.grade }); setF({ className: '', grade: '7' }); onClose();
     } catch (err) { toast.error(err.message); } finally { setBusy(false); }
   };
   // a sheet like every other one: the title and the way out, the fields, its one action pinned at the bottom
@@ -64,6 +51,10 @@ export default function Teacher() {
   const cls = profile.classes.find((c) => c.code === profile.active) || profile.classes[0];
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState('');
+  const session = useParent((s) => s.session);
+  const emailOn = useEmailSignIn();
+  const [moreOpen, setMoreOpen] = useState(false);
   const [params, setParams] = useSearchParams();
   const tab = ['tomorrow', 'students', 'exams', 'help'].includes(params.get('tab')) ? params.get('tab') : 'tomorrow';
   const setTab = (t) => setParams(t === 'tomorrow' ? {} : { tab: t }, { replace: true });
@@ -79,7 +70,7 @@ export default function Teacher() {
   }, [nav]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
-    try { setData(await teacherApi('/api/teacher/dashboard', {}, cls)); setError(''); } catch (e) { setError(e.message); }
+    try { setData(await teacherApi('/api/teacher/dashboard', {}, cls)); setError(''); setErrorCode(''); } catch (e) { setError(e.message); setErrorCode(e.code || ''); }
   }, [cls]);
   useEffect(() => { setData(null); load(); const t = setInterval(load, 120_000); return () => clearInterval(t); }, [load]);
 
@@ -114,12 +105,16 @@ export default function Teacher() {
           ) : <h1 className="t-class-name">{cls.className}</h1>}
           <button type="button" className="code-chip t-code" onClick={() => copy(cls.code, 'קוד הכיתה')} aria-label={`העתקת קוד הכיתה ${cls.code}`}><span>קוד</span><span dir="ltr">{cls.code}</span><Copy size={16} aria-hidden="true" /></button>
         </div>
+        {/* signed in: the email's other classes can be added to this device */}
+        {session && <button type="button" className="link-btn t-more" onClick={() => setMoreOpen(true)}>עוד כיתות מהחשבון שלי…</button>}
       </header>
       <AddClass open={adding} onClose={() => setAdding(false)} />
+      {session && <MoreClasses open={moreOpen} onOpenChange={setMoreOpen} />}
 
       <main className="t-main">
         {cls.fresh && <FreshClass cls={cls} onDone={dismissFresh} />}
-        {error && !data && (
+        {error && !data && errorCode === 'not_account' && <SignInAgain cls={cls} onSignedIn={load} />}
+        {error && !data && errorCode !== 'not_account' && (
           <EmptyState mood="oops" title="לא הצלחנו לטעון את הכיתה">
             <p role="alert">{error}</p>
             <p>הנתונים של הכיתה שמורים בשרת. בדקו את החיבור לאינטרנט ונסו שוב.</p>
@@ -144,6 +139,8 @@ export default function Teacher() {
               ))}
             </div>
 
+            {tab === 'tomorrow' && emailOn && !cls.fresh && offerBind(cls) && <BindCard cls={cls} />}
+
             {students.length === 0 && (
               <EmptyState mood="idle" title="עוד אין תלמידים בכיתה">
                 <p>כשתלמידים יצטרפו עם הקוד <b dir="ltr">{cls.code}</b>, הם יופיעו כאן עם ההתקדמות שלהם.</p>
@@ -161,7 +158,9 @@ export default function Teacher() {
         <section className="section set-group t-out">
           <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmOut(true)}><LogOut size={18} aria-hidden="true" />יציאה מהלוח</button></div></div>
           <ConfirmSheet open={confirmOut} onOpenChange={setConfirmOut} title="לצאת מהלוח?" keep="להישאר בלוח" confirm="כן, לצאת" onConfirm={leave}>
-            <p>הלוח ייסגר במכשיר הזה. כדי לחזור צריך את קוד הכיתה ואת מפתח המורה.</p>
+            {profile.classes.every((c) => c.owned)
+              ? <p>הלוח ייסגר במכשיר הזה. כדי לחזור, נכנסים עם המייל {session?.email ? <bdi dir="ltr">{session.email}</bdi> : 'שלכם'}.</p>
+              : <p>הלוח ייסגר במכשיר הזה. כדי לחזור צריך את קוד הכיתה ואת מפתח המורה.</p>}
           </ConfirmSheet>
         </section>
       </main>

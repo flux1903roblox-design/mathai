@@ -2,8 +2,9 @@
 // with the signed-in session (X-Account-Token, lib/parent.js) on any device; otherwise with the class's teacher key.
 // The server checks either (requireTeacher). Every teacher call goes through teacherHeaders() or teacherApi().
 // The email is never copied into the saved profile: it is read from the session.
-import { useApp } from './store.js';
-import { api, ApiError } from './api.js';
+import { useEffect, useState } from 'react';
+import { useApp, today } from './store.js';
+import { api, ApiError, serverHealth } from './api.js';
 import { useParent, accountCall, clearSession } from './parent.js';
 
 const token = () => useParent.getState().session?.token || null;
@@ -22,7 +23,7 @@ export function teacherHeaders(cls) {
 }
 
 /** Change one class of the teacher's profile on this device. */
-function patchClass(code, patch) {
+export function patchClass(code, patch) {
   const p = useApp.getState().profile;
   if (p?.role !== 'teacher') return;
   useApp.getState().patchProfile({ classes: p.classes.map((c) => (c.code === code ? { ...c, ...patch } : c)) });
@@ -104,4 +105,37 @@ export function restore(list) {
   const profile = { role: 'teacher', name: prev?.name || list[0]?.teacherName || '', classes, active: open.code, grade: open.grade };
   st.setProfile(profile);
   return profile;
+}
+
+// ---------------------------------------------------------------- the board's questions
+/** Whether this server can send sign-in codes: true or false, or null while it is asked (or does not answer). */
+export function useEmailSignIn() {
+  const [email, setEmail] = useState(null);
+  useEffect(() => {
+    let on = true;
+    serverHealth().then((h) => { if (on) setEmail(h ? h.email !== false : null); });
+    return () => { on = false; };
+  }, []);
+  return email;
+}
+
+/** The day `days` after `day` ('YYYY-MM-DD'). */
+export function dayPlus(day, days) {
+  const d = new Date(`${day}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return today(d);
+}
+/** "לא עכשיו" on the bind card: ask again in a week. */
+export const BIND_LATER_DAYS = 7;
+export const remindBindLater = (cls, day = today()) => patchClass(cls.code, { bindLater: dayPlus(day, BIND_LATER_DAYS) });
+/** Offer to bind this class to the email: it opens only with its key here, and "לא עכשיו" was not pressed this week. */
+export const offerBind = (cls, day = today()) => !!cls && !cls.owned && !!cls.key && !(cls.bindLater && cls.bindLater > day);
+
+/**
+ * The public site's "ללוח המורה": the hosted app (VITE_TEACHER_URL) opened on the teacher's way in. '' for anything
+ * but an http(s) address.
+ */
+export function teacherSiteLink(url) {
+  const u = String(url || '').trim().replace(/#.*$/, '');
+  return /^https?:\/\/[^\s/]+/i.test(u) ? `${u}#/?start=teacher` : '';
 }

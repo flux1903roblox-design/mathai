@@ -47,9 +47,12 @@ export function EmptyState({ mood = 'idle', title, children, className }) {
  * then the button at the bottom. step / steps: where in the flow; onBack(): the back arrow (the previous question,
  * or leaving); ask: מדי's question; foot: the bottom button(s); onSubmit: the form's submit (the bottom button).
  */
-export function Flow({ label, step, steps, onBack, ask, mood = 'idle', children, foot, onSubmit, className, askId = 'flow-q' }) {
+export function Flow({ label, step, steps, onBack, ask, mood = 'idle', children, foot, onSubmit, className, askId = 'flow-q', form = true }) {
+  // form={false}: a step that holds its own form (an email sign-in), since forms cannot nest
+  const Tag = form ? 'form' : 'div';
+  const formProps = form ? { onSubmit: (e) => { e.preventDefault(); onSubmit?.(); }, noValidate: true } : {};
   return (
-    <form className={clsx('ob', 'ob-flow', className)} onSubmit={(e) => { e.preventDefault(); onSubmit?.(); }} noValidate>
+    <Tag className={clsx('ob', 'ob-flow', className)} {...formProps}>
       <header className="ob-top" data-region="header">
         <button type="button" className="icon-btn" onClick={onBack} aria-label="חזרה"><ArrowRight size={26} aria-hidden="true" /></button>
         <div className="ob-bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={steps} aria-valuenow={step + 1}><i style={{ width: `${((step + 1) / steps) * 100}%` }} /></div>
@@ -60,8 +63,8 @@ export function Flow({ label, step, steps, onBack, ask, mood = 'idle', children,
         </div>
         {children}
       </main>
-      <footer className="ob-foot" data-region="footer">{foot}</footer>
-    </form>
+      {foot && <footer className="ob-foot" data-region="footer">{foot}</footer>}
+    </Tag>
   );
 }
 

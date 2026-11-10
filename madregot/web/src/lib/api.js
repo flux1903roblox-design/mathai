@@ -133,6 +133,17 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
   return data;
 }
 
+/**
+ * The server's GET /api/health, asked once per visit: what it is set up for (email codes, the tutor, checkout). null
+ * with no server, or when it does not answer (asked again next time).
+ */
+let health = null;
+export function serverHealth() {
+  if (!hasServer()) return Promise.resolve(null);
+  health ||= api('/api/health', { auth: false }).catch(() => { health = null; return null; });
+  return health;
+}
+
 /** Send queued answers and current levels to the class server. */
 let syncing = false;
 export async function syncNow() {

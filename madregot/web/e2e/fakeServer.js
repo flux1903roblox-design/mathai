@@ -1,6 +1,8 @@
 // A fake Madregot Worker for end-to-end tests (page.route: no Worker, no Claude, no email, no payment company).
 // It answers the paid tutor's endpoints, the parents' sign-in, billing and device links, and the teacher's dashboard,
-// licence, join lock and student removal. Moved here unchanged from subscription.spec.js so every spec can share it.
+// licence, join lock and student removal (moved here from subscription.spec.js so every spec can share it), plus the
+// teacher's account (TEACHER-1): GET /api/health, a new class bound to the email, the email's class list, binding a
+// class and a new teacher key. The class K7Q2MD opens with its key, or with the session of the email it is bound to.
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
 const CORS = {
@@ -43,8 +45,14 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     classes: [], classPayments: [], failPayment: false,
     joinLocked: false, students: [{ id: 'a1', name: 'דנה' }, { id: 'b2', name: 'יואב' }],
     owned: false, // the class K7Q2MD is bound to the signed-in account: its session opens it like the key (TEACHER-1)
+    ownerEmail: null, // the email it is bound to (null: any signed-in session, as tests that seed a session expect)
+    key: 'tkey-123', // K7Q2MD's teacher key (a new key replaces it)
+    className: 'ז׳3', classGrade: '7',
+    accountClasses: [], // more classes bound to the same email: [{ code, name, grade, teacherName, students }]
+    email: true, // GET /api/health: the server can send sign-in codes
     ...over,
   };
+  const emails = new Map(); // session token → the email it signed in with
   const log = [];
   const reply = (route, code, data, headers = {}) => route.fulfill({ status: code, contentType: 'application/json', headers: { ...CORS, ...headers }, body: JSON.stringify(data) });
   const famOf = (h) => st.devices.find((d) => d.token && d.token === h['x-family-device']) || null;
@@ -84,8 +92,9 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     payments: [...(live() ? [{ id: 'p000000000000001', subscriptionId: st.plan.id, planKind: 'family', at: '2026-11-05T09:00:00Z', amountAgorot: 2990, kind: 'charge', hasInvoice: true }] : []), ...st.classPayments],
     classes: st.classes, ownedClasses: st.owned ? 1 : 0,
   });
-  const dashboard = () => ({
-    class: { name: 'ז׳3', grade: '7', teacherName: 'רונית' }, joinLocked: st.joinLocked, help: [], mistakes: [], exams: [],
+  const dashboard = (code = 'K7Q2MD') => ({
+    class: code === 'K7Q2MD' ? { name: st.className, grade: st.classGrade, teacherName: 'רונית' }
+      : (({ name, grade }) => ({ name, grade, teacherName: 'רונית' }))(st.accountClasses.find((c) => c.code === code)), joinLocked: st.joinLocked, help: [], mistakes: [], exams: [],
     students: st.students.map((s) => ({ ...s, lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false })),
   });
 
@@ -143,7 +152,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     if (path === '/api/account/verify') {
       if (body.code !== '123456') return reply(route, 403, { error: 'wrong_code', left: 4 });
       if (token) st.sessions.delete(token);
-      st.n += 1; const t = TOKEN(st.n); st.sessions.add(t); st.recent.add(t);
+      st.n += 1; const t = TOKEN(st.n); st.sessions.add(t); st.recent.add(t); emails.set(t, body.email);
       return reply(route, 200, { token: t, email: body.email });
     }
     if (path === '/api/billing/plans') return reply(route, 200, { ...PLANS, paywall: st.paywall, online: st.online });
@@ -202,12 +211,42 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     }
     if (/^\/api\/family\/devices\/[a-z0-9]+\/unlink$/.test(path)) { st.devices = st.devices.filter((d) => d.id !== path.split('/')[4]); return reply(route, 200, { ok: true }); }
     // ---- the teacher
+    if (path === '/api/health') return reply(route, 200, { ok: true, ai: true, email: st.email !== false, paywall: st.paywall, checkout: st.online });
+    // the session's email is the one the class is bound to (or any session, when the test did not say which)
+    const mine = () => signed && (!st.ownerEmail || emails.get(token) === st.ownerEmail);
+    if (path === '/api/classes' && req.method() === 'POST') {
+      // with a session the class is bound to its email at once; a session that has ended makes no class
+      if (token && !signed) return reply(route, 401, { error: 'not_account' });
+      st.className = body.className; st.classGrade = body.grade === '8' ? '8' : '7';
+      if (signed) { st.owned = true; st.ownerEmail = emails.get(token) || null; }
+      return reply(route, 200, { code: 'K7Q2MD', teacherKey: st.key, className: st.className, grade: st.classGrade, teacherName: body.teacherName, ...(signed ? { owned: true } : {}) });
+    }
+    if (path === '/api/teacher/classes') {
+      if (!signed) return reply(route, 401, { error: 'not_account' });
+      const own = st.owned && mine() ? [{ code: 'K7Q2MD', name: st.className, grade: st.classGrade, teacherName: 'רונית', students: st.students.length, createdAt: '2026-11-01T08:00:00.000Z', boundAt: '2026-11-01T08:00:00.000Z' }] : [];
+      return reply(route, 200, { classes: [...st.accountClasses, ...own] });
+    }
     if (path.startsWith('/api/teacher/')) {
       // the key is checked first; else the session of the account the class is bound to; an ended session alone is not_account
-      const byKey = h['x-class-code'] === 'K7Q2MD' && h['x-teacher-key'] === 'tkey-123';
-      const byAccount = h['x-class-code'] === 'K7Q2MD' && st.owned && signed;
+      const code = h['x-class-code'];
+      const byKey = code === 'K7Q2MD' && h['x-teacher-key'] === st.key;
+      const byAccount = [...(st.owned ? ['K7Q2MD'] : []), ...st.accountClasses.map((c) => c.code)].includes(code) && mine();
+      if (path === '/api/teacher/class/owner') {
+        if (!signed) return reply(route, 401, { error: 'not_account' });
+        if (!byKey) return reply(route, 401, { error: 'not_teacher' });
+        if (st.owned && !mine()) return reply(route, 409, { error: 'owned_by_other' });
+        st.owned = true; st.ownerEmail = emails.get(token) || null;
+        return reply(route, 200, { owner: 'you', email: emails.get(token) || 'teacher@example.test' });
+      }
+      if (path === '/api/teacher/class/rekey') {
+        if (!signed) return reply(route, 401, { error: 'not_account' });
+        if (!byAccount) return reply(route, 403, { error: 'not_owner' });
+        if (!st.recent.has(token)) return reply(route, 401, { error: 'reauth_needed' });
+        st.key = 'tkey-456';
+        return reply(route, 200, { teacherKey: st.key });
+      }
       if (!byKey && !byAccount) return reply(route, 401, { error: token && !signed && !h['x-teacher-key'] ? 'not_account' : 'not_teacher' });
-      if (path === '/api/teacher/dashboard') return reply(route, 200, dashboard());
+      if (path === '/api/teacher/dashboard') return reply(route, 200, dashboard(code));
       if (path === '/api/teacher/licence') return reply(route, 200, { ...st.licence, students: st.students.length, joinLocked: st.joinLocked });
       if (path === '/api/teacher/licence/request') {
         if (!signed) return reply(route, 401, { error: 'not_account' });

@@ -8,6 +8,7 @@
 # - QA hooks on (VITE_QA_HOOKS=1): the current exercise is in window.__madregotItem and <html data-qa-item>.
 # - Only the madregot-staging/ folder of gh-pages changes; the public Madregot (madregot/) and the
 #   MathAI site at the root are never touched. Remove it later with: ./publish-staging.sh --remove
+# - TEACHER_URL and CONTACT_EMAIL (shell variables, as for publish-pages.sh) set where its teacher page points.
 set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DIR=madregot-staging
@@ -23,7 +24,7 @@ if [ "$1" != "--remove" ]; then
 
   cd "$ROOT/madregot/web"
   # VITE_ALLOW_PERSONAL_KEY=1: a copy without a server keeps the personal-key mode (the tutor with a key of your own)
-  VITE_API_URL=none VITE_ALLOW_PERSONAL_KEY=1 VITE_STORE_KEY=madregot-staging VITE_QA_HOOKS=1 npx vite build --base ./ --outDir "$WORK/site" --emptyOutDir
+  VITE_API_URL=none VITE_ALLOW_PERSONAL_KEY=1 VITE_STORE_KEY=madregot-staging VITE_QA_HOOKS=1 VITE_TEACHER_URL="${TEACHER_URL:-}" VITE_CONTACT_EMAIL="${CONTACT_EMAIL:-}" npx vite build --base ./ --outDir "$WORK/site" --emptyOutDir
   VITE_ALLOW_PERSONAL_KEY=1 node scripts/check-dist.mjs "$WORK/site"
   node -e "const f=process.argv[1],fs=require('fs');fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace('<head>','<head>\n    <meta name=\"robots\" content=\"noindex, nofollow\">'))" "$WORK/site/index.html"
   cp "$ROOT/madregot/staging/qa.html" "$WORK/site/qa.html"
