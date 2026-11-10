@@ -11,6 +11,9 @@ import Mascot from '@/components/Mascot.jsx';
 import { Flow } from '@/components/Screen.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { topicsFor } from '@/content/index.js';
+
+/** The grade's topics in one short line: up to three names, then how many more (it stays on two lines at 320px). */
+const topicLine = (g) => { const ts = topicsFor(g).map((t) => t.title); return ts.length <= 3 ? ts.join(', ') : `${ts.slice(0, 3).join(', ')} ועוד ${ts.length - 3}`; };
 import { KNOW } from '@/lib/placement.js';
 import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
@@ -151,7 +154,7 @@ function Onboarding({ onTeacher }) {
         {step === 'grade' && (
           <div className="ob-opts" role="radiogroup" aria-labelledby="ob-q">
             {['7', '8'].map((g) => (
-              <Option key={g} on={f.grade === g} onPick={() => set({ grade: g, start: null })} title={GRADE_NAME[g]} sub={topicsFor(g).map((t) => t.title).join(', ')}
+              <Option key={g} on={f.grade === g} onPick={() => set({ grade: g, start: null })} title={GRADE_NAME[g]} sub={topicLine(g)}
                 glyph={<span className="ob-grade">{g === '7' ? 'ז׳' : 'ח׳'}</span>} />
             ))}
           </div>

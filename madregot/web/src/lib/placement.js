@@ -2,7 +2,7 @@
 // Per topic it searches the levels like a binary search: a right answer raises the
 // floor, a wrong one lowers the ceiling, and three questions settle it at most.
 // The result is the number of stairs already climbed in each topic.
-import { TOPIC, topicsFor, makeItem, isCorrect } from '@/content/index.js';
+import { TOPIC, placementTopicsFor, makeItem, isCorrect } from '@/content/index.js';
 
 export const PER_TOPIC = 3;
 export const PLACEMENT_XP = 10;
@@ -29,7 +29,8 @@ const probeFor = (topic, know) => {
 };
 
 export function startPlacement({ grade = '7', know = 1 } = {}) {
-  const topics = topicsFor(grade).map((t) => t.id);
+  // topics taught later in the year are not tested on the first day (topic flag placement: false)
+  const topics = placementTopicsFor(grade).map((t) => t.id);
   const probe = probeFor(topics[0], know);
   return {
     kind: 'placement', grade: String(grade), know, topics, ti: 0, probe, results: {},

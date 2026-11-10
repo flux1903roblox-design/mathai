@@ -14,8 +14,13 @@ export type Rng = () => number;
 
 // ------------------------------------------------------------------ interactive objects
 
-/** The kinds of components/manip. The fields of each kind are those its generators use (see content/manip.js). */
-export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle';
+/**
+ * The kinds of components/manip. The fields of each kind are those its generators use (see content/manip.js).
+ * Algebra: 'balance' (a scale of boxes x and unit weights; the answer is the value of x), 'tiles' (algebra tiles,
+ * zero pairs removed; the answer is { k, c } for kx + c), 'area' (a rectangle a by x + b; the answer is { a, b }),
+ * 'ray' (an inequality on the number line; the answer is { at, dir, closed }). 'plot' also takes `lines`.
+ */
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray';
 export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 
 // ------------------------------------------------------------------ Stage A: discover and understand
@@ -53,13 +58,28 @@ export type DiscoverStep = SayStep | PredictStep | ExploreStep | RuleStep;
  * One step of a worked example: the action, the reason for it, and what it gives.
  * `value` is an expression (src/learn/expr.ts) that must equal the example's answer when the step only
  * rewrites the problem; `calc` is a side computation whose value is checked. Tests check both.
+ * Algebra adds two more checks (learn/content.test.ts):
+ * `ident` is this step's expression in x (written for evaluate: 3*x + 12), and it must be identical to the example's
+ * `expr`: rewriting an expression never changes its value. `eq` is the equation this step states
+ * ('7*x - 3 = 4*x + 9'): it must hold at the example's answer (or at `vars` with two unknowns), and with one unknown
+ * hold there only, so a step that loses or adds a solution fails.
  */
-export interface ExampleStep { action: Text; why: Text; result: string; value?: string; calc?: { expr: string; value: number } }
+export interface ExampleStep {
+  action: Text; why: Text; result: string; value?: string; calc?: { expr: string; value: number };
+  ident?: string;
+  eq?: string;
+}
 export interface WorkedExample {
   problem: Text; display?: string;
   /** A numeric answer, checked against `check` (an expression for the same quantity). */
   answer: number; check: string;
   steps: ExampleStep[];
+  /** For an expression: the expression in x as given, for evaluate ('3*(x-2) - (x+4)'); every step's `ident` equals it. */
+  expr?: string;
+  /** Shown as the answer instead of `answer` ('2x - 10'). `answer` is then the value at the substitution check. */
+  answerTex?: string;
+  /** With two unknowns, the solution ({ x: 3, y: 6 }): every step's `eq` must hold there. */
+  vars?: Record<string, number>;
 }
 
 // ------------------------------------------------------------------ Stage C: solve together

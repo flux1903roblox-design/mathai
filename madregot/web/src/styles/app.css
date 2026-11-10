@@ -1718,6 +1718,93 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .nl-fire path { fill: color-mix(in srgb, var(--streak) 75%, #fff); stroke: var(--streak); stroke-width: 1.5; stroke-linejoin: round; opacity: 0.8; }
 .manip-numberline .manip-canvas { border-color: color-mix(in srgb, var(--ch-sky) 22%, var(--rule)); }
 .ang-right { color: var(--c-d); } .ang-left { color: var(--streak-ink); }
+
+/* ---------- algebra: the balance, the tiles, the area model and the inequality ray ---------- */
+/* Colours come from the unit (--c, which is the brand blue) with the brand as a fallback, so the same drawings work
+   as static figures outside a unit. A negative is a dashed outline and a minus sign, never a colour. */
+.manip-balance .manip-readout, .manip-tiles .manip-readout, .manip-area .manip-readout, .manip-ray .manip-readout { min-height: 34px; font-size: 22px; }
+
+/* the balance */
+.mp-bal-stand { fill: var(--rule-strong); }
+.mp-bal-beam rect { fill: var(--ink); }
+.mp-bal-pivot { fill: #fff; stroke: var(--ink); stroke-width: 3; }
+.mp-bal-post { stroke: var(--ink-2); stroke-width: 3; stroke-linecap: round; }
+.mp-bal-plate { fill: var(--ink-2); }
+.mp-bal-beam, .mp-bal-pan { transform-box: view-box; transition: transform 340ms var(--ease-smooth-out); }
+.mp-bal-box rect { fill: var(--c-tint, var(--brand-tint)); stroke: var(--c, var(--brand)); stroke-width: 2.5; }
+.mp-bal-box text { fill: var(--c-d, var(--brand-d)); font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 20px; font-weight: 700; }
+.mp-bal-w rect { fill: color-mix(in srgb, var(--ink-2) 62%, #fff); stroke: var(--ink-2); stroke-width: 1.5; }
+.mp-bal-w line { stroke: #fff; stroke-width: 1.5; opacity: 0.75; }
+.mp-bal-grp { cursor: pointer; outline: none; }
+.mp-bal-grp.empty { cursor: default; }
+.mp-bal-target { fill: transparent; stroke: transparent; stroke-width: 2.5; stroke-dasharray: 6 5; }
+.mp-bal-grp:focus-visible .mp-bal-target { stroke: var(--brand); fill: color-mix(in srgb, var(--brand) 8%, transparent); }
+@media (hover: hover) { .mp-bal-grp:not(.empty):hover .mp-bal-target { fill: color-mix(in srgb, var(--brand) 7%, transparent); } }
+.mp-bal-controls { gap: var(--s2); }
+.step-btn.mp-bal-btn { display: inline-flex; align-items: center; gap: 6px; width: auto; min-width: 44px; padding: 0 14px 0 12px; font-size: var(--t-sm); font-weight: 700; }
+.mp-bal-btn.div { padding-inline: 12px 16px; }
+@media (max-width: 359px) { .mp-bal-btn:not(.div) span { display: none; } .step-btn.mp-bal-btn:not(.div) { padding: 0; width: 44px; justify-content: center; } }
+
+/* algebra tiles */
+.mp-tile rect { stroke-width: 2.5; }
+.mp-tile.pos rect { fill: var(--c-tint, var(--brand-tint)); stroke: var(--c, var(--brand)); }
+.mp-tile.neg rect { fill: #fff; stroke: var(--c-d, var(--brand-d)); stroke-dasharray: 6 4; }
+.mp-tile text { font-family: KaTeX_Main, 'Times New Roman', serif; font-size: 21px; font-weight: 700; fill: var(--c-d, var(--brand-d)); }
+.mp-tile text.var { font-style: italic; }
+.mp-tile text.unit { font-size: 19px; }
+.mp-tile.neg text { fill: var(--ink); }
+.mp-tile-rule { stroke: var(--rule-strong); stroke-width: 2; stroke-dasharray: 2 6; stroke-linecap: round; }
+.mp-tile-pair { fill: color-mix(in srgb, var(--brand) 6%, transparent); stroke: var(--brand); stroke-width: 3; stroke-dasharray: 7 6; animation: hint-in var(--duration-slow) var(--ease-smooth-out) both; }
+
+/* the area model */
+.mp-area-x { fill: var(--c-tint, var(--brand-tint)); }
+.mp-area-u { fill: #fff; }
+.mp-area-grid { stroke: var(--rule-strong); stroke-width: 1.5; }
+.mp-area-edge { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linejoin: round; }
+.mp-area-split { stroke: var(--ink); stroke-width: 2.5; }
+.mp-area-break { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.mp-area-len { fill: var(--ink); font-size: 18px; font-weight: 700; }
+.mp-area-len.var { font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 21px; }
+.mp-area-val { fill: var(--c-d, var(--brand-d)); font-family: KaTeX_Main, 'Times New Roman', serif; font-size: 22px; font-weight: 700; paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
+.mp-area-val .var { font-style: italic; }
+.mp-area-ghost { fill: none; stroke: var(--good); stroke-width: 3; stroke-dasharray: 7 6; }
+.mp-area-hint { fill: none; stroke: var(--brand); stroke-width: 3; stroke-dasharray: 6 5; stroke-linecap: round; animation: hint-in var(--duration-slow) var(--ease-smooth-out) both; }
+
+/* an inequality on the number line */
+.mp-iq-ray { stroke: var(--c, var(--brand)); stroke-width: 6; stroke-linecap: round; }
+.mp-iq-head { fill: var(--c, var(--brand)); }
+.mp-iq-drop { stroke: var(--c-d, var(--brand-d)); stroke-width: 2; stroke-dasharray: 3 3; }
+.mp-iq-dot { stroke-width: 3.5; }
+.mp-iq-dot.full { fill: var(--c, var(--brand)); stroke: var(--c-d, var(--brand-d)); }
+.mp-iq-dot.empty { fill: #fff; stroke: var(--c, var(--brand)); }
+.mp-iq-ghost .mp-iq-ray { stroke: var(--good); stroke-width: 3; stroke-dasharray: 8 6; }
+.mp-iq-ghost .mp-iq-head { fill: var(--good); }
+.mp-iq-ghost .mp-iq-drop { stroke: var(--good); }
+.mp-iq-ghost .mp-iq-dot.full { fill: var(--good); stroke: var(--good-d); }
+.mp-iq-ghost .mp-iq-dot.empty { fill: #fff; stroke: var(--good-d); }
+.mp-iq-controls { flex-direction: column; align-items: center; }
+.mp-iq-toggles { display: flex; flex-wrap: nowrap; justify-content: center; gap: var(--s3); }
+.mp-iq-seg { display: inline-flex; gap: 4px; }
+.mp-iq-seg .seg { min-height: 44px; min-width: 44px; margin-bottom: 3px; padding: 0 10px; gap: 4px; border-radius: 12px; font-size: var(--t-sm); font-weight: 700; }
+.mp-iq-seg .seg:disabled { opacity: 0.55; }
+@media (max-width: 389px) { .mp-iq-seg .seg span { display: none; } .mp-iq-seg .seg { padding: 0; } }
+
+/* two lines on the plane, and where they meet */
+.mp-line.two { stroke: var(--ink-2); stroke-width: 3.5; stroke-dasharray: 10 6; }
+.mp-lines-legend { gap: var(--s4); font-size: 19px; color: var(--ink); }
+.mp-lines-legend .lg.line::before { width: 26px; border-top: 4px solid var(--c, var(--brand)); }
+.mp-lines-legend .lg.line.two::before { border-top: 4px dashed var(--ink-2); }
+
+/* the same drawings as still figures */
+.figure.fg-obj { max-width: 340px; }
+
+@media (max-height: 700px) and (max-width: 899px) {
+  .manip-balance .manip-readout, .manip-tiles .manip-readout, .manip-area .manip-readout, .manip-ray .manip-readout { min-height: 28px; font-size: 19px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mp-bal-beam, .mp-bal-pan { transition: none; }
+  .mp-tile-pair, .mp-area-hint { animation: none; }
+}
 .manip-angle .manip-readout { font-size: 22px; }
 
 /* ---------- the adventure map: a world per unit, stairs for stops, a chest halfway ---------- */

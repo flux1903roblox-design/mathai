@@ -162,6 +162,40 @@ const Dice = () => (
   </svg>
 );
 
+// Algebra: only the emblem (the first piece) is drawn now that the map has no scenery.
+/** Algebraic expressions: tiles, two x bars and three units, in a bracket. */
+const ExprTiles = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M14 18 Q4 50 14 82" className="sc-stroke" />
+    <path d="M86 18 Q96 50 86 82" className="sc-stroke" />
+    <rect x="22" y="20" width="16" height="60" rx="5" className="sc-c" />
+    <rect x="42" y="20" width="16" height="60" rx="5" className="sc-c" />
+    {[22, 42, 62].map((y) => <rect key={y} x="64" y={y} width="16" height="16" rx="4" className="sc-w sc-line" />)}
+  </svg>
+);
+/** Equations: a level balance, a box on one pan and weights on the other. */
+const EqScale = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M50 46 L38 84 H62 Z" className="sc-d" />
+    <rect x="30" y="82" width="40" height="8" rx="4" className="sc-d" />
+    <rect x="8" y="42" width="84" height="7" rx="3.5" className="sc-d" />
+    <rect x="6" y="34" width="34" height="6" rx="3" className="sc-d" />
+    <rect x="60" y="34" width="34" height="6" rx="3" className="sc-d" />
+    <rect x="14" y="12" width="20" height="20" rx="4" className="sc-c" />
+    <rect x="64" y="20" width="8" height="12" rx="2" className="sc-t sc-line" />
+    <rect x="76" y="14" width="8" height="18" rx="2" className="sc-t sc-line" />
+  </svg>
+);
+/** Systems and inequalities: two lines crossing at a point. */
+const SysCross = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="6" y="6" width="88" height="88" rx="14" className="sc-w sc-line" />
+    <path d="M14 80 L86 26" className="sc-stroke-c" />
+    <path d="M14 30 L86 76" className="sc-stroke" />
+    <circle cx="50" cy="53" r="7" className="sc-g" />
+  </svg>
+);
+
 export const SCENERY = {
   signed: [Thermometer, SeaLevel, Cloud],
   coord: [GridMap, Compass, Pin],
@@ -169,6 +203,9 @@ export const SCENERY = {
   line: [SlopeSteps, FlagHill, Plane],
   pyth: [Squares, Ladder, Pyramid],
   stats: [BarSkyline, PieSun, Dice],
+  expr: [ExprTiles],
+  eq: [EqScale],
+  sys: [SysCross],
 };
 
 /** The unit's own sign for its header: the first piece of its world. */

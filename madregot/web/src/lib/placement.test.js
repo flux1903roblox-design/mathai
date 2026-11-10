@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { startLesson, answer, next, resultOf, progressOf } from './lesson.js';
-import { nextProbe, startLevel, PER_TOPIC, PLACEMENT_XP } from './placement.js';
+import { nextProbe, startLevel, startPlacement, PER_TOPIC, PLACEMENT_XP } from './placement.js';
 import { noteGap, gapsFromExam, gapsOf, gapTarget, boardOf, GAP_CLEAR } from './board.js';
 import { unitNodes, doneUpTo } from './path.js';
 import { useApp, today, streakOf } from './store.js';
-import { TOPIC, topicsFor } from '@/content/index.js';
+import { TOPIC, topicsFor, placementTopicsFor, rescueTopicsFor } from '@/content/index.js';
 
 const right = (s) => s.item.answer;
-const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : 99999);
+const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : s.item.form === 'lin' ? { k: 999, c: 999 } : 99999);
 /** Answer by a rule: ok(level, topic) says whether this student gets a question right. */
 const take = (s, ok) => {
   let st = s; let guard = 0;
@@ -109,7 +109,30 @@ describe('board', () => {
     const b = boardOf({ grade: '7', path, progress: {}, gaps });
     const total = topicsFor('7').reduce((a, t) => a + t.levels.length, 0);
     expect(b).toMatchObject({ done: 5, total, open: 1 });
-    expect(b.topics.map((t) => t.status)).toEqual(['done', 'going', 'work']);
+    expect(['signed', 'coord', 'angles'].map((id) => b.topics.find((t) => t.id === id).status)).toEqual(['done', 'going', 'work']);
     expect(TOPIC.angles.cats['sum-360']).toBe(b.topics[2].open[0].text);
+  });
+});
+
+// A topic taught later in the year (algebra starts in December) carries placement: false; one revised in another
+// grade's tests carries alsoFor. Shown here on an existing topic, flagged for the test only.
+describe('topic flags', () => {
+  it('placement: false keeps a topic out of the first-day test and its result list', () => {
+    TOPIC.angles.placement = false;
+    try {
+      expect(placementTopicsFor('7').map((t) => t.id)).toEqual(['signed', 'coord']);
+      const s = startPlacement({ grade: '7', know: 1 });
+      expect(s.topics).toEqual(['signed', 'coord']);
+      expect(s.total).toBe(2 * PER_TOPIC);
+    } finally { delete TOPIC.angles.placement; }
+    expect(startPlacement({ grade: '7' }).topics).toEqual(topicsFor('7').map((t) => t.id));
+  });
+  it('alsoFor offers a topic to another grade in Exam Rescue, after that grade\'s own', () => {
+    expect(rescueTopicsFor('8').map((t) => t.id)).toEqual(topicsFor('8').map((t) => t.id));
+    TOPIC.signed.alsoFor = ['8'];
+    try {
+      expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'signed']);
+      expect(rescueTopicsFor('7').map((t) => t.id)).toEqual(topicsFor('7').map((t) => t.id));
+    } finally { delete TOPIC.signed.alsoFor; }
   });
 });

@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { Check, X, Minus, CircleDashed, Sparkles, Route, PencilRuler, ChevronLeft } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { STATUS, focusLevel } from '@/lib/exam.js';
-import { TOPIC, TOPICS } from '@/content/index.js';
+import { TOPIC, TOPICS, displayTex } from '@/content/index.js';
 import { aiReady } from '@/lib/ai.js';
 import { Box, Button, ChapterMark, Sheet } from '@/components/ui.jsx';
 import { Markdown, MathText, Tex } from '@/components/MathText.jsx';
@@ -25,7 +25,7 @@ function Prompt({ q }) {
   return (
     <div className="q-prompt">
       <p><MathText text={it.text} /></p>
-      {it.display && <div className="qdisplay small"><Tex tex={it.form === 'mc' ? it.display : `${it.display} = \\,?`} display /></div>}
+      {it.display && <div className="qdisplay small"><Tex tex={displayTex(it)} display /></div>}
       <Figure fig={it.fig} />
       {it.form === 'mc' && it.choices && <p className="exam-choices">{it.choices.map((c, k) => <span key={k}>{String.fromCharCode(1488 + k)}. {c.tex ? <Tex tex={c.tex} /> : c.text}</span>)}</p>}
     </div>

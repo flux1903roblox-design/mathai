@@ -1,5 +1,5 @@
 // Grade 8 (ח׳): the linear function (linear.js), Pythagoras, statistics.
-import { R, pick, shuffle, near, TRIPLES } from './util.js';
+import { R, pick, shuffle, near, TRIPLES, listMath } from './util.js';
 import { LINEAR } from './linear.js';
 
 // ---------------------------------------------------------------- Pythagoras
@@ -94,7 +94,6 @@ const sortNum = (arr) => [...arr].sort((x, y) => x - y);
 const listTex = (arr) => arr.join(',\\ ');
 // A list of numbers in a question: one expression per number inside a left-to-right isolate,
 // so it keeps its order in a Hebrew line and a narrow screen can wrap it between numbers.
-const listMath = (arr) => `\u2066${arr.map((v) => `$${v}$`).join(', ')}\u2069`;
 
 function mode() {
   for (;;) {

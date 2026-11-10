@@ -6,7 +6,7 @@ import { useApp, streakOf, today, dayBefore } from './store.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
 
 const right = (s) => s.item.answer;
-const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : 99999);
+const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : s.item.form === 'lin' ? { k: 999, c: 999 } : 99999);
 const run = (s, plan) => { // plan: per answer, true = right, false = wrong
   let st = s;
   for (const ok of plan) {

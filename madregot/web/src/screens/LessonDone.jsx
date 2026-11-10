@@ -8,7 +8,7 @@ import Mascot from '@/components/Mascot.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { doneUpTo, chestAfter } from '@/lib/path.js';
 import Lottie from '@/components/Lottie.jsx';
-import { topicsFor } from '@/content/index.js';
+import { placementTopicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 
@@ -176,7 +176,7 @@ export function PlacementDone({ result, award, onExit }) {
           <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />
         </m.div>
         <m.ol variants={rise} className="place-list" aria-label="איפה מתחילים בכל נושא">
-          {topicsFor(result.grade).map((t) => {
+          {placementTopicsFor(result.grade).map((t) => {
             const L = result.results[t.id]?.level ?? 0; const top = t.levels.length;
             return (
               <li key={t.id} className={clsx('place-row', `ch-${t.color}`)}>

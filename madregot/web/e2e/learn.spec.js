@@ -3,6 +3,7 @@
 // Exam Rescue from a diagnostic to a plan, today's mission, and the profile's numbers and data deletion.
 import { test, expect } from '@playwright/test';
 import { open, student, item, answer, saved } from './helpers.js';
+import { ALL_SKILLS, GRADE_OF } from '../src/learn/skills.ts';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
 
@@ -237,7 +238,7 @@ test('reviewer P1: two right diagnostic answers per stair are "passed the first 
   await expect(page.locator('.rescue-day').first()).toContainText('בדיקת שליטה: חיבור וחיסור');
   // and the map says the same thing in the same words
   await page.goto('./#/topics');
-  await expect(page.locator('.mm-count')).toHaveText('שולטים לבד ב־0 מתוך 15');
+  await expect(page.locator('.mm-count')).toHaveText(`שולטים לבד ב־0 מתוך ${ALL_SKILLS.filter((s) => GRADE_OF[s.split(':')[0]] === '7').length}`);
   const st = await saved(page);
   expect(st.learn.skills['signed:1']?.mastered).toBeUndefined();
 });

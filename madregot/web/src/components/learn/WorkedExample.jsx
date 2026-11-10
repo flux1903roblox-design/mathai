@@ -50,7 +50,7 @@ export default function WorkedExample({ example, n, of, onDone, doneLabel = 'ה�
         {all && (
           <div className="bl-result" role="status">
             <p className="lm-banner"><span className="lm-banner-icon" aria-hidden="true"><Check size={18} strokeWidth={3.4} /></span>זו כל הדרך</p>
-            <ResultWhy tone="good"><p className="worked-answer">והתשובה: <Tex tex={decimal && !Number.isInteger(example.answer) ? plainNum(example.answer, { decimal: true }) : T(example.answer)} /></p></ResultWhy>
+            <ResultWhy tone="good"><p className="worked-answer">והתשובה: <Tex tex={example.answerTex || (decimal && !Number.isInteger(example.answer) ? plainNum(example.answer, { decimal: true }) : T(example.answer))} /></p></ResultWhy>
           </div>
         )}
         <div className="lm-actions-row">
