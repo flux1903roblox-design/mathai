@@ -17,12 +17,17 @@ AI_PAYWALL = "off"
 BILLING_START = ""
 LEGACY_CLASS_AI_UNTIL = ""
 # The models of the request shapes (shared/ai.js; SUBSCRIPTION.md has the table). CLAUDE_MODEL answers every full request,
-# at an effort set per kind (explain medium, chat low, the photo check, new exercises and the exam check high).
+# at an effort set per kind (explain medium, chat low, the rewrite of new exercises medium, the photo check and the exam
+# check high).
 # FREE_MODEL answers explain and chat in the free taste (shape "lite") and in economy mode (shape "economy", a paid pool
 # over its monthly budget): the same tutor block, at effort high with 4000 tokens and a note that only shortens the reply.
 # Empty FREE_MODEL = the low-cost default in shared/ai.js, never CLAUDE_MODEL.
 CLAUDE_MODEL = "claude-sonnet-5-5"
 FREE_MODEL = "claude-haiku-5-5"
+# New exercises (ai spec AI-4): the app makes the numbers and the answers, CLAUDE_MODEL rewrites the words, and a second
+# model solves each new story blind (it never sees the app's numbers or answers) before code decides what is shown.
+# BLIND_MODEL is that second model; empty = FREE_MODEL (effort high, 6000 tokens).
+BLIND_MODEL = ""
 # With the switch off: AI actions a day per class student, per teacher, and per network for students without a class.
 AI_DAILY_LIMIT = "40"
 TEACHER_DAILY_LIMIT = "200"

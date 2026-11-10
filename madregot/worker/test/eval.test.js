@@ -8,15 +8,15 @@ import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, rmSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { buildRequest, LITE_EFFORT, CHAT_EFFORT } from '../../shared/ai.js';
+import { buildRequest, buildBlind, generateVerified, LITE_EFFORT, CHAT_EFFORT } from '../../shared/ai.js';
 import { normalizeContext } from '../../shared/tutorContext.js';
 import { answerForms, findLeaks, MASK_NOTE } from '../../shared/guard.js';
 import { checkEquations } from '../../shared/verify.js';
-import { GRADERS, gradeRow, guardReply, SHAPE_WORDS } from '../eval/graders.js';
+import { GRADERS, gradeRow, gradeGenerate, guardReply, SHAPE_WORDS } from '../eval/graders.js';
 import { JUDGE_MODEL, JUDGE_SYSTEM, JUDGE_SCHEMA, JUDGE_FIELDS, buildJudge, readJudge, stubVerdict } from '../eval/judge.js';
 import {
   runEval, estimateRun, planRows, planArms, parseArgs, publishRun, main, wilson, callModel, retryable, servedCheck,
-  leakyReply, genericReply, stubReply, GATE, SWEEP_EFFORT,
+  leakyReply, genericReply, stubReply, stubGenerate, GATE, SWEEP_EFFORT,
 } from '../eval/run.mjs';
 
 const read = (name) => JSON.parse(readFileSync(new URL(`../eval/${name}`, import.meta.url), 'utf8'));
@@ -24,14 +24,25 @@ const SPECS = read('case-specs.json').cases;
 const CASES = read('cases.json').cases;
 const REFS = read('references.json').references;
 const byId = new Map(CASES.map((c) => [c.id, c]));
-const inputOf = (c) => (c.kind === 'chat' ? { ctx: c.ctx, messages: c.messages } : { ctx: c.ctx });
+const inputOf = (c) => (c.kind === 'generate' ? c.input : c.kind === 'chat' ? { ctx: c.ctx, messages: c.messages } : { ctx: c.ctx });
+const TUTOR_CASES = CASES.filter((c) => c.kind !== 'generate');
+const GEN_CASES = CASES.filter((c) => c.kind === 'generate');
 
 
 // ---------------------------------------------------------------- 1. every case is a request the app can send
 test('1. every case: a valid context, a request in each of its shapes, WITHHOLD and the label line where they belong', () => {
   assert.deepEqual(CASES.map((c) => c.id), SPECS.map((s) => s.id), 'cases.json follows case-specs.json (regenerate with WRITE_EVAL_CASES=1)');
-  assert.ok(CASES.length >= 74, String(CASES.length));
-  for (const c of CASES) {
+  assert.ok(TUTOR_CASES.length >= 74, String(TUTOR_CASES.length));
+  // the generate pipelines (G): the 8 stairs of Design 2, each the request the screen sends, with 7 of the app's seeds
+  assert.deepEqual(GEN_CASES.map((c) => c.input.skill), ['signed:1', 'signed:4', 'coord:3', 'angles:3', 'line:4', 'pyth:2', 'stats:5', 'eq:2']);
+  for (const c of GEN_CASES) {
+    assert.deepEqual(c.shapes, ['full'], c.id);
+    assert.equal(c.input.seeds.length, c.input.count + 2, c.id);
+    const p = buildRequest('generate', c.input);
+    assert.equal(p.system.length, 2, c.id);
+    assert.match(p.messages[0].content, new RegExp(`Write ${c.input.seeds.length} exercises, one per seed\\.$`), c.id);
+  }
+  for (const c of TUTOR_CASES) {
     assert.ok(normalizeContext(c.ctx), c.id);
     for (const shape of c.shapes) {
       const p = buildRequest(c.kind, inputOf(c), { shape });
@@ -44,7 +55,7 @@ test('1. every case: a valid context, a request in each of its shapes, WITHHOLD 
     }
   }
   // withhold cases are where the guard matters: the answer the guard looks for exists in a written form
-  for (const c of CASES.filter((x) => x.expect.withhold)) assert.ok(answerForms(c.ctx)?.forms.length, `${c.id}: the guard has forms to find`);
+  for (const c of TUTOR_CASES.filter((x) => x.expect.withhold)) assert.ok(answerForms(c.ctx)?.forms.length, `${c.id}: the guard has forms to find`);
 });
 
 // ---------------------------------------------------------------- 2. the oracle: the hand-written references
@@ -233,6 +244,19 @@ test('4. runEval on the fixtures stub: the gate passes, errors.jsonl is empty an
       `lite effort: keep '${LITE_EFFORT}' ('${SWEEP_EFFORT}' also passes, but is not cheaper).`,
       `chat effort: keep '${CHAT_EFFORT}' ('${SWEEP_EFFORT}' also passes, but is not cheaper).`,
     ]);
+    // the generate pipelines: every stair passes every story, with the blind solve run and nothing shown wrong
+    const gen = results.filter((r) => r.kind === 'generate');
+    assert.equal(gen.length, GEN_CASES.length);
+    for (const r of gen) {
+      assert.equal(r.grades.passShare.share, 1, `${r.case}: ${r.grades.passShare.detail}`);
+      assert.equal(r.grades.shownWrong.pass, true, r.case);
+      assert.ok(['ok', 'none'].includes(r.blind), r.case);
+      assert.equal(r.judge, null, `${r.case}: graded in code only`);
+    }
+    const share = summary.gate.columns.full.metrics.find((m) => m.metric === 'passShare');
+    assert.deepEqual([share.n, share.passes, share.pass], [GEN_CASES.length, GEN_CASES.length, true]);
+    assert.equal(summary.generate['G-signed1'].share, 1);
+    assert.match(readFileSync(path.join(out, 'summary.md'), 'utf8'), /## Generated exercises \(G\)\n[\s\S]*\| G-eq2 \| 1 \| 100% \| — \| 0 \| 0 \|/);
     // the gate's metrics carry a Wilson interval
     const words = summary.gate.columns.full.metrics.find((m) => m.metric === 'words');
     assert.ok(words.n > 0 && words.lo > 0.9 && words.hi > 0.999 && words.hi <= 1, JSON.stringify(words));
@@ -245,7 +269,10 @@ test('5. runEval on the leaky stub: the gate fails on leakRaw, and after the gua
     const { summary } = await runEval({ stub: 'leaky', reps: 1, out, log: quiet });
     assert.equal(summary.gate.pass, false);
     const failing = summary.gate.failures.map((f) => `${f.column}:${f.metric}`);
-    for (const f of ['full:leakRaw', 'haiku:leakRaw', 'full:namesOtherMistake', 'full:sameDiagnosis']) assert.ok(failing.includes(f), f);
+    for (const f of ['full:leakRaw', 'haiku:leakRaw', 'full:namesOtherMistake', 'full:sameDiagnosis', 'full:passShare']) assert.ok(failing.includes(f), f);
+    // stories that lost the seed's numbers are dropped by code, so a wrong answer is never shown
+    const shown = summary.gate.columns.full.metrics.find((m) => m.metric === 'shownWrong');
+    assert.equal(shown.n, GEN_CASES.length); assert.equal(shown.failRate, 0);
     for (const col of ['full', 'haiku']) {
       const g = summary.gate.columns[col].metrics.find((m) => m.metric === 'leakAfterGuard');
       assert.equal(g.failRate, 0, col); assert.ok(g.n >= 10, col);
@@ -263,13 +290,18 @@ test('7. the estimate for the committed cases with the default sweep is between 
   const e = estimateRun(CASES);
   assert.ok(e.usd >= 8 && e.usd <= 20, `$${e.usd.toFixed(2)}`);
   assert.ok(e.low < e.usd && e.high > e.usd);
-  assert.match(e.text, /^Rows: \d+ paid \+ \d+ low-cost, × 3 repetitions; sweep: \+30 low-cost and \+20 paid-chat rows, × 3\./);
+  assert.match(e.text, /^Rows: \d+ paid \+ \d+ low-cost \+ 8 generate pipelines, × 3 repetitions; sweep: \+30 low-cost and \+20 paid-chat rows, × 3\./);
+  // a generate pipeline is a rewrite on the paid model and a blind solve on the low-cost one, and no judge
+  const rewrite = e.calls.find((c) => c.role === 'rewrite'); const blind = e.calls.find((c) => c.role === 'blind solve');
+  assert.equal(rewrite.n, GEN_CASES.length * 3); assert.equal(blind.n, GEN_CASES.length * 3);
+  assert.equal(blind.model, 'claude-haiku-5-5');
+  assert.ok(rewrite.each > 0.02 && rewrite.each < 0.06, String(rewrite.each));
   assert.match(e.text, /Hard stop at --budget-usd 25\./);
   assert.match(e.text, /Quick options: --no-sweep ≈ \$[\d.]+ · --reps 1 ≈ \$[\d.]+ · --judge none ≈ \$[\d.]+/);
   for (const o of [{ sweep: false }, { reps: 1 }, { judge: 'none' }, { shapes: ['full'] }]) assert.ok(estimateRun(CASES, o).usd < e.usd, JSON.stringify(o));
   // the judge is one call per row
   const judge = e.calls.find((c) => c.role === 'judge');
-  assert.equal(judge.model, JUDGE_MODEL); assert.equal(judge.n, e.rows);
+  assert.equal(judge.model, JUDGE_MODEL); assert.equal(judge.n, e.rows - GEN_CASES.length * 3);
 });
 
 // ---------------------------------------------------------------- the plan
@@ -281,10 +313,9 @@ test('the plan: production arms at production efforts, sweep arms on the same ro
   const rows = planRows(CASES, { reps: 1 });
   const full = rows.filter((r) => r.arm.id === 'full');
   assert.equal(full.length, CASES.length);
-  const firstExplain = full.findIndex((r) => r.case.kind === 'explain');
-  assert.ok(full.slice(firstExplain).every((r) => r.case.kind === 'explain'), 'the chats run first');
+  assert.deepEqual([...new Set(full.map((r) => r.case.kind))], ['chat', 'explain', 'generate'], 'the chats first, then the explains, then the pipelines');
   for (const r of rows.filter((x) => !x.arm.sweep)) {
-    const input = r.case.kind === 'chat' ? { ctx: r.case.ctx, messages: r.case.messages } : { ctx: r.case.ctx };
+    const input = inputOf(r.case);
     assert.deepEqual(buildRequest(r.case.kind, input, { shape: r.arm.shape }).output_config.effort, buildRequest(r.case.kind, input, { model: r.arm.model, shape: r.arm.shape }).output_config.effort);
   }
   const sweepChat = rows.filter((r) => r.arm.sweep === 'chat');
@@ -293,8 +324,11 @@ test('the plan: production arms at production efforts, sweep arms on the same ro
   // --only takes categories and case ids
   const x1 = CASES.find((c) => c.cat === 'X1').id;
   assert.deepEqual([...new Set(planRows(CASES, { only: ['D2', x1], reps: 1, sweep: false }).map((r) => r.case.id === x1 ? x1 : r.case.cat))].sort(), ['D2', x1]);
+  // the pipelines run once per repetition in the paid arm only (no sweep: their efforts are fixed)
+  assert.equal(rows.filter((r) => r.case.kind === 'generate').length, GEN_CASES.length);
+  assert.ok(rows.filter((r) => r.case.kind === 'generate').every((r) => r.arm.id === 'full'));
   // a kind the runner cannot run yet is refused, not skipped
-  assert.throws(() => planRows([{ ...CASES[0], id: 'G-x', kind: 'generate' }], {}), /no generate rows yet/);
+  assert.throws(() => planRows([{ ...CASES[0], id: 'F-x', kind: 'feedback' }], {}), /no feedback rows yet/);
 });
 
 test('the command line: flags, values, refusals', () => {
@@ -363,7 +397,7 @@ test('the judge: Appendix F system and strict schema, effort low, 4,000 tokens, 
 
 test('the fixtures stub: a generic reply for every case without a reference passes every grader, and the leaky stub leaks', () => {
   const refs = new Map(REFS.map((r) => [r.case, r]));
-  for (const c of CASES) {
+  for (const c of TUTOR_CASES) {
     const reply = stubReply('fixtures', c, refs.get(c.id));
     if (refs.has(c.id)) { assert.equal(reply, refs.get(c.id).reply); continue; }
     assert.equal(reply, genericReply(c));
@@ -550,5 +584,48 @@ test('Wilson intervals and the gate table', () => {
     leakAfterGuard: [1, 1], leakRaw: [0.97, 0.95], noCandidateVerdict: [1, 0.95], sameDiagnosis: [0.95, 0.9], namesOtherMistake: [0.98, 0.96],
     teachesStairWay: [0.9, 0.85], mathCorrect: [0.98, 0.95], bannedRule: [1, 1], mathEquations: [0.99, 0.97], refusesToHelp: [0.95, 0.95],
     hebrew: [0.98, 0.95], latex: [0.98, 0.95], pluralOnly: [0.98, 0.95], words: [0.95, 0.95], noClosingQuestion: [null, 0.95],
+    passShare: [1, null], shownWrong: [1, null],
   });
+  // generate passShare: the bar is every stair, each at a mean of at least 80% over its repetitions
+  assert.equal(GATE.find((m) => m.id === 'passShare').stairBar, 0.8);
+});
+
+// ---------------------------------------------------------------- the generate pipeline (category G)
+test('the generate grader: the share of stories that passed, and a wrong answer shown is caught however it got there', () => {
+  const c = GEN_CASES[0];
+  const seeds = c.input.seeds;
+  const item = (sd, end = sd.answer, blind = 'ok') => ({ seed: sd.i, prompt: sd.text, hint: '', solution: [`$= ${end}$`], kept: false, blind });
+  const answers = seeds.map((sd) => ({ seed: sd.i, answer: sd.answer }));
+  const good = gradeGenerate(c, { items: seeds.slice(0, 6).map((sd) => item(sd)), dropped: { numbers: 1 }, blindAnswers: answers });
+  assert.deepEqual(good.errors, []);
+  assert.equal(good.grades.passShare.share, 6 / 7); assert.equal(good.grades.passShare.pass, true);
+  assert.match(good.grades.passShare.detail, /6 of 7 stories passed \(numbers 1\)/);
+  assert.equal(good.grades.shownWrong.pass, true);
+  assert.equal(gradeGenerate(c, { items: seeds.slice(0, 5).map((sd) => item(sd)), blindAnswers: answers }).grades.passShare.pass, false, '5 of 7 is under 80%');
+  // an answer that is not the app's, at the end of the solution or from the blind solve, or a seed never asked
+  const wrongEnd = gradeGenerate(c, { items: [item(seeds[1], Number(seeds[1].answer) + 1)], blindAnswers: answers });
+  assert.equal(wrongEnd.grades.shownWrong.pass, false); assert.equal(wrongEnd.grades.shownWrong.n, 1);
+  const wrongBlind = gradeGenerate(c, { items: [item(seeds[1])], blindAnswers: [{ seed: 1, answer: '999' }] });
+  assert.match(wrongBlind.grades.shownWrong.detail, /blind solve gave 999/);
+  assert.equal(gradeGenerate(c, { items: [item(seeds[1], seeds[1].answer, 'skipped')], blindAnswers: null }).grades.shownWrong.pass, true, 'no blind solve to compare');
+  assert.equal(gradeGenerate(c, { items: [{ ...item(seeds[1]), seed: 42 }], blindAnswers: answers }).grades.shownWrong.pass, false);
+  // a grader that throws is an error, not a fail
+  const broken = gradeGenerate({ id: 'G-x' }, { items: [] });
+  assert.equal(broken.errors[0].class, 'grader');
+});
+
+test('the generate stubs go through generateVerified: fixtures pass every story, leaky loses every number', async () => {
+  for (const c of GEN_CASES) {
+    const call = (stub) => async (params) => ({ model: params.model, stop_reason: 'end_turn', content: [{ type: 'text', text: stubGenerate(stub, c, params) }], usage: {} });
+    const ok = await generateVerified(call('fixtures'), c.input, { model: 'claude-sonnet-5-5', blindModel: 'claude-haiku-5-5' });
+    assert.equal(ok.items.length, c.input.seeds.length, c.id);
+    assert.ok(ok.items.every((it) => it.blind === (c.input.seeds.find((sd) => sd.i === it.seed).fig ? 'skipped' : 'ok')), c.id);
+    const leaky = await generateVerified(call('leaky'), c.input, { model: 'claude-sonnet-5-5' });
+    assert.ok(leaky.items.length / c.input.seeds.length < 0.8, `${c.id}: ${leaky.items.length}`);
+  }
+  // the blind stub answers exactly the stories it was sent, by their numbers
+  const c = GEN_CASES[0];
+  const items = JSON.parse(stubGenerate('fixtures', c, buildRequest('generate', c.input))).items;
+  const answers = JSON.parse(stubGenerate('fixtures', c, buildBlind(items))).answers;
+  assert.deepEqual(answers.map((a) => a.answer), c.input.seeds.map((sd) => sd.answer));
 });

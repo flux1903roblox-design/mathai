@@ -22,7 +22,10 @@ const turns = Array.from({ length: 14 }, (_, i) => ({ role: i % 2 ? 'assistant' 
 export const INPUTS = {
   explain: { grade: '8', topic: 'מספרים מכוונים', level: 'חיבור', question: `3 - 8 ${'y'.repeat(900)}`, correct: '-5', studentAnswer: '5', attempts: 2 },
   chat: { messages: turns, context: { grade: '7', question: '3 - 8' } },
-  generate: { grade: '7', topic: 'מספרים מכוונים', level: 'חיבור', count: 3, examples: '1+1' },
+  generate: {
+    grade: '7', skill: 'signed:1', topic: 'מספרים מכוונים', stair: 'חיבור וחיסור', count: 3,
+    seeds: [{ i: 0, text: 'חשבו: 3 - (-5)', answer: '8', round: false, fig: false }, { i: 1, text: `מחיר ${'z'.repeat(700)}`, answer: '3/4', round: true, fig: false }, { i: 2, text: 'בטבלה: 3 → 7', answer: '-1', round: false, fig: true }],
+  },
   check: { grade: '8', image: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/png', question: '2x=4' },
   exam: {
     grade: '8',

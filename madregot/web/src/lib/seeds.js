@@ -7,6 +7,7 @@
 // seeds leave it: { i, text, answer, round, fig }.
 import { itemFor } from '@/learn/items.ts';
 import { answerText, itemPlain } from '@/content/index.js';
+import { verifyRewrite } from '@shared/verify.js';
 
 /** How many draws a seed may take: to find a key not used yet, and an exercise without a drawing when there is one. */
 export const SEED_DRAWS = 40;
@@ -47,4 +48,33 @@ export const seedRounds = (it) => String(it?.text || '').includes('עגלו');
 /** The seeds as the generate request carries them: the exercise as text, its answer as text, and the two flags. */
 export function seedPayload(items) {
   return items.map((it, i) => ({ i, text: itemPlain(it), answer: answerText(it), round: seedRounds(it), fig: !!it.fig }));
+}
+
+/**
+ * The exercises a generate reply gives the screen (ai spec AI-4 Design 7): `count` of them, the stories that pass first
+ * (in seed order), then seeds in their own wording, from the app's bank. Every story is checked again here with the
+ * code checks of verifyRewrite (all but the blind solve, which only the server runs), so a server that is not up to date
+ * cannot show an unchecked story. Each exercise keeps its seed: the app grades it, never the AI.
+ * → { list: [{ seed, story, from: 'ai' | 'bank' }], stories: how many stories passed, fallback: the server gave the
+ * question back }
+ */
+export function exercisesFrom(seeds, reply, count) {
+  const payload = seedPayload(seeds);
+  const bySeed = new Map();
+  for (const it of Array.isArray(reply?.items) ? reply.items : []) {
+    if (it && Number.isInteger(it.seed) && !bySeed.has(it.seed)) bySeed.set(it.seed, it);
+  }
+  const passed = [];
+  payload.forEach((p, k) => {
+    const it = bySeed.get(p.i);
+    if (!it) return;
+    const r = verifyRewrite(p, it, undefined);
+    if (r.ok) passed.push({ seed: seeds[k], story: r.item, from: 'ai' });
+  });
+  const list = passed.slice(0, count);
+  for (const seed of seeds) {
+    if (list.length >= count) break;
+    if (!list.some((x) => x.seed === seed)) list.push({ seed, story: null, from: 'bank' });
+  }
+  return { list, stories: Math.min(passed.length, count), fallback: reply?.fallback === true };
 }

@@ -196,10 +196,26 @@ export function sseResponse(message) {
   return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
 }
 
+/** The seeds of a rewrite request, read back from its user turn ("{i}. {text} → {answer}", " [drawing]" after a drawn one). */
+export function seedsSent(params) {
+  const turn = String(params?.messages?.[0]?.content ?? '');
+  const block = turn.split('Seeds:\n')[1]?.split('\n\n')[0] ?? '';
+  return block.split('\n').map((line) => line.match(/^(\d+)\. (.*) → (.*?)( \[drawing\])?$/)).filter(Boolean)
+    .map((m) => ({ i: Number(m[1]), text: m[2], answer: m[3], fig: !!m[4] }));
+}
+/** A rewrite that keeps every seed's wording (kept), with a solution that ends at the seed's answer: it passes every check. */
+export const keptRewrite = (params) => ({
+  items: seedsSent(params).map((sd) => ({ seed: sd.i, prompt: sd.text, hint: 'מתחילים מהמספר הראשון.', solution: ['מחשבים לפי הסדר.', `התוצאה: $= ${sd.answer}$`], kept: true })),
+});
+const schemaOf = (params) => params.output_config?.format?.schema?.properties || {};
+
 /** Claude's default answers: text for explain and chat, JSON for the structured kinds, streamed when asked. */
 export function claudeReply(params, opts = {}) {
   const structured = params.output_config?.format;
-  const text = opts.text ?? (structured ? JSON.stringify({ questions: [], readable: true, transcript: '', steps: [], final: 'unknown', summary: '', title: '', weakTopics: [], nextSteps: [] }) : 'הסבר קצר.');
+  const shape = schemaOf(params);
+  const json = shape.items ? keptRewrite(params) : shape.answers ? { answers: [] }
+    : { questions: [], readable: true, transcript: '', steps: [], final: 'unknown', summary: '', title: '', weakTopics: [], nextSteps: [] };
+  const text = opts.text ?? (structured ? JSON.stringify(json) : 'הסבר קצר.');
   const message = claudeMessage(params, { ...opts, text });
   return params.stream ? sseResponse(message) : jsonResponse(message);
 }
@@ -216,10 +232,12 @@ export async function setup(over = {}, fetchOpts = {}) {
   return { env, ctx: c, net, call, worker, done: () => { net.restore(); resetClock(); } };
 }
 
+/** Seeds as the app sends them for new exercises (ai spec AI-4): its own exercises and the answers it computed. */
+export const GEN_SEEDS = Object.freeze([{ i: 0, text: 'חשבו: 3 - (-5)', answer: '8', round: false, fig: false }, { i: 1, text: 'בתל אביב 20 מעלות, ובפסגת החרמון -8 מעלות. בכמה מעלות חם יותר בתל אביב?', answer: '28', round: false, fig: false }, { i: 2, text: 'חשבו: -8 - (-7)', answer: '-1', round: false, fig: false }, { i: 3, text: 'מעלית יצאה מקומה -2 (בחניון) ועלתה 7 קומות. באיזו קומה היא עכשיו?', answer: '5', round: false, fig: false }, { i: 4, text: 'חשבו: -12 + (-1)', answer: '-13', round: false, fig: false }]);
 export const INPUT = {
   explain: { question: '3 - 8', correct: '-5', studentAnswer: '5' },
   chat: { messages: [{ role: 'user', content: 'איך מתחילים?' }], context: { question: '3 - 8' } },
-  generate: { topic: 'מספרים מכוונים', level: 'חיבור', count: 3 },
+  generate: { grade: '7', skill: 'signed:1', topic: 'מספרים מכוונים', stair: 'חיבור וחיסור', count: 3, seeds: GEN_SEEDS },
   check: { image: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' },
   exam: { pages: [{ data: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' }] },
 };

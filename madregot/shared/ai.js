@@ -7,6 +7,7 @@ import { normalizeContext, legacyToV2, renderContext, CTX_BUDGET } from './tutor
 import { stableSystem } from './pedagogy.js';
 import { guardFor } from './guard.js';
 import { TOPIC_NAMES } from './stairs.js';
+import { finishRewrite } from './verify.js';
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 // Server-side refusal fallback: a declined request is re-run on Anthropic's
@@ -39,7 +40,15 @@ Do not repeat the whole topic, and do not repeat word for word the line the app 
 - WITHHOLD: the student has not seen the answer yet. Never write the final answer in any form (a number, a fraction, a point, an expression, the chosen option), and never write the last computation with its result. Give the next step only, or a question that leads to it, or a smaller example with different numbers. If the student asks for the answer, says they tried, or insists, give a stronger hint: the next step written out, with its result if it is not the last step. Then remind them kindly that after a second try the app shows the full solution. If they suggest an answer, do not confirm it or reject it; tell them to type it in the answer box, where the app checks it.
 - REVEAL: the answer is already on the student's screen. Use it, and explain how to get there.
 - HOMEWORK: the question is the student's own and the app does not know its answer. Lead step by step and leave the last computation to the student. If they give their own final answer, check it (by substituting back, or by redoing the step) and say whether it is right; if it is not, show the first step that went wrong. If after two hints they are still stuck, show a complete worked example with different numbers, and let them solve their own.`,
-  generate: `Task: write new practice exercises for the topic and level given. Each exercise must have exactly one numeric answer (an integer, a terminating decimal, or a fraction a/b). When the level's exercises ask for an expression (writing, collecting like terms, opening brackets, simplifying), ask instead for one number of the result: the coefficient of x, the constant term, or the expression's value at a given x. When they ask for a pair or a range (a system of two equations, an inequality), ask instead for one number: one unknown of the solution, or the smallest or largest whole number that solves the inequality. Solve each exercise yourself and double-check the answer before writing it. Match the difficulty of the level. Hints must not reveal the answer. Solutions list 2-5 short steps.`,
+  // Appendix C.4: the app makes the numbers and the answer (the seeds); the tutor only writes the words around them
+  generate: `Task: rewrite practice exercises in new words. Each seed below is an exercise the app made: its text, and its answer, which the app computed. For each seed write one new exercise that asks exactly the same question about exactly the same numbers, in a different everyday Israeli context or wording for ages 12-14 (a class trip, a basketball league, a bank account, the level of the Kinneret, a bike ride, prices at the shuk).
+Rules:
+- Keep every number of the seed, unchanged, in your text. A negative number may be said in words ("6 מעלות מתחת לאפס").
+- Do not add a number the solver needs that is not in the seed. Ask for the same quantity, so the seed's answer stays the answer. Keep the units. One question only.
+- Hint: points to the first step and never contains the answer.
+- Solution: 2-5 short steps in the words of your story. Every equation you write must be true. The last step ends with the seed's answer written in maths exactly as given, with its sign, for example "$= -6$", even when the story says it in words ("6 מעלות מתחת לאפס").
+- A seed marked [drawing] comes with a drawing the student sees: keep its wording exactly, set "kept" to true, and write only the hint and the solution.
+- If any other seed cannot be put in a story without changing it, keep its wording and set "kept" to true.`,
   exam: `Task: the student uploaded a practice exam they completed (photos of the pages, or a PDF). Check it like a careful teacher.
 For every question on the pages: transcribe the question, the student's final answer and the key line of their working; decide whether it is correct, partially correct, wrong, or not answered.
 If an answer key is provided, it is authoritative: compare the student's answer with it and never re-grade against your own solution. Without a key, solve each question yourself carefully and check your result before grading.
@@ -52,27 +61,54 @@ ${PERSONAL_RULE}
 If the final-answer policy in the app context is WITHHOLD, judge each step that leads to the result, but never write the final value in a comment or the summary, never say whether the final value is right, and set "final" to "unknown": the student types the answer in the app, which checks it. (The app does not show your mark on the line that states the final value.)`,
 };
 
-const GENERATE_SCHEMA = {
+// ---------------------------------------------------------------- generated exercises (ai spec AI-4)
+/** The rewrite's reply (Design 3): one exercise per seed, by the seed's index. Never an answer: the seed has the app's. */
+export const REWRITE_SCHEMA = Object.freeze({
   type: 'object',
   additionalProperties: false,
-  required: ['questions'],
+  required: ['items'],
   properties: {
-    questions: {
+    items: {
       type: 'array',
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['prompt', 'answer', 'hint', 'solution'],
+        required: ['seed', 'prompt', 'hint', 'solution', 'kept'],
         properties: {
-          prompt: { type: 'string', description: 'The exercise in Hebrew, math in $...$' },
-          answer: { type: 'string', description: 'The exact numeric answer: integer, decimal or a/b' },
-          hint: { type: 'string' },
-          solution: { type: 'array', items: { type: 'string' } },
+          seed: { type: 'integer', description: 'The index of the seed this exercise rewrites' },
+          prompt: { type: 'string', description: 'The new exercise in Hebrew, maths in $...$' },
+          hint: { type: 'string', description: 'Points to the first step; never contains the answer' },
+          solution: { type: 'array', items: { type: 'string' }, description: '2-5 short steps; the last ends with the answer' },
+          kept: { type: 'boolean', description: 'true if the seed could not be put in a new story and its wording was kept' },
         },
       },
     },
   },
-};
+});
+/** The rewrite on the main model (AI-6 table): medium effort; thinking counts toward the cap, so 8,000 leaves room. */
+export const REWRITE_EFFORT = 'medium';
+export const REWRITE_MAX_TOKENS = 8000;
+/** Seeds a request may carry: count 3 or 5, plus 2 spares (Design 2). */
+export const MAX_SEEDS = 8;
+
+/**
+ * The seeds of a generate request as the app sent them ({ i, text, answer, round, fig }): each with a whole index used
+ * once, a text and an answer; anything else is left out. Throws when none is left: an older app that sent no seeds is
+ * answered 400 bad_input and nothing is counted.
+ */
+export function seedsOf(input = {}) {
+  const seen = new Set();
+  const seeds = [];
+  for (const s of Array.isArray(input.seeds) ? input.seeds.slice(0, MAX_SEEDS) : []) {
+    if (!s || !Number.isInteger(s.i) || s.i < 0 || seen.has(s.i)) continue;
+    const text = clip(s.text, 600).trim(); const answer = clip(s.answer, 40).trim();
+    if (!text || !answer) continue;
+    seen.add(s.i);
+    seeds.push({ i: s.i, text, answer, round: s.round === true, fig: s.fig === true });
+  }
+  if (!seeds.length) throw new Error('generate needs the app\'s seeds');
+  return seeds;
+}
 
 // ---------------------------------------------------------------- the blind solve of generated exercises (AI-4)
 /** Appendix C.7: the blind solve's system text. It sees only the stories, never the seeds or their answers. */
@@ -369,15 +405,18 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
     return { ...base(model, CHAT_EFFORT, 4000), ...AUTO_CACHE, system: systemBlocks(kind, shape, appContext().text), messages: history };
   }
   if (kind === 'generate') {
-    const count = Math.min(Math.max(Number(input.count) || 5, 1), 8);
-    const head = [gradeLine(input.grade), input.topic && `Topic: ${clip(input.topic, 120)}`, input.level && `Level: ${clip(input.level, 120)}`].filter(Boolean).join('\n');
+    // the seeds are the app's exercises with the answers it computed (Design 1-3): the tutor rewrites their words only
+    const seeds = seedsOf(input);
+    const stair = input.stair || input.level;
+    const head = [gradeLine(input.grade), input.topic && `Topic: ${clip(input.topic, 120)}`, stair && `Stair: ${clip(stair, 120)}`].filter(Boolean).join('\n');
+    const lines = seeds.map((sd) => `${sd.i}. ${sd.text.replace(/\s+/g, ' ')} → ${sd.answer}${sd.fig ? ' [drawing]' : ''}`);
     return {
-      ...base(model, 'high', 16000),
+      ...base(model, REWRITE_EFFORT, REWRITE_MAX_TOKENS),
       system: systemBlocks(kind, shape),
-      output_config: { effort: 'high', format: { type: 'json_schema', schema: GENERATE_SCHEMA } },
+      output_config: { effort: REWRITE_EFFORT, format: { type: 'json_schema', schema: REWRITE_SCHEMA } },
       messages: [{
         role: 'user',
-        content: `${head}\n\nWrite ${count} new exercises for this topic and level.${input.examples ? `\nExamples of exercises at this level:\n${clip(input.examples, 1200)}` : ''}`,
+        content: `${head ? `${head}\n\n` : ''}Seeds:\n${lines.join('\n')}\n\nWrite ${seeds.length} exercises, one per seed.`,
       }],
     };
   }
@@ -444,9 +483,8 @@ export function readResult(kind, message) {
   if (kind === 'generate' || kind === 'check' || kind === 'exam') {
     let data;
     try { data = JSON.parse(text); } catch { const e = new Error('bad json'); e.code = 'bad_output'; throw e; }
-    if (kind === 'generate') {
-      data.questions = (data.questions || []).filter((q) => q && q.prompt && q.answer).slice(0, 8);
-    }
+    // the rewrite's exercises, as written: code decides which may be shown (generateVerified, shared/verify.js)
+    if (kind === 'generate') data.items = (Array.isArray(data.items) ? data.items : []).filter((it) => it && typeof it === 'object').slice(0, MAX_SEEDS * 2);
     if (kind === 'exam') {
       data.questions = (data.questions || []).filter((q) => q && q.prompt)
         .map((q) => ({ ...q, level: Number.isInteger(q.level) && q.level > 0 && q.level <= 12 ? q.level : 0 }));
@@ -459,6 +497,59 @@ export function readResult(kind, message) {
   // Worker gives the question back
   if (!said.trim()) { const e = new Error('empty text'); e.code = 'bad_output'; throw e; }
   return care ? { text: said, care: true } : { text: said };
+}
+
+/** The blind solve's reply → { answers: [{ seed, answer }] }. Throws on a refusal or a reply that is not that JSON. */
+export function readBlind(message) {
+  if (!message) throw new Error('empty response');
+  if (message.stop_reason === 'refusal') throw Object.assign(new Error('refusal'), { code: 'refusal' });
+  const text = (message.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+  let data;
+  try { data = JSON.parse(text); } catch { throw Object.assign(new Error('bad json'), { code: 'bad_output' }); }
+  if (!Array.isArray(data?.answers)) throw Object.assign(new Error('no answers'), { code: 'bad_output' });
+  return { answers: data.answers.filter((a) => a && Number.isInteger(a.seed)).map((a) => ({ seed: a.seed, answer: String(a.answer ?? '') })) };
+}
+
+/**
+ * Generated exercises, end to end (ai spec AI-4 Design 6): the one path the Worker, the personal-key mode and the
+ * evaluation all run, so they cannot drift apart.
+ *   1. the rewrite (the main model writes a story, a hint and a solution around each of the app's seeds);
+ *   2. the blind solve of the new stories on the low-cost model, which never sees a seed or an answer; an error or a
+ *      refusal is tried once more, and then the stories go on without it (blind 'skipped': code checks 1-4 still apply);
+ *   3. finishRewrite (shared/verify.js): the code checks; only what passes may be shown, in seed order.
+ * call(params) sends one request and resolves to the Claude message (it throws on an API error; the caller records what
+ * each message cost). An error, a refusal or unreadable JSON on the rewrite is thrown, with code 'refusal' or
+ * 'bad_output' where it has one. → { items, dropped, blind: 'ok' | 'skipped' | 'none', blindAnswers, messages, fallback }:
+ * blind 'none' when there was no new story to solve (every seed kept its wording), blindAnswers the blind solve's answers
+ * (null when it did not run), fallback true when no exercise passed.
+ */
+export async function generateVerified(call, input = {}, { model, blindModel } = {}) {
+  const seeds = seedsOf(input);
+  const messages = [];
+  const rewrite = await call(buildRequest('generate', input, { model }));
+  messages.push(rewrite);
+  const data = readResult('generate', rewrite);
+  // what the blind solve reads: the first exercise per seed of this request, as finishRewrite checks it; a story under a
+  // seed's drawing is dropped anyway (kept), so it is not sent
+  const bySeed = new Map(seeds.map((sd) => [sd.i, sd]));
+  const used = new Set();
+  const stories = data.items.filter((it) => {
+    if (!Number.isInteger(it.seed) || !bySeed.has(it.seed) || used.has(it.seed)) return false;
+    used.add(it.seed);
+    return !bySeed.get(it.seed).fig;
+  });
+  let blindParams = null;
+  try { blindParams = buildBlind(stories, { model: blindModel }); } catch { /* no new story: nothing to solve */ }
+  let blind = null;
+  for (let attempt = 1; blindParams && !blind && attempt <= 2; attempt += 1) {
+    try {
+      const m = await call(blindParams);
+      messages.push(m);
+      blind = readBlind(m);
+    } catch { /* an error or a refusal: once more, then without it */ }
+  }
+  const { items, dropped } = finishRewrite(seeds, data, blind);
+  return { items, dropped, blind: !blindParams ? 'none' : blind ? 'ok' : 'skipped', blindAnswers: blind?.answers ?? null, messages, fallback: items.length === 0 };
 }
 
 /** Exams and other long outputs are streamed so a long check never hits an HTTP timeout. */

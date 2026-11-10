@@ -2,7 +2,7 @@
 // (entitlement, sign-in by email code, family devices, class licences, checkout and payments, cancellation).
 // The owner works through scripts/owner.mjs; there is no HTTP admin.
 import Anthropic from '@anthropic-ai/sdk';
-import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare, answerGuard } from '../../shared/ai.js';
+import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare, answerGuard, generateVerified } from '../../shared/ai.js';
 import { streamGuard, guardResult, MASK_NOTE } from '../../shared/guard.js';
 import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import {
@@ -14,6 +14,7 @@ import { resolve, resolveCare, aiStatus, requireStudent, requireTeacher, paywall
 import { recordSafety } from './safety.js';
 import { recordSpend } from './spend.js';
 import { bumpQuality } from './quality.js';
+import { DROP_REASONS } from '../../shared/verify.js';
 import { emailReady } from './email.js';
 import {
   plansView, checkout, orderStatus, webhook, cancel, resume, portal, invoice, testPayPage, testPaySubmit, accountOverview, accountExport, deleteAccount,
@@ -336,6 +337,8 @@ async function handleAI(kind, req, env, ctx, cors) {
     return new Response(readable, { headers: { ...cors, ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 
+  if (kind === 'generate') return generateReply({ env, ctx, cors, headers, r, input, client, record, event, giveBackOnce, leftBack, screen });
+
   let message;
   const usage = usageTracker();
   try {
@@ -397,6 +400,51 @@ async function handleAI(kind, req, env, ctx, cors) {
   }
   return json(result, 200, cors, headers);
 }
+/**
+ * New exercises (ai spec AI-4 Design 6): the app's seeds are rewritten by the main model, the new stories are solved
+ * blind by the low-cost model (BLIND_MODEL, else FREE_MODEL), and code decides what may be shown (generateVerified,
+ * shared/ai.js; the same path the personal key and the evaluation run). Every message is priced as it comes, both on the
+ * caller's pool under 'generate'. Each drop reason is counted in ai_quality with how many stories it dropped, and a blind
+ * solve that failed twice as blind_skipped. When no story passed, the question is given back and the reply says so
+ * ({ items: [], dropped, fallback: true }): the app then shows its own exercises.
+ */
+async function generateReply({ env, ctx, cors, headers, r, input, client, record, event, giveBackOnce, leftBack, screen }) {
+  const call = async (params) => {
+    const message = await client.beta.messages.create(params);
+    ctx.waitUntil(record(message));
+    return message;
+  };
+  let out;
+  try {
+    out = await generateVerified(call, r.input ?? input, { model: r.params.model, blindModel: env.BLIND_MODEL || env.FREE_MODEL || LITE_MODEL });
+  } catch (e) {
+    const code = aiErrorCode(e);
+    if (code === 'refusal') event('refusal'); // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
+    console.error('ai', 'generate', code, e?.status, e?.message);
+    await giveBackOnce();
+    throw new HttpError(code === 'refusal' ? 422 : code === 'busy' ? 429 : 502, code, undefined, undefined, headers);
+  }
+  for (const reason of DROP_REASONS) bumpQuality(env, ctx, 'generate', `gen_${reason}`, out.dropped[reason] || 0);
+  if (out.blind === 'skipped') bumpQuality(env, ctx, 'generate', 'blind_skipped');
+  const result = { items: out.items, dropped: out.dropped, fallback: out.fallback };
+  if (out.fallback) {
+    bumpQuality(env, ctx, 'generate', 'gen_all_failed');
+    await giveBackOnce();
+    leftBack();
+    return json(result, 200, cors, headers);
+  }
+  // screened like every reply (trust spec TRUST-4 §4.2): exercises cannot be shown in part
+  const checkedOut = screenJson(result, { ...screen, care: false });
+  if (checkedOut.blocked) {
+    await giveBackOnce();
+    event('output_blocked');
+    leftBack();
+    throw new HttpError(502, 'bad_output', undefined, undefined, headers);
+  }
+  if (checkedOut.linksRemoved) event('link_removed');
+  return json(checkedOut.data, 200, cors, headers);
+}
+
 // ---------- a child reports an AI answer (trust spec TRUST-4 §4.5) ----------
 const REPORT_REASONS = Object.freeze(['wrong_math', 'not_nice', 'not_for_kids', 'other']);
 const REPORT_KINDS = Object.freeze(['chat', 'explain', 'check', 'exam', 'generate']);

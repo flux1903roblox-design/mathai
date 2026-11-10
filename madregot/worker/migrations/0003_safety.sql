@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS student_ai_off (student_id TEXT PRIMARY KEY, at TEXT 
 CREATE TABLE IF NOT EXISTS ai_quality (
   day TEXT NOT NULL,                                   -- YYYY-MM-DD Jerusalem
   kind TEXT NOT NULL CHECK (kind IN ('explain','chat','check','generate')),
-  reason TEXT NOT NULL CHECK (reason IN ('answer_masked','empty_stream','gen_latex','gen_numbers','gen_leak','gen_solution','gen_equations','gen_blind','gen_all_failed','blind_skipped')),
+  reason TEXT NOT NULL CHECK (reason IN ('answer_masked','empty_stream','gen_kept','gen_latex','gen_numbers','gen_leak','gen_solution','gen_equations','gen_blind','gen_all_failed','blind_skipped')),
   n INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (day, kind, reason)
 );

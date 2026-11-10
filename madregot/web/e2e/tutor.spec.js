@@ -228,3 +228,94 @@ test.describe('help from the tutor counts as help', () => {
     await shot('reveal', INTRO.shown, ['מה הטעות שלי?', ...STARTERS]);
   });
 });
+
+// ---------------------------------------------------------------- new exercises: code makes and grades them (ai spec AI-4)
+const SHOTS = process.env.SHOTS_DIR;
+test.describe('generated exercises', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+
+  test('generated exercises are graded by code', async ({ page }, info) => {
+    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.devices.push({ id: 'd1', label: 'הטאבלט', token: FAMILY }); st.plan = livePlan();
+    // stories for the first `count` seeds, in the seeds' own words; seed 0's story changes one of its numbers
+    st.genReply = (body) => ({
+      items: body.seeds.slice(0, body.count).map((sd) => {
+        const first = sd.text.match(/\d+/)[0];
+        const prompt = sd.i === 0 ? sd.text.replace(new RegExp(`(^|[^\\d])${first}(?!\\d)`, 'g'), `$1${Number(first) + 1000}`) : sd.text;
+        return { seed: sd.i, prompt, hint: 'מתחילים מהמספר הראשון.', solution: ['מחשבים לפי הסדר.', `התוצאה: $= ${sd.answer}$`], kept: false, blind: 'ok' };
+      }),
+      dropped: { kept: 0, latex: 0, numbers: 0, leak: 0, solution: 0, equations: 0, blind: 0 },
+      fallback: false,
+    });
+    await open(page, '#/assistant?generate=signed&level=1', family());
+    const sheet = page.getByRole('dialog', { name: 'תרגילים חדשים' });
+    await expect(sheet.getByText('את המספרים ואת התשובות קובעת האפליקציה', { exact: false })).toBeVisible();
+    const before = (await saved(page)).learn?.skills?.['signed:1']?.attempts?.length || 0;
+    await sheet.getByRole('button', { name: 'כתיבת תרגילים' }).click();
+    const body = await bodyOf(log, '/api/ai/generate');
+    // the request carries the app's exercises and its answers (count + 2), and nothing the AI is to invent
+    expect(body).toMatchObject({ grade: '7', skill: 'signed:1', count: 3 });
+    expect(body.seeds).toHaveLength(5);
+    for (const sd of body.seeds) expect(Object.keys(sd).sort()).toEqual(['answer', 'fig', 'i', 'round', 'text']);
+    expect(body.examples).toBeUndefined();
+
+    // three exercises: the two stories that pass, then seed 0 from the app's bank
+    const items = sheet.locator('.gen-q');
+    await expect(items).toHaveCount(3);
+    await expect(sheet.getByText('העוזר כתב את הסיפורים, הרמזים והפתרונות. האפליקציה קבעה את המספרים ובדקה כל תשובה.')).toBeVisible();
+    await expect(sheet.getByText('חלק מהסיפורים לא עברו את הבדיקה, אז השלמנו בתרגילים מהמאגר.')).toBeVisible();
+    await expect(items.nth(2).locator('.gen-src')).toHaveText('מהמאגר');
+    await expect(items.locator('.gen-src')).toHaveCount(1);
+    const seeds = await page.evaluate(() => window.__madregotGen.map((s) => ({ key: s.key, answer: s.answer })));
+    expect(seeds.map((s) => s.key)).toHaveLength(3);
+    expect(body.seeds[0].answer).toBe(String((await page.evaluate(() => window.__madregotGen[2].answer))));
+
+    // a wrong answer the app diagnoses as subtracting a negative like a positive: on another exercise than the right one
+    const pick = await page.evaluate(() => {
+      const list = window.__madregotGen;
+      for (let k = 0; k < list.length; k += 1) {
+        for (let u = -40; u <= 40; u += 1) {
+          const d = list[k].diagnosis?.(u);
+          if (d?.kind === 'misconception' && !d.ambiguous && d.candidates.length === 1 && d.candidates[0].id === 'minus-minus') return { k, u };
+        }
+      }
+      return null;
+    });
+    expect(pick, 'one of the exercises can show the minus-minus mistake').not.toBeNull();
+    const right = pick.k === 0 ? 1 : 0;
+    const answerIn = async (k, value) => {
+      await items.nth(k).getByLabel(`התשובה לתרגיל ${k + 1}`).fill(String(value));
+      await items.nth(k).getByRole('button', { name: 'בדיקה' }).click();
+    };
+    await answerIn(right, seeds[right].answer);
+    await expect(items.nth(right).getByText('נכון!')).toBeVisible();
+    await answerIn(pick.k, pick.u);
+    await expect(items.nth(pick.k).getByText('עוד לא.')).toBeVisible();
+    await expect(items.nth(pick.k).getByText('מה כנראה קרה: חיסור של מספר שלילי חושב כמו חיסור של חיובי.')).toBeVisible();
+    // the list as a student sees it: what the AI wrote and what the app checked, a right answer, a named mistake
+    await sheet.locator('.gen-note').scrollIntoViewIfNeeded();
+    await page.evaluate(() => document.fonts.ready);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/generated-graded-${info.project.name}.png` });
+    if (info.project.name === 'phone') await expect(page).toHaveScreenshot('generated-graded.png', { fullPage: false });
+    // the first answer of each counts as practice, the mistake included
+    await expect.poll(async () => (await saved(page)).learn?.skills?.['signed:1']?.attempts?.length || 0).toBe(before + 2);
+    const st2 = await saved(page);
+    const last = st2.learn.skills['signed:1'].attempts.slice(-2);
+    expect(last.map((a) => a.ok)).toEqual([true, false]);
+    expect(st2.mistakes['signed:minus-minus']).toBeGreaterThanOrEqual(1);
+    // a second wrong answer shows the app's answer and the checked solution
+    await answerIn(pick.k, pick.u + 100);
+    await expect(items.nth(pick.k).locator('.gen-shown')).toContainText(`התשובה: ${seeds[pick.k].answer}`);
+    await expect(items.nth(pick.k).locator('.gen-shown')).toContainText('מחשבים לפי הסדר.');
+    await expect.poll(async () => (await saved(page)).learn.skills['signed:1'].attempts.length).toBe(before + 2);
+    // opening the solution first locks the third exercise and records nothing
+    const third = [0, 1, 2].find((k) => k !== right && k !== pick.k);
+    await items.nth(third).getByText('פתרון ותשובה').click();
+    await expect(items.nth(third).getByText('הפתרון כבר פתוח, אז את התרגיל הזה לא בודקים. אפשר לנסות את הבא.')).toBeVisible();
+    await expect(items.nth(third).getByLabel(`התשובה לתרגיל ${third + 1}`)).toBeDisabled();
+    if (SHOTS) {
+      await items.nth(third).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `${SHOTS}/generated-locked-${info.project.name}.png` });
+    }
+  });
+});

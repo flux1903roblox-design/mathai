@@ -613,6 +613,19 @@ button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .ai-report-row { display: flex; justify-content: flex-end; margin-top: calc(-1 * var(--s1)); }
 .gen-note { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
 .gen-note p { margin: 0; }
+/* new exercises (ai spec AI-4): what the AI wrote and what the app checked, said once above the list; an exercise from
+   the app's own bank carries a quiet neutral label; the mistake the app names sits under "עוד לא." in ink */
+.gen-note { align-items: flex-start; }
+.gen-note-text { display: flex; flex-direction: column; gap: var(--s1); }
+.gen-src { display: inline-flex; align-items: center; min-height: 26px; padding: 2px 10px; border-radius: 999px; background: var(--ground); color: var(--ink-2); font-size: 14px; line-height: 20px; font-weight: 600; }
+.gen-q-text { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); min-width: 0; }
+.gen-q-fig { width: 100%; max-width: 360px; }
+.gen-unit { color: var(--ink-2); }
+.gen-q-result p { margin: 0; }
+.gen-q-result:empty { margin-top: calc(-1 * var(--s2)); }
+.gen-why { display: block; margin-top: 2px; color: var(--ink); font-weight: 400; }
+.gen-shown { display: flex; flex-direction: column; gap: var(--s1); }
+.gen-q .input:disabled { background: var(--ground); color: var(--ink-2); }
 .q-actions .q-report { margin-inline-start: auto; }
 .report-reasons { display: flex; flex-direction: column; gap: var(--s2); margin: 0; padding: 0; border: 0; }
 .report-reason { display: flex; align-items: center; gap: var(--s3); min-height: 52px; padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 14px; background: #fff; font-size: var(--t-base); line-height: var(--lh-base); cursor: pointer; }

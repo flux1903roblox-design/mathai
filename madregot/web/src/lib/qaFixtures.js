@@ -46,8 +46,11 @@ export function qaStatus() {
   return { status: S[s], ended: s === 'ended' };
 }
 
-/** A tutor answer in QA mode: a short canned reply, or the refusal the state implies. */
-export function qaReply(kind) {
+/**
+ * A tutor answer in QA mode: a short canned reply, or the refusal the state implies. New exercises echo the app's own
+ * seeds in their own wording (kept), so the screen shows its list, its checks and its grading with no server (AI-4).
+ */
+export function qaReply(kind, input = {}) {
   const s = qaAI();
   const fail = (error, extra = {}) => Object.assign(new Error(error), { qa: { error, ...extra } });
   if (s === 'free0') throw fail('daily_limit', { tier: 'free', group: 'tutor', limit: 2, left: 0 });
@@ -55,6 +58,14 @@ export function qaReply(kind) {
   if (s === 'shared') throw fail('shared_limit', { scope: 'network' });
   if (['free1', 'free2', 'ended'].includes(s) && !['explain', 'chat'].includes(kind)) throw fail('paid_only', { kind });
   if (s === 'economy' && !['explain', 'chat'].includes(kind)) throw fail('monthly_fair_use');
+  if (kind === 'generate') {
+    const seeds = Array.isArray(input.seeds) ? input.seeds : [];
+    const items = seeds.map((sd) => ({
+      seed: sd.i, prompt: sd.text, hint: '', kept: true, blind: 'skipped',
+      solution: ['במצב בדיקה אין שרת, אז זה התרגיל מהמאגר בלי סיפור חדש.', `התשובה: $= ${sd.answer}$`],
+    }));
+    return { items, dropped: {}, fallback: false };
+  }
   return { text: 'זו תשובה לדוגמה של העוזר החכם במצב בדיקה. בגרסה הזו אין שרת, אז שום שאלה לא נשלחה.' };
 }
 

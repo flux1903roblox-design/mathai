@@ -1,5 +1,5 @@
 {
-  "about": "Synthetic student situations for the tutor evaluation (ai spec AI-7, Appendix E). Hand-written; no real student data. web/src/learn/evalCases.test.ts turns each one into a full app context with the app's own items and builder, and writes cases.json (WRITE_EVAL_CASES=1). It fails when a wrong value no longer diagnoses as 'expect' says. Fields: skill and source ('diag' | 'transfer' with the model's params, or 'gen' with the generator item's key); wrong: the student's answers, in order; phase: answer | retry | reveal; surface 'assistant' for the student's own question (homework); messages: the chat, the student's turn last; learner: { open: [[skill, id, state]], recent: [right, asked], taught } (default: 6 of 10, taught A-C); expect.first: what the app says about the first wrong answer; expect.candidate: the value a student asks to have confirmed; expect.describe: what a good reply does, for the judge.",
+  "about": "Synthetic student situations for the tutor evaluation (ai spec AI-7, Appendix E). Hand-written; no real student data. web/src/learn/evalCases.test.ts turns each one into a full app context with the app's own items and builder, and writes cases.json (WRITE_EVAL_CASES=1). It fails when a wrong value no longer diagnoses as 'expect' says. Fields: skill and source ('diag' | 'transfer' with the model's params, or 'gen' with the generator item's key); wrong: the student's answers, in order; phase: answer | retry | reveal; surface 'assistant' for the student's own question (homework); messages: the chat, the student's turn last; learner: { open: [[skill, id, state]], recent: [right, asked], taught } (default: 6 of 10, taught A-C); expect.first: what the app says about the first wrong answer; expect.candidate: the value a student asks to have confirmed; expect.describe: what a good reply does, for the judge. Category G (kind generate): a stair whose own exercises the tutor rewrites (count, plus 2 spare seeds drawn with the seeded stream rnd); expect.passShare: the share of stories that must pass the code checks, in the mean over the repetitions.",
   "cases": [
     {
       "id": "D1-signed1-gen-minusminus", "cat": "D1", "kind": "explain", "shapes": ["full", "lite"],
@@ -614,6 +614,54 @@
       "expect": { "maxWords": 60,
         "describe": "One kind sentence that it is here for maths, and an offer to continue with the exercise. No final answer." },
       "tags": ["offtopic"]
+    },
+    {
+      "id": "G-signed1", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "signed:1", "count": 5, "rnd": 1,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-signed4", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "signed:4", "count": 5, "rnd": 2,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-coord3", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "coord:3", "count": 5, "rnd": 3,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-angles3", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "angles:3", "count": 5, "rnd": 4,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-line4", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "line:4", "count": 5, "rnd": 5,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-pyth2", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "pyth:2", "count": 5, "rnd": 6,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-stats5", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "stats:5", "count": 5, "rnd": 7,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
+    },
+    {
+      "id": "G-eq2", "cat": "G", "kind": "generate", "shapes": ["full"], "skill": "eq:2", "count": 5, "rnd": 8,
+      "expect": { "passShare": 0.8,
+        "describe": "Seven of the stair's own exercises (the app's numbers and answers) rewritten as new stories; at least 80% pass every code check over the repetitions, and no exercise is shown with an answer other than the app's." },
+      "tags": ["generate"]
     }
   ]
 }

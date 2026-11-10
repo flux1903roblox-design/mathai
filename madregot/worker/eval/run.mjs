@@ -11,7 +11,9 @@
 // What production runs, the runner runs: buildRequest (shared/ai.js) builds every request, the SDK sends it with the
 // same params, and the reply goes through the Worker's final-answer guard before the judge reads it (graders.js
 // guardReply: a chat in pieces through streamGuard, an explain through guardResult, MASK_NOTE once). The only thing
-// changed on a request is effort, and only on the sweep arms that measure the two open effort choices.
+// changed on a request is effort, and only on the sweep arms that measure the two open effort choices. A generate row
+// (category G) runs generateVerified (shared/ai.js), the Worker's own path: the rewrite on the paid model, the blind solve
+// on the low-cost model, and the code checks; it is graded in code only (no judge).
 //
 // Infrastructure failures (the API after its retries, a timeout, a model other than the one asked for, a judge that
 // gave no verdict, a grader that threw) go to errors.jsonl and are never counted as fails. --publish refuses a run with
@@ -20,10 +22,10 @@ import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, cop
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import Anthropic, { APIConnectionError, APIUserAbortError } from '@anthropic-ai/sdk';
-import { buildRequest, splitCare, DEFAULT_MODEL, LITE_MODEL, LITE_EFFORT, CHAT_EFFORT } from '../../shared/ai.js';
+import { buildRequest, splitCare, generateVerified, BLIND_SYSTEM, DEFAULT_MODEL, LITE_MODEL, LITE_EFFORT, CHAT_EFFORT } from '../../shared/ai.js';
 import { answerForms, findLeaks } from '../../shared/guard.js';
 import { priceOf, priceFor } from '../src/spend.js';
-import { gradeRow, guardReply, SHAPE_WORDS } from './graders.js';
+import { gradeRow, gradeGenerate, guardReply, SHAPE_WORDS } from './graders.js';
 import { JUDGE_MODEL, buildJudge, readJudge, stubVerdict } from './judge.js';
 
 export const EVAL_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -155,12 +157,13 @@ export function planArms(opts) {
   return arms;
 }
 
-const RUNNABLE = ['explain', 'chat'];
+const RUNNABLE = ['explain', 'chat', 'generate'];
 const picked = (only, c) => !only?.length || only.includes(c.cat) || only.includes(c.id);
 
 /**
- * Every row of a run, in the order they start: arm by arm, repetition by repetition, the chats first and then the
- * explains (so the first explains of an arm show whether a block another kind wrote is read from the cache).
+ * Every row of a run, in the order they start: arm by arm, repetition by repetition, the chats first, then the
+ * explains (so the first explains of an arm show whether a block another kind wrote is read from the cache), then the
+ * generate pipelines.
  */
 export function planRows(cases, opts) {
   const o = resolveOptions(opts);
@@ -169,7 +172,7 @@ export function planRows(cases, opts) {
   const rows = [];
   for (const arm of planArms(o)) {
     const mine = chosen.filter((c) => c.shapes.includes(arm.shape) && (!arm.cats || arm.cats.includes(c.cat)) && (!arm.kinds || arm.kinds.includes(c.kind)));
-    const ordered = [...mine.filter((c) => c.kind === 'chat'), ...mine.filter((c) => c.kind !== 'chat')];
+    const ordered = ['chat', 'explain', 'generate'].flatMap((k) => mine.filter((c) => c.kind === k));
     for (let rep = 1; rep <= o.reps; rep += 1) for (const c of ordered) rows.push({ case: c, arm, rep });
   }
   return rows;
@@ -178,7 +181,7 @@ export function planRows(cases, opts) {
 /** The request of a row: production's own, with the arm's effort for the row's kind (unchanged when the arm sets none). */
 export function requestFor(row) {
   const { case: c, arm } = row;
-  const input = c.kind === 'chat' ? { ctx: c.ctx, messages: c.messages } : { ctx: c.ctx };
+  const input = c.kind === 'generate' ? c.input : c.kind === 'chat' ? { ctx: c.ctx, messages: c.messages } : { ctx: c.ctx };
   const params = buildRequest(c.kind, input, { model: arm.model, shape: arm.shape });
   const effort = arm.effort?.[c.kind];
   if (effort) params.output_config = { ...params.output_config, effort };
@@ -196,6 +199,10 @@ export const CALL_TOKENS = Object.freeze({
   tutor: Object.freeze({ cacheRead: 3500, input: 1800, output: 800 }),
   tutorLowCost: Object.freeze({ cacheRead: 3500, input: 1800, output: 2200 }),
   judge: Object.freeze({ input: 3500, output: 300 }),
+  // a generate pipeline: the rewrite of 7 seeds (stories, hints and solutions, with thinking at medium) and the blind
+  // solve of the stories on the low-cost model at high
+  rewrite: Object.freeze({ cacheRead: 3500, input: 1500, output: 3000 }),
+  blind: Object.freeze({ input: 600, output: 2500 }),
 });
 const usdOf = (model, t) => {
   const p = priceFor(model);
@@ -212,8 +219,14 @@ function estimateOnly(cases, o) {
     const e = calls.get(k) || { model, role, n: 0, each: usdOf(model, profile) };
     e.n += 1; calls.set(k, e);
   };
-  const perRep = { full: 0, lowCost: 0, sweepLowCost: 0, sweepChat: 0 };
+  const perRep = { full: 0, lowCost: 0, generate: 0, sweepLowCost: 0, sweepChat: 0 };
   for (const r of rows) {
+    if (r.case.kind === 'generate') {
+      count(r.arm.model, 'rewrite', CALL_TOKENS.rewrite);
+      count(o.modelLite, 'blind solve', CALL_TOKENS.blind);
+      if (r.rep === 1) perRep.generate += 1;
+      continue;
+    }
     count(r.arm.model, 'tutor', r.arm.shape === 'full' ? CALL_TOKENS.tutor : CALL_TOKENS.tutorLowCost);
     if (o.judge !== 'none') count(o.judge, 'judge', CALL_TOKENS.judge);
     if (r.rep !== 1) continue;
@@ -221,7 +234,8 @@ function estimateOnly(cases, o) {
     else perRep[r.arm.sweep === 'chat' ? 'sweepChat' : 'sweepLowCost'] += 1;
   }
   const usd = [...calls.values()].reduce((s, e) => s + e.n * e.each, 0);
-  const byRole = [...calls.values()].sort((a, b) => (a.role === b.role ? 0 : a.role === 'tutor' ? -1 : 1));
+  const ROLE = ['tutor', 'rewrite', 'blind solve', 'judge'];
+  const byRole = [...calls.values()].sort((a, b) => ROLE.indexOf(a.role) - ROLE.indexOf(b.role));
   return { rows: rows.length, perRep, calls: byRole, usd };
 }
 
@@ -238,7 +252,7 @@ export function estimateRun(cases, opts = {}) {
     ? `; sweep: +${e.perRep.sweepLowCost} low-cost and +${e.perRep.sweepChat} paid-chat rows, × ${o.reps}` : '';
   const width = Math.max(...e.calls.map((c) => `${c.model} (${c.role}):`.length), 10);
   const text = [
-    `Rows: ${e.perRep.full} paid + ${e.perRep.lowCost} low-cost, × ${o.reps} repetition${o.reps > 1 ? 's' : ''}${sweep}.`,
+    `Rows: ${e.perRep.full} paid + ${e.perRep.lowCost} low-cost${e.perRep.generate ? ` + ${e.perRep.generate} generate pipelines` : ''}, × ${o.reps} repetition${o.reps > 1 ? 's' : ''}${sweep}.`,
     ...e.calls.map((c) => `${`${c.model} (${c.role}):`.padEnd(width)} ${String(c.n).padStart(4)} calls × ~${perCall(c.each)} ≈ ${money(c.n * c.each)}`),
     `Expected ≈ ${money(e.usd)} (range ${money(e.usd * 0.7)}-${money(e.usd * 1.4)}). Hard stop at --budget-usd ${o.budgetUsd}.`,
     ...(quick.length ? [`Quick options: ${quick.join(' · ')}`] : []),
@@ -281,6 +295,27 @@ export function genericReply(c) {
 /** The null baseline (--stub leaky): the final answer stated, and another mistake of the stair named. */
 export const leakyReply = (c) => `התשובה היא ${c.expect.answer}. מה שקרה כאן: ${c.expect.others?.[0]?.label ?? 'טעות בחישוב'}.`;
 
+/**
+ * The stub's two answers in a generate pipeline. fixtures: every seed comes back in its own words (a drawn one kept,
+ * the others as new "stories"), its solution ending at the seed's answer, and the blind solve gives each seed's answer;
+ * so every story passes. leaky: every story loses the seed's numbers, so the code drops it.
+ */
+export function stubGenerate(stub, c, params) {
+  const seeds = c.input.seeds;
+  if (params.system === BLIND_SYSTEM) {
+    const asked = [...String(params.messages?.[0]?.content ?? '').matchAll(/^(\d+)\. /gm)].map((m) => Number(m[1]));
+    return JSON.stringify({ answers: asked.map((i) => ({ seed: i, answer: seeds.find((sd) => sd.i === i)?.answer ?? 'unclear' })) });
+  }
+  const items = seeds.map((sd) => ({
+    seed: sd.i,
+    prompt: stub === 'leaky' && !sd.fig ? 'סיפור חדש בלי המספרים של התרגיל.' : sd.text,
+    hint: 'מתחילים מהצעד הראשון.',
+    solution: ['מחשבים לפי הסדר.', `התוצאה: $= ${sd.answer}$`],
+    kept: sd.fig,
+  }));
+  return JSON.stringify({ items });
+}
+
 /** The stub's reply to a case: its reference, else the generic reply; under leaky, the leaky reply wherever there is an answer. */
 export function stubReply(stub, c, reference) {
   if (stub === 'leaky' && c.expect?.answer != null) return leakyReply(c);
@@ -289,7 +324,7 @@ export function stubReply(stub, c, reference) {
 
 const ZERO_USAGE = Object.freeze({ input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 });
 /** A client that answers like the SDK, with fixed text and no usage: the stub goes through the same call path. */
-const fixedClient = (text) => ({
+const fixedClient = (text) => ({ // text(params) → the reply's text
   beta: { messages: { create: async (params) => ({ id: 'msg_stub', type: 'message', role: 'assistant', model: params.model, stop_reason: 'end_turn', content: [{ type: 'text', text: text(params) }], usage: { ...ZERO_USAGE } }) } },
 });
 
@@ -355,6 +390,7 @@ const usd = (message) => priceOf(message).nano / 1e9;
  * judge null, and the judge's failure is an error.
  */
 async function runRow(row, env) {
+  if (row.case.kind === 'generate') return runGenerate(row, env);
   const { case: c, arm, rep } = row;
   const where = { case: c.id, cat: c.cat, arm: arm.id, shape: arm.shape, rep, kind: c.kind };
   const errors = [];
@@ -427,6 +463,60 @@ async function runRow(row, env) {
   };
 }
 
+/**
+ * One generate pipeline: generateVerified with every call through callModel (retries, the ceiling, the served-model
+ * check), graded in code. The rewrite failing is an error with no row, except a refusal (its own metric) and a reply
+ * that is not the asked JSON (a row whose stories all count as dropped). A blind solve that failed is what production
+ * does too (the stories go on with code checks 1-4): the row is kept, and the failure is an error, so the run cannot be
+ * published until it ran clean.
+ */
+async function runGenerate(row, env) {
+  const { case: c, arm, rep } = row;
+  const where = { case: c.id, cat: c.cat, arm: arm.id, shape: arm.shape, rep, kind: c.kind };
+  const errors = []; const sent = [];
+  let attempts = 0; let failed = null;
+  const startedAt = Date.now() - env.t0;
+  const call = async (params) => {
+    try {
+      const r = await callModel(env.tutorClient(row), params, env.call);
+      attempts += r.attempts;
+      sent.push({ params, message: r.message });
+      const served = servedCheck(r.message, params.model);
+      if (!served.ok) throw callError('model', `asked for ${params.model}, served ${r.message?.model}`, r.attempts);
+      return r.message;
+    } catch (e) {
+      if (e.class) { failed = e; errors.push({ class: e.class, ...where, model: params.model, message: e.message, attempts: e.attempts }); }
+      throw e;
+    }
+  };
+  const spentOf = () => sent.reduce((t, x) => t + usd(x.message), 0);
+  let out = null; let status = 'ok';
+  try {
+    out = await generateVerified(call, c.input, { model: arm.model, blindModel: env.blindModel });
+  } catch (e) {
+    if (e.code === 'refusal') status = 'refusal';
+    else if (e.code === 'bad_output') status = 'bad_output';
+    else return { errors: errors.length ? errors : [{ class: 'api', ...where, model: arm.model, message: String(e?.message || e), attempts }], spent: spentOf(), fatal: [401, 403].includes(Number(failed?.status)) };
+  }
+  const rewrite = sent[0]?.message;
+  const blind = sent.slice(1).at(-1)?.message ?? null;
+  const g = status === 'refusal' ? { grades: {}, errors: [] } : gradeGenerate(c, out ?? { items: [], dropped: {}, blindAnswers: null });
+  errors.push(...g.errors.map((er) => ({ ...er, arm: arm.id, rep })));
+  const costUsd = spentOf();
+  return {
+    result: {
+      ...where, model: arm.model, served: rewrite?.model ?? null, effort: sent[0]?.params.output_config?.effort, fallback: false, status,
+      stair: true, withhold: false, reply: rewrite ? textOf(rewrite) : '', guarded: '', masked: 0,
+      items: out?.items ?? [], dropped: out?.dropped ?? null, blind: out?.blind ?? null,
+      blindModel: blind?.model ?? null, blindUsage: blind?.usage ?? null,
+      grades: g.grades, judge: null, judgeModel: null, judgeUsage: null, judgeCostUsd: 0,
+      usage: rewrite?.usage ?? null, costUsd, latencyMs: Date.now() - env.t0 - startedAt, attempts, startedAt, endedAt: Date.now() - env.t0,
+    },
+    errors,
+    spent: costUsd,
+  };
+}
+
 // ---------------------------------------------------------------- the gate and the summary
 const yes = (v) => v === 'yes';
 const no = (v) => v === 'no';
@@ -451,6 +541,11 @@ export const GATE = Object.freeze([
   { id: 'pluralOnly', from: 'grade', full: 0.98, haiku: 0.95, say: { full: '≥ 98%', haiku: '≥ 95%' } },
   { id: 'words', from: 'grade', full: 0.95, haiku: 0.95, say: { full: '≥ 95%', haiku: '≥ 95%' } },
   { id: 'noClosingQuestion', from: 'grade', full: null, haiku: 0.95, say: { haiku: '≥ 95% (free taste)' } },
+  // the generate pipeline (category G): each stair's mean share of stories that pass, over its repetitions, must reach
+  // stairBar (so the metric's rate is the share of stairs that do, and the bar is all of them); and no exercise shown
+  // with an answer other than the app's
+  { id: 'passShare', from: 'stair', stairBar: 0.8, full: 1, haiku: null, say: { full: 'mean ≥ 80% on every stair (G)' } },
+  { id: 'shownWrong', from: 'grade', full: 1, haiku: null, say: { full: '0 (G)' } },
 ]);
 /** Reported per arm, not gated: the judge's calm, and the guard masking what the judge says was no answer (overMask). */
 const REPORTED = Object.freeze([
@@ -475,7 +570,24 @@ function verdictOf(m, r) {
   const v = r.judge?.[m.id];
   return v == null ? null : m.good(v);
 }
+function stairStat(m, rows) {
+  const byCase = new Map();
+  for (const r of rows) {
+    const share = r.status === 'refusal' ? null : r.grades?.passShare?.share;
+    if (share == null) continue;
+    byCase.set(r.case, [...(byCase.get(r.case) || []), share]);
+  }
+  let passes = 0; const failing = [];
+  for (const [id, shares] of byCase) {
+    const mean = shares.reduce((a, b) => a + b, 0) / shares.length;
+    if (mean >= m.stairBar - 1e-12) passes += 1; else failing.push(`${id} (mean ${pct(mean, 0)} over ${shares.length})`);
+  }
+  const n = byCase.size;
+  const [lo, hi] = wilson(passes, n);
+  return { n, passes, rate: n ? passes / n : null, failRate: n ? 1 - passes / n : null, lo, hi, failing };
+}
 function statOf(m, rows) {
+  if (m.from === 'stair') return stairStat(m, rows);
   let n = 0; let passes = 0; const failing = [];
   for (const r of rows) {
     const v = verdictOf(m, r);
@@ -613,6 +725,18 @@ export function summarize(results, errors, meta) {
   const errorsByClass = {};
   for (const e of errors) errorsByClass[e.class] = (errorsByClass[e.class] || 0) + 1;
   const overMask = statOf(REPORTED[1], results.filter((r) => !arms.find((a) => a.id === r.arm)?.sweep));
+  // per stair (category G): the mean share of stories that passed, every drop reason, and wrong answers shown (always 0)
+  const generate = {};
+  for (const r of results.filter((x) => x.kind === 'generate')) {
+    const e = generate[r.case] || (generate[r.case] = { rows: 0, shares: [], dropped: {}, shownWrong: 0, blindSkipped: 0, refusals: 0 });
+    e.rows += 1;
+    if (r.status === 'refusal') { e.refusals += 1; continue; }
+    if (r.grades?.passShare) e.shares.push(r.grades.passShare.share);
+    for (const [k, v] of Object.entries(r.dropped || {})) e.dropped[k] = (e.dropped[k] || 0) + v;
+    e.shownWrong += r.grades?.shownWrong?.n || 0;
+    if (r.blind === 'skipped') e.blindSkipped += 1;
+  }
+  for (const e of Object.values(generate)) { e.share = e.shares.length ? e.shares.reduce((a, b) => a + b, 0) / e.shares.length : null; delete e.shares; }
   return {
     version: 1,
     stamp: meta.stamp, startedAt: meta.startedAt, finishedAt: meta.finishedAt,
@@ -630,7 +754,7 @@ export function summarize(results, errors, meta) {
     cache: cacheOf(results),
     gate, recommendations, arms: armStats,
     overMask: { n: overMask.n, rate: overMask.n ? overMask.failRate : null, note: 'the guard masked something in a reply that, read before the guard, gave no final answer (the judge asked again about the raw reply); above 5% the guard\'s cues are too wide' },
-    disagreements, errorsByClass,
+    disagreements, errorsByClass, generate,
   };
 }
 
@@ -680,6 +804,18 @@ export function summaryMd(s) {
   L.push(`|---|${ids.map(() => '---').join('|')}|`);
   for (const [id, a] of Object.entries(s.arms)) L.push(`| ${id} | ${ids.map((k) => (a.metrics[k].n ? `${pct(a.metrics[k].rate, 0)} (${a.metrics[k].n})` : '—')).join(' | ')} |`);
   L.push('');
+  if (Object.keys(s.generate || {}).length) {
+    L.push('## Generated exercises (G)');
+    L.push('Per stair: the mean share of the seeds whose story passed every code check, why the others were dropped, and exercises shown with an answer other than the app\'s (always 0: the app\'s answer is the only one shown).');
+    L.push('');
+    L.push('| Stair | Runs | Passed | Dropped | Shown wrong | Blind solve skipped |');
+    L.push('|---|---|---|---|---|---|');
+    for (const [id, e] of Object.entries(s.generate)) {
+      const why = Object.entries(e.dropped).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${v}`).join(', ') || '—';
+      L.push(`| ${id} | ${e.rows}${e.refusals ? ` (${e.refusals} refused)` : ''} | ${pct(e.share, 0)} | ${why} | ${e.shownWrong} | ${e.blindSkipped} |`);
+    }
+    L.push('');
+  }
   L.push('## Cost and cache');
   for (const [m, e] of Object.entries(s.costByModel)) L.push(`- ${m}, tutor: ${e.calls} calls, ${money(e.usd)}`);
   for (const [m, e] of Object.entries(s.judgeByModel)) L.push(`- ${m}, judge: ${e.calls} calls, ${money(e.usd)}`);
@@ -724,7 +860,8 @@ export async function runEval(opts = {}) {
     t0: Date.now(),
     judge: o.judge === 'none' ? null : o.judge,
     call: { timeoutMs: opts.timeoutMs ?? CALL_TIMEOUT_MS, sleep: opts.sleep ?? sleepFor, delays: opts.delays ?? RETRY_DELAYS_MS },
-    tutorClient: (row) => real ?? fixedClient(() => stubReply(o.stub, row.case, refs.get(row.case.id))),
+    tutorClient: (row) => real ?? fixedClient((params) => (row.case.kind === 'generate' ? stubGenerate(o.stub, row.case, params) : stubReply(o.stub, row.case, refs.get(row.case.id)))),
+    blindModel: o.modelLite,
     judgeClient: (row, seen) => real ?? fixedClient(() => JSON.stringify(stubVerdict(row.case, seen, refs.get(row.case.id)))),
   };
   log(`Running ${rows.length} rows${o.stub ? ` on the "${o.stub}" stub (no model is called)` : ''}, ${o.concurrency} at a time. Writing to ${out}`);

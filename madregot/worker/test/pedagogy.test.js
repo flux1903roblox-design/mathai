@@ -19,7 +19,7 @@ const page = { data: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' 
 const INPUTS = {
   explain: { grade: '7', question: '3 - 8', correct: '-5', studentAnswer: '5' },
   chat: { messages: [{ role: 'user', content: 'איך מתחילים?' }], context: { grade: '7', question: '3 - 8', correct: '-5' } },
-  generate: { grade: '7', topic: 'מספרים מכוונים', level: 'חיבור וחיסור', count: 3 },
+  generate: { grade: '7', topic: 'מספרים מכוונים', stair: 'חיבור וחיסור', count: 3, seeds: [{ i: 0, text: 'חשבו: 3 - (-5)', answer: '8' }] },
   check: { grade: '8', image: page.data, question: '2x = 4' },
   exam: { grade: '8', pages: [page] },
 };

@@ -2,7 +2,7 @@
 // when linked to a family plan, its AI-only token: never the parent's session. A personal key (calling Claude from
 // this device) exists only in builds made with VITE_ALLOW_PERSONAL_KEY=1: the owner's own local testing, never a public
 // build (trust spec TRUST-4 §4.8).
-import { buildRequest, readResult, splitCare, STREAMED, answerGuard } from '@shared/ai.js';
+import { buildRequest, readResult, splitCare, STREAMED, answerGuard, generateVerified, LITE_MODEL } from '@shared/ai.js';
 import { streamGuard, guardResult, withMaskNote } from '@shared/guard.js';
 import { CARE_MARK, BLOCKED_TEXT } from '@shared/safety.js';
 import { useApp } from './store.js';
@@ -90,14 +90,24 @@ export async function runAI(kind, input, { onText, signal, onMadi, quiet = false
 
   if (qaActive()) {
     try {
-      const r = qaReply(kind);
-      onText?.(r.text);
+      const r = qaReply(kind, input);
+      if (r.text) onText?.(r.text);
       return r;
     } catch (e) { throw limited(kind, e.qa || { error: 'upstream' }, 429, onMadi, quiet); }
   }
 
   if (mode === 'personal') {
     const client = await personalClient();
+    // new exercises run the Worker's own path (ai spec AI-4): the rewrite, the blind solve, the code checks
+    if (kind === 'generate') {
+      try {
+        const out = await generateVerified((p) => client.beta.messages.create(p, { signal }), input, { blindModel: LITE_MODEL });
+        return withCare({ items: out.items, dropped: out.dropped, fallback: out.fallback });
+      } catch (e) {
+        if (e?.name === 'AbortError' || e?.constructor?.name === 'APIUserAbortError') throw e;
+        throw personalError(e);
+      }
+    }
     const params = buildRequest(kind, input);
     // the same final-answer guard as the Worker (ai spec AI-3 Design 3), so the owner's dev build behaves like production
     const guard = answerGuard(kind, input);

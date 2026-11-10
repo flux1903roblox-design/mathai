@@ -10,7 +10,7 @@
 import { answerForms, findLeaks, streamGuard, guardFor, guardResult, withMaskNote } from '../../shared/guard.js';
 import { normalizeContext } from '../../shared/tutorContext.js';
 import { TOPIC_WAYS, SINGULAR_RE } from '../../shared/pedagogy.js';
-import { checkEquations } from '../../shared/verify.js';
+import { checkEquations, parseAnswer } from '../../shared/verify.js';
 
 /** Words a reply may use per shape (the notes in shared/ai.js); a case's own maxWords applies in full. */
 export const SHAPE_WORDS = Object.freeze({ lite: 90, economy: 110 });
@@ -206,6 +206,51 @@ function overMask({ reply, case: c, guarded, judge }) {
 export const GRADERS = Object.freeze({
   hebrew, latex, words, pluralOnly, leakRaw, leakAfterGuard, noCandidateVerdict, bannedRule, noClosingQuestion, mathEquations, overMask,
 });
+
+// ---------------------------------------------------------------- the generate pipeline (category G)
+/** The value a solution step ends at: the right-hand side of the last "=" in its last $…$ run (read on its own here). */
+function stepEnd(step) {
+  const runs = String(step ?? '').match(/\$[^$]+\$/g);
+  if (!runs) return null;
+  const rhs = runs.at(-1).slice(1, -1).split('=').at(-1);
+  const v = parseAnswer(rhs);
+  return typeof v === 'number' ? v : null;
+}
+
+/**
+ * One generate pipeline (AI-7 Design 3, the generate grader): what generateVerified kept for the student, against the
+ * app's seeds. → { grades: { passShare, shownWrong }, errors }.
+ *   passShare   the share of the seeds whose story passed (pass: at least c.expect.passShare); the gate takes the mean
+ *               of each stair over its repetitions
+ *   shownWrong  exercises shown whose answer is not the app's: a solution that ends elsewhere, a blind solve that
+ *               disagreed, an exercise for a seed that was not asked. Always 0 by construction; asserted.
+ */
+export function gradeGenerate(c, { items = [], dropped = {}, blindAnswers = null } = {}) {
+  const errors = [];
+  const grades = {};
+  try {
+    const seeds = c.input.seeds;
+    const share = seeds.length ? items.length / seeds.length : 0;
+    const bar = c.expect?.passShare ?? 0.8;
+    const why = Object.entries(dropped).filter(([, n]) => n > 0).map(([k, n]) => `${k} ${n}`).join(', ') || 'none dropped';
+    grades.passShare = { pass: share >= bar, share, detail: `${items.length} of ${seeds.length} stories passed (${why})` };
+    const wrong = [];
+    for (const it of items) {
+      const seed = seeds.find((sd) => sd.i === it.seed);
+      const want = seed ? parseAnswer(seed.answer) : null;
+      const tol = (seed?.round ? 0.05 : 0.01) + 1e-9;
+      const end = stepEnd(it.solution?.at(-1));
+      const blind = it.blind === 'ok' ? parseAnswer(blindAnswers?.find((a) => a.seed === it.seed)?.answer) : null;
+      if (typeof want !== 'number') wrong.push(`${it.seed}: no such seed`);
+      else if (end == null || Math.abs(end - want) > tol) wrong.push(`${it.seed}: the solution ends at ${end}, the app's answer is ${want}`);
+      else if (it.blind === 'ok' && (typeof blind !== 'number' || Math.abs(blind - want) > tol)) wrong.push(`${it.seed}: the blind solve gave ${blind}`);
+    }
+    grades.shownWrong = { pass: wrong.length === 0, n: wrong.length, detail: wrong.length ? wrong.join('; ') : `${items.length} shown, every one at the app's answer` };
+  } catch (e) {
+    errors.push({ class: 'grader', case: c.id, shape: 'full', grader: 'generate', message: String(e?.message || e) });
+  }
+  return { grades, errors };
+}
 
 /**
  * Grade one reply: { guarded, masked, grades: { name: { pass, detail } }, errors: [{ class: 'grader', case, shape, grader,

@@ -7,23 +7,26 @@ import { dayOf } from './util.js';
 export const QUALITY_KINDS = Object.freeze(['explain', 'chat', 'check', 'generate']);
 export const QUALITY_REASONS = Object.freeze([
   'answer_masked', 'empty_stream',
-  // generated exercises (AI-4): a story dropped by a code check, or a request where every story was dropped
-  'gen_latex', 'gen_numbers', 'gen_leak', 'gen_solution', 'gen_equations', 'gen_blind', 'gen_all_failed', 'blind_skipped',
+  // generated exercises (AI-4): stories dropped by a code check (one row per reason, n the stories; gen_kept: a story
+  // written under a seed's drawing, or a "kept" one that changed the wording), a request where every story was dropped,
+  // and a blind solve that failed twice
+  'gen_kept', 'gen_latex', 'gen_numbers', 'gen_leak', 'gen_solution', 'gen_equations', 'gen_blind', 'gen_all_failed', 'blind_skipped',
 ]);
-export const GEN_DROPPED = Object.freeze(['gen_latex', 'gen_numbers', 'gen_leak', 'gen_solution', 'gen_equations', 'gen_blind']);
+export const GEN_DROPPED = Object.freeze(['gen_kept', 'gen_latex', 'gen_numbers', 'gen_leak', 'gen_solution', 'gen_equations', 'gen_blind']);
 export const QUALITY_KEEP_DAYS = 400;
 
-const UPSERT = 'INSERT INTO ai_quality (day, kind, reason, n) VALUES (?, ?, ?, 1) ON CONFLICT (day, kind, reason) DO UPDATE SET n = n + 1';
+const UPSERT = 'INSERT INTO ai_quality (day, kind, reason, n) VALUES (?, ?, ?, ?) ON CONFLICT (day, kind, reason) DO UPDATE SET n = n + excluded.n';
 
 /**
- * Count one event. It is written after the reply (ctx.waitUntil) and never throws: a counter must never cost a child an
- * answer. An unknown kind or reason is not written.
+ * Count an event (n of them: the stories one request dropped for one reason). It is written after the reply
+ * (ctx.waitUntil) and never throws: a counter must never cost a child an answer. An unknown kind or reason, or an n that
+ * is not a whole number above 0, is not written.
  */
-export function bumpQuality(env, ctx, kind, reason) {
-  if (!QUALITY_KINDS.includes(kind) || !QUALITY_REASONS.includes(reason) || !env?.DB) return;
+export function bumpQuality(env, ctx, kind, reason, n = 1) {
+  if (!QUALITY_KINDS.includes(kind) || !QUALITY_REASONS.includes(reason) || !env?.DB || !Number.isInteger(n) || n < 1) return;
   try {
     const write = Promise.resolve()
-      .then(() => env.DB.prepare(UPSERT).bind(dayOf(), kind, reason).run())
+      .then(() => env.DB.prepare(UPSERT).bind(dayOf(), kind, reason, n).run())
       .catch((e) => console.error('quality', e?.message));
     if (typeof ctx?.waitUntil === 'function') ctx.waitUntil(write);
   } catch (e) {

@@ -127,6 +127,13 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (kind === 'chat') return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: { ...CORS, ...hdr }, body: 'כדי לחבר מספרים עם סימנים שונים, מחסרים ושמים את הסימן של הגדול.' });
       if (kind === 'explain') return reply(route, 200, { text: 'הסבר קצר מהעוזר.' }, hdr);
       if (kind === 'check') return reply(route, 200, { readable: true, final: 'correct', steps: [{ text: '3 + 4 = 7', ok: true }], summary: 'יפה.' }, hdr);
+      // new exercises (ai spec AI-4): the app's seeds come back in their own wording, each ending at the app's answer;
+      // a test can write its own stories (st.genReply(body) → { items, dropped, fallback })
+      if (kind === 'generate') {
+        const seeds = Array.isArray(body.seeds) ? body.seeds : [];
+        const echo = { items: seeds.map((sd) => ({ seed: sd.i, prompt: sd.text, hint: '', solution: [`התשובה: $= ${sd.answer}$`], kept: true, blind: 'skipped' })), dropped: {}, fallback: false };
+        return reply(route, 200, st.genReply ? st.genReply(body) : echo, hdr);
+      }
       return reply(route, 200, { questions: [{ prompt: '2+2', answer: '4', hint: 'חברו', solution: ['2+2=4'] }] }, hdr);
     }
     if (path === '/api/progress') return reply(route, 200, { ok: true });

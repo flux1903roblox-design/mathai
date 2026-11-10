@@ -4,12 +4,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   buildRequest, buildCare, readResult, splitCare, STREAMED, AI_KINDS, FREE_KINDS, MAX_EXAM_PAGES, CARE_NOTE, LITE_MODEL, LITE_NOTE,
-  ECONOMY_NOTE, LITE_EFFORT, LITE_MAX_TOKENS, ECONOMY_MAX_TOKENS, DEFAULT_MODEL, gradeLine, stableSystem,
+  ECONOMY_NOTE, LITE_EFFORT, LITE_MAX_TOKENS, ECONOMY_MAX_TOKENS, DEFAULT_MODEL, gradeLine, stableSystem, BLIND_SYSTEM, REWRITE_SCHEMA,
+  generateVerified, seedsOf,
 } from '../../shared/ai.js';
 import { normalizeContext, legacyToV2, renderContext, CTX_BUDGET, CTX_VERSION } from '../../shared/tutorContext.js';
 import { safetyPrompt } from '../../shared/safety.js';
 import {
-  systemText, setup, ai, rows, countOf, devOf, claudeReply, claudeMessage, signIn, accountId, insertSub, linkDevice, DEVICE,
+  systemText, setup, ai, rows, countOf, devOf, claudeReply, claudeMessage, signIn, accountId, insertSub, linkDevice, DEVICE, GEN_SEEDS,
+  claudeDown, one,
 } from './helpers.js';
 import { MASK_NOTE } from '../../shared/guard.js';
 import { bumpQuality } from '../src/quality.js';
@@ -22,7 +24,7 @@ test('every kind builds a request with the fallback beta, the cache mark on the 
   const inputs = {
     explain: { question: '3 - 8', correct: '-5', studentAnswer: '5' },
     chat: { question: '3 - 8', messages: [{ role: 'user', content: 'איך מתחילים?' }] },
-    generate: { topic: 'מספרים מכוונים', level: 'חיבור', count: 3 },
+    generate: { topic: 'מספרים מכוונים', stair: 'חיבור', count: 3, seeds: GEN_SEEDS },
     check: { image: page.data },
     exam: { pages: [page] },
   };
@@ -85,7 +87,7 @@ test('refusals and broken JSON surface as error codes', () => {
 const INPUTS = {
   explain: { question: '3 - 8', correct: '-5', studentAnswer: '5' },
   chat: { question: '3 - 8', messages: [{ role: 'user', content: 'איך מתחילים?' }] },
-  generate: { topic: 'מספרים מכוונים', level: 'חיבור', count: 3 },
+  generate: { topic: 'מספרים מכוונים', stair: 'חיבור', count: 3, seeds: GEN_SEEDS },
   check: { image: page.data },
   exam: { pages: [page] },
 };
@@ -364,8 +366,9 @@ test('chat carries only the student\'s own words: the context never enters the m
 
 test('exam and generate keep their user turns: the grade line first, as before', () => {
   assert.equal(gradeLine('8'), 'Grade: 8 (ח׳)'); assert.equal(gradeLine('7'), 'Grade: 7 (ז׳)'); assert.equal(gradeLine(''), '');
-  assert.equal(buildRequest('generate', { grade: '7', topic: 'מספרים מכוונים', level: 'חיבור', count: 3, examples: '1+1' }).messages[0].content,
-    'Grade: 7 (ז׳)\nTopic: מספרים מכוונים\nLevel: חיבור\n\nWrite 3 new exercises for this topic and level.\nExamples of exercises at this level:\n1+1');
+  const seeds = [{ i: 0, text: 'חשבו: 3 - (-5)', answer: '8' }, { i: 1, text: 'בטבלה  2 → 5', answer: '-3/4', fig: true }];
+  assert.equal(buildRequest('generate', { grade: '7', topic: 'מספרים מכוונים', stair: 'חיבור', count: 3, seeds }).messages[0].content,
+    'Grade: 7 (ז׳)\nTopic: מספרים מכוונים\nStair: חיבור\n\nSeeds:\n0. חשבו: 3 - (-5) → 8\n1. בטבלה 2 → 5 → -3/4 [drawing]\n\nWrite 2 exercises, one per seed.');
   const exam = lastText(buildRequest('exam', { grade: '8', pages: [page], key: [{ prompt: 'מה השיפוע?', answer: '3' }] }));
   assert.equal(exam, 'Grade: 8 (ח׳)\n\nAnswer key (authoritative), in question order:\n1. מה השיפוע? → 3\n\nCheck my exam: 1 page(s) above.');
   assert.ok(lastText(buildRequest('exam', { pages: [page] })).startsWith('\n\nCheck my exam'), 'no grade, no line');
@@ -613,4 +616,129 @@ test('a quality counter never throws and never costs a reply: a broken database,
   bumpQuality(h.env, h.ctx, 'exam', 'answer_masked');
   await h.ctx.flush();
   assert.deepEqual(quality(), [], 'only the known kinds and reasons are written');
+});
+
+// ---------------------------------------------------------------- generated exercises (ai spec AI-4 Design 6)
+// GEN_SEEDS: 0 "3 - (-5)" → 8, 1 Tel Aviv 20 and Hermon -8 → 28, 2 "-8 - (-7)" → -1, 3 the lift from -2 up 7 → 5,
+// 4 "-12 + (-1)" → -13. Five stories: three faithful, one with a number changed, one the blind solve reads otherwise.
+const STORIES = [
+  { seed: 0, prompt: 'בבוקר היו $3$ מעלות, ובלילה הטמפרטורה ירדה ל־$-5$ מעלות. בכמה מעלות היה חם יותר בבוקר?', hint: 'ההפרש הוא החם פחות הקר.', solution: ['ההפרש: $3 - (-5)$.', 'חיסור של שלילי הוא חיבור: $3 + 5 = 8$.'], kept: false },
+  { seed: 1, prompt: 'באילת $20$ מעלות, ובפסגת החרמון $-9$ מעלות. בכמה מעלות חם יותר באילת?', hint: 'מהקר אל החם.', solution: ['$20 - (-8) = 28$'], kept: false },
+  { seed: 2, prompt: 'צוללת הייתה בעומק $-8$ מטרים, ואז שינתה את העומק ב־$-7$ מטרים. מה העומק עכשיו?', hint: 'חיסור של שלילי.', solution: ['$-8 - (-7) = -8 + 7$', 'ולכן $= -1$'], kept: false },
+  { seed: 3, prompt: 'רונית ירדה במעלית לחניון בקומה $-2$, ומשם עלתה $7$ קומות. באיזו קומה היא עכשיו?', hint: 'עלייה היא תזוזה למעלה.', solution: ['מתחילים ב־$-2$ ועולים $7$.', '$-2 + 7 = 5$'], kept: false },
+  { seed: 4, prompt: 'לדנה היה חוב של $12$ שקלים בבנק, והיא קנתה עוד מסטיק בהקפה ב־$1$ שקל. מה המצב בחשבון שלה?', hint: 'חוב ועוד חוב.', solution: ['חוב הוא מספר שלילי: $-12 + (-1)$.', 'אותו סימן: $12 + 1 = 13$, והסימן שלילי: $= -13$'], kept: false },
+];
+const BLIND = { 0: '8', 1: '29', 2: '-15', 3: '5', 4: '-13' };
+const isBlind = (p) => p.system === BLIND_SYSTEM;
+/** The two requests of generate: the rewrite answers `items`, the blind solve answers each story it was sent. */
+const genClaude = (items, { blind = BLIND, blindDown = false } = {}) => (p) => {
+  if (!isBlind(p)) return claudeReply(p, { text: JSON.stringify({ items }), usage: { input_tokens: 900, output_tokens: 1200 } });
+  if (blindDown) return claudeDown(500);
+  const asked = [...String(p.messages[0].content).matchAll(/^(\d+)\. /gm)].map((m) => Number(m[1]));
+  return claudeReply(p, { text: JSON.stringify({ answers: asked.map((seed) => ({ seed, answer: blind[seed] })) }), usage: { input_tokens: 300, output_tokens: 700 } });
+};
+async function genFamily() {
+  await signIn(h, 'gen@example.test');
+  const a = accountId(h.env, 'gen@example.test');
+  insertSub(h.env, { kind: 'family', account_id: a });
+  return { a, d: await linkDevice(h.env, a) };
+}
+const spendCalls = (pool) => one(h.env, 'SELECT calls FROM ai_spend WHERE pool = ? AND length(period) = 10', pool)?.calls ?? 0;
+
+test('generate: the rewrite, then the blind solve; 3 of 5 stories pass, each drop counted by its reason, both messages priced', async () => {
+  h = await setup({}, { claude: genClaude(STORIES) });
+  const { a, d } = await genFamily();
+  const r = await ai(h, 'generate', d.headers);
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  await h.ctx.flush();
+  assert.deepEqual(body.items.map((it) => it.seed), [0, 3, 4], 'the passing stories, in seed order');
+  assert.ok(body.items.every((it) => it.blind === 'ok' && it.kept === false));
+  assert.equal(body.items[0].prompt, STORIES[0].prompt);
+  assert.deepEqual(body.dropped, { kept: 0, latex: 0, numbers: 1, leak: 0, solution: 0, equations: 0, blind: 1 });
+  assert.equal(body.fallback, false);
+  // no number the model wrote is sent back as an answer: the reply has none
+  assert.ok(!JSON.stringify(body).includes('"answer"'));
+  // two requests: the rewrite on the main model, the blind solve on the low-cost one with the stories only
+  const [rewrite, blind] = h.net.log.claude;
+  assert.equal(h.net.log.claude.length, 2);
+  assert.equal(rewrite.model, 'claude-sonnet-5-5');
+  assert.deepEqual(rewrite.output_config, { effort: 'medium', format: { type: 'json_schema', schema: REWRITE_SCHEMA } });
+  assert.equal(rewrite.max_tokens, 8000);
+  assert.match(rewrite.messages[0].content, /Seeds:\n0\. חשבו: 3 - \(-5\) → 8\n/);
+  assert.equal(blind.model, 'claude-haiku-5-5');
+  assert.equal(blind.output_config.effort, 'high');
+  assert.ok(!blind.messages[0].content.includes('→'), 'the blind solve never sees a seed or an answer');
+  for (const v of ['28', '-13']) assert.ok(!blind.messages[0].content.includes(`→ ${v}`));
+  // both messages are priced on the family's pool and under generate
+  assert.equal(spendCalls(`fam:${a}`), 2);
+  assert.equal(one(h.env, "SELECT calls FROM ai_spend WHERE pool = 'kind:generate'").calls, 2);
+  assert.deepEqual(quality(), [{ kind: 'generate', reason: 'gen_blind', n: 1 }, { kind: 'generate', reason: 'gen_numbers', n: 1 }]);
+  assert.equal(countOf(h.env, `fam:${a}:generate`), 1, 'the request is counted');
+});
+
+test('generate: when every story fails, the question is given back and the reply says so: { items: [], fallback: true }', async () => {
+  // every story loses a number of its seed
+  const bad = GEN_SEEDS.map((sd) => ({ seed: sd.i, prompt: 'סיפור בלי המספרים של התרגיל.', hint: '', solution: [`$= ${sd.answer}$`], kept: false }));
+  h = await setup({}, { claude: genClaude(bad) });
+  const { a, d } = await genFamily();
+  const r = await ai(h, 'generate', d.headers);
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  await h.ctx.flush();
+  assert.deepEqual(body, { items: [], dropped: { kept: 0, latex: 0, numbers: 5, leak: 0, solution: 0, equations: 0, blind: 0 }, fallback: true });
+  assert.equal(countOf(h.env, `fam:${a}:generate`), 0, 'given back');
+  assert.equal(r.headers.get('X-AI-Left'), '5', 'the count on the screen says so');
+  assert.deepEqual(quality(), [{ kind: 'generate', reason: 'gen_all_failed', n: 1 }, { kind: 'generate', reason: 'gen_numbers', n: 5 }]);
+  assert.equal(spendCalls(`fam:${a}`), 2, 'what Claude did is still priced');
+});
+
+test('generate: a blind solve that fails twice leaves the stories to code checks 1-4 (blind skipped), counted once', async () => {
+  h = await setup({}, { claude: genClaude(STORIES, { blindDown: true }) });
+  const { a, d } = await genFamily();
+  const r = await ai(h, 'generate', d.headers);
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  await h.ctx.flush();
+  // the story the blind solve would have caught passes the code checks; the changed number is still dropped
+  assert.deepEqual(body.items.map((it) => [it.seed, it.blind]), [[0, 'skipped'], [2, 'skipped'], [3, 'skipped'], [4, 'skipped']]);
+  assert.equal(body.dropped.numbers, 1);
+  assert.equal(h.net.log.claude.filter(isBlind).length, 2, 'tried once more, then without it');
+  assert.deepEqual(quality(), [{ kind: 'generate', reason: 'blind_skipped', n: 1 }, { kind: 'generate', reason: 'gen_numbers', n: 1 }]);
+  assert.equal(spendCalls(`fam:${a}`), 1, 'only the rewrite came back to be priced');
+  assert.equal(countOf(h.env, `fam:${a}:generate`), 1);
+});
+
+test('generate: seeds that kept their wording need no blind solve; an app that sends no seeds is 400 and nothing is counted', async () => {
+  h = await setup();
+  const { a, d } = await genFamily();
+  const r = await ai(h, 'generate', d.headers);
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.deepEqual(body.items.map((it) => [it.seed, it.kept, it.blind]), GEN_SEEDS.map((sd) => [sd.i, true, 'skipped']));
+  assert.equal(h.net.log.claude.length, 1, 'nothing to solve blind');
+  const old = await ai(h, 'generate', d.headers, { body: { topic: 'מספרים מכוונים', level: 'חיבור', count: 3, examples: '1+1' } });
+  assert.equal(old.status, 400);
+  assert.equal((await old.json()).error, 'bad_input');
+  assert.equal(countOf(h.env, `fam:${a}:generate`), 1);
+  assert.equal(h.net.log.claude.length, 1);
+  assert.throws(() => seedsOf({ seeds: [{ i: 0, text: '', answer: '3' }, { i: 1.5, text: 'x', answer: '1' }] }), /seeds/);
+  assert.deepEqual(seedsOf({ seeds: [{ i: 2, text: ' a ', answer: '1' }, { i: 2, text: 'b', answer: '2' }] }), [{ i: 2, text: 'a', answer: '1', round: false, fig: false }]);
+});
+
+test('generateVerified: a refusal on the rewrite is thrown with its code; a blind refusal is tried once more', async () => {
+  const msg = (text, stop = 'end_turn') => ({ model: 'm', stop_reason: stop, content: [{ type: 'text', text }], usage: {} });
+  const input = { seeds: GEN_SEEDS, count: 3 };
+  await assert.rejects(generateVerified(async () => msg('', 'refusal'), input), (e) => e.code === 'refusal');
+  await assert.rejects(generateVerified(async () => msg('{oops'), input), (e) => e.code === 'bad_output');
+  let n = 0;
+  const out = await generateVerified(async (p) => {
+    n += 1;
+    if (!isBlind(p)) return msg(JSON.stringify({ items: STORIES }));
+    return n === 2 ? msg('', 'refusal') : msg(JSON.stringify({ answers: Object.entries(BLIND).map(([seed, answer]) => ({ seed: Number(seed), answer })) }));
+  }, input, { blindModel: 'claude-haiku-5-5' });
+  assert.equal(n, 3);
+  assert.equal(out.blind, 'ok');
+  assert.equal(out.messages.length, 3, 'every message that came back, to be priced');
+  assert.deepEqual(out.items.map((it) => it.seed), [0, 3, 4]);
 });
