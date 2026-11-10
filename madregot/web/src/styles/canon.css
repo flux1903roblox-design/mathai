@@ -379,3 +379,46 @@ a { color: var(--brand-d); }
 .manip-coach { gap: 0; }
 .t-group > .t-group-box, .t-group-warm > .t-group-box { background: #fff; border: 2px solid var(--rule); border-radius: 16px; padding: var(--s1) var(--s4); }
 .t-group .set-head { color: var(--ink); }
+
+/* ------------------------------------------------------------------ the tutor's subscription (round 18)
+   The same grammar as every other screen: one status card, a plain comparison table, the settings groups. The free
+   count is one quiet line, never a badge or a countdown: it informs a 13-year-old, it does not push. */
+.ai-left { margin: var(--s2) 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.ai-left-link { font-weight: 600; color: var(--brand-d); white-space: nowrap; }
+.chat-left { padding-inline: var(--s2); }
+
+.subscription { padding-bottom: var(--s10); }
+.subscription > .card, .subscription > .section, .subscription > .footnote, .subscription > .sub-note { margin-inline: var(--gutter); }
+.subscription > .card { margin-top: var(--s5); }
+.sub-status { display: grid; gap: var(--s2); }
+.sub-status .card-title { margin: 0; }
+.sub-status .muted { margin: 0; }
+.sub-status.is-paid { border-color: var(--brand-line); }
+.sub-meter { display: grid; gap: 6px; margin-top: var(--s2); }
+.sub-meter-row { display: flex; justify-content: space-between; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); font-weight: 600; }
+.sub-meter-bar { height: 10px; border-radius: 999px; background: var(--ground); overflow: hidden; }
+.sub-meter-bar i { display: block; height: 100%; border-radius: inherit; background: var(--brand); transition: width var(--duration-slow) var(--ease-smooth-out); }
+
+.sub-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 2px solid var(--rule); border-radius: var(--r-md); overflow: hidden; font-size: var(--t-sm); line-height: var(--lh-sm); }
+.sub-table th, .sub-table td { padding: 10px 12px; text-align: start; vertical-align: middle; }
+.sub-table thead th { background: var(--ground); font-weight: 700; color: var(--ink); }
+.sub-table tbody th { font-weight: 600; color: var(--ink); }
+.sub-table td { color: var(--ink-2); width: 28%; }
+.sub-table tbody tr + tr > * { border-top: 1px solid var(--rule); }
+.sub-table td:last-child { color: var(--ink); font-weight: 600; }
+.sub-yes { color: var(--good-ink); vertical-align: middle; }
+.sub-no { color: #9aa1ad; vertical-align: middle; }
+
+.sub-code { font-size: 24px; letter-spacing: 0.3em; text-align: center; }
+.sub-links { display: flex; flex-wrap: wrap; gap: var(--s2); justify-content: space-between; }
+.sub-note { margin-top: var(--s4); }
+.sub-privacy { margin-top: var(--s6); }
+
+/* a row that opens another screen: its name, then a chevron at the far end */
+a.set-row { justify-content: space-between; gap: var(--s3); color: var(--ink); text-decoration: none; }
+a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
+.paywall .confirm-text p + p { margin-top: var(--s2); }
+@media (prefers-reduced-motion: reduce) { .sub-meter-bar i { transition: none; } }
+.chat-tool-tag { margin-inline-start: 6px; padding: 0 8px; border-radius: 999px; background: var(--brand-tint); color: var(--brand-d); font-size: 13px; line-height: 22px; font-weight: 700; }
+.sub-table tbody th { width: 46%; }
+.sub-table td { width: 27%; }

@@ -9,13 +9,35 @@ compatibility_flags = ["nodejs_compat"]
 ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
 # Claude model for every AI action. Cheaper option: claude-haiku-5-5.
 CLAUDE_MODEL = "claude-opus-5-5"
-# AI actions per student per day, and per device for students practising alone.
+# The paid AI tutor. Subscribers (a family subscription, or a class with a class licence): AI_DAILY_LIMIT questions a
+# day per student or family, TEACHER_DAILY_LIMIT for a licensed teacher, on CLAUDE_MODEL, every AI action.
 AI_DAILY_LIMIT = "40"
-SOLO_DAILY_LIMIT = "20"
-# "false" turns off AI for students who are not in a class.
+TEACHER_DAILY_LIMIT = "200"
+# Everyone else gets a free taste: FREE_DAILY_LIMIT short questions a day (explain a mistake, chat) on FREE_MODEL, a
+# low-cost model, with short answers. FREE_IP_DAILY caps free questions per network address (a school shares one).
+FREE_DAILY_LIMIT = "2"
+FREE_MODEL = "claude-haiku-5-5"
+FREE_IP_DAILY = "80"
+# "false" turns off the free taste for people who are not in a class and not signed in.
 ALLOW_SOLO_AI = "true"
+# Payments: "manual" (the owner grants subscriptions with the admin endpoints; schools pay by invoice) or "generic"
+# (a hosted payment page + a signed webhook; see SUBSCRIPTION.md). Prices shown in the app, with VAT.
+BILLING_PROVIDER = "manual"
+PRICE_FAMILY_TEXT = ""
+# With "generic": the payment page for the family plan, and the relay that cancels at the payment company. Online
+# sign-up opens only when both are set, so an online cancel always stops the charges too.
+BILLING_FAMILY_URL = ""
+BILLING_CANCEL_URL = ""
+# Where schools and teachers ask for a class licence (shown in the app).
+CONTACT_EMAIL = ""
+# Sign-in codes are sent from this address through Resend (the domain must be verified there).
+EMAIL_FROM = ""
 
-# The secret ANTHROPIC_API_KEY is set with: npx wrangler secret put ANTHROPIC_API_KEY
+# Secrets (never in this file, never in the app), each set with: npx wrangler secret put <NAME>
+#   ANTHROPIC_API_KEY       the owner's Claude API key
+#   RESEND_API_KEY          sends the sign-in codes
+#   ADMIN_KEY               the owner's key for the admin endpoints (at least 24 characters)
+#   BILLING_WEBHOOK_SECRET  verifies payment notifications (only with BILLING_PROVIDER = "generic")
 
 # The same Worker serves the built web app (web/dist), so the app and its API share one address
 # (production builds call the API on their own address unless VITE_API_URL says otherwise).

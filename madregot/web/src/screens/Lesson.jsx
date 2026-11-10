@@ -11,6 +11,8 @@ import { manipSolution, manipWrong } from '@/content/manip.js';
 import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
+import { autoAskAllowed, gate } from '@/lib/account.js';
+import AIAllowance from '@/components/AIAllowance.jsx';
 import { api, syncNow } from '@/lib/api.js';
 import { play, buzz } from '@/lib/sound.js';
 import { Tex, MathText, Markdown, texText } from '@/components/MathText.jsx';
@@ -288,7 +290,8 @@ export default function Lesson() {
         commit(result.event);
         if (item.form !== 'mc') setStruck(true);
         // The second miss is the moment help matters most: ask the tutor without waiting to be asked.
-        if (aiReady() && !isTest(ns.kind)) setTimeout(() => askExplainFor(ns), 0);
+        // (only when that is not one of the few free questions: on the free taste the student chooses when to ask)
+        if (aiReady() && !isTest(ns.kind) && autoAskAllowed()) setTimeout(() => askExplainFor(ns), 0);
       }
       if (result.retry) { setStruck(true); setActive(names[0] || 'v'); if (item.form === 'mc') setChoice(null); if (result.event) st.noteLearn(result.event); }
     }
@@ -389,6 +392,7 @@ export default function Lesson() {
   }, [nbCheck.state]);
 
   const checkWork = async () => {
+    if (gate('check')) return;
     const image = nbRef.current?.toImage();
     if (!image) { setNbCheck({ state: 'error', message: 'כתבו קודם את הדרך במחברת.' }); return; }
     setNbCheck({ state: 'loading' });
@@ -560,6 +564,7 @@ export default function Lesson() {
                   {explain.state === 'done' && <Box tone="ai" title="העוזר"><Markdown>{explain.text}</Markdown></Box>}
                   {explain.state === 'error' && <p className="form-error" role="alert">{explain.text}</p>}
                   {explain.state === 'idle' && aiReady() && !isTest(s.kind) && <Button variant="ai" className="btn-sm" onClick={askExplain}><Sparkles size={16} aria-hidden="true" />למה טעיתי?</Button>}
+                  {explain.state === 'idle' && aiReady() && !isTest(s.kind) && <AIAllowance />}
                   {!isTest(s.kind) && <p className="fb-note">תרגיל דומה יחזור בסוף השיעור.</p>}
                   {!isTest(s.kind) && last?.cat && contentOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
                     <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>

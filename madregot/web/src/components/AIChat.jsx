@@ -3,6 +3,7 @@ import { Send } from 'lucide-react';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { Markdown } from './MathText.jsx';
 import { Thinking } from './ui.jsx';
+import AIAllowance from './AIAllowance.jsx';
 import Mascot from './Mascot.jsx';
 
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
@@ -76,6 +77,7 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
           </div>
         )}
         {error && <p className="form-error" role="alert">{error}</p>}
+        {!pending && <AIAllowance className="chat-left" />}
       </div>
       <div className="chat-dock-live" data-region="footer">
         {messages.length === 0 && (
@@ -85,7 +87,7 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
         )}
         {tools?.length > 0 && (
           <div className="chat-tools" role="group" aria-label="עוד דרכים לעזרה">
-            {tools.map(({ label, icon: Icon, onClick }) => <button key={label} type="button" className="chat-tool" onClick={onClick}><Icon size={18} aria-hidden="true" />{label}</button>)}
+            {tools.map(({ label, icon: Icon, onClick, tag }) => <button key={label} type="button" className="chat-tool" onClick={onClick}><Icon size={18} aria-hidden="true" />{label}{tag && <span className="chat-tool-tag">{tag}</span>}</button>)}
           </div>
         )}
         <form className="chat-input" onSubmit={(e) => { e.preventDefault(); send(); }}>

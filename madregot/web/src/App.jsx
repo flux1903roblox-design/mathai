@@ -3,7 +3,9 @@ import { createHashRouter, Navigate, Route, RouterProvider, Routes, ScrollRestor
 import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
-import { syncNow } from '@/lib/api.js';
+import { syncNow, hasServer } from '@/lib/api.js';
+import { refreshStatus } from '@/lib/account.js';
+import Paywall from '@/components/Paywall.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
 import Welcome from '@/screens/Welcome.jsx';
@@ -17,6 +19,7 @@ const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
 const Settings = lazy(() => import('@/screens/Settings.jsx'));
 const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
+const Subscription = lazy(() => import('@/screens/Subscription.jsx'));
 const Exams = lazy(() => import('@/screens/Exams.jsx'));
 const ExamCheck = lazy(() => import('@/screens/ExamCheck.jsx'));
 const ExamResult = lazy(() => import('@/screens/ExamResult.jsx'));
@@ -38,6 +41,17 @@ function useSync() {
     document.addEventListener('visibilitychange', onHide);
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', onHide); };
   }, [token]);
+}
+
+/** What the tutor allows on this device today (free taste, subscription or class licence), asked once on opening and
+ * again when the class or the account changes, so the app knows whether it may ask the tutor without being asked. */
+function useAIStatusBoot() {
+  const role = useApp((s) => s.profile?.role);
+  const token = useApp((s) => s.profile?.token);
+  const active = useApp((s) => s.profile?.active);
+  const account = useApp((s) => s.ai.account?.token);
+  const apiUrl = useApp((s) => s.ai.apiUrl);
+  useEffect(() => { if (role && hasServer()) refreshStatus(); }, [role, token, active, account, apiUrl]);
 }
 
 /**
@@ -67,9 +81,11 @@ function TeachRoute() {
 /** The app's screens. Rendered under a data router so a lesson can ask before the back button leaves it. */
 function Root() {
   const role = useApp((s) => s.profile?.role);
+  useAIStatusBoot();
   return (
     <>
       <Toasts />
+      {role && <Paywall />}
       {/* a new screen opens at the top; back restores where the student was */}
       <ScrollRestoration />
       <ErrorBoundary>
@@ -79,6 +95,7 @@ function Root() {
         {role === 'teacher' && (
           <>
             <Route path="/teacher/*" element={<Teacher />} />
+            <Route path="/subscription" element={<Subscription />} />
             <Route path="*" element={<Navigate to="/teacher" replace />} />
           </>
         )}
@@ -92,6 +109,7 @@ function Root() {
               <Route path="/assistant" element={<Assistant />} />
               <Route path="/me" element={<Me />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/subscription" element={<Subscription />} />
               <Route path="/exams" element={<Exams />} />
               <Route path="/exams/check" element={<ExamCheck />} />
               <Route path="/exams/new" element={<NewPracticeExam />} />

@@ -1,15 +1,17 @@
 // Settings, laid out like Duolingo's settings screen: a bar with the way back and the title, then grouped sections,
 // each a bordered group with a small heading (my details, class, the assistant, sound, deleting data).
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
+import { useAIStatus } from '@/lib/account.js';
+import { aiMode } from '@/lib/ai.js';
 
 function ClassSection() {
   const { profile, setProfile, leaveClass } = useApp();
@@ -128,6 +130,23 @@ function AISection() {
   );
 }
 
+/** The tutor's plan on this device, one row that opens the subscription screen (with a server only). */
+function PlanRow() {
+  const status = useAIStatus((x) => x.status);
+  useApp((x) => x.ai.mode); // a change of mode re-renders the row
+  if (!hasServer() || aiMode() !== 'server') return null;
+  const text = status?.tier === 'paid' ? (status.plan?.kind === 'family' ? 'המנוי המשפחתי פעיל' : 'העוזר כלול ברישיון של הכיתה')
+    : `${status?.offer?.daily?.free ?? 2} שאלות חינם ביום. פרטים על המנוי`;
+  return (
+    <section className="section set-group" aria-labelledby="plan-title">
+      <h2 id="plan-title" className="set-head">מנוי לעוזר</h2>
+      <div className="set-rows-wrap"><div className="set-rows">
+        <Link to="/subscription" className="set-row"><span>{text}</span><ChevronLeft size={18} aria-hidden="true" /></Link>
+      </div></div>
+    </section>
+  );
+}
+
 function SoundSetting() {
   const sound = useApp((x) => x.sound);
   const setSound = useApp((x) => x.setSound);
@@ -170,6 +189,7 @@ export default function Settings() {
       </section>
       <ClassSection />
       <AISection />
+      <PlanRow />
       <SoundSetting />
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="set-head">אזור מחיקה</h2>

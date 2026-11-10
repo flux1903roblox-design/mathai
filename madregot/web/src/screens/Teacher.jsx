@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
@@ -12,6 +12,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { EmptyState, ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { GradeSwitch } from './Welcome.jsx';
+import { useAIStatus } from '@/lib/account.js';
 
 const fmtDay = (iso) => {
   if (!iso) return 'אף פעם';
@@ -104,6 +105,25 @@ const Q_TONE = { correct: 'ok', partial: 'mid', wrong: 'bad', missing: 'bad' };
 const Q_LABEL = { correct: 'נכון', partial: 'נכון בחלקו', wrong: 'טעות', missing: 'לא נענה' };
 
 /** One small square per question, coloured by result; the skill shows on hover. */
+/** The tutor in this class: a licence and until when, or the free questions each student gets without one. */
+function Licence() {
+  const status = useAIStatus((x) => x.status);
+  if (!status) return null;
+  const paid = status.tier === 'paid';
+  const until = status.plan?.endsAt ? new Date(status.plan.endsAt).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jerusalem' }) : '';
+  return (
+    <section className="section set-group t-licence" aria-labelledby="t-lic">
+      <h2 id="t-lic" className="set-head">העוזר בכיתה</h2>
+      <div className="set-rows-wrap"><div className="set-rows">
+        <Link to="/subscription" className="set-row">
+          <span>{paid ? `לכיתה יש רישיון${until ? ` עד ${until}` : ''}` : `בלי רישיון: ${status.offer?.daily?.free ?? 2} שאלות חינם ביום לכל תלמיד`}</span>
+          <ChevronLeft size={18} aria-hidden="true" />
+        </Link>
+      </div></div>
+    </section>
+  );
+}
+
 function QuestionStrip({ questions = [] }) {
   const missed = questions.map((q, i) => (q.status === 'correct' ? null : i + 1)).filter(Boolean);
   return (
@@ -331,6 +351,7 @@ export default function Teacher() {
           </>
         )}
 
+        <Licence />
         <section className="section set-group t-out">
           <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmOut(true)}><LogOut size={18} aria-hidden="true" />יציאה מהלוח</button></div></div>
           <ConfirmSheet open={confirmOut} onOpenChange={setConfirmOut} title="לצאת מהלוח?" keep="להישאר בלוח" confirm="כן, לצאת" onConfirm={() => signOut()}>

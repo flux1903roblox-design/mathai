@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import { Camera, MessageCircle, Wand2, Check, X, ImageUp } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady, aiMode } from '@/lib/ai.js';
+import { gate, needsPlan, useAIStatus } from '@/lib/account.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
@@ -214,6 +215,8 @@ export default function Assistant() {
   const grade = useApp((s) => s.profile.grade) || '7';
   const profile = useApp((s) => s.profile);
   const ready = aiReady();
+  useAIStatus((x) => x.status); // the tools' "in the plan" mark follows what the server says
+  const open = (kind, name) => { if (!gate(kind)) setTool(name); };
   // A conversation (LAYOUT_SPEC B3): the bar with the title, מדי's messages, and the input docked at the bottom with
   // the starters and the two tools above it. One screen, one way in: no tabs.
   return (
@@ -227,7 +230,10 @@ export default function Assistant() {
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
           <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>
           <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."
-            tools={[{ label: 'בדיקת פתרון מצולם', icon: Camera, onClick: () => setTool('photo') }, { label: 'תרגילים חדשים', icon: Wand2, onClick: () => setTool('generate') }]} />
+            tools={[
+              { label: 'בדיקת פתרון מצולם', icon: Camera, onClick: () => open('check', 'photo'), tag: needsPlan('check') ? 'במנוי' : null },
+              { label: 'תרגילים חדשים', icon: Wand2, onClick: () => open('generate', 'generate'), tag: needsPlan('generate') ? 'במנוי' : null },
+            ]} />
         </section>
       )}
       {ready && (

@@ -76,3 +76,60 @@ CREATE TABLE IF NOT EXISTS exams (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS exams_student ON exams (student_id);
+
+-- ---------- the paid AI tutor (accounts, sign-in codes, subscriptions) ----------
+-- A parent or teacher account. The email address is the only personal data kept: it receives the sign-in code.
+CREATE TABLE IF NOT EXISTS accounts (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL,
+  last_seen TEXT
+);
+
+-- One pending 6-digit code per address, stored hashed with a salt; it expires and allows a few tries.
+CREATE TABLE IF NOT EXISTS login_codes (
+  email TEXT PRIMARY KEY,
+  code_hash TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  tries INTEGER NOT NULL DEFAULT 0,
+  sent_at TEXT NOT NULL
+);
+
+-- A signed-in device. Only the token's hash is kept; an account keeps its newest few devices.
+CREATE TABLE IF NOT EXISTS account_sessions (
+  token_hash TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_seen TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS account_sessions_account ON account_sessions (account_id);
+
+-- A family subscription (one parent account) or a class licence (one class code).
+-- status: active | past_due (the provider is retrying a payment) | canceled (stops renewing; runs to
+-- current_period_end) | ended. provider: manual (granted by the owner) or the payment provider's name.
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  account_id TEXT,
+  class_code TEXT,
+  status TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  provider_ref TEXT,
+  current_period_end TEXT NOT NULL,
+  cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  note TEXT
+);
+CREATE INDEX IF NOT EXISTS subscriptions_account ON subscriptions (account_id);
+CREATE INDEX IF NOT EXISTS subscriptions_class ON subscriptions (class_code);
+CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_provider_ref ON subscriptions (provider, provider_ref) WHERE provider_ref IS NOT NULL;
+
+-- Every payment-provider event applied, so a repeated webhook never applies twice.
+CREATE TABLE IF NOT EXISTS billing_events (
+  provider TEXT NOT NULL,
+  event_id TEXT NOT NULL,
+  received_at TEXT NOT NULL,
+  kind TEXT,
+  PRIMARY KEY (provider, event_id)
+);

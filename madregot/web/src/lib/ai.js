@@ -4,6 +4,7 @@
 import { buildRequest, readResult, STREAMED } from '@shared/ai.js';
 import { useApp } from './store.js';
 import { apiBase, ApiError, errorText } from './api.js';
+import { accountHeaders, noteUsage, openPaywall } from './account.js';
 
 export function aiMode() {
   const { ai, profile } = useApp.getState();
@@ -66,6 +67,7 @@ export async function runAI(kind, input, { onText, signal } = {}) {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(teacherCls ? { 'X-Class-Code': teacherCls.code, 'X-Teacher-Key': teacherCls.key } : {}),
+    ...accountHeaders(),
   };
   let res;
   try {
@@ -76,8 +78,11 @@ export async function runAI(kind, input, { onText, signal } = {}) {
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new ApiError(data.error || 'upstream', res.status);
+    // the free questions of today are used, or this action is part of the subscription: the app explains, calmly
+    if (data.error === 'paid_only' || (data.error === 'daily_limit' && data.tier === 'free')) openPaywall(data.error);
+    throw new ApiError(data.error || 'upstream', res.status, data);
   }
+  noteUsage(res);
   if (kind === 'chat' && onText && res.body) {
     const reader = res.body.getReader(); const dec = new TextDecoder(); let acc = '';
     for (;;) {

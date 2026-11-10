@@ -25,6 +25,22 @@ const MESSAGES = {
   not_signed_in: 'צריך להתחבר לכיתה מחדש. עברו למסך "אני".',
   not_teacher: 'קוד הכיתה או מפתח המורה לא נכונים.',
   daily_limit: 'הגעתם למכסה היומית של העוזר. אפשר לחזור מחר.',
+  paid_only: 'הפעולה הזו של העוזר כלולה במנוי.',
+  bad_email: 'כתובת המייל לא נראית תקינה. בדקו אותה ונסו שוב.',
+  bad_code: 'הקוד צריך להיות 6 ספרות.',
+  wrong_code: 'הקוד לא נכון. בדקו את המייל האחרון שקיבלתם.',
+  code_expired: 'הקוד כבר לא בתוקף. בקשו קוד חדש.',
+  too_many_tries: 'היו יותר מדי ניסיונות. בקשו קוד חדש בעוד דקה.',
+  wait_to_resend: 'קוד חדש אפשר לבקש בעוד דקה.',
+  too_many_codes: 'נשלחו היום הרבה קודים. נסו שוב מחר.',
+  email_not_configured: 'שליחת קודים במייל עוד לא הוגדרה בשרת.',
+  email_failed: 'לא הצלחנו לשלוח את המייל. נסו שוב בעוד רגע.',
+  checkout_not_configured: 'תשלום באתר עוד לא פתוח. אפשר לפנות אלינו במייל ונפעיל את המנוי.',
+  already_subscribed: 'יש לכם כבר מנוי פעיל.',
+  no_subscription: 'לא מצאנו מנוי פעיל בחשבון הזה.',
+  cancel_first: 'לפני מחיקת החשבון צריך לבטל את המנוי.',
+  cancel_failed: 'הביטול לא הושלם. נסו שוב, ואם זה חוזר, כתבו לנו.',
+  bad_plan: 'המסלול שנבחר לא קיים.',
   too_many_classes: 'נוצרו היום הרבה כיתות מהרשת הזו. אפשר ליצור כיתה נוספת מחר.',
   too_many_joins: 'היום היו הרבה הצטרפויות מהרשת הזו. נסו שוב מחר, או בקשו מהמורה עזרה.',
   too_many_pin: 'היו יותר מדי ניסיונות עם קוד אישי שגוי. המורה יכול לאפס את הקוד שלכם מלוח המורה.',
@@ -43,7 +59,7 @@ const MESSAGES = {
 export const errorText = (code) => MESSAGES[code] || 'משהו השתבש. נסו שוב.';
 
 export class ApiError extends Error {
-  constructor(code, status) { super(errorText(code)); this.code = code; this.status = status; }
+  constructor(code, status, data = {}) { super(errorText(code)); this.code = code; this.status = status; this.data = data; }
 }
 
 export async function api(path, { method = 'GET', body, headers = {}, signal } = {}) {
@@ -62,7 +78,7 @@ export async function api(path, { method = 'GET', body, headers = {}, signal } =
     throw new ApiError('network');
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(data.error || 'server_error', res.status);
+  if (!res.ok) throw new ApiError(data.error || 'server_error', res.status, data);
   return data;
 }
 

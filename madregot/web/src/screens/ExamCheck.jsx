@@ -11,6 +11,7 @@ import { MAX_EXAM_PAGES } from '@shared/ai.js';
 import { Button, Field, Thinking } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
+import { needsPlan, useAIStatus } from '@/lib/account.js';
 
 async function imageToJpeg(file) {
   const url = URL.createObjectURL(file);
@@ -101,6 +102,9 @@ export default function ExamCheck() {
   };
 
   const offline = !aiReady();
+  // on the free taste the exam check is part of the subscription: say so before any page is photographed
+  useAIStatus((x) => x.status);
+  const locked = !offline && needsPlan('exam');
   // A pushed screen (LAYOUT_SPEC E2): the bar with the way back, the pages, and ONE primary pinned at the bottom.
   return (
     <div className="page pushed exam-check">
@@ -116,6 +120,19 @@ export default function ExamCheck() {
               ? <Link to={`/exams/practice/${practice.id}`} className="btn btn-primary btn-block btn-lg" data-region="primary">חזרה למבחן ולמפתח התשובות</Link>
               : <Link to="/exams/new" className="btn btn-primary btn-block btn-lg" data-region="primary">הכנת מבחן תרגול</Link>}
             <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>
+          </ScreenFoot>
+        </>
+      ) : locked ? (
+        <>
+          <EmptyState mood="encouraging" title="בדיקת מבחן כלולה במנוי">
+            <p>בחינם העוזר מסביר טעויות ועונה בשיחה. בדיקה של מבחן מצולם כלולה במנוי המשפחתי או ברישיון של הכיתה.</p>
+            <p>{practice ? 'את מבחן התרגול הזה אפשר לבדוק מול מפתח התשובות שבדף המבחן.' : 'מבחן תרגול מודפס אפשר לבדוק מול מפתח התשובות שלו.'}</p>
+          </EmptyState>
+          <ScreenFoot>
+            {practice
+              ? <Link to={`/exams/practice/${practice.id}`} className="btn btn-primary btn-block btn-lg" data-region="primary">חזרה למבחן ולמפתח התשובות</Link>
+              : <Link to="/exams/new" className="btn btn-primary btn-block btn-lg" data-region="primary">הכנת מבחן תרגול</Link>}
+            <Link to="/subscription" className="foot-link">פרטים על המנוי, להורים</Link>
           </ScreenFoot>
         </>
       ) : state.phase === 'loading' ? (

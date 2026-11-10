@@ -1,11 +1,9 @@
-// Madregot API: Claude proxy (the key never reaches browsers) + class data in D1.
+// Madregot API: Claude proxy (the key never reaches browsers) + class data in D1 + the paid AI subscription.
 import Anthropic from '@anthropic-ai/sdk';
 import { AI_KINDS, STREAMED, TOPIC_IDS, buildRequest, readResult } from '../../shared/ai.js';
-
-const TZ = 'Asia/Jerusalem';
-const dayOf = (d = new Date()) => d.toLocaleDateString('en-CA', { timeZone: TZ });
-const nowIso = () => new Date().toISOString();
-const daysAgo = (n) => dayOf(new Date(Date.now() - n * 864e5));
+import { dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, spend, refund, usedToday as usedOf, clientIp } from './util.js';
+import { startLogin, verifyLogin, accountFrom, signOut, deleteAccount } from './account.js';
+import { entitlement, aiStatus, checkout, webhook, cancel, adminGrant, adminEnd, adminList, activeFamilySub } from './billing.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -15,29 +13,14 @@ function corsHeaders(req, env) {
   return {
     'Access-Control-Allow-Origin': ok ? origin : allowed[0] || '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Class-Code, X-Teacher-Key',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Class-Code, X-Teacher-Key, X-Account-Token, X-Device',
+    'Access-Control-Expose-Headers': 'X-AI-Tier, X-AI-Left',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
 }
-const json = (data, status, cors) => new Response(JSON.stringify(data), {
-  status, headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
-});
-class HttpError extends Error {
-  constructor(status, code, message) { super(message || code); this.status = status; this.code = code; }
-}
-async function body(req) {
-  try { return await req.json(); } catch { throw new HttpError(400, 'bad_json'); }
-}
 
 // ---------- secrets ----------
-const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
-async function sha256(text) {
-  return hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
-}
-function randomToken(bytes = 24) {
-  return hex(crypto.getRandomValues(new Uint8Array(bytes)));
-}
 async function hashPin(pin) {
   const salt = randomToken(8);
   return `${salt}:${await sha256(`${salt}:${pin}`)}`;
@@ -77,42 +60,34 @@ async function requireTeacher(req, env) {
   if (!cls || cls.teacher_key_hash !== (await sha256(key))) throw new HttpError(401, 'not_teacher');
   return cls;
 }
+/** Everyone this request speaks for: a class student, a teacher, a signed-in parent account (any may be null). */
+async function callerOf(req, env) {
+  const [student, account] = await Promise.all([studentFrom(req, env), accountFrom(req, env)]);
+  const teacher = req.headers.get('X-Teacher-Key') ? await requireTeacher(req, env) : null;
+  return { student, teacher, account };
+}
 
-// Daily counter per identity; returns false once the limit is reached.
 // Wrong personal-code attempts allowed per student per day; the teacher's reset clears the need.
 const PIN_TRIES = 10;
-
-async function spend(env, who, limit) {
-  const day = dayOf();
-  const row = await env.DB.prepare('SELECT count FROM ai_usage WHERE who = ? AND day = ?').bind(who, day).first();
-  if (row && row.count >= limit) return false;
-  await env.DB.prepare(
-    'INSERT INTO ai_usage (who, day, count) VALUES (?, ?, 1) ON CONFLICT (who, day) DO UPDATE SET count = count + 1',
-  ).bind(who, day).run();
-  return true;
-}
 
 // ---------- AI ----------
 async function handleAI(kind, req, env, ctx, cors) {
   if (!AI_KINDS.includes(kind)) throw new HttpError(404, 'not_found');
   if (!env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
   const input = await body(req);
-  const student = await studentFrom(req, env);
-  let who; let limit;
-  if (student) {
-    who = `s:${student.id}`; limit = Number(env.AI_DAILY_LIMIT) || 40;
-  } else {
-    let teacher = null;
-    if (req.headers.get('X-Teacher-Key')) teacher = await requireTeacher(req, env);
-    if (teacher) { who = `t:${teacher.code}`; limit = 200; } else {
-      if (String(env.ALLOW_SOLO_AI) === 'false') throw new HttpError(403, 'solo_ai_off');
-      who = `ip:${req.headers.get('CF-Connecting-IP') || 'unknown'}`; limit = Number(env.SOLO_DAILY_LIMIT) || 20;
-    }
+  const ent = await entitlement(req, env, await callerOf(req, env));
+  if (ent.tier === 'free') {
+    if (ent.anonymous && String(env.ALLOW_SOLO_AI) === 'false') throw new HttpError(403, 'solo_ai_off');
+    if (!ent.kinds.includes(kind)) throw new HttpError(402, 'paid_only', undefined, { tier: 'free' });
   }
-  if (!(await spend(env, who, limit))) throw new HttpError(429, 'daily_limit');
-
   let params;
-  try { params = buildRequest(kind, input, { model: env.CLAUDE_MODEL }); } catch (e) { throw new HttpError(400, 'bad_input', e.message); }
+  try { params = buildRequest(kind, input, { model: ent.model, lite: ent.tier === 'free' }); } catch (e) { throw new HttpError(400, 'bad_input', e.message); }
+  if (!(await spend(env, ent.who, ent.limit))) throw new HttpError(429, 'daily_limit', undefined, { tier: ent.tier, limit: ent.limit });
+  if (ent.ipKey && !(await spend(env, ent.ipKey, ent.ipLimit))) { await refund(env, ent.who); throw new HttpError(429, 'daily_limit', undefined, { tier: ent.tier, limit: ent.limit }); }
+  const left = Math.max(0, ent.limit - (await usedOf(env, ent.who)));
+  const tierHeaders = { 'X-AI-Tier': ent.tier, 'X-AI-Left': String(left) };
+  // a call that fails before Claude did any work gives the question back
+  const giveBack = async () => { await refund(env, ent.who); if (ent.ipKey) await refund(env, ent.ipKey); };
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, ...(env.ANTHROPIC_BASE_URL ? { baseURL: env.ANTHROPIC_BASE_URL } : {}) });
 
   if (kind === 'chat' && input.stream) {
@@ -129,22 +104,24 @@ async function handleAI(kind, req, env, ctx, cors) {
         if (final.stop_reason === 'refusal') await writer.write(enc.encode('\n[[refusal]]'));
       } catch (e) {
         console.error('chat stream', e?.status, e?.message);
+        await giveBack();
         await writer.write(enc.encode(`\n[[error:${aiErrorCode(e)}]]`));
       } finally {
         await writer.close();
       }
     })();
     ctx.waitUntil(pump);
-    return new Response(readable, { headers: { ...cors, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+    return new Response(readable, { headers: { ...cors, ...tierHeaders, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 
   try {
     // Long outputs (a whole exam) stream so the request never times out; we wait for the final message.
     const message = STREAMED(kind) ? await client.beta.messages.stream(params).finalMessage() : await client.beta.messages.create(params);
-    return json(readResult(kind, message), 200, cors);
+    return json(readResult(kind, message), 200, cors, tierHeaders);
   } catch (e) {
     if (e instanceof HttpError) throw e;
     const code = aiErrorCode(e);
+    if (code !== 'refusal') await giveBack();
     console.error('ai', kind, code, e?.status, e?.message);
     throw new HttpError(code === 'refusal' ? 422 : code === 'busy' ? 429 : 502, code);
   }
@@ -164,7 +141,7 @@ async function createClass(req, env, cors) {
   const name = cleanName(b.className); const teacherName = cleanName(b.teacherName);
   const grade = b.grade === '8' ? '8' : '7';
   if (!name || !teacherName) throw new HttpError(400, 'missing_fields');
-  if (!(await spend(env, `create:${req.headers.get('CF-Connecting-IP') || 'unknown'}`, 10))) throw new HttpError(429, 'too_many_classes');
+  if (!(await spend(env, `create:${clientIp(req)}`, 10))) throw new HttpError(429, 'too_many_classes');
   const teacherKey = randomToken(12);
   for (let i = 0; i < 5; i++) {
     const code = classCode();
@@ -189,7 +166,7 @@ async function joinClass(code, req, env, cors) {
   if (!name) throw new HttpError(400, 'missing_name');
   if (!/^\d{4}$/.test(pin)) throw new HttpError(400, 'bad_pin');
   // A whole school can share one address, so this cap is generous; PIN guessing is capped per student below.
-  if (!(await spend(env, `join:${req.headers.get('CF-Connecting-IP') || 'unknown'}`, 300))) throw new HttpError(429, 'too_many_joins');
+  if (!(await spend(env, `join:${clientIp(req)}`, 300))) throw new HttpError(429, 'too_many_joins');
   const cls = await env.DB.prepare('SELECT * FROM classes WHERE code = ?').bind(code.toUpperCase()).first();
   if (!cls) throw new HttpError(404, 'no_class');
   const token = randomToken();
@@ -354,8 +331,19 @@ export default {
     let m;
     try {
       if (req.method === 'GET' && p === '/api/health') {
-        return json({ ok: true, ai: !!env.ANTHROPIC_API_KEY, model: env.CLAUDE_MODEL || null, soloAI: String(env.ALLOW_SOLO_AI) !== 'false' }, 200, cors);
+        return json({ ok: true, ai: !!env.ANTHROPIC_API_KEY, model: env.CLAUDE_MODEL || null, soloAI: String(env.ALLOW_SOLO_AI) !== 'false', billing: env.BILLING_PROVIDER || 'manual' }, 200, cors);
       }
+      if (req.method === 'GET' && p === '/api/ai/status') return await aiStatus(req, env, cors, await callerOf(req, env));
+      if (req.method === 'POST' && p === '/api/account/code') return await startLogin(req, env, cors);
+      if (req.method === 'POST' && p === '/api/account/verify') return await verifyLogin(req, env, cors);
+      if (req.method === 'POST' && p === '/api/account/signout') return await signOut(req, env, cors);
+      if (req.method === 'POST' && p === '/api/account/delete') return await deleteAccount(req, env, cors, { activeFamilySub });
+      if (req.method === 'POST' && p === '/api/billing/checkout') return await checkout(req, env, cors);
+      if (req.method === 'POST' && p === '/api/billing/cancel') return await cancel(req, env, cors);
+      if (req.method === 'POST' && (m = p.match(/^\/api\/billing\/webhook\/([a-z]+)$/))) return await webhook(m[1], req, env, cors);
+      if (req.method === 'GET' && p === '/api/admin/subscriptions') return await adminList(req, env, cors);
+      if (req.method === 'POST' && p === '/api/admin/grant') return await adminGrant(req, env, cors);
+      if (req.method === 'POST' && p === '/api/admin/end') return await adminEnd(req, env, cors);
       if (req.method === 'POST' && (m = p.match(/^\/api\/ai\/(\w+)$/))) return await handleAI(m[1], req, env, ctx, cors);
       if (req.method === 'POST' && p === '/api/classes') return await createClass(req, env, cors);
       if (req.method === 'GET' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})$/))) return await classInfo(m[1], env, cors);
@@ -369,7 +357,7 @@ export default {
       if (req.method === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return await resetPin(m[1], req, env, cors);
       return json({ error: 'not_found' }, 404, cors);
     } catch (e) {
-      if (e instanceof HttpError) return json({ error: e.code, message: e.message }, e.status, cors);
+      if (e instanceof HttpError) return json({ error: e.code, message: e.message, ...(e.extra || {}) }, e.status, cors);
       console.error('unhandled', e?.stack || e);
       return json({ error: 'server_error' }, 500, cors);
     }

@@ -33,7 +33,7 @@ const empty = {
   mistakes: {}, // 'topic:cat' -> count
   lastTopic: null,
   outbox: [],
-  ai: { mode: 'server', apiUrl: '', key: '' },
+  ai: { mode: 'server', apiUrl: '', key: '', device: '', account: null },
   helpSent: 0,
   solveMode: 'answer', // 'answer' (keypad) or 'notebook' (write the working on a squared page)
   exams: [], // checked exams, newest first: { id, at, title, source, practiceId, result, score, levels }

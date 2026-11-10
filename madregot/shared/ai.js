@@ -141,8 +141,31 @@ const base = (model, effort, maxTokens) => ({
   output_config: { effort },
 });
 
-/** Build the request params for one AI action. Throws on invalid input. */
-export function buildRequest(kind, input = {}, { model } = {}) {
+/** Free-taste requests (lite): a short answer from a low-cost model. Haiku has no server-side refusal fallback, so its
+ *  requests carry neither the fallback beta nor `fallbacks`. */
+export const LITE_MAX_TOKENS = 1500;
+const supportsFallback = (model) => !/^claude-haiku/.test(String(model || DEFAULT_MODEL));
+function liteify(params) {
+  const out = { ...params, max_tokens: Math.min(params.max_tokens, LITE_MAX_TOKENS), output_config: { ...params.output_config, effort: 'low' } };
+  if (!supportsFallback(out.model)) { delete out.fallbacks; out.betas = (out.betas || []).filter((b) => b !== FALLBACK_BETA); }
+  return out;
+}
+
+/** Build the request params for one AI action. Throws on invalid input. lite: the free taste (short, low cost). */
+export function buildRequest(kind, input = {}, { model, lite = false } = {}) {
+  if (lite && kind === 'chat' && Array.isArray(input.messages)) {
+    // a free chat keeps the last few turns, starting from a student turn, so the exercise context still leads it
+    const recent = input.messages.slice(-6);
+    while (recent.length > 1 && recent[0]?.role !== 'user') recent.shift();
+    input = { ...input, messages: recent };
+  }
+  const params = buildFull(kind, input, { model });
+  if (lite) return liteify(params);
+  if (!supportsFallback(params.model)) { delete params.fallbacks; params.betas = (params.betas || []).filter((b) => b !== FALLBACK_BETA); }
+  return params;
+}
+
+function buildFull(kind, input = {}, { model } = {}) {
   const system = `${TUTOR}\n\n${TASKS[kind] || ''}`;
   if (kind === 'explain') {
     return {
