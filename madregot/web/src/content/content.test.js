@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import katex from 'katex';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput } from './index.js';
 import { parseNum, plainNum } from './util.js';
-import { holds, identical, texToExpr, texRelation } from '@/learn/expr.ts';
+import { holds, identical, texToExpr, texRelation, evaluate, same } from '@/learn/expr.ts';
 
 /**
  * The maths a student sees, checked as displayed (not from the generator's parameters), for every topic:
@@ -294,5 +294,85 @@ describe('the displayed maths is checked as the student sees it', () => {
     ok({ form: 'num', display: 'x > -2,\\quad x \\le 3', answer: 5, whole: ['x > -2', 'x \\le 3'] });
     bad({ form: 'num', display: 'x > -2,\\quad x \\le 3', answer: 6, whole: ['x > -2', 'x \\le 3'] });
     bad({ form: 'pt', display: '\\begin{cases} y = 2x - 1 \\\\ x + y = 5 \\end{cases}', answer: [3, 2], label: '' });
+  });
+});
+
+/**
+ * The fractions floor: every answer is the computation its question shows, read back from the TeX the student sees with
+ * learn/expr.ts texToExpr (2\frac{1}{2} is a mixed number, 2 + 1/2). A display with no "=" is the answer itself; an
+ * equation with a box (\frac{2}{3} = \frac{\square}{12}) holds with the answer in the box; "how much is a/b of N" is
+ * a/b · N; a number to put on a line, or a point marked on one, is the answer; the answer of "the largest" is the
+ * largest listed number; "larger or smaller than N" agrees with N · x or N : x; the bar's common parts are those of its
+ * marks. Returns false when the question shows no computation (nothing to read back).
+ */
+function checkFracMaths(it) {
+  const value = (tex) => evaluate(texToExpr(tex));
+  const firstMath = (text) => (String(text || '').match(/\$([^$]+)\$/) || [])[1];
+  const listed = (s) => (s.includes('/') ? Number(s.split('/')[0]) / Number(s.split('/')[1]) : Number(s));
+  const kind = it.key.split(':')[0];
+  if (it.display && it.form !== 'mc') {
+    if (it.display.includes('\\square')) expect(holds(it.display.replace('\\square', String(it.answer)), {}), `${it.key}: ${it.display} with ${it.answer}`).toBe(true);
+    else expect(same(value(it.display), it.answer), `${it.key}: ${it.display} is ${value(it.display)}, not ${it.answer}`).toBe(true);
+    return true;
+  }
+  const of = String(it.text).match(/^כמה הם \$([^$]+)\$ מ־\$(\d+)\$\?/);
+  if (of) { expect(same(value(of[1]) * Number(of[2]), it.answer), `${it.key}: ${of[1]} of ${of[2]} is not ${it.answer}`).toBe(true); return true; }
+  if (kind === 'fr4g') {
+    const [N] = it.key.split(':').slice(1).map(Number);
+    const larger = value(firstMath(it.text)) > N;
+    expect(it.choices[it.answer].text.startsWith(larger ? 'גדולה' : 'קטנה'), `${it.key}: ${firstMath(it.text)} against ${N}`).toBe(true);
+    return true;
+  }
+  if (kind === 'fr2b') {
+    const list = it.key.slice(5).split(',');
+    expect(same(Math.max(...list.map(listed)), it.answer), `${it.key}: the largest is not ${it.answer}`).toBe(true);
+    return true;
+  }
+  if (kind === 'fr2p') {
+    const [A, B] = it.key.slice(5).split(',').map(listed);
+    expect(it.answer, `${it.key}: which is larger`).toBe(same(A, B) ? 2 : A > B ? 0 : 1);
+    return true;
+  }
+  if (kind === 'fr1r') { expect(same(it.fig.marks[0].x, it.answer), `${it.key}: A is not at ${it.answer}`).toBe(true); return true; }
+  if (kind === 'fr1p') { expect(same(value(firstMath(it.text)), it.answer), `${it.key}: ${firstMath(it.text)} is not ${it.answer}`).toBe(true); return true; }
+  if (kind === 'fr2o') {
+    it.manip.labels.forEach((l, i) => expect(same(value(l), it.answer[i]), `${it.key}: ${l} is not at ${it.answer[i]}`).toBe(true));
+    return true;
+  }
+  if (kind === 'fr3c') {
+    expect(it.manip.marks.map((x) => Math.round(1 / x)), `${it.key}: the marks are not 1/${it.answer.of.join(' and 1/')}`).toEqual(it.answer.of);
+    return true;
+  }
+  return false;
+}
+
+describe('fractions: every answer is the computation its question shows', () => {
+  it('frac:1-4, every kind of question', () => {
+    const kinds = new Set(); const checked = new Set();
+    for (const level of [1, 2, 3, 4]) {
+      for (let r = 0; r < 600; r += 1) {
+        const it = makeItem('frac', level); const kind = it.key.split(':')[0];
+        kinds.add(kind);
+        if (checkFracMaths(it)) checked.add(kind);
+      }
+    }
+    expect([...kinds].filter((k) => !checked.has(k)), 'kinds whose answer nothing reads back').toEqual([]);
+    expect(kinds.size).toBeGreaterThanOrEqual(15);
+  });
+  it('catches an answer that is not the computation shown', () => {
+    const ok = (it) => expect(() => checkFracMaths({ key: 'x:1', ...it })).not.toThrow();
+    const bad = (it) => expect(() => checkFracMaths({ key: 'x:1', ...it })).toThrow();
+    ok({ form: 'num', display: '\\frac{1}{3} + \\frac{1}{4}', answer: 7 / 12 });
+    bad({ form: 'num', display: '\\frac{1}{3} + \\frac{1}{4}', answer: 2 / 7 }); // tops and bottoms added
+    ok({ form: 'num', display: '2\\frac{1}{2} + 1\\frac{3}{4}', answer: 4.25 });
+    bad({ form: 'num', display: '2\\frac{1}{2} + 1\\frac{3}{4}', answer: 2.75 }); // 2·½ + 1·¾ read as products
+    ok({ form: 'num', display: '\\frac{3}{4} : \\frac{3}{8}', answer: 2 });
+    bad({ form: 'num', display: '\\frac{3}{4} : \\frac{3}{8}', answer: 0.5 }); // divided the other way
+    ok({ form: 'num', display: '\\frac{2}{3} = \\frac{\\square}{12}', answer: 8 });
+    bad({ form: 'num', display: '\\frac{2}{3} = \\frac{\\square}{12}', answer: 11 }); // the same number added
+    ok({ form: 'num', text: 'כמה הם $\\frac{3}{4}$ מ־$20$?', answer: 15 });
+    bad({ form: 'num', text: 'כמה הם $\\frac{3}{4}$ מ־$20$?', answer: 5 });
+    ok({ key: 'fr4g:12:0.8:mul', form: 'mc', text: '$12 \\cdot 0.8$: התוצאה גדולה מ־$12$ או קטנה ממנו?', choices: [{ text: 'גדולה מ־12' }, { text: 'קטנה מ־12' }], answer: 1 });
+    bad({ key: 'fr4g:12:0.8:mul', form: 'mc', text: '$12 \\cdot 0.8$: התוצאה גדולה מ־$12$ או קטנה ממנו?', choices: [{ text: 'גדולה מ־12' }, { text: 'קטנה מ־12' }], answer: 0 });
   });
 });

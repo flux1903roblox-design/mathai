@@ -151,7 +151,9 @@ export function nextActions(ctx: Context): Action[] {
   const fresh = gradeSkills.find((id) => st[id] === 'not-started' && !onPath(ctx, id) && prereqsOf(id).every((p) => !isMissing(ctx, p, st)));
   if (fresh) {
     const sg = stageOf(ctx, fresh);
-    const why = prereqsOf(fresh).length ? `מה שצריך בשבילה כבר אצלכם (${prereqsOf(fresh).map(titleOf).join(', ')}).` : `המדרגה הבאה ב${topicTitleOf(fresh)}.`;
+    // a bridge stair the student never touched is not named as something they have: it is only absent from the evidence
+    const have = prereqsOf(fresh).filter((p) => !isBridgeSkill(p) || st[p] !== 'not-started');
+    const why = have.length ? `מה שצריך בשבילה כבר אצלכם (${have.map(titleOf).join(', ')}).` : `המדרגה הבאה ב${topicTitleOf(fresh)}.`;
     add({ kind: 'new', skill: fresh, stage: sg, title: `${STAGE_NAME[sg]}: ${titleOf(fresh)}`, reason: `מדרגה חדשה, שלב ${STAGE_N[sg]} מתוך 5. ${why}`, minutes: STAGE_MIN[sg], to: routeOf.stage(fresh, sg) });
   }
   // 7. a stair done before mastery checks existed: it stays done, and its mastery check is offered

@@ -242,7 +242,7 @@ describe('practice-only questions are kept out of checks', () => {
   });
 
   // the kinds whose answer is a choice among two or three, or an object whose target the question names (spec §0.5)
-  const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o'];
+  const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

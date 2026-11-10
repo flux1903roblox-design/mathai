@@ -222,8 +222,9 @@ const isFn = (it, u, g) => { const t = chosen(it, u); if (!t) return false; cons
 // ---------------------------------------------------------------- fractions and decimals: read from the key
 // frac:1  fr1r:d:L:k  the point A at the k-th of d parts a unit on a line 0..L;  fr1e:p:q:r  p/q = ?/r
 // frac:2  fr2b:<list> and fr2p:<A>,<B>  the numbers as shown ('0.6', '0.125', '1/6')
-// frac:3-4 (their generators come next; these are the keys they write):  fr3…:a:b:c:d:add|sub  a/b ± c/d;
-//          fr4…:a:b:c:d:mul|div  a/b · c/d or a/b : c/d
+// frac:3  fr3a:a:b:c:d:add|sub  a/b ± c/d  (mixed numbers, decimals and the bar name no mistake)
+// frac:4  fr4m:a:b:c:d:mul and fr4v:a:b:c:d:div  a/b · c/d or a/b : c/d;  fr4g:N:x:mul|div  N · x or N : x, larger
+//         or smaller than N (a choice)
 const shownList = (it) => it.key.split(':')[1].split(',');
 const valueOf = (s) => { const [a, b] = s.split('/'); return b === undefined ? Number(a) : Number(a) / Number(b); };
 const placesOf = (s) => (s.includes('.') ? s.split('.')[1].length : 0);
@@ -276,8 +277,15 @@ const PROPS = {
     'num-not-scaled': (it, u) => { const q = fracOp(it); return (q.op === 'add' || q.op === 'sub') && fits(u, (q.a + (q.op === 'add' ? q.c : -q.c)) / lcmOf(q.b, q.d)); },
     'keep-den': (it, u) => { const q = fracOp(it); return q.b === q.d && (q.op === 'mul' ? fits(u, (q.a * q.c) / q.b) : q.op === 'div' && fits(u, q.a / q.c / q.b)); },
     'divide-flip': (it, u) => { const q = fracOp(it); return q.op === 'div' && fits(u, (q.c / q.d) / (q.a / q.b)); },
-    // a product where a quotient was asked (typed), or a product chosen as the way to find a quotient
-    'mult-bigger': (it, u) => { const q = fracOp(it); return q.op === 'div' && (it.form === 'mc' ? /\\cdot/.test(chosen(it, u)) : fits(u, (q.a / q.b) * (q.c / q.d))); },
+    // N · x or N : x with x smaller than 1, "larger or smaller than N": the product chosen as larger, or the quotient as
+    // smaller (multiplying makes bigger, dividing smaller); typed, a product where a quotient was asked
+    'mult-bigger': (it, u) => {
+      if (it.key.startsWith('fr4g:')) {
+        const [, , x, op] = it.key.split(':'); const larger = /^גדולה/.test(it.choices[u]?.text || '');
+        return Number(x) < 1 && (op === 'mul' ? larger : !larger);
+      }
+      const q = fracOp(it); return q.op === 'div' && it.form !== 'mc' && fits(u, (q.a / q.b) * (q.c / q.d));
+    },
   },
   expr: {
     concat: (it, u) => { const q = substOf(it); return q.x >= 1 && q.x <= 9 && near(substVal(it, u), withProd(q, 10 * q.a + q.x)); },

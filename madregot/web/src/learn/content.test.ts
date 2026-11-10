@@ -370,8 +370,8 @@ describe('solving together: the last step names the mistake', () => {
 // its stairs draws one (a figure or an object to move), and every drawing renders with real numbers.
 describe('the fractions floor teaches with pictures', () => {
   const frac = stairs.filter((c) => c.topic === 'frac');
-  it('every discover step of frac:1-2 has a figure or an object', () => {
-    expect(frac.map((c) => c.skill)).toEqual(['frac:1', 'frac:2']);
+  it('every discover step of frac:1-4 has a figure or an object', () => {
+    expect(frac.map((c) => c.skill)).toEqual(['frac:1', 'frac:2', 'frac:3', 'frac:4']);
     const bare = frac.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
     expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
   });

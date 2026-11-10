@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { LearnState, SkillRecord } from './types';
-import { TOPIC_ORDER, ALL_SKILLS, PREREQS, ancestorsOf, prereqsOf, gradeSkillsOf, BRIDGE, BRIDGE_SKILLS } from './skills';
+import { TOPIC_ORDER, ALL_SKILLS, PREREQS, STAIRS, ancestorsOf, prereqsOf, gradeSkillsOf, BRIDGE, BRIDGE_SKILLS } from './skills';
 // @ts-ignore: plain JS
 import { topicsFor, bridgeTopicsFor, rescueTopicsFor } from '@/content/index.js';
 import { addAttempt, markTaught, masteryState, recordMasteryCheck, recordReview, nextStage, dueReviews, MASTERY_N, REVIEW_DAYS, addDays } from './mastery';
@@ -102,7 +102,7 @@ describe('the topic list the tutor and the exam check use', () => {
 
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(50);
+    expect(ALL_SKILLS).toHaveLength(52);
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));
@@ -117,7 +117,7 @@ describe('the prerequisite graph', () => {
 describe('the bridge unit (fractions): the floor under the grade, never a stair of it', () => {
   it('is in no grade\'s own list, and topicsFor shows no bridge unit', () => {
     expect([...BRIDGE]).toEqual(['frac']);
-    expect(BRIDGE_SKILLS).toEqual(['frac:1', 'frac:2']);
+    expect(BRIDGE_SKILLS).toEqual(['frac:1', 'frac:2', 'frac:3', 'frac:4']);
     for (const g of ['7', '8'] as const) {
       expect(gradeSkillsOf(g).some((id) => id.startsWith('frac:'))).toBe(false);
       expect((topicsFor(g) as { bridge?: boolean }[]).some((t) => t.bridge)).toBe(false);
@@ -127,7 +127,7 @@ describe('the bridge unit (fractions): the floor under the grade, never a stair 
     expect(topicsFor('7')[0].id).toBe('signed');
     expect(gradeSkillsOf('7')[0]).toBe('signed:1');
     // its stairs come first in the catalogue, so ALL_SKILLS stays in prerequisite order
-    expect(ALL_SKILLS.slice(0, 2)).toEqual(['frac:1', 'frac:2']);
+    expect(ALL_SKILLS.slice(0, 4)).toEqual(['frac:1', 'frac:2', 'frac:3', 'frac:4']);
   });
   it('a fractions stair is not missing for a grade 7 student with no evidence', () => {
     expect(isMissing(ctx(empty(), '7'), 'frac:1')).toBe(false);
@@ -163,6 +163,18 @@ describe('the bridge unit (fractions): the floor under the grade, never a stair 
     const learn = empty();
     learn.skills['frac:1'] = { attempts: [att(true)], taught: { A: NOW } };
     expect(nextActions(ctx(learn, '7')).find((a) => a.skill === 'frac:1')).toMatchObject({ kind: 'continue' });
+  });
+  it('an edge into a bridge stair counts on evidence only: equations are still new for grade 7 with no fraction evidence', () => {
+    expect(PREREQS['eq:1']).toContain('frac:4');
+    // every grade 7 unit before equations passed on the map; nothing at all is known about fractions
+    const path = Object.fromEntries((['signed', 'coord', 'angles', 'expr'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: STAIRS[t] }]));
+    const fresh = nextActions(ctx(empty(), '7', { path })).find((a) => a.kind === 'new');
+    expect(fresh).toMatchObject({ skill: 'eq:1' });
+    // and the reason does not claim the fractions stair as something the student already has
+    expect(fresh!.reason).not.toContain('כפל וחילוק שברים');
+    // a failed floor check on frac:4 holds equations back, and points at it
+    const failed = { ...empty(), floor: { at: NOW, on: true, results: { 'frac:4': { asked: 1, right: 0 } }, facts: { asked: 2, right: 2 } } };
+    expect(nextActions(ctx(failed, '7', { path })).some((a) => a.kind === 'new' && a.skill === 'eq:1')).toBe(false);
   });
 });
 

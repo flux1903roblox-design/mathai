@@ -25,6 +25,14 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // the larger of 5/8 and 3/4: the bigger denominator taken as the bigger fraction gives 5/8
     { bugs: { 'bigger-den': 5 / 8 } },
   ],
+  'frac:3': [
+    { model: 'diag', p: { a: 3, b: 5, c: 1, d: 2, op: 1, L: 10 } }, // 3/5 + 1/2: across 4/7; numerators not expanded 4/10
+    { model: 'diag', p: { a: 3, b: 4, c: 1, d: 3, op: -1, L: 12 } }, // 3/4 − 1/3: numerators not expanded 2/12
+  ],
+  'frac:4': [
+    { model: 'diag', p: { mul: true, a: 2, b: 5, c: 3, d: 5 } }, // 2/5 · 3/5: the denominator kept gives 6/5
+    { model: 'transfer', p: { a: 3, b: 4, m: 2, d: 8 } }, // 3/4 litre in cups of 1/8: flipped 1/6, multiplied 3/32
+  ],
   'signed:1': [
     { model: 'diag', p: { a: -3, b: -8, s: -1 } }, // −3 − (−8)
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)

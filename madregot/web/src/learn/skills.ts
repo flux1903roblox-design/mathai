@@ -8,7 +8,7 @@ import type { SkillId, TopicId } from './types';
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
 export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'line', 'pyth', 'stats', 'sys'];
 export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 2, signed: 5, coord: 5, angles: 5, expr: 5, eq: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 5, coord: 5, angles: 5, expr: 5, eq: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -28,6 +28,8 @@ export const BRIDGE_SKILLS: SkillId[] = ALL_SKILLS.filter(isBridgeSkill);
 export const PREREQS: Record<SkillId, SkillId[]> = {
   'frac:1': [], // a fraction is a place on the number line: equal parts of one unit
   'frac:2': ['frac:1'], // comparing uses equal fractions and the number line
+  'frac:3': ['frac:1'], // a common denominator is expanding both fractions
+  'frac:4': ['frac:1'], // a product is simplified; "of" is a part of a part
   'signed:1': [], // adding and subtracting signed numbers starts from the number line itself
   'signed:2': [], // comparing: where numbers sit on the line
   'signed:3': ['signed:1'], // multiplying is repeated adding; the sign rules build on it
@@ -48,7 +50,7 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'expr:3': ['expr:1', 'signed:1'], // equality is checked by substituting; coefficients are added as signed numbers
   'expr:4': ['expr:1', 'signed:3'], // what ax means; each term is multiplied with the sign rules
   'expr:5': ['expr:3', 'expr:4'], // open the brackets, then collect like terms
-  'eq:1': ['expr:1', 'signed:1', 'signed:3'], // a solution is checked by substituting; the inverse operations work with signed numbers
+  'eq:1': ['expr:1', 'signed:1', 'signed:3', 'frac:4'], // a solution is checked by substituting; the inverse operations work with signed numbers; answers such as 1/4 are fractions (bridge edge)
   'eq:2': ['eq:1'], // two one-step moves, undone in reverse order
   'eq:3': ['eq:2', 'expr:3'], // the x-terms of both sides are collected first, then it is a two-step equation
   'eq:4': ['eq:3', 'expr:5'], // open the brackets and collect (simplifying), then solve

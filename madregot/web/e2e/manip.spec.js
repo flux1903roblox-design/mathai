@@ -24,6 +24,8 @@ const KINDS = [
   ['plot', 'sys/2', '8', [0.5, 0.5, 0.75, 0.25], (it) => !!it.manip.lines, 'the meeting point of two lines'],
   // a line cut into thirds to sixths: the marker moves one part at a time (fractions floor, frac:1 "place")
   ['numberline', 'frac/1', '7', [0.06, 0.75, 0.7, 0.75], (it) => !!it.manip.den, 'a fraction on a cut number line'],
+  // the fraction bar cut so two marks fall on lines: a common denominator, built (frac:3 "common")
+  ['fbar', 'frac/3', '7', [0.1, 0.5, 0.9, 0.5], (it) => it.answer?.mode === 'common', 'a common number of parts on the fraction bar'],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');

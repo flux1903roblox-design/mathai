@@ -1,10 +1,12 @@
 // Fractions and decimals (שברים ועשרוניים): the bridge unit, the floor under grade 7 (curriculum stage 1). A student
 // who cannot place 3/5 on a number line or tell 0.4 from 0.25 is found by evidence and sent here; one who can never
-// sees it. Two stairs now (frac:1 and frac:2); adding, subtracting, multiplying and dividing come next (frac:3-4).
+// sees it. Four stairs: a fraction and equal fractions, comparing, adding and subtracting, multiplying and dividing.
 //
 // One picture carries the unit: a fraction is a place on the number line. Cut each unit into equal parts and count
 // parts (gaps, not marks); equal fractions are the same place; a decimal is compared digit by digit after padding.
-// The diagnostic models are the plan's (content/frac.js FRAC1, FRAC1T, FRAC2, FRAC2T, ported unchanged); every
+// Adding needs parts of one size (a common denominator, built on the fraction bar); "of" is multiplying, drawn as an
+// area (a rectangle cut both ways, fgrid); dividing counts how many times a part fits, so it multiplies by the
+// reciprocal. The diagnostic models are the plan's (content/frac.js FRAC1 to FRAC4T, ported unchanged); every
 // misconception's source is listed in content/frac.js. Every number written here is checked by the lane's
 // verify/facts-frac.mjs, and the maths of every step by learn/content.test.ts.
 // Teaching content: see MADREGOT2.md (content conventions) and content/signed.ts (the quality bar).
@@ -318,7 +320,299 @@ const stair2: StairContent = {
   ],
 };
 
-export const FRAC: StairContent[] = [stair1, stair2];
+// ================================================================ stair 3: adding and subtracting fractions
+
+type P3 = { a: number; b: number; c: number; d: number; op: 1 | -1; L: number };
+const frac3: DiagModel<P3> = {
+  params: (rnd) => G.FRAC3.params(rnd),
+  text: (p) => G.calcText(G.FRAC3.answer(p)),
+  display: (p) => G.addSubTex(p),
+  answer: (p) => G.FRAC3.answer(p),
+  bugs: G.FRAC3.bugs,
+  solution: (p) => G.addSubSolution(p),
+  hint: (p) => G.addSubHint(p),
+  precise: true,
+};
+const frac3T: DiagModel<P3> = {
+  params: (rnd) => G.FRAC3T.params(rnd),
+  text: (p) => `דנה שתתה $${F(p.a, p.b)}$ ליטר מים בבוקר ו־$${F(p.c, p.d)}$ ליטר בצהריים. כמה ליטר שתתה יחד?`,
+  answer: (p) => G.FRAC3T.answer(p),
+  bugs: G.FRAC3T.bugs,
+  solution: (p) => [`יחד זה חיבור: $${G.addSubTex(p)}$.`, ...G.addSubSolution(p)],
+  hint: (p) => `יחד זה חיבור. קודם מכנה משותף: מספר שמתחלק גם ב־$${p.b}$ וגם ב־$${p.d}$.`,
+  unit: 'ליטר',
+  precise: true,
+};
+/** Two bars of one length, each half shaded: ½ and ½. */
+const halves = bars([{ den: 2, shaded: 1, label: F(1, 2) }, { den: 2, shaded: 1, label: F(1, 2) }]);
+
+const stair3: StairContent = {
+  skill: 'frac:3', topic: 'frac', level: 3, title: 'חיבור וחיסור שברים',
+  objectives: [
+    'לחבר ולחסר שברים בעזרת מכנה משותף.',
+    'למצוא מכנה משותף בהרחבה.',
+    'לחבר ולחסר מספרים מעורבים ועשרוניים, ולבדוק שהתוצאה סבירה.',
+  ],
+  idea: 'מחברים רק חלקים מאותו גודל: קודם מביאים למכנה משותף, ואז מחברים את המונים.',
+  why: [
+    '$\\frac{1}{3}$ ו־$\\frac{1}{4}$ הם חלקים בגדלים שונים. אחרי הרחבה ל־$\\frac{4}{12}$ ו־$\\frac{3}{12}$ אפשר לספור: $7$ חלקים של $\\frac{1}{12}$.',
+    'המכנה לא מתחבר: $\\frac{1}{2} + \\frac{1}{2}$ הוא שלם אחד, לא $\\frac{2}{4}$.',
+  ],
+  alt: ['שעון: רבע שעה ועוד שליש שעה הם $15 + 20 = 35$ דקות, כלומר $\\frac{35}{60} = \\frac{7}{12}$ שעה.'],
+  discover: [
+    { kind: 'predict', text: '$\\frac{1}{2} + \\frac{1}{2} = ?$', fig: halves,
+      choices: ['$1$', '$\\frac{2}{4}$'], answer: 0,
+      why: 'שני חצאים הם שלם. $\\frac{2}{4}$ הוא רק חצי.',
+      wrongWhy: { 1: 'חיברתם גם את המכנים. המכנה הוא גודל החלק, והוא לא משתנה בחיבור.' } },
+    { kind: 'explore', text: 'על הפס מסומנים $\\frac{1}{3}$ ו־$\\frac{1}{4}$. חלקו את הפס לחלקים שווים כך ששני הסימונים ייפלו על קווים.',
+      manip: { kind: 'fbar', start: { den: 1, shaded: 0 }, marks: [1 / 3, 1 / 4] }, answer: { mode: 'common', of: [3, 4] },
+      hint: 'נסו מספר חלקים שמתחלק גם ב־$3$ וגם ב־$4$.',
+      success: 'מתאים כל מספר חלקים שמתחלק ב־$3$ וב־$4$, והקטן הוא $12$: $\\frac{1}{3} = \\frac{4}{12}$ ו־$\\frac{1}{4} = \\frac{3}{12}$.' },
+    { kind: 'rule', text: 'מכנה משותף: מרחיבים את שני השברים לאותו מכנה, ואז מחברים את המונים.',
+      display: '\\frac{1}{3} + \\frac{1}{4} = \\frac{4}{12} + \\frac{3}{12} = \\frac{7}{12}',
+      why: 'אחרי ההרחבה כל החלקים באותו גודל, ואפשר לספור אותם.',
+      fig: { type: 'fbar', den: 12, shaded: 7 } },
+    { kind: 'predict', text: '$\\frac{1}{3} + \\frac{1}{4} = ?$', fig: { type: 'fbar', den: 12, shaded: 7, hatch: 4 },
+      choices: ['$\\frac{7}{12}$', '$\\frac{2}{7}$', '$\\frac{2}{12}$'], answer: 0,
+      why: '$\\frac{1}{3}$ הם $4$ חלקים של $\\frac{1}{12}$ (המקווקווים), ו־$\\frac{1}{4}$ הם עוד $3$: יחד $\\frac{7}{12}$.',
+      wrongWhy: { 1: '$\\frac{2}{7}$ קטן מ־$\\frac{1}{3}$ לבד, ותוספת של מספר חיובי לא מקטינה.', 2: 'הרחבתם את המכנים ושכחתם את המונים: $\\frac{1}{3} = \\frac{4}{12}$, לא $\\frac{1}{12}$.' } },
+    { kind: 'rule', text: 'בדיקה מהירה: סכום של שני שברים חיוביים גדול מכל אחד מהם.',
+      why: '$\\frac{2}{7}$ נכשל בבדיקה הזו, ו־$\\frac{7}{12}$ עובר.',
+      fig: line(1, 12, [{ k: 3, label: F(1, 4) }, { k: 4, label: F(1, 3) }, { k: 7, label: F(7, 12) }]) },
+    { kind: 'predict', text: '$\\frac{5}{6} - \\frac{1}{2} = ?$', fig: { type: 'fbar', den: 6, shaded: 5, cross: 3 },
+      choices: ['$\\frac{1}{3}$', '$1$', '$\\frac{4}{6}$'], answer: 0,
+      why: '$\\frac{1}{2} = \\frac{3}{6}$, ו־$\\frac{5}{6} - \\frac{3}{6} = \\frac{2}{6} = \\frac{1}{3}$.',
+      wrongWhy: { 1: 'חיסרתם מונה ממונה ומכנה ממכנה: $\\frac{4}{4}$ הוא שלם, יותר ממה שהיה.', 2: '$\\frac{1}{2}$ הם $\\frac{3}{6}$, לא $\\frac{1}{6}$.' } },
+    // the fraction parts of 2½ and 1¾, both in quarters: 2/4 and 3/4 make 5/4
+    { kind: 'say', text: 'מספרים מעורבים: שלמים עם שלמים, שברים עם שברים. $2\\frac{1}{2} + 1\\frac{3}{4}$: $3$ שלמים ועוד $\\frac{2}{4} + \\frac{3}{4} = \\frac{5}{4} = 1\\frac{1}{4}$, ויחד $4\\frac{1}{4}$.',
+      fig: bars([{ den: 4, shaded: 2, label: F(1, 2) }, { den: 4, shaded: 3, label: F(3, 4) }]) },
+    { kind: 'predict', text: '$0.5 + 0.25 = ?$', fig: line(1, 20, [{ k: 10, label: '0.5' }], { jumps: [{ from: 0.5, to: 0.75, label: '0.25' }] }),
+      choices: ['$0.75$', '$0.30$'], answer: 0,
+      why: 'ספרות באותו מקום: $0.50 + 0.25 = 0.75$.',
+      wrongWhy: { 1: 'חיברתם $5$ ו־$25$ כאילו הם באותו מקום. $0.5$ הם $50$ מאיות.' } },
+  ],
+  examples: [
+    { problem: 'חשבו:', display: '\\frac{2}{3} + \\frac{1}{4}', answer: 11 / 12, check: '2/3+1/4',
+      steps: [
+        { action: 'מוצאים מכנה משותף.', why: '$12$ מתחלק גם ב־$3$ וגם ב־$4$.', result: '3 \\cdot 4 = 12', calc: { expr: '3*4', value: 12 } },
+        { action: 'מרחיבים את שני השברים ל־$12$.', why: 'כופלים את המונה ואת המכנה באותו מספר: $\\frac{2 \\cdot 4}{3 \\cdot 4}$ ו־$\\frac{1 \\cdot 3}{4 \\cdot 3}$.', result: '\\frac{8}{12} + \\frac{3}{12}', value: '8/12 + 3/12' },
+        { action: 'מחברים את המונים.', why: 'כל החלקים באותו גודל, ולכן סופרים: $8 + 3 = 11$. המכנה נשאר $12$.', result: '\\frac{11}{12}', value: '11/12' },
+      ] },
+    { problem: 'חשבו:', display: '\\frac{5}{6} - \\frac{3}{4}', answer: 1 / 12, check: '5/6-3/4',
+      steps: [
+        { action: 'המכנה המשותף הקטן: $12$.', why: '$12$ מתחלק גם ב־$6$ וגם ב־$4$. גם $24$ מתאים, אבל עם $12$ המספרים קטנים יותר.', result: '6 \\cdot 2 = 12', calc: { expr: '6*2', value: 12 } },
+        { action: 'מרחיבים.', why: '$\\frac{5}{6} = \\frac{10}{12}$ ו־$\\frac{3}{4} = \\frac{9}{12}$.', result: '\\frac{10}{12} - \\frac{9}{12}', value: '10/12 - 9/12' },
+        { action: 'מחסירים את המונים.', why: '$10 - 9 = 1$, והמכנה נשאר $12$.', result: '\\frac{1}{12}', value: '1/12' },
+      ] },
+    { problem: 'חשבו:', display: '2\\frac{1}{2} + 1\\frac{3}{4}', answer: 4.25, check: '2+1/2+1+3/4',
+      steps: [
+        { action: 'שלמים עם שלמים.', why: 'השלמים מתחברים לחוד, והשברים לחוד.', result: '2 + 1 = 3', calc: { expr: '2+1', value: 3 } },
+        { action: 'שברים עם שברים, ברבעים.', why: '$\\frac{1}{2} = \\frac{2}{4}$, ועכשיו לשני השברים אותו מכנה.', result: '3 + \\frac{2}{4} + \\frac{3}{4}', value: '3 + 2/4 + 3/4' },
+        { action: 'מחברים את הרבעים.', why: '$2 + 3 = 5$ רבעים.', result: '3 + \\frac{5}{4}', value: '3 + 5/4' },
+        { action: 'ארבעה רבעים הם שלם.', why: '$\\frac{5}{4} = 1\\frac{1}{4}$, ועוד $3$ שלמים.', result: '4\\frac{1}{4} = 4.25', value: '4 + 1/4' },
+      ] },
+  ],
+  together: [
+    { problem: 'חשבו: $\\frac{3}{5} + \\frac{1}{2}$.',
+      steps: [
+        { prompt: 'מכנה משותף:', choices: [
+          { text: '$10$', ok: true, feedback: 'נכון: $10$ מתחלק גם ב־$5$ וגם ב־$2$.' },
+          { text: '$7$', ok: false, feedback: '$7$ הוא סכום המכנים, ו־$\\frac{1}{2}$ לא נכתב בשביעיות.' },
+          { text: '$5$', ok: false, feedback: '$5$ לא מתחלק ב־$2$: את $\\frac{1}{2}$ אי אפשר לכתוב בחמישיות.' },
+        ], hints: ['מחפשים מספר שמתחלק גם ב־$5$ וגם ב־$2$.', '$5 \\cdot 2 = 10$.'], done: 'המכנה המשותף הוא $10$.' },
+        { prompt: 'במכנה $10$:', choices: [
+          { text: '$\\frac{6}{10} + \\frac{5}{10}$', ok: true, feedback: 'נכון: $\\frac{3 \\cdot 2}{5 \\cdot 2}$ ו־$\\frac{1 \\cdot 5}{2 \\cdot 5}$.' },
+          { text: '$\\frac{3}{10} + \\frac{1}{10}$', ok: false, feedback: 'הרחבתם רק את המכנים. גם המונה גדל פי אותו מספר.' },
+        ], hints: ['פי כמה גדל כל מכנה?', '$5$ גדל פי $2$, ו־$2$ גדל פי $5$. המונים גדלים פי אותו מספר.'], done: '$\\frac{6}{10} + \\frac{5}{10}$' },
+      ],
+      final: { prompt: 'כמה יוצא? (שבר או עשרוני)', answer: 1.1, check: '3/5+1/2', precise: true, hints: ['מחברים את המונים: $6 + 5$.', '$\\frac{11}{10}$, כלומר $1.1$.'] } },
+    { problem: 'בבקבוק היו $\\frac{3}{4}$ ליטר, ושתו $\\frac{1}{3}$ ליטר. כמה נשאר?',
+      steps: [
+        { prompt: 'איזה תרגיל?', choices: [
+          { text: '$\\frac{3}{4} - \\frac{1}{3}$', ok: true, feedback: 'נכון: מה שהיה, פחות מה ששתו.' },
+          { text: '$\\frac{3}{4} + \\frac{1}{3}$', ok: false, feedback: 'שתו מהבקבוק, ולכן נשאר פחות: זה חיסור.' },
+        ], hints: ['נשאר יותר או פחות ממה שהיה?', 'מה שהיה פחות מה ששתו.'], done: '$\\frac{3}{4} - \\frac{1}{3}$' },
+        { prompt: 'מכנה משותף:', choices: [
+          { text: '$12$', ok: true, feedback: 'נכון: $\\frac{3}{4} = \\frac{9}{12}$ ו־$\\frac{1}{3} = \\frac{4}{12}$.' },
+          { text: '$7$', ok: false, feedback: '$7$ הוא סכום המכנים. אף אחד מהשברים לא נכתב בשביעיות.' },
+          { text: '$4$', ok: false, feedback: '$4$ לא מתחלק ב־$3$: את $\\frac{1}{3}$ אי אפשר לכתוב ברבעים.' },
+        ], hints: ['מספר שמתחלק גם ב־$4$ וגם ב־$3$.', '$4 \\cdot 3 = 12$.'], done: '$\\frac{9}{12} - \\frac{4}{12}$' },
+      ],
+      final: { prompt: 'כמה ליטר נשאר? (שבר או עשרוני)', answer: 5 / 12, check: '3/4-1/3', precise: true, hints: ['$\\frac{9}{12} - \\frac{4}{12}$: מחסירים את המונים.', '$9 - 4 = 5$ חלקים של $\\frac{1}{12}$.'] } },
+  ],
+  diag: frac3,
+  transfer: frac3T,
+  words: ['מכנה משותף', 'הרחבה', 'מספר מעורב', 'סכום', 'הפרש'],
+  misconceptions: [
+    { id: 'add-across', title: 'חיברו מונה עם מונה ומכנה עם מכנה',
+      cause: 'מתייחסים למונה ולמכנה כשני מספרים שלמים נפרדים.',
+      explain: ['$\\frac{1}{3} + \\frac{1}{4}$ צריך להיות יותר מ־$\\frac{1}{3}$, ו־$\\frac{2}{7}$ פחות.', 'המכנה הוא גודל החלק. מחברים רק חלקים באותו גודל, ולכן קודם מכנה משותף.'],
+      remedy: [
+        { kind: 'predict', text: '$\\frac{1}{2} + \\frac{1}{2} = ?$', fig: halves, choices: ['$1$', '$\\frac{2}{4}$'], answer: 0,
+          why: 'שני חצאים הם שלם. $\\frac{2}{4}$ הוא רק חצי, כמו מה שהיה לפני שהוספנו.' },
+        { kind: 'explore', text: 'על הפס מסומנים $\\frac{1}{2}$ ו־$\\frac{1}{3}$. חלקו את הפס לחלקים שווים כך ששני הסימונים ייפלו על קווים.',
+          manip: { kind: 'fbar', start: { den: 1, shaded: 0 }, marks: [1 / 2, 1 / 3] }, answer: { mode: 'common', of: [2, 3] },
+          hint: 'נסו מספר חלקים שמתחלק גם ב־$2$ וגם ב־$3$.', success: 'בשישיות: $\\frac{1}{2} = \\frac{3}{6}$ ו־$\\frac{1}{3} = \\frac{2}{6}$, ויחד $\\frac{5}{6}$.' },
+      ] },
+    { id: 'num-not-scaled', title: 'הרחיבו את המכנים ושכחו להרחיב את המונים',
+      cause: 'זוכרים שצריך מכנה משותף, ושוכחים שגם המונה גדל באותו פי.',
+      explain: ['$\\frac{1}{3}$ ו־$\\frac{1}{12}$ אינם אותה כמות: $\\frac{1}{3}$ הם $4$ חלקים של $\\frac{1}{12}$.', 'בהרחבה כופלים את המונה ואת המכנה באותו מספר.'],
+      remedy: [
+        { kind: 'explore', text: 'הפס מראה $\\frac{1}{3}$. חלקו אותו ל־$12$ חלקים, וצבעו אותה כמות.',
+          manip: { kind: 'fbar', start: { den: 3, shaded: 1 }, marks: [1 / 3] }, answer: { mode: 'exact', den: 12, shaded: 4 },
+          hint: 'כל שליש נחתך ל־$4$. כמה חלקים קטנים יש בשליש אחד?', success: '$\\frac{1}{3} = \\frac{4}{12}$: המכנה גדל פי $4$, וגם המונה.' },
+      ] },
+  ],
+};
+
+// ================================================================ stair 4: multiplying and dividing fractions
+
+type P4 = { mul: boolean; a: number; b: number; c: number; d: number };
+const frac4: DiagModel<P4> = {
+  params: (rnd) => G.FRAC4.params(rnd),
+  text: (p) => G.calcText(G.FRAC4.answer(p)),
+  display: (p) => G.mulDivTex(p),
+  answer: (p) => G.FRAC4.answer(p),
+  bugs: G.FRAC4.bugs,
+  solution: (p) => G.mulDivSolution(p),
+  hint: (p) => G.mulDivHint(p),
+  precise: true,
+};
+type P4T = { a: number; b: number; m: number; d: number };
+const frac4T: DiagModel<P4T> = {
+  params: (rnd) => G.FRAC4T.params(rnd),
+  text: (p) => G.cupsText(p),
+  answer: (p) => G.FRAC4T.answer(p),
+  bugs: G.FRAC4T.bugs,
+  solution: (p) => G.cupsSolution(p),
+  hint: () => 'כמה פעמים כוס אחת נכנסת בכל המיץ שבבקבוק? זה חילוק.',
+  unit: 'כוסות',
+};
+/** 3/4 of 1/2, and 3/5 of 4/5, as areas: columns one way, rows the other, the overlap is the product (the step's display
+ * writes the computation above the drawing, so the drawing has no label). */
+const area34 = { type: 'fgrid', rows: 2, cols: 4, shadeRows: 1, shadeCols: 3 } as FigSpec;
+const area35 = { type: 'fgrid', rows: 5, cols: 5, shadeRows: 4, shadeCols: 3 } as FigSpec;
+/** 0..3 cut into quarters, with a jump for every quarter: how many quarters fit in 3. */
+const quarterJumps = line(3, 4, [], { jumps: Array.from({ length: 12 }, (_, i) => ({ from: i / 4, to: (i + 1) / 4 })) });
+/** 0..12 with 12 and its half marked. */
+const halfOf12: FigSpec = { type: 'numline', from: 0, to: 12, marks: [{ x: 12 }, { x: 6, tone: 'good' }] };
+
+const stair4: StairContent = {
+  skill: 'frac:4', topic: 'frac', level: 4, title: 'כפל וחילוק שברים',
+  objectives: [
+    'לחשב שבר של כמות: "$\\frac{3}{4}$ מ־$20$".',
+    'לכפול שברים: מונה כפול מונה, מכנה כפול מכנה.',
+    'לחלק בשבר: כמה פעמים הוא נכנס, כלומר כפל בהפכי.',
+    'לדעת שכפל במספר קטן מ־$1$ מקטין.',
+  ],
+  idea: '"$\\frac{3}{4}$ מ־" זה כפל. כפל בשבר קטן מ־$1$ לוקח חלק ולכן מקטין, וחילוק בשבר קטן מ־$1$ סופר כמה פעמים הוא נכנס ולכן מגדיל.',
+  why: [
+    '$\\frac{2}{3} \\cdot \\frac{4}{5}$: לוקחים $\\frac{2}{3}$ מתוך $\\frac{4}{5}$. במלבן: $2 \\cdot 4 = 8$ משבצות מתוך $3 \\cdot 5 = 15$.',
+    '$3 : \\frac{1}{4} = 12$: רבע נכנס בשלם $4$ פעמים, ובשלושה שלמים $12$ פעמים. לכן חילוק בשבר הוא כפל בהפכי.',
+  ],
+  alt: ['עשרוניים: $0.5 \\cdot 8$ הוא חצי של $8$, כלומר $4$. ו־$8 : 0.5$ הוא כמה חצאים יש ב־$8$: $16$.'],
+  discover: [
+    { kind: 'predict', text: 'חצי מחצי פיצה: כמה פיצה זה?', fig: { type: 'fbar', den: 4, shaded: 2, hatch: 1 },
+      choices: ['$\\frac{1}{4}$', '$1$', '$\\frac{1}{2}$'], answer: 0,
+      why: 'חצי מחצי הוא רבע. "מ־" זה כפל: $\\frac{1}{2} \\cdot \\frac{1}{2} = \\frac{1}{4}$.',
+      wrongWhy: { 1: 'חצי ועוד חצי הם שלם. כאן לוקחים חצי מתוך החצי, ולכן יוצא פחות מחצי.', 2: 'חצי היה לנו בהתחלה. לקחנו רק חצי ממנו.' } },
+    { kind: 'explore', text: 'שימו את הסמן על $\\frac{3}{4}$ מ־$\\frac{1}{2}$.', manip: cutLine(1, 8), answer: 3 / 8,
+      hint: '$\\frac{1}{2}$ הוא $\\frac{4}{8}$. רבע ממנו הוא $\\frac{1}{8}$, ושלושה רבעים $\\frac{3}{8}$.',
+      success: '$\\frac{3}{4} \\cdot \\frac{1}{2} = \\frac{3}{8}$.' },
+    { kind: 'rule', text: 'כפל שברים: מונה כפול מונה, מכנה כפול מכנה.',
+      display: '\\frac{3}{4} \\cdot \\frac{1}{2} = \\frac{3 \\cdot 1}{4 \\cdot 2} = \\frac{3}{8}',
+      why: 'לוקחים חלק מחלק, ולכן גם החלקים קטנים: מכנה כפול מכנה. במלבן: $3$ משבצות מתוך $8$.',
+      fig: area34 },
+    { kind: 'predict', text: '$\\frac{3}{5} \\cdot \\frac{4}{5} = ?$', fig: area35,
+      choices: ['$\\frac{12}{25}$', '$\\frac{12}{5}$', '$\\frac{7}{5}$'], answer: 0,
+      why: '$3 \\cdot 4 = 12$ משבצות מתוך $5 \\cdot 5 = 25$.',
+      wrongWhy: { 1: 'השארתם את המכנה כמו בחיבור. אבל $\\frac{12}{5}$ גדול מ־$2$, ושני השברים קטנים מ־$1$.', 2: 'חיברתם את המונים, כמו בחיבור. כאן לוקחים חלק מחלק.' } },
+    { kind: 'predict', text: '$12 \\cdot 0.5$ גדול מ־$12$ או קטן ממנו?', fig: halfOf12,
+      choices: ['קטן', 'גדול'], answer: 0,
+      why: 'כפל במספר קטן מ־$1$ לוקח רק חלק: $12 \\cdot 0.5 = 6$.',
+      wrongWhy: { 1: 'בשלמים כפל מגדיל. אבל $0.5$ הוא חצי, וחצי מ־$12$ הוא $6$.' } },
+    { kind: 'predict', text: '$3 : \\frac{1}{4} = ?$', fig: quarterJumps,
+      choices: ['$12$', '$\\frac{3}{4}$', '$\\frac{1}{12}$'], answer: 0,
+      why: 'כמה רבעים יש בשלושה שלמים? בכל שלם $4$, ובשלושה $12$.',
+      wrongWhy: { 1: 'כפלתם במקום לחלק: $3 \\cdot \\frac{1}{4} = \\frac{3}{4}$.', 2: 'חילקתם הפוך: $\\frac{1}{4} : 3$.' } },
+    { kind: 'rule', text: 'חילוק בשבר: כופלים בהפכי שלו.', display: '3 : \\frac{1}{4} = 3 \\cdot 4 = 12',
+      why: '$\\frac{1}{4}$ נכנס ב־$1$ ארבע פעמים, ולכן לחלק ב־$\\frac{1}{4}$ זה לכפול ב־$4$.',
+      fig: quarterJumps },
+    { kind: 'predict', text: '$\\frac{3}{4} : \\frac{3}{8} = ?$', fig: { type: 'fbar', den: 8, shaded: 6, hatch: 3 },
+      choices: ['$2$', '$\\frac{1}{2}$', '$\\frac{9}{32}$'], answer: 0,
+      why: '$\\frac{3}{4} = \\frac{6}{8}$, ו־$\\frac{3}{8}$ נכנס בו פעמיים.',
+      wrongWhy: { 1: 'חילקתם הפוך: $\\frac{3}{8} : \\frac{3}{4}$.', 2: 'כפלתם במקום לחלק. בחילוק שואלים כמה פעמים $\\frac{3}{8}$ נכנס.' } },
+  ],
+  examples: [
+    { problem: 'כמה הם $\\frac{3}{4}$ מ־$20$?', answer: 15, check: '3/4*20',
+      steps: [
+        { action: 'רבע מ־$20$.', why: 'מחלקים את $20$ ל־$4$ חלקים שווים.', result: '20 : 4 = 5', calc: { expr: '20/4', value: 5 } },
+        { action: 'שלושה רבעים.', why: 'שלושה חלקים כאלה.', result: '3 \\cdot 5 = 15', value: '3*5' },
+      ] },
+    { problem: 'חשבו:', display: '\\frac{2}{3} \\cdot \\frac{9}{10}', answer: 0.6, check: '2/3*9/10',
+      steps: [
+        { action: 'מונה כפול מונה, מכנה כפול מכנה.', why: 'לוקחים $\\frac{2}{3}$ מתוך $\\frac{9}{10}$.', result: '\\frac{2 \\cdot 9}{3 \\cdot 10}', value: '(2*9)/(3*10)' },
+        { action: 'מחשבים.', why: '$2 \\cdot 9 = 18$ ו־$3 \\cdot 10 = 30$.', result: '\\frac{18}{30}', value: '18/30' },
+        { action: 'מצמצמים ב־$6$.', why: 'גם $18$ וגם $30$ מתחלקים ב־$6$.', result: '\\frac{3}{5} = 0.6', value: '3/5' },
+      ] },
+    { problem: 'חשבו:', display: '\\frac{5}{6} : \\frac{1}{3}', answer: 2.5, check: '5/6/(1/3)',
+      steps: [
+        { action: 'כופלים בהפכי.', why: 'ההפכי של $\\frac{1}{3}$ הוא $3$: $\\frac{1}{3}$ נכנס בשלם $3$ פעמים.', result: '\\frac{5}{6} \\cdot 3', value: '5/6*3' },
+        { action: 'מחשבים.', why: '$5 \\cdot 3 = 15$, והמכנה נשאר $6$.', result: '\\frac{15}{6}', value: '15/6' },
+        { action: 'מצמצמים ב־$3$.', why: 'גם $15$ וגם $6$ מתחלקים ב־$3$.', result: '\\frac{5}{2} = 2\\frac{1}{2}', value: '5/2' },
+      ] },
+  ],
+  together: [
+    { problem: 'חשבו: $\\frac{2}{5} \\cdot \\frac{3}{5}$.',
+      steps: [
+        { prompt: 'מה המכנה?', choices: [
+          { text: '$25$', ok: true, feedback: 'נכון: $5 \\cdot 5 = 25$.' },
+          { text: '$5$', ok: false, feedback: 'בכפל גם המכנים מוכפלים: החלקים קטנים יותר.' },
+          { text: '$10$', ok: false, feedback: '$5 + 5 = 10$. בכפל שברים כופלים את המכנים, לא מחברים.' },
+        ], hints: ['בכפל שברים: מונה כפול מונה, ומכנה כפול מכנה.', '$5 \\cdot 5$.'], done: 'המכנה הוא $25$.' },
+      ],
+      final: { prompt: 'כמה יוצא? (שבר או עשרוני)', answer: 0.24, check: '2/5*3/5', precise: true, hints: ['המונה: $2 \\cdot 3$.', '$\\frac{6}{25}$, כלומר $0.24$.'] } },
+    { problem: 'בבקבוק $\\frac{3}{4}$ ליטר מיץ. מוזגים לכוסות של $\\frac{1}{8}$ ליטר. כמה כוסות?',
+      steps: [
+        { prompt: 'איזה תרגיל?', choices: [
+          { text: '$\\frac{3}{4} : \\frac{1}{8}$', ok: true, feedback: 'נכון: כמה פעמים כוס נכנסת בבקבוק.' },
+          { text: '$\\frac{1}{8} : \\frac{3}{4}$', ok: false, feedback: 'שואלים כמה כוסות נכנסות בבקבוק: הבקבוק מחולק בכוס.' },
+          { text: '$\\frac{3}{4} \\cdot \\frac{1}{8}$', ok: false, feedback: 'כפל ייתן פחות מכוס אחת. כמה פעמים $\\frac{1}{8}$ נכנס?' },
+        ], hints: ['כמה פעמים $\\frac{1}{8}$ ליטר נכנס ב־$\\frac{3}{4}$ ליטר?', '"כמה פעמים נכנס" זה חילוק: הבקבוק חלקי הכוס.'], done: '$\\frac{3}{4} : \\frac{1}{8}$' },
+      ],
+      final: { prompt: 'כמה כוסות?', answer: 6, check: '3/4/(1/8)', hints: ['כופלים בהפכי: $\\frac{3}{4} \\cdot 8$.', '$\\frac{24}{4}$.'] } },
+  ],
+  diag: frac4,
+  transfer: frac4T,
+  words: ['"מ־" (כפל)', 'מכפלה', 'מנה', 'ההפכי', 'כמה פעמים נכנס'],
+  misconceptions: [
+    { id: 'keep-den', title: 'כפלו או חילקו את המונים והשאירו את המכנה, כמו בחיבור',
+      cause: 'בחיבור של שברים עם אותו מכנה המכנה נשאר, וזה עובר בטעות לכפל ולחילוק.',
+      explain: ['בכפל לוקחים חלק מחלק, ולכן החלקים קטנים: גם המכנים מוכפלים.', '$\\frac{3}{5} \\cdot \\frac{4}{5}$ קטן מ־$1$, אבל $\\frac{12}{5}$ גדול מ־$2$.'],
+      remedy: [
+        { kind: 'predict', text: '$\\frac{3}{5} \\cdot \\frac{4}{5} = ?$', fig: area35, choices: ['$\\frac{12}{25}$', '$\\frac{12}{5}$'], answer: 0,
+          why: '$3 \\cdot 4 = 12$ משבצות מתוך $5 \\cdot 5 = 25$.' },
+        { kind: 'explore', text: 'שימו את הסמן על $\\frac{1}{2} \\cdot \\frac{1}{2}$: חצי מחצי.', manip: cutLine(1, 8), answer: 1 / 4,
+          hint: '$\\frac{1}{2}$ הוא $\\frac{4}{8}$. חצי ממנו הוא $\\frac{2}{8}$.', success: '$\\frac{1}{2} \\cdot \\frac{1}{2} = \\frac{1}{4}$, לא $\\frac{1}{2}$: גם המכנה הוכפל.' },
+      ] },
+    { id: 'divide-flip', title: 'חילקו הפוך: את המחלק במחולק',
+      cause: 'נדמה שבחילוק תמיד מחלקים את הגדול בקטן, או שהופכים את השבר הראשון.',
+      explain: ['בחילוק שואלים כמה פעמים המספר השני (המחלק) נכנס בראשון.', 'הופכים רק את המחלק, ואז כופלים: $3 : \\frac{1}{4} = 3 \\cdot 4 = 12$.'],
+      remedy: [
+        { kind: 'predict', text: '$3 : \\frac{1}{4} = ?$', fig: quarterJumps, choices: ['$12$', '$\\frac{1}{12}$'], answer: 0,
+          why: 'כמה רבעים יש בשלושה שלמים? בכל שלם $4$, ובשלושה $12$.' },
+      ] },
+    { id: 'mult-bigger', title: 'חשבו שכפל תמיד מגדיל ושחילוק תמיד מקטין',
+      cause: 'בשלמים כפל תמיד הגדיל. עם שברים קטנים מ־$1$ זה הפוך.',
+      explain: ['כפל במספר קטן מ־$1$ לוקח רק חלק: $12 \\cdot 0.5 = 6$.', 'חילוק במספר קטן מ־$1$ סופר כמה פעמים הוא נכנס: $8 : 0.5 = 16$.'],
+      remedy: [
+        { kind: 'predict', text: '$12 \\cdot 0.5$ גדול מ־$12$ או קטן ממנו?', fig: halfOf12, choices: ['קטן', 'גדול'], answer: 0,
+          why: 'כפל במספר קטן מ־$1$ לוקח רק חלק: $12 \\cdot 0.5 = 6$.' },
+      ] },
+  ],
+};
+
+export const FRAC: StairContent[] = [stair1, stair2, stair3, stair4];
 /** Names of misconceptions new to this topic: none beyond the topic's own (content/frac.js names them all). */
 export const CATS_FRAC: Record<string, string> = {};
-export { frac1, frac1T, frac2, frac2T };
+export { frac1, frac1T, frac2, frac2T, frac3, frac3T, frac4, frac4T };
