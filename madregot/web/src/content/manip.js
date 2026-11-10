@@ -17,6 +17,10 @@
 //   tiles       algebra tiles {px, nx, p1, n1}: x, −x, 1 and −1 tiles     answer: {k, c} for kx + c, no zero pair left
 //   area        a rectangle {a, b}: a high, x + b long                  answer: {a, b}
 //   ray         an inequality on the number line {at, dir, closed}      answer: {at, dir, closed}; dir 1 right, −1 left
+//   fbar        a bar cut into equal parts, some shaded {den, shaded}     answer: { mode: 'value', value } (shaded/den is the
+//               value, any den), { mode: 'common', of: [3, 4] } (den a multiple of each), { mode: 'exact', den, shaded }
+//   dline       a double number line (move 't': the marker; 'max': the bottom line's end)  answer: that number
+// numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
 
 const QUAD_NAMES = ['', 'הרביע הראשון', 'הרביע השני', 'הרביע השלישי', 'הרביע הרביעי'];
@@ -114,23 +118,133 @@ export const rayTex = ({ at, dir, closed }, v = 'x') => `${v} ${dir > 0 ? (close
 /** Is a number on the ray? */
 export const rayHas = ({ at, dir, closed }, n) => (n === at ? !!closed : dir > 0 ? n > at : n < at);
 
+// ---------------------------------------------------------------- fractions on the number lines
+// A line with `den` cuts every unit into den equal parts: its values are k/den (floats, compared within 1e-9), and a
+// step moves one part. The labels stay on whole numbers, so the student counts parts.
+
+/** One part of a line: 1/den with `den`, else 1. */
+export const lineStep = (m) => (m.den ? 1 / m.den : 1);
+/** A line's value as plain text: a fraction as counted up to the line's den, or a decimal with fmt: 'dec'. */
+export const lineNum = (m, v) => plainNum(v, m.den ? { maxDen: Math.max(12, m.den), decimal: m.fmt === 'dec', places: 3 } : {});
+/** Two values of a line are the same place: exactly for whole lines, within 1e-9 for a line cut into parts. */
+const samePlace = (m, u, a) => (m.den ? typeof u === 'number' && near(u, a, 1e-9) : u === a);
+/** Ticks from one value to another, in parts: "5 שנתות ימינה מ־0" (what a screen reader hears in a check). */
+export function ticksWords(m, v, from) {
+  const k = Math.round((v - from) * (m.den || 1));
+  const f = from < 0 ? `−${-from}` : `${from}`;
+  if (!k) return `הסמן על ${f}`;
+  const n = Math.abs(k);
+  return `${n === 1 ? 'שנתה אחת' : `${n} שנתות`} ${k > 0 ? 'ימינה' : 'שמאלה'} מ־${f}`;
+}
+/** A label of a marker as plain text: \frac{1}{4} is 1/4. */
+const labelPlain = (l) => String(l).replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2');
+
+// ---------------------------------------------------------------- the fraction bar (פס שברים)
+// One bar, the whole: the student chooses how many equal parts (den) and how many are shaded, from the left.
+
+export const FBAR_MAX_DEN = 24;
+export const lcm = (a, b) => (a / gcd(a, b)) * b;
+/** The smallest number of parts (up to maxDen) in which a value is a whole number of parts, or null. */
+export function fbarDenFor(value, maxDen = FBAR_MAX_DEN) {
+  for (let d = 1; d <= maxDen; d += 1) if (near(value * d, Math.round(value * d), 1e-9)) return d;
+  return null;
+}
+/** What the bar shows, in words: "הפס מחולק ל־12 חלקים, 7 צבועים". */
+export function fbarWords({ den, shaded }) {
+  const parts = den === 1 ? 'הפס שלם, חלק אחד' : `הפס מחולק ל־${den} חלקים`;
+  const sh = shaded === 0 ? 'אף חלק לא צבוע' : shaded === den && den > 1 ? 'כולם צבועים' : shaded === 1 ? 'חלק אחד צבוע' : `${shaded} צבועים`;
+  return `${parts}, ${sh}`;
+}
+/** The bar as a fraction, as built (8/12 is not reduced): TeX. */
+export const fbarTex = ({ den, shaded }) => `\\frac{${shaded}}{${den}}`;
+const fbarOk = (m, u) => !!u && typeof u === 'object' && Number.isInteger(u.den) && Number.isInteger(u.shaded)
+  && u.den >= 1 && u.den <= (m.maxDen || FBAR_MAX_DEN) && u.shaded >= 0 && u.shaded <= u.den && (!m.lockDen || u.den === m.start.den);
+
+// ---------------------------------------------------------------- the double number line (ציר כפול)
+// Two lines with 0 on the left: the top in its units (%, ס״מ, כוסות מים), the bottom in the other (₪, ק״מ). The same
+// place on both is the same part of the whole. move 't': the marker moves along the top line in top.step steps;
+// move 'max': the marker stays at fixT, and the student stretches the bottom line (its end, in bottom.step steps).
+
+/** The object's number: t (move 't') or the bottom line's end (move 'max'), from a value or from manip.start. */
+export const dlineValue = (m, u) => (typeof u === 'number' ? u : u && typeof u === 'object' ? (m.move === 'max' ? u.max : u.t) : null);
+/** Where everything is for a value: the marker on the top line, the bottom line's end, and the value under the marker. */
+export function dlineAt(m, v) {
+  const t = m.move === 'max' ? m.fixT : v; const max = m.move === 'max' ? v : m.bottom.max;
+  return { t, max, under: (t * max) / m.top.max };
+}
+/** A number of a double line: thousands with a comma from 10,000, decimals to three places. */
+export const dlineNum = (v) => {
+  const s = plainNum(v, { decimal: true, places: 3 });
+  return Math.abs(v) >= 10000 && /^-?\d+$/.test(s) ? Number(s).toLocaleString('en-US') : s;
+};
+/** A number with its unit, the unit word outside the number: "30%", "7 ס״מ", "72". */
+export const withUnit = (v, unit) => (!unit ? dlineNum(v) : unit === '%' ? `${dlineNum(v)}%` : `${dlineNum(v)} ${unit}`);
+
+// ---------------------------------------------------------------- the still figures of stage 1, in words
+// What content/index.js figPlain says for numline, fbar, fgrid, dline and groups: every number the drawing writes, so
+// the tutor and an answer key see what the student saw. A point named by a letter on a line cut into parts is placed
+// by counting parts ("A: 7 חלקים מ־0"), as the student counts them: its value is not written in the drawing.
+const fracNum = (v, den) => plainNum(v, { maxDen: Math.max(12, den || 1), places: 3 });
+export function figWords(f) {
+  switch (f.type) {
+    case 'numline': {
+      const where = (x) => {
+        if (!f.den) return fracNum(x);
+        const k = Math.round((x - f.from) * f.den);
+        return `${k === 1 ? 'חלק אחד' : `${k} חלקים`} מ־${fracNum(f.from)}`;
+      };
+      // a mark labelled with its number is that number; a letter is placed (by parts on a cut line); a bare dot too
+      const marks = (f.marks || []).map((k) => (k.label && /\d/.test(k.label) ? `נקודה ${labelPlain(k.label)}` : `${k.label ? labelPlain(k.label) : 'נקודה'}${f.den ? ': ' : ' ב־'}${where(k.x)}`));
+      const jumps = (f.jumps || []).map((j) => `קפיצה מ־${fracNum(j.from, f.den)} ל־${fracNum(j.to, f.den)}${j.label ? ` (${labelPlain(j.label)})` : ''}`);
+      return [`ציר מספרים מ־${fracNum(f.from)} עד ${fracNum(f.to)}${f.den ? `, כל יחידה מחולקת ל־${f.den} חלקים שווים` : f.step && f.step !== 1 ? `, שנתה כל ${fracNum(f.step)}` : ''}`, ...marks, ...jumps].join('; ');
+    }
+    case 'fbar': {
+      const rows = f.rows?.length ? f.rows : [{ den: f.den, shaded: f.shaded }];
+      const parts = rows.map((r) => `${r.label ? `${labelPlain(r.label)}: ` : ''}${fbarWords(r)}`);
+      if (f.hatch) parts.push(`${f.hatch === 1 ? 'חלק צבוע אחד מקווקו' : `${f.hatch} מהחלקים הצבועים מקווקווים`}`);
+      if (f.cross) parts.push(`${f.cross === 1 ? 'חלק צבוע אחד מחוק' : `${f.cross} מהחלקים הצבועים מחוקים`}`);
+      if (f.marks?.length) parts.push(`סימונים מעל הפס ב־${f.marks.map((x) => fracNum(x, 100)).join(', ')}`);
+      if (f.whole != null) parts.push(`הפס כולו ${dlineNum(f.whole)}`);
+      return `פס שברים: ${parts.join('; ')}`;
+    }
+    case 'fgrid':
+      return `מלבן מחולק ל־${f.rows} שורות ול־${f.cols} עמודות; ${f.shadeCols} עמודות צבועות בכיוון אחד ו־${f.shadeRows} שורות בכיוון השני, והחלק המשותף כהה${f.label ? `; ${labelPlain(f.label)}` : ''}`;
+    case 'dline': {
+      const line = (L) => `${L.label ? `${L.label} ` : ''}מ־0 עד ${withUnit(L.max, L.unit)}, שנתה כל ${withUnit(L.step, L.unit)}`;
+      const show = f.show || 'both';
+      const at = f.at == null ? '' : `; הסמן ${show !== 'bottom' ? `על ${withUnit(f.at, f.top.unit)}` : 'על הציר העליון'}${f.label != null ? `, מתחתיו ${f.label}` : show !== 'top' ? `, מתחתיו ${withUnit(dlineAt({ ...f, move: 't' }, f.at).under, f.bottom.unit)}` : ''}`;
+      return `ציר כפול: למעלה ${line(f.top)}; למטה ${line(f.bottom)}${at}`;
+    }
+    case 'groups': return `קבוצות: ${f.rows.map((r) => `${r.label} ${r.n}`).join(', ')}`;
+    default: return '';
+  }
+}
+
 // ---------------------------------------------------------------- checking, words and test states
 
 export function manipCorrect(it, u) {
   if (u == null) return false;
   const m = it.manip; const a = it.answer;
   switch (m.kind) {
-    case 'numberline': case 'angle': case 'bars': return u === a;
+    case 'numberline': return samePlace(m, u, a);
+    case 'angle': case 'bars': return u === a;
     case 'plot': return m.quadrant ? quadOf(u) === m.quadrant && (m.fixX == null || u[0] === m.fixX) && (m.fixY == null || u[1] === m.fixY) : u[0] === a[0] && u[1] === a[1];
     case 'line': return near(u.m, a.m, 1e-9) && near(u.b, a.b, 1e-9);
     case 'squares': return Number.isInteger(u.a) && Number.isInteger(u.b) && u.a * u.a + u.b * u.b === a.c * a.c;
-    case 'pins': return Array.isArray(u) && u.length === a.length && u.every((v, i) => v === a[i]);
+    case 'pins': return Array.isArray(u) && u.length === a.length && u.every((v, i) => samePlace(m, v, a[i]));
     case 'triangle': return rightAtC(m, u);
     // the answer is x's value: the value itself counts (as answerText shows it), and a scale must show one box alone
     case 'balance': return typeof u === 'number' ? u === a : balanceSolved(u, a);
     case 'tiles': return u.px - u.nx === a.k && u.p1 - u.n1 === a.c && Math.min(u.px, u.nx) === 0 && Math.min(u.p1, u.n1) === 0;
     case 'area': return u.a === a.a && u.b === a.b;
     case 'ray': return u.at === a.at && u.dir === a.dir && !!u.closed === !!a.closed;
+    case 'fbar': {
+      if (!fbarOk(m, u)) return false;
+      if (a.mode === 'exact') return u.den === a.den && u.shaded === a.shaded;
+      if (a.mode === 'common') return a.of.every((q) => u.den % q === 0);
+      return near(u.shaded / u.den, a.value, 1e-9);
+    }
+    case 'dline': { const v = dlineValue(m, u); return typeof v === 'number' && near(v, a, 1e-9); }
     default: return false;
   }
 }
@@ -152,18 +266,26 @@ export function manipText(it, u = it.answer) {
   if (u == null) return '';
   const m = it.manip;
   switch (m.kind) {
-    case 'numberline': case 'bars': return num(u);
+    case 'numberline': return lineNum(m, u);
+    case 'bars': return num(u);
     case 'angle': return `${num(u)}°`;
     case 'plot': return m.quadrant && u === it.answer ? `נקודה ב${QUAD_NAMES[m.quadrant]}, למשל ${ltr(`(${num(u[0])}, ${num(u[1])})`)}` : `(${num(u[0])}, ${num(u[1])})`;
     case 'line': return lineText(u);
     case 'squares': return u.c != null ? `ניצבים ${u.a} ו־${u.b}: ${ltr(`${u.a}² + ${u.b}² = ${u.c}²`)}` : `ניצבים ${u.a} ו־${u.b}`;
-    case 'pins': return m.labels.map((l, i) => `${l} ב־${ltr(num(u[i]))}`).join(', ');
+    case 'pins': return m.labels.map((l, i) => `${labelPlain(l)} ב־${ltr(lineNum(m, u[i]))}`).join(', ');
     case 'triangle': return u === it.answer ? `למשל ${ltr(`C(${num(u[0])}, ${num(u[1])})`)}: הזווית C ישרה` : ltr(`C(${num(u[0])}, ${num(u[1])})`);
     // the answer is x's value; a student's state is the scale as an equation (≠ while it leans)
     case 'balance': return typeof u === 'number' ? `x = ${num(u)}` : balanceTex(u, it.answer).replace('\\ne', '≠');
     case 'tiles': return u.px != null ? tilesTex(u) : linText(u);
     case 'area': return areaTex(u);
     case 'ray': return rayText(u);
+    // the answer is a rule ({ mode }); a student's state is the bar as built
+    case 'fbar': {
+      if (u.mode === 'value') return plainNum(u.value, { maxDen: FBAR_MAX_DEN, places: 3 });
+      if (u.mode === 'common') return `מספר חלקים שמתחלק ב־${u.of.join(' וב־')}, למשל ${u.of.reduce(lcm, 1)}`;
+      return `${u.shaded}/${u.den}`;
+    }
+    case 'dline': { const v = dlineValue(m, u); return v == null ? '' : withUnit(v, m.move === 'max' ? m.bottom.unit : m.top.unit); }
     default: return '';
   }
 }
@@ -172,7 +294,9 @@ export function manipText(it, u = it.answer) {
 export function manipPlain(it) {
   const m = it.manip;
   switch (m.kind) {
-    case 'numberline': return `[ציר מספרים מ־${m.min} עד ${m.max}; מזיזים סמן מהנקודה ${m.from}]`;
+    case 'numberline': return m.den
+      ? `[ציר מספרים מ־${m.min} עד ${m.max}, כל יחידה מחולקת ל־${m.den} חלקים שווים; מזיזים סמן מהנקודה ${m.from}]`
+      : `[ציר מספרים מ־${m.min} עד ${m.max}; מזיזים סמן מהנקודה ${m.from}]`;
     case 'plot': return m.quadrant ? `[מערכת צירים; שמים נקודה ב${QUAD_NAMES[m.quadrant]}${m.fixX != null ? ` שה־x שלה ${m.fixX}` : m.fixY != null ? ` שה־y שלה ${m.fixY}` : ''}]`
       : m.line ? `[מערכת צירים עם הישר; שמים עליו את הנקודה שבה x = ${it.answer[0]}]`
         : m.lines ? `[מערכת צירים עם שני ישרים, ${m.lines.map(lineText).join(' ו־')}; שמים את נקודת המפגש שלהם]`
@@ -181,12 +305,19 @@ export function manipPlain(it) {
     case 'angle': return `[קו ישר וקרן מסתובבת; הזווית הצמודה צריכה להיות ${m.target}°]`;
     case 'squares': return `[משולש ישר־זווית עם ריבועים על הצלעות; שטח הריבוע על היתר צריך להיות ${it.answer.c * it.answer.c}]`;
     case 'bars': return m.stat === 'median' ? `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; החציון צריך להיות ${m.target}]` : `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; הממוצע צריך להיות ${m.mean}]`;
-    case 'pins': return `[ציר מספרים מ־${m.min} עד ${m.max}; שמים עליו את המספרים ${m.labels.join(', ')}]`;
+    case 'pins': return `[ציר מספרים מ־${m.min} עד ${m.max}${m.den ? `, כל יחידה מחולקת ל־${m.den} חלקים שווים` : ''}; שמים עליו את המספרים ${m.labels.map(labelPlain).join(', ')}]`;
     case 'triangle': return `[משולש ABC עם A(${m.A.join(', ')}) ו־B(${m.B.join(', ')}); מזיזים את C עד שהזווית C ישרה]`;
     case 'balance': return `[מאזניים מאוזנים: ${balanceWords(m.start)}. כל קופסה שוקלת x משקולות. מורידים קופסאות ומשקולות מהכפות עד שנשארת קופסה אחת לבד]`;
     case 'tiles': return `[אריחים: ${tilesWords(m.start)}; מורידים זוגות אפס (x עם −x, 1 עם −1)]`;
     case 'area': return `[מלבן שבונים: גובה (עד ${m.maxA || 6}) ואורך x ועוד יחידות (עד ${m.maxB || 9})]`;
     case 'ray': return `[ציר מספרים מ־${m.min ?? -10} עד ${m.max ?? 10}; מסמנים את הפתרונות: נקודה, עיגול מלא או ריק, וקרן ימינה או שמאלה]`;
+    case 'fbar': return `[פס שברים: ${fbarWords(m.start)}${m.lockDen ? ' (מספר החלקים קבוע)' : `; אפשר לחלק לעד ${m.maxDen || FBAR_MAX_DEN} חלקים`}${m.marks?.length ? `; סימונים מעל הפס ב־${m.marks.map((x) => num(x)).join(', ')}` : ''}${m.whole != null ? `; הפס כולו ${dlineNum(m.whole)}` : ''}]`;
+    case 'dline': {
+      const line = (L) => `${L.label} מ־0 עד ${withUnit(L.max, L.unit)}`;
+      return m.move === 'max'
+        ? `[ציר כפול: למעלה ${line(m.top)}, למטה ${m.bottom.label}; הסמן קבוע על ${withUnit(m.fixT, m.top.unit)}; מותחים את הציר התחתון (השלם) בצעדים של ${dlineNum(m.bottom.step)}, עד ${withUnit(m.bottom.max, m.bottom.unit)}]`
+        : `[ציר כפול: למעלה ${line(m.top)}, למטה ${line(m.bottom)}; מזיזים את הסמן בצעדים של ${withUnit(m.top.step, m.top.unit)}]`;
+    }
     default: return '';
   }
 }
@@ -199,6 +330,13 @@ export function manipSolution(it) {
     // the box stays on the pan that had more boxes
     case 'balance': return m.start.lx >= m.start.rx ? { lx: 1, l1: 0, rx: 0, r1: a } : { lx: 0, l1: a, rx: 1, r1: 0 };
     case 'tiles': return { px: Math.max(a.k, 0), nx: Math.max(-a.k, 0), p1: Math.max(a.c, 0), n1: Math.max(-a.c, 0) };
+    // the smallest bar that shows the value (the locked number of parts when the question fixes it)
+    case 'fbar': {
+      if (a.mode === 'exact') return { den: a.den, shaded: a.shaded };
+      if (a.mode === 'common') return { den: a.of.reduce(lcm, 1), shaded: 0 };
+      const den = m.lockDen ? m.start.den : fbarDenFor(a.value, m.maxDen || FBAR_MAX_DEN);
+      return { den, shaded: Math.round(a.value * den) };
+    }
     default: return a;
   }
 }
@@ -207,13 +345,13 @@ export function manipSolution(it) {
 export function manipWrong(it) {
   const m = it.manip; const a = it.answer;
   switch (m.kind) {
-    case 'numberline': return a < m.max ? a + 1 : a - 1;
+    case 'numberline': { const d = lineStep(m); return a + d <= m.max + 1e-9 ? a + d : a - d; }
     case 'angle': return a < 175 ? a + 5 : a - 5;
     case 'bars': return a < m.max ? a + 1 : a - 1;
     case 'plot': return m.quadrant ? (m.fixX != null ? [a[0], -a[1]] : [-a[0], a[1]]) : [a[0] < (m.range || 6) ? a[0] + 1 : a[0] - 1, a[1]];
     case 'line': { const r = m.range || 6; return Math.abs(a.b + a.m + 1) <= r && a.m + 1 !== 0 ? { m: a.m + 1, b: a.b } : { m: a.m - 1, b: a.b }; }
     case 'squares': return { a: a.a, b: a.b + 1 };
-    case 'pins': return a.map((v, i) => (i === 0 ? (v < m.max ? v + 1 : v - 1) : v));
+    case 'pins': { const d = lineStep(m); return a.map((v, i) => (i === 0 ? (v + d <= m.max + 1e-9 ? v + d : v - d) : v)); }
     case 'triangle': return [a[0] + 1 <= (m.range || 6) ? a[0] + 1 : a[0] - 1, a[1]];
     // one step short: level, but a weight left beside the box
     case 'balance': { const s = manipSolution(it); return s.lx ? { ...s, l1: 1, r1: s.r1 + 1 } : { ...s, r1: 1, l1: s.l1 + 1 }; }
@@ -222,6 +360,17 @@ export function manipWrong(it) {
     case 'area': return { a: a.a, b: a.b < (m.maxB || 9) ? a.b + 1 : a.b - 1 };
     // the boundary: the circle full instead of empty, or the other way
     case 'ray': return { ...a, closed: !a.closed };
+    // one part more shaded (one less on a full bar); for a common count, one part more than the smallest
+    case 'fbar': {
+      const sol = manipSolution(it);
+      if (a.mode === 'common') { const max = m.maxDen || FBAR_MAX_DEN; return { den: sol.den + 1 <= max ? sol.den + 1 : sol.den - 1, shaded: 0 }; }
+      return { den: sol.den, shaded: sol.shaded < sol.den ? sol.shaded + 1 : sol.shaded - 1 };
+    }
+    // one step past the answer (one step short at the end of the line)
+    case 'dline': {
+      const L = m.move === 'max' ? m.bottom : m.top; const lo = m.move === 'max' ? L.step : 0;
+      return a + L.step <= L.max + 1e-9 ? a + L.step : Math.max(lo, a - L.step);
+    }
     default: return null;
   }
 }

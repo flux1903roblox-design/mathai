@@ -6,13 +6,27 @@
 //   area   { a, b, areas? }                             a rectangle a high and x + b long; areas: write each part's area
 //   ray    { at, dir, closed, min?, max? }              an inequality's solutions on the number line
 //   tiles  { px, nx, p1, n1 }                           algebra tiles: x, −x, 1 and −1
+// Fractions, percent and ratio (curriculum stage 1):
+//   numline { from, to, marks?: [{ x, label?, tone? }], jumps?: [{ from, to, label? }], step?, anim?, den? }
+//          a number line; with den, small ticks every 1/den and labels on whole numbers only ("A at k" is a mark at k/den)
+//   fbar   { den, shaded, marks?, whole?, labels?, hatch?, cross?, rows?: [{ den, shaded, label? }] }   the fraction bar;
+//          rows stack bars of one length, hatch hatches the first shaded parts (a part of a part), cross crosses out the
+//          last ones (taken away), labels writes each bar's fraction beside it, whole names the whole bar (0 … whole)
+//   fgrid  { rows, cols, shadeRows, shadeCols, label? }   a rectangle cut both ways: columns shaded one way, rows the
+//          other, the overlap darkest (3/4 of 1/2 as an area)
+//   dline  { top, bottom, at?, show?: 'both' | 'top' | 'bottom', label? }   the double number line, its marker at `at`
+//          on the top line; show which values are written at the marker; label writes one value under it ('1400', '?')
+//   groups { rows: [{ n, label }] }                     dots in fives, a Hebrew label at the start of each row
 import { useId } from 'react';
 import clsx from 'clsx';
 import { ScaleArt, scaleView, scaleTop } from './manip/Balance.jsx';
 import { AreaArt, areaView } from './manip/AreaModel.jsx';
 import { RayArt, RAY_VIEW } from './manip/Ray.jsx';
 import { TilesArt, TILES_VIEW } from './manip/Tiles.jsx';
-import { panWords, tilesWords, rayText, areaTex } from '@/content/manip.js';
+import { BarArt, MarksArt, WholeArt, HatchDef } from './manip/FracBar.jsx';
+import { DlineArt, DLINE_VIEW } from './manip/DoubleLine.jsx';
+import { SvgLabel, minus } from './manip/core.jsx';
+import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords } from '@/content/manip.js';
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
 
@@ -379,8 +393,158 @@ function TilesFig({ fig }) {
   );
 }
 
+// ---------------------------------------------------------------- fractions, percent and ratio
+const isWhole = (v) => Math.abs(v - Math.round(v)) < 1e-9;
+
+/** A number line as a still picture: points named by letters, jumps as arcs, and with den the parts of every unit. */
+function NumLine({ fig }) {
+  const { from, to, den } = fig; const step = fig.step || 1;
+  const marks = fig.marks || []; const jumps = fig.jumps || [];
+  const W = 340; const PAD = 22;
+  const top = jumps.length ? 84 : marks.some((k) => k.label) ? 50 : 18;
+  const LINE = top; const H = LINE + 42;
+  const unit = (W - 2 * PAD) / (to - from);
+  const X = (v) => PAD + (v - from) * unit;
+  // the ticks: every part with den (when they are at least 3px apart), else every `step`
+  const per = den || 1 / step; const n = Math.round((to - from) * per);
+  const ticks = Array.from({ length: n + 1 }, (_, i) => from + i / per);
+  const dense = den && unit / den < 3;
+  const tenth = (v) => den && den % 10 === 0 && den >= 20 && isWhole(v * 10);
+  // labels on whole numbers, spaced at least 22px apart
+  const every = Math.max(1, Math.ceil(22 / (unit * (den ? 1 : step))));
+  const labelled = (v, i) => (den ? isWhole(v) : i % every === 0 || i === n);
+  const tone = (t) => (t === 'good' ? 'good' : t === 'bad' ? 'bad' : 'brand');
+  let order = 0;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className={clsx('figure fg-numline', fig.anim && 'fg-anim')} role="img" aria-label={figWords(fig)}>
+      <line x1={PAD - 12} y1={LINE} x2={W - PAD + 12} y2={LINE} className="fg-nl-axis" />
+      <path d={`M ${W - PAD + 14} ${LINE} l -8 -5 v 10 z`} className="fg-nl-head" />
+      {ticks.map((v, i) => {
+        const whole = isWhole(v); const zero = Math.abs(v) < 1e-9;
+        if (dense && !whole && !tenth(v)) return null;
+        const h = whole ? 9 : tenth(v) ? 6 : 4;
+        const anim = fig.anim && !whole ? { style: { '--i': order++ } } : {};
+        return (
+          <g key={v.toFixed(6)}>
+            <line x1={X(v)} y1={LINE - h} x2={X(v)} y2={LINE + h} className={clsx('fg-nl-tick', zero && 'zero', !whole && 'part')} {...anim} />
+            {labelled(v, i) && <text x={X(v)} y={LINE + 26} textAnchor="middle" className={clsx('fg-nl-num', zero && 'zero')}>{minus(Math.round(v * 1000) / 1000)}</text>}
+          </g>
+        );
+      })}
+      {jumps.map((j, i) => {
+        const lift = Math.min(64, 18 + Math.abs(X(j.to) - X(j.from)) * 0.3);
+        const mid = (X(j.from) + X(j.to)) / 2;
+        return (
+          <g key={`j${i}`} className="fg-nl-jumpg" style={fig.anim ? { '--i': order + i } : undefined}>
+            <path d={`M ${X(j.from)} ${LINE - 6} Q ${mid} ${LINE - 6 - lift * 2} ${X(j.to)} ${LINE - 6}`} pathLength="1" className="fg-nl-jump" />
+            <path d={`M ${X(j.to)} ${LINE - 6} l ${j.to > j.from ? -8 : 8} -6`} className="fg-nl-jump-head" />
+            {j.label && <SvgLabel x={mid} y={LINE - 18 - lift} text={j.label} className="fg-nl-jump-label" size="sm" />}
+          </g>
+        );
+      })}
+      {marks.map((k, i) => (
+        <g key={`m${i}`} className={clsx('fg-nl-mark', `tone-${tone(k.tone)}`)}>
+          <circle cx={X(k.x)} cy={LINE} r="6" />
+          {k.label && <SvgLabel x={X(k.x)} y={LINE - 24} text={k.label} className="fg-nl-mark-label" size="sm" />}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** The fraction bar, still: one bar or rows of bars of one length, with their marks, hatching and crossed parts. */
+function FBar({ fig }) {
+  const rows = fig.rows?.length ? fig.rows : [{ den: fig.den, shaded: fig.shaded, label: fig.label }];
+  const pid = `fgbar-${useId().replace(/[^\w-]/g, '')}`;
+  const labelOf = (r) => r.label ?? (fig.labels ? `\\frac{${r.shaded}}{${r.den}}` : null);
+  const side = rows.some((r) => labelOf(r) != null);
+  const W = 360; const x0 = 20; const x1 = side ? 282 : 340;
+  const marks = fig.marks || [];
+  const y0 = marks.length ? 52 : 10; const h = rows.length > 1 ? 40 : 52; const gap = 14;
+  const H = y0 + rows.length * h + (rows.length - 1) * gap + (fig.whole != null ? 34 : 10);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="figure fg-obj fg-fbar" role="img" aria-label={figWords(fig)}>
+      <HatchDef id={pid} />
+      {rows.map((r, i) => {
+        const y = y0 + i * (h + gap); const lab = labelOf(r);
+        return (
+          <g key={i}>
+            <BarArt den={r.den} shaded={r.shaded} x0={x0} x1={x1} y={y} h={h} hatch={i === 0 ? fig.hatch || 0 : 0} cross={i === 0 ? fig.cross || 0 : 0} patternId={pid} />
+            {lab != null && <SvgLabel x={(x1 + W) / 2} y={y + h / 2} text={lab} className="fg-fbar-label" />}
+          </g>
+        );
+      })}
+      {marks.length > 0 && <MarksArt marks={marks} x0={x0} x1={x1} y={y0} />}
+      {fig.whole != null && <WholeArt whole={fig.whole} x0={x0} x1={x1} y={H - 10} />}
+    </svg>
+  );
+}
+
+/** A rectangle cut into rows and columns: shadeCols columns one way, shadeRows rows the other, the overlap darkest. */
+function FGrid({ fig }) {
+  const { rows, cols, shadeRows = 0, shadeCols = 0 } = fig;
+  const c = Math.min(260 / cols, 150 / rows); const w = cols * c; const h = rows * c;
+  const W = 300; const x0 = (W - w) / 2; const y0 = 12; const H = y0 + h + (fig.label ? 50 : 14);
+  const cells = [];
+  for (let r = 0; r < rows; r += 1) for (let k = 0; k < cols; k += 1) {
+    const inCol = k < shadeCols; const inRow = r < shadeRows;
+    cells.push(<rect key={`${r}-${k}`} x={x0 + k * c} y={y0 + r * c} width={c} height={c} className={clsx('fg-grid-cell', inCol && 'col', inRow && 'row', inCol && inRow && 'both')} />);
+  }
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="figure fg-obj fg-fgrid" role="img" aria-label={figWords(fig)}>
+      {cells}
+      <rect x={x0} y={y0} width={w} height={h} className="fg-grid-edge" />
+      {fig.label && <SvgLabel x={W / 2} y={y0 + h + 26} text={fig.label} className="fg-grid-label" />}
+    </svg>
+  );
+}
+
+/** The double number line, still: the marker at `at` and the values the figure shows there. */
+function DLine({ fig }) {
+  const show = fig.show || 'both';
+  const m = { top: fig.top, bottom: fig.bottom, move: 't' };
+  const under = fig.at == null ? null : dlineAt(m, fig.at).under;
+  const pills = {
+    top: fig.at != null && show !== 'bottom' ? withUnit(fig.at, fig.top.unit) : null,
+    bottom: fig.at == null ? null : fig.label != null ? String(fig.label) : show !== 'top' ? withUnit(under, fig.bottom.unit) : null,
+  };
+  return (
+    <svg viewBox={DLINE_VIEW} className="figure fg-obj fg-dline" role="img" aria-label={figWords(fig)}>
+      <DlineArt top={fig.top} bottom={fig.bottom} at={fig.at ?? null} pills={pills} />
+    </svg>
+  );
+}
+
+/** Things counted in rows: dots in fives, a Hebrew label at the start (the right) of each row. */
+function Groups({ fig }) {
+  const W = 340; const lab = 92; const R = 7; const S = 19; const G = 9; const PER = 10; const LH = 28;
+  const lines = fig.rows.map((r) => Math.max(1, Math.ceil(r.n / PER)));
+  const H = 14 + lines.reduce((a, b) => a + b, 0) * LH + (fig.rows.length - 1) * 10;
+  let y = 14 + LH / 2;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="figure fg-obj fg-groups" role="img" aria-label={figWords(fig)}>
+      {fig.rows.map((r, i) => {
+        const y1 = y; const dots = [];
+        for (let k = 0; k < r.n; k += 1) {
+          const line = Math.floor(k / PER); const j = k % PER;
+          // right to left from the label, a small gap after every five
+          const x = W - lab - 12 - R - j * S - Math.floor(j / 5) * G;
+          dots.push(<circle key={k} cx={x} cy={y1 + line * LH} r={R} className={`fg-dot tone-${i % 4}`} />);
+        }
+        y += lines[i] * LH + 10;
+        return (
+          <g key={i}>
+            <text x={W - 6} y={y1 + 5} textAnchor="end" className="fg-word">{r.label}</text>
+            {dots}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export default function Figure({ fig }) {
   if (!fig) return null;
-  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig }[fig.type];
+  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumLine, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups }[fig.type];
   return C ? <div className="figure-wrap"><C fig={fig} /></div> : null;
 }

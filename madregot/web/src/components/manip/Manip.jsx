@@ -15,12 +15,15 @@ import Balance, { balanceCoach } from './Balance.jsx';
 import Tiles, { tilesCoach } from './Tiles.jsx';
 import AreaModel, { areaCoach } from './AreaModel.jsx';
 import Ray, { rayCoach } from './Ray.jsx';
+import FracBar, { fbarCoach } from './FracBar.jsx';
+import DoubleLine, { dlineCoach } from './DoubleLine.jsx';
 import { triangleAngles } from '@/content/manip.js';
-import { minus } from './core.jsx';
+import { minus, partsTex } from './core.jsx';
+import { Tex } from '../MathText.jsx';
 
 export const KINDS = {
   numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag,
-  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray,
+  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine,
 };
 
 // A number inside Hebrew text keeps its minus sign on the left.
@@ -32,6 +35,14 @@ function coach(it, v, touched) {
   const m = it.manip;
   switch (m.kind) {
     case 'numberline': {
+      // a line cut into parts: how many parts from the start, and how big one part is
+      if (m.den) {
+        const one = <bdi dir="ltr"><Tex tex={partsTex(1, m.den)} /></bdi>;
+        if (!touched) return <>כל יחידה מחולקת ל־<N v={m.den} /> חלקים שווים, וכל חלק הוא {one}. גררו את הסמן, וספרו חלקים.</>;
+        const k = Math.round((v - m.from) * m.den);
+        if (!k) return 'הסמן בנקודת ההתחלה.';
+        return <>מ־<N v={m.from} /> זזתם {steps(k, 'חלק אחד', 'חלקים')} {k > 0 ? 'ימינה' : 'שמאלה'}. כל חלק הוא {one}.</>;
+      }
       if (!touched) return 'גררו את הסמן על הציר, ואני אראה לכם את הקפיצה.';
       const j = v - m.from;
       if (!j) return 'הסמן בנקודת ההתחלה.';
@@ -81,6 +92,8 @@ function coach(it, v, touched) {
     case 'tiles': return tilesCoach(m, v, touched);
     case 'area': return areaCoach(m, v, touched);
     case 'ray': return rayCoach(m, v, touched);
+    case 'fbar': return fbarCoach(m, v, touched);
+    case 'dline': return dlineCoach(m, v, touched);
     default: return null;
   }
 }

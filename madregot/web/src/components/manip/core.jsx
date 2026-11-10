@@ -62,3 +62,44 @@ export function Stepper({ label, sub, value, onDec, onInc, decLabel, incLabel, d
 
 /** Numbers drawn in SVG text keep a real minus sign. */
 export const minus = (v) => (v < 0 ? `−${-v}` : `${v}`);
+
+// ---------------------------------------------------------------- numbers and fractions drawn in SVG
+const FRAC_TEX = /^([-−])?\\[dt]?frac\{(\d+)\}\{(\d+)\}$/;
+const HEB = /[֐-׿]/;
+/** A label as plain text: \frac{3}{4} is 3/4, −2 keeps its real minus. */
+export const labelText = (s) => String(s ?? '').replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2').replace(/\\%/g, '%').replace(/\{,\}/g, ',').replace(/^-/, '−');
+
+/**
+ * A short label drawn in SVG at (x, y), y being its middle: a fraction (\frac{3}{4}, or a value with `den`) is stacked,
+ * numerator over a bar over denominator, as in a textbook; one capital letter is a point's name (italic); a Hebrew
+ * word reads right to left; anything else is plain text. SVG text cannot hold TeX, so this is the one way the drawings
+ * write a fraction.
+ */
+export function SvgLabel({ x, y, text, className = 'mp-num', anchor = 'middle', size = 'md' }) {
+  const s = String(text ?? '');
+  const f = s.match(FRAC_TEX);
+  if (f) {
+    const [, sign, n, d] = f; const w = Math.max(n.length, d.length) * (size === 'sm' ? 7.5 : 9) + 6;
+    const dx = anchor === 'start' ? w / 2 + (sign ? 10 : 0) : anchor === 'end' ? -w / 2 : (sign ? 5 : 0);
+    const cx = x + dx; const g = size === 'sm' ? 8 : 10;
+    return (
+      <g className={`svg-frac ${className}`} aria-hidden="true">
+        {sign && <text x={cx - w / 2 - 3} y={y + 5} textAnchor="end" className={className}>−</text>}
+        <text x={cx} y={y - 3} textAnchor="middle" className={className}>{n}</text>
+        <line x1={cx - w / 2} x2={cx + w / 2} y1={y + 1} y2={y + 1} className="svg-frac-bar" />
+        <text x={cx} y={y + g + 6} textAnchor="middle" className={className}>{d}</text>
+      </g>
+    );
+  }
+  const letter = /^[A-Z]$/.test(s);
+  return (
+    <text x={x} y={y + 5} textAnchor={anchor} className={letter ? `${className} svg-letter` : className} direction={HEB.test(s) ? 'rtl' : undefined}>{labelText(s)}</text>
+  );
+}
+
+/** k/den as TeX, written as counted (5/3 stays \frac{5}{3}); 0 is 0, a whole number of parts over 1 stays a fraction. */
+export const partsTex = (k, den) => (k === 0 ? '0' : den === 1 ? `${k}` : `${k < 0 ? '-' : ''}\\frac{${Math.abs(k)}}{${den}}`);
+/** A value on a line cut into `den` parts a unit: its number of parts from `base` (rounded to a whole part). */
+export const partsOf = (v, den, base = 0) => Math.round((v - base) * den);
+/** A decimal for a value of a line with `fmt: 'dec'`: at most three places, a real minus. */
+export const decText = (v) => minus(Math.round(v * 1000) / 1000);

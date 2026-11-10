@@ -2,7 +2,7 @@ import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
 import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
 import { LESSONS } from './lessons.js';
-import { manipCorrect, manipText, manipPlain, panWords, tilesWords, rayText, areaTex } from './manip.js';
+import { manipCorrect, manipText, manipPlain, panWords, tilesWords, rayText, areaTex, figWords } from './manip.js';
 
 import { NEW_CATS, CONTENT } from '@/learn/content/index.ts';
 
@@ -184,6 +184,7 @@ export function figPlain(f) {
     case 'area': return `מלבן: גובה ${f.a}, אורך ${f.b ? `x ועוד ${f.b}` : 'x'}${f.areas ? `; שטחי החלקים ${plainNum(f.a)}x ו־${plainNum(f.a * f.b)}, השטח כולו ${areaTex(f)}` : ''}`;
     case 'ray': return `ציר מספרים: עיגול ${f.closed ? 'מלא' : 'ריק'} ב־${plainNum(f.at)} וקרן ${f.dir > 0 ? 'ימינה' : 'שמאלה'} (${rayText(f)})`;
     case 'tiles': return `אריחים: ${tilesWords(f)}`;
+    case 'numline': case 'fbar': case 'fgrid': case 'dline': case 'groups': return figWords(f);
     default: return '';
   }
 }

@@ -19,13 +19,31 @@ export type Rng = () => number;
  * Algebra: 'balance' (a scale of boxes x and unit weights; the answer is the value of x), 'tiles' (algebra tiles,
  * zero pairs removed; the answer is { k, c } for kx + c), 'area' (a rectangle a by x + b; the answer is { a, b }),
  * 'ray' (an inequality on the number line; the answer is { at, dir, closed }). 'plot' also takes `lines`.
+ * Fractions and ratio: 'fbar' (the fraction bar { start: { den, shaded }, lockDen?, maxDen?, marks?, whole? }; the answer
+ * is { mode: 'value', value } | { mode: 'common', of } | { mode: 'exact', den, shaded }) and 'dline' (the double number
+ * line { top, bottom, move: 't' | 'max', start: { t, max? }, fixT? }; the answer is the marker's top value or the bottom
+ * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`.
  */
-export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray';
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline';
 export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 
 // ------------------------------------------------------------------ Stage A: discover and understand
 
 /** מדי says one short thing (one or two sentences). */
+/** One line of a double number line: its end, its step, its unit (outside the maths) and name; labels every n-th tick. */
+export type DlineLine = { max: number; step: number; unit?: string; label?: string; every?: number };
+/** A number line: points (A at k/den is { x: k/den, label: 'A' }), jumps as arcs; with den, every unit cut into parts. */
+export type NumlineFig = { type: 'numline'; from: number; to: number; marks?: { x: number; label?: string; tone?: 'brand' | 'good' | 'bad' }[]; jumps?: { from: number; to: number; label?: string }[]; step?: number; anim?: boolean; den?: number };
+/** The fraction bar: rows of bars of one length; hatch the first shaded parts, cross out the last; whole names the bar. */
+export type FbarFig = { type: 'fbar'; den?: number; shaded?: number; marks?: number[]; whole?: number; labels?: boolean; hatch?: number; cross?: number; rows?: { den: number; shaded: number; label?: string }[] };
+/** A rectangle cut both ways, the overlap of the shaded columns and rows darkest. */
+export type FgridFig = { type: 'fgrid'; rows: number; cols: number; shadeRows: number; shadeCols: number; label?: string };
+/** The double number line, still: the marker at `at` on the top line, which values it shows, or one value under it. */
+export type DlineFig = { type: 'dline'; top: DlineLine; bottom: DlineLine; at?: number; show?: 'both' | 'top' | 'bottom'; label?: string };
+/** Things counted in rows of dots, with a Hebrew label at the start of each row. */
+export type GroupsFig = { type: 'groups'; rows: { n: number; label: string }[] };
+/** The figures of fractions, percent and ratio: content writes them `satisfies FractionFig` so their fields are checked. */
+export type FractionFig = NumlineFig | FbarFig | FgridFig | DlineFig | GroupsFig;
 /** A drawing, in the shape components/Figure draws (e.g. { type: 'parallel', a, kind }). */
 export type FigSpec = { type: string; [field: string]: unknown };
 
