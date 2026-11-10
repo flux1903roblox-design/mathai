@@ -34,3 +34,56 @@ describe('renderTex: a TeX failure is shown as text, never as HTML', () => {
     expect(escapeHtml(`<a href='x'>&"</a>`)).toBe('&lt;a href=&#39;x&#39;&gt;&amp;&quot;&lt;/a&gt;');
   });
 });
+
+// STUDENT-9 §3: maths in a sentence uses the sentence's digits.
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { MathText, mathPlain, plainNumber, splitFirstSentence } from './MathText.jsx';
+
+const html = (text) => renderToStaticMarkup(createElement(MathText, { text }));
+
+describe('MathText: a bare number is plain text in Rubik, other maths stays KaTeX', () => {
+  it('$-3$ is a bdi with a real minus sign', () => {
+    expect(html('$-3$')).toBe('<span><bdi class="num" dir="ltr">−3</bdi></span>');
+    expect(html('$-3$')).not.toContain('katex');
+  });
+  it('$(-4)$, a degree sign, a decimal and a plain number', () => {
+    expect(html('$(-4)$')).toContain('<bdi class="num" dir="ltr">(−4)</bdi>');
+    expect(html('$35^\\circ$')).toContain('<bdi class="num" dir="ltr">35°</bdi>');
+    expect(html('$35^{\\circ}$')).toContain('<bdi class="num" dir="ltr">35°</bdi>');
+    expect(html('$2.5$')).toContain('<bdi class="num" dir="ltr">2.5</bdi>');
+    expect(html('מתחילים ב־$-2$ ומוסיפים $5$.')).toBe('<span><span>מתחילים ב־</span><bdi class="num" dir="ltr">−2</bdi><span> ומוסיפים </span><bdi class="num" dir="ltr">5</bdi><span>.</span></span>');
+  });
+  it('a letter, an operator or a fraction stays KaTeX, inside .mt-inline', () => {
+    for (const t of ['$x+1$', '$\\frac{3}{4}$', '$x = -3$', '$-3 + 5$', '$2x$']) {
+      const out = html(t);
+      expect(out, t).toMatch(/^<span><span class="mt-inline"><span class="katex">/);
+      expect(out, t).not.toContain('class="num"');
+    }
+  });
+  it('plainNumber says which TeX is only a number', () => {
+    expect(plainNumber('-3')).toBe('−3');
+    expect(plainNumber(' 12 ')).toBe('12');
+    expect(plainNumber('+5')).toBe('+5');
+    expect(plainNumber('x')).toBeNull();
+    expect(plainNumber('3x')).toBeNull();
+    expect(plainNumber('\\frac{1}{2}')).toBeNull();
+    expect(plainNumber('3^2')).toBeNull();
+  });
+  it('mathPlain (accessible names) is unchanged', () => {
+    expect(mathPlain('$-3$')).toBe('-3');
+    expect(mathPlain('מ־$-2$ ל־$35^\\circ$')).toBe('מ־-2 ל־35°');
+  });
+});
+
+describe('splitFirstSentence: the "not yet" help shows its first sentence first (STUDENT-9 §2)', () => {
+  it('splits after the first sentence, outside the maths', () => {
+    expect(splitFirstSentence('חיבור של מספר חיובי מזיז ימינה. ספרו 5 צעדים מ־$-2$.')).toEqual(['חיבור של מספר חיובי מזיז ימינה.', 'ספרו 5 צעדים מ־$-2$.']);
+    expect(splitFirstSentence('מה יוצא? נסו שוב.')).toEqual(['מה יוצא?', 'נסו שוב.']);
+  });
+  it('a decimal point inside the maths, or a single sentence, does not split', () => {
+    expect(splitFirstSentence('הזיזו ל־$2. 5$ בערך')).toEqual(['הזיזו ל־$2. 5$ בערך', '']);
+    expect(splitFirstSentence('רק משפט אחד.')).toEqual(['רק משפט אחד.', '']);
+    expect(splitFirstSentence('')).toEqual(['', '']);
+  });
+});

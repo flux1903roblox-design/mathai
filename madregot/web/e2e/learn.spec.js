@@ -203,6 +203,12 @@ test('the profile shows what the evidence says, on this device, and can delete e
   await open(page, '#/me', student('7'));
   await expect(page.getByRole('heading', { name: 'הלמידה שלי במספרים' })).toBeVisible();
   await expect(page.getByText('עוד אין מספיק נתונים').first()).toBeVisible();
+  // in the student's words: three numbers, the rest under "עוד מספרים" (STUDENT-9 §6)
+  const nums = page.locator('.my-numbers');
+  await expect(nums.locator(':scope > .nums dt')).toHaveText(['מדרגות שאתם שולטים בהן לבד', 'נכון בניסיון הראשון, בלי רמז', 'טעויות שתיקנתם']);
+  await nums.getByText('עוד מספרים', { exact: true }).click();
+  await expect(nums.locator('.nums-more dt')).toHaveText(['חזרות שהצלחתם', 'ימים שלמדתם', 'כמה השליטה שלכם השתפרה', 'שליטה שנשארה גם אחרי שבוע', 'שיעורים שהתחלתם / סיימתם']);
+  await expect(nums).not.toContainText('בדיקות זיכרון');
   await page.getByRole('link', { name: 'הגדרות' }).click();
   await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
   await page.getByRole('button', { name: 'כן, למחוק הכול' }).click();

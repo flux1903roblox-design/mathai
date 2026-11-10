@@ -18,6 +18,7 @@ async function onboard(page, start) {
   await page.getByRole('button', { name: 'מתחילים', exact: true }).click();
   await page.fill('#w-name', 'נועה');
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await expect(page.getByText('נעים להכיר, נועה! באיזו כיתה?')).toBeVisible(); // no pronoun right after the name (STUDENT-9 §5)
   await page.getByRole('radio', { name: /^כיתה ז׳/ }).click();
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByRole('radio', { name: /^קצת מוכר/ }).click();

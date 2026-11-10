@@ -142,7 +142,7 @@ function Onboarding({ onTeacher }) {
   const can = { name: !!f.name.trim(), grade: !!f.grade, know: f.know != null, goal: !!f.goal, class: true, start: true }[step];
   const ask = {
     name: 'היי, אני מדי! איך קוראים לך?',
-    grade: `נעים מאוד, ${f.name.trim()}! באיזו כיתה אתם?`,
+    grade: `נעים להכיר, ${f.name.trim()}! באיזו כיתה?`, // no pronoun right after the name (STUDENT-9 §5)
     know: `כמה מהחומר של ${GRADE_NAME[grade]} כבר מוכר לכם?`,
     goal: 'כמה זמן ביום מתאים לכם?',
     class: 'יש לכם קוד כיתה מהמורה?',

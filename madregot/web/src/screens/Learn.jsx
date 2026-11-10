@@ -224,7 +224,11 @@ export default function Learn() {
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
             mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null} />
         ))}
-        <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה. <Link to="/topics">כל הנושאים והמצב בכל אחד</Link></p>
+        <div className="path-end">
+          <p>עוד יחידות יגיעו לפי תכנית הלימודים של השנה.</p>
+          {/* a full-size target on its own line, not a link inside the sentence (STUDENT-9 §1) */}
+          <Link to="/topics" className="btn btn-ghost btn-sm">כל הנושאים והמצב בכל אחד</Link>
+        </div>
       </div>
       <SidePanel streak={streak} todayXp={todayXp} goalXp={goalXp} freezes={freezes} days={days} />
       </div>

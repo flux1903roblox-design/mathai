@@ -79,14 +79,34 @@ export function FitDisplay({ tex, className = 'qdisplay' }) {
   return <div className={className} ref={ref}><Tex tex={tex} display /></div>;
 }
 
-/** Hebrew text with inline math between $...$ (generator output only). */
+// An inline $…$ that is only a number: -3, (-4), 2.5, 35^\circ (STUDENT-9 §3).
+const BARE_NUMBER = /^\(?[-−+]?\d+(?:[.,]\d+)?\)?(?:\^\\circ|\^\{\\circ\})?$/;
+
+/**
+ * The text of an inline TeX that is only a number, set like the sentence around it: a real minus sign (U+2212) and
+ * a degree sign. Null for anything else (a letter, an operator, a fraction), which stays KaTeX.
+ */
+export function plainNumber(tex) {
+  const t = String(tex ?? '').trim();
+  if (!BARE_NUMBER.test(t)) return null;
+  return t.replace(/-/g, '\u2212').replace(/\^\{?\\circ\}?$/, '°');
+}
+
+/**
+ * Hebrew text with inline math between $...$ (generator output only). Maths in a sentence uses the sentence's digits:
+ * a bare number is plain text in Rubik (bdi.num, left to right, tabular), and the digits of other inline maths are
+ * set in Rubik too (.mt-inline, canon.css) while its letters and operators keep KaTeX's fonts.
+ */
 export const MathText = memo(function MathText({ text, as: As = 'span', className }) {
   const parts = String(text ?? '').split(/(\$[^$]+\$)/g).filter(Boolean);
   return (
     <As className={className}>
-      {parts.map((p, i) => (p.startsWith('$') && p.endsWith('$') && p.length > 2
-        ? <Tex key={i} tex={p.slice(1, -1)} />
-        : <span key={i}>{p}</span>))}
+      {parts.map((p, i) => {
+        if (!(p.startsWith('$') && p.endsWith('$') && p.length > 2)) return <span key={i}>{p}</span>;
+        const tex = p.slice(1, -1);
+        const num = plainNumber(tex);
+        return num === null ? <Tex key={i} tex={tex} className="mt-inline" /> : <bdi key={i} className="num" dir="ltr">{num}</bdi>;
+      })}
     </As>
   );
 });
@@ -108,3 +128,20 @@ export function Markdown({ children, className, inline = false }) {
 
 /** Text with $...$ maths as plain words, for an accessible name (a button whose text is only maths). */
 export const mathPlain = (text) => String(text || '').replace(/\$([^$]+)\$/g, (_, t) => texText(t)).replace(/\s+/g, ' ').trim();
+
+/**
+ * Text with $...$ maths split after its first sentence: [first, rest] (rest '' when there is one sentence). A sentence
+ * ends at '.', '?' or '!' outside the maths, followed by a space; a decimal point inside $…$ never ends one.
+ */
+export function splitFirstSentence(text) {
+  const t = String(text ?? '').trim();
+  let math = false;
+  for (let k = 0; k < t.length; k += 1) {
+    const c = t[k];
+    if (c === '$') math = !math;
+    else if (!math && (c === '.' || c === '?' || c === '!') && /\s/.test(t[k + 1] || '')) {
+      return [t.slice(0, k + 1), t.slice(k + 1).trim()];
+    }
+  }
+  return [t, ''];
+}

@@ -600,3 +600,36 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 }
 .offline-chip svg { flex: none; color: var(--ink-2); }
 .page .offline-chip { margin: 0; } /* a page with its own padding (the assistant) */
+
+/* ------------------------------------------------------------------ digits in maths (STUDENT-9 §3)
+   Maths in a sentence uses the sentence's digits. A bare number ($-3$, $35^\circ$) is plain text (MathText's bdi.num);
+   in other inline maths ($x = -3$) the digits, the unary minus and \text{} words are set in Rubik while KaTeX's
+   italic letters and its operators keep KaTeX's fonts. Only leaf .mord boxes: a wrapper .mord (a fraction) would pass
+   Rubik on to the + inside it. Display maths (FitDisplay) is not touched. */
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mt-inline .katex .mord:not(.mathnormal):not(.mathit):not(:has(*)) { font-family: var(--font-ui); }
+
+/* ------------------------------------------------------------------ touch targets (STUDENT-9 §1)
+   Every touch target on a student screen is at least 44×44 (inline links inside running text excepted). The lesson's
+   tools (hint, Madi, notebook) were 40×40 in the top bar and 36px tall in the dock; the Topics tiles 34×34 (30×30 on a
+   small phone); the unit's guide button 32px wide on a small phone. */
+.lesson-dock .tool, .lesson-tool, .lesson .tool, .dock-row .tool, .lesson-top .tool { min-height: 44px; min-width: 44px; }
+.mm-tile { width: 44px; height: 44px; }
+.mm-tiles { gap: 6px; }
+.unit-guide { min-width: 44px; } /* its height is already 48px (44px on a small phone) */
+/* on a phone the wider guide takes its room from the banner's end padding, not from the unit's name and count */
+@media (max-width: 400px) { .unit-head { padding-inline-end: var(--s1); } }
+.continue-chip { min-height: 44px; } /* Quests' "עליתם 7 מתוך 25" and "דבר אחד לחזק" were 38px tall */
+.path-end { display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
+.path-end p { margin: 0; }
+
+/* ------------------------------------------------------------------ controls above the sheet (STUDENT-9 §2)
+   A teaching step's bottom (the button and the result sheet) is sticky over the step. StepPlayer keeps its height in
+   --foot-h; on "not yet" the step's object is scrolled to sit above it (and below the sticky header), so the number
+   line's buttons are never under the sheet. The bottom is in the flow, so the card needs only the room for that
+   margin, not a second copy of the bottom's height. */
+.step-player .lm-card { padding-bottom: var(--s4); }
+.step-player .lm-canvas { scroll-margin-bottom: calc(var(--foot-h, 0px) + 12px); scroll-margin-top: 72px; }
+.bl-why-text .link-btn { position: relative; min-height: 0; padding: 0 2px; vertical-align: baseline; }
+.bl-why-text .link-btn::after { content: ''; position: absolute; inset: -9px -10px; } /* "עוד" sits in the text line; its touch area is 44px tall */
+.bl-why-more:focus { outline: none; } /* focused only to keep a keyboard's place after "עוד" */

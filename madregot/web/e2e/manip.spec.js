@@ -200,3 +200,45 @@ for (const [kind, route, [fx, fy, tx, ty]] of [['tiles', 'expr/3', [0.5, 0.3, 0.
     await expect(page.locator('.lm-actions.has-good')).toBeVisible();
   });
 }
+
+// STUDENT-9 §2 (council: "elementFromPoint at the centre of 'הסמן שמאלה' returned 'lm-banner'"): after a wrong check in
+// a teaching step, the number line and its buttons sit above the "not yet" sheet, on the council's phone and the smallest.
+for (const [w, h] of [[390, 664], [320, 568]]) {
+  test(`teaching step at ${w}×${h}: the number line's buttons stay above the "not yet" sheet`, async ({ page }) => {
+    test.skip(test.info().project.name !== 'phone', 'the viewport is set here');
+    await page.setViewportSize({ width: w, height: h });
+    await open(page, '#/learn/signed/1/A', student('7'));
+    for (let i = 0; i < 12; i += 1) {
+      await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+      const st = await page.evaluate(() => window.__madregotStep);
+      if (st.kind === 'explore' && st.manip.kind === 'numberline') break;
+      if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); }
+      const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+      await page.locator('.sp-next').click();
+      await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+    }
+    // the wrong way (the step asks for 5 steps to the right), then check
+    await page.getByRole('button', { name: 'הסמן שמאלה' }).click();
+    await page.locator('.lm-check').click();
+    await expect(page.locator('.lm-actions.has-warm')).toBeVisible();
+    // the sheet is short: its first sentence, the rest behind "עוד"
+    await expect(page.locator('.lm-actions .bl-why-text')).toHaveText(/^חיבור של מספר חיובי מזיז ימינה\.\s*עוד$/);
+    for (const name of ['הסמן שמאלה', 'הסמן ימינה']) {
+      const btn = page.getByRole('button', { name });
+      // the centre answers a tap, and the whole button is above the sheet and below the header
+      await expect.poll(() => btn.evaluate((el) => {
+        const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        const sheet = document.querySelector('.lm-actions').getBoundingClientRect(); const head = document.querySelector('.bl-head').getBoundingClientRect();
+        return !!hit && (hit === el || el.contains(hit)) && r.bottom <= sheet.top + 1 && r.top >= head.bottom - 1;
+      }), `${name} is whole and not under the sheet`).toBe(true);
+    }
+    await page.screenshot({ path: test.info().outputPath(`numberline-not-yet-${w}.png`) });
+    // the rest of the help opens in place
+    await page.getByRole('button', { name: 'עוד', exact: true }).click();
+    await expect(page.locator('.lm-actions .bl-why-text')).toContainText('ספרו 5 צעדים');
+    await expect(page.locator('.bl-why-more')).toBeFocused(); // the keyboard keeps its place
+    // and the buttons move the marker again
+    await page.getByRole('button', { name: 'הסמן ימינה' }).click();
+    await expect(page.locator('.lm-actions.has-warm')).toHaveCount(0);
+  });
+}

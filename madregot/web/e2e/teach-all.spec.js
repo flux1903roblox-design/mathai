@@ -87,3 +87,45 @@ for (const [topic, n] of Object.entries(STAIRS)) {
     });
   }
 }
+
+// STUDENT-9 §4: nothing that looks active is disabled. Step 1 has no "previous" button at all; step 2 has one.
+test('the first teaching step has no "previous" button; the second has a working one', async ({ page }) => {
+  await open(page, '#/learn/signed/1/A', student('7'));
+  await expect(page.locator('.step-player')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'הצעד הקודם' })).toHaveCount(0);
+  await expect(page.locator('.sp-back:disabled, .lm-actions button:disabled:not(.lm-check)')).toHaveCount(0);
+  const st = await page.evaluate(() => window.__madregotStep);
+  if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); }
+  await page.locator('.sp-next').click();
+  await expect(page.locator('.sp-progress')).toHaveAttribute('aria-valuenow', '1');
+  await page.getByRole('button', { name: 'הצעד הקודם' }).click();
+  await expect(page.locator('.sp-progress')).toHaveAttribute('aria-valuenow', '0');
+});
+
+// STUDENT-9 §3: maths in a sentence uses the sentence's digits. In "כש־$x = -3$" the 3 is Rubik and the x is KaTeX's
+// italic; a bare number ($16$ on a card) is plain Rubik text.
+test('digits inside inline maths are Rubik, letters stay KaTeX', async ({ page }) => {
+  await open(page, '#/learn/expr/1/A', student('7'));
+  for (let i = 0; i < 12; i += 1) {
+    await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+    const st = await page.evaluate(() => window.__madregotStep);
+    if (st.text.includes('$x = -3$')) break;
+    if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); }
+    const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+    await page.locator('.sp-next').click();
+    await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+  }
+  const fonts = await page.locator('.lm-say').evaluate((say) => {
+    const leaves = [...say.querySelectorAll('.mt-inline .katex-html .mord')].filter((el) => !el.children.length);
+    const three = leaves.find((el) => el.textContent === '3');
+    const x = leaves.find((el) => el.textContent === 'x');
+    return { three: three && getComputedStyle(three).fontFamily, x: x && getComputedStyle(x).fontFamily };
+  });
+  expect(fonts.three, 'the digit 3 of x = -3').toMatch(/^"?Rubik/);
+  expect(fonts.x, 'the letter x').toMatch(/KaTeX_Math/);
+  // the answer cards are bare numbers: plain text, no KaTeX
+  await expect(page.locator('.ls-choice bdi.num').first()).toBeVisible();
+  await expect(page.locator('.ls-choice .katex')).toHaveCount(0);
+  const card = await page.locator('.ls-choice bdi.num').first().evaluate((el) => getComputedStyle(el).fontFamily);
+  expect(card).toMatch(/^"?Rubik/);
+});
