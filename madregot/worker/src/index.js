@@ -119,8 +119,12 @@ function careStaticReply(kind, input, cors, headers) {
 
 /** What a child typed that this request sends to the AI for the first time: the newest chat message, or a typed answer. */
 function childText(kind, input) {
-  if (kind === 'chat') return [lastUser(input.messages)];
-  if (kind === 'explain') return [input.studentAnswer];
+  // the answers the student typed, as the app's context carries them (ai spec AI-1), or as an older app sent them
+  const typed = Array.isArray(input?.ctx?.tries?.answers) ? input.ctx.tries.answers.map((a) => a?.value) : [];
+  if (kind === 'chat') return [lastUser(input.messages), input.context?.studentAnswer, ...typed];
+  if (kind === 'explain') return [input.studentAnswer, ...typed];
+  // the question typed next to a photo of the student's own work
+  if (kind === 'check') return [input.question, ...typed];
   return [];
 }
 

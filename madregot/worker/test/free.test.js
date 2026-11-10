@@ -3,6 +3,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { LITE_NOTE } from '../../shared/ai.js';
+import { CTX_BUDGET } from '../../shared/tutorContext.js';
 import { resetsAt } from '../src/util.js';
 import {
   setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, countOf, rows, claudeReply, claudeDown, devOf, DEVICE,
@@ -27,14 +28,17 @@ test('a device gets 2 tutor questions on claude-haiku-5-5: low effort, 1500 toke
     assert.equal(p.max_tokens, 1500);
     assert.equal(p.output_config.effort, 'low');
     assert.equal(p.fallbacks, undefined);
-    assert.ok(p.system.endsWith(LITE_NOTE));
+    // the short-answer note closes the task block; the app's context comes after it, within the free taste's budget
+    assert.ok(p.system[1].text.endsWith(LITE_NOTE));
+    assert.match(p.system[2].text, /^<app_context>\n/);
+    assert.ok(p.system[2].text.length <= CTX_BUDGET.lite);
   }
   const chat = h.net.log.claude[0];
   assert.equal(chat.messages.length, 5, 'of the last 6 messages, from the first student turn');
   assert.equal(chat.messages[0].role, 'user');
   assert.match(chat.messages[0].content, /8 ש/, 'the turns kept are the newest');
-  assert.ok(chat.messages.every((m) => m.content.length <= 600 + 400 + 200), 'each message clipped to 600 (the first carries the context)');
-  assert.match(chat.messages[0].content, /Exercise on screen: x{400}\n/, 'the question clipped to 400');
+  assert.ok(chat.messages.every((m) => m.content.length <= 600), 'each message clipped to 600, with nothing spliced in');
+  assert.match(chat.system[2].text, /Exercise on screen: x{600}\n/, 'the exercise clipped to 600, in the context block');
 });
 
 test('the 3rd question is 429 daily_limit, with resetsAt at the next Jerusalem midnight', async () => {

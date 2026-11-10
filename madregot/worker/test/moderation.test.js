@@ -41,7 +41,7 @@ test('a phone, an email and an ID a child types never reach Claude; the log coun
   for (const e of ev) for (const [col, v] of Object.entries(e)) if (col !== 'id' && col !== 'day') assert.doesNotMatch(String(v), /\d/, `${col} holds no digits`);
   // a typed answer in explain is masked and counted too; the earlier messages of a chat are masked but not counted again
   await ai(h, 'explain', { 'X-Device': DEVICE }, { body: { question: '3 - 8', correct: '-5', studentAnswer: '0521234567' } });
-  assert.ok(JSON.stringify(h.net.log.claude.at(-1)).includes("Student's answer: [טלפון]"));
+  assert.ok(JSON.stringify(h.net.log.claude.at(-1)).includes("The student's answers: (1) [טלפון]"));
   await h.ctx.flush();
   assert.equal(events().filter((e) => e.surface === 'explain' && e.category === 'phone').length, 1);
 });
@@ -218,4 +218,16 @@ test('reported answers are gone after 60 days, safety events after 400; newer on
   await purge(h.env);
   assert.deepEqual(rows(h.env, 'SELECT reply FROM answer_reports').map((r) => r.reply), ['new']);
   assert.deepEqual(rows(h.env, 'SELECT day FROM safety_events').map((r) => r.day), [dayOf(new Date(Date.now() - 399 * DAY))]);
+});
+
+test('an answer typed in the app\'s context, and a question typed next to a photo, are masked before Claude and counted (ai spec AI-1, TRUST-4 §4.1)', async () => {
+  h = await setup();
+  const ctx = { v: 2, surface: 'lesson', grade: '7', item: { text: 'חשבו: 3 - (-5)', answer: '8' }, tries: { answers: [{ value: '0521234567', kind: 'unknown' }], phase: 'retry' }, policy: { answer: 'withhold' } };
+  const r = await ai(h, 'explain', { 'X-Device': DEVICE }, { body: { ctx } });
+  assert.equal(r.status, 200);
+  const sent = JSON.stringify(h.net.log.claude.at(-1));
+  assert.ok(!sent.includes('0521234567'));
+  assert.ok(h.net.log.claude.at(-1).system[2].text.includes("The student's answers: (1) [טלפון]"));
+  await h.ctx.flush();
+  assert.deepEqual(events().map((e) => [e.kind, e.category, e.surface]), [['pii_masked', 'phone', 'explain']]);
 });
