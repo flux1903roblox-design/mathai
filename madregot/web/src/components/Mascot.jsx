@@ -18,15 +18,22 @@ import { SPRING } from '@/lib/motion.js';
  */
 const ALIAS = { cheer: 'happy', think: 'thinking', oops: 'encouraging' };
 
-const INK = '#001526';
-// His own colour lives in tokens.css (--madi-*), so it is set in one place.
-const HI = { stopColor: 'var(--madi-hi, #7a70ff)' };
-const LO = { stopColor: 'var(--madi-lo, #5246ea)' };
-const EDGE = 'var(--madi-edge, #3f33c4)';
-const TREAD = 'var(--madi-tread, #a49dff)';
-const LIMB = 'var(--madi-limb, #3f33c4)';
-const MARK = 'var(--madi-mark, rgba(255, 255, 255, 0.45))';
-const BLUSH = 'var(--madi-blush, #ff8fb8)';
+// Madi is a drawing: his face, the star he holds and his thought bubble keep these colours in both themes (the face
+// sits on his own blue body, which does not change with the theme).
+const INK = '#001526'; // colour-ok: Madi's face ink, on his blue body
+const WHITE = '#fff'; // colour-ok: Madi's eyes, teeth and thought bubble
+const TONGUE = '#ff7aa8'; // colour-ok: Madi illustration
+const STAR_HI = '#fff6c7'; const STAR_LO = '#f5b400'; const STAR_LINE = '#d39600'; // colour-ok: Madi illustration
+const FLOOR = '#231d5c'; // colour-ok: Madi's ground shadow
+const BUBBLE_LINE = '#d9dae6'; const QMARK = '#5b4ff0'; // colour-ok: Madi illustration
+// His own colour lives in tokens.css (--madi-*), so it is set in one place. The fallbacks are never used.
+const HI = { stopColor: 'var(--madi-hi, #7a70ff)' }; // colour-ok: fallback only
+const LO = { stopColor: 'var(--madi-lo, #5246ea)' }; // colour-ok: fallback only
+const EDGE = 'var(--madi-edge, #3f33c4)'; // colour-ok: fallback only
+const TREAD = 'var(--madi-tread, #a49dff)'; // colour-ok: fallback only
+const LIMB = 'var(--madi-limb, #3f33c4)'; // colour-ok: fallback only
+const MARK = 'var(--madi-mark, rgba(255, 255, 255, 0.45))'; // colour-ok: fallback only
+const BLUSH = 'var(--madi-blush, #ff8fb8)'; // colour-ok: fallback only
 const ARMS = {
   //       left arm (shoulder 28,86)            right arm (shoulder 116,90)
   idle: ['M28 86 Q18 94 17 105', 'M116 90 Q126 98 127 109'],
@@ -61,11 +68,11 @@ const SPARKLE = 'M0 -7 C1 -2 2 -1 7 0 C2 1 1 2 0 7 C-1 2 -2 1 -7 0 C-2 -1 -1 -2 
 function Mouth({ mood }) {
   switch (mood) {
     case 'happy':
-      return <><path d="M47 78 H67 Q67 92 57 92 Q47 92 47 78 Z" fill={INK} /><path d="M51 88 Q57 84 63 88 Q60 91 57 91 Q54 91 51 88Z" fill="#ff7aa8" /></>;
+      return <><path d="M47 78 H67 Q67 92 57 92 Q47 92 47 78 Z" fill={INK} /><path d="M51 88 Q57 84 63 88 Q60 91 57 91 Q54 91 51 88Z" fill={TONGUE} /></>;
     case 'excited':
-      return <><ellipse cx="57" cy="84" rx="7.5" ry="8.5" fill={INK} /><ellipse cx="57" cy="89" rx="4.5" ry="3" fill="#ff7aa8" /></>;
+      return <><ellipse cx="57" cy="84" rx="7.5" ry="8.5" fill={INK} /><ellipse cx="57" cy="89" rx="4.5" ry="3" fill={TONGUE} /></>;
     case 'achievement':
-      return <><path d="M45 77 H69 Q69 94 57 94 Q45 94 45 77 Z" fill={INK} /><rect x="48" y="77" width="18" height="4.5" rx="2" fill="#fff" /></>;
+      return <><path d="M45 77 H69 Q69 94 57 94 Q45 94 45 77 Z" fill={INK} /><rect x="48" y="77" width="18" height="4.5" rx="2" fill={WHITE} /></>;
     case 'thinking':
       return <path d="M51 85 Q57 81.5 63 84" stroke={INK} strokeWidth="3.4" strokeLinecap="round" fill="none" />;
     case 'encouraging':
@@ -109,18 +116,18 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
           <stop offset="0" style={HI} /><stop offset="1" style={LO} />
         </linearGradient>
         <radialGradient id={`s${id}`} cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor="#fff6c7" /><stop offset="1" stopColor="#f5b400" />
+          <stop offset="0" stopColor={STAR_HI} /><stop offset="1" stopColor={STAR_LO} />
         </radialGradient>
       </defs>
 
       {/* ground shadow: shrinks as he jumps */}
-      <m.ellipse cx="72" cy="140" rx="46" ry="5" fill="#231d5c" opacity="0.12"
+      <m.ellipse cx="72" cy="140" rx="46" ry="5" fill={FLOOR} opacity="0.12"
         animate={reduce || rest || mood === 'idle' || mood === 'thinking' || mood === 'encouraging' ? { scaleX: 1 } : { scaleX: [1, 0.8, 1, 0.85, 1] }}
         transition={{ duration: 1, ease: 'easeOut' }} style={{ originX: 0.5, originY: 0.5 }} />
 
       <AnimatePresence>
         {showSparkles && !reduce && (
-          <m.g key={`sp-${beat}-${mood}`} fill="var(--gold, #f5b400)" initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 1, 0] }} exit={{ opacity: 0 }}
+          <m.g key={`sp-${beat}-${mood}`} fill={`var(--gold, ${STAR_LO})`} initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 1, 0] }} exit={{ opacity: 0 }}
             transition={{ duration: mood === 'happy' ? 1 : 1.8, repeat: mood === 'happy' ? 0 : 1, ease: 'easeOut' }}>
             <m.path d={SPARKLE} transform="translate(12 30)" animate={{ scale: [0.4, 1.2, 0.8] }} transition={{ duration: 0.9, repeat: 2 }} />
             <m.path d={SPARKLE} transform="translate(132 22) scale(0.8)" animate={{ scale: [0.3, 1, 0.6] }} transition={{ duration: 0.8, delay: 0.15, repeat: 2 }} />
@@ -150,7 +157,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
           <rect x="35" y="34" width="44" height="6" rx="3" />
           <rect x="93" y="70" width="20" height="6" rx="3" />
         </g>
-        <ellipse cx="40" cy="58" rx="7" ry="13" fill="#fff" opacity="0.12" />
+        <ellipse cx="40" cy="58" rx="7" ry="13" fill={WHITE} opacity="0.12" />
         {/* a plus sign on the low step: the maths in him */}
         <path d="M104 88 V102 M97 95 H111" style={{ stroke: MARK }} strokeWidth="4" strokeLinecap="round" />
         {/* feet */}
@@ -169,13 +176,13 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
 
         {/* face */}
         <m.g animate={{ scaleY: blink ? 0.12 : 1 }} transition={{ duration: 0.07 }} style={{ originX: 0.5, originY: 0.5 }}>
-          <ellipse cx="46" cy="58" rx="10" ry="11" fill="#fff" />
-          <ellipse cx="68" cy="58" rx="10" ry="11" fill="#fff" />
+          <ellipse cx="46" cy="58" rx="10" ry="11" fill={WHITE} />
+          <ellipse cx="68" cy="58" rx="10" ry="11" fill={WHITE} />
           <m.g initial={false} animate={{ x: lx, y: ly }} transition={spring}>
             <circle cx="47" cy="60" r="5.2" fill={INK} />
             <circle cx="69" cy="60" r="5.2" fill={INK} />
-            <circle cx="49" cy="57.6" r="1.8" fill="#fff" />
-            <circle cx="71" cy="57.6" r="1.8" fill="#fff" />
+            <circle cx="49" cy="57.6" r="1.8" fill={WHITE} />
+            <circle cx="71" cy="57.6" r="1.8" fill={WHITE} />
           </m.g>
         </m.g>
         <g stroke={INK} strokeWidth="3.2" strokeLinecap="round" fill="none">
@@ -193,7 +200,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
         {/* the star he holds up for a milestone */}
         {mood === 'achievement' && (
           <m.g initial={reduce ? false : { scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={{ ...SPRING.bounce, delay: 0.15 }} style={{ originX: 0.5, originY: 0.5 }}>
-            <path d="M124 14 l4.6 9.4 10.4 1.5 -7.5 7.3 1.8 10.3 -9.3 -4.9 -9.3 4.9 1.8 -10.3 -7.5 -7.3 10.4 -1.5Z" fill={`url(#s${id})`} stroke="#d39600" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M124 14 l4.6 9.4 10.4 1.5 -7.5 7.3 1.8 10.3 -9.3 -4.9 -9.3 4.9 1.8 -10.3 -7.5 -7.3 10.4 -1.5Z" fill={`url(#s${id})`} stroke={STAR_LINE} strokeWidth="2" strokeLinejoin="round" />
           </m.g>
         )}
       </m.g>
@@ -203,11 +210,11 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
         {mood === 'thinking' && (
           <m.g key="q" initial={{ opacity: 0, y: 6 }} animate={reduce ? { opacity: 1, y: 0 } : { opacity: 1, y: [0, -3, 0] }} exit={{ opacity: 0 }}
             transition={reduce ? { duration: 0 } : { opacity: { duration: 0.2 }, y: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' } }}>
-            <circle cx="98" cy="44" r="3" fill="#fff" stroke="#d9dae6" strokeWidth="2" />
-            <circle cx="106" cy="33" r="4.5" fill="#fff" stroke="#d9dae6" strokeWidth="2" />
-            <circle cx="124" cy="17" r="13" fill="#fff" stroke="#d9dae6" strokeWidth="2" />
-            <path d="M119.5 13.5 Q119.5 8.5 124.5 8.5 Q129.5 8.5 129.5 13 Q129.5 16 125.5 17.8 Q124.5 18.3 124.5 20.5" stroke="#5b4ff0" strokeWidth="3.2" strokeLinecap="round" fill="none" />
-            <circle cx="124.5" cy="25" r="2" fill="#5b4ff0" />
+            <circle cx="98" cy="44" r="3" fill={WHITE} stroke={BUBBLE_LINE} strokeWidth="2" />
+            <circle cx="106" cy="33" r="4.5" fill={WHITE} stroke={BUBBLE_LINE} strokeWidth="2" />
+            <circle cx="124" cy="17" r="13" fill={WHITE} stroke={BUBBLE_LINE} strokeWidth="2" />
+            <path d="M119.5 13.5 Q119.5 8.5 124.5 8.5 Q129.5 8.5 129.5 13 Q129.5 16 125.5 17.8 Q124.5 18.3 124.5 20.5" stroke={QMARK} strokeWidth="3.2" strokeLinecap="round" fill="none" />
+            <circle cx="124.5" cy="25" r="2" fill={QMARK} />
           </m.g>
         )}
       </AnimatePresence>

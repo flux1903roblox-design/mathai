@@ -72,10 +72,14 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await expect(page.locator('.lm-actions.has-good')).toContainText('נכון, בעזרת רמז');
   await expect(page.getByText('פתרתם לבד')).toHaveCount(0);
   await page.getByRole('button', { name: 'המשך' }).click();
-  // three stages: 25 XP, past the day's goal of 20; practice is next
+  // three stages: 25 XP, past the day's goal of 20: the goal's own moment comes first (STUDENT-7), then the stage's
+  const goal = page.locator('.goal-stage');
+  await expect(goal.getByRole('heading', { level: 1 })).toHaveText('הגעתם ליעד היומי!');
+  await expect(goal.locator('.goal-sub')).toContainText('XP היום. מחר מתחילים יעד חדש.');
+  await goal.getByRole('button', { name: 'המשך', exact: true }).click();
   const c = await stageDone(page, 3);
   await expect(c.locator('.badges')).toContainText('+10 XP');
-  await expect(c.locator('.badges')).toContainText('הגעתם ליעד היומי');
+  await expect(c).not.toContainText('יעד היומי'); // said once, on its own screen
   await expect(c.locator('.climb-caption')).toHaveText('3 מתוך 5 שלבים במדרגה');
   await expect(c.getByRole('button', { name: 'לתרגול', exact: true })).toBeVisible();
   const day = (await saved(page)).days['2026-11-05'];
@@ -203,9 +207,18 @@ test('the profile shows what the evidence says, on this device, and can delete e
   await open(page, '#/me', student('7'));
   await expect(page.getByRole('heading', { name: 'הלמידה שלי במספרים' })).toBeVisible();
   await expect(page.getByText('עוד אין מספיק נתונים').first()).toBeVisible();
+  // in the student's words: three numbers, the rest under "עוד מספרים" (STUDENT-9 §6)
+  const nums = page.locator('.my-numbers');
+  await expect(nums.locator(':scope > .nums dt')).toHaveText(['מדרגות שאתם שולטים בהן לבד', 'נכון בניסיון הראשון, בלי רמז', 'טעויות שתיקנתם']);
+  await nums.getByText('עוד מספרים', { exact: true }).click();
+  await expect(nums.locator('.nums-more dt')).toHaveText(['חזרות שהצלחתם', 'ימים שלמדתם', 'כמה השליטה שלכם השתפרה', 'שליטה שנשארה גם אחרי שבוע', 'שיעורים שהתחלתם / סיימתם']);
+  await expect(nums).not.toContainText('בדיקות זיכרון');
   await page.getByRole('link', { name: 'הגדרות' }).click();
   await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+  // "delete all" ends with a reload (nothing is written after the wipe): wait for it, so the check below reads the new page
+  const reloaded = page.waitForEvent('load');
   await page.getByRole('button', { name: 'כן, למחוק הכול' }).click();
+  await reloaded;
   await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible(); // back to the first screen
   const left = await page.evaluate(() => JSON.parse(localStorage.getItem('madregot') || 'null')?.state?.profile ?? null);
   expect(left).toBeNull();

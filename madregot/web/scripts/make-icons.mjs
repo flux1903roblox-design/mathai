@@ -1,62 +1,60 @@
-// Makes the app icons (DURABLE-3) from the SVG favicon in index.html, so there is one drawing of the mark. Run it once
-// after the favicon changes, and commit the PNGs: node scripts/make-icons.mjs
-// It renders with the Chromium that Playwright already has (a dev dependency); it never downloads a browser.
-//   icons/192.png, icons/512.png   the favicon as it is (a blue circle on a transparent square), for Android and desktop
-//   icons/maskable-512.png         full bleed on #1A5CF5, the mark inside the central 80% (the safe zone a launcher may
-//                                  crop to a circle or a rounded square)
-//   icons/180.png                  the iPhone Home Screen icon (apple-touch-icon): full bleed as well, because iOS draws
-//                                  transparent corners black and rounds the corners itself; the mark drawn a little
-//                                  larger, as Home Screen icons are
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+// The app's install icons, drawn from the favicon in index.html (the blue circle with a white stair) by the Chromium
+// that Playwright already uses for the e2e tests. Run once from madregot/web after the drawing changes, then commit
+// the PNGs: node scripts/make-icons.mjs
+//
+// public/icons/
+//   180.png            Apple touch icon: a full square (iOS paints transparent corners black and rounds them itself)
+//   192.png, 512.png   the favicon as it is: the circle on a transparent ground
+//   maskable-512.png   a full square in brand blue, the stair inside the central 80% (the maskable safe zone)
+//   sc-today-96.png, sc-quests-96.png, sc-rescue-96.png   install shortcuts (STUDENT-10): the app's own icons for
+//                      "today's lesson" (Play), quests (Target, the tab icon) and Exam Rescue (CalendarClock)
+//   badge-96.png       the stair alone, white on transparent: Android's notification badge (STUDENT-11)
+import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Play, Target, CalendarClock } from 'lucide-react';
 import { chromium } from '@playwright/test';
 
-const web = fileURLToPath(new URL('..', import.meta.url));
-const BRAND = '#1A5CF5';
+const OUT = fileURLToPath(new URL('../public/icons/', import.meta.url));
+const BRAND = '#1a5cf5';
+// the favicon's stair, in its own 32×32 box (index.html)
+const STAIR = (stroke = 'white', width = 3) => `<path d="M9 22h5v-4h4v-4h5" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-linejoin="round"/>`;
 
-/** The favicon's SVG, read from its data URL in index.html. */
-export function faviconSvg(html = readFileSync(`${web}index.html`, 'utf8')) {
-  const m = html.match(/<link rel="icon" href="data:image\/svg\+xml,([^"]+)"/);
-  if (!m) throw new Error('index.html has no SVG favicon');
-  return decodeURIComponent(m[1]);
+const svg = (body, view = 32) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${view} ${view}" width="100%" height="100%">${body}</svg>`;
+
+const FAVICON = svg(`<circle cx="16" cy="16" r="15" fill="${BRAND}"/>${STAIR()}`);
+// full bleed: the stair (x 9..23, y 14..22) sits centred, well inside the 80% circle (radius 12.8 around 16,16)
+const SQUARE = svg(`<rect width="32" height="32" fill="${BRAND}"/><g transform="translate(16 16) scale(1.15) translate(-16 -18)">${STAIR()}</g>`);
+const BADGE = svg(`<g transform="translate(16 16) scale(1.7) translate(-16 -18)">${STAIR('white', 3)}</g>`);
+
+/** A lucide icon, white, centred on the brand circle (the icons the app shows next to the same places). */
+function shortcut(Icon) {
+  const glyph = renderToStaticMarkup(createElement(Icon, { size: 14, color: 'white', strokeWidth: 2.2, x: 9, y: 9 }));
+  return svg(`<circle cx="16" cy="16" r="15" fill="${BRAND}"/>${glyph}`);
 }
 
-/** The page that draws one icon: `size` px square; `bleed`: the brand colour fills it, the mark at `scale` of it. */
-function page(svg, size, { bleed = false, scale = 1 } = {}) {
-  const inner = Math.round(size * scale);
-  const sized = svg.replace('<svg ', `<svg width="${inner}" height="${inner}" `);
-  return `<!doctype html><html><head><style>
-    html, body { margin: 0; width: ${size}px; height: ${size}px; background: ${bleed ? BRAND : 'transparent'}; }
-    body { position: relative; overflow: hidden; }
-    svg { display: block; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-  </style></head><body>${sized}</body></html>`;
-}
-
-export const ICONS = [
-  { file: '192.png', size: 192 },
-  { file: '512.png', size: 512 },
-  // the circle of the mark is 30/32 of the square; inside an 80% safe zone the stairs stay well inside the crop
-  { file: 'maskable-512.png', size: 512, bleed: true, scale: 0.8 },
-  { file: '180.png', size: 180, bleed: true, scale: 1.15 },
+const ICONS = [
+  ['180.png', 180, SQUARE],
+  ['192.png', 192, FAVICON],
+  ['512.png', 512, FAVICON],
+  ['maskable-512.png', 512, SQUARE],
+  ['sc-today-96.png', 96, shortcut(Play)],
+  ['sc-quests-96.png', 96, shortcut(Target)],
+  ['sc-rescue-96.png', 96, shortcut(CalendarClock)],
+  ['badge-96.png', 96, BADGE],
 ];
 
-async function main() {
-  const svg = faviconSvg();
-  const out = `${web}public/icons/`;
-  mkdirSync(out, { recursive: true });
-  const browser = await chromium.launch();
-  try {
-    for (const icon of ICONS) {
-      const p = await browser.newPage({ viewport: { width: icon.size, height: icon.size }, deviceScaleFactor: 1 });
-      await p.setContent(page(svg, icon.size, icon));
-      const png = await p.screenshot({ omitBackground: !icon.bleed, clip: { x: 0, y: 0, width: icon.size, height: icon.size } });
-      writeFileSync(`${out}${icon.file}`, png);
-      await p.close();
-      console.log(`icons/${icon.file} ${icon.size}x${icon.size}`);
-    }
-  } finally {
-    await browser.close();
+mkdirSync(OUT, { recursive: true });
+const browser = await chromium.launch();
+try {
+  const page = await browser.newPage({ deviceScaleFactor: 1 });
+  for (const [name, size, art] of ICONS) {
+    await page.setViewportSize({ width: size, height: size });
+    await page.setContent(`<!doctype html><html><body style="margin:0;background:transparent"><div style="width:${size}px;height:${size}px">${art}</div></body></html>`);
+    await page.screenshot({ path: `${OUT}${name}`, omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } });
+    console.log(`icons/${name} ${size}×${size}`);
   }
+} finally {
+  await browser.close();
 }
-
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await main();

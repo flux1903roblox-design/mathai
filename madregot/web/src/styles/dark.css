@@ -1,0 +1,101 @@
+/* Dark mode (STUDENT-2): the app follows the phone's setting, and the student can choose in Settings (מראה).
+   Every colour on screen is a token (tokens.css, kept so by scripts/check-colors.mjs), so the dark theme is only a swap of
+   token values. Loaded last (main.jsx).
+
+   The same body is written twice and the two must stay byte-identical (styles.test.js checks it):
+   - under the phone's dark setting, unless the student chose "בהיר" (data-theme="light");
+   - when the student chose "כהה" (data-theme="dark"), whatever the phone says.
+   public/theme-boot.js sets data-theme before the first paint, so an explicit choice never flashes.
+
+   Measured contrasts (tokens.test.js): ink 16.7 and ink-2 8.5 on the page, brand-d 8.8, every -ink at least 5.5 on its
+   own tint, control-line 4.05 on a card. The unit fills and the brand stay the same so a unit keeps its identity; a
+   stop in a dark unit colour gets a 2px ring in its -ink (--stop-ring), so it still reaches 3:1 against the page. */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #0f1115; --surface: #181b22; --ground: #161920;
+    --ink: #eef1f5; --ink-2: #a7aebb; --ink-3: #7d8594;
+    --rule: #2a2f39; --rule-strong: #3a404c; --rule-press: #232730;
+    --control-line: #737b8c;
+    --track: #262a33; --track-edge: #1d2028;
+    --disabled-bg: #22262e; --disabled-ink: #8a92a0; --disabled-lip: #1b1e25;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --brand-d: #8fb0ff; --brand-ink: #8fb0ff; --brand-tint: #16213d; --brand-lip: #0f3fae; --brand-line: #4d70d0;
+    --p-50: #10192b; --glow-ink: #8fb0ff;
+    --good-tint: #12301c; --good-ink: #6ee68a; --good-line: #24573a; --good-mid: #257538;
+    --bad-tint: #3a1620; --bad-ink: #ff8a9b; --bad-line: #6b2a39; --bad-mid: #901f34;
+    --streak-ink: #ffab5c; --streak-tint: #33200d;
+    --gold-ink: #ffd36b; --gold-tint: #33290d; --gold-line: #695528;
+    --ai-tint: #16213d; --ai-ink: #8fb0ff;
+    --ch-sky-tint: #182950; --ch-sky-ink: #7aa2ff;
+    --ch-petrol-tint: #152e38; --ch-petrol-ink: #3cc4d6;
+    --ch-violet-tint: #2b254e; --ch-violet-ink: #a990ff;
+    --ch-fuchsia-tint: #371c3a; --ch-fuchsia-ink: #f07fd8;
+    --ch-cobalt-tint: #1c213b; --ch-cobalt-ink: #8c9eff;
+    --marker-strong: #19326c;
+    --shadow-lift: 0 0 0 1px var(--rule), 0 12px 32px rgba(0, 0, 0, 0.5);
+    --shadow-dock: 0 -1px 0 var(--rule), 0 -8px 24px rgba(0, 0, 0, 0.4);
+    --stop-ring: 2px;
+  }
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #0f1115; --surface: #181b22; --ground: #161920;
+    --ink: #eef1f5; --ink-2: #a7aebb; --ink-3: #7d8594;
+    --rule: #2a2f39; --rule-strong: #3a404c; --rule-press: #232730;
+    --control-line: #737b8c;
+    --track: #262a33; --track-edge: #1d2028;
+    --disabled-bg: #22262e; --disabled-ink: #8a92a0; --disabled-lip: #1b1e25;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --brand-d: #8fb0ff; --brand-ink: #8fb0ff; --brand-tint: #16213d; --brand-lip: #0f3fae; --brand-line: #4d70d0;
+    --p-50: #10192b; --glow-ink: #8fb0ff;
+    --good-tint: #12301c; --good-ink: #6ee68a; --good-line: #24573a; --good-mid: #257538;
+    --bad-tint: #3a1620; --bad-ink: #ff8a9b; --bad-line: #6b2a39; --bad-mid: #901f34;
+    --streak-ink: #ffab5c; --streak-tint: #33200d;
+    --gold-ink: #ffd36b; --gold-tint: #33290d; --gold-line: #695528;
+    --ai-tint: #16213d; --ai-ink: #8fb0ff;
+    --ch-sky-tint: #182950; --ch-sky-ink: #7aa2ff;
+    --ch-petrol-tint: #152e38; --ch-petrol-ink: #3cc4d6;
+    --ch-violet-tint: #2b254e; --ch-violet-ink: #a990ff;
+    --ch-fuchsia-tint: #371c3a; --ch-fuchsia-ink: #f07fd8;
+    --ch-cobalt-tint: #1c213b; --ch-cobalt-ink: #8c9eff;
+    --marker-strong: #19326c;
+    --shadow-lift: 0 0 0 1px var(--rule), 0 12px 32px rgba(0, 0, 0, 0.5);
+    --shadow-dock: 0 -1px 0 var(--rule), 0 -8px 24px rgba(0, 0, 0, 0.4);
+    --stop-ring: 2px;
+}
+
+/* Printouts stay black on white whatever the theme (the practice exam, the legal pages). A plain :root would lose to
+   the two blocks above, which are more specific (0,2,0). These two selectors have the same specificity, one with and
+   one without data-theme, so one always matches and wins by coming last. The values are the light ones from tokens.css
+   (styles.test.js checks they match). */
+@media print {
+  :root:not([data-theme]), :root[data-theme] {
+    color-scheme: light;
+    --paper: #ffffff; --surface: #ffffff; --ground: #f4f6f9;
+    --ink: #14161a; --ink-2: #565b66; --ink-3: #6b7280;
+    --rule: #e4e7ec; --rule-strong: #cdd2da; --rule-press: #d5dae2;
+    --control-line: #848b98;
+    --track: #e9ecf1; --track-edge: #d3d8e0;
+    --disabled-bg: #eceef2; --disabled-ink: #6b7280; --disabled-lip: #dfe2e8;
+    --scrim: rgba(20, 22, 26, 0.45);
+    --brand-d: #1246c4; --brand-ink: #1a5cf5; --brand-tint: #eaf1ff; --brand-lip: #1246c4; --brand-line: #a9c3ff;
+    --p-50: #f5f8ff; --glow-ink: #1246c4;
+    --good-tint: #e3f8e7; --good-ink: #157a41; --good-line: #bfe9c9; --good-mid: #8fdcab;
+    --bad-tint: #fde8ec; --bad-ink: #b3203a; --bad-line: #f6c3cd; --bad-mid: #f28aa2;
+    --streak-ink: #a84f00; --streak-tint: #fff1e3;
+    --gold-ink: #8a5c00; --gold-tint: #fff6d6; --gold-line: #ffe38a;
+    --ai-tint: #eaf1ff; --ai-ink: #1246c4;
+    --ch-sky-tint: #eaf1ff; --ch-sky-ink: #1246c4;
+    --ch-petrol-tint: #e3f4f6; --ch-petrol-ink: #085566;
+    --ch-violet-tint: #efeafd; --ch-violet-ink: #5232c2;
+    --ch-fuchsia-tint: #f8e6f4; --ch-fuchsia-ink: #7a1869;
+    --ch-cobalt-tint: #e8eaf6; --ch-cobalt-ink: #1a237e;
+    --marker-strong: #cfdcff;
+    --shadow-lift: 0 2px 6px rgba(20, 22, 26, 0.06), 0 12px 32px rgba(20, 22, 26, 0.12);
+    --shadow-dock: 0 -2px 6px rgba(36, 37, 58, 0.05), 0 -8px 24px rgba(36, 37, 58, 0.06);
+    --stop-ring: 0px;
+  }
+}

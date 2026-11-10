@@ -13,7 +13,7 @@ import { Prompt, ResultWhy } from './StepPlayer.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { parseNum, near, T, plainNum } from '@/content/util.js';
 import { enter } from '@/lib/motion.js';
-import { play } from '@/lib/sound.js';
+import { play, haptic } from '@/lib/sound.js';
 import { qaOn } from '@/lib/qa.js';
 import { namedMistake } from '@/learn/content/togetherDiag.ts';
 
@@ -60,7 +60,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
       setPicked({ ...picked, [k]: [...tried, sel] });
       setSel(null);
       onAttempt?.(c.ok);
-      if (c.ok) play('correct'); else { play('wrong'); setHint((h) => Math.min(2, h + 1)); }
+      if (c.ok) { play('correct'); haptic('correct'); } else { play('wrong'); haptic('wrong'); setHint((h) => Math.min(2, h + 1)); }
       return;
     }
     const u = parseNum(typed);
@@ -69,7 +69,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
     const ok = near(u, problem.final.answer, 0.01);
     const ids = ok ? [] : (diagnose?.(u) || []);
     onAttempt?.(ok, ids.length ? ids.map((id) => ({ id, conf: 1 / ids.length })) : undefined);
-    if (ok) { play('correct'); setSolved(true); } else { play('wrong'); setWrongVal(typed); setMissIds(ids); setFinalMiss((x) => x + 1); setHint((h) => Math.min(2, h + 1)); }
+    if (ok) { play('correct'); haptic('correct'); setSolved(true); } else { play('wrong'); haptic('wrong'); setWrongVal(typed); setMissIds(ids); setFinalMiss((x) => x + 1); setHint((h) => Math.min(2, h + 1)); }
   };
   const next = () => {
     if (onFinal) { onDone?.(); return; }

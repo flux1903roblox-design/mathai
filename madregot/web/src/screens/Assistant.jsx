@@ -16,6 +16,7 @@ import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
 import { Box, Button, Field, Sheet, Thinking } from '@/components/ui.jsx';
 import { Markdown } from '@/components/MathText.jsx';
+import OfflineChip from '@/components/durable/OfflineChip.jsx';
 
 /** A result that appears below the fold scrolls up into view, clear of the tab bar. */
 function useReveal(dep) {
@@ -263,6 +264,7 @@ export default function Assistant({ head = null, lead = null, className }) {
           <span className="icon-btn-spacer" aria-hidden="true" />
         </header>
       )}
+      <OfflineChip />
       {lead}
       {!ready ? <AiOffline /> : (
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">

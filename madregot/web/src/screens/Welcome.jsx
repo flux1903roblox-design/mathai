@@ -78,6 +78,7 @@ function Onboarding({ onTeacher, onRestore }) {
   const finish = () => {
     setGoalXp(f.goal);
     setProfile({ role: 'student', name: joined?.name || f.name.trim(), grade, know: f.know ?? 1, ...(joined || {}) });
+    if (joined) useApp.getState().quietForClass(); // a classroom is quiet: sounds start off (STUDENT-7)
     // "to the first lesson" opens it: the first stair of the grade's first topic
     // from the first stair: it starts by understanding (the stair's first teaching stage), not with exercises
     const first = topicsFor(grade)[0].id;
@@ -144,7 +145,7 @@ function Onboarding({ onTeacher, onRestore }) {
   const can = { name: !!f.name.trim(), grade: !!f.grade, know: f.know != null, goal: !!f.goal, class: true, start: true }[step];
   const ask = {
     name: 'היי, אני מדי! איך קוראים לך?',
-    grade: `נעים מאוד, ${f.name.trim()}! באיזו כיתה אתם?`,
+    grade: `נעים להכיר, ${f.name.trim()}! באיזו כיתה?`, // no pronoun right after the name (STUDENT-9 §5)
     know: `כמה מהחומר של ${GRADE_NAME[grade]} כבר מוכר לכם?`,
     goal: 'כמה זמן ביום מתאים לכם?',
     class: 'יש לכם קוד כיתה מהמורה?',

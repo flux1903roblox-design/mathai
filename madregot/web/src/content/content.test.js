@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
-import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, fairForCheck, testItem } from './index.js';
+import { TOPICS, topicsFor, makeItem, isCorrect, answerText, itemPlain, readAnswer, fairForCheck, testItem } from './index.js';
+import { SCENERY } from '@/components/map/Scenery.jsx';
 import { parseNum, plainNum } from './util.js';
 import { holds, identical, texToExpr, texRelation, seeded } from '@/learn/expr.ts';
 
@@ -339,5 +340,27 @@ describe('a choice is not given away by its look', () => {
     expect(fairForCheck({ key: 'sy4l:0', fixed: true, topic: 'sys' })).toBe(false);
     expect(fairForCheck({ key: 'eq4f:10x = 3(x + 7)', fixed: true, topic: 'eq' })).toBe(false);
     for (let i = 0; i < 400; i += 1) { expect(testItem('sys', 4).fixed).toBeFalsy(); expect(testItem('eq', 4).fixed).toBeFalsy(); }
+  });
+});
+
+// STUDENT-1: every unit has its own colour and drawings, and two units side by side never share a colour.
+describe('each unit has its own identity', () => {
+  const COLOURS = ['sky', 'petrol', 'violet', 'fuchsia', 'cobalt'];
+  it('every topic has a unit colour from the five families', () => {
+    for (const t of TOPICS) expect(COLOURS, `${t.id}: ${t.color}`).toContain(t.color);
+  });
+  it('neighbouring units on a grade\'s path have different colours', () => {
+    for (const grade of ['7', '8']) {
+      const list = topicsFor(grade);
+      expect(list.length, `grade ${grade} has units`).toBeGreaterThan(1);
+      for (let i = 1; i < list.length; i += 1) expect(list[i].color, `grade ${grade}: ${list[i - 1].id} then ${list[i].id}`).not.toBe(list[i - 1].color);
+    }
+  });
+  it('every topic has three drawings: its emblem and two for beside the path', () => {
+    for (const t of TOPICS) {
+      expect(SCENERY[t.id], `${t.id} has drawings`).toBeTruthy();
+      expect(SCENERY[t.id].length, `${t.id} has three drawings`).toBe(3);
+      for (const piece of SCENERY[t.id]) expect(typeof piece, `${t.id}: a drawing is a component`).toBe('function');
+    }
   });
 });

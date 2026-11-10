@@ -14,7 +14,7 @@ const TYPES = {
   freezes: ['number'], goalXp: ['number'], sound: ['boolean'], mistakes: ['object'], lastTopic: ['string', 'null'],
   outbox: ['array'], ai: ['object'], helpSent: ['number'], solveMode: ['string'], exams: ['array'], practiceExams: ['array'],
   planBase: ['object'], wins: ['object'], gaps: ['object'], placement: ['object', 'null'], learn: ['object'],
-  resetAt: ['string', 'null'], durable: ['object'], backup: ['object'],
+  resetAt: ['string', 'null'], durable: ['object'], backup: ['object'], haptics: ['boolean'], prefs: ['object'],
 };
 const LEARN_TYPES = { skills: ['object'], miscon: ['object'], missions: ['object'], events: ['array'], exam: ['object', 'null'] };
 

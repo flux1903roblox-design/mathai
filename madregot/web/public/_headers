@@ -7,3 +7,10 @@
 # the web app manifest (DURABLE-3); browsers accept application/json too, and GitHub Pages ignores this file
 /manifest.webmanifest
   Content-Type: application/manifest+json
+
+# the offline service worker (DURABLE-10): always checked for a new release; the hashed assets never change
+/sw.js
+  Cache-Control: no-cache
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -11,6 +11,7 @@ import { useDurable } from '@/lib/durable/useDurable.js';
 import { watchPersisted } from '@/lib/durable/persist.js';
 import { fetchClassWork, flushWork } from '@/lib/classWork.js';
 import { previewBack } from '@/lib/teacher.js';
+import { applyTheme } from '@/lib/theme.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import SupportSheet from '@/components/SupportSheet.jsx';
 import AIIntro from '@/components/AIIntro.jsx';
@@ -258,6 +259,8 @@ export default function App() {
   useClassWork();
   // whether the browser promised to keep the data: read on every open and whenever the app comes back into view
   useEffect(() => watchPersisted(), []);
+  // the saved look (Settings, מראה); public/theme-boot.js already applied an explicit choice before the first paint
+  useEffect(() => { applyTheme(useApp.getState().prefs?.theme); }, []);
   return (
     <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="user">

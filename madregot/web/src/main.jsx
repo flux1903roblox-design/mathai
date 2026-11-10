@@ -10,8 +10,10 @@ import './styles/app.css';
 import './styles/motion.css';
 import './styles/v4.css';
 import './styles/canon.css';
+import './styles/dark.css'; // last: the dark values of the tokens (STUDENT-2)
 import App from './App.jsx';
 import { durableBoot } from './lib/durable/storage.js';
+import { registerSW } from './lib/swClient.js';
 
 // Test hook: with localStorage 'madregot-seed' set, exercises come out the same on every run (visual tests).
 try {
@@ -32,3 +34,6 @@ try {
     </StrictMode>,
   );
 })();
+
+// the offline service worker (production builds only; it waits for the page to finish loading)
+registerSW();

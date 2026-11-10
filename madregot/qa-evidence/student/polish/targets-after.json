@@ -1,0 +1,1748 @@
+{
+ "learn@390": [
+  {
+   "label": "לימוד",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "משימות",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "מבחנים",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "עוזר AI",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "אני",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "מציגים את כיתה ז׳. מעבר לכיתה ח׳",
+   "cls": "grade-switch",
+   "w": 97,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "רצף של 0 ימים",
+   "cls": "top-stat",
+   "w": 46,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "היום 0 מתוך 20 XP, סך הכול 260",
+   "cls": "top-stat",
+   "w": 72,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: מספרים מכוונים",
+   "cls": "unit-guide",
+   "w": 44,
+   "h": 48,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 1: חיבור וחיסור. נשלט",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 2: השוואת מספרים. נשלט",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 3: כפל וחילוק. נשלט",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "תיבת אוצר. פתוחה",
+   "cls": "chest",
+   "w": 64,
+   "h": 64,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 4: סדר פעולות. נשלט",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 5: סוגריים. נשלט",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "חזרה על היחידה. נשלט",
+   "cls": "node",
+   "w": 86,
+   "h": 86,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: מערכת צירים",
+   "cls": "unit-guide",
+   "w": 44,
+   "h": 48,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 1: קריאת נקודה. הושלם",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 2: רביעים. הושלם",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 3: אורך קטע. השלב הבא, 1 מתוך 5 שלבים",
+   "cls": "node",
+   "w": 76,
+   "h": 76,
+   "inline": false
+  },
+  {
+   "label": "תיבת אוצר. נפתחת אחרי מדרגה 3",
+   "cls": "chest",
+   "w": 64,
+   "h": 64,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 4: שטח מלבן. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 5: קודקוד חסר. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "חזרה על היחידה. נעול",
+   "cls": "node",
+   "w": 86,
+   "h": 86,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: זוויות",
+   "cls": "unit-guide",
+   "w": 44,
+   "h": 48,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 1: זוויות צמודות. השלב הבא, 0 מתוך 5 שלבים",
+   "cls": "node",
+   "w": 76,
+   "h": 76,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 2: זוויות קודקודיות. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 3: סכום זוויות במשולש. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "תיבת אוצר. נפתחת אחרי מדרגה 3",
+   "cls": "chest",
+   "w": 64,
+   "h": 64,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 4: ישרים מקבילים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 5: שווה־שוקיים וזווית חיצונית. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "חזרה על היחידה. נעול",
+   "cls": "node",
+   "w": 86,
+   "h": 86,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: ביטויים אלגבריים",
+   "cls": "unit-guide",
+   "w": 44,
+   "h": 48,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 1: הצבה בביטוי. השלב הבא, 0 מתוך 5 שלבים",
+   "cls": "node",
+   "w": 76,
+   "h": 76,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 2: כותבים ביטוי. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 3: כינוס איברים דומים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "תיבת אוצר. נפתחת אחרי מדרגה 3",
+   "cls": "chest",
+   "w": 64,
+   "h": 64,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 4: חוק הפילוג. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 5: פישוט ביטויים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "חזרה על היחידה. נעול",
+   "cls": "node",
+   "w": 86,
+   "h": 86,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: משוואות",
+   "cls": "unit-guide",
+   "w": 44,
+   "h": 48,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 1: משוואה ופתרון. השלב הבא, 0 מתוך 5 שלבים",
+   "cls": "node",
+   "w": 76,
+   "h": 76,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 2: משוואה בשני צעדים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 3: נעלם בשני האגפים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "תיבת אוצר. נפתחת אחרי מדרגה 3",
+   "cls": "chest",
+   "w": 64,
+   "h": 64,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 4: משוואות עם סוגריים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 5: בעיות מילוליות. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "חזרה על היחידה. נעול",
+   "cls": "node",
+   "w": 86,
+   "h": 86,
+   "inline": false
+  },
+  {
+   "label": "כל הנושאים והמצב בכל אחד",
+   "cls": "btn",
+   "w": 226,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "חזרה לשלב הבא",
+   "cls": "jump-current",
+   "w": 56,
+   "h": 56,
+   "inline": false
+  }
+ ],
+ "topics@390": [
+  {
+   "label": "חזרה למפה",
+   "cls": "icon-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "כיתה ז׳",
+   "cls": "seg",
+   "w": 175,
+   "h": 46,
+   "inline": false
+  },
+  {
+   "label": "כיתה ח׳",
+   "cls": "seg",
+   "w": 175,
+   "h": 46,
+   "inline": false
+  },
+  {
+   "label": "חזרה ליחידה",
+   "cls": "section-card-jump",
+   "w": 108,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: מספרים מכוונים",
+   "cls": "section-card-guide",
+   "w": 80,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "המשך",
+   "cls": "btn",
+   "w": 152,
+   "h": 52,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: מערכת צירים",
+   "cls": "section-card-guide",
+   "w": 80,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "מעבר ליחידה",
+   "cls": "section-card-jump",
+   "w": 111,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: זוויות",
+   "cls": "section-card-guide",
+   "w": 80,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "מעבר ליחידה",
+   "cls": "section-card-jump",
+   "w": 111,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: ביטויים אלגבריים",
+   "cls": "section-card-guide",
+   "w": 80,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "מעבר ליחידה",
+   "cls": "section-card-jump",
+   "w": 111,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: משוואות",
+   "cls": "section-card-guide",
+   "w": 80,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "חיבור וחיסור: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "השוואת מספרים: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "כפל וחילוק: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "סדר פעולות: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "סוגריים: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "קריאת נקודה: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "רביעים: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "אורך קטע: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "שטח מלבן: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "קודקוד חסר: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "זוויות צמודות: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "זוויות קודקודיות: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "סכום זוויות במשולש: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "ישרים מקבילים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "שווה־שוקיים וזווית חיצונית: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "הצבה בביטוי: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "כותבים ביטוי: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "כינוס איברים דומים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "חוק הפילוג: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "פישוט ביטויים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "משוואה ופתרון: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "משוואה בשני צעדים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "נעלם בשני האגפים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "משוואות עם סוגריים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "בעיות מילוליות: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "לתרגל: החליפו בין x ל־y",
+   "cls": "btn",
+   "w": 80,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "בדיקת רמה קצרה",
+   "cls": "board-link",
+   "w": 152,
+   "h": 44,
+   "inline": false
+  }
+ ],
+ "quests@390": [
+  {
+   "label": "לימוד",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "משימות",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "מבחנים",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "עוזר AI",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "אני",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "תיקון: החליפו בין xxx ל־yyy",
+   "cls": "today-item-title",
+   "w": 224,
+   "h": 25,
+   "inline": true
+  },
+  {
+   "label": "מבינים את הרעיון: אורך קטע",
+   "cls": "today-item-title",
+   "w": 224,
+   "h": 24,
+   "inline": true
+  },
+  {
+   "label": "מתחילים את המשימה שלי",
+   "cls": "btn",
+   "w": 314,
+   "h": 56,
+   "inline": false
+  },
+  {
+   "label": "יש לי מבחן בקרובתוכנית הכנה לפי הימים שנשארו והנ",
+   "cls": "exam-cta",
+   "w": 358,
+   "h": 90,
+   "inline": false
+  },
+  {
+   "label": "עליתם 7 מתוך 25",
+   "cls": "continue-chip",
+   "w": 163,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "דבר אחד לחזק",
+   "cls": "continue-chip",
+   "w": 142,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "10קליל",
+   "cls": "seg",
+   "w": 72,
+   "h": 56,
+   "inline": false
+  },
+  {
+   "label": "20רגיל",
+   "cls": "seg",
+   "w": 72,
+   "h": 56,
+   "inline": false
+  },
+  {
+   "label": "30רציני",
+   "cls": "seg",
+   "w": 72,
+   "h": 56,
+   "inline": false
+  },
+  {
+   "label": "50אינטנסיבי",
+   "cls": "seg",
+   "w": 75,
+   "h": 56,
+   "inline": false
+  }
+ ],
+ "me@390": [
+  {
+   "label": "לימוד",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "משימות",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "מבחנים",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "עוזר AI",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "אני",
+   "cls": "tab",
+   "w": 71,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "הגדרות",
+   "cls": "icon-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "מתחילים",
+   "cls": "btn",
+   "w": 120,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "עוד מספרים",
+   "cls": "summary",
+   "w": 358,
+   "h": 44,
+   "inline": false
+  }
+ ],
+ "lesson@390": [
+  {
+   "label": "יציאה מהשיעור",
+   "cls": "icon-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "רמז",
+   "cls": "tool",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "שאלה למדי",
+   "cls": "tool",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "מחברת",
+   "cls": "tool",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "הסמן שמאלה",
+   "cls": "step-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "הסמן ימינה",
+   "cls": "step-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "בדיקה",
+   "cls": "btn",
+   "w": 366,
+   "h": 56,
+   "inline": false
+  }
+ ],
+ "teach@390": [
+  {
+   "label": "סגירה. המקום נשמר",
+   "cls": "icon-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "שאלה למדי",
+   "cls": "icon-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "הבנתי",
+   "cls": "btn",
+   "w": 294,
+   "h": 56,
+   "inline": false
+  }
+ ],
+ "learn@320": [
+  {
+   "label": "לימוד",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "משימות",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "מבחנים",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "עוזר AI",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "אני",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "מציגים את כיתה ז׳. מעבר לכיתה ח׳",
+   "cls": "grade-switch",
+   "w": 97,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "רצף של 0 ימים",
+   "cls": "top-stat",
+   "w": 46,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "היום 0 מתוך 20 XP, סך הכול 260",
+   "cls": "top-stat",
+   "w": 72,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: מספרים מכוונים",
+   "cls": "unit-guide",
+   "w": 44,
+   "h": 48,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 1: חיבור וחיסור. נשלט",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 2: השוואת מספרים. נשלט",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 3: כפל וחילוק. נשלט",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "תיבת אוצר. פתוחה",
+   "cls": "chest",
+   "w": 64,
+   "h": 64,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 4: סדר פעולות. נשלט",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 5: סוגריים. נשלט",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "חזרה על היחידה. נשלט",
+   "cls": "node",
+   "w": 86,
+   "h": 86,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: מערכת צירים",
+   "cls": "unit-guide",
+   "w": 44,
+   "h": 48,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 1: קריאת נקודה. הושלם",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 2: רביעים. הושלם",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 3: אורך קטע. השלב הבא, 1 מתוך 5 שלבים",
+   "cls": "node",
+   "w": 76,
+   "h": 76,
+   "inline": false
+  },
+  {
+   "label": "תיבת אוצר. נפתחת אחרי מדרגה 3",
+   "cls": "chest",
+   "w": 64,
+   "h": 64,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 4: שטח מלבן. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 5: קודקוד חסר. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "חזרה על היחידה. נעול",
+   "cls": "node",
+   "w": 86,
+   "h": 86,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: זוויות",
+   "cls": "unit-guide",
+   "w": 44,
+   "h": 48,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 1: זוויות צמודות. השלב הבא, 0 מתוך 5 שלבים",
+   "cls": "node",
+   "w": 76,
+   "h": 76,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 2: זוויות קודקודיות. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 3: סכום זוויות במשולש. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "תיבת אוצר. נפתחת אחרי מדרגה 3",
+   "cls": "chest",
+   "w": 64,
+   "h": 64,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 4: ישרים מקבילים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 5: שווה־שוקיים וזווית חיצונית. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "חזרה על היחידה. נעול",
+   "cls": "node",
+   "w": 86,
+   "h": 86,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: ביטויים אלגבריים",
+   "cls": "unit-guide",
+   "w": 44,
+   "h": 48,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 1: הצבה בביטוי. השלב הבא, 0 מתוך 5 שלבים",
+   "cls": "node",
+   "w": 76,
+   "h": 76,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 2: כותבים ביטוי. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 3: כינוס איברים דומים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "תיבת אוצר. נפתחת אחרי מדרגה 3",
+   "cls": "chest",
+   "w": 64,
+   "h": 64,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 4: חוק הפילוג. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 5: פישוט ביטויים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "חזרה על היחידה. נעול",
+   "cls": "node",
+   "w": 86,
+   "h": 86,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: משוואות",
+   "cls": "unit-guide",
+   "w": 44,
+   "h": 48,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 1: משוואה ופתרון. השלב הבא, 0 מתוך 5 שלבים",
+   "cls": "node",
+   "w": 76,
+   "h": 76,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 2: משוואה בשני צעדים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 3: נעלם בשני האגפים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "תיבת אוצר. נפתחת אחרי מדרגה 3",
+   "cls": "chest",
+   "w": 64,
+   "h": 64,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 4: משוואות עם סוגריים. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "מדרגה 5: בעיות מילוליות. נעול",
+   "cls": "node",
+   "w": 68,
+   "h": 68,
+   "inline": false
+  },
+  {
+   "label": "חזרה על היחידה. נעול",
+   "cls": "node",
+   "w": 86,
+   "h": 86,
+   "inline": false
+  },
+  {
+   "label": "כל הנושאים והמצב בכל אחד",
+   "cls": "btn",
+   "w": 226,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "חזרה לשלב הבא",
+   "cls": "jump-current",
+   "w": 56,
+   "h": 56,
+   "inline": false
+  }
+ ],
+ "topics@320": [
+  {
+   "label": "חזרה למפה",
+   "cls": "icon-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "כיתה ז׳",
+   "cls": "seg",
+   "w": 140,
+   "h": 46,
+   "inline": false
+  },
+  {
+   "label": "כיתה ח׳",
+   "cls": "seg",
+   "w": 140,
+   "h": 46,
+   "inline": false
+  },
+  {
+   "label": "חזרה ליחידה",
+   "cls": "section-card-jump",
+   "w": 94,
+   "h": 52,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: מספרים מכוונים",
+   "cls": "section-card-guide",
+   "w": 68,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "המשך",
+   "cls": "btn",
+   "w": 89,
+   "h": 52,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: מערכת צירים",
+   "cls": "section-card-guide",
+   "w": 73,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "מעבר ליחידה",
+   "cls": "section-card-jump",
+   "w": 95,
+   "h": 52,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: זוויות",
+   "cls": "section-card-guide",
+   "w": 67,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "מעבר ליחידה",
+   "cls": "section-card-jump",
+   "w": 95,
+   "h": 52,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: ביטויים אלגבריים",
+   "cls": "section-card-guide",
+   "w": 67,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "מעבר ליחידה",
+   "cls": "section-card-jump",
+   "w": 95,
+   "h": 52,
+   "inline": false
+  },
+  {
+   "label": "תזכורת מהשיעור: משוואות",
+   "cls": "section-card-guide",
+   "w": 67,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "חיבור וחיסור: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "השוואת מספרים: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "כפל וחילוק: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "סדר פעולות: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "סוגריים: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "קריאת נקודה: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "רביעים: מתרגלים",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "אורך קטע: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "שטח מלבן: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "קודקוד חסר: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "זוויות צמודות: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "זוויות קודקודיות: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "סכום זוויות במשולש: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "ישרים מקבילים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "שווה־שוקיים וזווית חיצונית: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "הצבה בביטוי: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "כותבים ביטוי: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "כינוס איברים דומים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "חוק הפילוג: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "פישוט ביטויים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "משוואה ופתרון: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "משוואה בשני צעדים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "נעלם בשני האגפים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "משוואות עם סוגריים: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "בעיות מילוליות: עוד לא התחלנו",
+   "cls": "mm-tile",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "לתרגל: החליפו בין x ל־y",
+   "cls": "btn",
+   "w": 80,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "בדיקת רמה קצרה",
+   "cls": "board-link",
+   "w": 152,
+   "h": 44,
+   "inline": false
+  }
+ ],
+ "quests@320": [
+  {
+   "label": "לימוד",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "משימות",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "מבחנים",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "עוזר AI",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "אני",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "תיקון: החליפו בין xxx ל־yyy",
+   "cls": "today-item-title",
+   "w": 154,
+   "h": 50,
+   "inline": true
+  },
+  {
+   "label": "מבינים את הרעיון: אורך קטע",
+   "cls": "today-item-title",
+   "w": 154,
+   "h": 48,
+   "inline": true
+  },
+  {
+   "label": "מתחילים את המשימה שלי",
+   "cls": "btn",
+   "w": 244,
+   "h": 56,
+   "inline": false
+  },
+  {
+   "label": "יש לי מבחן בקרובתוכנית הכנה לפי הימים שנשארו והנ",
+   "cls": "exam-cta",
+   "w": 288,
+   "h": 90,
+   "inline": false
+  },
+  {
+   "label": "עליתם 7 מתוך 25",
+   "cls": "continue-chip",
+   "w": 163,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "דבר אחד לחזק",
+   "cls": "continue-chip",
+   "w": 142,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "10קליל",
+   "cls": "seg",
+   "w": 48,
+   "h": 56,
+   "inline": false
+  },
+  {
+   "label": "20רגיל",
+   "cls": "seg",
+   "w": 48,
+   "h": 56,
+   "inline": false
+  },
+  {
+   "label": "30רציני",
+   "cls": "seg",
+   "w": 48,
+   "h": 56,
+   "inline": false
+  },
+  {
+   "label": "50אינטנסיבי",
+   "cls": "seg",
+   "w": 75,
+   "h": 56,
+   "inline": false
+  }
+ ],
+ "me@320": [
+  {
+   "label": "לימוד",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "משימות",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "מבחנים",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "עוזר AI",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "אני",
+   "cls": "tab",
+   "w": 57,
+   "h": 58,
+   "inline": false
+  },
+  {
+   "label": "הגדרות",
+   "cls": "icon-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "מתחילים",
+   "cls": "btn",
+   "w": 120,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "עוד מספרים",
+   "cls": "summary",
+   "w": 288,
+   "h": 44,
+   "inline": false
+  }
+ ],
+ "lesson@320": [
+  {
+   "label": "יציאה מהשיעור",
+   "cls": "icon-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "רמז",
+   "cls": "tool",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "שאלה למדי",
+   "cls": "tool",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "מחברת",
+   "cls": "tool",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "הסמן שמאלה",
+   "cls": "step-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "הסמן ימינה",
+   "cls": "step-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "בדיקה",
+   "cls": "btn",
+   "w": 296,
+   "h": 56,
+   "inline": false
+  }
+ ],
+ "teach@320": [
+  {
+   "label": "סגירה. המקום נשמר",
+   "cls": "icon-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "שאלה למדי",
+   "cls": "icon-btn",
+   "w": 44,
+   "h": 44,
+   "inline": false
+  },
+  {
+   "label": "הבנתי",
+   "cls": "btn",
+   "w": 224,
+   "h": 56,
+   "inline": false
+  }
+ ]
+}

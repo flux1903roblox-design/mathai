@@ -288,7 +288,7 @@ A white, quiet palette with one saturated blue and four meaning colours that app
 ## Typography
 
 **Display, Body and Label Font:** Rubik (variable, self-hosted via `@fontsource-variable/rubik`), with Segoe UI, Arial Hebrew and Arial as fallbacks.
-**Maths:** KaTeX's serif, at 1.08em inline and `clamp(30px, 5dvh, 44px)` on the question panel, always left to right and never wrapped inline.
+**Maths:** KaTeX's serif, at 1.08em inline and `clamp(30px, 5dvh, 44px)` on the question panel, always left to right and never wrapped inline. Inside a sentence the digits are the sentence's own (STUDENT-9): a bare number such as $-3$ or $35^\circ$ is plain Rubik text in `bdi.num` (left to right, a real minus sign U+2212, tabular figures). Other inline maths keeps KaTeX's italic letters and operators, but its digits are set in Rubik (`.mt-inline`). Display maths on the panel stays all KaTeX.
 
 **Character:** one rounded, sturdy sans for everything, set large; the hierarchy comes from size and weight (800 for titles, 700 for headings and buttons), not from a second face.
 
@@ -402,7 +402,8 @@ White, its sections and groups as the standard card, headings at 18px/800, stat 
 - **Do** put a heading's label under it, at 15px `ink-2`.
 - **Do** isolate maths left to right inside Hebrew and keep inline expressions on one line.
 - **Do** show "not yet" in red and correct in green, each with an icon and words, in lessons and teaching stages alike.
-- **Do** keep touch targets at 44px or more and turn motion off under reduced motion.
+- **Do** keep touch targets at 44px or more and turn motion off under reduced motion. `e2e/targets.spec.js` measures every button, link, summary, radio and tab on Learn, Topics, Quests, Me, a lesson and a teaching step at 390 and 320 wide. A link inside running text is the only exception (it sits in a `<p>` or carries `data-inline`).
+- **Do** keep the controls of a teaching step above its result sheet: StepPlayer keeps the sheet's height in `--foot-h` and scrolls the object above it on "not yet".
 
 ### Don't:
 - **Don't** give a unit, topic or section its own colour.
@@ -420,4 +421,5 @@ White, its sections and groups as the standard card, headings at 18px/800, stat 
 - **Early November 2026 ("The Friendly Staircase"):** a Duolingo-style rebuild: electric indigo brand, Fredoka for headings and Rubik for reading, a chapter colour per unit, a purple mascot. Layouts were then remeasured after Duolingo and Brilliant (`LAYOUT_SPEC.md`).
 - **Round 15 ("Electric Premium", 9 November):** black screens around white learning surfaces, `#0066FF` and glowing `#00C8FF`, generated dark stylesheets.
 - **Round 16:** the rules of successful apps: one brand colour mostly on the main action, one job per extra colour, readable text on coloured fills (black on green, white on red), green and red far apart in lightness.
+- **Dark mode (STUDENT-2, November 2026):** the app follows the phone's light or dark setting, and Settings → מראה lets the student choose "כמו במכשיר", "בהיר" or "כהה". Every colour is a token (`web/src/styles/tokens.css`; `npm run lint:colors` fails on a stray literal), and `web/src/styles/dark.css` holds the dark values: page `#0f1115`, cards `#181b22`, ink `#eef1f5`. Unit fills and the brand stay the same; a stop in a dark unit colour gets a 2px ring in its light `-ink`. `public/theme-boot.js` applies an explicit choice before the first paint. The notebook page, the QR code and printouts stay light. The old `theme-dark.css`, `dark.gen.css` and `scripts/theme-dark.cjs` were deleted.
 - **Round 17 (10 November 2026, current):** the owner called the UI childish, inconsistent, too colourful, too small and too dark, and chose the category standard. Light only, one blue `#1A5CF5`, Rubik only, one card and one button grammar. The dark files (`theme-dark.css`, `dark.gen.css`, `scripts/theme-dark.cjs`) are no longer imported. Source of truth: `web/src/styles/tokens.css` and `web/src/styles/canon.css` (loaded last).

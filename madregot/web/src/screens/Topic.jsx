@@ -7,6 +7,7 @@ import { aiAccess, useAIStatus } from '@/lib/account.js';
 import { TOPIC, TOPICS } from '@/content/index.js';
 import { Box, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
+import { Emblem } from '@/components/map/Scenery.jsx';
 
 const LineExplorer = lazy(() => import('@/components/LineExplorer.jsx'));
 
@@ -31,6 +32,7 @@ export default function Topic() {
         <span className="icon-btn-spacer" aria-hidden="true" />
       </header>
       <div className={`unit-head guide-banner ch-${t.color}`}>
+        <Emblem topic={t.id} />
         <div className="unit-head-text">
           <h2 className="unit-title">{t.title}</h2>
           <p className="unit-label">יחידה {n}</p>

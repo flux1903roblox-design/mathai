@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import serviceWorker from './scripts/vite-plugin-sw.mjs';
 
 // The commit a build was made from, written into every save (meta.app), so a save says which build wrote it.
 function release() {
@@ -12,7 +13,8 @@ function release() {
 export default defineConfig({
   base: process.env.BASE_PATH || '/',
   define: { __RELEASE__: JSON.stringify(release()) },
-  plugins: [react()],
+  // serviceWorker: dist/sw.js with the list of files kept for offline use (DURABLE-10)
+  plugins: [react(), serviceWorker()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

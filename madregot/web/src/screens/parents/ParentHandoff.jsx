@@ -28,8 +28,9 @@ export function QrCode({ text, size = 208, label }) {
   }, [text]);
   return (
     <svg className="qr" width={size} height={size} viewBox={`0 0 ${path.n} ${path.n}`} role="img" aria-label={label} shapeRendering="crispEdges">
-      <rect width={path.n} height={path.n} fill="#fff" />
-      <path d={path.d} fill="#14161a" />
+      {/* a QR code must stay dark on light in both themes */}
+      <rect width={path.n} height={path.n} fill="#fff" />{/* colour-ok: QR must stay dark on light */}
+      <path d={path.d} fill="#14161a" />{/* colour-ok: QR must stay dark on light */}
     </svg>
   );
 }

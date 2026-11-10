@@ -29,8 +29,8 @@ export const OUTBOX_KEEP = 1000;
  * are this device's like the answers' outbox: the class server has the truth, and the app fetches it again.
  */
 export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox'];
-/** This device's settings: a restore never changes them. */
-export const SETTINGS = ['sound', 'goalXp', 'solveMode', 'helpSent'];
+/** This device's settings: a restore never changes them (haptics and prefs, the look and the sound choice: STUDENT-2/7). */
+export const SETTINGS = ['sound', 'goalXp', 'solveMode', 'helpSent', 'haptics', 'prefs'];
 /** What a reset on purpose clears (store.js resetProgress): the side with the later reset gives all of it. */
 export const PROGRESS = ['progress', 'days', 'xp', 'xpBy', 'resetAt', 'path', 'mistakes', 'wins', 'gaps', 'placement', 'learn', 'exams', 'practiceExams', 'planBase', 'freezes', 'lastTopic'];
 /** Per-day counters that take the larger value even between tabs (the best combo of the day). */

@@ -16,7 +16,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   reporter: [['list']],
   snapshotPathTemplate: '{testDir}/__screens__/{projectName}/{arg}{ext}',
-  use: { baseURL: `http://127.0.0.1:${PORT}/`, locale: 'he-IL', reducedMotion: 'reduce', trace: 'off' },
+  // the build registers an offline service worker (DURABLE-10); tests run without it unless a file opts in with
+  // test.use({ serviceWorkers: 'allow' }) (offline.spec.js)
+  use: { baseURL: `http://127.0.0.1:${PORT}/`, locale: 'he-IL', reducedMotion: 'reduce', trace: 'off', serviceWorkers: 'block' },
   webServer: {
     command: `npx vite build --base ./ --outDir dist-test --emptyOutDir && npx vite preview --outDir dist-test --port ${PORT} --strictPort --host 127.0.0.1`,
     cwd: '..',
@@ -29,6 +31,8 @@ export default defineConfig({
   projects: [
     { name: 'phone-small', use: phone(320, 568) },
     { name: 'phone', use: phone(390, 844) },
+    // the same phone in dark mode (STUDENT-2): only the screenshots of visual.spec run here, kept in __screens__/phone-dark/
+    { name: 'phone-dark', use: { ...phone(390, 844), colorScheme: 'dark' }, testMatch: /visual\.spec\.js/ },
     { name: 'tablet', use: { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 1 } },
     { name: 'desktop', use: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 } },
   ],

@@ -8,9 +8,10 @@ import { fitImage } from '@/lib/fitImage.js';
 // a stylus or a mouse. Strokes are kept as data so the page survives
 // re-renders and can be exported as an image for the AI or the teacher.
 const SQUARE = 20;
-const INK = '#1c2f7a';
-const GRID = '#c9dcee';
-const MARGIN = '#e48a9b';
+// the page stays light like real squared paper, in both themes, so its colours are its own
+const INK = '#1c2f7a'; // colour-ok: notebook page
+const GRID = '#c9dcee'; // colour-ok: notebook page
+const MARGIN = '#e48a9b'; // colour-ok: notebook page
 
 function drawGrid(ctx, w, h) {
   ctx.save();
@@ -92,7 +93,7 @@ const Notebook = forwardRef(function Notebook({ strokes, onStrokes, height, onGr
         const scale = base * factor;
         const out = document.createElement('canvas'); out.width = Math.round(width * scale); out.height = Math.round(h * scale);
         const ctx = out.getContext('2d'); ctx.scale(scale, scale);
-        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, h); drawGrid(ctx, width, h);
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, h); drawGrid(ctx, width, h); // colour-ok: the exported page is white paper
         const ink = document.createElement('canvas'); ink.width = out.width; ink.height = out.height;
         const ictx = ink.getContext('2d'); ictx.scale(scale, scale); strokes.forEach((s) => drawStroke(ictx, s));
         ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(ink, 0, 0);

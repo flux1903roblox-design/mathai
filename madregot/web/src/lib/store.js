@@ -16,6 +16,7 @@ import { migrate, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULT
 import { addXp, newTag } from './durable/xp.js';
 import { durableStorage, bindDurableStore, STORE_KEY } from './durable/storage.js';
 import { EXAMS_KEEP, PRACTICE_EXAMS_KEEP, OUTBOX_KEEP } from './durable/merge.js';
+import { applyTheme } from './theme.js';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
@@ -36,7 +37,11 @@ const empty = {
   path: {}, // topicId -> { parts: { level: practice lessons }, reviews, jumped, done: { level: 'mastered' | 'kept' } } (lib/path.js)
   freezes: 0, // streak freezes ready to use (at most 2), earned by finishing the daily quests
   goalXp: 20, // daily goal in XP
-  sound: true,
+  sound: true, // short sounds; off from the start for a student who joins a class and never chose (quietForClass)
+  haptics: true, // short vibrations where the phone can (lib/sound.js haptic), never under reduced motion
+  // theme: 'system' (follow the phone) | 'light' | 'dark' (lib/theme.js); soundSet: the student chose sound themselves.
+  // New fields come with defaults (an old save without one reads it as missing, which code treats as the default).
+  prefs: { theme: 'system', soundSet: false },
   mistakes: {}, // 'topic:cat' -> count
   lastTopic: null,
   outbox: [],
@@ -185,7 +190,11 @@ export const appState = (set, get) => ({
       recordExamDiagnostic: (skill, right, asked) => { const L = get().learn; if (!L.exam) return; set({ learn: { ...L, exam: recordDiagnostic(L.exam, skill, right, asked, new Date().toISOString()) } }); },
       addXP: (n) => set(addXp(get(), n)),
       setGoalXp: (goalXp) => set({ goalXp }),
-      setSound: (sound) => set({ sound }),
+      setSound: (sound) => set({ sound, prefs: { ...get().prefs, soundSet: true } }),
+      setHaptics: (haptics) => set({ haptics }),
+      /** Joining a class: sounds start off (a classroom is quiet), unless the student already chose them. */
+      quietForClass: () => { if (!get().prefs?.soundSet) set({ sound: false }); },
+      setTheme: (theme) => { set({ prefs: { ...get().prefs, theme } }); applyTheme(theme); },
       /**
        * A finished lesson: XP, today's counters, the path, the topic level, and the daily quests.
        * Returns what to celebrate: { streakExtended, streak, practiceDone, unitDone, questsDone, freezeEarned, goalReached }.
@@ -257,11 +266,13 @@ export const appState = (set, get) => ({
       resetProgress: () => set({ progress: {}, days: {}, xp: 0, xpBy: {}, resetAt: new Date().toISOString(), mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive.
       // The next student here gets a new device tag (their XP is counted apart) and no backup; what the browser was
-      // asked, and the install hint, belong to the device and stay.
+      // asked, and the install hint, belong to the device and stay. The look chosen for this device (prefs) stays too;
+      // sound goes back to its default, so the next student's own choice starts unset (soundSet).
       signOut: () => {
         const { persistAsked, installHintAt } = get().durable || {};
         set({
           ...empty, xpBy: {}, learn: emptyLearn(), classWork: emptyClassWork(), workOutbox: {}, ai: { ...get().ai, pendingLink: null, lastTier: null },
+          prefs: { ...get().prefs, soundSet: false },
           durable: { ...DURABLE_DEFAULTS, persistAsked: persistAsked ?? null, installHintAt: installHintAt ?? null, tag: newTag() }, backup: { ...BACKUP_DEFAULTS },
           // a sign-out clears the progress on purpose, like a reset: another tab still open cannot bring it back
           resetAt: new Date().toISOString(),

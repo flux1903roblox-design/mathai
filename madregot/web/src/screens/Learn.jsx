@@ -13,7 +13,9 @@ import StorageBanner from '@/components/durable/StorageBanner.jsx';
 import InstallSheet, { InstallCard } from '@/components/durable/InstallSheet.jsx';
 import { showLearnCard } from '@/lib/durable/install.js';
 import Chest from '@/components/map/Chest.jsx';
+import { Emblem, SCENERY } from '@/components/map/Scenery.jsx';
 import { Button } from '@/components/ui.jsx';
+import OfflineChip from '@/components/durable/OfflineChip.jsx';
 import { nextStage } from '@/learn/mastery.ts';
 import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
 import { skillId } from '@/learn/skills.ts';
@@ -21,6 +23,17 @@ import { urgentWork, urgentText } from '@/lib/classWork.js';
 
 // The path winds gently: each node sits a little to one side of the one before.
 const SWING = [0, 52, 78, 52, 0, -52, -78, -52];
+// After these stops, a small drawing from the unit's own topic (its second and third pieces) sits beside the path.
+const ART_AFTER = { 1: 1, 3: 2 };
+// how far from the middle the drawing sits: as far out as the widest swing, so it never meets a stop or its bubble
+const ART_X = SWING[2];
+
+/** A calm drawing from the unit's topic, opposite the swing of the stop above it: no text, no focus, no motion. */
+function PathArt({ topic, piece, x }) {
+  const Art = SCENERY[topic]?.[piece];
+  if (!Art) return null;
+  return <li className="path-art" aria-hidden="true" style={{ '--x': `${x > 0 ? -ART_X : ART_X}px` }}><Art /></li>;
+}
 
 function NodeCard({ n, t, onStart }) {
   const top = t.levels.length;
@@ -88,6 +101,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
     <section className={clsx('unit', `ch-${t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
       {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path scrolls */}
       <header className="unit-head" data-region="banner">
+        <Emblem topic={t.id} />
         <div className="unit-head-text">
           <h2 id={`unit-${t.id}`} className="unit-title">{t.title}</h2>
           <p className="unit-label">יחידה {n} · {unitCountText(prog)}</p>
@@ -131,6 +145,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
                   )}
                 </li>
               ),
+              ART_AFTER[i] && <PathArt key={`${t.id}:art${i}`} topic={t.id} piece={ART_AFTER[i]} x={x} />,
             ];
           })}
         </ol>
@@ -210,6 +225,7 @@ export default function Learn() {
         <Link to="/quests" className={clsx('top-stat streak', streak > 0 && 'on')} aria-label={`רצף של ${streak} ימים`}><Flame size={24} aria-hidden="true" />{streak}</Link>
         <Link to="/quests" className="top-stat xp" aria-label={`היום ${todayXp} מתוך ${goalXp} XP, סך הכול ${xp}`}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
       </header>
+      <OfflineChip />
       {urgent && (
         <Link to="/quests" className="learn-work-chip">
           <School size={18} aria-hidden="true" /><span className="learn-work-text">{urgentText(urgent)}</span><ChevronLeft size={18} aria-hidden="true" />
@@ -227,7 +243,11 @@ export default function Learn() {
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
             mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null} />
         ))}
-        <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה. <Link to="/topics">כל הנושאים והמצב בכל אחד</Link></p>
+        <div className="path-end">
+          <p>עוד יחידות יגיעו לפי תכנית הלימודים של השנה.</p>
+          {/* a full-size target on its own line, not a link inside the sentence (STUDENT-9 §1) */}
+          <Link to="/topics" className="btn btn-ghost btn-sm">כל הנושאים והמצב בכל אחד</Link>
+        </div>
       </div>
       <SidePanel streak={streak} todayXp={todayXp} goalXp={goalXp} freezes={freezes} days={days} />
       </div>

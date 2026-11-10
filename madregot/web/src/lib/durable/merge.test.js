@@ -169,6 +169,9 @@ describe('mergeDevices: the named cases', () => {
     const b = base({ sound: true, goalXp: 10, solveMode: 'answer', profile: { role: 'teacher', name: 'אחרת', school: 'בית ספר', token: 't', studentId: 's', classes: [{ code: 'ZZZZZZ', key: 'their-key' }] } });
     const m = mergeDevices(a, b, { localAt: A0, remoteAt: B0 });
     expect(m).toMatchObject({ sound: false, goalXp: 30, solveMode: 'notebook' });
+    // the look and the vibration chosen on this device (STUDENT-2/7) are this device's too
+    const looks = mergeDevices(base({ haptics: false, prefs: { theme: 'dark', soundSet: true } }), base({ haptics: true, prefs: { theme: 'light', soundSet: false } }), { localAt: A0, remoteAt: B0 });
+    expect(looks).toMatchObject({ haptics: false, prefs: { theme: 'dark', soundSet: true } });
     expect(m.profile).toEqual({ role: 'teacher', name: 'רונית', school: 'בית ספר', classes: [{ code: 'K7Q2MD', key: 'local-key' }] });
     // a device with no profile takes the other's, still without the token, the id or any class key
     const fresh = mergeDevices({ ...a, profile: null }, b);

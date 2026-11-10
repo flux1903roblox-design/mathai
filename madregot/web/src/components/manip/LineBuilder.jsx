@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import { clamp, useDrag, Stepper, minus } from './core.jsx';
 import { gridGeometry, Plane } from './grid.jsx';
 import { Tex } from '../MathText.jsx';
+import { useThemeName } from '@/lib/theme.js';
 
 const fmt = (v) => `${v}`;
 export const lineTex = ({ m, b }) => {
@@ -12,11 +13,21 @@ export const lineTex = ({ m, b }) => {
   return `y = ${mt}${b === 0 ? '' : b > 0 ? ` + ${fmt(b)}` : ` - ${fmt(-b)}`}`;
 };
 
-// m and b keep one colour each across the equation, the drawing and the step buttons (m: the step, b: the intercept)
-const M_INK = '#a84f00'; const B_INK = '#3f33c4';
-const lineTexColored = ({ m, b }) => {
-  const mm = m === 0 ? '' : m === 1 ? 'x' : m === -1 ? '-x' : `\\color{${M_INK}}{${fmt(m)}}x`;
-  const bb = (v) => `\\color{${B_INK}}{${fmt(v)}}`;
+// m and b keep one colour each across the equation, the drawing and the step buttons (m: the step, b: the intercept):
+// m is the streak ink and b the violet unit ink. KaTeX's \color{} takes a name or a hex value, not var(), so the
+// equation reads the two tokens when it is drawn, and draws again when the theme changes (useThemeName); a value that
+// is not hex (or no stylesheet, in a unit test) leaves it plain.
+const HEX = /^#[0-9a-f]{3,8}$/i;
+export function lineInks(root = typeof document === 'undefined' ? null : document.documentElement) {
+  if (!root) return { m: '', b: '' };
+  const cs = getComputedStyle(root);
+  const read = (name) => { const v = cs.getPropertyValue(name).trim(); return HEX.test(v) ? v : ''; };
+  return { m: read('--streak-ink'), b: read('--ch-violet-ink') };
+}
+const paint = (ink, t) => (ink ? `\\color{${ink}}{${t}}` : t);
+const lineTexColored = ({ m, b }, ink) => {
+  const mm = m === 0 ? '' : m === 1 ? 'x' : m === -1 ? '-x' : `${paint(ink.m, fmt(m))}x`;
+  const bb = (v) => paint(ink.b, fmt(v));
   if (!mm) return `y = ${bb(b)}`;
   return `y = ${mm}${b === 0 ? '' : b > 0 ? ` + ${bb(b)}` : ` - ${bb(-b)}`}`;
 };
@@ -43,9 +54,10 @@ export default function LineBuilder({ m: spec, value, onChange, locked, reveal, 
   const ends = (mm, bb) => [X(-r - 0.5), Y(mm * (-r - 0.5) + bb), X(r + 0.5), Y(mm * (r + 0.5) + bb)];
   const [x1, y1, x2, y2] = ends(m, b);
   const showGhost = reveal && answer && (answer.m !== m || answer.b !== b);
+  useThemeName(); // the readout's two colours are read again when the theme changes
   return (
     <div className={`manip manip-line ${good ? 'good' : ''}`}>
-      {!test && <div className="manip-readout" aria-live="polite"><Tex tex={lineTexColored(value)} /></div>}
+      {!test && <div className="manip-readout" aria-live="polite"><Tex tex={lineTexColored(value, lineInks())} /></div>}
       <svg ref={ref} {...drag} viewBox={`0 0 ${g.size} ${g.size}`} className="manip-canvas" dir="ltr" role="img" aria-label={test ? 'ישר עם שתי נקודות לגרירה' : `הישר ${lineTex(value)}`}>
         <defs><clipPath id="lb-clip"><rect x={X(-r - 0.5)} y={Y(r + 0.5)} width={(2 * r + 1) * g.c} height={(2 * r + 1) * g.c} /></clipPath></defs>
         <Plane g={g}>

@@ -645,6 +645,8 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
     await expect(page).toHaveURL(/#\/learn\/signed\/1\/B$/);
     await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
     for (let g = 0; g < 8 && !(await page.locator('.stage-done').count()); g += 1) {
+      // the check above and this stage reach the day's goal in this view: its own moment comes first (STUDENT-7)
+      if (await page.locator('.goal-stage').count()) { await page.locator('.goal-stage').getByRole('button', { name: 'המשך', exact: true }).click(); continue; }
       while (await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).count()) await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).click();
       await page.getByRole('button', { name: /לדוגמה הבאה|לפתור יחד/ }).click();
     }

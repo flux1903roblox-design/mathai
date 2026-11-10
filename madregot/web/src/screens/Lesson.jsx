@@ -16,7 +16,7 @@ import AIAllowance from '@/components/AIAllowance.jsx';
 import ToolLocked from '@/components/ToolLocked.jsx';
 import { api, syncNow } from '@/lib/api.js';
 import { checkAssignment, reportWork, reportStairs } from '@/lib/classWork.js';
-import { play, buzz } from '@/lib/sound.js';
+import { play, haptic } from '@/lib/sound.js';
 import { Tex, MathText, Markdown, texText, FitDisplay } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
 import Manip from '@/components/manip/Manip.jsx';
@@ -36,7 +36,6 @@ import { contentOf } from '@/learn/content/index.ts';
 import { skillId, parseSkill } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
-import { useTheme } from '@/lib/theme.js';
 import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
 
 /** True while a media query matches (and follows it as the window changes). */
@@ -327,9 +326,9 @@ export default function Lesson() {
       });
     }
     setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)] });
-    if (result.ok) { play('correct'); commit(result.event); }
+    if (result.ok) { play('correct'); haptic('correct'); commit(result.event); }
     else {
-      play('wrong'); buzz(40); setShakeKey((v) => v + 1);
+      play('wrong'); haptic('wrong'); setShakeKey((v) => v + 1);
       if (result.reveal) {
         commit(result.event);
         if (item.form !== 'mc') setStruck(true);
@@ -365,7 +364,8 @@ export default function Lesson() {
     if (workId) reportWork(workId, { state: 'done', right: result.right, asked: result.asked, passed: !!result.passed });
     reportStairs();
     syncNow();
-    play(result.passed ? 'complete' : 'wrong');
+    // the end of a lesson, a check or the placement test: the sound and its vibration, as the end screen appears
+    play(result.passed ? 'complete' : 'wrong'); haptic(result.passed ? 'complete' : 'wrong');
     setDone({ result, award });
   };
 
@@ -461,8 +461,6 @@ export default function Lesson() {
       </div>
     );
   }
-  // white while learning (exercises, graphs), black for the result screens that follow
-  useTheme(done ? 'dark' : 'light');
   if (done) leaving.current = true; // the end screens lead back to the map without asking
   if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/topics', { replace: true, state: { placed: true } })} />;
   if (done && isCheck) return <CheckDone result={done.result} award={done.award} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: done.award?.stairDone ? { from: spec.topic, nodeDone: true } : undefined })} />;
