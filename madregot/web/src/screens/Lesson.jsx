@@ -71,6 +71,11 @@ const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m:
 /** A slot's name for a screen reader; an expression's letter may be another one than x (3n + 1). */
 const slotLabel = (item, k) => (k === 'k' && item?.var ? `המקדם של ${item.var}` : SLOT_LABEL[k]);
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
+/**
+ * Three short maths choices (< = >, 12, 43) sit side by side in large type; anything longer (2x - 10) goes in the list,
+ * since three expressions in one row overflow a phone.
+ */
+const inlineChoices = (item) => item.choices.length === 3 && item.choices.every((c) => c.tex && c.tex.replace(/\s|\\[a-z]+/g, '').length <= 3);
 
 /**
  * The question's maths, as large as it fits: a long expression (3(x - 2) - (x + 4) = ?) is set smaller until it fits
@@ -525,7 +530,7 @@ export default function Lesson() {
         )}
         {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} />}
         {item.form === 'mc' && (
-          <div className={clsx('choices', item.choices.length === 3 && item.choices.every((c) => c.tex) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
+          <div className={clsx('choices', inlineChoices(item) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
             {item.choices.map((c, i) => {
               const state = locked && i === item.answer ? 'good' : (feedback && choice === i && i !== item.answer) || s.wrong.includes(i) ? 'bad' : '';
               return (

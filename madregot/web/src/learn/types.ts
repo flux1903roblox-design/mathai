@@ -3,8 +3,8 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'signed' | 'coord' | 'angles' | 'line' | 'pyth' | 'stats';
-/** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. The 33 stairs are the 33 skills. */
+export type TopicId = 'signed' | 'coord' | 'angles' | 'expr' | 'line' | 'pyth' | 'stats';
+/** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
 export type Mood = 'idle' | 'happy' | 'thinking' | 'encouraging' | 'excited' | 'achievement';

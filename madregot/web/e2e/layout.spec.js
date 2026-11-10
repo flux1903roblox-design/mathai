@@ -18,6 +18,9 @@ const CASES = [
   ['a word problem with a drawing', 'pyth/4', '8'],
   ['a list of data', 'stats/2', '8'],
   ['a frequency table', 'stats/4', '8'],
+  ['an expression answer (two fields)', 'expr/3', '7'],
+  ['an expression from a pattern table', 'expr/2', '7'],
+  ['simplifying a long expression', 'expr/5', '7'],
 ];
 
 for (const [what, route, grade] of CASES) {

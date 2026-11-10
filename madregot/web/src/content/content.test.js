@@ -174,7 +174,7 @@ describe('right-to-left text and answers', () => {
   it('lists of numbers in a Hebrew sentence keep their order (left-to-right isolate)', () => {
     let lists = 0;
     for (let r = 0; r < RUNS; r++) {
-      for (const [topic, level] of [['stats', 1], ['stats', 2], ['stats', 3], ['stats', 5], ['pyth', 3]]) {
+      for (const [topic, level] of [['stats', 1], ['stats', 2], ['stats', 3], ['stats', 5], ['pyth', 3], ['expr', 1], ['expr', 2]]) {
         const it = makeItem(topic, level);
         const list = it.text.match(/\$-?[\d.]+\$(, \$-?[\d.]+\$)+/);
         if (list) { lists += 1; expect(it.text).toContain(LRI + list[0] + PDI); }

@@ -9,7 +9,7 @@ export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
 export const AI_KINDS = ['explain', 'chat', 'generate', 'check', 'exam'];
 // Topic ids the exam check maps each question to, so the app can recommend practice.
-export const TOPIC_IDS = ['signed', 'coord', 'angles', 'line', 'pyth', 'stats', 'other'];
+export const TOPIC_IDS = ['signed', 'coord', 'angles', 'line', 'pyth', 'stats', 'expr', 'other'];
 export const MAX_EXAM_PAGES = 8;
 
 const TUTOR = `You are the math tutor inside "Madregot", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).
@@ -22,7 +22,7 @@ Never say a built-in answer is wrong: the app checks built-in exercises with exa
 const TASKS = {
   explain: `Task: the student answered an exercise incorrectly. Explain the specific mistake: compare their answer with the correct one, name the misconception that most likely produced their number, then show the correct method in 2-4 short steps. Do not lecture and do not repeat the whole topic.`,
   chat: `Task: the student is working on the exercise described in the context and asks you questions about it. Guide them toward the answer. If they have not tried yet, give the next step rather than the final answer; if they ask for the final answer after trying, you may give it with the method.`,
-  generate: `Task: write new practice exercises for the topic and level given. Each exercise must have exactly one numeric answer (an integer, a terminating decimal, or a fraction a/b). Solve each exercise yourself and double-check the answer before writing it. Match the difficulty of the level. Hints must not reveal the answer. Solutions list 2-5 short steps.`,
+  generate: `Task: write new practice exercises for the topic and level given. Each exercise must have exactly one numeric answer (an integer, a terminating decimal, or a fraction a/b). When the level's exercises ask for an expression (writing, collecting like terms, opening brackets, simplifying), ask instead for one number of the result: the coefficient of x, the constant term, or the expression's value at a given x. Solve each exercise yourself and double-check the answer before writing it. Match the difficulty of the level. Hints must not reveal the answer. Solutions list 2-5 short steps.`,
   exam: `Task: the student uploaded a practice exam they completed (photos of the pages, or a PDF). Check it like a careful teacher.
 For every question on the pages: transcribe the question, the student's final answer and the key line of their working; decide whether it is correct, partially correct, wrong, or not answered.
 If an answer key is provided, it is authoritative: compare the student's answer with it and never re-grade against your own solution. Without a key, solve each question yourself carefully and check your result before grading.

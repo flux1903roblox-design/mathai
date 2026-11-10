@@ -3,9 +3,9 @@
 // earlier stair. The graph is acyclic (tested), so "the smallest missing prerequisite" is well defined.
 import type { SkillId, TopicId } from './types';
 
-export const TOPIC_ORDER: TopicId[] = ['signed', 'coord', 'angles', 'line', 'pyth', 'stats'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { signed: '7', coord: '7', angles: '7', line: '8', pyth: '8', stats: '8' };
-export const STAIRS: Record<TopicId, number> = { signed: 5, coord: 5, angles: 5, line: 8, pyth: 5, stats: 5 };
+export const TOPIC_ORDER: TopicId[] = ['signed', 'coord', 'angles', 'expr', 'line', 'pyth', 'stats'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { signed: '7', coord: '7', angles: '7', expr: '7', line: '8', pyth: '8', stats: '8' };
+export const STAIRS: Record<TopicId, number> = { signed: 5, coord: 5, angles: 5, expr: 5, line: 8, pyth: 5, stats: 5 };
 
 export const skillId = (topic: TopicId | string, level: number): SkillId => `${topic}:${level}`;
 export const parseSkill = (id: SkillId) => { const [topic, l] = id.split(':'); return { topic: topic as TopicId, level: Number(l) }; };
@@ -30,7 +30,12 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'angles:3': ['angles:1'], // the triangle sum comes from a straight angle
   'angles:4': ['angles:1', 'angles:2'], // parallel lines: corresponding, alternate, co-interior
   'angles:5': ['angles:3'], // isosceles and exterior angles use the triangle sum
-  'line:1': ['signed:4', 'coord:1'], // a table of values: substitute (order of operations), plot the points
+  'expr:1': ['signed:4'], // substituting turns an expression into order of operations with signed numbers
+  'expr:2': ['expr:1'], // an expression is checked by substituting a case we know
+  'expr:3': ['expr:1', 'signed:1'], // equality is checked by substituting; coefficients are added as signed numbers
+  'expr:4': ['expr:1', 'signed:3'], // what ax means; each term is multiplied with the sign rules
+  'expr:5': ['expr:3', 'expr:4'], // open the brackets, then collect like terms
+  'line:1': ['signed:4', 'coord:1', 'expr:1'], // a table of values: substitute x in mx + b (expr:1, signed:4), plot the points
   'line:2': ['line:1'], // what m and b mean in y = mx + b
   'line:3': ['line:2', 'coord:1'], // slope from the graph: steps on the grid
   'line:4': ['line:3', 'signed:3'], // slope between two points: a quotient of signed differences

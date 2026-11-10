@@ -246,9 +246,12 @@ function RayFig({ fig }) {
     </svg>
   );
 }
+// the still tiles keep room above the x row (on a phone the zoom button sits in that corner), and the box is tall
+// enough that a 320px phone draws them at least 160px high
+const TILES_FIG_VIEW = TILES_VIEW.split(' ').map(Number).map((v, i) => (i === 1 ? v - 30 : i === 3 ? v + 14 : v)).join(' ');
 function TilesFig({ fig }) {
   return (
-    <svg viewBox={TILES_VIEW} className="figure fg-obj fg-tiles" role="img" aria-label={`אריחים: ${tilesWords(fig)}`}>
+    <svg viewBox={TILES_FIG_VIEW} className="figure fg-obj fg-tiles" role="img" aria-label={`אריחים: ${tilesWords(fig)}`}>
       <TilesArt u={fig} />
     </svg>
   );
