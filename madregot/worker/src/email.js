@@ -1,6 +1,7 @@
 // Service email through Resend's HTTP API (https://resend.com/docs/api-reference/emails/send-email): the sign-in code,
 // and the notices outbox (welcome, cancellation, refund, payment failed, renewal reminder, device linked, licence
-// ending, a class's teacher key replaced, owner alerts and the owner's daily summary). Settings: RESEND_API_KEY (secret), EMAIL_FROM (a domain verified
+// ending, a class's teacher key replaced, a teacher's daily count of new help requests, owner alerts and the owner's
+// daily summary). Settings: RESEND_API_KEY (secret), EMAIL_FROM (a domain verified
 // in Resend), CONTACT_EMAIL (reply-to), OWNER_EMAIL (owner alerts). Every inserted value is HTML-escaped. Nothing a
 // parent or child typed goes into their own emails except the recipient address, a device label and, to its own
 // teacher, a class name; a teacher's licence request (school, note) goes only to the owner. With EMAIL_DEV_LOG = "true" on a local Worker (PUBLIC_URL on
@@ -150,6 +151,19 @@ export function renderNotice(env, row) {
           [env.PUBLIC_URL, env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean).join(' · '),
         ],
       };
+    case 'help_digest': {
+      // a count and the class's name only: no student's name, no exercise and nothing a student wrote (TEACHER-6 §5)
+      const n = Math.max(1, Math.round(Number(p.n) || 1));
+      return {
+        subject: (n === 1 ? `בקשת עזרה חדשה בכיתה ${p.className || ''}` : `${n} בקשות עזרה חדשות בכיתה ${p.className || ''}`).trim(),
+        lines: [
+          'שלום,',
+          'בקשות חדשות מחכות לכם בלוח המורה. כדי לא לשלוח פרטים של תלמידים במייל, השמות והתרגילים נמצאים רק בלוח.',
+          `${env.PUBLIC_URL || ''}/#/teacher?tab=help`,
+          'להפסקת המיילים: לוח המורה › הגדרות הכיתה.',
+        ],
+      };
+    }
     case 'owner': {
       const what = String(row.kind).slice('owner:'.length);
       if (what === 'licence_request') return licenceRequestNotice(p);

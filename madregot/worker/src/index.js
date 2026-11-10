@@ -25,6 +25,7 @@ import {
   listAssignments, createAssignment, getAssignment, updateAssignment, deleteAssignment, classWork, workExam, postWork, classAssignments,
 } from './assignments.js';
 import { classReport } from './report.js';
+import { teacherReply, studentReply, readHelp, setDigest, helpThreads, markReadStmt } from './help.js';
 import { RETENTION } from '../../shared/retention.js';
 import { run as runCron } from './cron.js';
 
@@ -363,7 +364,7 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, , assignments, classExams] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, , assignments, classExams, threads, owner] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
@@ -394,6 +395,11 @@ async function dashboard(req, env, cors) {
        FROM assignment_work w JOIN assignments a ON a.id = w.assignment_id JOIN students s ON s.id = w.student_id
        WHERE a.class_code = ? AND a.kind = 'exam' AND w.state = 'done' AND s.class_code = a.class_code
        ORDER BY w.done_at DESC LIMIT 200`, cls.code),
+    // the replies on the help requests above (TEACHER-6): one query for all of them
+    helpThreads(env, `SELECT h.id FROM help_requests h JOIN students s ON s.id = h.student_id
+      WHERE s.class_code = ?1 AND (h.done_at IS NULL OR h.done_at >= ?2)`, [cls.code, daysAgo(7)]),
+    // the daily help email: only the owner, signed in, sees (and changes) it
+    cls.via === 'account' ? env.DB.prepare('SELECT help_digest FROM class_owners WHERE class_code = ? AND account_id = ?').bind(cls.code, cls.accountId).first() : null,
   ]);
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
   const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows);
@@ -421,7 +427,8 @@ async function dashboard(req, env, cors) {
       return { ...r, level: r.level == null ? null : Number(r.level), ids: who.map((c) => c.id), names: who.map((c) => c.name) };
     }),
     assignments,
-    help,
+    help: help.map((x) => ({ ...x, messages: threads[x.id]?.messages || [], unreadFromStudent: threads[x.id]?.unreadFromStudent || 0 })),
+    helpDigest: owner ? !!owner.help_digest : null,
   }, 200, cors);
 }
 
@@ -434,7 +441,9 @@ async function updateHelp(id, req, env, cors) {
     : col ? `UPDATE help_requests SET ${col} = COALESCE(${col}, ?) WHERE id = ? AND student_id IN (SELECT id FROM students WHERE class_code = ?)` : null;
   if (!sql) throw new HttpError(400, 'bad_action');
   const args = b.action === 'reopen' ? [Number(id), cls.code] : [nowIso(), Number(id), cls.code];
-  await env.DB.prepare(sql).bind(...args).run();
+  const res = await env.DB.prepare(sql).bind(...args).run();
+  // the teacher looked at the request: the student's replies on it are read (TEACHER-6)
+  if (res.meta?.changes) await markReadStmt(env, id, 'student').run();
   return json({ ok: true }, 200, cors);
 }
 
@@ -512,6 +521,9 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})\/join$/))) return joinClass(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, cors);
   if (M === 'POST' && p === '/api/help') return askHelp(req, env, cors);
+  // the student's side of a help request's thread (help.js)
+  if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/reply$/))) return studentReply(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/read$/))) return readHelp(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/exams') return saveExam(req, env, cors);
   // the teacher's assignments, as the student sees them (assignments.js)
   if (M === 'GET' && p === '/api/class/work') return classWork(req, env, cors);
@@ -522,6 +534,8 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && p === '/api/teacher/report') return classReport(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)$/))) return updateHelp(m[1], req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/teacher\/help\/(\d+)\/image$/))) return helpImage(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)\/reply$/))) return teacherReply(m[1], req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/digest') return setDigest(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/remove$/))) return removeStudent(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);

@@ -9,13 +9,20 @@
 // The practice saved on the devices themselves is never touched from here.
 
 /**
- * [table, column] pairs: every row of a student, deleted before the student row itself. The teacher's assignments
- * (TEACHER-4): what the student did on each, and the assignments given to them by name.
+ * [table, column] pairs, or [table, column, via] for a table keyed by another table's id: every row of a student,
+ * deleted before the student row itself. `via` is a SELECT of those ids by student ("SELECT id FROM help_requests WHERE
+ * student_id"), so such a table comes before the table it reads. The replies on the student's help requests
+ * (TEACHER-6), and the teacher's assignments (TEACHER-4): what the student did on each, and the assignments given to
+ * them by name.
  */
 export const STUDENT_ROWS = [
-  ['attempts', 'student_id'], ['levels', 'student_id'], ['help_requests', 'student_id'], ['exams', 'student_id'],
+  ['attempts', 'student_id'], ['levels', 'student_id'],
+  ['help_messages', 'help_id', 'SELECT id FROM help_requests WHERE student_id'],
+  ['help_requests', 'student_id'], ['exams', 'student_id'],
   ['assignment_work', 'student_id'], ['assignment_targets', 'student_id'],
 ];
+/** The WHERE of one STUDENT_ROWS entry, for a student test `match` ("= ?" or "IN (<a SELECT of ids>)"). */
+export const studentWhere = ([, col, via], match) => (via ? `${col} IN (${via} ${match})` : `${col} ${match}`);
 /**
  * ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN tries, every AI tier, care, the
  * student's assignment reports, and their replies to the teacher, TEACHER-6).
@@ -41,7 +48,7 @@ export function keyIn(prefix, sel) {
 const countersStmt = (env, prefixes, sel, args) => env.DB.prepare(`DELETE FROM ai_usage WHERE ${prefixes.map((p) => keyIn(p, sel)).join(' OR ')}`).bind(...args);
 
 /** One student's rows (STUDENT_ROWS): the statements for a batch that then deletes the counters and the student row. */
-export const studentDeleteStmts = (env, id) => STUDENT_ROWS.map(([table, col]) => env.DB.prepare(`DELETE FROM ${table} WHERE ${col} = ?`).bind(id));
+export const studentDeleteStmts = (env, id) => STUDENT_ROWS.map((row) => env.DB.prepare(`DELETE FROM ${row[0]} WHERE ${studentWhere(row, '= ?')}`).bind(id));
 /** One student's counters (STUDENT_COUNTERS). */
 export const studentCountersStmt = (env, id) => countersStmt(env, STUDENT_COUNTERS, 'SELECT ?1', [id]);
 
@@ -52,7 +59,7 @@ export const studentCountersStmt = (env, id) => countersStmt(env, STUDENT_COUNTE
  */
 export function studentsDeleteSteps(env, sel, args = []) {
   return [
-    ...STUDENT_ROWS.map(([table, col]) => ['studentRows', env.DB.prepare(`DELETE FROM ${table} WHERE ${col} IN (${sel})`).bind(...args)]),
+    ...STUDENT_ROWS.map((row) => ['studentRows', env.DB.prepare(`DELETE FROM ${row[0]} WHERE ${studentWhere(row, `IN (${sel})`)}`).bind(...args)]),
     ['studentCounters', countersStmt(env, STUDENT_COUNTERS, sel, args)],
     ['students', env.DB.prepare(`DELETE FROM students WHERE id IN (${sel})`).bind(...args)],
   ];

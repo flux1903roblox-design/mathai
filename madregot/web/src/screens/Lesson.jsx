@@ -715,7 +715,8 @@ function HelpSheet({ open, onOpenChange, payload, getImage, hasPage }) {
       // the page goes only as large as the server keeps it (shrunk if needed); a page that cannot fit stays behind
       const image = getImage();
       await api('/api/help', { method: 'POST', body: { ...payload, note, image } });
-      toast.success(hasPage && !image ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: הוא גדול מדי לשליחה.' : 'הבקשה נשלחה למורה');
+      // the reply comes back on the missions screen (TEACHER-6 §4)
+      toast.success(hasPage && !image ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: הוא גדול מדי לשליחה. התשובה תופיע במסך המשימות.' : 'הבקשה נשלחה למורה. התשובה תופיע במסך המשימות.');
       setNote(''); onOpenChange(false);
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };

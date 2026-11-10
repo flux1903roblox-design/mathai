@@ -17,6 +17,11 @@
 // version, answers and steps, no question text), and a PDF of each (test-results/teacher-exam-{exam,key}.pdf). Sent to
 // the class as version ב, the post carries ב's frozen questions; the assignment prints again, read-only (a:<id>).
 //
+// TEACHER-6: help both ways. The teacher filters the requests, reads the thread, fills the box with a quick reply,
+// sends (a link is refused), and meets the limit of three; "מחר" counts a student's answer as new; the owner turns the
+// daily email on. The student gets one calm notice outside lessons, the tab's dot, the thread in a sheet (read on
+// opening), and answers "עדיין לא ברור לי" or "תודה, הבנתי" only after the teacher wrote.
+//
 // TEACHER-7: the class report from the board's tools: its ranges (the default two weeks, this week from Sunday, a range
 // of the teacher's own), a row per student, the CSV (the BOM, the header, no id: test-results/teacher-report.csv) and
 // the printout (landscape, the table only: test-results/teacher-report.pdf); the year's CSV from the class settings and
@@ -1460,5 +1465,171 @@ test.describe('TEACHER-7: the class report, its CSV and its printout', () => {
     await named(page, again, 'madregot-ז3-2026-09-01-2026-11-05.csv');
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'כן, למחוק את הכיתה' })).toBeDisabled();
+  });
+});
+
+test.describe('TEACHER-6: help both ways', () => {
+  const at = '2026-11-05T07:30:00.000Z';
+  const m = (id, from, body, read = false) => ({ id, from, body, at, read });
+  /** Three requests: דנה's, new; יואב's, where he answered the teacher; and one the teacher closed after three replies. */
+  const threads = () => [
+    { id: 1, studentId: 'a1', name: 'דנה', topic: 'signed', level: 1, question: '$3 - 8$', answer: '5', note: 'לא הבנתי למה יוצא מינוס', has_image: 0, created_at: '2026-11-05T07:00:00.000Z', seen_at: null, done_at: null, messages: [] },
+    { id: 2, studentId: 'b2', name: 'יואב', topic: 'signed', level: 2, question: '$-2 + 7$', answer: '-9', note: '', has_image: 0, created_at: '2026-11-04T15:00:00.000Z', seen_at: '2026-11-04T16:00:00.000Z', done_at: null,
+      messages: [m(11, 'teacher', 'נסו שוב, והתחילו מהשלב הראשון בדרך', true), m(12, 'student', 'עדיין לא ברור לי איך מתחילים')] },
+    { id: 3, studentId: 'a1', name: 'דנה', topic: 'coord', level: 1, question: 'קראו את הנקודה', answer: '(2, 3)', note: '', has_image: 0, created_at: '2026-11-03T10:00:00.000Z', seen_at: '2026-11-03T11:00:00.000Z', done_at: null,
+      messages: [m(21, 'teacher', 'נעבור על זה מחר בכיתה', true), m(22, 'student', 'עדיין לא ברור לי', true), m(23, 'teacher', 'כתבו לי איפה בדיוק נתקעתם', true), m(24, 'student', 'בשלב השני', true), m(25, 'teacher', 'נעבור על זה בכיתה')] },
+  ];
+  const inClass = () => withServer({ profile: { role: 'student', name: 'דנה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', teacherName: 'רונית', token: 'stok-a1', studentId: 'a1' } });
+  const replies = (log, path) => log.filter((r) => r.path === path && r.method === 'POST');
+  const missionsTab = (page) => page.getByRole('navigation', { name: 'ניווט ראשי' }).getByRole('link', { name: /^משימות/ });
+
+  test('1. the teacher: filters, the thread, quick replies that fill the box, sending, the contact guard and the limit', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { help: threads() }, baseOf());
+    await open(page, '#/teacher?tab=help', keyTeacher());
+    const items = page.locator('.help-item');
+    await expect(page.getByRole('radio', { name: 'פתוחות (3)' })).toBeChecked();
+    await expect(items).toHaveCount(3);
+    // waiting for the teacher: דנה's (no reply yet) and יואב's (he wrote last)
+    await page.getByRole('radio', { name: /^מחכות לתשובה שלכם/ }).check();
+    await expect(items).toHaveCount(2);
+    await expect(items.nth(1)).toContainText('יואב');
+    await expect(items.nth(1).locator('.new-tag')).toHaveText('תשובה חדשה');
+    // יואב's thread: "אתם" and "יואב", oldest first
+    await expect(items.nth(1).locator('.hb-who')).toHaveText([/^אתם · /, /^יואב · /]);
+    await expect(items.nth(1).locator('.hb-text')).toHaveText(['נסו שוב, והתחילו מהשלב הראשון בדרך', 'עדיין לא ברור לי איך מתחילים']);
+    // a quick reply fills the box and sends nothing
+    const dana = items.nth(0);
+    const box = dana.getByLabel('תשובה לדנה');
+    await expect(box).toHaveAttribute('placeholder', 'כמה מילים על התרגיל. התשובה תופיע אצל דנה באפליקציה.');
+    await dana.getByRole('button', { name: 'נסו שוב, והתחילו מהשלב הראשון בדרך' }).click();
+    await expect(box).toHaveValue('נסו שוב, והתחילו מהשלב הראשון בדרך');
+    await expect(dana.getByText('34/500')).toBeVisible();
+    expect(replies(log, '/api/teacher/help/1/reply')).toHaveLength(0);
+    for (const b of await dana.locator('.hr-chip').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    // a link is refused by the server, and the box keeps the text
+    await box.fill('הסבר נוסף כאן: www.x.test');
+    await dana.getByRole('button', { name: 'שליחה' }).click();
+    await expect(page.getByText('בלי קישורים, מספרי טלפון או כתובות מייל בתשובה. כל השאר אפשר להמשיך בכיתה.')).toBeVisible();
+    await expect(box).toHaveValue('הסבר נוסף כאן: www.x.test');
+    await box.fill('נסו שוב, והתחילו מהשלב הראשון בדרך: 3 פחות 8 זה כמו ללכת שמאלה על הישר.');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await dana.getByRole('button', { name: 'שליחה' }).click();
+    await expect(page.getByText('התשובה נשלחה לדנה.')).toBeVisible();
+    expect(replies(log, '/api/teacher/help/1/reply').at(-1)).toMatchObject({ body: { body: 'נסו שוב, והתחילו מהשלב הראשון בדרך: 3 פחות 8 זה כמו ללכת שמאלה על הישר.' }, headers: { 'x-class-code': 'K7Q2MD', 'x-teacher-key': 'tkey-123' } });
+    expect(st.help[0].messages).toHaveLength(1);
+    // answered: no longer waiting; under "פתוחות" her bubble shows
+    await expect(items).toHaveCount(1);
+    await page.getByRole('radio', { name: /^פתוחות/ }).check();
+    await expect(items.nth(0).locator('.hb-who')).toHaveText([/^אתם · היום, /]);
+    await expect(items.nth(0).getByLabel('תשובה לדנה')).toHaveValue('');
+    // three replies already on דנה's other request: the box is gone and the limit says so
+    await expect(items.nth(2).getByText('על בקשה אחת אפשר לכתוב עד 3 תשובות. את השאר כדאי להמשיך בכיתה.')).toBeVisible();
+    await expect(items.nth(2).locator('textarea')).toHaveCount(0);
+    await expect(page.getByText('בתשובות אין קישורים, מספרי טלפון או כתובות מייל, והן נשארות באפליקציה. הן נמחקות יחד עם הבקשה.')).toBeVisible();
+    await items.nth(1).scrollIntoViewIfNeeded();
+    await shot(page, 'teacher-help-thread');
+    // "מחר": יואב's answer counts as new, with his words
+    await page.getByRole('tab', { name: 'מחר' }).click();
+    const fresh = page.getByRole('region', { name: 'בקשות עזרה חדשות' });
+    await expect(fresh.locator('li.unseen')).toHaveCount(1);
+    await expect(fresh.locator('li.unseen')).toContainText('“עדיין לא ברור לי איך מתחילים”');
+  });
+
+  test('2. the class\'s owner turns the daily email on in the settings; a key alone does not see the switch', async ({ page }) => {
+    const { st, log } = await fakeServer(page.context(), { owned: true, digest: false }, baseOf());
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/teacher/settings', ownedTeacher(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(9), email: EMAIL, shared: false }) } });
+    const sw = page.getByRole('switch', { name: 'מייל אחד ביום כשיש בקשות עזרה חדשות' });
+    await expect(sw).not.toBeChecked();
+    await expect(page.getByText('במייל יש רק את מספר הבקשות, בלי שמות. נשלח בסביבות 16:00.')).toBeVisible();
+    await sw.click();
+    await expect(sw).toBeChecked();
+    expect(log.find((r) => r.path === '/api/teacher/class/digest')).toMatchObject({ body: { on: true }, headers: { 'x-class-code': 'K7Q2MD', 'x-account-token': TOKEN(9) } });
+    expect(st.digest).toBe(true);
+    await expect(page.getByText('המייל היומי פועל.')).toBeVisible();
+    await page.getByRole('region', { name: 'התראות' }).scrollIntoViewIfNeeded();
+    await shot(page, 'teacher-settings-notices');
+    const p2 = await page.context().newPage();
+    await open(p2, '#/teacher/settings', keyTeacher());
+    await expect(p2.getByRole('heading', { name: 'הגדרות הכיתה ז׳3' })).toBeVisible();
+    await expect(p2.getByText('תלמידים שכבר בכיתה ממשיכים להיכנס עם הקוד האישי שלהם.')).toBeVisible();
+    await expect(p2.getByRole('switch', { name: 'מייל אחד ביום כשיש בקשות עזרה חדשות' })).toHaveCount(0);
+  });
+
+  test('3. the student: a calm notice outside lessons, the tab dot, the thread, "עדיין לא ברור לי" posts still', async ({ page }) => {
+    const help = threads().filter((x) => x.studentId === 'a1');
+    help[0].messages = [m(31, 'teacher', 'נסו שוב, והתחילו מהשלב הראשון בדרך')];
+    help[0].seen_at = '2026-11-05T07:20:00.000Z';
+    help[1].messages[4].read = true; // the other request's last reply was read on another day
+    const { log } = await fakeServer(page, { help }, baseOf());
+    // inside a lesson the notice waits
+    await open(page, '#/lesson/signed/1', inClass());
+    await expect.poll(() => log.some((r) => r.path === '/api/class/work')).toBe(true);
+    await page.waitForTimeout(500);
+    await expect(page.getByText('יש תשובה מהמורה על בקשת העזרה')).toHaveCount(0);
+    // the next screen out of the lesson: once
+    await page.evaluate(() => { window.location.hash = '#/'; });
+    const notice = page.getByText('יש תשובה מהמורה על בקשת העזרה');
+    await expect(notice).toBeVisible();
+    await expect(missionsTab(page)).toHaveAccessibleName('משימות · יש משהו חדש מהמורה');
+    expect((await page.getByRole('button', { name: 'לקריאה' }).boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await page.getByRole('button', { name: 'לקריאה' }).click();
+    await expect(page).toHaveURL(/#\/quests$/);
+    const sheet = page.getByRole('dialog', { name: 'הבקשה שלי' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.locator('.hb-who')).toHaveText([/^המורה רונית · /]);
+    await expect(sheet.locator('.hb-text')).toHaveText(['נסו שוב, והתחילו מהשלב הראשון בדרך']);
+    await expect.poll(() => replies(log, '/api/help/1/read').length).toBe(1);
+    await expect(page.locator('.tab-dot')).toHaveCount(0);
+    await shot(page, 'student-my-help');
+    // "עדיין לא ברור לי": a few words, then "שליחה למורה"
+    await sheet.getByRole('button', { name: 'עדיין לא ברור לי' }).click();
+    await sheet.getByLabel('מה עדיין לא ברור?').fill('למה שמונה פחות שלוש זה לא אותו דבר?');
+    await sheet.getByRole('button', { name: 'שליחה למורה' }).click();
+    await expect(page.getByText('שלחנו למורה.')).toBeVisible();
+    expect(replies(log, '/api/help/1/reply').at(-1)).toMatchObject({ body: { quick: 'still', body: 'למה שמונה פחות שלוש זה לא אותו דבר?' }, headers: { authorization: 'Bearer stok-a1' } });
+    await expect(sheet.locator('.hb-who')).toHaveText([/^המורה רונית · /, /^אני · /]);
+    await expect(sheet.getByRole('button', { name: 'תודה, הבנתי' })).toHaveCount(0);
+    await sheet.getByRole('button', { name: 'סגירה' }).click();
+    // the card: each request with where it stands
+    const card = page.getByRole('region', { name: 'הבקשות שלי למורה' });
+    await expect(card.locator('.mh-row')).toHaveCount(2);
+    await expect(card.locator('.mh-chip')).toHaveText(['יש תשובה', 'יש תשובה']);
+    for (const r of await card.locator('.mh-row').all()) expect((await r.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    // a reload does not bring the notice back
+    const fetched = log.filter((r) => r.path === '/api/class/work').length;
+    await page.evaluate(() => { window.location.hash = '#/'; });
+    await page.reload();
+    await expect(missionsTab(page)).toBeVisible();
+    await expect.poll(() => log.filter((r) => r.path === '/api/class/work').length).toBeGreaterThan(fetched);
+    await page.waitForTimeout(600);
+    await expect(notice).toHaveCount(0);
+  });
+
+  test('4. "תודה, הבנתי" closes the sheet; before any reply there is nothing to answer; the help sheet says where the answer comes', async ({ page }) => {
+    const help = threads().filter((x) => x.studentId === 'a1');
+    const { log } = await fakeServer(page, { help: [help[0], { ...help[0], id: 4, question: '$-4 \\cdot 2$', messages: [m(41, 'teacher', 'כתבו לי איפה בדיוק נתקעתם', true)] }] }, baseOf());
+    await open(page, '#/quests', inClass());
+    const card = page.getByRole('region', { name: 'הבקשות שלי למורה' });
+    await expect(card.locator('.mh-chip')).toHaveText(['נשלחה', 'יש תשובה']);
+    await card.locator('.mh-row').nth(0).click();
+    const sheet = page.getByRole('dialog', { name: 'הבקשה שלי' });
+    await expect(sheet).toContainText('הבקשה מחכה אצל המורה. כשתגיע תשובה, היא תופיע כאן.');
+    await expect(sheet.getByRole('button', { name: 'תודה, הבנתי' })).toHaveCount(0);
+    expect(replies(log, '/api/help/1/read')).toHaveLength(0);
+    await sheet.getByRole('button', { name: 'סגירה' }).click();
+    await card.locator('.mh-row').nth(1).click();
+    await sheet.getByRole('button', { name: 'תודה, הבנתי' }).click();
+    await expect(page.getByText('שלחנו למורה.')).toBeVisible();
+    await expect(sheet).toBeHidden();
+    expect(replies(log, '/api/help/4/reply').at(-1).body).toEqual({ quick: 'thanks' });
+    // a new request from a lesson: the sent line says where the answer will come
+    await page.goto('./#/lesson/signed/1');
+    await page.getByRole('button', { name: 'למורה' }).click();
+    const ask = page.getByRole('dialog', { name: 'לבקש עזרה מהמורה' });
+    await ask.getByLabel('מה לא ברור? (לא חובה)').fill('לא הבנתי את הסימן');
+    await ask.getByRole('button', { name: 'שליחה למורה' }).click();
+    await expect(page.getByText('הבקשה נשלחה למורה. התשובה תופיע במסך המשימות.')).toBeVisible();
+    expect(replies(log, '/api/help').at(-1).body).toMatchObject({ topic: 'signed', level: 1, note: 'לא הבנתי את הסימן' });
   });
 });

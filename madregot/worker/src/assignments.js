@@ -19,6 +19,7 @@ import { TOPIC_IDS } from '../../shared/ai.js';
 import { HttpError, body, json, nowIso, dayOf, nextDay, isDay, randomToken, key, take, giveBack, limitOrThrow } from './util.js';
 import { requireTeacher, requireStudent } from './entitle.js';
 import { classSeenStmt, teacherDetail } from './licence.js';
+import { myHelp } from './help.js';
 
 const KB = 1024;
 export const ASSIGN = Object.freeze({
@@ -324,13 +325,13 @@ const mineView = (w) => (w && w.state ? {
 /**
  * GET /api/class/work → {today, teacherName, assignments, help}: the started assignments for this student due in the
  * last 14 days or later, and older ones (30 days) not done yet; not done first, by due date; at most 20. Each carries
- * createdAt, so the app can mark work that is new since the student last looked. `help` (the teacher's replies) comes
- * with TEACHER-6.
+ * createdAt, so the app can mark work that is new since the student last looked. `help`: the student's own help
+ * requests of the last 30 days with where each stands and the replies on it (help.js myHelp, TEACHER-6), never a page.
  */
 export async function classWork(req, env, cors) {
   const s = await requireStudent(req, env);
   const today = dayOf();
-  const [cls, list] = await Promise.all([
+  const [cls, list, help] = await Promise.all([
     first(env, 'SELECT teacher_name FROM classes WHERE code = ?', s.class_code),
     all(env, `SELECT a.id, a.kind, a.skill, a.title, a.note, a.starts_on, a.due_on, a.created_at, a.exam IS NOT NULL AS has_exam,
         CASE WHEN a.exam IS NOT NULL THEN json_array_length(a.exam) END AS exam_count,
@@ -339,6 +340,7 @@ export async function classWork(req, env, cors) {
       WHERE ${MINE} AND (a.due_on >= ?4 OR (COALESCE(w.state, '') != 'done' AND a.due_on >= ?5))
       ORDER BY CASE WHEN w.state = 'done' THEN 1 ELSE 0 END, a.due_on, a.created_at LIMIT 20`,
     s.id, s.class_code, today, plusDays(today, -14), plusDays(today, -30)),
+    myHelp(env, s.id),
   ]);
   return json({
     today, teacherName: cls?.teacher_name || '',
@@ -346,7 +348,7 @@ export async function classWork(req, env, cors) {
       id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.starts_on, dueOn: a.due_on, createdAt: a.created_at,
       hasExam: !!a.has_exam, examCount: a.exam_count == null ? null : Number(a.exam_count), mine: mineView(a),
     })),
-    help: [],
+    help,
   }, 200, cors);
 }
 

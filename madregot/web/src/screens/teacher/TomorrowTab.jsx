@@ -1,6 +1,6 @@
 // "מחר": what to do in tomorrow's lesson. The class licence card (when the paywall is on), mistakes that repeat this
 // week (each with "לתת תרגול על זה": that stair, for the students who made the mistake, TEACHER-4 §6), weak topics in
-// checked exams, who to check in with, and the newest help requests.
+// checked exams, who to check in with, and the newest help requests (those the student answered again count as new).
 import clsx from 'clsx';
 import { ChevronLeft, Send } from 'lucide-react';
 import { TOPIC } from '@/content/index.js';
@@ -8,7 +8,13 @@ import { MathText } from '@/components/MathText.jsx';
 import { useAIStatus } from '@/lib/account.js';
 import LicenceCard from '@/components/teacher/LicenceCard.jsx';
 import { isStair } from '@/lib/assign.js';
+import { lastMessage } from '@/lib/help.js';
 import { fmtDay, pct } from './common.jsx';
+
+/** A help request that needs the teacher: not seen yet, or the student wrote last (TEACHER-6 §3). */
+const isFresh = (h) => !h.seen_at || lastMessage(h)?.from === 'student';
+/** Those first, then the rest, each in the board's order (newest first). */
+const freshFirst = (list) => [...list.filter(isFresh), ...list.filter((h) => !isFresh(h))];
 
 /** A group in the "what to do tomorrow" view: a small heading over plain rows (the settings grammar). */
 function Group({ title, tone, children, more }) {
@@ -89,7 +95,15 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
           </Group>
           <Group title="בקשות עזרה חדשות" more={openHelp.length > 0 && <button type="button" className="t-more" onClick={onOpenHelp}>לכל הבקשות<ChevronLeft size={18} aria-hidden="true" /></button>}>
             {openHelp.length === 0 ? <p className="t-row muted">אין בקשות פתוחות.</p> : (
-              <ul className="t-list">{openHelp.slice(0, 5).map((h) => <li key={h.id} className={clsx('t-row', !h.seen_at && 'unseen')}><span className="t-list-main"><b>{h.name}</b>, {TOPIC[h.topic]?.title || ''}</span><span className="muted">{h.note || <MathText text={h.question} />}</span></li>)}</ul>
+              <ul className="t-list">{freshFirst(openHelp).slice(0, 5).map((h) => {
+                const last = lastMessage(h);
+                return (
+                  <li key={h.id} className={clsx('t-row', isFresh(h) && 'unseen')}>
+                    <span className="t-list-main"><b>{h.name}</b>, {TOPIC[h.topic]?.title || ''}</span>
+                    <span className="muted">{last?.from === 'student' ? `“${last.body}”` : h.note || <MathText text={h.question} />}</span>
+                  </li>
+                );
+              })}</ul>
             )}
           </Group>
         </div>

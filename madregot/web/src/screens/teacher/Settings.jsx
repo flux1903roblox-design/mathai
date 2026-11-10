@@ -1,7 +1,7 @@
 // The class settings (spec TEACHER-9, TEACHER-1 §6), at /teacher/settings, for the class open on the board: its name,
 // grade, code and join lock; how the teacher gets in (the email it is bound to, the teacher key for a co-teacher, a new
-// key); how long the server keeps the class's data; and, at the end of the year, the year's report (its CSV) and
-// deleting the class. Later items add
+// key); the daily help email (its owner only); how long the server keeps the class's data; and, at the end of the
+// year, the year's report (its CSV) and deleting the class. Later items add
 // their sections here (the class AI, the licence, notifications), in the order the spec gives.
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -143,19 +143,54 @@ function AccessSection({ cls }) {
   );
 }
 
+/**
+ * התראות (TEACHER-6 §5, owner only): one email a day when there are new help requests, with the count only. `on` is
+ * the server's setting (null: this device does not open the class as its owner, and the section is not shown).
+ */
+function NoticesSection({ cls, on, onChange }) {
+  const [busy, setBusy] = useState(false);
+  if (on === null || on === undefined) return null;
+  const set = async (next) => {
+    setBusy(true);
+    try {
+      const r = await teacherApi('/api/teacher/class/digest', { method: 'POST', body: { on: next } }, cls);
+      onChange(!!r.helpDigest);
+      toast.success(next ? 'המייל היומי פועל.' : 'המייל היומי כבוי.');
+    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <section className="section set-group t-set" aria-labelledby="ts-notices">
+      <h2 id="ts-notices" className="set-head">התראות</h2>
+      <div className="set-box">
+        <div className="t-lock">
+          <label className="check-row t-lock-row">
+            <input type="checkbox" role="switch" checked={on} disabled={busy} onChange={(e) => set(e.target.checked)} aria-describedby="ts-digest-hint" />
+            <span>מייל אחד ביום כשיש בקשות עזרה חדשות</span>
+          </label>
+          <p className="field-hint" id="ts-digest-hint">במייל יש רק את מספר הבקשות, בלי שמות. נשלח בסביבות 16:00.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function ClassSettings() {
   const profile = useApp((s) => s.profile);
   const navigate = useNavigate();
   const cls = profile.classes.find((c) => c.code === profile.active) || profile.classes[0];
   const [locked, setLocked] = useState(null);
+  const [digest, setDigest] = useState(null);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const gone = useClassDeleted();
 
   const load = useCallback(async () => {
-    try { const d = await teacherApi('/api/teacher/dashboard', {}, cls); setLocked(!!d.joinLocked); setError(''); } catch (e) { setError(e.message); }
+    try {
+      const d = await teacherApi('/api/teacher/dashboard', {}, cls);
+      setLocked(!!d.joinLocked); setDigest(typeof d.helpDigest === 'boolean' ? d.helpDigest : null); setError('');
+    } catch (e) { setError(e.message); }
   }, [cls]);
-  useEffect(() => { setLocked(null); load(); }, [load]);
+  useEffect(() => { setLocked(null); setDigest(null); load(); }, [load]);
   const lock = async (on) => {
     try {
       const r = await teacherApi('/api/teacher/class/lock', { method: 'POST', body: { locked: on } }, cls);
@@ -174,6 +209,7 @@ export default function ClassSettings() {
       {error && <p className="form-error t-set-error" role="alert">{error}</p>}
       <ClassSection cls={cls} locked={locked} onLock={lock} />
       <AccessSection cls={cls} />
+      <NoticesSection cls={cls} on={digest} onChange={setDigest} />
       <section className="section set-group t-set" aria-labelledby="ts-keep">
         <h2 id="ts-keep" className="set-head">כמה זמן נשמר המידע</h2>
         <ul className="set-box t-keep">{retentionLines().map((line) => <li key={line}>{line}</li>)}</ul>

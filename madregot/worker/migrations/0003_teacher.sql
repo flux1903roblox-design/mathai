@@ -88,3 +88,21 @@ CREATE INDEX IF NOT EXISTS assignment_work_student ON assignment_work (student_i
 --   audit_log.action  'assignment.create' (detail {kind, skill, targets}) | 'assignment.update' | 'assignment.delete'
 --                     (target assignment:<id>)
 --   ai_usage.who      assign:c:<class> (assignments made a day)  work:s:<student> (work reports a day)
+
+-- Replies on a help request, from the teacher and the student, a few lines each, about that exercise (spec TEACHER-6).
+-- Three a side, plain text with no link, email address or phone number (worker/src/help.js checks), the student only
+-- after the teacher. Deleted with the request: by the student's rows (forget.js STUDENT_ROWS, before help_requests) and
+-- by the night purge, which removes the messages of a request it deleted (cron.js).
+CREATE TABLE IF NOT EXISTS help_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  help_id INTEGER NOT NULL,
+  from_role TEXT NOT NULL CHECK (from_role IN ('teacher', 'student')),
+  body TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 500),
+  created_at TEXT NOT NULL,
+  read_at TEXT                                   -- when the other side opened it
+);
+CREATE INDEX IF NOT EXISTS help_messages_help ON help_messages (help_id, id);
+-- New values elsewhere (no table change):
+--   audit_log.action  'help.reply' (target help:<id>, detail {} : never the text) | 'class.digest' (detail {on})
+--   notices.kind      'help_digest:<YYYY-MM-DD>' (ref = the class code, to_account = the owner, params {className, n})
+--   ai_usage.who      helpreply:s:<student> (a student's replies a day)  report:c:<class> (hourly: the class report)

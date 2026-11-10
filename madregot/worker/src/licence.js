@@ -188,7 +188,7 @@ export async function lockClass(req, env, cors) {
 
 /**
  * POST /api/teacher/students/:id/remove {}: one batch deletes the student's rows (STUDENT_ROWS in forget.js: attempts,
- * levels, help requests, exams), their counters (PIN tries and the AI counters) and the student; the student's token
+ * levels, help requests and the replies on them, exams, assignment work and targets), their counters (PIN tries and the AI counters) and the student; the student's token
  * stops working. The practice saved on the device itself stays there.
  */
 export async function removeStudent(id, req, env, cors) {

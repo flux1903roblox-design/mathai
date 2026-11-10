@@ -8,7 +8,9 @@
 // truth pulled from it, or end the plan), queue the yearly renewal reminder (45 days ahead) and the licence-ending email
 // (30 days ahead), purge what is no longer needed (spec §6.9, and the class data by TRUST-7: shared/retention.js), and
 // queue the owner's daily summary when
-// OWNER_DAILY_SUMMARY = "true". Each step runs on its own: one failing step never stops the others.
+// OWNER_DAILY_SUMMARY = "true". In the 16:00 hour: the teachers' daily help email (help.js helpDigest: a count of new
+// requests, for the owners who turned it on; none on a rest day). Each step runs on its own: one failing step never
+// stops the others.
 import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
 import { retryCancels, processRefundQueue } from './billing.js';
@@ -19,6 +21,7 @@ import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
 import { studentsDeleteSteps, classDeleteSteps, countSteps } from './forget.js';
 import { RETENTION } from '../../shared/retention.js';
+import { helpDigest, digestHour } from './help.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -144,7 +147,8 @@ export const PURGE_ROUNDS = 5;
 
 /**
  * Class data past its time (spec TRUST-7; the periods are in shared/retention.js), as [name, statement] steps:
- * notebook pages 30 days after the request was closed (60 at most), help requests 180 days after closing (365 at most),
+ * notebook pages 30 days after the request was closed (60 at most), help requests 180 days after closing (365 at most)
+ * with the replies on them,
  * attempts and exams after 400 days, assignments 400 days after their due date (with their work and targets),
  * students nobody has seen for 400 days (with all their rows and counters), and
  * classes with no activity for 400 days and no running licence (their students, lock, settings, owner, counters, notices
@@ -170,6 +174,9 @@ export function purgeClassSteps(env, now = new Date()) {
       AND ((done_at IS NOT NULL AND done_at < ?1) OR created_at < ?2) LIMIT ${N})`, iso(R.helpImageAfterDone), iso(R.helpImageMax))],
     ['help', stmt(`DELETE FROM help_requests WHERE id IN (SELECT id FROM help_requests
       WHERE (done_at IS NOT NULL AND done_at < ?1) OR created_at < ?2 LIMIT ${N})`, iso(R.helpAfterDone), iso(R.helpMax))],
+    // the replies on a request that is gone (TEACHER-6): the help step above, or anything that removed one
+    ['helpMessages', stmt(`DELETE FROM help_messages WHERE id IN (SELECT m.id FROM help_messages m
+      WHERE NOT EXISTS (SELECT 1 FROM help_requests h WHERE h.id = m.help_id) LIMIT ${N})`)],
     ['attempts', stmt(`DELETE FROM attempts WHERE id IN (SELECT id FROM attempts WHERE at < ? LIMIT ${N})`, iso(R.attempts))],
     ['exams', stmt(`DELETE FROM exams WHERE id IN (SELECT id FROM exams WHERE created_at < ? LIMIT ${N})`, iso(R.exams))],
     // assignments 400 days after their due date (a Jerusalem day): what was done on them and who they were for first,
@@ -206,7 +213,7 @@ export async function purge(env, now = new Date()) {
   return {
     rows: changes(r),
     class: {
-      helpImages: cls.helpImages, help: cls.help, attempts: cls.attempts, exams: cls.exams, assignments: (cls.assignmentsOld || 0) + (cls.assignments || 0),
+      helpImages: cls.helpImages, help: cls.help, helpMessages: cls.helpMessages, attempts: cls.attempts, exams: cls.exams, assignments: (cls.assignmentsOld || 0) + (cls.assignments || 0),
       students: cls.students, classes: cls.classes,
     },
   };
@@ -279,6 +286,8 @@ export async function run(env, { now = new Date() } = {}) {
     await step('purge', () => purge(env, now));
     if (String(env.OWNER_DAILY_SUMMARY) === 'true') await step('summary', () => dailySummary(env, now));
   }
+  // the teachers' daily help email, counts only (TEACHER-6 §5)
+  if (digestHour(now)) await step('helpDigest', () => helpDigest(env, now));
   await step('notices', () => flushNotices(env));
   return report;
 }

@@ -11,6 +11,9 @@
 // they never go backwards), with the class exam's frozen questions (the teacher sends one version; the student fetches
 // its items). The class report (TEACHER-7): GET /api/teacher/report with its range rules, the students by name with set
 // numbers (st.reportRows by id changes them), the assignments of the range and the mistakes, with no id anywhere.
+// Help both ways (TEACHER-6): st.help holds the requests with their threads; the dashboard's rows, the teacher's reply
+// (three at most, no contact details), ראיתי/טופל/לפתוח שוב, the owner's daily email switch (st.digest), and the
+// student's side (GET /api/class/work's help, the student's answer only after the teacher's, /read).
 // `st.down = true` makes every call fail as a lost connection.
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -66,6 +69,10 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     work: {}, // assignmentId -> studentId -> { state, stage, right, asked, passed, questions, tries, startedAt, doneAt, doneDay }
     studentTokens: { 'stok-a1': 'a1' }, // a student's class token -> their id
     down: false, // every call fails as a lost connection
+    // help requests with their threads (TEACHER-6): [{ id, studentId, name, topic, level, question, answer, note,
+    // has_image, created_at, seen_at, done_at, messages: [{ id, from, body, at, read }] }]
+    help: [],
+    digest: null, // the owner's daily help email (null: the dashboard does not say, as for a key)
     ...over,
   };
   const emails = new Map(); // session token → the email it signed in with
@@ -126,11 +133,21 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
   const mineOf = (w) => (w ? { state: w.state, stage: w.stage ?? null, right: w.right ?? null, asked: w.asked ?? null, passed: w.passed ?? null, doneAt: w.doneAt || null } : null);
   const dashboard = (code = 'K7Q2MD') => ({
     class: code === 'K7Q2MD' ? { name: st.className, grade: st.classGrade, teacherName: 'רונית' }
-      : (({ name, grade }) => ({ name, grade, teacherName: 'רונית' }))(st.accountClasses.find((c) => c.code === code)), joinLocked: st.joinLocked, help: [], mistakes: st.mistakes, exams: [],
+      : (({ name, grade }) => ({ name, grade, teacherName: 'רונית' }))(st.accountClasses.find((c) => c.code === code)), joinLocked: st.joinLocked,
+    help: code === 'K7Q2MD' ? st.help.map(({ studentId, ...x }) => ({ ...x, messages: x.messages.slice(0, 6), unreadFromStudent: x.messages.filter((m) => m.from === 'student' && !m.read).length })) : [],
+    helpDigest: st.digest, mistakes: st.mistakes, exams: [],
     today: st.today,
     assignments: st.assignments.filter((a) => a.dueOn >= plus(st.today, -7)).sort((a, b) => (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0)).slice(0, 10).map(viewOf),
     students: st.students.map((s) => ({ ...s, lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false })),
   });
+
+  // ---- help both ways (TEACHER-6), as worker/src/help.js keeps it
+  const contact = (t) => /https?:\/\/|www\.|[^\s@]+@[^\s@]+\.[^\s@]+|\.(com|co|il|net|org|test)\b/i.test(t) || /\d{7,}/.test(t.replace(/[\s.\-()]+/g, ''));
+  const statusOf = (x) => (x.done_at ? 'done' : x.messages.some((m) => m.from === 'teacher') ? 'answered' : x.seen_at ? 'seen' : 'sent');
+  const helpNow = () => `${st.today}T10:00:00.000Z`;
+  let msgId = 1000;
+  const myHelpOf = (sid) => st.help.filter((x) => x.studentId === sid)
+    .map((x) => ({ id: x.id, topic: x.topic, level: x.level, question: x.question, createdAt: x.created_at, status: statusOf(x), messages: x.messages }));
 
   // ---- the class report (TEACHER-7), as worker/src/report.js gives it: rows by name, work by row index, no ids
   const REPORT_ROWS = [
@@ -199,6 +216,33 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       return reply(route, 200, { questions: [{ prompt: '2+2', answer: '4', hint: 'חברו', solution: ['2+2=4'] }] }, hdr);
     }
     if (path === '/api/progress') return reply(route, 200, { ok: true });
+    // ---- the student's side of help (TEACHER-6): a new request, its thread, its answers
+    if (path === '/api/help' && req.method() === 'POST') {
+      const sid = st.studentTokens[String(h.authorization || '').replace(/^Bearer /, '')];
+      if (!sid) return reply(route, 401, { error: 'not_signed_in' });
+      const id = Math.max(0, ...st.help.map((x) => x.id)) + 1;
+      st.help.unshift({ id, studentId: sid, name: st.students.find((x) => x.id === sid)?.name || '', topic: body.topic, level: body.level, question: body.question, answer: body.answer || '', note: body.note || '', has_image: body.image ? 1 : 0, created_at: helpNow(), seen_at: null, done_at: null, messages: [] });
+      return reply(route, 200, { ok: true });
+    }
+    const hm = path.match(/^\/api\/help\/(\d+)\/(reply|read)$/);
+    if (hm) {
+      const sid = st.studentTokens[String(h.authorization || '').replace(/^Bearer /, '')];
+      if (!sid) return reply(route, 401, { error: 'not_signed_in' });
+      const x = st.help.find((r) => r.id === Number(hm[1]) && r.studentId === sid);
+      if (!x) return reply(route, 404, { error: 'not_found' });
+      const readTeacher = () => { x.messages = x.messages.map((m) => (m.from === 'teacher' ? { ...m, read: true } : m)); };
+      if (hm[2] === 'read') { readTeacher(); return reply(route, 200, { ok: true }); }
+      if (!x.messages.some((m) => m.from === 'teacher')) return reply(route, 409, { error: 'no_reply_yet' });
+      if (x.messages.filter((m) => m.from === 'student').length >= 3) return reply(route, 409, { error: 'reply_limit' });
+      const text = body.quick === 'thanks' ? 'תודה, הבנתי' : String(body.body || '').trim() || (body.quick === 'still' ? 'עדיין לא ברור לי' : '');
+      if (!text || text.length > 300) return reply(route, 400, { error: 'bad_reply' });
+      if (contact(text)) return reply(route, 400, { error: 'reply_has_contact' });
+      readTeacher();
+      if (body.quick === 'still') x.done_at = null;
+      const message = { id: msgId += 1, from: 'student', body: text, at: helpNow(), read: false };
+      x.messages.push(message);
+      return reply(route, 201, { message, status: statusOf(x) });
+    }
     // ---- the student's class work (TEACHER-5)
     if (path.startsWith('/api/class/work')) {
       const sid = st.studentTokens[String(h.authorization || '').replace(/^Bearer /, '')];
@@ -208,7 +252,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         const list = st.assignments.filter((a) => mine(a) && (a.dueOn >= plus(st.today, -14) || (workOf(a, sid)?.state !== 'done' && a.dueOn >= plus(st.today, -30))))
           .sort((a, b) => ((workOf(a, sid)?.state === 'done') - (workOf(b, sid)?.state === 'done')) || (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0));
         return reply(route, 200, {
-          today: st.today, teacherName: 'רונית', help: [],
+          today: st.today, teacherName: 'רונית', help: myHelpOf(sid),
           assignments: list.map((a) => ({ id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn, createdAt: a.createdAt, hasExam: !!a.exam, examCount: a.exam ? a.exam.length : null, mine: mineOf(workOf(a, sid)) })),
         });
       }
@@ -350,7 +394,33 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         return reply(route, 200, { teacherKey: st.key });
       }
       if (!byKey && !byAccount) return reply(route, 401, { error: token && !signed && !h['x-teacher-key'] ? 'not_account' : 'not_teacher' });
-      if (path === '/api/teacher/dashboard') return reply(route, 200, dashboard(code));
+      if (path === '/api/teacher/dashboard') return reply(route, 200, { ...dashboard(code), helpDigest: byAccount ? st.digest : null });
+      const tm = path.match(/^\/api\/teacher\/help\/(\d+)(\/reply)?$/);
+      if (tm) {
+        const x = code === 'K7Q2MD' && st.help.find((r) => r.id === Number(tm[1]));
+        if (!x) return reply(route, 404, { error: 'not_found' });
+        const readStudent = () => { x.messages = x.messages.map((m) => (m.from === 'student' ? { ...m, read: true } : m)); };
+        if (!tm[2]) {
+          if (body.action === 'seen') x.seen_at ||= helpNow(); else if (body.action === 'done') x.done_at ||= helpNow(); else if (body.action === 'reopen') x.done_at = null;
+          else return reply(route, 400, { error: 'bad_action' });
+          readStudent();
+          return reply(route, 200, { ok: true });
+        }
+        const text = String(body.body || '').trim();
+        if (!text || text.length > 500) return reply(route, 400, { error: 'bad_reply' });
+        if (contact(text)) return reply(route, 400, { error: 'reply_has_contact' });
+        if (x.messages.filter((m) => m.from === 'teacher').length >= 3) return reply(route, 409, { error: 'reply_limit' });
+        x.seen_at ||= helpNow(); readStudent();
+        const message = { id: msgId += 1, from: 'teacher', body: text, at: helpNow(), read: false };
+        x.messages.push(message);
+        return reply(route, 201, { message });
+      }
+      if (path === '/api/teacher/class/digest') {
+        if (!byAccount) return reply(route, 403, { error: 'not_owner' });
+        if (typeof body.on !== 'boolean') return reply(route, 400, { error: 'bad_request' });
+        st.digest = body.on;
+        return reply(route, 200, { helpDigest: st.digest });
+      }
       if (path === '/api/teacher/report') {
         const q = url.searchParams; const day = /^\d{4}-\d{2}-\d{2}$/;
         if ((q.get('from') && !day.test(q.get('from'))) || (q.get('to') && !day.test(q.get('to')))) return reply(route, 400, { error: 'bad_range' });

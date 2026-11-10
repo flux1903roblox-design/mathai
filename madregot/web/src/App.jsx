@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation } from 'react-router-dom';
+import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
 import { fetchClassWork, flushWork } from '@/lib/classWork.js';
+import { toAnnounce, markNoticed, focusedRoute, HELP_NOTICE } from '@/lib/help.js';
 import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import { previewBack } from '@/lib/teacher.js';
@@ -117,6 +118,27 @@ function Toasts() {
     : <Toaster key="bottom" position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />;
 }
 
+/**
+ * "יש תשובה מהמורה על בקשת העזרה" (TEACHER-6 §4): once per new reply from the teacher (classWork.noticed), on the first
+ * screen after the class's work came in, never inside a lesson (it waits for the next screen). "לקריאה" opens the
+ * request's thread on the missions screen.
+ */
+function HelpNotice() {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const token = useApp((s) => (s.profile?.role === 'student' ? s.profile?.token : null));
+  const help = useApp((s) => s.classWork?.help);
+  useEffect(() => {
+    if (!token || focusedRoute(pathname)) return;
+    const fresh = toAnnounce(useApp.getState().classWork);
+    if (!fresh.length) return;
+    markNoticed(fresh.map((x) => x.message.id));
+    const id = fresh[0].help.id;
+    toast('יש תשובה מהמורה על בקשת העזרה', { id: HELP_NOTICE, duration: 10_000, action: { label: 'לקריאה', onClick: () => navigate('/quests', { state: { help: id } }) } });
+  }, [token, help, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 // Each lesson route starts a fresh lesson, so the screen remounts per route.
 function LessonRoute() {
   const { pathname, search } = useLocation();
@@ -151,6 +173,7 @@ function Root() {
   return (
     <>
       <Toasts />
+      {role === 'student' && <HelpNotice />}
       {role && <LimitSheet />}
       {role && <StatusWatch />}
       {/* a new screen opens at the top; back restores where the student was */}

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { Flame, Snowflake, Zap, Check, Target, Route, ChevronLeft, BookOpen, Star, Trophy } from 'lucide-react';
 import { m, useReducedMotion } from 'motion/react';
@@ -12,6 +12,7 @@ import Lottie from '@/components/Lottie.jsx';
 import { EASE } from '@/lib/motion.js';
 import TodayCard from '@/components/learn/TodayCard.jsx';
 import { markSeen } from '@/lib/classWork.js';
+import MyHelp from '@/components/learn/MyHelp.jsx';
 
 
 const QUEST_ICON = { lessons: BookOpen, xp: Zap, combo: Flame, perfect: Star, correct: Target, review: Trophy };
@@ -29,12 +30,17 @@ export default function Quests() {
   // the teacher's work is seen here: the tab's dot goes (and stays gone for work that arrives while this tab is open)
   const workAt = useApp((s) => s.classWork.at);
   useEffect(() => { if (profile.token) markSeen(); }, [profile.token, workAt]);
+  // the reply notice's "לקריאה" (App.jsx HelpNotice) opens that request's thread here, once
+  const { state: nav } = useLocation();
+  const openHelp = nav?.help ?? null;
 
   return (
     <div className="page wide quests">
       <PageHero tone="streak" scene="quests" mood="excited" title="משימות" sub="המשימה שלכם להיום, ועוד שלוש משימות קטנות שפותחות תיבה." />
       {/* the day's own mission first (chosen for this student), as the first quest card */}
       <TodayCard grade={profile.grade || '7'} onBoard={() => navigate('/topics')} />
+      {/* the student's help requests to the teacher, with the replies (TEACHER-6 §4); only in a class */}
+      {profile.token && <MyHelp openId={openHelp} onOpened={() => navigate('/quests', { replace: true, state: null })} />}
 
       <section className="card quest-card" aria-labelledby="q-h" data-region="card">
         <div className="card-row">
