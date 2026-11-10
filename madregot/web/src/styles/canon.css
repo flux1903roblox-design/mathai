@@ -608,6 +608,8 @@ button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .report-btn:hover:not(:disabled) { color: var(--brand-d); background: var(--brand-tint); }
 .report-btn.is-sent, .report-btn:disabled { color: var(--ink-2); opacity: 0.75; cursor: default; }
 .msg-tools { display: flex; margin-top: calc(-1 * var(--s2)); padding-inline-start: calc(34px + var(--s2)); }
+/* one quiet line under the first tutor reply on an open exercise (ai spec AI-3): under the bubble, never a box */
+.msg-note { margin: calc(-1 * var(--s1)) 0 0; padding-inline-start: calc(34px + var(--s2)); max-width: min(92%, 600px); }
 .ai-report-row { display: flex; justify-content: flex-end; margin-top: calc(-1 * var(--s1)); }
 .gen-note { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
 .gen-note p { margin: 0; }

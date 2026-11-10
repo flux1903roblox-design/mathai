@@ -96,12 +96,20 @@ export function startLesson(opts) {
 
 export const withHint = (s) => ({ ...s, hint: true });
 
+/**
+ * Help from the tutor counts as help (ai spec AI-3 Design 4): asking the AI tutor, Madi's offline sheet or the notebook
+ * check while an exercise is still open (before an answer, or after a first miss) marks it helped. A right answer then
+ * earns no first-try credit and no combo, and the record keeps it as practice with help, not as independent evidence.
+ * Once the answer is shown or found the exercise is no longer open, and asking changes nothing. Checks have no tutor.
+ */
+export const withHelp = (s) => (s && s.kind !== 'check' && s.kind !== 'jump' && s.kind !== 'placement' && (s.phase === 'answer' || s.phase === 'retry') ? { ...s, helped: true } : s);
+
 /** Share of the lesson already solved, 0..1 (only a correct answer moves the bar). */
 export const progressOf = (s) => (s.kind === 'placement' ? placementProgress(s) : s.total ? s.solved / s.total : 0);
 
 /**
  * Grade an answer. Returns { s, result } where result is
- * { ok, first, retry, reveal, combo, comboMark, cat, event }.
+ * { ok, first, assisted, retry, reveal, combo, comboMark, cat, event }.
  */
 export function answer(s, u) {
   if (s.kind === 'placement') return placementAnswer(s, u);
@@ -112,7 +120,8 @@ export function answer(s, u) {
   // a question from a diagnostic model knows every misconception that predicts this answer, and which could have shown
   const diagnosis = !ok && it.diagnosis ? it.diagnosis(u) : null;
   const cands = diagnosis?.kind === 'misconception' ? diagnosis.candidates : undefined;
-  const base = { topic: it.topic || s.topic, level: it.level, hint: s.hint, secs, at: new Date().toISOString(), purpose, key: it.key, cands, could: it.could };
+  // an answer after the hint or the tutor is an answer with help (learnAfterAnswer: not independent)
+  const base = { topic: it.topic || s.topic, level: it.level, hint: s.hint || !!s.helped, secs, at: new Date().toISOString(), purpose, key: it.key, cands, could: it.could };
   if (s.kind === 'check') {
     const sk = skillId(it.topic || s.topic, it.level);
     const cur = s.perSkill[sk] || { right: 0, asked: 0 };
@@ -126,12 +135,14 @@ export function answer(s, u) {
       : { s: { ...common, phase: 'reveal' }, result: { ok: false, reveal: true, cat, diagnosis, event } };
   }
   if (ok) {
-    const first = s.attempt === 1 && !s.hint && !it.redo;
+    const first = s.attempt === 1 && !s.hint && !s.helped && !it.redo;
     const combo = first ? s.combo + 1 : 0;
     const comboMark = first && COMBO_MARKS.includes(combo) ? combo : null;
+    // a first try that was right with the hint or the tutor open: "נכון! פתרתם עם קצת עזרה.", never "תיקנתם"
+    const assisted = s.attempt === 1 && !it.redo && (s.hint || !!s.helped);
     return {
       s: { ...s, phase: 'correct', combo, bestCombo: Math.max(s.bestCombo, combo), firstTry: s.firstTry + (first ? 1 : 0), fixed: s.fixed + (it.redo ? 1 : 0), solved: s.solved + 1, lastCat: null },
-      result: { ok: true, first, combo, comboMark, event: { ...base, ok: true, first, cat: s.lastCat } },
+      result: { ok: true, first, assisted, combo, comboMark, event: { ...base, ok: true, first, cat: s.lastCat } },
     };
   }
   const cat = it.diag ? it.diag(u) : null;
@@ -161,7 +172,7 @@ export function next(s) {
   if (s.kind === 'placement') return placementNext(s);
   if (s.kind === 'jump' && s.failed) return { ...s, finished: true };
   const slot = s.slot + 1;
-  const fresh = { attempt: 1, hint: false, phase: 'answer', wrong: [], itemStartedAt: Date.now() };
+  const fresh = { attempt: 1, hint: false, helped: false, phase: 'answer', wrong: [], itemStartedAt: Date.now() };
   if (s.kind === 'check') {
     if (slot >= s.plan.length) return { ...s, finished: true };
     const q = s.plan[slot];

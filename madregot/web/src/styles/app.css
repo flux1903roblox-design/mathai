@@ -316,6 +316,8 @@ details.sol[open] summary { margin-bottom: var(--s2); }
 .check-icon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: #fff; margin-top: 2px; }
 .check-steps .ok .check-icon { background: var(--ok); }
 .check-steps .bad .check-icon { background: var(--magenta); }
+/* the line with the final value of an open exercise: checked in the answer box, so no mark here (ai spec AI-3) */
+.check-steps .open .check-icon { background: transparent; color: var(--ink-2); }
 .check-comment { color: var(--magenta); font-weight: 600; }
 .gen-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s4); }
 .gen-q { border-bottom: 1px solid var(--rule); padding-bottom: var(--s4); display: flex; flex-direction: column; gap: var(--s2); }

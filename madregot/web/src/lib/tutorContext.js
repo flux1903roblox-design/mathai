@@ -158,7 +158,8 @@ function lessonContext({ surface, item, s = {}, last, spec, guide = false, learn
       hint: item.hint ? clip(item.hint, CLIP.line) : undefined,
       unit: item.unit ? clip(item.unit, 40) : undefined,
     }),
-    tries: { answers, phase, hinted: !!(s.hint || guide) },
+    // help already given on this exercise: the hint, "איך מתחילים?", or the tutor or Madi asked before (AI-3 helped)
+    tries: { answers, phase, hinted: !!(s.hint || s.helped || guide) },
     shown: shown.map((x) => clip(x, CLIP.line)).slice(0, CLIP.shown),
     miscon: one ? misconOf(content, one.ids[0], offered) : null,
     teach: teachOf(content),

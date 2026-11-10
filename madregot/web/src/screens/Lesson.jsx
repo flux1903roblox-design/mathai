@@ -8,7 +8,7 @@ import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
-import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
+import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { buildTutorContext } from '@/lib/tutorContext.js';
@@ -78,6 +78,19 @@ const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m:
 const slotLabel = (item, k) => (k === 'k' && item?.var ? `המקדם של ${item.var}` : SLOT_LABEL[k]);
 
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
+// Help named honestly (ai spec AI-3 Hebrew copy): a first try that was right with the hint or the tutor open is not
+// "fixed"; a right second try still is. The tutor opens by where the exercise stands, and on an open exercise one quiet
+// line under its first reply says what help means for the record.
+const ASSISTED_TITLE = 'נכון! פתרתם עם קצת עזרה.';
+const HELP_NOTE = 'תשובה אחרי עזרה נספרת כתרגול, וזה בסדר גמור. בבדיקת השליטה עונים בלי עזרה.';
+const CHAT_INTRO = {
+  open: 'אני רואה את התרגיל. אעזור לכם להגיע לתשובה בעצמכם, צעד אחר צעד. מה לא ברור?',
+  retry: 'אני רואה את התרגיל ואת מה שכתבתם. נבין יחד מה קרה, ואת התשובה תמצאו אתם.',
+  shown: 'אני רואה את התרגיל, את מה שכתבתם ואת הפתרון. מה לא ברור?',
+};
+/** An exercise still being solved: no answer yet, or after a first miss (the tutor withholds the answer there). */
+const openExercise = (s) => s?.phase === 'answer' || s?.phase === 'retry';
+const chatIntro = (s) => (s?.phase === 'retry' ? CHAT_INTRO.retry : openExercise(s) ? CHAT_INTRO.open : CHAT_INTRO.shown);
 /**
  * Three short maths choices (< = >, 12, 43) sit side by side in large type; anything longer (2x - 10) goes in the list,
  * since three expressions in one row overflow a phone.
@@ -216,6 +229,8 @@ export default function Lesson() {
   const chatState = aiAccess('chat', aiStatus).state;
   // when the tutor is done for today, Madi explains the mistake instead (no request)
   const askMadi = () => { setChatOpen(false); setTutorIntent(s?.wrong?.length ? 'mistake' : null); setTutorOpen(true); };
+  // help from the tutor or Madi on an open exercise is help: no first-try credit, no combo, not independent (AI-3)
+  const helped = () => setS((cur) => withHelp(cur));
   const names = item ? slotsFor(item) : [];
   // An interactive exercise: the state of the object the student moves. It belongs to one exercise, so a new
   // exercise starts from its own starting state even before the reset effect runs (the shapes differ by kind).
@@ -431,7 +446,10 @@ export default function Lesson() {
     const image = nbRef.current?.toImage();
     if (!image) { setNbCheck({ state: 'error', message: 'כתבו קודם את הדרך במחברת.' }); return; }
     setNbCheck({ state: 'loading' });
-    try { const r = await runAI('check', { ctx: tutorCtx(s, last, 'notebook'), image, mediaType: 'image/jpeg' }, { onMadi: askMadi }); setNbCheck({ state: 'done', r }); } catch (e) { setNbCheck(e.limit ? { state: 'idle' } : { state: 'error', message: e.message }); }
+    const ctx = tutorCtx(s, last, 'notebook');
+    // the tutor's check of the way on an open exercise is help with it (ai spec AI-3 Design 5)
+    setS((cur) => withHelp(cur));
+    try { const r = await runAI('check', { ctx, image, mediaType: 'image/jpeg' }, { onMadi: askMadi }); setNbCheck({ state: 'done', r }); } catch (e) { setNbCheck(e.limit ? { state: 'idle' } : { state: 'error', message: e.message }); }
   };
 
   underway.current = !!(spec && t && !done);
@@ -576,7 +594,7 @@ export default function Lesson() {
             <div className="fb-scroll">
               <div className="fb-head">
                 <FeedbackBadge good={feedback === 'good'} />
-                <h2 id="fb-title" className="fb-title">{feedback === 'good' ? (last.first ? last.praise : 'יפה, תיקנתם!') : feedback === 'retry' ? 'עוד לא. נסו שוב' : 'התשובה הנכונה:'}</h2>
+                <h2 id="fb-title" className="fb-title">{feedback === 'good' ? (last.first ? last.praise : last.assisted ? ASSISTED_TITLE : 'יפה, תיקנתם!') : feedback === 'retry' ? 'עוד לא. נסו שוב' : 'התשובה הנכונה:'}</h2>
                 {feedback === 'good' && s.combo >= 2 && <span className="fb-combo"><Flame size={16} aria-hidden="true" />{s.combo} ברצף</span>}
               </div>
               {feedback === 'retry' && (
@@ -667,11 +685,12 @@ export default function Lesson() {
           action pinned at the bottom (the chat's input, the remedy's button, the help request's "send") */}
       <Sheet open={chatOpen} onOpenChange={setChatOpen} title="שאלו את העוזר" className="chat-sheet">
         <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={item.text} />{item.display && <> <Tex tex={item.display} /></>}</div>
-        <AIChat context={chatOpen ? tutorCtx() : null} messages={chat} onMessages={setChat} intro="אני רואה את התרגיל ואת מה שכתבתם. מה לא ברור?" onDone={() => setChatOpen(false)} onMadi={askMadi} />
+        <AIChat context={chatOpen ? tutorCtx() : null} messages={chat} onMessages={setChat} intro={chatIntro(s)} onDone={() => setChatOpen(false)} onMadi={askMadi}
+          onAsk={helped} footnote={openExercise(s) ? HELP_NOTE : null} />
       </Sheet>
       <TutorSheet open={tutorOpen} onOpenChange={(o) => { setTutorOpen(o); if (!o) setTutorIntent(null); }} content={contentOf(skillId(item.topic || spec.topic, item.level))} item={item}
         wrong={s.wrong.length ? { cat: last?.cat ?? null, diagnosis: last?.diagnosis ?? null } : null} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null}
-        aiState={chatState} startIntent={tutorIntent} />
+        aiState={chatState} startIntent={tutorIntent} onAsk={helped} />
       <Sheet open={!!remedy} onOpenChange={(o) => { if (!o) setRemedy(null); }} title="בואו נראה את זה אחרת" className="flow-sheet">
         {remedy && <RemedyFlow content={contentOf(skillId(item.topic || spec.topic, item.level))} misc={remedy} compact onDone={() => setRemedy(null)} doneLabel="חזרה לשיעור" />}
       </Sheet>

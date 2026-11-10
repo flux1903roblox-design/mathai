@@ -120,6 +120,8 @@ describe('the diagnosis the screen showed is the one the tutor gets', () => {
     const guided = build(item, [7], { o: { guide: true } });
     expect(guided.shown.at(-1)).toBe(`איך מתחילים: ${item.solution[0]}`);
     expect(guided.tries.hinted).toBe(true);
+    // the tutor or Madi asked earlier on this exercise (AI-3 helped) counts as help as well
+    expect(build(item, [], { s: { helped: true, hint: false } }).tries.hinted).toBe(true);
     // a check spans its questions: no wrong answer of another question is put on this one
     const check = buildTutorContext({ surface: 'lesson', item, s: { kind: 'check', item, wrong: [7, 3], phase: 'reveal', cats: {} }, learn: {}, now: NOW });
     expect(check.tries.answers).toEqual([]);

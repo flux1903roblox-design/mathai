@@ -30,13 +30,16 @@ function StepsReveal({ steps }) {
   );
 }
 
-export default function TutorSheet({ open, onOpenChange, content, item = null, wrong = null, onAskAI = null, aiState = null, startIntent = null }) {
+// onAsk: called with each question asked. Madi's answers are the stair's own explanation, its worked examples and the
+// solution step by step, so in a lesson they are help with the exercise, like the AI tutor's (ai spec AI-3 Design 5).
+export default function TutorSheet({ open, onOpenChange, content, item = null, wrong = null, onAskAI = null, aiState = null, startIntent = null, onAsk = null }) {
   const [log, setLog] = useState([]); // { intent, reply }
   const [asked, setAsked] = useState({});
   const learnEvent = useApp((s) => s.learnEvent);
   const end = useRef(null);
   useEffect(() => { if (log.length) end.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, [log.length]);
   const ask = (intent) => {
+    onAsk?.(intent);
     const reply = tutorReply(intent, { content, item, wrong, asked });
     setAsked({ ...asked, [intent]: (asked[intent] || 0) + 1 });
     setLog((l) => [...l, { intent, reply, id: l.length }]);

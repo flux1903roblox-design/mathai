@@ -4,7 +4,7 @@
 // assistant's photo check is the student's own question (homework) and carries no exercise of the app's.
 import { test, expect } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { NOW, student, item, type, proceed } from './helpers.js';
+import { NOW, student, item, type, proceed, answer, saved } from './helpers.js';
 import { fakeServer, API, livePlan } from './fakeServer.js';
 
 const FAMILY = `fd1.${'c'.repeat(64)}`;
@@ -148,5 +148,83 @@ test.describe('what the tutor is told', () => {
     expect(body.ctx.item).toBeUndefined();
     expect(body.question).toBe('3x = 12');
     expect(body.image).toMatch(/^data:image\/jpeg;base64,/);
+  });
+});
+
+// ---------------------------------------------------------------- help from the tutor counts as help (ai spec AI-3)
+const INTRO = {
+  open: 'אני רואה את התרגיל. אעזור לכם להגיע לתשובה בעצמכם, צעד אחר צעד. מה לא ברור?',
+  retry: 'אני רואה את התרגיל ואת מה שכתבתם. נבין יחד מה קרה, ואת התשובה תמצאו אתם.',
+  shown: 'אני רואה את התרגיל, את מה שכתבתם ואת הפתרון. מה לא ברור?',
+};
+const HELP_NOTE = 'תשובה אחרי עזרה נספרת כתרגול, וזה בסדר גמור. בבדיקת השליטה עונים בלי עזרה.';
+const chatSheet = (page) => page.getByRole('dialog', { name: 'שאלו את העוזר' });
+const openChat = async (page) => { await page.getByRole('button', { name: 'שאלו את העוזר' }).click(); await expect(chatSheet(page)).toBeVisible(); };
+const closeChat = async (page) => { await page.keyboard.press('Escape'); await expect(chatSheet(page)).toHaveCount(0); };
+
+test.describe('help from the tutor counts as help', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+
+  test('asking the tutor before answering counts as help', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.devices.push({ id: 'd1', label: 'הטאבלט', token: FAMILY }); st.plan = livePlan();
+    await open(page, '#/lesson/signed/1', family());
+    // two right first tries: the header counts them
+    for (let i = 0; i < 2; i += 1) {
+      await expect.poll(() => item(page)).toBeTruthy();
+      const it = await answer(page, true);
+      await expect(page.locator('#fb-title')).toBeVisible();
+      await proceed(page);
+      await expect.poll(async () => (await item(page))?.key !== it.key || (await item(page)) === undefined).toBe(true);
+    }
+    const chip = page.locator('.lesson-combo .combo-chip');
+    await expect(chip).toHaveText(/^2\s*ברצף$/);
+    // the third: ask the tutor first, while the exercise is still open
+    const third = await item(page);
+    await openChat(page);
+    await expect(chatSheet(page).getByText(INTRO.open)).toBeVisible();
+    await chatSheet(page).getByRole('button', { name: 'איך מתחילים?' }).click();
+    await expect(chatSheet(page).getByText(/כדי לחבר מספרים/)).toBeVisible();
+    // one quiet line under the first reply says what help means
+    await expect(chatSheet(page).getByText(HELP_NOTE)).toHaveCount(1);
+    await closeChat(page);
+    // the app's own hint did not open: the tutor is not the hint button
+    await expect(page.locator('.hint-bar')).toHaveCount(0);
+    expect((await item(page)).key).toBe(third.key);
+    await answer(page, true);
+    await expect(page.locator('#fb-title')).toHaveText('נכון! פתרתם עם קצת עזרה.');
+    await expect(chip).toHaveCount(0);
+    await expect.poll(async () => (await saved(page)).learn?.skills?.['signed:1']?.attempts?.length).toBe(3);
+    const attempts = (await saved(page)).learn.skills['signed:1'].attempts;
+    expect(attempts.map((x) => [x.ok, x.independent])).toEqual([[true, true], [true, true], [true, false]]);
+  });
+
+  test('the chat intro follows the phase', async ({ page }, info) => {
+    test.skip(info.project.name !== 'phone', 'the pictures are taken at 390×844');
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.devices.push({ id: 'd1', label: 'הטאבלט', token: FAMILY }); st.plan = livePlan();
+    // a typed exercise, so a wrong answer is one number on the keypad (the same seed opens it every run)
+    await openOn(page, '#/lesson/signed/1', family(), (x) => x.form === 'num');
+    const shot = async (name, intro, starters) => {
+      await openChat(page);
+      const sheet = chatSheet(page);
+      await expect(sheet.getByText(intro)).toBeVisible();
+      await expect(sheet.locator('.starter')).toHaveText(starters);
+      await page.evaluate(() => document.fonts.ready);
+      await expect(page).toHaveScreenshot(`tutor-intro-${name}.png`, { fullPage: false });
+      await closeChat(page);
+    };
+    const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
+    await shot('open', INTRO.open, STARTERS);
+    // a first miss: the tutor helps find what happened, and the first question offered is about the student's answer
+    await page.locator('#slot-v').click(); await type(page, 90); await check(page);
+    await expect(page.locator('#fb-title')).toHaveText('עוד לא. נסו שוב');
+    await shot('retry', INTRO.retry, ['מה הטעות שלי?', ...STARTERS]);
+    // a second miss shows the answer: the tutor may use it
+    await proceed(page);
+    await page.locator('#slot-v').click(); await type(page, 91); await check(page);
+    await expect(page.locator('#fb-title')).toHaveText('התשובה הנכונה:');
+    await expect(page.getByText('הסבר קצר מהעוזר.')).toBeVisible();
+    await shot('reveal', INTRO.shown, ['מה הטעות שלי?', ...STARTERS]);
   });
 });

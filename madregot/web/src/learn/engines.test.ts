@@ -11,6 +11,8 @@ import { metrics, logEvent } from './analytics';
 import { evaluate, seeded, identical, texToExpr, texRelation, holds } from './expr';
 import { contentOf } from './content/index';
 import { addSubModel } from './content/signed';
+import { learnAfterAnswer, emptyLearn } from './storeGlue';
+import { startLesson, answer, withHelp } from '@/lib/lesson.js';
 
 const NOW = '2026-11-08T10:00:00.000Z';
 const DAY = '2026-11-08';
@@ -473,5 +475,20 @@ describe('analytics', () => {
     expect(m.activeDays).toBe(6);
     expect(m.returned.d1).toBe(true);
     expect(m.returned.d30).toBe(false);
+  });
+});
+
+describe('help from the tutor is not independent evidence (ai spec AI-3 Design 4)', () => {
+  it('a right first answer after asking the tutor is recorded with independent: false', () => {
+    const s: any = withHelp(startLesson({ kind: 'node', topic: 'signed', level: 1 }));
+    const { result }: any = answer(s, s.item.answer);
+    expect(result.event.hint).toBe(true);
+    const learn = learnAfterAnswer(emptyLearn(), result.event);
+    const rec = learn.skills[`signed:${result.event.level}`];
+    expect(rec.attempts.at(-1)).toMatchObject({ ok: true, independent: false, purpose: 'practice' });
+    // the same answer without help is independent
+    const alone: any = startLesson({ kind: 'node', topic: 'signed', level: 1 });
+    const own = (answer(alone, alone.item.answer) as any).result.event;
+    expect(learnAfterAnswer(emptyLearn(), own).skills[`signed:${own.level}`].attempts.at(-1)?.independent).toBe(true);
   });
 });
