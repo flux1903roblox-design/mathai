@@ -51,7 +51,11 @@ test('visual: a right answer', async ({ page }) => {
   await shot(page, 'feedback-good', 'section.fb-good');
 });
 
-for (const [name, route, ready] of [['quests', '#/quests', '.page-hero-title'], ['assistant-offline', '#/assistant', '.chat-bubble-title'], ['profile', '#/me', '.profile-name'], ['exams', '#/exams', '.page-hero-title']]) {
+for (const [name, route, ready] of [
+  ['quests', '#/quests', '.page-hero-title'], ['assistant-offline', '#/assistant', '.chat-bubble-title'], ['profile', '#/me', '.profile-name'], ['exams', '#/exams', '.page-hero-title'],
+  // a unit's identity beyond the path (STUDENT-1): the topics list, a unit's guide, a stair page
+  ['topics', '#/topics', '.section-card.is-current .emblem svg'], ['topic-guide', '#/topic/eq', '.guide-banner .emblem svg'], ['stair', '#/learn/coord/3', '.journey-head .emblem svg'],
+]) {
   test(`visual: ${name}`, async ({ page }) => {
     await open(page, route, livedIn('7'));
     await shot(page, name, ready);

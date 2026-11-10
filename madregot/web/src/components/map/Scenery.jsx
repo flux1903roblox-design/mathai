@@ -1,7 +1,9 @@
 // The world around each unit of the map, drawn from the topic itself: a thermometer and the sea
 // line for signed numbers, a treasure grid for coordinates, a protractor for angles, slope stairs
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
-// statistics. Colours come from the unit (--c, --c-d, --c-tint) through the sc-* classes.
+// statistics, tiles and brackets for expressions, a balance for equations, two crossing lines for systems. Colours
+// come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on its
+// banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
 
 const Thermometer = () => (
   <svg viewBox="0 0 96 110">
@@ -25,8 +27,9 @@ const SeaLevel = () => (
 );
 const Cloud = () => (
   <svg viewBox="0 0 100 64">
-    <path d="M22 50 H80 A14 14 0 0 0 76 23 A20 20 0 0 0 38 18 A16 16 0 0 0 22 50 Z" className="sc-w" />
-    <path d="M22 50 H80 A14 14 0 0 0 88 40 H18 A16 16 0 0 0 22 50Z" className="sc-t" />
+    <path d="M22 50 H80 A14 14 0 0 0 76 23 A20 20 0 0 0 38 18 A16 16 0 0 0 22 50 Z" className="sc-t" />
+    <path d="M22 50 H80 A14 14 0 0 0 76 23 A20 20 0 0 0 38 18 A16 16 0 0 0 22 50 Z" className="sc-none sc-line" />
+    <circle cx="40" cy="34" r="5" className="sc-w" opacity="0.8" />
   </svg>
 );
 
@@ -162,7 +165,7 @@ const Dice = () => (
   </svg>
 );
 
-// Algebra: only the emblem (the first piece) is drawn now that the map has no scenery.
+// Algebra.
 /** Algebraic expressions: tiles, two x bars and three units, in a bracket. */
 const ExprTiles = () => (
   <svg viewBox="0 0 100 100">
@@ -173,7 +176,26 @@ const ExprTiles = () => (
     {[22, 42, 62].map((y) => <rect key={y} x="64" y={y} width="16" height="16" rx="4" className="sc-w sc-line" />)}
   </svg>
 );
-/** Equations: a level balance, a box on one pan and weights on the other. */
+/** Expressions: a box with an x on its side, the unknown inside. */
+const XBox = () => (
+  <svg viewBox="0 0 100 100">
+    <ellipse cx="50" cy="88" rx="36" ry="6" className="sc-t" />
+    <rect x="20" y="36" width="60" height="50" rx="6" className="sc-w sc-line" />
+    <rect x="14" y="22" width="72" height="16" rx="5" className="sc-c" />
+    <path d="M40 48 L60 74 M60 48 L40 74" className="sc-stroke-c" />
+  </svg>
+);
+/** Expressions: a pair of round brackets around two terms. */
+const Brackets = () => (
+  <svg viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="40" className="sc-t" />
+    <path d="M32 18 Q14 50 32 82" className="sc-stroke-c" />
+    <path d="M68 18 Q86 50 68 82" className="sc-stroke-c" />
+    <circle cx="41" cy="50" r="8" className="sc-d" />
+    <circle cx="59" cy="50" r="8" className="sc-g" />
+  </svg>
+);
+/** Equations: a balance, a box on one pan and weights on the other. */
 const EqScale = () => (
   <svg viewBox="0 0 100 100">
     <path d="M50 46 L38 84 H62 Z" className="sc-d" />
@@ -186,6 +208,27 @@ const EqScale = () => (
     <rect x="76" y="14" width="8" height="18" rx="2" className="sc-t sc-line" />
   </svg>
 );
+/** Equations: a level plank on a triangle, the same weight on each end. */
+const Seesaw = () => (
+  <svg viewBox="0 0 110 84">
+    <path d="M4 80 H106" className="sc-stroke" />
+    <path d="M55 44 L40 78 H70 Z" className="sc-d" />
+    <rect x="6" y="38" width="98" height="8" rx="4" className="sc-c" />
+    <rect x="12" y="18" width="20" height="20" rx="4" className="sc-w sc-line" />
+    <circle cx="88" cy="28" r="10" className="sc-g" />
+  </svg>
+);
+/** Equations: solving unlocks, a keyhole and its key. */
+const Keyhole = () => (
+  <svg viewBox="0 0 100 100">
+    <circle cx="46" cy="46" r="38" className="sc-t" />
+    <circle cx="46" cy="46" r="28" className="sc-w sc-line" />
+    <circle cx="46" cy="40" r="8" className="sc-d" />
+    <path d="M42 44 H50 L54 62 H38 Z" className="sc-d" />
+    <path d="M70 70 L88 88 M80 80 L86 74 M84 84 L90 78" className="sc-stroke-gold" />
+    <circle cx="68" cy="68" r="7" className="sc-g" />
+  </svg>
+);
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -196,6 +239,31 @@ const SysCross = () => (
   </svg>
 );
 
+/** Systems: two dotted roads that cross once. */
+const TwoRoads = () => (
+  <svg viewBox="0 0 110 90">
+    <ellipse cx="55" cy="46" rx="50" ry="36" className="sc-t" />
+    <path d="M10 80 C44 80 66 10 100 10" className="sc-route" />
+    <path d="M10 10 C44 10 66 80 100 80" className="sc-route" />
+    <circle cx="10" cy="80" r="5" className="sc-c" />
+    <circle cx="10" cy="10" r="5" className="sc-d" />
+    <circle cx="100" cy="10" r="5" className="sc-c" />
+    <circle cx="100" cy="80" r="5" className="sc-d" />
+  </svg>
+);
+/** Systems: two points on two lines that meet under a small flag. */
+const MeetFlag = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M8 90 L50 62" className="sc-stroke-c" />
+    <path d="M92 90 L50 62" className="sc-stroke" />
+    <circle cx="23" cy="80" r="6" className="sc-c" />
+    <circle cx="77" cy="80" r="6" className="sc-d" />
+    <path d="M50 62 V16" className="sc-stroke" />
+    <path d="M50 16 L76 25 L50 34 Z" className="sc-g" />
+    <circle cx="50" cy="62" r="6" className="sc-w sc-line" />
+  </svg>
+);
+
 export const SCENERY = {
   signed: [Thermometer, SeaLevel, Cloud],
   coord: [GridMap, Compass, Pin],
@@ -203,9 +271,9 @@ export const SCENERY = {
   line: [SlopeSteps, FlagHill, Plane],
   pyth: [Squares, Ladder, Pyramid],
   stats: [BarSkyline, PieSun, Dice],
-  expr: [ExprTiles],
-  eq: [EqScale],
-  sys: [SysCross],
+  expr: [ExprTiles, XBox, Brackets],
+  eq: [EqScale, Seesaw, Keyhole],
+  sys: [SysCross, TwoRoads, MeetFlag],
 };
 
 /** The unit's own sign for its header: the first piece of its world. */

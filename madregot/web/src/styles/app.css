@@ -105,11 +105,11 @@ textarea.input { resize: vertical; min-height: 88px; line-height: var(--lh-base)
 .chip:nth-child(2) svg { color: var(--gold-ink); }
 
 /* ---------- chapter colour plumbing ---------- */
-.ch-sky { --c: var(--ch-sky); --c-d: var(--ch-sky-d); --c-tint: var(--ch-sky-tint); }
-.ch-fuchsia { --c: var(--ch-fuchsia); --c-d: var(--ch-fuchsia-d); --c-tint: var(--ch-fuchsia-tint); }
-.ch-petrol { --c: var(--ch-petrol); --c-d: var(--ch-petrol-d); --c-tint: var(--ch-petrol-tint); }
-.ch-cobalt { --c: var(--ch-cobalt); --c-d: var(--ch-cobalt-d); --c-tint: var(--ch-cobalt-tint); }
-.ch-violet { --c: var(--ch-violet); --c-d: var(--ch-violet-d); --c-tint: var(--ch-violet-tint); }
+.ch-sky { --c: var(--ch-sky); --c-d: var(--ch-sky-d); --c-tint: var(--ch-sky-tint); --c-ink: var(--ch-sky-ink); }
+.ch-fuchsia { --c: var(--ch-fuchsia); --c-d: var(--ch-fuchsia-d); --c-tint: var(--ch-fuchsia-tint); --c-ink: var(--ch-fuchsia-ink); }
+.ch-petrol { --c: var(--ch-petrol); --c-d: var(--ch-petrol-d); --c-tint: var(--ch-petrol-tint); --c-ink: var(--ch-petrol-ink); }
+.ch-cobalt { --c: var(--ch-cobalt); --c-d: var(--ch-cobalt-d); --c-tint: var(--ch-cobalt-tint); --c-ink: var(--ch-cobalt-ink); }
+.ch-violet { --c: var(--ch-violet); --c-d: var(--ch-violet-d); --c-tint: var(--ch-violet-tint); --c-ink: var(--ch-violet-ink); }
 
 .chapter-mark {
   display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 12px;
@@ -583,6 +583,13 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .sc-stroke-gold { stroke: var(--gold); stroke-width: 5; }
 .sc-grid { stroke: var(--c-tint); stroke-width: 2; }
 .sc-route { stroke: var(--c); stroke-width: 3; stroke-dasharray: 2 6; }
+
+/* two small drawings from the unit's own topic in the white beside the path (council, Nov 2026): behind the stops and
+   their cards, on the side the path is not on, taking no height, no focus and no motion. To remove them:
+   .path-art { display: none } */
+.path-art { position: relative; z-index: -1; display: grid; place-items: center; width: 72px; height: 72px; margin-block: -50px; transform: translateX(var(--x)); pointer-events: none; }
+.path-art svg { display: block; width: 72px; height: 72px; overflow: visible; }
+@media (max-width: 340px) { .path-art { display: none; } }
 
 .path { position: relative; z-index: 1; list-style: none; margin: 0; padding: 78px 0 var(--s8); display: flex; flex-direction: column; align-items: center; gap: 42px; }
 .path-step { position: relative; display: flex; flex-direction: column; align-items: center; transform: translateX(var(--x)); }

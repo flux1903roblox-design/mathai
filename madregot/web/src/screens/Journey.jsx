@@ -21,6 +21,7 @@ import { Button, ChapterMark } from '@/components/ui.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
+import { Emblem } from '@/components/map/Scenery.jsx';
 
 const STAGES = [
   { id: 'A', title: 'מבינים את הרעיון', icon: Lightbulb },
@@ -76,11 +77,12 @@ export default function Journey() {
       <ScreenBar title={t.title} back="/" backLabel="למפה" />
       <header className={clsx('journey-head', `ch-${t.color}`)}>
         <ChapterMark color={t.color} n={level} size="lg" />
-        <div>
+        <div className="journey-head-text">
           <h1 className="journey-title">{t.levels[level - 1].title}</h1>
           <p className="journey-topic">{t.title} · מדרגה {level}</p>
           <p className={clsx('mastery-chip', `ms-${state}`)}>{STATE_LABEL[state]}{state === 'mastered' && due != null ? ` · בדיקה חוזרת ${inDays(due || 1)}` : ''}</p>
         </div>
+        <Emblem topic={t.id} />
       </header>
 
       <section className="jclimb" aria-labelledby="climb-title" data-region="card">

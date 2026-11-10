@@ -1,7 +1,7 @@
 /* Madregot tokens, round 17: the category standard (the level of Brilliant and Duolingo), light and calm.
    White screens, ink #14161A, one brand blue #1A5CF5 for buttons, selection, progress and the current level (white
    text on it, 5.4:1). The other colours each have one job: green correct (black text, 8.7:1), red "not yet" (white
-   text, 5.8:1), gold XP and achievements, orange the streak. No black screens, no glow, no colour per unit.
+   text, 5.8:1), gold XP and achievements, orange the streak. No black screens, no glow. Each unit has its own colour (see units).
    One family, Rubik, from 14px; body 17px. 4px grid. */
 :root {
   color-scheme: light;
@@ -29,12 +29,13 @@
   --madi-hi: #5b8cff;   --madi-lo: #1a5cf5;   --madi-edge: #1246c4; --madi-tread: #c9d9ff;
   --madi-limb: #1246c4; --madi-mark: rgba(255, 255, 255, 0.6); --madi-blush: #ff9cbc;
 
-  /* units: one colour for all of them, the brand blue */
-  --ch-sky: #1a5cf5;     --ch-sky-d: #1246c4;     --ch-sky-tint: #eaf1ff;
-  --ch-fuchsia: #1a5cf5; --ch-fuchsia-d: #1246c4; --ch-fuchsia-tint: #eaf1ff;
-  --ch-petrol: #1a5cf5;  --ch-petrol-d: #1246c4;  --ch-petrol-tint: #eaf1ff;
-  --ch-cobalt: #1a5cf5;  --ch-cobalt-d: #1246c4;  --ch-cobalt-tint: #eaf1ff;
-  --ch-violet: #1a5cf5;  --ch-violet-d: #1246c4;  --ch-violet-tint: #eaf1ff;
+  /* units (council, Nov 2026): each unit has one colour, used for its banner, its emblem and its stops on the path only. Buttons stay brand blue. To go back to one colour, set the five families to the brand values. */
+  /* -ink is a unit colour as text on a page or card; in light it is the -d value (the dark theme redefines it) */
+  --ch-sky: #1a5cf5;     --ch-sky-d: #1246c4;     --ch-sky-tint: #eaf1ff;     --ch-sky-ink: #1246c4;
+  --ch-petrol: #0b7285;  --ch-petrol-d: #085566;  --ch-petrol-tint: #e3f4f6;  --ch-petrol-ink: #085566;
+  --ch-violet: #7048e8;  --ch-violet-d: #5232c2;  --ch-violet-tint: #efeafd;  --ch-violet-ink: #5232c2;
+  --ch-fuchsia: #a3218f; --ch-fuchsia-d: #7a1869; --ch-fuchsia-tint: #f8e6f4; --ch-fuchsia-ink: #7a1869;
+  --ch-cobalt: #283593;  --ch-cobalt-d: #1a237e;  --ch-cobalt-tint: #e8eaf6;  --ch-cobalt-ink: #1a237e;
 
   /* older names, kept so every screen reads the new palette */
   --cyan: var(--brand); --cyan-tint: var(--brand-tint);

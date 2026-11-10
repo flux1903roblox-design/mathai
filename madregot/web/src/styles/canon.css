@@ -6,7 +6,9 @@
      panel the maths sits on;
    - controls: pressable things have a 4px lip that collapses on press; the primary is the brand blue;
    - colour: brand blue for action, selection, progress and "where I am"; green, red, gold and orange only for their
-     one meaning. No scenery, no colour blocks behind headers, no eyebrows over headings. */
+     one meaning. Each unit has its own colour (tokens.css, units) for its banner, emblem and stops on the path; buttons
+     stay brand blue. No scenery behind content. Each unit may show its emblem on its banner and two small drawings
+     from its own topic beside the path (council, Nov 2026). No eyebrows over headings. */
 
 /* ------------------------------------------------------------------ base */
 html, body { background: #fff; }
@@ -92,8 +94,17 @@ a { color: var(--brand-d); }
 .top-stat.xp svg { color: var(--gold); fill: var(--gold); }
 .top-stat-of { color: var(--ink-2); font-weight: 600; font-size: 15px; }
 
-.unit-head { margin: var(--s4) var(--gutter) 0; padding: var(--s4) var(--s5); border-radius: 16px; background: var(--brand); color: #fff; box-shadow: none; border: 0; }
+.unit-head { margin: var(--s4) var(--gutter) 0; padding: var(--s4) var(--s5); border-radius: 16px; background: var(--c, var(--brand)); color: #fff; box-shadow: none; border: 0; }
 .unit-head-text { gap: 2px; }
+/* the practice surface is the same in every unit: the lesson and teaching screens keep the brand blue, whatever the
+   unit's colour (council, Nov 2026) */
+.lesson, .teach { --c: var(--brand); --c-d: var(--brand-d); --c-tint: var(--brand-tint); --c-ink: var(--brand-d); }
+/* small phones: the banner takes the full width and a tighter padding, so the unit's name stays on one line beside
+   its emblem and the sticky banner stays short */
+@media (max-width: 360px) {
+  .unit-head { margin-inline: 0; padding: var(--s3) var(--s4); }
+  .unit-head .unit-title { font-size: 20px; line-height: 26px; }
+}
 .unit-title { font-family: var(--font-ui); font-size: 22px; line-height: 28px; font-weight: 800; color: #fff; }
 .unit-label { font-size: 15px; line-height: 22px; font-weight: 500; color: rgba(255, 255, 255, 0.92); }
 .unit-guide { color: #fff; border-inline-start: 2px solid rgba(255, 255, 255, 0.35); font-weight: 700; font-size: 15px; }
@@ -101,31 +112,31 @@ a { color: var(--brand-d); }
 .unit .path { padding-top: 48px; padding-bottom: 40px; gap: 28px; }
 .path-end { color: var(--ink-2); font-size: 16px; text-align: center; padding: var(--s4) var(--gutter) var(--s8); }
 
-/* the stops: round, brand when done or current, light grey when locked */
+/* the stops: round, in the unit's colour when done or current, light grey when locked, gold when mastered */
 .node-slot { width: 96px; height: 96px; margin-block: -10px -6px; }
 .node-slot.is-review { width: 104px; height: 104px; }
 .node { --face: 68px; --lip: 6px; width: var(--face); height: var(--face); border-radius: 50%; border: 0;
   background: var(--face-c); color: #fff; box-shadow: 0 var(--lip) 0 var(--edge); }
 .node:active { transform: translateY(var(--lip)); box-shadow: 0 0 0 var(--edge); }
 .node-glyph { width: 30px; height: 30px; filter: none; }
-.node-current { --face: 76px; --face-c: var(--brand); --edge: var(--brand-lip); color: #fff; }
-.node-done { --face-c: var(--brand); --edge: var(--brand-lip); color: #fff; }
+.node-current { --face: 76px; --face-c: var(--c, var(--brand)); --edge: var(--c-d, var(--brand-lip)); color: #fff; }
+.node-done { --face-c: var(--c, var(--brand)); --edge: var(--c-d, var(--brand-lip)); color: #fff; }
 .node-mastered { --face-c: var(--gold); --edge: var(--gold-d); color: #5c3d00; }
 .node-mastered::after { content: none; }
 .node-locked { --face-c: #e9ecf1; --edge: #d3d8e0; color: #9aa1ac; }
 /* passed over by a placement or jump test: open, not done, its mastery check waiting */
-.node-open { --face-c: #fff; --edge: var(--rule-press); color: var(--brand); box-shadow: inset 0 0 0 3px var(--brand-line), 0 var(--lip) 0 var(--edge); }
-.node-open:active { box-shadow: inset 0 0 0 3px var(--brand-line), 0 0 0 var(--edge); }
+.node-open { --open-line: color-mix(in srgb, var(--c, var(--brand)) 45%, #fff); --face-c: #fff; --edge: var(--rule-press); color: var(--c-ink, var(--brand)); box-shadow: inset 0 0 0 3px var(--open-line), 0 var(--lip) 0 var(--edge); }
+.node-open:active { box-shadow: inset 0 0 0 3px var(--open-line), 0 0 0 var(--edge); }
 .node:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 6px; }
 .node-anchor.is-current { animation: none; }
 .node-halo { display: none; }
-.node-ring-seg { fill: #e9ecf1; stroke: #e9ecf1; }
-.node-ring-seg.on { fill: var(--brand); stroke: var(--brand); }
+.node-ring-seg { fill: var(--c-tint, #e9ecf1); stroke: var(--c-tint, #e9ecf1); }
+.node-ring-seg.on { fill: var(--c, var(--brand)); stroke: var(--c, var(--brand)); }
 .node-marks { bottom: 0; gap: 4px; }
 .node-marks i { width: 14px; height: 6px; background: #e9ecf1; box-shadow: none; }
-.node-marks i.on { background: var(--brand); box-shadow: none; }
-.node-start { background: #fff; color: var(--brand); border: 2px solid var(--rule); border-radius: 12px; font-family: var(--font-ui); font-weight: 800; font-size: 15px; padding: 6px 14px; box-shadow: none; animation: none; }
-.node-start::after { border-top-color: var(--rule); }
+.node-marks i.on { background: var(--c, var(--brand)); box-shadow: none; }
+.node-start { background: #fff; color: var(--c-ink, var(--brand-d)); border: 2px solid var(--c-tint, var(--rule)); border-radius: 12px; font-family: var(--font-ui); font-weight: 800; font-size: 15px; padding: 6px 14px; box-shadow: none; animation: none; }
+.node-start::after { border-top-color: var(--c-tint, var(--rule)); }
 .node-card { background: #fff; color: var(--ink); border: 2px solid var(--rule); border-radius: 16px; box-shadow: 0 12px 32px rgba(20, 22, 26, 0.12); }
 .node-card::before { border-bottom-color: var(--rule); }
 .node-card-title { color: var(--ink); font-family: var(--font-ui); font-size: 20px; line-height: 26px; font-weight: 800; }
@@ -272,7 +283,14 @@ a { color: var(--brand-d); }
 .today .day-node { background: var(--brand); color: #fff; box-shadow: 0 0 0 8px var(--brand-tint); }
 .day-node-exam { background: var(--gold); color: #5c3d00; box-shadow: none; }
 /* the stair page's header: a plain card */
-.journey-head { background: #fff; border: 2px solid var(--rule); }
+.journey-head { background: #fff; border: 2px solid var(--rule); border-top: 6px solid var(--c, var(--rule)); }
+/* the unit's emblem beside the stair's name, smaller than on the banner so the name keeps its room */
+.journey-head-text { flex: 1; min-width: 0; }
+.journey-head .emblem { width: 48px; height: 48px; border-radius: 14px; box-shadow: inset 0 0 0 2px var(--c-tint); }
+.journey-head .emblem svg { width: 36px; height: 36px; }
+@media (max-width: 360px) { .journey-head { gap: var(--s2); } .journey-head .emblem { width: 40px; height: 40px; border-radius: 12px; } .journey-head .emblem svg { width: 30px; height: 30px; } }
+/* a unit finished: the trophy sits in a ring of the unit's colour */
+.done-screen .done-trophy { border-radius: 50%; background: var(--c-tint, var(--gold-tint)); box-shadow: 0 0 0 6px var(--c, var(--gold)); }
 /* the lesson: the question and its maths at the top, the answer and the keypad at the bottom (Duolingo) */
 .lesson.is-typed .lesson-main > .q-stage { margin-block: var(--s3) auto; justify-content: flex-start; min-height: 0; }
 /* the header sits in the page's own padding, aligned with the cards under it */
@@ -318,10 +336,10 @@ a { color: var(--brand-d); }
 .profile-top { height: 140px; background: var(--brand-tint); }
 .avatar-initial { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 44px; font-weight: 800; box-shadow: 0 0 0 6px #fff; }
 
-/* the current stop: its ring in the brand on a tint track, with room for the bubble above */
+/* the current stop: its ring in the unit's colour on its tint track, with room for the bubble above */
 .node-slot.has-ring { width: 104px; height: 104px; }
-.node-ring-seg { fill: var(--brand-tint); stroke: var(--brand-tint); }
-.node-ring-seg.on { fill: var(--brand); stroke: var(--brand); }
+.node-ring-seg { fill: var(--c-tint, var(--brand-tint)); stroke: var(--c-tint, var(--brand-tint)); }
+.node-ring-seg.on { fill: var(--c, var(--brand)); stroke: var(--c, var(--brand)); }
 .path-step:has(.node-start) { margin-top: 26px; }
 .node-start { top: -40px; }
 /* the gift: an icon the size of the lock, inside its disk */
@@ -355,10 +373,10 @@ a { color: var(--brand-d); }
 /* the teacher's board on white; its groups in cards */
 .teacher { background: #fff; }
 .t-group-box { background: #fff; border: 2px solid var(--rule); border-radius: 16px; padding: var(--s4); }
-/* the current stop's ring: how much of its lessons are done, in the brand on a tint track, around the button */
+/* the current stop's ring: how much of its lessons are done, in the unit's colour on its tint track, around the button */
 .node-current { position: relative; overflow: visible; }
 .node-slot.has-ring .node-current::before { content: ""; position: absolute; inset: -11px; border-radius: 50%; pointer-events: none;
-  background: conic-gradient(var(--brand) var(--pct, 0%), var(--brand-tint) 0);
+  background: conic-gradient(var(--c, var(--brand)) var(--pct, 0%), var(--c-tint, var(--brand-tint)) 0);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
           mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); }
 .node-current:active::before { transform: translateY(calc(-1 * var(--lip))); }

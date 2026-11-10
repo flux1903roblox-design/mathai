@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
-import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer } from './index.js';
+import { TOPICS, topicsFor, makeItem, isCorrect, answerText, itemPlain, readAnswer } from './index.js';
+import { SCENERY } from '@/components/map/Scenery.jsx';
 import { parseNum, plainNum } from './util.js';
 import { holds, identical, texToExpr, texRelation } from '@/learn/expr.ts';
 
@@ -294,5 +295,27 @@ describe('the displayed maths is checked as the student sees it', () => {
     ok({ form: 'num', display: 'x > -2,\\quad x \\le 3', answer: 5, whole: ['x > -2', 'x \\le 3'] });
     bad({ form: 'num', display: 'x > -2,\\quad x \\le 3', answer: 6, whole: ['x > -2', 'x \\le 3'] });
     bad({ form: 'pt', display: '\\begin{cases} y = 2x - 1 \\\\ x + y = 5 \\end{cases}', answer: [3, 2], label: '' });
+  });
+});
+
+// STUDENT-1: every unit has its own colour and drawings, and two units side by side never share a colour.
+describe('each unit has its own identity', () => {
+  const COLOURS = ['sky', 'petrol', 'violet', 'fuchsia', 'cobalt'];
+  it('every topic has a unit colour from the five families', () => {
+    for (const t of TOPICS) expect(COLOURS, `${t.id}: ${t.color}`).toContain(t.color);
+  });
+  it('neighbouring units on a grade\'s path have different colours', () => {
+    for (const grade of ['7', '8']) {
+      const list = topicsFor(grade);
+      expect(list.length, `grade ${grade} has units`).toBeGreaterThan(1);
+      for (let i = 1; i < list.length; i += 1) expect(list[i].color, `grade ${grade}: ${list[i - 1].id} then ${list[i].id}`).not.toBe(list[i - 1].color);
+    }
+  });
+  it('every topic has three drawings: its emblem and two for beside the path', () => {
+    for (const t of TOPICS) {
+      expect(SCENERY[t.id], `${t.id} has drawings`).toBeTruthy();
+      expect(SCENERY[t.id].length, `${t.id} has three drawings`).toBe(3);
+      for (const piece of SCENERY[t.id]) expect(typeof piece, `${t.id}: a drawing is a component`).toBe('function');
+    }
   });
 });

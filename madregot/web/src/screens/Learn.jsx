@@ -10,6 +10,7 @@ import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
 import { MASTERY_N } from '@/learn/mastery.ts';
 import PathNode from '@/components/PathNode.jsx';
 import Chest from '@/components/map/Chest.jsx';
+import { Emblem, SCENERY } from '@/components/map/Scenery.jsx';
 import { Button } from '@/components/ui.jsx';
 import { nextStage } from '@/learn/mastery.ts';
 import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
@@ -17,6 +18,17 @@ import { skillId } from '@/learn/skills.ts';
 
 // The path winds gently: each node sits a little to one side of the one before.
 const SWING = [0, 52, 78, 52, 0, -52, -78, -52];
+// After these stops, a small drawing from the unit's own topic (its second and third pieces) sits beside the path.
+const ART_AFTER = { 1: 1, 3: 2 };
+// how far from the middle the drawing sits: as far out as the widest swing, so it never meets a stop or its bubble
+const ART_X = SWING[2];
+
+/** A calm drawing from the unit's topic, opposite the swing of the stop above it: no text, no focus, no motion. */
+function PathArt({ topic, piece, x }) {
+  const Art = SCENERY[topic]?.[piece];
+  if (!Art) return null;
+  return <li className="path-art" aria-hidden="true" style={{ '--x': `${x > 0 ? -ART_X : ART_X}px` }}><Art /></li>;
+}
 
 function NodeCard({ n, t, onStart }) {
   const top = t.levels.length;
@@ -84,6 +96,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
     <section className={clsx('unit', `ch-${t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
       {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path scrolls */}
       <header className="unit-head" data-region="banner">
+        <Emblem topic={t.id} />
         <div className="unit-head-text">
           <h2 id={`unit-${t.id}`} className="unit-title">{t.title}</h2>
           <p className="unit-label">יחידה {n} · {unitCountText(prog)}</p>
@@ -127,6 +140,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
                   )}
                 </li>
               ),
+              ART_AFTER[i] && <PathArt key={`${t.id}:art${i}`} topic={t.id} piece={ART_AFTER[i]} x={x} />,
             ];
           })}
         </ol>
