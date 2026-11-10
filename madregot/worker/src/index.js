@@ -2,13 +2,15 @@
 // (entitlement, sign-in by email code, family devices, class licences, checkout and payments, cancellation).
 // The owner works through scripts/owner.mjs; there is no HTTP admin.
 import Anthropic from '@anthropic-ai/sdk';
-import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult } from '../../shared/ai.js';
+import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare } from '../../shared/ai.js';
+import { detectDistress, CARE_MARK, CARE_STATIC } from '../../shared/safety.js';
 import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, take, key, giveBack,
   limitOrThrow, hmacHex,
 } from './util.js';
 import { startLogin, verifyLogin, signOut } from './account.js';
-import { resolve, aiStatus, requireStudent, requireTeacher, paywallOn } from './entitle.js';
+import { resolve, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn } from './entitle.js';
+import { recordSafety } from './safety.js';
 import { recordSpend } from './spend.js';
 import { emailReady } from './email.js';
 import {
@@ -90,15 +92,47 @@ function aiHeaders(r) {
   };
 }
 
+/** The last thing the student typed in a chat: the only free text a child sends the AI (photos rely on the model's flag). */
+function lastUser(messages) {
+  const list = Array.isArray(messages) ? messages : [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = list[i];
+    if (m && m.role === 'user' && typeof m.content === 'string') return m.content.slice(0, 4000);
+  }
+  return '';
+}
+
+/** The fixed care reply, with no AI call: JSON, or for a streamed chat the same text followed by the care marker. */
+function careStaticReply(kind, input, cors, headers) {
+  if (kind === 'chat' && input.stream) {
+    return new Response(`${CARE_STATIC}\n${CARE_MARK}`, { headers: { ...cors, ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+  }
+  return json({ text: CARE_STATIC, care: true }, 200, cors, headers);
+}
+
 async function handleAI(kind, req, env, ctx, cors) {
   if (!AI_KINDS.includes(kind)) throw new HttpError(404, 'not_found');
-  if (!env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
+  // Distress first (trust spec TRUST-3 §3.4): the body is read and checked before anything can refuse, so a child who
+  // writes that they are in distress gets an answer even when the server has no AI key, the day's questions are used
+  // up, or the plan does not cover the AI. That answer is never counted against a question.
   const input = await body(req, AI_BODY_MAX[kind]);
-  const r = await resolve(req, env, kind, input);
-  const headers = aiHeaders(r);
+  const hit = detectDistress(kind === 'chat' ? lastUser(input.messages) : '');
+  if (!hit.flag && !env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
+  const r = hit.flag ? await resolveCare(req, env, kind, input) : await resolve(req, env, kind, input);
+  const careTier = r.tier === 'care';
+  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: kind, source: 'regex', tier: r.static ? 'static' : 'care' }, ctx);
+  // a care answer says nothing about the person's questions (no X-AI-Tier or X-AI-Left), so the screen's count stays
+  const headers = careTier ? (r.linkedBad ? { 'X-AI-Linked': '0' } : {}) : aiHeaders(r);
+  if (r.static) return careStaticReply(kind, input, cors, headers);
   let returned = false;
   // a call where Claude did no work gives the person's question back (never the shared or tries counters)
   const giveBackOnce = async () => { if (!returned) { returned = true; await giveBack(env, r.refund); } };
+  // only the model noticed: the reply is a care reply, and the question it took is given back
+  const modelCare = async () => {
+    if (careTier) return;
+    await giveBackOnce();
+    recordSafety(env, { kind: 'distress', surface: kind, source: 'model', tier: r.tier }, ctx);
+  };
   const record = (message) => recordSpend(env, { pool: r.pool, kind, message }).catch((e) => console.error('spend', e?.message));
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, ...(env.ANTHROPIC_BASE_URL ? { baseURL: env.ANTHROPIC_BASE_URL } : {}) });
 
@@ -107,7 +141,26 @@ async function handleAI(kind, req, env, ctx, cors) {
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
     let aborted = false;
-    const write = (text) => writer.write(enc.encode(text)).catch(() => { aborted = true; });
+    let wrote = false;
+    const write = (text) => { if (text) wrote = true; return writer.write(enc.encode(text)).catch(() => { aborted = true; }); };
+    // The start of the reply is held back until it has 9 characters or a line, so a care line the model puts first
+    // ([[care]]) is taken out before anything reaches the screen, and sent as a marker at the end instead.
+    let care = careTier; let held = ''; let decided = false;
+    const settle = async () => {
+      if (decided) return;
+      decided = true;
+      const lead = splitCare(held); held = '';
+      if (lead.care) care = true;
+      await write(lead.text);
+    };
+    const out = async (text) => {
+      if (decided) return write(text);
+      held += text;
+      const lead = held.replace(/^\s+/, '');
+      if (lead.length > CARE_MARK.length || lead.includes('\n')) await settle();
+    };
+    // a care request that failed or was declined still answers the child: the fixed reply, never an error
+    const careFallback = async () => { if (!wrote) await write(CARE_STATIC); await write(`\n${CARE_MARK}`); };
     const pump = (async () => {
       let stream;
       let recorded = false;
@@ -117,19 +170,30 @@ async function handleAI(kind, req, env, ctx, cors) {
         for await (const ev of stream) {
           usage.event(ev);
           if (aborted) { stream.abort(); break; }
-          if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') await write(ev.delta.text);
+          if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') await out(ev.delta.text);
         }
         if (!aborted) {
+          await settle();
           const final = await stream.finalMessage();
           recorded = true;
           await record(final);
-          if (final.stop_reason === 'refusal') { await giveBackOnce(); await write('\n[[refusal]]'); }
+          if (careTier) {
+            if (final.stop_reason === 'refusal') await careFallback();
+            else await write(`\n${CARE_MARK}`);
+          } else {
+            if (care) { await modelCare(); await write(`\n${CARE_MARK}`); }
+            if (final.stop_reason === 'refusal') { await giveBackOnce(); await write('\n[[refusal]]'); }
+          }
         }
       } catch (e) {
         if (!aborted) {
           console.error('chat stream', e?.status, e?.message);
-          await giveBackOnce();
-          await write(`\n[[error:${aiErrorCode(e)}]]`);
+          await settle();
+          if (careTier) await careFallback();
+          else {
+            await giveBackOnce();
+            await write(`\n[[error:${aiErrorCode(e)}]]`);
+          }
         }
       } finally {
         // the reader left, or the stream broke: what Claude already did is still priced
@@ -158,18 +222,28 @@ async function handleAI(kind, req, env, ctx, cors) {
     // a stream that broke part-way was billed for what it did
     const partial = usage.message();
     if (partial) ctx.waitUntil(record(partial));
-    await giveBackOnce();
     console.error('ai', kind, code, e?.status, e?.message);
+    if (careTier) return careStaticReply(kind, input, cors, headers);
+    await giveBackOnce();
     throw new HttpError(code === 'busy' ? 429 : 502, code, undefined, undefined, headers);
   }
   ctx.waitUntil(record(message));
+  let result;
   try {
-    return json(readResult(kind, message), 200, cors, headers);
+    result = readResult(kind, message);
   } catch (e) {
+    if (careTier) return careStaticReply(kind, input, cors, headers);
     const code = e?.code === 'refusal' || e?.code === 'bad_output' ? e.code : 'bad_output';
     await giveBackOnce();
     throw new HttpError(code === 'refusal' ? 422 : 502, code, undefined, undefined, headers);
   }
+  if (careTier) return json({ ...result, care: true }, 200, cors, headers);
+  if (result?.care === true) {
+    await modelCare();
+    // the question was given back: the count the screen shows says so
+    if (headers['X-AI-Left'] !== undefined) headers['X-AI-Left'] = String(Math.min(r.limit ?? Infinity, Math.max(0, r.left) + 1));
+  }
+  return json(result, 200, cors, headers);
 }
 function aiErrorCode(e) {
   if (e?.code === 'refusal' || e?.code === 'bad_output') return e.code;

@@ -1,7 +1,11 @@
 // Request shapes the Worker sends to Claude, and how replies are read back.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRequest, readResult, STREAMED, AI_KINDS, MAX_EXAM_PAGES } from '../../shared/ai.js';
+import {
+  buildRequest, buildCare, readResult, splitCare, STREAMED, AI_KINDS, FREE_KINDS, MAX_EXAM_PAGES, CARE_NOTE, LITE_MODEL,
+} from '../../shared/ai.js';
+import { safetyPrompt } from '../../shared/safety.js';
+import { systemText } from './helpers.js';
 
 const page = { data: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' };
 const pdf = { data: 'data:application/pdf;base64,JVBERi0x', mediaType: 'application/pdf' };
@@ -66,4 +70,85 @@ test('refusals and broken JSON surface as error codes', () => {
   assert.throws(() => readResult('explain', msg('', 'refusal')), (e) => e.code === 'refusal');
   assert.throws(() => readResult('exam', msg('{not json')), (e) => e.code === 'bad_output');
   assert.deepEqual(readResult('explain', msg('הסבר')), { text: 'הסבר' });
+});
+
+// ---------------------------------------------------------------- safety first (trust spec TRUST-3 §3.2-3.4)
+const INPUTS = {
+  explain: { question: '3 - 8', correct: '-5', studentAnswer: '5' },
+  chat: { question: '3 - 8', messages: [{ role: 'user', content: 'איך מתחילים?' }] },
+  generate: { topic: 'מספרים מכוונים', level: 'חיבור', count: 3 },
+  check: { image: page.data },
+  exam: { pages: [page] },
+};
+const SAFETY_PARTS = ['1201', '052-845-1201', '08:00–02:00', '055-957-1399', '105', '100', '101', '[[care]]'];
+/** Every request the tutor can send: each kind in each shape it has, and the care request. */
+function everyRequest() {
+  const out = [];
+  for (const kind of AI_KINDS) {
+    out.push([`${kind}/full`, buildRequest(kind, INPUTS[kind])]);
+    out.push([`${kind}/full main`, buildRequest(kind, INPUTS[kind], { model: 'claude-opus-5-5', shape: 'full' })]);
+    if (FREE_KINDS.includes(kind)) {
+      out.push([`${kind}/lite`, buildRequest(kind, INPUTS[kind], { shape: 'lite' })]);
+      out.push([`${kind}/economy`, buildRequest(kind, INPUTS[kind], { shape: 'economy' })]);
+    }
+  }
+  out.push(['care', buildCare(INPUTS.chat)]);
+  return out;
+}
+
+test('every kind and every shape, and the care request, start with the safety block and carry every support number', () => {
+  const block = safetyPrompt();
+  const seen = everyRequest();
+  assert.equal(seen.length, 5 * 2 + 2 * 2 + 1);
+  for (const [name, params] of seen) {
+    const sys = systemText(params);
+    assert.ok(sys.startsWith(block), `${name}: the safety block comes first`);
+    for (const part of SAFETY_PARTS) assert.ok(sys.includes(part), `${name}: ${part}`);
+    assert.ok(!/only help with math/.test(sys), `${name}: no longer deflects everything that is not maths`);
+  }
+  // the old deflecting line is replaced by one that leaves room for safety
+  assert.match(systemText(buildRequest('chat', INPUTS.chat)), /neither mathematics nor their safety, say kindly in one sentence that you are here for maths/);
+});
+
+test('a leading [[care]] line is removed and the reply is marked care; elsewhere it is left alone', () => {
+  assert.deepEqual(readResult('chat', { content: [{ type: 'text', text: '[[care]]\nאני כאן…' }] }), { text: 'אני כאן…', care: true });
+  assert.deepEqual(readResult('explain', msg('  [[care]]\r\nתודה שכתבתם.')), { text: 'תודה שכתבתם.', care: true });
+  assert.deepEqual(readResult('chat', msg('הסבר [[care]]')), { text: 'הסבר [[care]]' });
+  assert.throws(() => readResult('chat', msg('[[care]]\n  ')), (e) => e.code === 'bad_output', 'a care line with nothing after it');
+  assert.deepEqual(splitCare('[[care]] שלום'), { text: 'שלום', care: true });
+  assert.deepEqual(splitCare('שלום'), { text: 'שלום', care: false });
+});
+
+test('the check and exam schemas require a care boolean, and their replies always carry one', () => {
+  for (const kind of ['check', 'exam']) {
+    const schema = buildRequest(kind, INPUTS[kind]).output_config.format.schema;
+    assert.ok(schema.required.includes('care'), kind);
+    assert.equal(schema.properties.care.type, 'boolean', kind);
+    assert.equal(schema.additionalProperties, false);
+  }
+  assert.ok(!buildRequest('generate', INPUTS.generate).output_config.format.schema.required.includes('care'));
+  const check = { readable: true, transcript: '', steps: [], final: 'unknown', summary: '' };
+  assert.equal(readResult('check', msg(JSON.stringify({ ...check, care: true }))).care, true);
+  assert.equal(readResult('check', msg(JSON.stringify(check))).care, false, 'missing reads as false');
+  assert.equal(readResult('exam', msg(JSON.stringify({ readable: true, title: '', questions: [], summary: '', weakTopics: [], nextSteps: [], care: 'yes' }))).care, false);
+});
+
+test('the care request: safety block and the no-maths line, the last 4 messages from a student turn, 700 tokens, low effort, no format', () => {
+  const messages = Array.from({ length: 9 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `הודעה ${i}` }));
+  const p = buildCare({ messages, context: { question: '3 - 8', correct: '-5' } }, { model: 'claude-sonnet-5-5' });
+  assert.equal(systemText(p), `${safetyPrompt()}\n\n${CARE_NOTE}`);
+  assert.equal(p.max_tokens, 700);
+  assert.equal(p.output_config.effort, 'low');
+  assert.equal(p.output_config.format, undefined);
+  assert.equal(p.tools, undefined);
+  assert.ok(p.messages.length <= 4);
+  assert.equal(p.messages[0].role, 'user');
+  assert.deepEqual(p.messages.map((m) => m.content), ['הודעה 6', 'הודעה 7', 'הודעה 8']);
+  assert.ok(!JSON.stringify(p.messages).includes('3 - 8'), 'no exercise context: the care reply is not a maths channel');
+  assert.equal(p.model, 'claude-sonnet-5-5');
+  assert.equal(buildCare({ messages: messages.slice(0, 4) }).messages.length, 4);
+  assert.equal(buildCare({ messages: messages.slice(0, 5) }).messages.length, 3, 'starts from a student turn');
+  assert.equal(buildCare({ messages: [{ role: 'user', content: 'אני רוצה למות' }] }, { model: LITE_MODEL }).fallbacks, undefined, 'the low-cost model has no fallback');
+  assert.deepEqual(buildCare({ studentAnswer: 'בא לי להיעלם' }).messages, [{ role: 'user', content: 'בא לי להיעלם' }]);
+  assert.throws(() => buildCare({ messages: [] }));
 });

@@ -179,6 +179,7 @@ function summaryNotice(p, day) {
     lines: [
       `סיכום ליום ${day}`,
       `עלות כוללת: ${usd(p.allUsd)} · שאלות בחינם: ${p.freeCalls ?? 0}`,
+      `תשובות תמיכה (care): ${p.careCalls ?? 0} · ${usd(p.careUsd)}`,
       ...(Array.isArray(p.spend) ? p.spend : []).map((x) => `${x.pool}: ${usd(x.usd)} (${x.calls} קריאות)`),
       `מנויים ורישיונות חדשים: ${p.newPlans ?? 0} · ביטולים: ${p.canceled ?? 0} · הסתיימו: ${p.ended ?? 0}`,
       `ביטולים שהספק עוד לא אישר: ${p.unsyncedCancels ?? 0}`,

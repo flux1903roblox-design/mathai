@@ -16,6 +16,7 @@ import { purgeFamilySql } from './family.js';
 import { providerById } from './providers/index.js';
 import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
+import { SUPPORT } from '../../shared/safety.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -144,6 +145,17 @@ export async function purge(env, now = new Date()) {
  * what needs a hand (unsynced cancels, manual refunds, odd provider events, open licence requests); and the invariant
  * checks: a running paid plan with no payment covering now, a paid order with no plan, spend over a budget.
  */
+/** Days after which the owner is reminded to check the support numbers in shared/safety.js again (trust spec §3.6). */
+export const SUPPORT_CHECK_DAYS = 330;
+/** The reminder line when SUPPORT.checked is more than SUPPORT_CHECK_DAYS old on `now`, else null. */
+export function supportCheckLine(now = new Date(), checked = SUPPORT.checked) {
+  const at = Date.parse(`${checked}T00:00:00Z`);
+  if (!Number.isFinite(at) || now.getTime() - at > SUPPORT_CHECK_DAYS * DAY) {
+    return `מספרי העזרה בעוזר החכם נבדקו לאחרונה ב־${checked}. כדאי לבדוק שהם עדיין נכונים (shared/safety.js).`;
+  }
+  return null;
+}
+
 export async function dailySummary(env, now = new Date()) {
   const L = limits(env);
   const day = dayOf(new Date(now.getTime() - DAY));
@@ -153,12 +165,15 @@ export async function dailySummary(env, now = new Date()) {
   const startIso = startOfDayIso(day); const endIso = endOfDayIso(day);
   const spend = await all(env, 'SELECT pool, calls, nano_usd FROM ai_spend WHERE period = ? ORDER BY nano_usd DESC', day);
   const pool = (p) => spend.find((x) => x.pool === p) || null;
-  const allRow = pool('all'); const freeRow = pool('free'); const trialRow = pool('trial');
+  const allRow = pool('all'); const freeRow = pool('free'); const trialRow = pool('trial'); const careRow = pool('care');
   const count = async (sql, ...a) => Number((await first(env, sql, ...a))?.n || 0);
   const params = {
     day,
     allUsd: Number(allRow?.nano_usd || 0) / 1e9,
     freeCalls: Number(freeRow?.calls || 0),
+    // care replies (a message that read as distress): never counted against anyone's questions, so shown on their own
+    careCalls: Number(careRow?.calls || 0),
+    careUsd: Math.round(Number(careRow?.nano_usd || 0) / 1e7) / 100,
     spend: spend.filter((x) => x.pool !== 'all' && !x.pool.startsWith('kind:')).slice(0, 12).map((x) => ({ pool: x.pool, calls: x.calls, usd: Math.round(x.nano_usd / 1e7) / 100 })),
     newPlans: await count('SELECT COUNT(*) AS n FROM subscriptions WHERE created_at >= ? AND created_at < ?', startIso, endIso),
     canceled: await count('SELECT COUNT(*) AS n FROM subscriptions WHERE cancel_requested_at >= ? AND cancel_requested_at < ?', startIso, endIso),
@@ -179,6 +194,8 @@ export async function dailySummary(env, now = new Date()) {
     AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id AND p.status = 'duplicate') LIMIT 20`)) {
     v.push(`הזמנה ששולמה בלי מנוי: ${o.id}`);
   }
+  const support = supportCheckLine(now);
+  if (support) v.push(support);
   const over = (usd, budget) => budget > 0 && usd >= budget;
   if (over(params.allUsd, ownerAlertUsd(env))) v.push(`העלות של היום ${params.allUsd.toFixed(2)}$ עברה את ${ownerAlertUsd(env)}$`);
   if (over(Number(freeRow?.nano_usd || 0) / 1e9, L.budgets.freeDailyUsd)) v.push(`הטעימה בחינם עברה את התקציב היומי (${L.budgets.freeDailyUsd}$)`);

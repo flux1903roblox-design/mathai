@@ -303,7 +303,7 @@ CREATE TABLE IF NOT EXISTS licence_codes (
 
 -- What Claude really cost, from each response's usage, per pool and period.
 CREATE TABLE IF NOT EXISTS ai_spend (
-  pool TEXT NOT NULL,                          -- 'fam:<account>' | 'cls:<code>' | 'free' | 'trial' | 'legacy' | 'open' | 'all' | 'kind:<kind>'
+  pool TEXT NOT NULL,                          -- 'fam:<account>' | 'cls:<code>' | 'free' | 'trial' | 'legacy' | 'open' | 'care' | 'all' | 'kind:<kind>'
   period TEXT NOT NULL,                        -- 'YYYY-MM-DD' or 'YYYY-MM' (Asia/Jerusalem)
   calls INTEGER NOT NULL DEFAULT 0,
   input_tokens INTEGER NOT NULL DEFAULT 0,
@@ -335,6 +335,8 @@ CREATE INDEX IF NOT EXISTS audit_target ON audit_log (target);
 --   paid:         <subject>:<group> with subject fam:<account> | s:<student> | t:<class>  and group tutor|check|generate|exam;
 --                 fam:<account>:exam (YYYY-MM);  cls:<class> (units);  <subject>:<group>:tries (never given back)
 --   legacy:       s:<student> | t:<class> (calls) and cls:<class> (units)
+--   care:         care:<s:<student> | fd:<family device> | t:<class> | d:<dev> | x:<net>> (5)  care:n:<net> (30)  care:all (1,000):
+--                 a chat message that reads as distress (trust spec TRUST-3); never given back, never a question
 --   other:        mail:e:<email_hash> mail:n:<net> mail:all  create:n:<net>  join:n:<net>  pin:<student>  classinfo:n:<net>
 --                 link:d:<dev>  link:n:<net>  linkpoll:<code_hash[0:16]>  linkpoll:n:<net>  claim:a:<account>
 --                 checkout:a:<account> (hourly)  licreq:c:<class>  licclaim:n:<net> (hourly)  licclaim:c:<class>  mint:n:<net>

@@ -11,7 +11,10 @@
 //   family           a child's device linked to a live family plan (X-Family-Device): limits shared by the family
 //   free             everyone else: 2 short questions a day on the low-cost model, with network, class, global and
 //                    dollar ceilings behind the person's own count
-import { AI_KINDS, AI_GROUPS, KIND_GROUP, AI_UNITS, FREE_KINDS, LITE_MODEL, buildRequest } from '../../shared/ai.js';
+//
+// A chat message that reads as distress never comes here: resolveCare (below) answers it on its own capped keys, never
+// counted against a question and never refused.
+import { AI_KINDS, AI_GROUPS, KIND_GROUP, AI_UNITS, FREE_KINDS, LITE_MODEL, buildRequest, buildCare } from '../../shared/ai.js';
 import {
   HttpError, key, take, peek, sha256, hmacHex, netKey, devKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual,
 } from './util.js';
@@ -26,6 +29,8 @@ export const DEFAULT_LIMITS = {
   trial: { student: { tutor: 10, check: 2, generate: 0, exam: 0 }, teacher: { tutor: 50, check: 10, generate: 0, exam: 0 }, seatUnits: 10, maxSeats: 40, days: 14 },
   legacy: { student: 40, teacher: 200, classUnits: 600 },
   budgets: { freeDailyUsd: 5, trialDailyUsd: 10, familyMonthlyUsd: 5, classSeatMonthlyUsd: 0.8, ownerAlertUsd: 20 },
+  // care replies (trust spec TRUST-3 §3.4): a day, per person, per network and for everyone; past them the fixed reply
+  care: { person: 5, net: 30, global: 1000 },
   graceDays: 3,
 };
 // Owner overrides through plain vars; AI_LIMITS (JSON) is deep-merged last for everything else.
@@ -333,6 +338,45 @@ async function decide(req, env, kind, input, id) {
   const r = await take(env, list);
   if (!r.ok) throw r.error;
   return { tier: 'free', pool: 'free', group: 'tutor', shape: 'lite', params: p, refund: [keys.person], left: keys.person.limit - r.counts[0], limit: keys.person.limit, economy: false };
+}
+
+// ---------------------------------------------------------------- care: a message that reads as distress
+/** The answer when no AI reply is possible or allowed: the fixed care text (CARE_STATIC), no Claude call. */
+const careStatic = (id) => ({ static: true, tier: 'care', pool: 'care', group: 'care', refund: [], linkedBad: !!id?.famBad });
+
+/**
+ * A chat message that reads as distress (trust spec TRUST-3 §3.4). Never counted against a question, never refused and
+ * never paywalled: it takes its own keys, care:<who> (5 a day; who is s:<student>, fd:<family device>, t:<class>,
+ * d:<device key> or x:<network>), care:n:<network> (30) and care:all (1,000), and builds a care-only request with no
+ * maths in it. When any key is full, the server has no AI key, or anything about the caller cannot be read, it returns
+ * { static: true }: the fixed reply, with no AI call. It never throws.
+ * Later stages add the class AI switch (TRUST-11) and the parent OK (TRUST-9) here; both lead to { static: true }.
+ */
+export async function resolveCare(req, env, kind, input) {
+  let id = null;
+  try {
+    id = await identify(req, env);
+    if (!env.ANTHROPIC_API_KEY) return careStatic(id);
+    const L = limits(env).care;
+    const net = await netKey(req, env);
+    const who = id.student ? `s:${id.student.id}`
+      : id.fam ? `fd:${id.fam.device_id}`
+        : id.teacher ? `t:${id.teacher.code}`
+          : id.device ? `d:${await devKey(env, id.device)}`
+            : `x:${net}`;
+    const p = buildCare(input, { model: env.CLAUDE_MODEL });
+    const r = await take(env, [key(`care:${who}`, L.person), key(`care:n:${net}`, L.net), key('care:all', L.global)]);
+    if (!r.ok) return careStatic(id);
+    return {
+      tier: 'care', pool: 'care', group: 'care', shape: 'care', params: p, refund: [],
+      left: L.person - r.counts[0], limit: L.person, economy: false, linkedBad: id.famBad, linked: id.fam,
+    };
+  } catch (e) {
+    // a caller that cannot be read (a wrong teacher key, no hashing secret) still gets the fixed reply; nothing from the
+    // request goes to the log
+    if (!(e instanceof HttpError)) console.error('care: fixed reply after an error');
+    return careStatic(id);
+  }
 }
 
 // ---------------------------------------------------------------- status: the same decision, counting nothing

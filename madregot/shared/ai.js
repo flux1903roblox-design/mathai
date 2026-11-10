@@ -2,6 +2,8 @@
 // and the browser (personal-key mode). Each builder returns the params for
 // client.beta.messages.create / .stream from @anthropic-ai/sdk.
 
+import { safetyPrompt, CARE_MARK } from './safety.js';
+
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 // Server-side refusal fallback: a declined request is re-run on Anthropic's
 // recommended model for that refusal category instead of coming back empty.
@@ -12,12 +14,15 @@ export const AI_KINDS = ['explain', 'chat', 'generate', 'check', 'exam'];
 export const TOPIC_IDS = ['signed', 'coord', 'angles', 'line', 'pyth', 'stats', 'expr', 'eq', 'sys', 'other'];
 export const MAX_EXAM_PAGES = 8;
 
-const TUTOR = `You are the math tutor inside "Madregot", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).
+const TUTOR_BODY = `You are the math tutor inside "Madregot", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).
 Always answer in Hebrew, in plain words a 13-year-old understands, addressing the student in the plural or gender-neutral form ("נסו", "שימו לב").
 Write every mathematical expression in LaTeX between single dollar signs, for example $-3 + 5 = 2$, so it renders left to right inside Hebrew text. Use $$...$$ only for one central line.
 Keep answers short: at most about 120 words unless the task below asks for more. Use numbered steps when you show a method.
-Stay on mathematics. If the student asks about something else, say briefly that you only help with math and return to the exercise.
+If the student asks about something that is neither mathematics nor their safety, say kindly in one sentence that you are here for maths, and offer to continue with the exercise.
 Never say a built-in answer is wrong: the app checks built-in exercises with exact code, and the correct answer you receive is authoritative.`;
+// The safety block comes first in every kind and every shape, the personal-key path included (trust spec TRUST-3). Any
+// later prompt change keeps it first.
+const TUTOR = `${safetyPrompt()}\n\n${TUTOR_BODY}`;
 
 const TASKS = {
   explain: `Task: the student answered an exercise incorrectly. Explain the specific mistake: compare their answer with the correct one, name the misconception that most likely produced their number, then show the correct method in 2-4 short steps. Do not lecture and do not repeat the whole topic.`,
@@ -54,12 +59,15 @@ const GENERATE_SCHEMA = {
   },
 };
 
+const CARE_FIELD = 'true if the page, the notes or the question show the student is in distress or danger';
+
 const EXAM_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['readable', 'title', 'questions', 'summary', 'weakTopics', 'nextSteps'],
+  required: ['readable', 'title', 'questions', 'summary', 'weakTopics', 'nextSteps', 'care'],
   properties: {
     readable: { type: 'boolean' },
+    care: { type: 'boolean', description: CARE_FIELD },
     title: { type: 'string', description: 'A short name for the exam, from the pages' },
     questions: {
       type: 'array',
@@ -96,9 +104,10 @@ const EXAM_SCHEMA = {
 const CHECK_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['readable', 'transcript', 'steps', 'final', 'summary'],
+  required: ['readable', 'transcript', 'steps', 'final', 'summary', 'care'],
   properties: {
     readable: { type: 'boolean' },
+    care: { type: 'boolean', description: CARE_FIELD },
     transcript: { type: 'string', description: 'What is written, math in $...$' },
     steps: {
       type: 'array',
@@ -184,6 +193,42 @@ export function buildRequest(kind, input = {}, { model, shape, lite = false } = 
   params.output_config = { ...params.output_config, effort: 'low' };
   if (short) params.system = `${params.system}\n\n${LITE_NOTE}`;
   return supportsFallback(params.model) ? params : dropFallback(params);
+}
+
+// ---------------------------------------------------------------- the care-only request
+export const CARE_NOTE = "This reply is only about the student's wellbeing. Do not do any mathematics in this reply.";
+export const CARE_MAX_TOKENS = 700;
+export const CARE_MESSAGES = 4;
+
+/**
+ * The request for a message that reads as distress (trust spec TRUST-3 §3.4): the safety block and a "no mathematics"
+ * line, the last 4 chat messages (or the explain fields), 700 tokens, low effort, no output format. It carries no
+ * exercise context, so a distress phrase in front of a maths question cannot be used as a free maths channel.
+ */
+export function buildCare(input = {}, { model } = {}) {
+  let history = (Array.isArray(input.messages) ? input.messages : [])
+    .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+    .slice(-CARE_MESSAGES)
+    .map((m) => ({ role: m.role, content: clip(m.content, 2000) }));
+  while (history.length && history[0].role !== 'user') history.shift();
+  if (!history.length) {
+    const said = [input.studentAnswer, input.note].filter((x) => typeof x === 'string' && x.trim()).map((x) => clip(x, 2000)).join('\n');
+    if (!said) throw new Error('care needs a student message');
+    history = [{ role: 'user', content: said }];
+  }
+  const params = {
+    ...base(model, 'low', CARE_MAX_TOKENS),
+    system: `${safetyPrompt()}\n\n${CARE_NOTE}`,
+    messages: history,
+  };
+  return supportsFallback(params.model) ? params : dropFallback(params);
+}
+
+const CARE_LEAD = new RegExp(`^\\s*${CARE_MARK.replace(/[[\]]/g, '\\$&')}[ \\t]*\\r?\\n?`);
+/** A reply that starts with the care line: the line is removed and the reply is marked care. */
+export function splitCare(text) {
+  const m = String(text ?? '').match(CARE_LEAD);
+  return m ? { text: String(text).slice(m[0].length), care: true } : { text: String(text ?? ''), care: false };
 }
 
 function buildFull(kind, input = {}, { model, maxMessages = 12, messageChars = 2000, questionChars = 800, fromUser = false } = {}) {
@@ -286,10 +331,12 @@ export function readResult(kind, message) {
       data.questions = (data.questions || []).filter((q) => q && q.prompt)
         .map((q) => ({ ...q, level: Number.isInteger(q.level) && q.level > 0 && q.level <= 12 ? q.level : 0 }));
     }
+    if (kind === 'check' || kind === 'exam') data.care = data.care === true;
     return data;
   }
-  if (!text.trim()) { const e = new Error('empty text'); e.code = 'bad_output'; throw e; }
-  return { text };
+  const { text: said, care } = splitCare(text);
+  if (!said.trim()) { const e = new Error('empty text'); e.code = 'bad_output'; throw e; }
+  return care ? { text: said, care: true } : { text: said };
 }
 
 /** Exams and other long outputs are streamed so a long check never hits an HTTP timeout. */
