@@ -1,18 +1,21 @@
 // Regenerates full-params.json: the exact params every AI kind sends in the full shape, for the main model and for the
 // default model. paid.test.js compares the builders against this file byte for byte, so a prompt can only change on
 // purpose: change the prompt, run this script, and say in the commit message that the prompts changed.
+// It also writes stable-system.txt: the stable first block of every request (stableSystem(), shared/pedagogy.js) as
+// plain text, so a reviewer can read what the tutor is told (pedagogy.test.js compares it).
 //
-//   node test/fixtures/make-full-params.mjs           write the file
-//   node test/fixtures/make-full-params.mjs --check   exit 1 when the file is not what the builders make now
+//   node test/fixtures/make-full-params.mjs           write both files
+//   node test/fixtures/make-full-params.mjs --check   exit 1 when a file is not what the builders make now
 //
 // The inputs are the older app's flat fields (the context is read through legacyToV2), long enough to show every clip.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { buildRequest, AI_KINDS } from '../../../shared/ai.js';
+import { buildRequest, AI_KINDS, stableSystem } from '../../../shared/ai.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(here, 'full-params.json');
+const STABLE = path.join(here, 'stable-system.txt');
 const MAIN = 'claude-opus-5-5';
 
 const turns = Array.from({ length: 14 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `turn ${i} ${i === 4 ? 'x'.repeat(2500) : ''}` }));
@@ -38,12 +41,11 @@ export function make() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const text = JSON.stringify(make(), null, 1); // the layout the file has always had
+  const files = [[OUT, JSON.stringify(make(), null, 1)], [STABLE, `${stableSystem()}\n`]]; // the layout full-params.json has always had
   if (process.argv.includes('--check')) {
-    const same = (() => { try { return readFileSync(OUT, 'utf8') === text; } catch { return false; } })();
-    console.log(same ? 'full-params.json is up to date' : 'full-params.json differs from the builders: run node test/fixtures/make-full-params.mjs');
-    process.exit(same ? 0 : 1);
+    const stale = files.filter(([f, text]) => { try { return readFileSync(f, 'utf8') !== text; } catch { return true; } }).map(([f]) => path.basename(f));
+    console.log(stale.length ? `${stale.join(' and ')} differ from the builders: run node test/fixtures/make-full-params.mjs` : 'full-params.json and stable-system.txt are up to date');
+    process.exit(stale.length ? 1 : 0);
   }
-  writeFileSync(OUT, text);
-  console.log(`wrote ${path.relative(process.cwd(), OUT)}`);
+  for (const [f, text] of files) { writeFileSync(f, text); console.log(`wrote ${path.relative(process.cwd(), f)}`); }
 }
