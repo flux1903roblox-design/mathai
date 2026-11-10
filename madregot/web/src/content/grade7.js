@@ -389,7 +389,7 @@ function parallel() {
     let v; do { v = R(7, 29) * 5; } while (v === 90 || v === 60); // v = 60: the answer, 120°, would be the sum itself
     const s = 2 * v; const ans = 180 - v;
     return {
-      key: `an4:pair:${pair}:${s}`, text: `שני ישרים מקבילים נחתכים על ידי ישר שלישי. שתי הזוויות שמסומנות בקשת כפולה הן זוויות ${names[pair]}, ויחד הן $${deg(s)}$. מה גודל הזווית המסומנת ב־$?$`,
+      key: `an4:pair:${pair}:${s}`, text: `שני ישרים מקבילים וחותך. שתי הזוויות בקשת כפולה הן ${names[pair]}, ויחד הן $${deg(s)}$. מה גודל הזווית המסומנת ב־$?$`,
       form: 'num', answer: ans, unit: 'מעלות',
       fig: { type: 'parallel', a: v, kind: 'pair', pair },
       hint: `זוויות ${names[pair]} שוות, אז כל אחת היא חצי מהסכום. הזווית המסומנת חד־צדדית לאחת מהן.`,
@@ -402,7 +402,7 @@ function parallel() {
     let dd; do { dd = R(1, 11) * 10; } while (dd === 60); // dd = 60: the smaller angle would be 60° too; up to 110° keeps it 35° or more
     const ans = (180 - dd) / 2;
     return {
-      key: `an4:diff:${dd}`, text: `שני ישרים מקבילים נחתכים על ידי ישר שלישי. שתי הזוויות המסומנות הן חד־צדדיות, ואחת מהן גדולה מהשנייה ב־$${deg(dd)}$. מה גודל הזווית הקטנה, המסומנת ב־$?$`,
+      key: `an4:diff:${dd}`, text: `שני ישרים מקבילים וחותך. הזוויות המסומנות חד־צדדיות, ואחת גדולה מהשנייה ב־$${deg(dd)}$. מה גודל הקטנה?`,
       form: 'num', answer: ans, unit: 'מעלות',
       fig: { type: 'parallel', a: ans, kind: 'diff' },
       hint: `זוויות חד־צדדיות יחד $180^\\circ$. אילו הגדולה הייתה קטנה ב־$${deg(dd)}$, שתיהן היו שוות.`,
