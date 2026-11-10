@@ -111,7 +111,7 @@ test('every stair a part lists is one of stage 1\'s; a part with none is a later
 
 test('the spec\'s two worked units, 7.3 and 8.9, are exactly as written', () => {
   const unit = (id) => PROGRAMME.units.find((u) => u.id === id);
-  assert.deepEqual(unit('7.3').parts, [{ hours: 5, skills: ['signed:1'] }, { hours: 2, skills: ['signed:6'], note: 'שברים ועשרוניים' }]);
+  assert.deepEqual(unit('7.3').parts, [{ hours: 5, skills: ['signed:1'] }, { hours: 2, skills: ['signed:6'], note: 'שברים ועשרוניים מכוונים' }]);
   assert.deepEqual(unit('8.9').parts, [
     { hours: 1, skills: ['line:8'] },
     { hours: 5, skills: ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'sys:1'] },
@@ -155,7 +155,7 @@ test('a unit\'s state, stairs and missing parts', () => {
   const u73 = at('7', HEAD, '7.3');
   assert.equal(u73.state, 'part');
   assert.deepEqual(u73.stairs, ['signed:1']); // signed:6 is listed but does not exist at HEAD
-  assert.deepEqual(u73.missing, ['שברים ועשרוניים']);
+  assert.deepEqual(u73.missing, ['שברים ועשרוניים מכוונים']);
   assert.deepEqual(u73.parts.map((p) => [p.taught, p.later]), [[true, null], [false, null]]); // no stage is promised
   assert.equal(at('7', STAGE1, '7.3').state, 'yes');
   const u81 = at('8', HEAD, '8.1');
@@ -198,15 +198,15 @@ test('notYet: for each grade a list of non-empty Hebrew words, one per untaught 
     }
   }
   // HEAD does not teach fractions in signed numbers, ratio or percent yet; stage 1 does
-  assert.ok(notYet('7', HEAD).includes('שברים ועשרוניים'));
+  assert.ok(notYet('7', HEAD).includes('שברים ועשרוניים מכוונים'));
   assert.ok(notYet('8', HEAD).includes('יחס, פרופורציה וקנה מידה'));
   assert.ok(notYet('8', HEAD).includes('אחוזים (הגדלה והקטנה באחוזים)'));
-  assert.ok(!notYet('7', STAGE1).includes('שברים ועשרוניים'));
+  assert.ok(!notYet('7', STAGE1).includes('שברים ועשרוניים מכוונים'));
   assert.ok(!notYet('8', STAGE1).includes('יחס, פרופורציה וקנה מידה'));
   // the list shrinks as stairs land, and is empty only when the whole programme is taught
   assert.ok(notYet('7', STAGE1).length < notYet('7', COUNCIL).length);
-  // "שברים ועשרוניים" is one entry, though three units (7.2, 7.3, 7.5) are waiting for it
-  assert.equal(notYet('7', HEAD).filter((s) => s === 'שברים ועשרוניים').length, 1);
+  // "שברים ועשרוניים מכוונים" is one entry, though three units (7.2, 7.3, 7.5) are waiting for it
+  assert.equal(notYet('7', HEAD).filter((s) => s === 'שברים ועשרוניים מכוונים').length, 1);
 });
 
 test('the school calendar: the month a grade meets a stair, and where a date falls in the year', () => {

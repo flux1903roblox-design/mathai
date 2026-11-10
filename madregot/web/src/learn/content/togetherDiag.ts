@@ -14,6 +14,17 @@ export type FinalDiag =
   | { bugs: Record<string, number | number[]> };
 
 export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
+  'frac:1': [
+    { model: 'transfer', p: { a: 2, b: 5, m: 3, c: 15 } }, // 2/5 = ?/15: the same number added gives 2 + 10 = 12
+    { model: 'diag', p: { d: 6, L: 1, k: 5 } }, // A at the 5th of 6 parts: counting the 5 marks gives 5/5 = 1
+  ],
+  'frac:2': [
+    // 0.5, 0.45, 0.405 in order: read by length (more digits larger) the order is 0.5, 0.45, 0.405 and by the opposite
+    // rule 0.405, 0.45, 0.5; either way 0.45 is in the middle, so no misconception shows on this number
+    { bugs: {} },
+    // the larger of 5/8 and 3/4: the bigger denominator taken as the bigger fraction gives 5/8
+    { bugs: { 'bigger-den': 5 / 8 } },
+  ],
   'signed:1': [
     { model: 'diag', p: { a: -3, b: -8, s: -1 } }, // −3 − (−8)
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)

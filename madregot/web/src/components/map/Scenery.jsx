@@ -186,6 +186,17 @@ const EqScale = () => (
     <rect x="76" y="14" width="8" height="18" rx="2" className="sc-t sc-line" />
   </svg>
 );
+/** Fractions and decimals: a bar cut into four, three parts shaded, over a number line with its marks. */
+const FracBarArt = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="8" y="22" width="84" height="30" rx="6" className="sc-w sc-line" />
+    <rect x="8" y="22" width="63" height="30" rx="6" className="sc-c" />
+    {[29, 50, 71].map((x) => <path key={x} d={`M${x} 22 V52`} className="sc-stroke" />)}
+    <path d="M8 74 H92" className="sc-stroke" />
+    {[8, 29, 50, 71, 92].map((x) => <path key={x} d={`M${x} 68 V80`} className="sc-stroke" />)}
+    <circle cx="71" cy="74" r="6" className="sc-g" />
+  </svg>
+);
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -206,6 +217,7 @@ export const SCENERY = {
   expr: [ExprTiles],
   eq: [EqScale],
   sys: [SysCross],
+  frac: [FracBarArt],
 };
 
 /** The unit's own sign for its header: the first piece of its world. */

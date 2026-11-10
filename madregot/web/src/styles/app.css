@@ -2295,7 +2295,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .fg-nl-tick { stroke: var(--ink); stroke-width: 2; }
 .fg-nl-tick.part { stroke: var(--ink-2); stroke-width: 1.4; }
 .fg-nl-tick.zero { stroke-width: 3; }
-.fg-nl-num { fill: var(--ink-2); font-size: 15px; font-weight: 500; }
+.fg-nl-num { fill: var(--ink-2); font-size: 16px; font-weight: 500; }
 .fg-nl-num.zero { fill: var(--ink); font-weight: 700; }
 .fg-nl-jump, .fg-nl-jump-head { fill: none; stroke: var(--brand); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 .fg-nl-jump-label { fill: var(--brand-d); font-size: 15px; font-weight: 700; }
@@ -2303,7 +2303,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .fg-nl-mark circle { fill: var(--brand); stroke: var(--paper); stroke-width: 2.5; }
 .fg-nl-mark.tone-good circle { fill: var(--good); }
 .fg-nl-mark.tone-bad circle { fill: var(--bad); }
-.fg-nl-mark-label { fill: var(--ink); font-size: 17px; font-weight: 700; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+.fg-nl-mark-label { fill: var(--ink); font-size: 18px; font-weight: 700; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
 .fg-anim .fg-nl-tick.part { transform-box: fill-box; transform-origin: center; animation: fg-pop var(--duration-fast) var(--ease-smooth-out) both; animation-delay: calc(var(--i, 0) * 90ms + 150ms); }
 .fg-anim .fg-nl-jump { stroke-dasharray: 1; animation: fg-draw var(--duration-medium) var(--ease-smooth-out) both; animation-delay: calc(var(--i, 0) * 90ms + 250ms); }
 .fg-anim .fg-nl-jump-head, .fg-anim .fg-nl-jump-label { animation: hint-in var(--duration-fast) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 90ms + 450ms); }
@@ -2326,3 +2326,9 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .mp-fbar-guide, .fg-anim .fg-nl-tick.part, .fg-anim .fg-nl-jump, .fg-anim .fg-nl-jump-head, .fg-anim .fg-nl-jump-label { animation: none; }
   .fg-anim .fg-nl-jump { stroke-dasharray: none; }
 }
+
+/* the words of a unit and of a stair */
+.guide-words { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s2); }
+.guide-words li { padding: 4px 12px; border-radius: 999px; background: var(--ground); border: 1px solid var(--rule); font-size: var(--t-sm); font-weight: 600; color: var(--ink); }
+.journey-words { margin: var(--s2) 0 0; font-size: var(--t-sm); line-height: 1.6; color: var(--ink-2); }
+.journey-words-tag { font-weight: 700; color: var(--ink); }

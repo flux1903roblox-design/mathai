@@ -16,6 +16,7 @@ import { enter } from '@/lib/motion.js';
 import { play } from '@/lib/sound.js';
 import { qaOn } from '@/lib/qa.js';
 import { namedMistake } from '@/learn/content/togetherDiag.ts';
+import Figure from '@/components/Figure.jsx';
 
 function Hints({ hints, level }) {
   if (!level) return null;
@@ -114,9 +115,10 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
       {renderHead ? renderHead(bar) : <div className="lm-progress">{bar}</div>}
       <section className="lm-card" data-region="content">
       <Prompt tag={`פותרים יחד ${n} מתוך ${of}`}><p><MathText text={problem.problem} /></p></Prompt>
-      {(problem.display || built.length > 0) && (
+      {(problem.display || problem.fig || built.length > 0) && (
         <div className="lm-canvas big" data-region="visual">
           {problem.display && <FitDisplay className="lm-expr" tex={problem.display} />}
+          {problem.fig && <div className="lm-fig"><Figure fig={problem.fig} /></div>}
           {built.length > 0 && (
             <ol className="tg-built" aria-label="מה עשינו עד עכשיו">
               {built.map((b, i) => <li key={i}><Check size={16} aria-hidden="true" /> <MathText text={b} /></li>)}

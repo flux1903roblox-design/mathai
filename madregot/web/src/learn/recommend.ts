@@ -2,8 +2,10 @@
 // so the student can always see why something was suggested. Order:
 //   exam soon > a confirmed misconception to repair > a review that is due > the smallest missing prerequisite
 //   of a stair that is hard right now > continue the stair in progress > a new stair.
+// The bridge unit (fractions, skills.ts BRIDGE) is the floor under the grade, not a stair of it: a bridge stair is
+// missing only on evidence (never because it was not started), and it is offered as new only when the floor is on.
 import type { Action, LearnState, MasteryState, SkillId, Stage } from './types';
-import { ALL_SKILLS, GRADE_OF, parseSkill, prereqsOf } from './skills';
+import { ALL_SKILLS, BRIDGE_SKILLS, GRADE_OF, gradeSkillsOf, isBridgeSkill, parseSkill, prereqsOf } from './skills';
 import { masteryState, nextStage, dueReviews, daysBetween, STATE_LABEL } from './mastery';
 import { openMisconceptions, canOffer } from './misconceptions';
 import { contentOf } from './content/index';
@@ -68,8 +70,12 @@ export function isMissing(ctx: Context, id: SkillId, st = states(ctx)): boolean 
   if (openMisconceptions(ctx.learn.miscon).some((m) => m.skill === id && m.state === 'confirmed')) return true;
   const diag = ctx.learn.exam?.diagnostic?.[id];
   if (diag && diag.asked > 0 && diag.right * 2 < diag.asked) return true;
-  // in the student's own grade, a stair never started and not passed on the map is not known yet
-  return GRADE_OF[parseSkill(id).topic] === ctx.grade && s === 'not-started' && !onPath(ctx, id);
+  // the floor check: fewer than half right on a fractions stair
+  const floor = ctx.learn.floor?.results?.[id];
+  if (floor && floor.asked > 0 && floor.right * 2 < floor.asked) return true;
+  // in the student's own grade, a stair never started and not passed on the map is not known yet (a bridge stair is
+  // below the grade: not having started it says nothing)
+  return GRADE_OF[parseSkill(id).topic] === ctx.grade && !isBridgeSkill(id) && s === 'not-started' && !onPath(ctx, id);
 }
 
 /** The smallest missing prerequisite under a skill: follow missing prerequisites down to one whose own prerequisites are in place. */
@@ -95,7 +101,10 @@ export function nextActions(ctx: Context): Action[] {
   const st = states(ctx);
   const out: Action[] = [];
   const add = (a: Action) => { if (!out.some((x) => x.kind === a.kind && x.skill === a.skill && x.misc === a.misc)) out.push(a); };
-  const gradeSkills = ALL_SKILLS.filter((id) => GRADE_OF[parseSkill(id).topic] === ctx.grade);
+  const own = gradeSkillsOf(ctx.grade);
+  // with the floor switched on, the bridge stairs come first; otherwise only one already in progress is continued
+  const floorOn = !!ctx.learn.floor?.on;
+  const gradeSkills = floorOn ? [...BRIDGE_SKILLS, ...own] : own;
 
   // 1. an exam in the next two weeks
   const exam = ctx.learn.exam;
@@ -131,7 +140,7 @@ export function nextActions(ctx: Context): Action[] {
   });
 
   // 5. the stair in progress: the next stage of its journey (or the mastery check)
-  const inProgress = gradeSkills.filter((id) => ['learning', 'practicing', 'needs-support'].includes(st[id]));
+  const inProgress = [...(floorOn ? [] : BRIDGE_SKILLS), ...gradeSkills].filter((id) => ['learning', 'practicing', 'needs-support'].includes(st[id]));
   inProgress.forEach((id) => {
     const stage = stageOf(ctx, id);
     if (stage === 'E') add({ kind: 'mastery', skill: id, stage, title: `בדיקת שליטה: ${titleOf(id)}`, reason: 'תרגלתם מספיק. חמש שאלות בלי רמזים יראו אם אתם שולטים בזה לבד.', minutes: MINUTES.mastery, to: routeOf.check(id, 'mastery') });
@@ -146,11 +155,11 @@ export function nextActions(ctx: Context): Action[] {
     add({ kind: 'new', skill: fresh, stage: sg, title: `${STAGE_NAME[sg]}: ${titleOf(fresh)}`, reason: `מדרגה חדשה, שלב ${STAGE_N[sg]} מתוך 5. ${why}`, minutes: STAGE_MIN[sg], to: routeOf.stage(fresh, sg) });
   }
   // 7. a stair done before mastery checks existed: it stays done, and its mastery check is offered
-  const kept = gradeSkills.find((id) => { const { topic, level } = parseSkill(id); return st[id] !== 'mastered' && st[id] !== 'needs-review' && isKept(ctx.path || {}, topic, level); });
+  const kept = own.find((id) => { const { topic, level } = parseSkill(id); return st[id] !== 'mastered' && st[id] !== 'needs-review' && isKept(ctx.path || {}, topic, level); });
   if (kept) add({ kind: 'mastery', skill: kept, stage: 'E', title: `בדיקת שליטה: ${titleOf(kept)}`, reason: 'המדרגה הושלמה לפני שהיו בדיקות שליטה. חמש שאלות בלי רמזים יראו שזה נשאר.', minutes: MINUTES.mastery, to: routeOf.check(kept, 'mastery') });
   // when everything in the grade is mastered: the earliest mastered stair, for a stronger memory
   if (!out.length) {
-    const any = gradeSkills.find((id) => st[id] === 'mastered');
+    const any = own.find((id) => st[id] === 'mastered');
     if (any) add({ kind: 'review', skill: any, title: `חיזוק: ${titleOf(any)}`, reason: 'כל המדרגות פתוחות. חזרה קצרה שומרת את מה שלמדתם.', minutes: MINUTES.review, to: routeOf.check(any, 'review') });
   }
   return out;

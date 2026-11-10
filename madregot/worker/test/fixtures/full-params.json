@@ -938,6 +938,7 @@
           "topic": {
            "type": "string",
            "enum": [
+            "frac",
             "signed",
             "coord",
             "angles",
@@ -977,6 +978,7 @@
           "topic": {
            "type": "string",
            "enum": [
+            "frac",
             "signed",
             "coord",
             "angles",
@@ -1120,6 +1122,7 @@
           "topic": {
            "type": "string",
            "enum": [
+            "frac",
             "signed",
             "coord",
             "angles",
@@ -1159,6 +1162,7 @@
           "topic": {
            "type": "string",
            "enum": [
+            "frac",
             "signed",
             "coord",
             "angles",
@@ -1305,6 +1309,7 @@
           "topic": {
            "type": "string",
            "enum": [
+            "frac",
             "signed",
             "coord",
             "angles",
@@ -1344,6 +1349,7 @@
           "topic": {
            "type": "string",
            "enum": [
+            "frac",
             "signed",
             "coord",
             "angles",

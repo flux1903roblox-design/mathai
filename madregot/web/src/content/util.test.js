@@ -241,10 +241,25 @@ describe('practice-only questions are kept out of checks', () => {
     expect(seen).toContain(true);
   });
 
-  it('no question of today carries the flag (nothing changes until a stair uses it)', () => {
+  // the kinds whose answer is a choice among two or three, or an object whose target the question names (spec §0.5)
+  const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o'];
+  it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
-      for (let k = 0; k < 20; k += 1) expect(makeItem(t.id, i + 1).practiceOnly, `${t.id}:${i + 1}`).toBeUndefined();
+      for (let k = 0; k < 60; k += 1) {
+        const it = makeItem(t.id, i + 1);
+        expect(!!it.practiceOnly, `${it.key}`).toBe(PRACTICE_ONLY.includes(it.key.split(':')[0]));
+      }
     }));
+  });
+});
+
+describe('a question that asks for a decimal takes a decimal', () => {
+  it('the fraction typed back is not read; the decimal and its comma are', () => {
+    const it = { form: 'num', answer: 0.75, precise: true, fmt: 'dec', askDec: true, text: 'כתבו כמספר עשרוני:', display: '\\frac{3}{4}' };
+    expect(readAnswer(it, { v: '3/4' })).toBeNull();
+    expect(readAnswer(it, { v: '0.75' })).toBe(0.75);
+    expect(readAnswer(it, { v: '0,75' })).toBe(0.75);
+    expect(readAnswer({ ...it, askDec: undefined }, { v: '3/4' })).toBe(0.75); // other questions read a fraction as always
   });
 });
 

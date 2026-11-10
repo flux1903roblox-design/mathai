@@ -2,14 +2,17 @@ import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
 import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
 import { LESSONS } from './lessons.js';
-import { manipCorrect, manipText, manipPlain, panWords, tilesWords, rayText, areaTex, figWords } from './manip.js';
+import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords } from './manip.js';
 
 import { NEW_CATS, CONTENT } from '@/learn/content/index.ts';
 
 // Each topic's misconception names include those the 2.0 teaching content adds.
 export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
 export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
-export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grade));
+/** A grade's own units, in order. A bridge unit (bridge: true, the fractions floor) is not one of them. */
+export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grade) && !t.bridge);
+/** The bridge units under a grade: of that grade, or with it in alsoFor (the floor; shown only when it is switched on). */
+export const bridgeTopicsFor = (grade) => TOPICS.filter((t) => t.bridge && (t.grade === String(grade) || (t.alsoFor || []).includes(String(grade))));
 /**
  * Two optional flags a topic may carry:
  *   placement: false   the first-day placement test skips it (it is taught later in the school year, so a new student
@@ -19,8 +22,8 @@ export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grad
  *                      revise grade 7 equations, and grade 7 learns Pythagoras in March though the app files it in grade 8
  */
 export const placementTopicsFor = (grade) => topicsFor(grade).filter((t) => t.placement !== false);
-/** The topics Exam Rescue offers a grade: its own, then those of another grade that are revised in it. */
-export const rescueTopicsFor = (grade) => [...topicsFor(grade), ...TOPICS.filter((t) => t.grade !== String(grade) && (t.alsoFor || []).includes(String(grade)))];
+/** The topics Exam Rescue offers a grade: its own, then those of another grade that are revised in it (no bridge unit). */
+export const rescueTopicsFor = (grade) => [...topicsFor(grade), ...TOPICS.filter((t) => !t.bridge && t.grade !== String(grade) && (t.alsoFor || []).includes(String(grade)))];
 
 /**
  * The words for a mistake on one stair: the stair's own misconception when it has one (one id can mean different
@@ -71,7 +74,8 @@ export function testItem(topicId, level, avoidKey) {
 // slots, the numerator and the denominator, whole numbers; item.answer is the value, and with item.reduced the
 // fraction must be in lowest terms), 'mc' (a choice), 'manip' (an object).
 // Flags a typed number may carry: precise (compared exactly, see numRight in util.js), fmt: 'dec' (the answer is shown
-// as a decimal, -1.3 and not -13/10).
+// as a decimal, -1.3 and not -13/10), askDec (the question asks for a decimal: a fraction typed is not read).
+// A topic may carry bridge: true (the fractions floor): it is in no grade's topicsFor.
 /** Which answer slots an item needs. */
 export const slotsFor = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : it.form === 'lin' ? ['k', 'c'] : it.form === 'frac' ? ['n', 'd'] : it.form === 'mc' || it.form === 'manip' ? [] : ['v']);
 
@@ -90,6 +94,9 @@ export function readAnswer(it, slots) {
     // a minus in the denominator moves up: 7/(-12) is -7/12, the same fraction
     return d < 0 ? { n: n === 0 ? 0 : -n, d: -d } : { n, d };
   }
+  // a question that asks for a decimal takes a decimal: the fraction typed back ("3/4" for "write 3/4 as a decimal")
+  // is not an answer to it (screens/Lesson.jsx says so)
+  if (it.askDec && /\//.test(String(slots.v ?? ''))) return null;
   // a number: "2,000" can be 2 (a decimal comma) or 2000 (thousands); keep the reading the question accepts, else
   // the one nearest its answer, which the diagnosis then sees
   const cands = readNumCandidates(slots.v);
@@ -98,6 +105,13 @@ export function readAnswer(it, slots) {
   if (right !== undefined) return right;
   return typeof it.answer === 'number' ? cands.reduce((a, b) => (Math.abs(b - it.answer) < Math.abs(a - it.answer) ? b : a)) : cands[0];
 }
+
+/**
+ * A right answer in the shape the item's input takes, for tests and test hooks: a fraction answer as its numerator and
+ * denominator in lowest terms ({ n, d }, which every fraction question accepts), an object's solving state, else the
+ * answer itself.
+ */
+export const answerInput = (it) => (it.form === 'frac' ? toFrac(it.answer) : it.form === 'manip' ? manipSolution(it) : it.answer);
 
 /** Is the answer a length that is not whole, asked rounded to tenths (its exact value is on the item)? */
 export const roundedLength = (it) => it.exact != null && Math.abs(it.exact - Math.round(it.exact)) > 1e-9;

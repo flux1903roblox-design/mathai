@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'line' | 'pyth' | 'stats' | 'sys';
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'line' | 'pyth' | 'stats' | 'sys';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -91,6 +91,8 @@ export interface ExampleStep {
 }
 export interface WorkedExample {
   problem: Text; display?: string;
+  /** A drawing the problem is about (the number line whose point A is asked). */
+  fig?: FigSpec;
   /** A numeric answer, checked against `check` (an expression for the same quantity). */
   answer: number; check: string;
   steps: ExampleStep[];
@@ -111,6 +113,8 @@ export interface GuidedChoice { text: Text; ok: boolean; feedback: Text }
 export interface GuidedStep { prompt: Text; display?: string; choices: GuidedChoice[]; hints: [Text, Text]; done: Text }
 export interface GuidedProblem {
   problem: Text; display?: string;
+  /** A drawing the problem is about. */
+  fig?: FigSpec;
   steps: GuidedStep[];
   /**
    * The last move is the student's alone: a typed number, checked against `check`. `precise` compares it exactly (as an
@@ -182,6 +186,8 @@ export interface StairContent {
   /** Transfer questions with an unfamiliar surface (a story, a table, a context), same skill. */
   transfer?: DiagModel<any>;
   misconceptions: Misconception[];
+  /** The stair's new words (shown on its journey page under "מה נלמד"). */
+  words?: Text[];
 }
 
 // ------------------------------------------------------------------ the learner
@@ -226,12 +232,25 @@ export interface ExamPlanState extends ExamPlanInput { createdAt: string; diagno
 /** One analytics event. n: a check's share right (0..1); d: days since mastery (for reviews). No names, no free text. */
 export interface LearnEvent { t: string; e: string; s?: SkillId; m?: string; ok?: boolean; ind?: boolean; p?: Purpose | string; n?: number; d?: number }
 
+/**
+ * The floor check of the bridge unit (בדיקת יסודות): when it ran, whether the unit is on the map, what each fractions
+ * stair showed, and the multiplication facts. Written by the floor check (curriculum stage 8); read by recommend.ts.
+ */
+export interface FloorState {
+  at: string;
+  on: boolean;
+  results: Record<SkillId, { asked: number; right: number }>;
+  facts: { asked: number; right: number };
+}
+
 export interface LearnState {
   skills: Record<SkillId, SkillRecord>;
   miscon: Record<string, MisconRecord>; // key `${skill}|${id}`
   exam: ExamPlanState | null;
   missions: Record<string, { items: MissionItem[] }>; // by day 'YYYY-MM-DD'
   events: LearnEvent[];
+  /** The floor check's record; absent or null until it runs (a v4 save has none). */
+  floor?: FloorState | null;
 }
 
 // ------------------------------------------------------------------ what to do next

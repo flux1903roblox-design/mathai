@@ -9,15 +9,18 @@
 //
 // It runs under vite-node (not plain node) because the stair titles come from the app's content, which is TypeScript
 // behind the '@' alias. Importing it (the tests do) runs nothing: render() is pure.
-import { ALL_SKILLS } from '@/learn/skills';
+import { ALL_SKILLS, isBridgeSkill } from '@/learn/skills';
 import { TOPIC, TOPICS } from '@/content/index.js';
 import { PROGRAMME, ROADMAP_NEXT, coverageOf, coverageSentence, monthsText, inSchoolOrder, GRADE_NAME } from '@/learn/programme';
 
 const STATE_WORD = { yes: 'יש', part: 'חלקי', no: 'עוד לא' };
 const GRADES = ['7', '8'];
 
-/** The counts public text may quote: topics a student sees (bridge units are not counted) and every stair. */
-export const countsOf = () => ({ topics: TOPICS.filter((t) => !t.bridge).length, stairs: ALL_SKILLS.length });
+/**
+ * The counts public text may quote: the grades' own topics and their stairs. A bridge unit (the fractions floor) is a
+ * repair below the programme, counted in neither, so "48 stairs in 9 topics" stays a true sentence.
+ */
+export const countsOf = () => ({ topics: TOPICS.filter((t) => !t.bridge).length, stairs: ALL_SKILLS.filter((s) => !isBridgeSkill(s)).length });
 
 const cell = (s) => String(s).replace(/\|/g, '\\|');
 const stairName = (id) => {

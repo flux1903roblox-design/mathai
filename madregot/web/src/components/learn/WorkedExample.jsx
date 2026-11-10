@@ -11,6 +11,7 @@ import { Prompt, ResultWhy } from './StepPlayer.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { enter } from '@/lib/motion.js';
 import { T, plainNum } from '@/content/util.js';
+import Figure from '@/components/Figure.jsx';
 
 export default function WorkedExample({ example, n, of, onDone, doneLabel = 'הבנתי, הלאה', decimal = false, renderHead }) {
   const [shown, setShown] = useState(0); // how many steps are shown
@@ -28,6 +29,7 @@ export default function WorkedExample({ example, n, of, onDone, doneLabel = 'ה�
         </Prompt>
       <div className="lm-canvas big" data-region="visual">
       {example.display && <FitDisplay className="lm-expr" tex={example.display} />}
+      {example.fig && <div className="lm-fig"><Figure fig={example.fig} /></div>}
       <ol className="worked-steps" aria-live="polite">
         <AnimatePresence initial={false}>
           {example.steps.slice(0, shown).map((s, i) => (

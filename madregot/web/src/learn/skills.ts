@@ -3,18 +3,31 @@
 // earlier stair. The graph is acyclic (tested), so "the smallest missing prerequisite" is well defined.
 import type { SkillId, TopicId } from './types';
 
-export const TOPIC_ORDER: TopicId[] = ['signed', 'coord', 'angles', 'expr', 'eq', 'line', 'pyth', 'stats', 'sys'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { signed: 5, coord: 5, angles: 5, expr: 5, eq: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+// 'frac' (fractions and decimals) is a bridge unit: the floor under grade 7, first so ALL_SKILLS stays in prerequisite
+// order. A bridge stair is in no grade's own list (gradeSkillsOf), is missing only on evidence and is new only when the
+// floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'line', 'pyth', 'stats', 'sys'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', line: '8', pyth: '8', stats: '8', sys: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 2, signed: 5, coord: 5, angles: 5, expr: 5, eq: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+/** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
+export const BRIDGE = new Set<TopicId>(['frac']);
 
 export const skillId = (topic: TopicId | string, level: number): SkillId => `${topic}:${level}`;
 export const parseSkill = (id: SkillId) => { const [topic, l] = id.split(':'); return { topic: topic as TopicId, level: Number(l) }; };
 
 /** Every skill in curriculum order (grade 7 topics, then grade 8). */
 export const ALL_SKILLS: SkillId[] = TOPIC_ORDER.flatMap((t) => Array.from({ length: STAIRS[t] }, (_, i) => skillId(t, i + 1)));
+/** A grade's own stairs, in order: its topics' stairs without the bridge units. */
+export const gradeSkillsOf = (g: '7' | '8'): SkillId[] => ALL_SKILLS.filter((id) => { const t = id.split(':')[0] as TopicId; return GRADE_OF[t] === g && !BRIDGE.has(t); });
+/** Is this stair in a bridge unit (the floor under both grades)? */
+export const isBridgeSkill = (id: SkillId) => BRIDGE.has(id.split(':')[0] as TopicId);
+/** The bridge stairs, in order: the floor under every grade. */
+export const BRIDGE_SKILLS: SkillId[] = ALL_SKILLS.filter(isBridgeSkill);
 
 /** What each stair uses. Comments say why, so the graph can be reviewed by a teacher. */
 export const PREREQS: Record<SkillId, SkillId[]> = {
+  'frac:1': [], // a fraction is a place on the number line: equal parts of one unit
+  'frac:2': ['frac:1'], // comparing uses equal fractions and the number line
   'signed:1': [], // adding and subtracting signed numbers starts from the number line itself
   'signed:2': [], // comparing: where numbers sit on the line
   'signed:3': ['signed:1'], // multiplying is repeated adding; the sign rules build on it
@@ -43,7 +56,7 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'line:1': ['signed:4', 'coord:1', 'expr:1'], // a table of values: substitute x in mx + b (expr:1, signed:4), plot the points
   'line:2': ['line:1'], // what m and b mean in y = mx + b
   'line:3': ['line:2', 'coord:1'], // slope from the graph: steps on the grid
-  'line:4': ['line:3', 'signed:3'], // slope between two points: a quotient of signed differences
+  'line:4': ['line:3', 'signed:3', 'frac:1'], // slope between two points: a quotient of signed differences, simplified like a fraction (bridge edge)
   'line:5': ['line:4', 'eq:1'], // the equation of a line from two points or a point and a slope; b solves y₁ = m·x₁ + b, one step
   'line:6': ['line:2', 'signed:3', 'eq:2'], // intercepts: x = 0 gives b; y = 0 is the two-step equation 0 = mx + b
   'line:7': ['line:6', 'coord:4'], // the triangle with the axes: its legs are the intercepts
@@ -55,7 +68,7 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'pyth:5': ['pyth:1', 'coord:3'], // distance between points: legs are the coordinate differences
   'stats:1': [], // mode: counting
   'stats:2': ['signed:2'], // median: ordering numbers first
-  'stats:3': [], // mean: sum and share
+  'stats:3': ['frac:2'], // mean: sum and share; a mean is often a decimal, read and compared by place value (bridge edge)
   'stats:4': ['stats:3'], // mean from a frequency table
   'stats:5': ['stats:3', 'eq:2'], // a missing value from the mean: the mean equation backwards, (sum + x) : n = mean, two steps
   'sys:1': ['eq:5', 'expr:3'], // a percent change in a story becomes an equation (eq:5); x + 0.2x = 1.2x is collecting like terms (expr:3)

@@ -2,7 +2,7 @@
 // generated documents are the ones the code gives today. When this fails after a change to the stairs or to
 // shared/programme.js, run `npm run programme:md` (in madregot/web) and commit what it writes.
 import { describe, expect, it } from 'vitest';
-import { ALL_SKILLS } from './skills';
+import { ALL_SKILLS, isBridgeSkill } from './skills';
 import { TOPICS } from '@/content/index.js';
 import { render, countsOf } from '../../scripts/programme-md.mjs';
 import programmeMd from '../../../PROGRAMME.md?raw';
@@ -17,8 +17,8 @@ const DOCS: Record<string, string> = {
 // a glob key as a path from madregot/ ('../../../store/README.md' → 'store/README.md', '../../index.html' → 'web/index.html')
 const name = (key: string) => (key.startsWith('../../../') ? key.slice(9) : `web/${key.slice(6)}`);
 
-const STAIRS = ALL_SKILLS.length;
-// a bridge unit (CURRICULUM-3's frac, bridge: true) is not one of the grade's topics
+// a bridge unit (CURRICULUM-3's frac, bridge: true) is not one of the grade's topics, and its stairs are not counted
+const STAIRS = ALL_SKILLS.filter((s) => !isBridgeSkill(s)).length;
 const TOPIC_COUNT = (TOPICS as unknown as Array<{ bridge?: boolean }>).filter((t) => !t.bridge).length;
 const COUNT = /(\d+)\s+(מדרגות|נושאים|stairs|topics)/g;
 

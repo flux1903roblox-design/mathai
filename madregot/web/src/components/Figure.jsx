@@ -400,11 +400,15 @@ const isWhole = (v) => Math.abs(v - Math.round(v)) < 1e-9;
 function NumLine({ fig }) {
   const { from, to, den } = fig; const step = fig.step || 1;
   const marks = fig.marks || []; const jumps = fig.jumps || [];
-  const W = 340; const PAD = 22;
-  const top = jumps.length ? 84 : marks.some((k) => k.label) ? 50 : 18;
-  const LINE = top; const H = LINE + 42;
+  // drawn small (300 wide) so its numbers stay readable when the figure is scaled to a phone's width
+  const W = 300; const PAD = 20;
   const unit = (W - 2 * PAD) / (to - from);
   const X = (v) => PAD + (v - from) * unit;
+  // an arc rises with its length; its label (a stacked fraction at most) stands above it
+  const liftOf = (j) => Math.min(64, 18 + Math.abs(X(j.to) - X(j.from)) * 0.3);
+  const high = jumps.length ? Math.max(...jumps.map((j) => liftOf(j) + (j.label ? 40 : 14))) : 0;
+  const top = Math.max(high + 8, marks.some((k) => k.label) ? 52 : 20);
+  const LINE = top; const H = LINE + 42;
   // the ticks: every part with den (when they are at least 3px apart), else every `step`
   const per = den || 1 / step; const n = Math.round((to - from) * per);
   const ticks = Array.from({ length: n + 1 }, (_, i) => from + i / per);
@@ -432,7 +436,7 @@ function NumLine({ fig }) {
         );
       })}
       {jumps.map((j, i) => {
-        const lift = Math.min(64, 18 + Math.abs(X(j.to) - X(j.from)) * 0.3);
+        const lift = liftOf(j);
         const mid = (X(j.from) + X(j.to)) / 2;
         return (
           <g key={`j${i}`} className="fg-nl-jumpg" style={fig.anim ? { '--i': order + i } : undefined}>

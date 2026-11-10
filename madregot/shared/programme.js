@@ -33,13 +33,13 @@ export const PROGRAMME = {
     { id: '7.1', grade: '7', domain: 'numbers', title: 'מערכת צירים ברביע I', months: [9],
       parts: [{ hours: 5, skills: ['coord:1'] }] },
     { id: '7.2', grade: '7', domain: 'numbers', title: 'הכרת המספרים השליליים, מספרים נגדיים', months: [9, 10],
-      parts: [{ hours: 4, skills: ['signed:2'] }, { hours: 1, skills: ['signed:6'], note: 'שברים ועשרוניים' }] },
+      parts: [{ hours: 4, skills: ['signed:2'] }, { hours: 1, skills: ['signed:6'], note: 'שברים ועשרוניים מכוונים' }] },
     { id: '7.3', grade: '7', domain: 'numbers', title: 'חיבור וחיסור מספרים מכוונים', months: [10],
-      parts: [{ hours: 5, skills: ['signed:1'] }, { hours: 2, skills: ['signed:6'], note: 'שברים ועשרוניים' }] },
+      parts: [{ hours: 5, skills: ['signed:1'] }, { hours: 2, skills: ['signed:6'], note: 'שברים ועשרוניים מכוונים' }] },
     { id: '7.4', grade: '7', domain: 'numbers', title: 'הרחבת מערכת הצירים', months: [10, 11],
       parts: [{ hours: 5, skills: range('coord', 2, 5) }] },
     { id: '7.5', grade: '7', domain: 'numbers', title: 'כפל וחילוק מספרים מכוונים', months: [11],
-      parts: [{ hours: 6, skills: range('signed', 3, 5) }, { hours: 2, skills: ['signed:6'], note: 'שברים ועשרוניים' }] },
+      parts: [{ hours: 6, skills: range('signed', 3, 5) }, { hours: 2, skills: ['signed:6'], note: 'שברים ועשרוניים מכוונים' }] },
     { id: '7.6', grade: '7', domain: 'numbers', title: 'חזקות עם מעריך טבעי ושורש ריבועי חיובי', months: [12],
       parts: [
         { hours: 2, skills: ['pyth:1'] }, // squares and square roots, with estimating a root

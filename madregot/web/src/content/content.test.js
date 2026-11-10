@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
-import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer } from './index.js';
+import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput } from './index.js';
 import { parseNum, plainNum } from './util.js';
 import { holds, identical, texToExpr, texRelation } from '@/learn/expr.ts';
 
@@ -66,9 +66,9 @@ describe('generators', () => {
           expect(item.key).toBeTruthy();
           expect(item.hint).toBeTruthy();
           expect(item.solution?.length).toBeGreaterThan(0);
-          // The exact answer must be accepted and must not be diagnosed as a mistake.
-          expect(isCorrect(item, item.answer)).toBe(true);
-          expect(item.diag(item.answer)).toBeNull();
+          // The exact answer must be accepted and must not be diagnosed as a mistake (a fraction answer as typed: n and d).
+          expect(isCorrect(item, answerInput(item))).toBe(true);
+          expect(item.diag(answerInput(item))).toBeNull();
           if (item.form === 'num') {
             expect(Number.isFinite(item.answer)).toBe(true);
             // What we print as the answer parses back to the same value.

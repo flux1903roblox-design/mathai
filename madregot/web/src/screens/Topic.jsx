@@ -33,7 +33,7 @@ export default function Topic() {
       <div className={`unit-head guide-banner ch-${t.color}`}>
         <div className="unit-head-text">
           <h2 className="unit-title">{t.title}</h2>
-          <p className="unit-label">יחידה {n}</p>
+          <p className="unit-label">{t.bridge ? 'יסודות לחיזוק' : `יחידה ${n}`}</p>
           <p className="unit-label">{t.desc}</p>
         </div>
       </div>
@@ -42,6 +42,12 @@ export default function Topic() {
         <section className="guide" aria-labelledby="guide-key" data-region="content">
           <h2 id="guide-key" className="h-section">רעיונות מרכזיים</h2>
           <ul className="guide-cards">{t.lesson.points.map((pt) => <li key={pt} className="guide-card"><MathText text={pt} /></li>)}</ul>
+          {t.lesson.words?.length > 0 && (
+            <>
+              <h2 className="h-section">מילים של היחידה</h2>
+              <ul className="guide-words">{t.lesson.words.map((w) => <li key={w}>{w}</li>)}</ul>
+            </>
+          )}
           {t.lesson.examples && (
             <>
               <h2 className="h-section">דוגמאות מהשיעור</h2>

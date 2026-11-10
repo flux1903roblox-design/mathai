@@ -3,7 +3,12 @@
 // misconception predictions. A stair added to the registry is covered without writing new tests.
 import { describe, it, expect } from 'vitest';
 import { CONTENT } from './content/index';
-import type { DiscoverStep, DiagModel, StairContent, WorkedExample } from './types';
+import type { DiscoverStep, DiagModel, FigSpec, StairContent, WorkedExample } from './types';
+import { createElement } from 'react';
+// @ts-ignore: react-dom has no type declarations here
+import { renderToStaticMarkup } from 'react-dom/server';
+// @ts-ignore: plain JS
+import Figure from '@/components/Figure.jsx';
 import { evaluate, same, seeded, identical, texToExpr, texRelation, holds } from './expr';
 import { discriminating, diagnose } from './misconceptions';
 import { ALL_SKILLS } from './skills';
@@ -358,6 +363,29 @@ describe('solving together: the last step names the mistake', () => {
     expect(diagnoseFinal(CONTENT['sys:5'], 0, 4)).toEqual(['boundary']);
     // eq:3, 2x − 7 = 5x + 8: −4 is no misconception's number, so nothing is named
     expect(diagnoseFinal(CONTENT['eq:3'], 0, -4)).toEqual([]);
+  });
+});
+
+// The fractions floor is for students who need to see a fraction before they compute with it: every teaching step of
+// its stairs draws one (a figure or an object to move), and every drawing renders with real numbers.
+describe('the fractions floor teaches with pictures', () => {
+  const frac = stairs.filter((c) => c.topic === 'frac');
+  it('every discover step of frac:1-2 has a figure or an object', () => {
+    expect(frac.map((c) => c.skill)).toEqual(['frac:1', 'frac:2']);
+    const bare = frac.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
+    expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
+  });
+  it('every figure of the floor renders, with no broken numbers', () => {
+    const figs = frac.flatMap((c) => [
+      ...c.discover, ...c.misconceptions.flatMap((m) => m.remedy),
+      ...c.examples, ...c.together,
+    ].map((x) => (x as { fig?: FigSpec }).fig).filter(Boolean) as FigSpec[]);
+    expect(figs.length).toBeGreaterThan(10);
+    figs.forEach((fig) => {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, fig.type).toMatch(/<svg/);
+      expect(html, fig.type).not.toMatch(/NaN|undefined|Infinity/);
+    });
   });
 });
 

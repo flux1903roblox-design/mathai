@@ -310,7 +310,9 @@ export default function Lesson() {
     const u = item.form === 'mc' ? choice : isManip ? mv : readAnswer(item, slots);
     if (u == null) {
       const missing = names.find((k) => !String(slots[k] || '').trim()) || names[0];
-      setLast({ invalid: true, text: INVALID[item.form] || 'כתבו מספר. מינוס יש במקלדת.' });
+      // a question that asks for a decimal, answered with the fraction: say what it wants
+      const asFraction = item.askDec && /\//.test(String(slots.v || ''));
+      setLast({ invalid: true, text: asFraction ? 'כתבו את התשובה כמספר עשרוני, עם נקודה.' : INVALID[item.form] || 'כתבו מספר. מינוס יש במקלדת.' });
       setShakeKey((v) => v + 1); setActive(missing); focusSlot(missing);
       return;
     }
