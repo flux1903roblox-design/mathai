@@ -4,7 +4,7 @@ import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target, Settings as SettingsIcon } from 'lucide-react';
+import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target, Settings as SettingsIcon, BookOpen, Sparkles } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api } from '@/lib/api.js';
 import { teacherApi, useEmailSignIn, offerBind } from '@/lib/teacher.js';
@@ -136,9 +136,12 @@ export default function Teacher() {
               <Stat icon={Hand} tone="gold" value={openHelp.length} label="בקשות עזרה פתוחות" />
             </div>
 
-            {/* the class's tools: chips in one row that scrolls on a narrow screen (later items add theirs) */}
+            {/* the class's tools (TEACHER-2 §7): chips in one row that scrolls sideways on a narrow screen and never
+                wraps; the exam, the report and the guide add theirs between these as they land */}
             <nav className="t-tools" aria-label="כלים">
               <ul>
+                <li><Link className="t-tool" to="/teacher/lessons"><BookOpen size={18} aria-hidden="true" />השיעורים</Link></li>
+                <li><Link className="t-tool" to="/teacher/assistant"><Sparkles size={18} aria-hidden="true" />העוזר החכם</Link></li>
                 <li><Link className="t-tool" to="/teacher/settings"><SettingsIcon size={18} aria-hidden="true" />הגדרות הכיתה</Link></li>
               </ul>
             </nav>

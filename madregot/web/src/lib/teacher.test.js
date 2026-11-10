@@ -220,3 +220,50 @@ describe('the class itself: rename, delete, and taking it off this device (TEACH
     expect(useApp.getState().profile.classes).toEqual([other]);
   });
 });
+
+describe('the student view (TEACHER-2)', () => {
+  it('previewMode: a teacher on a student screen, never on the board or another teacher screen, and never a student', async () => {
+    const { useApp, teacher } = await load({ classes: [keyOnly] });
+    expect(teacher.previewMode('/learn/signed/1')).toBe(true);
+    expect(teacher.previewMode('/learn/pyth/2/C')).toBe(true);
+    expect(teacher.previewMode('/lesson/signed/1')).toBe(true);
+    expect(teacher.previewMode('/repair/signed/1/sign')).toBe(true);
+    expect(teacher.previewMode('/teacher')).toBe(false);
+    expect(teacher.previewMode('/teacher/assistant')).toBe(false);
+    expect(teacher.previewMode('/teacher/lessons')).toBe(false);
+    expect(teacher.previewMode('/')).toBe(false);
+    // without an argument it reads the address bar (a hash router)
+    vi.stubGlobal('location', { hash: '#/lesson/signed/1?kind=check&purpose=mastery', origin: 'https://madregot.example.test' });
+    expect(teacher.previewMode()).toBe(true);
+    vi.stubGlobal('location', { hash: '#/teacher/lessons?grade=8', origin: 'https://madregot.example.test' });
+    expect(teacher.previewMode()).toBe(false);
+    useApp.getState().setProfile({ role: 'student', name: 'נועה', grade: '7' });
+    expect(teacher.previewMode('/learn/signed/1')).toBe(false);
+  });
+
+  it('autoAskAllowed is false in the student view, even on the teacher\'s paid tier, and true again on the board', async () => {
+    const { teacher } = await load({ classes: [keyOnly] });
+    const acc = await import('./account.js');
+    acc.useAIStatus.setState({ status: { paywall: true, tier: 'teacher', kinds: ['explain', 'chat'], groups: { tutor: { left: 20, limit: 20 } } } });
+    vi.stubGlobal('location', { hash: '#/lesson/signed/1', origin: 'https://madregot.example.test' });
+    expect(teacher.previewMode()).toBe(true);
+    expect(acc.autoAskAllowed()).toBe(false);
+    vi.stubGlobal('location', { hash: '#/teacher/assistant', origin: 'https://madregot.example.test' });
+    expect(acc.autoAskAllowed()).toBe(true);
+  });
+
+  it('the way back is kept for this tab only while a preview is open, and only to a teacher screen', async () => {
+    const { teacher } = await load({ classes: [keyOnly] });
+    expect(teacher.previewBack.get()).toBe(null);
+    teacher.previewBack.set('/teacher/lessons?grade=8');
+    expect(session.getItem('madregot-preview-back')).toBe('/teacher/lessons?grade=8');
+    expect(teacher.previewBack.get()).toBe('/teacher/lessons?grade=8');
+    teacher.previewBack.set('https://evil.example.test/');
+    teacher.previewBack.set('/quests');
+    expect(teacher.previewBack.get()).toBe('/teacher/lessons?grade=8');
+    session.setItem('madregot-preview-back', '//evil.example.test');
+    expect(teacher.previewBack.get()).toBe(null);
+    teacher.previewBack.clear();
+    expect(session.getItem('madregot-preview-back')).toBe(null);
+  });
+});

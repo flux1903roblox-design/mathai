@@ -8,7 +8,7 @@ import { KIND_GROUP, FREE_KINDS } from '@shared/ai.js';
 import { useApp, PERSONAL_KEY } from './store.js';
 import { api, apiBase, hasServer, ApiError } from './api.js';
 import { qaStatus, qaActive } from './qaFixtures.js';
-import { teacherHeaders } from './teacher.js';
+import { teacherHeaders, previewMode } from './teacher.js';
 
 /** A random id for this device, made once. The server counts the free questions per device. */
 export function deviceId() {
@@ -139,8 +139,12 @@ export function aiAccess(kind, status = useAIStatus.getState().status) {
 /** Does this device have the tool at all today (even if today's count is used)? Locked, economy and offline do not. */
 export const hasTool = (kind, status) => ['open', 'free', 'used', 'paused', 'resting'].includes(aiAccess(kind, status).state);
 
-/** May the app ask the tutor without being asked (the explanation after a second miss)? Never on the free taste. */
+/**
+ * May the app ask the tutor without being asked (the explanation after a second miss)? Never on the free taste, and
+ * never in a teacher's student view: there the teacher's own questions would be spent without asking.
+ */
 export function autoAskAllowed() {
+  if (previewMode()) return false;
   const mode = aiMode();
   if (mode === 'personal') return true;
   if (mode !== 'server') return false;

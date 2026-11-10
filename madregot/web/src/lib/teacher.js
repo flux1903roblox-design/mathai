@@ -3,7 +3,7 @@
 // The server checks either (requireTeacher). Every teacher call goes through teacherHeaders() or teacherApi().
 // The email is never copied into the saved profile: it is read from the session.
 import { useEffect, useState } from 'react';
-import { useApp, today } from './store.js';
+import { useApp, today, STORE_KEY } from './store.js';
 import { api, ApiError, serverHealth } from './api.js';
 import { useParent, accountCall, clearSession } from './parent.js';
 
@@ -140,6 +140,30 @@ export function restore(list) {
   st.setProfile(profile);
   return profile;
 }
+
+// ---------------------------------------------------------------- the student view (spec TEACHER-2)
+// A teacher opens the student screens (a stair, its stages, practice, a mastery check, a repair) inside PreviewFrame.
+// They work on this device's own learning state; nothing reaches the class, because a teacher has no class token
+// (recordAnswer queues answers only with profile.token, and the help button needs one).
+const PREVIEW_PATH = /^\/(learn|lesson|repair)\//;
+const currentPath = () => String(globalThis.location?.hash || '').replace(/^#/, '').split('?')[0] || '/';
+
+/** A teacher on a student screen (the routes PreviewFrame wraps): never on the board or another /teacher screen. */
+export function previewMode(path = currentPath()) {
+  return useApp.getState().profile?.role === 'teacher' && PREVIEW_PATH.test(path);
+}
+
+/**
+ * Where "חזרה ללוח" and the end of a student screen lead: kept in this tab only while a preview is open. PreviewFrame
+ * sets it; every /teacher screen clears it on opening, so a teacher who opens #/ later lands on the board.
+ */
+const BACK_KEY = `${STORE_KEY}-preview-back`;
+const safeBack = (url) => (typeof url === 'string' && /^\/teacher(\/|\?|$)/.test(url) ? url : null);
+export const previewBack = {
+  get() { try { return safeBack(sessionStorage.getItem(BACK_KEY)); } catch { return null; } },
+  set(url) { const u = safeBack(url); if (!u) return; try { sessionStorage.setItem(BACK_KEY, u); } catch { /* storage blocked: the board is the way back */ } },
+  clear() { try { sessionStorage.removeItem(BACK_KEY); } catch { /* nothing kept */ } },
+};
 
 // ---------------------------------------------------------------- the board's questions
 /** Whether this server can send sign-in codes: true or false, or null while it is asked (or does not answer). */

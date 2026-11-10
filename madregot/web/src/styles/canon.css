@@ -603,3 +603,76 @@ a.btn { text-decoration: none; }
 .confirm-text .t-leave-more { margin-top: var(--s2); }
 /* a short phone: the delete sheet gives up the character, so the name to type and the buttons come sooner */
 @media (max-height: 700px) { .t-delete-form .mascot, .t-delete-form svg.mascot { display: none; } }
+
+/* ------------------------------------------------------------------ the teacher's student view (TEACHER-2) */
+/* a thin bar above the student screens: what this is, and the way back to the board. It sits in the flow, so the
+   full-height screens below give up its height (data-preview on <html>, set by PreviewFrame) and a lesson's keypad
+   stays inside a 320×568 screen. The button's 44px target overhangs the 40px bar by 2px each side, transparently. */
+:root[data-preview="1"] { --preview-h: 40px; }
+.preview-bar {
+  position: relative; z-index: 30; display: flex; align-items: center; gap: var(--s2); height: var(--preview-h, 40px);
+  padding: 0 max(var(--s3), env(safe-area-inset-right, 0px)) 0 max(var(--s3), env(safe-area-inset-left, 0px));
+  background: var(--brand-tint); border-bottom: 1px solid var(--brand-line); color: var(--ink); overflow: visible;
+}
+.preview-eye { flex: none; color: var(--brand-d); }
+.preview-text { flex: 1; min-width: 0; margin: 0; display: flex; align-items: baseline; gap: var(--s2); font-size: 14px; line-height: 18px; white-space: nowrap; }
+.preview-text b { font-weight: 800; color: var(--ink); }
+.preview-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
+.preview-back {
+  flex: none; display: inline-flex; align-items: center; min-height: 44px; margin-block: -2px; padding: 0; border: 0;
+  background: transparent; color: var(--brand-d); font: inherit; cursor: pointer;
+}
+.preview-back span {
+  display: inline-flex; align-items: center; min-height: 30px; padding: 0 var(--s3); border: 2px solid var(--brand-line);
+  border-radius: 999px; background: #fff; font-size: 14px; font-weight: 700; white-space: nowrap;
+}
+.preview-back:hover span { border-color: var(--brand); }
+.preview-back:focus-visible { outline: none; }
+.preview-back:focus-visible span { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+/* a phone: two short lines, the name and the sentence that matters ("not sent to the class"); the whole hint is
+   still read aloud */
+@media (max-width: 599px) {
+  .preview-hint-a { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .preview-text { flex-direction: column; align-items: flex-start; gap: 0; }
+  .preview-text b, .preview-hint { font-size: 14px; line-height: 17px; }
+  .preview-hint { max-width: 100%; }
+}
+@media (max-width: 359px) { .preview-eye { display: none; } }
+:root[data-preview="1"] :is(.lesson, .practice, .teach, .pushed, .done-screen, .ob) { min-height: calc(100dvh - var(--preview-h)); }
+:root[data-preview="1"] .lesson { height: calc(100dvh - var(--preview-h)); }
+:root[data-preview="1"] :is(.teach-main > .lm, .teach-main > .remedy > .lm, .teach-main > .remedy) { min-height: calc(100dvh - var(--preview-h)); }
+@media print { .preview-bar { display: none !important; } }
+
+/* ------------------------------------------------------------------ the lessons library (TEACHER-2 §5) */
+.t-library { gap: var(--s4); }
+.t-lib-intro { margin: 0; }
+.t-lib-grade { margin: 0; }
+.t-lib-head { display: flex; align-items: center; gap: var(--s2); }
+.t-lib-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.t-lib-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: #fff; }
+.t-lib-text { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.t-lib-title { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.t-lib-n { color: var(--ink-2); font-weight: 600; }
+.t-lib-sub { margin: 0; font-size: 14px; line-height: 20px; color: var(--ink-2); }
+.t-lib-dots { display: inline-flex; gap: 6px; }
+.t-lib-dots i { width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2px solid var(--rule-strong, #c9ced8); }
+.t-lib-dots i.on { background: var(--brand); border-color: var(--brand); }
+.t-lib-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.t-lib-actions .btn { min-width: 0; padding-inline: var(--s3); }
+.t-lib-foot { gap: var(--s2); }
+.t-lib-foot-note { margin: 0; font-size: 14px; }
+
+/* ------------------------------------------------------------------ the teacher's assistant (TEACHER-2 §6) */
+.t-ai-note { display: flex; flex-direction: column; gap: 6px; padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: #fff; }
+.t-ai-note p { margin: 0; font-size: 15px; line-height: 21px; }
+@media (max-width: 359px) { .t-ai-note { padding: var(--s2) var(--s3); } .t-ai-note p { font-size: 14px; line-height: 20px; } }
+.t-ai-note-lead { color: var(--ink); font-weight: 600; }
+.t-ai-note-rule { display: flex; align-items: flex-start; gap: var(--s2); color: var(--ink-2); }
+.t-ai-note-rule svg { flex: none; margin-top: 2px; color: var(--brand-d); }
+/* the board's tools strip: more chips than a phone's width, so its far (left) edge fades, and the list ends with room
+   for the last chip to scroll clear of the fade */
+.t-tools ul { padding-inline-end: 28px; -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px); mask-image: linear-gradient(to right, transparent 0, #000 28px); }
+
+/* no tab bar under the teacher's assistant: the conversation's input sits at the bottom of the screen */
+.t-assistant.assistant-page { min-height: 100dvh; }
+.t-assistant .chat-dock, .t-assistant .assistant-chat .chat-dock-live { bottom: 0; }

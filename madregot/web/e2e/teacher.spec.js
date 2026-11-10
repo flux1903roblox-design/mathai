@@ -6,6 +6,12 @@
 // survives a reload, unless the teacher said it is a shared computer. The board offers to bind a class that only its
 // key opens, adds the email's other classes, and says how to come back when leaving.
 //
+// TEACHER-2: the teacher opens every lesson, every mastery check and the AI. The lessons library leads to each stair
+// in the student view (a bar that says so and leads back), which works on this device only: no progress or help
+// request reaches the class, and the tutor never asks by itself there. The teacher's assistant carries the class's
+// credentials. A student screen that ends on "/" (or "/quests", "/rescue") comes back to where the preview was opened;
+// with no preview open, those addresses are the board.
+//
 // TEACHER-9: the class settings, opened from the board's tools: the class's name, grade, code and join lock; the email
 // it is bound to and the teacher key, with a new key after a fresh code; how long the data is kept (the words come from
 // shared/retention.js); and deleting the class, which waits for its name to be typed and, for a class bound to an
@@ -15,7 +21,7 @@
 // compared.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { NOW, student } from './helpers.js';
+import { NOW, student, item, answer, proceed } from './helpers.js';
 import { API, TOKEN, fakeServer } from './fakeServer.js';
 
 const EMAIL = 'teacher@example.test';
@@ -475,5 +481,205 @@ test.describe('TEACHER-9: the class settings and deleting a class', () => {
     expect(st.deleted).toEqual(['K7Q2MD']);
     expect((await saved(page)).profile).toBe(null);
     expect(log.some((r) => r.path === '/api/account/signout')).toBe(true);
+  });
+});
+
+test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assistant', () => {
+  const library = async (page, over = {}) => {
+    const srv = await fakeServer(page, over, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    await page.getByRole('navigation', { name: 'כלים' }).getByRole('link', { name: 'השיעורים' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'השיעורים של כיתה ז׳' })).toBeVisible();
+    return srv;
+  };
+  const bar = (page) => page.getByRole('region', { name: 'תצוגת תלמיד' });
+  const topic = (page, name) => page.getByRole('region', { name });
+  const back = (page) => page.evaluate(() => sessionStorage.getItem('madregot-preview-back'));
+  const previewOn = (page) => page.evaluate(() => document.documentElement.dataset.preview || null);
+
+  test('1. the library opens a stair in the student view, and "חזרה ללוח" comes back to the library', async ({ page }) => {
+    await library(page);
+    await expect(page.getByText('כל מדרגה בנויה מחמישה שלבים: מבינים את הרעיון, דוגמה פתורה, פותרים יחד, מתרגלים לבד ובדיקת שליטה.')).toBeVisible();
+    const signed = topic(page, 'מספרים מכוונים');
+    await expect(signed.getByRole('list', { name: 'השלבים של חיבור וחיסור' }).getByRole('listitem')).toHaveCount(5);
+    await expect(page.getByRole('button', { name: 'איפוס תצוגת התלמיד' })).toBeVisible();
+    await shot(page, 'teacher-library');
+    await signed.getByRole('link', { name: 'לשיעור: חיבור וחיסור' }).click();
+    await expect(page).toHaveURL(/#\/learn\/signed\/1$/);
+    await expect(page.getByRole('list', { name: 'שלבי המדרגה' })).toBeVisible();
+    await expect(bar(page)).toBeVisible();
+    await expect(bar(page)).toContainText('תצוגת תלמיד');
+    await expect(bar(page)).toContainText('מה שעושים כאן לא נשלח לכיתה.');
+    expect(await previewOn(page)).toBe('1');
+    expect(await back(page)).toBe('/teacher/lessons');
+    const btn = await bar(page).getByRole('button', { name: 'חזרה ללוח' }).boundingBox();
+    expect(btn.height).toBeGreaterThanOrEqual(44);
+    // no tab bar of the student app inside the student view
+    await expect(page.getByRole('navigation', { name: 'ניווט ראשי' })).toHaveCount(0);
+    await bar(page).getByRole('button', { name: 'חזרה ללוח' }).click();
+    await expect(page).toHaveURL(/#\/teacher\/lessons$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'השיעורים של כיתה ז׳' })).toBeVisible();
+    expect(await previewOn(page)).toBe(null);
+    expect(await back(page)).toBe(null);
+    // the board's back arrow
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+  });
+
+  test('2. after switching to grade ח׳, a stage C opens, and the way back keeps the grade', async ({ page }) => {
+    await library(page);
+    await page.getByRole('radio', { name: 'כיתה ח׳' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'השיעורים של כיתה ח׳' })).toBeVisible();
+    await expect(page).toHaveURL(/grade=8/);
+    await expect(topic(page, 'מספרים מכוונים')).toHaveCount(0);
+    await topic(page, 'משפט פיתגורס').getByRole('link', { name: 'לשיעור: מציאת היתר' }).click();
+    await expect(page).toHaveURL(/#\/learn\/pyth\/1$/);
+    await page.getByRole('button', { name: 'פותרים יחד: פתיחה' }).click();
+    await expect(page).toHaveURL(/#\/learn\/pyth\/1\/C$/);
+    await expect(bar(page)).toBeVisible();
+    await expect(page.locator('.tg-step').first()).toBeVisible();
+    expect(await back(page)).toBe('/teacher/lessons?grade=8');
+    await shot(page, 'teacher-preview-stage');
+    await bar(page).getByRole('button', { name: 'חזרה ללוח' }).click();
+    await expect(page).toHaveURL(/#\/teacher\/lessons\?grade=8$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'השיעורים של כיתה ח׳' })).toBeVisible();
+  });
+
+  test('3. a mastery check and practice in the student view send nothing to the class, and the tutor never asks by itself', async ({ page }) => {
+    // a licensed class: the teacher's tier is a paid one, where a student's lesson would ask the tutor after two misses
+    const { log } = await library(page, { licence: { status: 'active', until: '2027-08-31T20:59:59Z', seats: 35, students: 2, aiWeek: 0, joinLocked: false, request: null, legacyUntil: null, offer: { seatYearAgorot: 4900, minSeats: 10, vatMode: 'included', online: true } } });
+    await topic(page, 'מספרים מכוונים').getByRole('link', { name: 'בדיקת שליטה: חיבור וחיסור' }).click();
+    await expect(page).toHaveURL(/#\/lesson\/signed\/1\?kind=check&purpose=mastery$/);
+    await expect.poll(() => item(page)).toBeTruthy();
+    await expect(bar(page)).toBeVisible();
+    await answer(page, true);
+    await proceed(page);
+    // practice: two misses on one question
+    await bar(page).getByRole('button', { name: 'חזרה ללוח' }).click();
+    // leaving a check under way asks first, as it does a student
+    await page.getByRole('dialog', { name: 'לצאת מהשיעור?' }).getByRole('button', { name: 'יציאה' }).click();
+    await expect(page).toHaveURL(/#\/teacher\/lessons$/);
+    await topic(page, 'מספרים מכוונים').getByRole('link', { name: 'לשיעור: חיבור וחיסור' }).click();
+    await page.evaluate(() => { window.__madregotItem = null; }); // the check's question is not the practice's
+    await page.getByRole('button', { name: 'מתרגלים לבד: פתיחה' }).click();
+    await expect(page).toHaveURL(/#\/lesson\/signed\/1\?part=1&from=journey$/);
+    await expect.poll(() => item(page)).toBeTruthy();
+    await answer(page, false); await proceed(page); await answer(page, false);
+    await expect(page.locator('section.fb')).toBeVisible();
+    await page.waitForTimeout(600);
+    await expect(page.getByRole('button', { name: 'לבקש עזרה מהמורה' })).toHaveCount(0);
+    const posts = log.filter((r) => r.method === 'POST').map((r) => r.path);
+    expect(posts.filter((p) => ['/api/progress', '/api/help'].includes(p))).toEqual([]);
+    expect(log.filter((r) => r.path === '/api/ai/explain')).toEqual([]);
+    // the answers stayed on this device: its own learning state, an empty class outbox
+    const st = await saved(page);
+    expect(st.outbox).toEqual([]);
+    expect(st.learn.skills['signed:1'].attempts.length).toBeGreaterThan(0);
+  });
+
+  test('4. the teacher\'s assistant: the note and the Ministry\'s line, and its questions go as the class', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await page.getByRole('navigation', { name: 'כלים' }).getByRole('link', { name: 'העוזר החכם' }).click();
+    await expect(page).toHaveURL(/#\/teacher\/assistant$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'העוזר החכם' })).toBeVisible();
+    await expect(page.getByText('העוזר החכם למורים: להכנת תרגילים, הסברים ורעיונות לשיעור. השאלות שלכם לא מוצגות לתלמידים.')).toBeVisible();
+    const note = page.getByRole('complementary', { name: 'על העוזר החכם למורים' });
+    await expect(note).toContainText('לפי ההנחיות של משרד החינוך: בלי שמות של תלמידים, ציונים או פרטים מזהים.');
+    await expect(note).toContainText('בכיתה לא מציגים את העוזר לתלמידים.');
+    await expect(bar(page)).toHaveCount(0); // the teacher's own tool, not a student view
+    await page.getByLabel('ההודעה שלכם').fill('איך להסביר חיבור של מספר חיובי ומספר שלילי?');
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    await expect(page.getByText('כדי לחבר מספרים עם סימנים שונים')).toBeVisible();
+    const chat = log.find((r) => r.path === '/api/ai/chat');
+    expect(chat.headers['x-class-code']).toBe('K7Q2MD');
+    expect(chat.headers['x-teacher-key']).toBe('tkey-123');
+    expect(chat.headers.authorization).toBeUndefined();
+    await shot(page, 'teacher-assistant');
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    // a class its teacher marked private (TRUST-11, later) is not a school class: the line about the class goes
+    await open(page, '#/teacher/assistant', keyTeacher({ aiPolicy: { setting: 'private' } }));
+    await expect(note).toContainText('בלי שמות של תלמידים, ציונים או פרטים מזהים.');
+    await expect(note).not.toContainText('בכיתה לא מציגים את העוזר לתלמידים.');
+  });
+
+  test('5. at 320×568 the lesson\'s keypad and its check button stay on screen under the bar', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await page.setViewportSize({ width: 320, height: 568 });
+    // a typed question (the seed picks the first exercise)
+    let it = null;
+    for (let sd = 1; sd <= 40 && !(it && it.form === 'num'); sd += 1) {
+      await open(page, '#/lesson/signed/1?kind=check&purpose=mastery', keyTeacher(), { local: { 'madregot-seed': String(sd) } });
+      await expect.poll(() => item(page)).toBeTruthy();
+      it = await item(page);
+    }
+    expect(it.form).toBe('num');
+    await expect(bar(page)).toBeVisible();
+    const keys = page.locator('.keypad button');
+    const last = await keys.last().boundingBox();
+    expect(last.y + last.height).toBeLessThanOrEqual(568);
+    const check = await page.getByRole('button', { name: 'בדיקה', exact: true }).boundingBox();
+    expect(check.y + check.height).toBeLessThanOrEqual(568);
+    const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
+    expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);
+  });
+
+  test('6. the end of a check, "למפה" after a stage, and a way to /rescue all come back to the library', async ({ page }) => {
+    await library(page);
+    const signed = topic(page, 'מספרים מכוונים');
+    await signed.getByRole('link', { name: 'בדיקת שליטה: חיבור וחיסור' }).click();
+    await expect.poll(() => item(page)).toBeTruthy();
+    for (let i = 0; i < 5; i += 1) { await answer(page, true); await proceed(page); }
+    await expect(page.getByRole('heading', { name: 'שולטים לבד!' })).toBeVisible();
+    await page.getByRole('button', { name: 'למפה' }).click();
+    await expect(page).toHaveURL(/#\/teacher\/lessons$/);
+    // the dots of that stair now show its check, done in this view
+    await expect(signed.getByRole('list', { name: 'השלבים של חיבור וחיסור' })).toContainText('בדיקת שליטה, נעשה בתצוגה הזו');
+
+    // a worked example to its end, then "למפה" in the stage's moment
+    await signed.getByRole('link', { name: 'לשיעור: חיבור וחיסור' }).click();
+    await page.getByRole('button', { name: 'דוגמה פתורה: פתיחה' }).click();
+    await expect(page).toHaveURL(/#\/learn\/signed\/1\/B$/);
+    await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+    for (let g = 0; g < 8 && !(await page.locator('.stage-done').count()); g += 1) {
+      while (await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).count()) await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).click();
+      await page.getByRole('button', { name: /לדוגמה הבאה|לפתור יחד/ }).click();
+    }
+    await page.locator('.stage-done').getByRole('button', { name: 'למפה', exact: true }).click();
+    await expect(page).toHaveURL(/#\/teacher\/lessons$/);
+
+    // CheckDone's way to the exam plan (/rescue), from inside a preview
+    await signed.getByRole('link', { name: 'לשיעור: חיבור וחיסור' }).click();
+    await expect(bar(page)).toBeVisible();
+    await page.evaluate(() => { window.location.hash = '#/rescue'; });
+    await expect(page).toHaveURL(/#\/teacher\/lessons$/);
+    // the reset of the student view keeps the teacher's profile and clears the dots
+    await page.getByRole('button', { name: 'איפוס תצוגת התלמיד' }).click();
+    await expect(page.getByText('תצוגת התלמיד אופסה. כל שיעור ייפתח מההתחלה.')).toBeVisible();
+    await expect(signed.getByRole('list', { name: 'השלבים של חיבור וחיסור' })).not.toContainText('נעשה בתצוגה הזו');
+    expect((await saved(page)).profile).toMatchObject({ role: 'teacher', active: 'K7Q2MD' });
+  });
+
+  test('7. with no preview open the student addresses are the board; during one they lead back to the library', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/', keyTeacher());
+    await expect(page).toHaveURL(/#\/teacher$/);
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    await shot(page, 'teacher-board-tools');
+    for (const addr of ['#/quests', '#/teacher/nothing', '#/subscription', '#/me']) {
+      await page.evaluate((h) => { window.location.hash = h; }, addr);
+      await expect(page).toHaveURL(/#\/teacher$/);
+    }
+    await page.getByRole('navigation', { name: 'כלים' }).getByRole('link', { name: 'השיעורים' }).click();
+    await topic(page, 'זוויות').getByRole('link', { name: /^לשיעור: / }).first().click();
+    await expect(page).toHaveURL(/#\/learn\/angles\/1$/);
+    await expect(bar(page)).toBeVisible();
+    await page.evaluate(() => { window.location.hash = '#/quests'; });
+    await expect(page).toHaveURL(/#\/teacher\/lessons$/);
+    // the library cleared the way back: "#/" is the board again
+    await page.evaluate(() => { window.location.hash = '#/'; });
+    await expect(page).toHaveURL(/#\/teacher$/);
   });
 });
