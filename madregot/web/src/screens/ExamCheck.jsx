@@ -13,6 +13,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { aiAccess, gate, useAIStatus } from '@/lib/account.js';
 import ToolLocked from '@/components/ToolLocked.jsx';
+import SupportCard from '@/components/SupportCard.jsx';
 
 async function imageToJpeg(file) {
   const url = URL.createObjectURL(file);
@@ -75,6 +76,8 @@ export default function ExamCheck() {
         key: practice ? practice.items.map((i) => ({ prompt: i.plain, answer: i.answer })) : undefined,
       });
       if (!result.readable || !result.questions?.length) {
+        // the tutor stopped the maths because the pages worry it: the support card, never "try again"
+        if (result.care) { if (mounted.current) setState({ phase: 'care' }); return; }
         const message = 'לא הצלחנו לקרוא את המבחן. צלמו שוב באור טוב, עם כל הדף בתמונה.';
         if (mounted.current) setState({ phase: 'error', message }); else toast.error(message);
         return;
@@ -154,6 +157,7 @@ export default function ExamCheck() {
           </div>
           {/* a failed check says so right under the question, where it is seen without scrolling */}
           {state.phase === 'error' && <p className="form-error check-error" role="alert">{state.message}</p>}
+          {state.phase === 'care' && <SupportCard variant="after-message" className="exam-support" />}
           <section className="section" aria-labelledby="pages-title" data-region="content">
             <h2 id="pages-title" className="set-head">הדפים ({pages.length} מתוך {MAX_EXAM_PAGES})</h2>
             <ul className="page-thumbs">

@@ -7,6 +7,8 @@ import { useApp } from '@/lib/store.js';
 import { runAI, aiReady, aiMode } from '@/lib/ai.js';
 import { gate, aiAccess, useAIStatus } from '@/lib/account.js';
 import ToolLocked from '@/components/ToolLocked.jsx';
+import SupportCard from '@/components/SupportCard.jsx';
+import { SupportLink } from '@/components/SupportSheet.jsx';
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
@@ -61,6 +63,7 @@ function AiOffline() {
         <div className="ai-offline-actions">
           <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>
           {!inClass && <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>}
+          <SupportLink className="ai-offline-support" />
         </div>
       </div>
     </section>
@@ -113,7 +116,7 @@ function PhotoCheck() {
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
       {state.phase === 'done' && (
         <Box tone="ai" title="בדיקת העוזר" live>
-          {!r.readable && <p>קשה לקרוא את התמונה. {r.summary}</p>}
+          {!r.readable && <p>{r.care ? '' : 'קשה לקרוא את התמונה. '}{r.summary}</p>}
           {r.readable && (
             <>
               <p className="check-final">{{ correct: 'התשובה הסופית נכונה.', wrong: 'יש טעות בדרך.', unfinished: 'הפתרון עוד לא גמור.', unknown: 'לא ברור מה התשובה הסופית.' }[r.final]}</p>
@@ -130,6 +133,7 @@ function PhotoCheck() {
           )}
         </Box>
       )}
+      {state.phase === 'done' && r.care && <SupportCard variant="after-message" />}
     </div>
   );
 }

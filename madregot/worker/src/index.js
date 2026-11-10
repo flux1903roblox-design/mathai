@@ -371,25 +371,54 @@ async function saveExam(req, env, cors) {
   return json({ ok: true }, 200, cors);
 }
 
-async function askHelp(req, env, cors) {
+/**
+ * POST /api/help: a class student asks the teacher. Either help with an exercise ({ topic, level, question, answer,
+ * note?, image? }) or, with { kind: 'talk' } and no text, "I want the teacher to talk with me" (trust spec TRUST-3
+ * §3.5): stored with an empty question and note and help_meta.kind = 'talk', one open at a time, and never refused for
+ * the number of open requests. A note that reads as distress is checked here again (the device's own check is never
+ * trusted) and marks the request help_meta.care = 1, so the teacher sees "כדאי לבדוק מה שלום התלמיד/ה". The note is
+ * the child's own message to their teacher; the safety log keeps only a count.
+ */
+async function askHelp(req, env, ctx, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.help);
-  const open = await env.DB.prepare('SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ? AND done_at IS NULL').bind(s.id).first();
+  if (b.kind === 'talk') {
+    const talking = await env.DB.prepare(`SELECT h.id FROM help_requests h JOIN help_meta m ON m.help_id = h.id
+      WHERE h.student_id = ? AND h.done_at IS NULL AND m.kind = 'talk' LIMIT 1`).bind(s.id).first();
+    if (talking) return json({ ok: true, again: true }, 200, cors);
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, \'\', NULL, \'\', \'\', \'\', NULL, ?)').bind(s.id, nowIso()),
+      env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) SELECT MAX(id), \'talk\', 0 FROM help_requests WHERE student_id = ?').bind(s.id),
+    ]);
+    return json({ ok: true }, 200, cors);
+  }
+  const note = String(b.note || '').slice(0, 300);
+  const hit = detectDistress(note);
+  // a note that reads as distress always reaches the teacher, however many requests are open
+  const open = hit.flag ? null : await env.DB.prepare('SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ? AND done_at IS NULL').bind(s.id).first();
   if (open && open.n >= 10) throw new HttpError(429, 'too_many_open');
+  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: 'help_note', source: 'regex' }, ctx);
   // Optional notebook page: a JPEG data URL of the student's working, kept small.
   const image = typeof b.image === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(b.image) && b.image.length <= 600_000 ? b.image : null;
-  // The same exercise asked again while its request is still open: one request, with the newest note and page.
+  // The same exercise asked again while its request is still open: one request, with the newest note and page (a
+  // talk request, with its empty question, is never one of them).
   const question = String(b.question || '').slice(0, 600);
-  const same = await env.DB.prepare('SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL AND question = ? LIMIT 1').bind(s.id, question).first();
+  const same = await env.DB.prepare(`SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL AND question = ?
+    AND id NOT IN (SELECT help_id FROM help_meta WHERE kind = 'talk') LIMIT 1`).bind(s.id, question).first();
   if (same) {
-    const note = String(b.note || '').slice(0, 300);
-    await env.DB.prepare('UPDATE help_requests SET note = CASE WHEN ? <> \'\' THEN ? ELSE note END, image = COALESCE(?, image), answer = ? WHERE id = ?')
-      .bind(note, note, image, String(b.answer || '').slice(0, 100), same.id).run();
+    await env.DB.batch([
+      env.DB.prepare('UPDATE help_requests SET note = CASE WHEN ? <> \'\' THEN ? ELSE note END, image = COALESCE(?, image), answer = ? WHERE id = ?')
+        .bind(note, note, image, String(b.answer || '').slice(0, 100), same.id),
+      // once a note read as distress, the request stays marked for the teacher
+      ...(hit.flag ? [env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) VALUES (?, \'help\', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1').bind(same.id)] : []),
+    ]);
     return json({ ok: true, again: true }, 200, cors);
   }
-  await env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(s.id, String(b.topic || '').slice(0, 20), Number(b.level) || null, String(b.question || '').slice(0, 600),
-      String(b.answer || '').slice(0, 100), String(b.note || '').slice(0, 300), image, nowIso()).run();
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO help_requests (student_id, topic, level, question, answer, note, image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(s.id, String(b.topic || '').slice(0, 20), Number(b.level) || null, question, String(b.answer || '').slice(0, 100), note, image, nowIso()),
+    ...(hit.flag ? [env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) SELECT MAX(id), \'help\', 1 FROM help_requests WHERE student_id = ?').bind(s.id)] : []),
+  ]);
   return json({ ok: true }, 200, cors);
 }
 
@@ -410,8 +439,10 @@ async function dashboard(req, env, cors) {
        WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL GROUP BY a.topic, a.cat ORDER BY students DESC, n DESC LIMIT 12`, cls.code, weekStart),
     q(`SELECT DISTINCT a.topic, a.cat, s.name FROM attempts a JOIN students s ON s.id = a.student_id
        WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL`, cls.code, weekStart),
-    q(`SELECT h.id, h.topic, h.level, h.question, h.answer, h.note, h.image IS NOT NULL AS has_image, h.created_at, h.seen_at, h.done_at, s.name
-       FROM help_requests h JOIN students s ON s.id = h.student_id
+    // kind 'help' or 'talk' and care 0/1 (trust spec TRUST-3 §3.5): a request with no help_meta row is a plain 'help', care 0
+    q(`SELECT h.id, h.topic, h.level, h.question, h.answer, h.note, h.image IS NOT NULL AS has_image, h.created_at, h.seen_at, h.done_at, s.name,
+       COALESCE(m.kind, 'help') AS kind, COALESCE(m.care, 0) AS care
+       FROM help_requests h JOIN students s ON s.id = h.student_id LEFT JOIN help_meta m ON m.help_id = h.id
        WHERE s.class_code = ? AND (h.done_at IS NULL OR h.done_at >= ?) ORDER BY h.created_at DESC LIMIT 100`, cls.code, daysAgo(7)),
     q('SELECT a.student_id, MAX(a.at) AS last FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? GROUP BY a.student_id', cls.code),
     q('SELECT e.id, e.student_id, e.title, e.correct, e.total, e.questions, e.weak, e.created_at, s.name FROM exams e JOIN students s ON s.id = e.student_id WHERE s.class_code = ? ORDER BY e.created_at DESC LIMIT 200', cls.code),
@@ -523,7 +554,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})$/))) return classInfo(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})\/join$/))) return joinClass(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, cors);
-  if (M === 'POST' && p === '/api/help') return askHelp(req, env, cors);
+  if (M === 'POST' && p === '/api/help') return askHelp(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/exams') return saveExam(req, env, cors);
   // teacher
   if (M === 'GET' && p === '/api/teacher/dashboard') return dashboard(req, env, cors);

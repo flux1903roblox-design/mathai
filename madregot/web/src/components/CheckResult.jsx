@@ -13,7 +13,8 @@ const FINAL = {
 export default function CheckResult({ r, title = 'בדיקת הדרך' }) {
   return (
     <Box tone="ai" title={title} live>
-      {!r.readable ? <p>קשה לקרוא את הכתב. <Markdown>{r.summary}</Markdown></p> : (
+      {/* a care result (the page worried the tutor) speaks for itself, without "hard to read" */}
+      {!r.readable ? <p>{!r.care && 'קשה לקרוא את הכתב. '}<Markdown>{r.summary}</Markdown></p> : (
         <>
           <p className="check-final">{FINAL[r.final] || ''}</p>
           <ol className="check-steps">

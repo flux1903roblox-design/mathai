@@ -7,6 +7,7 @@ import { useLimitSheet, closeLimitSheet } from '@/lib/account.js';
 import { limitVariant } from './limitCopy.js';
 import { Button, Sheet } from './ui.jsx';
 import Mascot from './Mascot.jsx';
+import { SupportLink } from './SupportSheet.jsx';
 
 const PRACTICE = /^\/(lesson|practice|placement|learn|repair|rescue\/)/;
 
@@ -41,6 +42,8 @@ export default function LimitSheet() {
           return <Button key={a} variant={variant} className={cls} onClick={practice}>להמשיך לתרגל</Button>;
         })}
         {parentsLink && <button type="button" className="link-btn limit-parents" onClick={() => go('/parents/info')}>מידע להורים</button>}
+        {/* a person to talk to is always one tap away, whatever the tutor says (trust spec TRUST-3 §3.5) */}
+        <SupportLink className="limit-support" onOpen={closeLimitSheet} />
       </div>
     </Sheet>
   );

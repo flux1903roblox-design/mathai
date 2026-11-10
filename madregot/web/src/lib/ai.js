@@ -56,8 +56,13 @@ export function streamEnd(acc) {
   return { text: lead.text.slice(0, lead.text.length - tail.length), care: lead.care || marks.some((m) => m[1] === 'care') };
 }
 
-/** The tutor said "not now": remember it, open the calm sheet, and give the caller an error it shows quietly. */
-function limited(kind, data, status, onMadi) {
+/**
+ * The tutor said "not now": remember it, open the calm sheet, and give the caller an error it shows quietly. `quiet`
+ * (a message that reads as distress, already answered by the support card on screen): no sheet, nothing remembered;
+ * the server's care path never says "not now", so only an older server could.
+ */
+function limited(kind, data, status, onMadi, quiet = false) {
+  if (quiet) return Object.assign(new ApiError(data.error, status, data), { limit: true });
   noteLimit(data, kind);
   const tier = data.tier || useAIStatus.getState().status?.tier || null;
   openLimitSheet({ reason: data.error, tier, scope: data.scope || null, onMadi });
@@ -66,11 +71,12 @@ function limited(kind, data, status, onMadi) {
 
 /**
  * Run an AI action. For 'chat', pass onText to receive the reply as it streams. onMadi: what the calm sheet's
- * "לשאול את מדי" does when the tutor says no for today (the opener's own way to Madi).
+ * "לשאול את מדי" does when the tutor says no for today (the opener's own way to Madi). quiet: never open the limit
+ * sheet (a message that reads as distress: the support card is already on screen, and no paywall or limit may follow).
  * Resolves to { text, care } for explain/chat, or the parsed JSON for generate/check/exam (with care for check/exam;
  * care: true means the reply is about the student's wellbeing, and the screen shows the support card).
  */
-export async function runAI(kind, input, { onText, signal, onMadi } = {}) {
+export async function runAI(kind, input, { onText, signal, onMadi, quiet = false } = {}) {
   const mode = aiMode();
   if (mode === 'none') throw new ApiError('no_server');
 
@@ -79,7 +85,7 @@ export async function runAI(kind, input, { onText, signal, onMadi } = {}) {
       const r = qaReply(kind);
       onText?.(r.text);
       return r;
-    } catch (e) { throw limited(kind, e.qa || { error: 'upstream' }, 429, onMadi); }
+    } catch (e) { throw limited(kind, e.qa || { error: 'upstream' }, 429, onMadi, quiet); }
   }
 
   if (mode === 'personal') {
@@ -120,7 +126,7 @@ export async function runAI(kind, input, { onText, signal, onMadi } = {}) {
   if (!res.ok) {
     noteUsage(res); // X-AI-Linked: 0 still tells this device its family link is gone
     const data = await res.json().catch(() => ({}));
-    if (LIMIT_ERRORS.includes(data.error)) throw limited(kind, data, res.status, onMadi);
+    if (LIMIT_ERRORS.includes(data.error)) throw limited(kind, data, res.status, onMadi, quiet);
     throw new ApiError(data.error || 'upstream', res.status, data);
   }
   noteUsage(res);

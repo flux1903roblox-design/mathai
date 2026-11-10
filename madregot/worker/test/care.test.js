@@ -282,3 +282,85 @@ test('the owner\'s summary shows the care pool, and reminds to check the support
   const lp = JSON.parse(one(h.env, 'SELECT params FROM notices WHERE kind = ?', `owner:summary:${lateDay}`).params);
   assert.ok(lp.violations.includes(line));
 });
+
+// ---------------------------------------------------------------- the teacher, chosen by the child (§3.5)
+const helpOf = async (cls) => (await (await h.call('GET', '/api/teacher/dashboard', { headers: cls.teacher })).json()).help;
+
+test('a help note that reads as distress is checked again on the server and marks the request care = 1 for the teacher', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
+  const [noa, itai] = cls.students;
+  // the device's own check is never trusted: the server reads the note itself
+  let r = await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', level: 1, question: '3 - 8', answer: '5', note: 'אבא שלי מרביץ לי', care: false } });
+  assert.deepEqual(await r.json(), { ok: true });
+  r = await h.call('POST', '/api/help', { headers: bearer(itai), body: { topic: 'signed', level: 1, question: '3 - 8', answer: '5', note: 'לא הבנתי את הסימן', care: true } });
+  assert.deepEqual(await r.json(), { ok: true });
+  await h.ctx.flush();
+  const help = await helpOf(cls);
+  const byName = Object.fromEntries(help.map((x) => [x.name, x]));
+  assert.equal(byName['נועה'].care, 1); assert.equal(byName['נועה'].kind, 'help');
+  assert.equal(byName['נועה'].note, 'אבא שלי מרביץ לי', 'the note the child chose to send reaches the teacher');
+  assert.equal(byName['איתי'].care, 0, 'a client flag alone marks nothing'); assert.equal(byName['איתי'].kind, 'help');
+  assert.equal(rows(h.env, 'SELECT * FROM help_meta').length, 1, 'a plain request needs no help_meta row');
+  // the safety log keeps a count only: no note, no student
+  assert.deepEqual(events(), [{ kind: 'distress', category: 'abuse', surface: 'help_note', source: 'regex', tier: '' }]);
+  // the same exercise asked again with a distress note: still one request, now marked
+  await h.call('POST', '/api/help', { headers: bearer(itai), body: { topic: 'signed', level: 1, question: '3 - 8', answer: '5', note: 'אני כל הזמן בוכה' } });
+  const again = (await helpOf(cls)).filter((x) => x.name === 'איתי');
+  assert.equal(again.length, 1); assert.equal(again[0].care, 1); assert.equal(again[0].note, 'אני כל הזמן בוכה');
+  // and a calmer note on that request later does not unmark it
+  await h.call('POST', '/api/help', { headers: bearer(itai), body: { topic: 'signed', level: 1, question: '3 - 8', answer: '5', note: 'עכשיו הבנתי חלק' } });
+  assert.equal((await helpOf(cls)).find((x) => x.name === 'איתי').care, 1);
+});
+
+test('a distress note always reaches the teacher, even past the 10 open requests a student may have', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const [noa] = cls.students;
+  for (let i = 0; i < 10; i++) await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: `שאלה ${i}`, answer: '1' } });
+  assert.equal((await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: 'עוד שאלה', answer: '1' } })).status, 429);
+  const r = await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: 'עוד שאלה', answer: '1', note: 'אני רוצה למות' } });
+  assert.equal(r.status, 200);
+  assert.equal((await helpOf(cls)).filter((x) => x.care === 1).length, 1);
+});
+
+test('"ask the teacher to talk with me": an empty question and note, kind talk, one open at a time, nothing of the chat sent', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const [noa] = cls.students;
+  // a student with 10 open requests may still ask for a talk
+  for (let i = 0; i < 10; i++) await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: `שאלה ${i}`, answer: '1' } });
+  let r = await h.call('POST', '/api/help', { headers: bearer(noa), body: { kind: 'talk', note: 'מה שכתבתי לעוזר', question: 'x' } });
+  assert.deepEqual(await r.json(), { ok: true });
+  const id = one(h.env, 'SELECT id FROM students WHERE class_code = ?', cls.code).id;
+  const talk = one(h.env, "SELECT h.question, h.note, h.answer, h.topic, h.image, m.kind, m.care FROM help_requests h JOIN help_meta m ON m.help_id = h.id WHERE h.student_id = ? AND m.kind = 'talk'", id);
+  assert.deepEqual({ ...talk }, { question: '', note: '', answer: '', topic: '', image: null, kind: 'talk', care: 0 }, 'no text is stored, whatever the body says');
+  // asked again while it is open: still one
+  r = await h.call('POST', '/api/help', { headers: bearer(noa), body: { kind: 'talk' } });
+  assert.deepEqual(await r.json(), { ok: true, again: true });
+  assert.equal(one(h.env, "SELECT COUNT(*) AS n FROM help_meta WHERE kind = 'talk'").n, 1);
+  // the dashboard says what kind each request is
+  const help = await helpOf(cls);
+  assert.equal(help.length, 11);
+  assert.ok(help.every((x) => 'kind' in x && 'care' in x));
+  assert.deepEqual(help.filter((x) => x.kind === 'talk').map((x) => [x.name, x.question, x.care]), [['נועה', '', 0]]);
+  // a plain request with an empty question is never merged into the talk request
+  await h.call('POST', '/api/help', { headers: bearer(noa), body: { kind: 'help', question: '' } }).catch(() => {});
+  assert.equal(one(h.env, "SELECT COUNT(*) AS n FROM help_meta WHERE kind = 'talk'").n, 1);
+  // a talk request needs a class student
+  assert.equal((await h.call('POST', '/api/help', { body: { kind: 'talk' } })).status, 401);
+});
+
+test('removing a student removes the help_meta rows of their requests too', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
+  const [noa, itai] = cls.students;
+  await h.call('POST', '/api/help', { headers: bearer(noa), body: { kind: 'talk' } });
+  await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: '3 - 8', answer: '5', note: 'מאיימים עליי' } });
+  await h.call('POST', '/api/help', { headers: bearer(itai), body: { kind: 'talk' } });
+  assert.equal(rows(h.env, 'SELECT * FROM help_meta').length, 3);
+  const r = await h.call('POST', `/api/teacher/students/${noa.studentId}/remove`, { headers: cls.teacher, body: {} });
+  assert.equal(r.status, 200);
+  assert.equal(rows(h.env, 'SELECT * FROM help_meta').length, 1, 'only איתי\'s talk request is left');
+  assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM help_meta WHERE help_id NOT IN (SELECT id FROM help_requests)').n, 0, 'no orphans');
+});

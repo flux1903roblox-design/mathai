@@ -548,3 +548,48 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .fg-move { stroke: var(--brand); stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
 .fg-move-head { fill: var(--brand); }
 @media (max-height: 700px) { .lm-fig .figure.geo { max-height: 34dvh; } }
+
+/* ------------------------------------------------------------------ people to talk to (trust spec TRUST-3 §3.5)
+   One calm card: Madi still beside the words, a trusted adult first, then each free service with one tap per way in
+   (every tap target at least 44px). No red, no urgency colour, no motion. */
+.support-card { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: #fff; color: var(--ink); text-align: start; }
+.support-card.bare { padding: 0; border: 0; border-radius: 0; }
+.support-card p { margin: 0; }
+.support-head { display: flex; align-items: flex-start; gap: var(--s3); }
+.support-madi { flex: none; }
+.support-head-text { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+.support-title { font-size: var(--t-md); line-height: var(--lh-md); font-weight: 700; }
+.support-opening, .support-adult { font-size: var(--t-base); line-height: var(--lh-base); }
+.support-now { font-weight: 600; }
+.support-services { display: flex; flex-direction: column; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+.support-service { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s3); border-top: 2px solid var(--rule); }
+.support-name { font-weight: 700; }
+.support-detail { font-weight: 400; color: var(--ink-2); }
+.support-links { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
+.support-link { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: var(--s2) var(--s3); border: 2px solid var(--rule); border-bottom-width: 4px; border-bottom-color: var(--rule-press); border-radius: 14px; background: #fff; color: var(--brand-d); font-weight: 700; font-size: 16px; line-height: 22px; text-decoration: none; }
+.support-link:active { border-bottom-width: 2px; transform: translateY(2px); }
+.support-link svg { flex: none; color: var(--brand); }
+.support-hours { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.support-talk { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s3); border-top: 2px solid var(--rule); }
+.support-talk-btn { white-space: normal; line-height: 1.25; }
+.support-talk-sent { padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); font-weight: 600; }
+.support-note { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.support-foot { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+@media (prefers-reduced-motion: reduce) { .support-link:active { transform: none; } }
+
+/* the quiet way in: a small underlined link, a full 44px tall, wherever the child might need it */
+.support-open { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); text-decoration-color: var(--rule-strong); }
+.support-open:hover { color: var(--brand-d); }
+.chat-support-link { align-self: center; min-height: 44px; margin-top: calc(-1 * var(--s1)); }
+.chat-rest-support { align-self: center; }
+.limit-support { align-self: center; }
+.ai-offline-support { align-self: center; }
+.chat-off { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); }
+.chat-support { display: flex; flex-direction: column; gap: var(--s3); }
+.help-sent { display: flex; flex-direction: column; gap: var(--s3); }
+.help-sent-line { margin: 0; font-weight: 700; font-size: var(--t-md); line-height: var(--lh-md); }
+.exam-support { margin-top: var(--s4); }
+/* the teacher's list: a request whose note read as distress (the teacher lane gives it its full design) */
+.help-care { margin: 0; font-weight: 700; color: var(--ink); }
+button.set-row { justify-content: space-between; gap: var(--s3); width: 100%; font-family: inherit; }
+button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }

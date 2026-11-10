@@ -10,6 +10,8 @@ import { api, hasServer } from '@/lib/api.js';
 import { Button, Field } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
+import { openSupport } from '@/components/SupportSheet.jsx';
+import { SUPPORT_LINK } from '@/content/support.js';
 import { useAIStatus, leaveFamily } from '@/lib/account.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
 
@@ -234,6 +236,21 @@ async function forgetParent() {
   try { const { forgetParentHere } = await import('@/lib/parent.js'); await forgetParentHere(); } catch { /* nothing kept */ }
 }
 
+/**
+ * Privacy and safety: a person to talk to, one tap away (trust spec TRUST-3 §3.5). The legal pages join this group
+ * later (TRUST-2).
+ */
+function SafetySection() {
+  return (
+    <section className="section set-group" aria-labelledby="safe-title">
+      <h2 id="safe-title" className="set-head">פרטיות ובטיחות</h2>
+      <div className="set-rows-wrap"><div className="set-rows">
+        <button type="button" className="set-row" onClick={openSupport} aria-haspopup="dialog"><span>{SUPPORT_LINK}</span><ChevronLeft size={18} aria-hidden="true" /></button>
+      </div></div>
+    </section>
+  );
+}
+
 export default function Settings() {
   const { profile, patchProfile, resetProgress, signOut } = useApp();
   const { state: nav } = useLocation();
@@ -262,6 +279,7 @@ export default function Settings() {
       <ClassSection />
       <AISection />
       <SoundSetting />
+      <SafetySection />
       <AdvancedRow />
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="set-head">אזור מחיקה</h2>

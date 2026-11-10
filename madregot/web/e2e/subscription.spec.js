@@ -77,7 +77,11 @@ test.describe('the smart tutor', () => {
     await expect(page.getByText('היום אפשר לשאול את העוזר החכם עוד שאלה אחת.')).toBeVisible();
     await draft.fill('ועוד שאלה'); await draft.press('Enter');
     await expect(page.getByText('להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.')).toBeVisible();
-    await expect(draft).toBeDisabled();
+    // the input stays usable (a child in distress must always be able to write: trust spec TRUST-3 §3.5), but a
+    // question now waits as a draft and is not sent
+    await expect(draft).toBeEnabled();
+    await draft.fill('ועוד אחת'); await draft.press('Enter');
+    await expect(draft).toHaveValue('ועוד אחת');
     // the answer just received is on screen, above the docked card and input (not hidden behind them)
     const lastAnswer = page.locator('.msg-row.assistant').last();
     await expect(lastAnswer).toBeInViewport();
@@ -137,7 +141,8 @@ test.describe('the smart tutor', () => {
     await expect(busy.getByText('מאותה רשת אינטרנט')).toBeVisible();
     await busy.getByRole('button', { name: 'סגירה' }).click();
     await expect(page.locator('.form-error')).toHaveCount(0);
-    await expect(draft).toBeDisabled(); // the draft waits for tomorrow
+    await expect(draft).toBeEnabled(); // the draft waits for tomorrow, in an input that still works
+    await expect(draft).toHaveValue('שאלה');
     // a resting free tutor
     await open(page, '#/assistant', withServer());
     st.breakNext = { status: 503, body: { error: 'free_paused' } };

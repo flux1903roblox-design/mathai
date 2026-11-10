@@ -13,7 +13,8 @@ import { SPRING } from '@/lib/motion.js';
  *   excited     two jumps and sparkles (a finished lesson)
  *   achievement a gold star held high (a milestone: a unit, a streak, a placement)
  * Older names still work: cheer → happy, think → thinking, oops → encouraging.
- * `beat` replays the reaction when the same mood fires again (each right answer).
+ * `beat` replays the reaction when the same mood fires again (each right answer). `still` keeps him from moving at all
+ * (no breathing, no blink), as under reduced motion: beside the support card, where nothing should hurry or distract.
  */
 const ALIAS = { cheer: 'happy', think: 'thinking', oops: 'encouraging' };
 
@@ -74,9 +75,10 @@ function Mouth({ mood }) {
   }
 }
 
-export default function Mascot({ mood: moodIn = 'idle', size = 120, className, title, beat = 0 }) {
+export default function Mascot({ mood: moodIn = 'idle', size = 120, className, title, beat = 0, still = false }) {
   const mood = ALIAS[moodIn] || (REACT[moodIn] ? moodIn : 'idle');
-  const reduce = useReducedMotion();
+  const reduceMotion = useReducedMotion();
+  const reduce = reduceMotion || still;
   const id = useId().replace(/:/g, '');
   const [rest, setRest] = useState(false);
   const [blink, setBlink] = useState(false);
