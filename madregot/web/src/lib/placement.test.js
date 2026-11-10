@@ -37,8 +37,9 @@ describe('placement', () => {
     expect(progressOf(s)).toBe(1);
     placementTopicsFor('7').forEach((t) => expect(s.results[t.id]).toMatchObject({ level: t.levels.length }));
     expect(s.answered).toBeLessThanOrEqual(PER_TOPIC * 3);
-    // algebra is taught from December: the first-day test never asks it
+    // algebra is taught from December (equations from March): the first-day test never asks it
     expect(s.results.expr).toBeUndefined();
+    expect(s.results.eq).toBeUndefined();
   });
   it('a student who knows up to level 2 is placed at level 2', () => {
     const s = take(startLesson({ kind: 'placement', grade: '7', know: 1 }), (L) => L <= 2);
@@ -127,16 +128,17 @@ describe('topic flags', () => {
       expect(s.topics).toEqual(['signed', 'coord']);
       expect(s.total).toBe(2 * PER_TOPIC);
     } finally { delete TOPIC.angles.placement; }
-    // grade 7 algebra (expr) is taught later in the year, so it carries the flag itself
+    // grade 7 algebra (expressions, equations) is taught later in the year, so it carries the flag itself
     expect(TOPIC.expr.placement).toBe(false);
+    expect(TOPIC.eq.placement).toBe(false);
     expect(startPlacement({ grade: '7' }).topics).toEqual(['signed', 'coord', 'angles']);
   });
   it('alsoFor offers a topic to another grade in Exam Rescue, after that grade\'s own', () => {
-    // grade 8 tests revise equations with brackets, so grade 7 expressions are offered to grade 8 already
-    expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'expr']);
+    // grade 8 tests revise equations with brackets, so grade 7 expressions and equations are offered to grade 8 already
+    expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'expr', 'eq']);
     TOPIC.signed.alsoFor = ['8'];
     try {
-      expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'signed', 'expr']);
+      expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'signed', 'expr', 'eq']);
       expect(rescueTopicsFor('7').map((t) => t.id)).toEqual(topicsFor('7').map((t) => t.id));
     } finally { delete TOPIC.signed.alsoFor; }
   });

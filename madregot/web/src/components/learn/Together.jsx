@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
 import { ArrowLeft, Check, Lightbulb, X } from 'lucide-react';
-import { Tex, MathText, mathPlain } from '@/components/MathText.jsx';
+import { Tex, MathText, mathPlain, FitDisplay } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Prompt, ResultWhy } from './StepPlayer.jsx';
 import { Segments } from '@/components/ds.jsx';
@@ -89,7 +89,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
       <Prompt tag={`פותרים יחד ${n} מתוך ${of}`}><p><MathText text={problem.problem} /></p></Prompt>
       {(problem.display || built.length > 0) && (
         <div className="lm-canvas big" data-region="visual">
-          {problem.display && <div className="lm-expr"><Tex tex={problem.display} display /></div>}
+          {problem.display && <FitDisplay className="lm-expr" tex={problem.display} />}
           {built.length > 0 && (
             <ol className="tg-built" aria-label="מה עשינו עד עכשיו">
               {built.map((b, i) => <li key={i}><Check size={16} aria-hidden="true" /> <MathText text={b} /></li>)}

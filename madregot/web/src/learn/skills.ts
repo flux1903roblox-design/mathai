@@ -3,9 +3,9 @@
 // earlier stair. The graph is acyclic (tested), so "the smallest missing prerequisite" is well defined.
 import type { SkillId, TopicId } from './types';
 
-export const TOPIC_ORDER: TopicId[] = ['signed', 'coord', 'angles', 'expr', 'line', 'pyth', 'stats'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { signed: '7', coord: '7', angles: '7', expr: '7', line: '8', pyth: '8', stats: '8' };
-export const STAIRS: Record<TopicId, number> = { signed: 5, coord: 5, angles: 5, expr: 5, line: 8, pyth: 5, stats: 5 };
+export const TOPIC_ORDER: TopicId[] = ['signed', 'coord', 'angles', 'expr', 'eq', 'line', 'pyth', 'stats'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', line: '8', pyth: '8', stats: '8' };
+export const STAIRS: Record<TopicId, number> = { signed: 5, coord: 5, angles: 5, expr: 5, eq: 5, line: 8, pyth: 5, stats: 5 };
 
 export const skillId = (topic: TopicId | string, level: number): SkillId => `${topic}:${level}`;
 export const parseSkill = (id: SkillId) => { const [topic, l] = id.split(':'); return { topic: topic as TopicId, level: Number(l) }; };
@@ -35,14 +35,19 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'expr:3': ['expr:1', 'signed:1'], // equality is checked by substituting; coefficients are added as signed numbers
   'expr:4': ['expr:1', 'signed:3'], // what ax means; each term is multiplied with the sign rules
   'expr:5': ['expr:3', 'expr:4'], // open the brackets, then collect like terms
+  'eq:1': ['expr:1', 'signed:1', 'signed:3'], // a solution is checked by substituting; the inverse operations work with signed numbers
+  'eq:2': ['eq:1'], // two one-step moves, undone in reverse order
+  'eq:3': ['eq:2', 'expr:3'], // the x-terms of both sides are collected first, then it is a two-step equation
+  'eq:4': ['eq:3', 'expr:5'], // open the brackets and collect (simplifying), then solve
+  'eq:5': ['eq:4', 'expr:2'], // the story becomes expressions (writing an expression), then an equation
   'line:1': ['signed:4', 'coord:1', 'expr:1'], // a table of values: substitute x in mx + b (expr:1, signed:4), plot the points
   'line:2': ['line:1'], // what m and b mean in y = mx + b
   'line:3': ['line:2', 'coord:1'], // slope from the graph: steps on the grid
   'line:4': ['line:3', 'signed:3'], // slope between two points: a quotient of signed differences
-  'line:5': ['line:4'], // the equation of a line from two points or a point and a slope
-  'line:6': ['line:2', 'signed:3'], // intercepts: x = 0 gives b; y = 0 needs a division
+  'line:5': ['line:4', 'eq:1'], // the equation of a line from two points or a point and a slope; b solves y₁ = m·x₁ + b, one step
+  'line:6': ['line:2', 'signed:3', 'eq:2'], // intercepts: x = 0 gives b; y = 0 is the two-step equation 0 = mx + b
   'line:7': ['line:6', 'coord:4'], // the triangle with the axes: its legs are the intercepts
-  'line:8': ['line:5', 'line:1'], // where two lines meet: equal y for the same x
+  'line:8': ['line:5', 'line:1', 'eq:3'], // where two lines meet: equal y for the same x, mx + b = m'x + b' (the unknown on both sides)
   'pyth:1': [], // squares and square roots
   'pyth:2': ['pyth:1'], // a leg: subtract squares instead of adding
   'pyth:3': ['pyth:1'], // is it right-angled: the theorem used as a test
@@ -52,7 +57,7 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'stats:2': ['signed:2'], // median: ordering numbers first
   'stats:3': [], // mean: sum and share
   'stats:4': ['stats:3'], // mean from a frequency table
-  'stats:5': ['stats:3'], // a missing value from the mean: the mean equation backwards
+  'stats:5': ['stats:3', 'eq:2'], // a missing value from the mean: the mean equation backwards, (sum + x) : n = mean, two steps
 };
 
 export const prereqsOf = (id: SkillId): SkillId[] => PREREQS[id] || [];

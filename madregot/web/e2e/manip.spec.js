@@ -17,6 +17,8 @@ const KINDS = [
   ['plot', 'coord/5', '7', [0.5, 0.5, 0.3, 0.3], (it) => !!it.manip.shape, 'the missing vertex of a rectangle'],
   ['plot', 'line/1', '8', [0.5, 0.5, 0.7, 0.3], (it) => !!it.manip.line, 'a point of a line'],
   ['bars', 'stats/2', '8', [0.88, 0.2, 0.88, 0.6], (it) => it.manip.stat === 'median', 'the median and an outlier'],
+  // a drag that starts on the weights of the left pan takes one off that pan only (the beam then leans)
+  ['balance', 'eq/2', '7', [0.33, 0.6, 0.33, 0.15]],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');

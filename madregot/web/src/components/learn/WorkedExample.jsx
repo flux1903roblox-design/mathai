@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, m } from 'motion/react';
 import clsx from 'clsx';
 import { ArrowLeft, ArrowRight, Check, RotateCcw } from 'lucide-react';
-import { Tex, MathText } from '@/components/MathText.jsx';
+import { Tex, MathText, FitDisplay } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Prompt, ResultWhy } from './StepPlayer.jsx';
 import { Segments } from '@/components/ds.jsx';
@@ -27,7 +27,7 @@ export default function WorkedExample({ example, n, of, onDone, doneLabel = '×”×
           <p><MathText text={example.problem} /></p>
         </Prompt>
       <div className="lm-canvas big" data-region="visual">
-      {example.display && <div className="lm-expr"><Tex tex={example.display} display /></div>}
+      {example.display && <FitDisplay className="lm-expr" tex={example.display} />}
       <ol className="worked-steps" aria-live="polite">
         <AnimatePresence initial={false}>
           {example.steps.slice(0, shown).map((s, i) => (

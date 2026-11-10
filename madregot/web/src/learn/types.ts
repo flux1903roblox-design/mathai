@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'signed' | 'coord' | 'angles' | 'expr' | 'line' | 'pyth' | 'stats';
+export type TopicId = 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'line' | 'pyth' | 'stats';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;

@@ -122,7 +122,8 @@ export function manipCorrect(it, u) {
     case 'squares': return Number.isInteger(u.a) && Number.isInteger(u.b) && u.a * u.a + u.b * u.b === a.c * a.c;
     case 'pins': return Array.isArray(u) && u.length === a.length && u.every((v, i) => v === a[i]);
     case 'triangle': return rightAtC(m, u);
-    case 'balance': return balanceSolved(u, a);
+    // the answer is x's value: the value itself counts (as answerText shows it), and a scale must show one box alone
+    case 'balance': return typeof u === 'number' ? u === a : balanceSolved(u, a);
     case 'tiles': return u.px - u.nx === a.k && u.p1 - u.n1 === a.c && Math.min(u.px, u.nx) === 0 && Math.min(u.p1, u.n1) === 0;
     case 'area': return u.a === a.a && u.b === a.b;
     case 'ray': return u.at === a.at && u.dir === a.dir && !!u.closed === !!a.closed;

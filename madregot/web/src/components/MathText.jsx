@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useLayoutEffect, useMemo, useRef } from 'react';
 import katex from 'katex';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -34,6 +34,43 @@ export const Tex = memo(function Tex({ tex, display = false, className }) {
   const html = useMemo(() => render(tex, display), [tex, display]);
   return <span className={className} dangerouslySetInnerHTML={{ __html: html }} />;
 });
+
+/**
+ * Display maths, as large as it fits: a long expression (3(x - 2) - (x + 4) = ?) is set smaller until it fits
+ * the width, down to 60% of the size, instead of scrolling sideways. A display that fits is left alone.
+ * The question of an exercise (className 'qdisplay') and the maths of a teaching step ('lm-expr') use it.
+ */
+export function FitDisplay({ tex, className = 'qdisplay' }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const el = ref.current; if (!el) return undefined;
+    let width = -1;
+    const fit = () => {
+      if (el.clientWidth === width) return;
+      width = el.clientWidth;
+      // the rendered maths (KaTeX's own block) says how much too wide it is; it is scaled in em of the panel, so
+      // measuring again never starts from an already smaller size. The size is measured at once: a transition on it
+      // (reduced motion still leaves a tiny one) would report the old size, and the base is read, not assumed (KaTeX
+      // sets 1em in an exercise's question, 1.08em elsewhere).
+      const box = el.querySelector('.katex');
+      if (!box) return;
+      box.style.transition = 'none';
+      box.style.fontSize = '';
+      const base = parseFloat(getComputedStyle(box).fontSize); const parent = parseFloat(getComputedStyle(box.parentElement).fontSize);
+      if (box.scrollWidth - box.clientWidth > 1 && base > 0 && parent > 0) box.style.fontSize = `${(base * Math.max(0.6, (box.clientWidth / box.scrollWidth) * 0.97)) / parent}em`;
+    };
+    fit();
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
+    ro?.observe(el);
+    // the maths font may arrive after the first layout and widen the line: measure again then
+    const refit = () => { if (el.isConnected) { width = -1; fit(); } };
+    const fonts = typeof document !== 'undefined' ? document.fonts : null;
+    fonts?.addEventListener?.('loadingdone', refit);
+    fonts?.ready?.then(refit);
+    return () => { ro?.disconnect(); fonts?.removeEventListener?.('loadingdone', refit); };
+  }, [tex]);
+  return <div className={className} ref={ref}><Tex tex={tex} display /></div>;
+}
 
 /** Hebrew text with inline math between $...$ (generator output only). */
 export const MathText = memo(function MathText({ text, as: As = 'span', className }) {

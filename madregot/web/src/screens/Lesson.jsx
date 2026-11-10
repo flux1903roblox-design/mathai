@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { AnimatePresence, m } from 'motion/react';
@@ -15,7 +15,7 @@ import { autoAskAllowed, gate } from '@/lib/account.js';
 import AIAllowance from '@/components/AIAllowance.jsx';
 import { api, syncNow } from '@/lib/api.js';
 import { play, buzz } from '@/lib/sound.js';
-import { Tex, MathText, Markdown, texText } from '@/components/MathText.jsx';
+import { Tex, MathText, Markdown, texText, FitDisplay } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
 import Manip from '@/components/manip/Manip.jsx';
 import AIChat from '@/components/AIChat.jsx';
@@ -76,38 +76,6 @@ const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', '
  * since three expressions in one row overflow a phone.
  */
 const inlineChoices = (item) => item.choices.length === 3 && item.choices.every((c) => c.tex && c.tex.replace(/\s|\\[a-z]+/g, '').length <= 3);
-
-/**
- * The question's maths, as large as it fits: a long expression (3(x - 2) - (x + 4) = ?) is set smaller until it fits
- * the width, down to 60% of the size, instead of scrolling sideways. A display that fits is left alone.
- */
-function FitDisplay({ tex }) {
-  const ref = useRef(null);
-  useLayoutEffect(() => {
-    const el = ref.current; if (!el) return undefined;
-    let width = -1;
-    const fit = () => {
-      if (el.clientWidth === width) return;
-      width = el.clientWidth;
-      // the rendered maths (KaTeX's own block) says how much too wide it is; it is scaled in em of the panel, so
-      // measuring again never starts from an already smaller size
-      const box = el.querySelector('.katex');
-      if (!box) return;
-      box.style.fontSize = '';
-      if (box.scrollWidth - box.clientWidth > 1) box.style.fontSize = `${Math.max(0.6, (box.clientWidth / box.scrollWidth) * 0.97)}em`;
-    };
-    fit();
-    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
-    ro?.observe(el);
-    // the maths font may arrive after the first layout and widen the line: measure again then
-    const refit = () => { if (el.isConnected) { width = -1; fit(); } };
-    const fonts = typeof document !== 'undefined' ? document.fonts : null;
-    fonts?.addEventListener?.('loadingdone', refit);
-    fonts?.ready?.then(refit);
-    return () => { ro?.disconnect(); fonts?.removeEventListener?.('loadingdone', refit); };
-  }, [tex]);
-  return <div className="qdisplay" ref={ref}><Tex tex={tex} display /></div>;
-}
 
 /** Under an expression's two slots: what to write for x alone, for −x and for no constant. */
 const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־$-${v}$: המקדם $-1$. אין מספר חופשי? כתבו $0$.`;

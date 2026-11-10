@@ -21,6 +21,10 @@ const CASES = [
   ['an expression answer (two fields)', 'expr/3', '7'],
   ['an expression from a pattern table', 'expr/2', '7'],
   ['simplifying a long expression', 'expr/5', '7'],
+  ['an equation (one step, or a missing number)', 'eq/1', '7'],
+  ['an equation with the unknown on both sides', 'eq/3', '7'],
+  ['an equation with brackets', 'eq/4', '7'],
+  ['a word problem (equations)', 'eq/5', '7'],
 ];
 
 for (const [what, route, grade] of CASES) {
