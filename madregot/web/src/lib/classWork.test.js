@@ -144,16 +144,17 @@ describe('what the student sees', () => {
       row({ id: 'a4', dueOn: '2026-10-20' }), // past by 20 days: not shown
       row({ id: 'a5', dueOn: '2026-11-10', mine: { state: 'done', stage: 5, passed: true, doneAt: '2026-11-09T09:00:00' } }),
       row({ id: 'a6', dueOn: '2026-11-10', mine: { state: 'done', stage: 5, passed: true, doneAt: '2026-11-08T09:00:00' } }),
-      row({ id: 'a7', kind: 'exam', skill: null, dueOn: '2026-11-10' }), // the class exam comes with its own screens
+      row({ id: 'a7', kind: 'exam', skill: null, hasExam: true, examCount: 4, dueOn: '2026-11-10' }), // a class exam
     ];
     const r = cw.classRows({ assignments: list }, {}, day);
-    expect(r.show.map((x) => x.a.id)).toEqual(['a2', 'a1', 'a5']);
+    expect(r.show.map((x) => x.a.id)).toEqual(['a2', 'a7', 'a1', 'a5']);
     expect(r.later.map((x) => x.a.id)).toEqual(['a3']);
     expect(r.next.a.id).toBe('a2');
     expect(r.show[0].to).toBe('/lesson/signed/2?kind=check&purpose=mastery&assignment=a2');
-    expect(r.show[1].to).toBe('/learn/signed/1?assignment=a1');
-    // a check is 3 minutes; a stair not started is all five stages (5 + 3 + 4 + 5 + 3)
-    expect(r.minutes).toBe(3 + 20);
+    expect(r.show[1].to).toBe('/class/exam/a7');
+    expect(r.show[2].to).toBe('/learn/signed/1?assignment=a1');
+    // a check is 3 minutes; a class exam 3 a question; a stair not started is all five stages (5 + 3 + 4 + 5 + 3)
+    expect(r.minutes).toBe(3 + 4 * 3 + 20);
     expect(r.allDone).toBe(false);
   });
   it('a report waiting on the device counts: a started stair says so, a done one is done', async () => {
@@ -188,5 +189,22 @@ describe('what the student sees', () => {
     expect(cw.checkAssignment('signed:2', 'a9')).toBe('a9');
     expect(cw.checkAssignment('signed:2', null)).toBe('a2');
     expect(cw.checkAssignment('signed:1', null)).toBeNull();
+  });
+});
+
+describe('a class exam\'s questions on the device', () => {
+  const items = [{ key: 'sn3:-8:3', topic: 'signed', level: 3, text: 'חשבו:', display: '-8 \\cdot 3', form: 'num', answer: -24 }];
+  it('fetched once and kept (it opens offline after that); a deleted exam is 404; old exams are not kept', async () => {
+    const { useApp, cw } = await load();
+    useApp.setState({ classWork: { ...useApp.getState().classWork, assignments: [assignment({ id: ID, kind: 'exam', skill: null, hasExam: true, examCount: 1 })], exams: { a000000000000009: items } } });
+    answer = () => json({ items });
+    expect(await cw.fetchExamItems(ID)).toEqual(items);
+    expect(calls).toEqual([expect.objectContaining({ path: `/api/class/work/${ID}/exam`, method: 'GET', headers: expect.objectContaining({ Authorization: 'Bearer stok-a1' }) })]);
+    expect(useApp.getState().classWork.exams).toEqual({ [ID]: items }); // the exam no longer in the list is gone
+    answer = () => { throw new Error('offline'); };
+    expect(await cw.fetchExamItems(ID)).toEqual(items);
+    expect(calls).toHaveLength(1);
+    answer = () => json({ error: 'not_found' }, 404);
+    await expect(cw.fetchExamItems('a000000000000002')).rejects.toMatchObject({ status: 404 });
   });
 });

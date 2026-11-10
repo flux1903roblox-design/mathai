@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useBlocker, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, useBlocker, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { AnimatePresence, m } from 'motion/react';
 import { toast } from 'sonner';
@@ -16,6 +16,7 @@ import AIAllowance from '@/components/AIAllowance.jsx';
 import ToolLocked from '@/components/ToolLocked.jsx';
 import { api, syncNow } from '@/lib/api.js';
 import { checkAssignment, reportWork, reportStairs } from '@/lib/classWork.js';
+import { thawItem } from '@/lib/exam.js';
 import { play, buzz } from '@/lib/sound.js';
 import { Tex, MathText, Markdown, texText, FitDisplay } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
@@ -125,12 +126,22 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
   );
 }
 
+/** The class exam a route runs (/class/exam/:id/run), or null. */
+const classExamOf = (pathname) => pathname.match(/^\/class\/exam\/([a-f0-9]{16})\/run$/)?.[1] || null;
+
 /** Which lesson a route asks for: /lesson/:topic/:level?kind=&part= or the older /practice/:topic?level= */
 function useLessonSpec() {
   const { topic: tParam, id, level: lParam } = useParams();
   const [params] = useSearchParams();
   const { pathname } = useLocation();
   const { path, progress, profile } = useApp.getState();
+  // the teacher's class exam (TEACHER-5 §4): its frozen questions, fetched by its start card and kept on the device
+  const examId = classExamOf(pathname);
+  if (examId) {
+    const items = useApp.getState().classWork?.exams?.[examId];
+    if (!items?.length || !TOPIC[items[0].topic]) return null;
+    return { kind: 'check', purpose: 'class', fixedItems: items.map(thawItem), assignmentId: examId, topic: items[0].topic, level: items[0].level };
+  }
   if (pathname === '/placement') return { kind: 'placement', grade: ['7', '8'].includes(params.get('grade')) ? params.get('grade') : profile?.grade || '7', know: profile?.know ?? 1 };
   // Exam Rescue: the diagnostic and the practice exam run over the exam's stairs
   if (pathname === '/rescue/check' || pathname === '/rescue/exam') {
@@ -161,6 +172,7 @@ function useLessonSpec() {
 
 export default function Lesson() {
   const spec = useLessonSpec();
+  const examPath = classExamOf(useLocation().pathname);
   const navigate = useNavigate();
   const st = useApp();
   const [s, setS] = useState(() => (spec ? startLesson(spec) : null));
@@ -213,6 +225,7 @@ export default function Lesson() {
   const placement = spec?.kind === 'placement';
   const isTest = (k) => k === 'jump' || k === 'placement' || k === 'check'; // a check, not practice: one try, no hints
   const isCheck = spec?.kind === 'check';
+  const classExam = spec?.purpose === 'class';
   const [tutorOpen, setTutorOpen] = useState(false);
   const [tutorIntent, setTutorIntent] = useState(null); // Madi's sheet opened on a question already asked (the mistake)
   const [remedy, setRemedy] = useState(null); // a misconception's repair, opened from the feedback
@@ -264,7 +277,10 @@ export default function Lesson() {
   // the learning record: a lesson or a check started (for the outcome metrics, on this device only)
   useEffect(() => { if (spec && !placement) useApp.getState().learnEvent({ e: 'lesson-start', s: skillId(spec.topic, spec.level), p: spec.kind === 'check' ? spec.purpose : spec.kind }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // a mastery check the teacher gave (named by the address, or an open one on this stair): the teacher sees it started
-  const [workId] = useState(() => (spec?.kind === 'check' && spec.purpose === 'mastery' ? checkAssignment(spec.skill, spec.assignmentId) : null));
+  // a class exam is its own assignment
+  const [workId] = useState(() => (classExam ? spec.assignmentId : spec?.kind === 'check' && spec.purpose === 'mastery' ? checkAssignment(spec.skill, spec.assignmentId) : null));
+  // a class exam's report: sending (null), or whether it is still waiting on the device for a connection
+  const [workSent, setWorkSent] = useState(null);
   useEffect(() => { if (workId) reportWork(workId, { state: 'started' }); }, [workId]);
 
   const aiContext = () => ({
@@ -345,15 +361,19 @@ export default function Lesson() {
     const result = resultOf(ns);
     const app = useApp.getState();
     const award = placement ? app.completePlacement(result) : isCheck ? app.completeCheck(result) : app.completeLesson(result, { fromPlan: spec.fromPlan });
-    // a finished activity completes its item of today's mission
+    // a finished activity completes its item of today's mission (a class exam is the teacher's, not a mission item)
     if (!placement && result.topic && result.level) {
       const kindOf = { mastery: 'mastery', review: 'review', verify: 'repair', diagnostic: 'exam', exam: 'exam' };
       // practice (stage D) or a check: each completes only the mission item it is
-      (result.skills || [skillId(result.topic, result.level)]).forEach((sk) => app.completeMission({ skill: sk, kind: isCheck ? kindOf[result.purpose] : 'continue', stage: isCheck ? (result.purpose === 'mastery' ? 'E' : undefined) : result.kind === 'node' ? 'D' : undefined, misc: result.misc || undefined }));
+      if (!classExam) (result.skills || [skillId(result.topic, result.level)]).forEach((sk) => app.completeMission({ skill: sk, kind: isCheck ? kindOf[result.purpose] : 'continue', stage: isCheck ? (result.purpose === 'mastery' ? 'E' : undefined) : result.kind === 'node' ? 'D' : undefined, misc: result.misc || undefined }));
       app.learnEvent({ e: 'lesson-done', s: skillId(result.topic, result.level), p: isCheck ? result.purpose : result.kind, ok: result.passed });
     }
-    // the teacher's work: a mastery check reports its first finished result; the stairs report how far they are
-    if (workId) reportWork(workId, { state: 'done', right: result.right, asked: result.asked, passed: !!result.passed });
+    // the teacher's work: a mastery check or a class exam reports its first finished result (an exam, how each question
+    // went); the stairs report how far they are
+    if (workId && classExam) {
+      reportWork(workId, { state: 'done', right: result.right, asked: result.asked, questions: result.questions })
+        .finally(() => setWorkSent(true));
+    } else if (workId) reportWork(workId, { state: 'done', right: result.right, asked: result.asked, passed: !!result.passed });
     reportStairs();
     syncNow();
     play(result.passed ? 'complete' : 'wrong');
@@ -442,6 +462,8 @@ export default function Lesson() {
   };
 
   underway.current = !!(spec && t && !done);
+  // a class exam opened before its questions are on this device: its start card fetches them
+  if (!spec && examPath) return <Navigate to={`/class/exam/${examPath}`} replace />;
   if (!spec || !t) {
     return (
       <div className="page not-found">
@@ -456,6 +478,7 @@ export default function Lesson() {
   useTheme(done ? 'dark' : 'light');
   if (done) leaving.current = true; // the end screens lead back to the map without asking
   if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/topics', { replace: true, state: { placed: true } })} />;
+  if (done && classExam) return <CheckDone result={done.result} award={done.award} work={{ id: workId, tried: !!workSent }} onExit={() => navigate('/quests', { replace: true })} />;
   if (done && isCheck) return <CheckDone result={done.result} award={done.award} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: done.award?.stairDone ? { from: spec.topic, nodeDone: true } : undefined })} />;
   if (done) return <LessonDone {...done} topic={t} onExit={() => (spec.fromJourney ? navigate(`/learn/${spec.topic}/${spec.level}`, { replace: true }) : navigate('/', { replace: true, preventScrollReset: true, state: { from: spec.topic, nodeDone: !!done.award.unitDone } }))} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
 
@@ -482,7 +505,7 @@ export default function Lesson() {
       {!isTest(s.kind) && <button type="button" className="tool" aria-label="שאלה למדי" onClick={() => setTutorOpen(true)}><HelpCircle size={20} aria-hidden="true" /><span className="tool-label">מדי</span></button>}
       {aiReady() && !isTest(s.kind) && <button type="button" className="tool ai" aria-label="שאלו את העוזר" onClick={() => setChatOpen(true)}><Sparkles size={20} aria-hidden="true" /><span className="tool-label">העוזר</span></button>}
       <button type="button" className={clsx('tool', nbOn && 'on')} aria-pressed={nbOn} aria-label={nbOn ? 'תשובה' : 'מחברת'} onClick={() => setNbOn(!nbOn)}>{nbOn ? <Keyboard size={20} aria-hidden="true" /> : <NotebookPen size={20} aria-hidden="true" />}<span className="tool-label">{nbOn ? 'תשובה' : 'מחברת'}</span></button>
-      {inClass && <button type="button" className="tool" aria-label="למורה" onClick={() => setHelpOpen(true)}><Hand size={20} aria-hidden="true" /><span className="tool-label">למורה</span></button>}
+      {inClass && !classExam && <button type="button" className="tool" aria-label="למורה" onClick={() => setHelpOpen(true)}><Hand size={20} aria-hidden="true" /><span className="tool-label">למורה</span></button>}
     </div>
   );
   const checkButton = <Button className="check-btn btn-lg" onClick={check} disabled={!canCheck}>בדיקה</Button>;
@@ -504,7 +527,7 @@ export default function Lesson() {
     <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed', isManip && !nbOn && 'is-manip')}>
       {/* top: progress and the question, always on screen */}
       <header className="lesson-head" data-region="header">
-        <ProgressHeader extra={tools} pct={pct} marks={placement ? null : marks} total={s.total} label={placement ? 'התקדמות בבדיקת הרמה' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} combo={s.combo} topic={placement ? t.title : null} />
+        <ProgressHeader extra={tools} pct={pct} marks={placement ? null : marks} total={s.total} label={placement ? 'התקדמות בבדיקת הרמה' : classExam ? 'התקדמות במבחן' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} exitLabel={classExam ? 'יציאה מהמבחן' : undefined} combo={s.combo} topic={placement ? t.title : null} />
         <AnimatePresence mode="wait" initial={false}>
           <m.div key={stage} className="q-pin" {...slide}>{question}</m.div>
         </AnimatePresence>
@@ -658,12 +681,12 @@ export default function Lesson() {
       <Sheet open={zoom} onOpenChange={setZoom} title="השרטוט" wide>
         <div className="fig-big"><Figure fig={item.fig} /></div>
       </Sheet>
-      <Sheet key={`exit-${exitKey}`} open={exitOpen} onOpenChange={(o) => (o ? setExitOpen(true) : stay())} title={placement ? 'לצאת מבדיקת הרמה?' : 'לצאת מהשיעור?'}>
+      <Sheet key={`exit-${exitKey}`} open={exitOpen} onOpenChange={(o) => (o ? setExitOpen(true) : stay())} title={placement ? 'לצאת מבדיקת הרמה?' : classExam ? 'לצאת מהמבחן?' : 'לצאת מהשיעור?'}>
         <div className="exit-sheet">
           <Mascot mood="oops" size={96} />
-          <p className="lead">{placement ? 'כל נושא יתחיל מהמדרגה הראשונה. אפשר לחזור לבדיקה מהלוח בכל זמן.' : 'ההתקדמות בשיעור הזה לא תישמר. התשובות שכבר עניתם נשמרות בתרגול שלכם.'}</p>
-          <Button className="btn-block btn-lg" onClick={stay}>{placement ? 'להמשיך בבדיקה' : 'להמשיך ללמוד'}</Button>
-          <Button variant="ghost" className="btn-block exit-quit" onClick={() => leave('/', { replace: true })}>יציאה</Button>
+          <p className="lead">{placement ? 'כל נושא יתחיל מהמדרגה הראשונה. אפשר לחזור לבדיקה מהלוח בכל זמן.' : classExam ? 'אם יוצאים עכשיו, המבחן לא יישלח למורה. בפעם הבאה הוא יתחיל מהשאלה הראשונה.' : 'ההתקדמות בשיעור הזה לא תישמר. התשובות שכבר עניתם נשמרות בתרגול שלכם.'}</p>
+          <Button className="btn-block btn-lg" onClick={stay}>{placement ? 'להמשיך בבדיקה' : classExam ? 'להמשיך במבחן' : 'להמשיך ללמוד'}</Button>
+          <Button variant="ghost" className="btn-block exit-quit" onClick={() => leave(classExam ? '/quests' : '/', { replace: true })}>יציאה</Button>
         </div>
       </Sheet>
       {/* every sheet in a lesson has the same build: its title and the way out at the top, the content, and its one

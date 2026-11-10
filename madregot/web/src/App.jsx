@@ -45,6 +45,7 @@ const Repair = lazy(() => import('@/screens/Repair.jsx'));
 const Rescue = lazy(() => import('@/screens/Rescue.jsx'));
 const NewPracticeExam = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.NewPracticeExam })));
 const PracticeSheet = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.PracticeSheet })));
+const ClassExam = lazy(() => import('@/screens/ClassExam.jsx'));
 
 function useSync() {
   const token = useApp((s) => s.profile?.token);
@@ -109,7 +110,7 @@ function StatusWatch() {
 function Toasts() {
   const { pathname } = useLocation();
   useEffect(() => { toast.dismiss(); }, [pathname]);
-  const lesson = /^\/(lesson|practice|placement)/.test(pathname);
+  const lesson = /^\/(lesson|practice|placement)/.test(pathname) || /^\/class\/exam\/[^/]+\/run$/.test(pathname);
   return lesson
     ? <Toaster key="top" position="top-center" dir="rtl" offset={72} mobileOffset={{ top: 72 }} toastOptions={{ className: 'toast' }} />
     : <Toaster key="bottom" position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />;
@@ -211,6 +212,7 @@ function Root() {
               <Route path="/learn/:topic/:level" element={<Journey />} />
               <Route path="/mission" element={<Navigate to="/quests" replace />} />
               <Route path="/rescue" element={<Rescue />} />
+              <Route path="/class/exam/:id" element={<ClassExam />} />
             </Route>
             <Route path="/lesson/:topic/:level" element={<LessonRoute />} />
             <Route path="/practice/:id" element={<LessonRoute />} />
@@ -219,6 +221,7 @@ function Root() {
             <Route path="/repair/:topic/:level/:misc" element={<Repair />} />
             <Route path="/rescue/check" element={<LessonRoute />} />
             <Route path="/rescue/exam" element={<LessonRoute />} />
+            <Route path="/class/exam/:id/run" element={<LessonRoute />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}

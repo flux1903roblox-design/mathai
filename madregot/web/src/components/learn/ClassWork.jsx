@@ -5,14 +5,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { School, Award, Check, ChevronLeft, ChevronDown } from 'lucide-react';
+import { School, Award, ClipboardList, Check, ChevronLeft, ChevronDown } from 'lucide-react';
 import { dueLine } from '@/lib/classWork.js';
 import { Bar } from '@/components/ds.jsx';
 
-const KIND = { stair: 'מדרגה ללמוד', check: 'בדיקת שליטה' };
-const ICON = { stair: School, check: Award };
+const KIND = { stair: 'מדרגה ללמוד', check: 'בדיקת שליטה', exam: 'מבחן תרגול' };
+const ICON = { stair: School, check: Award, exam: ClipboardList };
 
-/** A row's bar: a stair's stages (the one in progress, as the mission rows count it), a check's result once done. */
+/** A row's bar: a stair's stages (the one in progress, as the mission rows count it), a check's or an exam's result once done. */
 function barOf(r) {
   if (r.a.kind === 'stair') {
     const stage = r.w?.stage || 0;

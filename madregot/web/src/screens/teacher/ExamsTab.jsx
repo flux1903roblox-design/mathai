@@ -6,7 +6,7 @@ const Q_TONE = { correct: 'ok', partial: 'mid', wrong: 'bad', missing: 'bad' };
 const Q_LABEL = { correct: 'נכון', partial: 'נכון בחלקו', wrong: 'טעות', missing: 'לא נענה' };
 
 /** One small square per question, coloured by result; the skill shows on hover. */
-function QuestionStrip({ questions = [] }) {
+export function QuestionStrip({ questions = [] }) {
   const missed = questions.map((q, i) => (q.status === 'correct' ? null : i + 1)).filter(Boolean);
   return (
     <span className="qstrip" role="img" aria-label={missed.length ? `טעויות בשאלות ${missed.join(', ')}` : 'כל השאלות נכונות'}>

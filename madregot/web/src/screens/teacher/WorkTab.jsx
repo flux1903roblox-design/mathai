@@ -59,7 +59,7 @@ export default function WorkTab({ cls, today: serverToday, version, onNew, onCha
       {!list && !error && <p className="muted" role="status">טוענים את המשימות…</p>}
       {list && list.length === 0 && (
         <EmptyState mood="idle" title="עוד אין משימות">
-          <p>אפשר לתת לכיתה מדרגה ללמוד או בדיקת שליטה, עם תאריך הגשה.</p>
+          <p>אפשר לתת לכיתה מדרגה ללמוד, בדיקת שליטה או מבחן תרגול, עם תאריך הגשה.</p>
           <Button className="btn-lg" onClick={onNew}><Plus size={18} aria-hidden="true" />משימה חדשה</Button>
         </EmptyState>
       )}

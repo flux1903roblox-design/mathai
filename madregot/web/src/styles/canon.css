@@ -822,3 +822,24 @@ a.btn { text-decoration: none; }
 .xs-screen .exam-sheet-meta { gap: var(--s2) var(--s5); font-size: 15px; }
 .xs-screen .figure { max-width: min(100%, 300px); margin-inline: auto; }
 .xs .screen-foot .btn svg { flex: none; }
+.xs-send { gap: var(--s2); border: 0; background: none; font: inherit; font-weight: 700; color: var(--brand-d); cursor: pointer; }
+.xs-send:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 10px; }
+
+/* the class exam in the assign sheet, and printing it again from an assignment's detail */
+.as-no-exam { padding: var(--s3) var(--s4); border: 2px dashed var(--rule-strong); border-radius: 16px; color: var(--ink); }
+.as-link { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--brand-d); }
+.as-versions { margin-top: var(--s2); }
+.aw-actions a.set-row { justify-content: flex-start; gap: var(--s2); }
+
+/* ------------------------------------------------------------------ the class exam, the student's side (TEACHER-5 §4):
+   the start card (what it is, how it runs, where the result goes) and the result's line on the done screen */
+.cx-card { display: flex; flex-direction: column; align-items: center; gap: var(--s3); padding: var(--s5) 0 var(--s4); text-align: center; }
+.cx-madi { margin-bottom: var(--s1); }
+.cx-title { margin: 0; font-size: 26px; line-height: 32px; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; }
+.cx-due { margin: 0; color: var(--ink-2); font-weight: 600; }
+.cx-note { margin: 0; color: var(--ink); font-style: normal; overflow-wrap: anywhere; }
+.cx-lines { list-style: none; margin: var(--s2) 0 0; padding: var(--s4); display: flex; flex-direction: column; gap: var(--s3); width: 100%; text-align: start; border: 2px solid var(--rule); border-radius: 16px; background: #fff; }
+.cx-lines li { font-size: 17px; line-height: 25px; color: var(--ink); }
+.cx-lines li + li { padding-top: var(--s3); border-top: 1px solid var(--rule); }
+.cx-again { margin: 0; width: 100%; padding: var(--s3) var(--s4); border-radius: 12px; background: var(--brand-tint); color: var(--ink); font-weight: 600; text-align: start; }
+.check-sent { margin: var(--s2) auto 0; color: var(--ink-2); font-weight: 600; }

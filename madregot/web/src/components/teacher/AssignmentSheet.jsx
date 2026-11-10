@@ -1,15 +1,18 @@
 // One assignment, for the teacher (spec TEACHER-4 §6-7): how far each student got (a row per student: name, state,
-// result, and a quiet "באיחור" for the teacher only), a later due date, and deleting it after asking. The results
-// were worked out on the students' devices: practice, not a test for a grade, and the footnote says so.
+// result, and a quiet "באיחור" for the teacher only; a class exam's result has a square per question), a later due
+// date, printing a class exam again, and deleting it after asking. The results were worked out on the students'
+// devices: practice, not a test for a grade, and the footnote says so.
 import { useCallback, useEffect, useId, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { CalendarClock, Trash2 } from 'lucide-react';
+import { CalendarClock, Trash2, Printer } from 'lucide-react';
 import { workDetail, changeWork, deleteWork, workStatus, KIND_LABEL } from '@/lib/assign.js';
 import { plusDays, schoolDay, dayLong, dueShort } from '@/lib/workDates.js';
 import { today as localToday } from '@/lib/store.js';
 import { Button, Sheet } from '@/components/ui.jsx';
 import { Bar } from '@/components/ds.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
+import { QuestionStrip } from '@/screens/teacher/ExamsTab.jsx';
 
 const AHEAD = 120;
 
@@ -89,7 +92,7 @@ export default function AssignmentSheet({ cls, id, today: serverToday, onOpenCha
                     <tr key={w.studentId} className={`aw-${w.state}`}>
                       <th scope="row">{w.name}</th>
                       <td><span className="aw-state">{s.state}</span>{w.late && <span className="aw-late">באיחור</span>}</td>
-                      <td>{s.result}</td>
+                      <td>{s.result}{a.kind === 'exam' && w.state === 'done' && w.questions?.length > 0 && <> <QuestionStrip questions={w.questions} /></>}</td>
                     </tr>
                   );
                 })}
@@ -101,6 +104,7 @@ export default function AssignmentSheet({ cls, id, today: serverToday, onOpenCha
           {extending ? <Extend a={a} today={today} onSave={extend} busy={busy} /> : null}
           <div className="set-rows-wrap aw-actions"><div className="set-rows">
             {!extending && <button type="button" className="set-row" onClick={() => setExtending(true)}><CalendarClock size={18} aria-hidden="true" />הארכת המועד</button>}
+            {a.kind === 'exam' && a.hasExam && <Link className="set-row" to={`/teacher/exam/a:${a.id}`}><Printer size={18} aria-hidden="true" />הדפסת המבחן</Link>}
             <button type="button" className="set-row t-quiet-row" onClick={() => setConfirm(true)} disabled={busy}><Trash2 size={18} aria-hidden="true" />מחיקת המשימה</button>
           </div></div>
         </div>

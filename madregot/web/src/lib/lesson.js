@@ -47,9 +47,16 @@ export function planLevels({ kind, topic, level, part = 1, max = level }) {
  * what it is for: mastery (5 questions, 4 right), review (3), verify (after a repair), diagnostic (Exam Rescue),
  * exam (a practice exam over the exam's stairs). The questions mix the stair's generator with its diagnostic and
  * transfer questions (src/learn/items.ts).
+ * A class exam (purpose 'class', TEACHER-5 §4) brings its own questions, frozen when the teacher made it
+ * (`fixedItems`, lib/exam.js thawItem): they are asked in order, each once, with no probe and no redo; `slotOk`
+ * records how each one went. (`fixed`, the other name, is the count of mistakes fixed on a redo.)
  */
 function startCheck(opts) {
-  const plan = checkPlan({ purpose: opts.purpose, skill: opts.skill, skills: opts.skills, misc: opts.misc }, Math.random);
+  const fixedItems = opts.fixedItems?.length ? opts.fixedItems : null;
+  // a class exam's purpose is not one checkPlan knows: its plan is the teacher's questions
+  const plan = fixedItems
+    ? fixedItems.map((it) => ({ skill: skillId(it.topic, it.level), source: 'fixed' }))
+    : checkPlan({ purpose: opts.purpose, skill: opts.skill, skills: opts.skills, misc: opts.misc }, Math.random);
   if (!plan.length) return null;
   const first = plan[0];
   const { topic, level } = parseSkill(first.skill);
@@ -57,9 +64,9 @@ function startCheck(opts) {
     kind: 'check', purpose: opts.purpose, skill: opts.skill || null, skills: opts.skills || null, misc: opts.misc || null,
     topic: opts.topic || topic, level: opts.level || level, part: 1, plan,
     levels: plan.map((q) => parseSkill(q.skill).level), slot: 0, total: plan.length, solved: 0, redo: [], redoing: false, probes: [],
-    item: itemFor(first.skill, first.source, Math.random, undefined, first.candidates, { test: true }), attempt: 1, hint: false, phase: 'answer', wrong: [],
+    item: fixedItems ? fixedItems[0] : itemFor(first.skill, first.source, Math.random, undefined, first.candidates, { test: true }), attempt: 1, hint: false, phase: 'answer', wrong: [],
     combo: 0, bestCombo: 0, firstTry: 0, mistakes: 0, fixed: 0, missedSlots: [], cats: {}, lastCat: null,
-    right: 0, perSkill: {}, showed: 0,
+    right: 0, perSkill: {}, showed: 0, ...(fixedItems ? { fixedItems, slotOk: [] } : {}),
     finished: false, failed: false, startedAt: Date.now(), itemStartedAt: Date.now(),
   };
 }
@@ -108,7 +115,8 @@ export function answer(s, u) {
   const it = s.item;
   const ok = isCorrect(it, u);
   const secs = Math.round((Date.now() - s.itemStartedAt) / 1000);
-  const purpose = s.kind === 'check' ? (s.purpose === 'exam' ? 'diagnostic' : s.purpose) : 'practice';
+  // a practice exam's and a class exam's answers are independent evidence that moves no stair's stages
+  const purpose = s.kind === 'check' ? (s.purpose === 'exam' || s.purpose === 'class' ? 'diagnostic' : s.purpose) : 'practice';
   // a question from a diagnostic model knows every misconception that predicts this answer, and which could have shown
   const diagnosis = !ok && it.diagnosis ? it.diagnosis(u) : null;
   const cands = diagnosis?.kind === 'misconception' ? diagnosis.candidates : undefined;
@@ -119,7 +127,7 @@ export function answer(s, u) {
     const perSkill = { ...s.perSkill, [sk]: { right: cur.right + (ok ? 1 : 0), asked: cur.asked + 1 } };
     const showed = s.showed + (!ok && s.misc && cands?.some((c) => c.id === s.misc) ? 1 : 0);
     const cat = ok ? null : (it.diag ? it.diag(u) : null);
-    const common = { ...s, perSkill, showed, right: s.right + (ok ? 1 : 0), solved: s.solved + 1, wrong: ok ? s.wrong : [...s.wrong, u], firstTry: s.firstTry + (ok ? 1 : 0), mistakes: s.mistakes + (ok ? 0 : 1) };
+    const common = { ...s, perSkill, showed, right: s.right + (ok ? 1 : 0), solved: s.solved + 1, wrong: ok ? s.wrong : [...s.wrong, u], firstTry: s.firstTry + (ok ? 1 : 0), mistakes: s.mistakes + (ok ? 0 : 1), ...(s.fixedItems ? { slotOk: [...s.slotOk, ok] } : {}) };
     const event = { ...base, ok, first: true, cat };
     return ok
       ? { s: { ...common, phase: 'correct' }, result: { ok: true, first: true, combo: 0, comboMark: null, event } }
@@ -164,8 +172,10 @@ export function next(s) {
   const fresh = { attempt: 1, hint: false, phase: 'answer', wrong: [], itemStartedAt: Date.now() };
   if (s.kind === 'check') {
     if (slot >= s.plan.length) return { ...s, finished: true };
+    // a wrong answer belongs to its own question: a choice missed in one is not marked or locked in the next
+    if (s.fixedItems) return { ...s, ...fresh, slot, item: s.fixedItems[slot] };
     const q = s.plan[slot];
-    return { ...s, ...fresh, slot, wrong: s.wrong, item: itemFor(q.skill, q.source, Math.random, s.item.key, q.candidates, { test: true }) };
+    return { ...s, ...fresh, slot, item: itemFor(q.skill, q.source, Math.random, s.item.key, q.candidates, { test: true }) };
   }
   if (slot < s.levels.length) return { ...s, ...fresh, slot, item: s.kind === 'jump' ? jumpItem(s.topic, s.levels[slot], slot, s.item.key) : practiceItem(s.topic, s.levels[slot], slot, s.item.key) };
   if (s.probes?.length) {
@@ -190,8 +200,12 @@ export function resultOf(s) {
     const passed = s.purpose === 'mastery' ? asked >= MASTERY_N && right >= MASTERY_NEED
       : s.purpose === 'review' ? right >= Math.min(REVIEW_NEED, asked)
         : s.purpose === 'verify' ? right >= VERIFY_NEED && s.showed === 0 : true;
-    const xp = !passed ? 0 : { mastery: XP.mastery, review: XP.recall, verify: XP.verify, diagnostic: XP.diagnostic, exam: XP.exam }[s.purpose] || 0;
-    return { kind: 'check', purpose: s.purpose, skill: s.skill, skills: s.skills, misc: s.misc, topic: s.topic, level: s.level, right, asked, perSkill: s.perSkill, showed: s.showed, passed, xp, accuracy: asked ? Math.round((100 * right) / asked) : 0, perfect: right === asked, mistakes: asked - right, fixed: 0, bestCombo: 0, secs: Math.round((Date.now() - s.startedAt) / 1000) };
+    // a class exam earns what a practice exam earns
+    const xp = !passed ? 0 : { mastery: XP.mastery, review: XP.recall, verify: XP.verify, diagnostic: XP.diagnostic, exam: XP.exam, class: XP.exam }[s.purpose] || 0;
+    // a class exam's questions, one by one, as the teacher's report reads them (correct or wrong; the server also knows
+    // partial and missing, from photo-checked exams)
+    const questions = s.fixedItems ? s.fixedItems.map((it, i) => ({ topic: it.topic, level: it.level, status: s.slotOk[i] ? 'correct' : 'wrong' })) : undefined;
+    return { kind: 'check', purpose: s.purpose, skill: s.skill, skills: s.skills, misc: s.misc, topic: s.topic, level: s.level, right, asked, perSkill: s.perSkill, showed: s.showed, passed, xp, accuracy: asked ? Math.round((100 * right) / asked) : 0, perfect: right === asked, mistakes: asked - right, fixed: 0, bestCombo: 0, secs: Math.round((Date.now() - s.startedAt) / 1000), ...(questions ? { questions } : {}) };
   }
   const answered = s.total;
   const accuracy = answered ? Math.round((100 * s.firstTry) / answered) : 0;

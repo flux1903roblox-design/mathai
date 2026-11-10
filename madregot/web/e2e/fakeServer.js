@@ -8,7 +8,8 @@
 // Class work (TEACHER-4 and TEACHER-5): the teacher's assignments (list, create with a due date moved off Saturday, one
 // with a row per student, a later date, delete), the dashboard's open assignments and the ids of the students behind
 // each repeated mistake, and the student's side (GET /api/class/work with what they did, and their reports, merged so
-// they never go backwards). `st.down = true` makes every call fail as a lost connection.
+// they never go backwards), with the class exam's frozen questions (the teacher sends one version; the student fetches
+// its items). `st.down = true` makes every call fail as a lost connection.
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
 const CORS = {
@@ -59,7 +60,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     deleted: [], // classes deleted through /api/teacher/class/delete
     today: '2026-11-05', // the server's day (Jerusalem): the e2e clock's Thursday
     mistakes: [], // the dashboard's repeated mistakes: [{ topic, cat, level, n, students, ids, names }]
-    assignments: [], // [{ id, kind, skill, title, note, startsOn, dueOn, forAll, targets, createdAt, version }]
+    assignments: [], // [{ id, kind, skill, title, note, startsOn, dueOn, forAll, targets, createdAt, exam?: items, version? }]
     work: {}, // assignmentId -> studentId -> { state, stage, right, asked, passed, questions, tries, startedAt, doneAt, doneDay }
     studentTokens: { 'stok-a1': 'a1' }, // a student's class token -> their id
     down: false, // every call fails as a lost connection
@@ -116,7 +117,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     const started = ws.filter((w) => w?.state === 'started').length; const done = ws.filter((w) => w?.state === 'done').length;
     return {
       id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn, forAll: a.forAll,
-      targets: a.forAll ? [] : [...a.targets].sort(), createdAt: a.createdAt, hasExam: false, examCount: null, version: null,
+      targets: a.forAll ? [] : [...a.targets].sort(), createdAt: a.createdAt, hasExam: !!a.exam, examCount: a.exam ? a.exam.length : null, version: a.version || null,
       counts: { assigned: who.length, notStarted: who.length - started - done, started, done, late: who.filter((sid) => lateOf(a, workOf(a, sid))).length },
     };
   };
@@ -174,14 +175,21 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
           .sort((a, b) => ((workOf(a, sid)?.state === 'done') - (workOf(b, sid)?.state === 'done')) || (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0));
         return reply(route, 200, {
           today: st.today, teacherName: 'רונית', help: [],
-          assignments: list.map((a) => ({ id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn, createdAt: a.createdAt, hasExam: false, examCount: null, mine: mineOf(workOf(a, sid)) })),
+          assignments: list.map((a) => ({ id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.startsOn, dueOn: a.dueOn, createdAt: a.createdAt, hasExam: !!a.exam, examCount: a.exam ? a.exam.length : null, mine: mineOf(workOf(a, sid)) })),
         });
+      }
+      // a class exam's frozen questions, for a student it is assigned to
+      const em = path.match(/^\/api\/class\/work\/([a-f0-9]{16})\/exam$/);
+      if (em) {
+        const a = st.assignments.find((x) => x.id === em[1]);
+        if (!a || !mine(a) || !a.exam) return reply(route, 404, { error: 'not_found' });
+        return reply(route, 200, { items: a.exam });
       }
       const wm = path.match(/^\/api\/class\/work\/([a-f0-9]{16})$/);
       const a = wm && st.assignments.find((x) => x.id === wm[1]);
       if (!a || !mine(a) || req.method() !== 'POST') return reply(route, 404, { error: 'not_found' });
       if (!['started', 'done'].includes(body.state)) return reply(route, 400, { error: 'bad_work', field: 'state' });
-      const old = workOf(a, sid); const done = body.state === 'done'; const at = '2026-11-05T10:00:00.000Z';
+      const old = workOf(a, sid); const done = body.state === 'done'; const at = `${st.today}T10:00:00.000Z`;
       const max = (x, y) => (x == null ? (y ?? null) : y == null ? x : Math.max(x, y));
       const first = old?.doneAt ? old : done ? body : old || {};
       const w = {
@@ -346,8 +354,10 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       }
       if (path === '/api/teacher/assignments') {
         const bad = (field) => reply(route, 400, { error: 'bad_assignment', field });
-        if (!['stair', 'check'].includes(body.kind)) return bad('kind');
-        if (!/^[a-z]{2,10}:\d{1,2}$/.test(body.skill || '')) return bad('skill');
+        if (!['stair', 'check', 'exam'].includes(body.kind)) return bad('kind');
+        const exam = body.kind === 'exam';
+        if (!exam && !/^[a-z]{2,10}:\d{1,2}$/.test(body.skill || '')) return bad('skill');
+        if (exam && (!Array.isArray(body.exam?.items) || body.exam.items.length < 1 || body.exam.items.length > 14 || !['a', 'b'].includes(body.exam.version ?? 'a'))) return bad('exam');
         const raw = String(body.dueOn || '');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(raw) || raw < st.today || raw > plus(st.today, 120)) return bad('dueOn');
         const targets = Array.isArray(body.targets) ? [...new Set(body.targets)] : [];
@@ -355,8 +365,9 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         if (st.assignments.filter((x) => x.dueOn >= plus(st.today, -14)).length >= 20) return reply(route, 409, { error: 'too_many_open' });
         let dueOn = raw; while (saturday(dueOn)) dueOn = plus(dueOn, 1);
         const a = {
-          id: `a${String(st.assignments.length + 1).padStart(15, '0')}`, kind: body.kind, skill: body.skill, title: String(body.title || body.skill).slice(0, 80),
+          id: `a${String(st.assignments.length + 1).padStart(15, '0')}`, kind: body.kind, skill: exam ? null : body.skill, title: String(body.title || body.skill || 'מבחן תרגול').slice(0, 80),
           note: String(body.note || '').slice(0, 200), startsOn: st.today, dueOn, forAll: !targets.length, targets, createdAt: `${st.today}T10:00:00.000Z`,
+          ...(exam ? { exam: JSON.parse(JSON.stringify(body.exam.items)), version: body.exam.version ?? 'a' } : {}),
         };
         st.assignments.push(a);
         return reply(route, 201, { assignment: viewOf(a), moved: dueOn !== raw });
@@ -385,7 +396,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
             studentId: sid, name, state: w?.state || 'none', stage: w?.stage ?? null, right: w?.right ?? null, asked: w?.asked ?? null, passed: w?.passed ?? null,
             questions: w?.questions ?? null, tries: w?.tries || 0, startedAt: w?.startedAt || null, doneAt: w?.doneAt || null, late: lateOf(a, w),
           }));
-        return reply(route, 200, { assignment: viewOf(a), exam: null, work });
+        return reply(route, 200, { assignment: viewOf(a), exam: a.exam ? { items: a.exam } : null, work });
       }
       const rm = path.match(/^\/api\/teacher\/students\/([a-z0-9]+)\/remove$/);
       if (rm) { st.students = st.students.filter((s) => s.id !== rm[1]); return reply(route, 200, { ok: true }); }

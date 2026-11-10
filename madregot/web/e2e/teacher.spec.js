@@ -14,7 +14,8 @@
 //
 // TEACHER-3: a class practice exam from the board's tools: stairs (a whole unit at once), a length, one or two versions;
 // the sheet with its title and version switch; printing the exam (the name line, the questions) or the key (a page per
-// version, answers and steps, no question text), and a PDF of each (test-results/teacher-exam-{exam,key}.pdf).
+// version, answers and steps, no question text), and a PDF of each (test-results/teacher-exam-{exam,key}.pdf). Sent to
+// the class as version ב, the post carries ב's frozen questions; the assignment prints again, read-only (a:<id>).
 //
 // TEACHER-9: the class settings, opened from the board's tools: the class's name, grade, code and join lock; the email
 // it is bound to and the teacher key, with a new key after a fresh code; how long the data is kept (the words come from
@@ -689,8 +690,6 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
   });
 });
 
-// TEACHER-4: the teacher gives work with a due date, from "מחר", the "משימות" tab and the library; sees each student's
-// state; extends a date; deletes after asking; and tells the class with a message to copy (no names) and a Classroom link.
 test.describe('TEACHER-3: a class practice exam, printed with its key, in two versions', () => {
   const tools = (page) => page.getByRole('navigation', { name: 'כלים' });
   const PDF_DIR = path.join(process.cwd(), 'test-results');
@@ -840,8 +839,73 @@ test.describe('TEACHER-3: a class practice exam, printed with its key, in two ve
     await expect(page.getByRole('heading', { name: 'המבחן לא נמצא' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'מבחן חדש' })).toBeVisible();
   });
+
+  test('sent to the class as version ב: the post carries ב\'s questions; the assignment prints again, read-only', async ({ page }) => {
+    const { log, st } = await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher/exam/new', keyTeacher());
+    await page.getByRole('checkbox', { name: '3. כפל וחילוק' }).click();
+    await page.getByRole('checkbox', { name: '4. סדר פעולות' }).click();
+    const next = page.getByRole('button', { name: 'המשך', exact: true });
+    await next.click();
+    await page.getByRole('radio', { name: /6 שאלות/ }).click();
+    await next.click();
+    await page.getByRole('button', { name: 'הכנת המבחן' }).click();
+    await expect(page.locator('.xs-screen .exam-q')).toHaveCount(6);
+    const [te] = (await saved(page)).teacherExams;
+    // the version on screen goes with the sheet: ב׳
+    await page.getByRole('radio', { name: 'גרסה ב׳' }).check();
+    await page.getByRole('button', { name: 'לשלוח לכיתה כמשימה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'משימה לכיתה ז׳3' });
+    await expect(sheet.getByRole('radio', { name: /^מבחן תרגול\s*מבחן שהכנתם/ })).toBeChecked();
+    await expect(sheet.getByRole('radio', { name: new RegExp(`^${te.title}`) })).toBeChecked();
+    await expect(sheet.getByRole('radio', { name: 'גרסה ב׳' })).toBeChecked();
+    await expect(sheet.getByLabel('איזו מדרגה?')).toHaveCount(0);
+    await expect(sheet.getByLabel('כותרת')).toHaveValue(te.title);
+    await shot(page, 'teacher-assign-exam');
+    await sheet.getByRole('button', { name: 'שליחה לכיתה' }).click();
+    await expect(page.getByRole('dialog', { name: 'לספר לכיתה?' })).toBeVisible();
+    const post = log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST');
+    expect(post.body).toMatchObject({ kind: 'exam', title: te.title, exam: { version: 'b' } });
+    expect(post.body.skill).toBeUndefined();
+    expect(post.body.exam.items.map((x) => x.key)).toEqual(te.versions[1].items.map((x) => x.key));
+    expect(post.body.exam.items).toEqual(te.versions[1].items);
+    const id = st.assignments[0].id;
+    expect((await saved(page)).teacherExams[0].assignmentId).toBe(id);
+    await page.getByRole('button', { name: 'סיום' }).click();
+
+    // the assignment's detail prints it again: the version the class got, as the server keeps it, read-only
+    await page.goto('./#/teacher?tab=work');
+    await page.getByRole('button', { name: new RegExp(te.title) }).click();
+    const detail = page.getByRole('dialog', { name: te.title });
+    await detail.getByRole('link', { name: 'הדפסת המבחן' }).click();
+    await expect(page).toHaveURL(new RegExp(`#/teacher/exam/a:${id}$`));
+    await expect(page.locator('.xs-screen .exam-q')).toHaveCount(6);
+    await expect(page.locator('.xs-screen')).toContainText('גרסה ב׳');
+    await expect(page.getByText('זה המבחן כפי שנשלח לכיתה, גרסה ב׳. אפשר להדפיס אותו ואת מפתח התשובות.')).toBeVisible();
+    await expect(page.getByLabel('כותרת המבחן')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'לשלוח לכיתה כמשימה' })).toHaveCount(0);
+    await printAs(page, 'key');
+    await expect(page.locator('.ps-key-title')).toHaveText(`מפתח תשובות: ${te.title} · גרסה ב׳ (למורה)`);
+    await page.emulateMedia({ media: 'screen' });
+    await page.getByRole('button', { name: 'חזרה למשימות' }).click();
+    await expect(page).toHaveURL(/#\/teacher\?tab=work$/);
+  });
+
+  test('"מבחן תרגול" in the assign sheet with no exam for the class: it says so and leads to the builder', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher?tab=work', keyTeacher());
+    await page.getByRole('button', { name: 'משימה חדשה' }).first().click();
+    const sheet = page.getByRole('dialog', { name: 'משימה לכיתה ז׳3' });
+    await sheet.getByRole('radio', { name: /^מבחן תרגול\s*מבחן שהכנתם/ }).check();
+    await expect(sheet.getByText('עוד אין מבחן לכיתה הזו.')).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'שליחה לכיתה' })).toBeDisabled();
+    await sheet.getByRole('link', { name: 'להכנת מבחן' }).click();
+    await expect(page).toHaveURL(/#\/teacher\/exam\/new$/);
+  });
 });
 
+// TEACHER-4: the teacher gives work with a due date, from "מחר", the "משימות" tab and the library; sees each student's
+// state; extends a date; deletes after asking; and tells the class with a message to copy (no names) and a Classroom link.
 test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
   const NAMES = ['אביגיל ב.', 'אורי כ.', 'איתי ל.', 'אלה מ.', 'בן נ.', 'גאיה ס.', 'דניאל ע.', 'הדר פ.', 'יהלי צ.', 'יונתן ק.', 'לביא ר.', 'מאיה ש.',
     'נגה ת.', 'נועם א.', 'עדי ב.', 'עומר ג.', 'רוני ד.', 'שירה ה.', 'תמר ו.', 'יואב ז.', 'דנה ח.', 'אלון ט.', 'מיכל י.', 'רועי כ.'];
@@ -908,7 +972,7 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     const { log } = await fakeServer(page, { today: '2026-11-07' }, baseOf());
     await open(page, '#/teacher?tab=work', keyTeacher(), { at: new Date('2026-11-07T10:00:00') });
     await expect(page.getByRole('heading', { name: 'עוד אין משימות' })).toBeVisible();
-    await expect(page.getByText('אפשר לתת לכיתה מדרגה ללמוד או בדיקת שליטה, עם תאריך הגשה.')).toBeVisible();
+    await expect(page.getByText('אפשר לתת לכיתה מדרגה ללמוד, בדיקת שליטה או מבחן תרגול, עם תאריך הגשה.')).toBeVisible();
     await page.getByRole('button', { name: 'משימה חדשה' }).first().click();
     const s = sheet(page, 'משימה לכיתה ז׳3');
     await s.getByRole('radio', { name: /בדיקת שליטה/ }).check();
@@ -1018,7 +1082,9 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
 });
 
 // TEACHER-5: the student sees the teacher's work at the top of today's mission, in calm words; the stairs the teacher
-// gave report how far they are; the missions tab has a dot for new work; a student with no class sees none of it.
+// gave report how far they are; the class exam runs from its start card, its three fixed questions in order, and its
+// result reaches the teacher (once, even after a lost connection, with the line that says it waits); the missions tab
+// has a dot for new work; a student with no class sees none of it.
 test.describe('TEACHER-5: the teacher\'s work on the student\'s side', () => {
   const MONDAY = new Date('2026-11-09T10:00:00');
   const inClass = (extra = {}) => withServer({ profile: { role: 'student', name: 'דנה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', teacherName: 'רונית', token: 'stok-a1', studentId: 'a1' }, ...extra });
@@ -1095,6 +1161,110 @@ test.describe('TEACHER-5: the teacher\'s work on the student\'s side', () => {
     expect(st.work.a000000000000001.a1).toMatchObject({ state: 'started', stage: 1 });
     // the report was confirmed: nothing waits on the device
     await expect.poll(async () => (await saved(page)).workOutbox).toEqual({});
+  });
+
+  // a class exam of three frozen questions, as the teacher's device made them (lib/exam.js freezeItem)
+  const EXAM_ITEMS = [
+    { key: 'sn3:-8:3', topic: 'signed', level: 3, levelTitle: 'כפל וחילוק', text: 'חשבו:', display: '-8 \\cdot 3', form: 'num', choices: null, fig: null, label: null, unit: null, var: null, exact: null, answer: -24, answerText: '-24', solution: ['הסימנים שונים, לכן התוצאה שלילית.', '$8 \\cdot 3 = 24$'], hint: 'מה קורה לסימן כשכופלים שלילי בחיובי?' },
+    { key: 'sn2c:-3:2', topic: 'signed', level: 2, levelTitle: 'השוואת מספרים', text: 'איזה סימן מתאים?', display: '-3 \;\\square\; 2', form: 'mc', choices: [{ tex: '<' }, { tex: '=' }, { tex: '>' }], fig: null, label: null, unit: null, var: null, exact: null, answer: 0, answerText: '<', solution: ['$-3$ משמאל ל־$2$ על ציר המספרים.'], hint: 'איפה כל מספר על הציר?' },
+    { key: 'py1:5:5', topic: 'pyth', level: 1, levelTitle: 'מציאת היתר', text: 'במשולש ישר־זווית הניצבים $5$ ו־$5$. מה אורך היתר? עגלו לעשיריות.', display: null, form: 'num', choices: null, fig: null, label: null, unit: 'ס״מ', var: null, exact: Math.sqrt(50), answer: 7.1, answerText: '7.1', solution: ['$5^2 + 5^2 = 50$', '$\\sqrt{50} \\approx 7.1$'], hint: 'מחברים את ריבועי הניצבים.' },
+  ];
+  const examWork = (over = {}) => given({ id: 'a000000000000004', kind: 'exam', skill: null, title: 'מבחן תרגול: לפני החנוכה', note: '', exam: EXAM_ITEMS, version: 'b', dueOn: '2026-11-11', ...over });
+  const typeIn = async (page, v) => { await page.locator('#slot-v').click(); for (const ch of v) await page.getByRole('button', { name: { '.': 'נקודה עשרונית', '-': 'מינוס' }[ch] || ch, exact: true }).click(); await page.getByRole('button', { name: 'בדיקה', exact: true }).click(); };
+  /** Through the exam: right, wrong, then 7.07 for √50 (right: the frozen exact length). */
+  async function solveExam(page) {
+    await expect.poll(() => item(page)).toBeTruthy();
+    expect((await item(page)).key).toBe('sn3:-8:3');
+    await expect(page.locator('.tools .tool[aria-label="רמז"], .tools .tool.ai, .tools .tool[aria-label="למורה"]')).toHaveCount(0);
+    await answer(page, true); await proceed(page);
+    await expect.poll(async () => (await item(page)).key).toBe('sn2c:-3:2');
+    await answer(page, false); await proceed(page);
+    await expect.poll(async () => (await item(page)).key).toBe('py1:5:5');
+    await typeIn(page, '7.07');
+    await expect(page.locator('section.fb')).toHaveClass(/fb-good/);
+    await proceed(page);
+  }
+  const DONE_QS = [{ topic: 'signed', level: 3, status: 'correct' }, { topic: 'signed', level: 2, status: 'wrong' }, { topic: 'pyth', level: 1, status: 'correct' }];
+
+  test('3. the class exam: the start card, the three questions in order, the result to the teacher; no AI is asked', async ({ page }) => {
+    const { log, st } = await fakeServer(page, { today: '2026-11-09', assignments: [examWork()] }, baseOf());
+    await open(page, '#/quests', inClass(), { at: MONDAY });
+    const block = page.getByRole('region', { name: 'מהמורה רונית' });
+    const row = block.getByRole('listitem').filter({ hasText: 'מבחן תרגול: לפני החנוכה' });
+    await expect(row).toContainText('מבחן תרגול · עד יום רביעי, 11.11');
+    await expect(row.getByRole('progressbar')).toHaveAttribute('aria-valuetext', '9 דק׳');
+    await page.locator('.continue-go').click();
+    await expect(page).toHaveURL(/#\/class\/exam\/a000000000000004$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'מבחן תרגול: לפני החנוכה' })).toBeVisible();
+    await expect(page.getByText('מבחן תרגול מהמורה: 3 שאלות, בערך 9 דקות.')).toBeVisible();
+    await expect(page.getByText('פותרים לבד, בלי רמזים. לכל שאלה יש ניסיון אחד, כמו בבדיקת שליטה. כדאי להחזיק דף טיוטה.')).toBeVisible();
+    await expect(page.getByText('התוצאה נשלחת למורה.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'לא עכשיו' })).toBeVisible();
+    expect(log.filter((r) => r.path === '/api/class/work/a000000000000004/exam')).toHaveLength(1);
+    expect((await saved(page)).classWork.exams.a000000000000004).toEqual(JSON.parse(JSON.stringify(EXAM_ITEMS)));
+    await shot(page, 'student-class-exam-start');
+    await page.getByRole('button', { name: 'מתחילים' }).click();
+    await expect(page).toHaveURL(/#\/class\/exam\/a000000000000004\/run$/);
+    await expect.poll(() => workPosts(log).length).toBe(1);
+    expect(workPosts(log)[0].body).toEqual({ state: 'started' });
+    await solveExam(page);
+    await expect(page.getByRole('heading', { name: 'סיימתם את המבחן' })).toBeVisible();
+    await expect(page.getByText('2 מתוך 3 תשובות נכונות.')).toBeVisible();
+    await expect(page.getByText('התוצאה נשלחה למורה.')).toBeVisible();
+    const done = workPosts(log).filter((r) => r.body.state === 'done');
+    expect(done).toHaveLength(1);
+    expect(done[0].body).toEqual({ state: 'done', right: 2, asked: 3, questions: DONE_QS });
+    expect(st.work.a000000000000004.a1).toMatchObject({ state: 'done', right: 2, asked: 3, questions: DONE_QS, tries: 1 });
+    // no AI call of any kind (the status of the tutor is not a call to it)
+    expect(log.filter((r) => r.path.startsWith('/api/ai/') && r.path !== '/api/ai/status')).toEqual([]);
+    await shot(page, 'student-class-exam-done');
+    await page.getByRole('button', { name: 'חזרה למשימות' }).click();
+    await expect(page).toHaveURL(/#\/quests$/);
+    await expect(block.getByRole('listitem').filter({ hasText: 'מבחן תרגול: לפני החנוכה' })).toContainText('הושלם');
+    // opened again: it says it was done, and that the teacher sees the first try
+    await page.goto('./#/class/exam/a000000000000004');
+    await expect(page.getByText('כבר סיימתם את המבחן הזה: 2 מתוך 3. אפשר לפתור אותו שוב, והמורה רואה את הניסיון הראשון.')).toBeVisible();
+  });
+
+  test('4. offline at the end: the result waits on the device and says so, then goes to the teacher once', async ({ page }) => {
+    const { log, st } = await fakeServer(page, { today: '2026-11-09', assignments: [examWork()] }, baseOf());
+    await open(page, '#/class/exam/a000000000000004', inClass(), { at: MONDAY });
+    await page.getByRole('button', { name: 'מתחילים' }).click();
+    await expect.poll(() => workPosts(log).length).toBe(1);
+    st.down = true;
+    await solveExam(page);
+    await expect(page.getByText('התוצאה תישלח למורה כשיהיה חיבור.')).toBeVisible();
+    expect((await saved(page)).workOutbox.a000000000000004).toMatchObject({ state: 'done', right: 2, asked: 3, questions: DONE_QS });
+    expect(st.work.a000000000000004.a1).toMatchObject({ state: 'started' });
+    // back online: the next sync sends the report exactly once, and the line follows
+    st.down = false;
+    const from = log.length;
+    await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await expect(page.getByText('התוצאה נשלחה למורה.')).toBeVisible();
+    await expect.poll(async () => (await saved(page)).workOutbox).toEqual({});
+    const sent = log.slice(from).filter((r) => r.path === '/api/class/work/a000000000000004' && r.method === 'POST');
+    expect(sent).toHaveLength(1);
+    expect(sent[0].body).toEqual({ state: 'done', right: 2, asked: 3, questions: DONE_QS });
+    expect(st.work.a000000000000004.a1).toMatchObject({ state: 'done', right: 2, asked: 3, tries: 1 });
+    // later syncs send nothing more
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForTimeout(300);
+    expect(log.slice(from).filter((r) => r.path === '/api/class/work/a000000000000004' && r.method === 'POST')).toHaveLength(1);
+  });
+
+  test('started before and left: the start card says it begins again from the first question', async ({ page }) => {
+    await fakeServer(page, { today: '2026-11-09', assignments: [examWork()], work: { a000000000000004: { a1: { state: 'started', startedAt: '2026-11-09T07:30:00.000Z', tries: 0 } } } }, baseOf());
+    await open(page, '#/class/exam/a000000000000004', inClass(), { at: MONDAY });
+    await expect(page.getByText('התחלתם את המבחן ולא סיימתם. אם תתחילו שוב, הוא יתחיל מהשאלה הראשונה.')).toBeVisible();
+    await page.getByRole('button', { name: 'מתחילים' }).click();
+    await expect.poll(() => item(page)).toBeTruthy();
+    expect((await item(page)).key).toBe('sn3:-8:3');
+    // leaving asks first, and says the exam will not be sent
+    await page.getByRole('button', { name: 'יציאה מהמבחן' }).click();
+    const exit = page.getByRole('dialog', { name: 'לצאת מהמבחן?' });
+    await expect(exit).toContainText('אם יוצאים עכשיו, המבחן לא יישלח למורה. בפעם הבאה הוא יתחיל מהשאלה הראשונה.');
+    await exit.getByRole('button', { name: 'יציאה', exact: true }).click();
+    await expect(page).toHaveURL(/#\/quests$/);
   });
 
   test('5. a student with no class sees no "מהמורה" block, and nothing is asked', async ({ page }) => {

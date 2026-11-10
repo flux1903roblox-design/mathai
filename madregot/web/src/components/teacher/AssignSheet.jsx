@@ -1,23 +1,27 @@
 // A new assignment for the class (spec TEACHER-4 §6): what to do (a stair to learn, or its mastery check), which stair,
 // by when, for whom, a line to the class and the title, then one action, "שליחה לכיתה". After sending, the sheet offers
 // to tell the class (a message to copy, a Google Classroom link); it never sends anything by itself.
-// It opens from the "משימות" tab, from a repeated mistake on "מחר" (that stair, for the students who made it), and from
-// the lessons library. The class exam joins the kinds with the exam builder.
+// It opens from the "משימות" tab, from a repeated mistake on "מחר" (that stair, for the students who made it), from
+// the lessons library, and from a class exam's sheet. "מבחן תרגול" sends one of this class's exams (TEACHER-3), in the
+// version the teacher picks (א׳ unless the sheet showed ב׳): its frozen questions go to the server as they are.
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { Copy, ExternalLink } from 'lucide-react';
-import { today as localToday } from '@/lib/store.js';
+import { useApp, today as localToday } from '@/lib/store.js';
 import { teacherApi } from '@/lib/teacher.js';
 import { topicsFor, TOPIC } from '@/content/index.js';
 import { assignTitle, sendWork, classMessage, classroomLink, publicUrl } from '@/lib/assign.js';
-import { plusDays, schoolDay, dayLong } from '@/lib/workDates.js';
+import { plusDays, schoolDay, dayLong, dm } from '@/lib/workDates.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 
 const KINDS = [
   ['stair', 'ללמוד מדרגה', 'חמשת השלבים, מההסבר ועד בדיקת השליטה'],
   ['check', 'בדיקת שליטה', 'בדיקה קצרה בלי רמזים, בסוף מדרגה'],
+  ['exam', 'מבחן תרגול', 'מבחן שהכנתם. נפתר באפליקציה ונבדק מיד'],
 ];
+const VERSION = { a: 'א', b: 'ב' };
 const DUE = [['1', 'מחר', 1], ['3', 'בעוד 3 ימים', 3], ['7', 'בעוד שבוע', 7]];
 const AHEAD = 120;
 
@@ -45,26 +49,35 @@ function useRoster(cls, given, open) {
 
 /**
  * Props: `cls`, `students` (the board's list; omitted, the sheet loads it), `today` (the server's day), `preset`
- * { kind?, skill?, targets?, targetsLabel? }, `open`, `onOpenChange`, `onSent(assignment)`.
+ * { kind?, skill?, examId?, version? ('a'|'b'), targets?, targetsLabel? }, `open`, `onOpenChange`, `onSent(assignment)`.
  */
 export default function AssignSheet({ cls, students: given, today: serverToday, preset = {}, open, onOpenChange, onSent }) {
   const roster = useRoster(cls, given, open);
   const students = roster.students;
   const today = serverToday || roster.today || localToday();
   const uid = useId();
-  const [kind, setKind] = useState(preset.kind === 'check' ? 'check' : 'stair');
+  // this class's exams on this device, newest first (TEACHER-3)
+  const allExams = useApp((st) => st.teacherExams);
+  const exams = useMemo(() => (allExams || []).filter((e) => e.classCode === cls.code), [allExams, cls.code]);
+  const updateTeacherExam = useApp((st) => st.updateTeacherExam);
+  const [kind, setKind] = useState(['check', 'exam'].includes(preset.kind) ? preset.kind : 'stair');
   const [skill, setSkill] = useState(preset.skill || '');
+  const [examId, setExamId] = useState(() => (exams.some((e) => e.id === preset.examId) ? preset.examId : exams[0]?.id || ''));
+  const [version, setVersion] = useState(preset.version === 'b' ? 'b' : 'a');
+  const exam = exams.find((e) => e.id === examId) || null;
+  const examItems = exam ? (exam.versions[version === 'b' ? 1 : 0] || exam.versions[0]).items : null;
   const [due, setDue] = useState(() => plusDays(today, 7));
   const [who, setWho] = useState(preset.targets?.length ? 'preset' : 'all');
   const [chosen, setChosen] = useState(() => new Set(preset.targets || []));
   const [note, setNote] = useState('');
-  const [title, setTitle] = useState(() => assignTitle(preset.kind === 'check' ? 'check' : 'stair', preset.skill));
+  const titleOf = (k, sk, ex) => (k === 'exam' ? (ex?.title || '').slice(0, 80) : assignTitle(k, sk));
+  const [title, setTitle] = useState(() => titleOf(kind, preset.skill, exam));
   const [titleTouched, setTitleTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(null); // the assignment as the server made it: the "לספר לכיתה?" step
 
   // the automatic title follows the kind and the stair until the teacher writes their own
-  useEffect(() => { if (!titleTouched) setTitle(assignTitle(kind, skill)); }, [kind, skill, titleTouched]);
+  useEffect(() => { if (!titleTouched) setTitle(titleOf(kind, skill, exam)); }, [kind, skill, exam?.id, exam?.title, titleTouched]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // the stairs of the class's grade, by topic (and the preset's topic when it is another grade's)
   const groups = useMemo(() => {
@@ -78,7 +91,8 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
   const moved = dueOk ? schoolDay(due) : null;
   const ids = students.map((s) => s.id);
   const targets = who === 'all' ? [] : who === 'preset' ? (preset.targets || []).filter((id) => ids.includes(id)) : [...chosen].filter((id) => ids.includes(id));
-  const ready = !!skill && dueOk && (who === 'all' ? students.length > 0 : targets.length > 0) && roster.ready;
+  const what = kind === 'exam' ? !!examItems?.length : !!skill;
+  const ready = what && dueOk && (who === 'all' ? students.length > 0 : targets.length > 0) && roster.ready;
 
   const toggle = (id) => setChosen((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const submit = async (e) => {
@@ -86,7 +100,12 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
     if (!ready || busy) return;
     setBusy(true);
     try {
-      const r = await sendWork(cls, { kind, skill, title: title.trim() || assignTitle(kind, skill), note: note.trim(), dueOn: due, ...(targets.length ? { targets } : {}) });
+      const auto = titleOf(kind, skill, exam) || 'מבחן תרגול';
+      const body = kind === 'exam'
+        ? { kind, title: title.trim() || auto, note: note.trim(), dueOn: due, exam: { items: examItems, version }, ...(targets.length ? { targets } : {}) }
+        : { kind, skill, title: title.trim() || auto, note: note.trim(), dueOn: due, ...(targets.length ? { targets } : {}) };
+      const r = await sendWork(cls, body);
+      if (kind === 'exam') updateTeacherExam(exam.id, { assignmentId: r.assignment.id });
       toast.success(r.moved ? `המשימה נשלחה, עד ${dayLong(r.assignment.dueOn)}. התלמידים יראו אותה בראש המשימה של היום.` : 'המשימה נשלחה. התלמידים יראו אותה בראש המשימה של היום.');
       setSent(r.assignment);
       onSent?.(r.assignment);
@@ -114,16 +133,43 @@ export default function AssignSheet({ cls, students: given, today: serverToday, 
           </div>
         </fieldset>
 
-        <Field label="איזו מדרגה?" id={`${uid}-stair`}>
-          <select id={`${uid}-stair`} className="input input-lg as-select" value={skill} onChange={(e) => setSkill(e.target.value)}>
-            <option value="" disabled>בחרו מדרגה</option>
-            {groups.map((t) => (
-              <optgroup key={t.id} label={t.title}>
-                {t.levels.map((l, i) => <option key={l.title} value={`${t.id}:${i + 1}`}>{i + 1}. {l.title}</option>)}
-              </optgroup>
-            ))}
-          </select>
-        </Field>
+        {kind !== 'exam' && (
+          <Field label="איזו מדרגה?" id={`${uid}-stair`}>
+            <select id={`${uid}-stair`} className="input input-lg as-select" value={skill} onChange={(e) => setSkill(e.target.value)}>
+              <option value="" disabled>בחרו מדרגה</option>
+              {groups.map((t) => (
+                <optgroup key={t.id} label={t.title}>
+                  {t.levels.map((l, i) => <option key={l.title} value={`${t.id}:${i + 1}`}>{i + 1}. {l.title}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </Field>
+        )}
+        {kind === 'exam' && (
+          <fieldset className="as-set">
+            <legend className="field-label">איזה מבחן?</legend>
+            {exams.length === 0 ? (
+              <p className="as-note-line as-no-exam">עוד אין מבחן לכיתה הזו. <Link to="/teacher/exam/new" className="as-link">להכנת מבחן</Link></p>
+            ) : (
+              <div className="as-opts">
+                {exams.map((e) => (
+                  <Choice key={e.id} name={`${uid}-exam`} value={e.id} checked={examId === e.id} onChange={setExamId} title={e.title}
+                    sub={`${e.versions[0].items.length} שאלות · ${e.versions.length > 1 ? 'שתי גרסאות' : 'גרסה אחת'} · ${dm(e.at.slice(0, 10))}`} />
+                ))}
+              </div>
+            )}
+            {exam?.versions.length > 1 && (
+              <div className="as-chips as-versions" role="radiogroup" aria-label="איזו גרסה תישלח">
+                {['a', 'b'].map((v) => (
+                  <label key={v} className={clsx('as-chip', version === v && 'on')}>
+                    <input type="radio" className="as-radio" name={`${uid}-version`} value={v} checked={version === v} onChange={() => setVersion(v)} />
+                    גרסה {VERSION[v]}׳
+                  </label>
+                ))}
+              </div>
+            )}
+          </fieldset>
+        )}
 
         <fieldset className="as-set">
           <legend className="field-label">עד מתי?</legend>
