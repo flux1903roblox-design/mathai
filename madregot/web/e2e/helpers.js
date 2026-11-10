@@ -52,8 +52,8 @@ export async function type(page, value) {
   for (const ch of String(value)) await page.getByRole('button', { name: KEY_NAME[ch] || ch, exact: true }).click();
 }
 
-const slotNames = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : ['v']);
-const values = (it) => (it.form === 'pt' ? it.answer : it.form === 'line' ? [it.answer.m, it.answer.b] : [it.answer]);
+const slotNames = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : it.form === 'lin' ? ['k', 'c'] : ['v']);
+const values = (it) => (it.form === 'pt' ? it.answer : it.form === 'line' ? [it.answer.m, it.answer.b] : it.form === 'lin' ? [it.answer.k, it.answer.c] : [it.answer]);
 
 /** Answer the current exercise, right or wrong (a wrong choice that is still enabled). */
 export async function answer(page, right) {

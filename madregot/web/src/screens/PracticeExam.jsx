@@ -5,7 +5,7 @@ import { Printer, Check } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { hasTool, useAIStatus } from '@/lib/account.js';
 import { makePracticeExam, weakTopics } from '@/lib/exam.js';
-import { TOPIC, topicsFor } from '@/content/index.js';
+import { TOPIC, topicsFor, displayTex } from '@/content/index.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
 import { MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
@@ -98,7 +98,7 @@ export function PracticeSheet() {
           {pe.items.map((it, i) => (
             <li key={it.key} className="exam-q">
               <p className="qtext"><span className="ex-num">{i + 1}</span><MathText text={it.text} /></p>
-              {it.display && <div className="qdisplay small"><Tex tex={it.form === 'mc' ? it.display : `${it.display} = \\,?`} display /></div>}
+              {it.display && <div className="qdisplay small"><Tex tex={displayTex(it)} display /></div>}
               <Figure fig={it.fig} />
               {it.form === 'mc' && <p className="exam-choices">{it.choices.map((c, k) => <span key={k}>{String.fromCharCode(1488 + k)}. {c.tex ? <Tex tex={c.tex} /> : c.text}</span>)}</p>}
               <div className="exam-work" aria-hidden="true" />

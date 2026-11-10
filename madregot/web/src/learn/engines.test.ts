@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { LearnState, SkillRecord } from './types';
-import { ALL_SKILLS, PREREQS, ancestorsOf, prereqsOf } from './skills';
+import { TOPIC_ORDER, ALL_SKILLS, PREREQS, ancestorsOf, prereqsOf } from './skills';
 import { addAttempt, markTaught, masteryState, recordMasteryCheck, recordReview, nextStage, dueReviews, MASTERY_N, REVIEW_DAYS, addDays } from './mastery';
 import { addEvidence, addCounter, slipOf, diagnose, discriminating, narrow, startRepair, finishVerify, canOffer, CONFIRM_SCORE } from './misconceptions';
 import { nextActions, smallestMissing, isMissing } from './recommend';
@@ -8,7 +8,7 @@ import { buildMission, completeMissionItems, missionDone, partialStairNote } fro
 import { examPlan, newPlan, recordDiagnostic, validInput } from './examRescue';
 import { tutorReply } from './tutor';
 import { metrics, logEvent } from './analytics';
-import { evaluate, seeded } from './expr';
+import { evaluate, seeded, identical, texToExpr, texRelation, holds } from './expr';
 import { contentOf } from './content/index';
 import { addSubModel } from './content/signed';
 
@@ -30,11 +30,77 @@ describe('expressions', () => {
     expect(() => evaluate('alert(1)')).toThrow();
     expect(() => evaluate('2 +')).toThrow();
   });
+  it('reads variables, and refuses a name it was not given', () => {
+    expect(evaluate('3*x+1', { x: 2 })).toBe(7);
+    expect(evaluate('2*x - 3*y', { x: 4, y: -1 })).toBe(11);
+    expect(evaluate('sqrt(x)', { x: 9 })).toBe(3);
+    expect(() => evaluate('3*x+1')).toThrow();
+    expect(() => evaluate('3*x+1', { y: 2 })).toThrow();
+    expect(() => evaluate('3x')).toThrow(); // no implicit multiplication in written expressions
+  });
+  it('tells identical expressions from ones that only agree at some values', () => {
+    expect(identical('3*(x+4)', '3*x+12')).toBe(true);
+    expect(identical('3*(x+4)', '3*x+4')).toBe(false);
+    expect(identical('-(x-3)', '-x+3')).toBe(true);
+    expect(identical('4 + 3*(n-1)', '3*n+1', ['n'])).toBe(true);
+    expect(identical('2*x + 3*y - x', 'x + 3*y', ['x', 'y'])).toBe(true);
+    expect(identical('x*x', '2*x')).toBe(false); // equal at 0 and at 2 only
+    expect(identical('x^2 - 1', '(x-1)*(x+1)')).toBe(true);
+  });
+  it('reads the TeX a student sees, with the multiplication school algebra leaves out', () => {
+    const at = (tex: string, x: number) => evaluate(texToExpr(tex), { x });
+    expect(texToExpr('3x + 5')).toBe('3*x+5');
+    expect(at('3x + 5', 2)).toBe(11);
+    expect(at('-2(x - 3)', 5)).toBe(-4);
+    expect(at('\\frac{x + 1}{3}', 20)).toBe(7);
+    expect(at('x : 4', 12)).toBe(3);
+    expect(at('x + \\frac{1}{3}x', 3.75)).toBe(5);
+    expect(at('3 \\cdot 4x', 1)).toBe(12);
+    expect(at('-3 \\cdot (-2x)', 1)).toBe(6);
+    expect(at('x(x - 3)', 5)).toBe(10);
+    expect(at('(x + 1)(x - 1)', 4)).toBe(15);
+    expect(at('3x^2', 2)).toBe(12);
+    expect(at('-x^{2} + 6', 2)).toBe(2);
+    expect(at('\\left(x - 3\\right)^2', 1)).toBe(4);
+    expect(at('2\\frac{1}{2}x', 2)).toBe(5); // a mixed number: 2½ · 2
+    expect(at('\\dfrac{3x}{4} \\,-\\, 1', 4)).toBe(2);
+    expect(at('5(7 − 2x)', 1)).toBe(25);
+    expect(evaluate(texToExpr('2x + 3y'), { x: 1, y: 2 })).toBe(8);
+    expect(() => texToExpr('3x + \\alpha')).toThrow();
+    expect(() => texToExpr('(3x + 5')).toThrow();
+    expect(() => texToExpr('')).toThrow();
+  });
+  it('checks an equation or an inequality as it is displayed', () => {
+    expect(texRelation('3x + 5 = x + 11')).toEqual({ left: '3*x+5', rel: '=', right: 'x+11' });
+    expect(holds('3x + 5 = x + 11', { x: 3 })).toBe(true);
+    expect(holds('3x + 5 = x + 11', { x: 4 })).toBe(false);
+    expect(holds('\\frac{x + 1}{3} = 7', { x: 20 })).toBe(true);
+    expect(holds('7 - x = 3', { x: 4 })).toBe(true);
+    expect(holds('7 - x = 3', { x: -4 })).toBe(false);
+    expect(holds('2x + y = 5', { x: 2, y: 1 })).toBe(true);
+    expect(holds('2x > -6', { x: -2 })).toBe(true);
+    expect(holds('2x > -6', { x: -3 })).toBe(false);
+    expect(holds('2x \\ge -6', { x: -3 })).toBe(true);
+    expect(holds('-2x \\le 6', { x: -3 })).toBe(true);
+    expect(holds('-2x \\le 6', { x: -4 })).toBe(false);
+    expect(holds('x < 4', { x: 4 })).toBe(false);
+    expect(holds('x ≤ 4', { x: 4 })).toBe(true);
+    expect(() => texRelation('x = 3 = y')).toThrow();
+    expect(() => texRelation('3x + 5')).toThrow();
+  });
+});
+
+describe('the topic list the tutor and the exam check use', () => {
+  it('names every topic of the app, the algebra ones included, and "other"', async () => {
+    // @ts-ignore: plain JS shared with the Worker
+    const { TOPIC_IDS } = await import('@shared/ai.js');
+    expect([...TOPIC_IDS].sort()).toEqual([...TOPIC_ORDER, 'other'].sort());
+  });
 });
 
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(33);
+    expect(ALL_SKILLS).toHaveLength(48);
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));
@@ -337,6 +403,26 @@ describe('Exam Rescue', () => {
     expect(sun.days.map((d) => d.day)).toEqual(['2026-11-15']);
     // an exam on Shabbat is a typo in the date
     expect(validInput({ ...input, date: '2026-11-14' }, DAY)).toContain('שבת');
+  });
+  it('plans the algebra stairs in order, around Shabbat, for a grade 8 exam that revises grade 7 equations', () => {
+    // a grade 8 test on systems, revising equations: eq:2 and eq:4 (grade 7, offered to grade 8) and sys:1, all gaps
+    const skills = ['sys:1', 'eq:4', 'eq:2'];
+    let plan = newPlan({ grade: '8', date: '2026-11-16', skills, confidence: 1, minutes: 15 }, '2026-11-10T08:00:00.000Z');
+    skills.forEach((sk) => { plan = recordDiagnostic(plan, sk, 0, 2, '2026-11-10T08:00:00.000Z'); });
+    const p = examPlan(plan, empty(), '2026-11-10T09:00:00.000Z', '2026-11-10');
+    // the stair a later one leans on comes first: eq:2 before eq:4 before sys:1
+    expect(p.skills.map((s) => s.skill)).toEqual(['eq:2', 'eq:4', 'sys:1']);
+    const first = (sk: string) => placeOf(p, sk, 'learn');
+    expect(before(first('eq:2'), first('eq:4'))).toBe(true);
+    expect(before(first('eq:4'), first('sys:1'))).toBe(true);
+    skills.forEach((sk) => {
+      expect(before(placeOf(p, sk, 'learn'), placeOf(p, sk, 'practice')), `${sk}: practice before the lesson`).toBe(true);
+      expect(before(placeOf(p, sk, 'practice'), placeOf(p, sk, 'mastery')), `${sk}: mastery check before practice`).toBe(true);
+    });
+    // no task on Saturday 14.11, and the practice exam closes the last day
+    p.days.forEach((d) => expect(new Date(`${d.day}T12:00:00`).getDay(), d.day).not.toBe(6));
+    expect(p.days.map((d) => d.day)).not.toContain('2026-11-14');
+    expect(p.days.at(-1)!.tasks.at(-1)!.kind).toBe('exam');
   });
   it('puts everything into today when the exam is today', () => {
     const p = examPlan(newPlan({ ...input, date: DAY }, NOW), empty(), NOW, DAY);

@@ -11,10 +11,17 @@ import PythSquares from './PythSquares.jsx';
 import DataBars from './DataBars.jsx';
 import NumberPins from './NumberPins.jsx';
 import TriangleDrag from './TriangleDrag.jsx';
+import Balance, { balanceCoach } from './Balance.jsx';
+import Tiles, { tilesCoach } from './Tiles.jsx';
+import AreaModel, { areaCoach } from './AreaModel.jsx';
+import Ray, { rayCoach } from './Ray.jsx';
 import { triangleAngles } from '@/content/manip.js';
 import { minus } from './core.jsx';
 
-export const KINDS = { numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag };
+export const KINDS = {
+  numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag,
+  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray,
+};
 
 // A number inside Hebrew text keeps its minus sign on the left.
 const N = ({ v }) => <bdi dir="ltr">{minus(v)}</bdi>;
@@ -43,6 +50,7 @@ function coach(it, v, touched) {
     case 'plot': {
       if (!v && m.shape) return 'הקישו במקום שבו הקודקוד החסר משלים את המלבן.';
       if (!v && m.line) return 'הקישו על הנקודה של הישר שבה x הוא המספר מהשאלה.';
+      if (!v && m.lines) return 'הקישו על הנקודה שבה שני הישרים נפגשים.';
       if (!v) return 'הקישו על נקודה ברשת, או גררו אותה.';
       const [x, y] = v;
       if (!x && !y) return 'הנקודה בראשית הצירים.';
@@ -69,6 +77,10 @@ function coach(it, v, touched) {
       const n = m.values.length + 1;
       return <>כל שינוי של 1 בעמודה מזיז את הממוצע ב־<bdi dir="ltr">{1 / n}</bdi>.</>;
     }
+    case 'balance': return balanceCoach(m, v, it.answer, touched);
+    case 'tiles': return tilesCoach(m, v, touched);
+    case 'area': return areaCoach(m, v, touched);
+    case 'ray': return rayCoach(m, v, touched);
     default: return null;
   }
 }

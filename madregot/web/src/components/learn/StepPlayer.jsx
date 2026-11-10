@@ -9,7 +9,7 @@ import clsx from 'clsx';
 import { AnimatePresence, m } from 'motion/react';
 import { ArrowLeft, ArrowRight, Check, Lightbulb, X, Sparkles, HelpCircle } from 'lucide-react';
 import Mascot from '@/components/Mascot.jsx';
-import { Tex, MathText, mathPlain } from '@/components/MathText.jsx';
+import { Tex, MathText, mathPlain, FitDisplay } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { KINDS } from '@/components/manip/Manip.jsx';
@@ -54,7 +54,7 @@ export function Canvas({ display, fig, big = true, children, label }) {
   if (!display && !fig && !children) return null;
   return (
     <div className={clsx('lm-canvas', big && 'big')} aria-label={label} data-region="visual">
-      {display && <div className="lm-expr"><Tex tex={display} display /></div>}
+      {display && <FitDisplay className="lm-expr" tex={display} />}
       {fig && <div className="lm-fig"><Figure fig={fig} /></div>}
       {children}
     </div>
@@ -70,14 +70,17 @@ function Say({ step }) {
   );
 }
 
+/** An answer that is a sentence ("המאזניים יישארו מאוזנים") gets the full width: in half a row it wraps to three lines. */
+const LONG_CHOICE = 16;
 function Predict({ step, chosen, sel, onSelect }) {
   const locked = chosen != null;
+  const long = step.choices.some((c) => mathPlain(c).length > LONG_CHOICE);
   return (
     <>
       <Prompt tag="מה לדעתכם?"><p><MathText text={step.text} /></p></Prompt>
       <Canvas display={step.display} fig={step.fig} />
       <div className="lm-response" data-region="answers">
-        <div className="ls-choices" role="radiogroup" aria-label="מה לדעתכם?">
+        <div className={clsx('ls-choices', long && 'long')} role="radiogroup" aria-label="מה לדעתכם?">
           {step.choices.map((c, i) => {
             const state = locked ? (i === step.answer ? 'good' : i === chosen ? 'bad' : '') : '';
             const on = locked ? chosen === i : sel === i;

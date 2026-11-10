@@ -13,7 +13,9 @@ import { gradeTiles, tilesSummary } from '@/components/learn/MasteryMap.jsx';
 
 const S = 'signed:1';
 
-describe('a finished teaching stage is a real step of the day', () => {
+// the first stair of the course, and an algebra stair added later: the same rules
+describe.each([['signed:1'], ['expr:1']])('a finished teaching stage is a real step of the day (%s)', (S) => {
+  const [topic, lv] = S.split(':'); const level = Number(lv);
   beforeEach(() => { useApp.getState().resetProgress(); useApp.setState({ goalXp: 20, freezes: 0 }); });
 
   it('the first time, each stage earns its XP, towards the day and in total', () => {
@@ -45,7 +47,7 @@ describe('a finished teaching stage is a real step of the day', () => {
     const rec = useApp.getState().learn.skills[S];
     expect(rec.taught.A).toBeTruthy();
     expect(rec.mastered).toBeUndefined();
-    expect(useApp.getState().path.signed?.done?.[1]).toBeUndefined();
+    expect(useApp.getState().path[topic]?.done?.[level]).toBeUndefined();
   });
 
   it('a day with only a teaching stage keeps the streak, like a day with a lesson', () => {
@@ -57,7 +59,7 @@ describe('a finished teaching stage is a real step of the day', () => {
     expect(a.streak).toBe(2);
     expect(isActiveDay({ stages: 1 })).toBe(true);
     // and a lesson later the same day does not extend it a second time
-    const r = useApp.getState().completeLesson({ kind: 'node', topic: 'signed', level: 1, part: 1, xp: 10, passed: true });
+    const r = useApp.getState().completeLesson({ kind: 'node', topic, level, part: 1, xp: 10, passed: true });
     expect(r.streakExtended).toBe(false);
     expect(r.streak).toBe(2);
   });
@@ -104,6 +106,10 @@ describe('counters that move from the first stage', () => {
     expect(mastered).toMatchObject({ done: 1, stages: 5 });
     expect(unitCountText(mastered)).toBe('1 מתוך 5 מדרגות');
     for (const p of [fresh, started, mastered]) expect(unitCountText(p)).not.toMatch(/^0 /);
+    // an algebra unit the same way
+    expect(unitCountText(unitProgress('eq', {}, {}))).toBe('5 מדרגות');
+    expect(unitCountText(unitProgress('eq', {}, { 'eq:1': { attempts: [], taught: { A: 'x', B: 'x' } } }))).toBe('2 מתוך 25 שלבים');
+    expect(unitCountText(unitProgress('sys', { sys: { parts: { 1: PARTS }, done: { 1: 'mastered' } } }, { 'sys:1': { attempts: [], taught: { A: 'x', B: 'x', C: 'x' }, mastered: { at: 'x', box: 0, due: 'x' } } }))).toBe('1 מתוך 5 מדרגות');
   });
 
   it("the board's line says what the tiles show, and has no row of zeros", () => {
@@ -114,5 +120,8 @@ describe('counters that move from the first stage', () => {
     expect(after).toBe('מדרגה אחת בדרך לשליטה');
     const two = tilesSummary(gradeTiles('7', { [S]: { attempts: [], taught: { A: now } }, 'signed:2': { attempts: [], taught: { A: now } } }, {}, now));
     expect(two).toBe('2 מדרגות בדרך לשליטה');
+    // the grade's tiles include its algebra stairs, and they move the same way
+    expect(gradeTiles('7', {}, {}, now).map((r) => r.t.id)).toEqual(expect.arrayContaining(['expr', 'eq']));
+    expect(tilesSummary(gradeTiles('7', { 'eq:2': { attempts: [], taught: { A: now } } }, {}, now))).toBe('מדרגה אחת בדרך לשליטה');
   });
 });

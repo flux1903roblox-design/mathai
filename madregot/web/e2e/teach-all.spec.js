@@ -1,13 +1,12 @@
 // Every stair's teaching can be completed, start to end, through its own screens: understand (every step kind,
 // every interactive object), the worked examples step by step, and solving together with the last step typed; each stage
-// ends in its completion moment.
+// ends in its completion moment. The stairs come from the skill catalogue itself, so a topic registered there is walked
+// here with no change.
 import { test, expect } from '@playwright/test';
 import { open, student } from './helpers.js';
+import { STAIRS, GRADE_OF as GRADE } from '../src/learn/skills.ts';
 
 test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone', 'one phone is enough for the content walk'); });
-
-const STAIRS = { signed: 5, coord: 5, angles: 5, line: 8, pyth: 5, stats: 5 };
-const GRADE = { signed: '7', coord: '7', angles: '7', line: '8', pyth: '8', stats: '8' };
 const plain = (x) => (Number.isInteger(x) ? String(x) : String(Math.round(x * 1e6) / 1e6));
 
 for (const [topic, n] of Object.entries(STAIRS)) {

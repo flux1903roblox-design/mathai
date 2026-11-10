@@ -1,5 +1,7 @@
-// Grade 7 (ז׳): signed numbers, the coordinate plane, angles.
+// Grade 7 (ז׳): signed numbers, the coordinate plane, angles; algebraic expressions (expr.js) and equations (eq.js).
 import { R, NZ, pick, shuffle, T, near } from './util.js';
+import { EXPR } from './expr.js';
+import { EQ } from './eq.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
 
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
@@ -473,6 +475,8 @@ export const GRADE7 = [
       'interior-not-exterior': 'חישבו את הזווית הפנימית במקום החיצונית',
     },
   },
+  EXPR,
+  EQ,
 ];
 
 export { shuffle };

@@ -6,7 +6,7 @@ import { useApp } from '@/lib/store.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { api } from '@/lib/api.js';
 import { scoreOf, focusLevel, baseEntry } from '@/lib/exam.js';
-import { TOPICS } from '@/content/index.js';
+import { TOPICS, rescueTopicsFor } from '@/content/index.js';
 import { MAX_EXAM_PAGES } from '@shared/ai.js';
 import { Button, Field, Thinking } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
@@ -66,7 +66,10 @@ export default function ExamCheck() {
     setState({ phase: 'loading' });
     window.scrollTo?.({ top: 0 });
     try {
-      const topics = TOPICS.filter((t) => t.grade === (profile.grade || '7') || practice?.items.some((i) => i.topic === t.id)).map((t) => ({ id: t.id, title: t.title, levels: t.levels.map((l) => l.title) }));
+      // the grade's topics and those its tests revise from another grade (grade 8 exams use grade 7 algebra), and any
+      // topic of the practice exam being checked
+      const own = rescueTopicsFor(profile.grade || '7').map((t) => t.id);
+      const topics = TOPICS.filter((t) => own.includes(t.id) || practice?.items.some((i) => i.topic === t.id)).map((t) => ({ id: t.id, title: t.title, levels: t.levels.map((l) => l.title) }));
       const result = await runAI('exam', {
         grade: profile.grade || '7', pages: pages.map(({ data, mediaType }) => ({ data, mediaType })), topics,
         key: practice ? practice.items.map((i) => ({ prompt: i.plain, answer: i.answer })) : undefined,

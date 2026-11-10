@@ -114,7 +114,7 @@ body { background: #fff; color: var(--ink); }
 /* the maths on a light panel in the middle */
 .lm-canvas { display: flex; flex-direction: column; align-items: center; gap: var(--s3); padding: var(--s5) var(--s4); border-radius: var(--r-xl); background: var(--surface-2); border: 0; }
 .lm-canvas.big { min-height: 120px; justify-content: center; }
-.lm-expr { max-width: 100%; overflow-x: auto; direction: ltr; font-size: 1.7rem; padding: 2px 6px; }
+.lm-expr { width: 100%; max-width: 100%; overflow-x: auto; direction: ltr; font-size: 1.7rem; padding: 2px 6px; }
 .lm-fig { width: 100%; display: flex; justify-content: center; }
 .lm-fig .figure { width: 100%; max-width: 360px; height: auto; }
 .lm-canvas .manip { width: 100%; }
@@ -452,6 +452,7 @@ body { background: #fff; color: var(--ink); }
 .lm-say { font-size: 18px; line-height: 1.6; }
 .lm .ls-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
 .lm .ls-choices:has(> :nth-child(5)) { grid-template-columns: 1fr; }
+.lm .ls-choices.long { grid-template-columns: 1fr; }
 .lm .tg-step .ls-choices { grid-template-columns: 1fr; }
 .bl-why-btn { flex: none; min-width: 96px; }
 .lm-actions-row .bl-why-btn { margin-inline: 0; }
@@ -658,6 +659,8 @@ a.hub-row:active { background: var(--p-100); }
 .t-code span:first-child { font-weight: 600; letter-spacing: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .t-head-madi { position: absolute; inset-inline-end: var(--s4); bottom: var(--s3); }
 .t-main { max-width: 1100px; }
+/* a topic's name may take two lines in the student table, so a grade with five topics fits a laptop screen */
+.t-table thead th:has(.th-topic) { white-space: normal; min-width: 7.5em; }
 .t-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
 @media (min-width: 900px) { .t-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .kpi-sky .kpi-icon { color: var(--ch-sky-d); }

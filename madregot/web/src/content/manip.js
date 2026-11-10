@@ -10,11 +10,111 @@
 //   bars        the height of the movable bar              answer: the value (manip.stat 'median': the median is the target)
 //   pins        several labelled markers on a number line  answer: the position of each, in order
 //   triangle    the free vertex C of triangle ABC           answer: an example C; right: any C with a right angle at C
-//   plot        also with manip.line (a point of the line) or manip.shape (the vertex that completes it)
-import { near, plainNum } from './util.js';
+//   plot        also with manip.line (a point of the line), manip.shape (the vertex that completes it)
+//               or manip.lines (two lines [{m, b}, {m, b}]: their meeting point)
+//   balance     a scale {lx, l1, rx, r1}: boxes x and unit weights on the left and right pans
+//               answer: the value of x (one box alone on a pan, that many weights on the other, the beam level)
+//   tiles       algebra tiles {px, nx, p1, n1}: x, −x, 1 and −1 tiles     answer: {k, c} for kx + c, no zero pair left
+//   area        a rectangle {a, b}: a high, x + b long                  answer: {a, b}
+//   ray         an inequality on the number line {at, dir, closed}      answer: {at, dir, closed}; dir 1 right, −1 left
+import { near, plainNum, gcd, linText } from './util.js';
 
 const QUAD_NAMES = ['', 'הרביע הראשון', 'הרביע השני', 'הרביע השלישי', 'הרביע הרביעי'];
 export const quadOf = ([x, y]) => (x > 0 && y > 0 ? 1 : x < 0 && y > 0 ? 2 : x < 0 && y < 0 ? 3 : x > 0 && y < 0 ? 4 : 0);
+
+// ---------------------------------------------------------------- the balance (מאזניים)
+// The student removes one box or one weight at a time from one pan; the beam tilts when the pans differ, and a level
+// scale whose four counts share a divisor can be divided into that many equal parts (both pans together). Nothing is
+// ever added, except by undoing. So the rule "the same on both sides" is the student's choice, never the tool's.
+
+/** Most of a kind a pan can hold (the drawing is made for these; generators keep weights to 12 a pan). */
+export const BALANCE_MAX = { boxes: 6, weights: 20 };
+/** How the beam leans: −1 the left pan is heavier (it goes down), 1 the right one, 0 level. x is a box's weight. */
+export const balanceTilt = (u, x) => Math.sign((u.rx * x + u.r1) - (u.lx * x + u.l1));
+/** One box alone on a pan, the box's weight in weights on the other: x is found. */
+export const balanceSolved = (u, x) => !!u && ((u.lx === 1 && u.l1 === 0 && u.rx === 0 && u.r1 === x) || (u.rx === 1 && u.r1 === 0 && u.lx === 0 && u.l1 === x));
+/** The largest number every count on the scale divides by (2 or more), whether or not it is level; or null. */
+export function countsDivisor(u) {
+  const g = [u.lx, u.l1, u.rx, u.r1].reduce((a, b) => (b ? (a ? gcd(a, b) : b) : a), 0);
+  return g > 1 ? g : null;
+}
+/** The number both pans can be divided by now (level, and every count divisible by it), or null. */
+export function balanceDivisor(u, x) {
+  if (balanceTilt(u, x) !== 0) return null;
+  return countsDivisor(u);
+}
+export const balanceDivide = (u, g) => ({ lx: u.lx / g, l1: u.l1 / g, rx: u.rx / g, r1: u.r1 / g });
+export const BALANCE_GROUPS = ['lx', 'l1', 'rx', 'r1'];
+/** One item less in a group ('lx' a box on the left, 'r1' a weight on the right...), or null when it is empty. */
+export const balanceRemove = (u, g) => (u[g] > 0 ? { ...u, [g]: u[g] - 1 } : null);
+
+/**
+ * Can the scale reach "x found" from `start` with the student's moves? `pans` limits the removals to some pans
+ * ('l', 'r' or 'lr'): with one pan alone a level start can never be solved, which is what makes the tool honest.
+ */
+export function balanceReachable(start, x, pans = 'lr') {
+  const key = (u) => `${u.lx},${u.l1},${u.rx},${u.r1}`;
+  const seen = new Set([key(start)]); const queue = [start];
+  while (queue.length) {
+    const u = queue.shift();
+    if (balanceSolved(u, x)) return true;
+    const next = BALANCE_GROUPS.filter((g) => pans.includes(g[0])).map((g) => balanceRemove(u, g)).filter(Boolean);
+    const d = balanceDivisor(u, x); if (d) next.push(balanceDivide(u, d));
+    next.forEach((v) => { const k = key(v); if (!seen.has(k)) { seen.add(k); queue.push(v); } });
+  }
+  return false;
+}
+/** One pan as maths: 3x + 5, x, 11, 0. */
+export const panTex = (n, w) => linText({ k: n, c: w });
+/** The scale as an equation, or with ≠ while it leans. */
+export const balanceTex = (u, x) => `${panTex(u.lx, u.l1)} ${x == null || balanceTilt(u, x) === 0 ? '=' : '\\ne'} ${panTex(u.rx, u.r1)}`;
+const boxes = (n) => (n === 1 ? 'קופסה אחת' : `${n} קופסאות`);
+const weights = (n) => (n === 1 ? 'משקולת אחת' : `${n} משקולות`);
+/** What is on one pan, in words: "3 קופסאות ו־5 משקולות", "קופסה אחת", "כף ריקה". */
+export function panWords(n, w) {
+  if (!n && !w) return 'כף ריקה';
+  if (!w) return boxes(n);
+  if (!n) return weights(w);
+  return `${boxes(n)} ו־${weights(w)}`;
+}
+export const balanceWords = (u) => `בכף השמאלית ${panWords(u.lx, u.l1)}, בכף הימנית ${panWords(u.rx, u.r1)}`;
+
+// ---------------------------------------------------------------- algebra tiles (אריחים)
+
+/** Most tiles a row holds: x tiles (x and −x together) and unit tiles (1 and −1 together). */
+export const TILES_MAX = { x: 5, unit: 8 };
+/** The tiles as they lie, term by term: 3x - x + 2 - 5. Nothing at all is 0. */
+export function tilesTex(u) {
+  const terms = [];
+  const push = (n, sign, unit) => { if (n) terms.push({ sign, body: unit ? String(n) : n === 1 ? 'x' : `${n}x` }); };
+  push(u.px, '+', false); push(u.nx, '-', false); push(u.p1, '+', true); push(u.n1, '-', true);
+  if (!terms.length) return '0';
+  return terms.map((t, i) => (i === 0 ? (t.sign === '-' ? `-${t.body}` : t.body) : `${t.sign} ${t.body}`)).join(' ');
+}
+/** How many zero pairs each row still has. */
+export const tilesPairs = (u) => ({ x: Math.min(u.px, u.nx), unit: Math.min(u.p1, u.n1) });
+const tileCount = (n, one, many) => (n === 1 ? one : `${n} ${many}`);
+export const tilesWords = (u) => [
+  u.px && tileCount(u.px, 'אריח x אחד', 'אריחי x'), u.nx && tileCount(u.nx, 'אריח −x אחד', 'אריחי −x'),
+  u.p1 && tileCount(u.p1, 'אריח 1 אחד', 'אריחי 1'), u.n1 && tileCount(u.n1, 'אריח −1 אחד', 'אריחי −1'),
+].filter(Boolean).join(', ') || 'אין אריחים';
+
+// ---------------------------------------------------------------- the area model (מלבן)
+
+/** a(x + b) as maths: 3(x + 4), x + 4 (a = 1), 3x (b = 0). */
+export const areaTex = ({ a, b }) => (b === 0 ? linText({ k: a, c: 0 }) : a === 1 ? `x + ${b}` : `${a}(x + ${b})`);
+/** Its two parts' areas added: 3x + 12. */
+export const areaSumTex = ({ a, b }) => linText({ k: a, c: a * b });
+
+// ---------------------------------------------------------------- an inequality on the number line (קרן)
+
+/** The inequality a ray shows: x ≥ 4 (closed circle, to the right), x < −3 (open, to the left). */
+export const rayText = ({ at, dir, closed }, v = 'x') => `${v} ${dir > 0 ? (closed ? '≥' : '>') : (closed ? '≤' : '<')} ${plainNum(at)}`;
+export const rayTex = ({ at, dir, closed }, v = 'x') => `${v} ${dir > 0 ? (closed ? '\\ge' : '>') : (closed ? '\\le' : '<')} ${plainNum(at)}`;
+/** Is a number on the ray? */
+export const rayHas = ({ at, dir, closed }, n) => (n === at ? !!closed : dir > 0 ? n > at : n < at);
+
+// ---------------------------------------------------------------- checking, words and test states
 
 export function manipCorrect(it, u) {
   if (u == null) return false;
@@ -26,6 +126,11 @@ export function manipCorrect(it, u) {
     case 'squares': return Number.isInteger(u.a) && Number.isInteger(u.b) && u.a * u.a + u.b * u.b === a.c * a.c;
     case 'pins': return Array.isArray(u) && u.length === a.length && u.every((v, i) => v === a[i]);
     case 'triangle': return rightAtC(m, u);
+    // the answer is x's value: the value itself counts (as answerText shows it), and a scale must show one box alone
+    case 'balance': return typeof u === 'number' ? u === a : balanceSolved(u, a);
+    case 'tiles': return u.px - u.nx === a.k && u.p1 - u.n1 === a.c && Math.min(u.px, u.nx) === 0 && Math.min(u.p1, u.n1) === 0;
+    case 'area': return u.a === a.a && u.b === a.b;
+    case 'ray': return u.at === a.at && u.dir === a.dir && !!u.closed === !!a.closed;
     default: return false;
   }
 }
@@ -39,8 +144,8 @@ export function triangleAngles(m, c) {
   return [ang(m.A, m.B, c), ang(m.B, m.A, c), ang(c, m.A, m.B)];
 }
 // maths inside a Hebrew sentence is isolated left to right, so it reads 6² + 8² = 10² and not backwards
-const ltr = (t) => `\u2066${t}\u2069`;
-const lineText = ({ m, b }) => `y = ${m === 1 ? '' : m === -1 ? '-' : num(m)}x${b === 0 ? '' : b > 0 ? ` + ${num(b)}` : ` - ${num(-b)}`}`;
+const ltr = (t) => `⁦${t}⁩`;
+export const lineText = ({ m, b }) => `y = ${m === 1 ? '' : m === -1 ? '-' : num(m)}x${b === 0 ? '' : b > 0 ? ` + ${num(b)}` : ` - ${num(-b)}`}`;
 
 /** The answer (or a student's state) as plain text. */
 export function manipText(it, u = it.answer) {
@@ -54,6 +159,11 @@ export function manipText(it, u = it.answer) {
     case 'squares': return u.c != null ? `ניצבים ${u.a} ו־${u.b}: ${ltr(`${u.a}² + ${u.b}² = ${u.c}²`)}` : `ניצבים ${u.a} ו־${u.b}`;
     case 'pins': return m.labels.map((l, i) => `${l} ב־${ltr(num(u[i]))}`).join(', ');
     case 'triangle': return u === it.answer ? `למשל ${ltr(`C(${num(u[0])}, ${num(u[1])})`)}: הזווית C ישרה` : ltr(`C(${num(u[0])}, ${num(u[1])})`);
+    // the answer is x's value; a student's state is the scale as an equation (≠ while it leans)
+    case 'balance': return typeof u === 'number' ? `x = ${num(u)}` : balanceTex(u, it.answer).replace('\\ne', '≠');
+    case 'tiles': return u.px != null ? tilesTex(u) : linText(u);
+    case 'area': return areaTex(u);
+    case 'ray': return rayText(u);
     default: return '';
   }
 }
@@ -63,21 +173,34 @@ export function manipPlain(it) {
   const m = it.manip;
   switch (m.kind) {
     case 'numberline': return `[ציר מספרים מ־${m.min} עד ${m.max}; מזיזים סמן מהנקודה ${m.from}]`;
-    case 'plot': return m.quadrant ? `[מערכת צירים; שמים נקודה ב${QUAD_NAMES[m.quadrant]}${m.fixX != null ? ` שה־x שלה ${m.fixX}` : m.fixY != null ? ` שה־y שלה ${m.fixY}` : ''}]` : m.line ? `[מערכת צירים עם הישר; שמים עליו את הנקודה שבה x = ${it.answer[0]}]` : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]` : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;
+    case 'plot': return m.quadrant ? `[מערכת צירים; שמים נקודה ב${QUAD_NAMES[m.quadrant]}${m.fixX != null ? ` שה־x שלה ${m.fixX}` : m.fixY != null ? ` שה־y שלה ${m.fixY}` : ''}]`
+      : m.line ? `[מערכת צירים עם הישר; שמים עליו את הנקודה שבה x = ${it.answer[0]}]`
+        : m.lines ? `[מערכת צירים עם שני ישרים, ${m.lines.map(lineText).join(' ו־')}; שמים את נקודת המפגש שלהם]`
+          : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]` : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;
     case 'line': return '[מערכת צירים; בונים ישר בעזרת שתי נקודות: החיתוך עם ציר y וצעד אחד ימינה]';
     case 'angle': return `[קו ישר וקרן מסתובבת; הזווית הצמודה צריכה להיות ${m.target}°]`;
     case 'squares': return `[משולש ישר־זווית עם ריבועים על הצלעות; שטח הריבוע על היתר צריך להיות ${it.answer.c * it.answer.c}]`;
     case 'bars': return m.stat === 'median' ? `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; החציון צריך להיות ${m.target}]` : `[עמודות: ${m.values.join(', ')} ועוד עמודה אחת שמזיזים; הממוצע צריך להיות ${m.mean}]`;
     case 'pins': return `[ציר מספרים מ־${m.min} עד ${m.max}; שמים עליו את המספרים ${m.labels.join(', ')}]`;
     case 'triangle': return `[משולש ABC עם A(${m.A.join(', ')}) ו־B(${m.B.join(', ')}); מזיזים את C עד שהזווית C ישרה]`;
+    case 'balance': return `[מאזניים מאוזנים: ${balanceWords(m.start)}. כל קופסה שוקלת x משקולות. מורידים קופסאות ומשקולות מהכפות עד שנשארת קופסה אחת לבד]`;
+    case 'tiles': return `[אריחים: ${tilesWords(m.start)}; מורידים זוגות אפס (x עם −x, 1 עם −1)]`;
+    case 'area': return `[מלבן שבונים: גובה (עד ${m.maxA || 6}) ואורך x ועוד יחידות (עד ${m.maxB || 9})]`;
+    case 'ray': return `[ציר מספרים מ־${m.min ?? -10} עד ${m.max ?? 10}; מסמנים את הפתרונות: נקודה, עיגול מלא או ריק, וקרן ימינה או שמאלה]`;
     default: return '';
   }
 }
 
 /** A state that answers the exercise (the shape the object holds, not the shape of `answer`). */
 export function manipSolution(it) {
-  const a = it.answer;
-  return it.manip.kind === 'squares' ? { a: a.a, b: a.b } : a;
+  const a = it.answer; const m = it.manip;
+  switch (m.kind) {
+    case 'squares': return { a: a.a, b: a.b };
+    // the box stays on the pan that had more boxes
+    case 'balance': return m.start.lx >= m.start.rx ? { lx: 1, l1: 0, rx: 0, r1: a } : { lx: 0, l1: a, rx: 1, r1: 0 };
+    case 'tiles': return { px: Math.max(a.k, 0), nx: Math.max(-a.k, 0), p1: Math.max(a.c, 0), n1: Math.max(-a.c, 0) };
+    default: return a;
+  }
 }
 
 /** A state close to the answer that is wrong: for automated checks of the "not yet" path. */
@@ -92,6 +215,13 @@ export function manipWrong(it) {
     case 'squares': return { a: a.a, b: a.b + 1 };
     case 'pins': return a.map((v, i) => (i === 0 ? (v < m.max ? v + 1 : v - 1) : v));
     case 'triangle': return [a[0] + 1 <= (m.range || 6) ? a[0] + 1 : a[0] - 1, a[1]];
+    // one step short: level, but a weight left beside the box
+    case 'balance': { const s = manipSolution(it); return s.lx ? { ...s, l1: 1, r1: s.r1 + 1 } : { ...s, r1: 1, l1: s.l1 + 1 }; }
+    // one zero pair left
+    case 'tiles': { const s = manipSolution(it); return s.p1 + s.n1 + 2 <= TILES_MAX.unit ? { ...s, p1: s.p1 + 1, n1: s.n1 + 1 } : { ...s, px: s.px + 1, nx: s.nx + 1 }; }
+    case 'area': return { a: a.a, b: a.b < (m.maxB || 9) ? a.b + 1 : a.b - 1 };
+    // the boundary: the circle full instead of empty, or the other way
+    case 'ray': return { ...a, closed: !a.closed };
     default: return null;
   }
 }

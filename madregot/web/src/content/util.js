@@ -62,6 +62,25 @@ export function parseNum(s) {
 
 export const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 
+/**
+ * A list of numbers inside a Hebrew sentence, kept in its order: each number is maths ($4$), and the whole list is
+ * isolated left to right (U+2066 ... U+2069), so "4, 7, 10" never reads "10, 7, 4". The marks never reach the AI text.
+ */
+export const listMath = (arr) => `\u2066${arr.map((v) => `$${v}$`).join(', ')}\u2069`;
+
+/**
+ * A linear expression kx + c as plain text, the way a student writes it: 5x + 4, x - 3, -x, 7, 0.
+ * A coefficient of 1 or -1 has no digit; a constant of 0 is left out; a fractional coefficient is bracketed, (1/2)x.
+ * `v` is the letter (x, n, ...).
+ */
+export function linText({ k, c }, v = 'x') {
+  const coef = k === 1 ? '' : k === -1 ? '-' : Number.isInteger(k) ? String(k) : `(${plainNum(k)})`;
+  const xs = k === 0 ? '' : `${coef}${v}`;
+  if (!xs) return plainNum(c);
+  if (c === 0) return xs;
+  return `${xs} ${c > 0 ? '+' : '-'} ${plainNum(Math.abs(c))}`;
+}
+
 /** Pythagorean triples with small sides, scaled. */
 export const TRIPLES = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15], [8, 15, 17], [12, 16, 20], [7, 24, 25], [20, 21, 29], [15, 20, 25], [10, 24, 26]];
 

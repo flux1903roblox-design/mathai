@@ -4,8 +4,9 @@
 // first miss ends the probe. A passed probe raises the floor, a missed one lowers the ceiling, and two probes settle
 // a topic at most. Three right answers in a row are needed to pass over a stair, so guessing does not place a
 // student above what they know (src/learn/guessing.test.ts). The result is the number of stairs already climbed
-// in each topic: the path passes over them, and each one still waits for its own mastery check.
-import { TOPIC, topicsFor, testItem, isCorrect } from '@/content/index.js';
+// in each topic: the path passes over them, and each one still waits for its own mastery check. Topics taught later
+// in the school year (topic flag placement: false) are not tested on the first day.
+import { TOPIC, placementTopicsFor, testItem, isCorrect } from '@/content/index.js';
 import { itemFor } from '@/learn/items.ts';
 import { contentOf } from '@/learn/content/index.ts';
 import { skillId } from '@/learn/skills.ts';
@@ -15,8 +16,8 @@ export const PER_TOPIC = 2;
 /** Questions in one probe: all of them right to pass the level. */
 export const PROBE_LEN = 3;
 export const PLACEMENT_XP = 10;
-/** The most questions the placement test of a grade can ask (every probe of every topic to its last question). */
-export const placementMax = (grade = '7') => topicsFor(grade).length * PER_TOPIC * PROBE_LEN;
+/** The most questions the placement test of a grade can ask (every probe of every tested topic to its last question). */
+export const placementMax = (grade = '7') => placementTopicsFor(grade).length * PER_TOPIC * PROBE_LEN;
 /** How much of the grade's material feels familiar (onboarding answer) → where the first question sits, as a share of the topic. */
 export const KNOW = [
   { id: 0, title: 'הכול חדש לי', sub: 'מתחילים מהמדרגה הראשונה', share: 0 },
@@ -49,7 +50,8 @@ const probeFor = (topic, know) => {
 };
 
 export function startPlacement({ grade = '7', know = 1 } = {}) {
-  const topics = topicsFor(grade).map((t) => t.id);
+  // topics taught later in the year are not tested on the first day (topic flag placement: false)
+  const topics = placementTopicsFor(grade).map((t) => t.id);
   const probe = probeFor(topics[0], know);
   return {
     kind: 'placement', grade: String(grade), know, topics, ti: 0, probe, results: {},

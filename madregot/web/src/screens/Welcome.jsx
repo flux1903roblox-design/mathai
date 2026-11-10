@@ -16,6 +16,9 @@ import { KNOW, placementMax } from '@/lib/placement.js';
 import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
 
+/** The grade's topics in one short line: up to three names, then how many more (it stays on two lines at 320px). */
+const topicLine = (g) => { const ts = topicsFor(g).map((t) => t.title); return ts.length <= 3 ? ts.join(', ') : `${ts.slice(0, 3).join(', ')} ועוד ${ts.length - 3}`; };
+
 // A taste of each level, so the choice is about real maths and not a feeling: grade 7 (signed numbers,
 // coordinates, angles) and grade 8 (linear functions, Pythagoras, statistics), from the first stair to the last.
 const KNOW_SAMPLE = {
@@ -169,7 +172,7 @@ function Onboarding({ onTeacher }) {
         {step === 'grade' && (
           <div className="ob-opts" role="radiogroup" aria-labelledby="ob-q">
             {['7', '8'].map((g) => (
-              <Option key={g} on={f.grade === g} onPick={() => set({ grade: g, start: null })} title={GRADE_NAME[g]} sub={topicsFor(g).map((t) => t.title).join(', ')}
+              <Option key={g} on={f.grade === g} onPick={() => set({ grade: g, start: null })} title={GRADE_NAME[g]} sub={topicLine(g)}
                 glyph={<span className="ob-grade">{g === '7' ? 'ז׳' : 'ח׳'}</span>} />
             ))}
           </div>

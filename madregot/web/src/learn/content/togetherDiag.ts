@@ -193,6 +193,102 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // five friends of mean 12, six of mean 13: 78 − 60 = 18. The mean itself: 13. 13 times five: 65 − 60 = 5
     { bugs: { 'mean-as-answer': 13, 'known-count': 5 } },
   ],
+  // Algebra. As for coord:2 and pyth:3, a prediction counts only when the steps the student has just solved leave it
+  // possible: a bracket opened right in a step is not "opened wrong" in the last one, and an equation chosen in a step
+  // is not "reversed". What is left is what the last step itself asks.
+  'expr:1': [
+    // 6 − 4x at x = −2: the steps put −2 in brackets and multiplied first, so what is left is 6 − (−8). Typing −2 there
+    // subtracts −8 as if it were 8, a signed-number mistake, not one of this stair's
+    { bugs: {} },
+    // 3(x + 5) at x = −1: the steps worked out −1 + 5 = 4. Left: 3 next to the bracket read as digits, 34
+    { bugs: { concat: 34 } },
+  ],
+  'expr:2': [
+    // 5, 9, 13, 17, …: the steps found the step 4 and the 19 steps, so the 20th is 5 + 4 · 19 = 81. The start forgotten:
+    // 4 · 19. A multiple of a term taken as the term: 20 times the 1st, 10 times the 2nd, 5 times the 4th
+    { bugs: { 'diff-only': 76, 'whole-object': [100, 90, 85] } },
+    // the steps wrote the long side 3a and the perimeter a + 3a + a + 3a: what is left is putting in a = 5
+    { bugs: {} },
+  ],
+  'expr:3': [
+    // the steps collected 5x − 3x = 2x and −2 + 9 = 7; at x = 4 the value is 15. Joined into one term: 9x, 36
+    { bugs: { conjoin: 36 } },
+    // the steps collected 3x and −4; at x = 3 the value is 5. Joined into one term: −x, −3
+    { bugs: { conjoin: -3 } },
+  ],
+  'expr:4': [
+    // the steps opened −4(x − 5) into −4x and +20; what is left is −8 + 20
+    { bugs: {} },
+    // the step opened 6(x + 3) into 6x + 18; what is left is 60 + 18
+    { bugs: {} },
+  ],
+  'expr:5': [
+    // the steps opened both brackets and collected 2x + 11; what is left is putting in x = 1
+    { bugs: {} },
+    // the step gave 7 − x; what is left is putting in x = 2
+    { bugs: {} },
+  ],
+  'eq:1': [
+    // −5x = 30, the step chose to divide by −5: 30 : (−5) = −6. The minus of −5 lost: 6
+    { bugs: { sign: 6 } },
+    // x + 8 = 3, the step chose to subtract 8 from both sides: 3 − 8 = −5
+    { bugs: {} },
+  ],
+  'eq:2': [
+    // 3x + 8 = 2, the steps subtracted 8 and divided by 3: (2 − 8) : 3 = −2
+    { bugs: {} },
+    // 17 = 4x + 5, the step subtracted 5, so 12 = 4x. The coefficient subtracted instead of divided by: 12 − 4
+    { bugs: { 'sub-coef': 8 } },
+  ],
+  'eq:3': [
+    // the steps took 2x and 8 from both sides: −15 = 3x, so x = −5. Neither term can have moved without its sign now
+    { bugs: {} },
+    // the step reached 4x = 2, so x = 1/2
+    { bugs: {} },
+  ],
+  'eq:4': [
+    // the step opened 5 − (x − 3) as 5 − x + 3, and the next added x to both sides: 8 = 3x − 4, so x = 4
+    { bugs: {} },
+    // the step opened both brackets: 2x + 10 = 4x − 4, so x = 7
+    { bugs: {} },
+  ],
+  'eq:5': [
+    // the light parcel is 4.5 kg, the heavy one 9: the heavy one answered. (The steps wrote x + 2x = 13.5, so the
+    // relation reversed, x + x/2 = 13.5, which also gives 9, is ruled out.)
+    { bugs: { 'wrong-unknown': 9 } },
+    // the small angle is 35°, the large one 55°: the large one answered
+    { bugs: { 'wrong-unknown': 55 } },
+  ],
+  'sys:1': [
+    // the steps wrote 1.1x = 55, so the percent is of the old price: x = 50
+    { bugs: {} },
+    // the step found the price is 0.96 of the first one, so 100 before. The 4% taken of the new price: 96 + 3.84
+    { bugs: { 'pct-of-new': 99.84 } },
+  ],
+  'sys:2': [
+    // the steps found y = 2; x = 2 · 2 + 1 = 5. The value of y given again for x: the second unknown never computed
+    { bugs: { 'forgot-y': 2 } },
+    // the steps found x = 3; y = −3 + 4 = 1. The value of x given again
+    { bugs: { 'forgot-y': 3 } },
+  ],
+  'sys:3': [
+    // the steps reached 2x = 6, so x = 3; y = (19 − 15) : 2 = 2. The value of x given again
+    { bugs: { 'forgot-y': 3 } },
+    // the steps added the equations (no constant is subtracted) and reached 7x = 21: x is the unknown found first
+    { bugs: {} },
+  ],
+  'sys:4': [
+    // the steps reached 30 + 3y = 48, so 6 coins of 5 ₪ and 9 of 2 ₪: the other unknown answered
+    { bugs: { 'wrong-unknown': 9 } },
+    // the step reached 2x = 174, so 87 and 40: the larger one answered
+    { bugs: { 'wrong-unknown': 87 } },
+  ],
+  'sys:5': [
+    // x ≥ 3: the smallest whole solution is 3. 3 itself left out, as if it were x > 3: 4
+    { bugs: { boundary: 4 } },
+    // −x ≤ −4, so x ≥ 4: the smallest is 4. 4 itself left out: 5
+    { bugs: { boundary: 5 } },
+  ],
 };
 
 /** Every misconception's predicted answer to a guided problem's last step: [id, value] pairs, the right answer left out. */

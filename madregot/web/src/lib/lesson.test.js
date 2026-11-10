@@ -6,7 +6,7 @@ import { useApp, streakOf, today, dayBefore } from './store.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
 
 const right = (s) => s.item.answer;
-const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : 99999);
+const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : s.item.form === 'lin' ? { k: 999, c: 999 } : 99999);
 const run = (s, plan) => { // plan: per answer, true = right, false = wrong
   let st = s;
   for (const ok of plan) {
@@ -79,6 +79,17 @@ describe('path: done means mastered', () => {
     expect(nodes[0].state).toBe('done'); expect(nodes[1].state).toBe('current');
     expect(doneCount('stats', m.path)).toBe(1);
     expect(markMastered(m.path, 'stats', 1).stairDone).toBe(false); // a second pass is not a new stair
+  });
+  it('the same on an algebra stair: practice is not done, its mastery check is (eq:1, then eq:2 is current)', () => {
+    let path = {}; let r;
+    for (let i = 0; i < PARTS; i++) { r = recordOnPath(path, { kind: 'node', topic: 'eq', level: 1, passed: true }); path = r.path; }
+    expect(r.practiceDone).toBe(true);
+    expect(unitNodes('eq', path)[0]).toMatchObject({ state: 'current', parts: PARTS });
+    expect(doneCount('eq', path)).toBe(0);
+    const m = markMastered(path, 'eq', 1);
+    expect(m.stairDone).toBe(true);
+    expect(unitNodes('eq', m.path).slice(0, 2).map((n) => n.state)).toEqual(['done', 'current']);
+    expect(doneCount('eq', m.path)).toBe(1);
   });
   it('a stair passed over by a test stays open, not done, and the path goes on after it', () => {
     const jump = recordOnPath({}, { kind: 'jump', topic: 'stats', level: 5, passed: true });
@@ -197,6 +208,16 @@ describe('store: lessons, streak and freezes', () => {
     expect(st.progress.signed).toEqual({ level: 2, max: 2 });
     // mastering the halfway stair opens the unit's chest
     ['signed:2', 'signed:3'].forEach((sk, i) => { const out = useApp.getState().completeCheck({ purpose: 'mastery', skill: sk, topic: 'signed', level: i + 2, right: 4, asked: 5, perSkill: {}, passed: true, xp: 15 }); expect(out.chestOpened).toBe(i === 1); });
+  });
+  it('a passed mastery check of an algebra stair moves its own unit (sys:1)', () => {
+    useApp.getState().completeLesson({ kind: 'node', topic: 'sys', level: 1, part: 1, xp: 10, passed: true });
+    expect(doneCount('sys', useApp.getState().path)).toBe(0);
+    const passed = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'sys:1', topic: 'sys', level: 1, right: 4, asked: 5, perSkill: {}, passed: true, xp: 15 });
+    expect(passed).toMatchObject({ stairDone: true, done: 1 });
+    const st = useApp.getState();
+    expect(st.learn.skills['sys:1'].mastered).toBeTruthy();
+    expect(unitNodes('sys', st.path).slice(0, 2).map((n) => n.state)).toEqual(['done', 'current']);
+    expect(st.progress.sys).toEqual({ level: 2, max: 2 });
   });
   it('a failed mastery check on a kept stair takes it out of the done count; a passed one makes it mastered', () => {
     useApp.setState({ path: { signed: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'kept', 2: 'kept' } } } });

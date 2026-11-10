@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { startLesson, answer, next, resultOf, progressOf } from './lesson.js';
-import { nextProbe, startLevel, PER_TOPIC, PROBE_LEN, PLACEMENT_XP } from './placement.js';
+import { nextProbe, startLevel, startPlacement, placementMax, PER_TOPIC, PROBE_LEN, PLACEMENT_XP } from './placement.js';
 import { noteGap, gapsFromExam, gapsOf, gapTarget, boardOf, GAP_CLEAR } from './board.js';
 import { unitNodes, doneCount, reachedUpTo } from './path.js';
 import { useApp, today, streakOf } from './store.js';
-import { TOPIC, topicsFor } from '@/content/index.js';
+import { TOPIC, topicsFor, placementTopicsFor, rescueTopicsFor } from '@/content/index.js';
 
 const right = (s) => s.item.answer;
-const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : 99999);
+const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : s.item.form === 'lin' ? { k: 999, c: 999 } : 99999);
 /** Answer by a rule: ok(level, topic) says whether this student gets a question right. */
 const take = (s, ok) => {
   let st = s; let guard = 0;
@@ -36,8 +36,11 @@ describe('placement', () => {
     const s = take(startLesson({ kind: 'placement', grade: '7', know: 2 }), () => true);
     expect(s.finished).toBe(true);
     expect(progressOf(s)).toBe(1);
-    topicsFor('7').forEach((t) => expect(s.results[t.id]).toMatchObject({ level: t.levels.length }));
-    expect(s.answered).toBeLessThanOrEqual(PER_TOPIC * PROBE_LEN * 3);
+    placementTopicsFor('7').forEach((t) => expect(s.results[t.id]).toMatchObject({ level: t.levels.length }));
+    expect(s.answered).toBeLessThanOrEqual(placementMax('7'));
+    // algebra is taught from December (equations from March): the first-day test never asks it
+    expect(s.results.expr).toBeUndefined();
+    expect(s.results.eq).toBeUndefined();
   });
   it('a level counts only when all three questions of its probe are right: one miss, even the last, does not pass it', () => {
     let s = startLesson({ kind: 'placement', grade: '7', know: 1 }); // the first probe: signed numbers, level 2
@@ -52,11 +55,13 @@ describe('placement', () => {
   });
   it('a student who knows up to level 2 is placed at level 2', () => {
     const s = take(startLesson({ kind: 'placement', grade: '7', know: 1 }), (L) => L <= 2);
-    topicsFor('7').forEach((t) => expect(s.results[t.id].level).toBe(2));
+    placementTopicsFor('7').forEach((t) => expect(s.results[t.id].level).toBe(2));
   });
   it('new material: one wrong answer settles a topic at the start', () => {
     const s = take(startLesson({ kind: 'placement', grade: '8', know: 0 }), () => false);
-    expect(s.answered).toBe(topicsFor('8').length);
+    expect(s.answered).toBe(placementTopicsFor('8').length);
+    // equations and systems are taught from December: the first-day test never asks them
+    expect(s.results.sys).toBeUndefined();
     Object.values(s.results).forEach((r) => expect(r.level).toBe(0));
   });
   it('a wrong answer is shown, never retried, and the result earns the placement XP', () => {
@@ -126,9 +131,40 @@ describe('board', () => {
     const b = boardOf({ grade: '7', path, progress: {}, gaps });
     const total = topicsFor('7').reduce((a, t) => a + t.levels.length, 0);
     expect(b).toMatchObject({ done: 5, total, open: 1 });
-    expect(b.topics.map((t) => t.status)).toEqual(['done', 'going', 'work']);
+    expect(['signed', 'coord', 'angles'].map((id) => b.topics.find((t) => t.id === id).status)).toEqual(['done', 'going', 'work']);
     expect(TOPIC.angles.cats['sum-360']).toBe(b.topics[2].open[0].text);
     // stairs only passed over by a placement are not counted as done
     expect(boardOf({ grade: '7', path: { signed: { parts: {}, reviews: 0, jumped: 5 } }, progress: {}, gaps: {} }).done).toBe(0);
+  });
+});
+
+// A topic taught later in the year (algebra starts in December) carries placement: false; one revised in another
+// grade's tests carries alsoFor. Shown here on an existing topic, flagged for the test only.
+describe('topic flags', () => {
+  it('placement: false keeps a topic out of the first-day test and its result list', () => {
+    TOPIC.angles.placement = false;
+    try {
+      expect(placementTopicsFor('7').map((t) => t.id)).toEqual(['signed', 'coord']);
+      const s = startPlacement({ grade: '7', know: 1 });
+      expect(s.topics).toEqual(['signed', 'coord']);
+      expect(s.total).toBe(2 * PER_TOPIC * PROBE_LEN);
+      expect(s.total).toBe(placementMax('7'));
+    } finally { delete TOPIC.angles.placement; }
+    // grade 7 algebra (expressions, equations) is taught later in the year, so it carries the flag itself
+    expect(TOPIC.expr.placement).toBe(false);
+    expect(TOPIC.eq.placement).toBe(false);
+    expect(startPlacement({ grade: '7' }).topics).toEqual(['signed', 'coord', 'angles']);
+    // grade 8's equations and systems too (December to May)
+    expect(TOPIC.sys.placement).toBe(false);
+    expect(startPlacement({ grade: '8' }).topics).toEqual(['line', 'pyth', 'stats']);
+  });
+  it('alsoFor offers a topic to another grade in Exam Rescue, after that grade\'s own', () => {
+    // grade 8 tests revise equations with brackets, so grade 7 expressions and equations are offered to grade 8 already
+    expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'expr', 'eq']);
+    TOPIC.signed.alsoFor = ['8'];
+    try {
+      expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'signed', 'expr', 'eq']);
+      expect(rescueTopicsFor('7').map((t) => t.id)).toEqual(topicsFor('7').map((t) => t.id));
+    } finally { delete TOPIC.signed.alsoFor; }
   });
 });

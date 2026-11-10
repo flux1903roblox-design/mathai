@@ -1,7 +1,49 @@
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
-import { TOPICS, makeItem, isCorrect, answerText, itemPlain } from './index.js';
-import { parseNum } from './util.js';
+import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer } from './index.js';
+import { parseNum, plainNum } from './util.js';
+import { holds, identical, texToExpr, texRelation } from '@/learn/expr.ts';
+
+/**
+ * The maths a student sees, checked as displayed (not from the generator's parameters), for every topic:
+ * a number answer whose display is an equation in one letter solves it; an expression answer (form 'lin') equals the
+ * expression displayed; a point answer satisfies every equation of a displayed system (\\begin{cases} … \\end{cases}).
+ * An item whose display is something else (a table written in TeX, say) sets checkDisplay: false.
+ */
+function checkDisplayMaths(item) {
+  const d = item.display;
+  if (!d || item.checkDisplay === false || item.form === 'mc') return;
+  const v = item.var || 'x';
+  const cases = d.match(/^\\begin\{cases\}([\s\S]*)\\end\{cases\}$/);
+  if (cases && item.form === 'pt') {
+    for (const row of cases[1].split('\\\\')) expect(holds(row, { x: item.answer[0], y: item.answer[1] }), `${item.key}: (${item.answer}) in ${row}`).toBe(true);
+    return;
+  }
+  // one unknown of a system asked: the item carries the pair (pair, ask), which solves every row, and the answer is its part
+  if (cases && item.form === 'num') {
+    expect(item.pair, `${item.key}: a system asked for a number needs its pair`).toBeTruthy();
+    for (const row of cases[1].split('\\\\')) expect(holds(row, { x: item.pair[0], y: item.pair[1] }), `${item.key}: (${item.pair}) in ${row}`).toBe(true);
+    expect(item.answer, item.key).toBe(item.pair[item.ask]);
+    return;
+  }
+  // how many of the listed numbers solve the inequality shown (among), or how many whole numbers solve all of them (whole)
+  // (or, with sum, the sum of those that solve it)
+  if (item.among) {
+    const yes = item.among.filter((n) => holds(d, { x: n }));
+    expect(item.sum ? yes.reduce((a, b) => a + b, 0) : yes.length, `${item.key}: ${d} among ${item.among}`).toBe(item.answer);
+  }
+  if (item.whole) {
+    let n = 0; for (let v = -100; v <= 100; v += 1) if (item.whole.every((w) => holds(w, { x: v }))) n += 1;
+    expect(n, `${item.key}: whole numbers solving ${item.whole.join(' and ')}`).toBe(item.answer);
+  }
+  if (item.form === 'num' && /=/.test(d) && !/[<>]|\\(le|ge)/.test(d) && new RegExp(`(^|[^a-z\\\\])${v}([^a-z]|$)`).test(d)) {
+    expect(texRelation(d).rel, item.key).toBe('=');
+    expect(holds(d, { [v]: item.answer }), `${item.key}: ${v} = ${item.answer} does not solve ${d}`).toBe(true);
+  }
+  if (item.form === 'lin' && !/[=<>]/.test(d)) {
+    expect(identical(texToExpr(d).replace(new RegExp(v, 'g'), 'x'), `${item.answer.k}*x + ${item.answer.c}`), `${item.key}: ${d} is not ${item.answer.k}${v} + ${item.answer.c}`).toBe(true);
+  }
+}
 
 const RUNS = 300;
 
@@ -33,6 +75,15 @@ describe('generators', () => {
             expect(Math.abs(parseNum(answerText(item)) - item.answer)).toBeLessThan(0.01);
           }
           if (item.form === 'mc') expect(item.choices[item.answer]).toBeTruthy();
+          // a choice in words is shown as plain text (only `tex` choices are maths), so $...$ in it would show raw
+          if (item.form === 'mc') item.choices.forEach((c) => c.text && expect(c.text, item.key).not.toMatch(/\$/));
+          checkDisplayMaths(item);
+          if (item.form === 'lin') {
+            // an expression answer: both parts are numbers, typing them is accepted, and the printed answer is maths
+            expect(Number.isFinite(item.answer.k) && Number.isFinite(item.answer.c)).toBe(true);
+            expect(isCorrect(item, readAnswer(item, { k: plainNum(item.answer.k), c: plainNum(item.answer.c) }))).toBe(true);
+            expect(() => katex.renderToString(answerText(item), { throwOnError: true })).not.toThrow();
+          }
           for (const tex of texChunks(item)) {
             expect(() => katex.renderToString(tex, { throwOnError: true })).not.toThrow();
           }
@@ -186,7 +237,7 @@ describe('right-to-left text and answers', () => {
   it('lists of numbers in a Hebrew sentence keep their order (left-to-right isolate)', () => {
     let lists = 0;
     for (let r = 0; r < RUNS; r++) {
-      for (const [topic, level] of [['stats', 1], ['stats', 2], ['stats', 3], ['stats', 5], ['pyth', 3]]) {
+      for (const [topic, level] of [['stats', 1], ['stats', 2], ['stats', 3], ['stats', 5], ['pyth', 3], ['expr', 1], ['expr', 2], ['sys', 5]]) {
         const it = makeItem(topic, level);
         const list = it.text.match(/\$-?[\d.]+\$(, \$-?[\d.]+\$)+/);
         if (list) { lists += 1; expect(it.text).toContain(LRI + list[0] + PDI); }
@@ -210,10 +261,38 @@ describe('right-to-left text and answers', () => {
       for (const t of TOPICS) {
         t.levels.forEach((L, i) => {
           const it = makeItem(t.id, i + 1);
-          if (it.form === 'pt') { points += 1; expect(it.text).toContain(`$${it.label}$`); }
+          // a point of a system has no letter (label ''): the answer row is (x, y)
+          if (it.form === 'pt' && it.label !== '') { points += 1; expect(it.text).toContain(`$${it.label}$`); }
         });
       }
     }
     expect(points).toBeGreaterThan(100);
+  });
+});
+
+describe('the displayed maths is checked as the student sees it', () => {
+  it('catches an answer that does not solve its equation, or an expression that is not the answer', () => {
+    const ok = (it) => expect(() => checkDisplayMaths({ key: 't', ...it })).not.toThrow();
+    const bad = (it) => expect(() => checkDisplayMaths({ key: 't', ...it })).toThrow();
+    ok({ form: 'num', display: '3x + 5 = x + 11', answer: 3 });
+    bad({ form: 'num', display: '3x + 5 = x + 11', answer: 8 });
+    ok({ form: 'num', display: '\\frac{x + 1}{3} = 7', answer: 20 });
+    ok({ form: 'num', display: 'x : 4 = 3', answer: 12 });
+    bad({ form: 'num', display: 'x : 4 = 3', answer: 0.75 }); // dividing again
+    ok({ form: 'num', display: '7 - x = 3', answer: 4 });
+    bad({ form: 'num', display: '7 - x = 3', answer: -4 }); // the hidden minus
+    ok({ form: 'num', display: '-6 - (-9)', answer: 3 }); // not an equation: nothing to check here
+    ok({ form: 'lin', display: '2x + 3x + 4', answer: { k: 5, c: 4 } });
+    bad({ form: 'lin', display: '9 - 3x + 2x', answer: { k: -5, c: 9 } }); // detachment
+    ok({ form: 'lin', display: '4 + 3(n - 1)', var: 'n', answer: { k: 3, c: 1 } });
+    ok({ form: 'pt', display: '\\begin{cases} y = 2x - 1 \\\\ x + y = 5 \\end{cases}', answer: [2, 3], label: '' });
+    ok({ form: 'num', display: '\\begin{cases} y = 2x - 1 \\\\ x + y = 5 \\end{cases}', answer: 3, pair: [2, 3], ask: 1 });
+    bad({ form: 'num', display: '\\begin{cases} y = 2x - 1 \\\\ x + y = 5 \\end{cases}', answer: 2, pair: [2, 3], ask: 1 }); // the other unknown
+    bad({ form: 'num', display: '\\begin{cases} y = 2x - 1 \\\\ x + y = 5 \\end{cases}', answer: 3 }); // no pair to check
+    ok({ form: 'num', display: '-2x > 6', answer: 2, among: [-5, -4, -3, -2, -1, 0] });
+    bad({ form: 'num', display: '-2x > 6', answer: 3, among: [-5, -4, -3, -2, -1, 0] }); // the boundary counted
+    ok({ form: 'num', display: 'x > -2,\\quad x \\le 3', answer: 5, whole: ['x > -2', 'x \\le 3'] });
+    bad({ form: 'num', display: 'x > -2,\\quad x \\le 3', answer: 6, whole: ['x > -2', 'x \\le 3'] });
+    bad({ form: 'pt', display: '\\begin{cases} y = 2x - 1 \\\\ x + y = 5 \\end{cases}', answer: [3, 2], label: '' });
   });
 });

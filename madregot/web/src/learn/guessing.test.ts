@@ -1,12 +1,13 @@
 // Can a check be passed by guessing? For every check (mastery, review, jump test, the verification after a repair)
 // and every placement level, a student who answers without thinking must pass under 2% of the time.
 //
-// Five guessing strategies, the best one counts:
+// Eight guessing strategies, the best one counts:
 //  - most common answer: for each kind of question (its form and where it comes from), the answer that question
 //    has most often, learned from a sample of the same check's questions;
 //  - best constant: one fixed answer per form (number, choice, point, line, object), the one right most often;
 //  - a number from the question: one of the numbers printed in it (its text, its expression, its table), picked at
-//    random, or always the first one, or always the last one. Not yet the number inside a drawing: an angle check can
+//    random, or always the first one, or always the last one; for an answer of two numbers (a point, a line, an
+//    expression's coefficient and constant), two of them: a pair at random, the first two, or the last two. Not yet the number inside a drawing: an angle check can
 //    still be passed by copying the angle drawn (angles:2 about 31%, angles:4 about 47%, from a run with drawings in),
 //    because its questions are one step, equal or adding to 180°. That needs the angle checks to mix in other kinds of
 //    questions, and is left for that change.
@@ -79,16 +80,30 @@ function chances(draws: Draw[], guess: (it: Item) => unknown) {
 /** The numbers a typed question prints: in its text, its expression and its table, in reading order. */
 export function shownNumbers(it: Item): number[] {
   if (it.form !== 'num') return [];
+  return printed(it);
+}
+/** Every number printed in a question, whatever its form. */
+function printed(it: Item): number[] {
   const shown = [it.text, it.display, it.fig?.type === 'table' ? figPlain(it.fig) : ''].filter(Boolean).join(' ')
     .replace(/\\(qquad|quad|[,;:! ])/g, ' ').replace(/\\[a-zA-Z]+/g, ' ').replace(/−/g, '-')
     .replace(/-\s+(?=\d)/g, '-'); // "3x - 4" reads b as -4
   return (shown.match(/-?\d+(\.\d+)?/g) || []).map(Number);
 }
+/**
+ * An answer of two typed numbers (a point, or an expression's coefficient and constant: 3(x + 4) read as 3 and 4)
+ * guessed from two numbers printed in the question.
+ */
+const twoOf = (it: Item, a: number, b: number) => (it.form === 'pt' ? [a, b] : it.form === 'lin' ? { k: a, c: b } : it.form === 'line' ? { m: a, b } : null);
+const TWO = new Set(['pt', 'lin', 'line']);
 /** Guessing from the numbers in the question: the chance a guess is right on one question. */
 const SHOWN: ((it: Item) => number)[] = [
   (it) => { const ns = shownNumbers(it); return ns.length ? ns.filter((v) => isCorrect(it, v)).length / ns.length : 0; }, // one at random
   (it) => { const ns = shownNumbers(it); return ns.length && isCorrect(it, ns[0]) ? 1 : 0; }, // the first
   (it) => { const ns = shownNumbers(it); return ns.length && isCorrect(it, ns[ns.length - 1]) ? 1 : 0; }, // the last
+  // two numbers for a two-number answer: a pair at random, the first two, the last two
+  (it) => { if (!TWO.has(it.form)) return 0; const ns = printed(it); if (!ns.length) return 0; let ok = 0; ns.forEach((a) => ns.forEach((b) => { if (isCorrect(it, twoOf(it, a, b))) ok += 1; })); return ok / (ns.length * ns.length); },
+  (it) => { if (!TWO.has(it.form)) return 0; const ns = printed(it); return ns.length >= 2 && isCorrect(it, twoOf(it, ns[0], ns[1])) ? 1 : 0; },
+  (it) => { if (!TWO.has(it.form)) return 0; const ns = printed(it); return ns.length >= 2 && isCorrect(it, twoOf(it, ns[ns.length - 2], ns[ns.length - 1])) ? 1 : 0; },
 ];
 
 
@@ -170,6 +185,12 @@ describe('the guessing measure itself', () => {
     const pair: Draw = () => { const a = -2 - Math.floor(Math.random() * 9); const b = a - 1 - Math.floor(Math.random() * 5); return { form: 'num', text: 'איזה מספר גדול יותר? כתבו אותו.', display: `${b} \\qquad ${a}`, answer: a, key: 'pair:x' }; };
     expect(passRate([pair, pair, pair], 3)).toBeGreaterThan(0.1);
     expect(shownNumbers({ form: 'num', text: 'מה $y$ כש־$x = -3$?', display: 'y = 2x - 4', fig: { type: 'table', rows: [['א', '1, 10, 10']] } })).toEqual([-3, 2, -4, 1, 10, 10]);
+  });
+  it('sees a guesser who copies two numbers into an expression\'s two boxes', () => {
+    // "open the brackets: 3(x + 4)" answered as 3x + 4 is wrong; a question whose answer were always the numbers shown
+    // (coefficient and constant as printed) would be passed by copying them
+    const copy: Draw = () => { const k = 2 + Math.floor(Math.random() * 7); const c = 1 + Math.floor(Math.random() * 9); return { form: 'lin', text: 'כתבו בלי סוגריים:', display: `${k}x + ${c}`, answer: { k, c }, key: 'copy:x' }; };
+    expect(passRate([copy, copy, copy, copy, copy], 4)).toBeGreaterThan(0.9);
   });
   it('sees the old pyth:5 hole: always typing 5 when the answers are 5 or 10', () => {
     // a check of five questions whose answers are 5 three times out of four: the measure must catch it

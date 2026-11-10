@@ -1,7 +1,18 @@
 // Textbook figures drawn from the generators' data: coordinate plane, angles,
 // triangles and a frequency table. Drawn on the same 4px grid as the page.
+// Algebra's figures are still pictures of its interactive objects, drawn by the same code:
+//   scale  { left: { x, n }, right: { x, n }, tilt? }  boxes x and weights on each pan; tilt −1 the left pan is down,
+//                                                       1 the right one, 0 or none level (a one-sided change, shown)
+//   area   { a, b, areas? }                             a rectangle a high and x + b long; areas: write each part's area
+//   ray    { at, dir, closed, min?, max? }              an inequality's solutions on the number line
+//   tiles  { px, nx, p1, n1 }                           algebra tiles: x, −x, 1 and −1
 import { useId } from 'react';
 import clsx from 'clsx';
+import { ScaleArt, scaleView, scaleTop } from './manip/Balance.jsx';
+import { AreaArt, areaView } from './manip/AreaModel.jsx';
+import { RayArt, RAY_VIEW } from './manip/Ray.jsx';
+import { TilesArt, TILES_VIEW } from './manip/Tiles.jsx';
+import { panWords, tilesWords, rayText, areaTex } from '@/content/manip.js';
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
 
@@ -335,8 +346,41 @@ function Geo({ fig }) {
   );
 }
 
+function Scale({ fig }) {
+  const u = { lx: fig.left.x, l1: fig.left.n, rx: fig.right.x, r1: fig.right.n };
+  return (
+    <svg viewBox={scaleView(u)} className="figure fg-obj fg-scale" role="img" aria-label={`מאזניים: בכף השמאלית ${panWords(u.lx, u.l1)}, בכף הימנית ${panWords(u.rx, u.r1)}`}>
+      <ScaleArt u={u} tilt={fig.tilt || 0} top={scaleTop(u)} />
+    </svg>
+  );
+}
+function Area({ fig }) {
+  return (
+    <svg viewBox={areaView(fig)} className="figure fg-obj fg-area" role="img" aria-label={`מלבן בגובה ${fig.a} ובאורך x ועוד ${fig.b}${fig.areas ? `, השטח ${areaTex(fig)}` : ''}`}>
+      <AreaArt a={fig.a} b={fig.b} areas={!!fig.areas} />
+    </svg>
+  );
+}
+function RayFig({ fig }) {
+  return (
+    <svg viewBox={RAY_VIEW} className="figure fg-obj fg-ray" role="img" aria-label={`ציר מספרים: ${rayText(fig)}`}>
+      <RayArt at={fig.at} dir={fig.dir} closed={!!fig.closed} min={fig.min ?? -10} max={fig.max ?? 10} />
+    </svg>
+  );
+}
+// the still tiles keep room above the x row (on a phone the zoom button sits in that corner), and the box is tall
+// enough that a 320px phone draws them at least 160px high
+const TILES_FIG_VIEW = TILES_VIEW.split(' ').map(Number).map((v, i) => (i === 1 ? v - 30 : i === 3 ? v + 14 : v)).join(' ');
+function TilesFig({ fig }) {
+  return (
+    <svg viewBox={TILES_FIG_VIEW} className="figure fg-obj fg-tiles" role="img" aria-label={`אריחים: ${tilesWords(fig)}`}>
+      <TilesArt u={fig} />
+    </svg>
+  );
+}
+
 export default function Figure({ fig }) {
   if (!fig) return null;
-  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo }[fig.type];
+  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig }[fig.type];
   return C ? <div className="figure-wrap"><C fig={fig} /></div> : null;
 }

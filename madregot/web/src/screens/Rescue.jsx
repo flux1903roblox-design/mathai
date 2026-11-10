@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import { CalendarClock, Check, Trash2, ClipboardCheck, ArrowRight, Star, Trophy } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { useLearnCtx } from '@/lib/useLearn.js';
-import { TOPIC, topicsFor } from '@/content/index.js';
+import { TOPIC, rescueTopicsFor } from '@/content/index.js';
 import { examPlan, validInput, isShabbatDay, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
 import { skillId } from '@/learn/skills.ts';
 import { titleOf } from '@/learn/recommend.ts';
@@ -42,7 +42,7 @@ function Setup({ onSave }) {
   const [confidence, setConfidence] = useState(2);
   const [minutes, setMinutes] = useState(15);
   const [error, setError] = useState(null);
-  const topics = topicsFor(grade);
+  const topics = rescueTopicsFor(grade);
   const toggle = (id) => setSkills((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const toggleTopic = (t) => { const ids = t.levels.map((_, i) => skillId(t.id, i + 1)); const all = ids.every((x) => skills.includes(x)); setSkills((s) => (all ? s.filter((x) => !ids.includes(x)) : [...new Set([...s, ...ids])])); };
   const can = step === 0 ? !!date && date >= today() : step === 1 ? skills.length > 0 : true;
@@ -90,7 +90,7 @@ function Setup({ onSave }) {
                 <fieldset key={t.id} className={clsx('rescue-topic', `ch-${t.color}`)}>
                   <legend className="visually-hidden">{t.title}</legend>
                   <div className="rescue-topic-head">
-                    <label className="check-row topic-row"><input type="checkbox" checked={all} onChange={() => toggleTopic(t)} /><span>{t.title} (כל הנושא)</span></label>
+                    <label className="check-row topic-row"><input type="checkbox" checked={all} onChange={() => toggleTopic(t)} /><span>{t.title}{t.grade !== grade ? ` מכיתה ${t.grade === '7' ? 'ז׳' : 'ח׳'}` : ''} (כל הנושא)</span></label>
                     {some > 0 && <span className="rescue-topic-count">{some}/{ids.length}</span>}
                   </div>
                   <div className="stair-chips">

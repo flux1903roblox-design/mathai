@@ -1,6 +1,7 @@
-// Grade 8 (ח׳): the linear function (linear.js), Pythagoras, statistics.
-import { R, pick, shuffle, near, TRIPLES } from './util.js';
+// Grade 8 (ח׳): the linear function (linear.js), Pythagoras, statistics, equations and systems (sys.js).
+import { R, pick, shuffle, near, TRIPLES, listMath } from './util.js';
 import { LINEAR } from './linear.js';
+import { SYS } from './sys.js';
 
 // ---------------------------------------------------------------- Pythagoras
 // About half the questions come from whole-number triangles (Pythagorean triples), the rest need a root that is not
@@ -170,7 +171,6 @@ const sortNum = (arr) => [...arr].sort((x, y) => x - y);
 const listTex = (arr) => arr.join(',\\ ');
 // A list of numbers in a question: one expression per number inside a left-to-right isolate,
 // so it keeps its order in a Hebrew line and a narrow screen can wrap it between numbers.
-const listMath = (arr) => `\u2066${arr.map((v) => `$${v}$`).join(', ')}\u2069`;
 
 // The mode is a value that repeats three times among 13 or 15, with at least two others close behind (twice each):
 // a value picked from the list at random is the mode only about one time in five (src/learn/guessing.test.ts).
@@ -343,4 +343,5 @@ export const GRADE8 = [
       'mean-as-answer': 'כתבו את הממוצע במקום המספר החסר',
     },
   },
+  SYS,
 ];

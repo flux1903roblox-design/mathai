@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
 import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
-import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath, catLabel } from '@/content/index.js';
+import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath, catLabel, displayTex } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
@@ -16,7 +16,7 @@ import AIAllowance from '@/components/AIAllowance.jsx';
 import ToolLocked from '@/components/ToolLocked.jsx';
 import { api, syncNow } from '@/lib/api.js';
 import { play, buzz } from '@/lib/sound.js';
-import { Tex, MathText, Markdown, texText } from '@/components/MathText.jsx';
+import { Tex, MathText, Markdown, texText, FitDisplay } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
 import Manip from '@/components/manip/Manip.jsx';
 import AIChat from '@/components/AIChat.jsx';
@@ -69,13 +69,9 @@ function HintBox({ text, clamp }) {
   );
 }
 
-const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b' };
-
-/**
- * Is the display an expression to work out ("-3 - (-8)" → "= ?")? A list of numbers, a pair to compare, a table or
- * givens that already say what is missing ("c = ?") is shown as it is.
- */
-const asksValue = (display) => !/\?|=|\\qquad|\\quad|\\begin|,/.test(display);
+const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b', k: 'המקדם של x', c: 'המספר החופשי' };
+/** A slot's name for a screen reader; an expression's letter may be another one than x (3n + 1). */
+const slotLabel = (item, k) => (k === 'k' && item?.var ? `המקדם של ${item.var}` : SLOT_LABEL[k]);
 
 /** An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. */
 function ambiguousText(topic, level, candidates) {
@@ -84,6 +80,14 @@ function ambiguousText(topic, level, candidates) {
   return `מה כנראה קרה: אולי ${names.join(', ואולי ')}. עוד שאלה אחת בסוף השיעור תעזור לדעת מה מהן.`;
 }
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
+/**
+ * Three short maths choices (< = >, 12, 43) sit side by side in large type; anything longer (2x - 10) goes in the list,
+ * since three expressions in one row overflow a phone.
+ */
+const inlineChoices = (item) => item.choices.length === 3 && item.choices.every((c) => c.tex && c.tex.replace(/\s|\\[a-z]+/g, '').length <= 3);
+
+/** Under an expression's two slots: what to write for x alone, for −x and for no constant. */
+const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־$-${v}$: המקדם $-1$. אין מספר חופשי? כתבו $0$.`;
 
 function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKey, onEnter, struck, unstrike, good }) {
   const shakeRef = useShake(shakeKey);
@@ -92,7 +96,7 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
     <input
       key={k} id={`slot-${k}`} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false}
       className={clsx('slot', active === k && !struck && !locked && 'active', struck && 'struck', good && 'good')}
-      aria-label={struck ? `${SLOT_LABEL[k]}, התשובה הקודמת: ${slots[k] || ''}. כתבו תשובה חדשה` : SLOT_LABEL[k]} placeholder={extra.ph || '?'}
+      aria-label={struck ? `${slotLabel(item, k)}, התשובה הקודמת: ${slots[k] || ''}. כתבו תשובה חדשה` : slotLabel(item, k)} placeholder={extra.ph || '?'}
       value={slots[k] || ''} readOnly={locked}
       onFocus={() => setActive(k)}
       onChange={(e) => {
@@ -106,13 +110,16 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
   return (
     <div className="answer" ref={shakeRef}>
       <div className="answer-row" dir="ltr">
-        {item.form === 'pt' && (<><span className="answer-lab"><Tex tex={`${item.label || 'P'}\\,(`} /></span>{input('x', { ph: 'x' })}<span className="answer-lab">,</span>{input('y', { ph: 'y' })}<span className="answer-lab">)</span></>)}
+        {item.form === 'pt' && (<><span className="answer-lab"><Tex tex={`${item.label ?? 'P'}\\,(`} /></span>{input('x', { ph: 'x' })}<span className="answer-lab">,</span>{input('y', { ph: 'y' })}<span className="answer-lab">)</span></>)}
         {item.form === 'line' && (<><span className="answer-lab"><Tex tex="y =" /></span>{input('m', { ph: 'm' })}<span className="answer-lab"><Tex tex="x\,+" /></span>{input('b', { ph: 'b' })}</>)}
+        {/* an expression: the coefficient, the letter, the constant (□x + □) */}
+        {item.form === 'lin' && (<>{input('k')}<span className="answer-lab"><Tex tex={`${item.var || 'x'}\\,+`} /></span>{input('c')}</>)}
         {item.form === 'num' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}{input('v')}</>)}
       </div>
       {item.unit && <span className="answer-unit">{item.unit}</span>}
       {item.form === 'line' && <p className="answer-note">b שלילי? כותבים מינוס בתיבה. שבר כותבים כך: 3/4</p>}
-      {names.length > 0 && <span className="visually-hidden" aria-live="polite">{`השדה הפעיל: ${SLOT_LABEL[active] || ''}`}</span>}
+      {item.form === 'lin' && <MathText as="p" className="answer-note" text={LIN_NOTE(item.var || 'x')} />}
+      {names.length > 0 && <span className="visually-hidden" aria-live="polite">{`השדה הפעיל: ${slotLabel(item, active) || ''}`}</span>}
     </div>
   );
 }
@@ -291,7 +298,7 @@ export default function Lesson() {
     const u = item.form === 'mc' ? choice : isManip ? mv : readAnswer(item, slots);
     if (u == null) {
       const missing = names.find((k) => !String(slots[k] || '').trim()) || names[0];
-      setLast({ invalid: true, text: item.form === 'pt' ? 'מלאו את שני השיעורים.' : item.form === 'line' ? 'מלאו את m ואת b.' : 'כתבו מספר. מינוס יש במקלדת.' });
+      setLast({ invalid: true, text: item.form === 'pt' ? 'מלאו את שני השיעורים.' : item.form === 'line' ? 'מלאו את m ואת b.' : item.form === 'lin' ? 'מלאו את המקדם ואת המספר החופשי.' : 'כתבו מספר. מינוס יש במקלדת.' });
       setShakeKey((v) => v + 1); setActive(missing); focusSlot(missing);
       return;
     }
@@ -499,7 +506,7 @@ export default function Lesson() {
         <m.div key={stage} className="q-stage" {...slide}>
         {item.redo && <p className="redo-note"><RotateCcw size={16} aria-hidden="true" />תרגיל דומה לזה שהיה קשה קודם</p>}
         {item.extra && <p className="redo-note"><Search size={16} aria-hidden="true" />עוד שאלה אחת, כדי להבין מה בדיוק בלבל</p>}
-        {item.display && <div className="qdisplay"><Tex tex={item.form === 'mc' || !asksValue(item.display) ? item.display : `${item.display} = \\,?`} display /></div>}
+        {item.display && <FitDisplay tex={displayTex(item)} />}
         {item.fig && (
           <div className="fig-zoomable">
             <Figure fig={item.fig} />
@@ -510,7 +517,7 @@ export default function Lesson() {
         )}
         {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} test={isTest(s.kind)} />}
         {item.form === 'mc' && (
-          <div className={clsx('choices', item.choices.length === 3 && item.choices.every((c) => c.tex) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
+          <div className={clsx('choices', inlineChoices(item) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
             {item.choices.map((c, i) => {
               const state = locked && i === item.answer ? 'good' : (feedback && choice === i && i !== item.answer) || s.wrong.includes(i) ? 'bad' : '';
               return (
@@ -622,7 +629,7 @@ export default function Lesson() {
             {/* as in Duolingo's maths exercises: the full-width check button sits right above the number pad, and the
                 pad fills the bottom of the screen; help sits in the top bar, where Duolingo keeps its counter */}
             {!compact && <div className="dock-row" data-region="primary">{checkButton}</div>}
-            {typed && <div className="pad-panel"><Keypad onKey={onKey} onNext={names.length > 1 ? nextSlot : undefined} nextLabel={`מעבר ל${SLOT_LABEL[names[(names.indexOf(active) + 1) % names.length]] || 'שדה הבא'}`} /></div>}
+            {typed && <div className="pad-panel"><Keypad onKey={onKey} onNext={names.length > 1 ? nextSlot : undefined} nextLabel={`מעבר ל${slotLabel(item, names[(names.indexOf(active) + 1) % names.length]) || 'שדה הבא'}`} /></div>}
           </div>
         )}
       </div>

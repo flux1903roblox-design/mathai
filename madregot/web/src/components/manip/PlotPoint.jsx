@@ -1,8 +1,11 @@
 // Putting a point on the plane: tap a grid crossing or drag the point. Dashed guides to both axes show
 // how far right/left and up/down it is, without printing its coordinates (that is the student's job).
+// With m.lines (two lines {m, b}) both are drawn with their equations, and the point to put is where they meet.
 import { ArrowLeft, ArrowRight, ArrowDown, ArrowUp } from 'lucide-react';
 import { clamp, useDrag, arrowKeys, Stepper, minus } from './core.jsx';
 import { gridGeometry, Plane } from './grid.jsx';
+import { lineTex } from './LineBuilder.jsx';
+import { Tex } from '../MathText.jsx';
 
 const QUAD_RECT = { 1: [1, 1], 2: [-1, 1], 3: [-1, -1], 4: [1, -1] };
 
@@ -16,8 +19,14 @@ export default function PlotPoint({ m, value, onChange, locked, reveal, good, an
   const quad = m.quadrant && QUAD_RECT[m.quadrant];
   return (
     <div className={`manip manip-plot ${good ? 'good' : ''}`}>
+      {/* two lines: their equations as a legend, each beside its own stroke (solid, dashed) */}
+      {m.lines && (
+        <div className="manip-legend mp-lines-legend" dir="ltr">
+          {m.lines.map((L, i) => <span key={i} className={i === 0 ? 'lg line' : 'lg line two'}><Tex tex={lineTex(L)} /></span>)}
+        </div>
+      )}
       <svg ref={ref} {...drag} viewBox={`0 0 ${g.size} ${g.size}`} className="manip-canvas" dir="ltr" tabIndex={locked ? -1 : 0}
-        role="application" aria-roledescription="מערכת צירים" aria-label={value ? `הנקודה ${m.label} בשיעורים ${minus(value[0])}, ${minus(value[1])}` : `מערכת צירים. הקישו כדי לשים את הנקודה ${m.label}, או השתמשו בחצים`}
+        role="application" aria-roledescription="מערכת צירים" aria-label={value ? `הנקודה${m.label ? ` ${m.label}` : ''} בשיעורים ${minus(value[0])}, ${minus(value[1])}` : `מערכת צירים. הקישו כדי לשים את הנקודה${m.label ? ` ${m.label}` : ''}, או השתמשו בחצים`}
         onKeyDown={arrowKeys({ left: () => move(-1, 0), right: () => move(1, 0), up: () => move(0, 1), down: () => move(0, -1) })}>
         <Plane g={g}>
           {/* a line to find a point on, or the given corners of a shape to complete */}
@@ -29,6 +38,12 @@ export default function PlotPoint({ m, value, onChange, locked, reveal, good, an
               <line x1={x1} y1={y1} x2={x2} y2={y2} className="mp-line" clipPath="url(#pp-clip)" />
             </>);
           })()}
+          {m.lines && (<>
+            <defs><clipPath id="pp-clip2"><rect x={X(-r - 0.5)} y={Y(r + 0.5)} width={(2 * r + 1) * g.c} height={(2 * r + 1) * g.c} /></clipPath></defs>
+            {m.lines.map((L, i) => (
+              <line key={i} x1={X(-r - 0.5)} y1={Y(L.m * (-r - 0.5) + L.b)} x2={X(r + 0.5)} y2={Y(L.m * (r + 0.5) + L.b)} className={i === 0 ? 'mp-line' : 'mp-line two'} clipPath="url(#pp-clip2)" />
+            ))}
+          </>)}
           {m.shape && (
             <g className="mp-shape">
               <polyline points={m.shape.map((q) => `${X(q.at[0])},${Y(q.at[1])}`).join(' ')} className="mp-shape-edge" />

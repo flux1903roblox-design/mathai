@@ -18,6 +18,18 @@ const CASES = [
   ['a word problem with a drawing', 'pyth/4', '8'],
   ['a list of data', 'stats/2', '8'],
   ['a frequency table', 'stats/4', '8'],
+  ['an expression answer (two fields)', 'expr/3', '7'],
+  ['an expression from a pattern table', 'expr/2', '7'],
+  ['simplifying a long expression', 'expr/5', '7'],
+  ['an equation (one step, or a missing number)', 'eq/1', '7'],
+  ['an equation with the unknown on both sides', 'eq/3', '7'],
+  ['an equation with brackets', 'eq/4', '7'],
+  ['a word problem (equations)', 'eq/5', '7'],
+  ['an equation with a percent', 'sys/1', '8'],
+  ['a system of two equations (a pair answer)', 'sys/2', '8'],
+  ['a system by equal coefficients', 'sys/3', '8'],
+  ['a word problem with two unknowns', 'sys/4', '8'],
+  ['an inequality (which numbers solve it)', 'sys/5', '8'],
 ];
 
 for (const [what, route, grade] of CASES) {

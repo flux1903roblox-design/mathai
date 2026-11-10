@@ -3,7 +3,7 @@
 // a real drag moves it, the keyboard and the step buttons move it too, checking is off until it has been moved,
 // and the "not yet" and "right" paths work with the object still in view.
 import { test, expect } from '@playwright/test';
-import { student, item, openOn, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { open, student, item, openOn, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
 
 const KINDS = [
   ['numberline', 'signed/1', '7', [0.5, 0.75, 0.85, 0.75]],
@@ -17,6 +17,11 @@ const KINDS = [
   ['plot', 'coord/5', '7', [0.5, 0.5, 0.3, 0.3], (it) => !!it.manip.shape, 'the missing vertex of a rectangle'],
   ['plot', 'line/1', '8', [0.5, 0.5, 0.7, 0.3], (it) => !!it.manip.line, 'a point of a line'],
   ['bars', 'stats/2', '8', [0.88, 0.2, 0.88, 0.6], (it) => it.manip.stat === 'median', 'the median and an outlier'],
+  // a drag that starts on the weights of the left pan takes one off that pan only (the beam then leans)
+  ['balance', 'eq/2', '7', [0.33, 0.6, 0.33, 0.15]],
+  // a drag along the number line moves the point of the ray (the side and the circle are toggles)
+  ['ray', 'sys/5', '8', [0.5, 0.5, 0.78, 0.5]],
+  ['plot', 'sys/2', '8', [0.5, 0.5, 0.75, 0.25], (it) => !!it.manip.lines, 'the meeting point of two lines'],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');
@@ -123,3 +128,75 @@ test('in a mastery check, the objects hide the live result; in practice they sho
   await expect(page.locator('.manip-bars .manip-readout')).toContainText('הממוצע עכשיו');
   await expect(page.locator('.mp-mean-line')).toHaveCount(1);
 });
+
+// The algebra objects the same way: in a check the balance does not lean or write = and ≠ (keeping it level is the
+// student's reasoning), and the ray is not read back as an inequality. Practice keeps both.
+test('in a mastery check, the balance and the ray hide whether the target is reached', async ({ page }) => {
+  await openOn(page, '#/lesson/eq/2?kind=check&purpose=mastery', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'balance');
+  await expect(page.locator('.manip-balance .manip-readout')).toHaveCount(0);
+  await expect(page.locator('.manip-coach')).toHaveCount(0);
+  // one weight off one pan only: in practice the beam would lean
+  await page.locator('.manip-balance [data-group="l1"][role="button"], .manip-balance [data-group="r1"][role="button"]').first().press('Enter');
+  await expect(page.locator('.manip-balance.leaning')).toHaveCount(0);
+  await expect(page.locator('.manip-balance .manip-canvas')).not.toHaveAttribute('aria-label', /מאוזנים|למטה/);
+  await openOn(page, '#/lesson/sys/5?kind=check&purpose=mastery', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'ray');
+  await expect(page.locator('.manip-ray .manip-readout')).toHaveCount(0);
+  // practice: the scale leans after a one-sided move, and the ray is read as an inequality
+  await openOn(page, '#/lesson/eq/2', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'balance');
+  await expect(page.locator('.manip-balance .manip-readout')).toBeVisible();
+  await page.locator('.manip-balance [data-group="l1"][role="button"], .manip-balance [data-group="r1"][role="button"]').first().press('Enter');
+  await expect(page.locator('.manip-balance.leaning')).toHaveCount(1);
+  await openOn(page, '#/lesson/sys/5', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'ray');
+  await expect(page.locator('.manip-ray .manip-readout')).toBeVisible();
+});
+
+// The objects that only teach (algebra tiles in collecting like terms, the rectangle of the distributive law) are not
+// practice items, so they are driven here inside their stair's discover step: a real tap or drag, the step buttons and
+// the arrow keys move them, a wrong state is "not yet", the right one is accepted.
+for (const [kind, route, [fx, fy, tx, ty]] of [['tiles', 'expr/3', [0.5, 0.3, 0.52, 0.3]], ['area', 'expr/4', [0.24, 0.78, 0.24, 0.3]]]) {
+  test(`teaching object: ${kind}`, async ({ page }) => {
+    await open(page, `#/learn/${route}/A`, student('7'));
+    for (let i = 0; i < 12; i += 1) {
+      await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+      const st = await page.evaluate(() => window.__madregotStep);
+      if (st.kind === 'explore' && st.manip.kind === kind) break;
+      if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); }
+      const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+      await page.locator('.sp-next').click();
+      await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+    }
+    const canvas = page.locator('.ls-explore .manip-canvas');
+    await expectNoSidewaysScroll(page);
+    await expectUsable(page, canvas, 'the maths object');
+    const box = await canvas.boundingBox();
+    expect(box.height, 'the object is large enough to work with').toBeGreaterThanOrEqual(120);
+    for (const b of await page.locator('.ls-explore .manip .step-btn').all()) {
+      const r = await b.boundingBox();
+      expect(Math.min(r.width, r.height), 'step buttons are thumb-sized').toBeGreaterThanOrEqual(40);
+    }
+    const look = () => page.evaluate(() => `${document.querySelector('.ls-explore .manip-canvas').getAttribute('aria-label')}|${document.querySelector('.ls-explore .manip-readout')?.textContent}`);
+    // a real tap or drag on the drawing
+    const before = await look();
+    await page.mouse.move(box.x + box.width * fx, box.y + box.height * fy);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i += 1) await page.mouse.move(box.x + box.width * (fx + (tx - fx) * i / 8), box.y + box.height * (fy + (ty - fy) * i / 8));
+    await page.mouse.up();
+    await expect.poll(look, 'the drag moved the object').not.toBe(before);
+    // the step buttons and the arrow keys
+    const s1 = await look();
+    await page.locator('.ls-explore .manip .step-btn:not(:disabled)').first().click();
+    await expect.poll(look, 'a step button moved the object').not.toBe(s1);
+    const s2 = await look();
+    await canvas.focus();
+    await page.keyboard.press('ArrowUp');
+    if (await look() === s2) await page.keyboard.press('ArrowDown');
+    await expect.poll(look, 'arrow keys moved the object').not.toBe(s2);
+    // not there yet, then there
+    // (the moves above never end on the goal: tiles keep a zero pair of units, the rectangle is 6 or 5 high)
+    await page.locator('.lm-check').click();
+    await expect(page.locator('.lm-actions.has-good')).toHaveCount(0);
+    await page.evaluate(() => window.__madregotSolveStep());
+    await page.locator('.lm-check').click();
+    await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  });
+}
