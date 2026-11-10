@@ -14,6 +14,7 @@ import { useAIStatus, leaveFamily } from '@/lib/account.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
 import { durableWipe } from '@/lib/durable/storage.js';
 import SaveSection from '@/components/durable/SaveSection.jsx';
+import { whereSavedText } from '@/lib/durable/copy.js';
 
 function ClassSection() {
   const { profile, setProfile, leaveClass } = useApp();
@@ -301,7 +302,8 @@ export default function Settings() {
         confirm="כן, להתנתק" onConfirm={async () => { await forgetParent(); signOut(); }}>
         <p>המכשיר יחזור למסך הפתיחה, וההתקדמות שנשמרה בו תימחק.</p>
       </ConfirmSheet>
-      <p className="footnote">מדרגות{hasServer() ? '' : '. בלי שרת: ההתקדמות נשמרת רק במכשיר הזה.'}</p>
+      {/* where the progress lives, in the words the whole app uses (lib/durable/copy.js) */}
+      <p className="footnote">מדרגות. {whereSavedText({ profile })}</p>
     </div>
   );
 }

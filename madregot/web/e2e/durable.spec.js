@@ -61,12 +61,12 @@ test.describe('storage full', () => {
     expect(await fillStorage(page)).toBeGreaterThan(1000);
     await radio(page, 'כבויים').click();
     await expect(radio(page, 'כבויים')).toHaveAttribute('aria-checked', 'true');
-    await expect(page.locator('#save .save-row')).toContainText('נשמר');
+    await expect(page.locator('#save .save-row').filter({ hasText: 'במכשיר הזה' })).toContainText('נשמר');
     expect((await saved(page)).sound).toBe(true); // localStorage could not take it
     await expect.poll(async () => JSON.parse((await readDb(page, 'mirror'))?.[0]?.raw || 'null')?.state?.sound).toBe(false);
     await page.reload();
     await expect(radio(page, 'כבויים')).toHaveAttribute('aria-checked', 'true'); // from the copy
-    await expect(page.locator('#save .save-row')).toHaveText(/במכשיר הזה\s*נשמר/);
+    await expect(page.locator('#save .save-row').filter({ hasText: 'במכשיר הזה' })).toHaveText(/במכשיר הזה\s*נשמר/);
     await page.locator('#save').scrollIntoViewIfNeeded();
     await shot(page, 'durable-settings-saved');
     await page.evaluate(() => { location.hash = '#/'; });
@@ -86,7 +86,7 @@ test.describe('storage full', () => {
     await fillStorage(page);
     await page.evaluate(() => { location.hash = '#/settings'; });
     await radio(page, 'כבויים').click();
-    await expect(page.locator('#save .save-row')).toContainText('לא נשמר: הדפדפן מלא');
+    await expect(page.locator('#save .save-row').filter({ hasText: 'במכשיר הזה' })).toContainText('לא נשמר: הדפדפן מלא');
     await page.evaluate(() => { location.hash = '#/'; });
     const banner = page.getByRole('status').filter({ hasText: FULL });
     await expect(banner).toBeVisible();

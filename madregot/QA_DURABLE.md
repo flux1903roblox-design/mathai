@@ -38,3 +38,39 @@ table of the council's probes comes with the proof pack (DURABLE-15); this file 
 - **Evidence.** `qa-evidence/durable/restore-preview-{empty,same,other}.png` (390x844).
 - **Note for a test machine.** Chromium keeps a download's Hebrew name only when the system locale is UTF-8 (phones
   and computers are); on the POSIX locale it names the file "download". The e2e launches its browser with C.UTF-8.
+
+## Kept by the browser, installable, and honest about where the data lives (DURABLE-3)
+
+- **Asking the browser to keep the data.** After the first finished lesson or check (LessonDone, CheckDone) the app
+  reads `navigator.storage.persisted()`; when the browser has not promised and this device was never asked
+  (`durable.persistAsked`), it calls `persist()` once and notes when. Firefox prompts for it, so there it is asked
+  only from Settings › שמירת ההתקדמות › "לבקש מהדפדפן לשמור". The answer is read again on every open and whenever the
+  app comes back into view, and Settings shows it as it is: "כן", "לא מובטחת", or "לא ידוע" where the browser cannot
+  say (WebKit can answer false, bug 271401).
+- **Installable.** `web/public/manifest.webmanifest` (name, `lang`/`dir`, `start_url ./#/`, `scope ./`, `display:
+  standalone`, white colours, icons 192, 512 and a maskable 512). The icons are drawn from the favicon by
+  `web/scripts/make-icons.mjs` with Playwright's Chromium (run it again after the favicon changes). The iPhone icon
+  (`icons/180.png`) and the maskable one are full bleed on #1A5CF5, because iOS paints transparent corners black.
+  `index.html` links the manifest, the apple-touch-icon and `apple-mobile-web-app-title`; `_headers` serves the
+  manifest as `application/manifest+json` on Cloudflare.
+- **The iPhone guide.** On an iPhone or iPad in the browser, Settings has "להוסיף למסך הבית", and Learn shows one quiet
+  card from the 3rd day the student learned (then not for 30 days: `durable.installHintAt`). Its first step saves the
+  backup file, because a Home Screen app keeps its data apart from Safari; the last step opens it with "יש לי קובץ
+  גיבוי". (With a server, the backup code takes the first step's place when it exists, DURABLE-5.)
+- **Where the data lives, said once.** `web/src/lib/durable/copy.js` `whereSavedText` is the only sentence about it:
+  MyNumbers (on the profile) and the end of Settings use it. No server: "ההתקדמות נשמרת במכשיר הזה. כדאי לשמור קובץ
+  גיבוי מדי פעם." A student alone: "ההתקדמות נשמרת רק במכשיר הזה." A class student: the trust lane's sentence (the
+  answers go to the teacher's board too). A family device hears the solo sentence until its progress has a server copy
+  (DURABLE-6). Nothing says "מוצפן".
+- **Tests.** `web/src/lib/durable/{persist,copy,install}.test.js`, `components/durable/SaveSection.test.jsx`,
+  `e2e/install.spec.js` (the manifest and every icon's PNG size, one ask after the first lesson and none after a
+  reload, an iPhone user agent with three days on Learn, the honest copy for no server, solo and class).
+- **Evidence.** `qa-evidence/durable/save-section-{none,solo,class}.png` (Settings, whole page, 390 wide),
+  `install-card.png` and `install-sheet.png` (390x844).
+- **Owner checks (optional, once).**
+  - GitHub Pages ignores `_headers` and serves the manifest by its extension: `curl -sI <pages-url>/manifest.webmanifest`
+    and note the Content-Type here (browsers accept `application/json` for a manifest too).
+  - Chrome DevTools › Application › Manifest on the deployed site shows no installability errors.
+  - On a real iPhone, run the four steps of the guide once and confirm the progress arrives in the Home Screen app;
+    if iOS's menu labels differ from the ones quoted in step 2 and 3, only those labels change
+    (`components/durable/InstallSheet.jsx` `INSTALL_STEPS`).

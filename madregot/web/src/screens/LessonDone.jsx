@@ -13,6 +13,7 @@ import Lottie from '@/components/Lottie.jsx';
 import { placementTopicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
+import { askAfterLesson } from '@/lib/durable/persist.js';
 
 // The main button takes the focus (for a keyboard or a screen reader) without scrolling a tall celebration
 // down to it: on a small phone the climb at the top stays in view.
@@ -78,6 +79,8 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   const skills = useApp((s) => s.learn.skills);
   const stages = ['summary', award.streakExtended && result.passed && 'streak', award.questsDone && 'quests'].filter(Boolean);
   const [i, setI] = useState(0);
+  // the first finished lesson is the moment to ask the browser to keep the data (once; never on Firefox from here)
+  useEffect(() => { askAfterLesson(); }, []);
   const stage = stages[i];
   const nextStage = () => (i + 1 < stages.length ? setI(i + 1) : onExit());
   const levelTitle = topic.levels[result.level - 1]?.title;

@@ -564,6 +564,36 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .save-row dd { margin: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 16px; line-height: 24px; font-weight: 600; }
 .save-row .save-ok { color: var(--good-ink); }
 .save-row .save-not { color: var(--ink); }
+.save-row + .save-row { border-top: 2px solid var(--line); }
+
+/* asking the browser to keep the data, and the iPhone Home Screen guide (DURABLE-3): the info button beside the row's
+   name, the ask button under the rows, the guide's row with its chevron. No motion: everything here is still. */
+.save-row dt { display: inline-flex; align-items: center; gap: 2px; }
+.save-info { width: 44px; height: 44px; margin-inline-start: -6px; color: var(--ink-2); }
+.save-ask { align-self: flex-start; margin: calc(-1 * var(--s2)) 0 var(--s1); padding-inline: 0; text-decoration: underline; text-underline-offset: 3px; }
+.save-install { justify-content: space-between; gap: var(--s3); width: 100%; border-top: 2px solid var(--line) !important; }
+.save-install svg { color: var(--ink-2); flex: none; }
+.persist-info, .install-sheet { display: flex; flex-direction: column; gap: var(--s3); }
+.persist-info p, .install-note { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
+.persist-info .btn, .install-actions .btn { margin-inline: 0; }
+.install-steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s4); }
+.install-steps li { counter-increment: step; position: relative; padding-inline-start: 44px; display: flex; flex-direction: column; gap: var(--s2); }
+.install-steps li::before { content: counter(step); position: absolute; inset-inline-start: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--brand-tint); color: var(--brand-d); font-weight: 800; font-size: 16px; }
+.install-steps p { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
+.install-steps .btn { margin-inline: 0; }
+.install-saved { font-weight: 700; color: var(--good-ink) !important; }
+.install-note { padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); font-size: 16px; line-height: 24px; }
+.install-actions { display: flex; flex-direction: column; gap: var(--s2); }
+/* Learn's quiet card: under the header, white with the one card border, never inside a lesson */
+.install-card { position: relative; display: flex; align-items: flex-start; gap: var(--s3); margin: var(--s3) var(--gutter) 0; padding: var(--s4);
+  background: #fff; border: 2px solid var(--rule); border-radius: 16px; }
+.install-card-icon { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--brand-tint); color: var(--brand); }
+.install-card-text { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+.install-card-title { margin: 0; padding-inline-end: 36px; font-family: var(--font-ui); font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.install-card-text p { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.install-card-go { align-self: flex-start; margin: 0; padding-inline: var(--s4); }
+.install-card-close { position: absolute; top: 4px; inset-inline-end: 4px; width: 44px; height: 44px; }
 
 /* the backup file (DURABLE-4): two full-width buttons under the rows, the note on who can read the file, and the undo
    while it is offered. The file input is hidden under its label, which is drawn as a button and shows the focus ring. */

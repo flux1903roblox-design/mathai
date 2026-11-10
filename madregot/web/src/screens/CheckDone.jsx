@@ -15,6 +15,7 @@ import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { inDays } from '@/content/util.js';
+import { askAfterLesson } from '@/lib/durable/persist.js';
 
 function copy(r, rec, def, award) {
   const days = (box) => REVIEW_DAYS[box] ?? 1;
@@ -49,6 +50,8 @@ export default function CheckDone({ result: r, award, onExit }) {
   const c = copy(r, rec, def, award);
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
+  // a finished check counts as a finished lesson: the moment to ask the browser to keep the data (durable/persist.js)
+  useEffect(() => { askAfterLesson(); }, []);
   const rescue = r.purpose === 'diagnostic' || r.purpose === 'exam';
   const nextA = actions.find((a) => !(a.skill === skill && a.kind === (r.purpose === 'mastery' ? 'mastery' : r.purpose)));
   const weak = Object.entries(r.perSkill || {}).filter(([, x]) => x.right < x.asked).map(([s]) => s);

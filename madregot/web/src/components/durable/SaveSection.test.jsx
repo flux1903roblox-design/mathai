@@ -28,4 +28,17 @@ describe('SaveSection', () => {
     expect(id).toBeTruthy();
     expect(out).toMatch(new RegExp(`<input[^>]*id="${id.replace(/[:]/g, '\\:')}"[^>]*type="file"|<input[^>]*type="file"[^>]*id="${id.replace(/[:]/g, '\\:')}"`));
   });
+
+  // (a server render reads the status store's first state: the browser's other answers are in e2e/install.spec.js)
+  it('"שמירה קבועה בדפדפן": before the browser answers it says "לא ידוע", with the info button and no ask button', () => {
+    const out = html(<SaveSection />);
+    expect(out).toContain('שמירה קבועה בדפדפן');
+    expect(out).toContain('aria-label="מתי דפדפן מוחק נתונים"');
+    expect(out).toContain('data-persisted="null">לא ידוע</dd>');
+    expect(out).not.toContain('לבקש מהדפדפן לשמור');
+  });
+
+  it('no Home Screen row away from an iPhone', () => {
+    expect(html(<SaveSection />)).not.toContain('להוסיף למסך הבית');
+  });
 });

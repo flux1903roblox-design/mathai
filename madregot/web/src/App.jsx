@@ -8,6 +8,7 @@ import { useMoments, onMoment, MOMENT_ORDER } from '@/lib/durable/moments.js';
 import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import { useDurable } from '@/lib/durable/useDurable.js';
+import { watchPersisted } from '@/lib/durable/persist.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
@@ -195,6 +196,8 @@ const router = createHashRouter([{ path: '*', element: <Root /> }]);
 export default function App() {
   useMoments();
   useSync();
+  // whether the browser promised to keep the data: read on every open and whenever the app comes back into view
+  useEffect(() => watchPersisted(), []);
   return (
     <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="user">
