@@ -91,6 +91,19 @@ ${convo || '(תחילת שיחה)'}
   return typeof res === 'string' ? res : res?.response || JSON.stringify(res);
 }
 
+// In-lesson tutor (Brilliant "Koji"-style): a short nudge for the exact step the student is stuck on.
+export async function lessonHint({ lessonTitle, stepTitle, task, feedback, user }) {
+  const prompt = `אתה מורה פרטי למתמטיקה בישראל, סבלני ומעודד. ${ctx(user)}
+התלמיד באמצע שיעור אינטראקטיבי בנושא "${lessonTitle}", בשלב "${stepTitle}".
+המשימה שקיבל:
+${task}
+
+התלמיד ניסה וטעה. המשוב האוטומטי שקיבל: "${feedback}".
+כתוב לו רמז קצר (2–4 משפטים) בעברית שיעזור לו להבין מה לא עובד ואיך לחשוב על זה — בלי לגלות את התשובה הסופית. כתוב נוסחאות ב-LaTeX בין $...$.`;
+  const res = await db.integrations.Core.InvokeLLM({ prompt });
+  return typeof res === 'string' ? res : res?.response || '';
+}
+
 export async function generatePractice({ topics, count, difficulty, user }) {
   const prompt = `אתה בוחן מתמטיקה בישראל. ${ctx(user)}
 צור ${count} שאלות תרגול ברמת קושי "${difficulty || 'medium'}" מהנושאים: ${topics.join(', ')}.

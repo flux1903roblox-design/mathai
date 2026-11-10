@@ -22,6 +22,8 @@ import Chat from '@/pages/Chat';
 import History from '@/pages/History';
 import Paywall from '@/pages/Paywall';
 import Settings from '@/pages/Settings';
+import Learn from '@/pages/Learn';
+import Lesson from '@/pages/Lesson';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -55,8 +57,11 @@ const AuthenticatedApp = () => {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route path="/onboarding" element={<Onboarding />} />
+        {/* lessons run full-screen (focus mode), outside the app chrome */}
+        <Route path="/learn/:lessonId" element={<Lesson />} />
         <Route element={<AppLayout />}>
           <Route path="/" element={<Home />} />
+          <Route path="/learn" element={<Learn />} />
           <Route path="/scan" element={<Scan />} />
           <Route path="/practice" element={<Practice />} />
           <Route path="/exam" element={<ExamBuilder />} />

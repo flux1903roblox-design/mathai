@@ -2,16 +2,18 @@ import { NavLink, useLocation, Outlet } from 'react-router-dom';
 import { useEffect } from 'react';
 import {
   LayoutDashboard, ScanLine, PencilRuler, ClipboardList, MessageCircle,
-  History as HistoryIcon, Crown, Settings, LogOut,
+  History as HistoryIcon, Crown, Settings, LogOut, Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import Logo from './Logo';
 import GradeBadge from './GradeBadge';
 import ActionsMeter from './ActionsMeter';
+import { StreakChip } from './learn/ProgressWidgets';
 import { isPro } from '@/lib/mathActions';
 
 const NAV = [
   { to: '/', label: 'בית', icon: LayoutDashboard, end: true },
+  { to: '/learn', label: 'למידה אינטראקטיבית', icon: Sparkles },
   { to: '/scan', label: 'סריקת שאלה', icon: ScanLine },
   { to: '/practice', label: 'תרגול חכם', icon: PencilRuler },
   { to: '/exam', label: 'בניית מבחן', icon: ClipboardList },
@@ -21,10 +23,10 @@ const NAV = [
 
 const MOBILE_NAV = [
   { to: '/', label: 'בית', icon: LayoutDashboard, end: true },
+  { to: '/learn', label: 'למידה', icon: Sparkles },
   { to: '/scan', label: 'סריקה', icon: ScanLine },
   { to: '/practice', label: 'תרגול', icon: PencilRuler },
   { to: '/chat', label: 'צ׳אט', icon: MessageCircle },
-  { to: '/history', label: 'היסטוריה', icon: HistoryIcon },
 ];
 
 export default function AppLayout() {
@@ -41,8 +43,9 @@ export default function AppLayout() {
     <div className="min-h-screen flex">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-64 shrink-0 border-l border-white/10 bg-sidebar/60 backdrop-blur-xl sticky top-0 h-screen">
-        <div className="p-5 border-b border-white/10">
+        <div className="p-5 border-b border-white/10 flex items-center justify-between gap-2">
           <Logo />
+          <StreakChip user={user} />
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
           {NAV.map((item) => (
@@ -73,7 +76,10 @@ export default function AppLayout() {
         {/* Mobile top bar */}
         <header className="lg:hidden sticky top-0 z-30 glass-strong px-4 py-3 flex items-center justify-between">
           <Logo compact />
-          <GradeBadge user={user} />
+          <div className="flex items-center gap-2">
+            <StreakChip user={user} />
+            <GradeBadge user={user} />
+          </div>
         </header>
 
         <main className="flex-1 pb-24 lg:pb-0 max-w-5xl w-full mx-auto px-4 sm:px-6 py-5 lg:py-8" key={location.pathname}>

@@ -9,8 +9,9 @@ import {
 import { useAuth } from '@/lib/AuthContext';
 
 import { profileLabel, gradeLabel } from '@/lib/curriculum';
-import { isPro, actionsDisplay } from '@/lib/mathActions';
+import { isPro } from '@/lib/mathActions';
 import ActionsMeter from '@/components/ActionsMeter';
+import { ContinueCard } from '@/components/learn/ProgressWidgets';
 
 const ACTIONS = [
   { to: '/scan', label: 'סרוק שאלה', desc: 'צלם וקבל פתרון מלא', icon: ScanLine, color: 'from-violet-500 to-fuchsia-500' },
@@ -53,6 +54,11 @@ export default function Home() {
           <h1 className="text-3xl sm:text-4xl font-display mt-1.5">שלום, <span className="gradient-text">{name}</span> 👋</h1>
           <p className="text-muted-foreground mt-2 text-sm">מוכן להצליח במתמטיקה היום?</p>
         </div>
+      </motion.div>
+
+      {/* interactive learning — the main daily habit */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+        <ContinueCard user={user} />
       </motion.div>
 
       {/* stats */}
