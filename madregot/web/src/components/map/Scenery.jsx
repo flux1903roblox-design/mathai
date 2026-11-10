@@ -197,6 +197,17 @@ const FracBarArt = () => (
     <circle cx="71" cy="74" r="6" className="sc-g" />
   </svg>
 );
+/** Ratio and scale: a route between two places on a map, over the map's scale bar (its parts in two colours). */
+const ScaleBarArt = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M18 34 Q40 14 58 32 T84 28" className="sc-stroke" strokeDasharray="6 6" />
+    <circle cx="18" cy="34" r="7" className="sc-g" />
+    <circle cx="84" cy="28" r="7" className="sc-c" />
+    <rect x="10" y="60" width="80" height="14" className="sc-w sc-line" />
+    {[10, 50].map((x) => <rect key={x} x={x} y="60" width="20" height="14" className="sc-c" />)}
+    {[10, 30, 50, 70, 90].map((x) => <path key={x} d={`M${x} 54 V80`} className="sc-stroke" />)}
+  </svg>
+);
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -218,6 +229,7 @@ export const SCENERY = {
   eq: [EqScale],
   sys: [SysCross],
   frac: [FracBarArt],
+  ratio: [ScaleBarArt],
 };
 
 /** The unit's own sign for its header: the first piece of its world. */

@@ -13,6 +13,7 @@ import { roundsTo, EQ } from './eq.js';
 import { EXPR } from './expr.js';
 import { SYS } from './sys.js';
 import { FRAC } from './frac.js';
+import { RATIO } from './ratio.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -258,6 +259,7 @@ function byPlaces(it, u, most) {
 }
 const fracOp = (it) => { const p = it.key.split(':'); return { a: +p[1], b: +p[2], c: +p[3], d: +p[4], op: p[5] }; };
 const lcmOf = (x, y) => { let a = x; let b = y; while (b) [a, b] = [b, a % b]; return (x * y) / a; };
+const gcdOf = (x, y) => { let a = Math.abs(x); let b = Math.abs(y); while (b) [a, b] = [b, a % b]; return a || 1; };
 
 /**
  * The property each category names, per topic. (it, u) → does the answer u really show this mistake?
@@ -293,6 +295,59 @@ const PROPS = {
       }
       const q = fracOp(it); return q.op === 'div' && it.form !== 'mc' && fits(u, (q.a / q.b) * (q.c / q.d));
     },
+  },
+  // ratio:1-4, each property from the numbers the student saw (the key): a, b of ra1; m, n, T of ra2s; m, n, P of ra2r;
+  // the investments X, Y and the profit P of ra2p; b, a, c of ra3m (b units need a, how much for c); the table rows of
+  // ra3t; the scale S and the distance of ra4r (d cm) and ra4m (D m); d cm and D km of ra4f; k of ra4a
+  ratio: {
+    // the ratio read in the other order: the other term's value
+    'reversed-ratio': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'ra1') { const [a, b] = n; const g = gcdOf(a, b); return fits(u, ((a / g) * a) / b); }
+      if (p === 'ra1m') { const [a, b] = n; const g = gcdOf(a, b); return chosen(it, u) === `${a / g} : ${b / g}`; }
+      if (p === 'ra2s') { const [m, nn, T] = n; return fits(u, (T * nn) / (m + nn)); }
+      if (p === 'ra2r') { const [m, nn, P] = n; return fits(u, ((P / 2) * Math.min(m, nn)) / (m + nn)); }
+      if (p === 'ra2p') { const [X, Y, P] = n; return fits(u, (P * Y) / (X + Y)); }
+      if (p === 'ra2t') { const [m, nn] = n; return chosen(it, u) === `\\frac{${nn}}{${m + nn}}`; }
+      return false;
+    },
+    // a part compared with the whole: ra1 the total over the common divisor, ra2 m/n of the total
+    'part-whole': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'ra1') { const [a, b] = n; return fits(u, (a + b) / gcdOf(a, b)); }
+      if (p === 'ra1m') { const [a, b] = n; const g = gcdOf(a, b); return chosen(it, u) === `${b / g} : ${(a + b) / g}`; }
+      if (p === 'ra2s') { const [m, nn, T] = n; return fits(u, (T * m) / nn); }
+      if (p === 'ra2p') { const [X, Y, P] = n; return fits(u, (P * X) / Y); }
+      if (p === 'ra2t') { const [m, nn] = n; return chosen(it, u) === `\\frac{${m}}{${nn}}`; }
+      return false;
+    },
+    // the whole perimeter shared as if it were one long and one short side: twice the long side
+    'whole-perimeter': (it, u) => { const [m, n, P] = nums(it.key); return it.key.startsWith('ra2r:') && fits(u, (P * Math.max(m, n)) / (m + n)); },
+    // the same difference kept: a + (c − b); in a table, from one of the given rows
+    additive: (it, u) => {
+      if (it.key.startsWith('ra3m:')) { const [b, a, c] = nums(it.key); return fits(u, a + (c - b)); }
+      if (it.key.startsWith('ra3t:')) {
+        const [rows, x3] = [it.key.slice(5).split(';').slice(0, 2).map((r) => r.split(',').map(Number)), Number(it.key.split(';')[2])];
+        return rows.some(([x, y]) => fits(u, y + (x3 - x)));
+      }
+      return false;
+    },
+    // the rate per the other unit: c divided by a/b
+    'divide-flip': (it, u) => { const [b, a, c] = nums(it.key); return it.key.startsWith('ra3m:') && fits(u, (c * b) / a); },
+    // centimetres never converted: d·S cm for metres; D/S for centimetres; D km over d cm for the scale
+    'no-convert': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'ra4r') { const [S, d] = n; return fits(u, d * S); }
+      if (p === 'ra4m') { const [S, D] = n; return fits(u, D / S); }
+      if (p === 'ra4f') { const [d, D] = n; return fits(u, D / d); }
+      return false;
+    },
+    // kilometres written as metres: d·S / 100000
+    'cm-km': (it, u) => { const [S, d] = nums(it.key); return it.key.startsWith('ra4r:') && fits(u, (d * S) / 100000); },
+    // the area scaled like a length: k
+    'linear-area': (it, u) => { const [k] = nums(it.key); return it.key.startsWith('ra4a:') && fits(u, k); },
+    // "the same added to both keeps the ratio": the "no" choice, for legs p ≠ q
+    'add-same': (it, u) => { const [p, q] = nums(it.key); return it.key.startsWith('ra1a:') && p !== q && /^לא/.test(it.choices[u]?.text || ''); },
   },
   expr: {
     concat: (it, u) => { const q = substOf(it); return q.x >= 1 && q.x <= 9 && near(substVal(it, u), withProd(q, 10 * q.a + q.x)); },
@@ -625,8 +680,10 @@ function candidates(it) {
       default: return [];
     }
   }
-  // numbers: whole numbers far enough for squares and sums, tenths and simple fractions near zero
-  const out = new Set([...range(-60, 900), ...range(-30, 30, 0.1), ...range(-12, 12, 0.05), ...range(-100, 1000, 0.5), ...range(-100, 100, 0.1)]);
+  // numbers: whole numbers far enough for squares and sums, tenths and simple fractions near zero; for ratio and scale,
+  // the answer times and over 100, 1000 and 100000 too (units not converted, or converted too far)
+  const scaled = it.topic === 'ratio' && typeof it.answer === 'number' ? [100, 1000, 100000].flatMap((k) => [it.answer * k, it.answer / k]) : [];
+  const out = new Set([...scaled, ...range(-60, 900), ...range(-30, 30, 0.1), ...range(-12, 12, 0.05), ...range(-100, 1000, 0.5), ...range(-100, 100, 0.1)]);
   for (let q = 3; q <= 7; q += 1) for (let p = -40; p <= 40; p += 1) out.add(p / q);
   // square roots, as a misused theorem gives them (rounded the way the checker reads them)
   for (let n = 1; n <= 2000; n += 1) { out.add(Math.round(Math.sqrt(n) * 100) / 100); out.add(Math.round(Math.sqrt(n) * 10) / 10); }
@@ -658,9 +715,9 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-describe('the algebra and fraction topics name only what a property can check', () => {
-  it('every category of expressions, equations, systems and fractions has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+describe('the algebra, fraction and ratio topics name only what a property can check', () => {
+  it('every category of expressions, equations, systems, fractions and ratio has its property here', () => {
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

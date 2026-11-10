@@ -88,6 +88,8 @@ export function shownNumbers(it: Item): number[] {
 /** Every number printed in a question, whatever its form. */
 function printed(it: Item): number[] {
   const shown = [it.text, it.display, it.fig?.type === 'table' ? figPlain(it.fig) : ''].filter(Boolean).join(' ')
+    // a TeX thousands group is one number: 50{,}000 is 50000, not 50 and 0 (a scale's 1 : 50{,}000)
+    .replace(/(\d)\{,\}(?=\d{3})/g, '$1')
     .replace(/\\(qquad|quad|[,;:! ])/g, ' ').replace(/\\[a-zA-Z]+/g, ' ').replace(/−/g, '-')
     .replace(/-\s+(?=\d)/g, '-'); // "3x - 4" reads b as -4
   return (shown.match(/-?\d+(\.\d+)?/g) || []).map(Number);
@@ -188,6 +190,13 @@ describe('the guessing measure itself', () => {
     const pair: Draw = () => { const a = -2 - Math.floor(Math.random() * 9); const b = a - 1 - Math.floor(Math.random() * 5); return { form: 'num', text: 'איזה מספר גדול יותר? כתבו אותו.', display: `${b} \\qquad ${a}`, answer: a, key: 'pair:x' }; };
     expect(passRate([pair, pair, pair], 3)).toBeGreaterThan(0.1);
     expect(shownNumbers({ form: 'num', text: 'מה $y$ כש־$x = -3$?', display: 'y = 2x - 4', fig: { type: 'table', rows: [['א', '1, 10, 10']] } })).toEqual([-3, 2, -4, 1, 10, 10]);
+  });
+  it('reads a TeX thousands group as one number, so copying a printed number on a scale question is measured honestly', () => {
+    // a scale question prints 1 : 50{,}000: the number a guesser would type is 50000, not 50 and 0
+    expect(shownNumbers({ form: 'num', text: 'במפה בקנה מידה $1 : 50{,}000$ המרחק הוא $6$ ס״מ. מה המרחק במציאות, במטרים?' })).toEqual([1, 50000, 6]);
+    expect(shownNumbers({ form: 'num', text: 'קוטר $12{,}500{,}000$ מטר', display: '1 : 250{,}000' })).toEqual([12500000, 1, 250000]);
+    // a decimal comma or a list stays apart
+    expect(shownNumbers({ form: 'num', text: 'המספרים $2, 3$ ו־$4$' })).toEqual([2, 3, 4]);
   });
   it('sees a guesser who copies two numbers into an expression\'s two boxes', () => {
     // "open the brackets: 3(x + 4)" answered as 3x + 4 is wrong; a question whose answer were always the numbers shown

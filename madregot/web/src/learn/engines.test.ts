@@ -102,7 +102,7 @@ describe('the topic list the tutor and the exam check use', () => {
 
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(53);
+    expect(ALL_SKILLS).toHaveLength(57); // with ratio:1-4 (ח׳, the first unit of the year)
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));

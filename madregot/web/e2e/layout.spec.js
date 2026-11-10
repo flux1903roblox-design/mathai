@@ -30,12 +30,23 @@ const CASES = [
   ['a system by equal coefficients', 'sys/3', '8'],
   ['a word problem with two unknowns', 'sys/4', '8'],
   ['an inequality (which numbers solve it)', 'sys/5', '8'],
+  // a scale question writes its large numbers with the thousands grouped (1 : 50{,}000): they fit the smallest phone
+  ['a scale question (thousands in TeX)', 'ratio/4', '8', (x) => /\d\{,\}\d/.test(x.text || '')],
+  // (a choice with no maths above it keeps its choices low, by the check button: the typed question is the one measured)
+  ['a ratio completed in lowest terms', 'ratio/1', '8', (x) => x.form === 'num'],
+  ['a missing value in a proportional table', 'ratio/3', '8', (x) => x.fig?.type === 'table'],
 ];
 
-for (const [what, route, grade] of CASES) {
+for (const [what, route, grade, want = () => true] of CASES) {
   test(`exercise layout: ${what}`, async ({ page }) => {
     // typed and multiple-choice exercises (the interactive ones have their own spec, manip.spec.js)
-    const it = await openOn(page, `#/lesson/${route}`, student(grade), (x) => x.form !== 'manip');
+    const it = await openOn(page, `#/lesson/${route}`, student(grade), (x) => x.form !== 'manip' && want(x));
+    // every piece of maths in the question sits inside the question's own box (a long number is not cut or pushed out)
+    const outside = await page.evaluate(() => {
+      const q = document.querySelector('#qtext').getBoundingClientRect();
+      return [...document.querySelectorAll('#qtext .katex')].map((k) => k.getBoundingClientRect()).filter((r) => r.left < q.left - 1 || r.right > q.right + 1).length;
+    });
+    expect(outside, 'maths that sticks out of the question').toBe(0);
     await expect(page.locator('#qtext')).toBeVisible();
     const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
     expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);

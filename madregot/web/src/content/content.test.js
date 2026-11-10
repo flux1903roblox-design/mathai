@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import katex from 'katex';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput } from './index.js';
-import { parseNum, plainNum } from './util.js';
+import { parseNum, plainNum, gcd } from './util.js';
 import { factsItem } from './frac.js';
 import { holds, identical, texToExpr, texRelation, evaluate, same } from '@/learn/expr.ts';
 
@@ -419,5 +419,90 @@ describe('multiplication facts (the floor check and /facts)', () => {
   });
   it('never repeats the question it is asked to avoid', () => {
     for (let r = 0; r < 200; r += 1) { const a = factsItem(); expect(factsItem(a.key).key).not.toBe(a.key); }
+  });
+});
+
+// Ratio and scale (ratio:1-4): every share adds up to the amount shared and is in the stated ratio, every scale answer
+// converts back to the distance given, the legs of "add the same to both" are never equal (equal legs keep 1 : 1), and
+// every equation of every worked solution is true (a ratio statement 12 : 18 = 2 : 3 is an equality of quotients).
+describe('ratio and scale: the numbers of every question', () => {
+  const nums = (key) => key.split(':').slice(1).map(Number);
+  const all = (level, n = 800) => Array.from({ length: n }, () => makeItem('ratio', level));
+  const unTeX = (m) => m.replace(/\{,\}/g, '').replace(/\\cdot/g, '*');
+  let checked = 0;
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || []).map((m) => unTeX(m.slice(1, -1))).filter((m) => m.includes('=') && !/[a-zA-Z□]|\\square/.test(m.replace(/\\frac/g, ''))).forEach((m) => {
+    m.split('=').reduce((a, b) => { expect(same(evaluate(texToExpr(a)), evaluate(texToExpr(b))), `${it.key}: ${m}`).toBe(true); checked += 1; return b; });
+  }));
+  afterAll(() => expect(checked).toBeGreaterThan(2000));
+
+  it('every share sums to the total and has the stated ratio', () => {
+    for (const it of all(2)) {
+      const kind = it.key.split(':')[0];
+      if (kind === 'ra2s') { const [m, n, T] = nums(it.key); const other = T - it.answer; expect(it.answer * n, it.key).toBe(other * m); expect(it.answer + other).toBe(T); }
+      if (kind === 'ra2r') {
+        const [m, n, P] = nums(it.key); const half = P / 2; const short = half - it.answer;
+        expect(it.answer * Math.min(m, n), it.key).toBe(short * Math.max(m, n)); expect(2 * (it.answer + short)).toBe(P);
+      }
+      if (kind === 'ra2p') { const [X, Y, P] = nums(it.key); const other = P - it.answer; expect(it.answer * Y, it.key).toBe(other * X); }
+      if (kind === 'ra2t') {
+        const [m, n, T] = nums(it.key); expect(T % (m + n), it.key).toBe(0); expect(it.choices[it.answer].tex).toBe(`\\frac{${m}}{${m + n}}`);
+        expect(m < n, it.key).toBe(true); // every choice is a part smaller than the whole
+      }
+      solutionHolds(it);
+    }
+    // ratio:1: the completed ratio is the one in the story, in the order asked, in lowest terms
+    for (const it of all(1)) {
+      if (it.key.startsWith('ra1:')) {
+        const [a, b] = nums(it.key); const p = Number(it.text.match(/\$(\d+) : \\square\$/)[1]);
+        expect(a * it.answer, it.key).toBe(b * p); expect(gcd(p, it.answer), it.key).toBe(1);
+      }
+      if (it.key.startsWith('ra1b:')) { const [n, a, b] = nums(it.key); expect(n % (a + b)).toBe(0); expect(it.answer.value * n).toBeCloseTo((n / (a + b)) * a, 9); }
+      solutionHolds(it);
+    }
+  });
+
+  it('every proportion keeps one ratio, and a table\'s missing value is never printed in it', () => {
+    for (const it of all(3)) {
+      const kind = it.key.split(':')[0];
+      if (kind === 'ra3m') { const [b, a, c] = nums(it.key); expect(it.answer * b, it.key).toBeCloseTo(a * c, 9); }
+      if (kind === 'ra3t') {
+        const rows = it.fig.rows; const u = rows[0][1] / rows[0][0];
+        expect(rows[1][1] / rows[1][0]).toBeCloseTo(u, 9); expect(it.answer).toBeCloseTo(u * rows[2][0], 9);
+        expect(rows.flat().filter((v) => v !== '?')).not.toContain(it.answer);
+      }
+      if (kind === 'ra3p') {
+        const per100 = it.fig.rows.map((r) => (r[2] * 100) / r[1]);
+        const odd = per100.findIndex((v, i) => per100.filter((w) => same(w, v)).length === 1 && i >= 0);
+        expect(odd, it.key).toBe(it.answer);
+      }
+      solutionHolds(it);
+    }
+  });
+
+  it('every scale answer converts back to the distance given', () => {
+    for (const it of all(4)) {
+      const kind = it.key.split(':')[0];
+      if (kind === 'ra4r') { const [S, d] = nums(it.key); expect((it.answer * 100) / S, it.key).toBe(d); }
+      if (kind === 'ra4m') { const [S, D] = nums(it.key); expect((it.answer * S) / 100, it.key).toBe(D); }
+      if (kind === 'ra4f') { const [d, D] = nums(it.key); expect((d * it.answer) / 100000, it.key).toBe(D); }
+      if (kind === 'ra4a') { const [k] = nums(it.key); expect(it.answer).toBe(k * k); }
+      if (kind === 'ra4b') { const [B, t] = nums(it.key); expect(it.answer).toBe(t); expect((t * B) / 10).toBe((t * it.manip.bottom.max) / it.manip.top.max); }
+      // a number of 10,000 or more is written with its thousands grouped: 50{,}000, never 50000
+      expect(`${it.text} ${it.solution.join(' ')}`, it.key).not.toMatch(/\d{5,}/);
+      solutionHolds(it);
+    }
+  });
+
+  it('"add the same to both legs" never draws equal legs, so its answer (the ratio changes) is always true', () => {
+    let n = 0;
+    for (const it of all(1, 2000)) {
+      if (!it.key.startsWith('ra1a:')) continue;
+      n += 1;
+      const [p, q, k] = nums(it.key);
+      expect(p, it.key).not.toBe(q);
+      expect(p * (q + k), it.key).not.toBe(q * (p + k)); // p : q and (p + k) : (q + k) differ
+      expect(it.choices[it.answer].text).toMatch(/^כן/);
+    }
+    expect(n).toBeGreaterThan(100);
   });
 });

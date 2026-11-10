@@ -390,6 +390,29 @@ describe('the fractions floor teaches with pictures', () => {
   });
 });
 
+// Ratio and scale is taught with the same pictures (the beads on the fraction bar, the scouts in rows, the double number
+// line, the 1 by 1 square inside the 3 by 3 one): every teaching step of its stairs draws one, and every drawing renders.
+describe('ratio and scale teach with pictures', () => {
+  const ratio = stairs.filter((c) => c.topic === 'ratio');
+  it('every discover step of ratio:1-4 has a figure or an object', () => {
+    expect(ratio.map((c) => c.skill)).toEqual(['ratio:1', 'ratio:2', 'ratio:3', 'ratio:4']);
+    const bare = ratio.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
+    expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
+  });
+  it('every figure of the unit renders, with no broken numbers', () => {
+    const figs = ratio.flatMap((c) => [
+      ...c.discover, ...c.misconceptions.flatMap((m) => m.remedy),
+      ...c.examples, ...c.together,
+    ].map((x) => (x as { fig?: FigSpec }).fig).filter(Boolean) as FigSpec[]);
+    expect(new Set(figs.map((f) => f.type))).toEqual(new Set(['groups', 'fbar', 'geo', 'dline', 'table', 'fgrid']));
+    figs.forEach((fig) => {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, fig.type).toMatch(/<svg|<table/);
+      expect(html, fig.type).not.toMatch(/NaN|undefined|Infinity/);
+    });
+  });
+});
+
 // The checks above are what keeps the algebra stairs honest before they exist: each is shown here to pass a right
 // fixture and to fail a broken one, so a check that silently passes everything cannot slip in.
 describe('the algebra checks catch what they are for', () => {

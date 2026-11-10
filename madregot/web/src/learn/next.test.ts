@@ -27,7 +27,8 @@ describe('planNext: the bands, highest first, for each learner', () => {
     ['examIn3Days', [['exam', 'signed:1'], ['exam', 'signed:1'], ['exam', 'signed:1'], ['review', 'coord:1'], ['new', 'coord:2']]],
     ['examUndiagnosed', [['exam', ''], ['new', 'signed:1']]],
     ['examOnShabbat', [['new', 'signed:1']]],
-    ['eighthNovemberLine', [['continue', 'line:1'], ['new', 'line:2']]],
+    // ratio and scale is the first unit of ח׳ (September): taught by now, it is the first new stair, before line:2
+    ['eighthNovemberLine', [['continue', 'line:1'], ['new', 'ratio:1']]],
     ['weakFloor', [['new', 'frac:1']]],
     ['hardFractionsNoFloor', [['floor', 'signed:6'], ['continue', 'signed:6'], ['new', 'coord:1']]],
     ['allSeventhMastered', [['review', 'signed:1']]],
@@ -351,6 +352,31 @@ describe('one next: every surface names the same step', () => {
     expect(seen.restDay).toBeGreaterThan(10);
     expect(seen.lead).toBeGreaterThan(0);
     expect(seen.lead).toBeLessThan(seen.stairOnMap);
+  });
+
+  it('a ח׳ student in November gets ratio:1 (taught in September) as the first new stair, and the map focuses it', () => {
+    const c = ctxOf(emptyLearn(), { grade: '8' });
+    const p = planNext(c);
+    const first = p.items.find((x) => x.kind === 'new')!;
+    expect(first.skill).toBe('ratio:1');
+    expect(first.to).toBe('/learn/ratio/1/A');
+    expect(first.reason).toContain('לפי תוכנית הלימודים, זה נלמד בכיתה בספטמבר.');
+    expect(p.top).toBe(first);
+    const ids = mapTopics('8', false).map((t) => t.id);
+    expect(ids[0]).toBe('ratio');
+    const f = mapFocus({ from: null, top: p.top, lastTopic: null, topicIds: ids, firstId: ids[0], path: {} });
+    expect(f.key).toBe('ratio:node:1');
+    // an existing ח׳ student in the middle of line keeps the map on line: the stair in progress comes before a new one,
+    // and the unit numbers moving (line is now the second unit) moves no saved progress, which is keyed by topic
+    const L = emptyLearn();
+    L.skills = { 'line:1': masteredRec(ago(20), 60), 'line:2': masteredRec(ago(10), 60), 'line:3': taughtRec(ago(1), ['A']) };
+    const mid = ctxOf(L, { grade: '8' });
+    const pm = planNext(mid);
+    expect(pm.top).toMatchObject({ kind: 'continue', skill: 'line:3' });
+    expect(pm.items.find((x) => x.kind === 'new')?.skill).toBe('ratio:1');
+    expect(mapFocus({ from: null, top: pm.top, lastTopic: 'line', topicIds: ids, firstId: ids[0], path: mid.path! })).toMatchObject({ topic: 'line', key: 'line:node:3' });
+    // slope as steps leans on ratio: line:3 is not offered as new before ratio:1 is in place
+    expect(p.items.some((x) => x.kind === 'new' && x.skill === 'line:3')).toBe(false);
   });
 
   it('a brand-new student\'s first step is the map\'s focused stair, the one Welcome opens in November', () => {

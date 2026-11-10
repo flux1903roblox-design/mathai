@@ -26,6 +26,8 @@ const KINDS = [
   ['numberline', 'frac/1', '7', [0.06, 0.75, 0.7, 0.75], (it) => !!it.manip.den, 'a fraction on a cut number line'],
   // the fraction bar cut so two marks fall on lines: a common denominator, built (frac:3 "common")
   ['fbar', 'frac/3', '7', [0.1, 0.5, 0.9, 0.5], (it) => it.answer?.mode === 'common', 'a common number of parts on the fraction bar'],
+  // the pitcher on a double number line: the marker moves along the water line until the sugar under it is right (ratio:3)
+  ['dline', 'ratio/3', '8', [0.1, 0.35, 0.6, 0.35], (it) => it.manip.move === 't', 'a proportion on the double number line'],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');
@@ -152,6 +154,29 @@ test('in a mastery check, the balance and the ray hide whether the target is rea
   await expect(page.locator('.manip-balance.leaning')).toHaveCount(1);
   await openOn(page, '#/lesson/sys/5', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'ray');
   await expect(page.locator('.manip-ray .manip-readout')).toBeVisible();
+});
+
+// The still figure of ratio:1's first steps: the scouts as dots in rows of five, each row named, readable on every phone
+// and read out in full to a screen reader (2 instructors, 10 scouts).
+test('teaching figure: groups (ratio:1, the scouts)', async ({ page }) => {
+  await open(page, '#/learn/ratio/1/A', student('8'));
+  const fig = page.locator('.step-player svg.fg-groups').first();
+  await expect(fig).toBeVisible();
+  await expect(fig).toHaveAttribute('aria-label', 'קבוצות: מדריכים 2, חניכים 10');
+  await expect(fig.locator('circle')).toHaveCount(12);
+  await expect(fig.locator('text')).toHaveText(['מדריכים', 'חניכים']);
+  await expectNoSidewaysScroll(page);
+  const box = await fig.boundingBox();
+  expect(box.width, 'the rows fit the screen').toBeLessThanOrEqual(page.viewportSize().width);
+  expect(box.height, 'the dots are large enough to count').toBeGreaterThanOrEqual(60);
+  // the next step asks about the same rows, and the right choice is accepted
+  await page.locator('.sp-next').click();
+  const st = await page.evaluate(() => window.__madregotStep);
+  expect(st.kind).toBe('predict');
+  await expect(page.locator('.step-player svg.fg-groups')).toBeVisible();
+  await page.locator('.ls-choice').nth(st.answer).click();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
 });
 
 // The objects that only teach (algebra tiles in collecting like terms, the rectangle of the distributive law) are not

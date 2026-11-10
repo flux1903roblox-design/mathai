@@ -6,9 +6,10 @@ import type { SkillId, TopicId } from './types';
 // 'frac' (fractions and decimals) is a bridge unit: the floor under grade 7, first so ALL_SKILLS stays in prerequisite
 // order. A bridge stair is in no grade's own list (gradeSkillsOf), is missing only on evidence and is new only when the
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'line', 'pyth', 'stats', 'sys'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+// ח׳ in school order: ratio and scale is the first unit of the year (September), before linear functions.
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'line', 'pyth', 'stats', 'sys'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -56,9 +57,13 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'eq:3': ['eq:2', 'expr:3'], // the x-terms of both sides are collected first, then it is a two-step equation
   'eq:4': ['eq:3', 'expr:5'], // open the brackets and collect (simplifying), then solve
   'eq:5': ['eq:4', 'expr:2'], // the story becomes expressions (writing an expression), then an equation
+  'ratio:1': ['frac:1'], // simplifying a ratio is simplifying a fraction (bridge edge)
+  'ratio:2': ['ratio:1'], // m : n is m + n equal parts
+  'ratio:3': ['ratio:1', 'frac:4'], // the unit rate is a quotient; the missing value is a product (bridge edge)
+  'ratio:4': ['ratio:3'], // a scale is a proportion with units
   'line:1': ['signed:4', 'coord:1', 'expr:1'], // a table of values: substitute x in mx + b (expr:1, signed:4), plot the points
   'line:2': ['line:1'], // what m and b mean in y = mx + b
-  'line:3': ['line:2', 'coord:1'], // slope from the graph: steps on the grid
+  'line:3': ['line:2', 'coord:1', 'ratio:1'], // slope from the graph: steps on the grid, "up 2 for every 3 to the right" is a ratio
   'line:4': ['line:3', 'signed:3', 'frac:1'], // slope between two points: a quotient of signed differences, simplified like a fraction (bridge edge)
   'line:5': ['line:4', 'eq:1'], // the equation of a line from two points or a point and a slope; b solves y₁ = m·x₁ + b, one step
   'line:6': ['line:2', 'signed:3', 'eq:2'], // intercepts: x = 0 gives b; y = 0 is the two-step equation 0 = mx + b

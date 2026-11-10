@@ -2,6 +2,7 @@
 import { R, pick, shuffle, near, TRIPLES, listMath } from './util.js';
 import { LINEAR } from './linear.js';
 import { SYS } from './sys.js';
+import { RATIO } from './ratio.js';
 
 // ---------------------------------------------------------------- Pythagoras
 // About half the questions come from whole-number triangles (Pythagorean triples), the rest need a root that is not
@@ -299,7 +300,9 @@ function missingValue() {
   }
 }
 
+// in the order of the Ministry's תשפ״ז schedule: ratio and scale is the first unit of the year (September)
 export const GRADE8 = [
+  RATIO,
   LINEAR,
   {
     id: 'pyth', grade: '8', title: 'משפט פיתגורס', color: 'violet',

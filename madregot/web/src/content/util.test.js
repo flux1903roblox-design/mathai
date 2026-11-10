@@ -43,6 +43,16 @@ describe('reading numbers as students type them', () => {
     expect(readNumCandidates('x')).toEqual([]);
   });
 
+  it('"2,400" typed on a hardware keyboard reads 2400 where the answer is 2400 (a scale answer in metres); a phone types 2400', () => {
+    const scale = num(2400, { topic: 'ratio', text: 'במפה בקנה מידה $1 : 20{,}000$ אורך הדרך $12$ ס״מ. כמה מטרים היא במציאות?' });
+    expect(readAnswer(scale, { v: '2,400' })).toBe(2400);
+    expect(typedRight(scale, '2,400')).toBe(true);
+    expect(typedRight(scale, '2400')).toBe(true);
+    // the decimal-comma reading is the other candidate, kept for an answer of 2.4 (the same distance in kilometres)
+    expect(readAnswer(num(2.4), { v: '2,400' })).toBe(2.4);
+    expect(typedRight(scale, '24,000')).toBe(false);
+  });
+
   it('the lesson keeps the reading the question accepts, else the one nearest its answer', () => {
     expect(typedRight(num(2000), '2,000')).toBe(true);
     expect(typedRight(num(2000), '2000')).toBe(true);
@@ -242,7 +252,8 @@ describe('practice-only questions are kept out of checks', () => {
   });
 
   // the kinds whose answer is a choice among two or three, or an object whose target the question names (spec §0.5)
-  const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p'];
+  // ratio: ratioMc, addSame and beads (ratio:1), statements (ratio:2), isProp and the double line (ratio:3), the scale bar
+  const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

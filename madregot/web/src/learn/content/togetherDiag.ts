@@ -33,6 +33,24 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { mul: true, a: 2, b: 5, c: 3, d: 5 } }, // 2/5 · 3/5: the denominator kept gives 6/5
     { model: 'transfer', p: { a: 3, b: 4, m: 2, d: 8 } }, // 3/4 litre in cups of 1/8: flipped 1/6, multiplied 3/32
   ],
+  'ratio:1': [
+    // "□ : 1" for scouts to instructors: read the other way (2 : 10) gives 0.2; the whole group (12 : 2) gives 6
+    { bugs: { 'reversed-ratio': 0.2, 'part-whole': 6 } },
+    { model: 'diag', p: { a: 9, b: 15, g: 3, p: 3 } }, // 9 : 15 = 3 : □: the other order 1.8, against all 24 balls 8
+  ],
+  'ratio:2': [
+    { model: 'diag', p: { m: 5, n: 4, k: 5, T: 45 } }, // Tamar's 5 of 9 parts of 45: Noa's 20; 5/4 of 45 is 56.25
+    { model: 'diag', p: { m: 3, n: 1, k: 9, T: 36 } }, // the long 3 of 4 parts of 36: the short 9; 3/1 of 36 is 108
+  ],
+  'ratio:3': [
+    { model: 'diag', p: { u: 7, a: 21, b: 3, c: 5 } }, // 21 ₪ for 3 kg, 5 kg: the same difference 23; per shekel 5/7
+    { model: 'diag', p: { u: 75, a: 150, b: 2, c: 5 } }, // 150 km in 2 hours, 5 hours: the same difference 153; flipped 5/75
+  ],
+  'ratio:4': [
+    { model: 'diag', p: { k: 0, S: 20000, d: 12 } }, // 12 cm at 1 : 20,000 in metres: left in cm 240,000; as km 2.4
+    // 4 by 3 cm at 1 : 100, in m²: the area left in square centimetres (400 · 300 = 120,000)
+    { bugs: { 'no-convert': 120000 } },
+  ],
   'signed:1': [
     { model: 'diag', p: { a: -3, b: -8, s: -1 } }, // −3 − (−8)
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)
