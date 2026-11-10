@@ -14,6 +14,7 @@ import { SupportLink } from '@/components/SupportSheet.jsx';
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
+import { buildTutorContext } from '@/lib/tutorContext.js';
 import { Box, Button, Field, Sheet, Thinking } from '@/components/ui.jsx';
 import { Markdown } from '@/components/MathText.jsx';
 
@@ -96,7 +97,10 @@ function PhotoCheck() {
   const send = async () => {
     setState({ phase: 'loading' });
     try {
-      const r = await runAI('check', { image: image, mediaType: 'image/jpeg', question, grade });
+      // the photo is the student's own question (policy homework): the check may say whether their final answer is right;
+      // the question they typed goes as their own words, never as the app's
+      const ctx = buildTutorContext({ surface: 'assistant', grade, learn: useApp.getState().learn });
+      const r = await runAI('check', { ctx, image, mediaType: 'image/jpeg', question });
       setState({ phase: 'done', r });
     } catch (e) { setState(e.limit ? { phase: 'idle' } : { phase: 'error', message: e.message }); }
   };
@@ -234,6 +238,9 @@ export default function Assistant() {
   // OK, to the screen for the parents); the input stays usable, so a message that reads as distress still shows the
   // card and still gets an answer
   const chatState = ready ? aiAccess('chat', status).state : null;
+  // what the tutor is told here: the student's own questions (policy homework) and a learner summary, nothing personal
+  const learn = useApp((s) => s.learn);
+  const ctx = buildTutorContext({ surface: 'assistant', grade, learn });
   const classOff = chatState === 'class_off';
   const waiting = chatState === 'parent_ok_needed';
   const off = classOff ? limitVariant({ reason: 'class_ai_off' }) : waiting ? limitVariant({ reason: 'parent_ok_needed' }) : null;
@@ -258,9 +265,9 @@ export default function Assistant() {
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
           {!off && <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>}
           {off ? (
-            <AIChat context={{ grade }} introTitle={off.title} intro={off.text[0]} restLine={null} />
+            <AIChat context={ctx} introTitle={off.title} intro={off.text[0]} restLine={null} />
           ) : (
-            <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."
+            <AIChat context={ctx} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."
               tools={[
                 { label: 'בדיקת פתרון מצולם', icon: Camera, onClick: () => open('check', 'photo') },
                 { label: 'תרגילים חדשים', icon: Wand2, onClick: () => open('generate', 'generate') },

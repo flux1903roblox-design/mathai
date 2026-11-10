@@ -6,11 +6,12 @@ import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
 import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
-import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath, catLabel, displayTex } from '@/content/index.js';
+import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
+import { buildTutorContext } from '@/lib/tutorContext.js';
 import { autoAskAllowed, gate, aiAccess, useAIStatus, needIntro, introSeen } from '@/lib/account.js';
 import AIAllowance from '@/components/AIAllowance.jsx';
 import ToolLocked from '@/components/ToolLocked.jsx';
@@ -76,12 +77,6 @@ const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m:
 /** A slot's name for a screen reader; an expression's letter may be another one than x (3n + 1). */
 const slotLabel = (item, k) => (k === 'k' && item?.var ? `המקדם של ${item.var}` : SLOT_LABEL[k]);
 
-/** An answer two misconceptions both explain: name them, and say how the lesson will tell them apart. */
-function ambiguousText(topic, level, candidates) {
-  const names = (candidates || []).map((c) => catLabel(topic, level, c.id)).filter(Boolean);
-  if (names.length < 2) return 'עוד שאלה אחת בסוף השיעור תעזור לדעת מה בדיוק בלבל.';
-  return `מה כנראה קרה: אולי ${names.join(', ואולי ')}. עוד שאלה אחת בסוף השיעור תעזור לדעת מה מהן.`;
-}
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
 /**
  * Three short maths choices (< = >, 12, 43) sit side by side in large type; anything longer (2x - 10) goes in the list,
@@ -263,16 +258,18 @@ export default function Lesson() {
   // the learning record: a lesson or a check started (for the outcome metrics, on this device only)
   useEffect(() => { if (spec && !placement) useApp.getState().learnEvent({ e: 'lesson-start', s: skillId(spec.topic, spec.level), p: spec.kind === 'check' ? spec.purpose : spec.kind }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const aiContext = () => ({
-    grade: t.grade, topic: t.title, level: item.levelTitle, question: itemPlain(item),
-    correct: answerText(item), studentAnswer: s.wrong.map((w) => answerText(item, w)).join(' ; '), attempts: s.attempt,
+  // What the tutor is told (ai spec AI-1): the exercise, the app's diagnosis of each wrong answer, the lines on screen, the
+  // stair's teaching, a learner summary with nothing personal, and the final-answer policy for this phase. `st` and `res`
+  // are the lesson state and the result being shown (after a second miss they are newer than this render's s and last).
+  const tutorCtx = (st = s, res = last, surface = 'lesson') => buildTutorContext({
+    surface, item: st.item, s: st, last: res, spec, guide, learn: useApp.getState().learn, grade: t.grade, now: new Date().toISOString(),
   });
 
   const askExplain = async () => {
     // the first AI action on this device: the introduction first, then this same question
     if (needIntro(askExplain)) return;
     setExplain({ state: 'loading', text: '' });
-    try { const r = await runAI('explain', aiContext(), { onMadi: askMadi }); setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true }); } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
+    try { const r = await runAI('explain', { ctx: tutorCtx() }, { onMadi: askMadi }); setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true }); } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
   };
 
   const commit = (event) => {
@@ -326,16 +323,16 @@ export default function Lesson() {
         // The second miss is the moment help matters most: ask the tutor without waiting to be asked.
         // (only when that is not one of the few free questions: on the free taste the student chooses when to ask; and
         // never before the introduction to the tutor was read: then "למה טעיתי?" waits for the student to ask)
-        if (aiReady() && !isTest(ns.kind) && autoAskAllowed() && introSeen() && aiAccess('explain').state === 'open') setTimeout(() => askExplainFor(ns), 0);
+        if (aiReady() && !isTest(ns.kind) && autoAskAllowed() && introSeen() && aiAccess('explain').state === 'open') setTimeout(() => askExplainFor(ns, result), 0);
       }
       if (result.retry) { setStruck(true); setActive(names[0] || 'v'); if (item.form === 'mc') setChoice(null); if (result.event) st.noteLearn(result.event); }
     }
     setS(ns);
   };
-  const askExplainFor = async (ns) => {
+  const askExplainFor = async (ns, res) => {
     setExplain({ state: 'loading', text: '' });
     try {
-      const r = await runAI('explain', { ...aiContext(), studentAnswer: ns.wrong.map((w) => answerText(ns.item, w)).join(' ; ') }, { onMadi: askMadi });
+      const r = await runAI('explain', { ctx: tutorCtx(ns, res) }, { onMadi: askMadi });
       setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true });
     } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
   };
@@ -434,7 +431,7 @@ export default function Lesson() {
     const image = nbRef.current?.toImage();
     if (!image) { setNbCheck({ state: 'error', message: 'כתבו קודם את הדרך במחברת.' }); return; }
     setNbCheck({ state: 'loading' });
-    try { const r = await runAI('check', { ...aiContext(), image, mediaType: 'image/jpeg' }, { onMadi: askMadi }); setNbCheck({ state: 'done', r }); } catch (e) { setNbCheck(e.limit ? { state: 'idle' } : { state: 'error', message: e.message }); }
+    try { const r = await runAI('check', { ctx: tutorCtx(s, last, 'notebook'), image, mediaType: 'image/jpeg' }, { onMadi: askMadi }); setNbCheck({ state: 'done', r }); } catch (e) { setNbCheck(e.limit ? { state: 'idle' } : { state: 'error', message: e.message }); }
   };
 
   underway.current = !!(spec && t && !done);
@@ -584,8 +581,7 @@ export default function Lesson() {
               </div>
               {feedback === 'retry' && (
                 <div className="fb-body">
-                  {last?.cat && catLabel(item.topic || spec.topic, item.level, last.cat) && !last.diagnosis?.ambiguous && <p><MathText text={`מה כנראה קרה: ${catLabel(item.topic || spec.topic, item.level, last.cat)}.`} /></p>}
-                  {last?.diagnosis?.ambiguous && <p><MathText text={ambiguousText(item.topic || spec.topic, item.level, last.diagnosis.candidates)} /></p>}
+                  {diagnosisLine(item.topic || spec.topic, item.level, last) && <p><MathText text={diagnosisLine(item.topic || spec.topic, item.level, last)} /></p>}
                   {!isTest(s.kind) && last?.cat && !last.diagnosis?.ambiguous && contentOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
                     <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
                   )}
@@ -671,7 +667,7 @@ export default function Lesson() {
           action pinned at the bottom (the chat's input, the remedy's button, the help request's "send") */}
       <Sheet open={chatOpen} onOpenChange={setChatOpen} title="שאלו את העוזר" className="chat-sheet">
         <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={item.text} />{item.display && <> <Tex tex={item.display} /></>}</div>
-        <AIChat context={aiContext()} messages={chat} onMessages={setChat} intro="אני רואה את התרגיל ואת מה שכתבתם. מה לא ברור?" onDone={() => setChatOpen(false)} onMadi={askMadi} />
+        <AIChat context={chatOpen ? tutorCtx() : null} messages={chat} onMessages={setChat} intro="אני רואה את התרגיל ואת מה שכתבתם. מה לא ברור?" onDone={() => setChatOpen(false)} onMadi={askMadi} />
       </Sheet>
       <TutorSheet open={tutorOpen} onOpenChange={(o) => { setTutorOpen(o); if (!o) setTutorIntent(null); }} content={contentOf(skillId(item.topic || spec.topic, item.level))} item={item}
         wrong={s.wrong.length ? { cat: last?.cat ?? null, diagnosis: last?.diagnosis ?? null } : null} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null}

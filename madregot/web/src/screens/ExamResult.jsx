@@ -10,6 +10,7 @@ import { Box, Button, ChapterMark, Sheet } from '@/components/ui.jsx';
 import { Markdown, MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
 import AIChat from '@/components/AIChat.jsx';
+import { buildTutorContext, examAnswerFrom } from '@/lib/tutorContext.js';
 import Mascot from '@/components/Mascot.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
 import ReportAnswer, { examText } from '@/components/ReportAnswer.jsx';
@@ -191,7 +192,7 @@ export default function ExamResult() {
       </ScreenFoot>
 
       <Sheet open={!!asking} onOpenChange={(o) => !o && setAsking(null)} title={asking ? `שאלה ${asking.number}` : ''}>
-        {asking && <AIChat context={{ grade: profile.grade, topic: TOPIC[asking.topic]?.title, question: asking.prompt, correct: asking.correctAnswer, studentAnswer: asking.studentAnswer }} intro="שאלו מה לא ברור בשאלה הזו. אני מכיר את השאלה, את מה שכתבתם ואת התשובה הנכונה." />}
+        {asking && <AIChat context={buildTutorContext({ surface: 'exam-review', grade: profile?.grade, exam: asking, answerFrom: examAnswerFrom(exam, asking) })} intro="שאלו מה לא ברור בשאלה הזו. אני מכיר את השאלה, את מה שכתבתם ואת התשובה הנכונה." />}
       </Sheet>
     </div>
   );

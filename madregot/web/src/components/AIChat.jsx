@@ -22,7 +22,8 @@ const THINK = ['קורא את התרגיל', 'חושב על הדרך', 'מנסח
 const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'assistant').map(({ role, content }) => ({ role, content }));
 
 /**
- * Chat with the AI tutor, optionally about the exercise on screen.
+ * Chat with the AI tutor, optionally about the exercise on screen. `context` is what the tutor is told: the version-2
+ * context from lib/tutorContext.js (the exercise, the app's diagnosis, the final-answer policy), sent as `ctx`.
  * Pass `messages` and `onMessages` to keep the conversation outside (it then survives closing the sheet); onMessages
  * is a React state setter (it is given updater functions, since a reply can arrive after another message was added).
  * When the tutor is done for today the input stays usable: a message keeps its draft and a calm card says when the
@@ -112,7 +113,8 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
     const ctrl = new AbortController(); abortRef.current = ctrl;
     const mineNow = () => sendRef.current === mine;
     try {
-      const res = await runAI('chat', { messages: history, context }, { onText: (t) => { if (mineNow()) setStreaming(t); }, signal: ctrl.signal, onMadi, quiet: care });
+      // the app's context (ai spec AI-1): a version-2 context goes as ctx; an older caller's flat fields still go as context
+      const res = await runAI('chat', context?.v === 2 ? { messages: history, ctx: context } : { messages: history, context }, { onText: (t) => { if (mineNow()) setStreaming(t); }, signal: ctrl.signal, onMadi, quiet: care });
       const reply = { role: 'assistant', content: res.text, ...(res.care ? { care: true } : {}), ...(res.blocked ? { blocked: true } : {}) };
       setMessages((ms) => {
         const at = ms.findIndex((m) => m.role === 'support' && m.id === mine);
