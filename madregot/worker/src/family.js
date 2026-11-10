@@ -10,7 +10,7 @@
 // A family has at most 3 devices. The parent unlinks a device from the parents page; a device can leave by itself.
 // Every link is emailed to the parent. Only hashes of codes, secrets and tokens are stored.
 import {
-  HttpError, body, json, sha256, hmacHex, randomToken, randomFrom, CODE_ALPHABET, nowIso, dayOf, netKey, key, take, limitOrThrow, safeEqual,
+  HttpError, body, json, sha256, hmacHex, randomToken, randomFrom, CODE_ALPHABET, nowIso, dayOf, netKey, devKey, key, take, limitOrThrow, safeEqual,
 } from './util.js';
 import { requireAccount } from './account.js';
 import { deviceFrom, liveFamily, limits } from './entitle.js';
@@ -72,16 +72,16 @@ export async function linkStart(req, env, cors) {
   if (!env.AUTH_SECRET) throw new HttpError(503, 'server_config');
   const net = await netKey(req, env);
   const tooMany = new HttpError(429, 'too_many_links');
-  const r = await take(env, [key(`link:d:${device}`, LINK_LIMITS.device, { err: tooMany }), key(`link:n:${net}`, LINK_LIMITS.net, { err: tooMany })]);
+  const r = await take(env, [key(`link:d:${await devKey(env, device)}`, LINK_LIMITS.device, { err: tooMany }), key(`link:n:${net}`, LINK_LIMITS.net, { err: tooMany })]);
   if (!r.ok) throw r.error;
   const now = nowIso();
   const expiresAt = new Date(Date.parse(now) + LINK_TTL_MIN * 60_000).toISOString();
-  const [secretHash, hint] = [await sha256(secret), await sha256(device)];
+  const secretHash = await sha256(secret);
   for (let i = 0; i < 5; i++) {
     const code = randomFrom(CODE_ALPHABET, 6);
     try {
-      await env.DB.prepare('INSERT INTO link_codes (code_hash, secret_hash, device_hint, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
-        .bind(await linkHash(env, code), secretHash, hint, now, expiresAt).run();
+      await env.DB.prepare('INSERT INTO link_codes (code_hash, secret_hash, device_hint, created_at, expires_at) VALUES (?, ?, NULL, ?, ?)')
+        .bind(await linkHash(env, code), secretHash, now, expiresAt).run();
       return json({ code, expiresAt, url: `${publicBase(req, env)}/parents/link?c=${code}` }, 201, cors);
     } catch (e) { if (!/UNIQUE|PRIMARY KEY/.test(String(e?.message))) throw e; }
   }

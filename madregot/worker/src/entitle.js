@@ -13,7 +13,7 @@
 //                    dollar ceilings behind the person's own count
 import { AI_KINDS, AI_GROUPS, KIND_GROUP, AI_UNITS, FREE_KINDS, LITE_MODEL, buildRequest } from '../../shared/ai.js';
 import {
-  HttpError, key, take, peek, sha256, hmacHex, netKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual,
+  HttpError, key, take, peek, sha256, hmacHex, netKey, devKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual,
 } from './util.js';
 import { daySpendUsd, monthSpendUsd, queueNotices, ownerNotice } from './spend.js';
 
@@ -238,7 +238,7 @@ async function freeKeys(req, env, id) {
   const [person, limit] = id.student ? [`free:s:${id.student.id}`, L.student]
     : id.fam ? [`free:fd:${id.fam.device_id}`, L.student]
       : id.teacher ? [`free:t:${id.teacher.code}`, L.teacher]
-        : id.device ? [`free:d:${id.device}`, L.student]
+        : id.device ? [`free:d:${await devKey(env, id.device)}`, L.student]
           : [`free:x:${net}`, L.student];
   const keys = {
     person: key(person, limit, { refundable: true, err: dailyErr('free', 'tutor', limit) }),

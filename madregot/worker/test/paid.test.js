@@ -7,7 +7,7 @@ import { buildRequest, AI_KINDS } from '../../shared/ai.js';
 import { priceOf, PRICES } from '../src/spend.js';
 import { dayOf, monthOf, resetsAt } from '../src/util.js';
 import {
-  setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, setCount, setSpend, countOf, rows, one, claudeReply,
+  setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, setCount, setSpend, countOf, rows, one, claudeReply, devOf,
 } from './helpers.js';
 
 let h;
@@ -283,7 +283,7 @@ test('X-AI-Tier, X-AI-Group, X-AI-Left, X-AI-Economy and X-AI-Linked are sent an
   assert.equal(stale.headers.get('X-AI-Tier'), 'free');
   const st = await h.call('GET', '/api/ai/status', { headers: { 'X-Family-Device': `fd1.${'0'.repeat(64)}` } });
   assert.equal(st.headers.get('X-AI-Linked'), '0');
-  await setCount(h.env, `free:d:${'e'.repeat(32)}`, 2);
+  await setCount(h.env, `free:d:${await devOf(h.env, 'e'.repeat(32))}`, 2);
   const refused = await ai(h, 'explain', { 'X-Family-Device': `fd1.${'0'.repeat(64)}`, 'X-Device': 'e'.repeat(32) });
   assert.equal(refused.status, 429);
   assert.equal(refused.headers.get('X-AI-Linked'), '0', 'also on a refusal');

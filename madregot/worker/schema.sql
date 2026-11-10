@@ -136,7 +136,7 @@ CREATE INDEX IF NOT EXISTS family_devices_account ON family_devices (account_id)
 CREATE TABLE IF NOT EXISTS link_codes (
   code_hash TEXT PRIMARY KEY,                  -- HMAC-SHA256(AUTH_SECRET, the 6-character code)
   secret_hash TEXT NOT NULL,                   -- SHA-256 of the 32-hex secret only the child's device knows
-  device_hint TEXT,                            -- SHA-256 of the device's X-Device (recognises the same-device case)
+  device_hint TEXT,                            -- always NULL: nothing read it, so the device is no longer recorded here
   account_id TEXT REFERENCES accounts (id) ON DELETE CASCADE,    -- set on claim
   device_id TEXT REFERENCES family_devices (id) ON DELETE CASCADE, -- the row made on claim
   created_at TEXT NOT NULL,
@@ -325,15 +325,40 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS audit_target ON audit_log (target);
 
--- ai_usage (unchanged table) key formats. <net> = the first 16 hex of HMAC-SHA256(IP_HASH_SECRET, the IPv4 address or the
--- IPv6 /64 prefix); a raw address is never stored. day = YYYY-MM-DD (Asia/Jerusalem); monthly keys use YYYY-MM,
--- hourly keys YYYY-MM-DDTHH.
+-- ai_usage (unchanged table) key formats. <net> = the first 16 hex of HMAC-SHA256(IP_HASH_SECRET, 'net:' + the IPv4
+-- address or the IPv6 /64 prefix); a raw address is never stored. <dev> = the first 16 hex of
+-- HMAC-SHA256(IP_HASH_SECRET, 'dev:' + the install's X-Device id) (devKey in src/util.js); a raw device id is never
+-- stored. day = YYYY-MM-DD (Asia/Jerusalem); monthly keys use YYYY-MM, hourly keys YYYY-MM-DDTHH.
 --   paywall off:  s:<student>  t:<class>  solo:n:<net>
---   free taste:   free:s:<student> | free:fd:<family device> | free:t:<class> | free:d:<X-Device> | free:x:<net>   (person)
+--   free taste:   free:s:<student> | free:fd:<family device> | free:t:<class> | free:d:<dev> | free:x:<net>        (person)
 --                 free:n:<net> (anonymous only)  free:c:<class>  free:all                                          (shared)
 --   paid:         <subject>:<group> with subject fam:<account> | s:<student> | t:<class>  and group tutor|check|generate|exam;
 --                 fam:<account>:exam (YYYY-MM);  cls:<class> (units);  <subject>:<group>:tries (never given back)
 --   legacy:       s:<student> | t:<class> (calls) and cls:<class> (units)
 --   other:        mail:e:<email_hash> mail:n:<net> mail:all  create:n:<net>  join:n:<net>  pin:<student>  classinfo:n:<net>
---                 link:d:<device>  link:n:<net>  linkpoll:<code_hash[0:16]>  linkpoll:n:<net>  claim:a:<account>
+--                 link:d:<dev>  link:n:<net>  linkpoll:<code_hash[0:16]>  linkpoll:n:<net>  claim:a:<account>
 --                 checkout:a:<account> (hourly)  licreq:c:<class>  licclaim:n:<net> (hourly)  licclaim:c:<class>  mint:n:<net>
+
+-- Safety events: counts with no content (trust spec TRUST-4 §4.4). A row says what happened, on which surface and how it
+-- was noticed, on a Jerusalem day with no time of day. There is no student, device, account, class or text column, so a
+-- row can never point to a person or hold what anyone wrote. Written by recordSafety (src/safety.js); kept for
+-- RETENTION.safetyEventsDays (shared/retention.js).
+CREATE TABLE IF NOT EXISTS safety_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  day TEXT NOT NULL,                                   -- YYYY-MM-DD Jerusalem; no time of day
+  kind TEXT NOT NULL CHECK (kind IN ('distress','pii_masked','output_blocked','link_removed','refusal','user_report','class_ai_off','parent_ok_needed','photo_redacted')),
+  category TEXT NOT NULL DEFAULT '' CHECK (length(category) <= 20),
+  surface TEXT NOT NULL CHECK (surface IN ('chat','explain','check','exam','generate','help_note','photo')),
+  source TEXT NOT NULL CHECK (source IN ('regex','model','client','server')),
+  tier TEXT NOT NULL DEFAULT '' CHECK (length(tier) <= 10)
+);
+CREATE INDEX IF NOT EXISTS safety_events_day ON safety_events (day);
+
+-- What a help request is (trust spec TRUST-3), beside help_requests: kind 'help' (a question about an exercise) or 'talk'
+-- (the child asked the teacher to talk, with no text), and care = 1 when the note the child chose to send reads as
+-- distress. A request with no row here is kind 'help', care 0. The row goes with its request.
+CREATE TABLE IF NOT EXISTS help_meta (
+  help_id INTEGER PRIMARY KEY REFERENCES help_requests (id) ON DELETE CASCADE,
+  kind TEXT NOT NULL DEFAULT 'help' CHECK (kind IN ('help','talk')),
+  care INTEGER NOT NULL DEFAULT 0 CHECK (care IN (0,1))
+);

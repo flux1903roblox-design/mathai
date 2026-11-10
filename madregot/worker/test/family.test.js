@@ -5,7 +5,7 @@ import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
-  setup, ai, signIn, accountId, insertSub, linkDevice, setCount, netOf, rows, one, countOf, advanceClock, DEVICE,
+  setup, ai, signIn, accountId, insertSub, linkDevice, setCount, netOf, devOf, rows, one, countOf, advanceClock, DEVICE,
 } from './helpers.js';
 
 let h;
@@ -34,9 +34,9 @@ test('link start returns a 6-character code and a /parents/link url; limited per
   assert.equal(s.body.url, `https://madregot.example.test/parents/link?c=${s.body.code}`);
   const left = Date.parse(s.body.expiresAt) - Date.now();
   assert.ok(left > 59 * 60_000 && left <= 60 * 60_000, 'valid 60 minutes');
-  // only hashes are stored: the code is an HMAC, the secret and the device are SHA-256
+  // only hashes are stored: the code is an HMAC, the secret is SHA-256; the device is not stored at all
   const row = one(h.env, 'SELECT * FROM link_codes');
-  assert.notEqual(row.code_hash, s.body.code); assert.equal(row.secret_hash, sha(SECRET)); assert.equal(row.device_hint, sha(DEVICE));
+  assert.notEqual(row.code_hash, s.body.code); assert.equal(row.secret_hash, sha(SECRET)); assert.equal(row.device_hint, null);
   assert.ok(!JSON.stringify(rows(h.env, 'SELECT * FROM link_codes')).includes(s.body.code));
   // no device id, or a bad secret
   assert.equal((await h.call('POST', '/api/family/link/start', { body: { secret: SECRET } })).status, 400);
@@ -257,7 +257,7 @@ test('after unlink or leave the device is back on the free taste, and its old to
   const r1 = await ai(h, 'explain', { ...d1.headers, 'X-Device': DEVICE });
   assert.equal(r1.status, 200);
   assert.equal(r1.headers.get('X-AI-Tier'), 'free'); assert.equal(r1.headers.get('X-AI-Linked'), '0');
-  assert.equal(countOf(h.env, `free:d:${DEVICE}`), 1);
+  assert.equal(countOf(h.env, `free:d:${await devOf(h.env)}`), 1);
   assert.equal((await ai(h, 'check', { ...d1.headers, 'X-Device': DEVICE })).status, 402);
   // the phone leaves by itself (as "delete all data" does); a second leave is the same answer
   const l = await h.call('POST', '/api/family/devices/leave', { headers: d2.headers, body: {} });

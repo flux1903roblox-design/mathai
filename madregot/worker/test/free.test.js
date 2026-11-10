@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { LITE_NOTE } from '../../shared/ai.js';
 import { resetsAt } from '../src/util.js';
 import {
-  setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, countOf, rows, claudeReply, claudeDown, DEVICE,
+  setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, countOf, rows, claudeReply, claudeDown, devOf, DEVICE,
 } from './helpers.js';
 
 let h;
@@ -67,11 +67,11 @@ test('an upstream 500 and a refusal give the question back; the tries guard stop
   h = await setup({}, { claude: (p) => (mode === 'down' ? claudeDown(500) : claudeReply(p, { stop: 'refusal', text: '' })) });
   const r = await ai(h, 'explain', { 'X-Device': DEVICE });
   assert.equal(r.status, 502);
-  assert.equal(countOf(h.env, `free:d:${DEVICE}`), 0, 'given back');
+  assert.equal(countOf(h.env, `free:d:${await devOf(h.env)}`), 0, 'given back');
   mode = 'refuse';
   for (let i = 0; i < 5; i++) assert.equal((await ai(h, 'explain', { 'X-Device': DEVICE })).status, 422);
-  assert.equal(countOf(h.env, `free:d:${DEVICE}`), 0, 'refusals are given back');
-  assert.equal(countOf(h.env, `free:d:${DEVICE}:tries`), 6, 'tries are never given back');
+  assert.equal(countOf(h.env, `free:d:${await devOf(h.env)}`), 0, 'refusals are given back');
+  assert.equal(countOf(h.env, `free:d:${await devOf(h.env)}:tries`), 6, 'tries are never given back');
   const stopped = await ai(h, 'explain', { 'X-Device': DEVICE });
   assert.equal(stopped.status, 429);
   assert.equal((await stopped.json()).error, 'daily_limit');
@@ -88,7 +88,7 @@ test('the network cap applies to anonymous devices only: a class student on a bu
   assert.equal(b.error, 'shared_limit'); assert.equal(b.scope, 'network');
   assert.equal((await ai(h, 'explain', bearer(cls.students[0]))).status, 200, 'the class student is not counted per network');
   assert.equal((await ai(h, 'explain', { 'X-Device': 'e'.repeat(32) }, { ip: '198.51.100.9' })).status, 200, 'another network');
-  assert.equal(countOf(h.env, `free:d:${'e'.repeat(32)}`), 1, 'the refused question was undone');
+  assert.equal(countOf(h.env, `free:d:${await devOf(h.env, 'e'.repeat(32))}`), 1, 'the refused question was undone');
 });
 
 test('IPv6 addresses in one /64 share the network cap', async () => {
@@ -161,7 +161,7 @@ test('X-Account-Token on an AI call gives nothing: a parent session is not a fam
   const r = await ai(h, 'explain', { 'X-Account-Token': token, 'X-Device': DEVICE });
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('X-AI-Tier'), 'free');
-  assert.equal(countOf(h.env, `free:d:${DEVICE}`), 1);
+  assert.equal(countOf(h.env, `free:d:${await devOf(h.env)}`), 1);
   const s = await (await h.call('GET', '/api/ai/status', { headers: { 'X-Account-Token': token } })).json();
   assert.equal(s.tier, 'free');
   assert.equal(JSON.stringify(s).includes('@'), false, 'no email in the status');
@@ -175,7 +175,7 @@ test('the status reports the free taste without counting', async () => {
   assert.deepEqual(s.kinds, ['explain', 'chat']);
   assert.deepEqual(s.groups, { tutor: { left: 1, limit: 2 }, check: null, generate: null, exam: null });
   assert.equal(s.linked, null);
-  assert.equal(countOf(h.env, `free:d:${DEVICE}`), 1);
+  assert.equal(countOf(h.env, `free:d:${await devOf(h.env)}`), 1);
 });
 
 test('FREE_DEVICE_MINT = "turnstile": only a device minted after a Turnstile check counts as a device', async () => {
@@ -193,12 +193,12 @@ test('FREE_DEVICE_MINT = "turnstile": only a device minted after a Turnstile che
   const { device } = await minted.json();
   assert.match(device, /^dv1\.[a-f0-9]{32}\.[a-f0-9]{32}$/);
   await ai(h, 'explain', { 'X-Device': device });
-  assert.equal(countOf(h.env, `free:d:${device.split('.')[1]}`), 1);
+  assert.equal(countOf(h.env, `free:d:${await devOf(h.env, device.split('.')[1])}`), 1);
   await ai(h, 'explain', { 'X-Device': DEVICE });
-  assert.equal(countOf(h.env, `free:d:${DEVICE}`), 0, 'a plain id is not a device here');
+  assert.equal(countOf(h.env, `free:d:${await devOf(h.env)}`), 0, 'a plain id is not a device here');
   const forged = `dv1.${'1'.repeat(32)}.${'2'.repeat(32)}`;
   await ai(h, 'explain', { 'X-Device': forged });
-  assert.equal(countOf(h.env, `free:d:${'1'.repeat(32)}`), 0);
+  assert.equal(countOf(h.env, `free:d:${await devOf(h.env, '1'.repeat(32))}`), 0);
   h.done();
   h = await setup();
   assert.equal((await h.call('POST', '/api/devices', { body: { turnstile: 'x' } })).status, 404, 'no minting while it is off');

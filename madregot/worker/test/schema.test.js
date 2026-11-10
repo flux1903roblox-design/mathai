@@ -2,15 +2,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const schema = read('../schema.sql');
+// Every migration, in name order, as wrangler applies them. A lane that adds a file needs no change here.
+const MIGRATIONS = readdirSync(new URL('../migrations/', import.meta.url)).filter((f) => /^\d{4}_[a-z0-9_]+\.sql$/.test(f)).sort()
+  .map((name) => ({ name, sql: read(`../migrations/${name}`) }));
 const m0 = read('../migrations/0000_base.sql');
 const m1 = read('../migrations/0001_paid_tutor.sql');
-const m2 = read('../migrations/0002_refund_once.sql');
+// Structure only: SQLite keeps the comments inside a CREATE statement, and a comment cannot be migrated without an
+// ALTER, so schema.sql may describe a column better than the migration that made it (link_codes.device_hint).
 const objects = (db) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
-  .map((r) => `${r.type}:${r.name}:${String(r.sql).replace(/\s+/g, ' ')}`);
+  .map((r) => `${r.type}:${r.name}:${String(r.sql).replace(/--[^\n]*/g, '').replace(/\s+/g, ' ')}`);
 
 // The block committed in 5117e5b (never deployed), as it would sit in a database that had it applied.
 const OLD_BLOCK = `
@@ -28,11 +32,56 @@ test('schema.sql runs twice without error', () => {
   assert.ok(objects(db).length > 30);
 });
 
-test('migrations 0000 + 0001 + 0002 on an empty database give the same tables and indexes as schema.sql', () => {
+test('every migration, in name order, on an empty database gives the same tables and indexes as schema.sql', () => {
+  assert.deepEqual(MIGRATIONS.slice(0, 4).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_safety.sql']);
+  assert.equal(new Set(MIGRATIONS.map((m) => m.name.slice(0, 4))).size, MIGRATIONS.length, 'each migration number is used once');
   const a = new DatabaseSync(':memory:'); a.exec(schema);
-  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1); b.exec(m2);
+  const b = new DatabaseSync(':memory:'); for (const m of MIGRATIONS) b.exec(m.sql);
   assert.deepEqual(objects(b), objects(a));
   assert.equal(m0.trim(), schema.slice(0, m0.length).trim(), '0000_base is the start of schema.sql, word for word');
+});
+
+test('migrations after 0002 only add tables and indexes: no ALTER, DROP or data change on an existing table', () => {
+  for (const m of MIGRATIONS.filter((x) => x.name >= '0003')) {
+    const code = m.sql.replace(/--[^\n]*/g, '');
+    for (const stmt of code.split(';').map((x) => x.trim()).filter(Boolean)) {
+      assert.match(stmt, /^CREATE (TABLE|INDEX|UNIQUE INDEX) IF NOT EXISTS /, `${m.name}: ${stmt.slice(0, 60)}`);
+    }
+  }
+});
+
+test('safety_events can hold no person and no text: no student, device, account, class or text column, and no free-form value', () => {
+  const db = new DatabaseSync(':memory:'); db.exec(schema);
+  const cols = db.prepare('PRAGMA table_info(safety_events)').all().map((c) => c.name);
+  assert.deepEqual(cols, ['id', 'day', 'kind', 'category', 'surface', 'source', 'tier']);
+  for (const c of cols) assert.doesNotMatch(c, /student|device|account|class|text/i, c);
+  const add = (over = {}) => {
+    const r = { day: '2026-11-10', kind: 'distress', category: 'self_harm', surface: 'chat', source: 'regex', tier: 'free', ...over };
+    db.prepare('INSERT INTO safety_events (day, kind, category, surface, source, tier) VALUES (?, ?, ?, ?, ?, ?)').run(r.day, r.kind, r.category, r.surface, r.source, r.tier);
+  };
+  add();
+  assert.throws(() => add({ kind: 'note' }), /CHECK/);
+  assert.throws(() => add({ surface: 'anywhere' }), /CHECK/);
+  assert.throws(() => add({ source: 'teacher' }), /CHECK/);
+  assert.throws(() => add({ category: 'x'.repeat(21) }), /CHECK/, 'a category is a short label, never a sentence');
+  assert.throws(() => add({ tier: 'x'.repeat(11) }), /CHECK/);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM safety_events').get().n, 1);
+  assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'safety_events_day'").get(), 'the day index');
+});
+
+test('help_meta: a kind and a care flag per help request, nothing else, and it goes with its request', () => {
+  const db = new DatabaseSync(':memory:'); db.exec(schema);
+  assert.deepEqual(db.prepare('PRAGMA table_info(help_meta)').all().map((c) => c.name), ['help_id', 'kind', 'care']);
+  db.exec('PRAGMA foreign_keys = ON'); // as on D1
+  db.exec("INSERT INTO help_requests (student_id, question, created_at) VALUES ('s1', '', '2026-11-10T08:00:00Z')");
+  const id = db.prepare('SELECT id FROM help_requests').get().id;
+  db.prepare('INSERT INTO help_meta (help_id) VALUES (?)').run(id);
+  assert.deepEqual({ ...db.prepare('SELECT kind, care FROM help_meta').get() }, { kind: 'help', care: 0 }, 'the defaults');
+  assert.throws(() => db.prepare("UPDATE help_meta SET kind = 'chat'").run(), /CHECK/);
+  assert.throws(() => db.prepare('UPDATE help_meta SET care = 2').run(), /CHECK/);
+  assert.throws(() => db.prepare("INSERT INTO help_meta (help_id, kind) VALUES (999, 'talk')").run(), /FOREIGN KEY/, 'no row for a request that does not exist');
+  db.prepare('DELETE FROM help_requests WHERE id = ?').run(id);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM help_meta').get().n, 0, 'deleting the request deletes its row');
 });
 
 test('migration 0001 drops the never-deployed tables and deletes raw-IP counters only', () => {

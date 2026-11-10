@@ -130,3 +130,35 @@ test('a class licence bought by card shows on its buyer\'s page with its end, it
   const after = await (await h.call('GET', '/api/account', { headers: { 'X-Account-Token': token } })).json();
   assert.equal(after.classes[0].status, 'ended'); assert.equal(after.classes[0].plan, undefined);
 });
+
+test('no raw install id is kept: a free call and a link code count the device under a 16-hex keyed hash, and device_hint is NULL', async () => {
+  const { ai, devOf, DEVICE } = await import('./helpers.js');
+  const { devKey } = await import('../src/util.js');
+  h = await setup();
+  assert.equal(h.env.AI_PAYWALL, 'on');
+  const r = await ai(h, 'chat', { 'X-Device': DEVICE });
+  assert.equal(r.status, 200); assert.equal(r.headers.get('X-AI-Tier'), 'free');
+  const start = await h.call('POST', '/api/family/link/start', { headers: { 'X-Device': DEVICE }, body: { secret: 'e'.repeat(32) } });
+  assert.equal(start.status, 201);
+  const dev = await devKey(h.env, DEVICE);
+  assert.match(dev, /^[a-f0-9]{16}$/);
+  assert.equal(dev, await devOf(h.env, DEVICE));
+  const who = rows(h.env, 'SELECT who FROM ai_usage').map((x) => x.who);
+  assert.ok(who.includes(`free:d:${dev}`), 'the free counter is keyed by the hash');
+  assert.ok(who.includes(`link:d:${dev}`), 'so is the link counter');
+  for (const w of who) {
+    assert.ok(!w.includes(DEVICE), `no raw device id in ${w}`);
+    const d = w.match(/^(?:free|link):d:([^:]+)/);
+    if (d) assert.match(d[1], /^[a-f0-9]{16}$/, w);
+  }
+  assert.equal(one(h.env, 'SELECT device_hint FROM link_codes').device_hint, null);
+  assert.ok(!JSON.stringify(rows(h.env, 'SELECT * FROM link_codes')).includes(DEVICE));
+  // the key is keyed: another secret gives another key; without the secret the server refuses, as for networks
+  assert.notEqual(await devKey({ IP_HASH_SECRET: 'another-secret-0123456789abcdef' }, DEVICE), dev);
+  await assert.rejects(devKey({}, DEVICE), (e) => e.status === 503 && e.code === 'server_config');
+  h.done();
+  h = await setup({ IP_HASH_SECRET: '' });
+  const off = await ai(h, 'chat', { 'X-Device': DEVICE });
+  assert.equal(off.status, 503); assert.equal((await off.json()).error, 'server_config');
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage').length, 0);
+});

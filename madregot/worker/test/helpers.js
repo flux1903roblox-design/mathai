@@ -291,3 +291,19 @@ export async function netOf(env, ip = '203.0.113.7') {
   const { ipPrefix } = await import('../src/util.js');
   return (await hmacHex(env.IP_HASH_SECRET, `net:${ipPrefix(ip)}`)).slice(0, 16);
 }
+/** The counter key of an install id (X-Device), as devKey makes it: 16 hex, never the id itself. */
+export async function devOf(env, id = DEVICE) {
+  return (await hmacHex(env.IP_HASH_SECRET, `dev:${id}`)).slice(0, 16);
+}
+
+/**
+ * The whole system prompt of a Claude request as one text, whether `system` is a string or a list of text blocks
+ * (joined by blank lines, as the blocks are written). Tests that read the prompt use this, so they keep working when the
+ * prompt moves from one string to blocks.
+ */
+export function systemText(params) {
+  const sys = params?.system;
+  if (typeof sys === 'string') return sys;
+  if (Array.isArray(sys)) return sys.map((b) => (typeof b === 'string' ? b : String(b?.text ?? ''))).filter(Boolean).join('\n\n');
+  return '';
+}
