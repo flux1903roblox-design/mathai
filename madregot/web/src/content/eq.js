@@ -17,7 +17,7 @@ const txt = (t) => ({ text: t });
  * The first error whose prediction the answer u matches. A prediction that is the right answer, or that an ordinary
  * slip of the hand also gives (one off, ten off, two digits swapped), names nothing: a slip is not a misconception.
  */
-function diagOf(ans, bugs) {
+export function diagOf(ans, bugs) {
   return (u) => {
     if (typeof u !== 'number') return null;
     const real = Object.entries(bugs).filter(([, v]) => v != null && Number.isFinite(v) && !near(v, ans) && !slipOf(v, ans));

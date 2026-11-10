@@ -19,6 +19,9 @@ const KINDS = [
   ['bars', 'stats/2', '8', [0.88, 0.2, 0.88, 0.6], (it) => it.manip.stat === 'median', 'the median and an outlier'],
   // a drag that starts on the weights of the left pan takes one off that pan only (the beam then leans)
   ['balance', 'eq/2', '7', [0.33, 0.6, 0.33, 0.15]],
+  // a drag along the number line moves the point of the ray (the side and the circle are toggles)
+  ['ray', 'sys/5', '8', [0.5, 0.5, 0.78, 0.5]],
+  ['plot', 'sys/2', '8', [0.5, 0.5, 0.75, 0.25], (it) => !!it.manip.lines, 'the meeting point of two lines'],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');

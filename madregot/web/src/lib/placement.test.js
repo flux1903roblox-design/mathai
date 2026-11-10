@@ -47,7 +47,9 @@ describe('placement', () => {
   });
   it('new material: one wrong answer settles a topic at the start', () => {
     const s = take(startLesson({ kind: 'placement', grade: '8', know: 0 }), () => false);
-    expect(s.answered).toBe(topicsFor('8').length);
+    expect(s.answered).toBe(placementTopicsFor('8').length);
+    // equations and systems are taught from December: the first-day test never asks them
+    expect(s.results.sys).toBeUndefined();
     Object.values(s.results).forEach((r) => expect(r.level).toBe(0));
   });
   it('a wrong answer is shown, never retried, and the result earns the placement XP', () => {
@@ -132,6 +134,9 @@ describe('topic flags', () => {
     expect(TOPIC.expr.placement).toBe(false);
     expect(TOPIC.eq.placement).toBe(false);
     expect(startPlacement({ grade: '7' }).topics).toEqual(['signed', 'coord', 'angles']);
+    // grade 8's equations and systems too (December to May)
+    expect(TOPIC.sys.placement).toBe(false);
+    expect(startPlacement({ grade: '8' }).topics).toEqual(['line', 'pyth', 'stats']);
   });
   it('alsoFor offers a topic to another grade in Exam Rescue, after that grade\'s own', () => {
     // grade 8 tests revise equations with brackets, so grade 7 expressions and equations are offered to grade 8 already

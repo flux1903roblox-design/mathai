@@ -357,7 +357,10 @@ describe('generated algebra exercises meet the rules of their object', () => {
       expect(isCorrect(it, manipWrong(it)), it.key).toBe(false);
       if (it.manip.start != null) expect(isCorrect(it, it.manip.start), it.key).toBe(false);
       if (it.manip.kind === 'tiles') { const st = it.manip.start; expect([st.px - st.nx, st.p1 - st.n1], it.key).toEqual([it.answer.k, it.answer.c]); }
-      if (it.manip.kind === 'ray' && it.display) for (let n = -10; n <= 10; n += 0.5) expect(holds(it.display, { x: n }), it.key).toBe(rayHas(it.answer, n));
+      // the inequality a ray answers: shown as the display, or written in the question line (ineq)
+      const shown = it.display || it.ineq;
+      if (it.manip.kind === 'ray') expect(shown, `${it.key}: a ray answers an inequality`).toBeTruthy();
+      if (it.manip.kind === 'ray' && shown) for (let n = -10; n <= 10; n += 0.5) expect(holds(shown, { x: n }), it.key).toBe(rayHas(it.answer, n));
       if (it.manip.lines) it.manip.lines.forEach((L) => expect(L.m * it.answer[0] + L.b, it.key).toBe(it.answer[1]));
     }
   });

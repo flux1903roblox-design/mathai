@@ -25,6 +25,11 @@ const CASES = [
   ['an equation with the unknown on both sides', 'eq/3', '7'],
   ['an equation with brackets', 'eq/4', '7'],
   ['a word problem (equations)', 'eq/5', '7'],
+  ['an equation with a percent', 'sys/1', '8'],
+  ['a system of two equations (a pair answer)', 'sys/2', '8'],
+  ['a system by equal coefficients', 'sys/3', '8'],
+  ['a word problem with two unknowns', 'sys/4', '8'],
+  ['an inequality (which numbers solve it)', 'sys/5', '8'],
 ];
 
 for (const [what, route, grade] of CASES) {

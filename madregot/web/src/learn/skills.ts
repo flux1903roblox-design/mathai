@@ -3,9 +3,9 @@
 // earlier stair. The graph is acyclic (tested), so "the smallest missing prerequisite" is well defined.
 import type { SkillId, TopicId } from './types';
 
-export const TOPIC_ORDER: TopicId[] = ['signed', 'coord', 'angles', 'expr', 'eq', 'line', 'pyth', 'stats'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', line: '8', pyth: '8', stats: '8' };
-export const STAIRS: Record<TopicId, number> = { signed: 5, coord: 5, angles: 5, expr: 5, eq: 5, line: 8, pyth: 5, stats: 5 };
+export const TOPIC_ORDER: TopicId[] = ['signed', 'coord', 'angles', 'expr', 'eq', 'line', 'pyth', 'stats', 'sys'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', line: '8', pyth: '8', stats: '8', sys: '8' };
+export const STAIRS: Record<TopicId, number> = { signed: 5, coord: 5, angles: 5, expr: 5, eq: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
 
 export const skillId = (topic: TopicId | string, level: number): SkillId => `${topic}:${level}`;
 export const parseSkill = (id: SkillId) => { const [topic, l] = id.split(':'); return { topic: topic as TopicId, level: Number(l) }; };
@@ -58,6 +58,11 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'stats:3': [], // mean: sum and share
   'stats:4': ['stats:3'], // mean from a frequency table
   'stats:5': ['stats:3', 'eq:2'], // a missing value from the mean: the mean equation backwards, (sum + x) : n = mean, two steps
+  'sys:1': ['eq:5', 'expr:3'], // a percent change in a story becomes an equation (eq:5); x + 0.2x = 1.2x is collecting like terms (expr:3)
+  'sys:2': ['eq:4', 'line:8'], // substituting y = mx + b gives an equation with brackets (eq:4); the solution is where the two lines meet (line:8)
+  'sys:3': ['sys:2', 'expr:5'], // the second unknown is found by substituting (sys:2); subtracting an equation is a minus before brackets (expr:5)
+  'sys:4': ['sys:3', 'eq:5'], // a story with two unknowns: each sentence that says "equal" is an equation (eq:5), then the system is solved (sys:3)
+  'sys:5': ['eq:3', 'signed:2', 'signed:3'], // solved like an equation (eq:3); the answer is a range on the number line (signed:2); dividing by a negative reverses the order (signed:3)
 };
 
 export const prereqsOf = (id: SkillId): SkillId[] => PREREQS[id] || [];

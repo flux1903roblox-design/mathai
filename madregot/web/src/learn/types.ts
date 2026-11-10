@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'line' | 'pyth' | 'stats';
+export type TopicId = 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'line' | 'pyth' | 'stats' | 'sys';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -68,6 +68,8 @@ export interface ExampleStep {
   action: Text; why: Text; result: string; value?: string; calc?: { expr: string; value: number };
   ident?: string;
   eq?: string;
+  /** An inequality this step states ('2*x - 3 > 5'): it must have exactly the example's solutions (`ray`), and so must `result`. */
+  ineq?: string;
 }
 export interface WorkedExample {
   problem: Text; display?: string;
@@ -80,6 +82,8 @@ export interface WorkedExample {
   answerTex?: string;
   /** With two unknowns, the solution ({ x: 3, y: 6 }): every step's `eq` must hold there. */
   vars?: Record<string, number>;
+  /** An inequality's solutions as a ray ({ at: 4, dir: 1, closed: false } is x > 4): every step's `ineq` has exactly these. */
+  ray?: { at: number; dir: 1 | -1; closed: boolean };
 }
 
 // ------------------------------------------------------------------ Stage C: solve together

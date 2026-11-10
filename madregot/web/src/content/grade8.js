@@ -1,6 +1,7 @@
-// Grade 8 (ח׳): the linear function (linear.js), Pythagoras, statistics.
+// Grade 8 (ח׳): the linear function (linear.js), Pythagoras, statistics, equations and systems (sys.js).
 import { R, pick, shuffle, near, TRIPLES, listMath } from './util.js';
 import { LINEAR } from './linear.js';
+import { SYS } from './sys.js';
 
 // ---------------------------------------------------------------- Pythagoras
 const scaled = () => { const [a, b, c] = pick(TRIPLES); return Math.random() < 0.5 ? [a, b, c] : [b, a, c]; };
@@ -262,4 +263,5 @@ export const GRADE8 = [
       'mean-as-answer': 'כתבו את הממוצע במקום המספר החסר',
     },
   },
+  SYS,
 ];

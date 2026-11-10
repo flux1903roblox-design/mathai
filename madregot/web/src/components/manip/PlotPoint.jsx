@@ -26,7 +26,7 @@ export default function PlotPoint({ m, value, onChange, locked, reveal, good, an
         </div>
       )}
       <svg ref={ref} {...drag} viewBox={`0 0 ${g.size} ${g.size}`} className="manip-canvas" dir="ltr" tabIndex={locked ? -1 : 0}
-        role="application" aria-roledescription="מערכת צירים" aria-label={value ? `הנקודה ${m.label} בשיעורים ${minus(value[0])}, ${minus(value[1])}` : `מערכת צירים. הקישו כדי לשים את הנקודה ${m.label}, או השתמשו בחצים`}
+        role="application" aria-roledescription="מערכת צירים" aria-label={value ? `הנקודה${m.label ? ` ${m.label}` : ''} בשיעורים ${minus(value[0])}, ${minus(value[1])}` : `מערכת צירים. הקישו כדי לשים את הנקודה${m.label ? ` ${m.label}` : ''}, או השתמשו בחצים`}
         onKeyDown={arrowKeys({ left: () => move(-1, 0), right: () => move(1, 0), up: () => move(0, 1), down: () => move(0, -1) })}>
         <Plane g={g}>
           {/* a line to find a point on, or the given corners of a shape to complete */}

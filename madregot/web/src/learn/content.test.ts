@@ -130,6 +130,14 @@ function checkExample(ex: WorkedExample, k: number) {
       expect(identical(s.ident, ex.expr!), `${at}: ${s.ident} is not ${ex.expr}`).toBe(true);
       expect(identical(texToExpr(s.result), ex.expr!), `${at}: the result ${s.result} is not ${ex.expr}`).toBe(true);
     }
+    if (s.ineq) {
+      expect(ex.ray, `${at}: ineq needs the example's ray`).toBeTruthy();
+      const r = ex.ray!;
+      for (let n = r.at - 12; n <= r.at + 12; n += 0.25) {
+        expect(holds(s.ineq, { x: n }), `${at}: ${s.ineq} at x = ${n}`).toBe(rayHas(r, n));
+        expect(holds(s.result, { x: n }), `${at}: the result ${s.result} at x = ${n}`).toBe(rayHas(r, n));
+      }
+    }
     if (s.eq) {
       const sides = s.eq.split('=');
       expect(sides.length, `${at}: ${s.eq} is not one equation`).toBe(2);
@@ -310,6 +318,13 @@ describe('the algebra checks catch what they are for', () => {
     exBad(ex([st('7x - 3 = 4x + 9', { eq: '7*x - 3 = 4*x + 9' }), st('3x = 6', { eq: '3*x = 6' })], base)); // moved without changing the sign
     exBad(ex([st('7x - 3 = 4x + 9', { eq: '7*x - 3 = 4*x + 9' }), st('0 = 0', { eq: '0*x = 0' })], base)); // lost the unknown
     exBad(ex([st('7x - 3 = 4x + 9', { eq: '7*x - 3 = 4*x + 9' }), st('3x = 10', { eq: '3*x = 12' })], base)); // the TeX shown is wrong
+  });
+  it('an inequality solved step by step keeps exactly its solutions', () => {
+    const base = { answer: 5, check: '5', ray: { at: 4, dir: 1 as const, closed: false } };
+    exOk(ex([st('2x - 3 > 5', { ineq: '2*x - 3 > 5' }), st('x > 4', { ineq: 'x > 4' })], base));
+    exBad(ex([st('2x - 3 > 5', { ineq: '2*x - 3 > 5' }), st('x \\ge 4', { ineq: 'x ≥ 4' })], base)); // the boundary taken
+    exBad(ex([st('-2x < -8', { ineq: '-2*x < -8' }), st('x < 4', { ineq: 'x < 4' })], base)); // divided by a negative without flipping
+    exBad(ex([st('2x > 8', { ineq: '2*x > 8' }), st('x < 4', { ineq: 'x > 4' })], base)); // the TeX shown is wrong
   });
   it('a system checks every equation at both unknowns', () => {
     const base = { answer: 3, check: 'x', vars: { x: 3, y: 6 } };
