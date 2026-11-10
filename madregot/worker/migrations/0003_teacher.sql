@@ -17,3 +17,21 @@ CREATE INDEX IF NOT EXISTS class_owners_account ON class_owners (account_id);
 --                     a teacher action taken with the account credential adds {"via":"account"} to detail
 --   notices.kind      'class_rekeyed:<YYYY-MM-DDTHH:mm>' (ref = the class code, to_account = the owner)
 --   ai_usage.who      tclasses:a:<account> (hourly: the owner's class list)
+--   audit_log.action  'class.rename' | 'class.delete' (target class:<code>, detail {"students": n})
+
+-- Per-class settings and activity (spec TRUST-7 §1; the trust lane's TRUST-11 fills setting, student_ai and the consent
+-- fields). A class with no row is: school, student AI off, no consent, last_seen = its created_at.
+CREATE TABLE IF NOT EXISTS class_settings (
+  code TEXT PRIMARY KEY,
+  setting TEXT NOT NULL DEFAULT 'school' CHECK (setting IN ('school','private')),
+  student_ai TEXT NOT NULL DEFAULT 'off' CHECK (student_ai IN ('on','off')),
+  ai_consent_at TEXT,
+  private_attested_at TEXT,               -- TRUST-11: the teacher said the group is not part of a school
+  last_seen TEXT                           -- YYYY-MM-DD: the teacher's dashboard or any student activity, written at most daily
+);
+-- What the night purge looks up by date (shared/retention.js holds the periods).
+CREATE INDEX IF NOT EXISTS help_done ON help_requests (done_at);
+CREATE INDEX IF NOT EXISTS help_created ON help_requests (created_at);
+CREATE INDEX IF NOT EXISTS attempts_at ON attempts (at);
+CREATE INDEX IF NOT EXISTS exams_created ON exams (created_at);
+CREATE INDEX IF NOT EXISTS students_last_seen ON students (last_seen);

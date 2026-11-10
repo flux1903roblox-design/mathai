@@ -45,6 +45,8 @@ test('removing a student deletes their rows, and their token stops working', asy
   await h.call('POST', '/api/exams', { headers: bearer(noa), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } });
   await h.call('POST', '/api/progress', { headers: bearer(itai), body: { events: [{ topic: 'neg', level: 1, ok: true, first: true, secs: 5 }] } });
   await setCount(h.env, `pin:${noa.studentId}`, 3);
+  for (const who of [`s:${noa.studentId}`, `s:${noa.studentId}:tutor`, `free:s:${noa.studentId}`]) await setCount(h.env, who, 1);
+  await setCount(h.env, `s:${itai.studentId}`, 1);
   // another class's teacher cannot remove her
   const other = await makeClass(h);
   assert.equal((await h.call('POST', `/api/teacher/students/${noa.studentId}/remove`, { headers: other.teacher, body: {} })).status, 404);
@@ -53,7 +55,8 @@ test('removing a student deletes their rows, and their token stops working', asy
   for (const t of ['attempts', 'levels', 'help_requests', 'exams']) {
     assert.equal(rows(h.env, `SELECT * FROM ${t} WHERE student_id = ?`, noa.studentId).length, 0, t);
   }
-  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who = ?', `pin:${noa.studentId}`).length, 0);
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who LIKE ?', `%${noa.studentId}%`).length, 0, 'her PIN and AI counters go too');
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who = ?', `s:${itai.studentId}`).length, 1, "his counter stays");
   assert.equal(rows(h.env, 'SELECT * FROM students WHERE id = ?', noa.studentId).length, 0);
   assert.equal(rows(h.env, 'SELECT * FROM attempts WHERE student_id = ?', itai.studentId).length, 1, 'the other student keeps everything');
   assert.equal((await h.call('POST', '/api/progress', { headers: bearer(noa), body: { events: [] } })).status, 401, 'the token stops working');
@@ -430,4 +433,49 @@ test('the join lock is per class: locking one class leaves another open', async 
   assert.equal((await h.call('POST', '/api/teacher/class/lock', { headers: a.teacher, body: { locked: false } })).status, 200);
   assert.equal((await h.call('POST', `/api/classes/${a.code}/join`, { body: { name: 'יואב', pin: '1111' } })).status, 200);
   assert.deepEqual(rows(h.env, "SELECT action FROM audit_log WHERE action = 'class.lock'").length, 4, 'every change is audited');
+});
+
+test('renaming a class: the teacher only, a cleaned name, an audit row without the name; an empty name is 400', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const other = await makeClass(h);
+  const rename = (className, headers = cls.teacher) => h.call('POST', '/api/teacher/class/rename', { headers, body: { className } });
+  const r = await rename('  ז׳3   מתמטיקה  מורחבת ');
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, className: 'ז׳3 מתמטיקה מורחבת' });
+  assert.equal((await (await h.call('GET', '/api/teacher/dashboard', { headers: cls.teacher })).json()).class.name, 'ז׳3 מתמטיקה מורחבת');
+  assert.equal((await (await h.call('GET', `/api/classes/${cls.code}`)).json()).className, 'ז׳3 מתמטיקה מורחבת', 'students joining see the new name');
+  const audit = rows(h.env, "SELECT actor, target, detail FROM audit_log WHERE action = 'class.rename'").map((x) => ({ ...x }));
+  assert.deepEqual(audit, [{ actor: `teacher:${cls.code}`, target: `class:${cls.code}`, detail: '{}' }]);
+  const empty = await rename('   ');
+  assert.equal(empty.status, 400); assert.equal((await empty.json()).error, 'missing_fields');
+  const notMine = await rename('שלי', { 'X-Class-Code': cls.code, 'X-Teacher-Key': other.teacherKey });
+  assert.equal(notMine.status, 401); assert.equal((await notMine.json()).error, 'not_teacher');
+  assert.equal(one(h.env, 'SELECT name FROM classes WHERE code = ?', cls.code).name, 'ז׳3 מתמטיקה מורחבת');
+  assert.equal(rows(h.env, "SELECT * FROM audit_log WHERE action = 'class.rename'").length, 1);
+});
+
+test('deleting a class bound to an email: the key alone is 403 not_owner, an older sign-in 401 reauth_needed, a fresh code deletes it', async () => {
+  h = await setup();
+  let t = await signIn(h, 'teacher@example.test');
+  const stranger = await signIn(h, 'other@example.test');
+  const c = await (await h.call('POST', '/api/classes', { body: { className: 'ז׳3', teacherName: 'רונית', grade: '7' }, headers: { 'X-Account-Token': t } })).json();
+  assert.equal(c.owned, true);
+  await h.call('POST', `/api/classes/${c.code}/join`, { body: { name: 'נועה', pin: '1234' } });
+  const key = { 'X-Class-Code': c.code, 'X-Teacher-Key': c.teacherKey };
+  const del = (headers) => h.call('POST', '/api/teacher/class/delete', { headers, body: { confirm: 'DELETE' } });
+  const errorOf = async (res) => [res.status, (await res.json()).error];
+  assert.deepEqual(await errorOf(await del(key)), [403, 'not_owner'], 'a co-teacher with the key');
+  assert.deepEqual(await errorOf(await del({ ...key, 'X-Account-Token': stranger })), [403, 'not_owner'], 'the key with another account');
+  advanceClock(11 * 60_000);
+  assert.deepEqual(await errorOf(await del({ 'X-Class-Code': c.code, 'X-Account-Token': t })), [401, 'reauth_needed'], 'a sign-in older than 10 minutes');
+  assert.ok(one(h.env, 'SELECT * FROM classes WHERE code = ?', c.code), 'nothing was deleted');
+  t = await signIn(h, 'teacher@example.test', { 'X-Account-Token': t });
+  const r = await del({ 'X-Class-Code': c.code, 'X-Account-Token': t });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, students: 1 });
+  assert.equal(rows(h.env, 'SELECT * FROM classes WHERE code = ?', c.code).length, 0);
+  assert.equal(rows(h.env, 'SELECT * FROM class_owners WHERE class_code = ?', c.code).length, 0);
+  assert.deepEqual(rows(h.env, "SELECT detail FROM audit_log WHERE action = 'class.delete'").map((x) => JSON.parse(x.detail)), [{ students: 1, via: 'account' }]);
+  assert.equal((await (await h.call('GET', '/api/teacher/classes', { headers: { 'X-Account-Token': t } })).json()).classes.length, 0, "gone from the teacher's list");
 });

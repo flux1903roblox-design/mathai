@@ -1,12 +1,15 @@
 // The teacher's side of class licences (spec §5.4, §6.8): the licence card on the dashboard, a request for a trial or a
 // school quote (answered by the owner, who grants with npm run owner; a trial is never granted automatically), a school
-// licence code that attaches the class, the join lock, and removing a student who does not belong to the class.
-// Every route needs X-Class-Code with the teacher key or the session of the account the class is bound to
+// licence code that attaches the class, the join lock, removing a student who does not belong to the class, and the
+// class itself: its name, its last day of activity, and deleting it (spec TRUST-7, TEACHER-9). Every route needs X-Class-Code with the teacher key or the session of the account the class is bound to
 // (requireTeacher). The licence card shows class totals only: no per-student AI data and no sign of which students have
 // a family plan.
-import { HttpError, body, json, nowIso, daysAgo, sha256, randomToken, netKey, key, take, limitOrThrow, CODE_ALPHABET } from './util.js';
+import {
+  HttpError, body, json, nowIso, dayOf, daysAgo, sha256, randomToken, netKey, key, take, limitOrThrow, cleanName, CODE_ALPHABET,
+} from './util.js';
 import { requireTeacher, liveLicence, legacyWindow } from './entitle.js';
-import { requireAccount } from './account.js';
+import { requireAccount, accountFrom, requireRecentCode } from './account.js';
+import { studentDeleteStmts, studentCountersStmt, classDeleteSteps, countSteps } from './forget.js';
 import { prices, vatExempt, onlineCheckout, SEATS } from './billing.js';
 import { flushNotices } from './email.js';
 
@@ -184,20 +187,74 @@ export async function lockClass(req, env, cors) {
 }
 
 /**
- * POST /api/teacher/students/:id/remove {}: one batch deletes the student's attempts, levels, help requests and exams, the
- * PIN counter and the student; the student's token stops working. The practice saved on the device itself stays there.
+ * POST /api/teacher/students/:id/remove {}: one batch deletes the student's rows (STUDENT_ROWS in forget.js: attempts,
+ * levels, help requests, exams), their counters (PIN tries and the AI counters) and the student; the student's token
+ * stops working. The practice saved on the device itself stays there.
  */
 export async function removeStudent(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
   await body(req, SMALL);
   const st = await first(env, 'SELECT id FROM students WHERE id = ? AND class_code = ?', String(id), cls.code);
   if (!st) throw new HttpError(404, 'not_found');
-  const mine = 'SELECT id FROM students WHERE id = ? AND class_code = ?';
   await env.DB.batch([
-    ...['attempts', 'levels', 'help_requests', 'exams'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE student_id IN (${mine})`).bind(st.id, cls.code)),
-    env.DB.prepare('DELETE FROM ai_usage WHERE who = ?').bind(`pin:${st.id}`),
+    ...studentDeleteStmts(env, st.id),
+    studentCountersStmt(env, st.id),
     env.DB.prepare('DELETE FROM students WHERE id = ? AND class_code = ?').bind(st.id, cls.code),
     teacherAudit(env, cls, 'student.remove', `student:${st.id}`),
   ]);
   return json({ ok: true }, 200, cors);
+}
+
+/**
+ * The class was used today (its teacher's dashboard, or a student's progress, help request or exam): class_settings
+ * last_seen, a Jerusalem day, is written at most once a day. The night purge deletes a class idle for 400 days.
+ */
+export const classSeenStmt = (env, code) => env.DB.prepare(`INSERT INTO class_settings (code, last_seen) VALUES (?2, ?1)
+  ON CONFLICT (code) DO UPDATE SET last_seen = ?1 WHERE class_settings.last_seen IS NULL OR class_settings.last_seen < ?1`).bind(dayOf(), code);
+
+/** POST /api/teacher/class/rename {className}: the class's name, as a new class's name is cleaned (cleanName). */
+export async function renameClass(req, env, cors) {
+  const cls = await requireTeacher(req, env);
+  const b = await body(req, SMALL);
+  const name = cleanName(b.className);
+  if (!name) throw new HttpError(400, 'missing_fields');
+  await env.DB.batch([
+    env.DB.prepare('UPDATE classes SET name = ? WHERE code = ?').bind(name, cls.code),
+    teacherAudit(env, cls, 'class.rename', `class:${cls.code}`),
+  ]);
+  return json({ ok: true, className: name }, 200, cors);
+}
+
+// A class licence that still runs: a trial, a term or a yearly licence, also one canceled that runs to its end.
+const LIVE_CLASS_SUB = "SELECT 1 AS x FROM subscriptions WHERE kind = 'class' AND class_code = ? AND status IN ('active', 'past_due', 'canceled')";
+
+/**
+ * POST /api/teacher/class/delete {confirm: 'DELETE'}: the class and everything of it on the server, in one batch, as the
+ * night purge deletes an idle class (forget.js classDeleteSteps): the students with their rows and counters, the join
+ * lock, settings, owner, counters, notices and audit rows of the class, and the class. The practice saved on the
+ * students' devices stays there. A class bound to an email can be deleted only by its owner, signed in with a code
+ * entered in the last 10 minutes: the key alone is 403 not_owner, an older sign-in 401 reauth_needed. A class whose
+ * licence still runs is 409 class_has_licence. Audit class.delete (target class:<code>, detail {students}).
+ */
+export async function deleteClass(req, env, cors) {
+  const cls = await requireTeacher(req, env);
+  const b = await body(req, SMALL);
+  if (b.confirm !== 'DELETE') throw new HttpError(400, 'confirm_required');
+  const owner = await first(env, 'SELECT account_id FROM class_owners WHERE class_code = ?', cls.code);
+  if (owner) {
+    const a = await accountFrom(req, env);
+    if (!a || a.id !== owner.account_id) throw new HttpError(403, 'not_owner');
+    requireRecentCode(a);
+  }
+  if (await first(env, LIVE_CLASS_SUB, cls.code)) throw new HttpError(409, 'class_has_licence');
+  const steps = [
+    // first, so it counts the students before they go; the class's own audit cleanup keeps class.delete rows
+    ['audit', env.DB.prepare(`INSERT INTO audit_log (at, actor, action, target, detail)
+      SELECT ?1, 'teacher:' || ?2, 'class.delete', 'class:' || ?2,
+        json_object('students', (SELECT COUNT(*) FROM students WHERE class_code = ?2)${cls.via === 'account' ? ", 'via', 'account'" : ''})`)
+      .bind(nowIso(), cls.code)],
+    ...classDeleteSteps(env, 'SELECT ?1', [cls.code]),
+  ];
+  const counts = countSteps(steps, await env.DB.batch(steps.map(([, s]) => s)));
+  return json({ ok: true, students: counts.students || 0 }, 200, cors);
 }
