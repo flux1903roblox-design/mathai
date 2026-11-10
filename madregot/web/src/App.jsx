@@ -4,8 +4,11 @@ import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
+import { useMoments, onMoment, MOMENT_ORDER } from '@/lib/durable/moments.js';
 import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
+import { useDurable } from '@/lib/durable/useDurable.js';
+import { watchPersisted } from '@/lib/durable/persist.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
@@ -36,15 +39,17 @@ const Rescue = lazy(() => import('@/screens/Rescue.jsx'));
 const NewPracticeExam = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.NewPracticeExam })));
 const PracticeSheet = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.PracticeSheet })));
 
+/**
+ * A class student's answers go to the class server at the app's sync moments (lib/durable/moments.js): when the app
+ * opens, after a lesson, every 10 minutes, back online, and when it goes out of view or closes (with keepalive where it
+ * can). Opening the app as a class student, or joining a class, sends at once, the levels too.
+ */
 function useSync() {
   const token = useApp((s) => s.profile?.token);
   useEffect(() => {
     if (!token) return undefined;
-    syncNow();
-    const t = setInterval(syncNow, 60_000);
-    const onHide = () => { if (document.visibilityState === 'hidden') syncNow(); };
-    document.addEventListener('visibilitychange', onHide);
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onHide); };
+    syncNow({ levels: true });
+    return onMoment(['boot', 'lesson', 'tick', 'online', 'hidden'], (m) => syncNow({ hidden: m === 'hidden' }), { priority: MOMENT_ORDER.classOutbox });
   }, [token]);
 }
 
@@ -89,6 +94,21 @@ function Toasts() {
     : <Toaster key="bottom" position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />;
 }
 
+/**
+ * When the progress came back from the copy on the device (a lost or broken save, lib/durable/storage.js), the app says
+ * so once, calmly. It can happen at the start or a moment later, when the copy answers late.
+ */
+let restoreToastShown = false;
+function RestoreToast() {
+  const restored = useDurable((s) => s.restoredFrom === 'mirror' && s.restoreNote);
+  useEffect(() => {
+    if (!restored || restoreToastShown) return;
+    restoreToastShown = true;
+    toast('החזרנו את ההתקדמות מהעותק שנשמר במכשיר.', { duration: 6000 });
+  }, [restored]);
+  return null;
+}
+
 // Each lesson route starts a fresh lesson, so the screen remounts per route.
 function LessonRoute() {
   const { pathname, search } = useLocation();
@@ -107,6 +127,7 @@ function Root() {
   return (
     <>
       <Toasts />
+      <RestoreToast />
       {role && <LimitSheet />}
       {role && <StatusWatch />}
       {/* a new screen opens at the top; back restores where the student was */}
@@ -173,7 +194,10 @@ function Root() {
 const router = createHashRouter([{ path: '*', element: <Root /> }]);
 
 export default function App() {
+  useMoments();
   useSync();
+  // whether the browser promised to keep the data: read on every open and whenever the app comes back into view
+  useEffect(() => watchPersisted(), []);
   return (
     <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="user">

@@ -53,7 +53,7 @@ async function verifyPin(pin, stored) {
 const classCode = () => randomFrom(CODE_ALPHABET, 6);
 const cleanName = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 30);
 
-// Wrong personal-code attempts allowed per student per day; the teacher's reset clears the need.
+// Wrong personal-code attempts allowed per student per day (each try is counted before the compare); the teacher's reset clears the count.
 const PIN_TRIES = 10;
 
 // ---------- AI ----------
@@ -245,9 +245,13 @@ async function joinClass(code, req, env, cors) {
   if (existing) {
     // An empty pin_hash means the teacher reset it: the next join sets a new PIN.
     if (existing.pin_hash) {
-      const tries = await env.DB.prepare('SELECT count FROM ai_usage WHERE who = ? AND day = ?').bind(`pin:${existing.id}`, dayOf()).first();
-      if (tries && tries.count >= PIN_TRIES) throw new HttpError(429, 'too_many_pin');
-      if (!(await verifyPin(pin, existing.pin_hash))) { await take(env, [key(`pin:${existing.id}`, PIN_TRIES)]); throw new HttpError(403, 'wrong_pin'); }
+      // A try is counted before the PIN is compared, so parallel guesses cannot all be compared against one stale count.
+      // A wrong PIN keeps its try; the right one gives it back.
+      const k = key(`pin:${existing.id}`, PIN_TRIES, { refundable: true, err: new HttpError(429, 'too_many_pin') });
+      const t = await take(env, [k]);
+      if (!t.ok) throw t.error;
+      if (!(await verifyPin(pin, existing.pin_hash))) throw new HttpError(403, 'wrong_pin');
+      await giveBack(env, [k]);
     }
     id = existing.id;
     await env.DB.prepare('UPDATE students SET token_hash = ?, pin_hash = ?, last_seen = ? WHERE id = ?')
@@ -261,20 +265,43 @@ async function joinClass(code, req, env, cors) {
 }
 
 // ---------- student data ----------
+const PROGRESS_EVENTS = 500; // one request; the app sends batches of 300
+const EVENT_ID = /^[a-f0-9]{12}$/; // the app's id for one answer (12 hex), so a retried batch is stored once
+const KEEP_DAYS = 400; // older answers are not stored: the retention purge would remove them anyway
+
+/**
+ * A class student's answers and levels (DURABLE-7). Every event the app sent is acknowledged ({ saved } = how many it
+ * sent, at most 500): an answer already stored (same id, from a retry) is ignored, an answer older than 400 days is
+ * dropped, and both count as saved, because there is nothing more to send. An answer from an older app has no id and is
+ * stored as it comes. One statement writes them all (json_each), so a full batch stays one query.
+ */
 async function saveProgress(req, env, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.progress);
-  const events = (Array.isArray(b.events) ? b.events : []).slice(0, 300);
+  const events = (Array.isArray(b.events) ? b.events : []).slice(0, PROGRESS_EVENTS);
+  if (events.some((e) => e && typeof e === 'object' && e.id != null && !EVENT_ID.test(String(e.id)))) throw new HttpError(400, 'bad_input');
   const now = Date.now();
-  const stmts = [];
+  const oldest = now - KEEP_DAYS * 864e5;
+  const rows = [];
   for (const e of events) {
+    if (!e || typeof e !== 'object') continue;
     const at = Math.min(Number(new Date(e.at)) || now, now);
-    stmts.push(env.DB.prepare(
-      'INSERT INTO attempts (student_id, topic, level, ok, first_try, hint, cat, secs, day, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).bind(s.id, String(e.topic).slice(0, 20), Number(e.level) || 1, e.ok ? 1 : 0, e.first ? 1 : 0, e.hint ? 1 : 0,
-      e.cat ? String(e.cat).slice(0, 30) : null, Math.min(Math.max(Number(e.secs) || 0, 0), 600), dayOf(new Date(at)), new Date(at).toISOString()));
+    if (at < oldest) continue;
+    const level = Math.trunc(Number(e.level));
+    rows.push([String(e.topic).slice(0, 20), Number.isFinite(level) && level > 0 ? Math.min(level, 99) : 1, e.ok ? 1 : 0, e.first ? 1 : 0, e.hint ? 1 : 0,
+      e.cat ? String(e.cat).slice(0, 30) : null, Math.min(Math.max(Number(e.secs) || 0, 0), 600), dayOf(new Date(at)), new Date(at).toISOString(),
+      e.id == null ? null : String(e.id)]);
   }
-  for (const [topic, v] of Object.entries(b.levels || {}).slice(0, 20)) {
+  const stmts = [];
+  if (rows.length) {
+    const col = (i) => `json_extract(value, '$[${i}]')`;
+    stmts.push(env.DB.prepare(
+      `INSERT OR IGNORE INTO attempts (student_id, topic, level, ok, first_try, hint, cat, secs, day, at, client_id)
+       SELECT ?, ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(col).join(', ')} FROM json_each(?) ORDER BY key`,
+    ).bind(s.id, JSON.stringify(rows)));
+  }
+  for (const [topic, v] of Object.entries(b.levels && typeof b.levels === 'object' ? b.levels : {}).slice(0, 20)) {
+    if (!v || typeof v !== 'object') continue;
     stmts.push(env.DB.prepare(
       'INSERT INTO levels (student_id, topic, level, max_level, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (student_id, topic) DO UPDATE SET level = excluded.level, max_level = MAX(levels.max_level, excluded.max_level), updated_at = excluded.updated_at',
     ).bind(s.id, String(topic).slice(0, 20), Number(v.level) || 1, Number(v.max) || 1, nowIso()));

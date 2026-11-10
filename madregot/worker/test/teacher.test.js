@@ -1,11 +1,12 @@
-// The teacher's side of class licences (spec §5.4, §6.8): the licence card, requests for a trial or a quote, school
-// licence codes, the join lock and removing a student. Claude and the email service are stubbed.
+// The teacher's side of a class: the licence card, requests for a trial or a quote, school licence codes (spec §5.4,
+// §6.8), the join lock, removing a student, the dashboard, help requests and the PIN reset (DURABLE-12).
+// Claude and the email service are stubbed.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from '../scripts/owner.mjs';
 import { endOfDayIso } from '../src/util.js';
 import {
-  setup, ai, makeClass, bearer, signIn, accountId, insertSub, setCount, netOf, rows, one, advanceClock,
+  setup, ai, makeClass, bearer, signIn, accountId, insertSub, setCount, countOf, netOf, rows, one, advanceClock,
 } from './helpers.js';
 
 let h;
@@ -210,4 +211,192 @@ test('the licence card reports the status, seats, students and the class total o
   card = await (await licence(none)).json();
   assert.equal(card.status, 'none'); assert.equal(card.until, null); assert.equal(card.request, null); assert.equal(card.students, 0);
   assert.equal((await h.call('GET', '/api/teacher/licence')).status, 401);
+});
+
+// ---------- the dashboard, help requests and the PIN reset (DURABLE-12) ----------
+const dashboard = async (cls) => (await h.call('GET', '/api/teacher/dashboard', { headers: cls.teacher })).json();
+const answer = (topic, { ok = true, first = true, secs = 30, cat, daysBack = 0 } = {}) =>
+  ({ topic, level: 1, ok, first, secs, ...(cat ? { cat } : {}), at: new Date(Date.now() - daysBack * DAY).toISOString() });
+const send = (s, events, levels) => h.call('POST', '/api/progress', { headers: bearer(s), body: { events, ...(levels ? { levels } : {}) } });
+const askHelp = (s, body) => h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'signed', level: 2, answer: '5', ...body } });
+const PAGE = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+
+test('the dashboard needs its own class\'s teacher key, and shows that class only', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const other = await makeClass(h, { students: ['דנה'] });
+  await send(other.students[0], [answer('signed', { cat: 'sign' })]);
+  await askHelp(other.students[0], { question: '2 - 9' });
+  await h.call('POST', '/api/exams', { headers: bearer(other.students[0]), body: { title: 'מבחן', correct: 1, total: 1, questions: [] } });
+  for (const headers of [{}, { 'X-Class-Code': cls.code }, { 'X-Class-Code': cls.code, 'X-Teacher-Key': other.teacherKey }, { 'X-Class-Code': 'NOPE12', 'X-Teacher-Key': cls.teacherKey }]) {
+    const r = await h.call('GET', '/api/teacher/dashboard', { headers });
+    assert.equal(r.status, 401); assert.equal((await r.json()).error, 'not_teacher');
+  }
+  const dash = await dashboard(cls);
+  assert.equal(dash.class.code, cls.code);
+  assert.deepEqual(dash.students.map((s) => s.name), ['נועה']);
+  assert.deepEqual([dash.help, dash.exams, dash.mistakes], [[], [], []]);
+  assert.doesNotMatch(JSON.stringify(dash), /דנה|2 - 9/, 'nothing from the other class');
+});
+
+test('the dashboard counts today and the last 7 days per student, and lists levels, shared mistakes, exams and the last practice', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה', 'איתי', 'מאיה'] });
+  const [noa, itai] = cls.students;
+  // today: 3 answers, 2 right, 1 on the first try, 3 minutes; 3 days ago: 1; 10 days ago: 1 (outside the week)
+  await send(noa, [
+    answer('signed', { secs: 60 }), answer('signed', { first: false, secs: 60 }), answer('signed', { ok: false, first: false, secs: 60, cat: 'sign' }),
+    answer('signed', { daysBack: 3, secs: 120 }), answer('signed', { daysBack: 10, secs: 600 }),
+  ], { signed: { level: 2, max: 3 } });
+  await send(itai, [answer('signed', { ok: false, first: false, cat: 'sign', daysBack: 2 }), answer('coord', { ok: false, first: false, cat: 'axes', daysBack: 2 })]);
+  await h.call('POST', '/api/exams', { headers: bearer(noa), body: {
+    title: 'מבחן במספרים מכוונים', correct: 1, total: 2, weakTopics: ['signed', 'neg'],
+    questions: [{ topic: 'signed', status: 'correct', skill: 'חיסור', level: 2 }, { topic: 'signed', status: 'wrong', skill: 'חיבור', level: 1 }],
+  } });
+  const dash = await dashboard(cls);
+  const by = Object.fromEntries(dash.students.map((s) => [s.name, s]));
+  assert.deepEqual(dash.students.map((s) => s.name), ['איתי', 'מאיה', 'נועה'], 'sorted by name');
+  assert.deepEqual(by['נועה'].today, { n: 3, ok: 2, first: 1, minutes: 3 });
+  assert.deepEqual(by['נועה'].week, { n: 4, first: 2, days: 2, minutes: 5 });
+  assert.deepEqual(by['נועה'].levels, { signed: { level: 2, max: 3 } });
+  assert.equal(by['נועה'].pinReset, false);
+  assert.equal(Date.parse(by['נועה'].lastPractice) > Date.now() - 60_000, true, 'the newest answer');
+  assert.deepEqual(by['איתי'].today, { n: 0, ok: 0, first: 0, minutes: 0 });
+  assert.equal(by['איתי'].week.days, 1);
+  const { today, week, levels, lastPractice } = by['מאיה'];
+  assert.deepEqual({ today, week, levels, lastPractice }, { today: { n: 0, ok: 0, first: 0, minutes: 0 },
+    week: { n: 0, first: 0, days: 0, minutes: 0 }, levels: {}, lastPractice: null }, 'a student who has not practised yet');
+  // the mistake two students share comes first, with their names
+  const [shared, ...rest] = dash.mistakes;
+  assert.deepEqual({ ...shared, names: [...shared.names].sort() }, { topic: 'signed', cat: 'sign', n: 2, students: 2, names: ['איתי', 'נועה'].sort() });
+  assert.deepEqual(rest, [{ topic: 'coord', cat: 'axes', n: 1, students: 1, names: ['איתי'] }]);
+  assert.equal(dash.exams.length, 1);
+  const [exam] = dash.exams;
+  assert.equal(exam.name, 'נועה'); assert.equal(exam.studentId, noa.studentId); assert.equal(exam.correct, 1); assert.equal(exam.total, 2);
+  assert.deepEqual(exam.weak, ['signed'], 'an unknown topic is dropped');
+  assert.deepEqual(exam.questions.map((q) => q.status), ['correct', 'wrong']);
+});
+
+test('a help request needs a class token; the same open question asked again stays one request with the newest note and page', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const [noa] = cls.students;
+  const anon = await h.call('POST', '/api/help', { body: { question: '3 - 8' } });
+  assert.equal(anon.status, 401);
+  assert.deepEqual(await (await askHelp(noa, { question: '3 - 8', note: 'לא הבנתי' })).json(), { ok: true });
+  assert.deepEqual(await (await askHelp(noa, { question: '3 - 8', note: 'עדיין לא', image: PAGE, answer: '11' })).json(), { ok: true, again: true });
+  assert.deepEqual(await (await askHelp(noa, { question: '3 - 8', note: '' })).json(), { ok: true, again: true }, 'an empty note keeps the last one');
+  const all = rows(h.env, 'SELECT * FROM help_requests');
+  assert.equal(all.length, 1);
+  assert.equal(all[0].note, 'עדיין לא'); assert.equal(all[0].image, PAGE); assert.equal(all[0].answer, '5');
+  assert.equal(all[0].level, 2); assert.equal(all[0].topic, 'signed');
+  // the dashboard says there is a page, without sending it
+  const [req] = (await dashboard(cls)).help;
+  assert.equal(req.name, 'נועה'); assert.equal(req.question, '3 - 8'); assert.equal(req.has_image, 1);
+  assert.equal(req.seen_at, null); assert.equal(req.done_at, null);
+  assert.equal('image' in req, false);
+  assert.doesNotMatch(JSON.stringify(await dashboard(cls)), /base64/);
+});
+
+test('a student has at most 10 open help requests; closing one makes room', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
+  const [noa, itai] = cls.students;
+  for (let i = 0; i < 10; i++) assert.equal((await askHelp(noa, { question: `שאלה ${i}` })).status, 200);
+  const full = await askHelp(noa, { question: 'שאלה 10' });
+  assert.equal(full.status, 429); assert.equal((await full.json()).error, 'too_many_open');
+  assert.equal((await askHelp(itai, { question: 'שאלה 0' })).status, 200, 'a classmate is not affected');
+  const first = one(h.env, 'SELECT id FROM help_requests WHERE student_id = ? ORDER BY id LIMIT 1', noa.studentId).id;
+  await h.call('POST', `/api/teacher/help/${first}`, { headers: cls.teacher, body: { action: 'done' } });
+  assert.equal((await askHelp(noa, { question: 'שאלה 10' })).status, 200);
+  assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ?', noa.studentId).n, 11);
+});
+
+test('the teacher marks help seen, done and open again; another class\'s teacher changes nothing and sees no page', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const other = await makeClass(h);
+  const [noa] = cls.students;
+  await askHelp(noa, { question: '3 - 8', image: PAGE });
+  await askHelp(noa, { question: '4 - 9' });
+  const [withPage, plain] = rows(h.env, 'SELECT id FROM help_requests ORDER BY id').map((r) => r.id);
+  const act = (id, action, headers = cls.teacher) => h.call('POST', `/api/teacher/help/${id}`, { headers, body: { action } });
+  const row = (id) => ({ ...one(h.env, 'SELECT seen_at, done_at FROM help_requests WHERE id = ?', id) });
+  assert.equal((await act(withPage, 'seen', {})).status, 401);
+  const bad = await act(withPage, 'delete');
+  assert.equal(bad.status, 400); assert.equal((await bad.json()).error, 'bad_action');
+  // another class's teacher: answered, but nothing changes, and the page stays private
+  assert.equal((await act(withPage, 'done', other.teacher)).status, 200);
+  assert.deepEqual(row(withPage), { seen_at: null, done_at: null });
+  assert.equal((await h.call('GET', `/api/teacher/help/${withPage}/image`, { headers: other.teacher })).status, 404);
+  assert.equal((await h.call('GET', `/api/teacher/help/${withPage}/image`)).status, 401);
+  // the class's own teacher
+  const page = await h.call('GET', `/api/teacher/help/${withPage}/image`, { headers: cls.teacher });
+  assert.deepEqual(await page.json(), { image: PAGE });
+  const none = await h.call('GET', `/api/teacher/help/${plain}/image`, { headers: cls.teacher });
+  assert.equal(none.status, 404); assert.equal((await none.json()).error, 'not_found');
+  assert.deepEqual(await (await act(withPage, 'seen')).json(), { ok: true });
+  const seen = row(withPage).seen_at;
+  assert.ok(seen);
+  advanceClock(60_000);
+  await act(withPage, 'seen');
+  assert.equal(row(withPage).seen_at, seen, 'seen twice keeps the first time');
+  await act(withPage, 'done');
+  assert.ok(row(withPage).done_at);
+  // a closed request does not hold the question: asking again opens a new one
+  assert.deepEqual(await (await askHelp(noa, { question: '3 - 8' })).json(), { ok: true });
+  assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM help_requests').n, 3);
+  await act(withPage, 'reopen');
+  assert.deepEqual(row(withPage), { seen_at: seen, done_at: null });
+});
+
+test('the dashboard keeps help closed in the last 7 days and drops older closed help; open help stays however old', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const [noa] = cls.students;
+  for (const q of ['פתוחה ישנה', 'נסגרה אתמול', 'נסגרה לפני 8 ימים']) await askHelp(noa, { question: q });
+  const set = (q, col, iso) => h.env.DB.raw.prepare(`UPDATE help_requests SET ${col} = ? WHERE question = ?`).run(iso, q);
+  set('פתוחה ישנה', 'created_at', new Date(Date.now() - 30 * DAY).toISOString());
+  set('נסגרה אתמול', 'done_at', new Date(Date.now() - DAY).toISOString());
+  set('נסגרה לפני 8 ימים', 'done_at', new Date(Date.now() - 8 * DAY).toISOString());
+  const shown = (await dashboard(cls)).help.map((r) => r.question).sort();
+  assert.deepEqual(shown, ['נסגרה אתמול', 'פתוחה ישנה'].sort());
+});
+
+test('a PIN reset needs the class\'s own teacher; it ends the old token, clears the tries, and the next join sets a new PIN', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
+  const other = await makeClass(h);
+  const [noa, itai] = cls.students;
+  const reset = (headers) => h.call('POST', `/api/teacher/students/${noa.studentId}/reset-pin`, { headers, body: {} });
+  const join = (pin, name = 'נועה') => h.call('POST', `/api/classes/${cls.code}/join`, { body: { name, pin } });
+  await setCount(h.env, `pin:${noa.studentId}`, 4);
+  const secrets = () => ({ ...one(h.env, 'SELECT pin_hash, token_hash FROM students WHERE id = ?', noa.studentId) });
+  const before = secrets();
+  assert.equal((await reset({})).status, 401);
+  // another class's teacher: answered, nothing changes
+  assert.equal((await reset(other.teacher)).status, 200);
+  assert.deepEqual(secrets(), before);
+  assert.equal(countOf(h.env, `pin:${noa.studentId}`), 4, 'the tries stay');
+  assert.equal((await send(noa, [])).status, 200, 'her token still works');
+  // the class's own teacher
+  assert.deepEqual(await (await reset(cls.teacher)).json(), { ok: true });
+  assert.equal(countOf(h.env, `pin:${noa.studentId}`), 0);
+  assert.equal((await send(noa, [])).status, 401, 'the old token stops working');
+  assert.equal((await send(itai, [])).status, 200, 'a classmate keeps her token');
+  let dash = await dashboard(cls);
+  assert.deepEqual(dash.students.map((s) => [s.name, s.pinReset]), [['איתי', false], ['נועה', true]]);
+  // a class closed to new names still lets her back in; the new PIN is set by this join, and the old one stops working
+  await h.call('POST', '/api/teacher/class/lock', { headers: cls.teacher, body: { locked: true } });
+  const back = await join('5678');
+  assert.equal(back.status, 200);
+  const again = await back.json();
+  assert.equal(again.studentId, noa.studentId); assert.equal(again.returning, true);
+  assert.equal(countOf(h.env, `pin:${noa.studentId}`), 0, 'setting a new PIN uses no try');
+  assert.equal((await send(again, [])).status, 200, 'the new token works');
+  const old = await join('1234');
+  assert.equal(old.status, 403); assert.equal((await old.json()).error, 'wrong_pin');
+  assert.equal((await join('5678')).status, 200);
+  dash = await dashboard(cls);
+  assert.equal(dash.students.find((s) => s.name === 'נועה').pinReset, false);
 });

@@ -3,7 +3,8 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildRequest, AI_KINDS } from '../../shared/ai.js';
+import { buildRequest, AI_KINDS, DEFAULT_MODEL } from '../../shared/ai.js';
+import { limits } from '../src/entitle.js';
 import { priceOf, PRICES } from '../src/spend.js';
 import { dayOf, monthOf, resetsAt } from '../src/util.js';
 import {
@@ -72,6 +73,17 @@ test('family over FAMILY_MONTHLY_BUDGET_USD: chat runs on FREE_MODEL with 2500 t
   }
   const s = await (await h.call('GET', '/api/ai/status', { headers: d1.headers })).json();
   assert.equal(s.economy, true); assert.equal(s.groups.check, null);
+});
+
+test('the family budget and the main model are the same in code and in wrangler.toml (neither can drift alone)', () => {
+  const L = limits({});
+  assert.equal(L.budgets.familyMonthlyUsd, 4, 'the code default when the variable is missing');
+  assert.equal(limits({ FAMILY_MONTHLY_BUDGET_USD: '' }).budgets.familyMonthlyUsd, 4, 'an empty variable keeps the default');
+  assert.equal(limits({ FAMILY_MONTHLY_BUDGET_USD: '4' }).budgets.familyMonthlyUsd, 4);
+  const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+  const vars = Object.fromEntries([...toml.matchAll(/^([A-Z_]+)\s*=\s*"([^"]*)"/gm)].map((m) => [m[1], m[2]]));
+  assert.equal(Number(vars.FAMILY_MONTHLY_BUDGET_USD), L.budgets.familyMonthlyUsd, 'wrangler.toml and the code default agree');
+  assert.equal(vars.CLAUDE_MODEL, DEFAULT_MODEL, 'wrangler.toml uses the shared default model');
 });
 
 test('class: each student has their own limits; seats x 25 units stop a leaked-code flood', async () => {

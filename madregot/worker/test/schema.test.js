@@ -9,6 +9,7 @@ const schema = read('../schema.sql');
 const m0 = read('../migrations/0000_base.sql');
 const m1 = read('../migrations/0001_paid_tutor.sql');
 const m2 = read('../migrations/0002_refund_once.sql');
+const m3 = read('../migrations/0003_durable.sql');
 const objects = (db) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
   .map((r) => `${r.type}:${r.name}:${String(r.sql).replace(/\s+/g, ' ')}`);
 
@@ -28,11 +29,30 @@ test('schema.sql runs twice without error', () => {
   assert.ok(objects(db).length > 30);
 });
 
-test('migrations 0000 + 0001 + 0002 on an empty database give the same tables and indexes as schema.sql', () => {
+// What a later migration adds to a table of 0000_base: SQLite writes an ALTER's column as ", <coldef>" before the table's
+// closing parenthesis (schema.sql says the same), and its new indexes are the same lines in both files.
+const ALTERS_BASE = [m3];
+const withoutAlters = (sql) => sql.replace(/\n, [^\n]*\);/g, '\n);').split('\n')
+  .filter((line) => !(line.startsWith('CREATE ') && ALTERS_BASE.some((m) => m.includes(line)))).join('\n');
+
+test('migrations 0000 + 0001 + 0002 + 0003 on an empty database give the same tables and indexes as schema.sql', () => {
   const a = new DatabaseSync(':memory:'); a.exec(schema);
-  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1); b.exec(m2);
+  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1); b.exec(m2); b.exec(m3);
   assert.deepEqual(objects(b), objects(a));
-  assert.equal(m0.trim(), schema.slice(0, m0.length).trim(), '0000_base is the start of schema.sql, word for word');
+  const base = withoutAlters(schema);
+  assert.equal(m0.trim(), base.slice(0, m0.length).trim(), '0000_base is the start of schema.sql, word for word (apart from what 0003 adds)');
+});
+
+test('0003 on a database that has answers: old rows keep a NULL id, a repeated id for one student is refused', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(m0); db.exec(m1); db.exec(m2);
+  const add = (student, id) => db.prepare(`INSERT OR IGNORE INTO attempts (student_id, topic, level, ok, first_try, hint, secs, day, at${id === undefined ? '' : ', client_id'})
+    VALUES (?, 'neg', 1, 1, 1, 0, 5, '2026-11-09', '2026-11-09T10:00:00Z'${id === undefined ? '' : ', ?'})`).run(...(id === undefined ? [student] : [student, id]));
+  add('s1'); add('s1');
+  db.exec(m3);
+  add('s1', null); add('s1', 'aaaaaaaaaaaa'); add('s1', 'aaaaaaaaaaaa'); add('s2', 'aaaaaaaaaaaa');
+  const ids = db.prepare('SELECT student_id, client_id FROM attempts ORDER BY id').all().map((r) => `${r.student_id}:${r.client_id}`);
+  assert.deepEqual(ids, ['s1:null', 's1:null', 's1:null', 's1:aaaaaaaaaaaa', 's2:aaaaaaaaaaaa']);
 });
 
 test('migration 0001 drops the never-deployed tables and deletes raw-IP counters only', () => {

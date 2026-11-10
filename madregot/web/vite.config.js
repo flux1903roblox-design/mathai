@@ -1,10 +1,17 @@
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+// The commit a build was made from, written into every save (meta.app), so a save says which build wrote it.
+function release() {
+  try { return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || 'dev'; } catch { return 'dev'; }
+}
+
 // BASE_PATH lets the same build live at a GitHub Pages sub-path, e.g. /madregot/.
 export default defineConfig({
   base: process.env.BASE_PATH || '/',
+  define: { __RELEASE__: JSON.stringify(release()) },
   plugins: [react()],
   resolve: {
     alias: {

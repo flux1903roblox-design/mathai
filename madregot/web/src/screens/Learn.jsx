@@ -9,6 +9,9 @@ import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCoun
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
 import { MASTERY_N } from '@/learn/mastery.ts';
 import PathNode from '@/components/PathNode.jsx';
+import StorageBanner from '@/components/durable/StorageBanner.jsx';
+import InstallSheet, { InstallCard } from '@/components/durable/InstallSheet.jsx';
+import { showLearnCard } from '@/lib/durable/install.js';
 import Chest from '@/components/map/Chest.jsx';
 import { Button } from '@/components/ui.jsx';
 import { nextStage } from '@/learn/mastery.ts';
@@ -163,6 +166,8 @@ export default function Learn() {
   const [view, setView] = useState(profile.grade || '7');
   const [open, setOpen] = useState(null);
   const [away, setAway] = useState(null); // 'up' | 'down' when the current node is off screen
+  const [install, setInstall] = useState(false);
+  const installHintAt = useApp((s) => s.durable?.installHintAt);
   const currentRef = useRef(null);
   const firstView = useRef(true);
   const topics = topicsFor(view);
@@ -200,6 +205,10 @@ export default function Learn() {
         <Link to="/quests" className={clsx('top-stat streak', streak > 0 && 'on')} aria-label={`רצף של ${streak} ימים`}><Flame size={24} aria-hidden="true" />{streak}</Link>
         <Link to="/quests" className="top-stat xp" aria-label={`היום ${todayXp} מתוך ${goalXp} XP, סך הכול ${xp}`}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
       </header>
+      <StorageBanner />
+      {/* on an iPhone in the browser, from the 3rd day: the Home Screen guide, offered once (lib/durable/install.js) */}
+      {showLearnCard({ profile, days, xp, durable: { installHintAt } }) && <InstallCard onOpen={() => setInstall(true)} />}
+      <InstallSheet open={install} onOpenChange={setInstall} />
 
       <div className="learn-layout">
       <div className="learn-body">

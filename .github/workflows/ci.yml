@@ -1,0 +1,80 @@
+# Madregot's merge gate (madregot/README.md, "CI"). Three checks: web, worker and e2e.
+# Protect main with all three, so a type error, a failing unit or Worker test (the parallel PIN, sync and billing
+# races included), a build that fails its checks, or a broken phone flow blocks the merge.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: madregot/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: madregot/web/package-lock.json
+      - run: npm ci
+      - run: npx tsc -p tsconfig.json --noEmit
+      - run: npx vitest run
+      # vite build, then scripts/check-dist.mjs (no personal-key code and no secrets in the bundle)
+      - run: npm run build
+
+  worker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: madregot/worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # node:sqlite (test/helpers.js) needs no flag from Node 22.13
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: madregot/worker/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    needs: [web]
+    defaults:
+      run:
+        working-directory: madregot/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: madregot/web/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # The phone project runs every spec file; tests tagged @perf stay out of the merge gate.
+      - run: npx playwright test -c e2e/playwright.config.js --project=phone --grep-invert @perf
+        env:
+          CI: '1'
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: madregot/web/test-results
+          retention-days: 14

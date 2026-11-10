@@ -25,21 +25,33 @@ export function livedIn(grade = '7') {
   });
 }
 
+/** The app's copy of the progress on the device (IndexedDB, lib/durable/idb.js). */
+export const DURABLE_DB = 'madregot-durable';
+
 /**
  * Open a route with a saved state (null: a first visit), a fixed clock and repeatable exercises.
  * madregot-debug exposes the current exercise as window.__madregotItem; madregot-seed fixes Math.random.
+ * The seed is written once: a later reload starts from what the app saved since (and its copy on the device).
  */
 export async function open(page, route, state = null, seed = '424242') {
   await page.clock.setFixedTime(NOW);
   await page.goto('./');
-  await page.evaluate(([s, sd]) => {
+  await page.evaluate(async ([s, sd, db]) => {
     localStorage.clear();
     localStorage.setItem('madregot-debug', '1');
     localStorage.setItem('madregot-seed', sd);
     if (s) localStorage.setItem('madregot', JSON.stringify(s));
-  }, [state, seed]);
+    // the copy of the progress on the device goes too (the app lets go of it at once), so the next start reads the seed
+    await new Promise((done) => { const r = indexedDB.deleteDatabase(db); r.onsuccess = done; r.onerror = done; r.onblocked = done; });
+  }, [state, seed, DURABLE_DB]);
   await page.goto(`./${route}`);
   await page.reload();
+  await appReady(page);
+}
+
+/** The app has drawn its first screen (it waits for the copy on the device first, at most 300 ms) and its fonts. */
+export async function appReady(page) {
+  await page.waitForFunction(() => !!document.getElementById('root')?.firstElementChild);
   await page.evaluate(() => document.fonts.ready);
 }
 
