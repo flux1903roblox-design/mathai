@@ -1,11 +1,11 @@
 import { m } from 'motion/react';
 import { Zap, Flame, Footprints, Star, Trophy, Target, ClipboardCheck, Sparkles, Mountain, Gift } from 'lucide-react';
-import { useApp, streakOf, isShabbat, dayBefore, today } from '@/lib/store.js';
+import { useApp, streakOf, isShabbat, dayBefore, today, isActiveDay } from '@/lib/store.js';
 import { TOPICS } from '@/content/index.js';
 import { doneCount, chestOpen } from '@/lib/path.js';
 import RewardBadge from './RewardBadge.jsx';
 
-const active = (d) => !!d && ((d.lessons || 0) > 0 || (d.lessons == null && (d.q || 0) > 0));
+const active = isActiveDay; // a finished lesson, check or teaching stage
 
 /** The longest run of practice days in the history (Shabbat and frozen days keep a run without adding to it). */
 export function bestStreak(days) {

@@ -5,7 +5,7 @@ import { Flame, Zap, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown } from 'lu
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor } from '@/content/index.js';
-import { unitNodes, chestAfter, stairProgress } from '@/lib/path.js';
+import { unitNodes, chestAfter, stairProgress, unitProgress, unitCountText } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
 import { MASTERY_N } from '@/learn/mastery.ts';
 import PathNode from '@/components/PathNode.jsx';
@@ -72,10 +72,11 @@ function lastDoneKey(topic) {
 }
 
 function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh, mastered, celebrate }) {
-  // the count of stairs done: done means mastered (a passed mastery check)
-  const done = nodes.filter((x) => x.kind === 'node' && x.state === 'done').length;
   const skills = useApp((s) => s.learn.skills);
-  const total = t.levels.length;
+  const path = useApp((s) => s.path);
+  // the unit's counters move from the first stage: stairs done (mastered) once there is one, before that stages done,
+  // and a thin bar of all its stages under the name
+  const prog = unitProgress(t.id, path, skills);
   const half = chestAfter(t.id);
   return (
     <section className={clsx('unit', `ch-${t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
@@ -83,7 +84,8 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
       <header className="unit-head" data-region="banner">
         <div className="unit-head-text">
           <h2 id={`unit-${t.id}`} className="unit-title">{t.title}</h2>
-          <p className="unit-label">יחידה {n} · {done} מתוך {total} מדרגות</p>
+          <p className="unit-label">יחידה {n} · {unitCountText(prog)}</p>
+          <div className="unit-bar" role="progressbar" aria-label={`${t.title}: שלבים שהושלמו`} aria-valuemin={0} aria-valuemax={prog.of} aria-valuenow={prog.stages} aria-valuetext={`${prog.stages} מתוך ${prog.of} שלבים`}><i style={{ width: `${(prog.stages / prog.of) * 100}%` }} /></div>
         </div>
         <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={`תזכורת מהשיעור: ${t.title}`}><BookOpen size={22} aria-hidden="true" /><span>תזכורת</span></Link>
       </header>
@@ -138,7 +140,7 @@ function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
     <aside className="learn-side" aria-label="היום שלי">
       <Link to="/quests" className="side-card side-streak">
         <Flame size={34} aria-hidden="true" className={clsx(streak > 0 && 'on')} />
-        <span><b>{streak === 1 ? 'יום אחד ברצף' : `${streak} ימים ברצף`}</b><span className="muted">{freezes > 0 ? `${freezes === 1 ? 'הקפאה אחת מוכנה' : `${freezes} הקפאות מוכנות`}` : 'שיעור ביום שומר על הרצף'}</span></span>
+        <span><b>{streak === 1 ? 'יום אחד ברצף' : `${streak} ימים ברצף`}</b><span className="muted">{freezes > 0 ? `${freezes === 1 ? 'הקפאה אחת מוכנה' : `${freezes} הקפאות מוכנות`}` : 'שיעור או שלב ביום שומרים על הרצף'}</span></span>
       </Link>
       <div className="side-card">
         <div className="card-row"><b>היעד היומי</b><span className="card-num">{Math.min(todayXp, goalXp)}/{goalXp} XP</span></div>

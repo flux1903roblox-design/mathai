@@ -3,10 +3,12 @@ import NumberFlow from '@number-flow/react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
 import { Zap, Target, Timer, Flame, Snowflake, Moon, Star, Trophy, ChevronsUp, Wrench } from 'lucide-react';
-import { useApp, today, dayBefore, isShabbat } from '@/lib/store.js';
+import { useApp, today, dayBefore, isShabbat, isActiveDay } from '@/lib/store.js';
 import Mascot from '@/components/Mascot.jsx';
 import Stairs from '@/components/Stairs.jsx';
-import { doneCount } from '@/lib/path.js';
+import { unitProgress, stagesDone, partsOf, isDone, practiceComplete, STAIR_STAGES } from '@/lib/path.js';
+import { skillId } from '@/learn/skills.ts';
+import { Segments } from '@/components/ds.jsx';
 import Lottie from '@/components/Lottie.jsx';
 import { topicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
@@ -44,7 +46,7 @@ export function Week({ days }) {
   return (
     <ol className="week" aria-label="השבוע האחרון">
       {keys.map((key, i) => {
-        const d = days[key]; const on = (d?.lessons || 0) > 0 || (d && d.lessons == null && d.q > 0);
+        const d = days[key]; const on = isActiveDay(d);
         const state = on ? 'on' : d?.frozen ? 'frozen' : isShabbat(key) ? 'rest' : 'off';
         const label = { on: 'תרגלתם', frozen: 'הקפאת רצף', rest: 'שבת', off: 'לא תרגלתם' }[state];
         return (
@@ -73,6 +75,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   const days = useApp((s) => s.days);
   const freezes = useApp((s) => s.freezes);
   const path = useApp((s) => s.path);
+  const skills = useApp((s) => s.learn.skills);
   const stages = ['summary', award.streakExtended && result.passed && 'streak', award.questsDone && 'quests'].filter(Boolean);
   const [i, setI] = useState(0);
   const stage = stages[i];
@@ -121,10 +124,17 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
     result.fixed > 0 && { icon: Wrench, label: result.fixed === 1 ? 'תיקנתם טעות' : `תיקנתם ${result.fixed} טעויות`, tone: 'good' },
     award.goalReached && { icon: Zap, label: 'הגעתם ליעד היומי', tone: 'gold' },
   ].filter(Boolean);
-  // The climb: the steps done now, and where מדי stood before this lesson (one step lower if it finished one)
+  // What moved: this stair's five stages (practice fills the fourth), and the unit's stairs once one is done (a stair
+  // counts once its mastery check is passed). A review or a jump test speaks of the unit only.
   const steps = topic.levels.length;
-  // stairs done: a stair counts once its mastery check is passed
-  const doneNow = doneCount(topic.id, path);
+  const unit = unitProgress(topic.id, path, skills);
+  const stairLine = result.kind !== 'review' && result.kind !== 'jump' && !!levelTitle;
+  const stairRec = stairLine ? skills[skillId(topic.id, result.level)] : null;
+  const stairParts = stairLine ? partsOf(path, topic.id, result.level) : 0;
+  const stairDoneNow = stairLine && isDone(path, topic.id, result.level);
+  const stairSteps = stairLine ? stagesDone(stairRec, stairParts, stairDoneNow) : 0;
+  // practice is complete and the stair is not counted yet: its mastery check is next
+  const checkNext = award.practiceDone || (stairLine && !stairDoneNow && practiceComplete(stairRec, stairParts));
   return (
     <div className={clsx('done-screen', `ch-${topic.color}`)}>
       <Hero>
@@ -135,8 +145,14 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
       {/* after the hop: the title, then the numbers, then the medals */}
       <m.div className="done-copy" variants={stagger(0.85)} initial="hidden" animate="show">
         <m.h1 variants={rise} className="done-title">{title}</m.h1>
-        <m.p variants={rise} className="climb-caption">{topic.title}: <bdi>{doneNow}</bdi> מתוך <bdi>{steps}</bdi> מדרגות</m.p>
-        {award.practiceDone && !award.unitDone && <m.p variants={rise} className="climb-next">סיימתם לתרגל. אחרי בדיקת שליטה קצרה, המדרגה נספרת.</m.p>}
+        {stairLine ? (
+          <m.div variants={rise} className="stage-done-climb">
+            <Segments steps={STAIR_STAGES} done={stairSteps} size="thick" label={`השלבים של המדרגה ${levelTitle}`} valueText={`${stairSteps} מתוך ${STAIR_STAGES} שלבים`} />
+            <p className="climb-caption">{levelTitle}: <bdi>{stairSteps}</bdi> מתוך <bdi>{STAIR_STAGES}</bdi> שלבים</p>
+            {unit.done > 0 && <p className="climb-caption">{topic.title}: <bdi>{unit.done}</bdi> מתוך <bdi>{steps}</bdi> מדרגות</p>}
+          </m.div>
+        ) : unit.done > 0 && <m.p variants={rise} className="climb-caption">{topic.title}: <bdi>{unit.done}</bdi> מתוך <bdi>{steps}</bdi> מדרגות</m.p>}
+        {checkNext && !award.unitDone && <m.p variants={rise} className="climb-next">סיימתם לתרגל. אחרי בדיקת שליטה קצרה, המדרגה נספרת.</m.p>}
         {badges.length > 0 && (
           <m.div variants={rise} className="badges">
             {badges.map((b) => <span key={b.label} className={`done-earned tone-${b.tone}`}><b.icon size={16} aria-hidden="true" />{b.label}</span>)}
@@ -208,7 +224,7 @@ function StreakStage({ streak, days, freezes, onNext }) {
       {/* Duolingo's streak screen: the week in a card, and what keeps the streak written inside it */}
       <section className="streak-card" aria-label="השבוע">
         <Week days={days} />
-        <p className="streak-card-text">שיעור אחד ביום שומר על הרצף, ובשבת הרצף לא נשבר.{freezes > 0 ? ` יש לכם ${freezes === 1 ? 'הקפאה אחת' : `${freezes} הקפאות`} למקרה שתפספסו יום.` : ''}</p>
+        <p className="streak-card-text">שיעור אחד ביום, או שלב אחד בלימוד מדרגה, שומר על הרצף, ובשבת הרצף לא נשבר.{freezes > 0 ? ` יש לכם ${freezes === 1 ? 'הקפאה אחת' : `${freezes} הקפאות`} למקרה שתפספסו יום.` : ''}</p>
       </section>
       <div className="done-actions" data-region="footer"><Button className="btn-block btn-lg" onClick={onNext} ref={focusQuietly}>המשך</Button></div>
     </div>

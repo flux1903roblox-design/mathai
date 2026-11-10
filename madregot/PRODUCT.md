@@ -34,7 +34,11 @@ Built-in question generators with exact answers drive the practice and decide wh
 ## Capabilities and Constraints
 
 - Topics carried over from the school practice app the user pointed to (Vibewise): grade 7 signed numbers, the coordinate plane and angles; grade 8 slope and the equation of a line, the Pythagorean theorem, and statistics (frequency, mean, median, mode). Each topic is a ladder of levels.
-- Path rules: a stair is done (and counted, and the path moves on) only after its mastery check, five questions without hints with at least four right; practice fills the stair's ring and leads to that check. Checks and the placement test are built so that guessing passes them less than 2% of the time. A question answered wrong comes back at the end of the lesson.
+- Path rules: a stair is done (and counted, and the path moves on) only after its mastery check, five questions without hints with at least four right; practice fills the stair's ring and leads to that check. Checks and the placement test are built so that guessing passes them less than 2% of the time. A question answered wrong comes back at the end of the lesson. A repaired misconception is verified with two probe questions and one control question, and passes only with all three right.
+- The first session pays off: a finished teaching stage (understand, worked examples, solve together) earns XP the first time (10, 5 and 10), counts for the daily goal, keeps the streak like a lesson, and ends in a short completion moment that says what comes next. It is recorded as learning, never as mastery.
+- Counters move from the first stage: a stair has five stages (the three teaching stages, practice, the mastery check). A unit shows its size, then its stages done, then its stairs done once one is mastered, with a bar of all its stages. No screen shows a row of zeros.
+- Every teaching step that names a shape or a part of one (a ray, a vertex, a leg, the hypotenuse, a transversal, an exterior angle) shows it in a drawing whose letters and numbers match the text; a test checks the letters and the geometry.
+- A student's Settings has nothing about servers or keys. The class server's address and a personal Claude key are on an adult-facing "מתקדם" screen.
 - AI features (all four were requested): explain a mistake, chat about the current question, generate new questions, and check a photo of handwritten work.
 - The Anthropic key never reaches student browsers. A personal key stored on one device is allowed only in solo mode.
 - A daily AI limit per student keeps cost predictable.

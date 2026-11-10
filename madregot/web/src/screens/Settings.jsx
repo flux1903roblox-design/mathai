@@ -1,5 +1,6 @@
 // Settings, laid out like Duolingo's settings screen: a bar with the way back and the title, then grouped sections,
 // each a bordered group with a small heading (my details, class, the assistant, sound, deleting data).
+// A student sees nothing about servers or keys: those are for the adult who sets the app up, behind "מתקדם".
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
@@ -67,66 +68,113 @@ function ClassSection() {
   );
 }
 
+/** "Is the assistant there?": asks the server. `detail` (for adults) adds which model it uses. */
+function useConnectionTest(detail = false) {
+  const [status, setStatus] = useState('');
+  const test = async () => {
+    setStatus('בודקים…');
+    try {
+      const h = await api('/api/health');
+      setStatus(h.ai ? `העוזר מחובר ומוכן.${detail && h.model ? ` מודל: ${h.model}` : ''}` : 'השרת עונה, אבל העוזר עוד לא חובר אליו.');
+    } catch (e) { setStatus(e.message); }
+  };
+  return [status, test];
+}
+
+/**
+ * The assistant, as a student sees it: whether it is on, and how it comes on (through a class). Server addresses and
+ * personal keys are for adults, one row away under "מתקדם" (AdvancedSettings).
+ */
 function AISection() {
+  const profile = useApp((x) => x.profile);
+  useApp((x) => x.ai); // a change made under "מתקדם" re-renders the section
+  const inClass = !!profile?.classCode;
+  const [status, test] = useConnectionTest();
+  const mode = aiMode();
+  return (
+    <section className="section set-group" aria-labelledby="ai-title">
+      <h2 id="ai-title" className="set-head">העוזר</h2>
+      {inClass ? (
+        <p>העוזר מחובר דרך הכיתה{profile.teacherName ? ` של ${profile.teacherName}` : ''}. אין צורך להגדיר כלום.</p>
+      ) : mode === 'personal' ? (
+        <p>העוזר מחובר במכשיר הזה, דרך ההגדרות המתקדמות.</p>
+      ) : mode === 'server' ? (
+        <p>העוזר עובד דרך השרת של האפליקציה. אין צורך להגדיר כלום.</p>
+      ) : (
+        <p className="muted">בגרסה הזו העוזר כבוי. השיעורים, המפה והמשימות עובדים גם בלעדיו. כשמצטרפים לכיתה מהכתובת שהמורה נותן, העוזר מגיע איתה.</p>
+      )}
+      {mode !== 'none' && mode !== 'personal' && <Button variant="ghost" className="btn-sm" onClick={test}>בדיקת חיבור</Button>}
+      {status && <p className="muted" role="status">{status}</p>}
+    </section>
+  );
+}
+
+/** One quiet row at the end of Settings that leads adults to the server address and the personal key. */
+function AdvancedRow() {
+  return (
+    <section className="section set-group" aria-labelledby="adv-title">
+      <h2 id="adv-title" className="set-head">מתקדם</h2>
+      <div className="set-rows-wrap"><div className="set-rows">
+        <Link to="/settings/advanced" className="set-row"><span>חיבור העוזר לשרת או למפתח (להורים ולמורים)</span><ChevronLeft size={18} aria-hidden="true" /></Link>
+      </div></div>
+    </section>
+  );
+}
+
+/**
+ * "מתקדם": the settings a student does not need, for the adult who sets the app up: the address of a class server, and
+ * a personal Claude key on this device (an Anthropic account is an adult's, and a class always goes through its server).
+ */
+export function AdvancedSettings() {
   const { ai, setAI, profile } = useApp();
+  const navigate = useNavigate();
   const inClass = !!profile?.classCode;
   const [url, setUrl] = useState(ai.apiUrl || '');
   const [key, setKey] = useState(ai.key || '');
-  const [status, setStatus] = useState('');
+  const [status, test] = useConnectionTest(true);
   const served = hasServer();
-  const test = async () => {
-    setAI({ apiUrl: url.trim() }); setStatus('בודקים…');
-    try {
-      const h = await api('/api/health');
-      setStatus(h.ai ? `השרת מחובר ומוכן. מודל: ${h.model}` : 'השרת עונה, אבל עוד לא חובר אליו מפתח Claude.');
-    } catch (e) { setStatus(e.message); }
-  };
-  if (inClass) {
-    return (
-      <section className="section set-group" aria-labelledby="ai-title">
-        <h2 id="ai-title" className="set-head">העוזר</h2>
-        <p>העוזר מחובר דרך הכיתה{profile.teacherName ? ` של ${profile.teacherName}` : ''}. אין צורך להגדיר כלום.</p>
-        <Button variant="ghost" className="btn-sm" onClick={test}>בדיקת חיבור</Button>
-        {status && <p className="muted" role="status">{status}</p>}
-      </section>
-    );
-  }
+  const save = () => { setAI({ apiUrl: url.trim() }); test(); };
   return (
-    <section className="section set-group" aria-labelledby="ai-title">
-      <h2 id="ai-title" className="set-head">חיבור העוזר</h2>
-      <div className="segmented" role="radiogroup" aria-label="איך העוזר מתחבר">
-        <button type="button" role="radio" aria-checked={ai.mode !== 'personal'} className={clsx('seg', ai.mode !== 'personal' && 'on')} onClick={() => setAI({ mode: 'server' })}>שרת הכיתה</button>
-        <button type="button" role="radio" aria-checked={ai.mode === 'personal'} className={clsx('seg', ai.mode === 'personal' && 'on')} onClick={() => setAI({ mode: 'personal' })}>מפתח אישי</button>
-      </div>
-      {ai.mode !== 'personal' ? (
-        <div className="stack">
-          {served ? (
-            <>
-              <p className="muted">העוזר עובד דרך השרת של האפליקציה.</p>
-              <Button variant="ghost" className="btn-sm" onClick={test}>בדיקת חיבור</Button>
-            </>
-          ) : (
-            <p className="muted">בגרסה הזו אין שרת מחובר. אפשר לכתוב כתובת של שרת כיתה בהגדרות המתקדמות, או לבחור &quot;מפתח אישי&quot; כדי לתרגל עם העוזר לבד.</p>
-          )}
-          {status && <p className="muted" role="status">{status}</p>}
-          <details className="sol">
-            <summary>הגדרות מתקדמות (למי שהתקין שרת משלו)</summary>
+    <div className="page pushed settings settings-advanced">
+      <header className="screen-bar" data-region="header">
+        <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label="חזרה"><ArrowRight size={24} aria-hidden="true" /></button>
+        <h1 className="screen-bar-title">מתקדם</h1>
+        <span className="icon-btn-spacer" aria-hidden="true" />
+      </header>
+      <p className="set-adult-note">ההגדרות כאן הן להורה או למורה שמכינים את האפליקציה. תלמידים לא צריכים לשנות כאן כלום.</p>
+      {!inClass && (
+        <section className="section set-group" aria-labelledby="adv-mode">
+          <h2 id="adv-mode" className="set-head">איך העוזר מתחבר</h2>
+          <div className="segmented" role="radiogroup" aria-labelledby="adv-mode">
+            <button type="button" role="radio" aria-checked={ai.mode !== 'personal'} className={clsx('seg', ai.mode !== 'personal' && 'on')} onClick={() => setAI({ mode: 'server' })}>שרת הכיתה</button>
+            <button type="button" role="radio" aria-checked={ai.mode === 'personal'} className={clsx('seg', ai.mode === 'personal' && 'on')} onClick={() => setAI({ mode: 'personal' })}>מפתח אישי</button>
+          </div>
+        </section>
+      )}
+      {(inClass || ai.mode !== 'personal') ? (
+        <section className="section set-group" aria-labelledby="adv-server">
+          <h2 id="adv-server" className="set-head">כתובת השרת</h2>
+          <div className="stack">
             <Field label="כתובת השרת" id="ai-url" hint={served ? 'משאירים ריק כדי להשתמש בשרת שהאפליקציה הגיעה ממנו.' : 'הכתובת של שרת הכיתה, כמו שהמורה נתן.'}>
               <input id="ai-url" name="server-url" className="input mono" dir="ltr" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…workers.dev" autoComplete="off" spellCheck={false} />
             </Field>
-            <Button variant="secondary" className="btn-sm" onClick={test}>שמירה ובדיקה</Button>
-          </details>
-        </div>
+            <Button variant="secondary" className="btn-sm" onClick={save}>שמירה ובדיקה</Button>
+            {status && <p className="muted" role="status">{status}</p>}
+          </div>
+        </section>
       ) : (
-        <div className="stack">
-          <Field label="מפתח Claude (Anthropic API)" id="ai-key" hint="המפתח נשמר רק במכשיר הזה ונשלח ישירות ל־Anthropic. מתאים למי שמתרגל לבד. אל תשמרו מפתח במכשיר של תלמיד אחר.">
-            <input id="ai-key" type="password" className="input mono" dir="ltr" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-ant-…" autoComplete="off" />
-          </Field>
-          <Button variant="secondary" onClick={() => { setAI({ key: key.trim(), mode: 'personal' }); toast.success('המפתח נשמר במכשיר'); }}>שמירת המפתח</Button>
-          {ai.key && <Button variant="ghost" className="btn-sm" onClick={() => { setAI({ key: '' }); setKey(''); }}>מחיקת המפתח מהמכשיר</Button>}
-        </div>
+        <section className="section set-group" aria-labelledby="adv-key">
+          <h2 id="adv-key" className="set-head">מפתח Claude אישי</h2>
+          <div className="stack">
+            <Field label="מפתח Claude (Anthropic API)" id="ai-key" hint="חשבון Anthropic הוא של מבוגר. המפתח נשמר רק במכשיר הזה ונשלח ישירות ל־Anthropic, בלי המגבלות של שרת הכיתה. אל תשמרו מפתח במכשיר של תלמיד אחר.">
+              <input id="ai-key" type="password" className="input mono" dir="ltr" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-ant-…" autoComplete="off" />
+            </Field>
+            <Button variant="secondary" onClick={() => { setAI({ key: key.trim(), mode: 'personal' }); toast.success('המפתח נשמר במכשיר'); }}>שמירת המפתח</Button>
+            {ai.key && <Button variant="ghost" className="btn-sm" onClick={() => { setAI({ key: '', mode: 'server' }); setKey(''); }}>מחיקת המפתח מהמכשיר</Button>}
+          </div>
+        </section>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -191,6 +239,7 @@ export default function Settings() {
       <AISection />
       <PlanRow />
       <SoundSetting />
+      <AdvancedRow />
       <section className="section set-group danger-zone" aria-labelledby="dz-title">
         <h2 id="dz-title" className="set-head">אזור מחיקה</h2>
         <div className="set-rows-wrap">

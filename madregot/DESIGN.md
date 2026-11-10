@@ -366,8 +366,8 @@ Big, solid and pressable.
 After a check, a panel rises from the bottom (24px, 250ms, smooth ease-out) over the lesson foot: `good-tint` with a `good-ink` 22px/800 title for correct; `bad-tint` with a `bad-ink` title for retry and reveal; a 2px top edge in the matching line colour; the explanation in 17px ink; the next button inside. The answer row shakes once on a wrong answer.
 
 ### Path (signature)
-- **Stops:** 68px circles on a 6px lip. Done: brand with a white check. Current: 76px brand with a star, wrapped in a 7px progress ring (brand on a `brand-tint` track, showing how much of its lessons are done) and a white "start/continue" bubble above it. Mastered: gold. Locked: `track` with a grey lock. A gift is a 64px circle, grey until opened, gold after.
-- **Unit header:** a brand-blue card with the white 22px/800 unit name, a 15px count line, and the guidebook at the end behind a thin white divider.
+- **Stops:** 68px circles on a 6px lip. Done: brand with a white check. Current: 76px brand with a star, wrapped in a 7px progress ring (brand on a `brand-tint` track, showing how far it is along its five stages) and a white "start/continue" bubble above it. Mastered: gold. Locked: `track` with a grey lock. A gift is a 64px circle, grey until opened, gold after.
+- **Unit header:** a brand-blue card with the white 22px/800 unit name, a 15px count line, a 6px white bar of all the unit's stages (five a stair) on a translucent white track, and the guidebook at the end behind a thin white divider. The count line moves from the first stage: the unit's size ("5 מדרגות"), then stages done ("3 מתוך 25 שלבים"), then stairs done once one is mastered ("1 מתוך 5 מדרגות"); never "0 מתוך".
 - **Popover:** a white card with the lift shadow, a 20px/800 title and its buttons.
 
 ### Navigation
@@ -375,13 +375,18 @@ After a check, a panel rises from the bottom (24px, 250ms, smooth ease-out) over
 - **Segmented choices:** white with a 2px `rule` border and 3px lip; on: brand border, `brand-tint` fill, `brand-d` text.
 
 ### Results
-One title, מדי, what was earned as quiet pills (`ground` fill, 15px ink text, an icon in its meaning colour), three neutral stat tiles (white, 2px `rule`, a 14px `ink-2` label and a 22px/800 number in the tile's meaning ink), and one button.
+One title, מדי, what was earned as quiet pills (`ground` fill, 15px ink text, an icon in its meaning colour), three neutral stat tiles (white, 2px `rule`, a 14px `ink-2` label and a 22px/800 number in the tile's meaning ink), and one button. Under the title, the stair's five stages as thick segments with "{stair}: N מתוך 5 שלבים", and the unit's stairs only once one is done.
+
+**A teaching stage done** is lighter than a lesson's end: no confetti, no stat tiles, no streak screen. מדי (112px), "שלב N הושלם!" at 30px/800 with the stage and the stair as a 15px `ink-2` label under it, the five segments, the earned pills (XP the first time, the streak when it starts or grows, the daily goal), a bordered "הבא:" card with the next stage and its minutes, the one primary button to that stage, and a ghost "למפה".
 
 ### Teaching stages
-Clean text at 19px on white, the maths or the object to move on a `ground` panel with 16px corners, answer cards across the width, and the check at the bottom. The "why" box is a bordered white card that turns `good-tint` when right and gets a `bad-line` border when not yet; the bottom bar turns `bad-tint` for "not yet".
+Clean text at 19px on white, the maths or the object to move on a `ground` panel with 16px corners, answer cards across the width, and the check at the bottom. A step that names a shape or a part of one shows it: a drawing (Figure type `geo`) in 2px ink lines with a light brand fill for the shape, brand for what the text points at (the ray, the hypotenuse, the transversal), arcs for angles (two or three arcs for equal ones), a small square for a right angle, and `bad-ink` for the "?" being asked. Letters appear only where the text has them; side labels sit clear of their lines; numbers in a drawing are its true sizes. The "why" box is a bordered white card that turns `good-tint` when right and gets a `bad-line` border when not yet; the bottom bar turns `bad-tint` for "not yet".
 
 ### Mascot מדי
 A stair-block character in the brand blue (its own tokens `--madi-*` in `tokens.css`). Used only in feedback, empty and error states, results, the welcome screen and as the tutor's 34px chat avatar. Not beside questions, onboarding, the profile (which shows the student's initial in a 96px brand circle) or the teacher header.
+
+### Settings
+Grouped sections under small headings. A student sees whether the assistant is on and how it comes (through a class); the class server's address and a personal Claude key are one quiet row away, on an adult-facing "מתקדם" screen that says who it is for.
 
 ### Teacher's board
 White, its sections and groups as the standard card, headings at 18px/800, stat icons in brand.

@@ -16,6 +16,9 @@ export const JUMP_LEN = 5;
 export const JUMP_MISTAKES = 1; // a jump test allows one mistake
 export const PARTS = 2; // lessons that complete a node on the path
 export const REDO_MAX = 2;
+/** XP for finishing a teaching stage the first time (A understand, B worked examples, C solve together): about the
+ * same per minute as a practice lesson, so a first session spent learning reaches the daily goal. */
+export const STAGE_XP = { A: 10, B: 5, C: 10 };
 export const XP = { lesson: 10, review: 15, jump: 10, perfect: 5, fix: 2, mastery: 15, recall: 5, verify: 5, diagnostic: 5, exam: 10 }; // fix: each mistake corrected at the end of a lesson
 export const COMBO_MARKS = [5, 10];
 

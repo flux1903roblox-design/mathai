@@ -1,47 +1,44 @@
 // "מה כבר למדתי": one tile per stair of the grade, coloured by what the evidence says (mastered alone,
-// practising, worth a review, needs help, not started). Each tile opens its stair. A picture, not a dashboard.
+// practising, worth a review, needs help, not started). Each tile opens its stair. A picture, not a dashboard:
+// it sits inside the board (Board.jsx), which says in words what the picture shows.
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { useApp } from '@/lib/store.js';
 import { topicsFor } from '@/content/index.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState, STATE_LABEL } from '@/learn/mastery.ts';
 import { isDone } from '@/lib/path.js';
-import { Stat } from '@/components/ds.jsx';
 
 const LEGEND = ['mastered', 'practicing', 'needs-review', 'needs-support'];
 
-export default function MasteryMap({ grade }) {
-  const skills = useApp((s) => s.learn.skills);
-  const path = useApp((s) => s.path);
-  const now = new Date().toISOString();
-  const topics = topicsFor(grade);
-  let mastered = 0; let total = 0; const n = { on: 0, back: 0, new: 0 };
-  const rows = topics.map((t) => {
-    const tiles = t.levels.map((L, i) => {
+/** Every stair of a grade with its state now (a stair finished on the map before 2.0 is at least practised). */
+export function gradeTiles(grade, skills, path, now = new Date().toISOString()) {
+  return topicsFor(grade).map((t) => ({
+    t,
+    tiles: t.levels.map((L, i) => {
       const id = skillId(t.id, i + 1);
       let st = masteryState(skills[id], now);
-      // a stair finished on the map before 2.0 is at least practised
       if (st === 'not-started' && isDone(path, t.id, i + 1)) st = 'practicing';
-      total += 1; if (st === 'mastered') mastered += 1;
-      else if (st === 'learning' || st === 'practicing') n.on += 1;
-      else if (st === 'needs-review' || st === 'needs-support') n.back += 1;
-      else n.new += 1;
       return { id, level: i + 1, title: L.title, st };
-    });
-    return { t, tiles };
-  });
+    }),
+  }));
+}
+
+/** The board's line about the tiles, in words that move from the first stage: no row of zeros. */
+export function tilesSummary(rows) {
+  const all = rows.flatMap((r) => r.tiles);
+  const mastered = all.filter((x) => x.st === 'mastered').length;
+  const onWay = all.filter((x) => x.st === 'learning' || x.st === 'practicing').length;
+  const back = all.filter((x) => x.st === 'needs-review' || x.st === 'needs-support').length;
+  const parts = [];
+  if (mastered) parts.push(`שולטים לבד ב־${mastered} מתוך ${all.length} מדרגות`);
+  if (onWay) parts.push(onWay === 1 ? 'מדרגה אחת בדרך לשליטה' : `${onWay} מדרגות בדרך לשליטה`);
+  if (back) parts.push(back === 1 ? 'מדרגה אחת שכדאי לחזור אליה' : `${back} מדרגות שכדאי לחזור אליהן`);
+  return parts.length ? parts.join(' · ') : 'כל משבצת היא מדרגה. היא נצבעת כשמתחילים ללמוד אותה.';
+}
+
+export default function MasteryMap({ rows }) {
   return (
-    <section className="mastery-map" aria-labelledby="mm-title">
-      <div className="mm-head">
-        <h2 id="mm-title" className="h-section">מה כבר למדתי</h2>
-        <span className="mm-count">שולטים לבד ב־{mastered} מתוך {total}</span>
-      </div>
-      <div className="mm-stats">
-        <Stat tone="brand" value={n.on} label="בדרך לשליטה" />
-        <Stat tone="gold" value={n.back} label="כדאי לחזור אליהן" />
-        <Stat tone="neutral" value={n.new} label="עוד לא התחלנו" />
-      </div>
+    <div className="mastery-map" role="group" aria-label="מה כבר למדתי">
       {rows.map(({ t, tiles }) => (
         <div key={t.id} className={clsx('mm-row', `ch-${t.color}`)}>
           <span className="mm-topic">{t.title}</span>
@@ -57,6 +54,6 @@ export default function MasteryMap({ grade }) {
       <ul className="mm-legend" aria-label="מקרא">
         {LEGEND.map((k) => <li key={k}><i className={clsx('mm-swatch', `ms-${k}`)} aria-hidden="true" />{STATE_LABEL[k]}</li>)}
       </ul>
-    </section>
+    </div>
   );
 }

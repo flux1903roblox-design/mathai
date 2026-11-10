@@ -2,40 +2,11 @@
 // keeping the place, mastery only from a check without hints, a misconception repaired and verified,
 // Exam Rescue from a diagnostic to a plan, today's mission, and the profile's numbers and data deletion.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, saved, proceed, NOW } from './helpers.js';
+import { open, student, item, answer, saved, proceed, NOW, playDiscover, stageDone } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
 
 const step = (page) => page.evaluate(() => window.__madregotStep);
-
-/** Play the current teaching stage (A) to its end, through its own controls. */
-async function playDiscover(page) {
-  await expect(page.locator('.step-player')).toBeVisible();
-  for (let i = 0; i < 20; i += 1) {
-    await expect.poll(() => step(page)).toBeTruthy();
-    const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
-    const st = await step(page);
-    if (st.kind === 'explore') {
-      if (st.manip.kind === 'numberline') {
-        const d = st.answer - st.manip.start;
-        for (let k = 0; k < Math.abs(d); k += 1) await page.getByRole('button', { name: d > 0 ? 'הסמן ימינה' : 'הסמן שמאלה' }).first().click();
-      }
-      await page.locator('.lm-check').click();
-      await expect(page.locator('.lm-actions.has-good')).toBeVisible();
-    }
-    if (st.kind === 'predict') {
-      await page.locator('.ls-choice').nth(st.answer).click();
-      await page.locator('.lm-check').click();
-      await expect(page.locator('.lm-actions.has-good')).toBeVisible();
-    }
-    const next = page.locator('.sp-next');
-    const last = (await next.textContent()).includes('לדוגמה');
-    await next.click();
-    if (last) return;
-    await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
-  }
-  throw new Error('the stage did not end');
-}
 
 test('a new stair is learned before it is practised: understand, a worked example, solve together', async ({ page }) => {
   await open(page, '#/learn/signed/1', student('7'));
@@ -44,6 +15,13 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await expect(page).toHaveURL(/learn\/signed\/1\/A/);
   // a prediction is a commitment, not a test: a wrong guess explains, and the step still goes on
   await playDiscover(page);
+  // the stage ends in a short moment: XP, the streak started, the stair's first stage of five, and what comes next
+  const a = await stageDone(page, 1);
+  await expect(a.locator('.badges')).toContainText('+10 XP');
+  await expect(a.locator('.badges')).toContainText('התחלתם רצף');
+  await expect(a.locator('.climb-caption')).toHaveText('1 מתוך 5 שלבים במדרגה');
+  await expect(a.locator('.stage-done-next')).toContainText('הבא: דוגמה פתורה');
+  await a.getByRole('button', { name: 'לדוגמה הפתורה', exact: true }).click();
   await expect(page).toHaveURL(/learn\/signed\/1\/B/);
   // a worked example comes one step at a time, each with its reason
   await page.getByRole('button', { name: 'מתחילים' }).click();
@@ -53,6 +31,10 @@ test('a new stair is learned before it is practised: understand, a worked exampl
     while (await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).count()) await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).click();
     await page.getByRole('button', { name: /לדוגמה הבאה|לפתור יחד/ }).click();
   }
+  const b = await stageDone(page, 2);
+  await expect(b.locator('.badges')).toContainText('+5 XP');
+  await expect(b.locator('.badges')).not.toContainText('רצף'); // the streak was already kept today
+  await b.getByRole('button', { name: 'לפתור יחד', exact: true }).click();
   await expect(page).toHaveURL(/learn\/signed\/1\/C/);
   // solve together: a wrong move gets its own feedback and a hint; the last step is typed by the student
   // the same rule as teaching and practice: tapping a choice only selects it; "בדיקה" at the bottom judges it
@@ -90,7 +72,16 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await expect(page.locator('.lm-actions.has-good')).toContainText('נכון, בעזרת רמז');
   await expect(page.getByText('פתרתם לבד')).toHaveCount(0);
   await page.getByRole('button', { name: 'המשך' }).click();
+  // three stages: 25 XP, past the day's goal of 20; practice is next
+  const c = await stageDone(page, 3);
+  await expect(c.locator('.badges')).toContainText('+10 XP');
+  await expect(c.locator('.badges')).toContainText('הגעתם ליעד היומי');
+  await expect(c.locator('.climb-caption')).toHaveText('3 מתוך 5 שלבים במדרגה');
+  await expect(c.getByRole('button', { name: 'לתרגול', exact: true })).toBeVisible();
+  const day = (await saved(page)).days['2026-11-05'];
+  expect(day).toMatchObject({ xp: 25, stages: 3 });
   // back on the stair: understanding, the example and solving together are done; practice is next
+  await page.goto('./#/learn/signed/1');
   await expect(page.locator('.journey')).toBeVisible();
   await expect(page.locator('.jstage.done')).toHaveCount(3);
   await expect(page.locator('.jstage.current')).toContainText('מתרגלים לבד');
@@ -254,7 +245,8 @@ test('reviewer P1: two right diagnostic answers per stair are "passed the first 
   await expect(page.locator('.rescue-day').first()).toContainText('בדיקת שליטה: חיבור וחיסור');
   // and the map says the same thing in the same words
   await page.goto('./#/topics');
-  await expect(page.locator('.mm-count')).toHaveText('שולטים לבד ב־0 מתוך 15');
+  await expect(page.locator('.board-level')).not.toContainText('שולטים');
+  await expect(page.locator('.mm-tile[aria-label$="שולטים לבד"]')).toHaveCount(0);
   const st = await saved(page);
   expect(st.learn.skills['signed:1']?.mastered).toBeUndefined();
 });
@@ -267,6 +259,7 @@ test('reviewer P2: the mission names the stage it asks for, and its completion s
   await page.locator('.continue-go').click();
   await expect(page).toHaveURL(/learn\/signed\/1\/A/);
   await playDiscover(page);
+  await stageDone(page, 1, 'לדוגמה הפתורה');
   await expect(page).toHaveURL(/learn\/signed\/1\/B/);
   await page.goto('./#/quests');
   await expect(page.locator('#continue-title')).toHaveText('המשימה של היום הושלמה');
@@ -282,8 +275,9 @@ test('done means mastered: practice fills the ring, and only a passed mastery ch
   const st = student('7', { path: { signed: { parts: { 1: 2 }, reviews: 0, jumped: 0, done: {} } }, learn: { skills: { 'signed:1': practised }, miscon: {}, exam: null, missions: {}, events: [] } });
   await open(page, '#/', { ...st, version: 3 });
   const unit = page.locator('.unit').first();
-  // two practice lessons done: still not done, still 0 of 5; the next stage is the mastery check
-  await expect(unit.locator('.unit-label')).toContainText('0 מתוך 5 מדרגות');
+  // two practice lessons done: four of the stair's five stages, but no stair counted yet; the next stage is the mastery check
+  await expect(unit.locator('.unit-label')).toContainText('4 מתוך 25 שלבים');
+  await expect(unit.locator('.unit-label')).not.toContainText('מדרגות');
   await expect(unit.locator('.node').first()).toHaveClass(/node-current/);
   await unit.locator('.node').first().click();
   await expect(page.locator('.node-card')).toContainText('בדיקת שליטה');

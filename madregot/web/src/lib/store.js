@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { TOPIC } from '@/content/index.js';
 import { recordOnPath, markMastered, migratePath, reachedUpTo, doneCount, chestOpen } from './path.js';
 import { questProgress } from './quests.js';
+import { STAGE_XP } from './lesson.js';
 import { noteGap, gapsFromExam } from './board.js';
 import { learnAfterAnswer, learnAfterCheck, emptyLearn, migrateLearn, relabelLegacyEvidence } from '@/learn/storeGlue.ts';
 import { markTaught as markTaughtRec } from '@/learn/mastery.ts';
@@ -24,7 +25,7 @@ const safeStorage = createJSONStorage(() => {
 const empty = {
   profile: null, // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? } | { role: 'teacher', name, classes: [], active }
   progress: {}, // topicId -> { level, max }
-  days: {}, // 'YYYY-MM-DD' -> { q, ok, secs, lessons, xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
+  days: {}, // 'YYYY-MM-DD' -> { q, ok, secs, lessons, stages (teaching stages finished), xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
   xp: 0,
   path: {}, // topicId -> { parts: { level: practice lessons }, reviews, jumped, done: { level: 'mastered' | 'kept' } } (lib/path.js)
   freezes: 0, // streak freezes ready to use (at most 2), earned by finishing the daily quests
@@ -101,11 +102,32 @@ export const useApp = create(
           progress = { ...progress, [r.topic]: { level, max: Math.max(p.max, level) } };
         }
         set({ learn, days, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic });
-        return { streakExtended: !(cur.lessons > 0), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
+        return { streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
-      /** A teaching stage finished (A discover, B example, C together). */
-      markTaught: (skill, stage) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, skills: { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) }, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) } }); },
+      /**
+       * A teaching stage finished, as the student lives it: the stage is recorded as learning (never mastery), the
+       * first time it earns XP towards the daily goal (STAGE_XP), and the day counts for the streak like a lesson.
+       * Returns what to show in the stage's short completion moment.
+       */
+      completeStage: (skill, stage) => {
+        const st = get(); const d = today(); const cur = st.days[d] || {}; const at = new Date().toISOString();
+        const L = st.learn; const first = !L.skills[skill]?.taught?.[stage];
+        const xp = first ? STAGE_XP[stage] || 0 : 0;
+        const goalBefore = (cur.xp || 0) >= st.goalXp;
+        const questsBefore = questProgress(d, cur).every((q) => q.done);
+        const day = { ...cur, stages: (cur.stages || 0) + 1, xp: (cur.xp || 0) + xp };
+        const questsDone = !questsBefore && questProgress(d, day).every((q) => q.done);
+        const freezeEarned = questsDone && !cur.questsRewarded && st.freezes < 2;
+        if (questsDone) day.questsRewarded = true;
+        const days = { ...st.days, [d]: day };
+        const topic = skill.split(':')[0];
+        set({
+          days, xp: st.xp + xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), lastTopic: TOPIC[topic] ? topic : st.lastTopic,
+          learn: { ...L, skills: { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) }, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) },
+        });
+        return { xp, first, streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
+      },
       /** Where the student is inside a teaching stage, so leaving keeps the place. */
       setStagePos: (skill, stage, i) => { const L = get().learn; const r = L.skills[skill] || { attempts: [] }; set({ learn: { ...L, skills: { ...L.skills, [skill]: { ...r, pos: { ...(r.pos || {}), [stage]: i } } } } }); },
       startRepair: (skill, misc) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, miscon: startRepairRec(L.miscon, skill, misc, today(), at), events: logEvent(L.events, { e: 'repair-start', s: skill, m: misc }, at) } }); },
@@ -143,7 +165,7 @@ export const useApp = create(
           days, path, xp: st.xp + r.xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
           progress: { ...st.progress, [r.topic]: { level, max } }, lastTopic: r.topic,
         });
-        return { streakExtended: !(cur.lessons > 0), streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
+        return { streakExtended: !learnedOn(cur), streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
       },
       /** The placement test settles where each topic starts (the stairs before it are passed over, not done); it counts as the day's first lesson. */
       completePlacement: (r) => {
@@ -161,7 +183,7 @@ export const useApp = create(
         const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + r.xp, combo: Math.max(cur.combo || 0, r.bestCombo || 0) };
         const days = { ...st.days, [d]: day };
         set({ path, progress, days, xp: st.xp + r.xp, placement: { at: new Date().toISOString(), grade: r.grade, results: r.results } });
-        return { streakExtended: !(cur.lessons > 0), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp };
+        return { streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp };
       },
       /** On opening the app: spend freezes on missed days so the streak survives (at most two). */
       settleStreak: () => {
@@ -206,8 +228,11 @@ export const useApp = create(
   ),
 );
 
-/** A day counts for the streak with one finished lesson (or answers saved before lessons existed). */
-const active = (d) => !!d && ((d.lessons || 0) > 0 || (d.lessons == null && (d.q || 0) > 0));
+/** Something was finished that day: a lesson or check, or a teaching stage (understand, worked examples, solve together). */
+export const learnedOn = (d) => !!d && ((d.lessons || 0) > 0 || (d.stages || 0) > 0);
+/** A day counts for the streak with one finished lesson or teaching stage (or answers saved before lessons existed). */
+export const isActiveDay = (d) => learnedOn(d) || (!!d && d.lessons == null && (d.q || 0) > 0);
+const active = isActiveDay;
 /** Shabbat never breaks a streak: a Saturday without practice is skipped, not missed. */
 export const isShabbat = (key) => new Date(`${key}T12:00:00`).getDay() === 6;
 const kept = (days, key) => days[key]?.frozen || isShabbat(key);

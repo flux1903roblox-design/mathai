@@ -113,10 +113,53 @@ export function migratePath(path = {}, progress = {}, skills = {}) {
   return out;
 }
 
+/** Right practice answers that complete a stair's practice stage, as its page counts them (and as nextStage reads them). */
+export const PRACTICE_OK = 6;
+const practiceShare = (rec, parts) => {
+  const ok = (rec?.attempts || []).filter((a) => a.purpose === 'practice' && a.ok).length;
+  return Math.min(1, Math.max((parts || 0) / PARTS, ok / PRACTICE_OK));
+};
+
 /** How far a stair is along its five stages (understand, example, together, practice, mastery check), 0..1: its ring. */
 export function stairProgress(rec, parts) {
   const taught = ['A', 'B', 'C'].filter((k) => rec?.taught?.[k]).length;
-  return (taught + Math.min(1, (parts || 0) / PARTS) + (rec?.mastered ? 1 : 0)) / 5;
+  return (taught + practiceShare(rec, parts) + (rec?.mastered ? 1 : 0)) / 5;
+}
+
+/** Is a stair's practice stage done: its practice lessons, or enough right practice answers (its mastery check is next)? */
+export const practiceComplete = (rec, parts) => practiceShare(rec, parts) >= 1;
+
+export const STAIR_STAGES = 5;
+/**
+ * How many of a stair's five stages are done, a whole number: understanding, the worked examples and solving together
+ * once finished, practice once its lessons are done, the mastery check once passed. A done stair (mastered, or kept
+ * from before mastery checks) has all five. This is the counter that moves from the first stage of the first session.
+ */
+export function stagesDone(rec, parts, done = false) {
+  if (done) return STAIR_STAGES;
+  const taught = ['A', 'B', 'C'].filter((k) => rec?.taught?.[k]).length;
+  return Math.min(STAIR_STAGES, taught + (practiceShare(rec, parts) >= 1 ? 1 : 0) + (rec?.mastered ? 1 : 0));
+}
+
+/**
+ * A unit's progress for its counters: stairs done (mastered), and stages done across its stairs out of five per stair.
+ * `skills` is learn.skills (the teaching stages and the mastery check live there).
+ */
+export function unitProgress(topic, path = {}, skills = {}) {
+  const top = TOPIC[topic].levels.length;
+  let stages = 0;
+  for (let L = 1; L <= top; L += 1) stages += stagesDone(skills[`${topic}:${L}`], partsOf(path, topic, L), isDone(path, topic, L));
+  return { done: doneCount(topic, path), stairs: top, stages, of: top * STAIR_STAGES };
+}
+
+/**
+ * The count line of a unit, in words that move from the first stage: stairs done once there is one, before that the
+ * stages done, and before anything the size of the unit.
+ */
+export function unitCountText({ done, stairs, stages, of }) {
+  if (done > 0) return `${done} מתוך ${stairs} מדרגות`;
+  if (stages > 0) return `${stages} מתוך ${of} שלבים`;
+  return `${stairs} מדרגות`;
 }
 
 /** The treasure chest halfway along a unit: after this level, open once the stairs up to it are done. */

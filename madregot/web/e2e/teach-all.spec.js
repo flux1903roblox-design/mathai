@@ -1,5 +1,6 @@
 // Every stair's teaching can be completed, start to end, through its own screens: understand (every step kind,
-// every interactive object), the worked examples step by step, and solving together with the last step typed.
+// every interactive object), the worked examples step by step, and solving together with the last step typed; each stage
+// ends in its completion moment.
 import { test, expect } from '@playwright/test';
 import { open, student } from './helpers.js';
 
@@ -35,7 +36,11 @@ for (const [topic, n] of Object.entries(STAIRS)) {
         if (last) break;
         await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
       }
+      // each stage ends in its short completion moment, whose button goes on to the next stage
+      await expect(page.locator('.stage-done')).toContainText('שלב 1 הושלם!');
+      await page.locator('.stage-done').getByRole('button', { name: 'לדוגמה הפתורה', exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`learn/${topic}/${level}/B`));
+      await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible(); // the first example is on screen
       // B: every worked example, one step at a time
       for (let e = 0; e < 6; e += 1) {
         while (await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).count()) await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).click();
@@ -44,9 +49,12 @@ for (const [topic, n] of Object.entries(STAIRS)) {
         await go.click();
         if (label.includes('לפתור')) break;
       }
+      await expect(page.locator('.stage-done')).toContainText('שלב 2 הושלם!');
+      await page.locator('.stage-done').getByRole('button', { name: 'לפתור יחד', exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`learn/${topic}/${level}/C`));
+      await expect(page.locator('.stage-done')).toHaveCount(0); // the moment has given way to the first problem
       // C: every guided problem: the right move at each step, then the last step typed
-      for (let g = 0; g < 6 && !(await page.locator('.journey').count()); g += 1) {
+      for (let g = 0; g < 6 && !(await page.locator('.stage-done').count()); g += 1) {
         for (let k = 0; k < 8; k += 1) {
           await expect.poll(() => page.evaluate(() => window.__madregotGuided)).toBeTruthy();
           const gd = await page.evaluate(() => window.__madregotGuided);
@@ -56,8 +64,8 @@ for (const [topic, n] of Object.entries(STAIRS)) {
             await expect(page.getByText('פתרתם את הצעד האחרון לבד')).toBeVisible();
             await page.evaluate(() => { window.__madregotGuided = null; });
             await page.getByRole('button', { name: 'המשך' }).click();
-            // the next problem, or the stair's page after the last one
-            await expect.poll(async () => (await page.locator('.journey').count()) > 0 || !!(await page.evaluate(() => window.__madregotGuided))).toBe(true);
+            // the next problem, or the stage's completion moment after the last one
+            await expect.poll(async () => (await page.locator('.stage-done').count()) > 0 || !!(await page.evaluate(() => window.__madregotGuided))).toBe(true);
             break;
           }
           const ok = gd.step.choices.findIndex((c) => c.ok);
@@ -68,6 +76,12 @@ for (const [topic, n] of Object.entries(STAIRS)) {
           await expect.poll(() => page.evaluate(() => window.__madregotGuided?.final ? 'final' : window.__madregotGuided?.step?.prompt)).not.toBe(before);
         }
       }
+      await expect(page.locator('.stage-done')).toContainText('שלב 3 הושלם!');
+      await expect(page.locator('.stage-done .climb-caption')).toHaveText('3 מתוך 5 שלבים במדרגה');
+      // the map is a tap away; the stair's page shows the three teaching stages done
+      await page.locator('.stage-done').getByRole('button', { name: 'למפה', exact: true }).click();
+      await expect(page.locator('.learn')).toBeVisible();
+      await page.goto(`./#/learn/${topic}/${level}`);
       await expect(page.locator('.journey')).toBeVisible();
       await expect(page.locator('.jstage.done')).toHaveCount(3);
       expect(errors).toEqual([]);

@@ -69,7 +69,7 @@ export default function Quests() {
           <span className={clsx('streak-flame', streak > 0 && 'on')} aria-hidden="true"><Flame size={44} strokeWidth={2.2} /></span>
           <div>
             <h2 id="streak-h" className="card-title">{streak === 0 ? 'עוד אין רצף' : streak === 1 ? 'יום אחד ברצף' : `${streak} ימים ברצף`}</h2>
-            <p className="muted">שיעור אחד ביום שומר על הרצף. בשבת הרצף לא נשבר.</p>
+            <p className="muted">שיעור אחד ביום, או שלב אחד בלימוד מדרגה, שומר על הרצף. בשבת הרצף לא נשבר.</p>
           </div>
         </div>
         <Week days={days} />
