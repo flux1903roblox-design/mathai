@@ -86,11 +86,14 @@ function Setup({ onSave }) {
               const ids = t.levels.map((_, i) => skillId(t.id, i + 1));
               const all = ids.every((x) => skills.includes(x));
               const some = ids.filter((x) => skills.includes(x)).length;
+              // a topic of an earlier grade is revision and says so ("מכיתה ז׳"); Pythagoras, filed under ח׳, is taught in
+              // ז׳ too by this year's programme, so for ז׳ it is simply one of theirs
+              const earlier = Number(t.grade) < Number(grade);
               return (
                 <fieldset key={t.id} className={clsx('rescue-topic', `ch-${t.color}`)}>
                   <legend className="visually-hidden">{t.title}</legend>
                   <div className="rescue-topic-head">
-                    <label className="check-row topic-row"><input type="checkbox" checked={all} onChange={() => toggleTopic(t)} /><span>{t.title}{t.grade !== grade ? ` מכיתה ${t.grade === '7' ? 'ז׳' : 'ח׳'}` : ''} (כל הנושא)</span></label>
+                    <label className="check-row topic-row"><input type="checkbox" checked={all} onChange={() => toggleTopic(t)} /><span>{t.title}{earlier ? ` מכיתה ${t.grade === '7' ? 'ז׳' : 'ח׳'}` : ''} (כל הנושא)</span></label>
                     {some > 0 && <span className="rescue-topic-count">{some}/{ids.length}</span>}
                   </div>
                   <div className="stair-chips">

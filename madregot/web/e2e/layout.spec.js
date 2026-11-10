@@ -115,6 +115,29 @@ test('the keypad: minus, decimal point, fraction, next field and delete', async 
   await expect(page.locator('#slot-v')).toHaveValue('3/4');
 });
 
+// The fraction answer (frac:1 "reduce"): numerator over a bar over denominator, both fields usable on every phone, and
+// the keypad's next key moving between them; the stack never pushes the check button off screen.
+test('the fraction answer row: two stacked fields, the next key between them', async ({ page }) => {
+  await openOn(page, '#/lesson/frac/1', student('7'), (x) => x.form === 'frac');
+  const n = page.locator('#slot-n'); const d = page.locator('#slot-d');
+  await expectNoSidewaysScroll(page);
+  const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
+  expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);
+  await expectUsable(page, n, 'the numerator'); await expectUsable(page, d, 'the denominator');
+  const [bn, bd] = [await n.boundingBox(), await d.boundingBox()];
+  expect(bn.y + bn.height, 'the numerator stands over the denominator').toBeLessThanOrEqual(bd.y + 1);
+  expect(Math.min(bn.height, bd.height), 'fields are thumb-sized').toBeGreaterThanOrEqual(40);
+  const key = (name) => page.getByRole('button', { name, exact: true }).click();
+  await n.click(); await key('3');
+  await page.getByRole('button', { name: /^מעבר ל/ }).click();
+  await expect(d).toBeFocused();
+  await key('4');
+  await expect(n).toHaveValue('3'); await expect(d).toHaveValue('4');
+  await page.getByRole('button', { name: /^מעבר ל/ }).click();
+  await expect(n).toBeFocused();
+  await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
+});
+
 test('on a computer: digits typed anywhere go to the answer, Enter checks and Enter continues', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'a physical keyboard is a computer case');
   const it = await openOn(page, '#/lesson/signed/1', student('7'), (x) => x.form === 'num');

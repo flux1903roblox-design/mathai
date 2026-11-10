@@ -2,7 +2,7 @@
 // Wrong once: try again with a hint. Wrong twice: see the answer and the steps,
 // and a similar exercise comes back at the end of the lesson. The lesson ends
 // when every slot has been answered correctly (each slot can come back twice at most).
-import { TOPIC, makeItem, testItem, isCorrect } from '@/content/index.js';
+import { TOPIC, makeItem, testItem, isCorrect, partialOf } from '@/content/index.js';
 import { startPlacement, placementAnswer, placementNext, placementProgress, placementResult } from './placement.js';
 import { checkPlan, itemFor } from '@/learn/items.ts';
 import { contentOf } from '@/learn/content/index.ts';
@@ -101,9 +101,13 @@ export const progressOf = (s) => (s.kind === 'placement' ? placementProgress(s) 
 
 /**
  * Grade an answer. Returns { s, result } where result is
- * { ok, first, retry, reveal, combo, comboMark, cat, event }.
+ * { ok, first, retry, reveal, combo, comboMark, cat, event },
+ * or { partial } with the state unchanged when the value is right in a form the question does not take yet (a fraction
+ * that can still be reduced, content/index.js partialOf): no attempt, no event, nothing for the misconception record.
  */
 export function answer(s, u) {
+  const partial = partialOf(s.item, u);
+  if (partial) return { s, result: { partial } };
   if (s.kind === 'placement') return placementAnswer(s, u);
   const it = s.item;
   const ok = isCorrect(it, u);

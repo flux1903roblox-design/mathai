@@ -3,7 +3,12 @@
 // misconception predictions. A stair added to the registry is covered without writing new tests.
 import { describe, it, expect } from 'vitest';
 import { CONTENT } from './content/index';
-import type { DiscoverStep, DiagModel, StairContent, WorkedExample } from './types';
+import type { DiscoverStep, DiagModel, FigSpec, StairContent, WorkedExample } from './types';
+import { createElement } from 'react';
+// @ts-ignore: react-dom has no type declarations here
+import { renderToStaticMarkup } from 'react-dom/server';
+// @ts-ignore: plain JS
+import Figure from '@/components/Figure.jsx';
 import { evaluate, same, seeded, identical, texToExpr, texRelation, holds } from './expr';
 import { discriminating, diagnose } from './misconceptions';
 import { checkPlan, itemFor } from './items';
@@ -57,14 +62,27 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       // the goal is a state the object can reach, and reaching it counts as right
       expect(manipCorrect(it, manipSolution(it)), `${at}: goal not reachable`).toBe(true);
       // the starting state is not already the answer (the student has to move something)
+      const start = (s.manip as { start?: unknown }).start;
+      if (start != null) expect(manipCorrect(it, start), `${at}: starts on the goal`).toBe(false);
       if (s.manip.kind === 'numberline') {
-        const m = s.manip as unknown as { min: number; max: number; start: number };
+        const m = s.manip as unknown as { min: number; max: number; start: number; den?: number };
         expect(s.answer as number, at).toBeGreaterThanOrEqual(m.min);
         expect(s.answer as number, at).toBeLessThanOrEqual(m.max);
         expect(m.start, `${at}: starts on the answer`).not.toBe(s.answer);
-        // the expression shown is the movement asked for
-        if (s.display && /^[-+0-9 ()]+$/.test(s.display)) expect(same(evaluate(s.display), s.answer as number), `${at}: ${s.display}`).toBe(true);
+        // a line cut into parts reaches only whole numbers of parts
+        if (m.den) expect(onParts(s.answer as number, m.den), `${at}: ${s.answer} is not a whole number of 1/${m.den}`).toBe(true);
+        // the expression shown is the movement asked for (a fraction or a decimal too: 5/3, \frac{5}{3}, 0.75)
+        if (s.display && /^([-+0-9 ().\/]|\\frac|[{}])+$/.test(s.display)) expect(same(evaluate(s.display.includes('\\') ? texToExpr(s.display) : s.display), s.answer as number), `${at}: ${s.display}`).toBe(true);
       }
+      if (s.manip.kind === 'pins') {
+        const m = s.manip as unknown as { min: number; max: number; den?: number };
+        (s.answer as number[]).forEach((v) => {
+          expect(v >= m.min && v <= m.max, `${at}: ${v} is off the line`).toBe(true);
+          expect(onParts(v, m.den || 1), `${at}: ${v} is not on a tick`).toBe(true);
+        });
+      }
+      if (s.manip.kind === 'fbar') checkFbar(s.manip as any, s.answer as any, at);
+      if (s.manip.kind === 'dline') checkDline(s.manip as any, s.answer as number, at);
       // a point goal must be on the drawn grid: the tool clamps every move to it, so a goal off the grid can never be reached
       if (s.manip.kind === 'plot') {
         const r = ((s.manip as { range?: number }).range) || 6;
@@ -87,6 +105,45 @@ function checkSteps(steps: DiscoverStep[], where: string) {
     }
     if (s.kind === 'rule') expect(s.why, at).toBeTruthy();
   });
+}
+
+/** A value is a whole number of parts of size 1/den. */
+const onParts = (v: number, den: number) => Math.abs(v * den - Math.round(v * den)) < 1e-9;
+const gcdN = (a: number, b: number): number => (b ? gcdN(b, a % b) : a);
+/**
+ * A fraction bar: its start is a bar the object can show, and its goal can be built with at most maxDen parts (the
+ * locked number of parts when the step fixes it): a value that is a whole number of parts, an exact bar that fits, a
+ * common number of parts no larger than maxDen.
+ */
+function checkFbar(m: { start: { den: number; shaded: number }; lockDen?: boolean; maxDen?: number; marks?: number[] }, a: any, at: string) {
+  const maxDen = m.maxDen || 24; const st = m.start;
+  expect(Number.isInteger(st.den) && st.den >= 1 && st.den <= maxDen && Number.isInteger(st.shaded) && st.shaded >= 0 && st.shaded <= st.den, `${at}: the start is not a bar`).toBe(true);
+  (m.marks || []).forEach((x) => expect(x > 0 && x < 1, `${at}: a mark at ${x} is off the bar`).toBe(true));
+  if (a.mode === 'value') {
+    expect(a.value >= 0 && a.value <= 1, `${at}: ${a.value} is not a part of one bar`).toBe(true);
+    if (m.lockDen) expect(onParts(a.value, st.den), `${at}: ${a.value} is not a whole number of 1/${st.den}`).toBe(true);
+    else expect(Array.from({ length: maxDen }, (_, i) => i + 1).some((d) => onParts(a.value, d)), `${at}: ${a.value} needs more than ${maxDen} parts`).toBe(true);
+  } else if (a.mode === 'exact') {
+    expect(a.den >= 1 && a.den <= maxDen && a.shaded >= 0 && a.shaded <= a.den, `${at}: ${a.shaded}/${a.den} does not fit the bar`).toBe(true);
+    if (m.lockDen) expect(a.den, `${at}: the parts are locked`).toBe(st.den);
+  } else {
+    expect(a.mode, at).toBe('common');
+    const l = (a.of as number[]).reduce((x, y) => (x * y) / gcdN(x, y), 1);
+    expect(l <= maxDen && !m.lockDen, `${at}: a common number of parts ${l} cannot be made`).toBe(true);
+  }
+}
+/**
+ * A double number line: the goal is a multiple of the moving line's step, within it (the bottom end at least one step
+ * long), and reached from the start in whole steps; the fixed marker of "max" sits on a tick of the top line.
+ */
+function checkDline(m: { top: { max: number; step: number }; bottom: { max: number; step: number }; move: 't' | 'max'; start: { t: number; max?: number }; fixT?: number }, a: number, at: string) {
+  const L = m.move === 'max' ? m.bottom : m.top; const lo = m.move === 'max' ? L.step : 0;
+  const from = m.move === 'max' ? m.start.max : m.start.t;
+  expect(onParts(a, 1 / L.step), `${at}: ${a} is not a multiple of ${L.step}`).toBe(true);
+  expect(a >= lo - 1e-9 && a <= L.max + 1e-9, `${at}: ${a} is off the line (${lo}..${L.max})`).toBe(true);
+  expect(typeof from === 'number' && onParts((a - from), 1 / L.step), `${at}: not reached in steps of ${L.step} from ${from}`).toBe(true);
+  expect(onParts(m.top.max, 1 / m.top.step) && onParts(m.bottom.max, 1 / m.bottom.step), `${at}: a line does not end on a tick`).toBe(true);
+  if (m.move === 'max') expect(typeof m.fixT === 'number' && onParts(m.fixT, 1 / m.top.step) && m.fixT > 0 && m.fixT <= m.top.max, `${at}: the marker is not on a tick`).toBe(true);
 }
 
 type Pans = { lx: number; l1: number; rx: number; r1: number };
@@ -375,6 +432,29 @@ describe('solving together: the last step names the mistake', () => {
   });
 });
 
+// The fractions floor is for students who need to see a fraction before they compute with it: every teaching step of
+// its stairs draws one (a figure or an object to move), and every drawing renders with real numbers.
+describe('the fractions floor teaches with pictures', () => {
+  const frac = stairs.filter((c) => c.topic === 'frac');
+  it('every discover step of frac:1-2 has a figure or an object', () => {
+    expect(frac.map((c) => c.skill)).toEqual(['frac:1', 'frac:2']);
+    const bare = frac.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
+    expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
+  });
+  it('every figure of the floor renders, with no broken numbers', () => {
+    const figs = frac.flatMap((c) => [
+      ...c.discover, ...c.misconceptions.flatMap((m) => m.remedy),
+      ...c.examples, ...c.together,
+    ].map((x) => (x as { fig?: FigSpec }).fig).filter(Boolean) as FigSpec[]);
+    expect(figs.length).toBeGreaterThan(10);
+    figs.forEach((fig) => {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, fig.type).toMatch(/<svg/);
+      expect(html, fig.type).not.toMatch(/NaN|undefined|Infinity/);
+    });
+  });
+});
+
 // The checks above are what keeps the algebra stairs honest before they exist: each is shown here to pass a right
 // fixture and to fail a broken one, so a check that silently passes everything cannot slip in.
 describe('the algebra checks catch what they are for', () => {
@@ -407,6 +487,35 @@ describe('the algebra checks catch what they are for', () => {
     bad(explore({ kind: 'ray', start: { at: 0, dir: 1, closed: false } }, { at: -3, dir: 1, closed: false }, '-2x > 6')); // not flipped
     bad(explore({ kind: 'ray', start: { at: 0, dir: 1, closed: false } }, { at: -3, dir: -1, closed: true }, '-2x > 6')); // the boundary
     bad(explore({ kind: 'ray', start: { at: 4, dir: -1, closed: true } }, { at: 4, dir: -1, closed: true }));
+  });
+  it('a cut number line: the goal is a whole number of parts, and the display is its value', () => {
+    ok(explore({ kind: 'numberline', min: 0, max: 2, from: 0, start: 0, den: 3 }, 5 / 3, '\\frac{5}{3}'));
+    ok(explore({ kind: 'numberline', min: 0, max: 1, from: 0, start: 0, den: 20, fmt: 'dec' }, 0.35, '0.35'));
+    bad(explore({ kind: 'numberline', min: 0, max: 2, from: 0, start: 0, den: 3 }, 1.6)); // not on a third
+    bad(explore({ kind: 'numberline', min: 0, max: 2, from: 0, start: 0, den: 3 }, 5 / 3, '\\frac{4}{3}'));
+    bad(explore({ kind: 'numberline', min: 0, max: 2, from: 0, start: 5 / 3, den: 3 }, 5 / 3));
+    ok(explore({ kind: 'pins', min: 0, max: 1, den: 20, labels: ['0.4', '0.25'], start: [0, 0] }, [0.4, 0.25]));
+    bad(explore({ kind: 'pins', min: 0, max: 1, den: 20, labels: ['0.4', '0.33'], start: [0, 0] }, [0.4, 0.33]));
+  });
+  it('a fraction bar: the goal can be built within maxDen, and the start is not it', () => {
+    ok(explore({ kind: 'fbar', start: { den: 3, shaded: 2 }, marks: [2 / 3] }, { mode: 'exact', den: 12, shaded: 8 }));
+    ok(explore({ kind: 'fbar', start: { den: 1, shaded: 0 } }, { mode: 'value', value: 3 / 4 }));
+    ok(explore({ kind: 'fbar', start: { den: 1, shaded: 0 }, marks: [1 / 3, 1 / 4] }, { mode: 'common', of: [3, 4] }));
+    bad(explore({ kind: 'fbar', start: { den: 1, shaded: 0 } }, { mode: 'value', value: 1 / 25 })); // 25 parts
+    bad(explore({ kind: 'fbar', start: { den: 1, shaded: 0 }, maxDen: 10 }, { mode: 'common', of: [3, 4] }));
+    bad(explore({ kind: 'fbar', start: { den: 8, shaded: 0 }, lockDen: true }, { mode: 'value', value: 1 / 3 })); // not in eighths
+    bad(explore({ kind: 'fbar', start: { den: 4, shaded: 3 } }, { mode: 'value', value: 3 / 4 })); // starts on the goal
+  });
+  it('a double line: the goal is a multiple of its step, on the line, reached in steps', () => {
+    const top = { max: 100, step: 10, unit: '%', label: 'אחוזים' };
+    ok(explore({ kind: 'dline', top, bottom: { max: 240, step: 24, unit: '₪', label: 'מחיר' }, move: 't', start: { t: 0 } }, 30));
+    const top5 = { ...top, step: 5, every: 2 };
+    ok(explore({ kind: 'dline', top: top5, bottom: { max: 6000, step: 100, unit: 'MB', label: 'גודל' }, move: 'max', fixT: 35, start: { t: 35, max: 1000 } }, 4000));
+    bad(explore({ kind: 'dline', top, bottom: { max: 6000, step: 100 }, move: 'max', fixT: 35, start: { t: 35, max: 1000 } }, 4000)); // 35 is between ticks of 10
+    bad(explore({ kind: 'dline', top, bottom: { max: 240, step: 24 }, move: 't', start: { t: 0 } }, 35)); // not on a step
+    bad(explore({ kind: 'dline', top, bottom: { max: 240, step: 24 }, move: 't', start: { t: 0 } }, 110)); // off the line
+    bad(explore({ kind: 'dline', top: top5, bottom: { max: 6000, step: 100 }, move: 'max', fixT: 35, start: { t: 35, max: 1050 } }, 4000)); // not in steps
+    bad(explore({ kind: 'dline', top: top5, bottom: { max: 6000, step: 100 }, move: 'max', fixT: 35, start: { t: 35, max: 4000 } }, 4000)); // starts on it
   });
   it('two lines: the goal is their meeting point', () => {
     ok(explore({ kind: 'plot', lines: [{ m: 2, b: -1 }, { m: -1.5, b: 6 }] }, [2, 3]));

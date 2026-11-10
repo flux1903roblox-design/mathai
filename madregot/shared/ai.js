@@ -12,7 +12,7 @@ export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
 export const AI_KINDS = ['explain', 'chat', 'generate', 'check', 'exam'];
 // Topic ids the exam check maps each question to, so the app can recommend practice.
-export const TOPIC_IDS = ['signed', 'coord', 'angles', 'line', 'pyth', 'stats', 'expr', 'eq', 'sys', 'other'];
+export const TOPIC_IDS = ['frac', 'signed', 'coord', 'angles', 'line', 'pyth', 'stats', 'expr', 'eq', 'sys', 'other'];
 export const MAX_EXAM_PAGES = 8;
 
 const TUTOR_BODY = `You are the math tutor inside "Madregot", a daily practice app for Israeli middle-school students in grades 7 and 8 (ages 12-14).

@@ -1,10 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import Figure from '@/components/Figure.jsx';
+import NumberLine from '@/components/manip/NumberLine.jsx';
+import NumberPins from '@/components/manip/NumberPins.jsx';
+import FracBar from '@/components/manip/FracBar.jsx';
+import DoubleLine from '@/components/manip/DoubleLine.jsx';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, slotsFor, figPlain } from './index.js';
 import {
   quadOf, manipSolution, manipWrong, manipText, manipPlain, triangleAngles, rightAtC,
   balanceTilt, balanceSolved, balanceDivisor, balanceReachable, boxesDivisor, balanceSplits, balanceDivide, balanceTex, balanceWords, panWords,
   tilesTex, tilesPairs, tilesWords, areaTex, areaSumTex, rayText, rayTex, rayHas, TILES_MAX,
+  fbarDenFor, fbarWords, dlineAt, dlineNum, withUnit, ticksWords, manipCorrect,
 } from './manip.js';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
@@ -407,5 +415,173 @@ describe('generated algebra exercises meet the rules of their object', () => {
       if (it.manip.kind === 'ray' && shown) for (let n = -10; n <= 10; n += 0.5) expect(holds(shown, { x: n }), it.key).toBe(rayHas(it.answer, n));
       if (it.manip.lines) it.manip.lines.forEach((L) => expect(L.m * it.answer[0] + L.b, it.key).toBe(it.answer[1]));
     }
+  });
+});
+
+// ---------------------------------------------------------------- curriculum stage 1: fractions, percent and ratio
+const html = (C, props) => renderToStaticMarkup(createElement(C, { onChange: () => {}, locked: false, reveal: false, good: false, hint: false, ...props }));
+const solves = (it) => {
+  expect(isCorrect(it, manipSolution(it)), `${JSON.stringify(it.answer)}: the solution`).toBe(true);
+  expect(isCorrect(it, manipWrong(it)), `${JSON.stringify(it.answer)}: the near miss`).toBe(false);
+  if (it.manip.start != null) expect(isCorrect(it, it.manip.start), `${JSON.stringify(it.answer)}: the start`).toBe(false);
+  for (const u of [it.answer, manipSolution(it), manipWrong(it)]) expect(manipText(it, u)).not.toMatch(/undefined|NaN/);
+  expect(manipPlain(it)).not.toMatch(/undefined|NaN/);
+  expect(manipPlain(it)).toMatch(/^\[.+\]$/);
+};
+
+describe('the fraction bar (פס שברים)', () => {
+  const bar = (manip, answer) => fixture({ kind: 'fbar', ...manip }, answer);
+  const value = bar({ start: { den: 3, shaded: 2 } }, { mode: 'value', value: 3 / 4 });
+  const locked = bar({ start: { den: 8, shaded: 0 }, lockDen: true }, { mode: 'value', value: 3 / 4 });
+  const full = bar({ start: { den: 5, shaded: 0 }, lockDen: true }, { mode: 'value', value: 1 });
+  const common = bar({ start: { den: 1, shaded: 0 }, marks: [1 / 3, 1 / 4] }, { mode: 'common', of: [3, 4] });
+  const exact = bar({ start: { den: 3, shaded: 2 }, marks: [2 / 3] }, { mode: 'exact', den: 12, shaded: 8 });
+  const whole = bar({ start: { den: 1, shaded: 0 }, whole: 56 }, { mode: 'value', value: 2 / 7 });
+  it('every mode: the solution is right, the near miss and the start are not, and the words hold no undefined', () => {
+    for (const it of [value, locked, full, common, exact, whole]) solves(it);
+  });
+  it('value: any number of parts that shows the value; the solution is the smallest; a locked bar keeps its parts', () => {
+    expect(isCorrect(value, { den: 4, shaded: 3 })).toBe(true);
+    expect(isCorrect(value, { den: 12, shaded: 9 })).toBe(true);
+    expect(isCorrect(value, { den: 12, shaded: 8 })).toBe(false);
+    expect(manipSolution(value)).toEqual({ den: 4, shaded: 3 });
+    expect(manipSolution(locked)).toEqual({ den: 8, shaded: 6 });
+    expect(isCorrect(locked, { den: 4, shaded: 3 })).toBe(false); // the right value, but the question fixed eighths
+    expect(manipWrong(full)).toEqual({ den: 5, shaded: 4 }); // a full locked bar: one part less
+    expect(isCorrect(value, { den: 25, shaded: 18 })).toBe(false); // more parts than the bar takes
+    expect(isCorrect(value, { den: 4, shaded: 5 })).toBe(false);
+    expect(fbarDenFor(0.75)).toBe(4); expect(fbarDenFor(7 / 12)).toBe(12); expect(fbarDenFor(1 / 25)).toBeNull();
+  });
+  it('common: a number of parts every mark falls on, shading free; exact: those parts and that shading', () => {
+    expect(isCorrect(common, { den: 12, shaded: 5 })).toBe(true);
+    expect(isCorrect(common, { den: 24, shaded: 0 })).toBe(true);
+    expect(isCorrect(common, { den: 6, shaded: 2 })).toBe(false);
+    expect(manipSolution(common)).toEqual({ den: 12, shaded: 0 });
+    expect(manipWrong(common)).toEqual({ den: 13, shaded: 0 });
+    expect(isCorrect(exact, { den: 12, shaded: 8 })).toBe(true);
+    expect(isCorrect(exact, { den: 6, shaded: 4 })).toBe(false); // the same value, not the bar asked for
+  });
+  it('is said in words, and the answer is written as a student would', () => {
+    expect(fbarWords({ den: 12, shaded: 7 })).toBe('הפס מחולק ל־12 חלקים, 7 צבועים');
+    expect(fbarWords({ den: 4, shaded: 1 })).toBe('הפס מחולק ל־4 חלקים, חלק אחד צבוע');
+    expect(fbarWords({ den: 1, shaded: 0 })).toBe('הפס שלם, חלק אחד, אף חלק לא צבוע');
+    expect(answerText(value)).toBe('3/4');
+    expect(answerText(exact)).toBe('8/12');
+    expect(answerText(common)).toBe('מספר חלקים שמתחלק ב־3 וב־4, למשל 12');
+    expect(answerText(value, { den: 12, shaded: 9 })).toBe('9/12');
+    expect(manipPlain(whole)).toBe('[פס שברים: הפס שלם, חלק אחד, אף חלק לא צבוע; אפשר לחלק לעד 24 חלקים; הפס כולו 56]');
+  });
+  it('draws the fraction built and, outside a check, the amount; in a check only the fraction', () => {
+    const shown = html(FracBar, { m: whole.manip, value: { den: 7, shaded: 2 }, answer: whole.answer });
+    expect(shown).toMatch(/\\dfrac\{2\}\{7\} = 16/);
+    expect(shown).toContain('aria-valuetext="הפס מחולק ל־7 חלקים, 2 צבועים, הכמות 16 מתוך 56"');
+    const check = html(FracBar, { m: whole.manip, value: { den: 7, shaded: 2 }, answer: whole.answer, test: true });
+    expect(check).toMatch(/\\dfrac\{2\}\{7\}/);
+    expect(check).not.toMatch(/= 16|הכמות/);
+    expect(check).not.toMatch(/NaN|undefined/);
+  });
+});
+
+describe('the double number line (ציר כפול)', () => {
+  const top = { max: 100, step: 10, unit: '%', label: 'אחוזים' };
+  const t = fixture({ kind: 'dline', top, bottom: { max: 240, step: 24, unit: '₪', label: 'מחיר' }, move: 't', start: { t: 0 } }, 30);
+  const mx = fixture({ kind: 'dline', top: { ...top, step: 5, every: 2 }, bottom: { max: 6000, step: 100, unit: 'MB', label: 'גודל הקובץ', every: 10 }, move: 'max', fixT: 35, start: { t: 35, max: 1000 } }, 4000);
+  const km = fixture({ kind: 'dline', top: { max: 10, step: 1, unit: 'ס״מ', label: 'במפה' }, bottom: { max: 5, step: 0.5, unit: 'ק״מ', label: 'במציאות' }, move: 't', start: { t: 0 } }, 7);
+  it('both moves: the solution is right, the near miss and the start are not, and the words hold no undefined', () => {
+    for (const it of [t, mx, km]) solves(it);
+  });
+  it('the value under the marker is t · bottom.max / top.max, and in "max" the marker stays at fixT', () => {
+    expect(dlineAt(t.manip, 30)).toEqual({ t: 30, max: 240, under: 72 });
+    expect(dlineAt(mx.manip, 4000)).toEqual({ t: 35, max: 4000, under: 1400 });
+    expect(dlineAt(km.manip, 7).under).toBe(3.5);
+    expect(withUnit(3.5, 'ק״מ')).toBe('3.5 ק״מ'); expect(withUnit(30, '%')).toBe('30%'); expect(dlineNum(12500)).toBe('12,500');
+    expect(answerText(t)).toBe('30%'); expect(answerText(mx)).toBe('4000 MB'); // a comma only from 10,000
+  });
+  it('"max" reaches the answer in bottom.step steps from start.max, within the line', () => {
+    const { step, max } = mx.manip.bottom; let v = mx.manip.start.max; let n = 0;
+    while (v < mx.answer - 1e-9 && n < 1000) { v += step; n += 1; }
+    expect(Math.abs(v - mx.answer)).toBeLessThan(1e-9);
+    expect(mx.answer).toBeLessThanOrEqual(max);
+    expect(isCorrect(mx, { t: 35, max: 4000 })).toBe(true); // the object's start shape is read too
+  });
+  it('outside a check both values show; in a check only the givens (the value under the marker is hidden)', () => {
+    const open = html(DoubleLine, { m: mx.manip, value: 4000, answer: mx.answer });
+    expect(open).toContain('1400 MB');
+    const check = html(DoubleLine, { m: mx.manip, value: 4000, answer: mx.answer, test: true });
+    expect(check).not.toMatch(/1,400|1400/); // not in the pill, the readout, the labels or the spoken text
+    expect(check).toMatch(/>4000</); // the end of the bottom line stays
+    expect(check).toContain('35%');
+    const tCheck = html(DoubleLine, { m: t.manip, value: 30, answer: t.answer, test: true });
+    expect(tCheck).toContain('30%');
+    expect(tCheck).not.toMatch(/>72|72 ₪/);
+    expect(tCheck).toMatch(/>240</); // the bottom line's end, a given
+    expect(tCheck).not.toMatch(/>48<|>96</); // its other labels would give the value away
+  });
+});
+
+describe('fractions on the number lines (den)', () => {
+  const nl = fixture({ kind: 'numberline', min: 0, max: 2, from: 0, start: 0, den: 3 }, 5 / 3);
+  const dec = fixture({ kind: 'numberline', min: 0, max: 1, from: 0, start: 0, den: 20, fmt: 'dec' }, 0.35);
+  const pins = fixture({ kind: 'pins', min: 0, max: 1, den: 20, labels: ['0.4', '\\frac{1}{4}', '0.7'], start: [0, 0.05, 0.1] }, [0.4, 0.25, 0.7]);
+  it('values are k/den, compared exactly; the near miss is one part away', () => {
+    for (const it of [nl, dec, pins]) solves(it);
+    expect(isCorrect(nl, 1 + 2 / 3)).toBe(true);
+    expect(isCorrect(nl, 1.67)).toBe(false);
+    expect(manipWrong(nl)).toBeCloseTo(2, 9);
+    expect(manipWrong(dec)).toBeCloseTo(0.4, 9);
+    expect(manipWrong(pins)[0]).toBeCloseTo(0.45, 9);
+    expect(answerText(nl)).toBe('5/3'); expect(answerText(dec)).toBe('0.35');
+    expect(answerText(pins)).toBe('0.4 ב־⁦2/5⁩, 1/4 ב־⁦1/4⁩, 0.7 ב־⁦7/10⁩');
+    expect(answerText({ ...pins, manip: { ...pins.manip, fmt: 'dec' } })).toBe('0.4 ב־⁦0.4⁩, 1/4 ב־⁦0.25⁩, 0.7 ב־⁦0.7⁩');
+    expect(manipPlain(pins)).toBe('[ציר מספרים מ־0 עד 1, כל יחידה מחולקת ל־20 חלקים שווים; שמים עליו את המספרים 0.4, 1/4, 0.7]');
+    expect(ticksWords(nl.manip, 5 / 3, 0)).toBe('5 שנתות ימינה מ־0');
+    expect(ticksWords(nl.manip, 1 / 3, 0)).toBe('שנתה אחת ימינה מ־0');
+  });
+  it('outside a check the step label and the arc write the fraction; in a check the line shows no value', () => {
+    const open = html(NumberLine, { m: nl.manip, value: 5 / 3, answer: nl.answer });
+    expect(open).toMatch(/\\frac\{5\}\{3\}/);
+    const check = html(NumberLine, { m: nl.manip, value: 5 / 3, answer: nl.answer, test: true });
+    expect(check).not.toMatch(/\\frac|katex/);
+    expect(check).not.toMatch(/<b[ >]/); // no value in the step label
+    expect(check).not.toMatch(/class="[^"]*mp-jump/); // no number on the arc
+    expect(check).toContain('aria-valuetext="5 שנתות ימינה מ־0"');
+    expect(check).toContain('aria-valuenow="5"'); // parts, not the value
+    const pinCheck = html(NumberPins, { m: pins.manip, value: [0.4, 0.05, 0.1], answer: pins.answer, test: true });
+    expect(pinCheck).not.toMatch(/<b[ >]/);
+    expect(pinCheck).toContain('aria-valuetext="הסמן 0.4: 8 שנתות ימינה מ־0"');
+  });
+  it('a whole-number line draws as before', () => {
+    const it0 = fixture({ kind: 'numberline', min: -10, max: 10, from: 3, start: 3 }, -2);
+    const out = html(NumberLine, { m: it0.manip, value: -2, answer: -2, test: true });
+    expect(out).toContain('aria-valuetext="−2, קפיצה של −5 מ־3"');
+    expect(out).toContain('<b dir="ltr">−2</b>');
+    expect(manipWrong(it0)).toBe(-1);
+  });
+});
+
+describe('the still figures of stage 1 are drawn, and said in words with every number', () => {
+  const figs = {
+    numline: { type: 'numline', from: 0, to: 2, den: 5, marks: [{ x: 7 / 5, label: 'A' }], jumps: [{ from: 0, to: 1, label: '\\frac{5}{5}' }] },
+    fbar: { type: 'fbar', rows: [{ den: 6, shaded: 1, label: '\\frac{1}{6}' }, { den: 8, shaded: 1, label: '\\frac{1}{8}' }], hatch: 1, marks: [1 / 3], whole: 48 },
+    fgrid: { type: 'fgrid', rows: 2, cols: 4, shadeRows: 1, shadeCols: 3, label: '\\frac{3}{4}' },
+    dline: { type: 'dline', top: { max: 100, step: 10, unit: '%', label: 'אחוזים' }, bottom: { max: 4000, step: 400, unit: 'MB', label: 'גודל' }, at: 35, show: 'top', label: '1400' },
+    groups: { type: 'groups', rows: [{ n: 2, label: 'מדריכים' }, { n: 10, label: 'צופים' }] },
+  };
+  it('each renders, with no broken numbers', () => {
+    for (const [k, fig] of Object.entries(figs)) {
+      const out = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(out, k).toMatch(/<svg/);
+      expect(out, k).not.toMatch(/NaN|undefined|Infinity/);
+    }
+    const g = renderToStaticMarkup(createElement(Figure, { fig: figs.groups }));
+    expect((g.match(/fg-dot/g) || []).length).toBe(12);
+  });
+  it('figPlain reads every number drawn', () => {
+    expect(figPlain(figs.numline)).toBe('ציר מספרים מ־0 עד 2, כל יחידה מחולקת ל־5 חלקים שווים; A: 7 חלקים מ־0; קפיצה מ־0 ל־1 (5/5)');
+    expect(figPlain(figs.fbar)).toBe('פס שברים: 1/6: הפס מחולק ל־6 חלקים, חלק אחד צבוע; 1/8: הפס מחולק ל־8 חלקים, חלק אחד צבוע; חלק צבוע אחד מקווקו; סימונים מעל הפס ב־1/3; הפס כולו 48');
+    expect(figPlain(figs.fgrid)).toBe('מלבן מחולק ל־2 שורות ול־4 עמודות; 3 עמודות צבועות בכיוון אחד ו־1 שורות בכיוון השני, והחלק המשותף כהה; 3/4');
+    expect(figPlain(figs.dline)).toBe('ציר כפול: למעלה אחוזים מ־0 עד 100%, שנתה כל 10%; למטה גודל מ־0 עד 4000 MB, שנתה כל 400 MB; הסמן על 35%, מתחתיו 1400');
+    expect(figPlain(figs.groups)).toBe('קבוצות: מדריכים 2, צופים 10');
+    expect(figPlain({ type: 'numline', from: -6, to: 6, marks: [{ x: -2, label: 'B' }, { x: 0.75, label: '0.75' }] })).toBe('ציר מספרים מ־-6 עד 6; B ב־-2; נקודה 0.75');
   });
 });

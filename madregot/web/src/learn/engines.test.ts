@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { LearnState, SkillRecord } from './types';
-import { TOPIC_ORDER, ALL_SKILLS, PREREQS, ancestorsOf, prereqsOf } from './skills';
+import { TOPIC_ORDER, ALL_SKILLS, PREREQS, ancestorsOf, prereqsOf, gradeSkillsOf, BRIDGE, BRIDGE_SKILLS } from './skills';
+// @ts-ignore: plain JS
+import { topicsFor, bridgeTopicsFor, rescueTopicsFor } from '@/content/index.js';
 import { addAttempt, markTaught, masteryState, recordMasteryCheck, recordReview, nextStage, dueReviews, MASTERY_N, REVIEW_DAYS, addDays } from './mastery';
 import { addEvidence, addCounter, slipOf, slipLike, matchesValue, diagnose, discriminating, narrow, startRepair, finishVerify, canOffer, CONFIRM_SCORE } from './misconceptions';
 // @ts-ignore: plain JS
@@ -102,7 +104,7 @@ describe('the topic list the tutor and the exam check use', () => {
 
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(48);
+    expect(ALL_SKILLS).toHaveLength(50);
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));
@@ -111,6 +113,58 @@ describe('the prerequisite graph', () => {
   });
   it('reaches down through several stairs', () => {
     expect(ancestorsOf('line:4')).toEqual(expect.arrayContaining(['line:3', 'signed:3', 'line:2', 'coord:1', 'line:1', 'signed:1']));
+  });
+});
+
+describe('the bridge unit (fractions): the floor under the grade, never a stair of it', () => {
+  it('is in no grade\'s own list, and topicsFor shows no bridge unit', () => {
+    expect([...BRIDGE]).toEqual(['frac']);
+    expect(BRIDGE_SKILLS).toEqual(['frac:1', 'frac:2']);
+    for (const g of ['7', '8'] as const) {
+      expect(gradeSkillsOf(g).some((id) => id.startsWith('frac:'))).toBe(false);
+      expect((topicsFor(g) as { bridge?: boolean }[]).some((t) => t.bridge)).toBe(false);
+      expect((rescueTopicsFor(g) as { bridge?: boolean }[]).some((t) => t.bridge)).toBe(false);
+      expect((bridgeTopicsFor(g) as { id: string }[]).map((t) => t.id)).toEqual(['frac']);
+    }
+    expect(topicsFor('7')[0].id).toBe('signed');
+    expect(gradeSkillsOf('7')[0]).toBe('signed:1');
+    // its stairs come first in the catalogue, so ALL_SKILLS stays in prerequisite order
+    expect(ALL_SKILLS.slice(0, 2)).toEqual(['frac:1', 'frac:2']);
+  });
+  it('a fractions stair is not missing for a grade 7 student with no evidence', () => {
+    expect(isMissing(ctx(empty(), '7'), 'frac:1')).toBe(false);
+    expect(isMissing(ctx(empty(), '8'), 'frac:2')).toBe(false);
+    // a grade 8 slope stair that leans on frac:1 is not held back by it
+    const learn = empty();
+    learn.skills['line:4'] = { attempts: [att(false), att(false), att(false), att(false)] };
+    expect(smallestMissing(ctx(learn, '8'), 'line:4')).not.toBe('frac:1');
+  });
+  it('is missing after a failed floor check, a failed one only', () => {
+    const floor = (right: number) => ({ ...empty(), floor: { at: NOW, on: true, results: { 'frac:1': { asked: 2, right }, 'frac:2': { asked: 2, right: 2 } }, facts: { asked: 2, right: 2 } } });
+    expect(isMissing(ctx(floor(0)), 'frac:1')).toBe(true);
+    expect(isMissing(ctx(floor(1)), 'frac:1')).toBe(false); // half right is not "fewer than half"
+    expect(isMissing(ctx(floor(0)), 'frac:2')).toBe(false);
+    // and a hard grade 8 stair then points at it as its smallest missing prerequisite
+    const learn = floor(0) as LearnState;
+    learn.skills['stats:3'] = { attempts: [att(false), att(false), att(false), att(false)] };
+    learn.skills['frac:2'] = { attempts: [att(false), att(false), att(false), att(false)] };
+    const pre = nextActions(ctx(learn, '8')).find((a) => a.kind === 'prereq');
+    expect(pre?.skill.startsWith('frac:')).toBe(true);
+  });
+  it('is never offered as new unless the floor is on', () => {
+    for (const g of ['7', '8'] as const) {
+      expect(nextActions(ctx(empty(), g)).some((a) => a.skill.startsWith('frac:'))).toBe(false);
+      const off = { ...empty(), floor: { at: NOW, on: false, results: { 'frac:1': { asked: 1, right: 0 } }, facts: { asked: 2, right: 2 } } };
+      expect(nextActions(ctx(off, g)).some((a) => a.kind === 'new' && a.skill.startsWith('frac:'))).toBe(false);
+    }
+    const on = { ...empty(), floor: { at: NOW, on: true, results: {}, facts: { asked: 2, right: 2 } } };
+    expect(nextActions(ctx(on, '7')).find((a) => a.kind === 'new')).toMatchObject({ skill: 'frac:1' });
+    expect(nextActions(ctx(on, '8')).find((a) => a.kind === 'new')).toMatchObject({ skill: 'frac:1' });
+  });
+  it('a stair already started is continued, floor or not', () => {
+    const learn = empty();
+    learn.skills['frac:1'] = { attempts: [att(true)], taught: { A: NOW } };
+    expect(nextActions(ctx(learn, '7')).find((a) => a.skill === 'frac:1')).toMatchObject({ kind: 'continue' });
   });
 });
 

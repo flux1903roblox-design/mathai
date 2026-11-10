@@ -1,7 +1,8 @@
 // The world around each unit of the map, drawn from the topic itself: a thermometer and the sea
 // line for signed numbers, a treasure grid for coordinates, a protractor for angles, slope stairs
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
-// statistics, tiles and brackets for expressions, a balance for equations, two crossing lines for systems. Colours
+// statistics, tiles and brackets for expressions, a balance for equations, two crossing lines for systems, a
+// fraction bar, a pie in eighths and a jug in tenths for the fractions floor. Colours
 // come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on its
 // banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
 
@@ -229,6 +230,38 @@ const Keyhole = () => (
     <circle cx="68" cy="68" r="7" className="sc-g" />
   </svg>
 );
+/** Fractions and decimals: a bar cut into four, three parts shaded, over a number line with its marks. */
+const FracBarArt = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="8" y="22" width="84" height="30" rx="6" className="sc-w sc-line" />
+    <rect x="8" y="22" width="63" height="30" rx="6" className="sc-c" />
+    {[29, 50, 71].map((x) => <path key={x} d={`M${x} 22 V52`} className="sc-stroke" />)}
+    <path d="M8 74 H92" className="sc-stroke" />
+    {[8, 29, 50, 71, 92].map((x) => <path key={x} d={`M${x} 68 V80`} className="sc-stroke" />)}
+    <circle cx="71" cy="74" r="6" className="sc-g" />
+  </svg>
+);
+/** Fractions: a round pie cut into eighths, three of them shaded. */
+const PieEighths = () => (
+  <svg viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="40" className="sc-w sc-line" />
+    <path d="M50 50 L50 10 A40 40 0 0 1 90 50 Z" className="sc-c" />
+    <path d="M50 50 L90 50 A40 40 0 0 1 78.3 78.3 Z" className="sc-c" />
+    {[0, 45, 90, 135].map((a) => { const r = (a * Math.PI) / 180; return <path key={a} d={`M${50 - 40 * Math.sin(r)} ${50 - 40 * Math.cos(r)} L${50 + 40 * Math.sin(r)} ${50 + 40 * Math.cos(r)}`} className="sc-stroke" />; })}
+    <circle cx="50" cy="50" r="4" className="sc-g" />
+  </svg>
+);
+/** Decimals: a measuring jug marked in tenths, filled to seven of them. */
+const TenthsJug = () => (
+  <svg viewBox="0 0 90 110">
+    <ellipse cx="42" cy="104" rx="30" ry="4" className="sc-t" />
+    <path d="M14 33 H70 V96 A6 6 0 0 1 64 102 H20 A6 6 0 0 1 14 96 Z" className="sc-c" />
+    <path d="M14 6 H70 V33 H14 Z" className="sc-w" />
+    <path d="M14 6 H70 V96 A6 6 0 0 1 64 102 H20 A6 6 0 0 1 14 96 Z M70 20 H80 V60 H70" className="sc-none sc-line" />
+    {[15, 24, 33, 42, 51, 60, 69, 78, 87].map((y) => <path key={y} d={`M14 ${y} H${y === 51 ? 30 : 22}`} className="sc-stroke" />)}
+    <path d="M14 33 H34" className="sc-stroke-gold" />
+  </svg>
+);
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -274,6 +307,7 @@ export const SCENERY = {
   expr: [ExprTiles, XBox, Brackets],
   eq: [EqScale, Seesaw, Keyhole],
   sys: [SysCross, TwoRoads, MeetFlag],
+  frac: [FracBarArt, PieEighths, TenthsJug],
 };
 
 /** The unit's own sign for its header: the first piece of its world. */

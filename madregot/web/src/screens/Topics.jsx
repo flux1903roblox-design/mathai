@@ -64,6 +64,7 @@ export default function Topics() {
       <ul className="section-cards" data-region="content">
         {list.map((t, i) => <SectionCard key={t.id} t={t} n={i + 1} current={t === current} />)}
       </ul>
+      <Link to={`/programme?grade=${grade}`} className="prog-entry">כל תוכנית הלימודים</Link>
       <Board grade={grade} placed={!!state?.placed} onStart={(to) => navigate(to)} />
     </div>
   );

@@ -22,6 +22,8 @@ const KINDS = [
   // a drag along the number line moves the point of the ray (the side and the circle are toggles)
   ['ray', 'sys/5', '8', [0.5, 0.5, 0.78, 0.5]],
   ['plot', 'sys/2', '8', [0.5, 0.5, 0.75, 0.25], (it) => !!it.manip.lines, 'the meeting point of two lines'],
+  // a line cut into thirds to sixths: the marker moves one part at a time (fractions floor, frac:1 "place")
+  ['numberline', 'frac/1', '7', [0.06, 0.75, 0.7, 0.75], (it) => !!it.manip.den, 'a fraction on a cut number line'],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');
@@ -153,7 +155,8 @@ test('in a mastery check, the balance and the ray hide whether the target is rea
 // The objects that only teach (algebra tiles in collecting like terms, the rectangle of the distributive law) are not
 // practice items, so they are driven here inside their stair's discover step: a real tap or drag, the step buttons and
 // the arrow keys move them, a wrong state is "not yet", the right one is accepted.
-for (const [kind, route, [fx, fy, tx, ty]] of [['tiles', 'expr/3', [0.5, 0.3, 0.52, 0.3]], ['area', 'expr/4', [0.24, 0.78, 0.24, 0.3]]]) {
+// the fraction bar (frac:1, discover step 7): a drag along the bar shades parts, ↑ shades one more
+for (const [kind, route, [fx, fy, tx, ty]] of [['tiles', 'expr/3', [0.5, 0.3, 0.52, 0.3]], ['area', 'expr/4', [0.24, 0.78, 0.24, 0.3]], ['fbar', 'frac/1', [0.1, 0.5, 0.9, 0.5]]]) {
   test(`teaching object: ${kind}`, async ({ page }) => {
     await open(page, `#/learn/${route}/A`, student('7'));
     for (let i = 0; i < 12; i += 1) {
@@ -161,6 +164,12 @@ for (const [kind, route, [fx, fy, tx, ty]] of [['tiles', 'expr/3', [0.5, 0.3, 0.
       const st = await page.evaluate(() => window.__madregotStep);
       if (st.kind === 'explore' && st.manip.kind === kind) break;
       if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); }
+      // an object of another kind on the way: solve it as a student would, and check
+      if (st.kind === 'explore') {
+        await expect.poll(() => page.evaluate(() => !!window.__madregotSolveStep && window.__madregotSolveStep.forStep === window.__madregotStep)).toBe(true);
+        await page.evaluate(() => window.__madregotSolveStep());
+        await page.locator('.lm-check').click();
+      }
       const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
       await page.locator('.sp-next').click();
       await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);

@@ -1031,7 +1031,6 @@ a.btn { text-decoration: none; }
 @media (max-width: 400px) { .unit-head { padding-inline-end: var(--s1); } }
 .continue-chip { min-height: 44px; } /* Quests' "עליתם 7 מתוך 25" and "דבר אחד לחזק" were 38px tall */
 .path-end { display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
-.path-end p { margin: 0; }
 
 /* ------------------------------------------------------------------ controls above the sheet (STUDENT-9 §2)
    A teaching step's bottom (the button and the result sheet) is sticky over the step. StepPlayer keeps its height in
@@ -1043,3 +1042,49 @@ a.btn { text-decoration: none; }
 .bl-why-text .link-btn { position: relative; min-height: 0; padding: 0 2px; vertical-align: baseline; }
 .bl-why-text .link-btn::after { content: ''; position: absolute; inset: -9px -10px; } /* "עוד" sits in the text line; its touch area is 44px tall */
 .bl-why-more:focus { outline: none; } /* focused only to keep a keyboard's place after "עוד" */
+
+/* ------------------------------------------------------------------ the programme page (/programme, CURRICULUM-1)
+   Unit by unit, what the app teaches of the Ministry's programme. The state is a word in a chip (never colour alone):
+   brand for "יש" (progress), its outline for "חלקי", quiet grey for "עוד לא". Nothing here is red: a gap in the app is
+   not a mistake of the reader's. */
+.prog-main { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
+.prog-sub { margin: 0; color: var(--ink-2); font-size: var(--t-base); line-height: var(--lh-base); }
+.prog-cover { margin: 0; padding: var(--s3) var(--s4); border-radius: var(--r-md); background: var(--brand-tint); color: var(--ink); font-size: var(--t-md); line-height: var(--lh-md); font-weight: 600; text-wrap: pretty; }
+.prog-units { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); }
+.prog-unit { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; padding: var(--s4); border: 2px solid var(--rule); border-radius: var(--r-md); background: var(--paper); }
+.prog-unit-head { display: flex; align-items: flex-start; gap: var(--s3); }
+.prog-unit-title { flex: 1; min-width: 0; margin: 0; font-family: var(--font-ui); font-size: 18px; line-height: 25px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.prog-chip { flex: none; display: inline-flex; align-items: center; min-height: 28px; padding: 0 var(--s3); border-radius: 999px; font-size: var(--t-sm); line-height: var(--lh-sm); font-weight: 700; white-space: nowrap; }
+.prog-chip.is-yes { background: var(--brand); color: var(--on-brand); }
+.prog-chip.is-part { background: var(--brand-tint); color: var(--brand-d); box-shadow: inset 0 0 0 2px var(--brand-line); }
+.prog-chip.is-no { background: var(--ground); color: var(--ink-2); }
+.prog-unit-when { margin: 0; color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.prog-stairs, .prog-gaps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.prog-topic { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.prog-topic-name { font-size: var(--t-base); line-height: var(--lh-base); font-weight: 700; color: var(--ink); }
+a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px; color: var(--brand-d); text-decoration: underline; text-underline-offset: 3px; }
+.prog-topic-stairs { color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); overflow-wrap: anywhere; }
+.prog-gaps { padding-top: var(--s2); border-top: 2px dashed var(--rule); }
+.prog-gap { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--s3); font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.prog-gap-what { min-width: 0; overflow-wrap: anywhere; }
+.prog-gap-when { flex: none; font-weight: 700; color: var(--ink-2); }
+.prog-gap-when.is-next { color: var(--brand-d); }
+.prog-foot { display: flex; flex-direction: column; gap: var(--s1); padding: var(--s4) 0 calc(var(--s5) + env(safe-area-inset-bottom, 0px)); border-top: 2px solid var(--rule); color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.prog-foot p { margin: 0; }
+.prog-foot a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
+/* the way in, from the topics screen and the parents' area: one row with its arrow (pointing on, to the left in RTL) */
+.prog-entry { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 56px; padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: var(--r-md); background: var(--paper); box-shadow: 0 3px 0 var(--rule-press); color: var(--ink); font-size: var(--t-base); line-height: var(--lh-base); font-weight: 700; text-decoration: none; }
+.prog-entry::after { content: ""; flex: none; width: 10px; height: 10px; margin-inline-end: var(--s1); border-left: 2px solid var(--ink-2); border-bottom: 2px solid var(--ink-2); transform: rotate(45deg); }
+.prog-entry:active { transform: translateY(3px); box-shadow: 0 0 0 var(--rule-press); }
+@media (prefers-reduced-motion: reduce) { .prog-entry:active { transform: none; } }
+/* the end of the path: two ways on, each a full-height target on its own line (the column is in the 44px block above);
+   the programme link wraps, so it is a link with a 44px row, not a one-line button like the topics link */
+.path-end a:not(.btn) { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; text-wrap: balance; }
+
+/* ------------------------------------------------------------------ a fraction answer (form 'frac', CURRICULUM-2)
+   The numerator over a bar over the denominator, each a full 44px field; the keypad's next key moves between them.
+   "Right, and it can be reduced" is a note on the form, not a mistake: brand ink, never the error colour. */
+.answer-frac { display: inline-flex; flex-direction: column; align-items: stretch; gap: 3px; }
+.answer-frac-bar { display: block; height: 3px; border-radius: 2px; background: var(--ink); }
+.lesson .answer-frac .slot { width: clamp(84px, 26vw, 140px); height: 44px; font-size: 22px; }
+.answer-partial { color: var(--brand-d); font-weight: 600; }

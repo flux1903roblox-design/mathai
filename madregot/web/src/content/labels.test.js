@@ -12,6 +12,7 @@ import { evaluate, texToExpr, texRelation, holds } from '@/learn/expr.ts';
 import { roundsTo, EQ } from './eq.js';
 import { EXPR } from './expr.js';
 import { SYS } from './sys.js';
+import { FRAC } from './frac.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -218,11 +219,66 @@ function wordsOf(it) {
 /** Is the chosen expression this function of its letter (checked at several values)? */
 const isFn = (it, u, g) => { const t = chosen(it, u); if (!t) return false; const f = fnOf(t, letterOf(t)); return [1, 2, 5, 12].every((v) => near(f(v), g(v))); };
 
+// ---------------------------------------------------------------- fractions and decimals: read from the key
+// frac:1  fr1r:d:L:k  the point A at the k-th of d parts a unit on a line 0..L;  fr1e:p:q:r  p/q = ?/r
+// frac:2  fr2b:<list> and fr2p:<A>,<B>  the numbers as shown ('0.6', '0.125', '1/6')
+// frac:3-4 (their generators come next; these are the keys they write):  fr3…:a:b:c:d:add|sub  a/b ± c/d;
+//          fr4…:a:b:c:d:mul|div  a/b · c/d or a/b : c/d
+const shownList = (it) => it.key.split(':')[1].split(',');
+const valueOf = (s) => { const [a, b] = s.split('/'); return b === undefined ? Number(a) : Number(a) / Number(b); };
+const placesOf = (s) => (s.includes('.') ? s.split('.')[1].length : 0);
+const texOfShown = (s) => (s.includes('/') ? `\\frac{${s.split('/')[0]}}{${s.split('/')[1]}}` : s);
+/** The listed number an answer stands for: the one typed (exactly or rounded as a student types it), or the one chosen. */
+function pickedOf(it, u) {
+  const list = shownList(it);
+  if (it.form === 'mc') { const t = chosen(it, u); return list.find((s) => texOfShown(s) === t) ?? null; }
+  // the number typed exactly first; a rounding only when it is the only listed number that rounds there
+  const exact = list.find((s) => near(u, valueOf(s), 1e-9));
+  if (exact !== undefined) return exact;
+  const rounded = list.filter((s) => fits(u, valueOf(s)));
+  return rounded.length === 1 ? rounded[0] : null;
+}
+/** Not the largest: some other listed number is at least as large (an equal pair has no largest). */
+const notLargest = (list, s) => list.some((x) => x !== s && valueOf(x) >= valueOf(s) - 1e-9);
+/** The picked decimal has strictly the most (or the fewest) places of the listed decimals, and is not the largest. */
+function byPlaces(it, u, most) {
+  const list = shownList(it); const s = pickedOf(it, u);
+  if (s == null || s.includes('/')) return false;
+  const decs = list.filter((x) => !x.includes('/')); const ps = decs.map(placesOf);
+  const edge = most ? Math.max(...ps) : Math.min(...ps);
+  return placesOf(s) === edge && ps.filter((p) => p === edge).length === 1 && notLargest(list, s);
+}
+const fracOp = (it) => { const p = it.key.split(':'); return { a: +p[1], b: +p[2], c: +p[3], d: +p[4], op: p[5] }; };
+const lcmOf = (x, y) => { let a = x; let b = y; while (b) [a, b] = [b, a % b]; return (x * y) / a; };
+
 /**
  * The property each category names, per topic. (it, u) → does the answer u really show this mistake?
  * A category a stair defines for itself is checked with that stair's meaning (catLabel shows the same).
  */
 const PROPS = {
+  frac: {
+    // the marks counted instead of the gaps: k/(d − 1)
+    'count-marks': (it, u) => { const [d, , k] = nums(it.key); return it.key.startsWith('fr1r:') && fits(u, k / (d - 1)); },
+    // the line 0..2 taken as one unit: k/(2d)
+    'whole-line': (it, u) => { const [d, L, k] = nums(it.key); return it.key.startsWith('fr1r:') && L === 2 && fits(u, k / (2 * d)); },
+    // p/q = ?/r answered with the same number added to the numerator as to the denominator
+    'add-same': (it, u) => { const [p, q, r] = nums(it.key); return it.key.startsWith('fr1e:') && near(u, p + (r - q)); },
+    'longer-larger': (it, u) => byPlaces(it, u, true),
+    'shorter-larger': (it, u) => byPlaces(it, u, false),
+    // fractions with one numerator: the one with the largest denominator
+    'bigger-den': (it, u) => {
+      const list = shownList(it); const s = pickedOf(it, u);
+      if (s == null || !list.every((x) => x.includes('/'))) return false;
+      const [n, d] = s.split('/').map(Number);
+      return list.every((x) => Number(x.split('/')[0]) === n) && list.every((x) => Number(x.split('/')[1]) <= d);
+    },
+    'add-across': (it, u) => { const q = fracOp(it); return q.op === 'add' && fits(u, (q.a + q.c) / (q.b + q.d)); },
+    'num-not-scaled': (it, u) => { const q = fracOp(it); return (q.op === 'add' || q.op === 'sub') && fits(u, (q.a + (q.op === 'add' ? q.c : -q.c)) / lcmOf(q.b, q.d)); },
+    'keep-den': (it, u) => { const q = fracOp(it); return q.b === q.d && (q.op === 'mul' ? fits(u, (q.a * q.c) / q.b) : q.op === 'div' && fits(u, q.a / q.c / q.b)); },
+    'divide-flip': (it, u) => { const q = fracOp(it); return q.op === 'div' && fits(u, (q.c / q.d) / (q.a / q.b)); },
+    // a product where a quotient was asked (typed), or a product chosen as the way to find a quotient
+    'mult-bigger': (it, u) => { const q = fracOp(it); return q.op === 'div' && (it.form === 'mc' ? /\\cdot/.test(chosen(it, u)) : fits(u, (q.a / q.b) * (q.c / q.d))); },
+  },
   expr: {
     concat: (it, u) => { const q = substOf(it); return q.x >= 1 && q.x <= 9 && near(substVal(it, u), withProd(q, 10 * q.a + q.x)); },
     order: (it, u) => { const q = substOf(it); return q.f < 2 && near(u, (q.f === 0 ? q.b + q.a : q.b - q.a) * q.x); },
@@ -537,6 +593,7 @@ function candidates(it) {
   if (it.form === 'pt') { const v = [...range(-14, 14), ...range(-12, 12, 0.5)]; const set = [...new Set(v)]; return set.flatMap((x) => set.filter((y) => Number.isInteger(x) || Number.isInteger(y) || true).map((y) => [x, y])).filter(([x, y]) => Number.isInteger(x) || y === 0); }
   if (it.form === 'line') return range(-6, 6, 0.5).flatMap((m) => range(-14, 14).map((b) => ({ m, b })));
   if (it.form === 'lin') return range(-30, 30).flatMap((k) => range(-100, 100).map((c) => ({ k, c })));
+  if (it.form === 'frac') return range(-20, 60).flatMap((n) => range(-6, 60).filter((d) => d !== 0).map((d) => ({ n, d })));
   if (it.form === 'manip') {
     const m = it.manip;
     switch (m.kind) {
@@ -548,7 +605,8 @@ function candidates(it) {
       case 'squares': return range(1, 12).flatMap((a) => range(1, 12).map((b) => ({ a, b })));
       case 'triangle': return range(-6, 6).flatMap((x) => range(1, 6).map((y) => [x, y]));
       case 'ray': return range(m.min ?? -10, m.max ?? 10).flatMap((at) => [-1, 1].flatMap((dir) => [false, true].map((closed) => ({ at, dir, closed }))));
-      case 'pins': { const opts = it.answer.map((v, i) => [v, -v, m.start[i], v + 1]); return opts.reduce((acc, o) => acc.flatMap((a) => o.map((x) => [...a, x])), [[]]); }
+      case 'pins': { const st = 1 / (m.den || 1); const opts = it.answer.map((v, i) => [v, -v, m.start[i], v + st]); return opts.reduce((acc, o) => acc.flatMap((a) => o.map((x) => [...a, x])), [[]]); }
+      case 'fbar': return range(1, m.maxDen || 24).flatMap((den) => range(0, den).map((shaded) => ({ den, shaded })));
       default: return [];
     }
   }
@@ -585,9 +643,9 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-describe('the algebra topics name only what a property can check', () => {
-  it('every category of expressions, equations and systems has its property here', () => {
-    for (const t of [EXPR, EQ, SYS]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+describe('the algebra and fraction topics name only what a property can check', () => {
+  it('every category of expressions, equations, systems and fractions has its property here', () => {
+    for (const t of [EXPR, EQ, SYS, FRAC]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

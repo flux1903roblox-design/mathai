@@ -2274,3 +2274,106 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .jstage .level-badge { color: var(--c-ink); }
 
 @media (max-width: 400px) { .standing-row { grid-template-columns: 1fr; } .standing-badge { grid-row: auto; justify-self: start; } }
+
+/* ---------- fractions, percent and ratio: the fraction bar, the double number line, cut number lines ---------- */
+/* Colours come from the unit (--c, the brand blue) with the brand as a fallback, so the same drawings work as still
+   figures. Green is only the answer shown after a miss; nothing here is red. */
+.svg-frac-bar { stroke: var(--ink); stroke-width: 1.6; }
+.svg-frac.mp-jump .svg-frac-bar { stroke: var(--c-d, var(--brand-d)); stroke-width: 2; }
+.svg-frac.mp-ghost-num .svg-frac-bar { stroke: var(--good-ink); }
+.mp-ghost-num { fill: var(--good-ink); font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+.svg-letter { font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; }
+.mp-tick.part { stroke: var(--ink-2); stroke-width: 1.5; }
+.mp-num.strong { fill: var(--ink); font-weight: 700; }
+.manip-numberline.cut .manip-canvas { background: color-mix(in srgb, var(--c-tint, var(--brand-tint)) 70%, var(--paper)); }
+/* a line cut into parts has only its whole numbers labelled: they can be larger */
+.manip-numberline.cut .mp-num, .manip-pins.cut .mp-num { font-size: 17px; }
+/* a fraction in a step label is set a little larger than inline maths, so its digits read at the label's size */
+.step-label b .katex, .np-chip .katex { font-size: 1.3em; }
+
+/* the fraction bar */
+.manip-fbar .manip-readout, .manip-dline .manip-readout { min-height: 34px; font-size: 22px; }
+.mp-fbar-part { fill: var(--paper); transition: fill var(--duration-fast) var(--ease-out); }
+.mp-fbar-part.on { fill: color-mix(in srgb, var(--c, var(--brand)) 62%, var(--paper)); }
+.mp-fbar-cut { stroke: var(--ink); stroke-width: 1.5; }
+.mp-fbar-edge { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linejoin: round; }
+.mp-fbar-hatch-line { stroke: var(--c-d, var(--brand-d)); stroke-width: 3; }
+.mp-fbar-cross { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.mp-fbar.ghost .mp-fbar-part { fill: var(--paper); }
+.mp-fbar.ghost .mp-fbar-part.on { fill: var(--good-tint); }
+.mp-fbar.ghost .mp-fbar-cut, .mp-fbar.ghost .mp-fbar-edge { stroke: var(--good-d); stroke-dasharray: 5 4; }
+.mp-fbar-mark { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.mp-fbar-mark-label { fill: var(--ink); font-size: 15px; font-weight: 700; }
+.mp-fbar-whole .mp-num { font-size: 16px; }
+/* two step buttons side by side even on a 320px phone (the buttons keep their 44px) */
+@media (max-width: 359px) {
+  .manip-fbar .manip-controls { gap: 4px; }
+  .manip-fbar .stepper { gap: 0; padding: 2px; }
+  .manip-fbar .step-label { padding-inline: 1px; }
+}
+.mp-fbar-guide { stroke: var(--brand); stroke-width: 2.5; stroke-dasharray: 6 5; animation: hint-in var(--duration-slow) var(--ease-smooth-out) both; }
+
+/* the double number line */
+.mp-dline-axis { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.mp-dline-room { stroke: var(--rule-strong); stroke-width: 2.5; stroke-dasharray: 2 6; stroke-linecap: round; }
+.mp-dline-name { fill: var(--ink-2); font-size: 14px; font-weight: 600; }
+.mp-dline .mp-num { font-size: 14px; }
+.mp-dline-drop { stroke: var(--c-d, var(--brand-d)); stroke-width: 2; stroke-dasharray: 4 4; }
+.mp-dline-handle { fill: var(--c, var(--brand)); stroke: var(--paper); stroke-width: 3; }
+.mp-dline-dot { fill: var(--paper); stroke: var(--c-d, var(--brand-d)); stroke-width: 3; }
+.mp-dline-pill rect { fill: var(--paper); stroke: var(--c, var(--brand)); stroke-width: 2; }
+.mp-dline-pill.under rect { fill: var(--c-tint, var(--brand-tint)); }
+.mp-dline-pill text { fill: var(--c-d, var(--brand-d)); font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+.mp-dline-ghost { stroke: var(--good); stroke-width: 3; stroke-dasharray: 6 5; stroke-linecap: round; }
+.mp-dline-read { gap: 6px 8px; }
+.mp-dline-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 0 12px; border-radius: 999px; background: var(--c-tint, var(--brand-tint)); color: var(--ink); }
+.mp-dline-chip span { font-family: var(--font-ui); font-size: var(--t-base); font-weight: 600; }
+.mp-dline-arrow { color: var(--ink-2); }
+@media (max-height: 700px) and (max-width: 899px) {
+  .manip-fbar .manip-readout, .manip-dline .manip-readout { min-height: 28px; font-size: 19px; }
+}
+
+/* the still figures: a number line, bars, a cut rectangle, the double line, dots in rows */
+.figure.fg-numline { max-width: 340px; }
+.fg-nl-axis { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fg-nl-head { fill: var(--ink); }
+.fg-nl-tick { stroke: var(--ink); stroke-width: 2; }
+.fg-nl-tick.part { stroke: var(--ink-2); stroke-width: 1.4; }
+.fg-nl-tick.zero { stroke-width: 3; }
+.fg-nl-num { fill: var(--ink-2); font-size: 16px; font-weight: 500; }
+.fg-nl-num.zero { fill: var(--ink); font-weight: 700; }
+.fg-nl-jump, .fg-nl-jump-head { fill: none; stroke: var(--brand); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.fg-nl-jump-label { fill: var(--brand-d); font-size: 15px; font-weight: 700; }
+.svg-frac.fg-nl-jump-label .svg-frac-bar { stroke: var(--brand-d); }
+.fg-nl-mark circle { fill: var(--brand); stroke: var(--paper); stroke-width: 2.5; }
+.fg-nl-mark.tone-good circle { fill: var(--good); }
+.fg-nl-mark.tone-bad circle { fill: var(--bad); }
+.fg-nl-mark-label { fill: var(--ink); font-size: 18px; font-weight: 700; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+.fg-anim .fg-nl-tick.part { transform-box: fill-box; transform-origin: center; animation: fg-pop var(--duration-fast) var(--ease-smooth-out) both; animation-delay: calc(var(--i, 0) * 90ms + 150ms); }
+.fg-anim .fg-nl-jump { stroke-dasharray: 1; animation: fg-draw var(--duration-medium) var(--ease-smooth-out) both; animation-delay: calc(var(--i, 0) * 90ms + 250ms); }
+.fg-anim .fg-nl-jump-head, .fg-anim .fg-nl-jump-label { animation: hint-in var(--duration-fast) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 90ms + 450ms); }
+@keyframes fg-pop { from { opacity: 0; transform: scaleY(0.2); } }
+@keyframes fg-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.fg-fbar-label { fill: var(--ink); font-size: 16px; font-weight: 700; }
+.fg-grid-cell { fill: var(--paper); stroke: var(--ink-2); stroke-width: 1.2; }
+.fg-grid-cell.col { fill: color-mix(in srgb, var(--brand) 22%, var(--paper)); }
+.fg-grid-cell.row { fill: color-mix(in srgb, var(--ink) 9%, var(--paper)); }
+.fg-grid-cell.both { fill: color-mix(in srgb, var(--brand) 62%, var(--paper)); }
+.fg-grid-edge { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linejoin: round; }
+.fg-grid-label { fill: var(--ink); font-size: 17px; font-weight: 700; }
+.fg-dot { stroke: var(--paper); stroke-width: 1.5; }
+.fg-dot.tone-0 { fill: var(--brand); }
+.fg-dot.tone-1 { fill: var(--streak); }
+.fg-dot.tone-2 { fill: var(--gold-d); }
+.fg-dot.tone-3 { fill: var(--ink-2); }
+@media (prefers-reduced-motion: reduce) {
+  .mp-fbar-part { transition: none; }
+  .mp-fbar-guide, .fg-anim .fg-nl-tick.part, .fg-anim .fg-nl-jump, .fg-anim .fg-nl-jump-head, .fg-anim .fg-nl-jump-label { animation: none; }
+  .fg-anim .fg-nl-jump { stroke-dasharray: none; }
+}
+
+/* the words of a unit and of a stair */
+.guide-words { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s2); }
+.guide-words li { padding: 4px 12px; border-radius: 999px; background: var(--ground); border: 1px solid var(--rule); font-size: var(--t-sm); font-weight: 600; color: var(--ink); }
+.journey-words { margin: var(--s2) 0 0; font-size: var(--t-sm); line-height: 1.6; color: var(--ink-2); }
+.journey-words-tag { font-weight: 700; color: var(--ink); }

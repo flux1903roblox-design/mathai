@@ -123,6 +123,7 @@ export default function Journey() {
         <section className="journey-goals" aria-labelledby="goals-title">
           <h2 id="goals-title" className="h-section">מה נלמד</h2>
           <ul className="plain-list">{c.objectives.map((o) => <li key={o}><MathText text={o} /></li>)}</ul>
+          {c.words?.length > 0 && <p className="journey-words"><span className="journey-words-tag">מילים חדשות:</span> {c.words.join(' · ')}</p>}
         </section>
       )}
 

@@ -10,12 +10,14 @@ import { VERIFY_N } from './misconceptions';
 import { DIAG_PER_SKILL } from './examRescue';
 // @ts-ignore: plain JS
 import { makeItem, fairForCheck, namesOf } from '@/content/index.js';
+// @ts-ignore: plain JS
+import { withFormatNote } from '@/content/util.js';
 
 /** probe: where a misconception would show; control: where it would not (so a fixed answer cannot pass a verification). */
 export type Source = 'gen' | 'diag' | 'transfer' | 'probe' | 'control';
 
 export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source: Source) {
-  return {
+  const it = {
     key: `${c.skill}:${source}:${JSON.stringify(p)}`,
     text: model.text(p), display: model.display?.(p), fig: model.fig?.(p), form: 'num' as const, unit: model.unit,
     answer: model.answer(p), exact: model.exact?.(p), hint: model.hint(p), solution: model.solution(p),
@@ -23,7 +25,10 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
     diagnosis: (u: number) => diagnose(model, p, u),
     could: couldShow(model, p),
     topic: c.topic, level: c.level, levelTitle: c.title, source,
+    ...(model.precise ? { precise: true } : {}), ...(model.fmt ? { fmt: model.fmt } : {}),
   };
+  // an exact answer with no short decimal (7/12) says once how to write it, as a generated exercise does
+  return model.precise ? withFormatNote(it) : it;
 }
 
 /** The forms of a stair's exercises that can show some misconceptions, learned once from a sample (see genProbe). */

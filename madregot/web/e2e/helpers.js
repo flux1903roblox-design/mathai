@@ -1,5 +1,6 @@
 // Shared helpers for the end-to-end tests.
 import { expect } from '@playwright/test';
+import { toFrac } from '../src/content/util.js';
 
 /** A fixed Thursday, so streaks, the week strip and daily quests are the same on every run. */
 export const NOW = new Date('2026-11-05T10:00:00');
@@ -65,8 +66,15 @@ export async function type(page, value) {
   for (const ch of String(value)) await page.getByRole('button', { name: KEY_NAME[ch] || ch, exact: true }).click();
 }
 
-const slotNames = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : it.form === 'lin' ? ['k', 'c'] : ['v']);
-const values = (it) => (it.form === 'pt' ? it.answer : it.form === 'line' ? [it.answer.m, it.answer.b] : it.form === 'lin' ? [it.answer.k, it.answer.c] : [it.answer]);
+const slotNames = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : it.form === 'lin' ? ['k', 'c'] : it.form === 'frac' ? ['n', 'd'] : ['v']);
+/** The typed values of the right answer; a fraction's value becomes its numerator and denominator in lowest terms. */
+const values = (it) => {
+  if (it.form === 'pt') return it.answer;
+  if (it.form === 'line') return [it.answer.m, it.answer.b];
+  if (it.form === 'lin') return [it.answer.k, it.answer.c];
+  if (it.form === 'frac') { const f = toFrac(it.answer); return [f.n, f.d]; }
+  return [it.answer];
+};
 
 /** Answer the current exercise, right or wrong (a wrong choice that is still enabled). */
 export async function answer(page, right) {

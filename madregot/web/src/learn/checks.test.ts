@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 // @ts-ignore: plain JS
 import * as lessonJs from '@/lib/lesson.js';
 // @ts-ignore: plain JS
-import { isCorrect } from '@/content/index.js';
+import { isCorrect, answerInput } from '@/content/index.js';
 import { learnAfterAnswer, learnAfterCheck, migrateLearn, emptyLearn } from './storeGlue';
 import { masteryState } from './mastery';
 import { addSubModel } from './content/signed';
@@ -18,9 +18,9 @@ function play(s: any, wrong: (i: number, it: any) => number | null = () => null)
   for (let i = 0; i < 40 && !s.finished; i += 1) {
     const it = s.item; seen.push(it);
     const w = wrong(i, it);
-    const u = w == null ? it.answer : w;
+    const u = w == null ? answerInput(it) : w;
     let r = answer(s, u);
-    if (r.s.phase === 'retry') r = answer(r.s, it.answer);
+    if (r.s.phase === 'retry') r = answer(r.s, answerInput(it));
     s = next(r.s);
   }
   return { s, seen };
