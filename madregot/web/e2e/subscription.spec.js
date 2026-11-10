@@ -38,7 +38,7 @@ async function open(page, route, state = null, { local = {}, seed = '424242' } =
 
 /** A device with the app pointed at the fake server. `profile: null` is the parent's own phone. */
 // (seeded as a current, v3 save: the v3 migration drops a saved server address in builds that cannot change it)
-const withServer = (extra = {}, grade = '7') => ({ ...student(grade, { ai: { mode: 'server', apiUrl: API, key: '', device: '' }, ...extra }), version: 3 });
+const withServer = (extra = {}, grade = '7') => ({ ...student(grade, { ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true }, ...extra }), version: 3 });
 const classStudent = (extra = {}) => withServer({ profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' }, ...extra });
 const parentPhone = () => withServer({ profile: null });
 const teacher = () => withServer({ profile: { role: 'teacher', name: 'רונית', classes: [{ code: 'K7Q2MD', key: 'tkey-123', className: 'ז׳3', grade: '7' }], active: 'K7Q2MD' } });
@@ -151,7 +151,7 @@ test.describe('the smart tutor', () => {
     await expect(page.locator('.form-error')).toHaveCount(0);
     // a family plan over its month: the photo check says when it is back, and a stale screen gets the calm sheet
     st.devices.push({ id: 'd1', label: 'הטאבלט', token: `fd1.${'c'.repeat(64)}` }); st.plan = livePlan(); st.economy = true;
-    await open(page, '#/assistant', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', familyDevice: { token: `fd1.${'c'.repeat(64)}`, label: 'הטאבלט' } } }));
+    await open(page, '#/assistant', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true, familyDevice: { token: `fd1.${'c'.repeat(64)}`, label: 'הטאבלט' } } }));
     await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
     await expect(page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' }).getByText('הבדיקה הזו חוזרת ב־1 בחודש.')).toBeVisible();
     await page.keyboard.press('Escape');
@@ -200,7 +200,7 @@ test.describe('the smart tutor', () => {
   test('the lesson asks the tutor by itself on a family plan and in a licensed class, never on the free taste', async ({ page }) => {
     const { st, log } = await fakeServer(page, {}, baseOf());
     st.devices.push({ id: 'd1', label: 'הטאבלט', token: `fd1.${'c'.repeat(64)}` }); st.plan = livePlan();
-    await open(page, '#/lesson/signed/1', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', familyDevice: { token: `fd1.${'c'.repeat(64)}`, label: 'הטאבלט' } } }));
+    await open(page, '#/lesson/signed/1', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true, familyDevice: { token: `fd1.${'c'.repeat(64)}`, label: 'הטאבלט' } } }));
     await answer(page, false); await proceed(page); await answer(page, false);
     await expect(page.getByText('הסבר קצר מהעוזר.')).toBeVisible();
     const fam = aiCalls(log).find((r) => r.path === '/api/ai/explain');

@@ -98,6 +98,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     const signed = token && st.sessions.has(token);
     // ---- the child's side
     if (path === '/api/ai/status') return reply(route, 200, status(h), h['x-family-device'] && !famOf(h) ? { 'X-AI-Linked': '0' } : {});
+    // a reported answer (trust spec TRUST-4 §4.5): kept, never counted as a question
+    if (path === '/api/ai/report') return reply(route, 200, { ok: true });
     if (path.startsWith('/api/ai/')) {
       const kind = path.split('/').pop(); const g = GROUP[kind]; const tier = tierOf(h);
       let left;

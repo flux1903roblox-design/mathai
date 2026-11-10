@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Send } from 'lucide-react';
 import { detectDistress, maskPersonal } from '@shared/safety.js';
 import { runAI, aiReady } from '@/lib/ai.js';
-import { aiAccess, useAIStatus } from '@/lib/account.js';
+import { aiAccess, useAIStatus, needIntro } from '@/lib/account.js';
 import { Button } from './ui.jsx';
 import { Markdown } from './MathText.jsx';
 import { Thinking } from './ui.jsx';
@@ -11,6 +11,7 @@ import AIAllowance from './AIAllowance.jsx';
 import Mascot from './Mascot.jsx';
 import SupportCard from './SupportCard.jsx';
 import { SupportLink } from './SupportSheet.jsx';
+import ReportAnswer from './ReportAnswer.jsx';
 import { piiLine } from '@/content/support.js';
 
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
@@ -85,6 +86,9 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
       }
       return;
     }
+    // the first AI action on this device: the introduction first, then this same message (never before a message that
+    // reads as distress: that one goes at once, and the card is already on screen)
+    if (!care && needIntro(() => send(content))) return;
     if (care) setRestBack(false);
     if (care && pending) abortRef.current?.abort(); // the maths answer gives way
     const mine = ++sendRef.current;
@@ -99,7 +103,7 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
     const mineNow = () => sendRef.current === mine;
     try {
       const res = await runAI('chat', { messages: history, context }, { onText: (t) => { if (mineNow()) setStreaming(t); }, signal: ctrl.signal, onMadi, quiet: care });
-      const reply = { role: 'assistant', content: res.text, ...(res.care ? { care: true } : {}) };
+      const reply = { role: 'assistant', content: res.text, ...(res.care ? { care: true } : {}), ...(res.blocked ? { blocked: true } : {}) };
       setMessages((ms) => {
         const at = ms.findIndex((m) => m.role === 'support' && m.id === mine);
         if (at >= 0) return [...ms.slice(0, at), reply, ...ms.slice(at)];
@@ -168,6 +172,8 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
                 </div>
               </div>
               {m.pii && <p className="msg-pii">{piiLine(m.pii)}</p>}
+              {/* every answer of the tutor can be reported; the calm sentence that replaced a stopped one is ours, not its */}
+              {m.role === 'assistant' && !m.blocked && <div className="msg-tools"><ReportAnswer kind="chat" reply={m.content} /></div>}
             </Fragment>
           );
         })}

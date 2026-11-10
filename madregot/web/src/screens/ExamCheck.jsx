@@ -64,7 +64,9 @@ export default function ExamCheck() {
   };
 
   const check = async () => {
-    if (gate('exam')) return; // the tutor is done for today: the calm sheet says so, nothing is sent
+    // the tutor is done for today (the calm sheet says so), or this is the first AI action here (the introduction
+    // opens, and the check runs after it): nothing is sent yet
+    if (gate('exam', { then: check })) return;
     setState({ phase: 'loading' });
     window.scrollTo?.({ top: 0 });
     try {

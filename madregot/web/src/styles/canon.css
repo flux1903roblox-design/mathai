@@ -595,3 +595,26 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .help-care { margin: 0; font-weight: 700; color: var(--ink); }
 button.set-row { justify-content: space-between; gap: var(--s3); width: 100%; font-family: inherit; }
 button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
+
+/* ------------------------------------------------------------------ the tutor's introduction and "report this answer"
+   (trust spec TRUST-4 §4.5, §4.6). The introduction is a calm sheet read once: Madi still, five short lines, one
+   button. The report flag is quiet: an ink-2 icon with a full 44px target under each answer, never a colour. */
+.ai-intro { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s3); }
+.ai-intro-madi { flex: none; }
+.ai-intro-list { display: flex; flex-direction: column; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+.ai-intro-list li { position: relative; padding-inline-start: var(--s4); font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
+.ai-intro-list li::before { content: ''; position: absolute; inset-inline-start: 0; top: 0.62em; width: 7px; height: 7px; border-radius: 50%; background: var(--brand); }
+.report-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; color: var(--ink-2); background: transparent; }
+.report-btn:hover:not(:disabled) { color: var(--brand-d); background: var(--brand-tint); }
+.report-btn.is-sent, .report-btn:disabled { color: var(--ink-2); opacity: 0.75; cursor: default; }
+.msg-tools { display: flex; margin-top: calc(-1 * var(--s2)); padding-inline-start: calc(34px + var(--s2)); }
+.ai-report-row { display: flex; justify-content: flex-end; margin-top: calc(-1 * var(--s1)); }
+.gen-note { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.gen-note p { margin: 0; }
+.q-actions .q-report { margin-inline-start: auto; }
+.report-reasons { display: flex; flex-direction: column; gap: var(--s2); margin: 0; padding: 0; border: 0; }
+.report-reason { display: flex; align-items: center; gap: var(--s3); min-height: 52px; padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 14px; background: #fff; font-size: var(--t-base); line-height: var(--lh-base); cursor: pointer; }
+.report-reason.on { border-color: var(--brand); background: var(--brand-tint); }
+.report-reason input { width: 22px; height: 22px; margin: 0; accent-color: var(--brand); flex: none; }
+.report-reason:focus-within { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.report-note { margin: var(--s3) 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }

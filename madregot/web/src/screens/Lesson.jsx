@@ -11,7 +11,7 @@ import { manipSolution, manipWrong } from '@/content/manip.js';
 import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
-import { autoAskAllowed, gate, aiAccess, useAIStatus } from '@/lib/account.js';
+import { autoAskAllowed, gate, aiAccess, useAIStatus, needIntro, introSeen } from '@/lib/account.js';
 import AIAllowance from '@/components/AIAllowance.jsx';
 import ToolLocked from '@/components/ToolLocked.jsx';
 import { api, syncNow } from '@/lib/api.js';
@@ -22,6 +22,7 @@ import Manip from '@/components/manip/Manip.jsx';
 import AIChat from '@/components/AIChat.jsx';
 import Notebook from '@/components/Notebook.jsx';
 import CheckResult from '@/components/CheckResult.jsx';
+import ReportAnswer, { checkText } from '@/components/ReportAnswer.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
 import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/components/ui.jsx';
@@ -268,8 +269,10 @@ export default function Lesson() {
   });
 
   const askExplain = async () => {
+    // the first AI action on this device: the introduction first, then this same question
+    if (needIntro(askExplain)) return;
     setExplain({ state: 'loading', text: '' });
-    try { const r = await runAI('explain', aiContext(), { onMadi: askMadi }); setExplain({ state: 'done', text: r.text, care: r.care === true }); } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
+    try { const r = await runAI('explain', aiContext(), { onMadi: askMadi }); setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true }); } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
   };
 
   const commit = (event) => {
@@ -321,8 +324,9 @@ export default function Lesson() {
         commit(result.event);
         if (item.form !== 'mc') setStruck(true);
         // The second miss is the moment help matters most: ask the tutor without waiting to be asked.
-        // (only when that is not one of the few free questions: on the free taste the student chooses when to ask)
-        if (aiReady() && !isTest(ns.kind) && autoAskAllowed() && aiAccess('explain').state === 'open') setTimeout(() => askExplainFor(ns), 0);
+        // (only when that is not one of the few free questions: on the free taste the student chooses when to ask; and
+        // never before the introduction to the tutor was read: then "למה טעיתי?" waits for the student to ask)
+        if (aiReady() && !isTest(ns.kind) && autoAskAllowed() && introSeen() && aiAccess('explain').state === 'open') setTimeout(() => askExplainFor(ns), 0);
       }
       if (result.retry) { setStruck(true); setActive(names[0] || 'v'); if (item.form === 'mc') setChoice(null); if (result.event) st.noteLearn(result.event); }
     }
@@ -332,7 +336,7 @@ export default function Lesson() {
     setExplain({ state: 'loading', text: '' });
     try {
       const r = await runAI('explain', { ...aiContext(), studentAnswer: ns.wrong.map((w) => answerText(ns.item, w)).join(' ; ') }, { onMadi: askMadi });
-      setExplain({ state: 'done', text: r.text, care: r.care === true });
+      setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true });
     } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
   };
 
@@ -424,7 +428,7 @@ export default function Lesson() {
 
   const checkWork = async () => {
     // the photo check is the full tutor's: on the free taste its info state shows instead (and the teacher is one tap away)
-    const g = gate('check', { onMadi: askMadi });
+    const g = gate('check', { onMadi: askMadi, then: checkWork });
     if (g === 'locked' || g === 'economy') { setNbCheck({ state: 'locked', kind: g }); return; }
     if (g) return;
     const image = nbRef.current?.toImage();
@@ -542,6 +546,7 @@ export default function Lesson() {
             {nbCheck.state === 'loading' && <Box tone="ai" title="בדיקת הדרך"><Thinking states={['קורא את מה שכתבתם', 'בודק כל שורה', 'מסכם']} /></Box>}
             {nbCheck.state === 'error' && <p className="form-error" role="alert">{nbCheck.message}</p>}
             {nbCheck.state === 'done' && <CheckResult r={nbCheck.r} />}
+            {nbCheck.state === 'done' && <div className="ai-report-row"><ReportAnswer kind="check" reply={checkText(nbCheck.r)} /></div>}
             {nbCheck.state === 'done' && nbCheck.r?.care && <SupportCard variant="after-message" />}
             {nbCheck.state === 'locked' && <ToolLocked kind="check" state={nbCheck.kind} compact onTeacher={inClass ? () => setHelpOpen(true) : undefined} />}
           </>
@@ -598,6 +603,7 @@ export default function Lesson() {
                   {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} stepwise />}
                   {explain.state === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['בודק את התשובה שלכם', 'מחפש איפה זה התפספס', 'מנסח הסבר']} /></Box>}
                   {explain.state === 'done' && <Box tone="ai" title="העוזר"><Markdown>{explain.text}</Markdown></Box>}
+                  {explain.state === 'done' && !explain.blocked && <div className="ai-report-row"><ReportAnswer kind="explain" reply={explain.text} /></div>}
                   {explain.state === 'done' && explain.care && <SupportCard variant="after-message" />}
                   {explain.state === 'error' && <p className="form-error" role="alert">{explain.text}</p>}
                   {explain.state === 'idle' && !isTest(s.kind) && ['free', 'open'].includes(explainState) && (

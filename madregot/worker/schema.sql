@@ -337,7 +337,11 @@ CREATE INDEX IF NOT EXISTS audit_target ON audit_log (target);
 --   legacy:       s:<student> | t:<class> (calls) and cls:<class> (units)
 --   care:         care:<s:<student> | fd:<family device> | t:<class> | d:<dev> | x:<net>> (5)  care:n:<net> (30)  care:all (1,000):
 --                 a chat message that reads as distress (trust spec TRUST-3); never given back, never a question
---   other:        mail:e:<email_hash> mail:n:<net> mail:all  create:n:<net>  join:n:<net>  pin:<student>  classinfo:n:<net>
+--   pin:          pin:<student>:<net> (hourly, 5)  pin:<student> (30): taken before the PIN is compared, given back when
+--                 it is right (trust spec TRUST-12 §1); the teacher's reset and removal delete them
+--   report:       report:<s:<student> | fd:<family device> | t:<class> | d:<dev> | x:<net>> (10)  report:n:<net> (100):
+--                 a reported AI answer (trust spec TRUST-4 §4.5)
+--   other:        mail:e:<email_hash> mail:n:<net> mail:all  create:n:<net>  join:n:<net>  classinfo:n:<net>
 --                 link:d:<dev>  link:n:<net>  linkpoll:<code_hash[0:16]>  linkpoll:n:<net>  claim:a:<account>
 --                 checkout:a:<account> (hourly)  licreq:c:<class>  licclaim:n:<net> (hourly)  licclaim:c:<class>  mint:n:<net>
 
@@ -364,3 +368,17 @@ CREATE TABLE IF NOT EXISTS help_meta (
   kind TEXT NOT NULL DEFAULT 'help' CHECK (kind IN ('help','talk')),
   care INTEGER NOT NULL DEFAULT 0 CHECK (care IN (0,1))
 );
+
+-- An AI answer a child reported (trust spec TRUST-4 §4.5): why, on which surface, and the tutor's own text only, with
+-- personal details masked on the server and at most 4,000 characters. Never the child's message, never who sent it.
+-- Written by POST /api/ai/report (at most 10 a day from one child or device); read with npm run owner -- reports;
+-- kept for RETENTION.answerReportsDays (shared/retention.js).
+CREATE TABLE IF NOT EXISTS answer_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL,
+  reason TEXT NOT NULL CHECK (reason IN ('wrong_math','not_nice','not_for_kids','other')),
+  kind TEXT NOT NULL CHECK (kind IN ('chat','explain','check','exam','generate')),
+  reply TEXT NOT NULL CHECK (length(reply) <= 4000),
+  tier TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS answer_reports_created ON answer_reports (created_at);

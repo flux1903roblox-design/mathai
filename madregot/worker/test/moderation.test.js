@@ -3,7 +3,8 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { BLOCKED_TEXT } from '../../shared/safety.js';
-import { setup, ai, rows, countOf, devOf, claudeReply, claudeMessage, DEVICE } from './helpers.js';
+import { purge } from '../src/cron.js';
+import { setup, ai, rows, one, countOf, devOf, netOf, makeClass, bearer, claudeReply, claudeMessage, DEVICE } from './helpers.js';
 
 let h;
 afterEach(() => h?.done());
@@ -142,4 +143,79 @@ test('a refusal is counted with no text, streamed or not', async () => {
   assert.ok(text.endsWith('[[refusal]]'));
   await h.ctx.flush();
   assert.deepEqual(events().map((e) => [e.kind, e.surface, e.category]), [['refusal', 'chat', '']]);
+});
+
+// ---------------------------------------------------------------- a child reports an answer (TRUST-4 §4.5)
+const report = (b, headers = { 'X-Device': DEVICE }, ip) => h.call('POST', '/api/ai/report', { headers, body: b, ip });
+
+test('a reported answer keeps the tutor\'s text only: masked on the server, clipped to 4,000, and never the child\'s message', async () => {
+  h = await setup();
+  const reply = `תתקשרו ל־052-1234567 או כתבו ל־noa@example.test. ${'א'.repeat(5000)}`;
+  // a client that also sent the conversation: none of it is read
+  const r = await report({ reason: 'not_nice', kind: 'chat', reply, tier: 'free', messages: [{ role: 'user', content: 'אני נועה מכיתה ז3, 0549876543' }], name: 'נועה' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true });
+  const row = one(h.env, 'SELECT * FROM answer_reports');
+  assert.equal(row.reason, 'not_nice'); assert.equal(row.kind, 'chat'); assert.equal(row.tier, 'free');
+  assert.equal(row.reply.length, 4000);
+  assert.ok(row.reply.startsWith('תתקשרו ל־[טלפון] או כתבו ל־[מייל].'), row.reply.slice(0, 40));
+  const all = JSON.stringify(rows(h.env, 'SELECT * FROM answer_reports'));
+  for (const raw of ['052-1234567', 'noa@example.test', 'נועה', '0549876543', 'ז3']) assert.ok(!all.includes(raw), raw);
+  // the table has no column for a person, a device or a message
+  const cols = rows(h.env, 'PRAGMA table_info(answer_reports)').map((c) => c.name);
+  assert.deepEqual(cols, ['id', 'created_at', 'reason', 'kind', 'reply', 'tier']);
+  await h.ctx.flush();
+  assert.deepEqual(events().map((e) => [e.kind, e.category, e.surface, e.source, e.tier]), [['user_report', 'not_nice', 'chat', 'client', 'free']]);
+  // no question was taken from the child for it
+  assert.equal(await free(), 0);
+  assert.equal(h.net.log.claude.length, 0, 'nothing goes to Claude');
+});
+
+test('a report needs a known reason and kind and a reply; an unknown tier is kept empty', async () => {
+  h = await setup();
+  for (const b of [{ reason: 'boring', kind: 'chat', reply: 'x' }, { reason: 'other', kind: 'teacher', reply: 'x' }, { reason: 'other', kind: 'chat', reply: '   ' },
+    { reason: 'other', kind: 'chat' }, { reason: 'other', kind: 'chat', reply: { text: 'x' } }]) {
+    const r = await report(b);
+    assert.equal(r.status, 400, JSON.stringify(b)); assert.equal((await r.json()).error, 'bad_request');
+  }
+  assert.equal((await report({ reason: 'wrong_math', kind: 'exam', reply: 'שאלה 2: התשובה 7', tier: "x'; DROP" })).status, 200);
+  assert.equal(one(h.env, 'SELECT tier FROM answer_reports').tier, '');
+  assert.equal((await h.call('GET', '/api/ai/report')).status, 404, 'POST only');
+});
+
+test('reports are capped at 10 a day for one device or child (429 too_many_reports), and 100 for a network', async () => {
+  h = await setup();
+  for (let i = 0; i < 10; i++) assert.equal((await report({ reason: 'other', kind: 'explain', reply: `תשובה ${i}` })).status, 200, `report ${i + 1}`);
+  const over = await report({ reason: 'other', kind: 'explain', reply: 'עוד אחת' });
+  assert.equal(over.status, 429); assert.equal((await over.json()).error, 'too_many_reports');
+  assert.equal(rows(h.env, 'SELECT * FROM answer_reports').length, 10);
+  assert.equal(countOf(h.env, `report:d:${await devOf(h.env)}`), 10, 'counted under the device key, never the raw id');
+  assert.equal(rows(h.env, 'SELECT * FROM ai_usage WHERE who LIKE ?', `%${DEVICE}%`).length, 0);
+  // another device on the same network still may
+  assert.equal((await report({ reason: 'other', kind: 'explain', reply: 'x' }, { 'X-Device': 'b'.repeat(32) })).status, 200);
+  // a class student is counted as that student, on any device
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const noa = cls.students[0];
+  assert.equal((await report({ reason: 'other', kind: 'chat', reply: 'x' }, { ...bearer(noa), 'X-Device': DEVICE })).status, 200);
+  assert.equal(countOf(h.env, `report:s:${noa.studentId}`), 1);
+  // the network's ceiling: devices made up on the fly do not get around it
+  const net = await netOf(h.env);
+  h.env.DB.raw.prepare('UPDATE ai_usage SET count = 100 WHERE who = ?').run(`report:n:${net}`);
+  assert.equal((await report({ reason: 'other', kind: 'chat', reply: 'x' }, { 'X-Device': 'c'.repeat(32) })).status, 429);
+  assert.equal((await report({ reason: 'other', kind: 'chat', reply: 'x' }, { 'X-Device': 'c'.repeat(32) }, '198.51.100.9')).status, 200, 'another network');
+});
+
+test('reported answers are gone after 60 days, safety events after 400; newer ones stay', async () => {
+  h = await setup();
+  const db = h.env.DB.raw;
+  const DAY = 864e5;
+  const at = (days) => new Date(Date.now() - days * DAY).toISOString();
+  const ins = db.prepare("INSERT INTO answer_reports (created_at, reason, kind, reply) VALUES (?, 'other', 'chat', ?)");
+  ins.run(at(61), 'old'); ins.run(at(59), 'new');
+  const { dayOf } = await import('../src/util.js');
+  const ev = db.prepare("INSERT INTO safety_events (day, kind, surface, source) VALUES (?, 'distress', 'chat', 'regex')");
+  ev.run(dayOf(new Date(Date.now() - 401 * DAY))); ev.run(dayOf(new Date(Date.now() - 399 * DAY)));
+  await purge(h.env);
+  assert.deepEqual(rows(h.env, 'SELECT reply FROM answer_reports').map((r) => r.reply), ['new']);
+  assert.deepEqual(rows(h.env, 'SELECT day FROM safety_events').map((r) => r.day), [dayOf(new Date(Date.now() - 399 * DAY))]);
 });

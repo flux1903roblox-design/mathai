@@ -149,15 +149,43 @@ export function autoAskAllowed() {
 /**
  * Before a tool that sends a photo or asks for new exercises: what to show instead of the camera, or null when it
  * can go ahead. 'locked' and 'economy' are the tool's own info state (ToolLocked); a used, resting or paused tutor
- * opens the calm sheet (LimitSheet) and also returns its state.
+ * opens the calm sheet (LimitSheet) and also returns its state. Before the first AI action on this device it opens the
+ * introduction instead and returns 'intro'; `then` (the action itself) runs after "הבנתי".
  */
-export function gate(kind, { onMadi } = {}) {
+export function gate(kind, { onMadi, then } = {}) {
   const a = aiAccess(kind);
   if (a.state === 'locked' || a.state === 'economy') return a.state;
   if (a.state === 'used') { openLimitSheet({ reason: 'daily_limit', tier: a.tier, onMadi }); return a.state; }
   if (a.state === 'paused') { openLimitSheet({ reason: 'free_paused', tier: a.tier, onMadi }); return a.state; }
   if (a.state === 'resting') { openLimitSheet({ reason: 'shared_limit', tier: a.tier, scope: a.scope, onMadi }); return a.state; }
+  if (needIntro(then)) return 'intro';
   return null;
+}
+
+// ---------------------------------------------------------------- the introduction before the first AI action (TRUST-4 §4.6)
+// Mounted once in the app (AIIntro.jsx). Shown once per device: ai.introSeen === true afterwards (an older saved state
+// has no such field, so it shows once there too; no store version is needed). The action that opened it is kept and
+// runs after "הבנתי", so nothing the child asked for is lost; closing the sheet any other way runs nothing.
+export const useAIIntro = create(() => ({ open: false, then: null }));
+export const introSeen = () => useApp.getState().ai?.introSeen === true;
+export const openAIIntro = (then = null) => useAIIntro.setState({ open: true, then });
+export const closeAIIntro = () => useAIIntro.setState({ open: false, then: null });
+/** "הבנתי": remembered on this device, then the action that was waiting runs. */
+export function acceptAIIntro() {
+  const { then } = useAIIntro.getState();
+  useApp.getState().setAI({ introSeen: true });
+  closeAIIntro();
+  then?.();
+}
+/**
+ * Is the introduction still due before an AI action here? Then it opens (with `then`, the action, to run after it) and
+ * this returns true: the caller stops. Never on a device with no tutor (nothing would be sent), and never for a
+ * message that reads as distress (the caller checks that first: a child in distress never meets the introduction).
+ */
+export function needIntro(then) {
+  if (introSeen() || aiMode() === 'none') return false;
+  openAIIntro(then || null);
+  return true;
 }
 
 /** The server's count after an answer (the headers X-AI-Tier, X-AI-Group, X-AI-Left, X-AI-Economy, X-AI-Linked). */

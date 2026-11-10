@@ -98,7 +98,7 @@ function AdvancedRow() {
 /**
  * "מתקדם": the settings a student does not need, for the adult who sets the app up: the address of a class server, and
  * a personal Claude key on this device (an Anthropic account is an adult's, and a class always goes through its server).
- * Only the copies without a server of their own have it (VITE_ALLOW_PERSONAL_KEY=1); elsewhere it leads back to Settings.
+ * Only the owner's own test builds have it (VITE_ALLOW_PERSONAL_KEY=1, never a public copy); elsewhere it leads back to Settings.
  */
 export function AdvancedSettings() {
   const { ai, setAI, profile } = useApp();

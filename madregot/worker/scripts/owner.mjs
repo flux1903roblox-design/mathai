@@ -18,13 +18,14 @@
 //   forget --email E
 //   list [--class C | --email E | --status S]   requests [--open]   request-done --id R
 //   usage --from D --to D                        events [--outcome mismatch]
+//   reports [--since D]                          AI answers children reported (the tutor's text only, masked)
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { endOfDayIso, CODE_ALPHABET } from '../src/util.js';
+import { endOfDayIso, startOfDayIso, CODE_ALPHABET } from '../src/util.js';
 import { cleanEmail } from '../src/account.js';
 
 const DAY = 864e5;
@@ -36,13 +37,13 @@ export const CLASS_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/;
 export const ID_RE = /^[a-f0-9]{16}$/;
 export function classArg(v) { const c = String(v || '').toUpperCase(); if (!CLASS_RE.test(c)) fail(`bad class code: ${v}`); return c; }
 export function idArg(v, what = 'id') { const s = String(v || ''); if (!ID_RE.test(s)) fail(`bad ${what}: ${v}`); return s; }
-/** A YYYY-MM-DD date, meaning the end of that day in Jerusalem, as an ISO instant. */
-export function dateArg(v) {
+/** A YYYY-MM-DD date, meaning the end of that day in Jerusalem, as an ISO instant (`start`: its start instead). */
+export function dateArg(v, { start = false } = {}) {
   const s = String(v || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) fail(`bad date: ${v}`);
   const t = new Date(`${s}T00:00:00Z`);
   if (Number.isNaN(t.getTime()) || t.toISOString().slice(0, 10) !== s) fail(`bad date: ${v}`);
-  return endOfDayIso(s);
+  return start ? startOfDayIso(s) : endOfDayIso(s);
 }
 export function intArg(v, min, max, what) {
   const n = Number(v);
@@ -253,6 +254,12 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
       if (outcome && !['applied', 'duplicate_payment', 'after_cancel', 'ignored_old', 'unknown', 'mismatch', 'test_mode'].includes(outcome)) fail(`bad outcome: ${outcome}`);
       return { readOnly: true, sql: `SELECT provider, event_id, type, outcome, subscription_id, amount_agorot, detail, received_at FROM billing_events ${outcome ? `WHERE outcome = ${q(outcome)}` : ''} ORDER BY received_at DESC LIMIT 200;` };
     }
+    case 'reports': {
+      // what a child reported about an AI answer: the reason, where, and the tutor's own text (masked on the server);
+      // nothing in the table says who reported it. Kept 60 days (RETENTION.answerReportsDays).
+      const since = o.since ? dateArg(o.since, { start: true }) : null;
+      return { readOnly: true, sql: `SELECT id, created_at, reason, kind, tier, reply FROM answer_reports ${since ? `WHERE created_at >= ${q(since)}` : ''} ORDER BY created_at DESC LIMIT 200;` };
+    }
     default:
       return fail(`unknown command: ${cmd}`);
   }
@@ -271,9 +278,28 @@ export function parseArgs(argv) {
   return { cmd, o };
 }
 
+/** The commands, one line each (printed with no command, or with help). */
+export const HELP = `usage: npm run owner -- <command> [options] [--local]   (without --local: the remote database)
+  grant-class --class C --until D --seats N [--invoice R] [--note T] [--trial]
+  grant-school --classes K --seats N --until D --invoice R [--note T]   prints a licence code once
+  grant-family --email E --until D [--note T]
+  end --id S [--reason owner]
+  cancel --id S --mode period_end|refund_now|prorata
+  refund --id S [--agorot N]
+  clear-hold --email E
+  revoke-device --id D
+  forget --email E
+  list [--class C | --email E | --status S]
+  requests [--open]
+  request-done --id R
+  usage --from D --to D
+  events [--outcome mismatch]
+  reports [--since D]   AI answers children reported (the tutor's text only, masked; kept 60 days)
+Dates are YYYY-MM-DD (Jerusalem).`;
+
 function main(argv) {
   const { cmd, o } = parseArgs(argv);
-  if (!cmd) { console.log('usage: npm run owner -- <command> [options] [--local]  (see scripts/owner.mjs)'); return; }
+  if (!cmd || cmd === 'help' || cmd === '--help') { console.log(HELP); return; }
   const b = build(cmd, o);
   const dir = mkdtempSync(path.join(tmpdir(), 'madregot-owner-'));
   const file = path.join(dir, 'command.sql');

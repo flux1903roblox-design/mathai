@@ -26,7 +26,9 @@ async function open(page, route, state = null) {
   await page.evaluate(() => document.fonts.ready);
 }
 
-const withServer = (extra = {}) => ({ ...student('7', { ai: { mode: 'server', apiUrl: API, key: '', device: '' }, ...extra }), version: 3 });
+const withServer = (extra = {}) => ({ ...student('7', { ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true }, ...extra }), version: 3 });
+/** A device where nobody has used the tutor yet: the introduction is still due. */
+const firstTime = (extra = {}) => withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '' }, ...extra });
 const classStudent = () => withServer({ profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' } });
 const chatCalls = (log) => log.filter((r) => r.path === '/api/ai/chat');
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
@@ -296,5 +298,126 @@ test.describe('moderation', () => {
     await shot(page, 'pii-line');
     // the request went to the server as typed: the server masks it before the tutor, and counts it
     expect(log.filter((r) => r.path === '/api/ai/chat')[0].body.messages.at(-1).content).toContain('0521234567');
+  });
+  test('the first message on a device opens the introduction; "הבנתי" sends that same message, and it never shows again', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await chatSays(page, log, 'כדי לחבר מספרים עם סימנים שונים, מחסרים.');
+    await open(page, '#/assistant', firstTime());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('מה זה מספר שלילי?'); await draft.press('Enter');
+    const intro = page.getByRole('dialog', { name: 'לפני שמתחילים עם העוזר החכם' });
+    await expect(intro).toBeVisible();
+    await expect(intro.getByText('העוזר החכם הוא תוכנת בינה מלאכותית (Claude של Anthropic), לא אדם.', { exact: false })).toBeVisible();
+    await expect(intro.getByText('מה שכותבים או מצלמים נשלח ל־Anthropic בארה״ב כדי לקבל תשובה. מדרגות לא שומרת את השיחות.')).toBeVisible();
+    await expect(intro.getByText('אל תכתבו שם מלא, תעודת זהות, כתובת או טלפון, לא שלכם ולא של אחרים.')).toBeVisible();
+    await expect(intro.locator('li')).toHaveCount(5);
+    expect(chatCalls(log)).toHaveLength(0); // nothing is sent before it is read
+    await expect(page.locator('.msg-row.user')).toHaveCount(0);
+    const ok = intro.getByRole('button', { name: 'הבנתי, אפשר להתחיל' });
+    expect((await ok.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await shot(page, 'ai-intro');
+    await ok.click();
+    await expect(intro).toHaveCount(0);
+    await expect.poll(() => chatCalls(log).length).toBe(1);
+    expect(chatCalls(log)[0].body.messages.at(-1).content).toBe('מה זה מספר שלילי?');
+    await expect(page.locator('.msg-row.user')).toHaveText('מה זה מספר שלילי?');
+    await expect(draft).toHaveValue('');
+    await expect(page.locator('.msg-row.assistant').last()).toContainText('מחסרים');
+    expect((await page.evaluate(() => JSON.parse(localStorage.getItem('madregot')).state.ai)).introSeen).toBe(true);
+    // the next message goes at once, also after a reload
+    await page.reload();
+    await draft.fill('ועוד שאלה'); await draft.press('Enter');
+    await expect.poll(() => chatCalls(log).length).toBe(2);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+
+  test('the introduction: closing it sends nothing and keeps the draft; a message that reads as distress never meets it', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await chatSays(page, log, `${CARE_TEXT}\n[[care]]`);
+    await open(page, '#/assistant', firstTime());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך פותרים משוואה?'); await draft.press('Enter');
+    const intro = page.getByRole('dialog', { name: 'לפני שמתחילים עם העוזר החכם' });
+    await expect(intro).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(intro).toHaveCount(0);
+    await expect(draft).toHaveValue('איך פותרים משוואה?');
+    expect(chatCalls(log)).toHaveLength(0);
+    // distress goes at once: the card, the request, no introduction
+    await draft.fill('אני רוצה להיעלם'); await draft.press('Enter');
+    await expect(page.locator('.chat .support-card')).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect.poll(() => chatCalls(log).length).toBe(1);
+  });
+
+  test('the introduction comes before a tool too, and the tool opens after it', async ({ page }) => {
+    await fakeServer(page, { paywall: false }, baseOf());
+    await open(page, '#/assistant', firstTime());
+    await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
+    const intro = page.getByRole('dialog', { name: 'לפני שמתחילים עם העוזר החכם' });
+    await expect(intro).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' })).toHaveCount(0);
+    await intro.getByRole('button', { name: 'הבנתי, אפשר להתחיל' }).click();
+    await expect(page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' })).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(1);
+  });
+
+  test('in a lesson the introduction opens over the chat, and the question goes after it', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await chatSays(page, log, 'נסו לחשוב על ציר המספרים.');
+    await open(page, '#/lesson/signed/1', firstTime());
+    await page.getByRole('button', { name: 'שאלו את העוזר' }).click();
+    const sheet = page.getByRole('dialog', { name: 'שאלו את העוזר' });
+    await sheet.getByLabel('ההודעה שלכם').fill('לא הבנתי את התרגיל'); await sheet.getByLabel('ההודעה שלכם').press('Enter');
+    const intro = page.getByRole('dialog', { name: 'לפני שמתחילים עם העוזר החכם' });
+    await expect(intro).toBeVisible();
+    await shot(page, 'ai-intro-lesson');
+    await intro.getByRole('button', { name: 'הבנתי, אפשר להתחיל' }).click();
+    await expect(intro).toHaveCount(0);
+    await expect.poll(() => chatCalls(log).length).toBe(1);
+    await expect(sheet.locator('.msg-row.assistant').last()).toContainText('ציר המספרים');
+  });
+
+  test('reporting an answer sends the tutor\'s reply and never the child\'s words; the flag says it was sent', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await chatSays(page, log, 'כדי לחבר מספרים עם סימנים שונים, מחסרים ושמים את הסימן של הגדול.');
+    await open(page, '#/assistant', withServer());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('קוראים לי נועה, איך מחברים -3 ו־5?'); await draft.press('Enter');
+    const reply = page.locator('.msg-row.assistant').last();
+    await expect(reply).toContainText('מחסרים');
+    const flag = page.getByRole('button', { name: 'דיווח על התשובה' });
+    await expect(flag).toHaveCount(1); // one answer, one flag (never under the child's own message)
+    const box = await flag.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44); expect(box.width).toBeGreaterThanOrEqual(44);
+    await shot(page, 'report-flag');
+    await flag.click();
+    const sheet = page.getByRole('dialog', { name: 'מה לא היה בסדר בתשובה?' });
+    await expect(sheet).toBeVisible();
+    const send = sheet.getByRole('button', { name: 'שליחה' });
+    await expect(send).toBeDisabled(); // a reason first
+    for (const r of ['יש בה טעות במתמטיקה', 'היא לא נעימה', 'היא לא מתאימה לילדים', 'משהו אחר']) await expect(sheet.getByRole('radio', { name: r })).toBeVisible();
+    await sheet.getByRole('radio', { name: 'היא לא מתאימה לילדים' }).check();
+    await shot(page, 'report-sheet');
+    await send.click();
+    await expect(page.getByText('תודה. נבדוק את התשובה.')).toBeVisible();
+    await expect(sheet).toHaveCount(0);
+    const sent = log.filter((r) => r.path === '/api/ai/report');
+    expect(sent).toHaveLength(1);
+    expect(sent[0].body).toEqual({ reason: 'not_for_kids', kind: 'chat', reply: 'כדי לחבר מספרים עם סימנים שונים, מחסרים ושמים את הסימן של הגדול.', tier: 'free' });
+    expect(JSON.stringify(sent[0].body)).not.toContain('נועה');
+    await expect(page.getByRole('button', { name: 'דיווחתם על התשובה הזו' })).toBeDisabled();
+    await shot(page, 'report-sent');
+  });
+
+  test('the public build has no personal-key mode: no "מפתח אישי" anywhere in Settings', async ({ page }) => {
+    await open(page, '#/settings', student('7'));
+    await expect(page.getByRole('heading', { name: 'פרטיות ובטיחות' })).toBeVisible();
+    await expect(page.getByText('מפתח אישי')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'מתקדם' })).toHaveCount(0);
+    await page.goto('./#/settings/advanced');
+    await expect(page).toHaveURL(/#\/settings$/);
+    await expect(page.getByText('מפתח אישי')).toHaveCount(0);
+    await expect(page.getByRole('radio', { name: 'מפתח אישי' })).toHaveCount(0);
   });
 });

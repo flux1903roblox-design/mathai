@@ -5,8 +5,9 @@ import clsx from 'clsx';
 import { Camera, MessageCircle, Wand2, Check, X, ImageUp } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady, aiMode } from '@/lib/ai.js';
-import { gate, aiAccess, useAIStatus } from '@/lib/account.js';
+import { gate, aiAccess, useAIStatus, needIntro } from '@/lib/account.js';
 import ToolLocked from '@/components/ToolLocked.jsx';
+import ReportAnswer, { checkText, generateText } from '@/components/ReportAnswer.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
 import { SupportLink } from '@/components/SupportSheet.jsx';
 import { TOPIC, topicsFor } from '@/content/index.js';
@@ -133,6 +134,7 @@ function PhotoCheck() {
           )}
         </Box>
       )}
+      {state.phase === 'done' && <div className="ai-report-row"><ReportAnswer kind="check" reply={checkText(r)} /></div>}
       {state.phase === 'done' && r.care && <SupportCard variant="after-message" />}
     </div>
   );
@@ -168,6 +170,8 @@ function Generate({ initialTopic, initialLevel }) {
   const t = TOPIC[topic];
   const outRef = useReveal(state.phase !== 'idle' ? state.phase : null);
   const go = async () => {
+    // opened from a topic's "new exercises" link, this can be the first AI action on the device: the introduction first
+    if (needIntro(go)) return;
     setState({ phase: 'loading' });
     try {
       const sample = t.levels[level - 1].gen();
@@ -202,7 +206,10 @@ function Generate({ initialTopic, initialLevel }) {
       {state.phase === 'error' && <p className="form-error" role="alert">{state.message}</p>}
       {state.phase === 'done' && (
         <>
-          <p className="muted">התרגילים נכתבו על ידי העוזר. אם משהו נראה לא נכון, ספרו למורה.</p>
+          <div className="gen-note">
+            <p className="muted">התרגילים נכתבו על ידי העוזר. אם משהו נראה לא נכון, ספרו למורה.</p>
+            <ReportAnswer kind="generate" reply={generateText(state.qs)} />
+          </div>
           <ol className="gen-list">{state.qs.map((q, i) => <GeneratedQuestion key={i} q={q} i={i} />)}</ol>
         </>
       )}
@@ -224,7 +231,8 @@ export default function Assistant() {
   useEffect(() => { if (wants) { setLocked(lockOf('generate')); setTool('generate'); } }, [wants]); // eslint-disable-line react-hooks/exhaustive-deps
   const close = () => { setTool(null); setLocked(null); if (wants) setParams({}, { replace: true }); };
   const open = (kind, name) => {
-    const g = gate(kind);
+    // before the first AI action on this device the introduction opens, and the tool after it ('intro')
+    const g = gate(kind, { then: () => open(kind, name) });
     if (g === 'locked' || g === 'economy') { setLocked(g); setTool(name); return; }
     if (!g) { setLocked(null); setTool(name); }
   };

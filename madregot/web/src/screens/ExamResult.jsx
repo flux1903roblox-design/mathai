@@ -12,6 +12,7 @@ import Figure from '@/components/Figure.jsx';
 import AIChat from '@/components/AIChat.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
+import ReportAnswer, { examText } from '@/components/ReportAnswer.jsx';
 import { ScreenBar, ScreenFoot, EmptyState, ConfirmSheet } from '@/components/Screen.jsx';
 import { pctTone } from './Exams.jsx';
 
@@ -68,6 +69,7 @@ function QuestionCard({ q, onAsk }) {
       <div className="q-actions">
         {TOPIC[q.topic] && <Link className="btn btn-secondary btn-sm" to={`/practice/${q.topic}${q.level ? `?level=${q.level}` : ''}`}><PencilRuler size={16} aria-hidden="true" />תרגול דומה</Link>}
         {aiReady() && <Button variant="ghost" className="btn-sm" onClick={() => onAsk(q)}><Sparkles size={16} aria-hidden="true" />שאלו על השאלה</Button>}
+        <ReportAnswer kind="exam" reply={examText(q)} className="q-report" />
       </div>
     </article>
   );

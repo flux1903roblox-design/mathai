@@ -3,13 +3,13 @@
 // The owner works through scripts/owner.mjs; there is no HTTP admin.
 import Anthropic from '@anthropic-ai/sdk';
 import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare } from '../../shared/ai.js';
-import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
+import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import {
-  dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, take, key, giveBack,
+  dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
   limitOrThrow, hmacHex,
 } from './util.js';
 import { startLogin, verifyLogin, signOut } from './account.js';
-import { resolve, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn } from './entitle.js';
+import { resolve, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify } from './entitle.js';
 import { recordSafety } from './safety.js';
 import { recordSpend } from './spend.js';
 import { emailReady } from './email.js';
@@ -353,6 +353,46 @@ async function handleAI(kind, req, env, ctx, cors) {
   }
   return json(result, 200, cors, headers);
 }
+// ---------- a child reports an AI answer (trust spec TRUST-4 §4.5) ----------
+const REPORT_REASONS = Object.freeze(['wrong_math', 'not_nice', 'not_for_kids', 'other']);
+const REPORT_KINDS = Object.freeze(['chat', 'explain', 'check', 'exam', 'generate']);
+const REPORT_TIERS = ['free', 'family', 'class', 'teacher', 'trial', 'legacy', 'open', 'care', 'personal'];
+const REPORT_MAX = 4000;
+// 10 a day from one child or device, and a ceiling for a whole network (a school shares one), so the table cannot be
+// filled by inventing device ids
+const REPORTS_PER_DAY = 10;
+const REPORTS_PER_NET = 100;
+
+/**
+ * POST /api/ai/report { reason, kind, reply, tier? }: the tutor's answer a child marked as wrong or not fit for them.
+ * Only the reply is kept: masked here (maskPersonal) and clipped to 4,000 characters. Nothing else in the body is read,
+ * so a child's own message is never stored even if a client sent it, and the row says nothing about who reported it.
+ * A user_report safety event counts it (no text). The owner reads them with npm run owner -- reports.
+ */
+async function reportAnswer(req, env, ctx, cors) {
+  const b = await body(req, 16 * KB);
+  const reason = String(b.reason || ''); const kind = String(b.kind || '');
+  const raw = typeof b.reply === 'string' ? b.reply : '';
+  if (!REPORT_REASONS.includes(reason) || !REPORT_KINDS.includes(kind) || !raw.trim()) throw new HttpError(400, 'bad_request');
+  const tier = REPORT_TIERS.includes(b.tier) ? b.tier : '';
+  // masked before it is clipped, so a phone number cut at the edge is never kept in part
+  const reply = maskPersonal(raw.slice(0, 2 * REPORT_MAX)).text.slice(0, REPORT_MAX);
+  const id = await identify(req, env);
+  const net = await netKey(req, env);
+  const who = id.student ? `s:${id.student.id}`
+    : id.fam ? `fd:${id.fam.device_id}`
+      : id.teacher ? `t:${id.teacher.code}`
+        : id.device ? `d:${await devKey(env, id.device)}`
+          : `x:${net}`;
+  const err = new HttpError(429, 'too_many_reports');
+  const r = await take(env, [key(`report:${who}`, REPORTS_PER_DAY, { err }), key(`report:n:${net}`, REPORTS_PER_NET, { err })]);
+  if (!r.ok) throw r.error;
+  await env.DB.prepare('INSERT INTO answer_reports (created_at, reason, kind, reply, tier) VALUES (?, ?, ?, ?, ?)')
+    .bind(nowIso(), reason, kind, reply, tier).run();
+  recordSafety(env, { kind: 'user_report', category: reason, surface: kind, source: 'client', tier }, ctx);
+  return json({ ok: true }, 200, cors);
+}
+
 function aiErrorCode(e) {
   if (e?.code === 'refusal' || e?.code === 'bad_output') return e.code;
   if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) return 'server_key';
@@ -633,6 +673,7 @@ async function route(req, env, ctx, cors) {
     const s = await aiStatus(req, env);
     return json(s.body, 200, cors, s.headers);
   }
+  if (M === 'POST' && p === '/api/ai/report') return reportAnswer(req, env, ctx, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/ai\/(\w+)$/))) return handleAI(m[1], req, env, ctx, cors);
   if (M === 'POST' && p === '/api/devices') return mintDevice(req, env, cors);
   // parent and teacher accounts

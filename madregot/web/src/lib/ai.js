@@ -1,6 +1,7 @@
 // AI actions. Server mode goes through the Worker (the key stays on the server); the device sends its own id and,
 // when linked to a family plan, its AI-only token: never the parent's session. A personal key (calling Claude from
-// this device) exists only in builds made with VITE_ALLOW_PERSONAL_KEY=1, the copies without a server.
+// this device) exists only in builds made with VITE_ALLOW_PERSONAL_KEY=1: the owner's own local testing, never a public
+// build (trust spec TRUST-4 §4.8).
 import { buildRequest, readResult, splitCare, STREAMED } from '@shared/ai.js';
 import { CARE_MARK, BLOCKED_TEXT } from '@shared/safety.js';
 import { useApp } from './store.js';

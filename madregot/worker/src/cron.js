@@ -6,8 +6,9 @@
 //
 // In the 03:00 hour in Jerusalem: reconcile renewing plans whose period is over with the provider (extend only from the
 // truth pulled from it, or end the plan), queue the yearly renewal reminder (45 days ahead) and the licence-ending email
-// (30 days ahead), purge what is no longer needed (spec §6.9), and queue the owner's daily summary when
-// OWNER_DAILY_SUMMARY = "true". Each step runs on its own: one failing step never stops the others.
+// (30 days ahead), purge what is no longer needed (spec §6.9, and the safety records), alert the owner when yesterday's
+// safety events jumped, and queue the owner's daily summary when OWNER_DAILY_SUMMARY = "true". Each step runs on its
+// own: one failing step never stops the others.
 import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
 import { retryCancels, processRefundQueue } from './billing.js';
@@ -17,6 +18,7 @@ import { providerById } from './providers/index.js';
 import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
 import { SUPPORT } from '../../shared/safety.js';
+import { RETENTION } from '../../shared/retention.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -135,9 +137,53 @@ export function purgeRecordsSql(env, now = new Date()) {
   ];
 }
 
+/**
+ * Safety records (trust spec TRUST-4 §4.4, §4.5): safety events (counts, by Jerusalem day) after
+ * RETENTION.safetyEventsDays, and reported answers after RETENTION.answerReportsDays.
+ */
+export function purgeSafetySql(env, now = new Date()) {
+  const t = now.getTime();
+  return [
+    env.DB.prepare('DELETE FROM safety_events WHERE day < ?').bind(dayOf(new Date(t - RETENTION.safetyEventsDays * DAY))),
+    env.DB.prepare('DELETE FROM answer_reports WHERE created_at < ?').bind(new Date(t - RETENTION.answerReportsDays * DAY).toISOString()),
+  ];
+}
+
 export async function purge(env, now = new Date()) {
-  const r = await env.DB.batch([...purgeCountersSql(env, now), ...purgeAccountsSql(env), ...purgeFamilySql(env), ...purgeRecordsSql(env)]);
+  const r = await env.DB.batch([...purgeCountersSql(env, now), ...purgeAccountsSql(env), ...purgeFamilySql(env), ...purgeRecordsSql(env), ...purgeSafetySql(env, now)]);
   return changes(r);
+}
+
+// ---------------------------------------------------------------- safety counts and the spike alert (TRUST-4 §4.4)
+/** The kinds the owner's summary counts, in this order. */
+export const SUMMARY_SAFETY = Object.freeze(['distress', 'pii_masked', 'output_blocked', 'refusal', 'user_report']);
+/** Days the distress baseline is averaged over, and the rule's floor (one event never alerts while the average is 0). */
+export const SPIKE_BASE_DAYS = 14;
+export const SPIKE_DISTRESS_MIN = 3;
+export const SPIKE_REPORTED_MIN = 10;
+
+/** A day's safety counts: { distress, pii_masked, output_blocked, refusal, user_report }, each a number. */
+export async function safetyCounts(env, day) {
+  const rows = await all(env, 'SELECT kind, COUNT(*) AS n FROM safety_events WHERE day = ? GROUP BY kind', day);
+  return Object.fromEntries(SUMMARY_SAFETY.map((k) => [k, Number(rows.find((r) => r.kind === k)?.n || 0)]));
+}
+
+/**
+ * Yesterday (Jerusalem) against the rule: output_blocked + user_report of 10 or more, or distress at least
+ * max(3, 3 × its daily average over the 14 days before yesterday). On a hit the owner gets one alert for that day
+ * (owner:safety_spike:<day>), with the counts only. Runs every night, whether or not the daily summary is on.
+ */
+export async function safetySpike(env, now = new Date()) {
+  const day = dayOf(new Date(now.getTime() - DAY));
+  const counts = await safetyCounts(env, day);
+  const from = dayOf(new Date(now.getTime() - (SPIKE_BASE_DAYS + 1) * DAY));
+  const base = Number((await first(env, "SELECT COUNT(*) AS n FROM safety_events WHERE kind = 'distress' AND day >= ? AND day < ?", from, day))?.n || 0);
+  const avg = base / SPIKE_BASE_DAYS;
+  const reported = counts.output_blocked + counts.user_report >= SPIKE_REPORTED_MIN;
+  const distress = counts.distress >= Math.max(SPIKE_DISTRESS_MIN, 3 * avg);
+  if (!reported && !distress) return { day, alert: false };
+  await queueNotices(env, [ownerNotice(day, `owner:safety_spike:${day}`, { ...counts, distressAvg: Math.round(avg * 10) / 10, reported, distressHigh: distress })]);
+  return { day, alert: true };
 }
 
 /**
@@ -182,6 +228,8 @@ export async function dailySummary(env, now = new Date()) {
     manualRefunds: await count('SELECT COUNT(*) AS n FROM refund_queue WHERE manual = 1 AND done_at IS NULL'),
     badEvents: await count("SELECT COUNT(*) AS n FROM billing_events WHERE outcome IN ('mismatch', 'unknown', 'test_mode') AND received_at >= ? AND received_at < ?", startIso, endIso),
     openRequests: await count('SELECT COUNT(*) AS n FROM licence_requests WHERE handled_at IS NULL'),
+    // counts only: what kind of safety event, never who or what was written (trust spec TRUST-4 §4.4)
+    safety: await safetyCounts(env, day),
     violations: [],
   };
   const v = params.violations;
@@ -221,6 +269,7 @@ export async function run(env, { now = new Date() } = {}) {
   if (night) {
     await step('reminders', () => reminders(env));
     await step('purge', () => purge(env, now));
+    await step('safety', () => safetySpike(env, now));
     if (String(env.OWNER_DAILY_SUMMARY) === 'true') await step('summary', () => dailySummary(env, now));
   }
   await step('notices', () => flushNotices(env));

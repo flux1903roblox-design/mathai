@@ -144,6 +144,7 @@ export function renderNotice(env, row) {
       const what = String(row.kind).slice('owner:'.length);
       if (what === 'licence_request') return licenceRequestNotice(p);
       if (what.startsWith('summary:')) return summaryNotice(p, what.slice('summary:'.length));
+      if (what.startsWith('safety_spike:')) return safetySpikeNotice(p, what.slice('safety_spike:'.length));
       return { subject: `[מדרגות] ${what}`, lines: [`${what}`, `ref: ${row.ref}`, ...Object.entries(p).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)] };
     }
     default:
@@ -186,8 +187,25 @@ function summaryNotice(p, day) {
       `החזרים שצריך לעשות ידנית: ${p.manualRefunds ?? 0}`,
       `הודעות תשלום חריגות (mismatch, unknown, test_mode): ${p.badEvents ?? 0}`,
       `בקשות רישיון פתוחות: ${p.openRequests ?? 0}`,
+      p.safety ? safetyLine(p.safety) : '',
       v.length ? 'בדיקות שנכשלו:' : 'כל הבדיקות עברו.',
       ...v.map((x) => `- ${x}`),
+    ],
+  };
+}
+
+/** A day's safety counts in one line (trust spec TRUST-4 §4.4): numbers only, never who or what was written. */
+const safetyLine = (c) => `אירועי בטיחות: מצוקה ${c.distress ?? 0} · פרטים אישיים שהוסתרו ${c.pii_masked ?? 0} · תשובות שנעצרו ${c.output_blocked ?? 0} · סירובים ${c.refusal ?? 0} · דיווחים על תשובות ${c.user_report ?? 0}`;
+
+/** Yesterday's safety events jumped (cron.js safetySpike): the counts only, and where to look next. */
+function safetySpikeNotice(p, day) {
+  return {
+    subject: '[מדרגות] קפיצה באירועי בטיחות',
+    lines: [
+      `ביום ${day} היו יותר אירועי בטיחות מהרגיל.`,
+      safetyLine(p),
+      `ממוצע יומי של מצוקה ב־14 הימים שלפני: ${p.distressAvg ?? 0}`,
+      'אין כאן שום דבר ממה שנכתב. הדיווחים על תשובות: npm run owner -- reports',
     ],
   };
 }

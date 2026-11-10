@@ -26,3 +26,17 @@ CREATE TABLE IF NOT EXISTS help_meta (
   kind TEXT NOT NULL DEFAULT 'help' CHECK (kind IN ('help','talk')),
   care INTEGER NOT NULL DEFAULT 0 CHECK (care IN (0,1))
 );
+
+-- An AI answer a child reported (trust spec TRUST-4 §4.5): why, on which surface, and the tutor's own text only, with
+-- personal details masked on the server and at most 4,000 characters. Never the child's message, never who sent it.
+-- Written by POST /api/ai/report (at most 10 a day from one child or device); read with npm run owner -- reports;
+-- kept for RETENTION.answerReportsDays (shared/retention.js).
+CREATE TABLE IF NOT EXISTS answer_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL,
+  reason TEXT NOT NULL CHECK (reason IN ('wrong_math','not_nice','not_for_kids','other')),
+  kind TEXT NOT NULL CHECK (kind IN ('chat','explain','check','exam','generate')),
+  reply TEXT NOT NULL CHECK (length(reply) <= 4000),
+  tier TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS answer_reports_created ON answer_reports (created_at);

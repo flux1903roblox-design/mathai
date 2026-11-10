@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useApp } from './store.js';
-import { aiAccess, autoAskAllowed, aiHeaders, useAIStatus, gate, useLimitSheet, closeLimitSheet, hasTool, noteLimit, refreshIfNewDay } from './account.js';
+import {
+  aiAccess, autoAskAllowed, aiHeaders, useAIStatus, gate, useLimitSheet, closeLimitSheet, hasTool, noteLimit, refreshIfNewDay,
+  useAIIntro, needIntro, acceptAIIntro, closeAIIntro, introSeen,
+} from './account.js';
 import { runAI } from './ai.js';
 
 const groups = (tutor, rest = null) => ({ tutor, check: rest, generate: rest, exam: rest });
@@ -10,7 +13,9 @@ const PAID = (tier, extra = {}) => ({ paywall: true, tier, kinds: ALL, groups: {
 const OPEN = { paywall: false, tier: 'open', kinds: ALL, groups: { all: { left: 37, limit: 40 } }, aiReady: true };
 
 beforeEach(() => {
-  useApp.getState().setAI({ mode: 'server', apiUrl: 'https://api.example.test', key: '', familyDevice: null, pendingLink: null });
+  // the introduction was read on this device (its own tests below start without it)
+  useApp.getState().setAI({ mode: 'server', apiUrl: 'https://api.example.test', key: '', familyDevice: null, pendingLink: null, introSeen: true });
+  closeAIIntro();
   useApp.getState().setProfile({ role: 'student', name: 'נועה', grade: '7' });
   useAIStatus.setState({ status: null, ended: false });
   closeLimitSheet();
@@ -106,6 +111,45 @@ describe('gate: a tool says why before anything is sent', () => {
   it('lets an open tool through', () => {
     useAIStatus.setState({ status: PAID('class') });
     expect(gate('check')).toBeNull();
+  });
+});
+
+describe('the introduction before the first AI action on a device (trust spec TRUST-4 §4.6)', () => {
+  beforeEach(() => { useApp.getState().setAI({ introSeen: false }); });
+  it('gate opens it instead of the tool, and the tool runs after "הבנתי"; it is never shown again here', () => {
+    useAIStatus.setState({ status: PAID('class') });
+    const then = vi.fn();
+    expect(gate('check', { then })).toBe('intro');
+    expect(useAIIntro.getState().open).toBe(true);
+    expect(then).not.toHaveBeenCalled();
+    acceptAIIntro();
+    expect(then).toHaveBeenCalledTimes(1);
+    expect(useAIIntro.getState().open).toBe(false);
+    expect(useApp.getState().ai.introSeen).toBe(true);
+    expect(introSeen()).toBe(true);
+    expect(gate('check', { then })).toBeNull();
+    expect(useAIIntro.getState().open).toBe(false);
+  });
+  it('closing it any other way runs nothing and asks again next time', () => {
+    useAIStatus.setState({ status: PAID('class') });
+    const then = vi.fn();
+    expect(gate('exam', { then })).toBe('intro');
+    closeAIIntro();
+    expect(then).not.toHaveBeenCalled();
+    expect(introSeen()).toBe(false);
+    expect(gate('exam', { then })).toBe('intro');
+  });
+  it('a locked or spent tool says so first: the introduction is only for an action that will really go out', () => {
+    useAIStatus.setState({ status: FREE() });
+    expect(gate('check', { then: vi.fn() })).toBe('locked');
+    useAIStatus.setState({ status: FREE(0) });
+    expect(gate('chat', { then: vi.fn() })).toBe('used');
+    expect(useAIIntro.getState().open).toBe(false);
+  });
+  it('never on a device with no tutor (nothing would be sent)', () => {
+    useApp.getState().setAI({ apiUrl: 'none' });
+    expect(needIntro(vi.fn())).toBe(false);
+    expect(useAIIntro.getState().open).toBe(false);
   });
 });
 
