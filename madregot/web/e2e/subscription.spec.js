@@ -5,7 +5,7 @@
 // session; cancelling takes two taps; a teacher manages the class licence, the join lock and student removal.
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { NOW, student, answer, proceed } from './helpers.js';
+import { NOW, student, answer, proceed, appReady } from './helpers.js';
 import { API, PAY, TOKEN, livePlan, fakeServer } from './fakeServer.js';
 
 // a price, or a push to buy ('קנו' as a word, not inside 'תקנון')
@@ -14,6 +14,7 @@ const FORBIDDEN = /₪|(?<![\u0590-\u05FF])קנו(?![\u0590-\u05FF])|שדרגו/
 /**
  * Open a route on a device with a saved state. The storage is seeded by an init script before the app starts, so an app
  * still running from the last route can never write its old state over the new one (it may be answering the server).
+ * The seed is written once per open(): a reload after it keeps what the app saved.
  * `local`: more localStorage keys (a parent's session on their own phone).
  */
 let seeds = 0;
@@ -31,9 +32,11 @@ async function open(page, route, state = null, { local = {}, seed = '424242' } =
     localStorage.setItem('madregot-seed', sd);
     if (s) localStorage.setItem('madregot', JSON.stringify(s));
     Object.entries(extra).forEach(([n, v]) => localStorage.setItem(n, v));
+    // the copy of the progress on the device goes too: the app's own open waits behind this delete
+    indexedDB.deleteDatabase('madregot-durable');
   }, [state, seed, key, local]);
   await page.goto(`./${route}`);
-  await page.evaluate(() => document.fonts.ready);
+  await appReady(page);
 }
 
 /** A device with the app pointed at the fake server. `profile: null` is the parent's own phone. */

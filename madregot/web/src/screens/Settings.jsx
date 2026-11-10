@@ -12,6 +12,8 @@ import { GradeSwitch, joinClass } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import { useAIStatus, leaveFamily } from '@/lib/account.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
+import { durableWipe } from '@/lib/durable/storage.js';
+import SaveSection from '@/components/durable/SaveSection.jsx';
 
 function ClassSection() {
   const { profile, setProfile, leaveClass } = useApp();
@@ -236,9 +238,15 @@ async function forgetParent() {
 
 export default function Settings() {
   const { profile, patchProfile, resetProgress, signOut } = useApp();
-  const { state: nav } = useLocation();
+  const { state: nav, hash } = useLocation();
   const navigate = useNavigate();
   useEffect(() => { if (nav?.focus === 'ai') document.getElementById('ai-title')?.scrollIntoView({ block: 'start' }); }, [nav]);
+  // "מה עושים" on the storage banner opens Settings at the saving section
+  useEffect(() => {
+    if (hash !== '#save') return;
+    const el = document.getElementById('save-title');
+    el?.scrollIntoView({ block: 'start' }); el?.focus({ preventScroll: true });
+  }, [hash]);
   const [name, setName] = useState(profile.name);
   const [danger, setDanger] = useState(null);
   return (
@@ -259,6 +267,7 @@ export default function Settings() {
           )}
         </div>
       </section>
+      <SaveSection />
       <ClassSection />
       <AISection />
       <SoundSetting />
@@ -278,7 +287,12 @@ export default function Settings() {
         <p>כל המדרגות, הנקודות וההיסטוריה במכשיר הזה יימחקו.</p>
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'wipe'} onOpenChange={(o) => !o && setDanger(null)} title="למחוק הכול?" keep="לא למחוק"
-        confirm="כן, למחוק הכול" onConfirm={async () => { await leaveFamily(); await forgetParent(); useApp.persist.clearStorage(); signOut(); }}>
+        confirm="כן, למחוק הכול" onConfirm={async () => {
+          await leaveFamily(); await forgetParent();
+          // the saved progress, its copy on the device and the quarantine go; this page writes nothing again, so it reloads
+          await durableWipe(); signOut();
+          window.location.hash = '#/'; window.location.reload();
+        }}>
         <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. אי אפשר לבטל.</p>
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title="להתנתק מהמכשיר?" keep="להישאר מחוברים"

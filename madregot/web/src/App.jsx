@@ -7,6 +7,7 @@ import { syncNow, hasServer } from '@/lib/api.js';
 import { useMoments, onMoment, MOMENT_ORDER } from '@/lib/durable/moments.js';
 import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
+import { useDurable } from '@/lib/durable/useDurable.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
@@ -92,6 +93,21 @@ function Toasts() {
     : <Toaster key="bottom" position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />;
 }
 
+/**
+ * When the progress came back from the copy on the device (a lost or broken save, lib/durable/storage.js), the app says
+ * so once, calmly. It can happen at the start or a moment later, when the copy answers late.
+ */
+let restoreToastShown = false;
+function RestoreToast() {
+  const restored = useDurable((s) => s.restoredFrom === 'mirror' && s.restoreNote);
+  useEffect(() => {
+    if (!restored || restoreToastShown) return;
+    restoreToastShown = true;
+    toast('החזרנו את ההתקדמות מהעותק שנשמר במכשיר.', { duration: 6000 });
+  }, [restored]);
+  return null;
+}
+
 // Each lesson route starts a fresh lesson, so the screen remounts per route.
 function LessonRoute() {
   const { pathname, search } = useLocation();
@@ -110,6 +126,7 @@ function Root() {
   return (
     <>
       <Toasts />
+      <RestoreToast />
       {role && <LimitSheet />}
       {role && <StatusWatch />}
       {/* a new screen opens at the top; back restores where the student was */}

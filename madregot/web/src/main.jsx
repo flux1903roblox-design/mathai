@@ -11,6 +11,7 @@ import './styles/motion.css';
 import './styles/v4.css';
 import './styles/canon.css';
 import App from './App.jsx';
+import { durableBoot } from './lib/durable/storage.js';
 
 // Test hook: with localStorage 'madregot-seed' set, exercises come out the same on every run (visual tests).
 try {
@@ -21,8 +22,13 @@ try {
   }
 } catch { /* storage blocked */ }
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+// The first screen waits for the copy of the progress on the device (at most 300 ms, lib/durable/storage.js), so a
+// broken or lost save is already back when the app appears.
+(async () => {
+  await durableBoot();
+  createRoot(document.getElementById('root')).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+})();

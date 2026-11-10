@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { ArrowRight } from 'lucide-react';
 import Mascot from './Mascot.jsx';
+import { useDurable, savedHealth } from '@/lib/durable/useDurable.js';
 import { Button, Sheet } from './ui.jsx';
 
 /** A pushed screen's bar: the way back (to `back`, or one step back), the title, and an optional action at the end. */
@@ -95,7 +96,8 @@ export function LoadingState({ text = 'טוענים…' }) {
 
 /**
  * If a screen breaks, the app says so in its own voice instead of going blank, and offers the two ways out:
- * load again, or back to the start. Nothing the student saved is touched.
+ * load again, or back to the start. Nothing the student saved is touched. It says the progress is saved only when it
+ * is (lib/durable/useDurable.js): when the browser could not save the last changes, it says they may be lost.
  */
 export class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { failed: false }; }
@@ -108,7 +110,7 @@ export class ErrorBoundary extends Component {
         <section className="empty-state" data-region="content">
           <Mascot mood="oops" size={120} className="empty-madi" />
           <h1 className="empty-title">משהו במסך הזה לא עבד</h1>
-          <div className="empty-text"><p>ההתקדמות שלכם שמורה במכשיר. אפשר לטעון את המסך מחדש, או לחזור להתחלה.</p></div>
+          <div className="empty-text"><p>{savedHealth(useDurable.getState().health) ? 'ההתקדמות שלכם שמורה במכשיר.' : 'ייתכן שהשינויים האחרונים לא נשמרו.'} אפשר לטעון את המסך מחדש, או לחזור להתחלה.</p></div>
         </section>
         <footer className="screen-foot" data-region="footer">
           <Button className="btn-block btn-lg" onClick={() => window.location.reload()}>לטעון מחדש</Button>

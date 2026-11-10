@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { TOPIC } from '@/content/index.js';
 import { recordOnPath, markMastered, reopenKept, reachedUpTo, doneCount, chestOpen } from './path.js';
 import { questProgress } from './quests.js';
@@ -14,16 +14,10 @@ import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
 import { randomHex } from './random.js';
 import { migrate, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS } from './durable/migrations.js';
 import { addXp, newTag } from './durable/xp.js';
+import { durableStorage, bindDurableStore, STORE_KEY } from './durable/storage.js';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
-
-const safeStorage = createJSONStorage(() => {
-  try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); return localStorage; } catch {
-    const mem = new Map();
-    return { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: (k) => mem.delete(k) };
-  }
-});
 
 const empty = {
   profile: null, // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? } | { role: 'teacher', name, classes: [], active }
@@ -60,7 +54,7 @@ export const OUTBOX_MAX = 1000;
 export const toWire = (e) => ({ id: e.id, topic: e.topic, level: e.level, ok: e.ok, first: e.first, hint: e.hint, cat: e.cat, secs: e.secs, at: e.at });
 
 /** The saved-state key (a staging copy on the same address keeps its own); the parent session lives beside it. */
-export const STORE_KEY = import.meta.env.VITE_STORE_KEY || 'madregot';
+export { STORE_KEY };
 /** A personal Claude key is compiled in only for the no-server copies (VITE_ALLOW_PERSONAL_KEY=1). */
 export const PERSONAL_KEY = import.meta.env.VITE_ALLOW_PERSONAL_KEY === '1';
 
@@ -250,10 +244,13 @@ export const useApp = create(
         });
       },
     }),
-    // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')
-    { name: STORE_KEY, storage: safeStorage, version: CURRENT_VERSION, migrate: (saved, version) => migrateState(saved, version) },
+    // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot').
+    // Saved through the safe write path (lib/durable/storage.js): one write per tick, the copy on the device, quarantine.
+    { name: STORE_KEY, storage: durableStorage, version: CURRENT_VERSION, migrate: (saved, version) => migrateState(saved, version) },
   ),
 );
+// a restore from the copy on the device loads into this store
+bindDurableStore(useApp);
 
 /** Something was finished that day: a lesson or check, or a teaching stage (understand, worked examples, solve together). */
 export const learnedOn = (d) => !!d && ((d.lessons || 0) > 0 || (d.stages || 0) > 0);

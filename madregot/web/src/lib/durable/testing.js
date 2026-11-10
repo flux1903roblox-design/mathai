@@ -70,3 +70,60 @@ export function heavyYear({ seed = 7, end = '2026-11-05T12:00:00.000Z', days: nD
     },
   };
 }
+
+/**
+ * A localStorage in memory with a quota, counted as characters of keys and values (as the browsers count it, roughly).
+ * A write that would go over it throws a QuotaExceededError, as a full browser storage does. `blocked`: every access
+ * throws, as in a browser that lets a site save nothing.
+ */
+export function memoryLocalStorage({ quotaBytes = Infinity, blocked = false } = {}) {
+  const m = new Map();
+  const size = () => [...m].reduce((n, [k, v]) => n + k.length + v.length, 0);
+  const deny = () => { if (blocked) throw Object.assign(new Error('The operation is insecure.'), { name: 'SecurityError' }); };
+  const api = {
+    writes: [], // every setItem key, in order (tests count the writes)
+    quotaBytes,
+    getItem: (k) => { deny(); return m.has(k) ? m.get(k) : null; },
+    setItem(k, v) {
+      deny();
+      const s = String(v);
+      if (size() - (m.get(k)?.length ?? -k.length) + s.length > api.quotaBytes) throw Object.assign(new Error('The quota has been exceeded.'), { name: 'QuotaExceededError', code: 22 });
+      m.set(k, s); api.writes.push(k);
+    },
+    removeItem: (k) => { deny(); m.delete(k); },
+    clear: () => { deny(); m.clear(); },
+    key: (i) => [...m.keys()][i] ?? null,
+    get length() { return m.size; },
+    size,
+  };
+  return api;
+}
+
+const copy = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
+
+/**
+ * An IndexedDB backend in memory for idb.js, with the same calls as browserBackend. `delay` (ms) makes every call
+ * answer late; `failPut` makes writes fail; `failOpen` makes every call fail (a browser that blocks IndexedDB).
+ */
+export function memoryIdb({ delay = 0, failPut = false, failOpen = false } = {}) {
+  const stores = { mirror: new Map(), quarantine: new Map(), errors: new Map() };
+  let seq = 0;
+  const api = {
+    stores, delay, failPut, failOpen, destroyed: false,
+    async ready() {
+      if (api.delay) await new Promise((r) => { setTimeout(r, api.delay); });
+      if (api.failOpen) throw new Error('IndexedDB is blocked');
+    },
+    async get(store, key) { await api.ready(); return copy(stores[store].get(key)); },
+    async put(store, value, key) { await api.ready(); if (api.failPut) throw new Error('write failed'); stores[store].set(key, copy(value)); return key; },
+    async add(store, value) { await api.ready(); if (api.failPut) throw new Error('write failed'); seq += 1; stores[store].set(seq, copy(value)); return seq; },
+    async delete(store, key) { await api.ready(); stores[store].delete(key); },
+    async entries(store) { await api.ready(); return [...stores[store]].map(([key, value]) => ({ key, value: copy(value) })); },
+    close() {},
+    async destroy() { api.destroyed = true; Object.values(stores).forEach((s) => s.clear()); },
+  };
+  return api;
+}
+
+/** Let every pending promise and timer of `ms` run (with real timers). */
+export const settle = (ms = 0) => new Promise((r) => { setTimeout(r, ms); });
