@@ -15,7 +15,8 @@ export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grad
  *   placement: false   the first-day placement test skips it (it is taught later in the school year, so a new student
  *                      would only meet questions never taught); it starts at stair 1, and the unit jump test is there
  *                      for a student who already knows it
- *   alsoFor: ['8']     Exam Rescue offers it to that grade too (a grade 8 test can revise grade 7 equations)
+ *   alsoFor: ['8']     Exam Rescue (and the exam check's topic list) offers it to that grade too: a grade 8 test can
+ *                      revise grade 7 equations, and grade 7 learns Pythagoras in March though the app files it in grade 8
  */
 export const placementTopicsFor = (grade) => topicsFor(grade).filter((t) => t.placement !== false);
 /** The topics Exam Rescue offers a grade: its own, then those of another grade that are revised in it. */

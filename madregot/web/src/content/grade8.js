@@ -304,6 +304,9 @@ export const GRADE8 = [
   {
     id: 'pyth', grade: '8', title: 'משפט פיתגורס', color: 'violet',
     desc: 'יתר, ניצב, בדיקת משולש ושאלות מילוליות',
+    // The updated ז׳ programme teaches Pythagoras in March (unit 7.14), so Exam Rescue offers it to ז׳ too. It stays
+    // filed under ח׳ (unit 8.3, September), where the map and the placement test have it.
+    alsoFor: ['7'],
     levels: [
       { title: 'מציאת היתר', gen: () => { const r = Math.random(); return r < 0.3 ? squaresHyp() : r < 0.5 ? estimateRoot() : hypotenuse(); } },
       { title: 'מציאת ניצב', gen: leg },

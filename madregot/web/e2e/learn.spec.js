@@ -2,7 +2,7 @@
 // keeping the place, mastery only from a check without hints, a misconception repaired and verified,
 // Exam Rescue from a diagnostic to a plan, today's mission, and the profile's numbers and data deletion.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, saved, proceed, NOW, playDiscover, stageDone } from './helpers.js';
+import { open, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
 
@@ -197,6 +197,26 @@ test('Exam Rescue: the exam\'s date and stairs, a short diagnostic, then a plan 
   expect(Object.keys(st.learn.exam.diagnostic)).toHaveLength(5);
   await page.goto('./#/quests');
   await expect(page.locator('.today-exam')).toContainText('ההכנה למבחן');
+});
+
+test('Exam Rescue offers ז׳ Pythagoras (taught in March in ז׳) as one of theirs, and ח׳ the ז׳ algebra as revision', async ({ page }) => {
+  const toTopics = async () => {
+    const d = new Date(NOW); d.setDate(d.getDate() + 4);
+    await page.locator('#exam-date').fill(d.toLocaleDateString('en-CA'));
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  };
+  await open(page, '#/rescue', student('7'));
+  await toTopics();
+  const heads = page.locator('.rescue-topic-head .topic-row');
+  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'משוואות (כל הנושא)', 'משפט פיתגורס (כל הנושא)']);
+  await page.getByText('מציאת ניצב', { exact: true }).click();
+  await expect(page.locator('.rescue-topic').last().locator('.rescue-topic-count')).toHaveText('1/5');
+  await expectNoSidewaysScroll(page);
+
+  await open(page, '#/rescue', student('8'));
+  await toTopics();
+  await expect(heads.filter({ hasText: 'משפט פיתגורס' })).toHaveText('משפט פיתגורס (כל הנושא)');
+  await expect(heads.filter({ hasText: 'משוואות' }).last()).toHaveText('משוואות מכיתה ז׳ (כל הנושא)');
 });
 
 test('the profile shows what the evidence says, on this device, and can delete everything', async ({ page }) => {

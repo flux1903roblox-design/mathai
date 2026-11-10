@@ -161,10 +161,15 @@ describe('topic flags', () => {
   it('alsoFor offers a topic to another grade in Exam Rescue, after that grade\'s own', () => {
     // grade 8 tests revise equations with brackets, so grade 7 expressions and equations are offered to grade 8 already
     expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'expr', 'eq']);
+    // the updated ז׳ programme teaches Pythagoras in March (unit 7.14): it stays filed under ח׳ and is offered to ז׳
+    expect(TOPIC.pyth.grade).toBe('8');
+    expect(topicsFor('7').map((t) => t.id)).not.toContain('pyth');
+    expect(rescueTopicsFor('7').map((t) => t.id)).toEqual([...topicsFor('7').map((t) => t.id), 'pyth']);
     TOPIC.signed.alsoFor = ['8'];
     try {
       expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'signed', 'expr', 'eq']);
-      expect(rescueTopicsFor('7').map((t) => t.id)).toEqual(topicsFor('7').map((t) => t.id));
+      // a grade's own topic is never offered twice
+      expect(rescueTopicsFor('7').map((t) => t.id)).toEqual([...topicsFor('7').map((t) => t.id), 'pyth']);
     } finally { delete TOPIC.signed.alsoFor; }
   });
 });
