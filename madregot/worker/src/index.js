@@ -53,7 +53,7 @@ async function verifyPin(pin, stored) {
 const classCode = () => randomFrom(CODE_ALPHABET, 6);
 const cleanName = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 30);
 
-// Wrong personal-code attempts allowed per student per day; the teacher's reset clears the need.
+// Wrong personal-code attempts allowed per student per day (each try is counted before the compare); the teacher's reset clears the count.
 const PIN_TRIES = 10;
 
 // ---------- AI ----------
@@ -245,9 +245,13 @@ async function joinClass(code, req, env, cors) {
   if (existing) {
     // An empty pin_hash means the teacher reset it: the next join sets a new PIN.
     if (existing.pin_hash) {
-      const tries = await env.DB.prepare('SELECT count FROM ai_usage WHERE who = ? AND day = ?').bind(`pin:${existing.id}`, dayOf()).first();
-      if (tries && tries.count >= PIN_TRIES) throw new HttpError(429, 'too_many_pin');
-      if (!(await verifyPin(pin, existing.pin_hash))) { await take(env, [key(`pin:${existing.id}`, PIN_TRIES)]); throw new HttpError(403, 'wrong_pin'); }
+      // A try is counted before the PIN is compared, so parallel guesses cannot all be compared against one stale count.
+      // A wrong PIN keeps its try; the right one gives it back.
+      const k = key(`pin:${existing.id}`, PIN_TRIES, { refundable: true, err: new HttpError(429, 'too_many_pin') });
+      const t = await take(env, [k]);
+      if (!t.ok) throw t.error;
+      if (!(await verifyPin(pin, existing.pin_hash))) throw new HttpError(403, 'wrong_pin');
+      await giveBack(env, [k]);
     }
     id = existing.id;
     await env.DB.prepare('UPDATE students SET token_hash = ?, pin_hash = ?, last_seen = ? WHERE id = ?')

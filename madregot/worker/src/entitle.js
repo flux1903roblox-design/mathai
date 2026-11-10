@@ -25,7 +25,7 @@ export const DEFAULT_LIMITS = {
   class: { student: { tutor: 20, check: 3, generate: 3, exam: 1 }, teacher: { tutor: 100, check: 20, generate: 30, exam: 20 }, seatUnits: 25 },
   trial: { student: { tutor: 10, check: 2, generate: 0, exam: 0 }, teacher: { tutor: 50, check: 10, generate: 0, exam: 0 }, seatUnits: 10, maxSeats: 40, days: 14 },
   legacy: { student: 40, teacher: 200, classUnits: 600 },
-  budgets: { freeDailyUsd: 5, trialDailyUsd: 10, familyMonthlyUsd: 5, classSeatMonthlyUsd: 0.8, ownerAlertUsd: 20 },
+  budgets: { freeDailyUsd: 5, trialDailyUsd: 10, familyMonthlyUsd: 4, classSeatMonthlyUsd: 0.8, ownerAlertUsd: 20 },
   graceDays: 3,
 };
 // Owner overrides through plain vars; AI_LIMITS (JSON) is deep-merged last for everything else.
