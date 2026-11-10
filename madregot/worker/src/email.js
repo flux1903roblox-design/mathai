@@ -1,11 +1,20 @@
 // Service email through Resend's HTTP API (https://resend.com/docs/api-reference/emails/send-email): the sign-in code,
-// and the notices outbox (welcome, cancellation, refund, payment failed, owner alerts). Settings: RESEND_API_KEY
-// (secret), EMAIL_FROM (a domain verified in Resend), CONTACT_EMAIL (reply-to), OWNER_EMAIL (owner alerts).
-// Every inserted value is HTML-escaped; nothing the user typed goes into an email except the recipient address.
+// and the notices outbox (welcome, cancellation, refund, payment failed, renewal reminder, device linked, licence
+// ending, owner alerts and the owner's daily summary). Settings: RESEND_API_KEY (secret), EMAIL_FROM (a domain verified
+// in Resend), CONTACT_EMAIL (reply-to), OWNER_EMAIL (owner alerts). Every inserted value is HTML-escaped. Nothing a
+// parent or child typed goes into their own emails except the recipient address and a device label; a teacher's licence
+// request (school, note) goes only to the owner. With EMAIL_DEV_LOG = "true" on a local Worker (PUBLIC_URL on
+// localhost) and no Resend key, notices are printed to the log instead (subjects only, never a code).
 import { HttpError, nowIso, sha256, TZ } from './util.js';
 
 export function emailReady(env) {
   return !!(env.RESEND_API_KEY && env.EMAIL_FROM);
+}
+const LOCAL_HOSTS = ['localhost', '127.0.0.1'];
+/** The notices dev log: EMAIL_DEV_LOG on a Worker whose PUBLIC_URL is on localhost (never in production). */
+export function noticeDevLog(env) {
+  if (String(env.EMAIL_DEV_LOG) !== 'true') return false;
+  try { return LOCAL_HOSTS.includes(new URL(env.PUBLIC_URL).hostname); } catch { return false; }
 }
 
 export const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -124,10 +133,17 @@ export function renderNotice(env, row) {
     case 'licence_ending':
       return {
         subject: `רישיון הכיתה מסתיים ב־${hebDate(p.until)}`,
-        lines: ['שלום,', 'לחידוש: השיבו למייל הזה או בקשו הצעת מחיר מלוח המורה.'],
+        lines: [
+          'שלום,',
+          `רישיון העוזר החכם של הכיתה${p.classCode ? ` ${p.classCode}` : ''} מסתיים ב־${hebDate(p.until)}.`,
+          'לחידוש: השיבו למייל הזה או בקשו הצעת מחיר מלוח המורה.',
+          [env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean).join(' · '),
+        ],
       };
     case 'owner': {
       const what = String(row.kind).slice('owner:'.length);
+      if (what === 'licence_request') return licenceRequestNotice(p);
+      if (what.startsWith('summary:')) return summaryNotice(p, what.slice('summary:'.length));
       return { subject: `[מדרגות] ${what}`, lines: [`${what}`, `ref: ${row.ref}`, ...Object.entries(p).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)] };
     }
     default:
@@ -135,11 +151,51 @@ export function renderNotice(env, row) {
   }
 }
 
+/** A teacher asked for a trial or a quote. The owner answers by email and grants with npm run owner. */
+function licenceRequestNotice(p) {
+  const trial = p.wants === 'trial';
+  return {
+    subject: `[מדרגות] בקשה ${trial ? 'לניסיון' : 'להצעת מחיר'} לכיתה ${p.classCode || ''}`.trim(),
+    lines: [
+      trial ? 'מורה ביקש ניסיון של שבועיים לכיתה. ניסיון לא נפתח לבד: מאשרים אותו בסקריפט.' : 'מורה ביקש הצעת מחיר לבית הספר.',
+      `בית הספר: ${p.school || ''}`,
+      `כמה כיתות: ${p.classes ?? ''}`,
+      p.students ? `תלמידים בכיתה: ${p.students}` : '',
+      p.note ? `הערה: ${p.note}` : '',
+      `קוד הכיתה: ${p.classCode || ''}`,
+      `מייל המורה: ${p.email || 'לא ידוע (החשבון נמחק)'}`,
+      trial ? `לאישור: npm run owner -- grant-class --class ${p.classCode || ''} --seats ${Math.min(40, Number(p.students) || 30)} --trial` : '',
+      `כשמטפלים בבקשה: npm run owner -- request-done --id ${p.requestId || ''}`,
+    ],
+  };
+}
+
+/** The owner's daily summary: yesterday's spend and plans, what needs a hand, and the invariant checks. */
+function summaryNotice(p, day) {
+  const usd = (n) => `$${(Number(n) || 0).toFixed(2)}`;
+  const v = Array.isArray(p.violations) ? p.violations : [];
+  return {
+    subject: `[מדרגות] סיכום יומי ${day}${v.length ? ` · ${v.length} בעיות` : ''}`,
+    lines: [
+      `סיכום ליום ${day}`,
+      `עלות כוללת: ${usd(p.allUsd)} · שאלות בחינם: ${p.freeCalls ?? 0}`,
+      ...(Array.isArray(p.spend) ? p.spend : []).map((x) => `${x.pool}: ${usd(x.usd)} (${x.calls} קריאות)`),
+      `מנויים ורישיונות חדשים: ${p.newPlans ?? 0} · ביטולים: ${p.canceled ?? 0} · הסתיימו: ${p.ended ?? 0}`,
+      `ביטולים שהספק עוד לא אישר: ${p.unsyncedCancels ?? 0}`,
+      `החזרים שצריך לעשות ידנית: ${p.manualRefunds ?? 0}`,
+      `הודעות תשלום חריגות (mismatch, unknown, test_mode): ${p.badEvents ?? 0}`,
+      `בקשות רישיון פתוחות: ${p.openRequests ?? 0}`,
+      v.length ? 'בדיקות שנכשלו:' : 'כל הבדיקות עברו.',
+      ...v.map((x) => `- ${x}`),
+    ],
+  };
+}
+
 export const MAX_NOTICE_TRIES = 6;
 
 /** Send pending notices (the outbox). A failed send is retried by the next call, up to 6 tries. */
 export async function flushNotices(env, { limit = 50 } = {}) {
-  if (!emailReady(env) && String(env.EMAIL_DEV_LOG) !== 'true') return { sent: 0 };
+  if (!emailReady(env) && !noticeDevLog(env)) return { sent: 0 };
   const pending = (await env.DB.prepare(
     'SELECT ref, kind, to_account, params, tries FROM notices WHERE sent_at IS NULL AND tries < ? ORDER BY created_at LIMIT ?',
   ).bind(MAX_NOTICE_TRIES, limit).all()).results || [];
@@ -154,6 +210,12 @@ export async function flushNotices(env, { limit = 50 } = {}) {
     // a cancellation recorded by the owner CLI gets its confirmation number here
     if (String(row.kind).startsWith('canceled:') && !params.reference && params.requestedAt) {
       params.reference = `C-${(await sha256(`${row.ref}${params.requestedAt}`)).slice(0, 4).toUpperCase()}`;
+    }
+    // a licence request names the teacher's address only in the owner's email, looked up now (never stored in the notice)
+    if (row.kind === 'owner:licence_request') {
+      const r = await env.DB.prepare('SELECT a.email FROM licence_requests r JOIN accounts a ON a.id = r.account_id WHERE r.id = ?').bind(row.ref).first();
+      params.email = r?.email || null;
+      params.requestId = row.ref;
     }
     const msg = renderNotice(env, { ...row, params: JSON.stringify(params) });
     if (!to || !msg) { await done('UPDATE notices SET tries = ? WHERE ref = ? AND kind = ?', MAX_NOTICE_TRIES); continue; }

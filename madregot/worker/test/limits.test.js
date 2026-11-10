@@ -10,7 +10,8 @@ const big = (n) => JSON.stringify({ pad: 'x'.repeat(n) });
 test('over-size bodies are 413 before JSON.parse: chat 32 KB, generate 16 KB, account 4 KB, webhook 64 KB', async () => {
   h = await setup();
   for (const [path, size] of [['/api/ai/chat', 33 * 1024], ['/api/ai/explain', 33 * 1024], ['/api/ai/generate', 17 * 1024], ['/api/account/code', 5 * 1024],
-    ['/api/classes', 5 * 1024], [`/api/billing/webhook/test/${h.env.WEBHOOK_PATH_SECRET}`, 65 * 1024]]) {
+    ['/api/classes', 5 * 1024], [`/api/billing/webhook/test/${h.env.WEBHOOK_PATH_SECRET}`, 65 * 1024],
+    ['/api/family/link/start', 5 * 1024], ['/api/family/link/finish', 5 * 1024], ['/api/family/devices/leave', 5 * 1024]]) {
     const r = await h.call('POST', path, { body: big(size), headers: { 'X-Device': DEVICE } });
     assert.equal(r.status, 413, path);
     assert.equal((await r.json()).error, 'too_large', path);

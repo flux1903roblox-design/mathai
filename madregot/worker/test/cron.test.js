@@ -84,3 +84,163 @@ test('at 03:00 in Jerusalem the purge removes expired codes, idle sessions and o
   assert.equal(rows(h.env, 'SELECT * FROM login_codes').length, 0);
   assert.equal(rows(h.env, 'SELECT * FROM account_sessions').length, 0);
 });
+
+// ---------------------------------------------------------------- the 03:00 jobs
+const { jerusalemMidnight, dayOf: today } = await import('../src/util.js');
+/** 03:10 in Jerusalem today: the hour the night jobs run. */
+const night = () => new Date(jerusalemMidnight(today()).ms + 3 * 3600_000 + 10 * 60_000);
+const { default: testProvider } = await import('../src/providers/test.js');
+
+test('reconciliation extends a renewing plan only from the truth pulled from the provider, or ends it', async () => {
+  h = await setup();
+  const later = new Date(Date.now() + 29 * DAY).toISOString();
+  const sub = (id, o) => insertSub(h.env, { kind: 'family', provider: 'test', provider_subscription_id: id, price_agorot: 2990, start: ago(31 * DAY), ...o });
+  const renewed = sub('tsub_renewed', { end: ago(DAY) });
+  const waiting = sub('tsub_waiting', { end: ago(DAY) });
+  const silent = sub('tsub_silent', { end: ago(5 * DAY) });
+  const canceled = sub('tsub_canceled', { end: ago(DAY) });
+  const down = sub('tsub_down', { end: ago(5 * DAY) });
+  const running = sub('tsub_running', { end: ago(-10 * DAY) });
+  const pastDue = sub('tsub_pastdue', { status: 'past_due', end: ago(DAY) });
+  const truth = {
+    tsub_renewed: { status: 'active', periodEnd: later }, tsub_waiting: { status: 'active', periodEnd: ago(DAY) },
+    tsub_canceled: { status: 'canceled', periodEnd: ago(DAY) }, tsub_pastdue: { status: 'active', periodEnd: later },
+  };
+  const asked = [];
+  const real = testProvider.fetchSubscription;
+  testProvider.fetchSubscription = async (env, s) => {
+    asked.push(s.provider_subscription_id);
+    if (s.provider_subscription_id === 'tsub_down') throw new Error('provider unreachable');
+    return truth[s.provider_subscription_id] || null;
+  };
+  let report;
+  try { report = await run(h.env, { now: night() }); } finally { testProvider.fetchSubscription = real; }
+  assert.deepEqual(report.reconcile, { checked: 6, extended: 2, ended: 2, failed: 1 });
+  assert.ok(!asked.includes('tsub_running'), 'a running period is not asked about');
+  const st = (s) => ({ ...one(h.env, 'SELECT status, ended_reason, current_period_end FROM subscriptions WHERE id = ?', s.id) });
+  assert.deepEqual(st(renewed), { status: 'active', ended_reason: null, current_period_end: later });
+  assert.deepEqual(st(pastDue), { status: 'active', ended_reason: null, current_period_end: later });
+  assert.equal(st(waiting).status, 'active', 'no renewal yet, still inside the grace days: wait');
+  assert.equal(st(waiting).current_period_end, waiting.current_period_end, 'never moved without a pulled truth');
+  assert.deepEqual({ ...st(silent) }, { status: 'ended', ended_reason: 'payment_failed', current_period_end: silent.current_period_end });
+  assert.equal(st(canceled).ended_reason, 'canceled');
+  assert.equal(st(down).status, 'active', 'an unreachable provider is asked again tomorrow');
+  assert.equal(rows(h.env, "SELECT * FROM audit_log WHERE action = 'subscription.reconcile' AND actor = 'cron'").length, 4);
+  // not outside the 03:00 hour
+  assert.equal((await run(h.env, { now: new Date(night().getTime() + 6 * 3600_000) })).reconcile, undefined);
+
+  // a renewal that arrives late brings the plan that ended for want of one back
+  const { signedTestEvent } = await import('./helpers.js');
+  const ev = await signedTestEvent(h.env, { id: 'ev_late', type: 'paid', subscription: 'tsub_silent', payment: 'pay_late', amountAgorot: 2990, currency: 'ILS', occurredAt: new Date().toISOString() });
+  const r = await h.call('POST', `/api/billing/webhook/test/${h.env.WEBHOOK_PATH_SECRET}`, { body: ev.body, headers: ev.headers });
+  assert.deepEqual((await r.json()).results, ['applied']);
+  assert.equal(st(silent).status, 'active');
+  assert.ok(st(silent).current_period_end > new Date().toISOString());
+});
+
+test('the yearly renewal reminder is queued once at 45 days, the licence-ending email once at 30 days', async () => {
+  h = await setup();
+  await signIn(h, 'year@example.test'); await signIn(h, 'buyer@example.test'); await signIn(h, 'teacher@example.test');
+  const year = accountId(h.env, 'year@example.test');
+  const due = insertSub(h.env, { kind: 'family', plan: 'family_year', account_id: year, price_agorot: 24900, provider: 'test', start: ago(320 * DAY), end: ago(-40 * DAY) });
+  insertSub(h.env, { kind: 'family', plan: 'family_year', account_id: null, price_agorot: 24900, end: ago(-50 * DAY) });
+  insertSub(h.env, { kind: 'family', plan: 'family_year', account_id: null, price_agorot: 24900, status: 'canceled', cancel_at_period_end: 1, end: ago(-40 * DAY) });
+  insertSub(h.env, { kind: 'family', plan: 'family_month', account_id: null, price_agorot: 2990, end: ago(-20 * DAY) });
+  const bought = insertSub(h.env, { kind: 'class', class_code: 'ABC234', plan: 'class_year', account_id: accountId(h.env, 'buyer@example.test'), end: ago(-25 * DAY) });
+  const granted = insertSub(h.env, { kind: 'class', class_code: 'DEF234', plan: 'term', end: ago(-20 * DAY) });
+  h.env.DB.raw.prepare("INSERT INTO licence_requests (id, class_code, account_id, wants, school, created_at) VALUES ('r1', 'DEF234', ?, 'quote', 'אורט', ?)")
+    .run(accountId(h.env, 'teacher@example.test'), ago(100 * DAY));
+  insertSub(h.env, { kind: 'class', class_code: 'GHJ234', plan: 'term', end: ago(-20 * DAY) }); // nobody to tell
+  insertSub(h.env, { kind: 'class', class_code: 'KMN234', plan: 'trial', end: ago(-10 * DAY) });
+  insertSub(h.env, { kind: 'class', class_code: 'PQR234', plan: 'term', end: ago(-40 * DAY) });
+  await run(h.env, { now: night() });
+  await run(h.env, { now: night() });
+  const kinds = rows(h.env, "SELECT ref, kind, to_account FROM notices WHERE kind LIKE 'renewal_reminder:%' OR kind LIKE 'licence_ending:%' ORDER BY kind");
+  assert.deepEqual(kinds.map((n) => [n.ref, n.kind.split(':')[0]]).sort(), [[bought.id, 'licence_ending'], [granted.id, 'licence_ending'], [due.id, 'renewal_reminder']].sort());
+  assert.equal(kinds.find((n) => n.ref === granted.id).to_account, accountId(h.env, 'teacher@example.test'), 'to the teacher who asked');
+  const mail = (subject) => h.net.log.email.filter((m) => m.subject.startsWith(subject));
+  assert.equal(mail('המנוי השנתי מתחדש ב־').length, 1);
+  assert.match(mail('המנוי השנתי מתחדש ב־')[0].text, /₪249\.00, כולל מע״מ/);
+  assert.match(mail('המנוי השנתי מתחדש ב־')[0].text, /לביטול המנוי: https:\/\/madregot\.example\.test\/cancel/);
+  assert.equal(mail('רישיון הכיתה מסתיים ב־').length, 2);
+  assert.ok(mail('רישיון הכיתה מסתיים ב־').some((m) => m.to[0] === 'buyer@example.test' && /ABC234/.test(m.text)));
+});
+
+test('the night purge removes expired codes and links, idle sessions and devices, old notices, orders, spend and audit rows', async () => {
+  h = await setup();
+  const db = h.env.DB.raw;
+  db.prepare("INSERT INTO accounts (id, email, created_at) VALUES ('a1', 'keep@example.test', 'x')").run();
+  const dev = (id, token, created, seen) => db.prepare('INSERT INTO family_devices (id, account_id, token_hash, label, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(id, 'a1', token, '', created, seen);
+  dev('pending_old', null, ago(2 * DAY), today()); dev('pending_new', null, ago(3600_000), today());
+  dev('idle', 'h1', ago(500 * DAY), today(new Date(Date.now() - 400 * DAY))); dev('used', 'h2', ago(500 * DAY), today());
+  const link = (hash, expires) => db.prepare('INSERT INTO link_codes (code_hash, secret_hash, created_at, expires_at) VALUES (?, ?, ?, ?)').run(hash, 's', ago(DAY), expires);
+  link('old', ago(2 * DAY)); link('recent', ago(3600_000));
+  const notice = (ref, sent, tries = 0) => db.prepare("INSERT INTO notices (ref, kind, params, created_at, sent_at, tries) VALUES (?, 'welcome', '{}', ?, ?, ?)").run(ref, ago(200 * DAY), sent, tries);
+  notice('sent_old', ago(100 * DAY)); notice('sent_new', ago(10 * DAY)); notice('failed_old', null, 6); notice('pending', null, 0);
+  const order = (id, status, created) => db.prepare(`INSERT INTO orders (id, plan, amount_agorot, vat_agorot, provider, mode, idempotency_key, status, created_at, expires_at)
+    VALUES (?, 'family_month', 2990, 456, 'test', 'test', ?, ?, ?, ?)`).run(id, `key-${id}-0123456789`, status, created, created);
+  order('expired_old', 'expired', ago(40 * DAY)); order('expired_new', 'expired', ago(10 * DAY)); order('paid_old', 'paid', ago(400 * DAY));
+  db.prepare("INSERT INTO ai_spend (pool, period, nano_usd) VALUES ('all', ?, 1), ('all', ?, 1), ('all', ?, 1), ('all', ?, 1)")
+    .run(today(new Date(Date.now() - 500 * DAY)), today(new Date(Date.now() - 500 * DAY)).slice(0, 7), today(), today().slice(0, 7));
+  db.prepare("INSERT INTO audit_log (at, actor, action, target) VALUES (?, 'cron', 'x', 'old'), (?, 'cron', 'x', 'new')").run(ago(800 * DAY), ago(DAY));
+  await run(h.env, { now: night() });
+  const ids = (sql) => rows(h.env, sql).map((r) => Object.values(r)[0]).sort();
+  assert.deepEqual(ids('SELECT id FROM family_devices'), ['pending_new', 'used']);
+  assert.deepEqual(ids('SELECT code_hash FROM link_codes'), ['recent']);
+  assert.deepEqual(ids('SELECT ref FROM notices'), ['pending', 'sent_new']);
+  assert.deepEqual(ids('SELECT id FROM orders'), ['expired_new', 'paid_old']);
+  assert.deepEqual(ids('SELECT period FROM ai_spend'), [today(), today().slice(0, 7)].sort());
+  assert.deepEqual(ids('SELECT target FROM audit_log WHERE actor = \'cron\''), ['new']);
+});
+
+test('the daily summary lists yesterday and the invariant violations, only when OWNER_DAILY_SUMMARY is on', async () => {
+  h = await setup({ OWNER_DAILY_SUMMARY: 'true' });
+  const yesterday = today(new Date(night().getTime() - DAY));
+  const db = h.env.DB.raw;
+  db.prepare("INSERT INTO ai_spend (pool, period, calls, nano_usd) VALUES ('all', ?1, 900, 25e9), ('free', ?1, 700, 6e9), ('kind:chat', ?1, 1, 1)").run(yesterday);
+  const unpaid = insertSub(h.env, { kind: 'family', provider: 'test', start: ago(DAY), end: ago(-29 * DAY) });
+  const paid = insertSub(h.env, { kind: 'family', provider: 'test', start: ago(DAY), end: ago(-29 * DAY) });
+  db.prepare(`INSERT INTO payments (id, provider, provider_payment_id, kind, subscription_id, amount_agorot, status, period_end, occurred_at, recorded_at)
+    VALUES ('p1', 'test', 'tp1', 'charge', ?, 2990, 'ok', ?, ?, ?)`).run(paid.id, paid.current_period_end, ago(DAY), ago(DAY));
+  insertSub(h.env, { kind: 'class', class_code: 'ABC234', provider: 'manual', plan: 'term' }); // a grant needs no payment
+  db.prepare(`INSERT INTO orders (id, plan, amount_agorot, vat_agorot, provider, mode, idempotency_key, status, created_at, expires_at)
+    VALUES ('0123456789abcdef', 'family_month', 2990, 456, 'test', 'test', 'summary-order-0123456789', 'paid', ?, ?)`).run(ago(DAY), ago(DAY));
+  db.prepare("INSERT INTO licence_requests (id, class_code, wants, school, created_at) VALUES ('r1', 'ABC234', 'trial', 'אורט', ?)").run(ago(DAY));
+  await run(h.env, { now: night() });
+  const n = one(h.env, 'SELECT * FROM notices WHERE kind = ?', `owner:summary:${yesterday}`);
+  assert.ok(n, 'queued');
+  const p = JSON.parse(n.params);
+  assert.equal(p.allUsd, 25); assert.equal(p.freeCalls, 700); assert.equal(p.openRequests, 1);
+  assert.deepEqual(p.spend.map((x) => x.pool), ['free'], 'pools only, not the totals by kind');
+  const mail = h.net.log.email.find((m) => m.subject.startsWith(`[מדרגות] סיכום יומי ${yesterday}`));
+  assert.deepEqual(mail.to, ['owner@example.test']);
+  assert.match(mail.subject, /4 בעיות/);
+  assert.match(mail.text, new RegExp(`מנוי פעיל בלי תשלום שמכסה את היום: ${unpaid.id}`));
+  assert.doesNotMatch(mail.text, new RegExp(paid.id));
+  assert.match(mail.text, /הזמנה ששולמה בלי מנוי: 0123456789abcdef/);
+  assert.match(mail.text, /עברה את 20\$/);
+  assert.match(mail.text, /הטעימה בחינם עברה את התקציב היומי/);
+  // once a night; never without the switch
+  await run(h.env, { now: night() });
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind LIKE 'owner:summary:%'").length, 1);
+  h.done();
+  h = await setup();
+  await run(h.env, { now: night() });
+  assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind LIKE 'owner:summary:%'").length, 0);
+});
+
+test('without Resend, notices go to the dev log only on a local Worker, and never with a code', async () => {
+  h = await setup({ RESEND_API_KEY: undefined, EMAIL_DEV_LOG: 'true' });
+  h.env.DB.raw.prepare("INSERT INTO notices (ref, kind, to_account, params, created_at) VALUES ('d1', 'owner:spend:x', NULL, '{}', ?)").run(ago(0));
+  const logged = [];
+  const real = console.log;
+  console.log = (...a) => logged.push(a.join(' '));
+  try {
+    assert.deepEqual(await flushNotices(h.env), { sent: 0 }, 'PUBLIC_URL is not on localhost');
+    h.env.PUBLIC_URL = 'http://localhost:8787';
+    assert.deepEqual(await flushNotices(h.env), { sent: 1 });
+  } finally { console.log = real; }
+  assert.equal(logged.length, 1); assert.match(logged[0], /^\[dev\] notice owner:spend:x: \[מדרגות\] spend:x$/);
+  assert.equal(h.net.log.email.length, 0);
+});

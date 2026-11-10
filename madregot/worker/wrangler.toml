@@ -37,6 +37,8 @@ TRIAL_DAILY_BUDGET_USD = "10"
 FAMILY_MONTHLY_BUDGET_USD = "5"
 CLASS_SEAT_MONTHLY_BUDGET_USD = "0.8"
 OWNER_ALERT_USD = "20"
+# "true": every night the owner gets a summary of yesterday (spend, plans, what needs a hand, invariant checks).
+OWNER_DAILY_SUMMARY = "true"
 # Prices in agorot, VAT included (VAT_MODE "included", or "exempt" for an exempt dealer).
 PRICE_FAMILY_MONTH_AGOROT = "2990"
 PRICE_FAMILY_YEAR_AGOROT = "24900"
@@ -71,7 +73,8 @@ EMAIL_FROM = ""
 #   TURNSTILE_SECRET, DEVICE_SECRET   only with FREE_DEVICE_MINT = "turnstile"
 # TEST_WEBHOOK_SECRET belongs in .dev.vars only (the test provider).
 
-# The hourly jobs: notices, cancellation retries, refunds, expired orders and plans; old counters at night.
+# The hourly jobs: notices, cancellation retries, refunds, expired orders and plans. At 03:00 (Jerusalem): reconciliation
+# with the payment provider, renewal and licence-ending reminders, the retention purge and the owner's daily summary.
 [triggers]
 crons = ["7 * * * *"]
 

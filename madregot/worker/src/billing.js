@@ -121,7 +121,7 @@ export async function checkout(req, env, cors) {
   const order = {
     id: randomToken(8), account_id: account.id, plan, class_code: classCode, seats, amount_agorot: amount, vat_agorot: vatOf(env, amount),
     provider: provider.id, mode: env.BILLING_MODE === 'test' ? 'test' : 'live', idempotency_key: idem, status: 'open',
-    created_at: now, expires_at: new Date(Date.now() + ORDER_TTL_MIN * 60_000).toISOString(),
+    created_at: now, expires_at: new Date(Date.parse(now) + ORDER_TTL_MIN * 60_000).toISOString(),
   };
   try {
     await env.DB.batch([

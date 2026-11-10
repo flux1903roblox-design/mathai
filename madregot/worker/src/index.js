@@ -1,6 +1,6 @@
 // Madregot API: Claude proxy (the key never reaches browsers), class data in D1, and the paid AI tutor
-// (entitlement, sign-in by email code, checkout and payments, cancellation). The owner works through
-// scripts/owner.mjs; there is no HTTP admin.
+// (entitlement, sign-in by email code, family devices, class licences, checkout and payments, cancellation).
+// The owner works through scripts/owner.mjs; there is no HTTP admin.
 import Anthropic from '@anthropic-ai/sdk';
 import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult } from '../../shared/ai.js';
 import {
@@ -16,6 +16,8 @@ import {
   onlineCheckout,
 } from './billing.js';
 import { currentProvider } from './providers/index.js';
+import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily } from './family.js';
+import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked } from './licence.js';
 import { run as runCron } from './cron.js';
 
 // ---------- http helpers ----------
@@ -196,7 +198,7 @@ async function joinClass(code, req, env, cors) {
   const token = randomToken();
   const existing = await env.DB.prepare('SELECT * FROM students WHERE class_code = ? AND name = ?').bind(cls.code, name).first();
   // a class its teacher closed to new names still lets its students back in with their PIN
-  if (!existing && (await env.DB.prepare('SELECT 1 AS x FROM class_locks WHERE class_code = ?').bind(cls.code).first())) throw new HttpError(403, 'class_locked');
+  if (!existing && (await joinLocked(env, cls.code))) throw new HttpError(403, 'class_locked');
   let id;
   if (existing) {
     // An empty pin_hash means the teacher reset it: the next join sets a new PIN.
@@ -280,7 +282,7 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
@@ -297,6 +299,7 @@ async function dashboard(req, env, cors) {
        WHERE s.class_code = ? AND (h.done_at IS NULL OR h.done_at >= ?) ORDER BY h.created_at DESC LIMIT 100`, cls.code, daysAgo(7)),
     q('SELECT a.student_id, MAX(a.at) AS last FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? GROUP BY a.student_id', cls.code),
     q('SELECT e.id, e.student_id, e.title, e.correct, e.total, e.questions, e.weak, e.created_at, s.name FROM exams e JOIN students s ON s.id = e.student_id WHERE s.class_code = ? ORDER BY e.created_at DESC LIMIT 200', cls.code),
+    joinLocked(env, cls.code),
   ]);
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
   const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows);
@@ -305,6 +308,7 @@ async function dashboard(req, env, cors) {
   return json({
     class: { code: cls.code, name: cls.name, grade: cls.grade, teacherName: cls.teacher_name },
     today,
+    joinLocked: locked,
     students: students.map((s) => ({
       id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset,
       today: t[s.id] ? { n: t[s.id].n, ok: t[s.id].ok, first: t[s.id].first, minutes: Math.round((t[s.id].secs || 0) / 60) } : { n: 0, ok: 0, first: 0, minutes: 0 },
@@ -389,6 +393,13 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/billing\/webhook\/([a-z]{2,20})\/([A-Za-z0-9]{1,128})$/))) return webhook(m[1], m[2], req, env, ctx, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/billing\/test-pay\/([a-f0-9]{16})$/))) return testPayPage(m[1], env);
   if (M === 'POST' && (m = p.match(/^\/api\/billing\/test-pay\/([a-f0-9]{16})$/))) return testPaySubmit(m[1], req, env, ctx);
+  // family devices: the child's device starts a link and collects its token; the parent claims it (spec §3.3)
+  if (M === 'POST' && p === '/api/family/link/start') return linkStart(req, env, cors);
+  if (M === 'POST' && p === '/api/family/link/finish') return linkFinish(req, env, cors);
+  if (M === 'POST' && p === '/api/family/link/claim') return linkClaim(req, env, ctx, cors);
+  if (M === 'POST' && p === '/api/family/devices/this') return linkThisDevice(req, env, ctx, cors);
+  if (M === 'POST' && p === '/api/family/devices/leave') return leaveFamily(req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/family\/devices\/([a-f0-9]{16})\/unlink$/))) return unlinkDevice(m[1], req, env, cors);
   // classes and students
   if (M === 'POST' && p === '/api/classes') return createClass(req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})$/))) return classInfo(m[1], req, env, cors);
@@ -401,6 +412,11 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)$/))) return updateHelp(m[1], req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/teacher\/help\/(\d+)\/image$/))) return helpImage(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/remove$/))) return removeStudent(m[1], req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);
+  if (M === 'GET' && p === '/api/teacher/licence') return licenceStatus(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/licence/request') return licenceRequest(req, env, ctx, cors);
+  if (M === 'POST' && p === '/api/teacher/licence/claim') return licenceClaim(req, env, cors);
   return json({ error: 'not_found' }, 404, cors);
 }
 

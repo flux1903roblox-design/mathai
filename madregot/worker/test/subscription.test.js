@@ -3,7 +3,7 @@
 // cancellation with a refund, and the emails. Claude, the email service and the payment company are stubbed.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { setup, ai, signIn, accountId, linkDevice, rows, one, DEVICE } from './helpers.js';
+import { setup, ai, signIn, rows, one, DEVICE } from './helpers.js';
 
 let h;
 afterEach(() => h?.done());
@@ -36,8 +36,15 @@ test('free taste, sign in, pay on the test page, the family plan on a linked dev
   const poll = await (await h.call('GET', `/api/billing/orders/${orderId}`, { headers: { 'X-Account-Token': token } })).json();
   assert.equal(poll.status, 'paid'); assert.equal(poll.subscription.status, 'active');
 
+  // the child's device shows a code, the parent claims it on their own phone, the device collects its token
+  const secret = 'b'.repeat(32);
+  const shown = await (await h.call('POST', '/api/family/link/start', { headers: { 'X-Device': DEVICE }, body: { secret } })).json();
+  assert.equal((await h.call('POST', '/api/family/link/finish', { body: { code: shown.code, secret } })).status, 202);
+  const claimed = await h.call('POST', '/api/family/link/claim', { headers: { 'X-Account-Token': token }, body: { code: shown.code, label: 'הטאבלט' } });
+  assert.equal(claimed.status, 200);
+  const collected = await (await h.call('POST', '/api/family/link/finish', { body: { code: shown.code, secret } })).json();
+  const dev = { headers: { 'X-Family-Device': collected.deviceToken } };
   // the child's device, linked to the plan, has the full tutor on the main model
-  const dev = await linkDevice(h.env, accountId(h.env, 'parent@example.test'));
   const r = await ai(h, 'check', { ...dev.headers, 'X-Device': DEVICE });
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('X-AI-Tier'), 'family');
@@ -53,6 +60,7 @@ test('free taste, sign in, pay on the test page, the family plan on a linked dev
   await h.ctx.flush();
   const subjects = h.net.log.email.map((m) => m.subject);
   assert.ok(subjects.includes('המנוי לעוזר החכם של מדרגות פעיל'));
+  assert.ok(subjects.includes('מכשיר חדש חובר למנוי'));
   assert.ok(subjects.some((s) => s.startsWith(`אישור ביטול המנוי · ${c.reference}`)));
   assert.equal(one(h.env, 'SELECT done_at IS NOT NULL AS done FROM refund_queue').done, 1);
   assert.deepEqual(rows(h.env, 'SELECT outcome FROM billing_events').map((x) => x.outcome), ['applied']);
