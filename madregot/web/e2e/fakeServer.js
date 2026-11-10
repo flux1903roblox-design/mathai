@@ -4,7 +4,8 @@
 // POST /api/progress keeps the answers it is sent (st.answers) and acknowledges them, as the Worker does (DURABLE-7);
 // POST /api/errors keeps each report it is sent (st.errors, DURABLE-9). The backup code's vault (DURABLE-5) keeps sealed
 // copies by their X-Vault header in st.vaults, with the Worker's revisions: create with ifRev null (409 when it exists),
-// compare-and-swap with ifRev n (409 with the current rev, 404 vault_gone), both reads, and delete.
+// compare-and-swap with ifRev n (409 with the current rev, 404 vault_gone), both reads, and delete (`failVaultDelete`
+// makes the delete answer 500).
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -136,7 +137,11 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         if (!v) return reply(route, 404, { error: 'vault_not_found' });
         return reply(route, 200, path === '/api/vault' ? { rev: v.rev, blob: v.blob, updatedAt: v.updatedAt } : { rev: v.rev, updatedAt: v.updatedAt });
       }
-      if (path === '/api/vault/delete') { delete st.vaults[id]; return reply(route, 200, { deleted: v ? 1 : 0 }); }
+      if (path === '/api/vault/delete') {
+        // `failVaultDelete`: the server breaks on a delete (the device must then delete nothing either)
+        if (st.failVaultDelete) return reply(route, 500, { error: 'server_error' });
+        delete st.vaults[id]; return reply(route, 200, { deleted: v ? 1 : 0 });
+      }
       const updatedAt = new Date().toISOString();
       if (body.ifRev === null) {
         if (v) return reply(route, 409, { error: 'vault_conflict', rev: v.rev });

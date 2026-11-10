@@ -3,7 +3,7 @@
 // marks, the Hebrew keyboard) comes out right before any network call.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { CODE_ALPHABET, CODE_LENGTH, HEBREW_KEYS, makeCode, checkSymbol, normalise, formatCode, isCode } from './code.js';
+import { CODE_ALPHABET, CODE_LENGTH, HEBREW_KEYS, makeCode, checkSymbol, normalise, formatCode, isCode, findCode } from './code.js';
 import { seeded } from './testing.js';
 
 /** A generator of random bytes from a seed, as crypto.getRandomValues would give them. */
@@ -126,5 +126,15 @@ describe('what a person types', () => {
     expect(isCode(shown)).toBe(false);
     expect(isCode(code.toLowerCase())).toBe(false);
     expect(isCode(null)).toBe(false);
+  });
+
+  it('findCode: a code inside the message sent to a parent, pasted whole; a wrong one inside it is not taken', () => {
+    expect(findCode(shown)).toBe(code);
+    expect(findCode(`קוד הגיבוי שלי במדרגות: ${shown}\nאם הטלפון יתחלף: פותחים את מדרגות`)).toBe(code);
+    expect(findCode(`הקוד: ${code.toLowerCase()} .`)).toBe(code);
+    const typo = code.slice(0, 15) + CODE_ALPHABET[(CODE_ALPHABET.indexOf(code[15]) + 1) % CODE_ALPHABET.length];
+    expect(findCode(`קוד: ${formatCode(typo)}`)).toBeNull();
+    expect(findCode('שלום')).toBeNull();
+    expect(findCode('')).toBeNull();
   });
 });

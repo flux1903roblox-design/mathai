@@ -659,3 +659,48 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .hello-foot .hello-restore { min-height: 44px; font-size: 16px; text-decoration: underline; text-underline-offset: 3px; }
 .restore-start .ob-main { gap: var(--s4); }
 .restore-hint { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 24px; }
+
+/* "יש לי קוד גיבוי" (DURABLE-5): the restore screen. The code field is left to right in mono, large enough to read each
+   symbol at 320 px; the waiting line under the button; then the quieter switch to the file. When the progress is back,
+   מדי and one line, and the way on. */
+.restore-screen .ob-top-title { margin-block: 0; }
+.restore-screen .ob-main { gap: var(--s4); }
+.restore-form { display: flex; flex-direction: column; gap: var(--s3); }
+.restore-form .btn { margin-inline: 0; }
+/* 19 symbols with the dashes fit on one line at 320 px (never under 16 px, so iOS does not zoom on focus) */
+.restore-input { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-weight: 700; letter-spacing: 0.03em; text-align: left;
+  font-size: clamp(16px, calc((100vw - 80px) / 12.2), var(--t-lg)); padding-inline: var(--s3); }
+.restore-form .form-error { margin: 0; }
+.restore-wait { margin: 0; min-height: 24px; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--ink-2); text-align: center; }
+.restore-switch { min-height: 48px; text-decoration: underline; text-underline-offset: 3px; }
+.restore-done { display: flex; flex-direction: column; align-items: center; gap: var(--s3); text-align: center; padding-top: var(--s4); }
+.restore-done .btn { margin-inline: 0; margin-top: var(--s2); }
+.restore-done-lead { margin: 0; font-size: 18px; line-height: 27px; color: var(--ink); }
+.restore-done-note { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--good-tint); color: var(--good-ink); font-size: 16px; line-height: 24px; }
+
+/* the front page: the two backup ways in side by side (one when there is no server), and the Home Screen app's banner,
+   first in the footer on its first open */
+.hello-restores { display: flex; justify-content: center; gap: var(--s2); }
+.hello-restores .hello-restore { flex: 1 1 0; min-width: 0; margin-inline: 0; padding-inline: var(--s2); white-space: normal; }
+.hello-home { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border-radius: 16px; background: var(--brand-tint); }
+.hello-home p { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink); }
+.hello-home .btn { margin-inline: 0; }
+/* the Home Screen app's front page gives the banner room: no tag line, and a smaller character on a short phone */
+.hello-standalone .hello-center .hello-fact { display: none; }
+@media (max-height: 700px) {
+  .hello-standalone .hello-center { padding-block: var(--s2); }
+  .hello-standalone .hello-madi { width: 84px; }
+}
+
+/* the backup question: מדי, two short lines, three answers (the sheet's own scroll keeps them reachable at 320) */
+.nudge-body { display: flex; flex-direction: column; align-items: center; gap: var(--s3); text-align: center; }
+.nudge-body > p { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
+.nudge-body > .nudge-how { font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.nudge-body > .nudge-status { font-size: 15px; line-height: 22px; color: var(--ink-2); }
+.nudge-body > .nudge-status:empty { display: none; }
+.nudge-actions { align-self: stretch; display: flex; flex-direction: column; gap: var(--s2); }
+.nudge-actions .btn { margin-inline: 0; }
+
+/* the iPhone guide's step 1 with a server: the code that was copied, in case the clipboard said no */
+.install-steps .install-code { margin: 0; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-weight: 800; font-size: 20px;
+  line-height: 28px; letter-spacing: 0.04em; text-align: right; white-space: nowrap; color: var(--ink); }

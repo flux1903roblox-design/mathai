@@ -14,7 +14,9 @@ import { makeCode, isCode } from './code.js';
 import { report } from '../monitor.js';
 import {
   syncVault, createBackup, stopBackup, detachBackup, backupText, agoText, vaultErrorText, openCopy, CONFLICT_LOOPS, BACKUP_TEXT,
+  findVault, adoptCode,
 } from './vault.js';
+import { applyRestored } from './apply.js';
 import { VaultOpenError } from './crypto.js';
 
 vi.mock('../monitor.js', () => ({ report: vi.fn() }));
@@ -367,6 +369,54 @@ describe('turning it on and off', () => {
     const r = await openCopy(old, key);
     expect(r.state.xp).toBe(30);
     expect(Object.values(r.state.xpBy).reduce((a, b) => a + b, 0)).toBe(30);
+  });
+});
+
+describe('restoring from a code (the Restore screen)', () => {
+  it('findVault reads and opens the copy with one GET, and changes nothing here', async () => {
+    const code = makeCode();
+    const lookup = await remote(code, THERE, 3);
+    useApp.setState({ ...HERE });
+    const before = JSON.stringify(useApp.getState());
+    const v = await findVault(code);
+    expect(v).toMatchObject({ code, lookup, rev: 3, at: AT });
+    expect(v.state.profile.name).toBe('נועה');
+    expect(v.state.days['2026-11-05'].lessons).toBe(1);
+    expect(server.calls).toEqual([expect.objectContaining({ method: 'GET', path: '/api/vault' })]);
+    expect(server.calls[0].headers['x-vault']).toBe(lookup);
+    expect(JSON.stringify(useApp.getState())).toBe(before);
+  });
+
+  it('no copy for the code is vault_not_found; a copy this code does not open is a VaultOpenError', async () => {
+    const code = makeCode();
+    await expect(findVault(code)).rejects.toMatchObject({ code: 'vault_not_found' });
+    const { lookup } = await derive(code);
+    const { key: other } = await derive(makeCode());
+    server.vaults.set(lookup, { rev: 1, blob: await seal({ v: 1, at: AT, schema: CURRENT_VERSION, rev: 1, state: snapshotForBackup(THERE) }, other), updatedAt: AT });
+    await expect(findVault(code)).rejects.toBeInstanceOf(VaultOpenError);
+    expect(vaultErrorText(await findVault(code).catch((e) => e))).toBe('הגיבוי נמצא, אבל לא הצלחנו לפתוח אותו. בדקו שהקוד נכון עד הסוף.');
+  });
+
+  it('adoptCode after the restore: the backup is on with that code and rev, and the merged progress is sent at once, once', async () => {
+    const code = makeCode();
+    await remote(code, THERE, 3);
+    // this device had its own code: it is let go (nothing is deleted on the server)
+    const old = makeCode();
+    const oldLookup = await remote(old, HERE, 1);
+    await device(HERE, old, { rev: 1, undoUntil: '2026-12-01T00:00:00.000Z' });
+    const v = await findVault(code);
+    const r = await applyRestored(v.state, 'vault', { at: v.at });
+    expect(r).toMatchObject({ kind: 'same', applied: true });
+    expect(await adoptCode(v)).toBe('pushed');
+    expect(useApp.getState().backup).toMatchObject({ on: true, code, lookup: v.lookup, rev: 4, state: 'idle', undoUntil: '2026-12-01T00:00:00.000Z' });
+    expect(server.posts()).toHaveLength(1);
+    expect(server.posts()[0].body.ifRev).toBe(3);
+    const got = (await held(code)).state;
+    expect(got.days['2026-11-04'].lessons).toBe(2); // this device's lessons reached the vault
+    expect(got.days['2026-11-05'].lessons).toBe(1);
+    expect(server.vaults.has(oldLookup)).toBe(true);
+    expect(await syncVault({ moment: 'tick' })).toBe('unchanged');
+    expect(server.posts()).toHaveLength(1);
   });
 });
 

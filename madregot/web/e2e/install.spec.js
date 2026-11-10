@@ -5,8 +5,9 @@
 // own note does, DURABLE-5: that copy only the code opens).
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { open, student, livedIn, item, answer, proceedToNext, leaveEndScreens } from './helpers.js';
+import { open, student, livedIn, item, answer, proceedToNext, leaveEndScreens, saved } from './helpers.js';
 import { API, fakeServer } from './fakeServer.js';
+import { formatCode } from '../src/lib/durable/code.js';
 
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
@@ -160,6 +161,34 @@ test.describe('an iPhone in Safari', () => {
     await page.evaluate(() => { window.location.hash = '#/settings'; });
     await page.getByRole('button', { name: 'להוסיף למסך הבית' }).click();
     await expect(page.getByRole('dialog', { name: 'להוסיף את מדרגות למסך הבית' })).toBeVisible();
+  });
+
+  test('with a server, step 1 makes the backup code and copies it in the same tap; step 4 says to paste it', async ({ page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    const { st } = await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/settings', withServer(SOLO));
+    await page.getByRole('button', { name: 'להוסיף למסך הבית' }).click();
+    const sheet = page.getByRole('dialog', { name: 'להוסיף את מדרגות למסך הבית' });
+    await expect(sheet.locator('.install-steps > li')).toHaveCount(4);
+    await expect(sheet).toContainText('פותחים את מדרגות מהסמל החדש ומדביקים את קוד הגיבוי. ההתקדמות עוברת לשם.');
+    await expect(sheet).toContainText('באייפון, אפליקציה במסך הבית שומרת נתונים בנפרד מספארי, ולכן צריך את הקוד פעם אחת.');
+    const make = sheet.getByRole('button', { name: 'ליצור קוד גיבוי' });
+    expect((await make.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await make.click();
+    await expect(sheet.getByText('יצרנו קוד גיבוי והעתקנו אותו.')).toBeVisible();
+    const code = (await saved(page)).backup.code;
+    await expect(sheet.locator('.install-code')).toHaveText(formatCode(code));
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(formatCode(code));
+    expect(Object.keys(st.vaults)).toHaveLength(1);
+    await shot(page, 'install-sheet-code');
+    // with a code already: the same button copies it
+    await sheet.getByRole('button', { name: 'הבנתי' }).click();
+    await page.evaluate(() => navigator.clipboard.writeText(''));
+    await page.getByRole('button', { name: 'להוסיף למסך הבית' }).click();
+    await sheet.getByRole('button', { name: 'להעתיק את קוד הגיבוי' }).click();
+    await expect(sheet.getByText('העתקנו את קוד הגיבוי.')).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(formatCode(code));
+    expect(Object.keys(st.vaults)).toHaveLength(1);
   });
 
   test('"לא עכשיו" on the card puts it away for 30 days; two days of learning are not enough for it', async ({ page }) => {

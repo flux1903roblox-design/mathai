@@ -60,3 +60,18 @@ export function normalise(input) {
 
 /** A stored code is sound: 16 symbols of the alphabet with the right check symbol. */
 export const isCode = (code) => typeof code === 'string' && normalise(code).ok && normalise(code).code === code;
+
+/**
+ * A code inside a longer text (the message "קוד הגיבוי שלי במדרגות: ABCD-EFGH-JKMN-PQRS…" pasted whole): the first
+ * group of 16 symbols, in fours or not, that passes the check. null when there is none.
+ */
+export function findCode(text) {
+  const whole = normalise(text);
+  if (whole.ok) return whole.code;
+  const groups = String(text ?? '').match(/[A-Za-z0-9]{4}(?:[\s\-־‐-―]?[A-Za-z0-9]{4}){3}/g) || [];
+  for (const g of groups) {
+    const n = normalise(g);
+    if (n.ok) return n.code;
+  }
+  return null;
+}

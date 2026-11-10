@@ -14,7 +14,10 @@
 //     and "להפסיק את הגיבוי" (after a confirmation: the copy on the server is deleted). When the vault holds another
 //     student's progress, a note says so and offers "ליצור קוד חדש" or "להשאיר כך" (both let go of that vault without
 //     deleting it: it is the other student's). After the vault was made again, a one-time note says so.
+//     "לשחזר מקוד או מקובץ" opens the restore screen (#/restore), which takes the code or the file. The file part keeps
+//     its own "לשחזר מקובץ" (the file's share text names that button).
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Check, Info, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
@@ -56,6 +59,7 @@ export default function SaveSection({ role = 'student' }) {
   const [install, setInstall] = useState(false);
   const backup = useApp((s) => s.backup);
   const server = hasServer();
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(null); // 'create' | 'stop' while the server is asked
   const [backupMsg, setBackupMsg] = useState('');
   const [codeOpen, setCodeOpen] = useState(false);
@@ -144,10 +148,11 @@ export default function SaveSection({ role = 'student' }) {
             </>
           )}
           {backup?.on && backup.state !== 'other_student' && (
-            <>
-              <Button variant="secondary" className="btn-block" onClick={() => setCodeOpen(true)}>להציג את קוד הגיבוי</Button>
-              <Button variant="ghost" className="btn-block save-stop" onClick={() => setStopAsk(true)}>להפסיק את הגיבוי</Button>
-            </>
+            <Button variant="secondary" className="btn-block" onClick={() => setCodeOpen(true)}>להציג את קוד הגיבוי</Button>
+          )}
+          <Button variant="secondary" className="btn-block save-restore" onClick={() => navigate('/restore')}>לשחזר מקוד או מקובץ</Button>
+          {backup?.on && backup.state !== 'other_student' && (
+            <Button variant="ghost" className="btn-block save-stop" onClick={() => setStopAsk(true)}>להפסיק את הגיבוי</Button>
           )}
           <p className="save-status" role="status">{backupMsg}</p>
         </div>

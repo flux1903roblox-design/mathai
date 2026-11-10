@@ -267,6 +267,33 @@ export async function stopBackup({ store = useApp } = {}) {
   store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil } });
 }
 
+// ---------------------------------------------------------------- restoring from a code (the Restore screen)
+/**
+ * The vault a typed code opens: `{ code, lookup, rev, updatedAt, state, at }`, the state brought up to this version.
+ * `code` has passed normalise() already, so a typing mistake never reaches the network. Rejects with the server's
+ * ApiError (vault_not_found, too_many_tries, slow_down, network…) or a VaultOpenError (found, but this code does not
+ * open it). Nothing on the device changes here.
+ */
+export async function findVault(code, { store = useApp } = {}) {
+  if (!hasServer()) throw new ApiError('no_server');
+  const { key, lookup } = await derive(code);
+  const r = await call(store, lookup, '/api/vault');
+  const copy = await openCopy(r.blob, key);
+  return { code, lookup, rev: r.rev, updatedAt: r.updatedAt || null, state: copy.state, at: copy.at };
+}
+
+/**
+ * After a restore from a code: this device keeps that code and syncs with its vault from now on (the code it had
+ * before, if any, is let go without deleting anything). `rev` is the rev of the copy that was restored; the hash is
+ * unknown here, so the sync that starts at once (no need to wait for a moment) sends what this device now holds: the
+ * restore's own line, and with a merge the progress that was only here.
+ */
+export function adoptCode({ code, lookup, rev }, { store = useApp, now = () => new Date(), sync = true } = {}) {
+  const b = backupOf(store);
+  store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil, on: true, code, lookup, rev: rev ?? null, at: now().toISOString(), hash: null, state: 'idle', note: null } });
+  return sync ? syncVault({ moment: 'manual', store, now }) : Promise.resolve('off');
+}
+
 /** This device lets go of the code without deleting anything on the server (another student's copy stays theirs). */
 export function detachBackup({ store = useApp } = {}) {
   const b = backupOf(store);

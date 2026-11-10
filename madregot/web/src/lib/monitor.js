@@ -34,7 +34,7 @@ export const RELEASE = String(import.meta.env?.VITE_RELEASE || 'dev').slice(0, L
  * '/teacher/*' covers the teacher's own screens.
  */
 export const ROUTES = Object.freeze([
-  '/', '/parents', '/parents/link', '/parents/info', '/cancel', '/terms', '/privacy', '/accessibility', '/teacher/*', '/subscription',
+  '/', '/parents', '/parents/link', '/parents/info', '/cancel', '/terms', '/privacy', '/accessibility', '/restore', '/teacher/*', '/subscription',
   '/quests', '/topics', '/topic/:id', '/assistant', '/me', '/settings', '/settings/advanced', '/exams', '/exams/check', '/exams/new',
   '/exams/practice/:id', '/exams/:id', '/plan', '/learn/:topic/:level', '/mission', '/rescue', '/lesson/:topic/:level', '/practice/:id',
   '/placement', '/learn/:topic/:level/:stage', '/repair/:topic/:level/:misc', '/rescue/check', '/rescue/exam',

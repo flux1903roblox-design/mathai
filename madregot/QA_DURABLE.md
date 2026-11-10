@@ -209,3 +209,59 @@ table of the council's probes comes with the proof pack (DURABLE-15); this file 
 - **Evidence.** `qa-evidence/durable/backup-code.png` (the sheet, 390x844), `save-section-backup-off.png`,
   `save-section-backup.png`; `save-section-solo.png` and `save-section-class.png` were taken again, since the section
   now has the backup row.
+
+## Getting back in with the code, the backup question, and "delete all" (DURABLE-5, Stage 12)
+
+- **The restore screen** (`web/src/screens/Restore.jsx`, `#/restore`, loaded on demand). It is routed before the role
+  gate, next to the parents' area, so it works on a device with no profile and on one with a profile. The field
+  "קוד הגיבוי" is left to right in mono, `autocomplete="off"`, with its label and the hint as its description; it fits
+  19 symbols on one line at 320 px and never drops under 16 px (iOS would zoom). The check runs on the device first
+  (`normalise()`, then `findCode()` for a whole pasted message): a typing mistake says "נראה שיש בקוד טעות הקלדה. בדקו
+  אותו שוב.", a symbol that is not in a code says "בקוד יש רק אותיות באנגלית ומספרים מ־2 עד 9.", and neither reaches
+  the network. Then `findVault()` derives, reads `GET /api/vault` and opens it ("פותחים את הגיבוי…" while it works);
+  `vault_not_found`, `too_many_tries` and a copy the code does not open each have their sentence. `RestorePreview`
+  says what the copy holds and what restoring does (the same rule as the file); after it, `adoptCode()` keeps the code
+  on this device (backup on, the restored rev) and syncs at once. "יש לי קובץ גיבוי" switches to the file on the same
+  screen; without a server there is only the file.
+- **Ways in.** Welcome: "יש לי קוד גיבוי" beside "יש לי קובץ גיבוי" (with a server). The Home Screen app's first open
+  puts a banner first: "פתחתם את מדרגות ממסך הבית? אם התחלתם בספארי, הדביקו את קוד הגיבוי וההתקדמות תעבור לכאן."
+  with "להדביק קוד גיבוי", which reads the clipboard in the tap and fills the field when it holds a code (never other
+  text); without a server the banner offers the file. Settings: "לשחזר מקוד או מקובץ". The file part of Settings keeps
+  its own "לשחזר מקובץ", because the file's share text names that button.
+- **The iPhone guide, step 1 with a server**: the code is made when there is none and copied in the same tap (Safari
+  copies only inside a tap, so the clipboard is promised the code before the server answers: `copyWhenReady()`), then
+  "יצרנו קוד גיבוי והעתקנו אותו." and the code itself, in case the clipboard said no. Step 4 and the note speak of the
+  code. If the server cannot make a code, the file button appears under the reason.
+- **The backup question** (`components/durable/BackupNudge.jsx`, `lib/durable/nudge.js`). Only with a server, no code
+  and no kept copy, after two different days of learning, on the map, the missions, the topics or "אני" (never a
+  lesson, a teaching stage, a repair, a check, Settings or a screen of its own), at most twice and 14 days apart. It
+  opens 1.5 s after the screen settles, never over another sheet, and asking counts when it opens. "לקבל קוד גיבוי"
+  makes the code and shows its sheet; "לשמור קובץ במקום" saves the file from the tap; "לא עכשיו".
+- **"מחיקת כל הנתונים"** with the code on: `POST /api/vault/delete` with `X-Vault` first. If it fails, nothing is
+  deleted here and the sheet says "לא הצלחנו למחוק את הגיבוי בשרת, ולכן לא מחקנו כלום." with the reason. Then the
+  family link, a parent's session, `durableWipe()` and the reload. The sheet adds "גם הגיבוי המוצפן בשרת יימחק, וקוד
+  הגיבוי יפסיק לעבוד." TRUST-6's `/api/me/forget` is not on this branch; when it lands, the vault rides in its one call
+  (`forgetVault()` in `worker/src/vault.js`) and this first call goes.
+- **"התנתקות מהמכשיר"** keeps the vault and says "הגיבוי בשרת נשאר. כדי לחזור להתקדמות, פותחים את מדרגות ובוחרים "יש לי
+  קוד גיבוי"." Beyond the spec: before signing out, what was learned since the last update is pushed, if the server
+  answers within 4 seconds.
+- **The lost phone** (`e2e/restore.spec.js` (1), 390x844 and 320x568). Device A makes a code and finishes a lesson; a
+  fresh browser types the code with dashes on Welcome › "יש לי קוד גיבוי":
+
+  | | device A | device B after "להמשיך מכאן" |
+  |---|---|---|
+  | XP | 52 | 52 (and `xpBy` equal) |
+  | stairs done | 0 | 0 |
+  | mastered | 0 | 0 |
+  | days (streak) | 2026-11-04, 2026-11-05 (2 lessons today) | the same days and counts |
+  | path, progress, gaps, skills | | equal (the test compares them whole) |
+
+  Then (2): B finishes a lesson and goes out of view; A comes back after two minutes and has B's lesson (3 today) and
+  the same XP. (3) a typing mistake, a bad symbol, no network call. (4) "delete all" with a server that answers 500,
+  then 200. (5) a sibling's code on a brother's device: read, never merged or written, and Settings shows the note.
+- **Tests.** `nudge.test.js` (every condition), `code.test.js` (`findCode`), `vault.test.js` (`findVault`,
+  `adoptCode`), `SaveSection.test.jsx`; `e2e/restore.spec.js` (cases 1-5, the Home Screen banner, the backup
+  question twice), `e2e/install.spec.js` (step 1 with a server).
+- **Evidence.** `qa-evidence/durable/restore-code.png`, `restore-preview.png`, `restore-done.png`, `backup-nudge.png`
+  (390x844) and the same names with `-320` (320x568); `welcome-home-screen.png`, `install-sheet-code.png`;
+  `save-section-backup.png` and `save-section-backup-off.png` taken again (the section has the new button).

@@ -17,6 +17,17 @@ import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
 import FileRestore from '@/components/durable/FileRestore.jsx';
 import RestorePreview from '@/components/durable/RestorePreview.jsx';
+import { isStandalone } from '@/lib/durable/install.js';
+import { findCode, formatCode } from '@/lib/durable/code.js';
+
+/**
+ * The first open of the Home Screen app (DURABLE-3): on an iPhone it keeps its data apart from Safari, so the front page
+ * says how the progress comes over, first: the backup code with a server, the backup file without one.
+ */
+export const HOME_BANNER = {
+  code: 'פתחתם את מדרגות ממסך הבית? אם התחלתם בספארי, הדביקו את קוד הגיבוי וההתקדמות תעבור לכאן.',
+  file: 'פתחתם את מדרגות ממסך הבית? אם התחלתם בספארי, בחרו את קובץ הגיבוי ששמרתם וההתקדמות תעבור לכאן.',
+};
 
 /** The grade's topics in one short line: up to three names, then how many more (it stays on two lines at 320px). */
 const topicLine = (g) => { const ts = topicsFor(g).map((t) => t.title); return ts.length <= 3 ? ts.join(', ') : `${ts.slice(0, 3).join(', ')} ועוד ${ts.length - 3}`; };
@@ -110,12 +121,21 @@ function Onboarding({ onTeacher, onRestore }) {
     setError(''); setI(i + 1);
   };
   const back = () => { setError(''); setI(i - 1); };
+  const standalone = isStandalone();
+  // "להדביק קוד גיבוי": the code from the clipboard when the browser lets us read it there (straight from the tap), else
+  // the restore screen with an empty field. Only a code is taken from the clipboard, never other text.
+  const pasteCode = async () => {
+    let text = '';
+    try { text = await navigator.clipboard.readText(); } catch { /* not allowed here: it is typed instead */ }
+    const code = findCode(text);
+    navigate('/restore', code ? { state: { paste: formatCode(code) } } : undefined);
+  };
 
   if (i < 0) {
     // the first screen, laid out like Duolingo's: the character large in the middle, the name and one line under
     // him, and the two ways in as full-width buttons pinned to the bottom
     return (
-      <div className="ob ob-hello hello-duo">
+      <div className={clsx('ob ob-hello hello-duo', standalone && 'hello-standalone')}>
         <main className="hello-center" data-region="content">
           <Mascot mood="excited" size={168} className="hello-madi" />
           <p className="hello-brand"><span className="wordmark">מדרגות</span></p>
@@ -123,10 +143,21 @@ function Onboarding({ onTeacher, onRestore }) {
           <p className="hello-fact">כל יום מדרגה אחת קדימה.</p>
         </main>
         <footer className="hello-foot" data-region="footer">
-          <Button className="btn-block btn-lg" onClick={() => setI(0)}>מתחילים</Button>
-          <Button variant="secondary" className="btn-block" onClick={onTeacher}>אני מורה</Button>
-          {/* a backup file works with no server and no account, so this is on every build */}
-          <Button variant="ghost" className="btn-block hello-restore" onClick={onRestore}>יש לי קובץ גיבוי</Button>
+          {/* the Home Screen app's first open: how the progress comes over from Safari, before anything else */}
+          {standalone && (
+            <section className="hello-home" aria-label="פתחתם ממסך הבית">
+              <p>{server ? HOME_BANNER.code : HOME_BANNER.file}</p>
+              <Button className="btn-block" onClick={server ? pasteCode : onRestore}>{server ? 'להדביק קוד גיבוי' : 'לבחור קובץ גיבוי'}</Button>
+            </section>
+          )}
+          <Button variant={standalone ? 'secondary' : 'primary'} className="btn-block btn-lg" onClick={() => setI(0)}>מתחילים</Button>
+          <Button variant={standalone ? 'ghost' : 'secondary'} className="btn-block" onClick={onTeacher}>אני מורה</Button>
+          {/* a backup file works with no server and no account, so it is on every build; the backup code needs the
+              server (in the Home Screen app the banner above is its way in) */}
+          <div className="hello-restores">
+            {server && !standalone && <Button variant="ghost" className="hello-restore" onClick={() => navigate('/restore')}>יש לי קוד גיבוי</Button>}
+            <Button variant="ghost" className="hello-restore" onClick={onRestore}>יש לי קובץ גיבוי</Button>
+          </div>
           {/* the site's front page carries the dedicated cancel link and the parents' page while the tutor is sold,
               and the legal pages (with a server) */}
           {server && (

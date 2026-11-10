@@ -11,6 +11,7 @@ import { qaActive } from '@/lib/qaFixtures.js';
 import { useDurable } from '@/lib/durable/useDurable.js';
 import { watchPersisted } from '@/lib/durable/persist.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
+import BackupNudge from '@/components/durable/BackupNudge.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
 import Welcome from '@/screens/Welcome.jsx';
@@ -29,6 +30,8 @@ const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
 const Parents = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Parents })));
 const ParentHandoff = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.ParentHandoff })));
 const Legal = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Legal })));
+// "יש לי קוד גיבוי": with or without a profile, so it is routed with the parents' area (DURABLE-5)
+const Restore = lazy(() => import('@/screens/Restore.jsx'));
 const Exams = lazy(() => import('@/screens/Exams.jsx'));
 const ExamCheck = lazy(() => import('@/screens/ExamCheck.jsx'));
 const ExamResult = lazy(() => import('@/screens/ExamResult.jsx'));
@@ -131,13 +134,15 @@ function Root() {
       <RestoreToast />
       {role && <LimitSheet />}
       {role && <StatusWatch />}
+      {/* once in a while, on a calm screen and never in a lesson: keep a backup? (lib/durable/nudge.js says when) */}
+      {role === 'student' && <BackupNudge />}
       {/* a new screen opens at the top; back restores where the student was */}
       <ScrollRestoration />
       <ErrorBoundary>
       <Suspense fallback={<LoadingState />}>
       <Routes>
-        {/* the parents' area and the legal pages come first: they open from a QR code, a payment page or an email
-            link on a device with no profile at all */}
+        {/* the parents' area, the legal pages and the restore screen come first: they open from a QR code, a payment
+            page, an email link or a new phone, on a device with no profile at all */}
         <Route path="/parents" element={<Parents mode="home" />} />
         <Route path="/parents/link" element={<Parents mode="link" />} />
         <Route path="/parents/info" element={<ParentHandoff />} />
@@ -145,6 +150,7 @@ function Root() {
         <Route path="/terms" element={<Legal doc="terms" />} />
         <Route path="/privacy" element={<Legal doc="privacy" />} />
         <Route path="/accessibility" element={<Legal doc="accessibility" />} />
+        <Route path="/restore" element={<Restore />} />
         {!role && <Route path="*" element={<Welcome />} />}
         {role === 'teacher' && (
           <>
