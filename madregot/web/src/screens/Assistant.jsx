@@ -5,7 +5,8 @@ import clsx from 'clsx';
 import { Camera, MessageCircle, Wand2, Check, X, ImageUp } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady, aiMode } from '@/lib/ai.js';
-import { gate, needsPlan, useAIStatus } from '@/lib/account.js';
+import { gate, aiAccess, useAIStatus } from '@/lib/account.js';
+import ToolLocked from '@/components/ToolLocked.jsx';
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
@@ -92,7 +93,7 @@ function PhotoCheck() {
     try {
       const r = await runAI('check', { image: image, mediaType: 'image/jpeg', question, grade });
       setState({ phase: 'done', r });
-    } catch (e) { setState({ phase: 'error', message: e.message }); }
+    } catch (e) { setState(e.limit ? { phase: 'idle' } : { phase: 'error', message: e.message }); }
   };
   const r = state.r;
   const outRef = useReveal(state.phase !== 'idle' ? state.phase : null);
@@ -169,7 +170,7 @@ function Generate({ initialTopic, initialLevel }) {
       const r = await runAI('generate', { grade: t.grade, topic: t.title, level: t.levels[level - 1].title, count, examples: `${sample.text} ${sample.display || ''}` });
       if (!r.questions?.length) throw new Error('העוזר לא החזיר תרגילים. נסו שוב.');
       setState({ phase: 'done', qs: r.questions });
-    } catch (e) { setState({ phase: 'error', message: e.message }); }
+    } catch (e) { setState(e.limit ? { phase: 'idle' } : { phase: 'error', message: e.message }); }
   };
   return (
     <div className="stack">
@@ -209,14 +210,20 @@ export default function Assistant() {
   const [params, setParams] = useSearchParams();
   // the photo check and new exercises are tools of the same conversation: each opens over it as a sheet
   const [tool, setTool] = useState(params.get('generate') ? 'generate' : null);
+  const [locked, setLocked] = useState(null); // the tool's info state, when this device does not have it today
   const wants = params.get('generate');
-  useEffect(() => { if (wants) setTool('generate'); }, [wants]);
-  const close = () => { setTool(null); if (wants) setParams({}, { replace: true }); };
   const grade = useApp((s) => s.profile.grade) || '7';
   const profile = useApp((s) => s.profile);
   const ready = aiReady();
-  useAIStatus((x) => x.status); // the tools' "in the plan" mark follows what the server says
-  const open = (kind, name) => { if (!gate(kind)) setTool(name); };
+  const status = useAIStatus((x) => x.status); // the tools follow what the server says
+  const lockOf = (kind) => { const st = aiAccess(kind, status).state; return st === 'locked' || st === 'economy' ? st : null; };
+  useEffect(() => { if (wants) { setLocked(lockOf('generate')); setTool('generate'); } }, [wants]); // eslint-disable-line react-hooks/exhaustive-deps
+  const close = () => { setTool(null); setLocked(null); if (wants) setParams({}, { replace: true }); };
+  const open = (kind, name) => {
+    const g = gate(kind);
+    if (g === 'locked' || g === 'economy') { setLocked(g); setTool(name); return; }
+    if (!g) { setLocked(null); setTool(name); }
+  };
   // A conversation (LAYOUT_SPEC B3): the bar with the title, מדי's messages, and the input docked at the bottom with
   // the starters and the two tools above it. One screen, one way in: no tabs.
   return (
@@ -231,16 +238,18 @@ export default function Assistant() {
           <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>
           <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."
             tools={[
-              { label: 'בדיקת פתרון מצולם', icon: Camera, onClick: () => open('check', 'photo'), tag: needsPlan('check') ? 'במנוי' : null },
-              { label: 'תרגילים חדשים', icon: Wand2, onClick: () => open('generate', 'generate'), tag: needsPlan('generate') ? 'במנוי' : null },
+              { label: 'בדיקת פתרון מצולם', icon: Camera, onClick: () => open('check', 'photo') },
+              { label: 'תרגילים חדשים', icon: Wand2, onClick: () => open('generate', 'generate') },
             ]} />
         </section>
       )}
       {ready && (
         <>
-          <Sheet open={tool === 'photo'} onOpenChange={(o) => !o && close()} title="בדיקת פתרון מצולם"><PhotoCheck /></Sheet>
+          <Sheet open={tool === 'photo'} onOpenChange={(o) => !o && close()} title="בדיקת פתרון מצולם">
+            {locked ? <ToolLocked kind="check" state={locked} /> : <PhotoCheck />}
+          </Sheet>
           <Sheet open={tool === 'generate'} onOpenChange={(o) => !o && close()} title="תרגילים חדשים">
-            <Generate key={`${params.get('generate') || ''}:${params.get('level') || ''}`} initialTopic={params.get('generate')} initialLevel={params.get('level')} />
+            {locked ? <ToolLocked kind="generate" state={locked} /> : <Generate key={`${params.get('generate') || ''}:${params.get('level') || ''}`} initialTopic={params.get('generate')} initialLevel={params.get('level')} />}
           </Sheet>
         </>
       )}

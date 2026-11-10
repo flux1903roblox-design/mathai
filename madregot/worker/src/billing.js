@@ -474,11 +474,15 @@ export async function portal(req, env, cors) {
   return json({ url }, 200, cors);
 }
 
-/** GET /api/billing/payments/:id/invoice: the provider's tax invoice, for the payer only. */
-export async function invoice(id, req, env) {
+/**
+ * GET /api/billing/payments/:id/invoice: the provider's tax invoice, for the payer only. A redirect; or, when the caller
+ * asks for JSON (the parents page, which sends its session in a header a plain link cannot carry), { url }.
+ */
+export async function invoice(id, req, env, cors = {}) {
   const account = await requireAccount(req, env);
   const p = await first(env, 'SELECT p.invoice_url FROM payments p JOIN subscriptions s ON s.id = p.subscription_id WHERE p.id = ? AND s.account_id = ?', String(id), account.id);
   if (!p?.invoice_url || !/^https:\/\//.test(p.invoice_url)) throw new HttpError(404, 'not_found');
+  if (/application\/json/.test(req.headers.get('Accept') || '')) return json({ url: p.invoice_url }, 200, { ...cors, 'Cache-Control': 'no-store' });
   return new Response(null, { status: 302, headers: { Location: p.invoice_url, 'Cache-Control': 'no-store' } });
 }
 

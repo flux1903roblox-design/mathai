@@ -380,45 +380,120 @@ a { color: var(--brand-d); }
 .t-group > .t-group-box, .t-group-warm > .t-group-box { background: #fff; border: 2px solid var(--rule); border-radius: 16px; padding: var(--s1) var(--s4); }
 .t-group .set-head { color: var(--ink); }
 
-/* ------------------------------------------------------------------ the tutor's subscription (round 18)
-   The same grammar as every other screen: one status card, a plain comparison table, the settings groups. The free
-   count is one quiet line, never a badge or a countdown: it informs a 13-year-old, it does not push. */
+/* ------------------------------------------------------------------ the smart tutor and the parents' area (round 19)
+   The same grammar as every other screen. A child sees one quiet line about today's questions, a calm sheet when the
+   tutor rests, and a tool's info state; never a price, a lock or a countdown. Parents get their own area with its own
+   bar, plain cards and rows, and the cancel link on every view. */
 .ai-left { margin: var(--s2) 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
-.ai-left-link { font-weight: 600; color: var(--brand-d); white-space: nowrap; }
 .chat-left { padding-inline: var(--s2); }
+.tutor-note .ai-left { margin-top: var(--s1); }
 
-.subscription { padding-bottom: var(--s10); }
-.subscription > .card, .subscription > .section, .subscription > .footnote, .subscription > .sub-note { margin-inline: var(--gutter); }
-.subscription > .card { margin-top: var(--s5); }
-.sub-status { display: grid; gap: var(--s2); }
-.sub-status .card-title { margin: 0; }
-.sub-status .muted { margin: 0; }
-.sub-status.is-paid { border-color: var(--brand-line); }
-.sub-meter { display: grid; gap: 6px; margin-top: var(--s2); }
-.sub-meter-row { display: flex; justify-content: space-between; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); font-weight: 600; }
-.sub-meter-bar { height: 10px; border-radius: 999px; background: var(--ground); overflow: hidden; }
-.sub-meter-bar i { display: block; height: 100%; border-radius: inherit; background: var(--brand); transition: width var(--duration-slow) var(--ease-smooth-out); }
+/* the calm sheet: Madi, two lines, the way on; the parents' link small under it */
+.limit-sheet .confirm-text p + p { margin-top: var(--s2); }
+.limit-parents { align-self: center; font-size: var(--t-sm); }
 
-.sub-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 2px solid var(--rule); border-radius: var(--r-md); overflow: hidden; font-size: var(--t-sm); line-height: var(--lh-sm); }
-.sub-table th, .sub-table td { padding: 10px 12px; text-align: start; vertical-align: middle; }
-.sub-table thead th { background: var(--ground); font-weight: 700; color: var(--ink); }
-.sub-table tbody th { font-weight: 600; color: var(--ink); }
-.sub-table td { color: var(--ink-2); width: 28%; }
-.sub-table tbody tr + tr > * { border-top: 1px solid var(--rule); }
-.sub-table td:last-child { color: var(--ink); font-weight: 600; }
-.sub-yes { color: var(--good-ink); vertical-align: middle; }
-.sub-no { color: #9aa1ad; vertical-align: middle; }
+/* a tool the device does not have today: what it does, and what is open instead */
+.tool-locked { display: flex; flex-direction: column; align-items: center; gap: var(--s3); padding: var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: #fff; text-align: center; }
+.tool-locked.is-compact { align-items: stretch; text-align: start; padding: var(--s3) var(--s4); }
+.tool-locked-text { display: flex; flex-direction: column; gap: var(--s2); font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
+.tool-locked-text p { margin: 0; }
+.tool-locked-text p + p { color: var(--ink-2); }
+.tool-locked .btn { width: 100%; }
+.tool-locked-parents { font-size: var(--t-sm); }
+.exam-check .empty-state .tool-locked { width: 100%; max-width: 460px; }
 
+/* the chat when the tutor is done for today: the draft waits, one calm card says when it is back */
+.chat-rest { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) var(--s4); margin-bottom: var(--s2); border: 2px solid var(--rule); border-radius: 16px; background: var(--ground); }
+.chat-rest p { margin: 0; color: var(--ink); font-weight: 600; }
+.chat-rest-actions { display: flex; gap: var(--s2); }
+.chat-rest-actions .btn { flex: 1 1 0; min-width: 0; white-space: normal; line-height: 1.2; padding-inline: var(--s2); }
+.chat-input textarea:disabled { background: var(--ground); color: var(--ink-2); }
+
+/* the parents' area: its own bar, no tab bar, cards and rows, the footer with the cancel link on every view */
+.parents { min-height: 100dvh; padding-top: 0; gap: var(--s4); }
+.parents-bar { position: sticky; top: 0; z-index: 5; margin-inline: calc(-1 * var(--s4)); padding-inline: var(--s2); }
+.parents-main { display: flex; flex-direction: column; gap: var(--s4); flex: 1; }
+.parents-card { display: flex; flex-direction: column; gap: var(--s3); }
+.parents-card p { margin: 0; }
+.parents-card .card-title { margin: 0; }
+.parents-card.is-good { border-color: #bfe9c9; background: var(--good-tint); }
+.parents-card.is-good .mascot, .parents-card.is-good svg.mascot { align-self: center; }
+.parents-list { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s1); }
+.parents-price { font-weight: 700; color: var(--ink); }
+.parents-sum { margin: 0; font-weight: 700; color: var(--ink); }
+.parents-note { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); color: var(--ink); }
+.parents-warn { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
+.parents-disclosure { display: flex; flex-direction: column; gap: 2px; padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 14px; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.parents-disclosure p { margin: 0; }
+.parents-check { align-items: flex-start; font-size: var(--t-base); line-height: var(--lh-base); }
+.parents-check input { margin-top: 3px; }
+.parents-plan.is-on { border-color: var(--brand-line); }
+.parents-usage { color: var(--ink-2); font-size: var(--t-sm); }
+.parents-rows { display: flex; flex-direction: column; margin-inline: calc(-1 * var(--s5)); border-top: 2px solid var(--rule); }
+.parents-rows > .set-row { min-height: 56px; padding: 0 var(--s5); border-bottom: 2px solid var(--rule); width: 100%; }
+.parents-rows > .set-row:last-child { border-bottom: 0; }
+.parents-rows > form, .parents-rows > .parents-payments, .parents-rows > .parents-devices { padding: var(--s3) var(--s5) var(--s4); border-bottom: 2px solid var(--rule); }
+.parents-devices { margin: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s2); }
+.parents-devices li { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
+.parents-payments ul { margin: 0 0 var(--s2); padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s1); }
+.parents-payments li { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
+.parents-order-line { font-weight: 700; font-size: var(--t-md); }
+.parents-account .muted { margin: 0; }
+.cancel-opt { font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
+.cancel-sheet .lead, .delete-sheet .lead { margin: 0; }
+.parents-foot { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4) 0 calc(var(--s5) + env(safe-area-inset-bottom, 0px)); border-top: 2px solid var(--rule); font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.parents-foot-links { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); }
+.parents-foot-links a { font-weight: 600; }
+.parents-foot-biz { margin: 0; }
+
+/* the hand-over screen on the child's device: the QR code and the link code, large */
+.handoff { align-items: center; text-align: center; }
+.handoff-lead { font-size: var(--t-md); line-height: var(--lh-md); color: var(--ink); }
+.handoff-qr { padding: var(--s3); border: 2px solid var(--rule); border-radius: 16px; background: #fff; }
+.handoff-qr .qr { display: block; width: min(208px, 60vw); height: auto; }
+.handoff-code { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: 40px; line-height: 48px; font-weight: 800; letter-spacing: 0.18em; color: var(--ink); }
+.handoff-wait { color: var(--ink-2); font-weight: 600; }
+.handoff-done { align-items: center; text-align: center; }
+.handoff-here { margin-top: 0; }
+
+/* the legal pages: plain reading */
+.legal { display: flex; flex-direction: column; gap: var(--s3); font-size: var(--t-base); line-height: 1.7; }
+.legal h2 { font-size: 20px; line-height: 26px; margin: var(--s3) 0 0; }
+.legal ul { margin: 0; padding-inline-start: var(--s5); }
+.legal blockquote { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); }
+.legal p { margin: 0; }
+
+/* the front page: the parents' and legal links, small, under the two ways in */
+.hello-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
+.hello-legal a { color: var(--ink-2); font-weight: 600; padding: 6px 0; min-height: 32px; }
+/* a short phone with the links: the character and the gaps give up a little room, so the two buttons stay in view */
+@media (max-height: 700px) {
+  .hello-duo:has(.hello-legal) .hello-center { padding-block: var(--s3); gap: var(--s2); }
+  .hello-duo:has(.hello-legal) .hello-madi { width: 112px; height: auto; }
+  .hello-duo:has(.hello-legal) .hello-foot { gap: var(--s2); padding-bottom: calc(var(--s2) + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* the teacher's licence card, the lock and the row actions */
+.licence-card { display: flex; flex-direction: column; gap: var(--s3); margin-bottom: var(--s4); }
+.licence-card p { margin: 0; }
+.licence-card .card-title { margin: 0; }
+.licence-warn { padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
+.licence-req { color: var(--ink); font-weight: 600; }
+.licence-actions { display: flex; flex-direction: column; gap: var(--s2); }
+.licence-price { margin: calc(-1 * var(--s1)) 0 0; text-align: center; }
+.licence-card .link-btn { align-self: flex-start; }
+.t-lock { margin-bottom: var(--s4); }
+.t-lock-row { font-weight: 700; }
+.t-lock .field-hint { margin: 0; }
+.t-actions { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); white-space: nowrap; }
+
+/* sign-in by code */
 .sub-code { font-size: 24px; letter-spacing: 0.3em; text-align: center; }
 .sub-links { display: flex; flex-wrap: wrap; gap: var(--s2); justify-content: space-between; }
-.sub-note { margin-top: var(--s4); }
-.sub-privacy { margin-top: var(--s6); }
+.email-code .footnote { margin: 0; }
+.email-code-sent { margin: 0; }
+.ai-advanced { margin-top: var(--s2); }
 
 /* a row that opens another screen: its name, then a chevron at the far end */
 a.set-row { justify-content: space-between; gap: var(--s3); color: var(--ink); text-decoration: none; }
 a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
-.paywall .confirm-text p + p { margin-top: var(--s2); }
-@media (prefers-reduced-motion: reduce) { .sub-meter-bar i { transition: none; } }
-.chat-tool-tag { margin-inline-start: 6px; padding: 0 8px; border-radius: 999px; background: var(--brand-tint); color: var(--brand-d); font-size: 13px; line-height: 22px; font-weight: 700; }
-.sub-table tbody th { width: 46%; }
-.sub-table td { width: 27%; }

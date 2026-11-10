@@ -11,7 +11,8 @@ import { MAX_EXAM_PAGES } from '@shared/ai.js';
 import { Button, Field, Thinking } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
-import { needsPlan, useAIStatus } from '@/lib/account.js';
+import { aiAccess, gate, useAIStatus } from '@/lib/account.js';
+import ToolLocked from '@/components/ToolLocked.jsx';
 
 async function imageToJpeg(file) {
   const url = URL.createObjectURL(file);
@@ -61,6 +62,7 @@ export default function ExamCheck() {
   };
 
   const check = async () => {
+    if (gate('exam')) return; // the tutor is done for today: the calm sheet says so, nothing is sent
     setState({ phase: 'loading' });
     window.scrollTo?.({ top: 0 });
     try {
@@ -97,14 +99,16 @@ export default function ExamCheck() {
       if (mounted.current) navigate(`/exams/${exam.id}`, { replace: true });
       else toast.success('בדיקת המבחן מוכנה', { action: { label: 'לתוצאות', onClick: () => navigate(`/exams/${exam.id}`) } });
     } catch (e) {
+      if (e.limit) { if (mounted.current) setState({ phase: 'idle' }); return; }
       if (mounted.current) setState({ phase: 'error', message: e.message }); else toast.error(e.message);
     }
   };
 
   const offline = !aiReady();
-  // on the free taste the exam check is part of the subscription: say so before any page is photographed
-  useAIStatus((x) => x.status);
-  const locked = !offline && needsPlan('exam');
+  // the exam check is the full tutor's: where this device does not have it, say so before any page is photographed
+  const status = useAIStatus((x) => x.status);
+  const access = aiAccess('exam', status).state;
+  const locked = !offline && (access === 'locked' || access === 'economy') ? access : null;
   // A pushed screen (LAYOUT_SPEC E2): the bar with the way back, the pages, and ONE primary pinned at the bottom.
   return (
     <div className="page pushed exam-check">
@@ -124,15 +128,13 @@ export default function ExamCheck() {
         </>
       ) : locked ? (
         <>
-          <EmptyState mood="encouraging" title="בדיקת מבחן כלולה במנוי">
-            <p>בחינם העוזר מסביר טעויות ועונה בשיחה. בדיקה של מבחן מצולם כלולה במנוי המשפחתי או ברישיון של הכיתה.</p>
-            <p>{practice ? 'את מבחן התרגול הזה אפשר לבדוק מול מפתח התשובות שבדף המבחן.' : 'מבחן תרגול מודפס אפשר לבדוק מול מפתח התשובות שלו.'}</p>
-          </EmptyState>
+          <section className="empty-state" data-region="content">
+            <ToolLocked kind="exam" state={locked} />
+          </section>
           <ScreenFoot>
             {practice
               ? <Link to={`/exams/practice/${practice.id}`} className="btn btn-primary btn-block btn-lg" data-region="primary">חזרה למבחן ולמפתח התשובות</Link>
-              : <Link to="/exams/new" className="btn btn-primary btn-block btn-lg" data-region="primary">הכנת מבחן תרגול</Link>}
-            <Link to="/subscription" className="foot-link">פרטים על המנוי, להורים</Link>
+              : <Link to="/exams/new" className="btn btn-primary btn-block btn-lg" data-region="primary">מבחן תרגול עם מפתח תשובות</Link>}
           </ScreenFoot>
         </>
       ) : state.phase === 'loading' ? (

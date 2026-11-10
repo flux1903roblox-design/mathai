@@ -2,6 +2,8 @@
 // What it shows is what was written and checked for this stair: an explanation, another way, why it works,
 // a worked example, the diagnosis of the last mistake with its repair, or the solution one step at a time with
 // the last step left to the student. It says plainly that it is not an AI; with a server, the AI is a separate button.
+// When the tutor is done for today (aiState used, paused or resting) that button gives way to one plain line: Madi is
+// the way on, and asking needs no request. startIntent opens the sheet with that question already asked.
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { Sparkles } from 'lucide-react';
@@ -9,6 +11,7 @@ import { Sheet, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { INTENTS, tutorReply } from '@/learn/tutor.ts';
 import { useApp } from '@/lib/store.js';
+import AIAllowance from '@/components/AIAllowance.jsx';
 import StepPlayer from './StepPlayer.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import WorkedExample from './WorkedExample.jsx';
@@ -26,7 +29,7 @@ function StepsReveal({ steps }) {
   );
 }
 
-export default function TutorSheet({ open, onOpenChange, content, item = null, wrong = null, onAskAI = null }) {
+export default function TutorSheet({ open, onOpenChange, content, item = null, wrong = null, onAskAI = null, aiState = null, startIntent = null }) {
   const [log, setLog] = useState([]); // { intent, reply }
   const [asked, setAsked] = useState({});
   const learnEvent = useApp((s) => s.learnEvent);
@@ -38,6 +41,13 @@ export default function TutorSheet({ open, onOpenChange, content, item = null, w
     setLog((l) => [...l, { intent, reply, id: l.length }]);
     learnEvent({ e: 'tutor', s: content?.skill, p: intent });
   };
+  // opened from "שאלה למדי" after a mistake: the question about the mistake is asked at once
+  const started = useRef(null);
+  useEffect(() => {
+    if (open && startIntent && started.current !== startIntent) { started.current = startIntent; ask(startIntent); }
+    if (!open) started.current = null;
+  }, [open, startIntent]); // eslint-disable-line react-hooks/exhaustive-deps
+  const resting = aiState === 'used' ? 'העוזר החכם חוזר מחר' : aiState === 'paused' || aiState === 'resting' ? 'העוזר החכם נח היום' : null;
   // A conversation (LAYOUT_SPEC B3, the same layout as the assistant): מדי's messages as bubbles at the start side,
   // the question asked as the student's bubble, and the questions to ask docked at the bottom, where a chat's input is.
   const footer = (
@@ -47,9 +57,12 @@ export default function TutorSheet({ open, onOpenChange, content, item = null, w
           <button key={x.id} type="button" className={clsx('chip', 'tutor-chip', x.id === 'mistake' && !wrong && 'dim')} onClick={() => ask(x.id)}>{x.label}</button>
         ))}
       </div>
-      <p className="tutor-note">
-        {onAskAI ? <Button variant="ai" className="btn-sm" onClick={onAskAI}><Sparkles size={16} aria-hidden="true" />לשאול את העוזר החכם</Button> : 'התשובות כאן נכתבו מראש לכל מדרגה ונבדקו. העוזר החכם (Claude) לא מחובר בגרסה הזאת.'}
-      </p>
+      {onAskAI && resting ? <p className="tutor-note">{resting}</p> : onAskAI ? (
+        <div className="tutor-note">
+          <Button variant="ai" className="btn-sm" onClick={onAskAI}><Sparkles size={16} aria-hidden="true" />לשאול את העוזר החכם</Button>
+          <AIAllowance kind="chat" />
+        </div>
+      ) : <p className="tutor-note">התשובות כאן נכתבו מראש לכל מדרגה ונבדקו. העוזר החכם (Claude) לא מחובר בגרסה הזאת.</p>}
     </>
   );
   return (

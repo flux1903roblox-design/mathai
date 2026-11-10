@@ -33,7 +33,10 @@ const empty = {
   mistakes: {}, // 'topic:cat' -> count
   lastTopic: null,
   outbox: [],
-  ai: { mode: 'server', apiUrl: '', key: '', device: '', account: null },
+  // the tutor on this device: the server (or a personal key, only in builds with VITE_ALLOW_PERSONAL_KEY=1), an anonymous
+  // device id, the family-device token (AI only, never the parent's session), a link code waiting for a parent, and the
+  // tier the server reported last (to say once that a plan ended)
+  ai: { mode: 'server', apiUrl: '', key: '', device: '', familyDevice: null /* {token, label} */, pendingLink: null /* {code, secret, expiresAt, url} */, lastTier: null },
   helpSent: 0,
   solveMode: 'answer', // 'answer' (keypad) or 'notebook' (write the working on a squared page)
   exams: [], // checked exams, newest first: { id, at, title, source, practiceId, result, score, levels }
@@ -44,6 +47,29 @@ const empty = {
   placement: null, // { at, grade, results: { topic: { level, asked, right } } }
   learn: emptyLearn(), // Madregot 2.0: skills (evidence, mastery, reviews), misconceptions, exam plan, missions, events (src/learn/types.ts)
 };
+
+/** The saved-state key (a staging copy on the same address keeps its own); the parent session lives beside it. */
+export const STORE_KEY = import.meta.env.VITE_STORE_KEY || 'madregot';
+/** A personal Claude key is compiled in only for the no-server copies (VITE_ALLOW_PERSONAL_KEY=1). */
+export const PERSONAL_KEY = import.meta.env.VITE_ALLOW_PERSONAL_KEY === '1';
+
+/**
+ * Saved data from an older version, brought up to date. Unknown or broken saved data falls back to the defaults.
+ * v1 → v2 (Madregot 2.0): the learning model is added, seeded from the misconceptions already recorded (gaps).
+ * v2 → v3 (the paid tutor): the parent's account never lives in the child's store (ai.account is dropped), and a
+ * personal Claude key is dropped from builds that cannot use one. Everything else is kept.
+ */
+export function migrateState(saved, version, { personal = PERSONAL_KEY } = {}) {
+  let st = saved && typeof saved === 'object' ? { ...saved } : {};
+  if (version < 2) st = { ...st, learn: migrateLearn(st.gaps || {}) };
+  else st = { ...st, learn: st.learn && typeof st.learn === 'object' ? { ...emptyLearn(), ...st.learn } : emptyLearn() };
+  if (version < 3) {
+    const { account, ...ai } = st.ai && typeof st.ai === 'object' ? st.ai : {}; // eslint-disable-line no-unused-vars
+    st.ai = { ...empty.ai, ...ai };
+    if (!personal) st.ai = { ...st.ai, key: '', mode: 'server' };
+  }
+  return st;
+}
 
 export const useApp = create(
   persist(
@@ -168,19 +194,11 @@ export const useApp = create(
         set({ profile: rest, outbox: [] });
       },
       resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
-      signOut: () => set({ ...empty, learn: emptyLearn(), ai: get().ai }),
+      // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
+      signOut: () => set({ ...empty, learn: emptyLearn(), ai: { ...get().ai, pendingLink: null, lastTier: null } }),
     }),
     // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')
-    {
-      name: import.meta.env.VITE_STORE_KEY || 'madregot', storage: safeStorage, version: 2,
-      // v1 → v2 (Madregot 2.0): nothing is removed or rewritten; the learning model is added, seeded from the
-      // misconceptions the app already recorded (gaps). Unknown or broken saved data falls back to the defaults.
-      migrate: (saved, version) => {
-        const st = saved && typeof saved === 'object' ? saved : {};
-        if (version < 2) return { ...st, learn: migrateLearn(st.gaps || {}) };
-        return { ...st, learn: st.learn && typeof st.learn === 'object' ? { ...emptyLearn(), ...st.learn } : emptyLearn() };
-      },
-    },
+    { name: STORE_KEY, storage: safeStorage, version: 3, migrate: (saved, version) => migrateState(saved, version) },
   ),
 );
 

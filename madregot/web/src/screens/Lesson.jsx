@@ -11,8 +11,9 @@ import { manipSolution, manipWrong } from '@/content/manip.js';
 import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
-import { autoAskAllowed, gate } from '@/lib/account.js';
+import { autoAskAllowed, gate, aiAccess, useAIStatus } from '@/lib/account.js';
 import AIAllowance from '@/components/AIAllowance.jsx';
+import ToolLocked from '@/components/ToolLocked.jsx';
 import { api, syncNow } from '@/lib/api.js';
 import { play, buzz } from '@/lib/sound.js';
 import { Tex, MathText, Markdown, texText } from '@/components/MathText.jsx';
@@ -188,7 +189,14 @@ export default function Lesson() {
   const isTest = (k) => k === 'jump' || k === 'placement' || k === 'check'; // a check, not practice: one try, no hints
   const isCheck = spec?.kind === 'check';
   const [tutorOpen, setTutorOpen] = useState(false);
+  const [tutorIntent, setTutorIntent] = useState(null); // Madi's sheet opened on a question already asked (the mistake)
   const [remedy, setRemedy] = useState(null); // a misconception's repair, opened from the feedback
+  // what the tutor can do here today (the free taste, a plan, a class licence): the buttons follow it
+  const aiStatus = useAIStatus((x) => x.status);
+  const explainState = aiAccess('explain', aiStatus).state;
+  const chatState = aiAccess('chat', aiStatus).state;
+  // when the tutor is done for today, Madi explains the mistake instead (no request)
+  const askMadi = () => { setChatOpen(false); setTutorIntent(s?.wrong?.length ? 'mistake' : null); setTutorOpen(true); };
   const names = item ? slotsFor(item) : [];
   // An interactive exercise: the state of the object the student moves. It belongs to one exercise, so a new
   // exercise starts from its own starting state even before the reset effect runs (the shapes differ by kind).
@@ -238,7 +246,7 @@ export default function Lesson() {
 
   const askExplain = async () => {
     setExplain({ state: 'loading', text: '' });
-    try { const r = await runAI('explain', aiContext()); setExplain({ state: 'done', text: r.text }); } catch (e) { setExplain({ state: 'error', text: e.message }); }
+    try { const r = await runAI('explain', aiContext(), { onMadi: askMadi }); setExplain({ state: 'done', text: r.text }); } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
   };
 
   const commit = (event) => {
@@ -291,7 +299,7 @@ export default function Lesson() {
         if (item.form !== 'mc') setStruck(true);
         // The second miss is the moment help matters most: ask the tutor without waiting to be asked.
         // (only when that is not one of the few free questions: on the free taste the student chooses when to ask)
-        if (aiReady() && !isTest(ns.kind) && autoAskAllowed()) setTimeout(() => askExplainFor(ns), 0);
+        if (aiReady() && !isTest(ns.kind) && autoAskAllowed() && aiAccess('explain').state === 'open') setTimeout(() => askExplainFor(ns), 0);
       }
       if (result.retry) { setStruck(true); setActive(names[0] || 'v'); if (item.form === 'mc') setChoice(null); if (result.event) st.noteLearn(result.event); }
     }
@@ -300,9 +308,9 @@ export default function Lesson() {
   const askExplainFor = async (ns) => {
     setExplain({ state: 'loading', text: '' });
     try {
-      const r = await runAI('explain', { ...aiContext(), studentAnswer: ns.wrong.map((w) => answerText(ns.item, w)).join(' ; ') });
+      const r = await runAI('explain', { ...aiContext(), studentAnswer: ns.wrong.map((w) => answerText(ns.item, w)).join(' ; ') }, { onMadi: askMadi });
       setExplain({ state: 'done', text: r.text });
-    } catch (e) { setExplain({ state: 'error', text: e.message }); }
+    } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
   };
 
   const finish = (ns) => {
@@ -392,11 +400,14 @@ export default function Lesson() {
   }, [nbCheck.state]);
 
   const checkWork = async () => {
-    if (gate('check')) return;
+    // the photo check is the full tutor's: on the free taste its info state shows instead (and the teacher is one tap away)
+    const g = gate('check', { onMadi: askMadi });
+    if (g === 'locked' || g === 'economy') { setNbCheck({ state: 'locked', kind: g }); return; }
+    if (g) return;
     const image = nbRef.current?.toImage();
     if (!image) { setNbCheck({ state: 'error', message: 'כתבו קודם את הדרך במחברת.' }); return; }
     setNbCheck({ state: 'loading' });
-    try { const r = await runAI('check', { ...aiContext(), image, mediaType: 'image/jpeg' }); setNbCheck({ state: 'done', r }); } catch (e) { setNbCheck({ state: 'error', message: e.message }); }
+    try { const r = await runAI('check', { ...aiContext(), image, mediaType: 'image/jpeg' }, { onMadi: askMadi }); setNbCheck({ state: 'done', r }); } catch (e) { setNbCheck(e.limit ? { state: 'idle' } : { state: 'error', message: e.message }); }
   };
 
   underway.current = !!(spec && t && !done);
@@ -508,6 +519,7 @@ export default function Lesson() {
             {nbCheck.state === 'loading' && <Box tone="ai" title="בדיקת הדרך"><Thinking states={['קורא את מה שכתבתם', 'בודק כל שורה', 'מסכם']} /></Box>}
             {nbCheck.state === 'error' && <p className="form-error" role="alert">{nbCheck.message}</p>}
             {nbCheck.state === 'done' && <CheckResult r={nbCheck.r} />}
+            {nbCheck.state === 'locked' && <ToolLocked kind="check" state={nbCheck.kind} compact onTeacher={inClass ? () => setHelpOpen(true) : undefined} />}
           </>
         )}
         </m.div>
@@ -563,8 +575,15 @@ export default function Lesson() {
                   {explain.state === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['בודק את התשובה שלכם', 'מחפש איפה זה התפספס', 'מנסח הסבר']} /></Box>}
                   {explain.state === 'done' && <Box tone="ai" title="העוזר"><Markdown>{explain.text}</Markdown></Box>}
                   {explain.state === 'error' && <p className="form-error" role="alert">{explain.text}</p>}
-                  {explain.state === 'idle' && aiReady() && !isTest(s.kind) && <Button variant="ai" className="btn-sm" onClick={askExplain}><Sparkles size={16} aria-hidden="true" />למה טעיתי?</Button>}
-                  {explain.state === 'idle' && aiReady() && !isTest(s.kind) && <AIAllowance />}
+                  {explain.state === 'idle' && !isTest(s.kind) && ['free', 'open'].includes(explainState) && (
+                    <>
+                      <Button variant="ai" className="btn-sm" onClick={askExplain}><Sparkles size={16} aria-hidden="true" />למה טעיתי?</Button>
+                      <AIAllowance />
+                    </>
+                  )}
+                  {explain.state === 'idle' && !isTest(s.kind) && ['used', 'paused', 'resting'].includes(explainState) && (
+                    <Button variant="secondary" className="btn-sm" onClick={askMadi}><HelpCircle size={16} aria-hidden="true" />שאלה למדי</Button>
+                  )}
                   {!isTest(s.kind) && <p className="fb-note">תרגיל דומה יחזור בסוף השיעור.</p>}
                   {!isTest(s.kind) && last?.cat && contentOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
                     <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
@@ -620,10 +639,11 @@ export default function Lesson() {
           action pinned at the bottom (the chat's input, the remedy's button, the help request's "send") */}
       <Sheet open={chatOpen} onOpenChange={setChatOpen} title="שאלו את העוזר" className="chat-sheet">
         <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={item.text} />{item.display && <> <Tex tex={item.display} /></>}</div>
-        <AIChat context={aiContext()} messages={chat} onMessages={setChat} intro="אני רואה את התרגיל ואת מה שכתבתם. מה לא ברור?" />
+        <AIChat context={aiContext()} messages={chat} onMessages={setChat} intro="אני רואה את התרגיל ואת מה שכתבתם. מה לא ברור?" onDone={() => setChatOpen(false)} onMadi={askMadi} />
       </Sheet>
-      <TutorSheet open={tutorOpen} onOpenChange={setTutorOpen} content={contentOf(skillId(item.topic || spec.topic, item.level))} item={item}
-        wrong={s.wrong.length ? { cat: last?.cat ?? null, diagnosis: last?.diagnosis ?? null } : null} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null} />
+      <TutorSheet open={tutorOpen} onOpenChange={(o) => { setTutorOpen(o); if (!o) setTutorIntent(null); }} content={contentOf(skillId(item.topic || spec.topic, item.level))} item={item}
+        wrong={s.wrong.length ? { cat: last?.cat ?? null, diagnosis: last?.diagnosis ?? null } : null} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null}
+        aiState={chatState} startIntent={tutorIntent} />
       <Sheet open={!!remedy} onOpenChange={(o) => { if (!o) setRemedy(null); }} title="בואו נראה את זה אחרת" className="flow-sheet">
         {remedy && <RemedyFlow content={contentOf(skillId(item.topic || spec.topic, item.level))} misc={remedy} compact onDone={() => setRemedy(null)} doneLabel="חזרה לשיעור" />}
       </Sheet>

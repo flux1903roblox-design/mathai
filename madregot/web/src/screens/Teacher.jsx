@@ -1,8 +1,8 @@
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { Copy, RefreshCw, Hand, TriangleAlert, CircleCheck, CircleAlert, LogOut, Plus, KeyRound, NotebookPen, Users, CalendarDays, Target, ChevronLeft } from 'lucide-react';
+import { Copy, RefreshCw, Hand, TriangleAlert, CircleCheck, CircleAlert, LogOut, Plus, KeyRound, NotebookPen, Users, CalendarDays, Target, ChevronLeft, UserMinus } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api, teacherHeaders } from '@/lib/api.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
@@ -13,6 +13,7 @@ import { EmptyState, ConfirmSheet, LoadingState } from '@/components/Screen.jsx'
 import { MathText } from '@/components/MathText.jsx';
 import { GradeSwitch } from './Welcome.jsx';
 import { useAIStatus } from '@/lib/account.js';
+import LicenceCard from '@/components/teacher/LicenceCard.jsx';
 
 const fmtDay = (iso) => {
   if (!iso) return 'אף פעם';
@@ -105,25 +106,6 @@ const Q_TONE = { correct: 'ok', partial: 'mid', wrong: 'bad', missing: 'bad' };
 const Q_LABEL = { correct: 'נכון', partial: 'נכון בחלקו', wrong: 'טעות', missing: 'לא נענה' };
 
 /** One small square per question, coloured by result; the skill shows on hover. */
-/** The tutor in this class: a licence and until when, or the free questions each student gets without one. */
-function Licence() {
-  const status = useAIStatus((x) => x.status);
-  if (!status || status.tier === 'open') return null;
-  const paid = status.tier === 'paid';
-  const until = status.plan?.endsAt ? new Date(status.plan.endsAt).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jerusalem' }) : '';
-  return (
-    <section className="section set-group t-licence" aria-labelledby="t-lic">
-      <h2 id="t-lic" className="set-head">העוזר בכיתה</h2>
-      <div className="set-rows-wrap"><div className="set-rows">
-        <Link to="/subscription" className="set-row">
-          <span>{paid ? `לכיתה יש רישיון${until ? ` עד ${until}` : ''}` : `בלי רישיון: ${status.offer?.daily?.free ?? 2} שאלות חינם ביום לכל תלמיד`}</span>
-          <ChevronLeft size={18} aria-hidden="true" />
-        </Link>
-      </div></div>
-    </section>
-  );
-}
-
 function QuestionStrip({ questions = [] }) {
   const missed = questions.map((q, i) => (q.status === 'correct' ? null : i + 1)).filter(Boolean);
   return (
@@ -145,6 +127,16 @@ export default function Teacher() {
   const setTab = (t) => setParams(t === 'tomorrow' ? {} : { tab: t }, { replace: true });
   const [adding, setAdding] = useState(false);
   const [confirmOut, setConfirmOut] = useState(false);
+  const [removing, setRemoving] = useState(null);
+  const { state: nav } = useLocation();
+  const paywall = useAIStatus((x) => x.status?.paywall === true);
+  // "על רישיון כיתה" from the tutor's sheet: the licence card, at the top of the "מחר" view
+  useEffect(() => {
+    if (nav?.focus !== 'licence') return undefined;
+    if (tab !== 'tomorrow') setTab('tomorrow');
+    const t = setTimeout(() => document.getElementById('t-licence')?.scrollIntoView({ block: 'start' }), 300);
+    return () => clearTimeout(t);
+  }, [nav]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     try { setData(await api('/api/teacher/dashboard', { headers: teacherHeaders(cls) })); setError(''); } catch (e) { setError(e.message); }
@@ -156,6 +148,16 @@ export default function Teacher() {
   };
   const resetPin = async (s) => {
     try { await api(`/api/teacher/students/${s.id}/reset-pin`, { method: 'POST', body: {}, headers: teacherHeaders(cls) }); toast.success(`הקוד האישי של ${s.name} אופס. בכניסה הבאה הוא יבחר קוד חדש.`); load(); } catch (e) { toast.error(e.message); }
+  };
+  const setLock = async (locked) => {
+    try {
+      await api('/api/teacher/class/lock', { method: 'POST', body: { locked }, headers: teacherHeaders(cls) });
+      toast.success(locked ? 'הכיתה נעולה לתלמידים חדשים.' : 'הכיתה פתוחה לתלמידים חדשים.'); load();
+    } catch (e) { toast.error(e.message); }
+  };
+  const removeStudent = async () => {
+    const st = removing; setRemoving(null);
+    try { await api(`/api/teacher/students/${st.id}/remove`, { method: 'POST', body: {}, headers: teacherHeaders(cls) }); toast(`${st.name} הוסר/ה מהכיתה`); load(); } catch (e) { toast.error(e.message); }
   };
   const dismissFresh = () => setProfile({ ...profile, classes: profile.classes.map((c) => (c.code === cls.code ? { ...c, fresh: false } : c)) });
 
@@ -235,6 +237,7 @@ export default function Teacher() {
               </EmptyState>
             )}
 
+            {tab === 'tomorrow' && paywall && <LicenceCard cls={cls} />}
             {tab === 'tomorrow' && students.length > 0 && (
               <div className="t-grid">
                 <Group title="טעויות שחוזרות השבוע" tone="warm">
@@ -281,6 +284,16 @@ export default function Teacher() {
               </div>
             )}
 
+            {tab === 'students' && (
+              <section className="set-group t-lock" aria-labelledby="t-lock-title">
+                <h2 id="t-lock-title" className="visually-hidden">הצטרפות לכיתה</h2>
+                <label className="check-row t-lock-row">
+                  <input type="checkbox" role="switch" checked={!!data.joinLocked} onChange={(e) => setLock(e.target.checked)} />
+                  <span>נעילת הכיתה לתלמידים חדשים</span>
+                </label>
+                <p className="field-hint">תלמידים שכבר בכיתה ממשיכים להיכנס עם הקוד האישי שלהם.</p>
+              </section>
+            )}
             {tab === 'students' && students.length > 0 && (
               <div className="table-wrap" tabIndex={0} role="region" aria-label="טבלת התלמידים">
                 <table className="t-table">
@@ -300,7 +313,10 @@ export default function Teacher() {
                         <td>{s.week.days}</td>
                         <td><Rate value={pct(s.week.first, s.week.n)} /></td>
                         {topics.map((t) => { const l = s.levels[t.id]; return <td key={t.id}>{l ? <LevelPips total={t.levels.length} level={l.level} max={l.max} color={t.color} /> : <span className="muted">–</span>}</td>; })}
-                        <td>{s.pinReset ? <span className="muted">קוד אופס</span> : <button type="button" className="link-btn" onClick={() => resetPin(s)}><KeyRound size={14} aria-hidden="true" />איפוס קוד אישי</button>}</td>
+                        <td className="t-actions">
+                          {s.pinReset ? <span className="muted">קוד אופס</span> : <button type="button" className="link-btn" onClick={() => resetPin(s)}><KeyRound size={14} aria-hidden="true" />איפוס קוד אישי</button>}
+                          <button type="button" className="link-btn" onClick={() => setRemoving(s)}><UserMinus size={14} aria-hidden="true" />הסרה מהכיתה</button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -351,9 +367,11 @@ export default function Teacher() {
           </>
         )}
 
-        <Licence />
         <section className="section set-group t-out">
           <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmOut(true)}><LogOut size={18} aria-hidden="true" />יציאה מהלוח</button></div></div>
+          <ConfirmSheet open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title={removing ? `להסיר את ${removing.name} מהכיתה?` : ''} keep="לא להסיר" confirm="כן, להסיר" onConfirm={removeStudent}>
+            <p>נמחק את ההתקדמות של {removing?.name} מלוח הכיתה, והכניסה לכיתה תיסגר. התרגול שנשמר במכשיר עצמו נשאר. כדי שלא תהיה הצטרפות מחדש באותו שם, נעלו את הכיתה.</p>
+          </ConfirmSheet>
           <ConfirmSheet open={confirmOut} onOpenChange={setConfirmOut} title="לצאת מהלוח?" keep="להישאר בלוח" confirm="כן, לצאת" onConfirm={() => signOut()}>
             <p>הלוח ייסגר במכשיר הזה. כדי לחזור צריך את קוד הכיתה ואת מפתח המורה.</p>
           </ConfirmSheet>

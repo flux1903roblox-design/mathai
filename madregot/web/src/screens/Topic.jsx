@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { ArrowRight, Sparkles, Check, Lock } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
-import { aiReady } from '@/lib/ai.js';
+import { aiAccess, useAIStatus } from '@/lib/account.js';
 import { TOPIC, TOPICS } from '@/content/index.js';
 import { Box, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
@@ -16,6 +16,8 @@ export default function Topic() {
   const t = TOPIC[id];
   const p = useApp((s) => s.progress[id]) || { level: 1, max: 1 };
   const mistakes = useApp((s) => s.mistakes);
+  // new exercises from the tutor: only where this device has that tool today
+  const genOpen = aiAccess('generate', useAIStatus((x) => x.status)).state === 'open';
   if (!t) return <div className="page pushed"><ScreenBar title="מדריך" back="/topics" /><EmptyState mood="encouraging" title="הנושא לא נמצא"><p>אולי הקישור ישן. כל הנושאים מחכים ברשימה.</p></EmptyState><ScreenFoot><Link to="/topics" className="btn btn-primary btn-block btn-lg">לרשימת הנושאים</Link></ScreenFoot></div>;
   const n = TOPICS.filter((x) => x.grade === t.grade).indexOf(t) + 1;
   const mine = Object.entries(mistakes).filter(([k]) => k.startsWith(`${id}:`)).map(([k, v]) => ({ cat: k.split(':')[1], v })).filter((m) => t.cats[m.cat]).sort((a, b) => b.v - a.v);
@@ -74,7 +76,7 @@ export default function Topic() {
 
       <div className="form-actions">
         <Button className="btn-block btn-lg" onClick={() => navigate(`/practice/${id}`)}>תרגול ממדרגה {p.level}</Button>
-        {aiReady() && (
+        {genOpen && (
           <Button variant="secondary" className="btn-block" onClick={() => navigate(`/assistant?generate=${id}&level=${p.level}`)}>
             <Sparkles size={18} aria-hidden="true" />תרגילים נוספים מהעוזר
           </Button>

@@ -67,3 +67,18 @@ test('the account page shows the plan, devices, the week, payments; never anothe
   assert.deepEqual(page.usageWeek, { tutor: 0, check: 0, generate: 0, exam: 0 });
   assert.equal(page.payments.length, 1); assert.equal(page.payments[0].amountAgorot, 2990);
 });
+
+test('an invoice opens for its payer only: a redirect, or its address as JSON for the parents page', async () => {
+  h = await setup();
+  const mine = await paidFamily('inv@example.test');
+  const other = await paidFamily('other@example.test');
+  const pay = one(h.env, "SELECT p.id FROM payments p JOIN subscriptions s ON s.id = p.subscription_id JOIN accounts a ON a.id = s.account_id WHERE a.email = 'inv@example.test'");
+  h.env.DB.raw.prepare('UPDATE payments SET invoice_url = ? WHERE id = ?').run('https://pay.example.test/invoice/17', pay.id);
+  const asJson = await h.call('GET', `/api/billing/payments/${pay.id}/invoice`, { headers: { 'X-Account-Token': mine, Accept: 'application/json' } });
+  assert.equal(asJson.status, 200);
+  assert.deepEqual(await asJson.json(), { url: 'https://pay.example.test/invoice/17' });
+  const redirect = await h.call('GET', `/api/billing/payments/${pay.id}/invoice`, { headers: { 'X-Account-Token': mine } });
+  assert.equal(redirect.status, 302); assert.equal(redirect.headers.get('Location'), 'https://pay.example.test/invoice/17');
+  const theirs = await h.call('GET', `/api/billing/payments/${pay.id}/invoice`, { headers: { 'X-Account-Token': other, Accept: 'application/json' } });
+  assert.equal(theirs.status, 404);
+});

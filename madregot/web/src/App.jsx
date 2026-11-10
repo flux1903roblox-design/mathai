@@ -4,8 +4,9 @@ import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
-import { refreshStatus } from '@/lib/account.js';
-import Paywall from '@/components/Paywall.jsx';
+import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
+import { qaActive } from '@/lib/qaFixtures.js';
+import LimitSheet from '@/components/LimitSheet.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
 import Welcome from '@/screens/Welcome.jsx';
@@ -19,7 +20,10 @@ const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
 const Settings = lazy(() => import('@/screens/Settings.jsx'));
 const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
-const Subscription = lazy(() => import('@/screens/Subscription.jsx'));
+// The parents' area (its own header, no tab bar) works with or without a profile: one chunk, loaded on demand.
+const Parents = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Parents })));
+const ParentHandoff = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.ParentHandoff })));
+const Legal = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Legal })));
 const Exams = lazy(() => import('@/screens/Exams.jsx'));
 const ExamCheck = lazy(() => import('@/screens/ExamCheck.jsx'));
 const ExamResult = lazy(() => import('@/screens/ExamResult.jsx'));
@@ -43,15 +47,32 @@ function useSync() {
   }, [token]);
 }
 
-/** What the tutor allows on this device today (free taste, subscription or class licence), asked once on opening and
- * again when the class or the account changes, so the app knows whether it may ask the tutor without being asked. */
+/**
+ * What the tutor allows on this device today (free taste, family plan, class licence), asked on opening; again when
+ * the class, the family link or the server changes.
+ */
 function useAIStatusBoot() {
   const role = useApp((s) => s.profile?.role);
   const token = useApp((s) => s.profile?.token);
   const active = useApp((s) => s.profile?.active);
-  const account = useApp((s) => s.ai.account?.token);
+  const linked = useApp((s) => s.ai.familyDevice?.token);
   const apiUrl = useApp((s) => s.ai.apiUrl);
-  useEffect(() => { if (role && hasServer()) refreshStatus(); }, [role, token, active, account, apiUrl]);
+  useEffect(() => { if (role && (hasServer() || qaActive())) refreshStatus(); }, [role, token, active, linked, apiUrl]);
+}
+
+/**
+ * ...and again when the app comes back into view, and on the first screen opened after the day changed (the server's
+ * resetsAt, the next midnight in Jerusalem). No timers and no time-zone formatting on the way: a screen change stays cheap.
+ */
+function StatusWatch() {
+  const { pathname } = useLocation();
+  useEffect(() => { refreshIfNewDay(); }, [pathname]);
+  useEffect(() => {
+    const onShow = () => { if (document.visibilityState === 'visible' && hasServer()) refreshStatus(); };
+    document.addEventListener('visibilitychange', onShow);
+    return () => document.removeEventListener('visibilitychange', onShow);
+  }, []);
+  return null;
 }
 
 /**
@@ -85,17 +106,27 @@ function Root() {
   return (
     <>
       <Toasts />
-      {role && <Paywall />}
+      {role && <LimitSheet />}
+      {role && <StatusWatch />}
       {/* a new screen opens at the top; back restores where the student was */}
       <ScrollRestoration />
       <ErrorBoundary>
       <Suspense fallback={<LoadingState />}>
       <Routes>
+        {/* the parents' area and the legal pages come first: they open from a QR code, a payment page or an email
+            link on a device with no profile at all */}
+        <Route path="/parents" element={<Parents mode="home" />} />
+        <Route path="/parents/link" element={<Parents mode="link" />} />
+        <Route path="/parents/info" element={<ParentHandoff />} />
+        <Route path="/cancel" element={<Parents mode="cancel" />} />
+        <Route path="/terms" element={<Legal doc="terms" />} />
+        <Route path="/privacy" element={<Legal doc="privacy" />} />
+        <Route path="/accessibility" element={<Legal doc="accessibility" />} />
         {!role && <Route path="*" element={<Welcome />} />}
         {role === 'teacher' && (
           <>
             <Route path="/teacher/*" element={<Teacher />} />
-            <Route path="/subscription" element={<Subscription />} />
+            <Route path="/subscription" element={<Navigate to="/teacher" replace />} />
             <Route path="*" element={<Navigate to="/teacher" replace />} />
           </>
         )}
@@ -109,7 +140,7 @@ function Root() {
               <Route path="/assistant" element={<Assistant />} />
               <Route path="/me" element={<Me />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/subscription" element={<Subscription />} />
+              <Route path="/subscription" element={<Navigate to="/parents/info" replace />} />
               <Route path="/exams" element={<Exams />} />
               <Route path="/exams/check" element={<ExamCheck />} />
               <Route path="/exams/new" element={<NewPracticeExam />} />

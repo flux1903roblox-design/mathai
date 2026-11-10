@@ -3,7 +3,7 @@
 // already done (checked exams, practice exams made). Rows open their own screens; no row carries a second primary.
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { aiReady } from '@/lib/ai.js';
+import { aiAccess, hasTool, useAIStatus } from '@/lib/account.js';
 import { ClipboardCheck, Printer, Route, ChevronLeft, FileText } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { usePlan } from '@/lib/usePlan.js';
@@ -28,7 +28,9 @@ function Row({ to, icon: Icon, title, desc, lead }) {
 export default function Exams() {
   const { exams, practiceExams } = useApp();
   const plan = usePlan();
-  const ai = aiReady();
+  const status = useAIStatus((x) => x.status);
+  const ai = hasTool('exam', status);
+  const examState = aiAccess('exam', status).state;
   const planOn = plan.weak.length > 0 && plan.done < plan.steps.length;
   // the one thing to do now: a plan in progress, else checking an exam (with the assistant), else a practice exam
   const lead = planOn
@@ -37,7 +39,7 @@ export default function Exams() {
       ? { key: 'check', to: '/exams/check', icon: ClipboardCheck, title: 'בדיקת מבחן שפתרתם', desc: 'מצלמים את הדפים או מעלים PDF. העוזר בודק כל שאלה ומסביר מה לתרגל.', go: 'לבדיקת מבחן' }
       : { key: 'new', to: '/exams/new', icon: Printer, title: 'מבחן תרגול להדפסה', desc: 'מבחן מהנושאים שלכם, עם מפתח תשובות לבדיקה מדויקת.', go: 'הכנת מבחן תרגול' };
   const rows = [
-    lead.key !== 'check' && { to: '/exams/check', icon: ClipboardCheck, title: 'בדיקת מבחן שפתרתם', desc: ai ? 'צילום או PDF, והעוזר בודק כל תשובה' : 'צריך את העוזר, שעוד לא מחובר בגרסה הזו' },
+    lead.key !== 'check' && { to: '/exams/check', icon: ClipboardCheck, title: 'בדיקת מבחן שפתרתם', desc: ai ? 'צילום או PDF, והעוזר בודק כל תשובה' : examState === 'offline' ? 'צריך את העוזר, שעוד לא מחובר בגרסה הזו' : examState === 'economy' ? 'הבדיקה הזו חוזרת ב־1 בחודש' : 'את הבדיקה הזו עושה העוזר החכם המלא' },
     lead.key !== 'new' && { to: '/exams/new', icon: Printer, title: 'מבחן תרגול להדפסה', desc: 'מהנושאים שלכם, עם מפתח תשובות' },
     lead.key !== 'plan' && { to: '/plan', icon: Route, title: 'התוכנית שלי לשיפור', desc: plan.weak.length ? `${plan.done} מתוך ${plan.steps.length} צעדים הושלמו` : 'נבנית מהטעויות בתרגול ובמבחנים' },
   ].filter(Boolean);

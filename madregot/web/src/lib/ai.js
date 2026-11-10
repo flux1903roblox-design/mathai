@@ -1,27 +1,25 @@
-// AI actions. Server mode goes through the Worker (the class's key stays on the
-// server). Personal mode calls Claude straight from this device with a key the
-// user pasted in Settings; it is meant for one person practising alone.
+// AI actions. Server mode goes through the Worker (the key stays on the server); the device sends its own id and,
+// when linked to a family plan, its AI-only token: never the parent's session. A personal key (calling Claude from
+// this device) exists only in builds made with VITE_ALLOW_PERSONAL_KEY=1, the copies without a server.
 import { buildRequest, readResult, STREAMED } from '@shared/ai.js';
 import { useApp } from './store.js';
 import { apiBase, ApiError, errorText } from './api.js';
-import { accountHeaders, noteUsage, openPaywall } from './account.js';
+import { aiHeaders, aiMode, aiReady, noteUsage, noteLimit, openLimitSheet, LIMIT_ERRORS, useAIStatus } from './account.js';
+import { qaActive, qaReply } from './qaFixtures.js';
 
-export function aiMode() {
-  const { ai, profile } = useApp.getState();
-  // A personal key is for practising alone; a class always goes through its server.
-  if (ai.mode === 'personal' && ai.key && !profile?.classCode) return 'personal';
-  return apiBase() ? 'server' : 'none';
-}
-export const aiReady = () => aiMode() !== 'none';
+export { aiMode, aiReady };
 
 let clientPromise = null; let clientKey = '';
 async function personalClient() {
   const key = useApp.getState().ai.key;
-  if (!clientPromise || clientKey !== key) {
-    clientKey = key;
-    clientPromise = import('@anthropic-ai/sdk').then(({ default: Anthropic }) => new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true }));
+  if (import.meta.env.VITE_ALLOW_PERSONAL_KEY === '1') {
+    if (!clientPromise || clientKey !== key) {
+      clientKey = key;
+      clientPromise = import('@anthropic-ai/sdk').then(({ default: Anthropic }) => new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true }));
+    }
+    return clientPromise;
   }
-  return clientPromise;
+  throw new ApiError('no_server');
 }
 
 function personalError(e) {
@@ -33,13 +31,30 @@ function personalError(e) {
   return new ApiError('upstream');
 }
 
+/** The tutor said "not now": remember it, open the calm sheet, and give the caller an error it shows quietly. */
+function limited(kind, data, status, onMadi) {
+  noteLimit(data, kind);
+  const tier = data.tier || useAIStatus.getState().status?.tier || null;
+  openLimitSheet({ reason: data.error, tier, scope: data.scope || null, onMadi });
+  return Object.assign(new ApiError(data.error, status, data), { limit: true });
+}
+
 /**
- * Run an AI action. For 'chat', pass onText to receive the reply as it streams.
- * Resolves to { text } for explain/chat, or the parsed JSON for generate/check.
+ * Run an AI action. For 'chat', pass onText to receive the reply as it streams. onMadi: what the calm sheet's
+ * "לשאול את מדי" does when the tutor says no for today (the opener's own way to Madi).
+ * Resolves to { text } for explain/chat, or the parsed JSON for generate/check/exam.
  */
-export async function runAI(kind, input, { onText, signal } = {}) {
+export async function runAI(kind, input, { onText, signal, onMadi } = {}) {
   const mode = aiMode();
   if (mode === 'none') throw new ApiError('no_server');
+
+  if (qaActive()) {
+    try {
+      const r = qaReply(kind);
+      onText?.(r.text);
+      return r;
+    } catch (e) { throw limited(kind, e.qa || { error: 'upstream' }, 429, onMadi); }
+  }
 
   if (mode === 'personal') {
     const client = await personalClient();
@@ -67,7 +82,7 @@ export async function runAI(kind, input, { onText, signal } = {}) {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(teacherCls ? { 'X-Class-Code': teacherCls.code, 'X-Teacher-Key': teacherCls.key } : {}),
-    ...accountHeaders(),
+    ...aiHeaders(),
   };
   let res;
   try {
@@ -77,9 +92,9 @@ export async function runAI(kind, input, { onText, signal } = {}) {
     throw new ApiError('network');
   }
   if (!res.ok) {
+    noteUsage(res); // X-AI-Linked: 0 still tells this device its family link is gone
     const data = await res.json().catch(() => ({}));
-    // the free questions of today are used, or this action is part of the subscription: the app explains, calmly
-    if (data.error === 'paid_only' || (data.error === 'daily_limit' && data.tier === 'free')) openPaywall(data.error);
+    if (LIMIT_ERRORS.includes(data.error)) throw limited(kind, data, res.status, onMadi);
     throw new ApiError(data.error || 'upstream', res.status, data);
   }
   noteUsage(res);

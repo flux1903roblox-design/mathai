@@ -389,7 +389,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/billing/cancel') return cancel(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/billing/resume') return resume(req, env, cors);
   if (M === 'GET' && p === '/api/billing/portal') return portal(req, env, cors);
-  if (M === 'GET' && (m = p.match(/^\/api\/billing\/payments\/([a-f0-9]{16})\/invoice$/))) return invoice(m[1], req, env);
+  if (M === 'GET' && (m = p.match(/^\/api\/billing\/payments\/([a-f0-9]{16})\/invoice$/))) return invoice(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/billing\/webhook\/([a-z]{2,20})\/([A-Za-z0-9]{1,128})$/))) return webhook(m[1], m[2], req, env, ctx, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/billing\/test-pay\/([a-f0-9]{16})$/))) return testPayPage(m[1], env);
   if (M === 'POST' && (m = p.match(/^\/api\/billing\/test-pay\/([a-f0-9]{16})$/))) return testPaySubmit(m[1], req, env, ctx);

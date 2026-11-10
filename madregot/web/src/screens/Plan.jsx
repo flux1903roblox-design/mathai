@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import { Check, PencilRuler, FileText, Flame } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { usePlan } from '@/lib/usePlan.js';
-import { aiReady } from '@/lib/ai.js';
+import { hasTool, useAIStatus } from '@/lib/account.js';
 import { TOPIC } from '@/content/index.js';
 import { NeedSlots } from '@/components/ui.jsx';
 import { Segments } from '@/components/ds.jsx';
@@ -23,6 +23,7 @@ export default function Plan() {
   const latest = exams[0];
   const hasData = plan.weak.length > 0;
   const next = plan.steps.find((s) => !s.done);
+  const examTool = hasTool('exam', useAIStatus((x) => x.status));
 
   if (!hasData) {
     return (
@@ -32,7 +33,7 @@ export default function Plan() {
           <p>אחרי בדיקת מבחן או כמה סבבי תרגול, אראה כאן מה כדאי לחזק ובאיזה סדר.</p>
         </EmptyState>
         <ScreenFoot>
-          {aiReady()
+          {examTool
             ? <Link to="/exams/check" className="btn btn-primary btn-block btn-lg" data-region="primary">בדיקת מבחן</Link>
             : <Link to="/exams/new" className="btn btn-primary btn-block btn-lg" data-region="primary">מבחן תרגול</Link>}
           <Link to="/" className="foot-link">להמשיך לתרגל במסלול</Link>

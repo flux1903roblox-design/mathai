@@ -1,4 +1,5 @@
-// must run before the router is created (imports run in order)
+// must run before the router is created (imports run in order): a plain /parents… path becomes its hash route first
+import './lib/pathToHash.js';
 import './lib/historySeed.js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

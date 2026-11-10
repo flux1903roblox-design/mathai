@@ -9,7 +9,9 @@ WORK=$(mktemp -d)
 trap 'git -C "$ROOT" worktree remove --force "$WORK/pages" >/dev/null 2>&1 || true; rm -rf "$WORK"' EXIT
 
 cd "$ROOT/madregot/web"
-VITE_API_URL=none npx vite build --base ./ --outDir "$WORK/site" --emptyOutDir
+# VITE_ALLOW_PERSONAL_KEY=1: a copy without a server keeps the personal-key mode (the tutor with a key of your own)
+VITE_API_URL=none VITE_ALLOW_PERSONAL_KEY=1 npx vite build --base ./ --outDir "$WORK/site" --emptyOutDir
+VITE_ALLOW_PERSONAL_KEY=1 node scripts/check-dist.mjs "$WORK/site"
 
 git -C "$ROOT" fetch origin gh-pages
 git -C "$ROOT" worktree add --detach "$WORK/pages" origin/gh-pages

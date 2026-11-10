@@ -1,22 +1,18 @@
-// One quiet line under the tutor's button on the free taste: how many free questions are left today, and where the
-// subscription is explained. Says nothing on a subscription, a class licence or a personal key.
-import { Link } from 'react-router-dom';
+// One quiet line about today's questions to the tutor: under "למה טעיתי?", under the tutor's button in Madi's sheet,
+// and above the chat's input. Muted, a status, no link: it informs a child, it does not push. Says nothing when there
+// is nothing worth saying (a plan with plenty left, a personal key, no tutor).
 import clsx from 'clsx';
-import { useAIStatus } from '@/lib/account.js';
-import { aiMode } from '@/lib/ai.js';
+import { useAIStatus, aiAccess } from '@/lib/account.js';
+import { useApp } from '@/lib/store.js';
+import { allowanceText } from './limitCopy.js';
 
-export function leftText(left) {
-  if (left <= 0) return 'השאלות החינמיות של היום נגמרו. מחר יש עוד.';
-  if (left === 1) return 'נשארה היום שאלה חינם אחת.';
-  return `נשארו היום ${left} שאלות חינם.`;
-}
-
-export default function AIAllowance({ className }) {
+export default function AIAllowance({ className, kind = 'explain' }) {
   const status = useAIStatus((x) => x.status);
-  if (aiMode() !== 'server' || status?.tier !== 'free' || !Number.isFinite(status.left)) return null;
-  return (
-    <p className={clsx('ai-left', className)} role="status">
-      {leftText(status.left)} <Link to="/subscription" className="ai-left-link">מה יש במנוי</Link>
-    </p>
-  );
+  const ended = useAIStatus((x) => x.ended);
+  useApp((x) => x.ai.mode);
+  const a = aiAccess(kind, status);
+  if (a.state === 'offline' || a.tier === 'personal' || !status) return null;
+  const text = allowanceText({ state: a.state, left: a.left, tier: status.tier, ended });
+  if (!text) return null;
+  return <p className={clsx('ai-left', className)} role="status">{text}</p>;
 }

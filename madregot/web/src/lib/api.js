@@ -24,23 +24,60 @@ const MESSAGES = {
   missing_fields: 'מלאו את כל השדות.',
   not_signed_in: 'צריך להתחבר לכיתה מחדש. עברו למסך "אני".',
   not_teacher: 'קוד הכיתה או מפתח המורה לא נכונים.',
-  daily_limit: 'הגעתם למכסה היומית של העוזר. אפשר לחזור מחר.',
-  paid_only: 'הפעולה הזו של העוזר כלולה במנוי.',
+  // the tutor: calm, no pressure, never a price (the sheet that opens says more)
+  need_device: 'צריך לרענן את האפליקציה כדי להמשיך.',
+  paid_only: 'את הפעולה הזו עושה העוזר החכם המלא.',
+  daily_limit: 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.',
+  // sign-in and the parent's account
   bad_email: 'כתובת המייל לא נראית תקינה. בדקו אותה ונסו שוב.',
   bad_code: 'הקוד צריך להיות 6 ספרות.',
-  wrong_code: 'הקוד לא נכון. בדקו את המייל האחרון שקיבלתם.',
+  wrong_code: 'הקוד לא נכון.',
   code_expired: 'הקוד כבר לא בתוקף. בקשו קוד חדש.',
-  too_many_tries: 'היו יותר מדי ניסיונות. בקשו קוד חדש בעוד דקה.',
+  too_many_tries: 'היו יותר מדי ניסיונות. בקשו קוד חדש.',
   wait_to_resend: 'קוד חדש אפשר לבקש בעוד דקה.',
   too_many_codes: 'נשלחו היום הרבה קודים. נסו שוב מחר.',
   email_not_configured: 'שליחת קודים במייל עוד לא הוגדרה בשרת.',
   email_failed: 'לא הצלחנו לשלוח את המייל. נסו שוב בעוד רגע.',
-  checkout_not_configured: 'תשלום באתר עוד לא פתוח. אפשר לפנות אלינו במייל ונפעיל את המנוי.',
+  reauth_needed: 'כדי להמשיך, שלחנו קוד חדש למייל.',
+  not_account: 'צריך להיכנס שוב עם המייל.',
+  confirm_required: 'צריך לאשר את המחיקה.',
+  // checkout
+  checkout_not_configured: 'ההצטרפות באתר עוד לא פתוחה. כתבו לנו ונפעיל את המנוי לחשבון.',
   already_subscribed: 'יש לכם כבר מנוי פעיל.',
-  no_subscription: 'לא מצאנו מנוי פעיל בחשבון הזה.',
-  cancel_first: 'לפני מחיקת החשבון צריך לבטל את המנוי.',
-  cancel_failed: 'הביטול לא הושלם. נסו שוב, ואם זה חוזר, כתבו לנו.',
+  adult_required: 'כדי להמשיך צריך לאשר שאתם מעל גיל 18 וההורים או האפוטרופוס.',
+  terms_required: 'כדי להמשיך צריך לאשר את התקנון ואת מדיניות הביטול.',
+  billing_hold: 'יש בירור פתוח על תשלום קודם. כתבו לנו ונסדר את זה.',
+  paywall_off: 'כרגע העוזר החכם פתוח בלי מנוי.',
+  bad_checkout_url: 'דף התשלום לא נפתח. נסו שוב בעוד רגע.',
   bad_plan: 'המסלול שנבחר לא קיים.',
+  too_many_checkouts: 'היו הרבה ניסיונות תשלום בשעה האחרונה. נסו שוב בעוד שעה.',
+  bad_idempotency_key: 'משהו בבקשה לא תקין. נסו שוב.',
+  // cancel and resume
+  no_subscription: 'לא מצאנו מנוי פעיל בחשבון הזה.',
+  refund_window_closed: 'עברו 14 הימים להחזר מלא. אפשר לבטל, והעוזר נשאר פתוח עד סוף התקופה.',
+  prorata_not_offered: 'החזר יחסי יש רק במנוי שנתי, אחרי 14 הימים הראשונים.',
+  not_resumable: 'אי אפשר לחדש את המנוי הזה. אפשר להצטרף שוב.',
+  no_portal: 'עדכון אמצעי תשלום נעשה מול חברת הסליקה. כתבו לנו ונעזור.',
+  // linking a child's device
+  link_expired: 'הקוד פג. במכשיר של הילד יוצרים קוד חדש.',
+  link_not_found: 'לא מצאנו את הקוד. בדקו אותו במכשיר של הילד.',
+  link_used: 'הקוד הזה כבר שימש לחיבור.',
+  device_limit: 'כבר מחוברים 3 מכשירים. נתקו אחד כדי לחבר מכשיר חדש.',
+  needs_subscription: 'כדי לחבר מכשיר צריך מנוי פעיל.',
+  too_many_links: 'נוצרו היום הרבה קודים במכשיר הזה. נסו שוב מחר.',
+  slow_down: 'רגע, נסו שוב בעוד כמה שניות.',
+  bad_secret: 'צריך לרענן את האפליקציה כדי להמשיך.',
+  // teacher and class
+  class_locked: 'הכיתה נעולה להצטרפות חדשה. בקשו מהמורה לפתוח אותה.',
+  class_has_licence: 'לכיתה הזו כבר יש רישיון פעיל.',
+  bad_licence_code: 'קוד הרישיון לא נכון, פג או כבר נוצל.',
+  request_open: 'כבר שלחתם בקשה כזו. נחזור אליכם במייל.',
+  too_many_requests: 'נשלחו היום הרבה בקשות מהכיתה הזו. נסו שוב מחר.',
+  bad_request: 'משהו בפרטים לא תקין. בדקו ונסו שוב.',
+  too_many_lookups: 'היו היום הרבה בדיקות קוד כיתה מהרשת הזו. נסו שוב מחר.',
+  // other
+  bot_check: 'לא הצלחנו לאשר את המכשיר. נסו שוב.',
+  server_config: 'השרת עוד לא הוגדר עד הסוף.',
   too_many_classes: 'נוצרו היום הרבה כיתות מהרשת הזו. אפשר ליצור כיתה נוספת מחר.',
   too_many_joins: 'היום היו הרבה הצטרפויות מהרשת הזו. נסו שוב מחר, או בקשו מהמורה עזרה.',
   too_many_pin: 'היו יותר מדי ניסיונות עם קוד אישי שגוי. המורה יכול לאפס את הקוד שלכם מלוח המורה.',
@@ -59,20 +96,6 @@ const MESSAGES = {
   free_paused: 'העוזר החכם נח היום. מחר הוא חוזר.',
   monthly_fair_use: 'הבדיקות של החודש נגמרו. הן חוזרות ב־1 בחודש.',
   too_large: 'הקובץ גדול מדי. נסו תמונה קטנה יותר.',
-  reauth_needed: 'כדי להמשיך, שלחנו קוד חדש למייל.',
-  not_account: 'צריך להיכנס שוב עם המייל.',
-  adult_required: 'כדי להמשיך צריך לאשר שאתם מעל גיל 18 וההורים או האפוטרופוס.',
-  terms_required: 'כדי להמשיך צריך לאשר את התקנון ואת מדיניות הביטול.',
-  billing_hold: 'יש בירור פתוח על תשלום קודם. כתבו לנו ונסדר את זה.',
-  paywall_off: 'כרגע העוזר החכם פתוח בלי מנוי.',
-  bad_checkout_url: 'דף התשלום לא נפתח. נסו שוב בעוד רגע.',
-  refund_window_closed: 'עברו 14 הימים להחזר מלא. אפשר לבטל, והעוזר נשאר פתוח עד סוף התקופה.',
-  prorata_not_offered: 'החזר יחסי יש רק במנוי שנתי, אחרי 14 הימים הראשונים.',
-  not_resumable: 'אי אפשר לחדש את המנוי הזה. אפשר להצטרף שוב.',
-  no_portal: 'עדכון אמצעי תשלום נעשה מול חברת הסליקה. כתבו לנו ונעזור.',
-  class_locked: 'הכיתה נעולה להצטרפות חדשה. בקשו מהמורה לפתוח אותה.',
-  too_many_lookups: 'היו היום הרבה בדיקות קוד כיתה מהרשת הזו. נסו שוב מחר.',
-  server_config: 'השרת עוד לא הוגדר עד הסוף.',
 };
 export const errorText = (code) => MESSAGES[code] || 'משהו השתבש. נסו שוב.';
 
@@ -80,10 +103,14 @@ export class ApiError extends Error {
   constructor(code, status, data = {}) { super(errorText(code)); this.code = code; this.status = status; this.data = data; }
 }
 
-export async function api(path, { method = 'GET', body, headers = {}, signal } = {}) {
+/**
+ * One JSON call to the server. `auth: false` leaves out the student's class token (a parent's call on a child's
+ * device carries only the parent's own headers). `onResponse(res)` sees the response first (its status and headers).
+ */
+export async function api(path, { method = 'GET', body, headers = {}, signal, auth = true, onResponse } = {}) {
   const base = apiBase();
   if (!base) throw new ApiError('no_server');
-  const token = useApp.getState().profile?.token;
+  const token = auth ? useApp.getState().profile?.token : null;
   let res;
   try {
     res = await fetch(base + path, {
@@ -95,6 +122,7 @@ export async function api(path, { method = 'GET', body, headers = {}, signal } =
     if (e.name === 'AbortError') throw e;
     throw new ApiError('network');
   }
+  onResponse?.(res);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(data.error || 'server_error', res.status, data);
   return data;

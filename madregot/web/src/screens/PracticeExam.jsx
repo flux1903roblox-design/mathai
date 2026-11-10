@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import clsx from 'clsx';
 import { Printer, Check } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
-import { aiReady } from '@/lib/ai.js';
+import { hasTool, useAIStatus } from '@/lib/account.js';
 import { makePracticeExam, weakTopics } from '@/lib/exam.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
@@ -80,9 +80,10 @@ export function PracticeSheet() {
   const { id } = useParams();
   const { profile, practiceExams } = useApp();
   const pe = practiceExams.find((p) => p.id === id);
+  const status = useAIStatus((x) => x.status); // the exam check is offered only where this device has it
   if (!pe) return <div className="page pushed"><ScreenBar title="מבחן תרגול" back="/exams" /><EmptyState mood="encouraging" title="המבחן לא נמצא"><p>אולי הוא נמחק. אפשר להכין מבחן חדש.</p></EmptyState><ScreenFoot><Link to="/exams/new" className="btn btn-primary btn-block btn-lg">מבחן תרגול חדש</Link></ScreenFoot></div>;
   const openKey = () => { const d = document.getElementById('answer-key'); if (d) { d.open = true; d.scrollIntoView({ block: 'start', behavior: 'smooth' }); } };
-  const ai = aiReady();
+  const ai = hasTool('exam', status);
   // A pushed screen (LAYOUT_SPEC E2): the bar (with printing at its end), the sheet, ONE primary pinned at the bottom.
   return (
     <div className="page pushed print-page">

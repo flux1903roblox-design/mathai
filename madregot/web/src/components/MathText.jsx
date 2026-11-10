@@ -4,8 +4,15 @@ import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
-const render = (tex, displayMode) => {
-  try { return katex.renderToString(tex, { displayMode, throwOnError: false, strict: 'ignore' }); } catch { return tex; }
+const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+export const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
+
+/**
+ * One TeX expression as HTML. When KaTeX cannot render it, the TeX is shown as text, escaped: it never reaches the
+ * page as HTML (a student's help note goes through here on the teacher's board).
+ */
+export const renderTex = (tex, displayMode = false) => {
+  try { return katex.renderToString(String(tex ?? ''), { displayMode, throwOnError: false, strict: 'ignore' }); } catch { return escapeHtml(tex); }
 };
 
 const RELATION = { '<': 'קטן מ־', '>': 'גדול מ־', '=': 'שווה ל־', '\\le': 'קטן או שווה ל־', '\\ge': 'גדול או שווה ל־', '\\ne': 'שונה מ־' };
@@ -31,7 +38,7 @@ export function texText(tex) {
 
 /** One TeX expression. */
 export const Tex = memo(function Tex({ tex, display = false, className }) {
-  const html = useMemo(() => render(tex, display), [tex, display]);
+  const html = useMemo(() => renderTex(tex, display), [tex, display]);
   return <span className={className} dangerouslySetInnerHTML={{ __html: html }} />;
 });
 

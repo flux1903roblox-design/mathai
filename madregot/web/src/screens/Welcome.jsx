@@ -1,6 +1,6 @@
 import { hasContent } from '@/learn/content/index.ts';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Footprints, Target, Users, Repeat, Hand, ClipboardList } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
@@ -113,6 +113,16 @@ function Onboarding({ onTeacher }) {
         <footer className="hello-foot" data-region="footer">
           <Button className="btn-block btn-lg" onClick={() => setI(0)}>מתחילים</Button>
           <Button variant="secondary" className="btn-block" onClick={onTeacher}>אני מורה</Button>
+          {/* the site's front page carries the dedicated cancel link, and the parents' and legal pages (with a server) */}
+          {hasServer() && (
+            <nav className="hello-legal" aria-label="להורים ומידע משפטי">
+              <Link to="/parents">להורים</Link>
+              <Link to="/cancel">ביטול מנוי</Link>
+              <Link to="/terms">תקנון</Link>
+              <Link to="/privacy">פרטיות</Link>
+              <Link to="/accessibility">נגישות</Link>
+            </nav>
+          )}
         </footer>
       </div>
     );
