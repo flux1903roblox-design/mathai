@@ -97,6 +97,13 @@ export const coverageSentence = (grade, c) =>
 const MONTH_NAME = { 9: 'ספטמבר', 10: 'אוקטובר', 11: 'נובמבר', 12: 'דצמבר', 1: 'ינואר', 2: 'פברואר', 3: 'מרץ', 4: 'אפריל', 5: 'מאי', 6: 'יוני', 7: 'יולי', 8: 'אוגוסט' };
 
 /**
+ * A school-year month (September 0 … June 9, as monthIndex and schoolMonth give it) as its Hebrew name.
+ * @param {number} index
+ * @returns {string}
+ */
+export const monthNameOf = (index) => MONTH_NAME[index <= 3 ? index + 9 : Math.min(index, 9) - 3] || '';
+
+/**
  * The months a unit is taught, in words: consecutive months as a range, a gap as a comma.
  * [9, 10] → 'ספטמבר–אוקטובר'; [12, 1, 4, 5] → 'דצמבר–ינואר, אפריל–מאי'; [1, 5] → 'ינואר, מאי'.
  * @param {number[]} months calendar months (1-12)

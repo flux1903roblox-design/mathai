@@ -23,8 +23,9 @@ web/src/learn/                 the learning model: pure TypeScript, no React, al
   skills.ts                    one skill per stair and the prerequisite graph, with the reason for each edge
   mastery.ts                   evidence → state (not started … needs review), mastery checks, spaced reviews
   misconceptions.ts            diagnosis by prediction, slips, evidence, confirmation, discriminating questions, repair
-  recommend.ts                 what to do next, ranked, each with a reason; the smallest missing prerequisite
-  mission.ts                   the daily ~5-minute mission
+  recommend.ts                 the engine's building blocks: states, what is missing, the next stage, routes, words
+  next.ts                      planNext: the one ranked "what next" every surface reads (home, mission, Rescue)
+  mission.ts                   the daily ~5-minute mission, made from planNext's items
   examRescue.ts                Exam Rescue: diagnostic, standing per stair, day-by-day plan, message
   tutor.ts                     the tutor without a model: six intents answered from content
   analytics.ts                 local events and the outcome metrics (with a minimum sample)
@@ -54,10 +55,15 @@ Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm 
   stair's general explanation again), then 3 questions where it would show. Resolved when 2 are right and it does not
   show. At most 2 offers a day, and after 2 failed verifications it is not offered again: the student is pointed to
   the prerequisite, the other explanations or the tutor instead (no endless loop).
-- **What next** (recommend.ts): exam within 14 days > confirmed misconception > due review > smallest missing
-  prerequisite of a stair that is hard > continue the stair in progress > the next new stair. Every action carries
-  its reason. A prerequisite counts as missing only on evidence (or, in the student's own grade, never started and not
-  passed on the map); stairs passed on the old map count as known.
+- **What next** (next.ts planNext, one ranked plan): Exam Rescue's steps for today when the exam is within 14 days
+  (its diagnostic first; none on Shabbat) > confirmed misconception > due review > points lost in a checked exam of
+  the last 45 days, not recovered since > the floor check, or the smallest missing prerequisite of a stair that is
+  hard > the stair in progress, then a kept stair's mastery check > the next new stair (taught by now in the school
+  calendar first, in school order, never skipping ahead inside a unit). Every item carries its reason. A
+  prerequisite counts as missing only on evidence (or, in the student's own grade, never started and not passed on
+  the map); stairs passed on the old map count as known. The home map focuses the plan's top when it is a stair of the
+  map, and shows it in a banner above the path when it is not; today's mission starts with it; Exam Rescue's "today"
+  is the plan's exam steps. So two buttons never send the student to two different next things.
 - **Exam Rescue** starts with a 2-question diagnostic per stair, sorts stairs into strong / shaky / gap / untested,
   orders gaps (and stairs others lean on) first, and spreads learn → practice → mastery tasks over the days, with a
   practice exam on the last day. It is recomputed from the evidence every time, so it follows real performance. It

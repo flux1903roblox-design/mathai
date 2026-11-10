@@ -10,7 +10,7 @@ import { skillId, parseSkill } from '@/learn/skills.ts';
 import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS } from '@/learn/mastery.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { contentOf } from '@/learn/content/index.ts';
-import { useActions } from '@/lib/useLearn.js';
+import { useNext } from '@/lib/useLearn.js';
 import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import Mascot from '@/components/Mascot.jsx';
@@ -107,7 +107,7 @@ function StairCheckDone({ result: r, award, onExit }) {
   const skill = r.skill || (r.topic && r.level ? skillId(r.topic, r.level) : null);
   const rec = useApp((s) => (skill ? s.learn.skills[skill] : null));
   const def = r.misc ? contentOf(skill)?.misconceptions.find((m) => m.id === r.misc) : null;
-  const actions = useActions();
+  const { items: actions } = useNext();
   const c = copy(r, rec, def, award);
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);

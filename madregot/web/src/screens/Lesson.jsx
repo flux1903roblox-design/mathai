@@ -367,8 +367,9 @@ export default function Lesson() {
     const app = useApp.getState();
     const award = placement ? app.completePlacement(result) : isCheck ? app.completeCheck(result) : app.completeLesson(result, { fromPlan: spec.fromPlan });
     // a finished activity completes its item of today's mission. Multiplication facts are on no stair (level 0), and the
-    // floor check is about the whole floor, not one stair: neither completes a stair's item.
+    // floor check is about the whole floor, not one stair: it completes the floor check's own item only.
     const onStair = !!(result.topic && result.level) && result.purpose !== 'floor';
+    if (result.purpose === 'floor') app.completeMission({ kind: 'floor' });
     if (!placement && onStair) {
       const kindOf = { mastery: 'mastery', review: 'review', verify: 'repair', diagnostic: 'exam', exam: 'exam' };
       // practice (stage D) or a check: each completes only the mission item it is

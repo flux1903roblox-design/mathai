@@ -317,10 +317,10 @@ describe('recommendations', () => {
   it('counts stairs already passed on the map as known', () => {
     // done before mastery checks existed (kept), or passed over by the placement test
     const kept = ctx(empty(), '7', { path: { signed: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'kept', 2: 'kept' } } } });
-    expect(nextActions(kept)[0]).toMatchObject({ kind: 'new', skill: 'signed:3' });
+    expect(nextActions(kept).find((a) => a.kind === 'new')).toMatchObject({ skill: 'signed:3' });
     expect(nextActions(ctx(empty(), '7', { path: { signed: { parts: {}, reviews: 0, jumped: 2 } } }))[0]).toMatchObject({ kind: 'new', skill: 'signed:3' });
-    // and a stair kept green is offered its mastery check
-    expect(nextActions(kept).find((a) => a.kind === 'mastery')).toMatchObject({ skill: 'signed:1', to: '/lesson/signed/1?kind=check&purpose=mastery' });
+    // and a stair kept green is offered its mastery check, before anything new (the stair in progress's band)
+    expect(nextActions(kept)[0]).toMatchObject({ kind: 'mastery', skill: 'signed:1', to: '/lesson/signed/1?kind=check&purpose=mastery' });
   });
 });
 

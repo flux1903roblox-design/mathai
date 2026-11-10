@@ -604,3 +604,20 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 .answer-frac-bar { display: block; height: 3px; border-radius: 2px; background: var(--ink); }
 .lesson .answer-frac .slot { width: clamp(84px, 26vw, 140px); height: 44px; font-size: 22px; }
 .answer-partial { color: var(--brand-d); font-weight: 600; }
+
+/* ------------------------------------------------------------------ the next step (CURRICULUM-7)
+   Above the home map when the plan's next step is not a stop of it: one card, its icon, its title, how long, and one
+   button. On the map, the stair the plan points at (when it is not the path's current stop) wears the same bubble as
+   the current stop, saying "הצעד הבא". */
+.next-banner { margin: var(--s4) var(--gutter) 0; padding: var(--s4); display: flex; flex-direction: column; gap: var(--s3);
+  background: #fff; border: 2px solid var(--rule); border-radius: 16px; color: var(--ink); }
+.next-banner-row { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
+.next-banner .quest-icon { width: 44px; height: 44px; border-radius: 14px; }
+.next-banner-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.next-banner-title { margin: 0; font-family: var(--font-ui); font-size: 18px; line-height: 24px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.next-banner-meta { margin: 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.node-card-next { color: var(--ink); font-weight: 600; }
+/* the map starts closer under it: the banner belongs to the path */
+.next-banner + .unit { margin-top: calc(var(--s4) * -1); }
+@media (min-width: 960px) { .next-banner { margin-inline: 0; } }
+.rescue-rest { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-align: center; }

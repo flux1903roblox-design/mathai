@@ -265,12 +265,22 @@ export interface LearnState {
 
 // ------------------------------------------------------------------ what to do next
 
-export type ActionKind = 'exam' | 'repair' | 'review' | 'prereq' | 'continue' | 'new' | 'mastery';
+/**
+ * What a suggestion is (learn/next.ts planNext ranks them): an Exam Rescue step, a misconception to repair, a due
+ * review, points lost in a checked exam ('exam-loss'), the floor check of the fractions unit ('floor'), a missing
+ * prerequisite, a mastery check, the stair in progress, or a new stair.
+ */
+export type ActionKind = 'exam' | 'repair' | 'review' | 'exam-loss' | 'floor' | 'prereq' | 'continue' | 'new' | 'mastery';
 export type Stage = 'A' | 'B' | 'C' | 'D' | 'E';
+/** The kind of an Exam Rescue step, as its plan names it (examRescue.ts PlanTask), plus the diagnostic before a plan. */
+export type RescueTask = 'learn' | 'practice' | 'mastery' | 'review' | 'exam' | 'diagnostic';
 export interface Action {
+  /** The stair it is about; '' for an Exam Rescue step on no single stair (the diagnostic, the practice exam). */
   kind: ActionKind; skill: SkillId; misc?: string;
   /** For learning a stair: the one stage this action is (a mission item is done when this stage is, not the stair). */
   stage?: Stage;
+  /** An Exam Rescue step: which step of the plan it is, so the mission item is done only by that step. */
+  task?: RescueTask;
   title: Text; reason: Text; minutes: number;
   /** The route that starts it. */
   to: string;

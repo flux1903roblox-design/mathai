@@ -4,21 +4,24 @@ import clsx from 'clsx';
 import { Flame, Zap, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
-import { topicsFor, bridgeTopicsFor } from '@/content/index.js';
+import { topicsFor } from '@/content/index.js';
 import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
 import { MASTERY_N } from '@/learn/mastery.ts';
 import PathNode from '@/components/PathNode.jsx';
 import Chest from '@/components/map/Chest.jsx';
 import { Button } from '@/components/ui.jsx';
-import { nextStage } from '@/learn/mastery.ts';
-import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
+import { routeOf, stairStage, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
 import { skillId } from '@/learn/skills.ts';
+import { mapTopics, mapFocus, onMap, nodeRoute } from '@/learn/next.ts';
+import { useNext } from '@/lib/useLearn.js';
+import NextBanner from '@/components/learn/NextBanner.jsx';
+import { MathText } from '@/components/MathText.jsx';
 
 // The path winds gently: each node sits a little to one side of the one before.
 const SWING = [0, 52, 78, 52, 0, -52, -78, -52];
 
-function NodeCard({ n, t, onStart }) {
+function NodeCard({ n, t, onStart, next }) {
   const top = t.levels.length;
   if (n.kind === 'review') {
     return (
@@ -29,19 +32,23 @@ function NodeCard({ n, t, onStart }) {
       </div>
     );
   }
-  return <StairCard n={n} t={t} onStart={onStart} />;
+  return <StairCard n={n} t={t} onStart={onStart} next={next} />;
 }
 
 /**
  * A stair's card on the path (Duolingo's node popover): its name, the stage that comes next, and one START that opens
  * it. A stair is done only after its mastery check; one passed over (placement, a jump test) or kept from before
- * mastery checks existed offers its check.
+ * mastery checks existed offers its check. Its main button is learn/next.ts nodeRoute, the same route the plan gives
+ * this stair; when the plan's next step is this stair but a different activity (`next`), that step leads the card
+ * and the card's own buttons step back.
  */
-function StairCard({ n, t, onStart }) {
+function StairCard({ n, t, onStart, next }) {
   const skill = skillId(t.id, n.level);
   const rec = useApp((s) => s.learn.skills[skill]);
-  const st = nextStage(rec);
-  const stageTo = st === 'D' ? `/lesson/${t.id}/${n.level}?part=${Math.min(n.parts + 1, PARTS)}` : st === 'E' ? routeOf.check(skill, 'mastery') : `/learn/${t.id}/${n.level}/${st}`;
+  const st = stairStage(skill, rec);
+  const own = nodeRoute(n, rec);
+  const lead = next && next.to !== own ? next : null;
+  const main = lead ? 'secondary' : 'primary';
   const check = routeOf.check(skill, 'mastery');
   const mastered = n.state === 'done' && !!rec?.mastered;
   const path = useApp((s) => s.path);
@@ -50,14 +57,16 @@ function StairCard({ n, t, onStart }) {
     <div className="node-card" role="group" aria-label={n.title}>
       <p className="node-card-title">{n.title}</p>
       {added && <p className="node-card-sub node-card-added">{added}</p>}
+      {lead && <p className="node-card-sub node-card-next">הצעד הבא: <MathText text={lead.title} /></p>}
+      {lead && <Button className="btn-block node-next-btn" onClick={() => onStart(lead.to)}>לצעד הבא</Button>}
       {n.state === 'current' && <p className="node-card-sub">שלב {STAGE_N[st]} מתוך 5: {STAGE_NAME[st]}</p>}
-      {n.state === 'current' && <Button className="btn-block node-start-btn" onClick={() => onStart(stageTo)}>{rec?.taught?.A || n.parts ? 'המשך' : 'התחלה'}</Button>}
+      {n.state === 'current' && <Button variant={main} className="btn-block node-start-btn" onClick={() => onStart(own)}>{rec?.taught?.A || n.parts ? 'המשך' : 'התחלה'}</Button>}
       {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>כל חמשת השלבים</Button>}
       {mastered && <p className="node-card-sub">שולטים בזה: עברתם את בדיקת השליטה.</p>}
       {n.state === 'done' && !mastered && <p className="node-card-sub">המדרגה הושלמה לפני שהיו בדיקות שליטה. בדיקה קצרה, {MASTERY_N} שאלות, תראה שזה נשאר.</p>}
       {n.state === 'open' && <p className="node-card-sub">המדרגה הזאת פתוחה. בדיקת שליטה קצרה, {MASTERY_N} שאלות, תסמן אותה כמדרגה שעברתם.</p>}
       {n.state === 'locked' && <p className="node-card-sub">יודעים כבר? מבחן קצר של {JUMP_LEN} תרגילים, טעות אחת מותרת, פותח את כל הדרך עד לכאן.</p>}
-      {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button className="btn-block" onClick={() => onStart(check)}>לבדיקת שליטה</Button>}
+      {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button variant={main} className="btn-block" onClick={() => onStart(check)}>לבדיקת שליטה</Button>}
       {n.state === 'open' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור</Button>}
       {mastered && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור</Button>}
       {n.state === 'done' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>תרגול חוזר</Button>}
@@ -74,7 +83,7 @@ function lastDoneKey(topic) {
   return last ? `${topic}:${last.kind}:${last.level}` : null;
 }
 
-function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh, mastered, celebrate }) {
+function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, focusNext, fresh, mastered, celebrate }) {
   const skills = useApp((s) => s.learn.skills);
   const path = useApp((s) => s.path);
   // the unit's counters move from the first stage: stairs done (mastered) once there is one, before that stages done,
@@ -100,6 +109,8 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
           {nodes.map((node, i) => {
             const key = `${t.id}:${node.kind}:${node.level}`;
             const isOpen = open === key;
+            // the plan's next step is this stair (and not the path's current one): it is marked as the next step
+            const isNext = key === focusKey && !!focusNext && node.state !== 'current';
             const x = SWING[i % SWING.length];
             const rec = node.kind === 'node' ? skills[skillId(t.id, node.level)] : null;
             const pct = node.kind === 'node' ? stairProgress(rec, node.parts) : 0;
@@ -107,16 +118,17 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
             return [
               <li key={key} className="path-step" style={{ '--x': `${x}px` }}>
                 {node.state === 'current' && !isOpen && <span className="node-start" aria-hidden="true">{pct > 0 ? 'המשך' : 'התחלה'}</span>}
+                {isNext && !isOpen && <span className="node-start node-next" aria-hidden="true">הצעד הבא</span>}
                 <div className={clsx('node-anchor', node.state === 'current' && 'is-current')}>
                   <PathNode
                     ref={key === focusKey ? currentRef : undefined}
                     state={node.state} kind={node.kind} parts={node.parts} of={PARTS} pct={pct} mastered={mastered}
                     fillLast={key === focusKey && fresh === t.id && node.parts > 0}
                     celebrate={celebrate === key}
-                    label={label} expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}
+                    label={isNext ? `${label}. הצעד הבא` : label} expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}
                   />
                 </div>
-                {isOpen && <NodeCard n={node} t={t} onStart={onStart} />}
+                {isOpen && <NodeCard n={node} t={t} onStart={onStart} next={key === focusKey ? focusNext : null} />}
               </li>,
               // halfway along the unit, a treasure chest sits on the road
               node.kind === 'node' && node.level === half && (
@@ -172,20 +184,30 @@ export default function Learn() {
   const firstView = useRef(true);
   // the grade's own units, and above them the fractions floor while it is on (the floor check or the student put it there)
   const own = topicsFor(view);
-  const topics = [...(floorOn ? bridgeTopicsFor(view) : []), ...own];
+  const topics = mapTopics(view, floorOn);
+  const topicIds = topics.map((t) => t.id);
   const streak = streakOf(days);
   const todayXp = days[today()]?.xp || 0;
-  // "Where I am": the next node in the unit practised last (or just now), else in the grade's first unit (the floor
-  // above it is never where the map opens by default)
-  const focusTopic = [state?.from, lastTopic].find((id) => id && topics.some((t) => t.id === id)) || own[0]?.id;
-  const focusNode = focusTopic && unitNodes(focusTopic, path).find((x) => x.state === 'current');
-  const focusKey = focusNode ? `${focusTopic}:${focusNode.kind}:${focusNode.level}` : null;
+  // "Where I am" follows the one plan (learn/next.ts): back from a lesson, the unit just practised; on a fresh open, the
+  // plan's next step when it is a stair of this map (that stair is the focused node); else the unit practised last, else
+  // the grade's first unit (the floor above it is never where the map opens by default). A next step that is not a
+  // stair of this map (an exam step, a repair, a review, points lost in an exam, the floor check) is the banner above.
+  const { top } = useNext();
+  const focus = mapFocus({ from: state?.from, top, lastTopic, topicIds, firstId: own[0]?.id, path });
+  const focusKey = focus.key;
+  const banner = top && !onMap(top, topicIds) ? top : null;
 
   useEffect(() => { settleStreak(); }, [settleStreak]);
   // The screen opens at the top of the path; back from a lesson, or on another grade, it opens on the place to continue from.
+  // On a fresh open the screen opens at the top, unless the plan's next stair is out of view: then it opens on it.
   useLayoutEffect(() => {
     const first = firstView.current; firstView.current = false;
-    if (first && !state?.from) { window.scrollTo(0, 0); return; }
+    if (first && !state?.from) {
+      const r = focus.next ? currentRef.current?.getBoundingClientRect() : null;
+      if (r && (r.top < 0 || r.bottom > window.innerHeight * 0.8)) currentRef.current.scrollIntoView({ block: 'center' });
+      else window.scrollTo(0, 0);
+      return;
+    }
     currentRef.current?.scrollIntoView({ block: 'center' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
@@ -211,9 +233,11 @@ export default function Learn() {
 
       <div className="learn-layout">
       <div className="learn-body">
+        {/* the next step when it is not a stop of the map; it stacks last under any other banner (at most one shows) */}
+        {banner && <NextBanner item={banner} onGo={() => onStart(banner.to)} />}
         {/* the home screen is the path, as on Duolingo: units under their sticky banners, the current stop marked */}
         {topics.map((t) => (
-          <Unit key={t.id} t={t} n={own.indexOf(t) + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
+          <Unit key={t.id} t={t} n={own.indexOf(t) + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} focusNext={focus.next} fresh={state?.from}
             mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null} />
         ))}
         {/* the end of the path says plainly what the app has of the year's programme, and what it does not have yet */}
