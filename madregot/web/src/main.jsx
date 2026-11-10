@@ -1,3 +1,5 @@
+// first of all: the error monitor hears the page before anything else runs (lib/monitor.js)
+import { monitor } from './lib/monitor.js';
 // must run before the router is created (imports run in order): a plain /parents… path becomes its hash route first
 import './lib/pathToHash.js';
 import './lib/historySeed.js';
@@ -11,7 +13,14 @@ import './styles/motion.css';
 import './styles/v4.css';
 import './styles/canon.css';
 import App from './App.jsx';
-import { durableBoot } from './lib/durable/storage.js';
+import { durableBoot, errorLog } from './lib/durable/storage.js';
+import { apiBase } from './lib/api.js';
+import { onMoment, keepaliveBudget, MOMENT_ORDER } from './lib/durable/moments.js';
+
+// Error reports go to this app's server, if it has one (never with VITE_MONITOR=off), and always to the errors kept on
+// the device; when the page is hidden, they are sent with what the keepalive budget has left after the class outbox.
+monitor.configure({ server: () => (import.meta.env.VITE_MONITOR === 'off' ? '' : apiBase()), ring: errorLog, budget: keepaliveBudget });
+onMoment('hidden', () => monitor.flush({ hidden: true }), { priority: MOMENT_ORDER.other });
 
 // Test hook: with localStorage 'madregot-seed' set, exercises come out the same on every run (visual tests).
 try {

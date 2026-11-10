@@ -74,3 +74,48 @@ table of the council's probes comes with the proof pack (DURABLE-15); this file 
   - On a real iPhone, run the four steps of the guide once and confirm the progress arrives in the Home Screen app;
     if iOS's menu labels differ from the ones quoted in step 2 and 3, only those labels change
     (`components/durable/InstallSheet.jsx` `INSTALL_STEPS`).
+
+## Error monitoring with no third party (DURABLE-9)
+
+- **In the app** (`web/src/lib/monitor.js`, imported first by `main.jsx`). It hears the window's `error` and
+  `unhandledrejection`, `ErrorBoundary.componentDidCatch` (kind `render`, with the nearest component), parts of the app
+  that failed to load (kind `chunk`: the page reloads once when online, not again within 60 s), the safe write path
+  (kind `storage`: quota, parse, mirror) and `securitypolicyviolation` (kind `csp`: the directive and the blocked
+  origin only). A record is `{ kind, name, message, frame, route, agent, n }`: the message scrubbed (digit runs, emails,
+  keys, long hex) and clipped to 200 characters; the frame is `file:line:col` of our own `/assets/*.js`; the route is
+  the screen's pattern from `App.jsx` (`/lesson/:topic/:level`, never its values); the agent a coarse class
+  (`android-chrome-131`). One report per failure a page, at most 10 a page load, sent 10 s after the first or with
+  `sendBeacon` when the page is hidden (within the keepalive budget, after the class outbox), as `text/plain` so there
+  is no CORS preflight. Nothing is sent with no server or with `VITE_MONITOR=off`; every record is also kept in the
+  device's errors ring (IndexedDB, the last 20), which "delete all" deletes.
+- **On the server** (`worker/src/errors.js`, `POST /api/errors`). At most 8 KB; an unknown kind is 400; the scrubbing
+  is repeated; rows are counted per `(day, fp, release, agent, route)` in `client_errors` (migration `0003_durable.sql`).
+  Caps: 100 items a day per network, 20,000 a day for all; beyond them 202 and dropped. The Worker's own unhandled
+  exceptions are counted as kind `server` under the route's pattern (`/api/billing/webhook/:provider/:secret`, never the
+  path). No column holds a device id, an address, a name or a route value. Kept 30 days.
+- **The owner.** The daily summary has the day's total and the 5 most frequent; more than 300 reports in a day, or more
+  than 100 of one failure, queue a notice that night (`owner:errors:<day>`); `npm run owner -- errors [--days 7]`
+  prints a table. A sample from the in-memory database of the tests (synthetic reports):
+
+  ```
+  $ npm run owner -- errors --days 7
+  count  kind     route      release  agents  name       message                                                       frame
+  -----  -------  ---------  -------  ------  ---------  ------------------------------------------------------------  ------------------
+  3      render   /me        055dcb4  2       Error@Me   QA: a test error while the profile renders                    Me-B2x9k.js:1:4521
+  1      chunk    /settings  055dcb4  1       TypeError  Failed to fetch dynamically imported module: https://madreg…
+  1      storage  /          055dcb4  1       quota      localStorage is full
+  ```
+  (The two time columns, `first` and `last`, are left out here. The same command on a local Worker after the e2e
+  belongs to the proof pack, DURABLE-15.)
+- **For families.** Settings › מידע לתמיכה: the build, the saving, whether the browser promised to keep the data, the
+  room used, the backup, and the last 5 errors on this device; "להעתיק לתמיכה" copies them as plain text. No name, no
+  code.
+- **Tests.** `web/src/lib/monitor.test.js` (scrubbing, every route of `App.jsx` has its pattern, dedupe, the cap, no
+  server sends nothing, sendBeacon within the budget, the reload guard), `components/durable/SupportInfo.test.jsx`,
+  `worker/test/errors.test.js` (counts, unknown kind, server-side scrubbing, the network cap, no column with the test
+  address, the webhook path stored as its pattern, the 31-day purge, the summary's top 5 and the notice, the owner's
+  table), `e2e/monitor.spec.js` (the QA hook `?qa-throw=render` in the profile: the error screen, one `POST
+  /api/errors` of kind `render` for `/me`, and מידע לתמיכה listing it; and no request at all without a server).
+- **Evidence.** `qa-evidence/durable/support-info.png`, `error-screen.png` (390x844).
+- **For the trust lane's privacy notice:** "כשמשהו לא עובד באפליקציה, נשלח לשרת דיווח תקלה קצר: איזה מסך, איזו שגיאה
+  ואיזה סוג דפדפן. בלי שם, בלי מזהה מכשיר ובלי כתובת רשת. הדיווחים נשמרים 30 יום."

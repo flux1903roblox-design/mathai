@@ -21,6 +21,16 @@ function param(name, allowed) {
 }
 
 export const qaAI = () => param('qa-ai', AI_STATES);
+/**
+ * ?qa-throw=render (DURABLE-9): the profile throws while it renders, so the error report, the error screen and
+ * "מידע לתמיכה" can be tested. Read from the address only (never kept for the visit), and only where the hooks are on.
+ */
+export function qaThrow() {
+  if (typeof window === 'undefined' || !qaOn()) return null;
+  const hashQuery = window.location.hash.split('?')[1] || '';
+  const v = new URLSearchParams(window.location.search).get('qa-throw') || new URLSearchParams(hashQuery).get('qa-throw');
+  return v === 'render' ? v : null;
+}
 export const qaParent = () => param('qa-parent', PARENT_STATES);
 export const qaActive = () => !!qaAI();
 

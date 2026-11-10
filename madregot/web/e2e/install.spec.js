@@ -99,7 +99,7 @@ test.describe('installable and kept', () => {
     expect(await asks()).toBe(1);
     // Settings shows the answer as it is, and the button asks again only when tapped
     await page.evaluate(() => { window.location.hash = '#/settings'; });
-    const row = page.locator('.save-row').filter({ hasText: 'שמירה קבועה בדפדפן' });
+    const row = page.locator('#save .save-row').filter({ hasText: 'שמירה קבועה בדפדפן' });
     await expect(row.locator('dd')).toHaveText('לא מובטחת');
     await page.getByRole('button', { name: 'לבקש מהדפדפן לשמור' }).click();
     await expect(page.getByText('הדפדפן לא הבטיח לשמור. כדאי לשמור גיבוי.')).toBeVisible();
@@ -117,7 +117,7 @@ test.describe('installable and kept', () => {
       Object.defineProperty(StorageManager.prototype, 'persisted', { configurable: true, value: async () => true });
     });
     await open(page, '#/settings', student('7'));
-    const row = page.locator('.save-row').filter({ hasText: 'שמירה קבועה בדפדפן' });
+    const row = page.locator('#save .save-row').filter({ hasText: 'שמירה קבועה בדפדפן' });
     await expect(row.locator('dd')).toHaveText('כן');
     await expect(page.getByRole('button', { name: 'לבקש מהדפדפן לשמור' })).toHaveCount(0);
   });

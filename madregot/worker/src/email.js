@@ -144,6 +144,7 @@ export function renderNotice(env, row) {
       const what = String(row.kind).slice('owner:'.length);
       if (what === 'licence_request') return licenceRequestNotice(p);
       if (what.startsWith('summary:')) return summaryNotice(p, what.slice('summary:'.length));
+      if (what.startsWith('errors:')) return errorsNotice(p, what.slice('errors:'.length));
       return { subject: `[מדרגות] ${what}`, lines: [`${what}`, `ref: ${row.ref}`, ...Object.entries(p).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)] };
     }
     default:
@@ -185,8 +186,31 @@ function summaryNotice(p, day) {
       `החזרים שצריך לעשות ידנית: ${p.manualRefunds ?? 0}`,
       `הודעות תשלום חריגות (mismatch, unknown, test_mode): ${p.badEvents ?? 0}`,
       `בקשות רישיון פתוחות: ${p.openRequests ?? 0}`,
+      ...errorLines(p.errors),
       v.length ? 'בדיקות שנכשלו:' : 'כל הבדיקות עברו.',
       ...v.map((x) => `- ${x}`),
+    ],
+  };
+}
+
+/** The app's error reports of the day (cron.js, errors.js): the total and the most frequent. */
+function errorLines(e) {
+  if (!e || typeof e !== 'object') return [];
+  const top = Array.isArray(e.top) ? e.top : [];
+  return [
+    `תקלות באפליקציה: ${e.total ?? 0}`,
+    ...top.map((x) => `- ${x.count} × ${x.kind} ${x.route || ''} ${x.release || ''}: ${x.message || ''}`),
+  ];
+}
+
+/** Many app errors yesterday: the owner hears it the same night, with the way to see them all. */
+function errorsNotice(p, day) {
+  return {
+    subject: `[מדרגות] הרבה תקלות באפליקציה ב־${day}`,
+    lines: [
+      `ב־${day} היו ${p.total ?? 0} דיווחי תקלה מהאפליקציה${p.worst ? `, והתקלה השכיחה חזרה ${p.worst} פעמים` : ''}.`,
+      ...errorLines({ total: p.total, top: p.top }).slice(1),
+      'הפירוט: npm run owner -- errors --days 2',
     ],
   };
 }

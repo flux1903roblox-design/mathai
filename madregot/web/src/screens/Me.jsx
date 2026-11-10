@@ -12,8 +12,10 @@ import { Stat } from '@/components/ds.jsx';
 import Achievements from '@/components/Achievements.jsx';
 import ProgressSummary from '@/components/learn/ProgressSummary.jsx';
 import MyNumbers from '@/components/learn/MyNumbers.jsx';
+import { qaThrow } from '@/lib/qaFixtures.js';
 
 export default function Me() {
+  if (qaThrow() === 'render') throw new Error('QA: a test error while the profile renders');
   const { profile, days, xp, path } = useApp();
   const skills = useApp((s) => s.learn.skills);
   const streak = streakOf(days);

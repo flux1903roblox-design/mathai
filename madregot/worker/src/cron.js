@@ -6,7 +6,8 @@
 //
 // In the 03:00 hour in Jerusalem: reconcile renewing plans whose period is over with the provider (extend only from the
 // truth pulled from it, or end the plan), queue the yearly renewal reminder (45 days ahead) and the licence-ending email
-// (30 days ahead), purge what is no longer needed (spec §6.9), and queue the owner's daily summary when
+// (30 days ahead), purge what is no longer needed (spec §6.9; error reports after 30 days), queue the owner's notice of
+// yesterday's app errors when there were many (errors.js), and queue the owner's daily summary when
 // OWNER_DAILY_SUMMARY = "true". Each step runs on its own: one failing step never stops the others.
 import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
@@ -16,6 +17,7 @@ import { purgeFamilySql } from './family.js';
 import { providerById } from './providers/index.js';
 import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
+import { errorsOf, errorsNoticeDue, purgeErrorsSql } from './errors.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -119,7 +121,7 @@ export function purgeCountersSql(env, now = new Date()) {
 }
 
 /** Retention (spec §6.9): notices 90 days after sending, expired orders after 30 days, spend after 400 days, the audit
- *  log after 2 years, provider events after 7 years. Payments are kept. */
+ *  log after 2 years, provider events after 7 years, the app's error reports after 30 days. Payments are kept. */
 export function purgeRecordsSql(env, now = new Date()) {
   const t = now.getTime();
   const iso = (days) => new Date(t - days * DAY).toISOString();
@@ -131,18 +133,32 @@ export function purgeRecordsSql(env, now = new Date()) {
       .bind(dayOf(new Date(t - 400 * DAY)), monthOf(new Date(t - 400 * DAY))),
     env.DB.prepare('DELETE FROM audit_log WHERE at < ?').bind(iso(730)),
     env.DB.prepare('DELETE FROM billing_events WHERE received_at < ?').bind(iso(7 * 365 + 2)),
+    purgeErrorsSql(env, now),
   ];
 }
 
 export async function purge(env, now = new Date()) {
-  const r = await env.DB.batch([...purgeCountersSql(env, now), ...purgeAccountsSql(env), ...purgeFamilySql(env), ...purgeRecordsSql(env)]);
+  const r = await env.DB.batch([...purgeCountersSql(env, now), ...purgeAccountsSql(env), ...purgeFamilySql(env), ...purgeRecordsSql(env, now)]);
   return changes(r);
 }
 
 /**
+ * Yesterday's app errors (errors.js): a notice to the owner the same night when there were more than 300 reports, or
+ * more than 100 of one failure. Queued once a day (the notice key holds the day).
+ */
+export async function errorsNotice(env, now = new Date()) {
+  const day = dayOf(new Date(now.getTime() - DAY));
+  const e = await errorsOf(env, day);
+  if (!errorsNoticeDue(e)) return { day, queued: false };
+  await queueNotices(env, [ownerNotice(day, `owner:errors:${day}`, { day, total: e.total, worst: e.worst, top: e.top })]);
+  return { day, queued: true };
+}
+
+/**
  * The owner's daily summary of yesterday (Jerusalem): spend by pool, free calls, plans started, cancelled and ended;
- * what needs a hand (unsynced cancels, manual refunds, odd provider events, open licence requests); and the invariant
- * checks: a running paid plan with no payment covering now, a paid order with no plan, spend over a budget.
+ * what needs a hand (unsynced cancels, manual refunds, odd provider events, open licence requests); the app's error
+ * reports (the total and the 5 most frequent); and the invariant checks: a running paid plan with no payment covering
+ * now, a paid order with no plan, spend over a budget.
  */
 export async function dailySummary(env, now = new Date()) {
   const L = limits(env);
@@ -167,6 +183,7 @@ export async function dailySummary(env, now = new Date()) {
     manualRefunds: await count('SELECT COUNT(*) AS n FROM refund_queue WHERE manual = 1 AND done_at IS NULL'),
     badEvents: await count("SELECT COUNT(*) AS n FROM billing_events WHERE outcome IN ('mismatch', 'unknown', 'test_mode') AND received_at >= ? AND received_at < ?", startIso, endIso),
     openRequests: await count('SELECT COUNT(*) AS n FROM licence_requests WHERE handled_at IS NULL'),
+    errors: await errorsOf(env, day).then(({ total, top }) => ({ total, top })),
     violations: [],
   };
   const v = params.violations;
@@ -204,6 +221,7 @@ export async function run(env, { now = new Date() } = {}) {
   if (night) {
     await step('reminders', () => reminders(env));
     await step('purge', () => purge(env, now));
+    await step('errors', () => errorsNotice(env, now));
     if (String(env.OWNER_DAILY_SUMMARY) === 'true') await step('summary', () => dailySummary(env, now));
   }
   await step('notices', () => flushNotices(env));

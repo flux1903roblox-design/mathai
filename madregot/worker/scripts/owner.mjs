@@ -18,13 +18,14 @@
 //   forget --email E
 //   list [--class C | --email E | --status S]   requests [--open]   request-done --id R
 //   usage --from D --to D                        events [--outcome mismatch]
+//   errors [--days 7]                            the app's error reports of the last days, most frequent first (a table)
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { endOfDayIso, CODE_ALPHABET } from '../src/util.js';
+import { endOfDayIso, CODE_ALPHABET, dayOf } from '../src/util.js';
 import { cleanEmail } from '../src/account.js';
 
 const DAY = 864e5;
@@ -253,10 +254,33 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
       if (outcome && !['applied', 'duplicate_payment', 'after_cancel', 'ignored_old', 'unknown', 'mismatch', 'test_mode'].includes(outcome)) fail(`bad outcome: ${outcome}`);
       return { readOnly: true, sql: `SELECT provider, event_id, type, outcome, subscription_id, amount_agorot, detail, received_at FROM billing_events ${outcome ? `WHERE outcome = ${q(outcome)}` : ''} ORDER BY received_at DESC LIMIT 200;` };
     }
+    case 'errors': {
+      const days = o.days === undefined ? 7 : intArg(o.days, 1, 30, 'days');
+      const since = dayOf(new Date(Date.parse(now) - (days - 1) * DAY));
+      return {
+        readOnly: true,
+        table: ['count', 'kind', 'route', 'release', 'agents', 'name', 'message', 'frame', 'first', 'last'],
+        sql: `SELECT SUM(count) AS count, kind, route, release, COUNT(DISTINCT agent) AS agents, name, message, frame, MIN(first_at) AS first, MAX(last_at) AS last
+  FROM client_errors WHERE day >= ${q(since)} GROUP BY fp, route, release ORDER BY count DESC, last DESC LIMIT 100;`,
+      };
+    }
     default:
       return fail(`unknown command: ${cmd}`);
   }
 }
+
+/** Rows as an aligned text table with these columns (long cells are cut, so a line stays readable). */
+export function formatTable(rows, columns, { max = 60 } = {}) {
+  if (!rows.length) return '(nothing)';
+  const cell = (v) => { const t = v === null || v === undefined ? '' : String(v).replace(/\s+/g, ' '); return t.length > max ? `${t.slice(0, max - 1)}…` : t; };
+  const body = rows.map((r) => columns.map((c) => cell(r[c])));
+  const width = columns.map((c, i) => Math.max(c.length, ...body.map((r) => r[i].length)));
+  const line = (cells) => cells.map((x, i) => x.padEnd(width[i])).join('  ').trimEnd();
+  return [line(columns), line(width.map((w) => '-'.repeat(w))), ...body.map(line)].join('\n');
+}
+
+/** The rows of `wrangler d1 execute --json` output (an array of results, each with its rows). */
+export const wranglerRows = (out) => { const v = JSON.parse(out); return (Array.isArray(v) ? v : [v]).flatMap((r) => r?.results || []); };
 
 /** --name value pairs and --flags. */
 export function parseArgs(argv) {
@@ -281,7 +305,7 @@ function main(argv) {
   try {
     const worker = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
     const out = execFileSync('npx', ['wrangler', 'd1', 'execute', 'madregot', o.local ? '--local' : '--remote', '--file', file, '--json'], { cwd: worker, encoding: 'utf8' });
-    console.log(b.readOnly ? out : 'done');
+    console.log(b.table ? formatTable(wranglerRows(out), b.table) : b.readOnly ? out : 'done');
     if (b.print) console.log(b.print);
   } finally {
     rmSync(dir, { recursive: true, force: true });

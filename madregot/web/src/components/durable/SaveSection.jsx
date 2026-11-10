@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { Check, Info, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
-import { useDurable, savedHealth } from '@/lib/durable/useDurable.js';
+import { useDurable, savedHealth, healthText } from '@/lib/durable/useDurable.js';
 import { exportBackup } from '@/lib/durable/file.js';
 import { canUndo, undoRestore, UNDO_TOAST, NO_UNDO } from '@/lib/durable/apply.js';
 import { persistedText, canAsk, askFromSettings, PERSIST_TOAST } from '@/lib/durable/persist.js';
@@ -24,7 +24,6 @@ import RestorePreview from './RestorePreview.jsx';
 import PersistInfoSheet from './PersistInfoSheet.jsx';
 import InstallSheet from './InstallSheet.jsx';
 
-const NOT_SAVED = { full: 'לא נשמר: הדפדפן מלא', memory: 'לא נשמר: הדפדפן חוסם שמירה' };
 const NOTE = {
   student: 'בקובץ יש את כל ההתקדמות, כולל השם. מי שמקבל אותו יכול לקרוא אותו.',
   teacher: 'בקובץ יש גם את מפתח המורה של הכיתות. מי שמקבל אותו יכול להיכנס ללוח הכיתה, אז שמרו אותו רק אצלכם.',
@@ -62,7 +61,7 @@ export default function SaveSection({ role = 'student' }) {
           <dt>במכשיר הזה</dt>
           <dd className={saved ? 'save-ok' : 'save-not'}>
             {saved && <Check size={18} strokeWidth={3} aria-hidden="true" />}
-            {saved ? 'נשמר' : NOT_SAVED[health]}
+            {healthText(health)}
           </dd>
         </div>
         <div className="save-row">

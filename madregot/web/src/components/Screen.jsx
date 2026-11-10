@@ -13,6 +13,7 @@ import clsx from 'clsx';
 import { ArrowRight } from 'lucide-react';
 import Mascot from './Mascot.jsx';
 import { useDurable, savedHealth } from '@/lib/durable/useDurable.js';
+import { monitor } from '@/lib/monitor.js';
 import { Button, Sheet } from './ui.jsx';
 
 /** A pushed screen's bar: the way back (to `back`, or one step back), the title, and an optional action at the end. */
@@ -98,11 +99,16 @@ export function LoadingState({ text = 'טוענים…' }) {
  * If a screen breaks, the app says so in its own voice instead of going blank, and offers the two ways out:
  * load again, or back to the start. Nothing the student saved is touched. It says the progress is saved only when it
  * is (lib/durable/useDurable.js): when the browser could not save the last changes, it says they may be lost.
+ * The failure is reported (lib/monitor.js, kind 'render', with the nearest component); a part of the app that could
+ * not be loaded reloads the page once instead.
  */
 export class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { failed: false }; }
   static getDerivedStateFromError() { return { failed: true }; }
-  componentDidCatch(error) { console.error('Madregot screen error', error); } // eslint-disable-line no-console
+  componentDidCatch(error, info) {
+    monitor.reportRender(error, info?.componentStack);
+    console.error('Madregot screen error', error); // eslint-disable-line no-console
+  }
   render() {
     if (!this.state.failed) return this.props.children;
     return (

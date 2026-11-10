@@ -19,6 +19,7 @@ import { currentProvider } from './providers/index.js';
 import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily } from './family.js';
 import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked } from './licence.js';
 import { run as runCron } from './cron.js';
+import { postErrors, recordServerError } from './errors.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -439,6 +440,8 @@ async function route(req, env, ctx, cors) {
   const M = req.method;
   let m;
   if (M === 'GET' && p === '/api/health') return json(health(env), 200, cors);
+  // error reports from the app (DURABLE-9): counts per day, no per-user trail
+  if (M === 'POST' && p === '/api/errors') return postErrors(req, env, cors);
   // child side: AI
   if (M === 'GET' && p === '/api/ai/status') {
     const s = await aiStatus(req, env);
@@ -501,6 +504,8 @@ export default {
       if (e instanceof HttpError) return json({ error: e.code, message: e.message, ...(e.extra || {}) }, e.status, cors, e.headers || {});
       // never log the request URL: the webhook route carries a secret in its path
       console.error('unhandled', e?.message);
+      // counted for the owner under the route's pattern (never the path itself); a failure to count is swallowed
+      try { ctx?.waitUntil?.(recordServerError(env, e, new URL(req.url).pathname).catch(() => {})); } catch { /* nothing to count with */ }
       return json({ error: 'server_error' }, 500, cors);
     }
   },

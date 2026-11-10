@@ -1,7 +1,8 @@
 // A fake Worker for the end-to-end tests (page.route: no Worker, no Claude, no email, no payment company): the paid
 // tutor's endpoints, sign-in, checkout, the family link, the teacher's class, and a class student's progress. Moved
 // from subscription.spec.js so every spec can use it (PARENTS-10); its state and call log are returned. Since the move,
-// POST /api/progress keeps the answers it is sent (st.answers) and acknowledges them, as the Worker does (DURABLE-7).
+// POST /api/progress keeps the answers it is sent (st.answers) and acknowledges them, as the Worker does (DURABLE-7);
+// POST /api/errors keeps each report it is sent (st.errors, DURABLE-9).
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -44,7 +45,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     licence: { status: 'none', until: null, seats: null, students: 2, aiWeek: 0, joinLocked: false, request: null, legacyUntil: null, offer: { seatYearAgorot: 4900, minSeats: 10, vatMode: 'included', online: true } },
     classes: [], classPayments: [], failPayment: false,
     joinLocked: false, students: [{ id: 'a1', name: 'דנה' }, { id: 'b2', name: 'יואב' }],
-    answers: [], loseProgressReplies: 0,
+    answers: [], loseProgressReplies: 0, errors: [],
     ...over,
   };
   const log = [];
@@ -124,6 +125,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (kind === 'check') return reply(route, 200, { readable: true, final: 'correct', steps: [{ text: '3 + 4 = 7', ok: true }], summary: 'יפה.' }, hdr);
       return reply(route, 200, { questions: [{ prompt: '2+2', answer: '4', hint: 'חברו', solution: ['2+2=4'] }] }, hdr);
     }
+    // the app's error reports (DURABLE-9): a text/plain body holding JSON, kept as they came
+    if (path === '/api/errors' && req.method() === 'POST') { st.errors.push(body); return reply(route, 202, { ok: true }); }
     if (path === '/api/progress') {
       // a class student's answers, kept as the Worker keeps them: once per id (an answer without one, every time), and
       // every event sent is acknowledged. `loseProgressReplies`: store, then answer with an error (the reply was lost).
