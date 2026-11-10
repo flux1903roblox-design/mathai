@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
-import { TOPICS, makeItem, isCorrect, answerText, itemPlain } from './index.js';
+import { TOPICS, makeItem, isCorrect, answerText, itemPlain, figPlain } from './index.js';
 import { parseNum } from './util.js';
+import { crossMarks, parallelMarks } from './figures.js';
+import { contentOf } from '@/learn/content/index.ts';
+import { seeded } from '@/learn/expr.ts';
 
 const RUNS = 300;
 
@@ -79,6 +82,34 @@ describe('worked solutions say what happened', () => {
       const mean = Number(it.key.split(':')[2]);
       if (mean !== it.answer) expect(it.diag(mean), it.key).toBe('mean-as-answer');
     }
+  });
+});
+
+// The two angle drawings: the angles they mark give the answer, and their words name exactly the numbers they print.
+describe('angle drawings match their questions', () => {
+  /** The answer the drawing shows, from the drawn angle (fig.a) and what is marked. */
+  const fromDrawing = (f) => (f.type === 'cross'
+    ? { vertical: f.a, adjacent: 180 - f.a, rest: 360 - f.a, pair: 180 - f.a }[f.target || 'adjacent']
+    : { corresponding: f.a, alternate: f.a, cointerior: 180 - f.a, pair: 180 - f.a, diff: f.a, sum: 2 * f.a, three: 180 + f.a }[f.kind]);
+  const numbersIn = (s) => [...String(s).matchAll(/\d+/g)].map((m) => Number(m[0])).sort((a, b) => a - b);
+  const printed = (f) => numbersIn((f.type === 'cross' ? crossMarks(f) : parallelMarks(f)).map((m) => m.text || '').join(' '));
+  const check = (it, at) => {
+    const f = it.fig;
+    expect(fromDrawing(f), at).toBe(it.answer);
+    expect(numbersIn(figPlain(f)), `${at}: the words and the drawing`).toEqual(printed(f));
+    // a sum or a difference the drawing does not print is in the question
+    if (f.kind === 'pair' || f.target === 'pair') expect(it.text, at).toContain(`${2 * f.a}^\\circ`);
+    if (f.kind === 'diff') expect(it.text, at).toContain(`${180 - 2 * f.a}^\\circ`);
+    expect(f.a, at).not.toBe(90);
+    // the transversal stays inside the frame
+    if (f.type === 'parallel') expect(f.a >= 35 && f.a <= 145, `${at}: drawn angle ${f.a}`).toBe(true);
+  };
+  it.each([2, 4])('angles level %i: every exercise', (level) => {
+    for (let r = 0; r < 1000; r++) { const it = makeItem('angles', level); check(it, it.key); }
+  });
+  it('angles level 4: every diagnostic question', () => {
+    const m = contentOf('angles:4').diag; const rnd = seeded(4);
+    for (let r = 0; r < 1000; r++) { const p = m.params(rnd); check({ fig: m.fig(p), text: m.text(p), answer: m.answer(p) }, JSON.stringify(p)); }
   });
 });
 

@@ -310,9 +310,37 @@ function linearPairTurn() {
   };
 }
 
+// Two crossing lines. A plain question (the opposite angle, or one next to it) is answered by copying the drawn
+// angle or by taking it from 180°, so half the questions need two steps: the other three angles together, or
+// one angle next to two opposite angles given by their sum.
 function vertical() {
+  const r = Math.random();
+  if (r < 0.3) {
+    // two opposite angles together; v = 60 is left out: its neighbour, 120°, would be the sum itself
+    let v; do { v = R(4, 32) * 5; } while (v === 90 || v === 60);
+    const s = 2 * v; const ans = 180 - v;
+    return {
+      key: `an2:pair:${s}`, text: `שני ישרים נחתכים. שתי הזוויות שמסומנות בקשת כפולה עומדות זו מול זו, ויחד הן $${deg(s)}$. מה גודל הזווית המסומנת ב־$?$`,
+      form: 'num', answer: ans, unit: 'מעלות',
+      fig: { type: 'cross', a: v, target: 'pair' },
+      hint: 'זוויות קודקודיות שוות, אז כל אחת מהשתיים היא חצי מהסכום. הזווית המסומנת צמודה לאחת מהן.',
+      solution: [`זוויות קודקודיות שוות: כל אחת היא $${s}^\\circ : 2 = ${deg(v)}$.`, `הזווית המסומנת צמודה לזווית של $${deg(v)}$: $180^\\circ - ${deg(v)} = ${deg(ans)}$`],
+      diag: (u) => (near(u, v) ? 'equal-not-supp' : s < 180 && near(u, 180 - s) ? 'forgot-half' : s < 180 && near(u, (180 - s) / 2) ? 'wrong-total' : null),
+    };
+  }
   let a; do { a = R(4, 32) * 5; } while (a === 90);
-  const askVertical = Math.random() < 0.6;
+  if (r < 0.55) {
+    // the other three angles together
+    const ans = 360 - a;
+    return {
+      key: `an2:rest:${a}`, text: 'שני ישרים נחתכים. מה הסכום של שלוש הזוויות המסומנות ב־$?$', form: 'num', answer: ans, unit: 'מעלות',
+      fig: { type: 'cross', a, target: 'rest' },
+      hint: 'ארבע הזוויות סביב נקודת החיתוך הן סיבוב שלם. כמה מעלות יש בסיבוב שלם, וכמה מהן כבר תפוסות?',
+      solution: ['ארבע הזוויות יחד הן סיבוב שלם: $360^\\circ$.', `$360^\\circ - ${deg(a)} = ${deg(ans)}$`],
+      diag: (u) => (near(u, 180 - a) ? 'wrong-total' : null),
+    };
+  }
+  const askVertical = r < 0.8;
   const ans = askVertical ? a : 180 - a;
   return {
     key: `an2:${a}:${askVertical}`, text: 'שני ישרים נחתכים. מה גודל הזווית המסומנת ב־$?$', form: 'num', answer: ans, unit: 'מעלות',
@@ -349,11 +377,42 @@ function triangleSum() {
   };
 }
 
+// Two parallel lines and a transversal. A plain question (corresponding, alternate or co-interior) is answered by
+// copying the drawn angle or by taking it from 180°, so half the questions need two steps: two equal angles given
+// by their sum, or two co-interior angles given by their difference.
 function parallel() {
-  let a; do { a = R(7, 29) * 5; } while (a === 90); // angle of the transversal
-  const kind = pick(['corresponding', 'alternate', 'cointerior']);
-  const ans = kind === 'cointerior' ? 180 - a : a;
   const names = { corresponding: 'מתאימות', alternate: 'מתחלפות', cointerior: 'חד־צדדיות' };
+  const r = Math.random();
+  if (r < 0.26) {
+    // two corresponding (or alternate) angles together: each is half; the angle asked is co-interior to one of them
+    const pair = pick(['corresponding', 'alternate']);
+    let v; do { v = R(7, 29) * 5; } while (v === 90 || v === 60); // v = 60: the answer, 120°, would be the sum itself
+    const s = 2 * v; const ans = 180 - v;
+    return {
+      key: `an4:pair:${pair}:${s}`, text: `שני ישרים מקבילים נחתכים על ידי ישר שלישי. שתי הזוויות שמסומנות בקשת כפולה הן זוויות ${names[pair]}, ויחד הן $${deg(s)}$. מה גודל הזווית המסומנת ב־$?$`,
+      form: 'num', answer: ans, unit: 'מעלות',
+      fig: { type: 'parallel', a: v, kind: 'pair', pair },
+      hint: `זוויות ${names[pair]} שוות, אז כל אחת היא חצי מהסכום. הזווית המסומנת חד־צדדית לאחת מהן.`,
+      solution: [`זוויות ${names[pair]} שוות: כל אחת היא $${s}^\\circ : 2 = ${deg(v)}$.`, `הזווית המסומנת חד־צדדית לאחת מהן, ולכן משלימה אותה ל־$180^\\circ$: $180^\\circ - ${deg(v)} = ${deg(ans)}$`],
+      diag: (u) => (near(u, v) ? 'equal-not-supp' : s < 180 && near(u, 180 - s) ? 'forgot-half' : null),
+    };
+  }
+  if (r < 0.52) {
+    // two co-interior angles, one larger by dd: take the difference off 180° and share the rest
+    let dd; do { dd = R(1, 11) * 10; } while (dd === 60); // dd = 60: the smaller angle would be 60° too; up to 110° keeps it 35° or more
+    const ans = (180 - dd) / 2;
+    return {
+      key: `an4:diff:${dd}`, text: `שני ישרים מקבילים נחתכים על ידי ישר שלישי. שתי הזוויות המסומנות הן חד־צדדיות, ואחת מהן גדולה מהשנייה ב־$${deg(dd)}$. מה גודל הזווית הקטנה, המסומנת ב־$?$`,
+      form: 'num', answer: ans, unit: 'מעלות',
+      fig: { type: 'parallel', a: ans, kind: 'diff' },
+      hint: `זוויות חד־צדדיות יחד $180^\\circ$. אילו הגדולה הייתה קטנה ב־$${deg(dd)}$, שתיהן היו שוות.`,
+      solution: ['זוויות חד־צדדיות יחד $180^\\circ$.', `בלי ההפרש נשארות שתי זוויות שוות: $180^\\circ - ${deg(dd)} = ${deg(180 - dd)}$.`, `הקטנה היא חצי: $${180 - dd}^\\circ : 2 = ${deg(ans)}$`],
+      diag: (u) => (near(u, 180 - dd) ? 'forgot-half' : null),
+    };
+  }
+  let a; do { a = R(7, 29) * 5; } while (a === 90); // angle of the transversal
+  const kind = r < 0.66 ? 'corresponding' : r < 0.8 ? 'alternate' : 'cointerior';
+  const ans = kind === 'cointerior' ? 180 - a : a;
   return {
     key: `an4:${a}:${kind}`, text: 'שני ישרים מקבילים נחתכים על ידי ישר שלישי. מה גודל הזווית המסומנת ב־$?$', form: 'num', answer: ans, unit: 'מעלות',
     fig: { type: 'parallel', a, kind },
@@ -365,7 +424,8 @@ function parallel() {
 
 function isosceles() {
   if (Math.random() < 0.5) {
-    const top = R(2, 15) * 10; const base = (180 - top) / 2;
+    let top; do { top = R(2, 15) * 10; } while (top === 60); // 60°: an equilateral triangle, every angle the given one
+    const base = (180 - top) / 2;
     return {
       key: `an5:iso:${top}`, text: 'משולש שווה־שוקיים. זווית הראש נתונה. מה גודל זווית הבסיס?', form: 'num', answer: base, unit: 'מעלות',
       fig: { type: 'triangle', angles: [base, base, top], show: [false, false, true], iso: true },
@@ -441,7 +501,7 @@ export const GRADE7 = [
       'wrong-total': 'השלימו לסכום הלא נכון',
       'sum-360': 'השתמשו ב־360° במקום ב־180°',
       'one-angle': 'החסירו רק זווית אחת',
-      'forgot-half': 'שכחו לחלק לשתי זוויות הבסיס',
+      'forgot-half': 'שכחו לחלק לשתיים סכום של שתי זוויות שוות',
       'interior-not-exterior': 'חישבו את הזווית הפנימית במקום החיצונית',
     },
   },

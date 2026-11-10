@@ -62,6 +62,7 @@ export function figPlain(f) {
   if (!f) return '';
   const pt = (p) => `${p.label || ''}(${p.x}, ${p.y})`;
   const kinds = { corresponding: 'מתאימות', alternate: 'מתחלפות', cointerior: 'חד־צדדיות' };
+  const one = { corresponding: 'מתאימה', alternate: 'מתחלפת' };
   switch (f.type) {
     case 'table': return `טבלה: ${f.rows.map((r) => r.join(' → ')).join('; ')}`;
     case 'coord': return [
@@ -70,8 +71,17 @@ export function figPlain(f) {
       f.polygon ? `מצולע: ${f.polygon.map(([x, y]) => `(${x}, ${y})`).join(' ')}` : '',
     ].filter(Boolean).join('; ');
     case 'linear': return `זוויות צמודות: זווית נתונה ${f.a}°`;
-    case 'cross': return `ישרים נחתכים: זווית נתונה ${f.a}°, הזווית המבוקשת ${f.target === 'vertical' ? 'קודקודית לה' : 'צמודה לה'}`;
-    case 'parallel': return `ישרים מקבילים וחותך: זווית נתונה ${f.a}°, הזווית המבוקשת ${kinds[f.kind] || ''} לה`;
+    case 'cross': return {
+      vertical: `ישרים נחתכים: זווית נתונה ${f.a}°, הזווית המבוקשת קודקודית לה`,
+      rest: `ישרים נחתכים: זווית נתונה ${f.a}°, ושלוש הזוויות האחרות מסומנות ב־?`,
+      pair: 'ישרים נחתכים: שתי זוויות קודקודיות מסומנות בקשת כפולה, והזווית המבוקשת צמודה להן',
+    }[f.target] || `ישרים נחתכים: זווית נתונה ${f.a}°, הזווית המבוקשת צמודה לה`;
+    case 'parallel': return {
+      pair: `ישרים מקבילים וחותך: שתי זוויות ${kinds[f.pair]} מסומנות בקשת כפולה, והזווית המבוקשת חד־צדדית לאחת מהן`,
+      sum: `ישרים מקבילים וחותך: זווית נתונה ${f.a}° והזווית ה${one[f.pair]} לה מסומנות`,
+      diff: 'ישרים מקבילים וחותך: שתי זוויות חד־צדדיות מסומנות, והקטנה מביניהן מסומנת ב־?',
+      three: `ישרים מקבילים וחותך: זווית נתונה ${f.a}° בין הישרים, והזווית המתחלפת לה והזווית החד־צדדית לה מסומנות ב־?`,
+    }[f.kind] || `ישרים מקבילים וחותך: זווית נתונה ${f.a}°, הזווית המבוקשת ${kinds[f.kind] || ''} לה`;
     case 'triangle': return `משולש${f.iso ? ' שווה־שוקיים' : ''}: ${f.angles.map((x, i) => (f.show[i] ? `${x}°` : '?')).join(', ')}${f.exterior ? '; מבקשים זווית חיצונית ליד הזווית החסרה' : ''}`;
     case 'right': return `משולש ישר־זווית: ניצב ${f.a}, ניצב ${f.b}, יתר ${f.c}`;
     case 'ladder': return `סולם: גובה על הקיר ${f.wall}, מרחק מהקיר ${f.foot}, אורך הסולם ${f.len}`;

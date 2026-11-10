@@ -243,59 +243,96 @@ const stair1: StairContent = {
 
 // ---------------------------------------------------------------- stair 2: vertical angles
 
-type Cross = { k: number; a: number }; // k 0: the opposite angle; k 1: a neighbouring angle; k 2: the other three together
+// Copying the given angle, or taking it from 180°, must not answer a check. So every diagnostic question needs a step
+// past the given number (the plain "opposite" and "next to it" questions stay in practice, from content/grade7.js),
+// and each misconception still shows on questions of its own.
+// k 0: the other three angles together; k 1: two opposite angles together are 2a, a neighbour asked;
+// k 2: the angle and the one opposite it together; k 3: the angle, the one opposite it and one next to it together.
+type Cross = { k: number; a: number };
 const crossModel: DiagModel<Cross> = {
-  params: (rnd) => { const r = rnd(); return { k: r < 0.45 ? 0 : r < 0.85 ? 1 : 2, a: notRight(rnd, 4, 32) }; },
+  params: (rnd) => {
+    const r = rnd();
+    const k = r < 0.22 ? 0 : r < 0.48 ? 1 : r < 0.74 ? 2 : 3;
+    // 60° is left out where it makes the answer one of the numbers asked about: in k 1 the neighbour, 120°, would be
+    // the given sum, and in k 2 the sum, 120°, would be 180° − 60°
+    let a = 90;
+    while (a === 90 || (a === 60 && (k === 1 || k === 2))) a = 5 * rint(rnd, 4, 32);
+    return { k, a };
+  },
   text: (p) => [
-    `שני ישרים נחתכים. אחת הזוויות היא $${d(p.a)}$. מה גודל הזווית שמולה, הקודקודית לה?`,
-    `שני ישרים נחתכים. אחת הזוויות היא $${d(p.a)}$. מה גודל זווית שנמצאת לידה?`,
     `שני ישרים נחתכים. אחת מארבע הזוויות היא $${d(p.a)}$. מה הסכום של שלוש הזוויות האחרות?`,
+    `שני ישרים נחתכים. שתי זוויות שעומדות זו מול זו הן יחד $${d(2 * p.a)}$. מה גודל כל אחת משתי הזוויות האחרות?`,
+    `שני ישרים נחתכים. אחת הזוויות היא $${d(p.a)}$. מה הסכום שלה ושל הזווית שמולה?`,
+    `שני ישרים נחתכים. אחת הזוויות היא $${d(p.a)}$. מה הסכום שלה, של הזווית שמולה ושל זווית אחת שלידה?`,
   ][p.k],
-  answer: (p) => [p.a, 180 - p.a, 360 - p.a][p.k],
+  answer: (p) => [360 - p.a, 180 - p.a, 2 * p.a, 180 + p.a][p.k],
   bugs: {
     // the opposite angle completed to 180°
-    'supp-not-equal': (p) => (p.k === 0 ? 180 - p.a : null),
-    // the neighbouring angle taken as equal
-    'equal-not-supp': (p) => (p.k === 1 ? p.a : null),
+    'supp-not-equal': (p) => (p.k === 2 ? 180 : p.k === 3 ? 360 - p.a : null),
+    // a neighbouring angle taken as equal
+    'equal-not-supp': (p) => (p.k === 1 ? p.a : p.k === 3 ? 3 * p.a : null),
     // the four angles taken to make 180°
-    'wrong-total': (p) => (p.k === 2 ? 180 - p.a : null),
+    'wrong-total': (p) => (p.k === 0 ? 180 - p.a : p.k === 1 && p.a < 90 ? 90 - p.a : null),
+    // the sum of the two opposite angles taken off 180° whole, as if it were one angle
+    'forgot-half': (p) => (p.k === 1 && p.a < 90 ? 180 - 2 * p.a : null),
   },
   solution: (p) => [
-    [`הזווית שמולה קודקודית לה, וזוויות קודקודיות שוות: $${d(p.a)}$.`],
-    ['זווית שליד הזווית הנתונה צמודה לה: יחד הן $180^\\circ$.', `$180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`],
     ['ארבע הזוויות הן שני זוגות של זוויות צמודות, ויחד $360^\\circ$.', `$360^\\circ - ${d(p.a)} = ${d(360 - p.a)}$`],
+    [`שתי הזוויות שעומדות זו מול זו קודקודיות, ולכן שוות: כל אחת $${2 * p.a}^\\circ : 2 = ${d(p.a)}$.`, `כל אחת מהזוויות האחרות צמודה לזווית של $${d(p.a)}$: $180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`],
+    [`הזווית שמולה קודקודית לה, ולכן שווה לה: $${d(p.a)}$.`, `$${d(p.a)} + ${d(p.a)} = ${d(2 * p.a)}$`],
+    [`הזווית שמולה שווה לה, $${d(p.a)}$, והזווית שלידה משלימה אותה ל־$180^\\circ$.`, `הנתונה והזווית שלידה יחד $180^\\circ$, ועוד הזווית שמולה: $180^\\circ + ${d(p.a)} = ${d(180 + p.a)}$`],
   ][p.k],
   hint: (p) => [
-    'הזווית הנתונה והזווית שמולה צמודות שתיהן לאותה זווית שביניהן.',
-    'זווית שליד הנתונה חולקת איתה צלע, והצלעות האחרות שלהן הן ישר אחד.',
     'סביב נקודת החיתוך יש סיבוב שלם: $180^\\circ$ מעל אחד הישרים, ועוד $180^\\circ$ מתחתיו.',
+    'זוויות קודקודיות שוות, אז כל אחת משתיהן היא חצי מהסכום. וזווית שלידה: שווה לה, או משלימה אותה ל־$180^\\circ$?',
+    'קודם מצאו את הזווית שמול הנתונה. זוויות קודקודיות שוות.',
+    'שתי זוויות שכנות יחד הן $180^\\circ$. כמה מוסיפה הזווית שמול הנתונה?',
   ][p.k],
   unit: 'מעלות',
 };
 
+// k 0: scissors (the opposite angle); 1: a junction (the corner next to the given one); 2: a folding chair (opposite);
+// k 3: a junction, two opposite corners together are 2a; 4: the letter X, the two angles beside the top one together.
 const crossStory: DiagModel<Cross> = {
-  // scissors, a junction of two straight roads, a folding chair seen from the side
   params: (rnd) => {
-    const k = rint(rnd, 0, 2);
-    if (k === 0) return { k, a: 5 * rint(rnd, 4, 12) };
-    if (k === 1) return { k, a: notRight(rnd, 8, 28) };
-    return { k, a: notRight(rnd, 10, 20) };
+    const r = rnd();
+    if (r < 0.06) return { k: 0, a: 5 * rint(rnd, 4, 12) };
+    if (r < 0.12) return { k: 1, a: notRight(rnd, 8, 28) };
+    if (r < 0.18) return { k: 2, a: notRight(rnd, 10, 20) };
+    // k 3: 60° would make the other corners 120°, the given sum; k 4: 120° would make the two angles 120° together
+    let a = 90;
+    if (r < 0.59) { while (a === 90 || a === 60) a = 5 * rint(rnd, 6, 30); return { k: 3, a }; }
+    while (a === 90 || a === 120) a = 5 * rint(rnd, 8, 28);
+    return { k: 4, a };
   },
   text: (p) => [
     `מספריים פתוחים. הזווית בין שתי הידיות היא $${d(p.a)}$. מה הזווית בין שני הלהבים?`,
     `שני כבישים ישרים מצטלבים. באחת הפינות של הצומת, הזווית בין הכבישים היא $${d(p.a)}$. מה הזווית בפינה הסמוכה לה?`,
     `כיסא מתקפל: שתי רגליים ישרות מצטלבות בצורת $X$. הזווית בין הרגליים מעל נקודת ההצטלבות היא $${d(p.a)}$. מה הזווית ביניהן מתחתיה, ליד הרצפה?`,
+    `שני כבישים ישרים מצטלבים. שתיים מהפינות בצומת עומדות זו מול זו, ויחד הן $${d(2 * p.a)}$. מה הזווית בכל אחת משתי הפינות האחרות?`,
+    `באות $X$ שני קווים ישרים נחתכים. הזווית העליונה, בין שתי הזרועות העליונות, היא $${d(p.a)}$. מה הסכום של הזווית הימנית ושל הזווית השמאלית?`,
   ][p.k],
-  answer: (p) => (p.k === 1 ? 180 - p.a : p.a),
+  answer: (p) => [p.a, 180 - p.a, p.a, 180 - p.a, 360 - 2 * p.a][p.k],
   bugs: {
-    'supp-not-equal': (p) => (p.k === 1 ? null : 180 - p.a),
-    'equal-not-supp': (p) => (p.k === 1 ? p.a : null),
+    'supp-not-equal': (p) => (p.k === 0 || p.k === 2 ? 180 - p.a : null),
+    'equal-not-supp': (p) => (p.k === 1 || p.k === 3 ? p.a : p.k === 4 ? 2 * p.a : null),
+    'wrong-total': (p) => (p.k === 3 && p.a < 90 ? 90 - p.a : null),
+    'forgot-half': (p) => (p.k === 3 && p.a < 90 ? 180 - 2 * p.a : null),
   },
-  solution: (p) => (p.k === 1
-    ? ['שתי פינות סמוכות בצומת הן זוויות צמודות: יחד $180^\\circ$.', `$180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`]
-    : [p.k === 0 ? 'כל להב והידית שלו הם מוט ישר אחד. שני מוטות ישרים מצטלבים, והזווית בין הלהבים עומדת מול הזווית בין הידיות.' : 'שתי הרגליים הן שני ישרים שמצטלבים, והזווית למטה עומדת מול הזווית למעלה.',
-      `זוויות קודקודיות שוות: $${d(p.a)}$.`]),
-  hint: (p) => (p.k === 1 ? 'שתי פינות סמוכות בצומת הן זו ליד זו, על אותו כביש ישר.' : 'מצאו את שני הקווים הישרים. הזווית המבוקשת עומדת מול הזווית הנתונה.'),
+  solution: (p) => [
+    ['כל להב והידית שלו הם מוט ישר אחד. שני מוטות ישרים מצטלבים, והזווית בין הלהבים עומדת מול הזווית בין הידיות.', `זוויות קודקודיות שוות: $${d(p.a)}$.`],
+    ['שתי פינות סמוכות בצומת הן זוויות צמודות: יחד $180^\\circ$.', `$180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`],
+    ['שתי הרגליים הן שני ישרים שמצטלבים, והזווית למטה עומדת מול הזווית למעלה.', `זוויות קודקודיות שוות: $${d(p.a)}$.`],
+    [`שתי הפינות שעומדות זו מול זו הן זוויות קודקודיות, ולכן שוות: כל אחת $${2 * p.a}^\\circ : 2 = ${d(p.a)}$.`, `כל אחת מהפינות האחרות נמצאת ליד פינה כזאת, על אותו כביש ישר: $180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`],
+    [`הזווית הימנית והזווית השמאלית שכנות של הזווית העליונה: כל אחת יוצרת איתה קו ישר, ולכן היא $180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$.`, `$${d(180 - p.a)} + ${d(180 - p.a)} = ${d(360 - 2 * p.a)}$`],
+  ][p.k],
+  hint: (p) => [
+    'מצאו את שני הקווים הישרים. הזווית המבוקשת עומדת מול הזווית הנתונה.',
+    'שתי פינות סמוכות בצומת הן זו ליד זו, על אותו כביש ישר.',
+    'מצאו את שני הקווים הישרים. הזווית המבוקשת עומדת מול הזווית הנתונה.',
+    'פינות שעומדות זו מול זו שוות. פינה שליד אחת מהן נמצאת איתה על אותו כביש ישר.',
+    'הזווית הימנית והזווית העליונה יוצרות יחד קו ישר. כמה הן יחד?',
+  ][p.k],
   unit: 'מעלות',
 };
 
@@ -422,6 +459,19 @@ const stair2: StairContent = {
           wrongWhy: { 0: '$100^\\circ$ היא רק זווית $2$, שמשלימה את $80^\\circ$ לישר אחד. יש עוד שתי זוויות.' } },
         { kind: 'explore', text: 'מעל הישר יש זוג זוויות צמודות. זווית $1$ היא $80^\\circ$: סובבו את הקרן כך שהזווית השמאלית תהיה $80^\\circ$.', ...turn(80),
           hint: 'הימנית משלימה את $80^\\circ$ ל־$180^\\circ$.', success: 'מעל הישר: $80^\\circ + 100^\\circ = 180^\\circ$. מתחתיו יש עוד זוג כזה. בסך הכול $360^\\circ$.' },
+      ] },
+    { id: 'forgot-half', title: 'הורידו מ־$180^\\circ$ את הסכום של שתי הזוויות שמול זו, במקום זווית אחת מהן',
+      cause: 'הסכום הנתון שייך לשתי זוויות. זווית שלידן צמודה רק לאחת מהן, ולכן קודם מחלקים את הסכום לשתיים.',
+      explain: [
+        'שתי זוויות שעומדות זו מול זו שוות. אם יחד הן $100^\\circ$, כל אחת היא $50^\\circ$.',
+        'זווית שלידן צמודה לאחת מהן בלבד: $180^\\circ - 50^\\circ = 130^\\circ$, ולא $180^\\circ - 100^\\circ$.',
+      ],
+      remedy: [
+        { kind: 'predict', text: 'שתי זוויות שעומדות זו מול זו הן יחד $100^\\circ$. כמה כל אחת מהן?', choices: ['$50^\\circ$', '$100^\\circ$', '$80^\\circ$'], answer: 0,
+          why: 'הן קודקודיות, ולכן שוות: הסכום מתחלק ביניהן שווה בשווה, $100^\\circ : 2 = 50^\\circ$.',
+          wrongWhy: { 1: '$100^\\circ$ הן שתיהן יחד. כל אחת היא חצי.', 2: '$80^\\circ$ הוא מה שחסר ל־$100^\\circ$ עד $180^\\circ$. אבל $100^\\circ$ הן שתי זוויות, לא אחת.' } },
+        { kind: 'explore', text: 'אחת משתי הזוויות היא $50^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $50^\\circ$, וקראו את השכנה שלה, הימנית.', ...turn(50),
+          hint: 'השכנה משלימה את $50^\\circ$ ל־$180^\\circ$.', success: 'השכנה היא $130^\\circ$. היא צמודה לזווית אחת של $50^\\circ$, ולכן מורידים מ־$180^\\circ$ רק $50^\\circ$, לא את כל $100^\\circ$.' },
       ] },
   ],
 };
@@ -598,61 +648,100 @@ const stair3: StairContent = {
 
 // ---------------------------------------------------------------- stair 4: parallel lines
 
-const PAIR = ['מתאימה', 'מתחלפת', 'חד־צדדית'];
-type Par = { k: number; a: number }; // k 0: corresponding; 1: alternate; 2: co-interior
-const PAR_KIND = ['corresponding', 'alternate', 'cointerior'];
+// As in stair 2, every diagnostic question needs a step past the given number: copying it, or taking it from 180°,
+// is never the answer (the plain corresponding, alternate and co-interior questions stay in practice).
+// k 0: two equal angles (corresponding, j 0, or alternate, j 1) together are 2a, a co-interior angle of one asked;
+// k 1: an angle and its corresponding (j 0) or alternate (j 1) angle together;
+// k 2: two co-interior angles, one larger by b, the smaller (a) asked;
+// k 3: an angle between the lines, its alternate and its co-interior angle together.
+const PAIRS = ['מתאימות', 'מתחלפות'];
+const PARTNER = ['מתאימה', 'מתחלפת'];
+const PAIR_KIND = ['corresponding', 'alternate'];
+type Par = { k: number; a: number; j?: number; b?: number };
 const parModel: DiagModel<Par> = {
-  params: (rnd) => ({ k: rint(rnd, 0, 2), a: notRight(rnd, 6, 30) }),
-  // the drawing marks the given angle and the one asked for, as the exercises do
-  fig: (p) => ({ type: 'parallel', a: p.a, kind: PAR_KIND[p.k] }),
-  text: (p) => `שני ישרים מקבילים נחתכים על ידי ישר שלישי. אחת הזוויות היא $${d(p.a)}$. מה גודל הזווית ה${PAIR[p.k]} לה?`,
-  answer: (p) => (p.k === 2 ? 180 - p.a : p.a),
+  params: (rnd) => {
+    const r = rnd();
+    // 60° is left out where it makes the answer one of the numbers asked about (120° = the sum, or 180° − 60°)
+    let a = 90;
+    if (r < 0.26) { while (a === 90 || a === 60) a = 5 * rint(rnd, 7, 29); return { k: 0, a, j: rint(rnd, 0, 1) }; }
+    if (r < 0.5) { while (a === 90 || a === 60) a = 5 * rint(rnd, 7, 29); return { k: 1, a, j: rint(rnd, 0, 1) }; }
+    // the difference stays up to 110°, so the drawn angle is 35° or more
+    if (r < 0.74) { let b = 60; while (b === 60) b = 10 * rint(rnd, 1, 11); return { k: 2, a: (180 - b) / 2, b }; }
+    return { k: 3, a: notRight(rnd, 7, 29) };
+  },
+  // the drawing marks the angles the question talks about, as the exercises do
+  fig: (p) => (p.k === 0 ? { type: 'parallel', a: p.a, kind: 'pair', pair: PAIR_KIND[p.j!] }
+    : p.k === 1 ? { type: 'parallel', a: p.a, kind: 'sum', pair: PAIR_KIND[p.j!] }
+      : { type: 'parallel', a: p.a, kind: p.k === 2 ? 'diff' : 'three' }),
+  text: (p) => [
+    `שני ישרים מקבילים נחתכים על ידי ישר שלישי. שתי זוויות ${PAIRS[p.j ?? 0]} הן יחד $${d(2 * p.a)}$. מה גודל הזווית החד־צדדית לאחת מהן?`,
+    `שני ישרים מקבילים נחתכים על ידי ישר שלישי. אחת הזוויות היא $${d(p.a)}$. מה הסכום שלה ושל הזווית ה${PARTNER[p.j ?? 0]} לה?`,
+    `שני ישרים מקבילים נחתכים על ידי ישר שלישי. נתונות שתי זוויות חד־צדדיות, ואחת מהן גדולה מהשנייה ב־$${d(p.b ?? 0)}$. מה גודל הזווית הקטנה?`,
+    `שני ישרים מקבילים נחתכים על ידי ישר שלישי. אחת הזוויות בין הישרים היא $${d(p.a)}$. מה הסכום שלה, של הזווית המתחלפת לה ושל הזווית החד־צדדית לה?`,
+  ][p.k],
+  answer: (p) => [180 - p.a, 2 * p.a, p.a, 180 + p.a][p.k],
   bugs: {
     // corresponding or alternate angles completed to 180°
-    'supp-not-equal': (p) => (p.k === 2 ? null : 180 - p.a),
+    'supp-not-equal': (p) => (p.k === 1 ? 180 : p.k === 3 ? 360 - p.a : null),
     // co-interior angles taken as equal
-    'equal-not-supp': (p) => (p.k === 2 ? p.a : null),
+    'equal-not-supp': (p) => (p.k === 0 ? p.a : p.k === 3 ? 3 * p.a : null),
+    // a number that belongs to two angles taken for one of them
+    'forgot-half': (p) => (p.k === 0 && p.a < 90 ? 180 - 2 * p.a : p.k === 2 ? 180 - p.b! : null),
   },
   solution: (p) => [
-    [`זוויות מתאימות בין ישרים מקבילים שוות: החיתוך השני הוא העתק של הראשון. התשובה: $${d(p.a)}$.`],
-    ['הזווית המתחלפת קודקודית לזווית המתאימה של הנתונה.', `קודקודית שווה ומתאימה שווה, ולכן מתחלפות שוות: $${d(p.a)}$.`],
-    ['הזווית החד־צדדית צמודה לזווית המתאימה של הנתונה, ולכן יחד הן $180^\\circ$.', `$180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`],
+    [`זוויות ${PAIRS[p.j ?? 0]} שוות, ולכן כל אחת מהן $${2 * p.a}^\\circ : 2 = ${d(p.a)}$.`, `הזווית החד־צדדית לאחת מהן משלימה אותה ל־$180^\\circ$: $180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`],
+    [`זוויות ${PAIRS[p.j ?? 0]} שוות בין ישרים מקבילים: גם הזווית ה${PARTNER[p.j ?? 0]} היא $${d(p.a)}$.`, `$${d(p.a)} + ${d(p.a)} = ${d(2 * p.a)}$`],
+    ['זוויות חד־צדדיות יחד $180^\\circ$.', `בלי ההפרש נשארות שתי זוויות שוות: $180^\\circ - ${d(p.b ?? 0)} = ${d(180 - (p.b ?? 0))}$.`, `הקטנה היא חצי: $${180 - (p.b ?? 0)}^\\circ : 2 = ${d(p.a)}$`],
+    [`הזווית המתחלפת שווה לה, $${d(p.a)}$, והזווית החד־צדדית משלימה אותה ל־$180^\\circ$.`, `הנתונה והחד־צדדית יחד $180^\\circ$, ועוד המתחלפת: $180^\\circ + ${d(p.a)} = ${d(180 + p.a)}$`],
   ][p.k],
   hint: (p) => [
-    'מתאימות: באותו מקום בשני החיתוכים. מחליקים חיתוך אחד לאורך החותך עד השני.',
-    'מתחלפות: בין הישרים, בצדדים שונים של החותך (צורת $Z$).',
-    'חד־צדדיות: בין הישרים, באותו צד של החותך (צורת $C$). אחת חדה ואחת קהה.',
+    `זוויות ${PAIRS[p.j ?? 0]} שוות, אז כל אחת היא חצי מהסכום. וזווית חד־צדדית: שווה לה, או משלימה אותה ל־$180^\\circ$?`,
+    p.j === 1 ? 'מתחלפות: בין הישרים, בצדדים שונים של החותך (צורת $Z$). הן שוות, או משלימות ל־$180^\\circ$?' : 'מתאימות: באותו מקום בשני החיתוכים. הן שוות, או משלימות ל־$180^\\circ$?',
+    'חד־צדדיות יחד $180^\\circ$. אילו הגדולה הייתה קטנה בהפרש, שתיהן היו שוות.',
+    'מתחלפות שוות, וחד־צדדיות יחד $180^\\circ$. חברו את שלוש הזוויות.',
   ][p.k],
   unit: 'מעלות',
 };
 
+// k 0: a trapezoid's two angles on one leg (co-interior); 1: the letter Z (alternate); 2: parallel sun rays
+// (corresponding); 3: a trapezoid whose two angles on one leg differ by b, the smaller (a) asked;
+// 4: the letter Z, its two corners together.
 const parStory: DiagModel<Par> = {
-  // a trapezoid's two angles on one leg, the letter Z, parallel sun rays falling on flat ground
   params: (rnd) => {
-    const k = rint(rnd, 0, 2);
-    if (k === 0) return { k, a: notRight(rnd, 9, 26) };
-    if (k === 1) return { k, a: 5 * rint(rnd, 6, 15) };
-    return { k, a: 5 * rint(rnd, 6, 14) };
+    const r = rnd();
+    if (r < 0.08) return { k: 0, a: notRight(rnd, 9, 26) };
+    if (r < 0.16) return { k: 1, a: 5 * rint(rnd, 6, 15) };
+    if (r < 0.24) return { k: 2, a: 5 * rint(rnd, 6, 14) };
+    if (r < 0.62) { let b = 60; while (b === 60) b = 10 * rint(rnd, 1, 11); return { k: 3, a: (180 - b) / 2, b }; }
+    let a = 60; while (a === 60) a = 5 * rint(rnd, 6, 15); // 60°: the two corners, 120°, would be 180° − 60°
+    return { k: 4, a };
   },
   text: (p) => [
     `בטרפז $ABCD$ הבסיסים $AB$ ו־$CD$ מקבילים, ו־$AD$ היא שוק. $\\angle A = ${d(p.a)}$. מה גודל $\\angle D$?`,
     `באות $Z$ הקו העליון והקו התחתון מקבילים, והאלכסון מחבר ביניהם. הזווית בפינה העליונה, בין הקו העליון לאלכסון, היא $${d(p.a)}$. מה הזווית בפינה התחתונה, בין האלכסון לקו התחתון?`,
     `קרני השמש מקבילות זו לזו. קרן אחת פוגעת בקרקע השטוחה, והזווית בינה לבין הקרקע, בצד המזרחי, היא $${d(p.a)}$. מה הזווית בין קרן אחרת לבין הקרקע, גם בצד המזרחי?`,
+    `בטרפז $ABCD$ הבסיסים $AB$ ו־$CD$ מקבילים, ו־$AD$ היא שוק. הזווית $\\angle A$ גדולה מהזווית $\\angle D$ ב־$${d(p.b ?? 0)}$. מה גודל $\\angle D$?`,
+    `באות $Z$ הקו העליון והקו התחתון מקבילים, והאלכסון מחבר ביניהם. הזווית בפינה העליונה, בין הקו העליון לאלכסון, היא $${d(p.a)}$. מה הסכום שלה ושל הזווית בפינה התחתונה, בין האלכסון לקו התחתון?`,
   ][p.k],
-  answer: (p) => (p.k === 0 ? 180 - p.a : p.a),
+  answer: (p) => [180 - p.a, p.a, p.a, p.a, 2 * p.a][p.k],
   bugs: {
-    'supp-not-equal': (p) => (p.k === 0 ? null : 180 - p.a),
+    'supp-not-equal': (p) => (p.k === 1 || p.k === 2 ? 180 - p.a : p.k === 4 ? 180 : null),
     'equal-not-supp': (p) => (p.k === 0 ? p.a : null),
+    'forgot-half': (p) => (p.k === 3 ? 180 - p.b! : null),
   },
   solution: (p) => [
     ['השוק $AD$ חותכת את שני הבסיסים המקבילים, ו־$\\angle A$, $\\angle D$ נמצאות ביניהם, באותו צד של השוק: חד־צדדיות.', `$\\angle D = 180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`],
     ['האלכסון חותך שני ישרים מקבילים, ושתי הפינות נמצאות ביניהם, בצדדים שונים של האלכסון: זוויות מתחלפות.', `מתחלפות שוות: $${d(p.a)}$.`],
     ['הקרקע חותכת את שתי הקרניים המקבילות, ושתי הזוויות נמצאות באותו מקום בשני החיתוכים: זוויות מתאימות.', `מתאימות שוות: $${d(p.a)}$.`],
+    ['$\\angle A$ ו־$\\angle D$ נמצאות בין הבסיסים המקבילים, באותו צד של השוק: חד־צדדיות, ויחד $180^\\circ$.', `בלי ההפרש נשארות שתי זוויות שוות: $180^\\circ - ${d(p.b ?? 0)} = ${d(180 - (p.b ?? 0))}$.`, `$\\angle D = ${180 - (p.b ?? 0)}^\\circ : 2 = ${d(p.a)}$`],
+    ['שתי הפינות של האות $Z$ הן זוויות מתחלפות בין הקווים המקבילים, ולכן שוות: גם התחתונה היא $' + d(p.a) + '$.', `$${d(p.a)} + ${d(p.a)} = ${d(2 * p.a)}$`],
   ][p.k],
   hint: (p) => [
     'מי מקבילים כאן, ומי החותך? הבסיסים מקבילים, והשוק חותכת אותם.',
     'הקווים העליון והתחתון מקבילים, והאלכסון הוא החותך. איפה כל פינה, ביחס לאלכסון?',
     'הקרניים הן הישרים המקבילים, והקרקע היא החותך.',
+    '$\\angle A$ ו־$\\angle D$ ליד אותה שוק, בין הבסיסים המקבילים. כמה הן יחד, ואיך עוזר ההפרש?',
+    'הקווים העליון והתחתון מקבילים, והאלכסון הוא החותך. מה הקשר בין שתי הפינות?',
   ][p.k],
   unit: 'מעלות',
 };
@@ -772,6 +861,19 @@ const stair4: StairContent = {
         { kind: 'explore', text: 'בחיתוך העליון, הזווית בין הישרים ומימין לחותך היא $130^\\circ$. על המסך, החיתוך התחתון: השמאלית מתחלפת לה, ולכן גם היא $130^\\circ$. סובבו את הקרן כך שהשמאלית תהיה $130^\\circ$, וראו מה יוצא בחד־צדדית, הימנית.', ...turn(130),
           hint: 'הימנית משלימה את $130^\\circ$ ל־$180^\\circ$.', success: 'החד־צדדית יצאה $50^\\circ$, ויחד עם $130^\\circ$ זה $180^\\circ$. הן לא שוות, הן משלימות.' },
       ] },
+    { id: 'forgot-half', title: 'שכחו לחלק לשתיים: המספר הנתון שייך לשתי זוויות',
+      cause: 'בשאלה על שתי זוויות, הסכום הנתון (או מה שנשאר מ־$180^\\circ$ אחרי שמורידים את ההפרש) שייך לשתיהן יחד. כדי למצוא זווית אחת, מחלקים אותו ביניהן.',
+      explain: [
+        'שתי זוויות מתאימות שוות. אם יחד הן $100^\\circ$, כל אחת $50^\\circ$, והחד־צדדית לאחת מהן היא $180^\\circ - 50^\\circ = 130^\\circ$.',
+        'שתי זוויות חד־צדדיות יחד $180^\\circ$. אם אחת גדולה מהשנייה ב־$40^\\circ$, מורידים את ההפרש: $180 - 40 = 140$. נשארו שתי זוויות קטנות שוות, וכל אחת $70^\\circ$.',
+      ],
+      remedy: [
+        { kind: 'predict', text: 'נתונות שתי זוויות חד־צדדיות, ואחת מהן גדולה מהשנייה ב־$40^\\circ$. כמה היא הקטנה?', choices: ['$140^\\circ$', '$70^\\circ$', '$110^\\circ$'], answer: 1,
+          why: 'הקטנה $70^\\circ$ והגדולה $110^\\circ$: יחד $180^\\circ$, וההפרש ביניהן $40^\\circ$.',
+          wrongWhy: { 0: '$140^\\circ$ הן שתי הקטנות יחד, אחרי שהורדנו את ההפרש. מחלקים לשתיים.', 2: '$110^\\circ$ היא הזווית הגדולה.' } },
+        { kind: 'explore', text: 'שתי זוויות צמודות הן כמו זוג חד־צדדיות: יחד $180^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $70^\\circ$, וראו בכמה הימנית גדולה ממנה.', ...turn(70),
+          hint: 'הימנית משלימה את $70^\\circ$ ל־$180^\\circ$.', success: 'הימנית $110^\\circ$: גדולה מהשמאלית ב־$40^\\circ$, ויחד $180^\\circ$. לכן הקטנה היא $70^\\circ$, חצי מ־$140^\\circ$.' },
+      ] },
   ],
 };
 
@@ -781,8 +883,10 @@ type Iso = { k: number; a: number; b: number }; // k 0: apex a given; k 1: base 
 const isoModel: DiagModel<Iso> = {
   params: (rnd) => {
     const r = rnd();
-    if (r < 0.35) return { k: 0, a: 10 * rint(rnd, 2, 14), b: 0 };
-    if (r < 0.65) return { k: 1, a: 5 * rint(rnd, 6, 17), b: 0 };
+    // 60° is left out: an equilateral triangle, where the angle asked is the angle given
+    let x = 60;
+    if (r < 0.35) { while (x === 60) x = 10 * rint(rnd, 2, 14); return { k: 0, a: x, b: 0 }; }
+    if (r < 0.65) { while (x === 60) x = 5 * rint(rnd, 6, 17); return { k: 1, a: x, b: 0 }; }
     let a = 0; let b = 0;
     do { a = 5 * rint(rnd, 4, 14); b = 5 * rint(rnd, 4, 14); } while (a + b > 140);
     return { k: 2, a, b };

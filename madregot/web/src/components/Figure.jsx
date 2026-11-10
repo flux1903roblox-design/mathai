@@ -1,5 +1,7 @@
 // Textbook figures drawn from the generators' data: coordinate plane, angles,
 // triangles and a frequency table. Drawn on the same 4px grid as the page.
+import { crossMarks, parallelMarks } from '@/content/figures.js';
+
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
 
@@ -57,12 +59,15 @@ function arcPath(cx, cy, rr, a0, a1) {
   const large = Math.abs(a1 - a0) > 180 ? 1 : 0;
   return `M ${p0[0]} ${p0[1]} A ${rr} ${rr} 0 ${large} 0 ${p1[0]} ${p1[1]}`;
 }
-function AngleMark({ cx, cy, a0, a1, text, target, rr = 30 }) {
+function AngleMark({ cx, cy, a0, a1, text, target, pair, rr = 30 }) {
   const mid = (a0 + a1) / 2; const lr = rr + 16;
+  const cls = target ? 'fg-arc target' : 'fg-arc';
   return (
     <g>
-      <path d={arcPath(cx, cy, rr, a0, a1)} className={target ? 'fg-arc target' : 'fg-arc'} />
-      <text x={cx + lr * Math.cos(rad(mid))} y={cy - lr * Math.sin(rad(mid)) + 5} textAnchor="middle" className={target ? 'fg-angle target' : 'fg-angle'}>{text}</text>
+      <path d={arcPath(cx, cy, rr, a0, a1)} className={cls} />
+      {/* a double arc: one of two equal angles */}
+      {pair && <path d={arcPath(cx, cy, rr - 6, a0, a1)} className={cls} />}
+      {text && <text x={cx + lr * Math.cos(rad(mid))} y={cy - lr * Math.sin(rad(mid)) + 5} textAnchor="middle" className={target ? 'fg-angle target' : 'fg-angle'}>{text}</text>}
     </g>
   );
 }
@@ -84,13 +89,15 @@ function Linear({ fig }) {
 function Cross({ fig }) {
   const O = [170, 110]; const a = fig.a;
   const [x1, y1] = ray(...O, a, 110); const [x2, y2] = ray(...O, a + 180, 110);
-  const t = fig.target === 'vertical' ? [180, 180 + a] : [a, 180];
+  // the four angles, counter-clockwise from the drawn one (content/figures.js)
+  const span = [[0, a], [a, 180], [180, 180 + a], [180 + a, 360]];
   return (
     <svg viewBox="0 0 340 220" className="figure" role="img" aria-label="ישרים נחתכים">
       <line x1="30" y1={O[1]} x2="310" y2={O[1]} className="fg-ray" />
       <line x1={x2} y1={y2} x2={x1} y2={y1} className="fg-ray" />
-      <AngleMark cx={O[0]} cy={O[1]} a0={0} a1={a} text={`${a}°`} />
-      <AngleMark cx={O[0]} cy={O[1]} a0={t[0]} a1={t[1]} text="?" target rr={24} />
+      {crossMarks(fig).map((m) => (
+        <AngleMark key={m.at} cx={O[0]} cy={O[1]} a0={span[m.at][0]} a1={span[m.at][1]} text={m.text} target={m.target} pair={m.pair} rr={m.target ? 24 : 30} />
+      ))}
       <circle cx={O[0]} cy={O[1]} r="3" className="fg-vertex" />
     </svg>
   );
@@ -101,9 +108,7 @@ function Parallel({ fig }) {
   const U = [170 + ((yL - yU) / 2) * k, yU]; const Lw = [170 - ((yL - yU) / 2) * k, yL]; // up by Δy moves x by Δy·cot(a)
   const [tx1, ty1] = ray(...U, a, 60); const [tx2, ty2] = ray(...Lw, a + 180, 60);
   const pos = { ur: [0, a], ul: [a, 180], ll: [180, 180 + a], lr: [180 + a, 360] };
-  const plan = { corresponding: [['U', 'ur'], ['L', 'ur']], alternate: [['U', 'll'], ['L', 'ur']], cointerior: [['L', 'ur'], ['U', 'lr']] }[fig.kind];
   const at = (w) => (w === 'U' ? U : Lw);
-  const [known, target] = plan;
   return (
     <svg viewBox="0 0 340 230" className="figure" role="img" aria-label="ישרים מקבילים וחותך">
       <line x1="20" y1={yU} x2="320" y2={yU} className="fg-ray" />
@@ -111,8 +116,9 @@ function Parallel({ fig }) {
       <line x1={tx2} y1={ty2} x2={tx1} y2={ty1} className="fg-ray" />
       <path d={`M 300 ${yU - 5} l 8 5 l -8 5`} className="fg-par" />
       <path d={`M 300 ${yL - 5} l 8 5 l -8 5`} className="fg-par" />
-      <AngleMark cx={at(known[0])[0]} cy={at(known[0])[1]} a0={pos[known[1]][0]} a1={pos[known[1]][1]} text={`${a}°`} rr={24} />
-      <AngleMark cx={at(target[0])[0]} cy={at(target[0])[1]} a0={pos[target[1]][0]} a1={pos[target[1]][1]} text="?" target rr={20} />
+      {parallelMarks(fig).map((m) => (
+        <AngleMark key={m.line + m.corner} cx={at(m.line)[0]} cy={at(m.line)[1]} a0={pos[m.corner][0]} a1={pos[m.corner][1]} text={m.text} target={m.target} pair={m.pair} rr={m.text === '?' ? 20 : 24} />
+      ))}
     </svg>
   );
 }
