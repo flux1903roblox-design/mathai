@@ -16,7 +16,11 @@ AI_PAYWALL = "off"
 # Classes created before BILLING_START keep the old limits until LEGACY_CLASS_AI_UNTIL (both YYYY-MM-DD, Jerusalem).
 BILLING_START = ""
 LEGACY_CLASS_AI_UNTIL = ""
-# Claude model for every full answer; FREE_MODEL for the free taste and economy mode (empty = the low-cost default in shared/ai.js).
+# The models of the request shapes (shared/ai.js; SUBSCRIPTION.md has the table). CLAUDE_MODEL answers every full request,
+# at an effort set per kind (explain medium, chat low, the photo check, new exercises and the exam check high).
+# FREE_MODEL answers explain and chat in the free taste (shape "lite") and in economy mode (shape "economy", a paid pool
+# over its monthly budget): the same tutor block, at effort high with 4000 tokens and a note that only shortens the reply.
+# Empty FREE_MODEL = the low-cost default in shared/ai.js, never CLAUDE_MODEL.
 CLAUDE_MODEL = "claude-sonnet-5-5"
 FREE_MODEL = "claude-haiku-5-5"
 # With the switch off: AI actions a day per class student, per teacher, and per network for students without a class.

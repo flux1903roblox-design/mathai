@@ -170,14 +170,17 @@ export function answerGuard(kind, input = {}) {
   return guardFor(kind, tutorContext(kind, input).ctx);
 }
 
+// No top-level cache_control here: every kind caches system[0] (systemBlocks), the bytes every request shares. Only a
+// conversation adds the top-level mark (AUTO_CACHE), which caches its growing history for the next turn; on explain,
+// check, generate and exam the last block is unique, so auto-caching only paid the write price (ai spec AI-6 §4).
 const base = (model, effort, maxTokens) => ({
   model: model || DEFAULT_MODEL,
   max_tokens: maxTokens,
   betas: [FALLBACK_BETA],
   fallbacks: 'default',
-  cache_control: { type: 'ephemeral' },
   output_config: { effort },
 });
+const AUTO_CACHE = { cache_control: { type: 'ephemeral' } };
 
 // Which AI kinds share a daily limit (a "group"), and what each kind weighs against a class-wide cap.
 export const KIND_GROUP = { explain: 'tutor', chat: 'tutor', check: 'check', generate: 'generate', exam: 'exam' };
@@ -187,15 +190,24 @@ export const AI_GROUPS = ['tutor', 'check', 'generate', 'exam'];
 export const FREE_KINDS = ['explain', 'chat'];
 // The model for the free taste and for economy mode when FREE_MODEL is empty. Never the main model.
 export const LITE_MODEL = 'claude-haiku-5-5';
-export const LITE_MAX_TOKENS = 1500;
-export const ECONOMY_MAX_TOKENS = 2500;
-export const LITE_NOTE = 'This student has only a few questions to the tutor today. Answer completely in one reply of at most 100 words, and do not end with a question the student has to answer.';
+// Effort and max_tokens per kind and shape (ai spec AI-6 §2). The low-cost model runs the free taste and economy mode at
+// effort high, the vendor's level for strict instruction following: the rules (the app's diagnosis, the stair's way, the
+// final-answer policy) are the product. It thinks by default and thinking counts toward max_tokens, so the cap leaves room
+// for it; the notes below keep the visible reply short. AI-9's evaluation run may move these, one line each.
+export const LITE_EFFORT = 'high';
+export const LITE_MAX_TOKENS = 4000;
+export const ECONOMY_MAX_TOKENS = 4000;
+/** The free taste's note (Appendix C.5): a reply that stands on its own, never a whole answer handed over. */
+export const LITE_NOTE = 'This student has only a few questions to the tutor today, so this reply must stand on its own: at most 90 words, no question they need to answer back to you, and end with what to do now ("עכשיו נסו …"). Every rule above still holds: the app\'s diagnosis, the stair\'s way, and the final-answer policy.';
+/** Economy mode's note (Appendix C.6): shorter, nothing else changes. */
+export const ECONOMY_NOTE = 'Keep this reply to at most 110 words. Every rule above still holds.';
 
 /** The low-cost model family has no server-side refusal fallback, so its requests carry neither the fallback beta nor `fallbacks`. */
 export function supportsFallback(model) { return !/^claude-haiku/.test(String(model || DEFAULT_MODEL)); }
 function dropFallback(params) {
   delete params.fallbacks;
-  params.betas = (params.betas || []).filter((b) => b !== FALLBACK_BETA);
+  const betas = (params.betas || []).filter((b) => b !== FALLBACK_BETA);
+  if (betas.length) params.betas = betas; else delete params.betas;
   return params;
 }
 
@@ -220,12 +232,12 @@ export function buildRequest(kind, input = {}, { model, shape, lite = false } = 
     ...(short ? { maxMessages: 6, messageChars: 600, fromUser: true } : {}),
   });
   params.max_tokens = short ? LITE_MAX_TOKENS : ECONOMY_MAX_TOKENS;
-  params.output_config = { ...params.output_config, effort: 'low' };
+  params.output_config = { ...params.output_config, effort: LITE_EFFORT };
   return supportsFallback(params.model) ? params : dropFallback(params);
 }
 
-// The note a shape adds to the task block (ai spec AI-6 §1): the free taste's short-answer note; economy's comes with AI-6.
-const SHAPE_NOTE = { full: '', lite: LITE_NOTE, economy: '' };
+// The note a shape adds to the task block (ai spec AI-6 §1). It only shortens: system[0] is the same bytes in every shape.
+const SHAPE_NOTE = { full: '', lite: LITE_NOTE, economy: ECONOMY_NOTE };
 
 /**
  * The system prompt as blocks (ai spec AI-1 §2, AI-6 §4): [0] the stable block (safety, then the tutor), the cache
@@ -265,6 +277,7 @@ export function buildCare(input = {}, { model } = {}) {
   }
   const params = {
     ...base(model, 'low', CARE_MAX_TOKENS),
+    ...AUTO_CACHE, // a conversation, like chat
     system: `${safetyPrompt()}\n\n${CARE_NOTE}`,
     messages: history,
   };
@@ -302,7 +315,8 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
     if (fromUser) while (history.length > 1 && history[0].role !== 'user') history.shift();
     if (!history.length || history[0].role !== 'user') throw new Error('chat needs a user message first');
     // only the student's own words: the app's context is the system block, never spliced into their turn
-    return { ...base(model, 'low', 4000), system: systemBlocks(kind, shape, appContext().text), messages: history };
+    // the one kind with the top-level mark: the next turn reads this turn's history from the cache
+    return { ...base(model, 'low', 4000), ...AUTO_CACHE, system: systemBlocks(kind, shape, appContext().text), messages: history };
   }
   if (kind === 'generate') {
     const count = Math.min(Math.max(Number(input.count) || 5, 1), 8);
@@ -391,6 +405,8 @@ export function readResult(kind, message) {
     return data;
   }
   const { text: said, care } = splitCare(text);
+  // nothing visible is not a reply: also a reply cut off by max_tokens after only thinking (ai spec AI-6 §3), so the
+  // Worker gives the question back
   if (!said.trim()) { const e = new Error('empty text'); e.code = 'bad_output'; throw e; }
   return care ? { text: said, care: true } : { text: said };
 }

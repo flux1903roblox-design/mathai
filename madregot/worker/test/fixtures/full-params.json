@@ -16,9 +16,6 @@
     "server-side-fallback-2026-07-01"
    ],
    "fallbacks": "default",
-   "cache_control": {
-    "type": "ephemeral"
-   },
    "output_config": {
     "effort": "medium"
    },
@@ -53,9 +50,6 @@
     "server-side-fallback-2026-07-01"
    ],
    "fallbacks": "default",
-   "cache_control": {
-    "type": "ephemeral"
-   },
    "output_config": {
     "effort": "medium"
    },
@@ -156,11 +150,11 @@
     "server-side-fallback-2026-07-01"
    ],
    "fallbacks": "default",
-   "cache_control": {
-    "type": "ephemeral"
-   },
    "output_config": {
     "effort": "low"
+   },
+   "cache_control": {
+    "type": "ephemeral"
    },
    "system": [
     {
@@ -237,11 +231,11 @@
     "server-side-fallback-2026-07-01"
    ],
    "fallbacks": "default",
-   "cache_control": {
-    "type": "ephemeral"
-   },
    "output_config": {
     "effort": "low"
+   },
+   "cache_control": {
+    "type": "ephemeral"
    },
    "system": [
     {
@@ -327,9 +321,6 @@
     "server-side-fallback-2026-07-01"
    ],
    "fallbacks": "default",
-   "cache_control": {
-    "type": "ephemeral"
-   },
    "output_config": {
     "effort": "high",
     "format": {
@@ -404,9 +395,6 @@
     "server-side-fallback-2026-07-01"
    ],
    "fallbacks": "default",
-   "cache_control": {
-    "type": "ephemeral"
-   },
    "output_config": {
     "effort": "high",
     "format": {
@@ -489,9 +477,6 @@
     "server-side-fallback-2026-07-01"
    ],
    "fallbacks": "default",
-   "cache_control": {
-    "type": "ephemeral"
-   },
    "output_config": {
     "effort": "high",
     "format": {
@@ -605,9 +590,6 @@
     "server-side-fallback-2026-07-01"
    ],
    "fallbacks": "default",
-   "cache_control": {
-    "type": "ephemeral"
-   },
    "output_config": {
     "effort": "high",
     "format": {
@@ -752,9 +734,6 @@
     "server-side-fallback-2026-07-01"
    ],
    "fallbacks": "default",
-   "cache_control": {
-    "type": "ephemeral"
-   },
    "output_config": {
     "effort": "high",
     "format": {
@@ -954,9 +933,6 @@
     "server-side-fallback-2026-07-01"
    ],
    "fallbacks": "default",
-   "cache_control": {
-    "type": "ephemeral"
-   },
    "output_config": {
     "effort": "high",
     "format": {

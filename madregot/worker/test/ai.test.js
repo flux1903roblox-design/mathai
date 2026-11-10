@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   buildRequest, buildCare, readResult, splitCare, STREAMED, AI_KINDS, FREE_KINDS, MAX_EXAM_PAGES, CARE_NOTE, LITE_MODEL, LITE_NOTE,
-  gradeLine, stableSystem,
+  ECONOMY_NOTE, LITE_EFFORT, LITE_MAX_TOKENS, ECONOMY_MAX_TOKENS, DEFAULT_MODEL, gradeLine, stableSystem,
 } from '../../shared/ai.js';
 import { normalizeContext, legacyToV2, renderContext, CTX_BUDGET, CTX_VERSION } from '../../shared/tutorContext.js';
 import { safetyPrompt } from '../../shared/safety.js';
@@ -18,7 +18,7 @@ const page = { data: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' 
 const pdf = { data: 'data:application/pdf;base64,JVBERi0x', mediaType: 'application/pdf' };
 const msg = (text, stop = 'end_turn') => ({ stop_reason: stop, content: [{ type: 'text', text }] });
 
-test('every kind builds a request with the fallback beta, caching and an effort level', () => {
+test('every kind builds a request with the fallback beta, the cache mark on the stable block and an effort level', () => {
   const inputs = {
     explain: { question: '3 - 8', correct: '-5', studentAnswer: '5' },
     chat: { question: '3 - 8', messages: [{ role: 'user', content: 'איך מתחילים?' }] },
@@ -30,7 +30,9 @@ test('every kind builds a request with the fallback beta, caching and an effort 
     const r = buildRequest(kind, { grade: '8', ...inputs[kind] });
     assert.ok(r.betas.includes('server-side-fallback-2026-07-01'), kind);
     assert.equal(r.fallbacks, 'default');
-    assert.equal(r.cache_control.type, 'ephemeral');
+    assert.deepEqual(r.system[0].cache_control, { type: 'ephemeral' }, kind);
+    // the top-level mark (auto-caching the last block) only where that block is read again: the chat's growing history
+    assert.equal(r.cache_control?.type, kind === 'chat' ? 'ephemeral' : undefined, kind);
     assert.ok(['low', 'medium', 'high'].includes(r.output_config.effort), kind);
   }
 });
@@ -325,6 +327,7 @@ test('the system prompt is three blocks: the stable block with the cache mark, t
         assert.deepEqual(p.system[0], { type: 'text', text: stable, cache_control: { type: 'ephemeral' } }, `${kind}/${shape}`);
         assert.equal(p.system[1].cache_control, undefined); assert.equal(p.system[2].cache_control, undefined);
         assert.equal(p.system[1].text.includes(LITE_NOTE), shape === 'lite', `${kind}/${shape}: the note only in the free taste`);
+        assert.equal(p.system[1].text.includes(ECONOMY_NOTE), shape === 'economy', `${kind}/${shape}: economy's note only in economy`);
         assert.match(p.system[2].text, /^<app_context>\n[\s\S]*\n<\/app_context>$/);
         assert.ok(p.system[2].text.length <= CTX_BUDGET[shape]);
         assert.ok(!JSON.stringify(p.messages).includes('app_context'), `${kind}/${shape}: no context in the messages`);
@@ -366,6 +369,100 @@ test('exam and generate keep their user turns: the grade line first, as before',
   const exam = lastText(buildRequest('exam', { grade: '8', pages: [page], key: [{ prompt: 'מה השיפוע?', answer: '3' }] }));
   assert.equal(exam, 'Grade: 8 (ח׳)\n\nAnswer key (authoritative), in question order:\n1. מה השיפוע? → 3\n\nCheck my exam: 1 page(s) above.');
   assert.ok(lastText(buildRequest('exam', { pages: [page] })).startsWith('\n\nCheck my exam'), 'no grade, no line');
+});
+
+// ---------------------------------------------------------------- the low-cost shapes (ai spec AI-6)
+/** AI-6 §2, the rows for explain and chat: [model, effort, max_tokens] per kind and shape. */
+const TABLE = {
+  explain: { full: [DEFAULT_MODEL, 'medium', 4000], lite: [LITE_MODEL, 'high', 4000], economy: [LITE_MODEL, 'high', 4000] },
+  chat: { full: [DEFAULT_MODEL, 'low', 4000], lite: [LITE_MODEL, 'high', 4000], economy: [LITE_MODEL, 'high', 4000] },
+};
+
+test('the same pedagogy in every shape: system[0] identical, each note only in its shape, effort and tokens by the table', () => {
+  assert.equal(LITE_EFFORT, 'high'); assert.equal(LITE_MAX_TOKENS, 4000); assert.equal(ECONOMY_MAX_TOKENS, 4000);
+  for (const kind of FREE_KINDS) {
+    const input = kind === 'chat' ? { ctx: SIGNED1, messages: [{ role: 'user', content: 'למה זה לא -2?' }] } : { ctx: SIGNED1 };
+    const firsts = new Set();
+    for (const shape of SHAPES) {
+      const p = buildRequest(kind, input, { shape });
+      const at = `${kind}/${shape}`;
+      firsts.add(p.system[0].text);
+      assert.deepEqual([p.model, p.output_config.effort, p.max_tokens], TABLE[kind][shape], at);
+      assert.equal(p.system[1].text.includes(LITE_NOTE), shape === 'lite', at);
+      assert.equal(p.system[1].text.includes(ECONOMY_NOTE), shape === 'economy', at);
+      assert.ok(p.system[1].text.startsWith(buildRequest(kind, input).system[1].text), `${at}: the note follows the same task text`);
+      assert.equal(p.cache_control?.type, kind === 'chat' ? 'ephemeral' : undefined, `${at}: the top-level mark only on chat`);
+      if (shape === 'full') {
+        assert.deepEqual(p.betas, ['server-side-fallback-2026-07-01'], at); assert.equal(p.fallbacks, 'default', at);
+      } else {
+        // the low-cost model has no server-side refusal fallback: no betas and no fallbacks at all
+        assert.equal(p.betas, undefined, at); assert.equal(p.fallbacks, undefined, at);
+      }
+      // the same rules: the policy line and the label travel in every shape
+      assert.match(p.system[2].text, /Final-answer policy: REVEAL/, at);
+      assert.ok(p.system[2].text.includes(`one mistake, minus-minus, "${LABEL}"`), at);
+    }
+    assert.equal(firsts.size, 1, `${kind}: system[0] is the same bytes in every shape`);
+    assert.equal([...firsts][0], stableSystem());
+  }
+});
+
+test('the notes only shorten: the free taste no longer says "answer completely", and never forbids a step that leads on', () => {
+  assert.doesNotMatch(LITE_NOTE, /answer completely/i);
+  assert.match(LITE_NOTE, /at most 90 words/);
+  assert.match(LITE_NOTE, /no question they need to answer back to you/);
+  assert.match(LITE_NOTE, /Every rule above still holds: the app's diagnosis, the stair's way, and the final-answer policy\./);
+  assert.ok(LITE_NOTE.includes('עכשיו נסו'), 'ends with what to do now');
+  assert.equal(ECONOMY_NOTE, 'Keep this reply to at most 110 words. Every rule above still holds.');
+  for (const note of [LITE_NOTE, ECONOMY_NOTE]) assert.doesNotMatch(note, /final answer|give the answer|you may give/i, 'a note never loosens the policy');
+});
+
+test('a 7,000-character context in the free taste keeps the policy, the label line and the stair idea', () => {
+  const big = structuredClone(SIGNED1);
+  const pad = (s, ch) => `${s} ${ch.repeat(300)}`.slice(0, 300);
+  big.teach.why = SIGNED1.teach.why.map((w) => pad(w, 'ע'));
+  big.teach.alt = SIGNED1.teach.alt.map((a) => pad(a, 'ד'));
+  big.miscon.explain = SIGNED1.miscon.explain.map((e) => pad(e, 'ה'));
+  big.item.solution = Array.from({ length: 6 }, (_, i) => `${i + 1}: ${'ש'.repeat(216)}`);
+  big.teach.idea = `${SIGNED1.teach.idea} ${'ר'.repeat(600)}`.slice(0, 600);
+  big.learner.open = [1, 2, 3].map((n) => ({ skill: `signed:${n}`, label: 'ט'.repeat(160), state: 'confirmed' }));
+  big.learner.lessonRepeats = [{ label: 'ל'.repeat(160), n: 2 }, { label: 'מ'.repeat(160), n: 3 }];
+  const whole = renderContext(big, { budget: Infinity });
+  assert.ok(whole.length > 6500 && whole.length < 7500, `the whole context is ${whole.length} characters`);
+  const lite = buildRequest('explain', { ctx: big }, { shape: 'lite' }).system[2].text;
+  assert.ok(lite.length <= CTX_BUDGET.lite, String(lite.length));
+  for (const kept of ['Final-answer policy: REVEAL', `App diagnosis of answer (1): one mistake, minus-minus, "${LABEL}".`, `What the app showed the student: "מה כנראה קרה: ${LABEL}."`,
+    "The stair's key idea:", 'Correct answer (computed by the app, authoritative): 8']) assert.ok(lite.includes(kept), kept);
+  assert.ok(!lite.includes('Other ways the stair uses:'), 'the other ways go first');
+  // economy keeps more of the same block, and full more again
+  const eco = buildRequest('explain', { ctx: big }, { shape: 'economy' }).system[2].text;
+  const full = buildRequest('explain', { ctx: big }).system[2].text;
+  assert.ok(lite.length < eco.length && eco.length <= CTX_BUDGET.economy && eco.length < full.length && full.length <= CTX_BUDGET.full,
+    `${lite.length} < ${eco.length} < ${full.length}`);
+});
+
+test('chat history is clipped as before: the free taste 6 x 600 from a student turn, economy and full 12 x 2,000', () => {
+  const turns = Array.from({ length: 14 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `${i} ${'ק'.repeat(2500)}` }));
+  const lite = buildRequest('chat', { ctx: SIGNED1, messages: turns }, { shape: 'lite' }).messages;
+  assert.equal(lite.length, 6); assert.match(lite[0].content, /^8 /); assert.ok(lite.every((m) => m.content.length <= 600));
+  // one more turn: the free taste's last 6 would open on the tutor, so it starts from the next student turn
+  const odd = buildRequest('chat', { ctx: SIGNED1, messages: [...turns, { role: 'user', content: '14' }] }, { shape: 'lite' }).messages;
+  assert.equal(odd.length, 5); assert.equal(odd[0].role, 'user');
+  for (const shape of ['economy', 'full']) {
+    const m = buildRequest('chat', { ctx: SIGNED1, messages: turns }, { shape }).messages;
+    assert.equal(m.length, 12, shape); assert.ok(m.every((x) => x.content.length <= 2000), shape);
+    assert.match(m[0].content, /^2 /, shape); assert.match(m.at(-1).content, /^13 /, shape);
+  }
+});
+
+test('a reply cut off by max_tokens with nothing visible (only thinking, or nothing) is bad_output, never an empty answer', () => {
+  for (const kind of FREE_KINDS) {
+    assert.throws(() => readResult(kind, { stop_reason: 'max_tokens', content: [] }), (e) => e.code === 'bad_output', kind);
+    assert.throws(() => readResult(kind, { stop_reason: 'max_tokens', content: [{ type: 'thinking', thinking: 'צריך לחשוב…', signature: 'c2ln' }] }), (e) => e.code === 'bad_output', kind);
+    assert.throws(() => readResult(kind, { stop_reason: 'max_tokens', content: [{ type: 'text', text: ' \n ' }] }), (e) => e.code === 'bad_output', kind);
+  }
+  // a reply that stopped on max_tokens after some visible text is still that text
+  assert.deepEqual(readResult('explain', { stop_reason: 'max_tokens', content: [{ type: 'thinking', thinking: '…' }, { type: 'text', text: 'מתחילים ב־$3$' }] }), { text: 'מתחילים ב־$3$' });
 });
 
 test('the photo check: a question the student typed is their own words (masked, in their turn); the lesson\'s exercise is the app\'s', () => {
