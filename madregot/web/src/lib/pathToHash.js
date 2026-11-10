@@ -1,9 +1,9 @@
 // Payment return pages, QR codes and email links are plain paths (https://<domain>/parents?order=…), which the Worker
-// already answers with the app. The app routes by the hash, so before anything else starts, a plain path of the
+// already answers with the app. The programme page (/programme?grade=8) is linked the same way from the store text. The app routes by the hash, so before anything else starts, a plain path of the
 // parents' area becomes the same route in the hash: /parents/link?c=K7M4QX → <base>#/parents/link?c=K7M4QX.
 // Imported first in main.jsx, before historySeed.js and the router.
 
-const PATHS = ['/parents/link', '/parents/info', '/parents', '/cancel', '/terms', '/privacy', '/accessibility'];
+const PATHS = ['/parents/link', '/parents/info', '/parents', '/cancel', '/terms', '/privacy', '/accessibility', '/programme'];
 
 /**
  * The URL a plain path should become, or null to leave it alone. `pathname` may carry a base path (a copy of the app

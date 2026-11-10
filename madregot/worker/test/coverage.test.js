@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PROGRAMME, ROADMAP_NEXT } from '../../shared/programme.js';
-import { coverage, notYet, monthIndex, schoolMonth } from '../../shared/coverage.js';
+import { coverage, notYet, monthIndex, schoolMonth, coverageSentence, monthsText, hoursText, inSchoolOrder, GRADE_NAME } from '../../shared/coverage.js';
 
 const COUNCIL = [
   'signed:1', 'signed:2', 'signed:3', 'signed:4', 'signed:5',
@@ -243,4 +243,34 @@ test('the school calendar: the month a grade meets a stair, and where a date fal
   assert.equal(schoolMonth(new Date(2026, 10, 10, 12)), 2); // a Date, in local time
   assert.equal(schoolMonth(new Date(2027, 2, 1).getTime()), 6);
   assert.equal(typeof schoolMonth(), 'number');
+});
+
+test('the words every surface quotes: the coverage sentence, the months, the hours, the school order', () => {
+  // one sentence, filled from coverage(): the stage-1 fixture gives the spec's own example
+  assert.equal(coverageSentence('7', coverage('7', STAGE1)), 'במדרגות יש כבר את החומר של 104 מתוך 150 שעות ההוראה של כיתה ז׳ (69%).');
+  assert.equal(coverageSentence(8, coverage('8', HEAD)), 'במדרגות יש כבר את החומר של 51 מתוך 147 שעות ההוראה של כיתה ח׳ (35%).');
+  assert.deepEqual(GRADE_NAME, { '7': 'ז׳', '8': 'ח׳' });
+  // months: consecutive ones as a range, a gap as a comma, in school order (September first)
+  assert.equal(monthsText([9]), 'ספטמבר');
+  assert.equal(monthsText([9, 10]), 'ספטמבר–אוקטובר');
+  assert.equal(monthsText([12, 1, 2, 3]), 'דצמבר–מרץ');
+  assert.equal(monthsText([12, 1, 4, 5]), 'דצמבר–ינואר, אפריל–מאי');
+  assert.equal(monthsText([5, 1]), 'ינואר, מאי');
+  assert.equal(monthsText([10, 9, 10]), 'ספטמבר–אוקטובר');
+  // every unit's months read as Hebrew month names, with no gaps in the words
+  PROGRAMME.units.forEach((u) => assert.match(monthsText(u.months), /^[\u0590-\u05FF]+(–[\u0590-\u05FF]+)?(, [\u0590-\u05FF]+(–[\u0590-\u05FF]+)?)*$/, u.id));
+  assert.equal(hoursText(1), 'שעה אחת');
+  assert.equal(hoursText(2), 'שעתיים');
+  assert.equal(hoursText(8), '8 שעות');
+  // school order: by the first month, then as the Ministry lists them; every unit once
+  ['7', '8'].forEach((g) => {
+    const units = coverage(g, HEAD).units;
+    const ordered = inSchoolOrder(units);
+    assert.equal(ordered.length, units.length);
+    assert.deepEqual(new Set(ordered.map((u) => u.id)), new Set(units.map((u) => u.id)));
+    const first = (u) => Math.min(...u.months.map((m) => (m >= 9 ? m - 9 : m + 3)));
+    ordered.slice(1).forEach((u, i) => assert.ok(first(ordered[i]) <= first(u), `${ordered[i].id} before ${u.id}`));
+  });
+  assert.deepEqual(inSchoolOrder(coverage('7', HEAD).units).slice(0, 3).map((u) => u.id), ['7.1', '7.2', '7.10']);
+  assert.equal(inSchoolOrder(coverage('8', HEAD).units)[0].id, '8.1');
 });

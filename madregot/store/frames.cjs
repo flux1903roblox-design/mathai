@@ -2,12 +2,14 @@
 const { chromium } = require('playwright');
 const fs = require('fs'); const path = require('path');
 const FONTS = path.resolve(__dirname, '../web/node_modules/@fontsource-variable');
+// The counts are the app's own, written by `npm run programme:md` (web/scripts/programme-md.mjs): never typed here.
+const COUNTS = require('./counts.json');
 const FRAMES = [
   ['1-numberline', 'מזיזים את המתמטיקה בידיים', 'גוררים, רואים מה קורה, ובודקים.', '#1a8fd6', '#e2f2fc'],
   ['2-map', 'עולם לכל נושא', 'מפה של מדרגות, מכפור ואש ועד פירמידות.', '#5b4ff0', '#ecebff'],
   ['3-hint', 'רמז שמצויר על התרגיל', 'מדי מראה איפה לחפש, בלי לגלות את התשובה.', '#0d8597', '#ddf3f5'],
   ['4-climb', 'מדרגה אחרי מדרגה', 'כל שיעור מעלה את מדי עוד צעד.', '#c0349f', '#fbe6f5'],
-  ['5-topics', 'שישה נושאים, 33 מדרגות', 'כיתות ז׳ וח׳, כמה דקות ביום.', '#5b4ff0', '#ecebff'],
+  ['5-topics', `${COUNTS.topics} נושאים, ${COUNTS.stairs} מדרגות`, 'כיתות ז׳ וח׳, כמה דקות ביום.', '#5b4ff0', '#ecebff'],
 ];
 const html = (img, title, sub, c, tint) => `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><style>
 @font-face { font-family: Fredoka; src: url(file://${FONTS}/fredoka/files/fredoka-hebrew-wght-normal.woff2) format('woff2'); font-weight: 300 700; unicode-range: U+0590-05FF, U+FB1D-FB4F; }

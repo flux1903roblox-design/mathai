@@ -590,5 +590,5 @@ export default function Parents({ mode = 'home' }) {
       </>
     );
   }
-  return <ParentsFrame business={plans?.business}>{body}</ParentsFrame>;
+  return <ParentsFrame business={plans?.business}>{body}{mode === 'home' && <Link to="/programme" className="prog-entry">מה לומדים במדרגות, לפי תוכנית משרד החינוך</Link>}</ParentsFrame>;
 }

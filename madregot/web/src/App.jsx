@@ -25,6 +25,8 @@ const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
 const Parents = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Parents })));
 const ParentHandoff = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.ParentHandoff })));
 const Legal = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Legal })));
+// What the app teaches against the Ministry's programme: open to anyone, profile or not.
+const Programme = lazy(() => import('@/screens/Programme.jsx'));
 const Exams = lazy(() => import('@/screens/Exams.jsx'));
 const ExamCheck = lazy(() => import('@/screens/ExamCheck.jsx'));
 const ExamResult = lazy(() => import('@/screens/ExamResult.jsx'));
@@ -114,8 +116,8 @@ function Root() {
       <ErrorBoundary>
       <Suspense fallback={<LoadingState />}>
       <Routes>
-        {/* the parents' area and the legal pages come first: they open from a QR code, a payment page or an email
-            link on a device with no profile at all */}
+        {/* the parents' area, the legal pages and the programme page come first: they open from a QR code, a payment
+            page or an email link on a device with no profile at all */}
         <Route path="/parents" element={<Parents mode="home" />} />
         <Route path="/parents/link" element={<Parents mode="link" />} />
         <Route path="/parents/info" element={<ParentHandoff />} />
@@ -123,6 +125,7 @@ function Root() {
         <Route path="/terms" element={<Legal doc="terms" />} />
         <Route path="/privacy" element={<Legal doc="privacy" />} />
         <Route path="/accessibility" element={<Legal doc="accessibility" />} />
+        <Route path="/programme" element={<Programme />} />
         {!role && <Route path="*" element={<Welcome />} />}
         {role === 'teacher' && (
           <>

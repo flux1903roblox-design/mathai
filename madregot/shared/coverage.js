@@ -78,3 +78,50 @@ export function schoolMonth(date = new Date()) {
   const m = typeof date === 'string' && /^\d{4}-\d{2}(-\d{2})?$/.test(date) ? Number(date.slice(5, 7)) : new Date(date).getMonth() + 1;
   return schoolIndex(m);
 }
+
+// ---------------------------------------------------------------- words, for every surface that states coverage
+// The programme page, PROGRAMME.md and (later) the parents' report and the store text quote these, so one sentence
+// has one source.
+
+/** The grade as people say it. */
+export const GRADE_NAME = { '7': 'ז׳', '8': 'ח׳' };
+
+/**
+ * The coverage of a grade in one sentence, from coverage()'s result.
+ * @param {'7' | '8' | string | number} grade
+ * @param {{ taught: number, hours: number, pct: number }} c
+ */
+export const coverageSentence = (grade, c) =>
+  `במדרגות יש כבר את החומר של ${c.taught} מתוך ${c.hours} שעות ההוראה של כיתה ${GRADE_NAME[String(grade)]} (${c.pct}%).`;
+
+const MONTH_NAME = { 9: 'ספטמבר', 10: 'אוקטובר', 11: 'נובמבר', 12: 'דצמבר', 1: 'ינואר', 2: 'פברואר', 3: 'מרץ', 4: 'אפריל', 5: 'מאי', 6: 'יוני', 7: 'יולי', 8: 'אוגוסט' };
+
+/**
+ * The months a unit is taught, in words: consecutive months as a range, a gap as a comma.
+ * [9, 10] → 'ספטמבר–אוקטובר'; [12, 1, 4, 5] → 'דצמבר–ינואר, אפריל–מאי'; [1, 5] → 'ינואר, מאי'.
+ * @param {number[]} months calendar months (1-12)
+ * @returns {string}
+ */
+export function monthsText(months) {
+  const sorted = [...new Set(months)].sort((a, b) => schoolIndex(a) - schoolIndex(b));
+  const runs = [];
+  sorted.forEach((m) => {
+    const run = runs[runs.length - 1];
+    if (run && schoolIndex(m) === schoolIndex(run[run.length - 1]) + 1) run.push(m); else runs.push([m]);
+  });
+  return runs.map((r) => (r.length === 1 ? MONTH_NAME[r[0]] : `${MONTH_NAME[r[0]]}–${MONTH_NAME[r[r.length - 1]]}`)).join(', ');
+}
+
+/** A unit's hours in words: 'שעה אחת', 'שעתיים', '8 שעות'. */
+export const hoursText = (n) => (n === 1 ? 'שעה אחת' : n === 2 ? 'שעתיים' : `${n} שעות`);
+
+/**
+ * Units in the order the school year teaches them: by the first month, then as the Ministry lists them.
+ * @template {{ months: number[] }} U
+ * @param {U[]} units
+ * @returns {U[]}
+ */
+export const inSchoolOrder = (units) => units
+  .map((u, i) => ({ u, i, first: Math.min(...u.months.map(schoolIndex)) }))
+  .sort((a, b) => a.first - b.first || a.i - b.i)
+  .map((x) => x.u);

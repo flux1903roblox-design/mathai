@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test -c e2e/playwright.config.js",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "programme:md": "vite-node scripts/programme-md.mjs --write",
+    "programme:check": "vite-node scripts/programme-md.mjs --check"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.1.0",

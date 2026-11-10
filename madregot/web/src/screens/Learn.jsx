@@ -208,7 +208,11 @@ export default function Learn() {
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
             mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null} />
         ))}
-        <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה. <Link to="/topics">כל הנושאים והמצב בכל אחד</Link></p>
+        {/* the end of the path says plainly what the app has of the year's programme, and what it does not have yet */}
+        <p className="path-end">
+          <Link to={`/programme?grade=${view}`}>מה כבר יש במדרגות ומה עוד לא, לפי תוכנית משרד החינוך</Link>
+          <Link to="/topics">כל הנושאים והמצב בכל אחד</Link>
+        </p>
       </div>
       <SidePanel streak={streak} todayXp={todayXp} goalXp={goalXp} freezes={freezes} days={days} />
       </div>

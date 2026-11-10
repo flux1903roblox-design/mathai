@@ -10,6 +10,7 @@ describe('plain paths of the parents area become hash routes', () => {
     expect(hashFor({ pathname: '/terms' })).toBe('/#/terms');
     expect(hashFor({ pathname: '/privacy/' })).toBe('/#/privacy');
     expect(hashFor({ pathname: '/accessibility' })).toBe('/#/accessibility');
+    expect(hashFor({ pathname: '/programme', search: '?grade=8' })).toBe('/#/programme?grade=8');
   });
   it('keeps any base path in front', () => {
     expect(hashFor({ pathname: '/madregot/parents/link', search: '?c=ABC234' })).toBe('/madregot/#/parents/link?c=ABC234');
