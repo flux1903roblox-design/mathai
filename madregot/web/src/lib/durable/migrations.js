@@ -29,8 +29,13 @@ export const CURRENT_VERSION = 5;
 export const AI_DEFAULTS = Object.freeze({ mode: 'server', apiUrl: '', key: '', device: '', familyDevice: null /* {token, label} */, pendingLink: null /* {code, secret, expiresAt, url} */, lastTier: null });
 /** This device's save settings: its tag (xpBy), when the browser was asked to keep the data, and the save prompts. */
 export const DURABLE_DEFAULTS = Object.freeze({ tag: null, persistAsked: null, installHintAt: null, nudgeAt: null, nudgeCount: 0, escrowClass: true });
-/** The backup of this student's progress: off until the student or a parent turns it on. */
-export const BACKUP_DEFAULTS = Object.freeze({ on: false, code: null, lookup: null, rev: null, at: null, hash: null, escrow: null, undoUntil: null, forcePush: false });
+/**
+ * The backup of this student's progress: off until the student or a parent turns it on. With the backup code (DURABLE-5,
+ * durable/vault.js): the code, its lookup token, the vault's rev and when it was last pushed, the hash of what was pushed,
+ * the sync's state ('idle' | 'offline' | 'error' | 'unavailable' | 'too_big' | 'other_student' | 'gone') and a one-time
+ * note for Settings ('recreated').
+ */
+export const BACKUP_DEFAULTS = Object.freeze({ on: false, code: null, lookup: null, rev: null, at: null, hash: null, escrow: null, undoUntil: null, forcePush: false, state: null, note: null });
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 

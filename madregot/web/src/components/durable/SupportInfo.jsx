@@ -1,7 +1,7 @@
 // Settings › מידע לתמיכה (DURABLE-9): the technical details a family can copy into an email when something does not
 // work: the build, how the saving goes, whether the browser promised to keep the data, how much room the site uses,
-// the backup, and the last 5 errors kept on this device (lib/monitor.js writes them, with or without a server).
-// No name, no code, nothing typed by the student.
+// the backup (its state, never its code), and the last 5 errors kept on this device (lib/monitor.js writes them, with
+// or without a server). No name, no code, nothing typed by the student.
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ChevronDown } from 'lucide-react';
@@ -9,6 +9,9 @@ import { useDurable, healthText } from '@/lib/durable/useDurable.js';
 import { persistedText } from '@/lib/durable/persist.js';
 import { errorLog } from '@/lib/durable/storage.js';
 import { RELEASE } from '@/lib/monitor.js';
+import { useApp } from '@/lib/store.js';
+import { backupText } from '@/lib/durable/vault.js';
+import { copyText } from '@/lib/clipboard.js';
 import { Button } from '@/components/ui.jsx';
 
 export const COPIED = 'הועתק. אפשר להדביק במייל לתמיכה.';
@@ -23,35 +26,23 @@ export const roomText = (est) => (knownRoom(est) ? `${mb(est.usage)} מתוך ${
 const when = (iso) => { const t = new Date(iso); return Number.isNaN(t.getTime()) ? '' : t.toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }); };
 
 /** The details as plain text, as they are copied. `errors`: the newest first. */
-export function supportText({ release, health, persisted, estimate, errors }) {
+export function supportText({ release, health, persisted, estimate, backup, errors }) {
   return [
     'מדרגות · מידע לתמיכה',
     `גרסה: ${release}`,
     `שמירה במכשיר: ${healthText(health)}`,
     `שמירה קבועה בדפדפן: ${persistedText(persisted)}`,
     `מקום בשימוש: ${roomText(estimate)}`,
-    'גיבוי: כבוי',
+    `גיבוי: ${backupText(backup)}`,
     `תקלות אחרונות: ${errors.length ? '' : 'אין'}`.trim(),
     ...errors.map((e) => `- ${when(e.at)} · ${e.kind} · ${e.route || ''} · ${e.message || e.name || ''}`),
   ].join('\n');
 }
 
-/** Copy text: the clipboard where the browser allows it, else the older way. Resolves true when it was copied. */
-async function copy(text) {
-  try { await navigator.clipboard.writeText(text); return true; } catch { /* try the older way */ }
-  try {
-    const t = document.createElement('textarea');
-    t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
-    document.body.appendChild(t); t.select();
-    const ok = document.execCommand('copy');
-    t.remove();
-    return ok;
-  } catch { return false; }
-}
-
 export default function SupportInfo() {
   const health = useDurable((s) => s.health);
   const persisted = useDurable((s) => s.persisted);
+  const backup = useApp((s) => s.backup);
   const [estimate, setEstimate] = useState(null);
   const [errors, setErrors] = useState([]);
   // read when it is opened, so what it shows is now
@@ -59,8 +50,8 @@ export default function SupportInfo() {
     try { setEstimate((await navigator.storage?.estimate?.()) ?? null); } catch { setEstimate(null); }
     try { setErrors((await errorLog.list()).slice(-SHOWN_ERRORS).reverse()); } catch { setErrors([]); }
   };
-  const info = { release: RELEASE, health, persisted, estimate, errors };
-  const onCopy = async () => { if (await copy(supportText(info))) toast.success(COPIED); else toast(NOT_COPIED); };
+  const info = { release: RELEASE, health, persisted, estimate, backup, errors };
+  const onCopy = async () => { if (await copyText(supportText(info))) toast.success(COPIED); else toast(NOT_COPIED); };
   return (
     <details className="section set-group support-info" onToggle={(e) => { if (e.currentTarget.open) load(); }}>
       <summary className="set-head support-summary">מידע לתמיכה<ChevronDown size={22} aria-hidden="true" className="support-chev" /></summary>
@@ -73,7 +64,7 @@ export default function SupportInfo() {
           {/* each amount keeps its own order inside the Hebrew line */}
           <dd>{knownRoom(estimate) ? <span><bdi dir="ltr">{mb(estimate.usage)}</bdi> מתוך <bdi dir="ltr">{mb(estimate.quota)}</bdi></span> : 'לא ידוע'}</dd>
         </div>
-        <div className="save-row"><dt>גיבוי</dt><dd>כבוי</dd></div>
+        <div className="save-row"><dt>גיבוי</dt><dd>{backupText(backup)}</dd></div>
         <div className="save-row support-errors-row">
           <dt>תקלות אחרונות</dt>
           <dd>

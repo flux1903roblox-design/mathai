@@ -1,9 +1,9 @@
 // /parents/info on the child's device: a screen to hand to a parent. No price and no plan here. It shows a QR code (made
 // on this device) and the link code in large type; the parent scans it with their own phone, reads about the tutor
 // there, and, if they choose to, links this device. This device then collects its AI-only token by itself.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import qrcode from 'qrcode-generator';
+import QrCode from '@/components/QrCode.jsx';
 import { useApp } from '@/lib/store.js';
 import { hasServer } from '@/lib/api.js';
 import { startLink, pollLink, useAIStatus } from '@/lib/account.js';
@@ -13,25 +13,6 @@ import ParentsFrame, { NoServerNote } from './ParentsFrame.jsx';
 
 const POLL_MS = 5000;
 const POLL_FOR_MS = 15 * 60_000;
-
-/** A QR code drawn as SVG squares from the link itself: nothing is fetched, nothing is injected as HTML. */
-export function QrCode({ text, size = 208, label }) {
-  const path = useMemo(() => {
-    const qr = qrcode(0, 'M');
-    qr.addData(text);
-    qr.make();
-    const n = qr.getModuleCount();
-    let d = '';
-    for (let r = 0; r < n; r += 1) for (let c = 0; c < n; c += 1) if (qr.isDark(r, c)) d += `M${c + 4} ${r + 4}h1v1h-1z`;
-    return { d, n: n + 8 };
-  }, [text]);
-  return (
-    <svg className="qr" width={size} height={size} viewBox={`0 0 ${path.n} ${path.n}`} role="img" aria-label={label} shapeRendering="crispEdges">
-      <rect width={path.n} height={path.n} fill="#fff" />
-      <path d={path.d} fill="#14161a" />
-    </svg>
-  );
-}
 
 export default function ParentHandoff() {
   // linked, and the plan behind it still live (a plan that ended leaves the token on the free taste: link again)

@@ -8,7 +8,12 @@
 //   - "לשמור קובץ גיבוי" shares or downloads the backup file, "לשחזר מקובץ" reads one back (RestorePreview says what
 //     it holds and what restoring it does), and a note says who can read the file. A teacher's file also holds the
 //     class keys, so the teacher's note says so (role="teacher": the teacher's class settings place this section);
-//   - for 30 days after a restore replaced another student's progress, "לבטל את השחזור האחרון" brings it back.
+//   - for 30 days after a restore replaced another student's progress, "לבטל את השחזור האחרון" brings it back;
+//   - with a server, "גיבוי" is the backup code (DURABLE-5, durable/vault.js): its state, and "ליצור קוד גיבוי" (make a
+//     code, push the first sealed copy, show the code in BackupCodeSheet), or, while it is on, "להציג את קוד הגיבוי"
+//     and "להפסיק את הגיבוי" (after a confirmation: the copy on the server is deleted). When the vault holds another
+//     student's progress, a note says so and offers "ליצור קוד חדש" or "להשאיר כך" (both let go of that vault without
+//     deleting it: it is the other student's). After the vault was made again, a one-time note says so.
 import { useState } from 'react';
 import { Check, Info, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -18,11 +23,21 @@ import { exportBackup } from '@/lib/durable/file.js';
 import { canUndo, undoRestore, UNDO_TOAST, NO_UNDO } from '@/lib/durable/apply.js';
 import { persistedText, canAsk, askFromSettings, PERSIST_TOAST } from '@/lib/durable/persist.js';
 import { guideHere } from '@/lib/durable/install.js';
+import { hasServer } from '@/lib/api.js';
+import { createBackup, stopBackup, detachBackup, clearBackupNote, backupText, vaultErrorText, BACKUP_TEXT } from '@/lib/durable/vault.js';
 import { Button, Sheet } from '@/components/ui.jsx';
+import { ConfirmSheet } from '@/components/Screen.jsx';
+import BackupCodeSheet from './BackupCodeSheet.jsx';
 import FileRestore from './FileRestore.jsx';
 import RestorePreview from './RestorePreview.jsx';
 import PersistInfoSheet from './PersistInfoSheet.jsx';
 import InstallSheet from './InstallSheet.jsx';
+
+/** Under "ליצור קוד גיבוי": what the code keeps, and who can read it. */
+export const BACKUP_NOTE = 'קוד גיבוי שומר עותק מוצפן. בלי הקוד אף אחד לא יכול לקרוא אותו, גם לא אנחנו.';
+export const STOPPED = 'הגיבוי הופסק, והעותק בשרת נמחק.';
+/** The backup is working (or about to): the row shows the check. */
+const backupOk = (b) => !!b?.on && (b.state == null || b.state === 'idle' || b.state === 'gone');
 
 const NOTE = {
   student: 'בקובץ יש את כל ההתקדמות, כולל השם. מי שמקבל אותו יכול לקרוא אותו.',
@@ -39,6 +54,21 @@ export default function SaveSection({ role = 'student' }) {
   const [status, setStatus] = useState('');
   const [info, setInfo] = useState(false);
   const [install, setInstall] = useState(false);
+  const backup = useApp((s) => s.backup);
+  const server = hasServer();
+  const [busy, setBusy] = useState(null); // 'create' | 'stop' while the server is asked
+  const [backupMsg, setBackupMsg] = useState('');
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [stopAsk, setStopAsk] = useState(false);
+  const create = async () => {
+    setBusy('create'); setBackupMsg('');
+    try { await createBackup(); setCodeOpen(true); } catch (e) { setBackupMsg(vaultErrorText(e)); } finally { setBusy(null); }
+  };
+  const stop = async () => {
+    setBusy('stop'); setBackupMsg('');
+    try { await stopBackup(); toast(STOPPED); } catch (e) { setBackupMsg(vaultErrorText(e)); } finally { setBusy(null); setStopAsk(false); }
+  };
+  const fresh = async () => { detachBackup(); await create(); };
   const ask = async () => {
     const granted = await askFromSettings();
     if (granted === true) toast.success(PERSIST_TOAST.granted);
@@ -81,6 +111,47 @@ export default function SaveSection({ role = 'student' }) {
           <button type="button" className="set-row save-install" onClick={() => setInstall(true)}><span>להוסיף למסך הבית</span><ChevronLeft size={18} aria-hidden="true" /></button>
         </div></div>
       )}
+      {server && (
+        <div className="save-backup">
+          <dl className="save-rows">
+            <div className="save-row">
+              <dt>גיבוי</dt>
+              <dd className={backupOk(backup) ? 'save-ok' : 'save-not'} data-backup={backup?.on ? backup.state || 'idle' : 'off'}>
+                {backupOk(backup) && <Check size={18} strokeWidth={3} aria-hidden="true" />}
+                {backupText(backup)}
+              </dd>
+            </div>
+          </dl>
+          {backup?.on && backup.state === 'other_student' && (
+            <div className="save-backup-note">
+              <p>{BACKUP_TEXT.otherStudent}</p>
+              <Button variant="secondary" className="btn-block" onClick={fresh} disabled={!!busy}>ליצור קוד חדש</Button>
+              <Button variant="ghost" className="btn-block" onClick={() => detachBackup()}>להשאיר כך</Button>
+            </div>
+          )}
+          {backup?.on && backup.note === 'recreated' && (
+            <div className="save-backup-note">
+              <p>{BACKUP_TEXT.recreated}</p>
+              <Button variant="ghost" className="btn-block" onClick={() => clearBackupNote()}>הבנתי</Button>
+            </div>
+          )}
+          {!backup?.on && (
+            <>
+              <Button variant="secondary" className="btn-block" onClick={create} disabled={!!busy} aria-busy={busy === 'create'}>
+                {busy === 'create' ? 'יוצרים קוד…' : 'ליצור קוד גיבוי'}
+              </Button>
+              <p className="save-note">{BACKUP_NOTE}</p>
+            </>
+          )}
+          {backup?.on && backup.state !== 'other_student' && (
+            <>
+              <Button variant="secondary" className="btn-block" onClick={() => setCodeOpen(true)}>להציג את קוד הגיבוי</Button>
+              <Button variant="ghost" className="btn-block save-stop" onClick={() => setStopAsk(true)}>להפסיק את הגיבוי</Button>
+            </>
+          )}
+          <p className="save-status" role="status">{backupMsg}</p>
+        </div>
+      )}
       <div className="save-file">
         <Button variant="secondary" className="btn-block" onClick={save}>לשמור קובץ גיבוי</Button>
         <FileRestore onLoaded={setFound} />
@@ -93,6 +164,11 @@ export default function SaveSection({ role = 'student' }) {
       <Sheet open={!!found} onOpenChange={(o) => { if (!o) setFound(null); }} title="מצאנו גיבוי">
         {found && <RestorePreview backup={found} onDone={() => setFound(null)} onCancel={() => setFound(null)} />}
       </Sheet>
+      <BackupCodeSheet code={backup?.code} open={codeOpen && !!backup?.code} onOpenChange={setCodeOpen} />
+      <ConfirmSheet open={stopAsk} onOpenChange={(o) => { if (!o && busy !== 'stop') setStopAsk(false); }} title="להפסיק את הגיבוי?" keep="להשאיר את הגיבוי"
+        confirm={busy === 'stop' ? 'מפסיקים…' : 'כן, להפסיק'} onConfirm={stop}>
+        <p>העותק המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד. ההתקדמות במכשיר הזה נשארת.</p>
+      </ConfirmSheet>
       <PersistInfoSheet open={info} onOpenChange={setInfo} />
       <InstallSheet open={install} onOpenChange={setInstall} />
     </section>

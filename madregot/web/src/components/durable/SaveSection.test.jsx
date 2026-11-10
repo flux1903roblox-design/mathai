@@ -3,7 +3,8 @@
 // the store's first state).
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import SaveSection from './SaveSection.jsx';
+import SaveSection, { BACKUP_NOTE } from './SaveSection.jsx';
+import { shareText, CODE_SHEET } from './BackupCodeSheet.jsx';
 
 const html = (el) => renderToStaticMarkup(el);
 
@@ -40,5 +41,23 @@ describe('SaveSection', () => {
 
   it('no Home Screen row away from an iPhone', () => {
     expect(html(<SaveSection />)).not.toContain('להוסיף למסך הבית');
+  });
+
+  it('"גיבוי" with a server: off, the button that makes a code, and what the code keeps', () => {
+    const out = html(<SaveSection />);
+    expect(out).toMatch(/<dt>גיבוי<\/dt><dd class="save-not" data-backup="off">כבוי<\/dd>/);
+    expect(out).toContain('ליצור קוד גיבוי');
+    expect(out).toContain(BACKUP_NOTE);
+    expect(BACKUP_NOTE).toBe('קוד גיבוי שומר עותק מוצפן. בלי הקוד אף אחד לא יכול לקרוא אותו, גם לא אנחנו.');
+    expect(out).not.toContain('להציג את קוד הגיבוי');
+    expect(out).not.toContain('להפסיק את הגיבוי');
+  });
+});
+
+describe('BackupCodeSheet', () => {
+  it('the message for a parent has the code in groups of four and how to use it', () => {
+    expect(shareText('ABCDEFGHJKMNPQRS')).toBe('קוד הגיבוי שלי במדרגות: ABCD-EFGH-JKMN-PQRS\nאם הטלפון יתחלף: פותחים את מדרגות, בוחרים "יש לי קוד גיבוי" ומקלידים את הקוד.');
+    expect(CODE_SHEET.title).toBe('קוד הגיבוי שלכם');
+    expect(CODE_SHEET.who).toBe('מי שיש לו את הקוד יכול לראות את ההתקדמות שלכם, אז תנו אותו רק למי שאתם סומכים עליו.');
   });
 });

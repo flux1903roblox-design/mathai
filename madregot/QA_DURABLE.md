@@ -162,3 +162,50 @@ table of the council's probes comes with the proof pack (DURABLE-15); this file 
   for the class and family copies (DURABLE-6).
 - **For the trust lane's privacy notice:** "אם יוצרים קוד גיבוי, נשמר בשרת עותק מוצפן של ההתקדמות. רק הקוד פותח אותו,
   והוא לא נשמר אצלנו. עותק שלא השתמשו בו 400 יום נמחק, וגם 'להפסיק את הגיבוי' מוחק אותו."
+
+## The backup code on the device (DURABLE-5, client)
+
+- **The code** (`web/src/lib/durable/code.js`). 16 symbols of the Worker's class-code alphabet (a test reads
+  `worker/src/util.js` and pins them equal): 15 random (rejection sampling) and a check symbol `Σ (i+1)·v_i mod 31`,
+  shown as `ABCD-EFGH-JKMN-PQRS`, left to right, in mono. `normalise()` takes any letter case, spaces, dashes (the maqaf
+  and Unicode dashes too), direction and zero-width marks, and the Hebrew keyboard (SI-1452, with ׳ and ’ for W), and
+  answers `typo` or `chars` before any network call.
+- **The cryptography** (`crypto.js`, WebCrypto only). PBKDF2-SHA-256, 100,000 iterations, salt `madregot-vault-v1`,
+  512 bits: an AES-256-GCM key that cannot be exported and a 64-hex lookup token (the `X-Vault` header), made once per
+  code in a session. `seal()` is gzip, then AES-GCM with a random 12-byte IV and the additional data
+  `madregot-vault-v1`, as `base64url(0x01 | iv | ciphertext)`; `open()` throws `VaultOpenError` on any failure. The
+  council's heavy year seals well under 256 KiB; a copy over it is compacted and sealed again, and when it is still over,
+  the backup says "הגיבוי גדול מדי. שמרו קובץ במקום." and the file is the way.
+- **The sync** (`vault.js`, on the moments of `moments.js`, only with a server and the backup on): boot, tick and online
+  pull then push; visible pulls; lesson and hidden push (hidden with keepalive only on the same address and within the
+  hidden moment's budget, after the family summary and the class outbox). A pull merges forward with
+  `applyRestored(…, 'vault', { merge: true })` (logged `{ e: 'merge', m: 'vault' }`; a deliberate reset on either side
+  wins) and never merges another student's copy (`other_student`: nothing merged or pushed until the student chooses).
+  A push is skipped when the SHA-256 of the copy is the one pushed last. 409: pull, merge, push again, at most 3 times,
+  then `error` and a `vault/conflict_loop` report. 404 `vault_gone`: made again with the same code, and Settings says
+  so once. 429: quietly idle. After an undone restore (`forcePush`) the server's copy is pushed over, never pulled.
+  Every call carries `X-Vault`, the class Bearer when there is one and `X-Family-Device` when the device is linked.
+- **Beyond the spec: two devices settle.** When the copy a device pulls already holds everything that device has, the
+  pull counts as pushed. Without that, each pull's own merge line made a new copy, and two devices sent each other the
+  same progress at every moment, forever. The unit test "two devices settle" shows the posts stop.
+- **Settings › שמירת ההתקדמות › גיבוי.** The state ("כבוי", "פועל · עודכן לפני 3 דקות", "פועל · מחכה לאינטרנט",
+  "הגיבוי גדול מדי. שמרו קובץ במקום.", "פועל · ננסה לעדכן שוב בקרוב", "מושהה"), "ליצור קוד גיבוי" with the note on
+  what the code keeps, then "להציג את קוד הגיבוי" and "להפסיק את הגיבוי" (after a confirmation: the copy on the
+  server is deleted). The other-student note offers "ליצור קוד חדש" and "להשאיר כך"; both let go of that vault and
+  delete nothing (it is the other student's). `BackupCodeSheet`: the code, a QR code of the bare code
+  (`components/QrCode.jsx`, shared with the hand-over screen), "לשלוח להורים" (the share sheet with the text, or a copy),
+  "להעתיק", "שמרתי". The where-it-lives sentence gains "ההתקדמות נשמרת במכשיר, ועותק מוצפן שרק הקוד שלכם פותח נשמר
+  בגיבוי." ("מוצפן" only for this copy); מידע לתמיכה shows the backup's state, never its code.
+- **Tests.** `code.test.js` (10,000 codes pass; every single substitution of 500 codes and every neighbour swap fail;
+  the Hebrew keyboard; direction marks), `crypto.test.js` (round trip, a wrong code, a flipped byte, another additional
+  data, a deterministic 64-hex lookup, the heavy year under 256 KiB), `vault.test.js` (a fake server in fetch: pull then
+  push, a 409 merged and retried, a 404 made again, an unchanged copy not sent, offline, a conflict loop that stops,
+  another student, 429, a copy that cannot be opened, forcePush, the identity headers, keepalive, two devices that
+  settle, create, too big, stop and detach), `apply.test.js` (the merge mode), `copy.test.js`, `SaveSection.test.jsx`,
+  `SupportInfo.test.jsx`; `e2e/restore.spec.js` (the fake server's in-memory vault: a code made in Settings, its
+  sheet, the first copy created with `ifRev: null`, a lesson whose push reaches the vault and opens with the code,
+  the code shown again, the backup stopped and the copy deleted, no request carrying the code; no server offers no
+  code; a refusal keeps it off with a calm line).
+- **Evidence.** `qa-evidence/durable/backup-code.png` (the sheet, 390x844), `save-section-backup-off.png`,
+  `save-section-backup.png`; `save-section-solo.png` and `save-section-class.png` were taken again, since the section
+  now has the backup row.

@@ -35,4 +35,12 @@ describe('SupportInfo', () => {
     expect(supportText({ release: 'dev', health: 'full', persisted: null, estimate: null, errors: [] })).toContain('תקלות אחרונות: אין');
     expect(supportText({ release: 'dev', health: 'full', persisted: null, estimate: null, errors: [] })).toContain('שמירה במכשיר: לא נשמר: הדפדפן מלא');
   });
+
+  it('the backup line says how the backup code is doing, never the code', () => {
+    const code = 'ABCDEFGHJKMNPQRS';
+    const text = supportText({ release: 'dev', health: 'ok', persisted: true, estimate: null, errors: [], backup: { on: true, code, lookup: 'f'.repeat(64), state: 'offline' } });
+    expect(text).toContain('גיבוי: פועל · מחכה לאינטרנט');
+    expect(text).not.toContain(code);
+    expect(text).not.toContain('f'.repeat(64));
+  });
 });

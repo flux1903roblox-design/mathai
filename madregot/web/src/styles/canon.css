@@ -623,6 +623,25 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .file-restore:has(.file-input:focus-visible) .file-pick { outline: 3px solid var(--brand-line); outline-offset: 2px; }
 .file-error { margin: 0; }
 
+/* the backup code (DURABLE-5): its row and buttons above the file's, the notes it may show, and its sheet: the code
+   large, left to right and in mono (sized to fit 320 px on one line), the QR code on white, then the three ways to keep it */
+.save-backup { display: flex; flex-direction: column; gap: var(--s3); }
+/* (.set-group > :not(.set-head) clears its children's borders: the line above the backup row is drawn here) */
+.save-section > .save-backup { padding-bottom: var(--s3); border-top: 2px solid var(--line); border-radius: 0; }
+.save-backup .btn { margin-inline: 0; }
+.save-stop { min-height: 48px; text-decoration: underline; text-underline-offset: 3px; }
+.save-backup-note { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); }
+.save-backup-note p { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink); }
+.backup-code-body { display: flex; flex-direction: column; gap: var(--s3); }
+.backup-code-body > p { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
+.backup-code-body > .backup-who { font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.backup-code-body > .backup-code { margin: 0; text-align: center; white-space: nowrap; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: min(30px, calc((100vw - 64px) / 13)); line-height: 1.4; font-weight: 800; letter-spacing: 0.04em; color: var(--ink); }
+.backup-qr { align-self: center; padding: var(--s2); border: 2px solid var(--rule); border-radius: 16px; background: #fff; }
+.backup-qr .qr { display: block; width: 168px; height: 168px; }
+.backup-actions { display: flex; flex-direction: column; gap: var(--s2); }
+.backup-actions .btn { margin-inline: 0; }
+
 /* "מצאנו גיבוי": one line of what the copy holds, what restoring does, then the buttons */
 .restore-preview { display: flex; flex-direction: column; gap: var(--s3); }
 .restore-title { margin: 0; font-family: var(--font-ui); font-size: 22px; line-height: 28px; font-weight: 800; color: var(--ink); }

@@ -1,7 +1,8 @@
 // Installable, kept, and honest about where the data lives (DURABLE-3), in a real browser: the manifest and its icons
 // load (every icon is a PNG of the size it states), the browser is asked to keep the data once after the first lesson
 // and not again after a reload, an iPhone in Safari is offered the Home Screen guide on Learn from the 3rd day, and the
-// sentences about where the progress lives are true for a class student and never say "מוצפן".
+// sentences about where the progress lives are true for a class student and never say "מוצפן" (only the backup code's
+// own note does, DURABLE-5: that copy only the code opens).
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { open, student, livedIn, item, answer, proceedToNext, leaveEndScreens } from './helpers.js';
@@ -193,17 +194,22 @@ test.describe('where the progress lives, said truly', () => {
     await expect(page.locator('.nums-where')).toContainText('ההתקדמות נשמרת רק במכשיר הזה.');
   });
 
-  test('a class student: the numbers say the answers go to the teacher, and no page says "מוצפן"', async ({ page }) => {
+  test('a class student: the numbers say the answers go to the teacher, and only the backup code\'s note says "מוצפן"', async ({ page }) => {
     await fakeServer(page.context(), {}, baseOf());
     await open(page, '#/me', withServer(CLASS));
     await expect(page.locator('.nums-where')).toContainText(CLASS_LINE);
     await expect(page.locator('body')).not.toContainText('לא נשלחים לשום מקום');
+    // "מוצפן" outside the backup code's note (the one copy only its code opens)
+    const encrypted = () => page.evaluate(() => {
+      const count = (t) => t.split('מוצפן').length - 1;
+      return count(document.body.innerText) - count(document.querySelector('.save-backup .save-note')?.innerText || '');
+    });
     for (const route of ['#/me', '#/settings', '#/']) {
       await page.evaluate((r) => { window.location.hash = r; }, route);
       await expect(page.locator(route === '#/' ? '.learn' : route === '#/me' ? '.profile-name' : '.save-section')).toBeVisible();
-      await expect(page.locator('body'), route).not.toContainText('מוצפן');
+      expect(await encrypted(), route).toBe(0);
     }
-    await expect(page.locator('body')).not.toContainText('מוצפן');
+    expect(await encrypted()).toBe(0);
     await page.evaluate(() => { window.location.hash = '#/settings'; });
     await expect(page.locator('.footnote')).toHaveText('מדרגות. ההתקדמות נשמרת במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה.');
     await shot(page, 'save-section-class', { fullPage: true });

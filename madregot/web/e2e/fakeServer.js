@@ -2,7 +2,9 @@
 // tutor's endpoints, sign-in, checkout, the family link, the teacher's class, and a class student's progress. Moved
 // from subscription.spec.js so every spec can use it (PARENTS-10); its state and call log are returned. Since the move,
 // POST /api/progress keeps the answers it is sent (st.answers) and acknowledges them, as the Worker does (DURABLE-7);
-// POST /api/errors keeps each report it is sent (st.errors, DURABLE-9).
+// POST /api/errors keeps each report it is sent (st.errors, DURABLE-9). The backup code's vault (DURABLE-5) keeps sealed
+// copies by their X-Vault header in st.vaults, with the Worker's revisions: create with ifRev null (409 when it exists),
+// compare-and-swap with ifRev n (409 with the current rev, 404 vault_gone), both reads, and delete.
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -45,7 +47,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     licence: { status: 'none', until: null, seats: null, students: 2, aiWeek: 0, joinLocked: false, request: null, legacyUntil: null, offer: { seatYearAgorot: 4900, minSeats: 10, vatMode: 'included', online: true } },
     classes: [], classPayments: [], failPayment: false,
     joinLocked: false, students: [{ id: 'a1', name: 'דנה' }, { id: 'b2', name: 'יואב' }],
-    answers: [], loseProgressReplies: 0, errors: [],
+    answers: [], loseProgressReplies: 0, errors: [], vaults: {},
     ...over,
   };
   const log = [];
@@ -124,6 +126,27 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (kind === 'explain') return reply(route, 200, { text: 'הסבר קצר מהעוזר.' }, hdr);
       if (kind === 'check') return reply(route, 200, { readable: true, final: 'correct', steps: [{ text: '3 + 4 = 7', ok: true }], summary: 'יפה.' }, hdr);
       return reply(route, 200, { questions: [{ prompt: '2+2', answer: '4', hint: 'חברו', solution: ['2+2=4'] }] }, hdr);
+    }
+    // the backup code's vault (DURABLE-5): sealed copies by X-Vault; the fake never opens them
+    if (path === '/api/vault' || path === '/api/vault/rev' || path === '/api/vault/delete') {
+      const id = String(h['x-vault'] || '');
+      if (!/^[0-9a-f]{64}$/.test(id)) return reply(route, 400, { error: 'bad_vault' });
+      const v = st.vaults[id];
+      if (req.method() === 'GET') {
+        if (!v) return reply(route, 404, { error: 'vault_not_found' });
+        return reply(route, 200, path === '/api/vault' ? { rev: v.rev, blob: v.blob, updatedAt: v.updatedAt } : { rev: v.rev, updatedAt: v.updatedAt });
+      }
+      if (path === '/api/vault/delete') { delete st.vaults[id]; return reply(route, 200, { deleted: v ? 1 : 0 }); }
+      const updatedAt = new Date().toISOString();
+      if (body.ifRev === null) {
+        if (v) return reply(route, 409, { error: 'vault_conflict', rev: v.rev });
+        st.vaults[id] = { rev: 1, blob: body.blob, updatedAt };
+        return reply(route, 200, { rev: 1, updatedAt });
+      }
+      if (!v) return reply(route, 404, { error: 'vault_gone' });
+      if (v.rev !== body.ifRev) return reply(route, 409, { error: 'vault_conflict', rev: v.rev });
+      st.vaults[id] = { rev: v.rev + 1, blob: body.blob, updatedAt };
+      return reply(route, 200, { rev: v.rev + 1, updatedAt });
     }
     // the app's error reports (DURABLE-9): a text/plain body holding JSON, kept as they came
     if (path === '/api/errors' && req.method() === 'POST') { st.errors.push(body); return reply(route, 202, { ok: true }); }

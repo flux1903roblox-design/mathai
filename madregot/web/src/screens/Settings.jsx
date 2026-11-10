@@ -239,7 +239,7 @@ async function forgetParent() {
 }
 
 export default function Settings() {
-  const { profile, patchProfile, resetProgress, signOut } = useApp();
+  const { profile, backup, patchProfile, resetProgress, signOut } = useApp();
   const { state: nav, hash } = useLocation();
   const navigate = useNavigate();
   useEffect(() => { if (nav?.focus === 'ai') document.getElementById('ai-title')?.scrollIntoView({ block: 'start' }); }, [nav]);
@@ -305,7 +305,7 @@ export default function Settings() {
       </ConfirmSheet>
       <SupportInfo />
       {/* where the progress lives, in the words the whole app uses (lib/durable/copy.js) */}
-      <p className="footnote">מדרגות. {whereSavedText({ profile })}</p>
+      <p className="footnote">מדרגות. {whereSavedText({ profile, backup })}</p>
     </div>
   );
 }
