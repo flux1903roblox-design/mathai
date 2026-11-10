@@ -1,7 +1,7 @@
 import { hasContent } from '@/learn/content/index.ts';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Check, Footprints, Target, Users, Repeat, Hand, ClipboardList } from 'lucide-react';
+import { ArrowRight, Check, Footprints, Target, Users, Repeat, Hand, ClipboardList, Layers } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { useApp, STORE_KEY } from '@/lib/store.js';
@@ -73,7 +73,10 @@ function Onboarding({ onTeacher }) {
   const set = (patch) => { setError(''); setF((v) => ({ ...v, ...patch })); };
   const grade = joined?.grade || f.grade || '7';
   const recommended = (f.know ?? 1) >= 1 ? 'test' : 'scratch';
-  const start = f.start || recommended;
+  // "everything is new to me": the basics under the grade (fractions, multiplication facts) can be checked first. It is
+  // offered, never recommended: most students who say so only mean the grade's material.
+  const floorOffered = f.know === 0;
+  const start = f.start === 'floor' && !floorOffered ? recommended : f.start || recommended;
 
   const finish = () => {
     setGoalXp(f.goal);
@@ -81,7 +84,7 @@ function Onboarding({ onTeacher }) {
     // "to the first lesson" opens it: the first stair of the grade's first topic
     // from the first stair: it starts by understanding (the stair's first teaching stage), not with exercises
     const first = topicsFor(grade)[0].id;
-    navigate(start === 'test' ? '/placement' : hasContent(`${first}:1`) ? `/learn/${first}/1/A` : `/lesson/${first}/1?part=1`, { replace: true });
+    navigate(start === 'test' ? '/placement' : start === 'floor' ? '/floor' : hasContent(`${first}:1`) ? `/learn/${first}/1/A` : `/lesson/${first}/1?part=1`, { replace: true });
   };
   // each question of the first visit opens at its top
   useEffect(() => { window.scrollTo(0, 0); }, [i]);
@@ -148,7 +151,7 @@ function Onboarding({ onTeacher }) {
     class: 'יש לכם קוד כיתה מהמורה?',
     start: 'מאיפה מתחילים?',
   }[step];
-  const cta = step === 'class' ? (joined ? 'המשך' : f.code.trim() ? 'הצטרפות לכיתה' : 'המשך בלי קוד') : step === 'start' ? (start === 'test' ? 'לבדיקת הרמה' : 'לשיעור הראשון') : 'המשך';
+  const cta = step === 'class' ? (joined ? 'המשך' : f.code.trim() ? 'הצטרפות לכיתה' : 'המשך בלי קוד') : step === 'start' ? ({ test: 'לבדיקת הרמה', floor: 'לבדיקת היסודות' }[start] || 'לשיעור הראשון') : 'המשך';
 
   return (
     <form className="ob" onSubmit={(e) => { e.preventDefault(); if (can && !busy) go(); }} noValidate>
@@ -220,6 +223,10 @@ function Onboarding({ onTeacher }) {
               sub={`עד ${placementMax(grade)} שאלות, ולרוב פחות. כל נושא יתחיל מהמדרגה שלכם.`} glyph={<Target size={30} strokeWidth={2.4} />} />
             <Option on={start === 'scratch'} onPick={() => set({ start: 'scratch' })} title="מתחילים מההתחלה" badge={recommended === 'scratch' ? 'מומלץ' : null}
               sub="מהמדרגה הראשונה בכל נושא. אפשר לעשות את הבדיקה אחר כך." glyph={<Footprints size={30} strokeWidth={2.4} />} />
+            {floorOffered && (
+              <Option on={start === 'floor'} onPick={() => set({ start: 'floor' })} title="בדיקת יסודות קצרה"
+                sub="6 שאלות על שברים ולוח הכפל. אם צריך, נחזק אותם קודם." glyph={<Layers size={30} strokeWidth={2.4} />} />
+            )}
           </div>
         )}
         {error && <p className="form-error" role="alert">{error}</p>}

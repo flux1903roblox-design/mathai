@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { Flame, Zap, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
-import { topicsFor } from '@/content/index.js';
+import { topicsFor, bridgeTopicsFor } from '@/content/index.js';
 import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
 import { MASTERY_N } from '@/learn/mastery.ts';
@@ -85,11 +85,12 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
   const chest = chestOpen(t.id, path);
   return (
     <section className={clsx('unit', `ch-${t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
-      {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path scrolls */}
+      {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path
+          scrolls. The fractions floor is not one of the grade's units: it is named יסודות and has no number */}
       <header className="unit-head" data-region="banner">
         <div className="unit-head-text">
           <h2 id={`unit-${t.id}`} className="unit-title">{t.title}</h2>
-          <p className="unit-label">יחידה {n} · {unitCountText(prog)}</p>
+          <p className="unit-label">{t.bridge ? 'יסודות' : `יחידה ${n}`} · {unitCountText(prog)}</p>
           <div className="unit-bar" role="progressbar" aria-label={`${t.title}: שלבים שהושלמו`} aria-valuemin={0} aria-valuemax={prog.of} aria-valuenow={prog.stages} aria-valuetext={`${prog.stages} מתוך ${prog.of} שלבים`}><i style={{ width: `${(prog.stages / prog.of) * 100}%` }} /></div>
         </div>
         <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={`תזכורת מהשיעור: ${t.title}`}><BookOpen size={22} aria-hidden="true" /><span>תזכורת</span></Link>
@@ -163,16 +164,20 @@ export default function Learn() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { profile, path, days, xp, goalXp, freezes, settleStreak, lastTopic } = useApp();
+  const floorOn = useApp((s) => !!(s.learn.floor ?? null)?.on);
   const [view, setView] = useState(profile.grade || '7');
   const [open, setOpen] = useState(null);
   const [away, setAway] = useState(null); // 'up' | 'down' when the current node is off screen
   const currentRef = useRef(null);
   const firstView = useRef(true);
-  const topics = topicsFor(view);
+  // the grade's own units, and above them the fractions floor while it is on (the floor check or the student put it there)
+  const own = topicsFor(view);
+  const topics = [...(floorOn ? bridgeTopicsFor(view) : []), ...own];
   const streak = streakOf(days);
   const todayXp = days[today()]?.xp || 0;
-  // "Where I am": the next node in the unit practised last (or just now), else in the first unit.
-  const focusTopic = [state?.from, lastTopic].find((id) => id && topics.some((t) => t.id === id)) || topics[0]?.id;
+  // "Where I am": the next node in the unit practised last (or just now), else in the grade's first unit (the floor
+  // above it is never where the map opens by default)
+  const focusTopic = [state?.from, lastTopic].find((id) => id && topics.some((t) => t.id === id)) || own[0]?.id;
   const focusNode = focusTopic && unitNodes(focusTopic, path).find((x) => x.state === 'current');
   const focusKey = focusNode ? `${focusTopic}:${focusNode.kind}:${focusNode.level}` : null;
 
@@ -207,8 +212,8 @@ export default function Learn() {
       <div className="learn-layout">
       <div className="learn-body">
         {/* the home screen is the path, as on Duolingo: units under their sticky banners, the current stop marked */}
-        {topics.map((t, i) => (
-          <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
+        {topics.map((t) => (
+          <Unit key={t.id} t={t} n={own.indexOf(t) + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
             mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null} />
         ))}
         {/* the end of the path says plainly what the app has of the year's programme, and what it does not have yet */}

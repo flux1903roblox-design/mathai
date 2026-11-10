@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { Check, X, Minus, CircleDashed, Sparkles, Route, PencilRuler, ChevronLeft } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { STATUS, focusLevel } from '@/lib/exam.js';
-import { TOPIC, TOPICS, displayTex } from '@/content/index.js';
+import { TOPIC, topicsFor, displayTex } from '@/content/index.js';
 import { aiReady } from '@/lib/ai.js';
 import { Box, Button, ChapterMark, Sheet } from '@/components/ui.jsx';
 import { Markdown, MathText, Tex } from '@/components/MathText.jsx';
@@ -31,12 +31,13 @@ function Prompt({ q }) {
     </div>
   );
 }
-const topicN = (id) => { const t = TOPIC[id]; return t ? TOPICS.filter((x) => x.grade === t.grade).indexOf(t) + 1 : 0; };
+/** A unit's number among its grade's own units; 0 for the fractions floor, which has none. */
+const topicN = (id) => { const t = TOPIC[id]; return t ? topicsFor(t.grade).indexOf(t) + 1 : 0; };
 
 function TopicTag({ id, mark = false }) {
   const t = TOPIC[id];
   if (!t) return <span className="topic-tag muted">נושא אחר</span>;
-  return <span className={`topic-tag ch-${t.color}`}>{mark && <ChapterMark color={t.color} n={topicN(id)} size="sm" />}{t.title}</span>;
+  return <span className={`topic-tag ch-${t.color}`}>{mark && topicN(id) > 0 && <ChapterMark color={t.color} n={topicN(id)} size="sm" />}{t.title}</span>;
 }
 
 function QuestionCard({ q, onAsk }) {
