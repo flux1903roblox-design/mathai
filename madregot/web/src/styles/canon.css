@@ -589,6 +589,8 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .help-sent { display: flex; flex-direction: column; gap: var(--s3); }
 .help-sent-line { margin: 0; font-weight: 700; font-size: var(--t-md); line-height: var(--lh-md); }
 .exam-support { margin-top: var(--s4); }
+/* under a child's message: what the tutor did not receive (personal details are masked before it is sent) */
+.msg-pii { margin: calc(-1 * var(--s1)) 0 0; max-width: min(86%, 560px); align-self: flex-end; text-align: end; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
 /* the teacher's list: a request whose note read as distress (the teacher lane gives it its full design) */
 .help-care { margin: 0; font-weight: 700; color: var(--ink); }
 button.set-row { justify-content: space-between; gap: var(--s3); width: 100%; font-family: inherit; }

@@ -3,6 +3,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useApp } from './store.js';
 import { useAIStatus, closeLimitSheet } from './account.js';
+import { BLOCKED_TEXT } from '@shared/safety.js';
 import { runAI, streamView, streamEnd } from './ai.js';
 
 beforeEach(() => {
@@ -52,6 +53,11 @@ describe('streamEnd: the finished reply', () => {
     expect(() => streamEnd('חלק\n[[care]]\n[[error:upstream]]')).toThrow(expect.objectContaining({ code: 'upstream' }));
     expect(() => streamEnd('חלק\n[[blocked]]')).not.toThrow();
   });
+  it('a reply the server stopped becomes the calm sentence, never a red error (trust spec TRUST-4 §4.2)', () => {
+    expect(streamEnd('נסו לחסר \n[[blocked]]')).toEqual({ text: BLOCKED_TEXT, care: false, blocked: true });
+    expect(streamEnd('\n[[blocked]]')).toEqual({ text: BLOCKED_TEXT, care: false, blocked: true });
+    expect(BLOCKED_TEXT).toBe('לא הצלחתי לענות על זה כמו שצריך. אפשר לנסח את השאלה אחרת?');
+  });
 });
 
 describe('runAI chat over a stream', () => {
@@ -69,6 +75,12 @@ describe('runAI chat over a stream', () => {
     expect(await runAI('chat', { messages: [] }, { onText: () => {} })).toEqual({ text: 'נסו שוב.', care: false });
     vi.stubGlobal('fetch', streaming(['\n[[refusal]]']));
     await expect(runAI('chat', { messages: [] }, { onText: () => {} })).rejects.toMatchObject({ code: 'refusal' });
+  });
+  it('a stopped stream resolves to the calm sentence; a blocked JSON reply passes through as it is', async () => {
+    vi.stubGlobal('fetch', streaming(['נסו ', 'לחסר ', '\n[[blocked]]']));
+    expect(await runAI('chat', { messages: [] }, { onText: () => {} })).toEqual({ text: BLOCKED_TEXT, care: false, blocked: true });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ text: BLOCKED_TEXT, blocked: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+    expect(await runAI('explain', {})).toEqual({ text: BLOCKED_TEXT, blocked: true, care: false });
   });
   it('a care reply leaves the question count on screen as it was (the server sends no X-AI-Tier)', async () => {
     useAIStatus.setState({ status: { paywall: true, tier: 'free', kinds: ['explain', 'chat'], groups: { tutor: { left: 0, limit: 2 } } } });

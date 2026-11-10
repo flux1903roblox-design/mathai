@@ -3,7 +3,7 @@
 // The owner works through scripts/owner.mjs; there is no HTTP admin.
 import Anthropic from '@anthropic-ai/sdk';
 import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare } from '../../shared/ai.js';
-import { detectDistress, CARE_MARK, CARE_STATIC } from '../../shared/safety.js';
+import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, take, key, giveBack,
   limitOrThrow, hmacHex,
@@ -110,6 +110,52 @@ function careStaticReply(kind, input, cors, headers) {
   return json({ text: CARE_STATIC, care: true }, 200, cors, headers);
 }
 
+/** What a child typed that this request sends to the AI for the first time: the newest chat message, or a typed answer. */
+function childText(kind, input) {
+  if (kind === 'chat') return [lastUser(input.messages)];
+  if (kind === 'explain') return [input.studentAnswer];
+  return [];
+}
+
+const hostOf = (url) => { try { return new URL(url).hostname.toLowerCase(); } catch { return ''; } };
+
+/**
+ * Screen every string of a JSON reply (trust spec TRUST-4 §4.2). → { data, blocked, linksRemoved }. `care`: a care
+ * result is never checked against the blocklist; its links still are.
+ */
+function screenJson(data, opts) {
+  let blocked = false; let linksRemoved = 0;
+  const walk = (v) => {
+    if (typeof v === 'string') {
+      const s = screenOutput(v, opts);
+      if (s.blocked) blocked = true;
+      linksRemoved += s.linksRemoved;
+      return s.text;
+    }
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+    return v;
+  };
+  const out = walk(data);
+  return { data: out, blocked, linksRemoved };
+}
+
+// The streamed reply is screened as it goes: the last, unfinished word is held back (a word is judged whole), and only
+// the new text is checked, from the start of the word where the last check stopped.
+const WORD_CHAR = /[\p{L}\p{N}_'"]/u;
+const HOLD_MAX = 60; // a "word" longer than this is not held back any longer
+const OVERLAP = 40; // longer than any blocklist term, so a term across two checks is still seen whole
+function stableEnd(text) {
+  let i = text.length;
+  while (i > 0 && WORD_CHAR.test(text[i - 1]) && text.length - i < HOLD_MAX) i -= 1;
+  return i;
+}
+function wordStart(text, i) {
+  let j = Math.max(0, i);
+  while (j > 0 && WORD_CHAR.test(text[j - 1])) j -= 1;
+  return j;
+}
+
 async function handleAI(kind, req, env, ctx, cors) {
   if (!AI_KINDS.includes(kind)) throw new HttpError(404, 'not_found');
   // Distress first (trust spec TRUST-3 §3.4): the body is read and checked before anything can refuse, so a child who
@@ -124,9 +170,19 @@ async function handleAI(kind, req, env, ctx, cors) {
   // a care answer says nothing about the person's questions (no X-AI-Tier or X-AI-Left), so the screen's count stays
   const headers = careTier ? (r.linkedBad ? { 'X-AI-Linked': '0' } : {}) : aiHeaders(r);
   if (r.static) return careStaticReply(kind, input, cors, headers);
+  // Personal details were masked in the request itself (shared/ai.js); here they are only counted, one event per kind
+  // of detail, with nothing of the text (trust spec TRUST-4 §4.1).
+  const pii = scanPersonal(childText(kind, input));
+  if (pii.length) recordSafety(env, pii.map((category) => ({ kind: 'pii_masked', category, surface: kind, source: 'regex', tier: r.tier })), ctx);
+  const screen = { hosts: [hostOf(env.PUBLIC_URL)].filter(Boolean) };
+  const event = (k) => recordSafety(env, { kind: k, surface: kind, source: 'server', tier: r.tier }, ctx);
   let returned = false;
   // a call where Claude did no work gives the person's question back (never the shared or tries counters)
   const giveBackOnce = async () => { if (!returned) { returned = true; await giveBack(env, r.refund); } };
+  // the question was given back: the count the screen shows says so
+  const leftBack = () => {
+    if (headers['X-AI-Left'] !== undefined) headers['X-AI-Left'] = String(Math.min(r.limit ?? Infinity, Math.max(0, r.left) + 1));
+  };
   // only the model noticed: the reply is a care reply, and the question it took is given back
   const modelCare = async () => {
     if (careTier) return;
@@ -144,23 +200,47 @@ async function handleAI(kind, req, env, ctx, cors) {
     let wrote = false;
     const write = (text) => { if (text) wrote = true; return writer.write(enc.encode(text)).catch(() => { aborted = true; }); };
     // The start of the reply is held back until it has 9 characters or a line, so a care line the model puts first
-    // ([[care]]) is taken out before anything reaches the screen, and sent as a marker at the end instead.
+    // ([[care]]) is taken out before anything reaches the screen, and sent as a marker at the end instead. Then, in
+    // this order (trust spec TRUST-4 §4.2): a care reply goes out as it comes; any other reply is checked against the
+    // blocklist before each piece is sent, and on a hit the stream stops and ends with [[blocked]].
     let care = careTier; let held = ''; let decided = false;
+    let acc = ''; let sent = 0; let checked = 0; let blocked = false;
+    const pass = async (final) => {
+      if (blocked) return;
+      const end = care || final ? acc.length : stableEnd(acc);
+      if (end <= sent) return;
+      if (!care) {
+        const from = wordStart(acc, checked - OVERLAP);
+        if (blockHit(acc.slice(from, end))) { blocked = true; return; }
+        checked = end;
+      }
+      const piece = acc.slice(sent, end); sent = end;
+      await write(piece);
+    };
     const settle = async () => {
       if (decided) return;
       decided = true;
       const lead = splitCare(held); held = '';
       if (lead.care) care = true;
-      await write(lead.text);
+      acc += lead.text;
+      await pass(false);
     };
     const out = async (text) => {
-      if (decided) return write(text);
+      if (decided) { acc += text; return pass(false); }
       held += text;
       const lead = held.replace(/^\s+/, '');
       if (lead.length > CARE_MARK.length || lead.includes('\n')) await settle();
     };
     // a care request that failed or was declined still answers the child: the fixed reply, never an error
     const careFallback = async () => { if (!wrote) await write(CARE_STATIC); await write(`\n${CARE_MARK}`); };
+    // a reply that was not fit to show: nothing more of it goes out, the question is given back, and the app shows a
+    // calm sentence in its place
+    let endedBlocked = false;
+    const endBlocked = async () => {
+      if (endedBlocked) return;
+      endedBlocked = true;
+      await giveBackOnce(); event('output_blocked'); await write('\n[[blocked]]');
+    };
     const pump = (async () => {
       let stream;
       let recorded = false;
@@ -169,34 +249,48 @@ async function handleAI(kind, req, env, ctx, cors) {
         stream = client.beta.messages.stream(r.params);
         for await (const ev of stream) {
           usage.event(ev);
-          if (aborted) { stream.abort(); break; }
+          if (aborted || blocked) { stream.abort(); break; }
           if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') await out(ev.delta.text);
+          if (blocked) { stream.abort(); break; }
         }
-        if (!aborted) {
+        if (blocked) await endBlocked();
+        else if (!aborted) {
           await settle();
-          const final = await stream.finalMessage();
-          recorded = true;
-          await record(final);
-          if (careTier) {
-            if (final.stop_reason === 'refusal') await careFallback();
-            else await write(`\n${CARE_MARK}`);
+          await pass(true);
+          if (blocked) {
+            await endBlocked();
           } else {
-            if (care) { await modelCare(); await write(`\n${CARE_MARK}`); }
-            if (final.stop_reason === 'refusal') { await giveBackOnce(); await write('\n[[refusal]]'); }
+            const final = await stream.finalMessage();
+            recorded = true;
+            await record(final);
+            // the links were sent as written; the app shows any it may not open as plain text (SafeLink)
+            if (screenOutput(acc, { ...screen, care: true }).linksRemoved) event('link_removed');
+            if (careTier) {
+              if (final.stop_reason === 'refusal') { event('refusal'); await careFallback(); }
+              else await write(`\n${CARE_MARK}`);
+            } else {
+              if (care) { await modelCare(); await write(`\n${CARE_MARK}`); }
+              // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
+              if (final.stop_reason === 'refusal') { event('refusal'); await giveBackOnce(); await write('\n[[refusal]]'); }
+            }
           }
         }
       } catch (e) {
-        if (!aborted) {
+        // stopping a blocked stream can end it with an error of its own: the reply still ends as blocked
+        if (blocked && !aborted) await endBlocked();
+        else if (!aborted) {
           console.error('chat stream', e?.status, e?.message);
           await settle();
-          if (careTier) await careFallback();
+          await pass(true);
+          if (blocked) await endBlocked();
+          else if (careTier) await careFallback();
           else {
             await giveBackOnce();
             await write(`\n[[error:${aiErrorCode(e)}]]`);
           }
         }
       } finally {
-        // the reader left, or the stream broke: what Claude already did is still priced
+        // the reader left, or the stream broke or was stopped: what Claude already did is still priced
         const partial = recorded ? null : usage.message();
         if (partial) await record(partial);
         try { await writer.close(); } catch { /* the client went away */ }
@@ -232,16 +326,30 @@ async function handleAI(kind, req, env, ctx, cors) {
   try {
     result = readResult(kind, message);
   } catch (e) {
+    if (e?.code === 'refusal') event('refusal'); // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
     if (careTier) return careStaticReply(kind, input, cors, headers);
     const code = e?.code === 'refusal' || e?.code === 'bad_output' ? e.code : 'bad_output';
     await giveBackOnce();
     throw new HttpError(code === 'refusal' ? 422 : 502, code, undefined, undefined, headers);
   }
+  // Every reply is screened before the child sees it (trust spec TRUST-4 §4.2). A care reply (the care path, or one the
+  // model marked) is never checked against the blocklist; its links are.
+  const isCare = careTier || result?.care === true;
+  const checkedOut = screenJson(result, { ...screen, care: isCare });
+  if (checkedOut.blocked) {
+    await giveBackOnce();
+    event('output_blocked');
+    // a text reply becomes a calm sentence; a structured result (a check, an exam, exercises) cannot be shown in part
+    if (kind === 'explain' || kind === 'chat') { leftBack(); return json({ text: BLOCKED_TEXT, blocked: true }, 200, cors, headers); }
+    leftBack();
+    throw new HttpError(502, 'bad_output', undefined, undefined, headers);
+  }
+  if (checkedOut.linksRemoved) event('link_removed');
+  result = checkedOut.data;
   if (careTier) return json({ ...result, care: true }, 200, cors, headers);
   if (result?.care === true) {
     await modelCare();
-    // the question was given back: the count the screen shows says so
-    if (headers['X-AI-Left'] !== undefined) headers['X-AI-Left'] = String(Math.min(r.limit ?? Infinity, Math.max(0, r.left) + 1));
+    leftBack();
   }
   return json(result, 200, cors, headers);
 }
@@ -358,6 +466,9 @@ async function saveProgress(req, env, cors) {
   return json({ saved: events.length }, 200, cors);
 }
 
+/** The title a class exam is kept under: no name-like ID, phone or long number (trust spec TRUST-5 §6). */
+const examTitle = (t) => scrubTitle(String(t || '').trim() || 'מבחן').slice(0, 80);
+
 async function saveExam(req, env, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.exams);
@@ -367,7 +478,7 @@ async function saveExam(req, env, cors) {
   }));
   const weak = (Array.isArray(b.weakTopics) ? b.weakTopics : []).filter((t) => TOPIC_IDS.includes(t)).slice(0, 6);
   await env.DB.prepare('INSERT INTO exams (student_id, title, correct, total, questions, weak, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(s.id, String(b.title || 'מבחן').slice(0, 80), Number(b.correct) || 0, Number(b.total) || qs.length, JSON.stringify(qs), JSON.stringify(weak), nowIso()).run();
+    .bind(s.id, examTitle(b.title), Number(b.correct) || 0, Number(b.total) || qs.length, JSON.stringify(qs), JSON.stringify(weak), nowIso()).run();
   return json({ ok: true }, 200, cors);
 }
 

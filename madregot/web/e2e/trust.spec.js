@@ -254,3 +254,47 @@ test.describe('distress', () => {
     await expect(sheet).toHaveCount(0);
   });
 });
+
+test.describe('moderation', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+
+  /** The fake server's chat answers with this text (as the Worker streams it). */
+  const chatSays = async (page, log, text) => page.route(`${API}/api/ai/chat`, async (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    log.push({ path: '/api/ai/chat', body: route.request().postDataJSON() });
+    return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: { ...CORS, 'X-AI-Tier': 'free', 'X-AI-Group': 'tutor', 'X-AI-Left': '1' }, body: text });
+  });
+
+  test('a reply the server stopped shows the calm sentence, never a red error', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await chatSays(page, log, 'נסו לחסר \n[[blocked]]');
+    await open(page, '#/assistant', withServer());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך פותרים?'); await draft.press('Enter');
+    await expect(page.locator('.msg-row.assistant').last()).toHaveText('לא הצלחתי לענות על זה כמו שצריך. אפשר לנסח את השאלה אחרת?');
+    await expect(page.locator('.form-error')).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(draft).toHaveValue('');
+  });
+
+  test('personal details: a quiet line says what the tutor did not receive; links in a reply open only to checked places', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await chatSays(page, log, 'אפשר לקרוא [פתרונות](https://evil.example/answers) או לדבר עם [ער״ן](https://www.eran.org.il/online-emotional-help/). ![x](https://evil.example/x.png)');
+    await open(page, '#/assistant', withServer());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('אפשר לשלוח לי את הפתרון ל־0521234567?'); await draft.press('Enter');
+    const note = page.locator('.msg-pii');
+    await expect(note).toHaveText('הסרנו מהשאלה מספר טלפון. אין צורך לשלוח לעוזר פרטים אישיים.');
+    await expect(page.locator('.msg-row.user')).toHaveText('אפשר לשלוח לי את הפתרון ל־0521234567?'); // the child's own words stay as written
+    const reply = page.locator('.msg-row.assistant').last();
+    await expect(reply).toContainText('פתרונות');
+    await expect(reply.locator('a[href*="evil.example"]')).toHaveCount(0);
+    await expect(reply.locator('img')).toHaveCount(0);
+    const eran = reply.getByRole('link', { name: 'ער״ן' });
+    await expect(eran).toHaveAttribute('href', 'https://www.eran.org.il/online-emotional-help/');
+    await expect(eran).toHaveAttribute('rel', 'noopener noreferrer');
+    await shot(page, 'pii-line');
+    // the request went to the server as typed: the server masks it before the tutor, and counts it
+    expect(log.filter((r) => r.path === '/api/ai/chat')[0].body.messages.at(-1).content).toContain('0521234567');
+  });
+});

@@ -2,7 +2,7 @@
 // when linked to a family plan, its AI-only token: never the parent's session. A personal key (calling Claude from
 // this device) exists only in builds made with VITE_ALLOW_PERSONAL_KEY=1, the copies without a server.
 import { buildRequest, readResult, splitCare, STREAMED } from '@shared/ai.js';
-import { CARE_MARK } from '@shared/safety.js';
+import { CARE_MARK, BLOCKED_TEXT } from '@shared/safety.js';
 import { useApp } from './store.js';
 import { apiBase, ApiError, errorText } from './api.js';
 import { aiHeaders, aiMode, aiReady, noteUsage, noteLimit, openLimitSheet, LIMIT_ERRORS, useAIStatus } from './account.js';
@@ -46,14 +46,20 @@ export function streamView(acc) {
   return splitCare(acc).text.replace(PARTIAL, '').replace(TAIL, '');
 }
 
-/** The finished reply: { text, care }. Throws the error a refusal or [[error:<code>]] marker carries. */
+/**
+ * The finished reply: { text, care }. Throws the error a refusal or [[error:<code>]] marker carries. A reply the server
+ * stopped ([[blocked]]: it was not fit to show) becomes the calm sentence, with blocked: true; never a red error.
+ */
 export function streamEnd(acc) {
   const lead = splitCare(acc);
   const tail = (lead.text.match(TAIL) || [''])[0];
   const marks = [...tail.matchAll(/\[\[(refusal|care|blocked|error:([a-z_]+))\]\]/g)];
   const err = marks.find((m) => m[1] === 'refusal' || m[2]);
   if (err) throw new ApiError(err[1] === 'refusal' ? 'refusal' : err[2]);
-  return { text: lead.text.slice(0, lead.text.length - tail.length), care: lead.care || marks.some((m) => m[1] === 'care') };
+  const care = lead.care || marks.some((m) => m[1] === 'care');
+  // (the server never stops a care reply; were both ever there, the care reply is what a child in distress needs)
+  if (!care && marks.some((m) => m[1] === 'blocked')) return { text: BLOCKED_TEXT, care: false, blocked: true };
+  return { text: lead.text.slice(0, lead.text.length - tail.length), care };
 }
 
 /**

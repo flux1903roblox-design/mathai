@@ -3,6 +3,7 @@ import katex from 'katex';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { linkAllowed } from '@shared/safety.js';
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
@@ -91,15 +92,34 @@ export const MathText = memo(function MathText({ text, as: As = 'span', classNam
   );
 });
 
-/** Markdown with math, for text written by the AI. Raw HTML is not rendered. */
-const INLINE = { p: 'span' };
+/**
+ * A link in text the AI wrote (trust spec TRUST-4 §4.2): an anchor only to the hosts every reply may link to (the
+ * support services, WhatsApp, Israeli government sites, from the same list the server screens with) or to this app's
+ * own address; it opens in a new tab with no opener. Any other link is shown as its text, so a child never follows an
+ * address nobody checked. This covers a reply that is still streaming, before the server's screen has seen it all.
+ */
+export function SafeLink({ href, children }) {
+  const own = typeof window !== 'undefined' && window.location?.hostname ? [window.location.hostname] : [];
+  if (!linkAllowed(href, own)) return <span className="md-link-text">{children}</span>;
+  const tel = /^tel:/i.test(String(href));
+  return <a href={href} {...(tel ? {} : { target: '_blank', rel: 'noopener noreferrer' })}>{children}</a>;
+}
+
+/** An image in text the AI wrote is never loaded (an address nobody chose would load by itself): its words stay. */
+export function SafeImage({ alt }) {
+  return alt ? <span className="md-link-text">{alt}</span> : null;
+}
+
+/** Markdown with math, for text written by the AI. Raw HTML is not rendered; links and images go through the above. */
+const SAFE = { a: SafeLink, img: SafeImage };
+const INLINE = { ...SAFE, p: 'span' };
 
 /** Markdown with $...$ math. `inline` renders a short answer inside a line of text. */
 export function Markdown({ children, className, inline = false }) {
   const Tag = inline ? 'span' : 'div';
   return (
     <Tag className={[inline ? 'md-inline' : 'md', className].filter(Boolean).join(' ')}>
-      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: 'ignore' }]]} components={inline ? INLINE : undefined}>
+      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: 'ignore' }]]} components={inline ? INLINE : SAFE}>
         {String(children ?? '')}
       </ReactMarkdown>
     </Tag>

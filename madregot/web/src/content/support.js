@@ -89,3 +89,17 @@ export function supportText(lines) {
     ...lines.services.flatMap((s) => [s.name, s.detail, ...s.links.map((l) => l.label), s.hours]),
     lines.talk, lines.talkSent, lines.talkFailed, lines.footer, lines.close].filter(Boolean).join('\n');
 }
+
+/** The kinds of personal detail the tutor never receives (trust spec TRUST-4 §4.1), as the quiet line names them. */
+const PII_NAME = { phone: 'מספר טלפון', email: 'כתובת מייל', id: 'מספר זהות' };
+
+/**
+ * The quiet line under a child's message that held personal details (masked before the tutor gets it): "הסרנו מהשאלה
+ * מספר טלפון. אין צורך לשלוח לעוזר פרטים אישיים." `found` is maskPersonal(text).found; '' when nothing was found.
+ */
+export function piiLine(found = []) {
+  const names = ['phone', 'email', 'id'].filter((k) => found.includes(k)).map((k) => PII_NAME[k]);
+  if (!names.length) return '';
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} ו${names.at(-1)}`;
+  return `הסרנו מהשאלה ${list}. אין צורך לשלוח לעוזר פרטים אישיים.`;
+}

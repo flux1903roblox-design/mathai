@@ -4,6 +4,7 @@
 // This file ships to the browser. Vite targets Safari 16.0, which has no regex lookbehind, and a lookbehind literal
 // stops the whole chunk from loading there: a Hebrew word start is written (?:^|[^א-ת]) and a word end (?![א-ת]).
 // worker/test/safety.test.js fails on a lookbehind anywhere in shared/.
+import { BLOCK_HE, BLOCK_EN } from './blocklist.js';
 
 /**
  * Free services for a child who needs a person. Checked against each service's own site on the date in `checked`;
@@ -156,4 +157,144 @@ export function detectDistress(text) {
     if (RULES.some((r) => r.cat === cat && firstMatch(r, t))) return { flag: true, category: cat };
   }
   return { flag: false, category: null };
+}
+
+// ---------------------------------------------------------------- personal details never reach the AI (TRUST-4 §4.1)
+// the address itself, not a Hebrew word written right before it ("ל-noa@…" keeps its "ל-")
+const EMAIL = /[a-z0-9._%+]+(?:-[a-z0-9._%+]+)*@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi;
+// An Israeli phone: mobile, landline or 07x, with 0 or +972 / 972, dashes or spaces anywhere a person puts them. The
+// leading group stands in for a lookbehind (Safari 16.0): no digit right before the number, none right after.
+const PHONE = /(^|\D)((?:\+?972[-\s]?|0)(?:5\d|[2-4]|[89]|7\d)[-\s]?\d{3}[-\s]?\d{4})(?!\d)/g;
+const NINE = /(^|\D)(\d{9})(?!\d)/g;
+// "ID number" up to 20 characters before nine digits: only then are they an ID (a maths answer of 9 digits is not).
+const ID_WORD = /(?:ת["״']?\.?ז|תעודת זהות|מספר זהות|ת\.ז\.?)/;
+const ID_GAP = 20;
+
+/** The Israeli ID check digit: the 9 digits, weighted 1,2,1,2,…, with each product's digits added, sum to a multiple of 10. */
+export function validIsraeliId(digits) {
+  const d = String(digits);
+  if (!/^\d{9}$/.test(d)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    const v = Number(d[i]) * (i % 2 === 0 ? 1 : 2);
+    sum += v > 9 ? v - 9 : v;
+  }
+  return sum % 10 === 0;
+}
+
+export const PERSONAL_KINDS = Object.freeze(['email', 'phone', 'id']);
+
+/**
+ * Personal details in a text written by a child, masked before it goes to the AI: an email → [מייל], an Israeli phone
+ * → [טלפון], and nine digits that pass the ID check digit with an ID word just before them → [ת״ז]. Names cannot be
+ * masked reliably: the prompt tells the tutor never to repeat one. → { text, found } with found ⊆ PERSONAL_KINDS, in
+ * that order. A phone number is a phone number even inside a maths question ("x = 0521234567").
+ */
+export function maskPersonal(text) {
+  const found = new Set();
+  let t = String(text ?? '');
+  t = t.replace(EMAIL, () => { found.add('email'); return '[מייל]'; });
+  t = t.replace(PHONE, (_, pre) => { found.add('phone'); return `${pre}[טלפון]`; });
+  t = t.replace(NINE, (all, pre, digits, offset, whole) => {
+    const start = offset + pre.length;
+    const before = whole.slice(Math.max(0, start - ID_GAP), start);
+    if (!validIsraeliId(digits) || !ID_WORD.test(before)) return all;
+    found.add('id');
+    return `${pre}[ת״ז]`;
+  });
+  return { text: t, found: PERSONAL_KINDS.filter((k) => found.has(k)) };
+}
+
+/** What maskPersonal would find in these texts, together (for counting only: the masking itself is in buildFull). */
+export function scanPersonal(texts) {
+  const found = new Set();
+  for (const t of (Array.isArray(texts) ? texts : [texts])) for (const k of maskPersonal(t).found) found.add(k);
+  return PERSONAL_KINDS.filter((k) => found.has(k));
+}
+
+/**
+ * A saved exam title (TRUST-5 §6): no personal details, and no run of 7 or more digits (an ID or a phone in any form
+ * becomes '#'). The title is the subject; the AI is told so, and this is the backstop on the device and the server.
+ */
+export function scrubTitle(title) {
+  return maskPersonal(String(title ?? '')).text.replace(/\d{7,}/g, '#');
+}
+
+// ---------------------------------------------------------------- every reply screened (TRUST-4 §4.2)
+/**
+ * Hosts a tutor reply may link to: the support services, WhatsApp and Israeli government sites (the Ministry of
+ * Education, the police, the 105 centre). A host is allowed when it is one of these or ends with "." and one of them:
+ * "parents.education.gov.il" is allowed, "evil-gov.il" and "gov.il.evil.example" are not. The app's own address is
+ * added by the caller (screenOutput's `hosts`, SafeLink's own origin) and is matched exactly.
+ */
+export const ALLOWED_LINK_HOSTS = Object.freeze(['eran.org.il', 'sahar.org.il', 'wa.me', 'gov.il']);
+const SUPPORT_TEL = new Set([SUPPORT.eran.phone, SUPPORT.online.phone, SUPPORT.police, SUPPORT.mda]);
+
+/**
+ * May a reply link here? https (or http) to an allowed host, or a tel: link to one of the support numbers. `hosts`: more
+ * hosts allowed exactly as written (the app's own).
+ */
+export function linkAllowed(href, hosts = []) {
+  const raw = String(href ?? '').trim();
+  if (/^tel:/i.test(raw)) return SUPPORT_TEL.has(raw.slice(4).replace(/[-\s]/g, ''));
+  let u;
+  try { u = new URL(raw); } catch { return false; }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+  if (u.username || u.password) return false;
+  const host = u.hostname.toLowerCase().replace(/\.$/, '');
+  if (hosts.some((h) => h && String(h).toLowerCase() === host)) return true;
+  return ALLOWED_LINK_HOSTS.some((a) => host === a || host.endsWith(`.${a}`));
+}
+
+/** The calm sentence a child sees instead of a reply that was not fit to show. */
+export const BLOCKED_TEXT = 'לא הצלחתי לענות על זה כמו שצריך. אפשר לנסח את השאלה אחרת?';
+
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const BLOCK_RE = new RegExp(
+  `(?:${B}(?:${BLOCK_HE.map(esc).join('|')})${E})|(?:\\b(?:${BLOCK_EN.map(esc).join('|')})\\b)`, 'u',
+);
+
+/** Does this text hold a blocklist word (on normalize(text), whole words only)? */
+export function blockHit(text) {
+  return BLOCK_RE.test(normalize(text));
+}
+
+// Images in a reply are never shown (an address the child did not choose would load by itself): their alt text stays.
+const MD_IMAGE = /!\[([^\]]*)\]\(\s*<?[^)\s>]*>?(?:\s+"[^"]*")?\s*\)/g;
+const MD_LINK = /\[([^\]]*)\]\(\s*<?([^)\s>]*)>?(?:\s+"[^"]*")?\s*\)/g;
+const AUTOLINK = /<((?:https?|ftp|mailto|tel|data|javascript):[^>\s]*)>/gi;
+const MD_DEF = /^[ \t]*\[[^\]]+\]:[ \t]*<?(\S+?)>?(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$/gm;
+const BARE = /\b(?:https?:\/\/|www\.)[^\s<>()[\]"']+/gi;
+
+/**
+ * Screen a reply before a child sees it. Links: a link to a host that is not allowed keeps only its text, a bare
+ * address or a link definition is removed, an image keeps only its alt text. Words: a reply with a blocklist word is
+ * blocked (text '' and blocked: true), unless `care` (a reply about the child's own safety, which must be able to name
+ * what happened; its links are still screened). `hosts`: more hosts allowed exactly (the app's own).
+ * → { text, blocked, linksRemoved }.
+ */
+export function screenOutput(text, { care = false, hosts = [] } = {}) {
+  const src = String(text ?? '');
+  if (!care && blockHit(src)) return { text: '', blocked: true, linksRemoved: 0 };
+  let removed = 0;
+  const ok = (href) => linkAllowed(href, hosts);
+  let t = src.replace(MD_IMAGE, (_, alt) => { removed += 1; return alt; });
+  t = t.replace(MD_DEF, (line, href) => (ok(href) ? line : ((removed += 1), '')));
+  t = t.replace(AUTOLINK, (all, href) => (ok(href) ? all : ((removed += 1), '')));
+  // links first, kept aside so the bare-address pass never looks inside an allowed one
+  const kept = [];
+  t = t.replace(MD_LINK, (all, label, href) => {
+    if (ok(href)) { kept.push(all); return `\u0000${kept.length - 1}\u0000`; }
+    removed += 1;
+    return label;
+  });
+  t = t.replace(BARE, (url) => {
+    const href = /^www\./i.test(url) ? `https://${url}` : url;
+    const clean = href.replace(/[.,;:!?]+$/, '');
+    if (ok(clean)) return url;
+    removed += 1;
+    return url.slice(clean.length - (href.length - url.length));
+  });
+  t = t.replace(/\u0000(\d+)\u0000/g, (_, i) => kept[Number(i)]);
+  return { text: t, blocked: false, linksRemoved: removed };
 }

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Send } from 'lucide-react';
-import { detectDistress } from '@shared/safety.js';
+import { detectDistress, maskPersonal } from '@shared/safety.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { aiAccess, useAIStatus } from '@/lib/account.js';
 import { Button } from './ui.jsx';
@@ -11,6 +11,7 @@ import AIAllowance from './AIAllowance.jsx';
 import Mascot from './Mascot.jsx';
 import SupportCard from './SupportCard.jsx';
 import { SupportLink } from './SupportSheet.jsx';
+import { piiLine } from '@/content/support.js';
 
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
 const THINK = ['קורא את התרגיל', 'חושב על הדרך', 'מנסח הסבר'];
@@ -87,7 +88,9 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
     if (care) setRestBack(false);
     if (care && pending) abortRef.current?.abort(); // the maths answer gives way
     const mine = ++sendRef.current;
-    const user = { role: 'user', content };
+    // what the tutor will not receive (the request masks it): said quietly under the child's own words
+    const pii = maskPersonal(content).found;
+    const user = { role: 'user', content, ...(pii.length ? { pii } : {}) };
     const history = [...toTutor(messages), user];
     // a message that reads as distress: the card shows at once, before any network; the reply goes above it
     setMessages((ms) => [...ms, user, ...(care ? [{ role: 'support', id: mine }] : [])]);
@@ -157,12 +160,15 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
             );
           }
           return (
-            <div key={i} className={`msg-row ${m.role}`} ref={i === anchor ? endRef : undefined} data-align={cardLast && i === anchor ? 'start' : undefined}>
-              {m.role === 'assistant' && <Mascot mood="idle" size={34} className="msg-avatar" />}
-              <div className={`msg ${m.role}`}>
-                {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : <p>{m.content}</p>}
+            <Fragment key={i}>
+              <div className={`msg-row ${m.role}`} ref={i === anchor ? endRef : undefined} data-align={cardLast && i === anchor ? 'start' : undefined}>
+                {m.role === 'assistant' && <Mascot mood="idle" size={34} className="msg-avatar" />}
+                <div className={`msg ${m.role}`}>
+                  {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : <p>{m.content}</p>}
+                </div>
               </div>
-            </div>
+              {m.pii && <p className="msg-pii">{piiLine(m.pii)}</p>}
+            </Fragment>
           );
         })}
         {pending && !cardLast && thinking}

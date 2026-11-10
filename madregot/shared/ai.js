@@ -2,7 +2,7 @@
 // and the browser (personal-key mode). Each builder returns the params for
 // client.beta.messages.create / .stream from @anthropic-ai/sdk.
 
-import { safetyPrompt, CARE_MARK } from './safety.js';
+import { safetyPrompt, CARE_MARK, maskPersonal } from './safety.js';
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 // Server-side refusal fallback: a declined request is re-run on Anthropic's
@@ -24,6 +24,9 @@ Never say a built-in answer is wrong: the app checks built-in exercises with exa
 // later prompt change keeps it first.
 const TUTOR = `${safetyPrompt()}\n\n${TUTOR_BODY}`;
 
+// What a photographed page may show and the tutor never copies (trust spec TRUST-5 §5).
+const PERSONAL_RULE = "If the pages show a person's name, ID number, class, school or any other identifying detail, never copy it into your answer: write [פרטים אישיים] instead.";
+
 const TASKS = {
   explain: `Task: the student answered an exercise incorrectly. Explain the specific mistake: compare their answer with the correct one, name the misconception that most likely produced their number, then show the correct method in 2-4 short steps. Do not lecture and do not repeat the whole topic.`,
   chat: `Task: the student is working on the exercise described in the context and asks you questions about it. Guide them toward the answer. If they have not tried yet, give the next step rather than the final answer; if they ask for the final answer after trying, you may give it with the method.`,
@@ -33,8 +36,10 @@ For every question on the pages: transcribe the question, the student's final an
 If an answer key is provided, it is authoritative: compare the student's answer with it and never re-grade against your own solution. Without a key, solve each question yourself carefully and check your result before grading.
 Feedback must be personal: name the specific mistake in this student's working and why it happened, not only the right answer. For a correct answer, say briefly what was done well.
 Give a model solution in short steps for every question. Map each question to one topic id from the list and to the number of the level in that topic's list that it practises (0 if none fits), and name the skill in a few Hebrew words.
-Finally list the weak topics (only where the student lost points) with the reason, and 3 to 5 concrete next steps.`,
-  check: `Task: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).`,
+Finally list the weak topics (only where the student lost points) with the reason, and 3 to 5 concrete next steps.
+${PERSONAL_RULE} The exam title must name the subject only, never a person.`,
+  check: `Task: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).
+${PERSONAL_RULE}`,
 };
 
 const GENERATE_SCHEMA = {
@@ -68,7 +73,7 @@ const EXAM_SCHEMA = {
   properties: {
     readable: { type: 'boolean' },
     care: { type: 'boolean', description: CARE_FIELD },
-    title: { type: 'string', description: 'A short name for the exam, from the pages' },
+    title: { type: 'string', description: 'A short name for the exam, from the pages: the subject only. Never copy a name, ID number, class or school into it; write [פרטים אישיים] instead.' },
     questions: {
       type: 'array',
       items: {
@@ -128,6 +133,8 @@ const CHECK_SCHEMA = {
 };
 
 const clip = (s, n) => String(s ?? '').slice(0, n);
+/** Text a child wrote, as it goes to the AI: personal details masked first, then clipped (trust spec TRUST-4 §4.1). */
+const own = (s, n) => clip(maskPersonal(s).text, n);
 
 function contextBlock(ctx = {}, { questionChars = 800 } = {}) {
   const lines = [];
@@ -136,7 +143,7 @@ function contextBlock(ctx = {}, { questionChars = 800 } = {}) {
   if (ctx.level) lines.push(`Level: ${clip(ctx.level, 120)}`);
   if (ctx.question) lines.push(`Exercise on screen: ${clip(ctx.question, questionChars)}`);
   if (ctx.correct != null && ctx.correct !== '') lines.push(`Correct answer (authoritative): ${clip(ctx.correct, 200)}`);
-  if (ctx.studentAnswer) lines.push(`Student's answer: ${clip(ctx.studentAnswer, 200)}`);
+  if (ctx.studentAnswer) lines.push(`Student's answer: ${own(ctx.studentAnswer, 200)}`);
   if (ctx.attempts) lines.push(`Attempts so far: ${Number(ctx.attempts) || 0}`);
   return lines.join('\n');
 }
@@ -209,10 +216,10 @@ export function buildCare(input = {}, { model } = {}) {
   let history = (Array.isArray(input.messages) ? input.messages : [])
     .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
     .slice(-CARE_MESSAGES)
-    .map((m) => ({ role: m.role, content: clip(m.content, 2000) }));
+    .map((m) => ({ role: m.role, content: own(m.content, 2000) }));
   while (history.length && history[0].role !== 'user') history.shift();
   if (!history.length) {
-    const said = [input.studentAnswer, input.note].filter((x) => typeof x === 'string' && x.trim()).map((x) => clip(x, 2000)).join('\n');
+    const said = [input.studentAnswer, input.note].filter((x) => typeof x === 'string' && x.trim()).map((x) => own(x, 2000)).join('\n');
     if (!said) throw new Error('care needs a student message');
     history = [{ role: 'user', content: said }];
   }
@@ -245,7 +252,7 @@ function buildFull(kind, input = {}, { model, maxMessages = 12, messageChars = 2
     const history = (Array.isArray(input.messages) ? input.messages : [])
       .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
       .slice(-maxMessages)
-      .map((m) => ({ role: m.role, content: clip(m.content, messageChars) }));
+      .map((m) => ({ role: m.role, content: own(m.content, messageChars) }));
     // a shortened chat starts from a student turn, so the exercise context still leads it
     if (fromUser) while (history.length > 1 && history[0].role !== 'user') history.shift();
     if (!history.length || history[0].role !== 'user') throw new Error('chat needs a user message first');

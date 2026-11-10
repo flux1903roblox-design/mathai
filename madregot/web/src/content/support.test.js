@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { SUPPORT } from '@shared/safety.js';
-import { supportLines, supportText, SUPPORT_VARIANTS, SUPPORT_LINK, waLink } from './support.js';
+import { SUPPORT, maskPersonal } from '@shared/safety.js';
+import { supportLines, supportText, SUPPORT_VARIANTS, SUPPORT_LINK, waLink, piiLine } from './support.js';
 
 const all = (lines) => lines.services.flatMap((s) => s.links);
 const byLabel = (lines, label) => all(lines).find((l) => l.label.startsWith(label));
@@ -64,5 +64,15 @@ describe('supportLines: the support card, built from SUPPORT', () => {
     for (const v of SUPPORT_VARIANTS) {
       expect(supportText(supportLines(SUPPORT, v))).not.toMatch(/₪|מנוי|שאלות ביום|דקות|מהר|!/);
     }
+  });
+});
+
+describe('piiLine: the quiet line under a message whose personal details the tutor did not receive', () => {
+  it('names what was removed, calmly, and says nothing when nothing was', () => {
+    expect(piiLine(['phone'])).toBe('הסרנו מהשאלה מספר טלפון. אין צורך לשלוח לעוזר פרטים אישיים.');
+    expect(piiLine(['email', 'phone'])).toBe('הסרנו מהשאלה מספר טלפון וכתובת מייל. אין צורך לשלוח לעוזר פרטים אישיים.');
+    expect(piiLine(maskPersonal('ת״ז 123456782, 0521234567, a@b.co').found)).toBe('הסרנו מהשאלה מספר טלפון, כתובת מייל ומספר זהות. אין צורך לשלוח לעוזר פרטים אישיים.');
+    expect(piiLine([])).toBe('');
+    expect(piiLine(maskPersonal('כמה זה 3 + 4?').found)).toBe('');
   });
 });

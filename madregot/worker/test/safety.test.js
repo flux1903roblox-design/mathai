@@ -8,7 +8,9 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import {
   SUPPORT, CARE_MARK, CARE_STATIC, ANTHROPIC_CHILD_PROMPT, safetyPrompt, normalize, detectDistress, DISTRESS_CATEGORIES,
+  maskPersonal, scanPersonal, validIsraeliId, scrubTitle, screenOutput, linkAllowed, blockHit, ALLOWED_LINK_HOSTS, BLOCKED_TEXT,
 } from '../../shared/safety.js';
+import { BLOCK_HE, BLOCK_EN } from '../../shared/blocklist.js';
 
 const shared = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'shared');
 
@@ -201,4 +203,106 @@ test('no file in shared/ uses a regex lookbehind or named group "(?<" (Safari 16
   const files = readdirSync(shared).filter((f) => f.endsWith('.js'));
   assert.ok(files.includes('safety.js'));
   for (const f of files) assert.ok(!readFileSync(path.join(shared, f), 'utf8').includes('(?<'), f);
+});
+
+// ---------------------------------------------------------------- personal details (trust spec TRUST-4 §4.1)
+test('maskPersonal: an ID is masked only when it passes the check digit and an ID word is just before it', () => {
+  assert.equal(validIsraeliId('123456782'), true);
+  assert.equal(validIsraeliId('123456789'), false);
+  assert.deepEqual(maskPersonal('תעודת זהות 123456782'), { text: 'תעודת זהות [ת״ז]', found: ['id'] });
+  for (const word of ['ת״ז', 'ת"ז', 'תז', 'ת.ז', 'מספר זהות']) assert.equal(maskPersonal(`${word}: 123456782`).text, `${word}: [ת״ז]`, word);
+  assert.deepEqual(maskPersonal('123456782 + 1'), { text: '123456782 + 1', found: [] }, 'a maths number with no ID word');
+  assert.deepEqual(maskPersonal('ת״ז 123456789'), { text: 'ת״ז 123456789', found: [] }, 'a bad check digit');
+  assert.equal(maskPersonal(`תעודת זהות ${'ש'.repeat(25)} 123456782`).text.includes('123456782'), true, 'the ID word is more than 20 characters away');
+  assert.equal(maskPersonal('ת״ז 1234567820').found.length, 0, 'ten digits are not an ID');
+});
+
+test('maskPersonal: Israeli phones in six formats, and a phone is a phone even in a maths question', () => {
+  for (const p of ['0521234567', '052-1234567', '052-123-4567', '052 123 4567', '+972-52-1234567', '+972521234567', '03-1234567', '972 52 123 4567', '077-1234567']) {
+    assert.deepEqual(maskPersonal(`תתקשרו ${p} בערב`), { text: 'תתקשרו [טלפון] בערב', found: ['phone'] }, p);
+  }
+  assert.equal(maskPersonal('x = 0521234567').text, 'x = [טלפון]', 'documented: a phone is a phone');
+  assert.equal(maskPersonal('1234567890').found.length, 0, 'not a phone: no 0 or 972 in front');
+  assert.equal(maskPersonal('3 + 052').found.length, 0);
+  assert.equal(maskPersonal('105201234567').found.length, 0, 'digits right before the number: not a phone');
+});
+
+test('maskPersonal: emails; several kinds at once in a fixed order; scanPersonal counts them together', () => {
+  assert.deepEqual(maskPersonal('כתבו לי ל-noa.k@example.test'), { text: 'כתבו לי ל-[מייל]', found: ['email'] });
+  assert.deepEqual(maskPersonal('ת״ז 123456782, 0521234567, a@b.co').found, ['email', 'phone', 'id']);
+  assert.deepEqual(scanPersonal(['0521234567', 'a@b.co', 'שלום']), ['email', 'phone']);
+  assert.deepEqual(scanPersonal([undefined, '', 'כמה זה 3 + 4?']), []);
+});
+
+test('scrubTitle: an exam title keeps no ID, phone or run of 7 digits', () => {
+  assert.equal(scrubTitle('מבחן של נועה כהן ת״ז 123456782'), 'מבחן של נועה כהן ת״ז [ת״ז]');
+  assert.equal(scrubTitle('מבחן 0521234567'), 'מבחן [טלפון]');
+  assert.equal(scrubTitle('מבחן 1234567 ו-123456789012'), 'מבחן # ו-#');
+  assert.equal(scrubTitle('מבחן בשברים 2026'), 'מבחן בשברים 2026');
+  assert.doesNotMatch(scrubTitle('ת״ז 123456789 טלפון 5551234'), /\d{7,}/);
+});
+
+// ---------------------------------------------------------------- every reply screened (trust spec TRUST-4 §4.2)
+test('screenOutput: links to hosts that are not allowed keep only their text; look-alike hosts are rejected', () => {
+  assert.deepEqual(screenOutput('ראו [קישור](https://evil.example)'), { text: 'ראו קישור', blocked: false, linksRemoved: 1 });
+  const keep = 'ער״ן: https://www.eran.org.il/online-emotional-help/ והטופס: https://parents.education.gov.il/prhnet/x';
+  assert.deepEqual(screenOutput(keep), { text: keep, blocked: false, linksRemoved: 0 });
+  assert.deepEqual(screenOutput('[ער״ן](https://www.eran.org.il/online-emotional-help/)').linksRemoved, 0);
+  assert.deepEqual(screenOutput('א https://gov.il.evil.example/ ב https://evil-gov.il/x. ג'), { text: 'א  ב . ג', blocked: false, linksRemoved: 2 });
+  assert.equal(screenOutput('www.evil.example/page').text, '');
+  assert.equal(screenOutput('<https://evil.example> שלום').text, ' שלום', 'an autolink');
+  assert.equal(screenOutput('![תמונה](https://wa.me/x.png)').text, 'תמונה', 'an image is never shown, whatever its host');
+  assert.equal(screenOutput('[a][1]\n\n[1]: https://evil.example').text, '[a][1]\n\n', 'a link definition');
+  assert.equal(screenOutput('[a](https://user@wa.me/x)').text, 'a', 'a user name in the address');
+  assert.equal(screenOutput('[a](javascript:alert(1))').linksRemoved, 1);
+  // the app's own address, exactly
+  assert.equal(screenOutput('[האפליקציה](https://madregot.example.test/#/safety)', { hosts: ['madregot.example.test'] }).linksRemoved, 0);
+  assert.equal(screenOutput('[x](https://evil.madregot.example.test/)', { hosts: ['madregot.example.test'] }).linksRemoved, 1);
+});
+
+test('linkAllowed: the allowed hosts and their subdomains, https or http, and tel: only to the support numbers', () => {
+  assert.deepEqual([...ALLOWED_LINK_HOSTS], ['eran.org.il', 'sahar.org.il', 'wa.me', 'gov.il']);
+  for (const ok of ['https://wa.me/972528451201', 'https://sahar.org.il', 'https://www.police.gov.il/', 'https://gov.il', 'https://ERAN.org.il/', 'tel:1201', 'tel:105', 'tel:100', 'tel:101']) assert.equal(linkAllowed(ok), true, ok);
+  for (const bad of ['https://evil-gov.il/', 'https://gov.il.evil.example/', 'https://notwa.me/', 'https://wa.me.evil.example/', 'ftp://gov.il/', 'tel:0521234567', '/relative', '#/safety', '', 'javascript:alert(1)', 'data:text/html,x']) assert.equal(linkAllowed(bad), false, bad);
+  for (const s of [SUPPORT.eran.wa, SUPPORT.sahar.wa, SUPPORT.eran.web, SUPPORT.sahar.web]) assert.equal(linkAllowed(s), true, s);
+});
+
+test('the blocklist: 40-80 terms that block a reply; a care reply that names what happened is never blocked', () => {
+  const n = BLOCK_HE.length + BLOCK_EN.length;
+  assert.ok(n >= 40 && n <= 80, `${n} terms`);
+  for (const t of [...BLOCK_HE, ...BLOCK_EN]) {
+    assert.equal(blockHit(`זה ${t}.`), true, t);
+    assert.deepEqual(screenOutput(`בתשובה: ${t}`), { text: '', blocked: true, linksRemoved: 0 }, t);
+  }
+  assert.equal(blockHit('WHAT THE FUUUCK'), true, 'case and repeated letters do not hide a word');
+  // a care reply (a child wrote that someone hurt them) must be able to name it; its links are still screened
+  const care = 'פגיעה מינית היא אף פעם לא באשמתכם. אם מישהו ניסה לאנוס אתכם, ספרו למבוגר. [עוד](https://evil.example)';
+  assert.deepEqual(screenOutput(care, { care: true }), { text: care.replace('[עוד](https://evil.example)', 'עוד'), blocked: false, linksRemoved: 1 });
+  assert.equal(screenOutput('פגיעה מינית היא אף פעם לא באשמתכם.').blocked, false, '"פגיעה מינית" is not on the list');
+  assert.equal(screenOutput(care).blocked, true, 'the same reply outside care follows the blocklist rule');
+  assert.equal(BLOCKED_TEXT, 'לא הצלחתי לענות על זה כמו שצריך. אפשר לנסח את השאלה אחרת?');
+});
+
+test('maths and teaching words are never blocked, nor any text the app itself shows', () => {
+  for (const w of ['sextant', 'Essex', 'analysis', 'therapist', 'sussex', 'spice', 'scunthorpe', 'סקאלה', 'מכפלה', 'חזקה', 'שורש', 'ציר',
+    'מזינים את המספר', 'זינוק', 'מקסימום', 'אנליזה', 'כוס מים', 'מזין', 'המפגש', 'שחיטת', 'אונסקו', 'זינה', 'זיונית']) {
+    assert.equal(blockHit(w), false, w);
+  }
+  // every string in the app's content (lessons, generators, copy) and the prompts
+  const root = path.join(shared, '..', 'web', 'src');
+  const files = [];
+  const walk = (d) => { for (const e of readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.(js|jsx|ts|md)$/.test(e.name) && !/\.test\./.test(e.name)) files.push(p); } };
+  walk(path.join(root, 'content')); walk(path.join(root, 'screens'));
+  files.push(path.join(shared, 'ai.js'), path.join(shared, 'safety.js'));
+  assert.ok(files.length > 20);
+  for (const f of files) {
+    readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
+      // the blocklist is defined only in shared/blocklist.js; nothing the app says may hit it
+      assert.equal(blockHit(line), false, `${path.relative(root, f)}:${i + 1}`);
+    });
+  }
+});
+
+test('blocklist.js and safety.js hold no regex lookbehind', () => {
+  for (const f of ['blocklist.js', 'safety.js']) assert.ok(!readFileSync(path.join(shared, f), 'utf8').includes('(?<'), f);
 });

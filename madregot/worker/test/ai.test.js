@@ -152,3 +152,33 @@ test('the care request: safety block and the no-maths line, the last 4 messages 
   assert.deepEqual(buildCare({ studentAnswer: 'בא לי להיעלם' }).messages, [{ role: 'user', content: 'בא לי להיעלם' }]);
   assert.throws(() => buildCare({ messages: [] }));
 });
+
+// ---------------------------------------------------------------- personal details (trust spec TRUST-4 §4.1, TRUST-5 §5)
+test('every chat message and a typed answer are masked before they are clipped, in every shape and in the care request', () => {
+  const phone = 'אפשר להתקשר אליי 052-1234567 או לכתוב ל־noa@example.test';
+  const chat = { messages: [{ role: 'user', content: phone }, { role: 'assistant', content: 'תודה' }, { role: 'user', content: 'ת״ז 123456782' }], context: { question: '3 - 8' } };
+  for (const shape of ['full', 'lite', 'economy']) {
+    const sent = JSON.stringify(buildRequest('chat', chat, { shape }).messages);
+    assert.ok(!/052-1234567|noa@example\.test|123456782/.test(sent), shape);
+    assert.ok(sent.includes('[טלפון]') && sent.includes('[מייל]') && sent.includes('[ת״ז]'), shape);
+    const explain = JSON.stringify(buildRequest('explain', { question: '3 - 8', correct: '-5', studentAnswer: '0521234567' }, { shape }).messages);
+    assert.ok(!explain.includes('0521234567') && explain.includes("Student's answer: [טלפון]"), shape);
+  }
+  // masked first, then clipped: a number at the clip edge is never cut into a part that escapes the mask
+  const long = `${'א'.repeat(590)} 052-1234567`;
+  assert.ok(!JSON.stringify(buildRequest('chat', { messages: [{ role: 'user', content: long }] }, { shape: 'lite' }).messages).includes('052'));
+  assert.ok(JSON.stringify(buildCare({ messages: [{ role: 'user', content: `אני מפחדת ${phone}` }] }).messages).includes('[טלפון]'));
+  // maths stays as it is
+  assert.equal(buildRequest('chat', { messages: [{ role: 'user', content: 'כמה זה 123456782 + 1?' }] }).messages[0].content, 'כמה זה 123456782 + 1?');
+});
+
+test('the exam and check prompts, and the exam title, say never to copy a name or ID: write [פרטים אישיים]', () => {
+  for (const kind of ['exam', 'check']) {
+    const sys = systemText(buildRequest(kind, INPUTS[kind]));
+    assert.match(sys, /never copy it into your answer: write \[פרטים אישיים\] instead/, kind);
+  }
+  assert.match(systemText(buildRequest('exam', INPUTS.exam)), /The exam title must name the subject only, never a person\./);
+  assert.ok(!systemText(buildRequest('chat', INPUTS.chat)).includes('[פרטים אישיים]'), 'only the photo kinds');
+  const title = buildRequest('exam', INPUTS.exam).output_config.format.schema.properties.title.description;
+  assert.match(title, /the subject only/); assert.match(title, /\[פרטים אישיים\]/);
+});

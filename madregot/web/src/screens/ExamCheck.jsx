@@ -14,6 +14,7 @@ import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { aiAccess, gate, useAIStatus } from '@/lib/account.js';
 import ToolLocked from '@/components/ToolLocked.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
+import { scrubTitle } from '@shared/safety.js';
 
 async function imageToJpeg(file) {
   const url = URL.createObjectURL(file);
@@ -92,7 +93,8 @@ export default function ExamCheck() {
       const score = scoreOf(result);
       const exam = {
         id: Math.random().toString(36).slice(2) + Date.now().toString(36), at: new Date().toISOString(),
-        title: title.trim() || practice?.title || result.title || 'מבחן', source: practice ? 'practice' : 'upload', practiceId: practice?.id || null,
+        // the subject, never a person: no ID, phone or long number is kept (trust spec TRUST-5 §6; the server does the same)
+        title: scrubTitle(title.trim() || practice?.title || result.title || 'מבחן'), source: practice ? 'practice' : 'upload', practiceId: practice?.id || null,
         result, score, levels: Object.fromEntries(Object.entries(progress).map(([k, v]) => [k, v.level])),
       };
       addExam(exam);
