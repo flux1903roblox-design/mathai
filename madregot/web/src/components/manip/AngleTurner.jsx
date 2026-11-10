@@ -7,7 +7,12 @@ const rad = (d) => (d * Math.PI) / 180;
 const pt = (d, r) => [O[0] + r * Math.cos(rad(d)), O[1] - r * Math.sin(rad(d))];
 const arcPath = (a0, a1, r) => { const [x0, y0] = pt(a0, r); const [x1, y1] = pt(a1, r); return `M ${x0} ${y0} A ${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 0 ${x1} ${y1}`; };
 
+/** The letters drawn by default: the line's ends C and A, the vertex O. A step can name them after its own figure
+ * (a triangle's vertex C and side BC, say), or leave any of them blank; `ray` names the end of the turning ray. */
+const LABELS = { left: 'C', vertex: 'O', right: 'A', ray: '' };
+
 export default function AngleTurner({ m, value, onChange, locked, reveal, good, answer, hint }) {
+  const L = { ...LABELS, ...(m?.labels || {}) };
   const set = (d) => { const v = clamp(Math.round(d / 5) * 5, 5, 175); if (!locked && v !== value) onChange(v); };
   const [ref, drag] = useDrag((p) => {
     const d = (Math.atan2(O[1] - p.y, p.x - O[0]) * 180) / Math.PI;
@@ -34,9 +39,10 @@ export default function AngleTurner({ m, value, onChange, locked, reveal, good, 
         <g className="mp-point"><circle cx={bx} cy={by} r="16" className="mp-halo" /><circle cx={bx} cy={by} r="10" className="mp-handle" /></g>
         <text x={rx} y={ry + 6} textAnchor="middle" className="mp-angle-label right">{value}°</text>
         <text x={lx} y={ly + 6} textAnchor="middle" className="mp-angle-label left">{reveal || good ? `${180 - value}°` : '?'}</text>
-        <text x={O[0] + R + 4} y={O[1] + 22} textAnchor="end" className="mp-pt-label">A</text>
-        <text x={O[0] - R - 4} y={O[1] + 22} className="mp-pt-label">C</text>
-        <text x={O[0]} y={O[1] + 24} textAnchor="middle" className="mp-pt-label">O</text>
+        {L.right && <text x={O[0] + R + 4} y={O[1] + 22} textAnchor="end" className="mp-pt-label">{L.right}</text>}
+        {L.left && <text x={O[0] - R - 4} y={O[1] + 22} className="mp-pt-label">{L.left}</text>}
+        {L.vertex && <text x={O[0]} y={O[1] + 24} textAnchor="middle" className="mp-pt-label">{L.vertex}</text>}
+        {L.ray && (() => { const [tx, ty] = pt(value, R + 22); return <text x={tx} y={ty + 6} textAnchor="middle" className="mp-pt-label">{L.ray}</text>; })()}
       </svg>
       <div className="manip-controls">
         <Stepper label="הזווית הימנית" value={`${value}°`} onDec={() => set(value - 5)} onInc={() => set(value + 5)} decLabel="להקטין את הזווית הימנית ב־5 מעלות" incLabel="להגדיל את הזווית הימנית ב־5 מעלות" disabled={locked} decDisabled={value <= 5} incDisabled={value >= 175} />

@@ -59,7 +59,8 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
     }
     const u = parseNum(typed);
     if (u == null) return;
-    const ok = near(u, problem.final.answer, 1e-6);
+    // the same tolerance as practice (isCorrect): -2/3 typed as -0.67 is right
+    const ok = near(u, problem.final.answer, 0.01);
     onAttempt?.(ok);
     if (ok) { play('correct'); setSolved(true); } else { play('wrong'); setWrongVal(typed); setFinalMiss((x) => x + 1); setHint((h) => Math.min(2, h + 1)); }
   };

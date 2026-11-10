@@ -48,6 +48,40 @@ describe('generators', () => {
   }
 });
 
+// Found by the full check of every exercise (November 2026): each case stays fixed.
+describe('worked solutions say what happened', () => {
+  const many = (topic, level, n = 2000) => Array.from({ length: n }, () => makeItem(topic, level));
+  it('equal numbers are not "to the left" of each other', () => {
+    for (const it of many('signed', 2)) {
+      const m = it.key.match(/^sn2:(-?\d+):(-?\d+)$/);
+      if (m && m[1] === m[2]) expect(it.solution[0]).not.toMatch(/משמאל/);
+    }
+  });
+  it('a number plus its opposite is zero, with no "sign of the farther one"', () => {
+    for (const it of many('signed', 1)) if (it.answer === 0) expect(it.solution.join(' ')).not.toMatch(/הרחוק יותר/);
+  });
+  it('every rectangle vertex is on the drawn grid', () => {
+    for (const lv of [4, 5]) for (const it of many('coord', lv)) {
+      const pts = (it.fig?.polygon || []).concat((it.fig?.points || []).map((p) => [p.x, p.y]));
+      pts.forEach(([x, y]) => expect(Math.abs(x) <= 6 && Math.abs(y) <= 6, `${it.key}: (${x}, ${y})`).toBe(true));
+      if (it.form === 'pt') expect(Math.max(Math.abs(it.answer[0]), Math.abs(it.answer[1])), it.key).toBeLessThanOrEqual(6);
+    }
+  });
+  it('"is it right-angled?" always asks about sides that make a triangle', () => {
+    for (const it of many('pyth', 3)) {
+      const s = it.key.split(':').slice(1).map(Number).sort((a, b) => a - b);
+      expect(s[0] + s[1] > s[2], it.key).toBe(true);
+    }
+  });
+  it('setting the last bar to the mean is "wrote the mean", not "forgot to divide"', () => {
+    for (const it of many('stats', 3)) {
+      if (!it.key.startsWith('st3b:')) continue;
+      const mean = Number(it.key.split(':')[2]);
+      if (mean !== it.answer) expect(it.diag(mean), it.key).toBe('mean-as-answer');
+    }
+  });
+});
+
 describe('math checks', () => {
   it('pythagoras answers satisfy a^2 + b^2 = c^2', () => {
     for (let r = 0; r < RUNS; r++) {

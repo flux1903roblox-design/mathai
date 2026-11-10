@@ -41,6 +41,12 @@ function checkSteps(steps: DiscoverStep[], where: string) {
         // the expression shown is the movement asked for
         if (s.display && /^[-+0-9 ()]+$/.test(s.display)) expect(same(evaluate(s.display), s.answer as number), `${at}: ${s.display}`).toBe(true);
       }
+      // a point goal must be on the drawn grid: the tool clamps every move to it, so a goal off the grid can never be reached
+      if (s.manip.kind === 'plot') {
+        const r = ((s.manip as { range?: number }).range) || 6;
+        const [x, y] = s.answer as [number, number];
+        expect(Math.abs(x) <= r && Math.abs(y) <= r, `${at}: goal (${x}, ${y}) is off the ${r}-grid`).toBe(true);
+      }
       expect(s.hint, at).toBeTruthy();
       expect(s.success, at).toBeTruthy();
     }

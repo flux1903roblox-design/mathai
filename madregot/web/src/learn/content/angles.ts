@@ -13,7 +13,13 @@ import { rint } from '../expr';
 /** TeX for a number of degrees. */
 const d = (n: number) => `${n}^\\circ`;
 /** The angle turner, with the left angle as the goal: the answer (the right angle) is what is left of 180°. */
-const turn = (left: number, start = 90) => ({ manip: { kind: 'angle' as const, target: left, start }, answer: 180 - left });
+const turn = (left: number, start = 90, labels?: AngleLabels) => ({ manip: { kind: 'angle' as const, target: left, start, ...(labels ? { labels } : {}) }, answer: 180 - left });
+/** The letters on the angle tool (default: the line C–O–A). In a triangle the screen must use the triangle's own
+ * letters, or none: corners laid side by side on a line have no letters there. */
+type AngleLabels = { left?: string; vertex?: string; right?: string; ray?: string };
+const NO_LETTERS: AngleLabels = { left: '', vertex: '', right: '' };
+/** The exterior angle at C: the side BC runs left from C and goes on to the right; the ray is the side CA. */
+const AT_C: AngleLabels = { left: 'B', vertex: 'C', right: '', ray: 'A' };
 /** Triangle ABC with A and B fixed on the x-axis; C is dragged until the angle at C is right. */
 const tri = (start: [number, number]) => ({ kind: 'triangle' as const, A: [-5, 0], B: [5, 0], range: 6, start });
 /** A whole number of degrees, a multiple of 5 in [5·lo, 5·hi], never a right angle (where every pair looks alike). */
@@ -262,7 +268,7 @@ const crossModel: DiagModel<Cross> = {
   hint: (p) => [
     'הזווית הנתונה והזווית שמולה צמודות שתיהן לאותה זווית שביניהן.',
     'זווית שליד הנתונה חולקת איתה צלע, והצלעות האחרות שלהן הן ישר אחד.',
-    'סביב נקודת החיתוך יש סיבוב שלם: שני קווים ישרים, $180^\\circ$ כל אחד.',
+    'סביב נקודת החיתוך יש סיבוב שלם: $180^\\circ$ מעל אחד הישרים, ועוד $180^\\circ$ מתחתיו.',
   ][p.k],
   unit: 'מעלות',
 };
@@ -507,7 +513,7 @@ const stair3: StairContent = {
     { kind: 'predict', text: 'מה יוצרות שלוש הפינות יחד?', choices: ['קו ישר', 'זווית ישרה', 'סיבוב שלם'], answer: 0,
       why: 'שלוש הפינות ממלאות בדיוק קו ישר: זווית שטוחה, $180^\\circ$. זו הסיבה שסכום הזוויות במשולש הוא $180^\\circ$.' },
     { kind: 'explore', text: 'נבנה את זה: במשולש $\\angle A = 70^\\circ$ ו־$\\angle B = 45^\\circ$. הנחנו את שתי הפינות זו ליד זו על הישר, ויחד הן $115^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $115^\\circ$.',
-      ...turn(115), hint: 'השמאלית היא שתי הפינות יחד, $70^\\circ + 45^\\circ$. הימנית היא מה שנשאר עד $180^\\circ$.',
+      ...turn(115, 90, NO_LETTERS), hint: 'השמאלית היא שתי הפינות יחד, $70^\\circ + 45^\\circ$. הימנית היא מה שנשאר עד $180^\\circ$.',
       success: 'בצד ימין נשאר רווח של $65^\\circ$, והפינה $C$ נכנסת בו בדיוק: $\\angle C = 65^\\circ$.' },
     { kind: 'rule', text: 'הכלל: סכום הזוויות בכל משולש הוא $180^\\circ$.', display: '\\angle A + \\angle B + \\angle C = 180^\\circ',
       why: 'שלוש הפינות של משולש, כשמצמידים אותן, ממלאות קו ישר. לכן זווית חסרה היא $180^\\circ$ פחות שתי הזוויות האחרות.' },
@@ -581,7 +587,7 @@ const stair3: StairContent = {
         'במשולש ישר־זווית, הזווית הישרה היא אחת מהן: $90^\\circ$, גם אם לא כתוב.',
       ],
       remedy: [
-        { kind: 'explore', text: 'במשולש ישר־זווית $\\angle A = 35^\\circ$. שתי הפינות הידועות על הישר: $90^\\circ + 35^\\circ = 125^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $125^\\circ$.', ...turn(125),
+        { kind: 'explore', text: 'במשולש ישר־זווית $\\angle A = 35^\\circ$. שתי הפינות הידועות על הישר: $90^\\circ + 35^\\circ = 125^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $125^\\circ$.', ...turn(125, 90, NO_LETTERS),
           hint: 'הימנית היא הזווית השלישית: מה שנשאר עד $180^\\circ$.', success: 'נשארו $55^\\circ$ לזווית השלישית. בלי הזווית הישרה הייתם מקבלים $145^\\circ$, ואז הסכום היה $90 + 35 + 145 = 270$, הרבה יותר מ־$180^\\circ$.' },
         { kind: 'predict', text: 'במשולש $\\angle A = 40^\\circ$ ו־$\\angle B = 70^\\circ$. מה $\\angle C$?', choices: ['$140^\\circ$', '$70^\\circ$', '$110^\\circ$'], answer: 1,
           why: '$180^\\circ - 40^\\circ - 70^\\circ = 70^\\circ$.',
@@ -860,7 +866,7 @@ const stair5: StairContent = {
   ],
   alt: [
     'גג של בית הוא לרוב משולש שווה־שוקיים: שני צדי הגג שווים, ולכן שניהם נוטים באותה זווית.',
-    'זווית חיצונית היא כמה פונים בפינה. הולכים לאורך צלע, מגיעים לפינה $C$, ופונים אל הצלע הבאה: הפנייה היא הזווית החיצונית. ככל שהפינה חדה יותר, הפנייה חדה יותר.',
+    'זווית חיצונית היא כמה פונים בפינה. הולכים לאורך צלע, מגיעים לפינה $C$, ופונים אל הצלע הבאה: הפנייה היא הזווית החיצונית. ככל שהפינה חדה יותר, הפנייה גדולה יותר.',
     'זה אותו רעיון כמו בזוויות קודקודיות: שם שתי זוויות השלימו את אותה זווית ל־$180^\\circ$, ולכן היו שוות. כאן הזווית החיצונית ו־$\\angle A + \\angle B$ משלימות שתיהן את $\\angle C$.',
   ],
   discover: [
@@ -872,7 +878,7 @@ const stair5: StairContent = {
       why: '$180^\\circ - 40^\\circ = 140^\\circ$ לשתיהן יחד. כל אחת מהן היא חצי מזה.',
       wrongWhy: { 1: '$70^\\circ$ היא כל זווית בסיס לבדה. יחד הן פי $2$.', 2: 'סכום הזוויות במשולש הוא $180^\\circ$, לא $360^\\circ$.' } },
     { kind: 'explore', text: 'נניח את הפינות על ישר: זווית הראש, $40^\\circ$, משמאל. סובבו את הקרן כך שהזווית השמאלית תהיה $40^\\circ$. הזווית הימנית היא שתי זוויות הבסיס יחד.',
-      ...turn(40), hint: 'הימנית היא מה שנשאר מ־$180^\\circ$ אחרי זווית הראש.',
+      ...turn(40, 90, NO_LETTERS), hint: 'הימנית היא מה שנשאר מ־$180^\\circ$ אחרי זווית הראש.',
       success: 'הימנית $140^\\circ$: שתי זוויות הבסיס יחד. הן שוות, ולכן כל אחת $140^\\circ : 2 = 70^\\circ$.' },
     { kind: 'rule', text: 'הכלל: במשולש שווה־שוקיים זוויות הבסיס שוות. מזווית הראש, כל זווית בסיס היא $180^\\circ$ פחות הראש, חלקי $2$.', display: '\\angle B = \\angle C = \\dfrac{180^\\circ - \\angle A}{2}',
       why: 'הקיפול מראה שזוויות הבסיס שוות. אחרי שמורידים את זווית הראש מ־$180^\\circ$, מה שנשאר מתחלק שווה בשווה בין שתיהן.' },
@@ -881,7 +887,7 @@ const stair5: StairContent = {
       wrongWhy: { 0: '$115^\\circ$ יוצא כשמורידים רק זווית בסיס אחת. יש שתיים, ושתיהן $65^\\circ$.', 2: 'זה החישוב של זווית בסיס מזווית הראש. כאן נתונה זווית בסיס.' } },
     { kind: 'say', text: 'עכשיו זווית חדשה. ממשיכים את הצלע $BC$ מעבר לקודקוד $C$. הזווית בין ההמשך לבין הצלע $CA$ נמצאת מחוץ למשולש: זו זווית חיצונית.' },
     { kind: 'explore', text: 'במשולש $\\angle A = 50^\\circ$ ו־$\\angle B = 60^\\circ$, ולכן $\\angle C = 70^\\circ$. על המסך, הקו הוא $BC$ עם ההמשך שלו, והקרן היא $CA$. סובבו את הקרן כך שהזווית השמאלית, הפנימית $\\angle C$, תהיה $70^\\circ$.',
-      ...turn(70), hint: 'הזווית הימנית היא החיצונית. יחד עם $\\angle C$ היא קו ישר.',
+      ...turn(70, 90, AT_C), hint: 'הזווית הימנית היא החיצונית. יחד עם $\\angle C$ היא קו ישר.',
       success: 'הזווית החיצונית $110^\\circ$. ושימו לב: $50^\\circ + 60^\\circ = 110^\\circ$, בדיוק $\\angle A + \\angle B$.' },
     { kind: 'predict', text: 'צירוף מקרים? במשולש אחר $\\angle A = 30^\\circ$ ו־$\\angle B = 45^\\circ$. מה הזווית החיצונית ליד $C$?', choices: ['$75^\\circ$', '$105^\\circ$', '$150^\\circ$'], answer: 0,
       why: '$\\angle C = 180^\\circ - 75^\\circ = 105^\\circ$, והחיצונית $180^\\circ - 105^\\circ = 75^\\circ$. שוב $\\angle A + \\angle B$: גם החיצונית וגם $\\angle A + \\angle B$ משלימות את $\\angle C$ ל־$180^\\circ$.',
@@ -941,7 +947,7 @@ const stair5: StairContent = {
         'בדיקה: ראש ועוד פעמיים זווית הבסיס צריך לתת $180^\\circ$.',
       ],
       remedy: [
-        { kind: 'explore', text: 'זווית הראש היא $50^\\circ$: סובבו את הקרן כך שהזווית השמאלית תהיה $50^\\circ$.', ...turn(50),
+        { kind: 'explore', text: 'זווית הראש היא $50^\\circ$: סובבו את הקרן כך שהזווית השמאלית תהיה $50^\\circ$.', ...turn(50, 90, NO_LETTERS),
           hint: 'הימנית היא מה שנשאר לשתי זוויות הבסיס יחד.', success: 'הימנית, $130^\\circ$, היא שתי זוויות הבסיס יחד. כל אחת: $130^\\circ : 2 = 65^\\circ$.' },
         { kind: 'predict', text: 'זווית הראש היא $80^\\circ$. מה זווית בסיס?', choices: ['$100^\\circ$', '$50^\\circ$'], answer: 1,
           why: '$180^\\circ - 80^\\circ = 100^\\circ$ לשתיהן, ו־$50^\\circ$ לכל אחת. בדיקה: $80 + 50 + 50 = 180$.',
@@ -956,7 +962,7 @@ const stair5: StairContent = {
       remedy: [
         { kind: 'predict', text: 'זווית בסיס היא $70^\\circ$. מה עוד ידוע מיד?', choices: ['גם זווית הבסיס השנייה $70^\\circ$', 'זווית הראש $70^\\circ$', 'שום דבר'], answer: 0,
           why: 'זוויות הבסיס שוות. עכשיו ידועות שתי זוויות, $70^\\circ$ ו־$70^\\circ$, ולראש נשאר $180^\\circ - 140^\\circ = 40^\\circ$.' },
-        { kind: 'explore', text: 'שתי זוויות הבסיס, $70^\\circ + 70^\\circ = 140^\\circ$, מונחות על הישר. סובבו את הקרן כך שהזווית השמאלית תהיה $140^\\circ$.', ...turn(140),
+        { kind: 'explore', text: 'שתי זוויות הבסיס, $70^\\circ + 70^\\circ = 140^\\circ$, מונחות על הישר. סובבו את הקרן כך שהזווית השמאלית תהיה $140^\\circ$.', ...turn(140, 90, NO_LETTERS),
           hint: 'הימנית היא זווית הראש: מה שנשאר עד $180^\\circ$.', success: 'נשארו $40^\\circ$ לזווית הראש. עם זווית בסיס אחת בלבד הייתם מקבלים $110^\\circ$, והסכום היה $250^\\circ$.' },
       ] },
     { id: 'apex-base-swap', title: 'התבלבלו בין זווית הראש לזווית הבסיס',
@@ -969,7 +975,7 @@ const stair5: StairContent = {
       remedy: [
         { kind: 'predict', text: 'במשולש שווה־שוקיים $ABC$, $AB = AC$. איזו זווית היא זווית הראש?', choices: ['$\\angle A$, בין השוקיים', '$\\angle B$', '$\\angle C$'], answer: 0,
           why: 'זווית הראש נמצאת בין שתי השוקיים השוות, $AB$ ו־$AC$: בקודקוד $A$. $\\angle B$ ו־$\\angle C$ הן זוויות הבסיס.' },
-        { kind: 'explore', text: 'זווית בסיס היא $50^\\circ$, ולכן שתי זוויות הבסיס יחד $100^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $100^\\circ$.', ...turn(100),
+        { kind: 'explore', text: 'זווית בסיס היא $50^\\circ$, ולכן שתי זוויות הבסיס יחד $100^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $100^\\circ$.', ...turn(100, 90, NO_LETTERS),
           hint: 'הימנית היא זווית הראש: מה שנשאר עד $180^\\circ$.', success: 'זווית הראש $80^\\circ$. החישוב $(180^\\circ - 50^\\circ) : 2 = 65^\\circ$ היה מתייחס ל־$50^\\circ$ כאילו היא זווית הראש.' },
         { kind: 'predict', text: 'זווית הראש היא $40^\\circ$. מה זווית בסיס?', choices: ['$100^\\circ$', '$70^\\circ$'], answer: 1,
           why: 'נתון הראש, אז מחלקים: $(180^\\circ - 40^\\circ) : 2 = 70^\\circ$. $100^\\circ$ יוצא כשמורידים את $40^\\circ$ פעמיים, כאילו היא זווית בסיס.' },
@@ -981,7 +987,7 @@ const stair5: StairContent = {
         'היא והזווית הפנימית שלידה יוצרות קו ישר. לכן היא $180^\\circ - \\angle C$, כלומר $\\angle A + \\angle B$.',
       ],
       remedy: [
-        { kind: 'explore', text: '$\\angle A = 35^\\circ$ ו־$\\angle B = 75^\\circ$, ולכן $\\angle C = 70^\\circ$. סובבו את הקרן כך שהזווית השמאלית, הפנימית $\\angle C$, תהיה $70^\\circ$.', ...turn(70),
+        { kind: 'explore', text: '$\\angle A = 35^\\circ$ ו־$\\angle B = 75^\\circ$, ולכן $\\angle C = 70^\\circ$. סובבו את הקרן כך שהזווית השמאלית, הפנימית $\\angle C$, תהיה $70^\\circ$.', ...turn(70, 90, AT_C),
           hint: 'הימנית היא החיצונית, מחוץ למשולש.', success: 'הימנית היא החיצונית: $110^\\circ = 35^\\circ + 75^\\circ$. את $70^\\circ$, הפנימית, מצאתם בדרך.' },
         { kind: 'predict', text: 'במשולש $\\angle A = 40^\\circ$ ו־$\\angle B = 30^\\circ$. מה הזווית החיצונית ליד $C$?', choices: ['$110^\\circ$', '$70^\\circ$'], answer: 1,
           why: 'החיצונית היא $40^\\circ + 30^\\circ = 70^\\circ$. $110^\\circ$ היא הפנימית $\\angle C$, שבתוך המשולש.' },

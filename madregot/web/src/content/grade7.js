@@ -17,6 +17,7 @@ function addSub() {
   const steps = [];
   if (op === '-') steps.push(`$${display} = ${T(a)} + ${T(bb, true)}$`);
   if (sgn(a) === sgn(bb)) steps.push(`אותו סימן: $${Math.abs(a)} + ${Math.abs(bb)} = ${Math.abs(ans)}$, והסימן ${a < 0 ? 'שלילי' : 'חיובי'}.`);
+  else if (ans === 0) steps.push(`סימנים שונים ושני המספרים באותו מרחק מאפס: $${Math.abs(a)} - ${Math.abs(bb)} = 0$. מספר ועוד הנגדי שלו הם אפס.`);
   else steps.push(`סימנים שונים: $${Math.max(Math.abs(a), Math.abs(bb))} - ${Math.min(Math.abs(a), Math.abs(bb))} = ${Math.abs(ans)}$, והסימן של המספר הרחוק יותר מאפס.`);
   steps.push(`התשובה: $${T(ans)}$`);
   return {
@@ -78,7 +79,7 @@ function compare() {
     form: 'mc', choices: choices.map((c) => ({ tex: c })), answer: ans,
     hint: 'על ציר המספרים, מספר שנמצא יותר ימינה הוא גדול יותר. בין שני מספרים שליליים, הקרוב יותר לאפס גדול יותר.',
     solution: [
-      `על ציר המספרים $${T(Math.min(a, b))}$ נמצא משמאל ל־$${T(Math.max(a, b))}$${a === b ? ', וכאן המספרים שווים' : ''}.`,
+      a === b ? `שני המספרים שווים: $${T(a)}$ ו־$${T(b)}$ הם אותה נקודה על ציר המספרים.` : `על ציר המספרים $${T(Math.min(a, b))}$ נמצא משמאל ל־$${T(Math.max(a, b))}$.`,
       `לכן $${T(a)} ${choices[ans]} ${T(b)}$`,
     ],
     diag: (u) => (a < 0 && b < 0 && a !== b && u !== ans && u !== 1 ? 'neg-compare' : null),
@@ -236,7 +237,7 @@ function segmentLength() {
 }
 
 function rectArea() {
-  const x1 = R(-6, 2); const x2 = x1 + R(2, 5); const y1 = R(-6, 2); const y2 = y1 + R(2, 4);
+  const x1 = R(-6, 1); const x2 = x1 + R(2, 5); const y1 = R(-6, 2); const y2 = y1 + R(2, 4);
   const w = x2 - x1; const h = y2 - y1; const ans = w * h;
   const pts = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
   const names = ['A', 'B', 'C', 'D'];
@@ -265,7 +266,7 @@ function rectVertexPlot() {
 }
 
 function missingVertex() {
-  const x1 = R(-6, 2); const x2 = x1 + R(2, 5); const y1 = R(-6, 2); const y2 = y1 + R(2, 4);
+  const x1 = R(-6, 1); const x2 = x1 + R(2, 5); const y1 = R(-6, 2); const y2 = y1 + R(2, 4);
   const pts = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
   const miss = R(0, 3); const names = ['A', 'B', 'C', 'D'];
   const shown = pts.map((p, i) => ({ x: p[0], y: p[1], label: names[i], hidden: i === miss }));

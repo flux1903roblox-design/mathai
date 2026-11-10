@@ -42,7 +42,7 @@ function leg() {
 function isRight() {
   const yes = Math.random() < 0.5;
   let [a, b, c] = scaled();
-  if (!yes) c += pick([-1, 1, 2]);
+  if (!yes) c += pick(a + b > c + 2 ? [-1, 1, 2] : [-1, 1]); // 3, 4, 7 is not a triangle
   const sides = shuffle([a, b, c]);
   const big = Math.max(...sides); const rest = sides.filter((s, i) => i !== sides.indexOf(big));
   const ok = rest[0] ** 2 + rest[1] ** 2 === big ** 2;
@@ -180,7 +180,7 @@ function meanBars() {
       manip: { kind: 'bars', values: vals, mean, max: 12, start }, answer: last,
       hint: `ממוצע $${mean}$ של $${n}$ מספרים פירושו שהסכום שלהם הוא $${mean} \\cdot ${n} = ${mean * n}$.`,
       solution: [`הסכום צריך להיות $${mean} \\cdot ${n} = ${mean * n}$.`, `סכום ארבע העמודות: $${vals.join(' + ')} = ${sum}$.`, `העמודה האחרונה: $${mean * n} - ${sum} = ${last}$.`],
-      diag: (u) => (u === mean ? 'no-divide' : null),
+      diag: (u) => (u === mean ? 'mean-as-answer' : null),
     };
   }
 }
