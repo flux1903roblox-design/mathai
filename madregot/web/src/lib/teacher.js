@@ -88,6 +88,40 @@ export async function rekey(cls) {
   return r;
 }
 
+// ---------------------------------------------------------------- the class itself (spec TEACHER-9)
+/** A new name for the class (the server cleans it as it cleans a new class's name); this device's list follows. */
+export async function renameClass(cls, className) {
+  const r = await teacherApi('/api/teacher/class/rename', { method: 'POST', body: { className } }, cls);
+  patchClass(cls.code, { className: r.className });
+  return r;
+}
+
+/**
+ * Delete the class on the server, with everything of it (TRUST-7). The signed-in session goes with the call even when
+ * the key opens the class, because a class bound to an email can be deleted only by its owner, with a code from the
+ * last 10 minutes: 403 not_owner (a key alone, or another email) and 401 reauth_needed ask the page for the step-up.
+ * 409 class_has_licence while a licence runs. Returns {ok, students}; the class is not removed from this device here.
+ */
+export function deleteClass(cls) {
+  const t = token();
+  return teacherApi('/api/teacher/class/delete', { method: 'POST', body: { confirm: 'DELETE' }, headers: t ? { 'X-Account-Token': t } : {} }, cls);
+}
+
+/**
+ * The class is gone: take it off this device. Returns the class that opens next, or null when none is left (the page
+ * then closes the board, as leaving does).
+ */
+export function dropClassHere(code) {
+  const st = useApp.getState();
+  const p = st.profile;
+  if (p?.role !== 'teacher') return null;
+  const classes = p.classes.filter((c) => c.code !== code);
+  if (!classes.length) return null;
+  const next = classes.find((c) => c.code === p.active) || classes[0];
+  st.setProfile({ ...p, classes, active: next.code, grade: next.grade || p.grade });
+  return next;
+}
+
 /**
  * Open the board with the classes of the account (from myClasses). A teacher profile already on this device keeps its
  * classes and its keys; classes from the list are added, all marked owned, and the open class stays open.

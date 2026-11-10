@@ -20,7 +20,9 @@ const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
 const Settings = lazy(() => import('@/screens/Settings.jsx'));
 const AdvancedSettings = lazy(() => import('@/screens/Settings.jsx').then((m) => ({ default: m.AdvancedSettings })));
-const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
+// The teacher's board and the class settings: one chunk.
+const Teacher = lazy(() => import('@/screens/teacher/teacher.js').then((m) => ({ default: m.Teacher })));
+const ClassSettings = lazy(() => import('@/screens/teacher/teacher.js').then((m) => ({ default: m.ClassSettings })));
 // The parents' area (its own header, no tab bar) works with or without a profile: one chunk, loaded on demand.
 const Parents = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Parents })));
 const ParentHandoff = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.ParentHandoff })));
@@ -126,6 +128,7 @@ function Root() {
         {!role && <Route path="*" element={<Welcome />} />}
         {role === 'teacher' && (
           <>
+            <Route path="/teacher/settings" element={<ClassSettings />} />
             <Route path="/teacher/*" element={<Teacher />} />
             <Route path="/subscription" element={<Navigate to="/teacher" replace />} />
             <Route path="*" element={<Navigate to="/teacher" replace />} />

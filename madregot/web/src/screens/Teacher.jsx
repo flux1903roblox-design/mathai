@@ -1,10 +1,10 @@
 // The teacher's board: the header, the overview tiles, the switch between the views, the data loading, adding a class
 // and the first look at a new class. Each view is its own file in screens/teacher/.
-import { useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target } from 'lucide-react';
+import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target, Settings as SettingsIcon } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api } from '@/lib/api.js';
 import { teacherApi, useEmailSignIn, offerBind } from '@/lib/teacher.js';
@@ -19,6 +19,7 @@ import TomorrowTab from './teacher/TomorrowTab.jsx';
 import StudentsTab from './teacher/StudentsTab.jsx';
 import ExamsTab from './teacher/ExamsTab.jsx';
 import HelpTab from './teacher/HelpTab.jsx';
+import { takePendingToast } from './teacher/DeleteClass.jsx';
 
 function AddClass({ open, onClose }) {
   const { profile, setProfile } = useApp();
@@ -61,6 +62,8 @@ export default function Teacher() {
   const [adding, setAdding] = useState(false);
   const [confirmOut, setConfirmOut] = useState(false);
   const { state: nav } = useLocation();
+  // a class deleted from its settings page: the board opens on the next class and says so
+  useEffect(() => { const t = takePendingToast(); if (t) toast(t); }, []);
   // "על רישיון כיתה" from the tutor's sheet: the licence card, at the top of the "מחר" view
   useEffect(() => {
     if (nav?.focus !== 'licence') return undefined;
@@ -133,6 +136,13 @@ export default function Teacher() {
               <Stat icon={Hand} tone="gold" value={openHelp.length} label="בקשות עזרה פתוחות" />
             </div>
 
+            {/* the class's tools: chips in one row that scrolls on a narrow screen (later items add theirs) */}
+            <nav className="t-tools" aria-label="כלים">
+              <ul>
+                <li><Link className="t-tool" to="/teacher/settings"><SettingsIcon size={18} aria-hidden="true" />הגדרות הכיתה</Link></li>
+              </ul>
+            </nav>
+
             <div className="segmented t-tabs" role="tablist" aria-label="תצוגה">
               {[['tomorrow', 'מחר'], ['students', 'תלמידים'], ['exams', `מבחנים${data.exams?.length ? ` (${data.exams.length})` : ''}`], ['help', `עזרה${openHelp.length ? ` (${openHelp.length})` : ''}`]].map(([id, label]) => (
                 <button key={id} type="button" role="tab" aria-selected={tab === id} className={clsx('seg', 't-tab', tab === id && 'on')} onClick={() => setTab(id)}>{label}</button>
@@ -160,7 +170,12 @@ export default function Teacher() {
           <ConfirmSheet open={confirmOut} onOpenChange={setConfirmOut} title="לצאת מהלוח?" keep="להישאר בלוח" confirm="כן, לצאת" onConfirm={leave}>
             {profile.classes.every((c) => c.owned)
               ? <p>הלוח ייסגר במכשיר הזה. כדי לחזור, נכנסים עם המייל {session?.email ? <bdi dir="ltr">{session.email}</bdi> : 'שלכם'}.</p>
-              : <p>הלוח ייסגר במכשיר הזה. כדי לחזור צריך את קוד הכיתה ואת מפתח המורה.</p>}
+              : (
+                <>
+                  <p>הלוח ייסגר במכשיר הזה. כדי לחזור צריך את קוד הכיתה ואת מפתח המורה.</p>
+                  <p className="t-leave-more">נמחק מהמכשיר הזה את הכיתות ואת מפתחות המורה. המידע של הכיתות בשרת נשאר: כדי למחוק אותו, מוחקים כל כיתה בלוח המורה לפני כן. אי אפשר לבטל.</p>
+                </>
+              )}
           </ConfirmSheet>
         </section>
       </main>

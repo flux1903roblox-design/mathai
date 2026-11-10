@@ -1,0 +1,26 @@
+// How long the server keeps a class's data, in the words a teacher reads (spec TEACHER-9 §1.6, trust Appendix E §E.6):
+// the list in the class settings and the line under the help list. The numbers come from shared/retention.js, the
+// same module the night purge reads, so the words cannot say one thing while the server does another; no number is
+// written in a screen. shared/retention.test.js renders these with the real numbers and with others.
+import { RETENTION } from '@shared/retention.js';
+
+const WORDS = { 30: 'חודש', 60: 'חודשיים', 180: 'חצי שנה', 365: 'שנה', 730: 'שנתיים' };
+/** A number of days as a teacher says it: "חודש", "חצי שנה", "שנה", or "400 יום". */
+export const daysText = (days) => WORDS[days] || `${days} יום`;
+
+/** The list under "כמה זמן נשמר המידע", one sentence a line. */
+export function retentionLines(R = RETENTION) {
+  const kept = R.attempts === R.exams
+    ? `תשובות בתרגול, מבחנים ומשימות: ${daysText(R.attempts)}.`
+    : `תשובות בתרגול: ${daysText(R.attempts)}. מבחנים ומשימות: ${daysText(R.exams)}.`;
+  return [
+    `דפי מחברת שנשלחו עם בקשת עזרה: ${daysText(R.helpImageAfterDone)} אחרי שסוגרים את הבקשה, ולכל היותר ${daysText(R.helpImageMax)}.`,
+    `בקשות עזרה והתשובות עליהן: ${daysText(R.helpAfterDone)} אחרי שסוגרים אותן, ולכל היותר ${daysText(R.helpMax)}.`,
+    kept,
+    `תלמיד שלא נכנס ${daysText(R.idleStudent)} נמחק, עם כל המידע שלו. כיתה שאף אחד לא נכנס אליה ${daysText(R.idleClass)} נמחקת.`,
+    'במכשירים של התלמידים נשמר התרגול שלהם, וכל תלמיד יכול למחוק אותו בעצמו.',
+  ];
+}
+
+/** The line under the teacher's help list. */
+export const helpRetentionNote = (R = RETENTION) => `דפי מחברת נמחקים ${daysText(R.helpImageAfterDone)} אחרי שסוגרים בקשה, ובקשות נמחקות אחרי ${daysText(R.helpAfterDone)}.`;

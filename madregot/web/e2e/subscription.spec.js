@@ -543,7 +543,7 @@ test.describe('the smart tutor', () => {
     // the account page: deleting the account would leave the class in place
     await page.goto('./#/parents');
     await page.getByRole('button', { name: 'מחיקת החשבון' }).click();
-    await expect(page.getByRole('dialog', { name: 'למחוק את החשבון?' }).getByText('הכיתות שלכם לא נמחקות עם החשבון, והן ימשיכו להיפתח עם מפתח המורה.')).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'למחוק את החשבון?' }).getByText('הכיתות שלכם לא נמחקות עם החשבון, והן ימשיכו להיפתח עם מפתח המורה. כדי למחוק כיתה: לוח המורה › הגדרות הכיתה › מחיקת הכיתה.')).toBeVisible();
     await shot(page, 'account-delete-owned-classes');
     await page.getByRole('button', { name: 'לא למחוק' }).click();
     await page.goto('./#/teacher');

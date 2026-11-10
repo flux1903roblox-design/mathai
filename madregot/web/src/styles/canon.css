@@ -566,3 +566,40 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .t-more-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
 .t-more-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 56px; padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
 a.btn { text-decoration: none; }
+
+/* the class settings and deleting a class (TEACHER-9): the board's tools as one row of chips under the tiles, the
+   settings page in the settings grammar, the retention list, a quiet last row on "תלמידים", and the delete sheet with
+   the class's name to type before the red button works */
+.t-tools { margin: 0; }
+.t-tools ul { list-style: none; margin: 0; padding: 0 0 2px; display: flex; gap: var(--s2); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.t-tools ul::-webkit-scrollbar { display: none; }
+.t-tools li { flex: none; }
+.t-tool { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s4); border: 2px solid var(--rule); border-radius: 999px; background: #fff; color: var(--ink); font-weight: 700; font-size: 16px; white-space: nowrap; text-decoration: none; }
+.t-tool svg { color: var(--brand); flex: none; }
+.t-tool:hover { border-color: var(--brand-line); }
+.t-tool:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.t-settings .screen-bar-title { text-wrap: balance; overflow-wrap: anywhere; }
+.t-settings .set-box { gap: var(--s4); }
+.t-set-error { margin: var(--s3) 0 0; }
+.t-set-rename { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s2) var(--s3); }
+.t-set-rename .field { flex: 1 1 200px; min-width: 0; }
+.t-set-rename .btn { flex: none; min-width: 96px; }
+.t-set-value { margin: 0; font-size: var(--t-base); font-weight: 700; color: var(--ink); }
+.t-set-line { margin: 0; }
+.t-set-chip { align-self: flex-start; }
+.t-set-bind { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); }
+.t-set-act { align-self: flex-start; }
+.t-settings .t-lock { margin: 0; }
+.t-settings .field-hint { margin: 0; }
+.t-keep { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s2); font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
+.t-quiet-rows { margin-top: var(--s4); }
+.t-quiet-row { gap: var(--s2); color: var(--ink-2); font-weight: 600; }
+.t-quiet-row svg { color: var(--ink-2); }
+.t-help-note { margin: var(--s3) 0 0; }
+.t-delete-form { align-items: stretch; text-align: start; }
+.t-delete-form .mascot, .t-delete-form svg.mascot { align-self: center; }
+.t-delete-form .confirm-text { text-align: center; }
+.t-delete-field { width: 100%; }
+.confirm-text .t-leave-more { margin-top: var(--s2); }
+/* a short phone: the delete sheet gives up the character, so the name to type and the buttons come sooner */
+@media (max-height: 700px) { .t-delete-form .mascot, .t-delete-form svg.mascot { display: none; } }

@@ -6,6 +6,11 @@
 // survives a reload, unless the teacher said it is a shared computer. The board offers to bind a class that only its
 // key opens, adds the email's other classes, and says how to come back when leaving.
 //
+// TEACHER-9: the class settings, opened from the board's tools: the class's name, grade, code and join lock; the email
+// it is bound to and the teacher key, with a new key after a fresh code; how long the data is kept (the words come from
+// shared/retention.js); and deleting the class, which waits for its name to be typed and, for a class bound to an
+// email, for the owner's fresh code.
+//
 // Screenshots for a look at the screens (TEACHER_SHOTS=<folder>), at the project's size and at 320×568; nothing is
 // compared.
 import { test, expect } from '@playwright/test';
@@ -322,5 +327,153 @@ test.describe('TEACHER-1: the class follows the teacher\'s email', () => {
     expect((await saved(page)).profile).toMatchObject({ active: 'AAA222', grade: '8' });
     await page.getByRole('combobox', { name: 'כיתה' }).selectOption('K7Q2MD');
     expect((await saved(page)).profile).toMatchObject({ active: 'K7Q2MD', grade: '7' });
+  });
+});
+
+test.describe('TEACHER-9: the class settings and deleting a class', () => {
+  const session = (n = 9) => ({ 'madregot-parent': JSON.stringify({ token: TOKEN(n), email: EMAIL, shared: false }) });
+  const threeClasses = () => withServer({ profile: { role: 'teacher', name: 'רונית', grade: '7', active: 'K7Q2MD', classes: [
+    { ...keyClass }, { code: 'AAA222', key: null, className: 'ח׳1', grade: '8', owned: true }, { code: 'BBB333', key: null, className: 'ז׳5', grade: '7', owned: true },
+  ] } });
+  const accountClasses = [{ code: 'AAA222', name: 'ח׳1', grade: '8', teacherName: 'רונית', students: 3 }, { code: 'BBB333', name: 'ז׳5', grade: '7', teacherName: 'רונית', students: 4 }];
+
+  test('the settings open from the board\'s tools: name, grade, code, lock, the key, how long data is kept; renaming changes the board', async ({ page }) => {
+    const { st, log } = await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    const tools = page.getByRole('navigation', { name: 'כלים' });
+    await tools.getByRole('link', { name: 'הגדרות הכיתה' }).click();
+    await expect(page.getByRole('heading', { name: 'הגדרות הכיתה ז׳3' })).toBeVisible();
+    await expect(page.getByText('כיתה ז׳', { exact: true })).toBeVisible();
+    await expect(page.getByText('שכבה חדשה? פותחים כיתה חדשה בתחילת השנה.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'העתקת קוד הכיתה K7Q2MD' })).toBeVisible();
+    const lock = page.getByRole('switch', { name: 'נעילת הכיתה לתלמידים חדשים' });
+    await expect(lock).toBeEnabled();
+    await expect(lock).not.toBeChecked();
+    // a class only its key opens: the offer to bind it, and the key to give a co-teacher; no new key without the email
+    await expect(page.getByText('הכיתה עוד לא מקושרת למייל.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'לקשר למייל שלי' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'העתקת מפתח המורה tkey-123' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'החלפת מפתח המורה' })).toHaveCount(0);
+    const keep = page.getByRole('region', { name: 'כמה זמן נשמר המידע' });
+    await expect(keep.getByRole('listitem')).toHaveText([
+      'דפי מחברת שנשלחו עם בקשת עזרה: חודש אחרי שסוגרים את הבקשה, ולכל היותר חודשיים.',
+      'בקשות עזרה והתשובות עליהן: חצי שנה אחרי שסוגרים אותן, ולכל היותר שנה.',
+      'תשובות בתרגול, מבחנים ומשימות: 400 יום.',
+      'תלמיד שלא נכנס 400 יום נמחק, עם כל המידע שלו. כיתה שאף אחד לא נכנס אליה 400 יום נמחקת.',
+      'במכשירים של התלמידים נשמר התרגול שלהם, וכל תלמיד יכול למחוק אותו בעצמו.',
+    ]);
+    await expect(page.getByText('בשנה הבאה פותחים כיתה חדשה, והתלמידים מצטרפים עם קוד חדש.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'מחיקת הכיתה' })).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'teacher-settings');
+    // the join lock from here
+    await lock.click();
+    await expect(lock).toBeChecked();
+    expect(st.joinLocked).toBe(true);
+    // a new name
+    const save = page.getByRole('button', { name: 'שמירה' });
+    await expect(save).toBeDisabled();
+    await page.getByLabel('שם הכיתה').fill('  ז׳3   מורחבת ');
+    await save.click();
+    await expect(page.getByText('שם הכיתה עודכן.')).toBeVisible();
+    expect(log.find((r) => r.path === '/api/teacher/class/rename')).toMatchObject({ body: { className: 'ז׳3 מורחבת' }, headers: { 'x-class-code': 'K7Q2MD', 'x-teacher-key': 'tkey-123' } });
+    await expect(page.getByRole('heading', { name: 'הגדרות הכיתה ז׳3 מורחבת' })).toBeVisible();
+    expect((await saved(page)).profile.classes[0].className).toBe('ז׳3 מורחבת');
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
+    await expect(page.getByRole('heading', { name: 'ז׳3 מורחבת' })).toBeVisible();
+    // the help list says how long its pages and requests stay; leaving says the server keeps the class
+    await page.getByRole('tab', { name: /עזרה/ }).click();
+    await expect(page.getByText('דפי מחברת נמחקים חודש אחרי שסוגרים בקשה, ובקשות נמחקות אחרי חצי שנה.')).toBeVisible();
+    await page.getByRole('button', { name: 'יציאה מהלוח' }).click();
+    await expect(page.getByRole('dialog', { name: 'לצאת מהלוח?' })).toContainText('המידע של הכיתות בשרת נשאר: כדי למחוק אותו, מוחקים כל כיתה בלוח המורה לפני כן.');
+  });
+
+  test('a new teacher key: a fresh code to the email, then the key to copy; the old one is replaced on this device', async ({ page }) => {
+    const { st, log } = await fakeServer(page.context(), { owned: true }, baseOf());
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/teacher/settings', ownedTeacher(), { local: session() });
+    await expect(page.getByText(`מקושרת ל־${EMAIL}.`)).toBeVisible();
+    await expect(page.getByText('המפתח לא שמור במכשיר הזה.')).toBeVisible();
+    await page.getByRole('button', { name: 'החלפת מפתח המורה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'ליצור מפתח מורה חדש?' });
+    await expect(sheet).toContainText('המפתח הישן יפסיק לעבוד בכל מכשיר שנכנס איתו. מי שנכנס עם המייל ממשיך כרגיל. כדי לאשר, נשלח קוד למייל.');
+    await sheet.getByRole('button', { name: 'ליצור מפתח חדש' }).click();
+    await expect(sheet.getByRole('button', { name: 'אישור והחלפת המפתח' })).toBeVisible();
+    expect(log.filter((r) => r.path === '/api/teacher/class/rekey')).toHaveLength(0);
+    await sheet.getByLabel('הקוד מהמייל').fill('123456');
+    const done = page.getByRole('dialog', { name: 'מפתח מורה חדש' });
+    await expect(done).toContainText('המפתח החדש מוכן. אפשר להעתיק אותו למורה נוסף.');
+    await expect(done.getByRole('button', { name: 'העתקת המפתח החדש tkey-456' })).toBeVisible();
+    const call = log.find((r) => r.path === '/api/teacher/class/rekey');
+    expect(call.headers['x-account-token']).toBe(TOKEN(1));
+    expect((await saved(page)).profile.classes[0]).toMatchObject({ key: 'tkey-456', owned: true });
+    await done.getByRole('button', { name: 'סיום' }).click();
+    await expect(done).toBeHidden();
+    await expect(page.getByRole('button', { name: 'העתקת מפתח המורה tkey-456' })).toBeVisible();
+  });
+
+  test('deleting a class waits for its name, posts DELETE, and the class leaves the switcher', async ({ page }) => {
+    const { st, log } = await fakeServer(page.context(), { accountClasses }, baseOf());
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/teacher/settings', threeClasses(), { local: session() });
+    await page.getByRole('button', { name: 'מחיקת הכיתה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'למחוק את הכיתה ז׳3?' });
+    await expect(sheet).toContainText('נמחק את רשימת התלמידים, את ההתקדמות שלהם בלוח, את המשימות, את בקשות העזרה והתשובות עליהן ואת המבחנים. התרגול שנשמר במכשירים של התלמידים נשאר בהם. אי אפשר לבטל.');
+    const red = sheet.getByRole('button', { name: 'כן, למחוק את הכיתה' });
+    await expect(red).toBeDisabled();
+    const name = sheet.getByLabel('כדי לאשר, כתבו את שם הכיתה: ז׳3');
+    await name.fill('ז׳');
+    await expect(red).toBeDisabled();
+    await name.fill("ז'3"); // a phone keyboard's apostrophe for the geresh
+    await expect(red).toBeEnabled();
+    await shot(page, 'teacher-delete-class');
+    expect(log.filter((r) => r.path === '/api/teacher/class/delete')).toHaveLength(0);
+    await red.click();
+    await expect(page.getByText('הכיתה נמחקה')).toBeVisible();
+    const del = log.filter((r) => r.path === '/api/teacher/class/delete');
+    expect(del).toHaveLength(1);
+    expect(del[0].body).toEqual({ confirm: 'DELETE' });
+    expect(del[0].headers).toMatchObject({ 'x-class-code': 'K7Q2MD', 'x-teacher-key': 'tkey-123' });
+    // the board opens on the next class; the switcher has the two that are left
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    const switcher = page.getByRole('combobox', { name: 'כיתה' });
+    await expect(switcher).toHaveValue('AAA222');
+    await expect(switcher.locator('option')).toHaveText(['ח׳1', 'ז׳5']);
+    const p = (await saved(page)).profile;
+    expect(p.classes.map((c) => c.code)).toEqual(['AAA222', 'BBB333']);
+    expect(p).toMatchObject({ active: 'AAA222', grade: '8' });
+  });
+
+  test('a class bound to the email: the owner\'s fresh code first; the last class gone closes the board; a running licence keeps a class', async ({ page }) => {
+    const { st, log } = await fakeServer(page.context(), { owned: true, licence: { status: 'active', until: '2027-08-31T20:59:59Z', seats: 30, students: 2, aiWeek: 0, joinLocked: false, request: null, legacyUntil: null, offer: { seatYearAgorot: 4900, minSeats: 10, vatMode: 'included', online: true } } }, baseOf());
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/teacher?tab=students', ownedTeacher(), { local: session() });
+    // the quiet last row of "תלמידים" opens the same sheet
+    await page.getByRole('button', { name: 'מחיקת הכיתה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'למחוק את הכיתה ז׳3?' });
+    await sheet.getByLabel(/כדי לאשר, כתבו את שם הכיתה/).fill('ז׳3');
+    await sheet.getByRole('button', { name: 'כן, למחוק את הכיתה' }).click();
+    // owned: the step-up comes before any delete is sent
+    await expect(sheet.getByText('רק מי שהכיתה מקושרת למייל שלו יכול למחוק אותה. כדי לאשר, שלחנו קוד למייל.')).toBeVisible();
+    expect(log.filter((r) => r.path === '/api/teacher/class/delete')).toHaveLength(0);
+    await sheet.getByLabel('הקוד מהמייל').fill('123456');
+    // the licence still runs: the class stays, and the sheet says why
+    await expect(sheet.getByText('לכיתה יש רישיון פעיל. אפשר למחוק אותה אחרי שהרישיון מסתיים, או לכתוב לנו.')).toBeVisible();
+    expect(st.deleted).toEqual([]);
+    await sheet.getByRole('button', { name: 'סגירה' }).click();
+    // the licence has ended: now it goes, and with no class left the board closes
+    st.licence = { ...st.licence, status: 'ended' };
+    await page.getByRole('button', { name: 'מחיקת הכיתה' }).click();
+    await sheet.getByLabel(/כדי לאשר, כתבו את שם הכיתה/).fill('ז׳3');
+    await sheet.getByRole('button', { name: 'כן, למחוק את הכיתה' }).click();
+    await sheet.getByLabel('הקוד מהמייל').fill('123456');
+    await expect(page.getByText('הכיתה נמחקה')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'אני מורה', exact: true })).toBeVisible();
+    const del = log.filter((r) => r.path === '/api/teacher/class/delete');
+    expect(del.at(-1)).toMatchObject({ body: { confirm: 'DELETE' }, headers: { 'x-class-code': 'K7Q2MD', 'x-account-token': TOKEN(2) } });
+    expect(st.deleted).toEqual(['K7Q2MD']);
+    expect((await saved(page)).profile).toBe(null);
+    expect(log.some((r) => r.path === '/api/account/signout')).toBe(true);
   });
 });

@@ -180,3 +180,43 @@ describe('the bind card and the public site\'s link', () => {
     expect(teacher.teacherSiteLink('javascript:alert(1)')).toBe('');
   });
 });
+
+describe('the class itself: rename, delete, and taking it off this device (TEACHER-9)', () => {
+  it('a rename goes with the class headers, and this device takes the name the server kept', async () => {
+    const { useApp, teacher } = await load({ classes: [keyOnly] });
+    answer = () => json({ ok: true, className: 'ז׳3 מורחבת' });
+    await teacher.renameClass(keyOnly, '  ז׳3   מורחבת ');
+    expect(calls[0]).toMatchObject({ path: '/api/teacher/class/rename', body: { className: '  ז׳3   מורחבת ' }, headers: { 'X-Class-Code': 'K7Q2MD', 'X-Teacher-Key': KEY } });
+    expect(classOf(useApp).className).toBe('ז׳3 מורחבת');
+  });
+
+  it('a delete always asks with the word DELETE, and the session goes with the key so the owner is known', async () => {
+    const { teacher } = await load({ classes: [keyOnly], signedIn: true });
+    await teacher.deleteClass(keyOnly);
+    expect(calls[0]).toMatchObject({ path: '/api/teacher/class/delete', body: { confirm: 'DELETE' }, headers: { 'X-Class-Code': 'K7Q2MD', 'X-Teacher-Key': KEY, 'X-Account-Token': TOKEN } });
+    await teacher.deleteClass(owned);
+    expect(calls[1].headers).toEqual(expect.objectContaining({ 'X-Class-Code': 'K7Q2MD', 'X-Account-Token': TOKEN }));
+    expect(calls[1].headers['X-Teacher-Key']).toBeUndefined();
+    local.removeItem('madregot-parent');
+    const signedOut = await load({ classes: [keyOnly] });
+    await signedOut.teacher.deleteClass(keyOnly);
+    expect(calls[2].headers['X-Account-Token']).toBeUndefined();
+  });
+
+  it('a refused delete is the server\'s answer, unchanged (the page shows the step-up or the licence words)', async () => {
+    const { teacher } = await load({ classes: [owned], signedIn: true });
+    answer = () => json({ error: 'reauth_needed' }, 401);
+    await expect(teacher.deleteClass(owned)).rejects.toMatchObject({ code: 'reauth_needed', status: 401 });
+    answer = () => json({ error: 'class_has_licence' }, 409);
+    await expect(teacher.deleteClass(owned)).rejects.toMatchObject({ code: 'class_has_licence', status: 409 });
+  });
+
+  it('after a delete the next class opens with its grade; with none left there is nothing to open', async () => {
+    const other = { code: 'AAA222', key: null, className: 'ח׳1', grade: '8', owned: true };
+    const { useApp, teacher } = await load({ classes: [keyOnly, other] });
+    expect(teacher.dropClassHere('K7Q2MD')).toMatchObject({ code: 'AAA222' });
+    expect(useApp.getState().profile).toMatchObject({ active: 'AAA222', grade: '8', classes: [other] });
+    expect(teacher.dropClassHere('AAA222')).toBe(null);
+    expect(useApp.getState().profile.classes).toEqual([other]);
+  });
+});

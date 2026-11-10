@@ -41,10 +41,10 @@ export function FreshClass({ cls, onDone }) {
 }
 
 /**
- * At the top of "מחר", for a class that only its key opens here: bind it to the teacher's email, so a lost device does
- * not lose it. Signed in already: one tap. Otherwise a sheet asks for the email code first. "לא עכשיו": a week.
+ * Binding a class that only its key opens to the teacher's email: `start()` binds at once when signed in, otherwise it
+ * opens a sheet that asks for the email code first. Used by the bind card and by the class settings.
  */
-export function BindCard({ cls }) {
+export function useBind(cls) {
   const session = useParent((s) => s.session);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -60,21 +60,33 @@ export function BindCard({ cls }) {
       if (e.code === 'not_account') setOpen(true);
     } finally { setBusy(false); }
   };
+  const sheet = (
+    <Sheet open={open} onOpenChange={setOpen} title="קישור הכיתה למייל">
+      <div className="stack">
+        <p className="muted">אחרי הכניסה, הכיתה {cls.className} תיפתח עם המייל בכל מכשיר. מפתח המורה ממשיך לעבוד כרגיל.</p>
+        <EmailCodeForm idPrefix="bind" purpose="teacherAccount" askShared onSignedIn={bind} />
+        {error && <p className="form-error" role="alert">{error}</p>}
+      </div>
+    </Sheet>
+  );
+  return { start: () => (session ? bind() : setOpen(true)), busy, error: open ? '' : error, sheet };
+}
+
+/**
+ * At the top of "מחר", for a class that only its key opens here: bind it to the teacher's email, so a lost device does
+ * not lose it. Signed in already: one tap. Otherwise a sheet asks for the email code first. "לא עכשיו": a week.
+ */
+export function BindCard({ cls }) {
+  const b = useBind(cls);
   return (
     <section className="card t-bind" role="region" aria-label="קישור הכיתה למייל">
       <p>הכיתה עוד לא מקושרת למייל. אם המכשיר הזה ילך לאיבוד, לא תוכלו לחזור אליה.</p>
-      {error && !open && <p className="form-error" role="alert">{error}</p>}
+      {b.error && <p className="form-error" role="alert">{b.error}</p>}
       <div className="t-bind-actions">
-        <Button onClick={() => (session ? bind() : setOpen(true))} disabled={busy}>{busy ? 'מקשרים…' : 'לקשר למייל שלי'}</Button>
+        <Button onClick={b.start} disabled={b.busy}>{b.busy ? 'מקשרים…' : 'לקשר למייל שלי'}</Button>
         <Button variant="ghost" onClick={() => remindBindLater(cls)}>לא עכשיו</Button>
       </div>
-      <Sheet open={open} onOpenChange={setOpen} title="קישור הכיתה למייל">
-        <div className="stack">
-          <p className="muted">אחרי הכניסה, הכיתה {cls.className} תיפתח עם המייל בכל מכשיר. מפתח המורה ממשיך לעבוד כרגיל.</p>
-          <EmailCodeForm idPrefix="bind" purpose="teacherAccount" askShared onSignedIn={bind} />
-          {error && <p className="form-error" role="alert">{error}</p>}
-        </div>
-      </Sheet>
+      {b.sheet}
     </section>
   );
 }

@@ -385,7 +385,7 @@ function AccountRows({ email, qa, ownedClasses = 0, onGone }) {
           ) : (
             <>
               <p className="lead">נמחק את כתובת המייל, את הכניסות ואת המכשירים המחוברים. אם יש מנוי, הוא יבוטל והעוזר החכם ייסגר מיד בכל המכשירים. בתוך 14 יום מהתשלום הראשון, בקשו קודם החזר בביטול המנוי.</p>
-              {ownedClasses > 0 && <p>הכיתות שלכם לא נמחקות עם החשבון, והן ימשיכו להיפתח עם מפתח המורה.</p>}
+              {ownedClasses > 0 && <p>הכיתות שלכם לא נמחקות עם החשבון, והן ימשיכו להיפתח עם מפתח המורה. כדי למחוק כיתה: לוח המורה › הגדרות הכיתה › מחיקת הכיתה.</p>}
               {error && <p className="form-error" role="alert">{error}</p>}
               <Button className="btn-block btn-lg" onClick={() => setDel(null)}>לא למחוק</Button>
               <Button variant="ghost" className="btn-block exit-quit" onClick={remove} disabled={busy}>{busy ? 'מוחקים…' : 'כן, למחוק'}</Button>

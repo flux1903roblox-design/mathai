@@ -3,6 +3,8 @@
 // licence, join lock and student removal (moved here from subscription.spec.js so every spec can share it), plus the
 // teacher's account (TEACHER-1): GET /api/health, a new class bound to the email, the email's class list, binding a
 // class and a new teacher key. The class K7Q2MD opens with its key, or with the session of the email it is bound to.
+// The class settings (TEACHER-9): renaming a class, and deleting one (TRUST-7: the word DELETE, the owner's fresh code
+// for a class bound to an email, 409 while a licence runs); a deleted class opens no more.
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
 const CORS = {
@@ -50,6 +52,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     className: 'ז׳3', classGrade: '7',
     accountClasses: [], // more classes bound to the same email: [{ code, name, grade, teacherName, students }]
     email: true, // GET /api/health: the server can send sign-in codes
+    deleted: [], // classes deleted through /api/teacher/class/delete
     ...over,
   };
   const emails = new Map(); // session token → the email it signed in with
@@ -229,8 +232,9 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     if (path.startsWith('/api/teacher/')) {
       // the key is checked first; else the session of the account the class is bound to; an ended session alone is not_account
       const code = h['x-class-code'];
-      const byKey = code === 'K7Q2MD' && h['x-teacher-key'] === st.key;
-      const byAccount = [...(st.owned ? ['K7Q2MD'] : []), ...st.accountClasses.map((c) => c.code)].includes(code) && mine();
+      const gone = st.deleted.includes(code);
+      const byKey = !gone && code === 'K7Q2MD' && h['x-teacher-key'] === st.key;
+      const byAccount = !gone && [...(st.owned ? ['K7Q2MD'] : []), ...st.accountClasses.map((c) => c.code)].includes(code) && mine();
       if (path === '/api/teacher/class/owner') {
         if (!signed) return reply(route, 401, { error: 'not_account' });
         if (!byKey) return reply(route, 401, { error: 'not_teacher' });
@@ -259,6 +263,25 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
         return reply(route, 200, { ok: true, until: st.licence.until, seats: 35 });
       }
       if (path === '/api/teacher/class/lock') { st.joinLocked = !!body.locked; return reply(route, 200, { joinLocked: st.joinLocked }); }
+      if (path === '/api/teacher/class/rename') {
+        const name = String(body.className || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+        if (!name) return reply(route, 400, { error: 'missing_fields' });
+        if (code === 'K7Q2MD') st.className = name; else st.accountClasses = st.accountClasses.map((c) => (c.code === code ? { ...c, name } : c));
+        return reply(route, 200, { ok: true, className: name });
+      }
+      if (path === '/api/teacher/class/delete') {
+        if (body.confirm !== 'DELETE') return reply(route, 400, { error: 'confirm_required' });
+        // a class bound to an email: only its owner, with a code from the last 10 minutes
+        const owned = code === 'K7Q2MD' ? st.owned : true;
+        if (owned && !mine()) return reply(route, 403, { error: 'not_owner' });
+        if (owned && !st.recent.has(token)) return reply(route, 401, { error: 'reauth_needed' });
+        if (code === 'K7Q2MD' && ['trial', 'active', 'ending'].includes(st.licence.status)) return reply(route, 409, { error: 'class_has_licence' });
+        const students = code === 'K7Q2MD' ? st.students.length : (st.accountClasses.find((c) => c.code === code)?.students || 0);
+        st.deleted.push(code);
+        st.accountClasses = st.accountClasses.filter((c) => c.code !== code);
+        if (code === 'K7Q2MD') st.owned = false;
+        return reply(route, 200, { ok: true, students });
+      }
       const rm = path.match(/^\/api\/teacher\/students\/([a-z0-9]+)\/remove$/);
       if (rm) { st.students = st.students.filter((s) => s.id !== rm[1]); return reply(route, 200, { ok: true }); }
     }
