@@ -31,8 +31,9 @@ CREATE TABLE IF NOT EXISTS attempts (
   secs INTEGER NOT NULL DEFAULT 0,
   day TEXT NOT NULL,
   at TEXT NOT NULL
-);
+, client_id TEXT);
 CREATE INDEX IF NOT EXISTS attempts_student_day ON attempts (student_id, day);
+CREATE UNIQUE INDEX IF NOT EXISTS attempts_client ON attempts (student_id, client_id) WHERE client_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS levels (
   student_id TEXT NOT NULL,

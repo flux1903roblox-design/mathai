@@ -1,4 +1,6 @@
-import { useApp } from './store.js';
+import { useApp, toWire } from './store.js';
+import { keepaliveBudget, bodyBytes } from './durable/moments.js';
+import { randomHex } from './random.js';
 
 /**
  * The Worker's address: Settings override, else the one baked in at build time.
@@ -13,6 +15,13 @@ export function apiBase() {
   return url.replace(/\/+$/, '');
 }
 export const hasServer = () => !!apiBase();
+/**
+ * The server is this page's own address (production: the Worker serves the app). Only then may a request use
+ * `keepalive`: across origins the class token makes it need a CORS preflight, which keepalive does not get everywhere.
+ */
+export function sameOrigin() {
+  try { return new URL(apiBase()).origin === globalThis.location?.origin; } catch { return false; }
+}
 
 const MESSAGES = {
   no_server: 'העוזר לא מחובר בגרסה הזו. השיעורים והתרגול עובדים גם בלעדיו.',
@@ -107,15 +116,16 @@ export class ApiError extends Error {
 /**
  * One JSON call to the server. `auth: false` leaves out the student's class token (a parent's call on a child's
  * device carries only the parent's own headers). `onResponse(res)` sees the response first (its status and headers).
+ * `keepalive: true` lets the request finish after the page is gone (the caller has claimed its bytes; see moments.js).
  */
-export async function api(path, { method = 'GET', body, headers = {}, signal, auth = true, onResponse } = {}) {
+export async function api(path, { method = 'GET', body, headers = {}, signal, auth = true, onResponse, keepalive = false } = {}) {
   const base = apiBase();
   if (!base) throw new ApiError('no_server');
   const token = auth ? useApp.getState().profile?.token : null;
   let res;
   try {
     res = await fetch(base + path, {
-      method, signal,
+      method, signal, ...(keepalive ? { keepalive: true } : {}),
       headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -131,17 +141,38 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
 
 export const teacherHeaders = (cls) => ({ 'X-Class-Code': cls.code, 'X-Teacher-Key': cls.key });
 
-/** Send queued answers and current levels to the class server. */
+/** At most this many answers in one request (the server takes 500), and this many requests in one sync. */
+export const SYNC_BATCH = 300;
+const SYNC_ROUNDS = 5;
+
+/**
+ * Send a class student's queued answers and current levels to the class server (DURABLE-7), in batches of 300, up to
+ * 5 a time. An answer leaves the outbox only once the server has acknowledged it (`saved` counts from the start of the
+ * batch), so a lost request, a closed page or an answer given meanwhile loses nothing; the server ignores an answer it
+ * already has. `hidden`: the page is going out of view, so a batch is sent with keepalive when this page and the server
+ * share an address and the bytes fit the hidden moment's budget. `levels`: send the levels even with no answers waiting
+ * (just after joining a class, so the teacher sees where the student stands).
+ */
 let syncing = false;
-export async function syncNow() {
+export async function syncNow({ hidden = false, levels = false } = {}) {
   const st = useApp.getState();
   if (syncing || !st.profile?.token || !hasServer()) return;
-  const events = st.takeOutbox();
+  // answers saved before they had ids get one now, so they too can be acknowledged one by one
+  if (st.outbox.some((e) => !e.id)) useApp.setState({ outbox: useApp.getState().outbox.map((e) => (e.id ? e : { ...e, id: randomHex(6) })) });
   syncing = true;
   try {
-    await api('/api/progress', { method: 'POST', body: { events, levels: st.progress } });
+    for (let round = 0; round < SYNC_ROUNDS; round += 1) {
+      const batch = useApp.getState().outbox.slice(0, SYNC_BATCH);
+      if (!batch.length && !(levels && round === 0)) break;
+      const body = { events: batch.map(toWire), levels: useApp.getState().progress };
+      const keepalive = hidden && sameOrigin() && keepaliveBudget.claim(bodyBytes(body));
+      const r = await api('/api/progress', { method: 'POST', body, keepalive });
+      const n = Math.max(0, Math.min(Number(r?.saved) || 0, batch.length));
+      useApp.getState().ackOutbox(batch.slice(0, n).map((e) => e.id));
+      if (n < batch.length || !batch.length) break;
+    }
   } catch (e) {
-    useApp.getState().returnOutbox(events);
+    // everything not acknowledged stays queued for the next moment
     if (e.code === 'not_signed_in') useApp.getState().patchProfile({ token: null });
   } finally { syncing = false; }
 }

@@ -4,6 +4,7 @@ import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
+import { useMoments, onMoment, MOMENT_ORDER } from '@/lib/durable/moments.js';
 import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
@@ -36,15 +37,17 @@ const Rescue = lazy(() => import('@/screens/Rescue.jsx'));
 const NewPracticeExam = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.NewPracticeExam })));
 const PracticeSheet = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.PracticeSheet })));
 
+/**
+ * A class student's answers go to the class server at the app's sync moments (lib/durable/moments.js): when the app
+ * opens, after a lesson, every 10 minutes, back online, and when it goes out of view or closes (with keepalive where it
+ * can). Opening the app as a class student, or joining a class, sends at once, the levels too.
+ */
 function useSync() {
   const token = useApp((s) => s.profile?.token);
   useEffect(() => {
     if (!token) return undefined;
-    syncNow();
-    const t = setInterval(syncNow, 60_000);
-    const onHide = () => { if (document.visibilityState === 'hidden') syncNow(); };
-    document.addEventListener('visibilitychange', onHide);
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onHide); };
+    syncNow({ levels: true });
+    return onMoment(['boot', 'lesson', 'tick', 'online', 'hidden'], (m) => syncNow({ hidden: m === 'hidden' }), { priority: MOMENT_ORDER.classOutbox });
   }, [token]);
 }
 
@@ -173,6 +176,7 @@ function Root() {
 const router = createHashRouter([{ path: '*', element: <Root /> }]);
 
 export default function App() {
+  useMoments();
   useSync();
   return (
     <LazyMotion features={domAnimation} strict>

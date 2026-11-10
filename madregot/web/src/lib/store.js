@@ -11,6 +11,7 @@ import { logEvent } from '@/learn/analytics.ts';
 import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
 import { completeMissionItems } from '@/learn/mission.ts';
 import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
+import { randomHex } from './random.js';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
@@ -48,6 +49,11 @@ const empty = {
   placement: null, // { at, grade, results: { topic: { level, asked, right } } }
   learn: emptyLearn(), // Madregot 2.0: skills (evidence, mastery, reviews), misconceptions, exam plan, missions, events (src/learn/types.ts)
 };
+
+/** A class student's answers waiting for the server, at most (the oldest give way first). */
+export const OUTBOX_MAX = 1000;
+/** What the class server stores of an answer (worker saveProgress), and all the outbox keeps of it. */
+export const toWire = (e) => ({ id: e.id, topic: e.topic, level: e.level, ok: e.ok, first: e.first, hint: e.hint, cat: e.cat, secs: e.secs, at: e.at });
 
 /** The saved-state key (a staging copy on the same address keeps its own); the parent session lives beside it. */
 export const STORE_KEY = import.meta.env.VITE_STORE_KEY || 'madregot';
@@ -110,7 +116,8 @@ export const useApp = create(
           mistakes,
           wins,
           gaps: noteGap(get().gaps, event),
-          outbox: get().profile?.token ? [...get().outbox, event].slice(-500) : get().outbox,
+          // a class student's answer waits here until the server has it; its id makes a resent answer count once
+          outbox: get().profile?.token ? [...get().outbox, toWire({ ...event, id: randomHex(6) })].slice(-OUTBOX_MAX) : get().outbox,
           learn: learnAfterAnswer(get().learn, event),
         });
       },
@@ -236,8 +243,11 @@ export const useApp = create(
         set({ days, freezes: st.freezes - missed.length });
         return missed.length;
       },
-      takeOutbox: () => { const items = get().outbox; set({ outbox: [] }); return items; },
-      returnOutbox: (items) => set({ outbox: [...items, ...get().outbox].slice(-500) }),
+      /** The server has these answers (by id): they leave the outbox. Answers recorded meanwhile stay. */
+      ackOutbox: (ids) => {
+        const done = new Set(ids);
+        if (done.size) set({ outbox: get().outbox.filter((e) => !done.has(e.id)) });
+      },
       leaveClass: () => {
         const p = get().profile; if (!p) return;
         const { classCode, className, teacherName, token, studentId, ...rest } = p;

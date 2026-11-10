@@ -7,6 +7,7 @@ import { KIND_GROUP, FREE_KINDS } from '@shared/ai.js';
 import { useApp, PERSONAL_KEY } from './store.js';
 import { api, apiBase, hasServer, ApiError } from './api.js';
 import { qaStatus, qaActive } from './qaFixtures.js';
+import { randomHex } from './random.js';
 
 /** A random id for this device, made once. The server counts the free questions per device. */
 export function deviceId() {
@@ -16,9 +17,8 @@ export function deviceId() {
   setAI({ device: id });
   return id;
 }
-export function randomHex(bytes) {
-  return [...crypto.getRandomValues(new Uint8Array(bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+// one function for every random id; it lives in a module with no imports, so the store can use it too
+export { randomHex };
 
 /** The headers of every tutor call from this device: its id, and its family-device token when it has one. */
 export function aiHeaders() {
