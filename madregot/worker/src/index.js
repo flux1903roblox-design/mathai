@@ -16,11 +16,11 @@ import {
   onlineCheckout,
 } from './billing.js';
 import { currentProvider } from './providers/index.js';
-import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily } from './family.js';
+import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily, familyVaults, deleteFamilyVault } from './family.js';
 import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked } from './licence.js';
 import { run as runCron } from './cron.js';
 import { postErrors, recordServerError } from './errors.js';
-import { getVault, putVault, deleteVault, vaultOn, vaultFull } from './vault.js';
+import { getVault, putVault, deleteVault, vaultOn, vaultFull, putEscrow, deleteEscrow, studentEscrowCode } from './vault.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -57,6 +57,8 @@ const cleanName = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 30
 
 // Wrong personal-code attempts allowed per student per day (each try is counted before the compare); the teacher's reset clears the count.
 const PIN_TRIES = 10;
+/** A class student stays signed in on this many devices at once (DURABLE-6); a further join signs out the oldest. */
+const STUDENT_DEVICES = 3;
 
 // ---------- AI ----------
 /**
@@ -256,14 +258,26 @@ async function joinClass(code, req, env, cors) {
       await giveBack(env, [k]);
     }
     id = existing.id;
-    await env.DB.prepare('UPDATE students SET token_hash = ?, pin_hash = ?, last_seen = ? WHERE id = ?')
-      .bind(await sha256(token), existing.pin_hash || (await hashPin(pin)), nowIso(), id).run();
-  } else {
-    id = randomToken(8);
-    await env.DB.prepare('INSERT INTO students (id, class_code, name, pin_hash, token_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(id, cls.code, name, await hashPin(pin), await sha256(token), nowIso(), nowIso()).run();
-  }
-  return json({ studentId: id, token, name, className: cls.name, grade: cls.grade, classCode: cls.code, returning: !!existing }, 200, cors);
+  } else id = randomToken(8);
+  // DURABLE-6: each device keeps its own token (up to 3 per student: a 4th join signs out the oldest). students.token_hash
+  // is still written, only so that an older Worker in a rollback lets the newest device in.
+  const tokenHash = await sha256(token);
+  const now = nowIso();
+  await env.DB.batch([
+    existing
+      ? env.DB.prepare('UPDATE students SET token_hash = ?, pin_hash = ?, last_seen = ? WHERE id = ?').bind(tokenHash, existing.pin_hash || (await hashPin(pin)), now, id)
+      : env.DB.prepare('INSERT INTO students (id, class_code, name, pin_hash, token_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, cls.code, name, await hashPin(pin), tokenHash, now, now),
+    env.DB.prepare('INSERT INTO student_tokens (token_hash, student_id, created_at, last_seen) VALUES (?, ?, ?, ?)').bind(tokenHash, id, now, now),
+    env.DB.prepare(`DELETE FROM student_tokens WHERE student_id = ?1 AND token_hash NOT IN (
+      SELECT token_hash FROM student_tokens WHERE student_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT ?2)`).bind(id, STUDENT_DEVICES),
+  ]);
+  // a returning student whose PIN was right (or who set a new one after the teacher's reset) gets the kept restore code
+  // back, when the class kept one and its vault is still there (DURABLE-6); without VAULT_SECRET there is none to give
+  const kept = existing ? await studentEscrowCode(env, id) : null;
+  return json({
+    studentId: id, token, name, className: cls.name, grade: cls.grade, classCode: cls.code, returning: !!existing, ...(kept ? { vault: { code: kept } } : {}),
+  }, 200, cors);
 }
 
 // ---------- student data ----------
@@ -415,8 +429,12 @@ async function helpImage(id, req, env, cors) {
 
 async function resetPin(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
-  const r = await env.DB.prepare('UPDATE students SET pin_hash = \'\', token_hash = ? WHERE id = ? AND class_code = ?')
-    .bind(await sha256(randomToken()), id, cls.code).run();
+  // every device of the student is signed out (the next join sets a new PIN); the kept restore code stays, so that join
+  // gets the progress back (DURABLE-6)
+  const [r] = await env.DB.batch([
+    env.DB.prepare('UPDATE students SET pin_hash = \'\', token_hash = ? WHERE id = ? AND class_code = ?').bind(await sha256(randomToken()), id, cls.code),
+    env.DB.prepare('DELETE FROM student_tokens WHERE student_id = ? AND EXISTS (SELECT 1 FROM students WHERE id = ? AND class_code = ?)').bind(id, id, cls.code),
+  ]);
   // A reset also clears today's wrong-code count, so the student can choose a new code right away.
   if (r.meta?.changes) await env.DB.prepare('DELETE FROM ai_usage WHERE who = ?').bind(`pin:${id}`).run();
   return json({ ok: true }, 200, cors);
@@ -434,6 +452,8 @@ async function health(env) {
     netKeys: !!env.IP_HASH_SECRET, auth: !!env.AUTH_SECRET,
     // the encrypted backup: its switch, and whether the size limit is reached (never the meter's value)
     vault: vaultOn(env) ? 'on' : 'off', vaultFull: await vaultFull(env),
+    // whether class and family copies of a restore code can be kept (VAULT_SECRET is set; never its value)
+    escrow: !!env.VAULT_SECRET,
   };
 }
 
@@ -450,6 +470,9 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && p === '/api/vault') return getVault(req, env, cors, { blob: true });
   if (M === 'GET' && p === '/api/vault/rev') return getVault(req, env, cors, { blob: false });
   if (M === 'POST' && p === '/api/vault/delete') return deleteVault(req, env, cors);
+  // escrow (DURABLE-6): the code kept for a class student or a family device, sealed with VAULT_SECRET
+  if (M === 'POST' && p === '/api/vault/escrow') return putEscrow(req, env, cors);
+  if (M === 'POST' && p === '/api/vault/escrow/delete') return deleteEscrow(req, env, cors);
   // child side: AI
   if (M === 'GET' && p === '/api/ai/status') {
     const s = await aiStatus(req, env);
@@ -482,6 +505,9 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/family/devices/this') return linkThisDevice(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/family/devices/leave') return leaveFamily(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/family\/devices\/([a-f0-9]{16})\/unlink$/))) return unlinkDevice(m[1], req, env, cors);
+  // the progress kept for the family's devices (DURABLE-6): listed and deleted, never with the code
+  if (M === 'GET' && p === '/api/family/vaults') return familyVaults(req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/family\/vaults\/([a-f0-9]{16})\/delete$/))) return deleteFamilyVault(m[1], req, env, cors);
   // classes and students
   if (M === 'POST' && p === '/api/classes') return createClass(req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})$/))) return classInfo(m[1], req, env, cors);

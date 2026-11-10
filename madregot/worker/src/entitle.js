@@ -76,14 +76,24 @@ export const paywallOn = (env) => String(env.AI_PAYWALL || 'off') === 'on';
 const soloOff = (env) => String(env.ALLOW_SOLO_AI) === 'false';
 
 // ---------------------------------------------------------------- who is asking
+/**
+ * A class student's Bearer token (DURABLE-6: up to 3 devices each, in student_tokens; students.token_hash is no longer
+ * read). The token's last_seen is written at most once an hour; a token unused for 400 days is purged at night.
+ */
 export async function studentFrom(req, env) {
   const auth = req.headers.get('Authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   if (!token || token.length > 128) return null;
+  const hash = await sha256(token);
   const row = await env.DB.prepare(
-    'SELECT s.id, s.name, s.class_code, c.grade, c.created_at AS class_created_at FROM students s JOIN classes c ON c.code = s.class_code WHERE s.token_hash = ?',
-  ).bind(await sha256(token)).first();
-  return row || null;
+    `SELECT s.id, s.name, s.class_code, c.grade, c.created_at AS class_created_at, t.last_seen AS token_seen
+     FROM student_tokens t JOIN students s ON s.id = t.student_id JOIN classes c ON c.code = s.class_code WHERE t.token_hash = ?`,
+  ).bind(hash).first();
+  if (!row) return null;
+  const { token_seen: seen, ...student } = row;
+  const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+  if (!(seen >= hourAgo)) await env.DB.prepare('UPDATE student_tokens SET last_seen = ? WHERE token_hash = ?').bind(nowIso(), hash).run();
+  return student;
 }
 export async function requireStudent(req, env) {
   const s = await studentFrom(req, env);

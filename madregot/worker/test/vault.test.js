@@ -285,7 +285,7 @@ test('the blob is bounded: 349,526 characters are stored (bound, not inlined), o
   assert.equal(rows(h.env, 'SELECT * FROM vaults').length, 1);
 });
 
-test('delete removes the vault and lowers the meter; forgetVault gives the same statements for one batch', async () => {
+test('delete removes the vault and lowers the meter; forgetVault gives the same statements for one batch (escrows included)', async () => {
   h = await setup();
   const a = token(); const b = token();
   await put(a, { ifRev: null, blob: blobOf(300) });
@@ -300,7 +300,7 @@ test('delete removes the vault and lowers the meter; forgetVault gives the same 
   // TRUST-6's "delete everything" puts these into its one batch
   const req = new Request('https://madregot.test/api/me/forget', { method: 'POST', headers: { 'X-Vault': b } });
   const stmts = await forgetVault(h.env, req);
-  assert.equal(stmts.length, 2);
+  assert.equal(stmts.length, 3, 'the meter, the vault and its escrows (escrow.test.js)');
   await h.env.DB.batch(stmts);
   assert.equal(rows(h.env, 'SELECT * FROM vaults').length, 0);
   assert.equal(meter(), 0);

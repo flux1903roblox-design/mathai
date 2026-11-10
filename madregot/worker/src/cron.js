@@ -6,7 +6,8 @@
 //
 // In the 03:00 hour in Jerusalem: reconcile renewing plans whose period is over with the provider (extend only from the
 // truth pulled from it, or end the plan), queue the yearly renewal reminder (45 days ahead) and the licence-ending email
-// (30 days ahead), purge what is no longer needed (spec §6.9; error reports after 30 days), queue the owner's notice of
+// (30 days ahead), purge what is no longer needed (spec §6.9; error reports after 30 days; class students' device tokens
+// unused for 400 days, and tokens and escrows whose student or account is gone, DURABLE-6), queue the owner's notice of
 // yesterday's app errors when there were many (errors.js), run the encrypted vaults' night (vault.js: purge vaults unused
 // for 400 days, recompute the size meter, the 70% notice), and queue the owner's daily summary when
 // OWNER_DAILY_SUMMARY = "true". Each step runs on its own: one failing step never stops the others.
@@ -19,7 +20,7 @@ import { providerById } from './providers/index.js';
 import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
 import { errorsOf, errorsNoticeDue, purgeErrorsSql } from './errors.js';
-import { vaultNight, vaultStats } from './vault.js';
+import { vaultNight, vaultStats, purgeIdentitySql } from './vault.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -140,7 +141,8 @@ export function purgeRecordsSql(env, now = new Date()) {
 }
 
 export async function purge(env, now = new Date()) {
-  const r = await env.DB.batch([...purgeCountersSql(env, now), ...purgeAccountsSql(env), ...purgeFamilySql(env), ...purgeRecordsSql(env, now)]);
+  const r = await env.DB.batch([...purgeCountersSql(env, now), ...purgeAccountsSql(env), ...purgeFamilySql(env), ...purgeRecordsSql(env, now),
+    ...purgeIdentitySql(env, now)]);
   return changes(r);
 }
 

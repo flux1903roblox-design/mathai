@@ -181,7 +181,9 @@ export async function lockClass(req, env, cors) {
 
 /**
  * POST /api/teacher/students/:id/remove {}: one batch deletes the student's attempts, levels, help requests and exams, the
- * PIN counter and the student; the student's token stops working. The practice saved on the device itself stays there.
+ * PIN counter, the restore code the class kept and every device token (DURABLE-6), and the student; the student's
+ * devices are signed out. The practice saved on the device itself stays there, and so does its vault, which only the
+ * device's own code opens now.
  */
 export async function removeStudent(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
@@ -192,6 +194,8 @@ export async function removeStudent(id, req, env, cors) {
   await env.DB.batch([
     ...['attempts', 'levels', 'help_requests', 'exams'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE student_id IN (${mine})`).bind(st.id, cls.code)),
     env.DB.prepare('DELETE FROM ai_usage WHERE who = ?').bind(`pin:${st.id}`),
+    env.DB.prepare(`DELETE FROM vault_escrow WHERE owner_kind = 'student' AND owner_id IN (${mine})`).bind(st.id, cls.code),
+    env.DB.prepare(`DELETE FROM student_tokens WHERE student_id IN (${mine})`).bind(st.id, cls.code),
     env.DB.prepare('DELETE FROM students WHERE id = ? AND class_code = ?').bind(st.id, cls.code),
     audit(env, cls.code, 'student.remove', `student:${st.id}`),
   ]);

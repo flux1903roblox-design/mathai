@@ -265,3 +265,47 @@ table of the council's probes comes with the proof pack (DURABLE-15); this file 
 - **Evidence.** `qa-evidence/durable/restore-code.png`, `restore-preview.png`, `restore-done.png`, `backup-nudge.png`
   (390x844) and the same names with `-320` (320x568); `welcome-home-screen.png`, `install-sheet-code.png`;
   `save-section-backup.png` and `save-section-backup-off.png` taken again (the section has the new button).
+
+## Several devices per class student, and escrow on the Worker (DURABLE-6, Worker half)
+
+- **Tokens** (`student_tokens`). `studentFrom` (`entitle.js`) finds a class student by the token's row, joined to the
+  student and the class; `students.token_hash` is no longer read, but `joinClass` and `resetPin` still write it, so an
+  older Worker in a rollback lets the newest device in. `joinClass` inserts the new device's token and, in the same
+  batch, deletes all but the newest 3 of that student (by `created_at`, then insertion order). `resetPin` and
+  `removeStudent` delete every token of the student. A token's `last_seen` is written at most once an hour; the night
+  purge drops tokens unused for 400 days and tokens whose student is gone. The migration copies every
+  `students.token_hash` (with the student's `created_at` and `last_seen`), so no device is signed out by the deploy.
+- **Escrow** (`vault.js`). The restore code sealed with AES-GCM under `HKDF(VAULT_SECRET, 'escrow-v1')`, with
+  `escrow-v1|<owner kind>|<owner id>` as additional data (a sealed code copied into another owner's row does not open),
+  stored as `base64url(0x01 | iv | ciphertext)`, 60 characters. `POST /api/vault/escrow` takes a class student's Bearer
+  (one escrow per student) or `X-Family-Device` (one per device, with the device's label) and `{ code, lookup }`: the
+  code must pass the app's check symbol and the vault must exist (404 `vault_not_found`); 30 writes a day per identity.
+  `POST /api/vault/escrow/delete` removes the caller's own. Without `VAULT_SECRET`: 503 `server_config`, while joining and
+  linking work as before (no code returned); `/api/health` says `escrow: true|false`. The server cannot check that the
+  code opens the vault (that is the slow PBKDF2 on the device); a wrong pair only harms its own owner.
+- **Class.** `joinClass`, after the atomic PIN check (or a PIN the teacher reset, which this join sets), adds
+  `vault: { code }` when the student has an escrow whose vault still exists. `removeStudent` deletes the escrow and the
+  tokens in its batch; `resetPin` keeps the escrow. Deleting a vault (`POST /api/vault/delete`, `forgetVault`) deletes
+  its escrows in the same batch; the night's vault purge removes escrows whose vault is gone; the night purge removes
+  escrows and tokens whose student is gone, and account escrows whose account is gone (the backstop for TRUST-6/7's
+  paths, which are not on this branch).
+- **Family.** `unlinkDevice` and `leaveFamily` set the device's escrow to `device_id = NULL` (kept in the account) in
+  the batch, before the device row goes; `purgeFamilySql` does the same for the devices it deletes. `linkClaim` takes
+  `restoreFrom` (an escrow of this account, else 404 `escrow_not_found`) and keeps it in `link_codes.restore_escrow`;
+  `linkFinish`, in the batch that hands over the token, points that escrow at the new device and returns
+  `vault: { code }`. `devices/this` has no link code to keep it in, so it moves the escrow in the batch that makes the
+  token and returns the code at once. `GET /api/family/vaults` lists `{ id, label, device, updatedAt }` (never the
+  code); `POST /api/family/vaults/:id/delete` deletes one (audited; the device itself is not affected).
+  `forgetAccount` deletes the account's escrows; the export lists them (`id, label, deviceId, createdAt, updatedAt`).
+- **Never the code** to a parent or a teacher: the tests read `GET /api/account`, `/api/account/export`,
+  `/api/family/vaults` and `/api/teacher/dashboard` for any 16 symbols of the alphabet, the known codes and the sealed
+  values. The `vault_escrow` table never holds the code itself.
+- **Tests.** `worker/test/tokens.test.js` (two devices, the 4th join, a PIN reset, removal, last_seen hourly, the night
+  purge, the migration copying old tokens), `worker/test/escrow.test.js` (sealing, the class rejoin with the right and the
+  wrong PIN, the PIN reset, removal, the sweeps, the route's checks and the switch, the family flow with unlink, claim
+  and finish, another account's escrow, devices/this, leaving, the parent's delete, account deletion, the export, the
+  code never shown, no secret). `schema.test.js` checks `schema.sql` against the migrations (the `restore_escrow` column
+  in the shape `ALTER TABLE` writes) and still runs twice.
+- **Owner.** `openssl rand -hex 32`, then `cd madregot/worker && npx wrangler secret put VAULT_SECRET` (never in a file);
+  `npm run db:migrate` (the same `0003_durable.sql`). Do not rotate the secret once escrows exist: every escrow sealed
+  with the old one stops opening, and students then need their own code (a re-seal script is out of scope).

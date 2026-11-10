@@ -25,7 +25,20 @@
 // neither. Creates stop at VAULT_MAX_MB; updates of existing vaults go on. Every night (cron.js) vaults nobody wrote or
 // read for 400 days are deleted, the meter is recomputed from SUM(bytes) (a drift becomes an owner notice), and the
 // owner hears once a month when the vaults pass 70% of the limit.
-import { nowIso, dayOf, monthOf, json, HttpError, body, sha256, randomToken, netKey, take, key, giveBack, startOfDayIso } from './util.js';
+//
+// Escrow (DURABLE-6): the restore code, sealed with a Worker secret (AES-GCM under HKDF(VAULT_SECRET, 'escrow-v1'),
+// with the owner as additional data), attached to an identity the user already has, so that identity can get the code
+// back: a class student by joining again with the PIN, a family by linking a new device.
+//   POST /api/vault/escrow         Bearer <student> or X-Family-Device, { code, lookup } → 200 { escrow: 'class' | 'family' }
+//        The vault must exist (404 vault_not_found). One escrow per student, one per family device (upserted).
+//        Without VAULT_SECRET: 503 server_config (joining and linking go on without escrow); VAULT = "off": 503 vault_off.
+//   POST /api/vault/escrow/delete  the same identity, {} → 200 { deleted } (works with no secret and with VAULT off)
+// The code itself is never returned to a teacher or a parent, and never logged; only joinClass (the student, after the
+// PIN) and a family link that continues from a kept escrow return it, to the device itself. The server cannot check
+// that the code opens the vault (that needs the slow PBKDF2 on the device); a wrong pair only harms its own owner.
+import {
+  nowIso, dayOf, monthOf, json, HttpError, body, sha256, randomToken, netKey, take, key, giveBack, startOfDayIso, CODE_ALPHABET,
+} from './util.js';
 import { studentFrom, familyDeviceFrom } from './entitle.js';
 import { ownerNotice, queueNotices } from './spend.js';
 
@@ -197,10 +210,11 @@ async function update(env, cors, id, blob, ifRev, who) {
 }
 
 // ---------------------------------------------------------------- deleting
-/** The statements that delete one vault and take its bytes off the meter, for one batch. */
+/** The statements that delete one vault, take its bytes off the meter and drop its escrows, for one batch. */
 export const deleteStmts = (env, id) => [
   env.DB.prepare("UPDATE meters SET value = value - COALESCE((SELECT bytes FROM vaults WHERE id_hash = ?), 0) WHERE name = 'vault_bytes'").bind(id),
   env.DB.prepare('DELETE FROM vaults WHERE id_hash = ?').bind(id),
+  env.DB.prepare('DELETE FROM vault_escrow WHERE vault_id = ?').bind(id),
 ];
 
 /** POST /api/vault/delete ("להפסיק את הגיבוי"). Works with VAULT = "off" too. */
@@ -238,6 +252,8 @@ export function purgeVaultsSql(env, now = new Date()) {
   return [
     env.DB.prepare(`UPDATE meters SET value = value - COALESCE((SELECT SUM(bytes) FROM vaults WHERE ${stale}), 0) WHERE name = 'vault_bytes'`).bind(cutoff),
     env.DB.prepare(`DELETE FROM vaults WHERE ${stale}`).bind(cutoff),
+    // an escrow of a vault that is gone opens nothing any more
+    env.DB.prepare('DELETE FROM vault_escrow WHERE vault_id NOT IN (SELECT id_hash FROM vaults)'),
   ];
 }
 
@@ -276,4 +292,140 @@ export async function vaultStats(env, startIso, endIso) {
       COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? THEN 1 ELSE 0 END), 0) AS fresh FROM vaults`).bind(startIso, endIso).first();
     return { count: Number(r?.n || 0), mb: Math.round((Number(r?.b || 0) / MiB) * 10) / 10, newYesterday: Number(r?.fresh || 0) };
   } catch { return null; }
+}
+
+// ---------------------------------------------------------------- escrow (DURABLE-6)
+export const ESCROW_DAILY = 30; // escrow writes a day per student or family device
+export const SEALED_MAX = 200;
+const enc = new TextEncoder();
+const CODE16 = new RegExp(`^[${CODE_ALPHABET}]{16}$`);
+const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function unb64url(text) {
+  const s = atob(String(text).replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (String(text).length % 4)) % 4));
+  return Uint8Array.from(s, (c) => c.charCodeAt(0));
+}
+
+/** A restore code as the app makes it: 16 symbols of the class-code alphabet, the last one Σ (i+1)·v_i mod 31 of the others. */
+export function codeOk(code) {
+  if (typeof code !== 'string' || !CODE16.test(code)) return false;
+  let sum = 0;
+  for (let i = 0; i < 15; i += 1) sum += (i + 1) * CODE_ALPHABET.indexOf(code[i]);
+  return CODE_ALPHABET[sum % CODE_ALPHABET.length] === code[15];
+}
+
+const keys = new Map();
+/** The escrow key: HKDF-SHA-256 of VAULT_SECRET with the info 'escrow-v1' (no salt), as an AES-256-GCM key. */
+function escrowKey(env) {
+  const secret = env.VAULT_SECRET;
+  if (!secret) throw new HttpError(503, 'server_config');
+  if (!keys.has(secret)) {
+    keys.set(secret, (async () => {
+      const base = await crypto.subtle.importKey('raw', enc.encode(secret), 'HKDF', false, ['deriveKey']);
+      return crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: enc.encode('escrow-v1') }, base,
+        { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    })());
+  }
+  return keys.get(secret);
+}
+/** The additional data: a sealed code opens only in its own owner's row. */
+const aadOf = (kind, owner) => enc.encode(`escrow-v1|${kind}|${owner}`);
+
+/** Seal a restore code for one owner: base64url(0x01 | iv | AES-GCM(code)), 60 characters. */
+export async function sealCode(env, code, kind, owner) {
+  const k = await escrowKey(env);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: aadOf(kind, owner) }, k, enc.encode(code)));
+  const out = new Uint8Array(13 + ct.length);
+  out[0] = 1; out.set(iv, 1); out.set(ct, 13);
+  return b64url(out);
+}
+/** The code a sealed escrow holds, or null (no secret, another secret, another owner, or damaged). */
+export async function unsealCode(env, sealed, kind, owner) {
+  if (!env.VAULT_SECRET || typeof sealed !== 'string') return null;
+  try {
+    const bytes = unb64url(sealed);
+    if (bytes[0] !== 1 || bytes.length <= 13) return null;
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.subarray(1, 13), additionalData: aadOf(kind, owner) }, await escrowKey(env), bytes.subarray(13));
+    const code = new TextDecoder().decode(plain);
+    return codeOk(code) ? code : null;
+  } catch { return null; }
+}
+
+/** The restore code kept for a class student whose vault still exists, or null (joinClass gives it back after the PIN). */
+export async function studentEscrowCode(env, studentId) {
+  if (!env.VAULT_SECRET) return null;
+  const row = await env.DB.prepare(`SELECT e.sealed FROM vault_escrow e JOIN vaults v ON v.id_hash = e.vault_id
+    WHERE e.owner_kind = 'student' AND e.owner_id = ?`).bind(studentId).first();
+  return row ? unsealCode(env, row.sealed, 'student', studentId) : null;
+}
+/** The restore code of the escrow a family device syncs now (after a link that continued from it), or null. */
+export async function deviceEscrowCode(env, deviceId) {
+  if (!env.VAULT_SECRET) return null;
+  const row = await env.DB.prepare(`SELECT e.sealed, e.owner_id FROM vault_escrow e JOIN vaults v ON v.id_hash = e.vault_id
+    WHERE e.owner_kind = 'account' AND e.device_id = ?`).bind(deviceId).first();
+  return row ? unsealCode(env, row.sealed, 'account', row.owner_id) : null;
+}
+
+/** Whose escrow a request asks about: a class student (Bearer) or a linked family device (X-Family-Device); else 401. */
+async function escrowOwner(req, env) {
+  const s = await studentFrom(req, env);
+  if (s) return { kind: 'student', owner: s.id, device: null, label: '', who: `s:${s.id}` };
+  const fd = req.headers.get('X-Family-Device');
+  const d = fd ? await familyDeviceFrom(env, fd) : null;
+  if (d) return { kind: 'account', owner: d.account_id, device: d.device_id, label: String(d.label || '').slice(0, 30), who: `fd:${d.device_id}` };
+  throw new HttpError(401, 'not_signed_in');
+}
+
+/** POST /api/vault/escrow { code, lookup }: keep this vault's code for the student or the family device (upsert). */
+export async function putEscrow(req, env, cors) {
+  if (!vaultOn(env)) throw new HttpError(503, 'vault_off');
+  if (!env.VAULT_SECRET) throw new HttpError(503, 'server_config');
+  const b = await body(req);
+  const code = String(b.code ?? '');
+  const lookup = String(b.lookup ?? '').trim().toLowerCase();
+  if (!codeOk(code) || !TOKEN.test(lookup)) throw new HttpError(400, 'bad_vault');
+  const o = await escrowOwner(req, env);
+  const t = await take(env, [key(`escrow:${o.who}`, ESCROW_DAILY, { err: new HttpError(429, 'slow_down') })]);
+  if (!t.ok) throw t.error;
+  const vaultId = await sha256(lookup);
+  if (!(await env.DB.prepare('SELECT 1 AS ok FROM vaults WHERE id_hash = ?').bind(vaultId).first())) throw new HttpError(404, 'vault_not_found');
+  const sealed = await sealCode(env, code, o.kind, o.owner);
+  const now = nowIso();
+  if (o.kind === 'student') {
+    await env.DB.prepare(`INSERT INTO vault_escrow (id, vault_id, owner_kind, owner_id, device_id, label, sealed, created_at, updated_at)
+      VALUES (?1, ?2, 'student', ?3, NULL, '', ?4, ?5, ?5)
+      ON CONFLICT (owner_id) WHERE owner_kind = 'student' DO UPDATE SET vault_id = excluded.vault_id, sealed = excluded.sealed, updated_at = excluded.updated_at`)
+      .bind(randomToken(8), vaultId, o.owner, sealed, now).run();
+  } else {
+    await env.DB.prepare(`INSERT INTO vault_escrow (id, vault_id, owner_kind, owner_id, device_id, label, sealed, created_at, updated_at)
+      VALUES (?1, ?2, 'account', ?3, ?4, ?5, ?6, ?7, ?7)
+      ON CONFLICT (device_id) WHERE device_id IS NOT NULL DO UPDATE SET vault_id = excluded.vault_id, sealed = excluded.sealed,
+        label = excluded.label, updated_at = excluded.updated_at WHERE vault_escrow.owner_id = excluded.owner_id`)
+      .bind(randomToken(8), vaultId, o.owner, o.device, o.label, sealed, now).run();
+  }
+  return json({ escrow: o.kind === 'student' ? 'class' : 'family' }, 200, cors);
+}
+
+/** POST /api/vault/escrow/delete {}: the student's switch "שמירת עותק בשרת הכיתה" off, or a family device's own escrow. */
+export async function deleteEscrow(req, env, cors) {
+  await body(req);
+  const o = await escrowOwner(req, env);
+  const r = o.kind === 'student'
+    ? await env.DB.prepare("DELETE FROM vault_escrow WHERE owner_kind = 'student' AND owner_id = ?").bind(o.owner).run()
+    : await env.DB.prepare("DELETE FROM vault_escrow WHERE owner_kind = 'account' AND owner_id = ? AND device_id = ?").bind(o.owner, o.device).run();
+  return json({ deleted: Number(r.meta?.changes || 0) }, 200, cors);
+}
+
+/**
+ * The night's sweep of identities (cron.js purge): student tokens unused for 400 days, and tokens and escrows whose
+ * student or account is gone (a backstop for any deletion path that forgot them).
+ */
+export function purgeIdentitySql(env, now = new Date()) {
+  const cutoff = new Date(now.getTime() - VAULT_KEEP_DAYS * DAY).toISOString();
+  return [
+    env.DB.prepare('DELETE FROM student_tokens WHERE last_seen < ?').bind(cutoff),
+    env.DB.prepare('DELETE FROM student_tokens WHERE student_id NOT IN (SELECT id FROM students)'),
+    env.DB.prepare("DELETE FROM vault_escrow WHERE owner_kind = 'student' AND owner_id NOT IN (SELECT id FROM students)"),
+    env.DB.prepare("DELETE FROM vault_escrow WHERE owner_kind = 'account' AND owner_id NOT IN (SELECT id FROM accounts)"),
+  ];
 }

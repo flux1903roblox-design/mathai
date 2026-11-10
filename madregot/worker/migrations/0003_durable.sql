@@ -42,3 +42,40 @@ CREATE TABLE IF NOT EXISTS vaults (
 CREATE INDEX IF NOT EXISTS vaults_updated ON vaults (updated_at);
 CREATE TABLE IF NOT EXISTS meters (name TEXT PRIMARY KEY, value INTEGER NOT NULL DEFAULT 0);
 INSERT OR IGNORE INTO meters (name, value) VALUES ('vault_bytes', 0);
+
+-- DURABLE-6: escrow. The restore code of a vault, sealed with a Worker secret (AES-GCM under HKDF(VAULT_SECRET,
+-- 'escrow-v1')), attached to an identity the user already has: a class student (owner_kind 'student') or a family
+-- account and the device that syncs it (owner_kind 'account'; device_id NULL = kept in the account after an unlink).
+-- While an escrow exists the operator could open that vault; a vault with no escrow stays readable only with its code.
+-- Deleted with the student, the account, the vault, or the student's own switch; the night job sweeps orphans.
+CREATE TABLE IF NOT EXISTS vault_escrow (
+  id TEXT PRIMARY KEY,                        -- 16 hex
+  vault_id TEXT NOT NULL,                     -- vaults.id_hash (no FK: a vault can be recreated with the same id)
+  owner_kind TEXT NOT NULL CHECK (owner_kind IN ('student', 'account')),
+  owner_id TEXT NOT NULL,                     -- students.id | accounts.id
+  device_id TEXT,                             -- family_devices.id now syncing it; NULL = kept in the account
+  label TEXT NOT NULL DEFAULT '' CHECK (length(label) <= 30),   -- the device label when escrowed (parent-chosen)
+  sealed TEXT NOT NULL CHECK (length(sealed) <= 200),           -- the restore code, AES-GCM under HKDF(VAULT_SECRET)
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS vault_escrow_student ON vault_escrow (owner_id) WHERE owner_kind = 'student';
+CREATE UNIQUE INDEX IF NOT EXISTS vault_escrow_device ON vault_escrow (device_id) WHERE device_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS vault_escrow_owner ON vault_escrow (owner_kind, owner_id);
+CREATE INDEX IF NOT EXISTS vault_escrow_vault ON vault_escrow (vault_id);
+
+-- DURABLE-6: a class student stays signed in on up to 3 devices. Each join adds a token and drops all but the newest 3;
+-- a PIN reset or the student's removal drops them all; a token unused for 400 days is purged at night. The old
+-- students.token_hash is still written (an older Worker in a rollback reads it) but no longer read.
+CREATE TABLE IF NOT EXISTS student_tokens (
+  token_hash TEXT PRIMARY KEY,
+  student_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_seen TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS student_tokens_student ON student_tokens (student_id);
+INSERT OR IGNORE INTO student_tokens (token_hash, student_id, created_at, last_seen)
+  SELECT token_hash, id, created_at, COALESCE(last_seen, created_at) FROM students WHERE token_hash <> '';
+
+-- DURABLE-6: a parent linking a new device can continue from a kept escrow: set on claim, used on finish.
+ALTER TABLE link_codes ADD COLUMN restore_escrow TEXT;
