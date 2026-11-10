@@ -80,6 +80,9 @@ const MESSAGES = {
   too_many_requests: 'נשלחו היום הרבה בקשות מהכיתה הזו. נסו שוב מחר.',
   bad_request: 'משהו בפרטים לא תקין. בדקו ונסו שוב.',
   too_many_lookups: 'היו היום הרבה בדיקות קוד כיתה מהרשת הזו. נסו שוב מחר.',
+  // class work (TEACHER-4)
+  bad_assignment: 'משהו בפרטי המשימה לא תקין. בדקו את התאריך ואת המדרגה.',
+  too_many_assignments: 'נוצרו היום הרבה משימות בכיתה הזו. אפשר להמשיך מחר.',
   // other
   bot_check: 'לא הצלחנו לאשר את המכשיר. נסו שוב.',
   server_config: 'השרת עוד לא הוגדר עד הסוף.',
@@ -102,10 +105,17 @@ const MESSAGES = {
   monthly_fair_use: 'הבדיקות של החודש נגמרו. הן חוזרות ב־1 בחודש.',
   too_large: 'הקובץ גדול מדי. נסו תמונה קטנה יותר.',
 };
-export const errorText = (code) => MESSAGES[code] || 'משהו השתבש. נסו שוב.';
+/**
+ * A code the server uses for two things, told apart by the status: too_many_open is 429 for a student's help requests
+ * and 409 for a class's open assignments.
+ */
+const BY_STATUS = {
+  'too_many_open:409': 'יש כבר 20 משימות פתוחות בכיתה. אפשר למחוק משימות ישנות ולנסות שוב.',
+};
+export const errorText = (code, status) => BY_STATUS[`${code}:${status}`] || MESSAGES[code] || 'משהו השתבש. נסו שוב.';
 
 export class ApiError extends Error {
-  constructor(code, status, data = {}) { super(errorText(code)); this.code = code; this.status = status; this.data = data; }
+  constructor(code, status, data = {}) { super(errorText(code, status)); this.code = code; this.status = status; this.data = data; }
 }
 
 /**

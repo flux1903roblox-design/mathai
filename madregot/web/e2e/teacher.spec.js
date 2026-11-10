@@ -26,10 +26,10 @@ import { API, TOKEN, fakeServer } from './fakeServer.js';
 
 const EMAIL = 'teacher@example.test';
 
-/** Open a route on a device with a saved state (seeded before the app starts). `local`: more localStorage keys. */
+/** Open a route on a device with a saved state (seeded before the app starts). `local`: more localStorage keys; `at`: the clock. */
 let seeds = 0;
-async function open(page, route, state = null, { local = {} } = {}) {
-  await page.clock.setFixedTime(NOW);
+async function open(page, route, state = null, { local = {}, at = NOW } = {}) {
+  await page.clock.setFixedTime(at);
   await page.goto('about:blank');
   seeds += 1;
   const key = `seeded-${seeds}-${Date.now()}`;
@@ -681,5 +681,182 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
     // the library cleared the way back: "#/" is the board again
     await page.evaluate(() => { window.location.hash = '#/'; });
     await expect(page).toHaveURL(/#\/teacher$/);
+  });
+});
+
+// TEACHER-4: the teacher gives work with a due date, from "מחר", the "משימות" tab and the library; sees each student's
+// state; extends a date; deletes after asking; and tells the class with a message to copy (no names) and a Classroom link.
+test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
+  const NAMES = ['אביגיל ב.', 'אורי כ.', 'איתי ל.', 'אלה מ.', 'בן נ.', 'גאיה ס.', 'דניאל ע.', 'הדר פ.', 'יהלי צ.', 'יונתן ק.', 'לביא ר.', 'מאיה ש.',
+    'נגה ת.', 'נועם א.', 'עדי ב.', 'עומר ג.', 'רוני ד.', 'שירה ה.', 'תמר ו.', 'יואב ז.', 'דנה ח.', 'אלון ט.', 'מיכל י.', 'רועי כ.'];
+  const class24 = () => NAMES.map((name, i) => ({ id: `c${String(i + 1).padStart(2, '0')}`, name }));
+  const stairWork = (over = {}) => ({ id: 'a000000000000001', kind: 'stair', skill: 'signed:1', title: 'מספרים מכוונים: חיבור וחיסור', note: 'לקראת המבחן ביום חמישי',
+    startsOn: '2026-11-05', dueOn: '2026-11-12', forAll: true, targets: [], createdAt: '2026-11-05T09:00:00.000Z', ...over });
+  const mistake = { topic: 'signed', cat: 'sign', level: 1, n: 5, students: 2, ids: ['a1', 'b2'], names: ['דנה', 'יואב'] };
+  /** The clipboard of this page, kept in window.__copied (the real one asks the browser for a permission). */
+  const catchClipboard = (page) => page.evaluate(() => { window.__copied = null; navigator.clipboard.writeText = (t) => { window.__copied = t; return Promise.resolve(); }; });
+  const sheet = (page, name) => page.getByRole('dialog', { name });
+
+  test('from "מחר": practice on that stair for the two students who made the mistake, then the message and the Classroom link', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { mistakes: [mistake] }, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    const row = page.locator('.t-row', { hasText: 'התשובה יצאה עם הסימן ההפוך' });
+    await row.getByRole('button', { name: 'לתת תרגול על זה' }).click();
+    const s = sheet(page, 'משימה לכיתה ז׳3');
+    await expect(s).toBeVisible();
+    await expect(s.getByRole('radio', { name: /ללמוד מדרגה/ })).toBeChecked();
+    await expect(s.getByLabel('איזו מדרגה?')).toHaveValue('signed:1');
+    await expect(s.getByRole('radio', { name: /לתלמידים שטעו בזה \(2\)/ })).toBeChecked();
+    await expect(s.getByRole('radio', { name: /לכל הכיתה \(2\)/ })).not.toBeChecked();
+    await expect(s.getByLabel('כותרת')).toHaveValue('מספרים מכוונים: חיבור וחיסור');
+    // a week from Thursday is a Thursday: no rest-day line
+    await expect(s.getByRole('radio', { name: 'בעוד שבוע' })).toBeChecked();
+    await expect(s.getByText('עד יום חמישי, 12.11.')).toBeVisible();
+    await shot(page, 'teacher-assign-sheet');
+    // the buttons a finger presses are at least 44px tall
+    for (const name of ['מחר', 'בעוד 3 ימים', 'בעוד שבוע']) expect((await s.locator('.as-chip', { hasText: name }).boundingBox()).height).toBeGreaterThanOrEqual(44);
+    expect((await s.getByRole('button', { name: 'שליחה לכיתה' }).boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await s.getByLabel('מילה לכיתה (לא חובה)').fill('לקראת המבחן ביום חמישי');
+    await s.getByRole('button', { name: 'שליחה לכיתה' }).click();
+    const sent = log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST');
+    expect(sent.body).toEqual({ kind: 'stair', skill: 'signed:1', title: 'מספרים מכוונים: חיבור וחיסור', note: 'לקראת המבחן ביום חמישי', dueOn: '2026-11-12', targets: ['a1', 'b2'] });
+    expect(sent.headers['x-teacher-key']).toBe('tkey-123');
+    await expect(page.getByText('המשימה נשלחה. התלמידים יראו אותה בראש המשימה של היום.')).toBeVisible();
+
+    // "לספר לכיתה?": a message with no student's name, and Google's share address
+    const share = sheet(page, 'לספר לכיתה?');
+    await expect(share).toBeVisible();
+    await catchClipboard(page);
+    await share.getByRole('button', { name: 'העתקת הודעה לתלמידים' }).click();
+    await expect(page.getByText('ההודעה הועתקה')).toBeVisible();
+    const copied = await page.evaluate(() => window.__copied);
+    expect(copied).toBe(`משימה חדשה במדרגות: מספרים מכוונים: חיבור וחיסור, עד יום חמישי 12.11. פותחים את האפליקציה, והמשימה מחכה בראש "המשימה שלי להיום". ${baseOf()}`);
+    for (const n of ['דנה', 'יואב']) expect(copied).not.toContain(n);
+    const link = share.getByRole('link', { name: 'שיתוף ב־Google Classroom' });
+    await expect(link).toHaveAttribute('href', `https://classroom.google.com/share?url=${encodeURIComponent(`${baseOf()}#/quests`)}`);
+    await expect(link).toHaveAttribute('target', '_blank');
+    await expect(link).toHaveAttribute('rel', /noopener/);
+    await shot(page, 'teacher-assign-share');
+    await share.getByRole('button', { name: 'סיום' }).click();
+    await expect(share).toHaveCount(0);
+    // the tab counts the open assignment; its row shows the two students
+    expect(st.assignments).toHaveLength(1);
+    await page.getByRole('tab', { name: 'משימות (1)' }).click();
+    const r = page.getByRole('list', { name: 'משימות פתוחות' }).getByRole('button', { name: /מספרים מכוונים: חיבור וחיסור/ });
+    await expect(r).toContainText('מדרגה · עד יום ה׳, 12.11 · ל־2 תלמידים');
+    await expect(r).toContainText('0/2 סיימו');
+    await expect(r).toContainText('2 עוד לא התחילו');
+  });
+
+  test('a week from a Saturday is a Saturday: the sheet says the date moves to Sunday, as the server does', async ({ page }) => {
+    const { log } = await fakeServer(page, { today: '2026-11-07' }, baseOf());
+    await open(page, '#/teacher?tab=work', keyTeacher(), { at: new Date('2026-11-07T10:00:00') });
+    await expect(page.getByRole('heading', { name: 'עוד אין משימות' })).toBeVisible();
+    await expect(page.getByText('אפשר לתת לכיתה מדרגה ללמוד או בדיקת שליטה, עם תאריך הגשה.')).toBeVisible();
+    await page.getByRole('button', { name: 'משימה חדשה' }).first().click();
+    const s = sheet(page, 'משימה לכיתה ז׳3');
+    await s.getByRole('radio', { name: /בדיקת שליטה/ }).check();
+    await s.getByLabel('איזו מדרגה?').selectOption('coord:2');
+    await expect(s.getByLabel('כותרת')).toHaveValue('בדיקת שליטה: רביעים');
+    await s.getByText('בעוד 3 ימים').click();
+    await expect(s.getByText('עד יום שלישי, 10.11.')).toBeVisible();
+    await s.getByText('בעוד שבוע').click();
+    await expect(s.getByText('התאריך יוצא בשבת או בחג, ולכן המועד יהיה ביום ראשון, 15.11.')).toBeVisible();
+    await s.getByText('התאריך יוצא בשבת או בחג', { exact: false }).scrollIntoViewIfNeeded();
+    await shot(page, 'teacher-assign-restday');
+    await s.getByRole('button', { name: 'שליחה לכיתה' }).click();
+    const sent = log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST');
+    expect(sent.body).toMatchObject({ kind: 'check', skill: 'coord:2', dueOn: '2026-11-14' });
+    expect(sent.body.targets).toBeUndefined();
+    await expect(page.getByText('המשימה נשלחה, עד יום ראשון, 15.11. התלמידים יראו אותה בראש המשימה של היום.')).toBeVisible();
+    await expect(sheet(page, 'לספר לכיתה?').locator('.as-msg')).toContainText('עד יום ראשון 15.11.');
+  });
+
+  test('"משימות" for a class of 24: "0/24 סיימו", the detail lists 24, a later date, the past folded, and deleting asks first', async ({ page }) => {
+    const students = class24();
+    const done = { state: 'done', stage: 5, passed: true, tries: 1, startedAt: '2026-11-02T09:00:00Z', doneAt: '2026-11-04T09:00:00Z', doneDay: '2026-11-04' };
+    const { st, log } = await fakeServer(page, {
+      students,
+      assignments: [stairWork(), stairWork({ id: 'a000000000000002', kind: 'check', skill: 'signed:2', title: 'בדיקת שליטה: כפל וחילוק', note: '', startsOn: '2026-11-01', dueOn: '2026-11-03', createdAt: '2026-11-01T09:00:00.000Z' })],
+      work: { a000000000000002: { c01: { ...done, stage: null, right: 4, asked: 5, tries: 2 }, c02: { state: 'started', startedAt: '2026-11-02T09:00:00Z', tries: 0 } } },
+    }, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await page.getByRole('tab', { name: 'משימות (1)' }).click();
+    const open1 = page.getByRole('list', { name: 'משימות פתוחות' }).getByRole('button');
+    await expect(open1).toHaveCount(1);
+    await expect(open1).toContainText('מספרים מכוונים: חיבור וחיסור');
+    await expect(open1).toContainText('מדרגה · עד יום ה׳, 12.11');
+    await expect(open1.getByRole('progressbar')).toHaveAttribute('aria-valuetext', '0/24 סיימו');
+    await expect(open1).toContainText('24 עוד לא התחילו');
+    await expect(open1).not.toContainText('באיחור');
+    // the past one is folded; open, it shows the late count (the teacher's eyes only)
+    const fold = page.getByRole('button', { name: 'משימות קודמות (1)' });
+    await expect(fold).toHaveAttribute('aria-expanded', 'false');
+    await fold.click();
+    const past = page.getByRole('list', { name: 'משימות קודמות' }).getByRole('button');
+    await expect(past).toContainText('בדיקת שליטה · עד יום ג׳, 3.11');
+    await expect(past).toContainText('1/24 סיימו');
+    await expect(past).toContainText('1 בדרך');
+    await expect(past).toContainText('24 באיחור');
+    await shot(page, 'teacher-work-tab');
+
+    // the past check's detail: the first try's score, the muted late chip
+    await past.click();
+    let d = sheet(page, 'בדיקת שליטה: כפל וחילוק');
+    await expect(d.locator('tbody tr')).toHaveCount(24);
+    await expect(d.getByRole('row', { name: /אביגיל ב\./ })).toContainText('הושלם');
+    await expect(d.getByRole('row', { name: /אביגיל ב\./ })).toContainText('4/5 · עבר/ה (ניסיון ראשון)');
+    await expect(d.getByRole('row', { name: /אורי כ\./ })).toContainText('התחיל/הבאיחור');
+    await d.getByRole('button', { name: 'סגירה' }).click();
+
+    // the open stair: 24 rows, none started, the footnote; a later date
+    await open1.click();
+    d = sheet(page, 'מספרים מכוונים: חיבור וחיסור');
+    await expect(d.locator('tbody tr')).toHaveCount(24);
+    await expect(d.locator('tbody tr').first()).toContainText('עוד לא התחיל/ה');
+    await expect(d.getByText('“לקראת המבחן ביום חמישי”')).toBeVisible();
+    await expect(d.getByText('התוצאות נבדקות במכשיר של התלמיד. זה תרגול, לא מבחן לציון.')).toBeVisible();
+    await shot(page, 'teacher-assignment-detail');
+    await d.getByRole('button', { name: 'הארכת המועד' }).click();
+    await d.getByLabel('מועד חדש').fill('2026-11-14');
+    await expect(d.getByText('התאריך יוצא בשבת או בחג, ולכן המועד יהיה ביום ראשון, 15.11.')).toBeVisible();
+    await d.getByLabel('מועד חדש').fill('2026-11-16');
+    await d.getByRole('button', { name: 'שמירת המועד' }).click();
+    await expect(page.getByText('המועד הוארך ליום שני, 16.11.')).toBeVisible();
+    expect(log.find((r) => r.path === '/api/teacher/assignments/a000000000000001' && r.method === 'POST').body).toEqual({ dueOn: '2026-11-16' });
+    await expect(d.getByText('מדרגה·עד יום ב׳, 16.11·לכל הכיתה')).toBeVisible();
+
+    // deleting asks first; "לא למחוק" keeps it
+    await d.getByRole('button', { name: 'מחיקת המשימה' }).click();
+    const ask = sheet(page, 'למחוק את המשימה?');
+    await expect(ask).toContainText('המשימה תיעלם אצל התלמידים, ומה שכבר עשו בה לא יופיע כאן. ההתקדמות שלהם בשיעורים עצמם נשארת.');
+    await ask.getByRole('button', { name: 'לא למחוק' }).click();
+    await expect(ask).toHaveCount(0);
+    expect(log.some((r) => r.path.endsWith('/delete'))).toBe(false);
+    await d.getByRole('button', { name: 'מחיקת המשימה' }).click();
+    await sheet(page, 'למחוק את המשימה?').getByRole('button', { name: 'כן, למחוק' }).click();
+    await expect(page.getByText('המשימה נמחקה.')).toBeVisible();
+    expect(log.find((r) => r.path === '/api/teacher/assignments/a000000000000001/delete').method).toBe('POST');
+    expect(st.assignments.map((a) => a.id)).toEqual(['a000000000000002']);
+    await expect(page.getByText('אין משימות פתוחות. אפשר לתת משימה חדשה.')).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'משימות', exact: true })).toBeVisible();
+  });
+
+  test('from the library: "לתת לכיתה" opens the sheet on that stair, and "לתלמידים שבחרתי" sends only the ones ticked', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher/lessons', keyTeacher());
+    await page.getByRole('region', { name: 'מספרים מכוונים' }).getByRole('button', { name: 'לתת לכיתה: כפל וחילוק' }).click();
+    const s = sheet(page, 'משימה לכיתה ז׳3');
+    await expect(s.getByLabel('איזו מדרגה?')).toHaveValue('signed:3');
+    await expect(s.getByRole('radio', { name: /לכל הכיתה \(2\)/ })).toBeChecked();
+    await s.getByRole('radio', { name: 'לתלמידים שבחרתי' }).check();
+    const send = s.getByRole('button', { name: 'שליחה לכיתה' });
+    await expect(send).toBeDisabled();
+    await expect(s.getByText('עוד לא נבחרו תלמידים.')).toBeVisible();
+    await s.getByRole('group', { name: 'התלמידים שיקבלו את המשימה' }).getByRole('checkbox', { name: 'יואב' }).check();
+    await expect(s.getByText('נבחר תלמיד אחד.')).toBeVisible();
+    await send.click();
+    await expect(sheet(page, 'לספר לכיתה?')).toBeVisible();
+    expect(log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST').body).toMatchObject({ kind: 'stair', skill: 'signed:3', targets: ['b2'] });
   });
 });

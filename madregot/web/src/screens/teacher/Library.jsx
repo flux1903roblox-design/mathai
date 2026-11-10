@@ -1,6 +1,8 @@
 // The lessons, as the class sees them (spec TEACHER-2 §5), at /teacher/lessons: every stair of grade ז׳ or ח׳, grouped
 // by topic, with the way into its lesson and its mastery check. Both open in the student view (PreviewFrame), on this
 // device's own learning state; nothing is sent to the class. The dots show the stages done here, in this view.
+// "לתת לכיתה" opens the assign sheet with that stair (TEACHER-4 §6).
+import { useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { RotateCcw } from 'lucide-react';
@@ -13,6 +15,7 @@ import { routeOf } from '@/learn/recommend.ts';
 import { ScreenBar } from '@/components/Screen.jsx';
 import { ChapterMark } from '@/components/ui.jsx';
 import { GradeSwitch } from '@/components/GradeSwitch.jsx';
+import AssignSheet from '@/components/teacher/AssignSheet.jsx';
 
 const GRADE = { 7: 'ז׳', 8: 'ח׳' };
 const STAGES = [['A', 'מבינים את הרעיון'], ['B', 'דוגמה פתורה'], ['C', 'פותרים יחד'], ['D', 'מתרגלים לבד'], ['E', 'בדיקת שליטה']];
@@ -22,7 +25,7 @@ function stagesDone(rec) {
   return { A: !!rec?.taught?.A, B: !!rec?.taught?.B, C: !!rec?.taught?.C, D: practised >= 6, E: !!rec?.mastered };
 }
 
-function StairRow({ topic, level, title, back }) {
+function StairRow({ topic, level, title, back, onAssign }) {
   const skill = skillId(topic.id, level);
   const rec = useApp((s) => s.learn.skills[skill]);
   const taught = !!contentOf(skill);
@@ -47,6 +50,7 @@ function StairRow({ topic, level, title, back }) {
       <div className="t-lib-actions">
         <Link to={lesson} state={{ back }} onClick={keep} className="btn btn-secondary btn-sm" aria-label={`לשיעור: ${title}`}>לשיעור</Link>
         <Link to={routeOf.check(skill, 'mastery')} state={{ back }} onClick={keep} className="btn btn-ghost btn-sm" aria-label={`בדיקת שליטה: ${title}`}>בדיקת שליטה</Link>
+        {onAssign && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onAssign(skill)} aria-label={`לתת לכיתה: ${title}`}>לתת לכיתה</button>}
       </div>
     </li>
   );
@@ -54,6 +58,10 @@ function StairRow({ topic, level, title, back }) {
 
 export default function Library() {
   const own = useApp((s) => s.profile.grade) || '7';
+  const cls = useApp((s) => s.profile.classes?.find((c) => c.code === s.profile.active) || s.profile.classes?.[0]);
+  const [assign, setAssign] = useState(null); // { skill, n } while the assign sheet is open
+  const opened = useRef(0);
+  const onAssign = cls ? (skill) => { opened.current += 1; setAssign({ skill, n: opened.current }); } : null;
   const resetProgress = useApp((s) => s.resetProgress);
   const [params, setParams] = useSearchParams();
   const grade = ['7', '8'].includes(params.get('grade')) ? params.get('grade') : own;
@@ -73,7 +81,7 @@ export default function Library() {
         <section key={t.id} className="section set-group t-lib-topic" aria-labelledby={`tl-${t.id}`}>
           <h2 className="set-head t-lib-head" id={`tl-${t.id}`}><ChapterMark color={t.color} n={i + 1} size="sm" />{t.title}</h2>
           <ol className="t-lib-list">
-            {t.levels.map((l, j) => <StairRow key={l.title} topic={t} level={j + 1} title={l.title} back={back} />)}
+            {t.levels.map((l, j) => <StairRow key={l.title} topic={t} level={j + 1} title={l.title} back={back} onAssign={onAssign} />)}
           </ol>
         </section>
       ))}
@@ -83,6 +91,9 @@ export default function Library() {
           <button type="button" className="set-row" onClick={reset}><RotateCcw size={18} aria-hidden="true" />איפוס תצוגת התלמיד</button>
         </div></div>
       </section>
+      {assign && cls && (
+        <AssignSheet key={assign.n} cls={cls} preset={{ kind: 'stair', skill: assign.skill }} open onOpenChange={(o) => { if (!o) setAssign(null); }} />
+      )}
     </div>
   );
 }

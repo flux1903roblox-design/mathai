@@ -676,3 +676,85 @@ a.btn { text-decoration: none; }
 /* no tab bar under the teacher's assistant: the conversation's input sits at the bottom of the screen */
 .t-assistant.assistant-page { min-height: 100dvh; }
 .t-assistant .chat-dock, .t-assistant .assistant-chat .chat-dock-live { bottom: 0; }
+
+/* ------------------------------------------------------------------ class work, the teacher's side (TEACHER-4 §6)
+   The view switch now has five tabs: one row that never wraps; on a narrow phone it scrolls sideways, tab by tab,
+   with the far edge faded so the rest is clearly there. */
+.segmented.t-tabs { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 3px; }
+.segmented.t-tabs::-webkit-scrollbar { display: none; }
+.segmented.t-tabs > .t-tab { flex: 1 0 auto; scroll-snap-align: start; padding: 0 12px; font-size: 15px; white-space: nowrap; }
+@media (max-width: 480px) { .segmented.t-tabs { flex-wrap: nowrap; overflow-x: auto; } .segmented.t-tabs > * { flex: 1 0 auto; } }
+@media (max-width: 400px) {
+  .segmented.t-tabs { gap: 4px; }
+  .segmented.t-tabs > .t-tab { padding: 0 7px; }
+}
+.segmented.t-tabs[data-more="1"] { padding-inline-end: 24px; -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24px); mask-image: linear-gradient(to right, transparent 0, #000 24px); }
+
+/* a repeated mistake's action on "מחר" */
+.t-row .t-row-act { align-self: flex-start; margin-top: var(--s2); min-height: 44px; }
+
+/* "משימות": the tab's header with its action, then the rows (a button each, the today-row grammar) */
+.tw { display: flex; flex-direction: column; gap: var(--s3); }
+.tw-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
+.tw-h { margin: 0; }
+.tw-new { min-height: 44px; }
+.tw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.tw-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: #fff; color: var(--ink); text-align: start; font: inherit; cursor: pointer; }
+.tw-row:hover { border-color: var(--brand-line); }
+.tw-row:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.tw-row .chev { color: var(--ink-2); }
+.tw-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.tw-title { font-size: 17px; line-height: 24px; font-weight: 700; overflow-wrap: anywhere; }
+.tw-meta { font-size: 14px; line-height: 20px; color: var(--ink-2); font-weight: 600; }
+.tw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tw-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--ground); color: var(--ink-2); }
+.tw-chip-on { background: var(--brand-tint); color: var(--brand-d); }
+.tw-chip-late { background: #fff4e5; color: #8a4b00; }
+.tw-none { margin: 0; }
+.tw-past { display: flex; flex-direction: column; gap: var(--s2); }
+.tw-fold { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+.tw-fold svg { transition: transform var(--duration-fast, 160ms) var(--ease-out, ease-out); }
+.tw-fold-open { transform: rotate(180deg); }
+.tw-fold:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }
+
+/* the assign sheet: questions as fieldsets, answers as big rows (native radios), the due chips, the share step */
+.assign-form { display: flex; flex-direction: column; gap: var(--s5); }
+.as-set { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.as-set > legend { padding: 0; margin-bottom: var(--s2); }
+.as-opts { display: flex; flex-direction: column; gap: var(--s2); }
+.as-choice { position: relative; min-height: 52px; padding: var(--s2) var(--s4); cursor: pointer; }
+.as-choice:has(.as-radio:focus-visible), .as-chip:has(.as-radio:focus-visible) { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.as-radio { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.as-choice .ob-opt-text b { font-size: 17px; line-height: 24px; }
+.as-choice .ob-opt-text > span { overflow-wrap: anywhere; }
+.as-select { width: 100%; font-size: 17px; }
+.as-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.as-chip { position: relative; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s4); border: 2px solid var(--rule); border-radius: 999px; background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; box-shadow: 0 2px 0 var(--rule-press); }
+.as-chip.on { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-d); box-shadow: 0 2px 0 var(--brand-line); }
+.as-date { gap: 6px; }
+.as-sub-label { font-weight: 600; color: var(--ink-2); }
+.as-date .input { width: 100%; }
+.as-note-line { margin: 0; font-size: 14px; line-height: 20px; color: var(--ink-2); }
+.as-hint { padding: var(--s2) var(--s3); border-radius: 12px; background: var(--brand-tint); color: var(--ink); font-weight: 600; }
+.as-students { display: flex; flex-direction: column; padding: var(--s1) var(--s3); border: 2px solid var(--rule); border-radius: 16px; max-height: 320px; overflow-y: auto; }
+.as-student + .as-student { border-top: 1px solid var(--rule); }
+.as-students .as-note-line { padding: var(--s2) 0; }
+.as-text { min-height: 72px; }
+.as-share { display: flex; flex-direction: column; gap: var(--s3); }
+.as-share-lead { margin: 0; color: var(--ink); }
+.as-msg { margin: 0; padding: var(--s3) var(--s4); border-inline-start: 4px solid var(--brand-line); border-radius: 12px; background: var(--ground); color: var(--ink); line-height: 1.55; overflow-wrap: anywhere; user-select: text; }
+
+/* one assignment's detail: the line under the title, the bar, the table of students, the quiet actions */
+.aw-body { display: flex; flex-direction: column; gap: var(--s3); }
+.aw-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; color: var(--ink-2); font-weight: 600; font-size: 15px; }
+.aw-note { margin: 0; color: var(--ink); }
+.aw-loading { margin: 0; }
+.aw-table-wrap { max-height: none; }
+.aw-table th, .aw-table td { white-space: normal; vertical-align: top; font-size: 15px; line-height: 21px; }
+.aw-table tbody th { font-weight: 700; }
+.aw-state { margin-inline-end: 6px; }
+.aw-late { display: inline-block; padding: 0 8px; border-radius: 999px; background: var(--ground); color: var(--ink-2); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.aw-foot { margin: 0; }
+.aw-extend { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
+.aw-extend .input { width: 100%; }
+.aw-actions .set-row { width: 100%; gap: var(--s2); }

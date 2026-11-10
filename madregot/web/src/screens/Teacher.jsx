@@ -1,7 +1,7 @@
 // The teacher's board: the header, the overview tiles, the switch between the views, the data loading, adding a class
 // and the first look at a new class. Each view is its own file in screens/teacher/.
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target, Settings as SettingsIcon, BookOpen, Sparkles } from 'lucide-react';
@@ -16,10 +16,14 @@ import { GradeSwitch } from '@/components/GradeSwitch.jsx';
 import { copy, pct } from './teacher/common.jsx';
 import { FreshClass, BindCard, SignInAgain, MoreClasses } from './teacher/ClassAccount.jsx';
 import TomorrowTab from './teacher/TomorrowTab.jsx';
+import WorkTab from './teacher/WorkTab.jsx';
 import StudentsTab from './teacher/StudentsTab.jsx';
 import ExamsTab from './teacher/ExamsTab.jsx';
 import HelpTab from './teacher/HelpTab.jsx';
 import { takePendingToast } from './teacher/DeleteClass.jsx';
+import AssignSheet from '@/components/teacher/AssignSheet.jsx';
+
+const TABS = ['tomorrow', 'work', 'students', 'exams', 'help'];
 
 function AddClass({ open, onClose }) {
   const { profile, setProfile } = useApp();
@@ -57,9 +61,14 @@ export default function Teacher() {
   const emailOn = useEmailSignIn();
   const [moreOpen, setMoreOpen] = useState(false);
   const [params, setParams] = useSearchParams();
-  const tab = ['tomorrow', 'students', 'exams', 'help'].includes(params.get('tab')) ? params.get('tab') : 'tomorrow';
+  const tab = TABS.includes(params.get('tab')) ? params.get('tab') : 'tomorrow';
   const setTab = (t) => setParams(t === 'tomorrow' ? {} : { tab: t }, { replace: true });
   const [adding, setAdding] = useState(false);
+  // the assign sheet (TEACHER-4): opened from "משימות" or a repeated mistake on "מחר"; each opening starts fresh
+  const [assign, setAssign] = useState(null); // { preset, n } while open
+  const [workVersion, setWorkVersion] = useState(0);
+  const opened = useRef(0);
+  const openAssign = (preset = {}) => { opened.current += 1; setAssign({ preset, n: opened.current }); };
   const [confirmOut, setConfirmOut] = useState(false);
   const { state: nav } = useLocation();
   // a class deleted from its settings page: the board opens on the next class and says so
@@ -86,6 +95,29 @@ export default function Teacher() {
   const practicedToday = students.filter((s) => s.today.n > 0).length;
   const practicedWeek = students.filter((s) => s.week.n > 0).length;
   const weekN = students.reduce((a, s) => a + s.week.n, 0); const weekFirst = students.reduce((a, s) => a + s.week.first, 0);
+  // assignments still open (due today or later), for the tab's count
+  const openWork = (data?.assignments || []).filter((a) => !data.today || a.dueOn >= data.today).length;
+  const tabList = [['tomorrow', 'מחר'], ['work', `משימות${openWork ? ` (${openWork})` : ''}`], ['students', 'תלמידים'], ['exams', `מבחנים${data?.exams?.length ? ` (${data.exams.length})` : ''}`], ['help', `עזרה${openHelp.length ? ` (${openHelp.length})` : ''}`]];
+  // the switch scrolls sideways on a narrow phone: the open view's tab is kept in sight
+  const tabsRef = useRef(null);
+  useEffect(() => { tabsRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); }, [tab, !!data]);
+  // the far edge fades only when there are more tabs to scroll to
+  useEffect(() => {
+    const el = tabsRef.current; if (!el) return undefined;
+    const mark = () => { el.dataset.more = el.scrollWidth > el.clientWidth + 1 ? '1' : ''; };
+    mark();
+    window.addEventListener('resize', mark);
+    return () => window.removeEventListener('resize', mark);
+  }, [data, openWork, openHelp.length]);
+  // arrow keys move between the views, in reading order (right to left)
+  const onTabsKey = (e) => {
+    const i = TABS.indexOf(tab); const step = e.key === 'ArrowLeft' ? 1 : e.key === 'ArrowRight' ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const next = TABS[(i + step + TABS.length) % TABS.length];
+    setTab(next);
+    requestAnimationFrame(() => tabsRef.current?.querySelector(`[data-tab="${next}"]`)?.focus());
+  };
 
   // The teacher's board in the app's own grammar (LAYOUT_SPEC E5): the solid header block with the class, its code and
   // two icon actions (as the profile has its gear), a 2×2 overview of tiles, a segmented switch between four views,
@@ -112,6 +144,10 @@ export default function Teacher() {
         {session && <button type="button" className="link-btn t-more" onClick={() => setMoreOpen(true)}>עוד כיתות מהחשבון שלי…</button>}
       </header>
       <AddClass open={adding} onClose={() => setAdding(false)} />
+      {assign && data && (
+        <AssignSheet key={`${cls.code}-${assign.n}`} cls={cls} students={students} today={data.today} preset={assign.preset} open
+          onOpenChange={(o) => { if (!o) setAssign(null); }} onSent={() => { setWorkVersion((v) => v + 1); load(); }} />
+      )}
       {session && <MoreClasses open={moreOpen} onOpenChange={setMoreOpen} />}
 
       <main className="t-main">
@@ -146,9 +182,9 @@ export default function Teacher() {
               </ul>
             </nav>
 
-            <div className="segmented t-tabs" role="tablist" aria-label="תצוגה">
-              {[['tomorrow', 'מחר'], ['students', 'תלמידים'], ['exams', `מבחנים${data.exams?.length ? ` (${data.exams.length})` : ''}`], ['help', `עזרה${openHelp.length ? ` (${openHelp.length})` : ''}`]].map(([id, label]) => (
-                <button key={id} type="button" role="tab" aria-selected={tab === id} className={clsx('seg', 't-tab', tab === id && 'on')} onClick={() => setTab(id)}>{label}</button>
+            <div className="segmented t-tabs" role="tablist" aria-label="תצוגה" ref={tabsRef} onKeyDown={onTabsKey}>
+              {tabList.map(([id, label]) => (
+                <button key={id} type="button" role="tab" data-tab={id} aria-selected={tab === id} className={clsx('seg', 't-tab', tab === id && 'on')} onClick={() => setTab(id)}>{label}</button>
               ))}
             </div>
 
@@ -161,7 +197,8 @@ export default function Teacher() {
               </EmptyState>
             )}
 
-            {tab === 'tomorrow' && <TomorrowTab cls={cls} data={data} students={students} openHelp={openHelp} onOpenHelp={() => setTab('help')} />}
+            {tab === 'tomorrow' && <TomorrowTab cls={cls} data={data} students={students} openHelp={openHelp} onOpenHelp={() => setTab('help')} onAssign={openAssign} />}
+            {tab === 'work' && <WorkTab cls={cls} today={data.today} version={workVersion} onNew={() => openAssign()} onChanged={load} />}
             {tab === 'students' && <StudentsTab cls={cls} data={data} students={students} onChanged={load} />}
             {tab === 'exams' && <ExamsTab data={data} />}
             {tab === 'help' && <HelpTab cls={cls} data={data} onChanged={load} />}

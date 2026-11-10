@@ -1,11 +1,13 @@
 // "מחר": what to do in tomorrow's lesson. The class licence card (when the paywall is on), mistakes that repeat this
-// week, weak topics in checked exams, who to check in with, and the newest help requests.
+// week (each with "לתת תרגול על זה": that stair, for the students who made the mistake, TEACHER-4 §6), weak topics in
+// checked exams, who to check in with, and the newest help requests.
 import clsx from 'clsx';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Send } from 'lucide-react';
 import { TOPIC } from '@/content/index.js';
 import { MathText } from '@/components/MathText.jsx';
 import { useAIStatus } from '@/lib/account.js';
 import LicenceCard from '@/components/teacher/LicenceCard.jsx';
+import { isStair } from '@/lib/assign.js';
 import { fmtDay, pct } from './common.jsx';
 
 /** A group in the "what to do tomorrow" view: a small heading over plain rows (the settings grammar). */
@@ -19,7 +21,7 @@ function Group({ title, tone, children, more }) {
   );
 }
 
-export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp }) {
+export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp, onAssign }) {
   const paywall = useAIStatus((x) => x.status?.paywall === true);
   const idle = (s) => !s.lastPractice || (Date.now() - new Date(s.lastPractice)) > 3 * 864e5;
   const attention = students.filter((s) => idle(s) || (s.week.n >= 5 && pct(s.week.first, s.week.n) < 60));
@@ -41,12 +43,23 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp 
           <Group title="טעויות שחוזרות השבוע" tone="warm">
             {data.mistakes.length === 0 ? <p className="t-row muted">לא זוהו טעויות שחוזרות.</p> : (
               <ul className="t-list">
-                {data.mistakes.map((m) => (
-                  <li key={`${m.topic}:${m.cat}`} className="t-row">
-                    <span className="t-list-main"><b>{TOPIC[m.topic]?.title}</b>: <MathText text={TOPIC[m.topic]?.cats[m.cat] || m.cat} /></span>
-                    <span className="muted">{m.students === 1 ? 'תלמיד אחד' : `${m.students} תלמידים`}: {m.names.slice(0, 6).join(', ')}{m.names.length > 6 ? '…' : ''}</span>
-                  </li>
-                ))}
+                {data.mistakes.map((m) => {
+                  const skill = `${m.topic}:${m.level}`;
+                  const rowId = `t-mis-${m.topic}-${m.cat}`;
+                  const ids = m.ids || [];
+                  return (
+                    <li key={`${m.topic}:${m.cat}`} className="t-row">
+                      <span className="t-list-main" id={rowId}><b>{TOPIC[m.topic]?.title}</b>: <MathText text={TOPIC[m.topic]?.cats[m.cat] || m.cat} /></span>
+                      <span className="muted">{m.students === 1 ? 'תלמיד אחד' : `${m.students} תלמידים`}: {m.names.slice(0, 6).join(', ')}{m.names.length > 6 ? '…' : ''}</span>
+                      {onAssign && isStair(skill) && ids.length > 0 && (
+                        <button type="button" className="btn btn-secondary btn-sm t-row-act" aria-describedby={rowId}
+                          onClick={() => onAssign({ kind: 'stair', skill, targets: ids, targetsLabel: `לתלמידים שטעו בזה (${ids.length})` })}>
+                          <Send size={16} aria-hidden="true" />לתת תרגול על זה
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </Group>
