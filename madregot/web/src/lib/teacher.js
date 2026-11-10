@@ -1,0 +1,107 @@
+// The one place a teacher's credentials are chosen (spec TEACHER-1). A class bound to the teacher's email (owned) opens
+// with the signed-in session (X-Account-Token, lib/parent.js) on any device; otherwise with the class's teacher key.
+// The server checks either (requireTeacher). Every teacher call goes through teacherHeaders() or teacherApi().
+// The email is never copied into the saved profile: it is read from the session.
+import { useApp } from './store.js';
+import { api, ApiError } from './api.js';
+import { useParent, accountCall, clearSession } from './parent.js';
+
+const token = () => useParent.getState().session?.token || null;
+const keyPair = (cls) => ({ 'X-Class-Code': cls.code, 'X-Teacher-Key': cls.key });
+const accountPair = (cls, t) => ({ 'X-Class-Code': cls.code, 'X-Account-Token': t });
+
+/**
+ * The headers that open this class: the session for an owned class when one exists, else the teacher key. Neither:
+ * ApiError not_account (the page asks for the email).
+ */
+export function teacherHeaders(cls) {
+  const t = token();
+  if (cls?.owned && t) return accountPair(cls, t);
+  if (cls?.key) return keyPair(cls);
+  throw new ApiError('not_account', 401);
+}
+
+/** Change one class of the teacher's profile on this device. */
+function patchClass(code, patch) {
+  const p = useApp.getState().profile;
+  if (p?.role !== 'teacher') return;
+  useApp.getState().patchProfile({ classes: p.classes.map((c) => (c.code === code ? { ...c, ...patch } : c)) });
+}
+
+/**
+ * One call as the class's teacher. On a 401 it tries the other credential once:
+ * - the key was refused (the owner made a new one on another device) and this page has a session: the session opens
+ *   the class if it is bound to it, and the stale key is dropped from this device;
+ * - the session has ended (not_account): it is forgotten here, and a key on this device still opens the class;
+ * - the session is fine but no longer has the class (not_teacher): the key opens it, and the class is no longer
+ *   marked owned on this device.
+ */
+export async function teacherApi(path, opts = {}, cls) {
+  const send = (h) => api(path, { ...opts, auth: false, headers: { ...(opts.headers || {}), ...h } });
+  const first = teacherHeaders(cls);
+  try {
+    return await send(first);
+  } catch (e) {
+    if (e?.status !== 401) throw e;
+    const again = async (h) => { try { return await send(h); } catch (e2) { throw e2?.status === 401 ? e : e2; } };
+    if (first['X-Teacher-Key']) {
+      const t = token();
+      if (e.code !== 'not_teacher' || !t) throw e;
+      const r = await again(accountPair(cls, t));
+      patchClass(cls.code, { key: null, owned: true });
+      return r;
+    }
+    if (e.code === 'not_account') clearSession();
+    if (!cls.key) throw e;
+    const r = await again(keyPair(cls));
+    // the session is fine but this account no longer has the class: the key is what opens it here now
+    if (e.code === 'not_teacher') patchClass(cls.code, { owned: false });
+    return r;
+  }
+}
+
+// ---------------------------------------------------------------- the teacher's account
+/** The classes bound to the signed-in account (newest first, at most 20). */
+export const myClasses = () => accountCall('/api/teacher/classes').then((r) => r.classes || []);
+
+/** Bind a class this device opens with its key to the signed-in account. */
+export async function bindClass(cls) {
+  const t = token();
+  if (!t) throw new ApiError('not_account', 401);
+  if (!cls?.key) throw new ApiError('not_teacher', 401);
+  const r = await accountCall('/api/teacher/class/owner', { method: 'POST', body: {}, headers: keyPair(cls) });
+  patchClass(cls.code, { owned: true });
+  return r;
+}
+
+/**
+ * A new teacher key for an owned class (the owner only). The server asks for a code from the last 10 minutes: a 401
+ * reauth_needed means the page shows the step-up (EmailCodeForm) and calls this again. The new key is kept on this
+ * device, so it can be copied to a co-teacher; every other device's old key stops working.
+ */
+export async function rekey(cls) {
+  const t = token();
+  if (!t) throw new ApiError('not_account', 401);
+  const r = await accountCall('/api/teacher/class/rekey', { method: 'POST', body: {}, headers: { 'X-Class-Code': cls.code } });
+  patchClass(cls.code, { key: r.teacherKey, owned: true });
+  return r;
+}
+
+/**
+ * Open the board with the classes of the account (from myClasses). A teacher profile already on this device keeps its
+ * classes and its keys; classes from the list are added, all marked owned, and the open class stays open.
+ */
+export function restore(list) {
+  const st = useApp.getState();
+  const prev = st.profile?.role === 'teacher' ? st.profile : null;
+  const codes = new Set(list.map((c) => c.code));
+  const kept = (prev?.classes || []).map((c) => (codes.has(c.code) ? { ...c, owned: true } : c));
+  const known = new Set(kept.map((c) => c.code));
+  const added = list.filter((c) => !known.has(c.code)).map((c) => ({ code: c.code, key: null, className: c.name, grade: c.grade, owned: true }));
+  const classes = [...kept, ...added];
+  if (!classes.length) return null;
+  const open = classes.find((c) => c.code === prev?.active) || classes[0];
+  const profile = { role: 'teacher', name: prev?.name || list[0]?.teacherName || '', classes, active: open.code, grade: open.grade };
+  st.setProfile(profile);
+  return profile;
+}

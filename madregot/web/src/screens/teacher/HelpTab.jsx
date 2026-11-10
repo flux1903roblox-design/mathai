@@ -4,7 +4,7 @@ import { useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { Hand, NotebookPen } from 'lucide-react';
-import { api, teacherHeaders } from '@/lib/api.js';
+import { teacherApi } from '@/lib/teacher.js';
 import { TOPIC } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
@@ -23,14 +23,14 @@ function NotebookPage({ cls, id }) {
   return (
     <Button variant="secondary" className="btn-sm" disabled={busy} onClick={async () => {
       setBusy(true);
-      try { const r = await api(`/api/teacher/help/${id}/image`, { headers: teacherHeaders(cls) }); setSrc(r.image); } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+      try { const r = await teacherApi(`/api/teacher/help/${id}/image`, {}, cls); setSrc(r.image); } catch (e) { toast.error(e.message); } finally { setBusy(false); }
     }}><NotebookPen size={16} aria-hidden="true" />{busy ? 'טוענים…' : 'הדף מהמחברת'}</Button>
   );
 }
 
 export default function HelpTab({ cls, data, onChanged }) {
   const markHelp = async (id, action) => {
-    try { await api(`/api/teacher/help/${id}`, { method: 'POST', body: { action }, headers: teacherHeaders(cls) }); onChanged(); } catch (e) { toast.error(e.message); }
+    try { await teacherApi(`/api/teacher/help/${id}`, { method: 'POST', body: { action } }, cls); onChanged(); } catch (e) { toast.error(e.message); }
   };
   return (
     <ul className="help-list">

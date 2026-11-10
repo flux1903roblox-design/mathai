@@ -613,6 +613,8 @@ export async function accountOverview(req, env, cors) {
     usageWeek: { tutor: used('tutor'), check: used('check'), generate: used('generate'), exam: used('exam') },
     payments: payments.map((p) => ({ id: p.id, subscriptionId: p.subscription_id, planKind: p.plan_kind, at: p.occurred_at, amountAgorot: p.amount_agorot, kind: p.kind, hasInvoice: !!p.invoice_url })),
     classes: classViews,
+    // classes bound to this account (a teacher's): deleting the account unbinds them, and the sheet says so
+    ownedClasses: Number((await first(env, 'SELECT COUNT(*) AS n FROM class_owners WHERE account_id = ?', a.id))?.n || 0),
   }, 200, cors);
 }
 
@@ -629,14 +631,18 @@ export async function accountExport(req, env, cors) {
     payments: await all(env, `SELECT p.id, p.kind, p.amount_agorot, p.currency, p.status, p.occurred_at, p.period_end FROM payments p JOIN subscriptions s ON s.id = p.subscription_id
       WHERE s.account_id = ?`, a.id),
     orders: await all(env, 'SELECT id, plan, class_code, seats, amount_agorot, status, created_at, paid_at FROM orders WHERE account_id = ?', a.id),
+    // the classes bound to this account (a teacher's): their code and name, never their students
+    classes: await all(env, `SELECT o.class_code AS code, c.name, o.bound_at AS boundAt FROM class_owners o JOIN classes c ON c.code = o.class_code
+      WHERE o.account_id = ? ORDER BY o.bound_at, o.class_code`, a.id),
   };
   return json(data, 200, cors, { 'Content-Disposition': `attachment; filename="madregot-${dayOf()}.json"` });
 }
 
 /**
  * POST /api/account/delete {confirm: "DELETE"}: needs a code entered in the last 10 minutes. Ends any family plan now
- * (the provider is told; the hourly retry finishes it if it is down), deletes the sessions, devices, links, requests and
- * the account; subscriptions and orders lose the account id; payments are kept for the tax records.
+ * (the provider is told; the hourly retry finishes it if it is down), deletes the sessions, devices, links, requests,
+ * the class bindings (the classes stay and open with their teacher key) and the account; subscriptions and orders lose
+ * the account id; payments are kept for the tax records.
  */
 export async function deleteAccount(req, env, ctx, cors) {
   const a = await requireAccount(req, env);
@@ -661,6 +667,8 @@ export async function forgetAccount(env, accountId, { actor }) {
     env.DB.prepare('DELETE FROM link_codes WHERE account_id = ?').bind(accountId),
     env.DB.prepare('DELETE FROM family_devices WHERE account_id = ?').bind(accountId),
     env.DB.prepare('DELETE FROM licence_requests WHERE account_id = ?').bind(accountId),
+    // the classes it owned stay, and keep opening with their teacher key
+    env.DB.prepare('DELETE FROM class_owners WHERE account_id = ?').bind(accountId),
     env.DB.prepare('DELETE FROM notices WHERE to_account = ? AND sent_at IS NULL').bind(accountId),
     env.DB.prepare('UPDATE subscriptions SET account_id = NULL, updated_at = ? WHERE account_id = ?').bind(now, accountId),
     // an order still open can no longer start a plan: a late payment for it is refunded (apply.js)

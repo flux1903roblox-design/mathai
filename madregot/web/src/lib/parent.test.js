@@ -1,5 +1,6 @@
-// The parent's session on a device: kept in localStorage only on a device with no profile (the parent's own phone),
-// never left behind for a child once a profile exists, and gone (on the server too) with "delete all data".
+// The parent's session on a device: kept in localStorage only on a device with no profile (the parent's own phone) or a
+// teacher's device (unless signed in as a shared computer), never left behind for a child once a student profile exists,
+// and gone (on the server too) with "delete all data".
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 function fakeStorage() {
@@ -68,6 +69,56 @@ describe('the parent session on a shared device', () => {
     const { parent } = await load();
     expect(parent.useParent.getState().session?.token).toBe(TOKEN);
     expect(signouts()).toHaveLength(0);
+  });
+
+  it('a teacher who signs in and then opens the board keeps the session: nothing is revoked, and it stays in localStorage', async () => {
+    const { useApp, parent } = await load();
+    await parent.verifyCode('teacher@example.test', '123456');
+    useApp.getState().setProfile({ role: 'teacher', name: 'רונית', grade: '7', classes: [{ code: 'K7Q2MD', key: null, className: 'ז׳3', grade: '7', owned: true }], active: 'K7Q2MD' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(signouts()).toHaveLength(0);
+    expect(parent.useParent.getState().session?.token).toBe(TOKEN);
+    expect(JSON.parse(local.getItem('madregot-parent'))).toEqual({ token: TOKEN, email: 'parent@example.test', shared: false });
+  });
+
+  it('on a teacher\'s device a sign-in is kept in localStorage, and survives a reload', async () => {
+    local.setItem('madregot', JSON.stringify({ state: { profile: { role: 'teacher', name: 'רונית', grade: '7', classes: [], active: null } }, version: 4 }));
+    const { parent } = await load();
+    await parent.verifyCode('teacher@example.test', '123456');
+    expect(local.getItem('madregot-parent')).toContain(TOKEN);
+    expect(session.getItem('madregot-parent')).toBeNull();
+    const again = await load();
+    expect(again.parent.useParent.getState().session?.token).toBe(TOKEN);
+    expect(local.getItem('madregot-parent')).toContain(TOKEN);
+    expect(signouts()).toHaveLength(0);
+  });
+
+  it('"shared computer" keeps the session in this tab only, on any device, and a step-up keeps that choice', async () => {
+    local.setItem('madregot', JSON.stringify({ state: { profile: { role: 'teacher', name: 'רונית', grade: '7', classes: [], active: null } }, version: 4 }));
+    const { parent } = await load();
+    await parent.verifyCode('teacher@example.test', '123456', { shared: true });
+    expect(session.getItem('madregot-parent')).toContain(TOKEN);
+    expect(local.getItem('madregot-parent')).toBeNull();
+    // a fresh code while signed in (before replacing the teacher key): still this tab only
+    await parent.verifyCode('teacher@example.test', '654321');
+    expect(parent.useParent.getState().session.shared).toBe(true);
+    expect(calls.filter((c) => c.url.endsWith('/api/account/verify')).at(-1).headers['X-Account-Token']).toBe(TOKEN);
+    expect(session.getItem('madregot-parent')).toContain(TOKEN);
+    expect(local.getItem('madregot-parent')).toBeNull();
+    // and with no profile at all (signed in before the board was opened)
+    local.clear(); session.clear();
+    const fresh = await load();
+    await fresh.parent.verifyCode('teacher@example.test', '123456', { shared: true });
+    expect(session.getItem('madregot-parent')).toContain(TOKEN);
+    expect(local.getItem('madregot-parent')).toBeNull();
+  });
+
+  it('a student profile still gets the session in this tab only, and creating one still revokes a kept session', async () => {
+    local.setItem('madregot', JSON.stringify({ state: { profile: { role: 'student', name: 'נועה', grade: '7' } }, version: 4 }));
+    const { parent } = await load();
+    await parent.verifyCode('parent@example.test', '123456');
+    expect(session.getItem('madregot-parent')).toContain(TOKEN);
+    expect(local.getItem('madregot-parent')).toBeNull();
   });
 
   it('"delete all data" ends the parent session on the server and leaves none of the parents\' keys in either storage', async () => {

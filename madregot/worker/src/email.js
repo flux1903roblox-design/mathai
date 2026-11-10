@@ -1,9 +1,9 @@
 // Service email through Resend's HTTP API (https://resend.com/docs/api-reference/emails/send-email): the sign-in code,
 // and the notices outbox (welcome, cancellation, refund, payment failed, renewal reminder, device linked, licence
-// ending, owner alerts and the owner's daily summary). Settings: RESEND_API_KEY (secret), EMAIL_FROM (a domain verified
+// ending, a class's teacher key replaced, owner alerts and the owner's daily summary). Settings: RESEND_API_KEY (secret), EMAIL_FROM (a domain verified
 // in Resend), CONTACT_EMAIL (reply-to), OWNER_EMAIL (owner alerts). Every inserted value is HTML-escaped. Nothing a
-// parent or child typed goes into their own emails except the recipient address and a device label; a teacher's licence
-// request (school, note) goes only to the owner. With EMAIL_DEV_LOG = "true" on a local Worker (PUBLIC_URL on
+// parent or child typed goes into their own emails except the recipient address, a device label and, to its own
+// teacher, a class name; a teacher's licence request (school, note) goes only to the owner. With EMAIL_DEV_LOG = "true" on a local Worker (PUBLIC_URL on
 // localhost) and no Resend key, notices are printed to the log instead (subjects only, never a code).
 import { HttpError, nowIso, sha256, TZ } from './util.js';
 
@@ -138,6 +138,16 @@ export function renderNotice(env, row) {
           `רישיון העוזר החכם של הכיתה${p.classCode ? ` ${p.classCode}` : ''} מסתיים ב־${hebDate(p.until)}.`,
           'לחידוש: השיבו למייל הזה או בקשו הצעת מחיר מלוח המורה.',
           [env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean).join(' · '),
+        ],
+      };
+    case 'class_rekeyed':
+      return {
+        subject: `מפתח המורה של הכיתה ${p.className || ''} הוחלף`.replace(/\s+/g, ' ').trim(),
+        lines: [
+          'שלום,',
+          `נוצר מפתח מורה חדש לכיתה ${p.className || ''} (${p.code || ''}). מי שנכנס ללוח עם המייל לא צריך לעשות כלום. אם זה לא הייתם אתם, השיבו למייל הזה.`,
+          '',
+          [env.PUBLIC_URL, env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean).join(' · '),
         ],
       };
     case 'owner': {

@@ -6,7 +6,9 @@ import clsx from 'clsx';
 import { toast } from 'sonner';
 import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
-import { api, teacherHeaders } from '@/lib/api.js';
+import { api } from '@/lib/api.js';
+import { teacherApi } from '@/lib/teacher.js';
+import { signOut as endSession } from '@/lib/parent.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { Stat } from '@/components/ds.jsx';
 import Mascot from '@/components/Mascot.jsx';
@@ -58,7 +60,7 @@ function AddClass({ open, onClose }) {
 }
 
 export default function Teacher() {
-  const { profile, setProfile, signOut } = useApp();
+  const { profile, setProfile, setActiveClass, signOut } = useApp();
   const cls = profile.classes.find((c) => c.code === profile.active) || profile.classes[0];
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -77,10 +79,12 @@ export default function Teacher() {
   }, [nav]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
-    try { setData(await api('/api/teacher/dashboard', { headers: teacherHeaders(cls) })); setError(''); } catch (e) { setError(e.message); }
+    try { setData(await teacherApi('/api/teacher/dashboard', {}, cls)); setError(''); } catch (e) { setError(e.message); }
   }, [cls]);
   useEffect(() => { setData(null); load(); const t = setInterval(load, 120_000); return () => clearInterval(t); }, [load]);
 
+  // leaving the board also ends the teacher's email session, on this device and on the server
+  const leave = () => { endSession(); signOut(); };
   const dismissFresh = () => setProfile({ ...profile, classes: profile.classes.map((c) => (c.code === cls.code ? { ...c, fresh: false } : c)) });
 
   const students = data?.students || [];
@@ -104,7 +108,7 @@ export default function Teacher() {
         </div>
         <div className="t-class">
           {profile.classes.length > 1 ? (
-            <select className="input t-class-select" aria-label="כיתה" value={cls.code} onChange={(e) => setProfile({ ...profile, active: e.target.value })}>
+            <select className="input t-class-select" aria-label="כיתה" value={cls.code} onChange={(e) => setActiveClass(e.target.value)}>
               {profile.classes.map((c) => <option key={c.code} value={c.code}>{c.className}</option>)}
             </select>
           ) : <h1 className="t-class-name">{cls.className}</h1>}
@@ -156,7 +160,7 @@ export default function Teacher() {
 
         <section className="section set-group t-out">
           <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmOut(true)}><LogOut size={18} aria-hidden="true" />יציאה מהלוח</button></div></div>
-          <ConfirmSheet open={confirmOut} onOpenChange={setConfirmOut} title="לצאת מהלוח?" keep="להישאר בלוח" confirm="כן, לצאת" onConfirm={() => signOut()}>
+          <ConfirmSheet open={confirmOut} onOpenChange={setConfirmOut} title="לצאת מהלוח?" keep="להישאר בלוח" confirm="כן, לצאת" onConfirm={leave}>
             <p>הלוח ייסגר במכשיר הזה. כדי לחזור צריך את קוד הכיתה ואת מפתח המורה.</p>
           </ConfirmSheet>
         </section>

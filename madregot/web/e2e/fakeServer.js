@@ -42,6 +42,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     licence: { status: 'none', until: null, seats: null, students: 2, aiWeek: 0, joinLocked: false, request: null, legacyUntil: null, offer: { seatYearAgorot: 4900, minSeats: 10, vatMode: 'included', online: true } },
     classes: [], classPayments: [], failPayment: false,
     joinLocked: false, students: [{ id: 'a1', name: 'דנה' }, { id: 'b2', name: 'יואב' }],
+    owned: false, // the class K7Q2MD is bound to the signed-in account: its session opens it like the key (TEACHER-1)
     ...over,
   };
   const log = [];
@@ -81,7 +82,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     devices: st.devices.map((d) => ({ id: d.id, label: d.label, linkedAt: '2026-11-05T09:00:00Z', lastSeen: '2026-11-05', ...(d.token ? {} : { pending: true }) })),
     usageWeek: { tutor: st.famUsed.tutor, check: st.famUsed.check, generate: 0, exam: 0 },
     payments: [...(live() ? [{ id: 'p000000000000001', subscriptionId: st.plan.id, planKind: 'family', at: '2026-11-05T09:00:00Z', amountAgorot: 2990, kind: 'charge', hasInvoice: true }] : []), ...st.classPayments],
-    classes: st.classes,
+    classes: st.classes, ownedClasses: st.owned ? 1 : 0,
   });
   const dashboard = () => ({
     class: { name: 'ז׳3', grade: '7', teacherName: 'רונית' }, joinLocked: st.joinLocked, help: [], mistakes: [], exams: [],
@@ -202,7 +203,10 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     if (/^\/api\/family\/devices\/[a-z0-9]+\/unlink$/.test(path)) { st.devices = st.devices.filter((d) => d.id !== path.split('/')[4]); return reply(route, 200, { ok: true }); }
     // ---- the teacher
     if (path.startsWith('/api/teacher/')) {
-      if (h['x-class-code'] !== 'K7Q2MD' || h['x-teacher-key'] !== 'tkey-123') return reply(route, 401, { error: 'not_teacher' });
+      // the key is checked first; else the session of the account the class is bound to; an ended session alone is not_account
+      const byKey = h['x-class-code'] === 'K7Q2MD' && h['x-teacher-key'] === 'tkey-123';
+      const byAccount = h['x-class-code'] === 'K7Q2MD' && st.owned && signed;
+      if (!byKey && !byAccount) return reply(route, 401, { error: token && !signed && !h['x-teacher-key'] ? 'not_account' : 'not_teacher' });
       if (path === '/api/teacher/dashboard') return reply(route, 200, dashboard());
       if (path === '/api/teacher/licence') return reply(route, 200, { ...st.licence, students: st.students.length, joinLocked: st.joinLocked });
       if (path === '/api/teacher/licence/request') {

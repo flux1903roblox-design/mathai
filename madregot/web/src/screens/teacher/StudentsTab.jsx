@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { KeyRound, UserMinus } from 'lucide-react';
-import { api, teacherHeaders } from '@/lib/api.js';
+import { teacherApi } from '@/lib/teacher.js';
 import { topicsFor } from '@/content/index.js';
 import { ChapterMark, LevelPips } from '@/components/ui.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
@@ -13,17 +13,17 @@ export default function StudentsTab({ cls, data, students, onChanged }) {
   const [removing, setRemoving] = useState(null);
   const topics = topicsFor(cls.grade);
   const resetPin = async (s) => {
-    try { await api(`/api/teacher/students/${s.id}/reset-pin`, { method: 'POST', body: {}, headers: teacherHeaders(cls) }); toast.success(`הקוד האישי של ${s.name} אופס. בכניסה הבאה הוא יבחר קוד חדש.`); onChanged(); } catch (e) { toast.error(e.message); }
+    try { await teacherApi(`/api/teacher/students/${s.id}/reset-pin`, { method: 'POST', body: {} }, cls); toast.success(`הקוד האישי של ${s.name} אופס. בכניסה הבאה הוא יבחר קוד חדש.`); onChanged(); } catch (e) { toast.error(e.message); }
   };
   const setLock = async (locked) => {
     try {
-      await api('/api/teacher/class/lock', { method: 'POST', body: { locked }, headers: teacherHeaders(cls) });
+      await teacherApi('/api/teacher/class/lock', { method: 'POST', body: { locked } }, cls);
       toast.success(locked ? 'הכיתה נעולה לתלמידים חדשים.' : 'הכיתה פתוחה לתלמידים חדשים.'); onChanged();
     } catch (e) { toast.error(e.message); }
   };
   const removeStudent = async () => {
     const st = removing; setRemoving(null);
-    try { await api(`/api/teacher/students/${st.id}/remove`, { method: 'POST', body: {}, headers: teacherHeaders(cls) }); toast(`${st.name} הוסר/ה מהכיתה`); onChanged(); } catch (e) { toast.error(e.message); }
+    try { await teacherApi(`/api/teacher/students/${st.id}/remove`, { method: 'POST', body: {} }, cls); toast(`${st.name} הוסר/ה מהכיתה`); onChanged(); } catch (e) { toast.error(e.message); }
   };
 
   return (

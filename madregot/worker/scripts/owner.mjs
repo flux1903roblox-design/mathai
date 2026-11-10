@@ -219,6 +219,7 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
           `DELETE FROM link_codes WHERE account_id = ${acc};`,
           `DELETE FROM family_devices WHERE account_id = ${acc};`,
           `DELETE FROM licence_requests WHERE account_id = ${acc};`,
+          `DELETE FROM class_owners WHERE account_id = ${acc};`,
           `DELETE FROM notices WHERE to_account = ${acc} AND sent_at IS NULL;`,
           `UPDATE subscriptions SET account_id = NULL, updated_at = ${q(now)} WHERE account_id = ${acc};`,
           `UPDATE orders SET status = CASE WHEN status = 'open' THEN 'expired' ELSE status END, account_id = NULL WHERE account_id = ${acc};`,

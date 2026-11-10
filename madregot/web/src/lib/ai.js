@@ -6,6 +6,7 @@ import { useApp } from './store.js';
 import { apiBase, ApiError, errorText } from './api.js';
 import { aiHeaders, aiMode, aiReady, noteUsage, noteLimit, openLimitSheet, LIMIT_ERRORS, useAIStatus } from './account.js';
 import { qaActive, qaReply } from './qaFixtures.js';
+import { teacherHeaders } from './teacher.js';
 
 export { aiMode, aiReady };
 
@@ -81,7 +82,8 @@ export async function runAI(kind, input, { onText, signal, onMadi } = {}) {
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(teacherCls ? { 'X-Class-Code': teacherCls.code, 'X-Teacher-Key': teacherCls.key } : {}),
+    // a teacher's own questions count on the class: its key, or the owner's session (lib/teacher.js)
+    ...(teacherCls ? teacherHeaders(teacherCls) : {}),
     ...aiHeaders(),
   };
   let res;

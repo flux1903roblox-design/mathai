@@ -6,6 +6,7 @@
 //   teacher  a teacher's trial or quote request (replies and the quote; Resend only)
 //   buy      a teacher buying a class licence by card (receipts; Resend and the payment company)
 //   stepup   a fresh code before deleting the account: no notice, and the button says what it does
+// `askShared` (a teacher's sign-in) offers "shared computer": the session is then kept for this tab only (lib/parent.js).
 import { useEffect, useRef, useState } from 'react';
 import { requestCode, verifyCode } from '@/lib/parent.js';
 import { Button, Field } from '@/components/ui.jsx';
@@ -18,12 +19,13 @@ const NOTES = {
   stepup: null,
 };
 
-export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend = false, idPrefix = 'ec', purpose = 'join', startStep = 'email', presetEmail = '' }) {
+export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend = false, idPrefix = 'ec', purpose = 'join', startStep = 'email', presetEmail = '', askShared = false }) {
   const note = NOTES[purpose] ?? null;
   const submitLabel = purpose === 'stepup' ? 'אישור ומחיקה' : 'כניסה';
   const [step, setStep] = useState(lockedEmail ? 'sending' : startStep);
   const [email, setEmail] = useState(lockedEmail || presetEmail);
   const [code, setCode] = useState('');
+  const [shared, setShared] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [resendAt, setResendAt] = useState(0);
@@ -51,7 +53,7 @@ export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend
     if (busy || value.length !== 6) return;
     setError(''); setBusy(true);
     try {
-      const r = await verifyCode(email.trim(), value);
+      const r = await verifyCode(email.trim(), value, { shared: askShared && shared });
       onSignedIn?.(r);
     } catch (err) {
       setError(err.code === 'wrong_code' && Number.isFinite(err.data?.left) ? `הקוד לא נכון. נשארו עוד ${err.data.left} ניסיונות.` : err.message);
@@ -66,6 +68,12 @@ export default function EmailCodeForm({ onSignedIn, lockedEmail = null, autoSend
           <input id={`${idPrefix}-email`} type="email" inputMode="email" autoComplete="email" dir="ltr" className="input" value={email}
             onChange={(e) => setEmail(e.target.value)} maxLength={254} readOnly={!!lockedEmail} />
         </Field>
+        {askShared && !lockedEmail && (
+          <label className="check-row parents-check">
+            <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />
+            <span>מחשב משותף (למשל בחדר המורים): לא לזכור את הכניסה אחרי שסוגרים את הלשונית</span>
+          </label>
+        )}
         {note && <p className="footnote">{note}</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
         <Button type="submit" className="btn-block" disabled={busy || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())}>{busy ? 'שולחים…' : 'שליחת קוד'}</Button>

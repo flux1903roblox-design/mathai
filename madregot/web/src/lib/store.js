@@ -23,7 +23,10 @@ const safeStorage = createJSONStorage(() => {
 });
 
 const empty = {
-  profile: null, // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? } | { role: 'teacher', name, classes: [], active }
+  // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? }
+  // | { role: 'teacher', name, grade, classes: [{ code, key: string|null, className, grade, owned?: boolean, fresh?: boolean, bindLater?: 'YYYY-MM-DD', pilot?: {...} }], active, demo?: true }
+  // A teacher's email is never kept here: it is read from the signed-in session (lib/parent.js).
+  profile: null,
   progress: {}, // topicId -> { level, max }
   days: {}, // 'YYYY-MM-DD' -> { q, ok, secs, lessons, stages (teaching stages finished), xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
   xp: 0,
@@ -88,6 +91,12 @@ export const useApp = create(
       ...empty,
       setProfile: (profile) => set({ profile }),
       patchProfile: (patch) => set({ profile: { ...get().profile, ...patch } }),
+      /** The teacher opens another of their classes: the board and the student screens follow its grade. */
+      setActiveClass: (code) => {
+        const p = get().profile;
+        const cls = p?.role === 'teacher' ? p.classes?.find((c) => c.code === code) : null;
+        if (cls) set({ profile: { ...p, active: cls.code, ...(cls.grade ? { grade: cls.grade } : {}) } });
+      },
       setAI: (patch) => set({ ai: { ...get().ai, ...patch } }),
       setSolveMode: (solveMode) => set({ solveMode }),
       addExam: (exam) => set({ exams: [exam, ...get().exams].slice(0, 30), gaps: gapsFromExam(get().gaps, exam) }),

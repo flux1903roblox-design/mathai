@@ -351,7 +351,7 @@ function Receipts({ payments, qa }) {
 const Reference = ({ value }) => <bdi dir="ltr" className="mono" style={{ whiteSpace: 'nowrap' }}>{value}</bdi>;
 
 // ---------------------------------------------------------------- the account: sign out, the data, deleting
-function AccountRows({ email, qa, onGone }) {
+function AccountRows({ email, qa, ownedClasses = 0, onGone }) {
   const [del, setDel] = useState(null); // null | 'confirm' | 'code'
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -385,6 +385,7 @@ function AccountRows({ email, qa, onGone }) {
           ) : (
             <>
               <p className="lead">נמחק את כתובת המייל, את הכניסות ואת המכשירים המחוברים. אם יש מנוי, הוא יבוטל והעוזר החכם ייסגר מיד בכל המכשירים. בתוך 14 יום מהתשלום הראשון, בקשו קודם החזר בביטול המנוי.</p>
+              {ownedClasses > 0 && <p>הכיתות שלכם לא נמחקות עם החשבון, והן ימשיכו להיפתח עם מפתח המורה.</p>}
               {error && <p className="form-error" role="alert">{error}</p>}
               <Button className="btn-block btn-lg" onClick={() => setDel(null)}>לא למחוק</Button>
               <Button variant="ghost" className="btn-block exit-quit" onClick={remove} disabled={busy}>{busy ? 'מוחקים…' : 'כן, למחוק'}</Button>
@@ -586,7 +587,7 @@ export default function Parents({ mode = 'home' }) {
           </section>
         )}
         <CancelSheet open={cancelOpen} onOpenChange={setCancelOpen} plan={plan} onCancelled={cancelled} qa={!!qa} />
-        <AccountRows email={qa ? qaSession?.email : session.email} qa={!!qa} onGone={gone} />
+        <AccountRows email={qa ? qaSession?.email : session.email} qa={!!qa} ownedClasses={acct.ownedClasses || 0} onGone={gone} />
       </>
     );
   }

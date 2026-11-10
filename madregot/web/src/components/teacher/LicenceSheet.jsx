@@ -1,8 +1,10 @@
 // A teacher asks for a two-week trial or a school quote, or buys a class licence by card. Each needs the teacher's own
-// email (a code, no password); the session stays in this tab only (sessionStorage, the device has a profile). A trial
-// is never granted by itself: the owner approves it and answers by email.
+// email (a code, no password); on a teacher's device the session is kept (lib/parent.js), as it is what opens a class
+// bound to that email, unless the teacher ticks "shared computer" (then it lasts for this tab only). The class key and the purchaser's session may come together: the server checks the key first.
+// A trial is never granted by itself: the owner approves it and answers by email.
 import { useEffect, useState } from 'react';
-import { api, teacherHeaders } from '@/lib/api.js';
+import { api } from '@/lib/api.js';
+import { teacherHeaders } from '@/lib/teacher.js';
 import { useParent, startCheckout, plans as loadPlans } from '@/lib/parent.js';
 import { formatAgorot, vatLine } from '@/lib/price.js';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
@@ -87,7 +89,7 @@ export default function LicenceSheet({ cls, mode, students, offer = {}, onOpenCh
       ) : !session ? (
         <div className="stack">
           <p className="muted">כדי שנוכל לחזור אליכם, נכנסים עם המייל של בית הספר או שלכם.</p>
-          <EmailCodeForm idPrefix="lic" purpose={mode === 'buy' ? 'buy' : 'teacher'} />
+          <EmailCodeForm idPrefix="lic" purpose={mode === 'buy' ? 'buy' : 'teacher'} askShared />
         </div>
       ) : mode === 'buy' ? <BuyForm cls={cls} students={students} offer={offer} />
         : mode ? <RequestForm cls={cls} wants={mode} students={students} onSent={() => { setSent(true); onSent?.(); }} /> : null}

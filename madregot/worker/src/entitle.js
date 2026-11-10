@@ -16,6 +16,7 @@ import {
   HttpError, key, take, peek, sha256, hmacHex, netKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual,
 } from './util.js';
 import { daySpendUsd, monthSpendUsd, queueNotices, ownerNotice } from './spend.js';
+import { accountFrom } from './account.js';
 
 // ---------------------------------------------------------------- limits
 export const DEFAULT_LIMITS = {
@@ -90,13 +91,28 @@ export async function requireStudent(req, env) {
   if (!s) throw new HttpError(401, 'not_signed_in');
   return s;
 }
+/**
+ * The teacher of a class: X-Class-Code with either the class's teacher key (X-Teacher-Key) or the session of the account
+ * the class is bound to (X-Account-Token, table class_owners). The key is checked first and a valid key wins, so a
+ * request that carries a key and a purchaser's session together behaves as before. Returns the class row plus
+ * via: 'key' | 'account', and accountId when the account opened it. A wrong pair is 401 not_teacher; a request whose
+ * only credential is a session that has ended (or never existed) is 401 not_account, so the page asks for the email.
+ */
 export async function requireTeacher(req, env) {
   const code = String(req.headers.get('X-Class-Code') || '').toUpperCase();
   const k = req.headers.get('X-Teacher-Key') || '';
-  if (!code || !k || code.length > 12 || k.length > 128) throw new HttpError(401, 'not_teacher');
+  const token = req.headers.get('X-Account-Token') || '';
+  if (!code || code.length > 12 || k.length > 128 || (!k && !token)) throw new HttpError(401, 'not_teacher');
   const cls = await env.DB.prepare('SELECT * FROM classes WHERE code = ?').bind(code).first();
-  if (!cls || !safeEqual(cls.teacher_key_hash, await sha256(k))) throw new HttpError(401, 'not_teacher');
-  return cls;
+  if (!cls) throw new HttpError(401, 'not_teacher');
+  if (k && safeEqual(cls.teacher_key_hash, await sha256(k))) return { ...cls, via: 'key' };
+  if (token) {
+    const a = await accountFrom(req, env);
+    if (!a && !k) throw new HttpError(401, 'not_account');
+    const owns = a && (await env.DB.prepare('SELECT 1 AS x FROM class_owners WHERE class_code = ? AND account_id = ?').bind(cls.code, a.id).first());
+    if (owns) return { ...cls, via: 'account', accountId: a.id };
+  }
+  throw new HttpError(401, 'not_teacher');
 }
 
 /** A child's device linked to a family plan (X-Family-Device: fd1.<64 hex>), or null. */
@@ -121,11 +137,15 @@ export async function deviceFrom(req, env) {
   return /^[a-f0-9]{32}$/.test(raw) ? raw : null;
 }
 
-/** Everyone a child-side request speaks for. X-Account-Token is never read here: a parent session gives no AI. */
+/**
+ * Everyone a child-side request speaks for. X-Account-Token is read only together with X-Class-Code, as the owner's
+ * teacher credential (requireTeacher); it never gives family or free-device AI: a parent session alone gives no AI.
+ */
 export async function identify(req, env) {
   const id = { student: null, teacher: null, fam: null, famBad: false, device: null };
   id.student = await studentFrom(req, env);
-  if (!id.student && req.headers.get('X-Teacher-Key')) id.teacher = await requireTeacher(req, env);
+  const asTeacher = req.headers.get('X-Teacher-Key') || (req.headers.get('X-Class-Code') && req.headers.get('X-Account-Token'));
+  if (!id.student && asTeacher) id.teacher = await requireTeacher(req, env);
   const fd = req.headers.get('X-Family-Device');
   if (fd) { id.fam = await familyDeviceFrom(env, fd); id.famBad = !id.fam; }
   id.device = await deviceFrom(req, env);

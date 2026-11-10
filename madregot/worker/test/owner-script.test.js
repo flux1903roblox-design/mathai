@@ -99,8 +99,13 @@ test('grant-family upserts the account and a term plan; cancel and forget write 
   run(env2, build('end', { id: s2.id }, fixed).sql);
   const e2 = one(env2, 'SELECT status, ended_reason, cancel_requested_at, cancel_at_period_end FROM subscriptions');
   assert.equal(e2.status, 'ended'); assert.equal(e2.ended_reason, 'owner'); assert.equal(e2.cancel_requested_at, NOW); assert.equal(e2.cancel_at_period_end, 1);
+  // a class bound to the account loses its owner and stays (it keeps opening with its teacher key)
+  env.DB.raw.prepare("INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES ('ABC234', 'ז׳3', '7', 'רונית', 'x', ?)").run(NOW);
+  env.DB.raw.prepare('INSERT INTO class_owners (class_code, account_id, bound_at) VALUES (?, ?, ?)').run('ABC234', sub.account_id, NOW);
   run(env, build('forget', { email: 'parent@example.test' }, fixed).sql);
   assert.equal(rows(env, 'SELECT * FROM accounts').length, 0);
+  assert.equal(rows(env, 'SELECT * FROM class_owners').length, 0);
+  assert.equal(rows(env, 'SELECT * FROM classes').length, 1);
   const f = one(env, 'SELECT * FROM subscriptions');
   assert.equal(f.account_id, null); assert.equal(f.status, 'ended'); assert.equal(f.ended_reason, 'account_deleted');
 });

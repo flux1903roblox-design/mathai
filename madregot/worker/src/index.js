@@ -7,7 +7,7 @@ import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, take, key, giveBack,
   limitOrThrow, hmacHex,
 } from './util.js';
-import { startLogin, verifyLogin, signOut } from './account.js';
+import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
 import { resolve, aiStatus, requireStudent, requireTeacher, paywallOn } from './entitle.js';
 import { recordSpend } from './spend.js';
 import { emailReady } from './email.js';
@@ -18,6 +18,7 @@ import {
 import { currentProvider } from './providers/index.js';
 import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily } from './family.js';
 import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked } from './licence.js';
+import { myClasses, bindClass, rekeyClass, ownedClassStmts, checkOwnedCap } from './teacherAccount.js';
 import { run as runCron } from './cron.js';
 
 // ---------- http helpers ----------
@@ -202,19 +203,33 @@ async function mintDevice(req, env, cors) {
 }
 
 // ---------- classes ----------
+/**
+ * POST /api/classes {className, teacherName, grade}: a new class and its teacher key (shown once). With a session
+ * (X-Account-Token) the class is bound to that account in the same batch and the answer says owned: true; a session
+ * that is sent but not valid is 401 not_account, never a class left unbound by mistake.
+ */
 async function createClass(req, env, cors) {
   const b = await body(req, LIMIT.small);
   const name = cleanName(b.className); const teacherName = cleanName(b.teacherName);
   const grade = b.grade === '8' ? '8' : '7';
   if (!name || !teacherName) throw new HttpError(400, 'missing_fields');
+  const account = String(req.headers.get('X-Account-Token') || '').trim() ? await requireAccount(req, env) : null;
+  if (account) await checkOwnedCap(env, account.id);
   await limitOrThrow(env, `create:n:${await netKey(req, env)}`, 10, 429, 'too_many_classes');
   const teacherKey = randomToken(12);
+  const keyHash = await sha256(teacherKey);
   for (let i = 0; i < 5; i++) {
     const code = classCode();
+    const now = nowIso();
     try {
-      await env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(code, name, grade, teacherName, await sha256(teacherKey), nowIso()).run();
-      return json({ code, teacherKey, className: name, grade, teacherName }, 200, cors);
+      if (account) {
+        const res = await env.DB.batch(ownedClassStmts(env, { code, name, grade, teacherName, keyHash, now }, account.id));
+        if (Number(res[0].meta?.changes) !== 1) throw new HttpError(409, 'too_many_classes_owned');
+      } else {
+        await env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .bind(code, name, grade, teacherName, keyHash, now).run();
+      }
+      return json({ code, teacherKey, className: name, grade, teacherName, ...(account ? { owned: true } : {}) }, 200, cors);
     } catch (e) { if (!String(e?.message).includes('UNIQUE')) throw e; }
   }
   throw new HttpError(500, 'code_collision');
@@ -461,6 +476,10 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && p === '/api/teacher/licence') return licenceStatus(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/licence/request') return licenceRequest(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/teacher/licence/claim') return licenceClaim(req, env, cors);
+  // the teacher's account: the classes follow the email (teacherAccount.js)
+  if (M === 'GET' && p === '/api/teacher/classes') return myClasses(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/owner') return bindClass(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/rekey') return rekeyClass(req, env, ctx, cors);
   return json({ error: 'not_found' }, 404, cors);
 }
 

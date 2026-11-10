@@ -72,6 +72,10 @@ const MESSAGES = {
   class_locked: 'הכיתה נעולה להצטרפות חדשה. בקשו מהמורה לפתוח אותה.',
   class_has_licence: 'לכיתה הזו כבר יש רישיון פעיל.',
   bad_licence_code: 'קוד הרישיון לא נכון, פג או כבר נוצל.',
+  owned_by_other: 'הכיתה הזו כבר מקושרת לחשבון אחר. אם זו טעות, כתבו לנו.',
+  not_owner: 'את זה יכול לעשות רק מי שהכיתה מקושרת למייל שלו.',
+  too_many_classes_owned: 'אפשר לקשר עד 20 כיתות לחשבון אחד. כתבו לנו אם צריך יותר.',
+  too_many_lists: 'ביקשתם את רשימת הכיתות הרבה פעמים בשעה האחרונה. נסו שוב בעוד שעה.',
   request_open: 'כבר שלחתם בקשה כזו. נחזור אליכם במייל.',
   too_many_requests: 'נשלחו היום הרבה בקשות מהכיתה הזו. נסו שוב מחר.',
   bad_request: 'משהו בפרטים לא תקין. בדקו ונסו שוב.',
@@ -128,8 +132,6 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
   if (!res.ok) throw new ApiError(data.error || 'server_error', res.status, data);
   return data;
 }
-
-export const teacherHeaders = (cls) => ({ 'X-Class-Code': cls.code, 'X-Teacher-Key': cls.key });
 
 /** Send queued answers and current levels to the class server. */
 let syncing = false;

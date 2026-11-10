@@ -1,8 +1,9 @@
 // The teacher's side of class licences (spec §5.4, §6.8): the licence card on the dashboard, a request for a trial or a
 // school quote (answered by the owner, who grants with npm run owner; a trial is never granted automatically), a school
 // licence code that attaches the class, the join lock, and removing a student who does not belong to the class.
-// Every route needs X-Class-Code and X-Teacher-Key. The licence card shows class totals only: no per-student AI data and
-// no sign of which students have a family plan.
+// Every route needs X-Class-Code with the teacher key or the session of the account the class is bound to
+// (requireTeacher). The licence card shows class totals only: no per-student AI data and no sign of which students have
+// a family plan.
 import { HttpError, body, json, nowIso, daysAgo, sha256, randomToken, netKey, key, take, limitOrThrow, CODE_ALPHABET } from './util.js';
 import { requireTeacher, liveLicence, legacyWindow } from './entitle.js';
 import { requireAccount } from './account.js';
@@ -15,8 +16,11 @@ export const ENDING_DAYS = 30;
 export const REQUEST_LIMITS = { perClassDay: 5 };
 export const CLAIM_LIMITS = { netHour: 10, classDay: 10 };
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
-const audit = (env, cls, action, target, detail = {}) => env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
-  .bind(nowIso(), `teacher:${cls}`, action, target, JSON.stringify(detail));
+/** The detail of a teacher's audit row: {via: 'account'} is added when the class was opened with the account (never the email). */
+export const teacherDetail = (cls, detail = {}) => JSON.stringify(cls?.via === 'account' ? { ...detail, via: 'account' } : detail);
+/** One audit row of a teacher action (actor teacher:<code>), for a class row from requireTeacher. */
+export const teacherAudit = (env, cls, action, target, detail = {}) => env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
+  .bind(nowIso(), `teacher:${cls.code}`, action, target, teacherDetail(cls, detail));
 
 /** Is the class closed to new names? */
 export const joinLocked = async (env, classCode) => !!(await first(env, 'SELECT 1 AS x FROM class_locks WHERE class_code = ?', classCode));
@@ -101,7 +105,7 @@ export async function licenceRequest(req, env, ctx, cors) {
       SELECT ?1, 'owner:licence_request', NULL, ?2, ?3 WHERE EXISTS (SELECT 1 FROM licence_requests WHERE id = ?1)`).bind(id, JSON.stringify(params), now),
     env.DB.prepare(`INSERT INTO audit_log (at, actor, action, target, detail)
       SELECT ?1, ?2, 'licence.request', ?3, ?4 WHERE EXISTS (SELECT 1 FROM licence_requests WHERE id = ?5)`)
-      .bind(now, `teacher:${cls.code}`, `class:${cls.code}`, JSON.stringify({ wants, classes, students }), id),
+      .bind(now, `teacher:${cls.code}`, `class:${cls.code}`, teacherDetail(cls, { wants, classes, students }), id),
   ]);
   if (Number(res[0].meta?.changes) !== 1) throw new HttpError(409, 'request_open');
   ctx?.waitUntil?.(flushNotices(env));
@@ -156,7 +160,7 @@ export async function licenceClaim(req, env, cors) {
     env.DB.prepare('UPDATE licence_codes SET classes_left = classes_left - 1 WHERE code_hash = ? AND EXISTS (SELECT 1 FROM subscriptions WHERE id = ?)').bind(hash, id),
     env.DB.prepare(`INSERT INTO audit_log (at, actor, action, target, detail)
       SELECT ?, ?, 'licence.claim', ?, ? WHERE EXISTS (SELECT 1 FROM subscriptions WHERE id = ?)`)
-      .bind(now, `teacher:${cls.code}`, `class:${cls.code}`, JSON.stringify({ seats: lc.seats, until: lc.until, invoice: lc.invoice_ref }), id),
+      .bind(now, `teacher:${cls.code}`, `class:${cls.code}`, teacherDetail(cls, { seats: lc.seats, until: lc.until, invoice: lc.invoice_ref }), id),
   ]);
   if (Number(res[1].meta?.changes) !== 1) {
     if (await hasLicence(env, cls.code)) throw new HttpError(409, 'class_has_licence');
@@ -174,7 +178,7 @@ export async function lockClass(req, env, cors) {
     b.locked
       ? env.DB.prepare('INSERT OR IGNORE INTO class_locks (class_code, locked_at) VALUES (?, ?)').bind(cls.code, nowIso())
       : env.DB.prepare('DELETE FROM class_locks WHERE class_code = ?').bind(cls.code),
-    audit(env, cls.code, 'class.lock', `class:${cls.code}`, { locked: b.locked }),
+    teacherAudit(env, cls, 'class.lock', `class:${cls.code}`, { locked: b.locked }),
   ]);
   return json({ joinLocked: b.locked }, 200, cors);
 }
@@ -193,7 +197,7 @@ export async function removeStudent(id, req, env, cors) {
     ...['attempts', 'levels', 'help_requests', 'exams'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE student_id IN (${mine})`).bind(st.id, cls.code)),
     env.DB.prepare('DELETE FROM ai_usage WHERE who = ?').bind(`pin:${st.id}`),
     env.DB.prepare('DELETE FROM students WHERE id = ? AND class_code = ?').bind(st.id, cls.code),
-    audit(env, cls.code, 'student.remove', `student:${st.id}`),
+    teacherAudit(env, cls, 'student.remove', `student:${st.id}`),
   ]);
   return json({ ok: true }, 200, cors);
 }
