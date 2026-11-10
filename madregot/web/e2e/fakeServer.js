@@ -33,10 +33,12 @@ export const livePlan = (over = {}) => ({
 /**
  * A fake Worker with the paid tutor's endpoints. `st` is its state (tests may change it); `log` lists every call.
  * `target` is a page or a whole browser context (two pages: the child's device and the parent's phone).
+ * `parentOk` (trust spec TRUST-9): false, as on the real server, answers a device alone (no class, no teacher, no linked
+ * device) with the parent_ok_needed state and refusal; tests about the tutor itself pass parentOk: true.
  */
 export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:4173/') {
   const st = {
-    paywall: true, online: true, shared: null, breakNext: null, economy: false,
+    paywall: true, online: true, shared: null, breakNext: null, economy: false, parentOk: false,
     freeUsed: {}, freeLimit: 2, famUsed: { tutor: 0, check: 0, generate: 0, exam: 0 }, classLicence: false,
     plan: null, sessions: new Set(), recent: new Set(), devices: [], links: {}, orders: {}, n: 0,
     licence: { status: 'none', until: null, seats: null, students: 2, aiWeek: 0, joinLocked: false, request: null, legacyUntil: null, offer: { seatYearAgorot: 4900, minSeats: 10, vatMode: 'included', online: true } },
@@ -56,8 +58,11 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     return 'free';
   };
   const who = (h) => h['x-family-device'] || h['x-device'] || h.authorization || h['x-class-code'] || 'anon';
+  // a child alone, on a device no parent has approved (TRUST-9)
+  const waits = (h) => !st.parentOk && !h.authorization && !h['x-class-code'] && !famOf(h);
   const limitsOf = (tier) => (tier === 'family' ? FAMILY : CLASS);
   const status = (h) => {
+    if (waits(h)) return { paywall: st.paywall, tier: null, state: 'parent_ok_needed', kinds: [], groups: {}, resetsAt: '2026-11-06T00:00:00+02:00', aiReady: true };
     const tier = tierOf(h);
     const fam = famOf(h);
     if (tier === 'open') return { paywall: false, tier: 'open', kinds: Object.keys(GROUP), groups: { all: { left: 40, limit: 40 } }, aiReady: true };
@@ -104,6 +109,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       const kind = path.split('/').pop(); const g = GROUP[kind]; const tier = tierOf(h);
       let left;
       if (st.breakNext) { const e = st.breakNext; st.breakNext = null; return reply(route, e.status, e.body); }
+      if (waits(h)) return reply(route, 403, { error: 'parent_ok_needed' }, h['x-family-device'] ? { 'X-AI-Linked': '0' } : {});
       if (tier === 'free') {
         if (!['explain', 'chat'].includes(kind)) return reply(route, 402, { error: 'paid_only', kind });
         if (st.shared === 'paused') return reply(route, 503, { error: 'free_paused' });
@@ -186,8 +192,15 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       return reply(route, 200, { ok: true, status: 'canceled', endsAt: p.periodEnd, refundAgorot: 0, refundManual: false, synced: true, reference: 'C-7F3A' });
     }
     if (path === '/api/billing/resume') { st.plan = { ...st.plan, status: 'active', cancelAtPeriodEnd: false, cancelRequestedAt: null }; return reply(route, 200, { ok: true, status: 'active', renewsAt: st.plan.periodEnd }); }
+    // the purpose of a link (TRUST-9 §3): 'plan' needs a live plan, 'consent' (the default without one) the parent's tick
+    const purposeOf = () => (['plan', 'consent'].includes(body.purpose) ? body.purpose : live() ? 'plan' : 'consent');
+    if ((path === '/api/family/link/claim' || path === '/api/family/devices/this') && signed) {
+      const purpose = purposeOf();
+      if (purpose === 'plan' && !live()) return reply(route, 402, { error: 'needs_subscription' });
+      if (purpose === 'consent' && body.consent !== true) return reply(route, 400, { error: 'consent_required' });
+      st.purposes = [...(st.purposes || []), purpose];
+    }
     if (path === '/api/family/link/claim') {
-      if (!live()) return reply(route, 402, { error: 'needs_subscription' });
       const l = st.links[body.code];
       if (!l) return reply(route, 404, { error: 'link_not_found' });
       if (l.claimed) return reply(route, 409, { error: 'link_used' });
@@ -196,7 +209,6 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       return reply(route, 200, { ok: true, device: { id: d.id, label: d.label } });
     }
     if (path === '/api/family/devices/this') {
-      if (!live()) return reply(route, 402, { error: 'needs_subscription' });
       const d = { id: `d${'0'.repeat(14)}${st.devices.length + 1}`, label: body.label || '', token: `fd1.${'e'.repeat(64)}` };
       st.devices.push(d); st.sessions.delete(token);
       return reply(route, 200, { deviceToken: d.token, label: d.label });

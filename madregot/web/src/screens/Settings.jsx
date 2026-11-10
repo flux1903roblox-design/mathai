@@ -13,6 +13,7 @@ import { ConfirmSheet } from '@/components/Screen.jsx';
 import { openSupport } from '@/components/SupportSheet.jsx';
 import { SUPPORT_LINK } from '@/content/support.js';
 import { useAIStatus, leaveFamily } from '@/lib/account.js';
+import { PARENT_OK_LINE } from '@/components/limitCopy.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
 
 function ClassSection() {
@@ -157,7 +158,8 @@ export function AdvancedSettings() {
 /**
  * העוזר החכם: what the tutor is on this device and the ways a parent links or cancels. On the free taste: two
  * questions a day, with the rows for parents. On a linked device: the family plan, and unlinking. In a licensed class:
- * open for the class. With the paywall off or no server: as before.
+ * open for the class. With no parent's OK yet on a device alone: the screen for the parents. With the paywall off or
+ * no server: as before.
  */
 function AISection() {
   const { ai, profile } = useApp();
@@ -192,7 +194,12 @@ function AISection() {
     rows.push(<Link key="info" to="/parents/info" className="set-row"><span>מידע להורים</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
   }
   if (paid) rows.push(<Link key="cancel" to="/cancel" className="set-row"><span>ביטול מנוי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
-  if (!paid) {
+  // a child alone, on a device no parent has approved (trust spec TRUST-9): the one way on is the screen for the parents
+  const waiting = served && status?.state === 'parent_ok_needed';
+  if (waiting) {
+    text = `${PARENT_OK_LINE} מדי, השיעורים והתרגול פתוחים תמיד.`;
+    rows.push(<Link key="ok" to="/parents/info" className="set-row"><span>אישור של הורה</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
+  } else if (!paid) {
     text = inClass ? `העוזר מחובר דרך הכיתה${profile.teacherName ? ` של ${profile.teacherName}` : ''}. אין צורך להגדיר כלום.`
       : served ? 'העוזר עובד דרך השרת של האפליקציה.'
         : PERSONAL_KEY && ai.mode === 'personal' && ai.key ? 'העוזר מחובר במכשיר הזה, דרך ההגדרות המתקדמות.'

@@ -230,6 +230,8 @@ export async function dailySummary(env, now = new Date()) {
     openRequests: await count('SELECT COUNT(*) AS n FROM licence_requests WHERE handled_at IS NULL'),
     // counts only: what kind of safety event, never who or what was written (trust spec TRUST-4 §4.4)
     safety: await safetyCounts(env, day),
+    // tutor requests from a child alone that waited for a parent's OK (trust spec TRUST-9): how many children wait
+    parentOkNeeded: await count("SELECT COUNT(*) AS n FROM safety_events WHERE day = ? AND kind = 'parent_ok_needed'", day),
     violations: [],
   };
   const v = params.violations;

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Send } from 'lucide-react';
 import { detectDistress, maskPersonal } from '@shared/safety.js';
 import { runAI, aiReady } from '@/lib/ai.js';
-import { aiAccess, useAIStatus, needIntro } from '@/lib/account.js';
+import { aiAccess, useAIStatus, needIntro, openLimitSheet } from '@/lib/account.js';
 import { Button } from './ui.jsx';
 import { Markdown } from './MathText.jsx';
 import { Thinking } from './ui.jsx';
@@ -12,7 +12,7 @@ import Mascot from './Mascot.jsx';
 import SupportCard from './SupportCard.jsx';
 import { SupportLink } from './SupportSheet.jsx';
 import ReportAnswer from './ReportAnswer.jsx';
-import { CLASS_OFF_LINE } from './limitCopy.js';
+import { CLASS_OFF_LINE, PARENT_OK_LINE } from './limitCopy.js';
 import { piiLine } from '@/content/support.js';
 
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
@@ -28,7 +28,8 @@ const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'as
  * When the tutor is done for today the input stays usable: a message keeps its draft and a calm card says when the
  * tutor is back; `onDone` is "continue practising" there (closing the sheet in a lesson), `onMadi` the opener's way to
  * Madi. introTitle: a heading in Madi's opening bubble; restLine: the calm card's sentence instead of the usual one
- * (null: only its buttons, when the opening bubble already says it).
+ * (null: only its buttons, when the opening bubble already says it). On a device that waits for a parent's OK (TRUST-9)
+ * a message opens the sheet that explains it, and the card's first button is the screen for the parents.
  * Distress first (trust spec TRUST-3 §3.5): a message that reads as distress shows the support card at once, on the
  * device, whatever the tutor's state (resting, busy, offline). It still goes to the tutor when there is one (the server
  * answers it on its care path, never counted, never refused); a failure there is silent and the card stays.
@@ -37,10 +38,12 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
   const navigate = useNavigate();
   const status = useAIStatus((x) => x.status);
   const access = aiAccess('chat', status);
-  // the tutor does not answer here now: today's questions are used, it rests, or the class has it off (TRUST-11); the
-  // input stays usable in every case, so a message that reads as distress still shows the card and still goes
-  const resting = ['used', 'paused', 'resting', 'class_off'].includes(access.state);
+  // the tutor does not answer here now: today's questions are used, it rests, the class has it off (TRUST-11), or a
+  // parent has not approved it on this device yet (TRUST-9); the input stays usable in every case, so a message that
+  // reads as distress still shows the card and still goes (the server answers it with the fixed reply)
+  const resting = ['used', 'paused', 'resting', 'class_off', 'parent_ok_needed'].includes(access.state);
   const classOff = access.state === 'class_off';
+  const parentOk = access.state === 'parent_ok_needed';
   const [own, setOwn] = useState([]);
   const messages = kept ?? own;
   const setMessages = onMessages ?? setOwn;
@@ -88,6 +91,8 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
       if (resting) {
         setRestBack(true);
         requestAnimationFrame(() => dockRef.current?.querySelector('.chat-rest')?.scrollIntoView?.({ block: 'nearest' }));
+        // no parent's OK yet: the sheet says what it is and how to get it (the draft still waits here)
+        if (parentOk && !pending) openLimitSheet({ reason: 'parent_ok_needed', onMadi });
       }
       return;
     }
@@ -190,11 +195,20 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
         {showRest && (
           <section className="chat-rest" role="status" aria-label="העוזר החכם">
             {restLine !== null && (
-              <p>{restLine ?? (classOff ? `${CLASS_OFF_LINE} מדי, השיעורים והתרגול פתוחים כמו תמיד.` : access.state === 'used' ? 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.' : 'העוזר החכם נח היום. מחר הוא חוזר.')}</p>
+              <p>{restLine ?? (classOff ? `${CLASS_OFF_LINE} מדי, השיעורים והתרגול פתוחים כמו תמיד.` : parentOk ? `${PARENT_OK_LINE} מדי, השיעורים והתרגול פתוחים כמו תמיד.` : access.state === 'used' ? 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.' : 'העוזר החכם נח היום. מחר הוא חוזר.')}</p>
             )}
             <div className="chat-rest-actions">
-              <Button className="btn-sm" onClick={() => (onDone ? onDone() : navigate('/'))}>להמשיך לתרגל</Button>
-              <Button variant="secondary" className="btn-sm" onClick={() => navigate('/topics')}>מה מדי יודע להסביר</Button>
+              {parentOk ? (
+                <>
+                  <Button className="btn-sm" onClick={() => navigate('/parents/info')}>להראות להורים</Button>
+                  <Button variant="secondary" className="btn-sm" onClick={() => (onDone ? onDone() : navigate('/'))}>להמשיך לתרגל</Button>
+                </>
+              ) : (
+                <>
+                  <Button className="btn-sm" onClick={() => (onDone ? onDone() : navigate('/'))}>להמשיך לתרגל</Button>
+                  <Button variant="secondary" className="btn-sm" onClick={() => navigate('/topics')}>מה מדי יודע להסביר</Button>
+                </>
+              )}
             </div>
             <SupportLink className="chat-rest-support" />
           </section>
@@ -213,7 +227,7 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
           <label htmlFor="chat-draft" className="visually-hidden">ההודעה שלכם</label>
           {/* never disabled: a child whose questions are used up can still write, and a message that reads as
               distress always gets the card */}
-          <textarea id="chat-draft" rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={classOff ? 'העוזר החכם כבוי בכיתה הזו' : resting ? 'העוזר החכם חוזר מחר' : 'כתבו שאלה…'} maxLength={1000}
+          <textarea id="chat-draft" rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={classOff ? 'העוזר החכם כבוי בכיתה הזו' : parentOk ? 'מחכים לאישור של הורה' : resting ? 'העוזר החכם חוזר מחר' : 'כתבו שאלה…'} maxLength={1000}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
           <button type="submit" className="icon-btn send" disabled={!draft.trim() || (pending && !detectDistress(draft).flag)} aria-label="שליחה"><Send size={20} aria-hidden="true" /></button>
         </form>

@@ -25,6 +25,10 @@ TEACHER_DAILY_LIMIT = "200"
 SOLO_DAILY_LIMIT = "20"
 # "false" turns off AI for people who are not in a class (and, with the switch on, without a family plan).
 ALLOW_SOLO_AI = "true"
+# A parent's OK before a child alone uses the tutor (trust spec TRUST-9): "required" (the default) answers a device with
+# no class, no teacher and no parent's link with parent_ok_needed; a parent approves it once, for free, on the parents'
+# page. "off" turns the check off (the free taste is open to any device again): the one-variable rollback.
+AI_PARENT_OK = "required"
 # The free taste: questions a day per person, and the shared ceilings behind it (per network for anonymous devices,
 # per class, and in total). Other limits are overridable with AI_LIMITS (JSON), see worker/src/entitle.js.
 FREE_DAILY_LIMIT = "2"

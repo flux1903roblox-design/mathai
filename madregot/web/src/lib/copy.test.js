@@ -52,3 +52,13 @@ describe('the Ministry of Education\'s AI rules, in the words a teacher and a ch
     for (const w of ['₪', 'מנוי', 'לקנות', 'רישיון']) expect(errorText('class_ai_off')).not.toContain(w);
   });
 });
+
+describe('the parent\'s OK for the tutor, in the words a child and a parent see (trust spec TRUST-9, Appendix E §E.8)', () => {
+  it('the child is told once, calmly; the parent who forgot the box is told what to tick', () => {
+    expect(errorText('parent_ok_needed')).toBe('כדי לשאול את העוזר החכם צריך אישור של הורה, פעם אחת.');
+    expect(errorText('consent_required')).toBe('כדי לאשר צריך לסמן שאתם ההורים ומאשרים.');
+  });
+  it('the child\'s message names no price and no plan', () => {
+    for (const w of ['₪', 'מנוי', 'לקנות', 'רישיון']) expect(errorText('parent_ok_needed')).not.toContain(w);
+  });
+});

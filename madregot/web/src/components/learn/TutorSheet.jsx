@@ -2,8 +2,8 @@
 // What it shows is what was written and checked for this stair: an explanation, another way, why it works,
 // a worked example, the diagnosis of the last mistake with its repair, or the solution one step at a time with
 // the last step left to the student. It says plainly that it is not an AI; with a server, the AI is a separate button.
-// When the tutor is done for today (aiState used, paused or resting), or the class has it off (class_off), that button
-// gives way to one plain line: Madi is the way on, and asking needs no request. startIntent opens the sheet with that question already asked.
+// When the tutor is done for today (aiState used, paused or resting), the class has it off (class_off), or the device
+// waits for a parent's OK (parent_ok_needed), that button gives way to one plain line: Madi is the way on, and asking needs no request. startIntent opens the sheet with that question already asked.
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { Sparkles } from 'lucide-react';
@@ -12,7 +12,7 @@ import { MathText } from '@/components/MathText.jsx';
 import { INTENTS, tutorReply } from '@/learn/tutor.ts';
 import { useApp } from '@/lib/store.js';
 import AIAllowance from '@/components/AIAllowance.jsx';
-import { CLASS_OFF_LINE } from '@/components/limitCopy.js';
+import { CLASS_OFF_LINE, PARENT_OK_LINE } from '@/components/limitCopy.js';
 import StepPlayer from './StepPlayer.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import WorkedExample from './WorkedExample.jsx';
@@ -49,7 +49,7 @@ export default function TutorSheet({ open, onOpenChange, content, item = null, w
     if (!open) started.current = null;
   }, [open, startIntent]); // eslint-disable-line react-hooks/exhaustive-deps
   const resting = aiState === 'used' ? 'העוזר החכם חוזר מחר' : aiState === 'paused' || aiState === 'resting' ? 'העוזר החכם נח היום'
-    : aiState === 'class_off' ? CLASS_OFF_LINE : null;
+    : aiState === 'class_off' ? CLASS_OFF_LINE : aiState === 'parent_ok_needed' ? PARENT_OK_LINE : null;
   // A conversation (LAYOUT_SPEC B3, the same layout as the assistant): מדי's messages as bubbles at the start side,
   // the question asked as the student's bubble, and the questions to ask docked at the bottom, where a chat's input is.
   const footer = (

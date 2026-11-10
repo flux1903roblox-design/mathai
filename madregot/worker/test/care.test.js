@@ -1,7 +1,7 @@
 // The care path (trust spec TRUST-3 §3.3-3.4, §3.6): a chat message that reads as distress is answered warmly, is never
 // counted against a question, never refused and never paywalled, and cannot be used as a free maths channel. Claude is
-// stubbed; every address is synthetic. A class whose tutor is off (TRUST-11) gets the fixed reply; the no-parent-OK case
-// joins when that rule exists (TRUST-9).
+// stubbed; every address is synthetic. A class whose tutor is off (TRUST-11), and a child alone with no parent's OK
+// (TRUST-9), get the fixed reply with no AI call.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { CARE_NOTE } from '../../shared/ai.js';
@@ -279,6 +279,42 @@ test('a class whose tutor is off (a school class before the catalogue approval):
     { kind: 'class_ai_off', category: '', surface: 'chat', source: 'server', tier: '' },
     { kind: 'distress', category: 'self_harm', surface: 'chat', source: 'regex', tier: 'static' },
     { kind: 'distress', category: 'self_harm', surface: 'chat', source: 'regex', tier: 'static' },
+  ]);
+});
+
+test('with the parent\'s OK required: a child alone gets the fixed reply, no AI call; a device a parent approved for free gets a care reply', async () => {
+  h = await setup({ AI_PARENT_OK: 'required' });
+  // no parent's OK: a maths question is refused calmly, a message that reads as distress gets the fixed reply at once
+  const maths = await ai(h, 'chat', { 'X-Device': DEVICE });
+  assert.equal(maths.status, 403); assert.equal((await maths.json()).error, 'parent_ok_needed');
+  const r = await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chat(SAD) });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { text: CARE_STATIC, care: true });
+  const s = await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chat(SAD, { stream: true }) });
+  assert.equal(await s.text(), `${CARE_STATIC}\n[[care]]`);
+  assert.equal(h.net.log.claude.length, 0, 'what the child wrote is not sent to the AI company');
+  assert.equal(countOf(h.env, `care:d:${await devOf(h.env)}`), 0, 'no care key: the reply is the fixed one');
+  // a parent approved this device for free (purpose 'consent'): it has used both free questions today, and still gets
+  // a care reply, on care:fd:<device>, with no free counter moved
+  const email = 'ok@example.test';
+  const token = await signIn(h, email);
+  const t = await h.call('POST', '/api/family/devices/this', { headers: { 'X-Account-Token': token, 'X-Device': DEVICE }, body: { purpose: 'consent', consent: true } });
+  assert.equal(t.status, 200);
+  const fd = { 'X-Family-Device': (await t.json()).deviceToken, 'X-Device': DEVICE };
+  const dev = one(h.env, 'SELECT id FROM family_devices WHERE account_id = ?', accountId(h.env, email)).id;
+  await setCount(h.env, `free:fd:${dev}`, 2); await setCount(h.env, `free:fd:${dev}:tries`, 2);
+  const c = await ai(h, 'chat', fd, { body: chat(SAD) });
+  assert.equal(c.status, 200);
+  assert.equal((await c.json()).care, true);
+  assert.equal(h.net.log.claude.length, 1);
+  assert.equal(countOf(h.env, `care:fd:${dev}`), 1);
+  assert.equal(countOf(h.env, `free:fd:${dev}`), 2, 'no question used');
+  await h.ctx.flush();
+  assert.deepEqual(events(), [
+    { kind: 'parent_ok_needed', category: '', surface: 'chat', source: 'server', tier: '' },
+    { kind: 'distress', category: 'self_harm', surface: 'chat', source: 'regex', tier: 'static' },
+    { kind: 'distress', category: 'self_harm', surface: 'chat', source: 'regex', tier: 'static' },
+    { kind: 'distress', category: 'self_harm', surface: 'chat', source: 'regex', tier: 'care' },
   ]);
 });
 

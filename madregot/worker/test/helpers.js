@@ -74,6 +74,10 @@ export function makeEnv(over = {}) {
     SOLO_DAILY_LIMIT: '20',
     FREE_DAILY_LIMIT: '2',
     ALLOW_SOLO_AI: 'true',
+    // The parent's OK before a child alone uses the tutor (trust spec TRUST-9) is "required" in wrangler.toml and in
+    // the code when the var is unset. Tests about tiers, limits, moderation and care of a device alone run with its
+    // rollback value; parentok.test.js and care.test.js test "required" (and the unset default) themselves.
+    AI_PARENT_OK: 'off',
     ALLOWED_ORIGINS: 'http://localhost:5173',
     PUBLIC_URL: 'https://madregot.example.test',
     OWNER_EMAIL: 'owner@example.test',

@@ -54,6 +54,13 @@ export const PAID_TIERS = ['family', 'class', 'teacher', 'trial', 'legacy'];
  * asked of the tutor (a message that reads as distress still goes, and the server answers it with the fixed reply).
  */
 export const CLASS_OFF = Object.freeze({ classOff: true, tier: null, kinds: Object.freeze([]), groups: Object.freeze({}) });
+/**
+ * What the device knows when the server says parent_ok_needed (trust spec TRUST-9): a child alone, on a device no
+ * parent has approved. The status call says so itself ({ state: 'parent_ok_needed' }); a refused request leaves the
+ * same state. Like CLASS_OFF, a state and not an error: the screens send the child to the screen for their parents.
+ */
+export const PARENT_OK_NEEDED = Object.freeze({ state: 'parent_ok_needed', tier: null, kinds: Object.freeze([]), groups: Object.freeze({}) });
+const waitsForParent = (status) => status?.state === 'parent_ok_needed';
 
 // What the server said last: GET /api/ai/status, kept up to date by the headers of each answer.
 // `ended` is true for this visit when the device was on a paid tier and is now on the free taste (said once).
@@ -76,6 +83,7 @@ export async function refreshStatus() {
       return status;
     } catch (e) {
       if (e.code === 'class_ai_off') { useAIStatus.setState({ status: CLASS_OFF, loading: false, error: null }); return CLASS_OFF; }
+      if (e.code === 'parent_ok_needed') { useAIStatus.setState({ status: PARENT_OK_NEEDED, loading: false, error: null }); return PARENT_OK_NEEDED; }
       useAIStatus.setState({ loading: false, error: e.code || 'network' });
       return null;
     } finally { refreshing = null; }
@@ -105,6 +113,7 @@ function readLinked(res) {
  *   resting  a shared ceiling (this network or this class) is reached today
  *   economy  a paid plan's month is over its fair use: checks come back on the 1st
  *   class_off  the student's class has the tutor off, under the Ministry's rules (TRUST-11)
+ *   parent_ok_needed  a child alone: a parent approves the tutor on this device once, for free (TRUST-9)
  * An unknown status gives 'open', so a failed status call never blocks anything.
  */
 export function aiAccess(kind, status = useAIStatus.getState().status) {
@@ -112,6 +121,7 @@ export function aiAccess(kind, status = useAIStatus.getState().status) {
   if (mode === 'none') return { state: 'offline', left: null, tier: null };
   if (mode === 'personal') return { state: 'open', left: null, tier: 'personal' };
   if (status?.classOff) return { state: 'class_off', left: null, tier: null };
+  if (waitsForParent(status)) return { state: 'parent_ok_needed', left: null, tier: null };
   if (!status || !status.tier) return { state: 'open', left: null, tier: null };
   const tier = status.tier;
   const group = KIND_GROUP[kind] || 'tutor';
@@ -166,6 +176,7 @@ export function gate(kind, { onMadi, then } = {}) {
   const a = aiAccess(kind);
   if (a.state === 'locked' || a.state === 'economy') return a.state;
   if (a.state === 'class_off') { openLimitSheet({ reason: 'class_ai_off', onMadi }); return a.state; }
+  if (a.state === 'parent_ok_needed') { openLimitSheet({ reason: 'parent_ok_needed', onMadi }); return a.state; }
   if (a.state === 'used') { openLimitSheet({ reason: 'daily_limit', tier: a.tier, onMadi }); return a.state; }
   if (a.state === 'paused') { openLimitSheet({ reason: 'free_paused', tier: a.tier, onMadi }); return a.state; }
   if (a.state === 'resting') { openLimitSheet({ reason: 'shared_limit', tier: a.tier, scope: a.scope, onMadi }); return a.state; }
@@ -204,10 +215,10 @@ export function noteUsage(res) {
   readLinked(res);
   const tier = res.headers.get('X-AI-Tier'); const group = res.headers.get('X-AI-Group'); const left = Number(res.headers.get('X-AI-Left'));
   if (!tier) return;
-  // an answer while the class's tutor was off means the teacher has turned it on since: start again from this answer,
-  // and ask for the whole status
+  // an answer while the class's tutor was off means the teacher has turned it on since (or, on a device waiting for a
+  // parent, that a parent has approved it): start again from this answer, and ask for the whole status
   const cur = useAIStatus.getState().status || {};
-  const reopened = !!cur.classOff;
+  const reopened = !!cur.classOff || waitsForParent(cur);
   const prev = reopened ? {} : cur;
   const groups = { ...(prev.groups || {}) };
   const g = tier === 'open' ? 'all' : group;
@@ -219,6 +230,7 @@ export function noteUsage(res) {
 /** A limit the server reported (an AI call refused): remember it, so the screens show the calm state at once. */
 export function noteLimit(data = {}, kind) {
   if (data.error === 'class_ai_off') { useAIStatus.setState({ status: CLASS_OFF }); return; }
+  if (data.error === 'parent_ok_needed') { useAIStatus.setState({ status: PARENT_OK_NEEDED }); return; }
   const prev = useAIStatus.getState().status;
   if (!prev) return;
   const groups = { ...(prev.groups || {}) };
@@ -234,12 +246,12 @@ export function noteLimit(data = {}, kind) {
 }
 
 // ---------------------------------------------------------------- the calm sheet when the tutor says "not now"
-// Mounted once in the app. reason: daily_limit | shared_limit | free_paused | monthly_fair_use | paid_only | class_ai_off.
-// onMadi: the opener's way to ask Madi instead (the lesson opens its TutorSheet), or none.
+// Mounted once in the app. reason: daily_limit | shared_limit | free_paused | monthly_fair_use | paid_only | class_ai_off |
+// parent_ok_needed. onMadi: the opener's way to ask Madi instead (the lesson opens its TutorSheet), or none.
 export const useLimitSheet = create(() => ({ open: false, reason: null, tier: null, scope: null, onMadi: null }));
 export const openLimitSheet = ({ reason, tier = null, scope = null, onMadi = null }) => useLimitSheet.setState({ open: true, reason, tier, scope, onMadi });
 export const closeLimitSheet = () => useLimitSheet.setState({ open: false, onMadi: null });
-export const LIMIT_ERRORS = ['paid_only', 'daily_limit', 'shared_limit', 'monthly_fair_use', 'free_paused', 'class_ai_off'];
+export const LIMIT_ERRORS = ['paid_only', 'daily_limit', 'shared_limit', 'monthly_fair_use', 'free_paused', 'class_ai_off', 'parent_ok_needed'];
 
 // ---------------------------------------------------------------- linking this device to a family plan (spec §3.3)
 /** A link code for this device: the one already waiting, or a new one. The secret never leaves this device. */

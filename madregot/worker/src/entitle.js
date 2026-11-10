@@ -19,6 +19,11 @@
 // a class student whose class has the tutor off (a school class before the catalogue approval, a class without the
 // parents' consent, or a teacher's switch) gets 403 class_ai_off, unless the device is linked to a family (then the
 // request is the family's, not the class's). Teachers always pass.
+//
+// Then a parent's OK (trust spec TRUST-9): with AI_PARENT_OK = "required" (the default), a child alone (no class, no
+// teacher, no device a parent linked) gets 403 parent_ok_needed, before the free taste and before the switch-off path.
+// A parent approves a device once, for free, from the parents' page (family.js, purpose 'consent'): the approval is a
+// signed-in adult email, an audit row and an email with the AI and privacy summary. "off" is the one-variable rollback.
 import { AI_KINDS, AI_GROUPS, KIND_GROUP, AI_UNITS, FREE_KINDS, LITE_MODEL, buildRequest, buildCare } from '../../shared/ai.js';
 import {
   HttpError, key, take, peek, sha256, hmacHex, netKey, devKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual,
@@ -87,6 +92,14 @@ export function limits(env) {
 }
 export const paywallOn = (env) => String(env.AI_PAYWALL || 'off') === 'on';
 const soloOff = (env) => String(env.ALLOW_SOLO_AI) === 'false';
+/** Does a child alone need a parent's OK before the tutor (TRUST-9)? Anything but "off" means yes. */
+export const parentOkRequired = (env) => String(env.AI_PARENT_OK ?? 'required').trim() !== 'off';
+/**
+ * A caller who would reach the tutor on their own, with no adult behind them: no class student (their class's rule
+ * covers them), no teacher (an adult), and no device a parent linked (a plan or a free OK). With ALLOW_SOLO_AI "false"
+ * such a caller has no tutor at all (solo_ai_off), and a parent's OK would not change that, so it is not asked for.
+ */
+const needsParentOk = (env, id) => parentOkRequired(env) && !id.student && !id.teacher && !id.fam && !soloOff(env);
 
 // ---------------------------------------------------------------- who is asking
 export async function studentFrom(req, env) {
@@ -338,6 +351,12 @@ async function decide(req, env, kind, input, id) {
     await recordSafety(env, { kind: 'class_ai_off', surface: kind, source: 'server' });
     throw new HttpError(403, 'class_ai_off');
   }
+  if (needsParentOk(env, id)) {
+    // counted the same way (the owner's summary shows how many children wait for a parent); the child sees a calm
+    // sheet that sends them to the screen for their parents, never a price
+    await recordSafety(env, { kind: 'parent_ok_needed', surface: kind, source: 'server' });
+    throw new HttpError(403, 'parent_ok_needed');
+  }
   if (!paywallOn(env)) {
     const k = await openKey(req, env, id, { strict: true });
     const p = params(env, kind, input, 'full');
@@ -398,7 +417,8 @@ const careStatic = (id) => ({ static: true, tier: 'care', pool: 'care', group: '
  * d:<device key> or x:<network>), care:n:<network> (30) and care:all (1,000), and builds a care-only request with no
  * maths in it. When any key is full, the server has no AI key, or anything about the caller cannot be read, it returns
  * { static: true }: the fixed reply, with no AI call. It never throws.
- * A class whose tutor is off for this student (TRUST-11) leads to { static: true } too; the parent OK (TRUST-9) will.
+ * A class whose tutor is off for this student (TRUST-11), and a child alone whose parent has not approved the tutor
+ * (TRUST-9), lead to { static: true } too: what such a child writes is not sent to the AI company at all.
  */
 export async function resolveCare(req, env, kind, input) {
   let id = null;
@@ -407,6 +427,9 @@ export async function resolveCare(req, env, kind, input) {
     // a class whose tutor is off for this student: the fixed reply, with no AI call (TRUST-11 §4); on a device a parent
     // linked, the care path is the family's, as any other request there
     if (classGate(env, id) === 'off') return careStatic(id);
+    // no parent's OK (TRUST-9): distress text is health data, and it does not go to a US AI company for a child whose
+    // parent has not agreed to the tutor; the card and the fixed reply are there at once
+    if (needsParentOk(env, id)) return careStatic(id);
     if (!env.ANTHROPIC_API_KEY) return careStatic(id);
     const L = limits(env).care;
     const net = await netKey(req, env);
@@ -441,6 +464,11 @@ export async function aiStatus(req, env) {
   // the class's tutor is off for this student (TRUST-11 §4): the same answer an AI request gets, so the screens show the
   // calm state before anything is asked
   if (classGate(env, id) === 'off') throw new HttpError(403, 'class_ai_off', undefined, undefined, headers);
+  // a child alone with no parent's OK (TRUST-9): no tool and no count, only the state, so the screens show the calm
+  // card before anything is asked (nothing is logged here: a screen that loads is not a request)
+  if (needsParentOk(env, id)) {
+    return { headers, body: { paywall: paywallOn(env), tier: null, state: 'parent_ok_needed', kinds: [], groups: {}, resetsAt: resetsAt('day'), aiReady } };
+  }
   if (!paywallOn(env)) {
     const k = await openKey(req, env, id);
     const [c] = k ? await peek(env, [k]) : [0];

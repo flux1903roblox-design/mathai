@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useApp } from './store.js';
 import {
   aiAccess, autoAskAllowed, aiHeaders, useAIStatus, gate, useLimitSheet, closeLimitSheet, hasTool, noteLimit, refreshIfNewDay,
-  useAIIntro, needIntro, acceptAIIntro, closeAIIntro, introSeen, refreshStatus, CLASS_OFF, LIMIT_ERRORS,
+  useAIIntro, needIntro, acceptAIIntro, closeAIIntro, introSeen, refreshStatus, CLASS_OFF, PARENT_OK_NEEDED, LIMIT_ERRORS,
 } from './account.js';
 import { runAI } from './ai.js';
 
@@ -247,5 +247,58 @@ describe('a class whose tutor is off under the Ministry\'s rules (trust spec TRU
     // (a distress message still goes while the state is on; its answer carries no tier, so the state stays)
     await runAI('chat', { messages: [{ role: 'user', content: 'x' }] });
     expect(aiAccess('explain')).toMatchObject({ state: 'open', left: 19 });
+  });
+});
+
+describe('a child alone, on a device no parent has approved (trust spec TRUST-9 §4)', () => {
+  // what GET /api/ai/status says for such a device (worker/src/entitle.js aiStatus)
+  const WAITING = { paywall: true, tier: null, state: 'parent_ok_needed', kinds: [], groups: {}, resetsAt: '2026-11-11T00:00:00+02:00', aiReady: true };
+  const refused = () => new Response(JSON.stringify({ error: 'parent_ok_needed', message: 'parent_ok_needed' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  it('the status says so: every action reads parent_ok_needed, no tool is offered, nothing is asked by itself', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(WAITING), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+    expect(await refreshStatus()).toMatchObject({ state: 'parent_ok_needed' });
+    for (const k of ALL) {
+      expect(aiAccess(k)).toMatchObject({ state: 'parent_ok_needed', left: null, tier: null });
+      expect(hasTool(k, WAITING)).toBe(false);
+    }
+    expect(autoAskAllowed()).toBe(false);
+    // with the paywall off too: the parent's OK comes before the open limits
+    expect(aiAccess('explain', { ...WAITING, paywall: false }).state).toBe('parent_ok_needed');
+  });
+  it('a tool opens the calm sheet with that reason, before the introduction, and nothing is asked', () => {
+    useAIStatus.setState({ status: WAITING });
+    useApp.getState().setAI({ introSeen: false });
+    const then = vi.fn();
+    expect(gate('check', { then })).toBe('parent_ok_needed');
+    expect(useLimitSheet.getState()).toMatchObject({ open: true, reason: 'parent_ok_needed' });
+    expect(useAIIntro.getState().open).toBe(false);
+    expect(then).not.toHaveBeenCalled();
+  });
+  it('an AI call refused with parent_ok_needed opens the sheet and remembers the state; a quiet (distress) call opens nothing', async () => {
+    expect(LIMIT_ERRORS).toContain('parent_ok_needed');
+    useAIStatus.setState({ status: FREE(2) });
+    vi.stubGlobal('fetch', vi.fn(async () => refused()));
+    await expect(runAI('explain', { question: '1+1' })).rejects.toMatchObject({ code: 'parent_ok_needed', limit: true, message: 'כדי לשאול את העוזר החכם צריך אישור של הורה, פעם אחת.' });
+    expect(useLimitSheet.getState()).toMatchObject({ open: true, reason: 'parent_ok_needed' });
+    expect(useAIStatus.getState().status).toBe(PARENT_OK_NEEDED);
+    expect(aiAccess('chat').state).toBe('parent_ok_needed');
+    closeLimitSheet();
+    await expect(runAI('chat', { messages: [{ role: 'user', content: 'x' }] }, { quiet: true })).rejects.toMatchObject({ code: 'parent_ok_needed' });
+    expect(useLimitSheet.getState().open).toBe(false);
+  });
+  it('a status call answered 403 parent_ok_needed (an older server) is the same state, not an error', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => refused()));
+    expect(await refreshStatus()).toBe(PARENT_OK_NEEDED);
+    expect(useAIStatus.getState()).toMatchObject({ status: PARENT_OK_NEEDED, error: null, loading: false });
+  });
+  it('an answer after a parent approved the device clears the state and asks for the whole status', async () => {
+    useAIStatus.setState({ status: PARENT_OK_NEEDED });
+    const fetch = vi.fn(async (url) => (String(url).endsWith('/api/ai/status')
+      ? new Response(JSON.stringify(FREE(1)), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      : new Response(JSON.stringify({ text: 'הסבר' }), { status: 200, headers: { 'Content-Type': 'application/json', 'X-AI-Tier': 'free', 'X-AI-Group': 'tutor', 'X-AI-Left': '1' } })));
+    vi.stubGlobal('fetch', fetch);
+    await runAI('explain', { question: '1+1' });
+    await vi.waitFor(() => expect(aiAccess('chat')).toMatchObject({ state: 'free', left: 1 }));
+    expect(fetch.mock.calls.some(([u]) => String(u).endsWith('/api/ai/status'))).toBe(true);
   });
 });

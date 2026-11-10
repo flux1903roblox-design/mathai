@@ -29,6 +29,7 @@ const MESSAGES = {
   paid_only: 'את הפעולה הזו עושה העוזר החכם המלא.',
   daily_limit: 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.',
   class_ai_off: 'בכיתה הזו העוזר החכם כבוי.',
+  parent_ok_needed: 'כדי לשאול את העוזר החכם צריך אישור של הורה, פעם אחת.',
   // sign-in and the parent's account
   bad_email: 'כתובת המייל לא נראית תקינה. בדקו אותה ונסו שוב.',
   bad_code: 'הקוד צריך להיות 6 ספרות.',
@@ -69,6 +70,8 @@ const MESSAGES = {
   too_many_links: 'נוצרו היום הרבה קודים במכשיר הזה. נסו שוב מחר.',
   slow_down: 'רגע, נסו שוב בעוד כמה שניות.',
   bad_secret: 'צריך לרענן את האפליקציה כדי להמשיך.',
+  // the parent's free OK for the tutor on a child's device (trust spec TRUST-9, Appendix E §E.8)
+  consent_required: 'כדי לאשר צריך לסמן שאתם ההורים ומאשרים.',
   // teacher and class
   class_locked: 'הכיתה נעולה להצטרפות חדשה. בקשו מהמורה לפתוח אותה.',
   class_has_licence: 'לכיתה הזו כבר יש רישיון פעיל.',

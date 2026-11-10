@@ -55,16 +55,37 @@ describe('a class whose tutor is off (trust spec TRUST-11 §6)', () => {
   });
 });
 
+describe('a device waiting for a parent\'s OK (trust spec TRUST-9 §4)', () => {
+  it('the sheet: one OK from a parent, free, a minute; the screen for the parents first, then practice', () => {
+    for (const tier of [null, 'free']) {
+      const v = limitVariant({ reason: 'parent_ok_needed', tier });
+      expect(v.title).toBe('קודם, אישור של הורה');
+      expect(v.text).toEqual(['כדי לשאול את העוזר החכם, אחד ההורים צריך לאשר את זה פעם אחת. זה בחינם ולוקח דקה. בינתיים מדי, השיעורים והתרגול פתוחים כמו תמיד.']);
+      expect(v.actions).toEqual(['parents', 'practice']);
+      expect(v.parents).toBe(false); // the button is the way to the parents: no second link
+    }
+  });
+  it('the allowance line and the tools say it in one line; the tools link to the screen for the parents', () => {
+    expect(allowanceText({ state: 'parent_ok_needed', left: null, tier: null })).toBe('העוזר החכם מחכה לאישור של הורה.');
+    for (const kind of ['check', 'generate', 'exam']) {
+      const t = lockedText(kind, { state: 'parent_ok_needed', inClass: false });
+      expect(t.lines[0]).toBe('העוזר החכם מחכה לאישור של הורה.');
+      expect(t.parents).toBe(true); expect(t.teacher).toBe(false);
+    }
+  });
+});
+
 describe('no copy a child sees has a price or a push to buy', () => {
   const variants = [];
-  for (const reason of ['daily_limit', 'shared_limit', 'free_paused', 'monthly_fair_use', 'paid_only', 'class_ai_off']) {
+  for (const reason of ['daily_limit', 'shared_limit', 'free_paused', 'monthly_fair_use', 'paid_only', 'class_ai_off', 'parent_ok_needed']) {
     for (const tier of ['free', 'family', 'class', 'open']) for (const scope of ['network', 'class']) variants.push(limitVariant({ reason, tier, scope }));
   }
-  for (const kind of ['check', 'generate', 'exam']) for (const state of ['locked', 'economy', 'class_off']) for (const inClass of [true, false]) variants.push(lockedText(kind, { state, inClass }));
+  for (const kind of ['check', 'generate', 'exam']) for (const state of ['locked', 'economy', 'class_off', 'parent_ok_needed']) for (const inClass of [true, false]) variants.push(lockedText(kind, { state, inClass }));
   const lines = [];
   for (const tier of ['free', 'family', 'open']) for (const state of ['free', 'used', 'open']) for (const left of [0, 1, 2, 5]) lines.push(allowanceText({ state, left, tier }));
   lines.push(allowanceText({ state: 'free', left: 2, tier: 'free', ended: true }));
   lines.push(allowanceText({ state: 'class_off', left: null, tier: null }));
+  lines.push(allowanceText({ state: 'parent_ok_needed', left: null, tier: null }));
   it('limit sheets and tool states', () => {
     for (const v of variants) for (const w of FORBIDDEN) expect(words(v)).not.toContain(w);
   });

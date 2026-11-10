@@ -61,7 +61,7 @@ test.describe('distress', () => {
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
 
   test('(a) used up: the input still works, a maths question waits calmly, and the quiet link opens the people to talk to', async ({ page }) => {
-    const { log } = await fakeServer(page, { freeLimit: 0 }, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true, freeLimit: 0 }, baseOf());
     await open(page, '#/assistant', withServer());
     await expect(page.getByText('להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.')).toBeVisible();
     const draft = page.getByLabel('ההודעה שלכם');
@@ -91,7 +91,7 @@ test.describe('distress', () => {
   });
 
   test('(b) used up: a message that reads as distress shows the card at once, still asks the server, and no limit sheet opens', async ({ page }) => {
-    const { log } = await fakeServer(page, { freeLimit: 0 }, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true, freeLimit: 0 }, baseOf());
     let answered = false;
     // the server's care path: never counted, never refused; it answers after 2 seconds
     await page.route(`${API}/api/ai/chat`, async (route) => {
@@ -134,7 +134,7 @@ test.describe('distress', () => {
   });
 
   test('(c) a care reply arriving in pieces never shows "[[", and the card follows it', async ({ page }) => {
-    await fakeServer(page, {}, baseOf());
+    await fakeServer(page, { parentOk: true }, baseOf());
     // a fetch that streams the reply in pieces, the way the Worker sends it; a MutationObserver watches every change
     await page.addInitScript(() => {
       window.__sawMarker = false; window.__seen = [];
@@ -208,7 +208,7 @@ test.describe('distress', () => {
   });
 
   test('the limit sheet carries the quiet link too: it closes itself and opens the people to talk to, never two sheets', async ({ page }) => {
-    const { st } = await fakeServer(page, {}, baseOf());
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/lesson/signed/1', withServer());
     await answer(page, false); await proceed(page); await answer(page, false);
     await expect(page.locator('section.fb-reveal')).toBeVisible();
@@ -227,7 +227,7 @@ test.describe('distress', () => {
   });
 
   test('a help note that reads as distress: the sheet stays open, says it was sent, and shows the card; a talk request sends no text', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await page.route(`${API}/api/help`, async (route) => {
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
       log.push({ path: '/api/help', body: route.request().postDataJSON() });
@@ -268,7 +268,7 @@ test.describe('moderation', () => {
   });
 
   test('a reply the server stopped shows the calm sentence, never a red error', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await chatSays(page, log, 'נסו לחסר \n[[blocked]]');
     await open(page, '#/assistant', withServer());
     const draft = page.getByLabel('ההודעה שלכם');
@@ -280,7 +280,7 @@ test.describe('moderation', () => {
   });
 
   test('personal details: a quiet line says what the tutor did not receive; links in a reply open only to checked places', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await chatSays(page, log, 'אפשר לקרוא [פתרונות](https://evil.example/answers) או לדבר עם [ער״ן](https://www.eran.org.il/online-emotional-help/). ![x](https://evil.example/x.png)');
     await open(page, '#/assistant', withServer());
     const draft = page.getByLabel('ההודעה שלכם');
@@ -300,7 +300,7 @@ test.describe('moderation', () => {
     expect(log.filter((r) => r.path === '/api/ai/chat')[0].body.messages.at(-1).content).toContain('0521234567');
   });
   test('the first message on a device opens the introduction; "הבנתי" sends that same message, and it never shows again', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await chatSays(page, log, 'כדי לחבר מספרים עם סימנים שונים, מחסרים.');
     await open(page, '#/assistant', firstTime());
     const draft = page.getByLabel('ההודעה שלכם');
@@ -332,7 +332,7 @@ test.describe('moderation', () => {
   });
 
   test('the introduction: closing it sends nothing and keeps the draft; a message that reads as distress never meets it', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await chatSays(page, log, `${CARE_TEXT}\n[[care]]`);
     await open(page, '#/assistant', firstTime());
     const draft = page.getByLabel('ההודעה שלכם');
@@ -351,7 +351,7 @@ test.describe('moderation', () => {
   });
 
   test('the introduction comes before a tool too, and the tool opens after it', async ({ page }) => {
-    await fakeServer(page, { paywall: false }, baseOf());
+    await fakeServer(page, { parentOk: true, paywall: false }, baseOf());
     await open(page, '#/assistant', firstTime());
     await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
     const intro = page.getByRole('dialog', { name: 'לפני שמתחילים עם העוזר החכם' });
@@ -363,7 +363,7 @@ test.describe('moderation', () => {
   });
 
   test('in a lesson the introduction opens over the chat, and the question goes after it', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await chatSays(page, log, 'נסו לחשוב על ציר המספרים.');
     await open(page, '#/lesson/signed/1', firstTime());
     await page.getByRole('button', { name: 'שאלו את העוזר' }).click();
@@ -379,7 +379,7 @@ test.describe('moderation', () => {
   });
 
   test('reporting an answer sends the tutor\'s reply and never the child\'s words; the flag says it was sent', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await chatSays(page, log, 'כדי לחבר מספרים עם סימנים שונים, מחסרים ושמים את הסימן של הגדול.');
     await open(page, '#/assistant', withServer());
     const draft = page.getByLabel('ההודעה שלכם');
@@ -428,7 +428,7 @@ test.describe('adult step', () => {
   const signIn = (page) => page.getByRole('heading', { name: 'כניסה עם המייל' });
 
   test('on a child\'s device the parents\' area asks for a birth year first; a child\'s year closes it, and nothing about it is sent or kept', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/parents?here=1', withServer());
     const gate = page.locator('.adult-gate');
     await expect(gate.getByRole('heading', { name: GATE })).toBeVisible();
@@ -464,7 +464,7 @@ test.describe('adult step', () => {
     const use = test.info().project.use;
     const ctx = await browser.newContext({ baseURL: use.baseURL || baseOf(), viewport: use.viewport, isMobile: use.isMobile, hasTouch: use.hasTouch, deviceScaleFactor: use.deviceScaleFactor, locale: use.locale, reducedMotion: use.reducedMotion });
     const page = await ctx.newPage();
-    const { log } = await fakeServer(ctx, {}, baseOf());
+    const { log } = await fakeServer(ctx, { parentOk: true }, baseOf());
     await open(page, '#/parents/link?c=K7M4QX', withServer());
     const gate = page.locator('.adult-gate');
     await expect(gate.getByRole('heading', { name: GATE })).toBeVisible();
@@ -483,7 +483,7 @@ test.describe('adult step', () => {
   });
 
   test('/cancel never shows the step: cancelling stays two taps from the email form', async ({ page }) => {
-    await fakeServer(page, {}, baseOf());
+    await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/cancel', withServer());
     await expect(page.getByRole('heading', { name: 'ביטול מנוי' })).toBeVisible();
     await expect(signIn(page)).toBeVisible();
@@ -491,7 +491,7 @@ test.describe('adult step', () => {
   });
 
   test('a device with no student profile (a parent\'s own phone) shows no step', async ({ page }) => {
-    await fakeServer(page, {}, baseOf());
+    await fakeServer(page, { parentOk: true }, baseOf());
     const phone = withServer(); phone.state.profile = null;
     await open(page, '#/parents', phone);
     await expect(signIn(page)).toBeVisible();
@@ -503,7 +503,7 @@ test.describe('class join', () => {
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
 
   test('once a class code is typed, the step says which name the teacher will see and how to tell two names apart', async ({ page }) => {
-    await fakeServer(page, {}, baseOf());
+    await fakeServer(page, { parentOk: true }, baseOf());
     const fresh = withServer(); fresh.state.profile = null;
     await open(page, '#/', fresh);
     await page.getByRole('button', { name: 'מתחילים' }).click();
@@ -536,7 +536,7 @@ test.describe('class AI off', () => {
   }
 
   test('the assistant says so calmly, with no tools and no price; a question waits, a message that reads as distress still goes', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
     await page.route(`${API}/api/ai/status`, refuse);
     await page.route(`${API}/api/ai/chat`, async (route) => {
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
@@ -574,7 +574,7 @@ test.describe('class AI off', () => {
   });
 
   test('an answer the server refuses with class_ai_off opens the calm sheet: the class\'s choice, practice on, no price', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf()); // the status still says free: the refusal comes with the answer
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf()); // the status still says free: the refusal comes with the answer
     await page.route(`${API}/api/ai/chat`, async (route) => { log.push({ path: '/api/ai/chat' }); return refuse(route); });
     await open(page, '#/assistant', classStudent());
     const draft = page.getByLabel('ההודעה שלכם');
@@ -591,5 +591,121 @@ test.describe('class AI off', () => {
     await sheet.getByRole('button', { name: 'להמשיך לתרגל' }).click();
     await expect(sheet).toHaveCount(0);
     expect(chatCalls(log)).toHaveLength(1);
+  });
+});
+
+test.describe('parent OK', () => {
+  // a one-time parent's OK before a child alone uses the tutor (trust spec TRUST-9): the child is sent, calmly and with
+  // no price, to the screen for the parents; a signed-in parent with no plan approves the device for free, with a box
+  // they tick. A message that reads as distress still shows the card at once.
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const TITLE = 'קודם, אישור של הורה';
+  const OK_TEXT = 'כדי לשאול את העוזר החכם, אחד ההורים צריך לאשר את זה פעם אחת. זה בחינם ולוקח דקה. בינתיים מדי, השיעורים והתרגול פתוחים כמו תמיד.';
+  async function noPrice(page) {
+    for (const w of ['₪', 'מנוי']) await expect(page.locator('body')).not.toContainText(w);
+  }
+
+  test('the assistant says so; the first send opens the sheet, and "להראות להורים" goes to the screen for the parents', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf()); // parentOk false, as on the real server
+    await open(page, '#/assistant', withServer());
+    await expect(page.getByRole('heading', { name: TITLE })).toBeVisible();
+    await expect(page.getByText(OK_TEXT)).toBeVisible();
+    await expect(page.locator('.assistant-note')).toHaveCount(0);
+    await expect(page.getByRole('group', { name: 'עוד דרכים לעזרה' })).toHaveCount(0);
+    await expect(page.locator('.starter')).toHaveCount(0);
+    const rest = page.locator('.chat-rest');
+    await expect(rest.getByRole('button', { name: 'להראות להורים' })).toBeVisible();
+    await expect(rest.getByRole('button', { name: 'להמשיך לתרגל' })).toBeVisible();
+    await expect(rest.getByRole('button', { name: 'צריכים לדבר עם מישהו?' })).toBeVisible();
+    await noPrice(page);
+    const draft = page.getByLabel('ההודעה שלכם');
+    await expect(draft).toBeEnabled();
+    await expect(draft).toHaveAttribute('placeholder', 'מחכים לאישור של הורה');
+    for (const b of await page.locator('.chat-rest button, .chat-input button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await shot(page, 'parent-ok-assistant');
+    await draft.fill('מה זה שבר?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: TITLE });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText(OK_TEXT)).toBeVisible();
+    await expect(draft).toHaveValue('מה זה שבר?'); // the question waits
+    expect(chatCalls(log)).toHaveLength(0);
+    await expect(page.locator('.form-error')).toHaveCount(0);
+    for (const b of await sheet.getByRole('button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await noPrice(page);
+    await shot(page, 'parent-ok-sheet');
+    await sheet.getByRole('button', { name: 'להראות להורים' }).click();
+    await page.waitForURL(/#\/parents\/info$/);
+    await expect(page.getByRole('heading', { name: 'המסך הזה בשביל ההורים' })).toBeVisible();
+    await expect(page.getByText('הורים, סרקו את הקוד בטלפון שלכם. שם תקראו על העוזר החכם ותוכלו לאשר אותו במכשיר הזה, בחינם או עם מנוי.')).toBeVisible();
+    await expect(page.locator('.handoff-code')).toHaveText('K7M4QX');
+    await shot(page, 'parent-ok-handoff');
+  });
+
+  test('a refusal that comes with the answer opens the same sheet; a message that reads as distress shows the card and no sheet', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    await expect(page.getByText('שאלו כל שאלה במתמטיקה')).toBeVisible();
+    st.parentOk = false; // the status said free; the server now answers parent_ok_needed
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך פותרים 3x = 12?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: TITLE });
+    await expect(sheet).toBeVisible();
+    await expect(page.locator('.form-error')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+    await expect(draft).toHaveAttribute('placeholder', 'מחכים לאישור של הורה');
+    await expect(page.getByRole('heading', { name: TITLE })).toBeVisible(); // the screen follows the state at once
+    const before = chatCalls(log).length;
+    await draft.fill('אני רוצה להיעלם'); await draft.press('Enter');
+    await expect(page.locator('.chat .support-card')).toBeVisible();
+    await expect.poll(() => chatCalls(log).length).toBe(before + 1); // it still goes (the server answers it with the fixed reply)
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+
+  test('a lesson after a mistake offers Madi, whose sheet says the tutor waits for a parent', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await open(page, '#/lesson/signed/1', withServer());
+    await answer(page, false); await proceed(page); await answer(page, false);
+    await expect(page.locator('section.fb-reveal')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'למה טעיתי?' })).toHaveCount(0);
+    await page.locator('section.fb-reveal').getByRole('button', { name: 'שאלה למדי' }).click();
+    const madi = page.getByRole('dialog', { name: 'שאלה למדי' });
+    await expect(madi.getByText('העוזר החכם מחכה לאישור של הורה.')).toBeVisible();
+    expect(log.filter((r) => r.path.startsWith('/api/ai/') && r.path !== '/api/ai/status')).toHaveLength(0);
+  });
+
+  test('a signed-in parent with no plan approves the device for free: the tick is required, then the claim says consent', async ({ page }) => {
+    // the child's device showed the code K7M4QX (its own start call is in the subscription flow)
+    const { st, log } = await fakeServer(page, { links: { K7M4QX: { secret: 'f'.repeat(32), claimed: false, collected: false } } }, baseOf());
+    const phone = withServer(); phone.state.profile = null; // the parent's own phone
+    await open(page, '#/parents/link?c=K7M4QX', phone);
+    await page.getByLabel('כתובת המייל שלכם').fill('parent@example.test');
+    await page.getByRole('button', { name: 'שליחת קוד' }).click();
+    await expect(page.getByText('שלחנו קוד בן 6 ספרות אל')).toBeVisible();
+    await page.getByLabel('הקוד מהמייל').fill('123456'); // six digits sign in by themselves
+    const card = page.locator('section', { has: page.getByRole('heading', { name: 'אישור העוזר החכם במכשיר של הילד' }) });
+    await expect(card).toBeVisible();
+    await expect(card.getByText('בחינם, העוזר עונה על 2 שאלות קצרות ביום. מה שהילד כותב לעוזר נשלח ל־Anthropic בארה״ב כדי לקבל תשובה, ולא נשמר אצלנו. אפשר לבטל את האישור בכל רגע כאן.')).toBeVisible();
+    await expect(card.getByLabel('הקוד מהמכשיר של הילד')).toHaveValue('K7M4QX');
+    const tick = card.getByLabel('אני ההורה או האפוטרופוס, ואני מאשר/ת לילד/ה להשתמש בעוזר החכם');
+    await expect(tick).not.toBeChecked();
+    await expect(page.getByRole('heading', { name: 'אין מנוי פעיל' })).toBeVisible(); // the plan offer stays below
+    await card.scrollIntoViewIfNeeded();
+    await shot(page, 'parent-ok-consent');
+    const go = card.getByRole('button', { name: 'אישור וחיבור המכשיר' });
+    expect((await go.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await go.click();
+    await expect(card.getByRole('alert')).toHaveText('כדי לאשר צריך לסמן שאתם ההורים ומאשרים.');
+    expect(log.find((r) => r.path === '/api/family/link/claim')).toBeUndefined();
+    await tick.check();
+    await go.click();
+    await expect(page.getByText('אישרתם את העוזר החכם, ושלחנו לכם מייל עם הפרטים. המכשיר של הילד יתחבר ברגע שהמסך עם הקוד פתוח בו.')).toBeVisible();
+    expect(log.find((r) => r.path === '/api/family/link/claim').body).toEqual({ code: 'K7M4QX', purpose: 'consent', consent: true });
+    expect(st.purposes).toEqual(['consent']);
+    // the approved device is listed, and the approval can be taken back here
+    const approved = page.locator('section', { has: page.getByRole('heading', { name: /העוזר החכם מאושר ב/ }) });
+    await expect(approved).toBeVisible();
+    await expect(approved.getByRole('button', { name: 'ביטול האישור' })).toBeVisible();
+    await shot(page, 'parent-ok-approved');
   });
 });

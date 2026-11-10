@@ -613,7 +613,7 @@ export default function Lesson() {
                       <AIAllowance />
                     </>
                   )}
-                  {explain.state === 'idle' && !isTest(s.kind) && ['used', 'paused', 'resting', 'class_off'].includes(explainState) && (
+                  {explain.state === 'idle' && !isTest(s.kind) && ['used', 'paused', 'resting', 'class_off', 'parent_ok_needed'].includes(explainState) && (
                     <Button variant="secondary" className="btn-sm" onClick={askMadi}><HelpCircle size={16} aria-hidden="true" />שאלה למדי</Button>
                   )}
                   {!isTest(s.kind) && <p className="fb-note">תרגיל דומה יחזור בסוף השיעור.</p>}

@@ -7,6 +7,7 @@
 // localhost) and no Resend key, notices are printed to the log instead (subjects only, never a code).
 import { HttpError, nowIso, sha256, TZ } from './util.js';
 import { rulesEnv } from '../../shared/schoolRules.js';
+import { limits, paywallOn } from './entitle.js';
 
 export function emailReady(env) {
   return !!(env.RESEND_API_KEY && env.EMAIL_FROM);
@@ -130,6 +131,7 @@ export function renderNotice(env, row) {
         lines: billing(['שלום,', `המנוי השנתי מתחדש ב־${hebDate(p.periodEnd)} במחיר ${shekels(p.priceAgorot)}, ${vatWords(env)}.`]),
       };
     case 'device_linked':
+      if (p.purpose === 'consent') return consentNotice(env, p);
       return {
         subject: 'מכשיר חדש חובר למנוי',
         lines: billing(['שלום,', `חובר מכשיר חדש${p.label ? ` (${p.label})` : ''} ב־${hebDate(p.at)}. לא אתם? אפשר לנתק אותו בעמוד ההורים: ${env.PUBLIC_URL || ''}/parents`]),
@@ -154,6 +156,34 @@ export function renderNotice(env, row) {
     default:
       return null;
   }
+}
+
+/**
+ * A parent approved the tutor on a child's device, for free (trust spec TRUST-9, Appendix E §E.4). This email is the
+ * notice at the moment the child's data starts to be collected (Privacy Protection Law s.11): what the tutor is, what
+ * goes to it and where, what happens when a child writes something worrying, and how to take the OK back. No price and
+ * no plan: it is not a billing email. The number of free questions is read from the limits in force when it is sent.
+ */
+function consentNotice(env, p) {
+  const base = env.PUBLIC_URL || '';
+  const free = limits(env).free.student;
+  const questions = free === 1 ? 'שאלה קצרה אחת' : `${free} שאלות קצרות`;
+  // with the paywall off there is no free taste to count: the tutor is open, within the day's limits
+  const what = paywallOn(env) ? `בחינם, העוזר עונה במכשיר הזה על ${questions} ביום במתמטיקה.` : 'כרגע העוזר פתוח בחינם, ועונה במכשיר הזה על שאלות במתמטיקה.';
+  return {
+    subject: 'אישרתם את העוזר החכם במכשיר של הילד',
+    lines: [
+      'שלום,',
+      `ב־${hebDate(p.at)} אישרתם את העוזר החכם של מדרגות במכשיר ${p.label ? `"${p.label}"` : 'של הילד'}.`,
+      `מה זה אומר: ${what} הוא תוכנת בינה מלאכותית (Claude של Anthropic), לא אדם, והוא יכול לטעות.`,
+      'מה עובר אליו: התרגיל, התשובה של הילד ומה שהוא כותב או מצלם. לא שם, מייל או טלפון. המידע נשלח ל־Anthropic בארה״ב כדי לקבל תשובה, ומדרגות לא שומרת את השיחות.',
+      'בטיחות: אם הילד כותב משהו מדאיג, העוזר מפסיק את המתמטיקה ומפנה למבוגר שסומכים עליו ולקווי סיוע (ער״ן 1201). אנחנו לא שולחים לכם את מה שהילד כתב.',
+      `לביטול האישור: ${base}/parents, או השיבו למייל הזה.`,
+      `מדיניות הפרטיות: ${base}/privacy`,
+      'לא אתם אישרתם? השיבו למייל הזה ונבטל.',
+      [env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean).join(' · '),
+    ],
+  };
 }
 
 /**
@@ -199,6 +229,7 @@ function summaryNotice(p, day) {
       `הודעות תשלום חריגות (mismatch, unknown, test_mode): ${p.badEvents ?? 0}`,
       `בקשות רישיון פתוחות: ${p.openRequests ?? 0}`,
       p.safety ? safetyLine(p.safety) : '',
+      p.parentOkNeeded != null ? `בקשות לעוזר ממכשירים שמחכים לאישור של הורה: ${p.parentOkNeeded}` : '',
       v.length ? 'בדיקות שנכשלו:' : 'כל הבדיקות עברו.',
       ...v.map((x) => `- ${x}`),
     ],

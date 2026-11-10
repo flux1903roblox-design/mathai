@@ -228,11 +228,15 @@ export default function Assistant() {
   const profile = useApp((s) => s.profile);
   const ready = aiReady();
   const status = useAIStatus((x) => x.status); // the tools follow what the server says
-  const lockOf = (kind) => { const st = aiAccess(kind, status).state; return ['locked', 'economy', 'class_off'].includes(st) ? st : null; };
-  // the class has the tutor off under the Ministry's rules (TRUST-11 §6): Madi's bubble says so calmly, with no tools;
-  // the input stays usable, so a message that reads as distress still shows the card and still gets an answer
-  const classOff = ready && aiAccess('chat', status).state === 'class_off';
-  const off = classOff ? limitVariant({ reason: 'class_ai_off' }) : null;
+  const lockOf = (kind) => { const st = aiAccess(kind, status).state; return ['locked', 'economy', 'class_off', 'parent_ok_needed'].includes(st) ? st : null; };
+  // the class has the tutor off under the Ministry's rules (TRUST-11 §6), or no parent has approved the tutor on this
+  // device yet (TRUST-9 §4): Madi's bubble says so calmly, with no tools, and the card under it leads on (for a parent's
+  // OK, to the screen for the parents); the input stays usable, so a message that reads as distress still shows the
+  // card and still gets an answer
+  const chatState = ready ? aiAccess('chat', status).state : null;
+  const classOff = chatState === 'class_off';
+  const waiting = chatState === 'parent_ok_needed';
+  const off = classOff ? limitVariant({ reason: 'class_ai_off' }) : waiting ? limitVariant({ reason: 'parent_ok_needed' }) : null;
   useEffect(() => { if (wants) { setLocked(lockOf('generate')); setTool('generate'); } }, [wants]); // eslint-disable-line react-hooks/exhaustive-deps
   const close = () => { setTool(null); setLocked(null); if (wants) setParams({}, { replace: true }); };
   const open = (kind, name) => {
@@ -252,8 +256,8 @@ export default function Assistant() {
       </header>
       {!ready ? <AiOffline /> : (
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
-          {!classOff && <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>}
-          {classOff ? (
+          {!off && <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>}
+          {off ? (
             <AIChat context={{ grade }} introTitle={off.title} intro={off.text[0]} restLine={null} />
           ) : (
             <AIChat context={{ grade }} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."

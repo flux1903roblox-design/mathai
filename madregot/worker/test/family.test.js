@@ -52,18 +52,23 @@ test('link start returns a 6-character code and a /parents/link url; limited per
   assert.equal((await start('d'.repeat(32), SECRET, '198.51.100.9')).status, 201, 'another network');
 });
 
-test('claim needs a signed-in account with a live family plan (402 otherwise)', async () => {
+test('claim needs a signed-in account; for the plan a live family plan (402), else the parent\'s OK (400)', async () => {
   h = await setup();
   const { body: { code } } = await start();
   assert.equal((await h.call('POST', '/api/family/link/claim', { body: { code } })).status, 401);
   const { token, a } = await parent('noplan@example.test', { plan: false });
-  const r = await claim(token, code);
+  const forPlan = (c) => h.call('POST', '/api/family/link/claim', { headers: { 'X-Account-Token': token }, body: { code: c, purpose: 'plan' } });
+  const r = await forPlan(code);
   assert.equal(r.status, 402); assert.equal((await r.json()).error, 'needs_subscription');
+  // with no plan and no purpose the claim is the free OK (trust spec TRUST-9), which needs the parent's tick
+  const n = await claim(token, code);
+  assert.equal(n.status, 400); assert.equal((await n.json()).error, 'consent_required');
   // an ended plan is not live; a canceled plan still running is
   insertSub(h.env, { kind: 'family', account_id: a, status: 'ended', end: new Date(Date.now() - 1000).toISOString() });
-  assert.equal((await claim(token, code)).status, 402);
+  assert.equal((await forPlan(code)).status, 402);
   insertSub(h.env, { kind: 'family', account_id: a, status: 'canceled', cancel_at_period_end: 1 });
-  assert.equal((await claim(token, code)).status, 200);
+  assert.equal((await claim(token, code)).status, 200, 'with a live plan, no purpose means the plan');
+  assert.equal(JSON.parse(one(h.env, "SELECT detail FROM audit_log WHERE action = 'device.link'").detail).purpose, 'plan');
 });
 
 test('claim links the device and queues one device_linked email; finish returns the token exactly once', async () => {
@@ -217,9 +222,11 @@ test('devices/this links the device in the parent\'s hand and deletes the sessio
   assert.equal(rows(h.env, "SELECT * FROM notices WHERE kind LIKE 'device_linked:%'").length, 1);
   const ai1 = await ai(h, 'explain', { 'X-Family-Device': b.deviceToken, 'X-Device': DEVICE });
   assert.equal(ai1.headers.get('X-AI-Tier'), 'family');
-  // without a live plan: 402
+  // without a live plan: 402 for the plan, and the free OK needs the parent's tick (trust spec TRUST-9)
   const { token: t2 } = await parent('late@example.test', { plan: false });
-  assert.equal((await h.call('POST', '/api/family/devices/this', { headers: { 'X-Account-Token': t2, 'X-Device': DEVICE }, body: {} })).status, 402);
+  assert.equal((await h.call('POST', '/api/family/devices/this', { headers: { 'X-Account-Token': t2, 'X-Device': DEVICE }, body: { purpose: 'plan' } })).status, 402);
+  const n = await h.call('POST', '/api/family/devices/this', { headers: { 'X-Account-Token': t2, 'X-Device': DEVICE }, body: {} });
+  assert.equal(n.status, 400); assert.equal((await n.json()).error, 'consent_required');
 });
 
 test('a family-device token is refused by account, billing, claim and unlink routes; the status shows no email or plan', async () => {

@@ -1,7 +1,7 @@
 // The words of the tutor's limits, in one place so a test can read every one of them. They speak to a child calmly:
 // no price, no plan, no buy button, no countdown, no lock. Madi and practice are always the way on.
 
-/** What the sheet says when the tutor says "not now". actions: 'madi' | 'practice' | 'licence'; parents: a small link. */
+/** What the sheet says when the tutor says "not now". actions: 'madi' | 'practice' | 'licence' | 'parents'; parents: a small link. */
 export function limitVariant({ reason, tier = null, scope = null, role = 'student' } = {}) {
   const free = tier === 'free';
   const teacher = role === 'teacher';
@@ -12,6 +12,15 @@ export function limitVariant({ reason, tier = null, scope = null, role = 'studen
       title: 'בכיתה הזו העוזר החכם כבוי',
       text: ['כך החליטו בכיתה, לפי ההנחיות של משרד החינוך. מדי, השיעורים והתרגול פתוחים כמו תמיד.'],
       actions: ['practice'], parents: false,
+    };
+  }
+  // a child alone, on a device no parent has approved (trust spec TRUST-9 §4): the way on is the screen for the parents
+  // (no price there either); practice stays open
+  if (reason === 'parent_ok_needed') {
+    return {
+      title: 'קודם, אישור של הורה',
+      text: ['כדי לשאול את העוזר החכם, אחד ההורים צריך לאשר את זה פעם אחת. זה בחינם ולוקח דקה. בינתיים מדי, השיעורים והתרגול פתוחים כמו תמיד.'],
+      actions: ['parents', 'practice'], parents: false,
     };
   }
   if (reason === 'daily_limit' && free && teacher) {
@@ -61,6 +70,7 @@ export function limitVariant({ reason, tier = null, scope = null, role = 'studen
 /** The quiet line about today's questions (AIAllowance), or null for nothing to say. */
 export function allowanceText({ state, left, tier, ended = false }) {
   if (state === 'class_off') return CLASS_OFF_LINE;
+  if (state === 'parent_ok_needed') return PARENT_OK_LINE;
   if (ended && tier === 'free') return 'העוזר החכם עובד עכשיו עם 2 שאלות ביום.';
   if (tier === 'free') {
     if (state === 'used' || left === 0) return 'העוזר החכם חוזר מחר. מדי כאן בינתיים.';
@@ -76,10 +86,13 @@ export function allowanceText({ state, left, tier, ended = false }) {
 
 /** The one line wherever the tutor would be, in a class whose tutor is off (TRUST-11 §6). */
 export const CLASS_OFF_LINE = 'בכיתה הזו העוזר החכם כבוי.';
+/** The one line wherever the tutor would be, on a device that waits for a parent's OK (TRUST-9 §4). */
+export const PARENT_OK_LINE = 'העוזר החכם מחכה לאישור של הורה.';
 
 /** What a tool says instead of opening the camera (ToolLocked). */
 export function lockedText(kind, { state = 'locked', inClass = false } = {}) {
   if (state === 'class_off') return { lines: [CLASS_OFF_LINE, 'מדי, השיעורים והתרגול פתוחים כמו תמיד.'], teacher: false, parents: false };
+  if (state === 'parent_ok_needed') return { lines: [PARENT_OK_LINE, 'מדי, השיעורים והתרגול פתוחים כמו תמיד.'], teacher: false, parents: true };
   if (state === 'economy') return { lines: ['הבדיקה הזו חוזרת ב־1 בחודש.'], teacher: false, parents: false };
   if (kind === 'check') {
     return inClass

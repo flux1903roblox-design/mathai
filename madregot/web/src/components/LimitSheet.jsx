@@ -39,6 +39,8 @@ export default function LimitSheet() {
           const cls = i === 0 ? 'btn-block btn-lg' : 'btn-block';
           if (a === 'madi') return <Button key={a} variant={variant} className={cls} onClick={() => { const fn = onMadi; closeLimitSheet(); fn?.(); }}>לשאול את מדי</Button>;
           if (a === 'licence') return <Button key={a} variant={variant} className={cls} onClick={() => go('/teacher', { focus: 'licence' })}>על רישיון כיתה</Button>;
+          // the screen to hand to a parent (a QR code, no price): the one way to the parent's OK (TRUST-9)
+          if (a === 'parents') return <Button key={a} variant={variant} className={cls} onClick={() => go('/parents/info')}>להראות להורים</Button>;
           return <Button key={a} variant={variant} className={cls} onClick={practice}>להמשיך לתרגל</Button>;
         })}
         {parentsLink && <button type="button" className="link-btn limit-parents" onClick={() => go('/parents/info')}>מידע להורים</button>}
