@@ -618,3 +618,9 @@ button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .report-reason input { width: 22px; height: 22px; margin: 0; accent-color: var(--brand); flex: none; }
 .report-reason:focus-within { outline: 3px solid var(--brand-line); outline-offset: 2px; }
 .report-note { margin: var(--s3) 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+
+/* ------------------------------------------------------------------ the adult step before the parents' area (TRUST-8) */
+.adult-form { display: flex; flex-direction: column; gap: var(--s3); }
+.adult-form .input { align-self: flex-start; width: 12ch; max-width: 100%; font-size: 22px; letter-spacing: 0.08em; text-align: center; }
+.adult-closed { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); font-weight: 600; }
+.adult-back { align-self: center; min-height: 44px; display: inline-flex; align-items: center; }

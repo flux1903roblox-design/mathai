@@ -19,7 +19,7 @@ import {
 } from './billing.js';
 import { currentProvider } from './providers/index.js';
 import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily } from './family.js';
-import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked } from './licence.js';
+import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked, pinKeysWhere } from './licence.js';
 import { run as runCron } from './cron.js';
 
 // ---------- http helpers ----------
@@ -55,8 +55,14 @@ async function verifyPin(pin, stored) {
 const classCode = () => randomFrom(CODE_ALPHABET, 6);
 const cleanName = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 30);
 
-// Wrong personal-code attempts allowed per student per day; the teacher's reset clears the need.
-const PIN_TRIES = 10;
+// Personal-code tries (trust spec TRUST-12 §1): 5 an hour from one network and 30 a day in all, per student. Each try is
+// taken before the code is compared and given back when it is right, so parallel guesses cannot pass the cap and a
+// student who types the right code never uses one up. On a school network a classmate can still cause a one-hour lock
+// with a 4-digit code; the teacher's reset (which clears these counters) is the remedy. 30 a day across networks keeps
+// guessing 10,000 codes at about half a year on average.
+const PIN_NET_HOUR = 5;
+const PIN_DAY = 30;
+
 
 // ---------- AI ----------
 /**
@@ -456,7 +462,8 @@ async function joinClass(code, req, env, cors) {
   if (!name) throw new HttpError(400, 'missing_name');
   if (!/^\d{4}$/.test(pin)) throw new HttpError(400, 'bad_pin');
   // A whole school can share one network, so this cap is generous; PIN guessing is capped per student below.
-  await limitOrThrow(env, `join:n:${await netKey(req, env)}`, 300, 429, 'too_many_joins');
+  const net = await netKey(req, env);
+  await limitOrThrow(env, `join:n:${net}`, 300, 429, 'too_many_joins');
   const cls = await env.DB.prepare('SELECT * FROM classes WHERE code = ?').bind(code.toUpperCase()).first();
   if (!cls) throw new HttpError(404, 'no_class');
   const token = randomToken();
@@ -467,9 +474,15 @@ async function joinClass(code, req, env, cors) {
   if (existing) {
     // An empty pin_hash means the teacher reset it: the next join sets a new PIN.
     if (existing.pin_hash) {
-      const tries = await env.DB.prepare('SELECT count FROM ai_usage WHERE who = ? AND day = ?').bind(`pin:${existing.id}`, dayOf()).first();
-      if (tries && tries.count >= PIN_TRIES) throw new HttpError(429, 'too_many_pin');
-      if (!(await verifyPin(pin, existing.pin_hash))) { await take(env, [key(`pin:${existing.id}`, PIN_TRIES)]); throw new HttpError(403, 'wrong_pin'); }
+      const err = new HttpError(429, 'too_many_pin');
+      const tries = [
+        key(`pin:${existing.id}:${net}`, PIN_NET_HOUR, { period: 'hour', refundable: true, err }),
+        key(`pin:${existing.id}`, PIN_DAY, { refundable: true, err }),
+      ];
+      const r = await take(env, tries);
+      if (!r.ok) throw r.error;
+      if (!(await verifyPin(pin, existing.pin_hash))) throw new HttpError(403, 'wrong_pin');
+      await giveBack(env, tries); // the right code costs no try
     }
     id = existing.id;
     await env.DB.prepare('UPDATE students SET token_hash = ?, pin_hash = ?, last_seen = ? WHERE id = ?')
@@ -644,8 +657,8 @@ async function resetPin(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
   const r = await env.DB.prepare('UPDATE students SET pin_hash = \'\', token_hash = ? WHERE id = ? AND class_code = ?')
     .bind(await sha256(randomToken()), id, cls.code).run();
-  // A reset also clears today's wrong-code count, so the student can choose a new code right away.
-  if (r.meta?.changes) await env.DB.prepare('DELETE FROM ai_usage WHERE who = ?').bind(`pin:${id}`).run();
+  // A reset also clears every wrong-code count (each network's and the day's), so the student can choose a new code now.
+  if (r.meta?.changes) await env.DB.prepare(`DELETE FROM ai_usage WHERE ${pinKeysWhere}`).bind(id).run();
   return json({ ok: true }, 200, cors);
 }
 

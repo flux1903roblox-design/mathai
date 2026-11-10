@@ -93,6 +93,9 @@ export function renderNotice(env, row) {
           'אפשר לבטל בכל רגע באתר, במייל או בטלפון. ב־14 הימים הראשונים מקבלים החזר מלא.',
           'שימוש הוגן: יש מכסה יומית לכל סוג פעולה. בחודש עם שימוש גבוה במיוחד השיחה ממשיכה בגרסה קצרה, ובדיקות הצילום והמבחן חוזרות ב־1 בחודש.',
           `התקנון (גרסה ${env.TERMS_VERSION || ''}): ${env.PUBLIC_URL || ''}/terms`,
+          // the payer's own mailbox is one of the real adult checks (trust spec TRUST-8 §5): someone who did not sign up
+          // can say so, and gets everything back
+          'קיבלתם את המייל הזה כי נרשמתם למנוי במדרגות עם הכתובת הזו. לא אתם נרשמתם? השיבו למייל הזה ונבטל ונחזיר את כל הסכום.',
           business(env),
         ]),
       };

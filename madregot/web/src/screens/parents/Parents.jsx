@@ -15,6 +15,8 @@ import {
 import { qaParentView } from '@/lib/qaFixtures.js';
 import { formatAgorot, vatLine, perMonth, dateNum } from '@/lib/price.js';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
+import AdultGate from '@/components/account/AdultGate.jsx';
+import { needsAdultStep } from '@/lib/parentGate.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
@@ -426,6 +428,10 @@ export default function Parents({ mode = 'home' }) {
   const [linkedHere, setLinkedHere] = useState(false);
   const autoCancel = useRef(false);
   const pendingPolls = useRef(0);
+  // On a child's device, an adult step comes before signing in (trust spec TRUST-8): not on /cancel, not with a parent
+  // already signed in here, not on a device with no student profile. Passed once per tab.
+  const [adultOk, setAdultOk] = useState(false);
+  const adultStep = !qa && !adultOk && needsAdultStep({ mode, role, session });
   const server = !qa?.nosrv && (qa || hasServer());
   const orderId = params.get('order');
 
@@ -510,6 +516,9 @@ export default function Parents({ mode = 'home' }) {
         <Button variant="secondary" onClick={() => { setError(''); loadPlans({ fresh: true }).then(setPlans).catch((e) => setError(e.message)); }}>לנסות שוב</Button>
       </section>
     );
+  } else if (!session && adultStep) {
+    // in place of the sign-in, and of the prices above it: this screen is for the parent
+    body = <AdultGate onPass={() => setAdultOk(true)} />;
   } else if (!session) {
     body = (
       <>

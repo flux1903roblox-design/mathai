@@ -30,7 +30,7 @@ function useReveal(dep) {
 function AiOffline() {
   const inClass = useApp((s) => !!s.profile?.token);
   const FEATURES = [
-    { icon: MessageCircle, title: 'שיחה עם המורה הפרטי', text: 'שואלים כל שאלה, ומקבלים הסבר צעד אחר צעד.' },
+    { icon: MessageCircle, title: 'שיחה עם העוזר החכם', text: 'שואלים כל שאלה, ומקבלים הסבר צעד אחר צעד.' },
     { icon: Camera, title: 'בדיקת פתרון מצולם', text: 'מצלמים את הדרך מהמחברת, והעוזר מסמן כל שלב.' },
     { icon: Wand2, title: 'תרגילים חדשים', text: 'עוד תרגילים באותה מדרגה, עם רמז ופתרון.' },
   ];

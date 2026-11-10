@@ -287,6 +287,9 @@ test.describe('the smart tutor', () => {
     const { st, log } = await fakeServer(page, { plan: livePlan() }, baseOf());
     await open(page, '#/parents/info', withServer());
     await page.getByRole('link', { name: 'להמשיך במכשיר הזה (להורים)' }).click();
+    // on the child's device the parent first passes the adult step (trust spec TRUST-8); the year goes nowhere
+    await page.getByLabel('שנת הלידה שלכם').fill('1985');
+    await page.getByRole('button', { name: 'המשך' }).click();
     await signIn(page);
     await expect(page.getByRole('heading', { name: /המנוי פעיל/ })).toBeVisible();
     // a device with a profile keeps the parent's session for this tab only

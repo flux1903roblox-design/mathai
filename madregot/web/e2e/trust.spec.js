@@ -421,3 +421,103 @@ test.describe('moderation', () => {
     await expect(page.getByRole('radio', { name: 'מפתח אישי' })).toHaveCount(0);
   });
 });
+
+test.describe('adult step', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const GATE = 'המסך הזה בשביל ההורים';
+  const signIn = (page) => page.getByRole('heading', { name: 'כניסה עם המייל' });
+
+  test('on a child\'s device the parents\' area asks for a birth year first; a child\'s year closes it, and nothing about it is sent or kept', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await open(page, '#/parents?here=1', withServer());
+    const gate = page.locator('.adult-gate');
+    await expect(gate.getByRole('heading', { name: GATE })).toBeVisible();
+    await expect(signIn(page)).toHaveCount(0);
+    await expect(page.getByLabel('כתובת המייל')).toHaveCount(0);
+    await expect(page.locator('.parents-main')).not.toContainText('₪'); // no prices before the step
+    const year = gate.getByLabel('שנת הלידה שלכם');
+    await expect(year).toHaveAttribute('inputmode', 'numeric');
+    await expect(year).toHaveAttribute('maxlength', '4');
+    await expect(year).toHaveAttribute('autocomplete', 'off');
+    await expect(year).not.toHaveAttribute('placeholder', /\d/); // no example year to copy
+    const go = gate.getByRole('button', { name: 'המשך' });
+    await expect(go).toBeDisabled();
+    await shot(page, 'adult-gate');
+    await year.fill('2013');
+    await go.click();
+    await expect(gate.getByText('המסך הזה מיועד להורים. אפשר להראות להורים את הקוד מהמסך הקודם.')).toBeVisible();
+    await expect(year).toBeDisabled();
+    await expect(year).toHaveValue('');
+    await expect(go).toBeDisabled();
+    await shot(page, 'adult-gate-closed');
+    // still closed after a reload: a time is kept, never the year
+    await page.reload();
+    await expect(page.locator('.adult-gate').getByLabel('שנת הלידה שלכם')).toBeDisabled();
+    const stored = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
+    expect(stored).not.toContain('2013');
+    expect(await page.evaluate(() => localStorage.getItem('madregot-adult-wait'))).toMatch(/^\d{13}$/);
+    expect(JSON.stringify(log)).not.toContain('2013');
+    await expect(page.getByRole('link', { name: 'חזרה', exact: true })).toHaveAttribute('href', /#\/parents\/info$/);
+  });
+
+  test('a parent passes with their year (a new device), and the sign-in follows; the link page asks too', async ({ browser }) => {
+    const use = test.info().project.use;
+    const ctx = await browser.newContext({ baseURL: use.baseURL || baseOf(), viewport: use.viewport, isMobile: use.isMobile, hasTouch: use.hasTouch, deviceScaleFactor: use.deviceScaleFactor, locale: use.locale, reducedMotion: use.reducedMotion });
+    const page = await ctx.newPage();
+    const { log } = await fakeServer(ctx, {}, baseOf());
+    await open(page, '#/parents/link?c=K7M4QX', withServer());
+    const gate = page.locator('.adult-gate');
+    await expect(gate.getByRole('heading', { name: GATE })).toBeVisible();
+    await gate.getByLabel('שנת הלידה שלכם').fill('1985');
+    await gate.getByRole('button', { name: 'המשך' }).click();
+    await expect(signIn(page)).toBeVisible();
+    await expect(page.getByLabel('כתובת המייל')).toBeVisible();
+    await expect(page.locator('.adult-gate')).toHaveCount(0);
+    await shot(page, 'adult-gate-passed');
+    // passed for this tab: /parents does not ask again
+    await page.goto('./#/parents');
+    await expect(signIn(page)).toBeVisible();
+    expect(JSON.stringify(log)).not.toContain('1985');
+    expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toContain('1985');
+    await ctx.close();
+  });
+
+  test('/cancel never shows the step: cancelling stays two taps from the email form', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/cancel', withServer());
+    await expect(page.getByRole('heading', { name: 'ביטול מנוי' })).toBeVisible();
+    await expect(signIn(page)).toBeVisible();
+    await expect(page.locator('.adult-gate')).toHaveCount(0);
+  });
+
+  test('a device with no student profile (a parent\'s own phone) shows no step', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    const phone = withServer(); phone.state.profile = null;
+    await open(page, '#/parents', phone);
+    await expect(signIn(page)).toBeVisible();
+    await expect(page.locator('.adult-gate')).toHaveCount(0);
+  });
+});
+
+test.describe('class join', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+
+  test('once a class code is typed, the step says which name the teacher will see and how to tell two names apart', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    const fresh = withServer(); fresh.state.profile = null;
+    await open(page, '#/', fresh);
+    await page.getByRole('button', { name: 'מתחילים' }).click();
+    await page.getByLabel('השם שלכם').fill('נועה');
+    const next = page.getByRole('button', { name: 'המשך', exact: true });
+    await next.click();
+    await page.getByRole('radio', { name: /כיתה ז׳/ }).click(); await next.click();
+    await page.getByRole('radio').first().click(); await next.click();
+    await next.click(); // the daily goal keeps its default
+    await expect(page.getByText('יש לכם קוד כיתה מהמורה?')).toBeVisible();
+    await expect(page.locator('.ob-name-claim')).toHaveCount(0); // nothing to claim without a class
+    await page.getByLabel('קוד כיתה').fill('K7Q2MD');
+    await expect(page.locator('.ob-name-claim')).toHaveText('המורה יראה את השם נועה. אם יש בכיתה עוד מישהו עם אותו שם, חזרו אחורה והוסיפו אות משם המשפחה, למשל: נועה כ.');
+    await page.locator('.ob-name-claim').scrollIntoViewIfNeeded();
+    await shot(page, 'class-name-claim');
+  });
+});
