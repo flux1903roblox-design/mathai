@@ -1,6 +1,6 @@
 // The end of a check: what it showed, said honestly and kindly, and the next useful step.
 // Layout: Duolingo's lesson-complete screen (character, title, stat tiles, one button at the bottom).
-import { useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Award, RotateCcw, Check, ArrowLeft, Gift, Flame } from 'lucide-react';
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { inDays } from '@/content/util.js';
+import { UnlockStage, useNewUnlocks } from '@/lib/madiLook.js';
 
 function copy(r, rec, def, award) {
   const days = (box) => REVIEW_DAYS[box] ?? 1;
@@ -52,6 +53,11 @@ export default function CheckDone({ result: r, award, onExit }) {
   const rescue = r.purpose === 'diagnostic' || r.purpose === 'exam';
   const nextA = actions.find((a) => !(a.skill === skill && a.kind === (r.purpose === 'mastery' ? 'mastery' : r.purpose)));
   const weak = Object.entries(r.perSkill || {}).filter(([, x]) => x.right < x.asked).map(([s]) => s);
+  // A new piece for מדי (STUDENT-3) comes after the result: the way on the student picks waits behind its moment.
+  const unlocks = useNewUnlocks(r.topic);
+  const [then, setThen] = useState(null);
+  const on = (fn) => () => (r.passed && unlocks.length > 0 ? setThen(() => fn) : fn());
+  if (then) return <Suspense fallback={<div className="done-screen" />}><UnlockStage ids={unlocks} onNext={then} /></Suspense>;
   return (
     <div className="page check-done" role="main">
       {/* laid out like Duolingo's lesson-complete screen: מדי, the title, what it showed, then the stat tiles */}
@@ -85,16 +91,16 @@ export default function CheckDone({ result: r, award, onExit }) {
       )}
       <div className="form-actions" data-region="footer">
         {rescue ? (
-          <Button className="btn-block btn-lg" onClick={() => navigate('/rescue', { replace: true })}>לתוכנית ההכנה<ArrowLeft size={18} aria-hidden="true" /></Button>
+          <Button className="btn-block btn-lg" onClick={on(() => navigate('/rescue', { replace: true }))}>לתוכנית ההכנה<ArrowLeft size={18} aria-hidden="true" /></Button>
         ) : !r.passed && skill ? (
           <>
             <Button className="btn-block btn-lg" onClick={() => navigate(`/learn/${skill.replace(':', '/')}`, { replace: true })}><RotateCcw size={18} aria-hidden="true" />בחזרה למדרגה</Button>
             {nextA && nextA.kind === 'prereq' && <Button variant="secondary" className="btn-block" onClick={() => navigate(nextA.to, { replace: true })}><MathText text={nextA.title} /></Button>}
           </>
         ) : nextA ? (
-          <Button className="btn-block btn-lg" onClick={() => navigate(nextA.to, { replace: true })}>הלאה: <MathText text={nextA.title} /></Button>
+          <Button className="btn-block btn-lg" onClick={on(() => navigate(nextA.to, { replace: true }))}>הלאה: <MathText text={nextA.title} /></Button>
         ) : null}
-        <Button variant="ghost" className="btn-block" onClick={onExit}>למפה</Button>
+        <Button variant="ghost" className="btn-block" onClick={on(onExit)}>למפה</Button>
       </div>
     </div>
   );

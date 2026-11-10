@@ -82,13 +82,14 @@ export default function Quests() {
             );
           })}
         </ul>
-        {/* the day's chest: closed until all three missions are done; it holds a streak freeze */}
+        {/* the day's chest: closed until all three missions are done; it says what it holds (a streak freeze, never a
+            random reward), and says so honestly when two freezes are already waiting */}
         <div className={clsx('quest-chest', allDone && 'open')}>
           <Lottie name="chest" frame={allDone ? 'end' : 'start'} className="quest-chest-art" label={allDone ? 'תיבה פתוחה' : 'תיבה סגורה'} fallback={<Trophy size={48} aria-hidden="true" />} />
           <div className="quest-chest-text">
             <p className="quest-say">{allDone
               ? (day.questsRewarded && freezes > 0 ? 'פתחתם את התיבה של היום! יש בה הקפאת רצף.' : 'פתחתם את התיבה של היום! מחר יחכו משימות חדשות.')
-              : `עוד ${3 - quests.filter((q) => q.done).length === 1 ? 'משימה אחת' : `${3 - quests.filter((q) => q.done).length} משימות`} והתיבה נפתחת. יש בה הקפאת רצף (אפשר להחזיק עד שתיים).`}</p>
+              : `עוד ${3 - quests.filter((q) => q.done).length === 1 ? 'משימה אחת' : `${3 - quests.filter((q) => q.done).length} משימות`} והתיבה נפתחת. ${freezes >= 2 ? 'יש לכם כבר שתי הקפאות רצף, כמה שאפשר להחזיק. היום אין בה הקפאה חדשה.' : 'יש בה הקפאת רצף (אפשר להחזיק עד שתיים).'}`}</p>
           </div>
         </div>
       </section>

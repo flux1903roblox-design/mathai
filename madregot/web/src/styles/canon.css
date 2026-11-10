@@ -341,9 +341,8 @@ a { color: var(--brand-d); }
 /* the numbers on the profile and the teacher's board: one icon colour, the brand */
 .profile-stats svg, .me-stat svg, .t-kpis svg, .kpi-icon, .kpi-good .kpi-icon, .kpi-bad .kpi-icon { color: var(--brand-ink); fill: none; }
 
-/* the profile: the student's initial instead of a character */
+/* the profile: the student's own מדי (STUDENT-3) */
 .profile-top { height: 140px; background: var(--brand-tint); }
-.avatar-initial { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: var(--brand); color: var(--on-brand); font-size: 44px; font-weight: 800; box-shadow: 0 0 0 6px var(--paper); }
 
 /* the current stop: its ring in the unit's colour on its tint track, with room for the bubble above */
 .node-slot.has-ring { width: 104px; height: 104px; }
@@ -401,9 +400,9 @@ a { color: var(--brand-d); }
 @media (min-width: 900px) and (min-height: 560px) { .lesson .lesson-top, .lesson .lesson-q { max-width: 760px; margin-inline: auto; } }
 /* the narrowest phones: the teaching-stage maths fits its panel without a scroll box */
 @media (max-width: 360px) { .lm-expr { font-size: 1.4rem; padding-inline: 0; } .ls-display.big { font-size: 1.3rem; } }
-/* the profile: the initial sits small at the top, with no band behind it */
+/* the profile: מדי sits at the top, with no band behind it */
 .profile-top { height: auto; background: none; border: 0; padding: var(--s4) 0 0; margin-bottom: 0; }
-.avatar-initial { width: 72px; height: 72px; font-size: 32px; box-shadow: none; }
+.profile-avatar .mascot { display: block; }
 /* the teacher's numbers: one icon colour */
 .kpi-icon, .kpi-good .kpi-icon, .kpi-brand .kpi-icon, .kpi-gold .kpi-icon, .kpi-bad .kpi-icon, .kpi-sky .kpi-icon { color: var(--brand-ink); }
 /* one typed answer: a wide field */
@@ -670,3 +669,41 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .wk-best { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 22px; }
 .week-best-card .field-hint { margin: 0; }
 @media (prefers-reduced-motion: reduce) { .wk-fill { transition: none; } }
+
+/* ------------------------------------------------------------------ מדי שלי (STUDENT-3) */
+/* the profile's way to the wardrobe, under the name */
+.profile-madi-btn { align-self: flex-start; margin-top: var(--s3); }
+/* the wardrobe: מדי on top (he stays in view while the options scroll), then one group per colour and slot */
+.wardrobe-stage { position: sticky; top: 0; z-index: 2; display: grid; place-items: center; padding: var(--s3) 0 var(--s2); background: var(--paper); border-bottom: 1px solid var(--rule); }
+.wardrobe-madi { display: block; }
+.wardrobe-sub-head { margin: var(--s4) 0 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-wrap: pretty; }
+.wardrobe-group { margin-top: var(--s5); }
+.wardrobe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: var(--s2); }
+/* an option is a small tile: the picture, the name, and where it came from (or "נעול"); the check or the lock in its corner */
+.wardrobe-opt { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 112px; padding: var(--s3) var(--s2) 10px; border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wardrobe-opt[data-checked] { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+.wardrobe-opt:focus-visible { outline: 3px solid var(--brand-ink); outline-offset: 2px; }
+.wardrobe-pic { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 4px; }
+.wardrobe-art { width: 48px; height: 48px; }
+.wardrobe-none { width: 32px; height: 32px; border: 2px dashed var(--rule-strong); border-radius: 50%; }
+.wardrobe-text { display: flex; flex-direction: column; min-width: 0; }
+.wardrobe-name { font-size: 16px; line-height: 22px; font-weight: 700; }
+.wardrobe-sub { color: var(--ink-2); font-size: 14px; line-height: 20px; text-wrap: balance; }
+.wardrobe-mark { position: absolute; top: 8px; inset-inline-start: 8px; display: grid; place-items: center; color: var(--brand-ink); }
+.wardrobe-opt.is-locked { background: var(--ground); border-style: dashed; }
+.wardrobe-opt.is-locked .wardrobe-pic { filter: grayscale(1); opacity: 0.5; }
+.wardrobe-opt.is-locked .wardrobe-name { color: var(--ink-2); }
+.wardrobe-opt.is-locked .wardrobe-mark { color: var(--ink-3); }
+.wardrobe-lock { display: flex; flex-direction: column; gap: var(--s4); }
+.wardrobe-lock .lead { margin: 0; }
+/* a short phone: a smaller מדי, so the options keep most of the screen */
+@media (max-height: 640px) { .wardrobe-madi { width: 104px; height: auto; } .wardrobe-stage { padding: var(--s2) 0; } }
+/* the path's chest card says what the chest holds, with a picture of it */
+.chest-card-item { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: var(--s3); }
+.chest-card-art { width: 56px; height: 56px; }
+.chest-card-item .node-card-sub { margin: 0; }
+/* the unlock moment: מדי wearing the new piece */
+.unlock-stage .done-hero { min-height: 180px; }
+.unlock-reason { margin: 0; max-width: 34ch; color: var(--ink); font-size: 18px; line-height: 27px; text-align: center; text-wrap: pretty; }
+.unlock-more { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-align: center; }
+@media (max-height: 640px) { .unlock-stage .done-hero { min-height: 128px; } .unlock-madi { width: 112px; height: auto; } }

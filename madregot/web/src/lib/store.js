@@ -14,6 +14,7 @@ import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
 import { applyTheme } from './theme.js';
 import { today, dayBefore, learnedOn, isActiveDay, keptDay, streakAt, streakRepair, itemsOn } from './streak.js';
 import { isRestDay } from '@shared/restDays.js';
+import { emptyLook, earnIds, unlockedLook, unlockedIds } from './wardrobe.js';
 
 export { today, dayBefore, learnedOn, isActiveDay };
 
@@ -43,6 +44,9 @@ const empty = {
   // theme: 'system' (follow the phone) | 'light' | 'dark' (lib/theme.js); soundSet: the student chose sound themselves.
   // New fields come with defaults (an old save without one reads it as missing, which code treats as the default).
   prefs: { theme: 'system', soundSet: false },
+  // Madi's look (STUDENT-3, lib/wardrobe.js): his colour and one item per slot; the pieces earned for good, the ones
+  // the student was shown, and the day each was earned (for the Sunday recap)
+  look: emptyLook(),
   mistakes: {}, // 'topic:cat' -> count
   lastTopic: null,
   outbox: [],
@@ -156,7 +160,9 @@ export const useApp = create(
           path = reopenKept(path, r.topic, r.level);
           reopened = path !== before;
         }
-        set({ learn, days, streak, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic });
+        // what the path unlocks for Madi is earned for good, before this check (a kept stair it reopens) and after it
+        const look = earnIds(st.look, [...lookIds(st, st.path), ...lookIds(st, path)], d, { seen: false });
+        set({ learn, days, streak, xp: st.xp + (r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic, look });
         return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
@@ -197,6 +203,10 @@ export const useApp = create(
       /** Joining a class: sounds start off (a classroom is quiet), unless the student already chose them. */
       quietForClass: () => { if (!get().prefs?.soundSet) set({ sound: false }); },
       setTheme: (theme) => { set({ prefs: { ...get().prefs, theme } }); applyTheme(theme); },
+      /** Madi's look: { color } or { head | face | neck | body: id | null }. Saved at once (the wardrobe has no save button). */
+      setLook: (patch) => set({ look: { ...emptyLook(), ...get().look, ...patch } }),
+      /** Pieces earned for good and shown to the student (the unlock moment); { seen: false } only remembers them. */
+      markEarned: (ids, opts) => set({ look: earnIds(get().look, ids, today(), opts) }),
       /** A one-time note was seen: e.g. { repairDismissed: today() } or { pbWeek: '2026-11-01' }. */
       setNudge: (patch) => set({ nudges: { ...get().nudges, ...patch } }),
       /**
@@ -263,11 +273,11 @@ export const useApp = create(
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
         set({ profile: rest, outbox: [] });
       },
-      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null }, nudges: { ...empty.nudges }, gaps: {}, placement: null, learn: emptyLearn() }),
+      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null }, nudges: { ...empty.nudges }, gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook() }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
-      // the look chosen for this device (prefs) stays too
+      // the theme chosen for this device (prefs) stays too; Madi's look belongs to the student and goes back to the default
       // (sound goes back to its default, so the next student's own choice starts unset)
-      signOut: () => set({ ...empty, learn: emptyLearn(), prefs: { ...get().prefs, soundSet: false }, ai: { ...get().ai, pendingLink: null, lastTier: null } }),
+      signOut: () => set({ ...empty, learn: emptyLearn(), look: emptyLook(), prefs: { ...get().prefs, soundSet: false }, ai: { ...get().ai, pendingLink: null, lastTier: null } }),
     }),
     // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot')
     { name: STORE_KEY, storage: safeStorage, version: 4, migrate: (saved, version) => migrateState(saved, version) },
@@ -275,6 +285,8 @@ export const useApp = create(
 );
 
 const active = isActiveDay;
+/** The pieces a path unlocks for Madi (lib/wardrobe.js). */
+const lookIds = (st, path) => unlockedIds(unlockedLook({ path, classGoals: st.classGoals, grade: st.profile?.grade }));
 /** A Saturday. Kept for old callers: the streak's rule is isRestDay (Shabbat and Yom Tov, shared/restDays.js). */
 export const isShabbat = (key) => new Date(`${key}T12:00:00`).getDay() === 6;
 export { keptDay };

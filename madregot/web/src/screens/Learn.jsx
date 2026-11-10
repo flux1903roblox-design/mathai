@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Flame, Zap, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
@@ -17,6 +17,10 @@ import RepairCard from '@/components/learn/RepairCard.jsx';
 import { nextStage } from '@/learn/mastery.ts';
 import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
 import { skillId } from '@/learn/skills.ts';
+import { chestItem } from '@/lib/wardrobe.js';
+
+// the picture of what a unit's chest holds loads with the first chest card opened (Madi's accessories are not in the boot bundle)
+const ItemArt = lazy(() => import('@/components/mascot/Accessories.jsx').then((m) => ({ default: m.ItemArt })));
 
 // The path winds gently: each node sits a little to one side of the one before.
 const SWING = [0, 52, 78, 52, 0, -52, -78, -52];
@@ -73,6 +77,23 @@ function StairCard({ n, t, onStart }) {
       {mastered && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור</Button>}
       {n.state === 'done' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>תרגול חוזר</Button>}
       {n.state === 'locked' && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${n.level}?kind=jump`)}>מבחן קפיצה</Button>}
+    </div>
+  );
+}
+
+/**
+ * The chest's card: what it holds for Madi before it opens (no surprises, STUDENT-3), and after, a way to try it on.
+ */
+function ChestCard({ topic, open, half, onTry }) {
+  const item = chestItem(topic);
+  return (
+    <div className="node-card" role="group" aria-label="תיבת אוצר">
+      <p className="node-card-title">{open ? 'חצי היחידה מאחוריכם' : 'תיבת אוצר'}</p>
+      <div className="chest-card-item">
+        <Suspense fallback={<span className="chest-card-art" />}>{item ? <ItemArt id={item.id} className="chest-card-art" /> : <span className="chest-card-art" />}</Suspense>
+        <p className="node-card-sub">{open ? `פתחתם: ${item?.name}.` : `בתיבה: ${item?.name} למדי. היא נפתחת כשתשלטו במדרגות 1 עד ${half}.`}</p>
+      </div>
+      {open && item && <Button variant="secondary" className="btn-block" onClick={() => onTry(`/me/madi?try=${item.id}`)}>לנסות על מדי</Button>}
     </div>
   );
 }
@@ -134,12 +155,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
                 <li key={`${t.id}:chest`} className="path-step path-chest" style={{ '--x': `${(x + SWING[(i + 1) % SWING.length]) / 2}px` }}>
                   <Chest open={chest} celebrate={chest && celebrate === key} expanded={open === `${t.id}:chest`}
                     label={`תיבת אוצר. ${chest ? 'פתוחה' : `נפתחת אחרי מדרגה ${half}`}`} onClick={() => setOpen(open === `${t.id}:chest` ? null : `${t.id}:chest`)} />
-                  {open === `${t.id}:chest` && (
-                    <div className="node-card" role="group" aria-label="תיבת אוצר">
-                      <p className="node-card-title">{chest ? 'חצי היחידה מאחוריכם' : 'תיבת אוצר'}</p>
-                      <p className="node-card-sub">{chest ? 'פתחתם את התיבה של היחידה הזאת. היא מחכה באוסף המדליות שלכם בפרופיל.' : `התיבה נפתחת כשמסיימים את כל המדרגות עד מדרגה ${half}: ${nodes[half - 1].title}.`}</p>
-                    </div>
-                  )}
+                  {open === `${t.id}:chest` && <ChestCard topic={t.id} open={chest} half={half} onTry={onStart} />}
                 </li>
               ),
               ART_AFTER[i] && <PathArt key={`${t.id}:art${i}`} topic={t.id} piece={ART_AFTER[i]} x={x} />,
@@ -176,7 +192,8 @@ export default function Learn() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { profile, path, days, xp, goalXp, freezes, settleStreak, lastTopic } = useApp();
-  const [view, setView] = useState(profile.grade || '7');
+  // the grade on show: the student's own, or the one a link to a unit asks for (the wardrobe's "ליחידת …")
+  const [view, setView] = useState(state?.grade || profile.grade || '7');
   const [open, setOpen] = useState(null);
   const [away, setAway] = useState(null); // 'up' | 'down' when the current node is off screen
   const currentRef = useRef(null);

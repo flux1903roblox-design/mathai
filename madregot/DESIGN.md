@@ -383,7 +383,9 @@ One title, מדי, what was earned as quiet pills (`ground` fill, 15px ink text,
 Clean text at 19px on white, the maths or the object to move on a `ground` panel with 16px corners, answer cards across the width, and the check at the bottom. A step that names a shape or a part of one shows it: a drawing (Figure type `geo`) in 2px ink lines with a light brand fill for the shape, brand for what the text points at (the ray, the hypotenuse, the transversal), arcs for angles (two or three arcs for equal ones), a small square for a right angle, and `bad-ink` for the "?" being asked. Letters appear only where the text has them; side labels sit clear of their lines; numbers in a drawing are its true sizes. The "why" box is a bordered white card that turns `good-tint` when right and gets a `bad-line` border when not yet; the bottom bar turns `bad-tint` for "not yet".
 
 ### Mascot מדי
-A stair-block character in the brand blue (its own tokens `--madi-*` in `tokens.css`). Used only in feedback, empty and error states, results, the welcome screen and as the tutor's 34px chat avatar. Not beside questions, onboarding, the profile (which shows the student's initial in a 96px brand circle) or the teacher header.
+A stair-block character in the brand blue (its own tokens `--madi-*` in `tokens.css`). Used in feedback, empty and error states, results, the welcome screen, as the tutor's 34px chat avatar, and as the student's own avatar on the profile (96px, hidden from screen readers: the name is the heading). Not beside questions, in onboarding or in the teacher header.
+
+**מדי שלי (STUDENT-3).** In the student's own screens Madi wears what the student chose in the wardrobe (`/me/madi`, from the profile's "עיצוב מדי"): one of six colours (a completed unit gives its family's colour; a completed `sky` unit gives gold) and one accessory per slot (head, face, neck, low step), each given by a unit's chest. The palette is `MADI_PALETTE` in `lib/wardrobe.js`, set as `--madi-*` on his own drawing; the accessories (`components/mascot/Accessories.jsx`) use tokens only and load only while something is worn. The teacher's and parents' screens show the default look. Nothing is bought or drawn at random: every piece says what earned it, and a chest says what it holds before it opens.
 
 ### Settings
 Grouped sections under small headings. A student sees whether the assistant is on and how it comes (through a class); the class server's address and a personal Claude key are one quiet row away, on an adult-facing "מתקדם" screen that says who it is for.
@@ -412,7 +414,7 @@ White, its sections and groups as the standard card, headings at 18px/800, stat 
 - **Don't** put a small label or eyebrow above a heading, on any screen (the welcome screen's English line is gone too).
 - **Don't** use gold for "not yet"; gold is XP.
 - **Don't** colour a whole result tile; colour its icon and number.
-- **Don't** put מדי beside questions, in onboarding, on the profile or in headers.
+- **Don't** put מדי beside questions, in onboarding or in headers (the profile shows the student's own מדי).
 - **Don't** add a second typeface; Fredoka is gone.
 
 ## History

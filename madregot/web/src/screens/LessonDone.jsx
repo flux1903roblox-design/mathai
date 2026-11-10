@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import NumberFlow from '@number-flow/react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
@@ -16,6 +16,7 @@ import { placementTopicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 import GoalStage from '@/components/learn/GoalStage.jsx';
+import { UnlockStage, useNewUnlocks } from '@/lib/madiLook.js';
 
 // The main button takes the focus (for a keyboard or a screen reader) without scrolling a tall celebration
 // down to it: on a small phone the climb at the top stays in view.
@@ -95,9 +96,11 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   const freezes = useApp((s) => s.freezes);
   const path = useApp((s) => s.path);
   const skills = useApp((s) => s.learn.skills);
-  // the screens after a lesson, in order: what it earned, the daily goal (its own moment), the streak, the day's chest
-  // (the streak screen also comes when this lesson kept the streak with an earned repair: STUDENT-5)
-  const stages = ['summary', award.goalReached && 'goal', (award.streakExtended || award.streakRepaired) && result.passed && 'streak', award.questsDone && 'quests'].filter(Boolean);
+  // the screens after a lesson, in order: what it earned, a new piece for מדי (STUDENT-3), the daily goal (its own
+  // moment), the streak, the day's chest (the streak screen also comes when this lesson kept the streak with an earned
+  // repair: STUDENT-5)
+  const unlocks = useNewUnlocks(topic.id);
+  const stages = ['summary', result.passed && unlocks.length > 0 && 'unlock', award.goalReached && 'goal', (award.streakExtended || award.streakRepaired) && result.passed && 'streak', award.questsDone && 'quests'].filter(Boolean);
   const [i, setI] = useState(0);
   const pb = useWeekBest(result.passed);
   const stage = stages[i];
@@ -118,6 +121,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
     );
   }
 
+  if (stage === 'unlock') return <Suspense fallback={<div className="done-screen" />}><UnlockStage ids={unlocks} onNext={nextStage} /></Suspense>;
   if (stage === 'goal') return <GoalStage onNext={nextStage} />;
   if (stage === 'streak') return <StreakStage streak={award.streak} repaired={!!award.streakRepaired} days={days} freezes={freezes} onNext={nextStage} />;
 
@@ -197,10 +201,12 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
 export function PlacementDone({ result, award, onExit }) {
   const days = useApp((s) => s.days);
   const freezes = useApp((s) => s.freezes);
-  const stages = ['result', award.goalReached && 'goal', award.streakExtended && 'streak'].filter(Boolean);
+  const unlocks = useNewUnlocks(null);
+  const stages = ['result', unlocks.length > 0 && 'unlock', award.goalReached && 'goal', award.streakExtended && 'streak'].filter(Boolean);
   const [i, setI] = useState(0);
   const last = i + 1 >= stages.length;
   const nextStage = () => (last ? onExit() : setI(i + 1));
+  if (stages[i] === 'unlock') return <Suspense fallback={<div className="done-screen" />}><UnlockStage ids={unlocks} onNext={nextStage} /></Suspense>;
   if (stages[i] === 'goal') return <GoalStage onNext={nextStage} label={last ? 'ללוח שלי' : 'המשך'} />;
   if (stages[i] === 'streak') return <StreakStage streak={award.streak} days={days} freezes={freezes} onNext={nextStage} />;
   return (

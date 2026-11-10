@@ -51,6 +51,15 @@ test('visual: a right answer', async ({ page }) => {
   await shot(page, 'feedback-good', 'section.fb-good');
 });
 
+// מדי's wardrobe (STUDENT-3): a student who completed a unit and opened two chests, wearing gold and the scarf
+test('visual: wardrobe', async ({ page }) => {
+  const st = livedIn('7');
+  st.state.look = { color: 'gold', head: null, face: null, neck: 'thermo-scarf', body: null, earned: [], seen: ['gold', 'thermo-scarf'], earnedAt: {} };
+  await open(page, '#/me/madi', st);
+  await expect(page.locator('.wardrobe-madi g[data-item="thermo-scarf"]')).toHaveCount(1);
+  await shot(page, 'wardrobe', '.wardrobe-stage');
+});
+
 for (const [name, route, ready] of [
   ['quests', '#/quests', '.page-hero-title'], ['assistant-offline', '#/assistant', '.chat-bubble-title'], ['profile', '#/me', '.profile-name'], ['exams', '#/exams', '.page-hero-title'],
   // a unit's identity beyond the path (STUDENT-1): the topics list, a unit's guide, a stair page

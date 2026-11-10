@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { createHashRouter, Navigate, Route, RouterProvider, Routes, ScrollRestoration, useLocation } from 'react-router-dom';
+import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
@@ -7,6 +7,7 @@ import { syncNow, hasServer } from '@/lib/api.js';
 import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import { applyTheme } from '@/lib/theme.js';
+import { MadiLookProvider } from '@/lib/madiLook.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
@@ -19,6 +20,7 @@ import Quests from '@/screens/Quests.jsx';
 // Screens that are not on the daily path load on demand.
 const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
+const Wardrobe = lazy(() => import('@/screens/Wardrobe.jsx'));
 const Settings = lazy(() => import('@/screens/Settings.jsx'));
 const AdvancedSettings = lazy(() => import('@/screens/Settings.jsx').then((m) => ({ default: m.AdvancedSettings })));
 const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
@@ -101,6 +103,11 @@ function TeachRoute() {
   return <Teach key={pathname} />;
 }
 
+/** The student's own screens: מדי wears the student's look there (STUDENT-3); everywhere else he has the default one. */
+function StudentLook() {
+  return <MadiLookProvider><Outlet /></MadiLookProvider>;
+}
+
 /** The app's screens. Rendered under a data router so a lesson can ask before the back button leaves it. */
 function Root() {
   const role = useApp((s) => s.profile?.role);
@@ -133,7 +140,7 @@ function Root() {
           </>
         )}
         {role === 'student' && (
-          <>
+          <Route element={<StudentLook />}>
             <Route element={<Shell />}>
               <Route path="/" element={<Learn />} />
               <Route path="/quests" element={<Quests />} />
@@ -141,6 +148,7 @@ function Root() {
               <Route path="/topic/:id" element={<Topic />} />
               <Route path="/assistant" element={<Assistant />} />
               <Route path="/me" element={<Me />} />
+              <Route path="/me/madi" element={<Wardrobe />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/advanced" element={<AdvancedSettings />} />
               <Route path="/subscription" element={<Navigate to="/parents/info" replace />} />
@@ -162,7 +170,7 @@ function Root() {
             <Route path="/rescue/check" element={<LessonRoute />} />
             <Route path="/rescue/exam" element={<LessonRoute />} />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </>
+          </Route>
         )}
       </Routes>
       </Suspense>
