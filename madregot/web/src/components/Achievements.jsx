@@ -1,11 +1,11 @@
 import { m } from 'motion/react';
 import { Zap, Flame, Footprints, Star, Trophy, Target, ClipboardCheck, Sparkles, Mountain, Gift } from 'lucide-react';
-import { useApp, streakOf, isShabbat, dayBefore, today } from '@/lib/store.js';
+import { useApp, streakOf, isShabbat, dayBefore, today, isActiveDay } from '@/lib/store.js';
 import { TOPICS } from '@/content/index.js';
-import { doneUpTo, chestOpen } from '@/lib/path.js';
+import { doneCount, chestOpen } from '@/lib/path.js';
 import RewardBadge from './RewardBadge.jsx';
 
-const active = (d) => !!d && ((d.lessons || 0) > 0 || (d.lessons == null && (d.q || 0) > 0));
+const active = isActiveDay; // a finished lesson, check or teaching stage
 
 /** The longest run of practice days in the history (Shabbat and frozen days keep a run without adding to it). */
 export function bestStreak(days) {
@@ -28,14 +28,14 @@ export function bestStreak(days) {
  * A medal not earned yet shows grey with how far along it is.
  */
 export default function Achievements({ stats = true }) {
-  const { days, xp, path, progress, exams, placement } = useApp();
+  const { days, xp, path, exams, placement } = useApp();
   const streak = streakOf(days);
   const best = bestStreak(days);
   const lessons = Object.values(days).reduce((a, d) => a + (d.lessons || 0), 0);
   const perfect = Object.values(days).reduce((a, d) => a + (d.perfect || 0), 0);
-  const stairs = TOPICS.reduce((a, t) => a + doneUpTo(t.id, path, progress), 0);
+  const stairs = TOPICS.reduce((a, t) => a + doneCount(t.id, path), 0);
   const units = Object.values(path).filter((u) => (u.reviews || 0) > 0).length;
-  const chests = TOPICS.filter((t) => chestOpen(t.id, path, progress)).length; // halfway through a unit on the map
+  const chests = TOPICS.filter((t) => chestOpen(t.id, path)).length; // halfway through a unit on the map
   const medals = [
     { id: 'first', icon: Footprints, label: 'השיעור הראשון', have: lessons, need: 1, tone: 'brand' },
     { id: 'streak3', icon: Flame, label: '3 ימים ברצף', have: best, need: 3, tone: 'streak' },

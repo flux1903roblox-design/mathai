@@ -11,6 +11,10 @@ export const lineTex = (m, b, name = 'y') => {
   return `${name} = ${m === 0 ? T(b) : `${mt}x${bt}`}`;
 };
 const half = (v) => Math.round(v * 2) / 2 === v;
+/** k·x as a textbook writes it: x, -x, 3x (never 1x). */
+const kx = (k) => (k === 1 ? 'x' : k === -1 ? '-x' : `${T(k)}x`);
+/** "+ 4", "- 4", or nothing for 0. */
+const plusB = (b) => (b === 0 ? '' : ` ${b < 0 ? '-' : '+'} ${Math.abs(b)}`);
 
 // 1. table of values: y = mx + b, find y for a given x (the board: y = 2x + 1, x = -2, 0, 1, 2)
 function table() {
@@ -23,8 +27,8 @@ function table() {
     key: `lf1:${m}:${b}:${ask}`, text: `השלימו את טבלת הערכים של $${lineTex(m, b)}$. מה הערך של $y$ כש־$x = ${T(ask)}$?`,
     form: 'num', answer: y, label: 'y =',
     fig: { type: 'table', head: ['x', 'y'], rows },
-    hint: `מציבים את $x$ במשוואה, במקום $x$: $y = ${T(m)} \\cdot ${T(ask, true)} ${b < 0 ? '-' : '+'} ${Math.abs(b)}$. כפל לפני חיבור.`,
-    solution: [`$y = ${T(m)} \\cdot ${T(ask, true)} ${b < 0 ? '-' : '+'} ${Math.abs(b)}$`, `$y = ${T(m * ask)} ${b < 0 ? '-' : '+'} ${Math.abs(b)} = ${T(y)}$`],
+    hint: `מציבים את $x$ במשוואה, במקום $x$: $y = ${T(m)} \\cdot ${T(ask, true)}${plusB(b)}$. כפל לפני חיבור.`,
+    solution: [`$y = ${T(m)} \\cdot ${T(ask, true)}${plusB(b)}$`, b === 0 ? `$y = ${T(y)}$` : `$y = ${T(m * ask)}${plusB(b)} = ${T(y)}$`],
     diag: (u) => (near(u, m * ask) && b !== 0 ? 'forgot-b' : near(u, m * Math.abs(ask) + b) && ask < 0 ? 'neg-sub' : near(u, m + ask + b) ? 'added-m' : null),
   };
 }
@@ -127,7 +131,7 @@ function predictPoint() {
     key: `lf1p:${m}:${b}:${x0}`, text: `על הישר $${lineTex(m, b)}$ שימו את הנקודה שבה $x = ${T(x0)}$.`, form: 'manip',
     manip: { kind: 'plot', range: 6, label: 'P', start: null, line: { m, b } }, answer: [x0, y0],
     hint: 'מציבים את $x$ במשוואה ומחשבים את $y$. אפשר גם ללכת על הישר עד $x$ המבוקש.',
-    solution: [`$y = ${m} \\cdot (${T(x0)}) ${b < 0 ? '-' : '+'} ${Math.abs(b)} = ${T(y0)}$`, `הנקודה $(${T(x0)}, ${T(y0)})$`],
+    solution: [`$y = ${T(m)} \\cdot ${T(x0, true)}${plusB(b)} = ${T(y0)}$`, `הנקודה $(${T(x0)}, ${T(y0)})$`],
     diag: (u) => (u && u[0] === x0 && u[1] === m * x0 ? 'forgot-b' : null),
   };
 }
@@ -156,7 +160,7 @@ function axes() {
       form: 'pt', answer: ans, label: onX ? 'B' : 'A',
       hint: onX ? `על ציר $x$ מתקיים $y = 0$: פותרים $0 = ${lineTex(m, b, '').replace(/^ = /, '')}$.` : `על ציר $y$ מתקיים $x = 0$: מחשבים $${name}(0)$.`,
       solution: onX
-        ? [`$0 = ${T(m)}x ${b < 0 ? '-' : '+'} ${Math.abs(b)}$`, `$${T(m)}x = ${T(-b)}$`, `$x = \\frac{${T(-b)}}{${T(m)}} = ${plainNum(x0)}$`, `הנקודה: $(${plainNum(x0)}, 0)$`]
+        ? [`$0 = ${kx(m)}${plusB(b)}$`, `$${kx(m)} = ${T(-b)}$`, Math.abs(m) === 1 ? `$x = ${plainNum(x0)}$` : `$x = \\frac{${T(-b)}}{${T(m)}} = ${plainNum(x0)}$`, `הנקודה: $(${plainNum(x0)}, 0)$`]
         : [`$${name}(0) = ${T(m)} \\cdot 0 ${b < 0 ? '-' : '+'} ${Math.abs(b)} = ${T(b)}$`, `הנקודה: $(0, ${b})$`],
       diag: ([u, v]) => {
         if (near(u, ans[1]) && near(v, ans[0]) && ans[0] !== ans[1]) return 'swap';
@@ -199,9 +203,10 @@ function meet() {
       hint: 'בנקודת המפגש ה־$y$ של שני הישרים שווה: משווים $y = y$, מוצאים את $x$, ואז מציבים כדי למצוא את $y$.',
       solution: [
         `$${lineTex(m1, b1, '').replace(/^ = /, '')} = ${lineTex(m2, b2, '').replace(/^ = /, '')}$`,
-        `$${T(m1 - m2)}x = ${T(b2 - b1)} \\Rightarrow x = ${T(x)}$`,
-        `$y = ${T(m1)} \\cdot ${T(x, true)} ${b1 < 0 ? '-' : '+'} ${Math.abs(b1)} = ${T(y)}$`, `הנקודה: $E(${x}, ${y})$`],
-      diag: ([u, v]) => (near(u, y) && near(v, x) && x !== y ? 'swap' : near(u, x) && !near(v, y) ? 'forgot-y' : null),
+        `$${kx(m1 - m2)} = ${T(b2 - b1)} \\Rightarrow x = ${T(x)}$`,
+        `$y = ${T(m1)} \\cdot ${T(x, true)}${plusB(b1)} = ${T(y)}$`, `הנקודה: $E(${x}, ${y})$`],
+      // 'forgot-y' only when y clearly was not worked out: the x written again, or left at 0
+      diag: ([u, v]) => (near(u, y) && near(v, x) && x !== y ? 'swap' : near(u, x) && !near(v, y) && (near(v, x) || near(v, 0)) ? 'forgot-y' : null),
     };
   }
 }
@@ -221,7 +226,7 @@ export const LINEAR = {
   ],
   cats: {
     'forgot-b': 'שכחו להוסיף את $b$',
-    'neg-sub': 'הציבו $x$ שלילי בלי הסוגריים',
+    'neg-sub': 'הציבו $x$ שלילי כאילו הוא חיובי (בלי סוגריים)',
     'added-m': 'חיברו את $m$ ואת $x$ במקום לכפול',
     'm-b': 'התבלבלו בין $m$ ל־$b$',
     sign: 'טעות בסימן',

@@ -104,3 +104,22 @@ test('interactive exercise: the second miss shows the answer on the object', asy
   await expect(page.locator('.mp-ghost-pt')).toHaveCount(1); // the right place, drawn beside the student's point
   await expect(page.locator('.fb-answer')).toContainText('(');
 });
+
+// In a check nothing on screen says the target is reached: the live mean, the sum of the squares and the angle at C
+// are hidden, so the object cannot be slid until two numbers match. Practice keeps them.
+test('in a mastery check, the objects hide the live result; in practice they show it', async ({ page }) => {
+  await openOn(page, '#/lesson/stats/3?kind=check&purpose=mastery', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'bars');
+  await expect(page.locator('.manip-bars .manip-readout')).not.toContainText('הממוצע עכשיו');
+  await expect(page.locator('.mp-mean-line')).toHaveCount(0);
+  await expect(page.locator('.manip-coach')).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('check-bars.png') });
+  await openOn(page, '#/lesson/pyth/1?kind=check&purpose=mastery', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'squares');
+  await expect(page.locator('.mp-area.c')).toHaveText('?');
+  await expect(page.locator('.manip-squares .manip-readout .sq-c')).toHaveText('?');
+  await openOn(page, '#/lesson/angles/3?kind=check&purpose=mastery', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'triangle');
+  await expect(page.locator('.manip-triangle .manip-readout .tri-c')).toContainText('?');
+  // practice: the same objects with their live readouts
+  await openOn(page, '#/lesson/stats/3', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'bars');
+  await expect(page.locator('.manip-bars .manip-readout')).toContainText('הממוצע עכשיו');
+  await expect(page.locator('.mp-mean-line')).toHaveCount(1);
+});

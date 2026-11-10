@@ -13,6 +13,11 @@ export const CONFIRM_SCORE = 1.5;
 export const GENERATOR_WEIGHT = 0.75;
 /** A right answer where the misconception could have shown. */
 export const COUNTER_WEIGHT = 0.5;
+/**
+ * The last step of solving together: the student was just led through the steps, so a wrong number there weighs half
+ * an answer given alone (the two guided problems of a stair can never confirm a misconception by themselves).
+ */
+export const GUIDED_WEIGHT = 0.5;
 export const MAX_OFFERS_PER_DAY = 2;
 export const MAX_FAILED_VERIFY = 2;
 
@@ -36,13 +41,26 @@ export function slipOf(u: number, ans: number): Extract<Diagnosis, { kind: 'slip
   return null;
 }
 
+/**
+ * Does a typed answer match a value? A value that is not a whole number matches the answer rounded to tenths (as the
+ * questions ask), within half a tenth. A root a misconception predicts is kept exact (√1025 = 32.02…, not 32.0), so
+ * 32 and 32.02 both match it.
+ */
+export const matchesValue = (v: number, u: number) => same(v, u) || (Math.abs(v - Math.round(v)) > 1e-9 && Math.abs(v - u) <= 0.05 + 1e-9);
+
+/** Is a typed answer right? A rounded length is right within half a tenth of its exact value (as content/index.js isCorrect). */
+function isRight<P>(model: DiagModel<P>, p: P, u: number) {
+  const ex = model.exact?.(p);
+  if (ex != null && Math.abs(ex - Math.round(ex)) > 1e-9) return Math.abs(u - ex) <= 0.05 + 1e-9;
+  return same(u, model.answer(p));
+}
+
 /** Diagnose one answer to a DiagModel question with parameters p. */
 export function diagnose<P>(model: DiagModel<P>, p: P, u: number | null): Diagnosis {
   if (u == null || !Number.isFinite(u)) return { kind: 'unknown' };
   const ans = model.answer(p);
-  if (same(u, ans)) return { kind: 'right' };
-  // a prediction that is not a whole number matches the student's answer rounded to tenths (as questions ask)
-  const matches = (v: number) => same(v, u) || (!Number.isInteger(v) && Math.abs(v - u) <= 0.05 + 1e-9);
+  if (isRight(model, p, u)) return { kind: 'right' };
+  const matches = (v: number) => matchesValue(v, u);
   const hits = Object.entries(model.bugs)
     .map(([id, f]) => ({ id, v: f(p) }))
     .filter((b) => b.v != null && Number.isFinite(b.v) && !same(b.v, ans) && matches(b.v!))
@@ -86,7 +104,7 @@ export function discriminating<P>(model: DiagModel<P>, candidates: string[], rnd
 /** After the student answered a discriminating question: the candidates still consistent with that answer. */
 export function narrow<P>(model: DiagModel<P>, candidates: string[], p: P, u: number): string[] {
   const ans = model.answer(p);
-  return candidates.filter((c) => { const v = model.bugs[c]?.(p); return same(v == null || !Number.isFinite(v) ? ans : v, u); });
+  return candidates.filter((c) => { const v = model.bugs[c]?.(p); return matchesValue(v == null || !Number.isFinite(v) ? ans : v, u); });
 }
 
 const keyOf = (skill: SkillId, id: string) => `${skill}|${id}`;
@@ -123,11 +141,12 @@ export function startRepair(all: Record<string, MisconRecord>, skill: SkillId, i
 }
 
 /**
- * The verification after a remediation: VERIFY_N discriminating questions. Resolved when at least
- * VERIFY_NEED are right and the misconception did not show again; otherwise back to confirmed.
+ * The verification after a remediation: VERIFY_N questions, two where the misconception would show and one where it
+ * would not. Resolved when all of them are right (so it is not passed by a fixed answer or by luck) and the
+ * misconception did not show again; otherwise back to confirmed.
  */
 export const VERIFY_N = 3;
-export const VERIFY_NEED = 2;
+export const VERIFY_NEED = 3;
 export function finishVerify(all: Record<string, MisconRecord>, skill: SkillId, id: string, right: number, showedAgain: number, at: string): Record<string, MisconRecord> {
   const k = keyOf(skill, id); const r = all[k]; if (!r) return all;
   if (right >= VERIFY_NEED && showedAgain === 0) return { ...all, [k]: { ...r, state: 'resolved', score: 0, resolvedAt: at, at, failedVerify: 0 } };

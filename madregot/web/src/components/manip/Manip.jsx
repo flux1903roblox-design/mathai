@@ -1,6 +1,8 @@
 // The interactive maths object for an exercise with form 'manip'. The lesson holds its value;
 // content/manip.js checks it. Every object can be dragged, tapped, used with arrow keys or with step buttons.
 // Under it מדי describes what the student just did (never whether it is right: that is what "בדיקה" is for).
+// In a check or the placement test (`test`), nothing on screen tells the student the target is reached: the objects
+// hide their live readouts of the result, and מדי says nothing. Teaching and practice keep them.
 import NumberLine from './NumberLine.jsx';
 import PlotPoint from './PlotPoint.jsx';
 import LineBuilder from './LineBuilder.jsx';
@@ -71,15 +73,17 @@ function coach(it, v, touched) {
   }
 }
 
-export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood, hint }) {
+export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood, hint, test = false }) {
   const C = KINDS[item.manip.kind];
   if (!C) return null;
   return (
     <>
-      <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} />
-      <div className="manip-coach">
-        <p className="coach-say">{coach(item, value, touched)}</p>
-      </div>
+      <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} test={test && !reveal && !good} />
+      {!test && (
+        <div className="manip-coach">
+          <p className="coach-say">{coach(item, value, touched)}</p>
+        </div>
+      )}
     </>
   );
 }

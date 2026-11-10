@@ -90,9 +90,9 @@ const stair1: StairContent = {
   ],
   discover: [
     { kind: 'say', mood: 'happy', text: 'נתחיל בציר המספרים. כל מספר הוא מקום על הציר, וחיבור הוא תזוזה.' },
-    { kind: 'explore', text: 'מתחילים ב־$-2$ וחוברים $5$. הזיזו את הסמן 5 צעדים ימינה.', display: '-2 + 5', manip: nl(-2), answer: 3,
+    { kind: 'explore', text: 'מתחילים ב־$-2$ ומוסיפים $5$. הזיזו את הסמן 5 צעדים ימינה.', display: '-2 + 5', manip: nl(-2), answer: 3,
       hint: 'חיבור של מספר חיובי מזיז ימינה. ספרו 5 צעדים מ־$-2$.', success: 'נכון: $-2 + 5 = 3$. חיבור של מספר חיובי מזיז ימינה.' },
-    { kind: 'explore', text: 'עכשיו מתחילים ב־$4$ וחוברים $-6$. מספר שלילי מזיז שמאלה.', display: '4 + (-6)', manip: nl(4), answer: -2,
+    { kind: 'explore', text: 'עכשיו מתחילים ב־$4$ ומוסיפים $-6$. מספר שלילי מזיז שמאלה.', display: '4 + (-6)', manip: nl(4), answer: -2,
       hint: 'חיבור של מספר שלילי מזיז שמאלה. ספרו 6 צעדים מ־$4$.', success: '$4 + (-6) = -2$. חיבור של מספר שלילי מזיז שמאלה, ואפשר לעבור את האפס.' },
     { kind: 'say', text: 'ומה עם חיסור? חיסור הוא הפעולה ההפוכה לחיבור. חיבור של $3$ מזיז ימינה, אז חיסור של $3$ מזיז שמאלה.' },
     { kind: 'explore', text: '$1 - 4$: מתחילים ב־$1$ ומחסרים $4$.', display: '1 - 4', manip: nl(1), answer: -3,
@@ -162,7 +162,7 @@ const stair1: StairContent = {
         'בדיקה: $5 - (-3) = 8$, כי $8 + (-3) = 5$.',
       ],
       remedy: [
-        { kind: 'explore', text: 'קודם החיבור: מתחילים ב־$4$ וחוברים $-3$.', display: '4 + (-3)', manip: nl(4), answer: 1, hint: 'חיבור של שלילי מזיז שמאלה.', success: '$4 + (-3) = 1$: שלושה צעדים שמאלה.' },
+        { kind: 'explore', text: 'קודם החיבור: מתחילים ב־$4$ ומוסיפים $-3$.', display: '4 + (-3)', manip: nl(4), answer: 1, hint: 'חיבור של שלילי מזיז שמאלה.', success: '$4 + (-3) = 1$: שלושה צעדים שמאלה.' },
         { kind: 'explore', text: 'עכשיו ההפך: $4 - (-3)$. חיסור מבטל את החיבור, אז זזים לכיוון השני.', display: '4 - (-3)', manip: nl(4), answer: 7, hint: 'החיבור הזיז שמאלה 3. החיסור מזיז ימינה 3.', success: '$4 - (-3) = 7$. חיסור של שלילי מזיז ימינה.' },
         { kind: 'predict', text: 'המשיכו את הדפוס: $6 - 1 = 5$, $6 - 0 = 6$. מה הלאה?', display: '6 - (-1)', choices: ['$5$', '$7$', '$-7$'], answer: 1, why: 'המספר שמחסרים קטן ב־1, והתוצאה גדלה ב־1: $6 - (-1) = 7$.' },
       ] },
@@ -214,40 +214,60 @@ const mix = <X>(arr: X[], rnd: () => number): X[] => {
 /** Labelled markers to put on the line (the labels use the typographic minus, like the exercises). */
 const pins = (vals: number[], start: number[]) => ({ kind: 'pins' as const, min: -10, max: 10, labels: vals.map((v) => (v < 0 ? `−${-v}` : `${v}`)), start });
 const opTex = (s: number) => (s > 0 ? '+' : '-');
+/** Points in a story, with the number agreeing in Hebrew: "נקודה אחת", "$5$ נקודות". */
+const points = (n: number) => (n === 1 ? 'נקודה אחת' : `$${T(n)}$ נקודות`);
+const hadPoints = (who: string, n: number) => (n === 1 ? `${who} הייתה נקודה אחת` : `${who} היו $${T(n)}$ נקודות`);
 
 // ---------------------------------------------------------------- stair 2: comparing
 // The model: the place on the line. Right is bigger; among negatives the one closer to zero is bigger.
 
-type Cmp = { a: number; b: number };
+/**
+ * k 0: the largest of the numbers, k 1: the smallest. Five numbers in a question (two in a guided problem), with
+ * different distances from zero: picking one of the numbers shown is right only one time in five, so a check cannot be
+ * passed by typing a number from the question (src/learn/guessing.test.ts).
+ */
+type Cmp = { k: number; v: number[] };
+const negOf = (p: Cmp) => p.v.filter((x) => x < 0);
+const listMath = (a: number[]) => `⁦${a.map((v) => `$${T(v)}$`).join(', ')}⁩`;
 const compareModel: DiagModel<Cmp> = {
-  // mostly two negatives (the heart of the stair); then a negative against a smaller positive, or against zero
+  // mostly negatives only (the heart of the stair); then negatives with zero or a positive closer to zero than some of
+  // them; and some with a positive farther from zero than every negative
   params: (rnd) => {
-    const r = rnd();
-    if (r < 0.55) { const a = -rint(rnd, 1, 15); let b = a; while (b === a) b = -rint(rnd, 1, 15); return { a, b }; }
-    const n = r < 0.85 ? -rint(rnd, 3, 15) : -rint(rnd, 1, 12);
-    const o = r < 0.85 ? rint(rnd, 1, -n - 1) : 0;
-    return rnd() < 0.5 ? { a: n, b: o } : { a: o, b: n };
+    const k = rnd() < 0.5 ? 0 : 1;
+    for (;;) {
+      const r = rnd();
+      const neg = (lo: number, hi: number) => [1, 2, 3, 4].map(() => -rint(rnd, lo, hi));
+      const v = r < 0.55 ? [...neg(1, 15), -rint(rnd, 1, 15)] : r < 0.85 ? [...neg(3, 15), rint(rnd, 0, 9)] : [...neg(1, 9), rint(rnd, 10, 15)];
+      const far = Math.max(...v.map(Math.abs));
+      // five different distances from zero, and a small positive (or zero) always nearer to zero than some negative
+      if (new Set(v.map(Math.abs)).size === 5 && !(r >= 0.55 && r < 0.85 && v[4] >= far)) return { k, v: mix(v, rnd) };
+    }
   },
-  text: () => 'איזה מספר גדול יותר? כתבו אותו.',
-  display: (p) => `${T(p.a)} \\qquad ${T(p.b)}`,
-  answer: (p) => Math.max(p.a, p.b),
+  // the numbers in the sentence, one expression each inside a left-to-right isolate: they keep their order in Hebrew,
+  // and a narrow phone wraps the list between numbers (five do not fit one line of display maths at 320px)
+  text: (p) => `מה המספר ${p.k === 0 ? 'הגדול' : 'הקטן'} ביותר מבין ${listMath(p.v)}?`,
+  answer: (p) => (p.k === 0 ? Math.max(...p.v) : Math.min(...p.v)),
   bugs: {
-    // between two negatives, the one farther from zero taken for the bigger
-    'neg-compare': (p) => (p.a < 0 && p.b < 0 ? Math.min(p.a, p.b) : null),
-    // the minus ignored altogether: the bigger distance from zero wins, even against zero or a positive number
-    'ignore-sign': (p) => (Math.abs(p.a) > Math.abs(p.b) ? p.a : p.b),
+    // among negatives, the one farther from zero taken for the bigger: the "largest" of negatives only is then the one
+    // farthest from zero, and the "smallest" negative the one closest to it (a positive or zero is still bigger)
+    'neg-compare': (p) => { const n = negOf(p); if (n.length < 2) return null; return p.k === 0 ? (n.length === p.v.length ? Math.min(...n) : null) : Math.max(...n); },
+    // the minus ignored altogether: sizes compared, even against zero or a positive number
+    'ignore-sign': (p) => { const byAbs = [...p.v].sort((x, y) => Math.abs(x) - Math.abs(y)); return p.k === 0 ? byAbs[byAbs.length - 1] : byAbs[0]; },
   },
   solution: (p) => {
-    const hi = Math.max(p.a, p.b); const lo = Math.min(p.a, p.b);
-    const first = hi < 0
-      ? `שני המספרים שליליים. $${T(hi)}$ קרוב יותר לאפס, ולכן הוא ימינה יותר על הציר.`
-      : hi === 0 ? `$${T(lo)}$ נמצא משמאל לאפס, ואפס גדול מכל מספר שלילי.`
-        : `$${T(lo)}$ נמצא משמאל לאפס ו־$${T(hi)}$ מימינו. כל מספר חיובי גדול מכל מספר שלילי.`;
-    return [first, `על הציר $${T(lo)}$ משמאל ל־$${T(hi)}$, ולכן $${T(hi)} > ${T(lo)}$.`, `הגדול הוא $${T(hi)}$.`];
+    const s = [...p.v].sort((x, y) => x - y);
+    const ans = p.k === 0 ? s[s.length - 1] : s[0];
+    return [
+      negOf(p).length === p.v.length
+        ? 'כל המספרים שליליים. על הציר מי שקרוב יותר לאפס נמצא ימינה יותר, ולכן הוא גדול יותר.'
+        : 'השליליים נמצאים משמאל לאפס, ולכן הם קטנים מאפס ומכל מספר חיובי. ביניהם, הקרוב יותר לאפס גדול יותר.',
+      `מהקטן לגדול, כמו משמאל לימין על הציר: $${s.map((x) => T(x)).join(' < ')}$.`,
+      `${p.k === 0 ? 'הגדול ביותר' : 'הקטן ביותר'} הוא $${T(ans)}$.`,
+    ];
   },
-  hint: (p) => (p.a < 0 && p.b < 0
-    ? 'שני המספרים שליליים. מי מהם קרוב יותר לאפס? הוא נמצא ימינה יותר, ולכן הוא הגדול.'
-    : 'מספר שלילי נמצא משמאל לאפס, ולכן הוא קטן מאפס ומכל מספר חיובי.'),
+  hint: (p) => (p.k === 0
+    ? 'הגדול ביותר הוא הימני ביותר על ציר המספרים. בין מספרים שליליים, הקרוב יותר לאפס גדול יותר.'
+    : 'הקטן ביותר הוא השמאלי ביותר על ציר המספרים. בין מספרים שליליים, הרחוק יותר מאפס קטן יותר.'),
 };
 
 type Temps = { k: number; v: number[] }; // k = 0: the coldest of three mornings; k = 1: the highest of three divers
@@ -260,7 +280,7 @@ const tempsModel: DiagModel<Temps> = {
     }
   },
   text: (p) => (p.k === 0
-    ? `שלושה בקרים בחרמון: ביום ראשון נמדדו $${T(p.v[0])}$ מעלות, ביום שני $${T(p.v[1])}$ מעלות וביום שלישי $${T(p.v[2])}$ מעלות. מה הייתה הטמפרטורה הנמוכה ביותר?`
+    ? `בחרמון מדדו את הטמפרטורה בשלושה בקרים: ביום ראשון $${T(p.v[0])}^\\circ$, ביום שני $${T(p.v[1])}^\\circ$ וביום שלישי $${T(p.v[2])}^\\circ$. מה הייתה הטמפרטורה הנמוכה ביותר?`
     : `שלושה צוללנים נמצאים מתחת לפני הים, בגבהים $${T(p.v[0])}$, $${T(p.v[1])}$ ו־$${T(p.v[2])}$ מטר (מתחת לפני הים הגובה שלילי). מה הגובה של הצוללן שנמצא הכי גבוה?`),
   answer: (p) => (p.k === 0 ? Math.min(...p.v) : Math.max(...p.v)),
   bugs: {
@@ -671,8 +691,8 @@ const quizValue = (p: Quiz) => (p.k === 0 ? p.s - p.w * p.q : p.s + p.w * p.q);
 const quizModel: DiagModel<Quiz> = {
   params: (rnd) => { const k = rnd() < 0.5 ? 0 : 1; return { k, s: k === 0 ? rint(rnd, -10, 20) : rint(rnd, -20, 10), w: rint(rnd, 2, 6), q: rint(rnd, 2, 5) }; },
   text: (p) => (p.k === 0
-    ? `בחידון כל תשובה שגויה מורידה $${p.q}$ נקודות. לדנה היו $${T(p.s)}$ נקודות, ואז היא טעתה ב־$${p.w}$ שאלות. כמה נקודות יש לה עכשיו?`
-    : `בחידון כל תשובה שגויה מורידה $${p.q}$ נקודות. לדנה היו $${T(p.s)}$ נקודות. אחר כך התברר ש־$${p.w}$ טעויות נרשמו לה בטעות, והן בוטלו. כמה נקודות יש לה עכשיו?`),
+    ? `בחידון כל תשובה שגויה מורידה $${p.q}$ נקודות. ${hadPoints('לדנה', p.s)}, ואז היא טעתה ב־$${p.w}$ שאלות. כמה נקודות יש לה עכשיו?`
+    : `בחידון כל תשובה שגויה מורידה $${p.q}$ נקודות. ${hadPoints('לדנה', p.s)}. אחר כך התברר ש־$${p.w}$ טעויות נרשמו לה בטעות, והן בוטלו. כמה נקודות יש לה עכשיו?`),
   answer: quizValue,
   bugs: {
     order: (p) => (p.k === 0 ? (p.s + p.w) * -p.q : (p.s - p.w) * -p.q),
@@ -685,7 +705,7 @@ const quizModel: DiagModel<Quiz> = {
     const prod = -p.w * p.q; const ans = quizValue(p);
     return p.k === 0
       ? [`כל טעות היא $${T(-p.q)}$ נקודות: $${T(p.s)} + ${p.w} \\cdot ${T(-p.q, true)}$.`, `קודם הכפל: $${p.w} \\cdot ${T(-p.q, true)} = ${T(prod)}$.`, `עכשיו: $${T(p.s)} + ${T(prod, true)} = ${T(ans)}$ נקודות.`]
-      : [`ביטול הוא חיסור של מה שנרשם: $${T(p.s)} - ${p.w} \\cdot ${T(-p.q, true)}$.`, `קודם הכפל: $${p.w} \\cdot ${T(-p.q, true)} = ${T(prod)}$.`, `חיסור של שלילי הוא חיבור: $${T(p.s)} + ${p.w * p.q} = ${T(ans)}$ נקודות.`];
+      : [`ביטול הוא חיסור של מה שנרשם: $${T(p.s)} - ${p.w} \\cdot ${T(-p.q, true)}$.`, `קודם הכפל: $${p.w} \\cdot ${T(-p.q, true)} = ${T(prod)}$.`, `חיסור של שלילי הוא חיבור: $${T(p.s)} + ${p.w * p.q} = ${T(ans)}$ ${ans === 1 ? 'נקודה' : 'נקודות'}.`];
   },
   hint: (p) => (p.k === 0 ? 'כמה נקודות הורידו כל הטעויות יחד? זה כפל, ומחשבים אותו קודם.' : 'ביטול של טעות מחזיר את הנקודות שהיא הורידה. כמה נקודות הורידו כל הטעויות האלה יחד?'),
 };
@@ -889,7 +909,7 @@ const groupsModel: DiagModel<Groups> = {
   },
   text: (p) => (p.k === 0
     ? `בחשבון הבנק של נועה היו $${p.a}$ ₪. הבנק גילה ששתי פעולות נרשמו בטעות, וביטל את שתיהן: הפקדה של $${p.b}$ ₪ ומשיכה של $${p.c}$ ₪. כמה כסף יש בחשבון עכשיו?`
-    : `במשחק היו לרון $${T(p.a)}$ נקודות. אחר כך הוא שיחק $${p.n}$ סיבובים, ובכל סיבוב קיבל $${p.b}$ נקודות והפסיד $${p.c}$ נקודות. כמה נקודות יש לו עכשיו?`),
+    : `במשחק ${hadPoints('לרון', p.a)}. אחר כך הוא שיחק $${p.n}$ סיבובים, ובכל סיבוב קיבל ${points(p.b)} והפסיד ${points(p.c)}. כמה נקודות יש לו עכשיו?`),
   answer: groupsValue,
   bugs: {
     // cancelling the pair: the deposit taken away, the withdrawal taken away too
@@ -936,7 +956,7 @@ const stair5: StairContent = {
       choices: ['כן, אותם מספרים', 'לא: $14$ ו־$20$', 'לא: $20$ ו־$14$'], answer: 1,
       why: 'בלי סוגריים הכפל קודם: $2 + 12 = 14$. הסוגריים משנים את הסדר: קודם $2 + 3 = 5$, ואז $5 \\cdot 4 = 20$.',
       wrongWhy: { 0: 'הסדר משנה: בלי סוגריים מכפילים רק את $3$, ועם סוגריים מכפילים את כל החבילה $2 + 3$.', 2: 'בלי סוגריים הכפל קודם, ולכן $2 + 3 \\cdot 4 = 2 + 12$.' } },
-    { kind: 'explore', text: 'ב־$(-7 + 3) \\cdot (-2)$ מתחילים במה שבסוגריים. מתחילים ב־$-7$ וחוברים $3$.', display: '-7 + 3', manip: nl(-7), answer: -4,
+    { kind: 'explore', text: 'ב־$(-7 + 3) \\cdot (-2)$ מתחילים במה שבסוגריים. מתחילים ב־$-7$ ומוסיפים $3$.', display: '-7 + 3', manip: nl(-7), answer: -4,
       hint: 'חיבור של $3$ מזיז ימינה 3.', success: 'מה שבסוגריים שווה $-4$. עכשיו הוא מספר אחד.' },
     { kind: 'predict', text: 'הסוגריים שווים $-4$, ולכן $(-7 + 3) \\cdot (-2) = (-4) \\cdot (-2)$. כמה זה?', display: '(-7 + 3) \\cdot (-2)', choices: ['$8$', '$-8$', '$-13$'], answer: 0,
       why: 'שלילי כפול שלילי יוצא חיובי: $(-4) \\cdot (-2) = 8$.',

@@ -49,6 +49,30 @@ describe('generators', () => {
 });
 
 // Found by the full check of every exercise (November 2026): each case stays fixed.
+describe('worked solutions are written as a textbook writes them', () => {
+  it('no "1x", no "+ 0" and no fraction over 1 in the linear-function solutions and hints', () => {
+    for (const level of [1, 6, 8]) {
+      for (let r = 0; r < 400; r += 1) {
+        const it = makeItem('line', level);
+        const text = [...it.solution, it.hint].join(' ');
+        expect(text, it.key).not.toMatch(/(^|[^\d.])1x/);
+        expect(text, it.key).not.toMatch(/[+-] 0(?![\d.])/);
+        expect(text, it.key).not.toMatch(/\\frac\{[^}]*\}\{1\}/);
+      }
+    }
+  });
+  it('every point a figure draws is on its grid', () => {
+    TOPICS.forEach((t) => t.levels.forEach((_, i) => {
+      for (let r = 0; r < 300; r += 1) {
+        const it = makeItem(t.id, i + 1); const f = it.fig;
+        if (!f || f.type !== 'coord') continue;
+        const pts = [...(f.points || []).map((q) => [q.x, q.y]), ...(f.polygon || []), ...(f.segments || []).flat()];
+        pts.forEach(([x, y]) => expect(Math.abs(x) <= f.range && Math.abs(y) <= f.range, `${it.key}: (${x}, ${y})`).toBe(true));
+      }
+    }));
+  });
+});
+
 describe('worked solutions say what happened', () => {
   const many = (topic, level, n = 2000) => Array.from({ length: n }, () => makeItem(topic, level));
   it('equal numbers are not "to the left" of each other', () => {
@@ -67,10 +91,17 @@ describe('worked solutions say what happened', () => {
       if (it.form === 'pt') expect(Math.max(Math.abs(it.answer[0]), Math.abs(it.answer[1])), it.key).toBeLessThanOrEqual(6);
     }
   });
-  it('"is it right-angled?" always asks about sides that make a triangle', () => {
+  it('"is it right-angled?" always asks about sides that make a triangle, and its answer is the one the sides give', () => {
+    const right = (s) => { const [p, q, r] = [...s].sort((a, b) => a - b); return p * p + q * q === r * r; };
     for (const it of many('pyth', 3)) {
-      const s = it.key.split(':').slice(1).map(Number).sort((a, b) => a - b);
-      expect(s[0] + s[1] > s[2], it.key).toBe(true);
+      const sets = it.key.split(':')[1].split(';').map((x) => x.split(',').map(Number));
+      expect(sets, it.key).toHaveLength(4);
+      sets.forEach((s) => { const [p, q, r] = [...s].sort((a, b) => a - b); expect(p + q > r && q < r, it.key).toBe(true); });
+      if (it.key.startsWith('py3w:')) {
+        // which one is right-angled: exactly the answer's triangle, or none of them (the fifth choice)
+        expect(sets.filter(right).length, it.key).toBe(it.answer === 4 ? 0 : 1);
+        if (it.answer < 4) expect(right(sets[it.answer]), it.key).toBe(true);
+      } else expect(sets.filter(right).length, it.key).toBe(it.answer); // how many are right-angled
     }
   });
   it('setting the last bar to the mean is "wrote the mean", not "forgot to divide"', () => {
@@ -83,13 +114,26 @@ describe('worked solutions say what happened', () => {
 });
 
 describe('math checks', () => {
-  it('pythagoras answers satisfy a^2 + b^2 = c^2', () => {
+  it('pythagoras answers satisfy a^2 + b^2 = c^2: whole, or a root that is not whole rounded to tenths, or its estimate', () => {
+    let roots = 0;
     for (let r = 0; r < RUNS; r++) {
       const h = makeItem('pyth', 1);
       if (h.form === 'manip') expect(h.answer.a ** 2 + h.answer.b ** 2).toBe(h.answer.c ** 2);
-      else { const { a, b } = h.fig; expect(a * a + b * b).toBe(h.answer * h.answer); }
-      const l = makeItem('pyth', 2); expect(l.fig.a ** 2 + l.answer ** 2).toBe(l.fig.c ** 2);
+      else if (h.key.startsWith('py1e:')) {
+        // between which two whole numbers: the smaller one
+        const { a, b } = h.fig; const n = a * a + b * b;
+        expect(h.answer ** 2 < n && (h.answer + 1) ** 2 > n, h.key).toBe(true);
+      } else {
+        const { a, b } = h.fig;
+        expect(h.exact ** 2).toBeCloseTo(a * a + b * b, 9);
+        expect(Math.abs(h.answer - h.exact)).toBeLessThanOrEqual(0.05);
+        if (Number.isInteger(h.exact)) expect(h.answer).toBe(h.exact); else { roots += 1; expect(h.answer).toBe(Math.round(h.exact * 10) / 10); }
+      }
+      const l = makeItem('pyth', 2);
+      expect(l.fig.a ** 2 + l.exact ** 2).toBeCloseTo(l.fig.c ** 2, 9);
+      expect(Math.abs(l.answer - l.exact)).toBeLessThanOrEqual(0.05);
     }
+    expect(roots).toBeGreaterThan(0); // the roots that are not whole really come up
   });
   const pointsIn = (text) => [...text.matchAll(/\((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\)/g)].map((m) => [Number(m[1]), Number(m[2])]);
   const lineIn = (text) => { const m = text.match(/= (-?\d*)x(?: ([+-]) (\d+))?/); if (!m) return null; const k = m[1] === '' ? 1 : m[1] === '-' ? -1 : Number(m[1]); return { m: k, b: m[2] ? (m[2] === '-' ? -1 : 1) * Number(m[3]) : 0 }; };

@@ -113,6 +113,9 @@ a { color: var(--brand-d); }
 .node-mastered { --face-c: var(--gold); --edge: var(--gold-d); color: #5c3d00; }
 .node-mastered::after { content: none; }
 .node-locked { --face-c: #e9ecf1; --edge: #d3d8e0; color: #9aa1ac; }
+/* passed over by a placement or jump test: open, not done, its mastery check waiting */
+.node-open { --face-c: #fff; --edge: var(--rule-press); color: var(--brand); box-shadow: inset 0 0 0 3px var(--brand-line), 0 var(--lip) 0 var(--edge); }
+.node-open:active { box-shadow: inset 0 0 0 3px var(--brand-line), 0 0 0 var(--edge); }
 .node:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 6px; }
 .node-anchor.is-current { animation: none; }
 .node-halo { display: none; }
@@ -193,6 +196,9 @@ a { color: var(--brand-d); }
 .done-screen { background: #fff; }
 .done-title { font-family: var(--font-ui); font-size: 32px; line-height: 38px; font-weight: 800; color: var(--ink); }
 .climb-caption { color: var(--ink-2); font-size: 16px; font-weight: 600; }
+/* after practice: the stair counts once its mastery check is passed */
+.climb-next { margin: 0 auto; max-width: 32ch; color: var(--ink-2); font-size: 15px; line-height: 22px; text-wrap: balance; }
+@media (max-height: 600px) { .done-screen .done-hero { min-height: 128px; } }
 .stat { border-width: 2px; border-radius: 16px; background: #fff; }
 .stat-label { font-family: var(--font-ui); font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .stat-value { font-family: var(--font-ui); font-weight: 800; font-size: 22px; }
@@ -497,3 +503,48 @@ a { color: var(--brand-d); }
 /* a row that opens another screen: its name, then a chevron at the far end */
 a.set-row { justify-content: space-between; gap: var(--s3); color: var(--ink); text-decoration: none; }
 a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
+/* ------------------------------------------------------------------ a teaching stage done (lighter than a lesson's end) */
+/* מדי, the stage, the stair's five stages with this one filled, what it earned as quiet pills, what comes next */
+.stage-done .done-hero { min-height: 128px; }
+.stage-done-head { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.stage-done-title { font-size: 30px; line-height: 36px; }
+.stage-done-label { margin: 0; font-size: 15px; line-height: 22px; font-weight: 500; color: var(--ink-2); text-wrap: balance; }
+.stage-done-climb { width: min(100%, 300px); display: flex; flex-direction: column; align-items: stretch; gap: var(--s2); }
+.stage-done-climb .climb-caption { margin: 0; text-align: center; }
+.stage-done-next { margin: 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px var(--s3); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: #fff; color: var(--ink); font-size: 17px; line-height: 24px; }
+.stage-done-next b { font-weight: 700; }
+.stage-done-min { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-2); font-size: 15px; }
+.stage-done-min svg { color: var(--ink-2); }
+@media (max-height: 640px) { .stage-done .done-hero { min-height: 96px; } .stage-done-title { font-size: 26px; line-height: 32px; } }
+
+/* the unit header's thin bar: every stage of every stair in the unit, so it moves from the first stage */
+.unit-bar { flex: none; position: relative; height: 6px; margin-top: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.32); overflow: hidden; }
+.unit-bar > i { position: absolute; inset-block: 0; inset-inline-start: 0; border-radius: 999px; background: #fff; transition: width var(--duration-slow, 0.4s) ease-out; }
+@media (prefers-reduced-motion: reduce) { .unit-bar > i { transition: none; } }
+
+/* the topics screen: the stair a unit is on now, under its bar; one board under the units (tiles, words, gaps) */
+.section-card-now { margin: 0; font-size: 15px; line-height: 22px; font-weight: 500; color: var(--ink-2); }
+.board .board-topic { padding-top: var(--s3); }
+.board .board-topic > .board-cleared:first-child { margin-top: 0; }
+.board .mastery-map { border-radius: 16px; }
+
+/* settings: the adult-facing "מתקדם" screen says who it is for, under the bar */
+.set-adult-note { margin: var(--s4) 0 0; padding: var(--s3) var(--s4); border-radius: 16px; background: var(--ground); color: var(--ink); font-size: 16px; line-height: 24px; }
+
+/* teaching drawings (Figure type "geo"): the brand for what the text points at, quiet ink for the rest; type a step
+   larger than the old figures so labels stay readable on a small phone */
+.figure.geo { max-width: 340px; }
+.geo .fg-pt-label { font-size: 19px; }
+.geo .fg-side { font-size: 18px; }
+.geo .fg-side.target { font-size: 20px; }
+.geo .fg-angle { font-size: 17px; }
+.geo .fg-angle.target { font-size: 19px; }
+.fg-math { font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 20px; }
+.fg-word { fill: var(--ink-2); font-size: 16px; font-weight: 600; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fg-ray.hi { stroke: var(--brand); stroke-width: 3; }
+.fg-sq { fill: color-mix(in srgb, var(--brand) 10%, transparent); stroke: var(--brand); stroke-width: 1.5; stroke-linejoin: round; }
+.fg-sq.hi { fill: color-mix(in srgb, var(--brand) 22%, transparent); stroke-width: 2.5; }
+.fg-sq-text { fill: var(--brand-d); font-size: 18px; font-weight: 800; }
+.fg-move { stroke: var(--brand); stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
+.fg-move-head { fill: var(--brand); }
+@media (max-height: 700px) { .lm-fig .figure.geo { max-height: 34dvh; } }

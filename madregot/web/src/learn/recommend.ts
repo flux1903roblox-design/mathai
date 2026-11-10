@@ -10,7 +10,7 @@ import { contentOf } from './content/index';
 // @ts-ignore: plain JS
 import { TOPIC } from '@/content/index.js';
 // @ts-ignore: plain JS
-import { doneUpTo } from '@/lib/path.js';
+import { reachedUpTo, isKept } from '@/lib/path.js';
 
 export interface Context {
   learn: LearnState;
@@ -31,7 +31,7 @@ export const MINUTES: Record<Action['kind'], number> = { exam: 5, repair: 3, rev
 /** The five stages of a stair, as the student sees them. */
 export const STAGE_NAME: Record<Stage, string> = { A: 'מבינים את הרעיון', B: 'דוגמה פתורה', C: 'פותרים יחד', D: 'תרגול', E: 'בדיקת שליטה' };
 export const STAGE_N: Record<Stage, number> = { A: 1, B: 2, C: 3, D: 4, E: 5 };
-const STAGE_MIN: Record<Stage, number> = { A: 5, B: 3, C: 4, D: 5, E: 3 };
+export const STAGE_MIN: Record<Stage, number> = { A: 5, B: 3, C: 4, D: 5, E: 3 };
 
 export const routeOf = {
   journey: (id: SkillId) => { const { topic, level } = parseSkill(id); return `/learn/${topic}/${level}`; },
@@ -57,7 +57,7 @@ export function states(ctx: Context): Record<SkillId, MasteryState> {
 /** Passed on the map already (a finished stair on the path, or the older ladder). */
 function onPath(ctx: Context, id: SkillId) {
   const { topic, level } = parseSkill(id);
-  try { return level <= doneUpTo(topic, ctx.path || {}, ctx.progress || {}); } catch { return false; }
+  try { return level <= reachedUpTo(topic, ctx.path || {}); } catch { return false; }
 }
 
 /** Does the evidence say this skill is missing? Only evidence counts: no data about an earlier grade is not a gap. */
@@ -145,6 +145,9 @@ export function nextActions(ctx: Context): Action[] {
     const why = prereqsOf(fresh).length ? `מה שצריך בשבילה כבר אצלכם (${prereqsOf(fresh).map(titleOf).join(', ')}).` : `המדרגה הבאה ב${topicTitleOf(fresh)}.`;
     add({ kind: 'new', skill: fresh, stage: sg, title: `${STAGE_NAME[sg]}: ${titleOf(fresh)}`, reason: `מדרגה חדשה, שלב ${STAGE_N[sg]} מתוך 5. ${why}`, minutes: STAGE_MIN[sg], to: routeOf.stage(fresh, sg) });
   }
+  // 7. a stair done before mastery checks existed: it stays done, and its mastery check is offered
+  const kept = gradeSkills.find((id) => { const { topic, level } = parseSkill(id); return st[id] !== 'mastered' && st[id] !== 'needs-review' && isKept(ctx.path || {}, topic, level); });
+  if (kept) add({ kind: 'mastery', skill: kept, stage: 'E', title: `בדיקת שליטה: ${titleOf(kept)}`, reason: 'המדרגה הושלמה לפני שהיו בדיקות שליטה. חמש שאלות בלי רמזים יראו שזה נשאר.', minutes: MINUTES.mastery, to: routeOf.check(kept, 'mastery') });
   // when everything in the grade is mastered: the earliest mastered stair, for a stronger memory
   if (!out.length) {
     const any = gradeSkills.find((id) => st[id] === 'mastered');

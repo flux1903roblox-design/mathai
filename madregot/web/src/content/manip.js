@@ -3,7 +3,7 @@
 //
 // kinds and the value each one holds:
 //   numberline  a whole number on a number line            answer: the number
-//   plot        a point [x, y] on the grid                 answer: [x, y], or any point in manip.quadrant
+//   plot        a point [x, y] on the grid                 answer: [x, y], or any point in manip.quadrant (with manip.fixX / fixY: on that line)
 //   line        a line {m, b} built from two handles       answer: {m, b}
 //   angle       the turning ray's angle ∠AOB in degrees    answer: degrees
 //   squares     the legs {a, b} of a right triangle        answer: {c} (any whole a, b with a² + b² = c²)
@@ -21,7 +21,7 @@ export function manipCorrect(it, u) {
   const m = it.manip; const a = it.answer;
   switch (m.kind) {
     case 'numberline': case 'angle': case 'bars': return u === a;
-    case 'plot': return m.quadrant ? quadOf(u) === m.quadrant : u[0] === a[0] && u[1] === a[1];
+    case 'plot': return m.quadrant ? quadOf(u) === m.quadrant && (m.fixX == null || u[0] === m.fixX) && (m.fixY == null || u[1] === m.fixY) : u[0] === a[0] && u[1] === a[1];
     case 'line': return near(u.m, a.m, 1e-9) && near(u.b, a.b, 1e-9);
     case 'squares': return Number.isInteger(u.a) && Number.isInteger(u.b) && u.a * u.a + u.b * u.b === a.c * a.c;
     case 'pins': return Array.isArray(u) && u.length === a.length && u.every((v, i) => v === a[i]);
@@ -63,7 +63,7 @@ export function manipPlain(it) {
   const m = it.manip;
   switch (m.kind) {
     case 'numberline': return `[ציר מספרים מ־${m.min} עד ${m.max}; מזיזים סמן מהנקודה ${m.from}]`;
-    case 'plot': return m.quadrant ? `[מערכת צירים; שמים נקודה ב${QUAD_NAMES[m.quadrant]}]` : m.line ? `[מערכת צירים עם הישר; שמים עליו את הנקודה שבה x = ${it.answer[0]}]` : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]` : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;
+    case 'plot': return m.quadrant ? `[מערכת צירים; שמים נקודה ב${QUAD_NAMES[m.quadrant]}${m.fixX != null ? ` שה־x שלה ${m.fixX}` : m.fixY != null ? ` שה־y שלה ${m.fixY}` : ''}]` : m.line ? `[מערכת צירים עם הישר; שמים עליו את הנקודה שבה x = ${it.answer[0]}]` : m.shape ? `[מערכת צירים; הקודקודים ${m.shape.map((q) => `${q.label}(${q.at.join(', ')})`).join(', ')}; שמים את הקודקוד ${m.label}]` : `[מערכת צירים; שמים את הנקודה ${m.label || ''}]`;
     case 'line': return '[מערכת צירים; בונים ישר בעזרת שתי נקודות: החיתוך עם ציר y וצעד אחד ימינה]';
     case 'angle': return `[קו ישר וקרן מסתובבת; הזווית הצמודה צריכה להיות ${m.target}°]`;
     case 'squares': return `[משולש ישר־זווית עם ריבועים על הצלעות; שטח הריבוע על היתר צריך להיות ${it.answer.c * it.answer.c}]`;
@@ -87,7 +87,7 @@ export function manipWrong(it) {
     case 'numberline': return a < m.max ? a + 1 : a - 1;
     case 'angle': return a < 175 ? a + 5 : a - 5;
     case 'bars': return a < m.max ? a + 1 : a - 1;
-    case 'plot': return m.quadrant ? [-a[0], a[1]] : [a[0] < (m.range || 6) ? a[0] + 1 : a[0] - 1, a[1]];
+    case 'plot': return m.quadrant ? (m.fixX != null ? [a[0], -a[1]] : [-a[0], a[1]]) : [a[0] < (m.range || 6) ? a[0] + 1 : a[0] - 1, a[1]];
     case 'line': { const r = m.range || 6; return Math.abs(a.b + a.m + 1) <= r && a.m + 1 !== 0 ? { m: a.m + 1, b: a.b } : { m: a.m - 1, b: a.b }; }
     case 'squares': return { a: a.a, b: a.b + 1 };
     case 'pins': return a.map((v, i) => (i === 0 ? (v < m.max ? v + 1 : v - 1) : v));

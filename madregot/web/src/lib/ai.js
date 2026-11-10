@@ -25,7 +25,7 @@ async function personalClient() {
 function personalError(e) {
   if (e?.code === 'refusal' || e?.code === 'bad_output') return new ApiError(e.code);
   const s = e?.status;
-  if (s === 401 || s === 403) return Object.assign(new ApiError('server_key'), { message: 'מפתח ה־Claude ששמרתם לא תקין. בדקו אותו במסך "אני".' });
+  if (s === 401 || s === 403) return Object.assign(new ApiError('server_key'), { message: 'מפתח ה־Claude ששמרתם לא תקין. בדקו אותו בהגדרות, בחלק "מתקדם".' });
   if (s === 429 || s === 529) return new ApiError('busy');
   if (!s) return new ApiError('network');
   return new ApiError('upstream');

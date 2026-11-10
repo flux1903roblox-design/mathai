@@ -32,13 +32,16 @@ const pins = (labels: number[], start: number[]) => ({ kind: 'pins' as const, mi
 type ListP = { list: number[] };
 
 const modeModel: DiagModel<ListP> = {
-  // seven or nine values; one repeats three or four times, every other value at most twice; the largest is never the mode
+  // 13 or 15 values; one repeats three times, every other value at most twice and at least two of them twice (a close
+  // race); the largest is never the mode. A value picked from the list at random is the mode only about one time in
+  // five, so a check is not passed by copying a number from the question (src/learn/guessing.test.ts)
   params: (rnd) => {
     for (;;) {
-      const n = rpick(rnd, [7, 9]); const c = rint(rnd, 3, 4); const m = rint(rnd, 2, 14);
+      const n = rpick(rnd, [13, 15]); const c = 3; const m = rint(rnd, 2, 14);
       const arr: number[] = Array(c).fill(m);
       while (arr.length < n) { const v = rint(rnd, 1, 15); if (v !== m && countOf(arr, v) < 2) arr.push(v); }
-      if (Math.max(...arr) === m || c === m) continue;
+      const twice = [...new Set(arr)].filter((v) => countOf(arr, v) === 2).length;
+      if (Math.max(...arr) === m || c === m || twice < 2) continue;
       return { list: shuffle(arr, rnd) };
     }
   },

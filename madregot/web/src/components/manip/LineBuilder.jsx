@@ -21,7 +21,8 @@ const lineTexColored = ({ m, b }) => {
   return `y = ${mm}${b === 0 ? '' : b > 0 ? ` + ${bb(b)}` : ` - ${bb(-b)}`}`;
 };
 
-export default function LineBuilder({ m: spec, value, onChange, locked, reveal, good, answer, hint }) {
+/** test: in a check, the equation of the line built so far (the target, once reached) is not written out. */
+export default function LineBuilder({ m: spec, value, onChange, locked, reveal, good, answer, hint, test = false }) {
   const g = gridGeometry(spec.range || 6);
   const { r, X, Y } = g;
   const { m, b } = value;
@@ -44,8 +45,8 @@ export default function LineBuilder({ m: spec, value, onChange, locked, reveal, 
   const showGhost = reveal && answer && (answer.m !== m || answer.b !== b);
   return (
     <div className={`manip manip-line ${good ? 'good' : ''}`}>
-      <div className="manip-readout" aria-live="polite"><Tex tex={lineTexColored(value)} /></div>
-      <svg ref={ref} {...drag} viewBox={`0 0 ${g.size} ${g.size}`} className="manip-canvas" dir="ltr" role="img" aria-label={`הישר ${lineTex(value)}`}>
+      {!test && <div className="manip-readout" aria-live="polite"><Tex tex={lineTexColored(value)} /></div>}
+      <svg ref={ref} {...drag} viewBox={`0 0 ${g.size} ${g.size}`} className="manip-canvas" dir="ltr" role="img" aria-label={test ? 'ישר עם שתי נקודות לגרירה' : `הישר ${lineTex(value)}`}>
         <defs><clipPath id="lb-clip"><rect x={X(-r - 0.5)} y={Y(r + 0.5)} width={(2 * r + 1) * g.c} height={(2 * r + 1) * g.c} /></clipPath></defs>
         <Plane g={g}>
           {hint && (

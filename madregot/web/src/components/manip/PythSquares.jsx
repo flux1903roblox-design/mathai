@@ -11,7 +11,8 @@ function shapes(a, b) {
   return { sqA, sqB, sqC, box: { x0: -b, x1: a + b, y0: -a, y1: a + b } };
 }
 
-export default function PythSquares({ m, value, onChange, locked, reveal, good, answer, hint }) {
+/** test: in a check, the square on the hypotenuse shows "?" and nothing marks the target as reached. */
+export default function PythSquares({ m, value, onChange, locked, reveal, good, answer, hint, test = false }) {
   const { a, b } = value; const max = m.max || 12;
   const [frozen, setFrozen] = useState(null); // the frame stays still while dragging
   const which = useRef('a');
@@ -31,22 +32,26 @@ export default function PythSquares({ m, value, onChange, locked, reveal, good, 
   const target = answer.c * answer.c; const sum = a * a + b * b;
   return (
     <div className={`manip manip-squares ${good ? 'good' : ''}`}>
-      <div className="manip-readout" aria-live="polite" dir="ltr">
-        <span className="sq-a">{a}²</span> + <span className="sq-b">{b}²</span> = <span className="sq-a">{a * a}</span> + <span className="sq-b">{b * b}</span> = <b className="sq-c">{sum}</b>
-        <span className="manip-target" dir="rtl">יעד {target}</span>
-      </div>
+      {test ? (
+        <div className="manip-readout" dir="ltr"><span className="sq-a">{a}²</span> + <span className="sq-b">{b}²</span> = <b className="sq-c">?</b><span className="manip-target" dir="rtl">יעד {target}</span></div>
+      ) : (
+        <div className="manip-readout" aria-live="polite" dir="ltr">
+          <span className="sq-a">{a}²</span> + <span className="sq-b">{b}²</span> = <span className="sq-a">{a * a}</span> + <span className="sq-b">{b * b}</span> = <b className="sq-c">{sum}</b>
+          <span className="manip-target" dir="rtl">יעד {target}</span>
+        </div>
+      )}
       <svg ref={ref} {...drag} viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} className="manip-canvas" dir="ltr" role="img"
-        aria-label={`משולש ישר־זווית עם ניצבים ${a} ו־${b}. ריבוע על היתר בשטח ${sum}`}>
+        aria-label={test ? `משולש ישר־זווית עם ניצבים ${a} ו־${b}` : `משולש ישר־זווית עם ניצבים ${a} ו־${b}. ריבוע על היתר בשטח ${sum}`}>
         <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} className="mp-hit" />
         <polygon points={poly(sqA)} className="mp-sq a" vectorEffect="non-scaling-stroke" />
         <polygon points={poly(sqB)} className="mp-sq b" vectorEffect="non-scaling-stroke" />
-        <polygon points={poly(sqC)} className={`mp-sq c ${sum === target ? 'hit' : ''}`} vectorEffect="non-scaling-stroke" />
+        <polygon points={poly(sqC)} className={`mp-sq c ${sum === target && !test ? 'hit' : ''}`} vectorEffect="non-scaling-stroke" />
         {hint && <polygon points={poly(sqC)} className="mp-hint-sq" vectorEffect="non-scaling-stroke" />}
         <polygon points={poly([[0, 0], [a, 0], [0, b]])} className="mp-tri" vectorEffect="non-scaling-stroke" />
         <polyline points={poly([[0.7, 0], [0.7, 0.7], [0, 0.7]])} className="mp-right" vectorEffect="non-scaling-stroke" />
         {area(sqA, `${a * a}`, 'a')}
         {area(sqB, `${b * b}`, 'b')}
-        {area(sqC, `${sum}`, 'c')}
+        {area(sqC, test ? '?' : `${sum}`, 'c')}
         <g className="mp-point"><circle cx={a} cy={0} r={unit * 0.9} className="mp-handle" /></g>
         <g className="mp-point"><circle cx={0} cy={-b} r={unit * 0.9} className="mp-handle alt" /></g>
       </svg>

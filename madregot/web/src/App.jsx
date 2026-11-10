@@ -19,6 +19,7 @@ import Quests from '@/screens/Quests.jsx';
 const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
 const Settings = lazy(() => import('@/screens/Settings.jsx'));
+const AdvancedSettings = lazy(() => import('@/screens/Settings.jsx').then((m) => ({ default: m.AdvancedSettings })));
 const Teacher = lazy(() => import('@/screens/Teacher.jsx'));
 // The parents' area (its own header, no tab bar) works with or without a profile: one chunk, loaded on demand.
 const Parents = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Parents })));
@@ -140,6 +141,7 @@ function Root() {
               <Route path="/assistant" element={<Assistant />} />
               <Route path="/me" element={<Me />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/advanced" element={<AdvancedSettings />} />
               <Route path="/subscription" element={<Navigate to="/parents/info" replace />} />
               <Route path="/exams" element={<Exams />} />
               <Route path="/exams/check" element={<ExamCheck />} />

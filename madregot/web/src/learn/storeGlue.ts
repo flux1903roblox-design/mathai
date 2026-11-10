@@ -2,7 +2,7 @@
 // and every rule here is tested without React. Called by lib/store.js.
 import type { Attempt, LearnState, MisconRecord, Purpose } from './types';
 import { addAttempt, recordMasteryCheck, recordReview, daysBetween, MASTERY_N, MASTERY_NEED } from './mastery';
-import { addEvidence, addCounter, finishVerify, GENERATOR_WEIGHT, COUNTER_WEIGHT, misconKey } from './misconceptions';
+import { addEvidence, addCounter, finishVerify, GENERATOR_WEIGHT, COUNTER_WEIGHT, GUIDED_WEIGHT, CONFIRM_SCORE, misconKey } from './misconceptions';
 import { recordDiagnostic } from './examRescue';
 import { logEvent } from './analytics';
 import { skillId } from './skills';
@@ -34,7 +34,9 @@ export function learnAfterAnswer(learn: LearnState, e: AnswerEvent): LearnState 
   const key = e.key || `${skill}@${at}`;
   if (!e.ok) {
     const cands = e.cands?.length ? e.cands : e.cat ? [{ id: e.cat, conf: GENERATOR_WEIGHT }] : [];
-    cands.forEach((c) => { miscon = addEvidence(miscon, skill, c.id, c.conf, key, at); });
+    // a guided step weighs less than an answer given alone
+    const w = purpose === 'guided' ? GUIDED_WEIGHT : 1;
+    cands.forEach((c) => { miscon = addEvidence(miscon, skill, c.id, c.conf * w, key, at); });
   } else if (independent && e.could) {
     // a right answer counts against a misconception only where it could have shown (a diagnostic model knows where);
     // a right answer to 3 + 5 says nothing about subtracting a negative
@@ -93,4 +95,42 @@ export function migrateLearn(gaps: Record<string, { level?: number; n?: number; 
     for (let i = 1; i <= n; i += 1) learn.miscon = addEvidence(learn.miscon, skill, cat, i === 1 && n === 1 ? GENERATOR_WEIGHT : 0.75, `legacy:${i}`, at);
   });
   return learn;
+}
+
+/**
+ * v2 → v3: two older exercise generators named the wrong mistake, and their labels were kept as evidence. The number
+ * line called every move in the wrong direction 'sign' (the answer with the opposite sign): that evidence moves to
+ * 'direction', or to 'minus-minus' where a negative number was subtracted. The brackets exercise called adding a
+ * positive product 'minus-minus': that evidence is dropped, since no negative was subtracted there.
+ */
+export function relabelLegacyEvidence(learn: LearnState): LearnState {
+  let miscon = { ...learn.miscon };
+  const drop = (k: string, keys: string[]) => {
+    const r = miscon[k];
+    if (!r || !keys.length) return;
+    const seen = r.seen.filter((x) => !keys.includes(x));
+    const score = Math.max(0, r.score - GENERATOR_WEIGHT * keys.length);
+    if (!seen.length && (r.state === 'suspected' || r.state === 'confirmed')) { const { [k]: _gone, ...rest } = miscon; miscon = rest; return; }
+    const state = r.state === 'confirmed' && !(score >= CONFIRM_SCORE && seen.length >= 2) ? 'suspected' : r.state;
+    miscon = { ...miscon, [k]: { ...r, seen, score, state } };
+  };
+  const sign = miscon[misconKey('signed:1', 'sign')];
+  if (sign) {
+    const moved = sign.seen.filter((x) => x.startsWith('sn1n:'));
+    drop(misconKey('signed:1', 'sign'), moved);
+    moved.forEach((key) => {
+      const m = key.match(/^sn1n:(-?\d+) ([+-]) \(?(-?\d+)\)?$/);
+      const target = m && m[2] === '-' && Number(m[3]) < 0 ? 'minus-minus' : 'direction';
+      miscon = addEvidence(miscon, 'signed:1', target, GENERATOR_WEIGHT, key, sign.at);
+    });
+  }
+  const mm = miscon[misconKey('signed:5', 'minus-minus')];
+  if (mm) {
+    const wrong = mm.seen.filter((x) => {
+      const m = x.match(/^sn5:(-?\d+) - \((-?\d+) - \(?(-?\d+)\)?\) \\cdot \(?(-?\d+)\)?$/);
+      return !!m && (Number(m[2]) - Number(m[3])) * Number(m[4]) > 0;
+    });
+    drop(misconKey('signed:5', 'minus-minus'), wrong);
+  }
+  return { ...learn, miscon };
 }

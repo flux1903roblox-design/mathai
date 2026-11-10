@@ -23,9 +23,13 @@ export interface ExamPlan {
 
 export const DIAG_PER_SKILL = 2;
 
+/** Shabbat: the streak never breaks on it (lib/store.js), and the plan puts no work on it. */
+export const isShabbatDay = (day: string) => new Date(`${day}T12:00:00`).getDay() === 6;
+
 export function validInput(i: Partial<ExamPlanInput>, today: string): string | null {
   if (!i.grade) return 'בחרו כיתה.';
   if (!i.date || i.date < today) return 'בחרו תאריך מבחן מהיום והלאה.';
+  if (isShabbatDay(i.date)) return 'התאריך שבחרתם יוצא בשבת. בדקו את תאריך המבחן.';
   if (!i.skills?.length) return 'בחרו לפחות נושא אחד שיהיה במבחן.';
   if (!i.minutes || i.minutes < 5) return 'כמה דקות ביום יש לכם? לפחות 5.';
   return null;
@@ -59,6 +63,23 @@ function standingOf(learn: LearnState, plan: ExamPlanState, id: SkillId, now: st
 }
 
 const SCORE: Record<Standing, number> = { gap: 6, untested: 4, shaky: 2, ready: 1, mastered: 0 };
+const toWork = (p: PlanSkill) => p.standing !== 'mastered' && p.standing !== 'ready';
+
+/**
+ * The skills in the given order, except that a skill still to work on comes after every chosen prerequisite (direct or
+ * through others) that is still to work on too. Stable: the given order decides everything else.
+ */
+export function prereqsFirst(list: PlanSkill[]): PlanSkill[] {
+  const out: PlanSkill[] = []; const placed = new Set<SkillId>();
+  const place = (p: PlanSkill) => {
+    if (placed.has(p.skill)) return;
+    placed.add(p.skill);
+    if (toWork(p)) { const anc = ancestorsOf(p.skill); list.filter((q) => toWork(q) && anc.includes(q.skill)).forEach(place); }
+    out.push(p);
+  };
+  list.forEach(place);
+  return out;
+}
 
 /** The plan, from the exam's skills and the evidence so far. */
 export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, today: string): ExamPlan {
@@ -71,8 +92,10 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
     const lowConfidence = plan.confidence <= 2 ? 0.5 : 0;
     return { skill: id, ...s, priority: SCORE[s.standing] + leanedOn + (s.standing === 'mastered' ? 0 : lowConfidence) };
   });
-  // order: by priority, but never before a chosen prerequisite of the same standing or worse
-  const order = [...skills].sort((a, b) => b.priority - a.priority || ALL_SKILLS.indexOf(a.skill) - ALL_SKILLS.indexOf(b.skill));
+  // order: by priority, then a stable pass that puts every chosen prerequisite still to work on (not mastered, not
+  // ready) before the stairs that lean on it: a stair's lesson never comes before strengthening what it uses
+  const byPriority = [...skills].sort((a, b) => b.priority - a.priority || ALL_SKILLS.indexOf(a.skill) - ALL_SKILLS.indexOf(b.skill));
+  const order = prereqsFirst(byPriority);
   const diagnosed = chosen.every((id) => (plan.diagnostic?.[id]?.asked || 0) > 0);
 
   const tasksOf = (p: PlanSkill): PlanTask[] => {
@@ -91,25 +114,33 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
     return [{ skill: p.skill, kind: 'review', title: `חזרה קצרה: ${t}`, to: routeOf.check(p.skill, 'review') }];
   };
 
-  const queue = order.filter((p) => p.standing !== 'mastered' && p.standing !== 'ready').flatMap(tasksOf);
+  const queue = order.filter(toWork).flatMap(tasksOf);
   const finale: PlanTask[] = [{ skill: null, kind: 'exam', title: 'מבחן תרגול על כל הנושאים', to: '/rescue/exam' }];
   const confirmAndReview = [...order.filter((p) => p.standing === 'ready'), ...order.filter((p) => p.standing === 'mastered')].flatMap(tasksOf);
   const perDay = Math.max(1, Math.floor(plan.minutes / 5));
-  const days: PlanDay[] = [];
-  const nDays = Math.max(1, daysLeft); // with 0 days left, everything goes into today
   const all = [...queue, ...confirmAndReview];
-  for (let d = 0; d < nDays; d += 1) {
+  // the days from today to the day before the exam (with 0 days left, today), without Shabbat
+  const workDays: string[] = [];
+  for (let d = 0; d < Math.max(1, daysLeft); d += 1) {
     const date = new Date(`${today}T12:00:00`); date.setDate(date.getDate() + d);
-    days.push({ day: date.toLocaleDateString('en-CA'), tasks: [] });
+    const key = date.toLocaleDateString('en-CA');
+    if (!isShabbatDay(key)) workDays.push(key);
   }
-  // fill day by day; the last day keeps room for the practice exam; more work than room is spread over the days
+  // only Shabbat is left before the exam: what there is to do waits for the morning of the exam day
+  if (!workDays.length) workDays.push(plan.date);
+  const days: PlanDay[] = workDays.map((day) => ({ day, tasks: [] }));
+  // How many tasks each day takes. The last day keeps room for the practice exam. More work than room is spread
+  // evenly, the earlier days a little fuller. Tasks are dealt out in order, so a stair's lesson, practice and
+  // mastery check never change places: a mastery check is never planned before the lesson that teaches it.
+  const room = days.map((_, i) => (i === days.length - 1 ? Math.max(0, perDay - 1) : perDay));
+  const capacity = room.reduce((a, b) => a + b, 0);
+  const overflow = Math.max(0, all.length - capacity);
+  let left = all.length;
+  const counts = overflow
+    ? days.map((_, i) => Math.floor(all.length / days.length) + (i < all.length % days.length ? 1 : 0))
+    : room.map((r) => { const c = Math.min(r, left); left -= c; return c; });
   let k = 0;
-  days.forEach((d, i) => {
-    const room = i === days.length - 1 ? Math.max(0, perDay - 1) : perDay;
-    while (d.tasks.length < room && k < all.length) { d.tasks.push(all[k]); k += 1; }
-  });
-  const overflow = all.length - k;
-  for (let i = 0; k < all.length; i += 1, k += 1) days[i % days.length].tasks.push(all[k]);
+  days.forEach((d, i) => { d.tasks.push(...all.slice(k, k + counts[i])); k += counts[i]; });
   days[days.length - 1].tasks.push(...finale);
 
   const mastered = skills.filter((s) => s.standing === 'mastered').length;
@@ -117,7 +148,7 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
   const n = skills.length;
   const topics = [...new Set(chosen.map((id) => parseSkill(id).topic))];
   const topicsMastered = topics.filter((t) => skills.filter((s) => parseSkill(s.skill).topic === t).every((s) => s.standing === 'mastered')).length;
-  const focus = order.filter((p) => p.standing !== 'mastered' && p.standing !== 'ready').slice(0, 2).map((p) => titleOf(p.skill));
+  const focus = order.filter(toWork).slice(0, 2).map((p) => titleOf(p.skill));
   const when = daysLeft === 0 ? 'המבחן היום.' : daysLeft === 1 ? 'המבחן מחר.' : `יש לכם עוד ${daysLeft} ימים למבחן.`;
   // two different things, said with two different words: mastered (a mastery check) and ready (a good first diagnostic)
   const have = [
@@ -126,8 +157,9 @@ export function examPlan(plan: ExamPlanState, learn: LearnState, now: string, to
   ].filter(Boolean).join(' ');
   const today_ = focus.length ? `היום מתמקדים ב${focus.join(' וב')}.` : ready ? 'היום: בדיקת שליטה קצרה בכל מדרגה כזאת, ובסוף מבחן תרגול.' : 'היום חזרה קצרה ומבחן תרגול.';
   const tight = overflow > 0 ? ' יש יותר עבודה מזמן, אז כל יום עמוס קצת יותר.' : '';
-  const message = diagnosed ? `${when}${have ? ` ${have}` : ''} ${today_}${tight}` : `${when} נתחיל בבדיקה קצרה, ${DIAG_PER_SKILL} שאלות לכל מדרגה, כדי לדעת על מה לעבוד.`;
-  return { daysLeft, mastered, ready, total: n, topicsMastered, topicsTotal: topics.length, skills: order, days, today: days[0]?.tasks || [], message, diagnosed };
+  const restDay = isShabbatDay(today) && daysLeft > 0 ? ' היום שבת, ואין בו משימות. ממשיכים אחריה.' : '';
+  const message = diagnosed ? `${when}${have ? ` ${have}` : ''} ${restDay ? restDay.trim() : today_}${tight}` : `${when} נתחיל בבדיקה קצרה, ${DIAG_PER_SKILL} שאלות לכל מדרגה, כדי לדעת על מה לעבוד.`;
+  return { daysLeft, mastered, ready, total: n, topicsMastered, topicsTotal: topics.length, skills: order, days, today: days.find((d) => d.day === today)?.tasks || [], message, diagnosed };
 }
 
 /** The skills of a topic in the student's grade (for the topic picker). */

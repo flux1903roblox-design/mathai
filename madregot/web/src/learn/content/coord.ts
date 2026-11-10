@@ -7,6 +7,8 @@ import { rint, rnz, rpick } from '../expr';
 // @ts-ignore: plain JS helpers shared with the exercise generators
 import { T } from '@/content/util.js';
 
+/** Metres in a story, with the number agreeing in Hebrew: "מטר אחד", "$5$ מטרים". */
+const metres = (n: number) => (n === 1 ? 'מטר אחד' : `$${n}$ מטרים`);
 const plot = (label: string, more: Record<string, unknown> = {}) => ({ kind: 'plot' as const, range: 6, label, start: null, ...more });
 const corner = (label: string, x: number, y: number) => ({ label, at: [x, y] });
 const pt = (x: number, y: number) => `(${x}, ${y})`;
@@ -243,19 +245,26 @@ const countPts = (pts: number[][], f: (x: number, y: number) => boolean) => pts.
 const sideOf = (x: number, y: number) => `${y > 0 ? 'מעל ציר $x$' : 'מתחת לציר $x$'} ו${x > 0 ? 'מימין לציר $y$' : 'משמאל לציר $y$'}`;
 const whereIs = (x: number, y: number) => (quadOf(x, y) ? `ברביע ה${ORD[quadOf(x, y)]}` : x === 0 ? 'על ציר $y$' : 'על ציר $x$');
 
-type QuadP = { k: number; x: number; y: number; t: number; pts: number[][] }; // k 0: a point, 1: signs in words, 2: count in a list
-const quadAns = (p: QuadP) => (p.k === 0 ? quadOf(p.x, p.y) : p.k === 1 ? p.t : countPts(p.pts, (x, y) => quadOf(x, y) === p.t));
+// k 0: a point, 1: signs in words, 2: count in a list, 3: a coordinate from the quadrant and the distances to the axes
+// (the quadrant gives its sign; answers spread widely, so a fixed number cannot answer the stair's questions)
+type QuadP = { k: number; x: number; y: number; t: number; pts: number[][]; ask?: number };
+const quadAns = (p: QuadP) => (p.k === 0 ? quadOf(p.x, p.y) : p.k === 1 ? p.t : p.k === 3 ? (p.ask ? p.y : p.x) : countPts(p.pts, (x, y) => quadOf(x, y) === p.t));
 
 const quadModel: DiagModel<QuadP> = {
   params: (rnd) => {
     const r = rnd();
     // the second and fourth quadrants are where a swap or a clockwise count shows
     const q = rnd() < 0.6 ? rpick(rnd, [2, 4]) : rpick(rnd, [1, 3]);
-    if (r < 0.45) return { k: 0, x: SX[q] * rint(rnd, 1, 9), y: SY[q] * rint(rnd, 1, 9), t: q, pts: [] };
-    if (r < 0.7) return { k: 1, x: SX[q], y: SY[q], t: q, pts: [] };
-    // four points: some in the quadrant, some on its edges (the axes), the rest in another quadrant
+    if (r < 0.25) return { k: 0, x: SX[q] * rint(rnd, 1, 9), y: SY[q] * rint(rnd, 1, 9), t: q, pts: [] };
+    if (r < 0.35) return { k: 1, x: SX[q], y: SY[q], t: q, pts: [] };
+    if (r < 0.7) {
+      let x = rint(rnd, 1, 9); let y = rint(rnd, 1, 9);
+      while (x === y) y = rint(rnd, 1, 9);
+      return { k: 3, x: SX[q] * x, y: SY[q] * y, t: q, pts: [], ask: rnd() < 0.5 ? 0 : 1 };
+    }
+    // four points: none to all four in the quadrant (each count as likely), some on its edges (the axes), the rest in another
     const t = rnd() < 0.7 ? rpick(rnd, [2, 4]) : rpick(rnd, [1, 3]);
-    const [c, a] = rpick(rnd, [[2, 1], [2, 2], [1, 1]]);
+    const c = rint(rnd, 0, 4); const a = c === 4 ? 0 : rint(rnd, c === 0 ? 1 : 0, Math.min(2, 4 - c));
     const other = t === 2 || t === 4 ? 6 - t : rpick(rnd, [1, 2, 3, 4].filter((v) => v !== t));
     const pts: number[][] = [];
     const add = (f: () => number[]) => { let v = f(); while (pts.some((u) => u[0] === v[0] && u[1] === v[1])) v = f(); pts.push(v); };
@@ -267,24 +276,38 @@ const quadModel: DiagModel<QuadP> = {
   },
   text: (p) => (p.k === 0
     ? `באיזה רביע נמצאת הנקודה $${pt(p.x, p.y)}$? כתבו את מספר הרביע.`
+    : p.k === 3
+      ? `הנקודה $P$ נמצאת ברביע ה${ORD[p.t]}. המרחק שלה מציר $y$ הוא $${Math.abs(p.x)}$, והמרחק שלה מציר $x$ הוא $${Math.abs(p.y)}$. מה שיעור ה־$${p.ask ? 'y' : 'x'}$ של $P$?`
     : p.k === 1
       ? `לנקודה $P$ שיעור $x$ ${p.x > 0 ? 'חיובי' : 'שלילי'} ושיעור $y$ ${p.y > 0 ? 'חיובי' : 'שלילי'}. באיזה רביע היא? כתבו את מספר הרביע.`
       : `כמה מהנקודות האלה נמצאות ברביע ה${ORD[p.t]}? ${p.pts.map(([x, y]) => `$${pt(x, y)}$`).join(', ')}`),
   answer: quadAns,
   bugs: {
     // the first sign read as y's: a point of the second quadrant lands in the fourth and back
-    swap: (p) => (p.k === 0 ? quadOf(p.y, p.x) : p.k === 2 ? countPts(p.pts, (x, y) => quadOf(y, x) === p.t) : null),
-    // counted the quadrants clockwise
-    'quad-order': (p) => (p.k === 2 ? countPts(p.pts, (x, y) => quadOf(x, y) === cw(p.t)) : cw(p.k === 0 ? quadOf(p.x, p.y) : p.t)),
+    swap: (p) => (p.k === 0 ? quadOf(p.y, p.x) : p.k === 2 ? countPts(p.pts, (x, y) => quadOf(y, x) === p.t)
+      // the two distances swapped: the other axis's distance, with this coordinate's sign
+      : p.k === 3 ? (p.ask ? Math.sign(p.y) * Math.abs(p.x) : Math.sign(p.x) * Math.abs(p.y)) : null),
+    // counted the quadrants clockwise (the second and the fourth change places: both signs turn)
+    'quad-order': (p) => (p.k === 2 ? countPts(p.pts, (x, y) => quadOf(x, y) === cw(p.t)) : p.k === 3 ? (p.t === 2 || p.t === 4 ? -(p.ask ? p.y : p.x) : null) : cw(p.k === 0 ? quadOf(p.x, p.y) : p.t)),
     // counted points on the axes at the quadrant's edge as inside it
     'axis-quadrant': (p) => (p.k === 2 ? quadAns(p) + countPts(p.pts, (x, y) => nextTo(p.t, x, y)) : null),
+    // the distance to the axis written as the coordinate, its minus dropped (in the second quadrant "x = 4" can also be a
+    // clockwise count, which gives the same number: a question where the two differ tells them apart)
+    sign: (p) => (p.k === 3 && quadAns(p) < 0 ? -quadAns(p) : null),
   },
   solution: (p) => {
     if (p.k === 2) {
       return [
         `${p.pts.map(([x, y]) => `$${pt(x, y)}$ ${whereIs(x, y)}`).join(', ')}.`,
         'נקודה ששיעור אחד שלה $0$ יושבת על ציר, ולא שייכת לאף רביע.',
-        `ברביע ה${ORD[p.t]}: $${quadAns(p)}$ נקודות.`,
+        `מספר הנקודות ברביע ה${ORD[p.t]}: $${quadAns(p)}$.`,
+      ];
+    }
+    if (p.k === 3) {
+      return [
+        `ברביע ה${ORD[p.t]} $x$ ${p.x > 0 ? 'חיובי' : 'שלילי'} ו־$y$ ${p.y > 0 ? 'חיובי' : 'שלילי'}.`,
+        `המרחק מציר $y$ הוא כמה צעדים ימינה או שמאלה, כלומר $|x| = ${Math.abs(p.x)}$; המרחק מציר $x$ הוא כמה צעדים למעלה או למטה, $|y| = ${Math.abs(p.y)}$.`,
+        `לכן $P(${p.x}, ${p.y})$, ושיעור ה־$${p.ask ? 'y' : 'x'}$ הוא $${p.ask ? p.y : p.x}$.`,
       ];
     }
     const q = quadAns(p);
@@ -295,26 +318,41 @@ const quadModel: DiagModel<QuadP> = {
   },
   hint: (p) => (p.k === 2
     ? 'בדקו כל נקודה לפי שני הסימנים. נקודה עם שיעור $0$ נמצאת על ציר, ולא באף רביע.'
-    : 'הסימן של $x$ אומר ימין או שמאל, והסימן של $y$ אומר למעלה או למטה. סופרים נגד כיוון השעון מהרביע שלמעלה מימין.'),
+    : p.k === 3
+      ? 'הרביע קובע את הסימנים. המרחק מציר $y$ הוא הגודל של $x$, והמרחק מציר $x$ הוא הגודל של $y$.'
+      : 'הסימן של $x$ אומר ימין או שמאל, והסימן של $y$ אומר למעלה או למטה. סופרים נגד כיוון השעון מהרביע שלמעלה מימין.'),
 };
 
-type CityP = { k: number; sx: number; sy: number; n: number };
+type CityP = { k: number; sx: number; sy: number; n: number; dx?: number; dy?: number; ask?: number };
 const BUILDINGS = ['בית הספר', 'הקניון', 'האצטדיון'];
 const cityModel: DiagModel<CityP> = {
   // quadrants without numbers: a city cut by two roads, and points written with letters
   params: (rnd) => {
     const q = rnd() < 0.6 ? rpick(rnd, [2, 4]) : rpick(rnd, [1, 3]);
-    return { k: rnd() < 0.5 ? 0 : 1, sx: SX[q], sy: SY[q], n: rint(rnd, 0, 2) };
+    const r = rnd();
+    if (r < 0.4) { let dx = rint(rnd, 1, 9); let dy = rint(rnd, 1, 9); while (dx === dy) dy = rint(rnd, 1, 9); return { k: 2, sx: SX[q], sy: SY[q], n: rint(rnd, 0, 2), dx, dy, ask: rnd() < 0.5 ? 0 : 1 }; }
+    return { k: r < 0.7 ? 0 : 1, sx: SX[q], sy: SY[q], n: rint(rnd, 0, 2) };
   },
-  text: (p) => (p.k === 0
+  text: (p) => (p.k === 2
+    ? `במפה של עיר, כביש ממזרח למערב הוא ציר $x$ וכביש מצפון לדרום הוא ציר $y$; מזרח וצפון הם הכיוונים החיוביים, וכל יחידה היא קילומטר. ${BUILDINGS[p.n]} נמצא ${p.dy} ק״מ ${p.sy > 0 ? 'צפונית' : 'דרומית'} לכביש המזרח־מערב, ו־${p.dx} ק״מ ${p.sx > 0 ? 'מזרחית' : 'מערבית'} לכביש הצפון־דרום. מה שיעור ה־$${p.ask ? 'y' : 'x'}$ שלו?`
+    : p.k === 0
     ? `שני כבישים ראשיים חוצים עיר ומחלקים אותה לארבעה רובעים: כביש ממזרח למערב (ציר $x$) וכביש מצפון לדרום (ציר $y$). מזרח הוא הכיוון החיובי של $x$, צפון הוא הכיוון החיובי של $y$, והרובעים ממוספרים כמו הרביעים. ${BUILDINGS[p.n]} נמצא ${p.sy > 0 ? 'צפונית' : 'דרומית'} לכביש המזרח־מערב ו${p.sx > 0 ? 'מזרחית' : 'מערבית'} לכביש הצפון־דרום. מה מספר הרובע שלו?`
     : `המספרים $a$ ו־$b$ חיוביים. באיזה רביע נמצאת הנקודה $(${p.sx > 0 ? 'a' : '-a'}, ${p.sy > 0 ? 'b' : '-b'})$? כתבו את מספר הרביע.`),
-  answer: (p) => quadOf(p.sx, p.sy),
+  answer: (p) => (p.k === 2 ? (p.ask ? p.sy * p.dy! : p.sx * p.dx!) : quadOf(p.sx, p.sy)),
   bugs: {
-    swap: (p) => (p.k === 1 ? quadOf(p.sy, p.sx) : null),
-    'quad-order': (p) => cw(quadOf(p.sx, p.sy)),
+    // k 2: the distance to the other road taken (north-south read as x)
+    swap: (p) => (p.k === 1 ? quadOf(p.sy, p.sx) : p.k === 2 ? (p.ask ? p.sy * p.dx! : p.sx * p.dy!) : null),
+    'quad-order': (p) => (p.k === 2 ? null : cw(quadOf(p.sx, p.sy))),
+    // k 2: the distance to the road written as the coordinate, without the minus of west or south
+    sign: (p) => { if (p.k !== 2) return null; const v = p.ask ? p.sy * p.dy! : p.sx * p.dx!; return v < 0 ? -v : null; },
   },
   solution: (p) => {
+    if (p.k === 2) {
+      return [
+        `${p.sy > 0 ? 'צפונית' : 'דרומית'} לכביש האופקי: $y$ ${p.sy > 0 ? 'חיובי' : 'שלילי'}, $y = ${T(p.sy * p.dy!)}$. ${p.sx > 0 ? 'מזרחית' : 'מערבית'} לכביש האנכי: $x$ ${p.sx > 0 ? 'חיובי' : 'שלילי'}, $x = ${T(p.sx * p.dx!)}$.`,
+        `שיעור ה־$${p.ask ? 'y' : 'x'}$: $${T(p.ask ? p.sy * p.dy! : p.sx * p.dx!)}$.`,
+      ];
+    }
     const q = quadOf(p.sx, p.sy);
     return [
       p.k === 0
@@ -323,7 +361,7 @@ const cityModel: DiagModel<CityP> = {
       `הנקודה ${sideOf(p.sx, p.sy)}: הרביע ה${ORD[q]}, $${q}$.`,
     ];
   },
-  hint: (p) => (p.k === 0 ? 'צפון ודרום קובעים את הסימן של $y$, מזרח ומערב את הסימן של $x$.' : 'לא צריך לדעת כמה הם $a$ ו־$b$: מספיק לדעת את הסימנים.'),
+  hint: (p) => (p.k === 1 ? 'לא צריך לדעת כמה הם $a$ ו־$b$: מספיק לדעת את הסימנים.' : 'צפון ודרום קובעים את הסימן של $y$, מזרח ומערב את הסימן של $x$.'),
 };
 
 const stair2: StairContent = {
@@ -440,6 +478,19 @@ const stair2: StairContent = {
         { kind: 'explore', text: 'ועכשיו ברביע הרביעי.', manip: plot('P', { quadrant: 4 }), answer: [3, -2], hint: 'הרביע האחרון בסיבוב נגד כיוון השעון: למטה מימין.', success: 'הרביע הרביעי: למטה מימין, $(+, -)$.' },
         { kind: 'predict', text: 'באיזה רביע $(6, -2)$?', choices: ['שני', 'רביעי'], answer: 1, why: '$(+, -)$: למטה מימין. בסיבוב נגד כיוון השעון זה הרביע האחרון, הרביעי.' },
       ] },
+    { id: 'sign', title: 'כתבו את המרחק מהציר בלי הסימן שהרביע נותן', prereq: 'coord:1',
+      cause: 'מרחק הוא תמיד חיובי, ולכן קל להעתיק אותו כמו שהוא. אבל השיעור הוא המרחק עם סימן: משמאל לציר $y$ שיעור ה־$x$ שלילי, ומתחת לציר $x$ שיעור ה־$y$ שלילי.',
+      explain: [
+        'נראה שכתבתם את המרחק מהציר, בלי המינוס שהרביע נותן.',
+        'המרחק מציר $y$ אומר כמה צעדים הצידה, והרביע אומר לאיזה צד. ברביע השני והשלישי הנקודה משמאל לציר $y$, ולכן $x$ שלילי. ברביע השלישי והרביעי היא מתחת לציר $x$, ולכן $y$ שלילי.',
+        'למשל נקודה ברביע השלישי, במרחק $4$ מציר $y$ ובמרחק $2$ מציר $x$: היא $(-4, -2)$. שני השיעורים שליליים, כי היא משמאל ולמטה.',
+      ],
+      remedy: [
+        { kind: 'explore', text: 'שימו את $P$ ברביע השלישי, במרחק $4$ מציר $y$ ובמרחק $2$ מציר $x$.', manip: plot('P'), answer: [-4, -2],
+          hint: 'ברביע השלישי הולכים שמאלה ולמטה: 4 צעדים שמאלה, ואז 2 למטה.', success: '$P(-4, -2)$: המרחקים הם $4$ ו־$2$, והרביע נתן לשניהם מינוס.' },
+        { kind: 'predict', text: 'נקודה ברביע הרביעי נמצאת במרחק $5$ מציר $x$. מה שיעור ה־$y$ שלה?', choices: ['$5$', '$-5$'], answer: 1,
+          why: 'הרביע הרביעי הוא למטה מימין, ולכן $y$ שלילי. המרחק $5$, והשיעור $-5$.' },
+      ] },
     { id: 'axis-quadrant', title: 'שייכו לרביע נקודה שנמצאת על ציר',
       cause: 'נקודה כמו $(0, 6)$ נראית "למעלה", ולכן נדמה שהיא ברביע. אבל $x = 0$ הוא לא חיובי ולא שלילי: היא בדיוק על הגבול.',
       explain: [
@@ -458,10 +509,11 @@ const stair2: StairContent = {
 type SegP = { h: number; f: number; p: number; q: number }; // C and D: p and q on the changing coordinate, f on the other
 const segPts = (s: SegP) => (s.h ? [[s.p, s.f], [s.q, s.f]] : [[s.f, s.p], [s.f, s.q]]);
 const segAns = (s: { p: number; q: number }) => Math.abs(s.q - s.p);
-/** Two values on one line, at least 2 apart: across zero, both above it, or both below it. */
+/** Two values on one line, at least 2 apart: across zero, both above it, or both below it (then up to 11 from zero, so
+ * the lengths vary as much as across zero). */
 function segPair(rnd: Rnd, r: number): [number, number] {
   let p = 0; let q = 0;
-  if (r < 0.5) { do { p = -rint(rnd, 1, 6); q = rint(rnd, 1, 6); } while (-p === q); } else if (r < 0.75) { p = rint(rnd, 1, 4); q = rint(rnd, p + 2, 6); } else { q = -rint(rnd, 1, 4); p = -rint(rnd, -q + 2, 6); }
+  if (r < 0.5) { do { p = -rint(rnd, 1, 6); q = rint(rnd, 1, 6); } while (-p === q); } else if (r < 0.75) { p = rint(rnd, 1, 6); q = rint(rnd, p + 2, 11); } else { q = -rint(rnd, 1, 6); p = -rint(rnd, -q + 2, 11); }
   return rnd() < 0.5 ? [p, q] : [q, p];
 }
 const segBugs = {
@@ -511,7 +563,7 @@ const gameModel: DiagModel<GameP> = {
   bugs: segBugs,
   solution: (s) => (s.k === 0
     ? [`הדמות והמטבע באותו גובה, $y = ${T(s.f)}$: הולכים רק לאורך $x$.`, `הגדול פחות הקטן: ${diffLine(s.p, s.q)}.`, `התשובה: $${segAns(s)}$ צעדים.`]
-    : [`השחף והדג על אותו קו אנכי, $x = ${T(s.f)}$: רק הגובה משתנה.`, `השחף $${s.p}$ מטרים מעל פני הים, והדג $${-s.q}$ מטרים מתחתם: $${T(s.p)} - ${T(s.q, true)} = ${s.p} + ${-s.q} = ${segAns(s)}$.`, `התשובה: $${segAns(s)}$ מטרים.`]),
+    : [`השחף והדג על אותו קו אנכי, $x = ${T(s.f)}$: רק הגובה משתנה.`, `השחף ${metres(s.p)} מעל פני הים, והדג ${metres(-s.q)} מתחתם: $${T(s.p)} - ${T(s.q, true)} = ${s.p} + ${-s.q} = ${segAns(s)}$.`, `התשובה: $${segAns(s)}$ מטרים.`]),
   hint: (s) => (s.k === 0 ? 'רק $x$ משתנה. כמה צעדים מה־$x$ של הדמות עד ה־$x$ של המטבע?' : 'פני הים הם האפס: כמה מעליהם השחף, וכמה מתחתם הדג?'),
 };
 
@@ -658,7 +710,7 @@ function rectParams(rnd: Rnd): RectP {
     const [x1, x2] = cx ? crossPair(rnd) : sidePair(rnd); const [y1, y2] = cy ? crossPair(rnd) : sidePair(rnd);
     return { x1, x2, y1, y2, d };
   }
-  const x1 = rint(rnd, 1, 3); const x2 = x1 + rint(rnd, 2, 3); const y1 = rint(rnd, 1, 3); const y2 = y1 + rint(rnd, 2, 3);
+  const x1 = rint(rnd, 1, 4); const x2 = x1 + rint(rnd, 2, 5); const y1 = rint(rnd, 1, 4); const y2 = y1 + rint(rnd, 2, 4);
   if (r < 0.8) return { x1, x2, y1, y2, d };
   const fx = rnd() < 0.5; const fy = !fx || rnd() < 0.5; // moved into the second, third or fourth quadrant
   return { x1: fx ? -x2 : x1, x2: fx ? -x1 : x2, y1: fy ? -y2 : y1, y2: fy ? -y1 : y2, d };

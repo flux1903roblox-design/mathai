@@ -3,7 +3,8 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { Award, RotateCcw, Check, ArrowLeft } from 'lucide-react';
+import { Award, RotateCcw, Check, ArrowLeft, Gift } from 'lucide-react';
+import { TOPIC } from '@/content/index.js';
 import { useApp } from '@/lib/store.js';
 import { skillId } from '@/learn/skills.ts';
 import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS } from '@/learn/mastery.ts';
@@ -13,17 +14,18 @@ import { useActions } from '@/lib/useLearn.js';
 import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import Mascot from '@/components/Mascot.jsx';
+import { inDays } from '@/content/util.js';
 
-function copy(r, rec, def) {
+function copy(r, rec, def, award) {
   const days = (box) => REVIEW_DAYS[box] ?? 1;
   switch (r.purpose) {
     case 'mastery':
       return r.passed
-        ? { mood: 'achievement', title: 'שולטים לבד!', body: `${r.right} מתוך ${r.asked} נכונות, בלי רמזים. בעוד ${days(0)} ${days(0) === 1 ? 'יום' : 'ימים'} נבדוק בקצרה שזה נשאר.` }
-        : { mood: 'encouraging', title: 'עוד לא, וזה בסדר', body: `${r.right} מתוך ${r.asked}. כדי לשלוט צריך ${MASTERY_NEED} מתוך ${MASTERY_N} בלי רמזים. עוד קצת תרגול, ואז מנסים שוב.` };
+        ? { mood: 'achievement', title: 'שולטים לבד!', body: `${r.right} מתוך ${r.asked} נכונות, בלי רמזים. ${inDays(days(0))} נבדוק בקצרה שזה נשאר.` }
+        : { mood: 'encouraging', title: 'עוד לא, וזה בסדר', body: `${r.right} מתוך ${r.asked}. כדי לשלוט צריך ${MASTERY_NEED} מתוך ${MASTERY_N} בלי רמזים. ${award?.reopened ? 'המדרגה חוזרת להיות פתוחה במפה, והתרגול שכבר עשיתם נשמר. ' : ''}עוד קצת תרגול, ואז מנסים שוב.` };
     case 'review':
       return r.passed
-        ? { mood: 'happy', title: 'זה נשאר!', body: `הבדיקה הבאה בעוד ${days(rec?.mastered?.box ?? 1)} ימים. כל פעם המרווח גדל.` }
+        ? { mood: 'happy', title: 'זה נשאר!', body: `הבדיקה הבאה ${inDays(days(rec?.mastered?.box ?? 1))}. כל פעם המרווח גדל.` }
         : { mood: 'encouraging', title: 'שכחנו קצת', body: 'זה קורה, וזה לא מוחק את מה שלמדתם. חזרה קצרה תחזיר את זה, ומחר בודקים שוב.' };
     case 'verify':
       return r.passed
@@ -38,13 +40,13 @@ function copy(r, rec, def) {
   }
 }
 
-export default function CheckDone({ result: r, onExit }) {
+export default function CheckDone({ result: r, award, onExit }) {
   const navigate = useNavigate();
   const skill = r.skill || (r.topic && r.level ? skillId(r.topic, r.level) : null);
   const rec = useApp((s) => (skill ? s.learn.skills[skill] : null));
   const def = r.misc ? contentOf(skill)?.misconceptions.find((m) => m.id === r.misc) : null;
   const actions = useActions();
-  const c = copy(r, rec, def);
+  const c = copy(r, rec, def, award);
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
   const rescue = r.purpose === 'diagnostic' || r.purpose === 'exam';
@@ -56,6 +58,11 @@ export default function CheckDone({ result: r, onExit }) {
       <div className="check-hero" data-region="content"><Mascot mood={c.mood} size={150} className="check-mascot" /></div>
       <h1 ref={ref} tabIndex={-1} className={clsx('check-title', r.passed ? 'good' : 'warm')}>{c.title}</h1>
       <p className="lead">{c.body}</p>
+      {/* a passed mastery check is what moves the path: the stair is done, and the unit's count goes up */}
+      {r.purpose === 'mastery' && r.passed && award?.done != null && TOPIC[r.topic] && (
+        <p className="climb-caption">{TOPIC[r.topic].title}: <bdi>{award.done}</bdi> מתוך <bdi>{TOPIC[r.topic].levels.length}</bdi> מדרגות</p>
+      )}
+      {award?.chestOpened && <div className="badges"><span className="done-earned tone-streak"><Gift size={16} aria-hidden="true" />פתחתם תיבת אוצר</span></div>}
       <div className="stats check-stats" data-region="answers">
         <div className={clsx('stat', r.right === r.asked ? 'stat-good' : 'stat-brand')}>
           <span className="stat-label">נכונות</span>

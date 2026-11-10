@@ -8,7 +8,7 @@ import { CalendarClock, Check, Trash2, ClipboardCheck, ArrowRight, Star, Trophy 
 import { useApp, today } from '@/lib/store.js';
 import { useLearnCtx } from '@/lib/useLearn.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
-import { examPlan, validInput, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
+import { examPlan, validInput, isShabbatDay, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
 import { skillId } from '@/learn/skills.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { aiReady } from '@/lib/ai.js';
@@ -50,6 +50,8 @@ function Setup({ onSave }) {
   const submit = (e) => {
     e.preventDefault();
     if (!can) return;
+    // a date on Shabbat is a typo: said right away, on the date's own screen
+    if (step === 0 && isShabbatDay(date)) { setError(validInput({ grade, date, skills: ['x'], minutes }, today())); return; }
     if (!last) { setStep(step + 1); setError(null); return; }
     const input = { grade, date, skills, confidence, minutes };
     const err = validInput(input, today());

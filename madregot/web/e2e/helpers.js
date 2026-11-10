@@ -137,3 +137,41 @@ export async function leaveEndScreens(page) {
     await expect.poll(async () => { const now = await title(); return now === null || now !== before; }, { timeout: 5000 }).toBe(true);
   }
 }
+
+/** The short moment at the end of a teaching stage: which stage, what it earned; its button goes on to the next stage. */
+export async function stageDone(page, n, go) {
+  const moment = page.locator('.stage-done');
+  await expect(moment).toBeVisible();
+  await expect(moment.getByRole('heading', { level: 1 })).toHaveText(`שלב ${n} הושלם!`);
+  if (go) await moment.getByRole('button', { name: go, exact: true }).click();
+  return moment;
+}
+
+/** Play the current teaching stage (A) to its end, through its own controls (the completion moment stays on screen). */
+export async function playDiscover(page) {
+  await expect(page.locator('.step-player')).toBeVisible();
+  for (let i = 0; i < 20; i += 1) {
+    await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+    const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+    const st = await page.evaluate(() => window.__madregotStep);
+    if (st.kind === 'explore') {
+      if (st.manip.kind === 'numberline') {
+        const d = st.answer - st.manip.start;
+        for (let k = 0; k < Math.abs(d); k += 1) await page.getByRole('button', { name: d > 0 ? 'הסמן ימינה' : 'הסמן שמאלה' }).first().click();
+      }
+      await page.locator('.lm-check').click();
+      await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+    }
+    if (st.kind === 'predict') {
+      await page.locator('.ls-choice').nth(st.answer).click();
+      await page.locator('.lm-check').click();
+      await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+    }
+    const next = page.locator('.sp-next');
+    const last = (await next.textContent()).includes('לדוגמה');
+    await next.click();
+    if (last) return;
+    await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+  }
+  throw new Error('the stage did not end');
+}

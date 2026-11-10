@@ -1,7 +1,7 @@
 // Core journeys: first visit, placement test, a whole lesson with XP and saved progress,
 // the AI tutor and the teacher view when there is no server, and a printable practice exam.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, type, proceed, proceedToNext, saved, expectUsable, leaveEndScreens } from './helpers.js';
+import { open, student, item, answer, type, proceed, proceedToNext, saved, expectUsable, leaveEndScreens, playDiscover, stageDone } from './helpers.js';
 
 // Journeys run on one phone and on desktop; the layout spec covers every size.
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
@@ -43,12 +43,46 @@ test('first visit, starting from the first stair: it starts by understanding, an
   await expect(page.locator('.node-current').first()).toBeVisible(); // the profile survives a reload
 });
 
+test('the first session gives something back: the first stage earns XP and the streak, and the counters move', async ({ page }) => {
+  await open(page, '#/');
+  await onboard(page, 'scratch');
+  await expect(page).toHaveURL(/#\/learn\/signed\/1\/A/);
+  await playDiscover(page);
+  // a short, calm moment: the stage, its XP, the streak started, the stair's five stages, and what comes next
+  const moment = await stageDone(page, 1);
+  await expect(moment.locator('.badges')).toContainText('+10 XP');
+  await expect(moment.locator('.badges')).toContainText('התחלתם רצף');
+  await expect(moment.locator('.stage-done-segs')).toHaveAttribute('aria-valuenow', '1');
+  await expect(moment.locator('.stage-done-next')).toContainText('הבא: דוגמה פתורה');
+  await expectUsable(page, moment.getByRole('button', { name: 'לדוגמה הפתורה', exact: true }), 'the way on to the next stage');
+  await moment.getByRole('button', { name: 'למפה', exact: true }).click();
+  // the map: today's XP and the streak moved; the unit counts its first stage; the stair says to continue
+  await expect(page.locator('.top-stat.xp')).toContainText('10/20');
+  await expect(page.locator('.top-stat.streak')).toContainText('1');
+  const unit = page.locator('.unit').first();
+  await expect(unit.locator('.unit-label')).toHaveText('יחידה 1 · 1 מתוך 25 שלבים');
+  await expect(unit.locator('.unit-bar')).toHaveAttribute('aria-valuenow', '1');
+  await expect(unit.locator('.node-start')).toHaveText('המשך');
+  await expect(page.locator('.unit-label').nth(1)).toHaveText('יחידה 2 · 5 מדרגות'); // a unit not started says its size, not "0 of 5"
+  // the topics screen: the unit's bar moved, one board says it in words, and no counter reads zero
+  await page.goto('./#/topics');
+  await expect(page.locator('.section-card').first().locator('.qbar')).toHaveAttribute('aria-valuetext', '1 מתוך 25 שלבים');
+  await expect(page.locator('.section-card').first()).toContainText('עכשיו: חיבור וחיסור');
+  await expect(page.locator('.board-level')).toHaveText('מדרגה אחת בדרך לשליטה');
+  await expect(page.locator('.mm-tile').first()).toHaveAttribute('aria-label', /לומדים/);
+  await expect(page.locator('.mm-stats, .board-track, .mm-count')).toHaveCount(0);
+  await expect(page.locator('.topics-page')).not.toContainText(/(^|\s)0 (מתוך|\/)/);
+  const st = await saved(page);
+  expect(st.days['2026-11-05']).toMatchObject({ xp: 10, stages: 1 });
+});
+
 test('first visit with the placement test: every topic gets a starting stair', async ({ page }) => {
   await open(page, '#/');
   await onboard(page, 'test');
   await expect(page).toHaveURL(/#\/placement/);
   await expect.poll(() => item(page)).toBeTruthy(); // the first question is on screen
-  for (let n = 0; n < 12; n += 1) {
+  // a probe is up to three questions at a level, all right to pass it; two probes per topic at most
+  for (let n = 0; n < 24; n += 1) {
     if (await page.locator('.done-screen').count()) break;
     const it = await item(page);
     await answer(page, it.level <= 2);
@@ -76,6 +110,9 @@ test('a whole lesson: a mistake, its retry, the reveal, the end screens, XP and 
   }
   await expect(page.locator('.done-screen')).toBeVisible();
   await expect(page.locator('.stat-gold')).toContainText('+');
+  // what moved: this stair's stages (its practice is done), not "0 of 5 stairs"
+  await expect(page.locator('.done-screen .climb-caption')).toHaveText('חיבור וחיסור: 1 מתוך 5 שלבים');
+  await expect(page.locator('.done-screen')).not.toContainText('0 מתוך 5 מדרגות');
   await leaveEndScreens(page);
   await expect(page.locator('.learn')).toBeVisible();
   const st = await saved(page);
@@ -108,6 +145,25 @@ test('the AI tutor without a connection says so and offers a way on, without act
   await expectUsable(page, page.getByRole('link', { name: 'להמשיך לתרגל' }), 'the way back to practice');
   await page.getByRole('link', { name: 'להמשיך לתרגל' }).click();
   await expect(page.locator('.learn')).toBeVisible();
+});
+
+test('settings: a student sees no server address or key, and this build has no adult key screen at all', async ({ page }) => {
+  // The tests build the app without VITE_ALLOW_PERSONAL_KEY (like a server build): there is no personal key and no
+  // server address to set anywhere. The copies made with it (publish-pages.sh) add a "מתקדם" row for adults.
+  await open(page, '#/settings', student('7'));
+  await expect(page.getByRole('heading', { name: 'העוזר החכם', exact: true })).toBeVisible();
+  await expect(page.locator('#ai-url, #ai-key')).toHaveCount(0);
+  await expect(page.getByText('מפתח אישי')).toHaveCount(0);
+  await expect(page.getByText('שרת הכיתה')).toHaveCount(0);
+  await expect(page.getByText(/sk-ant|workers\.dev|Anthropic/)).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /חיבור העוזר לשרת או למפתח/ })).toHaveCount(0);
+  await page.goto('./#/settings/advanced');
+  await expect(page.getByRole('heading', { name: 'הגדרות', level: 1 })).toBeVisible();
+  await expect(page.locator('#ai-url, #ai-key')).toHaveCount(0);
+  // a student in a class is told the class connects it; nothing to set
+  await open(page, '#/settings', student('7', { profile: { role: 'student', name: 'נועה', grade: '7', classCode: 'ABC123', className: 'ז׳3', teacherName: 'רונית', token: 't', studentId: 's1' } }));
+  await expect(page.getByText('העוזר מחובר דרך הכיתה של רונית')).toBeVisible();
+  await expect(page.locator('#ai-url, #ai-key')).toHaveCount(0);
 });
 
 test('the teacher view without a server explains it and how to turn it on', async ({ page }) => {

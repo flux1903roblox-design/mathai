@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Settings as Gear, Flame, Zap, Footprints, Award } from 'lucide-react';
 import { useApp, streakOf } from '@/lib/store.js';
 import { TOPICS, topicsFor } from '@/content/index.js';
-import { doneUpTo } from '@/lib/path.js';
+import { doneCount } from '@/lib/path.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState } from '@/learn/mastery.ts';
 import { Stat } from '@/components/ds.jsx';
@@ -14,10 +14,10 @@ import ProgressSummary from '@/components/learn/ProgressSummary.jsx';
 import MyNumbers from '@/components/learn/MyNumbers.jsx';
 
 export default function Me() {
-  const { profile, days, xp, path, progress } = useApp();
+  const { profile, days, xp, path } = useApp();
   const skills = useApp((s) => s.learn.skills);
   const streak = streakOf(days);
-  const stairs = TOPICS.reduce((a, t) => a + doneUpTo(t.id, path, progress), 0);
+  const stairs = TOPICS.reduce((a, t) => a + doneCount(t.id, path), 0);
   const now = new Date().toISOString();
   const mastered = topicsFor(profile.grade || '7').reduce((a, t) => a + t.levels.filter((_, i) => masteryState(skills[skillId(t.id, i + 1)], now) === 'mastered').length, 0);
   return (

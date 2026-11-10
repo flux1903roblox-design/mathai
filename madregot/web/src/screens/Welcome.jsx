@@ -12,7 +12,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { Flow } from '@/components/Screen.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { topicsFor } from '@/content/index.js';
-import { KNOW } from '@/lib/placement.js';
+import { KNOW, placementMax } from '@/lib/placement.js';
 import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
 
@@ -114,7 +114,6 @@ function Onboarding({ onTeacher }) {
         <main className="hello-center" data-region="content">
           <Mascot mood="excited" size={168} className="hello-madi" />
           <p className="hello-brand"><span className="wordmark">מדרגות</span></p>
-          <p className="hello-eyebrow" dir="ltr" lang="en">LEVEL UP YOUR MATH</p>
           <h1 className="hello-title">מתמטיקה שמבינים.<br />ומתקדמים.</h1>
           <p className="hello-fact">כל יום מדרגה אחת קדימה.</p>
         </main>
@@ -215,7 +214,7 @@ function Onboarding({ onTeacher }) {
         {step === 'start' && (
           <div className="ob-opts" role="radiogroup" aria-labelledby="ob-q">
             <Option on={start === 'test'} onPick={() => set({ start: 'test' })} title="בדיקת רמה קצרה" badge={recommended === 'test' ? 'מומלץ' : null}
-              sub="עד 9 שאלות, בערך 5 דקות. כל נושא יתחיל מהמדרגה שלכם." glyph={<Target size={30} strokeWidth={2.4} />} />
+              sub={`עד ${placementMax(grade)} שאלות, ולרוב פחות. כל נושא יתחיל מהמדרגה שלכם.`} glyph={<Target size={30} strokeWidth={2.4} />} />
             <Option on={start === 'scratch'} onPick={() => set({ start: 'scratch' })} title="מתחילים מההתחלה" badge={recommended === 'scratch' ? 'מומלץ' : null}
               sub="מהמדרגה הראשונה בכל נושא. אפשר לעשות את הבדיקה אחר כך." glyph={<Footprints size={30} strokeWidth={2.4} />} />
           </div>

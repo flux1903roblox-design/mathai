@@ -193,7 +193,7 @@ const stair1: StairContent = {
         { kind: 'explore', text: 'שימו על הגרף של $y = x + 3$ את הנקודה שבה $x = 2$.', manip: onLine(1, 3), answer: [2, 5],
           hint: 'קודם $1 \\cdot 2 = 2$, ואז מוסיפים $3$.', success: '$y = 2 + 3 = 5$. הנקודה $(2, 2)$, בלי $b$, הייתה מתחת לישר.' },
       ] },
-    { id: 'neg-sub', title: 'הציבו $x$ שלילי בלי הסוגריים', prereq: 'signed:3',
+    { id: 'neg-sub', title: 'הציבו $x$ שלילי כאילו הוא חיובי (בלי סוגריים)', prereq: 'signed:3',
       cause: 'כשכותבים $2 \\cdot -3$ או $2 - 3$, המינוס של $x$ הולך לאיבוד ונשאר רק המרחק 3.',
       explain: [
         'מציבים את כל המספר, כולל הסימן, ובתוך סוגריים: $y = 2 \\cdot (-3) + 1$.',
@@ -237,20 +237,49 @@ const stair1: StairContent = {
 
 // ================================================================ stair 2: what m and b say
 
-type Read = { m: number; b: number; rev: number; ask: number }; // ask 0: m, 1: b; rev: written y = b + mx
+// ask 0: m, 1: b; rev: written y = b + mx; x1, x2: two points of the line named in the question
+type Read = { m: number; b: number; rev: number; ask: number; x1?: number; x2?: number };
 const written = (p: Read) => (p.rev
   ? `y = ${T(p.b)} ${p.m < 0 ? '-' : '+'} ${Math.abs(p.m) === 1 ? '' : Math.abs(p.m)}x`
   : lineTex(p.m, p.b));
+/** The two points of the line the question names, as TeX. */
+const twoPoints = (p: Read) => [p.x1!, p.x2!].map((x) => `$(${T(x)}, ${T(p.m * x + p.b)})$`).join(' ו־');
 const readModel: DiagModel<Read> = {
-  // a third of the slopes are ±1 (x alone), and some equations are written with b first
+  // a third of the slopes are ±1 (x alone), and some equations are written with b first. Every question also names two
+  // points of the line, placed so that the number asked for is never the first or the last number written (unless m and
+  // b are equal): typing a number from the question is right about one time in six (src/learn/guessing.test.ts)
   params: (rnd) => {
-    const m = rnd() < 0.3 ? rpick(rnd, [-1, 1]) : rnz(rnd, -5, 5);
-    const b = rnd() < 0.1 ? 0 : rnz(rnd, -8, 8);
-    return { m, b, rev: b !== 0 && rnd() < 0.4 ? 1 : 0, ask: rnd() < 0.5 ? 0 : 1 };
+    for (;;) {
+      const m = rnd() < 0.3 ? rpick(rnd, [-1, 1]) : rnz(rnd, -5, 5);
+      const b = rnd() < 0.1 ? 0 : rnz(rnd, -8, 8);
+      // y = x and y = −x print no number of their own: the 0 of "(0, b)" would be the first number written
+      if (b === 0 && Math.abs(m) === 1) continue;
+      // a line through the origin is asked for its b: where it crosses the y-axis
+      const ask = b === 0 ? 1 : rnd() < 0.5 ? 0 : 1;
+      const xs = [-2, -1, 1, 2, 3];
+      const x1 = rpick(rnd, xs); const x2 = rpick(rnd, xs.filter((x) => x !== x1));
+      const ans = ask === 0 ? m : b;
+      // the points' numbers are not the number asked for
+      if ([x1, x2, m * x1 + b, m * x2 + b].some((v) => v === ans)) continue;
+      return { m, b, rev: b !== 0 && rnd() < 0.4 ? 1 : 0, ask, x1: Math.min(x1, x2), x2: Math.max(x1, x2) };
+    }
   },
-  text: (p) => (p.ask === 0
-    ? `מה השיפוע $m$ של הישר $${written(p)}$?`
-    : `הישר $${written(p)}$ חותך את ציר $y$ בנקודה $(0, b)$. מה $b$?`),
+  text: (p) => {
+    const eq = `$${written(p)}$`; const pts = twoPoints(p);
+    // the numbers the equation prints, in order: m is first in y = mx + b and last in y = b + mx, b the other way round;
+    // m is not printed when it is ±1 (x alone), b not when it is 0. The points go before the equation when the number
+    // asked for is the first it prints, after it otherwise; and "(0, b)" closes the sentence when b would be last
+    const printed = (p.rev ? ['b', 'm'] : ['m', 'b']).filter((r) => (r === 'm' ? Math.abs(p.m) !== 1 : p.b !== 0));
+    const answerFirst = printed[0] === (p.ask === 0 ? 'm' : 'b');
+    if (p.ask === 0) {
+      return answerFirst
+        ? `הנקודות ${pts} נמצאות על הישר ${eq}. מה השיפוע $m$ של הישר?`
+        : `הישר ${eq} עובר דרך הנקודות ${pts}. מה השיפוע $m$ של הישר?`;
+    }
+    return answerFirst
+      ? `הנקודות ${pts} נמצאות על הישר ${eq}, שחותך את ציר $y$ בנקודה $(0, b)$. מה $b$?`
+      : `הישר ${eq} חותך את ציר $y$ בנקודה $(0, b)$ ועובר דרך הנקודות ${pts}. מה $b$?`;
+  },
   answer: (p) => (p.ask === 0 ? p.m : p.b),
   bugs: {
     // the step read as the intercept, or the other way round
@@ -641,7 +670,7 @@ const stair3: StairContent = {
         { kind: 'predict', text: 'ישר עולה 4 משבצות על כל 2 צעדים ימינה. מה השיפוע?', choices: ['$\\frac{1}{2}$', '$2$'], answer: 1,
           why: '4 למעלה על 2 ימינה: 2 לכל צעד ימינה. ישר תלול, שיפוע גדול מ־1.' },
       ] },
-    { id: 'sign', title: 'ירידה נספרה כעלייה',
+    { id: 'sign', title: 'השיפוע יצא בסימן ההפוך: ירידה נספרה כעלייה, או להפך',
       cause: 'סופרים משבצות, והמספר יוצא חיובי. אבל כשהמדרגה יורדת, השינוי ב־$y$ שלילי.',
       explain: [
         'כשהולכים ימינה ויורדים, $y$ קטן: השינוי שלילי, ולכן גם השיפוע.',

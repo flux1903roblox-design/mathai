@@ -3,6 +3,9 @@
 // so they need no Cloudflare worker and no AI key.
 import { defineConfig } from '@playwright/test';
 
+// E2E_PORT lets a second copy of the repo run its own suite at the same time (default 4173).
+const PORT = Number(process.env.E2E_PORT) || 4173;
+
 const phone = (width, height) => ({ viewport: { width, height }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
 
 export default defineConfig({
@@ -13,12 +16,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   reporter: [['list']],
   snapshotPathTemplate: '{testDir}/__screens__/{projectName}/{arg}{ext}',
-  use: { baseURL: 'http://127.0.0.1:4173/', locale: 'he-IL', reducedMotion: 'reduce', trace: 'off' },
+  use: { baseURL: `http://127.0.0.1:${PORT}/`, locale: 'he-IL', reducedMotion: 'reduce', trace: 'off' },
   webServer: {
-    command: 'npx vite build --base ./ --outDir dist-test --emptyOutDir && npx vite preview --outDir dist-test --port 4173 --strictPort --host 127.0.0.1',
+    command: `npx vite build --base ./ --outDir dist-test --emptyOutDir && npx vite preview --outDir dist-test --port ${PORT} --strictPort --host 127.0.0.1`,
     cwd: '..',
     env: { VITE_API_URL: 'none' },
-    url: 'http://127.0.0.1:4173/',
+    url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
   },

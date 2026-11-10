@@ -49,7 +49,8 @@ describe('the verification after a repair', () => {
   it('asks questions where the misconception would show, and fails when it shows again', () => {
     const s0 = startLesson({ kind: 'check', purpose: 'verify', skill: 'signed:1', misc: 'minus-minus' });
     expect(s0.item.could).toContain('minus-minus');
-    const { s } = play(s0, (_i, it) => addSubModel.bugs['minus-minus'](JSON.parse(it.key.split(':probe:')[1])));
+    // the old habit on every question where it would show (the last question, where it would not, answered right)
+    const { s } = play(s0, (_i, it) => (it.probe ? addSubModel.bugs['minus-minus'](JSON.parse(it.key.split(':probe:')[1])) : it.answer));
     const r = resultOf(s);
     expect(r.showed).toBeGreaterThan(0);
     expect(r.passed).toBe(false);

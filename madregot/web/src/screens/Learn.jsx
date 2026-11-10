@@ -5,8 +5,9 @@ import { Flame, Zap, Check, BookOpen, ChevronDown, ArrowUp, ArrowDown } from 'lu
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor } from '@/content/index.js';
-import { unitNodes, chestAfter } from '@/lib/path.js';
+import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
+import { MASTERY_N } from '@/learn/mastery.ts';
 import PathNode from '@/components/PathNode.jsx';
 import Chest from '@/components/map/Chest.jsx';
 import { Button } from '@/components/ui.jsx';
@@ -31,21 +32,31 @@ function NodeCard({ n, t, onStart }) {
   return <StairCard n={n} t={t} onStart={onStart} />;
 }
 
-/** A stair's card on the path (Duolingo's node popover): its name, the stage that comes next, and one START that opens it. */
+/**
+ * A stair's card on the path (Duolingo's node popover): its name, the stage that comes next, and one START that opens
+ * it. A stair is done only after its mastery check; one passed over (placement, a jump test) or kept from before
+ * mastery checks existed offers its check.
+ */
 function StairCard({ n, t, onStart }) {
   const skill = skillId(t.id, n.level);
   const rec = useApp((s) => s.learn.skills[skill]);
   const st = nextStage(rec);
   const stageTo = st === 'D' ? `/lesson/${t.id}/${n.level}?part=${Math.min(n.parts + 1, PARTS)}` : st === 'E' ? routeOf.check(skill, 'mastery') : `/learn/${t.id}/${n.level}/${st}`;
+  const check = routeOf.check(skill, 'mastery');
+  const mastered = n.state === 'done' && !!rec?.mastered;
   return (
     <div className="node-card" role="group" aria-label={n.title}>
       <p className="node-card-title">{n.title}</p>
       {n.state === 'current' && <p className="node-card-sub">שלב {STAGE_N[st]} מתוך 5: {STAGE_NAME[st]}</p>}
-      {n.state === 'current' && <Button className="btn-block node-start-btn" onClick={() => onStart(stageTo)}>{rec?.taught?.A ? 'המשך' : 'התחלה'}</Button>}
+      {n.state === 'current' && <Button className="btn-block node-start-btn" onClick={() => onStart(stageTo)}>{rec?.taught?.A || n.parts ? 'המשך' : 'התחלה'}</Button>}
       {n.state === 'current' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>כל חמשת השלבים</Button>}
-      {n.state === 'done' && <p className="node-card-sub">הושלם. אפשר לחזור ולתרגל.</p>}
+      {mastered && <p className="node-card-sub">שולטים בזה: עברתם את בדיקת השליטה.</p>}
+      {n.state === 'done' && !mastered && <p className="node-card-sub">המדרגה הושלמה לפני שהיו בדיקות שליטה. בדיקה קצרה, {MASTERY_N} שאלות, תראה שזה נשאר.</p>}
+      {n.state === 'open' && <p className="node-card-sub">המדרגה הזאת פתוחה. בדיקת שליטה קצרה, {MASTERY_N} שאלות, תסמן אותה כמדרגה שעברתם.</p>}
       {n.state === 'locked' && <p className="node-card-sub">יודעים כבר? מבחן קצר של {JUMP_LEN} תרגילים, טעות אחת מותרת, פותח את כל הדרך עד לכאן.</p>}
-      {n.state === 'done' && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור ולבדיקת שליטה</Button>}
+      {(n.state === 'open' || (n.state === 'done' && !mastered)) && <Button className="btn-block" onClick={() => onStart(check)}>לבדיקת שליטה</Button>}
+      {n.state === 'open' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור</Button>}
+      {mastered && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור</Button>}
       {n.state === 'done' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>תרגול חוזר</Button>}
       {n.state === 'locked' && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${n.level}?kind=jump`)}>מבחן קפיצה</Button>}
     </div>
@@ -54,23 +65,29 @@ function StairCard({ n, t, onStart }) {
 
 /** The key of the last finished stop in a unit: the one a lesson just completed. */
 function lastDoneKey(topic) {
-  const { path, progress } = useApp.getState();
-  const done = unitNodes(topic, path, progress).filter((x) => x.state === 'done');
+  const { path } = useApp.getState();
+  const done = unitNodes(topic, path).filter((x) => x.state === 'done');
   const last = done[done.length - 1];
   return last ? `${topic}:${last.kind}:${last.level}` : null;
 }
 
 function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh, mastered, celebrate }) {
-  const done = nodes.filter((x) => x.kind === 'node' && x.state === 'done').length;
-  const total = t.levels.length;
+  const skills = useApp((s) => s.learn.skills);
+  const path = useApp((s) => s.path);
+  // the unit's counters move from the first stage: stairs done (mastered) once there is one, before that stages done,
+  // and a thin bar of all its stages under the name
+  const prog = unitProgress(t.id, path, skills);
   const half = chestAfter(t.id);
+  // the chest opens as the store awards it: once every stair up to it is done (not a stair done out of order)
+  const chest = chestOpen(t.id, path);
   return (
     <section className={clsx('unit', `ch-${t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
       {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path scrolls */}
       <header className="unit-head" data-region="banner">
         <div className="unit-head-text">
           <h2 id={`unit-${t.id}`} className="unit-title">{t.title}</h2>
-          <p className="unit-label">יחידה {n} · {done} מתוך {total} מדרגות</p>
+          <p className="unit-label">יחידה {n} · {unitCountText(prog)}</p>
+          <div className="unit-bar" role="progressbar" aria-label={`${t.title}: שלבים שהושלמו`} aria-valuemin={0} aria-valuemax={prog.of} aria-valuenow={prog.stages} aria-valuetext={`${prog.stages} מתוך ${prog.of} שלבים`}><i style={{ width: `${(prog.stages / prog.of) * 100}%` }} /></div>
         </div>
         <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={`תזכורת מהשיעור: ${t.title}`}><BookOpen size={22} aria-hidden="true" /><span>תזכורת</span></Link>
       </header>
@@ -80,14 +97,16 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
             const key = `${t.id}:${node.kind}:${node.level}`;
             const isOpen = open === key;
             const x = SWING[i % SWING.length];
-            const label = `${node.kind === 'review' ? 'חזרה על היחידה' : `מדרגה ${node.level}: ${node.title}`}. ${node.state === 'done' ? (mastered ? 'נשלט' : 'הושלם') : node.state === 'current' ? (node.kind === 'node' ? `השלב הבא, ${node.parts} מתוך ${PARTS} שיעורים` : 'השלב הבא') : 'נעול'}`;
+            const rec = node.kind === 'node' ? skills[skillId(t.id, node.level)] : null;
+            const pct = node.kind === 'node' ? stairProgress(rec, node.parts) : 0;
+            const label = `${node.kind === 'review' ? 'חזרה על היחידה' : `מדרגה ${node.level}: ${node.title}`}. ${node.state === 'done' ? (mastered ? 'נשלט' : 'הושלם') : node.state === 'open' ? 'פתוחה, בדיקת השליטה מחכה' : node.state === 'current' ? (node.kind === 'node' ? `השלב הבא, ${Math.round(pct * 5)} מתוך 5 שלבים` : 'השלב הבא') : 'נעול'}`;
             return [
               <li key={key} className="path-step" style={{ '--x': `${x}px` }}>
-                {node.state === 'current' && !isOpen && <span className="node-start" aria-hidden="true">{node.parts ? 'המשך' : 'התחלה'}</span>}
+                {node.state === 'current' && !isOpen && <span className="node-start" aria-hidden="true">{pct > 0 ? 'המשך' : 'התחלה'}</span>}
                 <div className={clsx('node-anchor', node.state === 'current' && 'is-current')}>
                   <PathNode
                     ref={key === focusKey ? currentRef : undefined}
-                    state={node.state} kind={node.kind} parts={node.parts} of={PARTS} mastered={mastered}
+                    state={node.state} kind={node.kind} parts={node.parts} of={PARTS} pct={pct} mastered={mastered}
                     fillLast={key === focusKey && fresh === t.id && node.parts > 0}
                     celebrate={celebrate === key}
                     label={label} expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}
@@ -98,12 +117,12 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
               // halfway along the unit, a treasure chest sits on the road
               node.kind === 'node' && node.level === half && (
                 <li key={`${t.id}:chest`} className="path-step path-chest" style={{ '--x': `${(x + SWING[(i + 1) % SWING.length]) / 2}px` }}>
-                  <Chest open={node.state === 'done'} celebrate={celebrate === key} expanded={open === `${t.id}:chest`}
-                    label={`תיבת אוצר. ${node.state === 'done' ? 'פתוחה' : `נפתחת אחרי מדרגה ${half}`}`} onClick={() => setOpen(open === `${t.id}:chest` ? null : `${t.id}:chest`)} />
+                  <Chest open={chest} celebrate={chest && celebrate === key} expanded={open === `${t.id}:chest`}
+                    label={`תיבת אוצר. ${chest ? 'פתוחה' : `נפתחת אחרי מדרגה ${half}`}`} onClick={() => setOpen(open === `${t.id}:chest` ? null : `${t.id}:chest`)} />
                   {open === `${t.id}:chest` && (
                     <div className="node-card" role="group" aria-label="תיבת אוצר">
-                      <p className="node-card-title">{node.state === 'done' ? 'חצי היחידה מאחוריכם' : 'תיבת אוצר'}</p>
-                      <p className="node-card-sub">{node.state === 'done' ? 'פתחתם את התיבה של היחידה הזאת. היא מחכה באוסף המדליות שלכם בפרופיל.' : `התיבה נפתחת כשמסיימים את מדרגה ${half}: ${nodes[half - 1].title}.`}</p>
+                      <p className="node-card-title">{chest ? 'חצי היחידה מאחוריכם' : 'תיבת אוצר'}</p>
+                      <p className="node-card-sub">{chest ? 'פתחתם את התיבה של היחידה הזאת. היא מחכה באוסף המדליות שלכם בפרופיל.' : `התיבה נפתחת כשמסיימים את כל המדרגות עד מדרגה ${half}: ${nodes[half - 1].title}.`}</p>
                     </div>
                   )}
                 </li>
@@ -123,7 +142,7 @@ function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
     <aside className="learn-side" aria-label="היום שלי">
       <Link to="/quests" className="side-card side-streak">
         <Flame size={34} aria-hidden="true" className={clsx(streak > 0 && 'on')} />
-        <span><b>{streak === 1 ? 'יום אחד ברצף' : `${streak} ימים ברצף`}</b><span className="muted">{freezes > 0 ? `${freezes === 1 ? 'הקפאה אחת מוכנה' : `${freezes} הקפאות מוכנות`}` : 'שיעור ביום שומר על הרצף'}</span></span>
+        <span><b>{streak === 1 ? 'יום אחד ברצף' : `${streak} ימים ברצף`}</b><span className="muted">{freezes > 0 ? `${freezes === 1 ? 'הקפאה אחת מוכנה' : `${freezes} הקפאות מוכנות`}` : 'שיעור או שלב ביום שומרים על הרצף'}</span></span>
       </Link>
       <div className="side-card">
         <div className="card-row"><b>היעד היומי</b><span className="card-num">{Math.min(todayXp, goalXp)}/{goalXp} XP</span></div>
@@ -140,7 +159,7 @@ function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
 export default function Learn() {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const { profile, path, progress, days, xp, goalXp, freezes, settleStreak, lastTopic } = useApp();
+  const { profile, path, days, xp, goalXp, freezes, settleStreak, lastTopic } = useApp();
   const [view, setView] = useState(profile.grade || '7');
   const [open, setOpen] = useState(null);
   const [away, setAway] = useState(null); // 'up' | 'down' when the current node is off screen
@@ -151,7 +170,7 @@ export default function Learn() {
   const todayXp = days[today()]?.xp || 0;
   // "Where I am": the next node in the unit practised last (or just now), else in the first unit.
   const focusTopic = [state?.from, lastTopic].find((id) => id && topics.some((t) => t.id === id)) || topics[0]?.id;
-  const focusNode = focusTopic && unitNodes(focusTopic, path, progress).find((x) => x.state === 'current');
+  const focusNode = focusTopic && unitNodes(focusTopic, path).find((x) => x.state === 'current');
   const focusKey = focusNode ? `${focusTopic}:${focusNode.kind}:${focusNode.level}` : null;
 
   useEffect(() => { settleStreak(); }, [settleStreak]);
@@ -186,7 +205,7 @@ export default function Learn() {
       <div className="learn-body">
         {/* the home screen is the path, as on Duolingo: units under their sticky banners, the current stop marked */}
         {topics.map((t, i) => (
-          <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path, progress)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
+          <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}
             mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null} />
         ))}
         <p className="path-end">עוד יחידות יגיעו לפי תכנית הלימודים של השנה. <Link to="/topics">כל הנושאים והמצב בכל אחד</Link></p>

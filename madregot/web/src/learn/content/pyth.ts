@@ -4,6 +4,7 @@
 // a story hides the triangle, so first find the right angle and the side opposite it (4); on a grid the legs are
 // the differences in x and in y (5).
 import type { DiagModel, Rng, StairContent } from '../types';
+import { rightTri, obtuse, sides, hinge, ladder, screen, pole } from './geo';
 import { rint, rpick } from '../expr';
 // @ts-ignore: plain JS helpers shared with the exercise generators
 import { T, TRIPLES } from '@/content/util.js';
@@ -13,8 +14,16 @@ const ALL = TRIPLES as Triple[];
 /** The squares object: the student changes the two legs and sees the three areas (max 12 per leg). */
 const sq = (a: number, b: number) => ({ kind: 'squares' as const, start: { a, b }, max: 12 });
 const r1 = (x: number) => Math.round(x * 10) / 10;
-/** Every right answer of these questions is whole; a misconception often is not, and the student rounds it. */
+/**
+ * About half the triangles are whole (Pythagorean triples); the rest need a root that is not whole, rounded to tenths,
+ * as the grade-8 programme asks. A rounded answer is right within half a tenth of the exact length (`exact`).
+ */
 const ROUND = 'אם יוצא מספר לא שלם, עגלו לעשירית.';
+const isSq = (n: number) => Number.isInteger(Math.sqrt(n));
+/** "= 13" for a whole root, "≈ 7.1" for one that is not. */
+const eqRoot = (n: number) => (isSq(n) ? `= ${Math.sqrt(n)}` : `\\approx ${r1(Math.sqrt(n))}`);
+/** A length as the question asks for it: whole, or rounded to tenths. */
+const len = (x: number) => (Math.abs(x - Math.round(x)) < 1e-9 ? Math.round(x) : r1(x));
 const shuffle = <X>(rnd: Rng, arr: X[]) => {
   const b = [...arr];
   for (let i = b.length - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
@@ -27,25 +36,34 @@ const legsOf = (rnd: Rng, pool: Triple[] = ALL): Legs => {
   const [x, y, c] = rpick(rnd, pool);
   return rnd() < 0.5 ? { a: x, b: y, c } : { a: y, b: x, c };
 };
+/** Two whole legs whose hypotenuse is not whole (each up to 12). */
+const rootLegsOf = (rnd: Rng): Legs => { for (;;) { const a = rint(rnd, 2, 12); const b = rint(rnd, 2, 12); if (!isSq(a * a + b * b)) return { a, b, c: Math.sqrt(a * a + b * b) }; } };
+/** A whole hypotenuse and leg whose other leg is not whole. */
+const rootLegOf = (rnd: Rng): Legs => { for (;;) { const c = rint(rnd, 5, 20); const a = rint(rnd, Math.ceil(c / 3), c - 1); if (!isSq(c * c - a * a)) return { a, b: Math.sqrt(c * c - a * a), c }; } };
+/** Half whole triangles, half with the missing side a root that is not whole. */
+const hypLegs = (rnd: Rng): Legs => (rnd() < 0.5 ? legsOf(rnd) : rootLegsOf(rnd));
+const legLegs = (rnd: Rng): Legs => (rnd() < 0.5 ? legsOf(rnd) : rootLegOf(rnd));
+const sq2 = (p: Legs) => p.a * p.a + p.b * p.b;
 type Story = Legs & { k: number };
 
 // ---------------------------------------------------------------- stair 1: the hypotenuse
 
 const hypModel: DiagModel<Legs> = {
-  params: (rnd) => legsOf(rnd),
-  text: (p) => `במשולש ישר־זווית הניצבים $${p.a}$ ס״מ ו־$${p.b}$ ס״מ. מה אורך היתר?`,
+  params: hypLegs,
+  text: (p) => `במשולש ישר־זווית הניצבים $${p.a}$ ס״מ ו־$${p.b}$ ס״מ. מה אורך היתר? ${ROUND}`,
   display: (p) => `a = ${p.a},\\ b = ${p.b},\\ c = ?`,
-  answer: (p) => p.c,
+  answer: (p) => len(p.c),
+  exact: (p) => p.c,
   bugs: {
     // the lengths were added, not the areas of the squares
     'add-legs': (p) => p.a + p.b,
     // stopped at the area of the square on the hypotenuse
-    'no-root': (p) => p.c * p.c,
+    'no-root': sq2,
   },
   solution: (p) => [
     `מרבעים כל ניצב: $${p.a}^2 = ${p.a * p.a}$, $${p.b}^2 = ${p.b * p.b}$.`,
-    `מחברים את השטחים: $c^2 = ${p.a * p.a} + ${p.b * p.b} = ${p.c * p.c}$.`,
-    `זה שטח הריבוע על היתר. האורך הוא השורש: $c = \\sqrt{${p.c * p.c}} = ${p.c}$ ס״מ.`,
+    `מחברים את השטחים: $c^2 = ${p.a * p.a} + ${p.b * p.b} = ${sq2(p)}$.`,
+    `זה שטח הריבוע על היתר. האורך הוא השורש: $c = \\sqrt{${sq2(p)}} ${eqRoot(sq2(p))}$ ס״מ.`,
   ],
   hint: (p) => `מחברים את שטחי הריבועים על הניצבים, $${p.a}^2 + ${p.b}^2$, ובסוף מוציאים שורש.`,
   unit: 'ס״מ',
@@ -53,24 +71,25 @@ const hypModel: DiagModel<Legs> = {
 
 const hypStory: DiagModel<Story> = {
   // the same skill on two unfamiliar surfaces: a walk east then north, and the areas of the squares given instead of the legs
-  params: (rnd) => ({ k: rnd() < 0.5 ? 0 : 1, ...legsOf(rnd) }),
+  params: (rnd) => ({ k: rnd() < 0.5 ? 0 : 1, ...hypLegs(rnd) }),
   text: (p) => (p.k === 0
-    ? `יואב הלך $${p.a}$ מטר מזרחה, ואז $${p.b}$ מטר צפונה. כמה מטרים הוא רחוק עכשיו מנקודת ההתחלה, בקו ישר?`
-    : `על הניצבים של משולש ישר־זווית בנו ריבועים. לאחד שטח $${p.a * p.a}$ סמ״ר ולשני $${p.b * p.b}$ סמ״ר. מה אורך היתר, בס״מ?`),
-  answer: (p) => p.c,
+    ? `יואב הלך $${p.a}$ מטר מזרחה, ואז $${p.b}$ מטר צפונה. כמה מטרים הוא רחוק עכשיו מנקודת ההתחלה, בקו ישר? ${ROUND}`
+    : `על הניצבים של משולש ישר־זווית בנו ריבועים. לאחד שטח $${p.a * p.a}$ סמ״ר ולשני $${p.b * p.b}$ סמ״ר. מה אורך היתר, בס״מ? ${ROUND}`),
+  answer: (p) => len(p.c),
+  exact: (p) => p.c,
   bugs: {
     'add-legs': (p) => p.a + p.b,
-    'no-root': (p) => p.c * p.c,
+    'no-root': sq2,
   },
   solution: (p) => (p.k === 0
     ? [
       'מזרחה וצפונה נפגשים בזווית ישרה. הדרך בקו ישר היא היתר.',
-      `$d^2 = ${p.a}^2 + ${p.b}^2 = ${p.a * p.a} + ${p.b * p.b} = ${p.c * p.c}$`,
-      `$d = \\sqrt{${p.c * p.c}} = ${p.c}$ מטר.`,
+      `$d^2 = ${p.a}^2 + ${p.b}^2 = ${p.a * p.a} + ${p.b * p.b} = ${sq2(p)}$`,
+      `$d = \\sqrt{${sq2(p)}} ${eqRoot(sq2(p))}$ מטר.`,
     ]
     : [
-      `השטחים כבר נתונים. הריבוע על היתר הוא הסכום שלהם: $${p.a * p.a} + ${p.b * p.b} = ${p.c * p.c}$.`,
-      `אורך היתר הוא הצלע של הריבוע הזה: $\\sqrt{${p.c * p.c}} = ${p.c}$ ס״מ.`,
+      `השטחים כבר נתונים. הריבוע על היתר הוא הסכום שלהם: $${p.a * p.a} + ${p.b * p.b} = ${sq2(p)}$.`,
+      `אורך היתר הוא הצלע של הריבוע הזה: $\\sqrt{${sq2(p)}} ${eqRoot(sq2(p))}$ ס״מ.`,
     ]),
   hint: (p) => (p.k === 0
     ? 'מזרחה וצפונה נפגשים בזווית ישרה, והדרך בקו ישר היא היתר.'
@@ -97,30 +116,30 @@ const stair1: StairContent = {
     'לא תמיד יוצא מספר שלם. לניצבים $1$ ו־$2$: $c^2 = 1 + 4 = 5$, והיתר הוא $\\sqrt{5}$, קצת יותר מ־$2.2$.',
   ],
   discover: [
-    { kind: 'say', mood: 'happy', text: 'במשולש ישר־זווית יש זווית של $90^\\circ$. שתי הצלעות שיוצרות אותה נקראות ניצבים. הצלע שמולה נקראת יתר.' },
-    { kind: 'predict', text: 'למשולש ישר־זווית יש ניצבים $3$ ו־$4$. מה לדעתכם אורך היתר?',
+    { kind: 'say', fig: rightTri(3, 4, { labels: { a: 'ניצב', b: 'ניצב', c: 'יתר' }, hiHyp: true }), mood: 'happy', text: 'במשולש ישר־זווית יש זווית של $90^\\circ$. שתי הצלעות שיוצרות אותה נקראות ניצבים. הצלע שמולה נקראת יתר.' },
+    { kind: 'predict', fig: rightTri(3, 4, { labels: { a: '3', b: '4', c: '?' } }), text: 'למשולש ישר־זווית יש ניצבים $3$ ו־$4$. מה לדעתכם אורך היתר?',
       choices: ['$7$', '$5$', '$4$'], answer: 1,
       why: 'היתר ארוך מכל ניצב, אז יותר מ־$4$. אבל הוא הדרך הישרה בין קצות הניצבים, ולכן קצר מ־$3 + 4 = 7$. עוד מעט נראה למה הוא בדיוק $5$.',
       wrongWhy: { 0: '$7$ הוא הדרך לאורך שני הניצבים. היתר הוא קיצור דרך, ולכן קצר יותר.', 2: 'היתר הוא הצלע הארוכה ביותר במשולש ישר־זווית, ולכן הוא ארוך מ־$4$.' } },
-    { kind: 'say', text: 'הסוד הוא לא באורכים אלא בשטחים. נבנה ריבוע על כל צלע. על ניצב $3$ עומד ריבוע בשטח $3^2 = 9$, ועל ניצב $4$ ריבוע בשטח $4^2 = 16$.' },
+    { kind: 'say', fig: rightTri(3, 4, { squares: { a: '9', b: '16', c: '?' } }), text: 'הסוד הוא לא באורכים אלא בשטחים. נבנה ריבוע על כל צלע. על ניצב $3$ עומד ריבוע בשטח $3^2 = 9$, ועל ניצב $4$ ריבוע בשטח $4^2 = 16$.' },
     { kind: 'explore', text: 'שנו את הניצבים ועקבו אחרי שלושת השטחים. בנו משולש שהריבוע על היתר שלו בשטח $25$.', manip: sq(2, 2), answer: { c: 5, a: 3, b: 4 },
       hint: 'נסו ניצבים $3$ ו־$4$. כמה זה $9 + 16$?',
       success: 'ניצבים $3$ ו־$4$: השטחים $9$ ו־$16$, ועל היתר בדיוק $25$. שני הריבועים הקטנים יחד שווים לגדול.' },
-    { kind: 'predict', text: 'ניצבים $6$ ו־$8$. מה יהיה השטח של הריבוע על היתר?',
+    { kind: 'predict', fig: rightTri(6, 8, { squares: { a: '36', b: '64', c: '?' } }), text: 'ניצבים $6$ ו־$8$. מה יהיה השטח של הריבוע על היתר?',
       choices: ['$14$', '$100$', '$48$'], answer: 1,
       why: 'מרבעים כל ניצב: $6^2 + 8^2 = 36 + 64 = 100$. מחברים שטחים, לא אורכים.',
       wrongWhy: { 0: '$14$ הוא $6 + 8$, סכום האורכים. השטחים הם $36$ ו־$64$.', 2: '$48$ הוא $6 \\cdot 8$. כל ריבוע עומד על צלע אחת: $6 \\cdot 6$ ו־$8 \\cdot 8$.' } },
     { kind: 'explore', text: 'בדקו בבנייה: מצאו ניצבים שנותנים על היתר ריבוע בשטח $100$.', manip: sq(2, 2), answer: { c: 10, a: 6, b: 8 },
       hint: 'קבעו ניצב אחד $6$. כמה חסר מ־$36$ עד $100$, ואיזה ניצב נותן ריבוע כזה?',
       success: '$36 + 64 = 100$. מצאנו את השטח של הריבוע על היתר. אבל כמה ארוך היתר עצמו?' },
-    { kind: 'predict', text: 'הריבוע על היתר בשטח $100$. מה אורך היתר?',
+    { kind: 'predict', fig: rightTri(6, 8, { labels: { a: '6', b: '8', c: '?' }, squares: { c: '100' } }), text: 'הריבוע על היתר בשטח $100$. מה אורך היתר?',
       choices: ['$100$', '$10$', '$50$'], answer: 1,
       why: 'אורך הצלע של ריבוע הוא המספר שכפול עצמו נותן את השטח: $10 \\cdot 10 = 100$. זה השורש: $\\sqrt{100} = 10$.',
       wrongWhy: { 0: '$100$ הוא השטח של הריבוע. יתר באורך $100$ היה ארוך הרבה יותר מסכום הניצבים, $6 + 8 = 14$, וזה לא ייתכן.', 2: 'חצי מהשטח הוא לא הצלע. מחפשים מספר שכפול עצמו נותן $100$.' } },
-    { kind: 'predict', text: 'האם זה עובד בכל משולש? משולש עם צלעות $3$ ו־$4$, והזווית ביניהן קהה, גדולה מ־$90^\\circ$. הצלע השלישית:',
+    { kind: 'predict', fig: obtuse(), text: 'האם זה עובד בכל משולש? משולש עם צלעות $3$ ו־$4$, והזווית ביניהן קהה, גדולה מ־$90^\\circ$. הצלע השלישית:',
       choices: ['שווה ל־$5$', 'ארוכה מ־$5$', 'קצרה מ־$5$'], answer: 1,
       why: 'כשפותחים את הזווית מעבר ל־$90^\\circ$, הקצוות מתרחקים והצלע השלישית ארוכה מ־$5$. הריבוע עליה גדול מ־$25$. לכן השוויון נכון רק כשהזווית ישרה בדיוק.' },
-    { kind: 'rule', text: 'משפט פיתגורס: במשולש ישר־זווית, ריבוע היתר שווה לסכום ריבועי הניצבים. לכן היתר הוא השורש של הסכום.',
+    { kind: 'rule', fig: rightTri(3, 4, { labels: { a: 'a', b: 'b', c: 'c' } }), text: 'משפט פיתגורס: במשולש ישר־זווית, ריבוע היתר שווה לסכום ריבועי הניצבים. לכן היתר הוא השורש של הסכום.',
       display: 'a^2 + b^2 = c^2 \\quad\\Rightarrow\\quad c = \\sqrt{a^2 + b^2}',
       why: 'ארבעה עותקים של המשולש ממלאים ריבוע שצלעו $a + b$ בשני סידורים. באחד נשאר חור $c^2$, ובשני נשארים $a^2$ ו־$b^2$. אותו ריבוע פחות אותם משולשים, ולכן $c^2 = a^2 + b^2$. את האורך מקבלים מהשטח בשורש.' },
     { kind: 'explore', text: 'נסו לבד: בנו משולש שהיתר שלו $13$.', manip: sq(2, 2), answer: { c: 13, a: 5, b: 12 },
@@ -210,23 +229,25 @@ const stair1: StairContent = {
 
 const legBugs: DiagModel<Legs>['bugs'] = {
   // added the squares as for a hypotenuse, so the "leg" came out longer than the hypotenuse
-  'add-not-sub': (p) => r1(Math.sqrt(p.c * p.c + p.a * p.a)),
+  'add-not-sub': (p) => Math.sqrt(p.c * p.c + p.a * p.a),
   // subtracted the lengths, not the areas
   'subtract-sides': (p) => p.c - p.a,
   // stopped at the area of the square on the missing leg
-  'no-root': (p) => p.b * p.b,
+  'no-root': (p) => p.c * p.c - p.a * p.a,
 };
+const legSq = (p: Legs) => p.c * p.c - p.a * p.a;
 
 const legModel: DiagModel<Legs> = {
-  params: (rnd) => legsOf(rnd),
+  params: legLegs,
   text: (p) => `במשולש ישר־זווית היתר $${p.c}$ ס״מ, וניצב אחד $${p.a}$ ס״מ. מה אורך הניצב השני? ${ROUND}`,
   display: (p) => `c = ${p.c},\\ a = ${p.a},\\ b = ?`,
-  answer: (p) => p.b,
+  answer: (p) => len(p.b),
+  exact: (p) => p.b,
   bugs: legBugs,
   solution: (p) => [
     `היתר ידוע, ולכן הריבוע עליו הוא השלם: $${p.c}^2 = ${p.c * p.c}$.`,
-    `מחסרים את הריבוע על הניצב הידוע: $b^2 = ${p.c * p.c} - ${p.a * p.a} = ${p.b * p.b}$.`,
-    `מוציאים שורש: $b = \\sqrt{${p.b * p.b}} = ${p.b}$ ס״מ, קצר מהיתר כמו שצריך.`,
+    `מחסרים את הריבוע על הניצב הידוע: $b^2 = ${p.c * p.c} - ${p.a * p.a} = ${legSq(p)}$.`,
+    `מוציאים שורש: $b = \\sqrt{${legSq(p)}} ${eqRoot(legSq(p))}$ ס״מ, קצר מהיתר כמו שצריך.`,
   ],
   hint: (p) => `הריבוע על היתר הוא השלם. מחסרים ממנו את הריבוע על הניצב הידוע: $${p.c}^2 - ${p.a}^2$.`,
   unit: 'ס״מ',
@@ -234,21 +255,22 @@ const legModel: DiagModel<Legs> = {
 
 const legStory: DiagModel<Story> = {
   // a rectangle's side from its diagonal, and the areas of two squares given instead of the sides
-  params: (rnd) => ({ k: rnd() < 0.5 ? 0 : 1, ...legsOf(rnd) }),
+  params: (rnd) => ({ k: rnd() < 0.5 ? 0 : 1, ...legLegs(rnd) }),
   text: (p) => (p.k === 0
     ? `האלכסון של מלבן $${p.c}$ ס״מ, ואחת מצלעותיו $${p.a}$ ס״מ. מה אורך הצלע השנייה? ${ROUND}`
     : `במשולש ישר־זווית, לריבוע שבנוי על היתר שטח $${p.c * p.c}$ סמ״ר, ולריבוע שבנוי על אחד הניצבים שטח $${p.a * p.a}$ סמ״ר. מה אורך הניצב השני, בס״מ? ${ROUND}`),
-  answer: (p) => p.b,
+  answer: (p) => len(p.b),
+  exact: (p) => p.b,
   bugs: legBugs,
   solution: (p) => (p.k === 0
     ? [
       'שתי צלעות של מלבן נפגשות בזווית ישרה, והאלכסון מולה: הוא היתר.',
-      `$b^2 = ${p.c}^2 - ${p.a}^2 = ${p.c * p.c} - ${p.a * p.a} = ${p.b * p.b}$`,
-      `$b = \\sqrt{${p.b * p.b}} = ${p.b}$ ס״מ.`,
+      `$b^2 = ${p.c}^2 - ${p.a}^2 = ${p.c * p.c} - ${p.a * p.a} = ${legSq(p)}$`,
+      `$b = \\sqrt{${legSq(p)}} ${eqRoot(legSq(p))}$ ס״מ.`,
     ]
     : [
-      `הריבוע על היתר הוא השלם. הריבוע על הניצב החסר הוא מה שנשאר: $${p.c * p.c} - ${p.a * p.a} = ${p.b * p.b}$.`,
-      `אורך הניצב הוא הצלע של הריבוע הזה: $\\sqrt{${p.b * p.b}} = ${p.b}$ ס״מ.`,
+      `הריבוע על היתר הוא השלם. הריבוע על הניצב החסר הוא מה שנשאר: $${p.c * p.c} - ${p.a * p.a} = ${legSq(p)}$.`,
+      `אורך הניצב הוא הצלע של הריבוע הזה: $\\sqrt{${legSq(p)}} ${eqRoot(legSq(p))}$ ס״מ.`,
     ]),
   hint: (p) => (p.k === 0
     ? 'האלכסון של המלבן הוא היתר. מחפשים צלע, כלומר ניצב: מחסרים ריבועים.'
@@ -274,32 +296,32 @@ const stair2: StairContent = {
     'בדיקת שכל: ניצב תמיד קצר מהיתר. אם יצא ניצב ארוך מהיתר, כנראה חיברתם במקום לחסר.',
   ],
   discover: [
-    { kind: 'say', mood: 'happy', text: 'עד עכשיו ידענו את שני הניצבים וחיפשנו את היתר. עכשיו הפוך: היתר ידוע, וניצב אחד חסר.' },
-    { kind: 'predict', text: 'במשולש ישר־זווית היתר $10$ וניצב אחד $6$. הניצב השני ארוך או קצר מ־$10$?',
+    { kind: 'say', fig: rightTri(6, 8, { labels: { a: 'ניצב', b: '?', c: 'יתר' }, hiHyp: true }), mood: 'happy', text: 'עד עכשיו ידענו את שני הניצבים וחיפשנו את היתר. עכשיו הפוך: היתר ידוע, וניצב אחד חסר.' },
+    { kind: 'predict', fig: rightTri(6, 8, { labels: { a: '6', b: '?', c: '10' } }), text: 'במשולש ישר־זווית היתר $10$ וניצב אחד $6$. הניצב השני ארוך או קצר מ־$10$?',
       choices: ['ארוך מ־$10$', 'קצר מ־$10$', 'אי אפשר לדעת'], answer: 1,
       why: 'היתר הוא הצלע הארוכה ביותר במשולש ישר־זווית. כל ניצב קצר ממנו.' },
-    { kind: 'say', text: 'נחשוב על השטחים. על היתר עומד ריבוע בשטח $10^2 = 100$, ועל הניצב הידוע ריבוע בשטח $6^2 = 36$. הפעם הריבוע הגדול כבר ידוע: הוא השלם.' },
-    { kind: 'predict', text: 'שני הריבועים על הניצבים יחד הם $100$. אחד מהם $36$. מה השטח של השני?',
+    { kind: 'say', fig: rightTri(6, 8, { squares: { a: '36', b: '?', c: '100' } }), text: 'נחשוב על השטחים. על היתר עומד ריבוע בשטח $10^2 = 100$, ועל הניצב הידוע ריבוע בשטח $6^2 = 36$. הפעם הריבוע הגדול כבר ידוע: הוא השלם.' },
+    { kind: 'predict', fig: rightTri(6, 8, { squares: { a: '36', b: '?', c: '100' } }), text: 'שני הריבועים על הניצבים יחד הם $100$. אחד מהם $36$. מה השטח של השני?',
       choices: ['$136$', '$64$', '$4$'], answer: 1,
       why: '$36 + ? = 100$, ולכן החסר הוא $100 - 36 = 64$.',
       wrongWhy: { 0: '$136$ גדול מהריבוע על היתר, אבל הוא אמור להיות חלק ממנו. כשמחפשים חלק, מחסרים.', 2: '$4$ הוא $10 - 6$, הפרש האורכים. מחסרים שטחים: $100 - 36$.' } },
     { kind: 'explore', text: 'בדקו בבנייה: השאירו ניצב אחד $6$, ושנו את השני עד שהריבוע על היתר יהיה $100$.', manip: sq(6, 2), answer: { c: 10, a: 6, b: 8 },
       hint: 'כמה חסר ל־$36$ כדי להגיע ל־$100$? איזה ניצב נותן ריבוע כזה?',
       success: 'ניצב $8$: $36 + 64 = 100$. הריבוע החסר היה $64$, והצלע שלו $8$.' },
-    { kind: 'predict', text: 'מצאנו שהריבוע על הניצב החסר הוא $64$. מה אורך הניצב?',
+    { kind: 'predict', fig: rightTri(6, 8, { labels: { a: '6', b: '?', c: '10' }, squares: { b: '64' } }), text: 'מצאנו שהריבוע על הניצב החסר הוא $64$. מה אורך הניצב?',
       choices: ['$64$', '$8$', '$32$'], answer: 1,
       why: '$64$ הוא שטח. אורך הצלע הוא המספר שכפול עצמו נותן $64$: $\\sqrt{64} = 8$.' },
-    { kind: 'rule', text: 'מוצאים ניצב: מריבוע היתר מחסרים את ריבוע הניצב הידוע, ומוציאים שורש.',
+    { kind: 'rule', fig: rightTri(3, 4, { labels: { a: 'a', b: 'b', c: 'c' } }), text: 'מוצאים ניצב: מריבוע היתר מחסרים את ריבוע הניצב הידוע, ומוציאים שורש.',
       display: 'b^2 = c^2 - a^2 \\quad\\Rightarrow\\quad b = \\sqrt{c^2 - a^2}',
       why: 'המשפט $a^2 + b^2 = c^2$ אומר שהריבוע על היתר הוא השלם. החלק החסר הוא השלם פחות החלק הידוע.' },
-    { kind: 'predict', text: 'היתר $13$ וניצב $5$. איזה חישוב נכון?',
+    { kind: 'predict', fig: rightTri(5, 12, { labels: { a: '5', b: '?', c: '13' } }), text: 'היתר $13$ וניצב $5$. איזה חישוב נכון?',
       choices: ['$13^2 - 5^2$', '$5^2 - 13^2$', '$13 - 5$'], answer: 0,
       why: 'מהשטח הגדול, של היתר, מחסרים את הקטן: $169 - 25 = 144$, והניצב $\\sqrt{144} = 12$.',
       wrongWhy: { 1: 'זה יוצא שלילי, ושטח לא יכול להיות שלילי. מתחילים מהשלם, הריבוע על היתר.', 2: 'מחסרים שטחים, לא אורכים. $13 - 5 = 8$, אבל $5^2 + 8^2 = 89$, ולא $169$.' } },
     { kind: 'explore', text: 'נסו לבד: היתר $13$ וניצב אחד $5$. מצאו את הניצב השני.', manip: sq(5, 3), answer: { c: 13, a: 5, b: 12 },
       hint: '$169 - 25 = 144$. איזה ניצב נותן ריבוע של $144$?',
       success: '$25 + 144 = 169$: הניצב החסר הוא $12$, קצר מהיתר כמו שצריך.' },
-    { kind: 'say', text: 'תמיד אפשר לבדוק בסוף: מחזירים את הניצב למשפט. $5^2 + 12^2 = 169 = 13^2$, ולכן צדקנו.' },
+    { kind: 'say', fig: rightTri(5, 12, { labels: { a: '5', b: '12', c: '13' } }), text: 'תמיד אפשר לבדוק בסוף: מחזירים את הניצב למשפט. $5^2 + 12^2 = 169 = 13^2$, ולכן צדקנו.' },
   ],
   examples: [
     { problem: 'במשולש ישר־זווית היתר $25$ ס״מ וניצב אחד $7$ ס״מ. מה אורך הניצב השני?', display: 'c = 25,\\ a = 7,\\ b = ?', answer: 24, check: 'sqrt(25^2 - 7^2)',
@@ -391,73 +413,90 @@ const stair2: StairContent = {
 
 // ---------------------------------------------------------------- stair 3: is it right-angled?
 
-type Sides = { p: number; q: number; r: number; k?: number };
-const sorted = (s: Sides) => [s.p, s.q, s.r].sort((x, y) => x - y);
-const rightOf = (s: Sides) => { const [u, v, w] = sorted(s); return u * u + v * v === w * w; };
-const testAnswer = (s: Sides) => (rightOf(s) ? sorted(s)[2] : 0);
-const listTex = (s: Sides) => `${s.p},\\ ${s.q},\\ ${s.r}`;
+/**
+ * Stair 3 asks about four triangles at once: how many of them are right-angled (0 to 4, each as likely), so a fixed
+ * answer ("no", "yes, the longest side") cannot pass a check: every triangle has to be tested.
+ */
+type Sides = { sets: number[][]; k?: number };
+const sorted = (s: number[]) => [...s].sort((x, y) => x - y);
+const isRight = (s: number[]) => { const [u, v, w] = sorted(s); return u * u + v * v === w * w; };
+/** The side written last checked as the hypotenuse. */
+const lastIsHyp = (s: number[]) => s[0] * s[0] + s[1] * s[1] === s[2] * s[2];
+const countRight = (p: Sides) => p.sets.filter(isRight).length;
+const LETTER = ['א', 'ב', 'ג', 'ד'];
 
-/** Three sides of a real triangle with one longest side: half from a triple, half a triple nudged off it. */
-function threeSides(rnd: Rng): number[] {
+/** Three sides of a real triangle that just miss a right angle: a triple with one side moved by one or two. */
+function nearMiss(rnd: Rng, pool: Triple[]): number[] {
   for (;;) {
-    const [a, b, c] = rpick(rnd, ALL);
-    let s = [a, b, c];
-    if (rnd() < 0.5) {
-      const v = rint(rnd, 0, 2);
-      s = v === 0 ? [a, b, c + rint(rnd, 1, 2)] : v === 1 ? [a, b, c - 1] : rnd() < 0.5 ? [a + 1, b, c] : [a, b + 1, c];
-    }
-    const [u, w, L] = [...s].sort((x, y) => x - y);
-    if (u + w > L && w < L) return shuffle(rnd, s);
+    const [a, b, c] = rpick(rnd, pool);
+    const v = rint(rnd, 0, 3);
+    const s = v === 0 ? [a, b, c + rint(rnd, 1, 2)] : v === 1 ? [a, b, c - 1] : v === 2 ? [a + 1, b, c] : [a, b + 1, c];
+    const [u, w, L] = sorted(s);
+    if (u + w > L && w < L && !isRight(s)) return shuffle(rnd, s);
   }
+}
+/** Four triangles, of which 0 to 4 (each as likely) are right-angled. */
+function fourSets(rnd: Rng, pool: Triple[] = ALL): number[][] {
+  const n = rint(rnd, 0, 4);
+  const right = shuffle(rnd, [0, 1, 2, 3]).slice(0, n);
+  return [0, 1, 2, 3].map((i) => (right.includes(i) ? shuffle(rnd, [...rpick(rnd, pool)]) : nearMiss(rnd, pool)));
 }
 
 const testBugs: DiagModel<Sides>['bugs'] = {
   // took the side written last as the hypotenuse
-  'wrong-hyp': (s) => (s.k === 1 ? null : s.p * s.p + s.q * s.q === s.r * s.r ? s.r : 0),
+  'wrong-hyp': (s) => (s.k === 1 ? null : s.sets.filter(lastIsHyp).length),
   // did not test at all: every triangle "has" a hypotenuse, its longest side
-  'assume-right': (s) => sorted(s)[2],
-  // compared the sides themselves, a + b with c: in a triangle that is never equal
-  'add-legs': (s) => { const [u, v, w] = sorted(s); return u + v === w ? w : 0; },
+  'assume-right': () => 4,
+  // compared the sides themselves, a + b with c: in a triangle that is never equal, so none is right-angled. Only where
+  // at least two are: a 0 there misses every one of them, while a 0 for a single one is as likely one slip
+  'add-legs': (s) => (countRight(s) >= 2 ? 0 : null),
 };
 
-const testSolution = (s: Sides, name = 'היתר') => {
+const checkLine = (s: number[], i: number, name: string) => {
   const [u, v, w] = sorted(s);
-  return [
-    `הצלע הארוכה היא $${w}$: אם יש זווית ישרה, היא מולה.`,
-    `$${u}^2 + ${v}^2 = ${u * u} + ${v * v} = ${u * u + v * v}$, ו־$${w}^2 = ${w * w}$.`,
-    rightOf(s) ? `שווים, ולכן המשולש ישר־זווית, ו${name} הוא $${w}$.` : `לא שווים, ולכן אין זווית ישרה. התשובה: $0$.`,
-  ];
+  return `${name} ${LETTER[i]}, $${s.join(',\\ ')}$: $${u}^2 + ${v}^2 = ${u * u + v * v}$ ו־$${w}^2 = ${w * w}$. ${isRight(s) ? 'שווים: ישר־זווית.' : 'לא שווים.'}`;
 };
+const testSolution = (p: Sides, name = 'משולש') => [
+  'בכל משולש הזווית הישרה, אם יש, מול הצלע הארוכה. משווים את הריבוע שלה לסכום הריבועים של שתי האחרות.',
+  ...p.sets.map((s, i) => checkLine(s, i, name)),
+  `ישרי־זווית: $${countRight(p)}$.`,
+];
 
 const testModel: DiagModel<Sides> = {
-  params: (rnd) => { const [p, q, r] = threeSides(rnd); return { p, q, r }; },
-  text: () => 'האם משולש עם הצלעות האלה ישר־זווית? אם כן, כתבו את אורך היתר. אם לא, כתבו $0$.',
-  display: listTex,
-  answer: testAnswer,
+  params: (rnd) => ({ sets: fourSets(rnd) }),
+  text: () => 'כמה מהמשולשים בטבלה ישרי־זווית?',
+  fig: (p) => ({ type: 'table', head: ['משולש', 'אורכי הצלעות'], rows: p.sets.map((s, i) => [LETTER[i], s.join(', ')]) }),
+  answer: countRight,
   bugs: testBugs,
-  solution: (s) => testSolution(s),
-  hint: () => 'מוצאים את הצלע הארוכה, ומשווים את הריבוע שלה לסכום הריבועים של שתי האחרות.',
+  solution: (p) => testSolution(p),
+  hint: () => 'בודקים כל משולש לבד: מוצאים את הצלע הארוכה, ומשווים את הריבוע שלה לסכום הריבועים של שתי האחרות.',
 };
 
-const FRAMES: Triple[] = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15]];
+const FRAMES: Triple[] = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [9, 12, 15], [8, 15, 17]];
 const testStory: DiagModel<Sides> = {
-  // three sticks laid as a triangle, and a carpenter's frame checked by its diagonal
+  // four carpenter's frames checked by their diagonals, and four bundles of sticks laid as triangles
   params: (rnd) => {
-    if (rnd() < 0.5) { const [p, q, r] = threeSides(rnd); return { k: 0, p, q, r }; }
-    const [a, b, c] = rpick(rnd, FRAMES);
-    const d = 10 * c + (rnd() < 0.5 ? 0 : rpick(rnd, [-2, -1, 1, 2]));
-    return { k: 1, p: 10 * Math.max(a, b), q: 10 * Math.min(a, b), r: d };
+    if (rnd() < 0.5) return { k: 0, sets: fourSets(rnd) };
+    const n = rint(rnd, 0, 4);
+    const right = shuffle(rnd, [0, 1, 2, 3]).slice(0, n);
+    return { k: 1, sets: [0, 1, 2, 3].map((i) => {
+      const [a, b, c] = rpick(rnd, FRAMES);
+      const d = 10 * c + (right.includes(i) ? 0 : rpick(rnd, [-2, -1, 1, 2]));
+      return [10 * Math.max(a, b), 10 * Math.min(a, b), d];
+    }) };
   },
-  text: (s) => (s.k === 1
-    ? `נגר בנה מסגרת ברוחב $${s.p}$ ס״מ ובגובה $${s.q}$ ס״מ, ומדד את האלכסון: $${s.r}$ ס״מ. האם הפינות ישרות? אם כן, כתבו את אורך האלכסון. אם לא, כתבו $0$.`
-    : 'לנועה שלושה מקלות, באורכים שבתרגיל (בס״מ). היא מניחה אותם כמשולש. האם יש בו זווית ישרה? אם כן, כתבו את אורך המקל שמולה. אם לא, כתבו $0$.'),
-  display: (s) => (s.k === 1 ? `w = ${s.p},\\ h = ${s.q},\\ d = ${s.r}` : listTex(s)),
-  answer: testAnswer,
+  text: (p) => (p.k === 1
+    ? 'נגר בנה ארבע מסגרות, ומדד בכל אחת את הרוחב, הגובה והאלכסון (בס״מ). בכמה מהמסגרות הפינות ישרות?'
+    : 'לנועה ארבע ערמות של שלושה מקלות (האורכים בס״מ). מכל ערמה היא מניחה משולש. בכמה מהמשולשים יש זווית ישרה?'),
+  fig: (p) => (p.k === 1
+    ? { type: 'table', head: ['מסגרת', 'רוחב', 'גובה', 'אלכסון'], rows: p.sets.map((s, i) => [LETTER[i], ...s]) }
+    : { type: 'table', head: ['ערמה', 'אורכי המקלות'], rows: p.sets.map((s, i) => [LETTER[i], s.join(', ')]) }),
+  answer: countRight,
   bugs: testBugs,
-  solution: (s) => testSolution(s, s.k === 1 ? 'האלכסון' : 'המקל שמול הזווית הישרה'),
-  hint: (s) => (s.k === 1
-    ? 'בפינה ישרה הרוחב, הגובה והאלכסון יוצרים משולש ישר־זווית. האם $w^2 + h^2 = d^2$?'
-    : 'הזווית הישרה, אם יש, מול המקל הארוך. השוו את הריבוע שלו לסכום הריבועים של שני האחרים.'),
+  solution: (p) => testSolution(p, p.k === 1 ? 'מסגרת' : 'ערמה'),
+  hint: (p) => (p.k === 1
+    ? 'בפינה ישרה הרוחב, הגובה והאלכסון יוצרים משולש ישר־זווית: בודקים בכל מסגרת אם רוחב² + גובה² = אלכסון².'
+    : 'הזווית הישרה, אם יש, מול המקל הארוך. בכל ערמה משווים את הריבוע שלו לסכום הריבועים של שני האחרים.'),
 };
 
 const stair3: StairContent = {
@@ -478,31 +517,31 @@ const stair3: StairContent = {
     'חשבו על מאזניים: בצד אחד $c^2$, ובצד השני $a^2 + b^2$. מאוזן: הזווית מול $c$ ישרה. $c^2$ כבד יותר: הזווית קהה. קל יותר: חדה.',
   ],
   discover: [
-    { kind: 'say', mood: 'happy', text: 'עד עכשיו ידענו שהמשולש ישר־זווית. עכשיו השאלה הפוכה: נתונות שלוש צלעות. איך יודעים אם יש במשולש זווית ישרה, בלי לראות אותו?' },
-    { kind: 'predict', text: 'שני מקלות, $6$ ו־$8$, מחוברים בציר. כשהזווית ביניהם ישרה, המרחק בין הקצוות הוא $10$. סוגרים קצת את הציר, לזווית חדה. המרחק בין הקצוות:',
+    { kind: 'say', fig: sides(10, 6, 8, { labels: false }), mood: 'happy', text: 'עד עכשיו ידענו שהמשולש ישר־זווית. עכשיו השאלה הפוכה: נתונות שלוש צלעות. איך יודעים אם יש במשולש זווית ישרה, בלי לראות אותו?' },
+    { kind: 'predict', fig: hinge(60), text: 'שני מקלות, $6$ ו־$8$, מחוברים בציר. כשהזווית ביניהם ישרה, המרחק בין הקצוות הוא $10$. סוגרים קצת את הציר, לזווית חדה. המרחק בין הקצוות:',
       choices: ['גדל, יותר מ־$10$', 'קטן, פחות מ־$10$', 'נשאר $10$'], answer: 1,
       why: 'כשסוגרים את הציר, הקצוות מתקרבים. בזווית חדה הצלע השלישית קצרה מ־$10$, והריבוע שלה קטן מ־$100$.' },
-    { kind: 'predict', text: 'ועכשיו פותחים את הציר מעבר ל־$90^\\circ$, לזווית קהה. הצלע השלישית:',
+    { kind: 'predict', fig: hinge(120), text: 'ועכשיו פותחים את הציר מעבר ל־$90^\\circ$, לזווית קהה. הצלע השלישית:',
       choices: ['ארוכה מ־$10$', 'קצרה מ־$10$'], answer: 0,
       why: 'הקצוות מתרחקים, והצלע השלישית ארוכה מ־$10$. רק כשהזווית ישרה בדיוק היא $10$, ורק אז $6^2 + 8^2 = 10^2$.' },
     { kind: 'explore', text: 'הצלע $AB$ קבועה. גררו את $C$ עד שהזווית $C$, זו שמול $AB$, תהיה ישרה בדיוק.',
       manip: { kind: 'triangle', A: [-5, 0], B: [5, 0], range: 6, start: [-2, 3] }, answer: [3, 4],
       hint: 'כש־$C$ קרוב מדי ל־$AB$ הזווית קהה, וכשהוא רחוק מדי היא חדה. נסו בגובה $4$, והזיזו את $C$ ימינה או שמאלה.',
       success: 'הזווית $C$ ישרה, והיא מול $AB$, הצלע הארוכה במשולש. במשולש ישר־זווית היתר תמיד מול הזווית הישרה.' },
-    { kind: 'say', text: 'מכאן המבחן: אם יש זווית ישרה, היא מול הצלע הארוכה, והצלע הזאת היא היתר. לכן משווים את הריבוע של הצלע הארוכה לסכום הריבועים של שתי האחרות.' },
-    { kind: 'predict', text: 'משולש עם צלעות $7$, $8$ ו־$11$. $7^2 + 8^2 = 49 + 64 = 113$, ו־$11^2 = 121$. המשולש ישר־זווית?',
+    { kind: 'say', fig: rightTri(6, 8, { labels: { c: 'הצלע הארוכה' }, hiHyp: true }), text: 'מכאן המבחן: אם יש זווית ישרה, היא מול הצלע הארוכה, והצלע הזאת היא היתר. לכן משווים את הריבוע של הצלע הארוכה לסכום הריבועים של שתי האחרות.' },
+    { kind: 'predict', fig: sides(11, 7, 8), text: 'משולש עם צלעות $7$, $8$ ו־$11$. $7^2 + 8^2 = 49 + 64 = 113$, ו־$11^2 = 121$. המשולש ישר־זווית?',
       choices: ['כן', 'לא'], answer: 1,
       why: '$121 \\ne 113$, ולכן אין זווית ישרה. $11$ ארוכה מיתר, כמו בציר שנפתח מעבר ל־$90^\\circ$: הזווית מולה קהה.' },
     { kind: 'explore', text: 'ועכשיו $5$, $12$ ו־$13$. בנו משולש ישר־זווית עם הניצבים $5$ ו־$12$, ובדקו אם היתר שלו $13$.', manip: sq(5, 2), answer: { c: 13, a: 5, b: 12 },
       hint: 'השאירו ניצב $5$, וקבעו את השני על $12$. מה יוצא על היתר?',
       success: '$25 + 144 = 169 = 13^2$. למשולש שבנינו ולמשולש $5, 12, 13$ אותן שלוש צלעות, ולכן הם אותו משולש: גם הוא ישר־זווית.' },
-    { kind: 'rule', text: 'המשפט ההפוך: אם ריבוע הצלע הארוכה שווה לסכום ריבועי שתי האחרות, המשולש ישר־זווית, והזווית הישרה מול הצלע הארוכה. אם לא שווה, אין בו זווית ישרה.',
+    { kind: 'rule', fig: rightTri(3, 4, { labels: { a: 'a', b: 'b', c: 'c' }, names: ['C', '_B', '_A'] }), text: 'המשפט ההפוך: אם ריבוע הצלע הארוכה שווה לסכום ריבועי שתי האחרות, המשולש ישר־זווית, והזווית הישרה מול הצלע הארוכה. אם לא שווה, אין בו זווית ישרה.',
       display: 'a^2 + b^2 = c^2 \\;\\Rightarrow\\; \\angle C = 90^\\circ',
       why: 'בונים משולש ישר־זווית עם הניצבים $a$ ו־$b$. לפי פיתגורס היתר שלו $\\sqrt{a^2 + b^2} = c$. יש לו אותן שלוש צלעות כמו למשולש שלנו, ומשולשים עם אותן שלוש צלעות חופפים. לכן גם אצלנו הזווית מול $c$ ישרה.' },
-    { kind: 'predict', text: 'צלעות $10$, $26$, $24$. איזו צלע בודקים כיתר?',
+    { kind: 'predict', fig: rightTri(10, 24, { labels: { a: '10', b: '24', c: '26' }, right: false }), text: 'צלעות $10$, $26$, $24$. איזו צלע בודקים כיתר?',
       choices: ['$24$, כי היא כתובה אחרונה', '$26$, כי היא הארוכה'], answer: 1,
       why: 'הסדר שבו כתבו את הצלעות לא משנה. בודקים את הארוכה: $10^2 + 24^2 = 100 + 576 = 676 = 26^2$. המשולש ישר־זווית, והזווית הישרה מול $26$.' },
-    { kind: 'predict', text: '$9$, $12$, $15$ הוא משולש ישר־זווית. ומה עם $9$, $12$, $16$?',
+    { kind: 'predict', fig: sides(16, 9, 12), text: '$9$, $12$, $15$ הוא משולש ישר־זווית. ומה עם $9$, $12$, $16$?',
       choices: ['גם ישר־זווית, זה כמעט אותו דבר', 'לא ישר־זווית'], answer: 1,
       why: '$9^2 + 12^2 = 225$, אבל $16^2 = 256$. השוויון חייב להתקיים בדיוק. סנטימטר אחד יותר, והזווית כבר לא ישרה.' },
   ],
@@ -542,7 +581,7 @@ const stair3: StairContent = {
           { text: 'אי אפשר לדעת בלי לראות את המשולש', ok: false, feedback: 'זה בדיוק מה שהמשפט ההפוך נותן: מספיק לדעת את שלוש הצלעות.' },
         ], hints: ['מה אומר המשפט ההפוך כשהשוויון מתקיים?', 'שווים, ולכן ישר־זווית. הזווית הישרה מול הצלע שבדקנו כיתר.'], done: 'ישר־זווית, והזווית הישרה מול $29$.' },
       ],
-      final: { prompt: 'כמו בתרגול: אם המשולש ישר־זווית, כתבו את אורך היתר. אם לא, כתבו $0$.', answer: 29, check: 'sqrt(20^2 + 21^2)', hints: ['המשולש ישר־זווית. איזו צלע היא היתר?', 'היתר הוא הצלע הארוכה: $29$.'] } },
+      final: { prompt: 'אם המשולש ישר־זווית, כתבו את אורך היתר. אם לא, כתבו $0$.', answer: 29, check: 'sqrt(20^2 + 21^2)', hints: ['המשולש ישר־זווית. איזו צלע היא היתר?', 'היתר הוא הצלע הארוכה: $29$.'] } },
     { problem: 'ועכשיו משולש אחר.', display: '9,\\ 12,\\ 16',
       steps: [
         { prompt: 'מה משווים?', choices: [
@@ -577,9 +616,9 @@ const stair3: StairContent = {
     { id: 'assume-right', title: 'קבעו שהמשולש ישר־זווית בלי לבדוק',
       cause: 'לכל משולש יש צלע ארוכה, אבל לא לכל משולש יש זווית ישרה. משפט פיתגורס נכון רק במשולש ישר־זווית, ולכן קודם בודקים.',
       explain: [
-        'נראה שכתבתם את הצלע הארוכה בלי לבדוק אם המשולש באמת ישר־זווית.',
-        'ברוב המשולשים אין זווית ישרה. הצלע הארוכה היא יתר רק אם ריבוע שלה שווה בדיוק לסכום הריבועים של שתי האחרות.',
-        'למשל $6$, $8$, $11$: $36 + 64 = 100$, אבל $11^2 = 121$. אין זווית ישרה, והתשובה $0$.',
+        'נראה שספרתם את כל ארבעת המשולשים כישרי־זווית, בלי לבדוק כל אחד.',
+        'לכל משולש יש צלע ארוכה, אבל לא בכל משולש יש זווית ישרה. הצלע הארוכה היא יתר רק אם הריבוע שלה שווה בדיוק לסכום הריבועים של שתי האחרות.',
+        'למשל שני משולשים: $6, 8, 10$ ו־$6, 8, 11$. בראשון $36 + 64 = 100 = 10^2$, ולכן הוא ישר־זווית. בשני $11^2 = 121$, ולא $100$, ולכן הוא לא. מתוך השניים רק $1$ ישר־זווית, ולא $2$.',
       ],
       remedy: [
         { kind: 'explore', text: 'הצלע $AB$ קבועה. גררו את $C$ למקומות שונים: ברוב המקומות הזווית $C$ לא ישרה. מצאו מקום שבו היא כן ישרה.',
@@ -609,20 +648,36 @@ const stair3: StairContent = {
 
 /** A right triangle hidden in a story. big, small: the legs; c: the hypotenuse; ask 0 the hypotenuse, 1 big, 2 small. */
 type RT = { k: number; ask: number; c: number; big: number; small: number };
-const rtAnswer = (p: RT) => (p.ask === 0 ? p.c : p.ask === 1 ? p.big : p.small);
+const rtExact = (p: RT) => (p.ask === 0 ? p.c : p.ask === 1 ? p.big : p.small);
+const rtAnswer = (p: RT) => len(rtExact(p));
+/** The square of the missing side: a whole number even when the side is not. */
+const rtSq = (p: RT) => (p.ask === 0 ? p.big * p.big + p.small * p.small : p.c * p.c - rtKnown(p) ** 2);
 const rtKnown = (p: RT) => (p.ask === 1 ? p.small : p.big);
 const askOf = (rnd: Rng) => { const r = rnd(); return r < 0.4 ? 0 : r < 0.75 ? 1 : 2; };
 const rtOf = (rnd: Rng, k: number, pool: Triple[]): RT => {
   const [a, b, c] = rpick(rnd, pool);
   return { k, ask: askOf(rnd), c, big: Math.max(a, b), small: Math.min(a, b) };
 };
+/** A right triangle in a story with whole given sides, and a missing side that is a root that is not whole. */
+const rtRootOf = (rnd: Rng, k: number): RT => {
+  const ask = askOf(rnd);
+  for (;;) {
+    if (ask === 0) { const big = rint(rnd, 5, 24); const small = rint(rnd, 2, big - 1); if (!isSq(big * big + small * small)) return { k, ask, c: Math.sqrt(big * big + small * small), big, small }; continue; }
+    const c = rint(rnd, 8, 30); const known = rint(rnd, Math.ceil(c / 3), c - 1); const n = c * c - known * known;
+    if (isSq(n)) continue;
+    const other = Math.sqrt(n);
+    // ask 1: the bigger leg is missing; ask 2: the smaller one
+    if (ask === 1 && other > known) return { k, ask, c, big: other, small: known };
+    if (ask === 2 && other < known) return { k, ask, c, big: known, small: other };
+  }
+};
 
 const rtBugs: DiagModel<RT>['bugs'] = {
   'add-legs': (p) => (p.ask === 0 ? p.big + p.small : null),
-  'no-root': (p) => rtAnswer(p) ** 2,
+  'no-root': rtSq,
   // the larger given leg taken as the hypotenuse: subtracted when the hypotenuse was missing
-  'wrong-hyp': (p) => (p.ask === 0 ? r1(Math.sqrt(p.big * p.big - p.small * p.small)) : null),
-  'add-not-sub': (p) => (p.ask === 0 ? null : r1(Math.sqrt(p.c * p.c + rtKnown(p) ** 2))),
+  'wrong-hyp': (p) => (p.ask === 0 ? Math.sqrt(p.big * p.big - p.small * p.small) : null),
+  'add-not-sub': (p) => (p.ask === 0 ? null : Math.sqrt(p.c * p.c + rtKnown(p) ** 2)),
   'subtract-sides': (p) => (p.ask === 0 ? null : p.c - rtKnown(p)),
 };
 
@@ -636,13 +691,13 @@ const rtSolution = (p: RT) => {
   const first = `הזווית הישרה היא בין ${n.angle}, ו${n.hyp} מולה: ${n.hyp} הוא היתר.`;
   if (p.ask === 0) {
     return [first,
-      `חסר היתר, ולכן מחברים ריבועים: $${p.big}^2 + ${p.small}^2 = ${p.big ** 2} + ${p.small ** 2} = ${p.c ** 2}$.`,
-      `מוציאים שורש: $\\sqrt{${p.c ** 2}} = ${p.c}$ ${n.unit}.`];
+      `חסר היתר, ולכן מחברים ריבועים: $${p.big}^2 + ${p.small}^2 = ${p.big ** 2} + ${p.small ** 2} = ${rtSq(p)}$.`,
+      `מוציאים שורש: $\\sqrt{${rtSq(p)}} ${eqRoot(rtSq(p))}$ ${n.unit}.`];
   }
-  const k = rtKnown(p); const x = rtAnswer(p);
+  const k = rtKnown(p);
   return [first,
-    `חסר ניצב, ולכן מחסרים מריבוע היתר: $${p.c}^2 - ${k}^2 = ${p.c ** 2} - ${k ** 2} = ${x ** 2}$.`,
-    `מוציאים שורש: $\\sqrt{${x ** 2}} = ${x}$ ${n.unit}.`];
+    `חסר ניצב, ולכן מחסרים מריבוע היתר: $${p.c}^2 - ${k}^2 = ${p.c ** 2} - ${k ** 2} = ${rtSq(p)}$.`,
+    `מוציאים שורש: $\\sqrt{${rtSq(p)}} ${eqRoot(rtSq(p))}$ ${n.unit}.`];
 };
 const rtHint = (p: RT) => {
   const n = ROLES[p.k];
@@ -652,13 +707,14 @@ const rtHint = (p: RT) => {
 };
 
 const ladderModel: DiagModel<RT> = {
-  params: (rnd) => rtOf(rnd, 0, ALL.filter((t) => t[2] <= 26)),
+  params: (rnd) => (rnd() < 0.5 ? rtOf(rnd, 0, ALL.filter((t) => t[2] <= 26)) : rtRootOf(rnd, 0)),
   text: (p) => [
     `סולם נשען על קיר ומגיע לגובה $${p.big}$ דצ״מ. רגל הסולם רחוקה $${p.small}$ דצ״מ מהקיר. מה אורך הסולם?`,
     `סולם באורך $${p.c}$ דצ״מ נשען על קיר. רגל הסולם רחוקה $${p.small}$ דצ״מ מהקיר. לאיזה גובה על הקיר מגיע הסולם?`,
     `סולם באורך $${p.c}$ דצ״מ נשען על קיר ומגיע לגובה $${p.big}$ דצ״מ. כמה רחוקה רגל הסולם מהקיר?`,
   ][p.ask] + ` ${ROUND}`,
   answer: rtAnswer,
+  exact: rtExact,
   bugs: rtBugs,
   solution: rtSolution,
   hint: rtHint,
@@ -669,7 +725,7 @@ const storyModel: DiagModel<RT> = {
   // a screen measured by its diagonal (legs 4n and 3n), and a pole held by a cable
   params: (rnd) => {
     if (rnd() < 0.5) { const n = rint(rnd, 2, 10); return { k: 1, ask: askOf(rnd), c: 5 * n, big: 4 * n, small: 3 * n }; }
-    return rtOf(rnd, 2, ALL.filter((t) => t[2] <= 30));
+    return rnd() < 0.5 ? rtOf(rnd, 2, ALL.filter((t) => t[2] <= 30)) : rtRootOf(rnd, 2);
   },
   text: (p) => (p.k === 1 ? [
     `למסך רוחב $${p.big}$ אינץ׳ וגובה $${p.small}$ אינץ׳. הגודל של מסך הוא אורך האלכסון שלו. מה הגודל של המסך הזה?`,
@@ -681,6 +737,7 @@ const storyModel: DiagModel<RT> = {
     `כבל באורך $${p.c}$ מטר מתוח מראש עמוד בגובה $${p.big}$ מטר אל נקודה בקרקע. כמה רחוקה הנקודה מבסיס העמוד?`,
   ])[p.ask] + ` ${ROUND}`,
   answer: rtAnswer,
+  exact: rtExact,
   bugs: rtBugs,
   solution: rtSolution,
   hint: rtHint,
@@ -705,30 +762,30 @@ const stair4: StairContent = {
   ],
   discover: [
     { kind: 'say', mood: 'happy', text: 'בשאלה מילולית אין ציור מוכן. התפקיד הראשון שלנו: למצוא את המשולש ישר־הזווית שמסתתר בסיפור.' },
-    { kind: 'predict', text: 'סולם נשען על קיר. איפה הזווית הישרה?',
+    { kind: 'predict', fig: ladder({ right: false }), text: 'סולם נשען על קיר. איפה הזווית הישרה?',
       choices: ['בין הסולם לקיר', 'בין הקיר לרצפה', 'בין הסולם לרצפה'], answer: 1,
       why: 'קיר עומד זקוף על הרצפה, וביניהם $90^\\circ$. הסולם נשען באלכסון, ולכן הזוויות שלו עם הקיר ועם הרצפה לא ישרות.' },
-    { kind: 'predict', text: 'אז מי היתר?',
+    { kind: 'predict', fig: ladder(), text: 'אז מי היתר?',
       choices: ['הסולם', 'הקיר, עד המקום שהסולם נוגע בו', 'המרחק מרגל הסולם לקיר'], answer: 0,
       why: 'היתר הוא הצלע שמול הזווית הישרה: הסולם, שמחבר באלכסון את הקיר והרצפה.' },
     { kind: 'explore', text: 'סולם כבאים באורך $13$ מטר, ורגלו $5$ מטר מהבניין. בנו את המשולש: המרחק מהבניין הוא ניצב אחד, והסולם הוא היתר.', manip: sq(5, 2), answer: { c: 13, a: 5, b: 12 },
       hint: 'השאירו ניצב $5$, ושנו את השני, הגובה, עד שהריבוע על היתר יהיה $13^2 = 169$.',
       success: 'הסולם מגיע לגובה $12$ מטר: $5^2 + 12^2 = 13^2$. הגובה הוא ניצב, והסולם הוא היתר.' },
-    { kind: 'predict', text: 'סולם באורך $10$ מטר מגיע לגובה $8$ מטר על הקיר. כמה רחוקה רגל הסולם מהקיר? מה חסר כאן?',
+    { kind: 'predict', fig: ladder({ labels: { len: '10', wall: '8', foot: '?' } }), text: 'סולם באורך $10$ מטר מגיע לגובה $8$ מטר על הקיר. כמה רחוקה רגל הסולם מהקיר? מה חסר כאן?',
       choices: ['היתר, ולכן מחברים ריבועים', 'ניצב, ולכן מחסרים ריבועים'], answer: 1,
       why: 'הסולם, היתר, נתון. חסר המרחק על הרצפה, וזה ניצב. $10^2 - 8^2 = 36$, והמרחק $6$ מטר.' },
-    { kind: 'say', text: 'עוד משולש נסתר: מסך. הגודל של מסך נמדד לפי האלכסון שלו. הרוחב והגובה נפגשים בפינה בזווית ישרה, והאלכסון מולה.' },
-    { kind: 'predict', text: 'מסך ברוחב $80$ ס״מ ובגובה $60$ ס״מ. מה אורך האלכסון?',
+    { kind: 'say', fig: screen(8, 4.5), text: 'עוד משולש נסתר: מסך. הגודל של מסך נמדד לפי האלכסון שלו. הרוחב והגובה נפגשים בפינה בזווית ישרה, והאלכסון מולה.' },
+    { kind: 'predict', fig: screen(8, 6, { width: '80', height: '60', diag: '?' }), text: 'מסך ברוחב $80$ ס״מ ובגובה $60$ ס״מ. מה אורך האלכסון?',
       choices: ['$140$ ס״מ', '$100$ ס״מ', '$20$ ס״מ'], answer: 1,
       why: '$80^2 + 60^2 = 6400 + 3600 = 10000$, ו־$\\sqrt{10000} = 100$.',
       wrongWhy: { 0: '$140$ הוא הדרך לאורך שתי הצלעות של המסך. האלכסון הוא קיצור דרך.', 2: 'האלכסון מול הזווית הישרה, ולכן הוא הארוך ביותר. מחברים ריבועים, לא מחסרים.' } },
-    { kind: 'rule', text: 'בשאלה מילולית: מסמנים את הזווית הישרה, ומוצאים את היתר שמולה. חסר היתר: מחברים ריבועים. חסר ניצב: מחסרים מריבוע היתר. בסוף מוציאים שורש ובודקים שהתשובה הגיונית.',
+    { kind: 'rule', fig: rightTri(3, 4, { labels: { a: 'ניצב', b: 'ניצב', c: 'יתר' }, hiHyp: true }), text: 'בשאלה מילולית: מסמנים את הזווית הישרה, ומוצאים את היתר שמולה. חסר היתר: מחברים ריבועים. חסר ניצב: מחסרים מריבוע היתר. בסוף מוציאים שורש ובודקים שהתשובה הגיונית.',
       why: 'משפט פיתגורס תלוי בתפקידים: מי ניצב ומי יתר. בסיפור אף אחד לא כותב $a$, $b$ ו־$c$, ולכן מוצאים אותם לפי הזווית הישרה.' },
-    { kind: 'predict', text: 'אומגה: כבל מתוח מראש עמוד בגובה $12$ מטר אל נקודה בקרקע, $35$ מטר מבסיס העמוד. מה אורך הכבל?',
+    { kind: 'predict', fig: pole(12, 35), text: 'אומגה: כבל מתוח מראש עמוד בגובה $12$ מטר אל נקודה בקרקע, $35$ מטר מבסיס העמוד. מה אורך הכבל?',
       choices: ['$37$ מטר', '$47$ מטר', '$23$ מטר'], answer: 0,
       why: 'הכבל מחבר את ראש העמוד לקרקע, מול הזווית הישרה שבין העמוד לקרקע: הוא היתר. $12^2 + 35^2 = 144 + 1225 = 1369$, ו־$\\sqrt{1369} = 37$.',
       wrongWhy: { 1: '$47$ הוא $12 + 35$. מחברים ריבועים, לא אורכים.', 2: '$23$ הוא $35 - 12$. הכבל הוא היתר, ולכן הוא ארוך משתי הצלעות האחרות.' } },
-    { kind: 'say', text: 'ובסוף בודקים בשכל: סולם ארוך מהגובה שהוא מגיע אליו, ואלכסון של מסך ארוך מהרוחב שלו. תשובה שלא מסתדרת עם זה אומרת שהתפקידים התבלבלו.' },
+    { kind: 'say', fig: ladder({ labels: { len: 'סולם', wall: 'גובה' } }), text: 'ובסוף בודקים בשכל: סולם ארוך מהגובה שהוא מגיע אליו, ואלכסון של מסך ארוך מהרוחב שלו. תשובה שלא מסתדרת עם זה אומרת שהתפקידים התבלבלו.' },
   ],
   examples: [
     { problem: 'סולם באורך $26$ דצ״מ נשען על קיר. רגל הסולם רחוקה $10$ דצ״מ מהקיר. לאיזה גובה על הקיר מגיע הסולם?', answer: 24, check: 'sqrt(26^2 - 10^2)',
@@ -853,7 +910,8 @@ type Pts = { x1: number; y1: number; x2: number; y2: number };
 const GRID: Triple[] = ALL.filter((t) => t[1] <= 12);
 function pointsOf(rnd: Rng): Pts {
   for (;;) {
-    const [u, v] = rpick(rnd, GRID);
+    // half from a triple, half any two differences (most of them give a root that is not whole)
+    const [u, v] = rnd() < 0.5 ? rpick(rnd, GRID) : [rint(rnd, 1, 9), rint(rnd, 1, 9)];
     const [dx, dy] = rnd() < 0.5 ? [u, v] : [v, u];
     const x1 = rint(rnd, -6, 6); const y1 = rint(rnd, -6, 6);
     const x2 = x1 + (rnd() < 0.5 ? dx : -dx); const y2 = y1 + (rnd() < 0.5 ? dy : -dy);
@@ -862,8 +920,10 @@ function pointsOf(rnd: Rng): Pts {
 }
 const dX = (p: Pts) => Math.abs(p.x2 - p.x1);
 const dY = (p: Pts) => Math.abs(p.y2 - p.y1);
-/** Whole: the legs come from a Pythagorean triple. */
-const dist = (p: Pts) => Math.round(Math.hypot(dX(p), dY(p)));
+const distSq = (p: Pts) => dX(p) ** 2 + dY(p) ** 2;
+const distExact = (p: Pts) => Math.sqrt(distSq(p));
+/** Whole when the differences come from a Pythagorean triple; otherwise rounded to tenths. */
+const dist = (p: Pts) => len(distExact(p));
 /** The difference worked out with the signs ignored, as when a segment that crosses an axis is miscounted. */
 const blind = (a: number, b: number) => Math.abs(Math.abs(b) - Math.abs(a));
 
@@ -873,13 +933,13 @@ const distBugs: DiagModel<Pts>['bugs'] = {
   'no-root': (p) => dX(p) ** 2 + dY(p) ** 2,
   'coord-diff': (p) => {
     const ex = blind(p.x1, p.x2); const ey = blind(p.y1, p.y2);
-    return ex === dX(p) && ey === dY(p) ? null : r1(Math.hypot(ex, ey));
+    return ex === dX(p) && ey === dY(p) ? null : Math.hypot(ex, ey);
   },
 };
 const distSolution = (p: Pts) => [
   `הניצב האופקי הוא ההפרש ב־$x$: $|${T(p.x2)} - ${T(p.x1, true)}| = ${dX(p)}$.`,
   `הניצב האנכי הוא ההפרש ב־$y$: $|${T(p.y2)} - ${T(p.y1, true)}| = ${dY(p)}$.`,
-  `$d = \\sqrt{${dX(p)}^2 + ${dY(p)}^2} = \\sqrt{${dX(p) ** 2 + dY(p) ** 2}} = ${dist(p)}$`,
+  `$d = \\sqrt{${dX(p)}^2 + ${dY(p)}^2} = \\sqrt{${distSq(p)}} ${eqRoot(distSq(p))}$`,
 ];
 const distHint = (p: Pts) => `השלימו משולש ישר־זווית: ניצב אחד הוא כמה זזים ב־$x$, מ־$${T(p.x1)}$ עד $${T(p.x2)}$, והשני כמה זזים ב־$y$.`;
 
@@ -888,6 +948,7 @@ const distModel: DiagModel<Pts> = {
   text: () => `מה המרחק בין הנקודות $A$ ו־$B$? ${ROUND}`,
   display: (p) => `A(${T(p.x1)}, ${T(p.y1)}) \\qquad B(${T(p.x2)}, ${T(p.y2)})`,
   answer: dist,
+  exact: distExact,
   bugs: distBugs,
   solution: distSolution,
   hint: distHint,
@@ -900,6 +961,7 @@ const droneModel: DiagModel<Pts> = {
   text: () => `שני רחפנים מרחפים באותו גובה. המיקום של כל אחד במפה, בקילומטרים, כתוב בטבלה. מה המרחק ביניהם בקו ישר, בקילומטרים? ${ROUND}`,
   display: (p) => `\\begin{array}{c|c|c} & x & y \\\\ \\hline A & ${T(p.x1)} & ${T(p.y1)} \\\\ B & ${T(p.x2)} & ${T(p.y2)} \\end{array}`,
   answer: dist,
+  exact: distExact,
   bugs: distBugs,
   solution: distSolution,
   hint: (p) => `במפה כמו במערכת צירים: ההפרש ב־$x$ וההפרש ב־$y$ הם הניצבים, והמרחק בקו ישר הוא היתר. ${distHint(p)}`,
@@ -923,36 +985,36 @@ const stair5: StairContent = {
     'אפשר לסמן מלבן שהקטע הוא האלכסון שלו, עם צלעות על קווי הרשת. הצלעות של המלבן הן ההפרשים, ואת האלכסון מחשבים כמו אלכסון של מסך.',
   ],
   discover: [
-    { kind: 'say', mood: 'happy', text: 'במערכת צירים קל למדוד קטע אופקי או אנכי: סופרים משבצות. אבל מה עושים עם קטע אלכסוני?' },
-    { kind: 'predict', text: 'מה המרחק בין $A(1, 2)$ ל־$B(5, 2)$?',
+    { kind: 'say', fig: { type: 'coord', range: 6, segments: [[[-5, 4], [-1, 4]], [[3, 1], [3, 5]], [[-4, -5], [-1, -1]]] }, mood: 'happy', text: 'במערכת צירים קל למדוד קטע אופקי או אנכי: סופרים משבצות. אבל מה עושים עם קטע אלכסוני?' },
+    { kind: 'predict', fig: { type: 'coord', range: 6, points: [{ label: 'A', x: 1, y: 2 }, { label: 'B', x: 5, y: 2 }], segments: [[[1, 2], [5, 2]]] }, text: 'מה המרחק בין $A(1, 2)$ ל־$B(5, 2)$?',
       choices: ['$4$', '$6$', '$3$'], answer: 0,
       why: 'לשתי הנקודות אותו $y$, ולכן הן באותה שורה. המרחק הוא ההפרש ב־$x$: $5 - 1 = 4$.' },
     { kind: 'explore', text: 'הקטע $AB$ הוא האלכסון של המלבן $ADBC$, שהצלעות שלו על קווי הרשת. שימו את הקודקוד $C$ שמשלים את המלבן: מתחת ל־$B$, ובשורה של $A$.',
       manip: { kind: 'plot', range: 6, label: 'C', shape: [{ label: 'B', at: [4, 5] }, { label: 'D', at: [1, 5] }, { label: 'A', at: [1, 1] }] }, answer: [4, 1],
       hint: '$C$ באותו טור של $B$, כלומר $x = 4$, ובאותה שורה של $A$, כלומר $y = 1$.',
       success: 'המשולש $ACB$ ישר־זווית ב־$C$: $AC$ אופקי ו־$CB$ אנכי. הקטע $AB$ הוא היתר שלו.' },
-    { kind: 'predict', text: 'מה אורכי הניצבים $AC$ ו־$CB$?',
+    { kind: 'predict', fig: { type: 'coord', range: 6, points: [{ label: 'A', x: 1, y: 1 }, { label: 'B', x: 4, y: 5 }, { label: 'C', x: 4, y: 1 }], segments: [[[1, 1], [4, 1]], [[4, 1], [4, 5]]], helper: [[1, 1], [4, 5]] }, text: 'מה אורכי הניצבים $AC$ ו־$CB$?',
       choices: ['$AC = 3$, $CB = 4$', '$AC = 4$, $CB = 5$', '$AC = 1$, $CB = 4$'], answer: 0,
       why: '$AC$ אופקי: ההפרש ב־$x$, $4 - 1 = 3$. $CB$ אנכי: ההפרש ב־$y$, $5 - 1 = 4$.',
       wrongWhy: { 1: '$4$ ו־$5$ הם השיעורים של $B$. אורך הוא הפרש: כמה צעדים מ־$A$.', 2: '$1$ הוא השיעור של $A$, לא אורך. $AC$ הולך מ־$x = 1$ עד $x = 4$.' } },
-    { kind: 'predict', text: 'אז מה המרחק $AB$?',
+    { kind: 'predict', fig: { type: 'coord', range: 6, points: [{ label: 'A', x: 1, y: 1 }, { label: 'B', x: 4, y: 5 }], polygon: [[1, 1], [4, 1], [4, 5]], segments: [[[1, 1], [4, 5]]] }, text: 'אז מה המרחק $AB$?',
       choices: ['$7$', '$5$', '$25$'], answer: 1,
       why: '$AB$ הוא היתר: $3^2 + 4^2 = 25$, ו־$\\sqrt{25} = 5$.',
       wrongWhy: { 0: '$7$ היא הדרך במדרגות: $3$ ימינה ו־$4$ למעלה. הקו הישר קצר יותר.', 2: '$25$ הוא השטח של הריבוע על $AB$. האורך הוא השורש.' } },
-    { kind: 'predict', text: 'מ־$A(-3, 2)$ ל־$B(3, -6)$: מה אורך הניצב האנכי?',
+    { kind: 'predict', fig: { type: 'coord', range: 6, points: [{ label: 'A', x: -3, y: 2 }, { label: 'B', x: 3, y: -6 }], segments: [[[-3, 2], [3, -6]]], helper: [[-3, 2], [3, 2], [3, -6]] }, text: 'מ־$A(-3, 2)$ ל־$B(3, -6)$: מה אורך הניצב האנכי?',
       choices: ['$4$', '$8$', '$-8$'], answer: 1,
       why: 'מ־$2$ יורדים עד $-6$: $2$ צעדים עד האפס, ועוד $6$ אחריו. ביחד $8$. בחשבון: $2 - (-6) = 8$.',
       wrongWhy: { 0: '$4$ יוצא מ־$6 - 2$, בלי הסימנים. כשעוברים את האפס, הצעדים משני הצדדים מצטרפים.', 2: 'אורך של צלע תמיד חיובי. ההפרש $-6 - 2 = -8$ אומר רק שיורדים.' } },
     { kind: 'explore', text: 'מ־$A(-3, 2)$ ל־$B(3, -6)$ הניצב האופקי $6$ והאנכי $8$. בנו את המשולש, ומצאו את המרחק.', manip: sq(2, 2), answer: { c: 10, a: 6, b: 8 },
       hint: 'קבעו ניצבים $6$ ו־$8$.',
       success: 'על היתר $36 + 64 = 100$, ולכן $AB = \\sqrt{100} = 10$.' },
-    { kind: 'rule', text: 'המרחק בין שתי נקודות: הניצבים הם ההפרש ב־$x$ וההפרש ב־$y$, והמרחק הוא היתר.',
+    { kind: 'rule', fig: { type: 'coord', range: 6, polygon: [[-3, 2], [3, 2], [3, -6]], segments: [[[-3, 2], [3, -6]]] }, text: 'המרחק בין שתי נקודות: הניצבים הם ההפרש ב־$x$ וההפרש ב־$y$, והמרחק הוא היתר.',
       display: 'd = \\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}',
       why: 'קו אופקי וקו אנכי נפגשים בזווית ישרה, כמו הצירים. לכן הקטע בין הנקודות הוא יתר, ומשפט פיתגורס נותן את אורכו.' },
-    { kind: 'predict', text: 'האם משנה אם מחשבים $3 - (-3)$ או $-3 - 3$?',
+    { kind: 'predict', fig: { type: 'coord', range: 6, segments: [[[-3, 2], [3, 2]]] }, text: 'האם משנה אם מחשבים $3 - (-3)$ או $-3 - 3$?',
       choices: ['כן, יוצאות תשובות שונות', 'לא, אחרי שמרבעים זה אותו דבר'], answer: 1,
       why: '$6^2 = 36$ וגם $(-6)^2 = 36$. הריבוע מוחק את הסימן, ולכן לא משנה מאיזו נקודה מתחילים.' },
-    { kind: 'say', text: 'בדיקת שכל: המרחק בקו ישר ארוך מכל אחד מההפרשים, וקצר מהסכום שלהם.' },
+    { kind: 'say', fig: { type: 'coord', range: 6, polygon: [[-3, 2], [3, 2], [3, -6]], segments: [[[-3, 2], [3, -6]]] }, text: 'בדיקת שכל: המרחק בקו ישר ארוך מכל אחד מההפרשים, וקצר מהסכום שלהם.' },
   ],
   examples: [
     { problem: 'מה המרחק בין $A(-1, 2)$ ל־$B(11, 7)$?', display: 'A(-1, 2) \\qquad B(11, 7)', answer: 13, check: 'sqrt((11 - (-1))^2 + (7 - 2)^2)',
