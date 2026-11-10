@@ -843,3 +843,36 @@ a.btn { text-decoration: none; }
 .cx-lines li + li { padding-top: var(--s3); border-top: 1px solid var(--rule); }
 .cx-again { margin: 0; width: 100%; padding: var(--s3) var(--s4); border-radius: 12px; background: var(--brand-tint); color: var(--ink); font-weight: 600; text-align: start; }
 .check-sent { margin: var(--s2) auto 0; color: var(--ink-2); font-weight: 600; }
+
+/* ------------------------------------------------------------------ the class report (TEACHER-7 §2): the range chips,
+   the tiles, a table that scrolls sideways with the names fixed, the class's mistakes, the note. Its printed copy is in
+   styles/app.css (.print-sheet[data-mode="report"]). */
+.t-report { display: flex; flex-direction: column; gap: var(--s4); }
+.t-report > .screen-bar { margin-bottom: calc(-1 * var(--s2)); }
+.t-report-sub { margin: 0; color: var(--ink-2); font-weight: 600; text-align: center; overflow-wrap: anywhere; }
+.rp-range { gap: var(--s3); }
+.rp-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2) var(--s3); }
+.rp-date { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rp-date .input { width: 100%; min-height: 44px; }
+.rp-bad { grid-column: 1 / -1; margin: 0; }
+.t-report-status { margin: 0; }
+.t-report-error { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); }
+.t-report-error .form-error { margin: 0; }
+.t-report-kpis { margin: 0; }
+.t-report-table { display: flex; flex-direction: column; gap: var(--s2); }
+.t-report-table .set-head { margin: 0; }
+.rp-table thead th { vertical-align: bottom; }
+.rp-assign-h { white-space: normal !important; min-width: 8em; max-width: 12em; }
+.rp-assign-t { display: block; overflow-wrap: anywhere; }
+.rp-due { display: block; font-weight: 600; color: var(--ink-2); font-size: 13px; }
+.rp-mis { white-space: normal !important; min-width: 14em; max-width: 22em; }
+.rp-mis-one { display: block; line-height: 20px; }
+.rp-mis-one + .rp-mis-one { margin-top: 4px; }
+.t-report .t-group { margin: 0; }
+.t-report-note { margin: 0; }
+.t-report .screen-foot .btn svg { flex: none; }
+@media (max-width: 359px) { .rp-dates { grid-template-columns: minmax(0, 1fr); } }
+.t-set-year svg { color: var(--brand); flex: none; }
+a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
+.t-delete-export { align-self: center; gap: var(--s2); }
+.t-delete-export:disabled { opacity: 0.6; }

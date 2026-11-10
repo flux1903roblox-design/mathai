@@ -1,5 +1,6 @@
 // Deleting a class (spec TEACHER-9 §4, trust Appendix E §E.6): one sheet, opened from the class settings and from the
-// last row of "תלמידים". The red button works only once the class's name is typed. A class bound to an email is
+// last row of "תלמידים". It offers the year's report as a CSV first (TEACHER-7). The red button works only once the
+// class's name is typed. A class bound to an email is
 // deleted only by its owner with a fresh code (the step-up form); the server says so anyway (403 not_owner, 401
 // reauth_needed), and the sheet then asks for the code. A licence that still runs keeps the class (409).
 import { useEffect, useState } from 'react';
@@ -7,7 +8,9 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { useParent, signOut as endSession } from '@/lib/parent.js';
+import { FileDown } from 'lucide-react';
 import { deleteClass, dropClassHere } from '@/lib/teacher.js';
+import { saveYearCsv } from '@/lib/report.js';
 import { Button, Sheet } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
@@ -30,6 +33,13 @@ export default function DeleteClassSheet({ cls, open, onOpenChange, onDeleted })
   const [error, setError] = useState('');
   useEffect(() => { if (open) { setStep('confirm'); setTyped(''); setError(''); setBusy(false); } }, [open]);
   const ready = sameName(typed, cls.className);
+  const [exporting, setExporting] = useState(false);
+  const exportYear = async () => {
+    setExporting(true);
+    try {
+      if ((await saveYearCsv(cls)) === 'saved') toast.success('הקובץ הורד למכשיר.');
+    } catch (e) { toast.error(e.message); } finally { setExporting(false); }
+  };
 
   const remove = async () => {
     setBusy(true); setError('');
@@ -66,6 +76,10 @@ export default function DeleteClassSheet({ cls, open, onOpenChange, onDeleted })
         <form className="exit-sheet confirm-sheet t-delete-form" onSubmit={confirm} noValidate>
           <Mascot mood="oops" size={88} />
           <div className="lead confirm-text"><p>{DELETE_TEXT}</p></div>
+          {/* the year's report first (TEACHER-9 §4, TEACHER-7): its CSV, without leaving the sheet */}
+          <button type="button" className="link-btn t-delete-export" onClick={exportYear} disabled={exporting}>
+            <FileDown size={18} aria-hidden="true" />{exporting ? 'מכינים את הקובץ…' : 'הורדת הדוח לפני המחיקה'}
+          </button>
           <div className="field t-delete-field">
             <label htmlFor="tdel-name" className="field-label">כדי לאשר, כתבו את שם הכיתה: <bdi>{cls.className}</bdi></label>
             <input id="tdel-name" className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" maxLength={40} />

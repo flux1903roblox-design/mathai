@@ -1,11 +1,12 @@
 // The class settings (spec TEACHER-9, TEACHER-1 §6), at /teacher/settings, for the class open on the board: its name,
 // grade, code and join lock; how the teacher gets in (the email it is bound to, the teacher key for a co-teacher, a new
-// key); how long the server keeps the class's data; and deleting the class at the end of the year. Later items add
+// key); how long the server keeps the class's data; and, at the end of the year, the year's report (its CSV) and
+// deleting the class. Later items add
 // their sections here (the class AI, the licence, notifications), in the order the spec gives.
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowRight, Copy, Trash2 } from 'lucide-react';
+import { ArrowRight, Copy, Trash2, FileDown } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { useParent } from '@/lib/parent.js';
 import { teacherApi, renameClass, rekey, useEmailSignIn } from '@/lib/teacher.js';
@@ -17,6 +18,7 @@ import { useBind } from './ClassAccount.jsx';
 import DeleteClassSheet, { useClassDeleted } from './DeleteClass.jsx';
 
 const GRADE = { 7: 'ז׳', 8: 'ח׳' };
+export const YEAR_END_TEXT = 'בסוף השנה כדאי להוריד את הדוח ולמחוק את הכיתה. בשנה הבאה פותחים כיתה חדשה, והתלמידים מצטרפים עם קוד חדש.';
 const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 
 /** הכיתה: the name, the grade, the code and the join lock. */
@@ -178,8 +180,10 @@ export default function ClassSettings() {
       </section>
       <section className="section set-group t-set" aria-labelledby="ts-year">
         <h2 id="ts-year" className="set-head">סוף שנת הלימודים</h2>
-        <p className="t-set-line">בסוף השנה אפשר למחוק את הכיתה. בשנה הבאה פותחים כיתה חדשה, והתלמידים מצטרפים עם קוד חדש.</p>
+        <p className="t-set-line">{YEAR_END_TEXT}</p>
         <div className="set-rows-wrap"><div className="set-rows">
+          {/* the year's report opens, and its CSV starts once (TEACHER-7) */}
+          <Link className="set-row t-set-year" to="/teacher/report?range=year&csv=1"><FileDown size={18} aria-hidden="true" />הורדת הדוח של כל השנה</Link>
           <button type="button" className="set-row danger" onClick={() => setDeleting(true)}><Trash2 size={18} aria-hidden="true" />מחיקת הכיתה</button>
         </div></div>
       </section>

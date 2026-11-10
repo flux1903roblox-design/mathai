@@ -9,7 +9,9 @@
 // with a row per student, a later date, delete), the dashboard's open assignments and the ids of the students behind
 // each repeated mistake, and the student's side (GET /api/class/work with what they did, and their reports, merged so
 // they never go backwards), with the class exam's frozen questions (the teacher sends one version; the student fetches
-// its items). `st.down = true` makes every call fail as a lost connection.
+// its items). The class report (TEACHER-7): GET /api/teacher/report with its range rules, the students by name with set
+// numbers (st.reportRows by id changes them), the assignments of the range and the mistakes, with no id anywhere.
+// `st.down = true` makes every call fail as a lost connection.
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
 const CORS = {
@@ -129,6 +131,38 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     assignments: st.assignments.filter((a) => a.dueOn >= plus(st.today, -7)).sort((a, b) => (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0)).slice(0, 10).map(viewOf),
     students: st.students.map((s) => ({ ...s, lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false })),
   });
+
+  // ---- the class report (TEACHER-7), as worker/src/report.js gives it: rows by name, work by row index, no ids
+  const REPORT_ROWS = [
+    { activeDays: 3, exercises: 24, firstTry: 18, correct: 21, hinted: 2, minutes: 31, lastPractice: '2026-11-05T08:00:00Z',
+      levels: { signed: { level: 2, max: 3 }, coord: { level: 1, max: 1 } }, topMistakes: [{ topic: 'signed', cat: 'sign', level: 1, n: 3 }] },
+    { activeDays: 1, exercises: 6, firstTry: 3, correct: 4, hinted: 0, minutes: 7, lastPractice: '2026-11-03T14:00:00Z', levels: { signed: { level: 1, max: 1 } }, topMistakes: [] },
+  ];
+  const reportOf = (code, qFrom, qTo) => {
+    const to = qTo && qTo < st.today ? qTo : st.today;
+    let from = qFrom || plus(to, -13);
+    if (from < plus(to, -399)) from = plus(to, -399);
+    const rows = [...st.students].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    const cls = dashboard(code).class;
+    return {
+      class: { name: cls.name, grade: cls.grade, teacherName: cls.teacherName }, from, to, today: st.today, generatedAt: `${st.today}T08:00:00.000Z`,
+      students: rows.map((x, i) => ({
+        name: x.name, joinedOn: '2026-09-02',
+        ...(REPORT_ROWS[i] || { activeDays: 0, exercises: 0, firstTry: 0, correct: 0, hinted: 0, minutes: 0, lastPractice: null, levels: {}, topMistakes: [] }),
+        ...(st.reportRows?.[x.id] || {}),
+      })),
+      assignments: st.assignments.filter((a) => a.dueOn >= from && a.startsOn <= to).map((a) => {
+        const work = {};
+        rows.forEach((x, i) => {
+          if (!forWhom(a).includes(x.id)) return;
+          const w = workOf(a, x.id);
+          work[i] = { state: w?.state || 'none', stage: w?.stage ?? null, right: w?.right ?? null, asked: w?.asked ?? null, passed: w?.passed ?? null, tries: w?.tries || 0, late: lateOf(a, w) };
+        });
+        return { title: a.title, kind: a.kind, skill: a.skill, dueOn: a.dueOn, work };
+      }),
+      mistakes: st.mistakes.map(({ ids, ...m }) => m),
+    };
+  };
 
   const handler = async (route) => {
     const req = route.request();
@@ -317,6 +351,11 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       }
       if (!byKey && !byAccount) return reply(route, 401, { error: token && !signed && !h['x-teacher-key'] ? 'not_account' : 'not_teacher' });
       if (path === '/api/teacher/dashboard') return reply(route, 200, dashboard(code));
+      if (path === '/api/teacher/report') {
+        const q = url.searchParams; const day = /^\d{4}-\d{2}-\d{2}$/;
+        if ((q.get('from') && !day.test(q.get('from'))) || (q.get('to') && !day.test(q.get('to')))) return reply(route, 400, { error: 'bad_range' });
+        return reply(route, 200, reportOf(code, q.get('from'), q.get('to')));
+      }
       if (path === '/api/teacher/licence') return reply(route, 200, { ...st.licence, students: st.students.length, joinLocked: st.joinLocked });
       if (path === '/api/teacher/licence/request') {
         if (!signed) return reply(route, 401, { error: 'not_account' });

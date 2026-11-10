@@ -17,6 +17,11 @@
 // version, answers and steps, no question text), and a PDF of each (test-results/teacher-exam-{exam,key}.pdf). Sent to
 // the class as version ב, the post carries ב's frozen questions; the assignment prints again, read-only (a:<id>).
 //
+// TEACHER-7: the class report from the board's tools: its ranges (the default two weeks, this week from Sunday, a range
+// of the teacher's own), a row per student, the CSV (the BOM, the header, no id: test-results/teacher-report.csv) and
+// the printout (landscape, the table only: test-results/teacher-report.pdf); the year's CSV from the class settings and
+// from the delete sheet.
+//
 // TEACHER-9: the class settings, opened from the board's tools: the class's name, grade, code and join lock; the email
 // it is bound to and the teacher key, with a new key after a fresh code; how long the data is kept (the words come from
 // shared/retention.js); and deleting the class, which waits for its name to be typed and, for a class bound to an
@@ -25,7 +30,7 @@
 // Screenshots for a look at the screens (TEACHER_SHOTS=<folder>), at the project's size and at 320×568; nothing is
 // compared.
 import { test, expect } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { NOW, student, item, answer, proceed } from './helpers.js';
 import { API, TOKEN, fakeServer } from './fakeServer.js';
@@ -938,6 +943,7 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     expect((await s.getByRole('button', { name: 'שליחה לכיתה' }).boundingBox()).height).toBeGreaterThanOrEqual(44);
     await s.getByLabel('מילה לכיתה (לא חובה)').fill('לקראת המבחן ביום חמישי');
     await s.getByRole('button', { name: 'שליחה לכיתה' }).click();
+    await expect.poll(() => log.some((r) => r.path === '/api/teacher/assignments' && r.method === 'POST')).toBe(true);
     const sent = log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST');
     expect(sent.body).toEqual({ kind: 'stair', skill: 'signed:1', title: 'מספרים מכוונים: חיבור וחיסור', note: 'לקראת המבחן ביום חמישי', dueOn: '2026-11-12', targets: ['a1', 'b2'] });
     expect(sent.headers['x-teacher-key']).toBe('tkey-123');
@@ -985,7 +991,9 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
     await s.getByText('התאריך יוצא בשבת או בחג', { exact: false }).scrollIntoViewIfNeeded();
     await shot(page, 'teacher-assign-restday');
     await s.getByRole('button', { name: 'שליחה לכיתה' }).click();
-    const sent = log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST');
+    const posted = () => log.find((r) => r.path === '/api/teacher/assignments' && r.method === 'POST');
+    await expect.poll(posted).toBeTruthy();
+    const sent = posted();
     expect(sent.body).toMatchObject({ kind: 'check', skill: 'coord:2', dueOn: '2026-11-14' });
     expect(sent.body.targets).toBeUndefined();
     await expect(page.getByText('המשימה נשלחה, עד יום ראשון, 15.11. התלמידים יראו אותה בראש המשימה של היום.')).toBeVisible();
@@ -1296,5 +1304,161 @@ test.describe('TEACHER-5: the teacher\'s work on the student\'s side', () => {
     await page.reload();
     await expect(page.getByRole('region', { name: 'מהמורה רונית' })).toBeVisible();
     await expect(page.locator('.tab-dot')).toHaveCount(0);
+  });
+});
+
+test.describe('TEACHER-7: the class report, its CSV and its printout', () => {
+  /**
+   * The file's name as the app gives it (the link's download attribute, kept by an init script), and as the browser
+   * names the download. Chromium names a file whose name is not ASCII "download" when it runs under a C locale (a bare
+   * machine with no LANG); a teacher's device has a UTF-8 one, so the browser's name is checked only under one too.
+   */
+  const keepNames = (page) => page.addInitScript(() => {
+    const click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function keep() { if (this.download) window.__files = [...(window.__files || []), this.download]; return click.call(this); };
+  });
+  const utf8 = /utf-?8/i.test(process.env.LC_ALL || process.env.LC_CTYPE || process.env.LANG || '');
+  const named = async (page, download, name) => {
+    expect(await page.evaluate(() => window.__files?.at(-1))).toBe(name);
+    if (utf8) expect(download.suggestedFilename()).toBe(name);
+  };
+  const PDF_DIR = path.join(process.cwd(), 'test-results');
+  const reportCalls = (log) => log.filter((r) => r.path === '/api/teacher/report');
+  /** The search of every report the page asks for, in order. */
+  const reportUrls = (page) => {
+    const urls = [];
+    page.on('request', (r) => { if (r.url().includes('/api/teacher/report')) urls.push(new URL(r.url()).search); });
+    return urls;
+  };
+  // one assignment for the whole class, due on Friday: דנה finished it, יואב did not start
+  const stairWork = {
+    assignments: [{ id: 'a000000000000001', kind: 'stair', skill: 'signed:1', title: 'חיבור וחיסור', note: '', startsOn: '2026-11-02', dueOn: '2026-11-06', forAll: true, targets: [], createdAt: '2026-11-02T07:00:00.000Z' }],
+    work: { a000000000000001: { a1: { state: 'done', stage: 5, passed: true, tries: 1, startedAt: '2026-11-03T10:00:00.000Z', doneAt: '2026-11-04T10:00:00.000Z', doneDay: '2026-11-04' } } },
+    mistakes: [{ topic: 'signed', cat: 'sign', level: 1, n: 3, students: 1, ids: ['a1'], names: ['דנה'] }],
+  };
+
+  test('1. from the board\'s tools: the ranges, a row per student, the CSV (BOM and header) and the printout (the table only)', async ({ page }) => {
+    const { log } = await fakeServer(page, stairWork, baseOf());
+    const asked = reportUrls(page);
+    await keepNames(page);
+    await open(page, '#/teacher', keyTeacher());
+    await page.getByRole('navigation', { name: 'כלים' }).getByRole('link', { name: 'דוח וייצוא' }).click();
+    await expect(page).toHaveURL(/#\/teacher\/report$/);
+    await expect(page.getByRole('heading', { name: 'דוח הכיתה' })).toBeVisible();
+    const urls = () => asked;
+    // the default: the last two weeks, with the board's credentials
+    await expect.poll(urls).toContain('?from=2026-10-23&to=2026-11-05');
+    expect(reportCalls(log)[0].headers).toMatchObject({ 'x-class-code': 'K7Q2MD', 'x-teacher-key': 'tkey-123' });
+    await expect(page.getByRole('radio', { name: 'שבועיים' })).toBeChecked();
+    // "השבוע": Sunday 1 November to today
+    await page.getByText('השבוע', { exact: true }).click();
+    await expect.poll(urls).toContain('?from=2026-11-01&to=2026-11-05');
+    await expect(page).toHaveURL(/#\/teacher\/report\?range=week$/);
+    await expect(page.getByText('ז׳3 · 1.11–5.11.2026', { exact: true })).toBeVisible();
+    const table = page.getByRole('region', { name: 'טבלת הדוח' });
+    await expect(table.locator('tbody tr')).toHaveCount(2);
+    await expect(table.locator('tbody th')).toHaveText(['דנה', 'יואב']);
+    await expect(table.locator('thead')).toContainText('חיבור וחיסור');
+    await expect(table.locator('tbody tr').nth(0)).toContainText('הושלם · שולט/ת');
+    await expect(table.locator('tbody tr').nth(1)).toContainText('לא התחיל/ה');
+    await expect(page.getByText('תרגלו בטווח')).toBeVisible();
+    await expect(page.locator('.kpi').filter({ hasText: 'משימות שהושלמו' })).toContainText('1/2');
+    await expect(page.locator('.kpi').filter({ hasText: 'נכון בניסיון ראשון' })).toContainText('70%');
+    const mis = page.getByRole('region', { name: 'טעויות שחוזרות בטווח' });
+    await expect(mis).toContainText('מספרים מכוונים');
+    await expect(mis).toContainText('תלמיד אחד: דנה');
+    await expect(page.getByText('בקובץ יש רק את השמות כפי שהתלמידים כתבו אותם, בלי תעודות זהות ובלי מספרים מזהים.', { exact: false })).toBeVisible();
+    for (const b of [page.getByRole('button', { name: 'הורדת קובץ CSV (לאקסל)' }), page.getByRole('button', { name: 'הדפסה' })]) {
+      expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'teacher-report');
+
+    // the CSV: a UTF-8 file with the BOM first, its first line the header, a row per student
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'הורדת קובץ CSV (לאקסל)' }).click()]);
+    await named(page, download, 'madregot-ז3-2026-11-01-2026-11-05.csv');
+    mkdirSync(PDF_DIR, { recursive: true });
+    const file = path.join(PDF_DIR, 'teacher-report.csv');
+    await download.saveAs(file);
+    const bytes = readFileSync(file);
+    expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    const lines = bytes.toString('utf8').slice(1).split('\r\n');
+    expect(lines[0].startsWith('שם,ימים עם תרגול,תרגילים,נכון בניסיון ראשון (%),דקות,תרגול אחרון,מספרים מכוונים: מדרגה,מערכת צירים: מדרגה,')).toBe(true);
+    expect(lines[0].endsWith(',חיבור וחיסור (עד 06/11),טעויות שחוזרות')).toBe(true);
+    expect(lines[1].startsWith('דנה,3,24,75,31,05/11/2026,')).toBe(true);
+    expect(lines[1]).toContain(',הושלם · שולט/ת,');
+    expect(lines[2].startsWith('יואב,1,6,50,7,03/11/2026,')).toBe(true);
+    expect(lines.at(-1)).toBe('');
+    expect(lines).toHaveLength(4);
+    expect(bytes.toString('utf8')).not.toMatch(/a1|b2|a000000000000001|K7Q2MD/);
+    await expect(page.getByText('הקובץ הורד למכשיר.')).toBeVisible();
+
+    // printed: the table only, its header with the class, the range and the day, landscape
+    await page.evaluate(() => { document.documentElement.dataset.print = 'report'; });
+    await page.emulateMedia({ media: 'print' });
+    const sheet = page.locator('.print-sheet[data-mode="report"]');
+    await expect(sheet).toBeVisible();
+    await expect(sheet.locator('.pr-head')).toHaveText('דוח הכיתה ז׳3 · 1.11–5.11.2026 · הופק ב־5.11.2026');
+    await expect(sheet.locator('tbody tr')).toHaveCount(2);
+    await expect(sheet.locator('tbody th')).toHaveText(['דנה', 'יואב']);
+    for (const hidden of ['.t-report', '.screen-bar', '.as-chips', '.t-kpis', '.screen-foot', '.t-report-note']) await expect(page.locator(hidden).first()).toBeHidden();
+    const pdf = await page.pdf({ path: path.join(PDF_DIR, 'teacher-report.pdf'), preferCSSPageSize: true });
+    const box = pdf.toString('latin1').match(/\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/);
+    expect(Number(box[1])).toBeGreaterThan(Number(box[2])); // landscape
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate(() => { delete document.documentElement.dataset.print; });
+  });
+
+  test('2. a range of the teacher\'s own, and a range with no practice says so calmly', async ({ page }) => {
+    const { log } = await fakeServer(page, { reportRows: { a1: { activeDays: 0, exercises: 0, firstTry: 0, minutes: 0, topMistakes: [] }, b2: { activeDays: 0, exercises: 0, firstTry: 0, minutes: 0 } } }, baseOf());
+    const urls = reportUrls(page);
+    await open(page, '#/teacher/report', keyTeacher());
+    await expect(page.getByRole('heading', { name: 'בטווח הזה עוד לא היה תרגול בכיתה.' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'הורדת קובץ CSV (לאקסל)' })).toHaveCount(0);
+    await page.getByText('טווח אחר', { exact: true }).click();
+    await page.getByLabel('מתאריך').fill('2026-10-01');
+    await page.getByLabel('עד תאריך').fill('2026-10-31');
+    await expect.poll(() => urls).toContain('?from=2026-10-01&to=2026-10-31');
+    await expect(page).toHaveURL(/range=custom&from=2026-10-01&to=2026-10-31/);
+    await expect(page.getByText('ז׳3 · 1.10–31.10.2026', { exact: true })).toBeVisible();
+    expect(reportCalls(log).length).toBeGreaterThan(1);
+  });
+
+  test('3. printed, 25 students a page: 30 students make two landscape pages, the header on each', async ({ page }) => {
+    const students = Array.from({ length: 30 }, (_, i) => ({ id: `s${i}`, name: `תלמיד ${String(i + 1).padStart(2, '0')}` }));
+    await fakeServer(page, { students }, baseOf());
+    await open(page, '#/teacher/report', keyTeacher());
+    await expect(page.getByRole('region', { name: 'טבלת הדוח' }).locator('tbody tr')).toHaveCount(30);
+    await page.emulateMedia({ media: 'print' });
+    const sheet = page.locator('.print-sheet[data-mode="report"]');
+    await expect(sheet.locator('tbody tr')).toHaveCount(30);
+    await expect(sheet.locator('tbody tr.pr-break')).toHaveCount(1);
+    await expect(sheet.locator('tbody tr').nth(24)).toHaveClass(/pr-break/);
+    const pdf = await page.pdf({ preferCSSPageSize: true });
+    expect((pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length).toBe(2);
+    await page.emulateMedia({ media: 'screen' });
+  });
+
+  test('4. the class settings\' "הורדת הדוח של כל השנה" opens the school year and starts its CSV; the delete sheet offers it first', async ({ page }) => {
+    await fakeServer(page, stairWork, baseOf());
+    const urls = reportUrls(page);
+    await keepNames(page);
+    await open(page, '#/teacher/settings', keyTeacher());
+    await expect(page.getByText('בסוף השנה כדאי להוריד את הדוח ולמחוק את הכיתה. בשנה הבאה פותחים כיתה חדשה, והתלמידים מצטרפים עם קוד חדש.')).toBeVisible();
+    const [year] = await Promise.all([page.waitForEvent('download'), page.getByRole('link', { name: 'הורדת הדוח של כל השנה' }).click()]);
+    await named(page, year, 'madregot-ז3-2026-09-01-2026-11-05.csv');
+    expect(urls).toContain('?from=2026-09-01&to=2026-11-05');
+    await expect(page.getByRole('radio', { name: 'מתחילת השנה' })).toBeChecked();
+    await expect(page).toHaveURL(/#\/teacher\/report\?range=year$/); // the file starts once: the address no longer asks for it
+    // the delete sheet: the year's CSV without leaving the sheet
+    await page.goto('./#/teacher/settings');
+    await page.getByRole('button', { name: 'מחיקת הכיתה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'למחוק את הכיתה ז׳3?' });
+    const offer = sheet.getByRole('button', { name: 'הורדת הדוח לפני המחיקה' });
+    expect((await offer.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    const [again] = await Promise.all([page.waitForEvent('download'), offer.click()]);
+    await named(page, again, 'madregot-ז3-2026-09-01-2026-11-05.csv');
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'כן, למחוק את הכיתה' })).toBeDisabled();
   });
 });

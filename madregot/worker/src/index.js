@@ -24,6 +24,7 @@ import { myClasses, bindClass, rekeyClass, ownedClassStmts, checkOwnedCap } from
 import {
   listAssignments, createAssignment, getAssignment, updateAssignment, deleteAssignment, classWork, workExam, postWork, classAssignments,
 } from './assignments.js';
+import { classReport } from './report.js';
 import { RETENTION } from '../../shared/retention.js';
 import { run as runCron } from './cron.js';
 
@@ -518,6 +519,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})$/))) return postWork(m[1], req, env, cors);
   // teacher
   if (M === 'GET' && p === '/api/teacher/dashboard') return dashboard(req, env, cors);
+  if (M === 'GET' && p === '/api/teacher/report') return classReport(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)$/))) return updateHelp(m[1], req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/teacher\/help\/(\d+)\/image$/))) return helpImage(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);

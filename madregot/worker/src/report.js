@@ -1,0 +1,147 @@
+// The class report (spec TEACHER-7): the class over a range of days, for the screen, the printout and the CSV the
+// teacher downloads. Per student: active days, exercises, first-try and correct answers, hints, minutes, last practice,
+// the stair on each topic and their most frequent mistakes; the assignments due in the range with each student's work;
+// and the class's repeated mistakes. The numbers are the dashboard's own queries (index.js dashboard) over
+// a.day BETWEEN from AND to, so the report's week is the board's week.
+//
+//   GET /api/teacher/report?from=YYYY-MM-DD&to=YYYY-MM-DD   (requireTeacher)
+//
+// No student id is in the answer: students are rows ordered by name, an assignment's work is keyed by the row's index,
+// and nothing else carries an id (the assignments' ids neither). Only what the students typed as their names, never an
+// ID number: the class join asks for a first name. 60 reports an hour per class (ai_usage report:c:<code>).
+import { HttpError, json, dayOf, isDay, nowIso, limitOrThrow } from './util.js';
+import { requireTeacher } from './entitle.js';
+import { plusDays } from './assignments.js';
+
+export const REPORT = Object.freeze({
+  /** The longest range, in days (from and to both counted). A longer one is cut to its last 400 days. */
+  maxDays: 400,
+  /** The range when none is asked: the last 14 days, today included. */
+  defaultDays: 14,
+  /** Reports a class asks for in an hour. */
+  perHour: 60,
+  /** The class's repeated mistakes, as on the board; and a student's own, most frequent first. */
+  mistakes: 12,
+  studentMistakes: 3,
+  /** Assignments in the range, at most (the earliest due first). */
+  assignments: 200,
+});
+
+/**
+ * The range a request asks for: { from, to }. `to` is at most today (a later day is today); with no `to`, today; with
+ * no `from`, the 14 days that end on `to`. A range longer than 400 days keeps its last 400. A day that is not
+ * YYYY-MM-DD, or `from` after `to`, is 400 bad_range.
+ */
+export function reportRange(params, today = dayOf()) {
+  const f = params.get('from'); const t = params.get('to');
+  if ((f && !isDay(f)) || (t && !isDay(t))) throw new HttpError(400, 'bad_range');
+  const to = t && t < today ? t : today;
+  let from = f || plusDays(to, -(REPORT.defaultDays - 1));
+  if (from > to) throw new HttpError(400, 'bad_range');
+  const earliest = plusDays(to, -(REPORT.maxDays - 1));
+  if (from < earliest) from = earliest;
+  return { from, to };
+}
+
+/**
+ * The assignments of a range: due in it, and also those still open in it (started by its end and due after it), so the
+ * report of this week shows the work due next week too.
+ */
+const IN_RANGE = 'a.class_code = ?1 AND a.due_on >= ?2 AND a.starts_on <= ?3';
+const all = async (env, sql, ...a) => (await env.DB.prepare(sql).bind(...a).all()).results || [];
+const num = (v) => Number(v) || 0;
+
+/** GET /api/teacher/report?from&to → the report (see the top of this file). */
+export async function classReport(req, env, cors) {
+  const cls = await requireTeacher(req, env);
+  const today = dayOf();
+  const { from, to } = reportRange(new URL(req.url).searchParams, today);
+  await limitOrThrow(env, `report:c:${cls.code}`, REPORT.perHour, 429, 'too_many_reports', 'hour');
+  const code = cls.code;
+  const [students, rangeRows, lastRows, levelRows, studentCats, catRows, catNames, assignments, work, targets] = await Promise.all([
+    all(env, 'SELECT id, name, created_at FROM students WHERE class_code = ? ORDER BY name, id', code),
+    // the dashboard's week query, over the range
+    all(env, `SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.hint) AS hint,
+        COUNT(DISTINCT a.day) AS days, SUM(a.secs) AS secs
+      FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day BETWEEN ? AND ? GROUP BY a.student_id`, code, from, to),
+    // the last practice up to the range's end, so a closed range always gives the same report
+    all(env, `SELECT a.student_id, MAX(a.at) AS last FROM attempts a JOIN students s ON s.id = a.student_id
+      WHERE s.class_code = ? AND a.day <= ? GROUP BY a.student_id`, code, to),
+    all(env, 'SELECT l.student_id, l.topic, l.level, l.max_level FROM levels l JOIN students s ON s.id = l.student_id WHERE s.class_code = ?', code),
+    // each student's mistakes in the range, by stair (the stair names the words the student saw)
+    all(env, `SELECT a.student_id, a.topic, a.level, a.cat, COUNT(*) AS n FROM attempts a JOIN students s ON s.id = a.student_id
+      WHERE s.class_code = ? AND a.day BETWEEN ? AND ? AND a.cat IS NOT NULL GROUP BY a.student_id, a.topic, a.level, a.cat`, code, from, to),
+    // the class's repeated mistakes, as the dashboard has them: most students first, with the stair it happened on most
+    all(env, `SELECT a.topic, a.cat, COUNT(*) AS n, COUNT(DISTINCT a.student_id) AS students,
+        (SELECT a2.level FROM attempts a2 JOIN students s2 ON s2.id = a2.student_id
+          WHERE s2.class_code = ?1 AND a2.day BETWEEN ?2 AND ?3 AND a2.topic = a.topic AND a2.cat = a.cat
+          GROUP BY a2.level ORDER BY COUNT(*) DESC, a2.level LIMIT 1) AS level
+      FROM attempts a JOIN students s ON s.id = a.student_id
+      WHERE s.class_code = ?1 AND a.day BETWEEN ?2 AND ?3 AND a.cat IS NOT NULL GROUP BY a.topic, a.cat
+      ORDER BY students DESC, n DESC LIMIT ${REPORT.mistakes}`, code, from, to),
+    all(env, `SELECT DISTINCT a.topic, a.cat, s.name FROM attempts a JOIN students s ON s.id = a.student_id
+      WHERE s.class_code = ? AND a.day BETWEEN ? AND ? AND a.cat IS NOT NULL ORDER BY s.name`, code, from, to),
+    all(env, `SELECT a.id, a.kind, a.skill, a.title, a.for_all, a.due_on FROM assignments a WHERE ${IN_RANGE}
+      ORDER BY a.due_on, a.created_at, a.id LIMIT ${REPORT.assignments}`, code, from, to),
+    all(env, `SELECT w.assignment_id, w.student_id, w.state, w.stage, w.right_n, w.asked, w.passed, w.tries, w.done_day
+      FROM assignment_work w JOIN assignments a ON a.id = w.assignment_id WHERE ${IN_RANGE}`, code, from, to),
+    all(env, `SELECT t.assignment_id, t.student_id FROM assignment_targets t JOIN assignments a ON a.id = t.assignment_id
+      WHERE ${IN_RANGE}`, code, from, to),
+  ]);
+
+  const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
+  const range = by(rangeRows); const last = by(lastRows);
+  const levels = {};
+  for (const r of levelRows) (levels[r.student_id] ||= {})[r.topic] = { level: r.level, max: r.max_level };
+  // a student's mistakes: one row per topic and mistake, at the stair it happened on most (a tie: the lower one)
+  const mine = {};
+  for (const r of studentCats) {
+    const m = ((mine[r.student_id] ||= {})[`${r.topic}\u0000${r.cat}`] ||= { topic: r.topic, cat: r.cat, level: r.level, n: 0, top: 0 });
+    m.n += num(r.n);
+    if (num(r.n) > m.top || (num(r.n) === m.top && r.level < m.level)) { m.top = num(r.n); m.level = r.level; }
+  }
+  const topMistakes = (sid) => Object.values(mine[sid] || {})
+    .sort((a, b) => b.n - a.n || (a.topic < b.topic ? -1 : a.topic > b.topic ? 1 : 0) || (a.cat < b.cat ? -1 : a.cat > b.cat ? 1 : 0))
+    .slice(0, REPORT.studentMistakes).map(({ topic, cat, level, n }) => ({ topic, cat, level, n }));
+
+  const row = Object.fromEntries(students.map((s, i) => [s.id, i]));
+  const done = {};
+  for (const w of work) (done[w.assignment_id] ||= {})[w.student_id] = w;
+  const named = {};
+  for (const t of targets) (named[t.assignment_id] ||= new Set()).add(t.student_id);
+
+  return json({
+    class: { name: cls.name, grade: cls.grade, teacherName: cls.teacher_name },
+    from, to, today, generatedAt: nowIso(),
+    students: students.map((s) => {
+      const r = range[s.id];
+      return {
+        name: s.name,
+        joinedOn: s.created_at ? dayOf(new Date(s.created_at)) : null,
+        lastPractice: last[s.id]?.last || null,
+        activeDays: num(r?.days), exercises: num(r?.n), firstTry: num(r?.first), correct: num(r?.ok), hinted: num(r?.hint),
+        minutes: Math.round(num(r?.secs) / 60),
+        levels: levels[s.id] || {},
+        topMistakes: topMistakes(s.id),
+      };
+    }),
+    assignments: assignments.map((a) => {
+      const w = {};
+      for (const s of students) {
+        if (!a.for_all && !named[a.id]?.has(s.id)) continue;
+        const x = done[a.id]?.[s.id];
+        const state = x?.state || 'none';
+        w[row[s.id]] = {
+          state, stage: x?.stage ?? null, right: x?.right_n ?? null, asked: x?.asked ?? null,
+          passed: x?.passed == null ? null : !!x.passed, tries: num(x?.tries),
+          late: state === 'done' ? x.done_day > a.due_on : a.due_on < today,
+        };
+      }
+      return { title: a.title, kind: a.kind, skill: a.skill, dueOn: a.due_on, work: w };
+    }),
+    mistakes: catRows.map((r) => ({
+      topic: r.topic, cat: r.cat, level: r.level == null ? null : Number(r.level), n: num(r.n), students: num(r.students),
+      names: catNames.filter((c) => c.topic === r.topic && c.cat === r.cat).map((c) => c.name),
+    })),
+  }, 200, cors);
+}
