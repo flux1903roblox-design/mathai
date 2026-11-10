@@ -1,6 +1,6 @@
 // The teacher's board: the header, the overview tiles, the switch between the views, the data loading, adding a class
 // and the first look at a new class. Each view is its own file in screens/teacher/.
-import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
@@ -22,32 +22,38 @@ import ExamsTab from './teacher/ExamsTab.jsx';
 import HelpTab from './teacher/HelpTab.jsx';
 import { takePendingToast } from './teacher/DeleteClass.jsx';
 import AssignSheet from '@/components/teacher/AssignSheet.jsx';
+import ClassSettingQuestion, { settingBody, settingReady } from '@/components/teacher/ClassSettingQuestion.jsx';
 import StudentSheet from '@/components/teacher/StudentSheet.jsx';
 import { rememberBoard } from '@/lib/teacherBoard.js';
 
 const TABS = ['tomorrow', 'work', 'students', 'exams', 'help'];
 
+const NEW_CLASS = { className: '', grade: '7', setting: 'school', attest: false };
+
 function AddClass({ open, onClose }) {
   const { profile, setProfile } = useApp();
-  const [f, setF] = useState({ className: '', grade: '7' }); const [busy, setBusy] = useState(false);
+  const [f, setF] = useState(NEW_CLASS); const [busy, setBusy] = useState(false);
+  const can = !!f.className.trim() && settingReady(f.setting, f.attest);
   const submit = async () => {
-    if (!f.className.trim()) return; setBusy(true);
+    if (!can) return; setBusy(true);
     try {
-      const body = { teacherName: profile.name, className: f.className, grade: f.grade };
+      // where the class learns (TRUST-11): a school class unless the teacher picks a private group and attests to it
+      const body = { teacherName: profile.name, className: f.className, grade: f.grade, ...settingBody(f.setting, f.attest) };
       // signed in: the new class is bound to the email at once (owned), like the first one
       const session = useParent.getState().session;
       const r = session ? await accountCall('/api/classes', { method: 'POST', body }) : await api('/api/classes', { method: 'POST', body });
       const cls = { code: r.code, key: r.owned && session?.shared ? null : r.teacherKey, className: r.className, grade: r.grade, fresh: true, ...(r.owned ? { owned: true } : {}) };
-      setProfile({ ...profile, classes: [...profile.classes, cls], active: cls.code, grade: cls.grade }); setF({ className: '', grade: '7' }); onClose();
+      setProfile({ ...profile, classes: [...profile.classes, cls], active: cls.code, grade: cls.grade }); setF(NEW_CLASS); onClose();
     } catch (err) { toast.error(err.message); } finally { setBusy(false); }
   };
   // a sheet like every other one: the title and the way out, the fields, its one action pinned at the bottom
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()} title="כיתה נוספת"
-      footer={<Button className="btn-block btn-lg" onClick={submit} disabled={busy || !f.className.trim()}>{busy ? 'רגע…' : 'פתיחת הכיתה'}</Button>}>
+      footer={<Button className="btn-block btn-lg" onClick={submit} disabled={busy || !can}>{busy ? 'רגע…' : 'פתיחת הכיתה'}</Button>}>
       <form className="add-class ob-field" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <Field label="שם הכיתה החדשה" id="ac-name"><input id="ac-name" className="input input-lg" value={f.className} onChange={(e) => setF({ ...f, className: e.target.value })} maxLength={30} placeholder="למשל: ח׳2" /></Field>
         <div className="field"><span className="field-label" id="ac-grade">שכבה</span><GradeSwitch value={f.grade} onChange={(g) => setF({ ...f, grade: g })} id="ac-grade" /></div>
+        <ClassSettingQuestion idPrefix="ac" setting={f.setting} attest={f.attest} onChange={({ setting, attest }) => setF({ ...f, setting, attest })} />
       </form>
     </Sheet>
   );
@@ -77,16 +83,8 @@ export default function Teacher() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const openStudent = (s) => { setSheetFor(s); setSheetOpen(true); };
   const [confirmOut, setConfirmOut] = useState(false);
-  const { state: nav } = useLocation();
   // a class deleted from its settings page: the board opens on the next class and says so
   useEffect(() => { const t = takePendingToast(); if (t) toast(t); }, []);
-  // "על רישיון כיתה" from the tutor's sheet: the licence card, at the top of the "מחר" view
-  useEffect(() => {
-    if (nav?.focus !== 'licence') return undefined;
-    if (tab !== 'tomorrow') setTab('tomorrow');
-    const t = setTimeout(() => document.getElementById('t-licence')?.scrollIntoView({ block: 'start' }), 300);
-    return () => clearTimeout(t);
-  }, [nav]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     try {
@@ -161,7 +159,7 @@ export default function Teacher() {
       )}
       {session && <MoreClasses open={moreOpen} onOpenChange={setMoreOpen} />}
       {sheetFor && data && (
-        <StudentSheet cls={cls} student={sheetFor} today={data.today} open={sheetOpen} onOpenChange={setSheetOpen} onChanged={load}
+        <StudentSheet cls={cls} student={sheetFor} today={data.today} aiPolicy={data.aiPolicy} open={sheetOpen} onOpenChange={setSheetOpen} onChanged={load}
           onAssign={(preset) => { setSheetOpen(false); openAssign(preset); }}
           onHelp={(id) => { setSheetOpen(false); setTab('help', { student: id }); }} />
       )}

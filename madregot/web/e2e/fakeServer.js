@@ -19,7 +19,14 @@
 // the late work count (a student in st.students may set lastPractice, week, late, joinedOn… for the attention list).
 // Student AI by the Ministry's rules (TRUST-11): st.classAiOff makes a class student's AI calls 403 class_ai_off and
 // their status 'class_off' (st.staleStatus keeps the status as it was, as on a device that asked before the change).
+// The teacher's side (TEACHER-9): st.ai is K7Q2MD's setting, switch and consent and the catalogue approval ({ setting,
+// studentAi, consentAt, approval, fromGrade }; by default a school class while Madregot is not in the catalogue, as the
+// Worker starts); the dashboard's aiPolicy from shared/schoolRules.js, the students' aiOff, POST /api/teacher/class/ai
+// and /api/teacher/students/:id/ai, a new class's setting, and 409 school_ai_not_approved for a trial, a licence code
+// or a class purchase while the rules do not allow selling to the class.
 // `st.down = true` makes every call fail as a lost connection.
+import { MOE_RULES, classAiPolicy, NOT_SELLABLE } from '../../shared/schoolRules.js';
+
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
 const CORS = {
@@ -81,6 +88,14 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     digest: null, // the owner's daily help email (null: the dashboard does not say, as for a key)
     ...over,
   };
+  // the class's student AI (TRUST-11): a school class, off, no consent, Madregot not in the catalogue, unless the test says
+  st.ai = { setting: 'school', studentAi: 'off', consentAt: null, approval: 'none', fromGrade: 7, ...(over.ai || {}) };
+  const policyOf = (a = st.ai) => classAiPolicy({ setting: a.setting, grade: st.classGrade, studentAi: a.studentAi, consentAt: a.consentAt }, { approval: a.approval, approvedFromGrade: a.fromGrade });
+  const aiPolicy = () => ({
+    ...policyOf(), setting: st.ai.setting, consentAt: st.ai.consentAt, fromGrade: Math.max(st.ai.fromGrade, MOE_RULES.independentFromGrade),
+    rulesVersion: MOE_RULES.version, rulesUrl: MOE_RULES.url, consentFormUrl: MOE_RULES.consentFormUrl, consentPdfUrl: MOE_RULES.consentPdfUrl,
+  });
+  const notSellable = () => NOT_SELLABLE.includes(policyOf().reason);
   const emails = new Map(); // session token → the email it signed in with
   const log = [];
   const reply = (route, code, data, headers = {}) => route.fulfill({ status: code, contentType: 'application/json', headers: { ...CORS, ...headers }, body: JSON.stringify(data) });
@@ -147,13 +162,14 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     helpDigest: st.digest, mistakes: st.mistakes, exams: [],
     today: st.today,
     assignments: st.assignments.filter((a) => a.dueOn >= plus(st.today, -7)).sort((a, b) => (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : 0)).slice(0, 10).map(viewOf),
-    students: st.students.map((s) => ({ lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false, joinedOn: '2026-09-02', late: 0, ...s })),
+    students: st.students.map((s) => ({ lastPractice: '2026-11-05T08:00:00Z', today: { n: 3 }, week: { n: 10, first: 8, days: 2 }, levels: {}, pinReset: false, joinedOn: '2026-09-02', late: 0, aiOff: false, ...s })),
+    aiPolicy: aiPolicy(),
   });
   // one student's page, as worker/src/report.js studentDetail gives it
   const pageOf = (s) => {
     const row = dashboard().students.find((x) => x.id === s.id);
     return {
-      student: { id: s.id, name: s.name, joinedOn: row.joinedOn, lastPractice: row.lastPractice, pinReset: !!row.pinReset },
+      student: { id: s.id, name: s.name, joinedOn: row.joinedOn, lastPractice: row.lastPractice, pinReset: !!row.pinReset, aiOff: !!row.aiOff },
       days14: Array.from({ length: 14 }, (_, i) => ({ day: plus(st.today, i - 13), n: 0, first: 0, minutes: 0 })),
       levels: row.levels || {}, mistakes: [],
       work: st.assignments.filter((a) => forWhom(a).includes(s.id)).map((a) => {
@@ -340,6 +356,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       return reply(route, 200, { ok: true });
     }
     if (path === '/api/billing/checkout') {
+      if (body.plan === 'class_year' && notSellable()) return reply(route, 409, { error: 'school_ai_not_approved', reason: policyOf().reason });
       if (body.adult !== true) return reply(route, 400, { error: 'adult_required' });
       if (body.terms !== '2026-11') return reply(route, 400, { error: 'terms_required' });
       if (!/^[A-Za-z0-9_-]{16,64}$/.test(h['idempotency-key'] || '')) return reply(route, 400, { error: 'bad_idempotency_key' });
@@ -390,9 +407,13 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     if (path === '/api/classes' && req.method() === 'POST') {
       // with a session the class is bound to its email at once; a session that has ended makes no class
       if (token && !signed) return reply(route, 401, { error: 'not_account' });
+      const setting = body.setting ?? 'school';
+      if (!['school', 'private'].includes(setting)) return reply(route, 400, { error: 'bad_request' });
+      if (setting === 'private' && body.privateAttest !== true) return reply(route, 400, { error: 'private_attest_required' });
+      st.ai = { ...st.ai, setting, studentAi: 'off', consentAt: null };
       st.className = body.className; st.classGrade = body.grade === '8' ? '8' : '7';
       if (signed) { st.owned = true; st.ownerEmail = emails.get(token) || null; }
-      return reply(route, 200, { code: 'K7Q2MD', teacherKey: st.key, className: st.className, grade: st.classGrade, teacherName: body.teacherName, ...(signed ? { owned: true } : {}) });
+      return reply(route, 200, { code: 'K7Q2MD', teacherKey: st.key, className: st.className, grade: st.classGrade, teacherName: body.teacherName, setting, ...(signed ? { owned: true } : {}) });
     }
     if (path === '/api/teacher/classes') {
       if (!signed) return reply(route, 401, { error: 'not_account' });
@@ -455,13 +476,43 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (path === '/api/teacher/licence') return reply(route, 200, { ...st.licence, students: st.students.length, joinLocked: st.joinLocked });
       if (path === '/api/teacher/licence/request') {
         if (!signed) return reply(route, 401, { error: 'not_account' });
+        if (body.wants !== 'quote' && notSellable()) return reply(route, 409, { error: 'school_ai_not_approved', reason: policyOf().reason });
         st.licence = { ...st.licence, request: { wants: body.wants, at: '2026-11-05T10:00:00Z' } }; st.request = body;
         return reply(route, 200, { ok: true });
       }
       if (path === '/api/teacher/licence/claim') {
+        if (notSellable()) return reply(route, 409, { error: 'school_ai_not_approved', reason: policyOf().reason });
         if (body.code !== 'ABCD-EFGH-JK23') return reply(route, 400, { error: 'bad_licence_code' });
         st.licence = { ...st.licence, status: 'active', until: '2027-08-31T20:59:59Z', seats: 35, request: null };
         return reply(route, 200, { ok: true, until: st.licence.until, seats: 35 });
+      }
+      // student AI by the Ministry's rules (TRUST-11), as worker/src/classai.js decides it
+      if (path === '/api/teacher/class/ai') {
+        const has = (k) => body[k] !== undefined;
+        if (!has('studentAi') && !has('consent') && !has('setting')) return reply(route, 400, { error: 'bad_request' });
+        if ((has('studentAi') && !['on', 'off'].includes(body.studentAi)) || (has('consent') && body.consent !== true) || (has('setting') && !['school', 'private'].includes(body.setting))) return reply(route, 400, { error: 'bad_request' });
+        let next = { ...st.ai };
+        if (has('setting') && body.setting !== st.ai.setting) {
+          if (body.setting === 'private' && body.privateAttest !== true) return reply(route, 400, { error: 'private_attest_required' });
+          next = { ...next, setting: body.setting, studentAi: 'off', consentAt: null };
+        }
+        if (body.consent === true) next.consentAt = `${st.today}T10:00:00.000Z`;
+        if (body.studentAi === 'on') {
+          const p = policyOf(next);
+          if (!p.canTurnOn) return reply(route, 409, { error: 'class_ai_locked', reason: p.reason });
+          if (!next.consentAt) return reply(route, 409, { error: 'consent_needed' });
+          next.studentAi = 'on';
+        } else if (body.studentAi === 'off') next.studentAi = 'off';
+        st.ai = next;
+        return reply(route, 200, { policy: aiPolicy() });
+      }
+      const sam = path.match(/^\/api\/teacher\/students\/([a-z0-9]+)\/ai$/);
+      if (sam) {
+        const s = code === 'K7Q2MD' && st.students.find((x) => x.id === sam[1]);
+        if (!s) return reply(route, 404, { error: 'not_found' });
+        if (typeof body.off !== 'boolean') return reply(route, 400, { error: 'bad_request' });
+        s.aiOff = body.off;
+        return reply(route, 200, { aiOff: body.off });
       }
       if (path === '/api/teacher/class/lock') { st.joinLocked = !!body.locked; return reply(route, 200, { joinLocked: st.joinLocked }); }
       if (path === '/api/teacher/class/rename') {

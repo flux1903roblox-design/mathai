@@ -28,16 +28,19 @@ export async function classSettings(env, code) {
 /** The rule's answer for a class row (its grade) with these settings. */
 export const policyOf = (env, cls, s) => classAiPolicy({ setting: s.setting, grade: cls.grade, studentAi: s.studentAi, consentAt: s.consentAt }, moeEnv(env));
 
-/** What the dashboard and POST /api/teacher/class/ai give the teacher's screens. */
-export const aiPolicyView = (policy, s) => ({
-  ...policy, setting: s.setting, consentAt: s.consentAt,
+/**
+ * What the dashboard and POST /api/teacher/class/ai give the teacher's screens. fromGrade: the grade the catalogue
+ * approval starts at, for the card's "מאושר בקטלוג החל מכיתה {n}" (reason 'grade').
+ */
+export const aiPolicyView = (policy, s, env = {}) => ({
+  ...policy, setting: s.setting, consentAt: s.consentAt, fromGrade: Math.max(moeEnv(env).approvedFromGrade, MOE_RULES.independentFromGrade),
   rulesVersion: MOE_RULES.version, rulesUrl: MOE_RULES.url, consentFormUrl: MOE_RULES.consentFormUrl, consentPdfUrl: MOE_RULES.consentPdfUrl,
 });
 
 /** The class's policy as the dashboard shows it. */
 export async function classAiView(env, cls) {
   const s = await classSettings(env, cls.code);
-  return aiPolicyView(policyOf(env, cls, s), s);
+  return aiPolicyView(policyOf(env, cls, s), s, env);
 }
 
 /**
@@ -115,7 +118,7 @@ export async function setClassAi(req, env, cors) {
   } else if (b.studentAi === 'off') next.studentAi = 'off';
   const detail = Object.fromEntries(['studentAi', 'consent', 'setting'].filter(has).map((k) => [k, b[k]]));
   await env.DB.batch([upsert(env, cls.code, next), audit(env, cls, 'class.ai', `class:${cls.code}`, detail, now)]);
-  return json({ policy: aiPolicyView(policyOf(env, cls, next), next) }, 200, cors);
+  return json({ policy: aiPolicyView(policyOf(env, cls, next), next, env) }, 200, cors);
 }
 
 /**

@@ -30,7 +30,10 @@
 // TEACHER-9: the class settings, opened from the board's tools: the class's name, grade, code and join lock; the email
 // it is bound to and the teacher key, with a new key after a fresh code; how long the data is kept (the words come from
 // shared/retention.js); and deleting the class, which waits for its name to be typed and, for a class bound to an
-// email, for the owner's fresh code.
+// email, for the owner's fresh code. Student AI by the Ministry's rules (TRUST-11's screens, trust §E.8's words): the
+// card in a school class before approval (off, the reason, no switch) and its licence (the quote only); consent and the
+// switch once approved; the per-student switch and badge; "איפה הכיתה הזו לומדת?" in TeacherStart, AddClass and the
+// settings (a change asks first; a private group needs the attestation).
 //
 // Screenshots for a look at the screens (TEACHER_SHOTS=<folder>), at the project's size and at 320×568; nothing is
 // compared.
@@ -39,6 +42,8 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { NOW, student, item, answer, proceed } from './helpers.js';
 import { API, TOKEN, fakeServer } from './fakeServer.js';
+import { MOE_RULES } from '../../shared/schoolRules.js';
+import { AI_COPY, SETTING_Q, ATTEST } from '../src/content/classAi.js';
 
 const EMAIL = 'teacher@example.test';
 
@@ -500,6 +505,172 @@ test.describe('TEACHER-9: the class settings and deleting a class', () => {
   });
 });
 
+test.describe('TEACHER-9: student AI by the Ministry\'s rules, the licence in the settings, the per-student switch', () => {
+  const session = (n = 9) => ({ 'madregot-parent': JSON.stringify({ token: TOKEN(n), email: EMAIL, shared: false }) });
+  const aiCard = (page) => page.getByRole('region', { name: AI_COPY.switch });
+  const aiPosts = (log) => log.filter((r) => r.path === '/api/teacher/class/ai').map((r) => r.body);
+
+  test('a school class before approval: "כבוי", the Ministry\'s words and link, no switch; the licence offers only the quote', async ({ page }) => {
+    const { log } = await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/teacher/settings', keyTeacher());
+    const card = aiCard(page);
+    await expect(card.getByText('לתלמידים בכיתה:')).toContainText(AI_COPY.off);
+    await expect(card.getByText(AI_COPY.notInCatalogue)).toBeVisible();
+    await expect(card.getByText(AI_COPY.prep)).toBeVisible();
+    const rules = card.getByRole('link', { name: AI_COPY.rulesLink });
+    await expect(rules).toHaveAttribute('href', MOE_RULES.url);
+    await expect(rules).toHaveAttribute('target', '_blank');
+    await expect(card.getByRole('switch')).toHaveCount(0);
+    await expect(card.getByRole('checkbox')).toHaveCount(0);
+    await expect(card.getByRole('radio', { name: /בבית ספר/ })).toBeChecked();
+    // the licence: §E.8's school-before-approval text and one button
+    const lic = page.locator('#t-licence');
+    await expect(page.getByRole('heading', { name: AI_COPY.licenceTitle, exact: true })).toBeVisible();
+    await expect(lic.getByText(AI_COPY.licenceBeforeApproval)).toBeVisible();
+    await expect(lic.getByRole('button')).toHaveText([AI_COPY.quote]);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, 'teacher-settings-school-ai-off');
+    await card.scrollIntoViewIfNeeded();
+    await shot(page, 'teacher-settings-school-ai-off-card');
+    await lic.getByRole('button', { name: AI_COPY.quote }).click();
+    await expect(page.getByRole('dialog', { name: AI_COPY.quote })).toBeVisible();
+    await page.keyboard.press('Escape');
+    // "מחר" has no licence card any more, and no line while the licence is not ending; the sheet has no AI row
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    await expect(page.locator('#t-licence')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /רישיון הכיתה/ })).toHaveCount(0);
+    await page.getByRole('tab', { name: 'תלמידים' }).click();
+    await page.getByRole('button', { name: 'פרטים על דנה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'דנה' });
+    await expect(sheet.getByRole('button', { name: 'הסרה מהכיתה' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: AI_COPY.studentOff })).toHaveCount(0);
+    await expect(sheet.getByText(AI_COPY.badge)).toHaveCount(0);
+    expect(aiPosts(log)).toEqual([]);
+  });
+
+  test('approved, consent needed: the Ministry\'s forms, the box and "שמירה" post {consent:true}; then the switch; one student off on their sheet', async ({ page }) => {
+    const { st, log } = await fakeServer(page.context(), { owned: true, ai: { approval: 'approved' } }, baseOf());
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/teacher/settings', ownedTeacher(), { local: session() });
+    const card = aiCard(page);
+    await expect(card.getByText(AI_COPY.consentSchool)).toBeVisible();
+    await expect(card.getByRole('link', { name: AI_COPY.consentPortal })).toHaveAttribute('href', MOE_RULES.consentFormUrl);
+    await expect(card.getByRole('link', { name: AI_COPY.consentPdf })).toHaveAttribute('href', MOE_RULES.consentPdfUrl);
+    await expect(card.getByRole('switch')).toHaveCount(0);
+    const save = card.getByRole('button', { name: AI_COPY.save });
+    await expect(save).toBeDisabled();
+    await card.scrollIntoViewIfNeeded();
+    await shot(page, 'teacher-settings-consent');
+    await card.getByRole('checkbox', { name: AI_COPY.consentSchoolBox }).check();
+    await save.click();
+    await expect(page.getByText('אישור ההורים נשמר.')).toBeVisible();
+    expect(aiPosts(log)).toEqual([{ consent: true }]);
+    expect(log.find((r) => r.path === '/api/teacher/class/ai').headers['x-account-token']).toBe(TOKEN(9));
+    // the switch, off, with the day the consent was recorded
+    const sw = card.getByRole('switch', { name: AI_COPY.switch });
+    await expect(sw).not.toBeChecked();
+    await expect(card.getByText(AI_COPY.consentAt('05.11.2026'))).toBeVisible();
+    await sw.click();
+    await expect(page.getByText(AI_COPY.turnedOn)).toBeVisible();
+    await expect(sw).toBeChecked();
+    await expect(card.getByText('לתלמידים בכיתה:')).toContainText(AI_COPY.on);
+    expect(aiPosts(log).at(-1)).toEqual({ studentAi: 'on' });
+    await shot(page, 'teacher-settings-ai-on');
+    // the licence may be offered now: the card is the usual one
+    await expect(page.locator('#t-licence').getByRole('heading', { name: 'העוזר החכם בכיתה' })).toBeVisible();
+    // on the board: the student's sheet turns it off for her alone, with the badge; the table shows it too
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
+    await page.getByRole('tab', { name: 'תלמידים' }).click();
+    await page.getByRole('button', { name: 'פרטים על דנה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'דנה' });
+    await sheet.getByRole('button', { name: AI_COPY.studentOff }).click();
+    await expect(page.getByText('העוזר החכם כבוי לדנה.')).toBeVisible();
+    await expect(sheet.getByText(AI_COPY.badge)).toBeVisible();
+    await expect(sheet.getByRole('button', { name: AI_COPY.studentOn })).toBeVisible();
+    const off = log.find((r) => r.path === '/api/teacher/students/a1/ai');
+    expect(off.body).toEqual({ off: true });
+    expect(st.students.find((x) => x.id === 'a1').aiOff).toBe(true);
+    // after a reload (the toast gone): the table's badge, and the sheet as the teacher finds it next time
+    await page.reload();
+    await expect(page.getByRole('row', { name: /דנה/ }).getByText(AI_COPY.badge)).toBeVisible();
+    await expect(page.getByRole('row', { name: /יואב/ }).getByText(AI_COPY.badge)).toHaveCount(0);
+    await page.getByRole('button', { name: 'פרטים על דנה' }).click();
+    await expect(sheet.getByText(AI_COPY.badge)).toBeVisible();
+    await shot(page, 'teacher-student-ai-off');
+    await sheet.getByRole('button', { name: AI_COPY.studentOn }).scrollIntoViewIfNeeded();
+    await shot(page, 'teacher-student-ai-actions');
+    // and on again
+    await sheet.getByRole('button', { name: AI_COPY.studentOn }).click();
+    await expect(sheet.getByText(AI_COPY.badge)).toHaveCount(0);
+    expect(log.filter((r) => r.path === '/api/teacher/students/a1/ai').map((r) => r.body)).toEqual([{ off: true }, { off: false }]);
+  });
+
+  test('"איפה הכיתה הזו לומדת?": a new class posts its setting, a private group needs the attestation; a change in the settings asks first', async ({ page }) => {
+    const { st, log } = await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/', fresh());
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await signIn(page);
+    await page.locator('#t-name').fill('רונית כהן');
+    await page.locator('#t-class').fill('קבוצת תגבור');
+    const where = page.getByRole('group', { name: SETTING_Q });
+    await expect(where.getByRole('radio', { name: /בבית ספר/ })).toBeChecked();
+    await expect(where).toContainText('העוזר החכם לתלמידים פועל לפי ההנחיות של משרד החינוך');
+    await where.getByRole('radio', { name: /בשיעורים פרטיים, חוג או תגבור/ }).check();
+    await expect(where).toContainText('ההורים מחליטים על העוזר החכם');
+    const open1 = page.getByRole('button', { name: 'פתיחת הכיתה' });
+    await expect(open1).toBeDisabled();
+    await shot(page, 'teacher-start-setting');
+    await where.getByRole('checkbox', { name: ATTEST }).check();
+    await open1.click();
+    await expect(page.getByRole('heading', { name: 'הכיתה מוכנה!' })).toBeVisible();
+    expect(log.find((r) => r.path === '/api/classes').body).toMatchObject({ className: 'קבוצת תגבור', setting: 'private', privateAttest: true });
+    expect(st.ai.setting).toBe('private');
+    // the settings: a private group, consent first, no Ministry form
+    await page.goto('./#/teacher/settings');
+    const card = aiCard(page);
+    await expect(card.getByRole('radio', { name: /בשיעורים פרטיים/ })).toBeChecked();
+    await expect(card.getByText(AI_COPY.consentPrivate)).toBeVisible();
+    await expect(card.getByRole('checkbox', { name: AI_COPY.consentPrivateBox })).toBeVisible();
+    await expect(card.getByRole('link', { name: AI_COPY.consentPortal })).toHaveCount(0);
+    // back to a school class: asked first (the choice stays as it was until the change is confirmed), then the rule says off
+    await card.getByRole('radio', { name: /בבית ספר/ }).click();
+    const toSchool = page.getByRole('dialog', { name: 'לשנות לכיתה בבית ספר?' });
+    await expect(toSchool).toContainText('לבית ספר ולקבוצה פרטית יש כללים שונים לעוזר החכם.');
+    await toSchool.getByRole('button', { name: 'לא לשנות' }).click();
+    await expect(card.getByRole('radio', { name: /בשיעורים פרטיים/ })).toBeChecked();
+    expect(aiPosts(log)).toEqual([]);
+    await card.getByRole('radio', { name: /בבית ספר/ }).click();
+    await toSchool.getByRole('button', { name: 'לשנות', exact: true }).click();
+    await expect(page.getByText('המקום שבו הכיתה לומדת עודכן.')).toBeVisible();
+    await expect(card.getByText(AI_COPY.notInCatalogue)).toBeVisible();
+    expect(aiPosts(log)).toEqual([{ setting: 'school' }]);
+    await expect(card.getByRole('radio', { name: /בבית ספר/ })).toBeChecked();
+    // and private again: the attestation is required in the sheet
+    await card.getByRole('radio', { name: /בשיעורים פרטיים/ }).click();
+    const toPrivate = page.getByRole('dialog', { name: 'לשנות לקבוצה פרטית?' });
+    const change = toPrivate.getByRole('button', { name: 'לשנות', exact: true });
+    await expect(change).toBeDisabled();
+    await shot(page, 'teacher-settings-change-setting');
+    await toPrivate.getByRole('checkbox', { name: ATTEST }).check();
+    await change.click();
+    await expect(card.getByText(AI_COPY.consentPrivate)).toBeVisible();
+    expect(aiPosts(log).at(-1)).toEqual({ setting: 'private', privateAttest: true });
+    // a second class from the board asks the same, a school class unless changed
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
+    await page.getByRole('button', { name: 'כיתה נוספת' }).click();
+    const add = page.getByRole('dialog', { name: 'כיתה נוספת' });
+    await add.getByLabel('שם הכיתה החדשה').fill('ח׳2');
+    await expect(add.getByRole('group', { name: SETTING_Q }).getByRole('radio', { name: /בבית ספר/ })).toBeChecked();
+    await shot(page, 'teacher-add-class-setting');
+    await add.getByRole('button', { name: 'פתיחת הכיתה' }).click();
+    await expect(add).toBeHidden();
+    expect(log.filter((r) => r.path === '/api/classes').at(-1).body).toMatchObject({ className: 'ח׳2', setting: 'school' });
+    expect(log.filter((r) => r.path === '/api/classes').at(-1).body.privateAttest).toBeUndefined();
+  });
+});
+
 test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assistant', () => {
   const library = async (page, over = {}) => {
     const srv = await fakeServer(page, over, baseOf());
@@ -595,7 +766,7 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
   });
 
   test('4. the teacher\'s assistant: the note and the Ministry\'s line, and its questions go as the class', async ({ page }) => {
-    const { log } = await fakeServer(page, {}, baseOf());
+    const { st, log } = await fakeServer(page, {}, baseOf());
     await open(page, '#/teacher', keyTeacher());
     await page.getByRole('navigation', { name: 'כלים' }).getByRole('link', { name: 'העוזר החכם' }).click();
     await expect(page).toHaveURL(/#\/teacher\/assistant$/);
@@ -615,8 +786,10 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
     await shot(page, 'teacher-assistant');
     await page.getByRole('button', { name: 'חזרה ללוח' }).click();
     await expect(page.getByText('תרגלו היום')).toBeVisible();
-    // a class its teacher marked private (TRUST-11, later) is not a school class: the line about the class goes
-    await open(page, '#/teacher/assistant', keyTeacher({ aiPolicy: { setting: 'private' } }));
+    // a group its teacher marked private (TRUST-11: the dashboard's aiPolicy.setting) is not a school class: the line
+    // about the class goes
+    st.ai.setting = 'private';
+    await open(page, '#/teacher/assistant', keyTeacher());
     await expect(note).toContainText('בלי שמות של תלמידים, ציונים או פרטים מזהים.');
     await expect(note).not.toContainText('בכיתה לא מציגים את העוזר לתלמידים.');
   });

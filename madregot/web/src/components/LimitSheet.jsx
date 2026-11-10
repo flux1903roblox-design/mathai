@@ -37,7 +37,7 @@ export default function LimitSheet() {
           const variant = i === 0 ? 'primary' : 'secondary';
           const cls = i === 0 ? 'btn-block btn-lg' : 'btn-block';
           if (a === 'madi') return <Button key={a} variant={variant} className={cls} onClick={() => { const fn = onMadi; closeLimitSheet(); fn?.(); }}>לשאול את מדי</Button>;
-          if (a === 'licence') return <Button key={a} variant={variant} className={cls} onClick={() => go('/teacher', { focus: 'licence' })}>על רישיון כיתה</Button>;
+          if (a === 'licence') return <Button key={a} variant={variant} className={cls} onClick={() => go('/teacher/settings', { focus: 'licence' })}>על רישיון כיתה</Button>;
           return <Button key={a} variant={variant} className={cls} onClick={practice}>להמשיך לתרגל</Button>;
         })}
         {parentsLink && <button type="button" className="link-btn limit-parents" onClick={() => go('/parents/info')}>מידע להורים</button>}

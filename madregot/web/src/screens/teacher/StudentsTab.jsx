@@ -10,6 +10,7 @@ import { Trash2, ChevronLeft } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
 import { topicsFor } from '@/content/index.js';
 import { rankAll, openHelpBy } from '@/learn/attention';
+import { AI_COPY, perStudentAi } from '@/content/classAi.js';
 import { ChapterMark, LevelPips } from '@/components/ui.jsx';
 import { fmtDay, pct, Rate, StudentName } from './common.jsx';
 import DeleteClassSheet, { useClassDeleted } from './DeleteClass.jsx';
@@ -31,6 +32,8 @@ export default function StudentsTab({ cls, data, students, onChanged, onStudent 
   };
   const day = data.today || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
   const helpBy = openHelpBy(data.help);
+  // the student AI switched off for one student (TRUST-11): shown only where the class's students can have it
+  const aiBadge = perStudentAi(data.aiPolicy);
   const rows = sort === 'need'
     ? rankAll(students.map((s) => ({ ...s, openHelp: helpBy[s.id] || 0 })), day).map((a) => a.student)
     : [...students].sort((a, b) => a.name.localeCompare(b.name, 'he'));
@@ -73,6 +76,7 @@ export default function StudentsTab({ cls, data, students, onChanged, onStudent 
                     {topics.map((t) => { const l = s.levels[t.id]; return <td key={t.id}>{l ? <LevelPips total={t.levels.length} level={l.level} max={l.max} color={t.color} /> : <span className="muted">–</span>}</td>; })}
                     <td className="t-actions">
                       {s.pinReset && <span className="muted">קוד אופס</span>}
+                      {aiBadge && s.aiOff && <span className="t-chip t-ai-off">{AI_COPY.badge}</span>}
                       {onStudent && (
                         <button type="button" className="link-btn" onClick={() => onStudent({ id: s.id, name: s.name })} aria-label={`פרטים על ${s.name}`}>
                           פרטים<ChevronLeft size={16} aria-hidden="true" />

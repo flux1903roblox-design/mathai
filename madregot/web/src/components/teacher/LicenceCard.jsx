@@ -1,11 +1,14 @@
-// The smart tutor in this class, at the top of the teacher's "מחר" view: no licence (and the ways to get one), the
-// legacy window, a request on its way, a trial or a licence and until when, or a licence that ended. Class totals only:
-// no student's own AI use and no sign of which family pays for its own plan.
+// The smart tutor in this class, in the class settings (section "רישיון כיתה", TEACHER-9 §1.4): no licence (and the ways
+// to get one), the legacy window, a request on its way, a trial or a licence and until when, or a licence that ended.
+// A school class whose students may not have the AI yet (TRUST-11: not in the Ministry's catalogue, or below the
+// approved grade) gets trust §E.8's school-before-approval text and only the quote; the server refuses the rest anyway.
+// Class totals only: no student's own AI use and no sign of which family pays for its own plan.
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { teacherApi } from '@/lib/teacher.js';
 import { formatAgorot, vatLine, dateNum } from '@/lib/price.js';
 import { Button, Field } from '@/components/ui.jsx';
+import { AI_COPY, beforeApproval } from '@/content/classAi.js';
 import LicenceSheet from './LicenceSheet.jsx';
 
 /** XXXX-XXXX-XXXX as it is typed: letters and digits, dashes added. */
@@ -33,16 +36,37 @@ function CodeForm({ cls, onDone }) {
   );
 }
 
-export default function LicenceCard({ cls }) {
+/** The class's licence (GET /api/teacher/licence) while `on`: { lic, error, load }. */
+export function useLicence(cls, on = true) {
   const [lic, setLic] = useState(null);
   const [error, setError] = useState('');
+  const load = useCallback(async () => {
+    if (!on) return;
+    try { setLic(await teacherApi('/api/teacher/licence', {}, cls)); setError(''); } catch (e) { setError(e.message); }
+  }, [cls, on]);
+  useEffect(() => { setLic(null); load(); }, [load]);
+  return { lic, error, load };
+}
+
+/** Props: `cls`; `aiPolicy` (the dashboard's, TRUST-11): a school class before approval gets only the quote. */
+export default function LicenceCard({ cls, aiPolicy }) {
+  const { lic, error, load } = useLicence(cls);
   const [sheet, setSheet] = useState(null); // 'trial' | 'quote' | 'buy'
   const [codeOpen, setCodeOpen] = useState(false);
-  const load = useCallback(async () => {
-    try { setLic(await teacherApi('/api/teacher/licence', {}, cls)); setError(''); } catch (e) { setError(e.message); }
-  }, [cls]);
-  useEffect(() => { setLic(null); load(); }, [load]);
   if (!lic) return error ? <section id="t-licence" className="card licence-card"><p className="form-error" role="alert">{error}</p></section> : null;
+  const kinds = { trial: 'ניסיון', quote: 'הצעת מחיר' };
+  const requested = lic.request && <p className="licence-req" role="status">ביקשתם {kinds[lic.request.wants] || 'רישיון'} ב־{dateNum(lic.request.at)}. נחזור אליכם במייל.</p>;
+  if (beforeApproval(aiPolicy)) {
+    // the section's own heading is §E.8's title ("רישיון כיתה"): the card under it holds the text and the one button
+    return (
+      <div id="t-licence" className="card licence-card licence-before" data-region="card">
+        <p className="muted">{AI_COPY.licenceBeforeApproval}</p>
+        {requested}
+        {lic.request?.wants !== 'quote' && <Button variant="secondary" className="btn-block" onClick={() => setSheet('quote')}>{AI_COPY.quote}</Button>}
+        <LicenceSheet cls={cls} mode={sheet} students={lic.students} offer={lic.offer || {}} onOpenChange={(o) => { if (!o) setSheet(null); }} onSent={load} />
+      </div>
+    );
+  }
 
   const offer = lic.offer || {};
   const until = lic.until ? dateNum(lic.until) : '';
@@ -50,7 +74,6 @@ export default function LicenceCard({ cls }) {
   // server refuses those while a licence runs. A trial gives way to a school's licence code.
   const asks = !['trial', 'active', 'ending'].includes(lic.status);
   const codeAllowed = !['active', 'ending'].includes(lic.status);
-  const kinds = { trial: 'ניסיון', quote: 'הצעת מחיר' };
   let title = 'העוזר החכם בכיתה';
   let lines = [];
   if (lic.status === 'none') lines = ['בלי רישיון, כל תלמיד יכול לשאול את העוזר החכם 2 שאלות ביום. עם רישיון כיתה: עד 20 שאלות ביום לתלמיד, בדיקת פתרון מצולם ובדיקת מבחן.'];
@@ -67,9 +90,9 @@ export default function LicenceCard({ cls }) {
   if (lic.status === 'ended') lines = [`הרישיון הסתיים ב־${until}. התלמידים חזרו ל־2 שאלות ביום.`];
   return (
     <section id="t-licence" className="card licence-card" aria-labelledby="lic-title" data-region="card">
-      <h2 id="lic-title" className="card-title">{title}</h2>
+      <h3 id="lic-title" className="card-title">{title}</h3>
       {lines.map((l) => <p key={l} className={l.startsWith('בכיתה יש יותר') ? 'licence-warn' : 'muted'}>{l}</p>)}
-      {lic.request && <p className="licence-req" role="status">ביקשתם {kinds[lic.request.wants] || 'רישיון'} ב־{dateNum(lic.request.at)}. נחזור אליכם במייל.</p>}
+      {requested}
       {lic.status === 'ending' && <Button variant="secondary" className="btn-block" onClick={() => setSheet('quote')}>לחידוש: הצעת מחיר</Button>}
       {asks && (
         <div className="licence-actions">

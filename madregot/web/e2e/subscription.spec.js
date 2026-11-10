@@ -42,6 +42,8 @@ const withServer = (extra = {}, grade = '7') => ({ ...student(grade, { ai: { mod
 const classStudent = (extra = {}) => withServer({ profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' }, ...extra });
 const parentPhone = () => withServer({ profile: null });
 const teacher = () => withServer({ profile: { role: 'teacher', name: 'רונית', classes: [{ code: 'K7Q2MD', key: 'tkey-123', className: 'ז׳3', grade: '7' }], active: 'K7Q2MD' } });
+/** A private group whose parents agreed (TRUST-11): the class licence is sold to it as before. */
+const PRIVATE_GROUP = { setting: 'private', consentAt: '2026-11-01T10:00:00.000Z' };
 const aiCalls = (log) => log.filter((r) => r.path.startsWith('/api/ai/') && r.path !== '/api/ai/status');
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
 
@@ -397,8 +399,9 @@ test.describe('the smart tutor', () => {
   });
 
   test('a teacher: the licence card, a request with code sign-in, a licence code, the join lock and removing a student', async ({ page }) => {
-    const { st, log } = await fakeServer(page, {}, baseOf());
-    await open(page, '#/teacher', teacher());
+    // a private group with the parents' consent (TRUST-11): a licence may be sold to it; the card is in the class settings
+    const { st, log } = await fakeServer(page, { ai: PRIVATE_GROUP }, baseOf());
+    await open(page, '#/teacher/settings', teacher());
     const card = page.locator('#t-licence');
     await expect(card.getByRole('heading', { name: 'העוזר החכם בכיתה' })).toBeVisible();
     await expect(card.getByText('בלי רישיון, כל תלמיד יכול לשאול את העוזר החכם 2 שאלות ביום.')).toBeVisible();
@@ -410,7 +413,7 @@ test.describe('the smart tutor', () => {
     await shot(page, 'licence-signin-shared');
     await signIn(sheet);
     await sheet.getByLabel('שם בית הספר').fill('חטיבת הביניים <הדר>');
-    expect(await page.evaluate(() => [!!sessionStorage.getItem('madregot-parent'), localStorage.getItem('madregot-parent')])).toEqual([true, null]);
+    await expect.poll(() => page.evaluate(() => [!!sessionStorage.getItem('madregot-parent'), localStorage.getItem('madregot-parent')])).toEqual([true, null]);
     await sheet.getByLabel('כמה תלמידים בכיתה').fill('32');
     await shot(page, 'licence-request');
     await sheet.getByRole('button', { name: 'שליחה' }).click();
@@ -427,6 +430,7 @@ test.describe('the smart tutor', () => {
     await expect(card.getByRole('heading', { name: 'רישיון כיתה פעיל עד 31.08.2027' })).toBeVisible();
     await expect(card.getByText('35 מקומות · 2 תלמידים בכיתה')).toBeVisible();
     // the students tab: the join lock and removing a student
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
     await page.getByRole('tab', { name: 'תלמידים' }).click();
     await page.getByRole('switch', { name: 'נעילת הכיתה לתלמידים חדשים' }).click();
     await expect(page.getByText('הכיתה נעולה לתלמידים חדשים.')).toBeVisible();
@@ -530,7 +534,6 @@ test.describe('the smart tutor', () => {
     const profile = { role: 'teacher', name: 'רונית', grade: '7', classes: [{ code: 'K7Q2MD', key: null, className: 'ז׳3', grade: '7', owned: true }], active: 'K7Q2MD' };
     await open(page, '#/teacher', withServer({ profile }), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(5), email: 'teacher@example.test', shared: false }) } });
     await expect(page.getByText('תרגלו היום')).toBeVisible();
-    await expect(page.locator('#t-licence').getByRole('heading', { name: 'העוזר החכם בכיתה' })).toBeVisible();
     await shot(page, 'teacher-board-by-email');
     const teacherCalls = log.filter((r) => r.path.startsWith('/api/teacher/') || r.path === '/api/ai/status');
     expect(teacherCalls.length).toBeGreaterThan(1);
@@ -557,9 +560,12 @@ test.describe('the smart tutor', () => {
   });
 
   test('the licence card: an ending licence offers only the renewal quote; a trial takes a school licence code', async ({ page }) => {
-    const { st } = await fakeServer(page, {}, baseOf());
+    const { st } = await fakeServer(page, { ai: PRIVATE_GROUP }, baseOf());
     st.licence = { ...st.licence, status: 'ending', until: '2026-11-20T10:00:00Z', seats: 30 };
+    // "מחר" keeps one line while the licence ends; it opens the class settings at the card (TEACHER-9 §1.4)
     await open(page, '#/teacher', teacher());
+    await page.getByRole('link', { name: /רישיון הכיתה מסתיים ב־20\.11\.2026\. לחידוש/ }).click();
+    await expect(page).toHaveURL(/#\/teacher\/settings$/);
     const card = page.locator('#t-licence');
     await expect(card.getByRole('heading', { name: 'הרישיון מסתיים ב־20.11.2026' })).toBeVisible();
     await expect(card.getByRole('button', { name: 'לחידוש: הצעת מחיר' })).toBeVisible();

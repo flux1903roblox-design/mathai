@@ -1,14 +1,16 @@
-// "מחר": what to do in tomorrow's lesson. The class licence card (when the paywall is on), mistakes that repeat this
-// week (each with "לתת תרגול על זה": that stair, for the students who made the mistake, TEACHER-4 §6), weak topics in
+// "מחר": what to do in tomorrow's lesson. A one-line link to the class licence while it ends or after it ended (the
+// card itself is in the class settings, TEACHER-9 §1.4), mistakes that repeat this week (each with "לתת תרגול על זה": that stair, for the students who made the mistake, TEACHER-4 §6), weak topics in
 // checked exams, who to check in with (TEACHER-8: at most 6, ranked by learn/attention.ts with the reasons as chips, and
 // the rest one tap away on the students tab, sorted the same way), and the newest help requests (those the student
 // answered again count as new). A student's name opens their page.
 import clsx from 'clsx';
+import { Link } from 'react-router-dom';
 import { ChevronLeft, Send } from 'lucide-react';
 import { TOPIC } from '@/content/index.js';
 import { MathText } from '@/components/MathText.jsx';
 import { useAIStatus } from '@/lib/account.js';
-import LicenceCard from '@/components/teacher/LicenceCard.jsx';
+import { useLicence } from '@/components/teacher/LicenceCard.jsx';
+import { dateNum } from '@/lib/price.js';
 import { isStair } from '@/lib/assign.js';
 import { lastMessage } from '@/lib/help.js';
 import { attentionList, openHelpBy, reasonText } from '@/learn/attention';
@@ -30,6 +32,19 @@ function Group({ title, tone, children, more }) {
   );
 }
 
+/** The licence is ending or has ended: one line that opens the class settings at the licence. */
+function LicenceLine({ cls }) {
+  const { lic } = useLicence(cls);
+  if (!lic || !['ending', 'ended'].includes(lic.status)) return null;
+  const until = lic.until ? dateNum(lic.until) : '';
+  return (
+    <Link className="t-lic-line" to="/teacher/settings" state={{ focus: 'licence' }}>
+      <span>{lic.status === 'ending' ? `רישיון הכיתה מסתיים ב־${until}. לחידוש` : `רישיון הכיתה הסתיים ב־${until}. לפרטים`}</span>
+      <ChevronLeft size={18} aria-hidden="true" />
+    </Link>
+  );
+}
+
 export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp, onAssign, onStudent, onAll }) {
   const paywall = useAIStatus((x) => x.status?.paywall === true);
   const helpBy = openHelpBy(data.help);
@@ -47,7 +62,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
 
   return (
     <>
-      {paywall && <LicenceCard cls={cls} />}
+      {paywall && <LicenceLine key={cls.code} cls={cls} />}
       {students.length > 0 && (
         <div className="t-grid">
           <Group title="טעויות שחוזרות השבוע" tone="warm">

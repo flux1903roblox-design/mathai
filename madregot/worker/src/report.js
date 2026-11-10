@@ -166,7 +166,7 @@ export const DETAIL = Object.freeze({
 /**
  * GET /api/teacher/students/:id (requireTeacher): one student of the class, for the student's sheet on the board.
  * A student of another class, or none, is 404 not_found.
- *   { student: { id, name, joinedOn, lastPractice, pinReset },
+ *   { student: { id, name, joinedOn, lastPractice, pinReset, aiOff },   aiOff: the teacher turned the AI off for them (TRUST-11)
  *     days14: [{ day, n, first, minutes }]          the last 14 Jerusalem days, oldest first, a day with no practice as zeros
  *     levels: { [topic]: { level, max } },
  *     mistakes: [{ topic, cat, level, n, lastAt }]   the last 30 days, most frequent first, at most 8; level: the stair it
@@ -178,7 +178,8 @@ export const DETAIL = Object.freeze({
  */
 export async function studentDetail(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
-  const s = await env.DB.prepare('SELECT id, name, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE id = ? AND class_code = ?')
+  const s = await env.DB.prepare(`SELECT id, name, created_at, pin_hash = '' AS pin_reset,
+    EXISTS (SELECT 1 FROM student_ai_off so WHERE so.student_id = students.id) AS ai_off FROM students WHERE id = ? AND class_code = ?`)
     .bind(String(id), cls.code).first();
   if (!s) throw new HttpError(404, 'not_found');
   const today = dayOf();
@@ -231,7 +232,7 @@ export async function studentDetail(id, req, env, cors) {
   return json({
     student: {
       id: s.id, name: s.name, joinedOn: s.created_at ? dayOf(new Date(s.created_at)) : null,
-      lastPractice: lastRow?.last || null, pinReset: !!s.pin_reset,
+      lastPractice: lastRow?.last || null, pinReset: !!s.pin_reset, aiOff: !!s.ai_off,
     },
     days14,
     levels,

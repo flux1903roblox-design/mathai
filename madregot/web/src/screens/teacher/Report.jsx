@@ -264,7 +264,7 @@ export default function ClassReport() {
       )}
 
       {sheetFor && (
-        <StudentSheet cls={cls} student={sheetFor} today={board?.today || day} open={sheetOpen} onOpenChange={setSheetOpen}
+        <StudentSheet cls={cls} student={sheetFor} today={board?.today || day} aiPolicy={board?.aiPolicy} open={sheetOpen} onOpenChange={setSheetOpen}
           onChanged={() => { reloadBoard(); setTries((n) => n + 1); }}
           onAssign={(preset) => { setSheetOpen(false); setAssign({ preset, n: (assign?.n || 0) + 1 }); }}
           onHelp={(id) => navigate(`/teacher?tab=help&student=${id}`)} />

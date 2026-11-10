@@ -16,6 +16,7 @@ import { Button, Field } from '@/components/ui.jsx';
 import { Flow, ConfirmSheet } from '@/components/Screen.jsx';
 import { GradeSwitch } from '@/components/GradeSwitch.jsx';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
+import ClassSettingQuestion, { settingBody, settingReady } from '@/components/teacher/ClassSettingQuestion.jsx';
 
 const TEACHER_URL = import.meta.env.VITE_TEACHER_URL || '';
 const CONTACT = String(import.meta.env.VITE_CONTACT_EMAIL || '').trim();
@@ -103,7 +104,7 @@ function ServerTeacherStart({ onBack }) {
   const [way, setWay] = useState('new'); // new | restore
   const [noEmail, setNoEmail] = useState(false); // a new class with the key only
   const [askNoEmail, setAskNoEmail] = useState(false);
-  const [f, setF] = useState({ teacherName: '', className: '', grade: '7', code: '', key: '' });
+  const [f, setF] = useState({ teacherName: '', className: '', grade: '7', setting: 'school', attest: false, code: '', key: '' });
   const [list, setList] = useState(null);
   const [picked, setPicked] = useState(() => new Set());
   const [busy, setBusy] = useState(false);
@@ -140,7 +141,8 @@ function ServerTeacherStart({ onBack }) {
   const openClass = async () => {
     setError(''); setBusy(true);
     try {
-      const body = { teacherName: f.teacherName.trim(), className: f.className.trim(), grade: f.grade };
+      // where the class learns (TRUST-11): a school class unless a private group is picked and attested
+      const body = { teacherName: f.teacherName.trim(), className: f.className.trim(), grade: f.grade, ...settingBody(f.setting, f.attest) };
       const s = noEmail ? null : useParent.getState().session;
       // signed in: the server binds the class to the email in the same step (owned), and a stale sign-in is refused
       const r = s ? await accountCall('/api/classes', { method: 'POST', body }) : await api('/api/classes', { method: 'POST', body });
@@ -202,7 +204,7 @@ function ServerTeacherStart({ onBack }) {
   }
 
   if (view === 'details') {
-    const can = !!(f.teacherName.trim() && f.className.trim());
+    const can = !!(f.teacherName.trim() && f.className.trim()) && settingReady(f.setting, f.attest);
     return (
       <Flow {...flow} steps={steps} className="teacher-flow" ask="איך קוראים לכם ולכיתה?" onSubmit={() => can && !busy && openClass()}
         foot={<Button type="submit" className="btn-block btn-lg" disabled={!can || busy}>{busy ? 'רגע…' : 'פתיחת הכיתה'}</Button>}>
@@ -210,6 +212,7 @@ function ServerTeacherStart({ onBack }) {
           <Field label="השם שלכם (כך התלמידים יראו אותו)" id="t-name"><input id="t-name" className="input input-lg" value={f.teacherName} onChange={set('teacherName')} maxLength={30} placeholder="למשל: רונית כהן" /></Field>
           <Field label="שם הכיתה" id="t-class"><input id="t-class" className="input input-lg" value={f.className} onChange={set('className')} maxLength={30} placeholder="למשל: ז׳3" /></Field>
           <div className="field"><span className="field-label" id="t-grade">שכבה</span><GradeSwitch value={f.grade} onChange={(g) => setF({ ...f, grade: g })} id="t-grade" /></div>
+          <ClassSettingQuestion idPrefix="t" setting={f.setting} attest={f.attest} onChange={({ setting, attest }) => setF({ ...f, setting, attest })} />
           {!noEmail && session && <p className="ob-note">הכיתה תישמר בחשבון של <bdi dir="ltr">{session.email}</bdi>.</p>}
           {noEmail && emailOn === false && <p className="ob-note">{NO_EMAIL}</p>}
         </div>

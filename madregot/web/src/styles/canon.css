@@ -969,3 +969,31 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .ss-actions .set-row { width: 100%; gap: var(--s2); }
 .ss-done { margin: 0; color: var(--ink-2); font-weight: 600; }
 .ss-error { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); }
+
+/* student AI by the Ministry's rules (TRUST-11): the class settings' card, the setting question, the per-student badge */
+.cs-set { margin-top: var(--s2); }
+.cs-set > legend { font-weight: 700; color: var(--ink); }
+.cs-attest, .cai-box { align-items: flex-start; padding: var(--s1) 0; line-height: var(--lh-base); }
+.cs-attest input, .cai-box input { margin-top: 2px; }
+.as-choice.is-disabled { cursor: default; opacity: 0.6; }
+.cai-status { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-weight: 600; color: var(--ink); }
+.cai-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px; border-radius: 999px; font-size: 15px; font-weight: 800; }
+.cai-chip.off { background: var(--ground); color: var(--ink-2); }
+.cai-chip.on { background: var(--brand-tint); color: var(--brand-d); }
+.cai-where legend { margin-bottom: var(--s2); }
+.cai-text { margin: 0; overflow-wrap: anywhere; }
+.cai-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cai-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; color: var(--brand-d); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.cai-link svg { flex: none; }
+.cai-rules { margin: 0; }
+.cai-consent { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
+.cai-save { align-self: flex-start; min-width: 96px; }
+.cai-switch { display: flex; flex-direction: column; gap: 4px; }
+.cai-sheet p { margin: 0; }
+.licence-before { margin-bottom: 0; }
+.t-lic-line { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); min-height: 48px; margin: 0 0 var(--s3); padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 14px; background: #fff; color: var(--ink); font-weight: 700; text-decoration: none; }
+.t-lic-line svg { flex: none; color: var(--brand); }
+.t-lic-line:hover { border-color: var(--brand-line); }
+.ss-badges { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.t-actions .t-ai-off { white-space: nowrap; }
+.cai-where { padding-top: var(--s4); border-top: 2px solid var(--rule); }

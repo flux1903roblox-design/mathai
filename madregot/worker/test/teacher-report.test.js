@@ -215,7 +215,7 @@ test('a student\'s page: 14 day rows with the empty days as zeros, the stairs, t
   h = await setup();
   const { cls, dana, yoav, noa } = await practisedClass();
   const d = await detailOf(cls, dana.studentId);
-  assert.deepEqual(d.student, { id: dana.studentId, name: 'דנה', joinedOn: '2026-11-12', lastPractice: '2026-11-12T07:06:00.000Z', pinReset: false });
+  assert.deepEqual(d.student, { id: dana.studentId, name: 'דנה', joinedOn: '2026-11-12', lastPractice: '2026-11-12T07:06:00.000Z', pinReset: false, aiOff: false });
   assert.equal(d.days14.length, 14);
   assert.deepEqual([d.days14[0].day, d.days14.at(-1).day], ['2026-10-30', '2026-11-12'], 'oldest first, ending today');
   const byDay = Object.fromEntries(d.days14.map((x) => [x.day, x]));

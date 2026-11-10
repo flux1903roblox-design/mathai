@@ -2,14 +2,18 @@
 // the board (מחר, תלמידים, מבחנים, עזרה) and in the class report. Sections: השבוע (the days and minutes, and a strip of
 // the last 14 days), מדרגות (where the student stands on each topic of the grade), טעויות שחוזרות (with "לתת תרגול":
 // the assign sheet on that stair, for this student only), משימות, בקשות עזרה (leading to the help view, filtered) and
-// מבחנים; a section with nothing in it says "אין עדיין". The student's two actions live here: "איפוס קוד אישי" and
-// "הסרה מהכיתה" (asked first). Data: GET /api/teacher/students/:id (worker/src/report.js studentDetail).
+// מבחנים; a section with nothing in it says "אין עדיין". The student's actions live here: "איפוס קוד אישי", "הסרה
+// מהכיתה" (asked first) and, when the class's students can have the smart tutor (TRUST-11: its policy is on or the
+// teacher's switch is off), turning it off or on for this student alone, with the badge "העוזר כבוי" under the name
+// (trust §E.8; the Ministry's alternative activity for a student without a parent's consent).
+// Data: GET /api/teacher/students/:id (worker/src/report.js studentDetail).
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { KeyRound, UserMinus, Send, Hand, RefreshCw } from 'lucide-react';
+import { KeyRound, UserMinus, Send, Hand, RefreshCw, Sparkles } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
 import { topicsFor, TOPIC } from '@/content/index.js';
 import { mistakeText } from '@/lib/teacherText.js';
+import { AI_COPY, perStudentAi } from '@/content/classAi.js';
 import { workText } from '@/lib/teacherCsv.js';
 import { isStair } from '@/lib/assign.js';
 import { STATUS } from '@/lib/help.js';
@@ -53,10 +57,10 @@ function DayStrip({ days, today }) {
 
 /**
  * Props: `cls`; `student` { id, name } (the name is the title while the page loads); `today` (the server's day);
- * `open`, `onOpenChange`; `onAssign(preset)` (the board's assign sheet); `onHelp(id)` (the help view, filtered);
- * `onChanged()` after a PIN reset or a removal.
+ * `aiPolicy` (the dashboard's, TRUST-11); `open`, `onOpenChange`; `onAssign(preset)` (the board's assign sheet);
+ * `onHelp(id)` (the help view, filtered); `onChanged()` after a PIN reset, a removal or the AI switched for them.
  */
-export default function StudentSheet({ cls, student, today, open, onOpenChange, onAssign, onHelp, onChanged }) {
+export default function StudentSheet({ cls, student, today, aiPolicy, open, onOpenChange, onAssign, onHelp, onChanged }) {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
   const [removing, setRemoving] = useState(false);
@@ -83,6 +87,15 @@ export default function StudentSheet({ cls, student, today, open, onOpenChange, 
       load(); onChanged?.();
     } catch (e) { toast.error(e.message); }
   };
+  const aiRow = perStudentAi(aiPolicy);
+  const setAi = async (off) => {
+    try {
+      const r = await teacherApi(`/api/teacher/students/${id}/ai`, { method: 'POST', body: { off } }, cls);
+      setD((x) => (x ? { ...x, student: { ...x.student, aiOff: !!r.aiOff } } : x));
+      toast.success(off ? `העוזר החכם כבוי ל${name}.` : `העוזר החכם פתוח ל${name}.`);
+      onChanged?.();
+    } catch (e) { toast.error(e.message); }
+  };
   const remove = async () => {
     setRemoving(false);
     try {
@@ -106,6 +119,7 @@ export default function StudentSheet({ cls, student, today, open, onOpenChange, 
         {d && (
           <div className="ss-body">
             <p className="ss-sub">{d.student.joinedOn ? `הצטרף/ה ב־${dayText(d.student.joinedOn, day)}` : ''}{d.student.joinedOn ? ' · ' : ''}תרגול אחרון {fmtDay(d.student.lastPractice)}</p>
+            {aiRow && d.student.aiOff && <p className="ss-badges"><span className="t-chip ss-ai-off">{AI_COPY.badge}</span></p>}
 
             <Part id="ss-week" title="השבוע">
               <p className="ss-line">{weekDays ? `${weekDays === 1 ? 'יום אחד' : `${weekDays} ימים`} עם תרגול · ${weekN} תרגילים · ${weekMin} דקות` : 'השבוע עוד לא היה תרגול.'}</p>
@@ -183,6 +197,11 @@ export default function StudentSheet({ cls, student, today, open, onOpenChange, 
                 {d.student.pinReset
                   ? <p className="set-row ss-done">הקוד האישי אופס. בכניסה הבאה ייבחר קוד חדש.</p>
                   : <button type="button" className="set-row" onClick={resetPin}><KeyRound size={18} aria-hidden="true" />איפוס קוד אישי</button>}
+                {aiRow && (
+                  <button type="button" className="set-row" onClick={() => setAi(!d.student.aiOff)}>
+                    <Sparkles size={18} aria-hidden="true" />{d.student.aiOff ? AI_COPY.studentOn : AI_COPY.studentOff}
+                  </button>
+                )}
                 <button type="button" className="set-row danger" onClick={() => setRemoving(true)}><UserMinus size={18} aria-hidden="true" />הסרה מהכיתה</button>
               </div></div>
             </section>

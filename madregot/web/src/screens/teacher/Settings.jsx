@@ -1,18 +1,22 @@
-// The class settings (spec TEACHER-9, TEACHER-1 §6), at /teacher/settings, for the class open on the board: its name,
-// grade, code and join lock; how the teacher gets in (the email it is bound to, the teacher key for a co-teacher, a new
-// key); the daily help email (its owner only); how long the server keeps the class's data; and, at the end of the
-// year, the year's report (its CSV) and deleting the class. Later items add
-// their sections here (the class AI, the licence, notifications), in the order the spec gives.
+// The class settings (spec TEACHER-9, TEACHER-1 §6), at /teacher/settings, for the class open on the board, in the
+// spec's order: its name, grade, code and join lock; how the teacher gets in (the email it is bound to, the teacher key
+// for a co-teacher, a new key); student AI by the Ministry's rules (ClassAICard, TRUST-11); the class licence (when the
+// paid tutor is on; "מחר" keeps a one-line link to it while it ends); the daily help email (its owner only); how long
+// the server keeps the class's data; and, at the end of the year, the year's report (its CSV) and deleting the class.
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowRight, Copy, Trash2, FileDown } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { useParent } from '@/lib/parent.js';
 import { teacherApi, renameClass, rekey, useEmailSignIn } from '@/lib/teacher.js';
+import { useAIStatus } from '@/lib/account.js';
+import { rememberBoard, boardOf } from '@/lib/teacherBoard.js';
 import { retentionLines } from '@/content/retention.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
+import ClassAICard from '@/components/teacher/ClassAICard.jsx';
+import LicenceCard from '@/components/teacher/LicenceCard.jsx';
 import { copy } from './common.jsx';
 import { useBind } from './ClassAccount.jsx';
 import DeleteClassSheet, { useClassDeleted } from './DeleteClass.jsx';
@@ -180,17 +184,29 @@ export default function ClassSettings() {
   const cls = profile.classes.find((c) => c.code === profile.active) || profile.classes[0];
   const [locked, setLocked] = useState(null);
   const [digest, setDigest] = useState(null);
+  const [aiPolicy, setAiPolicy] = useState(null);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const gone = useClassDeleted();
+  const paywall = useAIStatus((x) => x.status?.paywall === true);
+  const { state: nav } = useLocation();
 
   const load = useCallback(async () => {
     try {
       const d = await teacherApi('/api/teacher/dashboard', {}, cls);
-      setLocked(!!d.joinLocked); setDigest(typeof d.helpDigest === 'boolean' ? d.helpDigest : null); setError('');
+      rememberBoard(cls.code, d);
+      setLocked(!!d.joinLocked); setDigest(typeof d.helpDigest === 'boolean' ? d.helpDigest : null); setAiPolicy(d.aiPolicy || null); setError('');
     } catch (e) { setError(e.message); }
   }, [cls]);
-  useEffect(() => { setLocked(null); setDigest(null); load(); }, [load]);
+  useEffect(() => { setLocked(null); setDigest(null); setAiPolicy(null); load(); }, [load]);
+  // a new policy: this page, and the board's copy the other teacher screens read (the assistant's note)
+  const onPolicy = (p) => { setAiPolicy(p); const b = boardOf(cls.code); if (b) rememberBoard(cls.code, { ...b, aiPolicy: p }); };
+  // "על רישיון כיתה" (the tutor's sheet) and the line on "מחר" open this page at the licence
+  useEffect(() => {
+    if (nav?.focus !== 'licence' || !aiPolicy) return undefined;
+    const t = setTimeout(() => document.getElementById('ts-licence')?.scrollIntoView({ block: 'start' }), 200);
+    return () => clearTimeout(t);
+  }, [nav, aiPolicy]);
   const lock = async (on) => {
     try {
       const r = await teacherApi('/api/teacher/class/lock', { method: 'POST', body: { locked: on } }, cls);
@@ -209,6 +225,13 @@ export default function ClassSettings() {
       {error && <p className="form-error t-set-error" role="alert">{error}</p>}
       <ClassSection cls={cls} locked={locked} onLock={lock} />
       <AccessSection cls={cls} />
+      <ClassAICard cls={cls} policy={aiPolicy} onPolicy={onPolicy} />
+      {paywall && aiPolicy && (
+        <section className="section set-group t-set" aria-labelledby="ts-licence">
+          <h2 id="ts-licence" className="set-head">רישיון כיתה</h2>
+          <LicenceCard cls={cls} aiPolicy={aiPolicy} />
+        </section>
+      )}
       <NoticesSection cls={cls} on={digest} onChange={setDigest} />
       <section className="section set-group t-set" aria-labelledby="ts-keep">
         <h2 id="ts-keep" className="set-head">כמה זמן נשמר המידע</h2>

@@ -15,6 +15,7 @@ import { topicsFor, TOPIC } from '@/content/index.js';
 import { assignTitle, sendWork, classMessage, classroomLink, publicUrl } from '@/lib/assign.js';
 import { plusDays, schoolDay, dayLong, dm } from '@/lib/workDates.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
+import { Choice } from './ClassSettingQuestion.jsx';
 
 const KINDS = [
   ['stair', 'ללמוד מדרגה', 'חמשת השלבים, מההסבר ועד בדיקת השליטה'],
@@ -25,15 +26,6 @@ const VERSION = { a: 'א', b: 'ב' };
 const DUE = [['1', 'מחר', 1], ['3', 'בעוד 3 ימים', 3], ['7', 'בעוד שבוע', 7]];
 const AHEAD = 120;
 
-/** One answer to a question of the sheet: a native radio inside a big pressable row (arrow keys move between them). */
-function Choice({ name, value, checked, onChange, title, sub }) {
-  return (
-    <label className={clsx('ob-opt', 'as-choice', checked && 'on')}>
-      <input type="radio" className="as-radio" name={name} value={value} checked={checked} onChange={() => onChange(value)} />
-      <span className="ob-opt-text"><b>{title}</b>{sub && <span>{sub}</span>}</span>
-    </label>
-  );
-}
 
 /** The class's students for "למי?": the board's list, or the dashboard's when the sheet opens elsewhere (the library). */
 function useRoster(cls, given, open) {

@@ -39,7 +39,7 @@ test('a school class while Madregot is not in the catalogue: no student AI whate
   // the dashboard says why, with the rules' version and the links
   const d = await board(cls);
   assert.deepEqual(d.aiPolicy, {
-    students: 'off', canTurnOn: false, reason: 'not_in_catalogue', teacherAi: 'prep', setting: 'school', consentAt: null,
+    students: 'off', canTurnOn: false, reason: 'not_in_catalogue', teacherAi: 'prep', setting: 'school', consentAt: null, fromGrade: 7,
     rulesVersion: '2026-01-20', rulesUrl: MOE_RULES.url, consentFormUrl: MOE_RULES.consentFormUrl, consentPdfUrl: MOE_RULES.consentPdfUrl,
   });
   assert.deepEqual(d.students.map((s) => s.aiOff), [false]);
@@ -86,6 +86,9 @@ test('approved for grade 7: on needs consent, then students have it; one student
   await err(await ai(h, 'explain', bearer(itai)), 403, 'class_ai_off');
   assert.equal((await ai(h, 'explain', bearer(noa))).status, 200);
   assert.deepEqual((await board(cls)).students.map((s) => [s.name, s.aiOff]), [['איתי', true], ['נועה', false]]);
+  // the student's page says it too (the sheet's switch and badge)
+  const page = async (s) => (await (await h.call('GET', `/api/teacher/students/${s.studentId}`, { headers: cls.teacher })).json()).student.aiOff;
+  assert.deepEqual([await page(itai), await page(noa)], [true, false]);
   assert.equal((await studentAi(cls, itai, false)).status, 200);
   assert.equal((await ai(h, 'explain', bearer(itai))).status, 200);
   // another class's student, and a bad body
@@ -105,6 +108,8 @@ test('approved for grade 7: on needs consent, then students have it; one student
   h = await setup({ MOE_AI_APPROVAL: 'approved', MOE_AI_FROM_GRADE: '8' });
   const seven = await makeClass(h, { students: ['דנה'] });
   assert.equal((await err(await classAi(seven, { consent: true, studentAi: 'on' }), 409, 'class_ai_locked')).reason, 'grade');
+  // the card names the grade the approval starts at
+  assert.deepEqual((({ reason, fromGrade }) => ({ reason, fromGrade }))((await board(seven)).aiPolicy), { reason: 'grade', fromGrade: 8 });
   const t = await signIn(h, 'teacher@example.test');
   const trial = await h.call('POST', '/api/teacher/licence/request', { headers: { ...seven.teacher, 'X-Account-Token': t }, body: { wants: 'trial', school: 'חטיבה לדוגמה', classes: 1 } });
   assert.equal((await err(trial, 409, 'school_ai_not_approved')).reason, 'grade');
