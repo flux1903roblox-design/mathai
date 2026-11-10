@@ -5,6 +5,7 @@
 import { safetyPrompt, CARE_MARK, maskPersonal } from './safety.js';
 import { normalizeContext, legacyToV2, renderContext, CTX_BUDGET } from './tutorContext.js';
 import { stableSystem } from './pedagogy.js';
+import { guardFor } from './guard.js';
 import { TOPIC_NAMES } from './stairs.js';
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -47,7 +48,8 @@ Give a model solution in short steps for every question. Map each question to on
 Finally list the weak topics (only where the student lost points) with the reason, and 3 to 5 concrete next steps.
 ${PERSONAL_RULE} The exam title must name the subject only, never a person.`,
   check: `Task: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).
-${PERSONAL_RULE}`,
+${PERSONAL_RULE}
+If the final-answer policy in the app context is WITHHOLD, judge each step that leads to the result, but never write the final value in a comment or the summary, never say whether the final value is right, and set "final" to "unknown": the student types the answer in the app, which checks it. (The app does not show your mark on the line that states the final value.)`,
 };
 
 const GENERATE_SCHEMA = {
@@ -156,6 +158,16 @@ export function gradeLine(grade) {
 export function tutorContext(kind, input = {}) {
   const v2 = normalizeContext(input.ctx);
   return { ctx: v2 ?? legacyToV2(input, kind), v2: !!v2 };
+}
+
+/**
+ * The final-answer guard for a request (ai spec AI-3 Design 3): on for chat, explain and check when the app's context
+ * (version 2, or the old flat fields read the same conservative way) says WITHHOLD and carries the answer. → { on, forms }
+ * for guardResult and streamGuard (shared/guard.js). The Worker and the personal-key path both use it.
+ */
+export function answerGuard(kind, input = {}) {
+  if (kind !== 'chat' && kind !== 'explain' && kind !== 'check') return { on: false, forms: null };
+  return guardFor(kind, tutorContext(kind, input).ctx);
 }
 
 const base = (model, effort, maxTokens) => ({

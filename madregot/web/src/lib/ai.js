@@ -2,7 +2,8 @@
 // when linked to a family plan, its AI-only token: never the parent's session. A personal key (calling Claude from
 // this device) exists only in builds made with VITE_ALLOW_PERSONAL_KEY=1: the owner's own local testing, never a public
 // build (trust spec TRUST-4 §4.8).
-import { buildRequest, readResult, splitCare, STREAMED } from '@shared/ai.js';
+import { buildRequest, readResult, splitCare, STREAMED, answerGuard } from '@shared/ai.js';
+import { streamGuard, guardResult, withMaskNote } from '@shared/guard.js';
 import { CARE_MARK, BLOCKED_TEXT } from '@shared/safety.js';
 import { useApp } from './store.js';
 import { apiBase, ApiError, errorText } from './api.js';
@@ -98,16 +99,21 @@ export async function runAI(kind, input, { onText, signal, onMadi, quiet = false
   if (mode === 'personal') {
     const client = await personalClient();
     const params = buildRequest(kind, input);
+    // the same final-answer guard as the Worker (ai spec AI-3 Design 3), so the owner's dev build behaves like production
+    const guard = answerGuard(kind, input);
     try {
       if (kind === 'chat' && onText) {
         const stream = client.beta.messages.stream(params, { signal });
-        let acc = '';
-        stream.on('text', (t) => { acc += t; onText(streamView(acc)); });
-        const final = await stream.finalMessage();
-        return withCare(readResult(kind, final));
+        const g = guard.on && guard.forms ? streamGuard(guard.forms) : null;
+        let shown = '';
+        stream.on('text', (t) => { shown += g ? g.push(t) : t; onText(streamView(shown)); });
+        const res = withCare(readResult(kind, await stream.finalMessage()));
+        if (!g || res.care) return res;
+        shown += g.end();
+        return { ...res, text: withMaskNote(splitCare(shown).text, g.masked) };
       }
       if (STREAMED(kind)) return withCare(readResult(kind, await client.beta.messages.stream(params, { signal }).finalMessage()));
-      return withCare(readResult(kind, await client.beta.messages.create(params, { signal })));
+      return withCare(guardResult(kind, readResult(kind, await client.beta.messages.create(params, { signal })), guard).result);
     } catch (e) {
       if (e?.name === 'AbortError' || e?.constructor?.name === 'APIUserAbortError') throw e;
       throw personalError(e);

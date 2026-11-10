@@ -1,5 +1,5 @@
 // Request shapes the Worker sends to Claude, and how replies are read back.
-import { test } from 'node:test';
+import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
@@ -8,7 +8,11 @@ import {
 } from '../../shared/ai.js';
 import { normalizeContext, legacyToV2, renderContext, CTX_BUDGET, CTX_VERSION } from '../../shared/tutorContext.js';
 import { safetyPrompt } from '../../shared/safety.js';
-import { systemText } from './helpers.js';
+import {
+  systemText, setup, ai, rows, countOf, devOf, claudeReply, claudeMessage, signIn, accountId, insertSub, linkDevice, DEVICE,
+} from './helpers.js';
+import { MASK_NOTE } from '../../shared/guard.js';
+import { bumpQuality } from '../src/quality.js';
 
 const page = { data: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' };
 const pdf = { data: 'data:application/pdf;base64,JVBERi0x', mediaType: 'application/pdf' };
@@ -378,4 +382,138 @@ test('the photo check: a question the student typed is their own words (masked, 
   assert.equal(lastText(lesson), 'Check my handwritten work in the photo.');
   assert.match(lesson.system[2].text, /Exercise on screen: 3 - \(-5\)\nCorrect answer \(computed by the app, authoritative\): 8/);
   assert.match(lesson.system[2].text, /Final-answer policy: WITHHOLD/);
+});
+
+// ---------------------------------------------------------------- the final-answer guard, end to end (ai spec AI-3)
+let h;
+afterEach(() => { h?.done(); h = null; });
+
+/** A lesson exercise still open: −4 + 6, answer 2, under WITHHOLD (or another policy). */
+const openCtx = (policy = 'withhold') => ({
+  v: 2, surface: 'lesson', grade: '7', skill: 'signed:1', topicId: 'signed', topic: 'מספרים מכוונים', stair: 'חיבור וחיסור',
+  item: { text: 'חשבו: -4 + 6', form: 'num', answer: '2', answerFrom: 'app', solution: ['$-4 + 6 = 2$'] },
+  tries: { answers: [], phase: policy === 'reveal' ? 'reveal' : 'answer', hinted: false },
+  policy: { answer: policy, why: '' },
+});
+const LEAK = 'מתחילים ב־$-4$ וזזים 6 צעדים ימינה. ';
+/** A streamed Claude reply: these text pieces, or (thinking) a thinking block and no text at all. */
+function sse(params, pieces, { stop = 'end_turn', thinking = false } = {}) {
+  const ev = (type, data) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
+  const m = claudeMessage(params, { text: '' });
+  const block = thinking
+    ? [ev('content_block_start', { index: 0, content_block: { type: 'thinking', thinking: '', signature: '' } }),
+      ev('content_block_delta', { index: 0, delta: { type: 'thinking_delta', thinking: 'צריך לחשוב על זה עוד…' } }),
+      ev('content_block_delta', { index: 0, delta: { type: 'signature_delta', signature: 'c2ln' } })]
+    : [ev('content_block_start', { index: 0, content_block: { type: 'text', text: '' } }),
+      ...pieces.map((text) => ev('content_block_delta', { index: 0, delta: { type: 'text_delta', text } }))];
+  return new Response([
+    ev('message_start', { message: { ...m, content: [], stop_reason: null, usage: { input_tokens: 10, output_tokens: 1 } } }),
+    ...block,
+    ev('content_block_stop', { index: 0 }),
+    ev('message_delta', { delta: { stop_reason: stop, stop_sequence: null }, usage: { output_tokens: 20 } }),
+    ev('message_stop', {}),
+  ].join(''), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+}
+const quality = () => rows(h.env, 'SELECT kind, reason, n FROM ai_quality ORDER BY kind, reason').map((r) => ({ ...r }));
+const chatBody = (ctx) => ({ ctx, messages: [{ role: 'user', content: 'איך מתחילים?' }], stream: true });
+
+test('a streamed chat under WITHHOLD: the leaked answer is masked mid-stream, MASK_NOTE ends it, and one quality row counts it', async () => {
+  h = await setup({}, { claude: (p) => sse(p, [LEAK, 'ולכן $-4 + 6 = ', '2$. נסו ', 'בעצמכם.']) });
+  const text = await (await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chatBody(openCtx()) })).text();
+  await h.ctx.flush();
+  assert.ok(text.includes('$-4 + 6 = ?$'), text);
+  assert.ok(!/=\s*2\$/.test(text), 'the answer never goes out');
+  assert.ok(text.endsWith(`\n\n${MASK_NOTE}`), text);
+  assert.equal(text, `${LEAK}ולכן $-4 + 6 = ?$. נסו בעצמכם.\n\n${MASK_NOTE}`);
+  assert.deepEqual(quality(), [{ kind: 'chat', reason: 'answer_masked', n: 1 }]);
+  // a second masked reply adds to the same row: counts only
+  await (await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chatBody(openCtx()) })).text();
+  await h.ctx.flush();
+  assert.deepEqual(quality(), [{ kind: 'chat', reason: 'answer_masked', n: 2 }]);
+});
+
+test('the same reply under REVEAL (the answer is on the screen) goes out unchanged, with no row', async () => {
+  h = await setup({}, { claude: (p) => sse(p, [LEAK, 'ולכן $-4 + 6 = ', '2$. נסו ', 'בעצמכם.']) });
+  const text = await (await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chatBody(openCtx('reveal')) })).text();
+  await h.ctx.flush();
+  assert.equal(text, `${LEAK}ולכן $-4 + 6 = 2$. נסו בעצמכם.`);
+  assert.deepEqual(quality(), []);
+});
+
+test('explain under WITHHOLD (not streamed): masked, with MASK_NOTE, and counted as explain', async () => {
+  h = await setup({}, { claude: (p) => claudeReply(p, { text: 'חיברתם במקום לחסר. הדרך: $-4 + 6 = 2$.' }) });
+  const r = await ai(h, 'explain', { 'X-Device': DEVICE }, { body: { ctx: { ...openCtx(), tries: { answers: [{ value: '-10', kind: 'unknown' }], phase: 'retry', hinted: false } } } });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { text: `חיברתם במקום לחסר. הדרך: $-4 + 6 = ?$.\n\n${MASK_NOTE}` });
+  await h.ctx.flush();
+  assert.deepEqual(quality(), [{ kind: 'explain', reason: 'answer_masked', n: 1 }]);
+  // and a reply with no leak is left exactly as written
+  h.done();
+  h = await setup({}, { claude: (p) => claudeReply(p, { text: 'נסו לזוז ימינה 6 צעדים מ־$-4$.' }) });
+  assert.deepEqual(await (await ai(h, 'explain', { 'X-Device': DEVICE }, { body: { ctx: openCtx() } })).json(), { text: 'נסו לזוז ימינה 6 צעדים מ־$-4$.' });
+});
+
+test('a notebook check under WITHHOLD: final unknown, withheld, the line with the final value unmarked; the student\'s steps as written', async () => {
+  const steps = [
+    { text: '$-4 + 6$', ok: true, comment: '' },
+    { text: 'זזים 6 ימינה', ok: true, comment: 'נכון, מ־$-4$ זזים ימינה.' },
+    { text: '$-4 + 6 = 2$', ok: true, comment: 'נכון: $-4 + 6 = 2$.' },
+  ];
+  const reply = { readable: true, care: false, transcript: '$-4 + 6 = 2$', steps, final: 'correct', summary: 'כל הכבוד, יוצא $2$.' };
+  h = await setup({}, { claude: (p) => claudeReply(p, { text: JSON.stringify(reply) }) });
+  await signIn(h, 'fam@example.test');
+  const a = accountId(h.env, 'fam@example.test');
+  insertSub(h.env, { kind: 'family', account_id: a });
+  const d = await linkDevice(h.env, a);
+  const r = await ai(h, 'check', d.headers, { body: { ctx: { ...openCtx(), surface: 'notebook' }, image: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' } });
+  assert.equal(r.status, 200);
+  const out = await r.json();
+  assert.equal(out.final, 'unknown');
+  assert.equal(out.withheld, true);
+  assert.deepEqual(out.steps.map((s) => s.ok), [true, true, null], 'the earlier steps keep their marks');
+  assert.equal(out.steps[2].comment, '');
+  assert.deepEqual(out.steps.map((s) => s.text), steps.map((s) => s.text), 'what the student wrote stays as written');
+  assert.equal(out.transcript, reply.transcript);
+  assert.equal(out.summary, 'כל הכבוד, יוצא $?$.');
+  // the prompt asked for it too (Appendix C.3)
+  assert.match(h.net.log.claude.at(-1).system[1].text, /If the final-answer policy in the app context is WITHHOLD, judge each step that leads to the result, but never write the final value/);
+  // under HOMEWORK (the assistant's photo check of the student's own question) the result is the model's, as before
+  h.done();
+  h = await setup({}, { claude: (p) => claudeReply(p, { text: JSON.stringify(reply) }) });
+  await signIn(h, 'fam2@example.test');
+  const a2 = accountId(h.env, 'fam2@example.test');
+  insertSub(h.env, { kind: 'family', account_id: a2 });
+  const d2 = await linkDevice(h.env, a2);
+  const own = await (await ai(h, 'check', d2.headers, { body: { ctx: { v: 2, surface: 'assistant', grade: '7', policy: { answer: 'homework' } }, image: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' } })).json();
+  assert.equal(own.final, 'correct');
+  assert.equal(own.withheld, undefined);
+});
+
+test('a streamed reply that stopped on max_tokens after only thinking: [[error:bad_output]], and the question is given back', async () => {
+  h = await setup({}, { claude: (p) => sse(p, [], { stop: 'max_tokens', thinking: true }) });
+  const free = async () => countOf(h.env, `free:d:${await devOf(h.env)}`);
+  const before = await free();
+  const text = await (await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chatBody(openCtx()) })).text();
+  await h.ctx.flush();
+  assert.equal(text, '\n[[error:bad_output]]');
+  assert.equal(await free(), before, 'the counter is back where it was');
+  assert.deepEqual(quality(), [{ kind: 'chat', reason: 'empty_stream', n: 1 }]);
+});
+
+test('a quality counter never throws and never costs a reply: a broken database, an unknown reason, no ctx', async () => {
+  const broken = { DB: { prepare: () => { throw new Error('db down'); } } };
+  const pending = [];
+  const ctx = { waitUntil: (p) => pending.push(p) };
+  const quiet = console.error; console.error = () => {};
+  try {
+    assert.doesNotThrow(() => bumpQuality(broken, ctx, 'chat', 'answer_masked'));
+    await Promise.all(pending);
+    assert.doesNotThrow(() => bumpQuality(broken, null, 'chat', 'answer_masked'));
+    assert.doesNotThrow(() => bumpQuality({}, ctx, 'chat', 'answer_masked'));
+  } finally { console.error = quiet; }
+  h = await setup();
+  bumpQuality(h.env, h.ctx, 'chat', 'something_else');
+  bumpQuality(h.env, h.ctx, 'exam', 'answer_masked');
+  await h.ctx.flush();
+  assert.deepEqual(quality(), [], 'only the known kinds and reasons are written');
 });

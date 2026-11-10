@@ -2,7 +2,8 @@
 // (entitlement, sign-in by email code, family devices, class licences, checkout and payments, cancellation).
 // The owner works through scripts/owner.mjs; there is no HTTP admin.
 import Anthropic from '@anthropic-ai/sdk';
-import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare } from '../../shared/ai.js';
+import { AI_KINDS, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare, answerGuard } from '../../shared/ai.js';
+import { streamGuard, guardResult, MASK_NOTE } from '../../shared/guard.js';
 import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
@@ -12,6 +13,7 @@ import { startLogin, verifyLogin, signOut } from './account.js';
 import { resolve, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify } from './entitle.js';
 import { recordSafety } from './safety.js';
 import { recordSpend } from './spend.js';
+import { bumpQuality } from './quality.js';
 import { emailReady } from './email.js';
 import {
   plansView, checkout, orderStatus, webhook, cancel, resume, portal, invoice, testPayPage, testPaySubmit, accountOverview, accountExport, deleteAccount,
@@ -201,6 +203,10 @@ async function handleAI(kind, req, env, ctx, cors) {
     recordSafety(env, { kind: 'distress', surface: kind, source: 'model', tier: r.tier }, ctx);
   };
   const record = (message) => recordSpend(env, { pool: r.pool, kind, message }).catch((e) => console.error('spend', e?.message));
+  // The final-answer guard (ai spec AI-3 Design 3): on for chat, explain and check while the app's context says WITHHOLD
+  // and carries the answer. A care reply is never guarded.
+  let guard = { on: false, forms: null };
+  if (!careTier) { try { guard = answerGuard(kind, input); } catch { /* a context that cannot be read guards nothing */ } }
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, ...(env.ANTHROPIC_BASE_URL ? { baseURL: env.ANTHROPIC_BASE_URL } : {}) });
 
   if (kind === 'chat' && input.stream) {
@@ -209,13 +215,22 @@ async function handleAI(kind, req, env, ctx, cors) {
     const writer = writable.getWriter();
     let aborted = false;
     let wrote = false;
-    const write = (text) => { if (text) wrote = true; return writer.write(enc.encode(text)).catch(() => { aborted = true; }); };
+    const write = (text) => { if (!text) return undefined; wrote = true; return writer.write(enc.encode(text)).catch(() => { aborted = true; }); };
     // The start of the reply is held back until it has 9 characters or a line, so a care line the model puts first
     // ([[care]]) is taken out before anything reaches the screen, and sent as a marker at the end instead. Then, in
     // this order (trust spec TRUST-4 §4.2): a care reply goes out as it comes; any other reply is checked against the
-    // blocklist before each piece is sent, and on a hit the stream stops and ends with [[blocked]].
+    // blocklist before each piece is sent, and on a hit the stream stops and ends with [[blocked]]. Then the final-answer
+    // guard (ai spec AI-3): what passed the blocklist goes out a sentence at a time with a leaked answer masked, and the
+    // reply ends with MASK_NOTE when anything was. A care reply skips both.
     let care = careTier; let held = ''; let decided = false;
     let acc = ''; let sent = 0; let checked = 0; let blocked = false;
+    const g = guard.on && guard.forms ? streamGuard(guard.forms) : null;
+    const guarded = (piece) => (care || !g ? piece : g.push(piece));
+    const guardEnd = async () => {
+      if (care || !g) return;
+      await write(g.end());
+      if (g.masked) { await write(`\n\n${MASK_NOTE}`); bumpQuality(env, ctx, kind, 'answer_masked'); }
+    };
     const pass = async (final) => {
       if (blocked) return;
       const end = care || final ? acc.length : stableEnd(acc);
@@ -226,7 +241,7 @@ async function handleAI(kind, req, env, ctx, cors) {
         checked = end;
       }
       const piece = acc.slice(sent, end); sent = end;
-      await write(piece);
+      await write(guarded(piece));
     };
     const settle = async () => {
       if (decided) return;
@@ -276,10 +291,19 @@ async function handleAI(kind, req, env, ctx, cors) {
             await record(final);
             // the links were sent as written; the app shows any it may not open as plain text (SafeLink)
             if (screenOutput(acc, { ...screen, care: true }).linksRemoved) event('link_removed');
+            // nothing visible came back (a reply that stopped on max_tokens after only thinking): not a reply
+            const empty = !acc.trim() && final.stop_reason !== 'refusal';
             if (careTier) {
               if (final.stop_reason === 'refusal') { event('refusal'); await careFallback(); }
+              else if (empty) await careFallback();
               else await write(`\n${CARE_MARK}`);
+            } else if (empty && !care) {
+              // the question is given back, and the app says the tutor could not answer (ai spec AI-3 Design 3)
+              await giveBackOnce();
+              bumpQuality(env, ctx, kind, 'empty_stream');
+              await write('\n[[error:bad_output]]');
             } else {
+              await guardEnd();
               if (care) { await modelCare(); await write(`\n${CARE_MARK}`); }
               // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
               if (final.stop_reason === 'refusal') { event('refusal'); await giveBackOnce(); await write('\n[[refusal]]'); }
@@ -296,6 +320,7 @@ async function handleAI(kind, req, env, ctx, cors) {
           if (blocked) await endBlocked();
           else if (careTier) await careFallback();
           else {
+            await guardEnd();
             await giveBackOnce();
             await write(`\n[[error:${aiErrorCode(e)}]]`);
           }
@@ -358,6 +383,14 @@ async function handleAI(kind, req, env, ctx, cors) {
   if (checkedOut.linksRemoved) event('link_removed');
   result = checkedOut.data;
   if (careTier) return json({ ...result, care: true }, 200, cors, headers);
+  // The final-answer guard on a whole reply (ai spec AI-3 Design 3): a leaked answer masked in explain and chat (with
+  // MASK_NOTE), and a check withheld (comments and summary masked, no mark on the line with the final value). It runs
+  // after the blocklist, on what the child would see; a care reply is never touched.
+  if (guard.on) {
+    const out = guardResult(kind, result, guard);
+    result = out.result;
+    if (out.masked) bumpQuality(env, ctx, kind, 'answer_masked');
+  }
   if (result?.care === true) {
     await modelCare();
     leftBack();

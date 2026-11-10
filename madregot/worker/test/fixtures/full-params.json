@@ -571,7 +571,7 @@
     },
     {
      "type": "text",
-     "text": "Task: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).\nIf the pages show a person's name, ID number, class, school or any other identifying detail, never copy it into your answer: write [פרטים אישיים] instead."
+     "text": "Task: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).\nIf the pages show a person's name, ID number, class, school or any other identifying detail, never copy it into your answer: write [פרטים אישיים] instead.\nIf the final-answer policy in the app context is WITHHOLD, judge each step that leads to the result, but never write the final value in a comment or the summary, never say whether the final value is right, and set \"final\" to \"unknown\": the student types the answer in the app, which checks it. (The app does not show your mark on the line that states the final value.)"
     },
     {
      "type": "text",
@@ -687,7 +687,7 @@
     },
     {
      "type": "text",
-     "text": "Task: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).\nIf the pages show a person's name, ID number, class, school or any other identifying detail, never copy it into your answer: write [פרטים אישיים] instead."
+     "text": "Task: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).\nIf the pages show a person's name, ID number, class, school or any other identifying detail, never copy it into your answer: write [פרטים אישיים] instead.\nIf the final-answer policy in the app context is WITHHOLD, judge each step that leads to the result, but never write the final value in a comment or the summary, never say whether the final value is right, and set \"final\" to \"unknown\": the student types the answer in the app, which checks it. (The app does not show your mark on the line that states the final value.)"
     },
     {
      "type": "text",

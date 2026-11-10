@@ -323,3 +323,23 @@ test('distress alerts at max(3, 3 × its 14-day average): one event on a quiet d
   const p = JSON.parse(one(h.env, 'SELECT params FROM notices WHERE kind = ?', `owner:safety_spike:${y}`).params);
   assert.deepEqual(p, { distress: 6, pii_masked: 0, output_blocked: 0, refusal: 0, user_report: 0, distressAvg: 2, reported: false, distressHigh: true });
 });
+
+// ---------------------------------------------------------------- the tutor's quality counts (ai spec AI-3 Design 6)
+test('the daily summary carries yesterday\'s quality counts; the purge keeps them 400 days', async () => {
+  h = await setup({ OWNER_DAILY_SUMMARY: 'true' });
+  const y = dayBack(1);
+  const put = (day, kind, reason, n) => h.env.DB.raw.prepare('INSERT INTO ai_quality (day, kind, reason, n) VALUES (?, ?, ?, ?)').run(day, kind, reason, n);
+  put(y, 'chat', 'answer_masked', 3); put(y, 'explain', 'answer_masked', 2); put(y, 'check', 'answer_masked', 1);
+  put(y, 'chat', 'empty_stream', 4);
+  put(y, 'generate', 'gen_numbers', 5); put(y, 'generate', 'gen_blind', 1); put(y, 'generate', 'gen_all_failed', 2);
+  put(dayBack(2), 'chat', 'answer_masked', 9);
+  put(dayBack(401), 'chat', 'answer_masked', 1); put(dayBack(399), 'chat', 'answer_masked', 1);
+  await run(h.env, { now: night() });
+  const p = JSON.parse(one(h.env, 'SELECT params FROM notices WHERE kind = ?', `owner:summary:${y}`).params);
+  assert.deepEqual(p.quality, { masked: 6, emptyStreams: 4, genDropped: 6, genAllFailed: 2 });
+  const mail = h.net.log.email.find((m) => m.subject.startsWith(`[מדרגות] סיכום יומי ${y}`));
+  assert.match(mail.text, /איכות העוזר: תשובות סופיות שהוסתרו 6 · תשובות ריקות 4 · תרגילים שנפסלו 6 · בקשות תרגילים שנכשלו 2/);
+  const days = rows(h.env, 'SELECT DISTINCT day FROM ai_quality ORDER BY day').map((r) => r.day);
+  assert.ok(!days.includes(dayBack(401)), 'older than 400 days: gone');
+  assert.ok(days.includes(dayBack(399)) && days.includes(y));
+});

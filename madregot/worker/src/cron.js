@@ -19,6 +19,7 @@ import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
 import { SUPPORT } from '../../shared/safety.js';
 import { RETENTION } from '../../shared/retention.js';
+import { qualityCounts, QUALITY_KEEP_DAYS } from './quality.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -110,7 +111,10 @@ export async function reminders(env) {
   return { renewal: changes(r[0]), licence: changes(r[1]) };
 }
 
-/** Old counters: daily (and hourly) rows after 35 days, monthly rows after 13 months. length(day) keeps them apart. */
+/**
+ * Old counters: daily (and hourly) rows after 35 days, monthly rows after 13 months (length(day) keeps them apart), and
+ * the tutor's quality counts (ai_quality) after 400 days.
+ */
 export function purgeCountersSql(env, now = new Date()) {
   const [y, m] = monthOf(now).split('-').map(Number);
   const back = new Date(Date.UTC(y, m - 1 - 13, 1));
@@ -118,6 +122,7 @@ export function purgeCountersSql(env, now = new Date()) {
   return [
     env.DB.prepare('DELETE FROM ai_usage WHERE length(day) >= 10 AND day < ?').bind(daysAgo(35)),
     env.DB.prepare('DELETE FROM ai_usage WHERE length(day) = 7 AND day < ?').bind(oldMonth),
+    env.DB.prepare('DELETE FROM ai_quality WHERE day < ?').bind(dayOf(new Date(now.getTime() - QUALITY_KEEP_DAYS * DAY))),
   ];
 }
 
@@ -232,6 +237,9 @@ export async function dailySummary(env, now = new Date()) {
     safety: await safetyCounts(env, day),
     // tutor requests from a child alone that waited for a parent's OK (trust spec TRUST-9): how many children wait
     parentOkNeeded: await count("SELECT COUNT(*) AS n FROM safety_events WHERE day = ? AND kind = 'parent_ok_needed'", day),
+    // the tutor's answers (ai spec AI-3 Design 6), counts only: final answers the guard masked, empty streamed replies,
+    // generated exercises code dropped, and generate requests where every exercise was dropped
+    quality: await qualityCounts(env, day),
     violations: [],
   };
   const v = params.violations;

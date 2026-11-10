@@ -401,3 +401,15 @@ CREATE TABLE IF NOT EXISTS class_settings (
 -- without the parents' consent): the student keeps all practice without AI. No row: the class's switch decides. Deleted
 -- with the student.
 CREATE TABLE IF NOT EXISTS student_ai_off (student_id TEXT PRIMARY KEY, at TEXT NOT NULL);
+
+-- How the tutor's answers fared (ai spec AI-3 Design 6): counts only, one row per Jerusalem day, kind and reason. A reply
+-- whose final answer the guard masked (answer_masked), a streamed reply that came back empty (empty_stream), and the
+-- generated exercises code dropped (gen_*, AI-4). No person, device, pool or text column. Written by bumpQuality
+-- (src/quality.js) with an upsert; read by the owner's daily summary; kept 400 days (cron.js purgeCountersSql).
+CREATE TABLE IF NOT EXISTS ai_quality (
+  day TEXT NOT NULL,                                   -- YYYY-MM-DD Jerusalem
+  kind TEXT NOT NULL CHECK (kind IN ('explain','chat','check','generate')),
+  reason TEXT NOT NULL CHECK (reason IN ('answer_masked','empty_stream','gen_latex','gen_numbers','gen_leak','gen_solution','gen_equations','gen_blind','gen_all_failed','blind_skipped')),
+  n INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, kind, reason)
+);

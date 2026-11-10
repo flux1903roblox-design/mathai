@@ -230,6 +230,7 @@ function summaryNotice(p, day) {
       `בקשות רישיון פתוחות: ${p.openRequests ?? 0}`,
       p.safety ? safetyLine(p.safety) : '',
       p.parentOkNeeded != null ? `בקשות לעוזר ממכשירים שמחכים לאישור של הורה: ${p.parentOkNeeded}` : '',
+      p.quality ? qualityLine(p.quality) : '',
       v.length ? 'בדיקות שנכשלו:' : 'כל הבדיקות עברו.',
       ...v.map((x) => `- ${x}`),
     ],
@@ -238,6 +239,9 @@ function summaryNotice(p, day) {
 
 /** A day's safety counts in one line (trust spec TRUST-4 §4.4): numbers only, never who or what was written. */
 const safetyLine = (c) => `אירועי בטיחות: מצוקה ${c.distress ?? 0} · פרטים אישיים שהוסתרו ${c.pii_masked ?? 0} · תשובות שנעצרו ${c.output_blocked ?? 0} · סירובים ${c.refusal ?? 0} · דיווחים על תשובות ${c.user_report ?? 0}`;
+
+/** The tutor's answers in one line (ai spec AI-3 Design 6): counts only. */
+const qualityLine = (q) => `איכות העוזר: תשובות סופיות שהוסתרו ${q.masked ?? 0} · תשובות ריקות ${q.emptyStreams ?? 0} · תרגילים שנפסלו ${q.genDropped ?? 0} · בקשות תרגילים שנכשלו ${q.genAllFailed ?? 0}`;
 
 /** Yesterday's safety events jumped (cron.js safetySpike): the counts only, and where to look next. */
 function safetySpikeNotice(p, day) {
