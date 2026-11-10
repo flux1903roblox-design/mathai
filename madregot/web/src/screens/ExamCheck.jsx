@@ -118,7 +118,7 @@ export default function ExamCheck() {
   // the exam check is the full tutor's: where this device does not have it, say so before any page is photographed
   const status = useAIStatus((x) => x.status);
   const access = aiAccess('exam', status).state;
-  const locked = !offline && (access === 'locked' || access === 'economy') ? access : null;
+  const locked = !offline && ['locked', 'economy', 'class_off'].includes(access) ? access : null;
   // A pushed screen (LAYOUT_SPEC E2): the bar with the way back, the pages, and ONE primary pinned at the bottom.
   return (
     <div className="page pushed exam-check">

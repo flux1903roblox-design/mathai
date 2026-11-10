@@ -521,3 +521,75 @@ test.describe('class join', () => {
     await shot(page, 'class-name-claim');
   });
 });
+
+test.describe('class AI off', () => {
+  // the Ministry of Education's rules (trust spec TRUST-11 §6): a school class keeps student AI off until Madregot is in
+  // the catalogue. The child sees a calm state, never a price or a way to buy round it, and can still write a message
+  // that reads as distress.
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const refuse = (route) => (route.request().method() === 'OPTIONS'
+    ? route.fulfill({ status: 204, headers: CORS })
+    : route.fulfill({ status: 403, contentType: 'application/json', headers: CORS, body: JSON.stringify({ error: 'class_ai_off', message: 'class_ai_off' }) }));
+  const OFF_TEXT = 'כך החליטו בכיתה, לפי ההנחיות של משרד החינוך. מדי, השיעורים והתרגול פתוחים כמו תמיד.';
+  async function noPrice(page) {
+    for (const w of ['₪', 'מנוי', 'מידע להורים']) await expect(page.locator('body')).not.toContainText(w);
+  }
+
+  test('the assistant says so calmly, with no tools and no price; a question waits, a message that reads as distress still goes', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf());
+    await page.route(`${API}/api/ai/status`, refuse);
+    await page.route(`${API}/api/ai/chat`, async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      log.push({ path: '/api/ai/chat', body: route.request().postDataJSON() });
+      // the server's fixed reply in a class whose tutor is off: no AI call behind it
+      return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: CORS, body: `${CARE_TEXT}\n[[care]]` });
+    });
+    await open(page, '#/assistant', classStudent());
+    await expect(page.getByRole('heading', { name: 'בכיתה הזו העוזר החכם כבוי' })).toBeVisible();
+    await expect(page.getByText(OFF_TEXT)).toBeVisible();
+    await expect(page.locator('.assistant-note')).toHaveCount(0);
+    await expect(page.getByRole('group', { name: 'עוד דרכים לעזרה' })).toHaveCount(0); // no photo check, no new exercises
+    await expect(page.locator('.starter')).toHaveCount(0);
+    const rest = page.locator('.chat-rest');
+    await expect(rest.getByRole('button', { name: 'להמשיך לתרגל' })).toBeVisible();
+    await expect(rest.getByRole('button', { name: 'צריכים לדבר עם מישהו?' })).toBeVisible();
+    await noPrice(page);
+    const draft = page.getByLabel('ההודעה שלכם');
+    await expect(draft).toBeEnabled();
+    await expect(draft).toHaveAttribute('placeholder', 'העוזר החכם כבוי בכיתה הזו');
+    await draft.fill('מה זה שבר?'); await draft.press('Enter');
+    await expect(draft).toHaveValue('מה זה שבר?');
+    await expect(page.locator('.msg-row.user')).toHaveCount(0);
+    expect(chatCalls(log)).toHaveLength(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    for (const b of await page.locator('.chat-rest button, .chat-input button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await shot(page, 'class-off-assistant');
+    await draft.fill('אני רוצה להיעלם'); await draft.press('Enter');
+    const card = page.locator('.chat .support-card');
+    await expect(card).toBeVisible();
+    await expect.poll(() => chatCalls(log).length).toBe(1);
+    await expect(page.locator('.msg-row.assistant').last()).toContainText('תודה שכתבתם');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await noPrice(page);
+  });
+
+  test('an answer the server refuses with class_ai_off opens the calm sheet: the class\'s choice, practice on, no price', async ({ page }) => {
+    const { log } = await fakeServer(page, {}, baseOf()); // the status still says free: the refusal comes with the answer
+    await page.route(`${API}/api/ai/chat`, async (route) => { log.push({ path: '/api/ai/chat' }); return refuse(route); });
+    await open(page, '#/assistant', classStudent());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך פותרים 3x = 12?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: 'בכיתה הזו העוזר החכם כבוי' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText(OFF_TEXT)).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'להמשיך לתרגל' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'לשאול את מדי' })).toHaveCount(0);
+    await expect(sheet.getByRole('button', { name: 'מידע להורים' })).toHaveCount(0);
+    await expect(page.locator('.form-error')).toHaveCount(0); // never a red error
+    await noPrice(page);
+    await shot(page, 'class-off-sheet');
+    await sheet.getByRole('button', { name: 'להמשיך לתרגל' }).click();
+    await expect(sheet).toHaveCount(0);
+    expect(chatCalls(log)).toHaveLength(1);
+  });
+});

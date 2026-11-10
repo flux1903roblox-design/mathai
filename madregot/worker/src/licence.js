@@ -184,7 +184,7 @@ export const pinKeysWhere = "(who = 'pin:' || ?1 OR who LIKE 'pin:' || ?1 || ':%
 
 /**
  * POST /api/teacher/students/:id/remove {}: one batch deletes the student's attempts, levels, help requests (and their
- * help_meta rows) and exams, the PIN counters and the student; the student's token stops working. The practice saved on the device itself stays there.
+ * help_meta rows) and exams, the PIN counters, the student's AI switch (student_ai_off) and the student; the student's token stops working. The practice saved on the device itself stays there.
  */
 export async function removeStudent(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
@@ -197,6 +197,7 @@ export async function removeStudent(id, req, env, cors) {
     // help_meta goes with its requests (its foreign key cascades too; this also covers a database without it)
     env.DB.prepare('DELETE FROM help_meta WHERE help_id NOT IN (SELECT id FROM help_requests)'),
     env.DB.prepare(`DELETE FROM ai_usage WHERE ${pinKeysWhere}`).bind(st.id),
+    env.DB.prepare('DELETE FROM student_ai_off WHERE student_id = ?').bind(st.id),
     env.DB.prepare('DELETE FROM students WHERE id = ? AND class_code = ?').bind(st.id, cls.code),
     audit(env, cls.code, 'student.remove', `student:${st.id}`),
   ]);

@@ -121,7 +121,7 @@ test('a structured reply is screened string by string: a blocked word anywhere i
   const bad = { ...check, steps: [{ text: 'x = 3', ok: false, comment: 'what the fuck' }] };
   h = await setup({}, { claude: (p) => claudeReply(p, { text: JSON.stringify(bad) }) });
   const { makeClass, insertSub, bearer, one } = await import('./helpers.js');
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה'] });
   insertSub(h.env, { kind: 'class', class_code: cls.code });
   r = await ai(h, 'check', bearer(cls.students[0]));
   assert.equal(r.status, 502);

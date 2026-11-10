@@ -1,7 +1,7 @@
 // The care path (trust spec TRUST-3 §3.3-3.4, §3.6): a chat message that reads as distress is answered warmly, is never
 // counted against a question, never refused and never paywalled, and cannot be used as a free maths channel. Claude is
-// stubbed; every address is synthetic. The no-parent-OK and class-AI-off cases join when those rules exist (TRUST-9,
-// TRUST-11).
+// stubbed; every address is synthetic. A class whose tutor is off (TRUST-11) gets the fixed reply; the no-parent-OK case
+// joins when that rule exists (TRUST-9).
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { CARE_NOTE } from '../../shared/ai.js';
@@ -234,7 +234,7 @@ test('a photo check the model marked care gives the question back; a class stude
   h = await setup({}, {
     claude: (p) => claudeReply(p, { text: JSON.stringify({ readable: true, transcript: '', steps: [], final: 'unknown', summary: 'אני כאן.', care: true }) }),
   });
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה'] });
   insertSub(h.env, { kind: 'class', class_code: cls.code });
   const st = cls.students[0];
   const r = await ai(h, 'check', bearer(st));
@@ -251,12 +251,35 @@ test('a photo check the model marked care gives the question back; a class stude
 
 test('with the paywall off, a distress chat takes the care path and the open counter does not move', async () => {
   h = await setup({ AI_PAYWALL: 'off' });
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה'] });
   const id = one(h.env, 'SELECT id FROM students WHERE class_code = ?', cls.code).id;
   const r = await ai(h, 'chat', bearer(cls.students[0]), { body: chat(SAD) });
   assert.equal((await r.json()).care, true);
   assert.equal(countOf(h.env, `s:${id}`), 0);
   assert.equal(countOf(h.env, `care:s:${id}`), 1);
+});
+
+test('a class whose tutor is off (a school class before the catalogue approval): the fixed reply, no AI call, a distress event', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה'] });
+  const id = one(h.env, 'SELECT id FROM students WHERE class_code = ?', cls.code).id;
+  // a maths question is refused calmly...
+  const maths = await ai(h, 'chat', bearer(cls.students[0]));
+  assert.equal(maths.status, 403); assert.equal((await maths.json()).error, 'class_ai_off');
+  // ...a message that reads as distress is never refused: the fixed reply, as JSON and as a stream
+  const r = await ai(h, 'chat', bearer(cls.students[0]), { body: chat(SAD) });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { text: CARE_STATIC, care: true });
+  const s = await ai(h, 'chat', bearer(cls.students[0]), { body: chat(SAD, { stream: true }) });
+  assert.equal(await s.text(), `${CARE_STATIC}\n[[care]]`);
+  assert.equal(h.net.log.claude.length, 0, 'no AI call');
+  assert.equal(countOf(h.env, `care:s:${id}`), 0, 'no care key: the reply is the fixed one');
+  await h.ctx.flush();
+  assert.deepEqual(events(), [
+    { kind: 'class_ai_off', category: '', surface: 'chat', source: 'server', tier: '' },
+    { kind: 'distress', category: 'self_harm', surface: 'chat', source: 'regex', tier: 'static' },
+    { kind: 'distress', category: 'self_harm', surface: 'chat', source: 'regex', tier: 'static' },
+  ]);
 });
 
 test('the owner\'s summary shows the care pool, and reminds to check the support numbers once they are 330 days old', async () => {

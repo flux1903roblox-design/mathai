@@ -541,7 +541,8 @@ export default function Lesson() {
           <>
             <Notebook ref={nbRef} strokes={page.strokes} onStrokes={(strokes) => { setPage({ strokes }); if (nbCheck.state !== 'loading') setNbCheck({ state: 'idle' }); }} height={page.height} onGrow={() => setPage({ height: page.height + 240 })} />
             <p className="nb-note">כתבו את הדרך כמו במחברת. כשמסיימים, חוזרים ל"תשובה" וכותבים את התוצאה.</p>
-            {aiReady() && <Button variant="ai" className="btn-sm" onClick={checkWork} disabled={nbCheck.state === 'loading' || !page.strokes.length}><Sparkles size={16} aria-hidden="true" />בדיקת הדרך עם העוזר</Button>}
+            {/* a class whose tutor is off (TRUST-11) offers no AI check at all */}
+            {aiReady() && explainState !== 'class_off' && <Button variant="ai" className="btn-sm" onClick={checkWork} disabled={nbCheck.state === 'loading' || !page.strokes.length}><Sparkles size={16} aria-hidden="true" />בדיקת הדרך עם העוזר</Button>}
             <div className="nb-anchor" ref={nbResRef} aria-hidden="true" />
             {nbCheck.state === 'loading' && <Box tone="ai" title="בדיקת הדרך"><Thinking states={['קורא את מה שכתבתם', 'בודק כל שורה', 'מסכם']} /></Box>}
             {nbCheck.state === 'error' && <p className="form-error" role="alert">{nbCheck.message}</p>}
@@ -612,7 +613,7 @@ export default function Lesson() {
                       <AIAllowance />
                     </>
                   )}
-                  {explain.state === 'idle' && !isTest(s.kind) && ['used', 'paused', 'resting'].includes(explainState) && (
+                  {explain.state === 'idle' && !isTest(s.kind) && ['used', 'paused', 'resting', 'class_off'].includes(explainState) && (
                     <Button variant="secondary" className="btn-sm" onClick={askMadi}><HelpCircle size={16} aria-hidden="true" />שאלה למדי</Button>
                   )}
                   {!isTest(s.kind) && <p className="fb-note">תרגיל דומה יחזור בסוף השיעור.</p>}

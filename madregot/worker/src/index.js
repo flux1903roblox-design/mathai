@@ -21,6 +21,7 @@ import { currentProvider } from './providers/index.js';
 import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily } from './family.js';
 import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked, pinKeysWhere } from './licence.js';
 import { run as runCron } from './cron.js';
+import { newClassSetting, newClassStmts, classSettings, aiPolicyView, setClassAi, setStudentAi } from './classai.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -435,14 +436,20 @@ async function createClass(req, env, cors) {
   const name = cleanName(b.className); const teacherName = cleanName(b.teacherName);
   const grade = b.grade === '8' ? '8' : '7';
   if (!name || !teacherName) throw new HttpError(400, 'missing_fields');
+  // where the class learns (trust spec TRUST-11 §3): a school (the default) or a private group its teacher attests to
+  const setting = newClassSetting(b);
   await limitOrThrow(env, `create:n:${await netKey(req, env)}`, 10, 429, 'too_many_classes');
   const teacherKey = randomToken(12);
   for (let i = 0; i < 5; i++) {
     const code = classCode();
+    const now = nowIso();
     try {
-      await env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(code, name, grade, teacherName, await sha256(teacherKey), nowIso()).run();
-      return json({ code, teacherKey, className: name, grade, teacherName }, 200, cors);
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .bind(code, name, grade, teacherName, await sha256(teacherKey), now),
+        ...newClassStmts(env, code, setting, now),
+      ]);
+      return json({ code, teacherKey, className: name, grade, teacherName, setting }, 200, cors);
     } catch (e) { if (!String(e?.message).includes('UNIQUE')) throw e; }
   }
   throw new HttpError(500, 'code_collision');
@@ -591,7 +598,7 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
@@ -611,7 +618,11 @@ async function dashboard(req, env, cors) {
     q('SELECT a.student_id, MAX(a.at) AS last FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? GROUP BY a.student_id', cls.code),
     q('SELECT e.id, e.student_id, e.title, e.correct, e.total, e.questions, e.weak, e.created_at, s.name FROM exams e JOIN students s ON s.id = e.student_id WHERE s.class_code = ? ORDER BY e.created_at DESC LIMIT 200', cls.code),
     joinLocked(env, cls.code),
+    // the Ministry's AI rules for this class (trust spec TRUST-11 §3): the class's switch and each student's own
+    q('SELECT so.student_id FROM student_ai_off so JOIN students s ON s.id = so.student_id WHERE s.class_code = ?', cls.code),
+    classSettings(env, cls.code),
   ]);
+  const aiOff = new Set(aiOffRows.map((r) => r.student_id));
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
   const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows);
   const lv = {};
@@ -620,8 +631,9 @@ async function dashboard(req, env, cors) {
     class: { code: cls.code, name: cls.name, grade: cls.grade, teacherName: cls.teacher_name },
     today,
     joinLocked: locked,
+    aiPolicy: aiPolicyView(env, cls, aiSettings),
     students: students.map((s) => ({
-      id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset,
+      id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset, aiOff: aiOff.has(s.id),
       today: t[s.id] ? { n: t[s.id].n, ok: t[s.id].ok, first: t[s.id].first, minutes: Math.round((t[s.id].secs || 0) / 60) } : { n: 0, ok: 0, first: 0, minutes: 0 },
       week: w[s.id] ? { n: w[s.id].n, first: w[s.id].first, days: w[s.id].days, minutes: Math.round((w[s.id].secs || 0) / 60) } : { n: 0, first: 0, days: 0, minutes: 0 },
       levels: lv[s.id] || {},
@@ -728,6 +740,8 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/remove$/))) return removeStudent(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/ai') return setClassAi(req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/ai$/))) return setStudentAi(m[1], req, env, cors);
   if (M === 'GET' && p === '/api/teacher/licence') return licenceStatus(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/licence/request') return licenceRequest(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/teacher/licence/claim') return licenceClaim(req, env, cors);

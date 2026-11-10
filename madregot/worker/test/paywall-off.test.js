@@ -9,7 +9,7 @@ const off = (over = {}) => setup({ AI_PAYWALL: undefined, ...over });
 
 test('off: a student gets 40 actions a day of every kind, all on CLAUDE_MODEL', async () => {
   h = await off();
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה'] });
   const s = bearer(cls.students[0]);
   const kinds = ['explain', 'chat', 'generate', 'check', 'exam'];
   for (let i = 0; i < 40; i++) {
@@ -70,7 +70,7 @@ test('off: no ai_usage key contains a raw IPv4 or IPv6 address', async () => {
 
 test('off: the status endpoint reports the open tier and what is left, counting nothing', async () => {
   h = await off();
-  const cls = await makeClass(h, { students: ['נועה'] });
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה'] });
   await ai(h, 'explain', bearer(cls.students[0]));
   const s = await (await h.call('GET', '/api/ai/status', { headers: bearer(cls.students[0]) })).json();
   const { resetsAt } = await import('../src/util.js');

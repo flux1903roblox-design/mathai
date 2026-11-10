@@ -51,6 +51,13 @@ BILLING_PROVIDER = "manual"
 BILLING_MODE = "live"
 # Hosts the payment page may be on (comma-separated); checkout refuses any other.
 BILLING_CHECKOUT_HOSTS = ""
+# ---- the Ministry of Education's AI rules for schools (trust spec TRUST-11, shared/schoolRules.js) ----
+# "none" until Madregot is in the Ministry's educational catalogue: student AI stays off in every school class, whatever
+# the teacher chooses, and no AI class licence is sold to a school class (a quote request stays open). Private groups
+# (lessons outside a school, attested by their teacher) work after the parents' consent. The owner's one action when
+# the approval arrives (TRUST-14): set "approved" (and MOE_AI_FROM_GRADE to the first grade it covers), then deploy.
+MOE_AI_APPROVAL = "none"
+MOE_AI_FROM_GRADE = "7"
 # Turnstile for new devices on the free taste: "off" unless free-tier abuse shows in ai_spend.
 FREE_DEVICE_MINT = "off"
 # Sign-in codes: at most this many sent a day in all (the owner gets a notice when it trips: nobody can sign in until

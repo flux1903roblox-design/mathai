@@ -12,6 +12,7 @@ import Mascot from './Mascot.jsx';
 import SupportCard from './SupportCard.jsx';
 import { SupportLink } from './SupportSheet.jsx';
 import ReportAnswer from './ReportAnswer.jsx';
+import { CLASS_OFF_LINE } from './limitCopy.js';
 import { piiLine } from '@/content/support.js';
 
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
@@ -26,16 +27,20 @@ const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'as
  * is a React state setter (it is given updater functions, since a reply can arrive after another message was added).
  * When the tutor is done for today the input stays usable: a message keeps its draft and a calm card says when the
  * tutor is back; `onDone` is "continue practising" there (closing the sheet in a lesson), `onMadi` the opener's way to
- * Madi.
+ * Madi. introTitle: a heading in Madi's opening bubble; restLine: the calm card's sentence instead of the usual one
+ * (null: only its buttons, when the opening bubble already says it).
  * Distress first (trust spec TRUST-3 §3.5): a message that reads as distress shows the support card at once, on the
  * device, whatever the tutor's state (resting, busy, offline). It still goes to the tutor when there is one (the server
  * answers it on its care path, never counted, never refused); a failure there is silent and the card stays.
  */
-export default function AIChat({ context, intro, messages: kept, onMessages, tools, onDone, onMadi }) {
+export default function AIChat({ context, intro, introTitle, restLine, messages: kept, onMessages, tools, onDone, onMadi }) {
   const navigate = useNavigate();
   const status = useAIStatus((x) => x.status);
   const access = aiAccess('chat', status);
-  const resting = ['used', 'paused', 'resting'].includes(access.state);
+  // the tutor does not answer here now: today's questions are used, it rests, or the class has it off (TRUST-11); the
+  // input stays usable in every case, so a message that reads as distress still shows the card and still goes
+  const resting = ['used', 'paused', 'resting', 'class_off'].includes(access.state);
+  const classOff = access.state === 'class_off';
   const [own, setOwn] = useState([]);
   const messages = kept ?? own;
   const setMessages = onMessages ?? setOwn;
@@ -151,7 +156,7 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
         {intro && (
           <div className="msg-row assistant chat-intro">
             <Mascot mood="happy" size={34} className="msg-avatar" />
-            <div className="msg assistant"><p>{intro}</p></div>
+            <div className="msg assistant">{introTitle && <h2 className="chat-bubble-title">{introTitle}</h2>}<p>{intro}</p></div>
           </div>
         )}
         {messages.map((m, i) => {
@@ -184,7 +189,9 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
       <div className="chat-dock-live" data-region="footer" ref={dockRef}>
         {showRest && (
           <section className="chat-rest" role="status" aria-label="העוזר החכם">
-            <p>{access.state === 'used' ? 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.' : 'העוזר החכם נח היום. מחר הוא חוזר.'}</p>
+            {restLine !== null && (
+              <p>{restLine ?? (classOff ? `${CLASS_OFF_LINE} מדי, השיעורים והתרגול פתוחים כמו תמיד.` : access.state === 'used' ? 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.' : 'העוזר החכם נח היום. מחר הוא חוזר.')}</p>
+            )}
             <div className="chat-rest-actions">
               <Button className="btn-sm" onClick={() => (onDone ? onDone() : navigate('/'))}>להמשיך לתרגל</Button>
               <Button variant="secondary" className="btn-sm" onClick={() => navigate('/topics')}>מה מדי יודע להסביר</Button>
@@ -206,7 +213,7 @@ export default function AIChat({ context, intro, messages: kept, onMessages, too
           <label htmlFor="chat-draft" className="visually-hidden">ההודעה שלכם</label>
           {/* never disabled: a child whose questions are used up can still write, and a message that reads as
               distress always gets the card */}
-          <textarea id="chat-draft" rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={resting ? 'העוזר החכם חוזר מחר' : 'כתבו שאלה…'} maxLength={1000}
+          <textarea id="chat-draft" rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={classOff ? 'העוזר החכם כבוי בכיתה הזו' : resting ? 'העוזר החכם חוזר מחר' : 'כתבו שאלה…'} maxLength={1000}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
           <button type="submit" className="icon-btn send" disabled={!draft.trim() || (pending && !detectDistress(draft).flag)} aria-label="שליחה"><Send size={20} aria-hidden="true" /></button>
         </form>

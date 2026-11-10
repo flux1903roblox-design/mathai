@@ -40,3 +40,22 @@ CREATE TABLE IF NOT EXISTS answer_reports (
   tier TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS answer_reports_created ON answer_reports (created_at);
+
+-- The Ministry of Education's AI rules per class (trust spec TRUST-11 §2; shared/schoolRules.js is the rule). The same
+-- table as the teacher lane's TRUST-7 class_settings, word for word, so either lane can land first. A class with no row
+-- is: school, student AI off, no consent, last_seen = its created_at. setting 'private' needs the teacher's attestation
+-- (private_attested_at); ai_consent_at is when the teacher said the parents agreed. Written by POST /api/classes and
+-- POST /api/teacher/class/ai (src/classai.js), each change audited as class.setting or class.ai.
+CREATE TABLE IF NOT EXISTS class_settings (
+  code TEXT PRIMARY KEY,
+  setting TEXT NOT NULL DEFAULT 'school' CHECK (setting IN ('school','private')),
+  student_ai TEXT NOT NULL DEFAULT 'off' CHECK (student_ai IN ('on','off')),
+  ai_consent_at TEXT,
+  private_attested_at TEXT,               -- TRUST-11: the teacher said the group is not part of a school
+  last_seen TEXT                           -- YYYY-MM-DD: the teacher's dashboard or any student activity, written at most daily
+);
+
+-- One class student whose tutor the teacher turned off (TRUST-11 §3, the Ministry's "alternative activity" for a student
+-- without the parents' consent): the student keeps all practice without AI. No row: the class's switch decides. Deleted
+-- with the student.
+CREATE TABLE IF NOT EXISTS student_ai_off (student_id TEXT PRIMARY KEY, at TEXT NOT NULL);

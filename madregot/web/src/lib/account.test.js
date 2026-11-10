@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useApp } from './store.js';
 import {
   aiAccess, autoAskAllowed, aiHeaders, useAIStatus, gate, useLimitSheet, closeLimitSheet, hasTool, noteLimit, refreshIfNewDay,
-  useAIIntro, needIntro, acceptAIIntro, closeAIIntro, introSeen,
+  useAIIntro, needIntro, acceptAIIntro, closeAIIntro, introSeen, refreshStatus, CLASS_OFF, LIMIT_ERRORS,
 } from './account.js';
 import { runAI } from './ai.js';
 
@@ -201,5 +201,51 @@ describe('a tab that stays open across midnight', () => {
     refreshIfNewDay();
     await vi.waitFor(() => expect(aiAccess('explain').state).toBe('open'));
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a class whose tutor is off under the Ministry\'s rules (trust spec TRUST-11 §6)', () => {
+  const classStudent = () => useApp.getState().setProfile({ role: 'student', name: 'נועה', grade: '7', classCode: 'K7Q2MD', token: 'stu_token_1' });
+  const refused = () => new Response(JSON.stringify({ error: 'class_ai_off', message: 'class_ai_off' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  it('the status call\'s 403 class_ai_off is a state, not an error: every action reads class_off, and no tool is offered', async () => {
+    classStudent();
+    vi.stubGlobal('fetch', vi.fn(async () => refused()));
+    expect(await refreshStatus()).toBe(CLASS_OFF);
+    expect(useAIStatus.getState()).toMatchObject({ status: CLASS_OFF, error: null, loading: false });
+    for (const k of ['explain', 'chat', 'check', 'generate', 'exam']) {
+      expect(aiAccess(k).state).toBe('class_off');
+      expect(hasTool(k, CLASS_OFF)).toBe(false);
+    }
+    expect(autoAskAllowed()).toBe(false);
+  });
+  it('a tool opens the calm sheet with that reason, and nothing is asked', () => {
+    useAIStatus.setState({ status: CLASS_OFF });
+    const then = vi.fn();
+    useApp.getState().setAI({ introSeen: false });
+    expect(gate('check', { then })).toBe('class_off');
+    expect(useLimitSheet.getState()).toMatchObject({ open: true, reason: 'class_ai_off' });
+    expect(useAIIntro.getState().open).toBe(false);
+    expect(then).not.toHaveBeenCalled();
+  });
+  it('an AI call refused with class_ai_off opens the calm sheet and remembers the state; a quiet (distress) call opens nothing', async () => {
+    classStudent();
+    expect(LIMIT_ERRORS).toContain('class_ai_off');
+    useAIStatus.setState({ status: FREE(2) });
+    vi.stubGlobal('fetch', vi.fn(async () => refused()));
+    await expect(runAI('explain', { question: '1+1' })).rejects.toMatchObject({ code: 'class_ai_off', limit: true, message: 'בכיתה הזו העוזר החכם כבוי.' });
+    expect(useLimitSheet.getState()).toMatchObject({ open: true, reason: 'class_ai_off' });
+    expect(aiAccess('chat').state).toBe('class_off');
+    closeLimitSheet();
+    await expect(runAI('chat', { messages: [{ role: 'user', content: 'x' }] }, { quiet: true })).rejects.toMatchObject({ code: 'class_ai_off' });
+    expect(useLimitSheet.getState().open).toBe(false);
+  });
+  it('an answer after the teacher turned the tutor on clears the state', async () => {
+    useAIStatus.setState({ status: CLASS_OFF });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ text: 'הסבר' }), { status: 200, headers: { 'Content-Type': 'application/json', 'X-AI-Tier': 'class', 'X-AI-Group': 'tutor', 'X-AI-Left': '19' } })));
+    noteLimit({ error: 'class_ai_off' });
+    expect(aiAccess('explain').state).toBe('class_off');
+    // (a distress message still goes while the state is on; its answer carries no tier, so the state stays)
+    await runAI('chat', { messages: [{ role: 'user', content: 'x' }] });
+    expect(aiAccess('explain')).toMatchObject({ state: 'open', left: 19 });
   });
 });

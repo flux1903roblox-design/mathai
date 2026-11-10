@@ -234,10 +234,21 @@ export async function signIn(h, email, headers = {}) {
 }
 export const accountId = (env, email) => one(env, 'SELECT id FROM accounts WHERE email = ?', email)?.id;
 
-/** A class made through the API (createdAt can be moved back), with students joined by name. */
-export async function makeClass(h, { students = [], createdAt } = {}) {
+/**
+ * A class made through the API (createdAt can be moved back), with students joined by name. A new class is a school
+ * class, and its students cannot reach the tutor until the Ministry's catalogue approval (trust spec TRUST-11).
+ * `studentAi: true` makes it a private group whose teacher attested it and recorded the parents' consent, with student
+ * AI on (written straight to class_settings: no audit row), for tests about limits and tiers. `setting: 'private'`
+ * makes it a private group only. classai.test.js covers the rule itself.
+ */
+export async function makeClass(h, { students = [], createdAt, studentAi = false, setting = studentAi ? 'private' : 'school' } = {}) {
   const c = await (await h.call('POST', '/api/classes', { body: { className: 'ז׳3', teacherName: 'רונית', grade: '7' } })).json();
   if (createdAt) h.env.DB.raw.prepare('UPDATE classes SET created_at = ? WHERE code = ?').run(createdAt, c.code);
+  if (setting === 'private') {
+    const at = new Date().toISOString();
+    h.env.DB.raw.prepare('INSERT INTO class_settings (code, setting, student_ai, ai_consent_at, private_attested_at) VALUES (?, ?, ?, ?, ?)')
+      .run(c.code, 'private', studentAi ? 'on' : 'off', studentAi ? at : null, at);
+  }
   const tokens = [];
   for (const name of students) {
     const s = await (await h.call('POST', `/api/classes/${c.code}/join`, { body: { name, pin: '1234' } })).json();
