@@ -6,6 +6,7 @@
 // request (school, note) goes only to the owner. With EMAIL_DEV_LOG = "true" on a local Worker (PUBLIC_URL on
 // localhost) and no Resend key, notices are printed to the log instead (subjects only, never a code).
 import { HttpError, nowIso, sha256, TZ } from './util.js';
+import { rulesEnv } from '../../shared/schoolRules.js';
 
 export function emailReady(env) {
   return !!(env.RESEND_API_KEY && env.EMAIL_FROM);
@@ -145,7 +146,7 @@ export function renderNotice(env, row) {
       };
     case 'owner': {
       const what = String(row.kind).slice('owner:'.length);
-      if (what === 'licence_request') return licenceRequestNotice(p);
+      if (what === 'licence_request') return licenceRequestNotice(p, rulesEnv(env).approval === 'approved');
       if (what.startsWith('summary:')) return summaryNotice(p, what.slice('summary:'.length));
       if (what.startsWith('safety_spike:')) return safetySpikeNotice(p, what.slice('safety_spike:'.length));
       return { subject: `[מדרגות] ${what}`, lines: [`${what}`, `ref: ${row.ref}`, ...Object.entries(p).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)] };
@@ -155,20 +156,27 @@ export function renderNotice(env, row) {
   }
 }
 
-/** A teacher asked for a trial or a quote. The owner answers by email and grants with npm run owner. */
-function licenceRequestNotice(p) {
+/**
+ * A teacher asked for a trial or a quote. The owner answers by email and grants with npm run owner. Before the Ministry's
+ * catalogue approval (MOE_AI_APPROVAL, trust spec TRUST-11 §5) a trial request can only come from a private group (the
+ * server refuses a school's), so its command carries --private-ok; a school's quote is answered with the same rule.
+ */
+function licenceRequestNotice(p, approved = false) {
   const trial = p.wants === 'trial';
   return {
     subject: `[מדרגות] בקשה ${trial ? 'לניסיון' : 'להצעת מחיר'} לכיתה ${p.classCode || ''}`.trim(),
     lines: [
       trial ? 'מורה ביקש ניסיון של שבועיים לכיתה. ניסיון לא נפתח לבד: מאשרים אותו בסקריפט.' : 'מורה ביקש הצעת מחיר לבית הספר.',
+      approved ? '' : trial
+        ? 'הכיתה סומנה כקבוצה פרטית שלא פועלת במסגרת בית ספר. עד האישור בקטלוג של משרד החינוך, ניסיון ניתן רק לקבוצה כזו.'
+        : 'עד האישור בקטלוג של משרד החינוך העוזר החכם כבוי לתלמידים בכיתות של בית ספר. כתבו בתשובה שהוא יופעל אחרי האישור.',
       `בית הספר: ${p.school || ''}`,
       `כמה כיתות: ${p.classes ?? ''}`,
       p.students ? `תלמידים בכיתה: ${p.students}` : '',
       p.note ? `הערה: ${p.note}` : '',
       `קוד הכיתה: ${p.classCode || ''}`,
       `מייל המורה: ${p.email || 'לא ידוע (החשבון נמחק)'}`,
-      trial ? `לאישור: npm run owner -- grant-class --class ${p.classCode || ''} --seats ${Math.min(40, Number(p.students) || 30)} --trial` : '',
+      trial ? `לאישור: npm run owner -- grant-class --class ${p.classCode || ''} --seats ${Math.min(40, Number(p.students) || 30)} --trial${approved ? '' : ' --private-ok --note "<שם הקבוצה>"'}` : '',
       `כשמטפלים בבקשה: npm run owner -- request-done --id ${p.requestId || ''}`,
     ],
   };

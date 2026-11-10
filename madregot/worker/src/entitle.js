@@ -25,6 +25,7 @@ import {
 } from './util.js';
 import { daySpendUsd, monthSpendUsd, queueNotices, ownerNotice } from './spend.js';
 import { classAiPolicy, studentAiAllowed, rulesEnv } from '../../shared/schoolRules.js';
+import { maskPersonal } from '../../shared/safety.js';
 import { recordSafety } from './safety.js';
 
 // ---------------------------------------------------------------- limits
@@ -123,6 +124,15 @@ function classGate(env, id) {
   return 'off';
 }
 
+// Free text a teacher sends the tutor is masked like a child's (TRUST-11 §7, the Ministry's §5.1: nothing identifying
+// goes into an AI tool). Every string of the request is masked except the pictures themselves.
+const PICTURE = new Set(['image', 'data', 'mediaType']);
+function maskFields(v, name = '') {
+  if (typeof v === 'string') return PICTURE.has(name) ? v : maskPersonal(v).text;
+  if (Array.isArray(v)) return v.map((x) => maskFields(x));
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, maskFields(x, k)]));
+  return v;
+}
 export async function requireStudent(req, env) {
   const s = await studentFrom(req, env);
   if (!s) throw new HttpError(401, 'not_signed_in');
@@ -314,7 +324,7 @@ async function openKey(req, env, id, { strict = false } = {}) {
 export async function resolve(req, env, kind, input) {
   const id = await identify(req, env);
   try {
-    return { ...(await decide(req, env, kind, input, id)), linkedBad: id.famBad, linked: id.fam };
+    return { ...(await decide(req, env, kind, id.teacher ? maskFields(input) : input, id)), linkedBad: id.famBad, linked: id.fam };
   } catch (e) {
     if (e instanceof HttpError && id.famBad) e.headers = { ...(e.headers || {}), 'X-AI-Linked': '0' };
     throw e;

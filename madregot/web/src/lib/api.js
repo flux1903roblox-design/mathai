@@ -72,6 +72,11 @@ const MESSAGES = {
   // teacher and class
   class_locked: 'הכיתה נעולה להצטרפות חדשה. בקשו מהמורה לפתוח אותה.',
   class_has_licence: 'לכיתה הזו כבר יש רישיון פעיל.',
+  // the Ministry of Education's AI rules for a class (trust spec TRUST-11, Appendix E §E.8)
+  class_ai_locked: 'לפי ההנחיות של משרד החינוך אי אפשר עדיין להפעיל את העוזר לתלמידים בכיתה הזו.',
+  consent_needed: 'קודם צריך לאשר שיש הסכמת הורים.',
+  school_ai_not_approved: 'רישיון עם עוזר חכם לתלמידים בבית ספר אפשר לקנות אחרי האישור בקטלוג. בינתיים אפשר לבקש הצעת מחיר.',
+  private_attest_required: 'כדי לבחור קבוצה פרטית צריך לאשר שהיא לא פועלת במסגרת בית ספר.',
   bad_licence_code: 'קוד הרישיון לא נכון, פג או כבר נוצל.',
   request_open: 'כבר שלחתם בקשה כזו. נחזור אליכם במייל.',
   too_many_requests: 'נשלחו היום הרבה בקשות מהכיתה הזו. נסו שוב מחר.',

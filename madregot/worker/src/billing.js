@@ -6,6 +6,7 @@ import {
 } from './util.js';
 import { requireAccount, requireRecentCode } from './account.js';
 import { requireTeacher, limits, paywallOn } from './entitle.js';
+import { refuseSchoolSale } from './classai.js';
 import { decide, endAt, cleanDetail } from './apply.js';
 import { providerById, currentProvider, webhookProvider } from './providers/index.js';
 import { testSignature } from './providers/test.js';
@@ -112,6 +113,8 @@ export async function checkout(req, env, cors) {
   let amount; let classCode = null; let seats = null;
   if (plan === 'class_year') {
     const cls = await requireTeacher(req, env);
+    // no AI class licence where the Ministry's rules keep student AI off (trust spec TRUST-11 §5): 409 school_ai_not_approved
+    await refuseSchoolSale(env, cls);
     seats = Number(b.seats);
     if (!Number.isInteger(seats) || seats < SEATS.min || seats > SEATS.max) throw new HttpError(422, 'bad_plan');
     classCode = cls.code;

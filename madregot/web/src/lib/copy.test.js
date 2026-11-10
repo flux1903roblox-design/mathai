@@ -39,3 +39,16 @@ describe('the name a child takes in a class', () => {
     expect(errorText('wrong_pin')).toMatch(/^הקוד האישי לא נכון\./);
   });
 });
+
+describe('the Ministry of Education\'s AI rules, in the words a teacher and a child see (trust spec TRUST-11, Appendix E §E.8)', () => {
+  it('each refusal of the rule has its own calm message', () => {
+    expect(errorText('class_ai_off')).toBe('בכיתה הזו העוזר החכם כבוי.');
+    expect(errorText('class_ai_locked')).toBe('לפי ההנחיות של משרד החינוך אי אפשר עדיין להפעיל את העוזר לתלמידים בכיתה הזו.');
+    expect(errorText('consent_needed')).toBe('קודם צריך לאשר שיש הסכמת הורים.');
+    expect(errorText('school_ai_not_approved')).toBe('רישיון עם עוזר חכם לתלמידים בבית ספר אפשר לקנות אחרי האישור בקטלוג. בינתיים אפשר לבקש הצעת מחיר.');
+    expect(errorText('private_attest_required')).toBe('כדי לבחור קבוצה פרטית צריך לאשר שהיא לא פועלת במסגרת בית ספר.');
+  });
+  it('the child\'s message names no price and no plan', () => {
+    for (const w of ['₪', 'מנוי', 'לקנות', 'רישיון']) expect(errorText('class_ai_off')).not.toContain(w);
+  });
+});

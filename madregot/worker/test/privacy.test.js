@@ -107,7 +107,7 @@ test('the account page lists a claimed device that has yet to collect its token 
 test('a class licence bought by card shows on its buyer\'s page with its end, its refund options and its receipts', async () => {
   const { makeClass } = await import('./helpers.js');
   h = await setup();
-  const cls = await makeClass(h);
+  const cls = await makeClass(h, { setting: 'private' });
   const token = await signIn(h, 'teacher@example.test');
   const r = await h.call('POST', '/api/billing/checkout', { headers: { 'X-Account-Token': token, 'Idempotency-Key': 'class-licence-0123456789', ...cls.teacher }, body: { plan: 'class_year', seats: 12, adult: true, terms: '2026-11' } });
   const { orderId } = await r.json();

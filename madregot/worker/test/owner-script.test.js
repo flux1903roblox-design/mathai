@@ -8,7 +8,9 @@ import { endOfDayIso } from '../src/util.js';
 import { makeEnv, rows, one } from './helpers.js';
 
 const NOW = '2026-11-10T10:00:00.000Z';
-const fixed = { now: NOW, id: '0123456789abcdef', code: 'ABCD-EFGH-JKLM' };
+// approval: the Ministry's catalogue approval (MOE_AI_APPROVAL) is given here, so the grants build; the refusal before it
+// has its own tests below
+const fixed = { now: NOW, id: '0123456789abcdef', code: 'ABCD-EFGH-JKLM', approval: 'approved' };
 const run = (env, sql) => env.DB.raw.exec(sql);
 function withClass(code = 'ABC234') {
   const env = makeEnv();
