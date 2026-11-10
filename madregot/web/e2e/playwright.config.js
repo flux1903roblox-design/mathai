@@ -16,7 +16,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   reporter: [['list']],
   snapshotPathTemplate: '{testDir}/__screens__/{projectName}/{arg}{ext}',
-  use: { baseURL: `http://127.0.0.1:${PORT}/`, locale: 'he-IL', reducedMotion: 'reduce', trace: 'off' },
+  // the build registers an offline service worker (DURABLE-10); tests run without it unless a file opts in with
+  // test.use({ serviceWorkers: 'allow' }) (offline.spec.js)
+  use: { baseURL: `http://127.0.0.1:${PORT}/`, locale: 'he-IL', reducedMotion: 'reduce', trace: 'off', serviceWorkers: 'block' },
   webServer: {
     command: `npx vite build --base ./ --outDir dist-test --emptyOutDir && npx vite preview --outDir dist-test --port ${PORT} --strictPort --host 127.0.0.1`,
     cwd: '..',

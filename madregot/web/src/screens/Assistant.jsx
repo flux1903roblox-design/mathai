@@ -12,6 +12,7 @@ import { parseNum, near } from '@/content/util.js';
 import AIChat from '@/components/AIChat.jsx';
 import { Box, Button, Field, Sheet, Thinking } from '@/components/ui.jsx';
 import { Markdown } from '@/components/MathText.jsx';
+import OfflineChip from '@/components/durable/OfflineChip.jsx';
 
 /** A result that appears below the fold scrolls up into view, clear of the tab bar. */
 function useReveal(dep) {
@@ -233,6 +234,7 @@ export default function Assistant() {
         <h1 className="screen-bar-title">עוזר AI</h1>
         <span className="icon-btn-spacer" aria-hidden="true" />
       </header>
+      <OfflineChip />
       {!ready ? <AiOffline /> : (
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
           <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>

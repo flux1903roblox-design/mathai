@@ -12,6 +12,7 @@ import PathNode from '@/components/PathNode.jsx';
 import Chest from '@/components/map/Chest.jsx';
 import { Emblem, SCENERY } from '@/components/map/Scenery.jsx';
 import { Button } from '@/components/ui.jsx';
+import OfflineChip from '@/components/durable/OfflineChip.jsx';
 import { nextStage } from '@/learn/mastery.ts';
 import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
 import { skillId } from '@/learn/skills.ts';
@@ -214,6 +215,7 @@ export default function Learn() {
         <Link to="/quests" className={clsx('top-stat streak', streak > 0 && 'on')} aria-label={`רצף של ${streak} ימים`}><Flame size={24} aria-hidden="true" />{streak}</Link>
         <Link to="/quests" className="top-stat xp" aria-label={`היום ${todayXp} מתוך ${goalXp} XP, סך הכול ${xp}`}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
       </header>
+      <OfflineChip />
 
       <div className="learn-layout">
       <div className="learn-body">

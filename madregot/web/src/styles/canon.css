@@ -588,3 +588,15 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
   --rule: #e4e7ec; --rule-strong: #cdd2da; /* colour-ok: stays light in both themes */
   color: var(--ink);
 }
+
+/* ------------------------------------------------------------------ offline (DURABLE-10)
+   A calm line at the top of Learn and the assistant while there is no internet: a quiet card, not an alarm. */
+/* online, the status region stays in the page for screen readers but out of the layout (no gap in a flex column) */
+.offline-slot:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.offline-chip {
+  display: flex; align-items: center; gap: var(--s3); margin: var(--s4) var(--s4) 0; padding: 10px 14px;
+  border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink);
+  font-size: 15px; line-height: 22px; font-weight: 600;
+}
+.offline-chip svg { flex: none; color: var(--ink-2); }
+.page .offline-chip { margin: 0; } /* a page with its own padding (the assistant) */

@@ -1,11 +1,13 @@
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import serviceWorker from './scripts/vite-plugin-sw.mjs';
 
 // BASE_PATH lets the same build live at a GitHub Pages sub-path, e.g. /madregot/.
 export default defineConfig({
   base: process.env.BASE_PATH || '/',
-  plugins: [react()],
+  // serviceWorker: dist/sw.js with the list of files kept for offline use (DURABLE-10)
+  plugins: [react(), serviceWorker()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
