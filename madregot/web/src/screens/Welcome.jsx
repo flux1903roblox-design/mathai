@@ -15,6 +15,8 @@ import { topicsFor } from '@/content/index.js';
 import { KNOW, placementMax } from '@/lib/placement.js';
 import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
+import FileRestore from '@/components/durable/FileRestore.jsx';
+import RestorePreview from '@/components/durable/RestorePreview.jsx';
 
 /** The grade's topics in one short line: up to three names, then how many more (it stays on two lines at 320px). */
 const topicLine = (g) => { const ts = topicsFor(g).map((t) => t.title); return ts.length <= 3 ? ts.join(', ') : `${ts.slice(0, 3).join(', ')} ועוד ${ts.length - 3}`; };
@@ -58,7 +60,7 @@ function Option({ on, onPick, title, sub, glyph, aside, badge }) {
  * First time on the app: a few short questions, one per screen, then a choice
  * between a placement test and starting from the first stair.
  */
-function Onboarding({ onTeacher }) {
+function Onboarding({ onTeacher, onRestore }) {
   const navigate = useNavigate();
   const setProfile = useApp((s) => s.setProfile);
   const setGoalXp = useApp((s) => s.setGoalXp);
@@ -123,6 +125,8 @@ function Onboarding({ onTeacher }) {
         <footer className="hello-foot" data-region="footer">
           <Button className="btn-block btn-lg" onClick={() => setI(0)}>מתחילים</Button>
           <Button variant="secondary" className="btn-block" onClick={onTeacher}>אני מורה</Button>
+          {/* a backup file works with no server and no account, so this is on every build */}
+          <Button variant="ghost" className="btn-block hello-restore" onClick={onRestore}>יש לי קובץ גיבוי</Button>
           {/* the site's front page carries the dedicated cancel link and the parents' page while the tutor is sold,
               and the legal pages (with a server) */}
           {server && (
@@ -330,8 +334,39 @@ function TeacherStart({ onBack }) {
   );
 }
 
+/**
+ * "יש לי קובץ גיבוי" on a new device (DURABLE-4): choose the file, see what it holds, continue from it. Once the
+ * progress is in, the app shows the map (the profile came with it). It needs no server.
+ */
+function RestoreStart({ onBack }) {
+  const [found, setFound] = useState(null);
+  useEffect(() => { window.scrollTo(0, 0); }, [found]);
+  return (
+    <div className="ob ob-flow restore-start">
+      <header className="ob-top" data-region="header">
+        <button type="button" className="icon-btn" onClick={found ? () => setFound(null) : onBack} aria-label="חזרה"><ArrowRight size={26} aria-hidden="true" /></button>
+        <span className="ob-top-title">שחזור מקובץ</span>
+      </header>
+      <main className="ob-main" data-region="content">
+        {found ? (
+          <RestorePreview backup={found} heading="h1" onCancel={() => setFound(null)} />
+        ) : (
+          <>
+            <div className="ob-ask" data-region="question">
+              <div className="ob-bubble"><h1 className="ob-bubble-title">בחרו את קובץ הגיבוי ששמרתם.</h1></div>
+            </div>
+            <p className="restore-hint">שם הקובץ מתחיל ב־<bdi>madregot</bdi>.</p>
+            <FileRestore onLoaded={setFound} />
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
 export default function Welcome() {
-  const [teacher, setTeacher] = useState(false);
-  if (!teacher) return <Onboarding onTeacher={() => setTeacher(true)} />;
-  return <TeacherStart onBack={() => setTeacher(false)} />;
+  const [mode, setMode] = useState(null); // null: the first visit; 'teacher'; 'restore'
+  if (mode === 'teacher') return <TeacherStart onBack={() => setMode(null)} />;
+  if (mode === 'restore') return <RestoreStart onBack={() => setMode(null)} />;
+  return <Onboarding onTeacher={() => setMode('teacher')} onRestore={() => setMode('restore')} />;
 }

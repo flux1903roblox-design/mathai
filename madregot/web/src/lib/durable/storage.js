@@ -377,6 +377,15 @@ export function createDurable({
     flushNow,
     /** What this tab last read and last wrote, and the revision it is based on: the base of a merge between tabs. */
     snapshot: () => ({ loadedRev, lastWriterTab, lastLoaded, lastWritten, seen }),
+    /**
+     * The quarantine, for a restore that replaces the progress here (apply.js): `keep(raw, reason)` resolves true when
+     * the copy is kept; `latest(reason)` is the newest record with that reason (`{ key, value }`) or null; `drop(key)`.
+     */
+    quarantine: {
+      keep: async (raw, reason) => (idb && !wiped ? idb.quarantine(raw, reason, version, iso()) : false),
+      latest: async (reason) => (idb ? (await idb.listQuarantine()).filter((r) => r.value?.reason === reason).at(-1) ?? null : null),
+      drop: async (k) => { try { await idb?.dropQuarantine(k); } catch { /* gone already */ } },
+    },
   };
 }
 
@@ -394,3 +403,5 @@ export const bindDurableStore = (s) => durable.bind(s);
 export const durableBoot = () => durable.boot().catch(() => {});
 /** "Delete all" (Settings): after it, the page must be reloaded. */
 export const durableWipe = () => durable.wipe();
+/** The app's quarantine (a replacing restore keeps the progress it replaces there, for 30 days). */
+export const durableQuarantine = durable.quarantine;

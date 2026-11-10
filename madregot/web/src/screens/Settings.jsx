@@ -248,6 +248,8 @@ export default function Settings() {
     el?.scrollIntoView({ block: 'start' }); el?.focus({ preventScroll: true });
   }, [hash]);
   const [name, setName] = useState(profile.name);
+  // the name can change under this screen (a restore, another tab): the field follows it
+  useEffect(() => { setName(profile.name); }, [profile.name]);
   const [danger, setDanger] = useState(null);
   return (
     <div className="page pushed settings">

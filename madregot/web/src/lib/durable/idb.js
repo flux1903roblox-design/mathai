@@ -104,6 +104,8 @@ export function createIdb(backend) {
     },
     /** The quarantined records, oldest first: `[{ key, value }]`. */
     listQuarantine: () => all('quarantine'),
+    /** Remove one quarantined record (an undone restore has used its copy). */
+    dropQuarantine: (k) => backend.delete('quarantine', k),
     /** Records older than 30 days go, and only the newest 5 stay. */
     async pruneQuarantine(now) {
       const list = await all('quarantine');
