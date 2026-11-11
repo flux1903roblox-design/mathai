@@ -6,8 +6,8 @@
 .streak-flame { color: var(--rule-strong); }
 .streak-flame.on { color: var(--streak); }
 .freeze-line { display: flex; align-items: flex-start; gap: var(--s2); color: var(--ink-2); font-size: var(--t-sm); }
-.seg-main { font-family: var(--font-display); font-weight: 700; font-size: var(--t-md); line-height: 22px; }
-.seg-sub { font-size: var(--t-xs); line-height: 16px; }
+.seg-main { font-family: var(--font-display); font-weight: 700; font-size: var(--t-md); line-height: 1.1579; }
+.seg-sub { font-size: var(--t-xs); line-height: 1.1429; }
 .quest.done .quest-check { background: var(--good); border-color: var(--good); }
 .quest.done .quest-title { color: var(--good-ink); }
 .quest-count { direction: ltr; }
@@ -30,13 +30,13 @@
   .quest-say { grid-column: 1 / -1; grid-row: 2; text-align: center; }
 }
 /* the streak card on Quests: the month's learning days (a number that does not reset) and the repair, in words */
-.streak-month { margin: 4px 0 0; color: var(--ink); font-size: 15px; line-height: 22px; font-weight: 600; }
-.streak-repair-line { margin: 0; padding: var(--s3) var(--s4); border-radius: 12px; background: var(--ground); color: var(--ink); font-size: 15px; line-height: 22px; }
+.streak-month { margin: 4px 0 0; color: var(--ink); font-size: 0.9375rem; line-height: 1.4667; font-weight: 600; }
+.streak-repair-line { margin: 0; padding: var(--s3) var(--s4); border-radius: 12px; background: var(--ground); color: var(--ink); font-size: 0.9375rem; line-height: 1.4667; }
 .week-best-card { display: flex; flex-direction: column; gap: var(--s3); }
-.wk-line { margin: 0; color: var(--ink); font-size: 17px; line-height: 24px; font-weight: 600; }
+.wk-line { margin: 0; color: var(--ink); font-size: 1.0625rem; line-height: 1.4118; font-weight: 600; }
 .wk-track { position: relative; height: 14px; }
 .wk-fill { height: 100%; border-radius: 999px; background: var(--brand); transition: width var(--duration-slow) var(--ease-smooth-out); }
-.wk-best { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 22px; }
+.wk-best { margin: 0; color: var(--ink-2); font-size: 0.9375rem; line-height: 1.4667; }
 @media (prefers-reduced-motion: reduce) {
   .wk-fill { transition: none; }
 }

@@ -59,13 +59,13 @@
   /* type: Rubik only; body 17px, nothing below 14px */
   --font-ui: 'Rubik Variable', 'Rubik', 'Segoe UI', 'Arial Hebrew', Arial, sans-serif;
   --font-display: var(--font-ui);
-  --t-xs: 14px; --lh-xs: 20px;
-  --t-sm: 15px; --lh-sm: 22px;
-  --t-base: 17px; --lh-base: 26px;
-  --t-md: 19px; --lh-md: 28px;
-  --t-lg: 22px; --lh-lg: 30px;
-  --t-xl: 28px; --lh-xl: 36px;
-  --t-2xl: 34px; --lh-2xl: 42px;
+  --t-xs: 0.875rem; --lh-xs: 1.4286;
+  --t-sm: 0.9375rem; --lh-sm: 1.4667;
+  --t-base: 1.0625rem; --lh-base: 1.5295;
+  --t-md: 1.1875rem; --lh-md: 1.4737;
+  --t-lg: 1.375rem; --lh-lg: 1.3637;
+  --t-xl: 1.75rem; --lh-xl: 1.2858;
+  --t-2xl: 2.125rem; --lh-2xl: 1.2353;
 
   /* 4px cell grid, rounded geometry */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px; --s12: 48px;
@@ -125,7 +125,10 @@ body {
   color: var(--ink);
   font-family: var(--font-ui);
   font-size: var(--t-base);
-  line-height: var(--lh-base);
+  /* the one line height in rem (COUNCIL2-8): what every element without its own line height inherits, 26px at the
+     default text size for any font size, as before; it grows with the reader's text size like the rem font sizes.
+     Every other line height is unitless (units.test.js) */
+  line-height: 1.625rem;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   caret-color: var(--cyan);
@@ -169,12 +172,12 @@ img, svg { max-width: 100%; }
   --surface-0: var(--paper); --surface-1: var(--surface); --surface-2: var(--ground);
   --line: var(--rule); --line-2: var(--rule-strong);
   --r-s: 12px; --r-m: 16px; --r-l: 16px; --r-xl: 20px;
-  --fs-display: 32px; --lh-display: 38px;
-  --fs-h1: 26px; --lh-h1: 32px;
-  --fs-h2: 21px; --lh-h2: 28px;
-  --fs-body: 17px; --lh-body: 26px;
-  --fs-sm: 15px; --lh-sm2: 22px;
-  --fs-xs: 14px; --lh-xs2: 20px;
+  --fs-display: 2rem; --lh-display: 1.1875;
+  --fs-h1: 1.625rem; --lh-h1: 1.2308;
+  --fs-h2: 1.3125rem; --lh-h2: 1.3334;
+  --fs-body: 1.0625rem; --lh-body: 1.5295;
+  --fs-sm: 0.9375rem; --lh-sm2: 1.4667;
+  --fs-xs: 0.875rem; --lh-xs2: 1.4286;
   --gutter: 20px;
 }
 @media (min-width: 600px) { :root { --gutter: 24px; } }

@@ -16,7 +16,7 @@
 .lead { max-width: 60ch; }
 .footnote { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
 .mono { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
-.wordmark { font-family: var(--font-display); font-weight: 700; font-size: 52px; line-height: 60px; color: var(--brand-ink); }
+.wordmark { font-family: var(--font-display); font-weight: 700; font-size: 3.25rem; line-height: 1.1539; color: var(--brand-ink); }
 .wordmark.sm { font-size: var(--t-lg); line-height: var(--lh-lg); }
 
 /* ---------- tab bar: bottom on phones, side rail on wide screens ---------- */
@@ -35,7 +35,7 @@
     position: sticky; top: 0; inset: 0 auto auto 0; height: 100dvh; width: 240px; flex: none;
     display: flex; flex-direction: column; gap: var(--s1); padding: var(--s6) var(--s4); border-inline-end: 2px solid var(--rule);
   }
-  .tabbar-brand { display: block; font-family: var(--font-display); line-height: 36px; padding: 0 var(--s3) var(--s5); }
+  .tabbar-brand { display: block; font-family: var(--font-display); line-height: 1.3847; padding: 0 var(--s3) var(--s5); }
   .tab { margin: 0; }
   .tab:hover { background: var(--ground); }
   .tab.active:hover { background: var(--brand-tint); }
@@ -71,7 +71,7 @@
   transition: border-color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out), box-shadow var(--duration-quick) var(--ease-out);
 }
 .input:focus { outline: none; border-color: var(--brand); background: var(--paper); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 30%, transparent); }
-textarea.input { resize: vertical; min-height: 88px; line-height: var(--lh-base); }
+textarea.input { resize: vertical; min-height: 88px; line-height: 1.3685; }
 .form-error { color: var(--magenta); font-weight: 600; }
 
 .segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--s2); padding: 0; background: none; border: 0; }
@@ -142,7 +142,7 @@ textarea.input { resize: vertical; min-height: 88px; line-height: var(--lh-base)
   display: inline-grid; place-items: center; flex: none; min-width: 28px; height: 28px; padding: 0 6px; border-radius: 14px;
   background: var(--ink); color: var(--paper); font-weight: 800; font-size: var(--t-sm); line-height: 1; margin-top: 0;
 }
-.qdisplay { text-align: center; font-size: 38px; line-height: 1.2; overflow-x: auto; }
+.qdisplay { text-align: center; font-size: 2.375rem; line-height: 1.2; overflow-x: auto; }
 .qdisplay .katex { font-size: 1em; }
 .figure { width: 100%; max-width: 300px; height: auto; direction: ltr; font-family: var(--font-ui); }
 .figure.coord { max-width: 280px; }
@@ -160,7 +160,7 @@ textarea.input { resize: vertical; min-height: 88px; line-height: var(--lh-base)
 
 .answer { display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
 .slot {
-  width: 104px; height: 56px; text-align: center; font-size: 26px; font-weight: 700; direction: ltr;
+  width: 104px; height: 56px; text-align: center; font-size: 1.625rem; font-weight: 700; direction: ltr;
   border: 2px solid var(--rule-strong); border-radius: 12px; background: var(--paper);
   transition: border-color var(--duration-quick) var(--ease-out), box-shadow var(--duration-quick) var(--ease-out);
 }
@@ -175,7 +175,7 @@ textarea.input { resize: vertical; min-height: 88px; line-height: var(--lh-base)
   font-size: var(--t-md); font-weight: 700; padding: var(--s2) var(--s4);
   transition: border-color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out);
 }
-.choices.inline .choice { font-size: 28px; }
+.choices.inline .choice { font-size: 1.75rem; }
 .choice.good { border-color: var(--ok); background: var(--ok-tint); color: var(--ok); }
 .choice.bad { border-color: var(--magenta); background: var(--magenta-tint); color: var(--magenta); text-decoration: line-through; }
 .choice:disabled { cursor: default; }
@@ -190,10 +190,10 @@ details.sol[open] summary { margin-bottom: var(--s2); }
 .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .key {
   height: 48px; border-radius: 10px; border: 1px solid var(--rule); background: var(--ground);
-  font-size: 22px; font-weight: 700; display: grid; place-items: center; touch-action: manipulation;
+  font-size: 1.375rem; font-weight: 700; display: grid; place-items: center; touch-action: manipulation;
 }
 .key:active { background: var(--rule); }
-.key-minus { color: var(--magenta); font-size: 26px; }
+.key-minus { color: var(--magenta); font-size: 1.625rem; }
 .key-primary { grid-column: span 2; background: var(--cyan); border-color: var(--cyan); color: var(--on-brand); font-size: var(--t-md); display: flex; gap: var(--s2); }
 .key-primary:active { background: var(--brand-d); }
 @media (min-width: 700px) { .key { height: 52px; } }
@@ -293,7 +293,7 @@ details.sol[open] summary { margin-bottom: var(--s2); }
 .weak-reason { font-size: var(--t-sm); }
 .pick { display: flex; align-items: center; gap: var(--s2); min-height: 52px; padding: 0 var(--s3); border-radius: 12px; border: 2px solid var(--rule-strong); background: var(--paper); font-weight: 700; text-align: start; }
 .pick.on { border-color: var(--c); background: var(--c-tint); }
-.qdisplay.small { font-size: 28px; }
+.qdisplay.small { font-size: 1.75rem; }
 .exam-choices { display: flex; gap: var(--s6); flex-wrap: wrap; font-weight: 700; }
 @media print {
   .tabbar, .no-print, .toast, [data-sonner-toaster] { display: none !important; }
@@ -451,8 +451,8 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .lesson-main {
   flex: 1; outline: none; flex-direction: column; gap: var(--s4);
 }
-.lesson .qtext { margin: 0; font-family: var(--font-ui); font-weight: 600; font-size: var(--t-lg); line-height: 32px; text-wrap: pretty; }
-.lesson .qdisplay { font-size: 40px; }
+.lesson .qtext { margin: 0; font-family: var(--font-ui); font-weight: 600; font-size: var(--t-lg); line-height: 1.4546; text-wrap: pretty; }
+.lesson .qdisplay { font-size: 2.5rem; }
 
 .tools { display: flex; flex-wrap: wrap; gap: var(--s2); }
 
@@ -475,11 +475,11 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 /* the dock: keypad and the one big check button, within thumb reach */
 .lesson-dock .btn { margin-bottom: var(--lip); }
 .lesson .key { margin-bottom: 3px;
-  font-family: var(--font-ui); font-size: 24px;
+  font-family: var(--font-ui); font-size: 1.5rem;
   transition: transform 60ms var(--ease-out), box-shadow 60ms var(--ease-out);
 }
 .lesson .key:active { transform: translateY(3px); box-shadow: 0 0 0 var(--rule-press); background: var(--ground); }
-.lesson .key-minus { color: var(--bad-ink); font-size: 30px; }
+.lesson .key-minus { color: var(--bad-ink); font-size: 1.875rem; }
 .key-wide { grid-column: span 2; }
 
 /* the answer slots, chunky */
@@ -741,7 +741,7 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
 .me-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3); margin: 0; }
 .me-stat { display: flex; flex-direction: column-reverse; align-items: center; gap: 2px; padding: var(--s3) var(--s2); }
 .me-stat dt { font-weight: 600; }
-.me-stat dd { margin: 0; display: inline-flex; align-items: center; gap: 6px; line-height: var(--lh-xl); }
+.me-stat dd { margin: 0; display: inline-flex; align-items: center; gap: 6px; line-height: 1.6364; }
 .me-xp dd { color: var(--gold-ink); } .me-xp svg { color: var(--gold); fill: var(--gold); }
 .me-streak dd { color: var(--streak-ink); } .me-streak svg { color: var(--streak); fill: var(--streak); }
 .me-stairs dd { color: var(--brand-d); } .me-stairs svg { color: var(--brand-ink); }
@@ -784,11 +784,11 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
 .answer-error { text-align: center; font-size: var(--t-sm); padding-top: 4px; }
 .lesson-foot .lesson-dock .btn { margin-bottom: var(--lip); }
 .lesson .keypad { gap: 6px; }
-.lesson .key { height: clamp(40px, 6.3dvh, 52px); font-size: clamp(20px, 3dvh, 24px); }
-.lesson .key-minus { font-size: clamp(24px, 3.6dvh, 30px); }
+.lesson .key { height: clamp(40px, 6.3dvh, 52px); font-size: clamp(1.25rem, 3dvh, 1.5rem); }
+.lesson .key-minus { font-size: clamp(1.5rem, 3.6dvh, 1.875rem); }
 .dock-row .tool {
   flex-direction: column; justify-content: center; gap: 1px; height: 52px; padding: 0 6px;
-  border-radius: 14px; font-size: 11px; line-height: 1.1;
+  border-radius: 14px; font-size: 0.6875rem; line-height: 1.1;
 }
 .dock-row .tool svg { flex: none; }
 .check-btn { flex: 1; min-width: 0; min-height: 52px; }
@@ -1014,14 +1014,14 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   font-family: var(--font-display); font-size: var(--t-md); font-weight: 600; color: var(--ink); line-height: 1.3; text-align: center;
 }
 .manip-readout b { font-weight: 700; }
-.manip-line .manip-readout { min-height: 34px; font-size: 22px; }
+.manip-line .manip-readout { min-height: 34px; font-size: 1.375rem; }
 .manip-target { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; background: var(--gold-tint); color: var(--gold-ink); font-family: var(--font-ui); font-size: var(--t-sm); font-weight: 700; }
 .manip-note { margin: 0; font-size: var(--t-sm); font-weight: 600; color: var(--good-ink); text-align: center; }
 
 /* step buttons: chunky, thumb-sized, and the only controls a keyboard or switch user needs */
 .manip-controls { flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); }
 .step-btn:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
-.step-label b { font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--ink); }
+.step-label b { font-family: var(--font-display); font-size: 1.1875rem; font-weight: 700; color: var(--ink); }
 /* two steppers in one row on a narrow phone, as the plot's x and y are (the tiles' two zero pairs, the rectangle's
    height and units): one under the other, the second sat below the footer at 320 with nothing showing it was there.
    The row may use the teaching panel's padding. */
@@ -1031,7 +1031,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 @media (max-height: 700px) and (max-width: 899px) {
   .manip { gap: 6px; }
   .manip-readout { font-size: var(--t-base); }
-  .manip-line .manip-readout { min-height: 28px; font-size: 19px; }
+  .manip-line .manip-readout { min-height: 28px; font-size: 1.1875rem; }
 }
 /* מדי under the object, saying what just happened; only where the screen has room for him */
 @container (min-height: 470px) { }
@@ -1044,7 +1044,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 /* ---------- algebra: the balance, the tiles, the area model and the inequality ray ---------- */
 /* Colours come from the unit (--c, which is the brand blue) with the brand as a fallback, so the same drawings work
    as static figures outside a unit. A negative is a dashed outline and a minus sign, never a colour. */
-.manip-balance .manip-readout, .manip-tiles .manip-readout, .manip-area .manip-readout, .manip-ray .manip-readout { min-height: 34px; font-size: 22px; }
+.manip-balance .manip-readout, .manip-tiles .manip-readout, .manip-area .manip-readout, .manip-ray .manip-readout { min-height: 34px; font-size: 1.375rem; }
 
 /* the balance */
 .mp-bal-beam rect { fill: var(--ink); }
@@ -1077,12 +1077,12 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .figure.fg-obj { max-width: 340px; }
 
 @media (max-height: 700px) and (max-width: 899px) {
-  .manip-balance .manip-readout, .manip-tiles .manip-readout, .manip-area .manip-readout, .manip-ray .manip-readout { min-height: 28px; font-size: 19px; }
+  .manip-balance .manip-readout, .manip-tiles .manip-readout, .manip-area .manip-readout, .manip-ray .manip-readout { min-height: 28px; font-size: 1.1875rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .mp-tile-pair, .mp-area-hint { animation: none; }
 }
-.manip-angle .manip-readout { font-size: 22px; }
+.manip-angle .manip-readout { font-size: 1.375rem; }
 
 /* ---------- the adventure map: a world per unit, stairs for stops, a chest halfway ---------- */
 /* each world opens with its landscape behind the first stairs; the land below keeps the world's ground */
@@ -1213,7 +1213,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 /* ---------- the first screen: what it is, for whom, and the product itself to try ---------- */
 .ob-hello { gap: var(--s4); justify-content: safe center; }
 .hello-brand { margin: 0; display: flex; align-items: center; gap: var(--s2); }
-.hello-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 7.4vw, 34px); line-height: 1.2; color: var(--ink); text-wrap: balance; }
+.hello-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(1.625rem, 7.4vw, 2.125rem); line-height: 1.2; color: var(--ink); text-wrap: balance; }
 .hello-fact { margin: 0; color: var(--ink-2); font-size: var(--t-base); line-height: 1.5; }
 /* the hero comes in once, as the page opens */
 .ob-hello > * { animation: hello-in var(--duration-slow) var(--ease-smooth-out) both; }
@@ -1224,7 +1224,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 /* short phones: the demo stays whole and the way in stays under the thumb */
 @media (max-height: 700px) {
   .ob-hello { padding-top: var(--s4); padding-bottom: 0; gap: var(--s3); }
-  .hello-title { font-size: clamp(22px, 6.6vw, 28px); }
+  .hello-title { font-size: clamp(1.375rem, 6.6vw, 1.75rem); }
   .hello-fact { font-size: var(--t-sm); }
   .ob-hello .form-actions {
     position: sticky; bottom: 0; z-index: 3; margin: 0 calc(var(--s4) * -1); padding: var(--s3) var(--s4) calc(var(--s3) + env(safe-area-inset-bottom, 0px));
@@ -1359,7 +1359,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .step-label b .katex, .np-chip .katex { font-size: 1.3em; }
 
 /* the fraction bar */
-.manip-fbar .manip-readout, .manip-dline .manip-readout { min-height: 34px; font-size: 22px; }
+.manip-fbar .manip-readout, .manip-dline .manip-readout { min-height: 34px; font-size: 1.375rem; }
 .mp-fbar-whole .mp-num { font-size: 16px; }
 /* two step buttons side by side even on a 320px phone (the buttons keep their 44px) */
 .mp-fbar-guide { stroke: var(--brand); stroke-width: 2.5; stroke-dasharray: 6 5; animation: hint-in var(--duration-slow) var(--ease-smooth-out) both; }
@@ -1371,7 +1371,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .mp-dline-pill text { fill: var(--c-d, var(--brand-d)); font-family: var(--font-display); font-size: 15px; font-weight: 700; }
 .mp-dline-chip span { font-family: var(--font-ui); font-size: var(--t-base); font-weight: 600; }
 @media (max-height: 700px) and (max-width: 899px) {
-  .manip-fbar .manip-readout, .manip-dline .manip-readout { min-height: 28px; font-size: 19px; }
+  .manip-fbar .manip-readout, .manip-dline .manip-readout { min-height: 28px; font-size: 1.1875rem; }
 }
 
 /* the still figures: a number line, bars, a cut rectangle, the double line, dots in rows */

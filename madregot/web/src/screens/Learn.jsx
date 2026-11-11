@@ -321,6 +321,8 @@ function LearnMap() {
   return (
     <div className="learn">
       <header className="learn-top" data-region="header">
+        {/* the page's heading for a screen reader's list of headings (COUNCIL2-8); the look stays the bar's */}
+        <h1 className="visually-hidden">המסלול של כיתה {view === '7' ? 'ז׳' : 'ח׳'}</h1>
         <button type="button" className="grade-switch" onClick={() => { setView(otherGrade); setOpen(null); }} aria-label={`מציגים את כיתה ${view === '7' ? 'ז׳' : 'ח׳'}. מעבר לכיתה ${otherGrade === '7' ? 'ז׳' : 'ח׳'}`}>
           כיתה {view === '7' ? 'ז׳' : 'ח׳'}<ChevronDown size={18} aria-hidden="true" />
         </button>

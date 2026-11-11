@@ -35,4 +35,4 @@
 .chat-rest-actions { display: flex; gap: var(--s2); }
 .chat-input textarea:disabled { background: var(--ground); color: var(--ink-2); }
 /* the title of Madi's opening bubble (AIChat introTitle; the Assistant screen's chat too) */
-.chat-bubble-title { margin: 0 0 4px; font-family: var(--font-display); font-size: 19px; }
+.chat-bubble-title { margin: 0 0 4px; font-family: var(--font-display); font-size: 1.1875rem; }

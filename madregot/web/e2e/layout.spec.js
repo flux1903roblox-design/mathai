@@ -1,7 +1,7 @@
 // The exercise screen on every device: for each kind of exercise, the question, the maths, the answer field
 // and the check button stay usable, the keypad never covers them, and the page never scrolls.
 import { test, expect } from '@playwright/test';
-import { open, openOn, student, item, answer, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { open, openOn, student, livedIn, item, answer, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
 
 const CASES = [
   ['a number (signed numbers)', 'signed/1', '7'],
@@ -192,3 +192,35 @@ test('on a computer: digits typed anywhere go to the answer, Enter checks and En
   await expect(page.locator('section.fb')).toHaveCount(0);
   await expect.poll(async () => (await item(page)).key).not.toBe(it.key);
 });
+
+// Large text (COUNCIL2-8): the reader sets the browser's text size to 200% (Chrome's own setting, through the DevTools
+// protocol). The font sizes are in rem (src/styles/units.test.js), so every screen's text doubles; on a phone of 390
+// and of 320 the page still never scrolls sideways, and the tab bar's labels stay inside the screen.
+const BIG = [
+  ['the home screen', '#/', livedIn('7')], ['the welcome screen', '#/', null], ['a lesson', '#/lesson/signed/1', student('7')],
+  ['a lesson with a line equation', '#/lesson/line/5', student('8')], ['"me"', '#/me', livedIn('7')], ['the topics', '#/topics', livedIn('8')],
+  ['the missions', '#/quests', livedIn('7')], ['the settings', '#/settings', livedIn('7')], ['the assistant', '#/assistant', livedIn('7')],
+  ['the parents\' sign-in', '#/parents', null], ['the privacy policy', '#/privacy', null], ['the teacher\'s demo board', '#/?start=demo', null],
+];
+for (const [what, route, state] of BIG) {
+  test(`text at 200%: ${what} grows its text and fits phones of 390 and 320`, async ({ page, context }, info) => {
+    test.skip(info.project.name !== 'phone', 'one run checks both widths');
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } });
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 568 });
+      await open(page, route, state);
+      await expect(page.locator('.loading-state')).toHaveCount(0);
+      await page.waitForTimeout(300);
+      const m = await page.evaluate(() => ({
+        root: getComputedStyle(document.documentElement).fontSize, body: getComputedStyle(document.body).fontSize,
+        over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        tabs: [...document.querySelectorAll('.tabbar .tab')].filter((t) => { const r = t.getBoundingClientRect(); return r.width && (r.left < -1 || r.right > innerWidth + 1); }).map((t) => t.textContent),
+      }));
+      expect(m.root, 'the browser\'s text size is 200%').toBe('32px');
+      expect(m.body, 'body text follows it (17px at the default size)').toBe('34px');
+      expect(m.over, `${width}px: the page scrolls sideways`).toBeLessThanOrEqual(0);
+      expect(m.tabs, `${width}px: tab labels outside the screen`).toEqual([]);
+    }
+  });
+}

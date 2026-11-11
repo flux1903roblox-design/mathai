@@ -119,7 +119,7 @@ function Disclosure({ plans }) {
     <section className="parents-disclosure" aria-label="פרטי העסק">
       <p><b>{b.name || 'מדרגות'}</b>{b.id ? ` · ${b.id}` : ''}</p>
       {b.address && <p>{b.address}</p>}
-      <p>{b.email && <a href={`mailto:${b.email}`} dir="ltr">{b.email}</a>}{b.email && b.phone ? ' · ' : ''}{b.phone && <a href={`tel:${b.phone}`} dir="ltr">{b.phone}</a>}</p>
+      <p>{b.email && <a href={`mailto:${b.email}`} dir="ltr">{b.email}</a>}{b.email && b.phone ? ' · ' : ''}{b.phone && <a href={`tel:${b.phone}`} dir="ltr" className="parents-phone">{b.phone}</a>}</p>
       <p><Link to="/terms">התקנון</Link> · <Link to="/privacy">מדיניות הפרטיות</Link> · <Link to="/terms#cancel">מדיניות הביטול</Link></p>
     </section>
   );

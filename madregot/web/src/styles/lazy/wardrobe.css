@@ -9,7 +9,7 @@
 
 .wardrobe-stage { position: sticky; top: 0; z-index: 2; display: grid; place-items: center; padding: var(--s3) 0 var(--s2); background: var(--paper); border-bottom: 1px solid var(--rule); }
 .wardrobe-madi { display: block; }
-.wardrobe-sub-head { margin: var(--s4) 0 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-wrap: pretty; }
+.wardrobe-sub-head { margin: var(--s4) 0 0; color: var(--ink-2); font-size: 1rem; line-height: 1.5; text-wrap: pretty; }
 .wardrobe-group { margin-top: var(--s5); }
 .wardrobe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: var(--s2); }
 .wardrobe-opt { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 112px; padding: var(--s3) var(--s2) 10px; border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -19,8 +19,8 @@
 .wardrobe-art { width: 48px; height: 48px; }
 .wardrobe-none { width: 32px; height: 32px; border: 2px dashed var(--rule-strong); border-radius: 50%; }
 .wardrobe-text { display: flex; flex-direction: column; min-width: 0; }
-.wardrobe-name { font-size: 16px; line-height: 22px; font-weight: 700; }
-.wardrobe-sub { color: var(--ink-2); font-size: 14px; line-height: 20px; text-wrap: balance; }
+.wardrobe-name { font-size: 1rem; line-height: 1.375; font-weight: 700; }
+.wardrobe-sub { color: var(--ink-2); font-size: 0.875rem; line-height: 1.4286; text-wrap: balance; }
 .wardrobe-mark { position: absolute; top: 8px; inset-inline-start: 8px; display: grid; place-items: center; color: var(--brand-ink); }
 .wardrobe-lock { display: flex; flex-direction: column; gap: var(--s4); }
 @media (max-height: 640px) {

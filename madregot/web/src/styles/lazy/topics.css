@@ -43,15 +43,15 @@
 .section-card-art { flex: none; align-self: center; }
 /* ---- topics: the units not being climbed jump there quietly */
 .section-card-jump { min-height: 44px; padding: 0 var(--s2); border: 0; background: none; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
-.section-card-label { color: var(--ink-2); font-size: 15px; font-weight: 500; }
-.section-card-desc { color: var(--ink-2); font-size: 16px; line-height: 24px; }
+.section-card-label { color: var(--ink-2); font-size: 0.9375rem; font-weight: 500; }
+.section-card-desc { color: var(--ink-2); font-size: 1rem; line-height: 1.5; }
 .section-card-guide, .section-card-jump { color: var(--brand-d); }
-.section-card-now { margin: 0; font-size: 15px; line-height: 22px; font-weight: 500; color: var(--ink-2); }
+.section-card-now { margin: 0; font-size: 0.9375rem; line-height: 1.4667; font-weight: 500; color: var(--ink-2); }
 .board .board-topic { padding-top: var(--s3); }
 .board .board-topic > .board-cleared:first-child { margin-top: 0; }
 .mm-tile { width: 44px; height: 44px; }
 .mm-tiles { gap: 6px; }
 /* the topics screen: a unit's challenges, once one is open */
-.section-card-ch { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: 0; font-size: 15px; line-height: 22px; font-weight: 600; color: var(--ink-2); }
+.section-card-ch { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: 0; font-size: 0.9375rem; line-height: 1.4667; font-weight: 600; color: var(--ink-2); }
 a.section-card-ch { color: var(--brand-d); text-decoration: none; }
 a.section-card-ch:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }

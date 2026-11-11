@@ -5,25 +5,27 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { NOW, student, livedIn, answer, proceed, appReady } from './helpers.js';
-import { fakeServer, API, CORS, livePlan } from './fakeServer.js';
+import { fakeServer, API, CORS, livePlan, TOKEN } from './fakeServer.js';
+import { findUnitProblems } from '../scripts/check-units.mjs';
 
 /** Open a route with a saved state, seeded before the app starts (as subscription.spec.js does). */
 let seeds = 0;
-async function open(page, route, state = null) {
+async function open(page, route, state = null, local = {}) {
   await page.clock.setFixedTime(NOW);
   await page.goto('about:blank');
   seeds += 1;
   const key = `seeded-${seeds}-${Date.now()}`;
-  await page.addInitScript(([s, k]) => {
+  await page.addInitScript(([s, k, more]) => {
     if (location.protocol === 'about:' || sessionStorage.getItem(k)) return;
     sessionStorage.setItem(k, '1');
     localStorage.clear();
     localStorage.setItem('madregot-debug', '1');
     localStorage.setItem('madregot-seed', '424242');
     if (s) localStorage.setItem('madregot', JSON.stringify(s));
+    for (const [name, value] of Object.entries(more)) localStorage.setItem(name, value);
     // the copy of the progress on the device goes too: the app's own open waits behind this delete
     indexedDB.deleteDatabase('madregot-durable');
-  }, [state, key]);
+  }, [state, key, local]);
   await page.goto(`./${route}`);
   await appReady(page);
 }
@@ -33,6 +35,36 @@ const withServer = (extra = {}) => ({ ...student('7', { ai: { mode: 'server', ap
 const firstTime = (extra = {}) => withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '' }, ...extra });
 const classStudent = () => withServer({ profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' } });
 const chatCalls = (log) => log.filter((r) => r.path === '/api/ai/chat');
+/** A parent's own phone, signed in to /parents (as report.spec.js's openParent): no profile, the app on the fake server. */
+const PARENT_TOKEN = TOKEN(9);
+const parentPhone = () => { const p = withServer(); p.state.profile = null; return p; };
+/** The demo class's board, not the way in to it. */
+const demoBoard = async (page) => {
+  await expect(page.getByRole('heading', { level: 1, name: 'ז׳3 (דוגמה)' })).toBeVisible();
+  await expect(page.locator('.demo-banner')).toBeVisible();
+};
+/**
+ * The parents' page signed in (not its sign-in form): the plans and the seller's details, whose phone number stays on
+ * one line, read left to right (COUNCIL2-8), also at 320.
+ */
+const signedInPage = async (page) => {
+  await expect(page.getByLabel('כתובת המייל')).toHaveCount(0);
+  const seller = page.getByRole('region', { name: 'פרטי העסק' });
+  await expect(seller).toBeVisible();
+  const phone = seller.locator('a[href^="tel:"]');
+  await expect(phone).toHaveText('03-0000000');
+  await expect(phone).toHaveAttribute('dir', 'ltr');
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 700 });
+    expect(await phone.evaluate((a) => [getComputedStyle(a).whiteSpace, a.getClientRects().length]), `${width}px`).toEqual(['nowrap', 1]);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+};
+/** The fake server for that parent: signed in, no plan yet, one linked device. */
+const signedInParent = async (page) => {
+  const server = await fakeServer(page, { devices: [{ id: 'd000000000000001', label: 'הטאבלט', token: `fd1.${'1'.repeat(64)}`, linkedAt: '2026-09-20T16:00:00Z', lastSync: '2026-11-05T08:10:00Z' }] }, baseOf());
+  server.st.sessions.add(PARENT_TOKEN);
+};
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
 const CARE_TEXT = 'תודה שכתבתם. מה שאתם מרגישים חשוב. אפשר להתקשר לער״ן, 1201, בכל שעה.';
 
@@ -1398,6 +1430,10 @@ test.describe('accessibility statement', () => {
     ['הנושאים', '#/topics', livedIn('8')], ['המשימות', '#/quests', livedIn('7')], ['המבחנים', '#/exams', livedIn('7')],
     ['הכניסה לעמוד ההורים', '#/parents', null], ['ביטול המנוי', '#/cancel', null],
     ['התקנון', '#/terms', null], ['הפרטיות', '#/privacy', null], ['הנגישות', '#/accessibility', null], ['הבטיחות', '#/safety', null],
+    // COUNCIL2-8: the teacher's board (the demo class: 24 invented students, every tab, no server) and the parents' page
+    // once signed in (no plan yet: the plans, the disclosure, the two boxes, a linked device and the account)
+    ['לוח המורה', '#/?start=demo', null, {}, null, demoBoard],
+    ['עמוד ההורים אחרי הכניסה', '#/parents', parentPhone(), { 'madregot-parent': JSON.stringify({ token: PARENT_TOKEN, email: 'parent@example.test' }) }, signedInParent, signedInPage],
   ];
   // each line of "מה הותאם", word for word, and the check that backs it: a check run on every screen, or a test below
   const CLAIMS = {
@@ -1408,6 +1444,7 @@ test.describe('accessibility statement', () => {
     'לכל תרגיל עם גרירה (ציר מספרים, נקודות, קווים, זוויות ועוד) יש גם כפתורים שמזיזים בלי לגרור.': 'drag',
     'הניגודיות בין הטקסט לרקע עומדת בתקן: לפחות 4.5 ל־1, ובטקסט גדול לפחות 3 ל־1.': 'contrast',
     'המסכים מתאימים לטלפון ברוחב 320 פיקסלים, בלי גלילה הצידה.': 'narrow',
+    'הטקסט גדל כשמגדילים את גודל הטקסט בדפדפן או בטלפון. גם בגודל כפול המסכים נשארים ברוחב הטלפון, בלי גלילה הצידה.': 'textsize',
     'כשמבקשים ממערכת ההפעלה להפחית תנועה, שום דבר לא קופץ, מחליק או חוזר על עצמו. נשארות רק הופעות רכות.': 'motion',
   };
   const PER_SCREEN = ['lang', 'names', 'keyboard', 'contrast', 'narrow'];
@@ -1424,12 +1461,14 @@ test.describe('accessibility statement', () => {
   /** A role with no name in the accessibility tree: "- button" or "- link [disabled]", with no quoted name. */
   const NAMELESS = /^\s*- (button|link|textbox|checkbox|radio|combobox|switch|slider|spinbutton|searchbox|tab|menuitem)(?=\s*(?::|\[|$))/;
 
-  for (const [label, route, state] of SCREENS) {
+  for (const [label, route, state, local, setup, ready] of SCREENS) {
     test(`on ${label}: language, names, keyboard, contrast and 320px`, async ({ page }) => {
-      await open(page, route, state);
+      if (setup) await setup(page);
+      await open(page, route, state, local);
       // the screen itself, not the loading line its code shows while it arrives
       await expect(page.locator('.loading-state')).toHaveCount(0);
       await expect(page.locator('h1, h2').first()).toBeVisible();
+      if (ready) await ready(page);
       await page.waitForTimeout(200);
 
       const [lang, dir] = await page.evaluate(() => [document.documentElement.lang, document.documentElement.dir]);
@@ -1525,6 +1564,15 @@ test.describe('accessibility statement', () => {
     await expect(fb, claimOf('feedback')).toBeVisible();
     await expect(fb).toHaveAttribute('aria-live', 'assertive');
     await expect(fb).toHaveAccessibleName(/.+/);
+  });
+
+  test('text grows with the reader\'s text size (layout.spec.js checks screens at 200% on 390 and 320)', () => {
+    // no font size in px and no line height with a unit in the stylesheets, except the listed SVG labels (units.test.js)
+    const { bad, stale } = findUnitProblems();
+    expect([...bad.map((b) => `${b.file} ${b.selector} ${b.property}`), ...stale], claimOf('textsize')).toEqual([]);
+    const spec = readFileSync(new URL('./layout.spec.js', import.meta.url), 'utf8');
+    expect(spec, claimOf('textsize')).toContain("test(`text at 200%: ${what} grows its text and fits phones of 390 and 320`");
+    expect(spec).toContain("standard: 32");
   });
 
   test('every exercise you drag also moves with buttons (manip.spec.js checks each kind)', () => {
