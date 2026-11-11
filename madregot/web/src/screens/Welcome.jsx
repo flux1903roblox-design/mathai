@@ -6,7 +6,6 @@ import clsx from 'clsx';
 import { toast } from 'sonner';
 import { useApp, STORE_KEY } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
-import { openDemo } from '@/lib/demo.js';
 import { useAIStatus, refreshStatus } from '@/lib/account.js';
 import { Button, Field } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
@@ -387,9 +386,10 @@ function RestoreStart({ onBack }) {
  */
 export default function Welcome() {
   const [params, setParams] = useSearchParams();
-  // #/?start=demo reached inside the app (on opening, lib/demo.js bootDemo already did it): the demo class, here
+  // #/?start=demo reached inside the app (on opening, lib/demo.js bootDemo already did it): the demo class, here. The
+  // demo's code is a file of its own, loaded only then (FOLLOWUP-23).
   const wantsDemo = params.get('start') === 'demo';
-  useEffect(() => { if (wantsDemo) openDemo(); }, [wantsDemo]);
+  useEffect(() => { if (wantsDemo) import('@/lib/demo.js').then((m) => m.openDemo()); }, [wantsDemo]);
   // a landing page's link (STUDENT-13, lib/deepLink.js): ?next=/rescue&src=mivchan, or ?start=teacher&src=pilot; the
   // place and the source are read once, on arrival (the source is counted once)
   const [link] = useState(() => deepLink(`?${params}`));

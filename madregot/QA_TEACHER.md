@@ -303,7 +303,8 @@ In the table, `teacher-x` means the four files `__screens__/{phone-small,phone,t
 
 The teacher suite had run only on the phone. Run on all four projects, every case passed the first time; the pictures
 showed five things, and a second run caught a sixth (a case that failed now and then on the wider screens). All six are
-fixed in `faa060c`, in `web/src/styles/canon.css`:
+fixed in `faa060c`, in `web/src/styles/canon.css` (since FOLLOWUP-23 these rules are in `styles/lazy/teacher.css`,
+which loads with the teacher's screens):
 
 | Seen on | What | Fix |
 |---|---|---|

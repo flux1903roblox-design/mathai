@@ -23,7 +23,7 @@ import { canSell } from '@/lib/price.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import SupportSheet from '@/components/SupportSheet.jsx';
 import AIIntro from '@/components/AIIntro.jsx';
-import DemoAsk from '@/components/DemoAsk.jsx';
+import { useDemoAsk } from '@/lib/demoWanted.js';
 import { useLearnClock } from '@/lib/learnClock.js';
 import { loadTopic } from '@/learn/content/index.ts';
 import { loadKatex } from '@/components/MathText.jsx';
@@ -71,6 +71,8 @@ const Restore = lazy(() => import('@/screens/Restore.jsx'));
 const StoreParents = lazy(() => import('@/screens/parents/StoreParents.jsx'));
 // a store build asks before the first AI request (STUDENT-12, Apple 5.1.2(i)); the web build does not carry the sheet
 const AIConsentSheet = import.meta.env.VITE_STORE ? lazy(() => import('@/components/AIConsentSheet.jsx')) : null;
+// the demo class asked for on a device someone uses (lib/demo.js bootDemo): the sheet's file loads only then (FOLLOWUP-23)
+const DemoAsk = lazy(() => import('@/components/DemoAsk.jsx'));
 const Exams = lazy(() => import('@/screens/Exams.jsx'));
 const ExamCheck = lazy(() => import('@/screens/ExamCheck.jsx'));
 const ExamResult = lazy(() => import('@/screens/ExamResult.jsx'));
@@ -280,6 +282,7 @@ function StudentLook() {
 /** The app's screens. Rendered under a data router so a lesson can ask before the back button leaves it. */
 function Root() {
   const role = useApp((s) => s.profile?.role);
+  const demoAsked = useDemoAsk((s) => s.asked);
   const sell = canSell();
   useAIStatusBoot();
   usePreloadLastTopic(role);
@@ -294,7 +297,7 @@ function Root() {
       {role && AIConsentSheet && <Suspense fallback={null}><AIConsentSheet /></Suspense>}
       {role && <StatusWatch />}
       {/* the demo class asked for on a device someone uses: it opens in a new tab (lib/demo.js) */}
-      <DemoAsk />
+      {demoAsked && <Suspense fallback={null}><DemoAsk /></Suspense>}
       {/* once in a while, on a calm screen and never in a lesson: keep a backup? (lib/durable/nudge.js says when) */}
       {role === 'student' && <BackupNudge />}
       {/* a linked device: the child is told about the parents' summary before anything is sent (lib/familySync.js) */}

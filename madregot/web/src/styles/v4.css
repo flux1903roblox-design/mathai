@@ -493,7 +493,6 @@ a.hub-row:active { background: var(--p-100); }
 .set-rows-wrap .set-rows { margin: 0; }
 .set-row svg { margin-inline-end: var(--s2); }
 
-
 /* ---- today's mission rows (the old mission page lives here now) */
 .today-row { position: relative; display: grid !important; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: var(--s3); }
 .today-row .chev { align-self: center; }
@@ -533,25 +532,11 @@ a.hub-row:active { background: var(--p-100); }
 /* ---- the teacher's start and sign-in: the onboarding flow */
 .ob-top-title { flex: 1; text-align: center; margin-inline-end: 44px; font-family: var(--font-display); font-weight: 700; font-size: 18px; }
 .ob-bubble-title { margin: 0; font: inherit; }
-.teacher-off.ob { max-width: none; width: 100%; }
-.teacher-off .teacher-off-lead { margin: 0; color: var(--ink-2); }
-.teacher-off .set-group > ul, .teacher-off .set-group > ol { border: 0; padding: 0; background: none; }
-.teacher-off .teacher-off-steps { padding: var(--s3) var(--s4) var(--s3) var(--s6) !important; border: 2px solid var(--line) !important; border-radius: var(--r-m); background: var(--surface) !important; }
 
 /* ---- the teacher's board: the solid header, 2×2 tiles, a segmented switch, groups of rows */
 .teacher { background: var(--ground); }
-.t-head .wordmark { color: var(--on-brand); }
-.t-head .t-class { padding-inline-end: 84px; }
-.t-head .t-class-name { margin: 0; font-family: var(--font-display); font-size: 30px; line-height: 36px; color: var(--on-brand); }
-.t-code { background: var(--surface); color: var(--ink); border-color: var(--surface); }
-.t-code span:first-child { font-weight: 600; letter-spacing: 0; font-size: var(--fs-sm); color: var(--ink-2); }
-.t-main { max-width: 1100px; }
 /* a topic's name may take two lines in the student table, so a grade with five topics fits a laptop screen */
 .kpi-sky .kpi-icon { color: var(--ch-sky-ink); }
-.t-tabs.segmented { overflow: visible; padding: 0; }
-.t-tabs .t-tab { border-radius: var(--r-md); padding: 0 var(--s2); }
-.t-tabs .t-tab.on { color: var(--brand-d); background: var(--brand-tint); box-shadow: 0 3px 0 var(--brand-line); }
-.t-group .set-head { color: var(--ink-2); }
 
 /* ---- guided solving: the typed last step fills the row, the check is the bottom button */
 .together .tg-final { display: block; }

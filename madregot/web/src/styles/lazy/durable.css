@@ -1,0 +1,80 @@
+/* Saving the progress (DURABLE-1…6, DURABLE-9), out of the first-load stylesheets (FOLLOWUP-23): Settings › שמירת
+   ההתקדמות (SaveSection.jsx), the support details' rows (SupportInfo.jsx) and the reminder's Home Screen row
+   (ReminderSettings.jsx), the backup code's sheet (BackupCodeSheet.jsx) and the restore screen (Restore.jsx). Each of
+   those imports this file; all of them load on demand. In canon.css's order. */
+
+.restore-form > .offline-need { margin-bottom: var(--s2); }
+.save-section .set-head:focus { outline: none; }
+.save-section .set-head:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.save-rows { margin: 0; }
+.save-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); min-height: 56px; }
+.save-row dt { font-weight: 700; font-size: 17px; line-height: 24px; color: var(--ink); }
+.save-row dd { margin: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 16px; line-height: 24px; font-weight: 600; }
+.save-row .save-ok { color: var(--good-ink); }
+.save-row .save-not { color: var(--ink); }
+.save-row + .save-row { border-top: 2px solid var(--line); }
+/* asking the browser to keep the data, and the iPhone Home Screen guide (DURABLE-3): the info button beside the row's
+   name, the ask button under the rows, the guide's row with its chevron. No motion: everything here is still. */
+.save-row dt { display: inline-flex; align-items: center; gap: 2px; }
+.save-info { width: 44px; height: 44px; margin-inline-start: -6px; color: var(--ink-2); }
+.save-ask { align-self: flex-start; margin: calc(-1 * var(--s2)) 0 var(--s1); padding-inline: 0; text-decoration: underline; text-underline-offset: 3px; }
+.save-install { justify-content: space-between; gap: var(--s3); width: 100%; border-top: 2px solid var(--line) !important; }
+.save-install svg { color: var(--ink-2); flex: none; }
+/* Settings › מידע לתמיכה (DURABLE-9): closed by default, its heading is the button that opens it */
+.support-summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; margin: 0; cursor: pointer; list-style: none; }
+.support-summary::-webkit-details-marker { display: none; }
+.support-chev { flex: none; color: var(--ink-2); }
+.support-info[open] .support-chev { transform: rotate(180deg); }
+.support-rows .save-row { min-height: 48px; }
+.support-rows dd { font-weight: 600; color: var(--ink); }
+.support-errors-row { align-items: flex-start; padding: var(--s2) 0; }
+.support-errors-row dd { flex: 1 1 100%; }
+.support-errors { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s2); font-weight: 400; font-size: 15px; line-height: 22px; }
+.support-errors li { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.support-error-when { color: var(--ink-2); }
+.support-error-msg { text-align: start; }
+.support-copy { margin: var(--s3) 0 0; }
+/* the backup file (DURABLE-4): two full-width buttons under the rows, the note on who can read the file, and the undo
+   while it is offered. The file input is hidden under its label, which is drawn as a button and shows the focus ring. */
+.save-file { display: flex; flex-direction: column; gap: var(--s3); padding-top: var(--s3); border-top: 2px solid var(--line); }
+.save-file .btn { margin-inline: 0; }
+.save-note, .save-status { margin: 0; font-size: 15px; line-height: 22px; color: var(--ink-2); }
+.save-status:empty { display: none; }
+.save-undo { min-height: 48px; text-decoration: underline; text-underline-offset: 3px; }
+/* the backup code (DURABLE-5): its row and buttons above the file's, the notes it may show, and its sheet: the code
+   large, left to right and in mono (sized to fit 320 px on one line), the QR code on white, then the three ways to keep it */
+.save-backup { display: flex; flex-direction: column; gap: var(--s3); }
+/* (.set-group > :not(.set-head) clears its children's borders: the line above the backup row is drawn here) */
+.save-section > .save-backup { padding-bottom: var(--s3); border-top: 2px solid var(--line); border-radius: 0; }
+.save-backup .btn { margin-inline: 0; }
+.save-stop { min-height: 48px; text-decoration: underline; text-underline-offset: 3px; }
+/* "שמירת עותק בשרת הכיתה" (DURABLE-6): a switch with its label, the whole row a 48px target */
+.save-switch { justify-content: space-between; gap: var(--s3); min-height: 48px; font-weight: 700; font-size: 17px; line-height: 24px; color: var(--ink); border-top: 2px solid var(--line); padding-top: var(--s2); }
+.save-backup-note { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); }
+.save-backup-note p { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink); }
+.backup-code-body { display: flex; flex-direction: column; gap: var(--s3); }
+.backup-code-body > p { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
+.backup-code-body > .backup-who { font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.backup-code-body > .backup-code { margin: 0; text-align: center; white-space: nowrap; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: min(30px, calc((100vw - 64px) / 13)); line-height: 1.4; font-weight: 800; letter-spacing: 0.04em; color: var(--ink); }
+.backup-qr { align-self: center; padding: var(--s2); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
+.backup-qr .qr { display: block; width: 168px; height: 168px; }
+.backup-actions { display: flex; flex-direction: column; gap: var(--s2); }
+.backup-actions .btn { margin-inline: 0; }
+/* "יש לי קוד גיבוי" (DURABLE-5): the restore screen. The code field is left to right in mono, large enough to read each
+   symbol at 320 px; the waiting line under the button; then the quieter switch to the file. When the progress is back,
+   מדי and one line, and the way on. */
+.restore-screen .ob-top-title { margin-block: 0; }
+.restore-screen .ob-main { gap: var(--s4); }
+.restore-form { display: flex; flex-direction: column; gap: var(--s3); }
+.restore-form .btn { margin-inline: 0; }
+/* 19 symbols with the dashes fit on one line at 320 px (never under 16 px, so iOS does not zoom on focus) */
+.restore-input { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-weight: 700; letter-spacing: 0.03em; text-align: left;
+  font-size: clamp(16px, calc((100vw - 80px) / 12.2), var(--t-lg)); padding-inline: var(--s3); }
+.restore-form .form-error { margin: 0; }
+.restore-wait { margin: 0; min-height: 24px; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--ink-2); text-align: center; }
+.restore-switch { min-height: 48px; text-decoration: underline; text-underline-offset: 3px; }
+.restore-done { display: flex; flex-direction: column; align-items: center; gap: var(--s3); text-align: center; padding-top: var(--s4); }
+.restore-done .btn { margin-inline: 0; margin-top: var(--s2); }
+.restore-done-lead { margin: 0; font-size: 18px; line-height: 27px; color: var(--ink); }
+.restore-done-note { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--good-tint); color: var(--good-ink); font-size: 16px; line-height: 24px; }

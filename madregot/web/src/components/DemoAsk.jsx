@@ -1,6 +1,8 @@
 // The demo class asked for on a device someone uses (a student's or a real teacher's; lib/demo.js bootDemo): it opens
 // in a new tab, so nothing on this device changes. Asked once, with a tap, since a browser opens a new tab only then.
-import { useDemoAsk, demoUrl } from '@/lib/demo.js';
+// Its file loads only when the question is asked (App.jsx); its flags live in lib/demoWanted.js, on the first load
+// (FOLLOWUP-23).
+import { useDemoAsk, demoUrl } from '@/lib/demoWanted.js';
 import { Button, Sheet } from './ui.jsx';
 
 export default function DemoAsk() {

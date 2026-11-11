@@ -21,7 +21,7 @@ import { onMoment, keepaliveBudget, MOMENT_ORDER } from './lib/durable/moments.j
 import { registerSW } from './lib/swClient.js';
 import { useApp, today } from './lib/store.js';
 import { bootTopics } from './lib/bootTopics.js';
-import { bootDemo } from './lib/demo.js';
+import { demoWanted } from './lib/demoWanted.js';
 import { initInstall, countStoreOpen, INSTALLED_TEXT } from './lib/install.js';
 import { remindOnOpen } from './lib/reminder.js';
 // the durable lane's parts of "delete all" (lib/wipe.js): the backup on the server and the copy in the browser's database
@@ -50,7 +50,8 @@ initInstall(window, { onInstalled: () => toast.success(INSTALLED_TEXT) });
 // The first screen waits for the copy of the progress on the device (at most 300 ms, lib/durable/storage.js), so a
 // broken or lost save is already back when the app appears. Then the demo class (TEACHER-15): a reload inside it, or
 // an address that asks for it, opens it before the first screen (it holds saving, so the device's own save stays as
-// it was). Opened straight on a lesson or a stair, the first screen also waits for that screen's teaching content
+// it was). Its code loads only then (FOLLOWUP-23: lib/demoWanted.js decides, lib/demo.js is a file of its own).
+// Opened straight on a lesson or a stair, the first screen also waits for that screen's teaching content
 // (lib/bootTopics.js), so it appears whole.
 (async () => {
   await durableBoot();
@@ -59,7 +60,11 @@ initInstall(window, { onInstalled: () => toast.success(INSTALLED_TEXT) });
   countStoreOpen(window, { day: today(), last: useApp.getState().nudges?.storeOpenDay, mark: (day) => useApp.getState().setNudge({ storeOpenDay: day }) });
   // the daily reminder (STUDENT-11): the first open of a day keeps it alive on the server (only while it is on)
   remindOnOpen();
-  bootDemo();
+  if (demoWanted()) {
+    // a file that cannot load (offline before it was kept, a newer release on the server) is reported like any other,
+    // and the app still opens, without the demo
+    try { (await import('./lib/demo.js')).bootDemo(); } catch (e) { monitor.reportError('error', e); }
+  }
   await bootTopics(window.location.hash, useApp.getState());
   createRoot(document.getElementById('root')).render(
     <StrictMode>

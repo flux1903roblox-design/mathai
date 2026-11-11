@@ -1,5 +1,63 @@
-/* Parents.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
-   original order. Only Parents.jsx uses these classes. */
+/* The parents' area's own rules, out of the first-load stylesheets: the frame, the cards, the plan and its renewal,
+   the devices and the progress the family keeps, the cancel and delete sheets, the hand-over screen (/parents/info),
+   the legal pages' draft note and the adult step (TRUST-8). They load with the parents' chunk: ParentsFrame.jsx, the
+   frame of every page there (the store apps' StoreParents.jsx and the legal pages included), imports this file, and so
+   does Parents.jsx. The legal pages' reading rules are in legal.css (the teacher's pilot kit uses them too).
+   FOLLOWUP-23's block keeps canon.css's order; STUDENT-15's block (Parents.jsx's own rules) already loaded after it,
+   so it stays last. */
+
+/* ---- out of canon.css (FOLLOWUP-23), in its order */
+.parents-bar { position: sticky; top: 0; z-index: 5; margin-inline: calc(-1 * var(--s4)); padding-inline: var(--s2); }
+.parents-main { display: flex; flex-direction: column; gap: var(--s4); flex: 1; }
+.parents-card { display: flex; flex-direction: column; gap: var(--s3); }
+.parents-card p { margin: 0; }
+.store-parents-card { align-items: center; text-align: center; } /* a store app's parents' page (STUDENT-12) */
+.parents-card .card-title { margin: 0; }
+.parents-card.is-good { border-color: var(--good-line); background: var(--good-tint); }
+.parents-card.is-good .mascot, .parents-card.is-good svg.mascot { align-self: center; }
+/* how a plan goes on, next to the pay button (trust spec TRUST-10 §4) */
+.parents-terms-line { margin: 0; color: var(--ink); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.parents-renew { border-color: var(--brand-line); }
+/* the renewal button carries its price (Appendix E): on a narrow phone it takes two lines, never cut */
+.parents-renew .btn { white-space: normal; text-align: center; padding-block: var(--s2); line-height: var(--lh-sm); }
+.parents-plan.is-on { border-color: var(--brand-line); }
+.parents-rows > .set-row { min-height: 56px; padding: 0 var(--s5); border-bottom: 2px solid var(--rule); width: 100%; }
+.parents-rows > .set-row:last-child { border-bottom: 0; }
+/* the progress the family keeps (DURABLE-6): a line under each device that syncs it, the kept list, and the choice for a new device */
+.parents-device-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 12em; }
+.parents-device-saved { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--good-ink); font-weight: 600; }
+.parents-kept-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.parents-kept-list li { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) 0; }
+.parents-kept-list li + li { border-top: 2px solid var(--rule); }
+.parents-kept-name { font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.parents-kept-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.parents-kept-actions .btn { min-height: 44px; }
+.parents-continue { display: flex; flex-direction: column; gap: var(--s2); }
+.parents-continue-head { margin: 0; font-weight: 700; color: var(--ink); }
+.parents-continue .ob-opt { min-height: 56px; }
+.parents-account .muted { margin: 0; }
+.cancel-sheet .lead, .delete-sheet .lead { margin: 0; }
+.parents-foot { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4) 0 calc(var(--s5) + env(safe-area-inset-bottom, 0px)); border-top: 2px solid var(--rule); font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.parents-foot-links { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); }
+.parents-foot-links a { font-weight: 600; }
+.parents-foot-biz { margin: 0; }
+/* the hand-over screen on the child's device: the QR code and the link code, large */
+.handoff { align-items: center; text-align: center; }
+.handoff-lead { font-size: var(--t-md); line-height: var(--lh-md); color: var(--ink); }
+.handoff-qr { padding: var(--s3); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
+.handoff-qr .qr { display: block; width: min(208px, 60vw); height: auto; }
+.handoff-code { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: 40px; line-height: 48px; font-weight: 800; letter-spacing: 0.18em; color: var(--ink); }
+.handoff-wait { color: var(--ink-2); font-weight: 600; }
+.handoff-done { align-items: center; text-align: center; }
+.handoff-here { margin-top: 0; }
+/* one note while the texts wait for the lawyer's review (TRUST-2 §2) */
+.legal-draft { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
+/* ------------------------------------------------------------------ the adult step before the parents' area (TRUST-8) */
+.adult-form { display: flex; flex-direction: column; gap: var(--s3); }
+.adult-form .input { align-self: flex-start; width: 12ch; max-width: 100%; font-size: 22px; letter-spacing: 0.08em; text-align: center; }
+.adult-closed { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); font-weight: 600; }
+.adult-back { align-self: center; min-height: 44px; display: inline-flex; align-items: center; }
+/* ---- STUDENT-15: Parents.jsx's own rules, in their original order */
 .parents-list { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s1); }
 .parents-price { font-weight: 700; color: var(--ink); }
 .parents-note { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); color: var(--ink); }

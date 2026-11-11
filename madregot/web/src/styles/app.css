@@ -295,21 +295,14 @@ details.sol[open] summary { margin-bottom: var(--s2); }
 
 /* ---------- teacher ---------- */
 .teacher { min-height: 100dvh; background: var(--paper); }
-.t-class { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
-.t-class .input { width: auto; }
-.code-chip { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s3); border-radius: 10px; border: 1.5px solid var(--rule-strong); background: var(--paper); font-weight: 800; font-size: var(--t-md); letter-spacing: 0.06em; }
-.code-chip .muted { font-weight: 600; letter-spacing: 0; font-size: var(--t-sm); }
+/* the board's view tabs stay in this file: they are .seg buttons too (ui.jsx Segmented), and canon.css's .seg rules
+   must keep coming after them (FOLLOWUP-23) */
 .t-tab { min-height: 44px; padding: 0 var(--s4); border: 0; border-radius: 999px; background: transparent; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
 .t-tab.on { color: var(--paper); background: var(--ink); }
-/* a grid, not CSS columns: columns can split a box from its overhanging label; dense placement fills holes where it can */
-.t-list li.unseen .t-list-main::after { content: 'חדש'; margin-inline-start: var(--s2); font-size: var(--t-xs); font-weight: 800; background: var(--marker-strong); border-radius: 6px; padding: 0 6px; }
-.t-list .muted { font-size: var(--t-sm); }
 .rate { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; border-radius: 999px; padding: 0 var(--s2); }
 .rate.low { color: var(--magenta); background: var(--magenta-tint); }
 .rate.mid { color: var(--gold-ink); background: var(--gold-tint); }
 .rate.high { color: var(--ok); background: var(--ok-tint); }
-.help-item.unseen { border-color: var(--ink-2); }
-.help-item.done { opacity: 0.7; }
 
 /* ---------- toasts (STUDENT-15 SO2): Sonner's variables mapped to the tokens, so light and dark follow the theme ---------- */
 [data-sonner-toaster][data-sonner-theme].app-toaster {
@@ -393,91 +386,6 @@ details.sol[open] summary { margin-bottom: var(--s2); }
   body { font-size: 14px; }
   @page { margin: 16mm; }
 }
-/* The teacher's class exam (TEACHER-3 §4). Its printed copy sits at the end of <body> (ExamSheet.jsx PrintSheets) and
-   is hidden on screen. Printing it hides the app; <html data-print> says which mode prints, 'exam' (the version on
-   screen) or 'key' (a page per version); with none set (the browser's own print), the exam. It has its own named page
-   (A4, 14 mm), so the 16 mm above stays for every other print. Black on white whatever the theme. */
-.print-root { display: none; }
-@media print {
-  :root:has(body > .print-root), body:has(> .print-root) { background: var(--surface) !important; }
-  body:has(> .print-root) > :not(.print-root) { display: none !important; }
-  .print-root { display: block; color: #000; background: var(--surface); font-family: var(--font-ui); font-size: 11.5pt; line-height: 1.45; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .print-root *, [data-theme="dark"] .print-root * { color: #000 !important; background: transparent !important; box-shadow: none !important; text-shadow: none !important; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .print-sheet { display: none; page: exam; }
-  :root:not([data-print]) .print-sheet[data-mode="exam"], :root[data-print="exam"] .print-sheet[data-mode="exam"], :root[data-print="key"] .print-sheet[data-mode="key"] { display: block; }
-  /* the class report (TEACHER-7 §2): landscape, the table only, its header (class, range, the day it was made) on
-     every page, 25 students a page and never a student split across two */
-  :root:not([data-print]) .print-sheet[data-mode="report"], :root[data-print="report"] .print-sheet[data-mode="report"] { display: block; page: report; }
-  @page report {
-    size: A4 landscape; margin: 10mm 10mm 12mm;
-    @bottom-center { content: "מדרגות · עמוד " counter(page); direction: rtl; font-family: "Rubik Variable", Rubik, sans-serif; font-size: 8pt; color: #000; } /* colour-ok: printed on paper, black ink whatever the theme */
-  }
-  .pr-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; line-height: 1.3; font-variant-numeric: tabular-nums; }
-  .pr-table th, .pr-table td { padding: 1.2mm 1.6mm; text-align: start; vertical-align: top; border-bottom: 0.5pt solid #999; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .pr-table thead th { font-weight: 700; border-bottom: 1pt solid #000; vertical-align: bottom; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .pr-table thead .pr-head { padding: 0 0 2.5mm; font-size: 12pt; font-weight: 800; border-bottom: 1.5pt solid #000; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .pr-table tbody th { font-weight: 700; white-space: nowrap; }
-  .pr-table tbody tr { break-inside: avoid; }
-  .pr-table tbody tr.pr-break { break-after: page; }
-  .pr-table .pr-mis { max-width: 70mm; }
-  @page exam {
-    size: A4; margin: 14mm 14mm 16mm;
-    @bottom-center { content: "מדרגות · עמוד " counter(page); direction: rtl; font-family: "Rubik Variable", Rubik, sans-serif; font-size: 9pt; color: #000; } /* colour-ok: printed on paper, black ink whatever the theme */
-  }
-  .print-sheet .katex { font-size: 12pt; }
-  /* the exam: the header (title, version, the name, class and date lines) repeats on every page as the table's head */
-  .ps-frame { width: 100%; border-collapse: collapse; }
-  .ps-frame > thead > tr > td, .ps-frame > tbody > tr > td { padding: 0; vertical-align: top; }
-  .ps-frame > tbody > tr { break-inside: avoid; }
-  .ps-head { display: flex; flex-direction: column; gap: 2mm; margin-bottom: 3mm; padding-bottom: 2.5mm; border-bottom: 1.5pt solid #000; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .ps-title { margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 4mm; font-size: 14pt; line-height: 1.3; }
-  .ps-title b { font-weight: 800; }
-  .ps-version { flex: none; padding: 0 2.5mm; border: 1pt solid #000; border-radius: 2mm; font-weight: 700; font-size: 11pt; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .ps-lines { margin: 0; display: flex; flex-wrap: wrap; gap: 3mm 8mm; font-weight: 600; }
-  .ps-blank { display: inline-block; width: 28mm; height: 1em; border-bottom: 1pt solid #000; vertical-align: baseline; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .ps-blank.wide { width: 52mm; }
-  .ps-q { display: flex; flex-direction: column; gap: 2mm; padding: 3mm 0 4mm; break-inside: avoid; border-bottom: 0.5pt solid #bbb; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .ps-q .qtext { font-size: 12pt; line-height: 1.45; font-weight: 600; }
-  .ps-q .ex-num { border: 1pt solid #000; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .ps-q .qdisplay.small { font-size: 12pt; }
-  .ps-q .figure { max-width: 70mm; max-height: 62mm; margin-inline: auto; }
-  .ps-q .fg-grid { stroke: #999 !important; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .ps-q .exam-choices { gap: 3mm 8mm; font-size: 12pt; }
-  .ps-q .exam-work { height: 28mm; border: 0.75pt dashed #777; border-radius: 1.5mm; background-image: none; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .ps-q.has-fig .exam-work { height: 48mm; }
-  .ps-q .exam-answer-line .blank { border-bottom: 1pt solid #000; } /* colour-ok: printed on paper, black ink whatever the theme */
-  /* the key: one page per version, each answer with its steps, the footnote at the end */
-  .ps-key-page + .ps-key-page { break-before: page; }
-  .ps-key-title { margin: 0 0 4mm; padding-bottom: 2.5mm; border-bottom: 1.5pt solid #000; font-size: 14pt; line-height: 1.3; font-weight: 800; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .ps-key { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3mm; }
-  .ps-key-line { break-inside: avoid; display: flex; flex-direction: column; gap: 1mm; }
-  .ps-key-ans { margin: 0; font-size: 12pt; font-weight: 700; }
-  .ps-key-n { display: inline-block; min-width: 7mm; }
-  .ps-key-steps { display: flex; gap: 2mm; padding-inline-start: 7mm; font-size: 10pt; line-height: 1.45; }
-  .ps-key-way { flex: none; font-weight: 700; }
-  .ps-key-steps ol { margin: 0; padding-inline-start: 5mm; }
-  .ps-key-steps .katex { font-size: 10.5pt; }
-  .ps-key-foot { margin: 6mm 0 0; padding-top: 2mm; border-top: 0.75pt solid #000; font-size: 9pt; line-height: 1.45; } /* colour-ok: printed on paper, black ink whatever the theme */
-  /* the pilot kit's documents (TEACHER-10 §2): the document only, A4; in the parent letter the slip starts on a new
-     page under a dashed cut line */
-  :root:not([data-print]) .print-sheet[data-mode="doc"], :root[data-print="doc"] .print-sheet[data-mode="doc"] { display: block; page: school; }
-  @page school { size: A4; margin: 14mm 15mm 14mm; }
-  .sd-print-doc { font-size: 11pt; line-height: 1.45; }
-  .sd-print-doc h1 { margin: 0 0 3.5mm; font-size: 15pt; line-height: 1.3; font-weight: 800; }
-  .sd-print-doc h2 { margin: 4mm 0 1.5mm; font-size: 12.5pt; line-height: 1.3; font-weight: 700; break-after: avoid; }
-  .sd-print-doc p { margin: 0 0 2mm; }
-  .sd-print-doc ul, .sd-print-doc ol { margin: 0 0 2mm; padding-inline-start: 6mm; }
-  .sd-print-doc li { margin: 0 0 1.2mm; break-inside: avoid; }
-  .sd-print-doc ul:has(> li.sd-check) { padding-inline-start: 0; list-style: none; }
-  .sd-print-doc code { font-family: ui-monospace, Menlo, monospace; font-size: 10pt; direction: ltr; unicode-bidi: isolate; }
-  .sd-print-doc hr { break-before: page; margin: 0 0 8mm; border: 0; border-top: 1pt dashed #000; } /* colour-ok: printed on paper, black ink whatever the theme */
-  .sd-print-doc hr + h2 { margin-top: 0; }
-}
-.qstrip { display: inline-flex; flex-wrap: wrap; gap: 3px; max-width: 220px; }
-.qstrip i { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 5px; font-style: normal; font-size: 11px; font-weight: 800; }
-.qstrip i.ok { background: var(--ok-tint); color: var(--ok); }
-.qstrip i.mid { background: var(--gold-tint); color: var(--gold-ink); }
-.qstrip i.bad { background: var(--magenta); color: var(--on-brand); }
 
 /* touch: no double-tap zoom delay on controls; the pressed state is drawn by each control */
 a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="checkbox"] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -492,8 +400,6 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 /* held state: the wrong answer stays, crossed out, until a new one is typed */
 .slot.struck { color: var(--magenta); text-decoration: line-through; text-decoration-thickness: 2px; border-color: var(--magenta); }
 .slot.struck.active { box-shadow: 0 0 0 3px var(--magenta-tint); }
-/* teacher: the notebook page opens small and grows on click */
-.help-page-btn.big { max-width: 100%; cursor: zoom-out; }
 
 /* the highlighter: yellow marks words that matter (a student's own words, the next step), never whole cards */
 .hl { background: linear-gradient(transparent 48%, var(--marker-strong) 48%, var(--marker-strong) 92%, transparent 92%); box-decoration-break: clone; -webkit-box-decoration-break: clone; padding: 0 2px; }
@@ -1343,12 +1249,6 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ---------- the teacher view where there is no server ---------- */
-.teacher-off { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: var(--s4); }
-.teacher-off-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); }
-.teacher-off-list li { display: flex; gap: var(--s3); align-items: flex-start; padding: var(--s3); border: 2px solid var(--rule); border-radius: 16px; }
-.teacher-off-list li > svg { flex: none; color: var(--brand-ink); margin-top: 2px; }
-.teacher-off-list li > span { display: flex; flex-direction: column; gap: 2px; color: var(--ink-2); font-size: var(--t-sm); }
-.teacher-off-list b { color: var(--ink); font-size: var(--t-base); }
 .teacher-off-steps { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s2); }
 
 /* ---------- the continue card at the top of the learn screen ---------- */
@@ -1452,12 +1352,6 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .stats { gap: var(--s2); }
   .stat-value { gap: 3px; padding-inline: 4px; font-size: clamp(20px, 6.4vw, var(--t-xl)); }
   .stat-value svg { width: 16px; height: 16px; flex: none; }
-}
-
-/* teacher dashboard on phones: long keys wrap inside their box, the view tabs wrap instead of hiding,
-   and the students table scrolls inside its own frame with the names kept in view */
-@media (max-width: 480px) {
-  .t-tabs > * { flex: 1 1 auto; }
 }
 /* a table wider than the phone shows a soft edge where more columns wait */
 .not-found { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--s3); padding-top: var(--s12); max-width: 420px; }

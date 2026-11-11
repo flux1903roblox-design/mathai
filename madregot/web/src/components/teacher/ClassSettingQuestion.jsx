@@ -4,6 +4,7 @@
 // step and the board's "כיתה נוספת") and when its setting is changed in the class settings. The default is school.
 import clsx from 'clsx';
 import { SETTING_Q, SETTINGS, ATTEST } from '@/content/classAi.js';
+import '@/styles/lazy/teacher.css'; // the teacher's screens' rules, loaded with them (FOLLOWUP-23)
 
 export { SETTING_Q, SETTINGS, ATTEST };
 

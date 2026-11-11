@@ -6,6 +6,7 @@ import { formatCode } from '@/lib/durable/code.js';
 import { copyText } from '@/lib/clipboard.js';
 import { Button, Sheet } from '@/components/ui.jsx';
 import QrCode from '@/components/QrCode.jsx';
+import '@/styles/lazy/durable.css'; // the saving rules, loaded with this screen (FOLLOWUP-23)
 
 export const CODE_SHEET = {
   title: 'קוד הגיבוי שלכם',

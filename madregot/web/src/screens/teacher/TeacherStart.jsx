@@ -20,6 +20,7 @@ import { Flow, ConfirmSheet } from '@/components/Screen.jsx';
 import { GradeSwitch } from '@/components/GradeSwitch.jsx';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
 import ClassSettingQuestion, { settingBody, settingReady } from '@/components/teacher/ClassSettingQuestion.jsx';
+import '@/styles/lazy/teacher.css'; // the teacher's screens' rules, loaded with them (FOLLOWUP-23)
 
 const TEACHER_URL = import.meta.env.VITE_TEACHER_URL || '';
 const CONTACT = String(import.meta.env.VITE_CONTACT_EMAIL || '').trim();

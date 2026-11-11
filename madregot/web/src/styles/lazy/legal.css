@@ -1,0 +1,15 @@
+/* The legal pages' plain reading (TRUST-2), out of the first-load stylesheets (FOLLOWUP-23): /terms, /privacy,
+   /accessibility and /safety (parents/Legal.jsx), and the teacher's pilot-kit documents, which are rendered like them
+   (teacher/Guide.jsx). Both import this file. The pilot kit's own .sd-doc rules (teacher.css) come after these, as they
+   did in canon.css: a chunk's own stylesheet loads after the stylesheets of the chunks it imports. */
+
+/* the legal pages: plain reading */
+.legal { display: flex; flex-direction: column; gap: var(--s3); font-size: var(--t-base); line-height: 1.7; }
+.legal h2 { font-size: 20px; line-height: 26px; margin: var(--s3) 0 0; }
+.legal h3 { font-size: 17px; line-height: 24px; margin: var(--s2) 0 0; }
+/* a section opened by its anchor (#/terms#cancel) lands under the sticky bar, and its focus ring hugs the words */
+.legal [id] { scroll-margin-top: 72px; border-radius: 6px; }
+.legal a { overflow-wrap: anywhere; }
+.legal ul { margin: 0; padding-inline-start: var(--s5); }
+.legal blockquote { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); }
+.legal p { margin: 0; }

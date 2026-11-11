@@ -3,8 +3,9 @@
 // actions: "הדפסת המבחן" (the version on screen), "הדפסת מפתח התשובות" (a page per version, with the steps) and
 // "לשלוח לכיתה כמשימה" (the assign sheet, with the version on screen). /teacher/exam/a:<assignmentId> shows an exam
 // already sent, as the server keeps it (GET /api/teacher/assignments/:id), to print again: read-only.
-// What is printed is its own copy at the end of <body> (PrintSheets): the print rules in styles/app.css show only the
-// mode asked for (printSheet sets <html data-print>), black on white, with a header on every page and room to work.
+// What is printed is its own copy at the end of <body> (PrintSheets): the print rules in styles/lazy/teacher.css show
+// only the mode asked for (printSheet sets <html data-print>), black on white, with a header on every page and room to
+// work.
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';

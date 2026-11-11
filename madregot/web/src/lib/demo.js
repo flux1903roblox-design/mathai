@@ -8,11 +8,12 @@
 // here; on a device someone uses (a student's, a real teacher's) it opens in a new tab instead (&tab=1), after asking.
 // A reload keeps the demo for the visit. Every call the demo's screens make is answered on the device: lib/api.js
 // refuses to reach the server while the profile is a demo.
-import { create } from 'zustand';
-import { useApp, STORE_KEY, holdSaving } from './store.js';
-import { qaTeacher } from './qaFixtures.js';
+// This file loads on demand (FOLLOWUP-23): the first load carries only lib/demoWanted.js, which says whether the demo
+// is wanted; main.jsx imports this file before the first screen when it is, and the teacher's screens import it.
+import { useApp, holdSaving } from './store.js';
+import { DEMO_KEY, readDemo, askedForDemo, useDemoAsk, demoUrl } from './demoWanted.js';
 
-export const DEMO_KEY = `${STORE_KEY}-demo`;
+export { DEMO_KEY, readDemo, askedForDemo, useDemoAsk, demoUrl };
 export const DEMO_CODE = 'DEMO01';
 export const DEMO_CLASS_NAME = 'ז׳3 (דוגמה)';
 export const DEMO_TEACHER = 'מורה לדוגמה';
@@ -37,11 +38,7 @@ export const demoProfile = () => ({
 export const isDemo = (p = useApp.getState().profile) => p?.demo === true;
 export const useDemo = () => useApp((s) => s.profile?.demo === true);
 
-// ---------------------------------------------------------------- this tab's record of the demo
-/** { on, hadProfile, data } from sessionStorage, or null. */
-export function readDemo() {
-  try { const v = JSON.parse(sessionStorage.getItem(DEMO_KEY) || 'null'); return v?.on ? v : null; } catch { return null; }
-}
+// ---------------------------------------------------------------- this tab's record of the demo (readDemo: demoWanted.js)
 export function writeDemo(patch) {
   try { sessionStorage.setItem(DEMO_KEY, JSON.stringify({ ...(readDemo() || { on: true }), ...patch, on: true })); } catch { /* the demo lasts for this page */ }
 }
@@ -64,12 +61,6 @@ export function enterDemo() {
   useApp.getState().setProfile(demoProfile());
 }
 
-/** This app's address with the demo asked for; `tab`: open it even though this device has a profile. */
-export const demoUrl = ({ tab = false } = {}) => {
-  const { origin, pathname } = window.location;
-  return `${origin}${pathname}#/?start=demo${tab ? '&tab=1' : ''}`;
-};
-
 /** A demo link pressed: here on a device with no profile, else in a new tab (this device's profile is never touched). */
 export function openDemo() {
   const p = useApp.getState().profile;
@@ -91,24 +82,10 @@ export async function exitDemo() {
 }
 
 // ---------------------------------------------------------------- on opening the app
-/** The question asked on a device someone uses before the demo opens in a new tab. */
-export const useDemoAsk = create(() => ({ open: false }));
-
-/** Does the address ask for the demo? { tab } or null. */
-export function askedForDemo(loc = window.location) {
-  try {
-    const q = new URLSearchParams(loc.hash.split('?')[1] || '');
-    const s = new URLSearchParams(loc.search);
-    const start = q.get('start') || s.get('start');
-    if (start === 'demo') return { tab: (q.get('tab') || s.get('tab')) === '1' };
-  } catch { /* an address it cannot read asks for nothing */ }
-  return qaTeacher() === 'demo' ? { tab: false } : null;
-}
-
 /**
- * Before the first render (main.jsx): a reload inside the demo opens it again; an address that asks for it opens it on
- * a device with no profile (or in the tab opened for it), and on a device someone uses asks first. → 'entered' |
- * 'ask' | null.
+ * Before the first render (main.jsx, when demoWanted() says so): a reload inside the demo opens it again; an address
+ * that asks for it opens it on a device with no profile (or in the tab opened for it), and on a device someone uses
+ * asks first (useDemoAsk). → 'entered' | 'ask' | null.
  */
 export function bootDemo() {
   if (typeof window === 'undefined') return null;
@@ -117,6 +94,6 @@ export function bootDemo() {
   if (!want) return null;
   const p = useApp.getState().profile;
   if (!p || isDemo(p) || want.tab) { enterDemo(); return 'entered'; }
-  useDemoAsk.setState({ open: true });
+  useDemoAsk.setState({ open: true, asked: true });
   return 'ask';
 }

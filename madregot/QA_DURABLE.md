@@ -869,6 +869,46 @@ script. They now load one topic at a time, and nothing the student sees changed.
   4.56 MB, so both gates moved by the same rule to **433 KB** and **4.79 MB** (CSS 57.3 KB, under its 59 KB gate). Open
   work: the challenge tasks behind a dynamic import per topic (the curriculum spec asks for it), with the plan reading
   only their ids and stairs at boot.
+  **FOLLOWUP-23** (the follow-ups lane's last stage) set both first-load gates on the merged app, after every lane's
+  screens had landed. The teacher's rules (the board, the class settings, the library, the assistant, the class exam
+  and its print sheets, the class report, the pilot kit, the student view's bar, the demo banner, the teacher's way in
+  and the class setting question) left `app.css`, `v4.css` and `canon.css` for `styles/lazy/teacher.css`; the parents'
+  area's (the frame, the plan and its renewal, the devices, the hand-over, the adult step, the legal draft note) for
+  `lazy/parents.css`; the legal pages' reading rules for `lazy/legal.css` (the pilot kit's documents read the same way,
+  so `teacher/Guide.jsx` imports it too); and the saving screens' (Settings › שמירת ההתקדמות, the support details, the
+  reminder's Home Screen row, the backup code's sheet, the restore screen) for `lazy/durable.css`: 569 rules in all. A
+  rule moved only when every selector in it names a class that no first-load file writes, and
+  `web/src/styles/lazy.test.js` keeps it so for every rule of the four files (a file's markup is covered when the file
+  imports the stylesheet, or brings it in through a static import, or every file that imports it is covered). Where a
+  move would have changed the cascade (a lazy file loads after every first-load rule), the rule stayed or was made
+  independent of the order: the board's view tabs are `.seg` buttons too, so their three `.t-tab` rules stay in
+  `app.css`, ahead of `canon.css`'s `.seg`; the pilot kit's two heading rules became `.legal.sd-doc h2/h3`, so
+  `legal.css` may load before or after `teacher.css`. The demo class's code (`lib/demo.js`) and its sheet
+  (`components/DemoAsk.jsx`) load on demand: `lib/demoWanted.js` (this tab's demo record, the address, the sheet's
+  flags) decides before the first screen, and `main.jsx` imports the demo only then, before the first render, so the
+  saving hold in `store.js` works exactly as before (the demo's e2e tests pass).
+  Proof that nothing changed on screen: a dump of every computed property of every element (and its ::before and
+  ::after), taken at the same states in the build before the move and after it, phone light and dark. The states: the
+  teacher suite's 64 in dark (its light states are its visual baselines, on four sizes); the parents' area in each of
+  its 14 QA states, the hand-over, the cancel page, the four legal pages, Settings with the saving section and the
+  support details, the restore screen, the demo's board, settings, library, report, guide and assistant, and a legal
+  page opened before the pilot kit (the two lazy files loaded the other way round): 98 of 98 identical. The end states
+  of the trust, report, subscription, restore, backup-file, family-guard, install, durable, push, monitor and
+  class-goal specs matched too, apart from differences that come from the run, not the CSS: a random backup code's QR,
+  a React id, a toast still on screen, a frame of a fade, and the content of a closed `<details>`, which a direct
+  check measures the same in both builds, closed and open. The check caught two moves that did change the screen,
+  and both were put right before the commit: the board's view tabs (their `.t-tab` rules stay in `app.css`), and the
+  support details' rows, whose rules had stayed behind while `.save-row` moved (they moved too). The visual baselines
+  are unchanged; none was updated.
+  Measured (gzip-9, KB = 1000 B): boot JS 433.5 → **432.9 KB** (the demo's 0.7 KB), render-blocking CSS 52.6 →
+  **45.4 KB**. The gates are now **433 KB** (it does not go up, so 0.1 KB of room is left) and **46 KB**. The four
+  lazy files are 11.7, 1.9, 0.6 and 2.3 KB gzipped, each fetched only with its screens. The demo's two modules are on
+  `budget.json`'s `lazyOnly` list now, so a build that pulls them back into the first load fails. FOLLOWUP-45's 260 KB
+  and 32 KB stay DURABLE-11's targets: recorded, a warning, not a gate. Most of what is left in the first-load CSS is
+  the lesson's, the teaching figures' and the stair player's rules (about 50 KB of source that only the lesson's chunks
+  use): the next step toward 32 KB. `e2e/perf.spec.js` holds only the timing test (`PERF=1`), and a timing taken on
+  this shared machine means little (FOLLOWUP-29), so the bytes here come from `check-budget.mjs` and the nightly run
+  keeps the timings.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

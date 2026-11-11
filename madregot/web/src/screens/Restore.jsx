@@ -19,6 +19,7 @@ import Mascot from '@/components/Mascot.jsx';
 import FileRestore from '@/components/durable/FileRestore.jsx';
 import RestorePreview from '@/components/durable/RestorePreview.jsx';
 import { NeedOnline } from '@/components/durable/OfflineChip.jsx';
+import '@/styles/lazy/durable.css'; // the saving rules, loaded with this screen (FOLLOWUP-23)
 
 export const RESTORE = {
   title: 'יש לי קוד גיבוי',

@@ -24,6 +24,7 @@ import { topicsFor } from '@/content/index.js';
 import { Button, Field } from '@/components/ui.jsx';
 import { ScreenBar } from '@/components/Screen.jsx';
 import { printSheet } from './ExamSheet.jsx';
+import '@/styles/lazy/legal.css'; // a document reads like the legal pages (FOLLOWUP-23)
 
 export const GUIDE_TITLE = 'ערכת פיילוט ומדריכים';
 const LABELS = {

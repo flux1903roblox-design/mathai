@@ -94,7 +94,6 @@ a { color: var(--brand-d); }
 .empty-title { font-size: 22px; line-height: 28px; font-weight: 800; }
 .empty-text { color: var(--ink-2); font-size: 17px; line-height: 26px; }
 
-
 /* ------------------------------------------------------------------ home: the path */
 .learn { background: var(--paper); }
 .learn-top { background: var(--paper); border-bottom: 1px solid var(--rule); box-shadow: none; min-height: 60px; gap: var(--s4); }
@@ -256,9 +255,6 @@ a { color: var(--brand-d); }
 .score-chip.mid { color: var(--gold-ink); background: var(--gold-tint); }
 .score-chip.low { color: var(--bad-ink); background: var(--bad-tint); }
 
-/* ------------------------------------------------------------------ the teacher's board */
-.t-head .wordmark, .t-head .t-class-name { color: var(--ink); } /* was white on the white header (v4.css), so the teacher's name did not show */
-
 /* ------------------------------------------------------------------ fixes after the first look */
 /* the page title and line stay ink on the white header (an older rule painted them white on a colour block) */
 .page-hero .page-hero-title { color: var(--ink); }
@@ -402,7 +398,6 @@ a { color: var(--brand-d); }
 @media (min-height: 641px) { .lesson .answer-bar .answer-row > input.slot:only-of-type { width: min(60vw, 300px); } }
 /* the coaching line under a drawing, without a character beside it */
 .manip-coach { gap: 0; }
-.t-group .set-head { color: var(--ink); }
 
 /* ------------------------------------------------------------------ the smart tutor and the parents' area (round 19)
    The same grammar as every other screen. A child sees one quiet line about today's questions, a calm sheet when the
@@ -430,76 +425,11 @@ a { color: var(--brand-d); }
 
 /* the parents' area: its own bar, no tab bar, cards and rows, the footer with the cancel link on every view */
 .parents { min-height: 100dvh; padding-top: 0; gap: var(--s4); }
-.parents-bar { position: sticky; top: 0; z-index: 5; margin-inline: calc(-1 * var(--s4)); padding-inline: var(--s2); }
-.parents-main { display: flex; flex-direction: column; gap: var(--s4); flex: 1; }
-.parents-card { display: flex; flex-direction: column; gap: var(--s3); }
-.parents-card p { margin: 0; }
-.store-parents-card { align-items: center; text-align: center; } /* a store app's parents' page (STUDENT-12) */
-.parents-card .card-title { margin: 0; }
-.parents-card.is-good { border-color: var(--good-line); background: var(--good-tint); }
-.parents-card.is-good .mascot, .parents-card.is-good svg.mascot { align-self: center; }
 .parents-sum { margin: 0; font-weight: 700; color: var(--ink); }
-/* how a plan goes on, next to the pay button (trust spec TRUST-10 §4) */
-.parents-terms-line { margin: 0; color: var(--ink); font-size: var(--t-sm); line-height: var(--lh-sm); }
-.parents-renew { border-color: var(--brand-line); }
-/* the renewal button carries its price (Appendix E): on a narrow phone it takes two lines, never cut */
-.parents-renew .btn { white-space: normal; text-align: center; padding-block: var(--s2); line-height: var(--lh-sm); }
-.parents-note { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); color: var(--ink); }
-.parents-warn { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
 .parents-disclosure { display: flex; flex-direction: column; gap: 2px; padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 14px; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
 .parents-disclosure p { margin: 0; }
 .parents-check { align-items: flex-start; font-size: var(--t-base); line-height: var(--lh-base); }
 .parents-check input { margin-top: 3px; }
-.parents-plan.is-on { border-color: var(--brand-line); }
-.parents-rows > .set-row { min-height: 56px; padding: 0 var(--s5); border-bottom: 2px solid var(--rule); width: 100%; }
-.parents-rows > .set-row:last-child { border-bottom: 0; }
-.parents-rows > form, .parents-rows > .parents-payments, .parents-rows > .parents-devices { padding: var(--s3) var(--s5) var(--s4); border-bottom: 2px solid var(--rule); }
-.parents-devices { margin: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s2); }
-.parents-devices li { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
-/* the progress the family keeps (DURABLE-6): a line under each device that syncs it, the kept list, and the choice for a new device */
-.parents-device-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 12em; }
-.parents-device-saved { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--good-ink); font-weight: 600; }
-.parents-kept-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
-.parents-kept-list li { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) 0; }
-.parents-kept-list li + li { border-top: 2px solid var(--rule); }
-.parents-kept-name { font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
-.parents-kept-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.parents-kept-actions .btn { min-height: 44px; }
-.parents-continue { display: flex; flex-direction: column; gap: var(--s2); }
-.parents-continue-head { margin: 0; font-weight: 700; color: var(--ink); }
-.parents-continue .ob-opt { min-height: 56px; }
-.parents-payments ul { margin: 0 0 var(--s2); padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s1); }
-.parents-payments li { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
-.parents-order-line { font-weight: 700; font-size: var(--t-md); }
-.parents-account .muted { margin: 0; }
-.cancel-sheet .lead, .delete-sheet .lead { margin: 0; }
-.parents-foot { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4) 0 calc(var(--s5) + env(safe-area-inset-bottom, 0px)); border-top: 2px solid var(--rule); font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
-.parents-foot-links { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); }
-.parents-foot-links a { font-weight: 600; }
-.parents-foot-biz { margin: 0; }
-
-/* the hand-over screen on the child's device: the QR code and the link code, large */
-.handoff { align-items: center; text-align: center; }
-.handoff-lead { font-size: var(--t-md); line-height: var(--lh-md); color: var(--ink); }
-.handoff-qr { padding: var(--s3); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
-.handoff-qr .qr { display: block; width: min(208px, 60vw); height: auto; }
-.handoff-code { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: 40px; line-height: 48px; font-weight: 800; letter-spacing: 0.18em; color: var(--ink); }
-.handoff-wait { color: var(--ink-2); font-weight: 600; }
-.handoff-done { align-items: center; text-align: center; }
-.handoff-here { margin-top: 0; }
-
-/* the legal pages: plain reading */
-.legal { display: flex; flex-direction: column; gap: var(--s3); font-size: var(--t-base); line-height: 1.7; }
-.legal h2 { font-size: 20px; line-height: 26px; margin: var(--s3) 0 0; }
-.legal h3 { font-size: 17px; line-height: 24px; margin: var(--s2) 0 0; }
-/* a section opened by its anchor (#/terms#cancel) lands under the sticky bar, and its focus ring hugs the words */
-.legal [id] { scroll-margin-top: 72px; border-radius: 6px; }
-.legal a { overflow-wrap: anywhere; }
-/* one note while the texts wait for the lawyer's review (TRUST-2 §2) */
-.legal-draft { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
-.legal ul { margin: 0; padding-inline-start: var(--s5); }
-.legal blockquote { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); }
-.legal p { margin: 0; }
 
 /* the front page: the parents' and legal links, small, under the two ways in */
 .hello-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
@@ -525,17 +455,6 @@ a { color: var(--brand-d); }
   .hello-duo .hello-madi { width: 112px; height: auto; }
   .hello-duo .hello-foot { gap: var(--s2); padding-bottom: calc(var(--s2) + env(safe-area-inset-bottom, 0px)); }
 }
-
-/* the teacher's licence card, the lock and the row actions */
-.licence-card { display: flex; flex-direction: column; gap: var(--s3); margin-bottom: var(--s4); }
-.licence-card p { margin: 0; }
-.licence-card .card-title { margin: 0; }
-.licence-warn { padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
-.licence-req { color: var(--ink); font-weight: 600; }
-.licence-actions { display: flex; flex-direction: column; gap: var(--s2); }
-.licence-price { margin: calc(-1 * var(--s1)) 0 0; text-align: center; }
-.licence-card .link-btn { align-self: flex-start; }
-.t-lock .field-hint { margin: 0; }
 
 /* sign-in by code */
 .sub-code { font-size: 24px; letter-spacing: 0.3em; text-align: center; }
@@ -636,27 +555,9 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .offline-chip svg { flex: none; color: var(--ink-2); }
 .offline-chip.offline-need { margin: 0; }
 .page > .offline-chip { margin-inline: 0; }
-.restore-form > .offline-need { margin-bottom: var(--s2); }
 .storage-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s3); margin: var(--s3) var(--gutter) 0; padding: var(--s2) var(--s4); border-radius: 16px; background: var(--ground); color: var(--ink); }
 .storage-banner p { margin: 0; flex: 1 1 14em; padding: var(--s2) 0; font-size: 16px; line-height: 24px; }
 .storage-banner-link { flex: none; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--brand-d); text-decoration: underline; text-underline-offset: 3px; }
-.save-section .set-head:focus { outline: none; }
-.save-section .set-head:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
-.save-rows { margin: 0; }
-.save-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); min-height: 56px; }
-.save-row dt { font-weight: 700; font-size: 17px; line-height: 24px; color: var(--ink); }
-.save-row dd { margin: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 16px; line-height: 24px; font-weight: 600; }
-.save-row .save-ok { color: var(--good-ink); }
-.save-row .save-not { color: var(--ink); }
-.save-row + .save-row { border-top: 2px solid var(--line); }
-
-/* asking the browser to keep the data, and the iPhone Home Screen guide (DURABLE-3): the info button beside the row's
-   name, the ask button under the rows, the guide's row with its chevron. No motion: everything here is still. */
-.save-row dt { display: inline-flex; align-items: center; gap: 2px; }
-.save-info { width: 44px; height: 44px; margin-inline-start: -6px; color: var(--ink-2); }
-.save-ask { align-self: flex-start; margin: calc(-1 * var(--s2)) 0 var(--s1); padding-inline: 0; text-decoration: underline; text-underline-offset: 3px; }
-.save-install { justify-content: space-between; gap: var(--s3); width: 100%; border-top: 2px solid var(--line) !important; }
-.save-install svg { color: var(--ink-2); flex: none; }
 .persist-info, .install-sheet { display: flex; flex-direction: column; gap: var(--s3); }
 .persist-info p, .install-note { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
 .persist-info .btn, .install-actions .btn { margin-inline: 0; }
@@ -679,43 +580,11 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .install-card-go { align-self: flex-start; margin: 0; padding-inline: var(--s4); }
 .install-card-close { position: absolute; top: 4px; inset-inline-end: 4px; width: 44px; height: 44px; }
 
-/* Settings › מידע לתמיכה (DURABLE-9): closed by default, its heading is the button that opens it */
-.support-summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; margin: 0; cursor: pointer; list-style: none; }
-.support-summary::-webkit-details-marker { display: none; }
-.support-chev { flex: none; color: var(--ink-2); }
-.support-info[open] .support-chev { transform: rotate(180deg); }
-.support-rows .save-row { min-height: 48px; }
-.support-rows dd { font-weight: 600; color: var(--ink); }
-.support-errors-row { align-items: flex-start; padding: var(--s2) 0; }
-.support-errors-row dd { flex: 1 1 100%; }
-.support-errors { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s2); font-weight: 400; font-size: 15px; line-height: 22px; }
-.support-errors li { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
-.support-error-when { color: var(--ink-2); }
-.support-error-msg { text-align: start; }
-.support-copy { margin: var(--s3) 0 0; }
-
-/* the backup file (DURABLE-4): two full-width buttons under the rows, the note on who can read the file, and the undo
-   while it is offered. The file input is hidden under its label, which is drawn as a button and shows the focus ring. */
-.save-file { display: flex; flex-direction: column; gap: var(--s3); padding-top: var(--s3); border-top: 2px solid var(--line); }
-.save-file .btn { margin-inline: 0; }
-.save-note, .save-status { margin: 0; font-size: 15px; line-height: 22px; color: var(--ink-2); }
-.save-status:empty { display: none; }
-.save-undo { min-height: 48px; text-decoration: underline; text-underline-offset: 3px; }
 .file-restore { position: relative; display: flex; flex-direction: column; gap: var(--s2); }
 .file-pick { cursor: pointer; min-height: 52px; white-space: normal; text-align: center; }
 .file-pick.is-busy { opacity: 0.6; }
 .file-restore:has(.file-input:focus-visible) .file-pick { outline: 3px solid var(--brand-line); outline-offset: 2px; }
 .file-error { margin: 0; }
-
-/* the backup code (DURABLE-5): its row and buttons above the file's, the notes it may show, and its sheet: the code
-   large, left to right and in mono (sized to fit 320 px on one line), the QR code on white, then the three ways to keep it */
-.save-backup { display: flex; flex-direction: column; gap: var(--s3); }
-/* (.set-group > :not(.set-head) clears its children's borders: the line above the backup row is drawn here) */
-.save-section > .save-backup { padding-bottom: var(--s3); border-top: 2px solid var(--line); border-radius: 0; }
-.save-backup .btn { margin-inline: 0; }
-.save-stop { min-height: 48px; text-decoration: underline; text-underline-offset: 3px; }
-/* "שמירת עותק בשרת הכיתה" (DURABLE-6): a switch with its label, the whole row a 48px target */
-.save-switch { justify-content: space-between; gap: var(--s3); min-height: 48px; font-weight: 700; font-size: 17px; line-height: 24px; color: var(--ink); border-top: 2px solid var(--line); padding-top: var(--s2); }
 :is(.save-switch, .report-email) input[role="switch"] { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 52px; height: 32px; margin: 0; border-radius: 999px; background: var(--rule); border: 2px solid var(--ink-2); cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
 :is(.save-switch, .report-email) input[role="switch"]::after { content: ''; position: absolute; top: 2px; inset-inline-start: 2px; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: inset-inline-start 150ms ease; } /* colour-ok: a shade (black at low alpha), the same in both themes */
 :is(.save-switch, .report-email) input[role="switch"]:checked { background: var(--brand); border-color: var(--brand); }
@@ -723,17 +592,6 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 :is(.save-switch, .report-email) input[role="switch"]:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
 :is(.save-switch, .report-email) input[role="switch"]:disabled { opacity: .6; cursor: progress; }
 @media (prefers-reduced-motion: reduce) { :is(.save-switch, .report-email) input[role="switch"], :is(.save-switch, .report-email) input[role="switch"]::after { transition: none; } }
-.save-backup-note { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); }
-.save-backup-note p { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink); }
-.backup-code-body { display: flex; flex-direction: column; gap: var(--s3); }
-.backup-code-body > p { margin: 0; font-size: 17px; line-height: 26px; color: var(--ink); }
-.backup-code-body > .backup-who { font-size: 16px; line-height: 24px; color: var(--ink-2); }
-.backup-code-body > .backup-code { margin: 0; text-align: center; white-space: nowrap; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
-  font-size: min(30px, calc((100vw - 64px) / 13)); line-height: 1.4; font-weight: 800; letter-spacing: 0.04em; color: var(--ink); }
-.backup-qr { align-self: center; padding: var(--s2); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
-.backup-qr .qr { display: block; width: 168px; height: 168px; }
-.backup-actions { display: flex; flex-direction: column; gap: var(--s2); }
-.backup-actions .btn { margin-inline: 0; }
 
 /* "מצאנו גיבוי": one line of what the copy holds, what restoring does, then the buttons */
 .restore-preview { display: flex; flex-direction: column; gap: var(--s3); }
@@ -797,8 +655,6 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .exam-support { margin-top: var(--s4); }
 /* under a child's message: what the tutor did not receive (personal details are masked before it is sent) */
 .msg-pii { margin: calc(-1 * var(--s1)) 0 0; max-width: min(86%, 560px); align-self: flex-end; text-align: end; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
-/* the teacher's list: a request whose note read as distress (the teacher lane gives it its full design) */
-.help-care { margin: 0; font-weight: 700; color: var(--ink); }
 button.set-row { justify-content: space-between; gap: var(--s3); width: 100%; font-family: inherit; }
 button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 
@@ -848,221 +704,19 @@ button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .report-reason input { width: 22px; height: 22px; margin: 0; accent-color: var(--brand); flex: none; }
 .report-reason:focus-within { outline: 3px solid var(--brand-line); outline-offset: 2px; }
 .report-note { margin: var(--s3) 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
-
-/* ------------------------------------------------------------------ the adult step before the parents' area (TRUST-8) */
-.adult-form { display: flex; flex-direction: column; gap: var(--s3); }
-.adult-form .input { align-self: flex-start; width: 12ch; max-width: 100%; font-size: 22px; letter-spacing: 0.08em; text-align: center; }
-.adult-closed { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); font-weight: 600; }
-.adult-back { align-self: center; min-height: 44px; display: inline-flex; align-items: center; }
-/* the teacher's way in and the class on the email (TEACHER-1): a quiet link under the ways in, the email's classes as
-   a ticked list, the bind card at the top of "מחר", signing in again, and more classes from the email */
-.ob-links { margin: 0; display: flex; justify-content: center; }
-.t-pick { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--s2); }
-.t-pick-row { gap: var(--s3); min-height: 56px; padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); font-size: var(--t-base); line-height: var(--lh-base); }
-.t-pick-row:has(input:checked) { border-color: var(--brand); background: var(--brand-tint); }
-.t-pick-row b { font-weight: 800; }
-.t-bind, .t-signin { gap: var(--s3); }
-.t-bind { border-color: var(--brand-line); }
-.t-bind p, .t-signin p { margin: 0; }
-.t-bind-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.t-bind-actions .btn { flex: 1 1 auto; }
-.t-signin-title { margin: 0; font-size: 20px; line-height: 28px; font-weight: 700; color: var(--ink); }
-.t-head .t-more { align-self: flex-start; min-height: 44px; padding: 0; font-size: var(--t-sm); }
-.t-more-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
-.t-more-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 56px; padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
 a.btn { text-decoration: none; }
-
-/* the class settings and deleting a class (TEACHER-9): the board's tools as one row of chips under the tiles, the
-   settings page in the settings grammar, the retention list, a quiet last row on "תלמידים", and the delete sheet with
-   the class's name to type before the red button works */
-.t-tools { margin: 0; }
-.t-tools ul { list-style: none; margin: 0; padding: 0 0 2px; display: flex; gap: var(--s2); overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
-.t-tools ul::-webkit-scrollbar { display: none; }
-.t-tools li { flex: none; }
-.t-tool { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s4); border: 2px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 700; font-size: 16px; white-space: nowrap; text-decoration: none; }
-.t-tool svg { color: var(--brand); flex: none; }
-.t-tool:hover { border-color: var(--brand-line); }
-.t-tool:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
-.t-settings .screen-bar-title { text-wrap: balance; overflow-wrap: anywhere; }
-.t-settings .set-box { gap: var(--s4); }
-.t-set-error { margin: var(--s3) 0 0; }
-.t-set-rename { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s2) var(--s3); }
-.t-set-rename .field { flex: 1 1 200px; min-width: 0; }
-.t-set-rename .btn { flex: none; min-width: 96px; }
-.t-set-value { margin: 0; font-size: var(--t-base); font-weight: 700; color: var(--ink); }
-.t-set-line { margin: 0; }
-.t-set-chip { align-self: flex-start; }
-.t-set-bind { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); }
-.t-set-act { align-self: flex-start; }
-.t-settings .t-lock { margin: 0; }
-.t-settings .field-hint { margin: 0; }
-.t-keep { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: var(--s2); font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
-.t-quiet-rows { margin-top: var(--s4); }
-.t-quiet-row { gap: var(--s2); color: var(--ink-2); font-weight: 600; }
-.t-quiet-row svg { color: var(--ink-2); }
-.t-help-note { margin: var(--s3) 0 0; }
-.t-delete-form { align-items: stretch; text-align: start; }
-.t-delete-form .mascot, .t-delete-form svg.mascot { align-self: center; }
-.t-delete-form .confirm-text { text-align: center; }
-.t-delete-field { width: 100%; }
-.confirm-text .t-leave-more { margin-top: var(--s2); }
-/* a short phone: the delete sheet gives up the character, so the name to type and the buttons come sooner */
-@media (max-height: 700px) { .t-delete-form .mascot, .t-delete-form svg.mascot { display: none; } }
 
 /* ------------------------------------------------------------------ the teacher's student view (TEACHER-2) */
 /* a thin bar above the student screens: what this is, and the way back to the board. It sits in the flow, so the
    full-height screens below give up its height (data-preview on <html>, set by PreviewFrame) and a lesson's keypad
    stays inside a 320×568 screen. The button's 44px target overhangs the 40px bar by 2px each side, transparently. */
 :root[data-preview="1"] { --preview-h: 40px; }
-.preview-bar {
-  position: relative; z-index: 30; display: flex; align-items: center; gap: var(--s2); height: var(--preview-h, 40px);
-  padding: 0 max(var(--s3), env(safe-area-inset-right, 0px)) 0 max(var(--s3), env(safe-area-inset-left, 0px));
-  background: var(--brand-tint); border-bottom: 1px solid var(--brand-line); color: var(--ink); overflow: visible;
-}
-.preview-eye { flex: none; color: var(--brand-d); }
-.preview-text { flex: 1; min-width: 0; margin: 0; display: flex; align-items: baseline; gap: var(--s2); font-size: 14px; line-height: 18px; white-space: nowrap; }
-.preview-text b { font-weight: 800; color: var(--ink); }
-.preview-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
-.preview-back {
-  flex: none; display: inline-flex; align-items: center; min-height: 44px; margin-block: -2px; padding: 0; border: 0;
-  background: transparent; color: var(--brand-d); font: inherit; cursor: pointer;
-}
-.preview-back span {
-  display: inline-flex; align-items: center; min-height: 30px; padding: 0 var(--s3); border: 2px solid var(--brand-line);
-  border-radius: 999px; background: var(--surface); font-size: 14px; font-weight: 700; white-space: nowrap;
-}
-.preview-back:hover span { border-color: var(--brand); }
-.preview-back:focus-visible { outline: none; }
-.preview-back:focus-visible span { outline: 3px solid var(--brand-line); outline-offset: 2px; }
-/* a phone: two short lines, the name and the sentence that matters ("not sent to the class"); the whole hint is
-   still read aloud */
-@media (max-width: 599px) {
-  .preview-hint-a { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .preview-text { flex-direction: column; align-items: flex-start; gap: 0; }
-  .preview-text b, .preview-hint { font-size: 14px; line-height: 17px; }
-  .preview-hint { max-width: 100%; }
-}
-@media (max-width: 359px) { .preview-eye { display: none; } }
 :root[data-preview="1"] :is(.lesson, .practice, .teach, .pushed, .done-screen, .ob) { min-height: calc(100dvh - var(--preview-h)); }
 :root[data-preview="1"] .lesson { height: calc(100dvh - var(--preview-h)); }
 :root[data-preview="1"] :is(.teach-main > .lm, .teach-main > .remedy > .lm, .teach-main > .remedy) { min-height: calc(100dvh - var(--preview-h)); }
-@media print { .preview-bar { display: none !important; } }
-
-/* ------------------------------------------------------------------ the lessons library (TEACHER-2 §5) */
-.t-library { gap: var(--s4); }
-.t-lib-intro { margin: 0; }
-.t-lib-grade { margin: 0; }
-.t-lib-head { display: flex; align-items: center; gap: var(--s2); }
-.t-lib-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
-.t-lib-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
-.t-lib-text { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.t-lib-title { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
-.t-lib-n { color: var(--ink-2); font-weight: 600; }
-.t-lib-sub { margin: 0; font-size: 14px; line-height: 20px; color: var(--ink-2); }
-.t-lib-dots { display: inline-flex; gap: 6px; }
-.t-lib-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--rule-strong); }
-.t-lib-dots i.on { background: var(--brand); border-color: var(--brand); }
-.t-lib-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.t-lib-actions .btn { min-width: 0; padding-inline: var(--s3); }
-.t-lib-foot { gap: var(--s2); }
-.t-lib-foot-note { margin: 0; font-size: 14px; }
-
-/* ------------------------------------------------------------------ the teacher's assistant (TEACHER-2 §6) */
-.t-ai-note { display: flex; flex-direction: column; gap: 6px; padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
-.t-ai-note p { margin: 0; font-size: 15px; line-height: 21px; }
-@media (max-width: 359px) { .t-ai-note { padding: var(--s2) var(--s3); } .t-ai-note p { font-size: 14px; line-height: 20px; } }
-.t-ai-note-lead { color: var(--ink); font-weight: 600; }
-.t-ai-note-rule { display: flex; align-items: flex-start; gap: var(--s2); color: var(--ink-2); }
-.t-ai-note-rule svg { flex: none; margin-top: 2px; color: var(--brand-d); }
-/* the board's tools strip: more chips than a phone's width, so its far (left) edge fades, and the list ends with room
-   for the last chip to scroll clear of the fade */
-.t-tools ul { padding-inline-end: 28px; -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px); mask-image: linear-gradient(to right, transparent 0, #000 28px); } /* colour-ok: mask, not a colour */
-
-/* no tab bar under the teacher's assistant: the conversation's input sits at the bottom of the screen */
-.t-assistant.assistant-page { min-height: 100dvh; }
-.t-assistant .chat-dock, .t-assistant .assistant-chat .chat-dock-live { bottom: 0; }
-
-/* ------------------------------------------------------------------ class work, the teacher's side (TEACHER-4 §6)
-   The view switch now has five tabs: one row that never wraps; on a narrow phone it scrolls sideways, tab by tab,
-   with the far edge faded so the rest is clearly there. */
-.segmented.t-tabs { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 3px; }
-.segmented.t-tabs::-webkit-scrollbar { display: none; }
-.segmented.t-tabs > .t-tab { flex: 1 0 auto; scroll-snap-align: start; padding: 0 12px; font-size: 15px; white-space: nowrap; }
-@media (max-width: 480px) { .segmented.t-tabs { flex-wrap: nowrap; overflow-x: auto; } .segmented.t-tabs > * { flex: 1 0 auto; } }
-@media (max-width: 400px) {
-  .segmented.t-tabs { gap: 4px; }
-  .segmented.t-tabs > .t-tab { padding: 0 7px; }
-}
-.segmented.t-tabs[data-more="1"] { padding-inline-end: 24px; -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24px); mask-image: linear-gradient(to right, transparent 0, #000 24px); } /* colour-ok: mask, not a colour */
-
-/* a repeated mistake's action on "מחר" */
-.t-row .t-row-act { align-self: flex-start; margin-top: var(--s2); min-height: 44px; }
 
 /* "משימות": the tab's header with its action, then the rows (a button each, the today-row grammar) */
 .tw { display: flex; flex-direction: column; gap: var(--s3); }
-.tw-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
-.tw-h { margin: 0; }
-.tw-new { min-height: 44px; }
-.tw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
-.tw-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); color: var(--ink); text-align: start; font: inherit; cursor: pointer; }
-.tw-row:hover { border-color: var(--brand-line); }
-.tw-row:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
-.tw-row .chev { color: var(--ink-2); }
-.tw-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.tw-title { font-size: 17px; line-height: 24px; font-weight: 700; overflow-wrap: anywhere; }
-.tw-meta { font-size: 14px; line-height: 20px; color: var(--ink-2); font-weight: 600; }
-.tw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.tw-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--ground); color: var(--ink-2); }
-.tw-chip-on { background: var(--brand-tint); color: var(--brand-d); }
-.tw-chip-late { background: var(--streak-tint); color: var(--streak-ink); }
-.tw-none { margin: 0; }
-.tw-past { display: flex; flex-direction: column; gap: var(--s2); }
-.tw-fold { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
-.tw-fold svg { transition: transform var(--duration-fast, 160ms) var(--ease-out, ease-out); }
-.tw-fold-open { transform: rotate(180deg); }
-.tw-fold:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }
-
-/* the assign sheet: questions as fieldsets, answers as big rows (native radios), the due chips, the share step */
-.assign-form { display: flex; flex-direction: column; gap: var(--s5); }
-.as-set { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--s2); }
-.as-set > legend { padding: 0; margin-bottom: var(--s2); }
-.as-opts { display: flex; flex-direction: column; gap: var(--s2); }
-.as-choice { position: relative; min-height: 52px; padding: var(--s2) var(--s4); cursor: pointer; }
-.as-choice:has(.as-radio:focus-visible), .as-chip:has(.as-radio:focus-visible) { outline: 3px solid var(--brand-line); outline-offset: 2px; }
-.as-radio { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-.as-choice .ob-opt-text b { font-size: 17px; line-height: 24px; }
-.as-choice .ob-opt-text > span { overflow-wrap: anywhere; }
-.as-select { width: 100%; font-size: 17px; }
-.as-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.as-chip { position: relative; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s4); border: 2px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 700; cursor: pointer; box-shadow: 0 2px 0 var(--rule-press); }
-.as-chip.on { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-d); box-shadow: 0 2px 0 var(--brand-line); }
-.as-date { gap: 6px; }
-.as-sub-label { font-weight: 600; color: var(--ink-2); }
-.as-date .input { width: 100%; }
-.as-note-line { margin: 0; font-size: 14px; line-height: 20px; color: var(--ink-2); }
-.as-hint { padding: var(--s2) var(--s3); border-radius: 12px; background: var(--brand-tint); color: var(--ink); font-weight: 600; }
-.as-students { display: flex; flex-direction: column; padding: var(--s1) var(--s3); border: 2px solid var(--rule); border-radius: 16px; max-height: 320px; overflow-y: auto; }
-.as-student + .as-student { border-top: 1px solid var(--rule); }
-.as-students .as-note-line { padding: var(--s2) 0; }
-.as-text { min-height: 72px; }
-.as-share { display: flex; flex-direction: column; gap: var(--s3); }
-.as-share-lead { margin: 0; color: var(--ink); }
-.as-msg { margin: 0; padding: var(--s3) var(--s4); border-inline-start: 4px solid var(--brand-line); border-radius: 12px; background: var(--ground); color: var(--ink); line-height: 1.55; overflow-wrap: anywhere; user-select: text; }
-
-/* one assignment's detail: the line under the title, the bar, the table of students, the quiet actions */
-.aw-body { display: flex; flex-direction: column; gap: var(--s3); }
-.aw-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; color: var(--ink-2); font-weight: 600; font-size: 15px; }
-.aw-note { margin: 0; color: var(--ink); }
-.aw-loading { margin: 0; }
-.aw-table-wrap { max-height: none; }
-.aw-table th, .aw-table td { white-space: normal; vertical-align: top; font-size: 15px; line-height: 21px; }
-.aw-table tbody th { font-weight: 700; }
-.aw-state { margin-inline-end: 6px; }
-.aw-late { display: inline-block; padding: 0 8px; border-radius: 999px; background: var(--ground); color: var(--ink-2); font-size: 13px; font-weight: 700; white-space: nowrap; }
-.aw-foot { margin: 0; }
-.aw-extend { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
-.aw-extend .input { width: 100%; }
-.aw-actions .set-row { width: 100%; gap: var(--s2); }
 
 /* ------------------------------------------------------------------ class work, the student's side (TEACHER-5 §5-6)
    The teacher's work sits first inside today's mission card, on a quiet tint with its own small heading; its rows are
@@ -1268,44 +922,7 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 .answer-partial { color: var(--brand-d); font-weight: 600; }
 
 /* ------------------------------------------------------------------ the class exam (TEACHER-3): its builder and its sheet */
-.xn-step { display: flex; flex-direction: column; gap: var(--s5); }
-.xn-topic { display: flex; flex-direction: column; gap: var(--s2); }
-.xn-topic-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
-.xn-topic-title { margin: 0; display: flex; align-items: center; gap: var(--s2); font-size: 18px; line-height: 24px; font-weight: 700; color: var(--ink); }
-.xn-all { flex: none; font-size: 15px; }
-.xn-all[aria-checked="mixed"] { border-color: var(--brand-line); }
-.xn-stairs { gap: var(--s2); }
-.ob-opt.xn-stair { min-height: 52px; padding: var(--s2) var(--s4); }
-.xn-stair .ob-opt-text b { font-size: 17px; line-height: 24px; }
-.xn-n { color: var(--ink-2); font-weight: 700; }
-.ob-opt.on .xn-n { color: var(--brand-d); }
-.xn-count { margin: 0; }
-.xn-notes { display: flex; flex-direction: column; gap: var(--s2); }
-.xn-notes p { margin: 0; }
-.xn-saved { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s4); padding-top: var(--s5); border-top: 2px solid var(--rule); }
-.xn-saved .set-head { margin: 0; }
-.xn-saved-empty { margin: 0; }
-.xn-saved .tw-row { text-decoration: none; }
-
-.xs .xs-top { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4) 0 var(--s3); }
-.xs .xs-top .field { margin: 0; }
-.xs .xs-top .input { width: 100%; }
-.xs-versions { gap: 0; }
-.xs-lead { margin: 0; }
-.xs .as-hint { margin: 0; }
-.xs-screen { margin-bottom: var(--s4); }
-.xs-screen .h-page { margin: 0; font-size: 22px; line-height: 28px; overflow-wrap: anywhere; }
-.xs-screen .exam-sheet-meta { gap: var(--s2) var(--s5); font-size: 15px; }
-.xs-screen .figure { max-width: min(100%, 300px); margin-inline: auto; }
 .xs .screen-foot .btn svg { flex: none; }
-.xs-send { gap: var(--s2); border: 0; background: none; font: inherit; font-weight: 700; color: var(--brand-d); cursor: pointer; }
-.xs-send:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 10px; }
-
-/* the class exam in the assign sheet, and printing it again from an assignment's detail */
-.as-no-exam { padding: var(--s3) var(--s4); border: 2px dashed var(--rule-strong); border-radius: 16px; color: var(--ink); }
-.as-link { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--brand-d); }
-.as-versions { margin-top: var(--s2); }
-.aw-actions a.set-row { justify-content: flex-start; gap: var(--s2); }
 
 /* ------------------------------------------------------------------ the class exam, the student's side (TEACHER-5 §4):
    the start card (what it is, how it runs, where the result goes) and the result's line on the done screen */
@@ -1320,39 +937,6 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 .cx-again { margin: 0; width: 100%; padding: var(--s3) var(--s4); border-radius: 12px; background: var(--brand-tint); color: var(--ink); font-weight: 600; text-align: start; }
 .check-sent { margin: var(--s2) auto 0; color: var(--ink-2); font-weight: 600; }
 
-/* ------------------------------------------------------------------ the class report (TEACHER-7 §2): the range chips,
-   the tiles, a table that scrolls sideways with the names fixed, the class's mistakes, the note. Its printed copy is in
-   styles/app.css (.print-sheet[data-mode="report"]). */
-.t-report { display: flex; flex-direction: column; gap: var(--s4); }
-.t-report > .screen-bar { margin-bottom: calc(-1 * var(--s2)); }
-.t-report-sub { margin: 0; color: var(--ink-2); font-weight: 600; text-align: center; overflow-wrap: anywhere; }
-.rp-range { gap: var(--s3); }
-.rp-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2) var(--s3); }
-.rp-date { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.rp-date .input { width: 100%; min-height: 44px; }
-.rp-bad { grid-column: 1 / -1; margin: 0; }
-.t-report-status { margin: 0; }
-.t-report-error { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); }
-.t-report-error .form-error { margin: 0; }
-.t-report-kpis { margin: 0; }
-.t-report-table { display: flex; flex-direction: column; gap: var(--s2); }
-.t-report-table .set-head { margin: 0; }
-.rp-table thead th { vertical-align: bottom; }
-.rp-assign-h { white-space: normal !important; min-width: 8em; max-width: 12em; }
-.rp-assign-t { display: block; overflow-wrap: anywhere; }
-.rp-due { display: block; font-weight: 600; color: var(--ink-2); font-size: 13px; }
-.rp-mis { white-space: normal !important; min-width: 14em; max-width: 22em; }
-.rp-mis-one { display: block; line-height: 20px; }
-.rp-mis-one + .rp-mis-one { margin-top: 4px; }
-.t-report .t-group { margin: 0; }
-.t-report-note { margin: 0; }
-.t-report .screen-foot .btn svg { flex: none; }
-@media (max-width: 359px) { .rp-dates { grid-template-columns: minmax(0, 1fr); } }
-.t-set-year svg { color: var(--brand); flex: none; }
-a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
-.t-delete-export { align-self: center; gap: var(--s2); }
-.t-delete-export:disabled { opacity: 0.6; }
-
 /* ------------------------------------------------------------------ help both ways (TEACHER-6): a request's thread as
    bubbles (as Hebrew chat apps lay them out: the other side's on the right, the reader's own tinted on the left), the
    teacher's reply box with its quick
@@ -1364,18 +948,8 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .hb.unread { border-color: var(--brand-line); box-shadow: inset 0 0 0 1px var(--brand-line); }
 .hb-who { font-size: 13px; line-height: 18px; font-weight: 700; color: var(--ink-2); }
 .hb-text { margin: 0; font-size: 16px; line-height: 23px; color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
-.t-hb { margin-top: var(--s1); }
-.hf-filters { margin-bottom: var(--s3); }
-.hr-form { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s2); border-top: 1px solid var(--rule); }
-.hr-form .field-label { margin: 0; }
-.hr-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.hr-chip { min-height: 44px; padding: 6px var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; line-height: 20px; font-weight: 600; text-align: start; cursor: pointer; }
-.hr-chip:hover { border-color: var(--brand-line); }
 .hr-chip:focus-visible, .mh-row:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
-.hr-text { width: 100%; min-height: 64px; resize: vertical; }
-.hr-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
 .hr-count, .mh-count { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.hr-send { min-height: 44px; min-width: 104px; }
 .hr-limit, .mh-limit { margin: 0; padding: var(--s2) var(--s3); border-radius: 12px; background: var(--ground); color: var(--ink); font-size: 15px; line-height: 21px; }
 
 .mh-card { display: flex; flex-direction: column; gap: var(--s2); }
@@ -1408,167 +982,8 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
    and a mouse resting there does not hold the toast open. Only the toast's own action takes the pointer. */
 [data-sonner-toaster], [data-sonner-toast] { pointer-events: none; }
 [data-sonner-toast] :is(button, a) { pointer-events: auto; }
-
-/* ------------------------------------------------------------------ each student has a page (TEACHER-8): names as
-   quiet links on the board, the ranked "כדאי לבדוק איתם" with its reason chips, the students tab's sort, and the
-   student's sheet (sections, a 14-day strip of squares, the student's two actions at the end). Calm: no red. */
-.link-btn.t-name { min-height: 44px; padding: 0; font-weight: 700; color: var(--brand-d); text-align: start; overflow-wrap: anywhere; }
-.t-table th .link-btn.t-name { font-size: inherit; }
-.t-attn { list-style: none; margin: 0; padding: 0; }
-.t-attn .t-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-.t-attn .t-row + .t-row { border-top: 1px solid var(--rule); }
-.t-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.t-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 14px; line-height: 20px; font-weight: 700; background: var(--ground); color: var(--ink-2); }
-.t-chip-help { background: var(--brand-tint); color: var(--brand-d); }
-.t-chip-late { background: var(--streak-tint); color: var(--streak-ink); }
-.t-sort { flex-direction: row; align-items: center; gap: var(--s3); margin: 0 0 var(--s3); }
-.t-sort .field-label { margin: 0; flex: none; }
-.t-sort-select { min-height: 44px; width: auto; max-width: 100%; }
-.hf-who { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); margin-bottom: var(--s3); padding: var(--s2) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); }
-
-.ss-body { display: flex; flex-direction: column; gap: var(--s5); }
-.ss-sub { margin: 0; color: var(--ink-2); font-weight: 600; }
-.ss-part { display: flex; flex-direction: column; gap: var(--s2); }
-.ss-h { margin: 0; font-size: 18px; line-height: 24px; font-weight: 800; color: var(--ink); }
-.ss-empty, .ss-line { margin: 0; }
-.ss-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.ss-list > li + li { border-top: 1px solid var(--rule); }
-.ss-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: var(--s2) 0; }
-.ss-row-main { overflow-wrap: anywhere; }
-/* a repeated mistake: its stair on a line of its own, then the student's words (TEACHER-16) */
-.t-mis-stair { display: block; }
-.ss-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
-.ss-act { align-self: flex-start; margin-top: var(--s1); min-height: 44px; }
-.ss-level { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); min-height: 44px; padding: 6px 0; }
-.ss-level-name { display: inline-flex; align-items: center; gap: var(--s2); font-weight: 600; }
-.ss-strip-wrap { display: inline-flex; flex-direction: column; gap: 4px; align-self: flex-start; }
-.ss-strip { display: inline-flex; gap: 4px; }
-.ss-strip i { width: 18px; height: 18px; border-radius: 5px; background: var(--ground); border: 1px solid var(--rule); }
-.ss-strip i.some { background: var(--brand-line); border-color: var(--brand-line); }
-.ss-strip i.lots { background: var(--brand); border-color: var(--brand); }
-.ss-strip-ends { display: flex; justify-content: space-between; font-size: 13px; line-height: 18px; color: var(--ink-2); }
-@media (max-width: 359px) { .ss-strip { gap: 3px; } .ss-strip i { width: 15px; height: 15px; } }
-.ss-actions .set-row { width: 100%; gap: var(--s2); }
-.ss-done { margin: 0; color: var(--ink-2); font-weight: 600; }
-.ss-error { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); }
-
-/* student AI by the Ministry's rules (TRUST-11): the class settings' card, the setting question, the per-student badge */
-.cs-set { margin-top: var(--s2); }
-.cs-set > legend { font-weight: 700; color: var(--ink); }
-.cs-attest, .cai-box { align-items: flex-start; padding: var(--s1) 0; line-height: var(--lh-base); }
-.cs-attest input, .cai-box input { margin-top: 2px; }
-.as-choice.is-disabled { cursor: default; opacity: 0.6; }
-.cai-status { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-weight: 600; color: var(--ink); }
-.cai-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px; border-radius: 999px; font-size: 15px; font-weight: 800; }
-.cai-chip.off { background: var(--ground); color: var(--ink-2); }
-.cai-chip.on { background: var(--brand-tint); color: var(--brand-d); }
-.cai-where legend { margin-bottom: var(--s2); }
-.cai-text { margin: 0; overflow-wrap: anywhere; }
-.cai-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.cai-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; color: var(--brand-d); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
-.cai-link svg { flex: none; }
-.cai-rules { margin: 0; }
-.cai-consent { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
-.cai-save { align-self: flex-start; min-width: 96px; }
-.cai-switch { display: flex; flex-direction: column; gap: 4px; }
-.cai-sheet p { margin: 0; }
-.licence-before { margin-bottom: 0; }
-.t-lic-line { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); min-height: 48px; margin: 0 0 var(--s3); padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); font-weight: 700; text-decoration: none; }
-.t-lic-line svg { flex: none; color: var(--brand); }
-.t-lic-line:hover { border-color: var(--brand-line); }
-.ss-badges { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.t-actions .t-ai-off { white-space: nowrap; }
-.cai-where { padding-top: var(--s4); border-top: 2px solid var(--rule); }
-
-/* the demo class (TEACHER-15): the banner above every teacher screen, the disabled lines, the public page's button */
-.demo-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); padding: var(--s2) var(--gutter); background: var(--brand-tint); border-bottom: 2px solid var(--brand-line); color: var(--ink); }
-.demo-banner-text { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; flex: 1 1 220px; font-size: 15px; line-height: 21px; font-weight: 600; }
-.demo-banner-text svg { flex: none; margin-top: 2px; color: var(--brand-d); }
-.demo-banner-actions { display: flex; flex-wrap: wrap; gap: 0 var(--s3); }
-.demo-banner-btn { min-height: 44px; padding: 0 var(--s1); border: 0; background: none; color: var(--brand-d); font: inherit; font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.demo-banner-btn.strong { text-decoration: none; }
-.demo-banner-btn:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }
-@media print { .demo-banner { display: none !important; } }
-.t-demo-line { margin: var(--s2) 0 0; font-size: 15px; }
 .set-row:disabled { color: var(--ink-2); cursor: default; opacity: 0.7; }
-.teacher-off-demo { margin-top: var(--s4); }
 .demo-ask .lead { margin: 0; }
-/* a scrolling table contains what is positioned inside it: KaTeX's hidden MathML (position: absolute) in a far column
-   would otherwise widen the whole page on a phone (the report's mistake column) */
-.table-wrap { position: relative; }
-
-/* the pilot kit (TEACHER-10): the list of documents, the pilot's details, the actions, and the document on screen as a
-   sheet of paper. Its printed copy is in styles/app.css (.print-sheet[data-mode="doc"]). */
-.t-guide { display: flex; flex-direction: column; gap: var(--s4); }
-.t-guide > .screen-bar { margin-bottom: calc(-1 * var(--s2)); }
-.t-guide .screen-bar-title { text-wrap: balance; overflow-wrap: anywhere; }
-.t-guide-sub { margin: 0; color: var(--ink-2); }
-.t-guide > .section { margin-top: 0; }
-.sd-list ul { list-style: none; margin: 0; padding: 0; }
-.sd-list li + li { border-top: 2px solid var(--rule); }
-a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0; }
-.sd-row svg { color: var(--ink-2); }
-.sd-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.sd-row-title { font-weight: 700; color: var(--ink); }
-.sd-row-line { font-weight: 400; font-size: 15px; line-height: 21px; color: var(--ink-2); }
-.sd-form .field { margin: 0; }
-.sd-form .input { width: 100%; min-height: 48px; }
-.sd-form-note, .sd-late { margin: 0; }
-.sd-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
-@media (max-width: 359px) { .sd-dates { grid-template-columns: minmax(0, 1fr); } }
-.sd-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.sd-actions .btn { min-height: 44px; }
-.sd-actions .btn svg { flex: none; }
-.sd-paper { padding: var(--s5) var(--s4); border: 1px solid var(--rule-strong); border-radius: var(--r-md); background: var(--surface); box-shadow: 0 2px 0 var(--rule); overflow-wrap: anywhere; }
-.sd-doc h2 { margin: 0; font-size: 22px; line-height: 28px; }
-.sd-doc h3 { margin: var(--s3) 0 0; font-size: 18px; line-height: 24px; }
-.sd-doc ol { margin: 0; padding-inline-start: var(--s5); }
-.sd-doc li + li { margin-top: 4px; }
-.sd-doc ul:has(> li.sd-check) { padding-inline-start: 0; list-style: none; }
-.sd-doc code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; direction: ltr; unicode-bidi: isolate; }
-.sd-doc hr { width: 100%; margin: var(--s4) 0; border: 0; border-top: 2px dashed var(--ink-2); }
-.t-fresh-letter { align-self: center; }
-.t-fresh-letter svg, .cai-letter svg { flex: none; }
-.cai-letter { align-self: flex-start; }
-
-/* ------------------------------------------------------------------ the teacher's screens on a tablet or a computer
-   (TEACHER-14 §3: what the tablet and desktop baselines showed) */
-/* the new-class form fills its sheet: no box of its own inside the sheet, no narrower column */
-.add-class { max-width: none; border: 0; border-radius: 0; padding: 0; }
-@media (min-width: 600px) {
-  /* there is room: the tools wrap onto a second row instead of hiding behind the fade */
-  .t-tools ul { flex-wrap: wrap; overflow-x: visible; padding-inline-end: 0; -webkit-mask-image: none; mask-image: none; }
-}
-@media (min-width: 648px) {
-  /* "מחר" in two or three columns: the cards stand side by side under level headings, with no rule above some of them */
-  .t-grid > .set-group + .set-group { padding-top: 0; border-top: 0; }
-}
-@media (min-width: 1024px) {
-  /* a laptop shows the class report's table whole: the board's width, and its two buttons side by side */
-  .page.t-report { max-width: 1100px; }
-  .t-report > .screen-foot { flex-direction: row; }
-  .t-report > .screen-foot .btn { flex: 1 1 0; width: auto; }
-  /* each repeated mistake on about one line, so a student's row is not five lines tall */
-  .rp-mis { min-width: 22em; max-width: 32em; }
-}
-
-/* "יש לי קוד גיבוי" (DURABLE-5): the restore screen. The code field is left to right in mono, large enough to read each
-   symbol at 320 px; the waiting line under the button; then the quieter switch to the file. When the progress is back,
-   מדי and one line, and the way on. */
-.restore-screen .ob-top-title { margin-block: 0; }
-.restore-screen .ob-main { gap: var(--s4); }
-.restore-form { display: flex; flex-direction: column; gap: var(--s3); }
-.restore-form .btn { margin-inline: 0; }
-/* 19 symbols with the dashes fit on one line at 320 px (never under 16 px, so iOS does not zoom on focus) */
-.restore-input { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-weight: 700; letter-spacing: 0.03em; text-align: left;
-  font-size: clamp(16px, calc((100vw - 80px) / 12.2), var(--t-lg)); padding-inline: var(--s3); }
-.restore-form .form-error { margin: 0; }
-.restore-wait { margin: 0; min-height: 24px; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--ink-2); text-align: center; }
-.restore-switch { min-height: 48px; text-decoration: underline; text-underline-offset: 3px; }
-.restore-done { display: flex; flex-direction: column; align-items: center; gap: var(--s3); text-align: center; padding-top: var(--s4); }
-.restore-done .btn { margin-inline: 0; margin-top: var(--s2); }
-.restore-done-lead { margin: 0; font-size: 18px; line-height: 27px; color: var(--ink); }
-.restore-done-note { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--good-tint); color: var(--good-ink); font-size: 16px; line-height: 24px; }
 
 /* the front page: the two backup ways in side by side (one when there is no server), and the Home Screen app's banner,
    first in the footer on its first open */
