@@ -20,7 +20,9 @@ import { askAfterLesson } from '@/lib/durable/persist.js';
 import GoalStage from '@/components/learn/GoalStage.jsx';
 import { installDue } from '@/lib/install.js';
 import { reminderDue } from '@/lib/reminder.js';
-import { UnlockStage, useNewUnlocks } from '@/lib/madiLook.js';
+import { UnlockMoment, useNewUnlocks, useMadiLook } from '@/lib/madiLook.js';
+import { wearing } from '@/lib/wardrobe.js';
+import ChestChoice, { useChestOffer } from '@/components/learn/ChestChoice.jsx';
 
 // the install offer is shown to few, and late: its screen loads when it comes (STUDENT-10)
 const InstallCard = lazy(() => import('@/components/learn/InstallCard.jsx'));
@@ -155,28 +157,13 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
     );
   }
 
-  if (stage === 'unlock') return <Suspense fallback={<div className="done-screen" />}><UnlockStage ids={unlocks} onNext={nextStage} /></Suspense>;
+  if (stage === 'unlock') return <UnlockMoment ids={unlocks} onNext={nextStage} />;
   if (stage === 'goal') return <GoalStage onNext={nextStage} />;
   if (stage === 'streak') return <StreakStage streak={award.streak} repaired={!!award.streakRepaired} days={days} freezes={freezes} onNext={nextStage} />;
   if (stage === 'install') return <Suspense fallback={<div className="done-screen" />}><InstallCard onDone={nextStage} /></Suspense>;
   if (stage === 'reminder') return <Suspense fallback={<div className="done-screen" />}><ReminderCard onDone={nextStage} /></Suspense>;
 
-  if (stage === 'quests') {
-    return (
-      <div className="done-screen quests-done-screen">
-        <Hero>
-          <Lottie name="chest" className="done-chest" label="תיבת אוצר נפתחת" fallback={<Mascot mood="achievement" size={150} />} />
-        </Hero>
-        <m.div className="done-copy" variants={stagger(0.2)} initial="hidden" animate="show">
-          <m.h1 variants={rise} className="done-title">סיימתם את המשימות של היום!</m.h1>
-          {award.freezeEarned
-            ? <m.p variants={rise} className="reward streak-freeze"><Lottie name="snowflake" className="freeze-flake" fallback={<Snowflake size={22} aria-hidden="true" />} />קיבלתם הקפאת רצף. היא שומרת על הרצף ביום שלא יוצא ללמוד בו.</m.p>
-            : <m.p variants={rise} className="lead">כל הכבוד. מחר יחכו משימות חדשות.</m.p>}
-        </m.div>
-        <div className="done-actions" data-region="footer"><Button className="btn-block btn-lg" onClick={nextStage}>המשך</Button></div>
-      </div>
-    );
-  }
+  if (stage === 'quests') return <QuestsStage award={award} onNext={nextStage} />;
 
   const title = result.kind === 'review' ? 'סיימתם חזרה על היחידה!' : result.kind === 'jump' ? 'קפצתם קדימה!' : result.perfect ? 'שיעור מושלם!' : 'השיעור הושלם!';
   // Medals only for what this lesson really earned.
@@ -235,6 +222,41 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   );
 }
 
+/**
+ * The day's chest, opened by the last of the three quests: the streak freeze, and a choice of one of two pieces for מדי
+ * (PRODUCT2-36, components/learn/ChestChoice.jsx). The offer is fixed as the screen opens. Once a piece is chosen, מדי
+ * shows it on, and "לשמור על מדי" keeps it on; "המשך" without a choice leaves it waiting in the quests tab.
+ */
+function QuestsStage({ award, onNext }) {
+  const live = useChestOffer();
+  const [offer] = useState(live);
+  const [picked, setPicked] = useState(null);
+  const look = useMadiLook();
+  const pick = (id) => { if (useApp.getState().pickChest(offer.day, id)) setPicked(id); };
+  const keep = () => { useApp.getState().setLook(wearing(picked)); onNext(); };
+  return (
+    <div className="done-screen quests-done-screen">
+      <Hero confetti={!picked}>
+        {picked
+          ? <Mascot mood="achievement" size={130} look={{ ...look, ...wearing(picked) }} reveal={picked} className="done-madi" />
+          : <Lottie name="chest" className="done-chest" label="תיבת אוצר נפתחת" fallback={<Mascot mood="achievement" size={150} />} />}
+      </Hero>
+      <m.div className="done-copy" variants={stagger(0.2)} initial="hidden" animate="show">
+        <m.h1 variants={rise} className="done-title">סיימתם את המשימות של היום!</m.h1>
+        {award.freezeEarned
+          ? <m.p variants={rise} className="reward streak-freeze"><Lottie name="snowflake" className="freeze-flake" fallback={<Snowflake size={22} aria-hidden="true" />} />קיבלתם הקפאת רצף. היא שומרת על הרצף ביום שלא יוצא ללמוד בו.</m.p>
+          : !offer && <m.p variants={rise} className="lead">כל הכבוד. מחר יחכו משימות חדשות.</m.p>}
+        {offer && <m.div variants={rise} className="quests-done-choice"><ChestChoice ids={offer.ids} picked={picked} onPick={pick} title="ובתיבה גם חלק למדי. בחרו אחד:" /></m.div>}
+      </m.div>
+      <div className="done-actions" data-region="footer">
+        {picked
+          ? <><Button className="btn-block btn-lg" onClick={keep}>לשמור על מדי</Button><Button variant="ghost" className="btn-block" onClick={onNext}>המשך</Button></>
+          : <Button className="btn-block btn-lg" variant={offer ? 'secondary' : 'primary'} onClick={onNext}>{offer ? 'לבחור אחר כך' : 'המשך'}</Button>}
+      </div>
+    </div>
+  );
+}
+
 /** After the placement test: where each topic starts, then the first day of the streak. */
 export function PlacementDone({ result, award, onExit }) {
   const days = useApp((s) => s.days);
@@ -244,7 +266,7 @@ export function PlacementDone({ result, award, onExit }) {
   const [i, setI] = useState(0);
   const last = i + 1 >= stages.length;
   const nextStage = () => (last ? onExit() : setI(i + 1));
-  if (stages[i] === 'unlock') return <Suspense fallback={<div className="done-screen" />}><UnlockStage ids={unlocks} onNext={nextStage} /></Suspense>;
+  if (stages[i] === 'unlock') return <UnlockMoment ids={unlocks} onNext={nextStage} />;
   if (stages[i] === 'goal') return <GoalStage onNext={nextStage} label={last ? 'ללוח שלי' : 'המשך'} />;
   if (stages[i] === 'streak') return <StreakStage streak={award.streak} days={days} freezes={freezes} onNext={nextStage} />;
   return (

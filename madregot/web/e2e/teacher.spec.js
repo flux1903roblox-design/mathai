@@ -56,7 +56,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { NOW, student, item, answer, proceed } from './helpers.js';
+import { NOW, student, item, answer, proceed, leaveStage } from './helpers.js';
 import { API, TOKEN, fakeServer } from './fakeServer.js';
 import { MOE_RULES } from '../../shared/schoolRules.js';
 import { AI_COPY, SETTING_Q, ATTEST } from '../src/content/classAi.js';
@@ -942,6 +942,8 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
     for (let i = 0; i < 5; i += 1) { await answer(page, true); await proceed(page); }
     await expect(page.getByRole('heading', { name: 'שולטים לבד!' })).toBeVisible();
     await page.getByRole('button', { name: 'למפה' }).click();
+    // the view is the student's: a first stage gives מדי his first piece, with its moment (PRODUCT2-36)
+    await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
     await expect(page).toHaveURL(/#\/teacher\/lessons$/);
     // the dots of that stair now show its check, done in this view
     await expect(signed.getByRole('list', { name: 'השלבים של חיבור וחיסור' })).toContainText('בדיקת שליטה, נעשה בתצוגה הזו');
@@ -957,7 +959,7 @@ test.describe('TEACHER-2: the student view, the lessons and the teacher\'s assis
       while (await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).count()) await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).click();
       await page.getByRole('button', { name: /לדוגמה הבאה|לפתור יחד/ }).click();
     }
-    await page.locator('.stage-done').getByRole('button', { name: 'למפה', exact: true }).click();
+    await leaveStage(page, 'למפה');
     await expect(page).toHaveURL(/#\/teacher\/lessons$/);
 
     // CheckDone's way to the exam plan (/rescue), from inside a preview

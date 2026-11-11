@@ -4,11 +4,18 @@
 //    also the `sky` family's colour, so a completed `sky` unit gives gold instead (gold already means mastery on the path).
 //  - Accessories: one per unit, given when the unit's chest opens (stairs 1 to chestAfter all done, in order), plus the
 //    class scarf for a class that reaches its goal of the week (STUDENT-4).
+//  - Pieces for stages (PRODUCT2-36): the first one for the first stage the student finishes (the first session), then
+//    one every TRACK_EVERY stages, in a fixed order: about one every 2-3 days at 10 minutes a day (a stage takes about
+//    4 minutes, learn/recommend.ts STAGE_MIN). Stages are counted from the work done (path.js stagesWorked).
+//  - Pieces from the daily quests' chest (PRODUCT2-36): when the day's three quests are done, the student chooses one of
+//    the next two in a fixed order (lib/rewards.js chestOffer), next to the chest's streak freeze. look.picks keeps the
+//    day and the choice, so each chest gives one piece and each piece says it came from the chest.
 // Unlocks are derived from progress, so they need no migration. The first time an id is derived it is remembered in
 // look.earned (earnIds), and from then on it stays earned, even if a stair later falls back to needs-review.
-// Pure functions only; the store keeps `look` (lib/store.js), Mascot draws it (components/mascot/Accessories.jsx).
+// Pure functions only; the store keeps `look` (lib/store.js), Mascot draws it (components/mascot/Accessories.jsx). The
+// wardrobe's meter and the chest's choice are in lib/rewards.js, loaded with the screens that show them.
 import { TOPICS, TOPIC } from '@/content/index.js';
-import { doneCount, chestOpen, chestAfter } from './path.js';
+import { doneCount, chestOpen, chestAfter, stagesWorked } from './path.js';
 
 export const SLOTS = ['head', 'face', 'neck', 'body'];
 export const SLOT_NAME = { head: 'על הראש', face: 'על הפנים', neck: 'על הצוואר', body: 'על המדרגה' };
@@ -23,7 +30,13 @@ export const COLORS = [
   { id: 'cobalt', name: 'כחול כהה', unlock: { family: 'cobalt' } },
 ];
 
-/** The accessories: one per unit (its chest), plus the class scarf. A test fails if a unit in TOPICS has none. */
+/** Stages between two pieces for stages (the first comes with the first stage). */
+export const TRACK_EVERY = 9;
+
+/**
+ * The accessories: one per unit (its chest), the class scarf, the pieces for stages and the quests' chest pieces. A test
+ * fails if a unit in TOPICS has none.
+ */
 export const ITEMS = [
   { id: 'thermo-scarf', slot: 'neck', topic: 'signed', name: 'צעיף מדחום', unlock: { chest: 'signed' } },
   { id: 'compass-cap', slot: 'head', topic: 'coord', name: 'כובע מצפן', unlock: { chest: 'coord' } },
@@ -40,6 +53,14 @@ export const ITEMS = [
   { id: 'scale-pin', slot: 'body', topic: 'ratio', name: 'סיכת קנה מידה', unlock: { chest: 'ratio' } },
   { id: 'percent-pin', slot: 'body', topic: 'pct', name: 'סיכת אחוז', unlock: { chest: 'pct' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
+  // pieces for stages, in the order they come (PRODUCT2-36): the first stage, then every TRACK_EVERY stages
+  ...[['party-hat', 'head', 'כובע חגיגה'], ['bow-tie', 'neck', 'פפיון'], ['round-glasses', 'face', 'משקפיים עגולים'], ['star-pin', 'body', 'סיכת כוכב'],
+    ['headphones', 'head', 'אוזניות'], ['pi-pin', 'body', 'סיכת פאי'], ['stripe-scarf', 'neck', 'צעיף פסים'], ['sun-glasses', 'face', 'משקפי שמש']]
+    .map(([id, slot, name], k) => ({ id, slot, topic: null, name, unlock: { stages: 1 + k * TRACK_EVERY } })),
+  // the daily quests' chest: the student chooses one of the next two, in this order
+  ...[['beanie', 'head', 'כובע צמר'], ['medal', 'neck', 'מדליה'], ['bolt-pin', 'body', 'סיכת ברק'], ['star-glasses', 'face', 'משקפי כוכבים'],
+    ['grad-cap', 'head', 'כובע סיום'], ['infinity-pin', 'body', 'סיכת אינסוף']]
+    .map(([id, slot, name]) => ({ id, slot, topic: null, name, unlock: { quest: true } })),
 ];
 
 const COLOR = Object.fromEntries(COLORS.map((c) => [c.id, c]));
@@ -59,8 +80,11 @@ export const MADI_PALETTE = { sky: { hi: '#5b8cff', lo: '#1a5cf5', edge: '#1246c
 
 /** What a student wears before choosing anything, and what a saved look falls back to. */
 export const DEFAULT_LOOK = Object.freeze({ color: 'sky', head: null, face: null, neck: null, body: null });
-/** The saved look in the store: what is worn, what was earned (for good), what the student was shown, and when each was earned. */
-export const emptyLook = () => ({ ...DEFAULT_LOOK, earned: [], seen: [], earnedAt: {} });
+/**
+ * The saved look in the store: what is worn, what was earned (for good), what the student was shown, when each was
+ * earned, and the piece chosen from each day's quest chest ({ [day]: id }, PRODUCT2-36).
+ */
+export const emptyLook = () => ({ ...DEFAULT_LOOK, earned: [], seen: [], earnedAt: {}, picks: {} });
 
 /** A saved look made safe to draw: an unknown colour is the default, and an item only goes in its own slot. */
 export function cleanLook(look) {
@@ -82,9 +106,19 @@ function colourUnit(id, path, grade) {
   return (units.find((t) => unitComplete(t.id, path)) || units[0] || null)?.id || null;
 }
 
-/** Why a piece is the student's: "מיחידת זוויות", or "מהמטרה של הכיתה". */
+/** The stages a piece for stages needs (0 for any other piece). */
+export const stagesFor = (id) => ITEM[id]?.unlock.stages || 0;
+/** Is this one of the quest chest's pieces? */
+export const isQuestPiece = (id) => !!ITEM[id]?.unlock.quest;
+/** The quest chest's two pieces: the first two of its pieces not owned yet, in the catalogue's order (fewer near the end). */
+export const chestPieces = (owned = new Set()) => ITEMS.filter((i) => i.unlock.quest && !owned.has(i.id)).slice(0, 2).map((i) => i.id);
+
+/** Why a piece is the student's: "מיחידת זוויות", "על 8 שלבים", "מתיבת המשימות", or "מהמטרה של הכיתה". */
 function whyOwned(id, path, grade) {
   if (ITEM[id]?.unlock.classGoal) return 'מהמטרה של הכיתה';
+  if (isQuestPiece(id)) return 'מתיבת המשימות';
+  const n = stagesFor(id);
+  if (n) return n === 1 ? 'על השלב הראשון' : `על ${n} שלבים`;
   const topic = ITEM[id]?.topic || colourUnit(id, path, grade);
   return topic ? `מיחידת ${TOPIC[topic].title}` : '';
 }
@@ -93,21 +127,24 @@ function whyOwned(id, path, grade) {
  * What the student's progress has unlocked, derived (no saved state needed):
  * { colors: Set (always with 'sky'), items: Set, why: Map id → "מיחידת …" }.
  * classGoals: { [week]: { reached, mine } } (STUDENT-4); the class scarf needs a reached goal the student added to.
+ * skills: learn.skills, for the pieces for stages (the teaching stages and the mastery checks live there).
  */
-export function unlockedLook({ path = {}, classGoals = {}, grade = '7' } = {}) {
+export function unlockedLook({ path = {}, classGoals = {}, grade = '7', skills = {} } = {}) {
   const colors = new Set(['sky']); const items = new Set();
   for (const t of TOPICS) {
     if (unitComplete(t.id, path)) colors.add(colourForFamily(t.color));
     const it = ITEMS.find((i) => i.unlock.chest === t.id);
     if (it && chestOpen(t.id, path)) items.add(it.id);
   }
+  const stages = stagesWorked(path, skills);
+  for (const i of ITEMS) if (i.unlock.stages && i.unlock.stages <= stages) items.add(i.id);
   if (Object.values(classGoals || {}).some((g) => g?.reached && (g.mine || 0) > 0)) items.add('class-scarf');
   return { colors, items, why: new Map([...colors, ...items].filter((id) => id !== 'sky').map((id) => [id, whyOwned(id, path, grade)])) };
 }
 
 /** Everything the student owns: what progress unlocks now, plus what was earned before (look.earned) and stays. */
-export function ownedLook({ path = {}, classGoals = {}, grade = '7', earned = [] } = {}) {
-  const u = unlockedLook({ path, classGoals, grade });
+export function ownedLook({ path = {}, classGoals = {}, grade = '7', earned = [], skills = {} } = {}) {
+  const u = unlockedLook({ path, classGoals, grade, skills });
   for (const id of earned || []) {
     if (COLOR[id] && !u.colors.has(id)) { u.colors.add(id); u.why.set(id, whyOwned(id, path, grade)); }
     if (ITEM[id] && !u.items.has(id)) { u.items.add(id); u.why.set(id, whyOwned(id, path, grade)); }
@@ -151,6 +188,8 @@ export const isWorn = (look, id) => (COLOR[id] ? look?.color === id : !!ITEM[id]
 export function lockedReason(id, grade = '7') {
   const it = ITEM[id];
   if (it?.unlock.classGoal) return { text: 'נפתח כשהכיתה מגיעה למטרה של השבוע.', topic: null };
+  if (it?.unlock.quest) return { text: 'מחכה בתיבה של המשימות היומיות: כשמסיימים את שלוש המשימות של היום, בוחרים חלק אחד משניים.', topic: null };
+  if (it?.unlock.stages) return { text: `נפתח אחרי ${it.unlock.stages} שלבים של לימוד: הסבר, דוגמה, פתרון יחד, תרגול או בדיקת שליטה.`, topic: null };
   if (it) return { text: `נפתח כשתשלטו במדרגות 1 עד ${chestAfter(it.topic)} ביחידת ${TOPIC[it.topic].title}.`, topic: it.topic };
   const topic = colourUnit(id, {}, grade);
   return topic ? { text: `נפתח כשתשלטו בכל המדרגות ביחידת ${TOPIC[topic].title}.`, topic } : { text: '', topic: null };
@@ -160,6 +199,8 @@ export function lockedReason(id, grade = '7') {
 export function unlockReason(id, path = {}, grade = '7') {
   const it = ITEM[id];
   if (it?.unlock.classGoal) return `הכיתה הגיעה למטרה של השבוע, ומדי קיבל ${it.name}.`;
+  if (it?.unlock.quest) return `בחרתם בתיבת המשימות, ומדי קיבל ${it.name}.`;
+  if (it?.unlock.stages) return it.unlock.stages === 1 ? `סיימתם את השלב הראשון, ומדי קיבל ${it.name}.` : `סיימתם ${it.unlock.stages} שלבים, ומדי קיבל ${it.name}.`;
   if (it) return `שלטתם בחצי הראשון של ${TOPIC[it.topic].title}, ומדי קיבל ${it.name}.`;
   const topic = colourUnit(id, path, grade);
   return topic ? `סיימתם את כל המדרגות של ${TOPIC[topic].title}. מדי יכול להיות עכשיו ${COLOR[id].name}.` : '';

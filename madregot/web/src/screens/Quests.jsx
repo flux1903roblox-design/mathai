@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { Flame, Snowflake, Zap, Check, Target, BookOpen, Star, Trophy, Footprints, ListChecks } from 'lucide-react';
@@ -17,7 +17,15 @@ import { markSeen } from '@/lib/classWork.js';
 import MyHelp from '@/components/learn/MyHelp.jsx';
 import ClassGoalCard, { ClassGoalMoment } from '@/components/learn/ClassGoalCard.jsx';
 import ExamLoss from '@/components/learn/ExamLoss.jsx';
+import ChestChoice, { useChestOffer } from '@/components/learn/ChestChoice.jsx';
+import { nameOf, chestPieces } from '@/lib/wardrobe.js';
 
+
+/** The two pieces the next chest would offer (none once every chest piece is owned). */
+function useChestPiecesLeft() {
+  const earned = useApp((s) => s.look?.earned);
+  return chestPieces(new Set(earned || []));
+}
 
 const QUEST_ICON = { lessons: BookOpen, xp: Zap, combo: Flame, perfect: Star, correct: Target, mission: ListChecks };
 const stepsText = (n) => (n === 1 ? 'צעד אחד' : `${n} צעדים`);
@@ -54,6 +62,13 @@ export default function Quests() {
   const repair = useRepair();
   const todayXp = day.xp || 0;
   const allDone = quests.every((q) => q.done);
+  // the chest's choice of a piece for מדי (PRODUCT2-36): today's, or an earlier chest of this week still waiting; once
+  // chosen here, the choice stays on screen until the tab is left
+  const live = useChestOffer();
+  const [chosen, setChosen] = useState(null);
+  const offer = chosen?.offer || live;
+  const pick = (id) => { if (useApp.getState().pickChest(offer.day, id)) setChosen({ offer, id }); };
+  const pieces = useChestPiecesLeft();
   // the teacher's work is seen here: the tab's dot goes (and stays gone for work that arrives while this tab is open)
   const workAt = useApp((s) => s.classWork.at);
   useEffect(() => { if (profile.token) markSeen(); }, [profile.token, workAt]);
@@ -101,9 +116,14 @@ export default function Quests() {
           <div className="quest-chest-text">
             <p className="quest-say">{allDone
               ? (day.questsRewarded && freezes > 0 ? 'פתחתם את התיבה של היום! יש בה הקפאת רצף.' : 'פתחתם את התיבה של היום! מחר יחכו משימות חדשות.')
-              : `עוד ${3 - quests.filter((q) => q.done).length === 1 ? 'משימה אחת' : `${3 - quests.filter((q) => q.done).length} משימות`} והתיבה נפתחת. ${freezes >= 2 ? 'יש לכם כבר שתי הקפאות רצף, כמה שאפשר להחזיק. היום אין בה הקפאה חדשה.' : 'יש בה הקפאת רצף (אפשר להחזיק עד שתיים).'}`}</p>
+              : `עוד ${3 - quests.filter((q) => q.done).length === 1 ? 'משימה אחת' : `${3 - quests.filter((q) => q.done).length} משימות`} והתיבה נפתחת. ${freezes >= 2 ? 'יש לכם כבר שתי הקפאות רצף, כמה שאפשר להחזיק. היום אין בה הקפאה חדשה.' : 'יש בה הקפאת רצף (אפשר להחזיק עד שתיים).'}${pieces.length ? ` וגם חלק למדי לבחירה: ${pieces.map(nameOf).join(' או ')}.` : ''}`}</p>
           </div>
         </div>
+        {offer && (
+          <div className="quest-chest-choice">
+            <ChestChoice ids={offer.ids} picked={chosen?.id || null} onPick={pick} title={offer.day === d ? 'בחרו חלק אחד למדי' : 'התיבה עוד מחכה: בחרו חלק'} />
+          </div>
+        )}
       </section>
 
       <section className="card streak-card" aria-labelledby="streak-h">

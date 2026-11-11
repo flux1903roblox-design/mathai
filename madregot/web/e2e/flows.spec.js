@@ -1,7 +1,7 @@
 // Core journeys: first visit, placement test, a whole lesson with XP and saved progress,
 // the AI tutor and the teacher view when there is no server, and a printable practice exam.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, type, proceed, proceedToNext, saved, expectUsable, leaveEndScreens, playDiscover, stageDone } from './helpers.js';
+import { open, student, item, answer, type, proceed, proceedToNext, saved, expectUsable, leaveEndScreens, playDiscover, stageDone, leaveStage } from './helpers.js';
 
 // Journeys run on one phone and on desktop; the layout spec covers every size.
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
@@ -56,7 +56,9 @@ test('the first session gives something back: the first stage earns XP and the s
   await expect(moment.locator('.stage-done-segs')).toHaveAttribute('aria-valuenow', '1');
   await expect(moment.locator('.stage-done-next')).toContainText('הבא: דוגמה פתורה');
   await expectUsable(page, moment.getByRole('button', { name: 'לדוגמה הפתורה', exact: true }), 'the way on to the next stage');
-  await moment.getByRole('button', { name: 'למפה', exact: true }).click();
+  // the first stage also brought מדי his first piece (PRODUCT2-36): its moment comes on the way to the map
+  await expect(moment.locator('.badges')).toContainText('מדי קיבל משהו חדש');
+  expect(await leaveStage(page, 'למפה')).toBe(true);
   // the map: today's XP and the streak moved; the unit counts its first stage; the stair says to continue
   await expect(page.locator('.top-stat.xp')).toContainText('10/20');
   await expect(page.locator('.top-stat.streak')).toContainText('1');
@@ -136,6 +138,8 @@ test('the daily goal has its own moment after the lesson, before the streak, and
   await expect(page.locator('.done-screen .stats')).toBeVisible();
   await expect(page.getByText('הגעתם ליעד היומי')).toHaveCount(0);
   await page.locator('.done-screen .done-actions .btn').click();
+  // the lesson completed the stair's practice, a first stage: מדי's first piece has its moment first (PRODUCT2-36)
+  await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
   // the goal's moment: the title, today's XP, one button; the streak comes after it
   const goal = page.locator('.goal-stage');
   await expect(goal.getByRole('heading', { level: 1 })).toHaveText('הגעתם ליעד היומי!');

@@ -4,8 +4,10 @@ import clsx from 'clsx';
 import { SPRING } from '@/lib/motion.js';
 import { useMadiLook } from '@/lib/madiLook.js';
 import { MADI_PALETTE, SLOTS } from '@/lib/wardrobe.js';
+import QuietBoundary from './QuietBoundary.jsx';
 
-// What he wears (STUDENT-3) loads only when he wears something, so the boot bundle does not grow for anyone else.
+// What he wears (STUDENT-3) loads only when he wears something, so the boot bundle does not grow for anyone else; if
+// it cannot load (offline, before the service worker has it), he is drawn without it (QuietBoundary).
 const Accessories = lazy(() => import('./mascot/Accessories.jsx'));
 
 /**
@@ -21,7 +23,8 @@ const Accessories = lazy(() => import('./mascot/Accessories.jsx'));
  * `beat` replays the reaction when the same mood fires again (each right answer). `still` keeps him from moving at all
  * (no breathing, no blink), as under reduced motion: beside the support card, where nothing should hurry or distract.
  * His look (a colour and up to four items, "מדי שלי") comes from the student's MadiLookProvider (lib/madiLook.js);
- * `look` draws another one instead (the wardrobe's options, the unlock moment).
+ * `look` draws another one instead (the wardrobe's options, the unlock moment); `reveal` names the piece of it that
+ * arrives now (the unlock moment: it drops onto him once, PRODUCT2-36).
  */
 const ALIAS = { cheer: 'happy', think: 'thinking', oops: 'encouraging' };
 
@@ -89,7 +92,7 @@ function Mouth({ mood }) {
   }
 }
 
-export default function Mascot({ mood: moodIn = 'idle', size = 120, className, title, beat = 0, still = false, look: lookIn }) {
+export default function Mascot({ mood: moodIn = 'idle', size = 120, className, title, beat = 0, still = false, look: lookIn, reveal = null }) {
   const mood = ALIAS[moodIn] || (REACT[moodIn] ? moodIn : 'idle');
   const own = useMadiLook();
   const look = lookIn || own;
@@ -217,7 +220,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
           </m.g>
         )}
         {/* what he wears, last, so it moves with every hop */}
-        {dressed && <Suspense fallback={null}><Accessories look={look} eyes={[lx, ly]} spring={spring} /></Suspense>}
+        {dressed && <QuietBoundary><Suspense fallback={null}><Accessories look={look} eyes={[lx, ly]} spring={spring} reveal={reveal} /></Suspense></QuietBoundary>}
       </m.g>
 
       {/* a question bubble while he thinks */}

@@ -55,20 +55,18 @@ describe('Segmented (B3)', () => {
 });
 
 describe('Choices (B4)', () => {
-  it('a locked card is announced as unavailable and marked, the others are plain radios', () => {
+  it('one radio group of plain radios: the chosen card is checked, none is disabled (the wardrobe holds what is owned)', () => {
     const out = html(
-      <Choices value="sky" labelledBy="h" locked={['gold']} className="wardrobe-grid">
+      <Choices value="sky" labelledBy="h" className="wardrobe-grid">
         <Choice value="sky" className="wardrobe-opt">כחול</Choice>
-        <Choice value="gold" locked className="wardrobe-opt is-locked" describedBy="why-gold">זהב</Choice>
+        <Choice value="gold" className="wardrobe-opt">זהב</Choice>
       </Choices>,
     );
     expect(out).toMatch(/role="radiogroup" aria-labelledby="h"/);
     const [sky, gold] = [...out.matchAll(/<span[^>]*role="radio"[^>]*>/g)].map((m) => m[0]);
     expect(sky).toContain('aria-checked="true"');
-    expect(sky).not.toContain('aria-disabled');
-    expect(gold).toContain('aria-disabled="true"');
-    expect(gold).toContain('data-locked="true"');
-    expect(gold).toContain('aria-describedby="why-gold"');
+    expect(gold).toContain('aria-checked="false"');
+    for (const r of [sky, gold]) expect(r).not.toContain('aria-disabled');
   });
 });
 

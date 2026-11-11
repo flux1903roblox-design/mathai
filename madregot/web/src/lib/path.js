@@ -180,6 +180,25 @@ export function stagesDone(rec, parts, done = false) {
 }
 
 /**
+ * Every stage the student has worked through, across all stairs (PRODUCT2-36): the teaching stages finished, practice
+ * once complete, and each mastery check passed. A stair done only on the path (kept from before mastery checks, or
+ * passed over) counts what was really done in it, not five: the count follows work, so Madi's pieces for stages
+ * (lib/wardrobe.js) come from learning, never from a placement.
+ */
+export function stagesWorked(path = {}, skills = {}) {
+  let n = 0;
+  for (const id of Object.keys(TOPIC)) {
+    const top = TOPIC[id].levels.length;
+    for (let L = 1; L <= top; L += 1) {
+      const rec = skills?.[`${id}:${L}`];
+      const parts = partsOf(path, id, L);
+      if (rec || parts) n += stagesDone(rec, parts, false);
+    }
+  }
+  return n;
+}
+
+/**
  * A unit's progress for its counters: stairs done (mastered), and stages done across its stairs out of five per stair.
  * `skills` is learn.skills (the teaching stages and the mastery check live there).
  */

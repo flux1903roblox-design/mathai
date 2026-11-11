@@ -1,0 +1,32 @@
+/* The quest chest's choice of a piece for מדי (components/learn/ChestChoice.jsx, PRODUCT2-36): loaded with it, never at
+   boot. Two big buttons side by side, each a 44px target and more; the chosen one in the brand blue. */
+.chest-choice { display: flex; flex-direction: column; gap: var(--s2); width: 100%; }
+.chest-choice-title { margin: 0; color: var(--ink); font-size: 17px; line-height: 24px; font-weight: 700; text-align: center; }
+.chest-choice-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.chest-opt { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 120px; padding: var(--s3) var(--s2) 10px; border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); color: var(--ink); font: inherit; text-align: center; cursor: pointer; box-shadow: 0 4px 0 var(--rule); -webkit-tap-highlight-color: transparent; }
+.chest-opt:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 var(--rule); }
+.chest-opt:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; }
+.chest-opt.is-picked { border-color: var(--brand); box-shadow: 0 4px 0 var(--brand-lip); }
+.chest-opt:disabled:not(.is-picked) { opacity: 0.55; cursor: default; box-shadow: none; }
+.chest-opt-pic { display: grid; place-items: center; width: 72px; height: 72px; margin-bottom: 2px; }
+.chest-opt-madi { display: block; }
+.chest-opt-name { font-size: 16px; line-height: 22px; font-weight: 700; }
+.chest-opt-slot { color: var(--ink-2); font-size: 14px; line-height: 20px; }
+.chest-opt-mark { position: absolute; top: 8px; inset-inline-start: 8px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--brand); color: var(--on-brand); }
+.chest-choice-note { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 22px; text-align: center; text-wrap: pretty; }
+@media (max-height: 640px) {
+  .chest-opt { min-height: 104px; padding-block: var(--s2) 8px; }
+  .chest-opt-pic { width: 60px; height: 60px; }
+  .chest-opt-madi { width: 54px; height: auto; }
+}
+.quests-done-choice { width: 100%; max-width: 420px; margin-inline: auto; }
+.quest-chest-choice { margin-top: var(--s3); }
+/* the end of a lesson on a short phone: a smaller chest (or מדי) and freeze line, so both pieces and the buttons fit */
+@media (max-height: 700px) {
+  .quests-done-screen .done-hero { min-height: 0; }
+  .quests-done-screen .done-chest { width: 132px; height: 120px; }
+  .quests-done-screen .done-hero .mascot { width: 96px; height: auto; }
+  .quests-done-screen .done-title { font-size: 24px; line-height: 30px; }
+  .quests-done-screen .streak-freeze { padding-block: 6px; font-size: 15px; line-height: 21px; }
+  .quests-done-screen .chest-choice-note, .quests-done-screen .chest-opt-slot { display: none; }
+}

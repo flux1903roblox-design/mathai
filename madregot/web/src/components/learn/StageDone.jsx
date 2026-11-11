@@ -2,10 +2,12 @@
 // celebration language, lighter than a lesson's end (no confetti, no stat tiles, no streak screen): מדי, the stage that
 // is done, what it earned as quiet pills (XP the first time, the streak), the stair's five stages with this one
 // filled, and what comes next with one button. A quiet way back to the map, where the stair's ring has moved.
-// When the stage reached the daily goal, the goal's own moment (GoalStage) comes first.
+// When the stage reached the daily goal, the goal's own moment (GoalStage) comes first. When it brought מדי a new piece
+// (the first stage of all brings the first one, PRODUCT2-36), the unlock moment (UnlockStage) comes after this one,
+// whichever way on the student picks, and a gold pill here says it is waiting.
 import { useEffect, useRef, useState } from 'react';
 import { m } from 'motion/react';
-import { Zap, Flame, Snowflake, Check, Clock } from 'lucide-react';
+import { Zap, Flame, Snowflake, Check, Clock, Gift } from 'lucide-react';
 import Mascot from '@/components/Mascot.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Segments } from '@/components/ds.jsx';
@@ -14,6 +16,7 @@ import { STAIR_STAGES } from '@/lib/path.js';
 import { DUR, enter } from '@/lib/motion.js';
 import { play, haptic } from '@/lib/sound.js';
 import GoalStage from './GoalStage.jsx';
+import { UnlockMoment, useNewUnlocks } from '@/lib/madiLook.js';
 
 const NEXT = { A: 'B', B: 'C', C: 'D' };
 const GO = { B: 'לדוגמה הפתורה', C: 'לפתור יחד', D: 'לתרגול' };
@@ -21,16 +24,21 @@ const rise = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transiti
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } } };
 
 /**
- * stage: 'A' | 'B' | 'C'; stair: the stair's title; award: what completeStage returned; steps: the stair's stages done
- * now (0..5); onNext: on to the next stage; onMap: back to the map.
+ * stage: 'A' | 'B' | 'C'; stair: the stair's title; topic: its unit; award: what completeStage returned; steps: the
+ * stair's stages done now (0..5); onNext: on to the next stage; onMap: back to the map.
  */
 export default function StageDone(props) {
   const [goal, setGoal] = useState(!!props.award.goalReached);
+  // a piece for stages earned by this stage, worked out once as the moment opens (lib/madiLook.js)
+  const unlocks = useNewUnlocks(props.topic);
+  const [then, setThen] = useState(null);
   if (goal) return <GoalStage onNext={() => { setGoal(false); window.scrollTo?.({ top: 0 }); }} />;
-  return <StageMoment {...props} />;
+  if (then) return <UnlockMoment ids={unlocks} onNext={then} />;
+  const on = (fn) => () => (unlocks.length ? (setThen(() => fn), window.scrollTo?.({ top: 0 })) : fn());
+  return <StageMoment {...props} onNext={on(props.onNext)} onMap={on(props.onMap)} gift={unlocks.length > 0} />;
 }
 
-function StageMoment({ stage, stair, award, steps, onNext, onMap }) {
+function StageMoment({ stage, stair, award, steps, onNext, onMap, gift }) {
   const next = NEXT[stage];
   const ref = useRef(null);
   useEffect(() => { play('correct'); haptic('correct'); ref.current?.focus({ preventScroll: true }); }, []);
@@ -41,6 +49,7 @@ function StageMoment({ stage, stair, award, steps, onNext, onMap }) {
       : award.streakExtended && { icon: Flame, tone: 'streak', label: award.streak > 1 ? `${award.streak} ימים ברצף` : 'התחלתם רצף' },
     award.freezeEarned && { icon: Snowflake, tone: 'brand', label: 'קיבלתם הקפאת רצף' },
     award.questsDone && !award.freezeEarned && { icon: Check, tone: 'good', label: 'סיימתם את המשימות של היום' },
+    gift && { icon: Gift, tone: 'gold', label: 'מדי קיבל משהו חדש' },
   ].filter(Boolean);
   return (
     <div className="done-screen stage-done" data-stage={stage}>

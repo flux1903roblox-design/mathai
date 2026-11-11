@@ -1,7 +1,8 @@
 // Madi's look in the student's own app (STUDENT-3). The student routes are wrapped in <MadiLookProvider>, which reads
 // the saved look from the store; every <Mascot> inside draws it, so none of the 32 places that show Madi change.
 // Outside it (the teacher's screens, the parents' area, the welcome screen) Madi has the default look.
-import { createContext, createElement, lazy, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, createElement, lazy, Suspense, useContext, useEffect, useMemo, useState } from 'react';
+import QuietBoundary from '@/components/QuietBoundary.jsx';
 import { useApp } from './store.js';
 import { DEFAULT_LOOK, cleanLook, ownedLook, newUnlocks, orderUnlocks } from './wardrobe.js';
 import { topicsFor } from '@/content/index.js';
@@ -23,15 +24,24 @@ const loadUnlockStage = () => import('@/components/learn/UnlockStage.jsx');
 export const UnlockStage = lazy(loadUnlockStage);
 
 /**
+ * The unlock moment where a result shows it: when its code cannot load (offline, before the service worker has it), the
+ * result simply goes on, and the pieces stay new for the next result.
+ */
+export function UnlockMoment({ ids, onNext }) {
+  return createElement(QuietBoundary, { onError: onNext },
+    createElement(Suspense, { fallback: createElement('div', { className: 'done-screen' }) }, createElement(UnlockStage, { ids, onNext })));
+}
+
+/**
  * The pieces a result brings to show (STUDENT-3): what the student owns and has not been shown, worked out once as the
  * result opens (so it stays put after markEarned), the result's own unit first. [] when there is nothing new. When
  * there is something, the moment's code starts loading at once, so it is there by the time the student goes on.
  */
 export function useNewUnlocks(topic) {
   const [ids] = useState(() => {
-    const { path, classGoals, profile, look } = useApp.getState();
-    return orderUnlocks(newUnlocks(ownedLook({ path, classGoals, grade: profile?.grade, earned: look?.earned }), look?.seen), topic);
+    const { path, classGoals, profile, look, learn } = useApp.getState();
+    return orderUnlocks(newUnlocks(ownedLook({ path, classGoals, grade: profile?.grade, earned: look?.earned, skills: learn?.skills }), look?.seen), topic);
   });
-  useEffect(() => { if (ids.length) loadUnlockStage(); }, [ids]);
+  useEffect(() => { if (ids.length) loadUnlockStage().catch(() => {}); }, [ids]);
   return ids;
 }

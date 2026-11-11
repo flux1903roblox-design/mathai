@@ -9,6 +9,9 @@
   "lazyOnly": [
     "Wardrobe",
     "RecapSheet",
+    "rewards",
+    "ChestChoice",
+    "UnlockStage",
     "Accessories",
     "push",
     "canvas-confetti",

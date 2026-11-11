@@ -1,9 +1,12 @@
-// A new piece for מדי (STUDENT-3): one calm moment after a result, before the daily goal and the streak. Madi already
-// wears the new piece; the title, the sentence that says what earned it, any other new pieces, and two buttons: put it
-// on, or later. Either way the pieces are marked as shown (markEarned), so the moment comes once.
-// A new colour means a whole unit completed: the confetti LessonDone plays for a finished lesson plays here too (left
-// out under reduced motion, as the Lottie player does for anything decorative). An accessory gets no extra effect.
+// A new piece for מדי (STUDENT-3): one moment after a result, before the daily goal and the streak. The title, the
+// piece's name, the sentence that says what earned it, any other new pieces, and two buttons: put it on, or later.
+// Either way the pieces are marked as shown (markEarned), so the moment comes once.
+// A new colour means a whole unit completed: the confetti LessonDone plays for a finished lesson plays here too. A new
+// accessory has its own moment too (SK-STUDENT-2, PRODUCT2-36): soft gold rays open behind Madi and the piece drops
+// onto him with a bounce and a sparkle (components/mascot/Accessories.jsx reveal). Under reduced motion there is no
+// movement: he simply wears it, as before. The buttons work from the first moment, so it can always be skipped.
 // Loaded on demand (lib/madiLook.js UnlockStage, useNewUnlocks).
+import clsx from 'clsx';
 import { m } from 'motion/react';
 import Mascot from '@/components/Mascot.jsx';
 import Lottie from '@/components/Lottie.jsx';
@@ -12,6 +15,7 @@ import { useApp } from '@/lib/store.js';
 import { useMadiLook } from '@/lib/madiLook.js';
 import { colorOf, nameOf, unlockReason, wearing } from '@/lib/wardrobe.js';
 import { DUR, enter } from '@/lib/motion.js';
+import '@/styles/lazy/unlock.css';
 
 const focusQuietly = (el) => { if (el) el.focus({ preventScroll: true }); };
 const rise = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: enter(DUR.slow) } };
@@ -32,12 +36,13 @@ export default function UnlockStage({ ids, onNext }) {
   };
   return (
     <div className="done-screen unlock-stage">
-      <div className="done-hero">
-        {colour && <Lottie name="confetti" className="done-confetti" decorative />}
-        <Mascot mood="achievement" size={150} look={preview} className="unlock-madi" />
+      <div className={clsx('done-hero', !colour && 'unlock-hero')}>
+        {colour ? <Lottie name="confetti" className="done-confetti" decorative /> : <span className="unlock-rays" aria-hidden="true" />}
+        <Mascot mood="achievement" size={150} look={preview} reveal={colour ? null : main} className="unlock-madi" />
       </div>
       <m.div className="done-copy" variants={stagger} initial="hidden" animate="show">
         <m.h1 variants={rise} className="done-title" id="unlock-title">מדי קיבל משהו חדש</m.h1>
+        <m.p variants={rise} className="unlock-name">{nameOf(main)}</m.p>
         <m.p variants={rise} className="unlock-reason" id="unlock-reason">{unlockReason(main, path, grade)}</m.p>
         {more.length > 0 && <m.p variants={rise} className="unlock-more">ועוד חדש למדי: {more.map(nameOf).join(', ')}.</m.p>}
       </m.div>

@@ -3,7 +3,7 @@
 // ends in its completion moment. The stairs come from the skill catalogue itself, so a topic registered there is walked
 // here with no change.
 import { test, expect } from '@playwright/test';
-import { open, student, expectNoSidewaysScroll } from './helpers.js';
+import { open, student, expectNoSidewaysScroll, leaveStage } from './helpers.js';
 import { STAIRS, GRADE_OF as GRADE } from '../src/learn/skills.ts';
 import { VISUAL_EXEMPT } from '../src/learn/visualPlan.ts';
 
@@ -39,7 +39,7 @@ for (const [topic, n] of Object.entries(STAIRS)) {
       }
       // each stage ends in its short completion moment, whose button goes on to the next stage
       await expect(page.locator('.stage-done')).toContainText('שלב 1 הושלם!');
-      await page.locator('.stage-done').getByRole('button', { name: 'לדוגמה הפתורה', exact: true }).click();
+      await leaveStage(page, 'לדוגמה הפתורה'); // the first stage of all brings מדי his first piece, with its moment
       await expect(page).toHaveURL(new RegExp(`learn/${topic}/${level}/B`));
       await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible(); // the first example is on screen
       // B: every worked example, one step at a time
@@ -51,7 +51,7 @@ for (const [topic, n] of Object.entries(STAIRS)) {
         if (label.includes('לפתור')) break;
       }
       await expect(page.locator('.stage-done')).toContainText('שלב 2 הושלם!');
-      await page.locator('.stage-done').getByRole('button', { name: 'לפתור יחד', exact: true }).click();
+      await leaveStage(page, 'לפתור יחד');
       await expect(page).toHaveURL(new RegExp(`learn/${topic}/${level}/C`));
       await expect(page.locator('.stage-done')).toHaveCount(0); // the moment has given way to the first problem
       // C: every guided problem: the right move at each step, then the last step typed
@@ -80,7 +80,7 @@ for (const [topic, n] of Object.entries(STAIRS)) {
       await expect(page.locator('.stage-done')).toContainText('שלב 3 הושלם!');
       await expect(page.locator('.stage-done .climb-caption')).toHaveText('3 מתוך 5 שלבים במדרגה');
       // the map is a tap away; the stair's page shows the three teaching stages done
-      await page.locator('.stage-done').getByRole('button', { name: 'למפה', exact: true }).click();
+      await leaveStage(page, 'למפה');
       await expect(page.locator('.learn')).toBeVisible();
       await page.goto(`./#/learn/${topic}/${level}`);
       await expect(page.locator('.journey')).toBeVisible();

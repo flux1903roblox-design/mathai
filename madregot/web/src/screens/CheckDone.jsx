@@ -2,7 +2,7 @@
 // Layout: Duolingo's lesson-complete screen (character, title, stat tiles, one button at the bottom).
 // After a passed mastery check of a stair that has a challenge task (CURRICULUM-6.3), a quiet card offers it: optional,
 // one tap to try, one tap to put it off. The main button stays the plan's next step.
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Award, RotateCcw, Check, ArrowLeft, Gift, Flame, Puzzle } from 'lucide-react';
@@ -19,7 +19,7 @@ import { MathText } from '@/components/MathText.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { inDays } from '@/content/util.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';
-import { UnlockStage, useNewUnlocks } from '@/lib/madiLook.js';
+import { UnlockMoment, useNewUnlocks } from '@/lib/madiLook.js';
 import RepeatNote, { repeatedMistake } from '@/components/learn/RepeatNote.jsx';
 
 function copy(r, rec, def, award) {
@@ -170,7 +170,7 @@ function StairCheckDone({ result: r, award, onExit, work }) {
   const unlocks = useNewUnlocks(r.topic);
   const [then, setThen] = useState(null);
   const on = (fn) => () => (r.passed && unlocks.length > 0 ? setThen(() => fn) : fn());
-  if (then) return <Suspense fallback={<div className="done-screen" />}><UnlockStage ids={unlocks} onNext={then} /></Suspense>;
+  if (then) return <UnlockMoment ids={unlocks} onNext={then} />;
   return (
     <div className="page check-done" role="main">
       {/* laid out like Duolingo's lesson-complete screen: מדי, the title, what it showed, then the stat tiles */}

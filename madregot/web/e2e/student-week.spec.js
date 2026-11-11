@@ -335,7 +335,13 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     const moment = await stageDone(page, 1);
     await expect(moment.locator('.badges')).toContainText('+10 XP');
     await expect(moment.locator('.badges')).toContainText('התחלתם רצף');
+    // and מדי's first piece, in the first session (PRODUCT2-36): its own moment, on the way to the map
+    await expect(moment.locator('.badges')).toContainText('מדי קיבל משהו חדש');
     await moment.getByRole('button', { name: 'למפה', exact: true }).click();
+    const first = page.locator('.unlock-stage');
+    await expect(first.locator('.unlock-reason')).toHaveText('סיימתם את השלב הראשון, ומדי קיבל כובע חגיגה.');
+    await snap(page, shots, '1-sunday-first-piece');
+    await first.getByRole('button', { name: 'לשמור על מדי' }).click();
     await expect(page.locator('.top-stat.streak')).toContainText('1');
     // the first lesson, from the stair's page: practice
     await openStair(page, 'מספרים מכוונים', 1);
@@ -439,7 +445,18 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     await page.getByRole('button', { name: 'מתרגלים לבד: שוב' }).click();
     await playLesson(page);
     let kept = false;
+    let chose = false;
     const second = await walkEnd(page, {
+      // the day's chest: the freeze, and one of two pieces for מדי, chosen by her (PRODUCT2-36)
+      'quests-done-screen': async () => {
+        const chest = page.locator('.quests-done-screen');
+        await chest.getByRole('button', { name: /^מדליה/ }).click();
+        await expect(chest.getByRole('button', { name: /^מדליה/ })).toHaveAttribute('aria-pressed', 'true');
+        await snap(page, shots, '4b-wednesday-chest');
+        chose = true;
+        await chest.getByRole('button', { name: 'המשך', exact: true }).click();
+        return true;
+      },
       'streak-screen': async () => {
         await expect(page.locator('.streak-screen h1')).toHaveText('3 ימים ברצף!');
         await expect(page.locator('.streak-card-text')).toHaveText('הרצף נשמר. 3 ימים ברצף.');
@@ -460,6 +477,8 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     // two lessons without a mistake: the day's three missions, and a streak freeze for a day without learning
     expect(second).toContain('quests-done-screen');
     expect(st.freezes).toBe(1);
+    expect(chose).toBe(true);
+    expect(st.look.picks).toEqual({ '2026-11-11': 'medal' });
   });
 
   test('Thursday 12.11: three mastery checks in זוויות; the third opens the chest, Madi\'s new piece, and the wardrobe', async () => {
@@ -497,7 +516,7 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     await settled(page);
     await expect(page.getByRole('radiogroup', { name: 'על הראש' }).getByRole('radio', { name: /^כתר מד־זווית/ })).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('.wardrobe-madi g[data-item="protractor-crown"]')).toHaveCount(1);
-    await expect(page.getByRole('radio', { name: /^צעיף הכיתה/ })).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator('.wardrobe-soon').getByRole('button', { name: /^צעיף הכיתה/ })).toContainText('כשהכיתה מגיעה למטרה של השבוע');
     await snap(page, shots, '5c-thursday-wardrobe');
     const st = await saved(page);
     expect(st.look).toMatchObject({ head: 'protractor-crown' });

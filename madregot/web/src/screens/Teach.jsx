@@ -57,7 +57,7 @@ export default function Teach() {
     else navigate(`/lesson/${topic}/${level}?part=${isDone(useApp.getState().path, topic, level) ? PARTS : Math.min(PARTS, partsOf(useApp.getState().path, topic, level) + 1)}&from=journey`, { replace: true });
   };
   const toMap = () => navigate('/', { replace: true, state: { from: topic } });
-  if (done) return <StageDone stage={stage} stair={t.levels[level - 1].title} award={done.award} steps={done.steps} onNext={goNext} onMap={toMap} />;
+  if (done) return <StageDone stage={stage} stair={t.levels[level - 1].title} topic={topic} award={done.award} steps={done.steps} onNext={goNext} onMap={toMap} />;
   const nextOf = (list, ev) => () => {
     learnEvent({ e: ev, s: skill });
     if (idx + 1 < list.length) { setIdx(idx + 1); setStagePos(skill, stage, idx + 1); window.scrollTo({ top: 0 }); } else finish();

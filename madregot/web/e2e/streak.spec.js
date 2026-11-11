@@ -58,6 +58,8 @@ test('two lessons keep the streak: the second says "הרצף נשמר", and the 
   // the first lesson of the day starts a new streak; nothing is kept yet, and the week has not passed its best (5)
   await expect(page.locator('.done-screen')).not.toContainText('שיא שבועי חדש');
   await page.locator('.done-screen .done-actions .btn').click();
+  // the lesson completed the stair's practice, a first stage: מדי's first piece has its moment first (PRODUCT2-36)
+  await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
   await expect(page.locator('.streak-screen h1')).toHaveText('התחלתם רצף!');
   await expect(page.locator('.streak-card-text')).not.toHaveText(/^הרצף נשמר\./);
   await expect(page.locator('.streak-card-text')).toContainText('בשבת ובחג הרצף נשמר.');

@@ -255,6 +255,8 @@ test('a passed mastery check offers the stair\'s challenge in a quiet card, whic
   for (const name of ['לאתגר', 'לא עכשיו']) expect((await card.getByRole('button', { name }).boundingBox()).height).toBeGreaterThanOrEqual(44);
   await expectNoSidewaysScroll(page);
   await card.getByRole('button', { name: 'לאתגר' }).click();
+  // the passed check also earned מדי a piece (PRODUCT2-36): its moment comes before the way the student picked
+  await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
   await expect(page).toHaveURL(/#\/challenge\/pct:c1$/);
   await expect(page.locator('.ch-count')).toHaveText('חלק 1 מתוך 4');
 });

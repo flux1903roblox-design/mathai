@@ -239,7 +239,9 @@ function lookJoin(chosen, x, y) {
     const a = x?.earnedAt?.[k]; const b = y?.earnedAt?.[k];
     earnedAt[k] = a && b ? (str(a) <= str(b) ? a : b) : a || b;
   }
-  return { ...chosen, earned: both('earned'), seen: both('seen'), earnedAt };
+  // the quest chest's choices (PRODUCT2-36): a day chosen on either side stays chosen (one piece per chest)
+  const picks = { ...(isObj(y?.picks) ? y.picks : {}), ...(isObj(x?.picks) ? x.picks : {}) };
+  return { ...chosen, earned: both('earned'), seen: both('seen'), earnedAt, ...(Object.keys(picks).length || isObj(chosen.picks) ? { picks } : {}) };
 }
 
 // ------------------------------------------------------------------ mergeTabs

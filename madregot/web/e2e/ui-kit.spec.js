@@ -69,8 +69,9 @@ test('the wardrobe: each group is one Tab stop, and ArrowLeft moves to the next 
   const colours = page.getByRole('radiogroup', { name: 'צבע' });
   const head = page.getByRole('radiogroup', { name: 'על הראש' });
   const blue = colours.getByRole('radio', { name: 'כחול', exact: true });
-  await expect(colours.getByRole('radio')).toHaveCount(6);
-  // only the chosen colour is in the tab order, locked ones included
+  // the groups hold what is owned (PRODUCT2-36): blue, טורקיז (earned before) and מג׳נטה (the stats unit)
+  await expect(colours.getByRole('radio')).toHaveCount(3);
+  // only the chosen colour is in the tab order
   const stops = await colours.getByRole('radio').evaluateAll((els) => els.filter((e) => e.tabIndex === 0).length);
   expect(stops).toBe(1);
   await blue.focus();
@@ -80,14 +81,13 @@ test('the wardrobe: each group is one Tab stop, and ArrowLeft moves to the next 
   await expect(head.getByRole('radio', { name: /^בלי/ })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(blue).toBeFocused();
-  // right to left: ArrowLeft reaches the next card, which sits to the left (a locked one is focused, never chosen)
+  // right to left: ArrowLeft reaches the next card, which sits to the left, and chooses it
   await page.keyboard.press('ArrowLeft');
-  const gold = colours.getByRole('radio', { name: /^זהב/ });
-  await expect(gold).toBeFocused();
-  expect((await gold.boundingBox()).x).toBeLessThan((await blue.boundingBox()).x);
-  await expect(gold).toHaveAttribute('aria-disabled', 'true');
-  await expect(blue).toHaveAttribute('aria-checked', 'true');
-  expect((await saved(page)).look.color).toBe('sky');
+  const petrol = colours.getByRole('radio', { name: /^טורקיז/ });
+  await expect(petrol).toBeFocused();
+  expect((await petrol.boundingBox()).x).toBeLessThan((await blue.boundingBox()).x);
+  await expect(petrol).toHaveAttribute('aria-checked', 'true');
+  expect((await saved(page)).look.color).toBe('petrol');
 });
 
 test('toasts: a region called "הודעות", in the app\'s font, radius and colours, in light and in dark', async ({ page }) => {

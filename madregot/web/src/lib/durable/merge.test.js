@@ -366,6 +366,18 @@ describe('mergeTabs', () => {
     expect(mergeTabs(base, a, b)).toEqual({ xp: 115, xpBy: { a1b2c3d4: 115 }, days: { '2026-11-05': { lessons: 3, xp: 25, combo: 5 } } });
   });
 
+  it('Madi\'s quest chest (PRODUCT2-36): a piece chosen on either device stays chosen, and stays earned', () => {
+    const look = (earned, picks) => ({ color: 'sky', head: null, face: null, neck: null, body: null, earned, seen: earned, earnedAt: {}, picks });
+    const a = { look: look(['medal'], { '2026-11-02': 'medal' }) };
+    const b = { look: look(['beanie'], { '2026-11-03': 'beanie' }) };
+    for (const m of [mergeDevices(a, b), mergeDevices(b, a)]) {
+      expect(m.look.picks).toEqual({ '2026-11-02': 'medal', '2026-11-03': 'beanie' });
+      expect([...m.look.earned].sort()).toEqual(['beanie', 'medal']);
+    }
+    // a look saved before the chest gave pieces has no picks, and gets none
+    expect(mergeDevices({ look: look([], undefined) }, { look: look([], undefined) }).look.picks).toBeUndefined();
+  });
+
   it('an unknown numeric day field (tsecs) adds across tabs', () => {
     const base = { days: { d: { tsecs: 100 } } };
     expect(mergeTabs(base, { days: { d: { tsecs: 160 } } }, { days: { d: { tsecs: 130 } } }).days.d.tsecs).toBe(190);

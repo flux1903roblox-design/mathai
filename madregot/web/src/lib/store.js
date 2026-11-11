@@ -19,7 +19,7 @@ import { EXAMS_KEEP, PRACTICE_EXAMS_KEEP, OUTBOX_KEEP, TEACHER_EXAMS_KEEP } from
 import { applyTheme } from './theme.js';
 import { streakRepair, itemsOn } from './streak.js';
 import { isRestDay } from '@shared/restDays.js';
-import { emptyLook, earnIds, unlockedLook, unlockedIds } from './wardrobe.js';
+import { emptyLook, earnIds, unlockedLook, unlockedIds, chestPieces } from './wardrobe.js';
 import { challengeXP } from '@/learn/challenges/grade.ts';
 import { challengeById } from '@/learn/challenges/index.ts';
 
@@ -271,7 +271,7 @@ export const appState = (set, get) => ({
           reopened = path !== before;
         }
         // what the path unlocks for Madi is earned for good, before this check (a kept stair it reopens) and after it
-        const look = earnIds(st.look, [...lookIds(st, st.path), ...lookIds(st, path)], d, { seen: false });
+        const look = earnIds(st.look, [...lookIds(st, st.path, st.learn.skills), ...lookIds(st, path, learn.skills)], d, { seen: false });
         const stepsOut = withStep(st, r.purpose === 'mastery' && r.passed ? 3 : 1);
         // the floor check is about the fractions floor, not practice in it: the map's "where I am" stays where it was
         set({ learn, days, streak, ...addXp(st, r.xp || 0), path, progress, lastTopic: r.purpose === 'floor' ? st.lastTopic : r.topic || st.lastTopic, look, stepsOut });
@@ -306,10 +306,13 @@ export const appState = (set, get) => ({
         if (questsDone) day.questsRewarded = true;
         const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         const topic = skill.split(':')[0];
+        const skills = { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) };
         set({
           days, streak, ...addXp(st, xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), lastTopic: TOPIC[topic] ? topic : st.lastTopic,
-          learn: { ...L, skills: { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) }, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) },
+          learn: { ...L, skills, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) },
           stepsOut: withStep(st, 1),
+          // a finished stage may bring מדי a piece for stages (PRODUCT2-36): earned for good now, shown by the stage's end
+          look: earnIds(st.look, lookIds(st, st.path, skills), d, { seen: false }),
         });
         remindLearned(get());
         return { xp, first, streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
@@ -404,6 +407,16 @@ export const appState = (set, get) => ({
       setLook: (patch) => set({ look: { ...emptyLook(), ...get().look, ...patch } }),
       /** Pieces earned for good and shown to the student (the unlock moment); { seen: false } only remembers them. */
       markEarned: (ids, opts) => set({ look: earnIds(get().look, ids, today(), opts) }),
+      /**
+       * The piece chosen from a day's quest chest (PRODUCT2-36, lib/rewards.js chestOffer): one per day whose three quests
+       * were done, and only one of the two pieces the chest offers. It is earned and shown at once. Returns whether it was taken.
+       */
+      pickChest: (day, id) => {
+        const st = get(); const l = { ...emptyLook(), ...st.look };
+        if (!chestPieces(new Set(l.earned || [])).includes(id) || l.picks?.[day] || !st.days[day]?.questsRewarded) return false;
+        set({ look: { ...earnIds(l, [id], today()), picks: { ...(l.picks || {}), [day]: id } } });
+        return true;
+      },
       /** A one-time note was seen: e.g. { repairDismissed: today() } or { pbWeek: '2026-11-01' }. */
       setNudge: (patch) => set({ nudges: { ...get().nudges, ...patch } }),
       /** The daily reminder's state (lib/push.js writes it). */
@@ -440,6 +453,8 @@ export const appState = (set, get) => ({
         set({
           days, streak, path, ...addXp(st, r.xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
           progress: { ...st.progress, [r.topic]: { level, max } }, lastTopic: r.topic, stepsOut: withStep(st, 1),
+          // practice that completes a stair's practice stage may bring a piece for stages (PRODUCT2-36)
+          look: earnIds(st.look, lookIds(st, path, st.learn.skills), d, { seen: false }),
         });
         remindLearned(get());
         return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
@@ -566,7 +581,7 @@ function remindLearned(st) {
   import('./push.js').then((mod) => mod.markDone()).catch(() => { /* told on the next finished item */ });
 }
 /** The pieces a path unlocks for Madi (lib/wardrobe.js). */
-const lookIds = (st, path) => unlockedIds(unlockedLook({ path, classGoals: st.classGoals, grade: st.profile?.grade }));
+const lookIds = (st, path, skills) => unlockedIds(unlockedLook({ path, skills, classGoals: st.classGoals, grade: st.profile?.grade }));
 
 /**
  * The finished item that makes today the second (or later) one may earn the streak's repair (lib/streak.js

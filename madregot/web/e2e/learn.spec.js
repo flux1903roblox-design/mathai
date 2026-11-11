@@ -2,7 +2,7 @@
 // keeping the place, mastery only from a check without hints, a misconception repaired and verified,
 // Exam Rescue from a diagnostic to a plan, today's mission, and the profile's numbers and data deletion.
 import { test, expect } from '@playwright/test';
-import { open, openOn, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
+import { open, openOn, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, leaveStage, expectNoSidewaysScroll } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
 
@@ -21,7 +21,8 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await expect(a.locator('.badges')).toContainText('התחלתם רצף');
   await expect(a.locator('.climb-caption')).toHaveText('1 מתוך 5 שלבים במדרגה');
   await expect(a.locator('.stage-done-next')).toContainText('הבא: דוגמה פתורה');
-  await a.getByRole('button', { name: 'לדוגמה הפתורה', exact: true }).click();
+  // the first stage of all also brought מדי his first piece: its moment comes on the way (wardrobe.spec.js 4b)
+  expect(await leaveStage(page, 'לדוגמה הפתורה')).toBe(true);
   await expect(page).toHaveURL(/learn\/signed\/1\/B/);
   // a worked example comes one step at a time, each with its reason
   await page.getByRole('button', { name: 'מתחילים' }).click();
@@ -217,10 +218,11 @@ test('Exam Rescue offers ז׳ Pythagoras (taught in March in ז׳) as one of the
   await open(page, '#/rescue', student('7'));
   await toTopics();
   const heads = page.locator('.rescue-topic-head .topic-row');
-  // percent (ח׳, October) is offered to ז׳ too: they meet it in relative frequency in February
-  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'משפט פיתגורס (כל הנושא)']);
+  // percent (ח׳, October) is offered to ז׳ too: they meet it in relative frequency in February; and since PRODUCT2-20
+  // linear functions (7.9) and statistics (7.15) carry alsoFor ז׳, so Exam Rescue offers them as well
+  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'פונקציה קווית (כל הנושא)', 'משפט פיתגורס (כל הנושא)', 'סטטיסטיקה (כל הנושא)']);
   await page.getByText('מציאת ניצב', { exact: true }).click();
-  await expect(page.locator('.rescue-topic').last().locator('.rescue-topic-count')).toHaveText('1/5');
+  await expect(page.locator('.rescue-topic').filter({ hasText: 'משפט פיתגורס' }).locator('.rescue-topic-count')).toHaveText('1/5');
   await expectNoSidewaysScroll(page);
 
   await open(page, '#/rescue', student('8'));
@@ -333,6 +335,8 @@ test('done means mastered: practice fills the ring, and only a passed mastery ch
   // the check moves the count (the council's "0 of 5" after mastery)
   await expect(page.locator('.climb-caption')).toContainText('1 מתוך 6 מדרגות');
   await page.getByRole('button', { name: 'למפה' }).click();
+  // the stages worked here (teaching, practice and now the check) earned מדי his first piece: its moment comes first
+  await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
   await expect(unit.locator('.unit-label')).toContainText('1 מתוך 6 מדרגות');
   await expect(unit.locator('.node').first()).toHaveClass(/node-done/);
   await expect(unit.locator('.node').nth(1)).toHaveClass(/node-current/);

@@ -207,12 +207,13 @@ export async function expectUsable(page, locator, what) {
 }
 
 /**
- * Press through the end-of-lesson screens (summary, streak, quests) back to the map.
+ * Press through the end-of-lesson screens (summary, a new piece for מדי, goal, streak, quests) back to the map.
  * Each press waits for the screen to settle and for the next one to replace it.
  */
 export async function leaveEndScreens(page) {
   const title = () => page.locator('.done-screen h1').first().textContent({ timeout: 1000 }).catch(() => null);
-  for (let k = 0; k < 5; k += 1) {
+  // the summary, a new piece for מדי, the daily goal, the streak, the quests' chest, and an offer: up to six, and room
+  for (let k = 0; k < 8; k += 1) {
     const btn = page.locator('.done-screen .done-actions .btn').first();
     if (!(await btn.isVisible())) return;
     const before = await title();
@@ -227,8 +228,21 @@ export async function stageDone(page, n, go) {
   const moment = page.locator('.stage-done');
   await expect(moment).toBeVisible();
   await expect(moment.getByRole('heading', { level: 1 })).toHaveText(`שלב ${n} הושלם!`);
-  if (go) await moment.getByRole('button', { name: go, exact: true }).click();
+  if (go) await leaveStage(page, go);
   return moment;
+}
+
+/**
+ * Press a way on from a teaching stage's end (`name`: its button). When the stage brought מדי a piece (its pill says
+ * "מדי קיבל משהו חדש": the first stage of all does, PRODUCT2-36), the unlock moment comes first: it is passed with
+ * "אחר כך" (wardrobe.spec.js tests the moment itself). Returns whether it came.
+ */
+export async function leaveStage(page, name) {
+  const moment = page.locator('.stage-done');
+  const gift = (await moment.locator('.badges .done-earned').filter({ hasText: 'מדי קיבל משהו חדש' }).count()) > 0;
+  await moment.getByRole('button', { name, exact: true }).click();
+  if (gift) await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
+  return gift;
 }
 
 /** Play the current teaching stage (A) to its end, through its own controls (the completion moment stays on screen). */
