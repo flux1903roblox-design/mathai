@@ -20,6 +20,8 @@
 //   fbar        a bar cut into equal parts, some shaded {den, shaded}     answer: { mode: 'value', value } (shaded/den is the
 //               value, any den), { mode: 'common', of: [3, 4] } (den a multiple of each), { mode: 'exact', den, shaded }
 //   dline       a double number line (move 't': the marker; 'max': the bottom line's end)  answer: that number
+//   simulate    a random experiment repeated {n, counts, batches, hist, pick?}  answer: { mode: 'trials', atLeast } (with
+//               manip.guided, a batch of 10 first and a 100 before any 1000) or { mode: 'estimate', choices, answer } (pick)
 // numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
 
@@ -384,6 +386,134 @@ export function figWords(f) {
   }
 }
 
+// ---------------------------------------------------------------- repeating a random experiment (DATA-2.1)
+// simulate { device, sectors?, bag?, watch, seed?, truth?, hidden?, guided? }: a spinner cut into 12 or 10 equal parts
+// (sectors { label, parts, tone? } in order, clockwise from 12 o'clock), a bag of balls drawn and put back (bag
+// { label, n, tone? }), a die, a coin, or two dice whose sum is watched (2..12). `watch` is the outcome followed: a
+// sector's or a bag group's index, a coin side's index (0 עץ, 1 פלי), a die's face, two dice's sum.
+// The value is the run so far { n, counts, batches, hist, pick? }: trials, a count per outcome, the batch sizes pressed
+// in order (since the last restart), the watched count after every 10 trials (the chart's line), and in the estimate
+// mode the chosen fraction's index. The answer is { mode: 'trials', atLeast } or { mode: 'estimate', choices, answer }.
+// The trials themselves are drawn by components/manip/Simulate.jsx (simTrial); this module only reads a run.
+
+/** The three batch sizes, in the order a guided run opens them. */
+export const SIM_BATCHES = [10, 100, 1000];
+/** The most trials one run takes (the line keeps a point every 10: at most a thousand points). */
+export const SIM_MAX = 10000;
+/** A device's words: what a trial is called (plural), the plural command, "not yet", ten of them, the infinitive. */
+const SIM_WORDS = {
+  spinner: { noun: 'סיבובים', act: 'סובבו', none: 'עוד לא סובבתם את הגלגל', ten: 'עשרה סיבובים', inf: 'לסובב' },
+  die: { noun: 'הטלות', act: 'הטילו', none: 'עוד לא הטלתם את הקובייה', ten: 'עשר הטלות', inf: 'להטיל' },
+  coin: { noun: 'הטלות', act: 'הטילו', none: 'עוד לא הטלתם את המטבע', ten: 'עשר הטלות', inf: 'להטיל' },
+  dice2: { noun: 'הטלות', act: 'הטילו', none: 'עוד לא הטלתם את הקוביות', ten: 'עשר הטלות', inf: 'להטיל' },
+  bag: { noun: 'הוצאות', act: 'הוציאו כדור', none: 'עוד לא הוצאתם כדור', ten: 'עשר הוצאות', inf: 'להוציא' },
+};
+export const simWords = (m) => SIM_WORDS[m.device] || SIM_WORDS.spinner;
+const COIN = ['עץ', 'פלי'];
+/**
+ * A device's outcomes in order, each with its table label, its name in a sentence and its probability: the spinner's
+ * sectors, the bag's groups, a coin's two sides, a die's six faces, two dice's sums 2..12.
+ */
+export function simOutcomes(m) {
+  if (m.device === 'spinner' || m.device === 'bag') {
+    const parts = m.device === 'bag' ? (m.bag || []).map((b) => b.n) : (m.sectors || []).map((s) => s.parts);
+    const all = parts.reduce((a, b) => a + b, 0) || 1;
+    return (m.device === 'bag' ? m.bag || [] : m.sectors || []).map((s, i) => ({ label: s.label, name: s.label, p: parts[i] / all, tone: s.tone ?? i }));
+  }
+  if (m.device === 'coin') return COIN.map((label, i) => ({ label, name: label, p: 1 / 2, tone: i }));
+  if (m.device === 'die') return [1, 2, 3, 4, 5, 6].map((f) => ({ label: `${f}`, name: `המספר ${f}`, p: 1 / 6, tone: 0 }));
+  return Array.from({ length: 11 }, (_, i) => ({ label: `${i + 2}`, name: `סכום ${i + 2}`, p: (6 - Math.abs(i + 2 - 7)) / 36, tone: 0 }));
+}
+/** The watched outcome's index among simOutcomes. */
+export const simWatch = (m) => (m.device === 'die' ? m.watch - 1 : m.device === 'dice2' ? m.watch - 2 : m.watch || 0);
+/** A run with nothing in it. */
+export const simEmpty = (m) => ({ n: 0, counts: simOutcomes(m).map(() => 0), batches: [], hist: [] });
+/** Is this a run of this device (any value the object can hold)? */
+const simOk = (m, u) => !!u && typeof u === 'object' && Number.isInteger(u.n) && u.n >= 0 && Array.isArray(u.counts)
+  && u.counts.length === simOutcomes(m).length && Array.isArray(u.batches);
+/** The batches in the order a guided run opens them: 10 before any other, and a 100 before the first 1000. */
+export const simGuidedOrder = (batches) => batches[0] === 10 && batches.every((b, i) => b !== 1000 || batches.slice(0, i).includes(100));
+/** A relative frequency as the object writes it: two places (0.27, 0.20). */
+export const simFreq = (k, n) => (n > 0 ? (k / n).toFixed(2) : '0');
+/** "פעם אחת", "32 פעמים". */
+export const timesWord = (k) => (k === 1 ? 'פעם אחת' : `${k} פעמים`);
+/** The polite readout: "עד עכשיו 110 סיבובים. אדום: 32 פעמים, שכיחות יחסית 0.29." */
+export function simSentence(m, u) {
+  const w = simWords(m); const o = simOutcomes(m)[simWatch(m)];
+  if (!u?.n) return `${w.none}.`;
+  const k = u.counts[simWatch(m)];
+  return `עד עכשיו ${u.n} ${w.noun}. ${o.name}: ${timesWord(k)}, שכיחות יחסית ${simFreq(k, u.n)}.`;
+}
+/** An estimate's choice: a TeX string, or { tex, tag } (tag: the misconception that picks it). */
+export const simChoice = (c) => (typeof c === 'string' ? { tex: c } : c || { tex: '' });
+/**
+ * What a wrong pick in the estimate mode says: a choice made after fewer than 100 trials is the small sample
+ * (Tversky & Kahneman's "law of small numbers"); after that, the wrong choice's own tag. A right pick, or none, is null.
+ */
+export function simDiag(it, u) {
+  const a = it.answer;
+  if (a?.mode !== 'estimate' || u?.pick == null || u.pick === a.answer) return null;
+  if (!(u.n >= 100)) return 'small-sample';
+  return simChoice(a.choices[u.pick]).tag || null;
+}
+/** The batch sizes that reach `atLeast` (a guided run opens them in order): 100 is 10 + 100, 1000 is 10 + 100 + 1000. */
+function simBatchesFor(m, atLeast) {
+  const out = []; let n = 0;
+  if (m.guided) for (const b of SIM_BATCHES) { if (n >= atLeast) break; out.push(b); n += b; }
+  while (n < atLeast) { const b = [...SIM_BATCHES].reverse().find((x) => x <= atLeast - n) || 10; out.push(b); n += b; }
+  return out;
+}
+/** A run of n trials that came out exactly as expected (largest remainders, so the counts add up to n). */
+function simExpected(m, batches) {
+  const n = batches.reduce((a, b) => a + b, 0); const outs = simOutcomes(m);
+  const exact = outs.map((o) => o.p * n); const counts = exact.map(Math.floor);
+  const left = n - counts.reduce((a, b) => a + b, 0);
+  exact.map((x, i) => [x - Math.floor(x), i]).sort((a, b) => b[0] - a[0]).slice(0, left).forEach(([, i]) => { counts[i] += 1; });
+  const p = outs[simWatch(m)].p;
+  return { n, counts, batches, hist: Array.from({ length: n / 10 }, (_, j) => Math.round(p * 10 * (j + 1))) };
+}
+const simManip = {
+  correct(m, a, u) {
+    if (a.mode === 'estimate') return !!u && u.pick === a.answer;
+    return simOk(m, u) && u.n >= a.atLeast && (!m.guided || simGuidedOrder(u.batches));
+  },
+  text(m, a, u) {
+    const w = simWords(m); const o = simOutcomes(m)[simWatch(m)];
+    if (u.mode === 'trials') return `לפחות ${u.atLeast} ${w.noun}`;
+    if (u.mode === 'estimate') return `בערך ${labelPlain(simChoice(u.choices[u.answer]).tex)}`;
+    const picked = a?.mode === 'estimate' && u.pick != null ? `${labelPlain(simChoice(a.choices[u.pick]).tex)}, ` : '';
+    if (!u.n) return `${picked}${w.none}`;
+    const k = u.counts[simWatch(m)];
+    return `${picked}${u.n} ${w.noun}: ${o.name} ${timesWord(k)} (${simFreq(k, u.n)})`;
+  },
+  plain(m, a) {
+    const outs = simOutcomes(m); const o = outs[simWatch(m)];
+    const est = a?.mode === 'estimate';
+    const run = m.device === 'bag' ? 'מוציאים כדור ומחזירים אותו' : m.device === 'spinner' ? 'מסובבים' : 'מטילים';
+    const watch = m.device === 'dice2' ? `כמה פעמים יצא כל סכום, ואת השכיחות היחסית של ${o.name}` : `את השכיחות היחסית של ${o.name}`;
+    const covered = m.hidden;
+    let what;
+    if (m.device === 'spinner') {
+      const all = m.sectors.reduce((t, x) => t + x.parts, 0);
+      what = covered ? `גלגל מכוסה, עם החלקים ${outs.map((x) => x.label).join(', ')}` : `גלגל: ${m.sectors.map((s, i) => `${s.label} ${s.parts}${i ? '' : ` מתוך ${all} חלקים`}`).join(', ')}`;
+    } else if (m.device === 'bag') {
+      const all = m.bag.reduce((t, b) => t + b.n, 0);
+      what = covered ? `שקית שלא רואים מה יש בה, עם כדורים בצבעים ${outs.map((x) => x.label).join(', ')}` : `שקית עם ${all} כדורים: ${m.bag.map((b) => `${b.label} ${b.n}`).join(', ')}`;
+    } else what = m.device === 'die' ? 'קובייה' : m.device === 'coin' ? 'מטבע' : 'שתי קוביות';
+    const order = m.guided ? ' (קודם 10, אחר כך 100, ואז 1000)' : '';
+    const pick = est ? `; בוחרים בערך איזה חלק: ${a.choices.map((c) => labelPlain(simChoice(c).tex)).join(', ')}` : '';
+    return `[${what}; ${run} 10, 100 או 1000 פעמים${order} ורואים ${watch}${pick}]`;
+  },
+  solution(m, a) {
+    const run = simExpected(m, simBatchesFor(m, a.mode === 'estimate' ? 100 : a.atLeast));
+    return a.mode === 'estimate' ? { ...run, pick: a.answer } : run;
+  },
+  wrong(m, a) {
+    const none = simEmpty(m);
+    return a.mode === 'estimate' ? { ...none, pick: (a.answer + 1) % a.choices.length } : none;
+  },
+};
+
 // ---------------------------------------------------------------- checking, words and test states
 
 export function manipCorrect(it, u) {
@@ -409,6 +539,7 @@ export function manipCorrect(it, u) {
       return near(u.shaded / u.den, a.value, 1e-9);
     }
     case 'dline': { const v = dlineValue(m, u); return typeof v === 'number' && near(v, a, 1e-9); }
+    case 'simulate': return simManip.correct(m, a, u);
     default: return false;
   }
 }
@@ -450,6 +581,7 @@ export function manipText(it, u = it.answer) {
       return `${u.shaded}/${u.den}`;
     }
     case 'dline': { const v = dlineValue(m, u); return v == null ? '' : withUnit(v, m.move === 'max' ? m.bottom.unit : m.top.unit); }
+    case 'simulate': return simManip.text(m, it.answer, u);
     default: return '';
   }
 }
@@ -482,6 +614,7 @@ export function manipPlain(it) {
         ? `[ציר כפול: למעלה ${line(m.top)}, למטה ${m.bottom.label}; הסמן קבוע על ${withUnit(m.fixT, m.top.unit)}; מותחים את הציר התחתון (השלם) בצעדים של ${dlineNum(m.bottom.step)}, עד ${withUnit(m.bottom.max, m.bottom.unit)}]`
         : `[ציר כפול: למעלה ${line(m.top)}, למטה ${line(m.bottom)}; מזיזים את הסמן בצעדים של ${withUnit(m.top.step, m.top.unit)}]`;
     }
+    case 'simulate': return simManip.plain(m, it.answer);
     default: return '';
   }
 }
@@ -501,6 +634,7 @@ export function manipSolution(it) {
       const den = m.lockDen ? m.start.den : fbarDenFor(a.value, m.maxDen || FBAR_MAX_DEN);
       return { den, shaded: Math.round(a.value * den) };
     }
+    case 'simulate': return simManip.solution(m, a);
     default: return a;
   }
 }
@@ -535,6 +669,8 @@ export function manipWrong(it) {
       const L = m.move === 'max' ? m.bottom : m.top; const lo = m.move === 'max' ? L.step : 0;
       return a + L.step <= L.max + 1e-9 ? a + L.step : Math.max(lo, a - L.step);
     }
+    // a run not yet made (and, in the estimate mode, another choice)
+    case 'simulate': return simManip.wrong(m, a);
     default: return null;
   }
 }

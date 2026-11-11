@@ -15,7 +15,7 @@ import { checkPlan, itemFor, canProbe } from './items';
 import { ALL_SKILLS } from './skills';
 import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togetherDiag';
 // @ts-ignore: plain JS
-import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX } from '@/content/manip.js';
+import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX, simOutcomes, simWatch } from '@/content/manip.js';
 // @ts-ignore: plain JS
 import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
@@ -86,6 +86,7 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       }
       if (s.manip.kind === 'fbar') checkFbar(s.manip as any, s.answer as any, at);
       if (s.manip.kind === 'dline') checkDline(s.manip as any, s.answer as number, at);
+      if (s.manip.kind === 'simulate') checkSimulate(s.manip as any, s.answer as any, at);
       // a point goal must be on the drawn grid: the tool clamps every move to it, so a goal off the grid can never be reached
       if (s.manip.kind === 'plot') {
         const r = ((s.manip as { range?: number }).range) || 6;
@@ -108,6 +109,20 @@ function checkSteps(steps: DiscoverStep[], where: string) {
     }
     if (s.kind === 'rule') expect(s.why, at).toBeTruthy();
   });
+}
+
+/**
+ * A random experiment in a teaching step (DATA-2.1): the goal is a number of trials, 100 or 1000 (the estimate mode is
+ * for practice only), the watched outcome is one of the device's, and a wheel is cut into 12 or 10 equal parts.
+ */
+function checkSimulate(m: { device: string; sectors?: { parts: number }[]; bag?: { n: number }[]; watch: number }, a: { mode: string; atLeast?: number }, at: string) {
+  expect(a.mode, `${at}: a teaching run asks for trials`).toBe('trials');
+  expect([100, 1000], `${at}: atLeast ${a.atLeast}`).toContain(a.atLeast);
+  expect(['spinner', 'die', 'coin', 'bag', 'dice2'], at).toContain(m.device);
+  const outs = simOutcomes(m);
+  const w = simWatch(m);
+  expect(w >= 0 && w < outs.length, `${at}: the watched outcome ${m.watch} is not one of the device's`).toBe(true);
+  if (m.device === 'spinner') expect([10, 12], `${at}: a wheel is cut into 12 or 10 parts`).toContain(m.sectors!.reduce((t, x) => t + x.parts, 0));
 }
 
 /** A value is a whole number of parts of size 1/den. */
@@ -581,6 +596,16 @@ describe('the algebra checks catch what they are for', () => {
     bad(explore({ kind: 'dline', top, bottom: { max: 240, step: 24 }, move: 't', start: { t: 0 } }, 110)); // off the line
     bad(explore({ kind: 'dline', top: top5, bottom: { max: 6000, step: 100 }, move: 'max', fixT: 35, start: { t: 35, max: 1050 } }, 4000)); // not in steps
     bad(explore({ kind: 'dline', top: top5, bottom: { max: 6000, step: 100 }, move: 'max', fixT: 35, start: { t: 35, max: 4000 } }, 4000)); // starts on it
+  });
+  it('a random experiment: a teaching run asks for 100 or 1000 trials of one of the device\'s outcomes (DATA-2.1)', () => {
+    const sectors = [{ label: 'אדום', parts: 3 }, { label: 'כחול', parts: 5 }, { label: 'ירוק', parts: 4 }];
+    ok(explore({ kind: 'simulate', device: 'spinner', sectors, watch: 0, seed: 20261111, guided: true }, { mode: 'trials', atLeast: 1000 }));
+    ok(explore({ kind: 'simulate', device: 'dice2', watch: 7 }, { mode: 'trials', atLeast: 100 }));
+    bad(explore({ kind: 'simulate', device: 'spinner', sectors, watch: 0 }, { mode: 'trials', atLeast: 10 })); // too few to settle
+    bad(explore({ kind: 'simulate', device: 'die', watch: 6 }, { mode: 'trials', atLeast: 500 }));
+    bad(explore({ kind: 'simulate', device: 'spinner', sectors, watch: 0, hidden: true }, { mode: 'estimate', choices: ['\\frac{1}{4}', '\\frac{1}{2}', '\\frac{3}{4}'], answer: 0 })); // practice only
+    bad(explore({ kind: 'simulate', device: 'die', watch: 7 }, { mode: 'trials', atLeast: 100 })); // no face 7
+    bad(explore({ kind: 'simulate', device: 'spinner', sectors: [{ label: 'אדום', parts: 3 }, { label: 'כחול', parts: 5 }], watch: 0 }, { mode: 'trials', atLeast: 100 })); // 8 parts
   });
   it('two lines: the goal is their meeting point', () => {
     ok(explore({ kind: 'plot', lines: [{ m: 2, b: -1 }, { m: -1.5, b: 6 }] }, [2, 3]));

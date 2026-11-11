@@ -256,7 +256,7 @@ export function pieGeom(f, { compact = false } = {}) {
 }
 
 /** A slice from angle a0 to a1 (degrees clockwise from 12 o'clock). */
-function slicePath(cx, cy, R, a0, a1) {
+export function slicePath(cx, cy, R, a0, a1) {
   const p = (a) => [cx + R * Math.sin((a * Math.PI) / 180), cy - R * Math.cos((a * Math.PI) / 180)];
   const [x0, y0] = p(a0); const [x1, y1] = p(a1);
   return `M ${cx} ${cy} L ${x0} ${y0} A ${R} ${R} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1} ${y1} Z`;
@@ -277,7 +277,7 @@ export function PatternDefs({ id }) {
   );
 }
 /** A shape in a category's colour, with its pattern over it (tone 0 is plain). */
-const Toned = ({ tone, pid, children }) => (
+export const Toned = ({ tone, pid, children }) => (
   <g className={`fig-tone-${tone}`}>
     {children('fig-ch-fill')}
     {tone > 0 && children('fig-ch-patfill', `url(#${pid}-${tone})`)}
