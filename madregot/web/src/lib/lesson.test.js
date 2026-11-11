@@ -275,6 +275,25 @@ describe('store: lessons, streak and freezes', () => {
     expect(unitNodes('sys', st.path).slice(0, 2).map((n) => n.state)).toEqual(['done', 'current']);
     expect(st.progress.sys).toEqual({ level: 2, max: 2 });
   });
+  it('a guest stair of the student\'s grade moves its unit\'s level to the stair after it (stage5.md FUNC-6: the teacher\'s guest row)', () => {
+    const was = useApp.getState().profile;
+    try {
+      // a ח׳ student who never climbed eq:1-5 passes eq:6's check: the unit's level is eq:7, so the level the class sync
+      // sends puts them on the second stair of the teacher's "משוואות: מדרגות 6–7" row
+      useApp.setState({ profile: { ...was, role: 'student', grade: '8' } });
+      useApp.getState().completeCheck({ purpose: 'mastery', skill: 'eq:6', topic: 'eq', level: 6, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+      expect(useApp.getState().progress.eq).toEqual({ level: 7, max: 7 });
+      expect(unitNodes('eq', useApp.getState().path)[5].state).toBe('done');
+      // eq:7 as well: the unit's last stair
+      useApp.getState().completeCheck({ purpose: 'mastery', skill: 'eq:7', topic: 'eq', level: 7, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+      expect(useApp.getState().progress.eq).toEqual({ level: 7, max: 7 });
+      // a ז׳ student passing the same check out of the path's order: the level follows the path, as before
+      useApp.getState().resetProgress();
+      useApp.setState({ profile: { ...was, role: 'student', grade: '7' } });
+      useApp.getState().completeCheck({ purpose: 'mastery', skill: 'eq:6', topic: 'eq', level: 6, right: 5, asked: 5, perSkill: {}, passed: true, xp: 15 });
+      expect(useApp.getState().progress.eq).toEqual({ level: 1, max: 1 });
+    } finally { useApp.setState({ profile: was }); }
+  });
   it('a failed mastery check on a kept stair takes it out of the done count; a passed one makes it mastered', () => {
     useApp.setState({ path: { signed: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'kept', 2: 'kept' } } } });
     const failed = useApp.getState().completeCheck({ purpose: 'mastery', skill: 'signed:2', topic: 'signed', level: 2, right: 2, asked: 5, perSkill: {}, passed: false, xp: 0 });

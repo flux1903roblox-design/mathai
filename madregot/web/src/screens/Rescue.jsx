@@ -9,9 +9,8 @@ import clsx from 'clsx';
 import { CalendarClock, Check, Trash2, ClipboardCheck, ArrowRight, Star, Trophy } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { useLearnCtx, useNext } from '@/lib/useLearn.js';
-import { TOPIC, rescueTopicsFor } from '@/content/index.js';
+import { TOPIC, rescueTopicsFor, rowStairs } from '@/content/index.js';
 import { examPlan, validInput, isShabbatDay, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
-import { skillId } from '@/learn/skills.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { ensureTopics } from '@/learn/content/index.ts';
 import { aiReady } from '@/lib/ai.js';
@@ -48,7 +47,8 @@ function Setup({ onSave }) {
   const [error, setError] = useState(null);
   const topics = rescueTopicsFor(grade);
   const toggle = (id) => setSkills((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  const toggleTopic = (t) => { const ids = t.levels.map((_, i) => skillId(t.id, i + 1)); const all = ids.every((x) => skills.includes(x)); setSkills((s) => (all ? s.filter((x) => !ids.includes(x)) : [...new Set([...s, ...ids])])); };
+  // a row's stairs: the whole unit, or a guest row's own (ז׳'s "מבוא לפונקציות" is func:1 alone, FUNC-6)
+  const toggleTopic = (t) => { const ids = rowStairs(t).map((s) => s.id); const all = ids.every((x) => skills.includes(x)); setSkills((s) => (all ? s.filter((x) => !ids.includes(x)) : [...new Set([...s, ...ids])])); };
   const can = step === 0 ? !!date && date >= today() : step === 1 ? skills.length > 0 : true;
   const last = step === ASK.length - 1;
   const submit = (e) => {
@@ -87,7 +87,7 @@ function Setup({ onSave }) {
           <div className="rescue-topics" data-region="answers">
             <p className="field-hint">{aiReady() ? 'בחרו את המדרגות שיהיו במבחן.' : 'בחרו את המדרגות שיהיו במבחן. צילום של רשימת הנושאים מהמורה יעבוד כשהעוזר החכם מחובר; בגרסה הזאת בוחרים ידנית.'}</p>
             {topics.map((t) => {
-              const ids = t.levels.map((_, i) => skillId(t.id, i + 1));
+              const ids = rowStairs(t).map((s) => s.id);
               const all = ids.every((x) => skills.includes(x));
               const some = ids.filter((x) => skills.includes(x)).length;
               // a topic of an earlier grade is revision and says so ("מכיתה ז׳"); Pythagoras, filed under ח׳, is taught in
@@ -97,11 +97,11 @@ function Setup({ onSave }) {
                 <fieldset key={t.id} className={clsx('rescue-topic', `ch-${t.color}`)}>
                   <legend className="visually-hidden">{t.title}</legend>
                   <div className="rescue-topic-head">
-                    <label className="check-row topic-row"><input type="checkbox" checked={all} onChange={() => toggleTopic(t)} /><span>{t.title}{earlier ? ` מכיתה ${t.grade === '7' ? 'ז׳' : 'ח׳'}` : ''} (כל הנושא)</span></label>
+                    <label className="check-row topic-row"><input type="checkbox" checked={all} onChange={() => toggleTopic(t)} /><span>{t.title}{earlier ? ` מכיתה ${t.grade === '7' ? 'ז׳' : 'ח׳'}` : ''} {t.only ? `(מה שלומדים בכיתה ${grade === '7' ? 'ז׳' : 'ח׳'})` : '(כל הנושא)'}</span></label>
                     {some > 0 && <span className="rescue-topic-count">{some}/{ids.length}</span>}
                   </div>
                   <div className="stair-chips">
-                    {t.levels.map((L, i) => { const id = skillId(t.id, i + 1); const on = skills.includes(id); return <label key={id} className={clsx('chip-toggle', on && 'on')}><input type="checkbox" checked={on} onChange={() => toggle(id)} />{on && <Check size={15} strokeWidth={3} aria-hidden="true" />}<span>{L.title}</span></label>; })}
+                    {rowStairs(t).map(({ id, title }) => { const on = skills.includes(id); return <label key={id} className={clsx('chip-toggle', on && 'on')}><input type="checkbox" checked={on} onChange={() => toggle(id)} />{on && <Check size={15} strokeWidth={3} aria-hidden="true" />}<span>{title}</span></label>; })}
                   </div>
                 </fieldset>
               );

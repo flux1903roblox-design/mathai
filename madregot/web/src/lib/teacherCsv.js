@@ -4,7 +4,7 @@
 // typed as their names: no ID number, no internal id (the report itself carries none, GET /api/teacher/report).
 // reportToCsv is pure: the words for topics, stairs and mistakes come in as arguments. reportCsv binds the app's
 // content; downloadCsv hands the file to the device.
-import { topicsFor } from '@/content/index.js';
+import { classTopicsFor, rowLevel, rowTitle } from '@/content/index.js';
 import { mistakeLine } from './teacherText.js';
 
 export const BOM = '﻿';
@@ -76,14 +76,15 @@ export function workText(kind, w) {
 
 /**
  * The CSV of a report (GET /api/teacher/report). Columns, in order: שם, ימים עם תרגול, תרגילים, נכון בניסיון ראשון (%),
- * דקות, תרגול אחרון (dd/mm/yyyy); one per topic of the class's grade, "{topic}: מדרגה" ("{level}/{levels} – {stair}");
+ * דקות, תרגול אחרון (dd/mm/yyyy); one per topic of the class's grade and then its guest rows, "{topic}: מדרגה"
+ * ("{level}/{levels} – {stair}", on a guest row the place among its own stairs);
  * one per assignment, "{title} (עד dd/mm)"; and טעויות שחוזרות (up to 3, joined by " · ").
- * `topics`: [{ id, title, levels: [stair titles] }]; `mistakeText(topic, level, cat)`: the words for a mistake.
+ * `topics`: [{ id, title, levels: [stair titles], only? }]; `mistakeText(topic, level, cat)`: the words for a mistake.
  */
 export function reportToCsv(report, { topics, mistakeText: words }) {
   const head = [
     'שם', 'ימים עם תרגול', 'תרגילים', 'נכון בניסיון ראשון (%)', 'דקות', 'תרגול אחרון',
-    ...topics.map((t) => `${t.title}: מדרגה`),
+    ...topics.map((t) => (t.only ? t.title : `${t.title}: מדרגה`)),
     ...report.assignments.map((a) => `${stripTex(a.title)} (עד ${ddmm(a.dueOn)})`),
     'טעויות שחוזרות',
   ];
@@ -95,8 +96,8 @@ export function reportToCsv(report, { topics, mistakeText: words }) {
     s.minutes,
     s.lastPractice ? dmy(dayIn(s.lastPractice)) : '',
     ...topics.map((t) => {
-      const l = s.levels?.[t.id];
-      return l ? `${l.level}/${t.levels.length} – ${t.levels[l.level - 1] || ''}`.trim() : '';
+      const r = rowLevel(t, s.levels?.[t.id]);
+      return r ? `${r.level}/${r.total} – ${r.title}`.trim() : '';
     }),
     ...report.assignments.map((a) => workText(a.kind, a.work?.[i])),
     (s.topMistakes || []).slice(0, 3).map((m) => stripTex(words(m.topic, m.level, m.cat))).join(' · '),
@@ -104,8 +105,8 @@ export function reportToCsv(report, { topics, mistakeText: words }) {
   return toCsv([head, ...rows]);
 }
 
-/** The topics of a grade as reportToCsv reads them. */
-export const csvTopics = (grade) => topicsFor(grade).map((t) => ({ id: t.id, title: t.title, levels: t.levels.map((l) => l.title) }));
+/** The topics of a grade, then its guest rows (named with their stairs), as reportToCsv reads them. */
+export const csvTopics = (grade) => classTopicsFor(grade).map((t) => ({ id: t.id, title: rowTitle(t), levels: t.levels.map((l) => l.title), ...(t.only ? { only: t.only } : {}) }));
 /** The CSV of a report with the app's own words: each mistake as the student saw it, with its stair (TEACHER-16). */
 export const reportCsv = (report) => reportToCsv(report, { topics: csvTopics(report.class?.grade || '7'), mistakeText: mistakeLine });
 

@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { KeyRound, UserMinus, Send, Hand, RefreshCw, Sparkles } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
-import { topicsFor, TOPIC } from '@/content/index.js';
+import { classTopicsFor, rowLevel, rowTitle, TOPIC } from '@/content/index.js';
 import { AI_COPY, perStudentAi } from '@/content/classAi.js';
 import { workText } from '@/lib/teacherCsv.js';
 import { isStair } from '@/lib/assign.js';
@@ -73,7 +73,8 @@ export default function StudentSheet({ cls, student, today, aiPolicy, open, onOp
 
   const name = d?.student?.name || student?.name || '';
   const day = today || d?.days14?.at(-1)?.day || '';
-  const topics = topicsFor(cls.grade || '7');
+  // the grade's units, then its guest rows (FUNC-6)
+  const topics = classTopicsFor(cls.grade || '7');
   const week = (d?.days14 || []).slice(-7);
   const weekDays = week.filter((x) => x.n > 0).length;
   const weekMin = week.reduce((a, x) => a + x.minutes, 0);
@@ -128,11 +129,11 @@ export default function StudentSheet({ cls, student, today, aiPolicy, open, onOp
             <Part id="ss-levels" title="מדרגות">
               <ul className="ss-list">
                 {topics.map((t, i) => {
-                  const l = d.levels[t.id];
+                  const r = rowLevel(t, d.levels[t.id]);
                   return (
                     <li key={t.id} className="ss-level">
-                      <span className="ss-level-name"><ChapterMark color={t.color} n={i + 1} size="sm" />{t.title}</span>
-                      {l ? <LevelPips total={t.levels.length} level={l.level} max={l.max} color={t.color} /> : <span className="muted">עוד לא התחיל/ה</span>}
+                      <span className="ss-level-name"><ChapterMark color={t.color} n={t.only ? '' : i + 1} size="sm" />{rowTitle(t)}</span>
+                      {r ? <LevelPips total={r.total} level={r.level} max={r.max} color={t.color} /> : <span className="muted">עוד לא התחיל/ה</span>}
                     </li>
                   );
                 })}

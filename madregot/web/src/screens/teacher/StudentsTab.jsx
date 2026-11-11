@@ -8,7 +8,7 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Trash2, ChevronLeft } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
-import { topicsFor } from '@/content/index.js';
+import { classTopicsFor, rowLevel, rowTitle } from '@/content/index.js';
 import { rankAll, openHelpBy } from '@/learn/attention';
 import { AI_COPY, perStudentAi } from '@/content/classAi.js';
 import { useDemo, DEMO_COPY } from '@/lib/demo.js';
@@ -25,7 +25,8 @@ export default function StudentsTab({ cls, data, students, onChanged, onStudent 
   const sort = params.get('sort') === 'need' ? 'need' : 'name';
   const setSort = (v) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', 'students'); if (v === 'need') n.set('sort', 'need'); else n.delete('sort'); return n; }, { replace: true });
   const gone = useClassDeleted();
-  const topics = topicsFor(cls.grade);
+  // the grade's units, then its guest rows (FUNC-6)
+  const topics = classTopicsFor(cls.grade);
   const setLock = async (locked) => {
     try {
       await teacherApi('/api/teacher/class/lock', { method: 'POST', body: { locked } }, cls);
@@ -63,7 +64,7 @@ export default function StudentsTab({ cls, data, students, onChanged, onStudent 
               <thead>
                 <tr>
                   <th scope="col">שם</th><th scope="col">תרגול אחרון</th><th scope="col">היום</th><th scope="col">ימים השבוע</th><th scope="col">נכון בניסיון ראשון</th>
-                  {topics.map((t, i) => <th key={t.id} scope="col"><span className="th-topic"><ChapterMark color={t.color} n={i + 1} size="sm" />{t.title}</span></th>)}
+                  {topics.map((t, i) => <th key={t.id} scope="col"><span className="th-topic"><ChapterMark color={t.color} n={t.only ? '' : i + 1} size="sm" />{rowTitle(t)}</span></th>)}
                   <th scope="col"><span className="visually-hidden">פרטים</span></th>
                 </tr>
               </thead>
@@ -75,7 +76,7 @@ export default function StudentsTab({ cls, data, students, onChanged, onStudent 
                     <td>{s.today.n ? `${s.today.n} תרגילים` : '–'}</td>
                     <td>{s.week.days}</td>
                     <td><Rate value={pct(s.week.first, s.week.n)} /></td>
-                    {topics.map((t) => { const l = s.levels[t.id]; return <td key={t.id}>{l ? <LevelPips total={t.levels.length} level={l.level} max={l.max} color={t.color} /> : <span className="muted">–</span>}</td>; })}
+                    {topics.map((t) => { const r = rowLevel(t, s.levels[t.id]); return <td key={t.id}>{r ? <LevelPips total={r.total} level={r.level} max={r.max} color={t.color} /> : <span className="muted">–</span>}</td>; })}
                     <td className="t-actions">
                       {s.pinReset && <span className="muted">קוד אופס</span>}
                       {aiBadge && s.aiOff && <span className="t-chip t-ai-off">{AI_COPY.badge}</span>}

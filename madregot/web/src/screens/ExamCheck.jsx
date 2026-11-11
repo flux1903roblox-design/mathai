@@ -7,7 +7,7 @@ import { runAI, aiReady } from '@/lib/ai.js';
 import { api } from '@/lib/api.js';
 import { scoreOf } from '@/lib/exam.js';
 import { gradeExam } from '@/lib/examGrade.js';
-import { TOPICS, rescueTopicsFor } from '@/content/index.js';
+import { TOPICS, rescueTopicsFor, rowStairs } from '@/content/index.js';
 import { MAX_EXAM_PAGES } from '@shared/ai.js';
 import { Button, Field, Thinking } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
@@ -82,9 +82,14 @@ export default function ExamCheck() {
     window.scrollTo?.({ top: 0 });
     try {
       // the grade's topics and those its tests revise from another grade (grade 8 exams use grade 7 algebra), and any
-      // topic of the practice exam being checked
-      const own = rescueTopicsFor(profile.grade || '7').map((t) => t.id);
-      const topics = TOPICS.filter((t) => own.includes(t.id) || practice?.items.some((i) => i.topic === t.id)).map((t) => ({ id: t.id, title: t.title, levels: t.levels.map((l) => l.title) }));
+      // topic of the practice exam being checked. A guest row (FUNC-6: ז׳'s "מבוא לפונקציות") lists only its own
+      // stairs, each with its own number, so a ז׳ exam's graph question is read as func:1 and never a ח׳ stair
+      const rows = Object.fromEntries(rescueTopicsFor(profile.grade || '7').map((t) => [t.id, t]));
+      const inPractice = (t) => !!practice?.items.some((i) => i.topic === t.id);
+      const topics = TOPICS.filter((t) => rows[t.id] || inPractice(t)).map((t) => ({
+        id: t.id, title: t.title,
+        levels: rows[t.id]?.only && !inPractice(t) ? rowStairs(rows[t.id]).map((s) => ({ n: s.level, title: s.title })) : t.levels.map((l) => l.title),
+      }));
       const result = await runAI('exam', {
         grade: profile.grade || '7', pages: pages.map(({ data, mediaType }) => ({ data, mediaType })), topics, prep: prepOf(pages),
         key: practice ? practice.items.map((i) => ({ prompt: i.plain, answer: i.answer })) : undefined,

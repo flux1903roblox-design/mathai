@@ -213,8 +213,9 @@ test('Exam Rescue offers ז׳ Pythagoras (taught in March in ז׳) as one of the
   await open(page, '#/rescue', student('7'));
   await toTopics();
   const heads = page.locator('.rescue-topic-head .topic-row');
-  // percent (ח׳, October) is offered to ז׳ too: they meet it in relative frequency in February
-  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'משפט פיתגורס (כל הנושא)']);
+  // percent (ח׳, October) is offered to ז׳ too: they meet it in relative frequency in February; and the functions unit
+  // through its guest stair alone (func:1, a situation graph in May: stage5.md FUNC-6, guest.spec.js)
+  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'מבוא לפונקציות (מה שלומדים בכיתה ז׳)', 'משפט פיתגורס (כל הנושא)']);
   await page.getByText('מציאת ניצב', { exact: true }).click();
   await expect(page.locator('.rescue-topic').last().locator('.rescue-topic-count')).toHaveText('1/5');
   await expectNoSidewaysScroll(page);

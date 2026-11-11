@@ -637,7 +637,7 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
       ? `\n\nAnswer key (authoritative), in question order:\n${input.key.slice(0, 30).map((k, i) => `${i + 1}. ${clip(k.prompt, 300)} → ${clip(k.answer, 80)}`).join('\n')}`
       : '';
     const topics = Array.isArray(input.topics)
-      ? `\nTopics (id = title; levels in order):\n${input.topics.slice(0, 12).map((t) => `${t.id} = ${clip(t.title, 60)}${Array.isArray(t.levels) ? `; levels: ${t.levels.slice(0, 12).map((l, i) => `${i + 1} ${clip(l, 50)}`).join(', ')}` : ''}`).join('\n')}\nother = anything else (level 0).`
+      ? `\nTopics (id = title; levels in order):\n${input.topics.slice(0, 12).map((t) => `${t.id} = ${clip(t.title, 60)}${Array.isArray(t.levels) ? `; levels: ${t.levels.slice(0, 12).map((l, i) => (l && typeof l === 'object' ? `${Number(l.n) || i + 1} ${clip(l.title, 50)}` : `${i + 1} ${clip(l, 50)}`)).join(', ')}` : ''}`).join('\n')}\nother = anything else (level 0).`
       : '';
     return {
       ...base(model, 'high', 32000),

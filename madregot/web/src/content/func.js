@@ -895,7 +895,9 @@ function continueRate() {
 // ---------------------------------------------------------------- the topic
 
 export const FUNC = {
-  id: 'func', grade: '8', title: 'מבוא לפונקציות', color: 'fuchsia',
+  // ז׳ meets its first stair, a graph that describes a situation, in May (7.9; learn/skills.ts GUEST): Exam Rescue and the
+  // exam check offer that stair to ז׳ (alsoFor, read through content/index.js rescueTopicsFor's guest rule)
+  id: 'func', grade: '8', title: 'מבוא לפונקציות', color: 'fuchsia', alsoFor: ['7'],
   // what the unit teaches: its four stairs
   desc: 'קריאת גרף של מצב, פונקציה וייצוגיה, עלייה וירידה, וקצב אחיד ולא אחיד',
   // taught in November of ח׳: the first-day placement test does not ask about it (the jump test does)

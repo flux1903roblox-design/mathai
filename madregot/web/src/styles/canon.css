@@ -968,6 +968,8 @@ a.btn { text-decoration: none; }
 .t-lib-title { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
 .t-lib-n { color: var(--ink-2); font-weight: 600; }
 .t-lib-sub { margin: 0; font-size: 14px; line-height: 20px; color: var(--ink-2); }
+/* the grade's guest stairs (FUNC-6): each under the unit it comes from */
+.t-lib-guest-from { margin: 0 0 var(--s2); font-size: 14px; line-height: 20px; color: var(--ink-2); }
 .t-lib-dots { display: inline-flex; gap: 6px; }
 .t-lib-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--rule-strong); }
 .t-lib-dots i.on { background: var(--brand); border-color: var(--brand); }

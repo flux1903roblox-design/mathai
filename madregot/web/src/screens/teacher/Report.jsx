@@ -16,7 +16,7 @@ import { RANGES, rangeDays, customRange, rangeText, dmyDots, fetchReport, saveRe
 import { workText, pctOf, stripTex } from '@/lib/teacherCsv.js';
 import { mistakeLine } from '@/lib/teacherText.js';
 import { plusDays, dm } from '@/lib/workDates.js';
-import { topicsFor } from '@/content/index.js';
+import { classTopicsFor, rowLevel, rowTitle } from '@/content/index.js';
 import { Stat } from '@/components/ds.jsx';
 // the board's rules (tiles, groups, the table) live with the board (STUDENT-15); the report also opens on its own
 import '@/styles/lazy/teacher.css';
@@ -63,7 +63,7 @@ function PrintReport({ report, topics, title }) {
             <tr>
               <th scope="col">שם</th><th scope="col">ימים עם תרגול</th><th scope="col">תרגילים</th><th scope="col">נכון בניסיון ראשון</th>
               <th scope="col">דקות</th><th scope="col">תרגול אחרון</th>
-              {topics.map((t) => <th key={t.id} scope="col">{t.title}</th>)}
+              {topics.map((t) => <th key={t.id} scope="col">{rowTitle(t)}</th>)}
               {many ? <th scope="col">משימות שהושלמו</th> : report.assignments.map((a, i) => <th key={i} scope="col">{stripTex(a.title)} (עד {dm(a.dueOn)})</th>)}
               <th scope="col">טעויות שחוזרות</th>
             </tr>
@@ -78,7 +78,7 @@ function PrintReport({ report, topics, title }) {
                   <th scope="row">{s.name}</th>
                   <td>{s.activeDays}</td><td>{s.exercises}</td><td>{p == null ? '–' : `${p}%`}</td><td>{s.minutes}</td>
                   <td>{s.lastPractice ? dmyDots(todayOf(new Date(s.lastPractice))) : '–'}</td>
-                  {topics.map((t) => { const l = s.levels[t.id]; return <td key={t.id}>{l ? `${l.level}/${t.levels.length}` : '–'}</td>; })}
+                  {topics.map((t) => { const r = rowLevel(t, s.levels[t.id]); return <td key={t.id}>{r ? `${r.level}/${r.total}` : '–'}</td>; })}
                   {many ? <td>{given.length ? `${done}/${given.length}` : '–'}</td> : report.assignments.map((a, k) => <td key={k}>{workText(a.kind, a.work[i]) || '–'}</td>)}
                   <td className="pr-mis">{mistakeWords(s).map(stripTex).join(' · ') || '–'}</td>
                 </tr>
@@ -171,7 +171,8 @@ export default function ClassReport() {
   const pick = (id) => setParams(id === 'custom' ? { range: id, from: custom.from, to: custom.to } : { range: id }, { replace: true });
   const pickDates = (c) => { setCustom(c); if (customRange(c.from, c.to, day)) setParams({ range: 'custom', from: c.from, to: c.to }, { replace: true }); };
 
-  const topics = useMemo(() => topicsFor(shown?.class?.grade || cls.grade || '7'), [shown?.class?.grade, cls.grade]);
+  // the grade's units, then its guest rows (FUNC-6): a column for eq:6–7 in a ח׳ class
+  const topics = useMemo(() => classTopicsFor(shown?.class?.grade || cls.grade || '7'), [shown?.class?.grade, cls.grade]);
   const students = shown?.students || [];
   const practiced = students.filter((s) => s.exercises > 0).length;
   const sum = (k) => students.reduce((a, s) => a + s[k], 0);
@@ -216,7 +217,7 @@ export default function ClassReport() {
                   <tr>
                     <th scope="col">שם</th><th scope="col">ימים עם תרגול</th><th scope="col">תרגילים</th><th scope="col">נכון בניסיון ראשון</th>
                     <th scope="col">דקות</th><th scope="col">תרגול אחרון</th>
-                    {topics.map((t, i) => <th key={t.id} scope="col"><span className="th-topic"><ChapterMark color={t.color} n={i + 1} size="sm" />{t.title}</span></th>)}
+                    {topics.map((t, i) => <th key={t.id} scope="col"><span className="th-topic"><ChapterMark color={t.color} n={t.only ? '' : i + 1} size="sm" />{rowTitle(t)}</span></th>)}
                     {shown.assignments.map((a, i) => <th key={i} scope="col" className="rp-assign-h"><span className="rp-assign-t">{a.title}</span><span className="rp-due">עד {dm(a.dueOn)}</span></th>)}
                     <th scope="col">טעויות שחוזרות</th>
                   </tr>
@@ -230,7 +231,7 @@ export default function ClassReport() {
                       <td><Rate value={pctOf(s.firstTry, s.exercises)} /></td>
                       <td>{s.minutes}</td>
                       <td>{s.lastPractice ? shortDay(s.lastPractice, thisYear) : <span className="muted">עוד לא</span>}</td>
-                      {topics.map((t) => { const l = s.levels[t.id]; return <td key={t.id}>{l ? <LevelPips total={t.levels.length} level={l.level} max={l.max} color={t.color} /> : <span className="muted">–</span>}</td>; })}
+                      {topics.map((t) => { const r = rowLevel(t, s.levels[t.id]); return <td key={t.id}>{r ? <LevelPips total={r.total} level={r.level} max={r.max} color={t.color} /> : <span className="muted">–</span>}</td>; })}
                       {shown.assignments.map((a, k) => {
                         const w = a.work[i];
                         if (!w) return <td key={k}><span className="muted">–</span></td>;

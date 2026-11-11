@@ -4,7 +4,7 @@
 // lists the grade's guest stairs between its units and the floor. The app's clock is fixed on 5 November
 // (helpers.js NOW), so the December student gets a clock of their own.
 import { test, expect } from '@playwright/test';
-import { open, appReady, student, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { open, appReady, student, saved, expectUsable, expectNoSidewaysScroll, NOW } from './helpers.js';
 import { gradeSkillsOf } from '../src/learn/skills.ts';
 import { monthIndex } from '../../shared/coverage.js';
 
@@ -112,4 +112,47 @@ test('Topics lists the grade\'s guest stairs between its units and the floor, ea
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/learn\/func\/1$/);
   await expect(page.locator('.journey-head')).toBeVisible();
+});
+
+// Exam Rescue (FUNC-6 item 6): a ז׳ student who picks "מבוא לפונקציות" for a test gets func:1, the part of the unit ז׳
+// learns, not the three ח׳ stairs; a ח׳ student's equations row is the whole ז׳ unit, as before (a ח׳ test revises it).
+async function rescueTopics(page, grade) {
+  await open(page, '#/rescue', student(grade));
+  const d = new Date(NOW); d.setDate(d.getDate() + 3);
+  await page.locator('#exam-date').fill(d.toLocaleDateString('en-CA'));
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await expect(page.locator('.rescue-topics')).toBeVisible();
+}
+async function buildPlan(page) {
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('button', { name: /לבניית התוכנית/ }).click();
+  await expect.poll(async () => (await saved(page)).learn?.exam?.skills).toBeTruthy();
+  return (await saved(page)).learn.exam.skills;
+}
+
+test('ז׳ Rescue: the functions row is func:1 alone, and choosing it plans func:1', async ({ page }) => {
+  await rescueTopics(page, '7');
+  const row = page.getByRole('group', { name: 'מבוא לפונקציות', exact: true });
+  const all = row.getByRole('checkbox', { name: 'מבוא לפונקציות (מה שלומדים בכיתה ז׳)' });
+  await expect(row.locator('.chip-toggle')).toHaveText(['קריאת גרף של מצב']);
+  await row.scrollIntoViewIfNeeded();
+  await all.check();
+  await expect(row.locator('.rescue-topic-count')).toHaveText('1/1');
+  await expect(row.getByRole('checkbox', { name: 'קריאת גרף של מצב' })).toBeChecked();
+  // the row's "whole topic" target (the stair chips keep Rescue's own size)
+  expect((await all.locator('xpath=ancestor::label').boundingBox()).height, 'a 44px target').toBeGreaterThanOrEqual(44);
+  await expectNoSidewaysScroll(page);
+  await shot(page, 'rescue-7');
+  expect(await buildPlan(page)).toEqual(['func:1']);
+});
+
+test('ח׳ Rescue: the equations row is the whole ז׳ unit, eq:6 and eq:7 included, as before', async ({ page }) => {
+  await rescueTopics(page, '8');
+  const row = page.getByRole('group', { name: 'משוואות', exact: true });
+  await expect(row.locator('.chip-toggle')).toHaveCount(7);
+  await row.scrollIntoViewIfNeeded();
+  await row.getByRole('checkbox', { name: 'משוואות מכיתה ז׳ (כל הנושא)' }).check();
+  await expect(row.locator('.rescue-topic-count')).toHaveText('7/7');
+  expect(await buildPlan(page)).toEqual(['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'eq:6', 'eq:7']);
 });

@@ -6,6 +6,7 @@ import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWord
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
+import { GUEST } from '@/learn/skills.ts';
 
 // Each topic's misconception names include those the 2.0 teaching content adds.
 export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
@@ -20,11 +21,59 @@ export const bridgeTopicsFor = (grade) => TOPICS.filter((t) => t.bridge && (t.gr
  *                      would only meet questions never taught); it starts at stair 1, and the unit jump test is there
  *                      for a student who already knows it
  *   alsoFor: ['8']     Exam Rescue (and the exam check's topic list) offers it to that grade too: a grade 8 test can
- *                      revise grade 7 equations, and grade 7 learns Pythagoras in March though the app files it in grade 8
+ *                      revise grade 7 equations, and grade 7 learns Pythagoras in March though the app files it in grade 8;
+ *                      a later grade's unit with guest stairs is offered through them alone (rescueTopicsFor)
  */
 export const placementTopicsFor = (grade) => topicsFor(grade).filter((t) => t.placement !== false);
-/** The topics Exam Rescue offers a grade: its own, then those of another grade that are revised in it (no bridge unit). */
-export const rescueTopicsFor = (grade) => [...topicsFor(grade), ...TOPICS.filter((t) => !t.bridge && t.grade !== String(grade) && (t.alsoFor || []).includes(String(grade)))];
+
+/**
+ * A grade's guest rows (stage5.md FUNC-6): each unit with a guest stair of that grade (learn/skills.ts GUEST), once, as a
+ * copy carrying `only:` its guest stairs, in GUEST's order. ח׳: eq with eq:6 and eq:7; ז׳: func with func:1. A teacher's
+ * screens list them after the grade's units, each showing only its `only` stairs.
+ */
+export const guestTopicsFor = (grade) => {
+  const ids = GUEST[String(grade)] || [];
+  return [...new Set(ids.map((id) => id.split(':')[0]))].filter((id) => TOPIC[id]).map((id) => ({ ...TOPIC[id], only: ids.filter((s) => s.startsWith(`${id}:`)) }));
+};
+/** What a teacher's screens list for a class of a grade: its units, then its guest rows. */
+export const classTopicsFor = (grade) => [...topicsFor(grade), ...guestTopicsFor(grade)];
+/** The stairs a row shows, [{ id, level, title }]: every stair of a unit, or a guest row's `only` ones (levels as titles or { title }). */
+export const rowStairs = (t) => t.levels.map((l, i) => ({ id: `${t.id}:${i + 1}`, level: i + 1, title: typeof l === 'string' ? l : l.title }))
+  .filter((s) => !t.only || t.only.includes(s.id));
+/** A row's name: the unit's title, and on a guest row which of its stairs ("משוואות: מדרגות 6–7"). */
+export function rowTitle(t) {
+  if (!t.only) return t.title;
+  const ls = rowStairs(t).map((s) => s.level);
+  const run = ls.every((n, i) => !i || n === ls[i - 1] + 1);
+  const nums = ls.length === 1 ? `${ls[0]}` : run ? `${ls[0]}–${ls.at(-1)}` : ls.join(', ');
+  return `${t.title}: ${ls.length === 1 ? 'מדרגה' : 'מדרגות'} ${nums}`;
+}
+/**
+ * A student's place on a row, from the unit's { level, max } (the levels the class sync sends): on a unit, as is; on a
+ * guest row, the place among its own stairs (eq:7 is the second of ח׳'s equations row). { total, level, max, title }:
+ * the stair at that place. null when the student has nothing in the unit.
+ */
+export function rowLevel(t, l) {
+  if (!l) return null;
+  const ls = rowStairs(t);
+  if (!t.only) return { total: ls.length, level: l.level, max: l.max, title: ls[l.level - 1]?.title || '' };
+  const at = (n) => Math.min(ls.length, ls.filter((s) => s.level < n).length + 1);
+  const level = at(Number(l.level) || 1);
+  return { total: ls.length, level, max: at(Number(l.max) || 1), title: ls[level - 1].title };
+}
+/**
+ * The topics Exam Rescue offers a grade: its own, then those of another grade that are revised in it (alsoFor; no
+ * bridge unit). An earlier grade's unit is revised whole (a ח׳ test can revise all of the ז׳ equations unit); a later
+ * grade's unit is offered through its guest stairs alone when it has any (a ז׳ student who picks "מבוא לפונקציות"
+ * gets func:1, the part of it ז׳ learns).
+ */
+export const rescueTopicsFor = (grade) => {
+  const g = String(grade);
+  const guest = Object.fromEntries(guestTopicsFor(g).map((t) => [t.id, t]));
+  const other = TOPICS.filter((t) => !t.bridge && t.grade !== g && (t.alsoFor || []).includes(g))
+    .map((t) => (guest[t.id] && Number(t.grade) > Number(g) ? guest[t.id] : t));
+  return [...topicsFor(g), ...other];
+};
 
 /**
  * The words for a mistake on one stair: the stair's own misconception when it has one (one id can mean different

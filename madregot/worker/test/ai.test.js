@@ -60,6 +60,16 @@ test('an exam sends images and PDFs as blocks, the key, and each topic with its 
   assert.ok(STREAMED('exam') && !STREAMED('explain'));
 });
 
+test('an exam topic\'s levels may carry their own numbers: a guest row lists only its stairs (stage5.md FUNC-6)', () => {
+  const r = buildRequest('exam', { grade: '7', pages: [page], topics: [
+    { id: 'func', title: 'מבוא לפונקציות', levels: [{ n: 1, title: 'קריאת גרף של מצב' }] },
+    { id: 'eq', title: 'משוואות', levels: [{ n: 6, title: 'שאלות תנועה' }, { n: 7, title: 'משוואות עם מכנים' }] },
+  ] });
+  const text = r.messages[0].content.at(-1).text;
+  assert.match(text, /func = מבוא לפונקציות; levels: 1 קריאת גרף של מצב\n/);
+  assert.match(text, /eq = משוואות; levels: 6 שאלות תנועה, 7 משוואות עם מכנים\n/);
+});
+
 test('an exam needs pages and caps them', () => {
   assert.throws(() => buildRequest('exam', { pages: [] }));
   const r = buildRequest('exam', { pages: Array(MAX_EXAM_PAGES + 3).fill(page) });

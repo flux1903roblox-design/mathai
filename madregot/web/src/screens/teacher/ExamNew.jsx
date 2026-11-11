@@ -9,8 +9,8 @@ import clsx from 'clsx';
 import { Check, ChevronLeft } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { makeClassExam, classExamTitle, CLASS_EXAM_LENGTHS } from '@/lib/exam.js';
-import { TOPIC, topicsFor } from '@/content/index.js';
-import { ALL_SKILLS, parseSkill, skillId } from '@/learn/skills.ts';
+import { TOPIC, classTopicsFor, rowStairs, rowTitle } from '@/content/index.js';
+import { ALL_SKILLS, parseSkill } from '@/learn/skills.ts';
 import { dm } from '@/lib/workDates.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
 import { Flow } from '@/components/Screen.jsx';
@@ -72,11 +72,13 @@ export default function ExamNew() {
   const cls = profile.classes?.find((c) => c.code === profile.active) || profile.classes?.[0];
   const grade = cls?.grade || profile.grade || '7';
   const fromLink = (params.get('skills') || '').split(',').filter((s) => ALL_SKILLS.includes(s));
-  // the class's topics, and a preselected stair's topic when it is another grade's
+  // the class's topics, then its guest rows with their own stairs (eq:6 and eq:7 for ח׳, FUNC-6), and a preselected
+  // stair's whole unit when no row has it (another grade's)
   const topics = useMemo(() => {
-    const list = topicsFor(grade);
-    const extra = [...new Set(fromLink.map((s) => parseSkill(s).topic))].filter((t) => !list.some((x) => x.id === t)).map((t) => TOPIC[t]);
-    return [...list, ...extra];
+    const list = classTopicsFor(grade);
+    const missing = fromLink.filter((s) => !list.some((t) => rowStairs(t).some((x) => x.id === s)));
+    const extra = [...new Set(missing.map((s) => parseSkill(s).topic))].map((t) => TOPIC[t]);
+    return [...list.filter((t) => !extra.some((x) => x.id === t.id)), ...extra];
   }, [grade, params]); // eslint-disable-line react-hooks/exhaustive-deps
   const [picked, setPicked] = useState(() => new Set(fromLink));
   const [count, setCount] = useState(10);
@@ -84,7 +86,7 @@ export default function ExamNew() {
   const [step, setStep] = useState(0);
   const [note, setNote] = useState([]); // stairs that could not be printed (when none could)
 
-  const stairsOf = (t) => t.levels.map((_, i) => skillId(t.id, i + 1));
+  const stairsOf = (t) => rowStairs(t).map((s) => s.id);
   const toggle = (skill) => setPicked((cur) => { const n = new Set(cur); if (n.has(skill)) n.delete(skill); else n.add(skill); return n; });
   const toggleAll = (t) => setPicked((cur) => {
     const all = stairsOf(t); const n = new Set(cur);
@@ -114,18 +116,19 @@ export default function ExamNew() {
           {note.length > 0 && <div className="xn-notes" role="status">{note.map((s) => <p key={s} className="as-hint">{skippedNote(s)}</p>)}</div>}
           {topics.map((t, i) => {
             const all = stairsOf(t); const on = all.filter((s) => picked.has(s)).length;
+            // a guest row (FUNC-6) is not a unit of the grade: no unit number, and its "all" is its own stairs
+            const allLabel = t.only ? 'כל המדרגות' : 'כל היחידה';
             return (
               <section key={t.id} className="xn-topic" aria-labelledby={`xn-${t.id}`}>
                 <div className="xn-topic-head">
-                  <h2 id={`xn-${t.id}`} className="xn-topic-title"><ChapterMark color={t.color} n={i + 1} size="sm" />{t.title}</h2>
-                  <button type="button" role="checkbox" aria-checked={on === all.length ? 'true' : on ? 'mixed' : 'false'} aria-label={`כל היחידה: ${t.title}`}
-                    className={clsx('as-chip', 'xn-all', on === all.length && 'on')} onClick={() => toggleAll(t)}>כל היחידה</button>
+                  <h2 id={`xn-${t.id}`} className="xn-topic-title"><ChapterMark color={t.color} n={t.only ? '' : i + 1} size="sm" />{rowTitle(t)}</h2>
+                  {all.length > 1 && (
+                    <button type="button" role="checkbox" aria-checked={on === all.length ? 'true' : on ? 'mixed' : 'false'} aria-label={`${allLabel}: ${rowTitle(t)}`}
+                      className={clsx('as-chip', 'xn-all', on === all.length && 'on')} onClick={() => toggleAll(t)}>{allLabel}</button>
+                  )}
                 </div>
                 <div className="ob-opts xn-stairs" role="group" aria-labelledby={`xn-${t.id}`}>
-                  {t.levels.map((l, j) => {
-                    const skill = skillId(t.id, j + 1);
-                    return <Pick key={skill} className="xn-stair" on={picked.has(skill)} onClick={() => toggle(skill)}><b><span className="xn-n">{j + 1}.</span> {l.title}</b></Pick>;
-                  })}
+                  {rowStairs(t).map((s) => <Pick key={s.id} className="xn-stair" on={picked.has(s.id)} onClick={() => toggle(s.id)}><b><span className="xn-n">{s.level}.</span> {s.title}</b></Pick>)}
                 </div>
               </section>
             );

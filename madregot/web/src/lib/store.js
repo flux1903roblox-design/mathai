@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { TOPIC } from '@/content/index.js';
+import { guestSkillsOf } from '@/learn/skills.ts';
 import { recordOnPath, markMastered, reopenKept, reachedUpTo, doneCount, chestOpen } from './path.js';
 import { questProgress } from './quests.js';
 import { STAGE_XP } from './lesson.js';
@@ -260,9 +261,12 @@ export const appState = (set, get) => ({
           const chestBefore = chestOpen(r.topic, path);
           ({ path, stairDone } = markMastered(path, r.topic, r.level));
           chestOpened = !chestBefore && chestOpen(r.topic, path);
-          // the topic's level is the next stair the path leads to
+          // the topic's level is the next stair the path leads to; a guest stair of the student's grade (learn/skills.ts
+          // GUEST, eq:6 for ח׳) is climbed without the unit's first stairs, so its unit's level is the stair after it:
+          // the level the class sync sends, and the teacher's guest row moves (content/index.js rowLevel)
           const top = TOPIC[r.topic].levels.length; const p = progress[r.topic] || { level: 1, max: 1 };
-          const level = Math.min(top, Math.max(p.level, reachedUpTo(r.topic, path) + 1));
+          const guestNext = guestSkillsOf(st.profile?.grade).includes(`${r.topic}:${r.level}`) ? r.level + 1 : 0;
+          const level = Math.min(top, Math.max(p.level, reachedUpTo(r.topic, path) + 1, guestNext));
           progress = { ...progress, [r.topic]: { level, max: Math.max(p.max, level) } };
         } else if (r.purpose === 'mastery' && !r.passed && r.topic && r.level && TOPIC[r.topic]) {
           // a stair kept from before mastery checks stays done only until its check says otherwise
