@@ -1,6 +1,6 @@
-// The challenge track (CURRICULUM-6): every task is checked mathematically and for its wording, the set is stage 1's 36
-// (three per topic, one claim, one error or proof, one literacy task each), and the grading rules (two tries, XP, the
-// order check, the counterexample check) are pinned.
+// The challenge track (CURRICULUM-6): every task is checked mathematically and for its wording, every topic has at least
+// one claim, one error or proof and one literacy task (stage 1's 36 were three each; later stages add their own, so the
+// count is computed), and the grading rules (two tries, XP, the order check, the counterexample check) are pinned.
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
 import type { ChallengePart, ChallengeTask } from './types';
@@ -33,25 +33,36 @@ function texts(t: ChallengeTask): string[] {
 const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1));
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
+// A unit whose stairs are still landing in this build round (stage5.md FUNC-7): its tasks come after its last stair,
+// so until then it may have fewer than one of each kind. Empty when every unit is whole.
+const PENDING_CHALLENGES = new Set<string>([]);
+
 describe('the challenge tasks', () => {
-  it('stage 1 has 36 tasks: three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
+  it('every topic of TOPIC_ORDER has its tasks, the bridge included, numbered c1, c2, … and in topic order', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
-    expect(CHALLENGES).toHaveLength(36);
-    TOPIC_ORDER.forEach((tp) => expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]));
+    // the count is the topics' tasks, every one of them in a topic of TOPIC_ORDER
+    expect(CHALLENGES).toHaveLength(TOPIC_ORDER.reduce((n, tp) => n + challengesOf(tp).length, 0));
+    expect(CHALLENGES.length).toBeGreaterThanOrEqual(36);
+    TOPIC_ORDER.forEach((tp) => {
+      const ids = challengesOf(tp).map((t) => t.id);
+      if (!PENDING_CHALLENGES.has(tp)) expect(ids.length, tp).toBeGreaterThanOrEqual(3);
+      expect(ids, tp).toEqual(ids.map((_, i) => `${tp}:c${i + 1}`));
+    });
+    PENDING_CHALLENGES.forEach((tp) => expect(TOPIC_ORDER, `${tp}: a pending unit is a real one`).toContain(tp));
     expect(TOPIC_ORDER).toContain('frac');
-    expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => [tp, tp, tp]));
+    expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => challengesOf(tp).map(() => tp)));
     expect(challengeById('pct:c1')?.after).toBe('pct:2');
     expect(challengeById('nope')).toBeNull();
     expect(challengesAfter('ratio:2').map((t) => t.id)).toEqual(['ratio:c1']);
     expect(challengesAfter('expr:4').map((t) => t.id)).toEqual(['expr:c1', 'expr:c2']);
   });
 
-  it('each topic has one claim, one error or proof, and one literacy task', () => {
-    TOPIC_ORDER.forEach((tp) => {
+  it('each topic has at least one claim, one error or proof, and one literacy task', () => {
+    TOPIC_ORDER.filter((tp) => !PENDING_CHALLENGES.has(tp)).forEach((tp) => {
       const kinds = challengesOf(tp).map((t) => t.kind);
-      expect(kinds.filter((k) => k === 'claim'), tp).toHaveLength(1);
-      expect(kinds.filter((k) => k === 'error' || k === 'proof'), tp).toHaveLength(1);
-      expect(kinds.filter((k) => k === 'literacy'), tp).toHaveLength(1);
+      expect(kinds.filter((k) => k === 'claim').length, tp).toBeGreaterThanOrEqual(1);
+      expect(kinds.filter((k) => k === 'error' || k === 'proof').length, tp).toBeGreaterThanOrEqual(1);
+      expect(kinds.filter((k) => k === 'literacy').length, tp).toBeGreaterThanOrEqual(1);
     });
     // a task's kind is what its parts do: a claim task has a claim part, an error task an error part, a proof an order
     CHALLENGES.forEach((t) => {

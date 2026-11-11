@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_SKILLS, GRADE_OF, parseSkill } from './skills';
 import { PROGRAMME, ROADMAP_NEXT, coverageOf, notYetOf, monthIndex, schoolMonth } from './programme';
+import { coverage } from '@shared/coverage.js';
 import { TOPIC, TOPICS } from '@/content/index.js';
 
 // a bridge topic (CURRICULUM-3's frac) carries bridge: true
@@ -29,21 +30,32 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   });
 });
 
-// Stage 1 is complete with percent: the live coverage, from the stairs this build has, is the stage-1 fixture's of
-// worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4 and pct:1-5): ז׳ 104 of 150, ח׳ 66 of 147, 57%.
+// Stage 1 is complete with percent: the stage-1 fixture of worker/test/coverage.test.js (HEAD's 48 stairs, signed:6,
+// ratio:1-4 and pct:1-5) gives ז׳ 104 of 150 and ח׳ 66 of 147, 57%. The app has those stairs and may have more: a later
+// stage adds its own (stage5.md FUNC-8 Design 3), so the live numbers are those of coverage() over the live stairs.
 describe('stage 1\'s coverage, live', () => {
   const STAGE1 = [
     ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
     ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
     'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
   ];
-  it('has exactly the stage-1 stairs (the bridge unit aside), and their hours', () => {
-    expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE1].sort());
-    const c7 = coverageOf('7'); const c8 = coverageOf('8');
-    expect([c7.taught, c7.hours]).toEqual([104, 150]);
-    expect([c8.taught, c8.hours]).toEqual([66, 147]);
-    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(57);
-    expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+  // the stairs the content really has: every level of every unit (the bridge unit aside)
+  const LIVE = TOPICS.filter((t) => !(t as { bridge?: boolean }).bridge).flatMap((t) => t.levels.map((_: unknown, i: number) => `${t.id}:${i + 1}`));
+  it('has every stage-1 stair (the bridge unit aside), and stage 1\'s hours', () => {
+    const have = new Set(ALL_SKILLS.filter((s) => !isBridge(s)));
+    STAGE1.forEach((s) => expect(have.has(s), `${s} is gone`).toBe(true));
+    const s7 = coverage('7', STAGE1); const s8 = coverage('8', STAGE1);
+    expect([s7.taught, s7.hours]).toEqual([104, 150]);
+    expect([s8.taught, s8.hours]).toEqual([66, 147]);
+    expect(Math.round((100 * (s7.taught + s8.taught)) / (s7.hours + s8.hours))).toBe(57);
+    expect(s8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+  });
+  it('the live coverage is coverage() of the stairs the content has, and never below stage 1\'s', () => {
+    expect([...LIVE].sort()).toEqual(ALL_SKILLS.filter((s) => !isBridge(s)).sort());
+    for (const g of ['7', '8'] as const) {
+      expect(coverageOf(g)).toEqual(coverage(g, LIVE));
+      expect(coverageOf(g).taught).toBeGreaterThanOrEqual(coverage(g, STAGE1).taught);
+    }
   });
 });
 

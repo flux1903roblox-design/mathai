@@ -6,6 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PROGRAMME, ROADMAP_NEXT } from '../../shared/programme.js';
 import { coverage, notYet, monthIndex, schoolMonth, coverageSentence, monthsText, hoursText, inSchoolOrder, GRADE_NAME } from '../../shared/coverage.js';
+import { STAIR_NAMES } from '../../shared/stairs.js';
 
 const COUNCIL = [
   'signed:1', 'signed:2', 'signed:3', 'signed:4', 'signed:5',
@@ -50,6 +51,16 @@ const TAUGHT = {
 // 8.11, 8.16; S4 = 7.11, 8.5, 8.12, 8.13; S5 = 7.9, 7.10, 8.7, 8.9), and the totals after each (ז׳ 126, 139, 144, 150;
 // ח׳ 78, 99, 133, 147).
 const AFTER = { '7': { S2: 126, S3: 139, S4: 144, S5: 150 }, '8': { S2: 78, S3: 99, S4: 133, S5: 147 } };
+// The stairs a later stage brings, by stage (stage5.md FUNC-8 Design 2 (a) and (d)). A part may list one before it exists
+// (8.7 lists func:1-3 while only func:1 is built); such a part is untaught (coverage.js) and its stage is its stairs'.
+// Stage 1's fixtures keep their numbers while each later stage lands; once the lane's last stair is in (its stage 13),
+// the allowance goes and every listed stair is in STAIR_NAMES.
+const STAGE_OF_STAIR = Object.freeze({
+  'func:1': 'S5', 'func:2': 'S5', 'func:3': 'S5', 'func:4': 'S5', 'eq:6': 'S5', 'eq:7': 'S5', 'angles:8': 'S5',
+});
+const STAGES = ['S2', 'S3', 'S4', 'S5'];
+/** The stage that teaches a part: its `later`, or, for a part with stairs, the latest stage among its stairs (none for stage 1's). */
+const stageOf = (part) => part.later || part.skills.map((s) => STAGE_OF_STAIR[s]).filter(Boolean).sort().pop() || null;
 const COMPLETES = {
   S2: ['7.6', '7.12', '7.13', '8.4', '8.17'],
   S3: ['7.15', '7.16', '7.17', '8.6', '8.10', '8.11', '8.16'],
@@ -87,11 +98,11 @@ test('the programme: 17 units a grade, in the schedules\' order, with their hour
   assert.equal(coverage('8', []).hours, 147);
 });
 
-test('every stair a part lists is one of stage 1\'s; a part with none is a later stage\'s, with a note', () => {
-  const known = new Set(STAGE1);
+test('every stair a part lists is the app\'s or a later stage\'s; a part with none is a later stage\'s, with a note', () => {
   for (const { unit, part } of allParts) {
     if (part.skills.length) {
-      part.skills.forEach((s) => assert.ok(known.has(s), `${unit.id} lists ${s}, which is not a stage-1 stair`));
+      part.skills.forEach((s) => assert.ok(Object.hasOwn(STAIR_NAMES, s) || Object.hasOwn(STAGE_OF_STAIR, s),
+        `${unit.id} lists ${s}, which is neither a stair of the app (shared/stairs.js) nor one a later stage brings`));
       assert.equal(part.later, undefined, `${unit.id}: a part with stairs is not waiting for a later stage`);
     } else {
       assert.ok(['S2', 'S3', 'S4', 'S5'].includes(part.later), `${unit.id}: an empty part names its stage`);
@@ -173,16 +184,20 @@ test('with the stage-1 stairs, every untaught part names the later stage that br
     const c = coverage(g, STAGE1);
     let taught = c.taught;
     for (const u of c.units) {
-      for (const p of u.parts.filter((x) => !x.taught)) assert.ok(['S2', 'S3', 'S4', 'S5'].includes(p.later), `${u.id}: ${p.note}`);
+      for (const p of u.parts.filter((x) => !x.taught)) assert.ok(STAGES.includes(stageOf(p)), `${u.id}: ${p.note || p.skills.join(', ')}`);
     }
-    for (const stage of ['S2', 'S3', 'S4', 'S5']) {
-      taught += sum(c.units.flatMap((u) => u.parts.filter((p) => !p.taught && p.later === stage).map((p) => p.hours)));
+    for (const stage of STAGES) {
+      taught += sum(c.units.flatMap((u) => u.parts.filter((p) => !p.taught && stageOf(p) === stage).map((p) => p.hours)));
       assert.equal(taught, AFTER[g][stage], `grade ${g} after ${stage}`);
     }
   }
   for (const [stage, ids] of Object.entries(COMPLETES)) {
-    assert.deepEqual(PROGRAMME.units.filter((u) => u.parts.some((p) => p.later === stage)).map((u) => u.id), ids, stage);
+    assert.deepEqual(PROGRAMME.units.filter((u) => u.parts.some((p) => stageOf(p) === stage)).map((u) => u.id), ids, stage);
   }
+  // a part's stage is its `later`, or its stairs' (a stage-1 stair brings none)
+  assert.equal(stageOf({ hours: 2, skills: [], later: 'S3' }), 'S3');
+  assert.equal(stageOf({ hours: 8, skills: ['func:1', 'func:2', 'func:3'] }), 'S5');
+  assert.equal(stageOf({ hours: 5, skills: ['ratio:1'] }), null);
 });
 
 test('notYet: for each grade a list of non-empty Hebrew words, one per untaught part, without repeats', () => {

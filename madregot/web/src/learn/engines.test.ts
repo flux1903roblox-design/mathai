@@ -127,7 +127,10 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
 
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(62); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year)
+    // every unit of TOPIC_ORDER, each with its number of stairs (62 at stage 1's end; each content stage adds its own)
+    expect(Object.keys(STAIRS).sort()).toEqual([...TOPIC_ORDER].sort());
+    expect(ALL_SKILLS).toHaveLength(TOPIC_ORDER.reduce((n, t) => n + STAIRS[t], 0));
+    expect(new Set(ALL_SKILLS).size).toBe(ALL_SKILLS.length);
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));
