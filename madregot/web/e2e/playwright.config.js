@@ -20,9 +20,14 @@ export default defineConfig({
   // test.use({ serviceWorkers: 'allow' }) (offline.spec.js)
   use: { baseURL: `http://127.0.0.1:${PORT}/`, locale: 'he-IL', reducedMotion: 'reduce', trace: 'off', serviceWorkers: 'block' },
   webServer: {
-    command: `npx vite build --base ./ --outDir dist-test --emptyOutDir && npx vite preview --outDir dist-test --port ${PORT} --strictPort --host 127.0.0.1`,
+    // the landing pages (/mivchan/, /pilot/) are built into the same folder, as npm run build does, with stand-in values
+    // for the owner's: count.js sends to API_BASE, which landing.spec.js answers with page.route
+    command: `npx vite build --base ./ --outDir dist-test --emptyOutDir && node scripts/landing-build.mjs dist-test && npx vite preview --outDir dist-test --port ${PORT} --strictPort --host 127.0.0.1`,
     cwd: '..',
-    env: { VITE_API_URL: 'none' },
+    env: {
+      VITE_API_URL: 'none',
+      PUBLIC_URL: 'https://madregot.example.test', CONTACT_EMAIL: 'hello@example.test', BUSINESS_NAME: 'מדרגות (דוגמה)', API_BASE: 'https://api.madregot.test',
+    },
     url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

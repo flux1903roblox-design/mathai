@@ -1,6 +1,6 @@
 import { hasContent } from '@/learn/content/index.ts';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Footprints, Target, Users, Repeat, Hand, ClipboardList } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ import { topicsFor } from '@/content/index.js';
 import { KNOW, placementMax } from '@/lib/placement.js';
 import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
+import { deepLink, countFromLanding } from '@/lib/deepLink.js';
 
 /** The grade's topics in one short line: up to three names, then how many more (it stays on two lines at 320px). */
 const topicLine = (g) => { const ts = topicsFor(g).map((t) => t.title); return ts.length <= 3 ? ts.join(', ') : `${ts.slice(0, 3).join(', ')} ועוד ${ts.length - 3}`; };
@@ -54,16 +55,20 @@ function Option({ on, onPick, title, sub, glyph, aside, badge }) {
   );
 }
 
+// a link from a landing page (lib/deepLink.js) lands here after the first questions; the last button says where
+const NEXT_CTA = { '/rescue': 'לתוכנית החזרה', '/quests': 'למשימות של היום', '/parents': 'לאזור ההורים' };
+
 /**
  * First time on the app: a few short questions, one per screen, then a choice
- * between a placement test and starting from the first stair.
+ * between a placement test and starting from the first stair. With `next` (a landing page's link, e.g. /rescue) there
+ * is no such choice: after the questions the student goes straight there.
  */
-function Onboarding({ onTeacher }) {
+function Onboarding({ onTeacher, next = null }) {
   const navigate = useNavigate();
   const setProfile = useApp((s) => s.setProfile);
   const setGoalXp = useApp((s) => s.setGoalXp);
   const server = hasServer();
-  const steps = ['name', 'grade', 'know', 'goal', ...(server ? ['class'] : []), 'start'];
+  const steps = ['name', 'grade', 'know', 'goal', ...(server ? ['class'] : []), ...(next ? [] : ['start'])];
   const [i, setI] = useState(-1); // -1: the hello screen
   const [f, setF] = useState({ name: '', grade: null, know: null, goal: 20, code: '', pin: '', start: null });
   const [joined, setJoined] = useState(null);
@@ -75,10 +80,12 @@ function Onboarding({ onTeacher }) {
   const recommended = (f.know ?? 1) >= 1 ? 'test' : 'scratch';
   const start = f.start || recommended;
 
-  const finish = () => {
+  // j: the class just joined (the state may not have caught up when the class question is the last one)
+  const finish = (j = joined) => {
     setGoalXp(f.goal);
-    setProfile({ role: 'student', name: joined?.name || f.name.trim(), grade, know: f.know ?? 1, ...(joined || {}) });
-    if (joined) useApp.getState().quietForClass(); // a classroom is quiet: sounds start off (STUDENT-7)
+    setProfile({ role: 'student', name: j?.name || f.name.trim(), grade: j?.grade || grade, know: f.know ?? 1, ...(j || {}) });
+    if (j) useApp.getState().quietForClass(); // a classroom is quiet: sounds start off (STUDENT-7)
+    if (next) { navigate(next, { replace: true }); return; }
     // "to the first lesson" opens it: the first stair of the grade's first topic
     // from the first stair: it starts by understanding (the stair's first teaching stage), not with exercises
     const first = topicsFor(grade)[0].id;
@@ -96,16 +103,17 @@ function Onboarding({ onTeacher }) {
 
   const go = async () => {
     if (step === 'name' && !f.name.trim()) { setError('כתבו את השם שלכם.'); return; }
+    let j = joined;
     if (step === 'class' && f.code.trim() && !joined) {
       if (!/^\d{4}$/.test(f.pin)) { setError('בחרו קוד אישי של 4 ספרות.'); return; }
       setBusy(true);
       try {
-        const c = await joinClass({ code: f.code, name: f.name.trim(), pin: f.pin });
-        setJoined(c);
-        toast.success(c.returning ? `ברוכים השבים לכיתה ${c.className}` : `הצטרפתם לכיתה ${c.className}`);
+        j = await joinClass({ code: f.code, name: f.name.trim(), pin: f.pin });
+        setJoined(j);
+        toast.success(j.returning ? `ברוכים השבים לכיתה ${j.className}` : `הצטרפתם לכיתה ${j.className}`);
       } catch (err) { setError(err.message); return; } finally { setBusy(false); }
     }
-    if (step === 'start') { finish(); return; }
+    if (i === steps.length - 1) { finish(j); return; }
     setError(''); setI(i + 1);
   };
   const back = () => { setError(''); setI(i - 1); };
@@ -149,7 +157,9 @@ function Onboarding({ onTeacher }) {
     class: 'יש לכם קוד כיתה מהמורה?',
     start: 'מאיפה מתחילים?',
   }[step];
-  const cta = step === 'class' ? (joined ? 'המשך' : f.code.trim() ? 'הצטרפות לכיתה' : 'המשך בלי קוד') : step === 'start' ? (start === 'test' ? 'לבדיקת הרמה' : 'לשיעור הראשון') : 'המשך';
+  const last = i === steps.length - 1;
+  const cta = step === 'class' ? (joined ? (last && next ? NEXT_CTA[next] : 'המשך') : f.code.trim() ? 'הצטרפות לכיתה' : last && next ? NEXT_CTA[next] : 'המשך בלי קוד')
+    : step === 'start' ? (start === 'test' ? 'לבדיקת הרמה' : 'לשיעור הראשון') : last && next ? NEXT_CTA[next] : 'המשך';
 
   return (
     <form className="ob" onSubmit={(e) => { e.preventDefault(); if (can && !busy) go(); }} noValidate>
@@ -332,7 +342,11 @@ function TeacherStart({ onBack }) {
 }
 
 export default function Welcome() {
-  const [teacher, setTeacher] = useState(false);
-  if (!teacher) return <Onboarding onTeacher={() => setTeacher(true)} />;
+  // a landing page's link (STUDENT-13): ?next=/rescue&src=mivchan, or ?start=teacher&src=pilot; read once, on arrival
+  const { search } = useLocation();
+  const [link] = useState(() => deepLink(search));
+  useEffect(() => { countFromLanding(link); }, [link]);
+  const [teacher, setTeacher] = useState(link.teacher);
+  if (!teacher) return <Onboarding onTeacher={() => setTeacher(true)} next={link.next} />;
   return <TeacherStart onBack={() => setTeacher(false)} />;
 }

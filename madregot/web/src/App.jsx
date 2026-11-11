@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation } from 'react-router-dom';
+import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
@@ -8,6 +8,7 @@ import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import { applyTheme } from '@/lib/theme.js';
 import { MadiLookProvider } from '@/lib/madiLook.js';
+import { deepLink } from '@/lib/deepLink.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
@@ -103,6 +104,21 @@ function TeachRoute() {
   return <Teach key={pathname} />;
 }
 
+/**
+ * A landing page's link (#/?next=/rescue&src=mivchan, STUDENT-13) opened by a student who already has a profile: straight
+ * to the place it names. A new visitor answers the first questions first (Welcome reads the same link).
+ */
+function LinkTarget() {
+  const { pathname, search } = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (pathname !== '/' || !search) return;
+    const { next } = deepLink(search);
+    if (next) navigate(next, { replace: true });
+  }, [pathname, search, navigate]);
+  return null;
+}
+
 /** The student's own screens: מדי wears the student's look there (STUDENT-3); everywhere else he has the default one. */
 function StudentLook() {
   return <MadiLookProvider><Outlet /></MadiLookProvider>;
@@ -117,6 +133,7 @@ function Root() {
       <Toasts />
       {role && <LimitSheet />}
       {role && <StatusWatch />}
+      {role === 'student' && <LinkTarget />}
       {/* a new screen opens at the top; back restores where the student was */}
       <ScrollRestoration />
       <ErrorBoundary>

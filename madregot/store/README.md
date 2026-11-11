@@ -12,4 +12,12 @@ Five frames for the iPhone 6.7" display (1290 × 2796, JPEG, no transparency), o
 
 Every screen inside the phone is the real app (a no-server build), captured at 430 × 932 at 3x: nothing is mocked. The framing follows the stageshow skill's rules: one thing said per frame, the product big and running off an edge, no plate behind it, real words only where the story is.
 
-To make them again: build and serve the app without a server on port 8950 (`VITE_API_URL=none VITE_QA_HOOKS=1`), then, in an empty working folder, run `node <this folder>/capture.cjs` (the five screens, `raw-*.png`) and `node <this folder>/frames.cjs` (the frames, `store-*.png`); convert them to JPEG for the store.
+To make them again, in an empty working folder: `node <this folder>/capture.cjs store` (it builds the app without a server, serves it on port 4238 and saves the five screens, `raw-*.png`), then `node <this folder>/frames.cjs` (the frames, `store-*.png`); convert them to JPEG for the store. `--dist <folder>` reuses a build made with `VITE_API_URL=none`.
+
+## Landing page pictures
+
+`node madregot/store/capture.cjs landing` makes the pictures of the landing pages (STUDENT-13) in `web/landing/img/`:
+`phone-rescue.webp` and `phone-teacher.webp` (Exam Rescue and the teacher's board in a phone, 1080 wide, at most 70 KB,
+WebP encoded by Chromium's canvas in the page) and `og-mivchan.png` / `og-pilot.png` (the link previews, 1200 × 630).
+The teacher's board needs a server, so `page.route` answers it with a synthetic class (first names only). Run it again
+after a screen it shows changes; `npm run build` copies the files into `dist/l/`.
