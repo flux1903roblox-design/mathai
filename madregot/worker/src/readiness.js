@@ -4,7 +4,10 @@
 //   readiness(cfg) → { ok, items: [{ id, area, ok, required, label, need, how }] }
 //   cfg = { vars: {…the [vars] of wrangler.toml}, databaseId, secrets: Set<name> | name[], migrationsApplied: string[],
 //           migrationsInRepo: string[], ratelimits: string[] (binding names), health: {…GET /api/health} | null,
-//           local: true for the local Worker (its commands) }
+//           local: true for the local Worker (its commands), configError: the first line of wrangler's own error when it
+//           could not read wrangler.toml (scripts/wranglerConfig.mjs) }
+// A wrangler.toml that wrangler cannot read is the one failing item: deploy, the secrets list and the migrations all read
+// that file, so nothing else can be checked until it is fixed (COUNCIL2-10).
 //
 // One item per rule; `area` is the Hebrew name the printout groups it by, `label` names what is checked, `need` says what
 // is missing in plain words and `how` is the exact command. `required: false` items are reminders: printed, never a failure. `ok` is true when every
@@ -14,6 +17,7 @@
 // test/readiness.test.js fails on a secret named in wrangler.toml's secrets comment that no rule covers.
 
 export const AREAS = {
+  config: 'קובץ ההגדרות',
   db: 'בסיס הנתונים',
   login: 'כניסה במייל',
   mail: 'מיילים',
@@ -50,10 +54,23 @@ export function readiness(cfg = {}) {
   const add = (id, area, ok, label, need, how, required = true) => items.push({ id, area: AREAS[area], ok: !!ok, required, label, need, how });
   const secret = (area, name, why, how = put(name), required = true) => add(`secret:${name}`, area, has(name), name, `חסר ${name}${why ? ` (${why})` : ''}`, how, required);
 
+  // ---- the file every other check reads
+  const configError = String(cfg.configError || '').trim();
+  add('config:toml', 'config', !configError, 'wrangler.toml נקרא כמו ש־wrangler קורא אותו',
+    `wrangler לא מצליח לקרוא את worker/wrangler.toml, ולכן גם לא יעלה את השרת: ${configError}`,
+    'לתקן את worker/wrangler.toml, ואז cd worker && node --test test/config.test.js');
+  if (configError) return { ok: false, items };
+
   // ---- always
   const dbId = String(cfg.databaseId || '').trim();
+  // in the EU from the start (TRUST-15 step 1): a database's jurisdiction is set only when it is created
   add('db:id', 'db', dbId && dbId !== 'REPLACE_WITH_DATABASE_ID', 'database_id', 'אין עדיין בסיס נתונים: database_id ב־wrangler.toml',
-    'npx wrangler d1 create madregot  (ואז להעתיק את database_id אל worker/wrangler.toml)');
+    'npx wrangler d1 create madregot --jurisdiction=eu  (ואז להעתיק את database_id אל worker/wrangler.toml ולכתוב לידו DB_JURISDICTION = "eu"; setup.sh ו־setup.ps1 עושים את שניהם)');
+  if (dbId && dbId !== 'REPLACE_WITH_DATABASE_ID') {
+    add('db:eu', 'db', on(vars.DB_JURISDICTION) === 'eu', 'DB_JURISDICTION = "eu"',
+      'DB_JURISDICTION אינו "eu": בסיס הנתונים לא נוצר באיחוד האירופי, ולכן ההצטרפות באתר נשארת סגורה',
+      'לפני שיש בו נתונים אמיתיים: למחוק אותו בלוח הבקרה של Cloudflare, להחזיר את database_id ל־REPLACE_WITH_DATABASE_ID ולהריץ שוב את setup.sh', false);
+  }
   const applied = new Set(cfg.migrationsApplied || []);
   const missing = (cfg.migrationsInRepo || []).filter((m) => !applied.has(m));
   add('db:migrations', 'db', !missing.length, 'כל המיגרציות הורצו', `מיגרציות שלא הורצו: ${missing.join(', ')}`, cfg.local ? 'npm run db:migrate:local' : 'npm run db:migrate');

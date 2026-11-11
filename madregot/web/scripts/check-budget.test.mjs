@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
-import { bootFiles, measure, check, matches } from './check-budget.mjs';
+import { bootFiles, measure, check, matches, ratchet, ratchetCheck, budgetAt, RATCHET } from './check-budget.mjs';
 
 let dir;
 // random bytes do not compress: a file of n random bytes is about n bytes gzipped
@@ -25,6 +25,8 @@ const INDEX = `<!doctype html><html><head>
     <link rel="manifest" href="./manifest.webmanifest">
   </head><body><div id="root"></div></body></html>`;
 const BUDGET = { bootJsGzipKB: 330, bootJsTargetKB: 260, cssGzipKB: 42, cssTargetKB: 32, anyChunkGzipKB: 150, precacheMB: 4.5 };
+// the command run on a temporary folder has no git history: off CI that is a warning (the ratchet below), as here
+const NO_CI = { ...process.env, CI: '' };
 
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), 'budget-'));
@@ -71,12 +73,13 @@ describe('check-budget', () => {
   });
   it('as the build runs it: exit 1 over a gate, 0 with a warning', () => {
     const write = (b) => { const f = join(dir, 'budget.json'); writeFileSync(f, JSON.stringify(b)); return f; };
-    const fail = spawnSync(process.execPath, ['scripts/check-budget.mjs', dir, '--budget', write({ ...BUDGET, bootJsGzipKB: 250 })], { encoding: 'utf8' });
+    const fail = spawnSync(process.execPath, ['scripts/check-budget.mjs', dir, '--budget', write({ ...BUDGET, bootJsGzipKB: 250 })], { encoding: 'utf8', env: NO_CI });
     expect(fail.status).toBe(1);
     expect(fail.stdout).toMatch(/OVER THE GATE/);
-    const warn = spawnSync(process.execPath, ['scripts/check-budget.mjs', dir, '--budget', write(BUDGET)], { encoding: 'utf8' });
+    const warn = spawnSync(process.execPath, ['scripts/check-budget.mjs', dir, '--budget', write(BUDGET)], { encoding: 'utf8', env: NO_CI });
     expect(warn.status).toBe(0);
     expect(warn.stdout).toMatch(/\(target missed\)/);
+    expect(warn.stdout).toMatch(/warning ratchet: no commit before HEAD/);
   });
 });
 
@@ -136,7 +139,7 @@ describe('check-budget: modules that must load on demand (STUDENT-15)', () => {
     const d = lazyDist();
     const f = join(d, 'budget.json');
     writeFileSync(f, JSON.stringify(LAZY));
-    const run = spawnSync(process.execPath, ['scripts/check-budget.mjs', d, '--budget', f], { encoding: 'utf8' });
+    const run = spawnSync(process.execPath, ['scripts/check-budget.mjs', d, '--budget', f], { encoding: 'utf8', env: NO_CI });
     expect(run.status).toBe(0);
     expect(existsSync(join(d, '.vite'))).toBe(false);
   });
@@ -166,5 +169,107 @@ describe('the budget as configured', () => {
       for (const re of [/tailwind/i, /\bmotion\.(div|span|li|p|button)\b/, /locales=/]) if (re.test(text)) hits.push(`${f.slice(WEB.length)}: ${re}`);
     }
     expect(hits).toEqual([]);
+  });
+});
+
+
+// ---- the ratchet (COUNCIL2-20): a gate is never higher than in budget.json at HEAD~1 (nor at HEAD), checked with git
+const GIT = ['-c', 'user.name=budget-test', '-c', 'user.email=budget@example.test', '-c', 'commit.gpgsign=false', '-c', 'init.defaultBranch=main'];
+let repos = [];
+afterEach(() => { for (const d of repos) rmSync(d, { recursive: true, force: true }); repos = []; });
+
+/** A git repository holding web/budget.json at each of `versions` (one commit each), and a fake dist that passes. */
+function repoWith(versions) {
+  const root = mkdtempSync(join(tmpdir(), 'budget-git-'));
+  repos.push(root);
+  const git = (...a) => { const r = spawnSync('git', [...GIT, ...a], { cwd: root, encoding: 'utf8' }); if (r.status !== 0) throw new Error(r.stderr); return r.stdout; };
+  git('init', '-q');
+  mkdirSync(join(root, 'web'));
+  const file = join(root, 'web', 'budget.json');
+  versions.forEach((b, i) => { writeFileSync(file, JSON.stringify(b)); git('add', '-A'); git('commit', '-q', '--allow-empty', '-m', `budget ${i}`); });
+  const dist = join(root, 'dist');
+  mkdirSync(join(dist, 'assets'), { recursive: true });
+  writeFileSync(join(dist, 'index.html'), '<script type="module" src="./assets/index-a.js"></script>');
+  writeFileSync(join(dist, 'assets', 'index-a.js'), randomBytes(1000));
+  return { root, file, dist, git };
+}
+const run = (r, env = NO_CI) => spawnSync(process.execPath, [join(WEB, 'scripts/check-budget.mjs'), r.dist, '--budget', r.file], { encoding: 'utf8', env });
+const GATES = { bootJsGzipKB: 433, bootJsTargetKB: 260, cssGzipKB: 59, cssTargetKB: 32, anyChunkGzipKB: 150, precacheMB: 4.79 };
+
+describe('check-budget: the gates only go down (the ratchet)', () => {
+  it('ratchet(): each of the four gates, raised, removed, equal, lowered; a new gate has nothing to compare with', () => {
+    expect(RATCHET).toEqual(['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']);
+    expect(ratchet(GATES, GATES)).toEqual([]);
+    for (const k of RATCHET) {
+      const up = ratchet({ ...GATES, [k]: GATES[k] + 0.01 }, GATES);
+      expect(up).toHaveLength(1);
+      expect(up[0]).toMatch(new RegExp(`^${k} is .* higher than ${GATES[k]} at HEAD~1: a gate only goes down`));
+      expect(ratchet({ ...GATES, [k]: GATES[k] - 1 }, GATES)).toEqual([]);
+      const { [k]: _gone, ...rest } = GATES;
+      expect(ratchet(rest, GATES)[0]).toMatch(new RegExp(`^${k} was .* and is gone`));
+      expect(ratchet(GATES, rest)).toEqual([]);
+    }
+    // the targets are not gates: a target may move either way
+    expect(ratchet({ ...GATES, bootJsTargetKB: 300 }, GATES)).toEqual([]);
+  });
+
+  it('a commit that raises a gate fails the build: 433 → 440 is exit 1, naming the gate and HEAD~1', () => {
+    const r = repoWith([GATES, { ...GATES, bootJsGzipKB: 440 }]);
+    const out = run(r);
+    expect(out.status).toBe(1);
+    expect(out.stdout).toMatch(/FAIL ratchet: bootJsGzipKB is 440, higher than 433 at HEAD~1/);
+    // and the same with CI set
+    expect(run(r, { ...process.env, CI: 'true' }).status).toBe(1);
+  });
+
+  it('an equal gate passes, and a lowered one passes', () => {
+    const same = run(repoWith([GATES, { ...GATES, notes: 'only the notes changed' }]));
+    expect(same.status).toBe(0);
+    expect(same.stdout).toMatch(/ratchet: no gate is higher than at HEAD~1 or HEAD/);
+    const lower = run(repoWith([GATES, { ...GATES, bootJsGzipKB: 420, cssGzipKB: 55, precacheMB: 4.5 }]), { ...process.env, CI: 'true' });
+    expect(lower.status).toBe(0);
+  });
+
+  it('a raise not yet committed fails too (compared with HEAD)', () => {
+    const r = repoWith([GATES, GATES]);
+    writeFileSync(r.file, JSON.stringify({ ...GATES, anyChunkGzipKB: 160 }));
+    const out = run(r);
+    expect(out.status).toBe(1);
+    expect(out.stdout).toMatch(/FAIL ratchet: anyChunkGzipKB is 160, higher than 150 at HEAD:/);
+  });
+
+  it('no history: a warning off CI, a failure on CI (one commit only, or no repository at all)', () => {
+    const one = repoWith([GATES]);
+    expect(budgetAt(one.file, 'HEAD~1')).toEqual({ noCommit: true });
+    expect(budgetAt(one.file, 'HEAD').budget).toEqual(GATES);
+    const off = run(one);
+    expect(off.status).toBe(0);
+    expect(off.stdout).toMatch(/warning ratchet: no commit before HEAD/);
+    const on = run(one, { ...process.env, CI: 'true' });
+    expect(on.status).toBe(1);
+    expect(on.stdout).toMatch(/FAIL ratchet: no commit before HEAD .*fetch-depth: 2/);
+    expect(run(one, { ...process.env, CI: 'false' }).status).toBe(0);
+    // a folder that is not a repository
+    const bare = mkdtempSync(join(tmpdir(), 'budget-nogit-'));
+    repos.push(bare);
+    writeFileSync(join(bare, 'budget.json'), JSON.stringify(GATES));
+    expect(ratchetCheck(join(bare, 'budget.json'), GATES, { CI: '' }).ok).toBe(true);
+    expect(ratchetCheck(join(bare, 'budget.json'), GATES, { CI: '1' })).toMatchObject({ ok: false });
+  });
+
+  it('the file is new at HEAD (not there at HEAD~1): nothing to compare with, so it passes', () => {
+    const r = repoWith([{}]);
+    rmSync(r.file);
+    r.git('rm', '-q', '--cached', 'web/budget.json');
+    r.git('commit', '-q', '-m', 'no budget');
+    writeFileSync(r.file, JSON.stringify(GATES)); r.git('add', '-A'); r.git('commit', '-q', '-m', 'the budget');
+    expect(budgetAt(r.file, 'HEAD~1')).toEqual({ noFile: true });
+    expect(run(r, { ...process.env, CI: 'true' }).status).toBe(0);
+  });
+
+  it('this repository: web/budget.json is not higher than at HEAD~1 and HEAD', () => {
+    const file = join(WEB, 'budget.json');
+    const r = ratchetCheck(file, JSON.parse(readFileSync(file, 'utf8')), { CI: '' });
+    expect(r.lines.filter((l) => l.startsWith('FAIL'))).toEqual([]);
   });
 });

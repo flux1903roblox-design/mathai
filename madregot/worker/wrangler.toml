@@ -76,7 +76,8 @@ GROW_DIRECT_DEBIT_API = "off"
 # Grow's callback addresses, comma-separated, copied from its "IP live" list. Empty: not checked (every state is pulled
 # from Grow with our own credentials, so a forged callback changes nothing).
 WEBHOOK_ALLOWED_IPS = ""
-# The payment company's name as the privacy notice and the emails say it, e.g. "Grow (משולם)".
+# The payment company's name as the terms, the privacy notice and the emails say it, e.g. "Grow (משולם)". Once only in
+# this table: a name defined twice is invalid TOML, and wrangler then refuses the whole file (test/config.test.js).
 PAYMENT_PROVIDER_NAME = ""
 # ---- the Ministry of Education's AI rules for schools (trust spec TRUST-11, shared/schoolRules.js) ----
 # "none" until Madregot is in the Ministry's educational catalogue: student AI stays off in every school class, whatever
@@ -101,8 +102,6 @@ BUSINESS_ADDRESS = ""
 CONTACT_EMAIL = ""
 CONTACT_PHONE = ""
 OWNER_EMAIL = ""
-# The payment company's name as the terms show it, e.g. "Grow (משולם)"
-PAYMENT_PROVIDER_NAME = ""
 # ---- the legal pages and the go-live gate (trust spec TRUST-2, TRUST-13) ----
 # The date the legal texts were last changed (YYYY-MM-DD), shown on them.
 LEGAL_DATE = ""
@@ -229,12 +228,14 @@ simple = { limit = 30, period = 60 }
 # ---- staging: a second Worker with its own database, for the load test of the Ministry catalogue's technical check
 # (scripts/loadtest.mjs refuses any Worker whose GET /api/health does not say staging: true) and for the checker's test
 # account. Wrangler does not carry [vars] or the database into an environment, so both are written out here. Once:
-#   npx wrangler d1 create madregot-staging             (paste the id it prints into database_id below)
+#   npx wrangler d1 create madregot-staging --jurisdiction=eu   (paste the id it prints into database_id below; add
+#                                     DB_JURISDICTION = "eu" to [env.staging.vars] by hand: setup.ps1 and setup.sh set the
+#                                     one line in [vars] above, and only that one, with the production database's id)
 #   npm run staging:migrate
 #   npx wrangler secret put AUTH_SECRET --env staging     and   npx wrangler secret put IP_HASH_SECRET --env staging
 # Then each time: npm run staging:deploy   (npx wrangler deploy --env staging)
 # No AI key, no email and no payments on staging: the AI, sign-in codes and checkout stay off there. The encrypted
-# backup is on there (VAULT and PARENT_REPORT default to "on"; no VAULT_SECRET, so no escrow) without the VAULT_RL,
+# backup is on there (VAULT and PARENT_REPORT "on"; no VAULT_SECRET, so no escrow) without the VAULT_RL,
 # RL_AUTH and RL_AI burst filters, which wrangler does not carry into an environment either (the routes work without
 # them: src/edge.js checks nothing with no binding).
 [env.staging]
@@ -276,6 +277,37 @@ FREE_DEVICE_MINT = "off"
 MAIL_DAILY_CAP = "3000"
 VERIFY_FAIL_NET_DAILY = "30"
 EMAIL_FROM = ""
+# The rest of [vars], written out too: test/config.test.js fails on a var the Worker reads that is missing here, unless
+# its TOP_LEVEL_ONLY list names it with the reason (the Play Store app's asset links and the daily reminder's keys).
+# The models and budgets count only once an AI key is set for staging.
+CLAUDE_MODEL = "claude-sonnet-5-5"
+FREE_MODEL = "claude-haiku-5-5"
+BLIND_MODEL = ""
+FREE_DAILY_BUDGET_USD = "5"
+TRIAL_DAILY_BUDGET_USD = "10"
+FAMILY_MONTHLY_BUDGET_USD = "4"
+CLASS_SEAT_MONTHLY_BUDGET_USD = "0.8"
+OWNER_ALERT_USD = "20"
+PARENT_REPORT = "on"
+VAULT = "on"
+VAULT_MAX_MB = "200"
+# no reminders on staging (no VAPID_PRIVATE_JWK there)
+PUSH = "off"
+# the legal pages' details: empty, so staging shows the draft texts and its checkout stays closed (legal_not_ready)
+BUSINESS_NAME = ""
+BUSINESS_ID = ""
+BUSINESS_KIND = ""
+BUSINESS_ADDRESS = ""
+CONTACT_EMAIL = ""
+CONTACT_PHONE = ""
+OWNER_EMAIL = ""
+LEGAL_DATE = ""
+LEGAL_APPROVED = ""
+ACCESS_COORD_NAME = ""
+ACCESS_COORD_PHONE = ""
+ACCESS_COORD_EMAIL = ""
+ACCESS_STATEMENT_DATE = ""
+ACCESS_TESTED = ""
 
 [[env.staging.d1_databases]]
 binding = "DB"

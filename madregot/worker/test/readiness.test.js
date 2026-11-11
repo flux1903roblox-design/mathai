@@ -4,23 +4,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { readiness, formatReadiness, NOT_CHECKED, RANDOM_SECRETS } from '../src/readiness.js';
-import { readToml, devVarNames, unappliedFrom } from '../scripts/owner.mjs';
+import { readDeployConfig, devVarNames, unappliedFrom } from '../scripts/owner.mjs';
 import { setup } from './helpers.js';
 
 const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+const shipped = readDeployConfig(fileURLToPath(new URL('../wrangler.toml', import.meta.url)));
 const MIGRATIONS = readdirSync(new URL('../migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
 const ALWAYS = ['AUTH_SECRET', 'IP_HASH_SECRET', 'ANTHROPIC_API_KEY'];
 /** A complete live configuration with the paid tutor on and Grow as the provider. */
 const complete = () => ({
   vars: {
-    ...readToml(toml).vars, PUBLIC_URL: 'https://madregot.example.test', CONTACT_EMAIL: 'hello@example.test', EMAIL_FROM: 'מדרגות <hello@example.test>',
+    ...shipped.vars, PUBLIC_URL: 'https://madregot.example.test', CONTACT_EMAIL: 'hello@example.test', EMAIL_FROM: 'מדרגות <hello@example.test>',
     AI_PAYWALL: 'on', BILLING_PROVIDER: 'grow', BILLING_MODE: 'live', GROW_API_BASE: 'https://grow.example.test/api/light/server/1.0/',
     BILLING_CHECKOUT_HOSTS: 'pay.example.test', GROW_DIRECT_DEBIT_API: 'on',
   },
   databaseId: '00000000-0000-0000-0000-000000000000',
   secrets: new Set([...ALWAYS, 'RESEND_API_KEY', 'WEBHOOK_PATH_SECRET', 'VAULT_SECRET', 'GROW_USER_ID', 'GROW_PAGE_CODE_ONCE', 'GROW_PAGE_CODE_RECURRING', 'GROW_API_KEY']),
-  migrationsApplied: MIGRATIONS, migrationsInRepo: MIGRATIONS, ratelimits: readToml(toml).ratelimits, health: { ok: true },
+  migrationsApplied: MIGRATIONS, migrationsInRepo: MIGRATIONS, ratelimits: shipped.ratelimits, health: { ok: true },
 });
 const failing = (r) => r.items.filter((i) => !i.ok && i.required).map((i) => i.id);
 
@@ -93,8 +95,9 @@ test('the daily reminder (STUDENT-11): nothing while PUSH is off; with it on, th
   assert.equal(readiness(c).ok, true);
 });
 
-test('wrangler.toml as the doctor reads it: the vars, the database id and the edge bindings', () => {
-  const t = readToml(toml);
+test('wrangler.toml as the doctor reads it (wrangler\'s own reader): the vars, the database id and the edge bindings', () => {
+  const t = shipped;
+  assert.equal(t.error, undefined);
   assert.equal(t.databaseId, 'REPLACE_WITH_DATABASE_ID');
   assert.deepEqual(t.ratelimits.sort(), ['RL_AI', 'RL_AUTH', 'VAULT_RL']);
   assert.equal(t.vars.BILLING_PROVIDER, 'manual');

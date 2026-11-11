@@ -97,8 +97,9 @@ cd madregot
 npm ci --prefix web && npm ci --prefix worker
 cd worker
 npx wrangler login
-npx wrangler d1 create madregot --binding DB --update-config=false
-# העתיקו את ה־database_id מהפלט אל worker/wrangler.toml במקום REPLACE_WITH_DATABASE_ID
+npx wrangler d1 create madregot --binding DB --update-config=false --jurisdiction=eu
+# העתיקו את ה־database_id מהפלט אל worker/wrangler.toml במקום REPLACE_WITH_DATABASE_ID,
+# ובאותו קובץ כתבו DB_JURISDICTION = "eu" (מסד הנתונים באיחוד האירופי; אפשר לקבוע את זה רק כשיוצרים אותו)
 npx wrangler d1 migrations apply madregot --remote   # שינויים במסד הנתונים רק דרך worker/migrations
 cd .. && npm run build --prefix web && cd worker
 npx wrangler deploy
@@ -184,8 +185,8 @@ npm run test:e2e --prefix madregot/web   # בדפדפן (Playwright): מסך ה�
 
 הקובץ `.github/workflows/ci.yml` (בשורש המאגר) מריץ שלוש בדיקות על כל push ל־`main` ועל כל pull request:
 
-- **web**: `npm ci`, בדיקת טיפוסים (`npx tsc -p tsconfig.json --noEmit`), `npx vitest run`, ו־`npm run build` (הבנייה כוללת את `scripts/check-dist.mjs` ואת `scripts/check-budget.mjs`: אם ההורדה הראשונה של האפליקציה גדולה מהתקציב שב־`web/budget.json`, הבנייה נכשלת).
-- **worker**: `npm ci` ו־`npm test`, כל בדיקות השרת, כולל בדיקות הבקשות המקבילות (קוד אישי, סנכרון התקדמות, תשלום).
+- **web**: `npm ci`, בדיקת טיפוסים (`npx tsc -p tsconfig.json --noEmit`), `npx vitest run`, ו־`npm run build` (הבנייה כוללת את `scripts/check-dist.mjs` ואת `scripts/check-budget.mjs`: אם ההורדה הראשונה של האפליקציה גדולה מהתקציב שב־`web/budget.json`, הבנייה נכשלת). התקציב רק יורד: אם אחד מהסכומים `bootJsGzipKB`, `cssGzipKB`, `anyChunkGzipKB` או `precacheMB` גבוה ממה שהיה ב־`web/budget.json` בקומיט הקודם (`HEAD~1`), הבנייה נכשלת. לכן הבדיקה מורידה שני קומיטים (`fetch-depth: 2`); בלי קומיט קודם היא נכשלת ב־CI ורק מזהירה במחשב מקומי.
+- **worker**: `npm ci` ו־`npm test`, כל בדיקות השרת, כולל בדיקות הבקשות המקבילות (קוד אישי, סנכרון התקדמות, תשלום), ו־`test/config.test.js`: הקורא של wrangler עצמו קורא את `worker/wrangler.toml` (ברמה העליונה וב־`env.staging`), כך שקובץ ש־wrangler לא יסכים להעלות נכשל כבר כאן.
 - **e2e**: אחרי ש־web עובר. מתקין Chromium ומריץ את כל קובצי Playwright בפרויקט `phone` (390×844), בלי בדיקות שמסומנות `@perf`. אם משהו נכשל, תיקיית `test-results` נשמרת בריצה בשם `playwright-report`.
 
 Node 22, ו־npm שומר את החבילות במטמון לפי `package-lock.json` של כל תיקייה. אף שלב לא צריך סודות.

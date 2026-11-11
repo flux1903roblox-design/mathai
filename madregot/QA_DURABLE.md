@@ -184,6 +184,17 @@ vitest, build with the budget), worker and the phone e2e on every push to `main`
 `workflow` scope, or the files can be pasted in GitHub's web editor (`README.md`, "CI"). Then branch protection on
 `main` with `web`, `worker` and `e2e` required. Result of the first run: ________ (date ________).
 
+**The first full phone run on the integrated branch** (COUNCIL2-15; a local run, not CI: the line above stays the
+owner's). The whole phone project, `E2E_PORT=4421 npx playwright test -c e2e/playwright.config.js --project=phone`, on
+the app of `b347414` (main with the family, safety, school, student and curriculum lanes merged), run on 11 Nov 2026
+from lane-council2 with only its release-gate changes (wrangler.toml, the config test, the doctor, the budget ratchet,
+setup.sh; none of them in the app): **662 passed, 17 skipped, 0 failed, 679 tests**. The run took 21.1 minutes; in it,
+`student-week.spec.js` (the one spec that loads the Worker's own code in memory) failed its first day and did not run
+the 8 serial days after it, because the Worker's source was being edited while the run went on (`The requested module
+'../../shared/ai.js' does not provide an export named 'AI_BODY_MAX'`). That file alone was run again on the
+unchanged tree: 13 passed, 1 skipped (STUDENT-6's recap, skipped by the spec itself). The 17 skipped are the `@perf`
+timing test and the specs' own project and feature skips.
+
 ### The privacy notice
 
 `web/src/content/legal/privacy.md` no longer says the progress is kept only on the device. Under its current headings
@@ -867,6 +878,13 @@ script. They now load one topic at a time, and nothing the student sees changed.
   4.56 MB, so both gates moved by the same rule to **433 KB** and **4.79 MB** (CSS 57.3 KB, under its 59 KB gate). Open
   work: the challenge tasks behind a dynamic import per topic (the curriculum spec asks for it), with the plan reading
   only their ids and stairs at boot.
+  **The ratchet is in code now** (COUNCIL2-20): each of the four raises above was made in `budget.json` itself, and
+  nothing compared it with the commit before, so a green build could not have caught one. `check-budget.mjs` now reads
+  `budget.json` at `HEAD~1` (and at `HEAD`, for a raise not yet committed) and exits 1 when `bootJsGzipKB`,
+  `cssGzipKB`, `anyChunkGzipKB` or `precacheMB` is higher there, or gone; with no commit before `HEAD` it warns, and
+  fails when `CI` is set (`ci.yml` checks out two commits). `check-budget.test.mjs` covers a raised gate, an equal one,
+  a lower one, an uncommitted raise, no history and a new file, each in a real git repository of its own. A first load
+  over a gate is now made smaller; the gate stays.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

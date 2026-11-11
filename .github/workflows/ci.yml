@@ -23,7 +23,11 @@ jobs:
       run:
         working-directory: madregot/web
     steps:
+      # two commits, so HEAD~1 is there: check-budget.mjs compares web/budget.json with HEAD~1 (the ratchet), and with
+      # CI set it fails when it cannot
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -33,7 +37,8 @@ jobs:
       - run: npx tsc -p tsconfig.json --noEmit
       - run: npx vitest run
       # the content meta, vite build, scripts/check-dist.mjs (no personal-key code and no secrets in the bundle), then
-      # scripts/check-budget.mjs (the load-time budget in web/budget.json: over a gate, the build fails)
+      # scripts/check-budget.mjs (the load-time budget in web/budget.json: over a gate, the build fails; and a gate
+      # higher than at HEAD~1 fails it too, since a gate only goes down)
       - run: npm run build
 
   worker:
@@ -51,6 +56,8 @@ jobs:
           cache: npm
           cache-dependency-path: madregot/worker/package-lock.json
       - run: npm ci
+      # every Worker test, including test/config.test.js: wrangler's own reader parses wrangler.toml (top level and
+      # env.staging), so a file wrangler would refuse at deploy fails here first
       - run: npm test
 
   e2e:
