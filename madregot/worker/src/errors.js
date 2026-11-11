@@ -30,7 +30,7 @@ const ROUTES = [
     '/api/family/devices/leave', '/api/classes', '/api/progress', '/api/help', '/api/exams', '/api/teacher/dashboard', '/api/teacher/class/lock',
     '/api/teacher/licence', '/api/teacher/licence/request', '/api/teacher/licence/claim', '/api/errors', '/api/vault', '/api/vault/rev',
     '/api/vault/delete', '/api/vault/escrow', '/api/vault/escrow/delete', '/api/family/vaults', '/api/family/summary', '/api/family/summary/sharing',
-    '/api/report/feedback'].map((p) => [p, p]),
+    '/api/report/feedback', '/api/account/report-email', '/api/report/unsubscribe'].map((p) => [p, p]),
   [/^\/api\/ai\/[^/]+$/, '/api/ai/:kind'],
   [/^\/api\/billing\/orders\/[^/]+$/, '/api/billing/orders/:id'],
   [/^\/api\/billing\/payments\/[^/]+\/invoice$/, '/api/billing/payments/:id/invoice'],

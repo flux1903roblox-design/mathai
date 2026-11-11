@@ -208,6 +208,8 @@ export const summary = ({ days = 56 } = {}) => call(`/api/family/summary?days=${
 export const setDeviceSharing = (id, on) => call(`/api/family/devices/${encodeURIComponent(id)}/sharing`, { method: 'POST', body: { on: !!on } });
 /** "מחיקת ההיסטוריה של המכשיר": the device's summaries go; the device stays linked. Resolves { ok, deleted }. */
 export const deleteDeviceHistory = (id) => call(`/api/family/devices/${encodeURIComponent(id)}/history/delete`, { method: 'POST', body: {} });
+/** "סיכום שבועי במייל" (PARENTS-7): the parent's switch for the Sunday email. Resolves { reportEmail }. */
+export const setReportEmail = (on) => call('/api/account/report-email', { method: 'POST', body: { on: !!on } });
 /** "הסיכום עוזר לכם?": one answer a week per account (a second one is 429 already_answered). */
 export const reportFeedback = (useful) => call('/api/report/feedback', { method: 'POST', body: { useful: !!useful } });
 

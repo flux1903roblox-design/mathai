@@ -17,6 +17,8 @@
 // The parent's side (PARENTS-5): GET /api/family/summary (each linked device with its rows), POST
 // /api/family/devices/:id/sharing (the parent's switch), POST /api/family/devices/:id/history/delete, and POST
 // /api/report/feedback (st.feedback; a second answer the same visit is 429 already_answered, as a second one a week is).
+// The Sunday email (PARENTS-7): POST /api/account/report-email {on} sets st.reportEmail, which GET /api/account shows
+// as reportEmail (503 report_off when turning it on with the report off, as the Worker answers).
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -62,7 +64,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     answers: [], loseProgressReplies: 0, errors: [], vaults: {}, members: [], escrows: [], escrowOff: false,
     // the parents' report (the Worker's PARENT_REPORT): off unless a spec turns it on, so the flows written before it
     // run as they did; report.spec.js turns it on
-    report: false, summaries: {}, feedback: [],
+    report: false, summaries: {}, feedback: [], reportEmail: false,
     ...over,
   };
   const log = [];
@@ -104,7 +106,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     return out;
   };
   const account = () => ({
-    email: 'parent@example.test', billingHold: false, maxDevices: 3, plan: live() ? st.plan : null,
+    email: 'parent@example.test', billingHold: false, maxDevices: 3, plan: live() ? st.plan : null, reportEmail: !!st.reportEmail,
     // a claimed code the child's device has not collected yet is listed as pending, as the Worker does
     devices: st.devices.map((d) => ({
       id: d.id, label: d.label, linkedAt: d.linkedAt || '2026-11-05T09:00:00Z', lastSeen: '2026-11-05', ...(d.token ? {} : { pending: true }),
@@ -351,6 +353,12 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       const deleted = Object.keys(st.summaries[d.id] || {}).length;
       delete st.summaries[d.id];
       return reply(route, 200, { ok: true, deleted });
+    }
+    if (path === '/api/account/report-email') {
+      if (typeof body.on !== 'boolean') return reply(route, 400, { error: 'bad_report_email' });
+      if (body.on && (!st.paywall || !st.report)) return reply(route, 503, { error: 'report_off' });
+      st.reportEmail = body.on;
+      return reply(route, 200, { reportEmail: body.on });
     }
     if (path === '/api/report/feedback') {
       if (typeof body.useful !== 'boolean') return reply(route, 400, { error: 'bad_feedback' });

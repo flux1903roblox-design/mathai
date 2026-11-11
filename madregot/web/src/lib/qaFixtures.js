@@ -98,7 +98,7 @@ const plan = (over = {}) => ({
   prorataAgorot: null, canResume: false, portal: true, economy: false, ...over,
 });
 const account = (p) => ({
-  email: 'parent@example.test', billingHold: false, maxDevices: 3, plan: p,
+  email: 'parent@example.test', billingHold: false, maxDevices: 3, plan: p, reportEmail: false,
   devices: p ? [{ id: 'qa00000000000002', label: 'הטאבלט', linkedAt: '2026-11-02T16:00:00Z', lastSeen: '2026-11-10' }] : [],
   usageWeek: { tutor: 23, check: 2, generate: 0, exam: 1 },
   payments: p ? [{ id: 'qa00000000000003', at: '2026-11-10T10:00:00Z', amountAgorot: 2990, kind: 'charge', hasInvoice: true }] : [],

@@ -160,7 +160,7 @@ async function sessionOf(req, env) {
   if (!/^[a-f0-9]{64}$/.test(token)) return null;
   const hash = await sha256(token);
   const row = await env.DB.prepare(
-    `SELECT s.token_hash, s.account_id, s.last_seen, s.verified_at, a.email, a.billing_hold_at, a.adult_confirmed_at, a.terms_version
+    `SELECT s.token_hash, s.account_id, s.last_seen, s.verified_at, a.email, a.billing_hold_at, a.adult_confirmed_at, a.terms_version, a.report_email_at
      FROM account_sessions s JOIN accounts a ON a.id = s.account_id WHERE s.token_hash = ?`,
   ).bind(hash).first();
   if (!row) return null;
@@ -185,6 +185,7 @@ export async function accountFrom(req, env) {
   return {
     id: s.account_id, email: s.email, tokenHash: s.token_hash, verifiedAt: s.verified_at,
     billingHoldAt: s.billing_hold_at, adultConfirmedAt: s.adult_confirmed_at, termsVersion: s.terms_version,
+    reportEmailAt: s.report_email_at || null,
   };
 }
 

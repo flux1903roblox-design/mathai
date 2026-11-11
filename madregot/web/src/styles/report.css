@@ -127,6 +127,14 @@
 .report-example[open] > summary { margin-bottom: var(--s2); }
 .report-ribbon { margin: 0; padding: var(--s2) var(--s3); border-radius: 12px; border: 2px dashed var(--brand-line); background: var(--brand-tint); color: var(--brand-d); font-weight: 700; text-align: center; }
 
+/* the Sunday email's switch (PARENTS-7): the label and its hint, the switch beside them; the whole row is the target */
+.report-email { padding-block: var(--s3); }
+.report-email-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 48px; cursor: pointer; }
+.report-email-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.report-email-label { font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.report-email-hint { font-size: 15px; line-height: 22px; color: var(--ink-2); overflow-wrap: anywhere; }
+.report-email-hint bdi { unicode-bidi: isolate; }
+
 /* the 8 weeks: one row a week, newest first: its name, the minutes as a bar with the practice days inside, the minutes */
 .weeks-chart { display: flex; flex-direction: column; gap: var(--s2); }
 /* one grid for all 8 rows (the rows are display: contents; the list is hidden from a screen reader, which reads the

@@ -525,6 +525,24 @@ test('flow 4: the parent sees each device\'s week and 8 weeks, holds their own s
   await page.evaluate(() => document.getElementById('report-title').scrollIntoView({ block: 'start' }));
   await shot(page, 'parents-report-live');
 
+  // the Sunday email (PARENTS-7): a switch, off until the parent turns it on, with where and when it comes
+  const mail = page.getByRole('switch', { name: 'סיכום שבועי במייל' });
+  await expect(mail).not.toBeChecked();
+  await expect(page.locator('.report-email-hint')).toHaveText('בכל יום ראשון בבוקר, אל parent@example.test. אפשר להפסיק בכל רגע, גם מהמייל עצמו.');
+  await expect(mail).toHaveAccessibleDescription('בכל יום ראשון בבוקר, אל parent@example.test. אפשר להפסיק בכל רגע, גם מהמייל עצמו.');
+  const box = await page.locator('.report-email-row').boundingBox();
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  await mail.click();
+  await expect(page.getByText('הסיכום השבועי יגיע ביום ראשון')).toBeVisible();
+  await expect(mail).toBeChecked();
+  expect(st.reportEmail).toBe(true);
+  await mail.press('Space');
+  await expect(page.getByText('הסיכום השבועי במייל הופסק')).toBeVisible();
+  await expect(mail).not.toBeChecked();
+  const mails = log.filter((r) => r.path === '/api/account/report-email');
+  expect(mails.map((r) => r.body)).toEqual([{ on: true }, { on: false }]);
+  expect(mails[0].headers['x-account-token']).toBe(PARENT);
+
   // usefulness, under the first card: one answer, then thanks; not asked again this week in this browser
   const fb = page.getByRole('region', { name: 'הסיכום עוזר לכם?' });
   await expect(fb).toBeVisible();
@@ -601,7 +619,7 @@ test('flow 4, the first day: signed out, a plan with no device, linked with noth
   const phone = withServer(); phone.state.profile = null;
   await open(page, '#/parents', phone);
   await expect(page.getByRole('heading', { name: 'כניסה עם המייל' })).toBeVisible();
-  await expect(page.locator('.parents-about li').first()).toHaveText('רואים מה הילד תרגל: סיכום יומי לכל מכשיר מחובר. הילד יודע על כך, רואה מה נשלח, ויכול להפסיק.');
+  await expect(page.locator('.parents-about li').first()).toHaveText('רואים מה הילד תרגל: סיכום יומי לכל מכשיר מחובר, וסיכום שבועי במייל אם תבחרו. הילד יודע על כך, רואה מה נשלח, ויכול להפסיק.');
   await expect(page.getByText('גם בלי מנוי: מהאפליקציה של הילד אפשר לשלוח לכם סיכום שבועי בוואטסאפ, בלי חשבון.')).toBeVisible();
 
   // 2. a plan, no device yet: the first-link card says what comes after linking

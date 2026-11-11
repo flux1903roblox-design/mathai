@@ -615,6 +615,8 @@ export async function accountOverview(req, env, cors) {
   }
   return json({
     email: a.email, billingHold: !!a.billingHoldAt, maxDevices: L.family.devices,
+    // the Sunday email (PARENTS-7): on only while the parent asked for it
+    reportEmail: !!a.reportEmailAt,
     plan: planView(env, live, charge, economy),
     devices: devices.map((d, i) => ({
       id: d.id, label: d.label, linkedAt: d.created_at, lastSeen: d.last_seen, ...(d.pending ? { pending: true } : {}),
@@ -629,7 +631,7 @@ export async function accountOverview(req, env, cors) {
 /** GET /api/account/export: everything kept about the caller, as a file. No card data exists to export. */
 export async function accountExport(req, env, cors) {
   const a = await requireAccount(req, env);
-  const acc = await first(env, 'SELECT email, created_at, last_seen, adult_confirmed_at, terms_version, billing_hold_at FROM accounts WHERE id = ?', a.id);
+  const acc = await first(env, 'SELECT email, created_at, last_seen, adult_confirmed_at, terms_version, billing_hold_at, report_email_at FROM accounts WHERE id = ?', a.id);
   const subs = await all(env, `SELECT id, kind, class_code, plan, status, provider, price_agorot, seats, current_period_start, current_period_end, cancel_requested_at,
     first_paid_at, refund_until, ended_reason, created_at FROM subscriptions WHERE account_id = ?`, a.id);
   const data = {

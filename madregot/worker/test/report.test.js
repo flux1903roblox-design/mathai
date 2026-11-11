@@ -6,10 +6,16 @@ import assert from 'node:assert/strict';
 import {
   setup, signIn, accountId, insertSub, linkDevice, makeClass, bearer, rows, one, setCount, countOf, netOf,
 } from './helpers.js';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dayOf, monthOf, hourOf, jerusalemMidnight } from '../src/util.js';
-import { shiftDay, REPORT_KEEP_DAYS, cleanDay, feedbackCounts, FEEDBACK_KEYS } from '../src/report.js';
+import {
+  shiftDay, REPORT_KEEP_DAYS, cleanDay, feedbackCounts, FEEDBACK_KEYS, weeklyQueue, flushWeekly, weeklyParams, weeklyWindow, unsubToken, UNSUB_TEXT,
+} from '../src/report.js';
+import { flushNotices, MAX_NOTICE_TRIES, renderNotice } from '../src/email.js';
 import { purge, run } from '../src/cron.js';
-import { weekStart } from '../../shared/week.js';
+import { weekStart, weekFrom } from '../../shared/week.js';
+import { stairName } from '../../shared/stairs.js';
+import { texToPlain } from '../../shared/plain.js';
 
 let h;
 afterEach(() => h?.done());
@@ -431,4 +437,381 @@ test('F3. the owner\'s daily summary has the month\'s answers: "משוב על ה
   const quiet = h.net.log.email.find((m) => m.subject.startsWith('[מדרגות] סיכום יומי'));
   assert.ok(quiet, 'sent');
   assert.doesNotMatch(quiet.text, /משוב על הסיכום/);
+});
+
+
+// ---------------------------------------------------------------- the Sunday email (PARENTS-7, PARENTS-6 states 10-11)
+// The clock: the coming Sunday in Jerusalem (whatever today is), so the plans written with the real clock are live then.
+const SUN = (() => { const t = today(); const dow = new Date(`${t}T12:00:00Z`).getUTCDay(); return shiftDay(t, 7 - dow); })();
+const at = (day, hh, mm = 7) => new Date(jerusalemMidnight(day).ms + hh * 3600_000 + mm * 60_000);
+const sunday = at(SUN, 7);
+const START = shiftDay(SUN, -7); const END = shiftDay(SUN, -1);
+const dm = (d) => { const [, m, x] = d.split('-').map(Number); return `${x}.${m}`; };
+const OLD = '2026-01-01T00:00:00.000Z';
+/** A stored day row, written straight to the table (the week is the coming one, outside the post route's window). */
+const putDay = (deviceId, d, over = {}) => {
+  const x = day(d, over);
+  h.env.DB.raw.prepare(`INSERT OR REPLACE INTO family_daily (device_id, day, minutes, questions, lessons, stages, reviews, streak, worked, mastered, fixes, exam, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'x')`).run(deviceId, x.d, x.m, x.q, x.ls, x.st, x.rv, x.sr, JSON.stringify(x.sk), JSON.stringify(x.ma), JSON.stringify(x.fx), x.ex ? JSON.stringify(x.ex) : null);
+};
+const emailSwitch = (fam, on) => h.call('POST', '/api/account/report-email', { headers: fam.parent, body: { on } });
+/** A family that asked for the Sunday email, its device linked before the week (or `since`). */
+async function weeklyFamily(email = 'parent@example.test', opts = {}) {
+  const fam = await family(email, opts);
+  if (opts.optIn !== false) assert.equal((await emailSwitch(fam, true)).status, 200);
+  h.env.DB.raw.prepare('UPDATE accounts SET report_email_at = ? WHERE id = ? AND report_email_at IS NOT NULL').run(opts.since || OLD, fam.a);
+  h.env.DB.raw.prepare('UPDATE family_devices SET created_at = ? WHERE id = ?').run(opts.since || OLD, fam.dev.id);
+  return fam;
+}
+const weeklyRows = () => rows(h.env, "SELECT ref, kind, to_account, params, sent_at, tries FROM notices WHERE kind LIKE 'weekly:%' ORDER BY ref");
+const batches = () => h.net.log.email.filter((m) => Array.isArray(m));
+const sentWeekly = () => batches().flat();
+/** Every misconception title the app's content gives these ids (read from the content files, as the app shows them). */
+function titlesOf(ids) {
+  const dir = new URL('../../web/src/learn/content/', import.meta.url);
+  const out = new Map();
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.ts'))) {
+    const src = readFileSync(new URL(f, dir), 'utf8');
+    for (const m of src.matchAll(/id: '([a-z0-9-]+)', title: '((?:[^'\\]|\\.)+)'/g)) {
+      if (ids.includes(m[1])) out.set(m[1], [...(out.get(m[1]) || []), m[2].replace(/\\\\/g, '\\')]);
+    }
+  }
+  return out;
+}
+
+test('W1. the email switch: on and off, in the overview and the export, audited; off by default; on needs the report', async () => {
+  h = await setup();
+  const fam = await family();
+  const ov = async () => (await (await h.call('GET', '/api/account', { headers: fam.parent })).json()).reportEmail;
+  assert.equal(await ov(), false, 'off by default');
+  const on = await emailSwitch(fam, true);
+  assert.equal(on.status, 200); assert.deepEqual(await on.json(), { reportEmail: true });
+  assert.equal(await ov(), true);
+  const first = one(h.env, 'SELECT report_email_at FROM accounts WHERE id = ?', fam.a).report_email_at;
+  assert.ok(first);
+  await emailSwitch(fam, true);
+  assert.equal(one(h.env, 'SELECT report_email_at FROM accounts WHERE id = ?', fam.a).report_email_at, first, 'on again keeps the date');
+  const exported = await (await h.call('GET', '/api/account/export', { headers: fam.parent })).json();
+  assert.equal(exported.account.report_email_at, first);
+  assert.deepEqual(await (await emailSwitch(fam, false)).json(), { reportEmail: false });
+  assert.equal(await ov(), false);
+  assert.equal(one(h.env, 'SELECT report_email_at FROM accounts WHERE id = ?', fam.a).report_email_at, null);
+  const audit = rows(h.env, "SELECT actor, action, target, detail FROM audit_log WHERE action LIKE 'report.email.%' ORDER BY id");
+  assert.deepEqual(audit.map((x) => x.action), ['report.email.on', 'report.email.on', 'report.email.off']);
+  assert.ok(audit.every((x) => x.actor === `account:${fam.a}`));
+  assert.doesNotMatch(JSON.stringify(audit), /@/);
+  for (const b of [{}, { on: 'yes' }, { on: true, email: 'x@example.test' }]) {
+    const r = await h.call('POST', '/api/account/report-email', { headers: fam.parent, body: b });
+    assert.equal(r.status, 400, JSON.stringify(b)); assert.equal((await r.json()).error, 'bad_report_email');
+  }
+  assert.equal((await h.call('POST', '/api/account/report-email', { headers: fam.dev.headers, body: { on: true } })).status, 401, 'not the child\'s device');
+  h.env.PARENT_REPORT = 'off';
+  assert.equal((await emailSwitch(fam, true)).status, 503);
+  assert.equal((await emailSwitch(fam, false)).status, 200, 'off is always possible');
+});
+
+test('W2. Sunday 07:07 queues one notice per family that asked, has a plan and a device; 06:07 and Saturday queue nothing; a second run adds nothing', async () => {
+  h = await setup();
+  const yes = await weeklyFamily('yes@example.test');
+  await weeklyFamily('noplan@example.test', { plan: false });
+  const nodev = await signIn(h, 'nodevice@example.test');
+  const nd = accountId(h.env, 'nodevice@example.test');
+  insertSub(h.env, { kind: 'family', account_id: nd });
+  assert.equal((await h.call('POST', '/api/account/report-email', { headers: { 'X-Account-Token': nodev }, body: { on: true } })).status, 200);
+  await family('notasked@example.test');
+  putDay(yes.dev.id, shiftDay(START, 1));
+  assert.equal(weeklyWindow(at(END, 7)), null, 'Saturday');
+  assert.equal(weeklyWindow(at(SUN, 6)), null, 'Sunday 06:07');
+  assert.equal(weeklyWindow(at(SUN, 21)), null, 'Sunday 21:07');
+  assert.deepEqual(weeklyWindow(at(SUN, 20)), { start: START, end: END });
+  await run(h.env, { now: at(END, 7) });
+  await run(h.env, { now: at(SUN, 6) });
+  assert.equal(weeklyRows().length, 0);
+  const r = await run(h.env, { now: sunday });
+  assert.equal(r.weekly.queued, 1);
+  const q = weeklyRows();
+  assert.equal(q.length, 1);
+  assert.deepEqual({ ref: q[0].ref, kind: q[0].kind, to: q[0].to_account, params: JSON.parse(q[0].params) },
+    { ref: yes.a, kind: `weekly:${START}`, to: yes.a, params: { start: START, end: END } });
+  assert.ok(q[0].sent_at, 'sent in the same run, after the other notices');
+  assert.equal(r.weeklySend.sent, 1);
+  const again = await run(h.env, { now: at(SUN, 8) });
+  assert.equal(again.weekly.queued, 0, 'INSERT OR IGNORE');
+  assert.equal(weeklyRows().length, 1);
+  assert.equal(sentWeekly().length, 1, 'one email, once');
+});
+
+test('W3. the email: dates, each device, stair names in Hebrew, no mistake names and no price, the RFC 8058 headers', async () => {
+  h = await setup({ BUSINESS_NAME: 'מדרגות בע״מ (לדוגמה)', BUSINESS_ID: '000000000' });
+  const fam = await weeklyFamily('render@example.test');
+  const phone = await linkDevice(h.env, fam.a, 'הטלפון');
+  h.env.DB.raw.prepare('UPDATE family_devices SET created_at = ? WHERE id = ?').run(OLD, phone.id);
+  const off = await linkDevice(h.env, fam.a, 'המחשב');
+  h.env.DB.raw.prepare('UPDATE family_devices SET created_at = ?, share_child = 0 WHERE id = ?').run('2026-02-01T00:00:00.000Z', off.id);
+  const fixes = [['signed:1', 'minus-minus', 'o'], ['signed:3', 'sign', 'd'], ['eq:1', 'move-no-flip', 'd']];
+  putDay(fam.dev.id, START, { m: 12, q: 16, ls: 2, st: 0, sk: ['signed:1'], ma: [], fx: [], sr: 1 });
+  putDay(fam.dev.id, shiftDay(START, 2), { m: 20, q: 24, ls: 1, st: 1, sk: ['signed:3', 'eq:1', 'coord:2', 'angles:1', 'expr:1'], ma: ['signed:3'], fx: fixes.slice(1), sr: 2 });
+  putDay(fam.dev.id, shiftDay(START, 4), { m: 9, q: 10, ls: 1, st: 0, sk: ['eq:1'], ma: ['eq:1'], fx: fixes.slice(0, 1), sr: 3 });
+  putDay(fam.dev.id, shiftDay(START, -3), { sk: ['line:1'], ma: ['line:1'] }); // the week before: not in this email
+  await weeklyQueue(h.env, sunday);
+  assert.deepEqual(await flushWeekly(h.env, { now: sunday }), { sent: 1, skipped: 0, failed: 0 });
+  const [m] = sentWeekly();
+  assert.equal(m.subject, `סיכום שבועי ממדרגות · ${dm(START)}–${dm(END)}`);
+  assert.deepEqual(m.to, ['render@example.test']);
+  for (const line of [
+    `זה הסיכום של השבוע ${dm(START)}–${dm(END)}.`,
+    'הטאבלט\nימי תרגול: 3 · זמן תרגול: כ־41 דקות · שאלות: 50',
+    `חדש בשליטה: ${stairName('eq:1')}, ${stairName('signed:3')}`,
+    // newest first, as the page lists them (the days in order, each day's list reversed with them)
+    `תורגלו: ${stairName('expr:1')}, ${stairName('angles:1')}, ${stairName('coord:2')}, ${stairName('eq:1')} ועוד 2`,
+    'טעויות שחוזרות: טעות אחת בתיקון, שתי טעויות תוקנו השבוע',
+    'רצף: 3 ימים (שבת לא שוברת רצף)',
+    'הטלפון: השבוע לא היה תרגול.',
+    'המחשב: הסיכום מהמכשיר הזה כבוי.',
+    `רעיון לשיחה: בקשו שיסבירו לכם דוגמה אחת מ"${stairName('expr:1')}".`,
+    'הפירוט המלא בעמוד ההורים: https://madregot.example.test/parents',
+    'מדרגות בע״מ (לדוגמה) · 000000000 · hello@example.test',
+  ]) assert.ok(m.text.includes(line), `text has: ${line}\n---\n${m.text}`);
+  assert.doesNotMatch(m.text, new RegExp(stairName('line:1')), 'only the week');
+  // no mistake's name, as the content gives it (with or without its maths)
+  const titles = titlesOf(fixes.map((f) => f[1]));
+  assert.equal(titles.size, 3, 'the fixture names real mistakes');
+  for (const list of titles.values()) {
+    for (const t of list) for (const part of [m.text, m.html]) { assert.ok(!part.includes(t), t); assert.ok(!part.includes(texToPlain(t, { isolate: false })), t); }
+  }
+  for (const id of ['minus-minus', 'move-no-flip']) assert.ok(!m.text.includes(id) && !m.html.includes(id), id);
+  for (const part of [m.text, m.html, m.subject]) { assert.doesNotMatch(part, /₪|מחיר|מנוי|הנחה|לשדרג/); }
+  // the unsubscribe link, in the text, the HTML and the headers
+  const url = `https://madregot.example.test/api/report/unsubscribe?a=${fam.a}&t=${await unsubToken(h.env, fam.a)}`;
+  assert.ok(m.text.includes(url));
+  assert.ok(m.html.includes(url.replace('&', '&amp;')));
+  assert.equal(m.headers['List-Unsubscribe'], `<${url}>`);
+  assert.match(m.headers['List-Unsubscribe'], /^<https:\/\//);
+  assert.equal(m.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');
+  assert.match(m.html, /^<div dir="rtl"/);
+  assert.equal(m.reply_to, 'hello@example.test');
+});
+
+test('W4. batch and starvation: 50 to a call, at most 100 a run in 3 SELECTs, a failed call counts a try, and a cancellation never waits', async () => {
+  let failBatch = true;
+  h = await setup({}, { resend: (m) => (Array.isArray(m) && failBatch ? new Response('down', { status: 500 })
+    : new Response(JSON.stringify({ id: 'em' }), { status: 200, headers: { 'Content-Type': 'application/json' } })) });
+  const a = await weeklyFamily('one@example.test');
+  const b = await weeklyFamily('two@example.test');
+  for (const f of [a, b]) putDay(f.dev.id, shiftDay(START, 1));
+  await weeklyQueue(h.env, sunday);
+  assert.deepEqual(await flushWeekly(h.env, { now: sunday }), { sent: 0, skipped: 0, failed: 2 });
+  assert.equal(batches().length, 1); assert.equal(batches()[0].length, 2, 'one call, an array of 2');
+  assert.deepEqual(weeklyRows().map((r) => [r.tries, r.sent_at]), [[1, null], [1, null]]);
+  failBatch = false;
+  assert.deepEqual(await flushWeekly(h.env, { now: sunday }), { sent: 2, skipped: 0, failed: 0 });
+  assert.equal(batches().length, 2);
+  assert.ok(weeklyRows().every((r) => r.sent_at));
+  h.done();
+
+  // 120 families, then a cancellation: the cancellation goes first, the Sunday emails 100 a run
+  h = await setup();
+  const subs = [];
+  for (let i = 0; i < 120; i++) {
+    const id = `1${'0'.repeat(12)}${i.toString(16).padStart(3, '0')}`;
+    h.env.DB.raw.prepare('INSERT INTO accounts (id, email, created_at, report_email_at) VALUES (?, ?, ?, ?)').run(id, `p${i}@example.test`, OLD, OLD);
+    subs.push(insertSub(h.env, { kind: 'family', account_id: id }));
+    const dev = await linkDevice(h.env, id, `מכשיר ${i}`);
+    h.env.DB.raw.prepare('UPDATE family_devices SET created_at = ? WHERE id = ?').run(OLD, dev.id);
+    putDay(dev.id, shiftDay(START, 2));
+  }
+  assert.equal((await weeklyQueue(h.env, sunday)).queued, 120);
+  h.env.DB.raw.prepare("INSERT INTO notices (ref, kind, to_account, params, created_at) VALUES (?, 'canceled', ?, ?, ?)")
+    .run(subs[0].id, subs[0].account_id, JSON.stringify({ requestedAt: new Date().toISOString(), endsAt: new Date().toISOString(), reference: 'C-TEST' }), new Date(sunday.getTime() + 60_000).toISOString());
+  await flushNotices(h.env);
+  const single = h.net.log.email.filter((x) => !Array.isArray(x));
+  assert.equal(single.length, 1); assert.match(single[0].subject, /אישור ביטול המנוי/);
+  assert.ok(weeklyRows().every((r) => r.sent_at === null && r.tries === 0), 'flushNotices touches no Sunday email');
+  // count the SELECTs of one flush on the test database
+  const prepare = h.env.DB.prepare; let selects = 0;
+  h.env.DB.prepare = (sql) => { if (/^\s*SELECT\b/i.test(sql)) selects++; return prepare(sql); };
+  const first = await flushWeekly(h.env, { now: sunday });
+  h.env.DB.prepare = prepare;
+  assert.deepEqual(first, { sent: 100, skipped: 0, failed: 0 });
+  assert.ok(selects <= 3, `${selects} SELECTs`);
+  assert.deepEqual(batches().map((x) => x.length), [50, 50]);
+  assert.ok(batches().flat().every((m) => m.headers['List-Unsubscribe-Post'] === 'List-Unsubscribe=One-Click' && m.to.length === 1));
+  assert.equal(new Set(batches().flat().map((m) => m.to[0])).size, 100, 'each family its own email');
+  assert.deepEqual(await flushWeekly(h.env, { now: sunday }), { sent: 20, skipped: 0, failed: 0 });
+  assert.equal(weeklyRows().filter((r) => r.sent_at).length, 120);
+});
+
+test('W5. an empty week is emailed once with its own words; a second empty week in a row is not, until practice returns', async () => {
+  h = await setup();
+  // the week before had practice: this empty week is the first, and it is sent
+  const fam = await weeklyFamily('empty@example.test');
+  putDay(fam.dev.id, shiftDay(START, -4));
+  // both weeks empty, asked long ago, device linked long ago: last Sunday's email was the empty one, so nothing now
+  const quiet = await weeklyFamily('quiet@example.test');
+  // both weeks empty, but the parent asked only this week: their first email is sent
+  const fresh = await weeklyFamily('fresh@example.test', { since: new Date(jerusalemMidnight(START).ms + 864e5).toISOString() });
+  // both weeks empty, an empty row (no practice) does not count as practice
+  const zero = await weeklyFamily('zero@example.test');
+  putDay(zero.dev.id, shiftDay(START, -2), { m: 0, q: 0, ls: 0, st: 0, sk: [], ma: [], fx: [] });
+  putDay(zero.dev.id, shiftDay(START, 2), { m: 0, q: 0, ls: 0, st: 0, sk: [], ma: [], fx: [] });
+  await weeklyQueue(h.env, sunday);
+  assert.deepEqual(await flushWeekly(h.env, { now: sunday }), { sent: 2, skipped: 2, failed: 0 });
+  const byTo = Object.fromEntries(sentWeekly().map((m) => [m.to[0], m]));
+  assert.deepEqual(Object.keys(byTo).sort(), ['empty@example.test', 'fresh@example.test']);
+  for (const m of Object.values(byTo)) {
+    assert.ok(m.text.includes('השבוע לא היה תרגול במכשיר הטאבלט. זה קורה, ואפשר לחזור מתי שרוצים.'), m.text);
+    assert.ok(m.text.includes('אם גם בשבוע הבא לא יהיה תרגול, לא נשלח מייל עד שהתרגול יחזור.'));
+    assert.doesNotMatch(m.text, /רעיון לשיחה|ימי תרגול/);
+  }
+  const done = Object.fromEntries(weeklyRows().map((r) => [r.ref, r]));
+  for (const f of [quiet, zero]) { assert.equal(done[f.a].sent_at, null); assert.equal(done[f.a].tries, MAX_NOTICE_TRIES, 'closed, never retried'); }
+  assert.ok(done[fresh.a].sent_at);
+  // pure: the rule needs every device empty in both weeks
+  const dev = (id, created_at = OLD) => ({ id, label: id, created_at, share_child: 1, share_parent: 1 });
+  const row = (id, d) => ({ device_id: id, day: d, minutes: 5, questions: 3, lessons: 1, stages: 0, reviews: 0, streak: 1, worked: '[]', mastered: '[]', fixes: '[]', exam: null });
+  const acc = { reportEmailAt: OLD, live: true };
+  assert.equal(weeklyParams(acc, [dev('x'), dev('y')], [], { start: START, end: END }), null);
+  assert.ok(weeklyParams(acc, [dev('x'), dev('y')], [row('y', shiftDay(START, -1))], { start: START, end: END }), 'one device practised the week before');
+  assert.ok(weeklyParams(acc, [dev('x', new Date(jerusalemMidnight(START).ms + 1000).toISOString())], [], { start: START, end: END }), 'a device linked this week');
+});
+
+test('W6. opted out, unlinked or plan ended between the queue and the send: nothing is sent and the notice is closed', async () => {
+  h = await setup();
+  const out = await weeklyFamily('out@example.test');
+  const link = await weeklyFamily('link@example.test');
+  const ended = await weeklyFamily('ended@example.test');
+  const unsub = await weeklyFamily('unsub@example.test');
+  const stay = await weeklyFamily('stay@example.test');
+  for (const f of [out, link, ended, unsub, stay]) putDay(f.dev.id, shiftDay(START, 1));
+  await weeklyQueue(h.env, sunday);
+  assert.equal(weeklyRows().length, 5);
+  await emailSwitch(out, false);
+  await h.call('POST', `/api/family/devices/${link.dev.id}/unlink`, { headers: link.parent, body: {} });
+  h.env.DB.raw.prepare("UPDATE subscriptions SET status = 'ended', current_period_end = ? WHERE account_id = ?").run(new Date(Date.now() - 864e5).toISOString(), ended.a);
+  const res = await h.call('POST', `/api/report/unsubscribe?a=${unsub.a}&t=${await unsubToken(h.env, unsub.a)}`, { body: 'List-Unsubscribe=One-Click', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await flushWeekly(h.env, { now: sunday }), { sent: 1, skipped: 4, failed: 0 });
+  assert.deepEqual(sentWeekly().map((m) => m.to[0]), ['stay@example.test']);
+  for (const r of weeklyRows()) if (r.ref !== stay.a) assert.equal(r.tries, MAX_NOTICE_TRIES);
+  // a notice of a week that is over is closed, not sent late
+  h.env.DB.raw.prepare("INSERT INTO notices (ref, kind, to_account, params, created_at) VALUES (?, ?, ?, ?, ?)")
+    .run(stay.a, `weekly:${shiftDay(START, -7)}`, stay.a, JSON.stringify({ start: shiftDay(START, -7), end: shiftDay(END, -7) }), OLD);
+  assert.deepEqual(await flushWeekly(h.env, { now: sunday }), { sent: 0, skipped: 1, failed: 0 });
+});
+
+test('W7. unsubscribe: the page changes nothing, the POST does (multipart, urlencoded, none), never a redirect; a bad token is 400', async () => {
+  h = await setup();
+  const fam = await weeklyFamily('leave@example.test');
+  const tok = await unsubToken(h.env, fam.a);
+  assert.match(tok, /^[a-f0-9]{32}$/);
+  const path = `/api/report/unsubscribe?a=${fam.a}&t=${tok}`;
+  const flag = () => one(h.env, 'SELECT report_email_at FROM accounts WHERE id = ?', fam.a).report_email_at;
+  const page = await h.call('GET', path, { headers: { 'Content-Type': '' } });
+  assert.equal(page.status, 200);
+  assert.match(page.headers.get('Content-Type'), /^text\/html/);
+  assert.match(page.headers.get('Content-Security-Policy'), /default-src 'none'; style-src 'unsafe-inline'; form-action 'self'/);
+  assert.equal(page.headers.get('Cache-Control'), 'no-store');
+  assert.equal(page.headers.get('Referrer-Policy'), 'no-referrer');
+  const html = await page.text();
+  assert.match(html, /<html lang="he" dir="rtl">/);
+  assert.ok(html.includes(UNSUB_TEXT.askTitle) && html.includes(`<form method="post"><button type="submit">${UNSUB_TEXT.button}</button></form>`));
+  assert.doesNotMatch(html, /<script|https?:\/\/(?!madregot\.example\.test)/, 'nothing from outside');
+  assert.ok(flag(), 'GET leaves it on');
+  const post = (p, body, type) => h.call('POST', p, { body, headers: type ? { 'Content-Type': type } : { 'Content-Type': '' } });
+  const codes = [];
+  // RFC 8058's own request: multipart/form-data
+  const multipart = '--b0undary\r\nContent-Disposition: form-data; name="List-Unsubscribe"\r\n\r\nOne-Click\r\n--b0undary--\r\n';
+  let r = await post(path, multipart, 'multipart/form-data; boundary=b0undary');
+  codes.push(r.status);
+  assert.equal(r.status, 200);
+  const donePage = await r.text();
+  assert.ok(donePage.includes(UNSUB_TEXT.doneTitle) && donePage.includes(UNSUB_TEXT.done));
+  assert.doesNotMatch(donePage, /<form/);
+  assert.equal(flag(), null);
+  assert.ok(one(h.env, "SELECT * FROM audit_log WHERE action = 'report.email.off' AND actor = ?", `unsubscribe:${fam.a}`));
+  // urlencoded, as a browser form and some mail programs send it; and with no body at all
+  for (const [body, type] of [['List-Unsubscribe=One-Click', 'application/x-www-form-urlencoded'], [undefined, null], ['{}', 'application/json']]) {
+    await emailSwitch(fam, true);
+    r = await post(path, body, type);
+    codes.push(r.status);
+    assert.equal(r.status, 200, String(type)); assert.equal(flag(), null, String(type));
+  }
+  assert.equal(r.headers.get('Location'), null);
+  // a wrong token, a short one, a bad id: 400 and nothing changes
+  await emailSwitch(fam, true);
+  for (const bad of [`?a=${fam.a}&t=${'0'.repeat(32)}`, `?a=${fam.a}&t=${tok.slice(0, 31)}`, `?a=${fam.a}`, `?a=XYZ&t=${tok}`, '']) {
+    r = await post(`/api/report/unsubscribe${bad}`, 'List-Unsubscribe=One-Click', 'application/x-www-form-urlencoded');
+    codes.push(r.status);
+    assert.equal(r.status, 400, bad); const badPage = await r.text(); assert.ok(badPage.includes(UNSUB_TEXT.badTitle) && badPage.includes(UNSUB_TEXT.bad));
+    assert.equal((await h.call('GET', `/api/report/unsubscribe${bad}`)).status, 400);
+  }
+  assert.ok(flag(), 'still on');
+  // an account that does not exist, with its real token: the same 200 (no account oracle)
+  const ghost = 'f'.repeat(16);
+  r = await post(`/api/report/unsubscribe?a=${ghost}&t=${await unsubToken(h.env, ghost)}`, 'List-Unsubscribe=One-Click', 'application/x-www-form-urlencoded');
+  codes.push(r.status);
+  assert.equal(r.status, 200); assert.ok((await r.text()).includes(UNSUB_TEXT.done));
+  assert.ok(codes.every((c) => c < 300 || c >= 400), `no redirect: ${codes}`);
+  // a body over 4 KB is refused before anything is read into the database
+  assert.equal((await post(path, 'x'.repeat(5000), 'text/plain')).status, 413);
+  assert.ok(flag());
+  // 200 a day from one network
+  await setCount(h.env, `unsub:n:${await netOf(h.env)}`, 200);
+  r = await post(path, 'List-Unsubscribe=One-Click', 'application/x-www-form-urlencoded');
+  assert.equal(r.status, 429); assert.ok((await r.text()).includes(UNSUB_TEXT.busy));
+  assert.ok(flag(), 'nothing changed');
+});
+
+test('W8. a deleted account: no Sunday email is queued, and a pending one goes with the account', async () => {
+  h = await setup();
+  const gone = await weeklyFamily('gone@example.test');
+  const later = await weeklyFamily('later@example.test');
+  for (const f of [gone, later]) putDay(f.dev.id, shiftDay(START, 1));
+  assert.equal((await h.call('POST', '/api/account/delete', { headers: gone.parent, body: { confirm: 'DELETE' } })).status, 200);
+  await weeklyQueue(h.env, sunday);
+  assert.deepEqual(weeklyRows().map((r) => r.ref), [later.a]);
+  assert.equal((await h.call('POST', '/api/account/delete', { headers: later.parent, body: { confirm: 'DELETE' } })).status, 200);
+  assert.equal(weeklyRows().length, 0, 'the unsent notice went with the account');
+  assert.deepEqual(await flushWeekly(h.env, { now: sunday }), { sent: 0, skipped: 0, failed: 0 });
+  assert.equal(sentWeekly().length, 0);
+});
+
+test('W9. the email reads the shared fixture week exactly as the page does (shared/week.js)', () => {
+  const fx = JSON.parse(readFileSync(new URL('../../shared/week.fixture.json', import.meta.url), 'utf8'));
+  const toRow = (r) => ({ device_id: 'd1', day: r.d, minutes: r.m, questions: r.q, lessons: r.ls, stages: r.st, reviews: r.rv, streak: r.sr,
+    worked: JSON.stringify(r.sk), mastered: JSON.stringify(r.ma), fixes: JSON.stringify(r.fx), exam: r.ex ? JSON.stringify(r.ex) : null });
+  const end = shiftDay(fx.start, 6);
+  const p = weeklyParams({ reportEmailAt: OLD, live: true }, [{ id: 'd1', label: 'הטאבלט', created_at: OLD, share_child: 1, share_parent: 1 }], fx.rows.map(toRow), { start: fx.start, end });
+  const e = fx.expected;
+  assert.deepEqual(weekFrom(fx.rows, fx.start, fx.today), e, 'the fixture is the one the web pins');
+  assert.deepEqual(p.devices[0], {
+    label: 'הטאבלט', sharing: 'on', activeDays: e.activeDays, minutes: e.minutes, questions: e.questions,
+    mastered: [...e.mastered].reverse(), worked: [...e.worked].reverse(), open: e.open.length, fixed: e.fixed.length, streak: e.streak, empty: e.empty,
+  });
+  assert.equal(p.start, fx.start); assert.equal(p.end, end); assert.equal(p.allEmpty, false);
+  // and the email it renders names nothing the parent's page would not
+  const msg = renderNotice({ PUBLIC_URL: 'https://madregot.example.test' }, { kind: `weekly:${fx.start}`, params: JSON.stringify({ ...p, unsub: 'https://madregot.example.test/api/report/unsubscribe?a=x&t=y' }) });
+  assert.ok(msg.text.includes(`ימי תרגול: ${e.activeDays} · זמן תרגול: כ־${e.minutes} דקות · שאלות: ${e.questions}`));
+  assert.equal(renderNotice({}, { kind: `weekly:${fx.start}`, params: JSON.stringify(p) }), null, 'never without its unsubscribe link');
+});
+
+test('W10. with the report off (PARENT_REPORT "off", or the paywall off) nothing is queued and nothing is sent', async () => {
+  for (const over of [{ PARENT_REPORT: 'off' }, { AI_PAYWALL: 'off' }]) {
+    h = await setup();
+    const fam = await weeklyFamily('off@example.test');
+    putDay(fam.dev.id, shiftDay(START, 1));
+    await weeklyQueue(h.env, sunday);
+    assert.equal(weeklyRows().length, 1);
+    Object.assign(h.env, over);
+    assert.deepEqual(await weeklyQueue(h.env, at(SUN, 9)), { queued: 0 });
+    h.env.DB.raw.prepare('DELETE FROM notices').run();
+    assert.deepEqual(await weeklyQueue(h.env, at(SUN, 9)), { queued: 0 }, JSON.stringify(over));
+    h.env.DB.raw.prepare("INSERT INTO notices (ref, kind, to_account, params, created_at) VALUES (?, ?, ?, ?, ?)")
+      .run(fam.a, `weekly:${START}`, fam.a, JSON.stringify({ start: START, end: END }), sunday.toISOString());
+    assert.deepEqual(await flushWeekly(h.env, { now: sunday }), { sent: 0, skipped: 0, failed: 0 });
+    await flushNotices(h.env);
+    assert.equal(sentWeekly().length, 0); assert.equal(weeklyRows()[0].sent_at, null);
+    h.done();
+  }
+  h = null;
 });

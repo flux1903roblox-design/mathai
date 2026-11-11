@@ -30,10 +30,10 @@ const planOf = (plans, id) => plans?.plans?.find((p) => p.id === id) || null;
 
 // ---------------------------------------------------------------- what the tutor is, for a parent who is not signed in
 /**
- * What the plan adds for parents (PARENTS-5), and the free weekly summary the child can send without any account
- * (PARENTS-2, PARENTS-6 state 1). The weekly email is not said here until it exists (PARENTS-7).
+ * What the plan adds for parents (PARENTS-5, with the Sunday email of PARENTS-7), and the free weekly summary the child
+ * can send without any account (PARENTS-2, PARENTS-6 state 1).
  */
-export const ABOUT_REPORT = 'רואים מה הילד תרגל: סיכום יומי לכל מכשיר מחובר. הילד יודע על כך, רואה מה נשלח, ויכול להפסיק.';
+export const ABOUT_REPORT = 'רואים מה הילד תרגל: סיכום יומי לכל מכשיר מחובר, וסיכום שבועי במייל אם תבחרו. הילד יודע על כך, רואה מה נשלח, ויכול להפסיק.';
 export const ABOUT_FREE_REPORT = 'גם בלי מנוי: מהאפליקציה של הילד אפשר לשלוח לכם סיכום שבועי בוואטסאפ, בלי חשבון.';
 /** Above the plan's options, so a parent knows before paying what the plan holds and that the child can stop sharing. */
 export const CHECKOUT_REPORT = 'המנוי כולל: סיכום התקדמות לכל מכשיר, ועוזר חכם שמסביר, בודק דפים ומכין תרגילים. הילד רואה מה נשלח אליכם ויכול להפסיק את השיתוף.';
@@ -676,7 +676,10 @@ export default function Parents({ mode = 'home' }) {
         {plan && <PlanCard acct={acct} plans={plans} qa={!!qa} onChanged={loadAccount} onCancel={() => setCancelOpen(true)} onRenew={() => setRenewing(true)} renewing={renewing}
           vaults={vaults} linkFrom={here || linkCard ? '' : linkFrom} onLinkFrom={setLinkFrom} />}
         {/* each device's progress (PARENTS-5), then the progress kept from earlier devices: one order at every width */}
-        {plans.report && (plan || (acct.devices?.length || 0) > 0) && <FamilyReport plan={plan} devices={acct.devices || []} qa={qa ? qa.report || 'none' : null} />}
+        {plans.report && (plan || (acct.devices?.length || 0) > 0) && (
+          <FamilyReport plan={plan} devices={acct.devices || []} email={acct.email} reportEmail={!!acct.reportEmail}
+            onReportEmail={(on) => setAcct((a) => (a ? { ...a, reportEmail: on } : a))} qa={qa ? qa.report || 'none' : null} />
+        )}
         {plan && kept.length > 0 && <KeptCard kept={kept} qa={!!qa} onMove={(id) => { if (here) { setHereFrom(id); document.getElementById('here-title')?.scrollIntoView({ block: 'start' }); } else moveKept(id); }} onChanged={loadAccount} />}
         {plan && here && (
           <section className="card parents-card" aria-labelledby="here-title">

@@ -5,7 +5,10 @@
 // parent or child typed goes into their own emails except the recipient address and a device label; a teacher's licence
 // request (school, note) goes only to the owner. With EMAIL_DEV_LOG = "true" on a local Worker (PUBLIC_URL on
 // localhost) and no Resend key, notices are printed to the log instead (subjects only, never a code).
+// The parents' Sunday email (PARENTS-7, kind 'weekly:<Sunday>') is rendered here but sent by report.js flushWeekly,
+// through Resend's batch call (sendBatch), each message with its own List-Unsubscribe headers; flushNotices leaves it.
 import { HttpError, nowIso, sha256, TZ } from './util.js';
+import { stairName } from '../../shared/stairs.js';
 
 export function emailReady(env) {
   return !!(env.RESEND_API_KEY && env.EMAIL_FROM);
@@ -21,14 +24,38 @@ export const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '
 const para = (lines) => lines.filter((l) => l != null && l !== '').map((l) => `<p>${escapeHtml(l)}</p>`).join('\n');
 const wrap = (inner) => `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;color:#14161a">\n${inner}\n</div>`;
 
-async function send(env, { to, subject, text, html }) {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, text, html, ...(env.CONTACT_EMAIL ? { reply_to: env.CONTACT_EMAIL } : {}) }),
-  });
+/** One message as Resend takes it, alone or in a batch: `headers` (optional) are the message's own mail headers. */
+const message = (env, { to, subject, text, html, headers }) => ({
+  from: env.EMAIL_FROM, to: [to], subject, text, html,
+  ...(env.CONTACT_EMAIL ? { reply_to: env.CONTACT_EMAIL } : {}),
+  ...(headers && Object.keys(headers).length ? { headers } : {}),
+});
+const post = (env, url, payload) => fetch(url, {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify(payload),
+});
+
+async function send(env, msg) {
+  const res = await post(env, 'https://api.resend.com/emails', message(env, msg));
   if (!res.ok) {
     console.error('email send failed', res.status);
+    throw new HttpError(502, 'email_failed');
+  }
+}
+
+/** Resend's batch call takes up to 100 messages; we send at most this many in one call. */
+export const BATCH_MAX = 50;
+/**
+ * Up to 50 messages in one call (https://resend.com/docs/api-reference/emails/send-batch-emails), each with its own
+ * headers. All or nothing: a failed call throws, and the caller counts a try on every message of the group.
+ */
+export async function sendBatch(env, msgs) {
+  if (!msgs.length) return;
+  if (msgs.length > BATCH_MAX) throw new Error(`a batch holds at most ${BATCH_MAX}`);
+  const res = await post(env, 'https://api.resend.com/emails/batch', msgs.map((m) => message(env, m)));
+  if (!res.ok) {
+    console.error('email batch failed', res.status);
     throw new HttpError(502, 'email_failed');
   }
 }
@@ -70,7 +97,7 @@ function footer(env) {
   const parts = [`לביטול המנוי: ${env.PUBLIC_URL || ''}/cancel`, env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean);
   return parts.join(' · ');
 }
-function business(env) {
+export function business(env) {
   return [env.BUSINESS_NAME, env.BUSINESS_ID, env.BUSINESS_ADDRESS, env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean).join(' · ');
 }
 
@@ -130,6 +157,9 @@ export function renderNotice(env, row) {
         subject: 'מכשיר חדש חובר למנוי',
         lines: billing(['שלום,', `חובר מכשיר חדש${p.label ? ` (${p.label})` : ''} ב־${hebDate(p.at)}. לא אתם? אפשר לנתק אותו בעמוד ההורים: ${env.PUBLIC_URL || ''}/parents`]),
       };
+    // the parents' Sunday email (report.js flushWeekly renders it at send time, with the unsubscribe link in p.unsub)
+    case 'weekly':
+      return weeklyNotice(env, p);
     case 'licence_ending':
       return {
         subject: `רישיון הכיתה מסתיים ב־${hebDate(p.until)}`,
@@ -152,6 +182,97 @@ export function renderNotice(env, row) {
     default:
       return null;
   }
+}
+
+// ---------------------------------------------------------------- the parents' Sunday email (PARENTS-7)
+const dm = (day) => { const [, m, d] = String(day).split('-').map(Number); return `${d}.${m}`; };
+const plural = (one, two, many) => (n) => (n === 1 ? one : n === 2 ? two : many(n));
+const heDays = plural('יום אחד', 'יומיים', (n) => `${n} ימים`);
+const heMistakes = plural('טעות אחת', 'שתי טעויות', (n) => `${n} טעויות`);
+const fixedLine = plural('טעות אחת תוקנה השבוע', 'שתי טעויות תוקנו השבוע', (n) => `${n} טעויות תוקנו השבוע`);
+const aboutMinutes = (m) => (m === 1 ? 'כדקה' : m === 2 ? 'כשתי דקות' : `כ־${m} דקות`);
+/** The stair's name as the app shows it; a stair from another version of the app says so (as the page does). */
+const stairText = (id) => stairName(id) ?? 'מדרגה מגרסה אחרת של האפליקציה';
+export const WORKED_IN_EMAIL = 4;
+export const WEEKLY_TEXT = {
+  hello: 'שלום,',
+  intro: (range) => `זה הסיכום של השבוע ${range}.`,
+  off: (label) => `${label}: הסיכום מהמכשיר הזה כבוי.`,
+  none: (label) => `${label}: השבוע לא היה תרגול.`,
+  allEmpty: (labels) => (labels.length === 1 && labels[0] ? `השבוע לא היה תרגול במכשיר ${labels[0]}. זה קורה, ואפשר לחזור מתי שרוצים.`
+    : labels.length === 1 ? 'השבוע לא היה תרגול במכשיר. זה קורה, ואפשר לחזור מתי שרוצים.'
+      : 'השבוע לא היה תרגול באף אחד מהמכשירים. זה קורה, ואפשר לחזור מתי שרוצים.'),
+  pause: 'אם גם בשבוע הבא לא יהיה תרגול, לא נשלח מייל עד שהתרגול יחזור.',
+  noCheck: 'השבוע לא הייתה בדיקת שליטה',
+  talk: (stair) => `רעיון לשיחה: בקשו שיסבירו לכם דוגמה אחת מ"${stair}".`,
+  page: 'הפירוט המלא בעמוד ההורים:',
+  why: 'קיבלתם את המייל כי ביקשתם סיכום שבועי. כדי להפסיק אותו:',
+};
+
+/** One device's lines in the Sunday email: counts and stair names only (never a mistake's name). */
+function weeklyDevice(d) {
+  const label = d.label || 'מכשיר';
+  if (d.sharing !== 'on') return [WEEKLY_TEXT.off(label)];
+  if (d.empty) return [WEEKLY_TEXT.none(label)];
+  const worked = Array.isArray(d.worked) ? d.worked : [];
+  const mastered = Array.isArray(d.mastered) ? d.mastered : [];
+  const more = worked.length - WORKED_IN_EMAIL;
+  const fixes = [d.open > 0 ? `${heMistakes(d.open)} בתיקון` : '', d.fixed > 0 ? fixedLine(d.fixed) : ''].filter(Boolean);
+  return [
+    { head: label },
+    [`ימי תרגול: ${d.activeDays}`, d.minutes > 0 ? `זמן תרגול: ${aboutMinutes(d.minutes)}` : '', `שאלות: ${d.questions}`].filter(Boolean).join(' · '),
+    mastered.length ? `חדש בשליטה: ${mastered.map(stairText).join(', ')}` : WEEKLY_TEXT.noCheck,
+    worked.length ? `תורגלו: ${worked.slice(0, WORKED_IN_EMAIL).map(stairText).join(', ')}${more > 0 ? ` ועוד ${more}` : ''}` : '',
+    fixes.length ? `טעויות שחוזרות: ${fixes.join(', ')}` : '',
+    d.streak > 0 ? `רצף: ${heDays(d.streak)} (שבת לא שוברת רצף)` : '',
+  ].filter(Boolean);
+}
+
+/**
+ * The Sunday email from weeklyParams (report.js) and the unsubscribe link (p.unsub): the text and the HTML part, and
+ * the RFC 8058 headers (List-Unsubscribe with the https link, List-Unsubscribe-Post). The footer is the business
+ * details only: no price, no offer, nothing to buy.
+ */
+function weeklyNotice(env, p) {
+  // never a Sunday email without its unsubscribe link
+  if (!p.unsub || !/^https:\/\//.test(String(p.unsub)) || !p.start || !p.end) return null;
+  const range = `${dm(p.start)}–${dm(p.end)}`;
+  const devices = (Array.isArray(p.devices) ? p.devices : []).slice(0, 3);
+  const page = `${String(env.PUBLIC_URL || '').replace(/\/+$/, '')}/parents`;
+  const quiet = p.allEmpty && devices.every((d) => d.sharing === 'on');
+  const talkStair = devices.find((d) => d.sharing === 'on' && !d.empty && d.worked?.length)?.worked[0];
+  // blocks: a string is a line, { head } a device's name, { link } a line with its address, '' a gap
+  const blocks = [
+    WEEKLY_TEXT.hello, WEEKLY_TEXT.intro(range), '',
+    ...(quiet ? [WEEKLY_TEXT.allEmpty(devices.map((d) => d.label || '')), WEEKLY_TEXT.pause, '']
+      : [...devices.flatMap((d) => [...weeklyDevice(d), '']), ...(p.allEmpty && devices.some((d) => d.sharing === 'on') ? [WEEKLY_TEXT.pause, ''] : [])]),
+    ...(talkStair ? [WEEKLY_TEXT.talk(stairText(talkStair))] : []),
+    { link: page, text: WEEKLY_TEXT.page, label: 'לעמוד ההורים' },
+    '',
+    { link: p.unsub, text: WEEKLY_TEXT.why, label: 'להפסקת הסיכום השבועי', foot: true },
+    { foot: business(env) },
+  ];
+  const lines = blocks.map((b) => (typeof b === 'string' ? b : b.head ? b.head : b.link ? `${b.text} ${b.link}` : b.foot)).filter((l) => l !== undefined);
+  const text = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  // the HTML part: the same blocks; a device's name as a small heading, the two addresses as links, the footer quieter
+  const a = (href, label) => `<a href="${escapeHtml(href)}" style="color:#1246c4">${escapeHtml(label)}</a>`;
+  const FOOT = 'margin:0 0 6px;font-size:14px;line-height:21px;color:#565b66';
+  const htmlBlocks = [];
+  for (const b of blocks) {
+    if (b === '') htmlBlocks.push('<div style="height:10px"></div>');
+    else if (typeof b === 'string') htmlBlocks.push(`<p style="margin:0 0 6px">${escapeHtml(b)}</p>`);
+    else if (b.head) htmlBlocks.push(`<p style="margin:6px 0 4px;font-weight:700;font-size:18px">${escapeHtml(b.head)}</p>`);
+    else if (b.link) htmlBlocks.push(`<p style="${b.foot ? FOOT : 'margin:0 0 6px'}">${escapeHtml(b.text)} ${a(b.link, b.label)}</p>`);
+    // each detail kept whole on its line (a phone number never breaks at its dash)
+    else if (b.foot) htmlBlocks.push(`<p style="${FOOT}">${b.foot.split(' · ').map((x) => `<span style="white-space:nowrap">${escapeHtml(x)}</span>`).join(' · ')}</p>`);
+  }
+  return {
+    subject: `סיכום שבועי ממדרגות · ${range}`,
+    lines,
+    text,
+    html: wrap(htmlBlocks.join('\n')),
+    headers: { 'List-Unsubscribe': `<${p.unsub}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+  };
 }
 
 /** A teacher asked for a trial or a quote. The owner answers by email and grants with npm run owner. */
@@ -248,8 +369,9 @@ export const MAX_NOTICE_TRIES = 6;
 /** Send pending notices (the outbox). A failed send is retried by the next call, up to 6 tries. */
 export async function flushNotices(env, { limit = 50 } = {}) {
   if (!emailReady(env) && !noticeDevLog(env)) return { sent: 0 };
+  // the Sunday emails have their own flush (report.js flushWeekly), so hundreds of them never hold back a legal notice
   const pending = (await env.DB.prepare(
-    'SELECT ref, kind, to_account, params, tries FROM notices WHERE sent_at IS NULL AND tries < ? ORDER BY created_at LIMIT ?',
+    "SELECT ref, kind, to_account, params, tries FROM notices WHERE sent_at IS NULL AND tries < ? AND kind NOT LIKE 'weekly:%' ORDER BY created_at LIMIT ?",
   ).bind(MAX_NOTICE_TRIES, limit).all()).results || [];
   let sent = 0;
   for (const row of pending) {

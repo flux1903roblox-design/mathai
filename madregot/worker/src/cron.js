@@ -11,13 +11,17 @@
 // after 90 days, PARENTS-3), queue the owner's notice of
 // yesterday's app errors when there were many (errors.js), run the encrypted vaults' night (vault.js: purge vaults unused
 // for 400 days, recompute the size meter, the 70% notice), and queue the owner's daily summary when
-// OWNER_DAILY_SUMMARY = "true". Each step runs on its own: one failing step never stops the others.
+// OWNER_DAILY_SUMMARY = "true".
+//
+// On Sunday from 07:00 to 20:00 in Jerusalem: queue the parents' weekly email (report.js weeklyQueue; a second run adds
+// nothing), and send it after the other notices with its own flush (flushWeekly), so it never delays a legal notice.
+// Each step runs on its own: one failing step never stops the others.
 import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
 import { retryCancels, processRefundQueue } from './billing.js';
 import { purgeAccountsSql } from './account.js';
 import { purgeFamilySql } from './family.js';
-import { purgeReportSql, reportOn, feedbackCounts } from './report.js';
+import { purgeReportSql, reportOn, feedbackCounts, weeklyQueue, flushWeekly } from './report.js';
 import { providerById } from './providers/index.js';
 import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
@@ -239,6 +243,9 @@ export async function run(env, { now = new Date() } = {}) {
     await step('vaults', () => vaultNight(env, now));
     if (String(env.OWNER_DAILY_SUMMARY) === 'true') await step('summary', () => dailySummary(env, now));
   }
+  // the parents' Sunday email (PARENTS-7): queued every hour of Sunday 07:00-20:00, sent after the other notices
+  await step('weekly', () => weeklyQueue(env, now));
   await step('notices', () => flushNotices(env));
+  await step('weeklySend', () => flushWeekly(env, { now }));
   return report;
 }

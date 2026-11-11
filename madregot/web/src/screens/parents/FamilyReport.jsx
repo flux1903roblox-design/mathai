@@ -4,14 +4,15 @@
 // device's summary (the child's state is shown beside it, never explained) and deleting the device's history.
 // Every early state has its own words: linked with nothing sent yet (with an example, marked as one), nothing this
 // week, sharing off on the device, off by the parent, a device the plan does not cover, and a plan that ended with
-// summaries still kept. Under the first card, once a week per browser: "הסיכום עוזר לכם?". No percentage right
-// anywhere. Built on lib/parent.js (summary, setDeviceSharing, deleteDeviceHistory, reportFeedback); the QA states
-// (?qa-parent=report | report-empty | report-off) draw from components/report/qaFamily.js and send nothing.
+// summaries still kept. Under the first card, once a week per browser: "הסיכום עוזר לכם?". Above the cards, the switch
+// for the Sunday email (PARENTS-7, off by default). No percentage right anywhere. Built on lib/parent.js (summary,
+// setDeviceSharing, deleteDeviceHistory, reportFeedback, setReportEmail); the QA states (?qa-parent=report |
+// report-empty | report-off) draw from components/report/qaFamily.js and send nothing.
 import { useCallback, useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import { STORE_KEY, today as dayOf } from '@/lib/store.js';
-import { summary as loadSummary, setDeviceSharing, deleteDeviceHistory, reportFeedback } from '@/lib/parent.js';
+import { summary as loadSummary, setDeviceSharing, deleteDeviceHistory, reportFeedback, setReportEmail } from '@/lib/parent.js';
 import { weekStart, weekFrom } from '@/learn/report.ts';
 import { whenText } from '@/lib/when.js';
 import { dm } from '@/lib/share.js';
@@ -52,6 +53,14 @@ export const REPORT = {
   no: 'לא ממש',
   thanks: 'תודה. זה עוזר לנו לשפר.',
   loadError: 'לא הצלחנו לטעון את ההתקדמות.',
+};
+
+/** The Sunday email's switch (PARENTS-7): off until the parent turns it on. */
+export const EMAIL_SWITCH = {
+  label: 'סיכום שבועי במייל',
+  hint: 'בכל יום ראשון בבוקר, אל {email}. אפשר להפסיק בכל רגע, גם מהמייל עצמו.',
+  on: 'הסיכום השבועי יגיע ביום ראשון',
+  off: 'הסיכום השבועי במייל הופסק',
 };
 
 /** The parent's own switch for a device, in each state (the child's part is stated, never explained). */
@@ -98,6 +107,33 @@ function Feedback({ qa }) {
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- the Sunday email
+function EmailSwitch({ email, on, qa, onChange }) {
+  const id = useId();
+  const [busy, setBusy] = useState(false);
+  const [before, after] = EMAIL_SWITCH.hint.split('{email}');
+  const flip = async (next) => {
+    setBusy(true);
+    try {
+      const r = qa ? { reportEmail: next } : await setReportEmail(next);
+      onChange?.(!!r.reportEmail);
+      toast(r.reportEmail ? EMAIL_SWITCH.on : EMAIL_SWITCH.off);
+    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <section className="card parents-card report-email" aria-label={EMAIL_SWITCH.label}>
+      <label className="report-email-row">
+        <span className="report-email-text">
+          <span className="report-email-label">{EMAIL_SWITCH.label}</span>
+          <span id={`${id}-hint`} className="report-email-hint">{before}<bdi dir="ltr">{email}</bdi>{after}</span>
+        </span>
+        <input type="checkbox" role="switch" checked={!!on} disabled={busy} aria-busy={busy} aria-describedby={`${id}-hint`}
+          onChange={(e) => flip(e.target.checked)} />
+      </label>
     </section>
   );
 }
@@ -190,9 +226,10 @@ function DeviceCard({ device, plan, today, qa, onChange }) {
 
 /**
  * The section. `plan`: the live plan or null; `devices`: the account's devices (the page renders this only when the
- * report is on and there is a plan or a device); `qa`: the QA state name.
+ * report is on and there is a plan or a device); `email` and `reportEmail`: the account's address and whether the
+ * Sunday email is on (`onReportEmail` hears a change); `qa`: the QA state name.
  */
-export default function FamilyReport({ plan, devices = [], qa = null }) {
+export default function FamilyReport({ plan, devices = [], email = '', reportEmail = false, onReportEmail, qa = null }) {
   const today = dayOf();
   const [data, setData] = useState(() => (qa ? qaFamilySummary(qa, today) : null));
   const [error, setError] = useState('');
@@ -224,6 +261,7 @@ export default function FamilyReport({ plan, devices = [], qa = null }) {
     const firstWithRows = shown.find((d) => d.days?.length);
     body = (
       <>
+        {(plan || reportEmail) && <EmailSwitch email={email} on={reportEmail} qa={!!qa} onChange={onReportEmail} />}
         {!plan && withRows.length > 0 && <p className="parents-note report-ended">{REPORT.ended}</p>}
         {!plan && list.filter((d) => !d.days?.length).map((d) => <p key={d.id} className="parents-note report-noplan">{REPORT.noPlan(nameOf(d))}</p>)}
         {shown.map((d) => (

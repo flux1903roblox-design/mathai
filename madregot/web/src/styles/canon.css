@@ -646,13 +646,13 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .save-stop { min-height: 48px; text-decoration: underline; text-underline-offset: 3px; }
 /* "שמירת עותק בשרת הכיתה" (DURABLE-6): a switch with its label, the whole row a 48px target */
 .save-switch { justify-content: space-between; gap: var(--s3); min-height: 48px; font-weight: 700; font-size: 17px; line-height: 24px; color: var(--ink); border-top: 2px solid var(--line); padding-top: var(--s2); }
-.save-switch input[role="switch"] { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 52px; height: 32px; margin: 0; border-radius: 999px; background: var(--rule); border: 2px solid var(--ink-2); cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
-.save-switch input[role="switch"]::after { content: ''; position: absolute; top: 2px; inset-inline-start: 2px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: inset-inline-start 150ms ease; }
-.save-switch input[role="switch"]:checked { background: var(--brand); border-color: var(--brand); }
-.save-switch input[role="switch"]:checked::after { inset-inline-start: 22px; }
-.save-switch input[role="switch"]:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
-.save-switch input[role="switch"]:disabled { opacity: .6; cursor: progress; }
-@media (prefers-reduced-motion: reduce) { .save-switch input[role="switch"], .save-switch input[role="switch"]::after { transition: none; } }
+:is(.save-switch, .report-email) input[role="switch"] { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 52px; height: 32px; margin: 0; border-radius: 999px; background: var(--rule); border: 2px solid var(--ink-2); cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
+:is(.save-switch, .report-email) input[role="switch"]::after { content: ''; position: absolute; top: 2px; inset-inline-start: 2px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: inset-inline-start 150ms ease; }
+:is(.save-switch, .report-email) input[role="switch"]:checked { background: var(--brand); border-color: var(--brand); }
+:is(.save-switch, .report-email) input[role="switch"]:checked::after { inset-inline-start: 22px; }
+:is(.save-switch, .report-email) input[role="switch"]:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+:is(.save-switch, .report-email) input[role="switch"]:disabled { opacity: .6; cursor: progress; }
+@media (prefers-reduced-motion: reduce) { :is(.save-switch, .report-email) input[role="switch"], :is(.save-switch, .report-email) input[role="switch"]::after { transition: none; } }
 .save-backup-note { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); }
 .save-backup-note p { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink); }
 .backup-code-body { display: flex; flex-direction: column; gap: var(--s3); }
