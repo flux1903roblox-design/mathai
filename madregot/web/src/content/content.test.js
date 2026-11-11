@@ -370,7 +370,7 @@ describe('a choice is not given away by its look', () => {
         Object.entries(right).forEach(([look, ok]) => expect(ok / n, `${kind} "${look}": ${(100 * ok / n).toFixed(1)}% (a blind guess ${(100 / k).toFixed(0)}%)`).toBeLessThan(1 / k + 0.06));
       });
     } finally { Math.random = real; }
-  });
+  }, 60_000); // thousands of questions: seconds alone, longer on a busy machine
   it('the same question every time is practice only, never a check', () => {
     expect(fairForCheck({ key: 'sy4l:0', fixed: true, topic: 'sys' })).toBe(false);
     expect(fairForCheck({ key: 'eq4f:10x = 3(x + 7)', fixed: true, topic: 'eq' })).toBe(false);

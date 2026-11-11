@@ -280,3 +280,29 @@ for (const [w, h] of [[390, 664], [320, 568]]) {
     await expect(page.locator('.lm-actions.has-warm')).toHaveCount(0);
   });
 }
+
+// PRODUCT2-18: a miss on the number line names what probably happened, as a typed miss does, on every phone. On a short
+// phone the feedback folds to one row so the line stays in view (the council's iPhone SE runs showed only "רמז"): the
+// named mistake is in that row. After the miss, the hint's arrow starts at the marker and points the way to fix it.
+for (const [w, h] of [[390, 844], [320, 568]]) {
+  test(`a number-line miss on signed:1 names what probably happened, at ${w}×${h}`, async ({ page }) => {
+    test.skip(test.info().project.name !== 'phone', 'the viewport is set here');
+    await page.setViewportSize({ width: w, height: h });
+    const mirror = (x) => 2 * x.manip.from - x.answer; // the jump's length, the other way
+    const it = await openOn(page, '#/lesson/signed/1', student('7'), (x) => x.form === 'manip' && x.manip.kind === 'numberline' && !x.manip.den
+      && mirror(x) >= x.manip.min && mirror(x) <= x.manip.max);
+    const to = mirror(it);
+    const name = to < it.manip.from ? 'הסמן שמאלה' : 'הסמן ימינה';
+    for (let k = 0; k < Math.abs(to - it.manip.from); k += 1) await page.getByRole('button', { name }).click();
+    await checkBtn(page).click();
+    await expect(page.locator('section.fb-retry')).toBeVisible();
+    const line = page.locator('section.fb-retry .fb-diag');
+    await expect(line).toBeVisible();
+    await expect(line).toContainText('מה כנראה קרה:');
+    await expectNoSidewaysScroll(page);
+    await expect.poll(() => page.locator('section.fb-retry').evaluate((el) => getComputedStyle(el).opacity)).toBe('1'); // it has come in
+    await page.screenshot({ path: test.info().outputPath(`numberline-miss-${w}.png`) });
+    // the arrow of the hint, on the line: from the marker, back toward the answer
+    await expect(page.locator('.mp-hint text')).toHaveText(to < it.answer ? 'ימינה' : 'שמאלה');
+  });
+}

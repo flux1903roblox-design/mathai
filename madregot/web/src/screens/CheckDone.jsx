@@ -20,6 +20,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { inDays } from '@/content/util.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';
 import { UnlockStage, useNewUnlocks } from '@/lib/madiLook.js';
+import RepeatNote, { repeatedMistake } from '@/components/learn/RepeatNote.jsx';
 
 function copy(r, rec, def, award) {
   const days = (box) => REVIEW_DAYS[box] ?? 1;
@@ -152,6 +153,9 @@ function StairCheckDone({ result: r, award, onExit, work }) {
   const def = r.misc ? metaOf(skill)?.misconceptions.find((m) => m.id === r.misc) : null;
   const { items: actions } = useNext();
   const c = copy(r, rec, def, award);
+  // a mistake that came back in this check, named once (PRODUCT2-18); a repair check already names its own
+  const miscon = useApp((s) => s.learn.miscon);
+  const [mistake] = useState(() => (r.purpose === 'verify' || r.purpose === 'class' ? null : repeatedMistake(r, miscon)));
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
   // a finished check counts as a finished lesson: the moment to ask the browser to keep the data (durable/persist.js)
@@ -196,6 +200,7 @@ function StairCheckDone({ result: r, award, onExit, work }) {
           </div>
         )}
       </div>
+      <RepeatNote mistake={mistake} onRepair={(to) => navigate(to, { replace: true })} />
       {offer && !later && <ChallengeOffer task={offer} onGo={on(() => navigate(`/challenge/${offer.id}`, { replace: true }))} onLater={putOff} />}
       {rescue && weak.length > 0 && (
         <div className="box box-note"><h2 className="box-tab">מה עוד לא יצא</h2><div className="box-body"><ul className="plain-list">{weak.map((s) => <li key={s}>{titleOf(s)}</li>)}</ul></div></div>

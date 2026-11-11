@@ -69,7 +69,7 @@ function startCheck(opts) {
     levels: plan.map((q) => parseSkill(q.skill).level), slot: 0, total: plan.length, solved: 0, redo: [], redoing: false, probes: [],
     item: fixedItems ? fixedItems[0] : itemFor(first.skill, first.source, Math.random, undefined, first.candidates, { test: true }), attempt: 1, hint: false, phase: 'answer', wrong: [],
     combo: 0, bestCombo: 0, firstTry: 0, mistakes: 0, fixed: 0, missedSlots: [], cats: {}, lastCat: null,
-    right: 0, perSkill: {}, showed: 0, ...(fixedItems ? { fixedItems, slotOk: [] } : {}),
+    right: 0, perSkill: {}, showed: 0, named: {}, ...(fixedItems ? { fixedItems, slotOk: [] } : {}),
     finished: false, failed: false, startedAt: Date.now(), itemStartedAt: Date.now(),
   };
 }
@@ -162,7 +162,11 @@ export function answer(s, u) {
     const cat = ok ? null : (it.diag ? it.diag(u) : null);
     // the misconception showed again: a model's diagnosis names it, or an exercise's own label does
     const showed = s.showed + (!ok && s.misc && (cands ? cands.some((c) => c.id === s.misc) : cat === s.misc) ? 1 : 0);
-    const common = { ...s, perSkill, showed, right: s.right + (ok ? 1 : 0), solved: s.solved + 1, wrong: ok ? s.wrong : [...s.wrong, u], firstTry: s.firstTry + (ok ? 1 : 0), mistakes: s.mistakes + (ok ? 0 : 1), ...(s.fixedItems ? { slotOk: [...s.slotOk, ok] } : {}) };
+    // the mistakes the check's answers name, one at a time (an answer two mistakes explain names neither), counted for
+    // its end screen: one that came back is named there (PRODUCT2-18, components/learn/RepeatNote.jsx)
+    const ids = ok ? [] : cands ? cands.map((c) => c.id) : cat ? [cat] : [];
+    const named = ids.length === 1 && !diagnosis?.ambiguous ? { ...s.named, [`${sk}|${ids[0]}`]: ((s.named || {})[`${sk}|${ids[0]}`] || 0) + 1 } : s.named;
+    const common = { ...s, perSkill, showed, named, right: s.right + (ok ? 1 : 0), solved: s.solved + 1, wrong: ok ? s.wrong : [...s.wrong, u], firstTry: s.firstTry + (ok ? 1 : 0), mistakes: s.mistakes + (ok ? 0 : 1), ...(s.fixedItems ? { slotOk: [...s.slotOk, ok] } : {}) };
     const event = { ...base, ok, first: true, cat };
     return ok
       ? { s: { ...common, phase: 'correct' }, result: { ok: true, first: true, combo: 0, comboMark: null, event } }
@@ -262,7 +266,7 @@ export function resultOf(s) {
     // a class exam's questions, one by one, as the teacher's report reads them (correct or wrong; the server also knows
     // partial and missing, from photo-checked exams)
     const questions = s.fixedItems ? s.fixedItems.map((it, i) => ({ topic: it.topic, level: it.level, status: s.slotOk[i] ? 'correct' : 'wrong' })) : undefined;
-    return { kind: 'check', purpose: s.purpose, skill: s.skill, skills: s.skills, misc: s.misc, topic: s.topic, level: s.level, right, asked, perSkill: s.perSkill, showed: s.showed, passed, xp, accuracy: asked ? Math.round((100 * right) / asked) : 0, perfect: right === asked, mistakes: asked - right, fixed: 0, bestCombo: 0, secs: Math.round((Date.now() - s.startedAt) / 1000), ...(questions ? { questions } : {}) };
+    return { kind: 'check', purpose: s.purpose, skill: s.skill, skills: s.skills, misc: s.misc, topic: s.topic, level: s.level, right, asked, perSkill: s.perSkill, showed: s.showed, named: s.named || {}, passed, xp, accuracy: asked ? Math.round((100 * right) / asked) : 0, perfect: right === asked, mistakes: asked - right, fixed: 0, bestCombo: 0, secs: Math.round((Date.now() - s.startedAt) / 1000), ...(questions ? { questions } : {}) };
   }
   const answered = s.total;
   const accuracy = answered ? Math.round((100 * s.firstTry) / answered) : 0;

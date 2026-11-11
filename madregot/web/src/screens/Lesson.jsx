@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
 import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
-import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine } from '@/content/index.js';
+import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { FACTS } from '@/content/frac.js';
 import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN } from '@/lib/lesson.js';
@@ -40,6 +40,7 @@ import { contentOf, metaOf } from '@/learn/content/index.ts';
 import { useTopics } from '@/learn/useStairContent.js';
 import { skillId, parseSkill, BRIDGE_SKILLS } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
+import MissNote, { missNote } from '@/components/lesson/MissNote.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
 
@@ -692,16 +693,15 @@ export default function Lesson() {
               </div>
               {folded && (
                 <div className="fb-body">
+                  {/* an object's miss, folded on a short phone, still names what probably happened (PRODUCT2-18) */}
+                  {feedback === 'retry' && <MissNote note={missNote(item.topic || spec.topic, item.level, last, { test: isTest(s.kind) })} onRepair={setRemedy} />}
                   {feedback === 'reveal' && <p className="fb-answer">{/[\u0590-\u05FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={answerText(item)} />}</p>}
                   <button type="button" className="link-btn" onClick={() => setFbOpen(fbToken)} aria-expanded="false">{feedback === 'retry' ? 'רמז' : 'הפתרון'}</button>
                 </div>
               )}
               {feedback === 'retry' && !folded && (
                 <div className="fb-body">
-                  {diagnosisLine(item.topic || spec.topic, item.level, last) && <p><MathText text={diagnosisLine(item.topic || spec.topic, item.level, last)} /></p>}
-                  {!isTest(s.kind) && last?.cat && !last.diagnosis?.ambiguous && metaOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
-                    <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
-                  )}
+                  <MissNote note={missNote(item.topic || spec.topic, item.level, last, { test: isTest(s.kind) })} onRepair={setRemedy} />
                   <p className="hint-line"><Lightbulb size={16} aria-hidden="true" /><MathText text={item.hint} /></p>
                   {/* guide, don't just say "again": the first step of the way, never the whole solution */}
                   {item.solution?.length > 1 && !isTest(s.kind) && (guide ? (

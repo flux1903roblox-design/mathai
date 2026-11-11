@@ -1503,8 +1503,10 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .fb-folded .fb-scroll { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); }
 .fb-folded .fb-head { flex: 0 1 auto; }
 .fb-folded .fb-body { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); }
-.fb-folded .fb-body .link-btn { align-self: center; min-height: 40px; }
+.fb-folded .fb-body .link-btn { align-self: center; min-height: 44px; }
 .fb-folded .fb-answer { margin: 0; }
+/* what probably happened (PRODUCT2-18): its own line, across the row, above "רמז" */
+.fb-folded .fb-diag { flex: 1 1 100%; margin: 0; font-size: 15px; line-height: 22px; }
 @media (max-height: 700px) and (max-width: 899px) {
   .lesson.is-manip.is-reveal .manip-controls { display: none; }
 }

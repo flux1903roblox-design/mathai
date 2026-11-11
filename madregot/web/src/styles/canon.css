@@ -1216,6 +1216,8 @@ a.btn { text-decoration: none; }
    margin, not a second copy of the bottom's height. */
 .step-player .lm-card { padding-bottom: var(--s4); }
 .step-player .lm-canvas { scroll-margin-bottom: calc(var(--foot-h, 0px) + 12px); scroll-margin-top: 72px; }
+/* an explore step's miss names what probably happened, above the hint (PRODUCT2-18) */
+.bl-why-text .bl-diag { margin: 0 0 var(--s1); font-weight: 600; }
 .bl-why-text .link-btn { position: relative; min-height: 0; padding: 0 2px; vertical-align: baseline; }
 .bl-why-text .link-btn::after { content: ''; position: absolute; inset: -9px -10px; } /* "עוד" sits in the text line; its touch area is 44px tall */
 .bl-why-more:focus { outline: none; } /* focused only to keep a keyboard's place after "עוד" */
@@ -1848,6 +1850,10 @@ button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
 .check-challenge-sub { margin: 2px 0 0; font-size: 15px; line-height: 22px; color: var(--ink-2); overflow-wrap: anywhere; }
 .check-challenge-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .check-challenge-actions .btn { flex: 1 1 120px; min-height: 44px; }
+/* a mistake that came back in a check (PRODUCT2-18): one calm line, and the way to its repair */
+.check-repeat { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); text-align: start; }
+.check-repeat-line { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink); overflow-wrap: anywhere; }
+.check-repeat-btn { align-self: flex-start; min-height: 44px; }
 /* the stair page: a sixth card under the five stages, optional (a dashed edge) and locked until the mastery check */
 .jchallenge { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); padding: var(--s3); border: 2px dashed var(--rule-strong); border-radius: 16px; background: var(--surface); }
 .jchallenge + .jchallenge { margin-top: var(--s2); }

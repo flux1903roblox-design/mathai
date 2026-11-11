@@ -15,6 +15,9 @@ import { Segments } from '@/components/ds.jsx';
 import { KINDS } from '@/components/manip/Manip.jsx';
 import Figure from '@/components/Figure.jsx';
 import { manipCorrect, manipSolution } from '@/content/manip.js';
+import { exploreCat } from '@/content/explore.js';
+import { diagnosisLine } from '@/content/index.js';
+import { parseSkill } from '@/learn/skills.ts';
 import { qaOn } from '@/lib/qa.js';
 import { enter } from '@/lib/motion.js';
 import { play, haptic } from '@/lib/sound.js';
@@ -118,11 +121,34 @@ function Predict({ step, chosen, sel, onSelect }) {
   );
 }
 
-function Explore({ step, done, onDone, onCtl }) {
+/**
+ * What the "not yet" sheet of an explore step says (PRODUCT2-18): a miss the object shows a named mistake for gets the
+ * same line a typed miss shows ("מה כנראה קרה: …", content/index.js diagnosisLine) above the hint, under a short
+ * title; only a miss with no name keeps the general "עוד לא. הזיזו ונסו שוב". `skill`: the stair the steps teach.
+ */
+export function exploreMiss(skill, step, value) {
+  const { topic, level } = skill ? parseSkill(skill) : {};
+  const cat = skill ? exploreCat(topic, level, step, value) : null;
+  const line = cat ? diagnosisLine(topic, level, { cat }) : null;
+  return { cat, line, title: line ? 'עוד לא' : 'עוד לא. הזיזו ונסו שוב' };
+}
+
+/** The "not yet" sheet's text: the named mistake, when there is one, then the hint. */
+export function MissWhy({ line, hint, k }) {
+  return (
+    <>
+      {line && <p className="bl-diag"><MathText text={line} /></p>}
+      <ShortHint key={k} text={hint} />
+    </>
+  );
+}
+
+function Explore({ step, done, onDone, onCtl, skill }) {
   const C = KINDS[step.manip.kind];
   const [v, setV] = useState(step.manip.start ?? null);
   const [touched, setTouched] = useState(false);
   const [miss, setMiss] = useState(0);
+  const [said, setSaid] = useState(null); // what the last miss showed (exploreMiss)
   const ok = done || (touched && miss === -1);
   const it = { form: 'manip', manip: step.manip, answer: step.answer };
   // test hook: put the object in its right state, as a student would by moving it
@@ -134,10 +160,10 @@ function Explore({ step, done, onDone, onCtl }) {
     return () => { if (window.__madregotSolveStep === solve) delete window.__madregotSolveStep; };
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   const check = () => {
-    if (manipCorrect(it, v)) { setMiss(-1); play('correct'); haptic('correct'); onDone(); } else { setMiss((n) => n + 1); play('wrong'); haptic('wrong'); }
+    if (manipCorrect(it, v)) { setMiss(-1); play('correct'); haptic('correct'); onDone(); } else { setSaid(exploreMiss(skill, step, v)); setMiss((n) => n + 1); play('wrong'); haptic('wrong'); }
   };
   // the bottom button checks this step: tell it whether there is something to check, and how
-  useEffect(() => { onCtl({ step, can: !ok && touched && v != null, miss: ok ? 0 : Math.max(0, miss), check }); }, [v, touched, miss, ok]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onCtl({ step, can: !ok && touched && v != null, miss: ok ? 0 : Math.max(0, miss), said, check }); }, [v, touched, miss, ok]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="ls-explore">
       <Prompt tag="נסו בעצמכם"><p><MathText text={step.text} /></p></Prompt>
@@ -162,9 +188,9 @@ function Rule({ step }) {
  * steps: DiscoverStep[]; start: the step to open on; onIndex(i): where the student is (saved, so leaving keeps it);
  * onDone(): after the last step. label: what this run is (for the progress). renderHead(bar): the screen's header
  * row with this run's progress bar in it (without it, the bar stands on its own). title/kicker: the lesson's name,
- * shown on its first screen.
+ * shown on its first screen. skill: the stair the steps teach, so a miss on an explore step can be named (exploreMiss).
  */
-export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 'שלב', doneLabel = 'סיימתי', renderHead, title, kicker }) {
+export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 'שלב', doneLabel = 'סיימתי', renderHead, title, kicker, skill }) {
   const [i, setI] = useState(Math.min(start, steps.length - 1));
   const [answers, setAnswers] = useState({}); // step index → chosen (predict) or true (explore done)
   const [sel, setSel] = useState({}); // predict: the card picked, before it is checked
@@ -197,7 +223,7 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
       ? { tone: 'good', title: 'נכון!', body: <p><MathText text={step.why} /></p> }
       : { tone: 'warm', title: 'ניחוש טוב לבדוק. הנה מה שקורה', body: <>{step.wrongWhy?.[answers[i]] && <p><MathText text={step.wrongWhy[answers[i]]} /></p>}<p><MathText text={step.why} /></p></> })
     : step.kind === 'explore' && answers[i] ? { tone: 'good', title: 'יפה! בדיוק כך', body: <p><MathText text={step.success} /></p> }
-      : step.kind === 'explore' && exp?.miss > 0 ? { tone: 'warm', title: 'עוד לא. הזיזו ונסו שוב', body: <ShortHint key={`${i}-${exp.miss}`} text={step.hint} /> } : null;
+      : step.kind === 'explore' && exp?.miss > 0 ? { tone: 'warm', title: exp.said?.title || 'עוד לא. הזיזו ונסו שוב', body: <MissWhy k={`${i}-${exp.miss}`} line={exp.said?.line} hint={step.hint} /> } : null;
   // The bottom (the button and the result sheet) stays on screen over the step; its height is kept in --foot-h, so a
   // step's object can be scrolled to sit above it (STUDENT-9 §2: the number line's buttons were under the sheet).
   useLayoutEffect(() => {
@@ -238,7 +264,7 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
           {i === 0 && title && <div className="bl-intro"><h1 className="bl-title">{title}</h1>{kicker && <p className="bl-kicker">{kicker}</p>}</div>}
           {step.kind === 'say' && <Say step={step} />}
           {step.kind === 'predict' && <Predict step={step} chosen={answers[i]} sel={sel[i]} onSelect={(c) => setSel((x) => ({ ...x, [i]: c }))} />}
-          {step.kind === 'explore' && <Explore step={step} done={!!answers[i]} onDone={() => setAnswers((a) => ({ ...a, [i]: true }))} onCtl={setCtl} />}
+          {step.kind === 'explore' && <Explore step={step} done={!!answers[i]} onDone={() => setAnswers((a) => ({ ...a, [i]: true }))} onCtl={setCtl} skill={skill} />}
           {step.kind === 'rule' && <Rule step={step} />}
         </m.section>
       </AnimatePresence>
