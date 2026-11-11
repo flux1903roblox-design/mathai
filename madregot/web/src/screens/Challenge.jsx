@@ -2,7 +2,9 @@
 // task and the part ("חלק 2 מתוך 4"); the story and its figure stay pinned above the parts on a tall screen, and fold
 // into a "לסיפור" button on a phone under 700px tall. Its parts are solved in order, each with two tries, graded by code.
 // The end uses the lesson-complete language, with the XP and מדי. Optional and never shaming: leaving keeps nothing.
-import { useEffect, useRef, useState } from 'react';
+// The task's topic file loads on demand (learn/challenges/index.ts): the screen suspends until it has, and the app's
+// loading screen shows meanwhile (App.jsx's Suspense), as a lesson waits for its topic's teaching.
+import { use, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { m } from 'motion/react';
@@ -14,7 +16,7 @@ import Figure from '@/components/Figure.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import Lottie from '@/components/Lottie.jsx';
 import { Button } from '@/components/ui.jsx';
-import { challengeById } from '@/learn/challenges/index.ts';
+import { challengeById, ensureChallenge, loadedChallenge } from '@/learn/challenges/index.ts';
 import { parseSkill } from '@/learn/skills.ts';
 import { DUR, enter } from '@/lib/motion.js';
 import NumPart from '@/components/challenge/NumPart.jsx';
@@ -78,9 +80,20 @@ function ChallengeDone({ award, onExit }) {
   );
 }
 
+/**
+ * The whole task of this id: suspends until its topic file has loaded, then returns it; null for an id that is no task.
+ * use() is called every time the id is a task, loaded or not (a loaded topic gives a settled promise: no wait), so the
+ * hooks after it always run in the same order.
+ */
+function useChallenge(id) {
+  const known = !!challengeById(id);
+  if (known) use(ensureChallenge(id));
+  return known ? loadedChallenge(id) : null;
+}
+
 export default function Challenge() {
   const { id } = useParams();
-  const task = challengeById(id || '');
+  const task = useChallenge(id || '');
   const navigate = useNavigate();
   const startChallenge = useApp((s) => s.startChallenge);
   const finishChallenge = useApp((s) => s.finishChallenge);

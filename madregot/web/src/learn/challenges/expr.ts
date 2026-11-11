@@ -2,6 +2,9 @@
 // claim 2(x + 3) = 2x + 3; expr:c2, someone's 5(2x − 3) opened with only the first term multiplied ('partial-dist');
 // expr:c3, a row of matchstick squares and 3n + 1. Every number is in the lane skeptic's check.mjs and in
 // verify/facts-challenges17.mjs; learn/challenges.test.ts checks them again.
+// PRODUCT2-21 (a task after every stair): expr:c5, after expr:1, a claim about 2x and x, judged with a counterexample,
+// then a negative number substituted; expr:c6, after expr:5, the proof that three consecutive whole numbers add up to a
+// multiple of 3, and a claim about four. The classroom lane's expr:c4 (after expr:3) comes before them.
 import type { ChallengeTask } from '../types';
 
 export const EXPR_CHALLENGES: ChallengeTask[] = [
@@ -52,6 +55,43 @@ export const EXPR_CHALLENGES: ChallengeTask[] = [
       { type: 'explain', prompt: 'הסבירו למה כל ריבוע חדש מוסיף $3$ גפרורים.',
         rubric: ['אמרתי שהצלע המשותפת כבר קיימת', 'קישרתי את ה־$3$ למספר שכופל את $n$'],
         sample: 'כל ריבוע חדש נצמד לקודם, והצלע ביניהם כבר שם. לכן צריך רק $3$ גפרורים חדשים, וזה ה־$3$ ב־$3n + 1$. ה־$1$ הוא הצלע הראשונה בקצה.' },
+    ],
+  },
+  {
+    id: 'expr:c5', topic: 'expr', after: 'expr:1', kind: 'claim', title: 'פי שניים זה יותר?', minutes: 5,
+    parts: [
+      { type: 'claim', prompt: 'מתי הטענה נכונה?', claim: '"$2x$ גדול מ־$x$."', verdict: 'sometimes',
+        why: 'כש־$x = 5$: $2x = 10$, וזה יותר מ־$5$. אבל כש־$x = -5$: $2x = -10$, וזה פחות מ־$-5$. וכש־$x = 0$, שניהם $0$.',
+        example: {
+          ask: 'תנו ערך של $x$ שבו $2x$ לא גדול מ־$x$.', slots: [{ name: 'x', label: '$x$' }],
+          domain: 'number', expr: '2*x - x', rel: '<=', value: 0, hint: 'נסו מספר שלילי, או $0$.',
+        } },
+      { type: 'mc', prompt: 'מתי $2x$ גדול מ־$x$?', choices: [
+        { text: 'כש־$x$ חיובי', ok: true, feedback: 'נכון: $2x$ הוא $x$ ועוד $x$. כש־$x$ חיובי מוסיפים מספר חיובי, והתוצאה גדלה.' },
+        { text: 'בכל ערך של $x$', ok: false, feedback: 'כש־$x = -5$: $2x = -10$, וזה פחות מ־$-5$. הוספה של מספר שלילי מקטינה.' },
+        { text: 'כש־$x$ מספר שלם', ok: false, feedback: 'גם $-3$ הוא מספר שלם, ו־$2 \\cdot (-3) = -6$ קטן מ־$-3$. מה שקובע הוא הסימן של $x$.' },
+      ] },
+      { type: 'num', prompt: 'מה הערך של $5 - 2x$ כש־$x = -4$?', answer: 13, check: '5-2*(-4)',
+        solution: ['$2x = 2 \\cdot (-4) = -8$.', '$5 - (-8) = 5 + 8$, כלומר $13$.'] },
+    ],
+  },
+  {
+    id: 'expr:c6', topic: 'expr', after: 'expr:5', kind: 'proof', title: 'שלושה מספרים עוקבים', minutes: 7,
+    parts: [
+      { type: 'order', prompt: 'למה הסכום של שלושה מספרים שלמים עוקבים מתחלק ב־$3$? סדרו את שלבי ההוכחה, מהראשון לאחרון.',
+        steps: [
+          { text: 'נקרא למספר הראשון $n$. שני המספרים שאחריו הם $n + 1$ ו־$n + 2$.' },
+          { text: 'הסכום הוא $n + (n + 1) + (n + 2)$.' },
+          { text: 'מכנסים איברים דומים: $3n + 3$.',
+            reason: { choices: ['$n + n + n = 3n$, ו־$1 + 2 = 3$', 'חוק הפילוג: $3 \\cdot n + 3 \\cdot 1$', 'מציבים $n = 1$'], answer: 0 } },
+          { text: '$3n + 3 = 3(n + 1)$: שלוש פעמים המספר האמצעי.',
+            reason: { choices: ['הוצאת גורם משותף: חוק הפילוג בכיוון ההפוך', 'כינוס איברים דומים', 'מחלקים ב־$3$ רק את $3n$'], answer: 0 } },
+          { text: 'לכן הסכום מתחלק ב־$3$.' },
+        ] },
+      { type: 'num', prompt: 'הסכום של שלושה מספרים עוקבים הוא $219$. מה המספר האמצעי?', answer: 73, check: '219/3',
+        solution: ['הסכום הוא שלוש פעמים המספר האמצעי.', '$219 : 3 = 73$. בדיקה: $72 + 73 + 74 = 219$.'] },
+      { type: 'claim', prompt: 'ומתי הטענה הזאת נכונה?', claim: '"הסכום של ארבעה מספרים שלמים עוקבים מתחלק ב־$4$."', verdict: 'never',
+        why: 'ארבעה מספרים עוקבים הם $n$, $n + 1$, $n + 2$ ו־$n + 3$, והסכום שלהם $4n + 6$. החלק $4n$ מתחלק ב־$4$, אבל $6$ לא: נשארת שארית $2$. למשל $1 + 2 + 3 + 4 = 10$.' },
     ],
   },
 ];

@@ -3,6 +3,7 @@
 // challenge counts for the day like a lesson and never touches mastery.
 import { test, expect } from '@playwright/test';
 import { open, student, saved, item, answer, expectNoSidewaysScroll, expectUsable } from './helpers.js';
+import { CHALLENGE_META } from '../src/learn/challenges/meta.gen.ts';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the challenge screen is checked on the two phones'); });
 
@@ -305,13 +306,17 @@ async function walk(page, id) {
 }
 
 for (const topic of TOPICS) {
-  test(`at 320 px nothing is cut off in ${topic}'s three challenges, at any step`, async ({ page }, info) => {
+  // every task of the topic, PRODUCT2-21's included (the meta lists them in order)
+  const ids = CHALLENGE_META.filter((t) => t.topic === topic).map((t) => t.id);
+  test(`at 320 px nothing is cut off in ${topic}'s challenges, at any step`, async ({ page }, info) => {
     test.skip(info.project.name !== 'phone-small', 'the narrow phone is the one that cuts');
+    test.setTimeout(60_000 * Math.ceil(ids.length / 3));
     await open(page, '#/', student(['ratio', 'pct', 'line', 'pyth', 'stats', 'sys'].includes(topic) ? '8' : '7'));
-    for (const n of [1, 2, 3]) {
-      const steps = await walk(page, `${topic}:c${n}`);
-      expect(steps, `${topic}:c${n} walked`).toBeGreaterThan(2);
-      await nothingCutOff(page, `${topic}:c${n}, the end`);
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+    for (const id of ids) {
+      const steps = await walk(page, id);
+      expect(steps, `${id} walked`).toBeGreaterThan(2);
+      await nothingCutOff(page, `${id}, the end`);
     }
   });
 }

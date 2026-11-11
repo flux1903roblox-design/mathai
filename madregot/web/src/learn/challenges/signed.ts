@@ -1,6 +1,10 @@
 // Challenge tasks of signed numbers (curriculum stage 1, CURRICULUM-6.5): signed:c1, a claim about adding two negative
 // numbers; signed:c2, someone's "two minuses make a plus" where it does not hold; signed:c3, a cold week on the Hermon.
 // Their numbers are checked by the lane's verify/facts-challenges17.mjs and by learn/challenges.test.ts.
+// PRODUCT2-21 (a task after every stair): signed:c6, after signed:2, a claim about the larger of two numbers and its
+// distance from 0; signed:c7, after signed:4, an addition done before a multiplication ('order'), then a chain of
+// division and multiplication; signed:c8, after signed:6, the proof that a − (−b) = a + b, then signed fractions and
+// decimals. The classroom lane's signed:c4 (after signed:5) and signed:c5 (after signed:7) come before them.
 import type { ChallengeTask } from '../types';
 
 export const SIGNED_CHALLENGES: ChallengeTask[] = [
@@ -48,6 +52,60 @@ export const SIGNED_CHALLENGES: ChallengeTask[] = [
         { text: '$1$', ok: false, feedback: '$1$ הוא $3$ מעלות יותר מ־$-2$. ירידה היא למטה בציר: $-2 - 3 = -5$.' },
         { text: '$-1$', ok: false, feedback: 'מ־$-2$ יורדים $3$ מעלות, לא עולים $1$: $-2 - 3 = -5$.' },
       ] },
+    ],
+  },
+  {
+    id: 'signed:c6', topic: 'signed', after: 'signed:2', kind: 'claim', title: 'מי רחוק יותר מאפס?', minutes: 5,
+    parts: [
+      { type: 'claim', prompt: 'מתי הטענה נכונה?', claim: '"מבין שני מספרים, הגדול רחוק יותר מ־$0$."', verdict: 'sometimes',
+        why: 'בין שני מספרים חיוביים זה נכון: $7 > 3$, ו־$7$ רחוק יותר מ־$0$. אבל $-1 > -7$, ו־$-1$ דווקא קרוב יותר ל־$0$. בין שני מספרים שליליים, הגדול הוא הקרוב ל־$0$.',
+        // a counterexample: a > b, and a is not farther from 0 than b (|a| ≤ |b|; whole numbers, so ≤ is < 0.5 more)
+        example: {
+          ask: 'תנו שני מספרים שלמים שבהם הגדול לא רחוק יותר מ־$0$.', slots: [{ name: 'a', label: 'המספר הגדול' }, { name: 'b', label: 'המספר הקטן' }],
+          domain: 'int', expr: 'min(a - b, abs(b) - abs(a) + 0.5)', rel: '>', value: 0, hint: 'נסו שני מספרים שליליים.',
+        } },
+      { type: 'mc', prompt: 'מה הסדר של $-3, 2, -8, 0$, מהקטן לגדול?', choices: [
+        { text: '$-8, -3, 0, 2$', ok: true, feedback: 'נכון: על הציר $-8$ הכי שמאלה, אחריו $-3$, ואחר כך $0$ ו־$2$.' },
+        { text: '$0, 2, -3, -8$', ok: false, feedback: 'כאן הסדר הוא לפי המרחק מ־$0$. אבל כל מספר שלילי קטן מ־$0$: $-8 < -3 < 0 < 2$.' },
+        { text: '$-3, -8, 0, 2$', ok: false, feedback: '$-8$ שמאלה מ־$-3$ על הציר, ולכן הוא הקטן מביניהם: $-8 < -3$.' },
+      ] },
+      { type: 'num', prompt: 'כמה מספרים שלמים גדולים מ־$-4$ וקטנים מ־$1$?', answer: 4, check: '1-(-4)-1',
+        solution: ['המספרים השלמים שבין $-4$ ל־$1$ הם $-3, -2, -1, 0$.', 'יש ארבעה מספרים כאלה.'] },
+    ],
+  },
+  {
+    id: 'signed:c7', topic: 'signed', after: 'signed:4', kind: 'error', title: 'מה מחשבים קודם?', minutes: 6, misc: 'order',
+    parts: [
+      { type: 'error', prompt: 'כך חישב עידו.',
+        lines: ['צריך לחשב $-2 + 6 \\cdot (-3)$.', '$= 4 \\cdot (-3)$', '$= -12$'], wrong: 1,
+        why: 'כפל בא לפני חיבור. קודם $6 \\cdot (-3) = -18$, ורק אחר כך $-2 + (-18) = -20$. עידו חיבר קודם, משמאל לימין.',
+        lineWhy: { 0: 'זה רק התרגיל. הטעות מתחילה אחריו.', 2: '$4 \\cdot (-3) = -12$ נכון. הטעות בשורה שלפניה.' },
+        fix: { prompt: 'כמה זה $-2 + 6 \\cdot (-3)$?', answer: -20, check: '-2+6*(-3)' } },
+      { type: 'mc', prompt: 'בתרגיל $10 - 12 : (-4) \\cdot 2$, מה מחשבים ראשון?', choices: [
+        { text: '$12 : (-4)$', ok: true, feedback: 'נכון: כפל וחילוק לפני חיסור. ובין חילוק לכפל הולכים לפי הסדר, משמאל לימין.' },
+        { text: '$10 - 12$', ok: false, feedback: 'חיסור בא אחרי כפל וחילוק. קודם $12 : (-4)$, אחר כך כופלים ב־$2$, ורק בסוף מחסרים.' },
+        { text: '$(-4) \\cdot 2$', ok: false, feedback: 'כפל וחילוק באותה דרגה, ולכן הולכים לפי הסדר, משמאל לימין: קודם $12 : (-4)$.' },
+      ] },
+      { type: 'num', prompt: 'כמה זה $10 - 12 : (-4) \\cdot 2$?', answer: 16, check: '10-12/(-4)*2',
+        solution: ['$12 : (-4) = -3$, ואחר כך $-3 \\cdot 2 = -6$.', '$10 - (-6) = 10 + 6$, כלומר $16$.'] },
+    ],
+  },
+  {
+    id: 'signed:c8', topic: 'signed', after: 'signed:6', kind: 'proof', title: 'למה חיסור של מספר שלילי הוא חיבור?', minutes: 7,
+    parts: [
+      { type: 'order', prompt: 'למה $a - (-b) = a + b$? סדרו את שלבי ההוכחה, מהראשון לאחרון.',
+        steps: [
+          { text: '$a - (-b)$ הוא מה שמוסיפים ל־$-b$ כדי להגיע ל־$a$.',
+            reason: { choices: ['חיסור הוא הפעולה ההפוכה לחיבור', 'חיסור הוא כפל ב־$-1$', 'שני מינוסים הם פלוס'], answer: 0 } },
+          { text: 'מ־$-b$ מוסיפים $b$, ומגיעים ל־$0$.',
+            reason: { choices: ['מספר ועוד הנגדי שלו הם $0$', 'מספר ועוד $0$ הוא אותו מספר', 'מינוס ועוד פלוס הם מינוס'], answer: 0 } },
+          { text: 'מ־$0$ מוסיפים עוד $a$, ומגיעים ל־$a$.' },
+          { text: 'בסך הכול הוספנו $b + a$. לכן $a - (-b) = a + b$.' },
+        ] },
+      { type: 'num', prompt: 'כמה זה $-\\frac{3}{4} - \\left(-2\\frac{1}{2}\\right)$? אפשר לכתוב שבר או מספר עשרוני.', answer: 1.75, check: '-3/4-(-(2+1/2))',
+        solution: ['מחסרים מספר שלילי, ולכן מוסיפים את הנגדי שלו: $-\\frac{3}{4} + 2\\frac{1}{2}$.', '$2\\frac{2}{4} - \\frac{3}{4} = 1\\frac{3}{4}$, כלומר $1.75$.'] },
+      { type: 'num', prompt: 'וכמה זה $-1.2 - (-0.5)$?', answer: -0.7, check: '-1.2-(-0.5)',
+        solution: ['מוסיפים את הנגדי: $-1.2 + 0.5$.', 'מ־$-1.2$ זזים $0.5$ ימינה על הציר, ומגיעים ל־$-0.7$.'] },
     ],
   },
 ];

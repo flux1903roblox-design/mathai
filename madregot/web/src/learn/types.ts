@@ -326,6 +326,12 @@ export interface ChallengeTask {
   misc?: string;
 }
 /**
+ * What every screen knows about a task before its topic's tasks have loaded (learn/challenges/meta.gen.ts, written by
+ * scripts/gen-challenge-meta.mjs): the plan, the stair page, the check's end and the medals read only these. The
+ * task's screen loads the whole task (learn/challenges/index.ts ensureChallenge).
+ */
+export type ChallengeMeta = Pick<ChallengeTask, 'id' | 'topic' | 'after' | 'kind' | 'title' | 'minutes' | 'misc'>;
+/**
  * One part of a challenge.
  *   num      a typed number, checked against `answer` (`check` is an expression for the same quantity, tested)
  *   mc       one right choice among several, each with its own feedback

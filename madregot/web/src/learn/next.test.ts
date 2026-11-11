@@ -28,12 +28,15 @@ describe('planNext: the bands, highest first, for each learner', () => {
   it.each([
     ['newSeventh', [['new', 'signed:1']]],
     ['newSeventhSeptember', [['new', 'angles:1']]],
-    // signed:1 is mastered, so its first challenge waits at the bottom (not strong today)
-    ['midSigned3', [['continue', 'signed:3'], ['new', 'signed:4'], ['challenge', 'signed:1']]],
+    // signed:1 and signed:2 are mastered, so a challenge waits at the bottom (not strong today): signed:2's, the stair
+    // mastered more recently (PRODUCT2-21 gave it signed:c6)
+    ['midSigned3', [['continue', 'signed:3'], ['new', 'signed:4'], ['challenge', 'signed:2']]],
     ['misconception', [['repair', 'signed:1'], ['continue', 'signed:1'], ['new', 'signed:2']]],
-    ['dueReview', [['review', 'coord:1'], ['new', 'signed:3'], ['challenge', 'signed:1']]],
-    // today: the lesson of signed:1 and the check of signed:2; signed:1's practice and check come on the next days
-    ['examIn3Days', [['exam', 'signed:1'], ['exam', 'signed:2'], ['review', 'coord:1'], ['new', 'coord:2']]],
+    // coord:1, mastered last, has its own task now (coord:c4, PRODUCT2-21)
+    ['dueReview', [['review', 'coord:1'], ['new', 'signed:3'], ['challenge', 'coord:1']]],
+    // today: the lesson of signed:1 and the check of signed:2; signed:1's practice and check come on the next days.
+    // coord:1's task (coord:c4) waits at the bottom
+    ['examIn3Days', [['exam', 'signed:1'], ['exam', 'signed:2'], ['review', 'coord:1'], ['new', 'coord:2'], ['challenge', 'coord:1']]],
     ['examUndiagnosed', [['exam', ''], ['new', 'signed:1']]],
     ['examOnShabbat', [['new', 'signed:1']]],
     // ratio and scale is the first unit of ח׳ (September): taught by now, it is the first new stair, before line:2
@@ -276,7 +279,11 @@ describe('planNext: the challenge band', () => {
     const solve = (ids: string[]) => { c.learn.challenges = Object.fromEntries(ids.map((id) => [id, { startedAt: NOW, doneAt: NOW, firstTry: 1, parts: 2 }])); };
     solve(['signed:c1']);
     expect(planNext(c).top?.challengeId).toBe('signed:c2');
-    solve(['signed:c1', 'signed:c2', 'signed:c3', 'coord:c1', 'coord:c2', 'coord:c3', 'angles:c2']);
+    // in school order, the tasks of signed:2 (signed:c6, PRODUCT2-21) come before signed:3's
+    solve(['signed:c1', 'signed:c2']);
+    expect(planNext(c).top?.challengeId).toBe('signed:c6');
+    // every task of a stair before angles:4 solved: angles:4's own, angles:c1
+    solve(CHALLENGES.filter((t) => ALL_SKILLS.indexOf(t.after) < ALL_SKILLS.indexOf('angles:4')).map((t) => t.id));
     expect(planNext(c).top?.challengeId).toBe('angles:c1');
     // the most recently mastered stair's task comes first: a check passed again on angles:4 yesterday
     c.learn.skills['angles:4'] = masteredRec(ago(1), 20, 0);

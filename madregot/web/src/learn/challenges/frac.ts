@@ -1,6 +1,8 @@
 // Challenge tasks of fractions (curriculum stage 1, CURRICULUM-6.5): frac:c1, a claim about adding the same number to the
 // numerator and the denominator, judged with a counterexample; frac:c2, a third and a quarter added as 2/7; frac:c3, a
 // recipe for four cooked for six. Checked by learn/challenges.test.ts and verify/facts-challenges17.mjs.
+// PRODUCT2-21 (a task after every stair): frac:c4, after frac:2, the proof of comparing by cross multiplication (expand
+// both fractions to the denominator b · d), then 5/8 against 7/11.
 import type { ChallengeTask } from '../types';
 
 export const FRAC_CHALLENGES: ChallengeTask[] = [
@@ -51,6 +53,29 @@ export const FRAC_CHALLENGES: ChallengeTask[] = [
       { type: 'explain', prompt: 'יש שני אנשים יותר. למה לא מוסיפים פשוט חצי כוס סוכר?',
         rubric: ['אמרתי שכל אדם מקבל אותו חלק מהסוכר', 'חישבתי כמה סוכר יש לאדם אחד, או כמה זה פי $1\\frac{1}{2}$'],
         sample: 'לכל אדם יש $\\frac{3}{4} : 4 = \\frac{3}{16}$ כוס. לשני אנשים נוספים צריך $\\frac{6}{16} = \\frac{3}{8}$ כוס, ולא חצי כוס. ולכן $\\frac{3}{4} + \\frac{3}{8} = \\frac{9}{8}$.' },
+    ],
+  },
+  {
+    id: 'frac:c4', topic: 'frac', after: 'frac:2', kind: 'proof', title: 'כפל בהצלבה: למה זה עובד?', minutes: 7,
+    parts: [
+      { type: 'order', prompt: 'משווים שני שברים חיוביים, $\\frac{a}{b}$ ו־$\\frac{c}{d}$. סדרו את שלבי ההוכחה, מהראשון לאחרון.',
+        steps: [
+          { text: 'מרחיבים את $\\frac{a}{b}$ ב־$d$: $\\frac{a}{b} = \\frac{a \\cdot d}{b \\cdot d}$.',
+            reason: { choices: ['כופלים את המונה ואת המכנה באותו מספר, והשבר לא משתנה', 'מוסיפים למונה ולמכנה אותו מספר, והשבר לא משתנה', 'כופלים רק את המכנה, והשבר לא משתנה'], answer: 0 } },
+          { text: 'מרחיבים את $\\frac{c}{d}$ ב־$b$: $\\frac{c}{d} = \\frac{c \\cdot b}{d \\cdot b}$.' },
+          { text: 'עכשיו לשני השברים אותו מכנה, $b \\cdot d$. לכן משווים רק את המונים: $a \\cdot d$ מול $c \\cdot b$.',
+            reason: { choices: ['באותו מכנה החלקים באותו גודל, ומי שיש לו יותר חלקים גדול יותר', 'שבר עם מכנה גדול יותר הוא גדול יותר', 'שבר עם מונה גדול יותר הוא גדול יותר, גם במכנים שונים'], answer: 0 } },
+          { text: 'לכן $\\frac{a}{b} > \\frac{c}{d}$ בדיוק כש־$a \\cdot d > c \\cdot b$.' },
+        ],
+        // the two fractions can be expanded in either order: the proof holds both ways
+        free: [[0, 1]] },
+      { type: 'num', prompt: 'משווים את $\\frac{5}{8}$ ואת $\\frac{7}{11}$ במכנה $88$. מה המונה של $\\frac{5}{8}$ אחרי ההרחבה?', answer: 55, check: '5/8*88',
+        solution: ['מרחיבים את $\\frac{5}{8}$ ב־$11$: $\\frac{5 \\cdot 11}{8 \\cdot 11} = \\frac{55}{88}$.', 'ואת $\\frac{7}{11}$ ב־$8$: $\\frac{7 \\cdot 8}{11 \\cdot 8} = \\frac{56}{88}$.'] },
+      { type: 'mc', prompt: 'איזה שבר גדול יותר?', choices: [
+        { text: '$\\frac{7}{11}$', ok: true, feedback: 'נכון: $\\frac{56}{88} > \\frac{55}{88}$. ובכפל בהצלבה: $7 \\cdot 8 = 56$, ו־$5 \\cdot 11 = 55$.' },
+        { text: '$\\frac{5}{8}$', ok: false, feedback: '$\\frac{5}{8} = \\frac{55}{88}$, ו־$\\frac{7}{11} = \\frac{56}{88}$. אז $\\frac{7}{11}$ גדול יותר, ב־$\\frac{1}{88}$ בלבד.' },
+        { text: 'הם שווים', ok: false, feedback: 'הם קרובים מאוד, אבל לא שווים: $\\frac{55}{88}$ מול $\\frac{56}{88}$.' },
+      ] },
     ],
   },
 ];

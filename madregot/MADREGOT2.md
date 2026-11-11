@@ -27,7 +27,9 @@ web/src/learn/                 the learning model: pure TypeScript, no React, al
   next.ts                      planNext: the one ranked "what next" every surface reads (home, mission, Rescue)
   programme.ts                 the Ministry's programme (shared/programme.js) and its coverage (shared/coverage.js),
                                bound to the stairs that exist: the /programme page and PROGRAMME.md read it
-  challenges/                  the challenge track: grade.ts (grading by code) and one file of tasks per topic
+  challenges/                  the challenge track: grade.ts (grading by code), one file of tasks per topic (loaded on
+                               demand), and meta.gen.ts, what the first download knows about each task (written by
+                               scripts/gen-challenge-meta.mjs)
   mission.ts                   the daily ~5-minute mission, made from planNext's items
   examRescue.ts                Exam Rescue: diagnostic, standing per stair, day-by-day plan, message
   tutor.ts                     the tutor without a model: six intents answered from content
@@ -91,9 +93,11 @@ Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm 
   "יסודות" with no unit number. A missed fact offers `/facts`, a short practice that records nothing on any stair. The
   student can open the unit from Topics at any time and hide it from the map (`setFloor({ on: false })`) without losing
   the evidence.
-- **The challenge track** (`learn/challenges/`): three optional tasks per topic, the floor included: a claim (always,
-  sometimes or never, with a counterexample typed into named slots when one is asked), a proof to order with a reason
-  per step or an error to find and fix, and a real-world task. Code grades every part: a counterexample is evaluated
+- **The challenge track** (`learn/challenges/`): optional tasks for a strong student. Every bridge and ז׳ stair has at
+  least one task after it (PRODUCT2-21), and every topic has a claim (always, sometimes or never, with a counterexample
+  typed into named slots when one is asked), an error to find and fix, a proof to order with a reason per step, a
+  real-world task and a task of several steps; the ח׳ topics have stage 1's three tasks each. A task's parts load with
+  its topic's file; the plan and the stair page read `meta.gen.ts` only. Code grades every part: a counterexample is evaluated
   with `learn/expr.ts` in its domain, a proof is checked step by step (steps that may swap are a `free` group), typed
   numbers are compared exactly. Two tries per part, then the solution. A task opens when its stair is mastered. It
   gives XP once and counts for the day like a lesson, and never touches `learn.skills` or a check. An explain part is

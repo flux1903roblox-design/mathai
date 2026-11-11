@@ -1,6 +1,9 @@
 // Challenge tasks of the coordinate plane (curriculum stage 1, CURRICULUM-6.5): coord:c1, a claim about swapping x and y;
 // coord:c2, a rectangle's width taken without the sign; coord:c3, food trucks on a schoolyard grid, distances along the
 // lines. Their numbers are checked by the lane's verify/facts-challenges17.mjs and by learn/challenges.test.ts.
+// PRODUCT2-21 (a task after every stair): coord:c4, after coord:1, a point written with x and y swapped ('swap'), and
+// when swapping changes nothing; coord:c5, after coord:5, the proof that the missing vertex takes x from one neighbour
+// and y from the other, then that vertex and the rectangle's area.
 import type { ChallengeTask, FigSpec } from '../types';
 
 /** The rectangle ABCD of coord:c2 on the grid. */
@@ -12,6 +15,13 @@ const RECT_FIG: FigSpec = {
 const TRUCKS_FIG: FigSpec = {
   type: 'coord', range: 5,
   points: [{ x: -3, y: 2, label: 'A' }, { x: 4, y: 2, label: 'B' }, { x: 4, y: -3, label: 'C' }],
+};
+/** coord:c4: the point P(−3, −4), three squares left of the y-axis and four below the x-axis. */
+const P_FIG: FigSpec = { type: 'coord', range: 5, points: [{ x: -3, y: -4, label: 'P' }] };
+/** coord:c5: three vertices of the rectangle ABCD, A(−3, 2), B(4, 2) and D(−3, −4); C(4, −4) is the one to find. */
+const ABD_FIG: FigSpec = {
+  type: 'coord', range: 5,
+  points: [{ x: -3, y: 2, label: 'A' }, { x: 4, y: 2, label: 'B' }, { x: -3, y: -4, label: 'D' }],
 };
 
 export const COORD_CHALLENGES: ChallengeTask[] = [
@@ -61,6 +71,45 @@ export const COORD_CHALLENGES: ChallengeTask[] = [
         { text: 'משאית הפלאפל', ok: false, feedback: 'לפלאפל הולכים $4 + 2 = 6$ מטר. לגלידה רק $3 + 2 = 5$.' },
         { text: 'משאית המיץ', ok: false, feedback: 'למיץ הולכים $4 + 3 = 7$ מטר, הדרך הארוכה מהשלוש. לגלידה רק $5$.' },
       ] },
+    ],
+  },
+  {
+    id: 'coord:c4', topic: 'coord', after: 'coord:1', kind: 'error', title: 'הנקודה $P$ ברשת', minutes: 5, misc: 'swap', fig: P_FIG,
+    parts: [
+      { type: 'error', prompt: 'כך כתב ליאור את השיעורים של הנקודה $P$ שבשרטוט.',
+        lines: ['$P$ נמצאת $3$ משבצות משמאל לציר ה־$y$.', '$P$ נמצאת $4$ משבצות מתחת לציר ה־$x$.', 'לכן $P = (-4, -3)$.'], wrong: 2,
+        why: 'בזוג סדור כותבים קודם את $x$, ימינה או שמאלה, ואחר כך את $y$, למעלה או למטה. $3$ שמאלה הוא $x = -3$, ו־$4$ למטה הוא $y = -4$. לכן $P = (-3, -4)$.',
+        lineWhy: { 0: 'בשרטוט $P$ באמת שלוש משבצות משמאל לציר ה־$y$.', 1: 'בשרטוט $P$ באמת ארבע משבצות מתחת לציר ה־$x$.' },
+        fix: { prompt: 'מה שיעור ה־$x$ של $P$?', answer: -3, check: '-3' } },
+      { type: 'mc', prompt: 'האם $(-4, -3)$ ו־$(-3, -4)$ הן אותה נקודה?', choices: [
+        { text: 'לא, הן במקומות שונים ברשת', ok: true, feedback: 'נכון: אל $(-4, -3)$ זזים $4$ שמאלה ו־$3$ למטה, ואל $(-3, -4)$ זזים $3$ שמאלה ו־$4$ למטה. הסדר בזוג קובע את המקום.' },
+        { text: 'כן, יש בהן אותם מספרים', ok: false, feedback: 'יש בהן אותם מספרים, אבל בסדר אחר. המספר הראשון הוא $x$, ולכן הן במקומות שונים.' },
+        { text: 'כן, כי שתיהן משמאל ולמטה', ok: false, feedback: 'שתיהן משמאל לציר ה־$y$ ומתחת לציר ה־$x$, אבל לא באותו מקום: $3$ שמאלה ו־$4$ למטה זה לא $4$ שמאלה ו־$3$ למטה.' },
+      ] },
+      { type: 'num', prompt: 'בנקודה $(-3, y)$ מחליפים בין $x$ ל־$y$, ומקבלים את אותה נקודה. מה $y$?', answer: -3, check: '-3',
+        solution: ['אחרי ההחלפה הנקודה היא $(y, -3)$.', 'זו אותה נקודה רק אם $y = -3$. הנקודה היא $(-3, -3)$.'] },
+    ],
+  },
+  {
+    id: 'coord:c5', topic: 'coord', after: 'coord:5', kind: 'proof', title: 'הקודקוד הרביעי', minutes: 7, fig: ABD_FIG,
+    parts: [
+      { type: 'order', prompt: 'במלבן $ABCD$ הצלעות מקבילות לצירים, ו־$C$ מול $A$. למה $C = (x_B, y_D)$? סדרו את שלבי ההוכחה.',
+        steps: [
+          { text: '$C$ שכן של $B$ ושל $D$: גם $BC$ וגם $DC$ הן צלעות של המלבן.' },
+          { text: '$BC$ מקבילה לציר ה־$y$, ולכן ל־$C$ אותו $x$ כמו ל־$B$.',
+            reason: { choices: ['על קו שמקביל לציר ה־$y$, לכל הנקודות אותו $x$', 'על קו שמקביל לציר ה־$y$, לכל הנקודות אותו $y$', 'לקודקודים שמול זה את זה יש אותו $x$'], answer: 0 } },
+          { text: '$DC$ מקבילה לציר ה־$x$, ולכן ל־$C$ אותו $y$ כמו ל־$D$.',
+            reason: { choices: ['על קו שמקביל לציר ה־$x$, לכל הנקודות אותו $y$', 'על קו שמקביל לציר ה־$x$, לכל הנקודות אותו $x$', 'לקודקודים שמול זה את זה יש אותו $y$'], answer: 0 } },
+          { text: 'לכן $C = (x_B, y_D)$: את $x$ לוקחים משכן אחד, ואת $y$ מהשכן השני.' },
+        ],
+        // x from B and y from D can be found in either order: the proof holds both ways
+        free: [[1, 2]] },
+      { type: 'num', prompt: 'בשרטוט $A(-3, 2)$, $B(4, 2)$ ו־$D(-3, -4)$. מה שיעור ה־$x$ של $C$?', answer: 4, check: '4',
+        solution: ['$BC$ מקבילה לציר ה־$y$, ולכן ל־$C$ אותו $x$ כמו ל־$B$.', 'שיעור ה־$x$ של $C$ הוא $4$.'] },
+      { type: 'num', prompt: 'ומה שיעור ה־$y$ של $C$?', answer: -4, check: '-4',
+        solution: ['$DC$ מקבילה לציר ה־$x$, ולכן ל־$C$ אותו $y$ כמו ל־$D$.', 'שיעור ה־$y$ של $C$ הוא $-4$, ולכן $C = (4, -4)$.'] },
+      { type: 'num', prompt: 'מה השטח של המלבן $ABCD$?', answer: 42, check: '(4-(-3))*(2-(-4))', unit: 'יחידות שטח',
+        solution: ['רוחב: מ־$x = -3$ עד $x = 4$, כלומר $4 - (-3) = 7$. גובה: מ־$y = -4$ עד $y = 2$, כלומר $2 - (-4) = 6$.', 'שטח: $7 \\cdot 6 = 42$ יחידות שטח.'] },
     ],
   },
 ];
