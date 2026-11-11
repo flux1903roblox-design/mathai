@@ -15,7 +15,11 @@ for (const grade of ['7', '8']) {
     const n = await heads.count();
     expect(n, 'the grade has several units').toBeGreaterThan(3);
     const colours = await bg(heads);
-    expect(new Set(colours).size, `banner colours: ${colours.join(' | ')}`).toBe(n);
+    // a unit's colour is never its neighbour's (content.test.js checks the same on the content). There are five colour
+    // families: grade 7's five units have one each, and grade 8, six units since the curriculum lane added ratio and
+    // pct, uses one twice, never side by side (pct and sys are both petrol).
+    for (let i = 1; i < n; i += 1) expect(colours[i], `banners ${i} and ${i + 1}: ${colours.join(' | ')}`).not.toBe(colours[i - 1]);
+    expect(new Set(colours).size, `banner colours: ${colours.join(' | ')}`).toBe(Math.min(n, 5));
     for (let i = 0; i < n; i += 1) await expect(heads.nth(i).locator('.emblem svg'), `banner ${i + 1} has its emblem`).toHaveCount(1);
     // the emblem is decoration: the banner's name is the unit's name
     await expect(heads.first().locator('.emblem')).toHaveAttribute('aria-hidden', 'true');
