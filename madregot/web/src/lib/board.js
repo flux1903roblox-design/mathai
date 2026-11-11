@@ -3,7 +3,7 @@
 // exam marked wrong); it clears after GAP_CLEAR right first-try answers at its level.
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { unitNodes, doneCount, reachedUpTo } from './path.js';
-import { PARTS } from './lesson.js';
+import { PARTS } from './lessonRules.js';
 
 export const GAP_CLEAR = 3;
 

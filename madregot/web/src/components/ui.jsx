@@ -1,11 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useReducedMotion } from 'motion/react';
-import { Dialog } from '@base-ui/react/dialog';
-import { RadioGroup } from '@base-ui/react/radio-group';
-import { Radio } from '@base-ui/react/radio';
-import { Progress as BaseProgress } from '@base-ui/react/progress';
-import { Delete, X, ArrowRightLeft, ArrowLeft, Check } from 'lucide-react';
+import { Delete, ArrowRightLeft, ArrowLeft, Check } from 'lucide-react';
 import { MathText } from './MathText.jsx';
 
 /** The chapter mark: a solid circle in the topic's colour with its number. */
@@ -95,85 +91,24 @@ export function Button({ variant = 'primary', className, children, state = 'idle
 }
 
 /**
- * A segmented choice (STUDENT-15 B3): Base UI's RadioGroup drawing the .segmented / .seg buttons, so the look does not
- * change. The group is one Tab stop; the arrow keys move and choose (right to left: App.jsx sets the direction), Space
- * chooses. `options` is [[value, label], …] or [{ value, label, disabled }, …]. While `busy` nothing is chosen (the
- * focus still moves, and every option says it is unavailable).
- */
-export function Segmented({ value, onValueChange, options, labelledBy, describedBy, label, className, busy = false }) {
-  return (
-    <RadioGroup
-      value={value} className={clsx('segmented', className)} aria-labelledby={labelledBy} aria-describedby={describedBy} aria-label={label}
-      onValueChange={(v, details) => { if (busy) { details.cancel(); return; } onValueChange?.(v); }}
-    >
-      {options.map((o) => {
-        const { value: v, label: text, disabled } = Array.isArray(o) ? { value: o[0], label: o[1] } : o;
-        return (
-          <Radio.Root key={String(v)} value={v} disabled={disabled} nativeButton render={<button type="button" />}
-            className={(st) => clsx('seg', st.checked && 'on')} aria-disabled={busy || undefined}>
-            {text}
-          </Radio.Root>
-        );
-      })}
-    </RadioGroup>
-  );
-}
-
-/**
- * Base UI's composite skips items marked aria-disabled when the arrow keys move, so a locked choice could never be
- * reached from the keyboard. While an arrow key is handled, the locked choices of the group lose the attribute (and get
- * it back right after), so they are focusable and still announced as unavailable.
- */
-function reachLocked(e) {
-  if (!e.key.startsWith('Arrow')) return;
-  const locked = [...e.currentTarget.querySelectorAll('[data-locked][aria-disabled="true"]')];
-  locked.forEach((el) => el.removeAttribute('aria-disabled'));
-  setTimeout(() => locked.forEach((el) => el.setAttribute('aria-disabled', 'true')), 0);
-}
-
-/**
- * Choice cards (STUDENT-15 B4): Base UI's RadioGroup for a set of tap cards (מדי's wardrobe). One Tab stop, arrows in
- * reading order. A value in `locked` is never chosen: moving onto it with the arrows only focuses it, and the card's own
- * `onLocked` says how it opens.
- */
-export function Choices({ value, onValueChange, locked = [], labelledBy, className, children }) {
-  return (
-    <RadioGroup
-      value={value} aria-labelledby={labelledBy} className={className} onKeyDownCapture={reachLocked}
-      onValueChange={(v, details) => { if (locked.includes(v)) { details.cancel(); return; } onValueChange?.(v); }}
-    >
-      {children}
-    </RadioGroup>
-  );
-}
-
-/** One card in Choices. A locked card stays focusable, is announced as unavailable, and opens `onLocked` (tap, Enter, Space). */
-export function Choice({ value, locked = false, onLocked, describedBy, className, children }) {
-  return (
-    <Radio.Root
-      value={value} data-value={value} className={className} data-locked={locked || undefined} aria-disabled={locked || undefined}
-      aria-describedby={describedBy}
-      // a locked card opens its reason (Base UI's own handler is skipped, so it is never chosen)
-      onClick={locked ? (e) => { e.preventBaseUIHandler?.(); onLocked?.(value); } : undefined}
-      onKeyDown={locked ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLocked?.(value); } } : undefined}
-    >
-      {children}
-    </Radio.Root>
-  );
-}
-
-/** The check inside a chosen Choice (Base UI shows it only on the chosen one). */
-export const ChoiceMark = Radio.Indicator;
-
-/**
- * A progress bar (STUDENT-15 B8) on Base UI's Progress, drawn with the existing .bar track and the screen's own fill
- * class: role=progressbar with its value, and `valueText` as what a screen reader says.
+ * A progress bar (STUDENT-15 B8), drawn with the existing .bar track and the screen's own fill class: role=progressbar
+ * with its value, and `valueText` as what a screen reader says. The same elements, attributes and inline style as Base
+ * UI's Progress gave it (the root, the track and the indicator, with data-progressing or data-complete), written here so
+ * the first screen's download carries no Base UI (COUNCIL2-14); ui.test.jsx pins the markup.
  */
 export function Progress({ value, max = 100, labelledBy, valueText, className, trackClassName, fillClassName }) {
+  // as Base UI computes them: the value clamped to 0..max, its share of max in percent (unrounded) for the width, and
+  // that share written as a percent for a screen reader when no `valueText` is given
+  const now = Math.min(Math.max(value, 0), max);
+  const percent = Math.min(Math.max(max > 0 ? (value * 100) / max : 0, 0), 100);
+  const state = now === max ? { 'data-complete': '' } : { 'data-progressing': '' };
+  const text = valueText || new Intl.NumberFormat(undefined, { style: 'percent' }).format(percent / 100);
   return (
-    <BaseProgress.Root className={className} value={value} max={max} aria-labelledby={labelledBy} getAriaValueText={valueText ? () => valueText : undefined}>
-      <BaseProgress.Track className={clsx('bar', trackClassName)}><BaseProgress.Indicator className={fillClassName} /></BaseProgress.Track>
-    </BaseProgress.Root>
+    <div {...state} aria-labelledby={labelledBy} aria-valuemax={max} aria-valuemin={0} aria-valuenow={now} aria-valuetext={text} role="progressbar" className={className}>
+      <div {...state} className={clsx('bar', trackClassName)}>
+        <div {...state} style={{ insetInlineStart: 0, height: 'inherit', width: `${percent}%` }} className={fillClassName} />
+      </div>
+    </div>
   );
 }
 
@@ -237,25 +172,20 @@ export function Thinking({ states: raw }) {
 /**
  * Bottom sheet built on Base UI's dialog (focus trap, escape, scroll lock). `dismissible={false}`: a tap outside does not
  * close it (Escape and the close button still do).
+ *
+ * The dialog itself is its own small file, fetched the first time a sheet opens (COUNCIL2-14: Base UI's dialog is not
+ * part of the first download; App.jsx fetches it ahead once the first screen is up, so a sheet still opens at once).
+ * Once it has opened, a sheet stays mounted, so it closes with its animation.
  */
-export function Sheet({ open, onOpenChange, title, children, footer, wide, className, dismissible = true }) {
-  return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} disablePointerDismissal={!dismissible}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="sheet-backdrop" />
-        <Dialog.Popup className={clsx('sheet', wide && 'wide', className)} dir="rtl" data-region="feedback">
-          <header className="sheet-head">
-            <Dialog.Title className="sheet-title">{title}</Dialog.Title>
-            <Dialog.Close className="icon-btn" aria-label="סגירה"><X size={22} aria-hidden="true" /></Dialog.Close>
-          </header>
-          {/* a region the keyboard can reach and scroll, even when it holds only text (axe: scrollable-region-focusable) */}
-          <div className="sheet-body" tabIndex={0} role="region" aria-label={typeof title === 'string' ? title : undefined}>{children}</div>
-          {footer && <div className="sheet-foot">{footer}</div>}
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
-  );
+export function Sheet(props) {
+  const [ever, setEver] = useState(!!props.open);
+  if (props.open && !ever) setEver(true);
+  if (!ever) return null;
+  return <Suspense fallback={null}><SheetDialog {...props} /></Suspense>;
 }
+const SheetDialog = lazy(() => import('./SheetDialog.jsx'));
+/** Fetch the sheet's dialog ahead (App.jsx, when the first screen is idle). */
+export const preloadSheet = () => import('./SheetDialog.jsx');
 
 /** Replays the shake (transitions.dev #12) whenever `trigger` changes. */
 export function useShake(trigger) {

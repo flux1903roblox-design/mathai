@@ -17,6 +17,9 @@ import {
 } from './manip.js';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
+import { loadAllGens } from './index.js';
+// the exercise generators load per topic (COUNCIL2-14); this file makes questions while its tests are collected
+await loadAllGens();
 
 // Draw interactive items from their levels until each kind has been seen.
 function manipItems(topic, level, n = 400) {

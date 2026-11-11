@@ -8,9 +8,12 @@
 // - loadTopic(topic) brings a topic's journeys and diagnostic models (one dynamic import per topic, so the build makes
 //   one file per topic); contentOf(skill) reads what has loaded, and is null until then. Screens that show the
 //   teaching wait for it with useStairContent (learn/useStairContent.js); a lesson, a check, the placement test and
-//   Exam Rescue wait for ensureTopics before they make a question.
+//   Exam Rescue wait for ensureTopics before they make a question. ensureTopics also loads the topics' exercise
+//   generators (content/index.js loadGens, COUNCIL2-14), which are not part of the first download either.
 import type { StairContent, StairMeta, SkillId, TopicId } from '../types';
 import { META, NEW_CATS } from './meta.gen';
+// the topics' exercise generators load per topic too (content/index.js, COUNCIL2-14): ensureTopics waits for both
+import { loadGens, gensReady } from '@/content/index.js';
 
 export { META, NEW_CATS };
 
@@ -79,11 +82,12 @@ const waiting = new Map<string, Marked>();
  */
 export function ensureTopics(ids: (SkillId | TopicId)[]): Promise<void> {
   const topics = topicsOf(ids);
-  if (topics.every((t) => loaded.has(t))) return READY;
+  if (topics.every((t) => loaded.has(t) && gensReady(t))) return READY;
   const key = topics.join(',');
   let p = waiting.get(key);
   if (!p) {
-    const q: Marked = Promise.all(topics.map(loadTopic)).then(() => undefined);
+    // a topic's teaching and its exercise generators (a lesson's first question needs both)
+    const q: Marked = Promise.all(topics.flatMap((t) => [loadTopic(t), loadGens(t)])).then(() => undefined);
     q.status = 'pending';
     q.then(
       () => { q.status = 'fulfilled'; q.value = undefined; waiting.delete(key); },

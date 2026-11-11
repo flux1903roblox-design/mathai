@@ -13,6 +13,8 @@
 // compare with (no git, or a clone of depth 1) it warns, and fails when CI is set: CI checks out two commits
 // (.github/workflows/ci.yml, fetch-depth: 2).
 //
+// And neverInBoot (COUNCIL2-14): text no boot file may hold (the tutor's prompt, "You are the maths tutor").
+//
 // And the student lane's rule (STUDENT-15): the modules in budget.json's lazyOnly (the wardrobe, the Sunday recap, מדי's
 // accessories, the reminder code, and the libraries kept off student screens) must load on demand only. None may be in
 // a boot file: the entry script or anything it modulepreloads, which is every chunk it imports statically. A name
@@ -94,6 +96,20 @@ export function lazyProblems(dir, m, names = []) {
     .map((l) => `${l.name} must load on demand, but ${l.module} is in the first load (${l.chunk})`);
 }
 
+/**
+ * The neverInBoot rule (COUNCIL2-14): text that must never be in a boot file, e.g. the first words of the tutor's prompt
+ * ("You are the maths tutor", shared/pedagogy.js), which would mean the tutor's prompts came back into the first load.
+ * One line per boot file that holds one, [] when none does.
+ */
+export function bootTextProblems(dir, m, texts = []) {
+  const out = [];
+  for (const f of m.js) {
+    const code = readFileSync(join(dir, f.file), 'utf8');
+    for (const t of texts) if (code.includes(t)) out.push(`"${t}" must never be in the first load, but ${f.file} holds it`);
+  }
+  return out;
+}
+
 /** The checks: { name, value, gate, target, unit, over, missed } for each, from the measures and the budget. */
 export function judge(m, budget) {
   const rows = [
@@ -119,13 +135,13 @@ export function report(m, rows) {
   return lines.join('\n');
 }
 
-/** Run the check: { ok, text, rows, measures, problems } (problems: the lazyOnly rule's). */
+/** Run the check: { ok, text, rows, measures, problems } (problems: the lazyOnly and neverInBoot rules'). */
 export function check(dir, budget) {
   const m = measure(dir);
   const rows = judge(m, budget);
   const over = rows.filter((r) => r.over);
   const missed = rows.filter((r) => !r.over && r.missed);
-  const problems = lazyProblems(dir, m, budget.lazyOnly || []);
+  const problems = [...lazyProblems(dir, m, budget.lazyOnly || []), ...bootTextProblems(dir, m, budget.neverInBoot || [])];
   const text = [
     report(m, rows), '',
     ...over.map((r) => `FAIL ${r.name}: ${fmt(r.value, r.unit)} is over the gate of ${fmt(r.gate, r.unit)}`),

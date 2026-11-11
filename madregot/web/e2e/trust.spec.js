@@ -46,6 +46,8 @@ async function shot(page, name) {
 
 /** Every way in on the card is a real link a phone can follow, at least 44px tall. */
 async function expectCard(card) {
+  // a sheet's dialog is its own file (COUNCIL2-14), so a sheet opened at once after the page loaded can take a moment
+  await expect(card).toBeVisible();
   // under a message the number is in the card's head too: every link to it dials it
   const eran = await card.getByRole('link', { name: /חיוג 1201/ }).all();
   expect(eran.length).toBeGreaterThanOrEqual(1);

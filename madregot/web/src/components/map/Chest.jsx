@@ -3,14 +3,14 @@
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
 import { Gift } from 'lucide-react';
-import { SPRING } from '@/lib/motion.js';
+import { SPRING, entrance } from '@/lib/motion.js';
 
 export default function Chest({ open, celebrate, expanded, label, onClick }) {
   const reduce = useReducedMotion();
   const pop = celebrate && !reduce;
   return (
     <m.button type="button" className={clsx('chest', open && 'is-open')} aria-label={label} aria-expanded={expanded} onClick={onClick}
-      initial={pop ? { scale: 0.7 } : false} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.45 }}>
+      initial={pop ? entrance({ scale: 0.7 }) : false} animate={{ scale: 1 }} transition={{ ...SPRING.bounce, delay: 0.45 }}>
       <Gift size={30} strokeWidth={2.2} aria-hidden="true" />
     </m.button>
   );

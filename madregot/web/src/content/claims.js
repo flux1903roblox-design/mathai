@@ -123,7 +123,7 @@ export const CLAIMS = [
   {
     id: 'ai-helper', required: true,
     he: 'עוזר שמסביר לילד את הטעות בתרגיל שעל המסך ובודק דף פתרון מצולם.',
-    check: ({ code }) => code.has('web/src/screens/Assistant.jsx') && code.has('web/src/screens/ExamCheck.jsx') && grep(code, 'shared/ai.js', /AI_KINDS = \[[^\]]*'explain'[^\]]*'check'/),
+    check: ({ code }) => code.has('web/src/screens/Assistant.jsx') && code.has('web/src/screens/ExamCheck.jsx') && grep(code, 'shared/aiKinds.js', /AI_KINDS = \[[^\]]*'explain'[^\]]*'check'/),
   },
   {
     // only a plan that renews can be "cancelled on the site" before it charges again: with the one-year plan alone (Grow

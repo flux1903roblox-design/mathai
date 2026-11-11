@@ -27,7 +27,7 @@ import ClassWork from './ClassWork.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Bar } from '@/components/ds.jsx';
 import Mascot from '@/components/Mascot.jsx';
-import { enter } from '@/lib/motion.js';
+import { enter, entrance } from '@/lib/motion.js';
 
 export const KIND_ICON = { repair: Wrench, review: RotateCcw, 'exam-loss': FileCheck, floor: Layers, prereq: Footprints, continue: ArrowLeft, new: Sparkles, mastery: Award, exam: CalendarClock, challenge: Puzzle };
 export const KIND_LABEL = { repair: 'תיקון', review: 'בדיקת זיכרון', 'exam-loss': 'מהמבחן', floor: 'יסודות', prereq: 'מדרגה קודמת', continue: 'ממשיכים', new: 'חדש', mastery: 'בדיקת שליטה', exam: 'הכנה למבחן', challenge: 'אתגר' };
@@ -69,7 +69,7 @@ export default function TodayCard({ grade, onBoard }) {
   const examDays = exam ? Math.max(0, Math.round(daysBetween(`${today()}T00:00:00`, `${exam.date}T00:00:00`))) : null;
   return (
     <m.section className={clsx('continue', 'today', 'ch-brand')} aria-labelledby="continue-title"
-      initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={enter()}>
+      initial={reduce ? false : entrance({ opacity: 0, y: 10 })} animate={{ opacity: 1, y: 0 }} transition={enter()}>
       <div className="quest-card" data-region="card">
         <div className="today-head quest-head">
           <div className="quest-head-row">

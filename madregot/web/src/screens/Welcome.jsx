@@ -13,7 +13,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { LoadingState } from '@/components/Screen.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { topicsFor } from '@/content/index.js';
-import { KNOW, placementMax } from '@/lib/placement.js';
+import { KNOW, placementMax } from '@/lib/placementRules.js';
 import { Tex } from '@/components/MathText.jsx';
 import { GOALS } from '@/lib/quests.js';
 import FileRestore from '@/components/durable/FileRestore.jsx';

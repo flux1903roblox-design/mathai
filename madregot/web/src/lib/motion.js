@@ -27,3 +27,14 @@ export const SPRING = {
 
 /** A tween into place with the shared easing: enter(DUR.medium, 0.1) */
 export const enter = (duration = DUR.medium, delay = 0) => ({ duration, delay, ease: EASE.out });
+
+// motion's animation features are not part of the first download (COUNCIL2-14): App.jsx's LazyMotion loads them with
+// loadMotionFeatures. Until they arrive an m.* component stays at its `initial` values, so a screen that fades in would
+// sit faded and a card that slides in would stay hidden while they load. entrance(from) is a component's start state:
+// `from` once the features are here, and before that false (start at the target), so the first screen is drawn whole
+// at once and everything that mounts later moves in as before.
+let featuresIn = false;
+/** LazyMotion's features (App.jsx): domAnimation, from its own file. */
+export const loadMotionFeatures = () => import('./motionFeatures.js').then((mod) => { featuresIn = true; return mod.default; });
+/** The `initial` of an entrance: `from` once motion's features have loaded, else false (drawn at its target). */
+export const entrance = (from) => (featuresIn ? from : false);

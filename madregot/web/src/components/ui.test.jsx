@@ -4,7 +4,9 @@
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DirectionProvider } from '@base-ui/react/direction-provider';
-import { Button, Segmented, Progress, Choices, Choice } from './ui.jsx';
+import { Button, Progress } from './ui.jsx';
+import { Segmented, Choices, Choice } from './choices.jsx';
+import { Progress as BaseProgress } from '@base-ui/react/progress';
 
 const html = (el) => renderToStaticMarkup(<DirectionProvider direction="rtl">{el}</DirectionProvider>);
 
@@ -81,5 +83,19 @@ describe('Progress (B8)', () => {
     expect(out).toMatch(/aria-labelledby="cg-h"/);
     expect(out).toMatch(/class="bar cg-track"/);
     expect(out).toMatch(/class="cg-fill"/);
+  });
+
+  it('is the markup Base UI\'s Progress drew, written without Base UI (COUNCIL2-14: none of it on the first screen)', () => {
+    // Base UI adds a visually hidden span after the track (position: fixed, 1 px, clipped): nothing that draws or speaks
+    const base = (p) => renderToStaticMarkup(
+      <BaseProgress.Root className={p.className} value={p.value} max={p.max} aria-labelledby={p.labelledBy} getAriaValueText={p.valueText ? () => p.valueText : undefined}>
+        <BaseProgress.Track className={`bar${p.trackClassName ? ` ${p.trackClassName}` : ''}`}><BaseProgress.Indicator className={p.fillClassName} /></BaseProgress.Track>
+      </BaseProgress.Root>,
+    ).replace(/<span role="presentation"[^>]*>x<\/span>/, '');
+    for (const p of [
+      { className: 'cg-progress', trackClassName: 'cg-track', fillClassName: 'cg-fill', value: 23, max: 60, labelledBy: 'cg-h', valueText: '23 מתוך 60 צעדים' },
+      { className: 'wk-progress', trackClassName: 'wk-track', fillClassName: 'wk-fill', value: 20, max: 60, labelledBy: 'wk-h' },
+      { value: 60, max: 60 }, { value: 0, max: 60 }, { value: 1, max: 3 }, { value: 75, max: 60 },
+    ]) expect(renderToStaticMarkup(<Progress {...p} />), JSON.stringify(p)).toBe(base(p));
   });
 });

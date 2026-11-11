@@ -1,15 +1,69 @@
-import { GRADE7 } from './grade7.js';
-import { GRADE8 } from './grade8.js';
 import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
 import { LESSONS } from './lessons.js';
 import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText } from './manip.js';
+// the topics without their exercise generators (generated from grade7.js and grade8.js): the map, the path and every
+// screen that only names topics and stairs read these; the generators load per topic (loadGens, below)
+import { TOPIC_META } from './topics.gen.js';
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
 
-// Each topic's misconception names include those the 2.0 teaching content adds.
-export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
+// Each topic's misconception names include those the 2.0 teaching content adds. Every stair is a fresh object, so a
+// topic's generators can be put on its stairs once they have loaded (loadGens).
+export const TOPICS = TOPIC_META.map((t) => ({ ...t, levels: t.levels.map((L) => ({ ...L })), cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
 export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
+
+// ---------------------------------------------------------------- the exercise generators, loaded per topic
+// COUNCIL2-14: the generators (each stair's gen) are not part of the first download. One dynamic import per file, so
+// the build makes one file per topic file; grade7.js holds signed, coord and angles (and imports the expr, eq and frac
+// files), grade8.js pyth and stats (and imports linear, sys, ratio and pct). A topic of neither list loads its grade's
+// file, which holds every topic of the grade. learn/content/index.ts ensureTopics waits for them with the topic's
+// teaching, so a lesson, a check, the placement test, Exam Rescue and the practice exam have them before their first
+// question; the map fetches the next topic's ahead (lib/bootTopics.js).
+function importGens(topic) {
+  switch (topic) {
+    case 'expr': return import('./expr.js').then((m) => [m.EXPR]);
+    case 'eq': return import('./eq.js').then((m) => [m.EQ]);
+    case 'frac': return import('./frac.js').then((m) => [m.FRAC]);
+    case 'line': return import('./linear.js').then((m) => [m.LINEAR]);
+    case 'sys': return import('./sys.js').then((m) => [m.SYS]);
+    case 'ratio': return import('./ratio.js').then((m) => [m.RATIO]);
+    case 'pct': return import('./pct.js').then((m) => [m.PCT]);
+    default: return TOPIC[topic]?.grade === '8' ? import('./grade8.js').then((m) => m.GRADE8) : import('./grade7.js').then((m) => m.GRADE7);
+  }
+}
+const gensLoaded = new Set();
+const gensAsked = new Map();
+/** Put a topic's generators on its stairs (every topic of a file that loaded: they came with it). */
+function attachGens(full) {
+  const t = TOPIC[full?.id];
+  if (!t || gensLoaded.has(t.id)) return;
+  if (full.levels.length !== t.levels.length) throw new Error(`${t.id}: ${full.levels.length} stairs in its file, ${t.levels.length} in topics.gen.js (run node scripts/gen-topic-meta.mjs)`);
+  full.levels.forEach((L, i) => { t.levels[i].gen = L.gen; });
+  gensLoaded.add(t.id);
+}
+/** Have this topic's generators loaded? */
+export const gensReady = (topic) => gensLoaded.has(topic) || !TOPIC[topic];
+/**
+ * Load a topic's exercise generators, once (a file that failed to load, offline before it was ever kept, can be asked
+ * for again). An unknown id resolves at once: it has none.
+ */
+export function loadGens(topic) {
+  if (gensReady(topic)) return Promise.resolve();
+  let p = gensAsked.get(topic);
+  if (!p) {
+    const q = importGens(topic).then((list) => {
+      for (const full of list) attachGens(full);
+      if (!gensLoaded.has(topic)) throw new Error(`content: no generators for ${topic}`);
+    });
+    q.catch(() => { if (gensAsked.get(topic) === q) gensAsked.delete(topic); });
+    gensAsked.set(topic, q);
+    p = q;
+  }
+  return p;
+}
+/** Every topic's generators (tests, and tools that make exercises of every topic). */
+export const loadAllGens = () => Promise.all(TOPICS.map((t) => loadGens(t.id)));
 /** A grade's own units, in order. A bridge unit (bridge: true, the fractions floor) is not one of them. */
 export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grade) && !t.bridge);
 /** The bridge units under a grade: of that grade, or with it in alsoFor (the floor; shown only when it is switched on). */
@@ -59,6 +113,8 @@ export function diagnosisLine(topic, level, result) {
 export function makeItem(topicId, level, avoidKey) {
   const t = TOPIC[topicId];
   const L = t.levels[Math.min(Math.max(level, 1), t.levels.length) - 1];
+  // the code that makes a question waits for its topic first (ensureTopics, loadGens): a missing generator is a bug there
+  if (!L.gen) throw new Error(`makeItem('${topicId}', ${level}): its generators have not loaded. Wait for ensureTopics(['${topicId}']) or loadGens('${topicId}') first.`);
   let it; let guard = 0;
   do { it = L.gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
   // a typed answer that has no short decimal (7/12) says once how to write it

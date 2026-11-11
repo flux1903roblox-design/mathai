@@ -10,7 +10,7 @@ import { useApp } from '@/lib/store.js';
 import { reminderState, enable, disable } from '@/lib/push.js';
 import { errorText } from '@/lib/api.js';
 import { SLOTS, DEFAULT_SLOT, REMINDER_TEXT as T } from '@/lib/reminder.js';
-import { Segmented } from '@/components/ui.jsx';
+import { Segmented } from '@/components/choices.jsx';
 
 /** The hours as the shared Segmented's options: the hour read left to right, "16:00". */
 const SLOT_OPTIONS = SLOTS.map((h) => [h, <span key={h} dir="ltr">{h}:00</span>]);

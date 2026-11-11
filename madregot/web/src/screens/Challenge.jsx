@@ -106,7 +106,7 @@ export default function Challenge() {
   const done = (first) => {
     const f = part.type === 'explain' ? firsts : [...firsts, !!first];
     if (!last) { setFirsts(f); setI(i + 1); return; }
-    setAward(finishChallenge(task.id, { firstTry: f.filter(Boolean).length, parts: f.length }));
+    setAward(finishChallenge(task.id, { firstTry: f.filter(Boolean).length, parts: f.length, after: task.after }));
   };
   const hasStory = !!(task.story || task.fig);
   return (

@@ -11,6 +11,7 @@ import { useApp } from '@/lib/store.js';
 import { makeClassExam, classExamTitle, CLASS_EXAM_LENGTHS } from '@/lib/exam.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { ALL_SKILLS, parseSkill, skillId } from '@/learn/skills.ts';
+import { ensureTopics } from '@/learn/content/index.ts';
 import { dm } from '@/lib/workDates.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
 import { Flow } from '@/components/Screen.jsx';
@@ -92,8 +93,10 @@ export default function ExamNew() {
     return n;
   });
 
-  const create = () => {
+  const create = async () => {
     const skills = order([...picked]);
+    // the stairs' exercise generators load with their topics (COUNCIL2-14)
+    try { await ensureTopics(skills); } catch { return; }
     const a = makeClassExam(skills, count);
     if (!a.items.length) { setNote(a.skipped); setStep(0); return; }
     const versions = [{ label: 'א', items: a.items }];

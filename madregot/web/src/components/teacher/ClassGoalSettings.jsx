@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { teacherApi } from '@/lib/teacher.js';
-import { Button, Segmented } from '@/components/ui.jsx';
+import { Button } from '@/components/ui.jsx';
+import { Segmented } from '@/components/choices.jsx';
 
 const MIN = 10; const MAX = 400;
 const OPTIONS = [[true, 'פועלת'], [false, 'כבויה']];

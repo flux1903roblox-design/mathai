@@ -13,7 +13,8 @@ import { COLORS, ITEMS, SLOTS, SLOT_NAME, MADI_PALETTE, ownedLook, lockedReason,
 import { TOPIC } from '@/content/index.js';
 import Mascot from '@/components/Mascot.jsx';
 import { ItemArt } from '@/components/mascot/Accessories.jsx';
-import { Sheet, Button, Choices, Choice, ChoiceMark } from '@/components/ui.jsx';
+import { Sheet, Button } from '@/components/ui.jsx';
+import { Choices, Choice, ChoiceMark } from '@/components/choices.jsx';
 import { count } from '@/lib/metrics.js';
 import '@/styles/lazy/wardrobe.css'; // this screen's own rules, loaded with it (STUDENT-15)
 

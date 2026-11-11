@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { m } from 'motion/react';
 import { House, Target, ClipboardCheck, Sparkles, User } from 'lucide-react';
-import { DUR, enter } from '@/lib/motion.js';
+import { DUR, enter, entrance } from '@/lib/motion.js';
 import { useApp } from '@/lib/store.js';
 import { hasNewWork } from '@/lib/classWork.js';
 import { hasUnreadReply } from '@/lib/help.js';
@@ -36,9 +36,10 @@ export default function Shell() {
         ))}
       </nav>
       <main className="shell-main">
-        {/* each screen fades in as it opens, from a visible start. Opacity only: a transform here would make
-            every position: fixed element inside the screen (the jump-back button) scroll with the page. */}
-        <m.div key={pathname} className="screen" initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} transition={enter(DUR.fast)}>
+        {/* each screen fades in as it opens, from a visible start (the first screen, drawn before motion's features
+            have loaded, at once: entrance). Opacity only: a transform here would make every position: fixed element
+            inside the screen (the jump-back button) scroll with the page. */}
+        <m.div key={pathname} className="screen" initial={entrance({ opacity: 0.4 })} animate={{ opacity: 1 }} transition={enter(DUR.fast)}>
           <Outlet />
         </m.div>
       </main>

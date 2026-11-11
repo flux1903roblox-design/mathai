@@ -3,7 +3,8 @@
 // A task is open once its `after` stair is mastered (a passed mastery check; a review due later does not close it), and
 // a task already solved stays open. The screen at /challenge/:id never blocks: the places that link to it do the gating.
 import type { ChallengeRecord, ChallengeTask, SkillId, SkillRecord, TopicId } from '../types';
-import { ALL_SKILLS, TOPIC_ORDER } from '../skills';
+import { TOPIC_ORDER } from '../skills';
+import { firstOpenChallenge as firstOpen } from './open';
 import { FRAC_CHALLENGES } from './frac';
 import { SIGNED_CHALLENGES } from './signed';
 import { COORD_CHALLENGES } from './coord';
@@ -52,13 +53,10 @@ export function topicChallenges(topic: TopicId, skills: Skills, recs: Records): 
 export const nextAfter = (skill: SkillId, recs: Records): ChallengeTask | null => challengesAfter(skill).find((t) => !isSolved(t, recs)) || null;
 
 /**
- * The first unsolved task of a mastered stair, for the plan (learn/next.ts, band 9): the stair mastered most recently
- * first (the check the student just passed is the one the suggestion names), then in school order (ALL_SKILLS), then
- * in the topic's own order.
+ * The first unsolved task of a mastered stair, for the plan (learn/next.ts, band 9), as a full task: the order is
+ * open.ts's, which reads the tasks' meta (the map's first screen loads only that, COUNCIL2-14).
  */
 export function firstOpenChallenge(skills: Skills, recs: Records): ChallengeTask | null {
-  const at = (t: ChallengeTask) => Date.parse(skills[t.after]?.mastered?.at || '') || 0;
-  const open = CHALLENGES.filter((t) => !!skills[t.after]?.mastered && !isSolved(t, recs));
-  open.sort((a, b) => at(b) - at(a) || ALL_SKILLS.indexOf(a.after) - ALL_SKILLS.indexOf(b.after) || CHALLENGES.indexOf(a) - CHALLENGES.indexOf(b));
-  return open[0] || null;
+  const m = firstOpen(skills, recs);
+  return m ? BY_ID[m.id] || null : null;
 }

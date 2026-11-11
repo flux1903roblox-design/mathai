@@ -29,14 +29,14 @@ import { metaOf } from './content/index';
 import { examPlan, isShabbatDay } from './examRescue';
 import { monthIndex, monthNameOf } from './programme';
 import { states, isMissing, smallestMissing, struggling, onPath, stairStage, titleOf, topicTitleOf, routeOf, recoveredSince, RECOVER_RIGHT, MINUTES, STAGE_NAME, STAGE_N, STAGE_MIN } from './recommend';
-import { firstOpenChallenge } from './challenges/index';
+import { firstOpenChallenge } from './challenges/open';
 import type { Context } from './recommend';
 // @ts-ignore: plain JS
-import { focusLevel } from '@/lib/exam.js';
+import { focusLevel } from '@/lib/examFocus.js';
 // @ts-ignore: plain JS
 import { isKept, isDone, unitNodes } from '@/lib/path.js';
 // @ts-ignore: plain JS
-import { PARTS } from '@/lib/lesson.js';
+import { PARTS } from '@/lib/lessonRules.js';
 // @ts-ignore: plain JS
 import { topicsFor, bridgeTopicsFor } from '@/content/index.js';
 

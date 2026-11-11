@@ -13,7 +13,8 @@ import { enable } from '@/lib/push.js';
 import { errorText } from '@/lib/api.js';
 import { count } from '@/lib/metrics.js';
 import { SLOTS, DEFAULT_SLOT, REMINDER_TEXT as T } from '@/lib/reminder.js';
-import { Button, Segmented } from '@/components/ui.jsx';
+import { Button } from '@/components/ui.jsx';
+import { Segmented } from '@/components/choices.jsx';
 import { SPRING } from '@/lib/motion.js';
 
 const focusQuietly = (el) => { if (el) el.focus({ preventScroll: true }); };

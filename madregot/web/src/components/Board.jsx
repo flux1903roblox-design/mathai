@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { Check, Target } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { boardOf, gapTarget, GAP_CLEAR } from '@/lib/board.js';
-import { placementMax } from '@/lib/placement.js';
+import { placementMax } from '@/lib/placementRules.js';
 import MasteryMap, { gradeTiles, tilesSummary } from './learn/MasteryMap.jsx';
 import { MathText } from './MathText.jsx';
 import { Button } from './ui.jsx';

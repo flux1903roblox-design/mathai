@@ -11,7 +11,7 @@
 //
 // path[topic] = { parts: { level: practice lessons }, reviews, jumped: highest level passed over, done: { level: 'mastered' | 'kept' } }
 import { TOPIC } from '@/content/index.js';
-import { PARTS } from './lesson.js';
+import { PARTS } from './lessonRules.js';
 
 export const partsOf = (path, topic, level) => path?.[topic]?.parts?.[level] || 0;
 /** Is this stair done: its mastery check passed (or kept from before checks existed)? */

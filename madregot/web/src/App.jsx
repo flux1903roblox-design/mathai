@@ -1,8 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
-import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
-import { DirectionProvider } from '@base-ui/react/direction-provider';
+import { LazyMotion, MotionConfig } from 'motion/react';
 import { CircleCheck, CircleAlert, Info } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
@@ -25,12 +24,14 @@ import SupportSheet from '@/components/SupportSheet.jsx';
 import AIIntro from '@/components/AIIntro.jsx';
 import DemoAsk from '@/components/DemoAsk.jsx';
 import { useLearnClock } from '@/lib/learnClock.js';
-import { loadTopic } from '@/learn/content/index.ts';
+import { ensureTopics } from '@/learn/content/index.ts';
 import { loadKatex } from '@/components/MathText.jsx';
 import BackupNudge from '@/components/durable/BackupNudge.jsx';
 import SharingNotice from '@/components/learn/SharingNotice.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
+import { loadMotionFeatures } from '@/lib/motion.js';
+import { preloadSheet } from '@/components/ui.jsx';
 import Welcome from '@/screens/Welcome.jsx';
 import Learn from '@/screens/Learn.jsx';
 import { LessonScreen as Lesson } from '@/lib/lazyScreen.js';
@@ -202,14 +203,14 @@ function HelpNotice() {
 
 /**
  * The teaching content loads one topic at a time, and the lesson screen is its own file (DURABLE-11). After the first
- * screen, when the browser is idle, the lesson and the topic the student worked on last load in the background, so
- * the next lesson opens without a wait.
+ * screen, when the browser is idle, the lesson and the topic the student worked on last (its teaching and its exercise
+ * generators, COUNCIL2-14) load in the background, so the next lesson opens without a wait.
  */
 function usePreloadLastTopic(role) {
   useEffect(() => {
     if (role !== 'student') return undefined;
     const topic = useApp.getState().lastTopic;
-    const run = () => { Lesson.preload().catch(() => {}); if (topic) loadTopic(topic).catch(() => {}); };
+    const run = () => { Lesson.preload().catch(() => {}); if (topic) ensureTopics([topic]).catch(() => {}); };
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(run, { timeout: 5000 });
       return () => window.cancelIdleCallback(id);
@@ -404,9 +405,14 @@ function Root() {
 
 const router = createHashRouter([{ path: '*', element: <Root /> }]);
 
+// The animation features of motion (COUNCIL2-14): fetched as the first screen mounts, not part of its download
+// (lib/motion.js loadMotionFeatures; a component mounted before they arrive starts at its target, entrance()).
+// LazyMotion's strict mode keeps every screen on m.*, so nothing pulls the full motion component back in.
+
 export default function App() {
-  // KaTeX is not part of the first download (DURABLE-11): fetched once the first screen is up, never waited for
-  useEffect(() => { loadKatex().catch(() => {}); }, []);
+  // KaTeX is not part of the first download (DURABLE-11): fetched once the first screen is up, never waited for; and
+  // the sheets' dialog (COUNCIL2-14, components/SheetDialog.jsx), so a sheet opens at once when it is first asked for
+  useEffect(() => { loadKatex().catch(() => {}); preloadSheet().catch(() => {}); }, []);
   useMoments();
   // a linked device's daily summary for the parents goes first on hidden, before the class outbox (lib/familySync.js)
   useFamilySync();
@@ -418,15 +424,13 @@ export default function App() {
   useEffect(() => watchPersisted(), []);
   // the saved look (Settings, מראה); public/theme-boot.js already applied an explicit choice before the first paint
   useEffect(() => { applyTheme(useApp.getState().prefs?.theme); }, []);
-  // DirectionProvider (STUDENT-15 B1): Base UI's radio groups and composites read the direction from here, not from
-  // <html dir>, so the arrow keys follow Hebrew reading order in every screen
+  // Base UI's radio groups read the direction from their own DirectionProvider (components/choices.jsx, STUDENT-15 B1),
+  // not from here: the first screen carries no Base UI (COUNCIL2-14)
   return (
-    <DirectionProvider direction="rtl">
-    <LazyMotion features={domAnimation} strict>
+    <LazyMotion features={loadMotionFeatures} strict>
     <MotionConfig reducedMotion="user">
       <RouterProvider router={router} />
     </MotionConfig>
     </LazyMotion>
-    </DirectionProvider>
   );
 }

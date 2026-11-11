@@ -1,5 +1,5 @@
 {
-  "bootJsGzipKB": 433,
+  "bootJsGzipKB": 297,
   "bootJsTargetKB": 260,
   "cssGzipKB": 59,
   "cssTargetKB": 32,
@@ -13,7 +13,28 @@
     "push",
     "canvas-confetti",
     "recharts",
-    "cmdk"
+    "cmdk",
+    "ai",
+    "pedagogy",
+    "guard",
+    "topicWays",
+    "tutorContext",
+    "grade7",
+    "grade8",
+    "linear",
+    "signed6",
+    "eq",
+    "frac",
+    "sys",
+    "ratio",
+    "pct",
+    "SheetDialog",
+    "choices",
+    "motionFeatures",
+    "@base-ui/react",
+    "katex",
+    "react-markdown"
   ],
-  "notes": "Checked by scripts/check-budget.mjs after every npm run build. The gates and targets are DURABLE-11's (QA_DURABLE.md): boot JS and render-blocking CSS gzipped at level 9 (KB = 1000 bytes), any chunk loaded on demand, and the service worker's precache. lazyOnly is STUDENT-15's: these modules must never be in a boot file (scripts/vite-plugin-budget.mjs writes the module map it is read from). The student lane's own deltas over 5618298 (+6 KB JS, +0 KB CSS) measured its share on its branch; on the integrated app the gates above hold the whole first load, as that lane's notes said they would."
+  "neverInBoot": ["You are the maths tutor"],
+  "notes": "Checked by scripts/check-budget.mjs after every npm run build. The gates and targets are DURABLE-11's (QA_DURABLE.md): boot JS and render-blocking CSS gzipped at level 9 (KB = 1000 bytes), any chunk loaded on demand, and the service worker's precache. lazyOnly is STUDENT-15's: these modules must never be in a boot file (scripts/vite-plugin-budget.mjs writes the module map it is read from). COUNCIL2-14/37 took the tutor's prompts (shared/ai.js, pedagogy, guard), the exercise generators (content/*.js, loaded per topic), the challenge tasks' parts, Base UI and motion's animation features off the first load: boot JS 429.6 → 282.4 KB, so the gate is 282.4 + 5% = 297 KB, and the modules after cmdk in lazyOnly keep them off. neverInBoot is text no boot file may hold (the first words of the tutor's prompt). The student lane's own deltas over 5618298 (+6 KB JS, +0 KB CSS) measured its share on its branch; on the integrated app the gates above hold the whole first load, as that lane's notes said they would."
 }

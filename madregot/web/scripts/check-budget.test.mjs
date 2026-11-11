@@ -145,17 +145,47 @@ describe('check-budget: modules that must load on demand (STUDENT-15)', () => {
   });
 });
 
+describe('check-budget: text that must never be in the first load (COUNCIL2-14)', () => {
+  const TUTOR = { ...LAZY, neverInBoot: ['You are the maths tutor'] };
+  const put = (d, f, text) => writeFileSync(join(d, 'assets', f), `${randomBytes(500).toString('hex')}${text}`);
+
+  it('passes when the text is only in a chunk loaded on demand', () => {
+    const d = lazyDist();
+    put(d, 'Wardrobe-c3.js', 'const P = "You are the maths tutor of a grade 7 student";');
+    const r = check(d, TUTOR);
+    expect(r.problems).toEqual([]);
+    expect(r.ok).toBe(true);
+  });
+
+  it('refuses a boot file that holds it, the entry or a modulepreload', () => {
+    const d = lazyDist();
+    put(d, 'vendor-b2.js', 'const P = "You are the maths tutor of a grade 7 student";');
+    const r = check(d, TUTOR);
+    expect(r.ok).toBe(false);
+    expect(r.problems).toEqual(['"You are the maths tutor" must never be in the first load, but assets/vendor-b2.js holds it']);
+    expect(r.text).toMatch(/FAIL "You are the maths tutor" must never be in the first load/);
+  });
+});
+
 describe('the budget as configured', () => {
   const budget = JSON.parse(readFileSync(join(WEB, 'budget.json'), 'utf8'));
   const pkg = JSON.parse(readFileSync(join(WEB, 'package.json'), 'utf8'));
 
   it('names the student lane\'s lazy-only modules, beside the load-time gates', () => {
-    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk']);
+    expect(budget.lazyOnly.slice(0, 7)).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk']);
     for (const k of ['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']) expect(typeof budget[k], k).toBe('number');
+  });
+
+  it('keeps what COUNCIL2-14 took off the first load off it: the tutor\'s prompts, the generators, Base UI, motion\'s features', () => {
+    for (const n of ['ai', 'pedagogy', 'guard', 'grade7', 'grade8', 'linear', 'SheetDialog', 'choices', 'motionFeatures', '@base-ui/react', 'katex', 'react-markdown']) expect(budget.lazyOnly, n).toContain(n);
+    expect(budget.neverInBoot).toEqual(['You are the maths tutor']);
+    // the tutor's prompt still starts with those words, so the rule still means something
+    expect(readFileSync(join(WEB, '../shared/pedagogy.js'), 'utf8')).toContain('You are the maths tutor');
   });
 
   it('npm run build writes the module map and runs the check last', () => {
     expect(pkg.scripts.build).toMatch(/vite build && .*node scripts\/check-budget\.mjs dist$/);
+    expect(pkg.scripts.build).toMatch(/node scripts\/gen-topic-meta\.mjs && vite build/);
     expect(readFileSync(join(WEB, 'vite.config.js'), 'utf8')).toMatch(/budgetMap\(\)/);
   });
 

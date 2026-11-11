@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { TOPIC } from '@/content/index.js';
 import { recordOnPath, markMastered, reopenKept, reachedUpTo, doneCount, chestOpen } from './path.js';
 import { questProgress } from './quests.js';
-import { STAGE_XP } from './lesson.js';
+import { STAGE_XP } from './lessonRules.js';
 import { noteGap, gapsFromExam } from './board.js';
 import { learnAfterAnswer, learnAfterCheck, emptyLearn } from '@/learn/storeGlue.ts';
 import { markTaught as markTaughtRec } from '@/learn/mastery.ts';
@@ -21,7 +21,6 @@ import { streakRepair, itemsOn } from './streak.js';
 import { isRestDay } from '@shared/restDays.js';
 import { emptyLook, earnIds, unlockedLook, unlockedIds } from './wardrobe.js';
 import { challengeXP } from '@/learn/challenges/grade.ts';
-import { challengeById } from '@/learn/challenges/index.ts';
 
 import { today, dayBefore, learnedOn, isActiveDay, isShabbat, keptDay, streakOf } from './days.js';
 
@@ -351,8 +350,8 @@ export const appState = (set, get) => ({
         set({ learn: { ...L, challenges: all[id] ? all : { ...all, [id]: { startedAt: at, firstTry: 0, parts: 0 } }, events: logEvent(L.events, { e: 'challenge-start', m: id }, at) } });
       },
       /**
-       * A challenge task finished: { firstTry, parts } counts the scored parts and those right on the first try (explain
-       * parts are not among them). The first finish earns 20 XP and 5 per first-try part (at most 40), and counts for the
+       * A challenge task finished: { firstTry, parts, after } counts the scored parts and those right on the first try
+       * (explain parts are not among them); `after` is the stair the task follows (the screen's task.after). The first finish earns 20 XP and 5 per first-try part (at most 40), and counts for the
        * day like a lesson (days[d].lessons and its XP, for the streak, the daily goal and the quests); a second finish earns
        * nothing. It never touches mastery: learn.skills and the checks are left as they are. The analytics event carries
        * the share right on the first try (n), and no text. The finish is reported to today's mission (Done.kind
@@ -361,9 +360,11 @@ export const appState = (set, get) => ({
        */
       finishChallenge: (id, result) => {
         const st = get(); const L = st.learn; const at = new Date().toISOString(); const all = L.challenges ?? {};
-        const task = challengeById(id);
+        // the stair the task follows comes from the challenge screen, which has the task (COUNCIL2-14: the store does not
+        // load every challenge task's parts)
+        const after = result?.after || null;
         const toMission = (out) => {
-          const m = get().completeMission({ kind: 'challenge', challengeId: id, ...(task ? { skill: task.after } : {}) });
+          const m = get().completeMission({ kind: 'challenge', challengeId: id, ...(after ? { skill: after } : {}) });
           return { ...out, questsDone: out.questsDone || m.questsDone, freezeEarned: out.freezeEarned || m.freezeEarned };
         };
         const firstTry = Math.max(0, result?.firstTry || 0); const parts = Math.max(0, result?.parts || 0);

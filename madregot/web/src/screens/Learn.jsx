@@ -6,7 +6,7 @@ import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor } from '@/content/index.js';
 import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote } from '@/lib/path.js';
-import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
+import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lessonRules.js';
 import { MASTERY_N } from '@/learn/mastery.ts';
 import PathNode from '@/components/PathNode.jsx';
 import StorageBanner from '@/components/durable/StorageBanner.jsx';
@@ -22,6 +22,7 @@ import { todayRoute, missionFor } from '@/learn/mission.ts';
 import { skillId } from '@/learn/skills.ts';
 import { mapTopics, mapFocus, onMap, nodeRoute } from '@/learn/next.ts';
 import { useNext } from '@/lib/useLearn.js';
+import { ensureTopics } from '@/learn/content/index.ts';
 import NextBanner from '@/components/learn/NextBanner.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { urgentWork, urgentText } from '@/lib/classWork.js';
@@ -234,6 +235,21 @@ function GoToday() {
   return null;
 }
 
+/** Load these topics (or skills) when the browser is idle; a topic already loaded costs nothing. */
+function usePrefetchTopics(list) {
+  const key = [...new Set(list.filter(Boolean).map((x) => String(x).split(':')[0]))].sort().join(',');
+  useEffect(() => {
+    if (!key) return undefined;
+    const run = () => { ensureTopics(key.split(',')).catch(() => {}); };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(run, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(run, 1500);
+    return () => clearTimeout(id);
+  }, [key]);
+}
+
 export default function Learn() {
   const { search } = useLocation();
   if (new URLSearchParams(search).get('go') === 'today') return <GoToday />;
@@ -267,6 +283,9 @@ function LearnMap() {
   const focus = mapFocus({ from: state?.from, top, lastTopic, topicIds, firstId: own[0]?.id, path });
   const focusKey = focus.key;
   const banner = top && !onMap(top, topicIds) ? top : null;
+  // the next step's topic (its exercise generators and its teaching) loads while the map is open, when the browser is
+  // idle, so the step opens without a wait (COUNCIL2-14); the focused unit's too, the stair a tap most likely opens
+  usePrefetchTopics([top?.skill, focus.topic]);
   const repair = useRepair();
   const repairDismissed = useApp((s) => s.nudges?.repairDismissed);
   const repairOn = !!repair && repairDismissed !== today();

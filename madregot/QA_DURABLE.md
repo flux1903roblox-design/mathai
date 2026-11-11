@@ -885,6 +885,31 @@ script. They now load one topic at a time, and nothing the student sees changed.
   fails when `CI` is set (`ci.yml` checks out two commits). `check-budget.test.mjs` covers a raised gate, an equal one,
   a lower one, an uncommitted raise, no history and a new file, each in a real git repository of its own. A first load
   over a gate is now made smaller; the gate stays.
+  **The first load made smaller** (COUNCIL2-14, COUNCIL2-37; `npm run build`, KB of boot JS gzipped):
+
+  | step | boot JS |
+  |---|---|
+  | before (the gate 433 KB) | 429.6 KB |
+  | `KIND_GROUP`, `FREE_KINDS` from `shared/aiKinds.js`: `shared/ai.js`, `pedagogy.js`, `guard.js` (the tutor's prompts) leave; motion's features (`domAnimation`) load after the first screen (`LazyMotion features={() => import(...)}`, strict); the sheet's dialog and the choice controls (Base UI) load with their first use | 360.2 KB |
+  | the exercise generators per topic: `content/topics.gen.js` (written by `scripts/gen-topic-meta.mjs`) is what the map knows, `content/index.js` `loadGens` loads a topic's file, `ensureTopics` waits for it with its teaching content; the lesson, practice, check and exam rules the boot needs in `lessonRules.js`, `placementRules.js`, `examFocus.js` | 298.6 KB |
+  | the challenge tasks: the plan reads `learn/challenges/meta.gen.ts` (id, stair, title, minutes), the parts load with the challenge screen | 284.6 KB |
+  | `Progress` drawn by `ui.jsx` (the same markup Base UI drew, compared in `ui.test.jsx`); `DirectionProvider` only around the choice controls | 282.3 KB |
+  | the map fetches the next step's topic when idle; `lib/motion.js` `entrance()`: a component that mounts before motion's features have loaded starts at its target, so the first screen is never drawn faded or with its card hidden | **282.4 KB** |
+
+  The boot gate is now 282.4 + 5% = **297 KB** (CSS 59 KB and the precache 4.79 MB unchanged; the precache is 4.74 MB).
+  `budget.json` `lazyOnly` gained the modules now kept off the first load (`ai`, `pedagogy`, `guard`, `topicWays`,
+  `tutorContext`, `grade7`, `grade8`, `linear`, `signed6`, `eq`, `frac`, `sys`, `ratio`, `pct`, `SheetDialog`,
+  `choices`, `motionFeatures`, `@base-ui/react`, `katex`, `react-markdown`), and a new rule, `neverInBoot`: no boot
+  file may hold the text "You are the maths tutor" (`check-budget.mjs` `bootTextProblems`, tested in
+  `check-budget.test.mjs`). `src/boot.test.js` walks main.jsx's static imports and fails on any of those files before
+  a build; `src/content/topic-split.test.js` fails when `topics.gen.js` or `meta.gen.ts` is stale.
+  The 260 KB target is still missed by 22 KB. Still in the first load (each module gzipped alone, so the sum, 540 KB,
+  is about twice the real 282 KB): `lib/` 141 (the store, `durable/*`, `api.js`, `parent.js` and `teacher.js` through
+  `account.js`, `qaFixtures.js`, the demo's boot in `demo.js`), React DOM 96, React Router 52, `components/` 42,
+  `content/` 34 (`manip.js` 11, `index.js`, `topics.gen.js`), `learn/` 33, motion's core 52 (`m.*` and
+  `AnimatePresence`, which Madi, the shell, the path nodes, the chest and today's card animate with), lucide 18,
+  sonner 15. Open work: motion's core needs those boot animations in CSS (a visual change of its own); the demo's boot
+  behind its own import is FOLLOWUP-23's (lane-followups); sonner could load with its first toast.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from
