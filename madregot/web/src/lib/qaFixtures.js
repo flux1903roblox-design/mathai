@@ -5,6 +5,7 @@
 //   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | nosrv
 //   qa-teacher: demo (the demo class of TEACHER-15, lib/demo.js: every teacher screen with no request)
 //   qa-report:  week | empty (the weekly summary from a fixed week and clock: components/report/qaWeek.js)
+//   qa-goal:    mid | reached | off   (the class goal of the week, STUDENT-4: shown with or without a class)
 // The family state's tablet (qa-ai=family names it 'הטאבלט') keeps its backup code with the family, and an older phone's
 // progress is kept in the account (DURABLE-6): every parents state with a plan lists both, so the device line, the kept
 // list and the "continue from" choice can be seen without a server.
@@ -40,6 +41,18 @@ export function qaThrow() {
   const hashQuery = window.location.hash.split('?')[1] || '';
   const v = new URLSearchParams(window.location.search).get('qa-throw') || new URLSearchParams(hashQuery).get('qa-throw');
   return v === 'render' ? v : null;
+}
+
+export const qaGoal = () => param('qa-goal', ['mid', 'reached', 'off']);
+
+/** The class goal in a QA state, as GET /api/class/goal would answer it in the week that starts on `week`. */
+export function qaGoalView(week, lastWeek) {
+  switch (qaGoal()) {
+    case 'mid': return { on: true, week, target: 60, have: 23, mine: 4, reached: false, last: { week: lastWeek, target: 55, have: 61, reached: true, mine: 7 } };
+    case 'reached': return { on: true, week, target: 60, have: 64, mine: 9, reached: true, last: null };
+    case 'off': return { on: false };
+    default: return null;
+  }
 }
 export const qaParent = () => param('qa-parent', PARENT_STATES);
 export const qaTeacher = () => param('qa-teacher', TEACHER_STATES);

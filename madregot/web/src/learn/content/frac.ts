@@ -28,7 +28,8 @@ type P1 = { d: number; L: number; k: number };
 const frac1: DiagModel<P1> = {
   params: (rnd) => G.FRAC1.params(rnd),
   text: (p) => G.pointText(p),
-  fig: (p) => G.pointFig(p),
+  // the generator's figure (content/frac.js, plain JS) is a numline cut into parts: NumlineFig
+  fig: (p) => G.pointFig(p) as FigSpec,
   answer: (p) => G.FRAC1.answer(p),
   bugs: G.FRAC1.bugs,
   solution: (p) => G.pointSolution(p),

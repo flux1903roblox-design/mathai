@@ -13,6 +13,7 @@ import './styles/motion.css';
 import './styles/v4.css';
 import './styles/canon.css';
 import './styles/dark.css'; // last: the dark values of the tokens (STUDENT-2)
+import { toast } from 'sonner';
 import App from './App.jsx';
 import { durableBoot, errorLog } from './lib/durable/storage.js';
 import { apiBase } from './lib/api.js';
@@ -21,6 +22,7 @@ import { registerSW } from './lib/swClient.js';
 import { useApp } from './lib/store.js';
 import { bootTopics } from './lib/bootTopics.js';
 import { bootDemo } from './lib/demo.js';
+import { initInstall, INSTALLED_TEXT } from './lib/install.js';
 // the durable lane's parts of "delete all" (lib/wipe.js): the backup on the server and the copy in the browser's database
 import './lib/durable/wipeSteps.js';
 
@@ -40,6 +42,9 @@ try {
     Math.random = () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
   }
 } catch { /* storage blocked */ }
+
+// the install offer (STUDENT-10): keep the browser's prompt for the app's own moment; after an install, say where it is
+initInstall(window, { onInstalled: () => toast.success(INSTALLED_TEXT) });
 
 // The first screen waits for the copy of the progress on the device (at most 300 ms, lib/durable/storage.js), so a
 // broken or lost save is already back when the app appears. Then the demo class (TEACHER-15): a reload inside it, or

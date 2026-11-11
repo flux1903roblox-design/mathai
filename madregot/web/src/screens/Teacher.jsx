@@ -26,6 +26,7 @@ import AssignSheet from '@/components/teacher/AssignSheet.jsx';
 import ClassSettingQuestion, { settingBody, settingReady } from '@/components/teacher/ClassSettingQuestion.jsx';
 import StudentSheet from '@/components/teacher/StudentSheet.jsx';
 import { rememberBoard } from '@/lib/teacherBoard.js';
+import ClassGoalSettings from '@/components/teacher/ClassGoalSettings.jsx';
 
 const TABS = ['tomorrow', 'work', 'students', 'exams', 'help'];
 
@@ -152,6 +153,8 @@ export default function Teacher() {
             </select>
           ) : <h1 className="t-class-name">{cls.className}</h1>}
           <button type="button" className="code-chip t-code" onClick={() => copy(cls.code, 'קוד הכיתה')} aria-label={`העתקת קוד הכיתה ${cls.code}`}><span>קוד</span><span dir="ltr">{cls.code}</span><Copy size={16} aria-hidden="true" /></button>
+          {/* the class goal of the week (STUDENT-4): the class total only, as the students see it */}
+          {data?.goal?.on && <span className="chip t-goal-chip">מטרת הכיתה: <bdi dir="ltr">{data.goal.have}/{data.goal.target}</bdi></span>}
         </div>
         {/* signed in: the email's other classes can be added to this device */}
         {session && <button type="button" className="link-btn t-more" onClick={() => setMoreOpen(true)}>עוד כיתות מהחשבון שלי…</button>}
@@ -224,6 +227,9 @@ export default function Teacher() {
                 onStudent={openStudent} onAll={() => setTab('students', { sort: 'need' })} />
             )}
             {tab === 'work' && <WorkTab cls={cls} today={data.today} version={workVersion} onNew={() => openAssign()} onChanged={load} />}
+            {/* the weekly class goal's settings (STUDENT-4 §7), above the students: the student lane put them on this view until
+                the class settings page takes them over */}
+            {tab === 'students' && data.goal && <ClassGoalSettings cls={cls} goal={data.goal} onSaved={load} />}
             {tab === 'students' && <StudentsTab cls={cls} data={data} students={students} onChanged={load} onStudent={openStudent} />}
             {tab === 'exams' && <ExamsTab data={data} onStudent={openStudent} />}
             {tab === 'help' && <HelpTab key={params.get('student') || ''} cls={cls} data={data} onChanged={load} onStudent={openStudent} />}

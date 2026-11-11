@@ -32,8 +32,12 @@ export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 /** מדי says one short thing (one or two sentences). */
 /** One line of a double number line: its end, its step, its unit (outside the maths) and name; labels every n-th tick. */
 export type DlineLine = { max: number; step: number; unit?: string; label?: string; every?: number };
-/** A number line: points (A at k/den is { x: k/den, label: 'A' }), jumps as arcs; with den, every unit cut into parts. */
-export type NumlineFig = { type: 'numline'; from: number; to: number; marks?: { x: number; label?: string; tone?: 'brand' | 'good' | 'bad' }[]; jumps?: { from: number; to: number; label?: string }[]; step?: number; anim?: boolean; den?: number };
+export type FigTone = 'brand' | 'good' | 'bad';
+/**
+ * A number line: points (A at k/den is { x: k/den, label: 'A' }), jumps as arcs; with den, every unit cut into parts (the
+ * fraction lane's PartsLine); without, the teaching figure of STUDENT-8 (components/Figure.jsx NumberLine).
+ */
+export type NumlineFig = { type: 'numline'; from: number; to: number; step?: number; den?: number; marks?: { x: number; label?: string; tone?: FigTone }[]; jumps?: { from: number; to: number; label?: string }[]; anim?: boolean };
 /** The fraction bar: rows of bars of one length; hatch the first shaded parts, cross out the last; whole names the bar. */
 export type FbarFig = { type: 'fbar'; den?: number; shaded?: number; marks?: number[]; whole?: number; labels?: boolean; hatch?: number; cross?: number; rows?: { den: number; shaded: number; label?: string }[] };
 /** A rectangle cut both ways, the overlap of the shaded columns and rows darkest. */
@@ -44,8 +48,33 @@ export type DlineFig = { type: 'dline'; top: DlineLine; bottom: DlineLine; at?: 
 export type GroupsFig = { type: 'groups'; rows: { n: number; label: string }[] };
 /** The figures of fractions, percent and ratio: content writes them `satisfies FractionFig` so their fields are checked. */
 export type FractionFig = NumlineFig | FbarFig | FgridFig | DlineFig | GroupsFig;
-/** A drawing, in the shape components/Figure draws (e.g. { type: 'parallel', a, kind }). */
-export type FigSpec = { type: string; [field: string]: unknown };
+/**
+ * A drawing, in the shape components/Figure draws. The teaching figures of STUDENT-8 and the fraction figures have their
+ * fields checked; the older types are listed by name (a catch-all `{ type: string }` member would swallow the new ones
+ * and check nothing). A function's graph is a `coord` with `line` or `lines`, never `linear` (that one draws a linear
+ * pair of angles).
+ */
+export type FigSpec =
+  | NumlineFig
+  | { type: 'thermo'; value: number; min: number; max: number; label?: string; also?: { value: number; label?: string }; anim?: boolean }
+  | { type: 'machine'; inX?: number | string; rule: string; outY?: number | string; anim?: boolean }
+  | { type: 'dots'; values: number[]; axis: [number, number]; mark?: { mode?: number; median?: number; mean?: number }; unit?: string; anim?: boolean }
+  | { type: 'bars'; labels: string[]; values: (number | null)[]; highlight?: number; unit?: string; level?: number; ltr?: boolean; anim?: boolean }
+  | { type: 'table'; head: string[]; rows: (number | string)[][]; anim?: boolean; ltr?: boolean }
+  | {
+    type: 'coord'; range?: number;
+    points?: { x: number; y: number; label: string; hidden?: boolean }[];
+    polygon?: [number, number][]; segments?: [[number, number], [number, number]][]; helper?: [number, number][];
+    line?: { m: number; b: number };
+    lines?: { m: number; b: number; label?: string; tone?: FigTone }[];
+    meet?: boolean; riseRun?: { x: number; run: number }; quadrants?: boolean; path?: [number, number][]; anim?: boolean;
+    words?: { at: [number, number]; text: string; tone?: FigTone | 'alt' }[];
+  }
+  | GeoFig
+  | FbarFig | FgridFig | DlineFig | GroupsFig
+  | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
+/** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
+export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };
 
 export interface SayStep { kind: 'say'; text: Text; display?: string; mood?: Mood; fig?: FigSpec }
 /** A prediction before the explanation: the student commits, then sees why. Any choice moves on. */

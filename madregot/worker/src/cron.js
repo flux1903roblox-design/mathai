@@ -35,6 +35,7 @@ import { qualityCounts, QUALITY_KEEP_DAYS } from './quality.js';
 // escrows, and the vaults live beside their routes; they are named here too, so the data map (worker/datamap.json,
 // purgedBy) can name every purge as cron.<export> (test/datamap.test.js).
 export { purgeAccountsSql, purgeFamilySql, purgeErrorsSql, purgeReportSql, purgeIdentitySql, vaultNight };
+import { shiftDay } from './goal.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -154,7 +155,9 @@ export function purgeCountersSql(env, now = new Date()) {
 }
 
 /** Retention (spec §6.9): notices 90 days after sending, expired orders after 30 days, spend after 400 days, the audit
- *  log after 2 years, provider events after 7 years, the app's error reports after 30 days. Payments are kept. */
+ *  log after 2 years, provider events after 7 years, the app's error reports after 30 days. Payments are kept. The class
+ *  goal (STUDENT-4): steps after 120 days, its weeks after 400 days (Jerusalem days). Reach counts (STUDENT-14) after
+ *  400 days. */
 export function purgeRecordsSql(env, now = new Date()) {
   const t = now.getTime();
   const iso = (days) => new Date(t - days * DAY).toISOString();
@@ -167,6 +170,9 @@ export function purgeRecordsSql(env, now = new Date()) {
     env.DB.prepare('DELETE FROM audit_log WHERE at < ?').bind(iso(730)),
     env.DB.prepare('DELETE FROM billing_events WHERE received_at < ?').bind(iso(7 * 365 + 2)),
     purgeErrorsSql(env, now),
+    env.DB.prepare('DELETE FROM class_steps WHERE day < ?').bind(dayOf(new Date(t - 120 * DAY))),
+    env.DB.prepare('DELETE FROM class_goal_weeks WHERE week < ?').bind(dayOf(new Date(t - 400 * DAY))),
+    env.DB.prepare('DELETE FROM metrics_daily WHERE day < ?').bind(dayOf(new Date(t - 400 * DAY))),
   ];
 }
 
@@ -407,10 +413,22 @@ export async function errorsNotice(env, now = new Date()) {
 }
 
 /**
+ * The summary's reach block (STUDENT-14): yesterday's counts by name (metrics_daily, names with a count only), and the
+ * class students who added a class-goal step in the 7 days up to yesterday (class_steps, distinct students). Counts only:
+ * nothing in them tells who. `npm run owner -- reach` shows the weeks.
+ */
+export async function reachSummary(env, day) {
+  const counts = Object.fromEntries((await all(env, 'SELECT name, n FROM metrics_daily WHERE day = ? AND n > 0 ORDER BY name', day)).map((r) => [r.name, Number(r.n)]));
+  const week = await first(env, 'SELECT COUNT(DISTINCT student_id) AS n FROM class_steps WHERE day > ? AND day <= ?', shiftDay(day, -7), day);
+  return { counts, classStudents7: Number(week?.n || 0) };
+}
+
+/**
  * The owner's daily summary of yesterday (Jerusalem): spend by pool, free calls, plans started, cancelled and ended;
  * what needs a hand (unsynced cancels, manual refunds, odd provider events, open licence requests); the app's error
  * reports (the total and the 5 most frequent); the encrypted vaults (how many, their MB, how many were created); and
  * the invariant checks: a running paid plan with no payment covering now, a paid order with no plan, spend over a budget.
+ * Then the reach block (reachSummary).
  */
 /** Days after which the owner is reminded to check the support numbers in shared/safety.js again (trust spec §3.6). */
 export const SUPPORT_CHECK_DAYS = 330;
@@ -459,6 +477,7 @@ export async function dailySummary(env, now = new Date()) {
     // generated exercises code dropped, and generate requests where every exercise was dropped
     quality: await qualityCounts(env, day),
     violations: [],
+    reach: await reachSummary(env, day),
   };
   const v = params.violations;
   for (const s of await all(env, `SELECT s.id, s.kind, s.plan FROM subscriptions s WHERE s.status = 'active' AND s.provider != 'manual'

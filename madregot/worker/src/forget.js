@@ -39,6 +39,8 @@ export const STUDENT_ROWS = [
   // rows must also meet: the table holds family accounts' codes too), and every device token of the student
   ['vault_escrow', 'owner_id', null, "owner_kind = 'student'"],
   ['student_tokens', 'student_id'],
+  // the student lane (STUDENT-4): the student's class-goal steps (a week already reached stays reached)
+  ['class_steps', 'student_id'],
 ];
 /**
  * The WHERE of one STUDENT_ROWS entry, for a student test `match` ("= ?" or "IN (<a SELECT of ids>)"), with the entry's
@@ -93,9 +95,9 @@ export function studentsDeleteSteps(env, sel, args = []) {
 /**
  * Everything of the classes a query selects, as [name, statement] steps for one batch: first their students with all
  * their rows (at most `limit` students in one batch, when given), then, for each class that has no student left, its
- * join lock, settings, owner, assignments (with their work and targets), counters, the notices about it and its audit rows (a licence's audit rows stay, as the
- * licence itself does: subscriptions, payments and licence requests keep the code, which names no one), and the class
- * row last. `sel` is a SELECT of class codes with numbered parameters, bound to `args`. A class whose students were
+ * join lock, settings, owner, assignments (with their work and targets), class goal (STUDENT-4: its setting, weeks and
+ * any step left), counters, the notices about it and its audit rows (a licence's audit rows stay, as the licence itself
+ * does: subscriptions, payments and licence requests keep the code, which names no one), and the class row last. `sel` is a SELECT of class codes with numbered parameters, bound to `args`. A class whose students were
  * not all deleted in this batch (the limit) keeps its own rows until the next one.
  */
 export function classDeleteSteps(env, sel, args = [], { limit } = {}) {
@@ -111,6 +113,10 @@ export function classDeleteSteps(env, sel, args = [], { limit } = {}) {
     ['assignmentWork', stmt(`DELETE FROM assignment_work WHERE assignment_id IN (SELECT id FROM assignments WHERE class_code IN (${empty}))`)],
     ['assignmentTargets', stmt(`DELETE FROM assignment_targets WHERE assignment_id IN (SELECT id FROM assignments WHERE class_code IN (${empty}))`)],
     ['assignments', stmt(`DELETE FROM assignments WHERE class_code IN (${empty})`)],
+    // the class goal of the week (STUDENT-4): the teacher's choice, the weeks' targets, and any step still on the class
+    ['classGoal', stmt(`DELETE FROM class_goal_settings WHERE class_code IN (${empty})`)],
+    ['classGoal', stmt(`DELETE FROM class_goal_weeks WHERE class_code IN (${empty})`)],
+    ['classGoal', stmt(`DELETE FROM class_steps WHERE class_code IN (${empty})`)],
     ['classCounters', countersStmt(env, CLASS_COUNTERS, empty, args)],
     ['classNotices', stmt(`DELETE FROM notices WHERE ref IN (${empty})`)],
     ['classAudit', stmt(`DELETE FROM audit_log WHERE action NOT LIKE 'licence.%' AND action != 'class.delete'

@@ -93,3 +93,9 @@ Everything below was drawn for Madregot as SVG in the source code. None of it is
 | `src/components/manip/*.jsx` | the interactive maths objects (number line, plane, line builder, angle, Pythagoras squares, bars) |
 | `src/components/Mascot.jsx` | the mascot מדי |
 | `src/components/PageScene.jsx` | the scenes at the top of the screens (מדי on a stair with a chest, a checked sheet, a scanner, a printed sheet, a flagged staircase, a speech bubble, world tiles, a board, a tray) |
+
+## 5. Data
+
+| Where | What | Source and licence |
+|---|---|---|
+| `shared/restDays.js` | Yom Tov, national memorial days and Tish'a B'Av in Israel, for the streak's rest days and the reminders' quiet days | Jewish holiday dates: Hebcal.com, CC BY 4.0 (<https://www.hebcal.com/home/195/jewish-calendar-rest-api>). The 2026-27 dates were checked against Hebcal's JSON (Israeli schedule) on 2026-11-10; `scripts/rest-days.mjs` regenerates the table from the same API. |

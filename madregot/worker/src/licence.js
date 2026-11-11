@@ -203,9 +203,10 @@ export const pinKeysWhere = "(who = 'pin:' || ?1 OR who LIKE 'pin:' || ?1 || ':%
  * POST /api/teacher/students/:id/remove {}: one batch deletes the student's rows (STUDENT_ROWS in forget.js: attempts,
  * levels, help requests with their help_meta rows and the replies on them, exams, assignment work and targets, the
  * student's AI switch and the audit rows about the student, the restore code the class kept and every device token,
- * DURABLE-6), their counters (PIN tries, every AI tier, care and reports, assignment reports and replies) and the
- * student; the student's devices are signed out. The practice saved on the device itself stays there, and so does its
- * vault, which only the device's own code opens now.
+ * DURABLE-6, and the class-goal steps, STUDENT-4), their counters (PIN tries, every AI tier, care and reports,
+ * assignment reports and replies) and the student; the student's devices are signed out. The practice saved on the
+ * device itself stays there, and so does its vault, which only the device's own code opens now. (A class goal already
+ * reached stays reached: reached_at is kept.)
  */
 export async function removeStudent(id, req, env, cors) {
   const cls = await requireTeacher(req, env);

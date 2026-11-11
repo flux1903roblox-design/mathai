@@ -5,6 +5,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
+import { randomUUID } from 'node:crypto';
 import { RETENTION as R } from '../../shared/retention.js';
 import { purge, run, PURGE_BATCH } from '../src/cron.js';
 import { keyIn, STUDENT_ROWS, studentWhere, STUDENT_COUNTERS, CLASS_COUNTERS } from '../src/forget.js';
@@ -35,14 +36,17 @@ function help(studentId, { created, done = null, image = IMAGE }) {
     .run(studentId, 'neg', `q${Math.random()}`, image, created, done).lastInsertRowid);
 }
 /**
- * Student data in every student table, through the API: progress (attempts, levels), a help request with a page and,
+ * Student data in every student table, through the API: progress (attempts, levels, a class-goal step: class_steps,
+ * STUDENT-4), a help request with a page and,
  * with the class's `teacher` headers, a reply on it from each side (help_messages, TEACHER-6), a "talk with me" request
  * (its help_meta row, TRUST-3), an exam; and the teacher's AI switch for the student (student_ai_off, TRUST-11): through
  * the API with the teacher's headers (its student.ai audit row names the student), else written directly; and the
  * restore code the class kept (vault_escrow, DURABLE-6).
  */
 async function practise(s, teacher = null) {
-  await h.call('POST', '/api/progress', { headers: bearer(s), body: { events: [{ topic: 'neg', level: 1, ok: false, first: false, cat: 'sign', secs: 9 }], levels: { neg: { level: 2, max: 2 } } } });
+  // with a class-goal step (STUDENT-4: class_steps)
+  await h.call('POST', '/api/progress', { headers: bearer(s), body: { events: [{ topic: 'neg', level: 1, ok: false, first: false, cat: 'sign', secs: 9 }], levels: { neg: { level: 2, max: 2 } },
+    steps: [{ sid: randomUUID(), pts: 1 }] } });
   await h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'neg', question: '3 - 8', answer: '5', image: IMAGE } });
   if (teacher) {
     const id = one(h.env, 'SELECT id FROM help_requests WHERE student_id = ? ORDER BY id DESC', s.studentId).id;
@@ -238,7 +242,10 @@ test('a class idle for 400 days with no running licence is deleted from every ta
   await assignWork({ teacher: aTeacher, students: aStudents });
   await counters(aStudents.map((s) => s.studentId), a.code);
   await h.call('POST', '/api/teacher/class/lock', { headers: aTeacher, body: { locked: true } });
+  // the class goal (STUDENT-4): the teacher's size (class_goal_settings); the dashboard fixes the week (class_goal_weeks)
+  assert.equal((await h.call('POST', '/api/teacher/class/goal', { headers: aTeacher, body: { on: true, target: 20 } })).status, 200);
   await h.call('GET', '/api/teacher/dashboard', { headers: aTeacher });
+  assert.equal(rows(h.env, 'SELECT * FROM class_goal_weeks WHERE class_code = ?', a.code).length, 1);
   assert.equal((await h.call('POST', '/api/teacher/class/rekey', { headers: { 'X-Class-Code': a.code, 'X-Account-Token': t }, body: {} })).status, 200);
   await h.ctx.flush();
   assert.equal(one(h.env, 'SELECT last_seen FROM class_settings WHERE code = ?', a.code).last_seen, dayOf());

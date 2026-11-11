@@ -383,6 +383,42 @@
       "retention": "90 days (report.js REPORT_KEEP_DAYS); at once when the child stops sharing and deletes, the parent deletes the history, the device is unlinked or deletes all, or the account is deleted.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeReportSql", "forget.familyDeviceDeleteStmts", "forget.forgetAccount"]
+    },
+    "class_steps": {
+      "personal": "pseudonymous",
+      "about": ["student"],
+      "fields": ["sid", "student_id", "class_code", "day", "pts", "at"],
+      "purpose": "The class goal of the week (STUDENT-4): one row per finished lesson, teaching stage, check or placement (1 point) or passed mastery check (3 points) of a class student, with the student id, the class and the Jerusalem day, so the class sees one shared total. A random step id from the device makes a retry count once. No topic, no answer, no name.",
+      "retention": "120 days after its day (cron.js purgeRecordsSql); with the student or the class.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeRecordsSql", "cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps", "forget.classDeleteSteps"]
+    },
+    "class_goal_weeks": {
+      "personal": "no",
+      "about": ["teacher"],
+      "fields": ["class_code", "week", "target", "reached_at"],
+      "purpose": "A class's goal for one week (STUDENT-4): the target fixed at the week's first read, and when the class reached it.",
+      "retention": "400 days after its week (cron.js purgeRecordsSql); with the class.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeRecordsSql", "cron.purgeClassSteps", "forget.classDeleteSteps"]
+    },
+    "class_goal_settings": {
+      "personal": "no",
+      "about": ["teacher"],
+      "fields": ["class_code", "on_flag", "target", "updated_at"],
+      "purpose": "The teacher's choice for the class goal of the week (STUDENT-4): on or off, and a fixed size or automatic.",
+      "retention": "With the class.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.classDeleteSteps"]
+    },
+    "metrics_daily": {
+      "personal": "no",
+      "about": ["none"],
+      "fields": ["day", "name", "n"],
+      "purpose": "Reach counts with no tracker (STUDENT-14): how many times a named step happened on a Jerusalem day (a landing page seen, an install offered, reminders turned on). The three columns are the whole table: no device, address, user agent, account, class or student.",
+      "retention": "400 days after its day (cron.js purgeRecordsSql).",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeRecordsSql"]
     }
   },
   "client": {
@@ -455,6 +491,13 @@
       "holds": "The look chosen on this device: light, dark or following the phone (the student lane's lib/theme.js), mirrored for public/theme-boot.js so the first paint has the right colours.",
       "purpose": "The page opens in the chosen look, before the app has loaded.",
       "removedBy": "Choosing \"following the phone\", or delete all."
+    },
+    "<STORE_KEY>-src": {
+      "store": "localStorage",
+      "personal": "no",
+      "holds": "'play' when the app was opened from the Play Store app (?src=play), and nothing else (the student lane's lib/install.js).",
+      "purpose": "A store app never offers the browser's install (STUDENT-10); it counts only while the page also runs as an installed app, so the same phone's ordinary browser tab is never taken for the store app.",
+      "removedBy": "Delete all, or clearing the browser's data."
     },
     "<STORE_KEY>-demo": {
       "store": "sessionStorage",

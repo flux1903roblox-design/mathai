@@ -303,6 +303,7 @@ function summaryNotice(p, day) {
       p.quality ? qualityLine(p.quality) : '',
       v.length ? 'בדיקות שנכשלו:' : 'כל הבדיקות עברו.',
       ...v.map((x) => `- ${x}`),
+      ...reachLines(p.reach),
     ],
   };
 }
@@ -370,6 +371,18 @@ function vaultDriftNotice(p) {
       'אם זה חוזר כמה לילות ברצף, כדאי לבדוק את הקוד שכותב גיבויים (worker/src/vault.js).',
     ],
   };
+}
+
+/** The summary's reach block (cron.js reachSummary): counts by name, with no one behind them. */
+function reachLines(r) {
+  if (!r || typeof r !== 'object') return [];
+  const counts = Object.entries(r.counts && typeof r.counts === 'object' ? r.counts : {});
+  return [
+    'הגעה (ספירות בלי זיהוי):',
+    counts.length ? counts.map(([name, n]) => `${name} ${Number(n) || 0}`).join(' · ') : 'אתמול לא נספר כלום.',
+    `תלמידי כיתות שלמדו ב־7 הימים האחרונים: ${Number(r.classStudents7) || 0}`,
+    'לפי שבועות: npm run owner -- reach',
+  ];
 }
 
 export const MAX_NOTICE_TRIES = 6;

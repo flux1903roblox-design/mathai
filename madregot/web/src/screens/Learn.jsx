@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Flame, Zap, Check, BookOpen, ChevronDown, ChevronLeft, ArrowUp, ArrowDown, School } from 'lucide-react';
@@ -16,10 +16,18 @@ import { showLearnCard } from '@/lib/durable/install.js';
 import Chest from '@/components/map/Chest.jsx';
 import { Emblem, SCENERY } from '@/components/map/Scenery.jsx';
 import { Button } from '@/components/ui.jsx';
+import RepairCard from '@/components/learn/RepairCard.jsx';
 import { nextStage } from '@/learn/mastery.ts';
 import { routeOf, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
+import { todayRoute } from '@/learn/mission.ts';
+import { useMission } from '@/lib/useLearn.js';
 import { skillId } from '@/learn/skills.ts';
 import { urgentWork, urgentText } from '@/lib/classWork.js';
+import { chestItem } from '@/lib/wardrobe.js';
+import ClassGoalCard, { ClassGoalMoment } from '@/components/learn/ClassGoalCard.jsx';
+
+// the picture of what a unit's chest holds loads with the first chest card opened (Madi's accessories are not in the boot bundle)
+const ItemArt = lazy(() => import('@/components/mascot/Accessories.jsx').then((m) => ({ default: m.ItemArt })));
 
 // The path winds gently: each node sits a little to one side of the one before.
 const SWING = [0, 52, 78, 52, 0, -52, -78, -52];
@@ -76,6 +84,23 @@ function StairCard({ n, t, onStart }) {
       {mastered && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/learn/${t.id}/${n.level}`)}>לשיעור</Button>}
       {n.state === 'done' && <Button variant="ghost" className="btn-block btn-sm" onClick={() => onStart(`/lesson/${t.id}/${n.level}?part=${PARTS}`)}>תרגול חוזר</Button>}
       {n.state === 'locked' && <Button variant="secondary" className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${n.level}?kind=jump`)}>מבחן קפיצה</Button>}
+    </div>
+  );
+}
+
+/**
+ * The chest's card: what it holds for Madi before it opens (no surprises, STUDENT-3), and after, a way to try it on.
+ */
+function ChestCard({ topic, open, half, onTry }) {
+  const item = chestItem(topic);
+  return (
+    <div className="node-card" role="group" aria-label="תיבת אוצר">
+      <p className="node-card-title">{open ? 'חצי היחידה מאחוריכם' : 'תיבת אוצר'}</p>
+      <div className="chest-card-item">
+        <Suspense fallback={<span className="chest-card-art" />}>{item ? <ItemArt id={item.id} className="chest-card-art" /> : <span className="chest-card-art" />}</Suspense>
+        <p className="node-card-sub">{open ? `פתחתם: ${item?.name}.` : `בתיבה: ${item?.name} למדי. היא נפתחת כשתשלטו במדרגות 1 עד ${half}.`}</p>
+      </div>
+      {open && item && <Button variant="secondary" className="btn-block" onClick={() => onTry(`/me/madi?try=${item.id}`)}>לנסות על מדי</Button>}
     </div>
   );
 }
@@ -137,12 +162,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, fresh
                 <li key={`${t.id}:chest`} className="path-step path-chest" style={{ '--x': `${(x + SWING[(i + 1) % SWING.length]) / 2}px` }}>
                   <Chest open={chest} celebrate={chest && celebrate === key} expanded={open === `${t.id}:chest`}
                     label={`תיבת אוצר. ${chest ? 'פתוחה' : `נפתחת אחרי מדרגה ${half}`}`} onClick={() => setOpen(open === `${t.id}:chest` ? null : `${t.id}:chest`)} />
-                  {open === `${t.id}:chest` && (
-                    <div className="node-card" role="group" aria-label="תיבת אוצר">
-                      <p className="node-card-title">{chest ? 'חצי היחידה מאחוריכם' : 'תיבת אוצר'}</p>
-                      <p className="node-card-sub">{chest ? 'פתחתם את התיבה של היחידה הזאת. היא מחכה באוסף המדליות שלכם בפרופיל.' : `התיבה נפתחת כשמסיימים את כל המדרגות עד מדרגה ${half}: ${nodes[half - 1].title}.`}</p>
-                    </div>
-                  )}
+                  {open === `${t.id}:chest` && <ChestCard topic={t.id} open={chest} half={half} onTry={onStart} />}
                 </li>
               ),
               ART_AFTER[i] && <PathArt key={`${t.id}:art${i}`} topic={t.id} piece={ART_AFTER[i]} x={x} />,
@@ -171,15 +191,43 @@ function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
         <div className="card-row"><b>המשימות של היום</b><span className="card-num">{quests.filter((q) => q.done).length}/3</span></div>
         <ul className="side-quests">{quests.map((q) => <li key={q.id} className={clsx(q.done && 'done')}><span>{q.done && <Check size={16} strokeWidth={3} aria-hidden="true" />}{q.title}</span><span className="card-num">{q.have}/{q.target}</span></li>)}</ul>
       </Link>
+      {/* the class goal of the week, small (STUDENT-4); nothing for a student with no class */}
+      <ClassGoalCard compact />
     </aside>
   );
 }
 
+/**
+ * The installed app's shortcut "השיעור של היום" (./#/?go=today, STUDENT-10) opens what TodayCard's button opens: the
+ * mission's next part, or the missions tab when the day's mission is done. The mission is fixed for the day once
+ * shown, as TodayCard fixes it. The address is replaced, so Back does not come here again.
+ */
+function GoToday() {
+  const navigate = useNavigate();
+  const { items, fresh } = useMission();
+  const went = useRef(false);
+  useEffect(() => {
+    if (went.current) return;
+    went.current = true;
+    const { saveMission, learnEvent } = useApp.getState();
+    if (fresh && items.length) { saveMission(today(), items); learnEvent({ e: 'mission-start' }); }
+    navigate(todayRoute(items), { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 export default function Learn() {
+  const { search } = useLocation();
+  if (new URLSearchParams(search).get('go') === 'today') return <GoToday />;
+  return <LearnMap />;
+}
+
+function LearnMap() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { profile, path, days, xp, goalXp, freezes, settleStreak, lastTopic } = useApp();
-  const [view, setView] = useState(profile.grade || '7');
+  // the grade on show: the student's own, or the one a link to a unit asks for (the wardrobe's "ליחידת …")
+  const [view, setView] = useState(state?.grade || profile.grade || '7');
   const [open, setOpen] = useState(null);
   const [away, setAway] = useState(null); // 'up' | 'down' when the current node is off screen
   const [install, setInstall] = useState(false);
@@ -235,9 +283,13 @@ export default function Learn() {
       {/* on an iPhone in the browser, from the 3rd day: the Home Screen guide, offered once (lib/durable/install.js) */}
       {showLearnCard({ profile, days, xp, durable: { installHintAt } }) && <InstallCard onOpen={() => setInstall(true)} />}
       <InstallSheet open={install} onOpenChange={setInstall} />
+      {/* the class reached a week's goal this student added to: a short shared moment, once (STUDENT-4) */}
+      <ClassGoalMoment />
 
       <div className="learn-layout">
       <div className="learn-body">
+        {/* a missed school day: two items today keep the streak (STUDENT-5); closed for the day with its X */}
+        <RepairCard />
         {/* the home screen is the path, as on Duolingo: units under their sticky banners, the current stop marked */}
         {topics.map((t, i) => (
           <Unit key={t.id} t={t} n={i + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} fresh={state?.from}

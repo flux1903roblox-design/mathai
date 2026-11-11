@@ -28,17 +28,26 @@ export const OUTBOX_KEEP = 1000;
 /**
  * Never taken from another device: they describe this device, not the student's progress. The teacher's class work
  * (classWork, the last copy fetched with this device's class token) and its reports waiting for the server (workOutbox)
- * are this device's like the answers' outbox: the class server has the truth, and the app fetches it again.
+ * are this device's like the answers' outbox: the class server has the truth, and the app fetches it again. So are the
+ * student lane's class-goal steps waiting for the server (stepsOut) and the weeks it last reported (classGoals,
+ * STUDENT-4), and this device's one-time notes and install offers (nudges, STUDENT-5/10).
  */
-export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox'];
+export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox', 'stepsOut', 'classGoals', 'nudges'];
 /** This device's settings: a restore never changes them (haptics and prefs, the look and the sound choice: STUDENT-2/7). */
 export const SETTINGS = ['sound', 'goalXp', 'solveMode', 'helpSent', 'haptics', 'prefs'];
-/** What a reset on purpose clears (store.js resetProgress): the side with the later reset gives all of it. */
-export const PROGRESS = ['progress', 'days', 'xp', 'xpBy', 'resetAt', 'path', 'mistakes', 'wins', 'gaps', 'placement', 'learn', 'exams', 'practiceExams', 'planBase', 'freezes', 'lastTopic'];
+/**
+ * What a reset on purpose clears (store.js resetProgress): the side with the later reset gives all of it. Madi's look
+ * (STUDENT-3) and the streak's last repair (STUDENT-5) go with the progress.
+ */
+export const PROGRESS = ['progress', 'days', 'xp', 'xpBy', 'resetAt', 'path', 'mistakes', 'wins', 'gaps', 'placement', 'learn', 'exams', 'practiceExams', 'planBase', 'freezes', 'lastTopic', 'streak', 'look'];
+/** Class-goal steps waiting for the server, at most (store.js STEPS_MAX; the oldest give way first). */
+export const STEPS_KEEP = 200;
 /** Per-day counters that take the larger value even between tabs (the best combo of the day). */
 const DAY_MAX = new Set(['combo']);
 /** Per-day flags: set on either side, set in the merge. */
 const DAY_OR = new Set(['frozen', 'questsRewarded']);
+/** A flag set on either side; a day the streak's repair kept stays frozen: 'repair' (STUDENT-5: "הרצף נשמר"). */
+const orJoin = (x, y) => (x === 'repair' || y === 'repair' ? 'repair' : !!(x || y));
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -121,6 +130,7 @@ const byAsc = (f) => (x, y) => (str(f(x)) < str(f(y)) ? -1 : str(f(x)) > str(f(y
 const eventKey = (e) => (isObj(e) ? `${str(e.t)}|${str(e.e)}|${str(e.s)}|${str(e.p)}|${str(e.m)}|${e.ok}` : JSON.stringify(e));
 const attemptKey = (a) => (isObj(a) ? `${str(a.at)}|${str(a.purpose)}|${a.ok}|${a.independent}` : JSON.stringify(a));
 const idKey = (x) => (isObj(x) && x.id != null ? `id:${x.id}` : JSON.stringify(x));
+const sidKey = (x) => (isObj(x) && x.sid != null ? `sid:${x.sid}` : JSON.stringify(x));
 /** The newest `n` of a log kept in time order (its end). */
 const lastN = (list, n) => (list.length > n ? list.slice(-n) : list);
 const sortEvents = (list) => lastN([...list].sort(byAsc((e) => e?.t)), MAX_EVENTS);
@@ -199,6 +209,21 @@ function examJoin(a, b, newerB) {
   return isObj(a.diagnostic) || isObj(b.diagnostic) ? { ...base, diagnostic: diag } : base;
 }
 
+/**
+ * Madi's look (STUDENT-3): what is worn and the colour from `chosen` (the side that changed it last, or the newer copy),
+ * and what was earned or shown from both sides, since a piece once earned stays earned (each with its earliest day).
+ */
+function lookJoin(chosen, x, y) {
+  if (!isObj(chosen)) return chosen;
+  const both = (f) => [...new Set([...(Array.isArray(x?.[f]) ? x[f] : []), ...(Array.isArray(y?.[f]) ? y[f] : [])])];
+  const earnedAt = {};
+  for (const k of keysOf(x?.earnedAt, y?.earnedAt)) {
+    const a = x?.earnedAt?.[k]; const b = y?.earnedAt?.[k];
+    earnedAt[k] = a && b ? (str(a) <= str(b) ? a : b) : a || b;
+  }
+  return { ...chosen, earned: both('earned'), seen: both('seen'), earnedAt };
+}
+
 // ------------------------------------------------------------------ mergeTabs
 
 /**
@@ -211,7 +236,7 @@ export function mergeTabs(base, mine, theirs, { mineAt = {}, theirsAt = {} } = {
   const mineWins = (k) => str(mineAt?.[k]) >= str(theirsAt?.[k]);
   // a reset on one side (or a later one): that side's progress, whole
   const reset = same(m.resetAt, t.resetAt) ? null : str(m.resetAt) >= str(t.resetAt) ? m : t;
-  const progress = new Set([...PROGRESS, 'outbox']);
+  const progress = new Set([...PROGRESS, 'outbox', 'stepsOut', 'classGoals']);
   const out = {};
   for (const k of learnFirst(keysOf(m, t))) {
     if (reset && progress.has(k)) { if (reset[k] !== undefined) out[k] = reset[k]; continue; }
@@ -237,6 +262,8 @@ function tabSlice(k, b, m, t, c) {
     case 'practiceExams': return newestFirst(set3(b, m, t, idKey), PRACTICE_EXAMS_KEEP);
     case 'teacherExams': return newestFirst(set3(b, m, t, idKey), TEACHER_EXAMS_KEEP);
     case 'outbox': return lastN(set3(b, m, t, idKey).sort(byAsc((e) => e?.at)), OUTBOX_KEEP);
+    case 'stepsOut': return lastN(set3(b, m, t, sidKey).sort(byAsc((e) => e?.at)), STEPS_KEEP);
+    case 'look': return lookJoin(generic3(b, m, t, c.wins), m, t);
     default: return generic3(b, m, t, c.wins);
   }
 }
@@ -247,7 +274,7 @@ function tabDay(b, m, t, wins) {
   for (const f of keysOf(m, t)) {
     const x = m[f]; const y = t[f]; const z = isObj(b) ? b[f] : undefined;
     if (DAY_MAX.has(f)) out[f] = max2(x, y);
-    else if (DAY_OR.has(f)) out[f] = !!(x || y);
+    else if (DAY_OR.has(f)) out[f] = orJoin(x, y);
     else if (isNum(x) || isNum(y)) out[f] = add3(z, x, y); // every counter of the day adds, the unknown ones too (tsecs)
     else { const v = generic3(z, x, y, wins); if (v !== undefined) out[f] = v; }
   }
@@ -368,6 +395,9 @@ function deviceSlice(k, x, y, c) {
     case 'practiceExams': return newestFirst(unionById(x, y, c), PRACTICE_EXAMS_KEEP);
     case 'teacherExams': return newestFirst(unionById(x, y, c), TEACHER_EXAMS_KEEP);
     case 'placement': case 'lastTopic': case 'planBase': case 'freezes': return c.newer(x, y);
+    case 'look': return lookJoin(c.newer(x, y), x, y);
+    // the streak's last repair: the later one, so a repair on either device waits its 30 days (lib/streak.js)
+    case 'streak': return isObj(x) && isObj(y) ? { ...c.newer(x, y), lastRepair: str(x.lastRepair) >= str(y.lastRepair) ? x.lastRepair ?? null : y.lastRepair ?? null } : c.newer(x, y);
     default: return isNum(x) && isNum(y) ? Math.max(x, y) : c.newer(x, y); // a field this merge does not know
   }
 }
@@ -401,7 +431,7 @@ function deviceDay(a, b, c) {
   const out = {};
   for (const f of keysOf(a, b)) {
     const x = a[f]; const y = b[f];
-    if (DAY_OR.has(f)) out[f] = !!(x || y);
+    if (DAY_OR.has(f)) out[f] = orJoin(x, y);
     else if (isNum(x) || isNum(y)) out[f] = max2(x, y); // every counter of the day, the unknown ones too
     else { const v = c.newer(x, y); if (v !== undefined) out[f] = v; }
   }

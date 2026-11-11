@@ -34,7 +34,9 @@ const ROUTES = [
     '/api/ai/report', '/api/class/work', '/api/teacher/report', '/api/teacher/class/digest', '/api/teacher/class/ai', '/api/teacher/class/rename',
     '/api/teacher/class/delete', '/api/teacher/assignments', '/api/teacher/classes', '/api/teacher/class/owner', '/api/teacher/class/rekey',
     // the safety lane's "delete all" (TRUST-6)
-    '/api/me/forget'].map((p) => [p, p]),
+    '/api/me/forget',
+    // the student lane's class goal (STUDENT-4) and reach counts (STUDENT-14)
+    '/api/class/goal', '/api/teacher/class/goal', '/api/metrics'].map((p) => [p, p]),
   [/^\/api\/ai\/[^/]+$/, '/api/ai/:kind'],
   [/^\/api\/billing\/orders\/[^/]+$/, '/api/billing/orders/:id'],
   [/^\/api\/billing\/payments\/[^/]+\/invoice$/, '/api/billing/payments/:id/invoice'],

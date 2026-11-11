@@ -340,9 +340,8 @@ a { color: var(--brand-d); }
 /* the numbers on the profile and the teacher's board: one icon colour, the brand */
 .profile-stats svg, .me-stat svg, .t-kpis svg, .kpi-icon, .kpi-good .kpi-icon, .kpi-bad .kpi-icon { color: var(--brand-ink); fill: none; }
 
-/* the profile: the student's initial instead of a character */
+/* the profile: the student's own מדי (STUDENT-3) */
 .profile-top { height: 140px; background: var(--brand-tint); }
-.avatar-initial { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: var(--brand); color: var(--on-brand); font-size: 44px; font-weight: 800; box-shadow: 0 0 0 6px var(--paper); }
 
 /* the current stop: its ring in the unit's colour on its tint track, with room for the bubble above */
 .node-slot.has-ring { width: 104px; height: 104px; }
@@ -398,9 +397,9 @@ a { color: var(--brand-d); }
 @media (min-width: 900px) and (min-height: 560px) { .lesson .lesson-top, .lesson .lesson-q { max-width: 760px; margin-inline: auto; } }
 /* the narrowest phones: the teaching-stage maths fits its panel without a scroll box */
 @media (max-width: 360px) { .lm-expr { font-size: 1.4rem; padding-inline: 0; } .ls-display.big { font-size: 1.3rem; } }
-/* the profile: the initial sits small at the top, with no band behind it */
+/* the profile: מדי sits at the top, with no band behind it */
 .profile-top { height: auto; background: none; border: 0; padding: var(--s4) 0 0; margin-bottom: 0; }
-.avatar-initial { width: 72px; height: 72px; font-size: 32px; box-shadow: none; }
+.profile-avatar .mascot { display: block; }
 /* the teacher's numbers: one icon colour */
 .kpi-icon, .kpi-good .kpi-icon, .kpi-brand .kpi-icon, .kpi-gold .kpi-icon, .kpi-bad .kpi-icon, .kpi-sky .kpi-icon { color: var(--brand-ink); }
 /* one typed answer: a wide field */
@@ -553,6 +552,16 @@ a { color: var(--brand-d); }
 .t-lock { margin-bottom: var(--s4); }
 .t-lock-row { font-weight: 700; }
 .t-lock .field-hint { margin: 0; }
+/* the weekly class goal's block (STUDENT-4; TEACHER-9's settings page takes it over) and its chip in the header */
+.t-goal { display: flex; flex-direction: column; gap: var(--s3); margin-bottom: var(--s4); }
+.t-goal .set-head { margin: 0; }
+.t-goal-seg { max-width: 360px; }
+.t-goal-size { display: flex; flex-direction: column; gap: var(--s2); }
+.t-goal-size .field-label { margin: 0; }
+.t-goal-row { display: flex; gap: var(--s2); align-items: stretch; max-width: 360px; }
+.t-goal-row .input { flex: 1; min-width: 0; min-height: 48px; }
+.t-goal-size .form-error, .t-goal .field-hint { margin: 0; }
+.t-goal-chip { min-height: 36px; }
 .t-actions { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); white-space: nowrap; }
 
 /* sign-in by code */
@@ -562,8 +571,8 @@ a { color: var(--brand-d); }
 .email-code-sent { margin: 0; }
 
 /* a row that opens another screen: its name, then a chevron at the far end */
-a.set-row { justify-content: space-between; gap: var(--s3); color: var(--ink); text-decoration: none; }
-a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
+a.set-row, .set-row.go { justify-content: space-between; gap: var(--s3); color: var(--ink); text-decoration: none; }
+a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 /* ------------------------------------------------------------------ a teaching stage done (lighter than a lesson's end) */
 /* מדי, the stage, the stair's five stages with this one filled, what it earned as quiet pills, what comes next */
 .stage-done .done-hero { min-height: 128px; }
@@ -590,6 +599,15 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .goal-xp { color: var(--gold-ink); font-weight: 800; }
 .goal-xp bdi { font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-height: 640px) { .goal-ring { width: 164px; height: 164px; } .goal-madi { width: 88px; height: auto; } }
+/* the install offer (STUDENT-10): a home screen with the app's icon in the middle, then one sentence and two answers */
+.install-stage .install-hero { min-height: 0; margin-top: auto; }
+.install-home { display: grid; grid-template-columns: repeat(3, 56px); gap: var(--s5); padding: var(--s5) var(--s6) var(--s4); border: 2px solid var(--rule); border-radius: 28px; background: var(--ground); }
+.install-app { display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
+.install-app i { display: block; width: 56px; height: 56px; border-radius: 16px; background: var(--track); }
+.install-app b { display: block; width: 40px; height: 8px; margin-block: 6px; border-radius: 4px; background: var(--track); }
+.install-app.ours img { display: block; width: 56px; height: 56px; border-radius: 16px; box-shadow: 0 0 0 4px var(--brand-tint); }
+.install-app.ours b { width: auto; height: auto; margin: 0; background: none; color: var(--ink); font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap; }
+.install-text { margin: 0; max-width: 32ch; color: var(--ink-2); font-size: 17px; line-height: 26px; text-wrap: balance; }
 /* the pinned button's band is the page's own colour (in dark, --surface would show as a lighter box) */
 .done-screen .done-actions { background: var(--paper); }
 @media (max-height: 700px) { .done-screen .done-actions { background: linear-gradient(transparent, var(--paper) 28%); } }
@@ -1091,6 +1109,102 @@ a.btn { text-decoration: none; }
 /* the stair page opened from the teacher's work */
 .journey-work { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); padding: var(--s2) var(--s3); border-radius: 12px; background: var(--brand-tint); color: var(--brand-d); font-weight: 700; font-size: 15px; line-height: 21px; }
 .journey-work svg { flex: none; }
+
+/* ------------------------------------------------------------------ the teaching figures (STUDENT-8)
+   Number line, thermometer, function machine, dot plot and bar chart, and the plane's quadrants, walks, lines, meeting
+   point and rise-and-run. Ink for the frame, the brand for what the text is about, orange for the one thing marked
+   (orange next to blue reads for every kind of colour vision). Every colour is a token, so dark mode is the same
+   drawing; text has a halo of the panel it sits on. */
+.figure.fig-numline, .figure.fig-dots, .figure.fig-bars { max-width: 360px; }
+.figure.fig-thermo { max-width: 200px; }
+.figure.fig-thermo.two { max-width: 300px; }
+.figure.fig-machine { max-width: 280px; }
+.fig-var { font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; }
+.fig-nl-axis { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fig-nl-head { fill: var(--ink); }
+.fig-nl-tick { stroke: var(--ink); stroke-width: 2; }
+.fig-nl-tick.zero { stroke-width: 3; }
+.fig-nl-tick.part { stroke: var(--ink-2); stroke-width: 1.4; }
+.fig-nl-num { fill: var(--ink-2); font-size: 15px; font-weight: 500; }
+.fig-nl-num.zero { fill: var(--ink); font-weight: 700; }
+.fig-nl-num.on { fill: var(--brand-d); font-size: 17px; font-weight: 800; }
+.fig-nl-num.on.tone-good { fill: var(--good-ink); }
+.fig-nl-num.on.tone-bad { fill: var(--bad-ink); }
+.fig-nl-mark circle { fill: var(--brand); stroke: var(--ground); stroke-width: 2.5; }
+.fig-nl-mark.tone-good circle { fill: var(--good-d); }
+.fig-nl-mark.tone-bad circle { fill: var(--bad); }
+.fig-nl-name { fill: var(--ink); font-size: 19px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-nl-jump path { fill: none; stroke: var(--brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.fig-nl-move { fill: var(--brand-d); font-size: 18px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-th-glass { fill: var(--surface); stroke: var(--ink-2); stroke-width: 2.5; }
+.fig-th-fill { fill: var(--bad); }
+.fig-th-col { fill: none; stroke: var(--bad); stroke-width: 12; }
+.fig-th-tick { stroke: var(--ink-2); stroke-width: 2; }
+.fig-th-tick.sub { stroke-width: 1.25; }
+.fig-th-tick.zero { stroke: var(--ink); stroke-width: 2.5; }
+.fig-th-num { fill: var(--ink-2); font-size: 15px; font-weight: 500; }
+.fig-th-num.zero { fill: var(--ink); font-weight: 700; }
+.fig-th-pointer { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 3 3; }
+.fig-th-read { fill: var(--ink); font-size: 22px; font-weight: 800; }
+.fig-thermo.two .fig-th-num { font-size: 19px; }
+.fig-thermo.two .fig-th-read { font-size: 26px; }
+.fig-thermo.two .fg-word { font-size: 20px; }
+.fig-mc-io rect { fill: var(--surface); stroke: var(--control-line); stroke-width: 2; }
+.fig-mc-io text { fill: var(--ink); font-size: 24px; font-weight: 700; }
+.fig-mc-io.target rect { stroke: var(--brand); stroke-width: 2.5; }
+.fig-mc-io.target text { fill: var(--brand-d); }
+.fig-mc-box { fill: var(--brand-tint); stroke: var(--brand); stroke-width: 2.5; }
+.fig-mc-rule { fill: var(--ink); font-family: KaTeX_Main, 'Times New Roman', serif; font-size: 30px; }
+.fig-mc-arrow { fill: none; stroke: var(--ink-2); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.fig-dt-dot { fill: var(--brand); stroke: var(--ground); stroke-width: 1.5; }
+.fig-dt-dot.hi { fill: var(--streak); stroke: var(--streak-d); stroke-width: 2; }
+.fig-dt-fulcrum { fill: var(--ink-2); }
+.fig-bar rect { fill: var(--brand); }
+.fig-bar.hi rect { fill: var(--streak); stroke: var(--streak-d); stroke-width: 2; }
+.fig-bar-num { fill: var(--ink); font-size: 16px; font-weight: 700; }
+.fig-bar-name { fill: var(--ink-2); font-weight: 600; }
+.fig-bar-base { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fig-bar.gone rect { fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 5 4; }
+.fig-bar.gone .fig-bar-num { fill: var(--brand-d); font-size: 22px; font-weight: 800; }
+.fig-bar-level line { stroke: var(--streak-d); stroke-width: 2.5; stroke-dasharray: 8 5; }
+.fig-bar-level-num { fill: var(--streak-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-word { fill: var(--ink); font-size: 17px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-word.fig-var { font-size: 20px; font-weight: 400; }
+.fig-cd-quad { fill: var(--ink-2); font-size: 15px; font-weight: 600; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-line { fill: none; stroke-width: 3; stroke-linecap: round; }
+.fig-cd-line.tone-brand { stroke: var(--brand); }
+.fig-cd-line.tone-alt { stroke: var(--streak-d); }
+.fig-cd-line.tone-good { stroke: var(--good-d); }
+.fig-cd-line.tone-bad { stroke: var(--bad); }
+.fig-cd-tag { font-size: 17px; font-weight: 700; font-style: italic; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-tag.tone-brand { fill: var(--brand-d); }
+.fig-cd-tag.tone-alt { fill: var(--streak-ink); }
+.fig-cd-tag.tone-good { fill: var(--good-ink); }
+.fig-cd-tag.tone-bad { fill: var(--bad-ink); }
+.fig-cd-rr path { fill: none; stroke: var(--streak-d); stroke-width: 2.5; stroke-dasharray: 6 4; }
+.fig-cd-rr-num { fill: var(--streak-ink); font-size: 17px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-walk path { fill: none; stroke: var(--brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.fig-cd-meet circle { fill: var(--good-d); stroke: var(--ground); stroke-width: 2.5; }
+.fig-cd-meet-num { fill: var(--good-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+
+/* a table in a teaching step: a maths cell never breaks inside (2x − 7 on one line); four columns fit a 320px phone */
+.lm-fig .fg-table th, .lm-fig .fg-table td { padding: 4px 10px; }
+.lm-fig .fg-table.cols4 th, .lm-fig .fg-table.cols4 td { padding: 4px 6px; }
+.lm-fig .fg-table bdi[dir="ltr"] { white-space: nowrap; }
+
+/* a long formula in a rule's "why" (an inline expression never splits, tokens.css) scrolls inside its box on a 320px
+   phone instead of pushing the whole page sideways; the box is positioned so KaTeX's hidden, positioned MathML stays
+   inside it too */
+.lm-why { position: relative; overflow-x: auto; }
+
+/* on a short phone the tall drawings shrink to keep the text and the button in view */
+@media (max-height: 700px) { .lm-fig .figure.fig-machine, .lm-fig .figure.fig-thermo { max-height: 30dvh; } }
+
+/* a say step with a drawing (STUDENT-8 §4): on a phone the drawing sits right under the sentence and takes a good part of
+   the screen, so a teaching screen is never one line of text over an empty page */
+@media (max-width: 899px) {
+  .lm-card.sp-say > .lm-canvas.big:has(.lm-fig) { margin-top: 0; min-height: 40vh; }
+}
 
 /* ------------------------------------------------------------------ both themes (STUDENT-2)
    Control edges reach 3:1 against what they sit on, in light and in dark (WCAG 1.4.11): inputs and segmented controls
@@ -1595,3 +1709,81 @@ button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
   .prep-lead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .photo-prep-sheet .sheet-body { padding-top: var(--s3); }
 }
+
+/* ------------------------------------------------------------------ a calm streak (STUDENT-5) */
+/* the repair card on the home screen: quiet, no red, Madi at rest, closable for the day */
+.repair-card { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--s3); padding: var(--s4); padding-inline-end: 52px; border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
+.repair-madi { margin-top: 2px; }
+.repair-main { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s3); min-width: 0; }
+.repair-text { margin: 0; color: var(--ink); font-size: 16px; line-height: 24px; text-wrap: pretty; }
+.repair-go { min-height: 44px; }
+.repair-close { position: absolute; top: 4px; inset-inline-end: 4px; }
+/* the streak card on Quests: the month's learning days (a number that does not reset) and the repair, in words */
+.streak-month { margin: 4px 0 0; color: var(--ink); font-size: 15px; line-height: 22px; font-weight: 600; }
+.streak-repair-line { margin: 0; padding: var(--s3) var(--s4); border-radius: 12px; background: var(--ground); color: var(--ink); font-size: 15px; line-height: 22px; }
+/* השבוע שלי: this week's steps against the best week */
+.week-best-card { display: flex; flex-direction: column; gap: var(--s3); }
+.week-best-card .card-title { margin: 0; }
+.wk-line { margin: 0; color: var(--ink); font-size: 17px; line-height: 24px; font-weight: 600; }
+.wk-track { position: relative; height: 14px; }
+.wk-fill { height: 100%; border-radius: 999px; background: var(--brand); transition: width var(--duration-slow) var(--ease-smooth-out); }
+.wk-best { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 22px; }
+.week-best-card .field-hint { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .wk-fill { transition: none; } }
+
+/* ------------------------------------------------------------------ מדי שלי (STUDENT-3) */
+/* the profile's way to the wardrobe, under the name */
+.profile-madi-btn { align-self: flex-start; margin-top: var(--s3); }
+/* the wardrobe: מדי on top (he stays in view while the options scroll), then one group per colour and slot */
+.wardrobe-stage { position: sticky; top: 0; z-index: 2; display: grid; place-items: center; padding: var(--s3) 0 var(--s2); background: var(--paper); border-bottom: 1px solid var(--rule); }
+.wardrobe-madi { display: block; }
+.wardrobe-sub-head { margin: var(--s4) 0 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-wrap: pretty; }
+.wardrobe-group { margin-top: var(--s5); }
+.wardrobe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: var(--s2); }
+/* an option is a small tile: the picture, the name, and where it came from (or "נעול"); the check or the lock in its corner */
+.wardrobe-opt { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 112px; padding: var(--s3) var(--s2) 10px; border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wardrobe-opt[data-checked] { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+.wardrobe-opt:focus-visible { outline: 3px solid var(--brand-ink); outline-offset: 2px; }
+.wardrobe-pic { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 4px; }
+.wardrobe-art { width: 48px; height: 48px; }
+.wardrobe-none { width: 32px; height: 32px; border: 2px dashed var(--rule-strong); border-radius: 50%; }
+.wardrobe-text { display: flex; flex-direction: column; min-width: 0; }
+.wardrobe-name { font-size: 16px; line-height: 22px; font-weight: 700; }
+.wardrobe-sub { color: var(--ink-2); font-size: 14px; line-height: 20px; text-wrap: balance; }
+.wardrobe-mark { position: absolute; top: 8px; inset-inline-start: 8px; display: grid; place-items: center; color: var(--brand-ink); }
+.wardrobe-opt.is-locked { background: var(--ground); border-style: dashed; }
+.wardrobe-opt.is-locked .wardrobe-pic { filter: grayscale(1); opacity: 0.5; }
+.wardrobe-opt.is-locked .wardrobe-name { color: var(--ink-2); }
+.wardrobe-opt.is-locked .wardrobe-mark { color: var(--ink-3); }
+.wardrobe-lock { display: flex; flex-direction: column; gap: var(--s4); }
+.wardrobe-lock .lead { margin: 0; }
+/* a short phone: a smaller מדי, so the options keep most of the screen */
+@media (max-height: 640px) { .wardrobe-madi { width: 104px; height: auto; } .wardrobe-stage { padding: var(--s2) 0; } }
+/* the path's chest card says what the chest holds, with a picture of it */
+.chest-card-item { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: var(--s3); }
+.chest-card-art { width: 56px; height: 56px; }
+.chest-card-item .node-card-sub { margin: 0; }
+/* the unlock moment: מדי wearing the new piece */
+.unlock-stage .done-hero { min-height: 180px; }
+.unlock-reason { margin: 0; max-width: 34ch; color: var(--ink); font-size: 18px; line-height: 27px; text-align: center; text-wrap: pretty; }
+.unlock-more { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-align: center; }
+@media (max-height: 640px) { .unlock-stage .done-hero { min-height: 128px; } .unlock-madi { width: 112px; height: auto; } }
+/* the class goal of the week (STUDENT-4): one shared total and the student's own share, no names; brand blue on the
+   way, gold once the class reached it */
+.class-goal-card { display: flex; flex-direction: column; gap: var(--s3); }
+.class-goal-card .card-title { margin: 0; }
+.cg-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.cg-count { margin: 0; color: var(--ink); font-size: 17px; line-height: 24px; font-weight: 600; }
+.cg-top .cg-count { flex: 1; min-width: 0; }
+.cg-madi { flex: none; margin-block: calc(-1 * var(--s3)) calc(-1 * var(--s1)); }
+.cg-track .cg-fill { height: 100%; border-radius: 999px; background: var(--brand); box-shadow: none; transition: width var(--duration-slow) var(--ease-smooth-out); }
+.is-reached .cg-track .cg-fill { background: var(--gold); }
+.cg-reached { margin: 0; color: var(--ink); font-size: 16px; line-height: 24px; font-weight: 600; text-wrap: pretty; }
+.cg-mine { margin: 0; color: var(--ink); font-size: 16px; line-height: 24px; }
+.cg-last { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 22px; }
+.class-goal-card .field-hint { margin: 0; }
+.side-goal { gap: var(--s2); }
+.side-goal-count { font-weight: 600; }
+.goal-moment-hero { min-height: 150px; }
+.goal-moment-text { margin: var(--s2) auto 0; max-width: 34ch; color: var(--ink); font-size: 18px; line-height: 27px; text-align: center; text-wrap: pretty; }
+@media (prefers-reduced-motion: reduce) { .cg-track .cg-fill { transition: none; } }

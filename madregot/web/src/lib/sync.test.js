@@ -114,7 +114,9 @@ describe('syncNow', () => {
     expect(calls).toHaveLength(1);
     record(1);
     const late = outbox().at(-1).id;
-    await syncNow(); // a second sync while the first runs sends nothing (the guard)
+    // a second sync while the first runs sends nothing of its own (the guard): it is the first one's promise (the class
+    // goal, STUDENT-4, waits on it so the steps went before it asks for the total)
+    expect(syncNow()).toBe(run);
     expect(calls).toHaveLength(1);
     release();
     await run;
@@ -159,6 +161,20 @@ describe('syncNow', () => {
     await syncNow({ levels: true });
     expect(calls).toHaveLength(1);
     expect(calls[0].body).toEqual({ events: [], levels: { neg: { level: 2, max: 2 } } });
+  });
+
+  it('a sync that must send the levels, asked while one without them runs (the class goal\'s card), runs right after it', async () => {
+    let release;
+    answer = (body, n) => (n === 1 ? new Promise((r) => { release = () => r({ saved: body.events.length }); }) : { saved: body.events.length });
+    record(1);
+    const first = syncNow(); // the class goal's card, a moment before the app's boot sync
+    const boot = syncNow({ levels: true });
+    expect(boot).not.toBe(first);
+    expect(calls).toHaveLength(1);
+    release();
+    await boot;
+    expect(calls).toHaveLength(2);
+    expect(calls[1].body).toEqual({ events: [], levels: { neg: { level: 2, max: 2 } } });
   });
 
   it('stops after 5 requests (1,500 answers); the rest wait for the next moment', async () => {

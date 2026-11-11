@@ -14,6 +14,7 @@ import { watchPersisted } from '@/lib/durable/persist.js';
 import { fetchClassWork, flushWork } from '@/lib/classWork.js';
 import { previewBack } from '@/lib/teacher.js';
 import { applyTheme } from '@/lib/theme.js';
+import { MadiLookProvider } from '@/lib/madiLook.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import SupportSheet from '@/components/SupportSheet.jsx';
 import AIIntro from '@/components/AIIntro.jsx';
@@ -34,6 +35,7 @@ const Topic = lazy(() => import('@/screens/Topic.jsx'));
 const Quests = lazy(() => import('@/screens/Quests.jsx'));
 const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
+const Wardrobe = lazy(() => import('@/screens/Wardrobe.jsx'));
 const Settings = lazy(() => import('@/screens/Settings.jsx'));
 const Report = lazy(() => import('@/screens/Report.jsx'));
 const AdvancedSettings = lazy(() => import('@/screens/Settings.jsx').then((m) => ({ default: m.AdvancedSettings })));
@@ -235,6 +237,11 @@ function LearnClock() {
   return null;
 }
 
+/** The student's own screens: מדי wears the student's look there (STUDENT-3); everywhere else he has the default one. */
+function StudentLook() {
+  return <MadiLookProvider><Outlet /></MadiLookProvider>;
+}
+
 /** The app's screens. Rendered under a data router so a lesson can ask before the back button leaves it. */
 function Root() {
   const role = useApp((s) => s.profile?.role);
@@ -302,7 +309,7 @@ function Root() {
           </>
         )}
         {role === 'student' && (
-          <>
+          <Route element={<StudentLook />}>
             <Route element={<Shell />}>
               <Route path="/" element={<Learn />} />
               <Route path="/quests" element={<Quests />} />
@@ -310,6 +317,7 @@ function Root() {
               <Route path="/topic/:id" element={<Topic />} />
               <Route path="/assistant" element={<Assistant />} />
               <Route path="/me" element={<Me />} />
+              <Route path="/me/madi" element={<Wardrobe />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/advanced" element={<AdvancedSettings />} />
               <Route path="/report" element={<Report />} />
@@ -334,7 +342,7 @@ function Root() {
             <Route path="/rescue/exam" element={<LessonRoute />} />
             <Route path="/class/exam/:id/run" element={<LessonRoute />} />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </>
+          </Route>
         )}
       </Routes>
       </Suspense>

@@ -1,0 +1,26 @@
+manifest url: ./manifest.webmanifest
+parse errors and warnings: none
+installability errors: none
+parsed by Chrome: {
+ "id": "./",
+ "startUrl": "./",
+ "scope": "./",
+ "display": "kStandalone",
+ "launchHandler": {
+  "clientMode": "kFocusExisting"
+ },
+ "shortcuts": [
+  {
+   "name": "השיעור של היום",
+   "url": "./#/?go=today"
+  },
+  {
+   "name": "משימות",
+   "url": "./#/quests"
+  },
+  {
+   "name": "מבחן קרוב",
+   "url": "./#/rescue"
+  }
+ ]
+}

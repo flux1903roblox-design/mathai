@@ -213,10 +213,18 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
   // "not yet" on an explore step: bring the object up above the sheet, to be moved again. Its bottom (where the
   // buttons are) is what must show: on a small phone the whole panel may not fit, and its top then goes under the header.
   const missed = step.kind === 'explore' && !answers[i] ? exp?.miss || 0 : 0;
+  // The sheet grows as it comes in (its hint and maths are laid out a moment later), so the scroll is done again each time
+  // the bottom changes size in the next second; done once, it could be measured against a sheet not yet whole.
   useEffect(() => {
     if (!missed) return undefined;
-    const raf = requestAnimationFrame(() => rootRef.current?.querySelector('.ls-explore .lm-canvas')?.scrollIntoView({ block: 'end' }));
-    return () => cancelAnimationFrame(raf);
+    const scroll = () => rootRef.current?.querySelector('.ls-explore .lm-canvas')?.scrollIntoView({ block: 'end' });
+    let raf = requestAnimationFrame(scroll);
+    const foot = footRef.current;
+    const ro = foot && typeof ResizeObserver === 'function'
+      ? new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(scroll); }) : null;
+    ro?.observe(foot);
+    const stop = setTimeout(() => ro?.disconnect(), 1000);
+    return () => { cancelAnimationFrame(raf); ro?.disconnect(); clearTimeout(stop); };
   }, [missed, i]);
   const bar = <Segments steps={steps.length} done={i} current={i} size="thin" className="sp-progress" label={label} valueText={`צעד ${i + 1} מתוך ${steps.length}`} />;
   return (

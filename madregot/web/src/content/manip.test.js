@@ -585,6 +585,8 @@ describe('the still figures of stage 1 are drawn, and said in words with every n
     expect(figPlain(figs.fgrid)).toBe('מלבן מחולק ל־2 שורות ול־4 עמודות; 3 עמודות צבועות בכיוון אחד ו־1 שורות בכיוון השני, והחלק המשותף כהה; 3/4');
     expect(figPlain(figs.dline)).toBe('ציר כפול: למעלה אחוזים מ־0 עד 100%, שנתה כל 10%; למטה גודל מ־0 עד 4000 MB, שנתה כל 400 MB; הסמן על 35%, מתחתיו 1400');
     expect(figPlain(figs.groups)).toBe('קבוצות: מדריכים 2, צופים 10');
-    expect(figPlain({ type: 'numline', from: -6, to: 6, marks: [{ x: -2, label: 'B' }, { x: 0.75, label: '0.75' }] })).toBe('ציר מספרים מ־-6 עד 6; B ב־-2; נקודה 0.75');
+    // a line with no parts is the student lane's teaching figure (STUDENT-8): its words are that lane's (content/manip.js
+    // teachLineWords): real minus signs, and each point with its place
+    expect(figPlain({ type: 'numline', from: -6, to: 6, marks: [{ x: -2, label: 'B' }, { x: 0.75, label: '0.75' }] })).toBe('ציר מספרים מ־−6 עד 6, נקודה B ב־−2, נקודה ב־0.75');
   });
 });

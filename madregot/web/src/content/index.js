@@ -2,7 +2,7 @@ import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
 import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
 import { LESSONS } from './lessons.js';
-import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords } from './manip.js';
+import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText } from './manip.js';
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
@@ -250,6 +250,7 @@ export function figPlain(f) {
     case 'coord': return [
       f.points?.length ? `נקודות: ${f.points.map(pt).join(', ')}` : '',
       f.line ? `ישר y = ${f.line.m}x + ${f.line.b}` : '',
+      f.lines?.length ? `ישרים: ${f.lines.map(lineText).join(', ')}` : '',
       f.polygon ? `מצולע: ${f.polygon.map(([x, y]) => `(${x}, ${y})`).join(' ')}` : '',
     ].filter(Boolean).join('; ');
     case 'linear': return `זוויות צמודות: זווית נתונה ${f.a}°`;
@@ -262,8 +263,9 @@ export function figPlain(f) {
     case 'area': return `מלבן: גובה ${f.a}, אורך ${f.b ? `x ועוד ${f.b}` : 'x'}${f.areas ? `; שטחי החלקים ${plainNum(f.a)}x ו־${plainNum(f.a * f.b)}, השטח כולו ${areaTex(f)}` : ''}`;
     case 'ray': return `ציר מספרים: עיגול ${f.closed ? 'מלא' : 'ריק'} ב־${plainNum(f.at)} וקרן ${f.dir > 0 ? 'ימינה' : 'שמאלה'} (${rayText(f)})`;
     case 'tiles': return `אריחים: ${tilesWords(f)}`;
-    case 'numline': case 'fbar': case 'fgrid': case 'dline': case 'groups': return figWords(f);
-    default: return '';
+    // the fraction figures (numline with parts, fbar, fgrid, dline, groups) and the teaching figures (STUDENT-8: numline,
+    // thermo, machine, dots, bars) say in words what they draw
+    default: return figWords(f);
   }
 }
 

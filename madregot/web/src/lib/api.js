@@ -219,39 +219,57 @@ export function serverHealth() {
 /** At most this many answers in one request (the server takes 500), and this many requests in one sync. */
 export const SYNC_BATCH = 300;
 const SYNC_ROUNDS = 5;
+/** The server reads at most this many class-goal steps a sync (worker/src/goal.js GOAL.maxItems). */
+export const STEPS_PER_SYNC = 50;
 
 /**
  * Send a class student's queued answers and current levels to the class server (DURABLE-7), in batches of 300, up to
- * 5 a time. An answer leaves the outbox only once the server has acknowledged it (`saved` counts from the start of the
- * batch), so a lost request, a closed page or an answer given meanwhile loses nothing; the server ignores an answer it
- * already has. `hidden`: the page is going out of view, so a batch is sent with keepalive when this page and the server
- * share an address and the bytes fit the hidden moment's budget. `levels`: send the levels even with no answers waiting
- * (just after joining a class, so the teacher sees where the student stands). Then the reports of the teacher's work
- * waiting on this device, and the teacher's work as the server has it now (lib/classWork.js, at most every 5 minutes).
+ * 5 a time, with the class goal's steps (STUDENT-4), 50 a request. An answer leaves the outbox only once the server has
+ * acknowledged it (`saved` counts from the start of the batch), and a step once the request that carried it was
+ * answered, so a lost request, a closed page or an answer given meanwhile loses nothing; the server ignores an answer
+ * it already has and counts each step's id once. `hidden`: the page is going out of view, so a batch is sent with
+ * keepalive when this page and the server share an address and the bytes fit the hidden moment's budget. `levels`:
+ * send the levels even with no answers waiting (just after joining a class, so the teacher sees where the student
+ * stands). Then the reports of the teacher's work waiting on this device, and the teacher's work as the server has it
+ * now (lib/classWork.js, at most every 5 minutes). One sync at a time: a call while one runs gets that one's promise
+ * (so the class goal, lib/classGoal.js, asks for the total only after the steps went), and sends nothing of its own.
  */
-let syncing = false;
-export async function syncNow({ hidden = false, levels = false } = {}) {
+let inflight = null;
+let inflightLevels = false;
+export function syncNow({ hidden = false, levels = false } = {}) {
+  // a sync that must send the levels (just after joining or opening) never folds into one that sends none (the class
+  // goal's card may have started one a moment before): it runs right after it
+  if (inflight && levels && !inflightLevels) return inflight.then(() => syncNow({ hidden, levels }));
+  if (inflight) return inflight;
   const st = useApp.getState();
-  if (syncing || !st.profile?.token || !hasServer()) return;
+  if (!st.profile?.token || !hasServer()) return Promise.resolve();
   // answers saved before they had ids get one now, so they too can be acknowledged one by one
   if (st.outbox.some((e) => !e.id)) useApp.setState({ outbox: useApp.getState().outbox.map((e) => (e.id ? e : { ...e, id: randomHex(6) })) });
-  syncing = true;
-  try {
-    for (let round = 0; round < SYNC_ROUNDS; round += 1) {
-      const batch = useApp.getState().outbox.slice(0, SYNC_BATCH);
-      if (!batch.length && !(levels && round === 0)) break;
-      const body = { events: batch.map(toWire), levels: useApp.getState().progress };
-      const keepalive = hidden && sameOrigin() && keepaliveBudget.claim(bodyBytes(body));
-      const r = await api('/api/progress', { method: 'POST', body, keepalive });
-      const n = Math.max(0, Math.min(Number(r?.saved) || 0, batch.length));
-      useApp.getState().ackOutbox(batch.slice(0, n).map((e) => e.id));
-      if (n < batch.length || !batch.length) break;
+  inflightLevels = levels;
+  inflight = (async () => {
+    try {
+      for (let round = 0; round < SYNC_ROUNDS; round += 1) {
+        const app = useApp.getState();
+        const batch = app.outbox.slice(0, SYNC_BATCH);
+        const steps = (app.stepsOut || []).slice(0, STEPS_PER_SYNC);
+        if (!batch.length && !steps.length && !(levels && round === 0)) break;
+        const body = { events: batch.map(toWire), levels: app.progress, ...(steps.length ? { steps } : {}) };
+        const keepalive = hidden && sameOrigin() && keepaliveBudget.claim(bodyBytes(body));
+        const r = await api('/api/progress', { method: 'POST', body, keepalive });
+        const n = Math.max(0, Math.min(Number(r?.saved) || 0, batch.length));
+        useApp.getState().ackOutbox(batch.slice(0, n).map((e) => e.id));
+        useApp.getState().ackSteps(steps.map((x) => x.sid));
+        if (n < batch.length) break;
+        const left = useApp.getState();
+        if (!left.outbox.length && !(left.stepsOut || []).length) break;
+      }
+      await flushWork();
+      // a page going out of view sends what is waiting, and fetches nothing new
+      if (!hidden) await fetchClassWork();
+    } catch (e) {
+      // everything not acknowledged stays queued for the next moment
+      if (e.code === 'not_signed_in') useApp.getState().patchProfile({ token: null });
     }
-    await flushWork();
-    // a page going out of view sends what is waiting, and fetches nothing new
-    if (!hidden) await fetchClassWork();
-  } catch (e) {
-    // everything not acknowledged stays queued for the next moment
-    if (e.code === 'not_signed_in') useApp.getState().patchProfile({ token: null });
-  } finally { syncing = false; }
+  })().finally(() => { inflight = null; });
+  return inflight;
 }

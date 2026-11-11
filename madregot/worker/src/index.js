@@ -38,6 +38,8 @@ import { forgetMe } from './forget.js';
 import { newClassSetting, newClassStmts, classSettings, aiPolicyView, setClassAi, setStudentAi } from './classai.js';
 import { postErrors, recordServerError } from './errors.js';
 import { getVault, putVault, deleteVault, vaultOn, vaultFull, putEscrow, deleteEscrow, studentEscrowCode } from './vault.js';
+import { stepStatements, classGoal, setClassGoal, teacherGoal } from './goal.js';
+import { postMetric } from './metrics.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -719,10 +721,17 @@ async function saveProgress(req, env, cors) {
       'INSERT INTO levels (student_id, topic, level, max_level, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (student_id, topic) DO UPDATE SET level = excluded.level, max_level = MAX(levels.max_level, excluded.max_level), updated_at = excluded.updated_at',
     ).bind(s.id, String(topic).slice(0, 20), Number(v.level) || 1, Number(v.max) || 1, nowIso()));
   }
+  // the class goal's steps (goal.js): idempotent by sid, capped per student and day
+  const steps = stepStatements(env, s, b.steps, now);
+  const stepsAt = stmts.length;
+  stmts.push(...steps);
   stmts.push(env.DB.prepare('UPDATE students SET last_seen = ? WHERE id = ?').bind(nowIso(), s.id));
   stmts.push(classSeenStmt(env, s.class_code));
-  await env.DB.batch(stmts);
-  return json({ saved: events.length }, 200, cors);
+  const res = await env.DB.batch(stmts);
+  const counted = res.slice(stepsAt, stepsAt + steps.length).reduce((n, r) => n + Number(r?.meta?.changes || 0), 0);
+  // saved stays the number of events sent (the outbox depends on it); steps, only when the sync carried class-goal
+  // steps, is how many of them counted (an older app, or a sync with answers only, gets { saved } as before)
+  return json(b.steps === undefined ? { saved: events.length } : { saved: events.length, steps: counted }, 200, cors);
 }
 
 /** The title a class exam is kept under: no name-like ID, phone or long number (trust spec TRUST-5 §6). */
@@ -803,7 +812,7 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings, , assignments, classExams, threads, owner, lateRows, binding] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings, , assignments, classExams, threads, owner, lateRows, binding, goal] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
@@ -852,6 +861,7 @@ async function dashboard(req, env, cors) {
        GROUP BY s.id`, cls.code, today, daysAgo(30)),
     // a class bound to an email after it was opened, told to the devices that come with the key (teacherAccount.js)
     bindingView(env, cls),
+    teacherGoal(env, cls.code),
   ]);
   const aiOff = new Set(aiOffRows.map((r) => r.student_id));
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
@@ -863,6 +873,8 @@ async function dashboard(req, env, cors) {
     today,
     joinLocked: locked,
     aiPolicy: aiPolicyView(env, cls, aiSettings),
+    // the class goal of the week: the class total only (goal.js)
+    goal,
     students: students.map((s) => ({
       id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset,
       joinedOn: s.created_at ? dayOf(new Date(s.created_at)) : null, late: Number(late[s.id]?.late || 0), aiOff: aiOff.has(s.id),
@@ -969,6 +981,8 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/devices') return mintDevice(req, env, cors);
   // the device's own "delete all" on the server (trust spec TRUST-6 §1): the student, the family device and the install
   if (M === 'POST' && p === '/api/me/forget') return forgetMe(req, env, ctx, cors);
+  // reach counts (metrics.js): a name on the list adds 1 to its day; 204 always
+  if (M === 'POST' && p === '/api/metrics') return postMetric(req, env, cors);
   // parent and teacher accounts
   if (M === 'POST' && p === '/api/account/code') return startLogin(req, env, cors);
   if (M === 'POST' && p === '/api/account/verify') return verifyLogin(req, env, cors);
@@ -1018,6 +1032,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && p === '/api/class/work') return classWork(req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})\/exam$/))) return workExam(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})$/))) return postWork(m[1], req, env, cors);
+  if (M === 'GET' && p === '/api/class/goal') return classGoal(req, env, cors);
   // teacher
   if (M === 'GET' && p === '/api/teacher/dashboard') return dashboard(req, env, cors);
   if (M === 'GET' && p === '/api/teacher/report') return classReport(req, env, cors);
@@ -1039,6 +1054,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && (m = p.match(/^\/api\/teacher\/assignments\/([a-f0-9]{16})$/))) return getAssignment(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/assignments\/([a-f0-9]{16})$/))) return updateAssignment(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/assignments\/([a-f0-9]{16})\/delete$/))) return deleteAssignment(m[1], req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/goal') return setClassGoal(req, env, cors);
   if (M === 'GET' && p === '/api/teacher/licence') return licenceStatus(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/licence/request') return licenceRequest(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/teacher/licence/claim') return licenceClaim(req, env, cors);

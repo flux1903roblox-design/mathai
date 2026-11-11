@@ -1,7 +1,12 @@
-import { useEffect, useId, useState } from 'react';
+import { lazy, Suspense, useEffect, useId, useState } from 'react';
 import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
 import { SPRING } from '@/lib/motion.js';
+import { useMadiLook } from '@/lib/madiLook.js';
+import { MADI_PALETTE, SLOTS } from '@/lib/wardrobe.js';
+
+// What he wears (STUDENT-3) loads only when he wears something, so the boot bundle does not grow for anyone else.
+const Accessories = lazy(() => import('./mascot/Accessories.jsx'));
 
 /**
  * מדי, the Madregot mascot: a two-step stair block with a face, the shape of climbing one stair at a time.
@@ -15,6 +20,8 @@ import { SPRING } from '@/lib/motion.js';
  * Older names still work: cheer → happy, think → thinking, oops → encouraging.
  * `beat` replays the reaction when the same mood fires again (each right answer). `still` keeps him from moving at all
  * (no breathing, no blink), as under reduced motion: beside the support card, where nothing should hurry or distract.
+ * His look (a colour and up to four items, "מדי שלי") comes from the student's MadiLookProvider (lib/madiLook.js);
+ * `look` draws another one instead (the wardrobe's options, the unlock moment).
  */
 const ALIAS = { cheer: 'happy', think: 'thinking', oops: 'encouraging' };
 
@@ -82,8 +89,14 @@ function Mouth({ mood }) {
   }
 }
 
-export default function Mascot({ mood: moodIn = 'idle', size = 120, className, title, beat = 0, still = false }) {
+export default function Mascot({ mood: moodIn = 'idle', size = 120, className, title, beat = 0, still = false, look: lookIn }) {
   const mood = ALIAS[moodIn] || (REACT[moodIn] ? moodIn : 'idle');
+  const own = useMadiLook();
+  const look = lookIn || own;
+  // a colour other than the default sets his --madi-* tokens on this drawing only (the defaults live in tokens.css)
+  const pal = look.color && look.color !== 'sky' ? MADI_PALETTE[look.color] : null;
+  const colours = pal ? { '--madi-hi': pal.hi, '--madi-lo': pal.lo, '--madi-edge': pal.edge, '--madi-tread': pal.tread, '--madi-limb': pal.limb } : undefined;
+  const dressed = SLOTS.some((s) => look[s]);
   const reduceMotion = useReducedMotion();
   const reduce = reduceMotion || still;
   const id = useId().replace(/:/g, '');
@@ -108,7 +121,7 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
   return (
     <svg
       viewBox="0 0 146 150" width={size} height={size * (150 / 146)}
-      className={clsx('mascot', `mascot-${mood}`, className)}
+      className={clsx('mascot', `mascot-${mood}`, className)} style={colours}
       role={title ? 'img' : undefined} aria-hidden={title ? undefined : true} aria-label={title}
     >
       <defs>
@@ -158,8 +171,8 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
           <rect x="93" y="70" width="20" height="6" rx="3" />
         </g>
         <ellipse cx="40" cy="58" rx="7" ry="13" fill={WHITE} opacity="0.12" />
-        {/* a plus sign on the low step: the maths in him */}
-        <path d="M104 88 V102 M97 95 H111" style={{ stroke: MARK }} strokeWidth="4" strokeLinecap="round" />
+        {/* a plus sign on the low step: the maths in him (a pin worn there covers it) */}
+        {!look.body && <path d="M104 88 V102 M97 95 H111" style={{ stroke: MARK }} strokeWidth="4" strokeLinecap="round" />}
         {/* feet */}
         <g style={{ fill: LIMB }}>
           <rect x="34" y="124" width="22" height="12" rx="6" />
@@ -203,6 +216,8 @@ export default function Mascot({ mood: moodIn = 'idle', size = 120, className, t
             <path d="M124 14 l4.6 9.4 10.4 1.5 -7.5 7.3 1.8 10.3 -9.3 -4.9 -9.3 4.9 1.8 -10.3 -7.5 -7.3 10.4 -1.5Z" fill={`url(#s${id})`} stroke={STAR_LINE} strokeWidth="2" strokeLinejoin="round" />
           </m.g>
         )}
+        {/* what he wears, last, so it moves with every hop */}
+        {dressed && <Suspense fallback={null}><Accessories look={look} eyes={[lx, ly]} spring={spring} /></Suspense>}
       </m.g>
 
       {/* a question bubble while he thinks */}

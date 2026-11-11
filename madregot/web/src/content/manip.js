@@ -193,24 +193,49 @@ export const dlineNum = (v) => {
 /** A number with its unit, the unit word outside the number: "30%", "7 ס״מ", "72". */
 export const withUnit = (v, unit) => (!unit ? dlineNum(v) : unit === '%' ? `${dlineNum(v)}%` : `${dlineNum(v)} ${unit}`);
 
+// ---------------------------------------------------------------- the teaching figures in words (STUDENT-8)
+// The spoken name of each drawing (components/Figure.jsx puts it in aria-label): what a sighted student sees, never
+// more. A coordinate plane names its points but not where they are, because an exercise may ask exactly that.
+
+/** A number as the drawings write it: a real minus sign, a half as 2.5 (as 1/2 with decimal false: a line cut in parts). */
+export const figNum = (v, decimal = true) => plainNum(v, { decimal }).replace(/^-/, '−');
+/** A rule written in TeX (2x + 1, x \cdot 3 - 2) as the text a drawing can hold. */
+export const ruleText = (tex) => String(tex ?? '').replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2').replace(/\\(cdot|times)/g, '×')
+  .replace(/\\div/g, ':').replace(/\\[a-zA-Z]+|[{}\\]/g, '').replace(/-/g, '−').replace(/\s+/g, ' ').trim();
+/** Where two lines y = mx + b cross, or null when they are parallel (or one line). */
+export const linesMeet = (p, q) => (p.m === q.m ? null : [(q.b - p.b) / (p.m - q.m), (p.m * (q.b - p.b)) / (p.m - q.m) + p.b]);
+/** What a machine takes in or gives out, as drawn: x and y when nothing is given. */
+export const machineIO = (v, letter) => (v == null ? letter : typeof v === 'number' ? figNum(v) : String(v));
+
 // ---------------------------------------------------------------- the still figures of stage 1, in words
 // What content/index.js figPlain says for numline, fbar, fgrid, dline and groups: every number the drawing writes, so
 // the tutor and an answer key see what the student saw. A point named by a letter on a line cut into parts is placed
 // by counting parts ("A: 7 חלקים מ־0"), as the student counts them: its value is not written in the drawing.
 const fracNum = (v, den) => plainNum(v, { maxDen: Math.max(12, den || 1), places: 3 });
+// The teaching figures (STUDENT-8) add thermo, machine, dots, bars and coord. A number line cut into parts (den) is the
+// fraction lane's and is read the curriculum's way, by counting parts (so the words never give away the value an exercise
+// asks for); a number line with no den is a teaching figure and is read the student lane's way.
+/** A number line cut into parts (den): the curriculum's words. */
+function partsLineWords(f) {
+  const where = (x) => {
+    if (!f.den) return fracNum(x);
+    const k = Math.round((x - f.from) * f.den);
+    return `${k === 1 ? 'חלק אחד' : `${k} חלקים`} מ־${fracNum(f.from)}`;
+  };
+  // a mark labelled with its number is that number; a letter is placed (by parts on a cut line); a bare dot too
+  const marks = (f.marks || []).map((k) => (k.label && /\d/.test(k.label) ? `נקודה ${labelPlain(k.label)}` : `${k.label ? labelPlain(k.label) : 'נקודה'}${f.den ? ': ' : ' ב־'}${where(k.x)}`));
+  const jumps = (f.jumps || []).map((j) => `קפיצה מ־${fracNum(j.from, f.den)} ל־${fracNum(j.to, f.den)}${j.label ? ` (${labelPlain(j.label)})` : ''}`);
+  return [`ציר מספרים מ־${fracNum(f.from)} עד ${fracNum(f.to)}${f.den ? `, כל יחידה מחולקת ל־${f.den} חלקים שווים` : f.step && f.step !== 1 ? `, שנתה כל ${fracNum(f.step)}` : ''}`, ...marks, ...jumps].join('; ');
+}
+/** A number line with no parts (a teaching figure, STUDENT-8): the student lane's words. */
+function teachLineWords(f) {
+  const at = (v) => figNum(v);
+  return `ציר מספרים מ־${at(f.from)} עד ${at(f.to)}${(f.marks || []).map((k) => `, נקודה${/^[A-Z]$/.test(k.label || '') ? ` ${k.label}` : ''} ב־${at(k.x)}`).join('')}${(f.jumps || []).map((j) => `, קפיצה מ־${at(j.from)} ל־${at(j.to)}`).join('')}`;
+}
+
 export function figWords(f) {
   switch (f.type) {
-    case 'numline': {
-      const where = (x) => {
-        if (!f.den) return fracNum(x);
-        const k = Math.round((x - f.from) * f.den);
-        return `${k === 1 ? 'חלק אחד' : `${k} חלקים`} מ־${fracNum(f.from)}`;
-      };
-      // a mark labelled with its number is that number; a letter is placed (by parts on a cut line); a bare dot too
-      const marks = (f.marks || []).map((k) => (k.label && /\d/.test(k.label) ? `נקודה ${labelPlain(k.label)}` : `${k.label ? labelPlain(k.label) : 'נקודה'}${f.den ? ': ' : ' ב־'}${where(k.x)}`));
-      const jumps = (f.jumps || []).map((j) => `קפיצה מ־${fracNum(j.from, f.den)} ל־${fracNum(j.to, f.den)}${j.label ? ` (${labelPlain(j.label)})` : ''}`);
-      return [`ציר מספרים מ־${fracNum(f.from)} עד ${fracNum(f.to)}${f.den ? `, כל יחידה מחולקת ל־${f.den} חלקים שווים` : f.step && f.step !== 1 ? `, שנתה כל ${fracNum(f.step)}` : ''}`, ...marks, ...jumps].join('; ');
-    }
+    case 'numline': return f.den ? partsLineWords(f) : teachLineWords(f);
     case 'fbar': {
       const rows = f.rows?.length ? f.rows : [{ den: f.den, shaded: f.shaded }];
       const parts = rows.map((r) => `${r.label ? `${labelPlain(r.label)}: ` : ''}${fbarWords(r)}`);
@@ -229,6 +254,39 @@ export function figWords(f) {
       return `ציר כפול: למעלה ${line(f.top)}; למטה ${line(f.bottom)}${at}`;
     }
     case 'groups': return `קבוצות: ${f.rows.map((r) => `${r.label} ${r.n}`).join(', ')}`;
+    case 'thermo': return f.also
+      ? `שני מדחומים: ${[f, f.also].map((t) => `${t.label ? `${t.label} ` : ''}${figNum(t.value)} מעלות`).join(', ')}`
+      : `מדחום שמראה ${figNum(f.value)} מעלות${f.label ? `, ${f.label}` : ''}`;
+    case 'machine': {
+      const out = machineIO(f.outY, 'y');
+      return `מכונה: נכנס ${machineIO(f.inX, 'x')}, הכלל ${ruleText(f.rule)}, יוצא ${out === '?' ? 'סימן שאלה' : out}`;
+    }
+    case 'dots': {
+      const k = f.mark || {};
+      return `תרשים נקודות של ${f.values.length} ערכים בין ${figNum(f.axis[0])} ל־${figNum(f.axis[1])}${k.mode != null ? ', השכיח מסומן' : ''}${k.median != null ? ', החציון מסומן' : ''}${k.mean != null ? ', הממוצע מסומן' : ''}${f.unit ? `: ${f.unit}` : ''}`;
+    }
+    case 'bars': {
+      // a bar with no name is read by its value; a missing one says so; the level line is read last
+      const bar = (l, v) => [l, v == null ? 'חסר' : figNum(v)].filter(Boolean).join(' ');
+      return `תרשים עמודות: ${f.labels.map((l, i) => bar(l, f.values[i])).join(', ')}${f.unit ? ` (${f.unit})` : ''}${f.level != null ? `, קו בגובה ${figNum(f.level)}` : ''}`;
+    }
+    case 'coord': {
+      const names = (f.points || []).filter((p) => !p.hidden).map((p) => p.label);
+      const lines = [...(f.line ? [f.line] : []), ...(f.lines || [])];
+      const meet = f.meet && f.lines?.length > 1 ? linesMeet(f.lines[0], f.lines[1]) : null;
+      const rr = f.riseRun && lines[0] ? { run: f.riseRun.run, rise: lines[0].m * f.riseRun.run } : null;
+      const said = lines.map((l) => l.label).filter(Boolean);
+      // a rectangle with sides along the grid is named so; a shape's sides and the words on the plane are read out
+      const rect = f.polygon?.length === 4 && f.polygon.every(([x, y], i) => { const [u, v] = f.polygon[(i + 1) % 4]; return x === u || y === v; });
+      const segs = f.segments?.length || 0;
+      return ['מערכת צירים', f.quadrants && 'ארבעה רביעים', f.polygon && (rect ? 'מלבן' : 'מצולע'), segs && (segs === 1 ? 'קטע' : `${segs} קטעים`),
+        names.length && `${names.length === 1 ? 'הנקודה' : 'הנקודות'} ${names.join(', ')}`,
+        lines.length && (lines.length === 1 ? `ישר${said.length ? ` ${said[0]}` : ''}` : `${lines.length} ישרים${said.length ? `: ${said.join(', ')}` : ''}`),
+        meet && `הישרים נפגשים ב־(${figNum(meet[0])}, ${figNum(meet[1])})`,
+        f.path?.length && 'מסלול מראשית הצירים',
+        rr && `צעד של ${figNum(Math.abs(rr.run))} ${rr.run > 0 ? 'ימינה' : 'שמאלה'} ו־${figNum(Math.abs(rr.rise))} ${rr.rise >= 0 ? 'למעלה' : 'למטה'}`,
+        f.words?.length && `כתוב: ${f.words.map((w) => w.text).join(', ')}`].filter(Boolean).join(', ');
+    }
     default: return '';
   }
 }

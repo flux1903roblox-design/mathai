@@ -1,7 +1,7 @@
 {
   "bootJsGzipKB": 367,
   "bootJsTargetKB": 260,
-  "cssGzipKB": 56,
+  "cssGzipKB": 59,
   "cssTargetKB": 32,
   "anyChunkGzipKB": 150,
   "precacheMB": 4.5,

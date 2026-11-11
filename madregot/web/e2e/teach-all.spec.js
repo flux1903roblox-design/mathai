@@ -5,6 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { open, student, expectNoSidewaysScroll } from './helpers.js';
 import { STAIRS, GRADE_OF as GRADE } from '../src/learn/skills.ts';
+import { VISUAL_EXEMPT } from '../src/learn/visualPlan.ts';
 
 test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone', 'one phone is enough for the content walk'); });
 const plain = (x) => (Number.isInteger(x) ? String(x) : String(Math.round(x * 1e6) / 1e6));
@@ -112,6 +113,52 @@ for (const [topic, n] of Object.entries(STAIRS)) {
     });
   }
 }
+
+// STUDENT-8: a picture or an object on every teaching step. On a small phone (320×568), every step of Stage A in every
+// topic has its visual region, with a drawing or an object to move in it, at least 120px tall; a step in
+// learn/visualPlan.ts VISUAL_EXEMPT is the one allowed to have none.
+test.describe('every teaching step shows its drawing on a small phone', () => {
+  test.use({ viewport: { width: 320, height: 568 } });
+  for (const topic of Object.keys(STAIRS)) {
+    for (let level = 1; level <= STAIRS[topic]; level += 1) {
+      test(`${topic}:${level}: a drawing on every step at 320px`, async ({ page }) => {
+        await open(page, `#/learn/${topic}/${level}/A`, student(GRADE[topic], { goalXp: 50 }));
+        let done = false;
+        for (let i = 0; i < 20 && !done; i += 1) {
+          await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+          const st = await page.evaluate(() => window.__madregotStep);
+          // the step on screen is this one: the one before has left and this one has come in (they swap one after the other)
+          const at = Number(await page.locator('.sp-progress').getAttribute('aria-valuenow'));
+          const id = `${topic}:${level}#${at}`;
+          await expect(page.locator(`.sp-step[aria-label^="צעד ${at + 1} מתוך"]`), id).toHaveCount(1);
+          await expect(page.locator('.sp-step')).toHaveCount(1);
+          const visual = page.locator('.sp-step [data-region="visual"]');
+          if (VISUAL_EXEMPT[id]) {
+            await expect(visual.locator('.lm-fig, .manip'), `${id} is exempt: ${VISUAL_EXEMPT[id]}`).toHaveCount(0);
+          } else {
+            await expect(visual, id).toHaveCount(1);
+            await expect(visual.locator('.lm-fig [role="img"], .lm-fig table, .manip').first(), `${id}: a drawing or an object`).toBeVisible();
+            expect((await visual.boundingBox()).height, `${id}: the visual's height`).toBeGreaterThanOrEqual(120);
+          }
+          if (st.kind === 'explore') {
+            await expect.poll(() => page.evaluate(() => window.__madregotSolveStep?.forStep === window.__madregotStep)).toBe(true);
+            await page.evaluate(() => window.__madregotSolveStep());
+            await page.locator('.lm-check').click();
+          }
+          if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); }
+          const next = page.locator('.sp-next');
+          done = (await next.textContent()).includes('לדוגמה'); // the last step: every step was measured
+          if (!done) {
+            const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+            await next.click();
+            await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+          }
+        }
+        expect(done, `${topic}:${level}: reached the last step`).toBe(true);
+      });
+    }
+  }
+});
 
 // STUDENT-9 §4: nothing that looks active is disabled. Step 1 has no "previous" button at all; step 2 has one.
 test('the first teaching step has no "previous" button; the second has a working one', async ({ page }) => {

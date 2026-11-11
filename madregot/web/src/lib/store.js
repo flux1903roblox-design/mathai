@@ -17,11 +17,15 @@ import { addXp, newTag } from './durable/xp.js';
 import { durableStorage, bindDurableStore, STORE_KEY } from './durable/storage.js';
 import { EXAMS_KEEP, PRACTICE_EXAMS_KEEP, OUTBOX_KEEP, TEACHER_EXAMS_KEEP } from './durable/merge.js';
 import { applyTheme } from './theme.js';
+import { streakRepair, itemsOn } from './streak.js';
+import { isRestDay } from '@shared/restDays.js';
+import { emptyLook, earnIds, unlockedLook, unlockedIds } from './wardrobe.js';
 
-import { today, dayBefore, learnedOn, isActiveDay, isShabbat, streakOf } from './days.js';
+import { today, dayBefore, learnedOn, isActiveDay, isShabbat, keptDay, streakOf } from './days.js';
 
-// the calendar of the saved days lives in lib/days.js (the report engine reads it without the store)
-export { today, dayBefore, learnedOn, isActiveDay, isShabbat, streakOf };
+// the calendar of the saved days lives in lib/days.js (the report engine reads it without the store); the student
+// lane's streak helpers (repairs, the weekly best) build on it in lib/streak.js
+export { today, dayBefore, learnedOn, isActiveDay, isShabbat, keptDay, streakOf };
 const active = isActiveDay;
 
 /** Nothing from a teacher yet (and after leaving the class): the class work slice (its shape: durable/migrations.js). */
@@ -51,22 +55,39 @@ export const empty = {
   profile: null,
   progress: {}, // topicId -> { level, max }
   // 'YYYY-MM-DD' -> { q, ok, secs (answer time), tsecs (time on learning screens, lib/learnClock.js: never makes a day
-  // active), lessons, stages (teaching stages finished), xp, combo, perfect, reviews, planLessons, frozen, questsRewarded }
+  // active), lessons, stages (teaching stages finished), mp (passed mastery checks), xp, combo, perfect, reviews,
+  // planLessons, frozen (true: a freeze; 'repair': an earned repair), questsRewarded }
   days: {},
   xp: 0, // always the sum of xpBy: every XP write goes through addXp (lib/durable/xp.js)
   xpBy: {}, // device tag -> XP earned on that device
   resetAt: null, // when the progress was last reset on purpose (ISO)
   path: {}, // topicId -> { parts: { level: practice lessons }, reviews, jumped, done: { level: 'mastered' | 'kept' } } (lib/path.js)
   freezes: 0, // streak freezes ready to use (at most 2), earned by finishing the daily quests
+  streak: { lastRepair: null }, // the day of the last earned repair ('YYYY-MM-DD'), at most one in 30 days (lib/streak.js)
+  // one-time notes already seen: the repair card closed today (repairDismissed: day), the week a new best was shown
+  // (pbWeek: its Sunday). Later items add their own keys here; a missing key reads as not seen.
+  // goalSeen: { [week]: day } the class goal's moment was shown for that week (STUDENT-4), at most 8 weeks kept
+  // installOffers / installDismissedAt: how often the install was offered after a lesson, and the day of the last offer,
+  // which counts as set aside unless the app got installed (STUDENT-10, lib/install.js). They belong to the device: a
+  // progress reset keeps them.
+  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null },
   goalXp: 20, // daily goal in XP
   sound: true, // short sounds; off from the start for a student who joins a class and never chose (quietForClass)
   haptics: true, // short vibrations where the phone can (lib/sound.js haptic), never under reduced motion
   // theme: 'system' (follow the phone) | 'light' | 'dark' (lib/theme.js); soundSet: the student chose sound themselves.
   // New fields come with defaults (an old save without one reads it as missing, which code treats as the default).
   prefs: { theme: 'system', soundSet: false },
+  // Madi's look (STUDENT-3, lib/wardrobe.js): his colour and one item per slot; the pieces earned for good, the ones
+  // the student was shown, and the day each was earned (for the Sunday recap)
+  look: emptyLook(),
   mistakes: {}, // 'topic:cat' -> count
   lastTopic: null,
   outbox: [],
+  // the class goal of the week (STUDENT-4), for a student in a class only: the steps not sent yet ({ sid, at, pts },
+  // at most 200; lib/api.js syncNow sends them), and the weeks the server reported ({ [week]: { target, have, mine,
+  // reached } }, at most 8), which the wardrobe's class scarf and the Sunday recap read
+  stepsOut: [],
+  classGoals: {},
   // the tutor on this device (lib/durable/migrations.js says what each field is), and whether the introduction to the
   // tutor was read here (introSeen: read as `=== true`, so a state saved before it existed shows the introduction once;
   // trust spec TRUST-4 §4.6, no version of its own)
@@ -101,6 +122,32 @@ export const OUTBOX_MAX = OUTBOX_KEEP;
 export const LEARN_SECS_MAX = 4 * 3600;
 /** What the class server stores of an answer (worker saveProgress), and all the outbox keeps of it. */
 export const toWire = (e) => ({ id: e.id, topic: e.topic, level: e.level, ok: e.ok, first: e.first, hint: e.hint, cat: e.cat, secs: e.secs, at: e.at });
+
+/** How many class-goal steps wait on the device, and how many weeks of the class goal (and of its moment) are kept. */
+export const STEPS_MAX = 200;
+export const GOAL_WEEKS = 8;
+
+/** A random UUID (v4): the id of a class-goal step, so the server counts each step once (crypto.randomUUID where there is one). */
+export function uuid() {
+  const c = globalThis.crypto;
+  if (typeof c?.randomUUID === 'function') return c.randomUUID();
+  const b = c.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/**
+ * A finished item's step for the class goal (STUDENT-4): a lesson, a teaching stage, a check or the placement is 1, a
+ * passed mastery check 3. Queued only for a student in a class (profile.token); a solo student's device keeps none.
+ */
+function withStep(st, pts) {
+  const out = st.stepsOut || [];
+  if (!st.profile?.token) return out;
+  return [...out, { sid: uuid(), at: new Date().toISOString(), pts }].slice(-STEPS_MAX);
+}
+/** The newest n weeks of a { [week]: … } map. */
+const lastWeeks = (map, n = GOAL_WEEKS) => Object.fromEntries(Object.entries(map || {}).sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0)).slice(0, n));
 
 /** The saved-state key (a staging copy on the same address keeps its own); the parent session lives beside it. */
 export { STORE_KEY };
@@ -182,7 +229,9 @@ export const appState = (set, get) => ({
         const st = get(); const d = today(); const cur = st.days[d] || {};
         const goalBefore = (cur.xp || 0) >= st.goalXp;
         const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + (r.xp || 0) };
-        const days = { ...st.days, [d]: day };
+        // passed mastery checks per day: the weekly best counts them as 3 steps (lib/streak.js weekSteps)
+        if (r.purpose === 'mastery' && r.passed) day.mp = (cur.mp || 0) + 1;
+        const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         const learn = learnAfterCheck(st.learn, r, new Date().toISOString(), d);
         let { path, progress } = st; let stairDone = false; let chestOpened = false; let reopened = false;
         if (r.purpose === 'mastery' && r.passed && r.topic && r.level && TOPIC[r.topic]) {
@@ -199,8 +248,11 @@ export const appState = (set, get) => ({
           path = reopenKept(path, r.topic, r.level);
           reopened = path !== before;
         }
-        set({ learn, days, ...addXp(st, r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic });
-        return { streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
+        // what the path unlocks for Madi is earned for good, before this check (a kept stair it reopens) and after it
+        const look = earnIds(st.look, [...lookIds(st, st.path), ...lookIds(st, path)], d, { seen: false });
+        const stepsOut = withStep(st, r.purpose === 'mastery' && r.passed ? 3 : 1);
+        set({ learn, days, streak, ...addXp(st, r.xp || 0), path, progress, lastTopic: r.topic || st.lastTopic, look, stepsOut });
+        return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, stairDone, chestOpened, reopened, done: r.topic && TOPIC[r.topic] ? doneCount(r.topic, path) : null };
       },
       learnEvent: (e) => set({ learn: { ...get().learn, events: logEvent(get().learn.events, e, new Date().toISOString()) } }),
       /**
@@ -218,13 +270,14 @@ export const appState = (set, get) => ({
         const questsDone = !questsBefore && questProgress(d, day).every((q) => q.done);
         const freezeEarned = questsDone && !cur.questsRewarded && st.freezes < 2;
         if (questsDone) day.questsRewarded = true;
-        const days = { ...st.days, [d]: day };
+        const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         const topic = skill.split(':')[0];
         set({
-          days, ...addXp(st, xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), lastTopic: TOPIC[topic] ? topic : st.lastTopic,
+          days, streak, ...addXp(st, xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)), lastTopic: TOPIC[topic] ? topic : st.lastTopic,
           learn: { ...L, skills: { ...L.skills, [skill]: markTaughtRec(L.skills[skill], stage, at) }, events: logEvent(L.events, { e: `stage-${stage}`, s: skill }, at) },
+          stepsOut: withStep(st, 1),
         });
-        return { xp, first, streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
+        return { xp, first, streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
       },
       /** Where the student is inside a teaching stage, so leaving keeps the place. */
       setStagePos: (skill, stage, i) => { const L = get().learn; const r = L.skills[skill] || { attempts: [] }; set({ learn: { ...L, skills: { ...L.skills, [skill]: { ...r, pos: { ...(r.pos || {}), [stage]: i } } } } }); },
@@ -240,9 +293,15 @@ export const appState = (set, get) => ({
       /** Joining a class: sounds start off (a classroom is quiet), unless the student already chose them. */
       quietForClass: () => { if (!get().prefs?.soundSet) set({ sound: false }); },
       setTheme: (theme) => { set({ prefs: { ...get().prefs, theme } }); applyTheme(theme); },
+      /** Madi's look: { color } or { head | face | neck | body: id | null }. Saved at once (the wardrobe has no save button). */
+      setLook: (patch) => set({ look: { ...emptyLook(), ...get().look, ...patch } }),
+      /** Pieces earned for good and shown to the student (the unlock moment); { seen: false } only remembers them. */
+      markEarned: (ids, opts) => set({ look: earnIds(get().look, ids, today(), opts) }),
+      /** A one-time note was seen: e.g. { repairDismissed: today() } or { pbWeek: '2026-11-01' }. */
+      setNudge: (patch) => set({ nudges: { ...get().nudges, ...patch } }),
       /**
        * A finished lesson: XP, today's counters, the path, the topic level, and the daily quests.
-       * Returns what to celebrate: { streakExtended, streak, practiceDone, unitDone, questsDone, freezeEarned, goalReached }.
+       * Returns what to celebrate: { streakExtended, streakRepaired, streak, practiceDone, unitDone, questsDone, freezeEarned, goalReached }.
        * Practice never marks a stair done (only its mastery check does): practiceDone says the check is next.
        */
       completeLesson: (r, { fromPlan = false } = {}) => {
@@ -262,12 +321,12 @@ export const appState = (set, get) => ({
         const p = st.progress[r.topic] || { level: 1, max: 1 };
         let level = p.level; let max = p.max;
         if (r.kind === 'jump' && r.passed) { level = Math.max(level, r.level); max = Math.max(max, r.level); }
-        const days = { ...st.days, [d]: day };
+        const { days, streak, streakRepaired } = withRepair(st, d, { ...st.days, [d]: day });
         set({
-          days, path, ...addXp(st, r.xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
-          progress: { ...st.progress, [r.topic]: { level, max } }, lastTopic: r.topic,
+          days, streak, path, ...addXp(st, r.xp), freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
+          progress: { ...st.progress, [r.topic]: { level, max } }, lastTopic: r.topic, stepsOut: withStep(st, 1),
         });
-        return { streakExtended: !learnedOn(cur), streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
+        return { streakExtended: !learnedOn(cur), streakRepaired, streak: streakOf(days), practiceDone, unitDone, questsDone, freezeEarned, goalReached: !goalBefore && day.xp >= st.goalXp };
       },
       /** The placement test settles where each topic starts (the stairs before it are passed over, not done); it counts as the day's first lesson. */
       completePlacement: (r) => {
@@ -284,14 +343,14 @@ export const appState = (set, get) => ({
         });
         const day = { ...cur, lessons: (cur.lessons || 0) + 1, xp: (cur.xp || 0) + r.xp, combo: Math.max(cur.combo || 0, r.bestCombo || 0) };
         const days = { ...st.days, [d]: day };
-        set({ path, progress, days, ...addXp(st, r.xp), placement: { at: new Date().toISOString(), grade: r.grade, results: r.results } });
+        set({ path, progress, days, ...addXp(st, r.xp), placement: { at: new Date().toISOString(), grade: r.grade, results: r.results }, stepsOut: withStep(st, 1) });
         return { streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp };
       },
       /** On opening the app: spend freezes on missed days so the streak survives (at most two). */
       settleStreak: () => {
         const st = get(); if (!st.freezes) return 0;
         const days = { ...st.days }; let key = dayBefore(today()); const missed = [];
-        while (missed.length <= st.freezes && !active(days[key]) && !days[key]?.frozen) { if (!isShabbat(key)) missed.push(key); key = dayBefore(key); }
+        while (missed.length <= st.freezes && !active(days[key]) && !days[key]?.frozen) { if (!isRestDay(key)) missed.push(key); key = dayBefore(key); }
         if (!missed.length || missed.length > st.freezes || !active(days[key])) return 0;
         missed.forEach((k) => { days[k] = { ...(days[k] || {}), frozen: true }; });
         set({ days, freezes: st.freezes - missed.length });
@@ -302,22 +361,59 @@ export const appState = (set, get) => ({
         const done = new Set(ids);
         if (done.size) set({ outbox: get().outbox.filter((e) => !done.has(e.id)) });
       },
+      /**
+       * The server has these class-goal steps (by sid, STUDENT-4): they leave the queue. Like the answers' outbox
+       * (DURABLE-7), a step leaves only once a sync that carried it got its answer, so a closed page loses none; the
+       * server counts each sid once, so sending one again is harmless.
+       */
+      ackSteps: (sids) => {
+        const done = new Set(sids);
+        if (done.size) set({ stepsOut: (get().stepsOut || []).filter((x) => !done.has(x.sid)) });
+      },
+      /**
+       * The class goal as the server sent it (GET /api/class/goal): this week and the one before go into classGoals (8
+       * weeks kept). A week the class reached with this student's part earns the class scarf for good (look.earned
+       * outlives the cache); it stays unseen until the goal's moment, or the unlock moment, shows it.
+       */
+      setClassGoal: (g) => {
+        if (!g?.on || !g.week) return;
+        const st = get();
+        const weeks = { ...(st.classGoals || {}) };
+        for (const w of [g.last, g]) if (w?.week) weeks[w.week] = { target: w.target, have: w.have, mine: w.mine, reached: !!w.reached };
+        const classGoals = lastWeeks(weeks);
+        const earned = Object.values(classGoals).some((w) => w.reached && w.mine > 0);
+        const look = earned ? earnIds(st.look, ['class-scarf'], today(), { seen: false }) : st.look;
+        if (look === st.look && JSON.stringify(classGoals) === JSON.stringify(lastWeeks(st.classGoals))) return;
+        set({ classGoals, look });
+      },
+      /** The class goal's moment was shown for this week: it never comes again for it. */
+      markGoalSeen: (week) => {
+        const n = get().nudges || {};
+        set({ nudges: { ...n, goalSeen: lastWeeks({ ...(n.goalSeen || {}), [week]: today() }) } });
+      },
       leaveClass: () => {
         const p = get().profile; if (!p) return;
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
-        set({ profile: rest, outbox: [], classWork: emptyClassWork(), workOutbox: {} });
+        set({ profile: rest, outbox: [], stepsOut: [], classWork: emptyClassWork(), workOutbox: {} });
       },
       // a reset on purpose: its time travels with the progress, so a later merge cannot bring the old progress back
-      resetProgress: () => set({ progress: {}, days: {}, xp: 0, xpBy: {}, resetAt: new Date().toISOString(), mistakes: {}, lastTopic: null, outbox: [], exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, gaps: {}, placement: null, learn: emptyLearn() }),
+      // Madi's look, the streak's repair and the class goal go with the progress; the install offers stay (the device's)
+      resetProgress: () => set({
+        progress: {}, days: {}, xp: 0, xpBy: {}, resetAt: new Date().toISOString(), mistakes: {}, lastTopic: null, outbox: [], stepsOut: [], classGoals: {},
+        exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null },
+        nudges: { ...empty.nudges, goalSeen: {}, installOffers: get().nudges?.installOffers || 0, installDismissedAt: get().nudges?.installDismissedAt || null },
+        gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook(),
+      }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
       // ("delete all" is lib/wipe.js: the server first, then every key of the app).
       // The next student here gets a new device tag (their XP is counted apart) and no backup; what the browser was
-      // asked, and the install hint, belong to the device and stay. The look chosen for this device (prefs) stays too;
-      // sound goes back to its default, so the next student's own choice starts unset (soundSet).
+      // asked, and the install hint, belong to the device and stay. The theme chosen for this device (prefs) stays too;
+      // Madi's look belongs to the student and goes back to the default; sound goes back to its default, so the next
+      // student's own choice starts unset (soundSet).
       signOut: () => {
         const { persistAsked, installHintAt } = get().durable || {};
         set({
-          ...empty, xpBy: {}, learn: emptyLearn(), classWork: emptyClassWork(), workOutbox: {}, ai: { ...get().ai, pendingLink: null, lastTier: null },
+          ...empty, xpBy: {}, learn: emptyLearn(), look: emptyLook(), classWork: emptyClassWork(), workOutbox: {}, ai: { ...get().ai, pendingLink: null, lastTier: null },
           prefs: { ...get().prefs, soundSet: false },
           durable: { ...DURABLE_DEFAULTS, persistAsked: persistAsked ?? null, installHintAt: installHintAt ?? null, tag: newTag() }, backup: { ...BACKUP_DEFAULTS },
           // a sign-out clears the progress on purpose, like a reset: another tab still open cannot bring it back
@@ -335,6 +431,19 @@ export const persistOptions = (storage) => ({ name: STORE_KEY, storage, version:
 export const useApp = create(persist(appState, persistOptions(heldStorage)));
 // a restore from the copy on the device loads into this store
 bindDurableStore(useApp);
+
+/** The pieces a path unlocks for Madi (lib/wardrobe.js). */
+const lookIds = (st, path) => unlockedIds(unlockedLook({ path, classGoals: st.classGoals, grade: st.profile?.grade }));
+
+/**
+ * The finished item that makes today the second (or later) one may earn the streak's repair (lib/streak.js
+ * streakRepair): the missed school day is saved as frozen: 'repair', and lastRepair is today.
+ */
+function withRepair(st, d, days) {
+  const r = streakRepair(st.days, d, st.streak?.lastRepair);
+  if (!r || itemsOn(days[d]) < 2) return { days, streak: st.streak, streakRepaired: false };
+  return { days: { ...days, [r.gap]: { ...(days[r.gap] || {}), frozen: 'repair' } }, streak: { ...st.streak, lastRepair: d }, streakRepaired: true };
+}
 
 export const activeToday = (days) => active(days[today()]);
 

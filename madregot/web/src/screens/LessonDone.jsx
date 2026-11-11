@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import NumberFlow from '@number-flow/react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
-import { Zap, Target, Timer, Flame, Snowflake, Moon, Star, Trophy, ChevronsUp, Wrench } from 'lucide-react';
-import { useApp, today, dayBefore, isShabbat, isActiveDay } from '@/lib/store.js';
+import { Zap, Target, Timer, Flame, Snowflake, Moon, Star, Trophy, ChevronsUp, Wrench, Medal } from 'lucide-react';
+import { useApp, today, dayBefore, isActiveDay } from '@/lib/store.js';
+import { isRestDay, isYomTov } from '@shared/restDays.js';
+import { weekStart, weekSteps, bestWeek } from '@/lib/streak.js';
 import Mascot from '@/components/Mascot.jsx';
 import Stairs from '@/components/Stairs.jsx';
 import { unitProgress, stagesDone, partsOf, isDone, practiceComplete, STAIR_STAGES } from '@/lib/path.js';
@@ -15,6 +17,11 @@ import { Button } from '@/components/ui.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';
 import GoalStage from '@/components/learn/GoalStage.jsx';
+import { installDue } from '@/lib/install.js';
+import { UnlockStage, useNewUnlocks } from '@/lib/madiLook.js';
+
+// the install offer is shown to few, and late: its screen loads when it comes (STUDENT-10)
+const InstallCard = lazy(() => import('@/components/learn/InstallCard.jsx'));
 
 // The main button takes the focus (for a keyboard or a screen reader) without scrolling a tall celebration
 // down to it: on a small phone the climb at the top stays in view.
@@ -49,8 +56,9 @@ export function Week({ days }) {
     <ol className="week" aria-label="השבוע האחרון">
       {keys.map((key, i) => {
         const d = days[key]; const on = isActiveDay(d);
-        const state = on ? 'on' : d?.frozen ? 'frozen' : isShabbat(key) ? 'rest' : 'off';
-        const label = { on: 'תרגלתם', frozen: 'הקפאת רצף', rest: 'שבת', off: 'לא תרגלתם' }[state];
+        const state = on ? 'on' : d?.frozen ? 'frozen' : isRestDay(key) ? 'rest' : 'off';
+        // a rest day says which (Shabbat or a holiday); a repaired day says the streak was kept
+        const label = { on: 'תרגלתם', frozen: d?.frozen === 'repair' ? 'הרצף נשמר' : 'הקפאת רצף', rest: isYomTov(key) ? 'חג' : 'שבת', off: 'לא תרגלתם' }[state];
         return (
           <m.li key={key} className={clsx('week-day', state, key === today() && 'today')} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...SPRING.pop, delay: 0.25 + i * 0.05 }}>
             <span className="week-dot" aria-hidden="true">{state === 'on' ? <Flame size={16} /> : state === 'frozen' ? <Snowflake size={16} /> : state === 'rest' ? <Moon size={14} /> : null}</span>
@@ -73,16 +81,37 @@ function Hero({ children, confetti = true }) {
   );
 }
 
+/**
+ * A new weekly best, said once a week (STUDENT-5): this week's steps just passed the best earlier week, and that best
+ * was at least 3 steps. Worked out once, as the screen opens; then the week is marked as told (nudges.pbWeek).
+ */
+function useWeekBest(passed) {
+  const [pb] = useState(() => {
+    const { days, nudges } = useApp.getState();
+    const week = weekStart(today());
+    const best = bestWeek(days, week);
+    return passed && !!best && best.steps >= 3 && weekSteps(days, week) > best.steps && nudges?.pbWeek !== week ? week : null;
+  });
+  useEffect(() => { if (pb) useApp.getState().setNudge({ pbWeek: pb }); }, [pb]);
+  return !!pb;
+}
+
 export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   const days = useApp((s) => s.days);
   const freezes = useApp((s) => s.freezes);
   const path = useApp((s) => s.path);
   const skills = useApp((s) => s.learn.skills);
-  // the screens after a lesson, in order: what it earned, the daily goal (its own moment), the streak, the day's chest
-  const stages = ['summary', award.goalReached && 'goal', award.streakExtended && result.passed && 'streak', award.questsDone && 'quests'].filter(Boolean);
+  // the screens after a lesson, in order: what it earned, a new piece for מדי (STUDENT-3), the daily goal (its own
+  // moment), the streak, the day's chest (the streak screen also comes when this lesson kept the streak with an earned
+  // repair: STUDENT-5), and last, from the second learning day, the install offer where the browser can (STUDENT-10;
+  // decided once, as the screen opens)
+  const unlocks = useNewUnlocks(topic.id);
+  const [install] = useState(() => result.passed && installDue(useApp.getState(), today()));
+  const stages = ['summary', result.passed && unlocks.length > 0 && 'unlock', award.goalReached && 'goal', (award.streakExtended || award.streakRepaired) && result.passed && 'streak', award.questsDone && 'quests', install && 'install'].filter(Boolean);
   const [i, setI] = useState(0);
   // the first finished lesson is the moment to ask the browser to keep the data (once; never on Firefox from here)
   useEffect(() => { askAfterLesson(); }, []);
+  const pb = useWeekBest(result.passed);
   const stage = stages[i];
   const nextStage = () => (i + 1 < stages.length ? setI(i + 1) : onExit());
   const levelTitle = topic.levels[result.level - 1]?.title;
@@ -101,8 +130,10 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
     );
   }
 
+  if (stage === 'unlock') return <Suspense fallback={<div className="done-screen" />}><UnlockStage ids={unlocks} onNext={nextStage} /></Suspense>;
   if (stage === 'goal') return <GoalStage onNext={nextStage} />;
-  if (stage === 'streak') return <StreakStage streak={award.streak} days={days} freezes={freezes} onNext={nextStage} />;
+  if (stage === 'streak') return <StreakStage streak={award.streak} repaired={!!award.streakRepaired} days={days} freezes={freezes} onNext={nextStage} />;
+  if (stage === 'install') return <Suspense fallback={<div className="done-screen" />}><InstallCard onDone={nextStage} /></Suspense>;
 
   if (stage === 'quests') {
     return (
@@ -113,7 +144,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
         <m.div className="done-copy" variants={stagger(0.2)} initial="hidden" animate="show">
           <m.h1 variants={rise} className="done-title">סיימתם את המשימות של היום!</m.h1>
           {award.freezeEarned
-            ? <m.p variants={rise} className="reward streak-freeze"><Lottie name="snowflake" className="freeze-flake" fallback={<Snowflake size={22} aria-hidden="true" />} />קיבלתם הקפאת רצף. היא שומרת על הרצף ביום שתפספסו.</m.p>
+            ? <m.p variants={rise} className="reward streak-freeze"><Lottie name="snowflake" className="freeze-flake" fallback={<Snowflake size={22} aria-hidden="true" />} />קיבלתם הקפאת רצף. היא שומרת על הרצף ביום שלא יוצא ללמוד בו.</m.p>
             : <m.p variants={rise} className="lead">כל הכבוד. מחר יחכו משימות חדשות.</m.p>}
         </m.div>
         <div className="done-actions" data-region="footer"><Button className="btn-block btn-lg" onClick={nextStage}>המשך</Button></div>
@@ -128,6 +159,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
     result.kind === 'jump' && { icon: ChevronsUp, label: `עכשיו ב${levelTitle}`, tone: 'brand' },
     result.perfect && { icon: Star, label: 'בלי אף טעות', tone: 'gold' },
     result.fixed > 0 && { icon: Wrench, label: result.fixed === 1 ? 'תיקנתם טעות' : `תיקנתם ${result.fixed} טעויות`, tone: 'good' },
+    pb && { icon: Medal, label: 'שיא שבועי חדש', tone: 'gold' },
   ].filter(Boolean);
   // What moved: this stair's five stages (practice fills the fourth), and the unit's stairs once one is done (a stair
   // counts once its mastery check is passed). A review or a jump test speaks of the unit only.
@@ -179,10 +211,12 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
 export function PlacementDone({ result, award, onExit }) {
   const days = useApp((s) => s.days);
   const freezes = useApp((s) => s.freezes);
-  const stages = ['result', award.goalReached && 'goal', award.streakExtended && 'streak'].filter(Boolean);
+  const unlocks = useNewUnlocks(null);
+  const stages = ['result', unlocks.length > 0 && 'unlock', award.goalReached && 'goal', award.streakExtended && 'streak'].filter(Boolean);
   const [i, setI] = useState(0);
   const last = i + 1 >= stages.length;
   const nextStage = () => (last ? onExit() : setI(i + 1));
+  if (stages[i] === 'unlock') return <Suspense fallback={<div className="done-screen" />}><UnlockStage ids={unlocks} onNext={nextStage} /></Suspense>;
   if (stages[i] === 'goal') return <GoalStage onNext={nextStage} label={last ? 'ללוח שלי' : 'המשך'} />;
   if (stages[i] === 'streak') return <StreakStage streak={award.streak} days={days} freezes={freezes} onNext={nextStage} />;
   return (
@@ -217,8 +251,9 @@ export function PlacementDone({ result, award, onExit }) {
 }
 
 /** The streak number ticks up from yesterday's value to today's, over a living flame. */
-function StreakStage({ streak, days, freezes, onNext }) {
-  const [v, setV] = useState(Math.max(0, streak - 1));
+function StreakStage({ streak, repaired = false, days, freezes, onNext }) {
+  // after a repair the number climbs from today's fresh start back to the whole streak
+  const [v, setV] = useState(repaired ? 1 : Math.max(0, streak - 1));
   useEffect(() => { const t = setTimeout(() => setV(streak), 450); return () => clearTimeout(t); }, [streak]);
   return (
     <div className="done-screen streak-screen">
@@ -230,7 +265,9 @@ function StreakStage({ streak, days, freezes, onNext }) {
       {/* Duolingo's streak screen: the week in a card, and what keeps the streak written inside it */}
       <section className="streak-card" aria-label="השבוע">
         <Week days={days} />
-        <p className="streak-card-text">שיעור אחד ביום, או שלב אחד בלימוד מדרגה, שומר על הרצף, ובשבת הרצף לא נשבר.{freezes > 0 ? ` יש לכם ${freezes === 1 ? 'הקפאה אחת' : `${freezes} הקפאות`} למקרה שתפספסו יום.` : ''}</p>
+        <p className="streak-card-text">{repaired
+          ? `הרצף נשמר. ${streak} ימים ברצף.`
+          : `שיעור אחד ביום, או שלב אחד בלימוד מדרגה, שומר על הרצף. בשבת ובחג הרצף נשמר.${freezes > 0 ? ` ${freezes === 1 ? 'יש לכם הקפאה אחת ליום שלא יוצא ללמוד בו.' : `יש לכם ${freezes} הקפאות לימים שלא יוצא ללמוד בהם.`}` : ''}`}</p>
       </section>
       <div className="done-actions" data-region="footer"><Button className="btn-block btn-lg" onClick={onNext} ref={focusQuietly}>המשך</Button></div>
     </div>

@@ -741,6 +741,10 @@ script. They now load one topic at a time, and nothing the student sees changed.
   348.7 KB (CSS 54.0 KB), and the boot gate moved by the same rule to **367 KB** (CSS stays 56). Open work there too: the
   personal-key path of `lib/ai.js` (dev builds only) and the prompt builders behind a dynamic import, and the few
   constants the boot needs (`KIND_GROUP`, `FREE_KINDS`, `AI_KINDS`) in a module of their own.
+  The student lane's stages 8-19 (the calm streak, Madi's look and wardrobe, the class goal, the teaching figures, the
+  install offer) added their rules to the main screens' stylesheet: the merge measured render-blocking CSS 56.45 KB, and
+  the CSS gate moved by the same rule to **59 KB** (boot JS 366.1 KB, under its 367 KB gate). Open work: the wardrobe's,
+  the class goal's and the teaching figures' rules into files that load with their screens.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

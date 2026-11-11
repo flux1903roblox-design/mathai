@@ -43,6 +43,8 @@ export const ROUTES = Object.freeze([
   // is '/teacher/*')
   '/programme', '/teacher', '/teacher/lessons', '/teacher/assistant', '/teacher/settings', '/teacher/exam/new', '/teacher/exam/:id',
   '/teacher/report', '/teacher/guide/:doc?', '/class/exam/:id', '/class/exam/:id/run',
+  // the student lane's wardrobe ("מדי שלי", STUDENT-3)
+  '/me/madi',
 ]);
 
 /** The pattern of a hash route ('#/lesson/signed/3?part=2' → '/lesson/:topic/:level'); '/other' when none fits. */

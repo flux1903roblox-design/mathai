@@ -16,6 +16,8 @@ const TYPES = {
   planBase: ['object'], wins: ['object'], gaps: ['object'], placement: ['object', 'null'], learn: ['object'],
   resetAt: ['string', 'null'], durable: ['object'], backup: ['object'], haptics: ['boolean'], prefs: ['object'],
   teacherExams: ['array'],
+  // the student lane (STUDENT-3/4/5/10): Madi's look, the streak's repair, the one-time notes, the class goal
+  look: ['object'], streak: ['object'], nudges: ['object'], stepsOut: ['array'], classGoals: ['object'],
 };
 const LEARN_TYPES = { skills: ['object'], miscon: ['object'], missions: ['object'], events: ['array'], exam: ['object', 'null'] };
 
