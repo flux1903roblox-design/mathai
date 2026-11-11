@@ -40,6 +40,8 @@ import { powItem } from '@/content/signed7.js';
 import { bracketZero, bracketFrom } from '@/content/eq.js';
 // @ts-ignore: plain JS
 import { collectItem, bracketCollect } from '@/content/expr.js';
+// @ts-ignore: plain JS
+import { rectStory, transferTable, angleEqStory } from '@/content/eq.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -256,6 +258,27 @@ describe('the class\'s collecting cannot be guessed', () => {
     // two numbers copied from the question, in either box, are almost never the answer
     const copied = items.filter((it) => { const ns = (String(it.display).match(/-?\d+/g) || []).map(Number); return ns.some((a) => ns.some((b) => isCorrect(it, { k: a, c: b }))); }).length;
     expect(copied / items.length).toBeLessThan(0.05);
+  }, SLOW);
+});
+
+// CLASSROOM-8: the class's word problems alone, as the spec simulated them (most common answer: the rectangle 5.6%, the
+// transfer 6.3% and 5.3%, a triangle with x 11.3%, a quadrilateral with x 8.1%): no answer common enough to pass a check,
+// no number copied from the question the answer, and for angles not 180 − n, 90 − n or 360 − n of one either
+describe('the class\'s word problems cannot be guessed', () => {
+  it.each([['the rectangle', () => rectStory(), 0.07, false], ['the transfer, form 1', () => transferTable(1), 0.08, false],
+    ['the transfer, form 2', () => transferTable(2), 0.07, false], ['a triangle with x', () => angleEqStory(3), 0.13, true],
+    ['a quadrilateral with x', () => angleEqStory(4), 0.1, true]] as const)('%s', (_name, make, most, deg) => {
+    const items = Array.from({ length: 4000 }, () => make());
+    const freq = new Map<number, number>();
+    items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));
+    const common = Math.max(...freq.values()) / items.length;
+    expect(common).toBeLessThan(most);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(LIMIT / 10);
+    items.forEach((it) => {
+      const shown = shownNumbers(it);
+      const guesses = deg ? shown.flatMap((n) => [n, 180 - n, 90 - n, 360 - n]) : shown;
+      expect(guesses.some((v) => isCorrect(it, v)), it.key).toBe(false);
+    });
   }, SLOW);
 });
 

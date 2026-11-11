@@ -15,7 +15,7 @@ import { slipLike } from '../misconceptions';
 import { T, undoOp, divOp, mulOp } from '@/content/util.js';
 // @ts-ignore: plain JS, the board lines of the exercise generators (CLASSROOM-7): the operation after a slash at the end
 // of the line it acts on, the named steps of an equation with brackets, and "x = 9 (הפכנו צדדים)"
-import { line, bothSolution, twoStepSolution, stampsLines, agesLines, STEP1, STEP2 } from '@/content/eq.js';
+import { line, bothSolution, twoStepSolution, stampsLines, agesLines, STEP1, STEP2, rectAt, rectBugs, rectText, rectHint, rectLines, rectStoryFig, rectFig, transferFig } from '@/content/eq.js';
 // @ts-ignore: plain JS, the same TeX the expression generators print
 import { linTex, sumTex } from '@/content/expr.js';
 
@@ -29,7 +29,8 @@ const area = (): ManipSpec => ({ kind: 'area', start: { a: 2, b: 0 }, maxA: 6, m
 // weights); otherwise a machine (which number goes in to give this?), the number line for a solution reached by a move,
 // a table for a story or for both sides at a few x.
 const machine = (inX: number | string, rule: string, outY: number | string): FigSpec => ({ type: 'machine', inX, rule, outY });
-const STAMPS_FIG: FigSpec = { type: 'table', head: ['בולים', 'רינה', 'דני'], rows: [['בהתחלה', 'x', '2x'], ['אחרי הנתינה', 'x + 7', '2x − 7']] };
+// the class's layout (CLASSROOM-8): the people in rows, before and after in columns
+const STAMPS_FIG: FigSpec = { type: 'table', head: ['', 'בהתחלה', 'אחרי הנתינה'], rows: [['רינה', 'x', 'x + 7'], ['דני', '2x', '2x − 7']] };
 
 /**
  * Draws until no misconception of the model predicts what a slip of the hand gives (one off, ten off, two digits
@@ -765,35 +766,45 @@ const stair4: StairContent = {
 type Story = { t: number; k: number; g: number; tt: number; b: number; q: number };
 // t 0 ages: Dan is g older than Yoav; b years ago Dan was k times Yoav's age (Yoav then tt). q 0 Yoav, 1 Dan.
 // t 1 stamps: Danny has k times Rina's; he gives her g, then they have the same. q 0 Rina, 1 Danny, 2 both.
-const storyX = (p: Story) => (p.t === 0 ? p.tt + p.b : (2 * p.g) / (p.k - 1));
+// t 2 the class's rectangle (CLASSROOM-8, content/eq.js rectStory): sides x = tt and x + g, the perimeter given.
+// q 0 x, 1 x + g, 2 the area.
+const storyX = (p: Story) => (p.t === 0 ? p.tt + p.b : p.t === 2 ? p.tt : (2 * p.g) / (p.k - 1));
 const storyAnswer = (p: Story) => {
   const x = storyX(p);
+  if (p.t === 2) return rectAt(p.g, p.q, x);
   if (p.t === 0) return p.q === 0 ? x : x + p.g;
   return p.q === 0 ? x : p.q === 1 ? p.k * x : (p.k + 1) * x;
 };
 const storyBugs: Record<string, (p: Story) => number | null> = {
-  // k(x − b) opened as kx − b: Yoav comes out tt
-  'partial-dist': (p) => (p.t === 0 ? (p.q === 0 ? p.tt : p.tt + p.g) : null),
+  // k(x − b) opened as kx − b: Yoav comes out tt; the rectangle's 2(x + g) opened as 2x + g
+  'partial-dist': (p) => (p.t === 0 ? (p.q === 0 ? p.tt : p.tt + p.g) : p.t === 2 ? rectBugs(p.tt, p.g, p.q)['partial-dist'] : null),
   // the unknown answered, not what was asked
   'wrong-unknown': (p) => (p.q === 0 ? null : storyX(p)),
+  // the rectangle's perimeter with two sides only, x + (x + g) = P, and its area with the sides added
+  'two-sides': (p) => (p.t === 2 ? rectBugs(p.tt, p.g, p.q)['two-sides'] : null),
+  'add-sides': (p) => (p.t === 2 ? rectBugs(p.tt, p.g, p.q)['add-sides'] : null),
 };
 const AGES = [['דן', 'יואב'], ['אורי', 'עידו'], ['אלון', 'רון']];
 const STAMPS = [['דני', 'רינה'], ['עומר', 'מאיה'], ['איתי', 'שירה']];
 const storyModel: DiagModel<Story & { n: number }> = {
   params: (rnd) => fair(() => {
-    const n = rint(rnd, 0, 2);
-    if (rnd() < 0.5) { const k = rint(rnd, 2, 4); const tt = rint(rnd, 2, 8); const b = rint(rnd, 2, 6); return { t: 0, k, g: (k - 1) * tt, tt, b, q: rint(rnd, 0, 1), n }; }
+    const n = rint(rnd, 0, 2); const r = rnd();
+    if (r < 1 / 3) { const k = rint(rnd, 2, 4); const tt = rint(rnd, 2, 8); const b = rint(rnd, 2, 6); return { t: 0, k, g: (k - 1) * tt, tt, b, q: rint(rnd, 0, 1), n }; }
+    if (r >= 2 / 3) return { t: 2, k: 0, g: rint(rnd, 2, 9), tt: rint(rnd, 3, 15), b: 0, q: rint(rnd, 0, 2), n };
     const k = rint(rnd, 2, 4); let g: number; do { g = rint(rnd, 2, 12); } while ((2 * g) % (k - 1)); return { t: 1, k, g, tt: 0, b: 0, q: rint(rnd, 0, 2), n };
   }, storyAnswer, storyBugs),
   text: (p) => {
+    if (p.t === 2) return rectText(p.tt, p.g, p.q);
     if (p.t === 0) { const [A, B] = AGES[p.n]; return `${A} מבוגר מ${B} ב־$${p.g}$ שנים. לפני $${p.b}$ שנים, הגיל של ${A} היה פי $${p.k}$ מהגיל של ${B}. בן כמה ${p.q ? A : B} היום?`; }
     const [A, B] = STAMPS[p.n];
     return `ל${A} יש פי $${p.k}$ בולים מל${B}. ${A} נתן ל${B} $${p.g}$ בולים, ועכשיו לשניהם אותו מספר. ${[`כמה בולים היו ל${B} בהתחלה?`, `כמה בולים היו ל${A} בהתחלה?`, 'כמה בולים היו לשניהם יחד?'][p.q]}`;
   },
+  fig: (p) => (p.t === 2 ? rectStoryFig(p.g) : undefined),
   answer: storyAnswer,
   bugs: storyBugs,
   solution: (p) => {
     const x = storyX(p);
+    if (p.t === 2) return rectLines(x, p.g, p.q);
     if (p.t === 0) {
       const [A, B] = AGES[p.n];
       return [`נסמן ב־$x$ את הגיל של ${B} היום. לפני $${p.b}$ שנים: ${B} $x - ${p.b}$, ו${A} $${linTex(1, p.g - p.b)}$.`, ...agesLines(p.k, p.g, p.b, x), p.q ? `${A} מבוגר ב־$${p.g}$: $${x} + ${p.g} = ${x + p.g}$` : `${B} בן $${x}$.`, `בדיקה: לפני $${p.b}$ שנים ${B} היה בן $${p.tt}$ ו${A} בן $${p.tt + p.g}$, ו־$${p.tt + p.g} = ${p.k} \\cdot ${p.tt}$.`];
@@ -801,7 +812,7 @@ const storyModel: DiagModel<Story & { n: number }> = {
     const [A, B] = STAMPS[p.n];
     return [`נסמן ב־$x$ את הבולים של ${B} בהתחלה.`, ...stampsLines(p.k, p.g, x), [`ל${B} היו $${x}$ בולים.`, `ל${A} היו $${p.k} \\cdot ${x} = ${p.k * x}$ בולים.`, `יחד: $${x} + ${p.k * x} = ${(p.k + 1) * x}$ בולים.`][p.q], `בדיקה: ל${A} נשארו $${p.k * x - p.g}$, ול${B} יש $${x + p.g}$.`];
   },
-  hint: (p) => (p.t === 0 ? 'נסמנו ב־$x$ את הגיל של הצעיר היום. בן כמה היה כל אחד אז? ולבסוף: על מי שאלו?' : 'נסמנו ב־$x$ את הבולים של מי שיש לו פחות. כמה יש לכל אחד אחרי הנתינה? ולבסוף: על מי שאלו?'),
+  hint: (p) => (p.t === 2 ? rectHint(p.g, p.q) : p.t === 0 ? 'נסמנו ב־$x$ את הגיל של הצעיר היום. בן כמה היה כל אחד אז? ולבסוף: על מי שאלו?' : 'נסמנו ב־$x$ את הבולים של מי שיש לו פחות. כמה יש לכל אחד אחרי הנתינה? ולבסוף: על מי שאלו?'),
 };
 
 type Class = { k: number; boys: number; q: number }; // k times as many girls as boys; q 0 boys, 1 girls
@@ -837,10 +848,10 @@ const stair5: StairContent = {
     'אפשר לנחש מספר ולבדוק אותו בסיפור. הניחוש מראה מה מחשבים, והמשוואה עושה את אותו החשבון עם $x$.',
   ],
   discover: [
-    { kind: 'predict', fig: { type: 'table', head: ['x = ?', 'רינה', 'דני'], rows: [['בהתחלה', '?', 'פי 2 מרינה'], ['אחרי הנתינה', '+7', '−7']] }, text: 'לדני יש פי $2$ בולים מלרינה. דני נתן לרינה $7$ בולים, ועכשיו לשניהם אותו מספר. מה כדאי לסמן ב־$x$?', choices: ['מספר הבולים של רינה בהתחלה', 'מספר הבולים שדני נתן', 'מספר הבולים של שניהם יחד'], answer: 0,
+    { kind: 'predict', fig: { type: 'table', head: ['x = ?', 'בהתחלה', 'אחרי הנתינה'], rows: [['רינה', '?', '+7'], ['דני', 'פי 2 מרינה', '−7']] }, text: 'לדני יש פי $2$ בולים מלרינה. דני נתן לרינה $7$ בולים, ועכשיו לשניהם אותו מספר. מה כדאי לסמן ב־$x$?', choices: ['מספר הבולים של רינה בהתחלה', 'מספר הבולים שדני נתן', 'מספר הבולים של שניהם יחד'], answer: 0,
       why: 'בוחרים את הכמות שכל השאר נבנה ממנה. אם לרינה $x$, לדני $2x$.',
       wrongWhy: { 1: 'את זה כבר יודעים: $7$. הנעלם הוא מה שלא יודעים.', 2: 'מזה קשה לבטא כמה היה לכל אחד. נוח לבחור את מה שהכול נבנה ממנו.' } },
-    { kind: 'predict', fig: { type: 'table', head: ['בולים', 'רינה', 'דני'], rows: [['בהתחלה', 'x', '?']] }, text: 'לרינה $x$ בולים. כמה בולים יש לדני?', choices: ['$2x$', '$x + 2$', '$\\dfrac{x}{2}$'], answer: 0,
+    { kind: 'predict', fig: { type: 'table', head: ['', 'בהתחלה'], rows: [['רינה', 'x'], ['דני', '?']] }, text: 'לרינה $x$ בולים. כמה בולים יש לדני?', choices: ['$2x$', '$x + 2$', '$\\dfrac{x}{2}$'], answer: 0,
       why: 'פי $2$ פירושו כפול $2$. בדיקה במספר: אם לרינה $5$, לדני $10$, ו־$2x$ נותן $10$.',
       wrongWhy: { 1: '$x + 2$ הוא $2$ יותר. אם לרינה $5$, לדני היו $7$, לא $10$.', 2: '$\\frac{x}{2}$ נותן לדני פחות מלרינה, אבל לדני יש יותר.' } },
     { kind: 'rule', fig: STAMPS_FIG, text: 'המשוואה אומרת מה שווה למה בסיפור: אחרי הנתינה לשניהם אותו מספר.', display: '2x - 7 = x + 7',
@@ -850,11 +861,11 @@ const stair5: StairContent = {
     { kind: 'predict', fig: STAMPS_FIG, text: 'בסיפור הבולים יוצא $x = 14$. השאלה הייתה: כמה בולים היו לשניהם יחד בהתחלה?', choices: ['$42$', '$14$', '$21$'], answer: 0,
       why: 'לרינה היו $14$ ולדני $28$, ויחד $42$. $14$ הוא רק מה שהיה לרינה.',
       wrongWhy: { 1: '$14$ הוא $x$, הבולים של רינה. אבל שאלו על שניהם יחד.', 2: '$21$ הוא מה שיש לכל אחד אחרי הנתינה. שאלו על ההתחלה, ועל שניהם יחד.' } },
-    { kind: 'rule', fig: { type: 'table', head: ['בולים', 'רינה', 'דני'], rows: [['בהתחלה', 14, 28], ['אחרי הנתינה', 21, 21]] }, text: 'בסוף בודקים בסיפור, ועונים על מה שנשאל.', display: '28 - 7 = 21 = 14 + 7',
+    { kind: 'rule', fig: { type: 'table', head: ['', 'בהתחלה', 'אחרי הנתינה'], rows: [['רינה', 14, 21], ['דני', 28, 21]] }, text: 'בסוף בודקים בסיפור, ועונים על מה שנשאל.', display: '28 - 7 = 21 = 14 + 7',
       why: 'דני נתן $7$ ונשארו לו $21$, ורינה קיבלה $7$ והגיעה ל־$21$. אחר כך חוזרים לשאלה: היא שאלה על שניהם יחד.' },
-    { kind: 'predict', fig: { type: 'table', head: ['מורים', 'תלמידים'], rows: [['P', 'S'], [10, '?']] }, text: '"בבית הספר יש פי $6$ תלמידים ממורים." $S$ הוא מספר התלמידים, ו־$P$ מספר המורים. איזו משוואה מתאימה?', choices: ['$S = 6P$', '$6S = P$'], answer: 0,
-      why: 'בודקים במספר: אם יש $10$ מורים, יש $60$ תלמידים, ו־$S = 6P$ נותן $60$. ב־$6S = P$ המורים יוצאים יותר מהתלמידים.',
-      wrongWhy: { 1: 'עם $P = 12$: מ־$6S = 12$ יוצא $S = 2$, רק שני תלמידים. אבל התלמידים הם הרבים.' } },
+    { kind: 'predict', fig: { type: 'table', head: ['מורים', 'תלמידים'], rows: [['m', 't'], [10, '?']] }, text: '"בבית הספר יש פי $6$ תלמידים ממורים." $t$ הוא מספר התלמידים, ו־$m$ מספר המורים. איזו משוואה מתאימה?', choices: ['$t = 6m$', '$6t = m$'], answer: 0,
+      why: 'בודקים במספר: אם יש $10$ מורים, יש $60$ תלמידים, ו־$t = 6m$ נותן $60$. ב־$6t = m$ המורים יוצאים יותר מהתלמידים.',
+      wrongWhy: { 1: 'עם $m = 12$: מ־$6t = 12$ יוצא $t = 2$, רק שני תלמידים. אבל התלמידים הם הרבים.' } },
     { kind: 'predict', fig: { type: 'table', head: ['בנים', 'בנות', 'יחד'], rows: [['x', '3x', '4x'], ['?', '?', 30]] }, text: 'בכיתה $30$ תלמידים, ויש פי $3$ בנות מבנים. אם יש $x$ בנים, אז $4x = 30$. מה עונים?', choices: ['אין כיתה כזאת: הנתונים לא מתאימים', '$7.5$ בנים', '$7$ בנים'], answer: 0,
       why: 'מ־$4x = 30$ יוצא $x = 7.5$. אבל מספר בנים הוא מספר שלם, ולכן הסיפור לא אפשרי.',
       wrongWhy: { 1: 'חצי בן? מספר תלמידים הוא שלם.', 2: 'עם $7$ בנים יש $21$ בנות, ויחד $28$, לא $30$.' } },
@@ -881,6 +892,31 @@ const stair5: StairContent = {
         { action: 'מוסיפים $8$ לשני האגפים.', mark: '+8', why: 'כך $x$ לבד באגף ימין.', result: '10 = x', eq: '10 = x' },
         { action: 'הופכים צדדים.', why: '$10 = x$ ו־$x = 10$ אומרים אותו דבר. במחברת כותבים: $x = 10$ (הפכנו צדדים).', result: 'x = 10', eq: 'x = 10' },
         { action: 'בודקים בסיפור.', why: 'היום יואב בן $10$ ודן בן $16$. לפני $4$ שנים: $6$ ו־$12$, ו־$12$ הוא פי $2$ מ־$6$.', result: '12 = 2 \\cdot 6', calc: { expr: '2*6', value: 12 } },
+      ] },
+    // CLASSROOM-8: the class's rectangle, in the class's layout (נתון, צ״ל, the asked side boxed, the found lengths
+    // written on the drawing at the end)
+    { problem: 'צלעות המלבן הן $x$ ו־$x + 5$ (בס״מ), וההיקף שלו $54$ ס״מ. מה אורכי הצלעות, ומה השטח?', fig: rectFig('x + 5', 'x'),
+      answer: 176, answerTex: 'x = 11,\\; x + 5 = 16,\\; S = 176', check: 'x * (x + 5)', vars: { x: 11 },
+      steps: [
+        { action: 'נתון: $P = 54$ ס״מ. צ״ל: $x = ?$, $x + 5 = ?$, $S = ?$', why: 'במלבן הצלעות הנגדיות שוות, ולכן בשרטוט הן מסומנות באותם קווים: שתי צלעות $x$ ושתי צלעות $x + 5$.', result: 'x,\\quad x + 5' },
+        { action: 'ההיקף הוא סכום ארבע הצלעות.', why: 'שתי צלעות $x$ ושתי צלעות $x + 5$.', result: '2x + 2(x + 5) = 54', eq: '2*x + 2*(x + 5) = 54' },
+        { action: 'שלב 1: חוק הפילוג (פותחים סוגריים).', why: '$2$ כופל גם את $x$ וגם את $5$.', result: '2x + 2x + 10 = 54', eq: '2*x + 2*x + 10 = 54' },
+        { action: 'שלב 2: פותרים כרגיל. מכנסים משפחות.', why: '$2x + 2x = 4x$.', result: '4x + 10 = 54', eq: '4*x + 10 = 54' },
+        { action: 'מחסירים $10$ משני האגפים.', mark: '-10', why: 'כך באגף שמאל נשאר רק $4x$.', result: '4x = 44', eq: '4*x = 44' },
+        { action: 'מחלקים ב־$4$.', mark: ':4', why: '$44 : 4 = 11$: הצלע הקצרה $11$ ס״מ.', result: 'x = 11', eq: 'x = 11' },
+        { action: 'מציבים בצלע השנייה.', why: 'מסמנים את מה שצריך למצוא, ומציבים בו $x = 11$.', result: '\\boxed{x + 5} = 11 + 5 = 16', calc: { expr: '11 + 5', value: 16 } },
+        { action: 'השטח: אורך כפול רוחב. כותבים את האורכים על השרטוט.', why: 'בדיקה: $2 \\cdot 11 + 2 \\cdot 16 = 54$, כמו בנתון.', result: 'S = 16 \\cdot 11 = 176', value: '16 * 11', fig: rectFig('16 ס״מ', '11 ס״מ', { long: 16 / 11 }) },
+      ] },
+    // the transfer table: the boxes in rows, before and after in columns, the cell after the move simplified in place
+    { problem: 'בתיבה א׳ יש פריטים, ובתיבה ב׳ יש $5$ יותר. מעבירים את כל מה שבתיבה א׳ לתיבה ב׳, ועכשיו בתיבה ב׳ $31$ פריטים. כמה פריטים היו בתיבה ב׳ בהתחלה?',
+      fig: transferFig(['x', 'x + 5'], ['0', 'x + 5 + x = 2x + 5']), answer: 18, check: 'x + 5', vars: { x: 13 },
+      steps: [
+        { action: 'בוחרים נעלם: $x$ הפריטים בתיבה א׳ בהתחלה.', why: 'בתיבה ב׳ יש $5$ יותר: $x + 5$. בטבלה כל תיבה בשורה, ולפני ואחרי בעמודות.', result: 'x,\\quad x + 5' },
+        { action: 'אחרי ההעברה בתיבה ב׳ מה שהיה בה ועוד מה שעבר.', why: 'בתא של הטבלה מכנסים: $x + 5 + x = 2x + 5$. והסיפור אומר שזה $31$.', result: '2x + 5 = 31', eq: '2*x + 5 = 31' },
+        { action: 'מחסירים $5$ משני האגפים.', mark: '-5', why: 'כך $2x$ נשאר לבד.', result: '2x = 26', eq: '2*x = 26' },
+        { action: 'מחלקים ב־$2$.', mark: ':2', why: '$26 : 2 = 13$: בתיבה א׳ היו $13$ פריטים.', result: 'x = 13', eq: 'x = 13' },
+        { action: 'עונים על מה שנשאל: תיבה ב׳ בהתחלה.', why: '$x$ הוא תיבה א׳. מסמנים את מה ששאלו, ומציבים.', result: '\\boxed{x + 5} = 13 + 5 = 18', value: '13 + 5' },
+        { action: 'בודקים בסיפור.', why: 'אחרי ההעברה בתיבה ב׳: $18 + 13 = 31$, כמו בסיפור.', result: '18 + 13 = 31', calc: { expr: '18 + 13', value: 31 } },
       ] },
   ],
   together: [
@@ -935,13 +971,53 @@ const stair5: StairContent = {
         { kind: 'rule', text: 'פי $2$ מגיל שלם: כופלים את כל הסוגריים.', display: '2(x - 4) = 2x - 8',
           why: 'הגיל לפני $4$ שנים הוא $x - 4$, מספר אחד. פי $2$ ממנו כופל את כולו.' },
       ] },
+    // CLASSROOM-8: the rectangle, the transfer table and the angles with x
+    { id: 'two-sides', title: 'בהיקף נספרו רק שתי צלעות (חצי היקף)',
+      cause: 'בשרטוט כתובה צלע אחת מכל סוג, וקל לחבר רק אותן. אבל למלבן ארבע צלעות.',
+      explain: ['נראה שבמשוואה של ההיקף נספרו רק שתי צלעות.', 'ההיקף הוא סכום כל ארבע הצלעות: $x + (x + 5) + x + (x + 5) = 2x + 2(x + 5)$.'],
+      remedy: [
+        { kind: 'predict', fig: rectFig('5', '3', { long: 5 / 3 }), text: 'צלעות המלבן $3$ ס״מ ו־$5$ ס״מ. מה ההיקף שלו?', choices: ['$16$ ס״מ', '$8$ ס״מ'], answer: 0,
+          why: 'מקיפים את כל המלבן: $3 + 5 + 3 + 5 = 16$. $8$ הוא רק חצי הדרך.' },
+        { kind: 'rule', text: 'ההיקף של מלבן: שתי צלעות מכל סוג.', display: 'P = 2x + 2(x + 5)',
+          why: 'צלעות נגדיות שוות, ולכן כל צלע שכתובה בשרטוט נספרת פעמיים.' },
+      ] },
+    { id: 'add-sides', title: 'חיברו את הצלעות במקום לכפול',
+      cause: 'היקף ושטח מתבלבלים: בהיקף מחברים את הצלעות, ובשטח כופלים אותן.',
+      explain: ['נראה שבשטח חיברתם את שתי הצלעות.', 'השטח של מלבן הוא אורך כפול רוחב: מלבן $16$ על $11$ ס״מ הוא $16 \\cdot 11 = 176$ סמ״ר, ולא $16 + 11$.'],
+      remedy: [
+        { kind: 'predict', fig: rectFig('5', '3', { long: 5 / 3 }), text: 'כמה ריבועים של $1$ ס״מ על $1$ ס״מ מכסים מלבן $3$ על $5$ ס״מ?', choices: ['$15$', '$8$'], answer: 0,
+          why: '$3$ שורות של $5$ ריבועים: $3 \\cdot 5 = 15$ סמ״ר. $3 + 5 = 8$ הוא חצי ההיקף.' },
+      ] },
+    { id: 'wrong-total', title: 'השתמשו בסכום הזוויות הלא נכון (במשולש $180^\\circ$, במרובע $360^\\circ$)',
+      cause: 'סכום הזוויות תלוי בצורה: במשולש $180^\\circ$, ובמרובע $360^\\circ$.',
+      explain: ['נראה שהמשוואה נבנתה עם הסכום של צורה אחרת.', 'אלכסון מחלק מרובע לשני משולשים, ולכן סכום הזוויות במרובע $2 \\cdot 180^\\circ = 360^\\circ$.'],
+      remedy: [
+        { kind: 'predict', text: 'אלכסון מחלק מרובע לשני משולשים. מה סכום הזוויות של המרובע?', choices: ['$360^\\circ$', '$180^\\circ$'], answer: 0,
+          why: 'בכל משולש $180^\\circ$, ושני משולשים יחד $360^\\circ$.' },
+      ] },
+    { id: 'drop-minus', title: 'המינוס שלפני מספר נעלם',
+      cause: 'כשמחברים את כל הביטויים, קל לחבר מספר בלי הסימן שלפניו.',
+      explain: ['נראה שהמינוס של אחד המספרים נעלם כשחיברתם את הביטויים.', 'ב־$2x - 5^\\circ$ המספר הוא $-5$: $x + 10 + 2x - 5 + 3x + 25 = 6x + 30$.'],
+      prereq: 'expr:3',
+      remedy: [
+        { kind: 'predict', text: 'כמה זה $10 - 5 + 25$?', choices: ['$30$', '$40$'], answer: 0,
+          why: 'המינוס שייך ל־$5$: $10 - 5 + 25 = 30$. מי שמחבר $10 + 5 + 25$ מקבל $40$.' },
+      ] },
+    { id: 'divide-part', title: 'רק חלק מהאיברים חולק ב־$2$',
+      cause: 'רוצים להגיע מהר ל־$x$, ומחלקים רק את $2x$ ואת המספר שבאגף השני.',
+      explain: ['נראה ש־$2x + 5 = 31$ חולק ב־$2$ רק בחלקו.', 'קודם מחסירים $5$: $2x = 26$, ורק אז מחלקים: $x = 13$.'],
+      prereq: 'eq:2',
+      remedy: [
+        { kind: 'predict', text: 'מה הפתרון של $2x + 4 = 10$?', choices: ['$3$', '$1$'], answer: 0,
+          why: 'קודם מחסירים $4$: $2x = 6$, ואז $x = 3$. בדיקה: $2 \\cdot 3 + 4 = 10$. $1$ יוצא מ־$x + 4 = 5$, כשרק חלק חולק.' },
+      ] },
     { id: 'reversal', title: 'היחס נכתב הפוך',
       cause: 'ב"פי $6$ תלמידים ממורים" ה־$6$ נכתב ליד המילה "תלמידים", כמו במשפט. אבל מי שיש לו פי $6$ הוא הגדול.',
       explain: ['נראה שהיחס נכתב הפוך: הקבוצה הקטנה קיבלה את ה"פי".', 'בודקים במספר: אם יש $10$ מורים, יש $60$ תלמידים. המשוואה הנכונה נותנת יותר תלמידים ממורים.'],
       remedy: [
         { kind: 'predict', text: 'יש $12$ מורים, ויש פי $6$ תלמידים ממורים. כמה תלמידים יש?', choices: ['$72$', '$2$'], answer: 0,
-          why: '$6 \\cdot 12 = 72$. התלמידים הם הקבוצה הגדולה, ולכן $S = 6P$.' },
-        { kind: 'rule', text: 'בודקים כל משוואה במספר: הקבוצה שיש לה "פי" היא הגדולה.', display: 'P = 12:\\quad S = 6 \\cdot 12 = 72',
+          why: '$6 \\cdot 12 = 72$. התלמידים הם הקבוצה הגדולה, ולכן $t = 6m$.' },
+        { kind: 'rule', text: 'בודקים כל משוואה במספר: הקבוצה שיש לה "פי" היא הגדולה.', display: 'm = 12:\\quad t = 6 \\cdot 12 = 72',
           why: 'אם המשוואה נותנת לקבוצה הגדולה מספר קטן, היא הפוכה.' },
       ] },
   ],

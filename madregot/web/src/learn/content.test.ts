@@ -24,6 +24,8 @@ import { drawNested, nestedBugs, nestedValue } from '@/content/signedItems.js';
 import { T } from '@/content/util.js';
 // @ts-ignore: plain JS
 import { drawPow, powValue, powBugs, POW_MIX } from '@/content/signed7.js';
+// @ts-ignore: plain JS
+import { STORY_MIX, storyMix } from '@/content/eq.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -850,5 +852,43 @@ describe('expr:3, collecting the class\'s way (CLASSROOM-6)', () => {
       if (it.answer.k === 0) { zero += 1; expect(it.solution.join(' '), it.key).toContain(`$0${it.var || 'x'} `); }
     }
     expect(zero).toBeGreaterThan(0);
+  });
+});
+
+// CLASSROOM-8: the class's word problems on eq:5. The story model (the checks' questions) keeps every mistake above 4% of its
+// draws, the rectangle among them; the mix keeps every kind above 4% of the stair's questions; the two new worked examples
+// are the spec's (x 11, d 5, P 54 → 11, 16, 176, the last step drawing the lengths; d 5, T 31 → 13 and box B 18).
+describe('eq:5, the class\'s word problems (CLASSROOM-8)', () => {
+  const s5 = CONTENT['eq:5'];
+  it('the story model keeps every mistake above 4% of its draws, the rectangle\'s two-sides and add-sides among them', () => {
+    const rnd = seeded(2081); const shown: Record<string, number> = {}; const N = 4000;
+    for (let i = 0; i < N; i += 1) {
+      const p = s5.diag.params(rnd); const ans = s5.diag.answer(p);
+      Object.entries(s5.diag.bugs).forEach(([id, b]) => { const v = b(p); if (v != null && !same(v, ans)) shown[id] = (shown[id] || 0) + 1; });
+    }
+    expect(Object.keys(shown).sort()).toEqual(['add-sides', 'partial-dist', 'two-sides', 'wrong-unknown']);
+    Object.keys(s5.diag.bugs).forEach((id) => expect(shown[id] / N, id).toBeGreaterThan(0.04));
+  });
+  it('every kind of the stair\'s mix is above 4% of its questions, and the mix adds up', () => {
+    expect(STORY_MIX.reduce((a: number, [w]: [number]) => a + w, 0)).toBeCloseTo(1, 9);
+    STORY_MIX.forEach(([w]: [number]) => expect(w).toBeGreaterThan(0.04));
+    const kinds: Record<string, number> = {}; const N = 6000; const rnd = seeded(2082);
+    for (let i = 0; i < N; i += 1) { const it = storyMix(rnd()); const k = String(it.key).split(':')[0]; kinds[k] = (kinds[k] || 0) + 1; }
+    ['eq5s', 'eq5a', 'eq5w', 'eq5t', 'eq5b', 'eq5c', 'eq5r', 'eq5x', 'eq5y', 'eq5g', 'eq5p'].forEach((k) => expect((kinds[k] || 0) / N, k).toBeGreaterThan(0.04));
+  });
+  it('the rectangle and the transfer are worked in the class\'s layout', () => {
+    const rect = s5.examples.find((e) => e.problem.includes('$54$'))!;
+    expect([rect.answer, rect.vars]).toEqual([176, { x: 11 }]);
+    expect(rect.steps.map((st) => st.result)).toContain('\\boxed{x + 5} = 11 + 5 = 16');
+    const last = rect.steps[rect.steps.length - 1] as { fig?: { segs: { label?: string }[] } };
+    expect(last.fig!.segs.map((sg) => sg.label).filter(Boolean)).toEqual(['16 ס״מ', '11 ס״מ']);
+    expect(rect.steps[0].action).toContain('צ״ל');
+    const tr = s5.examples.find((e) => e.problem.includes('$31$'))!;
+    expect([tr.answer, tr.vars]).toEqual([18, { x: 13 }]);
+    expect((tr.fig as { head: string[]; rows: string[][] }).head).toEqual(['', 'לפני ההעברה', 'אחרי ההעברה']);
+    expect((tr.fig as { rows: string[][] }).rows[1][2]).toBe('x + 5 + x = 2x + 5');
+    [rect, tr].forEach((ex, k) => checkExample(ex, k));
+    // the students and teachers are t and m: in this class S is an area and P a perimeter
+    expect(JSON.stringify(s5.discover)).not.toMatch(/S = 6P|6S = P/);
   });
 });

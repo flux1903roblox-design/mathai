@@ -14,6 +14,8 @@ import { contentOf, loadAllContent } from './content/index';
 import type { DiscoverStep, FigSpec } from './types';
 // @ts-ignore: plain JS
 import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
+// @ts-ignore: plain JS
+import { rectStory, angleEqStory, rectFig } from '@/content/eq.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -422,5 +424,48 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
       return st.kind === 'say' && f && DRAWS.has(f.type) && !f.anim ? [`${c.skill} #0: ${f.type} without anim`] : [];
     });
     expect(bad).toEqual([]);
+  });
+});
+
+// CLASSROOM-8: the class's rectangle and angles with x. A side may carry an expression ('x + 5') or a found length
+// ('16 ס״מ'); equal sides carry the same number of ticks, and they are opposite sides: as long as each other and sharing
+// no corner. The angles with x are drawn to their size, each with its expression on its arc.
+describe('the class\'s word-problem drawings', () => {
+  const ticked = (f: Geo) => {
+    const groups: Record<number, any[]> = {};
+    (f.segs || []).forEach((sg: any) => { if (sg.ticks) (groups[sg.ticks] ||= []).push(sg); });
+    return groups;
+  };
+  it('a rectangle\'s ticks sit on opposite, equal sides, and its expression labels are drawn', () => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = rectStory(); const f = it.fig as Geo;
+      const groups = ticked(f);
+      expect(Object.keys(groups).sort(), it.key).toEqual(['1', '2']);
+      Object.values(groups).forEach(([a, b]) => {
+        expect([a.a, a.b].some((k) => k === b.a || k === b.b), `${it.key}: ticked sides share a corner`).toBe(false);
+        expect(dist(f.pts[a.a], f.pts[a.b])).toBeCloseTo(dist(f.pts[b.a], f.pts[b.b]), 9);
+      });
+      const html = renderToStaticMarkup(createElement(Figure, { fig: f }));
+      expect(html).not.toMatch(/NaN|undefined|Infinity/);
+      const labels = (f.segs || []).map((sg: any) => sg.label).filter(Boolean);
+      expect(labels).toContain('x');
+      expect(labels.some((l: string) => /^x \+ \d$|^2x$/.test(l)), it.key).toBe(true);
+    }
+    // the found lengths written back, in proportion and right to left
+    const done = rectFig('16 ס״מ', '11 ס״מ', { long: 16 / 11 }) as Geo;
+    expect(dist(done.pts._A, done.pts._B) / dist(done.pts._B, done.pts._C)).toBeCloseTo(16 / 11, 9);
+    expect(renderToStaticMarkup(createElement(Figure, { fig: done }))).toContain('direction="rtl"');
+  });
+  it('angles with x are drawn to their size, each with its expression on its arc', () => {
+    for (let i = 0; i < 300; i += 1) {
+      const it = angleEqStory(i % 2 ? 3 : 4); const f = it.fig as Geo;
+      const [, n, cs, es] = String(it.key).split(':'); const c = cs.split(',').map(Number); const e = es.split(',').map(Number);
+      const total = Number(n) === 3 ? 180 : 360; const x = (total - e.reduce((a, b) => a + b, 0)) / c.reduce((a, b) => a + b, 0);
+      (f.angles || []).forEach((g: any, k: number) => {
+        expect(geoSweep(f.pts, g).deg, `${it.key} at ${g.at}`).toBeCloseTo(c[k] * x + e[k], 6);
+        expect(g.text, it.key).toMatch(/^\d*x( [+−] \d+°)?$/);
+      });
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f }))).not.toMatch(/NaN|undefined|Infinity/);
+    }
   });
 });

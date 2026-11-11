@@ -546,7 +546,12 @@ function examItem() {
 
 const PAIRS_MF = [['דני', 'רינה'], ['עומר', 'מאיה'], ['איתי', 'שירה']];
 const PAIRS_M = [['דן', 'יואב'], ['אורי', 'עידו'], ['אלון', 'רון']];
-const story = (key, text, answer, unit, hint, solution, bugs) => ({ key, text, form: 'num', answer, unit, hint, solution, diag: diagOf(answer, bugs) });
+/**
+ * The answers a story's diag() can name (each prediction, and a fraction's roundings to tenths and hundredths): a
+ * verification's search for a misconception asks these, not every number (content/index.js namesOf).
+ */
+export const triesOf = (bugs) => Object.values(bugs).filter((v) => v != null && Number.isFinite(v)).flatMap((v) => [v, ...roundings(v)]);
+const story = (key, text, answer, unit, hint, solution, bugs) => ({ key, text, form: 'num', answer, unit, hint, solution, diag: diagOf(answer, bugs), tries: triesOf(bugs) });
 /** The stamps' equation kx − g = x + g solved line by line, to x (shared with learn/content/eq.ts). */
 export const stampsLines = (k, g, x) => [
   line('אחרי הנתינה', `${k}x - ${g} = x + ${g}`, '-x'),
@@ -620,6 +625,234 @@ function consecutiveStory() {
     { 'wrong-unknown': q ? x : null });
 }
 
+// ---------------------------------------------------------------- 5b. the class's word problems (CLASSROOM-8)
+// The rectangle (בעיות הנדסיות), the transfer table (בעיות העברה) and angles with x, in the class's layout: נתון: and
+// צ״ל:, the equation lines with their slash marks, the asked expression boxed before the number is put in
+// ("\boxed{x + 5} = 11 + 5 = 16"), P and S with ס״מ and סמ״ר, ∢ for an angle. Each kind is drawn again until it is fair
+// (fairStory): no mistake predicts the answer or a slip of it, no two mistakes one value, and the answer is not a
+// number printed in the question (for degrees, not 180 − n, 90 − n or 360 − n of one either).
+
+/** Is the draw fair: no prediction on the answer or a slip of it, no two on one value, the answer not printed? */
+function fairStory(ans, bugs, printed, deg = false) {
+  const vals = Object.values(bugs).filter((v) => v != null && Number.isFinite(v));
+  if (vals.some((v) => near(v, ans) || slipOf(v, ans))) return false;
+  if (new Set(vals.map((v) => v.toFixed(6))).size !== vals.length) return false;
+  const guesses = printed.flatMap((n) => (deg ? [n, 180 - n, 90 - n, 360 - n] : [n]));
+  return !guesses.some((g) => near(g, ans));
+}
+/**
+ * A rectangle with two of its sides written on it (an expression, 'x + 5', or a found length, '16 ס״מ') and its equal
+ * sides ticked as the class marks them: one tick on one pair of opposite sides, two on the other. `long`: the drawn
+ * length of the bottom side against the right one (1).
+ */
+export function rectFig(bottom, right, { long = 1.6 } = {}) {
+  return {
+    type: 'geo', view: [300, 190], pad: [52, 38], label: `מלבן: צלע אחת ${bottom}, והסמוכה לה ${right}`,
+    pts: { _A: [0, 0], _B: [long, 0], _C: [long, 1], _D: [0, 1] },
+    polys: [{ pts: ['_A', '_B', '_C', '_D'] }],
+    segs: [
+      { a: '_A', b: '_B', label: bottom, ticks: 1 }, { a: '_B', b: '_C', label: right, ticks: 2 },
+      { a: '_C', b: '_D', ticks: 1 }, { a: '_D', b: '_A', ticks: 2 },
+    ],
+  };
+}
+const CM = 'ס״מ'; const CM2 = 'סמ״ר';
+
+/**
+ * The rectangle (eq:5, the class's geometric word problem, rectStory below): sides x and x + d (a fifth of the time x
+ * and 2x, d 0), x 3..15, d 2..9, so P = 4x + 2d (or 6x). It asks x, the other side, or the area S. Mistakes: 2(x + d) opened as 2x + d
+ * (partial-dist), only two sides counted, x + (x + d) = P (two-sides, the half perimeter), x answered when the other side
+ * or the area was asked (wrong-unknown), and for the area the two sides added (add-sides, coord's name for it).
+ */
+/** A rectangle story's sides as TeX and numbers: x and x + d, or x and 2x when d is 0. */
+const rectSides = (x, d) => ({ otherTex: d ? `x + ${d}` : '2x', other: d ? x + d : 2 * x, P: 2 * (x + (d ? x + d : 2 * x)) });
+/** What a rectangle story asks (q 0: x, 1: the other side, 2: the area S), at a value v of x. */
+export const rectAt = (d, q, v) => [v, d ? v + d : 2 * v, v * (d ? v + d : 2 * v)][q];
+/** The mistakes of a rectangle story and what each gives for what was asked (shared with learn/content/eq.ts). */
+export function rectBugs(x, d, q) {
+  const { other, P } = rectSides(x, d);
+  return {
+    'partial-dist': d ? rectAt(d, q, (P - d) / 4) : null,
+    'two-sides': rectAt(d, q, d ? (P - d) / 2 : P / 3),
+    'wrong-unknown': q ? x : null,
+    'add-sides': q === 2 ? x + other : null,
+  };
+}
+/** The question of a rectangle story, in the class's words. */
+export function rectText(x, d, q) {
+  const { otherTex, P } = rectSides(x, d);
+  return `צלעות המלבן שבשרטוט הן $x$ ו־$${otherTex}$ (ב${CM}), וההיקף שלו $${P}$ ${CM}. ${['מה $x$?', `מה אורך הצלע $${otherTex}$?`, 'מה שטח המלבן?'][q]}`;
+}
+export const rectHint = (d, q) => `ההיקף הוא סכום ארבע הצלעות: שתי צלעות $x$ ושתי צלעות $${d ? `x + ${d}` : '2x'}$.${q === 2 ? ' והשטח: אורך כפול רוחב.' : ''}`;
+/** The class's layout: נתון and צ״ל, the equation lines with their marks, the asked side boxed, S, the check. */
+export function rectLines(x, d, q) {
+  const { otherTex, other, P } = rectSides(x, d);
+  const want = ['$x = ?$', `$x = ?$, $${otherTex} = ?$`, `$x = ?$, $${otherTex} = ?$, $S = ?$`][q];
+  const solving = d
+    ? [`ההיקף, שתי צלעות $x$ ושתי צלעות $${otherTex}$: $P = 2x + 2(${otherTex}) = ${P}$`,
+      `פותחים סוגריים: $2x + 2x + ${2 * d} = ${P}$, ומכנסים: $${opMark(`4x + ${2 * d} = ${P}`, `-${2 * d}`)}$`,
+      line(`מחסירים $${2 * d}$ משני האגפים`, `4x = ${P - 2 * d}`, ':4')]
+    : [`ההיקף, שתי צלעות $x$ ושתי צלעות $2x$: $P = 2x + 2 \\cdot 2x = ${P}$`, line('מכנסים', `6x = ${P}`, ':6')];
+  return [
+    `נתון: $P = ${P}$ ${CM}. צ״ל: ${want}`,
+    ...solving,
+    `מחלקים ב־$${d ? 4 : 6}$: $x = ${x}$ ${CM}`,
+    ...(q ? [`$\\boxed{${otherTex}} = ${d ? `${x} + ${d}` : `2 \\cdot ${x}`} = ${other}$ ${CM}`] : []),
+    ...(q === 2 ? [`$S = ${other} \\cdot ${x} = ${other * x}$ ${CM2}`] : []),
+    `בדיקה: $2 \\cdot ${x} + 2 \\cdot ${other} = ${P}$`,
+  ];
+}
+/** The rectangle's drawing for a story with d (0: the sides x and 2x). */
+export const rectStoryFig = (d) => rectFig(d ? `x + ${d}` : '2x', 'x', { long: d ? 1.6 : 2 });
+export function rectStory() {
+  for (;;) {
+    const x = R(3, 15); const d = Math.random() < 0.2 ? 0 : R(2, 9); const q = R(0, 2);
+    const { P } = rectSides(x, d);
+    const bugs = rectBugs(x, d, q); const ans = rectAt(d, q, x);
+    if (!fairStory(ans, bugs, d ? [d, P] : [P, 2])) continue;
+    return {
+      key: `eq5r:${x}:${d}:${q}`, text: rectText(x, d, q), form: 'num', answer: ans, unit: q === 2 ? CM2 : CM, fig: rectStoryFig(d),
+      hint: rectHint(d, q), solution: rectLines(x, d, q), diag: diagOf(ans, bugs), tries: triesOf(bugs),
+    };
+  }
+}
+
+/** The class's transfer table: boxes in rows, before and after the move in columns. */
+export const transferFig = (before, after) => ({ type: 'table', head: ['', 'לפני ההעברה', 'אחרי ההעברה'], rows: [['תיבה א׳', before[0], after[0]], ['תיבה ב׳', before[1], after[1]]] });
+/**
+ * The transfer (eq:5, בעיות העברה), with the class's before-and-after table. Form 1: box A has x, box B d more; all of A
+ * goes to B, which then has T = 2x + d. Asked: box B at the start. Mistakes: x answered (wrong-unknown), and 2x + d = T
+ * divided as x + d = T : 2 (divide-part, only when T is even: T : 2 is then a whole number of things).
+ * Form 2: g things move from A to B, and B then has k times A: x + d + g = k(x − g). Asked: A or B at the start; its
+ * one mistake is the other box (wrong-unknown). Opening k(x − g) as kx − g would give x − g, box A after the move, so
+ * no distribution mistake is named there: the label could not be told from a misread question.
+ */
+export function transferTable(form = Math.random() < 0.6 ? 1 : 2) {
+  if (form === 1) {
+    for (;;) {
+      const x = R(3, 20); const d = R(2, 12); if (x === d) continue;
+      const T = 2 * x + d; const ans = x + d;
+      const bugs = { 'wrong-unknown': x, 'divide-part': T % 2 ? null : T / 2 };
+      if (!fairStory(ans, bugs, [d, T, 0])) continue;
+      return {
+        key: `eq5x:${d}:${T}`, form: 'num', answer: ans, unit: 'פריטים',
+        text: `בתיבה א׳ $x$ פריטים, ובתיבה ב׳ $${d}$ יותר. מעבירים את כל מה שבתיבה א׳ לתיבה ב׳, ועכשיו בתיבה ב׳ $${T}$ פריטים. כמה פריטים היו בתיבה ב׳ בהתחלה?`,
+        fig: transferFig(['x', `x + ${d}`], ['0', '?']),
+        hint: `אחרי ההעברה בתיבה ב׳ גם מה שהיה בה, $x + ${d}$, וגם מה שעבר, $x$.`,
+        solution: [
+          `בטבלה, אחרי ההעברה בתיבה ב׳: $x + ${d} + x = 2x + ${d}$`,
+          line('המשוואה', `2x + ${d} = ${T}`, `-${d}`),
+          line(`מחסירים $${d}$ משני האגפים`, `2x = ${T - d}`, ':2'),
+          line('מחלקים ב־$2$', `x = ${x}`),
+          `בתיבה ב׳ היו בהתחלה: $\\boxed{x + ${d}} = ${x} + ${d} = ${ans}$`,
+          `בדיקה: $${ans} + ${x} = ${T}$`,
+        ],
+        diag: diagOf(ans, bugs), tries: triesOf(bugs),
+      };
+    }
+  }
+  for (;;) {
+    const k = R(2, 4); const g = R(2, 9); const d = R(1, 12);
+    const sum = d + g + k * g; if (sum % (k - 1)) continue;
+    const x = sum / (k - 1); if (x <= g || x > 40) continue;
+    const q = R(0, 1); const ans = q ? x + d : x;
+    const bugs = { 'wrong-unknown': q ? x : x + d };
+    if (!fairStory(ans, bugs, [d, g, k, d + g])) continue; // the table prints x + (d + g) after the move
+    const check = `בדיקה: אחרי ההעברה $${x - g}$ ו־$${x + d + g}$, ו־$${x + d + g} = ${k} \\cdot ${x - g}$`;
+    return {
+      key: `eq5y:${d}:${g}:${k}:${q}`, form: 'num', answer: ans, unit: 'פריטים',
+      text: `בתיבה א׳ $x$ פריטים, ובתיבה ב׳ $${d}$ יותר. מעבירים $${g}$ פריטים מתיבה א׳ לתיבה ב׳, ועכשיו בתיבה ב׳ פי $${k}$ ממה שנשאר בתיבה א׳. כמה פריטים היו בתיבה ${q ? 'ב׳' : 'א׳'} בהתחלה?`,
+      fig: transferFig(['x', `x + ${d}`], [`x − ${g}`, `x + ${d + g}`]),
+      hint: `אחרי ההעברה בתיבה א׳ $x - ${g}$, ובתיבה ב׳ $x + ${d + g}$. בתיבה ב׳ פי $${k}$: כופלים את כל מה שבתיבה א׳.`,
+      solution: [
+        `אחרי ההעברה: בתיבה א׳ $x - ${g}$, ובתיבה ב׳ $x + ${d} + ${g} = x + ${d + g}$`,
+        ...agesLines(k, d + 2 * g, g, x),
+        q ? `בתיבה ב׳ היו בהתחלה: $\\boxed{x + ${d}} = ${x} + ${d} = ${x + d}$. ${check}` : `בתיבה א׳ היו $${x}$. ${check}`,
+      ],
+      diag: diagOf(ans, bugs), tries: triesOf(bugs),
+    };
+  }
+}
+
+/** An angle with x as the class writes it: 2x, x + 10°, 3x − 25°. */
+const angTex = (c, e) => `${linTex(c, 0)}${e ? ` ${e < 0 ? '-' : '+'} ${abs(e)}^\\circ` : ''}`;
+/** The vertices of a triangle or a quadrilateral with these angles (in degrees, counterclockwise from A), or null. */
+export function polyWithAngles(angles) {
+  const r = (deg) => (deg * Math.PI) / 180; const u = (deg) => [Math.cos(r(deg)), Math.sin(r(deg))];
+  if (angles.length === 3) {
+    const [a, b, c] = angles; const ac = Math.sin(r(b)) / Math.sin(r(c));
+    return [[0, 0], [1, 0], [ac * Math.cos(r(a)), ac * Math.sin(r(a))]];
+  }
+  // a quadrilateral walked counterclockwise from A along AB: turn by 180° − each angle; AB = 1, BC tried at a few lengths,
+  // CD and DA solved so the walk closes, both in a range where no side is a sliver
+  const [a, b, c] = angles; const h = [0, 180 - b, 360 - b - c, 180 + a].map(u);
+  for (const bc of [1, 0.8, 1.2, 0.65, 1.5, 0.5, 1.9]) {
+    const rx = -(h[0][0] + bc * h[1][0]); const ry = -(h[0][1] + bc * h[1][1]);
+    const det = h[2][0] * h[3][1] - h[3][0] * h[2][1]; if (Math.abs(det) < 1e-9) continue;
+    const cd = (rx * h[3][1] - h[3][0] * ry) / det; const da = (h[2][0] * ry - rx * h[2][1]) / det;
+    if (cd < 0.4 || da < 0.4 || cd > 2.6 || da > 2.6) continue;
+    const B = [1, 0]; const C = [B[0] + bc * h[1][0], B[1] + bc * h[1][1]];
+    return [[0, 0], B, C, [C[0] + cd * h[2][0], C[1] + cd * h[2][1]]];
+  }
+  return null;
+}
+const NAMES = ['A', 'B', 'C', 'D'];
+/**
+ * Angles with x (eq:5; the class meets them in the geometry chapter, exs. 113 and 189): angles c·x + e in a triangle
+ * (sum 180°) or a quadrilateral (sum 360°), each written on its arc of the drawing (drawn to its size). c 1..5, e 0 half
+ * the time and otherwise a multiple of 5 from −20 to 30; x whole and every angle 15° to 179°. It asks x or one angle.
+ * Mistakes: the other shape's sum (wrong-total, the angles topic's id), x answered for an angle (wrong-unknown), and a
+ * constant's minus dropped (drop-minus, one prediction per negative constant). A prediction that is not whole or half, or
+ * not positive, names nothing. The hint gives the sum, so no geometry stair is needed first.
+ */
+export function angleEqStory(n = Math.random() < 0.5 ? 3 : 4) {
+  const total = n === 3 ? 180 : 360; const wrong = n === 3 ? 360 : 180; const shape = n === 3 ? 'במשולש' : 'במרובע';
+  for (;;) {
+    const c = Array.from({ length: n }, () => R(1, 5)); const e = Array.from({ length: n }, () => (Math.random() < 0.5 ? 0 : 5 * R(-4, 6)));
+    const Cs = c.reduce((s, v) => s + v, 0); const Es = e.reduce((s, v) => s + v, 0);
+    if ((total - Es) % Cs) continue;
+    const x = (total - Es) / Cs; const ang = c.map((ci, i) => ci * x + e[i]);
+    if (ang.some((v) => v < 15 || v > 179)) continue;
+    const q = R(-1, n - 1); const at = (v) => (q < 0 ? v : c[q] * v + e[q]);
+    const ok = (v) => (Number.isFinite(v) && Math.round(v * 2) === v * 2 && v > 0 ? v : null);
+    const bugs = { 'wrong-unknown': q < 0 ? null : x, 'wrong-total': ok(at((wrong - Es) / Cs)) };
+    e.forEach((ei, i) => { if (ei < 0) bugs[`drop-minus#${i}`] = ok(at((total - Es + 2 * ei) / Cs)); });
+    // every number the question prints, with its sign and without (a guesser may take 90 − (−5))
+    const printed = [...c, ...e.filter((v) => v), ...e.filter((v) => v).map(abs)];
+    const ans = at(x);
+    if (!fairStory(ans, bugs, printed, true)) continue;
+    const pts = polyWithAngles(ang); if (!pts) continue;
+    const P = Object.fromEntries(pts.map((p, i) => [NAMES[i], p]));
+    const names = NAMES.slice(0, n);
+    const fig = {
+      type: 'geo', view: [300, 220], pad: 40, label: `${n === 3 ? 'משולש' : 'מרובע'} ${names.join('')}: ${names.map((k, i) => `∢${k} = ${angTex(c[i], e[i]).replace(/\^\\circ/g, '°').replace(/-/g, '−')}`).join(', ')}`,
+      pts: P, polys: [{ pts: names }],
+      segs: names.map((k, i) => ({ a: k, b: names[(i + 1) % n] })),
+      angles: names.map((k, i) => ({ at: k, from: names[(i + 1) % n], to: names[(i + n - 1) % n], text: angTex(c[i], e[i]).replace(/\^\\circ/g, '°').replace(/-/g, '−'), r: 22, ...(i === q ? { target: true } : {}) })),
+    };
+    const list = names.map((k, i) => `$\\sphericalangle ${k} = ${angTex(c[i], e[i])}$`);
+    const ask = q < 0 ? 'מה $x$?' : `מה גודל $\\sphericalangle ${names[q]}$?`;
+    // the class's "פישוט + משפחות": the sum of the angles, each family on its own short line (a phone's width), the equation
+    const nums = e.filter((v) => v);
+    const lines = [
+      `סכום הזוויות ${shape}: $${names.map((k) => `\\sphericalangle ${k}`).join(' + ')} = ${total}^\\circ$`,
+      `משפחת ה־$x$: $${sumTex(c.map((ci) => [ci, 'x']))} = ${linTex(Cs, 0)}$`,
+      ...(nums.length > 1 ? [`משפחת המספרים: $${sumTex(nums.map((v) => [v, '']))} = ${T(Es)}$`] : nums.length ? [`משפחת המספרים: מספר אחד, $${T(Es)}$`] : []),
+      ...(Es ? [line('המשוואה', `${linTex(Cs, Es)} = ${total}`, minusOp(T(Es))), line(`${Es > 0 ? 'מחסירים' : 'מוסיפים'} $${abs(Es)}$ ${Es > 0 ? 'משני' : 'לשני'} האגפים`, `${Cs}x = ${total - Es}`, divOp(Cs))]
+        : [line('המשוואה', `${Cs}x = ${total}`, divOp(Cs))]),
+      line(`מחלקים ב־$${Cs}$`, `x = ${x}`),
+      ...(q >= 0 ? [`הזווית $\\sphericalangle ${names[q]}$: $\\boxed{${linTex(c[q], e[q])}} =${c[q] === 1 ? x : `${c[q]} \\cdot ${x}`}${e[q] ? ` ${e[q] < 0 ? '-' : '+'} ${abs(e[q])}` : ''} = ${ans}^\\circ$`] : []),
+      `בדיקה: ${ang.slice(0, -1).map((v) => `$${v}^\\circ$`).join(', ')} ו־$${ang[n - 1]}^\\circ$, ויחד $${total}^\\circ$`,
+    ];
+    return {
+      key: `eq5g:${n}:${c.join(',')}:${e.join(',')}:${q}`, form: 'num', answer: ans, unit: q < 0 ? null : 'מעלות',
+      text: `${n === 3 ? 'במשולש' : 'במרובע'} $${names.join('')}$ שבשרטוט: ${list.slice(0, -1).join(', ')} ו־${list[n - 1]}. ${ask}`,
+      fig, hint: `סכום הזוויות ${shape} $${total}^\\circ$. מחברים את כל הביטויים, ומכנסים משפחות.`,
+      solution: lines, diag: (u) => diagOf(ans, bugs)(u)?.replace(/#\d+$/, '') || null, tries: triesOf(bugs),
+    };
+  }
+}
+
 /** Choose the equation for a story: one fits; one has the relation reversed; the others are other slips. Four choices. */
 function pickEquation() {
   for (;;) {
@@ -636,7 +869,8 @@ function pickEquation() {
     } else if (kind === 2) {
       const k = R(2, 4); x = R(2, 10); const P = 2 * (k + 1) * x;
       text = `האורך של מלבן גדול פי $${k}$ מהרוחב שלו, וההיקף שלו $${P}$ ס״מ. הרוחב $x$ ס״מ. איזו משוואה מתאימה?`;
-      opts = [[`2(x + ${k}x) = ${P}`, true], [`2(x + \\dfrac{x}{${k}}) = ${P}`, 'reversal'], [`x + ${k}x = ${P}`], [`x \\cdot ${k}x = ${P}`]];
+      // x + kx = P counts two sides only: the half perimeter (two-sides, CLASSROOM-8)
+      opts = [[`2(x + ${k}x) = ${P}`, true], [`2(x + \\dfrac{x}{${k}}) = ${P}`, 'reversal'], [`x + ${k}x = ${P}`, 'two-sides'], [`x \\cdot ${k}x = ${P}`]];
     } else {
       const [A, B] = pick(PAIRS_M); const k = R(2, 3); x = R(4, 14); const b = R(2, 6); const g = (k - 1) * (x + b);
       text = `${A} מבוגר מ${B} ב־$${g}$ שנים. בעוד $${b}$ שנים, הגיל של ${A} יהיה פי $${k}$ מהגיל של ${B}. ${B} בן $x$. איזו משוואה מתאימה?`;
@@ -654,6 +888,23 @@ function pickEquation() {
   }
 }
 
+/**
+ * The word problems' mix (CLASSROOM-8): the six stories of before at 7% each (42%), the class's rectangle 12%, the
+ * transfer 10.5% (form 1 6%, form 2 4.5%), angles with x 15.5% (a triangle 8%, a quadrilateral 7.5%) and choosing the
+ * equation 20%. Every kind is above 4% of the stair's questions, and each kind's mistakes show on more than 4% of its
+ * own draws (learn/content.test.ts); r is a number in [0, 1).
+ */
+export const STORY_MIX = [
+  [0.07, stampsStory], [0.07, agesStory], [0.07, parcelsStory], [0.07, anglesStory], [0.07, ballsStory], [0.07, consecutiveStory],
+  [0.12, rectStory], [0.06, () => transferTable(1)], [0.045, () => transferTable(2)], [0.08, () => angleEqStory(3)], [0.075, () => angleEqStory(4)],
+  [0.2, pickEquation],
+];
+export function storyMix(r) {
+  let acc = 0;
+  for (const [w, make] of STORY_MIX) { acc += w; if (r < acc) return make(); }
+  return pickEquation();
+}
+
 export const EQ = {
   id: 'eq', grade: '7', title: 'משוואות', color: 'violet',
   desc: 'משוואה ופתרונה, פעולות על שני האגפים, בדיקה בהצבה ובעיות מילוליות',
@@ -663,7 +914,7 @@ export const EQ = {
     { title: 'משוואה בשני צעדים', gen: () => { const r = Math.random(); return r < 0.45 ? twoStepItem() : r < 0.55 ? fracItem() : r < 0.65 ? collectFirst() : r < 0.8 ? rentItem() : balance2(); } },
     { title: 'נעלם בשני האגפים', gen: () => { const r = Math.random(); return r < 0.6 ? bothItem() : r < 0.75 ? howManyItem(3) : balance3(); } },
     { title: 'משוואות עם סוגריים', gen: () => { const r = Math.random(); return r < 0.62 ? bracketItem() : r < 0.8 ? examItem() : howManyItem(4); } },
-    { title: 'בעיות מילוליות', gen: () => { const r = Math.random(); return r < 0.7 ? pick([stampsStory, agesStory, parcelsStory, anglesStory, ballsStory, consecutiveStory])() : pickEquation(); } },
+    { title: 'בעיות מילוליות', gen: () => storyMix(Math.random()) },
   ],
   cats: {
     'move-no-flip': 'מספר עבר לאגף השני בלי פעולה הפוכה ($x + 5 = 12$ הפך ל־$x = 17$)',
@@ -676,6 +927,11 @@ export const EQ = {
     'minus-bracket': 'מינוס לפני סוגריים הפך רק את הסימן הראשון',
     'wrong-unknown': 'נמצא הנעלם, אבל התשובה לא עונה על מה שנשאל',
     reversal: 'היחס נכתב הפוך: הקבוצה הקטנה קיבלה את ה"פי"',
+    // CLASSROOM-8: the rectangle, the angles with x (the angles topic's and coord's ids, expr's for a lost minus)
+    'two-sides': 'בהיקף נספרו רק שתי צלעות (חצי היקף)',
+    'add-sides': 'חיברו את הצלעות במקום לכפול',
+    'wrong-total': 'השתמשו בסכום הזוויות הלא נכון (במשולש $180^\\circ$, במרובע $360^\\circ$)',
+    'drop-minus': 'המינוס שלפני מספר נעלם ($2x - 5$ נקרא כמו $2x + 5$)',
   },
   lesson: {
     points: [

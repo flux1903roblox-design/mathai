@@ -281,6 +281,26 @@ export const META: Record<SkillId, StairMeta> = {
         "title": "רק האיבר הראשון שבסוגריים נכפל"
       },
       {
+        "id": "two-sides",
+        "title": "בהיקף נספרו רק שתי צלעות (חצי היקף)"
+      },
+      {
+        "id": "add-sides",
+        "title": "חיברו את הצלעות במקום לכפול"
+      },
+      {
+        "id": "wrong-total",
+        "title": "השתמשו בסכום הזוויות הלא נכון (במשולש $180^\\circ$, במרובע $360^\\circ$)"
+      },
+      {
+        "id": "drop-minus",
+        "title": "המינוס שלפני מספר נעלם"
+      },
+      {
+        "id": "divide-part",
+        "title": "רק חלק מהאיברים חולק ב־$2$"
+      },
+      {
         "id": "reversal",
         "title": "היחס נכתב הפוך"
       }

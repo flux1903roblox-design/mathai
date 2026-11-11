@@ -126,6 +126,8 @@ export interface ExampleStep {
    * once this step is shown (CLASSROOM-7); learn/eqLines.test.ts checks that doing it gives this step's result.
    */
   mark?: string;
+  /** The drawing again once this step is shown, with what was found written on it (CLASSROOM-8: the rectangle's lengths). */
+  fig?: FigSpec;
 }
 export interface WorkedExample {
   problem: Text; display?: string;
@@ -191,7 +193,7 @@ export interface DiagModel<P = Record<string, number>> {
   text: (p: P) => Text;
   display?: (p: P) => string;
   /** A drawing for the question, when the question needs one. */
-  fig?: (p: P) => FigSpec;
+  fig?: (p: P) => FigSpec | undefined;
   answer: (p: P) => number;
   /** The exact value when the answer is rounded (a root that is not whole): an answer within half a tenth of it is right. */
   exact?: (p: P) => number;

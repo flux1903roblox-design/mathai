@@ -261,11 +261,18 @@
     "discover": 9,
     "examples": [
      6,
-     8
+     8,
+     8,
+     6
     ],
     "misconceptions": [
      2,
      2,
+     2,
+     1,
+     1,
+     1,
+     1,
      2
     ],
     "objectives": 3,
@@ -276,7 +283,7 @@
    }
   },
   "stairs": 5,
-  "steps": 155
+  "steps": 175
  },
  "expr": {
   "skills": {

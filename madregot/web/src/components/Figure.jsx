@@ -364,7 +364,8 @@ function Table({ fig }) {
 //   pts      { A: [x, y], ... }
 //   polys    [{ pts: ['A', 'B', 'C'] }]                         a filled shape (a triangle)
 //   segs     [{ a, b, ext: [before, after], dash, thin, hi, label, side: 'in', t, ticks, arrows }]   t: where the label sits along ab
-//            a segment, or a line or ray when extended past a or b (in units); label: a number, '?', a letter or a word
+//            a segment, or a line or ray when extended past a or b (in units); label: a number, '?', a letter, a word, an
+//            expression ('x + 5') or a length with its unit ('16 ס״מ'); ticks: equal sides carry the same number of ticks
 //   angles   [{ at, from, to, text, target, right, r, n }]       the angle swept counterclockwise from ray at→from to at→to;
 //            n: 2 or 3 arcs for angles that are equal; right: the small square of a right angle
 //   squares  [{ a, b, away, text, hi }]                          the square on segment ab, on the side away from point `away`
@@ -372,6 +373,16 @@ function Table({ fig }) {
 //   moves    [{ from: [x, y], to: [x, y] }]                      a dashed arrow: something slides or turns
 //   dots     ['O']                                               a vertex dot;   lab: { A: [dx, dy] } moves a letter
 const WORD = /[\u0590-\u05ff]/;
+/**
+ * A label that may be an expression ('x + 5', '3x − 10°', CLASSROOM-8): its letters in the maths font and italic, a
+ * real minus sign; a lone letter ('x' beside '3x') is italic too. A number is drawn as it was; a Hebrew unit ('16 ס״מ')
+ * keeps the label right to left.
+ */
+const geoLabel = (t) => {
+  const s = String(t);
+  if (!/[a-z]/.test(s) || WORD.test(s)) return s;
+  return s.replace(/-/g, '\u2212').split(/([a-z])/).map((p, i) => (i % 2 ? <tspan key={i} fontStyle="italic" style={{ fontFamily: MATH_FONT }}>{p}</tspan> : p));
+};
 /** About half the width and half the height of a label, in drawing units (Hebrew words at 16px, numbers at 18px). */
 const labelSize = (t) => [String(t).length * (WORD.test(t) ? 4.6 : 5.4) + 2, 9];
 const unitDir = (p, q) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1; return [(q[0] - p[0]) / d, (q[1] - p[1]) / d]; };
@@ -442,7 +453,7 @@ function Geo({ fig }) {
           <g key={`s${i}`}>
             <line x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} className={cls} />
             {ticks}{arrows}
-            {sg.label && <text x={mid[0] + nx * off} y={mid[1] + ny * off + 6} textAnchor="middle" className={textCls(sg.label)}>{sg.label}</text>}
+            {sg.label && <text x={mid[0] + nx * off} y={mid[1] + ny * off + 6} textAnchor="middle" className={textCls(sg.label)} direction={WORD.test(sg.label) ? 'rtl' : undefined}>{geoLabel(sg.label)}</text>}
           </g>
         );
       })}
@@ -454,13 +465,13 @@ function Geo({ fig }) {
         }
         const { a0, a1, deg } = geoSweep(P, g);
         const rr = g.r ?? 24;
-        // a narrow angle has its label further out, clear of its two arms
-        const lr = rr + (deg < 40 ? 30 : deg < 60 ? 22 : 16);
+        // a narrow angle has its label further out, clear of its two arms, and so does a long one (an expression, 3x − 10°)
+        const lr = rr + (deg < 40 ? 30 : deg < 60 ? 22 : 16) + Math.max(0, String(g.text || '').length - 4) * 3;
         return (
           <g key={`g${i}`}>
             {/* two or three arcs mark angles that are equal to each other */}
             {Array.from({ length: Math.max(0, (g.n || 1) - 1) }, (_, k) => <path key={k} d={arcPath(v[0], v[1], rr - 5 * (k + 1), a0, a1)} className={g.target ? 'fg-arc target' : 'fg-arc'} />)}
-            <AngleMark cx={v[0]} cy={v[1]} a0={a0} a1={a1} text={g.text || ''} target={g.target} rr={rr} lr={lr} />
+            <AngleMark cx={v[0]} cy={v[1]} a0={a0} a1={a1} text={geoLabel(g.text || '')} target={g.target} rr={rr} lr={lr} />
           </g>
         );
       })}

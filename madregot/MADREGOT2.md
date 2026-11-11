@@ -204,7 +204,7 @@ the row to paste when one differs.
 | eq:2 | משוואה בשני צעדים | 10 (balance) | 3 | 2 | 4 (move-no-flip, divide-part, sign, sub-coef) | yes | complete, tested |
 | eq:3 | נעלם בשני האגפים | 9 (balance) | 2 | 2 | 2 (move-no-flip, move-x-no-flip) | yes | complete, tested |
 | eq:4 | משוואות עם סוגריים | 9 (area) | 3 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
-| eq:5 | בעיות מילוליות | 9 (balance) | 2 | 2 | 3 (wrong-unknown, partial-dist, reversal) | yes | complete, tested |
+| eq:5 | בעיות מילוליות | 9 (balance) | 4 | 2 | 8 (wrong-unknown, partial-dist, two-sides, add-sides, wrong-total, drop-minus, divide-part, reversal) | yes | complete, tested |
 | ratio:1 | יחס | 8 (fbar) | 2 | 2 | 3 (reversed-ratio, part-whole, add-same) | yes | complete, tested |
 | ratio:2 | חלוקה ביחס | 8 (fbar) | 2 | 2 | 3 (reversed-ratio, part-whole, whole-perimeter) | yes | complete, tested |
 | ratio:3 | פרופורציה | 8 (dline) | 2 | 2 | 2 (additive, divide-flip) | yes | complete, tested |

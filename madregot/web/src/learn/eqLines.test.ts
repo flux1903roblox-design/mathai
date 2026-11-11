@@ -35,6 +35,9 @@ function readOp(tex: string): Op | null {
 /** One equation or inequality of a line, or null for anything else (a chain a = b = c, a pair, an expression). */
 function eqOf(tex: string): Eq | null {
   if (/\\square|cases|Rightarrow|\\text|\\circ|\\begin/.test(tex)) return null;
+  // a quantity named by a capital letter (the class's P = 54 for a perimeter, S for an area) is a given or a formula,
+  // not a line of the solving
+  if (/[A-Z]/.test(tex.replace(/\\[a-zA-Z]+/g, ''))) return null;
   let e: Eq;
   try {
     const { left, rel, right } = texRelation(unmark(tex));

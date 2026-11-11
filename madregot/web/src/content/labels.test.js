@@ -9,7 +9,7 @@ import { quadOf as quadOfPt } from './manip.js';
 import { startLesson, answer } from '@/lib/lesson.js';
 import { learnAfterAnswer, emptyLearn } from '@/learn/storeGlue.ts';
 import { evaluate, texToExpr, texRelation, holds, seeded } from '@/learn/expr.ts';
-import { roundsTo, EQ } from './eq.js';
+import { roundsTo, EQ, rectStory, transferTable, angleEqStory } from './eq.js';
 import { EXPR, collectItem, bracketCollect } from './expr.js';
 import { SYS } from './sys.js';
 import { FRAC } from './frac.js';
@@ -207,6 +207,17 @@ function minusDropped(terms) {
   for (let mask = 1; mask < 1 << neg.length; mask += 1) out.push(openSum(terms.map((t, i) => (neg.some((n, j) => n === i && (mask >> j) & 1) ? { ...t, k: -t.k } : t))));
   return out;
 }
+/** A rectangle story (CLASSROOM-8) from its key, eq5r:x:d:q: the sides x and x + d (x and 2x when d is 0), P, and what was asked. */
+function rectOf(it) {
+  const [x, d, q] = nums(it.key); const other = d ? x + d : 2 * x;
+  return { x, d, q, other, P: 2 * (x + other), at: (v) => [v, d ? v + d : 2 * v, v * (d ? v + d : 2 * v)][q] };
+}
+/** An angles-with-x story from its key, eq5g:n:c1,c2,…:e1,e2,…:q (q −1 asks x): the angles c·x + e, their sum and the other shape's. */
+function angOf(it) {
+  const [, n, cs, es, q] = it.key.split(':'); const c = cs.split(',').map(Number); const e = es.split(',').map(Number);
+  const total = Number(n) === 3 ? 180 : 360; const Cs = sum(c); const Es = sum(e);
+  return { c, e, q: Number(q), total, other: total === 180 ? 360 : 180, Cs, Es, x: (total - Es) / Cs, at: (v) => (Number(q) < 0 ? v : c[Number(q)] * v + e[Number(q)]) };
+}
 /** The quantities a story asks about (the unknown and the others built from it), from its key. */
 function storyValues(it) {
   const [p, ...r] = it.key.split(':'); const n = r.map(Number);
@@ -217,6 +228,10 @@ function storyValues(it) {
     case 'eq5t': { const [d] = n; const x = (90 - d) / 2; return [x, x + d]; }
     case 'eq5b': { const [n1, n2, pp] = n; const x = (n2 * pp) / (n1 - n2); return [x, x + pp]; }
     case 'eq5c': { const [S] = n; const x = (S - 3) / 3; return [x, x + 1, x + 2]; }
+    case 'eq5r': { const r = rectOf(it); return [r.x, r.other, r.x * r.other]; }
+    case 'eq5x': { const [d, T] = n; const x = (T - d) / 2; return [x, x + d]; }
+    case 'eq5y': { const [d, g, k] = n; const x = (d + g + k * g) / (k - 1); return [x, x + d]; }
+    case 'eq5g': { const a = angOf(it); return [a.x, ...a.c.map((c, i) => c * a.x + a.e[i])]; }
     case 'sy1t': { const [, pp, x] = n; const cheap = r[0] === 'true'; return [x, (x * (100 + (cheap ? -pp : pp))) / 100]; }
     case 'sy1h': { const [pp, A] = n; return [A, A - (2 * A * pp) / 100]; }
     case 'sy4': { const [pp, q, cnt, M] = n.slice(1); const x = (M - q * cnt) / (pp - q); return [x, cnt - x]; }
@@ -513,6 +528,8 @@ const PROPS = {
     'sub-coef': (it, u) => { const xs = xSide(it.display); return !!xs && fits(u, xs[1] - xs[0].c - xs[0].k); },
     // only some terms divided by the coefficient: 2x + 4 = 10 → x + 4 = 5; (x + 1)/3 = 7 read as x/3 + 1 = 7
     'divide-part': (it, u) => {
+      // the transfer, 2x + d = T divided as x + d = T : 2: box B at the start comes out T : 2
+      if (it.key.startsWith('eq5x:')) { const [, T] = nums(it.key); return near(u, T / 2); }
       const fs = fracSum(it.display);
       if (fs) return fits(u, fs.a * (fs.c - fs.b));
       const xs = xSide(it.display); return !!xs && fits(u, xs[1] / xs[0].k - xs[0].c);
@@ -525,6 +542,8 @@ const PROPS = {
     'partial-dist': (it, u) => {
       // ages: x + g − b = k(x − b) opened as kx − b, then what was asked (the older one is g more)
       if (it.key.startsWith('eq5a:')) { const [k, t, b, q] = nums(it.key); const g = (k - 1) * t; return fits(u, solveLin({ k: 1, c: g - b }, { k, c: -b }) + (q ? g : 0)); }
+      // the rectangle: 2(x + d) opened as 2x + d, then what was asked
+      if (it.key.startsWith('eq5r:')) { const r = rectOf(it); return r.d > 0 && fits(u, r.at((r.P - r.d) / 4)); }
       // balls: n1·x = n2(x + p) opened as n2·x + p, then what was asked (the dearer ball is p more)
       if (it.key.startsWith('eq5b:')) { const [n1, n2, p, q] = nums(it.key); return fits(u, p / (n1 - n2) + (q ? p : 0)); }
       if (it.form === 'mc') {
@@ -539,6 +558,21 @@ const PROPS = {
     'minus-bracket': (it, u) => solvesOpened(it.display, u, 'minus'),
     // a quantity of the story, but not the one asked
     'wrong-unknown': (it, u) => storyValues(it).some((v) => near(u, v)) && !near(u, it.answer),
+    // CLASSROOM-8. The rectangle's perimeter with two sides only, x + (x + d) = P, then what was asked; in the choice of
+    // an equation, the right one halved (x + kx = P for 2(x + kx) = P)
+    'two-sides': (it, u) => {
+      if (it.key.startsWith('eq5r:')) { const r = rectOf(it); return fits(u, r.at(r.d ? (r.P - r.d) / 2 : r.P / 3)); }
+      if (it.form !== 'mc') return false;
+      const [rl, rr] = it.key.slice('eq5p:'.length).split('=').map((x) => openSum(parseSum(x)));
+      const [cl, cr] = chosen(it, u).split('=').map((x) => openSum(parseSum(x)));
+      return linEq(cl, rl.k / 2, rl.c / 2) && linEq(cr, rr.k, rr.c);
+    },
+    // the area with the two sides added
+    'add-sides': (it, u) => { if (!it.key.startsWith('eq5r:')) return false; const r = rectOf(it); return r.q === 2 && near(u, r.x + r.other); },
+    // the angles with x summed to the other shape's total (360° for a triangle, 180° for a quadrilateral)
+    'wrong-total': (it, u) => { if (!it.key.startsWith('eq5g:')) return false; const a = angOf(it); return fits(u, a.at((a.other - a.Es) / a.Cs)); },
+    // a negative constant's minus dropped in the sum of the angles
+    'drop-minus': (it, u) => { if (!it.key.startsWith('eq5g:')) return false; const a = angOf(it); return a.e.some((ei) => ei < 0 && fits(u, a.at((a.total - a.Es + 2 * ei) / a.Cs))); },
     // "k times" given to the smaller group: k·x written x/k, or k(…) moved to the other side
     reversal: (it, u) => {
       const right = it.key.slice('eq5p:'.length); const t = chosen(it, u);
@@ -1216,5 +1250,56 @@ describe('the class\'s collecting questions name only what the answer shows', ()
     const r = recorded(it, swapped);
     expect(r.cat ?? null).toBe(null);
     expect(r.miscon).toEqual([]);
+  });
+});
+
+// CLASSROOM-8: the class's word problems, 2,000 of each kind. Every label, on every whole and half answer up to 400 and on
+// each prediction, is checked against the key (the numbers the student saw), and each mistake shows on its kind.
+describe('the class\'s word problems name only what the answer shows', () => {
+  const N = 2000;
+  const real = Math.random;
+  const props = PROPS.eq;
+  const sweep = (it, seen) => {
+    const us = new Set([...Array.from({ length: 801 }, (_, i) => i / 2), ...Object.values(it.bugsSeen || {})]);
+    for (const u of us) {
+      if (isCorrect(it, u)) continue;
+      const cat = it.diag(u);
+      if (!cat) continue;
+      seen[cat] = (seen[cat] || 0) + 1;
+      expect(props[cat]?.(it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true);
+      expect(catLabel('eq', 5, cat), cat).toBeTruthy();
+    }
+  };
+  const kinds = [
+    ['the rectangle', () => rectStory(), ['partial-dist', 'two-sides', 'wrong-unknown', 'add-sides'], 1131],
+    ['the transfer, form 1', () => transferTable(1), ['wrong-unknown', 'divide-part'], 1132],
+    ['the transfer, form 2', () => transferTable(2), ['wrong-unknown'], 1133],
+    ['a triangle with x', () => angleEqStory(3), ['wrong-unknown', 'wrong-total', 'drop-minus'], 1134],
+    ['a quadrilateral with x', () => angleEqStory(4), ['wrong-unknown', 'wrong-total', 'drop-minus'], 1135],
+  ];
+  it.each(kinds)('%s: every label holds, and each of its mistakes shows on more than 4%% of them', (_name, make, ids, seed) => {
+    const shows = {};
+    try {
+      Math.random = seeded(seed);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...make(), topic: 'eq', level: 5 };
+        const seen = {};
+        sweep(it, seen);
+        Object.keys(seen).forEach((id) => { shows[id] = (shows[id] || 0) + 1; });
+      }
+    } finally { Math.random = real; }
+    expect(Object.keys(shows).sort()).toEqual([...ids].sort());
+    ids.forEach((id) => expect(shows[id] / N, id).toBeGreaterThan(0.04));
+  }, 120_000);
+  it('the spec\'s examples: the rectangle x 11, d 5, P 54, and the angles with x', () => {
+    const r = { key: 'eq5r:11:5:2', answer: 176, form: 'num' };
+    expect(props['two-sides'](r, 24.5 * 29.5)).toBe(true); // x + (x + 5) = 54 gives 24.5, and its area 24.5 · 29.5
+    expect(props['add-sides'](r, 27)).toBe(true);
+    expect(props['partial-dist']({ key: 'eq5r:11:5:0', answer: 11, form: 'num' }, 12.25)).toBe(true);
+    // 2x, 3x, 7x in a triangle: x = 15; with 360°, 30
+    expect(props['wrong-total']({ key: 'eq5g:3:2,3,7:0,0,0:-1', answer: 15, form: 'num' }, 30)).toBe(true);
+    // 2x, 4x − 15, 3x + 15, x in a quadrilateral: x = 36; with 180°, 18; the minus of −15 dropped, (360 − 30) : 10 = 33
+    expect(props['wrong-total']({ key: 'eq5g:4:2,4,3,1:0,-15,15,0:-1', answer: 36, form: 'num' }, 18)).toBe(true);
+    expect(props['drop-minus']({ key: 'eq5g:4:2,4,3,1:0,-15,15,0:-1', answer: 36, form: 'num' }, 33)).toBe(true);
   });
 });

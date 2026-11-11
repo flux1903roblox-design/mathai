@@ -33,7 +33,8 @@ export default function WorkedExample({ example, n, of, onDone, doneLabel = '×”×
         </Prompt>
       <div className="lm-canvas big" data-region="visual">
       {example.display && <FitDisplay className="lm-expr" tex={marked(example.display, 0)} />}
-      {example.fig && <div className="lm-fig"><Figure fig={example.fig} /></div>}
+      {/* a step may draw the figure again with what it found (the rectangle's lengths, CLASSROOM-8): the latest one shown */}
+      {(() => { const f = example.steps.slice(0, shown).reduce((cur, st) => st.fig || cur, example.fig); return f ? <div className="lm-fig"><Figure fig={f} /></div> : null; })()}
       <ol className="worked-steps" aria-live="polite">
         <AnimatePresence initial={false}>
           {example.steps.slice(0, shown).map((s, i) => (
