@@ -1,7 +1,8 @@
 // Challenge tasks of algebraic expressions (curriculum stage 1, CURRICULUM-6.5), as the spec writes them: expr:c1, the
 // claim 2(x + 3) = 2x + 3; expr:c2, someone's 5(2x − 3) opened with only the first term multiplied ('partial-dist');
 // expr:c3, a row of matchstick squares and 3n + 1. Every number is in the lane skeptic's check.mjs and in
-// verify/facts-challenges17.mjs; learn/challenges.test.ts checks them again.
+// verify/facts-challenges17.mjs; learn/challenges.test.ts checks them again. expr:c4 (the classroom lane, CLASSROOM-6):
+// a minus lost when a term moves to its family.
 import type { ChallengeTask } from '../types';
 
 export const EXPR_CHALLENGES: ChallengeTask[] = [
@@ -51,6 +52,22 @@ export const EXPR_CHALLENGES: ChallengeTask[] = [
       { type: 'explain', prompt: 'הסבירו למה כל ריבוע חדש מוסיף $3$ גפרורים.',
         rubric: ['אמרתי שהצלע המשותפת כבר קיימת', 'קישרתי את ה־$3$ למספר שכופל את $n$'],
         sample: 'כל ריבוע חדש נצמד לקודם, והצלע ביניהם כבר שם. לכן צריך רק $3$ גפרורים חדשים, וזה ה־$3$ ב־$3n + 1$. ה־$1$ הוא הצלע הראשונה בקצה.' },
+    ],
+  },
+  // CLASSROOM-6: the notebook's slip in new numbers, a minus lost when a term moves to its family (−7x written as 7x).
+  // The right families cancel to 0x − 2 = −2; the wrong line gives 14x − 2, which is 12 at x = 1.
+  {
+    id: 'expr:c4', topic: 'expr', after: 'expr:3', kind: 'error', title: 'המינוס שנשאר מאחור', minutes: 4, misc: 'drop-minus',
+    parts: [
+      { type: 'error', prompt: 'כך סידר נועם את המשפחות.',
+        lines: ['כנסו: $-7x + 3 - 2x + 9x - 5$', '$= 7x - 2x + 9x + 3 - 5$', '$= 14x - 2$'], wrong: 1,
+        why: 'כשהאיבר $-7x$ זז למשפחה שלו, המינוס שלו נעלם. כל איבר זז עם הסימן שלפניו: $-7x - 2x + 9x + 3 - 5 = 0x - 2 = -2$.',
+        fix: { prompt: 'מה ערך הביטוי כש־$x = 1$?', answer: -2, check: '-7*1 + 3 - 2*1 + 9*1 - 5' } },
+      { type: 'mc', prompt: 'איך נכון לסדר את המשפחות?', choices: [
+        { text: '$-7x - 2x + 9x + 3 - 5$', ok: true, feedback: 'נכון: כל איבר זז עם הסימן שלפניו. משפחת ה־$x$ מתבטלת, $-7 - 2 + 9 = 0$, ונשאר $3 - 5 = -2$.' },
+        { text: '$7x - 2x + 9x + 3 - 5$', ok: false, feedback: 'כאן המינוס של $-7x$ נעלם כשהאיבר זז. הוא שייך לאיבר, וזז איתו.' },
+        { text: '$-7x - 2x - 9x + 3 - 5$', ok: false, feedback: 'לפני $9x$ יש פלוס. המינוס של $-7x$ שייך רק לו, והוא לא עובר לאיברים אחרים.' },
+      ] },
     ],
   },
 ];

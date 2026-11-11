@@ -10,7 +10,7 @@ import { startLesson, answer } from '@/lib/lesson.js';
 import { learnAfterAnswer, emptyLearn } from '@/learn/storeGlue.ts';
 import { evaluate, texToExpr, texRelation, holds, seeded } from '@/learn/expr.ts';
 import { roundsTo, EQ } from './eq.js';
-import { EXPR } from './expr.js';
+import { EXPR, collectItem, bracketCollect } from './expr.js';
 import { SYS } from './sys.js';
 import { FRAC } from './frac.js';
 import { candidates } from './labels.sample.js';
@@ -196,6 +196,8 @@ const asLin = (f) => (it, u) => f(it, it.form === 'mc' ? chosenLin(it, u) : u);
 function exprTerms(it) {
   if (it.key.startsWith('ex3t:')) { const [px, nx, p1, n1] = nums(it.key); return [{ k: px, v: 'x' }, { k: -nx, v: 'x' }, { k: p1, v: '' }, { k: -n1, v: '' }]; }
   if (it.key.startsWith('ex4a:')) { const [a, b] = nums(it.key); return [{ m: a, inner: [{ k: 1, v: 'x' }, { k: b, v: '' }] }]; }
+  // the class's bracketed terms (CLASSROOM-6), (-7x) + (+4) + …: each bracket holds one term with its sign
+  if (it.key.startsWith('ex3b:')) return parseSum(it.display).map((t) => (t.inner?.length === 1 && Math.abs(t.m) === 1 ? { k: t.m * t.inner[0].k, v: t.inner[0].v } : t));
   return parseSum(it.display);
 }
 /** Some of the negative terms of a sum written as positive. */
@@ -469,11 +471,22 @@ const PROPS = {
     // unlike terms joined into one x-term
     conjoin: asLin((it, w) => { const { k, c } = openSum(exprTerms(it)); return !!w && c !== 0 && linEq(w, k + c, 0); }),
     'drop-minus': asLin((it, w) => minusDropped(exprTerms(it)).some(({ k, c }) => linEq(w, k, c))),
-    // a negative x-term's minus carried on to the next x-term (9 − 3x + 2x → 9 − 5x)
+    // a negative x-term's minus carried on to the next x-term (9 − 3x + 2x → 9 − 5x), or, in the class's regrouping
+    // choice, to every x-term after it (−11x + 4x + 9x moved as −11x − 4x − 9x, CLASSROOM-6)
     detach: asLin((it, w) => {
       const terms = exprTerms(it); const { k, c } = openSum(terms); const xs = terms.filter((t) => !t.inner && t.v).map((t) => t.k);
-      return xs.some((a, i) => a < 0 && xs[i + 1] > 0 && linEq(w, k - 2 * xs[i + 1], c));
+      return xs.some((a, i) => a < 0 && xs[i + 1] > 0 && (linEq(w, k - 2 * xs[i + 1], c) || linEq(w, k - 2 * sum(xs.slice(i + 1).filter((p) => p > 0)), c)));
     }),
+    // the class's bracketed x-terms (CLASSROOM-6.6): the two coefficients' distances added, with the sign of the larger
+    // term when it is negative (when it is positive that is drop-minus); the numbers' sum is right
+    'abs-add': asLin((it, w) => {
+      if (!it.key.startsWith('ex3b:')) return false;
+      const terms = exprTerms(it); const { c } = openSum(terms); const xs = terms.filter((t) => t.v).map((t) => t.k);
+      const big = Math.abs(xs[0]) > Math.abs(xs[1]) ? xs[0] : xs[1];
+      return xs.length === 2 && sgn(xs[0]) !== sgn(xs[1]) && big < 0 && linEq(w, -(Math.abs(xs[0]) + Math.abs(xs[1])), c);
+    }),
+    // the x-family's sum with its sign turned, the numbers' sum right
+    sign: asLin((it, w) => { if (!it.key.startsWith('ex3b:')) return false; const { k, c } = openSum(exprTerms(it)); return k !== 0 && linEq(w, -k, c); }),
     'partial-dist': (it, u) => {
       if (it.key.startsWith('ex4m:')) { const [a, n] = nums(it.key); return near(u, 100 * a + (n - 100)); }
       return asLin((x, w) => openings(exprTerms(x), 'partial').some(({ k, c }) => linEq(w, k, c)))(it, u);
@@ -1108,5 +1121,100 @@ describe('the council\'s reproductions', () => {
   it('a negative length is named as a negative length on its own stair', () => {
     expect(catLabel('coord', 3, 'sign')).toBe('יצא אורך שלילי');
     expect(catLabel('coord', 1, 'sign')).toBe('טעות בסימן של אחד השיעורים');
+  });
+});
+
+// CLASSROOM-6: collecting the class's way, 2,000 of each kind. Every label is checked against the display the student
+// saw (exprTerms), on the answers each mistake predicts and on a sweep of the pairs around them; a constant-first
+// answer is right on expr:3 and records nothing.
+describe('the class\'s collecting questions name only what the answer shows', () => {
+  const N = 2000;
+  const real = Math.random;
+  const props = PROPS.expr;
+  /** The pairs a mistake predicts here, read from the display (not from the generator), and their neighbours. */
+  const tryPairs = (it) => {
+    const terms = exprTerms(it); const { k, c } = openSum(terms);
+    const out = [...minusDropped(terms), { k: k + c, c: 0 }, { k: -k, c }, { k: c, c: k }];
+    const xs = terms.filter((t) => t.v).map((t) => t.k);
+    xs.forEach((a, i) => { if (a < 0 && xs[i + 1] > 0) out.push({ k: k - 2 * xs[i + 1], c }); });
+    if (xs.length === 2) out.push({ k: -(Math.abs(xs[0]) + Math.abs(xs[1])), c }, { k: Math.abs(xs[0]) + Math.abs(xs[1]), c });
+    return out.flatMap((u) => [u, { k: u.k + 1, c: u.c }, { k: u.k, c: u.c - 1 }, { k: u.k, c: u.c + 10 }]);
+  };
+  const check = (it, seen) => {
+    const { k, c } = openSum(exprTerms(it));
+    // the display is the answer the item checks
+    expect([it.answer.k, it.answer.c], it.key).toEqual([k, c]);
+    for (const u of tryPairs(it)) {
+      if (isCorrect(it, u)) continue;
+      const cat = it.diag(u);
+      if (!cat) continue;
+      seen[cat] = (seen[cat] || 0) + 1;
+      expect(props[cat]?.(it, u), `${it.key}: ${JSON.stringify(u)} labelled ${cat}`).toBe(true);
+      expect(catLabel('expr', 3, cat), cat).toBeTruthy();
+    }
+  };
+  it('3 to 6 terms, a letter, x-terms that cancel: drop-minus on any negative term, conjoin and detach', () => {
+    const seen = {}; const sizes = new Set(); let zero = 0; let letters = 0; let perTerm = 0; let practice = 0; let n = 0;
+    try {
+      Math.random = seeded(1121);
+      while (n < N) {
+        const it = { ...collectItem(), topic: 'expr', level: 3 };
+        if (it.key.startsWith('ex3b:')) continue;
+        n += 1;
+        const terms = exprTerms(it);
+        sizes.add(terms.length);
+        if (it.answer.k === 0) zero += 1;
+        if (it.var) { letters += 1; expect(it.display).toContain(it.var); }
+        if (it.practiceOnly) { practice += 1; expect([it.answer.k, it.answer.c]).toEqual([0, 0]); }
+        // one prediction per negative term: each term's minus dropped alone is named, unless it is a slip or shared
+        terms.forEach((t, i) => {
+          if (t.k >= 0) return;
+          const { k, c } = openSum(terms.map((x, j) => (j === i ? { ...x, k: -x.k } : x)));
+          if (it.diag({ k, c }) === 'drop-minus') perTerm += 1;
+        });
+        check(it, seen);
+      }
+    } finally { Math.random = real; }
+    expect([...sizes].sort()).toEqual([3, 4, 5, 6]);
+    expect(zero / N).toBeGreaterThan(0.07);
+    expect(zero / N).toBeLessThan(0.13);
+    expect(letters / N).toBeGreaterThan(0.3);
+    expect(perTerm).toBeGreaterThan(N);
+    expect(practice).toBeLessThan(N * 0.01);
+    ['drop-minus', 'conjoin', 'detach'].forEach((id) => expect(seen[id] || 0, id).toBeGreaterThan(N * 0.04));
+  }, 60_000);
+  it('the notebook\'s slip on the spec\'s 6 terms: each negative term\'s minus dropped is its own drop-minus', () => {
+    const it = { key: 'ex3:-11x - 2 + 4x - 5 + 3 + 9x', display: '-11x - 2 + 4x - 5 + 3 + 9x', form: 'lin', answer: { k: 2, c: -4 }, topic: 'expr', level: 3 };
+    expect(minusDropped(exprTerms(it)).filter((u, i, a) => a.findIndex((w) => w.k === u.k && w.c === u.c) === i).length).toBe(7);
+    [{ k: 24, c: -4 }, { k: 2, c: 0 }, { k: 2, c: 6 }].forEach((u) => expect(props['drop-minus'](it, u), JSON.stringify(u)).toBe(true));
+    expect(props.detach(it, { k: -24, c: -4 })).toBe(true);
+  });
+  it('bracketed x-terms: drop-minus, abs-add with the larger term\'s sign, and sign', () => {
+    const seen = {}; let one = 0;
+    try {
+      Math.random = seeded(1122);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...bracketCollect(), topic: 'expr', level: 3 };
+        expect(it.display).toMatch(/^\([+-]\d*x?\)( \+ \([+-]\d*x?\)){3}$/);
+        if (Math.abs(it.answer.k) === 1) one += 1;
+        check(it, seen);
+        // abs-add only when the larger x-term is negative
+        const xs = exprTerms(it).filter((t) => t.v).map((t) => t.k);
+        const big = Math.abs(xs[0]) > Math.abs(xs[1]) ? xs[0] : xs[1];
+        if (big > 0) expect(it.diag({ k: -(Math.abs(xs[0]) + Math.abs(xs[1])), c: it.answer.c })).not.toBe('abs-add');
+      }
+    } finally { Math.random = real; }
+    expect(one / N).toBeGreaterThan(0.28);
+    expect(one / N).toBeLessThan(0.39);
+    ['drop-minus', 'abs-add', 'sign'].forEach((id) => expect(seen[id] || 0, id).toBeGreaterThan(N * 0.04));
+  }, 60_000);
+  it('a constant-first answer is right on expr:3 and records no mistake', () => {
+    const it = find('expr', 3, (x) => x.key.startsWith('ex3:') && x.answer.k !== x.answer.c && x.answer.k !== 0);
+    const swapped = { k: it.answer.c, c: it.answer.k };
+    expect(isCorrect(it, swapped)).toBe(true);
+    expect(it.diag(swapped)).toBe(null);
+    const r = recorded(it, swapped);
+    expect(r.cat ?? null).toBe(null);
+    expect(r.miscon).toEqual([]);
   });
 });

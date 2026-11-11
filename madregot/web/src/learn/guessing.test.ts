@@ -38,6 +38,8 @@ import { chainItem, absItem, oppItem, nestedItem, drawNested, nestedTex, nestedV
 import { powItem } from '@/content/signed7.js';
 // @ts-ignore: plain JS
 import { bracketZero, bracketFrom } from '@/content/eq.js';
+// @ts-ignore: plain JS
+import { collectItem, bracketCollect } from '@/content/expr.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -235,6 +237,26 @@ describe('the class\'s equation shape cannot be guessed', () => {
     // the shape is the class's: nothing added on the right, and the answer whole
     items.forEach((it) => { expect(it.display, it.key).toMatch(/^\d\(x [+-] \d\) = \d*x$/); expect(Number.isInteger(it.answer)).toBe(true); });
   });
+});
+
+// CLASSROOM-6: collecting the class's way, 3 to 6 terms (spec: best constant pair 0.3%), and the bracketed x-terms (spec
+// 0.8%; a third of them answer x or −x). The answer is a pair, and on expr:3 the swapped boxes count as right too, so
+// the best constant is measured with isCorrect on the stair; copying two printed numbers into the boxes is measured too
+describe('the class\'s collecting cannot be guessed', () => {
+  const plain = (r: () => number) => { for (;;) { const it = collectItem(); if (!String(it.key).startsWith('ex3b:') && !it.practiceOnly) return it; } };
+  it.each([['collecting, 3 to 6 terms', plain, 0.01], ['bracketed x-terms', () => bracketCollect(), 0.02]] as const)('%s', (_name, make, most) => {
+    const items = Array.from({ length: 4000 }, () => ({ ...make(Math.random), topic: 'expr', level: 3 }));
+    const pairs = new Map<string, { k: number; c: number }>();
+    items.forEach((it) => pairs.set(`${it.answer.k},${it.answer.c}`, it.answer));
+    let best = 0;
+    [...pairs.values()].forEach((g) => { const n = items.filter((it) => isCorrect(it, g)).length; if (n > best) best = n; });
+    const common = best / items.length;
+    expect(common).toBeLessThan(most);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(LIMIT / 100);
+    // two numbers copied from the question, in either box, are almost never the answer
+    const copied = items.filter((it) => { const ns = (String(it.display).match(/-?\d+/g) || []).map(Number); return ns.some((a) => ns.some((b) => isCorrect(it, { k: a, c: b }))); }).length;
+    expect(copied / items.length).toBeLessThan(0.05);
+  }, SLOW);
 });
 
 describe('the guessing measure itself', () => {

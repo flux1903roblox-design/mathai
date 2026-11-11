@@ -4,7 +4,8 @@
 // constant are typed, an expression is never parsed from free text.
 // Taught from December, so the first-day placement test skips it (placement: false); a grade 8 test that revises
 // equations with brackets can include it in Exam Rescue (alsoFor).
-import { R, NZ, pick, shuffle, T, near } from './util.js';
+import { R, NZ, pick, shuffle, T, S, near } from './util.js';
+import { slipOf } from '@/learn/misconceptions.ts';
 
 const abs = Math.abs;
 
@@ -200,59 +201,196 @@ function wordsMc() {
 // Documented errors: unlike terms joined into one (conjoin: 3x + 5 → 8x; Booth 1988, Tirosh, Even & Robinson 1998),
 // the minus of a term dropped (drop-minus: 7x − 3x → 10x), and the minus carried on to the next x-term, the
 // "detachment" Herscovics & Linchevski (1994) describe (detach: 9 − 3x + 2x → 9 − 5x).
+// The class's way (CLASSROOM-6): 3 to 6 terms; like terms called "משפחות", one line under the x-terms and two under
+// the numbers, a brace under each family once they are regrouped; x-terms that cancel ("0x + 0 = 0"); letters other
+// than x; and the minus a term loses when it moves (the notebook's −12x − 3 + 5x … rewritten 12x + 5x …), named on
+// any term: one prediction per negative term.
 
-/** p x + q + r x (+ s) in a random order with two x-terms; p + r ≠ 0. */
+/** The letter of an expression: x most of the time, and as in class sometimes b, a or y. */
+const LETTERS = ['x', 'x', 'x', 'b', 'a', 'y'];
+const sumOf = (arr) => arr.reduce((a, b) => a + b, 0);
+/** [K, C]: the sum of the x-family and the sum of the numbers. */
+const families = (terms) => [sumOf(terms.filter(([, v]) => v).map(([k]) => k)), sumOf(terms.filter(([, v]) => !v).map(([k]) => k))];
+
+/**
+ * 2 or 3 x-terms (±1..15) and 1 to 3 numbers (±1..30), shuffled. In about one item in ten the x-terms cancel (the
+ * last one is minus the others), otherwise their sum is not 0; when the numbers cancel too, collectItem makes the item
+ * practice only (always typing 0 and 0 would earn it). |K| ≤ 20 and |C| ≤ 40 keep the answers in a notebook's range.
+ */
 function collectParams() {
+  const v = pick(LETTERS);
+  const zero = Math.random() < 0.1;
   for (;;) {
-    const p = NZ(-9, 9); const r = NZ(-9, 9); const q = NZ(-12, 12); const s = Math.random() < 0.7 ? NZ(-12, 12) : 0;
-    if (p + r === 0 || (q + s === 0 && Math.random() < 0.8)) continue;
-    const terms = shuffle([[p, 'x'], [q, ''], [r, 'x'], ...(s ? [[s, '']] : [])]);
-    if (terms[0][1] === '' && terms[1][1] === '' && !terms.slice(2).some(([, v]) => v === '')) continue; // not already grouped
-    return { p, q, r, s, terms };
+    const nx = R(2, 3); const nn = R(1, 3);
+    const xs = Array.from({ length: nx }, () => NZ(-15, 15)); const ns = Array.from({ length: nn }, () => NZ(-30, 30));
+    if (zero) { const rest = sumOf(xs.slice(0, -1)); if (rest === 0 || abs(rest) > 15) continue; xs[nx - 1] = -rest; }
+    const K = sumOf(xs); const C = sumOf(ns);
+    if ((!zero && K === 0) || abs(K) > 20 || abs(C) > 40) continue;
+    return { v, terms: shuffle([...xs.map((k) => [k, v]), ...ns.map((k) => [k, ''])]) };
   }
 }
-/** The x-terms and the numbers as they stand in the display, for the diagnosis. */
-function collectBugs(terms) {
-  const xs = terms.filter(([, v]) => v === 'x').map(([k]) => k);
-  const ns = terms.filter(([, v]) => v === '').map(([k]) => k);
-  const K = xs.reduce((a, b) => a + b, 0); const C = ns.reduce((a, b) => a + b, 0);
-  const oneNeg = (arr) => arr.length === 2 && (arr[0] < 0) !== (arr[1] < 0);
-  return {
-    K, C,
-    conjoin: { k: K + C, c: 0 },
-    // the minus of the negative x-term dropped (only one of the two is negative)
-    dropX: oneNeg(xs) ? { k: abs(xs[0]) + abs(xs[1]), c: C } : null,
-    dropN: oneNeg(ns) ? { k: K, c: abs(ns[0]) + abs(ns[1]) } : null,
-    // a negative x-term followed by a positive one: −3x + 2x read as −(3x + 2x)
-    detach: xs.length === 2 && xs[0] < 0 && xs[1] > 0 ? { k: -(abs(xs[0]) + xs[1]), c: C } : null,
-  };
+/** A pair {k, c} that a slip of the hand also gives: one box right, the other one off, ten off or two digits swapped. */
+const pairSlip = (u, a) => (u.k === a.k && !!slipOf(u.c, a.c)) || (u.c === a.c && !!slipOf(u.k, a.k));
+/**
+ * The predictions [id, {k, c}] that may name a mistake, from a list of candidates: one that is the right answer, the
+ * right answer in swapped boxes (it counts as right on expr:3, content/index.js swappedLin) or a slip of it names
+ * nothing, and a value that two different mistakes predict names neither.
+ */
+function fairBugs(list, K, C) {
+  const ans = { k: K, c: C };
+  const keep = list.filter(([, u]) => !(u.k === K && u.c === C) && !(u.k === C && u.c === K) && !pairSlip(u, ans));
+  const ids = new Map();
+  keep.forEach(([id, u]) => { const key = `${u.k},${u.c}`; ids.set(key, (ids.get(key) || new Set()).add(id)); });
+  return keep.filter(([, u]) => ids.get(`${u.k},${u.c}`).size === 1);
 }
-const collectDiag = (terms) => (u) => {
-  const b = collectBugs(terms);
-  if (is(u, b.conjoin.k, b.conjoin.c)) return 'conjoin';
-  if (b.detach && is(u, b.detach.k, b.detach.c)) return 'detach';
-  if ((b.dropX && is(u, b.dropX.k, b.dropX.c)) || (b.dropN && is(u, b.dropN.k, b.dropN.c))) return 'drop-minus';
-  return null;
+/** Every negative term's minus removed in turn: one prediction per negative term (−11x as 11x, −5 as 5). */
+const minusEach = (terms, K, C) => terms.filter(([k]) => k < 0).map(([k, v]) => ['drop-minus', v ? { k: K - 2 * k, c: C } : { k: K, c: C - 2 * k }]);
+/** The answer and the mistakes' predictions of a collecting question, from its terms as they stand in the display. */
+export function collectBugs(terms) {
+  const [K, C] = families(terms);
+  const xs = terms.filter(([, v]) => v).map(([k]) => k);
+  const list = [];
+  // everything joined into one x-term (with no x left that is the right answer in swapped boxes: nothing to name)
+  if (C !== 0 && K !== 0) list.push(['conjoin', { k: K + C, c: 0 }]);
+  list.push(...minusEach(terms, K, C));
+  // a negative x-term followed by a positive one: −3x + 2x read as −(3x + 2x)
+  const i = xs.findIndex((k, j) => k < 0 && xs[j + 1] > 0);
+  if (i >= 0) list.push(['detach', { k: K - 2 * xs[i + 1], c: C }]);
+  return { K, C, bugs: fairBugs(list, K, C) };
+}
+/** The mistake whose prediction the typed pair is. */
+const pairDiag = (bugs) => (u) => bugs.find(([, b]) => is(u, b.k, b.c))?.[0] || null;
+/** A term marked with its family, its sign underlined with it: one line under an x-term, two under a number. */
+const familyMark = ([k, v], first) => {
+  const t = `${!first && k > 0 ? '+' : ''}${sumTex([[k, v]])}`;
+  return v ? `\\underline{${t}}` : `\\underline{\\underline{${t}}}`;
 };
-function collectSolution(terms) {
-  const xs = terms.filter(([, v]) => v === 'x'); const ns = terms.filter(([, v]) => v === '');
-  const K = xs.reduce((a, [k]) => a + k, 0); const C = ns.reduce((a, [k]) => a + k, 0);
+/** The expression with its families marked, as the class marks them. */
+export const familiesTex = (terms) => terms.map((t, i) => familyMark(t, i === 0)).join('\\;');
+/** The families regrouped, the x-terms first, each under a brace with its sum (0x when they cancel). */
+export function bracesTex(terms, v = 'x') {
+  const xs = terms.filter(([, w]) => w); const ns = terms.filter(([, w]) => !w);
+  const [K, C] = families(terms);
+  const xPart = `\\underbrace{${sumTex(xs)}}_{${K === 0 ? `0${v}` : linTex(K, 0, v)}}`;
+  // the numbers' first sign stays an operation between the two families: {}- 2 - 5 + 3
+  const nPart = ns.length ? ` \\underbrace{{}${sumTex([[1, 'Q'], ...ns]).replace(/^Q /, '')}}_{${T(C)}}` : '';
+  return `${xPart}${nPart}`;
+}
+/** The answer; when the x-terms cancel, 0x is written out and then dropped, as the class does ("0x + 0 = 0"). */
+function answerLines(K, C, v) {
+  if (K !== 0) return [`התשובה: $${linTex(K, C, v)}$`];
+  return [`האיברים עם $${v}$ התבטלו: $0${v} ${C < 0 ? '-' : '+'} ${abs(C)} = ${T(C)}$`, `התשובה: $${T(C)}$`];
+}
+function collectSolution(terms, v) {
+  const [K, C] = families(terms);
+  const xs = terms.filter(([, w]) => w); const ns = terms.filter(([, w]) => !w);
   return [
-    `מסדרים: קודם האיברים עם $x$, אחר כך המספרים. כל איבר זז עם הסימן שלפניו: $${sumTex([...xs, ...ns])}$`,
-    `$x$־ים: $${xs.map(([k]) => T(k, true)).join(' + ')} = ${T(K)}$, כלומר $${linTex(K, 0)}$`,
-    `מספרים: $${ns.map(([k]) => T(k, true)).join(' + ')} = ${T(C)}$`,
-    `התשובה: $${linTex(K, C)}$`,
+    `מסמנים משפחות, קו אחד מתחת לאיברים עם $${v}$ ושני קווים מתחת למספרים: $${familiesTex(terms)}$`,
+    `מסדרים לפי משפחות. כל איבר זז עם הסימן שלפניו: $${bracesTex(terms, v)}$`,
+    `משפחת ה־$${v}$: $${sumTex(xs)} = ${K === 0 ? `0${v}` : linTex(K, 0, v)}$`,
+    // a number alone is its own family's sum
+    ns.length > 1 ? `משפחת המספרים: $${sumTex(ns)} = ${T(C)}$` : `משפחת המספרים: מספר אחד, $${T(C)}$`,
+    ...answerLines(K, C, v),
   ];
 }
+const COLLECT_HINT = (v) => `כל משפחה לחוד: האיברים עם $${v}$ יחד, והמספרים יחד. הסימן שלפני איבר שייך לו.`;
 
-function collectItem() {
-  const { terms } = collectParams();
-  const b = collectBugs(terms);
+/** A bracketed term as the class writes it, with its sign: (+4x), (−x), (−9). */
+const bracketed = ([k, v]) => (v ? `(${k < 0 ? '-' : '+'}${abs(k) === 1 ? v : `${abs(k)}${v}`})` : S(k));
+/**
+ * (a) + (b) as the class adds two signed terms, as two short lines that fit a phone: the sum as written, then the sign
+ * outside and inside the brackets the larger less the smaller (opposite signs) or the two added (the same sign).
+ */
+function signOutside(a, b, v, family) {
+  const t = (n) => (v && n === 1 ? v : `${n}${v}`);
+  const [L, Sm] = abs(a) >= abs(b) ? [a, b] : [b, a];
+  const same = Math.sign(a) === Math.sign(b);
+  const inside = same ? `${t(abs(a))} + ${t(abs(b))}` : `${t(abs(L))} - ${t(abs(Sm))}`;
+  const sum = a + b;
+  const out = sum === 0 ? '0' : v ? linTex(sum, 0, v) : T(sum);
+  return [
+    `${family}: $${bracketed([a, v])} + ${bracketed([b, v])}$`,
+    `${same ? 'אותו סימן: הסימן בחוץ, ומחברים' : 'הסימן של הרחוק מאפס בחוץ'}: $${L < 0 ? '-' : '+'}(${inside}) = ${out}$`,
+  ];
+}
+/**
+ * Bracketed x-terms, the same rule as numbers (CLASSROOM-6.6): (ax) + (c) + (bx) + (d), a and b of opposite signs and
+ * |a| − |b| = ±1 in a third of the draws, so the answer is x or −x. Mistakes: a minus dropped (any negative term), the
+ * distances added with the larger term's sign when it is negative (abs-add; when it is positive that is drop-minus),
+ * and the sign of the x-family's sum turned (sign). The numbers' sum stays right in the last two.
+ */
+export function bracketCollect() {
+  const one = Math.random() < 1 / 3;
+  for (;;) {
+    let a; let b;
+    if (one) { const m = R(2, 12); a = m * (Math.random() < 0.5 ? -1 : 1); b = -Math.sign(a) * (m - 1); } else { a = NZ(-12, 12); b = -Math.sign(a) * R(1, 12); if (abs(a + b) < 2) continue; }
+    if (Math.random() < 0.5) [a, b] = [b, a];
+    const c = NZ(-15, 15); const d = NZ(-15, 15);
+    if (c + d === 0) continue;
+    const terms = shuffle([[a, 'x'], [c, ''], [b, 'x'], [d, '']]);
+    const xs = terms.filter(([, v]) => v).map(([k]) => k); const ns = terms.filter(([, v]) => !v).map(([k]) => k);
+    const K = a + b; const C = c + d;
+    const big = abs(a) > abs(b) ? a : b;
+    const list = [...minusEach(terms, K, C), ...(big < 0 ? [['abs-add', { k: -(abs(a) + abs(b)), c: C }]] : []), ['sign', { k: -K, c: C }]];
+    const bugs = fairBugs(list, K, C);
+    const display = terms.map(bracketed).join(' + ');
+    return {
+      key: `ex3b:${display}`, text: 'כנסו איברים דומים:', display, form: 'lin', answer: { k: K, c: C },
+      hint: 'כמו בחיבור מספרים מכוונים: הסימן של הרחוק מאפס בחוץ, ובסוגריים הגדול פחות הקטן. כל משפחה לחוד.',
+      solution: [
+        `מורידים סוגריים, כל איבר עם הסימן שלו: $${sumTex(terms)}$`,
+        ...signOutside(xs[0], xs[1], 'x', 'משפחת ה־$x$, כמו בחיבור מספרים מכוונים'),
+        ...signOutside(ns[0], ns[1], '', 'משפחת המספרים'),
+        `התשובה: $${linTex(K, C)}$`,
+      ],
+      diag: pairDiag(bugs), tries: bugs.map(([, u]) => u),
+    };
+  }
+}
+
+export function collectItem() {
+  if (Math.random() < 0.15) return bracketCollect();
+  const { v, terms } = collectParams();
+  const { K, C, bugs } = collectBugs(terms);
   return {
-    key: `ex3:${sumTex(terms)}`, text: 'כנסו איברים דומים:', display: sumTex(terms), form: 'lin', answer: { k: b.K, c: b.C },
-    hint: 'מחברים $x$־ים עם $x$־ים ומספרים עם מספרים. הסימן שלפני איבר שייך לו.',
-    solution: collectSolution(terms), diag: collectDiag(terms),
+    // both families cancel (ex3z): typing 0 and 0 would always earn it, so it stays in practice
+    key: `${K === 0 && C === 0 ? 'ex3z' : 'ex3'}:${sumTex(terms)}`, text: 'כנסו איברים דומים:', display: sumTex(terms), form: 'lin', answer: { k: K, c: C },
+    ...(v !== 'x' ? { var: v } : {}), ...(K === 0 && C === 0 ? { practiceOnly: true } : {}),
+    // diag() names only these pairs: what a verification's search for a misconception needs to try (index.js namesOf)
+    hint: COLLECT_HINT(v), solution: collectSolution(terms, v), diag: pairDiag(bugs), tries: bugs.map(([, u]) => u),
   };
+}
+
+/**
+ * Which line regroups the expression rightly, family by family (practice only: three choices)? The right line keeps
+ * every sign; one has the first x-term's minus dropped (drop-minus, the notebook's slip: −11x moved as 11x); one has
+ * that minus carried on to the x-terms after it (detach: −11x − 4x − 9x).
+ */
+function regroupMc() {
+  for (;;) {
+    const { v, terms } = collectParams();
+    const xs = terms.filter(([, w]) => w); const ns = terms.filter(([, w]) => !w);
+    // two numbers at least, and at most five terms: a line of six does not fit a choice on a 320px phone
+    if (xs[0][0] > 0 || !xs.slice(1).some(([k]) => k > 0) || ns.length < 2 || terms.length > 5) continue;
+    // not already in order: some number stands before an x-term
+    if (terms.findIndex(([, w]) => !w) > terms.map(([, w]) => w).lastIndexOf(v)) continue;
+    const right = sumTex([...xs, ...ns]);
+    const dropped = sumTex([[-xs[0][0], v], ...xs.slice(1), ...ns]);
+    const detached = sumTex([xs[0], ...xs.slice(1).map(([k]) => [-abs(k), v]), ...ns]);
+    const choices = shuffle([{ ...tex(right), ok: true }, { ...tex(dropped), bug: 'drop-minus' }, { ...tex(detached), bug: 'detach' }]);
+    return {
+      key: `ex3r:${sumTex(terms)}`, text: 'איזו שורה היא הסידור הנכון של הביטוי לפי משפחות?', display: sumTex(terms), form: 'mc',
+      ...(v !== 'x' ? { var: v } : {}), practiceOnly: true,
+      choices, answer: choices.findIndex((c) => c.ok),
+      hint: 'כל איבר זז עם הסימן שלפניו, והסימן לא עובר לאיבר אחר.',
+      solution: [
+        `הנכונה: $${right}$. כל איבר זז עם הסימן שלפניו.`,
+        `בשורה $${dropped}$ המינוס של $${sumTex([xs[0]])}$ נעלם כשהאיבר זז.`,
+        `בשורה $${detached}$ המינוס של $${sumTex([xs[0]])}$ עבר גם לאיברים עם $${v}$ שאחריו.`,
+      ],
+      diag: (u) => choices[u]?.bug || null,
+    };
+  }
 }
 
 // The tiles as a still picture: what is left once every zero pair is gone.
@@ -268,6 +406,8 @@ function tilesFig() {
       solution: [`בשורת ה־$x$: $${px} - ${nx} = ${T(k)}$, כלומר $${linTex(k, 0)}$`, `בשורת ה־$1$: $${p1} - ${n1} = ${T(c)}$`, `נשאר $${linTex(k, c)}$`],
       // every tile counted, the negative ones as positive: the minus dropped
       diag: (u) => (is(u, px + nx, c) || is(u, k, p1 + n1) || is(u, px + nx, p1 + n1) ? 'drop-minus' : null),
+      // the only pairs diag() names (index.js namesOf): a verification's search reads these, not the whole grid
+      tries: [{ k: px + nx, c }, { k, c: p1 + n1 }, { k: px + nx, c: p1 + n1 }],
     };
   }
 }
@@ -441,7 +581,7 @@ export const EXPR = {
   levels: [
     { title: 'הצבה בביטוי', gen: () => { const r = Math.random(); return r < 0.55 ? substItem() : r < 0.8 ? substTable() : substMc(); } },
     { title: 'כותבים ביטוי', gen: () => { const r = Math.random(); return r < 0.4 ? patternLin() : r < 0.65 ? patternTerm() : r < 0.8 ? patternMc() : wordsMc(); } },
-    { title: 'כינוס איברים דומים', gen: () => { const r = Math.random(); return r < 0.5 ? collectItem() : r < 0.7 ? tilesFig() : identityMc(); } },
+    { title: 'כינוס איברים דומים', gen: () => { const r = Math.random(); return r < 0.5 ? collectItem() : r < 0.6 ? regroupMc() : r < 0.78 ? tilesFig() : identityMc(); } },
     { title: 'חוק הפילוג', gen: () => { const r = Math.random(); return r < 0.55 ? expandItem() : r < 0.75 ? areaFig() : mentalItem(); } },
     { title: 'פישוט ביטויים', gen: () => { const r = Math.random(); return r < 0.55 ? simplifyItem() : r < 0.7 ? structureItem() : equalMc(); } },
   ],
@@ -457,6 +597,9 @@ export const EXPR = {
     conjoin: 'איברים לא דומים חוברו לאיבר אחד ($3x + 5$ הפך ל־$8x$)',
     'drop-minus': 'המינוס שלפני איבר נעלם ($7x - 3x$ הפך ל־$10x$)',
     detach: 'המינוס עבר גם לאיבר שאחריו ($9 - 3x + 2x$ הפך ל־$9 - 5x$)',
+    // CLASSROOM-6.6, bracketed x-terms added as the class adds signed numbers (signed's ids; expr:3 has its own titles)
+    'abs-add': 'חיברו את המקדמים כשהסימנים שונים, במקום לחסר ($(-9x) + (+4x)$ הפך ל־$-13x$)',
+    sign: 'הסכום של משפחת ה־$x$ יצא עם הסימן ההפוך ($(-6x) + (+5x)$ הפך ל־$x$)',
     'partial-dist': 'רק האיבר הראשון שבסוגריים נכפל',
     'minus-bracket': 'מינוס לפני סוגריים הפך רק את הסימן הראשון',
     // CLASSROOM-5: (a + b)² with a negative sum squared to a negative number, as signed:7 names it

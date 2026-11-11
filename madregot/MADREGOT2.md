@@ -197,7 +197,7 @@ the row to paste when one differs.
 | angles:5 | שווה־שוקיים וזווית חיצונית | 10 (angle) | 2 | 2 | 4 (forgot-half, one-angle, apex-base-swap, interior-not-exterior) | yes | complete, tested |
 | expr:1 | הצבה בביטוי | 8 (numberline) | 3 | 2 | 3 (concat, order, neg-sub) | yes | complete, tested |
 | expr:2 | כותבים ביטוי | 8 | 2 | 2 | 5 (start-n, diff-only, whole-object, reversal, times-plus) | yes | complete, tested |
-| expr:3 | כינוס איברים דומים | 9 (tiles) | 2 | 2 | 3 (conjoin, detach, drop-minus) | yes | complete, tested |
+| expr:3 | כינוס איברים דומים | 10 (tiles) | 2 | 2 | 5 (conjoin, detach, drop-minus, abs-add, sign) | yes | complete, tested |
 | expr:4 | חוק הפילוג | 9 (area) | 3 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
 | expr:5 | פישוט ביטויים | 8 (tiles) | 3 | 2 | 3 (partial-dist, minus-bracket, conjoin) | yes | complete, tested |
 | eq:1 | משוואה ופתרון | 10 (balance) | 3 | 2 | 4 (move-no-flip, divide-flip, sign, sub-coef) | yes | complete, tested |

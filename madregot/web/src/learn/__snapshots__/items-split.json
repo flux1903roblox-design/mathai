@@ -776,18 +776,18 @@
  },
  "expr:3": {
   "items": [
-   "mastery0:ex3:9x - 2 - 8x + 5|{\"k\":1,\"c\":3}|gen",
-   "mastery1:ex3i:5 - 2x + 4x|2|gen",
+   "mastery0:ex3b:(-1) + (-7x) + (-8) + (+5x)|{\"k\":-2,\"c\":-9}|gen",
+   "mastery1:ex3:29 - 6b + b|{\"k\":-5,\"c\":29}|gen",
    "mastery2:expr:3:diag:{\"p\":7,\"r\":-5,\"q\":6,\"s\":12,\"ask\":1}|18|diag",
-   "mastery3:ex3:-4x + 10 + 7 + x|{\"k\":-3,\"c\":17}|gen",
+   "mastery3:ex3b:(+14) + (+8x) + (-7x) + (+4)|{\"k\":1,\"c\":18}|gen",
    "mastery4:expr:3:transfer:{\"p\":4,\"q\":9,\"r\":3,\"ask\":0}|14|transfer",
    "review0:expr:3:transfer:{\"p\":1,\"q\":3,\"r\":3,\"ask\":1}|6|transfer",
-   "review1:ex3i:4x + 4 - x|0|gen",
+   "review1:ex3:-2 - 4x + 12 + 4x + 27|{\"k\":0,\"c\":37}|gen",
    "review2:expr:3:diag:{\"p\":7,\"r\":-5,\"q\":6,\"s\":12,\"ask\":1}|18|diag",
    "verify0:expr:3:probe:{\"p\":2,\"r\":-3,\"q\":1,\"s\":10,\"ask\":1}|11|probe",
    "verify1:expr:3:probe:{\"p\":2,\"r\":-7,\"q\":1,\"s\":4,\"ask\":0}|-5|probe",
    "verify2:expr:3:diag:{\"p\":6,\"r\":-1,\"q\":5,\"s\":-2,\"ask\":0}|5|diag",
-   "gen:ex3i:9x + 2 - 8x|0|gen",
+   "gen:ex3:13x + 6x - 14x + 20 + 3|{\"k\":5,\"c\":23}|gen",
    "diag:expr:3:diag:{\"p\":8,\"r\":-5,\"q\":-10,\"s\":1,\"ask\":1}|-9|diag",
    "transfer:expr:3:transfer:{\"p\":2,\"q\":7,\"r\":3,\"ask\":0}|10|transfer"
   ],

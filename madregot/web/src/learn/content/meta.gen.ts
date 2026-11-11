@@ -345,6 +345,14 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "drop-minus",
         "title": "המינוס שלפני איבר נעלם"
+      },
+      {
+        "id": "abs-add",
+        "title": "חיברו את המקדמים של $x$ כשהסימנים שונים, במקום לחסר"
+      },
+      {
+        "id": "sign",
+        "title": "הסכום של משפחת ה־$x$ יצא עם הסימן ההפוך"
       }
     ],
     "transfer": true

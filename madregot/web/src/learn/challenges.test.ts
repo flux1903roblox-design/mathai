@@ -1,6 +1,6 @@
 // The challenge track (CURRICULUM-6): every task is checked mathematically and for its wording, the set is stage 1's 36
 // (three per topic, at least one claim, one error or proof and one literacy task each) and the classroom lane's
-// signed:c4 (CLASSROOM-4) and signed:c5 (CLASSROOM-5), and the grading rules (two tries, XP, the order check, the counterexample check) are pinned.
+// signed:c4 (CLASSROOM-4), signed:c5 (CLASSROOM-5) and expr:c4 (CLASSROOM-6), and the grading rules (two tries, XP, the order check, the counterexample check) are pinned.
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
 import type { ChallengePart, ChallengeTask } from './types';
@@ -34,10 +34,10 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 describe('the challenge tasks', () => {
-  it('38 tasks: at least three per topic of TOPIC_ORDER, the bridge included, numbered in order and in topic order', () => {
+  it('39 tasks: at least three per topic of TOPIC_ORDER, the bridge included, numbered in order and in topic order', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
-    // stage 1's 36, signed:c4 (CLASSROOM-4) and signed:c5 (CLASSROOM-5); 39 once expr:c4 comes (CLASSROOM-6)
-    expect(CHALLENGES).toHaveLength(38);
+    // stage 1's 36, signed:c4 (CLASSROOM-4), signed:c5 (CLASSROOM-5) and expr:c4 (CLASSROOM-6)
+    expect(CHALLENGES).toHaveLength(39);
     TOPIC_ORDER.forEach((tp) => {
       const ids = challengesOf(tp).map((t) => t.id);
       expect(ids.length, tp).toBeGreaterThanOrEqual(3);
@@ -51,6 +51,7 @@ describe('the challenge tasks', () => {
     expect(challengeById('nope')).toBeNull();
     expect(challengesAfter('ratio:2').map((t) => t.id)).toEqual(['ratio:c1']);
     expect(challengesAfter('expr:4').map((t) => t.id)).toEqual(['expr:c1', 'expr:c2']);
+    expect(challengesAfter('expr:3').map((t) => t.id)).toEqual(['expr:c4']);
   });
 
   it('each topic has at least one claim, one error or proof, and one literacy task', () => {
@@ -70,15 +71,21 @@ describe('the challenge tasks', () => {
     });
   });
 
-  it('the nine algebra tasks are the spec\'s, and a task\'s mistake is one the content names', () => {
+  it('the ten algebra tasks are the spec\'s, and a task\'s mistake is one the content names', () => {
     const algebra = CHALLENGES.filter((t) => ['expr', 'eq', 'sys'].includes(t.topic));
     expect(algebra.map((t) => [t.id, t.kind, t.after, t.minutes])).toEqual([
       ['expr:c1', 'claim', 'expr:4', 4], ['expr:c2', 'error', 'expr:4', 4], ['expr:c3', 'literacy', 'expr:2', 7],
+      ['expr:c4', 'error', 'expr:3', 4],
       ['eq:c1', 'claim', 'eq:3', 4], ['eq:c2', 'error', 'eq:2', 4], ['eq:c3', 'literacy', 'eq:5', 8],
       ['sys:c1', 'claim', 'sys:2', 4], ['sys:c2', 'error', 'sys:2', 5], ['sys:c3', 'literacy', 'sys:4', 8],
     ]);
     // the spec names the mistake of each error task
-    expect(['expr:c2', 'eq:c2', 'sys:c2'].map((id) => challengeById(id)!.misc)).toEqual(['partial-dist', 'move-no-flip', 'move-no-flip']);
+    expect(['expr:c2', 'eq:c2', 'sys:c2', 'expr:c4'].map((id) => challengeById(id)!.misc)).toEqual(['partial-dist', 'move-no-flip', 'move-no-flip', 'drop-minus']);
+    // expr:c4 (CLASSROOM-6): the minus lost when -7x moves to its family; the right families cancel to 0x - 2 = -2, and
+    // the wrong line, 14x - 2, gives 12 at x = 1
+    const e4 = challengeById('expr:c4')!.parts[0] as Extract<ChallengePart, { type: 'error' }>;
+    expect([e4.wrong, e4.fix.answer, evaluate('-7*1 + 3 - 2*1 + 9*1 - 5'), evaluate('7*1 - 2*1 + 9*1 + 3 - 5'), evaluate('-7*(-2) + 3 - 2*(-2) + 9*(-2) - 5')]).toEqual([1, -2, -2, 12, -2]);
+    expect(e4.lines).toEqual(['כנסו: $-7x + 3 - 2x + 9x - 5$', '$= 7x - 2x + 9x + 3 - 5$', '$= 14x - 2$']);
     // the signed tasks, the classroom lane's signed:c4 among them: the factor's minus lost, after brackets inside brackets
     expect(challengesOf('signed').map((t) => [t.id, t.kind, t.after, t.minutes, t.misc || null])).toEqual([
       ['signed:c1', 'claim', 'signed:1', 4, null], ['signed:c2', 'error', 'signed:1', 4, null], ['signed:c3', 'literacy', 'signed:3', 6, null],

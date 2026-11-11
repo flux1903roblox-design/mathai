@@ -318,13 +318,15 @@
     ]
    },
    "expr:3": {
-    "discover": 9,
+    "discover": 10,
     "examples": [
      3,
      4
     ],
     "misconceptions": [
      2,
+     2,
+     3,
      2,
      2
     ],
@@ -371,7 +373,7 @@
    }
   },
   "stairs": 5,
-  "steps": 138
+  "steps": 144
  },
  "frac": {
   "skills": {

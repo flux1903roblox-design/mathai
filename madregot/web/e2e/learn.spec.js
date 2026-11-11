@@ -2,7 +2,7 @@
 // keeping the place, mastery only from a check without hints, a misconception repaired and verified,
 // Exam Rescue from a diagnostic to a plan, today's mission, and the profile's numbers and data deletion.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
+import { open, openOn, type, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
 
@@ -370,4 +370,31 @@ test('a stair mastered out of order: the stairs before it are open, not locked, 
   await expect(nodes.nth(3)).toHaveClass(/node-locked/);
   // the halfway chest opens with every stair up to it done, as the store awards it
   await expect(unit.getByRole('button', { name: /^תיבת אוצר\. נפתחת/ })).toBeVisible();
+});
+
+// CLASSROOM-6: the class writes an expression constant-first ("−31 − 2x"). On expr:3 the two boxes typed the other way
+// round count as right: the feedback is the right-answer one with no red cross, a quiet note (read politely by a screen
+// reader) says which box holds the coefficient, and the record has a right answer and no misconception.
+test('a constant-first expression on expr:3 counts as right, with a note on the boxes', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/expr/3', student('7'), (x) => x.form === 'lin' && /^ex3[bt]?:/.test(x.key) && x.answer.k !== x.answer.c && x.answer.k !== 0);
+  await page.locator('#slot-k').click();
+  await type(page, it.answer.c);
+  await page.locator('#slot-c').click();
+  await type(page, it.answer.k);
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+  await expect(page.locator('section.fb-good')).toBeVisible();
+  await expect(page.locator('section.fb-retry, section.fb-reveal')).toHaveCount(0);
+  const note = page.locator('.answer-swap');
+  await expect(note).toBeVisible();
+  await expect(note).toHaveAttribute('role', 'status');
+  await expect(note).toContainText('המקדם של');
+  await expect(note).toContainText('נכתב בתיבה הראשונה');
+  await expectNoSidewaysScroll(page);
+  await expect.poll(async () => (await saved(page)).learn.skills['expr:3']?.attempts?.length || 0).toBeGreaterThan(0);
+  const st = await saved(page);
+  expect(st.learn.skills['expr:3'].attempts.at(-1).ok).toBe(true);
+  expect(Object.keys(st.learn.miscon).filter((k) => k.startsWith('expr:3|'))).toEqual([]);
+  // the next exercise clears the note
+  await proceed(page);
+  await expect(note).toHaveCount(0);
 });

@@ -810,3 +810,45 @@ describe('the real classroom: signed:7, powers of directed numbers', () => {
     for (let i = 0; i < 300; i += 1) { const it = makeItem('signed', 7); expect(fairForCheck(it), it.key).toBe(!it.key.startsWith('sn7:6:')); }
   });
 });
+
+// CLASSROOM-6: collecting the class's way on expr:3. The diagnostic model keeps every mistake above 4% of its draws (the
+// checks' typed questions); the teaching names the families, adds the table of bracketed x-terms after the rule, and
+// explains abs-add and sign; a generated solution marks the families and keeps "0x" when the x-terms cancel.
+describe('expr:3, collecting the class\'s way (CLASSROOM-6)', () => {
+  const s3 = CONTENT['expr:3'];
+  it('collectModel keeps every bug above 4% of its draws', () => {
+    const rnd = seeded(2061); const shown: Record<string, number> = {}; const N = 4000;
+    for (let i = 0; i < N; i += 1) {
+      const p = s3.diag.params(rnd); const ans = s3.diag.answer(p);
+      Object.entries(s3.diag.bugs).forEach(([id, b]) => { const v = b(p); if (v != null && !same(v, ans)) shown[id] = (shown[id] || 0) + 1; });
+    }
+    expect(Object.keys(shown).sort()).toEqual(['conjoin', 'detach', 'drop-minus']);
+    Object.keys(s3.diag.bugs).forEach((id) => expect(shown[id] / N, id).toBeGreaterThan(0.04));
+  });
+  it('the rule names the families, and the table of bracketed x-terms follows it', () => {
+    const i = s3.discover.findIndex((st) => st.kind === 'rule' && st.text.includes('"משפחות"'));
+    expect(i).toBeGreaterThan(0);
+    const table = s3.discover[i + 1] as Extract<DiscoverStep, { kind: 'rule' }> & { fig: { type: string; head: string[]; rows: string[][] } };
+    expect(table.fig.type).toBe('table');
+    expect(table.fig.head).toEqual(['מספרים', 'עם x']);
+    expect(table.text).toBe('אותו כלל כמו בחיבור מספרים מכוונים: הסימן של הרחוק מאפס בחוץ, ובסוגריים הגדול פחות הקטן.');
+    // each sum and the row under it, read back (x as 1): (+4) + (−11) = −7 and −7x, (−6) + (+5) = −1 and −x
+    const read = (t: string) => evaluate(t.replace(/−/g, '-').replace(/=/g, '').replace(/(\d)x/g, '$1').replace(/x/g, '1'));
+    const rows = table.fig.rows;
+    expect([0, 1, 2, 3].map((r) => [read(rows[r][0]), read(rows[r][1])])).toEqual([[-7, -7], [-7, -7], [-1, -1], [-1, -1]]);
+    expect(identical(texToExpr('(+4x) + (-11x)'), '-7*x')).toBe(true);
+    expect(['abs-add', 'sign'].every((id) => s3.misconceptions.some((m) => m.id === id && m.prereq === 'signed:1'))).toBe(true);
+  });
+  it('a generated solution marks the families, regroups them under braces, and keeps 0x when the x-terms cancel', () => {
+    let zero = 0;
+    for (let i = 0; i < 600; i += 1) {
+      const it = makeItem('expr', 3);
+      if (!String(it.key).startsWith('ex3:')) continue;
+      const [first, second] = it.solution as string[];
+      expect(first, it.key).toContain('\\underline{\\underline{');
+      expect(second, it.key).toContain('\\underbrace{');
+      if (it.answer.k === 0) { zero += 1; expect(it.solution.join(' '), it.key).toContain(`$0${it.var || 'x'} `); }
+    }
+    expect(zero).toBeGreaterThan(0);
+  });
+});

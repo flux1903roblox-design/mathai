@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
 import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
-import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine } from '@/content/index.js';
+import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine, swappedLin, swapNote } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { FACTS } from '@/content/frac.js';
 import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN } from '@/lib/lesson.js';
@@ -110,7 +110,7 @@ const chatIntro = (s) => (s?.phase === 'retry' ? CHAT_INTRO.retry : openExercise
 const inlineChoices = (item) => item.choices.length === 3 && item.choices.every((c) => c.tex && c.tex.replace(/\s|\\[a-z]+/g, '').length <= 3);
 
 /** Under an expression's two slots: what to write for x alone, for −x and for no constant. */
-const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־$-${v}$: המקדם $-1$. אין מספר חופשי? כתבו $0$.`;
+const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־$-${v}$: המקדם $-1$. אין $${v}$ או אין מספר חופשי? כתבו $0$ בתיבה שלו.`;
 
 function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKey, onEnter, struck, unstrike, good }) {
   const shakeRef = useShake(shakeKey);
@@ -385,7 +385,8 @@ export default function Lesson() {
         return out;
       });
     }
-    setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)] });
+    // an expression written constant-first on expr:3 is right; a quiet note says which box holds the coefficient
+    setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)], ...(result.ok && swappedLin(item, u) ? { swap: swapNote(item) } : {}) });
     if (result.ok) { play('correct'); haptic('correct'); commit(result.event); }
     else {
       play('wrong'); haptic('wrong'); setShakeKey((v) => v + 1);
@@ -668,6 +669,7 @@ export default function Lesson() {
         {last?.invalid && (last.partial
           ? <p className="answer-error answer-partial" role="status">{last.text}</p>
           : <p className="form-error answer-error" role="alert">{last.text}</p>)}
+        {last?.swap && <p className="answer-error answer-partial answer-swap" role="status"><MathText text={last.swap} /></p>}
         {feedback ? (
           <m.section className={clsx('fb', `fb-${feedback}`, folded && 'fb-folded')} aria-live="assertive" aria-labelledby="fb-title" data-region="feedback"
             initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={SPRING.settle}>

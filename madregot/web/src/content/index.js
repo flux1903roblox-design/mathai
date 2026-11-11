@@ -63,9 +63,11 @@ export function makeItem(topicId, level, avoidKey) {
   do { it = L.gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
   // a typed answer that has no short decimal (7/12) says once how to write it
   if (it.precise && it.form === 'num') it = withFormatNote(it);
-  // A misconception can only be diagnosed for an answer that is actually wrong.
-  const diag = (u) => (isCorrect(it, u) ? null : it.diag(u));
-  return { ...it, diag, topic: topicId, level, levelTitle: L.title };
+  // A misconception can only be diagnosed for an answer that is actually wrong: wrong as the finished item reads it, on
+  // its own stair (expr:3 takes an expression's two boxes in either order, swappedLin)
+  const full = { ...it, topic: topicId, level, levelTitle: L.title };
+  full.diag = (u) => (isCorrect(full, u) ? null : it.diag(u));
+  return full;
 }
 
 /**
@@ -116,11 +118,12 @@ function* tryAnswers(it) {
 /**
  * The misconceptions an exercise's own diag() can name, for some wrong answer: where a misconception can show. A
  * verification after a repair asks such exercises when no diagnostic model of the stair predicts that misconception
- * (learn/items.ts). `want`: stop as soon as all of these are found.
+ * (learn/items.ts). `want`: stop as soon as all of these are found. An item whose diag() names only the answers it
+ * lists in `tries` (the class's collecting questions, content/expr.js) is asked those, not the whole grid of its form.
  */
 export function namesOf(it, want = []) {
   const found = new Set();
-  for (const u of tryAnswers(it)) {
+  for (const u of Array.isArray(it.tries) ? it.tries : tryAnswers(it)) {
     if (isCorrect(it, u)) continue;
     const cat = it.diag(u);
     if (cat) { found.add(cat); if (want.length && want.every((w) => found.has(w))) break; }
@@ -182,13 +185,33 @@ export const answerInput = (it) => (it.form === 'frac' ? toFrac(it.answer) : it.
 /** Is the answer a length that is not whole, asked rounded to tenths (its exact value is on the item)? */
 export const roundedLength = (it) => it.exact != null && Math.abs(it.exact - Math.round(it.exact)) > 1e-9;
 
+/**
+ * The class writes an expression constant-first ("−31 − 2x", CLASSROOM-6): on expr:3 only, an expression typed with
+ * the constant in the coefficient's box and the coefficient in the constant's box is right, when both numbers are the
+ * right ones and they differ. It earns a guesser nothing (the swapped pair is right only when both numbers are), and
+ * the lesson shows a note on the boxes (swapNote), not a cross; nothing reaches the misconception record. In eq and sys
+ * the boxes are a solution, not an expression, and keep their order.
+ */
+export function swappedLin(it, u) {
+  if (it?.form !== 'lin' || it.topic !== 'expr' || Number(it.level) !== 3 || !u || typeof u !== 'object') return false;
+  const { k, c } = it.answer;
+  return !near(k, c, 0.01) && near(u.k, c, 0.01) && near(u.c, k, 0.01);
+}
+/** The note under a constant-first answer: which box holds the coefficient, and the two orders as one expression. */
+export function swapNote(it) {
+  const v = it.var || 'x'; const { k, c } = it.answer;
+  const term = k === 1 ? v : k === -1 ? `-${v}` : `${k}${v}`;
+  const join = (a, b) => `${a} ${String(b).startsWith('-') ? `- ${String(b).slice(1)}` : `+ ${b}`}`;
+  return `המקדם של $${v}$ נכתב בתיבה הראשונה: $${join(c, term)} = ${join(term, c)}$`;
+}
+
 export function isCorrect(it, u) {
   if (u == null) return false;
   if (it.form === 'manip') return manipCorrect(it, u);
   if (it.form === 'mc') return u === it.answer;
   if (it.form === 'pt') return near(u[0], it.answer[0]) && near(u[1], it.answer[1]);
   if (it.form === 'line') return near(u.m, it.answer.m, 0.01) && near(u.b, it.answer.b, 0.01);
-  if (it.form === 'lin') return typeof u === 'object' && near(u.k, it.answer.k, 0.01) && near(u.c, it.answer.c, 0.01);
+  if (it.form === 'lin') return typeof u === 'object' && ((near(u.k, it.answer.k, 0.01) && near(u.c, it.answer.c, 0.01)) || swappedLin(it, u));
   // a fraction is compared exactly; with `reduced` it must be in lowest terms, with a positive denominator
   if (it.form === 'frac') {
     return typeof u === 'object' && Number.isInteger(u.n) && Number.isInteger(u.d) && u.d !== 0 && near(u.n / u.d, it.answer, 1e-9)
