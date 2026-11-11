@@ -8,7 +8,7 @@
 // Mutating commands also write an audit_log row (actor 'owner:cli'). Without --local the remote database is used.
 //
 //   grant-class --class C --until D --seats N [--invoice R] [--note T] [--trial] [--private-ok --note T]
-//   grant-school --classes K --seats N --until D --invoice R [--note T] [--private-ok --note T]   prints a code once
+//   grant-school --classes K --seats N --until D --invoice R [--note T | --gefen G] [--private-ok --note T]   prints a code once
 //   grant-family --email E --until D [--note T]
 //   end --id S [--reason owner]
 //   cancel --id S --mode period_end|refund_now|prorata
@@ -16,8 +16,19 @@
 //   clear-hold --email E
 //   revoke-device --id D
 //   forget --email E
-//   list [--class C | --email E | --status S]   requests [--open]   request-done --id R
+//   list [--class C | --email E | --status S | --gefen [G]]   requests [--open]   request-done --id R
 //   usage --from D --to D                        events [--outcome mismatch]
+//   pilot-report --class C --from D --to D [--consented N] [--pre A --post B] [--json]   pilot-report --class C --list
+//
+// A Gefen order (TEACHER-12): grant-school --gefen <order reference> writes the note "gefen:<ref>" (letters, digits and
+// -, at most 40; it takes the place of --note), the classes that redeem the code carry it, and list --gefen shows them
+// (list --gefen <ref>: that order only). The school rules below apply as to any school code: refused while
+// MOE_AI_APPROVAL is "none", which is right, since a Gefen order comes only after catalogue approval.
+//
+// The pilot's numbers (TEACHER-11, scripts/pilot.mjs): pilot-report is read-only (no audit row). It runs its SELECTs
+// through the same wrangler d1 execute path and prints a Hebrew table of aggregates (or JSON with --json): no names, no
+// student ids, n next to every percentage. pilot-report --class C --list prints the class's exam assignments, so the
+// owner finds the ids for --pre and --post.
 //
 // Licences within the Ministry of Education's rules (shared/schoolRules.js, TRUST-11 §5): while MOE_AI_APPROVAL is
 // "none" (read from the environment, else from wrangler.toml), grant-class refuses a school class (it reads the class's
@@ -35,6 +46,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { endOfDayIso, CODE_ALPHABET } from '../src/util.js';
 import { cleanEmail } from '../src/account.js';
 import { classAiPolicy, moeEnv, NOT_SELLABLE } from '../../shared/schoolRules.js';
+import { pilotQueries, pilotReport, pilotText, examListSql, examListText } from './pilot.mjs';
 
 const DAY = 864e5;
 export class InputError extends Error {}
@@ -61,6 +73,27 @@ export function intArg(v, min, max, what) {
 /** Notes keep letters, digits, spaces and .,-/ only (quotes, semicolons and the rest are stripped), at most 120. */
 export const noteArg = (v) => String(v ?? '').replace(/[^\p{L}\p{N} .,\-/]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 120);
 export const refArg = (v) => noteArg(v).slice(0, 40);
+/** A Gefen order reference: letters, digits and "-", at most 40 (TEACHER-12). */
+export const GEFEN_RE = /^[\p{L}\p{N}-]{1,40}$/u;
+export function gefenArg(v) { const s = String(v ?? ''); if (v === true || !GEFEN_RE.test(s)) fail(`bad Gefen order reference: ${v} (letters, digits and -, at most 40)`); return s; }
+/**
+ * grant-school --gefen <ref>: the note "gefen:<ref>". It takes the place of --note, and a Gefen order is a school's, so
+ * it never goes with --private-ok. null without --gefen.
+ */
+export function gefenNote(o) {
+  if (o.gefen === undefined) return null;
+  if (o.note) fail('--gefen writes the note itself: give --gefen or --note, not both');
+  if (o['private-ok']) fail('a Gefen order is for a school: --gefen does not go with --private-ok');
+  return `gefen:${gefenArg(o.gefen)}`;
+}
+/** A YYYY-MM-DD day as it is (the pilot's range). */
+export function dayArg(v) {
+  const s = String(v || '');
+  const t = new Date(`${s}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(t.getTime()) || t.toISOString().slice(0, 10) !== s) fail(`bad date: ${v}`);
+  return s;
+}
+export const PILOT_USAGE = 'usage: npm run owner -- pilot-report --class C --from YYYY-MM-DD --to YYYY-MM-DD [--consented N] [--pre <assignmentId> --post <assignmentId>] [--json] [--local], or pilot-report --class C --list';
 export function emailArg(v) { try { return cleanEmail(v); } catch { return fail(`bad email: ${v}`); } }
 /** A SQL string literal (inputs are validated before; quotes are doubled anyway). */
 export const q = (v) => (v === null || v === undefined ? 'NULL' : typeof v === 'number' ? String(v) : `'${String(v).replace(/'/g, "''")}'`);
@@ -109,6 +142,8 @@ export const classSettingSql = (cls) => `SELECT c.code, c.grade, COALESCE(cs.set
  */
 export function schoolGate(cmd, o, { moe, cls = null }) {
   if (cmd !== 'grant-class' && cmd !== 'grant-school') return null;
+  // a Gefen reference is checked first: a bad one, or one with --note or --private-ok, never reaches the prompt
+  if (cmd === 'grant-school') gefenNote(o);
   let why = null;
   if (cmd === 'grant-class') {
     if (!cls) fail(`no class with the code ${o.class}`);
@@ -156,14 +191,15 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
       const seats = intArg(o.seats, 1, 60, 'seats');
       const until = dateArg(o.until);
       if (!o.invoice) fail('--invoice is required');
-      const invoice = refArg(o.invoice); const note = o.note ? noteArg(o.note) : null;
+      const gefen = gefenNote(o);
+      const invoice = refArg(o.invoice); const note = gefen || (o.note ? noteArg(o.note) : null);
       return {
         readOnly: false,
         print: `Licence code (shown once; give it to the school): ${code}`,
         sql: [
           `INSERT INTO licence_codes (code_hash, seats, classes_left, until, invoice_ref, note, created_at, expires_at)
   VALUES (${q(licenceHash(code))}, ${seats}, ${classes}, ${q(until)}, ${q(invoice)}, ${q(note)}, ${q(now)}, ${q(new Date(Date.parse(now) + 60 * DAY).toISOString())});`,
-          audit(now, 'licence.grant', `school:${invoice}`, { classes, seats, until, ...privateOkDetail(o) }),
+          audit(now, 'licence.grant', `school:${invoice}`, { classes, seats, until, ...(gefen ? { gefen: gefen.slice(6) } : {}), ...privateOkDetail(o) }),
         ].join('\n'),
       };
     }
@@ -283,9 +319,11 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
       if (o.class) where.push(`s.class_code = ${q(classArg(o.class))}`);
       if (o.email) where.push(`a.email = ${q(emailArg(o.email))}`);
       if (o.status) { if (!['active', 'past_due', 'canceled', 'ended'].includes(o.status)) fail(`bad status: ${o.status}`); where.push(`s.status = ${q(o.status)}`); }
+      // the classes of Gefen orders (the note grant-school --gefen wrote, carried to each class that redeemed the code)
+      if (o.gefen !== undefined) where.push(o.gefen === true ? "s.note LIKE 'gefen:%'" : `s.note = ${q(`gefen:${gefenArg(o.gefen)}`)}`);
       return {
         readOnly: true,
-        sql: `SELECT s.id, s.kind, s.plan, s.status, s.provider, s.class_code, s.seats, s.current_period_end, s.cancel_requested_at, s.cancel_synced_at, s.ended_reason, a.email
+        sql: `SELECT s.id, s.kind, s.plan, s.status, s.provider, s.class_code, s.seats, s.current_period_end, s.cancel_requested_at, s.cancel_synced_at, s.ended_reason, s.invoice_ref, s.note, a.email
   FROM subscriptions s LEFT JOIN accounts a ON a.id = s.account_id ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY s.created_at DESC LIMIT 200;`,
       };
     }
@@ -304,6 +342,21 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
       const outcome = o.outcome ? String(o.outcome) : null;
       if (outcome && !['applied', 'duplicate_payment', 'after_cancel', 'ignored_old', 'unknown', 'mismatch', 'test_mode'].includes(outcome)) fail(`bad outcome: ${outcome}`);
       return { readOnly: true, sql: `SELECT provider, event_id, type, outcome, subscription_id, amount_agorot, detail, received_at FROM billing_events ${outcome ? `WHERE outcome = ${q(outcome)}` : ''} ORDER BY received_at DESC LIMIT 200;` };
+    }
+    case 'pilot-report': {
+      // read-only: SELECTs only, no audit row (scripts/pilot.mjs)
+      if (!o.class || o.class === true) fail(PILOT_USAGE);
+      const cls = classArg(o.class);
+      if (o.list) return { readOnly: true, list: true, sql: examListSql(cls) };
+      if (!o.from || !o.to || o.from === true || o.to === true) fail(PILOT_USAGE);
+      const from = dayArg(o.from); const to = dayArg(o.to);
+      if (from > to) fail('--from must be on or before --to');
+      if ((Date.parse(to) - Date.parse(from)) / DAY > 120) fail('a pilot report covers at most 120 days');
+      const consented = o.consented !== undefined ? intArg(o.consented, 1, 200, 'consented') : null;
+      if (!!o.pre !== !!o.post) fail('--pre and --post go together');
+      const pre = o.pre ? idArg(o.pre, 'pre assignment id') : null;
+      const post = o.post ? idArg(o.post, 'post assignment id') : null;
+      return { readOnly: true, queries: pilotQueries({ classCode: cls, from, to, pre, post }), opts: { classCode: cls, from, to, consented, pre, post } };
     }
     default:
       return fail(`unknown command: ${cmd}`);
@@ -330,6 +383,8 @@ const realIo = {
   env: process.env,
   /** One read-only SELECT: its first row, or null. */
   query: async (sql, o) => (JSON.parse(wrangler(o, ['--command', sql]))?.[0]?.results || [])[0] || null,
+  /** One read-only SELECT: all its rows. */
+  rows: async (sql, o) => JSON.parse(wrangler(o, ['--command', sql]))?.[0]?.results || [],
   /** Run a built command (its SQL in a file); returns what wrangler printed. */
   exec: async (b, o) => {
     const dir = mkdtempSync(path.join(tmpdir(), 'madregot-owner-'));
@@ -360,6 +415,15 @@ export async function cli(argv, io = realIo) {
       }
     }
     const b = build(cmd, o);
+    // the pilot's numbers: each SELECT on its own, then the counting here; nothing is written
+    if (b.queries) {
+      const results = {};
+      for (const [name, sql] of Object.entries(b.queries)) results[name] = await io.rows(sql, o);
+      const rep = pilotReport(results, b.opts);
+      io.log(o.json ? JSON.stringify(rep, null, 2) : pilotText(rep, b.opts.classCode));
+      return 0;
+    }
+    if (b.list) { io.log(examListText(await io.rows(b.sql, o))); return 0; }
     const out = await io.exec(b, o);
     io.log(b.readOnly ? out : 'done');
     if (b.print) io.log(b.print);

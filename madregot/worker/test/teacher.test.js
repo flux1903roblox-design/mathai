@@ -165,6 +165,19 @@ test('a school licence code attaches a class once, uses up one place, and expire
   assert.equal((await claimL(c, 'MNPQ-RSTU-VWXY')).status, 400);
 });
 
+test('a Gefen order\'s code (grant-school --gefen): the class that claims it carries the order in its licence\'s note', async () => {
+  h = await setup();
+  const code = 'GFNA-BCDE-FGHJ';
+  h.env.DB.raw.exec(build('grant-school', { classes: '1', seats: '30', until: '2099-08-31', invoice: 'INV-77', gefen: '778899' }, { code }).sql);
+  const a = await makeClass(h, { ai: true });
+  const r = await h.call('POST', '/api/teacher/licence/claim', { headers: a.teacher, body: { code } });
+  assert.equal(r.status, 200);
+  const sub = one(h.env, 'SELECT note, invoice_ref FROM subscriptions WHERE class_code = ?', a.code);
+  assert.deepEqual({ ...sub }, { note: 'gefen:778899', invoice_ref: 'INV-77' });
+  // and the owner's list finds it
+  assert.deepEqual(rows(h.env, build('list', { gefen: '778899' }).sql).map((x) => x.class_code), [a.code]);
+});
+
 test('licence claims are limited per network (10 an hour) and per class (10 a day)', async () => {
   h = await setup();
   const cls = await makeClass(h, { ai: true });

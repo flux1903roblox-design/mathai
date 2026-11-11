@@ -181,6 +181,7 @@
 npm run owner -- grant-class --class ABC234 --until 2027-08-31 --seats 35 --invoice 1042 --note "pilot"
 npm run owner -- grant-class --class ABC234 --seats 30 --trial          # ניסיון של 14 יום
 npm run owner -- grant-school --classes 5 --seats 35 --until 2027-08-31 --invoice 1043   # מדפיס קוד רישיון פעם אחת
+npm run owner -- grant-school --classes 5 --seats 35 --until 2028-08-31 --invoice 1044 --gefen 778899   # הזמנה מגפ"ן (רק אחרי MOE_AI_APPROVAL="approved")
 npm run owner -- grant-family --email parent@example.com --until 2027-01-31
 npm run owner -- cancel --id <מזהה מנוי> --mode period_end             # ביטול שהגיע במייל או בטלפון
 npm run owner -- refund --id <מזהה מנוי> [--agorot 1500]
@@ -188,6 +189,9 @@ npm run owner -- end --id <מזהה מנוי>                                 # 
 npm run owner -- clear-hold --email parent@example.com
 npm run owner -- forget --email parent@example.com                    # מחיקת חשבון לבקשת הורה
 npm run owner -- list --status active
+npm run owner -- list --gefen                                         # הכיתות של הזמנות גפ"ן (--gefen <מספר>: הזמנה אחת)
+npm run owner -- pilot-report --class ABC234 --list                   # מבחני הכיתה, למצוא את --pre ואת --post
+npm run owner -- pilot-report --class ABC234 --from 2027-01-03 --to 2027-01-16 --consented 24 --pre <id> --post <id>   # המספרים של הפיילוט, בלי שמות (docs/schools/README.md)
 npm run owner -- events --outcome mismatch
 npm run owner -- requests --open                                      # בקשות של מורים לניסיון או להצעת מחיר
 npm run owner -- request-done --id <מזהה בקשה>
