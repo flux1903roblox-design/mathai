@@ -1,6 +1,6 @@
 // The challenge track (CURRICULUM-6): every task is checked mathematically and for its wording, the set is stage 1's 36
 // (three per topic, at least one claim, one error or proof and one literacy task each) and the classroom lane's
-// signed:c4 (CLASSROOM-4), and the grading rules (two tries, XP, the order check, the counterexample check) are pinned.
+// signed:c4 (CLASSROOM-4) and signed:c5 (CLASSROOM-5), and the grading rules (two tries, XP, the order check, the counterexample check) are pinned.
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
 import type { ChallengePart, ChallengeTask } from './types';
@@ -34,16 +34,17 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 describe('the challenge tasks', () => {
-  it('37 tasks: at least three per topic of TOPIC_ORDER, the bridge included, numbered in order and in topic order', () => {
+  it('38 tasks: at least three per topic of TOPIC_ORDER, the bridge included, numbered in order and in topic order', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
-    // stage 1's 36 and signed:c4 (CLASSROOM-4); 39 once signed:c5 and expr:c4 come (CLASSROOM-5 and -6)
-    expect(CHALLENGES).toHaveLength(37);
+    // stage 1's 36, signed:c4 (CLASSROOM-4) and signed:c5 (CLASSROOM-5); 39 once expr:c4 comes (CLASSROOM-6)
+    expect(CHALLENGES).toHaveLength(38);
     TOPIC_ORDER.forEach((tp) => {
       const ids = challengesOf(tp).map((t) => t.id);
       expect(ids.length, tp).toBeGreaterThanOrEqual(3);
       expect(ids, tp).toEqual(ids.map((_, i) => `${tp}:c${i + 1}`));
     });
-    expect(challengesOf('signed').map((t) => t.id)).toEqual(['signed:c1', 'signed:c2', 'signed:c3', 'signed:c4']);
+    expect(challengesOf('signed').map((t) => t.id)).toEqual(['signed:c1', 'signed:c2', 'signed:c3', 'signed:c4', 'signed:c5']);
+    expect(challengesAfter('signed:7').map((t) => t.id)).toEqual(['signed:c5']);
     expect(TOPIC_ORDER).toContain('frac');
     expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => challengesOf(tp).map(() => tp)));
     expect(challengeById('pct:c1')?.after).toBe('pct:2');
@@ -82,7 +83,17 @@ describe('the challenge tasks', () => {
     expect(challengesOf('signed').map((t) => [t.id, t.kind, t.after, t.minutes, t.misc || null])).toEqual([
       ['signed:c1', 'claim', 'signed:1', 4, null], ['signed:c2', 'error', 'signed:1', 4, null], ['signed:c3', 'literacy', 'signed:3', 6, null],
       ['signed:c4', 'error', 'signed:5', 4, 'factor-sign'],
+      ['signed:c5', 'claim', 'signed:7', 4, 'pow-odd-pos'],
     ]);
+    // signed:c5: "a negative number to a power is positive" holds for an even exponent only, with the spec's examples
+    // ((−2)³ = −8 is the notebook's own exercise, so it is not used), and an odd exponent is the counterexample
+    const c5 = challengeById('signed:c5')!.parts[0] as Claim;
+    expect(c5.verdict).toBe('sometimes');
+    expect([evaluate('(-6)^2'), evaluate('(-3)^3')]).toEqual([36, -27]);
+    expect(c5.why).toContain('$(-6)^2 = (-6)(-6) = 36$');
+    expect(c5.why).toContain('$(-3)^3 = (-3)(-3)(-3) = -27$');
+    expect(c5.why).not.toMatch(/\(-2\)\^3/);
+    expect([1, 3, 5].every((n) => exampleHolds(c5.example!, { n })) && ![2, 4].some((n) => exampleHolds(c5.example!, { n }))).toBe(true);
     const c4 = challengeById('signed:c4')!.parts[0] as Extract<ChallengePart, { type: 'error' }>;
     expect([c4.wrong, c4.fix.answer, evaluate('-4[9 - (1 - 6)]')]).toEqual([2, -56, -56]);
     const named = new Set(ALL_SKILLS.flatMap((id) => contentOf(id)?.misconceptions.map((m) => m.id) || []));

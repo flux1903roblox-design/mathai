@@ -1485,6 +1485,9 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .lesson-top .tool .tool-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-height: 700px) and (max-width: 899px) {
   .answer-bar.with-check .slot { width: clamp(52px, 16vw, 72px); }
+  /* one typed number has the row to itself beside the check button: wide enough for −27/64 or −0.027 on a 320 phone
+     (at 72px the last digits were cut off while typing and on the struck answer) */
+  .answer-bar.with-check .answer-row > input.slot:only-of-type { width: clamp(96px, 40vw, 160px); }
   .answer-bar.with-check .answer-lab { font-size: 18px; }
   .lesson-foot .fb { max-height: 40dvh; }
 }

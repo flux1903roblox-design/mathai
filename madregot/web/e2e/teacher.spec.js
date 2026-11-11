@@ -1017,8 +1017,9 @@ test.describe('TEACHER-3: a class practice exam, printed with its key, in two ve
     const unit = page.getByRole('checkbox', { name: 'כל היחידה: מספרים מכוונים' });
     await unit.click();
     await expect(unit).toHaveAttribute('aria-checked', 'true');
-    // all six stairs of signed numbers (the sixth, signed fractions and decimals, is the curriculum lane's)
-    await expect(page.getByRole('group', { name: 'מספרים מכוונים' }).getByRole('checkbox', { checked: true })).toHaveCount(6);
+    // all seven stairs of signed numbers (the sixth, signed fractions and decimals, is the curriculum lane's; the
+    // seventh, powers, the classroom lane's)
+    await expect(page.getByRole('group', { name: 'מספרים מכוונים' }).getByRole('checkbox', { checked: true })).toHaveCount(7);
     await page.getByRole('checkbox', { name: '1. חיבור וחיסור' }).click();
     await expect(unit).toHaveAttribute('aria-checked', 'mixed');
     await unit.click(); await unit.click();
@@ -1026,7 +1027,7 @@ test.describe('TEACHER-3: a class practice exam, printed with its key, in two ve
     await page.getByRole('checkbox', { name: '3. כפל וחילוק' }).click();
     await page.getByRole('checkbox', { name: '3. אורך קטע' }).click();
     await expect(page.getByText('נבחרו 2 מדרגות.')).toBeVisible();
-    // the builder from its top (ticking "3. אורך קטע", below signed numbers' six stairs, scrolled the page)
+    // the builder from its top (ticking "3. אורך קטע", below signed numbers' seven stairs, scrolled the page)
     await page.evaluate(() => window.scrollTo(0, 0));
     await shot(page, 'teacher-exam-new');
     await next.click();
@@ -2018,8 +2019,8 @@ test.describe('TEACHER-8: each student has a page, and a short ranked list', () 
     await expect(sheet.getByText('הצטרף/ה ב־2.9 · תרגול אחרון היום')).toBeVisible();
     await expect(sheet.getByRole('img', { name: 'ב־14 הימים האחרונים: 6 ימים עם תרגול' })).toBeVisible();
     await expect(sheet.getByText('4 ימים עם תרגול · 16 תרגילים · 32 דקות')).toBeVisible();
-    // signed numbers has six stairs now (signed:6, the curriculum lane's)
-    await expect(sheet.getByRole('img', { name: 'מדרגה 2 מתוך 6' }).first()).toBeVisible();
+    // signed numbers has seven stairs now (signed:6, the curriculum lane's; signed:7, the classroom lane's)
+    await expect(sheet.getByRole('img', { name: 'מדרגה 2 מתוך 7' }).first()).toBeVisible();
     await expect(sheet.getByText('4 פעמים בחודש האחרון')).toBeVisible();
     await expect(sheet.locator('.ss-row-main').first()).toHaveText('מספרים מכוונים, מדרגה 1: חיבור וחיסור. התשובה יצאה עם הסימן ההפוך');
     await expect(sheet.locator('#ss-work').locator('..').getByText('אין עדיין')).toBeVisible();

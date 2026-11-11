@@ -17,6 +17,7 @@ import { candidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { chainItem, regroupItem, absItem, oppItem, nestedItem, zeroOne } from './signedItems.js';
+import { powItem } from './signed7.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -57,6 +58,25 @@ function nestOf(key) {
   if (n[0] === 1) { const [, a, b, c, d] = n; return { form: 1, a, b, c, d }; }
   const [, e, a, b, c, d, g] = n; return { form: 2, e, a, b, c, d, g };
 }
+/**
+ * A power question from its key (CLASSROOM-5): sn7:f:a:n, sn7:4:a:n:b:c, sn7:5:p/q:n (the base −p/q) or sn7:5:w.d:n
+ * (the base −w.d). Its value and the base, read back here and not from the generator.
+ */
+function powOf(key) {
+  const [, f, a, n, b, c] = key.split(':');
+  const q = { f: Number(f), n: Number(n) };
+  if (f === '5') {
+    if (a.includes('/')) { const [p, d] = a.split('/').map(Number); return { ...q, frac: true, p, d, base: -p / d }; }
+    return { ...q, frac: false, base: -Number(a), places: a.split('.')[1].length };
+  }
+  return { ...q, a: Number(a), ...(f === '4' ? { b: Number(b), c: Number(c) } : {}) };
+}
+/** The power's value, from the key: (−a)ⁿ, −aⁿ, −(−a)ⁿ, −(−aⁿ), b − c·(−a)ⁿ, baseⁿ, aⁿ. */
+function powVal(q) {
+  if (q.f === 5) return q.base ** q.n;
+  return [(-q.a) ** q.n, -(q.a ** q.n), -((-q.a) ** q.n), q.a ** q.n, q.b - q.c * (-q.a) ** q.n, 0, q.a ** q.n][q.f];
+}
+const isPow = (it) => String(it.key).startsWith('sn7:');
 /** A line of signed numbers, "-8 - 9 + 3", as its terms [-8, -9, 3]. */
 const lineTerms = (tex) => (String(tex).replace(/\s+/g, '').match(/[+-]?\d+/g) || []).map(Number);
 /** The regrouped line: the negatives in order, then the positives (no zero in a regroup question). */
@@ -411,6 +431,8 @@ const PROPS = {
     'add-same': (it, u) => { const [p, q] = nums(it.key); return it.key.startsWith('ra1a:') && p !== q && /^לא/.test(it.choices[u]?.text || ''); },
   },
   expr: {
+    // (a + b)² with a negative sum, squared to a negative number (CLASSROOM-5): ex5s:square:s:m, u = −s²
+    'pow-keep-sign': (it, u) => { const [kind, s] = it.key.split(':').slice(1); return kind === 'square' && Number(s) < 0 && near(u, -(Number(s) ** 2)); },
     concat: (it, u) => { const q = substOf(it); return q.x >= 1 && q.x <= 9 && near(substVal(it, u), withProd(q, 10 * q.a + q.x)); },
     order: (it, u) => { const q = substOf(it); return q.f < 2 && near(u, (q.f === 0 ? q.b + q.a : q.b - q.a) * q.x); },
     'neg-sub': (it, u) => { const q = substOf(it); return q.x < 0 && near(substVal(it, u), withProd(q, q.a * -q.x)); },
@@ -608,6 +630,31 @@ const PROPS = {
       const q = nestOf(it.key);
       return q.form === 1 ? fits(u, q.a * q.b - (q.c - q.d)) : fits(u, q.e - q.a * q.b - (q.c - q.d) * q.g);
     },
+    // CLASSROOM-5, powers (from the key): −aⁿ with an even exponent read as (−a)ⁿ, so aⁿ
+    'pow-neg-base': (it, u) => { if (!isPow(it)) return false; const q = powOf(it.key); return q.f === 1 && q.n % 2 === 0 && fits(u, q.a ** q.n); },
+    // a negative base with an odd exponent taken as positive: (−a)ⁿ as aⁿ; b − c·|(−a)ⁿ|; (−p/q)ⁿ or (−0.d)ⁿ as positive
+    'pow-odd-pos': (it, u) => {
+      if (!isPow(it)) return false; const q = powOf(it.key);
+      if (q.n % 2 === 0) return false;
+      if (q.f === 0) return fits(u, q.a ** q.n);
+      if (q.f === 4) return fits(u, q.b - q.c * q.a ** q.n);
+      return q.f === 5 && fits(u, Math.abs(q.base) ** q.n);
+    },
+    // (−a)ⁿ with an even exponent keeping the base's minus: −aⁿ
+    'pow-keep-sign': (it, u) => { if (!isPow(it)) return false; const q = powOf(it.key); return q.f === 0 && q.n % 2 === 0 && fits(u, -(q.a ** q.n)); },
+    // the minus in front of the bracket ignored: −(−a)ⁿ as (−a)ⁿ, −(−aⁿ) as −aⁿ
+    'outer-minus': (it, u) => { if (!isPow(it)) return false; const q = powOf(it.key); return (q.f === 2 && fits(u, (-q.a) ** q.n)) || (q.f === 3 && fits(u, -(q.a ** q.n))); },
+    // the base times the exponent, with the form's sign: (−a)·n, −(a·n), a·n, b − c·(−a·n), (−0.d)·n, a·n
+    'pow-times': (it, u) => {
+      if (!isPow(it)) return false; const q = powOf(it.key);
+      if (q.f === 5) return !q.frac && fits(u, q.base * q.n);
+      if (q.f === 4) return fits(u, q.b - q.c * (-q.a * q.n));
+      return fits(u, (q.f <= 1 ? -1 : 1) * q.a * q.n);
+    },
+    // one decimal place too few: (−0.3)³ = −0.027 typed −0.27 (a base under 1 only)
+    'dec-places': (it, u) => { if (!isPow(it)) return false; const q = powOf(it.key); return q.f === 5 && !q.frac && Math.abs(q.base) < 1 && fits(u, 10 * powVal(q)); },
+    // only the numerator raised: (−p/q)ⁿ as (−p)ⁿ/q
+    'num-only': (it, u) => { if (!isPow(it)) return false; const q = powOf(it.key); return q.f === 5 && q.frac && fits(u, (-q.p) ** q.n / q.d); },
     // a : 0 answered 0 or a; 0 : a answered "not defined" (CLASSROOM-3)
     'div-zero': (it, u) => { if (!it.key.startsWith('sn3z:1:')) return false; const a = Number(it.key.split(':')[2]); const c = it.choices[u]; return !!c?.tex && (c.tex === '0' || Number(c.tex) === a); },
     'zero-div': (it, u) => it.key.startsWith('sn3z:0:') && it.choices[u]?.text === 'לא מוגדר',
@@ -648,6 +695,8 @@ const PROPS = {
       // e − a[b − (c − d)·g] left to right: (e − a)·[…]; e : [p + g(h − i)] inside left to right: e : ((p + g)(h − i))
       if (it.key.startsWith('sn5n:2:')) { const q = nestOf(it.key); return fits(u, (q.e - q.a) * (q.b - (q.c - q.d) * q.g)); }
       if (it.key.startsWith('sn5d:')) { const q = nestOf(it.key); const o = (q.p + q.g) * (q.h - q.i); return o !== 0 && fits(u, q.e / o); }
+      // b − c·(−a)ⁿ left to right: (b − c)·(−a)ⁿ (CLASSROOM-5)
+      if (it.key.startsWith('sn7:4:')) { const q = powOf(it.key); return fits(u, (q.b - q.c) * (-q.a) ** q.n); }
       return false;
     },
   },
@@ -946,6 +995,81 @@ describe('dividing with 0 and 1, and brackets inside brackets, name only what th
         const shown = it.choices[it.answer];
         expect(k === 0 ? shown.tex === '0' : k === 1 ? shown.text === 'לא מוגדר' : Number(shown.tex) === (k === 2 ? a : -a), it.key).toBe(true);
       }
+    } finally { Math.random = real; }
+  });
+});
+
+// CLASSROOM-5: powers of directed numbers, every label against the key, 2,000 questions of each form that can show it
+describe('powers of directed numbers name only what the answer shows', () => {
+  const real = Math.random;
+  const props = PROPS.signed;
+  /** The mistakes each form can show (the spec's list), and 2,000 questions of it. */
+  const FORMS = {
+    0: ['pow-odd-pos', 'pow-keep-sign', 'pow-times'], 1: ['pow-neg-base', 'pow-times'], 2: ['outer-minus', 'pow-times'],
+    3: ['outer-minus', 'pow-times'], 4: ['order', 'pow-odd-pos', 'pow-times'], 5: ['pow-odd-pos', 'pow-times', 'dec-places', 'num-only'], 6: ['pow-times'],
+  };
+  it('every form: the key is the question, each label is true of the answer, and each mistake of the form shows', () => {
+    try {
+      Math.random = seeded(1117);
+      for (const [f, ids] of Object.entries(FORMS)) {
+        const seen = {};
+        for (let i = 0; i < 2000; i += 1) {
+          const it = { ...powItem(Math.random, Number(f)), topic: 'signed', level: 7 };
+          const q = powOf(it.key);
+          expect(q.f, it.key).toBe(Number(f));
+          expect(near(powVal(q), it.answer, 1e-9), `${it.key}: ${it.answer}`).toBe(true);
+          // every prediction the form names is diagnosed back to its own mistake, and the property holds for it
+          for (const id of ids) {
+            const v = { 'pow-neg-base': q.f === 1 && q.n % 2 === 0 ? q.a ** q.n : null, 'pow-keep-sign': q.f === 0 && q.n % 2 === 0 ? -(q.a ** q.n) : null }[id];
+            if (v != null) expect(it.diag(v), `${it.key}: ${v}`).toBe(id);
+          }
+          // whole numbers, and the tenths and thousandths a fraction or a decimal mistake gives
+          const tries = q.f === 5 ? [...Array.from({ length: 801 }, (_, k) => (k - 400) / 100), ...Array.from({ length: 2001 }, (_, k) => (k - 1000) / 1000)] : Array.from({ length: 1001 }, (_, k) => k - 500);
+          for (const u of [...tries, ...(q.f === 5 ? [-it.answer, 10 * it.answer, q.base * q.n, ...(q.frac ? [(-q.p) ** q.n / q.d] : [])] : [])]) {
+            if (isCorrect(it, u)) continue;
+            const cat = it.diag(u);
+            if (!cat) continue;
+            expect(ids, `${it.key}: ${u} labelled ${cat}`).toContain(cat);
+            expect(props[cat](it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true);
+            seen[cat] = (seen[cat] || 0) + 1;
+          }
+        }
+        // each of the form's mistakes is named on more than 4% of its questions (spec: 15-100%)
+        for (const id of ids) expect(seen[id] || 0, `F${f} ${id}`).toBeGreaterThan(80);
+      }
+    } finally { Math.random = real; }
+  }, 120_000);
+  it('the spec\'s examples: (−5)² kept negative, −5² read as (−5)², the outer minus, (−0.3)³ and (−3/4)²', () => {
+    const it = (key, display, answer, extra = {}) => ({ key, display, answer, form: 'num', topic: 'signed', level: 7, ...extra });
+    expect(props['pow-keep-sign'](it('sn7:0:5:2', '(-5)^{2}', 25), -25)).toBe(true);
+    expect(props['pow-neg-base'](it('sn7:1:5:2', '-5^{2}', -25), 25)).toBe(true);
+    expect(props['outer-minus'](it('sn7:2:5:2', '-(-5)^{2}', -25), 25)).toBe(true);
+    expect(props['outer-minus'](it('sn7:3:5:2', '-(-5^{2})', 25), -25)).toBe(true);
+    expect(props['pow-times'](it('sn7:0:5:2', '(-5)^{2}', 25), -10)).toBe(true);
+    expect(props.order(it('sn7:4:3:3:9:2', '9 - 2 \\cdot (-3)^{3}', 63), -189)).toBe(true);
+    expect(props['pow-odd-pos'](it('sn7:4:3:3:9:2', '9 - 2 \\cdot (-3)^{3}', 63), -45)).toBe(true);
+    expect(props['pow-times'](it('sn7:4:3:3:9:2', '9 - 2 \\cdot (-3)^{3}', 63), 27)).toBe(true);
+    expect(props['dec-places'](it('sn7:5:0.3:3', '(-0.3)^{3}', -0.027, { precise: true, fmt: 'dec' }), -0.27)).toBe(true);
+    expect(props['num-only'](it('sn7:5:3/4:2', '\\left(-\\frac{3}{4}\\right)^{2}', 9 / 16, { precise: true }), 9 / 4)).toBe(true);
+    // and not the other way round: a positive answer to (−5)² is no mistake, 25 for −(−5²) is right
+    expect(props['pow-keep-sign'](it('sn7:0:5:3', '(-5)^{3}', -125), -125)).toBe(false);
+  });
+  it('expressions: (a + b)² with a negative sum squared to a negative number is pow-keep-sign, and only that', () => {
+    try {
+      Math.random = seeded(1118);
+      let seen = 0;
+      for (let i = 0; i < 2000 && seen < 50; i += 1) {
+        const it = makeItem('expr', 5);
+        if (!it.key.startsWith('ex5s:square:')) continue;
+        const s = Number(it.key.split(':')[2]);
+        for (let u = -100; u <= 100; u += 1) {
+          if (isCorrect(it, u)) continue;
+          const cat = it.diag(u);
+          if (cat) { expect(cat).toBe('pow-keep-sign'); expect(PROPS.expr[cat](it, u), `${it.key}: ${u}`).toBe(true); }
+        }
+        if (s < 0) { expect(it.diag(-s * s), it.key).toBe('pow-keep-sign'); seen += 1; } else expect(it.diag(-s * s), it.key).toBeNull();
+      }
+      expect(seen).toBeGreaterThan(10);
     } finally { Math.random = real; }
   });
 });

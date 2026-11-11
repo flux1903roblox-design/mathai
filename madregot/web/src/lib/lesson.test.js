@@ -164,7 +164,10 @@ describe('path: done means mastered', () => {
     expect(nextNode(topicsFor('7'), p)).toMatchObject({ topic: 'signed', level: 1 });
     // the halfway chest is the store's: it opens with every stair up to it done, not with the halfway stair alone
     expect(chestOpen('signed', p)).toBe(false);
-    expect(chestOpen('signed', markMastered(markMastered(p, 'signed', 1).path, 'signed', 2).path)).toBe(true);
+    // seven signed stairs since signed:7: the chest is after the fourth
+    const upTo3 = markMastered(markMastered(p, 'signed', 1).path, 'signed', 2).path;
+    expect(chestOpen('signed', upTo3)).toBe(false);
+    expect(chestOpen('signed', markMastered(upTo3, 'signed', 4).path)).toBe(true);
   });
   it('the ring shows how far the five stages went, and is full only with the mastery check', () => {
     expect(stairProgress(undefined, 0)).toBe(0);
@@ -262,8 +265,8 @@ describe('store: lessons, streak and freezes', () => {
     expect(st.learn.skills['signed:1'].mastered).toBeTruthy();
     expect(unitNodes('signed', st.path).slice(0, 2).map((n) => n.state)).toEqual(['done', 'current']);
     expect(st.progress.signed).toEqual({ level: 2, max: 2 });
-    // mastering the halfway stair opens the unit's chest
-    ['signed:2', 'signed:3'].forEach((sk, i) => { const out = useApp.getState().completeCheck({ purpose: 'mastery', skill: sk, topic: 'signed', level: i + 2, right: 4, asked: 5, perSkill: {}, passed: true, xp: 15 }); expect(out.chestOpened).toBe(i === 1); });
+    // mastering the halfway stair opens the unit's chest (the fourth of seven since signed:7)
+    ['signed:2', 'signed:3', 'signed:4'].forEach((sk, i) => { const out = useApp.getState().completeCheck({ purpose: 'mastery', skill: sk, topic: 'signed', level: i + 2, right: 4, asked: 5, perSkill: {}, passed: true, xp: 15 }); expect(out.chestOpened).toBe(i === 2); });
   });
   it('a passed mastery check of an algebra stair moves its own unit (sys:1)', () => {
     useApp.getState().completeLesson({ kind: 'node', topic: 'sys', level: 1, part: 1, xp: 10, passed: true });

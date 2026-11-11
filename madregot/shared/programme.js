@@ -43,7 +43,8 @@ export const PROGRAMME = {
     { id: '7.6', grade: '7', domain: 'numbers', title: 'חזקות עם מעריך טבעי ושורש ריבועי חיובי', months: [12],
       parts: [
         { hours: 2, skills: ['pyth:1'] }, // squares and square roots, with estimating a root
-        { hours: 4, skills: [], note: 'חזקות עם מעריך טבעי וסדר פעולות עם חזקות', later: 'S2' },
+        // powers of directed numbers and order of operations with powers (the classroom lane, CLASSROOM-5)
+        { hours: 4, skills: ['signed:7'], note: 'חזקות עם מעריך טבעי וסדר פעולות עם חזקות' },
       ] },
     { id: '7.7', grade: '7', domain: 'algebra', title: 'משתנים וביטויים אלגבריים (כולל זהות, כינוס, חוק הפילוג)', months: [12, 1, 2, 3],
       parts: [{ hours: 25, skills: range('expr', 1, 5) }] },

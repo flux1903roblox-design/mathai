@@ -97,6 +97,10 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { k: 0, a: -4.2, b: 2.5, ai: -42, bi: 25 } }, // −4.2 + 2.5: the distances added give −6.7
     { model: 'diag', p: { k: 1, x: -1.5, y: 2.75, xi: -6, yi: 11 } }, // −1½ − (−2¾): subtracted as if positive, −4¼
   ],
+  'signed:7': [
+    { model: 'diag', p: { f: 1, a: 2, n: 4 } }, // −2⁴ = −16: read as (−2)⁴ gives 16; the base times the exponent −8
+    { model: 'diag', p: { f: 4, a: 2, n: 2, b: 5, c: 4 } }, // 5 − 4·(−2)² = −11: left to right (5 − 4)·4 = 4; (−2)·2 for the power gives 21
+  ],
   'coord:1': [
     // L is under K(−4, 1) on the x-axis, so L(−4, 0) and its x is −4: "x is 0 on the x-axis" gives 0; the sign lost gives 4
     { bugs: { 'axis-zero': 0, sign: 4 } },

@@ -137,7 +137,12 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
 
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(62); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year)
+    expect(ALL_SKILLS).toHaveLength(63); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year) and signed:7
+    // powers of directed numbers (CLASSROOM-5): the seventh signed stair, after order of operations and signed fractions
+    expect(STAIRS.signed).toBe(7);
+    expect(ALL_SKILLS.filter((s) => s.startsWith('signed:'))).toEqual(['signed:1', 'signed:2', 'signed:3', 'signed:4', 'signed:5', 'signed:6', 'signed:7']);
+    expect(prereqsOf('signed:7')).toEqual(['signed:4', 'signed:6']);
+    expect(ancestorsOf('signed:7')).toEqual(expect.arrayContaining(['signed:1', 'signed:3', 'signed:4', 'signed:6', 'frac:3']));
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));

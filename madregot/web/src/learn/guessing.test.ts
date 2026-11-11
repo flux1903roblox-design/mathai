@@ -34,6 +34,8 @@ import { probeItem, startLevel, nextProbe, PER_TOPIC, PROBE_LEN, KNOW } from '@/
 import { JUMP_SOURCES, JUMP_MISTAKES } from '@/lib/lesson.js';
 // @ts-ignore: plain JS
 import { chainItem, absItem, oppItem, nestedItem, drawNested, nestedTex, nestedValue } from '@/content/signedItems.js';
+// @ts-ignore: plain JS
+import { powItem } from '@/content/signed7.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -197,8 +199,13 @@ describe('the class\'s signed kinds cannot be guessed', () => {
   // alone (spec 11.9%), and the mix the exercises draw
   const shape = (n: number) => (r: () => number) => { const q = drawNested(r, n); return { form: 'num', text: 'חשבו:', display: nestedTex(q), answer: nestedValue(q), key: `n${n}` }; };
   const twoShapes = (r: () => number) => shape(r() < 0.6 ? 1 : 2)(r);
+  // powers (CLASSROOM-5): the checks' mix, F0-F5 in the exercises' shares (F6, a positive base, never reaches a check:
+  // the spec gives 8.3%, measured 9.3% here, because the form is drawn first and keeps its share), and F5 alone (4.1%)
+  const powCheck = (r: () => number) => { for (;;) { const it = powItem(r); if (!it.key.startsWith('sn7:6:')) return it; } };
+  const powF5 = (r: () => number) => powItem(r, 5);
   it.each([['the chain of five', chainItem, 0.05], ['absolute value', absItem, 0.06], ['the opposite', oppItem, 0.055],
-    ['brackets inside brackets, the first two shapes', twoShapes, 0.05], ['dividing by a bracket, alone', shape(3), 0.15], ['brackets inside brackets, as drawn', nestedItem, 0.05]] as const)('%s', (_name, make, most) => {
+    ['brackets inside brackets, the first two shapes', twoShapes, 0.05], ['dividing by a bracket, alone', shape(3), 0.15], ['brackets inside brackets, as drawn', nestedItem, 0.05],
+    ['powers, as the checks draw them', powCheck, 0.105], ['a fraction or a decimal to a power, alone', powF5, 0.05]] as const)('%s', (_name, make, most) => {
     const items = Array.from({ length: 4000 }, () => make(Math.random));
     const freq = new Map<number, number>();
     items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));

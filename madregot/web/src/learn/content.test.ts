@@ -22,6 +22,8 @@ import { TOPIC, fairForCheck, makeItem, namesOf } from '@/content/index.js';
 import { drawNested, nestedBugs, nestedValue } from '@/content/signedItems.js';
 // @ts-ignore: plain JS
 import { T } from '@/content/util.js';
+// @ts-ignore: plain JS
+import { drawPow, powValue, powBugs, POW_MIX } from '@/content/signed7.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -730,5 +732,81 @@ describe('the real classroom: signed:3 and signed:5', () => {
     const r2 = seeded(2029); let f2 = 0;
     for (let i = 0; i < DRAWS * 5; i += 1) { const p = s5.diag.params(r2); const v = s5.diag.bugs['factor-sign'](p); if (v != null && !same(v, s5.diag.answer(p))) f2 += 1; }
     expect(f2 / (DRAWS * 5)).toBeGreaterThan(0.04);
+  });
+});
+
+// CLASSROOM-5: the new stair signed:7, powers of directed numbers, taught in the class's written form
+describe('the real classroom: signed:7, powers of directed numbers', () => {
+  const s7 = CONTENT['signed:7'];
+  const step = (pred: (st: DiscoverStep) => boolean) => s7.discover.findIndex(pred);
+  it('teaches in the spec\'s order: the meaning, (−5)², the predict, the rule, odd and even, then the decimal', () => {
+    const meaning = step((st) => st.kind === 'say' && st.text.includes('הבסיס') && st.text.includes('המעריך'));
+    const sq = step((st) => st.kind === 'say' && (st.display || '') === '(-5)^2 = (-5)(-5) = +25 = 25');
+    const predict = step((st) => st.kind === 'predict' && st.choices[st.answer] === '$25$ ו־$-25$');
+    const rule = step((st) => st.kind === 'rule' && st.text.includes('המעריך שייך למה שצמוד אליו'));
+    const parity = step((st) => st.kind === 'rule' && st.text.includes('מעריך זוגי'));
+    const decimal = step((st) => st.kind === 'predict' && (st.display || '') === '(-0.3)^3');
+    expect([meaning, sq, predict, rule, parity, decimal]).toEqual([0, 1, 2, 3, 4, 6]);
+    expect((s7.discover[0] as Extract<DiscoverStep, { kind: 'say' }>).display).toBe('2^5 = 2 \\cdot 2 \\cdot 2 \\cdot 2 \\cdot 2 = 32');
+    expect((s7.discover[rule] as Extract<DiscoverStep, { kind: 'rule' }>).display).toBe('-5^2 = (-5 \\cdot 5) = -25');
+    // the odd and even rule links to signed:3's many negative factors, and says only an even exponent shows the difference
+    expect((s7.discover[parity] as Extract<DiscoverStep, { kind: 'rule' }>).why).toContain('כל זוג מינוסים נותן פלוס');
+    expect((s7.discover[parity] as Extract<DiscoverStep, { kind: 'rule' }>).why).toContain('רק מעריך זוגי');
+    expect((s7.discover[decimal] as Extract<DiscoverStep, { kind: 'predict' }>).choices[0]).toBe('$-0.027$');
+    // every step shows a picture: the factors as tiles side by side, or the number line
+    s7.discover.forEach((st, i) => expect(!!((st as { fig?: unknown }).fig || (st as { manip?: unknown }).manip), `step ${i}`).toBe(true));
+    // pow-odd-pos repairs through signed:3, where many negative factors are taught (neg-many); order through signed:4
+    expect(s7.misconceptions.find((m) => m.id === 'pow-odd-pos')!.prereq).toBe('signed:3');
+    expect(s7.misconceptions.find((m) => m.id === 'order')!.prereq).toBe('signed:4');
+  });
+  it('the app\'s evaluator gives every value the teaching writes', () => {
+    const facts: [string, number][] = [['2^5', 32], ['(-5)^2', 25], ['(-5)*(-5)', 25], ['-5^2', -25], ['-(5*5)', -25], ['(-3)^4', 81], ['-3^4', -81],
+      ['(-4)^3', -64], ['-4^3', -64], ['-(-5)^2', -25], ['-(-5^2)', 25], ['9 - 2*(-3)^3', 63], ['(-0.3)^3', -0.027], ['(-3/4)^2', 9 / 16],
+      ['(-2)^2 - 9', -5], ['(-3/4)^3', -27 / 64], ['(-1.2)^2', 1.44], ['-2^4', -16], ['5 - 4*(-2)^2', -11]];
+    facts.forEach(([e, v]) => expect(same(evaluate(e), v), e).toBe(true));
+    // the F4 example's mistakes: left to right −189, the odd power taken as positive −45, the base times the exponent 27
+    expect(powBugs({ f: 4, a: 3, n: 3, b: 9, c: 2 })).toEqual({ order: -189, 'pow-odd-pos': -45, 'pow-times': 27 });
+    s7.examples.forEach((ex, k) => checkExample(ex, k));
+    expect(s7.examples.map((e) => e.answer)).toEqual([-25, 25, 63]);
+  });
+  it('every mistake shows on more than 4% of the draws of its form and of the model\'s, and pow-keep-sign on about 15% of the checks (spec 15.2%)', () => {
+    const rnd = seeded(2030);
+    const FORMS: Record<number, string[]> = { 0: ['pow-odd-pos', 'pow-keep-sign', 'pow-times'], 1: ['pow-neg-base', 'pow-times'], 2: ['outer-minus', 'pow-times'],
+      3: ['outer-minus', 'pow-times'], 4: ['order', 'pow-odd-pos', 'pow-times'], 5: ['pow-odd-pos', 'pow-times', 'dec-places', 'num-only'], 6: ['pow-times'] };
+    for (const [f, ids] of Object.entries(FORMS)) {
+      const shown: Record<string, number> = {};
+      for (let i = 0; i < 1000; i += 1) {
+        const q = drawPow(rnd, Number(f)); const ans = powValue(q);
+        Object.entries(powBugs(q) as Record<string, number | null>).forEach(([id, v]) => { if (v != null && !same(v, ans)) shown[id] = (shown[id] || 0) + 1; });
+      }
+      expect(Object.keys(shown).sort(), `F${f}`).toEqual([...ids].sort());
+      ids.forEach((id) => expect(shown[id] / 1000, `F${f} ${id}`).toBeGreaterThan(0.04));
+    }
+    // the model's own draws
+    const shownM: Record<string, number> = {};
+    const r2 = seeded(2031);
+    for (let i = 0; i < 4000; i += 1) {
+      const p = s7.diag.params(r2); const ans = s7.diag.answer(p);
+      Object.entries(s7.diag.bugs).forEach(([id, b]) => { const v = b(p); if (v != null && !same(v, ans)) shownM[id] = (shownM[id] || 0) + 1; });
+    }
+    Object.keys(s7.diag.bugs).forEach((id) => expect(shownM[id] / 4000, `model ${id}`).toBeGreaterThan(0.04));
+    // the checks' mix (F0-F5 in the exercises' shares; F6, a positive base, never reaches a check)
+    const r3 = seeded(2032); let keep = 0; const N = 8000;
+    for (let i = 0; i < N; i += 1) {
+      let f: number; do { const y = r3(); let acc = 0; f = (POW_MIX as [number, number][]).find(([, w]) => (acc += w) > y)![0]; } while (f === 6);
+      const q = drawPow(r3, f); if (powBugs(q)['pow-keep-sign'] != null) keep += 1;
+    }
+    expect(keep / N).toBeGreaterThan(0.12);
+    expect(keep / N).toBeLessThan(0.19);
+  });
+  it('a question never has a mistake that predicts the answer, two mistakes on one value, or a slip, and F6 never reaches a check', () => {
+    const rnd = seeded(2033);
+    for (let i = 0; i < 3000; i += 1) {
+      const q = drawPow(rnd); const ans = powValue(q);
+      const vals = Object.values(powBugs(q) as Record<string, number | null>).filter((v): v is number => v != null);
+      vals.forEach((v) => expect(same(v, ans), JSON.stringify(q)).toBe(false));
+      expect(new Set(vals.map((v) => v.toFixed(6))).size, JSON.stringify(q)).toBe(vals.length);
+    }
+    for (let i = 0; i < 300; i += 1) { const it = makeItem('signed', 7); expect(fairForCheck(it), it.key).toBe(!it.key.startsWith('sn7:6:')); }
   });
 });

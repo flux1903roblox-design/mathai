@@ -35,6 +35,7 @@ export const STAIR_NAMES = Object.freeze({
   'signed:4': 'סדר פעולות',
   'signed:5': 'סוגריים',
   'signed:6': 'שברים ועשרוניים מכוונים',
+  'signed:7': 'חזקות של מספרים מכוונים',
   'coord:1': 'קריאת נקודה',
   'coord:2': 'רביעים',
   'coord:3': 'אורך קטע',

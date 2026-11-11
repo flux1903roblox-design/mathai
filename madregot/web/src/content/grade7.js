@@ -4,6 +4,7 @@ import { EXPR } from './expr.js';
 import { EQ } from './eq.js';
 import { FRAC } from './frac.js';
 import { SIGNED6_LEVEL } from './signed6.js';
+import { SIGNED7_LEVEL } from './signed7.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
 import { signOutside, chainItem, regroupItem, absItem, oppItem, absMc, zeroOne, nestedItem } from './signedItems.js';
 
@@ -437,6 +438,9 @@ export const GRADE7 = [
       { title: 'סוגריים', gen: () => (Math.random() < 0.6 ? brackets() : nestedItem(rnd)) },
       // signed fractions and decimals (content/signed6.js): the programme's "שלמים, שברים פשוטים ועשרוניים"
       SIGNED6_LEVEL,
+      // CLASSROOM-5: powers of directed numbers (content/signed7.js), the programme's 7.6 part 2, after the stairs above
+      // so saved progress keeps its levels
+      SIGNED7_LEVEL,
     ],
     cats: {
       sign: 'התשובה יצאה עם הסימן ההפוך',
@@ -457,6 +461,14 @@ export const GRADE7 = [
       'div-zero': 'חשבו שחילוק באפס נותן $0$ או את המספר עצמו (חילוק באפס לא מוגדר)',
       'zero-div': 'חשבו ש־$0$ חלקי מספר לא מוגדר (התוצאה $0$)',
       'factor-sign': 'המינוס של המספר שלפני הסוגריים נעלם בסוף',
+      // CLASSROOM-5 (signed:7, powers)
+      'pow-neg-base': 'קראו $-a^2$ כאילו כתוב $(-a)^2$: החזקה שייכת רק למספר, והמינוס נשאר בחוץ',
+      'pow-odd-pos': 'חשבו שמספר שלילי בחזקה יוצא תמיד חיובי (במעריך אי־זוגי התוצאה שלילית)',
+      'pow-keep-sign': 'השאירו את המינוס של הבסיס גם במעריך זוגי ($(-5)^2 = -25$)',
+      'outer-minus': 'התעלמו מהמינוס שלפני הסוגריים',
+      'pow-times': 'כפלו את הבסיס במעריך במקום כפל חוזר ($(-5)^2 = -10$)',
+      'dec-places': 'טעו במספר המקומות אחרי הנקודה ($(-0.3)^3 = -0.27$)',
+      'num-only': 'העלו בחזקה רק את המונה ($(-\\tfrac{3}{4})^2 = \\tfrac{9}{4}$)',
     },
   },
   {

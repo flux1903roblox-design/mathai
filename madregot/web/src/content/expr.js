@@ -411,7 +411,9 @@ function structureItem() {
     key: `ex5s:${kind}:${s}:${m}`, text: `נתון: $a + b = ${T(s)}$. מה ערך הביטוי?`, display: show, form: 'num', answer: ans,
     hint: 'לא צריך לדעת מה $a$ ומה $b$. הסוגריים הם מספר אחד, והוא ידוע.',
     solution: [`מציבים $${T(s)}$ במקום $a + b$.`, kind === 'k' ? `$${m} \\cdot ${T(s, true)} = ${T(ans)}$` : kind === 'half' ? `$${T(s)} : 2 = ${T(ans)}$` : `$${T(s, true)}^2 = ${T(ans)}$`],
-    diag: () => null,
+    // CLASSROOM-5: a negative sum squared, with its minus kept ((−4)² as −16) is signed:7's pow-keep-sign; not
+    // pow-neg-base, whose words (−a² read as (−a)²) say the opposite
+    diag: (u) => (kind === 'square' && s < 0 && near(u, -s * s) ? 'pow-keep-sign' : null),
   };
 }
 
@@ -457,6 +459,8 @@ export const EXPR = {
     detach: 'המינוס עבר גם לאיבר שאחריו ($9 - 3x + 2x$ הפך ל־$9 - 5x$)',
     'partial-dist': 'רק האיבר הראשון שבסוגריים נכפל',
     'minus-bracket': 'מינוס לפני סוגריים הפך רק את הסימן הראשון',
+    // CLASSROOM-5: (a + b)² with a negative sum squared to a negative number, as signed:7 names it
+    'pow-keep-sign': 'השאירו את המינוס של הבסיס גם במעריך זוגי ($(-5)^2 = -25$)',
   },
   lesson: {
     points: [

@@ -97,15 +97,15 @@ describe('counters that move from the first stage', () => {
   });
 
   it('a unit says its size first, then stages, then stairs, and never "0 מתוך"', () => {
-    // signed numbers: six stairs since signed:6 (signed fractions and decimals)
+    // signed numbers: seven stairs since signed:7 (powers, CLASSROOM-5), after signed:6 (signed fractions and decimals)
     const fresh = unitProgress('signed', {}, {});
-    expect(unitCountText(fresh)).toBe('6 מדרגות');
+    expect(unitCountText(fresh)).toBe('7 מדרגות');
     const started = unitProgress('signed', {}, { [S]: { attempts: [], taught: { A: 'x' } } });
-    expect(started).toMatchObject({ stages: 1, of: 30, done: 0 });
-    expect(unitCountText(started)).toBe('1 מתוך 30 שלבים');
+    expect(started).toMatchObject({ stages: 1, of: 35, done: 0 });
+    expect(unitCountText(started)).toBe('1 מתוך 35 שלבים');
     const mastered = unitProgress('signed', { signed: { parts: { 1: PARTS }, done: { 1: 'mastered' } } }, { [S]: { attempts: [], taught: { A: 'x', B: 'x', C: 'x' }, mastered: { at: 'x', box: 0, due: 'x' } } });
     expect(mastered).toMatchObject({ done: 1, stages: 5 });
-    expect(unitCountText(mastered)).toBe('1 מתוך 6 מדרגות');
+    expect(unitCountText(mastered)).toBe('1 מתוך 7 מדרגות');
     for (const p of [fresh, started, mastered]) expect(unitCountText(p)).not.toMatch(/^0 /);
     // an algebra unit the same way
     expect(unitCountText(unitProgress('eq', {}, {}))).toBe('5 מדרגות');
@@ -134,8 +134,9 @@ describe('a stair added to a unit after it was climbed (signed:6)', () => {
     const nodes = unitNodes('signed', path);
     expect(nodes.slice(0, 5).map((n) => n.state)).toEqual(['done', 'done', 'done', 'done', 'done']);
     expect(nodes[5]).toMatchObject({ level: 6, state: 'current', title: 'שברים ועשרוניים מכוונים' });
-    // the unit review waits for the new stair
-    expect(nodes[6]).toMatchObject({ kind: 'review', state: 'locked' });
+    // the stair after it (signed:7) and the unit review wait for the new stair
+    expect(nodes[6]).toMatchObject({ kind: 'node', level: 7, state: 'locked' });
+    expect(nodes[7]).toMatchObject({ kind: 'review', state: 'locked' });
     expect(addedStairNote(nodes[5], path)).toBe('נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.');
     // no other card says it
     nodes.filter((n) => n !== nodes[5]).forEach((n) => expect(addedStairNote(n, path)).toBeNull());
@@ -146,5 +147,21 @@ describe('a stair added to a unit after it was climbed (signed:6)', () => {
     expect(addedStairNote(unitNodes('signed', open)[5], open)).toBeNull();
     const all = { signed: { parts: {}, reviews: 1, jumped: 0, done: { ...five, 6: 'mastered' } } };
     expect(addedStairNote(unitNodes('signed', all)[5], all)).toBeNull();
+  });
+});
+
+describe('a second stair added the same way (signed:7, powers, CLASSROOM-5)', () => {
+  const six = { 1: 'mastered', 2: 'mastered', 3: 'kept', 4: 'mastered', 5: 'mastered', 6: 'mastered' };
+  it('a student who finished the six stairs keeps them, and the seventh is current with its own line', () => {
+    const path = { signed: { parts: { 6: 2 }, reviews: 1, jumped: 0, done: six } };
+    const nodes = unitNodes('signed', path);
+    expect(nodes.slice(0, 6).map((n) => n.state)).toEqual(['done', 'done', 'done', 'done', 'done', 'done']);
+    expect(nodes[6]).toMatchObject({ level: 7, state: 'current', title: 'חזקות של מספרים מכוונים' });
+    expect(nodes[7]).toMatchObject({ kind: 'review', state: 'locked' });
+    expect(addedStairNote(nodes[6], path)).toBe('נוספה מדרגה חדשה ליחידה: חזקות של מספרים מכוונים.');
+    nodes.filter((n) => n !== nodes[6]).forEach((n) => expect(addedStairNote(n, path)).toBeNull());
+    // and once it is done, nothing
+    const all = { signed: { parts: {}, reviews: 1, jumped: 0, done: { ...six, 7: 'mastered' } } };
+    expect(unitNodes('signed', all).map((n) => addedStairNote(n, all))).toEqual(Array(8).fill(null));
   });
 });

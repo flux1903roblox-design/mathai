@@ -971,10 +971,33 @@
      2,
      1
     ]
+   },
+   "signed:7": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     3
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2,
+     2,
+     2,
+     2,
+     1
+    ],
+    "objectives": 4,
+    "together": [
+     2,
+     2
+    ]
    }
   },
-  "stairs": 6,
-  "steps": 203
+  "stairs": 7,
+  "steps": 237
  },
  "stats": {
   "skills": {

@@ -29,21 +29,30 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   });
 });
 
-// Stage 1 is complete with percent: the live coverage, from the stairs this build has, is the stage-1 fixture's of
-// worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4 and pct:1-5): ז׳ 104 of 150, ח׳ 66 of 147, 57%.
-describe('stage 1\'s coverage, live', () => {
+// Stage 1 is complete with percent, and the classroom lane adds signed:7 (CLASSROOM-5): the live coverage, from the stairs
+// this build has, is the classroom fixture's of worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4,
+// pct:1-5 and signed:7): ז׳ 108 of 150, ח׳ 66 of 147, 59%.
+describe('stage 1\'s coverage with the classroom lane\'s powers, live', () => {
   const STAGE1 = [
     ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
     ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
     'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
+    'signed:7',
   ];
-  it('has exactly the stage-1 stairs (the bridge unit aside), and their hours', () => {
+  it('has exactly the stage-1 stairs and signed:7 (the bridge unit aside), and their hours', () => {
     expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE1].sort());
     const c7 = coverageOf('7'); const c8 = coverageOf('8');
-    expect([c7.taught, c7.hours]).toEqual([104, 150]);
+    expect([c7.taught, c7.hours]).toEqual([108, 150]);
     expect([c8.taught, c8.hours]).toEqual([66, 147]);
-    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(57);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(59);
     expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+  });
+  it('signed:7 is in 7.6: powers with a natural exponent and order of operations with powers, the unit now whole', () => {
+    const u = coverageOf('7').units.find((x) => x.id === '7.6')!;
+    expect(u).toMatchObject({ hours: 6, taught: 6, state: 'yes', missing: [] });
+    expect(u.stairs).toEqual(['pyth:1', 'signed:7']);
+    expect(u.parts.find((p) => p.skills.includes('signed:7'))).toMatchObject({ hours: 4, taught: true, later: null });
+    expect(notYetOf('7')).not.toContain('חזקות עם מעריך טבעי וסדר פעולות עם חזקות');
   });
 });
 

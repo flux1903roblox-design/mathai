@@ -382,6 +382,8 @@
   "signed:5/gen",
   "signed:6/diag",
   "signed:6/gen",
+  "signed:7/diag",
+  "signed:7/gen",
   "coord:1/diag",
   "coord:1/gen",
   "coord:2/diag",
@@ -2064,6 +2066,43 @@
     "signed:6/probe/abs-add",
     "signed:6/probe/abs-add",
     "signed:6/control/abs-add"
+   ]
+  }
+ },
+ "signed:7": {
+  "items": [
+   "mastery0:sn7:3:4:3|64|gen",
+   "mastery1:sn7:1:3:3|-27|gen",
+   "mastery2:signed:7:diag:{\"f\":4,\"a\":3,\"n\":3,\"b\":9,\"c\":5}|144|diag",
+   "mastery3:sn7:3:3:2|9|gen",
+   "mastery4:signed:7:transfer:{\"f\":0,\"a\":5,\"n\":2}|25|transfer",
+   "review0:signed:7:transfer:{\"f\":0,\"a\":3,\"n\":2}|9|transfer",
+   "review1:sn7:3:4:2|16|gen",
+   "review2:signed:7:diag:{\"f\":4,\"a\":3,\"n\":3,\"b\":9,\"c\":5}|144|diag",
+   "verify0:signed:7:probe:{\"f\":1,\"a\":5,\"n\":2}|-25|probe",
+   "verify1:signed:7:probe:{\"f\":1,\"a\":5,\"n\":2}|-25|probe",
+   "verify2:signed:7:control:{\"f\":4,\"a\":3,\"n\":3,\"b\":9,\"c\":5}|144|control",
+   "gen:sn7:1:3:3|-27|gen",
+   "diag:signed:7:diag:{\"f\":3,\"a\":4,\"n\":3}|64|diag",
+   "transfer:signed:7:transfer:{\"f\":0,\"a\":4,\"n\":3}|-64|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "signed:7/gen/",
+    "signed:7/gen/",
+    "signed:7/diag/",
+    "signed:7/gen/",
+    "signed:7/transfer/"
+   ],
+   "review": [
+    "signed:7/transfer/",
+    "signed:7/gen/",
+    "signed:7/diag/"
+   ],
+   "verify": [
+    "signed:7/probe/pow-neg-base",
+    "signed:7/probe/pow-neg-base",
+    "signed:7/control/pow-neg-base"
    ]
   }
  },
