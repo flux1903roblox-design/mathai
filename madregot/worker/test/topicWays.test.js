@@ -147,8 +147,8 @@ test('transf: a shortcut stated as a rule is caught; the app\'s own words and th
 test('congr has models, the app\'s words and a pattern for every shortcut, and the tutor\'s ways take it after statistics', () => {
   const w = GEOM.congr;
   assert.ok(w.models.length > 200);
-  assert.match(w.models, /read in the order of its letters.*turned or mirrored.*sides equal to its two sides meet.*צ\.ז\.צ.*ז\.צ\.ז.*third angle can be found first.*צ\.צ\.צ.*not between them.*three angles.*perimeter or area.*טענה.*נימוק.*common side.*vertical angles.*only then the conclusions.*median.*halves the side and the area.*not the shape.*height is the perpendicular/s);
-  assert.deepEqual(w.words, ['צלעות מתאימות', 'זוויות מתאימות', 'משפט חפיפה', 'צ.ז.צ', 'ז.צ.ז', 'צ.צ.צ', 'טענה', 'נימוק', 'נתון', 'צ״ל', 'צלע משותפת', 'זוויות קודקודיות', 'תיכון', 'דלתון']);
+  assert.match(w.models, /read in the order of its letters.*turned or mirrored.*sides equal to its two sides meet.*צ\.ז\.צ.*ז\.צ\.ז.*third angle can be found first.*צ\.צ\.צ.*not between them.*three angles.*perimeter or area.*טענה.*נימוק.*common side.*vertical angles.*only then the conclusions.*median.*halves the side and the area.*not the shape.*height is the perpendicular.*between the difference and the sum.*lies flat.*largest angle faces the longest side/s);
+  assert.deepEqual(w.words, ['צלעות מתאימות', 'זוויות מתאימות', 'משפט חפיפה', 'צ.ז.צ', 'ז.צ.ז', 'צ.צ.צ', 'טענה', 'נימוק', 'נתון', 'צ״ל', 'צלע משותפת', 'זוויות קודקודיות', 'תיכון', 'דלתון', 'אי־שוויון המשולש']);
   assert.ok(w.avoid.length === 3 && w.avoidRe.length >= 2);
   assert.equal(TOPIC_WAYS.congr, w);
   const order = Object.keys(TOPIC_WAYS);

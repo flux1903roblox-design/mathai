@@ -199,6 +199,28 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "congr:5": {
+    "title": "צלעות במשולש",
+    "misconceptions": [
+      {
+        "id": "sum-equal",
+        "title": "חשבו שאפשר משולש גם כשסכום שתי צלעות שווה לשלישית"
+      },
+      {
+        "id": "no-lower-limit",
+        "title": "בדקו רק שהצלע השלישית קצרה מהסכום, ולא שהיא ארוכה מההפרש"
+      },
+      {
+        "id": "ignore-inequality",
+        "title": "בחרו שוקיים קצרות מדי, שאינן נפגשות"
+      },
+      {
+        "id": "angle-at-side",
+        "title": "חיפשו את הזווית הגדולה ליד הצלע הגדולה, ולא מולה"
+      }
+    ],
+    "transfer": true
+  },
   "coord:1": {
     "title": "קריאת נקודה",
     "misconceptions": [

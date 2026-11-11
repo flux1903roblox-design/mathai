@@ -64,7 +64,8 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // purpose. A further topic moves it only on purpose too: curriculum stage 4's transformations (their way, with the
   // gap, the line x = k, the turn's direction and the glued side, and four stair names) took it to about 21,400; the
   // congruent triangles (their way: the order of the letters, the three theorems and what is not one, the proof's table
-  // and the median, and four stair names) to about 23,050, so the cap moved to 24,000, on purpose.
+  // and the median, and four stair names) to about 23,050, so the cap moved to 24,000, on purpose; congr:5 (the third
+  // side and the largest angle, and its stair name) to about 23,200.
   assert.ok(s.length < 24000, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');

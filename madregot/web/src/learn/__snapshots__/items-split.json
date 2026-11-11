@@ -332,6 +332,43 @@
    ]
   }
  },
+ "congr:5": {
+  "items": [
+   "mastery0:cg5n:4:20|7|gen",
+   "mastery1:cg5n:16:9|17|gen",
+   "mastery2:congr:5:diag:{\"a\":15,\"b\":12}|23|diag",
+   "mastery3:cg5i:5:20|45|gen",
+   "mastery4:congr:5:transfer:{\"a\":16,\"b\":7}|13|transfer",
+   "review0:congr:5:transfer:{\"a\":6,\"b\":8}|11|transfer",
+   "review1:cg5i:8:16|40|gen",
+   "review2:congr:5:diag:{\"a\":15,\"b\":12}|23|diag",
+   "verify0:congr:5:probe:{\"a\":6,\"b\":8}|11|probe",
+   "verify1:congr:5:probe:{\"a\":5,\"b\":16}|9|probe",
+   "verify2:congr:5:diag:{\"a\":18,\"b\":4}|7|diag",
+   "gen:cg5i:4:17|38|gen",
+   "diag:congr:5:diag:{\"a\":18,\"b\":12}|23|diag",
+   "transfer:congr:5:transfer:{\"a\":18,\"b\":12}|23|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "congr:5/gen/",
+    "congr:5/gen/",
+    "congr:5/diag/",
+    "congr:5/gen/",
+    "congr:5/transfer/"
+   ],
+   "review": [
+    "congr:5/transfer/",
+    "congr:5/gen/",
+    "congr:5/diag/"
+   ],
+   "verify": [
+    "congr:5/probe/sum-equal",
+    "congr:5/probe/sum-equal",
+    "congr:5/control/sum-equal"
+   ]
+  }
+ },
  "coord:1": {
   "items": [
    "mastery0:cp1p:-6:6|[-6,6]|gen",
@@ -650,6 +687,8 @@
   "congr:3/gen",
   "congr:4/diag",
   "congr:4/gen",
+  "congr:5/diag",
+  "congr:5/gen",
   "sys:1/diag",
   "sys:1/gen",
   "sys:2/diag",

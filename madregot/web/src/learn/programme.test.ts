@@ -40,24 +40,26 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   });
 });
 
-// Stage 1 is complete with percent, and curriculum stage 4 adds the transformations (transf:1-4, units 7.11 and 8.5): the
-// live coverage, from the stairs this build has, is the stage-4 fixture's of worker/test/coverage.test.js (HEAD's 48
-// stairs, signed:6, ratio:1-4, pct:1-5 and transf:1-4): ז׳ 109 of 150, ח׳ 71 of 147, 61%.
-describe('stage 1\'s coverage with the transformations, live', () => {
+// Stage 1 is complete with percent, and curriculum stage 4 adds the transformations (transf:1-4, units 7.11 and 8.5) and
+// the congruent triangles (congr:1-5, unit 8.12): the live coverage, from the stairs this build has, is the stage-7
+// fixture's of worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4, pct:1-5, transf:1-4 and congr:1-5):
+// ז׳ 109 of 150, ח׳ 87 of 147, 66%.
+describe('stage 1\'s coverage with the transformations and congruence, live', () => {
   const STAGE4 = [
     ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
     ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
     'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
     'transf:1', 'transf:2', 'transf:3', 'transf:4',
-    // congruence, 8.12: listed, but its part is taught only with congr:5 (the hours stay as they were)
-    'congr:1', 'congr:2', 'congr:3', 'congr:4',
+    // congruence, 8.12: whole with congr:5, the sides of a triangle (16 hours)
+    'congr:1', 'congr:2', 'congr:3', 'congr:4', 'congr:5',
   ];
   it('has exactly those stairs (the bridge unit aside), and their hours', () => {
     expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE4].sort());
     const c7 = coverageOf('7'); const c8 = coverageOf('8');
     expect([c7.taught, c7.hours]).toEqual([109, 150]);
-    expect([c8.taught, c8.hours]).toEqual([71, 147]);
-    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(61);
+    expect([c8.taught, c8.hours]).toEqual([87, 147]);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(66);
+    expect(c8.units.find((u) => u.id === '8.12')).toMatchObject({ taught: 16, state: 'yes', stairs: ['congr:1', 'congr:2', 'congr:3', 'congr:4', 'congr:5'] });
     expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
     expect(c7.units.find((u) => u.id === '7.11')).toMatchObject({ taught: 5, state: 'yes', stairs: ['transf:1', 'transf:2', 'transf:3', 'transf:4'] });
     expect(c8.units.find((u) => u.id === '8.5')).toMatchObject({ taught: 5, state: 'yes', stairs: ['transf:1', 'transf:2', 'transf:3', 'transf:4'] });

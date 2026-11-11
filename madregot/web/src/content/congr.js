@@ -5,15 +5,14 @@
 // The arithmetic (the diagnostic models, the practice generators, their texts and the two-triangle drawings) is
 // content/congr.gen.js, which loads with the topic's teaching content; each level's gen() calls it there
 // (content/lazyGen.js). The proof templates and the reason bank are content/proofs.js, loaded with them.
-// The fifth stair, the sides of a triangle (the triangle inequality), comes with its own stage: then 8.12's part counts.
 import { lazyLevels } from './lazyGen.js';
 
 export const CONGR = {
   id: 'congr', grade: '8', title: 'חפיפת משולשים', color: 'cobalt',
-  desc: 'צלעות וזוויות מתאימות, משפטי החפיפה, הוכחה בחפיפה ותיכון',
+  desc: 'צלעות וזוויות מתאימות, משפטי החפיפה, הוכחה, תיכון וצלעות במשולש',
   // taught in January and February: the first-day placement test does not ask about it (the jump test does)
   placement: false,
-  levels: lazyLevels('congr', ['צלעות וזוויות מתאימות', 'משפטי החפיפה', 'הוכחה בחפיפה', 'תיכון ושטחים']),
+  levels: lazyLevels('congr', ['צלעות וזוויות מתאימות', 'משפטי החפיפה', 'הוכחה בחפיפה', 'תיכון ושטחים', 'צלעות במשולש']),
   cats: {
     'alpha-order': 'התאימו קודקודים לפי סדר האלף־בית, ולא לפי הסדר שבחפיפה',
     'match-by-place': 'התאימו קודקודים לפי המקום בשרטוט, ולא לפי החפיפה',
@@ -31,6 +30,10 @@ export const CONGR = {
     'full-side': 'חיברו את כל הצלע במקום את החצי שלה',
     'median-congruent': 'חשבו שתיכון מחלק משולש לשני משולשים חופפים',
     'median-altitude': 'בלבלו בין תיכון, גובה וחוצה זווית',
+    'sum-equal': 'חשבו שאפשר משולש גם כשסכום שתי צלעות שווה לשלישית',
+    'no-lower-limit': 'בדקו רק שהצלע השלישית קצרה מהסכום, ולא שהיא ארוכה מההפרש',
+    'ignore-inequality': 'בחרו שוקיים קצרות מדי, שאינן נפגשות',
+    'angle-at-side': 'חיפשו את הזווית הגדולה ליד הצלע הגדולה, ולא מולה',
   },
   lesson: {
     points: [
@@ -38,7 +41,8 @@ export const CONGR = {
       'משפטי החפיפה: צ.ז.צ, ז.צ.ז, צ.צ.צ. שתי צלעות וזווית שלא ביניהן לא מספיקות.',
       'אם $\\sphericalangle A = 50°$ ו־$\\sphericalangle B = 60°$, הזווית השלישית $70°$.',
       'תיכון מחלק משולש לשני משולשים שווי שטח.',
+      'צלעות $12$ ו־$5$: הצלע השלישית בין $7$ ל־$17$.',
     ],
-    words: ['משולשים חופפים', 'צלעות מתאימות', 'זוויות מתאימות', 'משפט חפיפה', 'צ.ז.צ', 'ז.צ.ז', 'צ.צ.צ', 'טענה', 'נימוק', 'צלע משותפת', 'תיכון', 'גובה'],
+    words: ['משולשים חופפים', 'צלעות מתאימות', 'זוויות מתאימות', 'משפט חפיפה', 'צ.ז.צ', 'ז.צ.ז', 'צ.צ.צ', 'טענה', 'נימוק', 'צלע משותפת', 'תיכון', 'גובה', 'אי־שוויון המשולש'],
   },
 };

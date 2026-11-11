@@ -22,7 +22,8 @@ export type Rng = () => number;
  * Fractions and ratio: 'fbar' (the fraction bar { start: { den, shaded }, lockDen?, maxDen?, marks?, whole? }; the answer
  * is { mode: 'value', value } | { mode: 'common', of } | { mode: 'exact', den, shaded }) and 'dline' (the double number
  * line { top, bottom, move: 't' | 'max', start: { t, max? }, fixT? }; the answer is the marker's top value or the bottom
- * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`.
+ * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`; 'numberline' takes
+ * `plain` (a line of lengths, from 0: no frost and fire on its ground).
  * Geometry (curriculum stage 4): 'transform' (a copy of a shape moved, flipped and turned on the grid, GEOM-2: the
  * spec is TransformSpec, the value the copy's vertices, the answer { pts, match? }) and 'proof' (a proof in the class's
  * table טענה | נימוק, GEOM-3: the challenge track's `order` part as a practice object).

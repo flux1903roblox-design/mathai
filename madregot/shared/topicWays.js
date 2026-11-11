@@ -82,9 +82,9 @@ export const SIGNED_FRACTIONS = String.raw`Fractions and decimals with a sign (s
 
 /**
  * The tutor's ways for curriculum stage 4's geometry (stage4 spec GEOM-1 item 8, through AI-2's rules as above):
- * transformations (transf:1-4, web/src/learn/content/transf.ts) and congruent triangles (congr:1-4,
+ * transformations (transf:1-4, web/src/learn/content/transf.ts) and congruent triangles (congr:1-5,
  * web/src/learn/content/congr.ts). pedagogy.js takes them into TOPIC_WAYS in school order: the transformations after the
- * angles, congruence after statistics. (The congruence model leaves out the triangle inequality: it comes with congr:5.)
+ * angles, congruence after statistics.
  */
 export const TOPIC_WAYS_GEOM = Object.freeze({
   transf: {
@@ -105,8 +105,8 @@ export const TOPIC_WAYS_GEOM = Object.freeze({
     ],
   },
   congr: {
-    models: String.raw`$\triangle ABC \cong \triangle KML$ is read in the order of its letters: $A \leftrightarrow K$, $B \leftrightarrow M$, $C \leftrightarrow L$, wherever the second triangle is drawn (turned or mirrored); corresponding sides join corresponding vertices, and equal sides face equal angles. Without a written congruence the correspondence comes from the equal parts: a vertex matches the point where the sides equal to its two sides meet. The theorems: צ.ז.צ (two sides and the angle between them), ז.צ.ז (two angles and the side between them; the third angle can be found first) and צ.צ.צ. Two sides with an angle not between them, three angles, or an equal perimeter or area are not enough. A proof is a two-column table, טענה and נימוק: the givens, what the drawing adds (a common side, vertical angles), the congruence with its theorem, and only then the conclusions, "corresponding sides (angles) in congruent triangles". A median goes to the middle of the opposite side: it halves the side and the area (equal bases, the same height), not the shape; the height is the perpendicular, not the median.`,
-    words: ['צלעות מתאימות', 'זוויות מתאימות', 'משפט חפיפה', 'צ.ז.צ', 'ז.צ.ז', 'צ.צ.צ', 'טענה', 'נימוק', 'נתון', 'צ״ל', 'צלע משותפת', 'זוויות קודקודיות', 'תיכון', 'דלתון'],
+    models: String.raw`$\triangle ABC \cong \triangle KML$ is read in the order of its letters: $A \leftrightarrow K$, $B \leftrightarrow M$, $C \leftrightarrow L$, wherever the second triangle is drawn (turned or mirrored); corresponding sides join corresponding vertices, and equal sides face equal angles. Without a written congruence the correspondence comes from the equal parts: a vertex matches the point where the sides equal to its two sides meet. The theorems: צ.ז.צ (two sides and the angle between them), ז.צ.ז (two angles and the side between them; the third angle can be found first) and צ.צ.צ. Two sides with an angle not between them, three angles, or an equal perimeter or area are not enough. A proof is a two-column table, טענה and נימוק: the givens, what the drawing adds (a common side, vertical angles), the congruence with its theorem, and only then the conclusions, "corresponding sides (angles) in congruent triangles". A median goes to the middle of the opposite side: it halves the side and the area (equal bases, the same height), not the shape; the height is the perpendicular, not the median. The third side of a triangle is strictly between the difference and the sum of the other two (a sum equal to it lies flat), and the largest angle faces the longest side.`,
+    words: ['צלעות מתאימות', 'זוויות מתאימות', 'משפט חפיפה', 'צ.ז.צ', 'ז.צ.ז', 'צ.צ.צ', 'טענה', 'נימוק', 'נתון', 'צ״ל', 'צלע משותפת', 'זוויות קודקודיות', 'תיכון', 'דלתון', 'אי־שוויון המשולש'],
     avoid: [
       '"two sides and an angle are enough" (the angle must be between them)',
       '"equal area means congruent" (a median makes two halves of equal area that are not congruent)',

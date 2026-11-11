@@ -28,7 +28,7 @@ const CONTENT = await loadAllContent();
 type Pt = [number, number];
 type Geo = FigSpec & { pts: Record<string, Pt>; segs?: any[]; angles?: any[]; squares?: any[]; polys?: any[]; dots?: string[]; words?: any[]; hide?: string[]; match?: [string, string][] };
 
-const TOPICS = { angles: 5, pyth: 5, congr: 4 } as Record<string, number>;
+const TOPICS = { angles: 5, pyth: 5, congr: 5 } as Record<string, number>;
 
 const steps = () => Object.entries(TOPICS).flatMap(([topic, n]) => Array.from({ length: n }, (_, i) => `${topic}:${i + 1}`))
   .flatMap((skill) => contentOf(skill)!.discover.map((st, i) => ({ skill, i, st })));
@@ -452,7 +452,7 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
 describe('the congruence questions\' drawings (GEOM-5)', () => {
   const drawn = Object.entries(CONGR_KINDS as Record<string, () => any>).filter(([, gen]) => gen().fig);
   it('cover every kind that draws', () => {
-    expect(drawn.map(([k]) => k).sort()).toEqual(['angleVia', 'claims', 'findError', 'matchData', 'medArea', 'medPerim', 'rectMedian', 'samePerimeter', 'sideX', 'ticks', 'useCong', 'whatMissing', 'whichSeg', 'whichThm']);
+    expect(drawn.map(([k]) => k).sort()).toEqual(['angleVia', 'claims', 'findError', 'matchData', 'maxAngle', 'medArea', 'medPerim', 'rectMedian', 'samePerimeter', 'sideX', 'ticks', 'useCong', 'whatMissing', 'whichSeg', 'whichThm']);
   });
   const expr = /^\((\d)x ([+−]) (\d+)\)°$/;
   for (const [kind, gen] of drawn) {
@@ -497,7 +497,7 @@ describe('the congruence questions\' drawings (GEOM-5)', () => {
   }
   it('the teaching steps\' pairs of triangles are congruent under their correspondence too', () => {
     let n = 0;
-    for (let k = 1; k <= 4; k += 1) {
+    for (let k = 1; k <= 5; k += 1) {
       const c = contentOf(`congr:${k}`)!;
       const figs = [...c.discover, ...c.misconceptions.flatMap((m) => m.remedy)].map(figOf).concat(c.examples.map((e) => e.fig), c.together.map((t) => t.fig)) as AnyFig[];
       for (const f of figs) {

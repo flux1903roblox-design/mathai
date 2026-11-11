@@ -174,7 +174,7 @@ describe('a unit on two grades\' paths (ALSO_ON_PATH): this year\'s ח׳ learns 
 
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(70); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year), transf:1-4 and congr:1-4
+    expect(ALL_SKILLS).toHaveLength(71); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year), transf:1-4 and congr:1-5
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));

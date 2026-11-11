@@ -124,6 +124,12 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // the height from the area 15 of ADC on BC = 12 (5): BC as the base gives 2.5, the median 13 taken for the height
     { model: 'diag', p: { f: 'h', b: 12, h: 5, t: 12, m: 13, S: 15 } },
   ],
+  'congr:5': [
+    // sides 7 and 3 (5 lengths): both ends counted gives 7, only "shorter than the sum" (1 to 9) gives 9
+    { model: 'diag', p: { a: 7, b: 3 } },
+    // the isosceles triangle with sides 6 and 14 (34): legs of 6, which do not meet over 14, give 6 + 6 + 14 = 26
+    { bugs: { 'ignore-inequality': 26 } },
+  ],
   'signed:1': [
     { model: 'diag', p: { a: -3, b: -8, s: -1 } }, // −3 − (−8)
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)

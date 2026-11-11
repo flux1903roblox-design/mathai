@@ -1,7 +1,8 @@
-// Congruent triangles (חפיפת משולשים): the ח׳ unit 8.12 of January and February (curriculum stage 4, GEOM-5). Four
+// Congruent triangles (חפיפת משולשים): the ח׳ unit 8.12 of January and February (curriculum stage 4, GEOM-5). Five
 // stairs: corresponding sides and angles read from a congruence written in the order of its vertices, the three
 // congruence theorems (and why two sides with an angle that is not between them do not fix a triangle), a proof in the
-// class's table טענה | נימוק, and the median with the areas it halves.
+// class's table טענה | נימוק, the median with the areas it halves, and the sides of a triangle (the third side between
+// the difference and the sum of the other two; the largest angle opposite the longest side).
 //
 // Every drawing of two triangles is computed from their angles (content/proofs.js triFromAngles through
 // content/congr.gen.js twoTriangles): ABC with A on top, B bottom right and C bottom left, the second turned or mirrored,
@@ -799,7 +800,189 @@ const stair4: StairContent = {
   ],
 };
 
-export const CONGR: StairContent[] = [stair1, stair2, stair3, stair4];
+// ================================================================ stair 5: the sides of a triangle
+
+/**
+ * Two sticks on the ends of a base, unnamed: the base c from (0, 0) to (c, 0), a stick l from its left end and a stick
+ * r from its right end, rising at the angles al and ar (degrees, measured from the base). Every length is drawn true,
+ * so sticks that are too short end apart.
+ */
+function sticks(c: number, l: number, r: number, al: number, ar: number, label: string): FigSpec {
+  const pts: Record<string, Pt> = { _a: [0, 0], _b: [c, 0], _p: [l * Math.cos(rad(al)), l * Math.sin(rad(al))], _q: [c - r * Math.cos(rad(ar)), r * Math.sin(rad(ar))] };
+  return {
+    type: 'geo', label, pts,
+    segs: [{ a: '_a', b: '_b', label: String(c) }, { a: '_a', b: '_p', label: String(l) }, { a: '_b', b: '_q', label: String(r) }],
+    view: [300, 170], pad: [26, 26],
+  } as FigSpec;
+}
+/** A triangle drawn from its three sides, base c on the bottom, unnamed; `labels` writes each side (or '?'). */
+function sideTri(c: number, l: number, r: number, labels: [string, string, string], label: string, more: Record<string, unknown> = {}): FigSpec {
+  // l from the left end of the base, r from the right end
+  const x = (l * l - r * r + c * c) / (2 * c); const y = Math.sqrt(l * l - x * x);
+  return {
+    type: 'geo', label, pts: { _a: [0, 0], _b: [c, 0], _c: [x, y] }, polys: [{ pts: ['_a', '_b', '_c'] }],
+    segs: [{ a: '_a', b: '_b', label: labels[0] }, { a: '_a', b: '_c', label: labels[1] }, { a: '_b', b: '_c', label: labels[2] }],
+    view: [300, 180], pad: [26, 26], ...more,
+  } as FigSpec;
+}
+// step 1: 3 and 4 on the ends of 8 do not meet; step 4: 5 and 6 on the ends of 12; step 7: legs of 4 over a base of 9
+const apart384 = sticks(8, 3, 4, 60, 60, 'קטע של 8 ובקצותיו קטעים של 3 ושל 4. הם לא נפגשים');
+const apart1256 = sticks(12, 5, 6, 55, 55, 'קטע של 12 ובקצותיו קטעים של 5 ושל 6. הם לא נפגשים');
+const legs449 = sticks(9, 4, 4, 50, 50, 'בסיס של 9 ובקצותיו שוקיים של 4. הן לא נפגשות');
+// step 2: 3 and 4 laid flat along 7, drawn just above it
+const flat347: FigSpec = {
+  type: 'geo', label: 'קטע של 7, ומעליו קטעים של 3 ושל 4 ששוכבים לאורכו בדיוק',
+  pts: { _a: [0, 0], _b: [7, 0], _p: [0, 0.8], _m: [3, 0.8], _q: [7, 0.8] },
+  segs: [{ a: '_a', b: '_b', label: '7' }, { a: '_p', b: '_m', label: '3' }, { a: '_m', b: '_q', label: '4' }],
+  dots: ['_m'], view: [300, 130], pad: [26, 26],
+} as FigSpec;
+const tri345 = sideTri(5, 3, 4, ['5', '3', '4'], 'משולש עם הצלעות 3, 4 ו־5');
+// step 5: the third side of 12 and 5 between 7 and 17
+const between717: FigSpec = { type: 'numline', from: 0, to: 20, marks: [{ x: 7, label: '7' }, { x: 17, label: '17' }, { x: 12, label: 'c', tone: 'good' }] } as FigSpec;
+// step 8: AB = 5, BC = 7, AC = 9, drawn true: C (0, 0), B (7, 0), A from AB and AC (the angle at B is obtuse)
+const abc579: FigSpec = (() => {
+  const ax = (81 - 25 + 49) / 14; const ay = Math.sqrt(81 - ax * ax);
+  return {
+    type: 'geo', label: 'משולש ABC: AB 5, BC 7 ו־AC 9', pts: { A: [ax, ay], B: [7, 0], C: [0, 0] }, polys: [{ pts: ['A', 'B', 'C'] }],
+    segs: [{ a: 'A', b: 'B', label: '5' }, { a: 'C', b: 'B', label: '7' }, { a: 'A', b: 'C', label: '9' }],
+    view: [300, 170], pad: [28, 26],
+  } as FigSpec;
+})();
+/** The number line of the third side, for the explore steps: lengths, on a plain ground (no frost and fire). */
+const third = (): ManipSpec => ({ kind: 'numberline', min: 0, max: 20, from: 0, start: 0, plain: true } as ManipSpec);
+
+type P5 = Record<string, number>;
+const congr5: DiagModel<P5> = {
+  params: (rnd) => G.CONGR5.params(rnd),
+  text: (p) => G.congr5Text(p),
+  answer: (p) => G.CONGR5.answer(p),
+  bugs: G.CONGR5.bugs,
+  solution: (p) => G.congr5Solution(p),
+  hint: () => G.congr5Hint(),
+};
+const congr5T: DiagModel<P5> = {
+  params: (rnd) => G.CONGR5T.params(rnd),
+  text: (p) => G.congr5TText(p),
+  answer: (p) => G.CONGR5T.answer(p),
+  bugs: G.CONGR5T.bugs,
+  solution: (p) => G.congr5Solution(p),
+  hint: () => 'המקל השלישי ארוך מההפרש של שני המקלות וקצר מהסכום שלהם.',
+};
+
+const stair5: StairContent = {
+  skill: 'congr:5', topic: 'congr', level: 5, title: 'צלעות במשולש',
+  objectives: [
+    'לבדוק אם שלושה אורכים יוצרים משולש: שתי הצלעות הקצרות יחד ארוכות מהארוכה.',
+    'למצוא את התחום של צלע שלישית: בין ההפרש לסכום של שתי האחרות.',
+    'לדעת שמול הצלע הגדולה במשולש מונחת הזווית הגדולה, ושבמשולש ישר־זווית היתר הוא הצלע הארוכה.',
+  ],
+  idea: 'הדרך הישרה בין שתי נקודות היא הקצרה ביותר, ולכן כל צלע קצרה מסכום שתי האחרות.',
+  why: [
+    'עקיפה דרך הקודקוד השלישי ארוכה מהדרך הישרה.',
+    'אם הצלע השלישית קצרה מההפרש, שתי הקצרות יחד לא מגיעות לקצוות של הארוכה.',
+  ],
+  alt: ['נסו עם שלושה מקלות: $3$, $4$ ו־$8$ לא נסגרים. $3$, $4$ ו־$7$ נשכבים שטוח. $3$, $4$ ו־$6$ סוגרים משולש.'],
+  discover: [
+    { kind: 'say', text: 'לא כל שלושה קטעים יוצרים משולש. אם שני הקצרים יחד קצרים מהארוך, הם לא נפגשים.', fig: apart384 },
+    { kind: 'predict', text: '$3$, $4$ ו־$7$ ס״מ יוצרים משולש?', fig: flat347,
+      choices: ['לא: $3 + 4 = 7$, והקטעים נשכבים על ישר אחד', 'כן'], answer: 0,
+      why: 'כשהסכום שווה, שני הקצרים נשכבים בדיוק על הארוך, ואין קודקוד שלישי.',
+      wrongWhy: { 1: 'שני הקטעים נפגשים רק כשהם שוכבים על ה־$7$: זה קו, לא משולש.' } },
+    { kind: 'rule', text: 'במשולש סכום כל שתי צלעות גדול מהצלע השלישית. מספיק לבדוק ששתי הקצרות יחד ארוכות מהארוכה.', display: '3 + 4 > 5',
+      why: 'הדרך הישרה היא הקצרה ביותר.', fig: tri345 },
+    { kind: 'predict', text: 'שתי צלעות $12$ ו־$5$. הצלע השלישית יכולה להיות $6$?', fig: apart1256,
+      choices: ['לא: $5 + 6 < 12$', 'כן: $6 < 12 + 5$'], answer: 0,
+      why: 'צריך גם ששתי הקצרות יחד יהיו ארוכות מ־$12$: $5 + 6 = 11$.',
+      wrongWhy: { 1: 'בדקתם רק שהיא קצרה מהסכום. היא חייבת להיות גם ארוכה מההפרש, $12 - 5 = 7$.' } },
+    { kind: 'rule', text: 'הצלע השלישית נמצאת בין ההפרש לסכום של שתי הצלעות האחרות.', display: '12 - 5 < c < 12 + 5',
+      why: 'קצרה מההפרש: לא מגיעה. ארוכה מהסכום: לא נסגרת.', fig: between717 },
+    { kind: 'explore', text: 'שתי צלעות $12$ ו־$5$. שימו את הסמן על האורך השלם הגדול ביותר של הצלע השלישית.',
+      manip: third(), answer: 16,
+      hint: 'היא קצרה מ־$12 + 5 = 17$.', success: '$16$: האורך השלם הגדול ביותר שקטן מ־$17$.' },
+    { kind: 'predict', text: 'משולש שווה־שוקיים עם צלעות $4$ ו־$9$. מה הבסיס?', fig: legs449,
+      choices: ['$4$, והשוקיים $9$', '$9$, והשוקיים $4$'], answer: 0,
+      why: '$4 + 4 = 8 < 9$: שוקיים של $4$ לא נפגשות מעל בסיס של $9$.',
+      wrongWhy: { 1: 'בשרטוט רואים: שתי שוקיים של $4$ קצרות מדי, כי $4 + 4 = 8$ קצר מ־$9$.' } },
+    { kind: 'predict', text: 'ב־$\\triangle ABC$: $AB = 5$, $BC = 7$, $AC = 9$. איזו זווית הגדולה ביותר?', fig: abc579,
+      choices: ['$\\sphericalangle B$', '$\\sphericalangle A$', '$\\sphericalangle C$'], answer: 0,
+      why: 'הזווית הגדולה מונחת מול הצלע הגדולה, $AC$. מולה $B$.',
+      wrongWhy: { 1: '$A$ הוא קצה של $AC$. הזווית הגדולה לא נוגעת בצלע הגדולה: היא מולה.', 2: '$C$ הוא קצה של $AC$. הזווית הגדולה לא נוגעת בצלע הגדולה: היא מולה.' } },
+  ],
+  examples: [
+    { problem: 'שתי צלעות במשולש $9$ ו־$4$ ס״מ, והשלישית מספר שלם. כמה אורכים אפשריים?',
+      fig: sideTri(9, 4, 10, ['9', '4', '?'], 'משולש עם צלעות 9 ו־4, והצלע השלישית סימן שאלה'), answer: 7, check: '12-6+1',
+      steps: [
+        { action: 'ההפרש $5$, הסכום $13$', why: 'הצלע השלישית ארוכה מההפרש וקצרה מהסכום.', result: '9 - 4 = 5', calc: { expr: '9-4', value: 5 } },
+        { action: 'השלמים ביניהם: $6$ עד $12$', why: 'ב־$5$ וב־$13$ המשולש שטוח, ולכן הם לא נספרים.', result: '6, 7, \\ldots, 12' },
+        { action: 'סופרים.', why: 'מ־$6$ עד $12$.', result: '12 - 6 + 1 = 7', value: '12-6+1' },
+      ] },
+    { problem: 'משולש שווה־שוקיים עם צלעות $5$ ו־$12$. מה ההיקף?',
+      fig: sideTri(5, 12, 12, ['5', '12', '12'], 'משולש שווה־שוקיים: בסיס 5 ושוקיים של 12'), answer: 29, check: '5+12+12',
+      steps: [
+        { action: '$5 + 5 = 10 < 12$: השוקיים לא $5$', why: 'שוקיים של $5$ לא נפגשות מעל בסיס של $12$.', result: '5 + 5 = 10', calc: { expr: '5+5', value: 10 } },
+        { action: 'השוקיים $12$, והבסיס $5$.', why: 'מחברים את שלוש הצלעות.', result: '5 + 12 + 12 = 29', value: '5+12+12' },
+      ] },
+  ],
+  together: [
+    { problem: 'צלעות $7$ ו־$3$; השלישית מספר שלם. כמה אורכים?',
+      fig: sideTri(7, 3, 8, ['7', '3', '?'], 'משולש עם צלעות 7 ו־3, והצלע השלישית סימן שאלה'),
+      steps: [
+        { prompt: 'בין אילו מספרים?', choices: [
+          { text: 'בין $4$ ל־$10$', ok: true, feedback: 'ההפרש $7 - 3 = 4$, והסכום $7 + 3 = 10$.' },
+          { text: 'בין $0$ ל־$10$', ok: false, feedback: 'צריך גם שתהיה ארוכה מההפרש, $7 - 3$.' },
+          { text: 'בין $4$ ל־$10$, כולל', ok: false, feedback: 'ב־$4$ וב־$10$ המשולש שטוח.' },
+        ], hints: ['ההפרש והסכום.', '$5, 6, 7, 8, 9$.'], done: 'בין $4$ ל־$10$, בלי הקצוות.' },
+      ],
+      final: { prompt: 'כמה אורכים שלמים אפשריים?', answer: 5, check: '9-5+1', hints: ['ההפרש והסכום.', '$5, 6, 7, 8, 9$.'] } },
+    { problem: 'משולש שווה־שוקיים עם צלעות $6$ ו־$14$. מה ההיקף?',
+      fig: sideTri(6, 14, 14, ['6', '14', ''], 'משולש שווה־שוקיים: בסיס 6, שוק של 14, והשוקיים מסומנות שוות', { segs: [{ a: '_a', b: '_b', label: '6' }, { a: '_a', b: '_c', label: '14', ticks: 1 }, { a: '_b', b: '_c', ticks: 1 }] }),
+      steps: [
+        { prompt: 'מה השוקיים?', choices: [
+          { text: '$14$', ok: true, feedback: '$6 + 6 = 12$, קצר מ־$14$: השוקיים לא יכולות להיות $6$.' },
+          { text: '$6$', ok: false, feedback: '$6 + 6 < 14$: שוקיים של $6$ לא נפגשות מעל בסיס של $14$.' },
+        ], hints: ['האם $6 + 6 > 14$?', '$6 + 14 + 14$.'], done: 'השוקיים $14$, והבסיס $6$.' },
+      ],
+      final: { prompt: 'מה ההיקף?', answer: 34, check: '6+14+14', hints: ['האם $6 + 6 > 14$?', '$6 + 14 + 14$.'] } },
+  ],
+  diag: congr5,
+  transfer: congr5T,
+  words: ['אי־שוויון המשולש', 'הצלע הארוכה', 'הפרש', 'סכום'],
+  misconceptions: [
+    { id: 'sum-equal', title: 'חשבו שאפשר משולש גם כשסכום שתי צלעות שווה לשלישית',
+      cause: 'כשהסכום שווה, נראה שהקטעים "בדיוק" מגיעים זה לזה.',
+      explain: ['כשהסכום שווה, שני הקצרים נשכבים על הארוך, ואין קודקוד שלישי. צריך שהסכום יהיה גדול ממש.'],
+      remedy: [
+        { kind: 'predict', text: '$3$, $4$ ו־$7$ ס״מ יוצרים משולש?', fig: flat347,
+          choices: ['לא: הקטעים נשכבים על ישר אחד', 'כן'], answer: 0, why: '$3 + 4 = 7$: שני הקצרים שוכבים בדיוק על ה־$7$, ואין קודקוד שלישי.' },
+      ] },
+    { id: 'no-lower-limit', title: 'בדקו רק שהצלע השלישית קצרה מהסכום, ולא שהיא ארוכה מההפרש',
+      cause: 'בודקים רק שהצלע לא ארוכה מדי, ושוכחים שגם צלע קצרה מדי לא סוגרת משולש.',
+      explain: ['הצלע השלישית ארוכה מההפרש של שתי האחרות: עם $12$ ו־$5$, ארוכה מ־$7$.'],
+      remedy: [
+        { kind: 'predict', text: 'שתי צלעות $12$ ו־$5$. הצלע השלישית יכולה להיות $6$?', fig: apart1256,
+          choices: ['לא: $5 + 6 < 12$', 'כן: $6 < 12 + 5$'], answer: 0, why: 'שתי הקצרות יחד, $5 + 6 = 11$, לא מגיעות לקצוות של $12$.' },
+        { kind: 'explore', text: 'שתי צלעות $12$ ו־$5$. שימו את הסמן על האורך השלם הקטן ביותר של הצלע השלישית.',
+          manip: third(), answer: 8,
+          hint: 'היא ארוכה מ־$12 - 5 = 7$.', success: '$8$: האורך השלם הקטן ביותר שגדול מ־$7$.' },
+      ] },
+    { id: 'ignore-inequality', title: 'בחרו שוקיים קצרות מדי, שאינן נפגשות',
+      cause: 'בוחרים את השוקיים לפי הסדר שבשאלה, בלי לבדוק שהן נפגשות.',
+      explain: ['שוקיים קצרות מדי לא נפגשות: $4 + 4 = 8$, קצר מ־$9$. בודקים איזו משתי האפשרויות סוגרת משולש.'],
+      remedy: [
+        { kind: 'predict', text: 'משולש שווה־שוקיים עם צלעות $4$ ו־$9$. מה הבסיס?', fig: legs449,
+          choices: ['$4$, והשוקיים $9$', '$9$, והשוקיים $4$'], answer: 0, why: 'שוקיים של $4$ לא נפגשות מעל $9$, כי $4 + 4 = 8 < 9$.' },
+      ] },
+    { id: 'angle-at-side', title: 'חיפשו את הזווית הגדולה ליד הצלע הגדולה, ולא מולה',
+      cause: 'הצלע הארוכה בולטת בשרטוט, ומחפשים את הזווית הגדולה בקצוות שלה.',
+      explain: ['הזווית הגדולה מונחת מול הצלע הגדולה: בקודקוד שלא נוגע בה.'],
+      remedy: [
+        { kind: 'predict', text: 'ב־$\\triangle ABC$: $AB = 5$, $BC = 7$, $AC = 9$. איזו זווית הגדולה ביותר?', fig: abc579,
+          choices: ['$\\sphericalangle B$', '$\\sphericalangle A$'], answer: 0, why: 'מול $AC$, הצלע הגדולה, נמצא הקודקוד $B$.' },
+      ] },
+  ],
+};
+
+export const CONGR: StairContent[] = [stair1, stair2, stair3, stair4, stair5];
 /** Names of misconceptions new to this topic: none beyond the topic's own (content/congr.js names them all). */
 export const CATS_CONGR: Record<string, string> = {};
-export { congr1, congr1T, congr2, congr2T, congr3, congr3T, congr4, congr4T };
+export { congr1, congr1T, congr2, congr2T, congr3, congr3T, congr4, congr4T, congr5, congr5T };

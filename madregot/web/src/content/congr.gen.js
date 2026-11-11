@@ -32,6 +32,7 @@
 // unit has loaded.
 import { shuffle } from './util.js';
 import { clean, notGuessable } from './frac.js';
+import { slipOf } from '@/learn/misconceptions.ts';
 import { registerGens } from './lazyGen.js';
 import { triFromAngles, PROOF, R, proofIn, proofManip, proofDiag } from './proofs.js';
 import { proofSolution } from './proof.js';
@@ -1031,6 +1032,109 @@ function claims() {
   };
 }
 
+// ---------------------------------------------------------------- congr:5 the sides of a triangle
+/**
+ * congr:5 — two sides a ≠ b, the third a whole number: how many lengths can it have. It lies strictly between |a − b|
+ * and a + b, so 2·min − 1 lengths (models.mjs congr5, unchanged).
+ */
+export const CONGR5 = mk({
+  raw: (r) => { const a = rint(r, 3, 20); const b = rint(r, 3, 20); if (a === b) return null; return { a, b }; },
+  answer: ({ a, b }) => 2 * Math.min(a, b) - 1,
+  bugs: {
+    'sum-equal': ({ a, b }) => 2 * Math.min(a, b) + 1, // both ends allowed: the flat "triangles" counted
+    'no-lower-limit': ({ a, b }) => a + b - 1, // only "shorter than the sum" checked: 1 to a + b − 1
+  },
+  printed: ({ a, b }) => [a, b],
+});
+/** congr:5 transfer: two sticks, and a third one for a triangular frame (the same draw). */
+export const CONGR5T = mk({ raw: CONGR5.raw, answer: CONGR5.answer, bugs: CONGR5.bugs, printed: CONGR5.printed });
+export const congr5Text = ({ a, b }) => `במשולש שתי צלעות באורך $${a}$ ס״מ ו־$${b}$ ס״מ. אורך הצלע השלישית הוא מספר שלם של סנטימטרים. כמה אורכים שונים היא יכולה להיות?`;
+export const congr5TText = ({ a, b }) => `לדנה שני מקלות, $${a}$ ס״מ ו־$${b}$ ס״מ. היא רוצה מקל שלישי, באורך שלם, כדי לבנות מסגרת משולשת. כמה אורכים אפשריים?`;
+export function congr5Solution({ a, b }) {
+  const lo = Math.abs(a - b); const hi = a + b;
+  return [
+    `הצלע השלישית ארוכה מההפרש, $${Math.max(a, b)} - ${Math.min(a, b)} = ${lo}$, וקצרה מהסכום, $${a} + ${b} = ${hi}$.`,
+    `השלמים ביניהם: $${lo + 1}$ עד $${hi - 1}$. זה $${hi - 1} - ${lo + 1} + 1 = ${hi - lo - 1}$ אורכים.`,
+  ];
+}
+export const congr5Hint = () => 'הצלע השלישית בין ההפרש לסכום של שתי האחרות, בלי הקצוות.';
+
+/** An isosceles triangle with sides a and b, 2a ≤ b: the legs are b (two legs of a do not meet over a base of b). */
+function isoPerim() {
+  for (;;) {
+    const a = rint(rnd, 2, 9); const b = rint(rnd, 2 * a, 20);
+    const ans = a + 2 * b; const bug = 2 * a + b;
+    if (slipOf(bug, ans)) continue; // b − a = 10 would read as a slip, not as the mistake
+    return {
+      key: `cg5i:${a}:${b}`, text: `במשולש שווה־שוקיים שתי צלעות באורך $${a}$ ו־$${b}$ ס״מ. מה ההיקף?`,
+      form: 'num', answer: ans,
+      hint: `אם השוקיים הן $${a}$: האם $${a} + ${a}$ ארוך מ־$${b}$?`,
+      solution: [`$${a} + ${a} = ${2 * a}$, וזה לא ארוך מ־$${b}$: שוקיים של $${a}$ לא נפגשות מעל בסיס של $${b}$. השוקיים הן $${b}$.`, `$${a} + ${b} + ${b} = ${ans}$`],
+      diag: (u) => (near(u, bug) ? 'ignore-inequality' : null),
+    };
+  }
+}
+/** Lengths that make a triangle, lie flat (a + b = c) or do not meet (a + b < c), in a shuffled order. Practice only. */
+function canBuild() {
+  for (;;) {
+    const kind = pick(rnd, ['equal', 'equal', 'short', 'yes']);
+    const a = rint(rnd, 2, 9); const b = rint(rnd, 2, 9); if (a === b) continue;
+    const c = kind === 'equal' ? a + b : kind === 'short' ? a + b + rint(rnd, 1, 3) : Math.max(a, b) + rint(rnd, 1, Math.min(a, b) - 1);
+    if (c === a || c === b || (kind === 'yes' && c >= a + b)) continue;
+    const yes = { text: 'כן, נוצר משולש', ok: kind === 'yes', bug: kind === 'equal' ? 'sum-equal' : kind === 'short' ? 'no-lower-limit' : undefined };
+    const no = { text: 'לא, לא נוצר משולש', ok: kind !== 'yes' };
+    const choices = [yes, no];
+    const shown = shuffle([a, b, c]);
+    const [s, m] = [Math.min(a, b), Math.max(a, b)];
+    return {
+      key: `cg5c:${shown.join(':')}`, text: `אפשר לבנות משולש מקטעים של $${shown[0]}$, $${shown[1]}$ ו־$${shown[2]}$ ס״מ?`,
+      form: 'mc', practiceOnly: true, choices, answer: choices.findIndex((x) => x.ok),
+      hint: 'בדקו אם שני הקטעים הקצרים יחד ארוכים מהארוך.',
+      solution: [kind === 'yes'
+        ? `$${s} + ${m} = ${a + b}$, ארוך מ־$${c}$: נוצר משולש.`
+        : kind === 'equal'
+          ? `$${s} + ${m} = ${c}$: שני הקטעים נשכבים בדיוק על הארוך, ואין קודקוד שלישי.`
+          : `$${s} + ${m} = ${a + b}$, קצר מ־$${c}$: הקטעים לא נפגשים.`],
+      diag: (u) => choices[u]?.bug || null,
+    };
+  }
+}
+/**
+ * Which angle is the largest: three sides, drawn true (C at (0, 0), B at (BC, 0), A from AB and AC). The largest angle
+ * lies opposite the longest side; a choice at an end of that side is 'angle-at-side'. Practice only.
+ */
+function maxAngle() {
+  for (;;) {
+    const s = [rint(rnd, 4, 12), rint(rnd, 4, 12), rint(rnd, 4, 12)];
+    if (new Set(s).size < 3) continue;
+    const w = Math.max(...s); const rest = s.filter((x) => x !== w); if (rest[0] + rest[1] <= w + 1) continue;
+    // AB, BC, AC, and the vertex opposite each side: C, A, B
+    const [ab, bc, ac] = s;
+    const longest = ['AB', 'BC', 'AC'][s.indexOf(w)];
+    const right = { AB: 'C', BC: 'A', AC: 'B' }[longest];
+    const choices = shuffle(['A', 'B', 'C'].map((V) => ({ tex: ang(V), ok: V === right, bug: V === right ? undefined : 'angle-at-side' })));
+    const ax = (ac * ac - ab * ab + bc * bc) / (2 * bc); const ay = Math.sqrt(ac * ac - ax * ax);
+    return {
+      key: `cg5m:${ab}:${bc}:${ac}`, text: `ב־$${tri('ABC')}$: $AB = ${ab}$, $BC = ${bc}$, $AC = ${ac}$. איזו זווית הגדולה ביותר?`,
+      form: 'mc', practiceOnly: true, choices, answer: choices.findIndex((x) => x.ok),
+      fig: {
+        type: 'geo', label: `משולש ABC עם הצלעות AB ${ab}, BC ${bc} ו־AC ${ac}`,
+        pts: { A: [ax, ay], B: [bc, 0], C: [0, 0] }, polys: [{ pts: ['A', 'B', 'C'] }],
+        segs: [{ a: 'A', b: 'B', label: String(ab) }, { a: 'C', b: 'B', label: String(bc) }, { a: 'A', b: 'C', label: String(ac) }],
+        view: [300, 200], pad: [28, 26],
+      },
+      hint: 'מצאו את הצלע הארוכה. הזווית הגדולה לא נוגעת בה: היא מולה.',
+      solution: [`הצלע הארוכה היא $${longest} = ${w}$, ומולה הקודקוד $${right}$: $${ang(right)}$ הגדולה ביותר.`],
+      diag: (x) => choices[x]?.bug || null,
+    };
+  }
+}
+/** The number of whole lengths of the third side (the model's draws). */
+function countLengths() {
+  const p = CONGR5.params(rnd);
+  return modelGen(keyOf('cg5n', p), CONGR5, p, { text: congr5Text, fig: () => undefined, hint: congr5Hint, solution: congr5Solution });
+}
+
 // ---------------------------------------------------------------- the levels (content/congr.js calls these)
 /** Each level's mix: the models' typed questions most of the time, the choices, the ticks and the proofs the rest. */
 export const CONGR_GENS = [
@@ -1038,7 +1142,8 @@ export const CONGR_GENS = [
   () => { const r = Math.random(); return r < 0.35 ? matchData() : r < 0.7 ? whichThm() : r < 0.85 ? whatMissing() : samePerimeter(); },
   () => { const r = Math.random(); return r < 0.35 ? useCong() : r < 0.6 ? proofFill() : r < 0.85 ? proofOrder() : findError(); },
   () => { const r = Math.random(); return r < 0.3 ? medArea() : r < 0.55 ? medPerim() : r < 0.7 ? rectMedian() : r < 0.9 ? whichSeg() : claims(); },
+  () => { const r = Math.random(); return r < 0.3 ? countLengths() : r < 0.55 ? isoPerim() : r < 0.8 ? canBuild() : maxAngle(); },
 ];
 /** Each generator by name (tests draw every kind). */
-export const CONGR_KINDS = { angleVia, sideX, ticks, pairsMc, matchData, whichThm, whatMissing, samePerimeter, useCong, proofFill, proofOrder, findError, medArea, medPerim, rectMedian, whichSeg, claims };
+export const CONGR_KINDS = { angleVia, sideX, ticks, pairsMc, matchData, whichThm, whatMissing, samePerimeter, useCong, proofFill, proofOrder, findError, medArea, medPerim, rectMedian, whichSeg, claims, countLengths, isoPerim, canBuild, maxAngle };
 registerGens('congr', CONGR_GENS);

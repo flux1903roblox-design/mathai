@@ -299,6 +299,8 @@ function tfMove(key) {
 const isSlide = (m) => m.p === 'tf1s' || m.p === 'tf1v';
 
 // ---------------------------------------------------------------- congruent triangles: read back from what is on screen
+/** Every whole number the text prints alone in maths, in order: `$12$` (the lengths of the sides questions). */
+const numsIn = (text) => [...text.matchAll(/\$(\d+)\$/g)].map((m) => Number(m[1]));
 /** Every angle the text prints in degrees, by its name: { A: 50, MBD: 70 }. */
 const anglesIn = (text) => Object.fromEntries([...text.matchAll(/\\sphericalangle ([A-Z]+) = (\d+)°/g)].map((m) => [m[1], Number(m[2])]));
 /** Every length the text prints: { BC: 14, AD: 6 } (a side with a number, `$XY = n$`). */
@@ -591,6 +593,35 @@ const PROPS = {
       const X = (/^A([A-Z])$/.exec(choiceAny(it, u)) || [])[1];
       const asked = /התיכון/.test(it.text) ? 'median' : /הגובה/.test(it.text) ? 'altitude' : 'bisector';
       return !!X && segKind(it.fig, X) !== asked;
+    },
+    // congr:5, the sides of a triangle, read from the lengths the text prints: the count with both flat ends (2·min + 1),
+    // or "a triangle" said of lengths whose two short ones add up to the long one
+    'sum-equal': (it, u) => {
+      const n = numsIn(it.text);
+      if (it.key.startsWith('cg5n:')) return n.length === 2 && near(u, 2 * Math.min(...n) + 1);
+      if (it.key.startsWith('cg5c:')) { const s = sortN(n); return choiceText(it, u).startsWith('כן') && s[0] + s[1] === s[2]; }
+      return false;
+    },
+    // only "shorter than the sum" checked: every whole length from 1 to a + b − 1, or "a triangle" said of two short
+    // lengths that do not reach the long one
+    'no-lower-limit': (it, u) => {
+      const n = numsIn(it.text);
+      if (it.key.startsWith('cg5n:')) return n.length === 2 && near(u, n[0] + n[1] - 1);
+      if (it.key.startsWith('cg5c:')) { const s = sortN(n); return choiceText(it, u).startsWith('כן') && s[0] + s[1] < s[2]; }
+      return false;
+    },
+    // the isosceles triangle's legs taken as the short side, which do not meet over the long one: 2·short + long
+    'ignore-inequality': (it, u) => {
+      if (!it.key.startsWith('cg5i:')) return false;
+      const [a, b] = sortN(numsIn(it.text));
+      return 2 * a <= b && near(u, 2 * a + b);
+    },
+    // the largest angle looked for at an end of the longest side: the chosen vertex is on it
+    'angle-at-side': (it, u) => {
+      if (!it.key.startsWith('cg5m:')) return false;
+      const L = lengthsIn(it.text); const longest = Object.keys(L).sort((x, y) => L[y] - L[x])[0];
+      const X = (/\\sphericalangle ([A-C])/.exec(choiceAny(it, u)) || [])[1];
+      return !!X && longest.includes(X);
     },
   },
   ratio: {
@@ -995,7 +1026,7 @@ describe('the algebra, fraction, ratio, percent and transformation topics name o
     expect(Object.keys(TRANSF.cats)).toHaveLength(15);
     // congruence: every category but 'no-half', which only the kite transfer model predicts (no exercise names it)
     for (const cat of Object.keys(CONGR.cats)) if (cat !== 'no-half') expect(PROPS.congr[cat], `congr '${cat}'`).toBeTypeOf('function');
-    expect(Object.keys(CONGR.cats)).toHaveLength(16);
+    expect(Object.keys(CONGR.cats)).toHaveLength(20);
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

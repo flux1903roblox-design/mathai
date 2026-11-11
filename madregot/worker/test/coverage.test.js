@@ -29,10 +29,11 @@ const STAGE1 = [
 ];
 const TRANSF = ['transf:1', 'transf:2', 'transf:3', 'transf:4'];
 const STAGE4 = [...STAGE1, ...TRANSF];
-// congruence (GEOM-5): 8.12 lists congr:1-5; the lane's stage 6 builds congr:1-4 and congr:5 comes with its own stage, so
-// the part (16 hours) is not taught yet and the coverage stays stage 4's
+// congruence (GEOM-5): 8.12 lists congr:1-5; the lane's stage 6 built congr:1-4, when the part (16 hours) was not taught
+// yet and the coverage stayed stage 4's; its stage 7 adds congr:5, and 8.12 is whole
 const CONGR = ['congr:1', 'congr:2', 'congr:3', 'congr:4', 'congr:5'];
 const STAGE6 = [...STAGE4, ...CONGR.slice(0, 4)];
+const STAGE7 = [...STAGE4, ...CONGR];
 /** The later stage that brings an untaught part: its `later`, or, for a part that lists its stairs, the stage of the ones still missing. */
 const STAGE_OF_TOPIC = { congr: 'S4' };
 const laterOf = (p, have) => p.later || (p.skills.length ? STAGE_OF_TOPIC[p.skills.find((s) => !have.has(s))?.split(':')[0]] || null : null);
@@ -62,6 +63,8 @@ const TAUGHT = {
 // ח׳ 78, 99, 133, 147). With the transformations (7.11 and 8.5, 5 hours each) S4 still brings 8.12 and 8.13: from
 // stage 4's fixture the totals are ז׳ 131, 144, 144, 150 and ח׳ 83, 104, 133, 147.
 const AFTER = { '7': { S2: 131, S3: 144, S4: 144, S5: 150 }, '8': { S2: 83, S3: 104, S4: 133, S5: 147 } };
+// With congr:5 too (the lane's stage 7) 8.12's 16 hours are taught already: ח׳ 99, 120, then the same 133 and 147.
+const AFTER7 = { '7': AFTER['7'], '8': { S2: 99, S3: 120, S4: 133, S5: 147 } };
 const COMPLETES = {
   S2: ['7.6', '7.12', '7.13', '8.4', '8.17'],
   S3: ['7.15', '7.16', '7.17', '8.6', '8.10', '8.11', '8.16'],
@@ -174,8 +177,17 @@ test('coverage from the four fixtures: the council\'s 33 stairs, HEAD\'s 48, sta
     stairs: CONGR.slice(0, 4), missing: ['חפיפת משולשים, צלעות במשולש ותיכון'],
     parts: [{ hours: 16, skills: CONGR, note: 'חפיפת משולשים, צלעות במשולש ותיכון', later: null, taught: false }],
   });
-  // with congr:5 too, the whole unit
-  assert.equal(coverage('8', [...STAGE6, 'congr:5']).units.find((u) => u.id === '8.12').state, 'yes');
+  // with congr:5 too (the lane's stage 7), the whole unit: ח׳ 87 of 147 (59%), both grades 66%
+  const c7 = coverage('8', STAGE7);
+  assert.equal(STAGE7.length, 67);
+  assert.deepEqual([coverage('7', STAGE7).taught, c7.taught, c7.pct], [109, 87, 59]);
+  assert.equal(Math.round((100 * (109 + 87)) / 297), 66);
+  assert.deepEqual(c7.units.find((u) => u.id === '8.12'), {
+    id: '8.12', domain: 'geometry', title: 'חפיפת משולשים, צלעות במשולש, תיכון', months: [1, 2], hours: 16, taught: 16, state: 'yes',
+    stairs: CONGR, missing: [],
+    parts: [{ hours: 16, skills: CONGR, note: 'חפיפת משולשים, צלעות במשולש ותיכון', later: null, taught: true }],
+  });
+  assert.deepEqual(c7.units.map((u) => u.taught), [8, 7, 8, 0, 5, 1, 0, 8, 6, 8, 0, 16, 3, 13, 4, 0, 0]);
 });
 
 test('a unit\'s state, stairs and missing parts', () => {
@@ -201,8 +213,8 @@ test('a unit\'s state, stairs and missing parts', () => {
   assert.equal(at('8', [...STAGE1, 'func:1', 'func:2'], '8.7').taught, 0);
 });
 
-test('with the stage-1 stairs and the transformations (and congr:1-4), every untaught part names the later stage that brings it, and the stages add up', () => {
-  for (const skills of [STAGE4, STAGE6]) {
+test('with the stage-1 stairs and the transformations (and congr:1-4, then congr:1-5), every untaught part names the later stage that brings it, and the stages add up', () => {
+  for (const skills of [STAGE4, STAGE6, STAGE7]) {
     const have = new Set(skills);
     for (const g of ['7', '8']) {
       const c = coverage(g, skills);
@@ -212,12 +224,14 @@ test('with the stage-1 stairs and the transformations (and congr:1-4), every unt
       }
       for (const stage of ['S2', 'S3', 'S4', 'S5']) {
         taught += sum(c.units.flatMap((u) => u.parts.filter((p) => !p.taught && laterOf(p, have) === stage).map((p) => p.hours)));
-        assert.equal(taught, AFTER[g][stage], `grade ${g} after ${stage}`);
+        assert.equal(taught, (skills === STAGE7 ? AFTER7 : AFTER)[g][stage], `grade ${g} after ${stage}`);
       }
     }
     for (const [stage, ids] of Object.entries(COMPLETES)) {
       const units = ['7', '8'].flatMap((g) => coverage(g, skills).units);
-      assert.deepEqual(units.filter((u) => u.parts.some((p) => !p.taught && laterOf(p, have) === stage)).map((u) => u.id), ids, stage);
+      // with congr:5, 8.12 is taught: S4 still brings 8.13
+      const want = skills === STAGE7 && stage === 'S4' ? ['8.13'] : ids;
+      assert.deepEqual(units.filter((u) => u.parts.some((p) => !p.taught && laterOf(p, have) === stage)).map((u) => u.id), want, stage);
     }
   }
 });

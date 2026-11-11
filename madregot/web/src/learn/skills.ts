@@ -11,7 +11,7 @@ import type { SkillId, TopicId } from './types';
 // ח׳'s congruent triangles (8.12, January and February) come after statistics and before the systems, which end the year.
 export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'transf', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'congr', 'sys'];
 export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', transf: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', congr: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, transf: 4, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, congr: 4, sys: 5 };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, transf: 4, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, congr: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -115,6 +115,7 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'congr:2': ['congr:1'], // the theorems say which three equal parts make triangles congruent
   'congr:3': ['congr:2', 'angles:2', 'angles:4'], // the third part: a common side, vertical angles, alternate angles (T4)
   'congr:4': ['congr:1', 'coord:4'], // a median halves the base; the area of a triangle is half a rectangle's (coord:4)
+  'congr:5': ['angles:3'], // the sides of a triangle: the third side between the difference and the sum
   // a percent change in a story becomes an equation (eq:5); x + 0.2x = 1.2x is collecting like terms (expr:3); the
   // change is a multiplier of the old price (pct:5, an own-grade edge: not new before pct:5 is done, as in school order)
   'sys:1': ['eq:5', 'expr:3', 'pct:5'],

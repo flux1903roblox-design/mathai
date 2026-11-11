@@ -211,6 +211,132 @@
       "tags": ["congr"]
     },
     {
+      "id": "D1-congr1-matchbyplace", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:1", "source": "diag", "params": {"form": "third", "al": 70, "be": 45, "ga": 65, "alpha": "B"}, "wrong": [70, 62], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "match-by-place", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the vertices were matched by where they are drawn. Y is drawn on top, where A is in ABC, so the 70° at A was copied. In △ABC ≅ △XZY the letters match by their places in the statement: Y is third, so it matches C, the third of ABC. ∢Y = ∢C = 180° − 70° − 45° = 65°. Ends at 65. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr1-wrongpair", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:1", "source": "diag", "params": {"form": "x", "th": 60, "ph": 40, "tt": 80, "p": 5, "q": -15, "x": 15}, "wrong": [19, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-pair", "maxWords": 130,
+        "describe": "Names the app's diagnosis: ∢C was set equal to an angle that does not match it, the third angle of XZY, 180° − 60° − 40° = 80° at X (5x − 15 = 80 gives 19). In △ABC ≅ △XZY the letters match by their places: C is third, so it matches Y, the third, and ∢Y = 60°. 5x − 15 = 60, so 5x = 75 and x = 15. Ends at 15. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr2-oneangle", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:2", "source": "diag", "params": {"form": "third", "al": 50, "be": 60, "ga": 70, "alpha": "A"}, "wrong": [130, 75], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-angle", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only one angle, 50°, was taken from 180°. The equal sides give the correspondence: the sides equal to CA and BC (DE and FD) meet at D, so D matches C. ∢D = ∢C, and the third angle of ABC takes both given angles: 180° − 50° − 60° = 70°. Ends at 70. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr2-gen-ssa", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:2", "source": "gen", "key": "cg2w:ssa:KLM:60:50", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "ssa", "maxWords": 130,
+        "describe": "Names the app's diagnosis: two sides and an angle that is not between them were used as if they were a congruence theorem. The equal angle ∢A = ∢K is not where AB and BC meet (they meet at B), so this is not צ.ז.צ, and two different triangles can share these data. Does not say which choice is right (withhold): asks where the equal angle is, compared with the two equal sides. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr2-gen-aaa", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:2", "source": "gen", "key": "cg2w:aaa:KLM:65:70", "wrong": [1], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "aaa", "maxWords": 130,
+        "describe": "Names the app's diagnosis: three equal angles were taken as enough for congruence. Equal angles fix the shape, not the size: a triangle and its enlargement have the same three angles and are not congruent. Does not say which choice is right (withhold): asks whether any pair of sides is known to be equal. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr3-gen-circular", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "gen", "key": "cg3e:T2:1:0", "wrong": [2], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "circular", "maxWords": 130,
+        "describe": "Names the app's diagnosis: what had to be proved was used as if it were already known. A row whose reason is \"corresponding sides (or angles) in congruent triangles\" may come only after the row that proves the triangles congruent; one such row stands above it. Does not say which row is wrong (withhold): asks the student to find the rows that rely on the congruence and check where they stand. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr3-gen-wrongtheorem", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "gen", "key": "cg3o:T3:0:9651", "wrong": [{"order": [0, 1, 2, 3, 4], "reasons": [null, null, null, 0, null]}, {"order": [3, 0, 1, 2, 4], "reasons": [null, null, null, 2, null]}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-theorem", "maxWords": 130,
+        "describe": "Names the app's diagnosis of the first try: the congruence row named a theorem that does not fit the data. The rows above it give AD = DB, the right angles at D and the common side CD: two sides and the angle between them, so the theorem is צ.ז.צ. A proof is a table, not a number the guard can hide, so the case is at reveal: the answer may be named, and the rows go givens first, then the congruence, then AC = BC. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr3-halfonly", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "diag", "params": {"T": "K5", "a": 55, "c": 0}, "wrong": [35, 66], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "half-only", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the angle of one of the two triangles was found, 90° − 55° = 35°, half of ∢ACB. CD is perpendicular to AB at its middle D, so △ADC ≅ △BDC (צ.ז.צ) and ∢ACD = ∢BCD = 35°: ∢ACB is both halves, 70° (that is 180° − 2 · 55°). Ends at 70. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr3-nohalf", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:3", "source": "transfer", "params": {"a": 35, "c": 25}, "wrong": [60, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-half", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole angles at A and C, 70° and 50°, were used instead of their halves. AC is common, so △ABC ≅ △ADC (צ.צ.צ) and the diagonal halves both angles: ∢BAC = 35° and ∢BCA = 25°. In △ABC, ∢ABC = 180° − 35° − 25° = 120°. Ends at 120. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr4-fullbase", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "diag", "params": {"f": "area", "b": 14, "h": 8, "t": 6, "m": 10, "ord": [0, 1, 2]}, "wrong": [56, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "full-base", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole side BC was taken as the base of △ABD. D is the middle of BC, so BD = 7, and the height from A is AH = 8: the area of △ABD is 7 · 8 / 2 = 28. Ends at 28. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr4-medianheight", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "transfer", "params": {"b": 16, "h": 8, "t": 6, "m": 10, "story": 0}, "wrong": [40, 36], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "median-as-height", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the path, the median AD, was used as the height. The height is the distance from A to the fence, 8 m, at a right angle to it; the path goes to the middle of the fence and is longer. Each family's part has the base 8, half of 16, and the height 8: 8 · 8 / 2 = 32. Ends at 32. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr4-gen-fullside", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "gen", "key": "cg4p:13:11:18:8:3201", "wrong": [39, 33], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "full-side", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole side BC was added instead of its half. △ABD has the sides AB = 13, AD = 8 and BD, half of BC = 18, so BD = 9: 13 + 9 + 8 = 30. Ends at 30. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr4-gen-mediancongruent", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "gen", "key": "cg4c:0", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "median-congruent", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the median was taken to cut the triangle into two congruent triangles. It cuts it into two triangles of equal area (equal bases, the same height), but when AB and AC differ, the two parts have different sides. Does not say which choice is right (withhold): asks the student to compare AB and AC, one side of each part. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr4-gen-medianaltitude", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:4", "source": "gen", "key": "cg4s:median:60:40:EGF", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "median-altitude", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the median was confused with the altitude. AE is perpendicular to BC (the right-angle mark): that is the altitude. The median goes from A to the middle of BC, the point the two equal marks on BC show. Does not say which choice is right (withhold): asks the student to find the middle of BC. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr5-sumequal", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "diag", "params": {"a": 9, "b": 4}, "wrong": [9, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "sum-equal", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the two lengths where the triangle lies flat were counted too. The third side must be longer than 9 − 4 = 5 and shorter than 9 + 4 = 13; at 5 or at 13 the three sides lie on one line. So it is 6 to 12: 7 lengths. Ends at 7. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr5-nolowerlimit", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "transfer", "params": {"a": 12, "b": 5}, "wrong": [16, 14], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-lower-limit", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only \"shorter than the sum\" was checked. The third stick must also be longer than 12 − 5 = 7, or the two shorter sticks do not reach the ends of the long one. So it is 8 to 16: 9 lengths. Ends at 9. Names no other mistake." },
+      "tags": ["congr"]
+    },
+    {
+      "id": "D1-congr5-gen-ignoreinequality", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "gen", "key": "cg5i:4:15", "wrong": [23, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "ignore-inequality", "maxWords": 130,
+        "describe": "Names the app's diagnosis: legs of 4 were chosen, and they do not meet: 4 + 4 = 8 is shorter than 15. So the legs are 15 and the base is 4: 4 + 15 + 15 = 34. Ends at 34. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
+      "id": "D1-congr5-gen-angleatside", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "congr:5", "source": "gen", "key": "cg5m:9:5:10", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "angle-at-side", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the largest angle was looked for at an end of the longest side. The largest angle lies opposite the longest side, AC = 10, at the vertex that does not touch it. Does not say which choice is right (withhold): asks which vertex is not on AC. Names no other mistake." },
+      "tags": ["congr", "generator"]
+    },
+    {
       "id": "D1-transf1-shiftsign", "cat": "D1", "kind": "explain", "shapes": ["full"],
       "skill": "transf:1", "source": "diag", "params": { "a1": 3, "a2": -3, "dx": -5, "dy": 2, "c1": -1, "c2": -2, "ask": "y" }, "wrong": [-4, 7], "phase": "reveal",
       "expect": { "first": "misconception", "diagnosis": "shift-sign", "maxWords": 130,

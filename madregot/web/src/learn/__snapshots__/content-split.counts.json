@@ -167,10 +167,28 @@
      1,
      1
     ]
+   },
+   "congr:5": {
+    "discover": 8,
+    "examples": [
+     3,
+     2
+    ],
+    "misconceptions": [
+     1,
+     2,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
    }
   },
-  "stairs": 4,
-  "steps": 91
+  "stairs": 5,
+  "steps": 111
  },
  "coord": {
   "skills": {

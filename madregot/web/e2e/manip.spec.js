@@ -418,3 +418,115 @@ test('the transform object in a check render: no coordinate text anywhere in the
   await expect(page.locator('.manip-transform .manip-canvas')).toHaveAttribute('aria-label', /העותק זז 1 (ימינה|שמאלה) מההתחלה/);
   expect(await look()).not.toMatch(coords);
 });
+
+// GEOM-2 on the small phone (320×568): the busiest transform item is congruence's teaching step 5 (congr:1: the arrows,
+// a flip, two turns and a target). The plane is at least 220 px wide and tall, the check button is on screen, nothing
+// scrolls sideways, and the step is solved with the buttons alone: two quarter turns about O, then three steps up.
+test('the transform object at its busiest: congr:1 step 5 on the small phone', async ({ page }) => {
+  test.skip(test.info().project.name !== 'phone-small', 'the small phone');
+  await open(page, '#/learn/congr/1/A', student('8'));
+  for (let i = 0; i < 8; i += 1) {
+    await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+    const st = await page.evaluate(() => window.__madregotStep);
+    if (st.kind === 'explore' && st.manip.kind === 'transform') break;
+    if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); }
+    const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+    await page.locator('.sp-next').click();
+    await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+  }
+  const st = await page.evaluate(() => window.__madregotStep);
+  expect(st.manip.moves.drag && st.manip.moves.flips.length === 1 && st.manip.moves.turns.by === 90 && !!st.manip.target, 'the arrows, one flip, the turns and a target').toBe(true);
+  const canvas = page.locator('.ls-explore .manip-transform .manip-canvas');
+  await expect(page.locator('.ls-explore .mp-tf-controls')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  const box = await canvas.boundingBox();
+  expect(box.width, 'the plane is at least 220 px wide').toBeGreaterThanOrEqual(220);
+  expect(box.height, 'the plane is at least 220 px tall').toBeGreaterThanOrEqual(220);
+  await expectUsable(page, canvas, 'the grid');
+  await expectUsable(page, page.locator('.lm-check'), 'the check button');
+  if (process.env.PROOF_SHOTS) await page.screenshot({ path: `${process.env.PROOF_SHOTS}/transform-busiest-phone-small.png` }); // the proof picture
+  for (const b of await page.locator('.ls-explore .mp-tf-controls .step-btn').all()) await expectUsable(page, b, `the button ${await b.getAttribute('aria-label')}`);
+  // K(1, −1), M(4, −1), L(1, 2): a half turn, as two quarter turns, and three steps up put them on A, B and C
+  const ccw = page.getByRole('button', { name: 'סיבוב של 90° נגד כיוון השעון סביב O' });
+  await ccw.click();
+  await ccw.click();
+  for (let k = 0; k < 3; k += 1) await page.getByRole('button', { name: 'הזיזו למעלה' }).click();
+  await expect(page.locator('.lm-check')).toBeEnabled();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+});
+
+// GEOM-3 on the phones (390×844 and 320×568): a congr:3 practice proof whose order and theorem are asked (proofOrder).
+// The rows move with their buttons alone; the theorem is chosen from the keyboard alone (Enter opens the list on the
+// chip, the arrows choose, Enter keeps it); while the last row's list is open the drawing is still on screen; a wrong
+// order is outlined at its first row out of place; nothing scrolls sideways. PROOF_SHOTS=<folder> saves the table with
+// the last row's list open and mid-way through the order (the proof pictures of GEOM-3; the feedback panel's entrance
+// waits for the clock, which these tests fix, so the picture after a wrong check is taken on a running clock).
+test('the proof object: a congr:3 practice proof ordered by its buttons, its reason chosen from the keyboard', async ({ page }) => {
+  const project = test.info().project.name;
+  test.skip(!['phone', 'phone-small'].includes(project), 'the phones');
+  test.setTimeout(120_000);
+  const it = await openOn(page, '#/lesson/congr/3?part=1', student('8'), (x) => x.form === 'manip' && x.manip.kind === 'proof' && !x.manip.lockOrder);
+  const part = it.manip.part; const n = part.steps.length;
+  // the right order is the steps' own (0 … n − 1), any order inside a free group (learn/challenges/grade.ts firstOutOfPlace)
+  const groupOf = (s) => (part.free || []).find((g) => g.includes(s))?.reduce((a, b) => Math.min(a, b)) ?? s;
+  const firstOff = (order) => order.findIndex((s, place) => groupOf(s) !== groupOf(place));
+  const table = page.locator('.manip-proof');
+  const ids = () => table.locator('td.claim').evaluateAll((els) => els.map((e) => Number(e.id.replace(/^.*-c/, ''))));
+  const shot = async (name) => { if (process.env.PROOF_SHOTS) { await page.waitForTimeout(600); await page.screenshot({ path: `${process.env.PROOF_SHOTS}/proof-${name}-${project}.png` }); } };
+  const move = (s, dir) => table.locator(`.mp-proof-move[aria-describedby$="-c${s}"][aria-label="הזיזו ${dir}"]`);
+  await expect(table).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  for (const b of await table.locator('.mp-proof-move').all()) { const r = await b.boundingBox(); expect(Math.min(r.width, r.height), 'the move buttons are 44 px').toBeGreaterThanOrEqual(43.5); }
+
+  // the asked row (the congruence, its theorem) to the bottom with its own button: its reason list then opens on the last row
+  const asked = part.steps.findIndex((s) => s.reason);
+  while ((await ids()).indexOf(asked) < n - 1) await move(asked, 'למטה').click();
+  const chip = table.locator('.mp-proof-chip');
+  await chip.focus();
+  await page.keyboard.press('Enter');
+  await expect(table.locator('.mp-proof-pick')).toBeVisible();
+  const opts = table.getByRole('radio');
+  await expect(opts.first()).toBeFocused();
+  const want = part.steps[asked].reason.answer;
+  for (let k = 0; k < want; k += 1) await page.keyboard.press('ArrowDown');
+  await expect(opts.nth(want)).toHaveAttribute('aria-checked', 'true');
+  await expect(opts.nth(want)).toBeFocused();
+  // the drawing is still on screen, whole, while the last row's list is open; the chosen reason is on screen too
+  const vp = page.viewportSize();
+  const fig = await table.locator('.mp-proof-fig').boundingBox();
+  expect(fig.y, 'the drawing starts on screen').toBeGreaterThanOrEqual(-1);
+  expect(fig.y + fig.height, 'the drawing ends on screen').toBeLessThanOrEqual(vp.height + 1);
+  const opt = await opts.nth(want).boundingBox();
+  expect(opt.y + opt.height, 'the chosen reason is on screen').toBeLessThanOrEqual(vp.height + 1);
+  expect(opt.y, 'the chosen reason is not under the drawing').toBeGreaterThanOrEqual(fig.y + fig.height - 1);
+  await shot('open');
+  await page.keyboard.press('Enter');
+  await expect(table.locator('.mp-proof-pick')).toHaveCount(0);
+  await expect(chip).toBeFocused();
+  await expectNoSidewaysScroll(page);
+
+  // a wrong order (the congruence below the conclusion that follows from it): the check outlines the first row out of place
+  const wrong = await ids();
+  expect(firstOff(wrong)).toBeGreaterThanOrEqual(0);
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  const off = table.locator('.mp-proof-row.off');
+  await expect(off).toHaveCount(1);
+  await expect(off.locator('td.n')).toHaveText(String(firstOff(wrong) + 1));
+  await expect(table.locator('.mp-proof-note')).toHaveText('השורה הזאת עוד לא במקום');
+  await expectNoSidewaysScroll(page);
+  await proceed(page);
+
+  // the order, with the move buttons alone: step k to place k by its "up" button (the chosen reason stays)
+  for (let k = 0; k < n; k += 1) {
+    while ((await ids()).indexOf(k) > k) await move(k, 'למעלה').click();
+    if (k === 1) await shot('mid');
+  }
+  expect(firstOff(await ids())).toBe(-1);
+  await expect(chip).toContainText(part.steps[asked].reason.choices[want].replace(/\$/g, '').slice(0, 4));
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+});

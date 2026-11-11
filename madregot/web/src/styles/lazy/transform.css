@@ -65,3 +65,13 @@
   .mp-tf-chip { line-height: 1.5; }
   .mp-tf-controls, .mp-tf-row { gap: 6px; }
 }
+
+/* a short screen in a teaching step (GEOM-2): the step's text, the plane, its two rows of controls and the check button
+   all on one screen, as the practice stage has them. The plane takes what is left (at least 220 px at 320 × 568), the
+   panel's padding shrinks, and the vertex chips give way: the copy's letters are on the plane, and a refused move's
+   sentence still shows */
+@media (max-height: 640px) {
+  .ls-explore .lm-canvas:has(.manip-transform) { padding-block: 4px; }
+  .ls-explore .manip-transform .mp-tf-read:not(:has(.mp-tf-refuse)) { display: none; }
+  .ls-explore .manip-transform:has(.mp-tf-row + .mp-tf-row) .manip-canvas { max-width: min(440px, calc(100dvh - 344px)); }
+}
