@@ -209,7 +209,8 @@ test('Exam Rescue offers ז׳ Pythagoras (taught in March in ז׳) as one of the
   await open(page, '#/rescue', student('7'));
   await toTopics();
   const heads = page.locator('.rescue-topic-head .topic-row');
-  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'משוואות (כל הנושא)', 'משפט פיתגורס (כל הנושא)']);
+  // percent (ח׳, October) is offered to ז׳ too: they meet it in relative frequency in February
+  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'משפט פיתגורס (כל הנושא)']);
   await page.getByText('מציאת ניצב', { exact: true }).click();
   await expect(page.locator('.rescue-topic').last().locator('.rescue-topic-count')).toHaveText('1/5');
   await expectNoSidewaysScroll(page);
@@ -248,7 +249,8 @@ test('saved progress from before 2.0 survives the update', async ({ page }) => {
 
 test('reviewer P1: two right diagnostic answers per stair are "passed the first check", never "mastered"', async ({ page }) => {
   await open(page, '#/rescue', student('7'));
-  const d = new Date(); d.setDate(d.getDate() + 3);
+  // three days after the tests' fixed Thursday (a Sunday): the real clock could land the exam on Shabbat, which Rescue refuses
+  const d = new Date(NOW); d.setDate(d.getDate() + 3);
   await page.locator('#exam-date').fill(d.toLocaleDateString('en-CA'));
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByText('חיבור וחיסור', { exact: true }).click();

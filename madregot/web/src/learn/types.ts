@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'ratio' | 'line' | 'pyth' | 'stats' | 'sys';
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'stats' | 'sys';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -38,8 +38,11 @@ export type NumlineFig = { type: 'numline'; from: number; to: number; marks?: { 
 export type FbarFig = { type: 'fbar'; den?: number; shaded?: number; marks?: number[]; whole?: number; labels?: boolean; hatch?: number; cross?: number; rows?: { den: number; shaded: number; label?: string }[] };
 /** A rectangle cut both ways, the overlap of the shaded columns and rows darkest. */
 export type FgridFig = { type: 'fgrid'; rows: number; cols: number; shadeRows: number; shadeCols: number; label?: string };
-/** The double number line, still: the marker at `at` on the top line, which values it shows, or one value under it. */
-export type DlineFig = { type: 'dline'; top: DlineLine; bottom: DlineLine; at?: number; show?: 'both' | 'top' | 'bottom'; label?: string };
+/**
+ * The double number line, still: the marker at `at` on the top line, which values it shows, or one value under it;
+ * `blank` writes no number on the bottom line but 0 (a picture that asks for the whole).
+ */
+export type DlineFig = { type: 'dline'; top: DlineLine; bottom: DlineLine; at?: number; show?: 'both' | 'top' | 'bottom'; label?: string; blank?: boolean };
 /** Things counted in rows of dots, with a Hebrew label at the start of each row. */
 export type GroupsFig = { type: 'groups'; rows: { n: number; label: string }[] };
 /** The figures of fractions, percent and ratio: content writes them `satisfies FractionFig` so their fields are checked. */

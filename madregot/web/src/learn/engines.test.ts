@@ -100,9 +100,27 @@ describe('the topic list the tutor and the exam check use', () => {
   });
 });
 
+describe('grade 8 in school order (percent after ratio, before linear functions)', () => {
+  it('puts pct after ratio and before line, and keeps the first-day test at 18 questions', async () => {
+    expect(TOPIC_ORDER.indexOf('pct')).toBe(TOPIC_ORDER.indexOf('ratio') + 1);
+    expect(TOPIC_ORDER.indexOf('pct')).toBeLessThan(TOPIC_ORDER.indexOf('line'));
+    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys']);
+    // @ts-ignore: plain JS
+    const { placementMax } = await import('@/lib/placement.js');
+    // @ts-ignore: plain JS
+    const { topicsFor, placementTopicsFor, rescueTopicsFor } = await import('@/content/index.js');
+    // ratio and pct are on the map of ח׳ but not in the first-day test (placement: false): 3 topics × 2 probes × 3
+    expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 3)).toEqual(['ratio', 'pct', 'line']);
+    expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('pct');
+    expect(placementMax('8')).toBe(18);
+    // ז׳ meets percents in relative frequency: Exam Rescue offers the unit to ז׳ too
+    expect(rescueTopicsFor('7').map((t: { id: string }) => t.id)).toContain('pct');
+  });
+});
+
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(57); // with ratio:1-4 (ח׳, the first unit of the year)
+    expect(ALL_SKILLS).toHaveLength(62); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year)
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));

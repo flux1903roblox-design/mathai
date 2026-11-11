@@ -28,6 +28,8 @@ const KINDS = [
   ['fbar', 'frac/3', '7', [0.1, 0.5, 0.9, 0.5], (it) => it.answer?.mode === 'common', 'a common number of parts on the fraction bar'],
   // the pitcher on a double number line: the marker moves along the water line until the sugar under it is right (ratio:3)
   ['dline', 'ratio/3', '8', [0.1, 0.35, 0.6, 0.35], (it) => it.manip.move === 't', 'a proportion on the double number line'],
+  // the percent bar stretched: the marker stays at p%, a drag along the bottom line moves its end (pct:4 "find the whole")
+  ['dline', 'pct/4', '8', [0.5, 0.72, 0.85, 0.72], (it) => it.manip.move === 'max', 'the whole, by stretching the percent bar'],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');

@@ -7,7 +7,7 @@ import type { NextContext, CheckedExam } from './next';
 import { nextActions } from './recommend';
 import { buildMission, completeMissionItems, missionDone, missionFor } from './mission';
 import { examPlan, newPlan, recordDiagnostic, isShabbatDay } from './examRescue';
-import { ALL_SKILLS, STAIRS, TOPIC_ORDER, isBridgeSkill, parseSkill, skillId } from './skills';
+import { ALL_SKILLS, STAIRS, TOPIC_ORDER, isBridgeSkill, parseSkill, skillId, prereqsOf } from './skills';
 import { contentOf } from './content/index';
 import { seeded } from './expr';
 import { addDays } from './mastery';
@@ -352,6 +352,29 @@ describe('one next: every surface names the same step', () => {
     expect(seen.restDay).toBeGreaterThan(10);
     expect(seen.lead).toBeGreaterThan(0);
     expect(seen.lead).toBeLessThan(seen.stairOnMap);
+  });
+
+  it('a ח׳ student is not offered sys:1 (equations with percents) as new while pct:5 is not done', () => {
+    // February: sys:1 (December) is taught by now. Ratio, line, Pythagoras and statistics are done; percent is not started
+    const day = '2027-02-09'; const now = `${day}T09:00:00.000Z`;
+    const done = (L: LearnState, ids: SkillId[]) => ids.forEach((s) => { L.skills[s] = masteredRec(ago(5, now), 60); });
+    const L = emptyLearn();
+    done(L, ALL_SKILLS.filter((s) => ['ratio', 'line', 'pyth', 'stats'].includes(parseSkill(s).topic)));
+    const news = () => planNext(ctxOf(L, { grade: '8', day })).items.filter((x) => x.kind === 'new').map((x) => x.skill);
+    expect(prereqsOf('sys:1')).toContain('pct:5');
+    expect(news()).toEqual(['pct:1']);
+    for (const n of [1, 2, 3, 4]) {
+      done(L, [`pct:${n}`]);
+      expect(news(), `after pct:${n}`).not.toContain('sys:1');
+    }
+    expect(news()).toEqual(['pct:5']);
+    // pct:3 hard again: pct:5 cannot be new, and without the edge sys:1 would be; with it, sys:1 waits too
+    L.skills['pct:3'] = strugglingRec(ago(1, now));
+    expect(news()).not.toContain('sys:1');
+    expect(news()).not.toContain('pct:5');
+    // percent done: now sys:1 is the next new stair
+    done(L, ['pct:3', 'pct:5']);
+    expect(news()).toEqual(['sys:1']);
   });
 
   it('a ח׳ student in November gets ratio:1 (taught in September) as the first new stair, and the map focuses it', () => {

@@ -168,12 +168,13 @@ describe('topic flags', () => {
     // the updated ז׳ programme teaches Pythagoras in March (unit 7.14): it stays filed under ח׳ and is offered to ז׳
     expect(TOPIC.pyth.grade).toBe('8');
     expect(topicsFor('7').map((t) => t.id)).not.toContain('pyth');
-    expect(rescueTopicsFor('7').map((t) => t.id)).toEqual([...topicsFor('7').map((t) => t.id), 'pyth']);
+    // and percent (ח׳, October) too: ז׳ meets it in relative frequency in February
+    expect(rescueTopicsFor('7').map((t) => t.id)).toEqual([...topicsFor('7').map((t) => t.id), 'pct', 'pyth']);
     TOPIC.signed.alsoFor = ['8'];
     try {
       expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'signed', 'expr', 'eq']);
       // a grade's own topic is never offered twice
-      expect(rescueTopicsFor('7').map((t) => t.id)).toEqual([...topicsFor('7').map((t) => t.id), 'pyth']);
+      expect(rescueTopicsFor('7').map((t) => t.id)).toEqual([...topicsFor('7').map((t) => t.id), 'pct', 'pyth']);
     } finally { delete TOPIC.signed.alsoFor; }
   });
 });

@@ -14,6 +14,7 @@ import { EXPR } from './expr.js';
 import { SYS } from './sys.js';
 import { FRAC } from './frac.js';
 import { RATIO } from './ratio.js';
+import { PCT } from './pct.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -295,6 +296,43 @@ const PROPS = {
       }
       const q = fracOp(it); return q.op === 'div' && it.form !== 'mc' && fits(u, (q.a / q.b) * (q.c / q.d));
     },
+  },
+  // pct:1-5, each property from the numbers the student saw (the key): a, b of pc1f (a/b) and x of pc1d and pc1o; N and p
+  // of pc1e (a vote of p% of N); p, N of pc2 and pc2m (p% of N); A, B of pc3 and pc3g (A of B) and c, T of pc3t (c of all
+  // T volunteers); p, A of pc4 and pc4d (p% is A); up, p, N of pc5 (one change), p, N of pc5w (up and down), N, M of pc5b
+  pct: {
+    // the parts, the percent itself, or the part written as the amount
+    'count-as-pct': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'pc1f') return fits(u, n[0]);
+      if (p === 'pc1e') return it.choices[u]?.text === `${n[1]} אנשים`;
+      if (p === 'pc2' || p === 'pc2m') return fits(u, n[0]);
+      if (p === 'pc3' || p === 'pc3g' || p === 'pc3t') return fits(u, n[0]);
+      return false;
+    },
+    // the digits after the point read as the percent: 0.4 as 4, 1.5 as 15
+    'digit-pct': (it, u) => {
+      const p = it.key.split(':')[0]; const x = it.key.split(':')[1]; const digits = Number(x.replace('.', ''));
+      if (p === 'pc1d') return x.includes('.') && fits(u, digits);
+      if (p === 'pc1o') return chosen(it, u) === `${digits}\\%`;
+      return false;
+    },
+    // the amount divided by the percent number
+    'div-by-pct': (it, u) => { const [p, N] = nums(it.key); return /^pc2m?:/.test(it.key) && fits(u, N / p); },
+    // the whole over the part, times 100
+    'inverse-ratio': (it, u) => { const [A, B] = nums(it.key); return /^pc3[gt]?:/.test(it.key) && fits(u, (100 * B) / A); },
+    // the percent taken of the part given
+    'pct-of-part': (it, u) => { const [p, A] = nums(it.key); return /^pc4d?:/.test(it.key) && fits(u, (A * p) / 100); },
+    // 1% found and the answer stopped there
+    'stop-at-one': (it, u) => { const [p, A] = nums(it.key); return /^pc4d?:/.test(it.key) && fits(u, A / p); },
+    // p shekels added or taken off, not p percent
+    'add-pct': (it, u) => { const [up, p, N] = nums(it.key); return it.key.startsWith('pc5:') && fits(u, N + (up ? p : -p)); },
+    // the size of the change given as the new price
+    'change-only': (it, u) => { const [, p, N] = nums(it.key); return it.key.startsWith('pc5:') && fits(u, (p * N) / 100); },
+    // a rise and a fall by the same percent taken to cancel: the price before
+    'additive-changes': (it, u) => { const [, N] = nums(it.key); return it.key.startsWith('pc5w:') && fits(u, N); },
+    // the change as a percent of the new price
+    'pct-of-new': (it, u) => { const [N, M] = nums(it.key); return it.key.startsWith('pc5b:') && fits(u, (100 * Math.abs(M - N)) / M); },
   },
   // ratio:1-4, each property from the numbers the student saw (the key): a, b of ra1; m, n, T of ra2s; m, n, P of ra2r;
   // the investments X, Y and the profit P of ra2p; b, a, c of ra3m (b units need a, how much for c); the table rows of
@@ -715,9 +753,9 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-describe('the algebra, fraction and ratio topics name only what a property can check', () => {
-  it('every category of expressions, equations, systems, fractions and ratio has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC, RATIO]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+describe('the algebra, fraction, ratio and percent topics name only what a property can check', () => {
+  it('every category of expressions, equations, systems, fractions, ratio and percent has its property here', () => {
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

@@ -35,6 +35,9 @@ const CASES = [
   // (a choice with no maths above it keeps its choices low, by the check button: the typed question is the one measured)
   ['a ratio completed in lowest terms', 'ratio/1', '8', (x) => x.form === 'num'],
   ['a missing value in a proportional table', 'ratio/3', '8', (x) => x.fig?.type === 'table'],
+  // percent: finding the whole (the hardest of the three questions) and the volunteers' table, on every phone
+  ['finding the whole from a percent', 'pct/4', '8'],
+  ['what percent, from a table', 'pct/3', '8', (x) => x.fig?.type === 'table'],
 ];
 
 for (const [what, route, grade, want = () => true] of CASES) {

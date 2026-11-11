@@ -15,7 +15,8 @@
 //   fgrid  { rows, cols, shadeRows, shadeCols, label? }   a rectangle cut both ways: columns shaded one way, rows the
 //          other, the overlap darkest (3/4 of 1/2 as an area)
 //   dline  { top, bottom, at?, show?: 'both' | 'top' | 'bottom', label? }   the double number line, its marker at `at`
-//          on the top line; show which values are written at the marker; label writes one value under it ('1400', '?')
+//          on the top line; show which values are written at the marker; label writes one value under it ('1400', '?');
+//          blank writes no number on the bottom line but 0 (the whole is what the picture asks)
 //   groups { rows: [{ n, label }] }                     dots in fives, a Hebrew label at the start of each row
 import { useId } from 'react';
 import clsx from 'clsx';
@@ -514,7 +515,7 @@ function DLine({ fig }) {
   };
   return (
     <svg viewBox={DLINE_VIEW} className="figure fg-obj fg-dline" role="img" aria-label={figWords(fig)}>
-      <DlineArt top={fig.top} bottom={fig.bottom} at={fig.at ?? null} pills={pills} />
+      <DlineArt top={fig.top} bottom={fig.bottom} at={fig.at ?? null} pills={pills} hideBottom={fig.blank ? 'zero' : false} />
     </svg>
   );
 }

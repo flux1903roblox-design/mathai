@@ -413,6 +413,36 @@ describe('ratio and scale teach with pictures', () => {
   });
 });
 
+// Percent is taught with the percent bar (the double number line, the fraction bar with its whole written under it), the
+// volunteers' table and two price changes in a table: every teaching step draws one, and every drawing renders. A
+// picture that asks for the whole writes no number on its bottom line but 0 (blank), so it does not give the answer.
+describe('percent teaches with pictures', () => {
+  const pct = stairs.filter((c) => c.topic === 'pct');
+  it('every discover step of pct:1-5 has a figure or an object', () => {
+    expect(pct.map((c) => c.skill)).toEqual(['pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5']);
+    const bare = pct.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
+    expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
+  });
+  it('every figure of the unit renders, with no broken numbers, and a blank line hides its end', () => {
+    const figs = pct.flatMap((c) => [
+      ...c.discover, ...c.misconceptions.flatMap((m) => m.remedy),
+      ...c.examples, ...c.together,
+    ].map((x) => (x as { fig?: FigSpec }).fig).filter(Boolean) as FigSpec[]);
+    expect(new Set(figs.map((f) => f.type))).toEqual(new Set(['dline', 'fbar', 'table']));
+    figs.forEach((fig) => {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, fig.type).toMatch(/<svg|<table/);
+      expect(html, fig.type).not.toMatch(/NaN|undefined|Infinity/);
+    });
+    // pct:4 step 1: 35% of the download is 1400; the file's size (4000) is the question, and is not drawn
+    const first = CONTENT['pct:4'].discover[0] as { fig: FigSpec };
+    const html = renderToStaticMarkup(createElement(Figure, { fig: first.fig }));
+    expect(html).toMatch(/>1400</);
+    expect(html).not.toMatch(/>4,?000</); // no text of the drawing says it
+    expect(html.match(/aria-label="([^"]*)"/)![1]).not.toMatch(/4,?000/); // nor its words for a screen reader
+  });
+});
+
 // The checks above are what keeps the algebra stairs honest before they exist: each is shown here to pass a right
 // fixture and to fail a broken one, so a check that silently passes everything cannot slip in.
 describe('the algebra checks catch what they are for', () => {

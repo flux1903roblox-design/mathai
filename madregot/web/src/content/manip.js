@@ -213,7 +213,9 @@ export function figWords(f) {
       const line = (L) => `${L.label ? `${L.label} ` : ''}מ־0 עד ${withUnit(L.max, L.unit)}, שנתה כל ${withUnit(L.step, L.unit)}`;
       const show = f.show || 'both';
       const at = f.at == null ? '' : `; הסמן ${show !== 'bottom' ? `על ${withUnit(f.at, f.top.unit)}` : 'על הציר העליון'}${f.label != null ? `, מתחתיו ${f.label}` : show !== 'top' ? `, מתחתיו ${withUnit(dlineAt({ ...f, move: 't' }, f.at).under, f.bottom.unit)}` : ''}`;
-      return `ציר כפול: למעלה ${line(f.top)}; למטה ${line(f.bottom)}${at}`;
+      // a blank bottom line writes only its 0: its end (the whole) is what the picture asks
+      const low = f.blank ? `${f.bottom.label ? `${f.bottom.label} ` : ''}מ־0, בלי מספרים` : line(f.bottom);
+      return `ציר כפול: למעלה ${line(f.top)}; למטה ${low}${at}`;
     }
     case 'groups': return `קבוצות: ${f.rows.map((r) => `${r.label} ${r.n}`).join(', ')}`;
     default: return '';

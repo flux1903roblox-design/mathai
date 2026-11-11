@@ -14,8 +14,9 @@ import { STATS, CATS_STATS } from './stats';
 import { SYS, CATS_SYS } from './sys';
 import { FRAC, CATS_FRAC } from './frac';
 import { RATIO, CATS_RATIO } from './ratio';
+import { PCT, CATS_PCT } from './pct';
 
-const ALL: StairContent[] = [...FRAC, ...SIGNED, ...SIGNED6, ...COORD, ...ANGLES, ...EXPR, ...EQ, ...RATIO, ...LINE1, ...LINE2, ...PYTH, ...STATS, ...SYS];
+const ALL: StairContent[] = [...FRAC, ...SIGNED, ...SIGNED6, ...COORD, ...ANGLES, ...EXPR, ...EQ, ...RATIO, ...PCT, ...LINE1, ...LINE2, ...PYTH, ...STATS, ...SYS];
 
 export const CONTENT: Record<SkillId, StairContent> = Object.fromEntries(ALL.map((c) => [c.skill, c]));
 export const contentOf = (skill: SkillId): StairContent | null => CONTENT[skill] || null;
@@ -23,5 +24,5 @@ export const hasContent = (skill: SkillId) => !!CONTENT[skill];
 
 /** Misconception names new in 2.0, by topic: merged into each topic's cats (content/index.js). */
 export const NEW_CATS: Record<TopicId, Record<string, string>> = {
-  frac: CATS_FRAC, signed: { ...CATS_SIGNED, ...CATS_SIGNED6 }, coord: CATS_COORD, angles: CATS_ANGLES, expr: CATS_EXPR, eq: CATS_EQ, ratio: CATS_RATIO, line: { ...CATS_LINE1, ...CATS_LINE2 }, pyth: CATS_PYTH, stats: CATS_STATS, sys: CATS_SYS,
+  frac: CATS_FRAC, signed: { ...CATS_SIGNED, ...CATS_SIGNED6 }, coord: CATS_COORD, angles: CATS_ANGLES, expr: CATS_EXPR, eq: CATS_EQ, ratio: CATS_RATIO, pct: CATS_PCT, line: { ...CATS_LINE1, ...CATS_LINE2 }, pyth: CATS_PYTH, stats: CATS_STATS, sys: CATS_SYS,
 };

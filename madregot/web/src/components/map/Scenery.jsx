@@ -208,6 +208,17 @@ const ScaleBarArt = () => (
     {[10, 30, 50, 70, 90].map((x) => <path key={x} d={`M${x} 54 V80`} className="sc-stroke" />)}
   </svg>
 );
+/** Percent: the percent bar, filled to 60% with a tick at every 20%, over a percent sign. */
+const PctBarArt = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="8" y="18" width="84" height="26" rx="6" className="sc-w sc-line" />
+    <rect x="8" y="18" width="50" height="26" rx="6" className="sc-c" />
+    {[25, 41, 58, 75].map((x) => <path key={x} d={`M${x} 12 V18`} className="sc-stroke" />)}
+    <circle cx="36" cy="66" r="8" className="sc-g" />
+    <circle cx="64" cy="86" r="8" className="sc-g" />
+    <path d="M70 58 L30 94" className="sc-stroke-c" />
+  </svg>
+);
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -230,6 +241,7 @@ export const SCENERY = {
   sys: [SysCross],
   frac: [FracBarArt],
   ratio: [ScaleBarArt],
+  pct: [PctBarArt],
 };
 
 /** The unit's own sign for its header: the first piece of its world. */

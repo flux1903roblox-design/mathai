@@ -6,10 +6,11 @@ import type { SkillId, TopicId } from './types';
 // 'frac' (fractions and decimals) is a bridge unit: the floor under grade 7, first so ALL_SKILLS stays in prerequisite
 // order. A bridge stair is in no grade's own list (gradeSkillsOf), is missing only on evidence and is new only when the
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
-// ח׳ in school order: ratio and scale is the first unit of the year (September), before linear functions.
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'line', 'pyth', 'stats', 'sys'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, line: 8, pyth: 5, stats: 5, sys: 5 };
+// ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), both
+// before linear functions.
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -61,6 +62,11 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'ratio:2': ['ratio:1'], // m : n is m + n equal parts
   'ratio:3': ['ratio:1', 'frac:4'], // the unit rate is a quotient; the missing value is a product (bridge edge)
   'ratio:4': ['ratio:3'], // a scale is a proportion with units
+  'pct:1': ['frac:2'], // a percent is a fraction or a decimal in hundredths (bridge edge: evidence only)
+  'pct:2': ['pct:1', 'frac:4'], // "p% of" is multiplying by p/100 (bridge edge)
+  'pct:3': ['pct:1'], // part ÷ whole, written in hundredths
+  'pct:4': ['pct:2', 'eq:1'], // the whole: undo "p% of" through 1% or a benchmark; the same question as 0.35x = 1400 (a ז׳ stair: evidence only)
+  'pct:5': ['pct:2', 'pct:3'], // the new amount is a percent of the old; the change is a percent of the old
   'line:1': ['signed:4', 'coord:1', 'expr:1'], // a table of values: substitute x in mx + b (expr:1, signed:4), plot the points
   'line:2': ['line:1'], // what m and b mean in y = mx + b
   'line:3': ['line:2', 'coord:1', 'ratio:1'], // slope from the graph: steps on the grid, "up 2 for every 3 to the right" is a ratio
@@ -79,7 +85,9 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'stats:3': ['frac:2'], // mean: sum and share; a mean is often a decimal, read and compared by place value (bridge edge)
   'stats:4': ['stats:3'], // mean from a frequency table
   'stats:5': ['stats:3', 'eq:2'], // a missing value from the mean: the mean equation backwards, (sum + x) : n = mean, two steps
-  'sys:1': ['eq:5', 'expr:3'], // a percent change in a story becomes an equation (eq:5); x + 0.2x = 1.2x is collecting like terms (expr:3)
+  // a percent change in a story becomes an equation (eq:5); x + 0.2x = 1.2x is collecting like terms (expr:3); the
+  // change is a multiplier of the old price (pct:5, an own-grade edge: not new before pct:5 is done, as in school order)
+  'sys:1': ['eq:5', 'expr:3', 'pct:5'],
   'sys:2': ['eq:4', 'line:8'], // substituting y = mx + b gives an equation with brackets (eq:4); the solution is where the two lines meet (line:8)
   'sys:3': ['sys:2', 'expr:5'], // the second unknown is found by substituting (sys:2); subtracting an equation is a minus before brackets (expr:5)
   'sys:4': ['sys:3', 'eq:5'], // a story with two unknowns: each sentence that says "equal" is an equation (eq:5), then the system is solved (sys:3)

@@ -506,3 +506,110 @@ describe('ratio and scale: the numbers of every question', () => {
     expect(n).toBeGreaterThan(100);
   });
 });
+
+// Percent (pct:1-5): every answer is the computation from the numbers the student sees, read back out of the question's
+// text (and its table), not from the generator's parameters; and every equation of every worked solution is true (a
+// percent is read as hundredths: 35% = 0.35).
+describe('percent: every answer from the numbers shown', () => {
+  /** The numbers of a question's maths, in order: 35\% is 35, \frac{7}{20} is 0.35, 12{,}000 is 12000. */
+  const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).map((m) => {
+    const t = m.slice(1, -1).replace(/\\%/g, '').replace(/\{,\}/g, '').trim();
+    const f = t.match(/^\\frac\{(\d+)\}\{(\d+)\}$/);
+    return f ? Number(f[1]) / Number(f[2]) : Number(t);
+  });
+  const all = (level, n = 800) => Array.from({ length: n }, () => makeItem('pct', level));
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  let checked = 0;
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || [])
+    .map((m) => m.slice(1, -1).replace(/\{,\}/g, '').replace(/\\cdot/g, '*').replace(/(\d+(?:\.\d+)?)\\%/g, '($1/100)'))
+    .filter((m) => m.includes('=') && !/[a-zA-Z□]|\\square/.test(m.replace(/\\frac/g, '')))
+    .forEach((m) => {
+      m.split('=').reduce((a, b) => { expect(same(evaluate(texToExpr(a)), evaluate(texToExpr(b))), `${it.key}: ${m}`).toBe(true); checked += 1; return b; });
+    }));
+  afterAll(() => expect(checked).toBeGreaterThan(3000));
+
+  it('pct:1: a fraction or a decimal as a percent, the bar shaded, the vote, a number above 1', () => {
+    for (const it of all(1)) {
+      const kind = it.key.split(':')[0]; const n = shown(it.text);
+      if (kind === 'pc1f' || kind === 'pc1d') { expect(n).toHaveLength(1); expect(it.answer, it.key).toBeCloseTo(100 * n[0], 9); expect(it.unit).toBe('%'); }
+      if (kind === 'pc1s') { const [den, p] = n; expect(it.answer.value, it.key).toBeCloseTo(p / 100, 9); expect(Number.isInteger((p * den) / 100), it.key).toBe(true); expect(it.manip.start.den).toBe(den); }
+      if (kind === 'pc1e') { const [, p] = n; expect(it.choices[it.answer].text, it.key).toBe(p < 50 ? 'קצת פחות מחצי' : 'קצת יותר מחצי'); expect(p).not.toBe(50); }
+      if (kind === 'pc1o') { const [x] = n; expect(it.choices[it.answer].tex, it.key).toBe(`${Math.round(100 * x)}\\%`); }
+      solutionHolds(it);
+    }
+  });
+
+  it('pct:2: p% of N, in the head, and the two classes', () => {
+    for (const it of all(2)) {
+      const kind = it.key.split(':')[0]; const n = shown(it.text);
+      if (kind === 'pc2' || kind === 'pc2m') { const [p, N] = n; expect(it.answer, it.key).toBeCloseTo((p * N) / 100, 9); expect(Number.isInteger(it.answer), it.key).toBe(true); }
+      if (kind === 'pc2c') {
+        const [n1, p1, n2, p2] = n; const c1 = (n1 * p1) / 100; const c2 = (n2 * p2) / 100;
+        expect(Number.isInteger(c1) && Number.isInteger(c2), it.key).toBe(true);
+        expect(it.answer, it.key).toBe(c1 > c2 ? 0 : c2 > c1 ? 1 : 2);
+      }
+      if (kind === 'pc1e') { const [, p] = n; expect(it.choices[it.answer].text).toBe(p < 50 ? 'קצת פחות מחצי' : 'קצת יותר מחצי'); }
+      solutionHolds(it);
+    }
+  });
+
+  it('pct:3: what percent, from the table of volunteers, and this year against last', () => {
+    for (const it of all(3)) {
+      const kind = it.key.split(':')[0]; const n = shown(it.text);
+      if (kind === 'pc3') { const [A, B] = n; expect(it.answer, it.key).toBeCloseTo((100 * A) / B, 9); }
+      if (kind === 'pc3g') { const [A, B] = n; expect(A > B, it.key).toBe(true); expect(it.answer).toBeCloseTo((100 * A) / B, 9); expect(it.answer).toBeGreaterThan(100); }
+      if (kind === 'pc3t') {
+        const [T] = n; const rows = it.fig.rows; const place = rows.find(([name]) => it.text.includes(`ב${name}?`));
+        expect(rows.reduce((a, r) => a + r[1], 0), it.key).toBe(T); // the table adds up to everyone
+        expect(place, it.key).toBeTruthy();
+        expect(it.answer, it.key).toBeCloseTo((100 * place[1]) / T, 9);
+      }
+      expect(Number.isInteger(it.answer), it.key).toBe(true);
+      solutionHolds(it);
+    }
+  });
+
+  it('pct:4: the whole, from p% and the part (and stretched on the double line)', () => {
+    for (const it of all(4)) {
+      const kind = it.key.split(':')[0]; const n = shown(it.text);
+      const [p, A] = n;
+      expect(it.answer, it.key).toBeCloseTo((100 * A) / p, 9);
+      expect((p * it.answer) / 100, it.key).toBeCloseTo(A, 9); // the check: p% of the whole is the part
+      if (kind === 'pc4s') {
+        expect(it.manip.fixT).toBe(p);
+        expect(Math.abs((it.answer - it.manip.start.max) % it.manip.bottom.step), it.key).toBe(0);
+        expect(it.manip.start.max).not.toBe(it.answer);
+        expect(it.answer).toBeLessThanOrEqual(it.manip.bottom.max);
+      }
+      solutionHolds(it);
+    }
+  });
+
+  it('pct:5: one change, a rise then a fall, by what percent, and the change from its multiplier', () => {
+    let twice = 0;
+    for (const it of all(5)) {
+      const kind = it.key.split(':')[0]; const n = shown(it.text);
+      if (kind === 'pc5') {
+        const [N, p] = n; const up = /התייקר ב־/.test(it.text); expect(up || /הוזל ב־/.test(it.text), it.key).toBe(true);
+        expect(it.answer, it.key).toBeCloseTo(N * (1 + (up ? p : -p) / 100), 9);
+      }
+      if (kind === 'pc5w') {
+        twice += 1; const [N, p, q] = n; expect(p).toBe(q);
+        expect(it.answer, it.key).toBeCloseTo(N * (1 + p / 100) * (1 - p / 100), 9);
+        expect(it.answer).toBeLessThan(N); // never the price again
+      }
+      if (kind === 'pc5b') {
+        const [N, M] = n; const up = /בכמה אחוזים התייקר/.test(it.text);
+        expect(up, it.key).toBe(M > N);
+        expect(it.answer, it.key).toBeCloseTo((100 * Math.abs(M - N)) / N, 9);
+      }
+      if (kind === 'pc5m') {
+        const [m] = n; const right = it.choices[it.answer].text;
+        expect(right, it.key).toBe(`${m > 1 ? 'התייקרות' : 'הוזלה'} של ${Math.round(Math.abs(m - 1) * 100)}%`);
+      }
+      if (it.form === 'num') expect(Number.isInteger(it.answer), it.key).toBe(true);
+      solutionHolds(it);
+    }
+    expect(twice).toBeGreaterThan(80);
+  });
+});

@@ -51,6 +51,26 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // 4 by 3 cm at 1 : 100, in m²: the area left in square centimetres (400 · 300 = 120,000)
     { bugs: { 'no-convert': 120000 } },
   ],
+  'pct:1': [
+    { model: 'transfer', p: { a: 19, b: 25 } }, // 19 of 25 questions: the count of right answers, 19, written as the percent
+    { model: 'diag', p: { k: 1, x: 0.6 } }, // 0.6 as a percent: the digit read as the percent gives 6
+  ],
+  'pct:2': [
+    { model: 'diag', p: { p: 30, N: 70 } }, // 30% of 70: the percent itself 30; divided by the percent 70 : 30 = 2.33
+    { model: 'diag', p: { p: 25, N: 28 } }, // 25% of 28 pupils: the percent itself 25; 28 : 25 = 1.12
+  ],
+  'pct:3': [
+    { model: 'diag', p: { A: 12, B: 80 } }, // 12 of 80: the whole over the part 666.7; the part itself 12
+    { model: 'diag', p: { A: 50, B: 40 } }, // 50 against 40: the old over the new 80; the new price itself 50
+  ],
+  'pct:4': [
+    { model: 'diag', p: { p: 25, W: 1200, A: 300 } }, // 25% is 300 g: 25% of the part 75; stopped at 1% 12
+    { model: 'diag', p: { p: 30, W: 150, A: 45 } }, // 30% is 45 km: 30% of the part 13.5; stopped at 1% 1.5
+  ],
+  'pct:5': [
+    { model: 'diag', p: { k: 0, p: 15, up: false, N: 300 } }, // 300 less 15%: 15 shekels off 285; the discount alone 45
+    { model: 'diag', p: { k: 0, p: 15, up: true, N: 300 } }, // 300 plus 15%: 15 shekels on 315; the rise alone 45
+  ],
   'signed:1': [
     { model: 'diag', p: { a: -3, b: -8, s: -1 } }, // −3 − (−8)
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)
