@@ -53,6 +53,18 @@ export function streakRepair(days, todayKey, lastRepair) {
   return { gap, streak, left: Math.max(0, REPAIR_ITEMS - itemsOn(days[todayKey])) };
 }
 
+/**
+ * The streak as every screen shows it today (PRODUCT2-40): the header's flame, the repair card, the missions tab and
+ * the profile all read this one answer, so they never disagree. While a missed school day can still be repaired, the
+ * streak is the one the repair keeps, marked at risk (never 0 beside "הרצף של 4 ימים נשמר"); otherwise it is streakOf.
+ * Returns { n, atRisk, repair }: the number, whether it waits for today's items, and streakRepair's answer (or null).
+ */
+export function streakNow(days, todayKey, lastRepair) {
+  const repair = streakRepair(days, todayKey, lastRepair);
+  if (repair) return { n: repair.streak, atRisk: true, repair };
+  return { n: streakAt(days, todayKey), atRisk: false, repair: null };
+}
+
 /** Active days in the calendar month of `todayKey`, up to it. Starts again on the 1st. */
 export function learnDaysThisMonth(days, todayKey) {
   const month = todayKey.slice(0, 7);

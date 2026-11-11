@@ -1,7 +1,7 @@
 // A calm streak (STUDENT-5): rest days on Shabbat and Yom Tov, an earned repair at most once in 30 days, counters that
 // never reset, and a weekly personal best in steps. Pure functions, on fixed dates.
 import { describe, it, expect } from 'vitest';
-import { streakAt, streakRepair, lastSchoolDay, learnDaysThisMonth, learnDaysTotal, weekStart, weekSteps, bestWeek, stepsOn, daysBetween } from './streak.js';
+import { streakAt, streakRepair, streakNow, lastSchoolDay, learnDaysThisMonth, learnDaysTotal, weekStart, weekSteps, bestWeek, stepsOn, daysBetween } from './streak.js';
 
 const L = (n = 1, extra = {}) => ({ lessons: n, ...extra });
 // Wed 4, Thu 5, Fri 6, (Shabbat 7), Sun 8, Mon 9 November 2026: a streak of 5 ending on Monday the 9th
@@ -79,5 +79,27 @@ describe('the weekly personal best', () => {
     const days = { '2026-10-26': L(4), '2026-10-19': L(2), '2026-11-02': L(10) };
     expect(bestWeek(days, '2026-11-01')).toEqual({ steps: 4, week: '2026-10-25' });
     expect(bestWeek({ '2026-11-02': L(10) }, '2026-11-01')).toBeNull(); // the first week: no best yet
+  });
+});
+
+describe('the streak every screen shows today (PRODUCT2-40)', () => {
+  // the council's returning student: learned Thu 5, Fri 6, Sun 8 and Mon 9; nothing on Tue 10; today Wed 11
+  const back = () => ({ '2026-11-05': L(), '2026-11-06': L(), '2026-11-08': L(), '2026-11-09': L() });
+  it('while the missed day can still be repaired, it is the kept streak, at risk, with the repair (never 0)', () => {
+    const days = back();
+    expect(streakAt(days, '2026-11-11')).toBe(0);
+    expect(streakNow(days, '2026-11-11', null)).toEqual({ n: 4, atRisk: true, repair: { gap: '2026-11-10', streak: 4, left: 2 } });
+    // one lesson today: still at risk, one item left, and the number does not drop to today's 1
+    days['2026-11-11'] = L(1);
+    expect(streakNow(days, '2026-11-11', null)).toEqual({ n: 4, atRisk: true, repair: { gap: '2026-11-10', streak: 4, left: 1 } });
+  });
+  it('once repaired, or on an ordinary day, it is the streak itself and not at risk', () => {
+    const days = { ...back(), '2026-11-10': { frozen: 'repair' }, '2026-11-11': L(2) };
+    expect(streakNow(days, '2026-11-11', '2026-11-11')).toEqual({ n: 5, atRisk: false, repair: null });
+    expect(streakNow(five(), '2026-11-10', null)).toEqual({ n: 5, atRisk: false, repair: null }); // nothing yet today: yesterday counts
+  });
+  it('a gap that cannot be repaired (a repair used this month, or a streak of 1) is a plain 0', () => {
+    expect(streakNow(back(), '2026-11-11', '2026-11-01')).toEqual({ n: 0, atRisk: false, repair: null });
+    expect(streakNow({ '2026-11-09': L() }, '2026-11-11', null)).toEqual({ n: 0, atRisk: false, repair: null });
   });
 });

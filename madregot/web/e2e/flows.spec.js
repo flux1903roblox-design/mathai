@@ -1,7 +1,7 @@
 // Core journeys: first visit, placement test, a whole lesson with XP and saved progress,
 // the AI tutor and the teacher view when there is no server, and a printable practice exam.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, type, proceed, proceedToNext, saved, expectUsable, leaveEndScreens, playDiscover, stageDone, leaveStage } from './helpers.js';
+import { open, student, item, answer, type, proceed, proceedToNext, saved, expectUsable, expectNoSidewaysScroll, leaveEndScreens, playDiscover, stageDone, leaveStage } from './helpers.js';
 
 // Journeys run on one phone and on desktop; the layout spec covers every size.
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
@@ -187,13 +187,19 @@ test('after a wrong try, a pasted or replaced answer is taken whole (not only it
   await expect(box).not.toHaveClass(/struck/);
 });
 
-test('the AI tutor without a connection says so and offers a way on, without actions that would fail', async ({ page }) => {
+test('the AI tab with no helper is a calm page about what Madi explains in every lesson, with ways on and no locked input', async ({ page }) => {
   await open(page, '#/assistant', student('7'));
-  await expect(page.getByRole('heading', { name: 'העוזר עוד לא מחובר' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'מדי מסביר בכל שיעור' })).toBeVisible();
+  await expect(page.locator('.madi-explains .ai-features li')).toHaveCount(4);
+  await expect(page.getByText('העוזר עוד לא מחובר')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'כתיבת תרגילים' })).toHaveCount(0);
-  await expect(page.locator('#chat-draft')).toHaveCount(0);
-  await expectUsable(page, page.getByRole('link', { name: 'להמשיך לתרגל' }), 'the way back to practice');
-  await page.getByRole('link', { name: 'להמשיך לתרגל' }).click();
+  await expect(page.locator('#chat-draft, #ai-off-input, input:disabled')).toHaveCount(0);
+  await expectUsable(page, page.getByRole('link', { name: 'להמשיך ללמוד' }), 'the way back to learning');
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('link', { name: 'דפי התזכורת' }).click();
+  await expect(page).toHaveURL(/#\/topics$/);
+  await page.goBack();
+  await page.getByRole('link', { name: 'להמשיך ללמוד' }).click();
   await expect(page.locator('.learn')).toBeVisible();
 });
 

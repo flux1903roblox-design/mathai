@@ -188,6 +188,17 @@ is the same screen now (`qa-evidence/student/after/`, 390x844). The test takes t
 | `t6-01-predict-wrong` | <img src="qa-evidence/student/before/t6-01-predict-wrong.png" width="220" alt="a wrong prediction before: text only"> | <img src="qa-evidence/student/after/t6-01-predict-wrong.png" width="220" alt="the same wrong prediction now: with a number line marking 2"> | The question has its number line, with 2 marked (STUDENT-8). The explanation of the guess is kept |
 | `L2-09-end-16` | <img src="qa-evidence/student/before/L2-09-end-16.png" width="220" alt="a perfect lesson's end before: 0 of 5 stairs"> | <img src="qa-evidence/student/after/L2-09-end-16.png" width="220" alt="a perfect lesson's end now: 1 of 5 stages, and what comes next"> | "מספרים מכוונים: 0 מתוך 5 מדרגות" is now "חיבור וחיסור: 1 מתוך 5 שלבים" with five segments, plus what comes next ("אחרי בדיקת שליטה קצרה, המדרגה נספרת"), from integrity's counters |
 
+Round 2's painful moment #2, the returning home (PRODUCT2-40): `qa-evidence/student/streak/repair-card.png` (an iPhone 13
+in Safari), `repair-card-320x568.png` and `repair-card-dark.png` are written by `e2e/streak.spec.js` › "a returning
+student's home screen" (she learned Thursday 5, Friday 6, Sunday 8 and Monday 9; today is Wednesday 11). The flame says
+"4 מחכה" while the card says "הרצף של 4 ימים נשמר", and the missions tab and the profile say 4 too. One card stands above
+the path, the most important (repair, then the teacher's work, then the next step, then the Home Screen guide, which
+otherwise waits under the path). The path's current stop is on the first screen, and the button back to it floats at
+the end side and steps aside while a unit's banner passes under it. The path no longer ends with the Ministry's
+programme (it is on the topics tab, the parents' area and the teacher's tools), and the AI tab of a child alone is never
+a locked input: with no server it is a page about what מדי explains in every lesson; before a parent's OK it says what
+the helper does and offers one "לבקש מהורה".
+
 Earlier stages' own before and after pictures are in `qa-evidence/student/`: `unit-identity-before/after.png`, `dark/`,
 `madi/`, `streak/`, `class-goal/`, `visuals/`, `polish/`, `install/`, `push/`, `landing/` and `store/`.
 

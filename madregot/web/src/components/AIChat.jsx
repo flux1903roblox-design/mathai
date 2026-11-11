@@ -42,8 +42,11 @@ const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'as
  * whole reply that is not care), never for a message that reads as distress or a request that failed, so the lesson can
  * mark the open exercise as answered with help. `footnote`: one
  * quiet line kept under the first reply about an exercise that is still open (the lesson says what help means there).
+ * `intro` is a sentence, or the opening bubble's own content (a node). restCard={false}: the opening bubble already says
+ * why the tutor waits and holds the way on (the assistant tab of a child waiting for a parent's OK, PRODUCT2-40), so the
+ * dock draws no calm card and the input reads as an ordinary one; a send still opens the sheet that explains it.
  */
-export default function AIChat({ context, intro, introTitle, restLine, messages: kept, onMessages, tools, onDone, onMadi, onAsk, footnote }) {
+export default function AIChat({ context, intro, introTitle, restLine, restCard = true, messages: kept, onMessages, tools, onDone, onMadi, onAsk, footnote }) {
   const navigate = useNavigate();
   // the answers are markdown: its file is fetched as the chat opens, before the first answer arrives
   useEffect(() => { preloadRichText(); }, []);
@@ -72,7 +75,7 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
   // card have the screen (on a small phone the card would cover them); it comes back when a question is tried.
   const [restBack, setRestBack] = useState(false);
   const careLast = messages.length > 0 && (messages.at(-1).role === 'support' || messages.at(-1).care === true);
-  const showRest = resting && (!careLast || restBack);
+  const showRest = restCard && resting && (!careLast || restBack);
 
   // A conversation kept outside is not cut off when the chat closes: the reply still arrives there.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -182,7 +185,7 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
         {intro && (
           <div className="msg-row assistant chat-intro">
             <Mascot mood="happy" size={34} className="msg-avatar" />
-            <div className="msg assistant">{introTitle && <h2 className="chat-bubble-title">{introTitle}</h2>}<p>{intro}</p></div>
+            <div className="msg assistant">{introTitle && <h2 className="chat-bubble-title">{introTitle}</h2>}{typeof intro === 'string' ? <p>{intro}</p> : intro}</div>
           </div>
         )}
         {messages.map((m, i) => {
@@ -254,7 +257,7 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
           <label htmlFor="chat-draft" className="visually-hidden">ההודעה שלכם</label>
           {/* never disabled: a child whose questions are used up can still write, and a message that reads as
               distress always gets the card */}
-          <textarea id="chat-draft" rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={classOff ? 'העוזר החכם כבוי בכיתה הזו' : parentOk ? (role === 'teacher' ? 'נפתח אחרי כניסה עם מייל' : 'מחכים לאישור של הורה') : resting ? 'העוזר החכם חוזר מחר' : 'כתבו שאלה…'} maxLength={1000}
+          <textarea id="chat-draft" rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={classOff ? 'העוזר החכם כבוי בכיתה הזו' : parentOk && restCard ? (role === 'teacher' ? 'נפתח אחרי כניסה עם מייל' : 'מחכים לאישור של הורה') : resting && restCard ? 'העוזר החכם חוזר מחר' : 'כתבו שאלה…'} maxLength={1000}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
           <button type="submit" className="icon-btn send" disabled={!draft.trim() || (pending && !detectDistress(draft).flag)} aria-label="שליחה"><Send size={20} aria-hidden="true" /></button>
         </form>

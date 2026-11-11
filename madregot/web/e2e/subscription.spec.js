@@ -539,7 +539,7 @@ test.describe('the smart tutor', () => {
     await expect(page.getByText('בגרסה הזו העוזר החכם לא מחובר.')).toBeVisible();
     await expect(page.getByRole('link', { name: 'חיבור למנוי משפחתי' })).toHaveCount(0);
     await page.goto('./#/assistant');
-    await expect(page.getByRole('heading', { name: 'העוזר עוד לא מחובר' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'מדי מסביר בכל שיעור' })).toBeVisible();
     await open(page, '#/');
     await expect(page.getByRole('navigation', { name: 'להורים ומידע משפטי' })).toHaveCount(0);
     await page.goto('./#/terms');

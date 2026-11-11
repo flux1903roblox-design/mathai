@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 're
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Flame, Zap, Check, BookOpen, ChevronDown, ChevronLeft, ArrowUp, ArrowDown, School } from 'lucide-react';
-import { useApp, streakOf, today } from '@/lib/store.js';
+import { useApp, useStreak, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor, pathColours } from '@/content/index.js';
 import { schoolMonth } from '@/learn/programme.ts';
@@ -17,7 +17,8 @@ import { showLearnCard } from '@/lib/durable/install.js';
 import Chest from '@/components/map/Chest.jsx';
 import { Emblem, SCENERY } from '@/components/map/Scenery.jsx';
 import { Button } from '@/components/ui.jsx';
-import RepairCard, { useRepair } from '@/components/learn/RepairCard.jsx';
+import RepairCard, { useRepairOn } from '@/components/learn/RepairCard.jsx';
+import { homeCard } from '@/lib/homeCards.js';
 import { routeOf, stairStage, STAGE_NAME, STAGE_N } from '@/learn/recommend.ts';
 import { todayRoute, missionFor } from '@/learn/mission.ts';
 import { skillId } from '@/learn/skills.ts';
@@ -228,14 +229,32 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
   );
 }
 
+/** "עוד שני שיעורים היום שומרים עליו": what keeps a streak at risk (the repair card's own count, RepairCard repairText). */
+const keepsIt = (repair) => (Math.max(1, repair?.left || 0) === 1 ? 'עוד שיעור אחד היום שומר עליו.' : 'עוד שני שיעורים היום שומרים עליו.');
+
+/**
+ * The header's flame (PRODUCT2-40): the streak, and while a missed school day can still be repaired, the kept streak
+ * with a calm mark, "מחכה", the number the repair card names. Never 0 beside "הרצף של 4 ימים נשמר"; no red, no countdown.
+ */
+function StreakStat({ streak }) {
+  const { n, atRisk, repair } = streak;
+  const label = atRisk ? `רצף של ${n} ימים, מחכה לשיעור היום. ${keepsIt(repair)}` : `רצף של ${n} ימים`;
+  return (
+    <Link to="/quests" className={clsx('top-stat streak', n > 0 && !atRisk && 'on', atRisk && 'at-risk')} aria-label={label}>
+      <Flame size={24} aria-hidden="true" />{n}{atRisk && <span className="top-stat-risk" aria-hidden="true">מחכה</span>}
+    </Link>
+  );
+}
+
 /** Wide screens: the streak, the goal and today's quests sit beside the path. */
 function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
   const quests = questProgress(today(), days[today()] || {});
+  const { n, atRisk, repair } = streak;
   return (
     <aside className="learn-side" aria-label="היום שלי">
       <Link to="/quests" className="side-card side-streak">
-        <Flame size={34} aria-hidden="true" className={clsx(streak > 0 && 'on')} />
-        <span><b>{streak === 1 ? 'יום אחד ברצף' : `${streak} ימים ברצף`}</b><span className="muted">{freezes > 0 ? `${freezes === 1 ? 'הקפאה אחת מוכנה' : `${freezes} הקפאות מוכנות`}` : 'שיעור או שלב ביום שומרים על הרצף'}</span></span>
+        <Flame size={34} aria-hidden="true" className={clsx(n > 0 && !atRisk && 'on', atRisk && 'at-risk')} />
+        <span><b>{n === 1 ? 'יום אחד ברצף' : `${n} ימים ברצף`}</b><span className="muted">{atRisk ? keepsIt(repair) : freezes > 0 ? `${freezes === 1 ? 'הקפאה אחת מוכנה' : `${freezes} הקפאות מוכנות`}` : 'שיעור או שלב ביום שומרים על הרצף'}</span></span>
       </Link>
       <div className="side-card">
         <div className="card-row"><b>היעד היומי</b><span className="card-num">{Math.min(todayXp, goalXp)}/{goalXp} XP</span></div>
@@ -293,6 +312,7 @@ function LearnMap() {
   const [install, setInstall] = useState(false);
   const installHintAt = useApp((s) => s.durable?.installHintAt);
   const currentRef = useRef(null);
+  const jumpRef = useRef(null);
   const firstView = useRef(true);
   // the grade's own units, and above them the fractions floor while it is on (the floor check or the student put it there)
   const own = topicsFor(view);
@@ -303,7 +323,8 @@ function LearnMap() {
   const unitNumber = (t) => topics.filter((x) => !x.bridge).indexOf(t) + 1;
   // each banner's colour on this path: a joined unit never sits beside its own colour
   const colours = pathColours(topics);
-  const streak = streakOf(days);
+  // the streak as the repair card says it (store.js useStreak): kept and at risk while a missed day can be repaired
+  const streak = useStreak();
   const todayXp = days[today()]?.xp || 0;
   // "Where I am" follows the one plan (learn/next.ts): back from a lesson, the unit just practised; on a fresh open, the
   // plan's next step when it is a stair of this map (that stair is the focused node); else the unit practised last, else
@@ -324,17 +345,25 @@ function LearnMap() {
   // hops where he is. The stop just done pops and its ring fills on that same arrival only.
   const [arrive] = useState(() => (state?.from && !arrived.has(locKey) ? { topic: state.from, from: state.nodeDone ? lastDoneKey(state.from) : null } : null));
   useEffect(() => { if (arrive) arrived.add(locKey); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const repair = useRepair();
-  const repairDismissed = useApp((s) => s.nudges?.repairDismissed);
-  const repairOn = !!repair && repairDismissed !== today();
+  const repairOn = useRepairOn();
+  // the teacher's most urgent work, due within 3 days (only in a class): a chip to the missions tab
+  const classWork = useApp((s) => s.classWork);
+  const workOutbox = useApp((s) => s.workOutbox);
+  const urgent = profile.token ? urgentWork(classWork, workOutbox) : null;
+  // at most one card above the path, the most important (lib/homeCards.js); the install guide that loses waits under the
+  // path, and the rest live in the missions tab too
+  const installOn = showLearnCard({ profile, days, xp, durable: { installHintAt } });
+  const card = homeCard({ repair: repairOn, work: !!urgent, next: !!banner, install: installOn });
 
   useEffect(() => { settleStreak(); }, [settleStreak]);
   // The screen opens at the top of the path; back from a lesson, or on another grade, it opens on the place to continue from.
-  // On a fresh open the screen opens at the top, unless the plan's next stair is out of view: then it opens on it.
+  // On a fresh open the screen opens at the top, unless the plan's next stair is out of view: then it opens on it. With a
+  // card above the path it stays at the top: the card is the most important thing today (and the repair card's button goes
+  // to that same next step), so it is never scrolled half away; the button back to the current stop points down.
   useLayoutEffect(() => {
     const first = firstView.current; firstView.current = false;
     if (first && !state?.from) {
-      const r = focus.next ? currentRef.current?.getBoundingClientRect() : null;
+      const r = focus.next && !card ? currentRef.current?.getBoundingClientRect() : null;
       if (r && (r.top < 0 || r.bottom > window.innerHeight * 0.8)) currentRef.current.scrollIntoView({ block: 'center' });
       else window.scrollTo(0, 0);
       return;
@@ -349,12 +378,30 @@ function LearnMap() {
     return () => io.disconnect();
   }, [view, path]);
 
+  // the way back to the current stop floats at the end side (no emblem lives there: a banner's emblem and a folded row's
+  // are at the start), and it steps aside while a unit's banner passes under it, so it never covers the banner's emblem
+  // or its guide link (PRODUCT2-40). Checked before the button is first painted, so it never flashes over a banner
+  useLayoutEffect(() => {
+    const btn = jumpRef.current; if (!btn) return undefined;
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const b = btn.getBoundingClientRect();
+      const over = [...document.querySelectorAll('.learn [data-region="banner"]')].some((el) => {
+        const r = el.getBoundingClientRect();
+        return r.bottom > b.top && r.top < b.bottom && r.right > b.left && r.left < b.right;
+      });
+      btn.toggleAttribute('data-over', over);
+    };
+    const later = () => { if (!raf) raf = requestAnimationFrame(check); };
+    check();
+    window.addEventListener('scroll', later, { passive: true });
+    window.addEventListener('resize', later);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('scroll', later); window.removeEventListener('resize', later); };
+  }, [away]);
+
   const onStart = (to) => navigate(to);
   const otherGrade = view === '7' ? '8' : '7';
-  // the teacher's most urgent work, due within 3 days (only in a class): a chip to the missions tab
-  const classWork = useApp((s) => s.classWork);
-  const workOutbox = useApp((s) => s.workOutbox);
-  const urgent = profile.token ? urgentWork(classWork, workOutbox) : null;
 
   return (
     <div className="learn">
@@ -362,18 +409,18 @@ function LearnMap() {
         <button type="button" className="grade-switch" onClick={() => { setView(otherGrade); setOpen(null); setUnfolded([]); }} aria-label={`מציגים את כיתה ${view === '7' ? 'ז׳' : 'ח׳'}. מעבר לכיתה ${otherGrade === '7' ? 'ז׳' : 'ח׳'}`}>
           כיתה {view === '7' ? 'ז׳' : 'ח׳'}<ChevronDown size={18} aria-hidden="true" />
         </button>
-        <Link to="/quests" className={clsx('top-stat streak', streak > 0 && 'on')} aria-label={`רצף של ${streak} ימים`}><Flame size={24} aria-hidden="true" />{streak}</Link>
+        <StreakStat streak={streak} />
         <Link to="/quests" className="top-stat xp" aria-label={`היום ${todayXp} מתוך ${goalXp} XP, סך הכול ${xp}`}><Zap size={22} aria-hidden="true" /><bdi dir="ltr">{todayXp}<span className="top-stat-of">/{goalXp}</span></bdi></Link>
       </header>
       <OfflineChip />
-      {urgent && (
+      {card === 'work' && (
         <Link to="/quests" className="learn-work-chip">
           <School size={18} aria-hidden="true" /><span className="learn-work-text">{urgentText(urgent)}</span><ChevronLeft size={18} aria-hidden="true" />
         </Link>
       )}
       <StorageBanner />
       {/* on an iPhone in the browser, from the 3rd day: the Home Screen guide, offered once (lib/durable/install.js) */}
-      {showLearnCard({ profile, days, xp, durable: { installHintAt } }) && <InstallCard onOpen={() => setInstall(true)} />}
+      {card === 'install' && <InstallCard onOpen={() => setInstall(true)} />}
       <InstallSheet open={install} onOpenChange={setInstall} />
       {/* the class reached a week's goal this student added to: a short shared moment, once (STUDENT-4) */}
       <ClassGoalMoment />
@@ -381,10 +428,10 @@ function LearnMap() {
       <div className="learn-layout">
       <div className="learn-body">
         {/* a missed school day: two items today keep the streak (STUDENT-5); closed for the day with its X */}
-        <RepairCard />
-        {/* the next step when it is not a stop of the map; it stacks last under any other banner, and at most one shows:
-            while the repair card is up, its button already goes to this same next step */}
-        {banner && !repairOn && <NextBanner item={banner} onGo={() => onStart(banner.to)} />}
+        {card === 'repair' && <RepairCard />}
+        {/* the next step when it is not a stop of the map (the missions tab leads with it too); while the repair card is
+            up, its button already goes to this same next step */}
+        {card === 'next' && <NextBanner item={banner} onGo={() => onStart(banner.to)} />}
         {/* the home screen is the path, as on Duolingo: units under their sticky banners, the current stop marked */}
         {units.map(({ id, mode, nodes }) => {
           const t = topics.find((x) => x.id === id);
@@ -395,10 +442,11 @@ function LearnMap() {
               mastered={mastered} celebrate={arrive?.topic === id ? arrive.from : null} preview={mode === 'preview'} onUnfold={unfold} arrive={id === focus.topic && arrive?.topic === id ? arrive : null} />
           );
         })}
-        {/* the end of the path says plainly what the app has of the year's programme, and what it does not have yet;
-            each way on is a full-size target on its own line, not a link inside a sentence (STUDENT-9 §1) */}
+        {/* the Home Screen guide when a more important card stood above the path: it waits here, under the path */}
+        {installOn && card !== 'install' && <InstallCard onOpen={() => setInstall(true)} />}
+        {/* the end of the path: every topic and how far each one is. What the app has of the Ministry's programme is for
+            the adults (the topics tab, the parents' and the teacher's screens), not the child's path (PRODUCT2-41) */}
         <div className="path-end">
-          <Link to={`/programme?grade=${view}`}>מה כבר יש במדרגות ומה עוד לא, לפי תוכנית משרד החינוך</Link>
           <Link to="/topics" className="btn btn-ghost btn-sm">כל הנושאים והמצב בכל אחד</Link>
         </div>
       </div>
@@ -406,7 +454,7 @@ function LearnMap() {
       </div>
 
       {away && (
-        <button type="button" className="jump-current" onClick={() => currentRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })} aria-label="חזרה לשלב הבא">
+        <button type="button" ref={jumpRef} className="jump-current" onClick={() => currentRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })} aria-label="חזרה לשלב הבא">
           {away === 'up' ? <ArrowUp size={26} aria-hidden="true" /> : <ArrowDown size={26} aria-hidden="true" />}
         </button>
       )}

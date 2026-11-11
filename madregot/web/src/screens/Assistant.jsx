@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import Mascot from '@/components/Mascot.jsx';
 import clsx from 'clsx';
-import { Camera, MessageCircle, Wand2, Check, X, ImageUp } from 'lucide-react';
+import { Camera, MessageCircle, Wand2, Check, X, ImageUp, Shapes, ListOrdered, Lightbulb, HelpCircle } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady, aiMode } from '@/lib/ai.js';
 import { gate, aiAccess, useAIStatus, needIntro } from '@/lib/account.js';
@@ -33,19 +33,93 @@ function useReveal(dep) {
   return ref;
 }
 
+/** What the helper does, when the class's server is back. */
+const FEATURES = [
+  { icon: MessageCircle, title: 'שיחה עם העוזר החכם', text: 'שואלים כל שאלה, ומקבלים הסבר צעד אחר צעד.' },
+  { icon: Camera, title: 'בדיקת פתרון מצולם', text: 'מצלמים את הדרך מהמחברת, והעוזר מסמן כל שלב.' },
+  { icon: Wand2, title: 'תרגילים חדשים', text: 'עוד תרגילים באותה מדרגה, עם רמז ופתרון.' },
+];
+/** The same, one short line each: before a parent's OK the one way on must stay on the first screen of a small phone. */
+const DOES = [
+  { icon: MessageCircle, text: 'הסבר לכל שאלה, צעד אחר צעד' },
+  { icon: Camera, text: 'בדיקה של פתרון מצולם' },
+  { icon: Wand2, text: 'תרגילים חדשים באותה מדרגה' },
+];
+/** What מדי already explains inside every stair, with no helper at all. */
+const IN_EVERY_LESSON = [
+  { icon: Shapes, title: 'הסבר עם ציור', text: 'כל מדרגה מתחילה ברעיון אחד, עם ציור או ציר מספרים.' },
+  { icon: ListOrdered, title: 'דוגמה פתורה', text: 'רואים פתרון שלב אחר שלב, ואז פותרים יחד.' },
+  { icon: HelpCircle, title: 'למה זה לא נכון', text: 'כשתשובה לא נכונה, מדי אומר מה כנראה קרה ואיך מתקנים.' },
+  { icon: Lightbulb, title: 'רמז ותזכורת', text: 'בכל תרגיל יש רמז, ולכל נושא יש דף תזכורת.' },
+];
+
+function FeatureList({ items }) {
+  return (
+    <ul className="ai-features">
+      {items.map(({ icon: Icon, title, text }) => (
+        <li key={title}><span className="ai-feature-icon" aria-hidden="true"><Icon size={20} /></span><span><b>{title}</b><span>{text}</span></span></li>
+      ))}
+    </ul>
+  );
+}
+
 /**
- * The tutor is not connected (no server, no personal key): say so once, show what it will do,
- * and give two clear ways on. Nothing on this screen pretends to work and then fails.
+ * A child practising alone in a build with no helper (PRODUCT2-40, the council's "one of the five tabs is a wall"): not a
+ * locked input that says "not connected", but a calm page about what מדי already explains in every lesson, and the ways
+ * on. The quiet "צריכים לדבר עם מישהו?" link (the 1201 card) stays.
+ */
+function MadiExplains() {
+  return (
+    <section className="ai-offline chat-like madi-explains" aria-labelledby="ai-off-title">
+      <div className="chat-log" data-region="content">
+        <div className="chat-msg">
+          <Mascot mood="happy" size={44} className="chat-avatar" />
+          <div className="chat-bubble">
+            <h2 id="ai-off-title" className="chat-bubble-title">מדי מסביר בכל שיעור</h2>
+            <p>כאן אין צ׳אט עם עוזר. מה שצריך כדי להבין כבר נמצא בכל מדרגה:</p>
+            <FeatureList items={IN_EVERY_LESSON} />
+          </div>
+        </div>
+      </div>
+      <div className="ai-offline-actions madi-explains-actions">
+        <Link to="/" className="btn btn-primary btn-block">להמשיך ללמוד</Link>
+        <Link to="/topics" className="btn btn-secondary btn-block">דפי התזכורת</Link>
+        <SupportLink className="ai-offline-support" />
+      </div>
+    </section>
+  );
+}
+
+/**
+ * A child alone with a server, before a parent's OK (TRUST-9; the rule itself is the server's and does not change here):
+ * Madi's first bubble leads with what the helper does, then one clear way on, "לבקש מהורה", to the screen for the
+ * parents (the existing hand-off, /parents/info), and what it takes under it. It stays above the docked input on a
+ * 320x568 phone. PRODUCT2-40: the tab is no longer a "no" on the first tap.
+ */
+function AskParent() {
+  const navigate = useNavigate();
+  return (
+    <div className="ask-parent">
+      <h2 className="chat-bubble-title">מה העוזר החכם עושה</h2>
+      <ul className="ask-parent-list">
+        {DOES.map(({ icon: Icon, text }) => <li key={text}><span className="ask-parent-icon" aria-hidden="true"><Icon size={18} /></span>{text}</li>)}
+      </ul>
+      <Button className="btn-block ask-parent-go" onClick={() => navigate('/parents/info')} aria-describedby="ask-parent-how">לבקש מהורה</Button>
+      <p id="ask-parent-how">אחד ההורים מאשר את זה פעם אחת. זה בחינם ולוקח דקה.</p>
+      <p className="muted">בינתיים, מדי, השיעורים והתרגול פתוחים כמו תמיד.</p>
+    </div>
+  );
+}
+
+/**
+ * The class's server does not answer (or a teacher's assistant has none): say so once, show what it will do, and give two
+ * clear ways on. Nothing on this screen pretends to work and then fails. A child practising alone gets MadiExplains.
  */
 function AiOffline() {
   const inClass = useApp((s) => !!s.profile?.token);
   // a teacher's assistant (TEACHER-2) runs through the class's server too: when it does not answer, the way on is the board
   const teacher = useApp((s) => s.profile?.role === 'teacher');
-  const FEATURES = [
-    { icon: MessageCircle, title: 'שיחה עם העוזר החכם', text: 'שואלים כל שאלה, ומקבלים הסבר צעד אחר צעד.' },
-    { icon: Camera, title: 'בדיקת פתרון מצולם', text: 'מצלמים את הדרך מהמחברת, והעוזר מסמן כל שלב.' },
-    { icon: Wand2, title: 'תרגילים חדשים', text: 'עוד תרגילים באותה מדרגה, עם רמז ופתרון.' },
-  ];
+  if (!inClass && !teacher) return <MadiExplains />;
   // laid out as a conversation (like a tutor chat in Duolingo Max or Brilliant): מדי's messages, then the input bar
   // at the bottom, switched off and saying why, with the two ways on
   return (
@@ -55,18 +129,14 @@ function AiOffline() {
           <Mascot mood="encouraging" size={44} className="chat-avatar" />
           <div className="chat-bubble">
             <h2 id="ai-off-title" className="chat-bubble-title">העוזר עוד לא מחובר</h2>
-            <p>{inClass || teacher ? 'השרת של הכיתה לא עונה כרגע. כדאי לנסות שוב בעוד כמה דקות.' : 'בגרסה הזו העוזר כבוי. השיעורים, המפה והמשימות עובדים גם בלעדיו.'}</p>
+            <p>השרת של הכיתה לא עונה כרגע. כדאי לנסות שוב בעוד כמה דקות.</p>
           </div>
         </div>
         <div className="chat-msg">
           <span className="chat-avatar-space" aria-hidden="true" />
           <div className="chat-bubble">
             <p>כשהעוזר מחובר, אפשר:</p>
-            <ul className="ai-features">
-              {FEATURES.map(({ icon: Icon, title, text }) => (
-                <li key={title}><span className="ai-feature-icon" aria-hidden="true"><Icon size={20} /></span><span><b>{title}</b><span>{text}</span></span></li>
-              ))}
-            </ul>
+            <FeatureList items={FEATURES} />
           </div>
         </div>
       </div>
@@ -75,7 +145,6 @@ function AiOffline() {
         <input id="ai-off-input" className="input" disabled placeholder="העוזר עוד לא מחובר" />
         <div className="ai-offline-actions">
           {teacher ? <Link to="/teacher" className="btn btn-primary btn-block">חזרה ללוח</Link> : <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>}
-          {!inClass && !teacher && <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>}
           {/* the support card is for a student; a teacher's assistant leads back to the board */}
           {!teacher && <SupportLink className="ai-offline-support" />}
         </div>
@@ -413,7 +482,9 @@ export default function Assistant({ head = null, lead = null, className }) {
                 <Link to="/safety" target="_blank" rel="noopener noreferrer">בטיחות ופרטיות<span className="visually-hidden"> (נפתח בכרטיסייה חדשה)</span></Link>
               </p>
             ))}
-          {off ? (
+          {waiting && role !== 'teacher' ? (
+            <AIChat context={ctx} intro={<AskParent />} restCard={false} />
+          ) : off ? (
             <AIChat context={ctx} introTitle={off.title} intro={off.text[0]} restLine={null} />
           ) : (
             <AIChat context={ctx} intro="שאלו כל שאלה במתמטיקה של כיתה ז׳ או ח׳, ואסביר צעד אחר צעד. אפשר גם לצלם פתרון לבדיקה, או לבקש תרגילים חדשים."

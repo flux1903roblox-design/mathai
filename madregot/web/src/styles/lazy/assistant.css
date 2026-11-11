@@ -40,3 +40,15 @@
   .assistant-page { min-height: 100dvh; }
 }
 .sheet-cta { position: sticky; bottom: calc(-1 * var(--s4)); z-index: 2; margin: 0 calc(-1 * var(--s4)); padding: var(--s3) var(--s4); background: var(--paper); border-top: 2px solid var(--line); }
+/* PRODUCT2-40: a child practising alone. With no helper, a calm page about what מדי explains in every lesson (no locked
+   input); before a parent's OK, מדי's first bubble says what the helper does and holds the one way on */
+.madi-explains .chat-bubble .ai-features { margin-top: var(--s3); }
+.madi-explains-actions { margin-top: auto; padding-bottom: var(--s3); }
+.ask-parent { display: flex; flex-direction: column; gap: var(--s3); color: var(--ink); }
+.ask-parent p { margin: 0; }
+.ask-parent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
+.ask-parent-list li { display: flex; align-items: center; gap: var(--s2); font-weight: 600; line-height: 22px; }
+.ask-parent-icon { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: var(--ai-tint); color: var(--ai-ink); }
+/* the opening bubble that holds the way on takes the row's full width */
+.msg-row .msg.assistant:has(> .ask-parent) { max-width: 100%; flex: 1; }
+.ask-parent .muted { color: var(--ink-2); }

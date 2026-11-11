@@ -105,6 +105,12 @@ a { color: var(--brand-d); }
 .top-stat.streak.on svg { color: var(--streak); fill: var(--streak); }
 .top-stat.xp svg { color: var(--gold); fill: var(--gold); }
 .top-stat-of { color: var(--ink-2); font-weight: 600; font-size: 15px; }
+/* the streak while a missed school day can still be repaired (PRODUCT2-40): the kept number, the flame outlined in the
+   streak colour, and a calm "מחכה" pill, as the repair card says it; no red */
+.top-stat.streak.at-risk svg { color: var(--streak); fill: none; }
+.top-stat-risk { padding: 1px 8px; border-radius: 999px; background: var(--streak-tint); color: var(--streak-ink); font-size: 14px; line-height: 20px; font-weight: 700; }
+.side-streak svg.at-risk { color: var(--streak); fill: none; }
+.streak-flame.at-risk { color: var(--streak); }
 
 .unit-head { margin: var(--s4) var(--gutter) 0; padding: var(--s4) var(--s5); border-radius: 16px; background: var(--c, var(--brand)); color: var(--on-brand); box-shadow: none; border: 0; }
 .unit-head-text { gap: 2px; }
@@ -169,6 +175,12 @@ a { color: var(--brand-d); }
 .chest:active { transform: translateY(6px); box-shadow: 0 0 0 transparent; }
 .chest:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 6px; }
 .jump-current { background: var(--surface); color: var(--brand-ink); border: 2px solid var(--rule); box-shadow: 0 4px 0 var(--rule-press); }
+/* it floats at the end side, where no emblem is, and steps aside while a unit's banner passes under it (PRODUCT2-40) */
+.jump-current { inset-inline-start: auto; inset-inline-end: max(var(--s4), env(safe-area-inset-left, 0px)); }
+.jump-current[data-over] { visibility: hidden; }
+@media (min-width: 960px) { .jump-current { inset-inline-start: calc(240px + var(--s6)); inset-inline-end: auto; } }
+/* the Home Screen guide that waits under the path: inside the path's column, so no second gutter */
+.learn-body > .install-card { margin: 0; }
 
 /* wide screens: the side cards */
 .side-card { padding: var(--s4) var(--s5); }
@@ -1680,6 +1692,8 @@ button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
 .repair-text { margin: 0; color: var(--ink); font-size: 16px; line-height: 24px; text-wrap: pretty; }
 .repair-go { min-height: 44px; }
 .repair-close { position: absolute; top: 4px; inset-inline-end: 4px; }
+/* the one card above the path sits a little closer to it, so the path's start stays on the first screen (PRODUCT2-40) */
+.learn-body > .repair-card, .learn-body > .next-banner { margin-bottom: calc(-1 * var(--s4)); }
 /* the streak card on Quests: the month's learning days (a number that does not reset) and the repair, in words */
 .streak-month { margin: 4px 0 0; color: var(--ink); font-size: 15px; line-height: 22px; font-weight: 600; }
 .streak-repair-line { margin: 0; padding: var(--s3) var(--s4); border-radius: 12px; background: var(--ground); color: var(--ink); font-size: 15px; line-height: 22px; }

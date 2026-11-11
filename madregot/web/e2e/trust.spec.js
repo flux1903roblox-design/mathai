@@ -226,7 +226,7 @@ test.describe('distress', () => {
     await row.scrollIntoViewIfNeeded();
     await shot(page, 'settings-group');
     await page.goto('./#/assistant');
-    await expect(page.getByRole('heading', { name: 'העוזר עוד לא מחובר' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'מדי מסביר בכל שיעור' })).toBeVisible();
     const link = page.getByRole('button', { name: 'צריכים לדבר עם מישהו?' });
     await link.scrollIntoViewIfNeeded();
     expect((await link.boundingBox()).height).toBeGreaterThanOrEqual(44);
@@ -636,23 +636,30 @@ test.describe('parent OK', () => {
     for (const w of ['₪', 'מנוי']) await expect(page.locator('body')).not.toContainText(w);
   }
 
-  test('the assistant says so; the first send opens the sheet, and "להראות להורים" goes to the screen for the parents', async ({ page }) => {
+  test('the assistant leads with what the helper does and "לבקש מהורה"; a send opens the sheet, and "להראות להורים" goes to the screen for the parents', async ({ page }) => {
     const { log } = await fakeServer(page, {}, baseOf()); // parentOk false, as on the real server
     await open(page, '#/assistant', withServer());
-    await expect(page.getByRole('heading', { name: TITLE })).toBeVisible();
-    await expect(page.getByText(OK_TEXT)).toBeVisible();
+    // PRODUCT2-40: not a "no" on the first tap: what the helper does, and one clear way on (the same TRUST-9 hand-off)
+    const intro = page.locator('.ask-parent');
+    await expect(intro.getByRole('heading', { name: 'מה העוזר החכם עושה' })).toBeVisible();
+    await expect(intro.locator('.ask-parent-list li')).toHaveCount(3);
+    // the one way on is on the first screen, above the docked input, also on the small phone
+    const go = await page.getByRole('button', { name: 'לבקש מהורה' }).boundingBox();
+    expect(go.y + go.height).toBeLessThanOrEqual((await page.locator('.chat-dock-live').boundingBox()).y);
+    await expect(intro.getByText('אחד ההורים מאשר את זה פעם אחת. זה בחינם ולוקח דקה.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'לבקש מהורה' })).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: TITLE })).toHaveCount(0);
     await expect(page.locator('.assistant-note')).toHaveCount(0);
     await expect(page.getByRole('group', { name: 'עוד דרכים לעזרה' })).toHaveCount(0);
     await expect(page.locator('.starter')).toHaveCount(0);
-    const rest = page.locator('.chat-rest');
-    await expect(rest.getByRole('button', { name: 'להראות להורים' })).toBeVisible();
-    await expect(rest.getByRole('button', { name: 'להמשיך לתרגל' })).toBeVisible();
-    await expect(rest.getByRole('button', { name: 'צריכים לדבר עם מישהו?' })).toBeVisible();
+    await expect(page.locator('.chat-rest')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'צריכים לדבר עם מישהו?' })).toBeVisible();
     await noPrice(page);
+    // the input is an ordinary one, and stays usable: a message that reads as distress still gets the card
     const draft = page.getByLabel('ההודעה שלכם');
     await expect(draft).toBeEnabled();
-    await expect(draft).toHaveAttribute('placeholder', 'מחכים לאישור של הורה');
-    for (const b of await page.locator('.chat-rest button, .chat-input button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await expect(draft).toHaveAttribute('placeholder', 'כתבו שאלה…');
+    for (const b of await page.locator('.ask-parent button, .chat-input button, .chat-support-link').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
     await shot(page, 'parent-ok-assistant');
     await draft.fill('מה זה שבר?'); await draft.press('Enter');
     const sheet = page.getByRole('dialog', { name: TITLE });
@@ -670,6 +677,11 @@ test.describe('parent OK', () => {
     await expect(page.getByText('הורים, סרקו את הקוד בטלפון שלכם. שם תקראו על העוזר החכם ותוכלו לאשר אותו במכשיר הזה, בחינם או עם מנוי.')).toBeVisible();
     await expect(page.locator('.handoff-code')).toHaveText('K7M4QX');
     await shot(page, 'parent-ok-handoff');
+    // the assistant's own "לבקש מהורה" leads to the same screen
+    await page.goto('./#/assistant');
+    await page.getByRole('button', { name: 'לבקש מהורה' }).click();
+    await page.waitForURL(/#\/parents\/info$/);
+    await expect(page.getByRole('heading', { name: 'המסך הזה בשביל ההורים' })).toBeVisible();
   });
 
   test('a refusal that comes with the answer opens the same sheet; a message that reads as distress shows the card and no sheet', async ({ page }) => {
@@ -684,8 +696,10 @@ test.describe('parent OK', () => {
     await expect(page.locator('.form-error')).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(sheet).toHaveCount(0);
-    await expect(draft).toHaveAttribute('placeholder', 'מחכים לאישור של הורה');
-    await expect(page.getByRole('heading', { name: TITLE })).toBeVisible(); // the screen follows the state at once
+    await expect(draft).toHaveValue('איך פותרים 3x = 12?'); // the question waits
+    // the screen follows the state at once: what the helper does, and "לבקש מהורה"
+    await expect(page.getByRole('heading', { name: 'מה העוזר החכם עושה' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'לבקש מהורה' })).toBeVisible();
     const before = chatCalls(log).length;
     await draft.fill('אני רוצה להיעלם'); await draft.press('Enter');
     await expect(page.locator('.chat .support-card')).toBeVisible();

@@ -2,9 +2,13 @@
 // no one; two finished lessons keep the streak; the month's learning days and the weekly best are always in view.
 // The clock is fixed on Thursday 5 November 2026 (helpers.js NOW).
 import { test, expect } from '@playwright/test';
-import { open, student, answer, proceedToNext, saved, expectUsable } from './helpers.js';
+import { mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { open, student, answer, proceedToNext, saved, expectUsable, expectNoSidewaysScroll } from './helpers.js';
 
-test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
+// (the returning student's home below runs on both phone sizes instead)
+const RETURNING = "a returning student's home screen";
+test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name) && !info.titlePath.includes(RETURNING), 'journeys run on phone and desktop'); });
 
 // Sunday 1 to Tuesday 3 November learned, nothing on Wednesday the 4th; an earlier week (26 Oct) of 5 steps
 const broken = {
@@ -31,7 +35,8 @@ test('a missed day: a calm card offers the repair, in words that blame no one, a
   // Quests says it too, forward-looking, with the month's days
   await page.goto('./#/quests');
   const streak = page.locator('.streak-card');
-  await expect(streak.getByRole('heading', { level: 2 })).toHaveText('רצף חדש מתחיל היום');
+  // the same streak the header shows: kept, and waiting for today (PRODUCT2-40)
+  await expect(streak.getByRole('heading', { level: 2 })).toHaveText('הרצף של 3 ימים מחכה לכם');
   await expect(streak.locator('.streak-month')).toHaveText('החודש למדתם 3 ימים.');
   await expect(streak.locator('.streak-repair-line')).toContainText('עוד שני שיעורים היום');
   await expect(streak).toContainText('בשבת ובחג הרצף נשמר.');
@@ -112,4 +117,107 @@ test('a first week has no best yet, and a student who never learned has no strea
   await expect(page.locator('.week-best-card .wk-best')).toHaveText('זה השבוע הראשון. מה שתעשו השבוע יהיה השיא.');
   await expect(page.locator('.streak-card h2')).toHaveText('עוד אין רצף');
   await expect(page.locator('.streak-month')).toHaveCount(0);
+});
+
+// PRODUCT2-40, the council's painful moment #2 (student-verify/t11-repair.js): a returning student opens the app on an
+// iPhone 13 in Safari. She learned Thursday 5, Friday 6, Sunday 8 and Monday 9 November, nothing on Tuesday the 10th, and
+// today is Wednesday the 11th. The council saw a 0 flame beside "הרצף של 4 ימים נשמר", the install card and the repair
+// card pushing the path below the fold, and the scroll button over the unit's emblem.
+test.describe(RETURNING, () => {
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
+  // Safari's visible area on an iPhone 13 (Playwright's own device has the same), and the small phone as it is
+  test.use({ userAgent: IPHONE, deviceScaleFactor: 2 });
+  test.beforeEach(async ({ page }, info) => {
+    test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the phone sizes');
+    await page.addInitScript(() => { Object.defineProperty(Navigator.prototype, 'standalone', { configurable: true, get: () => false }); });
+  });
+  const d = { lessons: 1, xp: 20, q: 8, ok: 7 };
+  const back = () => student('7', { days: { '2026-11-05': d, '2026-11-06': d, '2026-11-08': d, '2026-11-09': d }, xp: 80 });
+  const WED = new Date('2026-11-11T16:00:00');
+  const EVIDENCE = fileURLToPath(new URL('../../qa-evidence/student/streak/', import.meta.url));
+  const evidence = async (page, name) => {
+    await expectNoSidewaysScroll(page);
+    mkdirSync(EVIDENCE, { recursive: true });
+    await page.screenshot({ path: `${EVIDENCE}${name}.png`, animations: 'disabled', caret: 'hide' });
+  };
+
+  test('the header and the card agree, one card shows above the path, and the path starts above the fold', async ({ page }, info) => {
+    const small = info.project.name === 'phone-small';
+    if (!small) await page.setViewportSize({ width: 390, height: 664 });
+    await open(page, '#/', back(), '424242', WED);
+    const card = page.locator('.repair-card');
+    await expect(card.locator('.repair-text')).toHaveText('אתמול לא יצא ללמוד. עוד שני שיעורים היום, והרצף של 4 ימים נשמר.');
+    // the flame: the same 4, marked as waiting for today; never 0
+    const flame = page.locator('.learn-top .top-stat.streak');
+    await expect(flame).toHaveText('4מחכה');
+    await expect(flame).toHaveAccessibleName('רצף של 4 ימים, מחכה לשיעור היום. עוד שני שיעורים היום שומרים עליו.');
+    await expect(flame).toHaveClass(/at-risk/);
+    // one card above the path: the repair card; the iPhone's Home Screen guide waits under the path
+    const head = await page.locator('.unit-head').first().boundingBox();
+    const above = await page.locator('.repair-card, .install-card, .next-banner, .learn-work-chip').evaluateAll((els, top) => els.filter((el) => el.getBoundingClientRect().top < top).map((el) => el.className), head.y);
+    expect(above).toEqual(['repair-card']);
+    const install = page.locator('.install-card');
+    await expect(install).toHaveCount(1);
+    const lastUnit = await page.locator('.unit, .unit-row').last().boundingBox();
+    expect((await install.boundingBox()).y).toBeGreaterThan(lastUnit.y + lastUnit.height - 1);
+    // the screen opens at the top: the card whole, then the unit's banner and the start of the path. On an iPhone 13 the
+    // current stop is above the tab bar, usable; on the 320x568 phone its "התחלה" is (the stop itself is just below)
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    const fold = (await page.locator('.tabbar').boundingBox()).y;
+    const bottom = async (loc) => { const b = await loc.boundingBox(); return b.y + b.height; };
+    expect(await bottom(card)).toBeLessThanOrEqual(fold);
+    expect(await bottom(page.locator('.unit-head').first())).toBeLessThanOrEqual(fold);
+    expect(await bottom(page.locator('.node-start').first())).toBeLessThanOrEqual(fold);
+    if (!small) {
+      expect(await bottom(page.locator('.node-anchor.is-current .node').first())).toBeLessThanOrEqual(fold);
+      await expectUsable(page, page.locator('.node-anchor.is-current .node').first(), 'the current stop');
+      await expect(page.locator('.jump-current')).toHaveCount(0);
+    }
+    await evidence(page, small ? 'repair-card-320x568' : 'repair-card');
+    if (!small) {
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await evidence(page, 'repair-card-dark');
+      await page.emulateMedia({ colorScheme: 'light' });
+    }
+    // the missions tab and the profile say the same 4
+    await flame.click();
+    await expect(page.locator('.streak-card h2')).toHaveText('הרצף של 4 ימים מחכה לכם');
+    await expect(page.locator('.streak-repair-line')).toHaveText('אתמול לא יצא ללמוד. עוד שני שיעורים היום, והרצף של 4 ימים נשמר.');
+    await page.goto('./#/me');
+    await expect(page.locator('.profile-stats .kpi').filter({ hasText: 'ימים ברצף' }).locator('.kpi-num')).toHaveText('4');
+  });
+
+  test('the scroll-to-current button never covers a unit banner\'s emblem', async ({ page }) => {
+    // a short screen puts the unit's banner where the button floats while the current stop is below, as the council saw
+    // it on an iPhone 13 under two cards; then the whole home is scrolled through, both ways
+    await page.setViewportSize({ width: page.viewportSize().width, height: 440 });
+    await open(page, '#/', back(), '424242', WED);
+    const jump = page.locator('.jump-current');
+    const covers = () => page.evaluate(() => {
+      const b = document.querySelector('.jump-current');
+      if (!b || getComputedStyle(b).visibility === 'hidden') return null;
+      const r = b.getBoundingClientRect();
+      return [...document.querySelectorAll('.unit-head .emblem, .unit-row .emblem, .unit-guide')].filter((el) => {
+        const e = el.getBoundingClientRect();
+        return e.bottom > r.top && e.top < r.bottom && e.right > r.left && e.left < r.right;
+      }).map((el) => el.className);
+    });
+    let shown = 0;
+    const height = await page.evaluate(() => document.documentElement.scrollHeight);
+    const steps = [...Array(Math.ceil(height / 24)).keys()].map((i) => i * 24);
+    for (const y of [...steps, ...steps.reverse()]) {
+      await page.evaluate((top) => window.scrollTo(0, top), y);
+      // what stays on the screen once the scroll has settled (two frames and a moment)
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 30)))));
+      const over = await covers();
+      if (over) shown += 1;
+      expect(over ?? [], `at scroll ${y}`).toEqual([]);
+    }
+    expect(shown, 'the button was there to use').toBeGreaterThan(0);
+    // and it still takes the student back to the current stop
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(jump).toBeVisible();
+    await jump.click();
+    await expect(page.locator('.node-anchor.is-current .node').first()).toBeInViewport();
+  });
 });

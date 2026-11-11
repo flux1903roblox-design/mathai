@@ -17,7 +17,7 @@ import { addXp, newTag } from './durable/xp.js';
 import { durableStorage, bindDurableStore, STORE_KEY } from './durable/storage.js';
 import { EXAMS_KEEP, PRACTICE_EXAMS_KEEP, OUTBOX_KEEP, TEACHER_EXAMS_KEEP } from './durable/merge.js';
 import { applyTheme } from './theme.js';
-import { streakRepair, itemsOn } from './streak.js';
+import { streakRepair, streakNow, itemsOn } from './streak.js';
 import { isRestDay } from '@shared/restDays.js';
 import { emptyLook, earnIds, unlockedLook, unlockedIds, chestPieces } from './wardrobe.js';
 import { challengeXP } from '@/learn/challenges/grade.ts';
@@ -570,6 +570,17 @@ export const persistOptions = (storage) => ({ name: STORE_KEY, storage, version:
 export const useApp = create(persist(appState, persistOptions(heldStorage)));
 // a restore from the copy on the device loads into this store
 bindDurableStore(useApp);
+
+/**
+ * The streak as every screen shows it today (PRODUCT2-40, lib/streak.js streakNow): { n, atRisk, repair }. The header's
+ * flame, the repair card, the missions tab and the profile all read it, so a returning student never sees 0 beside
+ * "הרצף של 4 ימים נשמר".
+ */
+export function useStreak() {
+  const days = useApp((s) => s.days);
+  const lastRepair = useApp((s) => s.streak?.lastRepair ?? null);
+  return streakNow(days, today(), lastRepair);
+}
 
 /**
  * A finished lesson, check or teaching stage tells the daily reminder's server that today was learned, so no reminder

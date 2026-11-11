@@ -3,9 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { Flame, Snowflake, Zap, Check, Target, BookOpen, Star, Trophy, Footprints, ListChecks } from 'lucide-react';
 import { m, useReducedMotion } from 'motion/react';
-import { useApp, streakOf, today } from '@/lib/store.js';
+import { useApp, useStreak, today } from '@/lib/store.js';
 import { learnDaysThisMonth, learnDaysTotal, weekStart, weekSteps, bestWeek } from '@/lib/streak.js';
-import { useRepair, repairText } from '@/components/learn/RepairCard.jsx';
+import { repairText } from '@/components/learn/RepairCard.jsx';
 import { questProgress, GOALS } from '@/lib/quests.js';
 import { Week } from './LessonDone.jsx';
 import PageHero from '@/components/PageHero.jsx';
@@ -57,9 +57,9 @@ export default function Quests() {
   const { days, goalXp, setGoalXp, freezes, profile } = useApp();
   const d = today(); const day = days[d] || {};
   const quests = questProgress(d, day);
-  const streak = streakOf(days);
+  // the same streak as the header and the repair card (store.js useStreak): kept and at risk while it can be repaired
+  const { n: streak, atRisk, repair } = useStreak();
   const monthDays = learnDaysThisMonth(days, d);
-  const repair = useRepair();
   const todayXp = day.xp || 0;
   const allDone = quests.every((q) => q.done);
   // the chest's choice of a piece for מדי (PRODUCT2-36): today's, or an earlier chest of this week still waiting; once
@@ -128,10 +128,11 @@ export default function Quests() {
 
       <section className="card streak-card" aria-labelledby="streak-h">
         <div className="streak-card-top">
-          <span className={clsx('streak-flame', streak > 0 && 'on')} aria-hidden="true"><Flame size={44} strokeWidth={2.2} /></span>
+          <span className={clsx('streak-flame', streak > 0 && !atRisk && 'on', atRisk && 'at-risk')} aria-hidden="true"><Flame size={44} strokeWidth={2.2} /></span>
           <div>
-            {/* after a day without learning the streak starts again, said forward-looking; never "lost" or "broken" */}
-            <h2 id="streak-h" className="card-title">{streak === 0 ? (learnDaysTotal(days) > 0 ? 'רצף חדש מתחיל היום' : 'עוד אין רצף') : streak === 1 ? 'יום אחד ברצף' : `${streak} ימים ברצף`}</h2>
+            {/* after a day without learning the streak starts again, said forward-looking; never "lost" or "broken"; while
+                the missed day can be repaired, the streak waits for today, as the header and the repair card say */}
+            <h2 id="streak-h" className="card-title">{atRisk ? `הרצף של ${streak} ימים מחכה לכם` : streak === 0 ? (learnDaysTotal(days) > 0 ? 'רצף חדש מתחיל היום' : 'עוד אין רצף') : streak === 1 ? 'יום אחד ברצף' : `${streak} ימים ברצף`}</h2>
             <p className="muted">שיעור אחד ביום, או שלב אחד בלימוד מדרגה, שומר על הרצף. בשבת ובחג הרצף נשמר.</p>
             {monthDays > 0 && <p className="streak-month">החודש למדתם {monthDays === 1 ? 'יום אחד' : `${monthDays} ימים`}.</p>}
           </div>
