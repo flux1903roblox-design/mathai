@@ -6,7 +6,7 @@ import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
 import { topicsFor, pathColours } from '@/content/index.js';
 import { schoolMonth } from '@/learn/programme.ts';
-import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote } from '@/lib/path.js';
+import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote, journey } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
 import { MASTERY_N, checkWaits, PRACTICE_AGAIN } from '@/learn/mastery.ts';
 import PathNode from '@/components/PathNode.jsx';
@@ -31,6 +31,10 @@ import ClassGoalCard, { ClassGoalMoment } from '@/components/learn/ClassGoalCard
 
 // the picture of what a unit's chest holds loads with the first chest card opened (Madi's accessories are not in the boot bundle)
 const ItemArt = lazy(() => import('@/components/mascot/Accessories.jsx').then((m) => ({ default: m.ItemArt })));
+// מדי at the stop the student is on, who walks there after a stair is done (PRODUCT2-37); loaded after the map is drawn
+const Walker = lazy(() => import('@/components/map/Walker.jsx'));
+// The locations whose arrival was already played: the walk and the unlock come once, not again on a re-render or Back.
+const arrived = new Set();
 
 // The path winds gently: each node sits a little to one side of the one before.
 const SWING = [0, 52, 78, 52, 0, -52, -78, -52];
@@ -127,7 +131,31 @@ function lastDoneKey(topic) {
   return last ? `${topic}:${last.kind}:${last.level}` : null;
 }
 
-function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKey, focusNext, fresh, mastered, celebrate }) {
+/**
+ * A unit folded into one row, one tap away (PRODUCT2-37): its emblem, name and count; the row opens it in place. The
+ * unit's name is a heading, so a screen reader's list of headings still names every unit.
+ */
+function UnitRow({ t, colour, n, mastered, onOpen }) {
+  const skills = useApp((s) => s.learn.skills);
+  const path = useApp((s) => s.path);
+  const prog = unitProgress(t.id, path, skills);
+  return (
+    <section className={clsx('unit-row', `ch-${colour || t.color}`, mastered && 'is-mastered')}>
+      <h2 className="unit-row-h">
+        <button type="button" className="unit-row-btn" aria-expanded="false" onClick={() => onOpen(t.id)}>
+          <Emblem topic={t.id} />
+          <span className="unit-row-text">
+            <span className="unit-title">{t.title}</span>
+            <span className="unit-label">{t.bridge ? 'יסודות' : `יחידה ${n}`}{'\u00a0· '}<span className="unit-count">{unitCountText(prog)}</span></span>
+          </span>
+          <ChevronDown size={22} aria-hidden="true" className="unit-row-go" />
+        </button>
+      </h2>
+    </section>
+  );
+}
+
+function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKey, focusNext, fresh, mastered, celebrate, preview, onUnfold, arrive }) {
   const skills = useApp((s) => s.learn.skills);
   const path = useApp((s) => s.path);
   // the unit's counters move from the first stage: stairs done (mastered) once there is one, before that stages done,
@@ -137,14 +165,14 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
   // the chest opens as the store awards it: once every stair up to it is done (not a stair done out of order)
   const chest = chestOpen(t.id, path);
   return (
-    <section className={clsx('unit', `ch-${colour || t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
+    <section className={clsx('unit', `ch-${colour || t.color}`, `world-${t.id}`, mastered && 'is-mastered', preview && 'is-preview')} aria-labelledby={`unit-${t.id}`}>
       {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path
           scrolls. The fractions floor is not one of the grade's units: it is named יסודות and has no number */}
       <header className="unit-head" data-region="banner">
         <Emblem topic={t.id} />
         <div className="unit-head-text">
-          <h2 id={`unit-${t.id}`} className="unit-title">{t.title}</h2>
-          <p className="unit-label">{t.bridge ? 'יסודות' : `יחידה ${n}`} · {unitCountText(prog)}</p>
+          <h2 id={`unit-${t.id}`} className="unit-title" tabIndex={-1}>{t.title}</h2>
+          <p className="unit-label">{t.bridge ? 'יסודות' : `יחידה ${n}`}{'\u00a0· '}<span className="unit-count">{unitCountText(prog)}</span></p>
           <div className="unit-bar" role="progressbar" aria-label={`${t.title}: שלבים שהושלמו`} aria-valuemin={0} aria-valuemax={prog.of} aria-valuenow={prog.stages} aria-valuetext={`${prog.stages} מתוך ${prog.of} שלבים`}><i style={{ width: `${(prog.stages / prog.of) * 100}%` }} /></div>
         </div>
         <Link to={`/topic/${t.id}`} className="unit-guide" aria-label={`תזכורת מהשיעור: ${t.title}`}><BookOpen size={22} aria-hidden="true" /><span>תזכורת</span></Link>
@@ -159,24 +187,27 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
             const x = SWING[i % SWING.length];
             const rec = node.kind === 'node' ? skills[skillId(t.id, node.level)] : null;
             const pct = node.kind === 'node' ? stairProgress(rec, node.parts) : 0;
-            const label = `${node.kind === 'review' ? 'חזרה על היחידה' : `מדרגה ${node.level}: ${node.title}`}. ${node.state === 'done' ? (mastered ? 'נשלט' : 'הושלם') : node.state === 'open' ? 'פתוחה, בדיקת השליטה מחכה' : node.state === 'current' ? (node.kind === 'node' ? `השלב הבא, ${Math.round(pct * 5)} מתוך 5 שלבים` : 'השלב הבא') : 'נעול'}`;
+            const label = `${node.kind === 'review' ? 'חזרה על היחידה' : `מדרגה ${node.level}: ${node.title}`}. ${node.preview && node.state === 'current' ? 'המדרגה הראשונה של היחידה הבאה' : node.state === 'done' ? (mastered ? 'נשלט' : 'הושלם') : node.state === 'open' ? 'פתוחה, בדיקת השליטה מחכה' : node.state === 'current' ? (node.kind === 'node' ? `השלב הבא, ${Math.round(pct * 5)} מתוך 5 שלבים` : 'השלב הבא') : 'נעול'}`;
+            // the stop the student is on: מדי stands beside it (on the side toward the middle), and walks in once
+            const here = node.state === 'current' && !node.preview && key === focusKey;
             return [
               <li key={key} className="path-step" style={{ '--x': `${x}px` }}>
-                {node.state === 'current' && !isOpen && <span className="node-start" aria-hidden="true">{pct > 0 ? 'המשך' : 'התחלה'}</span>}
+                {node.state === 'current' && !node.preview && !isOpen && <span className="node-start" aria-hidden="true">{pct > 0 ? 'המשך' : 'התחלה'}</span>}
                 {isNext && !isOpen && <span className="node-start node-next" aria-hidden="true">הצעד הבא</span>}
-                <div className={clsx('node-anchor', node.state === 'current' && 'is-current')}>
+                <div className={clsx('node-anchor', node.state === 'current' && !node.preview && 'is-current')} data-stop={key}>
                   <PathNode
                     ref={key === focusKey ? currentRef : undefined}
-                    state={node.state} kind={node.kind} parts={node.parts} of={PARTS} pct={pct} mastered={mastered}
+                    state={node.preview && node.state === 'current' ? 'preview' : node.state} kind={node.kind} parts={node.parts} of={PARTS} pct={pct} mastered={mastered}
                     fillLast={key === focusKey && fresh === t.id && node.parts > 0}
-                    celebrate={celebrate === key}
+                    celebrate={celebrate === key} unlocking={here && !!arrive?.from}
                     label={isNext ? `${label}. הצעד הבא` : label} expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}
                   />
+                  {here && <Suspense fallback={null}><Walker side={x > 0 ? 'left' : 'right'} from={arrive?.from} hop={!!arrive && !arrive.from} /></Suspense>}
                 </div>
                 {isOpen && <NodeCard n={node} t={t} onStart={onStart} next={key === focusKey ? focusNext : null} />}
               </li>,
-              // halfway along the unit, a treasure chest sits on the road
-              node.kind === 'node' && node.level === half && (
+              // halfway along the unit, a treasure chest sits on the road (not on a unit only previewed)
+              !preview && node.kind === 'node' && node.level === half && (
                 <li key={`${t.id}:chest`} className="path-step path-chest" style={{ '--x': `${(x + SWING[(i + 1) % SWING.length]) / 2}px` }}>
                   <Chest open={chest} celebrate={chest && celebrate === key} expanded={open === `${t.id}:chest`}
                     label={`תיבת אוצר. ${chest ? 'פתוחה' : `נפתחת אחרי מדרגה ${half}`}`} onClick={() => setOpen(open === `${t.id}:chest` ? null : `${t.id}:chest`)} />
@@ -187,6 +218,11 @@ function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKe
             ];
           })}
         </ol>
+        {preview && (
+          <button type="button" className="btn btn-ghost btn-sm unit-more" onClick={() => onUnfold(t.id)}>
+            כל המדרגות של {t.title}<ChevronDown size={18} aria-hidden="true" />
+          </button>
+        )}
       </div>
     </section>
   );
@@ -245,12 +281,14 @@ export default function Learn() {
 
 function LearnMap() {
   const navigate = useNavigate();
-  const { state } = useLocation();
+  const { state, key: locKey } = useLocation();
   const { profile, path, days, xp, goalXp, freezes, settleStreak, lastTopic } = useApp();
   // the grade on show: the student's own, or the one a link to a unit asks for (the wardrobe's "ליחידת …")
   const [view, setView] = useState(state?.grade || profile.grade || '7');
   const floorOn = useApp((s) => !!(s.learn.floor ?? null)?.on);
   const [open, setOpen] = useState(null);
+  // the units the student unfolded on this visit (the unit they are on is always open: lib/path.js journey)
+  const [unfolded, setUnfolded] = useState([]);
   const [away, setAway] = useState(null); // 'up' | 'down' when the current node is off screen
   const [install, setInstall] = useState(false);
   const installHintAt = useApp((s) => s.durable?.installHintAt);
@@ -275,6 +313,17 @@ function LearnMap() {
   const focus = mapFocus({ from: state?.from, top, lastTopic, topicIds, firstId: own[0]?.id, path });
   const focusKey = focus.key;
   const banner = top && !onMap(top, topicIds) ? top : null;
+  // only the unit the student is on opens; the next is previewed, the others fold (PRODUCT2-35/37)
+  const units = journey(topicIds, path, focus.topic, unfolded);
+  const unfold = (id) => {
+    setUnfolded((u) => (u.includes(id) ? u : [...u, id]));
+    requestAnimationFrame(() => { const h = document.getElementById(`unit-${id}`); h?.scrollIntoView({ block: 'start' }); h?.focus({ preventScroll: true }); });
+  };
+  // back from a stage or a stair: מדי arrives at the stop the student is on, once (not again on Back to this entry, or a
+  // re-render). After a stair is done he walks there from the stop just finished, and the stop opens; after a stage he
+  // hops where he is. The stop just done pops and its ring fills on that same arrival only.
+  const [arrive] = useState(() => (state?.from && !arrived.has(locKey) ? { topic: state.from, from: state.nodeDone ? lastDoneKey(state.from) : null } : null));
+  useEffect(() => { if (arrive) arrived.add(locKey); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const repair = useRepair();
   const repairDismissed = useApp((s) => s.nudges?.repairDismissed);
   const repairOn = !!repair && repairDismissed !== today();
@@ -310,7 +359,7 @@ function LearnMap() {
   return (
     <div className="learn">
       <header className="learn-top" data-region="header">
-        <button type="button" className="grade-switch" onClick={() => { setView(otherGrade); setOpen(null); }} aria-label={`מציגים את כיתה ${view === '7' ? 'ז׳' : 'ח׳'}. מעבר לכיתה ${otherGrade === '7' ? 'ז׳' : 'ח׳'}`}>
+        <button type="button" className="grade-switch" onClick={() => { setView(otherGrade); setOpen(null); setUnfolded([]); }} aria-label={`מציגים את כיתה ${view === '7' ? 'ז׳' : 'ח׳'}. מעבר לכיתה ${otherGrade === '7' ? 'ז׳' : 'ח׳'}`}>
           כיתה {view === '7' ? 'ז׳' : 'ח׳'}<ChevronDown size={18} aria-hidden="true" />
         </button>
         <Link to="/quests" className={clsx('top-stat streak', streak > 0 && 'on')} aria-label={`רצף של ${streak} ימים`}><Flame size={24} aria-hidden="true" />{streak}</Link>
@@ -337,10 +386,15 @@ function LearnMap() {
             while the repair card is up, its button already goes to this same next step */}
         {banner && !repairOn && <NextBanner item={banner} onGo={() => onStart(banner.to)} />}
         {/* the home screen is the path, as on Duolingo: units under their sticky banners, the current stop marked */}
-        {topics.map((t) => (
-          <Unit key={t.id} t={t} colour={colours[t.id]} n={unitNumber(t)} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} focusNext={focus.next} fresh={state?.from}
-            mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null} />
-        ))}
+        {units.map(({ id, mode, nodes }) => {
+          const t = topics.find((x) => x.id === id);
+          const mastered = (path[id]?.reviews || 0) > 0;
+          if (mode === 'folded') return <UnitRow key={id} t={t} colour={colours[id]} n={unitNumber(t)} mastered={mastered} onOpen={unfold} />;
+          return (
+            <Unit key={id} t={t} colour={colours[id]} n={unitNumber(t)} nodes={nodes} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} focusNext={focus.next} fresh={arrive?.topic}
+              mastered={mastered} celebrate={arrive?.topic === id ? arrive.from : null} preview={mode === 'preview'} onUnfold={unfold} arrive={id === focus.topic && arrive?.topic === id ? arrive : null} />
+          );
+        })}
         {/* the end of the path says plainly what the app has of the year's programme, and what it does not have yet;
             each way on is a full-size target on its own line, not a link inside a sentence (STUDENT-9 §1) */}
         <div className="path-end">

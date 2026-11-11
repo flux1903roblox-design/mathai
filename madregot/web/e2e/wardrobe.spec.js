@@ -3,7 +3,7 @@
 // the path's chests that say what they hold, the unlock moment after a result (and after the first teaching stage), and
 // the quest chest's choice of one of two pieces. The clock is fixed on Thursday 5 November 2026 (helpers.js NOW).
 import { test, expect } from '@playwright/test';
-import { open, student, answer, proceed, proceedToNext, saved, item, expectNoSidewaysScroll, playDiscover, stageDone } from './helpers.js';
+import { open, student, answer, proceed, proceedToNext, saved, item, expectNoSidewaysScroll, playDiscover, stageDone, openUnit } from './helpers.js';
 import { expectTextContrast } from './contrast.js';
 
 const only = (...names) => ({}, info) => test.skip(!names.includes(info.project.name), `runs on ${names.join(' and ')}`);
@@ -194,7 +194,7 @@ test.describe('on a phone', () => {
     const st = await saved(page);
     expect(st.look).toMatchObject({ head: 'protractor-crown', earned: ['protractor-crown', 'party-hat'], seen: ['protractor-crown', 'party-hat'], earnedAt: { 'protractor-crown': '2026-11-05' } });
     // the chest on the path now says what it gave, and the profile's Madi wears it
-    const unit = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: 'זוויות' }) });
+    const unit = await openUnit(page, 'זוויות');
     await unit.getByRole('button', { name: /^תיבת אוצר\. פתוחה/ }).click();
     await expect(unit.locator('.node-card')).toContainText('פתחתם: כתר מד־זווית.');
     await page.goto('./#/me');
@@ -222,11 +222,11 @@ test.describe('on a phone', () => {
 
   test('the path\'s chests say what they hold, and an open one can be tried on', async ({ page }) => {
     await open(page, '#/', dressed());
-    const coord = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: 'מערכת צירים' }) });
+    const coord = await openUnit(page, 'מערכת צירים');
     await coord.getByRole('button', { name: /^תיבת אוצר\. נפתחת/ }).click();
     await expect(coord.locator('.node-card')).toContainText('בתיבה: כובע מצפן למדי. היא נפתחת כשתשלטו במדרגות 1 עד 3.');
     await expect(coord.locator('.node-card svg [data-item="compass-cap"]')).toHaveCount(1);
-    const angles = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: 'זוויות' }) });
+    const angles = await openUnit(page, 'זוויות');
     await angles.getByRole('button', { name: /^תיבת אוצר\. פתוחה/ }).click();
     await expect(angles.locator('.node-card')).toContainText('פתחתם: כתר מד־זווית.');
     await angles.getByRole('button', { name: 'לנסות על מדי' }).click();

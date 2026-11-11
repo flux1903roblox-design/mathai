@@ -293,3 +293,18 @@ export async function onboard(page, { name = 'נועה', grade = '7', start = 's
   await page.getByRole('radio', { name: start === 'test' ? /^בדיקת רמה קצרה/ : /^מתחילים מההתחלה/ }).click();
   await last.click();
 }
+
+/**
+ * A unit on the home path, open (PRODUCT2-37): only the unit the student is on is open and the next one previewed; any
+ * other is a folded row, opened here with its one tap (the preview with its "כל המדרגות של …"). Returns the unit's section.
+ */
+export async function openUnit(page, title) {
+  const unit = page.locator('section.unit').filter({ has: page.locator('h2.unit-title', { hasText: title }) });
+  const row = page.locator('section.unit-row').filter({ hasText: title }).getByRole('button');
+  await expect(unit.or(row).first()).toBeVisible();
+  if (await row.count()) await row.click();
+  else if (await unit.locator('.unit-more').count()) await unit.locator('.unit-more').click();
+  await expect(unit.locator('.unit-more')).toHaveCount(0);
+  await expect(unit).toBeVisible();
+  return unit;
+}

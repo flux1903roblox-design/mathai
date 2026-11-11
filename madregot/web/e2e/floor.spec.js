@@ -170,9 +170,9 @@ test('a student who finds everything new can check the basics: onboarding → th
   // the map: the fractions floor first, named יסודות and not numbered; the grade's units keep their numbers
   await expect(page.locator('.unit').first()).toBeVisible();
   await expect(page.locator('.unit-title').first()).toHaveText('שברים ועשרוניים');
-  await expect(page.locator('.unit-label').first()).toHaveText(/^יסודות · /);
+  await expect(page.locator('.unit-label').first()).toHaveText(/^יסודות\s·\s/);
   await expect(page.locator('.unit-title').nth(1)).toHaveText('מספרים מכוונים');
-  await expect(page.locator('.unit-label').nth(1)).toHaveText(/^יחידה 1 · /);
+  await expect(page.locator('.unit-label').nth(1)).toHaveText(/^יחידה 1\s·\s/);
   await expectNoSidewaysScroll(page);
   await page.evaluate(() => window.scrollTo(0, 0));
   await shot(page, 'map', false);

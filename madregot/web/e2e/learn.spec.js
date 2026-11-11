@@ -2,7 +2,7 @@
 // keeping the place, mastery only from a check without hints, a misconception repaired and verified,
 // Exam Rescue from a diagnostic to a plan, today's mission, and the profile's numbers and data deletion.
 import { test, expect } from '@playwright/test';
-import { open, openOn, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, leaveStage, expectNoSidewaysScroll } from './helpers.js';
+import { open, openOn, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, leaveStage, expectNoSidewaysScroll, openUnit } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
 
@@ -369,7 +369,8 @@ test('a stair mastered out of order: the stairs before it are open, not locked, 
   const at = '2026-11-04T10:00:00.000Z';
   const st = student('8', { path: { pyth: { parts: {}, reviews: 0, jumped: 0, done: { 3: 'mastered' } } }, learn: { skills: { 'pyth:3': { attempts: [], mastered: { at, box: 0, due: '2026-11-05T10:00:00.000Z' } } }, miscon: {}, exam: null, missions: {}, events: [] } });
   await open(page, '#/', { ...st, version: 4 });
-  const unit = page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: 'פיתגורס' }) });
+  // the unit is opened from its row if the path is on another unit (only the unit the student is on opens by itself)
+  const unit = await openUnit(page, 'פיתגורס');
   const nodes = unit.locator('.node');
   await expect(nodes.nth(0)).toHaveClass(/node-current/);
   await expect(nodes.nth(1)).toHaveClass(/node-open/);
@@ -378,6 +379,88 @@ test('a stair mastered out of order: the stairs before it are open, not locked, 
   // the halfway chest opens with every stair up to it done, as the store awards it
   await expect(unit.getByRole('button', { name: /^תיבת אוצר\. נפתחת/ })).toBeVisible();
 });
+
+// PRODUCT2-35/37: the home path is a journey, not every unit at once. The unit the student is on is open, the next is
+// previewed (its banner and its first stop), and every other unit is a folded row, one tap away. The page that was
+// 5,524 CSS px on an iPhone 13 is now a few screens.
+test('the home path: the unit the student is on, the next previewed, the others folded and opened with one tap', async ({ page }) => {
+  await open(page, '#/', student('7'));
+  const units = page.locator('section.unit');
+  await expect(units).toHaveCount(2);
+  await expect(units.first().locator('.node-current')).toHaveCount(1);
+  const preview = page.locator('section.unit.is-preview');
+  await expect(preview.locator('.node')).toHaveCount(1);
+  await expect(preview.locator('.node')).toHaveClass(/node-preview/);
+  await expect(preview.locator('.node')).toHaveAccessibleName(/המדרגה הראשונה של היחידה הבאה/);
+  await expect(preview.locator('.path-chest, .path-art')).toHaveCount(0);
+  const rows = page.locator('section.unit-row');
+  await expect(rows).toHaveCount(3);
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  expect(height, 'the home page, in CSS px').toBeLessThan(2600);
+
+  // a row is a heading with one button that names the unit and its size; it opens the unit in place, with the keyboard
+  // too, and moves to the unit's name
+  const row = rows.first().getByRole('button');
+  const title = (await rows.first().locator('.unit-title').textContent()).trim();
+  await expect(row).toHaveAccessibleName(new RegExp(`^${title}\\s*יחידה 3\\s·\\s\\d+ מדרגות$`));
+  expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await row.focus();
+  await page.keyboard.press('Enter');
+  const opened = units.filter({ has: page.locator('h2.unit-title', { hasText: title }) });
+  await expect(opened.locator('.node').first()).toBeVisible();
+  await expect(opened.locator('h2.unit-title')).toBeFocused();
+  await expect(rows).toHaveCount(2);
+  // the previewed unit shows all its stops with "כל המדרגות של …"
+  await preview.getByRole('button', { name: /^כל המדרגות של / }).click();
+  await expect(units.nth(1).locator('.node').nth(1)).toBeVisible();
+  await expect(units.nth(1)).not.toHaveClass(/is-preview/);
+  await expectNoSidewaysScroll(page);
+  // the topics list's "המשך" opens that unit wherever it is (it is then the unit the student is on)
+  await page.goto('./#/topics');
+  await page.locator('.section-card').filter({ hasText: title }).getByRole('button', { name: 'מעבר ליחידה' }).click();
+  await expect(units.first().locator('h2.unit-title')).toHaveText(title);
+});
+
+// PRODUCT2-37: back on the map after a stair is done, מדי walks from the stop just finished to the next one and its
+// lock lifts, once. Under reduced motion (this project's default) he is simply there and nothing moves.
+for (const motion of ['reduce', 'no-preference']) {
+  test(`after a stair is done, מדי is at the next stop (${motion === 'reduce' ? 'reduced motion: the end state' : 'he walks there and the stop opens, once'})`, async ({ page }) => {
+    const at = '2026-11-04T10:00:00.000Z';
+    const practised = { taught: { A: at, B: at, C: at }, attempts: Array.from({ length: 6 }, () => ({ at, ok: true, independent: true, purpose: 'practice' })) };
+    const st = student('7', { path: { signed: { parts: { 1: 2 }, reviews: 0, jumped: 0, done: {} } }, learn: { skills: { 'signed:1': practised }, miscon: {}, exam: null, missions: {}, events: [] } });
+    await page.emulateMedia({ reducedMotion: motion });
+    await open(page, '#/', { ...st, version: 4 });
+    // before: מדי stands at the first stop, and nothing walks
+    await expect(page.locator('[data-stop="signed:node:1"] .path-walker')).toBeVisible();
+    await page.locator('.unit').first().locator('.node').first().click();
+    await page.locator('.node-start-btn').click();
+    for (let i = 0; i < 5; i += 1) { await expect.poll(() => item(page)).toBeTruthy(); await answer(page, true); await proceed(page); }
+    await page.getByRole('button', { name: 'למפה' }).click();
+    await page.locator('.unlock-stage').getByRole('button', { name: 'אחר כך', exact: true }).click();
+    const walker = page.locator('[data-stop="signed:node:2"] .path-walker');
+    await expect(walker).toBeVisible();
+    await expect(page.locator('.path-walker')).toHaveCount(1);
+    await expect(walker).toHaveAttribute('aria-hidden', 'true');
+    const moving = () => walker.evaluate((el) => el.getAnimations().length);
+    const lock = page.locator('[data-stop="signed:node:2"] .node-unlock');
+    if (motion === 'reduce') {
+      expect(await moving()).toBe(0);
+      await expect(lock).toHaveCount(0);
+    } else {
+      expect(await moving(), 'he walks from the stop just done').toBe(1);
+      await expect(lock).toHaveCount(1);
+      // once: away to the quests and Back to this same map, he is simply there
+      await page.locator('.tabbar').getByRole('link', { name: /משימות/ }).click();
+      await expect(page).toHaveURL(/#\/quests/);
+      await expect(page.locator('.path-walker')).toHaveCount(0); // the map has left the screen
+      await page.goBack();
+      await expect(walker).toBeVisible();
+      expect(await moving()).toBe(0);
+      await expect(lock).toHaveCount(0);
+    }
+    await expect(page.locator('[data-stop="signed:node:2"] .node')).toHaveClass(/node-current/);
+  });
+}
 
 // PRODUCT2-10: a mixed number is typed on the phone keypad: the whole number, the space key (רווח), the fraction. The
 // slot shows "5 1/3", beside it the mixed number as written, and the lesson takes it as the answer.

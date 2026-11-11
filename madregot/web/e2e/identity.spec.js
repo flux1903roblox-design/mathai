@@ -1,30 +1,47 @@
-// STUDENT-1: every unit has its own colour and emblem, on the path and on every screen of the unit, and two calm
-// drawings from its topic beside its path (hidden on the smallest phones so the path is not crowded).
+// STUDENT-1: every unit has its own colour and emblem, on the path (open or folded into its row) and on every screen of
+// the unit, and two calm drawings from its topic beside its path (hidden on the smallest phones so the path is not crowded).
 import { test, expect } from '@playwright/test';
-import { open, student, livedIn, answer, proceedToNext, expectNoSidewaysScroll } from './helpers.js';
+import { open, student, livedIn, answer, proceedToNext, expectNoSidewaysScroll, openUnit } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the unit identity is checked on the two phones'); });
 
 const bg = (loc) => loc.evaluateAll((els) => els.map((el) => getComputedStyle(el).backgroundColor));
 
+// a unit's colour, read the same way on a banner and on a folded row: the colour its `ch-*` class gives
+const unitColours = (loc) => loc.evaluateAll((els) => els.map((el) => { const p = document.createElement('i'); p.style.color = 'var(--c)'; el.append(p); const c = getComputedStyle(p).color; p.remove(); return c; }));
+
 for (const grade of ['7', '8']) {
-  test(`grade ${grade}: each unit's banner has its own colour and its emblem, and its drawings sit beside the path`, async ({ page }, info) => {
+  test(`grade ${grade}: each unit has its own colour and its emblem, open or folded, and its drawings sit beside the path`, async ({ page }, info) => {
     await open(page, '#/', livedIn(grade));
-    const heads = page.locator('.unit .unit-head');
-    await expect(heads.first()).toBeVisible();
-    const n = await heads.count();
+    // every unit of the grade is on the home path: the one the student is on open, the next previewed, the rest folded
+    // into a row with the unit's emblem and colour (PRODUCT2-37)
+    const all = page.locator('section.unit, section.unit-row');
+    await expect(page.locator('section.unit .unit-head').first()).toBeVisible();
+    const n = await all.count();
     expect(n, 'the grade has several units').toBeGreaterThan(3);
-    const colours = await bg(heads);
+    await expect(page.locator('section.unit'), 'one unit open and the next previewed').toHaveCount(2);
+    await expect(page.locator('section.unit.is-preview')).toHaveCount(1);
+    const colours = await unitColours(all);
     // a unit's colour is never its neighbour's (content.test.js checks the same on the content). There are five colour
     // families: grade 7's five units have one each, and grade 8, six units since the curriculum lane added ratio and
     // pct, uses one twice, never side by side (pct and sys are both petrol).
-    for (let i = 1; i < n; i += 1) expect(colours[i], `banners ${i} and ${i + 1}: ${colours.join(' | ')}`).not.toBe(colours[i - 1]);
-    expect(new Set(colours).size, `banner colours: ${colours.join(' | ')}`).toBe(Math.min(n, 5));
-    for (let i = 0; i < n; i += 1) await expect(heads.nth(i).locator('.emblem svg'), `banner ${i + 1} has its emblem`).toHaveCount(1);
+    for (let i = 1; i < n; i += 1) expect(colours[i], `units ${i} and ${i + 1}: ${colours.join(' | ')}`).not.toBe(colours[i - 1]);
+    expect(new Set(colours).size, `unit colours: ${colours.join(' | ')}`).toBe(Math.min(n, 5));
+    for (let i = 0; i < n; i += 1) await expect(all.nth(i).locator('.emblem svg'), `unit ${i + 1} has its emblem`).toHaveCount(1);
+    // a banner is the unit's colour; a row carries it on its edge
+    const head = page.locator('section.unit .unit-head').first();
+    const [first] = await unitColours(page.locator('section.unit').first());
+    expect(await head.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(first);
+    const row = page.locator('.unit-row-btn').first();
+    expect(await row.evaluate((el) => getComputedStyle(el).borderRightColor), 'the row\'s edge (inline start, on the right)').toBe((await unitColours(page.locator('section.unit-row').first()))[0]);
     // the emblem is decoration: the banner's name is the unit's name
-    await expect(heads.first().locator('.emblem')).toHaveAttribute('aria-hidden', 'true');
+    await expect(head.locator('.emblem')).toHaveAttribute('aria-hidden', 'true');
+    await expect(row.locator('.emblem')).toHaveAttribute('aria-hidden', 'true');
 
+    // every unit opened, one tap each: two drawings from its topic beside its path
+    for (const title of await page.locator('section.unit-row .unit-title, section.unit.is-preview h2.unit-title').allTextContents()) await openUnit(page, title);
     const units = page.locator('section.unit');
+    await expect(units).toHaveCount(n);
     const small = info.project.name === 'phone-small';
     for (let i = 0; i < n; i += 1) {
       const art = units.nth(i).locator('.path-art');
@@ -54,7 +71,8 @@ for (const grade of ['7', '8']) {
 
 test('the unit\'s colour and emblem follow it to its guide, its stair page and the topics list', async ({ page }) => {
   await open(page, '#/', livedIn('7'));
-  const pathColour = await page.locator('section.unit.ch-violet .unit-head').evaluate((el) => getComputedStyle(el).backgroundColor);
+  // the equations unit (violet) is folded on this student's path: its colour is the one its banner shows when opened
+  const [pathColour] = await unitColours(page.locator('section.ch-violet'));
 
   await open(page, '#/topic/eq', livedIn('7'));
   const guide = page.locator('.guide-banner');

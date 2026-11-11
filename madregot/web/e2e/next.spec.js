@@ -127,7 +127,8 @@ test('the ז׳ path in March has the Pythagoras unit after the grade\'s own; Nov
   const titles = page.locator('.unit-title');
   await expect(titles.last()).toHaveText('סטטיסטיקה');
   await expect(titles.filter({ hasText: 'משפט פיתגורס' })).toHaveCount(1);
-  const unit = page.locator('.unit', { has: page.locator('.unit-title', { hasText: 'משפט פיתגורס' }) });
+  // the unit is a folded row (PRODUCT2-37), named and numbered after the grade's own
+  const unit = page.locator('section.unit, section.unit-row').filter({ has: page.locator('.unit-title', { hasText: 'משפט פיתגורס' }) });
   await unit.scrollIntoViewIfNeeded();
   await expect(unit.locator('.unit-label')).toContainText('יחידה 6');
   await expectNoSidewaysScroll(page);

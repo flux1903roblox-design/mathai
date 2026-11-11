@@ -77,6 +77,22 @@ export function unitNodes(topic, path = {}) {
 }
 
 /**
+ * The map as a journey (PRODUCT2-37): how each unit of a path shows. The unit the student is on (`current`: the plan's
+ * next stair, the unit practised last, or the first) shows all its stops ('open'); the unit after it shows its banner
+ * and its first stop ('preview', marked `preview`, so it never reads as a second place to go on from); every other unit
+ * is a folded row one tap away ('folded', no stops). A unit the student unfolded, or one a link asked for (`opened`),
+ * shows whole too. Returns [{ id, mode, nodes }] in the path's order.
+ */
+export function journey(topicIds, path = {}, current, opened = []) {
+  const at = Math.max(0, topicIds.indexOf(current));
+  return topicIds.map((id, i) => {
+    const mode = i === at || opened.includes(id) ? 'open' : i === at + 1 ? 'preview' : 'folded';
+    const nodes = mode === 'folded' ? [] : unitNodes(id, path);
+    return { id, mode, nodes: mode === 'preview' ? [{ ...nodes[0], preview: true }] : nodes };
+  });
+}
+
+/**
  * Stairs added to a unit after students had climbed it: saved progress is kept by topic and level, so the stairs before
  * keep their state and the new one becomes the current stair after them. Its card says why it is there.
  */

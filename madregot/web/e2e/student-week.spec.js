@@ -21,7 +21,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { student, open, item, answer, proceed, proceedToNext, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
+import { student, open, item, answer, proceed, proceedToNext, playDiscover, stageDone, expectNoSidewaysScroll, openUnit } from './helpers.js';
 import { setup, stubFetch } from '../../worker/test/helpers.js';
 import { makeSubscription } from '../../worker/test/fixtures/push.js';
 import { makeVapidKeys } from '../../worker/scripts/push-keys.mjs';
@@ -138,12 +138,9 @@ async function walkEnd(page, at = {}) {
   throw new Error(`too many screens after the lesson: ${seen.join(', ')}`);
 }
 
-/** A unit on the home path, by its title. */
-const unit = (page, title) => page.locator('.unit').filter({ has: page.locator('.unit-title', { hasText: title }) });
-
 /** From the home path: a stair's card, then its page ("כל חמשת השלבים"). */
 async function openStair(page, unitTitle, level) {
-  const u = unit(page, unitTitle);
+  const u = await openUnit(page, unitTitle);
   await u.getByRole('button', { name: new RegExp(`^מדרגה ${level}:`) }).click();
   await u.locator('.node-card').getByRole('button', { name: 'כל חמשת השלבים' }).click();
   await expect(page.locator('.journey')).toBeVisible();
@@ -500,7 +497,7 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     await stage.getByRole('button', { name: 'לשמור על מדי' }).click();
     await expect(page.locator('.learn-top')).toBeVisible();
     // the chest on the path says what it gave
-    const angles = unit(page, 'זוויות');
+    const angles = await openUnit(page, 'זוויות');
     await angles.getByRole('button', { name: /^תיבת אוצר\. פתוחה/ }).click();
     await expect(angles.locator('.node-card')).toContainText('פתחתם: כתר מד־זווית.');
     await expect(angles.locator('.node-card [data-item="protractor-crown"]')).toHaveCount(1); // its picture loads on demand
@@ -657,7 +654,7 @@ test.describe('also captured: what the council could not finish end to end', { t
     const all = (n) => ({ parts: {}, reviews: 0, jumped: 0, done: Object.fromEntries(Array.from({ length: n }, (_, i) => [i + 1, 'mastered'])) });
     const st = student('7', { path: { coord: all(5) }, lastTopic: 'coord' });
     await open(page, '#/', st);
-    const coord = unit(page, 'מערכת צירים');
+    const coord = await openUnit(page, 'מערכת צירים');
     await coord.getByRole('button', { name: /^חזרה על היחידה/ }).click();
     await coord.locator('.node-card').getByRole('button', { name: 'התחלה' }).click();
     await playLesson(page);
