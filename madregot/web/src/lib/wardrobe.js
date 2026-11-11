@@ -39,6 +39,8 @@ export const ITEMS = [
   // the curriculum lane's grade 8 units (ratio and scale, percent): drawn at the merge, for the same reason
   { id: 'scale-pin', slot: 'body', topic: 'ratio', name: 'סיכת קנה מידה', unlock: { chest: 'ratio' } },
   { id: 'percent-pin', slot: 'body', topic: 'pct', name: 'סיכת אחוז', unlock: { chest: 'pct' } },
+  // the stage-5 lane's introduction to functions: a walk's graph on its axes
+  { id: 'graph-pin', slot: 'body', topic: 'func', name: 'סיכת גרף', unlock: { chest: 'func' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
 ];
 

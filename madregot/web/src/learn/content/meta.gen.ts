@@ -449,6 +449,28 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "func:1": {
+    "title": "קריאת גרף של מצב",
+    "misconceptions": [
+      {
+        "id": "graph-picture",
+        "title": "קראו את הגרף כמו ציור של הדרך, ולא כקשר בין שני גדלים"
+      },
+      {
+        "id": "count-squares",
+        "title": "ספרו משבצות ולא כפלו בגודל של כל משבצת"
+      },
+      {
+        "id": "end-for-duration",
+        "title": "ענו את הרגע שבו זה נגמר, ולא כמה זמן זה נמשך"
+      },
+      {
+        "id": "value-not-change",
+        "title": "ענו את הערך בסוף, ולא בכמה הוא השתנה"
+      }
+    ],
+    "transfer": true
+  },
   "line:1": {
     "title": "טבלת ערכים",
     "misconceptions": [
@@ -1189,6 +1211,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
   "eq": {},
   "expr": {},
   "frac": {},
+  "func": {},
   "line": {
     "proportional": "חשבו כאילו $y$ פרופורציוני ל־$x$ (הכפילו גם את $b$)",
     "hidden-one": "חשבו שכש־$x$ לבד, השיפוע הוא $0$ ולא $1$",

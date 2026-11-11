@@ -106,6 +106,10 @@ describe('counters that move from the first stage', () => {
     const mastered = unitProgress('signed', { signed: { parts: { 1: PARTS }, done: { 1: 'mastered' } } }, { [S]: { attempts: [], taught: { A: 'x', B: 'x', C: 'x' }, mastered: { at: 'x', box: 0, due: 'x' } } });
     expect(mastered).toMatchObject({ done: 1, stages: 5 });
     expect(unitCountText(mastered)).toBe('1 מתוך 6 מדרגות');
+    // a unit of one stair (functions, while its later stairs land) in the singular
+    expect(unitCountText({ done: 0, stairs: 1, stages: 0, of: 5 })).toBe('מדרגה אחת');
+    expect(unitCountText({ done: 1, stairs: 1, stages: 5, of: 5 })).toBe('מדרגה אחת, שולטים בה');
+    expect(unitCountText({ done: 0, stairs: 1, stages: 2, of: 5 })).toBe('2 מתוך 5 שלבים');
     for (const p of [fresh, started, mastered]) expect(unitCountText(p)).not.toMatch(/^0 /);
     // an algebra unit the same way
     expect(unitCountText(unitProgress('eq', {}, {}))).toBe('5 מדרגות');

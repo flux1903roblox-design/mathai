@@ -30,6 +30,8 @@ const KINDS = [
   ['dline', 'ratio/3', '8', [0.1, 0.35, 0.6, 0.35], (it) => it.manip.move === 't', 'a proportion on the double number line'],
   // the percent bar stretched: the marker stays at p%, a drag along the bottom line moves its end (pct:4 "find the whole")
   ['dline', 'pct/4', '8', [0.5, 0.72, 0.85, 0.72], (it) => it.manip.move === 'max', 'the whole, by stretching the percent bar'],
+  // a story drawn as a graph: a drag in a point's column moves that point to the finger's height (func:1 drawStory)
+  ['graph', 'func/1', '8', [0.62, 0.6, 0.62, 0.25], (it) => it.answer?.mode === 'shape', 'a story drawn as a situation graph'],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');

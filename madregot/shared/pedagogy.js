@@ -147,6 +147,17 @@ export const TOPIC_WAYS = Object.freeze({
     re(String.raw`(?:אחוז|אחוזים)\s+(?:לא\s+יכול(?:ים)?|אי\s+אפשר(?:\s+ש)?)\s+(?:להיות\s+)?(?:יותר|מעל|גדול(?:ים)?\s+(?:מ־?|מ))\s*(?:מ־?)?\s*\$?100`),
     re(String.raw`(?:מתייקר|התייקר|עולה|עלה)\s+(?:ב־?)?\s*\$?10\\?%\$?\s+(?:ואז|ואחר\s+כך|ואחר־כך)\s+(?:מוזל|הוזל|יורד|ירד)\s+(?:ב־?)?\s*\$?10\\?%\$?\s*,?\s+(?:חוזרים|חוזר|חוזרת|מקבלים\s+את)\s+(?:ל)?(?:ה)?(?:מחיר|מחיר\s+המקורי|מקור)${unless('לא חוזר|לא מקבלים')}`),
   ]),
+  // the stage-5 lane's introduction to functions (ח׳ 8.7, web/src/learn/content/func.ts), after percent as in TOPIC_NAMES.
+  // Its patterns need the graph named: "בעברית קוראים מימין לשמאל, אבל ציר x גדל ימינה" is true and must pass
+  func: {
+    models: 'A function gives every x exactly one y; it is the same in words, a table, a graph and a rule. A graph of a situation is read both ways, by the scale of each axis; a flat part means no change. Increasing and decreasing are read left to right as x grows, and an interval is on the x-axis. Rate = change in y per one unit of x, from two readings (the start need not be 0); a uniform rate gives a straight graph and equal differences; steeper is faster, higher is not.',
+    words: ['פונקציה', 'גרף של מצב', 'ייצוג', 'עולה', 'יורדת', 'קבועה', 'תחום', 'קצב שינוי', 'קצב אחיד'],
+    avoid: ['"a function must have a formula" or "a constant is not a function"', '"the higher line is the faster"', 'reading a graph from right to left', 'a rate as value ÷ time when the start is not 0'],
+    avoidRe: [
+      re(String.raw`(?:ה)?(?:קו|גרף)\s+(?:ה)?גבוה\s+(?:יותר\s+)?(?:הוא\s+)?(?:ה)?מהיר`),
+      re(String.raw`(?:קוראים\s+את\s+(?:ה)?גרף|(?:את\s+)?(?:ה)?גרף\s+קוראים)\s+מימין\s+לשמאל`),
+    ],
+  },
   line: {
     models: 'A table of values is repeated substitution. $b$ is the start, the $y$ at $x = 0$; $m$ is the step: how much the line rises (falls, when negative) per step right. Slope on a graph is a staircase, rise over steps right. Between two points: difference in $y$ over difference in $x$, both from the same point. A point on a line satisfies its equation: substitute it. Intercepts come from substituting $0$ and are the legs of the triangle with the axes. Two lines meet where the same $x$ gives the same $y$.',
     words: ['שיפוע', 'נקודת חיתוך', 'הצבה', 'מדרגה'],

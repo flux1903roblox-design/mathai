@@ -448,6 +448,31 @@
   "stairs": 4,
   "steps": 94
  },
+ "func": {
+  "skills": {
+   "func:1": {
+    "discover": 8,
+    "examples": [
+     2,
+     3,
+     2
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   }
+  },
+  "stairs": 1,
+  "steps": 25
+ },
  "line": {
   "skills": {
    "line:1": {

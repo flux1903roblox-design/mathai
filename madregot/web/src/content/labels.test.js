@@ -16,6 +16,7 @@ import { FRAC } from './frac.js';
 import { candidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
+import { FUNC } from './func.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -388,6 +389,29 @@ const PROPS = {
     // "the same added to both keeps the ratio": the "no" choice, for legs p ≠ q
     'add-same': (it, u) => { const [p, q] = nums(it.key); return it.key.startsWith('ra1a:') && p !== q && /^לא/.test(it.choices[u]?.text || ''); },
   },
+  // func:1, each property from the numbers the student saw (the key): sx, sy, t1, d1, t2, t3, q of fu1 (the walk: the
+  // axes' steps, out to (t1, d1), the rest until t2, home at t3; q asks the distance at t1/2, the rest or the way back);
+  // q, the two hours and their temperatures of fu1d (a dot every 2 hours, so a square across is 2 hours)
+  func: {
+    // the squares counted, not multiplied by the step of the axis the answer is read on
+    'count-squares': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu1') { const [sx, sy, t1, d1, t2, t3, q] = n; return fits(u, [d1 / 2 / sy, (t2 - t1) / sx, (t3 - t2) / sx][q]); }
+      if (p === 'fu1d') { const [q, hi, hj] = n; return q === 1 && fits(u, (hj - hi) / 2); }
+      return false;
+    },
+    // the moment it ended, not how long it lasted: the end of the rest, the arrival home, the later hour
+    'end-for-duration': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      if (p === 'fu1') { const [, , , , t2, t3, q] = n; return (q === 1 && fits(u, t2)) || (q === 2 && fits(u, t3)); }
+      if (p === 'fu1d') { const [q, , hj] = n; return q === 1 && fits(u, hj); }
+      return false;
+    },
+    // the value at the later time, not the change: the temperature at the second hour
+    'value-not-change': (it, u) => { const n = nums(it.key); return it.key.startsWith('fu1d:') && n[0] === 0 && fits(u, n[4]); },
+    // the flat line read as flat ground: the choice that says so
+    'graph-picture': (it, u) => it.key.startsWith('fu1f:') && /בדרך ישרה ושטוחה$/.test(it.choices[u]?.text || ''),
+  },
   expr: {
     concat: (it, u) => { const q = substOf(it); return q.x >= 1 && q.x <= 9 && near(substVal(it, u), withProd(q, 10 * q.a + q.x)); },
     order: (it, u) => { const q = substOf(it); return q.f < 2 && near(u, (q.f === 0 ? q.b + q.a : q.b - q.a) * q.x); },
@@ -734,9 +758,9 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-describe('the algebra, fraction, ratio and percent topics name only what a property can check', () => {
-  it('every category of expressions, equations, systems, fractions, ratio and percent has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+describe('the algebra, fraction, ratio, percent and function topics name only what a property can check', () => {
+  it('every category of expressions, equations, systems, fractions, ratio, percent and functions has its property here', () => {
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, FUNC]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

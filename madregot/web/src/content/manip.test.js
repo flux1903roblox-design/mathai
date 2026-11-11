@@ -759,7 +759,7 @@ describe('the protractor in the angle object (FUNC-1.2)', () => {
     // the spec's own case: arms 30° and 95°: 30 and 275 are right, 95 and 210 put the baseline on an arm with the angle outside
     expect(armTurns([30, 95]).filter((r) => protAligned([30, 95], r))).toEqual([30, 275]);
     expect(armTurns([30, 95]).filter((r) => !protAligned([30, 95], r))).toEqual([95, 210]);
-  });
+  }, 30_000); // 2520 pairs of arms, each turned all the way round: about a second alone, longer on a busy machine
   it('align: the solution is right, the near miss and the start are not, and the words hold no undefined', () => {
     const it = align([30, 95], 30, { letters: { vertex: 'B', a: 'A', b: 'C' } });
     solves(it);

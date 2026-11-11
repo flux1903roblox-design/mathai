@@ -51,6 +51,13 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // 4 by 3 cm at 1 : 100, in m²: the area left in square centimetres (400 · 300 = 120,000)
     { bugs: { 'no-convert': 120000 } },
   ],
+  'func:1': [
+    // the minute Dani was 800 m from home on the way back: reading the other crossing (the way out, 10) names no
+    // misconception of the stair, and no prediction of the model fits this question
+    { bugs: {} },
+    // the litres added from hour 2 to hour 6: the value at the end, 500, instead of the change
+    { bugs: { 'value-not-change': 500 } },
+  ],
   'pct:1': [
     { model: 'transfer', p: { a: 19, b: 25 } }, // 19 of 25 questions: the count of right answers, 19, written as the percent
     { model: 'diag', p: { k: 1, x: 0.6 } }, // 0.6 as a percent: the digit read as the percent gives 6

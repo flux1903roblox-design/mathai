@@ -1,6 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import katex from 'katex';
-import { TOPICS, topicsFor, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem } from './index.js';
+import { TOPICS, TOPIC, topicsFor, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem, figPlain } from './index.js';
+import { manipCorrect, manipSolution } from './manip.js';
 import { SCENERY } from '@/components/map/Scenery.jsx';
 import { parseNum, plainNum, gcd } from './util.js';
 import { factsItem } from './frac.js';
@@ -360,6 +361,10 @@ describe('each unit has its own identity', () => {
       for (let i = 1; i < list.length; i += 1) expect(list[i].color, `grade ${grade}: ${list[i - 1].id} then ${list[i].id}`).not.toBe(list[i - 1].color);
     }
   });
+  it('functions are fuchsia, unlike percent before them (petrol) and linear functions after them (cobalt)', () => {
+    expect([TOPIC.pct.color, TOPIC.func.color, TOPIC.line.color]).toEqual(['petrol', 'fuchsia', 'cobalt']);
+    expect(SCENERY.func.map((piece) => piece.name)).toEqual(['WalkGraph', 'Stopwatch', 'Candle']);
+  });
   it('every topic has three drawings: its emblem and two for beside the path', () => {
     for (const t of TOPICS) {
       expect(SCENERY[t.id], `${t.id} has drawings`).toBeTruthy();
@@ -708,5 +713,92 @@ describe('percent: every answer from the numbers shown', () => {
       solutionHolds(it);
     }
     expect(twice).toBeGreaterThan(80);
+  });
+});
+
+// Functions (stage5.md FUNC-2): every answer recomputed from what the student sees, the graph in words (figPlain: its
+// points, its marked point and its band, as a screen reader reads them) and the numbers of the text, never from the
+// generator's parameters.
+describe('functions: every answer from the graph and the text', () => {
+  /** The numbers of the text's maths, in order ("18^\circ" is 18). */
+  const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).map((m) => Number(m.slice(1, -1).replace(/\^\\circ/g, '').trim()));
+  /** The graph as figPlain writes it: its series' points, its lettered point and its band. */
+  function read(it) {
+    const words = figPlain(it.fig).split('; ');
+    const line = words.find((w) => w.includes('→') || w.startsWith('נקודות '));
+    const pts = [...line.matchAll(/\((-?[\d.]+), (-?[\d.]+)\)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+    const mark = words.map((w) => w.match(/^הנקודה A ב־\((-?[\d.]+), (-?[\d.]+)\)$/)).find(Boolean);
+    const band = words.map((w) => w.match(/^מסומן על ציר x מ־([\d.]+) עד ([\d.]+)$/)).find(Boolean);
+    const every = words.filter((w) => /^ציר [xy] /.test(w)).map((w) => /מספר כל/.test(w));
+    return { pts, mark: mark && [Number(mark[1]), Number(mark[2])], band: band && [Number(band[1]), Number(band[2])], every, dots: line.startsWith('נקודות ') };
+  }
+  /** The y of the polyline at x. */
+  const at = (pts, x) => { for (let i = 1; i < pts.length; i += 1) { const [x0, y0] = pts[i - 1]; const [x1, y1] = pts[i]; if (x >= x0 && x <= x1) return y0 + ((x - x0) * (y1 - y0)) / (x1 - x0); } return null; };
+  /** Every "$a - b = c$" a solution writes holds. */
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1).replace(/\\cdot/g, '*'))
+    .filter((m) => m.includes('=') && !/[a-zA-Z]/.test(m)).forEach((m) => { const [a, b] = m.split('='); expect(same(evaluate(a), evaluate(b)), `${it.key}: ${m}`).toBe(true); }));
+  const all = (n = 1500) => Array.from({ length: n }, () => makeItem('func', 1));
+  const kinds = {};
+
+  it('func:1: the walk, the day\'s temperatures, the flat part, the point A and the story drawn', () => {
+    for (const it of all()) {
+      const kind = it.key.split(':')[0]; kinds[kind] = (kinds[kind] || 0) + 1;
+      if (kind === 'fu1') {
+        const { pts, every } = read(it); const n = shown(it.text);
+        expect(pts, it.key).toHaveLength(4);
+        expect(every, `${it.key}: both axes write a number on every second line`).toEqual([true, true]);
+        const [[, y0], [x1, y1], [x2, y2], [x3, y3]] = pts;
+        expect([y0, y3, y1 === y2, y1 > 0], it.key).toEqual([0, 0, true, true]); // out, a rest, home
+        if (/^כמה מטרים/.test(it.text.split('. ').pop())) { expect(n).toHaveLength(1); expect(it.answer, it.key).toBe(at(pts, n[0])); expect(it.unit).toBe('מטרים'); }
+        else if (/במקום\?$/.test(it.text)) { expect(n).toHaveLength(0); expect(it.answer, it.key).toBe(x2 - x1); }
+        else { expect(it.text, it.key).toMatch(/הדרך חזרה\?$/); expect(it.answer, it.key).toBe(x3 - x2); }
+      }
+      if (kind === 'fu1d') {
+        const { pts, dots } = read(it); const n = shown(it.text); const T = (h) => pts.find(([x]) => x === h)?.[1];
+        expect(dots && pts.length === 8 && pts.every(([x], i) => x === 6 + 2 * i), it.key).toBe(true);
+        if (/עלתה מהשעה/.test(it.text)) { const [a, b] = n; expect(it.answer, it.key).toBe(T(b) - T(a)); expect(it.answer).toBeGreaterThan(0); }
+        else {
+          const [V] = n; const hours = pts.filter(([, y]) => y === V).map(([x]) => x);
+          expect(hours, `${it.key}: exactly two hours at ${V}`).toHaveLength(2);
+          expect(it.answer, it.key).toBe(hours[1] - hours[0]);
+        }
+      }
+      if (kind === 'fu1f') {
+        const { pts, band } = read(it); const n = shown(it.text);
+        expect(band, it.key).toEqual(n);
+        expect(at(pts, band[0]), `${it.key}: the band is the flat part`).toBe(at(pts, band[1]));
+        expect(at(pts, (band[0] + band[1]) / 2), it.key).toBe(at(pts, band[0]));
+        expect(it.choices[it.answer].text, it.key).toMatch(/^עמדה? במקום$/);
+      }
+      if (kind === 'fu1p') {
+        const { pts, mark } = read(it);
+        // which of the five parts A lies on: inside a segment, never at a corner
+        const seg = pts.findIndex((p, i) => i > 0 && mark[0] > pts[i - 1][0] && mark[0] < p[0]);
+        expect(seg, it.key).toBeGreaterThan(0);
+        expect(at(pts, mark[0]), `${it.key}: A is on the graph`).toBe(mark[1]);
+        const right = it.choices[it.answer].text;
+        expect(right, it.key).toMatch([/בדרך לחנות$/, /בחנות$/, /בדרך מהחנות אל /, /אצל /, /בדרך חזרה הביתה$/][seg - 1]);
+        expect([2, 4].includes(seg) === (pts[seg - 1][1] === pts[seg][1]), `${it.key}: the stops are the flat parts`).toBe(true);
+      }
+      if (kind === 'fu1s') {
+        const parts = [...it.text.matchAll(/(התרחקה?|עמדה? במקום|התקרבה?)/g)].map((m) => (/במקום/.test(m[1]) ? 'flat' : /התקרב/.test(m[1]) ? 'down' : 'up'));
+        expect(it.answer.shape, it.key).toEqual(parts);
+        expect(manipCorrect(it, manipSolution(it)), it.key).toBe(true);
+        expect(manipCorrect(it, it.manip.start), `${it.key}: starts on the goal`).toBe(false);
+        expect(it.practiceOnly, it.key).toBe(true);
+      }
+      if (['fu1', 'fu1d'].includes(kind)) { expect(Number.isInteger(it.answer), it.key).toBe(true); expect(fairForCheck(it), it.key).toBe(true); }
+      else expect(fairForCheck(it), `${it.key}: a choice or a named shape is practice only`).toBe(false);
+      solutionHolds(it);
+    }
+    // every kind was drawn, in about the spec's mix (55%, 20%, 10%, 10%, 5%)
+    expect(Object.keys(kinds).sort()).toEqual(['fu1', 'fu1d', 'fu1f', 'fu1p', 'fu1s']);
+    expect(kinds.fu1 / 1500).toBeGreaterThan(0.45);
+  });
+
+  it('catches an answer that is not the graph\'s', () => {
+    const it = makeItem('func', 1); const pts = read(it).pts;
+    expect(at(pts, pts[1][0])).toBe(pts[1][1]);
+    expect(() => { expect(at([[0, 0], [10, 600], [25, 600], [45, 0]], 5)).toBe(200); }).toThrow();
   });
 });

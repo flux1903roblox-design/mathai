@@ -34,7 +34,7 @@ function SectionCard({ t, n, current }) {
         <h2 className="section-card-title">{t.title}</h2>
         <p className="section-card-label">יחידה {n}</p>
         <p className="section-card-desc">{t.desc}</p>
-        <Bar value={prog.stages} max={prog.of} text={unitCountText(prog)} label={`${t.title}: ${prog.stages} מתוך ${prog.of} שלבים, ${prog.done} מתוך ${prog.stairs} מדרגות`} tone="light" />
+        <Bar value={prog.stages} max={prog.of} text={unitCountText(prog)} label={`${t.title}: ${prog.stages} מתוך ${prog.of} שלבים, ${prog.stairs === 1 ? `${prog.done} מתוך מדרגה אחת` : `${prog.done} מתוך ${prog.stairs} מדרגות`}`} tone="light" />
         {now && <p className="section-card-now">עכשיו: {now.title}</p>}
         <ChallengeLine topic={t.id} />
         <div className="section-card-actions">
@@ -71,7 +71,7 @@ function FloorCard({ t }) {
       <div className="section-card-text">
         <h3 className="section-card-title">{t.title}</h3>
         <p className="section-card-desc">{t.desc}</p>
-        {prog.stages > 0 && <Bar value={prog.stages} max={prog.of} text={unitCountText(prog)} label={`${t.title}: ${prog.stages} מתוך ${prog.of} שלבים, ${prog.done} מתוך ${prog.stairs} מדרגות`} tone="light" />}
+        {prog.stages > 0 && <Bar value={prog.stages} max={prog.of} text={unitCountText(prog)} label={`${t.title}: ${prog.stages} מתוך ${prog.of} שלבים, ${prog.stairs === 1 ? `${prog.done} מתוך מדרגה אחת` : `${prog.done} מתוך ${prog.stairs} מדרגות`}`} tone="light" />}
         {now && <p className="section-card-now">עכשיו: {now.title}</p>}
         <ChallengeLine topic={t.id} />
         <div className="section-card-actions">

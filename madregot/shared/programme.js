@@ -52,7 +52,7 @@ export const PROGRAMME = {
     { id: '7.9', grade: '7', domain: 'algebra', title: 'נקודות על גרף ברביע I', months: [5],
       parts: [
         { hours: 1, skills: ['line:1'] }, // a table of values and its points on the grid
-        { hours: 2, skills: [], note: 'קריאת גרף שמתאר מצב', later: 'S5' },
+        { hours: 2, skills: ['func:1'], note: 'קריאת גרף שמתאר מצב' }, // a ח׳ stair a ז׳ class meets in May
       ] },
     { id: '7.10', grade: '7', domain: 'geometry', title: 'זוויות (מדידה, חוצה זווית, צמודות, קודקודיות, במשולשים ובמרובע)', months: [9, 10, 11],
       parts: [
@@ -97,7 +97,8 @@ export const PROGRAMME = {
         { hours: 7, skills: [], note: 'איסוף וקריאת מידע ושכיחות יחסית', later: 'S3' },
       ] },
     { id: '8.7', grade: '8', domain: 'algebra', title: 'מבוא לפונקציות: ייצוגים, עלייה וירידה', months: [11],
-      parts: [{ hours: 8, skills: [], note: 'פונקציה: גרף, טבלה וביטוי, עלייה וירידה', later: 'S5' }] },
+      // the November row of the schedule; taught once func:3 lands (a part counts when all its stairs exist)
+      parts: [{ hours: 8, skills: range('func', 1, 3), note: 'פונקציה: גרף של מצב, טבלה וביטוי, עלייה וירידה' }] },
     { id: '8.8', grade: '8', domain: 'algebra', title: 'גרפים לינאריים, קצב שינוי, שיפוע, ייצוג אלגברי', months: [11, 12],
       parts: [{ hours: 8, skills: range('line', 1, 8) }] },
     { id: '8.9', grade: '8', domain: 'algebra', title: 'משוואות מיוחדות ושאלות מילוליות (אחוזים, תנועה)', months: [12, 1, 2],

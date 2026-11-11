@@ -61,8 +61,10 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // cap moved up to 17,500; ratio and percent (their ways and their nine stairs) and the floor's frac:3-4 took it to
   // about 19,000 at the next merge, so it moved again; the lane's own stage 1 ways (shared/topicWays.js) and the "not
   // yet" list computed from the programme (its full Hebrew titles) took it to about 20,000, so it moved once more, on
-  // purpose. A further topic moves it only on purpose too.
-  assert.ok(s.length < 21000, `stable block is ${s.length} characters`);
+  // purpose. The stage-5 lane's functions (its ways, its stair names and a shorter "not yet" list) take it to about
+  // 21,400 once its last stair lands, so the cap moved to 22,000 with its first stair; the merge of stages 2-5, each
+  // adding a unit's ways, measures the block once and sets one cap. A further topic moves it only on purpose too.
+  assert.ok(s.length < 22000, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');
@@ -158,6 +160,15 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
   assert.ok(!any(TOPIC_WAYS.ratio.avoidRe, 'השטח גדל פי קנה המידה בריבוע.'));
   assert.ok(any(TOPIC_WAYS.pct.avoidRe, 'אחוז לא יכול להיות יותר מ־100.'));
   assert.ok(any(TOPIC_WAYS.pct.avoidRe, 'מתייקר ב־10% ואז מוזל ב־10%, חוזרים למחיר המקורי.'));
+  // functions (stage5.md FUNC-8 Design 5): the higher line taken for the faster, and a graph read right to left; the
+  // pattern needs the graph named, so the true sentence about Hebrew passes
+  assert.ok(any(TOPIC_WAYS.func.avoidRe, 'הקו הגבוה יותר הוא המהיר יותר.'));
+  assert.ok(any(TOPIC_WAYS.func.avoidRe, 'גרף גבוה מהיר יותר'));
+  assert.ok(any(TOPIC_WAYS.func.avoidRe, 'קוראים את הגרף מימין לשמאל, כמו בעברית.'));
+  assert.ok(any(TOPIC_WAYS.func.avoidRe, 'את הגרף קוראים מימין לשמאל.'));
+  for (const ok of ['בעברית קוראים מימין לשמאל, אבל ציר $x$ גדל ימינה', 'הקו התלול יותר מהיר יותר, גם אם הוא נמוך יותר.', 'קוראים את הגרף משמאל לימין, כש־$x$ גדל.']) {
+    assert.ok(!any(TOPIC_WAYS.func.avoidRe, ok), ok);
+  }
   // the prompt itself, and every line of the stairs' own teaching, pass every pattern: the tutor may quote the app
   const all = TOPICS.flatMap((id) => TOPIC_WAYS[id].avoidRe);
   assert.ok(!any(all, stableSystem()), 'the prompt names the shortcuts only in quotation marks');

@@ -111,14 +111,18 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
   it('puts pct after ratio and before line, and keeps the first-day test at 18 questions', async () => {
     expect(TOPIC_ORDER.indexOf('pct')).toBe(TOPIC_ORDER.indexOf('ratio') + 1);
     expect(TOPIC_ORDER.indexOf('pct')).toBeLessThan(TOPIC_ORDER.indexOf('line'));
-    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys']);
+    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'stats', 'sys']);
+    // the introduction to functions (November) comes after percent and before linear functions (stage5.md FUNC-2)
+    expect(TOPIC_ORDER.indexOf('func')).toBe(TOPIC_ORDER.indexOf('pct') + 1);
+    expect(TOPIC_ORDER.indexOf('func')).toBe(TOPIC_ORDER.indexOf('line') - 1);
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
     // @ts-ignore: plain JS
     const { topicsFor, placementTopicsFor, rescueTopicsFor } = await import('@/content/index.js');
-    // ratio and pct are on the map of ח׳ but not in the first-day test (placement: false): 3 topics × 2 probes × 3
-    expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 3)).toEqual(['ratio', 'pct', 'line']);
+    // ratio, pct and func are on the map of ח׳ but not in the first-day test (placement: false): 3 topics × 2 probes × 3
+    expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 3)).toEqual(['ratio', 'pct', 'func']);
     expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('pct');
+    expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('func');
     expect(placementMax('8')).toBe(18);
     // ז׳ meets percents in relative frequency: Exam Rescue offers the unit to ז׳ too
     expect(rescueTopicsFor('7').map((t: { id: string }) => t.id)).toContain('pct');

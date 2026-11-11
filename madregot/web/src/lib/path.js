@@ -188,9 +188,10 @@ export function unitProgress(topic, path = {}, skills = {}) {
  * stages done, and before anything the size of the unit.
  */
 export function unitCountText({ done, stairs, stages, of }) {
-  if (done > 0) return `${done} מתוך ${stairs} מדרגות`;
+  // a unit of one stair (a unit whose later stairs have not landed yet) says it in the singular
+  if (done > 0) return stairs === 1 ? 'מדרגה אחת, שולטים בה' : `${done} מתוך ${stairs} מדרגות`;
   if (stages > 0) return `${stages} מתוך ${of} שלבים`;
-  return `${stairs} מדרגות`;
+  return stairs === 1 ? 'מדרגה אחת' : `${stairs} מדרגות`;
 }
 
 /** The treasure chest halfway along a unit: after this level, open once the stairs up to it are done. */

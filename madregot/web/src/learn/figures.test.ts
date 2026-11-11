@@ -21,6 +21,9 @@ import { graphFrame, numWidth, numbered, GRAPH_FONT } from '@/components/manip/g
 // @ts-ignore: plain JS
 import { protractorLabels } from '@/components/manip/protractor.jsx';
 import { protractorFig, clockFig } from './content/geo';
+// @ts-ignore: plain JS
+import { makeItem } from '@/content/index.js';
+import { seeded } from './expr';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -197,13 +200,14 @@ function labelsOf(f: AnyFig): Set<string> {
       case 'ladder': return [f.wall, f.foot, f.len];
       case 'table': return [...f.head, ...f.rows.flat()];
       // a situation graph writes its axes' names, its series' and points' names, the numbers of its rise and run, and the
-      // direction arrow's words (not the numbers along its axes)
+      // direction arrow's words (not the numbers along its axes); its two axes are x and y, as its words read them ("ציר x",
+      // "ציר y"), so a text that says "ציר $x$" names an axis the figure has
       // a protractor's numbers are its scales (like an axis's): it writes its letters; a clock writes only its hours
       case 'protractor': return f.letters ? [f.letters.vertex, f.letters.a, f.letters.b] : [];
       case 'clock': return [];
       case 'sgraph': {
         const rr = sgraphRiseRun(f);
-        return [axisName(f.x), axisName(f.y), ...(f.series || []).map((s: any) => s.label), ...(f.marks || []).map((k: any) => k.label),
+        return ['x', 'y', axisName(f.x), axisName(f.y), ...(f.series || []).map((s: any) => s.label), ...(f.marks || []).map((k: any) => k.label),
           ...(rr ? [fmt(rr.run), fmt(rr.rise)] : []), f.dirArrow && 'משמאל לימין'];
       }
       default: return [];
@@ -414,6 +418,18 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
   const say = (text: string, fig: AnyFig): DiscoverStep => ({ kind: 'say', text, fig: fig as FigSpec });
   const predict = (text: string, fig: AnyFig, choices: string[], answer: number): DiscoverStep => ({ kind: 'predict', text, fig: fig as FigSpec, choices, answer, why: '' });
   const both = (skill: string, st: DiscoverStep) => [...selfProblems(skill, figOf(st) as AnyFig), ...textProblems(st, figOf(st) as AnyFig)];
+
+  it('200 situation graphs of func:1\'s exercises and of each of its models agree with themselves and render', () => {
+    const rnd = seeded(11);
+    const c = contentOf('func:1')!;
+    const figs: { where: string; f: AnyFig }[] = [];
+    for (let i = 0; figs.length < 200 && i < 2000; i += 1) { const it = makeItem('func', 1); if (it.fig?.type === 'sgraph') figs.push({ where: it.key, f: it.fig }); }
+    for (const m of [c.diag, c.transfer!]) for (let i = 0; i < 200; i += 1) { const p = m.params(rnd); figs.push({ where: JSON.stringify(p), f: m.fig!(p) as AnyFig }); }
+    expect(figs.length).toBe(600);
+    const bad = figs.flatMap(({ where, f }) => selfProblems('func:1', f).map((x) => `${where}: ${x}`));
+    expect(bad).toEqual([]);
+    for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
 
   it('lets right figures through', () => {
     expect(both('signed:1', say('מתחילים ב־$-2$ וזזים $5$ ימינה.', { type: 'numline', from: -6, to: 6, marks: [{ x: 0, label: '0' }], jumps: [{ from: -2, to: 3, label: '+5' }], anim: true }))).toEqual([]);

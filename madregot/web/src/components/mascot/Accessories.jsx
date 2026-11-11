@@ -118,6 +118,14 @@ const DRAW = {
       <path d="M109 89.5 L99 100.5" style={S(ch('petrol', '-d'))} strokeWidth="2" {...round} />
     </>
   ),
+  // functions: a walk's graph, a climb, a flat part and the way back, on its two axes
+  'graph-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('fuchsia', '-d')) }} strokeWidth="2" />
+      <path d="M97.5 88 V101.5 H111" style={S(ch('fuchsia', '-d'))} strokeWidth="1.2" {...round} />
+      <path d="M97.5 101.5 L101 92 H105 L108.5 101.5" style={S(ch('fuchsia'))} strokeWidth="2" {...round} />
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

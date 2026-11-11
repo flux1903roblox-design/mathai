@@ -593,11 +593,12 @@ describe('one next: every surface names the same step', () => {
   });
 
   it('a ח׳ student is not offered sys:1 (equations with percents) as new while pct:5 is not done', () => {
-    // February: sys:1 (December) is taught by now. Ratio, line, Pythagoras and statistics are done; percent is not started
+    // February: sys:1 (December) is taught by now. Ratio, functions, line, Pythagoras and statistics are done; percent is
+    // not started
     const day = '2027-02-09'; const now = `${day}T09:00:00.000Z`;
     const done = (L: LearnState, ids: SkillId[]) => ids.forEach((s) => { L.skills[s] = masteredRec(ago(5, now), 60); });
     const L = emptyLearn();
-    done(L, ALL_SKILLS.filter((s) => ['ratio', 'line', 'pyth', 'stats'].includes(parseSkill(s).topic)));
+    done(L, ALL_SKILLS.filter((s) => ['ratio', 'func', 'line', 'pyth', 'stats'].includes(parseSkill(s).topic)));
     const news = () => planNext(ctxOf(L, { grade: '8', day })).items.filter((x) => x.kind === 'new').map((x) => x.skill);
     expect(prereqsOf('sys:1')).toContain('pct:5');
     expect(news()).toEqual(['pct:1']);
@@ -613,6 +614,18 @@ describe('one next: every surface names the same step', () => {
     // percent done: now sys:1 is the next new stair
     done(L, ['pct:3', 'pct:5']);
     expect(news()).toEqual(['sys:1']);
+  });
+
+  it('a ח׳ student in November with ratio and percent done gets func:1 (8.7, November) before line:1 (stage5.md FUNC-2)', () => {
+    const now = '2026-11-10T09:00:00.000Z';
+    const L = emptyLearn();
+    ALL_SKILLS.filter((s) => ['ratio', 'pct'].includes(parseSkill(s).topic)).forEach((s) => { L.skills[s] = masteredRec(ago(5, now), 60); });
+    const first = planNext(ctxOf(L, { grade: '8', day: '2026-11-10' })).items.find((x) => x.kind === 'new')!;
+    expect(first.skill).toBe('func:1');
+    expect(first.to).toBe('/learn/func/1/A');
+    expect(first.reason).toContain('לפי תוכנית הלימודים, זה נלמד בכיתה בנובמבר.');
+    // a ז׳ student is never offered it as new (its own grade's stairs only; the guest rule is FUNC-6's)
+    expect(planNext(ctxOf(emptyLearn(), { grade: '7', day: '2026-11-10' })).items.some((x) => x.skill === 'func:1')).toBe(false);
   });
 
   it('a ח׳ student in November gets ratio:1 (taught in September) as the first new stair, and the map focuses it', () => {

@@ -6,11 +6,11 @@ import type { SkillId, TopicId } from './types';
 // 'frac' (fractions and decimals) is a bridge unit: the floor under grade 7, first so ALL_SKILLS stays in prerequisite
 // order. A bridge stair is in no grade's own list (gradeSkillsOf), is missing only on evidence and is new only when the
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
-// ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), both
-// before linear functions.
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+// ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), the
+// introduction to functions the third (November), all before linear functions (rate and slope, December).
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'stats', 'sys'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, func: 1, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -67,6 +67,7 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'pct:3': ['pct:1'], // part ÷ whole, written in hundredths
   'pct:4': ['pct:2', 'eq:1'], // the whole: undo "p% of" through 1% or a benchmark; the same question as 0.35x = 1400 (a ז׳ stair: evidence only)
   'pct:5': ['pct:2', 'pct:3'], // the new amount is a percent of the old; the change is a percent of the old
+  'func:1': ['coord:1'], // a point of a graph is a pair, read on two axes (ז׳ September)
   'line:1': ['signed:4', 'coord:1', 'expr:1'], // a table of values: substitute x in mx + b (expr:1, signed:4), plot the points
   'line:2': ['line:1'], // what m and b mean in y = mx + b
   'line:3': ['line:2', 'coord:1', 'ratio:1'], // slope from the graph: steps on the grid, "up 2 for every 3 to the right" is a ratio

@@ -197,6 +197,40 @@
       "tags": ["pct"]
     },
     {
+      "id": "D1-func1-count-squares", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "diag",
+      "params": { "sx": 5, "sy": 100, "a": 4, "b": 6, "c": 3, "e": 5, "t1": 20, "d1": 600, "t2": 35, "t3": 60, "pts": [[0, 0], [20, 600], [35, 600], [60, 0]], "q": 0 },
+      "wrong": [3, 250], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-squares", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the squares were counted and not multiplied by the size of each square. After 10 minutes Maya was halfway up the first climb, three squares above the x axis; each square up is 100 metres (the axis writes a number on every second line), so 3 · 100 = 300. Ends at 300. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func1-end-for-duration", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "diag",
+      "params": { "sx": 2, "sy": 50, "a": 2, "b": 6, "c": 5, "e": 3, "t1": 4, "d1": 300, "t2": 14, "t3": 20, "pts": [[0, 0], [4, 300], [14, 300], [20, 0]], "q": 1 },
+      "wrong": [14, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "end-for-duration", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the moment the stop ended was given instead of how long it lasted. Noa stood still while the line is flat, from minute 4 to minute 14 (each square across is 2 minutes); a duration is the difference of two moments, 14 - 4 = 10. Ends at 10. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func1-value-not-change", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "transfer",
+      "params": { "k": 4, "temps": [12, 15, 18, 22, 24, 21, 18, 16], "hours": [6, 8, 10, 12, 14, 16, 18, 20], "q": 0, "i": 1, "j": 3 },
+      "wrong": [22, 9], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "value-not-change", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the temperature at the end was given instead of how much it rose. At 8:00 it was 15 degrees and at 12:00 it was 22; it rose by the difference, 22 - 15 = 7 degrees. Ends at 7. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
+      "id": "D1-func1-graph-picture", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "func:1", "source": "gen", "key": "fu1f:2:200:4:400:6:12", "wrong": [2, 1], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "graph-picture", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the graph was read as a picture of the way. The graph shows distance from home by time, not the ground; between minute 4 and minute 6 the distance stays 400 metres, so Maya stood still. Ends at the choice that she stood still. Names no other mistake." },
+      "tags": ["func"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

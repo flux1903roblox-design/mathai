@@ -175,8 +175,15 @@ test('a unit\'s state, stairs and missing parts', () => {
   assert.deepEqual(at('8', STAGE1, '8.1').stairs, ['ratio:1', 'ratio:2', 'ratio:3', 'ratio:4']);
   // a part is taught only when every stair it lists exists
   assert.equal(at('8', [...HEAD.filter((s) => s !== 'sys:1')], '8.9').taught, 1);
-  // an empty part is never taught, whatever the app has
+  // 8.7 lists func:1-3 (stage5.md FUNC-8): untaught while one of them is missing, all 8 hours once they are there
   assert.equal(at('8', [...STAGE1, 'func:1', 'func:2'], '8.7').taught, 0);
+  assert.equal(at('8', [...STAGE1, 'func:1', 'func:2', 'func:3'], '8.7').taught, 8);
+  // func:1 teaches ז׳ 7.9's situation graph (2 hours): ז׳ 104 + 2 = 106 of 150, ח׳ unchanged at 66 of 147
+  assert.deepEqual([coverage('7', [...STAGE1, 'func:1']).taught, coverage('8', [...STAGE1, 'func:1']).taught], [106, 66]);
+  assert.deepEqual(at('7', [...STAGE1, 'func:1'], '7.9'), {
+    id: '7.9', domain: 'algebra', title: 'נקודות על גרף ברביע I', months: [5], hours: 3, taught: 3, state: 'yes', stairs: ['line:1', 'func:1'], missing: [],
+    parts: [{ hours: 1, skills: ['line:1'], note: null, later: null, taught: true }, { hours: 2, skills: ['func:1'], note: 'קריאת גרף שמתאר מצב', later: null, taught: true }],
+  });
 });
 
 test('with the stage-1 stairs, every untaught part names the later stage that brings it, and the stages add up', () => {

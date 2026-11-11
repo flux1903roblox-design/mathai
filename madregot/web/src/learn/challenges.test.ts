@@ -34,8 +34,9 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 // A unit whose stairs are still landing in this build round (stage5.md FUNC-7): its tasks come after its last stair,
-// so until then it may have fewer than one of each kind. Empty when every unit is whole.
-const PENDING_CHALLENGES = new Set<string>([]);
+// so until then it may have fewer than one of each kind. Empty when every unit is whole. The functions unit (func) has
+// its first stair; its three tasks follow func:3 and func:4.
+const PENDING_CHALLENGES = new Set<string>(['func']);
 
 describe('the challenge tasks', () => {
   it('every topic of TOPIC_ORDER has its tasks, the bridge included, numbered c1, c2, … and in topic order', () => {

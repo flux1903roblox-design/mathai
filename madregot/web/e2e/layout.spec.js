@@ -2,6 +2,7 @@
 // and the check button stay usable, the keypad never covers them, and the page never scrolls.
 import { test, expect } from '@playwright/test';
 import { open, openOn, student, item, answer, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { textContrastFailures, expectNonTextContrast } from './contrast.js';
 
 const CASES = [
   ['a number (signed numbers)', 'signed/1', '7'],
@@ -38,6 +39,8 @@ const CASES = [
   // percent: finding the whole (the hardest of the three questions) and the volunteers' table, on every phone
   ['finding the whole from a percent', 'pct/4', '8'],
   ['what percent, from a table', 'pct/3', '8', (x) => x.fig?.type === 'table'],
+  // functions: a walk read off its situation graph, the axes numbered on every second line (stage5.md FUNC-2)
+  ['a situation graph to read', 'func/1', '8', (x) => x.form === 'num' && x.fig?.type === 'sgraph'],
 ];
 
 for (const [what, route, grade, want = () => true] of CASES) {
@@ -191,4 +194,71 @@ test('on a computer: digits typed anywhere go to the answer, Enter checks and En
   await page.keyboard.press('Enter');
   await expect(page.locator('section.fb')).toHaveCount(0);
   await expect.poll(async () => (await item(page)).key).not.toBe(it.key);
+});
+
+// The graph you draw, in func:1's teaching (step 3, Uri's walk), on every phone: the drawing keeps room to aim a
+// finger (150 px or more on a 320×568 phone), a drag in a column moves that column's point, Tab reaches a point and ↑
+// moves it a step, nothing scrolls sideways, and its text and edges are readable in light and dark.
+test('the graph you draw (func:1 step 3): room, a column drag, Tab and up, light and dark', async ({ page }, info) => {
+  await open(page, '#/learn/func/1/A', student('8'));
+  for (let i = 0; i < 8; i += 1) {
+    await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+    const st = await page.evaluate(() => window.__madregotStep);
+    if (st.kind === 'explore') break;
+    if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); await expect(page.locator('.lm-actions.has-good')).toBeVisible(); }
+    const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+    await page.locator('.sp-next').click();
+    await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+  }
+  const canvas = page.locator('.ls-explore .manip-graph .manip-canvas');
+  await expect(canvas).toBeVisible();
+  // the step before has slid away and this one has slid in (while they slide, they sit beside each other)
+  await expect.poll(() => page.evaluate(() => { const s = [...document.querySelectorAll('.sp-step')]; return s.length === 1 && getComputedStyle(s[0]).transform === 'none'; }), { timeout: 20_000 }).toBe(true);
+  await expect(canvas).toHaveAttribute('role', 'group');
+  await expect(canvas).toHaveAttribute('aria-label', 'גרף: מרחק מהבית לפי זמן');
+  await expectNoSidewaysScroll(page);
+  await canvas.scrollIntoViewIfNeeded();
+  const box = await canvas.boundingBox();
+  expect(box.height, 'the graph keeps room to aim a finger').toBeGreaterThanOrEqual(150);
+  expect(box.x + box.width, 'the graph is inside the screen').toBeLessThanOrEqual(page.viewportSize().width + 1);
+  const pts = page.locator('.ls-explore .mp-graph-pt');
+  await expect(pts).toHaveCount(4);
+  await expect(pts.nth(0)).toHaveAttribute('aria-readonly', 'true'); // home, where the story starts
+  await expect(pts.nth(1)).toHaveAttribute('aria-valuetext', 'ב־5 דקות: 200 מטרים');
+  // a drag in the third column (10 minutes), from the middle of the plot to near its top, moves that point only
+  const third = await pts.nth(2).locator('.mp-graph-ring').boundingBox();
+  const cx = third.x + third.width / 2;
+  await page.mouse.move(cx, box.y + box.height * 0.55);
+  await page.mouse.down();
+  for (let k = 1; k <= 8; k += 1) await page.mouse.move(cx, box.y + box.height * (0.55 - 0.035 * k));
+  await page.mouse.up();
+  await expect.poll(async () => Number(await pts.nth(2).getAttribute('aria-valuenow')), 'the drag moved the 10-minute point').toBeGreaterThan(200);
+  await expect(pts.nth(1)).toHaveAttribute('aria-valuenow', '200');
+  await expect(pts.nth(3)).toHaveAttribute('aria-valuenow', '200');
+  // Tab reaches the first point that moves, and ↑ lifts it one step (100 m)
+  await pts.nth(0).focus();
+  await page.keyboard.press('Tab');
+  await expect(pts.nth(1)).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(pts.nth(1)).toHaveAttribute('aria-valuenow', '300');
+  await expect(pts.nth(1)).toHaveAttribute('aria-valuetext', 'ב־5 דקות: 300 מטרים');
+  // → moves the focus to the next point, Home takes it to the axis
+  await page.keyboard.press('ArrowRight');
+  await expect(pts.nth(2)).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(pts.nth(2)).toHaveAttribute('aria-valuenow', '0');
+  // readable: text at AA and edges at 3:1, light and dark (the in-house probes; axe-core is not in this tree)
+  if (info.project.name === 'phone') {
+    for (const scheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme: scheme });
+      // the colours change with the theme over a short transition: the probe waits for it to settle
+      await expect.poll(() => textContrastFailures(page), `text under AA, the graph step in ${scheme}`).toEqual([]);
+      await expectNonTextContrast(page);
+    }
+    await page.emulateMedia({ colorScheme: 'light' });
+  }
+  // the readout says the chosen point, its units outside the maths
+  await expect(page.locator('.ls-explore .manip-readout')).toContainText('(10, 0)');
+  // the dump of every point's words, for the proof
+  info.annotations.push({ type: 'aria-valuetext', description: (await pts.evaluateAll((els) => els.map((e) => e.getAttribute('aria-valuetext')))).join(' | ') });
 });
