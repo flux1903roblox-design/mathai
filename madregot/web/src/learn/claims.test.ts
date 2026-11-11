@@ -1,8 +1,13 @@
 // Every count of topics or stairs that a buyer can read is computed, never typed (CURRICULUM-1 item 7), and the
 // generated documents are the ones the code gives today. When this fails after a change to the stairs or to
 // shared/programme.js, run `npm run programme:md` (in madregot/web) and commit what it writes.
+// The written claims match the code (curriculum stage 1, build-order step 8): a coverage sentence quoted in the docs is
+// the one the page shows, and MADREGOT2.md's stairs table is the content's (it prints the row to paste when one differs).
 import { describe, expect, it } from 'vitest';
 import { ALL_SKILLS, isBridgeSkill } from './skills';
+import { CONTENT } from './content/index';
+import { coverageOf, coverageSentence, GRADE_NAME } from './programme';
+import type { SkillId } from './types';
 import { TOPICS } from '@/content/index.js';
 import { render, countsOf } from '../../scripts/programme-md.mjs';
 import programmeMd from '../../../PROGRAMME.md?raw';
@@ -64,5 +69,52 @@ describe('the generated documents are up to date (npm run programme:md)', () => 
     expect(programmeMd).toContain('## כיתה ח׳');
     expect(programmeMd).toContain('prisa_7.pdf');
     expect(programmeMd).toContain('prisa_8.pdf');
+  });
+});
+
+describe('a coverage sentence quoted in the docs is the one the code gives', () => {
+  const SENTENCE = /במדרגות יש כבר את החומר של \d+ מתוך \d+ שעות ההוראה של כיתה (ז׳|ח׳) \(\d+%\)\./g;
+  const GRADE_OF_NAME: Record<string, '7' | '8'> = { [GRADE_NAME['7']]: '7', [GRADE_NAME['8']]: '8' };
+  // a doc may wrap a sentence over two lines: read it with its spaces folded
+  const quoted = Object.entries(DOCS).flatMap(([key, text]) => [...text.replace(/\s+/g, ' ').matchAll(SENTENCE)]
+    .map((m) => ({ file: name(key), said: m[0], grade: GRADE_OF_NAME[m[1]] })));
+
+  it('finds the quotes it promises to check (the check is not empty)', () => {
+    const where = (f: string) => quoted.filter((q) => q.file === f).map((q) => q.grade).sort();
+    expect(where('README.md')).toEqual(['7', '8']);
+    expect(where('MADREGOT2.md')).toEqual(['7', '8']);
+  });
+
+  it('every quoted sentence is coverageSentence() of today\'s stairs', () => {
+    const wrong = quoted.map((q) => ({ ...q, now: coverageSentence(q.grade, coverageOf(q.grade)) }))
+      .filter((q) => q.said !== q.now).map((q) => `${q.file} says "${q.said}", the code says "${q.now}"`);
+    expect(wrong).toEqual([]);
+  });
+});
+
+describe("MADREGOT2.md's stairs table is the content", () => {
+  const doc = DOCS['../../../MADREGOT2.md'];
+  /** The row the table should have for a stair, from its content (learn/content). */
+  const rowOf = (skill: SkillId) => {
+    const c = CONTENT[skill];
+    const moved: string[] = [];
+    c.discover.forEach((st) => { if (st.kind === 'explore' && !moved.includes(st.manip.kind)) moved.push(st.manip.kind); });
+    const ids = c.misconceptions.map((m) => m.id);
+    return [skill, c.title, `${c.discover.length}${moved.length ? ` (${moved.join(', ')})` : ''}`, String(c.examples.length),
+      String(c.together.length), `${ids.length} (${ids.join(', ')})`, c.transfer ? 'yes' : 'no',
+      `${isBridgeSkill(skill) ? 'יסודות; ' : ''}complete, tested`];
+  };
+  const cells = (line: string) => line.split('|').slice(1, -1).map((x) => x.trim());
+  const rows = doc.split('\n').filter((l) => /^\| [a-z]+:\d+ \|/.test(l)).map(cells);
+
+  it('lists every stair once, in the order of ALL_SKILLS, the floor\'s marked יסודות', () => {
+    expect(rows.map((r) => r[0])).toEqual([...ALL_SKILLS]);
+    expect(rows.filter((r) => r[7].includes('יסודות')).map((r) => r[0])).toEqual(ALL_SKILLS.filter(isBridgeSkill));
+  });
+
+  it('every row says what the stair\'s content has', () => {
+    const wrong = rows.filter((r) => CONTENT[r[0] as SkillId] && r.join(' | ') !== rowOf(r[0] as SkillId).join(' | '))
+      .map((r) => `MADREGOT2.md row ${r[0]} should be: | ${rowOf(r[0] as SkillId).join(' | ')} |`);
+    expect(wrong).toEqual([]);
   });
 });

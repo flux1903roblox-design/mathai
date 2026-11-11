@@ -25,6 +25,9 @@ web/src/learn/                 the learning model: pure TypeScript, no React, al
   misconceptions.ts            diagnosis by prediction, slips, evidence, confirmation, discriminating questions, repair
   recommend.ts                 the engine's building blocks: states, what is missing, the next stage, routes, words
   next.ts                      planNext: the one ranked "what next" every surface reads (home, mission, Rescue)
+  programme.ts                 the Ministry's programme (shared/programme.js) and its coverage (shared/coverage.js),
+                               bound to the stairs that exist: the /programme page and PROGRAMME.md read it
+  challenges/                  the challenge track: grade.ts (grading by code) and one file of tasks per topic
   mission.ts                   the daily ~5-minute mission, made from planNext's items
   examRescue.ts                Exam Rescue: diagnostic, standing per stair, day-by-day plan, message
   tutor.ts                     the tutor without a model: six intents answered from content
@@ -33,8 +36,10 @@ web/src/learn/                 the learning model: pure TypeScript, no React, al
   storeGlue.ts                 store transitions + the v1 → v2 migration
   content/index.ts             the registry: CONTENT['signed:1'] …
   content/<topic>.ts           the stairs of a topic
-web/src/lib/lesson.js          the lesson engine (+ kind 'check': mastery | review | verify | diagnostic | exam)
-web/src/lib/store.js           zustand persist, version 2 (adds `learn`, removes nothing)
+web/src/lib/lesson.js          the lesson engine (+ kind 'check': mastery | review | verify | diagnostic | exam | floor)
+web/src/lib/store.js           zustand persist, version 4 (`learn` came in version 2; a persist merge gives an older
+                               save `learn.floor` and `learn.challenges`)
+web/scripts/programme-md.mjs   `npm run programme:md`: writes PROGRAMME.md and store/counts.json from the code
 ```
 
 Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm run test:e2e`.
@@ -59,7 +64,9 @@ Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm 
   (its diagnostic first; none on Shabbat) > confirmed misconception > due review > points lost in a checked exam of
   the last 45 days, not recovered since > the floor check, or the smallest missing prerequisite of a stair that is
   hard > the stair in progress, then a kept stair's mastery check > the next new stair (taught by now in the school
-  calendar first, in school order, never skipping ahead inside a unit). Every item carries its reason. A
+  calendar first, in school order, never skipping ahead inside a unit) > a challenge task of a mastered stair (it moves
+  up to just after the exam losses when the student is strong today: the last three mastery checks passed on the first
+  attempt, or every stair of the grade mastered). Every item carries its reason. A
   prerequisite counts as missing only on evidence (or, in the student's own grade, never started and not passed on
   the map); stairs passed on the old map count as known. The home map focuses the plan's top when it is a stair of the
   map, and shows it in a banner above the path when it is not; today's mission starts with it; Exam Rescue's "today"
@@ -67,6 +74,21 @@ Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm 
   plan (raw mistake counts, `/plan`) is retired: its exam evidence is the exam-loss band, listed as "מה לחזק אחרי
   המבחן" on the quests and the exams tab, and `/plan` redirects to the quests. The daily quests suggest no work of their
   own: one of them is "finish today's mission" (days[d].missionDone, set when the mission's last item is done).
+- **The floor (יסודות)** is a bridge unit, fractions and decimals (frac:1–4), below grade 7. It is in no grade's unit
+  list and in no public count; `topicsFor` never returns it. A bridge stair counts as missing only on evidence (needs
+  support, a failed review, a confirmed misconception, an exam diagnostic or a failed floor check), never for not being
+  started. The floor check (`/floor`) asks one diagnostic question of each bridge stair and two multiplication facts;
+  a missed fractions question sets `learn.floor.on`, and only then does the unit appear on the map, first, labelled
+  "יסודות" with no unit number. A missed fact offers `/facts`, a short practice that records nothing on any stair. The
+  student can open the unit from Topics at any time and hide it from the map (`setFloor({ on: false })`) without losing
+  the evidence.
+- **The challenge track** (`learn/challenges/`): three optional tasks per topic, the floor included: a claim (always,
+  sometimes or never, with a counterexample typed into named slots when one is asked), a proof to order with a reason
+  per step or an error to find and fix, and a real-world task. Code grades every part: a counterexample is evaluated
+  with `learn/expr.ts` in its domain, a proof is checked step by step (steps that may swap are a `free` group), typed
+  numbers are compared exactly. Two tries per part, then the solution. A task opens when its stair is mastered. It
+  gives XP once and counts for the day like a lesson, and never touches `learn.skills` or a check. An explain part is
+  kept in component state only (not saved, not sent) and self-checked against a sample and a rubric.
 - **Exam Rescue** starts with a 2-question diagnostic per stair, sorts stairs into strong / shaky / gap / untested,
   orders gaps (and stairs others lean on) first, and spreads learn → practice → mastery tasks over the days, with a
   practice exam on the last day. It is recomputed from the evidence every time, so it follows real performance. It
@@ -110,6 +132,7 @@ Each stair is a `StairContent` (types.ts). The tests in `content.test.ts` check 
 | 4. Home, daily mission, Exam Rescue | done: home leads with today's mission, the exam button and a mastery map; the mission screen; Exam Rescue from inputs to a plan that follows performance |
 | 5. Content for every stair | done: authored per topic, each stair with its own strategy, then checked (below) |
 | 6. QA and staging | done for this checkpoint (see QA_AUDIT.md, round 8) |
+| 7. Curriculum stage 1 | done: the programme map and `/programme`, the fraction bar, double number line and fractions on number lines, the floor (frac:1–4, the floor check, multiplication facts), signed:6, ratio and percent for grade 8, the one ranked "what next", the challenge track |
 
 ### Screens and routes added
 
@@ -123,6 +146,10 @@ Each stair is a `StairContent` (types.ts). The tests in `content.test.ts` check 
 | `#/mission` | today's mission |
 | `#/rescue`, `#/rescue/check`, `#/rescue/exam` | Exam Rescue: setup, diagnostic, plan, practice exam |
 | `#/me` | adds "הלמידה שלי במספרים" and full data deletion |
+| `#/programme` | what the app teaches of the Ministry's programme, unit by unit, for each grade (opens with no profile too) |
+| `#/floor`, `#/facts` | the floor check, and the multiplication-facts practice it can offer |
+| `#/challenge/:id` | a challenge task, part by part, outside the tab bar like a lesson |
+| `#/plan` | retired: redirects to `#/quests`, where "מה לחזק אחרי המבחן" lists the plan's exam losses |
 
 ### The stairs
 
@@ -130,17 +157,25 @@ Every stair below has its discover steps, worked examples, solve-together proble
 model and its misconceptions, each with a cause, a targeted explanation and an interactive repair. "Complete, tested"
 means: `content.test.ts` checks the maths of every step and the misconception models; `checks.test.ts` runs a mastery
 check, a review and a verification for every misconception on the stair; `e2e/teach-all.spec.js` completes the
-stair's teaching (A–C) in the browser.
+stair's teaching (A–C) in the browser. The rows marked יסודות are the floor: a bridge unit below grade 7, counted in
+neither grade. The table is the code's: `learn/claims.test.ts` compares every row with the stair's content (title,
+discover steps and the objects moved in them, examples, solve-together problems, misconceptions, transfer) and prints
+the row to paste when one differs.
 
 | Stair | Title | Discover steps (objects to move) | Worked examples | Solve together | Misconceptions (ids) | Transfer | Status |
 |---|---|---|---|---|---|---|---|
+| frac:1 | שבר ושברים שווים | 8 (numberline, fbar) | 3 | 2 | 3 (count-marks, whole-line, add-same) | yes | יסודות; complete, tested |
+| frac:2 | השוואת שברים ועשרוניים | 8 (pins) | 2 | 2 | 3 (longer-larger, shorter-larger, bigger-den) | yes | יסודות; complete, tested |
+| frac:3 | חיבור וחיסור שברים | 8 (fbar) | 3 | 2 | 2 (add-across, num-not-scaled) | yes | יסודות; complete, tested |
+| frac:4 | כפל וחילוק שברים | 8 (numberline) | 3 | 2 | 3 (keep-den, divide-flip, mult-bigger) | yes | יסודות; complete, tested |
 | signed:1 | חיבור וחיסור | 10 (numberline) | 2 | 2 | 6 (minus-minus, sign, abs-add, drop-sign, neg-neg-plus, direction) | yes | complete, tested |
 | signed:2 | השוואת מספרים | 10 (pins, numberline) | 2 | 2 | 2 (neg-compare, ignore-sign) | yes | complete, tested |
 | signed:3 | כפל וחילוק | 10 (numberline) | 2 | 2 | 3 (sign, add-sign, neg-many) | yes | complete, tested |
 | signed:4 | סדר פעולות | 10 (numberline) | 2 | 2 | 3 (order, minus-minus, mul-sign) | yes | complete, tested |
 | signed:5 | סוגריים | 10 (numberline) | 2 | 2 | 4 (minus-bracket, ignore-brackets, order, minus-minus) | yes | complete, tested |
+| signed:6 | שברים ועשרוניים מכוונים | 8 (numberline) | 3 | 2 | 4 (abs-add, minus-minus, sign, toward-zero) | yes | complete, tested |
 | coord:1 | קריאת נקודה | 10 (plot) | 2 | 2 | 3 (swap, sign, axis-zero) | yes | complete, tested |
-| coord:2 | רביעים | 10 (plot) | 2 | 2 | 3 (swap, quad-order, axis-quadrant) | yes | complete, tested |
+| coord:2 | רביעים | 10 (plot) | 2 | 2 | 4 (swap, quad-order, sign, axis-quadrant) | yes | complete, tested |
 | coord:3 | אורך קטע | 9 (plot) | 2 | 2 | 3 (add-coords, sign, coord-length) | yes | complete, tested |
 | coord:4 | שטח מלבן | 9 (plot) | 2 | 2 | 4 (perimeter, add-sides, add-coords, coord-length) | yes | complete, tested |
 | coord:5 | קודקוד חסר | 10 (plot) | 2 | 2 | 4 (swap, wrong-neighbour, coord-length, sign) | yes | complete, tested |
@@ -149,6 +184,25 @@ stair's teaching (A–C) in the browser.
 | angles:3 | סכום זוויות במשולש | 10 (triangle, angle) | 2 | 2 | 2 (sum-360, one-angle) | yes | complete, tested |
 | angles:4 | ישרים מקבילים | 10 (angle) | 2 | 2 | 2 (supp-not-equal, equal-not-supp) | yes | complete, tested |
 | angles:5 | שווה־שוקיים וזווית חיצונית | 10 (angle) | 2 | 2 | 4 (forgot-half, one-angle, apex-base-swap, interior-not-exterior) | yes | complete, tested |
+| expr:1 | הצבה בביטוי | 8 (numberline) | 3 | 2 | 3 (concat, order, neg-sub) | yes | complete, tested |
+| expr:2 | כותבים ביטוי | 8 | 2 | 2 | 5 (start-n, diff-only, whole-object, reversal, times-plus) | yes | complete, tested |
+| expr:3 | כינוס איברים דומים | 9 (tiles) | 2 | 2 | 3 (conjoin, detach, drop-minus) | yes | complete, tested |
+| expr:4 | חוק הפילוג | 9 (area) | 3 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
+| expr:5 | פישוט ביטויים | 8 (tiles) | 3 | 2 | 3 (partial-dist, minus-bracket, conjoin) | yes | complete, tested |
+| eq:1 | משוואה ופתרון | 10 (balance) | 3 | 2 | 4 (move-no-flip, divide-flip, sign, sub-coef) | yes | complete, tested |
+| eq:2 | משוואה בשני צעדים | 10 (balance) | 3 | 2 | 4 (move-no-flip, divide-part, sign, sub-coef) | yes | complete, tested |
+| eq:3 | נעלם בשני האגפים | 9 (balance) | 2 | 2 | 2 (move-no-flip, move-x-no-flip) | yes | complete, tested |
+| eq:4 | משוואות עם סוגריים | 9 (area) | 2 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
+| eq:5 | בעיות מילוליות | 9 (balance) | 2 | 2 | 3 (wrong-unknown, partial-dist, reversal) | yes | complete, tested |
+| ratio:1 | יחס | 8 (fbar) | 2 | 2 | 3 (reversed-ratio, part-whole, add-same) | yes | complete, tested |
+| ratio:2 | חלוקה ביחס | 8 (fbar) | 2 | 2 | 3 (reversed-ratio, part-whole, whole-perimeter) | yes | complete, tested |
+| ratio:3 | פרופורציה | 8 (dline) | 2 | 2 | 2 (additive, divide-flip) | yes | complete, tested |
+| ratio:4 | קנה מידה | 8 (dline) | 2 | 2 | 3 (no-convert, cm-km, linear-area) | yes | complete, tested |
+| pct:1 | מהו אחוז | 8 (fbar) | 3 | 2 | 2 (count-as-pct, digit-pct) | yes | complete, tested |
+| pct:2 | אחוז מכמות | 8 (dline) | 3 | 2 | 2 (count-as-pct, div-by-pct) | yes | complete, tested |
+| pct:3 | איזה אחוז? | 8 (dline) | 2 | 2 | 2 (inverse-ratio, count-as-pct) | yes | complete, tested |
+| pct:4 | מציאת השלם | 8 (dline) | 2 | 2 | 2 (pct-of-part, stop-at-one) | yes | complete, tested |
+| pct:5 | הגדלה והקטנה באחוזים | 8 (dline) | 3 | 2 | 4 (add-pct, change-only, additive-changes, pct-of-new) | yes | complete, tested |
 | line:1 | טבלת ערכים | 10 (plot) | 2 | 2 | 4 (forgot-b, neg-sub, added-m, proportional) | yes | complete, tested |
 | line:2 | מה אומרים m ו־b | 10 (line) | 2 | 2 | 6 (m-b, sign, hidden-one, b-first, rise-only, sign-from-b) | yes | complete, tested |
 | line:3 | שיפוע מהגרף: מדרגות | 10 (plot) | 2 | 2 | 3 (inverse, sign, rise-only) | yes | complete, tested |
@@ -164,9 +218,14 @@ stair's teaching (A–C) in the browser.
 | pyth:5 | מרחק בין נקודות | 10 (plot, squares) | 2 | 1 | 3 (add-legs, no-root, coord-diff) | yes | complete, tested |
 | stats:1 | שכיח | 10 (pins) | 2 | 2 | 3 (mode-max, mode-count, mode-median) | yes | complete, tested |
 | stats:2 | חציון | 10 (bars, pins) | 2 | 2 | 4 (unsorted, mean-not-median, one-middle, median-position) | yes | complete, tested |
-| stats:3 | ממוצע | 10 (bars) | 2 | 2 | 3 (no-divide, median-not-mean, midrange) | yes | complete, tested |
+| stats:3 | ממוצע | 10 (bars) | 2 | 2 | 4 (mean-as-answer, no-divide, median-not-mean, midrange) | yes | complete, tested |
 | stats:4 | ממוצע מטבלה | 9 (pins) | 2 | 2 | 5 (ignore-freq, wrong-count, no-divide, freq-as-data, skip-zero) | yes | complete, tested |
 | stats:5 | נתון חסר | 9 (bars) | 2 | 2 | 2 (mean-as-answer, known-count) | yes | complete, tested |
+| sys:1 | משוואות עם אחוזים | 7 | 3 | 2 | 2 (pct-of-new, wrong-unknown) | yes | complete, tested |
+| sys:2 | שיטת ההצבה | 9 (plot) | 3 | 2 | 3 (partial-dist, forgot-y, swap) | yes | complete, tested |
+| sys:3 | השוואת מקדמים | 10 (plot) | 3 | 2 | 3 (minus-bracket, forgot-y, swap) | yes | complete, tested |
+| sys:4 | בעיות עם שני נעלמים | 9 (plot) | 2 | 2 | 2 (wrong-unknown, partial-dist) | yes | complete, tested |
+| sys:5 | אי־שוויונות | 10 (ray, pins) | 3 | 2 | 4 (no-flip, over-flip, boundary, move-no-flip) | yes | complete, tested |
 
 ### What needs a server or an AI (not on staging, which runs without a server)
 
@@ -185,12 +244,15 @@ stair's teaching (A–C) in the browser.
 - **Curriculum alignment** is checked unit by unit against the Ministry's teaching schedules (`shared/programme.js`:
   every unit, its hours and months, and the stairs that teach each part). `PROGRAMME.md`, generated by
   `npm run programme:md`, shows what is taught, partly taught and not yet, and the app's `/programme` page shows the same
-  numbers; neither is typed by hand. A few authored items go slightly beyond the old generators (three-factor products in
+  numbers; neither is typed by hand. Today they read "במדרגות יש כבר את החומר של 104 מתוך 150 שעות ההוראה של כיתה ז׳
+  (69%)." and "במדרגות יש כבר את החומר של 66 מתוך 147 שעות ההוראה של כיתה ח׳ (45%)." (`learn/claims.test.ts` checks
+  every quoted sentence against the code). A few authored items go slightly beyond the old generators (three-factor products in
   signed:3, side-length questions in coord:5, a "30° larger" problem in angles:1).
 - **Some misconceptions are research-based rather than observed in Israeli classrooms** (e.g. proportional reasoning
   in line:1, midrange in stats:3, clockwise quadrant numbering in coord:2). They only act on evidence from at least two
   questions.
-- **Drawings in teaching steps** exist where a step needs one (parallel lines); other geometry steps rely on the
+- **Drawings in teaching steps.** Every discover step of the floor, signed:6, ratio and percent has a drawing or an
+  object to move (tested), and every step that names a shape shows it; other steps of the older units rely on the
   interactive objects and words.
 - **The tutor without a server** answers six question types from content; it does not understand free text.
 

@@ -522,6 +522,11 @@ describe('fractions on the number lines (den)', () => {
     expect(pinCheck).not.toMatch(/<b[ >]/);
     expect(pinCheck).toContain('aria-valuetext="הסמן 0.4: 8 שנתות ימינה מ־0"');
   });
+  it('markers that stack are drawn top one first, so the head under each covers the stem above it', () => {
+    const order = (value) => [...html(NumberPins, { m: pins.manip, value, answer: pins.answer }).matchAll(/data-pin="(\d)"/g)].map((x) => x[1]);
+    expect(order([0, 0.05, 0.1])).toEqual(['2', '1', '0']); // the start: all three stacked
+    expect(order([0.4, 0.25, 0.7])).toEqual(['0', '1', '2']); // apart: nothing stacks, the order of the labels
+  });
   it('a whole-number line draws as before', () => {
     const it0 = fixture({ kind: 'numberline', min: -10, max: 10, from: 3, start: 3 }, -2);
     const out = html(NumberLine, { m: it0.manip, value: -2, answer: -2, test: true });

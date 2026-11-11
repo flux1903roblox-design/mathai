@@ -78,8 +78,10 @@ export default function NumberPins({ m, value, onChange, locked, reveal, good, a
           );
         })}
         {reveal && answer.map((a, i) => (Math.abs(a - value[i]) > 1e-9 ? <g key={`g${i}`} className="mp-ghost-pin" transform={`translate(${X(a)} ${LINE})`}><circle r="9" /></g> : null))}
-        {value.map((v, i) => (
-          <g key={i} className={clsx('np-pin', `tone-${TONES[i]}`, i === sel && !locked && 'on')} transform={`translate(${X(v)} ${LINE - lift[i] * 30})`}>
+        {/* a lifted marker is drawn first, so the head of the marker under it covers its stem and dot: where markers
+            stack (two that start on 0) both labels stay readable */}
+        {[...value.keys()].sort((a, b) => lift[b] - lift[a]).map((i) => (
+          <g key={i} data-pin={i} className={clsx('np-pin', `tone-${TONES[i]}`, i === sel && !locked && 'on')} transform={`translate(${X(value[i])} ${LINE - lift[i] * 30})`}>
             <path d="M 0 -6 L -7 -16 H -17 a 6 6 0 0 1 -6 -6 V -36 a 6 6 0 0 1 6 -6 H 17 a 6 6 0 0 1 6 6 V -22 a 6 6 0 0 1 -6 6 H 7 Z" />
             <text y="-24" textAnchor="middle">{labelText(labels[i])}</text>
             <circle r="5" className="np-dot" />
