@@ -89,3 +89,6 @@
 .fg-solid-diag.face { stroke: var(--streak-d); }
 .fg-solid-diag.space { stroke: var(--brand-d); }
 .fg-solid-diag.edge { stroke: var(--cyan); stroke-width: 4; }
+/* stage 2 (circle): a cylinder in layers of its base, and the cone of the same base and height inside it */
+.fg-solid-layer { fill: none; stroke: color-mix(in srgb, var(--ink) 35%, transparent); stroke-width: 1; }
+.fg-solid-inner { fill: color-mix(in srgb, var(--brand) 18%, transparent); stroke: var(--brand-d); stroke-width: 2; stroke-linejoin: round; }

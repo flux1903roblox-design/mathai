@@ -136,6 +136,15 @@ const DRAW = {
       <path d="M97.5 92 H107 V101 H97.5 Z" style={{ ...F(WHITE), ...S(ch('petrol', '-d')) }} strokeWidth="1.4" {...round} />
     </>
   ),
+  // the circle, cylinder and cone: a small wheel, its radius drawn from the centre
+  'wheel-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('cobalt', '-d')) }} strokeWidth="2" />
+      <circle cx="104" cy="95" r="6.5" style={{ ...F(ch('cobalt')), ...S(ch('cobalt', '-d')) }} strokeWidth="1.4" />
+      <path d="M104 95 H110.5" style={S(WHITE)} strokeWidth="1.6" {...round} />
+      <circle cx="104" cy="95" r="1.4" style={F(WHITE)} />
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

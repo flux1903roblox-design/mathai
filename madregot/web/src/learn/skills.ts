@@ -9,10 +9,11 @@ import type { SkillId, TopicId } from './types';
 // ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), both
 // before linear functions. ז׳'s areas and perimeters (stage 2) start in December, beside expressions and before March's
 // equations: it is inserted after expr (no topic moves relative to another). Boxes and prisms (stage 2) start in January,
-// after the areas and before March's equations.
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, area: 5, solid: 4, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+// after the areas and before March's equations. ח׳'s circle, cylinder and cone (stage 2) are October and November's,
+// after Pythagoras (the cone's height is a leg) and before statistics.
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq', 'ratio', 'pct', 'line', 'pyth', 'circle', 'stats', 'sys'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', circle: '8', stats: '8', sys: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, area: 5, solid: 4, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, circle: 4, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -94,6 +95,10 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'pyth:3': ['pyth:1'], // is it right-angled: the theorem used as a test
   'pyth:4': ['pyth:1', 'pyth:2'], // a word problem: find the right triangle first
   'pyth:5': ['pyth:1', 'coord:3'], // distance between points: legs are the coordinate differences
+  'circle:1': ['area:1'], // a circumference is a perimeter (area is ז׳'s topic: evidence only)
+  'circle:2': ['circle:1'], // the disc's area: half the circumference times the radius
+  'circle:3': ['circle:2', 'solid:2'], // a cylinder's volume: the base's area times the height, as a box (solid is ז׳'s: evidence only)
+  'circle:4': ['circle:3', 'pyth:2'], // a cone is a third of the cylinder; its height is a leg in the axial section
   'stats:1': [], // mode: counting
   'stats:2': ['signed:2'], // median: ordering numbers first
   'stats:3': ['frac:2'], // mean: sum and share; a mean is often a decimal, read and compared by place value (bridge edge)

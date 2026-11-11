@@ -43,6 +43,8 @@ export const ITEMS = [
   { id: 'grid-pin', slot: 'body', topic: 'area', name: 'סיכת משבצות', unlock: { chest: 'area' } },
   // and its boxes and prisms: a small box
   { id: 'box-pin', slot: 'body', topic: 'solid', name: 'סיכת תיבה', unlock: { chest: 'solid' } },
+  // and ח׳'s circle, cylinder and cone: a small wheel with its radius
+  { id: 'wheel-pin', slot: 'body', topic: 'circle', name: 'סיכת גלגל', unlock: { chest: 'circle' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
 ];
 

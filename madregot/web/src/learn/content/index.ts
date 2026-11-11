@@ -40,6 +40,8 @@ function importTopic(topic: string): Promise<StairContent[]> {
     case 'pct': return import('./pct').then((m) => m.PCT);
     case 'line': return import('./line').then((m) => [...m.LINE1, ...m.LINE2]);
     case 'pyth': return import('./pyth').then((m) => m.PYTH);
+    // stage 2 (measurement): the circle, the cylinder and the cone, ח׳ 8.4
+    case 'circle': return import('./circle').then((m) => m.CIRCLE);
     case 'stats': return import('./stats').then((m) => m.STATS);
     case 'sys': return import('./sys').then((m) => m.SYS);
     // a topic with no teaching content has nothing to load

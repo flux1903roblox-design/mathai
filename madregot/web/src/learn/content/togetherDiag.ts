@@ -336,6 +336,27 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { bugs: { 'no-half': 360 } },
     { model: 'diag', p: { p: 5, q: 12, c: 13, L: 10 } }, // legs 5 and 12, length 10: not halved 600; the hypotenuse for a leg 325
   ],
+  // stage 2 (measurement): the circle, the cylinder and the cone. A π ≈ 3.14 final lists each mistake's number both ways,
+  // with 3.14 and with the calculator's π, to tenths
+  'circle:1': [
+    // the wheel of diameter 70: 2π times the diameter 439.6 (439.8); the area of a disc of radius 35, 3846.5 (3848.5)
+    { bugs: { 'd-for-r': [439.6, 439.8], 'area-for-circ': [3846.5, 3848.5] } },
+    { model: 'transfer', p: { k: 0, r: 50, c: 100 } }, // a lap of the track of radius 50: π times the radius 50; its area 2500
+  ],
+  'circle:2': [
+    { model: 'diag', p: { k: 1, r: 15, d: 30 } }, // the pizza of diameter 30: the circumference's 30; the diameter squared 900
+    // the table of radius 60: its circumference 2 · 3.14 · 60 = 376.8 (377 with π)
+    { bugs: { 'circ-for-area': [376.8, 377] } },
+  ],
+  'circle:3': [
+    { model: 'diag', p: { r: 4, h: 12 } }, // the can's volume, radius 4 and height 12: the diameter squared 768; the label 96
+    { model: 'transfer', p: { r: 4, h: 12 } }, // its label: πr for the width 48; the base's area times the height 192
+  ],
+  'circle:4': [
+    { model: 'transfer', p: { r: 9, h: 12, l: 15 } }, // the funnel, radius 9 and slant 15 (height 12): the cylinder 972; the slant for the height 405
+    // the cone carved out of the cylinder of radius 4 and height 9: the cone taken as the whole cylinder leaves 0
+    { bugs: { 'no-third': 0 } },
+  ],
   'eq:1': [
     // −5x = 30, the step chose to divide by −5: 30 : (−5) = −6. The minus of −5 lost: 6
     { bugs: { sign: 6 } },

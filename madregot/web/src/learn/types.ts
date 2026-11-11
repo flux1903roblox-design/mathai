@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'area' | 'solid' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'stats' | 'sys';
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'area' | 'solid' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'circle' | 'stats' | 'sys';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -76,6 +76,10 @@ export type SolidFig = {
   a?: number; b?: number; c?: number; p?: number; q?: number; r?: number; L?: number; h?: number; l?: number;
   labels?: boolean | Partial<Record<'a' | 'b' | 'c' | 'p' | 'q' | 'r' | 'L' | 'h' | 'l', string | number>>;
   diag?: SolidDiag | SolidDiag[]; cubes?: boolean; cut?: 'diagonal' | 'half'; open?: boolean; label?: string;
+  /** A cylinder drawn as a stack of this many discs (its volume as layers of its base). */
+  layers?: number;
+  /** A cylinder with a cone of the same base and height inside it (the cone is a third of it). */
+  inner?: 'cone';
 };
 /** The figures of fractions, percent and ratio: content writes them `satisfies FractionFig` so their fields are checked. */
 export type FractionFig = NumlineFig | FbarFig | FgridFig | DlineFig | GroupsFig;
@@ -163,6 +167,8 @@ export interface WorkedExample {
   answerTex?: string;
   /** With two unknowns, the solution ({ x: 3, y: 6 }): every step's `eq` must hold there. */
   vars?: Record<string, number>;
+  /** TeX written after the answer, as an item's `after`: '\pi' shows the answer 12 as 12π (stage 2, MEASURE-4). */
+  after?: string;
   /** An inequality's solutions as a ray ({ at: 4, dir: 1, closed: false } is x > 4): every step's `ineq` has exactly these. */
   ray?: { at: number; dir: 1 | -1; closed: boolean };
 }
@@ -181,7 +187,15 @@ export interface GuidedProblem {
    * The last move is the student's alone: a typed number, checked against `check`. `precise` compares it exactly (as an
    * item's `precise`, content/util.js numRight); `fmt: 'dec'` shows the answer as a decimal.
    */
-  final: { prompt: Text; answer: number; check: string; hints: [Text, Text]; precise?: boolean; fmt?: 'dec' };
+  final: {
+    prompt: Text; answer: number; check: string; hints: [Text, Text]; precise?: boolean; fmt?: 'dec';
+    /**
+     * Answers with π (stage 2, MEASURE-1.4), as an item's: `after: '\pi'` draws π after the slot and the number before it
+     * is typed (225 for 225π; the whole value 706.5 gets the note and the step stays open); `pk: k` is a π ≈ 3.14 answer
+     * (3.14k to tenths, and the calculator's πk too).
+     */
+    after?: string; pk?: number;
+  };
 }
 
 // ------------------------------------------------------------------ misconceptions

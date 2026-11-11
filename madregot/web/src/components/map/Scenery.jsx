@@ -2,7 +2,8 @@
 // line for signed numbers, a treasure grid for coordinates, a protractor for angles, slope stairs
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
 // statistics, tiles and brackets for expressions, an L on a grid, a tiled floor and a fenced plot for areas and
-// perimeters, a box opening into its net, a gift box and a stack of unit cubes for boxes and prisms, a balance for equations, two crossing lines for systems, a fraction bar, a pie in eighths and a jug in
+// perimeters, a box opening into its net, a gift box and a stack of unit cubes for boxes and prisms, a wheel rolled out
+// along a line, a can with its label half peeled and an ice-cream cone for the circle and its solids, a balance for equations, two crossing lines for systems, a fraction bar, a pie in eighths and a jug in
 // tenths for the fractions floor. Colours
 // come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on its
 // banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
@@ -398,6 +399,39 @@ const CubeStack = () => (
   </svg>
 );
 
+/** The circle: a wheel with its radius drawn, and one turn of it unrolled along the line under it (a little past 3 diameters). */
+const WheelRoll = () => (
+  <svg viewBox="0 0 100 100">
+    <circle cx="30" cy="44" r="20" className="sc-t sc-line" />
+    <path d="M30 44 H50" className="sc-stroke" />
+    <circle cx="30" cy="44" r="3.5" className="sc-c" />
+    <path d="M10 78 H92" className="sc-grid" />
+    <path d="M10 78 H86" className="sc-stroke-c" />
+    <path d="M10 72 V84 M50 72 V84 M90 72 V84" className="sc-stroke" />
+  </svg>
+);
+/** The cylinder: a can with its label half peeled off, the label a flat rectangle (the lateral area). */
+const Can = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M18 26 V78 A16 6 0 0 0 50 78 V26" className="sc-t sc-line" />
+    <ellipse cx="34" cy="26" rx="16" ry="6" className="sc-w sc-line" />
+    <path d="M18 40 V66 A16 6 0 0 0 50 66 V40 A16 6 0 0 1 18 40 Z" className="sc-c" />
+    <path d="M50 40 L86 34 V62 L50 66 Z" className="sc-d" />
+    <path d="M54 44 L82 40 M54 52 L82 48" className="sc-stroke-w" />
+  </svg>
+);
+/** The cone: an ice-cream cone, its scoop on top and the cone's height dashed inside. */
+const IceCream = () => (
+  <svg viewBox="0 0 100 100">
+    <circle cx="50" cy="30" r="17" className="sc-w sc-line" />
+    <path d="M30 38 H70 L50 90 Z" className="sc-c" />
+    <path d="M30 38 H70 L50 90 Z" className="sc-line sc-none" />
+    <path d="M38 50 L58 62 M44 66 L56 74 M62 46 L44 58" className="sc-grid" />
+    <path d="M50 38 V90" className="sc-route" />
+    <ellipse cx="50" cy="38" rx="20" ry="5" className="sc-d" />
+  </svg>
+);
+
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -443,6 +477,7 @@ export const SCENERY = {
   expr: [ExprTiles, XBox, Brackets],
   area: [GridL, TileFloor, FencePlot],
   solid: [BoxNet, GiftBox, CubeStack],
+  circle: [WheelRoll, Can, IceCream],
   eq: [EqScale, Seesaw, Keyhole],
   sys: [SysCross, TwoRoads, MeetFlag],
   frac: [FracBarArt, PieEighths, TenthsJug],

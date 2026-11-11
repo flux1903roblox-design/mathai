@@ -681,6 +681,8 @@ export function solidWords(f) {
   if (f.cubes) out.push(`${fem ? 'בנויה' : 'בנוי'} מקוביות שמקצוען 1`);
   if (f.cut === 'diagonal') out.push('חתוכה לאורך אלכסון הבסיס לשתי מנסרות');
   if (f.cut === 'half') out.push('חתוכה לשני חצאים שווים');
+  if (f.shape === 'cylinder' && f.layers > 1) out.push(`בנוי מ־${f.layers} שכבות של עיגולים, זו על זו`);
+  if (f.shape === 'cylinder' && f.inner === 'cone') out.push('ובתוכו חרוט עם אותו בסיס ואותו גובה');
   if (f.open) out.push('בלי מכסה');
   if (f.label) out.push(`כתוב: ${f.label}`);
   return out.join('; ');

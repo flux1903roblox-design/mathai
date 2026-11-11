@@ -67,14 +67,15 @@ describe('the store listing', () => {
   });
 
   it('names exactly the topics the app teaches, per grade, each one in TOPICS', () => {
-    const line = (g) => new RegExp(`^• כיתה ${g}׳: (.+)$`, 'm').exec(json.apple.description)?.[1].split(', ');
+    // the line as a whole: a title may hold a comma of its own ("מעגל, גליל וחרוט"), so the line is not split on commas
+    const line = (g) => new RegExp(`^• כיתה ${g}׳: (.+)$`, 'm').exec(json.apple.description)?.[1];
     const titles = new Set(TOPICS.map((t) => t.title));
-    for (const [g, names] of [['ז', line('ז')], ['ח', line('ח')]]) {
-      expect(names, g).toBeTruthy();
-      for (const n of names) expect(titles.has(n), `${n} (כיתה ${g}׳)`).toBe(true);
+    for (const [g, grade] of [['ז', '7'], ['ח', '8']]) {
+      expect(line(g), g).toBeTruthy();
+      expect(topics[grade].length, g).toBeGreaterThan(0);
+      for (const n of topics[grade]) expect(titles.has(n), `${n} (כיתה ${g}׳)`).toBe(true);
+      expect(line(g), g).toBe(topics[grade].join(', '));
     }
-    expect(line('ז')).toEqual(topics['7']);
-    expect(line('ח')).toEqual(topics['8']);
   });
 
   it('uses the product\'s one name, and keeps the English review notes per store', () => {

@@ -211,6 +211,13 @@
       "tags": ["solid"]
     },
     {
+      "id": "D1-circle4-slant-as-height", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "circle:4", "source": "diag", "params": { "r": 6, "h": 8, "l": 10 }, "wrong": [120, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "slant-as-height", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the slant height 10 was used as the height. The cone's height is the 8, from the vertex down to the centre of the base, at a right angle to it; the slant height is the hypotenuse of half the axial section. So the volume is π · 6² · 8 / 3 = 96π cm³, typed as 96 before π. Ends at 96π. Names no other mistake." },
+      "tags": ["circle"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

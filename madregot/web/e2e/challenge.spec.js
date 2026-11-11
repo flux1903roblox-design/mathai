@@ -242,7 +242,7 @@ test('a passed mastery check offers the stair\'s challenge in a quiet card, whic
 // "70 · 30"), where the page itself did not scroll sideways. Every task is walked to its end the way a struggling student
 // meets the most text: each part missed twice (so its solution shows), each explanation sent for the self-check. At every
 // step nothing inside the challenge screen scrolls sideways, and no piece of maths sits past the screen's edge.
-const TOPICS = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
+const TOPICS = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq', 'ratio', 'pct', 'line', 'pyth', 'circle', 'stats', 'sys'];
 
 async function nothingCutOff(page, where) {
   const over = await page.evaluate(async () => {
@@ -288,7 +288,7 @@ async function walk(page, id) {
 for (const topic of TOPICS) {
   test(`at 320 px nothing is cut off in ${topic}'s three challenges, at any step`, async ({ page }, info) => {
     test.skip(info.project.name !== 'phone-small', 'the narrow phone is the one that cuts');
-    await open(page, '#/', student(['ratio', 'pct', 'line', 'pyth', 'stats', 'sys'].includes(topic) ? '8' : '7'));
+    await open(page, '#/', student(['ratio', 'pct', 'line', 'pyth', 'circle', 'stats', 'sys'].includes(topic) ? '8' : '7'));
     for (const n of [1, 2, 3]) {
       const steps = await walk(page, `${topic}:c${n}`);
       expect(steps, `${topic}:c${n} walked`).toBeGreaterThan(2);

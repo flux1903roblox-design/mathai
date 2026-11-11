@@ -259,9 +259,11 @@ describe('practice-only questions are kept out of checks', () => {
   // grid shapes whose target the question names: the rectangle (ar1b), the parallelogram's move (ar4c), the largest area (ar5b)
   // solid (stage 2, MEASURE-3): the nets, a face, a missing base, a box or a prism built (so1n, so3n, so2b, so4b), the
   // four nets to choose from (so1m), and how many times the volume grows (so4k, one of four numbers)
+  // circle (stage 2, MEASURE-4): the circle object set to a circumference or an area (ci1m, ci2m), one sheet rolled two
+  // ways (ci3m) and how many cones fill the cylinder (ci4m)
   const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b',
     'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m', 'ar1u', 'ar1b', 'ar2w', 'ar3m', 'ar4c', 'ar5c', 'ar5b',
-    'so1n', 'so1m', 'so2b', 'so3n', 'so4k', 'so4b'];
+    'so1n', 'so1m', 'so2b', 'so3n', 'so4k', 'so4b', 'ci1m', 'ci2m', 'ci3m', 'ci4m'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

@@ -3,6 +3,9 @@
 // hints grow stronger). The last move is the student's: a typed answer. A wrong number there is checked against the
 // stair's misconceptions (learn/content/togetherDiag.ts) and the one it fits is named. After two hints and a third miss
 // the answer is shown with the reason, so nobody is stuck in a loop. Praise is honest: "לבד" only without a hint.
+// A last step with π (stage 2, MEASURE-1.4) is graded as practice grades it: with `after: '\pi'` the number before π is
+// typed and the whole value (706.5 for 225π) gets the note and keeps the step open; with `pk` the 3.14 value and the
+// calculator's are both right.
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
@@ -11,7 +14,7 @@ import { Tex, MathText, mathPlain, FitDisplay } from '@/components/MathText.jsx'
 import { Button } from '@/components/ui.jsx';
 import { Prompt, ResultWhy } from './StepPlayer.jsx';
 import { Segments } from '@/components/ds.jsx';
-import { readNumCandidates, numRight, T, plainNum, exactTex } from '@/content/util.js';
+import { readNumCandidates, numRight, T, plainNum, exactTex, piNear } from '@/content/util.js';
 import { enter } from '@/lib/motion.js';
 import { play, haptic } from '@/lib/sound.js';
 import { qaOn } from '@/lib/qa.js';
@@ -32,12 +35,17 @@ function Hints({ hints, level }) {
  * exactly when the final is marked precise. "2,000" is read as 2 or 2000, whichever is right (else the one nearest the
  * answer, which the diagnosis then sees). Null when nothing readable was typed.
  */
+/** The note on the whole value typed into a □π step, the lesson's words (screens/Lesson.jsx PARTIAL['pi-value']). */
+const PI_NOTE = 'נכון בקירוב. כאן כותבים רק את המספר שלפני\u00a0$\\pi$.';
+
 export function finalCheck(final, typed) {
   const cands = readNumCandidates(typed);
   if (!cands.length) return null;
-  const ok = (v) => numRight(v, final.answer, !!final.precise);
+  const ok = (v) => (Number.isFinite(final.pk) ? piNear(v, final.pk) : numRight(v, final.answer, !!final.precise));
   const u = cands.find(ok) ?? cands.reduce((a, b) => (Math.abs(b - final.answer) < Math.abs(a - final.answer) ? b : a));
-  return { u, ok: ok(u) };
+  // a □π step: the whole value typed (31.4 for 10π) is right in another form, so it is not a miss
+  const piValue = !ok(u) && !!final.after && cands.some((v) => piNear(v, final.answer));
+  return piValue ? { u, ok: false, piValue } : { u, ok: ok(u) };
 }
 
 /**
@@ -54,6 +62,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
   const [finalMiss, setFinalMiss] = useState(0);
   const [solved, setSolved] = useState(false);
   const [wrongVal, setWrongVal] = useState(null); // the typed answer that was just checked and missed
+  const [piVal, setPiVal] = useState(null); // the whole value typed into a □π step (the note shows, no miss counted)
   const [missIds, setMissIds] = useState([]); // the misconceptions that wrong answer fits
   const ref = useRef(null);
   useEffect(() => { setHint(0); setSel(null); ref.current?.focus({ preventScroll: true }); }, [k]);
@@ -81,6 +90,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
     if (read == null) return;
     // the same rule as practice (isCorrect): -2/3 typed as -0.67 is right; a precise final is compared exactly
     const { u, ok } = read;
+    if (read.piValue) { setPiVal(typed); return; }
     const ids = ok ? [] : (diagnose?.(u) || []);
     onAttempt?.(ok, ids.length ? ids.map((id) => ({ id, conf: 1 / ids.length })) : undefined);
     if (ok) { play('correct'); haptic('correct'); setSolved(true); } else { play('wrong'); haptic('wrong'); setWrongVal(typed); setMissIds(ids); setFinalMiss((x) => x + 1); setHint((h) => Math.min(2, h + 1)); }
@@ -94,7 +104,7 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
   const fin = problem.final;
   const answerTex = (decimal || fin.fmt === 'dec') && !Number.isInteger(fin.answer)
     ? plainNum(fin.answer, { decimal: true, maxDen: fin.precise ? 100 : 12, places: fin.precise || fin.fmt === 'dec' ? 3 : 2 })
-    : fin.precise ? exactTex(fin.answer) : T(fin.answer);
+    : fin.precise ? exactTex(fin.answer) : `${T(fin.answer)}${fin.after || ''}`;
   // the result sheet, as in teaching: green when right, yellow (never red) when not yet
   const result = !onFinal
     ? (last == null ? null : stepOk
@@ -105,9 +115,10 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
       ? { tone: 'good', title: 'פתרתם לבד!', body: <>בדיוק! פתרתם את הצעד האחרון לבד.</> }
       : { tone: 'good', title: 'נכון, בעזרת רמז', body: <>הגעתם לתשובה, והרמז עזר בדרך. בתרגול תפתרו תרגילים כאלה לבד.</> })
       : giveUp ? { tone: 'warm', title: 'נחזור על זה בתרגול', body: <>התשובה היא <Tex tex={answerTex} />. נעבור על זה שוב בתרגול.</> }
+        : piVal != null && typed === piVal ? { tone: 'warm', title: 'כמעט', body: <MathText text={PI_NOTE} /> }
         : finalMiss > 0 && typed === wrongVal ? { tone: 'warm', title: 'עוד לא. נסו שוב', body: namedMistake(missIds, names) ? <MathText text={namedMistake(missIds, names)} /> : <>בדקו את החישוב, והרמז למטה יכול לעזור.</> } : null;
   const done = stepOk || solved || giveUp;
-  const canCheck = onFinal ? readNumCandidates(typed).length > 0 && typed !== wrongVal : sel != null;
+  const canCheck = onFinal ? readNumCandidates(typed).length > 0 && typed !== wrongVal && typed !== piVal : sel != null;
   const moves = problem.steps.length + 1;
   const bar = <Segments steps={moves} done={solved ? moves : k + (stepOk ? 1 : 0)} current={k} size="thin" label={`פותרים יחד ${n} מתוך ${of}`} valueText={`צעד ${Math.min(k + 1, moves)} מתוך ${moves}`} />;
   return (
@@ -150,9 +161,10 @@ export default function Together({ problem, n, of, onDone, onAttempt, decimal = 
         ) : (
           <>
             <p className="tg-prompt"><MathText text={problem.final.prompt} /></p>
-            <form className="tg-final" onSubmit={(e) => { e.preventDefault(); if (canCheck && !done) check(); }}>
-              <label htmlFor={`tg-${n}`} className="visually-hidden">התשובה</label>
+            <form className={clsx('tg-final', fin.after && 'has-after')} onSubmit={(e) => { e.preventDefault(); if (canCheck && !done) check(); }}>
+              <label htmlFor={`tg-${n}`} className="visually-hidden">{fin.after ? `התשובה: המספר שלפני ${mathPlain(`$${fin.after}$`)}` : 'התשובה'}</label>
               <input id={`tg-${n}`} className={clsx('input', 'tg-input', solved && 'good')} dir="ltr" inputMode="text" autoComplete="off" readOnly={done} value={giveUp && !solved ? '' : typed} onChange={(e) => setTyped(e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9))} placeholder="?" />
+              {fin.after && <span className="answer-lab answer-after" aria-hidden="true"><Tex tex={fin.after} /></span>}
             </form>
             <Hints hints={problem.final.hints} level={solved ? 0 : hint} />
             {!done && hint < 2 && <button type="button" className="link-btn" onClick={() => setHint(hint + 1)}><Lightbulb size={16} aria-hidden="true" />{hint ? 'עוד רמז' : 'רמז'}</button>}

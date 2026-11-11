@@ -330,7 +330,7 @@ function ci1m() {
     key: `ci1m:${r}`, text: `שנו את הרדיוס עד שההיקף יהיה בערך $${num(C)}$ ס״מ.`, form: 'manip', practiceOnly: true,
     manip: { kind: 'circle', show: 'circumference', start: { r: r0, t: 0 } }, answer: { mode: 'r', r },
     hint: 'ההיקף קצת יותר משלושה קטרים: קוטר כפול $3.14$.',
-    solution: [`$2 \\cdot 3.14 \\cdot ${num(r)} \\approx ${num(C)}$, ולכן הרדיוס $${num(r)}$ ס״מ.`],
+    solution: [`$2\\pi \\cdot ${num(r)} \\approx ${num(C)}$, ולכן הרדיוס $${num(r)}$ ס״מ.`],
     diag: () => null,
   };
 }
@@ -388,7 +388,7 @@ function ci2m() {
     key: `ci2m:${r}`, text: `שנו את הרדיוס עד שהשטח יהיה בערך $${num(S)}$ סמ״ר.`, form: 'manip', practiceOnly: true,
     manip: { kind: 'circle', show: 'area', radius: true, start: { r: r0, n: 16 } }, answer: { mode: 'r', r },
     hint: 'השטח הוא $\\pi r^2$: רדיוס גדול פי $2$ נותן שטח גדול פי $4$.',
-    solution: [`$3.14 \\cdot ${num(r)}^2 \\approx ${num(S)}$, ולכן הרדיוס $${num(r)}$ ס״מ.`],
+    solution: [`$\\pi \\cdot ${num(r)}^2 \\approx ${num(S)}$, ולכן הרדיוס $${num(r)}$ ס״מ.`],
     diag: () => null,
   };
 }
@@ -529,7 +529,7 @@ function ci4c() {
 /** How many full cones fill a cylinder with the same base and height: three. One is no-third. Practice only. */
 function ci4m() {
   const [r, h] = pick(rnd, [[3, 4], [4, 6], [5, 9], [6, 8], [2, 5], [4, 10]]);
-  const choices = shuffle([{ text: '$3$', ok: true }, { text: '$2$' }, { text: '$1$', bug: 'no-third' }]);
+  const choices = shuffle([{ tex: '3', ok: true }, { tex: '2' }, { tex: '1', bug: 'no-third' }]);
   return {
     key: `ci4m:${r}:${h}`, form: 'mc', choices, answer: choices.findIndex((c) => c.ok), practiceOnly: true,
     text: `לחרוט רדיוס $${r}$ ס״מ וגובה $${h}$ ס״מ. כמה חרוטים כאלה, מלאים במים, ממלאים גליל עם אותו בסיס ואותו גובה?`,

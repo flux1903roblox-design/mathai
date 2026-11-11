@@ -185,6 +185,20 @@ export const TOPIC_WAYS = Object.freeze({
     // the formula handed over as the thing to apply, with nothing in the sentence about the hypotenuse or the right angle
     avoidRe: [re(String.raw`(?:לפי\s+(?:ה)?נוסחה|הנוסחה(?:\s+היא)?|נוסחת\s+פיתגורס(?:\s+היא)?|(?:משתמשים|מציבים)\s+בנוסחה)\s*:?\s*\$?a\^2\s*\+\s*b\^2\s*=\s*c\^2${unless('יתר|ניצב|ישרה|ישר־זווית')}`)],
   },
+  // stage 2 (measurement, MEASURE-4): the circle, the cylinder and the cone, ח׳ 8.4 (web/src/learn/content/circle.ts)
+  circle: {
+    models: 'π is the circumference divided by the diameter, a little more than 3 (3.14); C = πd = 2πr. A disc sliced into thin sectors makes a near-rectangle πr by r, so A = πr². A cylinder\'s label unrolls into a rectangle 2πr by h; volume = base area × height for a cylinder, a third of that for a cone with the same base and height. The cone\'s height, radius and slant height form a right triangle in the axial section. Answers may be left with π (the number before π) or computed with 3.14.',
+    words: ['רדיוס', 'קוטר', 'π', 'מעטפת', 'קו יוצר', 'חתך צירי'],
+    avoid: ['"π is exactly 3.14" (it is an approximation)', '"the slant is the height"', '"use the diameter in πr²"'],
+    avoidRe: [
+      // π said to equal 3.14, not to be about it (≈, בערך, בקירוב)
+      re(String.raw`(?:π|\\pi|פאי)\$?\s*(?:הוא|זה|שווה(?:\s+ל־?)?|=)\s*(?:בדיוק\s+)?\$?3\.14(?!\d)`),
+      // the slant height said to be the height
+      re(String.raw`(?:ה)?קו\s+(?:ה)?יוצר\s+(?:הוא|זה)\s+(?:בעצם\s+)?(?:ה)?גובה(?!\s+של\s+(?:ה)?משולש)`),
+      // the diameter put into πr² as a rule
+      re(String.raw`(?:מציבים|להציב|הציבו|שמים|לשים)\s+(?:את\s+)?(?:ה)?קוטר\s+(?:ב|במקום\s+(?:ה)?)?(?:נוסחה|נוסחת\s+(?:ה)?שטח|רדיוס|\$?\\?pi\s*r\^2)`),
+    ],
+  },
   stats: {
     models: 'The mode is the tallest pile of equal values. The median comes after sorting: the middle value, or the mean of the two middle ones. The mean is the height all bars reach when the total is shared equally: the sum over the number of values. In a frequency table each value counts as often as it appears. A missing value: the total is the mean times the count.',
     words: ['שכיח', 'חציון', 'ממוצע', 'טבלת שכיחויות'],

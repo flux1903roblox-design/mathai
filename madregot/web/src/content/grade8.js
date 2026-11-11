@@ -4,6 +4,7 @@ import { LINEAR } from './linear.js';
 import { SYS } from './sys.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
+import { CIRCLE } from './circle.js';
 
 // ---------------------------------------------------------------- Pythagoras
 // About half the questions come from whole-number triangles (Pythagorean triples), the rest need a root that is not
@@ -329,6 +330,9 @@ export const GRADE8 = [
       'assume-right': 'קבעו שהמשולש ישר־זווית בלי לבדוק',
     },
   },
+  // the circle, the cylinder and the cone (stage 2, MEASURE-4): October and November, after Pythagoras (September and
+  // October), whose theorem gives the cone's height; cobalt between pyth's violet and stats' fuchsia
+  CIRCLE,
   {
     id: 'stats', grade: '8', title: 'סטטיסטיקה', color: 'fuchsia',
     desc: 'שכיח, חציון, ממוצע וטבלת שכיחויות',

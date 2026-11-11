@@ -100,7 +100,13 @@ export const PROGRAMME = {
     { id: '8.3', grade: '8', domain: 'geometry', title: 'השלמת זוויות בין מקבילים; משפט פיתגורס', months: [9, 10],
       parts: [{ hours: 8, skills: ['angles:4', ...range('pyth', 1, 5)] }] },
     { id: '8.4', grade: '8', domain: 'geometry', title: 'גליל, חרוט (ולפניהם היקף מעגל ושטח עיגול)', months: [10, 11],
-      parts: [{ hours: 6, skills: [], note: 'היקף מעגל, שטח עיגול, גליל וחרוט', later: 'S2' }] },
+      parts: [
+        // stage 2 (MEASURE-6.1): the circle, the disc and the cylinder in October, the cone in November
+        { hours: 1, skills: ['circle:1'], months: [10], note: 'היקף מעגל' },
+        { hours: 1, skills: ['circle:2'], months: [10], note: 'שטח עיגול' },
+        { hours: 2, skills: ['circle:3'], months: [10], note: 'גליל' },
+        { hours: 2, skills: ['circle:4'], months: [11], note: 'חרוט' },
+      ] },
     { id: '8.5', grade: '8', domain: 'geometry', title: 'טרנספורמציות וצורות חופפות', months: [11],
       parts: [{ hours: 5, skills: [], note: 'הזזה, שיקוף וסיבוב, וצורות חופפות', later: 'S4' }] },
     { id: '8.6', grade: '8', domain: 'uncertainty', title: 'איסוף וקריאת מידע, שכיחות, שכיחות יחסית', months: [10, 11],

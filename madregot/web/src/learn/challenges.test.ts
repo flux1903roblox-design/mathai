@@ -34,11 +34,11 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 describe('the challenge tasks', () => {
-  it('three tasks per topic of TOPIC_ORDER, the bridge included, in topic order (stage 1\'s 36, stage 2\'s area and solid: 42)', () => {
+  it('three tasks per topic of TOPIC_ORDER, the bridge included, in topic order (stage 1\'s 36, stage 2\'s area, solid and circle: 45)', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
     // the count is computed from the topics: a topic lands with its three tasks
     expect(CHALLENGES).toHaveLength(3 * TOPIC_ORDER.length);
-    expect(CHALLENGES).toHaveLength(42);
+    expect(CHALLENGES).toHaveLength(45);
     TOPIC_ORDER.forEach((tp) => expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]));
     expect(TOPIC_ORDER).toContain('frac');
     expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => [tp, tp, tp]));
@@ -52,6 +52,17 @@ describe('the challenge tasks', () => {
     expect(['solid:c1', 'solid:c2', 'solid:c3'].map((id) => [challengeById(id)?.kind, challengeById(id)?.after])).toEqual([['claim', 'solid:2'], ['error', 'solid:1'], ['literacy', 'solid:2']]);
     expect(challengeById('solid:c2')!.misc).toBe('three-faces');
     expect((challengeById('solid:c3')!.parts[0] as { answer: number }).answer).toBe(40);
+    // and the circle: the doubled radius after circle:2, the slant as the height after circle:4, the honey jars after
+    // circle:3; every part "with π" (and circle:c2's fix) asks the number before π
+    expect(['circle:c1', 'circle:c2', 'circle:c3'].map((id) => [challengeById(id)?.kind, challengeById(id)?.after])).toEqual([['claim', 'circle:2'], ['error', 'circle:4'], ['literacy', 'circle:3']]);
+    expect(challengeById('circle:c2')!.misc).toBe('slant-as-height');
+    const err = challengeById('circle:c2')!.parts[0] as { fix: { answer: number; after?: string } };
+    expect([err.fix.answer, err.fix.after]).toEqual([100, '\\pi']);
+    for (const id of ['circle:c1', 'circle:c3']) {
+      const nums = challengeById(id)!.parts.filter((p) => p.type === 'num') as { prompt: string; answer: number; after?: string }[];
+      expect(nums.length, id).toBe(2);
+      nums.forEach((p) => { expect(p.after, `${id}: ${p.prompt}`).toBe('\\pi'); expect(p.prompt).toContain('\\pi'); expect(Number.isInteger(p.answer)).toBe(true); });
+    }
   });
 
   it('each topic has one claim, one error or proof, and one literacy task', () => {

@@ -83,7 +83,8 @@ describe('generators', () => {
           if (item.form === 'num') {
             expect(Number.isFinite(item.answer)).toBe(true);
             // What we print as the answer parses back to the same value.
-            expect(Math.abs(parseNum(answerText(item)) - item.answer)).toBeLessThan(0.01);
+            // (an answer with π after its slot is written 25π: the number before π is the answer)
+            expect(Math.abs(parseNum(item.after ? answerText(item).replace(/π$/, '') : answerText(item)) - item.answer)).toBeLessThan(0.01);
             // a whole answer is stored whole, and never printed as a fraction over 1 ("3/1")
             if (Math.abs(item.answer - Math.round(item.answer)) < 1e-9) expect(Number.isInteger(item.answer), `${item.key}: ${item.answer}`).toBe(true);
             expect(answerText(item), item.key).not.toMatch(/\/1$/);
@@ -1299,7 +1300,8 @@ describe('boxes and prisms: every practice kind, from the numbers in its text', 
     expect(topicsFor('7').map((t) => t.color).slice(4, 7)).toEqual(['fuchsia', 'petrol', 'violet']);
     // the ids other topics use keep their names but for one-base and no-convert, said here in this unit's words
     for (const t of TOPICS) for (const [id, name] of Object.entries(t.cats || {})) {
-      if (SOLID.cats[id] && !['one-base', 'no-convert'].includes(id)) expect(SOLID.cats[id], `${t.id} ${id}`).toBe(name);
+      // (the circle's slant-as-height is the cone's slant height, said in its own words)
+      if (SOLID.cats[id] && !['one-base', 'no-convert'].includes(id) && !(t.id === 'circle' && id === 'slant-as-height')) expect(SOLID.cats[id], `${t.id} ${id}`).toBe(name);
     }
   });
 });
@@ -1488,7 +1490,7 @@ describe('the circle, the cylinder and the cone: every practice kind, from the n
         if (k === 'ci1m') { expect(it.answer.mode).toBe('r'); expect(tenth(2 * Math.PI * it.answer.r), it.key).toBe(given(it.text)[0]); expect(it.manip.start.r).not.toBe(it.answer.r); }
         if (k === 'ci2m') { expect(it.answer.mode).toBe('r'); expect(tenth(Math.PI * it.answer.r ** 2), it.key).toBe(given(it.text)[0]); expect(it.manip.radius).toBe(true); }
         if (k === 'ci3m') { const [a, b] = given(it.text); expect(a > b, it.key).toBe(true); expect(it.choices[it.answer].text, it.key).toMatch(/הארוכה/); }
-        if (k === 'ci4m') expect(it.choices[it.answer].text).toBe('$3$');
+        if (k === 'ci4m') expect(it.choices[it.answer].tex).toBe('3');
       }
     }
     expect(n).toBeGreaterThan(900);
@@ -1611,12 +1613,16 @@ describe('the circle, the cylinder and the cone: every practice kind, from the n
     for (const it of all(4, 800)) if (kindOf(it) === 'ci4a') expect(it.answer, it.key).not.toBe(20);
   });
 
-  it('the topic: grade 8, cobalt, not in the placement test, four stairs, its words, and not on the path yet', () => {
+  it('the topic: grade 8, cobalt, not in the placement test, four stairs, its words, and on the ח׳ path after Pythagoras', () => {
     expect(CIRCLE).toMatchObject({ id: 'circle', grade: '8', title: 'מעגל, גליל וחרוט', desc: 'היקף מעגל, שטח עיגול, גליל וחרוט', color: 'cobalt', placement: false });
     expect(CIRCLE.levels.map((L) => L.title)).toEqual(['היקף מעגל', 'שטח עיגול', 'גליל', 'חרוט']);
     expect(CIRCLE.lesson.points).toHaveLength(5);
     expect(CIRCLE.lesson.words).toContain('קו יוצר');
-    expect(TOPICS.map((t) => t.id)).not.toContain('circle');
+    // on the path since its teaching landed: after Pythagoras, before statistics, cobalt between violet and fuchsia
+    expect(TOPICS.find((t) => t.id === 'circle').levels).toBe(CIRCLE.levels);
+    const g8 = topicsFor('8').map((t) => t.id); const at = g8.indexOf('circle');
+    expect(g8.slice(at - 1, at + 2)).toEqual(['pyth', 'circle', 'stats']);
+    expect(topicsFor('8').slice(at - 1, at + 2).map((t) => t.color)).toEqual(['violet', 'cobalt', 'fuchsia']);
     // the ids other topics use keep their names but for one-base, no-convert and slant-as-height, said in this unit's words
     for (const t of TOPICS) for (const [id, name] of Object.entries(t.cats || {})) {
       if (CIRCLE.cats[id] && !['one-base', 'no-convert', 'slant-as-height'].includes(id)) expect(CIRCLE.cats[id], `${t.id} ${id}`).toBe(name);

@@ -557,6 +557,10 @@ a.hub-row:active { background: var(--p-100); }
 .together .tg-final { display: block; }
 .together .tg-input { width: 100%; max-width: none; min-height: 58px; font-size: 1.6rem; }
 .together .tg-input.good { border-color: var(--good-d); background: var(--good-tint); }
+/* a last step with π (□π): the slot, then π after it in the same row (the number before π is typed) */
+.together .tg-final.has-after { display: flex; align-items: center; gap: var(--s2); direction: ltr; }
+.together .tg-final.has-after .tg-input { flex: 1; min-width: 0; }
+.together .tg-final.has-after .answer-after { font-size: 1.6rem; flex: none; }
 .sheet-body:focus-visible, .table-wrap:focus-visible { outline: 3px solid var(--p-500); outline-offset: -3px; }
 
 /* ---- one confirmation sheet (the quit sheet's build), loading and error screens */

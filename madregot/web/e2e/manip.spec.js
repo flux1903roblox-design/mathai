@@ -187,6 +187,58 @@ test('the net object in practice (solid:1): a tap on the face opposite the shade
   await expect(page.locator('section.fb-good')).toBeVisible();
 });
 
+// the circle object (stage 4), first used by circle:1 (discover 2): its Stepper rolls the wheel one turn along the line, a
+// quarter at a time (the drawing takes no drag for the roll, so the page still scrolls under a finger)
+async function toRoll(page) {
+  await open(page, '#/learn/circle/1/A', student('8', { goalXp: 50 }));
+  await expect.poll(() => page.evaluate(() => window.__madregotStep?.kind)).toBe('say');
+  await page.locator('.sp-next').click();
+  await expect.poll(() => page.evaluate(() => window.__madregotStep?.kind)).toBe('explore');
+  await expect(page.locator('.ls-explore .manip')).toBeVisible();
+  // the step before has finished leaving (its card slides out, and on a narrow phone it may stick out while it goes)
+  await expect(page.locator('.sp-say')).toHaveCount(0);
+  return page.locator('.ls-explore .manip-canvas');
+}
+
+test('the circle object (circle:1 discover 2): the roll Stepper to 100% unrolls one turn, a little past three diameters', async ({ page }) => {
+  const canvas = await toRoll(page);
+  await expect(canvas).toHaveAttribute('aria-valuenow', '0');
+  await expect(canvas).toHaveAttribute('aria-valuetext', /לא מגולגל/);
+  const more = page.getByRole('button', { name: 'לגלגל קדימה רבע סיבוב', exact: true });
+  for (const want of ['25', '50', '75', '100']) {
+    await more.click();
+    await expect(canvas).toHaveAttribute('aria-valuenow', want);
+  }
+  await expect(canvas).toHaveAttribute('aria-valuetext', /מגולגל עד הסוף/);
+  await expect(more).toBeDisabled();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath('circle-roll-done.png') });
+});
+
+test('the circle object on a 320×568 phone: tall enough, its Steppers thumb-sized, no sideways scroll while it rolls', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const canvas = await toRoll(page);
+  // once the step has come in (its card slides in from the side), nothing scrolls sideways
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), { message: 'page scrolls sideways' }).toBeLessThanOrEqual(0);
+  const box = await canvas.boundingBox();
+  expect(box.height, 'the circle and its line are at least 160px high on the smallest phone').toBeGreaterThanOrEqual(160);
+  for (const b of await page.locator('.ls-explore .step-btn').all()) {
+    const s = await b.boundingBox();
+    expect(Math.min(s.width, s.height), 'the radius and roll buttons are thumb-sized').toBeGreaterThanOrEqual(44);
+  }
+  await page.getByRole('button', { name: 'לגלגל קדימה רבע סיבוב', exact: true }).click();
+  await page.getByRole('button', { name: 'לגלגל קדימה רבע סיבוב', exact: true }).click();
+  await expect(canvas).toHaveAttribute('aria-valuenow', '50');
+  await expectNoSidewaysScroll(page);
+  await page.getByRole('button', { name: 'לגלגל קדימה רבע סיבוב', exact: true }).click();
+  await page.getByRole('button', { name: 'לגלגל קדימה רבע סיבוב', exact: true }).click();
+  await expect(canvas).toHaveAttribute('aria-valuenow', '100');
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath('circle-roll-phone-small.png') });
+});
+
 test('interactive exercise: the second miss shows the answer on the object', async ({ page }) => {
   await openOn(page, '#/lesson/coord/1?part=1', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'plot');
   for (let k = 0; k < 2; k += 1) {

@@ -40,6 +40,9 @@ const CASES = [
   ['what percent, from a table', 'pct/3', '8', (x) => x.fig?.type === 'table'],
   // areas (stage 2): a triangle whose height falls outside it, drawn with the height dashed on BC's extension
   ['a triangle with its height outside (areas)', 'area/2', '7', (x) => /^ar2g:.*:1$/.test(x.key || '')],
+  // the circle (stage 2): a cylinder's volume with π (the answer row □ π סמ״ר) under a solid figure, and a disc with π ≈ 3.14
+  ['a cylinder\'s volume with π (circle)', 'circle/3', '8', (x) => /^ci3v:/.test(x.key || '')],
+  ['a disc\'s area with π ≈ 3.14 (circle)', 'circle/2', '8', (x) => /^ci2n:/.test(x.key || '')],
 ];
 
 for (const [what, route, grade, want = () => true] of CASES) {
@@ -238,4 +241,46 @@ test('the cube net on a 320×568 phone (solid:1): readable, every face a thumb t
   }
   await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
   await page.screenshot({ path: test.info().outputPath('net-face-phone-small.png') });
+});
+
+// the circle (stage 2): an answer "with π" (circle:3, a cylinder's volume) on the smallest phone. The row reads □ π סמ״ק
+// on one line: the slot, π after it and the unit, nothing wrapped and nothing out of the screen; the cylinder above it is
+// readable. The whole value typed into the slot (3.14 times the answer) is right in another form: it gets the note and
+// the question stays open (no mistake counted), and the number before π is then right.
+test('a π answer row (circle:3) on a 320×568 phone: □ π סמ״ק on one line, the cylinder readable, the whole value noted', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const it = await openOn(page, '#/lesson/circle/3', student('8'), (x) => /^ci3v:/.test(x.key || ''));
+  expect(it.after).toBe('\\pi');
+  await expectNoSidewaysScroll(page);
+  const parts = ['.answer-bar #slot-v', '.answer-bar .answer-after', '.answer-bar .answer-unit'];
+  const boxes = [];
+  for (const sel of parts) {
+    const loc = page.locator(sel).first();
+    await expectUsable(page, loc, sel);
+    boxes.push(await loc.boundingBox());
+  }
+  // one line: every piece's middle is inside every other piece's height
+  const mids = boxes.map((b) => b.y + b.height / 2);
+  for (const b of boxes) for (const m of mids) expect(m >= b.y - 1 && m <= b.y + b.height + 1, 'the slot, π and the unit sit on one line').toBe(true);
+  await expect(page.locator('.answer-bar .answer-after')).toContainText('π');
+  // a volume: the row reads □ π סמ״ק
+  await expect(page.locator('.answer-bar .answer-unit')).toHaveText('סמ״ק');
+  const fig = page.locator('.lesson-main svg.figure').first();
+  await expect(fig).toHaveAttribute('aria-label', /גליל/);
+  expect((await fig.boundingBox()).height, 'the cylinder is readable on a 320×568 phone').toBeGreaterThanOrEqual(160);
+  await page.screenshot({ path: test.info().outputPath('pi-row-phone-small.png') });
+  // the whole value: 3.14 times the answer, to tenths
+  await page.locator('#slot-v').click();
+  await type(page, String(Math.round(3.14 * it.answer * 10) / 10));
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+  await expect(page.locator('.answer-partial')).toContainText('נכון בקירוב');
+  await expect(page.locator('section.fb')).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('pi-row-note-phone-small.png') });
+  // then the number before π
+  await page.locator('#slot-v').click();
+  for (let k = 0; k < 9 && await page.locator('#slot-v').inputValue(); k += 1) await page.getByRole('button', { name: 'מחיקה', exact: true }).click();
+  await expect(page.locator('#slot-v')).toHaveValue('');
+  await type(page, it.answer);
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+  await expect(page.locator('section.fb-good')).toBeVisible();
 });

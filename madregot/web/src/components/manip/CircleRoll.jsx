@@ -20,8 +20,10 @@ import { manipCorrect, manipSolution } from '@/content/manip.js';
 import { circleStep, circleRange, circleWords, circNum, SECTORS } from '@/content/roll.js';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-// circumference: the circle is RHO units in radius whatever r is, so four diameters (8 RHO) span the line from X0
-const W = 300; const RHO = 30; const X0 = 40; const LINE_Y = 132; const H_ROLL = 172;
+// circumference: the circle is RHO units in radius whatever r is, so four diameters (8 RHO) span the line from X0. The
+// drawing is 188 high: on a 320 px phone, where the lesson leaves the canvas about 250 px wide, it is still 160 px tall
+// (the note "≈ 3.14 קטרים" above the rolled circle and the diameters' numbers under the line keep their room)
+const W = 300; const RHO = 30; const X0 = 40; const LINE_Y = 142; const H_ROLL = 188;
 // area: the disc above, the sectors laid out under it
 const H_AREA = 222; const RA = 50; const DISC = [150, 60]; const STRIP_Y = 136;
 const DRAG_STEP = 14; // drawing units of drag for one step of the radius

@@ -89,6 +89,11 @@ The boxes-and-prisms unit (stage 2) adds three more, drawn the same way:
 - `GiftBox`: a gift box with a ribbon round it and a bow on the lid (wrapping it is its surface area);
 - `CubeStack`: a stack of unit cubes, three by two in front, the top layer lighter (a layer, and the layers).
 Its wardrobe piece, `box-pin`, is a small box in the same view (`web/src/components/mascot/Accessories.jsx`).
+The circle, cylinder and cone unit (stage 2) adds three more, drawn the same way:
+- `WheelRoll`: a wheel with its radius drawn, one turn of it unrolled along the line under it (the unit's emblem);
+- `Can`: a can with its label half peeled off, the label a flat rectangle;
+- `IceCream`: an ice-cream cone with its scoop, the cone's height dashed down its middle.
+Its wardrobe piece, `wheel-pin`, is a small wheel with its radius (`web/src/components/mascot/Accessories.jsx`).
 
 ## 4. Original artwork drawn in code (no third-party source)
 

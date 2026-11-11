@@ -929,7 +929,7 @@ PROPS.circle = {
     const k = areaKind(it); const n = nums(it.key);
     if (k === 'ci4v') { const [r, h] = n; return fits(u, r * r * h); }
     if (k === 'ci4c') return fits(u, n[0]);
-    if (k === 'ci4m') return it.choices[u]?.text === '$1$';
+    if (k === 'ci4m') return it.choices[u]?.tex === '1';
     return false;
   },
   'slant-as-height': (it, u) => { const [r, , l] = nums(it.key); return areaKind(it) === 'ci4v' && fits(u, (r * r * l) / 3); },

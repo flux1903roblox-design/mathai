@@ -111,7 +111,7 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
   it('puts pct after ratio and before line, and keeps the first-day test at 18 questions', async () => {
     expect(TOPIC_ORDER.indexOf('pct')).toBe(TOPIC_ORDER.indexOf('ratio') + 1);
     expect(TOPIC_ORDER.indexOf('pct')).toBeLessThan(TOPIC_ORDER.indexOf('line'));
-    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys']);
+    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq', 'ratio', 'pct', 'line', 'pyth', 'circle', 'stats', 'sys']);
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
     // @ts-ignore: plain JS
@@ -165,9 +165,30 @@ describe('grade 7 in school order (boxes and prisms in January, after the areas 
   });
 });
 
+describe('grade 8 in school order (the circle, the cylinder and the cone in October and November, after Pythagoras)', () => {
+  it('puts circle between pyth and stats, off the first-day test, every edge pointing back', async () => {
+    expect(TOPIC_ORDER.indexOf('circle')).toBe(TOPIC_ORDER.indexOf('pyth') + 1);
+    expect(TOPIC_ORDER.indexOf('stats')).toBe(TOPIC_ORDER.indexOf('circle') + 1);
+    expect(STAIRS.circle).toBe(4);
+    // @ts-ignore: plain JS
+    const { placementMax } = await import('@/lib/placement.js');
+    // @ts-ignore: plain JS
+    const { topicsFor, placementTopicsFor } = await import('@/content/index.js');
+    expect(topicsFor('8').map((t: { id: string }) => t.id)).toContain('circle');
+    expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('circle');
+    // the first-day test of ח׳ asks the same 18 questions as before the unit landed (placement: false: taught from October)
+    expect(placementMax('8')).toBe(18);
+    // the two edges into ז׳ stairs (area:1, solid:2) count on evidence only; the cone leans on finding a leg (pyth:2)
+    expect(prereqsOf('circle:1')).toEqual(['area:1']);
+    expect(prereqsOf('circle:3')).toEqual(['circle:2', 'solid:2']);
+    expect(prereqsOf('circle:4')).toEqual(['circle:3', 'pyth:2']);
+    ['circle:1', 'circle:2', 'circle:3', 'circle:4'].forEach((id) => prereqsOf(id).forEach((p) => expect(ALL_SKILLS.indexOf(p), `${id} → ${p}`).toBeLessThan(ALL_SKILLS.indexOf(id))));
+  });
+});
+
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(71); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year), area:1-5 (ז׳ 7.12) and solid:1-4 (ז׳ 7.13)
+    expect(ALL_SKILLS).toHaveLength(75); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year), area:1-5 (ז׳ 7.12), solid:1-4 (ז׳ 7.13) and circle:1-4 (ח׳ 8.4)
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));

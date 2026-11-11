@@ -6,7 +6,8 @@
 //   solid  { shape: 'box' | 'cube' | 'prism' | 'cylinder' | 'cone', a?, b?, c?, p?, q?, r?, L?, h?, l?, labels?, diag?,
 //          cubes?, cut?, open?, label? }   a solid, still: a box, a cube or a prism in the oblique view (depth at 30°, half
 //          its length, content/net.js oblique), hidden edges dashed; a cylinder or a cone on ellipses a third as high as
-//          wide; diag 'face' | 'space' | 'tri' | 'axial' | 'rod' (or a list), cubes, cut 'diagonal' | 'half', open, label
+//          wide; diag 'face' | 'space' | 'tri' | 'axial' | 'rod' (or a list), cubes, cut 'diagonal' | 'half', open, label;
+//          a cylinder also layers (drawn as that many discs) and inner: 'cone' (the cone of its base and height inside)
 //          (content/net.js solidWords has the details)
 // Their words (figWords, the drawing's aria-label) are content/net.js's and read every number drawn.
 import clsx from 'clsx';
@@ -175,6 +176,9 @@ function Round({ fig, L }) {
         ? <polygon points={`${P(-r, 0)} ${P(r, 0)} ${P(0, h)}`} className="fg-solid-tri" />
         : <polygon points={`${P(-r, 0)} ${P(r, 0)} ${P(r, h)} ${P(-r, h)}`} className="fg-solid-tri" />)}
       {diags.includes('rod') && !cone && <><polygon points={`${P(-r, 0)} ${P(r, 0)} ${P(r, h)} ${P(-r, h)}`} className="fg-solid-axial" />{seg(P(-r, 0), P(r, h), TONE.space, 'rod')}</>}
+      {/* a cylinder as layers of its base (the front of each disc), and the cone of its base and height inside it */}
+      {!cone && fig.layers > 1 && Array.from({ length: fig.layers - 1 }, (_, i) => <path key={`ly${i}`} d={half(E((h * (i + 1)) / fig.layers)[1], true)} className="fg-solid-layer" />)}
+      {!cone && fig.inner === 'cone' && <path d={`M ${bx - r * sx} ${by} L ${tx} ${ty} L ${bx + r * sx} ${by} A ${r * sx} ${ry * sx} 0 0 1 ${bx - r * sx} ${by} Z`} className="fg-solid-inner" />}
       <path d={half(by, false)} className="fg-solid-hidden" fill="none" />
       <path d={half(by, true)} className="fg-solid-edge" fill="none" />
       {!cone && <ellipse cx={tx} cy={ty} rx={r * sx} ry={ry * sx} className="fg-solid-edge top" />}

@@ -217,6 +217,114 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "circle:1": {
+    "title": "היקף מעגל",
+    "misconceptions": [
+      {
+        "id": "r-for-d",
+        "title": "השתמשו ברדיוס במקום בקוטר"
+      },
+      {
+        "id": "d-for-r",
+        "title": "השתמשו בקוטר במקום ברדיוס"
+      },
+      {
+        "id": "area-for-circ",
+        "title": "חישבו שטח במקום היקף"
+      }
+    ],
+    "transfer": true
+  },
+  "circle:2": {
+    "title": "שטח עיגול",
+    "misconceptions": [
+      {
+        "id": "circ-for-area",
+        "title": "חישבו היקף במקום שטח"
+      },
+      {
+        "id": "d-in-area",
+        "title": "העלו בריבוע את הקוטר במקום את הרדיוס"
+      },
+      {
+        "id": "ring-sub-radii",
+        "title": "חיסרו רדיוסים לפני ההעלאה בריבוע"
+      },
+      {
+        "id": "no-subtract",
+        "title": "חישבו את הצורה השלמה ולא הורידו את החלק החסר"
+      },
+      {
+        "id": "whole-circle",
+        "title": "חישבו את כל העיגול במקום חלק ממנו"
+      }
+    ],
+    "transfer": true
+  },
+  "circle:3": {
+    "title": "גליל",
+    "misconceptions": [
+      {
+        "id": "d-in-area",
+        "title": "העלו בריבוע את הקוטר במקום את הרדיוס"
+      },
+      {
+        "id": "lateral-for-vol",
+        "title": "חישבו מעטפת במקום נפח"
+      },
+      {
+        "id": "r-for-d",
+        "title": "השתמשו ברדיוס במקום בקוטר"
+      },
+      {
+        "id": "area-for-circ",
+        "title": "חישבו שטח במקום היקף"
+      },
+      {
+        "id": "no-bases",
+        "title": "חישבו רק את המעטפת, בלי הבסיסים"
+      },
+      {
+        "id": "one-base",
+        "title": "ספרו רק בסיס אחד"
+      },
+      {
+        "id": "no-convert",
+        "title": "שכחו להמיר בין ליטרים לסמ״ק"
+      }
+    ],
+    "transfer": true
+  },
+  "circle:4": {
+    "title": "חרוט",
+    "misconceptions": [
+      {
+        "id": "no-third",
+        "title": "שכחו לחלק ב־$3$"
+      },
+      {
+        "id": "slant-as-height",
+        "title": "השתמשו בקו היוצר במקום בגובה"
+      },
+      {
+        "id": "add-not-sub",
+        "title": "חיברו ריבועים במקום לחסר (כשמחפשים ניצב)"
+      },
+      {
+        "id": "subtract-sides",
+        "title": "חיסרו צלעות בלי לרבע"
+      },
+      {
+        "id": "no-half",
+        "title": "שכחו לחלק ב־2 בשטח המשולש"
+      },
+      {
+        "id": "r-for-d",
+        "title": "השתמשו ברדיוס במקום בקוטר"
+      }
+    ],
+    "transfer": true
+  },
   "coord:1": {
     "title": "קריאת נקודה",
     "misconceptions": [
@@ -1398,6 +1506,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "apex-base-swap": "התבלבלו בין זווית הראש לזווית הבסיס"
   },
   "area": {},
+  "circle": {},
   "coord": {
     "axis-zero": "חשבו שנקודה על ציר $x$ היא נקודה שבה $x = 0$",
     "quad-order": "מספרו את הרביעים עם כיוון השעון",

@@ -62,8 +62,9 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // about 19,000 at the next merge, so it moved again; the lane's own stage 1 ways (shared/topicWays.js) and the "not
   // yet" list computed from the programme (its full Hebrew titles) took it to about 20,000, so it moved once more, on
   // purpose. A further topic moves it only on purpose too: the measurement lane's areas took it to about 20,950, and its
-  // boxes and prisms (their way, their four stairs) past 21,000, so it moved to 22,000.
-  assert.ok(s.length < 22000, `stable block is ${s.length} characters`);
+  // boxes and prisms (their way, their four stairs) past 21,000, so it moved to 22,000; the circle, the cylinder and the
+  // cone (their way, four stairs and a shorter "not yet" list) took it to about 22,350, so it moved to 23,000.
+  assert.ok(s.length < 23000, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');
@@ -173,6 +174,14 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
   assert.ok(any(TOPIC_WAYS.solid.avoidRe, 'כשמכפילים את המקצועות פי 2, גם הנפח גדל פי 2.'));
   for (const ok of ['חשבו שהנפח גדל פי אותו מספר כמו המקצועות', 'חישבו נפח במקום שטח פנים', 'כשכל מקצוע גדל פי $2$, הנפח גדל פי $2 \\cdot 2 \\cdot 2 = 8$.', 'שטח פנים הוא הקרטון מבחוץ, בסמ״ר.']) {
     assert.ok(!any(TOPIC_WAYS.solid.avoidRe, ok), ok);
+  }
+  // and its circle, cylinder and cone: π stated as exactly 3.14, the slant height as the height, the diameter in πr²
+  assert.ok(any(TOPIC_WAYS.circle.avoidRe, 'π שווה 3.14.'));
+  assert.ok(any(TOPIC_WAYS.circle.avoidRe, 'פאי הוא בדיוק 3.14'));
+  assert.ok(any(TOPIC_WAYS.circle.avoidRe, 'הקו היוצר הוא הגובה של החרוט.'));
+  assert.ok(any(TOPIC_WAYS.circle.avoidRe, 'מציבים את הקוטר בנוסחת השטח.'));
+  for (const ok of ['היקף מעגל: $\\pi d = 2\\pi r$, ו־$\\pi \\approx 3.14$.', 'השתמשו בקו היוצר במקום בגובה', 'הקו היוצר הוא היתר של המשולש הישר־זווית שבחצי החתך.', 'העלו בריבוע את הקוטר במקום את הרדיוס', 'π הוא בערך 3.14.']) {
+    assert.ok(!any(TOPIC_WAYS.circle.avoidRe, ok), ok);
   }
   // the prompt itself, and every line of the stairs' own teaching, pass every pattern: the tutor may quote the app
   const all = TOPICS.flatMap((id) => TOPIC_WAYS[id].avoidRe);
