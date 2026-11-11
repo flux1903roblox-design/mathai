@@ -2060,6 +2060,22 @@ test.describe('TEACHER-10: the pilot kit, in the app', () => {
   /** What the page put on the clipboard. */
   const clip = (page) => page.evaluate(() => navigator.clipboard.readText());
 
+  test('CURRICULUM-1.6: the tools open what the app teaches against the Ministry\'s programme, on the class\'s grade, and back', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    const link = tools(page).getByRole('link', { name: 'מה לומדים במדרגות, לפי תוכנית משרד החינוך' });
+    // just before the pilot kit, which stays the last tool
+    await expect(tools(page).getByRole('link').last()).toHaveText('מדריך למורה');
+    await link.click();
+    await expect(page).toHaveURL(/#\/programme\?grade=7$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'מה לומדים במדרגות' })).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'כיתה ז׳' })).toHaveAttribute('aria-checked', 'true');
+    await page.getByRole('button', { name: 'חזרה' }).click();
+    await expect(page).toHaveURL(/#\/teacher$/);
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+  });
+
   test('the guide, the parent letter filled in from the form, printed with its slip on a new page, copied, and the principal form', async ({ page }) => {
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await fakeServer(page, {}, baseOf());

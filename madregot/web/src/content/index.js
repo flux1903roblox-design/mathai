@@ -228,7 +228,7 @@ export function answerText(it, u = it.answer) {
   // an expression as a student writes it: 5x + 4, x - 3, -x, 7
   if (it.form === 'lin') return linText(u, it.var || 'x');
   // a fraction as written: the student's own n/d, or the answer in lowest terms
-  if (it.form === 'frac') { const f = typeof u === 'object' ? u : toFrac(u); return f ? `${f.n}/${f.d}` : plainNum(u, { maxDen: 100, places: 3 }); }
+  if (it.form === 'frac') { const f = typeof u === 'object' ? u : toFrac(u); return f ? (typeof u !== 'object' && f.d === 1 ? String(f.n) : `${f.n}/${f.d}`) : plainNum(u, { maxDen: 100, places: 3 }); }
   return plainNum(u, numFormat(it));
 }
 

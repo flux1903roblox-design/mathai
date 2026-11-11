@@ -75,6 +75,9 @@ describe('generators', () => {
             expect(Number.isFinite(item.answer)).toBe(true);
             // What we print as the answer parses back to the same value.
             expect(Math.abs(parseNum(answerText(item)) - item.answer)).toBeLessThan(0.01);
+            // a whole answer is stored whole, and never printed as a fraction over 1 ("3/1")
+            if (Math.abs(item.answer - Math.round(item.answer)) < 1e-9) expect(Number.isInteger(item.answer), `${item.key}: ${item.answer}`).toBe(true);
+            expect(answerText(item), item.key).not.toMatch(/\/1$/);
           }
           if (item.form === 'mc') expect(item.choices[item.answer]).toBeTruthy();
           // a choice in words is shown as plain text (only `tex` choices are maths), so $...$ in it would show raw
@@ -460,6 +463,32 @@ describe('fractions: every answer is the computation its question shows', () => 
     bad({ form: 'num', text: 'כמה הם $\\frac{3}{4}$ מ־$20$?', answer: 5 });
     ok({ key: 'fr4g:12:0.8:mul', form: 'mc', text: '$12 \\cdot 0.8$: התוצאה גדולה מ־$12$ או קטנה ממנו?', choices: [{ text: 'גדולה מ־12' }, { text: 'קטנה מ־12' }], answer: 1 });
     bad({ key: 'fr4g:12:0.8:mul', form: 'mc', text: '$12 \\cdot 0.8$: התוצאה גדולה מ־$12$ או קטנה ממנו?', choices: [{ text: 'גדולה מ־12' }, { text: 'קטנה מ־12' }], answer: 0 });
+  });
+});
+
+describe('a whole answer is a whole number', () => {
+  it('fraction division with a whole answer (3/5 : 1/5) stores 3, and the answer row says 3, not 3/1', () => {
+    let wholeDiv = 0;
+    for (let r = 0; r < 4000; r += 1) {
+      const it = makeItem('frac', 4);
+      if (it.form !== 'num') continue;
+      const whole = Math.abs(it.answer - Math.round(it.answer)) < 1e-9;
+      if (whole && it.key.startsWith('fr4v')) wholeDiv += 1;
+      if (whole) expect(Number.isInteger(it.answer), `${it.key}: ${it.answer}`).toBe(true);
+      expect(answerText(it), it.key).not.toMatch(/\/1$/);
+    }
+    expect(wholeDiv, 'some divisions came out whole').toBeGreaterThan(0);
+  });
+  it('plainNum and answerText print a number a hair off a whole number as that whole number', () => {
+    expect(plainNum(2.9999999999999996)).toBe('3');
+    expect(plainNum(5.000000000000001)).toBe('5');
+    expect(plainNum(-0.0000000000001)).toBe('0');
+    expect(plainNum(2.9999999999999996, { decimal: true })).toBe('3');
+    expect(answerText({ form: 'num', topic: 'frac', answer: 2.9999999999999996 })).toBe('3');
+    expect(answerText({ form: 'frac', topic: 'frac', answer: 3 })).toBe('3');
+    expect(answerText({ form: 'frac', topic: 'frac', answer: 0.75 })).toBe('3/4');
+    expect(answerText({ form: 'frac', topic: 'frac', answer: 3 }, { n: 6, d: 2 })).toBe('6/2'); // what the student typed stays as typed
+    expect(plainNum(1.5)).toBe('3/2');
   });
 });
 

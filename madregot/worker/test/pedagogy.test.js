@@ -9,6 +9,8 @@ import {
 } from '../../shared/pedagogy.js';
 import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, NOT_YET, stairName } from '../../shared/stairs.js';
 import { safetyPrompt } from '../../shared/safety.js';
+import { TOPIC_WAYS_STAGE1, SIGNED_FRACTIONS } from '../../shared/topicWays.js';
+import { notYet } from '../../shared/coverage.js';
 import { FEEDBACK_INPUT } from './helpers.js';
 
 const SHARED = new URL('../../shared/', import.meta.url);
@@ -54,11 +56,13 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   }
   // the safety numbers are all still there
   for (const n of ['1201', '052-845-1201', '055-957-1399', '105', 'משטרה 100', 'מד״א 101', '[[care]]']) assert.ok(s.includes(n), n);
-  // under 19,500 characters (about 5.5k tokens) and well above the 512-token minimum a cached prefix needs. The ai spec's
+  // under 21,000 characters (about 6k tokens) and well above the 512-token minimum a cached prefix needs. The ai spec's
   // 16,000 held for the nine topics; the curriculum lane's fractions (frac) took it to about 16,700 at the merge, so the
   // cap moved up to 17,500; ratio and percent (their ways and their nine stairs) and the floor's frac:3-4 took it to
-  // about 19,000 at the next merge, so it moved again, on purpose. A further topic moves it only on purpose too.
-  assert.ok(s.length < 19500, `stable block is ${s.length} characters`);
+  // about 19,000 at the next merge, so it moved again; the lane's own stage 1 ways (shared/topicWays.js) and the "not
+  // yet" list computed from the programme (its full Hebrew titles) took it to about 20,000, so it moved once more, on
+  // purpose. A further topic moves it only on purpose too.
+  assert.ok(s.length < 21000, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');
@@ -132,6 +136,21 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
   assert.ok(any(TOPIC_WAYS.frac.avoidRe, 'ככל שהמכנה גדול יותר, כך השבר גדול יותר.'));
   assert.ok(!any(TOPIC_WAYS.frac.avoidRe, 'בהרחבה כופלים את המונה ואת המכנה באותו מספר.'));
   assert.ok(!any(TOPIC_WAYS.frac.avoidRe, 'חשבו שמכנה גדול יותר נותן שבר גדול יותר'), "the app's name of the mistake");
+  // the stage 1 ways are the curriculum lane's own (shared/topicWays.js), whole, with the merge's extra patterns after them
+  for (const id of ['frac', 'ratio', 'pct']) {
+    const lane = TOPIC_WAYS_STAGE1[id];
+    assert.equal(TOPIC_WAYS[id].models, lane.models, `${id}: the lane's models`);
+    assert.deepEqual(TOPIC_WAYS[id].words, lane.words, `${id}: the lane's words`);
+    assert.deepEqual(TOPIC_WAYS[id].avoid.slice(0, lane.avoid.length), lane.avoid, `${id}: the lane's shortcuts first`);
+    assert.deepEqual(TOPIC_WAYS[id].avoidRe.slice(0, lane.avoidRe.length), lane.avoidRe, `${id}: the lane's patterns first`);
+  }
+  assert.ok(TOPIC_WAYS.signed.models.endsWith(` ${SIGNED_FRACTIONS}`), 'signed:6 in the lane\'s words');
+  assert.ok(any(TOPIC_WAYS.ratio.avoidRe, 'כדי לשמור על היחס, מוסיפים אותו מספר לשני האיברים.'), 'the same difference, said the other way round');
+  assert.ok(any(TOPIC_WAYS.ratio.avoidRe, 'מוסיפים אותו מספר לשני האיברים, והיחס נשאר.'));
+  assert.ok(any(TOPIC_WAYS.ratio.avoidRe, 'השטח גדל באותו יחס כמו האורך.'));
+  assert.ok(!any(TOPIC_WAYS.ratio.avoidRe, 'השטח גדל פי קנה המידה בריבוע.'));
+  assert.ok(any(TOPIC_WAYS.pct.avoidRe, 'אחוז לא יכול להיות יותר מ־100.'));
+  assert.ok(any(TOPIC_WAYS.pct.avoidRe, 'מתייקר ב־10% ואז מוזל ב־10%, חוזרים למחיר המקורי.'));
   // the prompt itself, and every line of the stairs' own teaching, pass every pattern: the tutor may quote the app
   const all = TOPICS.flatMap((id) => TOPIC_WAYS[id].avoidRe);
   assert.ok(!any(all, stableSystem()), 'the prompt names the shortcuts only in quotation marks');
@@ -144,7 +163,7 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
 });
 
 test('no lookbehind in the lane\'s shared files: they ship to the browser (Safari before 16.4 cannot load them)', () => {
-  for (const f of ['pedagogy.js', 'tutorContext.js', 'stairs.js', 'ai.js', 'guard.js', 'verify.js']) {
+  for (const f of ['pedagogy.js', 'topicWays.js', 'coverage.js', 'tutorContext.js', 'stairs.js', 'ai.js', 'guard.js', 'verify.js']) {
     assert.equal(read(new URL(f, SHARED)).includes('(?<'), false, f);
   }
   for (const id of TOPICS) TOPIC_WAYS[id].avoidRe.forEach((r) => assert.equal(r.source.includes('(?<'), false, `${id}: ${r.source}`));
@@ -193,6 +212,10 @@ test('NOT_YET: two grades of Hebrew titles, none of them a topic or a stair the 
   }
   // systems of equations and inequalities are taught now (sys:2-5)
   assert.ok(!NOT_YET['8'].some((t) => /מערכ|אי[־-]?שוויון/.test(t)));
+  // computed, never typed: the programme's untaught parts over the stairs the app names (CURRICULUM-1.3), the same list
+  // as the /programme page's
+  for (const g of ['7', '8']) assert.deepEqual([...NOT_YET[g]], notYet(g, Object.keys(STAIR_NAMES)), g);
+  assert.ok(Object.isFrozen(NOT_YET) && Object.isFrozen(NOT_YET['7']) && Object.isFrozen(NOT_YET['8']));
 });
 
 test('one list: TOPIC_IDS and the exam\'s topic enum are the topics plus "other"; grades and stair names line up', () => {

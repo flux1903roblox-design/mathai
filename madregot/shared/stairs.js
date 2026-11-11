@@ -1,8 +1,10 @@
 // The app's topic and stair names, for every place that cannot load the web content: the Worker (the parents' weekly
 // report and email, PARENTS-7/8), the parent's report pages and the tutor's prompt (the stair map, ai spec AI-5). One
 // list, written by hand and checked: web/src/learn/stairs.test.ts and report.test.ts fail the moment a topic or a stair
-// is added to the app without its name here, or a name here differs from the one on screen. Plain JS, no imports; it
-// ships to the browser too. The web imports it as @shared/stairs.js; the Worker as ../../shared/stairs.js.
+// is added to the app without its name here, or a name here differs from the one on screen. Plain JS; its one import is
+// the curriculum's coverage map (shared/coverage.js, plain JS too), for the "not yet" list. It ships to the browser too.
+// The web imports it as @shared/stairs.js; the Worker as ../../shared/stairs.js.
+import { notYet } from './coverage.js';
 
 /** Each topic's name, in teaching order (learn/skills.ts TOPIC_ORDER). */
 export const TOPIC_NAMES = Object.freeze({
@@ -107,12 +109,11 @@ export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', a
 
 /**
  * Parts of the Ministry's programme for grades 7 and 8 that the app does not teach yet, as Hebrew titles (never topic
- * ids), so the tutor helps with them without inventing a stair. Systems of equations and inequalities are taught now
- * (sys:2-5) and are not listed. The curriculum lane owns this list and replaces it with notYet() from its coverage map
- * (CURRICULUM-1), so it shrinks with every new stage. (ai spec AI-5)
+ * ids), so the tutor helps with them without inventing a stair. Computed, never typed (CURRICULUM-1): coverage.js
+ * `notYet` over the stairs named here, so it shrinks by itself with every new stair, and it is the same list the
+ * /programme page shows. Systems of equations and inequalities are taught (sys:2-5) and are not listed. (ai spec AI-5)
  */
 export const NOT_YET = Object.freeze({
-  // signed fractions and decimals (signed:6), ratio and scale (ratio:1-4) and percent (pct:1-5) are taught now
-  '7': Object.freeze(['חזקות ושורשים', 'שטחים והיקפים', 'תיבה ומנסרה', 'טרנספורמציות', 'שכיחות והסתברות']),
-  '8': Object.freeze(['פונקציות (כללי)', 'חפיפת משולשים', 'תיכון במשולש', 'דמיון משולשים', 'אומדן שורשים', 'הסתברות']),
+  '7': Object.freeze(notYet('7', Object.keys(STAIR_NAMES))),
+  '8': Object.freeze(notYet('8', Object.keys(STAIR_NAMES))),
 });

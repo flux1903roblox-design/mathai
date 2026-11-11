@@ -68,17 +68,39 @@ export function onPath(ctx: Context, id: SkillId) {
   try { return level <= reachedUpTo(topic, ctx.path || {}); } catch { return false; }
 }
 
+/** Independent right answers on a stair after a missed check (an exam, a diagnostic, the floor check) that count as recovered. */
+export const RECOVER_RIGHT = 3;
+const after = (iso: string | undefined, t: number) => !!iso && Date.parse(iso) > t;
+
+/**
+ * Recovered since `at`: a mastery check or a review passed after it, or RECOVER_RIGHT independent right answers after it.
+ * Old evidence that a stair is weak counts only while nothing newer says otherwise.
+ */
+export function recoveredSince(rec: SkillRecord | undefined, at: string | undefined): boolean {
+  if (!rec || !at) return false;
+  const t = Date.parse(at);
+  if (Number.isNaN(t)) return false;
+  if (rec.mastered && after(rec.mastered.at, t)) return true;
+  if (rec.mastered?.lastReview?.ok && after(rec.mastered.lastReview.at, t)) return true;
+  return rec.attempts.filter((a) => a.ok && a.independent && after(a.at, t)).length >= RECOVER_RIGHT;
+}
+
+/** Fewer than half right in a short check, and nothing since that says the stair is back. */
+const missedSince = (x: { asked: number; right: number } | undefined, at: string | undefined, rec: SkillRecord | undefined) => !!x && x.asked > 0 && x.right * 2 < x.asked && !recoveredSince(rec, at);
+
 /** Does the evidence say this skill is missing? Only evidence counts: no data about an earlier grade is not a gap. */
 export function isMissing(ctx: Context, id: SkillId, st = states(ctx)): boolean {
   const s = st[id];
+  const rec = ctx.learn.skills[id];
   if (s === 'needs-support') return true;
-  if (s === 'needs-review' && ctx.learn.skills[id]?.mastered?.lastReview?.ok === false) return true;
+  if (s === 'needs-review' && rec?.mastered?.lastReview?.ok === false) return true;
   if (openMisconceptions(ctx.learn.miscon).some((m) => m.skill === id && m.state === 'confirmed')) return true;
+  // Exam Rescue's diagnostic, and the floor check of the fractions stairs: fewer than half right counts until the stair
+  // is mastered, reviewed or answered right on its own since (a floor check is not offered twice, so without this one
+  // early miss would block every unit above that stair for good)
   const diag = ctx.learn.exam?.diagnostic?.[id];
-  if (diag && diag.asked > 0 && diag.right * 2 < diag.asked) return true;
-  // the floor check: fewer than half right on a fractions stair
-  const floor = ctx.learn.floor?.results?.[id];
-  if (floor && floor.asked > 0 && floor.right * 2 < floor.asked) return true;
+  if (missedSince(diag, diag?.at, rec)) return true;
+  if (missedSince(ctx.learn.floor?.results?.[id], ctx.learn.floor?.at, rec)) return true;
   // in the student's own grade, a stair never started and not passed on the map is not known yet (a bridge stair is
   // below the grade: not having started it says nothing)
   return GRADE_OF[parseSkill(id).topic] === ctx.grade && !isBridgeSkill(id) && s === 'not-started' && !onPath(ctx, id);

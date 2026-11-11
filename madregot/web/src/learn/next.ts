@@ -28,7 +28,7 @@ import { openMisconceptions, canOffer } from './misconceptions';
 import { metaOf } from './content/index';
 import { examPlan, isShabbatDay } from './examRescue';
 import { monthIndex, monthNameOf } from './programme';
-import { states, isMissing, smallestMissing, struggling, onPath, stairStage, titleOf, topicTitleOf, routeOf, MINUTES, STAGE_NAME, STAGE_N, STAGE_MIN } from './recommend';
+import { states, isMissing, smallestMissing, struggling, onPath, stairStage, titleOf, topicTitleOf, routeOf, recoveredSince, RECOVER_RIGHT, MINUTES, STAGE_NAME, STAGE_N, STAGE_MIN } from './recommend';
 import { firstOpenChallenge } from './challenges/index';
 import type { Context } from './recommend';
 // @ts-ignore: plain JS
@@ -75,8 +75,8 @@ export const BAND = { exam: 2, repair: 3, review: 4, 'exam-loss': 5, floor: 6, p
 export const EXAM_SOON_DAYS = 14;
 /** Points lost in a checked exam are worth working on for this long. */
 export const EXAM_LOSS_DAYS = 45;
-/** Independent right answers on a stair after the exam that count as recovered. */
-export const RECOVER_RIGHT = 3;
+/** Independent right answers on a stair after the exam that count as recovered (recommend.ts: the floor check uses it too). */
+export { RECOVER_RIGHT };
 /** Mastery checks in a row passed on the first attempt that make a student strong today. */
 export const STRONG_CHECKS = 3;
 
@@ -85,7 +85,6 @@ const examReason = (left: number) => (left === 0 ? `המבחן היום. ${STEP_
 /** The stage a Rescue step is (practice is stage D, a mastery check stage E); a lesson or a review names none. */
 const TASK_STAGE: Partial<Record<RescueTask, Stage>> = { practice: 'D', mastery: 'E' };
 const dayMonth = (iso: string) => { const d = new Date(iso); return `${d.getDate()}.${d.getMonth() + 1}`; };
-const after = (iso: string | undefined, t: number) => !!iso && Date.parse(iso) > t;
 
 /** Exam Rescue's steps for today, as plan items: what Rescue shows under "today", in its order. */
 function examTodayOf(ctx: NextContext, restDay: boolean): NextItem[] {
@@ -111,15 +110,6 @@ function stairOf(q: ExamQuestion, exam: CheckedExam): SkillId | null {
   return level ? skillId(topic, level) : null;
 }
 
-/** Recovered since the exam: a mastery or review check passed after it, or three independent right answers after it. */
-function recovered(rec: SkillRecord | undefined, at: string): boolean {
-  if (!rec) return false;
-  const t = Date.parse(at);
-  if (rec.mastered && after(rec.mastered.at, t)) return true;
-  if (rec.mastered?.lastReview?.ok && after(rec.mastered.lastReview.at, t)) return true;
-  return rec.attempts.filter((a) => a.ok && a.independent && after(a.at, t)).length >= RECOVER_RIGHT;
-}
-
 /**
  * Stairs that lost points in a checked exam of the last 45 days and are not recovered, newest exam first. A newer exam
  * that got a stair right settles the older losses on it.
@@ -141,7 +131,7 @@ export function examLosses(ctx: NextContext): { skill: SkillId; exam: CheckedExa
     });
     ALL_SKILLS.filter((id) => asked.has(id) && !seen.has(id)).forEach((id) => {
       seen.add(id);
-      if (lost.has(id) && !recovered(ctx.learn.skills[id], ex.at)) out.push({ skill: id, exam: ex });
+      if (lost.has(id) && !recoveredSince(ctx.learn.skills[id], ex.at)) out.push({ skill: id, exam: ex });
     });
   });
   return out;
@@ -161,6 +151,12 @@ export function strongToday(ctx: Pick<NextContext, 'learn' | 'grade'>): boolean 
 
 /** Why a challenge: the stair is named as the app names stairs ("במדרגה "…""), so every title reads well after ב. */
 export const challengeReason = (after: SkillId) => `עברתם את בדיקת השליטה במדרגה "${titleOf(after)}". רוצים משהו קשה יותר?`;
+
+/**
+ * "The stair X leans on Y." A stair's title can be any noun phrase, feminine or plural (מציאת השלם, חלוקה ביחס,
+ * שברים ועשרוניים מכוונים), so the sentence is built on the noun "המדרגה" and the title is quoted, as challengeReason does.
+ */
+export const leansOn = (id: SkillId, what: string) => `המדרגה "${titleOf(id)}" נשענת על ${what}.`;
 
 /** Is a stair taught by now in the student's grade (the Ministry's school calendar)? */
 const taughtByNow = (ctx: NextContext, id: SkillId) => { const m = monthIndex(id, ctx.grade); return m != null && m <= ctx.month; };
@@ -229,10 +225,10 @@ export function planNext(ctx: NextContext): NextPlan {
     const p = smallestMissing(ctx, id, st);
     if (p) {
       const sg = stairStage(p, ctx.learn.skills[p]);
-      learnAdd(BAND.prereq, { kind: 'prereq', skill: p, stage: sg, title: `קודם, ${titleOf(p)}: ${STAGE_NAME[sg]}`, reason: `${titleOf(id)} נשען על ${titleOf(p)}. שלב ${STAGE_N[sg]} מתוך 5 שם יעזור לחזור לזה.`, minutes: STAGE_MIN[sg], to: routeOf.stage(p, sg) });
+      learnAdd(BAND.prereq, { kind: 'prereq', skill: p, stage: sg, title: `קודם, ${titleOf(p)}: ${STAGE_NAME[sg]}`, reason: leansOn(id, `"${titleOf(p)}"`) + ` שלב ${STAGE_N[sg]} מתוך 5 שם יעזור לחזור לזה.`, minutes: STAGE_MIN[sg], to: routeOf.stage(p, sg) });
     } else if (!floorOffered && (ctx.learn.floor ?? null) === null && ancestorsOf(id).some(isBridgeSkill)) {
       floorOffered = true;
-      add(BAND.floor, 'engine', { kind: 'floor', skill: id, title: 'בדיקה קצרה של יסודות', reason: `${titleOf(id)} נשען על שברים. שש שאלות יראו אם כדאי לחזק אותם קודם.`, minutes: MINUTES.floor, to: '/floor' });
+      add(BAND.floor, 'engine', { kind: 'floor', skill: id, title: 'בדיקה קצרה של יסודות', reason: leansOn(id, 'יסודות השברים') + ' שש שאלות יראו אם כדאי לחזק אותם קודם.', minutes: MINUTES.floor, to: '/floor' });
     }
   });
 

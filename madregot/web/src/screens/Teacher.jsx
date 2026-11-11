@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target, Settings as SettingsIcon, BookOpen, Sparkles, Printer, FileDown, LifeBuoy } from 'lucide-react';
+import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target, Settings as SettingsIcon, BookOpen, Sparkles, Printer, FileDown, LifeBuoy, ListChecks } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api } from '@/lib/api.js';
 import { teacherApi, useEmailSignIn, offerBind } from '@/lib/teacher.js';
@@ -194,7 +194,8 @@ export default function Teacher() {
             </div>
 
             {/* the class's tools (TEACHER-2 §7): chips in one row that scrolls sideways on a narrow screen and never
-                wraps; the last is the pilot kit and its guides (TEACHER-10) */}
+                wraps; before the last, what the app teaches against the Ministry's programme, on the class's grade
+                (CURRICULUM-1.6); the last is the pilot kit and its guides (TEACHER-10) */}
             <nav className="t-tools" aria-label="כלים">
               <ul>
                 <li><Link className="t-tool" to="/teacher/lessons"><BookOpen size={18} aria-hidden="true" />השיעורים</Link></li>
@@ -202,6 +203,7 @@ export default function Teacher() {
                 <li><Link className="t-tool" to="/teacher/assistant"><Sparkles size={18} aria-hidden="true" />העוזר החכם</Link></li>
                 <li><Link className="t-tool" to="/teacher/report"><FileDown size={18} aria-hidden="true" />דוח וייצוא</Link></li>
                 <li><Link className="t-tool" to="/teacher/settings"><SettingsIcon size={18} aria-hidden="true" />הגדרות הכיתה</Link></li>
+                <li><Link className="t-tool" to={`/programme?grade=${cls.grade === '8' ? '8' : '7'}`}><ListChecks size={18} aria-hidden="true" />מה לומדים במדרגות, לפי תוכנית משרד החינוך</Link></li>
                 <li><Link className="t-tool" to="/teacher/guide"><LifeBuoy size={18} aria-hidden="true" />מדריך למורה</Link></li>
               </ul>
             </nav>

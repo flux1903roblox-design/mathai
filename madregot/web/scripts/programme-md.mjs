@@ -1,6 +1,7 @@
 // The documents that state what Madregot teaches, generated from the code (CURRICULUM-1 item 7):
 //   madregot/PROGRAMME.md      both grades, unit by unit, against the Ministry's programme (hours, months, stairs, gaps)
-//   madregot/store/counts.json the topic and stair counts that public text quotes (store/frames.cjs reads it)
+//   madregot/store/counts.json the topic and stair counts that public text quotes (store/frames.cjs reads it), and each
+//                              grade's coverage sentence, for the store listing to quote
 // Nothing in them is typed by hand. Any change to the stairs (web/src/learn/skills.ts, a topic's titles) or to the
 // programme (shared/programme.js) runs this again in the same commit; claims.test.ts fails while the files are stale.
 //
@@ -74,7 +75,9 @@ export function render() {
     '',
     ...GRADES.map(gradeSection),
   ].join('\n');
-  return { 'PROGRAMME.md': md, 'store/counts.json': `${JSON.stringify(counts, null, 2)}\n` };
+  // the store listing (STUDENT-12) quotes these sentences, as the /programme page shows them, instead of typing a share
+  const store = { ...counts, coverage: Object.fromEntries(GRADES.map((g) => [g, coverageSentence(g, cov[g])])) };
+  return { 'PROGRAMME.md': md, 'store/counts.json': `${JSON.stringify(store, null, 2)}\n` };
 }
 
 const write = process.argv.includes('--write');
