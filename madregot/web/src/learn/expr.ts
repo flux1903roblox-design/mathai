@@ -220,10 +220,11 @@ export type Rel = '=' | '<' | '>' | '<=' | '>=';
 
 /**
  * An equation or inequality in TeX, split into its two sides as expressions: '3x + 5 = x + 11' gives
- * { left: '3*x+5', rel: '=', right: 'x+11' }. Exactly one relation is allowed.
+ * { left: '3*x+5', rel: '=', right: 'x+11' }. Exactly one relation is allowed. The class's mark of the operation
+ * done next, '3x + 9 = 4x \qquad /{-3x}' (content/util.js opMark), is not part of the equation and is left out.
  */
 export function texRelation(tex: string): { left: string; rel: Rel; right: string } {
-  const s = tex.replace(/\\(?:le|leq|ge|geq)\b/g, (m) => (m.startsWith('\\l') ? '≤' : '≥'));
+  const s = tex.replace(/\s*\\qquad\s*\/.*$/, '').replace(/\\(?:le|leq|ge|geq)\b/g, (m) => (m.startsWith('\\l') ? '≤' : '≥'));
   const found = [...s].map((ch, i) => ({ ch, i })).filter(({ ch }) => '=<>≤≥'.includes(ch));
   if (found.length !== 1) throw new Error(`texRelation: one relation expected in ${tex}`);
   const { ch, i } = found[0];

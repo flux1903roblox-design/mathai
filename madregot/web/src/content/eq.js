@@ -4,7 +4,10 @@
 // loses one item at a time, so keeping it level is the student's own decision (content/manip.js).
 // Taught from March, so the first-day placement test skips it (placement: false); grade 8 tests revise equations, so
 // Exam Rescue offers it to grade 8 too (alsoFor).
-import { R, NZ, pick, shuffle, T, near } from './util.js';
+// Every solution is written as the class writes it on the board (CLASSROOM-7): the operation done to both sides goes
+// after a slash at the end of the line it acts on ("3x + 9 = 4x /−3x", util.js opMark), the words of each line say
+// how it was reached, and a "9 = x" is turned round to "x = 9 (הפכנו צדדים)". learn/eqLines.test.ts reads them all.
+import { R, NZ, pick, shuffle, T, near, opMark, minusOp, undoOp, divOp, mulOp, flipLine } from './util.js';
 import { linTex, sumTex, bracketTex } from './expr.js';
 import { slipOf, matchesValue, roundings } from '@/learn/misconceptions.ts';
 import { holds } from '@/learn/expr.ts';
@@ -34,6 +37,13 @@ export function diagOf(ans, bugs) {
 }
 /** "Remove b from both sides", in words: b is the number added to the x-term. */
 const undo = (b) => (b > 0 ? `מחסירים $${b}$ משני האגפים` : `מוסיפים $${-b}$ לשני האגפים`);
+/** "Take the term t (3x, −2x) away from both sides", in words. */
+export const takeAway = (t) => (t.startsWith('-') ? `מוסיפים $${t.slice(1)}$ לשני האגפים` : `מחסירים $${t}$ משני האגפים`);
+/**
+ * One board line: the words that say how it was reached (none on the problem's own line), the equation, and the
+ * operation done next, written after a slash at its end.
+ */
+export const line = (say, eq, op) => `${say ? `${say}: ` : ''}$${op ? opMark(eq, op) : eq}$`;
 /** a·v + b with v substituted, as TeX in the order a student writes it: 3 \cdot (-2) + 5, -x as -(-2). */
 function at(a, b, v) {
   const prod = a === 1 ? T(v) : a === -1 ? `-${T(v, true)}` : `${T(a)} \\cdot ${T(v, true)}`;
@@ -69,10 +79,17 @@ function oneStepItem() {
   const mirror = Math.random() < 0.15 && k !== 3;
   const left = k === 0 ? (Math.random() < 0.25 ? `${a} + x` : `x + ${a}`) : k === 1 ? `x - ${a}` : k === 2 ? linTex(a, 0) : (Math.random() < 0.5 ? `x : ${a}` : `\\frac{x}{${a}}`);
   const display = mirror ? `${T(b)} = ${left}` : `${left} = ${T(b)}`;
-  const solution = k === 0 ? [`מחסירים $${a}$ משני האגפים: $x = ${T(b)} - ${a}$`, `$x = ${T(x)}$`, `בדיקה: $${T(x)} + ${a} = ${T(b)}$`]
-    : k === 1 ? [`מוסיפים $${a}$ לשני האגפים: $x = ${T(b)} + ${a}$`, `$x = ${T(x)}$`, `בדיקה: $${T(x)} - ${a} = ${T(b)}$`]
-      : k === 2 ? [`מחלקים את שני האגפים ב־$${T(a)}$: $x = ${T(b)} : ${T(a, true)}$`, `$x = ${T(x)}$`, `בדיקה: $${at(a, 0, x)} = ${T(b)}$`]
-        : [`חילוק מבטלים בכפל: כופלים את שני האגפים ב־$${a}$. $x = ${T(b, true)} \\cdot ${a}$`, `$x = ${T(x)}$`, `בדיקה: $${T(x)} : ${a} = ${T(b)}$`];
+  // the problem's line with the operation after a slash, then what it gives (the other side not yet worked out), then x
+  const op = [`-${a}`, `+${a}`, divOp(a), mulOp(a)][k];
+  const say = [`מחסירים $${a}$ משני האגפים`, `מוסיפים $${a}$ לשני האגפים`, `מחלקים את שני האגפים ב־$${T(a)}$`, `חילוק מבטלים בכפל: כופלים את שני האגפים ב־$${a}$`][k];
+  const other = [`${T(b)} - ${a}`, `${T(b)} + ${a}`, `${T(b)} : ${T(a, true)}`, `${T(b, true)} \\cdot ${a}`][k];
+  const check = [`${T(x)} + ${a}`, `${T(x)} - ${a}`, at(a, 0, x), `${T(x)} : ${a}`][k];
+  const solution = [
+    line('', display, op),
+    line(say, mirror ? `${other} = x` : `x = ${other}`),
+    ...(mirror ? [line('', `${T(x)} = x`), flipLine(T(x))] : [line('', `x = ${T(x)}`)]),
+    `בדיקה: $${check} = ${T(b)}$`,
+  ];
   const hint = k === 0 ? `מה מבטל את ה"ועוד $${a}$"? עושים את זה לשני האגפים.`
     : k === 1 ? `חיסור של $${a}$ מבטלים בחיבור של $${a}$, בשני האגפים.`
       : k === 2 ? `$${linTex(a, 0)}$ הוא $${T(a)}$ כפול $x$. כפל מבטלים בחילוק, במקדם עם הסימן שלו.`
@@ -195,11 +212,16 @@ const twoStepBugs = ({ k, a, b, c, x }) => ({
   'sub-coef': abs(a) !== 1 ? c - b - a : null,
 });
 const twoShow = ({ k, a, b, c }) => (k === 0 ? `${linTex(a, b)} = ${T(c)}` : k === 1 ? `${T(c)} = ${linTex(a, b)}` : `${sumTex([[b, ''], [a, 'x']])} = ${T(c)}`);
-function twoStepSolution({ k, a, b, c, x }) {
+export function twoStepSolution(p) {
+  const { k, a, b, c, x } = p;
   const ax = linTex(a, 0);
+  // c = ax + b keeps x on the right to the end, and is turned round there
+  const side = (l, r) => (k === 1 ? `${r} = ${l}` : `${l} = ${r}`);
   return [
-    `${undo(b)}: $${k === 1 ? `${T(c - b)} = ${ax}` : `${ax} = ${T(c - b)}`}$`,
-    a === 1 ? `$x = ${T(x)}$` : `מחלקים את שני האגפים ב־$${T(a)}$: $x = ${T(x)}$`,
+    line('', twoShow(p), undoOp(b)),
+    line(undo(b), side(ax, T(c - b)), a === 1 ? null : divOp(a)),
+    ...(a === 1 ? [] : [line(`מחלקים את שני האגפים ב־$${T(a)}$`, side('x', T(x)))]),
+    ...(k === 1 ? [flipLine(T(x))] : []),
     `בדיקה: $${k === 2 ? atRev(a, b, x) : at(a, b, x)} = ${T(c)}$`,
   ];
 }
@@ -221,7 +243,7 @@ function fracItem() {
     return {
       key: `eq2f:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
       hint: `קודם מורידים את $${T(b)}$ משני האגפים. אחר כך: $x$ מחולק ב־$${a}$, וחילוק מבטלים בכפל.`,
-      solution: [`${undo(b)}: $\\frac{x}{${a}} = ${T(m)}$`, `כופלים את שני האגפים ב־$${a}$: $x = ${T(x)}$`, `בדיקה: $${T(x)} : ${a} ${b < 0 ? '-' : '+'} ${abs(b)} = ${T(c)}$`],
+      solution: [line('', display, undoOp(b)), line(undo(b), `\\frac{x}{${a}} = ${T(m)}`, mulOp(a)), line(`כופלים את שני האגפים ב־$${a}$`, `x = ${T(x)}`), `בדיקה: $${T(x)} : ${a} ${b < 0 ? '-' : '+'} ${abs(b)} = ${T(c)}$`],
       // the number moved without changing sign, or the division moved over as a division
       diag: (u) => diagOf(x, { 'move-no-flip': a * (c + b) })(u) || diagOf(x, { 'move-no-flip': (c - b) / a })(u),
     };
@@ -231,7 +253,7 @@ function fracItem() {
   return {
     key: `eq2f:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
     hint: `כל האגף השמאלי, $${linTex(1, b)}$, מחולק ב־$${a}$. קודם כופלים את שני האגפים ב־$${a}$.`,
-    solution: [`כופלים את שני האגפים ב־$${a}$: $${linTex(1, b)} = ${T(a * c)}$`, `${undo(b)}: $x = ${T(x)}$`, `בדיקה: $\\frac{${T(x)} ${b < 0 ? '-' : '+'} ${abs(b)}}{${a}} = \\frac{${x + b}}{${a}} = ${T(c)}$`],
+    solution: [line('', display, mulOp(a)), line(`כופלים את שני האגפים ב־$${a}$`, `${linTex(1, b)} = ${T(a * c)}`, undoOp(b)), line(undo(b), `x = ${T(x)}`), `בדיקה: $\\frac{${T(x)} ${b < 0 ? '-' : '+'} ${abs(b)}}{${a}} = \\frac{${x + b}}{${a}} = ${T(c)}$`],
     // only x divided, as if it were \frac{x}{a} + b (divide-part); the division moved over as a division (move-no-flip)
     diag: diagOf(x, { 'divide-part': a * (c - b), 'move-no-flip': c / a - b }),
   };
@@ -245,7 +267,7 @@ function collectFirst() {
     return {
       key: `eq2c:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
       hint: 'קודם מכנסים איברים דומים באגף שמאל: $x$־ים עם $x$־ים.',
-      solution: [`מכנסים: $x + ${k}x + x = ${A}x$, ולכן $${A}x + ${m} = ${total}$`, `מחסירים $${m}$: $${A}x = ${total - m}$`, `מחלקים ב־$${A}$: $x = ${x}$`, `בדיקה: $${x} + ${k * x} + ${x + m} = ${total}$`],
+      solution: [`מכנסים: $x + ${k}x + x = ${A}x$, ולכן $${opMark(`${A}x + ${m} = ${total}`, `-${m}`)}$`, line(`מחסירים $${m}$ משני האגפים`, `${A}x = ${total - m}`, divOp(A)), line(`מחלקים ב־$${A}$`, `x = ${x}`), `בדיקה: $${x} + ${k * x} + ${x + m} = ${total}$`],
       diag: diagOf(x, { 'move-no-flip': (total + m) / A, 'divide-part': Number.isInteger(total / A) ? total / A - m : null }),
     };
   }
@@ -255,7 +277,7 @@ function collectFirst() {
   return {
     key: `eq2c:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: x,
     hint: 'קודם מכנסים איברים דומים באגף שמאל, ואז זו משוואה בשני צעדים.',
-    solution: [`מכנסים: $${linTex(A, b)} = ${T(c)}$`, `${undo(b)}: $${A}x = ${T(c - b)}$`, `מחלקים ב־$${A}$: $x = ${T(x)}$`, `בדיקה: $${sumTex(terms.map(([n, v]) => [v ? n * x : n, '']))} = ${T(c)}$`],
+    solution: [line('מכנסים', `${linTex(A, b)} = ${T(c)}`, undoOp(b)), line(undo(b), `${A}x = ${T(c - b)}`, divOp(A)), line(`מחלקים ב־$${A}$`, `x = ${T(x)}`), `בדיקה: $${sumTex(terms.map(([n, v]) => [v ? n * x : n, '']))} = ${T(c)}$`],
     diag: diagOf(x, { 'move-no-flip': (c + b) / A, 'divide-part': Number.isInteger(c / A) ? c / A - b : null }),
   };
 }
@@ -271,7 +293,7 @@ function rentItem() {
   return {
     key: `eq2s:${RENTALS.indexOf(C)}:${f}:${r}:${P}`, text: C.story(f, r, P), form: 'num', answer: h, unit: C.unit,
     hint: `נסמנו ב־$x$ את ${C.x}. המחיר הוא $${r}x + ${f}$, והוא שווה ל־$${P}$.`,
-    solution: [`נסמן ב־$x$ את ${C.x}: $${r}x + ${f} = ${P}$`, `מחסירים $${f}$ משני האגפים: $${r}x = ${P - f}$`, `מחלקים ב־$${r}$: $x = ${h}$`, `בדיקה: $${r} \\cdot ${h} + ${f} = ${P}$`],
+    solution: [line(`נסמן ב־$x$ את ${C.x}`, `${r}x + ${f} = ${P}`, `-${f}`), line(`מחסירים $${f}$ משני האגפים`, `${r}x = ${P - f}`, divOp(r)), line(`מחלקים ב־$${r}$`, `x = ${h}`), `בדיקה: $${r} \\cdot ${h} + ${f} = ${P}$`],
     diag: diagOf(h, { 'move-no-flip': (P + f) / r }),
   };
 }
@@ -284,7 +306,7 @@ function balance2() {
   let start = { lx: a, l1: b, rx: 0, r1: c };
   if (Math.random() < 0.3) start = mirrorPans(start);
   return balanceItem(start, x, `eq2b:${start.lx}:${start.l1}:${start.rx}:${start.r1}`,
-    [`מורידים $${b}$ ${b === 1 ? 'משקולת' : 'משקולות'} מכל כף: $${a}x = ${a * x}$`, `מחלקים כל כף ל־$${a}$ קבוצות שוות: $x = ${x}$`, `בדיקה: $${a} \\cdot ${x} + ${b} = ${c}$`]);
+    [line(`מורידים $${b}$ ${b === 1 ? 'משקולת' : 'משקולות'} מכל כף`, `${a}x = ${a * x}`, divOp(a)), line(`מחלקים כל כף ל־$${a}$ קבוצות שוות`, `x = ${x}`), `בדיקה: $${a} \\cdot ${x} + ${b} = ${c}$`]);
 }
 
 // ---------------------------------------------------------------- 3. the unknown on both sides (נעלם בשני האגפים)
@@ -303,26 +325,37 @@ function bothParams() {
   }
 }
 const bothBugs = ({ a, b, c, d }) => ({ 'move-no-flip': (d + b) / (a - c), 'move-x-no-flip': (d - b) / (a + c) });
-/** The worked solution of ax + b = cx + d: the x-terms go where there are more of them, so the coefficient stays positive. */
-function bothSolution({ a, b, c, d, x }) {
+/**
+ * The worked solution of ax + b = cx + d: the x-terms go where there are more of them, so the coefficient stays
+ * positive. `op` is the first operation, for the caller to write after a slash on the line before; `lines` start with
+ * what it gives. A number that is 0 is not taken away (no "מוסיפים 0" step), and "9 = x" is turned round.
+ */
+export function bothSolution({ a, b, c, d, x }) {
   const lines = [];
+  const k = abs(a - c); const divide = k !== 1 ? divOp(k) : null;
+  const term = linTex(a > c ? c : a, 0);
   if (a > c) {
-    const take = c > 0 ? `מחסירים $${linTex(c, 0)}$ משני האגפים` : `מוסיפים $${linTex(-c, 0)}$ לשני האגפים`;
-    lines.push(`${take}: $${linTex(a - c, b)} = ${T(d)}$`, `${undo(b)}: $${linTex(a - c, 0)} = ${T(d - b)}$`);
+    // the x-terms stay on the left: ax + b − cx = d
+    lines.push(line(takeAway(term), `${linTex(k, b)} = ${T(d)}`, b ? undoOp(b) : divide));
+    if (b) lines.push(line(undo(b), `${linTex(k, 0)} = ${T(d - b)}`, divide));
+    if (divide) lines.push(line(`מחלקים את שני האגפים ב־$${k}$`, `x = ${T(x)}`));
   } else {
-    const take = a > 0 ? `מחסירים $${linTex(a, 0)}$ משני האגפים` : `מוסיפים $${linTex(-a, 0)}$ לשני האגפים`;
-    lines.push(`${take}: $${T(b)} = ${linTex(c - a, d)}$`, `${undo(d)}: $${T(b - d)} = ${linTex(c - a, 0)}$`);
+    // they stay on the right, and the line ends "number = x"
+    lines.push(line(takeAway(term), `${T(b)} = ${linTex(k, d)}`, d ? undoOp(d) : divide));
+    if (d) lines.push(line(undo(d), `${T(b - d)} = ${linTex(k, 0)}`, divide));
+    if (divide) lines.push(line(`מחלקים את שני האגפים ב־$${k}$`, `${T(x)} = x`));
+    lines.push(flipLine(T(x)));
   }
-  if (abs(a - c) !== 1) lines.push(`מחלקים את שני האגפים ב־$${abs(a - c)}$: $x = ${T(x)}$`); else lines.push(`$x = ${T(x)}$`);
-  lines.push(`בדיקה: באגף שמאל $${at(a, b, x)} = ${a * x + b}$, ובאגף ימין $${at(c, d, x)} = ${c * x + d}$.`);
-  return lines;
+  return { op: minusOp(term), lines };
 }
 function bothItem() {
   const p = bothParams(); const display = `${linTex(p.a, p.b)} = ${linTex(p.c, p.d)}`;
+  const s = bothSolution(p);
   return {
     key: `eq3:${display}`, text: 'פתרו את המשוואה.', display, form: 'num', answer: p.x,
     hint: 'מורידים משני האגפים אותו מספר של $x$־ים, כך שיישאר $x$ רק באגף אחד. אחר כך פותרים כמו קודם.',
-    solution: bothSolution(p), diag: diagOf(p.x, bothBugs(p)),
+    solution: [line('', display, s.op), ...s.lines, `בדיקה: באגף שמאל $${at(p.a, p.b, p.x)} = ${p.a * p.x + p.b}$, ובאגף ימין $${at(p.c, p.d, p.x)} = ${p.c * p.x + p.d}$.`],
+    diag: diagOf(p.x, bothBugs(p)),
   };
 }
 
@@ -336,19 +369,28 @@ function howManyItem(level) {
     if (level === 4) {
       const m = R(2, 5); const e = NZ(-6, 6); // m(x + e) = mx + me
       left = bracketTex(m, 1, e); leftWords = `פותחים סוגריים: $${linTex(m, m * e)}$`;
-      const L = { k: m, c: m * e };
+      const L = { k: m, c: m * e }; const mx = linTex(L.k, 0);
       if (kind === 'all') { const right = Math.random() < 0.5 ? linTex(L.k, L.c) : sumTex([[L.c, ''], [L.k, 'x']]); if (L.c === 0) continue; return special(`${left} = ${right}`, kind, [leftWords, `שני האגפים זהים: $${linTex(L.k, L.c)} = ${linTex(L.k, L.c)}$. כל מספר שמציבים נותן בשניהם אותו ערך.`]); }
-      if (kind === 'none') { const d = Math.random() < 0.5 && e !== m * e ? e : L.c + NZ(-5, 5); if (d === L.c) continue; return special(`${left} = ${linTex(L.k, d)}`, kind, [leftWords, `מחסירים $${linTex(L.k, 0)}$ משני האגפים: $${T(L.c)} = ${T(d)}$. זה לא נכון לאף $x$, ולכן אין פתרון.`]); }
+      if (kind === 'none') {
+        const d = Math.random() < 0.5 && e !== m * e ? e : L.c + NZ(-5, 5); if (d === L.c) continue;
+        return special(`${left} = ${linTex(L.k, d)}`, kind, [line('פותחים סוגריים', `${linTex(m, m * e)} = ${linTex(L.k, d)}`, minusOp(mx)), `${takeAway(mx)}: $${T(L.c)} = ${T(d)}$. זה לא נכון לאף $x$, ולכן אין פתרון.`]);
+      }
       const x = NZ(-6, 6); const r = m * (x + e);
-      return special(`${left} = ${T(r)}`, kind, [leftWords, `$${linTex(m, 0)} = ${T(r - m * e)}$, ולכן $x = ${T(x)}$. יש פתרון אחד.`]);
+      return special(`${left} = ${T(r)}`, kind, [line('פותחים סוגריים', `${linTex(m, m * e)} = ${T(r)}`, undoOp(m * e)), line(undo(m * e), `${mx} = ${T(r - m * e)}`, divOp(m)), `מחלקים ב־$${m}$: $x = ${T(x)}$. יש פתרון אחד.`]);
     }
     // level 3: Ax + b, sometimes written as px + b − qx
     if (Math.random() < 0.5) { const q = R(1, 4); left = sumTex([[A + q, 'x'], [b, ''], [-q, 'x']]); leftWords = `מכנסים באגף שמאל: $${linTex(A, b)}$`; } else { left = linTex(A, b); leftWords = null; }
     if (kind === 'all') return special(`${left} = ${sumTex([[b, ''], [A, 'x']])}`, kind, [leftWords, `שני האגפים זהים: $${linTex(A, b)}$. כל מספר שמציבים נותן בשניהם אותו ערך.`]);
-    if (kind === 'none') { const d = b + NZ(-6, 6); if (d === 0) continue; return special(`${left} = ${linTex(A, d)}`, kind, [leftWords, `מחסירים $${linTex(A, 0)}$ משני האגפים: $${T(b)} = ${T(d)}$. זה לא נכון לאף $x$, ולכן אין פתרון.`]); }
+    if (kind === 'none') {
+      const d = b + NZ(-6, 6); if (d === 0) continue;
+      const Ax = linTex(A, 0); const display = `${left} = ${linTex(A, d)}`;
+      return special(display, kind, [line(leftWords ? 'מכנסים באגף שמאל' : '', leftWords ? `${linTex(A, b)} = ${linTex(A, d)}` : display, minusOp(Ax)), `${takeAway(Ax)}: $${T(b)} = ${T(d)}$. זה לא נכון לאף $x$, ולכן אין פתרון.`]);
+    }
     const C = A + NZ(-3, 3); if (C === A || C <= 0) continue;
-    const x = NZ(-6, 6); const d = (A - C) * x + b;
-    return special(`${left} = ${linTex(C, d)}`, kind, [leftWords, `מורידים $x$־ים משני האגפים ופותרים: $x = ${T(x)}$. יש פתרון אחד.`, `בדיקה: כש־$x = ${T(x)}$ שני האגפים $${A * x + b}$.`]);
+    const x = NZ(-6, 6); const d = (A - C) * x + b; const display = `${left} = ${linTex(C, d)}`;
+    // solved line by line as in bothItem: one solution, the number found
+    const s = bothSolution({ a: A, b, c: C, d, x });
+    return special(display, kind, [line(leftWords ? 'מכנסים באגף שמאל' : '', leftWords ? `${linTex(A, b)} = ${linTex(C, d)}` : display, s.op), ...s.lines, `יש פתרון אחד. בדיקה: כש־$x = ${T(x)}$ שני האגפים $${A * x + b}$.`]);
   }
 }
 function special(display, kind, solution) {
@@ -366,10 +408,12 @@ function balance3() {
     if (d > 12 || (b === 0 && c === 1 && Math.random() < 0.5)) continue;
     let start = { lx: a, l1: b, rx: c, r1: d };
     if (Math.random() < 0.3) start = mirrorPans(start);
+    // with no loose weights beside the boxes (b = 0) there is nothing to take away, and no zero step
+    const divide = a - c > 1 ? divOp(a - c) : null;
     return balanceItem(start, x, `eq3b:${start.lx}:${start.l1}:${start.rx}:${start.r1}`, [
-      `${c === 1 ? 'מורידים קופסה אחת' : `מורידים $${c}$ קופסאות`} מכל כף: $${linTex(a - c, b)} = ${d}$`,
-      ...(b ? [`מורידים $${b}$ ${b === 1 ? 'משקולת' : 'משקולות'} מכל כף: $${linTex(a - c, 0)} = ${d - b}$`] : []),
-      a - c > 1 ? `מחלקים כל כף ל־$${a - c}$ קבוצות שוות: $x = ${x}$` : `$x = ${x}$`,
+      line(`${c === 1 ? 'מורידים קופסה אחת' : `מורידים $${c}$ קופסאות`} מכל כף`, `${linTex(a - c, b)} = ${d}`, b ? `-${b}` : divide),
+      ...(b ? [line(`מורידים $${b}$ ${b === 1 ? 'משקולת' : 'משקולות'} מכל כף`, `${linTex(a - c, 0)} = ${d - b}`, divide)] : []),
+      ...(divide ? [line(`מחלקים כל כף ל־$${a - c}$ קבוצות שוות`, `x = ${x}`)] : []),
       `בדיקה: $${a} \\cdot ${x} + ${b} = ${a * x + b}$, וגם $${at(c, d, x)} = ${c * x + d}$`,
     ]);
   }
@@ -379,8 +423,26 @@ function balance3() {
 // Documented errors (as in expressions, now inside an equation): only the first term multiplied (partial-dist), and a
 // minus before brackets that changes only the first sign (minus-bracket).
 
+/**
+ * The class's 3(x + 3) = 4x: a(x + b) = cx with nothing added on the right (d = 0, CLASSROOM-7). a and b first, then
+ * c = a + m with m dividing a·b (m from −6 to 6, c at least 1), so ab = mx and x = ab/m: 4(x + 2) = 5x gives 8,
+ * 6(x + 3) = 7x gives 18. Redrawn when the answer is printed in the equation (5(x − 2) = 3x gives 5), or when opening
+ * only the first term (partial-dist, x = b/m) gives the answer or a slip of the hand. Its most common answer is 6.2% of
+ * the shape (learn/guessing.test.ts).
+ */
+export function bracketZero() {
+  for (;;) {
+    const a = R(2, 6); const b = NZ(-9, 9); const m = NZ(-6, 6); const c = a + m;
+    if (c < 1 || (a * b) % m) continue;
+    const x = (a * b) / m; const partial = b / m;
+    if (x === 0 || abs(x) > 40 || [a, b, -b, c].includes(x) || near(partial, x) || slipOf(partial, x)) continue;
+    return { k: 1, a, p: 1, b, c, x, d: 0 };
+  }
+}
 function bracketParams() {
   const r = Math.random(); const k = r < 0.3 ? 0 : r < 0.65 ? 1 : r < 0.88 ? 2 : 3;
+  // a fifth of the a(x + b) = cx + d items are the class's shape with d = 0
+  if (k === 1 && Math.random() < 0.2) return bracketZero();
   const x = NZ(-10, 10); const b = NZ(-9, 9);
   if (k === 2) { const c = R(2, 7); return { k, a: 1, p: 1, b, c, x, d: (c - 1) * x - b }; }
   const p = k === 3 ? R(2, 3) : 1; const a = (k === 3 ? R(2, 4) : R(2, 6)) * (Math.random() < 0.4 ? -1 : 1);
@@ -398,15 +460,22 @@ function bracketShow({ k, a, p, b, c, d }) {
   if (k === 2) return `${linTex(c, 0)} - (${linTex(1, b)}) = ${T(d)}`;
   return `${bracketTex(a, p, b)} = ${k === 0 ? T(d) : linTex(c, d)}`;
 }
+/** The class's two named steps of an equation with brackets (CLASSROOM-7). */
+export const STEP1 = 'שלב 1: חוק הפילוג (פותחים סוגריים)';
+export const STEP2 = 'שלב 2: פותרים כרגיל.';
 function bracketSolution({ k, a, p, b, c, d, x }) {
-  // open, then it is ax + b = cx + d
+  // step 1 opens the brackets; step 2 solves ax + b = cx + d as before
   const A = k === 2 ? c - 1 : a * p; const B = k === 2 ? -b : a * b; const C = k === 2 ? 0 : c;
-  const open = k === 2 ? `פותחים סוגריים, והמינוס הופך את שני הסימנים: $${linTex(c, 0)} - x ${b < 0 ? '+' : '-'} ${abs(b)} = ${T(d)}$`
-    : `פותחים סוגריים: $${linTex(a * p, a * b)} = ${k === 0 ? T(d) : linTex(c, d)}$`;
-  const lines = [open];
-  if (k === 2) lines.push(`מכנסים: $${linTex(A, B)} = ${T(d)}$`);
-  if (C !== 0) lines.push(...bothSolution({ a: A, b: B, c: C, d, x }).slice(0, -1));
-  else lines.push(`${undo(B)}: $${linTex(A, 0)} = ${T(d - B)}$`, A === 1 ? `$x = ${T(x)}$` : `מחלקים ב־$${T(A)}$: $x = ${T(x)}$`);
+  const opened = k === 2 ? `${linTex(c, 0)} - x ${b < 0 ? '+' : '-'} ${abs(b)} = ${T(d)}` : `${linTex(a * p, a * b)} = ${k === 0 ? T(d) : linTex(c, d)}`;
+  let op; let rest;
+  if (C !== 0) ({ op, lines: rest } = bothSolution({ a: A, b: B, c: C, d, x }));
+  else {
+    op = undoOp(B);
+    rest = [line(undo(B), `${linTex(A, 0)} = ${T(d - B)}`, A === 1 ? null : divOp(A)), ...(A === 1 ? [] : [line(`מחלקים ב־$${T(A)}$`, `x = ${T(x)}`)])];
+  }
+  const lines = k === 2
+    ? [line(`${STEP1}, והמינוס הופך את שני הסימנים`, opened), line(`${STEP2} מכנסים`, `${linTex(A, B)} = ${T(d)}`, op), ...rest]
+    : [line(STEP1, opened, op), `${STEP2} ${rest[0]}`, ...rest.slice(1)];
   const orig = k === 2 ? `${at(c, 0, x)} - (${T(x)} ${b < 0 ? '-' : '+'} ${abs(b)})` : `${T(a)}(${at(p, b, x)})`.replace(/^1\(/, '(').replace(/^-1\(/, '-(');
   lines.push(`בדיקה במשוואה המקורית: $${orig} = ${T(k === 2 ? (c - 1) * x - b : a * (p * x + b))}$${k === 0 || k === 2 ? '' : `, וגם $${at(c, d, x)} = ${T(c * x + d)}$`}.`);
   return lines;
@@ -414,16 +483,16 @@ function bracketSolution({ k, a, p, b, c, d, x }) {
 // The curriculum's own equations (algebra_7), each with its bug's answer worked out by hand and checked by script.
 const FIXED = [
   { display: '3(y - 2) + 1 = y + 5', v: 'y', answer: 5, bugs: { 'partial-dist': 3 },
-    solution: ['פותחים סוגריים: $3y - 6 + 1 = y + 5$', 'מכנסים: $3y - 5 = y + 5$', 'מחסירים $y$ ומוסיפים $5$: $2y = 10$', '$y = 5$', 'בדיקה: $3(5 - 2) + 1 = 10$, וגם $5 + 5 = 10$.'] },
+    solution: [`${STEP1}: $3y - 6 + 1 = y + 5$`, `${STEP2} מכנסים: $3y - 5 = y + 5 \\qquad /{-y}$`, 'מחסירים $y$ משני האגפים: $2y - 5 = 5 \\qquad /{+5}$', 'מוסיפים $5$ לשני האגפים: $2y = 10 \\qquad /{:}2$', 'מחלקים ב־$2$: $y = 5$', 'בדיקה: $3(5 - 2) + 1 = 10$, וגם $5 + 5 = 10$.'] },
   { display: '6x + 20 = 4(2x + 3)', answer: 4, bugs: { 'partial-dist': 8.5 },
-    solution: ['פותחים סוגריים: $6x + 20 = 8x + 12$', 'מחסירים $6x$ ו־$12$ משני האגפים: $8 = 2x$', '$x = 4$', 'בדיקה: $6 \\cdot 4 + 20 = 44$, וגם $4(2 \\cdot 4 + 3) = 44$.'] },
+    solution: [`${STEP1}: $6x + 20 = 8x + 12 \\qquad /{-6x}$`, `${STEP2} מחסירים $6x$ משני האגפים: $20 = 2x + 12 \\qquad /{-12}$`, 'מחסירים $12$ משני האגפים: $8 = 2x \\qquad /{:}2$', 'מחלקים ב־$2$: $4 = x$', '$x = 4$ (הפכנו צדדים)', 'בדיקה: $6 \\cdot 4 + 20 = 44$, וגם $4(2 \\cdot 4 + 3) = 44$.'] },
   { display: '2(z + 3) - 5 = 5(7 - 2z) + 2', v: 'z', answer: 3, bugs: { 'partial-dist': 9.75 },
-    solution: ['פותחים סוגריים: $2z + 6 - 5 = 35 - 10z + 2$', 'מכנסים: $2z + 1 = 37 - 10z$', 'מוסיפים $10z$ ומחסירים $1$: $12z = 36$', '$z = 3$', 'בדיקה: $2(3 + 3) - 5 = 7$, וגם $5(7 - 6) + 2 = 7$.'] },
+    solution: [`${STEP1}: $2z + 6 - 5 = 35 - 10z + 2$`, `${STEP2} מכנסים: $2z + 1 = 37 - 10z \\qquad /{+10z}$`, 'מוסיפים $10z$ לשני האגפים: $12z + 1 = 37 \\qquad /{-1}$', 'מחסירים $1$ משני האגפים: $12z = 36 \\qquad /{:}12$', 'מחלקים ב־$12$: $z = 3$', 'בדיקה: $2(3 + 3) - 5 = 7$, וגם $5(7 - 6) + 2 = 7$.'] },
   { display: '10x = 3(x + 7)', answer: 3, bugs: { 'partial-dist': 1 },
-    solution: ['פותחים סוגריים: $10x = 3x + 21$', 'מחסירים $3x$: $7x = 21$', '$x = 3$', 'בדיקה: $10 \\cdot 3 = 30$, וגם $3(3 + 7) = 30$.'] },
+    solution: [`${STEP1}: $10x = 3x + 21 \\qquad /{-3x}$`, `${STEP2} מחסירים $3x$ משני האגפים: $7x = 21 \\qquad /{:}7$`, 'מחלקים ב־$7$: $x = 3$', 'בדיקה: $10 \\cdot 3 = 30$, וגם $3(3 + 7) = 30$.'] },
   { display: 'x + \\frac{1}{3}x = 5', answer: 15 / 4, bugs: {},
     hint: 'כדי להיפטר מהשבר, כופלים את שני האגפים ב־$3$, כל איבר.',
-    solution: ['כופלים את שני האגפים ב־$3$, כל איבר: $3x + x = 15$', 'מכנסים: $4x = 15$', '$x = \\frac{15}{4} = 3\\frac{3}{4}$', 'בדיקה: $3\\frac{3}{4} + 1\\frac{1}{4} = 5$'] },
+    solution: ['$x + \\frac{1}{3}x = 5 \\qquad /{\\cdot}3$', 'כופלים את שני האגפים ב־$3$, כל איבר: $3x + x = 15$', 'מכנסים: $4x = 15 \\qquad /{:}4$', 'מחלקים ב־$4$: $x = \\frac{15}{4} = 3\\frac{3}{4}$', 'בדיקה: $3\\frac{3}{4} + 1\\frac{1}{4} = 5$'] },
 ];
 function bracketItem() {
   if (Math.random() < 0.15) {
@@ -434,7 +503,10 @@ function bracketItem() {
       solution: F.solution, diag: diagOf(F.answer, F.bugs),
     };
   }
-  const p = bracketParams();
+  return bracketFrom(bracketParams());
+}
+/** The exercise of a(px + b) = cx + d (or cx − (x + b) = d) with these parameters (bracketParams, bracketZero). */
+export function bracketFrom(p) {
   return {
     key: `eq4:${bracketShow(p)}`, text: 'פתרו את המשוואה.', display: bracketShow(p), form: 'num', answer: p.x,
     hint: p.k === 2 ? 'מינוס לפני סוגריים הופך את הסימן של כל איבר בתוכם.' : 'קודם פותחים סוגריים: המספר שלפני הסוגריים כופל כל איבר בתוכם.',
@@ -449,12 +521,13 @@ function examItem() {
     const x = R(-4, 4); const m = R(1, 9); const e = m - A * x;
     if (e === 0 || abs(e) > 12) continue;
     const display = `x - ${m} + ${n}x = ${k}x - (${linTex(1, e)})`;
+    const kx = linTex(k - 1, 0);
     const lines = [
-      `פותחים את הסוגריים, והמינוס הופך את שני הסימנים: $${k}x - x ${e < 0 ? '+' : '-'} ${abs(e)}$`,
-      `מכנסים בכל אגף: $${linTex(1 + n, -m)} = ${linTex(k - 1, -e)}$`,
-      `מחסירים $${linTex(k - 1, 0)}$ משני האגפים: $${linTex(A, -m)} = ${T(-e)}$`,
-      `מוסיפים $${m}$: $${linTex(A, 0)} = ${T(m - e)}$`,
-      ...(A > 1 ? [`מחלקים ב־$${A}$: $x = ${T(x)}$`] : []),
+      line(`${STEP1}, והמינוס הופך את שני הסימנים`, `x - ${m} + ${n}x = ${k}x - x ${e < 0 ? '+' : '-'} ${abs(e)}`),
+      line(`${STEP2} מכנסים בכל אגף`, `${linTex(1 + n, -m)} = ${linTex(k - 1, -e)}`, minusOp(kx)),
+      line(takeAway(kx), `${linTex(A, -m)} = ${T(-e)}`, `+${m}`),
+      line(`מוסיפים $${m}$ לשני האגפים`, `${linTex(A, 0)} = ${T(m - e)}`, A > 1 ? divOp(A) : null),
+      ...(A > 1 ? [line(`מחלקים ב־$${A}$`, `x = ${T(x)}`)] : []),
       `בדיקה: שני האגפים $${(1 + n) * x - m}$.${x === 0 ? ' הפתרון $0$ הוא פתרון ככל פתרון: הוא מאזן את המשוואה.' : ''}`,
     ];
     return {
@@ -474,6 +547,20 @@ function examItem() {
 const PAIRS_MF = [['דני', 'רינה'], ['עומר', 'מאיה'], ['איתי', 'שירה']];
 const PAIRS_M = [['דן', 'יואב'], ['אורי', 'עידו'], ['אלון', 'רון']];
 const story = (key, text, answer, unit, hint, solution, bugs) => ({ key, text, form: 'num', answer, unit, hint, solution, diag: diagOf(answer, bugs) });
+/** The stamps' equation kx − g = x + g solved line by line, to x (shared with learn/content/eq.ts). */
+export const stampsLines = (k, g, x) => [
+  line('אחרי הנתינה', `${k}x - ${g} = x + ${g}`, '-x'),
+  line('מחסירים $x$ משני האגפים', `${linTex(k - 1, 0)} - ${g} = ${g}`, `+${g}`),
+  line(`מוסיפים $${g}$ לשני האגפים`, `${linTex(k - 1, 0)} = ${2 * g}`, k > 2 ? divOp(k - 1) : null),
+  ...(k > 2 ? [line(`מחלקים ב־$${k - 1}$`, `x = ${x}`)] : []),
+];
+/** The ages' equation x + g − b = k(x − b) solved line by line to x = y, turned round at the end (shared with eq.ts). */
+export const agesLines = (k, g, b, y) => [
+  `המשוואה: $${linTex(1, g - b)} = ${k}(x - ${b})$, ופותחים סוגריים: $${opMark(`${linTex(1, g - b)} = ${linTex(k, -k * b)}`, '-x')}$`,
+  line('מחסירים $x$ משני האגפים', `${T(g - b)} = ${linTex(k - 1, -k * b)}`, `+${k * b}`),
+  line(`מוסיפים $${k * b}$ לשני האגפים`, `${T(g - b + k * b)} = ${linTex(k - 1, 0)}`, k > 2 ? divOp(k - 1) : null),
+  ...(k > 2 ? [line(`מחלקים ב־$${k - 1}$`, `${y} = x`)] : []), flipLine(y),
+];
 
 function stampsStory() {
   const [A, B] = pick(PAIRS_MF); const k = R(2, 4); let g; do { g = R(2, 12); } while ((2 * g) % (k - 1)); const x = (2 * g) / (k - 1);
@@ -481,7 +568,7 @@ function stampsStory() {
   const ask = [`כמה בולים היו ל${B} בהתחלה?`, `כמה בולים היו ל${A} בהתחלה?`, 'כמה בולים היו לשניהם יחד?'][q];
   return story(`eq5s:${k}:${g}:${q}`, `ל${A} יש פי $${k}$ בולים מל${B}. ${A} נתן ל${B} $${g}$ בולים, ועכשיו לשניהם אותו מספר. ${ask}`, ans, 'בולים',
     `נסמנו ב־$x$ את הבולים של ${B} בהתחלה. כמה יש לכל אחד אחרי הנתינה?`,
-    [`נסמן ב־$x$ את הבולים של ${B} בהתחלה. ל${A}: $${k}x$.`, `אחרי הנתינה: $${k}x - ${g} = x + ${g}$`, `$${linTex(k - 1, 0)} = ${2 * g}$, ולכן $x = ${x}$.`,
+    [`נסמן ב־$x$ את הבולים של ${B} בהתחלה. ל${A}: $${k}x$.`, ...stampsLines(k, g, x),
       q === 0 ? `ל${B} היו $${x}$ בולים.` : q === 1 ? `ל${A} היו $${k} \\cdot ${x} = ${k * x}$ בולים.` : `יחד: $${x} + ${k * x} = ${(k + 1) * x}$ בולים.`,
       `בדיקה: ל${A} נשארו $${k * x} - ${g} = ${k * x - g}$, ול${B} יש $${x} + ${g} = ${x + g}$.`],
     { 'wrong-unknown': q ? x : null });
@@ -491,9 +578,9 @@ function agesStory() {
   const q = R(0, 1);
   return story(`eq5a:${k}:${t}:${b}:${q}`, `${A} מבוגר מ${B} ב־$${g}$ שנים. לפני $${b}$ שנים, הגיל של ${A} היה פי $${k}$ מהגיל של ${B}. בן כמה ${q ? A : B} היום?`, q ? y + g : y, 'שנים',
     `נסמנו ב־$x$ את הגיל של ${B} היום. בן כמה היה כל אחד לפני $${b}$ שנים?`,
-    [`נסמן ב־$x$ את הגיל של ${B} היום. ${A}: $x + ${g}$.`, `לפני $${b}$ שנים: ${B} $x - ${b}$, ו${A} $${linTex(1, g - b)}$.`,
-      `המשוואה: $${linTex(1, g - b)} = ${k}(x - ${b})$`, `פותחים סוגריים: $${linTex(1, g - b)} = ${linTex(k, -k * b)}$, ולכן $x = ${y}$.`,
-      q ? `${A} מבוגר ב־$${g}$: $${y} + ${g} = ${y + g}$.` : `${B} בן $${y}$.`,
+    [`נסמן ב־$x$ את הגיל של ${B} היום, ו${A} $x + ${g}$. לפני $${b}$ שנים: ${B} $x - ${b}$, ו${A} $${linTex(1, g - b)}$.`,
+      ...agesLines(k, g, b, y),
+      q ?`${A} מבוגר ב־$${g}$: $${y} + ${g} = ${y + g}$.` : `${B} בן $${y}$.`,
       `בדיקה: לפני $${b}$ שנים ${B} היה בן $${t}$ ו${A} בן $${t + g}$, ו־$${t + g} = ${k} \\cdot ${t}$.`],
     // k(x − b) opened as kx − b gives x = t; and Yoav's age answered when Dan's was asked
     { 'partial-dist': q ? t + g : t, 'wrong-unknown': q ? y : null });
@@ -502,14 +589,14 @@ function parcelsStory() {
   const k = R(2, 4); const x = R(2, 12); const W = (k + 1) * x; const q = R(0, 1);
   return story(`eq5w:${k}:${x}:${q}`, `שתי חבילות שוקלות יחד $${W}$ ק״ג. חבילה אחת כבדה פי $${k}$ מהשנייה. כמה שוקלת החבילה ה${q ? 'כבדה' : 'קלה'}?`, q ? k * x : x, 'ק״ג',
     'נסמנו ב־$x$ את המשקל של החבילה הקלה. כמה שוקלת הכבדה?',
-    [`החבילה הקלה $x$, והכבדה $${k}x$.`, `יחד: $x + ${k}x = ${W}$, כלומר $${k + 1}x = ${W}$, ולכן $x = ${x}$.`, q ? `הכבדה: $${k} \\cdot ${x} = ${k * x}$ ק״ג.` : `הקלה שוקלת $${x}$ ק״ג.`, `בדיקה: $${x} + ${k * x} = ${W}$.`],
+    [`החבילה הקלה $x$, והכבדה $${k}x$.`, line('יחד', `x + ${k}x = ${W}`), line('מכנסים', `${k + 1}x = ${W}`, divOp(k + 1)), line(`מחלקים ב־$${k + 1}$`, `x = ${x}`), q ? `הכבדה: $${k} \\cdot ${x} = ${k * x}$ ק״ג.` : `הקלה שוקלת $${x}$ ק״ג.`, `בדיקה: $${x} + ${k * x} = ${W}$.`],
     { 'wrong-unknown': q ? x : null });
 }
 function anglesStory() {
   let d; do { d = 2 * R(2, 20); } while (d >= 80); const x = (90 - d) / 2; const q = R(0, 1);
   return story(`eq5t:${d}:${q}`, `במשולש ישר־זווית, זווית חדה אחת גדולה מהשנייה ב־$${d}^\\circ$. מה גודל הזווית ה${q ? 'גדולה' : 'קטנה'} מבין השתיים?`, q ? x + d : x, 'מעלות',
     'שתי הזוויות החדות במשולש ישר־זווית משלימות ל־$90^\\circ$. נסמנו את הקטנה ב־$x$.',
-    [`הזווית הקטנה $x$, והגדולה $x + ${d}$.`, `יחד $90^\\circ$: $x + x + ${d} = 90$, כלומר $2x = ${90 - d}$, ולכן $x = ${x}$.`, q ? `הגדולה: $${x} + ${d} = ${x + d}^\\circ$` : `הקטנה: $${x}^\\circ$`, `בדיקה: $${x} + ${x + d} + 90 = 180$.`],
+    [`הזווית הקטנה $x$, והגדולה $x + ${d}$.`, `יחד $90^\\circ$: $x + x + ${d} = 90$`, line('מכנסים', `2x + ${d} = 90`, `-${d}`), line(`מחסירים $${d}$ משני האגפים`, `2x = ${90 - d}`, ':2'), line('מחלקים ב־$2$', `x = ${x}`), q ? `הגדולה: $${x} + ${d} = ${x + d}^\\circ$` : `הקטנה: $${x}^\\circ$`, `בדיקה: $${x} + ${x + d} + 90 = 180$.`],
     { 'wrong-unknown': q ? x : null });
 }
 function ballsStory() {
@@ -519,7 +606,8 @@ function ballsStory() {
     const n1 = n2 + e; const q = R(0, 1);
     return story(`eq5b:${n1}:${n2}:${p}:${q}`, `${A} קנה $${n1}$ כדורים, ו${B} קנתה $${n2}$ כדורים, כל אחד יקר ב־$${p}$ ₪ מכדור של ${A}. הם שילמו אותו סכום. כמה עלה כדור של ${q ? B : A}?`, q ? x + p : x, '₪',
       `נסמנו ב־$x$ את המחיר של כדור של ${A}. כמה עולה כדור של ${B}, וכמה שילם כל אחד?`,
-      [`כדור של ${A}: $x$. כדור של ${B}: $x + ${p}$.`, `$${n1}x = ${n2}(x + ${p})$`, `פותחים סוגריים: $${n1}x = ${n2}x + ${n2 * p}$, ולכן $${linTex(e, 0)} = ${n2 * p}$ ו־$x = ${x}$.`,
+      [`כדור של ${A}: $x$. כדור של ${B}: $x + ${p}$.`, `$${n1}x = ${n2}(x + ${p})$`, line('פותחים סוגריים', `${n1}x = ${n2}x + ${n2 * p}`, `-${n2}x`),
+        line(`מחסירים $${n2}x$ משני האגפים`, `${linTex(e, 0)} = ${n2 * p}`, e > 1 ? divOp(e) : null), ...(e > 1 ? [line(`מחלקים ב־$${e}$`, `x = ${x}`)] : []),
         q ? `כדור של ${B}: $${x} + ${p} = ${x + p}$ ₪.` : `כדור של ${A} עלה $${x}$ ₪.`, `בדיקה: $${n1} \\cdot ${x} = ${n1 * x}$, וגם $${n2} \\cdot ${x + p} = ${n2 * (x + p)}$.`],
       { 'partial-dist': q ? p / e + p : p / e, 'wrong-unknown': q ? x : null });
   }
@@ -528,7 +616,7 @@ function consecutiveStory() {
   const x = R(2, 40); const S = 3 * x + 3; const q = R(0, 2); const names = ['הקטן', 'האמצעי', 'הגדול'];
   return story(`eq5c:${S}:${q}`, `סכום של שלושה מספרים שלמים עוקבים הוא $${S}$. מה המספר ${names[q]} מביניהם?`, x + q, null,
     'נסמנו ב־$x$ את המספר הקטן. מה המספר שאחריו, ומה השלישי?',
-    [`המספרים: $x$, $x + 1$, $x + 2$.`, `$x + x + 1 + x + 2 = ${S}$, כלומר $3x + 3 = ${S}$, ולכן $x = ${x}$.`, `המספרים: $${x}$, $${x + 1}$, $${x + 2}$. המספר ${names[q]}: $${x + q}$.`, `בדיקה: $${x} + ${x + 1} + ${x + 2} = ${S}$.`],
+    [`המספרים: $x$, $x + 1$, $x + 2$.`, `$x + x + 1 + x + 2 = ${S}$`, line('מכנסים', `3x + 3 = ${S}`, '-3'), line('מחסירים $3$ משני האגפים', `3x = ${S - 3}`, ':3'), line('מחלקים ב־$3$', `x = ${x}`), `המספרים: $${x}$, $${x + 1}$, $${x + 2}$. המספר ${names[q]}: $${x + q}$.`, `בדיקה: $${x} + ${x + 1} + ${x + 2} = ${S}$.`],
     { 'wrong-unknown': q ? x : null });
 }
 
@@ -592,9 +680,10 @@ export const EQ = {
   lesson: {
     points: [
       'משוואה היא שוויון בין שני ביטויים. הפתרון הוא המספר שמאזן את שני האגפים.',
-      'מה שעושים לאגף אחד עושים גם לשני: $x + 5 = 12$, מחסירים $5$, ו־$x = 7$.',
+      'מה שעושים לאגף אחד עושים גם לשני, וכותבים את הפעולה בסוף השורה, אחרי קו: $x + 5 = 12 \\;/{-5}$, ובשורה הבאה $x = 7$.',
       'נעלם בשני האגפים: קודם מורידים $x$־ים, אחר כך מספרים. $3x + 5 = x + 11$, ולכן $x = 3$.',
-      'סוגריים: פותחים קודם. $4(x - 3) = 2x + 6$, ולכן $x = 9$.',
+      'סוגריים בשני שלבים: שלב 1, חוק הפילוג (פותחים סוגריים). שלב 2, פותרים כרגיל. $4(x - 3) = 2x + 6$, ולכן $x = 9$.',
+      'כשיוצא $9 = x$, כותבים $x = 9$ (הפכנו צדדים).',
       'תמיד בודקים: מציבים את הפתרון במשוואה המקורית.',
       'בבעיה מילולית בודקים גם בסיפור, ועונים על מה שנשאל.',
     ],

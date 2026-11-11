@@ -1,6 +1,8 @@
 // Stage B: a worked example, revealed one step at a time (a Brilliant-style step-by-step solution). Each step is the action, what it gives, and why.
 // The steps already seen stay on the page (to look back at), "הקודם" hides the last one again, and the whole
 // example can be replayed from the start. The full solution is never shown at once.
+// A step that does something to both sides of an equation (its `mark`, "−4x", ":2") writes it the class's way, after a
+// slash at the end of the line it acts on (CLASSROOM-7): the problem's line or the step before, as that step is shown.
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, m } from 'motion/react';
 import clsx from 'clsx';
@@ -10,7 +12,7 @@ import { Button } from '@/components/ui.jsx';
 import { Prompt, ResultWhy } from './StepPlayer.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { enter } from '@/lib/motion.js';
-import { T, plainNum } from '@/content/util.js';
+import { T, plainNum, opMark } from '@/content/util.js';
 import Figure from '@/components/Figure.jsx';
 
 export default function WorkedExample({ example, n, of, onDone, doneLabel = 'הבנתי, הלאה', decimal = false, renderHead }) {
@@ -19,6 +21,8 @@ export default function WorkedExample({ example, n, of, onDone, doneLabel = 'ה�
   const total = example.steps.length;
   useEffect(() => { if (shown) endRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); }, [shown]);
   const all = shown >= total;
+  // the line before step i, with step i's operation after a slash once step i is shown
+  const marked = (tex, i) => (i < shown && example.steps[i]?.mark ? opMark(tex, example.steps[i].mark) : tex);
   const bar = <Segments steps={total} done={shown} current={shown} size="thin" label={`דוגמה ${n} מתוך ${of}`} valueText={`${shown} מתוך ${total} צעדים`} />;
   return (
     <div className="worked lm">
@@ -28,7 +32,7 @@ export default function WorkedExample({ example, n, of, onDone, doneLabel = 'ה�
           <p><MathText text={example.problem} /></p>
         </Prompt>
       <div className="lm-canvas big" data-region="visual">
-      {example.display && <FitDisplay className="lm-expr" tex={example.display} />}
+      {example.display && <FitDisplay className="lm-expr" tex={marked(example.display, 0)} />}
       {example.fig && <div className="lm-fig"><Figure fig={example.fig} /></div>}
       <ol className="worked-steps" aria-live="polite">
         <AnimatePresence initial={false}>
@@ -38,7 +42,7 @@ export default function WorkedExample({ example, n, of, onDone, doneLabel = 'ה�
               <div className="worked-body">
                 <p className="worked-action"><MathText text={s.action} /></p>
                 {/* set smaller until it fits a 320 phone, never a sideways scroll inside the box */}
-                <FitDisplay className="worked-result" tex={s.result} />
+                <FitDisplay className="worked-result" tex={marked(s.result, i + 1)} />
                 <p className="worked-why"><span className="worked-why-tag">למה?</span> <MathText text={s.why} /></p>
               </div>
             </m.li>

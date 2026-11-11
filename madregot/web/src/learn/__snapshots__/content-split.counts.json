@@ -228,7 +228,7 @@
     "discover": 9,
     "examples": [
      4,
-     5
+     6
     ],
     "misconceptions": [
      2,
@@ -243,8 +243,9 @@
    "eq:4": {
     "discover": 9,
     "examples": [
+     6,
      5,
-     5
+     6
     ],
     "misconceptions": [
      3,
@@ -259,8 +260,8 @@
    "eq:5": {
     "discover": 9,
     "examples": [
-     5,
-     6
+     6,
+     8
     ],
     "misconceptions": [
      2,
@@ -275,7 +276,7 @@
    }
   },
   "stairs": 5,
-  "steps": 144
+  "steps": 155
  },
  "expr": {
   "skills": {
@@ -1100,7 +1101,7 @@
     "examples": [
      5,
      3,
-     5
+     6
     ],
     "misconceptions": [
      3,
@@ -1116,8 +1117,8 @@
     "discover": 9,
     "examples": [
      4,
-     5,
-     6
+     6,
+     7
     ],
     "misconceptions": [
      3,
@@ -1134,7 +1135,7 @@
     "discover": 10,
     "examples": [
      5,
-     5,
+     6,
      5
     ],
     "misconceptions": [
@@ -1151,8 +1152,8 @@
    "sys:4": {
     "discover": 9,
     "examples": [
-     6,
-     7
+     7,
+     9
     ],
     "misconceptions": [
      2,
@@ -1185,6 +1186,6 @@
    }
   },
   "stairs": 5,
-  "steps": 163
+  "steps": 170
  }
 }

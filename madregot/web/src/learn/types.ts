@@ -120,6 +120,12 @@ export interface ExampleStep {
   eq?: string;
   /** An inequality this step states ('2*x - 3 > 5'): it must have exactly the example's solutions (`ray`), and so must `result`. */
   ineq?: string;
+  /**
+   * The operation this step does to both sides, as the class writes it after a slash ('-4x', '+3', ':2', '\\cdot 3';
+   * content/util.js opMark). It is shown at the end of the line it acts on (the problem's line, or the step before)
+   * once this step is shown (CLASSROOM-7); learn/eqLines.test.ts checks that doing it gives this step's result.
+   */
+  mark?: string;
 }
 export interface WorkedExample {
   problem: Text; display?: string;

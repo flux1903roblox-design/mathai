@@ -36,6 +36,8 @@ import { JUMP_SOURCES, JUMP_MISTAKES } from '@/lib/lesson.js';
 import { chainItem, absItem, oppItem, nestedItem, drawNested, nestedTex, nestedValue } from '@/content/signedItems.js';
 // @ts-ignore: plain JS
 import { powItem } from '@/content/signed7.js';
+// @ts-ignore: plain JS
+import { bracketZero, bracketFrom } from '@/content/eq.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -214,6 +216,24 @@ describe('the class\'s signed kinds cannot be guessed', () => {
     expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(LIMIT / 10);
     // a number copied from the question is never the answer
     items.forEach((it) => expect(shownNumbers(it).some((v) => isCorrect(it, v)), it.key).toBe(false));
+  });
+});
+
+// CLASSROOM-7: the class's a(x + b) = cx (d = 0), drawn in a fifth of eq:4's a(x + b) = cx + d items. Its most common
+// answer alone (spec 5.9%, P(4 of 5) = 5.8e-5; 6.2% and 6.9e-5 over all the draws the app allows: m from −6 to 6, so
+// 5(x − 2) = 3x is a shape, and a printed answer, a first-term opening that gives the answer, or a slip are redrawn)
+// never passes a check, and no printed number is it
+describe('the class\'s equation shape cannot be guessed', () => {
+  it('a(x + b) = cx alone', () => {
+    const items = Array.from({ length: 6000 }, () => bracketFrom(bracketZero()));
+    const freq = new Map<number, number>();
+    items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));
+    const common = Math.max(...freq.values()) / items.length;
+    expect(common).toBeLessThan(0.07);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(1e-4);
+    items.forEach((it) => expect(shownNumbers(it).some((v) => isCorrect(it, v)), it.key).toBe(false));
+    // the shape is the class's: nothing added on the right, and the answer whole
+    items.forEach((it) => { expect(it.display, it.key).toMatch(/^\d\(x [+-] \d\) = \d*x$/); expect(Number.isInteger(it.answer)).toBe(true); });
   });
 });
 

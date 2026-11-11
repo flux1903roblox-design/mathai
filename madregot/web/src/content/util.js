@@ -23,6 +23,37 @@ export const T = (n, wrap = false) => {
  */
 export const S = (n) => (n === 0 ? '0' : n > 0 ? `(+${n})` : `(${n})`);
 
+/**
+ * An equation line as the class writes it on the board (CLASSROOM-7): the operation done to both sides goes at the end
+ * of the line it acts on, after a slash, and the next line is what it gives. `op` is '-3x' or '+5' (added to both
+ * sides), ':2' or ':(-3)' (both divided), '\\cdot 2' (both multiplied):
+ * opMark('3x + 9 = 4x', '-3x') is '3x + 9 = 4x \\qquad /{-3x}'; ':2' writes '/{:}2' and '\\cdot 2' writes '/{\\cdot}2'.
+ * The braces keep KaTeX from spacing the sign or the colon as an operation between two things.
+ */
+export function opMark(tex, op) {
+  const o = String(op).trim();
+  let mark;
+  if (o.startsWith(':')) mark = `/{:}${o.slice(1).trim()}`;
+  else if (o.startsWith('\\cdot') || o.startsWith('·')) mark = `/{\\cdot}${o.replace(/^(\\cdot|·)/, '').trim()}`;
+  else if (/^[+-]./.test(o)) mark = `/{${o[0]}${o.slice(1).trim()}}`;
+  else throw new Error(`opMark: "${op}" is not an operation on both sides`);
+  return `${tex} \\qquad ${mark}`;
+}
+/** The operation that takes a term away from both sides: '3x' gives '-3x', '-5' gives '+5' (for opMark). */
+export const minusOp = (term) => { const t = String(term); return t.startsWith('-') ? `+${t.slice(1)}` : `-${t}`; };
+/** The operation that removes the number b added to the unknown: 5 gives '-5', -5 gives '+5'. */
+export const undoOp = (b) => minusOp(T(b));
+/** Divide both sides by a: ':4', ':(-3)'. */
+export const divOp = (a) => `:${T(a, true)}`;
+/** Multiply both sides by a: '\\cdot 3', '\\cdot (-2)'. */
+export const mulOp = (a) => `\\cdot ${T(a, true)}`;
+/** The equation of a board line without its mark: '3x + 9 = 4x \\qquad /{-3x}' is '3x + 9 = 4x'. */
+export const unmark = (tex) => String(tex).replace(/\s*\\qquad\s*\/.*$/, '');
+/** A board line ('words: $2x = 8 \\qquad /{:}2$') without the mark of a next step, when no next line follows it. */
+export const unmarkLine = (l) => String(l).replace(/\s*\\qquad\s*\/[^$]*(?=\$)/g, '');
+/** A "number = x" line turned round, as the class writes it: '$x = 9$ (הפכנו צדדים)'. `value` is TeX. */
+export const flipLine = (value, v = 'x') => `$${v} = ${value}$ (הפכנו צדדים)`;
+
 /** Reduce p/q to [p, q] with q > 0. */
 export const reduce = (p, q) => { const g = gcd(p, q); const s = q < 0 ? -1 : 1; return [(s * p) / g, (s * q) / g]; };
 

@@ -123,6 +123,14 @@ Each stair is a `StairContent` (types.ts). The tests in `content.test.ts` check 
    generators' `diag()` already returns, so older exercises count as evidence.
 7. **Hebrew:** short sentences, plural address (as the rest of the app), maths between `$…$`; a minus inside Hebrew
    text is TeX (`$-3$`), never a bare hyphen.
+8. **Equation lines as the class writes them (CLASSROOM-7):** an operation done to both sides is written after a slash
+   at the end of the line it acts on, `content/util.js` `opMark` (`3x + 9 = 4x \qquad /{-3x}`, `/{:}2`, `/{\cdot}2`).
+   A generated solution line is `words: $equation$` with the next operation's mark (`content/eq.js` `line`); a
+   worked-example step that does something to both sides carries `mark` (`-4x`, `:2`), shown on the line above once
+   the step is shown. No step adds or takes away 0; a line that ends "9 = x" is followed by `$x = 9$ (הפכנו צדדים)`;
+   equations with brackets name the class's two steps (`STEP1`, `STEP2`). `learn/eqLines.test.ts` reads every eq and
+   sys solution, example and aligned display as a chain of board lines; a solution keeps to 8 lines of at most 300
+   characters, what a class exam stores.
 
 ## Status (checkpoint 3)
 
@@ -195,7 +203,7 @@ the row to paste when one differs.
 | eq:1 | משוואה ופתרון | 10 (balance) | 3 | 2 | 4 (move-no-flip, divide-flip, sign, sub-coef) | yes | complete, tested |
 | eq:2 | משוואה בשני צעדים | 10 (balance) | 3 | 2 | 4 (move-no-flip, divide-part, sign, sub-coef) | yes | complete, tested |
 | eq:3 | נעלם בשני האגפים | 9 (balance) | 2 | 2 | 2 (move-no-flip, move-x-no-flip) | yes | complete, tested |
-| eq:4 | משוואות עם סוגריים | 9 (area) | 2 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
+| eq:4 | משוואות עם סוגריים | 9 (area) | 3 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |
 | eq:5 | בעיות מילוליות | 9 (balance) | 2 | 2 | 3 (wrong-unknown, partial-dist, reversal) | yes | complete, tested |
 | ratio:1 | יחס | 8 (fbar) | 2 | 2 | 3 (reversed-ratio, part-whole, add-same) | yes | complete, tested |
 | ratio:2 | חלוקה ביחס | 8 (fbar) | 2 | 2 | 3 (reversed-ratio, part-whole, whole-perimeter) | yes | complete, tested |

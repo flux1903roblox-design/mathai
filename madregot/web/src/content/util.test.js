@@ -2,7 +2,8 @@
 // mixed numbers and thousands on a computer keyboard, the `precise` rule, the fraction answer form and its
 // "not reduced yet" note, the format sentence, exact answer text, and practice-only questions kept out of checks.
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote, S } from './util.js';
+import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote, S, opMark, minusOp, undoOp, divOp, mulOp, unmark, unmarkLine, flipLine } from './util.js';
+import { holds } from '../learn/expr.ts';
 import { TOPIC, makeItem, testItem, fairForCheck, slotsFor, readAnswer, isCorrect, partialOf, answerText } from './index.js';
 import { startLesson, answer } from '../lib/lesson.js';
 import { finalCheck } from '../components/learn/Together.jsx';
@@ -80,6 +81,39 @@ describe('a signed number in the class\'s brackets (CLASSROOM-2)', () => {
   });
   it('the bracketed form reads back as the same number', () => {
     for (const n of [-12, -1, 0, 1, 12]) expect(parseNum(S(n).replace(/[()]/g, ''))).toBe(n);
+  });
+});
+
+describe('an equation line as the class writes it (CLASSROOM-7)', () => {
+  it('opMark puts the operation after a slash at the end of the line it acts on', () => {
+    expect(opMark('3x + 9 = 4x', '-3x')).toBe('3x + 9 = 4x \\qquad /{-3x}');
+    expect(opMark('x - 8 = 2', '+8')).toBe('x - 8 = 2 \\qquad /{+8}');
+    expect(opMark('2x = 18', ':2')).toBe('2x = 18 \\qquad /{:}2');
+    expect(opMark('-3x = 12', ':(-3)')).toBe('-3x = 12 \\qquad /{:}(-3)');
+    expect(opMark('\\frac{x}{2} = 5', '\\cdot 2')).toBe('\\frac{x}{2} = 5 \\qquad /{\\cdot}2');
+    expect(opMark('2x > 6', '·2')).toBe('2x > 6 \\qquad /{\\cdot}2');
+    // anything that is not an operation on both sides is refused
+    expect(() => opMark('x = 1', 'x')).toThrow();
+    expect(() => opMark('x = 1', '-')).toThrow();
+  });
+  it('the operations are written with their signs, a negative divisor in brackets', () => {
+    expect(minusOp('3x')).toBe('-3x');
+    expect(minusOp('-2x')).toBe('+2x');
+    expect(undoOp(5)).toBe('-5');
+    expect(undoOp(-7)).toBe('+7');
+    expect(divOp(4)).toBe(':4');
+    expect(divOp(-3)).toBe(':(-3)');
+    expect(mulOp(3)).toBe('\\cdot 3');
+    expect(mulOp(-2)).toBe('\\cdot (-2)');
+  });
+  it('the mark is not part of the equation: it is read without it, and left out when no line follows', () => {
+    expect(unmark('3x + 9 = 4x \\qquad /{-3x}')).toBe('3x + 9 = 4x');
+    expect(unmark('2x = 8')).toBe('2x = 8');
+    expect(holds('3x + 9 = 4x \\qquad /{-3x}', { x: 9 })).toBe(true);
+    expect(holds('-2x > 6 \\qquad /{:}(-2)', { x: -4 })).toBe(true);
+    expect(unmarkLine('מחברים: $y$ נעלם. $4x = 12 \\qquad /{:}4$')).toBe('מחברים: $y$ נעלם. $4x = 12$');
+    expect(flipLine('9')).toBe('$x = 9$ (הפכנו צדדים)');
+    expect(flipLine('-2', 'y')).toBe('$y = -2$ (הפכנו צדדים)');
   });
 });
 
