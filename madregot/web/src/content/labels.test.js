@@ -13,7 +13,7 @@ import { roundsTo, EQ } from './eq.js';
 import { EXPR } from './expr.js';
 import { SYS } from './sys.js';
 import { FRAC } from './frac.js';
-import { candidates } from './labels.sample.js';
+import { candidates, nearCandidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { DATA } from './data.js';
@@ -842,10 +842,14 @@ const PROPS = {
     gambler: (it, u) => it.key.startsWith('pr2g:') && /תורו|"חם"/.test(it.choices[u]?.text || ''),
     // never named by an exercise (the challenge track's and the teaching's own): no answer of a generator shows it
     'outcome-approach': () => false,
-    'equiprob-sums': (it, u) => it.key.startsWith('pr3:') && fracIs(u, pr3(it).sums.length / 11),
+    // two dice thrown many times (100 or more) and the share of a sum picked as one of eleven sums
+    'equiprob-sums': (it, u) => (it.key.startsWith('pr3:') && fracIs(u, pr3(it).sums.length / 11))
+      || (it.key.startsWith('pr3d:') && u?.n >= 100 && near(pickedValue(it, u), 1 / 11)),
     unordered: (it, u) => {
       if (it.key.startsWith('pr3:')) return fracIs(u, sum(pr3(it).sums.map(pairsOf)) / 36);
       if (it.key.startsWith('pr3o:')) return it.choices[u]?.text === 'תוצאה אחת';
+      // the pairs of the sum watched counted without order, over 36, picked after 100 or more throws
+      if (it.key.startsWith('pr3d:')) return u?.n >= 100 && near(pickedValue(it, u), pairsOf(it.manip.watch) / 36);
       return false;
     },
     'space-21': (it, u) => it.key.startsWith('pr3:') && fracIs(u, sum(pr3(it).sums.map(pairsOf)) / 21),
@@ -873,6 +877,11 @@ function pr3(it) {
 }
 /** The pairs of two dice with sum s, order not counted ((5, 6) once). */
 const pairsOf = (s) => { let c = 0; for (let x = 1; x <= 6; x += 1) for (let y = x; y <= 6; y += 1) if (x + y === s) c += 1; return c; };
+/** The value of the choice picked in a simulate estimate ({ pick }): \frac{1}{11} is 1/11. */
+const pickedValue = (it, u) => {
+  const c = it.answer?.choices?.[u?.pick]; const m = String(typeof c === 'string' ? c : c?.tex || '').match(/\\frac\{(\d+)\}\{(\d+)\}/);
+  return m ? Number(m[1]) / Number(m[2]) : NaN;
+};
 /** A typed fraction ({ n, d }) whose value is exactly v. */
 const fracIs = (u, v) => !!u && typeof u === 'object' && u.d !== 0 && near(u.n / u.d, v, 1e-9);
 /** stats:6 shiftRange's numbers from its key: the change, the values, the number added, the range, and the change as f. */
@@ -935,6 +944,31 @@ describe('every mistake label describes the answer', () => {
       });
     });
   });
+});
+
+// The whole-content check of curriculum stage 3 (content/stage3.test.js reads the rest of each exercise): every label
+// of 2,000 exercises of each of the ten new stairs against its property, with the wrong answers that reach every
+// prediction as a student types it (labels.sample.js nearCandidates), not the wide sample above.
+describe('curriculum stage 3: every label of 2,000 exercises a stair describes the answer', () => {
+  const LEVELS = [['data', 1], ['data', 2], ['data', 3], ['data', 4], ['stats', 6], ['stats', 7], ['stats', 8], ['prob', 1], ['prob', 2], ['prob', 3]];
+  it.each(LEVELS)('%s:%i', (topic, level) => {
+    const seen = new Set(); const wrong = [];
+    for (let k = 0; k < 2000 && wrong.length < 10; k += 1) {
+      const item = makeItem(topic, level);
+      for (const u of nearCandidates(item)) {
+        if (isCorrect(item, u)) continue;
+        const cat = item.diag(u);
+        if (!cat) continue;
+        seen.add(cat);
+        const prop = PROPS[topic]?.[cat];
+        if (!prop) wrong.push(`${topic}:${level} returns '${cat}', which has no property here`);
+        else if (!prop(item, u)) wrong.push(`${topic}:${level} ${item.key}: answer ${JSON.stringify(u)} labelled '${cat}' (${catLabel(topic, level, cat)})`);
+      }
+    }
+    expect(wrong).toEqual([]);
+    // the stair's exercises name what its category list promises (none is unreachable from practice)
+    expect(seen.size, `${topic}:${level} names ${[...seen].join(', ')}`).toBeGreaterThan(1);
+  }, 120_000);
 });
 
 describe('the algebra, fraction, ratio, percent, data and probability topics name only what a property can check', () => {

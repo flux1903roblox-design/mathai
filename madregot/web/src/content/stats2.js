@@ -434,7 +434,10 @@ const LIMITS = [
 ];
 function limitsMc() {
   const L = pick(rnd, LIMITS);
-  const [r, t0, t1, T, a] = L.key === 0 ? [rint(rnd, 5, 7), 4, 10, 30, rint(rnd, 130, 145)] : L.key === 1 ? [rint(rnd, 2, 3), 2, 6, 60, rint(rnd, 10, 16)] : [rint(rnd, 3, 6), 1, 5, 200, rint(rnd, 15, 30)];
+  // the first point drawn (at t0) is a real size too: a puppy of at least 3 kg, a seedling of at least 2 cm
+  const r = L.key === 0 ? rint(rnd, 5, 7) : L.key === 1 ? rint(rnd, 2, 3) : rint(rnd, 3, 6);
+  const [t0, t1, T] = L.key === 0 ? [4, 10, 30] : L.key === 1 ? [2, 6, 60] : [1, 5, 200];
+  const a = L.key === 0 ? rint(rnd, 130, 145) : L.key === 1 ? rint(rnd, 15, 22) : r * (t1 - t0) + rint(rnd, 2, 12);
   const far = a + r * (T - t1);
   const choices = shuffle([
     { text: `לא הגיוני להמשיך כך: ${far} ${L.unit}`, ok: true },

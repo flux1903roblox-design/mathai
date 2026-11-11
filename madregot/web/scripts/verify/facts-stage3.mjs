@@ -406,5 +406,32 @@ if (at > 0) {
     }
   }
   console.log(`${n} draws of the ${Object.keys(M).length} data, statistics and probability models compared with the spec's, ${portBad} differences`);
+  // the TypeScript teaching content's own models (each stair's diag and transfer, learn/content/*.ts), the ones the
+  // checks and the together steps run, against the spec's, draw by draw from the same seeds
+  const { DATA } = await import('../../src/learn/content/data.ts');
+  const { STATS2 } = await import('../../src/learn/content/stats2.ts');
+  const { PROB } = await import('../../src/learn/content/prob.ts');
+  const TS = {};
+  [...DATA, ...STATS2, ...PROB].forEach((st) => {
+    const base = `${st.topic}${st.level}`;
+    TS[base] = st.diag; if (st.transfer) TS[`${base}T`] = st.transfer;
+  });
+  let m = 0; let tsBad = 0;
+  for (const [name, ts] of Object.entries(TS)) {
+    const spec = MODELS[name];
+    if (!spec) { tsBad += 1; console.log(`  PORT ts ${name}: no such model in the spec`); continue; }
+    const ra = seeded(name.length * 37 + 11); const rs = seeded(name.length * 37 + 11);
+    for (let i = 0; i < 5000; i += 1) {
+      const pa = ts.params(ra); const ps = spec.params(rs); m += 1;
+      const va = [ts.answer(pa), ...Object.keys(spec.bugs).map((id) => ts.bugs[id]?.(pa))];
+      const vs = [spec.answer(ps), ...Object.keys(spec.bugs).map((id) => spec.bugs[id](ps))];
+      const extra = Object.keys(ts.bugs).filter((id) => !(id in spec.bugs));
+      if (JSON.stringify(pa) !== JSON.stringify(ps) || JSON.stringify(va) !== JSON.stringify(vs) || extra.length) {
+        tsBad += 1; if (tsBad < 5) console.log(`  PORT ts ${name} draw ${i}: ${JSON.stringify(pa)} ≠ ${JSON.stringify(ps)}${extra.length ? ` (bugs not in the spec: ${extra})` : ''}`);
+      }
+    }
+  }
+  console.log(`${m} draws of the teaching content's ${Object.keys(TS).length} stair models (learn/content/*.ts) compared with the spec's, ${tsBad} differences`);
+  portBad += tsBad;
 }
 process.exit(bad.length || portBad ? 1 : 0);

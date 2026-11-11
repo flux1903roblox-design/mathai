@@ -186,6 +186,18 @@ test('a unit\'s state, stairs and missing parts', () => {
 test('stage 3 complete: ז׳ 117 of 150 (78%), ח׳ 87 of 147 (59%); 7.15-7.17, 8.6, 8.10, 8.11 and 8.16 taught', () => {
   const c7 = coverage('7', [...STAGE1, ...STAGE3]); const c8 = coverage('8', [...STAGE1, ...STAGE3]);
   assert.deepEqual([c7.taught, c7.pct, c8.taught, c8.pct], [117, 78, 87, 59]);
+  // ז׳–ח׳ together: 204 of 297 hours (69%), from 170 (57%) at stage 1
+  assert.equal(c7.taught + c8.taught, 204);
+  assert.equal(c7.hours + c8.hours, 297);
+  assert.equal(Math.round((100 * (c7.taught + c8.taught)) / 297), 69);
+  // the seven units the stage was for (§0.3) wait for no later stage: every part lists its stairs
+  const S3_UNITS = ['7.15', '7.16', '7.17', '8.6', '8.10', '8.11', '8.16'];
+  for (const id of S3_UNITS) {
+    const u = PROGRAMME.units.find((x) => x.id === id);
+    assert.ok(u.parts.every((p) => p.later === undefined && p.skills.length > 0), `${id}: a part still waits for a stage`);
+    assert.ok(u.parts.flatMap((p) => p.skills).some((s) => STAGE3.includes(s)), `${id}: taught by a stage-3 stair`);
+  }
+  assert.deepEqual(PROGRAMME.units.filter((u) => u.parts.some((p) => p.later === 'S3')).map((u) => u.id), []);
   // stats:6-8 (DATA-5): the rest of 8.10 (range and two sources, 4 h) and all of 8.11 (interpolation, 4 h)
   assert.deepEqual(['8.10', '8.11'].map((id) => { const u = c8.units.find((x) => x.id === id); return [u.state, u.taught, u.hours]; }), [['yes', 12, 12], ['yes', 4, 4]]);
   const without6 = coverage('8', [...STAGE1, ...STAGE3.filter((s) => !/^stats:[678]$/.test(s))]);

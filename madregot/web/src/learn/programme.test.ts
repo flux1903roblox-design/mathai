@@ -33,6 +33,25 @@ describe('every stair of the app has a place in the Ministry programme', () => {
 // A unit also drawn on another grade's path (skills.ts ALSO_ON_PATH) is there because that grade's schedule teaches it
 // this year: some unit of that grade lists one of its stairs. When the programme moves to the next year and the unit is
 // no longer in that grade's schedule, this fails, and the entry is removed.
+// Curriculum stage 3 (DATA-8): its ten stairs, by name, so the rule above is not met by a list that lost one of them
+describe('curriculum stage 3\'s ten stairs are in the programme, each with a month in its own grade', () => {
+  const STAGE3 = ['data:1', 'data:2', 'data:3', 'data:4', 'stats:6', 'stats:7', 'stats:8', 'prob:1', 'prob:2', 'prob:3'];
+  it('every one is a stair of the app, listed in some unit', () => {
+    STAGE3.forEach((s) => expect(ALL_SKILLS, s).toContain(s));
+    STAGE3.forEach((s) => expect(programmeStairs.has(s), `${s} is in no unit of shared/programme.js`).toBe(true));
+  });
+  it('every one has a school month in its own grade (data in ז׳, stats and prob in ח׳)', () => {
+    const months = STAGE3.map((s) => [s, GRADE_OF[parseSkill(s).topic], monthIndex(s, GRADE_OF[parseSkill(s).topic]!)]);
+    expect(months).toEqual([
+      ['data:1', '7', 4], ['data:2', '7', 5], ['data:3', '7', 5], ['data:4', '7', 5],
+      ['stats:6', '8', 3], ['stats:7', '8', 3], ['stats:8', '8', 4],
+      ['prob:1', '8', 6], ['prob:2', '8', 6], ['prob:3', '8', 6],
+    ]);
+    // probability is in no ז׳ unit
+    expect(monthIndex('prob:1', '7')).toBeNull();
+  });
+});
+
 describe('a unit on two grades\' paths is in that grade\'s schedule', () => {
   const unlisted = (also: AlsoOnPath) => Object.entries(also).filter(([t, e]) => !PROGRAMME.units.some((u) => u.grade === e!.grade
     && u.parts.some((p) => p.skills.some((s) => parseSkill(s).topic === t)))).map(([t]) => t);
@@ -51,9 +70,10 @@ describe('a unit on two grades\' paths is in that grade\'s schedule', () => {
   });
 });
 
-// Stage 1 is complete with percent, and curriculum stage 3's data unit has landed: the live coverage, from the stairs
-// this build has, is worker/test/coverage.test.js's stage-1 fixture (HEAD's 48 stairs, signed:6, ratio:1-4, pct:1-5)
-// with data:1-4 (7.15-7.17 taught, and this year 8.6 and the first half of 8.16): ז׳ 117 of 150, ח׳ 75 of 147, 65%.
+// Stage 1 is complete with percent, and curriculum stage 3 has landed: the live coverage, from the stairs this build has,
+// is worker/test/coverage.test.js's stage-1 fixture (HEAD's 48 stairs, signed:6, ratio:1-4, pct:1-5) with the stage's
+// ten stairs (data:1-4: 7.15-7.17, and this year 8.6 and the first half of 8.16; stats:6-8: the rest of 8.10 and 8.11;
+// prob:1-3: the rest of 8.16): ז׳ 117 of 150, ח׳ 87 of 147, 69% together.
 describe('stage 1\'s coverage, the data unit, stats:6-8 and probability, live', () => {
   const STAGE1 = [
     ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),

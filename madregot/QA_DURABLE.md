@@ -891,6 +891,15 @@ script. They now load one topic at a time, and nothing the student sees changed.
   gzipped), and the first load keeps each task's id, topic, stair, kind, title and minutes (`learn/challenges/meta.gen.ts`,
   written by `scripts/gen-content-meta.mjs` with the content meta and checked the same way). Boot JS **450.7 KB** under
   the 456 KB gate, CSS 54.4 KB unchanged, precache 4.97 MB under 5.08 MB; no gate moved. Open work: the figure words.
+  The stage's whole delta, measured when it closed (its ninth step, after the whole-content check; the same numbers as
+  after the eighth): boot JS 432.7 → **450.7 KB** (+18.0 KB: the data figures' words +1.5, the two objects' entries and
+  the ח׳ path +2.0, the data unit's generators and its three challenge tasks +12.9, the statistics and probability
+  generators +1.6 net of the challenge stories that moved out), render-blocking CSS 52.7 → 54.4 KB (+1.7), precache 4.68 → 4.97 MB
+  (+0.29), against its base (`b347414`, built the same way). Two gates moved by DURABLE-11's rule (measured + 5%), each
+  said in its commit: boot JS 433 → 456 KB (the second step: no challenge task of its own existed yet to move) and the
+  precache 4.79 → 5.08 MB (the fifth step: a lazy chunk is precached too). When the boot gate failed a second time (the
+  eighth step, 465.7 KB) the first fallback was used, not the gate: the challenge tasks went behind the challenge
+  screen's import, for every topic at once rather than per topic, and the gate stayed at 456 KB.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from
