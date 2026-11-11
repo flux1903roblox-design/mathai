@@ -1,6 +1,8 @@
 // Challenge tasks of percent (curriculum stage 1, CURRICULUM-6.5): pct:c1, a real-world choice between a percent fee and
 // a fixed one; pct:c2, a claim about 10% up and then 10% down; pct:c3, the price before a discount found the wrong way.
 // Their numbers are checked by the lane's verify/facts-challenges*.mjs and by learn/challenges.test.ts.
+// PRODUCT2-21 (a task after every stair): pct:c4, after pct:1, 0.3 written as 3% ('digit-pct'), then comparing in
+// percent; pct:c5, after pct:3, the proof that a% of b is b% of a, used both ways.
 import type { ChallengeTask } from '../types';
 
 export const PCT_CHALLENGES: ChallengeTask[] = [
@@ -48,6 +50,41 @@ export const PCT_CHALLENGES: ChallengeTask[] = [
         { text: 'מוסיפים $20\\%$ ל־$80$, ובודקים שיוצא אותו מספר', ok: false, feedback: 'כך דני חישב מלכתחילה, וזו הטעות עצמה. בודקים בכיוון ההפוך: מורידים $20\\%$ מהתשובה.' },
         { text: 'בודקים שהתשובה מספר עגול', ok: false, feedback: 'גם $96$ מספר שלם, והוא לא נכון. בודקים כך: מורידים $20\\%$ מהתשובה, וצריך לצאת $80$.' },
       ] },
+    ],
+  },
+  {
+    id: 'pct:c4', topic: 'pct', after: 'pct:1', kind: 'error', title: 'שלוש עשיריות באחוזים', minutes: 5, misc: 'digit-pct',
+    parts: [
+      { type: 'error', prompt: 'כך כתב יונתן את $0.3$ באחוזים.',
+        lines: ['$0.3 = \\frac{3}{10}$', 'אחוז הוא חלק אחד מתוך $100$.', 'לכן $0.3 = 3\\%$.'], wrong: 2,
+        why: '$\\frac{3}{10} = \\frac{30}{100}$: שלושים חלקים מתוך מאה. לכן $0.3 = 30\\%$. ו־$3\\%$ הם רק $0.03$.',
+        lineWhy: { 0: '$0.3$ הם באמת שלוש עשיריות.', 1: 'זו ההגדרה של אחוז, והיא נכונה.' },
+        fix: { prompt: '$0.3$ הם כמה אחוזים?', answer: 30, check: '0.3*100' } },
+      { type: 'mc', prompt: 'איזה מספר הוא הגדול ביותר?', choices: [
+        { text: '$0.4$', ok: true, feedback: 'נכון: $0.4 = 40\\%$, ו־$\\frac{3}{8} = 37.5\\%$. הגדול ביותר הוא $0.4$.' },
+        { text: '$35\\%$', ok: false, feedback: '$0.4 = 40\\%$, יותר מ־$35\\%$. כדי להשוות, כותבים את כולם באחוזים.' },
+        { text: '$\\frac{3}{8}$', ok: false, feedback: '$\\frac{3}{8} = 0.375$, כלומר $37.5\\%$. ו־$0.4 = 40\\%$, ולכן $0.4$ גדול יותר.' },
+      ] },
+      { type: 'num', prompt: 'כתבו את $5\\%$ כמספר עשרוני.', answer: 0.05, check: '5/100',
+        solution: ['$5\\%$ הם $5$ חלקים מתוך $100$: $\\frac{5}{100}$.', '$\\frac{5}{100} = 0.05$.'] },
+    ],
+  },
+  {
+    id: 'pct:c5', topic: 'pct', after: 'pct:3', kind: 'proof', title: 'אחוזים הפוכים', minutes: 7,
+    parts: [
+      { type: 'order', prompt: 'למה $a\\%$ מ־$b$ שווים ל־$b\\%$ מ־$a$? סדרו את שלבי ההוכחה, מהראשון לאחרון.',
+        steps: [
+          { text: '$a\\%$ מ־$b$ הם $\\frac{a}{100} \\cdot b$.',
+            reason: { choices: ['אחוז הוא מאית, ו"מ־" הוא כפל', 'אחוז הוא עשירית, ו"מ־" הוא כפל', 'מחלקים את $b$ ב־$a$'], answer: 0 } },
+          { text: '$\\frac{a}{100} \\cdot b = \\frac{a \\cdot b}{100}$.' },
+          { text: '$\\frac{a \\cdot b}{100} = \\frac{b}{100} \\cdot a$.',
+            reason: { choices: ['בכפל אפשר להחליף את הסדר', 'בחילוק אפשר להחליף את הסדר', 'מצמצמים ב־$100$'], answer: 0 } },
+          { text: 'וזה בדיוק $b\\%$ מ־$a$.' },
+        ] },
+      { type: 'num', prompt: 'כמה הם $16\\%$ מ־$25$? רמז: חשבו $25\\%$ מ־$16$.', answer: 4, check: '16/100*25',
+        solution: ['$25\\%$ הם רבע, ורבע מ־$16$ הוא $4$.', 'לכן גם $16\\%$ מ־$25$ הם $4$.'] },
+      { type: 'num', prompt: 'ו־$4$ הם כמה אחוזים מ־$16$?', answer: 25, check: '4/16*100', unit: 'אחוזים',
+        solution: ['מחלקים את החלק בשלם: $\\frac{4}{16} = \\frac{1}{4}$.', '$\\frac{1}{4} = 25\\%$.'] },
     ],
   },
 ];

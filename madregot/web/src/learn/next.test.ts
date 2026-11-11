@@ -297,11 +297,12 @@ describe('planNext: the challenge band', () => {
   it('offers a challenge only for a mastered stair, the most recently mastered first, one at a time', () => {
     // nothing mastered: no challenge
     expect(planNext(LEARNERS.newSeventh()).items.some((x) => x.kind === 'challenge')).toBe(false);
-    // a stair in progress is not mastered: pct:2 taught but not checked
+    // a stair in progress is not mastered: pct:2 taught but not checked opens nothing; the mastered pct:1 opens its own
+    // task (pct:c4, PRODUCT2-21)
     const L = emptyLearn();
     L.skills['pct:1'] = masteredRec(ago(9), 30, 3);
     L.skills['pct:2'] = taughtRec(ago(1), ['A', 'B', 'C']);
-    expect(planNext(ctxOf(L, { grade: '8' })).items.some((x) => x.kind === 'challenge')).toBe(false);
+    expect(planNext(ctxOf(L, { grade: '8' })).items.filter((x) => x.kind === 'challenge').map((x) => x.challengeId)).toEqual(['pct:c4']);
     // pct:2 and stats:3 mastered (both open a task), not strong: one challenge, at the bottom, the newer stair's
     L.skills['pct:2'] = masteredRec(ago(3), 30, 3);
     L.skills['stats:3'] = masteredRec(ago(1), 30, 3);

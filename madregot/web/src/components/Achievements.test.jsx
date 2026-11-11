@@ -11,7 +11,8 @@ const solved = (ids) => Object.fromEntries(ids.map((id) => [id, { startedAt: at,
 describe('the challenge medals', () => {
   it('none while no task is open', () => {
     expect(challengeMedals({}, {})).toEqual([]);
-    expect(challengeMedals({ 'pct:1': mastered }, {})).toEqual([]); // pct:1 opens no task
+    // every stair has a task now (PRODUCT2-21): a stair not mastered yet opens none
+    expect(challengeMedals({ 'pct:1': { attempts: [] } }, {})).toEqual([]);
   });
   it('a task open: "פתרתם 10 אתגרים", not earned yet, and no topic medal before a task of it is solved', () => {
     const m = challengeMedals({ 'pct:2': mastered }, {});

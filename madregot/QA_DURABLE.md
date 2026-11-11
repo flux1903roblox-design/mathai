@@ -869,7 +869,8 @@ script. They now load one topic at a time, and nothing the student sees changed.
   only their ids and stairs at boot. Done by the product2 lane with PRODUCT2-21 (a task after every stair): each topic's
   tasks are a chunk of their own, and the first download carries `learn/challenges/meta.gen.ts` only (id, stair, kind,
   title, minutes). With 48 tasks the lane's build measured boot JS 422.9 KB (436.4 KB before, with 36 tasks in the
-  boot file) and the precache 4.73 MB.
+  boot file) and the precache 4.73 MB; with all 65 (a task after every stair), boot JS 423.3 KB and the precache 4.77 MB,
+  0.02 MB under its 4.79 MB gate.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

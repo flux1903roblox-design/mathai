@@ -93,10 +93,10 @@ Run: `npm test` (unit, includes every content check), `npm run typecheck`, `npm 
   "יסודות" with no unit number. A missed fact offers `/facts`, a short practice that records nothing on any stair. The
   student can open the unit from Topics at any time and hide it from the map (`setFloor({ on: false })`) without losing
   the evidence.
-- **The challenge track** (`learn/challenges/`): optional tasks for a strong student. Every bridge and ז׳ stair has at
-  least one task after it (PRODUCT2-21), and every topic has a claim (always, sometimes or never, with a counterexample
-  typed into named slots when one is asked), an error to find and fix, a proof to order with a reason per step, a
-  real-world task and a task of several steps; the ח׳ topics have stage 1's three tasks each. A task's parts load with
+- **The challenge track** (`learn/challenges/`): optional tasks for a strong student. Every stair has at least one task
+  after it (PRODUCT2-21; signed:5 and expr:3 have the classroom lane's), and every topic has a claim (always, sometimes
+  or never, with a counterexample typed into named slots when one is asked), an error to find and fix, a proof to order
+  with a reason per step, a real-world task and a task of several steps. A task's parts load with
   its topic's file; the plan and the stair page read `meta.gen.ts` only. Code grades every part: a counterexample is evaluated
   with `learn/expr.ts` in its domain, a proof is checked step by step (steps that may swap are a `free` group), typed
   numbers are compared exactly. Two tries per part, then the solution. A task opens when its stair is mastered. It

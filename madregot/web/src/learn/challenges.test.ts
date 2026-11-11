@@ -49,8 +49,8 @@ const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 /** Multi-step: three or more scored parts, at least two of them a typed number (a number part, or an error's fix). */
 const multiStep = (t: ChallengeTask) => scoredParts(t).length >= 3 && t.parts.filter((p) => p.type === 'num' || p.type === 'error').length >= 2;
 
-/** The topics whose stairs all have a task (PRODUCT2-21): the bridge and grade 7 first. */
-const COVERED: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq'];
+/** The topics whose stairs all have a task (PRODUCT2-21): every topic, the bridge and both grades. */
+const COVERED: TopicId[] = TOPIC_ORDER;
 /**
  * Stairs that another lane gives a task: the classroom lane's signed:c4 follows signed:5 and its expr:c4 follows expr:3
  * (CLASSROOM-4 and CLASSROOM-6), so this lane leaves them, and numbers its own tasks of those topics after the

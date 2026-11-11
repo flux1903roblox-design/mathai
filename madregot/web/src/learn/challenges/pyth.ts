@@ -1,6 +1,9 @@
 // Challenge tasks of Pythagoras (curriculum stage 1, CURRICULUM-6.5): pyth:c1, will a pole fit in a box, lying flat or
 // slanted from corner to corner; pyth:c2, the proof by one square of side a + b, put in order with its reasons; pyth:c3,
 // a claim about a² + b² > c². Their numbers are checked by learn/challenges.test.ts and verify/facts-challenges17.mjs.
+// PRODUCT2-21 (a task after every stair): pyth:c4, after pyth:4, a ladder's height found by adding squares where the
+// ladder is the hypotenuse ('add-not-sub'), then the ladder moved; pyth:c5, after pyth:5, the proof from its three
+// sides, measured on the grid, that a triangle has a right angle, then its side and area.
 import type { ChallengeTask, FigSpec } from '../types';
 
 /** A square of side a + b (a = 3, b = 4) with a right triangle in each corner; the square of side c is left inside. */
@@ -11,6 +14,25 @@ const SQUARE_FIG: FigSpec = {
   segs: [{ a: '_0', b: '_1', label: 'a' }, { a: '_1', b: '_2', label: 'b' }, { a: '_1', b: '_3', label: 'c', side: 'in' }],
   angles: [{ at: '_0', from: '_1', to: '_7', right: true }],
   view: [240, 240],
+};
+/** pyth:c4: the ladder (5 m) from its foot B, 1.4 m from the wall, to T on the wall, 4.8 m up; the height h is asked. */
+const LADDER_FIG: FigSpec = {
+  type: 'geo', label: 'סולם שנשען על קיר. אורך הסולם 5 מטר, רגליו 1.4 מטר מהקיר, והגובה שהוא מגיע אליו על הקיר מסומן h',
+  pts: { _W: [0, 0], T: [0, 4.8], B: [1.4, 0], _Top: [0, 5.4], _F: [2.6, 0], _L: [-0.5, 0] },
+  // the triangle the ladder makes with the wall and the floor, so every label sits outside it
+  polys: [{ pts: ['_W', 'B', 'T'] }],
+  segs: [
+    { a: '_W', b: '_Top' }, { a: '_L', b: '_F' },
+    { a: 'B', b: 'T', label: '5', hi: true }, { a: '_W', b: 'B', label: '1.4' }, { a: '_W', b: 'T', label: 'h' },
+  ],
+  angles: [{ at: '_W', from: 'B', to: 'T', right: true }],
+  lab: { T: [14, -6] },
+  view: [260, 220],
+};
+/** pyth:c5: the triangle A(1, 1), B(4, 5), C(−3, 4) on the grid: AB = AC = 5, BC² = 50, the right angle at A. */
+const RIGHT_FIG: FigSpec = {
+  type: 'coord', range: 5, polygon: [[1, 1], [4, 5], [-3, 4]],
+  points: [{ x: 1, y: 1, label: 'A' }, { x: 4, y: 5, label: 'B' }, { x: -3, y: 4, label: 'C' }],
 };
 
 export const PYTH_CHALLENGES: ChallengeTask[] = [
@@ -62,6 +84,42 @@ export const PYTH_CHALLENGES: ChallengeTask[] = [
         { text: 'ישרה', ok: false, feedback: 'זווית ישרה רק כש־$a^2 + b^2 = c^2$. כאן $16 + 25 = 41$, ו־$7^2 = 49$.' },
         { text: 'חדה', ok: false, feedback: 'זווית חדה כש־$a^2 + b^2 > c^2$. כאן $41 < 49$, ולכן היא קהה.' },
       ] },
+    ],
+  },
+  {
+    id: 'pyth:c4', topic: 'pyth', after: 'pyth:4', kind: 'error', title: 'הסולם והקיר', minutes: 7, misc: 'add-not-sub', fig: LADDER_FIG,
+    story: 'סולם באורך $5$ מטר נשען על קיר. רגלי הסולם עומדות על הרצפה, $1.4$ מטר מהקיר.',
+    parts: [
+      { type: 'error', prompt: 'כך חישבה טל לאיזה גובה הסולם מגיע על הקיר.',
+        lines: ['הסולם, הקיר והרצפה יוצרים משולש ישר־זווית.', 'הגובה: $h^2 = 5^2 + 1.4^2 = 26.96$', '$h = \\sqrt{26.96} \\approx 5.19$ מטר'], wrong: 1,
+        why: 'הסולם הוא היתר: הצלע שמול הזווית הישרה. לכן מחסרים: $h^2 = 25 - 1.96$, כלומר $23.04$, ו־$h = 4.8$ מטר. גובה של $5.19$ מטר הוא יותר מאורך הסולם עצמו.',
+        lineWhy: { 0: 'הקיר מאונך לרצפה, ולכן הזווית ביניהם ישרה.', 2: 'השורש נכון לחשבון שבשורה הקודמת. הטעות שם.' },
+        fix: { prompt: 'לאיזה גובה הסולם מגיע, במטרים?', answer: 4.8, check: 'sqrt(5^2-1.4^2)' } },
+      { type: 'num', prompt: 'מזיזים את רגלי הסולם, ועכשיו הן $3$ מטר מהקיר. לאיזה גובה הסולם מגיע עכשיו?', answer: 4, check: 'sqrt(5^2-3^2)', unit: 'מטר',
+        solution: ['$h^2 = 5^2 - 3^2$, כלומר $25 - 9 = 16$.', '$h = \\sqrt{16} = 4$ מטר.'] },
+      { type: 'num', prompt: 'בכמה מטרים ירד ראש הסולם?', answer: 0.8, check: 'sqrt(5^2-1.4^2)-sqrt(5^2-3^2)', unit: 'מטר',
+        solution: ['קודם הסולם הגיע ל־$4.8$ מטר, ועכשיו ל־$4$ מטר.', '$4.8 - 4 = 0.8$ מטר. רגלי הסולם זזו $1.6$ מטר, וראש הסולם ירד רק $0.8$ מטר.'] },
+    ],
+  },
+  {
+    id: 'pyth:c5', topic: 'pyth', after: 'pyth:5', kind: 'proof', title: 'יש כאן זווית ישרה?', minutes: 8, fig: RIGHT_FIG,
+    parts: [
+      { type: 'order', prompt: 'במשולש $ABC$: $A(1, 1)$, $B(4, 5)$ ו־$C(-3, 4)$. למה הזווית ב־$A$ ישרה? סדרו את שלבי ההוכחה.',
+        steps: [
+          { text: '$AB^2 = 3^2 + 4^2 = 25$: מ־$A$ ל־$B$, $3$ ימינה ו־$4$ למעלה.',
+            reason: { choices: ['ההפרש ב־$x$ וההפרש ב־$y$ הם ניצבים, והקטע הוא היתר', 'מחברים את השיעורים של שתי הנקודות', 'ההפרש ב־$x$ ועוד ההפרש ב־$y$ הם האורך'], answer: 0 } },
+          { text: '$AC^2 = 4^2 + 3^2 = 25$: מ־$A$ ל־$C$, $4$ שמאלה ו־$3$ למעלה.' },
+          { text: '$BC^2 = 7^2 + 1^2 = 50$: מ־$C$ ל־$B$, $7$ ימינה ו־$1$ למעלה.' },
+          { text: 'ביחד $AB^2 + AC^2 = 50$, וזה בדיוק $BC^2$.' },
+          { text: 'לכן הזווית שמול $BC$, הזווית ב־$A$, ישרה.',
+            reason: { choices: ['המשפט ההפוך של פיתגורס', 'סכום הזוויות במשולש הוא $180°$', 'במשולש שווה־שוקיים זוויות הבסיס שוות'], answer: 0 } },
+        ],
+        // the three squared sides can be found in any order: the proof holds every way
+        free: [[0, 1, 2]] },
+      { type: 'num', prompt: 'מה האורך של $AB$?', answer: 5, check: 'sqrt((4-1)^2+(5-1)^2)',
+        solution: ['$AB^2 = 25$.', '$AB = \\sqrt{25} = 5$.'] },
+      { type: 'num', prompt: 'מה השטח של המשולש $ABC$?', answer: 12.5, check: '5*5/2', unit: 'יחידות שטח',
+        solution: ['הזווית ב־$A$ ישרה, ולכן $AB$ ו־$AC$ הם הניצבים. שניהם באורך $5$.', 'השטח: $\\frac{5 \\cdot 5}{2} = 12.5$ יחידות שטח.'] },
     ],
   },
 ];

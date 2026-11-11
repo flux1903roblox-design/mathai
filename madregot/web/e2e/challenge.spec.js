@@ -217,10 +217,12 @@ test('the stair page: the challenge card is locked until the mastery check, then
   await expect(card).toContainText('אתגר · לבחירה');
   await expect(card).toContainText('נפתח אחרי בדיקת השליטה');
   await expect(card.getByRole('button')).toHaveCount(0); // locked: nothing to press
-  // a stair without a task has no card
+  // every stair has a task now (PRODUCT2-21): pct:1, mastered, offers its own, open
   await page.goto('./#/learn/pct/1');
   await expect(page.locator('.journey-title')).toBeVisible();
-  await expect(page.locator('.jchallenge')).toHaveCount(0);
+  await expect(page.locator('.jchallenge')).toHaveCount(1);
+  await expect(page.locator('.jchallenge')).not.toHaveClass(/locked/);
+  await expect(page.locator('.jchallenge')).toContainText('שלוש עשיריות באחוזים');
   // pass the check; put the offer off for now
   await page.goto('./#/lesson/pct/2?kind=check&purpose=mastery');
   await page.reload();
