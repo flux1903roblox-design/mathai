@@ -21,34 +21,23 @@ export function scoreOf(result) {
 }
 
 /**
- * A practice exam drawn from the generators: questions spread over the chosen
- * topics, around each student's current level, stored with the exact answers.
+ * Words that ask for something only the screen can do: tap, drag, turn, place, move, take off the pans. A printed
+ * question never says them (makePracticeExam, makeClassExam).
  */
-export function makePracticeExam(topicIds, count, progress = {}) {
-  const ids = topicIds.filter((id) => TOPIC[id]);
-  if (!ids.length) return [];
-  const items = []; const seen = new Set();
-  for (let i = 0; items.length < count && i < count * 6; i++) {
-    const id = ids[items.length % ids.length]; const t = TOPIC[id];
-    const cur = progress[id]?.level || 1;
-    const level = Math.min(t.levels.length, Math.max(1, cur + [0, 0, 1, -1][items.length % 4]));
-    const it = makeItem(id, level);
-    if (seen.has(it.key)) continue;
-    seen.add(it.key);
-    items.push({
-      key: it.key, topic: id, level, levelTitle: it.levelTitle, text: it.text, display: it.display || null, form: it.form,
-      choices: it.choices || null, fig: it.fig || null, label: it.label || null, unit: it.unit || null,
-      answer: answerText(it), plain: itemPlain(it), solution: it.solution, hint: it.hint,
-    });
-  }
-  return items;
+export const SCREEN_WORDS = /הקישו|גררו|סובבו|שימו|הזיזו|הורידו מהכפות/;
+
+/**
+ * Can this question be printed and answered with pen and paper? Not an object moved on the screen (form 'manip': a
+ * point plotted, a ray turned, a balance whose pans are emptied, a bar dragged), not a practice-only question (two or
+ * three choices, or a target the question names), and nothing that asks to tap, drag or move. The student's practice
+ * exam and the teacher's class exam both draw through it.
+ */
+export function printable(it) {
+  return !!it && it.form !== 'manip' && !it.practiceOnly && !SCREEN_WORDS.test(String(it.text ?? ''));
 }
 
-// ---------------------------------------------------------------- the class exam (spec TEACHER-3)
-/** Lengths a teacher picks. */
-export const CLASS_EXAM_LENGTHS = [6, 10, 14];
 /**
- * Draws a stair gets before it counts as unprintable (every exercise dragged on the screen). The spec's 6 would skip a
+ * Draws a stair gets before it counts as unprintable (every exercise needs the screen, or is practice-only). The spec's 6 would skip a
  * stair that mixes forms now and then (coord:2 is about 60% dragging: seven in a row 3% of the time), so a stair is
  * given up only after 24 dragging draws in a row (under one in 100,000 for any stair the app has today).
  */
@@ -56,6 +45,65 @@ const MANIP_REDRAWS = 24;
 /** Draws of one question before a key this exam (or the other version) already has is accepted again. */
 const FRESH_TRIES = 60;
 
+/**
+ * One printable question from `draw`, whose key is not in `seen`. null when only unprintable questions came out
+ * (MANIP_REDRAWS in a row), or, unless `repeat` allows it, when only keys already in `seen` did; with `repeat`, a
+ * question already asked is the last resort (the generator has nothing else).
+ */
+function printableQuestion(draw, seen, { repeat = false } = {}) {
+  let unprintable = 0; let again = null;
+  for (let i = 0; i < FRESH_TRIES; i += 1) {
+    const it = draw();
+    if (!printable(it)) { unprintable += 1; if (unprintable >= MANIP_REDRAWS && !again) return null; continue; }
+    unprintable = 0;
+    if (!seen.has(examKey(it.key))) return it;
+    again ||= it;
+  }
+  return repeat ? again : null;
+}
+
+/**
+ * A practice exam drawn from the generators: questions spread over the chosen topics, around each student's current
+ * level, every one printable (printable(): nothing dragged on the screen, no practice-only question). Each question is
+ * kept as the class exam keeps it (freezeItem: the checking flags exact, precise, reduced and askDec, and an
+ * expression's letter), with `answer` the key as printed (answerText) and `value` the answer the lesson checks, so a
+ * photographed exam is graded by the lesson's own rule (lib/examGrade.js). A level with nothing printable left gives
+ * its place to the nearest level of the topic that has.
+ */
+export function makePracticeExam(topicIds, count, progress = {}) {
+  const ids = [...new Set(topicIds)].filter((id) => TOPIC[id]);
+  if (!ids.length) return [];
+  const items = []; const seen = new Set();
+  let live = [...ids];
+  while (items.length < count && live.length) {
+    const id = live[items.length % live.length]; const t = TOPIC[id];
+    const cur = progress[id]?.level || 1;
+    const want = Math.min(t.levels.length, Math.max(1, cur + [0, 0, 1, -1][items.length % 4]));
+    // the level asked for, then the others nearest to it
+    const levels = t.levels.map((_, i) => i + 1).sort((a, b) => Math.abs(a - want) - Math.abs(b - want) || a - b);
+    let it = null;
+    for (const level of levels) { it = printableQuestion(() => makeItem(id, level), seen); if (it) break; }
+    if (!it) { live = live.filter((x) => x !== id); continue; }
+    const p = practiceItem(it);
+    seen.add(p.key);
+    items.push(p);
+  }
+  return items;
+}
+
+/**
+ * A question as the practice exam keeps it: frozen as the class exam freezes it, with `answer` the key as printed
+ * (answerText), `value` the answer the lesson checks (a number, a point, { k, c }, { m, b } or a choice's index) and
+ * `plain` the question in words for the exam check.
+ */
+export function practiceItem(it) {
+  const f = freezeItem(it);
+  return { ...f, answer: answerText(it), value: f.answer, plain: itemPlain(it) };
+}
+
+// ---------------------------------------------------------------- the class exam (spec TEACHER-3)
+/** Lengths a teacher picks. */
+export const CLASS_EXAM_LENGTHS = [6, 10, 14];
 const plainCopy = (v) => (v == null ? null : JSON.parse(JSON.stringify(v)));
 /** FNV-1a, 32 bits, as 8 hex digits: a short, stable stand-in for the end of a long key. */
 function fnv(s) {
@@ -92,21 +140,11 @@ export function freezeItem(it) {
 export const thawItem = (frozen) => ({ ...frozen, diag: () => null });
 
 /**
- * One question of a stair for a class exam: drawn as a mastery check draws (fairForCheck), never an exercise that is
- * dragged on the screen. A key in `seen` (this exam's, or the other version's) is drawn again, and accepted only when
- * the stair's generator has nothing else. null: only dragging exercises came out.
+ * One question of a stair for a class exam: drawn as a mastery check draws (fairForCheck), and printable (never an
+ * exercise that is dragged on the screen). A key in `seen` (this exam's, or the other version's) is drawn again, and
+ * accepted only when the stair's generator has nothing else. null: only unprintable exercises came out.
  */
-function classQuestion(skill, seen) {
-  let manip = 0; let repeat = null;
-  for (let i = 0; i < FRESH_TRIES; i += 1) {
-    const it = itemFor(skill, 'gen', Math.random, undefined, undefined, { test: true });
-    if (it.form === 'manip') { manip += 1; if (manip >= MANIP_REDRAWS && !repeat) return null; continue; }
-    manip = 0;
-    if (!seen.has(examKey(it.key))) return it;
-    repeat ||= it;
-  }
-  return repeat;
-}
+const classQuestion = (skill, seen) => printableQuestion(() => itemFor(skill, 'gen', Math.random, undefined, undefined, { test: true }), seen, { repeat: true });
 
 /**
  * A class practice exam (spec TEACHER-3 §1): `count` questions spread round-robin over the chosen stairs, each at the

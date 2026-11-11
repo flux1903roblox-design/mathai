@@ -234,6 +234,36 @@ test('a practice exam is made from the chosen topics and prints without the app 
   await expect(page.locator('.tabbar')).toBeHidden();
 });
 
+/** Screenshots for a look (EXAM_SHOTS=<folder>): the printed sheet and the answer key; nothing is compared. */
+async function examShot(page, name) {
+  const dir = process.env.EXAM_SHOTS; if (!dir) return;
+  await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true });
+}
+
+test('a printed practice exam over every grade 7 topic asks nothing only the screen can do, and its key is a value to compare', async ({ page }) => {
+  await open(page, '#/exams/new', student('7'));
+  // every topic of the grade (מספרים מכוונים is picked already)
+  for (const t of ['מערכת צירים', 'זוויות', 'ביטויים אלגבריים', 'משוואות']) await page.getByRole('checkbox', { name: t }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('radio', { name: /10 שאלות/ }).click();
+  await page.getByRole('button', { name: 'הכנת המבחן' }).click();
+  const qs = page.locator('.exam-q');
+  await expect(qs).toHaveCount(10);
+  // no question asks to tap, drag, turn, place or move anything, or to take weights off the pans
+  for (const text of await qs.locator('.qtext').allInnerTexts()) expect(text).not.toMatch(/הקישו|גררו|סובבו|שימו|הזיזו|הורידו מהכפות/);
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('#answer-key')).toBeHidden(); // the key is not on the printed page
+  await examShot(page, 'pexam-sheet');
+  await page.emulateMedia({ media: 'screen' });
+  await page.getByRole('button', { name: 'סיימתי, למפתח התשובות' }).click();
+  const keys = page.locator('.answer-key li');
+  await expect(keys).toHaveCount(10);
+  // each key line is a value, a choice or an expression: never a point "somewhere in a quadrant" or an angle to turn to
+  for (const k of await keys.allInnerTexts()) { expect(k.trim()).not.toBe(''); expect(k).not.toMatch(/נקודה ב|למשל/); }
+  await page.locator('#answer-key').scrollIntoViewIfNeeded();
+  await examShot(page, 'pexam-key');
+});
+
 test('Back from a lesson started on the map, with a partial answer: it asks, staying keeps the answer, fast repeated Backs keep asking', async ({ page }) => {
   const sheet = page.getByRole('heading', { name: 'לצאת מהשיעור?' });
   await open(page, '#/', student('7'));

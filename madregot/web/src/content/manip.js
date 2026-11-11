@@ -354,7 +354,12 @@ export function manipText(it, u = it.answer) {
     case 'ray': return rayText(u);
     // the answer is a rule ({ mode }); a student's state is the bar as built
     case 'fbar': {
-      if (u.mode === 'value') return plainNum(u.value, { maxDen: FBAR_MAX_DEN, places: 3 });
+      if (u.mode === 'value') {
+        // a bar whose parts are fixed (beads on a string, a bar in ten parts) asks how many to colour: the count
+        const den = m.lockDen ? m.start.den : 0; const k = u.value * den;
+        if (den && Math.abs(k - Math.round(k)) < 1e-9) return `${Math.round(k)} מתוך ${den}`;
+        return plainNum(u.value, { maxDen: FBAR_MAX_DEN, places: 3 });
+      }
       if (u.mode === 'common') return `מספר חלקים שמתחלק ב־${u.of.join(' וב־')}, למשל ${u.of.reduce(lcm, 1)}`;
       return `${u.shaded}/${u.den}`;
     }

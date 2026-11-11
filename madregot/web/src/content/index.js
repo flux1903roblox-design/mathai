@@ -261,10 +261,8 @@ export function answerText(it, u = it.answer) {
   if (it.form === 'mc') { const c = it.choices[u]; return c ? (c.text || c.tex) : ''; }
   if (it.form === 'pt') return `(${plainNum(u[0])}, ${plainNum(u[1])})`;
   // Statistics answers are means and medians, Pythagoras answers lengths: they read as decimals, as in the solution.
-  if (it.form === 'line') {
-    const b = u.b === 0 ? '' : u.b > 0 ? ` + ${plainNum(u.b)}` : ` - ${plainNum(-u.b)}`;
-    return `y = ${plainNum(u.m)}x${b}`;
-  }
+  // a line as a student writes it: y = x + 1, y = -x, y = 3 (never "1x" or "0x")
+  if (it.form === 'line') return `y = ${linText({ k: u.m, c: u.b })}`;
   // an expression as a student writes it: 5x + 4, x - 3, -x, 7
   if (it.form === 'lin') return linText(u, it.var || 'x');
   // a fraction as written: the student's own n/d, or the answer in lowest terms
