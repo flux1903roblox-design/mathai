@@ -13,6 +13,7 @@ import { DayView } from '@/components/report/ReportView.jsx';
 import { daySummary } from '@/learn/report.ts';
 import { Button, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 
 export const SHARING = {
   title: 'שיתוף עם ההורים',

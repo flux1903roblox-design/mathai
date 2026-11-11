@@ -20,6 +20,8 @@ import { Bar } from '@/components/ds.jsx';
 import { Emblem } from '@/components/map/Scenery.jsx';
 import Board from '@/components/Board.jsx';
 import ChallengeLine from '@/components/learn/ChallengeLine.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/topics.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 function SectionCard({ t, n, current }) {
   const navigate = useNavigate();

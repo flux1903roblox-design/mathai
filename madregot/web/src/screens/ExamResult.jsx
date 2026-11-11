@@ -19,6 +19,7 @@ import SupportCard from '@/components/SupportCard.jsx';
 import ReportAnswer, { examText } from '@/components/ReportAnswer.jsx';
 import { ScreenBar, ScreenFoot, EmptyState, ConfirmSheet } from '@/components/Screen.jsx';
 import { pctTone } from './Exams.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/examResult.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const ICON = { correct: Check, partial: Minus, wrong: X, missing: CircleDashed };

@@ -19,6 +19,7 @@ import privacy from '@/content/legal/privacy.md?raw';
 import accessibility from '@/content/legal/accessibility.md?raw';
 import safety from '@/content/legal/safety.md?raw';
 import ParentsFrame from './ParentsFrame.jsx';
+import '@/styles/lazy/legal.css'; // the legal pages' plain reading, loaded with them (FOLLOWUP-23)
 
 export const DOCS = {
   terms: { title: 'תקנון', text: terms },

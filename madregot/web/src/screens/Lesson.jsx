@@ -43,6 +43,8 @@ import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.j
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
 import { CHECK_IMAGE_MAX } from '@shared/ai.js';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/lesson.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 /** True while a media query matches (and follows it as the window changes). */
 function useMedia(query) {

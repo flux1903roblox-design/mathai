@@ -42,6 +42,7 @@ import FileRestore from './FileRestore.jsx';
 import RestorePreview from './RestorePreview.jsx';
 import PersistInfoSheet from './PersistInfoSheet.jsx';
 import InstallSheet from './InstallSheet.jsx';
+import '@/styles/lazy/durable.css'; // the saving rules, loaded with this screen (FOLLOWUP-23)
 
 /** Under "ליצור קוד גיבוי": what the code keeps, and who can read it. */
 export const BACKUP_NOTE = 'קוד גיבוי שומר עותק מוצפן. בלי הקוד אף אחד לא יכול לקרוא אותו, גם לא אנחנו.';

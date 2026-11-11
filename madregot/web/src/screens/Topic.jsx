@@ -8,6 +8,8 @@ import { TOPIC, topicsFor } from '@/content/index.js';
 import { Box, Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { Emblem } from '@/components/map/Scenery.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/topic.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 const LineExplorer = lazy(() => import('@/components/LineExplorer.jsx'));
 

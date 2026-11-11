@@ -1,5 +1,14 @@
 /* Notebook.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
    original order. Only Notebook.jsx uses these classes. */
+
+/* ---- out of the first-load stylesheets (COUNCIL2-20), in their order: they style only what the screens that load this file draw */
+.nb-tool {
+  display: inline-flex; align-items: center; gap: var(--s1); min-height: 44px; padding: 0 var(--s3);
+  border-radius: 10px; border: 1.5px solid var(--rule-strong); background: var(--paper); font-weight: 700; font-size: var(--t-sm);
+}
+.nb-tool.on { border-color: var(--nb-ink); color: var(--nb-ink); background: #eef3fb; } /* colour-ok: the notebook page stays light */
+.nb-tool:disabled { opacity: 0.45; cursor: default; }
+
 .nb-tools { display: flex; gap: var(--s1); flex-wrap: wrap; }
 .nb-page {
   --nb-grid: #c9d8ee; --nb-margin: #e48a9b; /* colour-ok: the notebook page stays light */

@@ -19,6 +19,8 @@ import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import StageDone from '@/components/learn/StageDone.jsx';
 import { partsOf, isDone, stagesDone } from '@/lib/path.js';
 import { PARTS } from '@/lib/lesson.js';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/teach.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 const TITLE = { A: 'מבינים את הרעיון', B: 'דוגמה פתורה', C: 'פותרים יחד' };
 

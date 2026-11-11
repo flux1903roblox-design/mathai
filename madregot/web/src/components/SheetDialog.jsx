@@ -3,6 +3,8 @@
 import clsx from 'clsx';
 import { Dialog } from '@base-ui/react/dialog';
 import { X } from 'lucide-react';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/sheetDialog.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 /** The sheet as ui.jsx's Sheet draws it once it has opened. */
 export default function SheetDialog({ open, onOpenChange, title, children, footer, wide, className, dismissible = true }) {

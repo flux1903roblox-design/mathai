@@ -910,6 +910,22 @@ script. They now load one topic at a time, and nothing the student sees changed.
   `AnimatePresence`, which Madi, the shell, the path nodes, the chest and today's card animate with), lucide 18,
   sonner 15. Open work: motion's core needs those boot animations in CSS (a visual change of its own); the demo's boot
   behind its own import is FOLLOWUP-23's (lane-followups); sonner could load with its first toast.
+  **The first-load CSS made smaller** (COUNCIL2-14, COUNCIL2-20; `check-budget.mjs`, KB of render-blocking CSS gzipped):
+
+  | step | render-blocking CSS |
+  |---|---|
+  | before (the gate 59 KB) | 52.8 KB |
+  | FOLLOWUP-23's moves, taken as they are on lane-followups: the teacher's, the parents' area's, the legal pages' and the saving screens' rules load with those screens (`lazy/teacher.css`, `parents.css`, `legal.css`, `durable.css`) | 45.7 KB |
+  | one layer: 913 declarations dropped that a later rule with the same selector, in the same or a wider `@media`, always overrides (most in `app.css` and `v4.css`); 7 dead classes' rules dropped (no string, template, `clsx` key or library writes them); `v4.css` merged, its `:root` names into `tokens.css` and its rules at the top of `canon.css`, in the same order | 41.7 KB |
+  | every rule that only screens loaded on demand can match (each selector needs a class that only their modules write) moved into a stylesheet those screens import: 919 rules into 30 sheets, `lazy/shared.css` for parts several screens draw and one sheet per screen otherwise; 556 more stayed, because moving them could change which rule wins (a later first-load rule, or a rule in another lazy sheet, with the same specificity, a shared property and classes that can sit on one element) | **29.9 KB** |
+
+  The CSS gate is now 29.9 + 5% = **31.4 KB**, under the 32 KB target. `src/styles/lazy.test.js` ties every rule of
+  every sheet in `styles/lazy/` to the files that load it (FOLLOWUP-23's check, now over all of them), and it found
+  four dead rules in STUDENT-15's sheets (`.tabs`, `.pdf-thumb`, `.fieldset`, `.teacher-off-steps`), now gone. Proof:
+  every computed property of every element (and its `::before` and `::after`) was dumped at the end of each test and
+  at each screenshot of visual, screens, layout, dark, teacher, trust, challenge, report, learn, flows, manip,
+  subscription, tutor, programme, wardrobe and streak, phone and phone dark, in the builds before and after, and
+  compared (the result is in the commit message). The tools are in the lane's scratch folder (`lanes/council2/s11/tools`).
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

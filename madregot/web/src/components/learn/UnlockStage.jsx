@@ -12,6 +12,8 @@ import { useApp } from '@/lib/store.js';
 import { useMadiLook } from '@/lib/madiLook.js';
 import { colorOf, nameOf, unlockReason, wearing } from '@/lib/wardrobe.js';
 import { DUR, enter } from '@/lib/motion.js';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/unlockStage.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 const focusQuietly = (el) => { if (el) el.focus({ preventScroll: true }); };
 const rise = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: enter(DUR.slow) } };

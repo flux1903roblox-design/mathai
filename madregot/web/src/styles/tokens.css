@@ -26,7 +26,7 @@
   --brand: #1a5cf5;     --brand-d: #1246c4;   --brand-tint: #eaf1ff;  --brand-lip: #1246c4; --on-brand: #ffffff;
   --brand-line: #a9c3ff; /* borders of selected and brand-tinted things */
   --brand-ink: #1a5cf5;  /* the brand blue as text or an icon on the page or a card (lighter in dark) */
-  --p-50: #f5f8ff;      --p-400: #5b8cff;     --p-600: #1651db; /* three steps of the v4 brand scale still in use (v4.css) */
+  --p-50: #f5f8ff;      --p-400: #5b8cff;     --p-600: #1651db; /* three steps of the v4 brand scale still in use (canon.css) */
   --glow: #1a5cf5;      --glow-ink: #1246c4;  --on-glow: #ffffff;
   --good: #2fbf4a;      --good-d: #1a8a34;    --good-tint: #e3f8e7;   --good-ink: #157a41;  --on-good: #000000; --good-line: #bfe9c9;
   --good-mid: #8fdcab;  --bad-mid: #f28aa2; /* the softer green and red of quest bars and "ready" / "gap" segments */
@@ -158,3 +158,23 @@ img, svg { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* the layout layer's names (from v4.css, COUNCIL2-20): the old scale's names for the brand family, surfaces, radii,
+   the type scale and the page gutter; each still points at a token above */
+:root {
+  /* the brand-blue family under the old scale's names: each points at a token (tokens.css); --p-50, -400 and -600 live there */
+  --p-100: var(--brand-tint); --p-200: var(--brand-line); --p-300: var(--brand-line);
+  --p-500: var(--brand); --p-700: var(--brand-d);
+  /* surfaces: the page, cards with a border, a light panel for the maths */
+  --surface-0: var(--paper); --surface-1: var(--surface); --surface-2: var(--ground);
+  --line: var(--rule); --line-2: var(--rule-strong);
+  --r-s: 12px; --r-m: 16px; --r-l: 16px; --r-xl: 20px;
+  --fs-display: 32px; --lh-display: 38px;
+  --fs-h1: 26px; --lh-h1: 32px;
+  --fs-h2: 21px; --lh-h2: 28px;
+  --fs-body: 17px; --lh-body: 26px;
+  --fs-sm: 15px; --lh-sm2: 22px;
+  --fs-xs: 14px; --lh-xs2: 20px;
+  --gutter: 20px;
+}
+@media (min-width: 600px) { :root { --gutter: 24px; } }

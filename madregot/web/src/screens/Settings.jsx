@@ -33,6 +33,8 @@ import { count } from '@/lib/metrics.js';
 import SharingSheet, { stateWord } from '@/components/SharingSheet.jsx';
 import { disable as disableReminder } from '@/lib/push.js';
 import ReminderSettings from '@/components/learn/ReminderSettings.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/settings.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 export const SIGNOUT_VAULT = 'הגיבוי בשרת נשאר. כדי לחזור להתקדמות, פותחים את מדרגות ובוחרים "יש לי קוד גיבוי".';
 /**

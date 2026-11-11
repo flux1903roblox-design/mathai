@@ -18,6 +18,7 @@ import SupportCard from '@/components/SupportCard.jsx';
 import { scrubTitle } from '@shared/safety.js';
 import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
 import PhotoPrep, { EXAM_HEADER } from '@/components/PhotoPrep.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/examCheck.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 /**

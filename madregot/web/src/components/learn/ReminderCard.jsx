@@ -16,6 +16,8 @@ import { SLOTS, DEFAULT_SLOT, REMINDER_TEXT as T } from '@/lib/reminder.js';
 import { Button } from '@/components/ui.jsx';
 import { Segmented } from '@/components/choices.jsx';
 import { SPRING } from '@/lib/motion.js';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/reminderCard.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 const focusQuietly = (el) => { if (el) el.focus({ preventScroll: true }); };
 // a toast belongs to the screen that raised it (App.jsx Toasts clears them when the route changes): the answer is said

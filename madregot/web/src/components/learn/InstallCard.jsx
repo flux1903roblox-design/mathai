@@ -11,6 +11,8 @@ import { offer } from '@/lib/install.js';
 import { count } from '@/lib/metrics.js';
 import { Button } from '@/components/ui.jsx';
 import { SPRING } from '@/lib/motion.js';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/installCard.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 const focusQuietly = (el) => { if (el) el.focus({ preventScroll: true }); };
 const ICON = `${import.meta.env.BASE_URL}icons/maskable-512.png`;

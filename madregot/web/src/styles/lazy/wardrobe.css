@@ -1,5 +1,12 @@
 /* Wardrobe.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
    original order. Only Wardrobe.jsx uses these classes. */
+
+/* ---- out of the first-load stylesheets (COUNCIL2-20), in their order: they style only what the screens that load this file draw */
+.wardrobe-opt.is-locked { background: var(--ground); border-style: dashed; }
+.wardrobe-opt.is-locked .wardrobe-pic { filter: grayscale(1); opacity: 0.5; }
+.wardrobe-opt.is-locked .wardrobe-name { color: var(--ink-2); }
+.wardrobe-opt.is-locked .wardrobe-mark { color: var(--ink-3); }
+
 .wardrobe-stage { position: sticky; top: 0; z-index: 2; display: grid; place-items: center; padding: var(--s3) 0 var(--s2); background: var(--paper); border-bottom: 1px solid var(--rule); }
 .wardrobe-madi { display: block; }
 .wardrobe-sub-head { margin: var(--s4) 0 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-wrap: pretty; }

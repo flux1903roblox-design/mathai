@@ -6,6 +6,7 @@ import { ArrowRight } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { NeedOnline } from '@/components/durable/OfflineChip.jsx';
 import { canSell } from '@/lib/price.js';
+import '@/styles/lazy/parents.css'; // the parents' area's rules, loaded with its pages (FOLLOWUP-23)
 
 /** Back only where there is somewhere in the app to go back to: a profile on this device, or a page before this one. */
 function useBack() {

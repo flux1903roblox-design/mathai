@@ -1,0 +1,10 @@
+/* ReminderCard.jsx's own rules, out of the first-load stylesheets (COUNCIL2-20). ReminderCard.jsx imports this file, so they load
+   with it. A rule is here only when the classes it needs are written by it, or by parts only it
+   loads (src/styles/lazy.test.js), and it keeps the order it had. */
+.remind-note-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.remind-note-time { color: var(--ink-2); font-size: 13px; line-height: 20px; font-variant-numeric: tabular-nums; }
+.remind-stage .remind-slots { max-width: 360px; text-align: start; }
+@media (max-height: 640px) {
+  .remind-stage .done-copy { gap: var(--s3); }
+  .remind-stage .install-text { font-size: 16px; line-height: 24px; }
+}

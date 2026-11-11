@@ -1,5 +1,16 @@
 /* AIChat.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
    original order. Only AIChat.jsx uses these classes. */
+
+/* ---- out of the first-load stylesheets (COUNCIL2-20), in their order: they style only what the screens that load this file draw */
+.page .chat-list { max-height: none; min-height: 160px; }
+.chat-intro .msg { color: var(--ink); }
+.assistant-chat .chat-list { flex: 1; max-height: none; }
+@media (max-width: 959px) {
+  .assistant-chat .chat-dock-live { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); padding-bottom: var(--s3); }
+}
+.chat-sheet .chat-list { max-height: none; }
+.chat-sheet .chat-dock-live { bottom: calc(-1 * var(--s4)); padding-bottom: var(--s3); }
+
 .chat-list { display: flex; flex-direction: column; gap: var(--s3); overflow-y: auto; min-height: 120px; max-height: 52dvh; }
 .chat-intro { color: var(--ink-2); }
 .streaming { white-space: pre-wrap; }

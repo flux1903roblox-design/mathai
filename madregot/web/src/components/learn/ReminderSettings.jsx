@@ -11,6 +11,7 @@ import { reminderState, enable, disable } from '@/lib/push.js';
 import { errorText } from '@/lib/api.js';
 import { SLOTS, DEFAULT_SLOT, REMINDER_TEXT as T } from '@/lib/reminder.js';
 import { Segmented } from '@/components/choices.jsx';
+import '@/styles/lazy/durable.css'; // the saving rules, loaded with this screen (FOLLOWUP-23)
 
 /** The hours as the shared Segmented's options: the hour read left to right, "16:00". */
 const SLOT_OPTIONS = SLOTS.map((h) => [h, <span key={h} dir="ltr">{h}:00</span>]);

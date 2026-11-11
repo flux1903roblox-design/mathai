@@ -1,5 +1,12 @@
 /* PracticeExam.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
    original order. The teacher's class exam sheet (teacher/ExamSheet.jsx) uses the same sheet and imports this file too. */
+
+/* ---- out of the first-load stylesheets (COUNCIL2-20), in their order: they style only what the screens that load this file draw */
+.exam-answer-line .blank { flex: 0 1 220px; border-bottom: 1.5px solid var(--ink); height: 20px; }
+@media print {
+  .page.print-page { max-width: none; padding: 0; }
+}
+
 .exam-sheet { display: flex; flex-direction: column; gap: var(--s5); border: 1px solid var(--rule); border-radius: var(--r-md); padding: var(--s5); }
 .exam-sheet-head { display: flex; flex-direction: column; gap: var(--s2); border-bottom: 2px solid var(--ink); padding-bottom: var(--s3); }
 .exam-sheet-meta { display: flex; gap: var(--s6); flex-wrap: wrap; font-weight: 600; }

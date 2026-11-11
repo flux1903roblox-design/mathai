@@ -1,7 +1,30 @@
 /* Rescue.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
    original order. Only Rescue.jsx uses these classes. */
-.fieldset { border: 1px solid var(--rule); border-radius: var(--r-md); padding: var(--s4); margin: 0; display: flex; flex-direction: column; gap: var(--s3); }
-.fieldset legend { font-weight: 700; padding: 0 var(--s2); }
+
+/* ---- out of the first-load stylesheets (COUNCIL2-20), in their order: they style only what the screens that load this file draw */
+/* the topics list: each topic card opens with its world's landscape, as on the map */
+.topic-row.has-world { grid-template-columns: auto minmax(0, 1fr) auto auto; padding-top: 0; overflow: hidden; }
+.st-ready .standing-badge { background: var(--good-tint); color: var(--good-ink); }
+.st-shaky .standing-badge { background: var(--gold-tint); color: var(--gold-ink); }
+.st-gap .standing-badge { background: var(--bad-tint); color: var(--bad-ink); }
+@media (max-width: 400px) {
+  .standing-row { grid-template-columns: 1fr; }
+  .standing-badge { grid-row: auto; justify-self: start; }
+}
+.readiness { display: flex; flex-direction: column; gap: var(--s2); }
+.rescue-day.today { border-color: var(--p-300); background: var(--surface); }
+.chip-toggle.on { border-color: var(--c, var(--p-500)); background: var(--c-tint, var(--p-50)); color: var(--c-ink, var(--p-700)); box-shadow: 0 3px 0 color-mix(in srgb, var(--c, var(--p-500)) 50%, var(--paper)); }
+.ob-opts-row .ob-opt { flex: 1; justify-content: center; }
+.day-path > li.today { transform: none; width: 100%; }
+.today .day-node { width: 76px; height: 68px; }
+.day-path .today .day-tasks { width: 100%; margin-top: var(--s2); padding: var(--s3); border-radius: var(--r-m); border: 2px solid var(--streak); background: var(--surface); display: flex; flex-direction: column; gap: var(--s2); }
+.day-path .today .rescue-task { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.st-mastered .standing-badge { background: var(--good-ink); color: var(--on-brand); } /* white on the darker green: 4.5:1 or more at this small size */
+/* Exam Rescue: a white card, the days left in the brand blue */
+.today .day-node { background: var(--brand); color: var(--on-brand); box-shadow: 0 0 0 8px var(--brand-tint); }
+.day-path .today .day-tasks { border-color: var(--brand); }
+.rescue-rest { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 24px; text-align: center; }
+
 .topic-row { grid-template-columns: auto 1fr auto auto; padding: var(--s3) var(--s1); color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule);
 }
 @media (hover: hover) {

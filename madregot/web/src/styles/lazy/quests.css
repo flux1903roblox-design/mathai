@@ -1,0 +1,42 @@
+/* Quests.jsx's own rules, out of the first-load stylesheets (COUNCIL2-20). Quests.jsx imports this file, so they load
+   with it. A rule is here only when the classes it needs are written by it, or by parts only it
+   loads (src/styles/lazy.test.js), and it keeps the order it had. */
+.gold-icon { color: var(--gold); fill: var(--gold); }
+.streak-card-top { display: flex; align-items: center; gap: var(--s3); }
+.streak-flame { color: var(--rule-strong); }
+.streak-flame.on { color: var(--streak); }
+.freeze-line { display: flex; align-items: flex-start; gap: var(--s2); color: var(--ink-2); font-size: var(--t-sm); }
+.seg-main { font-family: var(--font-display); font-weight: 700; font-size: var(--t-md); line-height: 22px; }
+.seg-sub { font-size: var(--t-xs); line-height: 16px; }
+.quest.done .quest-check { background: var(--good); border-color: var(--good); }
+.quest.done .quest-title { color: var(--good-ink); }
+.quest-count { direction: ltr; }
+.goal-star { width: 34px; height: 34px; margin: -6px -4px; flex: none; }
+.quest.done { border-color: var(--good-line); background: var(--good-tint); }
+.quest-xp .quest-icon, .quest-perfect .quest-icon { background: var(--gold-tint); color: var(--gold-ink); }
+.quest-combo .quest-icon { background: var(--streak-tint); color: var(--streak-ink); }
+.quest-mission .quest-icon, .quest-correct .quest-icon { background: var(--ch-petrol-tint); color: var(--ch-petrol-ink); }
+.quest.done .quest-bar i { background: linear-gradient(180deg, #5fd476, var(--good)); } /* colour-ok: the lit top of a coloured bar, the same in both themes */
+.quest-chest.open { background: var(--gold-tint); border: 2px solid var(--gold-line); }
+.quest-chest:not(.open) .quest-chest-art { filter: grayscale(0.6) opacity(0.75); }
+@media (min-width: 1024px) {
+  .quests > .goal-card { grid-column: 2; height: 100%; }
+  .quests > .quest-card .quest-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .quests > .quest-card .quest { grid-template-columns: auto minmax(0, 1fr); }
+  .quests > .quest-card .quest-count { grid-column: 2; }
+}
+@media (max-width: 560px) {
+  .quest-chest .mascot { grid-column: 2; grid-row: 1; }
+  .quest-say { grid-column: 1 / -1; grid-row: 2; text-align: center; }
+}
+/* the streak card on Quests: the month's learning days (a number that does not reset) and the repair, in words */
+.streak-month { margin: 4px 0 0; color: var(--ink); font-size: 15px; line-height: 22px; font-weight: 600; }
+.streak-repair-line { margin: 0; padding: var(--s3) var(--s4); border-radius: 12px; background: var(--ground); color: var(--ink); font-size: 15px; line-height: 22px; }
+.week-best-card { display: flex; flex-direction: column; gap: var(--s3); }
+.wk-line { margin: 0; color: var(--ink); font-size: 17px; line-height: 24px; font-weight: 600; }
+.wk-track { position: relative; height: 14px; }
+.wk-fill { height: 100%; border-radius: 999px; background: var(--brand); transition: width var(--duration-slow) var(--ease-smooth-out); }
+.wk-best { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 22px; }
+@media (prefers-reduced-motion: reduce) {
+  .wk-fill { transition: none; }
+}

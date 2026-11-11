@@ -24,6 +24,8 @@ import { GradeSwitch } from '@/components/GradeSwitch.jsx';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
 import AdultTeacherBox from '@/components/account/AdultTeacherBox.jsx';
 import ClassSettingQuestion, { settingBody, settingReady } from '@/components/teacher/ClassSettingQuestion.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/teacher.css'; // the teacher's screens' rules, loaded with them (FOLLOWUP-23)
 
 const TEACHER_URL = import.meta.env.VITE_TEACHER_URL || '';
 const CONTACT = String(import.meta.env.VITE_CONTACT_EMAIL || '').trim();

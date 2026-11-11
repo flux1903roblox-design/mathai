@@ -1,5 +1,7 @@
 import { useId, useState } from 'react';
 import { Tex } from './MathText.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/lineExplorer.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 // Move m and b and watch y = mx + b: the "staircase" from (0, b) shows one
 // step right and m steps up or down, exactly as on the class whiteboard.

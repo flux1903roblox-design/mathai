@@ -13,6 +13,7 @@ import { useApp } from '@/lib/store.js';
 import { backupText } from '@/lib/durable/vault.js';
 import { copyText } from '@/lib/clipboard.js';
 import { Button } from '@/components/ui.jsx';
+import '@/styles/lazy/durable.css'; // the saving rules, loaded with this screen (FOLLOWUP-23)
 
 export const COPIED = 'הועתק. אפשר להדביק במייל לתמיכה.';
 export const NOT_COPIED = 'לא הצלחנו להעתיק. אפשר לסמן את הפרטים ולהעתיק אותם.';

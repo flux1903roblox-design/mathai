@@ -17,6 +17,8 @@ import { markSeen } from '@/lib/classWork.js';
 import MyHelp from '@/components/learn/MyHelp.jsx';
 import ClassGoalCard, { ClassGoalMoment } from '@/components/learn/ClassGoalCard.jsx';
 import ExamLoss from '@/components/learn/ExamLoss.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/quests.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 
 const QUEST_ICON = { lessons: BookOpen, xp: Zap, combo: Flame, perfect: Star, correct: Target, mission: ListChecks };

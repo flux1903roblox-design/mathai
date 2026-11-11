@@ -12,6 +12,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { adultYearOk, setAdultPassed, startWait, waitUntil } from '@/lib/parentGate.js';
 import { Button, Field } from '@/components/ui.jsx';
+// the parents' area's rules: the teacher's step on the welcome screen (COUNCIL2-5) loads this file on its own
+import '@/styles/lazy/parents.css';
 
 export const ADULT_COPY = Object.freeze({
   title: 'המסך הזה בשביל ההורים',

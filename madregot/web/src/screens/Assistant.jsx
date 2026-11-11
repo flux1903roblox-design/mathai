@@ -23,6 +23,7 @@ import { RichText } from '@/components/RichText.jsx';
 import OfflineChip from '@/components/durable/OfflineChip.jsx';
 import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
 import PhotoPrep from '@/components/PhotoPrep.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/assistant.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 /** A result that appears below the fold scrolls up into view, clear of the tab bar. */

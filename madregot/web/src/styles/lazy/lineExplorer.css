@@ -1,0 +1,11 @@
+/* LineExplorer.jsx's own rules, out of the first-load stylesheets (COUNCIL2-20). LineExplorer.jsx imports this file, so they load
+   with it. A rule is here only when the classes it needs are written by it, or by parts only it
+   loads (src/styles/lazy.test.js), and it keeps the order it had. */
+.explorer { display: flex; flex-direction: column; gap: var(--s3); padding-top: var(--s2); }
+.explorer-eq { text-align: center; font-size: 26px; }
+.explorer-graph { align-self: center; background: var(--paper); border-radius: 8px; }
+.explorer-line { stroke-width: 3; }
+.step-run { stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 4 3; }
+.step-rise { stroke: var(--streak); stroke-width: 3; stroke-linecap: round; }
+.explorer-controls { display: grid; gap: var(--s2); }
+.explorer-read { font-weight: 600; }

@@ -12,6 +12,8 @@ import { Button } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import RemedyFlow from '@/components/learn/RemedyFlow.jsx';
 import { LessonHeader } from '@/components/learn/StepPlayer.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/repair.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 export default function Repair() {
   const { topic, level: L, misc } = useParams();

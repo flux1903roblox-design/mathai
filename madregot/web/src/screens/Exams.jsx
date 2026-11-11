@@ -9,6 +9,7 @@ import { useApp } from '@/lib/store.js';
 import PageHero from '@/components/PageHero.jsx';
 import ExamLoss from '@/components/learn/ExamLoss.jsx';
 import { Bar } from '@/components/ds.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 import '@/styles/lazy/exams.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const fmtDate = (iso) => new Date(iso).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit' });

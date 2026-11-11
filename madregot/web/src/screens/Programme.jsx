@@ -9,6 +9,8 @@ import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/index.js';
 import { PROGRAMME, ROADMAP_NEXT, coverageOf, coverageSentence, monthsText, hoursText, inSchoolOrder, GRADE_NAME } from '@/learn/programme';
 import { GradeSwitch } from './Welcome.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/programme.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
 
 const STATE_WORD = { yes: 'יש', part: 'חלקי', no: 'עוד לא' };
 

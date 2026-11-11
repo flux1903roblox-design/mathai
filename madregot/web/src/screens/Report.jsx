@@ -8,6 +8,7 @@ import ReportView from '@/components/report/ReportView.jsx';
 import { ShareSheet, EMPTY_HINT } from '@/components/report/ShareSheet.jsx';
 import { useReportInput, useReportWeek } from '@/components/report/useReportWeek.js';
 import { weekStart } from '@/learn/report.ts';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 
 /** The Sunday of the week before the week of `day`. */
 const lastWeekOf = (day) => { const s = weekStart(day); const t = new Date(`${s}T00:00:00Z`); t.setUTCDate(t.getUTCDate() - 7); return t.toISOString().slice(0, 10); };

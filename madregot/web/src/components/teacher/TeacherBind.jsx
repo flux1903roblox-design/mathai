@@ -12,6 +12,7 @@ import { teacherClass, refreshStatus } from '@/lib/account.js';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
 import AdultTeacherBox from '@/components/account/AdultTeacherBox.jsx';
 import { Button } from '@/components/ui.jsx';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
 
 export const BIND_COPY = Object.freeze({
   intro: 'נכנסים עם המייל שלכם ומקשרים אליו את הכיתה. זה פעם אחת, ואחר כך העוזר החכם פתוח לכם.',

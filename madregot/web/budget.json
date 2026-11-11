@@ -1,7 +1,7 @@
 {
   "bootJsGzipKB": 297,
   "bootJsTargetKB": 260,
-  "cssGzipKB": 59,
+  "cssGzipKB": 31.4,
   "cssTargetKB": 32,
   "anyChunkGzipKB": 150,
   "precacheMB": 4.79,
@@ -36,5 +36,5 @@
     "react-markdown"
   ],
   "neverInBoot": ["You are the maths tutor"],
-  "notes": "Checked by scripts/check-budget.mjs after every npm run build. The gates and targets are DURABLE-11's (QA_DURABLE.md): boot JS and render-blocking CSS gzipped at level 9 (KB = 1000 bytes), any chunk loaded on demand, and the service worker's precache. lazyOnly is STUDENT-15's: these modules must never be in a boot file (scripts/vite-plugin-budget.mjs writes the module map it is read from). COUNCIL2-14/37 took the tutor's prompts (shared/ai.js, pedagogy, guard), the exercise generators (content/*.js, loaded per topic), the challenge tasks' parts, Base UI and motion's animation features off the first load: boot JS 429.6 → 282.4 KB, so the gate is 282.4 + 5% = 297 KB, and the modules after cmdk in lazyOnly keep them off. neverInBoot is text no boot file may hold (the first words of the tutor's prompt). The student lane's own deltas over 5618298 (+6 KB JS, +0 KB CSS) measured its share on its branch; on the integrated app the gates above hold the whole first load, as that lane's notes said they would."
+  "notes": "Checked by scripts/check-budget.mjs after every npm run build. The gates and targets are DURABLE-11's (QA_DURABLE.md): boot JS and render-blocking CSS gzipped at level 9 (KB = 1000 bytes), any chunk loaded on demand, and the service worker's precache. lazyOnly is STUDENT-15's: these modules must never be in a boot file (scripts/vite-plugin-budget.mjs writes the module map it is read from). COUNCIL2-14/37 took the tutor's prompts (shared/ai.js, pedagogy, guard), the exercise generators (content/*.js, loaded per topic), the challenge tasks' parts, Base UI and motion's animation features off the first load: boot JS 429.6 → 282.4 KB, so the gate is 282.4 + 5% = 297 KB, and the modules after cmdk in lazyOnly keep them off. neverInBoot is text no boot file may hold (the first words of the tutor's prompt). COUNCIL2-14/20 brought the render-blocking CSS from 52.8 to 29.9 KB (under the 32 KB target): FOLLOWUP-23's moves of the teacher, parents, legal and saving rules, the declarations a later rule with the same selector always overrides, the dead selectors, v4.css merged into canon.css and tokens.css, and every rule only screens loaded on demand can match moved into a stylesheet those screens import (src/styles/lazy.test.js); so the CSS gate is 29.9 + 5% = 31.4 KB. The student lane's own deltas over 5618298 (+6 KB JS, +0 KB CSS) measured its share on its branch; on the integrated app the gates above hold the whole first load, as that lane's notes said they would."
 }
