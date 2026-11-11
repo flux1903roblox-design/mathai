@@ -1,6 +1,7 @@
 // What a tool of the full tutor says before any camera or upload opens, when this device does not have it today:
 // what it does, and what is open instead (the teacher, the worked solutions, the answer key). Calm and short: no
-// price, no plan, no lock icon. The small "מידע להורים" link leads to the page meant for a parent.
+// price, no plan, no lock icon. The small "מידע להורים" link leads to the page meant for a parent. A person to talk to
+// is one tap away here too: the quiet link and ער״ן's number (COUNCIL2-4).
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { useApp } from '@/lib/store.js';
@@ -9,6 +10,7 @@ import Mascot from './Mascot.jsx';
 import { canSell } from '@/lib/price.js';
 import { lockedText } from './limitCopy.js';
 import { openLimitSheet } from '@/lib/account.js';
+import { HelpLine } from './SupportSheet.jsx';
 
 export default function ToolLocked({ kind, state = 'locked', onTeacher, children, className, compact = false }) {
   const inClass = useApp((s) => !!s.profile?.token);
@@ -23,6 +25,7 @@ export default function ToolLocked({ kind, state = 'locked', onTeacher, children
       {t.bind && <Button className="btn-block" onClick={() => openLimitSheet({ reason: 'parent_ok_needed' })}>כניסה עם מייל</Button>}
       {children}
       {t.parents && !teacher && <Link to="/parents/info" className="foot-link tool-locked-parents">מידע להורים</Link>}
+      <HelpLine className="tool-locked-help" />
     </section>
   );
 }

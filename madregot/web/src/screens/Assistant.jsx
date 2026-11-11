@@ -10,7 +10,7 @@ import ToolLocked from '@/components/ToolLocked.jsx';
 import { limitVariant } from '@/components/limitCopy.js';
 import ReportAnswer, { checkText, generateText } from '@/components/ReportAnswer.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
-import { SupportLink } from '@/components/SupportSheet.jsx';
+import { HelpLine } from '@/components/SupportSheet.jsx';
 import { TOPIC, topicsFor, readAnswer, isCorrect, diagnosisLine, answerText, displayTex, itemPlain } from '@/content/index.js';
 import { skillId } from '@/learn/skills.ts';
 import { ensureTopics } from '@/learn/content/index.ts';
@@ -75,8 +75,8 @@ function AiOffline() {
         <div className="ai-offline-actions">
           {teacher ? <Link to="/teacher" className="btn btn-primary btn-block">חזרה ללוח</Link> : <Link to="/" className="btn btn-primary btn-block">להמשיך לתרגל</Link>}
           {!inClass && !teacher && <Link to="/settings" state={{ focus: 'ai' }} className="foot-link">איך מחברים את העוזר</Link>}
-          {/* the support card is for a student; a teacher's assistant leads back to the board */}
-          {!teacher && <SupportLink className="ai-offline-support" />}
+          {/* the support card is for a student (the link and ער״ן's number, COUNCIL2-4); a teacher's assistant leads back to the board */}
+          {!teacher && <HelpLine className="ai-offline-support" />}
         </div>
       </div>
     </section>

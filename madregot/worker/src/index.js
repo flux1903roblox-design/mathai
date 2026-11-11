@@ -4,7 +4,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { AI_KINDS, AI_BODY_MAX, STREAMED, TOPIC_IDS, LITE_MODEL, readResult, splitCare, answerGuard, generateVerified } from '../../shared/ai.js';
 import { streamGuard, guardResult, MASK_NOTE } from '../../shared/guard.js';
-import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
+import { CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
+import { detectDistress } from '../../shared/distress.js';
 import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
   limitOrThrow, hmacHex, cleanName, resetsAt, release, safeEqual,

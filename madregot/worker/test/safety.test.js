@@ -1,15 +1,16 @@
-// shared/safety.js: the support details, the prompt's safety block, the fixed care reply, and the distress detector
-// (trust spec TRUST-3 §3.1, Appendix E.1a, F and G). Every Appendix G phrase is here, with real Hebrew teen phrasing and
-// the maths sentences (algebra included) that must not trigger.
+// shared/safety.js and shared/distress.js: the support details, the prompt's safety block, the fixed care reply, and the
+// distress detector (trust spec TRUST-3 §3.1, Appendix E.1a, F and G). Every Appendix G phrase is here, with real Hebrew
+// teen phrasing and the maths sentences (algebra included) that must not trigger.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import {
-  SUPPORT, CARE_MARK, CARE_STATIC, ANTHROPIC_CHILD_PROMPT, safetyPrompt, normalize, detectDistress, DISTRESS_CATEGORIES,
+  SUPPORT, CARE_MARK, CARE_STATIC, ANTHROPIC_CHILD_PROMPT, safetyPrompt, normalize,
   maskPersonal, scanPersonal, validIsraeliId, scrubTitle, screenOutput, linkAllowed, blockHit, ALLOWED_LINK_HOSTS, BLOCKED_TEXT,
 } from '../../shared/safety.js';
+import { detectDistress, DISTRESS_CATEGORIES } from '../../shared/distress.js';
 import { BLOCK_HE, BLOCK_EN } from '../../shared/blocklist.js';
 
 const shared = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'shared');
@@ -159,6 +160,205 @@ const MUST_NOT_FLAG = [
   'אני לא יכול יותר עם שיטת ההצבה',
 ];
 
+// ---------------------------------------------------------------- the regression corpus (COUNCIL2-1/4)
+// The council's review found the detector missed 11 of 31 and 19 of 56 disclosures, among them suicidal thoughts, a plan
+// for now, sextortion and fear of a parent. This corpus is the phrase set a school counsellor is to review (an owner
+// step; the list is synthetic, written for the test). Each family names the category it is counted under; every
+// category opens the same support card (ער״ן 1201, סה״ר, 105, 100, 101). It has masculine, feminine and plural forms,
+// slang, letters typed three times, a missing space and an ordinary letter typed for a final one ("חיימ").
+const CORPUS_FLAG = [
+  // suicidal thoughts
+  ['יש לי מחשבות אובדניות', 'self_harm'], ['יש לי מחשבות אובדניות כבר כמה שבועות', 'self_harm'],
+  ['אני אובדנית', 'self_harm'], ['אני אובדני', 'self_harm'], ['היו לי נטיות אובדניות', 'self_harm'],
+  ['יש לי מחשבות אבדניות', 'self_harm'],
+  ['מחשבותאובדניות', 'self_harm'], ['אני חושבת על התאבדות', 'self_harm'], ['אני חושב על המוות כל הזמן', 'self_harm'],
+  ['חושבת על לגמור עם החיים', 'self_harm'], ['יש לי מחשבות על מוות', 'self_harm'],
+  ['אני רוצה לישון ולא להתעורר', 'self_harm'], ['בא לי לישון ולא להתעורר יותר', 'self_harm'],
+  ['רוצה להירדם ולא לקום', 'self_harm'], ['אני רוצה לישון לנצח', 'self_harm'], ['לישוןולאלהתעורר', 'self_harm'],
+  ['אני לא רוצה להתעורר מחר', 'self_harm'], ['אני לא רוצה להתעורר יותר', 'self_harm'],
+  ['אנחנו לא רוצים להתעורר יותר', 'self_harm'], ['הלוואי שלא אתעורר', 'self_harm'],
+  ['הלוואי שאני לא אתעורר מחר', 'self_harm'],
+  ['אין לי בשביל מה לחיות', 'self_harm'], ['אין בשביל מה לחיות', 'self_harm'], ['אין לי למה לחיות', 'self_harm'],
+  ['אין לי סיבה לקום בבוקר', 'self_harm'], ['בשביל מה אני חיה?', 'self_harm'], ['למה אני בכלל קיים', 'self_harm'],
+  ['איןלי בשביל מה לחיות', 'self_harm'], ['וואלה אין לי בשביל מה לחיות', 'self_harm'],
+  ['בא לי לגמור עם הכל', 'self_harm'], ['אני רוצה לגמור עם הכל', 'self_harm'], ['רוצה לגמור עם הכול', 'self_harm'],
+  ['חושבת לגמור עם הכל', 'self_harm'], ['לגמור עם החיים', 'self_harm'], ['אני רוצה לסיים את החיים שלי', 'self_harm'],
+  ['לשים סוף לחיים', 'self_harm'], ['אני רוצה לגמור עם החיימ', 'self_harm'],
+  ['אני לא שווה כלום', 'self_harm'], ['אני מרגישה שאני לא שווה כלום', 'self_harm'],
+  ['אני פשוט לא שווה', 'self_harm'], ['אני לא שווה שום דבר', 'self_harm'], ['החיים שלי לא שווים כלום', 'self_harm'],
+  ['אנילא שווה כלום', 'self_harm'],
+  ['אני לא שווה כלומ', 'self_harm'], ['נשבע לך אני לא שווה כלום', 'self_harm'], ['טוב להם בלעדיי', 'self_harm'],
+  ['רוצים למות', 'self_harm'], ['רוצהלמות', 'self_harm'], ['בא לי למות כבר', 'self_harm'],
+  ['באלי למות', 'self_harm'], ['באאא לי למוווות', 'self_harm'], ['בא לי למות כבר!!!', 'self_harm'],
+  ['אחי אני רוצה למות', 'self_harm'], ['אני רוצה להתאבד', 'self_harm'],
+  ['בא לי להתאבד', 'self_harm'], ['רוצה להתעבד', 'self_harm'], ['אני מתכננת להתאבד', 'self_harm'],
+  ['כתבתי מכתב התאבדות', 'self_harm'], ['הלוואי שלא נולדתי', 'self_harm'], ['עדיף שאמות', 'self_harm'],
+  ['נמאס לי מהחיימ', 'self_harm'],
+  ['kms', 'self_harm'], ['im going to kill myself', 'self_harm'], ["i don't want to live anymore", 'self_harm'],
+  ['i want to end it all', 'self_harm'], ['i want to unalive myself', 'self_harm'], ['better off dead', 'self_harm'],
+  // a plan
+  ['אני הולכת לקפוץ מהגג', 'self_harm'], ['אני הולך לקפוץ מהגג', 'self_harm'], ['בא לי לקפוץ מהחלון', 'self_harm'],
+  ['אני רוצה לקפוץ מהבניין', 'self_harm'], ['אני חושבת לקפוץ מהגשר', 'self_harm'], ['אקפוץ מהמרפסת', 'self_harm'],
+  ['אני עומד על הגג ורוצה לקפוץ', 'self_harm'], ['אני על המרפסת ובא לי לקפוץ', 'self_harm'],
+  ['לקפוצ מהגג', 'self_harm'], ['בא לי לקפוץ מתחת לרכבת', 'self_harm'],
+  ['אני רוצה לזרוק את עצמי מהחלון', 'self_harm'],
+  ['יש לי כדורים ואני רוצה לקחת את כולם', 'self_harm'], ['אני רוצה לקחת את כל הכדורים של אמא', 'self_harm'],
+  ['בא לי לבלוע את כל הכדורים', 'self_harm'], ['בלעתי הרבה כדורים', 'self_harm'], ['לקחתי כדורי שינה', 'self_harm'],
+  ['אני הולכת לבלוע קופסה של כדורים', 'self_harm'], ['יש לי תרופות ואני הולך לקחת את כולן', 'self_harm'],
+  ['לקחתי מנת יתר', 'self_harm'], ['אני הולכת לתלות את עצמי', 'self_harm'],
+  // self-harm
+  ['מתחשק לי לחתוך', 'self_harm'], ['בא לי לחתוך שוב', 'self_harm'], ['יש לי חתכים על היד', 'self_harm'],
+  ['יש לי חתכים על הידיים', 'self_harm'], ['אני חותך את עצמי', 'self_harm'], ['אני חותכת', 'self_harm'],
+  ['אני שורטת את עצמי', 'self_harm'],
+  ['אני מכאיבה לעצמי', 'self_harm'], ['אני מרביץ לעצמי', 'self_harm'], ['אני שורפת את עצמי', 'self_harm'],
+  ['פגיעה עצמית', 'self_harm'], ['אני פוגע בעצמי', 'self_harm'], ['בא לי לחתוך את הורידים', 'self_harm'],
+  ['אני חותכת בסתר', 'self_harm'],
+  ['אני רוצה לחתוכ את עצמי', 'self_harm'], ['cutting myself again', 'self_harm'], ['self harm', 'self_harm'],
+  // fear of an adult at home
+  ['אני פוחדת מאבא שלי', 'abuse'], ['אני מפחד מאבא שלי', 'abuse'], ['אני מפחדת מאמא שלי', 'abuse'],
+  ['אני פוחד מההורים שלי', 'abuse'], ['אנחנו מפחדים מאבא', 'abuse'], ['אני מפחדת מהחבר של אמא', 'abuse'],
+  ['אני מפחד מהאבא החורג', 'abuse'], ['אני פוחדת מהדוד שלי', 'abuse'], ['אני מפחד מאחי הגדול', 'abuse'],
+  ['אני מפחדת להיות בבית', 'abuse'], ['אני מפחד לחזור הביתה', 'abuse'],
+  ['אמא שלי צועקת עליי כל יום ואני פוחדת', 'abuse'], ['אבא צועק עליי כל הזמן', 'abuse'],
+  ['אני מפחדת שאבא ירביץ לי', 'abuse'], ['אבא שלי מרביץ לאמא', 'abuse'], ['נועלים אותי בחדר', 'abuse'],
+  ['לא נותנים לי לאכול', 'abuse'], ['אבא שלי מאיים להרביץ לי', 'abuse'], ['אני לא רוצה לחזור הביתה אף פעם', 'abuse'],
+  ['im scared of my dad', 'abuse'], ['מישהו בבית פוגע בי', 'abuse'],
+  ['הדוד שלי נוגע בי', 'abuse'], ['אניפוחדת מאבא שלי', 'abuse'],
+  // threats and sextortion
+  ['שולחים לי הודעות מאיימות', 'danger'], ['מישהו שולח לי הודעות מאיימות בוואטסאפ', 'danger'],
+  ['קיבלתי הודעה מאיימת', 'danger'], ['אני מקבלת איומים באינסטגרם', 'danger'],
+  ['שלחתי תמונה ועכשיו הוא מאיים', 'danger'], ['שלחתי לו תמונה ועכשיו הוא מאיים עליי', 'danger'],
+  ['הוא אומר שיפרסם את התמונות שלי', 'danger'], ['היא מאיימת להפיץ את התמונות', 'danger'],
+  ['הם יפיצו את הסרטון שלי', 'danger'], ['הוא אמר שישלח את התמונות שלי לכל הכיתה', 'danger'],
+  ['מישהו סוחט אותי בתמונות', 'danger'], ['הוא רוצה כסף אחרת יפרסם את התמונות', 'danger'],
+  ['שלחתי סרטון והוא רוצה עוד תמונות', 'danger'], ['הבחור מאיים לפרסם את התמונות', 'danger'],
+  ['מבוגר באינסטגרם רוצה לפגוש אותי', 'danger'], ['מישהו מהטיקטוק רוצה להיפגש איתי', 'danger'],
+  ['הכרתי מישהו ברובלוקס והוא רוצה לבוא אליי', 'danger'], ['הוא אמר לי לשמור סוד', 'danger'],
+  ['היא ביקשה ממני לשמור את זה בסוד', 'danger'], ['הוא אומר לי שזה הסוד שלנו', 'danger'],
+  ['ביקש שאפתח מצלמה', 'danger'], ['מישהו שלח לי תמונות עירום', 'danger'], ['he is threatening me', 'danger'],
+  ['sextortion', 'danger'], ['מאיימיםעליי', 'danger'], ['זו סחיטה', 'danger'],
+  // bullying
+  ['כולם בכיתה שונאים אותי', 'bullying'], ['כולם בכיתה צוחקים עליי', 'bullying'],
+  ['כולם בבית הספר מתעלמים ממני', 'bullying'], ['אף אחד בכיתה לא מדבר איתי', 'bullying'],
+  ['מפיצים עליי שמועות', 'bullying'],
+  ['הוציאו אותי מהקבוצה של הכיתה', 'bullying'], ['they told me kys', 'bullying'],
+  ['כולמ בכיתה שונאימ אותי', 'bullying'],
+  // running away, not eating
+  ['אני רוצה לברוח מהבית', 'distress'], ['בא לי לברוח מהבית', 'distress'],
+  ['אני הולכת לברוח מהבית הלילה', 'distress'], ['ברחתי מהבית', 'distress'], ['אנחנו בורחים מהבית', 'distress'],
+  ['אני מתכנן לברוח מהבית', 'distress'],
+  ['אני לא אוכלת כבר כמה ימים', 'distress'], ['אני לא אוכל כבר יומיים', 'distress'],
+  ['לא אכלתי כלום מאתמול', 'distress'], ['כבר שבוע שאני לא אוכלת', 'distress'], ['אני מרעיבה את עצמי', 'distress'],
+  ['אני מקיאה אחרי שאני אוכלת', 'distress'], ['אני גורמת לעצמי להקיא', 'distress'],
+  ['אני רעבה כל הזמן ואין אוכל בבית', 'distress'], ['אין לנו מה לאכול', 'distress'], ['יש לי אנורקסיה', 'distress'],
+  ['starving myself', 'distress'], ['i want to run away from home', 'distress'],
+  // loneliness and sadness
+  ['אני מרגישה לבד', 'distress'], ['אני מרגיש לבד', 'distress'], ['אני מרגישה כל כך לבד', 'distress'],
+  ['אנחנו מרגישים בודדים', 'distress'], ['אני כל כך בודדה', 'distress'], ['אני בודד', 'distress'],
+  ['אני לבד כל הזמן', 'distress'],
+  ['אני תמיד לבד בהפסקות', 'distress'], ['אני כל כך עצובה', 'distress'], ['אני עצוב כל הזמן', 'distress'],
+  ['אני ממש עצובה', 'distress'], ['עצוב לי כל הזמן', 'distress'], ['אני עצובה.', 'distress'],
+  ['אני מרגיש ריק מבפנים', 'distress'],
+  ['אני מרגישה ריקה מבפנים', 'distress'], ['אני שונא את החיים שלי', 'distress'], ['אני שונאת את החיים', 'distress'],
+  ['אף אחד לא אוהב אותי', 'distress'], ['אף אחד לא מבין אותי', 'distress'], ['אף אחד לא שם לב אליי', 'distress'],
+  ['אין לי אף אחד', 'distress'], ['אין לי תקווה', 'distress'], ['אני מרגיש חסר תקווה', 'distress'],
+  ['אני מיותרת', 'distress'], ['אני חסר תועלת', 'distress'], ['בא לי לבכות', 'distress'],
+  ['i feel so alone', 'distress'], ['nobody loves me', 'distress'],
+  ['אין לי חברימ', 'distress'], ['אנימרגישה לבד', 'distress'], ['אני ממששש לבדדד', 'distress'],
+  ['אני מרגישה ריקה מבפנימ', 'distress'],
+];
+
+const CORPUS_CLEAR = [
+  // maths words that are also distress words: a first person or an intent is missing
+  'הצפרדע קופצת 3 צעדים ימינה על ציר המספרים', 'כמה פעמים צריך לקפוץ ב-4 כדי להגיע ל-20?',
+  'לקפוץ מ-3 ל-7 זה 4 צעדים',
+  'קופצים על ציר המספרים בקפיצות של 2', 'החגב קופץ מהנקודה 2 לנקודה 8', 'בקופסה יש 12 כדורים אדומים ו-8 כחולים',
+  'דני רוצה לקחת את כל הכדורים מהסל',
+  'נועה לקחה 3 כדורים מהשקית', 'מה ההסתברות להוציא כדור כחול?', 'יש לי 5 כדורים ואני רוצה לחלק אותם לשני חברים',
+  'לקחתי את כל הכדורים מהסל',
+  'יש לי 12 כדורים ואני רוצה לחלק את כולם לשלוש קבוצות', 'הרופא אמר לי לבלוע כדור אחד בבוקר',
+  'אני לא אוהבת לבלוע כדורים', 'לקחתי כדור נגד כאב ראש',
+  'x לא שווה 3', 'למה 2x לא שווה x בריבוע?', 'הצד השמאלי לא שווה לצד הימני', 'זה לא שווה את המאמץ',
+  'הביטוי לא שווה כלום כש-x שווה 0',
+  'הישר חותך את ציר ה-y בנקודה (0,2)', 'איפה הישר הולך לחתוך את הציר?', 'צריך לחתוך את המלבן לשני משולשים',
+  'אני רוצה לחתוך את העוגה ל-8 חלקים שווים',
+  'שתי המכוניות נפגשות אחרי שעתיים', 'מתי הרכבות ייפגשו?', 'המורה רוצה לפגוש אותי אחרי השיעור',
+  'הכרתי ילד חדש בחוג והוא רוצה להיפגש מחר',
+  'שלחתי תמונה של המחברת למורה', 'שלחתי תמונה של התרגיל, אפשר לבדוק?', 'המורה ביקשה שנשלח תמונה של הפתרון',
+  'שלחתי תמונות מהטיול והמורה תפרסם אותן',
+  'המורה פרסמה את התמונות מהטיול', 'המורה תשלח את התמונות לכל ההורים', 'הסרטון של השיעור התפרסם ביוטיוב',
+  'המכונה סוחטת 3 תפוזים בדקה',
+  'סחטתי לימון לתוך המים', 'הוא מאיים להוריד לנו ציון אם נדבר', 'המורה מאיימת שיהיה בוחן פתע',
+  'המורה אמרה לנו לשמור סוד על ההפתעה', 'אמא אמרה לי לשמור סוד על המתנה של אבא', 'כתבנו מכתב פרידה למורה שעוזבת',
+  'אני לא רוצה להתעורר מחר מוקדם', 'מחר יש מבחן ואני לא רוצה להתעורר מוקדם', 'אני רוצה לגמור עם הכל עד מחר',
+  'אני רוצה לגמור עם כל התרגילים היום',
+  'בא לי לגמור עם הכל מהר ולצאת להפסקה', 'אני רוצה לגמור את שיעורי הבית', 'אין סיבה להמשיך לחשב, כבר יש תשובה',
+  'בשביל מה צריך את זה בחיים?',
+  // fear, sadness and loneliness about maths
+  'אני פוחד מהמבחן מחר', 'אני מפחדת מהשאלה הזאת', 'אני מפחד מאלגברה', 'אני עובד לבד על התרגיל', 'אני רוצה לנסות לבד',
+  'תן לי לנסות לבד קודם',
+  'אני מרגישה לבד עם השברים', 'אני ממש לבד בתרגיל הזה', 'אני עצוב שטעיתי בתרגיל', 'אני ממש עצובה מהציון',
+  'אני שונא שברים', 'אני שונאת את המבחנים האלה',
+  'נמאס לי מהשברים', 'נמאס לי מהתרגילים האלה', 'אין לי תקווה עם התרגיל הזה', 'בא לי לבכות מהתרגיל הזה',
+  'אף אחד לא מבין את התרגיל',
+  'אף אחד בכיתה לא הבין את השאלה',
+  // food, family and home in word problems and school days
+  'אני לא אוכל את הסנדוויץ׳', 'בהפסקה אכלתי כריך', 'שאלו תלמידים כמה בקרים בשבוע הם אוכלים ארוחת בוקר',
+  'אני לא אוכל להגיע מחר לשיעור',
+  'היום יש לנו טיול, אני לא אוכל לבוא', 'אבא שלי עזר לי עם שיעורי הבית', 'אבא מבוגר מדני ב-30 שנה',
+  'אמא של נועה קנתה 3 קילו תפוחים',
+  'גיל האב גדול פי 3 מגיל הבן', 'כרטיס למבוגר עולה 40 ש״ח', 'החתול בורח מהכלב במהירות 5 מטר בשנייה',
+  'כמה זמן ייקח לכלב להשיג את החתול?',
+  'אחי הגדול עוזר לי במתמטיקה', 'אני גר ליד בית הספר', 'המורה צועקת כשמדברים בשיעור', 'כולם בכיתה קיבלו 90 במבחן',
+  'כולם בכיתה אוהבים את המורה',
+  'אני מת על המורה למתמטיקה', 'אני מתה על השאלות האלה', 'בא לי למות מצחוק', 'הלוואי שהייתי מבין את זה',
+  'הלוואי שיהיה מבחן קל',
+  // everyday school sentences
+  'הנקודה נעלמת כשמזיזים את הישר', 'התשובה הולכת להיות שלילית', 'אני מרגיש שהבנתי', 'אני מרגישה שזה קל',
+  'אני מרגיש טוב עם השברים עכשיו',
+  'הפונקציה מתאפסת ב-x שווה 2', 'איך מוצאים את נקודת החיתוך?', 'למה אני תמיד טועה בסימן?',
+  'למה אני צריך ללמוד את זה?', 'אני רוצה לשפר את הציון',
+  'קשה לי עם הבעיות המילוליות', 'אני לא מבין למה התשובה שלילית', 'אני תקוע בשאלה 4', 'אפשר רמז?',
+  'אני שונא את החלק של ההוכחות',
+  'החיים שלי מלאים במבחנים השבוע', 'מחר יש לי מבחן במתמטיקה', 'שכחתי את המחברת בבית', 'המורה אמרה שיש שיעורי בית',
+  'אני בכיתה ח׳',
+  'אני לא זוכר איך פותחים סוגריים', 'אפשר עוד דוגמה?', 'סיימתי את כל התרגילים!', 'איזה כיף, הצלחתי',
+  'זה היה קשה אבל הבנתי',
+  'מה ההבדל בין חציון לממוצע?', 'אני רוצה לעבור לשלב הבא', 'אני רוצה להתאמן עוד על משוואות', 'יש לי שאלה על תרגיל 7',
+  'איך כותבים שבר מדומה?',
+  'אני הולך לישון, נמשיך מחר', 'אני עייף, אמשיך מחר', 'לילה טוב', 'אני חוזר הביתה מבית הספר',
+  'הלכתי הביתה מוקדם היום',
+  'אני רוצה לחזור הביתה כבר, השיעור ארוך', 'בהפסקה שיחקנו כדורגל', 'אני לבד בבית ומכין שיעורי בית',
+  'אני גומר את הדף ושולח',
+  '5 kms is the distance', 'the distance is 12 kms', 'the line cuts the axis', 'x is not equal to 3',
+  'i hate fractions', 'this question is killing me',
+];
+
+// The council's two probes, word for word: trust/distress-probe.mjs (31 phrases) and trust-verify/probe2.mjs (56).
+const PROBE_FLAG = [
+  'בא לי למות', 'אני רוצה להיעלם', 'אין לי בשביל מה לחיות', 'אני שונא את החיים שלי', 'אבא שלי מרביץ לי', 'מישהו בטיקטוק ביקש שאשלח לו תמונה',
+  'אני לא רוצה לחיות יותר', 'חושבת לחתוך את עצמי', 'בא לי למות מהמבחן הזה', 'יש לי מחשבות אובדניות', 'אני בדיכאון', 'אני מרגיש ריק מבפנים',
+  'אני פוחדת מאבא שלי', 'שולחים לי הודעות מאיימות', 'אני רוצה לברוח מהבית', 'i want to kill myself', 'נמאס לי מהחיים', 'בא לי להתאבד',
+  'אני רוצה לישון ולא להתעורר', 'אמא שלי צועקת עליי כל יום ואני פוחדת', 'אני לא אוכלת כבר כמה ימים', 'חבר של אחי נגע בי', 'אף אחד לא אוהב אותי',
+  'אני מרגישה שאני לא שווה כלום', 'אני רוצה למות', 'רוצה למות',
+  'אני חושב על התאבדות', 'חושבת להתאבד', 'בא לי לגמור עם הכל', 'רוצה למותתתת', 'אני רוצה למות בגלל המבחן', 'אני רוצה למות מהמבחן',
+  'אני לא רוצה לחיות', 'אין לי טעם לחיות', 'אני פוגעת בעצמי', 'אני חותכת את עצמי', 'אבא שלי מכה אותי', 'אמא שלי מרביצה לי',
+  'מישהו ביקש ממני תמונות', 'מישהו ביקש ממני תמונה בלי בגדים', 'מישהו מאיים עליי', 'כולם צוחקים עליי', 'עושים לי חרם', 'אני בוכה כל יום',
+  'אין לי חברים', 'אני שונאת את עצמי', 'אני לא יכולה יותר', 'אני לא יכולה יותר עם החיים', 'בא לי למות.', 'אני רוצה למות!!!',
+  'אני רוצה להתאבד', 'לגמור עם החיים', 'אני רוצה לגמור עם הכל', 'אני רוצה לפגוע בעצמי', 'מתחשק לי לחתוך', 'חתכתי את היד',
+  'יש לי חתכים על היד', 'אני מקיאה אחרי שאני אוכלת', 'אני רעבה כל הזמן ואין אוכל בבית', 'הוא אמר לי לשמור סוד', 'מבוגר באינסטגרם רוצה לפגוש אותי',
+  'שלחתי תמונה ועכשיו הוא מאיים', 'הוא אומר שיפרסם את התמונות שלי', 'מקללים אותי בקבוצה', 'כולם בכיתה שונאים אותי', 'אני מרגישה לבד',
+  'אני כל כך עצובה', 'אני עצוב כל הזמן', 'אני לא רוצה להתעורר מחר', 'הלוואי שאמות', 'מתאבדת', 'בא לי להיעלם', 'אני הולכת לקפוץ מהגג',
+  'יש לי כדורים ואני רוצה לקחת את כולם', 'i want to die', 'im going to kill myself', 'kms',
+  // probe2 listed this one among the sentences that must not flag; being laughed at for not understanding is still
+  // bullying here, as "כולם צוחקים עליי כי לא הבנתי את התרגיל" above: a reason never hides it
+  'צוחקים עליי כי אני לא מבין שברים',
+];
+const PROBE_CLEAR = [
+  'המשוואה הזאת הורגת אותי', 'הישר חותך את ציר ה-x', 'אני לא יכול יותר עם השברים', 'תמות מצחוק', 'כמה זה 3 כפול 4?',
+  'התרגיל הזה הורג אותי', 'בא לי למות מצחוק', 'הגרף נחתך בנקודה 3',
+];
+
 test('every Appendix G phrase that must flag flags, with its category', () => {
   for (const [text, category] of MUST_FLAG) {
     assert.deepEqual(detectDistress(text), { flag: true, category }, text);
@@ -169,6 +369,62 @@ test('maths sentences, algebra vocabulary and maths frustration do not flag', ()
   for (const text of MUST_NOT_FLAG) assert.deepEqual(detectDistress(text), { flag: false, category: null }, text);
   assert.deepEqual(detectDistress(null), { flag: false, category: null });
   assert.deepEqual(detectDistress(undefined), { flag: false, category: null });
+});
+
+test('the regression corpus: 200+ disclosures flag, each with the category of its family', () => {
+  assert.ok(CORPUS_FLAG.length >= 200, `${CORPUS_FLAG.length} phrases`);
+  for (const [text, category] of CORPUS_FLAG) assert.deepEqual(detectDistress(text), { flag: true, category }, text);
+  // every family is there: suicidal thoughts, a plan, self-harm, fear at home, threats, bullying, running away, eating
+  const n = (cat) => CORPUS_FLAG.filter(([, c]) => c === cat).length;
+  for (const cat of DISTRESS_CATEGORIES) assert.ok(n(cat) >= 8, `${cat}: ${n(cat)}`);
+});
+
+test('the council\'s probes: every disclosure flags (31 + 56), and their maths sentences do not', () => {
+  const missed = PROBE_FLAG.filter((t) => !detectDistress(t).flag);
+  assert.deepEqual(missed, []);
+  for (const t of PROBE_CLEAR) assert.deepEqual(detectDistress(t), { flag: false, category: null }, t);
+});
+
+test('the regression corpus: maths words that are also distress words, and everyday school sentences, never flag', () => {
+  assert.ok(CORPUS_CLEAR.length >= 120, `${CORPUS_CLEAR.length} sentences`);
+  const flagged = CORPUS_CLEAR.map((t) => [t, detectDistress(t)]).filter(([, r]) => r.flag).map(([t, r]) => `${r.category}: ${t}`);
+  assert.deepEqual(flagged, []);
+});
+
+test('a first person or an intent decides: the same maths word flags only beside one', () => {
+  const pairs = [
+    ['הצפרדע קופצת מהנקודה 3', 'אני הולכת לקפוץ מהגג'],
+    ['בשקית 12 כדורים ונועה רוצה לקחת את כולם לגינה', 'יש לי כדורים ואני רוצה לקחת את כולם'],
+    ['x לא שווה 3', 'אני לא שווה כלום'],
+    ['הישר הולך לחתוך את הציר', 'מתחשק לי לחתוך'],
+    ['המורה פרסמה את התמונות מהטיול', 'הוא אומר שיפרסם את התמונות שלי'],
+    ['שלחתי תמונה של המחברת למורה', 'שלחתי תמונה ועכשיו הוא מאיים'],
+    ['אני רוצה לגמור עם הכל עד מחר', 'בא לי לגמור עם הכל'],
+    ['אני לא רוצה להתעורר מחר מוקדם', 'אני לא רוצה להתעורר מחר'],
+    ['אמא אמרה לי לשמור סוד על המתנה', 'הוא אמר לי לשמור סוד'],
+    ['המכונה סוחטת 3 תפוזים בדקה', 'מישהו סוחט אותי'],
+    ['אני מפחד מהמבחן', 'אני מפחד מאבא'],
+    ['אני ממש לבד בתרגיל הזה', 'אני ממש לבד'],
+  ];
+  for (const [maths, child] of pairs) {
+    assert.equal(detectDistress(maths).flag, false, maths);
+    assert.equal(detectDistress(child).flag, true, child);
+  }
+});
+
+test('final letters typed as ordinary ones, and a missing space, still flag; spaces kept as words keep the maths rule', () => {
+  assert.equal(detectDistress('אני רוצה לגמור עם החיימ').category, 'self_harm');
+  assert.equal(detectDistress('אין לי חברימ').category, 'distress');
+  assert.equal(detectDistress('רוצהלמות').category, 'self_harm');
+  assert.equal(detectDistress('מחשבותאובדניות').category, 'self_harm');
+  assert.equal(detectDistress('אניפוחדת מאבא שלי').category, 'abuse');
+  // "בא לי למות מצחוק" is laughter with its spaces or without them
+  assert.equal(detectDistress('באלילמותמצחוק').flag, false);
+  // a squashed distress phrase in a message about maths is about the maths
+  assert.equal(detectDistress('אנימרגישה לבד עם השברים').flag, false);
+  assert.equal(detectDistress('אני מרגישה לבד עם השברים').flag, false);
+  // "אובדן" (a loss) is not "אובדני"
+  assert.equal(detectDistress('אחוז האובדן בייצור הוא 5').flag, false);
 });
 
 test('the maths words are the app\'s own topics and stairs: each name after "עם" is maths frustration', async () => {
@@ -361,7 +617,7 @@ test('maths and teaching words are never blocked, nor any text the app itself sh
   const files = [];
   const walk = (d) => { for (const e of readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.(js|jsx|ts|md)$/.test(e.name) && !/\.test\./.test(e.name)) files.push(p); } };
   walk(path.join(root, 'content')); walk(path.join(root, 'screens'));
-  files.push(path.join(shared, 'ai.js'), path.join(shared, 'safety.js'));
+  files.push(path.join(shared, 'ai.js'), path.join(shared, 'safety.js'), path.join(shared, 'distress.js'));
   assert.ok(files.length > 20);
   for (const f of files) {
     readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
@@ -371,6 +627,6 @@ test('maths and teaching words are never blocked, nor any text the app itself sh
   }
 });
 
-test('blocklist.js and safety.js hold no regex lookbehind', () => {
-  for (const f of ['blocklist.js', 'safety.js']) assert.ok(!readFileSync(path.join(shared, f), 'utf8').includes('(?<'), f);
+test('blocklist.js, safety.js and distress.js hold no regex lookbehind', () => {
+  for (const f of ['blocklist.js', 'safety.js', 'distress.js']) assert.ok(!readFileSync(path.join(shared, f), 'utf8').includes('(?<'), f);
 });

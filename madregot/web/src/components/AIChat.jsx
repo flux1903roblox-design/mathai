@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Send } from 'lucide-react';
-import { detectDistress, maskPersonal } from '@shared/safety.js';
+import { maskPersonal } from '@shared/safety.js';
+import { detectDistress } from '@shared/distress.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { aiAccess, useAIStatus, needIntro, openLimitSheet } from '@/lib/account.js';
 import { Button } from './ui.jsx';
@@ -10,7 +11,7 @@ import { Thinking } from './ui.jsx';
 import AIAllowance from './AIAllowance.jsx';
 import Mascot from './Mascot.jsx';
 import SupportCard from './SupportCard.jsx';
-import { SupportLink } from './SupportSheet.jsx';
+import { HelpLine, SupportLink } from './SupportSheet.jsx';
 import ReportAnswer from './ReportAnswer.jsx';
 import { CLASS_OFF_LINE, waitingLine } from './limitCopy.js';
 import { useApp } from '@/lib/store.js';
@@ -158,7 +159,7 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
     return (
       <div className="chat-off">
         <p className="muted">העוזר עוד לא מחובר. אפשר לחבר אותו בהגדרות.</p>
-        <SupportLink />
+        <HelpLine />
       </div>
     );
   }
@@ -234,7 +235,8 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
                 </>
               )}
             </div>
-            <SupportLink className="chat-rest-support" />
+            {/* the link and ער״ן's number, in every resting state (COUNCIL2-4) */}
+            <HelpLine className="chat-rest-support" />
           </section>
         )}
         {messages.length === 0 && !resting && (

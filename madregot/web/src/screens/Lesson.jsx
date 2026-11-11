@@ -31,7 +31,7 @@ import ReportAnswer, { checkText } from '@/components/ReportAnswer.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
 import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/components/ui.jsx';
-import { detectDistress } from '@shared/safety.js';
+import { detectDistress } from '@shared/distress.js';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import CheckDone from './CheckDone.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';

@@ -118,6 +118,9 @@ describe('legal texts and their placeholders', () => {
     expect(s).toContain('במבחן שהעליתם בלי מפתח תשובות העוזר בודק את התשובות, וזה מסומן ליד כל שאלה.');
     expect(s).not.toContain('את התשובות של התרגילים בודקת האפליקציה, לא העוזר');
     for (const n of ['1201', '105', '100', '101']) expect(s).toContain(n);
+    // the call button in every refusal (COUNCIL2-4): components/SupportSheet.jsx HelpLine, in the limit sheet, the
+    // resting chat and a locked tool
+    expect(s).toContain('ובכל מקום שבו העוזר לא יכול לענות יש לידו גם כפתור חיוג לער״ן 1201.');
   });
 });
 

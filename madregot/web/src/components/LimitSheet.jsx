@@ -9,7 +9,7 @@ import { canSell } from '@/lib/price.js';
 import { limitVariant } from './limitCopy.js';
 import { Button, Sheet } from './ui.jsx';
 import Mascot from './Mascot.jsx';
-import { SupportLink } from './SupportSheet.jsx';
+import { HelpLine } from './SupportSheet.jsx';
 // the teacher's sign-in and bind (with the 18+ declaration, COUNCIL2-5): loaded only when a teacher's sheet needs it, so
 // the email form stays out of the first load
 const TeacherBind = lazy(() => import('./teacher/TeacherBind.jsx'));
@@ -52,8 +52,9 @@ export default function LimitSheet() {
           return <Button key={a} variant={variant} className={cls} onClick={practice}>להמשיך לתרגל</Button>;
         })}
         {parentsLink && <button type="button" className="link-btn limit-parents" onClick={() => go('/parents/info')}>מידע להורים</button>}
-        {/* a person to talk to is always one tap away, whatever the tutor says (trust spec TRUST-3 §3.5) */}
-        <SupportLink className="limit-support" onOpen={closeLimitSheet} />
+        {/* a person to talk to is always one tap away, whatever the tutor says (trust spec TRUST-3 §3.5): the link and
+            ער״ן's number to call (COUNCIL2-4) */}
+        <HelpLine className="limit-support" onOpen={closeLimitSheet} />
       </div>
     </Sheet>
   );

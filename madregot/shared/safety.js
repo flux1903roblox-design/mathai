@@ -1,11 +1,11 @@
 // Safety first, for the AI tutor (trust spec TRUST-3). Shared by the Worker and the browser, so the support details,
-// the prompt's safety block and the distress detector have one source.
+// the prompt's safety block, the personal-detail mask and the reply screen have one source. The distress detector is
+// in shared/distress.js: only the screens with the tutor load it, so it stays out of the app's first download.
 //
 // This file ships to the browser. Vite targets Safari 16.0, which has no regex lookbehind, and a lookbehind literal
 // stops the whole chunk from loading there: a Hebrew word start is written (?:^|[^א-ת]) and a word end (?![א-ת]).
 // worker/test/safety.test.js fails on a lookbehind anywhere in shared/.
 import { BLOCK_HE, BLOCK_EN } from './blocklist.js';
-import { TOPIC_NAMES, STAIR_NAMES, NOT_YET } from './stairs.js';
 
 /**
  * Free services for a child who needs a person. Checked against each service's own site on the date in `checked`;
@@ -77,140 +77,6 @@ export function normalize(text) {
     .replace(/(\p{L})\1{2,}/gu, '$1')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-// ---------------------------------------------------------------- the distress detector (trust spec Appendix G)
-const B = '(?:^|[^א-ת])'; // a Hebrew word starts here (no lookbehind: the group takes the character before it)
-const P = `${B}[ושהלבכמ]?`; // ... and may carry one prefix letter (ו ש ה ל ב כ מ)
-const E = '(?![א-ת])'; // a Hebrew word ends here
-const he = (x) => `${P}(?:${x})${E}`;
-
-/**
- * Maths frustration: a distress or bullying match whose complaint is about maths ("אני לא יכול יותר עם השברים", "...
- * מהשאלה הזאת", "..., התרגיל הזה") is not distress. The maths word must be the object of the complaint: right after the
- * match, alone or after "עם", "על" or "מ". A maths word that only says where or since when it happens ("צוחקים עליי
- * בשיעור מתמטיקה", "עושים לי חרם מאז המבחן", "... בגלל המבחן") never drops the match. The words: the app's own topic
- * and stair names (shared/stairs.js, also the ones not taught yet), whole, and the maths nouns below in the singular
- * and the plural. A word with an everyday meaning ("בעיות", "מערכת", "נקודה") is not on the list: there it is not maths.
- */
-const MATHS_NOUNS = [
-  'תרגיל', 'תרגילים', 'שאלה', 'שאלות', 'מבחן', 'מבחנים', 'בוחן', 'בחנים', 'שיעורי בית', 'שיעורי הבית', 'מתמטיקה', 'חשבון',
-  'שבר', 'שברים', 'אחוז', 'אחוזים', 'חזקה', 'חזקות', 'שורש', 'שורשים', 'משוואה', 'משוואות', 'נוסחה', 'נוסחאות', 'נעלם',
-  'נעלמים', 'גאומטריה', 'גיאומטריה', 'אלגברה', 'הנדסה', 'זווית', 'זוויות', 'משולש', 'משולשים', 'גרף', 'גרפים', 'ביטוי',
-  'ביטויים', 'פונקציה', 'פונקציות', 'שיפוע', 'ממוצע', 'חציון', 'שכיח', 'סטטיסטיקה', 'הסתברות', 'פיתגורס', 'מספרים מכוונים',
-  'מכוונים', 'מספרים שליליים', 'שליליים', 'סוגריים', 'כפל', 'חילוק', 'חיבור', 'חיסור', 'מכנה', 'מונה', 'עשרוני', 'עשרוניים',
-  'אי-שוויון', 'אי-שוויונים', 'טבלה', 'צירים', 'מלבן', 'יחס', 'פרופורציה',
-];
-const MATHS_PHRASES = [
-  ...MATHS_NOUNS,
-  ...Object.values(TOPIC_NAMES), ...Object.values(STAIR_NAMES), ...Object.values(NOT_YET).flat(),
-].map((w) => normalize(w).replace(/[?()]/g, '').trim()).filter((w) => w.length >= 2);
-const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const MATHS_ALT = [...new Set(MATHS_PHRASES)].sort((a, b) => b.length - a.length).map(escRe).join('|');
-/** Right after the match: the maths word itself, or "עם", "על" or "מ" and then it (one more word may stand between). */
-const MATHS = new RegExp(`^[\\s,.:;!-]*(?:(?:עם|על)\\s+(?:[^\\s]+\\s+)?|מ)?(?:ה)?(?:${MATHS_ALT})(?![א-ת])`);
-/** How far the "killing me" rule looks for a word about home. */
-const MATHS_WINDOW = 25;
-/** What firstMatch reads after a match: enough for "עם כל" and a two-word maths name. */
-const AFTER_WINDOW = 40;
-/** "Dying of laughter" is not a wish to die. */
-const LAUGHING = /^\s*מ?צחוק/;
-
-/** Someone asks (he, she, they; past and present), as the danger rules start. */
-const ASK = `${P}(?:ביקש|ביקשה|מבקש|מבקשת|מבקשים|ביקשו|דורש|דורשת)`;
-/** ... or wants the child to ("רוצה שאשלח לו תמונה": a child who wants to send a picture is not in danger). */
-const ASK_THAT = `${P}(?:ביקש|ביקשה|מבקש|מבקשת|מבקשים|ביקשו|דורש|דורשת|רוצה|רוצים)`;
-/**
- * Right after a photo request: a piece of school work or a transformation ("תמונה של הדף", "...של המשולש אחרי שיקוף").
- * Then the request is about maths, not about the child (danger rules marked school: true).
- */
-const SCHOOL = new RegExp(`^[^\\s.,!?]*\\s*(?:[^\\s.,!?]+\\s+)?(?:של\\s+(?:ה)?(?:מחברת|מחברות|דף|דפים|תרגיל|תרגילים|פתרון|פתרונות|גרף|גרפים|משולש|משולשים|נקודה|נקודות|צורה|צורות|שאלה|לוח|מבחן)(?![א-ת])|.{0,30}?(?:^|[^א-ת])[בלו]?(?:שיקוף|הזזה|סיבוב)(?![א-ת]))`);
-
-/**
- * Each rule: a category, a pattern over normalize(text), and `maths: true` when maths frustration right after the
- * match drops it (the categories distress and bullying, and the slang patterns). Self-harm, abuse and danger are never
- * dropped for maths words: "בא לי למות מהמבחן הזה" still gets the card, by design. The one exception is `school: true`
- * on the photo-request rules: a request for a picture of a page, an exercise or a shape is about school work.
- */
-const RULES = [
-  // self_harm
-  { cat: 'self_harm', re: he('(?:רוצה|רוצים|בא לי|מתחשק לי|חושב|חושבת|מתכנן|מתכננת|הולך|הולכת)\\s+(?:ל)?(?:מות|למות|להתאבד|לגמור עם (?:ה)?חיים|לגמור עם עצמי|להיעלם(?: מהעולם)?)'), laugh: true },
-  { cat: 'self_harm', re: he('להתאבד|התאבדות|אתאבד|מתאבד|מתאבדת') },
-  { cat: 'self_harm', re: he('(?:לפגוע|פוגע|פוגעת|פגעתי|אפגע)\\s+ב?עצמי') },
-  { cat: 'self_harm', re: he('(?:לחתוך|חותך|חותכת|חתכתי|חותכים)\\s+(?:את\\s+)?(?:עצמי|הידיים|היד|הרגליים)') },
-  // "חותכת לעצמי את היד", "חתכתי לעצמי"
-  { cat: 'self_harm', re: he('(?:לחתוך|חותך|חותכת|חתכתי|אחתוך)\\s+לעצמי') },
-  { cat: 'self_harm', re: he('(?:לא רוצה|לא רוצים|אין לי (?:טעם|סיבה))\\s+(?:לחיות|להמשיך לחיות)') },
-  // "אני לא רוצה להיות בחיים", "לא רוצה להיות פה יותר", "לא רוצה להיות קיימת"
-  { cat: 'self_harm', re: he('(?:לא רוצה|לא רוצים)\\s+להיות\\s+(?:בחיים|פה|כאן|קיים|קיימת|בעולם)') },
-  { cat: 'self_harm', re: he('אין לי (?:כוח|כח)\\s+(?:לחיות|לחיים|להמשיך לחיות)') },
-  // "הלוואי שאמות", "הלוואי שהייתי מת/ה", "הלוואי שלא הייתי נולד/ת", "הלוואי שלא הייתי קיים/ת"
-  { cat: 'self_harm', re: he('הלוואי\\s+(?:ו)?ש(?:אמות|הייתי\\s+(?:מת|מתה)|לא\\s+הייתי\\s+(?:נולד|נולדת|קיים|קיימת)|אני\\s+(?:אמות|מת|מתה))') },
-  { cat: 'self_harm', re: he('נמאס לי (?:מהחיים|לחיות)|אין טעם (?:לחיות|לחיים)|עדיף (?:שאמות|שלא הייתי נולד|שלא הייתי נולדת)|כולם יהיו (?:בסדר|יותר טוב) (?:בלעדיי|בלעדי)') },
-  { cat: 'self_harm', re: '\\b(?:kill myself|killing myself|suicid\\w*|want to die|wanna die|self[- ]?harm|hurt myself|cut myself|wish i was dead|wish i were dead)\\b' },
-  // abuse
-  { cat: 'abuse', re: he('(?:מרביץ|מרביצה|מרביצים|הרביץ|הרביצה|הרביצו)\\s+לי') },
-  { cat: 'abuse', re: he('(?:מכה|מכים|היכה)\\s+אותי') },
-  { cat: 'abuse', re: he('(?:נוגע|נוגעת|נוגעים|נגע|נגעה)\\s+(?:בי|ב(?:גוף|מקומות))') },
-  { cat: 'abuse', re: he('התעלל|מתעלל|מתעללת|התעללות|התעללו') },
-  { cat: 'abuse', re: he('(?:פגע|פוגע|פגעה)\\s+בי\\s+מינית|(?:הטריד|מטריד|הטרידה)\\s+אותי|הטרדה מינית') },
-  { cat: 'abuse', re: he('(?:מפחד|מפחדת)\\s+(?:ללכת|לחזור)\\s+הביתה') },
-  { cat: 'abuse', re: '\\b(?:abus\\w*|molest\\w*)\\b' },
-  // danger: someone asks the child for pictures. Only a request aimed at the child counts ("ממני", "שאשלח", "לשלוח",
-  // "להצטלם", "תמונה שלי"): "השאלה מבקשת תמונה של המשולש אחרי שיקוף" is the image of a shape under a transformation, and
-  // a request for a picture of school work ("ביקשו ממני תמונה של הדף") is dropped (school: true).
-  { cat: 'danger', re: `${ASK}\\s+(?:ממני|ממך|מאיתנו)\\s+(?:[^\\s]+\\s+)?(?:תמונה|תמונות|תמונ|סרטון|סרטונים|להצטלם|לשלוח)`, school: true },
-  { cat: 'danger', re: `${ASK}\\s+לשלוח\\s+(?:לו\\s+|לה\\s+|להם\\s+)?(?:[^\\s]+\\s+)?(?:תמונ|סרטון)`, school: true },
-  { cat: 'danger', re: `${ASK_THAT}\\s+ש(?:אשלח|נשלח)\\s+(?:לו\\s+|לה\\s+|להם\\s+)?(?:[^\\s]+\\s+)?(?:תמונ|סרטון)`, school: true },
-  { cat: 'danger', re: `${ASK_THAT}\\s+(?:ש(?:אצטלם|אצלם את עצמי|אתפשט|אוריד)|להצטלם|לצלם את עצמי)` },
-  { cat: 'danger', re: `${ASK}\\s+(?:[^\\s]+\\s+)?(?:תמונה|תמונות|סרטון|סרטונים)\\s+(?:שלי|ממני|שלך)(?![א-ת])` },
-  { cat: 'danger', re: `${P}(?:תמונה|תמונות)\\s+(?:עירום|בלי בגדים)` },
-  { cat: 'danger', re: he('סוחט|סוחטת|סחיטה|סוחטים') },
-  { cat: 'danger', re: he('(?:מאיים|מאיימת|מאיימים|איים|איימו)\\s+(?:עליי|עלי)') },
-  { cat: 'danger', re: he('(?:אמר|אמרה|ביקש|ביקשה)\\s+(?:לי\\s+)?לא לספר\\s+(?:להורים|לאף אחד|לאמא|לאבא)') },
-  { cat: 'danger', re: he('(?:רוצה|רוצים)\\s+להיפגש\\s+איתי\\s+(?:בסוד|בלי)') },
-  // "ילד מהכיתה הציע להיפגש איתי בסוד", "מישהו מהאינטרנט הציע להיפגש"
-  { cat: 'danger', re: he('(?:הציע|הציעה|הציעו|מציע|מציעה|מציעים)\\s+(?:לי\\s+)?(?:להיפגש|שניפגש|להפגש)') },
-  // bullying
-  { cat: 'bullying', re: he('(?:עושים|עשו)\\s+(?:לי\\s+)?חרם|מחרימים אותי|(?:כולם\\s+)?צוחקים (?:עליי|עלי)|(?:מציקים|מקללים|מכים|משפילים)\\s+(?:לי|אותי)'), maths: true },
-  { cat: 'bullying', re: '\\b(?:bullied|bullying me)\\b', maths: true },
-  // distress
-  { cat: 'distress', re: he('אני\\s+(?:ב)?דיכאון|(?:מרגיש|מרגישה|מרגישים)\\s+(?:ב)?דיכאון|(?:יש לי|נכנסתי ל|נכנסת ל)דיכאון|(?:כל הזמן|כל יום|כל לילה)\\s+(?:אני\\s+)?בוכה|בוכה\\s+(?:כל הזמן|כל יום|כל לילה)|אין לי\\s+(?:אף אחד|חברים|עם מי לדבר)'), maths: true },
-  { cat: 'distress', re: he('אני\\s+(?:שונא|שונאת)\\s+את עצמי|אני\\s+(?:(?:מרגיש|מרגישה)\\s+)?(?:חסר|חסרת)\\s+ערך|אף אחד לא\\s+(?:אוהב|אכפת לו)|אני לבד בעולם'), maths: true },
-  // "כולם שונאים אותי", "כולם מתעלמים ממני", "נמאס לי מהכל"
-  { cat: 'distress', re: he('כולם\\s+(?:שונאים|מתעלמים|מתעלמות)\\s+(?:אותי|ממני)|נמאס לי\\s+(?:מהכל|מהכול|מכל|מכולם)'), maths: true },
-  { cat: 'distress', re: he('אני\\s+לא\\s+(?:יכול|יכולה)\\s+יותר'), maths: true },
-  // (s) "killing me" counts only about home: "הורג אותי בבית", never "התרגיל הזה הורג אותי"
-  { cat: 'distress', re: `${he('(?:הורג|הורגת)\\s+אותי')}.{0,${MATHS_WINDOW}}?${he('הבית|בבית|אבא|אמא')}`, maths: true },
-].map((r) => ({ ...r, re: new RegExp(r.re, 'gu') }));
-
-/** The categories, most serious first: a message that matches several gets the first. */
-export const DISTRESS_CATEGORIES = Object.freeze(['self_harm', 'abuse', 'danger', 'bullying', 'distress']);
-
-function firstMatch(rule, text) {
-  rule.re.lastIndex = 0;
-  for (let m = rule.re.exec(text); m; m = rule.re.exec(text)) {
-    const end = m.index + m[0].length;
-    const after = text.slice(end, end + AFTER_WINDOW);
-    const dropped = (rule.maths && MATHS.test(after)) || (rule.school && SCHOOL.test(after)) || (rule.laugh && LAUGHING.test(text.slice(end)));
-    if (!dropped) return true;
-    if (m[0].length === 0) rule.re.lastIndex += 1;
-  }
-  return false;
-}
-
-/**
- * Does this text read as a child in distress or danger? → { flag, category } with category one of
- * DISTRESS_CATEGORIES (the most serious one that matched) or null. Runs on the device and on the server, with no
- * network. A maths sentence ("הישר חותך את ציר ה-x", "התרגיל הזה הורג אותי") does not flag.
- */
-export function detectDistress(text) {
-  const t = normalize(text);
-  if (!t) return { flag: false, category: null };
-  for (const cat of DISTRESS_CATEGORIES) {
-    if (RULES.some((r) => r.cat === cat && firstMatch(r, t))) return { flag: true, category: cat };
-  }
-  return { flag: false, category: null };
 }
 
 // ---------------------------------------------------------------- personal details never reach the AI (TRUST-4 §4.1)
@@ -305,6 +171,8 @@ export function linkAllowed(href, hosts = []) {
 export const BLOCKED_TEXT = 'לא הצלחתי לענות על זה כמו שצריך. אפשר לנסח את השאלה אחרת?';
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const B = '(?:^|[^א-ת])'; // a Hebrew word starts here (no lookbehind: the group takes the character before it)
+const E = '(?![א-ת])'; // a Hebrew word ends here
 // English words that start with the stem of the list's first English word are caught whatever follows (written with a
 // class, so this line does not hold the word itself: the app's own text is checked against the list)
 const BLOCK_RE = new RegExp(

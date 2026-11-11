@@ -802,6 +802,11 @@ a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex
 .chat-rest-support { align-self: center; }
 .limit-support { align-self: center; }
 .ai-offline-support { align-self: center; }
+/* the quiet link with ער״ן's number to call beside it, in every place the tutor says "not now" (COUNCIL2-4) */
+.help-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--s1) var(--s2); }
+.help-line-call { padding-inline: var(--s2); }
+.help-line .support-open { padding-inline: 0; }
+.tool-locked.is-compact .help-line { justify-content: flex-start; }
 .chat-off { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); }
 .chat-support { display: flex; flex-direction: column; gap: var(--s3); }
 .help-sent { display: flex; flex-direction: column; gap: var(--s3); }

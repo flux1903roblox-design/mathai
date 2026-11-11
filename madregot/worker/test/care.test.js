@@ -212,9 +212,10 @@ test('a challenge explanation sent for feedback that reads as distress takes the
 
 test('feedback whose reply the model marked care gives the question back and keeps the help lines whole', async () => {
   const help = 'תודה שכתבתם. מה שאתם מרגישים חשוב, וזה לא באשמתכם. ספרו היום למבוגר שאתם סומכים עליו: הורה, היועצת או מורה. ער״ן: חיוג 1201 בכל שעה, בלי לומר שם. בסכנה מיידית: משטרה 100, מד״א 101.';
+  // a message the regex does not read as distress ("אף אחד לא שם לב אליי" used to be one; COUNCIL2-4 widened it): only the model sees it
   h = await setup({}, { claude: (p) => claudeReply(p, { text: JSON.stringify({ ...FEEDBACK_REPLY, summary: help, care: true }) }) });
   const dev = await devOf(h.env);
-  const r = await ai(h, 'feedback', { 'X-Device': DEVICE }, { body: { ...FEEDBACK_INPUT, text: 'אף אחד לא שם לב אליי. ציירתי מלבן.' } });
+  const r = await ai(h, 'feedback', { 'X-Device': DEVICE }, { body: { ...FEEDBACK_INPUT, text: 'קשה לי בזמן האחרון בבית. ציירתי מלבן.' } });
   assert.equal(r.status, 200);
   const body = await r.json();
   assert.equal(body.care, true); assert.equal(body.summary, help, 'never clipped');
@@ -435,6 +436,23 @@ test('a help note that reads as distress is checked again on the server and mark
   // and a calmer note on that request later does not unmark it
   await h.call('POST', '/api/help', { headers: bearer(itai), body: { topic: 'signed', level: 1, question: '3 - 8', answer: '5', note: 'עכשיו הבנתי חלק' } });
   assert.equal((await helpOf(cls)).find((x) => x.name === 'איתי').care, 1);
+});
+
+test('the teacher\'s flag reads a help note with the same widened detector (COUNCIL2-4): a suicidal thought and sextortion', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה', 'איתי', 'רון'] });
+  const [noa, itai, ron] = cls.students;
+  // both phrases were missed before the detector was widened (the council's probes)
+  await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', level: 1, question: '3 - 8', answer: '5', note: 'יש לי מחשבות אובדניות' } });
+  await h.call('POST', '/api/help', { headers: bearer(itai), body: { topic: 'eq', level: 2, question: '2x = 8', answer: '6', note: 'שלחתי תמונה ועכשיו הוא מאיים' } });
+  // a maths word that is also a distress word, with no first person: the teacher sees a plain question
+  await h.call('POST', '/api/help', { headers: bearer(ron), body: { topic: 'signed', level: 1, question: '3 - 8', answer: '5', note: 'הצפרדע קופצת מהנקודה 3, לאן היא מגיעה?' } });
+  await h.ctx.flush();
+  const byName = Object.fromEntries((await helpOf(cls)).map((x) => [x.name, x]));
+  assert.equal(byName['נועה'].care, 1);
+  assert.equal(byName['איתי'].care, 1);
+  assert.equal(byName['רון'].care, 0);
+  assert.deepEqual(events().map((e) => e.category).sort(), ['danger', 'self_harm']);
 });
 
 test('a distress note always reaches the teacher, even past the 10 open requests a student may have', async () => {

@@ -553,6 +553,125 @@ test.describe('class join', () => {
   });
 });
 
+test.describe('a person to talk to in every refusal (COUNCIL2-1, COUNCIL2-4)', () => {
+  // The council's review: with no parent's OK, or with the questions used up, "יש לי מחשבות אובדניות" opened the
+  // parent's-OK sheet or the "done for today" card, because the offline detector did not read it; the only way to help
+  // was the quiet link. Now the detector reads it (shared/safety.js), and every place where the tutor says "not now"
+  // has ער״ן's number as a call button beside the link: a tel: link, 44px, no price.
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const SUICIDAL = 'יש לי מחשבות אובדניות';
+  /** The Worker's care path: a message that reads as distress is answered even with no parent's OK or no questions left. */
+  async function careServer(page, log) {
+    await page.route(`${API}/api/ai/chat`, async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      log.push({ path: '/api/ai/chat', body: route.request().postDataJSON() });
+      return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: CORS, body: `${CARE_TEXT}\n[[care]]` });
+    });
+  }
+  /** The call button: ער״ן's number as a tel: link, at least 44px tall, and no price anywhere on the screen. */
+  async function expectCall(scope, page, { oneRow = false } = {}) {
+    const call = scope.getByRole('link', { name: 'ער״ן, חיוג 1201, בכל שעה' });
+    await expect(call).toBeVisible();
+    await expect(call).toHaveAttribute('href', 'tel:1201');
+    const box = await call.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    const link = scope.getByRole('button', { name: 'צריכים לדבר עם מישהו?' });
+    await expect(link).toBeVisible();
+    // in a sheet the line and its button share one row, even on a 320 phone (both read in one frame: the sheet slides in)
+    if (oneRow) {
+      await page.evaluate(() => document.fonts.ready);
+      const gap = await scope.locator('.help-line').evaluate((el) => {
+        const [a, b] = [el.querySelector('.support-open'), el.querySelector('.help-line-call')].map((x) => x.getBoundingClientRect());
+        return Math.abs((a.top + a.height / 2) - (b.top + b.height / 2));
+      });
+      expect(gap).toBeLessThan(4);
+    }
+    for (const w of ['₪', 'מנוי']) await expect(page.locator('body')).not.toContainText(w);
+  }
+
+  for (const [name, opts, line] of [
+    ['with no parent\'s OK', {}, 'מחכים לאישור של הורה'],
+    ['with the questions used up', { parentOk: true, freeLimit: 0 }, 'העוזר החכם חוזר מחר'],
+  ]) {
+    const slug = opts.parentOk ? 'usedup' : 'noparentok';
+    test(`${name}: the resting card has the call button, and "${SUICIDAL}" opens the support card, never a sheet`, async ({ page }) => {
+      const { log } = await fakeServer(page, opts, baseOf());
+      await careServer(page, log);
+      await open(page, '#/assistant', withServer());
+      const draft = page.getByLabel('ההודעה שלכם');
+      await expect(draft).toHaveAttribute('placeholder', line);
+      const rest = page.locator('.chat-rest');
+      await expectCall(rest, page);
+      await shot(page, `refusal-rest-${slug}`);
+      await draft.fill(SUICIDAL); await draft.press('Enter');
+      const card = page.locator('.chat .support-card');
+      await expect(card).toBeVisible();
+      await expect(card.getByText('מה שכתבתם חשוב. לא צריך להתמודד עם זה לבד.')).toBeVisible();
+      await expectCard(card);
+      await expect(page.getByRole('dialog')).toHaveCount(0); // not "קודם, אישור של הורה", not a limit sheet
+      await expect(draft).toHaveValue('');
+      await expect.poll(() => chatCalls(log).length).toBe(1); // it still goes: the server answers it on its care path
+      await expect(page.locator('.msg-row.assistant').last()).toContainText('תודה שכתבתם');
+      await shot(page, `refusal-care-${slug}`);
+    });
+  }
+
+  test('the limit sheet with no parent\'s OK has the call button; its link closes the sheet and opens the people to talk to', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/assistant', withServer());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('מה זה שבר?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: 'קודם, אישור של הורה' });
+    await expect(sheet).toBeVisible();
+    await expectCall(sheet, page, { oneRow: true });
+    await shot(page, 'refusal-sheet-noparentok');
+    await sheet.getByRole('button', { name: 'צריכים לדבר עם מישהו?' }).click();
+    await expect(sheet).toHaveCount(0);
+    await expectCard(page.getByRole('dialog', { name: 'חשוב לנו שתהיו בסדר' }));
+  });
+
+  test('the limit sheet when the day\'s questions are used up has the call button', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    await expect(page.getByText('שאלו כל שאלה במתמטיקה')).toBeVisible(); // the status has come: questions left
+    // the status said there were questions left; the answer says they are used up
+    st.breakNext = { status: 429, body: { error: 'daily_limit', tier: 'free', group: 'tutor', limit: 2, left: 0 } };
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('מה זה שבר?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: 'העוזר החכם חוזר מחר' });
+    await expect(sheet).toBeVisible();
+    await expectCall(sheet, page, { oneRow: true });
+    await shot(page, 'refusal-sheet-usedup');
+  });
+
+  test('the limit sheet of a class whose tutor is off has the call button', async ({ page }) => {
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await page.route(`${API}/api/ai/chat`, (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      log.push({ path: '/api/ai/chat' });
+      return route.fulfill({ status: 403, contentType: 'application/json', headers: CORS, body: JSON.stringify({ error: 'class_ai_off', message: 'class_ai_off' }) });
+    });
+    await open(page, '#/assistant', classStudent());
+    await expect(page.getByText('שאלו כל שאלה במתמטיקה')).toBeVisible(); // the status said the tutor is on
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך פותרים 3x = 12?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: 'בכיתה הזו העוזר החכם כבוי' });
+    await expect(sheet).toBeVisible();
+    await expectCall(sheet, page, { oneRow: true });
+    await shot(page, 'refusal-sheet-classoff');
+  });
+
+  test('a tool this device does not have today has the call button', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
+    const tool = page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' });
+    await expect(tool.getByText('את הבדיקה הזו עושה העוזר החכם המלא.')).toBeVisible();
+    await expectCall(tool, page);
+    await shot(page, 'refusal-tool-locked');
+  });
+});
+
 test.describe('class AI off', () => {
   // the Ministry of Education's rules (trust spec TRUST-11 §6): a school class keeps student AI off until Madregot is in
   // the catalogue. The child sees a calm state, never a price or a way to buy round it, and can still write a message
