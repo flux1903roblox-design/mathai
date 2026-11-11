@@ -5,7 +5,7 @@ const fs = require('fs');
 const [out, ...which] = process.argv.slice(2);
 fs.mkdirSync(out, { recursive: true });
 const BASE = 'http://127.0.0.1:4232/';
-const GRADE = { signed: '7', coord: '7', line: '8' };
+const GRADE = { signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', line: '8', pyth: '8', stats: '8', sys: '8' };
 const student = (grade) => ({ state: { profile: { role: 'student', name: 'נועה', grade, know: 1 }, progress: {}, days: {}, xp: 0, mistakes: {}, outbox: [], ai: { mode: 'server', apiUrl: '', key: '' }, path: {}, freezes: 0, goalXp: 50, sound: false, gaps: {}, placement: null }, version: 1 });
 async function shoot(browser, route, grade, file, { w = 390, h = 844, scheme = 'light', dsf = 1 } = {}) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: dsf, locale: 'he-IL', colorScheme: scheme, reducedMotion: 'reduce', serviceWorkers: 'block' });

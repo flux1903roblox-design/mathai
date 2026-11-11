@@ -36,8 +36,9 @@ export type FigSpec =
   | { type: 'numline'; from: number; to: number; step?: number; den?: number; marks?: { x: number; label?: string; tone?: FigTone }[]; jumps?: { from: number; to: number; label?: string }[]; anim?: boolean }
   | { type: 'thermo'; value: number; min: number; max: number; label?: string; also?: { value: number; label?: string }; anim?: boolean }
   | { type: 'machine'; inX?: number | string; rule: string; outY?: number | string; anim?: boolean }
-  | { type: 'dots'; values: number[]; axis: [number, number]; mark?: { mode?: number; median?: number; mean?: number }; anim?: boolean }
-  | { type: 'bars'; labels: string[]; values: number[]; highlight?: number; unit?: string }
+  | { type: 'dots'; values: number[]; axis: [number, number]; mark?: { mode?: number; median?: number; mean?: number }; unit?: string; anim?: boolean }
+  | { type: 'bars'; labels: string[]; values: (number | null)[]; highlight?: number; unit?: string; level?: number; ltr?: boolean; anim?: boolean }
+  | { type: 'table'; head: string[]; rows: (number | string)[][]; anim?: boolean }
   | {
     type: 'coord'; range?: number;
     points?: { x: number; y: number; label: string; hidden?: boolean }[];
@@ -48,7 +49,7 @@ export type FigSpec =
     words?: { at: [number, number]; text: string; tone?: FigTone | 'alt' }[];
   }
   | GeoFig
-  | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'table' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
+  | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
 /** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
 export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };
 

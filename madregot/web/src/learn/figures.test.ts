@@ -174,8 +174,8 @@ function labelsOf(f: AnyFig): Set<string> {
       case 'numline': return [...(f.marks || []).map((k: any) => k.label), ...(f.jumps || []).map((j: any) => j.label)];
       case 'thermo': return [fmt(f.value), f.label, ...(f.also ? [fmt(f.also.value), f.also.label] : [])];
       case 'machine': return [io(f.inX, 'x'), io(f.outY, 'y'), f.rule];
-      case 'dots': return [];
-      case 'bars': return [...f.labels, ...f.values.map(fmt), f.unit];
+      case 'dots': return [f.unit];
+      case 'bars': return [...f.labels, ...f.values.map((v: number | null) => (v == null ? '?' : fmt(v))), f.unit, f.level != null && fmt(f.level)];
       case 'coord': {
         const lines = [...(f.line ? [f.line] : []), ...(f.lines || [])];
         const meet = f.meet && f.lines?.length > 1 ? meetOf(f.lines[0], f.lines[1]) : null;
@@ -224,8 +224,9 @@ function selfProblems(skill: string, f: AnyFig): string[] {
   }
   if (f.type === 'bars') {
     if (f.labels.length !== f.values.length) bad.push(`bars: ${f.labels.length} names for ${f.values.length} values`);
-    if (f.values.some((v: number) => v < 0)) bad.push('bars with a value under 0');
+    if (f.values.some((v: number | null) => v != null && v < 0)) bad.push('bars with a value under 0');
     if (f.highlight != null && !(f.highlight >= 0 && f.highlight < f.values.length)) bad.push(`bars highlight ${f.highlight}`);
+    if (f.level != null && !(f.level >= 0)) bad.push(`bars level ${f.level}`);
   }
   if (f.type === 'coord') {
     const r = f.range || 6; const inside = ([x, y]: Pt) => Math.abs(x) <= r && Math.abs(y) <= r;
@@ -287,8 +288,10 @@ function textProblems(st: DiscoverStep, f: AnyFig): string[] {
     }
   }
   // a prediction's answer is not written in its own figure (a table's cells are data, where a number may come up by
-  // chance: its headings count)
-  const written = f.type === 'table' ? new Set((f.head as unknown[]).map(plainOf)) : labelsOf(f);
+  // chance: its headings count; so is a bar the step's own text or display gives, like the 4 of 2, 7, 4, 3)
+  const given = new Set([...`${st.text} ${'display' in st ? st.display || '' : ''}`.matchAll(/-?\d+(?:\.\d+)?/g)].map((m) => m[0]));
+  const written = f.type === 'table' ? new Set((f.head as unknown[]).map(plainOf))
+    : f.type === 'bars' ? new Set([...labelsOf({ ...f, values: f.values.filter((v: number | null) => v == null || !given.has(fmt(v))) })]) : labelsOf(f);
   if (st.kind === 'predict' && written.has(plainOf(st.choices[st.answer]))) bad.push(`the answer ${plainOf(st.choices[st.answer])} is written in the figure`);
   return bad;
 }
@@ -358,6 +361,8 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(selfProblems('sys:1', { type: 'coord', range: 6, lines: [{ m: 1, b: 0 }, { m: -1, b: 16 }], meet: true })[0]).toMatch(/inside the plane/);
     expect(selfProblems('line:2', { type: 'coord', riseRun: { x: 0, run: 1 } })).toEqual(['riseRun with no line']);
     expect(selfProblems('stats:2', { type: 'bars', labels: ['א'], values: [1, 2] })).toHaveLength(1);
+    expect(selfProblems('stats:5', { type: 'bars', labels: ['', ''], values: [3, null], level: 5 })).toEqual([]); // a missing value is not a negative one
+    expect(selfProblems('stats:5', { type: 'bars', labels: ['', ''], values: [3, -1], level: -2 })).toEqual(['bars with a value under 0', 'bars level -2']);
     expect(selfProblems('signed:2', { type: 'thermo', value: -3, also: { value: -12 }, min: -10, max: 10 })).toEqual(['thermo -12 on a scale -10..10']);
   });
 
@@ -390,10 +395,22 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(textProblems(say('הנקודה $A$.', ab), ab)).toEqual(['the text names A, the figure does not']);
     const pair = { type: 'thermo', value: -3, also: { value: -8 }, min: -10, max: 10 };
     expect(textProblems(predict('איפה קר יותר?', pair, ['$-8$', '$-3$'], 0), pair)).toEqual(['the answer -8 is written in the figure']);
+    // a bar the step's own data gives is data (the 4 of 2, 7, 4, 3); a bar, a level or a missing value it does not give
+    // is a giveaway
+    const shells = { type: 'bars', labels: ['', '', '', ''], values: [2, 7, 4, 3] };
+    expect(textProblems({ kind: 'predict', text: 'כמה יקבל כל אחד?', display: '2,\\ 7,\\ 4,\\ 3', fig: shells as FigSpec, choices: ['$4$', '$16$'], answer: 0, why: '' }, shells)).toEqual([]);
+    const even = { type: 'bars', labels: ['', '', '', ''], values: [4, 4, 4, 4] };
+    expect(textProblems(predict('כמה יקבל כל אחד?', even, ['$4$', '$16$'], 0), even)).toEqual(['the answer 4 is written in the figure']);
+    const level = { type: 'bars', labels: ['', ''], values: [2, 6], level: 4 };
+    expect(textProblems(predict('מה הממוצע של $2$ ו־$6$?', level, ['$4$', '$8$'], 0), level)).toEqual(['the answer 4 is written in the figure']);
+    // a dot plot's line over it counts as written (n = 7 there names the n of the text)
+    const n = { type: 'dots', values: [1, 2, 3], axis: [0, 4], unit: 'יש n = 3 נתונים' };
+    expect(textProblems(say('עם $n$ נתונים.', n), n)).toEqual([]);
+    expect(textProblems(say('עם $n$ נתונים.', { ...n, unit: undefined }), { ...n, unit: undefined })).toEqual(['the text names n, the figure does not']);
   });
 
   it('in every fully drawn topic, a say step that opens a stair draws itself in when its figure can', () => {
-    const DRAWS = new Set(['numline', 'thermo', 'machine', 'dots', 'coord']);
+    const DRAWS = new Set(['numline', 'thermo', 'machine', 'dots', 'coord', 'bars', 'table']);
     const bad = Object.values(CONTENT).filter((c) => !PENDING_VISUALS.has(c.skill.split(':')[0])).flatMap((c) => {
       const st = c.discover[0]; const f = figOf(st) as AnyFig | undefined;
       return st.kind === 'say' && f && DRAWS.has(f.type) && !f.anim ? [`${c.skill} #0: ${f.type} without anim`] : [];

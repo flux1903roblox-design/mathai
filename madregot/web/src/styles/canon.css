@@ -655,6 +655,10 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .fig-bar-num { fill: var(--ink); font-size: 16px; font-weight: 700; }
 .fig-bar-name { fill: var(--ink-2); font-weight: 600; }
 .fig-bar-base { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fig-bar.gone rect { fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 5 4; }
+.fig-bar.gone .fig-bar-num { fill: var(--brand-d); font-size: 22px; font-weight: 800; }
+.fig-bar-level line { stroke: var(--streak-d); stroke-width: 2.5; stroke-dasharray: 8 5; }
+.fig-bar-level-num { fill: var(--streak-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
 .fig-cd-word { fill: var(--ink); font-size: 17px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
 .fig-cd-word.fig-var { font-size: 20px; font-weight: 400; }
 .fig-cd-quad { fill: var(--ink-2); font-size: 15px; font-weight: 600; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }

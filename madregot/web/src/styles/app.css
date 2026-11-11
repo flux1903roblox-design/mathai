@@ -1743,7 +1743,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .mp-bal-plate { fill: var(--ink-2); }
 .mp-bal-beam, .mp-bal-pan { transform-box: view-box; transition: transform 340ms var(--ease-smooth-out); }
 .mp-bal-box rect { fill: var(--c-tint, var(--brand-tint)); stroke: var(--c, var(--brand)); stroke-width: 2.5; }
-.mp-bal-box text { fill: var(--c-d, var(--brand-d)); font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 20px; font-weight: 700; }
+.mp-bal-box text { fill: var(--c-ink, var(--brand-d)); font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 20px; font-weight: 700; }
 .mp-bal-w rect { fill: color-mix(in srgb, var(--ink-2) 62%, var(--surface)); stroke: var(--ink-2); stroke-width: 1.5; }
 .mp-bal-w line { stroke: var(--on-brand); stroke-width: 1.5; opacity: 0.75; }
 .mp-bal-grp { cursor: pointer; outline: none; }
@@ -1759,8 +1759,9 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 /* algebra tiles */
 .mp-tile rect { stroke-width: 2.5; }
 .mp-tile.pos rect { fill: var(--c-tint, var(--brand-tint)); stroke: var(--c, var(--brand)); }
-.mp-tile.neg rect { fill: var(--surface); stroke: var(--c-d, var(--brand-d)); stroke-dasharray: 6 4; }
-.mp-tile text { font-family: KaTeX_Main, 'Times New Roman', serif; font-size: 21px; font-weight: 700; fill: var(--c-d, var(--brand-d)); }
+/* the unit colour as text (-ink: the -d shade in light, a lighter one in dark, where -d would be dark on dark) */
+.mp-tile.neg rect { fill: var(--surface); stroke: var(--c-ink, var(--brand-d)); stroke-dasharray: 6 4; }
+.mp-tile text { font-family: KaTeX_Main, 'Times New Roman', serif; font-size: 21px; font-weight: 700; fill: var(--c-ink, var(--brand-d)); }
 .mp-tile text.var { font-style: italic; }
 .mp-tile text.unit { font-size: 19px; }
 .mp-tile.neg text { fill: var(--ink); }
@@ -1776,7 +1777,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .mp-area-break { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
 .mp-area-len { fill: var(--ink); font-size: 18px; font-weight: 700; }
 .mp-area-len.var { font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 21px; }
-.mp-area-val { fill: var(--c-d, var(--brand-d)); font-family: KaTeX_Main, 'Times New Roman', serif; font-size: 22px; font-weight: 700; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+.mp-area-val { fill: var(--c-ink, var(--brand-d)); font-family: KaTeX_Main, 'Times New Roman', serif; font-size: 22px; font-weight: 700; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
 .mp-area-val .var { font-style: italic; }
 .mp-area-ghost { fill: none; stroke: var(--good); stroke-width: 3; stroke-dasharray: 7 6; }
 .mp-area-hint { fill: none; stroke: var(--brand); stroke-width: 3; stroke-dasharray: 6 5; stroke-linecap: round; animation: hint-in var(--duration-slow) var(--ease-smooth-out) both; }

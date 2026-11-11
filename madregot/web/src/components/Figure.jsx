@@ -14,9 +14,14 @@
 //          also: a second one on the same scale to its left (two days, two cities), each named under it
 //   machine { inX?, rule, outY?, anim? }                 a function machine: inX goes in, rule (TeX) inside, outY comes out
 //                                                       (x and y when not given; '?' when the step asks for it)
-//   dots    { values, axis: [min, max], mark?: { mode?, median?, mean? }, anim? }   a dot plot: equal values stack; the
-//          mode's column or the middle dot(s) are marked, the mean is a fulcrum under the axis (a balance point)
-//   bars    { labels, values, highlight?, unit? }        a bar chart, the first bar on the right, each value over its bar
+//   dots    { values, axis: [min, max], mark?: { mode?, median?, mean? }, unit?, anim? }   a dot plot: equal values stack;
+//          the mode's column or the middle dot(s) are marked, the mean is a fulcrum under the axis (a balance point);
+//          unit: a short line written over it, as on a bar chart (what is counted, or "n = 7")
+//   bars    { labels, values, highlight?, unit?, level?, ltr?, anim? }   a bar chart, the first bar on the right, each value
+//          over its bar; ltr: the first bar on the left, in the order of a list written in maths and of the bars object; a
+//          value null is a missing one (its place and a question mark); level: a dashed line at that height (the mean, the
+//          fair share), its number at its left end; a label may be '' (columns with no names, as in the bars object)
+//   table   also { anim? }                               with anim, its rows come in one after another
 //   coord   also { quadrants?, path?, lines?: [{ m, b, label?, tone? }], meet?, riseRun?: { x, run }, words?, anim? }
 //          (see Coord). Never draw a function's graph with 'linear': that one is a linear pair of angles.
 // With anim, a figure draws itself once as its step comes in (useDraw); under reduced motion it is there at once.
@@ -315,14 +320,17 @@ function Ladder({ fig }) {
   );
 }
 
-// Numbers stay left-to-right inside the RTL table, with a real minus sign.
+// Numbers stay left-to-right inside the RTL table, with a real minus sign; so does a heading that is maths (9 − x, which
+// the right-to-left table would turn into x − 9). A letter in a cell or a heading is in the maths font, as in the text.
 const cell = (v) => String(v).replace(/^-/, '\u2212');
+const vars = (t) => String(t).split(/([a-zA-Z])/).map((p, i) => (i % 2 ? <span key={i} className="fig-var">{p}</span> : p));
 
 function Table({ fig }) {
+  const draw = useDraw(fig.anim);
   return (
     <table className="fg-table">
-      <thead><tr>{fig.head.map((h) => <th key={h} scope="col">{h}</th>)}</tr></thead>
-      <tbody>{fig.rows.map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j}><bdi dir="ltr">{cell(v)}</bdi></td>)}</tr>)}</tbody>
+      <thead><tr>{fig.head.map((h, j) => <th key={j} scope="col">{WORD.test(h) ? vars(h) : <bdi dir="ltr">{vars(h)}</bdi>}</th>)}</tr></thead>
+      <tbody>{fig.rows.map((r, i) => <m.tr key={i} {...draw(i, 'fade')}>{r.map((v, j) => <td key={j}><bdi dir="ltr">{WORD.test(String(v)) ? cell(v) : vars(cell(v))}</bdi></td>)}</m.tr>)}</tbody>
     </table>
   );
 }
@@ -628,9 +636,12 @@ function Dots({ fig }) {
   const { values } = fig; const [lo, hi] = fig.axis; const k = fig.mark || {};
   const draw = useDraw(fig.anim);
   const W = 320; const PAD = 24; const u = (W - 2 * PAD) / (hi - lo); const X = (v) => PAD + (v - lo) * u;
-  const r = Math.max(4, Math.min(9, u * 0.4)); const g = 2 * r + 3;
+  // a dot is as large as the smallest gap between two different values allows (two values 1 apart on a long axis stay apart)
+  const distinct = [...new Set(values)].sort((a, b) => a - b);
+  const gap = Math.min(hi - lo, ...distinct.slice(1).map((v, i) => v - distinct[i]));
+  const r = Math.max(4, Math.min(9, gap * u * 0.4)); const g = 2 * r + 3;
   const high = new Map(); const row = values.map((v) => { const n = high.get(v) || 0; high.set(v, n + 1); return n; });
-  const L = 14 + Math.max(1, ...high.values()) * g;
+  const L = (fig.unit ? 30 : 0) + 14 + Math.max(1, ...high.values()) * g;
   // the median's dot(s): the middle of the values in order (equal values in the order given, as they stack)
   const order = values.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((p) => p[1]);
   const n = values.length;
@@ -641,6 +652,7 @@ function Dots({ fig }) {
   const numY = L + (k.mean != null ? 38 : 24);
   return (
     <svg viewBox={`0 0 ${W} ${numY + 10}`} className="figure fig-obj fig-dots" role="img" aria-label={figWords(fig)}>
+      {fig.unit && <text x={W / 2} y="18" textAnchor="middle" direction="rtl" className="fg-word">{fig.unit}</text>}
       <line x1={PAD - 12} y1={L} x2={W - PAD + 12} y2={L} className="fig-nl-axis" />
       {ticks.map((v) => (
         <g key={v}>
@@ -656,27 +668,46 @@ function Dots({ fig }) {
   );
 }
 
-/** A bar chart: the first bar on the right, as a Hebrew reader starts; each value over its bar, its name under it. */
+/** A bar chart: the first bar on the right, as a Hebrew reader starts (on the left with ltr, as a list in maths and the bars
+ * object run); each value over its bar, its name under it. A missing
+ * value (null) keeps its place, with a question mark on a dashed outline; `level` is a dashed line across at that height. */
 function Bars({ fig }) {
-  const { labels, values } = fig; const n = values.length;
-  const W = 320; const PAD = 14; const B = 188; const top = fig.unit ? 46 : 30; const max = Math.max(1, ...values);
-  const slot = (W - 2 * PAD) / n; const bw = Math.min(56, slot * 0.62);
-  const cx = (i) => W - PAD - slot * (i + 0.5);
-  const size = Math.min(15, (slot - 4) / (0.56 * Math.max(...labels.map((l) => l.length))));
+  const { labels, values, level } = fig; const n = values.length;
+  const draw = useDraw(fig.anim);
+  const W = 320; const PAD = 14; const B = 188; const top = fig.unit ? 46 : 30; const max = Math.max(1, level ?? 0, ...values.filter((v) => v != null));
+  // with a level, its number stands on the left, outside the bars
+  const x0 = PAD + (level != null ? 30 : 0);
+  const slot = (W - PAD - x0) / n; const bw = Math.min(56, slot * 0.62);
+  const cx = (i) => (fig.ltr ? x0 + slot * (i + 0.5) : W - PAD - slot * (i + 0.5));
+  const size = Math.min(15, (slot - 4) / (0.56 * Math.max(1, ...labels.map((l) => l.length))));
+  const Y = (v) => B - (v / max) * (B - top);
+  const gone = Math.min(56, (B - top) * 0.45); // the height of a missing value's outline: clearly not a reading
   return (
     <svg viewBox={`0 0 ${W} 220`} className="figure fig-obj fig-bars" role="img" aria-label={figWords(fig)}>
       {fig.unit && <text x={W / 2} y="18" textAnchor="middle" direction="rtl" className="fg-word">{fig.unit}</text>}
-      {values.map((v, i) => {
-        const h = (v / max) * (B - top);
-        return (
-          <g key={i} className={clsx('fig-bar', fig.highlight === i && 'hi')}>
-            <rect x={cx(i) - bw / 2} y={B - h} width={bw} height={h} rx="4" />
-            <text x={cx(i)} y={B - h - 8} textAnchor="middle" className="fig-bar-num">{figNum(v)}</text>
-            <text x={cx(i)} y={B + 22} textAnchor="middle" direction="rtl" className="fig-bar-name" style={{ fontSize: `${size}px` }}>{labels[i]}</text>
-          </g>
-        );
-      })}
-      <line x1={PAD} x2={W - PAD} y1={B} y2={B} className="fig-bar-base" />
+      {values.map((v, i) => (
+        <m.g key={i} className={clsx('fig-bar', fig.highlight === i && 'hi', v == null && 'gone')} {...draw(i, 'fade')}>
+          {v == null ? (
+            <>
+              <rect x={cx(i) - bw / 2} y={B - gone} width={bw} height={gone} rx="4" />
+              <text x={cx(i)} y={B - gone / 2 + 8} textAnchor="middle" className="fig-bar-num">?</text>
+            </>
+          ) : (
+            <>
+              <rect x={cx(i) - bw / 2} y={Y(v)} width={bw} height={B - Y(v)} rx="4" />
+              <text x={cx(i)} y={Y(v) - 8} textAnchor="middle" className="fig-bar-num">{figNum(v)}</text>
+            </>
+          )}
+          {labels[i] && <text x={cx(i)} y={B + 22} textAnchor="middle" direction="rtl" className="fig-bar-name" style={{ fontSize: `${size}px` }}>{labels[i]}</text>}
+        </m.g>
+      ))}
+      <line x1={x0} x2={W - PAD} y1={B} y2={B} className="fig-bar-base" />
+      {level != null && (
+        <m.g className="fig-bar-level" {...draw(n, 'fade')}>
+          <line x1={x0 - 4} x2={W - PAD} y1={Y(level)} y2={Y(level)} />
+          <text x={x0 - 9} y={Y(level) + 6} textAnchor="end" className="fig-bar-level-num">{figNum(level)}</text>
+        </m.g>
+      )}
     </svg>
   );
 }

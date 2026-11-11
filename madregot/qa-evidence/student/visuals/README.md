@@ -136,3 +136,43 @@ the line; a point's name near the right edge goes to its left; and the text chec
 The 320px check in `e2e/teach-all.spec.js` now waits for the step it measures to be on screen (the steps swap one after
 the other, and the leaving one could be measured), honours `VISUAL_EXEMPT`, and was shown to fail on a step with its
 drawing taken out (`signed:1#3`).
+
+## Stage 16: every teaching step of statistics and of algebraic expressions is drawn
+
+The 40 bare steps of `stats` and the 32 of `expr` now have a figure, the Hebrew text unchanged, and both topics left
+`PENDING_VISUALS` (stats 48/48, expr 42/42, no exemptions).
+
+| File | What it shows |
+| --- | --- |
+| `stats-first-steps.png` | The first step of each stair, light and dark, 390x844: the shoe sizes as a dot plot that piles up; the five times to school; four friends' shells as bars; the grades' frequencies as bars under their table; Yoav's three tests, the fourth a dashed `?`, and the line at 85 |
+| `expr-first-steps.png` | The same for expr: the notebooks' table that ends in `n → 7n`; the matchsticks' table; the tiles of 3x + 2; 4x, 8x, 12x built row by row; the tiles of 2(x + 3) − x |
+
+How the figures follow the steps:
+
+- stats. A list of data is a dot plot (`dots`), equal values stacked. A step marks the mode's pile, the median's middle
+  dot(s) or the mean's fulcrum only where its text says what it is; a prediction that asks for it shows the plot
+  unmarked. The outlier step weighs the two: the median's dot and the fulcrum far to its right. A frequency or a share
+  is a bar (`bars`): four friends' shells with the dashed level 4 they are evened to (the fair share), each grade's
+  frequency under the table that gives it, the five columns of the bars object with the level they must average.
+- expr. A substitution is a machine: the number goes in, the expression is the rule, `?` comes out when a prediction
+  asks for it. The n-th term and "who has how many books" are tables that end in the letter. Collecting like terms and
+  the minus before brackets are still tiles (a −x is the opposite tile of an x); 3(x + 4) is the rectangle. Where the
+  tiles do not fit on their rows (7x − 3x + 2, nine units), and for "are these expressions equal?", a step shows a table
+  of the expression's values at a few x, the check the stair teaches.
+
+What changed in the shared figures, each after looking at the screens at 320px:
+
+- `bars` takes `level` (a dashed line at a height, its number outside the bars), a missing value (`null`: its place, a
+  dashed outline and `?`), bars with no names (the columns of the bars object), `ltr` (the first bar on the left: the
+  order of a list written in maths and of the bars object; before, the shells read 3, 4, 7, 2 under the list 2, 7, 4, 3)
+  and `anim` (the bars come in one after another).
+- `dots` takes `unit` (a short line over the plot, as on a bar chart: `n = 7` on the median rule), and a dot is as large
+  as the gaps between the values allow, so times to school on a 0-30 axis are not specks.
+- `table` takes `anim` (rows come in one after another), keeps a heading that is maths left to right (`9 − x` read
+  `x − 9` in the right-to-left table, and `−2(x − 3)` read `(x − 3)2−`) and writes letters in the maths font.
+- In dark mode the labels of tiles, balance boxes and the rectangle's areas are the unit's `-ink` colour; they were its
+  dark `-d` shade on a dark panel (light mode is the same colour as before).
+
+Checks: `figures.test` holds stats and expr to their text; a bar is the step's data when the step gives that number (the
+4 of 2, 7, 4, 3), and otherwise counts as written; an opening say step with bars or a table draws itself in.
+`teach-all.spec` walks every stats and expr step at 320x568.

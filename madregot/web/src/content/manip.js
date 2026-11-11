@@ -143,9 +143,13 @@ export function figWords(f) {
     }
     case 'dots': {
       const k = f.mark || {};
-      return `תרשים נקודות של ${f.values.length} ערכים בין ${figNum(f.axis[0])} ל־${figNum(f.axis[1])}${k.mode != null ? ', השכיח מסומן' : ''}${k.median != null ? ', החציון מסומן' : ''}${k.mean != null ? ', הממוצע מסומן' : ''}`;
+      return `תרשים נקודות של ${f.values.length} ערכים בין ${figNum(f.axis[0])} ל־${figNum(f.axis[1])}${k.mode != null ? ', השכיח מסומן' : ''}${k.median != null ? ', החציון מסומן' : ''}${k.mean != null ? ', הממוצע מסומן' : ''}${f.unit ? `: ${f.unit}` : ''}`;
     }
-    case 'bars': return `תרשים עמודות: ${f.labels.map((l, i) => `${l} ${figNum(f.values[i])}`).join(', ')}${f.unit ? ` (${f.unit})` : ''}`;
+    case 'bars': {
+      // a bar with no name is read by its value; a missing one says so; the level line is read last
+      const bar = (l, v) => [l, v == null ? 'חסר' : figNum(v)].filter(Boolean).join(' ');
+      return `תרשים עמודות: ${f.labels.map((l, i) => bar(l, f.values[i])).join(', ')}${f.unit ? ` (${f.unit})` : ''}${f.level != null ? `, קו בגובה ${figNum(f.level)}` : ''}`;
+    }
     case 'coord': {
       const names = (f.points || []).filter((p) => !p.hidden).map((p) => p.label);
       const lines = [...(f.line ? [f.line] : []), ...(f.lines || [])];

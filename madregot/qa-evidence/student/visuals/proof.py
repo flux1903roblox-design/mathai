@@ -1,4 +1,4 @@
-# Proof sheets for qa-evidence: python3 proof.py <shots from firsts.cjs> <outdir> topic...
+# Proof sheets for qa-evidence: python3 proof.py <shots from firsts.cjs> <outdir> topic[:stairs]... (5 stairs by default)
 # With COUNCIL_SHOT=<the council's i13f-02-teach-0.png>, also the before/after of signed:1#0.
 import os, sys
 from PIL import Image, ImageDraw, ImageFont
@@ -18,12 +18,13 @@ def sheet(files, cols, scale, captions, path, bg=(236, 238, 242)):
         S.paste(im.resize((w, h), Image.LANCZOS), (x, y + 28))
         d.rectangle([x - 1, y + 27, x + w, y + 28 + h], outline=(180, 186, 196))
     S.save(path, optimize=True)
-for t in topics:
+for arg in topics:
+    t, n = (arg.split(':') + ['5'])[:2]; n = int(n)
     files = []; caps = []
     for scheme in ['light', 'dark']:
-        for lvl in range(1, 6):
+        for lvl in range(1, n + 1):
             files.append(f'{src}/{t}{lvl}-first-{scheme}.png'); caps.append(f'{t}:{lvl}  {scheme}')
-    sheet(files, 5, 0.5, caps, f'{out}/{t}-first-steps.png')
+    sheet(files, n, 0.5, caps, f'{out}/{t}-first-steps.png')
 if 'signed' in topics and os.environ.get('COUNCIL_SHOT'):
     sheet([os.environ['COUNCIL_SHOT'], f'{src}/council-after-signed1-0.png'], 2, 0.33,
           ["before: the council's i13f-02-teach-0.png", 'after: signed:1#0 with its number line'], f'{out}/council-before-after-signed1-0.png')

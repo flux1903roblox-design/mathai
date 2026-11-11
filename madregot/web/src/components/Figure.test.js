@@ -52,6 +52,13 @@ describe('the new figure types render with role="img" and their Hebrew name', ()
   it('bars: each bar with its value', () => {
     expect(named({ type: 'bars', labels: ['כדורגל', 'כדורסל', 'שחייה'], values: [12, 8, 5], highlight: 0 })).toBe('תרשים עמודות: כדורגל 12, כדורסל 8, שחייה 5');
     expect(named({ type: 'bars', labels: ['א׳', 'ב׳'], values: [3, 4], unit: 'תלמידים' })).toBe('תרשים עמודות: א׳ 3, ב׳ 4 (תלמידים)');
+    // bars with no names are read by their values; a missing value says so; the level line comes last
+    expect(named({ type: 'bars', labels: ['', '', ''], values: [3, 7, 5], level: 5 })).toBe('תרשים עמודות: 3, 7, 5, קו בגובה 5');
+    expect(named({ type: 'bars', labels: ['מבחן 1', 'מבחן 2'], values: [70, null], level: 85 })).toBe('תרשים עמודות: מבחן 1 70, מבחן 2 חסר, קו בגובה 85');
+  });
+
+  it('dots: a line written over the plot is read with it', () => {
+    expect(named({ type: 'dots', values: [3, 6, 9], axis: [0, 10], mark: { median: 6 }, unit: 'שלושה נתונים' })).toBe('תרשים נקודות של 3 ערכים בין 0 ל־10, החציון מסומן: שלושה נתונים');
   });
 
   it('coord: still "מערכת צירים", with what the new fields add, and never where a point is', () => {
@@ -129,6 +136,34 @@ describe('what each figure draws', () => {
     expect(x('א')).toBeGreaterThan(x('ב'));
   });
 
+  it('bars with ltr run left to right, like the list in maths and the bars object; a missing bar is a question mark', () => {
+    const out = html({ type: 'bars', labels: ['א', 'ב'], values: [2, 4], ltr: true });
+    const x = (name) => Number(new RegExp(`<text x="([\\d.]+)"[^>]*class="fig-bar-name"[^>]*>${name}<`).exec(out)[1]);
+    expect(x('א')).toBeLessThan(x('ב'));
+    const gone = html({ type: 'bars', labels: ['', ''], values: [6, null], level: 5 });
+    expect(gone).toMatch(/class="fig-bar gone"><rect[^>]*><\/rect><text[^>]*>\?</);
+    expect(gone).not.toMatch(/class="fig-bar-name"/); // no names, no empty labels
+    // the level is a line across at its height, its number outside the bars; the tallest of bars and level sets the scale
+    expect(gone).toMatch(/class="fig-bar-level"><line[^>]*><\/line><text[^>]*>5</);
+    const y = (svg) => Number(/class="fig-bar-level"><line x1="[\d.]+" x2="[\d.]+" y1="([\d.]+)"/.exec(svg)[1]);
+    expect(y(html({ type: 'bars', labels: ['', ''], values: [2, 4], level: 8 }))).toBe(30); // the level is the top
+  });
+
+  it('a dot is as large as the gaps between the values allow', () => {
+    const r = (fig) => Number(/<circle[^>]*r="([\d.]+)"/.exec(html(fig))[1]);
+    expect(r({ type: 'dots', values: [10, 20, 30], axis: [0, 50] })).toBe(9); // far apart on a long axis: full size
+    expect(r({ type: 'dots', values: [2, 3, 30], axis: [0, 50] })).toBe(4); // two values 1 apart: small, so they stay apart
+  });
+
+  it('a table keeps a heading that is maths left to right, writes letters in the maths font, and comes in row by row', () => {
+    const out = html({ type: 'table', head: ['x', '9 − x', 'מי'], rows: [[1, 8, 'עמית']], anim: true });
+    expect(out).toMatch(/<th scope="col"><bdi dir="ltr">9 − <span class="fig-var">x<\/span><\/bdi><\/th>/);
+    expect(out).toMatch(/<th scope="col">מי<\/th>/); // a word heading reads right to left as it is
+    expect(out).toMatch(/<tr style="opacity:0">/);
+    motion.reduce = true;
+    expect(html({ type: 'table', head: ['x'], rows: [[1]], anim: true })).not.toMatch(/opacity/);
+  });
+
   it('the machine shows a question mark in the brand when its output is asked', () => {
     expect(html({ type: 'machine', inX: 3, rule: '2x + 1', outY: '?' })).toMatch(/class="fig-mc-io target"><rect[^>]*><\/rect><text[^>]*>\?</);
   });
@@ -157,6 +192,7 @@ describe('drawing in, once, and never under reduced motion', () => {
       { type: 'dots', values: [1, 2, 2], axis: [0, 4], anim: true },
       { type: 'coord', range: 6, lines: [{ m: 1, b: 0 }], path: [[2, 0]], anim: true },
       { type: 'thermo', value: -3, min: -10, max: 10, anim: true },
+      { type: 'bars', labels: ['א', 'ב'], values: [2, 4], level: 3, anim: true },
     ];
     for (const f of animated) {
       expect(html(f), f.type).toMatch(/opacity="0"/);
