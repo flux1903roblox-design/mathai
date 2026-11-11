@@ -7,12 +7,13 @@
 // In the 03:00 hour in Jerusalem: reconcile the monthly plans whose period is over with the provider (extend only from
 // the truth pulled from it, or end the plan), queue the one-year plan's end-date emails (30-45 days and 7 days ahead,
 // trust spec TRUST-10 §2) and the licence-ending email (30 days ahead), purge what is no longer needed (spec §6.9, the
-// safety records, and the class data by TRUST-7: shared/retention.js), alert the owner when yesterday's
+// safety records, the class data by TRUST-7, and money records, licence records and idle accounts by TRUST-1 §4:
+// shared/retention.js), alert the owner when yesterday's
 // safety events jumped, and queue the owner's daily summary when OWNER_DAILY_SUMMARY = "true". Each step runs on its
 // own: one failing step never stops the others.
 import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
-import { retryCancels, processRefundQueue, prices, vatOf } from './billing.js';
+import { retryCancels, processRefundQueue, prices, vatOf, forgetAccount } from './billing.js';
 import { purgeAccountsSql } from './account.js';
 import { purgeFamilySql } from './family.js';
 import { providerById } from './providers/index.js';
@@ -223,13 +224,104 @@ export async function purgeClass(env, now = new Date()) {
   return total;
 }
 
-/** The night purge: the records, counters and safety records in one batch, then the class data. The counts go into the cron report. */
+/** Idle accounts deleted in one night, at the most (each one is its own forgetAccount batch). */
+export const ACCOUNT_PURGE_LIMIT = 50;
+
+/**
+ * The first instant (UTC ISO) of the oldest tax year still kept: money records of a year Y are kept to the end of the
+ * RETENTION.taxYears-th calendar year after Y (trust spec TRUST-1 §4, §0 "Tax records"), so on a day of year C (Jerusalem)
+ * what happened before 1 January of C − taxYears (Jerusalem) may go. Years are Jerusalem years: a payment at 01:30 on
+ * 1 January in Israel belongs to that year, though it is still 31 December in UTC.
+ */
+export function taxCutoffIso(now = new Date()) {
+  const year = Number(dayOf(now).slice(0, 4));
+  return startOfDayIso(`${year - RETENTION.taxYears}-01-01`);
+}
+
+/**
+ * The long-term records past their time (trust spec TRUST-1 §4; the periods are in shared/retention.js), as [name,
+ * statement] steps for one batch, children before parents (refund_queue → payments → orders and subscriptions):
+ * done refunds, payments, paid or expired orders and ended plans of a tax year that is no longer kept (taxCutoffIso),
+ * each only once nothing kept still points at it; licence codes RETENTION.licenceCodeAfterExpiryDays after the code
+ * expired; and licence requests RETENTION.licenceRequestAfterHandledDays after the owner handled them. Provider events
+ * keep their own rule (purgeRecordsSql). Every step is limited to PURGE_BATCH rows.
+ */
+export function purgeLongTermSql(env, now = new Date()) {
+  const t = now.getTime();
+  const iso = (days) => new Date(t - days * DAY).toISOString();
+  const tax = taxCutoffIso(now);
+  const N = PURGE_BATCH;
+  const stmt = (sql, ...a) => env.DB.prepare(sql).bind(...a);
+  const oldOrders = `SELECT id FROM orders WHERE status IN ('paid', 'expired') AND COALESCE(paid_at, created_at) < ?1
+    AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.order_id = orders.id) LIMIT ${N}`;
+  return [
+    ['refunds', stmt(`DELETE FROM refund_queue WHERE id IN (SELECT id FROM refund_queue WHERE done_at IS NOT NULL AND done_at < ?1 LIMIT ${N})`, tax)],
+    ['payments', stmt(`DELETE FROM payments WHERE id IN (SELECT id FROM payments WHERE occurred_at < ?1
+      AND NOT EXISTS (SELECT 1 FROM refund_queue r WHERE r.payment_id = payments.id) LIMIT ${N})`, tax)],
+    // a renewal's link to its order goes with the order (its foreign key cascades on D1; this also covers a database without it)
+    ['orderRenewals', stmt(`DELETE FROM order_renewals WHERE order_id IN (${oldOrders})`, tax)],
+    ['orders', stmt(`DELETE FROM orders WHERE id IN (${oldOrders})`, tax)],
+    ['subscriptions', stmt(`DELETE FROM subscriptions WHERE id IN (SELECT id FROM subscriptions WHERE status = 'ended' AND updated_at < ?1
+      AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.subscription_id = subscriptions.id)
+      AND NOT EXISTS (SELECT 1 FROM refund_queue r WHERE r.subscription_id = subscriptions.id)
+      AND NOT EXISTS (SELECT 1 FROM order_renewals o WHERE o.subscription_id = subscriptions.id) LIMIT ${N})`, tax)],
+    ['licenceCodes', stmt(`DELETE FROM licence_codes WHERE code_hash IN (SELECT code_hash FROM licence_codes WHERE expires_at < ? LIMIT ${N})`,
+      iso(RETENTION.licenceCodeAfterExpiryDays))],
+    ['licenceRequests', stmt(`DELETE FROM licence_requests WHERE id IN (SELECT id FROM licence_requests WHERE handled_at IS NOT NULL AND handled_at < ? LIMIT ${N})`,
+      iso(RETENTION.licenceRequestAfterHandledDays))],
+  ];
+}
+
+/**
+ * Parent and teacher accounts nobody has signed in to for RETENTION.accountIdleDays (accounts.last_seen is a day), with
+ * nothing live: no plan that still runs (active, past_due, or canceled before its end), no licence request the owner
+ * has not handled, and no class of theirs (one they bought a licence for or asked about) with activity in the last
+ * RETENTION.classIdleDays, by the class purge's own rule. The oldest ACCOUNT_PURGE_LIMIT ids.
+ */
+export async function idleAccounts(env, now = new Date()) {
+  const t = now.getTime();
+  const R = RETENTION;
+  const owned = `SELECT class_code FROM subscriptions WHERE kind = 'class' AND account_id = a.id
+    UNION SELECT class_code FROM licence_requests WHERE account_id = a.id`;
+  return (await all(env, `SELECT a.id FROM accounts a
+    WHERE COALESCE(a.last_seen, substr(a.created_at, 1, 10)) < ?1
+      AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.account_id = a.id AND s.status IN ('active', 'past_due', 'canceled'))
+      AND NOT EXISTS (SELECT 1 FROM licence_requests r WHERE r.account_id = a.id AND r.handled_at IS NULL)
+      AND NOT EXISTS (SELECT 1 FROM classes c LEFT JOIN class_settings cs ON cs.code = c.code WHERE c.code IN (${owned})
+        AND (COALESCE(cs.last_seen, substr(c.created_at, 1, 10)) >= ?2
+          OR EXISTS (SELECT 1 FROM students st WHERE st.class_code = c.code AND COALESCE(st.last_seen, st.created_at) >= ?3)))
+    ORDER BY COALESCE(a.last_seen, a.created_at), a.id LIMIT ?4`,
+  dayOf(new Date(t - R.accountIdleDays * DAY)), dayOf(new Date(t - R.classIdleDays * DAY)), new Date(t - R.classIdleDays * DAY).toISOString(),
+  ACCOUNT_PURGE_LIMIT)).map((r) => r.id);
+}
+
+/**
+ * The long-term purge (cron.purgeLongTerm): the money and licence records of purgeLongTermSql in one batch, then each
+ * idle account through forgetAccount (billing.js: its sessions, devices, link codes, handled requests and pending
+ * notices go, and the money records it paid keep no link to it). Counts by kind.
+ */
+export async function purgeLongTerm(env, now = new Date()) {
+  const steps = purgeLongTermSql(env, now);
+  const out = countSteps(steps, await env.DB.batch(steps.map(([, s]) => s)));
+  out.accounts = 0;
+  for (const id of await idleAccounts(env, now)) {
+    try { await forgetAccount(env, id, { actor: 'cron' }); out.accounts++; } catch { console.error('purge: an idle account was not deleted'); out.accountsFailed = (out.accountsFailed || 0) + 1; }
+  }
+  return out;
+}
+
+/**
+ * The night purge: the records, counters and safety records in one batch, then the class data, then the long-term
+ * records and idle accounts. The counts go into the cron report.
+ */
 export async function purge(env, now = new Date()) {
   const r = await env.DB.batch([...purgeCountersSql(env, now), ...purgeAccountsSql(env), ...purgeFamilySql(env), ...purgeRecordsSql(env), ...purgeSafetySql(env, now)]);
   const cls = await purgeClass(env, now);
+  const long = await purgeLongTerm(env, now);
   return {
     rows: changes(r),
     class: { helpImages: cls.helpImages, help: cls.help, attempts: cls.attempts, exams: cls.exams, students: cls.students, classes: cls.classes },
+    longTerm: long,
   };
 }
 

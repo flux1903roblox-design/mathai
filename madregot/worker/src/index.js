@@ -366,14 +366,14 @@ async function handleAI(kind, req, env, ctx, cors) {
       message = await client.beta.messages.create(r.params);
     }
   } catch (e) {
-    const code = aiErrorCode(e);
+    const reason = aiErrorCode(e);
     // a stream that broke part-way was billed for what it did
     const partial = usage.message();
     if (partial) ctx.waitUntil(record(partial));
-    console.error('ai', kind, code, e?.status, e?.message);
+    console.error('ai', kind, reason, e?.status, e?.message);
     if (careTier) return careStaticReply(kind, input, cors, headers);
     await giveBackOnce();
-    throw new HttpError(code === 'busy' ? 429 : 502, code, undefined, undefined, headers);
+    throw new HttpError(reason === 'busy' ? 429 : 502, reason, undefined, undefined, headers);
   }
   ctx.waitUntil(record(message));
   let result;
@@ -434,11 +434,11 @@ async function generateReply({ env, ctx, cors, headers, r, input, client, record
   try {
     out = await generateVerified(call, r.input ?? input, { model: r.params.model, blindModel: env.BLIND_MODEL || env.FREE_MODEL || LITE_MODEL });
   } catch (e) {
-    const code = aiErrorCode(e);
-    if (code === 'refusal') event('refusal'); // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
-    console.error('ai', 'generate', code, e?.status, e?.message);
+    const reason = aiErrorCode(e);
+    if (reason === 'refusal') event('refusal'); // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
+    console.error('ai', 'generate', reason, e?.status, e?.message);
     await giveBackOnce();
-    throw new HttpError(code === 'refusal' ? 422 : code === 'busy' ? 429 : 502, code, undefined, undefined, headers);
+    throw new HttpError(reason === 'refusal' ? 422 : reason === 'busy' ? 429 : 502, reason, undefined, undefined, headers);
   }
   for (const reason of DROP_REASONS) bumpQuality(env, ctx, 'generate', `gen_${reason}`, out.dropped[reason] || 0);
   if (out.blind === 'skipped') bumpQuality(env, ctx, 'generate', 'blind_skipped');

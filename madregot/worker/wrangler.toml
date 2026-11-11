@@ -91,7 +91,8 @@ PAYMENT_PROVIDER_NAME = ""
 # ---- the legal pages and the go-live gate (trust spec TRUST-2, TRUST-13) ----
 # The date the legal texts were last changed (YYYY-MM-DD), shown on them.
 LEGAL_DATE = ""
-# Where the D1 database is: "eu" once it was created with --jurisdiction=eu (TRUST-15 step 1). The privacy notice says
+# Where the D1 database is: "eu" once it was created with --jurisdiction=eu (TRUST-15 step 1; setup.ps1 creates it so
+# and writes "eu" here with the database id, the only time a jurisdiction can be set). The privacy notice says
 # "באיחוד האירופי" only then; any other value keeps checkout closed.
 DB_JURISDICTION = ""
 # THE OWNER'S ONE ACTION after the lawyer approved the texts: set LEGAL_APPROVED to the TERMS_VERSION above (e.g.
@@ -119,6 +120,15 @@ EMAIL_FROM = ""
 #   BILLING_WEBHOOK_SECRET  verifies a signing provider's webhooks (+ BILLING_WEBHOOK_SECRET_OLD while rotating)
 #   TURNSTILE_SECRET, DEVICE_SECRET   only with FREE_DEVICE_MINT = "turnstile"
 # TEST_WEBHOOK_SECRET belongs in .dev.vars only (the test provider).
+
+# Worker logs (trust spec TRUST-1 §3). Cloudflare keeps logs for new Workers by default, and its invocation logs hold
+# every request's address and headers: X-Device, X-Family-Device, X-Teacher-Key, X-Account-Token, the student's
+# Authorization token and the network address. They stay off, so only the Worker's own console lines (which name no
+# person, header or request content: worker/test/logs.test.js) and uncaught errors are kept, for 3 to 7 days.
+[observability]
+enabled = true
+[observability.logs]
+invocation_logs = false
 
 # The hourly jobs: notices, cancellation retries, refunds, expired orders and plans. At 03:00 (Jerusalem): reconciliation
 # with the payment provider, renewal and licence-ending reminders, the retention purge and the owner's daily summary.

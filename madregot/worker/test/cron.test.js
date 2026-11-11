@@ -3,7 +3,7 @@ import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { run, endFinished, supportCheckLine, safetySpike, safetyCounts } from '../src/cron.js';
 import { flushNotices, MAX_NOTICE_TRIES } from '../src/email.js';
-import { setup, signIn, accountId, insertSub, rows, one, advanceClock } from './helpers.js';
+import { setup, signIn, accountId, insertSub, rows, one, advanceClock, linkDevice } from './helpers.js';
 
 let h;
 afterEach(() => h?.done());
@@ -342,4 +342,122 @@ test('the daily summary carries yesterday\'s quality counts; the purge keeps the
   const days = rows(h.env, 'SELECT DISTINCT day FROM ai_quality ORDER BY day').map((r) => r.day);
   assert.ok(!days.includes(dayBack(401)), 'older than 400 days: gone');
   assert.ok(days.includes(dayBack(399)) && days.includes(y));
+});
+
+// ---------------------------------------------------------------- long-term records and idle accounts (TRUST-1 §4)
+const { RETENTION } = await import('../../shared/retention.js');
+const { ACCOUNT_PURGE_LIMIT, taxCutoffIso, idleAccounts } = await import('../src/cron.js');
+
+test('an account idle for the retention period with nothing live is deleted through forgetAccount; a plan, an open request or an active class keeps it', async () => {
+  h = await setup();
+  const db = h.env.DB.raw;
+  const now = night();
+  const back = (k) => today(new Date(now.getTime() - k * DAY));
+  const idle = RETENTION.accountIdleDays + 1;
+  const acc = (id, days) => db.prepare('INSERT INTO accounts (id, email, created_at, last_seen) VALUES (?, ?, ?, ?)').run(id, `${id}@example.test`, ago(3000 * DAY), back(days));
+  const request = (id, account, code, handled) => db.prepare("INSERT INTO licence_requests (id, class_code, account_id, wants, school, created_at, handled_at) VALUES (?, ?, ?, 'quote', 'אורט', ?, ?)")
+    .run(id, code, account, ago(900 * DAY), handled);
+  const cls = (code, created) => db.prepare("INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, 'ז1', '7', 'המורה כהן', 'h', ?)").run(code, created);
+  acc('gone', idle);
+  acc('recent', RETENTION.accountIdleDays - 1);
+  acc('canceled', idle); insertSub(h.env, { kind: 'family', account_id: 'canceled', status: 'canceled', start: ago(20 * DAY), end: ago(-10 * DAY) });
+  acc('ended', idle); const ended = insertSub(h.env, { kind: 'family', account_id: 'ended', status: 'ended', start: ago(800 * DAY), end: ago(770 * DAY) });
+  acc('asking', idle); request('r_open', 'asking', 'ASK234', null);
+  acc('handled', idle); request('r_handled', 'handled', 'HND234', ago(10 * DAY));
+  // a teacher whose class still has a student who practised this week
+  acc('teacher', idle); cls('TCH234', ago(900 * DAY)); insertSub(h.env, { kind: 'class', class_code: 'TCH234', account_id: 'teacher', status: 'ended', start: ago(800 * DAY), end: ago(500 * DAY) });
+  db.prepare("INSERT INTO students (id, class_code, name, pin_hash, token_hash, created_at, last_seen) VALUES ('st1', 'TCH234', 'נועה', 'p', 't', ?, ?)").run(ago(900 * DAY), back(3));
+  // a teacher who asked about a class nobody has used for longer than the class retention
+  acc('oldTeacher', idle); cls('OLD234', ago(900 * DAY)); request('r_old', 'oldTeacher', 'OLD234', ago(100 * DAY));
+  const fd = await linkDevice(h.env, 'gone');
+  db.prepare("INSERT INTO account_sessions (token_hash, account_id, created_at, last_seen, verified_at) VALUES ('sess', 'gone', 'x', ?, 'x')").run(ago(DAY));
+
+  assert.deepEqual((await idleAccounts(h.env, now)).sort(), ['ended', 'gone', 'handled', 'oldTeacher']);
+  const report = await run(h.env, { now });
+  assert.equal(report.purge.longTerm.accounts, 4);
+  assert.deepEqual(rows(h.env, 'SELECT id FROM accounts ORDER BY id').map((r) => r.id), ['asking', 'canceled', 'recent', 'teacher']);
+  // forgetAccount's own work: the device, the session and the handled request go; the ended plan stays without the account
+  assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM family_devices WHERE id = ?', fd.id).n, 0);
+  assert.equal(one(h.env, "SELECT COUNT(*) AS n FROM account_sessions WHERE token_hash = 'sess'").n, 0);
+  assert.deepEqual(rows(h.env, 'SELECT id FROM licence_requests ORDER BY id').map((r) => r.id), ['r_open']);
+  assert.equal(one(h.env, 'SELECT account_id FROM subscriptions WHERE id = ?', ended.id).account_id, null);
+  assert.equal(rows(h.env, "SELECT * FROM audit_log WHERE action = 'account.delete' AND actor = 'cron'").length, 4);
+  assert.equal(rows(h.env, "SELECT * FROM accounts WHERE email LIKE 'gone@%'").length, 0);
+});
+
+test(`idle accounts go ${ACCOUNT_PURGE_LIMIT} a night at the most, the oldest first`, async () => {
+  h = await setup();
+  const db = h.env.DB.raw;
+  const now = night();
+  const n = ACCOUNT_PURGE_LIMIT + 2;
+  for (let i = 0; i < n; i++) {
+    db.prepare('INSERT INTO accounts (id, email, created_at, last_seen) VALUES (?, ?, ?, ?)')
+      .run(`a${String(i).padStart(3, '0')}`, `a${i}@example.test`, ago(3000 * DAY), today(new Date(now.getTime() - (RETENTION.accountIdleDays + 1 + n - i) * DAY)));
+  }
+  assert.equal((await run(h.env, { now })).purge.longTerm.accounts, ACCOUNT_PURGE_LIMIT);
+  assert.deepEqual(rows(h.env, 'SELECT id FROM accounts ORDER BY id').map((r) => r.id), [`a${String(n - 2).padStart(3, '0')}`, `a${String(n - 1).padStart(3, '0')}`], 'the two most recent wait for the next night');
+  assert.equal((await run(h.env, { now })).purge.longTerm.accounts, 2);
+  assert.equal(rows(h.env, 'SELECT * FROM accounts').length, 0);
+});
+
+test('money records stay to the end of the 7th year after their tax year (clock at 2035-03-01), children before parents; licence records by their periods', async () => {
+  h = await setup();
+  advanceClock(Date.parse('2035-03-01T01:10:00Z') - Date.now()); // 03:10 in Jerusalem: the night jobs run
+  const now = new Date();
+  const db = h.env.DB.raw;
+  const gone = 2035 - RETENTION.taxYears - 1; // 2027: its 7 years ended on 31 Dec 2034
+  const kept = gone + 1; // 2028: kept until the end of 2035
+  assert.equal(taxCutoffIso(now), `${gone}-12-31T22:00:00.000Z`, '1 Jan 2028 at midnight in Jerusalem');
+  const sub = (id, updated, status = 'ended') => { insertSub(h.env, { id, kind: 'family', status, start: `${gone}-01-01T00:00:00.000Z`, end: `${gone}-02-01T00:00:00.000Z` }); db.prepare('UPDATE subscriptions SET updated_at = ? WHERE id = ?').run(updated, id); };
+  const pay = (id, subId, at, { kind = 'charge', amount = 2990, order = null } = {}) => db.prepare(`INSERT INTO payments (id, provider, provider_payment_id, kind, subscription_id, order_id,
+    amount_agorot, status, occurred_at, recorded_at) VALUES (?, 'test', ?, ?, ?, ?, ?, 'ok', ?, ?)`).run(id, `t${id}`, kind, subId, order, amount, at, at);
+  const order = (id, subId, at, status = 'paid') => db.prepare(`INSERT INTO orders (id, plan, amount_agorot, vat_agorot, provider, mode, idempotency_key, status,
+    subscription_id, created_at, expires_at, paid_at) VALUES (?, 'family_month', 2990, 456, 'test', 'test', ?, ?, ?, ?, ?, ?)`).run(id, `key-${id}-0123456789`, status, subId, at, at, status === 'paid' ? at : null);
+  const refund = (subId, paymentId, done, requested = `${gone}-06-10T09:00:00.000Z`) => db.prepare(`INSERT INTO refund_queue (subscription_id, payment_id, amount_agorot, reason, requested_at, done_at)
+    VALUES (?, ?, 100, 'owner', ?, ?)`).run(subId, paymentId, requested, done);
+  // a plan of 2027, paid, partly refunded in 2027: everything of it goes
+  sub('s_old', `${gone}-07-01T10:00:00.000Z`);
+  order('o_old', 's_old', `${gone}-06-01T10:00:00.000Z`);
+  pay('p_old', 's_old', `${gone}-06-01T10:00:00.000Z`, { order: 'o_old' });
+  pay('p_old_refund', 's_old', `${gone}-06-20T10:00:00.000Z`, { kind: 'refund', amount: -100 });
+  refund('s_old', 'p_old', `${gone}-06-20T10:00:00.000Z`);
+  // a renewal order paid in 2027 with its order_renewals row, for a plan that ended in 2027 with no payment left
+  sub('s_ren', `${gone}-09-01T10:00:00.000Z`);
+  order('o_ren', 's_ren', `${gone}-08-01T10:00:00.000Z`);
+  db.prepare('INSERT INTO order_renewals (order_id, subscription_id, prev_start, prev_end) VALUES (?, ?, ?, ?)').run('o_ren', 's_ren', `${gone}-01-01T00:00:00.000Z`, `${gone}-02-01T00:00:00.000Z`);
+  // a plan that ended in 2027 but was paid in 2028 (and at 01:30 on 1 Jan 2028 in Jerusalem): kept with its payments
+  sub('s_kept', `${gone}-08-01T10:00:00.000Z`);
+  pay('p_kept', 's_kept', `${kept}-01-15T10:00:00.000Z`);
+  pay('p_edge', 's_kept', `${gone}-12-31T23:30:00.000Z`);
+  // a 2027 payment whose refund was done in 2028: the refund is kept, so its payment is too
+  sub('s_late', `${gone}-11-01T10:00:00.000Z`);
+  pay('p_late', 's_late', `${gone}-11-01T10:00:00.000Z`);
+  refund('s_late', 'p_late', `${kept}-02-01T10:00:00.000Z`);
+  // a refund the owner never did: open work, kept
+  sub('s_open', `${gone}-03-01T10:00:00.000Z`);
+  refund('s_open', null, null);
+  // a plan of 2027 that still runs is never touched
+  sub('s_running', `${gone}-03-01T10:00:00.000Z`, 'active');
+  // licence codes after their expiry, licence requests after they were handled
+  const back = (d) => new Date(now.getTime() - d * DAY).toISOString();
+  const code = (hash, expires) => db.prepare("INSERT INTO licence_codes (code_hash, seats, classes_left, until, created_at, expires_at) VALUES (?, 30, 1, '2034-09-01', ?, ?)").run(hash, expires, expires);
+  code('c_gone', back(RETENTION.licenceCodeAfterExpiryDays + 1)); code('c_kept', back(RETENTION.licenceCodeAfterExpiryDays - 1));
+  const req = (id, handled) => db.prepare("INSERT INTO licence_requests (id, class_code, wants, school, created_at, handled_at) VALUES (?, 'ABC234', 'quote', 'אורט', ?, ?)").run(id, back(3000), handled);
+  req('r_gone', back(RETENTION.licenceRequestAfterHandledDays + 1)); req('r_kept', back(RETENTION.licenceRequestAfterHandledDays - 1)); req('r_open', null);
+
+  const report = await run(h.env, { now });
+  assert.deepEqual(report.purge.longTerm, { refunds: 1, payments: 2, orderRenewals: 1, orders: 2, subscriptions: 2, licenceCodes: 1, licenceRequests: 1, accounts: 0 });
+  const ids = (sql) => rows(h.env, sql).map((r) => Object.values(r)[0]).sort();
+  assert.deepEqual(ids('SELECT id FROM payments'), ['p_edge', 'p_kept', 'p_late']);
+  assert.deepEqual(ids('SELECT id FROM subscriptions'), ['s_kept', 's_late', 's_open', 's_running']);
+  assert.deepEqual(ids('SELECT payment_id FROM refund_queue'), [null, 'p_late']);
+  assert.deepEqual(ids('SELECT id FROM orders'), []);
+  assert.deepEqual(ids('SELECT order_id FROM order_renewals'), []);
+  assert.deepEqual(ids('SELECT code_hash FROM licence_codes'), ['c_kept']);
+  assert.deepEqual(ids('SELECT id FROM licence_requests'), ['r_kept', 'r_open']);
+  // a year later, 2028 has had its 7 years too
+  advanceClock(366 * DAY);
+  await run(h.env, { now: new Date() });
+  assert.deepEqual(ids('SELECT id FROM payments'), [], 'p_late goes once its refund (done in 2028) went');
+  assert.deepEqual(ids('SELECT id FROM subscriptions'), ['s_open', 's_running']);
 });

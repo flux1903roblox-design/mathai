@@ -12,18 +12,26 @@ Write-Host "=== 2/6: Cloudflare login (opens the browser) ===" -ForegroundColor 
 Push-Location worker
 npx wrangler login
 
-Write-Host "=== 3/6: Creating the database ===" -ForegroundColor Cyan
+Write-Host "=== 3/6: Creating the database (in the European Union) ===" -ForegroundColor Cyan
+# The data stays in the EU (trust spec TRUST-15 step 1). Cloudflare sets a database's jurisdiction only when it is
+# created, so this runs once, before any real data exists. DB_JURISDICTION = "eu" in wrangler.toml records it: the
+# privacy notice says "באיחוד האירופי" only then, and online checkout stays closed without it.
 $tomlPath = Join-Path (Get-Location) "wrangler.toml"
 $toml = [IO.File]::ReadAllText($tomlPath)
 if ($toml -match 'REPLACE_WITH_DATABASE_ID') {
-  $out = npx wrangler d1 create madregot --binding DB --update-config=false 2>&1 | Out-String
+  $out = npx wrangler d1 create madregot --binding DB --update-config=false --jurisdiction=eu 2>&1 | Out-String
   Write-Host $out
   $id = [regex]::Match($out, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}').Value
   if (-not $id) { throw "Could not read the database id above. Put it in worker\wrangler.toml (database_id) and run this script again." }
-  [IO.File]::WriteAllText($tomlPath, $toml.Replace('REPLACE_WITH_DATABASE_ID', $id))  # UTF-8, no BOM
-  Write-Host "Saved database id $id in worker\wrangler.toml" -ForegroundColor Green
+  $toml = $toml.Replace('REPLACE_WITH_DATABASE_ID', $id).Replace('DB_JURISDICTION = ""', 'DB_JURISDICTION = "eu"')
+  [IO.File]::WriteAllText($tomlPath, $toml)  # UTF-8, no BOM
+  Write-Host "Saved database id $id and DB_JURISDICTION = ""eu"" in worker\wrangler.toml" -ForegroundColor Green
 } else {
   Write-Host "worker\wrangler.toml already has a database id; using it."
+  if ($toml -notmatch 'DB_JURISDICTION = "eu"') {
+    Write-Host "DB_JURISDICTION is not ""eu"": this database was not created by this script in the EU, so online checkout stays closed." -ForegroundColor Yellow
+    Write-Host "Before any real data: delete it in the Cloudflare dashboard, put database_id back to REPLACE_WITH_DATABASE_ID and run this script again." -ForegroundColor Yellow
+  }
 }
 npx wrangler d1 migrations apply madregot --remote   # database changes go only through worker/migrations
 
