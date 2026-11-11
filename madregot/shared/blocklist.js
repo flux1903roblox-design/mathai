@@ -3,7 +3,9 @@
 // contains one is not shown, and the child gets a calm sentence instead. A care reply (one about the child's own safety)
 // is never checked against this list: a warm answer to "someone touched me" must be able to name what happened.
 //
-// Matching is on whole words of normalize(text) (niqqud removed, Latin lower-cased): a Hebrew term must not have a
+// Matching is on whole words of normalize(text) (niqqud removed, Latin lower-cased), and once more on the same text with
+// letters spelled out one by one put back together ("ס ק ס", "f-u-c-k") and a "*" inside a word read as any letter
+// ("f*ck", "p*rn"); English words that start with "porn" are caught whatever follows. A Hebrew term must not have a
 // Hebrew letter right before or after it, so "מזינים" never matches "זין" and "סקאלה" never matches "סקס"; an English
 // term must stand alone (\b), so "sextant", "Essex" and "analysis" are safe. Hebrew terms take no prefix letters, which
 // keeps short words from matching inside ordinary ones; where a prefixed form matters, it is listed on its own.
@@ -15,7 +17,7 @@
 /** Hebrew terms, written in ordinary spelling (final letters as they are). */
 export const BLOCK_HE = Object.freeze([
   // explicit sexual terms
-  'סקס', 'סקסי', 'פורנו', 'זין', 'זיון', 'לזיין', 'מזדיין', 'להזדיין', 'כוסית', 'אוננות', 'אורגזמה', 'חרמן', 'חרמנית',
+  'סקס', 'סקסי', 'פורנו', 'פורנוגרפיה', 'פורנוגרפי', 'זין', 'זיון', 'לזיין', 'מזדיין', 'להזדיין', 'כוסית', 'אוננות', 'אורגזמה', 'חרמן', 'חרמנית',
   'ציצים', 'פדופיל', 'אונס', 'לאנוס',
   // severe slurs and curses
   'זונה', 'זונות', 'שרמוטה', 'כושי', 'כושים', 'ערבוש', 'ערבושים', 'מפגר', 'מפגרת', 'מפגרים', 'קוקסינל', 'מניאק',
@@ -26,7 +28,7 @@ export const BLOCK_HE = Object.freeze([
 /** English terms, lower case. */
 export const BLOCK_EN = Object.freeze([
   // explicit sexual terms
-  'porn', 'porno', 'pornography', 'hentai', 'blowjob', 'handjob', 'masturbate', 'masturbation', 'orgasm', 'orgy', 'dildo',
+  'porn', 'porno', 'pornography', 'pornhub', 'xvideos', 'sexual', 'hentai', 'blowjob', 'handjob', 'masturbate', 'masturbation', 'orgasm', 'orgy', 'dildo',
   'nudes', 'sexting', 'sexy', 'rape', 'rapist', 'pedophile',
   // severe slurs and curses
   'fuck', 'fucking', 'motherfucker', 'cunt', 'whore', 'slut', 'nigger', 'nigga', 'faggot', 'retard', 'retarded', 'kike',

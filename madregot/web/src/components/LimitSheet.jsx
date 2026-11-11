@@ -8,6 +8,7 @@ import { limitVariant } from './limitCopy.js';
 import { Button, Sheet } from './ui.jsx';
 import Mascot from './Mascot.jsx';
 import { SupportLink } from './SupportSheet.jsx';
+import TeacherBind from './teacher/TeacherBind.jsx';
 
 const PRACTICE = /^\/(lesson|practice|placement|learn|repair|rescue\/)/;
 
@@ -41,6 +42,8 @@ export default function LimitSheet() {
           if (a === 'licence') return <Button key={a} variant={variant} className={cls} onClick={() => go('/teacher', { focus: 'licence' })}>על רישיון כיתה</Button>;
           // the screen to hand to a parent (a QR code, no price): the one way to the parent's OK (TRUST-9)
           if (a === 'parents') return <Button key={a} variant={variant} className={cls} onClick={() => go('/parents/info')}>להראות להורים</Button>;
+          // a teacher whose class has no adult behind it signs in here, and the class is bound to that email (TRUST-9)
+          if (a === 'bind') return <TeacherBind key={a} onDone={closeLimitSheet} />;
           return <Button key={a} variant={variant} className={cls} onClick={practice}>להמשיך לתרגל</Button>;
         })}
         {parentsLink && <button type="button" className="link-btn limit-parents" onClick={() => go('/parents/info')}>מידע להורים</button>}

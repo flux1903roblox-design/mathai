@@ -11,8 +11,8 @@ import { flushNotices } from './email.js';
 // A lane that adds a table holding a student's rows adds it to STUDENT_ROWS (a table keyed by a help request id goes
 // before help_requests); a table or counter keyed by the class goes into classDeleteSteps and CLASS_COUNTERS.
 // The practice saved on the devices themselves is never touched from here.
-// (The same file as the school lane's on the main branch, without the teacher lane's tables, which this lane does not
-// have: class_owners and the three assignment tables, and their counters.)
+// (The same file as the school lane's on the main branch, without the teacher lane's three assignment tables and their
+// counters, which this lane does not have. class_owners is here: the trust lane binds a class to an email too, TRUST-9.)
 
 // An account's deletion (the parents' page, the owner's CLI, and the idle-account purge) lives in billing.js beside the
 // money records it unlinks; it is named here too, so the data map (worker/datamap.json, purgedBy) finds every way a
@@ -94,6 +94,7 @@ export function classDeleteSteps(env, sel, args = [], { limit } = {}) {
     ...studentsDeleteSteps(env, students, args),
     ['classLocks', stmt(`DELETE FROM class_locks WHERE class_code IN (${empty})`)],
     ['classSettings', stmt(`DELETE FROM class_settings WHERE code IN (${empty})`)],
+    ['classOwners', stmt(`DELETE FROM class_owners WHERE class_code IN (${empty})`)],
     ['classCounters', countersStmt(env, CLASS_COUNTERS, empty, args)],
     ['classNotices', stmt(`DELETE FROM notices WHERE ref IN (${empty})`)],
     ['classAudit', stmt(`DELETE FROM audit_log WHERE action NOT LIKE 'licence.%' AND action != 'class.delete'

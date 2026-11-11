@@ -14,6 +14,15 @@ export function limitVariant({ reason, tier = null, scope = null, role = 'studen
       actions: ['practice'], parents: false,
     };
   }
+  // a teacher of a class with no adult behind it (TRUST-9, the trust review): the way on is signing in with an email,
+  // which binds the class to it; the board and the lessons stay open
+  if (reason === 'parent_ok_needed' && teacher) {
+    return {
+      title: 'קודם, כניסה עם מייל',
+      text: ['העוזר החכם נפתח למורים אחרי כניסה עם המייל, פעם אחת. כך יודעים שמבוגר אחראי על הכיתה. הלוח והשיעורים פתוחים כמו תמיד.'],
+      actions: ['bind'], parents: false,
+    };
+  }
   // a child alone, on a device no parent has approved (trust spec TRUST-9 §4): the way on is the screen for the parents
   // (no price there either); practice stays open
   if (reason === 'parent_ok_needed') {
@@ -68,9 +77,9 @@ export function limitVariant({ reason, tier = null, scope = null, role = 'studen
 }
 
 /** The quiet line about today's questions (AIAllowance), or null for nothing to say. */
-export function allowanceText({ state, left, tier, ended = false }) {
+export function allowanceText({ state, left, tier, ended = false, role = 'student' }) {
   if (state === 'class_off') return CLASS_OFF_LINE;
-  if (state === 'parent_ok_needed') return PARENT_OK_LINE;
+  if (state === 'parent_ok_needed') return waitingLine(role);
   if (ended && tier === 'free') return 'העוזר החכם עובד עכשיו עם 2 שאלות ביום.';
   if (tier === 'free') {
     if (state === 'used' || left === 0) return 'העוזר החכם חוזר מחר. מדי כאן בינתיים.';
@@ -88,10 +97,15 @@ export function allowanceText({ state, left, tier, ended = false }) {
 export const CLASS_OFF_LINE = 'בכיתה הזו העוזר החכם כבוי.';
 /** The one line wherever the tutor would be, on a device that waits for a parent's OK (TRUST-9 §4). */
 export const PARENT_OK_LINE = 'העוזר החכם מחכה לאישור של הורה.';
+/** The same place for a teacher whose class is not bound to an email yet (TRUST-9, the trust review). */
+export const TEACHER_EMAIL_LINE = 'העוזר החכם נפתח למורים אחרי כניסה עם המייל.';
+/** The line for a device that waits: a parent's OK for a child, an email for a teacher. */
+export const waitingLine = (role) => (role === 'teacher' ? TEACHER_EMAIL_LINE : PARENT_OK_LINE);
 
 /** What a tool says instead of opening the camera (ToolLocked). */
-export function lockedText(kind, { state = 'locked', inClass = false } = {}) {
+export function lockedText(kind, { state = 'locked', inClass = false, role = 'student' } = {}) {
   if (state === 'class_off') return { lines: [CLASS_OFF_LINE, 'מדי, השיעורים והתרגול פתוחים כמו תמיד.'], teacher: false, parents: false };
+  if (state === 'parent_ok_needed' && role === 'teacher') return { lines: [TEACHER_EMAIL_LINE, 'הלוח והשיעורים פתוחים כמו תמיד.'], teacher: false, parents: false, bind: true };
   if (state === 'parent_ok_needed') return { lines: [PARENT_OK_LINE, 'מדי, השיעורים והתרגול פתוחים כמו תמיד.'], teacher: false, parents: true };
   if (state === 'economy') return { lines: ['הבדיקה הזו חוזרת ב־1 בחודש.'], teacher: false, parents: false };
   if (kind === 'check') {

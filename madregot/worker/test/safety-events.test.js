@@ -76,3 +76,33 @@ test('one call writes at most MAX_SAFETY_ROWS rows', async () => {
   assert.equal(await recordSafety(env, many), MAX_SAFETY_ROWS);
   assert.equal(rows(env, 'SELECT * FROM safety_events').length, MAX_SAFETY_ROWS);
 });
+
+// ---------------------------------------------------------------- one network cannot flood the log (the trust review)
+test('each kind is capped at EVENTS_PER_NET rows a day from one network; other networks and other kinds are not', async () => {
+  const { EVENTS_PER_NET, eventKey } = await import('../src/safety.js');
+  const env = makeEnv();
+  const row = { kind: 'distress', surface: 'chat', source: 'regex' };
+  let written = 0;
+  for (let i = 0; i < EVENTS_PER_NET + 15; i++) written += await recordSafety(env, row, null, { net: 'net-a' });
+  assert.equal(written, EVENTS_PER_NET);
+  assert.equal(await recordSafety(env, row, null, { net: Promise.resolve('net-b') }), 1, 'another network, a promise of it is fine');
+  assert.equal(await recordSafety(env, { kind: 'refusal', surface: 'chat', source: 'model' }, null, { net: 'net-a' }), 1, 'another kind');
+  assert.equal(await recordSafety(env, row, null, { net: Promise.reject(new Error('no secret')) }), 1, 'a network that cannot be read caps nothing');
+  assert.equal(rows(env, "SELECT * FROM safety_events WHERE kind = 'distress'").length, EVENTS_PER_NET + 2);
+  assert.equal(rows(env, 'SELECT count FROM ai_usage WHERE who = ?', eventKey('distress', 'net-a'))[0].count, EVENTS_PER_NET);
+});
+
+test('300 tutor requests from one device write at most EVENTS_PER_NET rows of each kind (the trust review\'s flood)', async () => {
+  const { setup, ai, DEVICE } = await import('./helpers.js');
+  const { EVENTS_PER_NET } = await import('../src/safety.js');
+  const h = await setup({ AI_PARENT_OK: 'required' });
+  try {
+    const chat = (content) => ({ messages: [{ role: 'user', content }], context: { question: '3 - 8', correct: '-5' } });
+    for (let i = 0; i < 60; i++) {
+      await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chat(i % 2 ? 'אני רוצה למות' : 'איך מתחילים?') });
+    }
+    await h.ctx.flush();
+    const by = Object.fromEntries(rows(h.env, 'SELECT kind, COUNT(*) AS n FROM safety_events GROUP BY kind').map((r) => [r.kind, r.n]));
+    assert.deepEqual(by, { distress: EVENTS_PER_NET, parent_ok_needed: EVENTS_PER_NET });
+  } finally { h.done(); }
+});

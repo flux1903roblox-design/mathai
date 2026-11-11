@@ -270,7 +270,7 @@ function summaryNotice(p, day) {
       `הודעות תשלום חריגות (mismatch, unknown, test_mode): ${p.badEvents ?? 0}`,
       `בקשות רישיון פתוחות: ${p.openRequests ?? 0}`,
       p.safety ? safetyLine(p.safety) : '',
-      p.parentOkNeeded != null ? `בקשות לעוזר ממכשירים שמחכים לאישור של הורה: ${p.parentOkNeeded}` : '',
+      p.parentOkNeeded != null ? `רשתות שמהן ילדים ביקשו את העוזר ומחכים לאישור של הורה: ${p.parentOkNeeded}` : '',
       p.quality ? qualityLine(p.quality) : '',
       v.length ? 'בדיקות שנכשלו:' : 'כל הבדיקות עברו.',
       ...v.map((x) => `- ${x}`),

@@ -44,7 +44,10 @@ async function shot(page, name) {
 
 /** Every way in on the card is a real link a phone can follow, at least 44px tall. */
 async function expectCard(card) {
-  await expect(card.getByRole('link', { name: /חיוג 1201/ })).toHaveAttribute('href', 'tel:1201');
+  // under a message the number is in the card's head too: every link to it dials it
+  const eran = await card.getByRole('link', { name: /חיוג 1201/ }).all();
+  expect(eran.length).toBeGreaterThanOrEqual(1);
+  for (const l of eran) await expect(l).toHaveAttribute('href', 'tel:1201');
   await expect(card.getByRole('link', { name: /וואטסאפ 052-845-1201/ })).toHaveAttribute('href', 'https://wa.me/972528451201');
   await expect(card.getByRole('link', { name: /וואטסאפ 055-957-1399/ })).toHaveAttribute('href', 'https://wa.me/972559571399');
   await expect(card.getByRole('link', { name: /חיוג 105/ })).toHaveAttribute('href', 'tel:105');
@@ -132,6 +135,32 @@ test.describe('distress', () => {
     // a class student could also ask the teacher; this device is not in a class, so the card does not offer it
     await expect(card.getByRole('button', { name: 'לבקש מהמורה לדבר איתי' })).toHaveCount(0);
   });
+
+  for (const used of [false, true]) {
+    test(`(e) the first number is on the screen at once after a distress message, with no scrolling${used ? ', the questions used up' : ''} (the trust review)`, async ({ page }) => {
+      await fakeServer(page, { parentOk: true, freeLimit: used ? 0 : 2 }, baseOf());
+      await page.route(`${API}/api/ai/chat`, async (route) => {
+        if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+        return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: CORS, body: `${CARE_TEXT}\n[[care]]` });
+      });
+      await open(page, '#/assistant', withServer());
+      const draft = page.getByLabel('ההודעה שלכם');
+      await draft.fill('אני רוצה למות'); await draft.press('Enter');
+      await expect(page.locator('.msg-row.assistant').last()).toContainText('תודה שכתבתם');
+      const quick = page.locator('.chat .support-card .support-quick');
+      await expect(quick).toHaveAttribute('href', 'tel:1201');
+      // no manual scroll: the link is inside the window, above the docked input, and nothing covers its middle
+      await expect.poll(() => quick.evaluate((el) => {
+        const b = el.getBoundingClientRect();
+        const dock = document.querySelector('.chat-dock-live')?.getBoundingClientRect().top ?? innerHeight;
+        const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+        return b.top >= 0 && b.bottom <= Math.min(innerHeight, dock) && !!hit && (hit === el || el.contains(hit));
+      }), { timeout: 4000 }).toBe(true);
+      const box = await quick.boundingBox();
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      await shot(page, `card-first-number${used ? '-used' : ''}`);
+    });
+  }
 
   test('(c) a care reply arriving in pieces never shows "[[", and the card follows it', async ({ page }) => {
     await fakeServer(page, { parentOk: true }, baseOf());

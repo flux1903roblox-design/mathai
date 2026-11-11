@@ -9,9 +9,9 @@ import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
   limitOrThrow, hmacHex,
 } from './util.js';
-import { startLogin, verifyLogin, signOut } from './account.js';
+import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
 import { resolve, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify } from './entitle.js';
-import { recordSafety } from './safety.js';
+import { recordSafety, eventNet } from './safety.js';
 import { recordSpend } from './spend.js';
 import { bumpQuality } from './quality.js';
 import { DROP_REASONS } from '../../shared/verify.js';
@@ -205,6 +205,13 @@ function stableEnd(text) {
   while (i > 0 && WORD_CHAR.test(text[i - 1]) && text.length - i < HOLD_MAX) i -= 1;
   return i;
 }
+/** Where a care marker that is still arriving starts at the end of the text ("…[[ca"), else the text's length. */
+function markStart(text) {
+  for (let k = Math.min(CARE_MARK.length - 1, text.length); k > 0; k -= 1) {
+    if (CARE_MARK.startsWith(text.slice(text.length - k))) return text.length - k;
+  }
+  return text.length;
+}
 function wordStart(text, i) {
   let j = Math.max(0, i);
   while (j > 0 && WORD_CHAR.test(text[j - 1])) j -= 1;
@@ -223,18 +230,20 @@ async function handleAI(kind, req, env, ctx, cors) {
   if (!hit.flag && !env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
   const r = hit.flag ? await resolveCare(req, env, kind, input) : await resolve(req, env, kind, input);
   const careTier = r.tier === 'care';
-  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: kind, source: 'regex', tier: r.static ? 'static' : 'care' }, ctx);
+  // every safety row of this request is capped per network and kind (src/safety.js EVENTS_PER_NET)
+  const logged = { net: eventNet(req, env) };
+  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: kind, source: 'regex', tier: r.static ? 'static' : 'care' }, ctx, logged);
   // a care answer says nothing about the person's questions (no X-AI-Tier or X-AI-Left), so the screen's count stays
   const headers = careTier ? (r.linkedBad ? { 'X-AI-Linked': '0' } : {}) : aiHeaders(r);
   if (r.static) return careStaticReply(kind, input, cors, headers);
   // Personal details were masked in the request itself (shared/ai.js); here they are only counted, one event per kind
   // of detail, with nothing of the text (trust spec TRUST-4 §4.1).
   const pii = scanPersonal(childText(kind, input));
-  if (pii.length) recordSafety(env, pii.map((category) => ({ kind: 'pii_masked', category, surface: kind, source: 'regex', tier: r.tier })), ctx);
+  if (pii.length) recordSafety(env, pii.map((category) => ({ kind: 'pii_masked', category, surface: kind, source: 'regex', tier: r.tier })), ctx, logged);
   const prepped = photoPrepRows(kind, input, r.tier);
-  if (prepped.length) recordSafety(env, prepped, ctx);
+  if (prepped.length) recordSafety(env, prepped, ctx, logged);
   const screen = { hosts: [hostOf(env.PUBLIC_URL)].filter(Boolean) };
-  const event = (k) => recordSafety(env, { kind: k, surface: kind, source: 'server', tier: r.tier }, ctx);
+  const event = (k) => recordSafety(env, { kind: k, surface: kind, source: 'server', tier: r.tier }, ctx, logged);
   let returned = false;
   // a call where Claude did no work gives the person's question back (never the shared or tries counters)
   const giveBackOnce = async () => { if (!returned) { returned = true; await giveBack(env, r.refund); } };
@@ -246,7 +255,7 @@ async function handleAI(kind, req, env, ctx, cors) {
   const modelCare = async () => {
     if (careTier) return;
     await giveBackOnce();
-    recordSafety(env, { kind: 'distress', surface: kind, source: 'model', tier: r.tier }, ctx);
+    recordSafety(env, { kind: 'distress', surface: kind, source: 'model', tier: r.tier }, ctx, logged);
   };
   const record = (message) => recordSpend(env, { pool: r.pool, kind, message }).catch((e) => console.error('spend', e?.message));
   // The final-answer guard (ai spec AI-3 Design 3): on for chat, explain and check while the app's context says WITHHOLD
@@ -277,10 +286,8 @@ async function handleAI(kind, req, env, ctx, cors) {
       await write(g.end());
       if (g.masked) { await write(`\n\n${MASK_NOTE}`); bumpQuality(env, ctx, kind, 'answer_masked'); }
     };
-    const pass = async (final) => {
-      if (blocked) return;
-      const end = care || final ? acc.length : stableEnd(acc);
-      if (end <= sent) return;
+    const send = async (end) => {
+      if (blocked || end <= sent) return;
       if (!care) {
         const from = wordStart(acc, checked - OVERLAP);
         if (blockHit(acc.slice(from, end))) { blocked = true; return; }
@@ -288,6 +295,25 @@ async function handleAI(kind, req, env, ctx, cors) {
       }
       const piece = acc.slice(sent, end); sent = end;
       await write(guarded(piece));
+    };
+    const pass = async (final) => {
+      if (blocked) return;
+      // A care line the model wrote after the start (the trust review: it reached the screen as "[[care]]"): it is
+      // taken out, what came before it goes out as any reply does, and from there the reply is a care reply. In a care
+      // reply a stray marker is only taken out.
+      for (let at = acc.indexOf(CARE_MARK, sent); at >= 0; at = acc.indexOf(CARE_MARK, sent)) {
+        const before = acc.slice(0, at).replace(/[ \t]+$/, '');
+        const after = acc.slice(at + CARE_MARK.length);
+        // a line of its own goes with its line end; inside a line, the words around it keep one space
+        acc = before + (before === '' || before.endsWith('\n') ? after.replace(/^[ \t]*\r?\n?/, '') : after);
+        if (care) continue;
+        await send(Math.max(sent, before.length));
+        if (blocked) return;
+        if (g) { await write(g.end()); }
+        care = true;
+      }
+      // a marker still arriving ("[[ca") is held back, never sent in part
+      await send(final ? acc.length : Math.min(care ? acc.length : stableEnd(acc), markStart(acc)));
     };
     const settle = async () => {
       if (decided) return;
@@ -451,7 +477,7 @@ async function handleAI(kind, req, env, ctx, cors) {
  * blind by the low-cost model (BLIND_MODEL, else FREE_MODEL), and code decides what may be shown (generateVerified,
  * shared/ai.js; the same path the personal key and the evaluation run). Every message is priced as it comes, both on the
  * caller's pool under 'generate'. Each drop reason is counted in ai_quality with how many stories it dropped, and a blind
- * solve that failed twice as blind_skipped. When no story passed, the question is given back and the reply says so
+ * solve that failed twice as blind_skipped (with the stories it left out: none of them is shown). When no story passed, the question is given back and the reply says so
  * ({ items: [], dropped, fallback: true }): the app then shows its own exercises.
  */
 async function generateReply({ env, ctx, cors, headers, r, input, client, record, event, giveBackOnce, leftBack, screen }) {
@@ -471,7 +497,8 @@ async function generateReply({ env, ctx, cors, headers, r, input, client, record
     throw new HttpError(reason === 'refusal' ? 422 : reason === 'busy' ? 429 : 502, reason, undefined, undefined, headers);
   }
   for (const reason of DROP_REASONS) bumpQuality(env, ctx, 'generate', `gen_${reason}`, out.dropped[reason] || 0);
-  if (out.blind === 'skipped') bumpQuality(env, ctx, 'generate', 'blind_skipped');
+  // a blind solve that failed twice: its stories were left out (shared/ai.js generateVerified), counted here
+  if (out.blind === 'skipped') bumpQuality(env, ctx, 'generate', 'blind_skipped', Math.max(1, out.dropped.blind_skipped || 0));
   const result = { items: out.items, dropped: out.dropped, fallback: out.fallback };
   if (out.fallback) {
     bumpQuality(env, ctx, 'generate', 'gen_all_failed');
@@ -527,7 +554,7 @@ async function reportAnswer(req, env, ctx, cors) {
   if (!r.ok) throw r.error;
   await env.DB.prepare('INSERT INTO answer_reports (created_at, reason, kind, reply, tier) VALUES (?, ?, ?, ?, ?)')
     .bind(nowIso(), reason, kind, reply, tier).run();
-  recordSafety(env, { kind: 'user_report', category: reason, surface: kind, source: 'client', tier }, ctx);
+  recordSafety(env, { kind: 'user_report', category: reason, surface: kind, source: 'client', tier }, ctx, { net });
   return json({ ok: true }, 200, cors);
 }
 
@@ -569,6 +596,10 @@ async function createClass(req, env, cors) {
   if (!name || !teacherName) throw new HttpError(400, 'missing_fields');
   // where the class learns (trust spec TRUST-11 §3): a school (the default) or a private group its teacher attests to
   const setting = newClassSetting(b);
+  // with a session (X-Account-Token) the class is bound to that email at once: the adult behind it (TRUST-9), so its
+  // teacher may use the tutor; without one it opens as before, and the tutor waits until it is bound
+  const account = String(req.headers.get('X-Account-Token') || '').trim() ? await requireAccount(req, env) : null;
+  if (account) await checkOwnedCap(env, account.id);
   await limitOrThrow(env, `create:n:${await netKey(req, env)}`, 10, 429, 'too_many_classes');
   const teacherKey = randomToken(12);
   for (let i = 0; i < 5; i++) {
@@ -579,11 +610,42 @@ async function createClass(req, env, cors) {
         env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
           .bind(code, name, grade, teacherName, await sha256(teacherKey), now),
         ...newClassStmts(env, code, setting, now),
+        ...(account ? [env.DB.prepare('INSERT INTO class_owners (class_code, account_id, bound_at) VALUES (?, ?, ?)').bind(code, account.id, now)] : []),
       ]);
-      return json({ code, teacherKey, className: name, grade, teacherName, setting }, 200, cors);
+      return json({ code, teacherKey, className: name, grade, teacherName, setting, ...(account ? { owned: true } : {}) }, 200, cors);
     } catch (e) { if (!String(e?.message).includes('UNIQUE')) throw e; }
   }
   throw new HttpError(500, 'code_collision');
+}
+
+// ---------- a class bound to its teacher's email (trust spec TRUST-9; the school lane's TEACHER-1 uses the same table) ----------
+/** Classes one account may own. */
+const MAX_OWNED = 20;
+async function checkOwnedCap(env, accountId) {
+  const r = await env.DB.prepare('SELECT COUNT(*) AS n FROM class_owners WHERE account_id = ?').bind(accountId).first();
+  if (Number(r?.n || 0) >= MAX_OWNED) throw new HttpError(409, 'too_many_classes_owned');
+}
+/**
+ * POST /api/teacher/class/owner {} (the teacher key and X-Account-Token): bind the class to this signed-in email, so an
+ * adult is behind it and its teacher may use the tutor (TRUST-9). Once bound it stays with that email: another account
+ * gets 409 owned_by_other. → { owner: 'you', email }.
+ */
+async function bindClass(req, env, cors) {
+  const cls = await requireTeacher(req, env);
+  const a = await requireAccount(req, env);
+  await body(req, LIMIT.small);
+  const mine = json({ owner: 'you', email: a.email }, 200, cors);
+  const owner = await env.DB.prepare('SELECT account_id FROM class_owners WHERE class_code = ?').bind(cls.code).first();
+  if (owner) {
+    if (owner.account_id === a.id) return mine;
+    throw new HttpError(409, 'owned_by_other');
+  }
+  await checkOwnedCap(env, a.id);
+  await env.DB.prepare('INSERT INTO class_owners (class_code, account_id, bound_at) VALUES (?, ?, ?) ON CONFLICT (class_code) DO NOTHING')
+    .bind(cls.code, a.id, nowIso()).run();
+  const now2 = await env.DB.prepare('SELECT account_id FROM class_owners WHERE class_code = ?').bind(cls.code).first();
+  if (now2?.account_id !== a.id) throw new HttpError(409, 'owned_by_other');
+  return mine;
 }
 
 async function classInfo(code, req, env, cors) {
@@ -690,9 +752,12 @@ async function saveExam(req, env, cors) {
  * note?, image? }) or, with { kind: 'talk' } and no text, "I want the teacher to talk with me" (trust spec TRUST-3
  * §3.5): stored with an empty question and note and help_meta.kind = 'talk', one open at a time, and never refused for
  * the number of open requests. A note that reads as distress is checked here again (the device's own check is never
- * trusted) and marks the request help_meta.care = 1, so the teacher sees "כדאי לבדוק מה שלום התלמיד/ה". The note is
- * the child's own message to their teacher; the safety log keeps only a count.
+ * trusted) and marks the request help_meta.care = 1, so the teacher sees "כדאי לבדוק מה שלום התלמיד/ה"; past the 10
+ * open requests it still reaches the teacher, as the note of the newest open one (no new row, no page). The note is the
+ * child's own message to their teacher; the safety log keeps only a count.
  */
+/** Open help requests one student may have; a note that reads as distress past it joins the newest one (askHelp). */
+const HELP_OPEN_MAX = 10;
 async function askHelp(req, env, ctx, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.help);
@@ -709,10 +774,21 @@ async function askHelp(req, env, ctx, cors) {
   }
   const note = String(b.note || '').slice(0, 300);
   const hit = detectDistress(note);
-  // a note that reads as distress always reaches the teacher, however many requests are open
-  const open = hit.flag ? null : await env.DB.prepare('SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ? AND done_at IS NULL').bind(s.id).first();
-  if (open && open.n >= 10) throw new HttpError(429, 'too_many_open');
-  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: 'help_note', source: 'regex' }, ctx);
+  if (hit.flag) recordSafety(env, { kind: 'distress', category: hit.category, surface: 'help_note', source: 'regex' }, ctx, { net: eventNet(req, env) });
+  const open = await env.DB.prepare('SELECT COUNT(*) AS n FROM help_requests WHERE student_id = ? AND done_at IS NULL').bind(s.id).first();
+  if (open && open.n >= HELP_OPEN_MAX) {
+    if (!hit.flag) throw new HttpError(429, 'too_many_open');
+    // A note that reads as distress always reaches the teacher, but past the cap it makes no new request and keeps no
+    // page (the trust review: a loop of such notes filled the database): it becomes the note of the student's newest
+    // open request, which is marked for the teacher.
+    const newest = await env.DB.prepare('SELECT id FROM help_requests WHERE student_id = ? AND done_at IS NULL ORDER BY id DESC LIMIT 1').bind(s.id).first();
+    await env.DB.batch([
+      env.DB.prepare('UPDATE help_requests SET note = ? WHERE id = ?').bind(note, newest.id),
+      env.DB.prepare('INSERT INTO help_meta (help_id, kind, care) VALUES (?, \'help\', 1) ON CONFLICT (help_id) DO UPDATE SET care = 1').bind(newest.id),
+      classSeenStmt(env, s.class_code),
+    ]);
+    return json({ ok: true, again: true }, 200, cors);
+  }
   // Optional notebook page: a JPEG data URL of the student's working, kept small.
   const image = typeof b.image === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(b.image) && b.image.length <= 600_000 ? b.image : null;
   // The same exercise asked again while its request is still open: one request, with the newest note and page (a
@@ -890,6 +966,7 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/remove$/))) return removeStudent(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/owner') return bindClass(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/delete') return deleteClass(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/ai') return setClassAi(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/ai$/))) return setStudentAi(m[1], req, env, cors);

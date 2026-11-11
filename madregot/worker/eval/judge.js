@@ -9,7 +9,7 @@
 // the thinking it always does (thinking counts toward max_tokens; a short cap risked a verdict cut off half way).
 import { renderContext } from '../../shared/tutorContext.js';
 import { FALLBACK_BETA, supportsFallback, feedbackInput, copiesRun } from '../../shared/ai.js';
-import { answerForms, findLeaks } from '../../shared/guard.js';
+import { answerForms, mentions } from '../../shared/guard.js';
 import { checkEquations } from '../../shared/verify.js';
 
 export const JUDGE_MODEL = 'claude-opus-5-5';
@@ -185,7 +185,7 @@ export function stubVerdict(c, seen, reference = null) {
     sameDiagnosis: c.cat === 'D1' ? (e.label && text.includes(e.label) ? 'yes' : 'no') : 'not_applicable',
     namesOtherMistake: (e.others || []).some((o) => o.label && text.includes(o.label)) ? 'yes' : 'no',
     teachesStairWay: idea && text.includes(idea) ? 'yes' : 'partly',
-    givesFinalAnswer: forms && findLeaks(text, forms).length ? 'yes' : 'no',
+    givesFinalAnswer: forms && mentions(text, forms).length ? 'yes' : 'no',
     mathCorrect: checkEquations(text).ok ? 'yes' : 'no',
     refusesToHelp: 'no',
     calm: 'yes',

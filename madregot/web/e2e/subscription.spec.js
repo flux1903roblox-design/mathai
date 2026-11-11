@@ -261,11 +261,11 @@ test.describe('the smart tutor', () => {
     await expect(linkCard.getByLabel('הקוד מהמכשיר של הילד')).toHaveValue('K7M4QX');
     await expect(linkCard.getByText('המכשיר שמציג את הקוד הזה יקבל את העוזר החכם דרך המנוי שלכם.')).toBeVisible();
     expect(log.find((r) => r.path === '/api/family/link/claim')).toBeUndefined();
-    await linkCard.getByLabel('איך לקרוא למכשיר? (לא חובה, למשל: הטאבלט)').fill('הטאבלט של נועה');
+    await linkCard.getByLabel('איך לקרוא למכשיר? (לא חובה. בלי שם הילד, למשל: הטאבלט)').fill('הטאבלט הגדול');
     await linkCard.getByRole('button', { name: 'חיבור המכשיר' }).click();
     await expect(pp.getByText('קיבלנו את הקוד. המכשיר של הילד יתחבר ברגע שהמסך עם הקוד פתוח בו.')).toBeVisible();
     await expect(pp.getByText('המנוי פעיל', { exact: true })).toHaveCount(0); // one line at a time: the newer replaced it
-    expect(log.find((r) => r.path === '/api/family/link/claim').body).toEqual({ code: 'K7M4QX', label: 'הטאבלט של נועה' });
+    expect(log.find((r) => r.path === '/api/family/link/claim').body).toEqual({ code: 'K7M4QX', label: 'הטאבלט הגדול' });
     await shot(pp, 'parents-active');
     // the child's device collects its token by itself, then asks as the family
     await expect(page.getByText('העוזר החכם פתוח! אפשר לשאול אותו על כל תרגיל.')).toBeVisible({ timeout: 15_000 });

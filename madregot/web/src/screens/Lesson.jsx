@@ -447,9 +447,13 @@ export default function Lesson() {
     if (!image) { setNbCheck({ state: 'error', message: 'כתבו קודם את הדרך במחברת.' }); return; }
     setNbCheck({ state: 'loading' });
     const ctx = tutorCtx(s, last, 'notebook');
-    // the tutor's check of the way on an open exercise is help with it (ai spec AI-3 Design 5)
-    setS((cur) => withHelp(cur));
-    try { const r = await runAI('check', { ctx, image, mediaType: 'image/jpeg' }, { onMadi: askMadi }); setNbCheck({ state: 'done', r }); } catch (e) { setNbCheck(e.limit ? { state: 'idle' } : { state: 'error', message: e.message }); }
+    try {
+      const r = await runAI('check', { ctx, image, mediaType: 'image/jpeg' }, { onMadi: askMadi });
+      // the tutor's check of the way on an open exercise is help with it (ai spec AI-3 Design 5), once it came back
+      // readable: a check that failed, could not read the page or answered as care helped with nothing (the AI review)
+      if (r && r.readable !== false && !r.care) setS((cur) => withHelp(cur));
+      setNbCheck({ state: 'done', r });
+    } catch (e) { setNbCheck(e.limit ? { state: 'idle' } : { state: 'error', message: e.message }); }
   };
 
   underway.current = !!(spec && t && !done);

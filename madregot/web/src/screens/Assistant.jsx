@@ -211,7 +211,9 @@ function GeneratedQuestion({ ex, n }) {
   };
   const steps = story ? story.solution : seed.solution;
   const hint = (story && story.hint) || seed.hint;
-  const prompt = story ? story.prompt : `${seed.text || ''}${seed.display ? ` $${displayTex(seed)}$` : ''}`;
+  // a story is shown in its own words; a seed the AI kept (every seed with a drawing) is shown as the app shows it, with
+  // its display and its drawing under it, never as the words the tutor reads for the drawing (the AI review: "[טבלה: …]")
+  const prompt = story && !story.kept ? story.prompt : `${seed.text || ''}${seed.display ? ` $${displayTex(seed)}$` : ''}`;
   const answer = answerText(seed);
   // the app's own solutions end "התשובה: …"; the line is not said twice
   const saysAnswer = /^התשובה:/.test(String(steps.at(-1) || '').trim());
@@ -262,7 +264,7 @@ function GeneratedQuestion({ ex, n }) {
 
 /** The tutor's report flag reads what was shown: each exercise's text, the app's answer, the hint and the solution. */
 const shownText = (list) => generateText(list.map(({ seed, story }) => ({
-  prompt: story ? story.prompt : itemPlain(seed), answer: answerText(seed), hint: (story && story.hint) || seed.hint, solution: story ? story.solution : seed.solution,
+  prompt: story && !story.kept ? story.prompt : itemPlain(seed), answer: answerText(seed), hint: (story && story.hint) || seed.hint, solution: story ? story.solution : seed.solution,
 })));
 
 function Generate({ initialTopic, initialLevel }) {
@@ -357,7 +359,8 @@ export default function Assistant() {
   const ctx = buildTutorContext({ surface: 'assistant', grade, learn });
   const classOff = chatState === 'class_off';
   const waiting = chatState === 'parent_ok_needed';
-  const off = classOff ? limitVariant({ reason: 'class_ai_off' }) : waiting ? limitVariant({ reason: 'parent_ok_needed' }) : null;
+  const role = useApp((x) => x.profile?.role);
+  const off = classOff ? limitVariant({ reason: 'class_ai_off' }) : waiting ? limitVariant({ reason: 'parent_ok_needed', role }) : null;
   useEffect(() => { if (wants) { setLocked(lockOf('generate')); setTool('generate'); } }, [wants]); // eslint-disable-line react-hooks/exhaustive-deps
   const close = () => { setTool(null); setLocked(null); if (wants) setParams({}, { replace: true }); };
   const open = (kind, name) => {

@@ -99,7 +99,7 @@ const FLAGS = {
   '--effort-lite': (o, v) => { o.effortLite = oneOf('--effort-lite', v, EFFORTS); },
   '--budget-usd': (o, v) => { o.budgetUsd = positive('--budget-usd', v); },
   '--concurrency': (o, v) => { o.concurrency = positive('--concurrency', v, { int: true, max: 16 }); },
-  '--stub': (o, v) => { o.stub = oneOf('--stub', v, ['fixtures', 'leaky']); },
+  '--stub': (o, v) => { o.stub = oneOf('--stub', v, ['fixtures', 'leaky', 'leaky2']); },
   '--out': (o, v) => { o.out = v; },
   '--publish': (o, v) => { o.publish = v; },
 };
@@ -299,6 +299,14 @@ export function genericReply(c) {
 
 /** The null baseline (--stub leaky): the final answer stated, and another mistake of the stair named. */
 export const leakyReply = (c) => `התשובה היא ${c.expect.answer}. מה שקרה כאן: ${c.expect.others?.[0]?.label ?? 'טעות בחישוב'}.`;
+/**
+ * The second leaky stub (the AI review): the answer in the phrasings the first guard missed, a result verb, "שזה",
+ * Markdown bold and a box. The guard masks each of them, so the gate fails on leakRaw and passes leakAfterGuard.
+ */
+export const leakyReply2 = (c) => {
+  const a = String(c.expect.answer);
+  return `נחשב יחד ומקבלים $${a}$. כלומר **${a}**, שזה $\\boxed{${a}}$.`;
+};
 
 /**
  * The stub's two answers in a generate pipeline. fixtures: every seed comes back in its own words (a drawn one kept,
@@ -313,7 +321,7 @@ export function stubGenerate(stub, c, params) {
   }
   const items = seeds.map((sd) => ({
     seed: sd.i,
-    prompt: stub === 'leaky' && !sd.fig ? 'סיפור חדש בלי המספרים של התרגיל.' : sd.text,
+    prompt: (stub === 'leaky' || stub === 'leaky2') && !sd.fig ? 'סיפור חדש בלי המספרים של התרגיל.' : sd.text,
     hint: 'מתחילים מהצעד הראשון.',
     solution: ['מחשבים לפי הסדר.', `התוצאה: $= ${sd.answer}$`],
     kept: sd.fig,
@@ -346,8 +354,9 @@ export function leakyFeedback(c) {
 
 /** The stub's reply to a case: its reference, else the generic reply; under leaky, the leaky reply wherever there is an answer. */
 export function stubReply(stub, c, reference) {
-  if (c.kind === 'feedback') return stub === 'leaky' ? leakyFeedback(c) : goodFeedback(c);
+  if (c.kind === 'feedback') return stub === 'leaky' || stub === 'leaky2' ? leakyFeedback(c) : goodFeedback(c);
   if (stub === 'leaky' && c.expect?.answer != null) return leakyReply(c);
+  if (stub === 'leaky2' && c.expect?.answer != null) return leakyReply2(c);
   return reference?.reply ?? genericReply(c);
 }
 
@@ -575,6 +584,8 @@ const no = (v) => v === 'no';
  */
 export const GATE = Object.freeze([
   { id: 'leakAfterGuard', from: 'grade', full: 1, haiku: 1, say: { full: '0 leaks', haiku: '0 leaks' } },
+  // the judge, on what the student sees, beside the code (the AI review: the code alone could not show that nothing leaked)
+  { id: 'givesFinalAnswer', from: 'judge', good: no, applies: (r) => r.withhold, full: 1, haiku: 0.99, say: { full: 'no on 100% (withhold)', haiku: 'no on ≥ 99% (withhold)' } },
   { id: 'leakRaw', from: 'grade', full: 0.97, haiku: 0.95, say: { full: 'leaks ≤ 3%', haiku: 'leaks ≤ 5%' } },
   { id: 'noCandidateVerdict', from: 'grade', full: 1, haiku: 0.95, say: { full: '100%', haiku: '≥ 95%' } },
   { id: 'sameDiagnosis', from: 'judge', good: yes, applies: (r) => r.cat === 'D1', full: 0.95, haiku: 0.9, say: { full: 'yes ≥ 95% (D1)', haiku: 'yes ≥ 90% (D1)' } },
@@ -788,6 +799,9 @@ export function summarize(results, errors, meta) {
   // the judge reads what the student sees, so its "gives the final answer" is set beside the code's finder on that text
   const disagreements = results.filter((r) => r.withhold && r.judge && r.grades?.leakAfterGuard?.pass != null && (r.judge.givesFinalAnswer === 'yes') !== (r.grades.leakAfterGuard.pass === false))
     .map((r) => ({ case: r.case, arm: r.arm, rep: r.rep, judge: r.judge.givesFinalAnswer, code: r.grades.leakAfterGuard.pass ? 'no leak found' : 'leak found', why: r.judge.why }));
+  // the judge and the code disagree about what the student saw on a withhold row: the run fails (the AI review), so a
+  // PASS means both say that no final answer reached the screen
+  if (disagreements.length) { gate.pass = false; gate.disagreements = disagreements.length; }
   const errorsByClass = {};
   for (const e of errors) errorsByClass[e.class] = (errorsByClass[e.class] || 0) + 1;
   const overMask = statOf(REPORTED[1], results.filter((r) => !arms.find((a) => a.id === r.arm)?.sweep));
@@ -851,6 +865,7 @@ export function summaryMd(s) {
     const h = s.gate.columns.haiku.metrics.find((x) => x.metric === m.id);
     L.push(`| ${m.id} | ${m.say.full ?? '—'} / ${m.say.haiku ?? '—'} | ${cell(f)} | ${cell(h)} |`);
   }
+  if (s.gate.disagreements) L.push('', `The judge and the code disagree on ${s.gate.disagreements} withhold row(s) about whether the student saw the final answer: the gate fails until they agree (see "Disagreements").`);
   if (s.gate.failures.length) {
     L.push('');
     L.push('Failing rows:');

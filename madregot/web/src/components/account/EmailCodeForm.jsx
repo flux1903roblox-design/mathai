@@ -5,6 +5,7 @@
 //   cancel   a parent signing in to cancel
 //   teacher  a teacher's trial or quote request (replies and the quote; Resend only)
 //   buy      a teacher buying a class licence by card (receipts; Resend and the payment company)
+//   bind     a teacher binding a class to their email, so the class's tutor opens (TRUST-9; Resend only)
 //   stepup   a fresh code before deleting the account: no notice, and the button says what it does
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -18,6 +19,7 @@ const NOTES = {
   cancel: 'נכנסים עם המייל שאיתו נרשמתם, כדי שרק אתם תוכלו לבטל. הקוד נשלח דרך שירות שליחת המיילים Resend (בארה״ב).',
   teacher: 'המייל משמש לכניסה, לתשובה על הבקשה ולהצעת המחיר. הוא עובר לשירות שליחת המיילים Resend (בארה״ב).',
   buy: 'המייל משמש לכניסה, לקבלות ולהודעות על הרישיון. הוא עובר לשירות שליחת המיילים Resend (בארה״ב) ולחברת הסליקה.',
+  bind: 'המייל משמש לכניסה ולקישור הכיתה אליכם. הוא עובר לשירות שליחת המיילים Resend (בארה״ב).',
   stepup: null,
 };
 

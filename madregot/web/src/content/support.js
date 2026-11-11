@@ -41,6 +41,8 @@ export function supportLines(SUPPORT, variant = 'opened') {
   return {
     link: SUPPORT_LINK,
     title: 'חשוב לנו שתהיו בסדר',
+    // under a message, the first number is in the card's head too, so it is on the screen at once on a small phone
+    quick: v === 'opened' ? null : { label: `${eran.name} · חיוג ${eran.phone}`, href: tel(eran.phone), aria: `${eran.name}, חיוג ${eran.phone}, ${eran.phoneHours}` },
     opening: OPENING[v],
     adult: 'כדאי לספר עוד היום למבוגר שסומכים עליו: הורה, היועצת או היועץ בבית הספר, או מורה.',
     now: 'אפשר גם לדבר עכשיו, בחינם ובלי לומר שם:',
@@ -85,7 +87,7 @@ export function supportLines(SUPPORT, variant = 'opened') {
 
 /** Every word the card can show, for tests that read the copy. */
 export function supportText(lines) {
-  return [lines.link, lines.title, lines.opening, lines.adult, lines.now,
+  return [lines.link, lines.title, lines.quick?.label, lines.opening, lines.adult, lines.now,
     ...lines.services.flatMap((s) => [s.name, s.detail, ...s.links.map((l) => l.label), s.hours]),
     lines.talk, lines.talkSent, lines.talkFailed, lines.footer, lines.close].filter(Boolean).join('\n');
 }

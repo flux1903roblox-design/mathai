@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  answerForms, findLeaks, maskLeaks, streamGuard, withholdCheck, guardResult, guardFor, guardOn, MASK_NOTE, STREAM_FORCE,
+  answerForms, findLeaks, maskLeaks, streamGuard, withholdCheck, holdsAnswer, guardResult, guardFor, guardOn, MASK_NOTE, STREAM_FORCE,
 } from '../../shared/guard.js';
 import { answerGuard } from '../../shared/ai.js';
 
@@ -59,6 +59,47 @@ const TABLE = [
   // (iii) the form, then "היא התשובה"
   ['2', 'num', 'signed', '$2$ היא התשובה', '$?$ היא התשובה'],
   ['8', 'num', 'signed', 'אז 8 הוא התוצאה.', 'אז ? הוא התוצאה.'],
+  // the AI review's phrasings: result verbs, Markdown bold, boxes, a leading +, the stair's own nouns, arrows, words
+  ['8', 'num', 'signed', 'נחשב: $3 + 5$, שזה $8$.', 'נחשב: $3 + 5$, שזה $?$.'],
+  ['8', 'num', 'signed', 'נחשב: $3 + 5$ ומקבלים $8$.', 'נחשב: $3 + 5$ ומקבלים $?$.'],
+  ['8', 'num', 'signed', 'ולכן מקבלים 8.', 'ולכן מקבלים ?.'],
+  ['8', 'num', 'signed', 'קיבלנו $8$.', 'קיבלנו $?$.'],
+  ['8', 'num', 'signed', 'נקבל 8.', 'נקבל ?.'],
+  ['8', 'num', 'signed', 'הגענו ל־8.', 'הגענו ל־?.'],
+  ['8', 'num', 'signed', 'נגיע ל-$8$ על הציר.', 'נגיע ל-$?$ על הציר.'],
+  ['8', 'num', 'signed', 'כלומר $8$.', 'כלומר $?$.'],
+  ['8', 'num', 'signed', 'התוצאה תהיה 8.', 'התוצאה תהיה ?.'],
+  ['8', 'num', 'signed', 'התשובה היא שמונה.', 'התשובה היא ?.'],
+  ['8', 'num', 'signed', '$3 - (-5) \\to 8$', '$3 - (-5) \\to ?$'],
+  ['8', 'num', 'signed', '$3 - (-5) \\Rightarrow 8$', '$3 - (-5) \\Rightarrow ?$'],
+  ['8', 'num', 'signed', '3 - (-5) → 8', '3 - (-5) → ?'],
+  ['8', 'num', 'signed', '$8 = 3 - (-5)$', '$? = 3 - (-5)$'],
+  ['8', 'num', 'signed', '$3 - (-5) = \\boxed{8}$', '$3 - (-5) = \\boxed{?}$'],
+  ['8', 'num', 'signed', '$3+5 = \\mathbf{8}$', '$3+5 = \\mathbf{?}$'],
+  ['8', 'num', 'signed', '$3+5 = \\textbf{8}$', '$3+5 = \\textbf{?}$'],
+  ['8', 'num', 'signed', 'התשובה היא $\\boxed{8}$', 'התשובה היא $\\boxed{?}$'],
+  ['8', 'num', 'signed', 'התשובה היא **8**.', 'התשובה היא **?**.'],
+  ['8', 'num', 'signed', 'התשובה היא **$8$**.', 'התשובה היא **$?$**.'],
+  ['8', 'num', 'signed', '**התשובה: 8**', '**התשובה: ?**'],
+  ['8', 'num', 'signed', 'התשובה היא __8__.', 'התשובה היא __?__.'],
+  ['8', 'num', 'signed', 'התוצאה היא $+8$.', 'התוצאה היא $?$.'],
+  ['8', 'num', 'signed', 'הסכום הוא $8$.', 'הסכום הוא $?$.'],
+  ['12', 'num', 'stats', 'הממוצע הוא $12$.', 'הממוצע הוא $?$.'],
+  ['40', 'num', 'angles', 'הזווית היא $40^\\circ$.', 'הזווית היא $?$.'],
+  ['40', 'num', 'angles', 'הזווית החסרה היא 40°.', 'הזווית החסרה היא ?.'],
+  ['(2, -1)', 'pt', 'line', 'הנקודה היא $(2, -1)$.', 'הנקודה היא $?$.'],
+  ['10', 'num', 'pyth', 'היתר הוא $10$ ס"מ.', 'היתר הוא $?$ ס"מ.'],
+  ['-2', 'num', 'signed', 'התשובה היא מינוס 2.', 'התשובה היא ?.'],
+  ['-2', 'num', 'signed', 'מינוס 2 היא התשובה.', '? היא התשובה.'],
+  ['13', 'num', 'signed', 'התשובה היא שלוש־עשרה.', 'התשובה היא ?.'],
+  ['3x + 12', 'lin', 'expr', 'אחרי פתיחת הסוגריים: $3x + 12$.', 'אחרי פתיחת הסוגריים: $?$.'],
+  // ... and still never: a value that is a step, a count of things, a number put in
+  ['8', 'num', 'signed', 'מקבלים $8$ ועוד משהו: $8 + 1$', 'מקבלים $?$ ועוד משהו: $8 + 1$'],
+  ['2', 'num', 'signed', 'מקבלים 2 צעדים ימינה ועוד אחד', null],
+  ['2', 'num', 'signed', 'כלומר 2 + 3, ואז ממשיכים', null],
+  ['8', 'num', 'signed', 'שזה $8 - 3$', null],
+  ['12', 'num', 'stats', 'הממוצע הוא סכום הנתונים חלקי מספרם.', null],
+  ['8', 'num', 'signed', '**שימו לב:** זזים ימינה.', null],
   // never masked: digit bounds, values put in, steps on the way, other numbers, markers
   ['2', 'num', 'signed', 'זזים 2 צעדים ימינה', null],
   ['2', 'num', 'signed', 'נסו $12$ או $2.5$ או $-2$', null],
@@ -208,6 +249,18 @@ test('a check under WITHHOLD: comments and summary masked, the line with the fin
   assert.equal(data.transcript, CHECK.transcript);
   assert.equal(data.summary, 'הפתרון נכון: $x = ?$.');
   assert.equal(masked, 1);
+  // the AI review: a check by substitution after the final line, and a final line written without "=": no step that
+  // holds the answer keeps a mark, and the steps before keep theirs
+  const f5 = formsOf('5', 'num', 'eq');
+  const A = { steps: [{ text: '$3x + 7 = 22$', ok: true, comment: '' }, { text: '$3x = 15$', ok: true, comment: '' }, { text: '$x = 5$', ok: true, comment: 'נכון, $x = 5$.' }, { text: 'בדיקה: $3 \\cdot 5 + 7 = 22$', ok: true, comment: 'יפה' }], final: 'correct', summary: '' };
+  assert.deepEqual(withholdCheck(A, f5).data.steps.map((s) => [s.ok, s.comment]), [[true, ''], [true, ''], [null, ''], [null, '']]);
+  const B = { steps: [{ text: '$3x + 7 = 22$', ok: true, comment: '' }, { text: '$3x = 15$', ok: true, comment: '' }, { text: 'תשובה: 5', ok: true, comment: '' }], final: 'correct', summary: '' };
+  assert.deepEqual(withholdCheck(B, f5).data.steps.map((s) => s.ok), [true, true, null]);
+  for (const t of ['$x=5$', '5 = x', 'x = **5**', 'התשובה: $5$']) assert.equal(holdsAnswer(t, f5), true, t);
+  for (const t of ['$3x = 15$', '$5x = 25$', '$15$', '$2.5$', '$5(x + 1)$', '$5 \\cdot x$']) assert.equal(holdsAnswer(t, f5), false, t);
+  // a wrong final value is not the answer: the last step that states a value is unmarked, as before
+  const W = { steps: [{ text: '$3x = 15$', ok: true, comment: '' }, { text: '$x = 6$', ok: false, comment: 'בדקו שוב' }], final: 'wrong', summary: '' };
+  assert.deepEqual(withholdCheck(W, f5).data.steps.map((s) => s.ok), [true, null]);
   // no step states a value: the last step; no steps: nothing to mark
   assert.equal(withholdCheck({ ...CHECK, steps: [{ text: 'מתחילים', ok: true, comment: 'טוב' }] }, null).data.steps[0].ok, null);
   assert.deepEqual(withholdCheck({ readable: false, steps: [], final: 'unknown', summary: '' }, null).data.steps, []);

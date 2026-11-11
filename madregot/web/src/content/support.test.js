@@ -37,6 +37,16 @@ describe('supportLines: the support card, built from SUPPORT', () => {
     expect(all(lines).filter((l) => l.kind === 'web').map((l) => l.href)).toEqual([SUPPORT.eran.web, SUPPORT.sahar.web]);
   });
 
+  it('under a message the card\'s head carries the first number too, so a small phone shows it at once (the trust review)', () => {
+    for (const v of ['after-message', 'help-note']) {
+      const q = supportLines(SUPPORT, v).quick;
+      expect(q.href).toBe('tel:1201');
+      expect(q.label).toBe('ער״ן · חיוג 1201');
+      expect(q.aria).toContain('בכל שעה');
+    }
+    expect(supportLines(SUPPORT, 'opened').quick).toBe(null);
+  });
+
   it('says that ער״ן\'s WhatsApp and chat keep hours (only the phone is at any hour)', () => {
     const eran = supportLines(SUPPORT, 'after-message').services.find((s) => s.id === 'eran');
     expect(eran.hours).toBe('וואטסאפ וצ׳אט: 08:00–02:00');

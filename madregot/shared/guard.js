@@ -1,16 +1,20 @@
 // The final-answer guard (ai spec AI-3 Design 2): while a student is still solving an exercise of the app (policy
 // WITHHOLD), a tutor reply must not state its final answer. The prompt asks for that; this code makes sure a slip of the
-// model never reaches the screen. It finds the answer the app computed, in every way it can be written, only where a
-// reply states it as a result, and puts "?" in its place:
+// model rarely reaches the screen. It finds the answer the app computed, in the common ways it is written, where a reply
+// states it as a result, and puts "?" in its place. It reads words and places, not meaning: a phrasing it does not know
+// can pass, so the evaluation measures what is left with a second finder that needs no cue (mentions):
 //
 //   answerForms(ctx)        every written form of ctx.item.answer, as regex sources, and whether "x = 3" is the answer
-//   findLeaks(text, f)      where a reply states the answer: (i) after the last "=" of a $…$ run (or of a plain-text
-//                           equation), (ii) right after a cue word ("התשובה היא", "יוצא", "שווה ל־", "זה" directly
-//                           before it), (iii) before "היא התשובה"
+//   findLeaks(text, f)      where a reply states the answer: (i) after the last "=" or arrow of a $…$ run (or of a
+//                           plain-text equation), or first in a run before "="; (ii) right after a cue ("התשובה היא",
+//                           "התוצאה תהיה", "יוצא", "שווה ל־", "זה" directly before it, "הממוצע הוא" and the stair's
+//                           other quantities), or after a result verb ("מקבלים", "שזה", "כלומר", "הגענו ל־") when it
+//                           ends the sentence; (iii) before "היא התשובה". Bold (**8**) and \boxed{8} are see-through.
 //   maskLeaks(text, f)      → { text, masked }: each leaked form becomes "?", so $-4 + 6 = 2$ reads $-4 + 6 = ?$
 //   streamGuard(f)          the same over a reply that arrives in pieces: whole sentences at a time, outside maths
-//   withholdCheck(data, f)  a notebook photo check under WITHHOLD: comments and summary masked, no mark on the line
-//                           that states the final value, final 'unknown', withheld: true
+//   withholdCheck(data, f)  a notebook photo check under WITHHOLD: comments and summary masked, no mark on any line that
+//                           holds the answer as a value (holdsAnswer), final 'unknown', withheld: true
+//   mentions(text, f)       every place the answer stands as a value of its own, with no cue (the evaluation's check)
 //   MASK_NOTE               the line a masked reply ends with
 //
 // Plain JS with no dependencies: the Worker, the browser's personal-key path and the tests use the same code. It ships to
@@ -87,10 +91,29 @@ function absForms({ n, d }) {
 /** A degree mark after a number (an angle): 40°, 40^\circ, 40^{\circ}. It is masked with the number. */
 const DEGREE = '(?:\\s*(?:°|\\^\\s*\\\\circ|\\^\\s*\\{\\s*\\\\circ\\s*\\}))?';
 
-/** Every written form of the signed number r: −2, -2, - 2, −3/4, -\frac{3}{4}, \frac{-3}{4}, -0.75, -0,75, 40°. */
+/** The Hebrew words for the whole numbers 0-20, both genders ("שמונה", "שלוש־עשרה", "שתים עשרה"), as regex sources. */
+const UNITS_M = ['אפס', 'אחד', 'שניים|שנים', 'שלושה', 'ארבעה', 'חמישה', 'שישה', 'שבעה', 'שמונה', 'תשעה', 'עשרה'];
+const UNITS_F = ['אפס', 'אחת', 'שתיים|שתים', 'שלוש', 'ארבע', 'חמש', 'שש', 'שבע', 'שמונה', 'תשע', 'עשר'];
+const TEEN_M = ['', 'אחד', 'שנים', 'שלושה', 'ארבעה', 'חמישה', 'שישה', 'שבעה', 'שמונה', 'תשעה'];
+const TEEN_F = ['', 'אחת', 'שתים|שתיים', 'שלוש', 'ארבע', 'חמש', 'שש', 'שבע', 'שמונה', 'תשע'];
+const JOIN = '[\\s־-]+';
+function hebrewWords(p) {
+  if (!Number.isInteger(p) || p < 0 || p > 20) return [];
+  let w;
+  if (p <= 10) w = [UNITS_M[p], UNITS_F[p]];
+  else if (p < 20) w = [`(?:${TEEN_M[p - 10]})${JOIN}עשר`, `(?:${TEEN_F[p - 10]})${JOIN}עשרה`];
+  else w = ['עשרים'];
+  return [`(?:${w.join('|')})(?![א-ת])`];
+}
+
+/**
+ * Every written form of the signed number r: −2, -2, - 2, "מינוס 2", +8, −3/4, -\frac{3}{4}, \frac{-3}{4}, -0.75,
+ * -0,75, 40°, and a whole number up to 20 in Hebrew words ("שמונה", "מינוס שתיים").
+ */
 function numberForms(r, { degree = true } = {}) {
   const abs = absForms(r);
-  const out = r.n >= 0 ? abs : abs.map((a) => `${MINUS}\\s*${a}`);
+  if (r.d === 1) abs.push(...hebrewWords(Math.abs(r.n)));
+  const out = r.n >= 0 ? abs.map((a) => `(?:\\+\\s*)?${a}`) : abs.map((a) => `(?:${MINUS}\\s*|מינוס\\s+)${a}`);
   if (r.n < 0 && r.d !== 1) out.push(`${FRAC}\\{\\s*${MINUS}\\s*${Math.abs(r.n)}\\s*\\}\\s*\\{\\s*${r.d}\\s*\\}`);
   return degree ? out.map((x) => `${x}${DEGREE}`) : out;
 }
@@ -262,8 +285,17 @@ const OPERATOR_NEXT = /^\s*[+\-−–*/×÷·^=<>]/;
 // cue words (ii): Hebrew word starts are a consumed prefix, never a lookbehind
 const CUE = '(?:התשובה|התוצאה|הפתרון|יוצאת|יוצא|יצאה|יצא|שווים|שווה)';
 const CUE_WORD = '(?:בסוף|הנכונה|הסופית|הנקודה|המספר|הערך|הביטוי|הישר|הזווית|האורך|בערך|בדיוק)';
-const LINK = '(?:\\s+(?:היא|הוא))?(?:\\s*:)?';
+const LINK = '(?:\\s+(?:היא|הוא|תהיה|יהיה|תצא|יצא))?(?:\\s*:)?';
+// the result verbs the tutor writes before a value ("ומקבלים 8.", "קיבלנו $8$", "שזה $8$", "כלומר 8", "הגענו ל־8"): a
+// weaker cue, so in plain text the value must end its sentence (one word, a unit, may follow); in maths, end its run
+const RESULT = '(?:מקבלים|מקבלת|מקבל|קיבלנו|קיבלתם|קיבלת|קיבלתי|נקבל|תקבלו|תקבל|שזה|וזה|כלומר|הגענו\\s+ל|נגיע\\s+ל|מגיעים\\s+ל|הגעתם\\s+ל|יוצא\\s+לנו|יצא\\s+לנו)';
+// the stair's own quantities with "הוא"/"היא" ("הממוצע הוא $12$", "הזווית החסרה היא $40°$", "היתר הוא $10$ ס״מ")
+const NOUN = '(?:הממוצע|החציון|השכיח|הזווית|היתר|הניצב|האורך|הנקודה|השיפוע|הערך|הסכום|המכפלה|ההפרש|המנה|השטח|ההיקף|המרחק|הגובה|הרוחב|המחיר|המספר|הנעלם)';
 const HEB_START = '(^|[^א-ת])';
+/** After a weak cue's value in plain text: at most one more word, then the end of the sentence. */
+const SENTENCE_END = /^(?:\s+[^\s.,;!?]{1,12})?\s*(?:[.,;!?)\n]|$)/;
+/** An arrow before the result ("$3 - (-5) \to 8$", "→ 8"): read as "=". */
+const ARROW = '\\\\to(?![A-Za-z])|\\\\rightarrow|\\\\Rightarrow|\\\\implies|\\\\longrightarrow|→|⇒';
 
 /** The patterns of one answer, compiled once (a streamed reply is checked piece by piece). */
 const CACHE = new WeakMap();
@@ -273,13 +305,38 @@ function compiled(f) {
   const F = alt(f.forms);
   c = {
     tailRe: new RegExp(`^((?:\\s|\\\\[,;:!]|\\\\left)*\\(?\\s*)(${F})${AFTER_RESULT}`),
-    proseRe: new RegExp(`([^\\s=]*)\\s*=\\s*(\\(?\\s*)(${F})(?=\\s*\\)?(?:$|[\\s,.;:!?]))`, 'g'),
+    headRe: new RegExp(`^(\\s*\\(?\\s*)(${F})(?=\\s*\\)?\\s*=\\s*\\S)`),
+    proseRe: new RegExp(`([^\\s=]*)\\s*(?:=|→|⇒)\\s*(\\(?\\s*)(${F})(?=\\s*\\)?(?:$|[\\s,.;:!?]))`, 'g'),
     cueRe: new RegExp(`${HEB_START}((?:ו|ש|וש|כש)?${CUE}(?:\\s+${CUE_WORD})?${LINK}(?:\\s+${CUE_WORD})?${LINK}\\s*(?:ל[־-]?\\s*)?)(\\$\\s*)?(${F})`, 'g'),
-    thisRe: new RegExp(`${HEB_START}((?:ו)?זה\\s+)(\\$\\s*)?(${F})`, 'g'),
+    nounRe: new RegExp(`${HEB_START}((?:ו|ש|וש|כש)?${NOUN}(?:\\s+(?:[א-ת"״']{2,}|[A-Za-z]))?\\s*(?:(?:היא|הוא|תהיה|יהיה)(?:\\s*:)?|:)\\s*)(\\$\\s*)?(${F})`, 'g'),
+    thisRe: new RegExp(`${HEB_START}((?:ו|ש)?זה\\s+)(\\$\\s*)?(${F})`, 'g'),
+    colonRe: new RegExp(`(:\\s*)(\\$\\s*)(${F})(?=\\s*\\$)`, 'g'),
+    resultRe: new RegExp(`${HEB_START}((?:ו|ש|וש|כש|ול)?${RESULT}\\s*[־-]?\\s*)(\\$\\s*)?(${F})`, 'g'),
     ownRe: new RegExp(`(^|[^\\dA-Za-zא-ת.,\\\\])(\\$\\s*)?(${F})(\\s*\\$)?(?=\\s*[,:]?\\s*(?:היא|הוא)\\s+(?:התשובה|התוצאה))`, 'g'),
+    // the answer as a value of its own anywhere in a line: not inside a longer number, not a coefficient ("3x", "3(")
+    aloneRe: new RegExp(`(^|[^\\dA-Za-z.,\\\\])(${F})(?!\\s*(?:[A-Za-z(]|\\\\(?:cdot|times)))`),
   };
   CACHE.set(f, c);
   return c;
+}
+
+// Markdown emphasis (** and __) and the TeX wrappers that only dress a value (\\boxed{…}, \\mathbf{…}, \\textbf{…}, \\bm{…},
+// \\boldsymbol{…}, \\underline{…}, \\fbox{…}), with the content kept and every other character in its place.
+const WRAP = /\\(?:boxed|fbox|mathbf|textbf|bm|boldsymbol|underline)\s*\{([^{}]*)\}/g;
+const EMPH = /\*\*|__/g;
+/** The text with its emphasis and value wrappers read as spaces of the same length. */
+function seeThrough(text) {
+  if (!/[*_]{2}|\\(?:boxed|fbox|mathbf|textbf|bm|boldsymbol|underline)/.test(text)) return text;
+  let t = text;
+  for (let k = 0; k < 3; k += 1) {
+    const next = t.replace(WRAP, (all, inner) => {
+      const open = all.length - inner.length - 1;
+      return `${' '.repeat(open)}${inner} `;
+    });
+    if (next === t) break;
+    t = next;
+  }
+  return t.replace(EMPH, (m) => ' '.repeat(m.length));
 }
 
 /**
@@ -287,18 +344,25 @@ function compiled(f) {
  * f is what answerForms returned. Markers and anything inside them are never touched.
  */
 export function findLeaks(text, f) {
-  const s = String(text ?? '');
-  if (!s || !f?.forms?.length) return [];
-  const { tailRe, proseRe, cueRe, thisRe, ownRe } = compiled(f);
+  const raw = String(text ?? '');
+  if (!raw || !f?.forms?.length) return [];
+  // Emphasis and boxes are see-through (the AI review: "התשובה היא **8**", "$= \\boxed{8}$"): they are read as spaces of
+  // the same length, so every place found is a place in the text itself.
+  const s = seeThrough(raw);
+  const { tailRe, headRe, proseRe, cueRe, nounRe, thisRe, resultRe, colonRe, ownRe } = compiled(f);
   const spans = [];
   const add = (start, len) => { if (len > 0) spans.push({ start, end: start + len }); };
   const runs = mathRuns(s);
 
-  // (i) the right-hand side of the last "=" in a $…$ run, followed by the run's end, "," "." or \quad
+  // (i) the right-hand side of the last "=" (or arrow) in a $…$ run, followed by the run's end, "," "." or \quad; and a
+  // run that starts with the answer and then "=" ("$8 = 3 - (-5)$")
+  const OPS = new RegExp(`=|\\\\approx|≈|${ARROW}`, 'g');
   for (const run of runs) {
     if (!run.closed) continue;
     const body = s.slice(run.start, run.end);
-    const eqs = [...body.matchAll(/=|\\approx|≈/g)];
+    const head = body.match(headRe);
+    if (head) add(run.start + head[1].length, head[2].length);
+    const eqs = [...body.matchAll(OPS)];
     if (!eqs.length) continue;
     const last = eqs[eqs.length - 1];
     const prev = eqs.length > 1 ? eqs[eqs.length - 2] : null;
@@ -320,16 +384,27 @@ export function findLeaks(text, f) {
     add(at, m[3].length);
   }
 
-  // (ii) right after a cue: "התשובה היא 2", "יוצאת הנקודה $(2,-1)$", "שווה ל־2", "התשובה הנכונה היא שלילית"
-  // ("זה" counts only directly before the answer, "זה 8", "זה $8$": it starts many innocent sentences)
-  for (const re of [cueRe, thisRe]) {
+  // (ii) right after a cue: "התשובה היא 2", "יוצאת הנקודה $(2,-1)$", "שווה ל־2", "התשובה הנכונה היא שלילית", "הממוצע
+  // הוא $12$" ("זה" counts only directly before the answer, "זה 8", "זה $8$": it starts many innocent sentences); after a
+  // result verb ("ומקבלים 8.", "שזה $8$", "כלומר 8"), in plain text only when the value ends its sentence
+  for (const [re, weak] of [[cueRe, false], [nounRe, false], [thisRe, false], [resultRe, true]]) {
     for (const m of s.matchAll(re)) {
       const at = m.index + m[1].length + m[2].length + (m[3] || '').length;
       const after = s.slice(at + m[4].length);
       // in maths the form must be all of the run; in prose no operator may follow (then it is a step, not the result)
       if (m[3] ? !/^\s*(?:\\[,;!]\s*)*[.,]?\s*\$/.test(after) : OPERATOR_NEXT.test(after)) continue;
+      if (weak && !m[3] && !SENTENCE_END.test(after)) continue;
       add(at, m[4].length);
     }
+  }
+
+  // a value alone in its run after a colon, at the end of a sentence ("אחרי פתיחת הסוגריים: $3x + 12$.")
+  for (const m of s.matchAll(colonRe)) {
+    const at = m.index + m[1].length + m[2].length;
+    const close = s.indexOf('$', at + m[3].length);
+    if (close < 0 || !SENTENCE_END.test(s.slice(close + 1))) continue;
+    if (spans.some((sp) => sp.start >= at && sp.start < close)) continue; // (i) already found it inside the run
+    add(at, m[3].length);
   }
 
   // (iii) the form, then "היא התשובה" / "הוא התוצאה"
@@ -445,13 +520,44 @@ export function guardOn(kind, ctx) {
 /** A text reply with the note after it when something was masked. */
 export const withMaskNote = (text, masked) => (masked ? `${text}\n\n${MASK_NOTE}` : text);
 
-/** The step of a check that states the final value: the last whose text has "=" and then a number; else the last step. */
+/** The step of a check that states the final value, when no step holds the answer: the last whose text has "=" and then a number; else the last step. */
 const STATES_VALUE = /=\s*\$?\s*(?:\\left\s*)?\(?\s*[-−–]?\s*(?:\d|\\[dt]?frac)/;
 
 /**
+ * Every place the text mentions the answer as a value of its own, whatever the words around it: no cue is needed, so
+ * it finds more than findLeaks (the evaluation's independent check, worker/eval/graders.js). A value put in for the
+ * substitution letter ("מציבים $x = 0$" on a line) is not a mention unless "x = 3" is the answer (letterOk).
+ * → [{ start, end }].
+ */
+export function mentions(text, f) {
+  const raw = String(text ?? '');
+  if (!raw || !f?.forms?.length) return [];
+  const s = seeThrough(raw);
+  const re = new RegExp(compiled(f).aloneRe.source, 'g');
+  const out = [];
+  for (const m of s.matchAll(re)) {
+    const start = m.index + m[1].length;
+    const before = s.slice(Math.max(0, start - 12), start);
+    const put = before.match(/([A-Za-z])\s*=\s*\(?\s*$/);
+    if (put && !f.letterOk && put[1] === f.plain) continue;
+    out.push({ start, end: start + m[2].length });
+  }
+  return out;
+}
+
+/** Does this line hold the answer as a value of its own ("x = 5", "תשובה: 5", "בדיקה: $3 \\cdot 5 + 7 = 22$")? */
+export function holdsAnswer(text, f) {
+  if (!f?.forms?.length || typeof text !== 'string') return false;
+  return compiled(f).aloneRe.test(seeThrough(text));
+}
+
+/**
  * A notebook photo check under WITHHOLD (AI-3 Design 3): every comment and the summary masked; the student's own steps
- * and the transcript as written (masking a child's own number would only confuse); the step that states the final value
- * gets neither ✓ nor ✗ (ok: null) and no comment; final 'unknown' and withheld: true. → { data, masked }.
+ * and the transcript as written (masking a child's own number would only confuse); every step that holds the answer as
+ * a value of its own gets neither ✓ nor ✗ (ok: null) and no comment, so no mark confirms it: the final line however it
+ * is written ("x = 5", "תשובה: 5") and a check by substitution after it (the AI review). When no step holds it, the
+ * step that states a final value does (the last with "=" and a number, else the last step). final 'unknown' and
+ * withheld: true. → { data, masked }.
  */
 export function withholdCheck(data, f) {
   if (!data || typeof data !== 'object') return { data, masked: 0 };
@@ -463,10 +569,14 @@ export function withholdCheck(data, f) {
     return r.text;
   };
   const given = Array.isArray(data.steps) ? data.steps : [];
-  let at = -1;
-  for (let i = given.length - 1; i >= 0 && at < 0; i -= 1) if (STATES_VALUE.test(String(given[i]?.text || ''))) at = i;
-  if (at < 0) at = given.length - 1;
-  const steps = given.map((st, i) => (i === at ? { ...st, ok: null, comment: '' } : { ...st, comment: m(st?.comment) }));
+  let open = new Set(given.map((st, i) => (holdsAnswer(String(st?.text || ''), f) ? i : -1)).filter((i) => i >= 0));
+  if (!open.size) {
+    let at = -1;
+    for (let i = given.length - 1; i >= 0 && at < 0; i -= 1) if (STATES_VALUE.test(String(given[i]?.text || ''))) at = i;
+    if (at < 0) at = given.length - 1;
+    open = new Set([at]);
+  }
+  const steps = given.map((st, i) => (open.has(i) ? { ...st, ok: null, comment: '' } : { ...st, comment: m(st?.comment) }));
   return { data: { ...data, steps, summary: m(data.summary), final: 'unknown', withheld: true }, masked };
 }
 

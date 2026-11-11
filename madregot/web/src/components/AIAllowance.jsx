@@ -10,9 +10,10 @@ export default function AIAllowance({ className, kind = 'explain' }) {
   const status = useAIStatus((x) => x.status);
   const ended = useAIStatus((x) => x.ended);
   useApp((x) => x.ai.mode);
+  const role = useApp((x) => x.profile?.role);
   const a = aiAccess(kind, status);
   if (a.state === 'offline' || a.tier === 'personal' || !status) return null;
-  const text = allowanceText({ state: a.state, left: a.left, tier: status.tier, ended });
+  const text = allowanceText({ state: a.state, left: a.left, tier: status.tier, ended, role });
   if (!text) return null;
   return <p className={clsx('ai-left', className)} role="status">{text}</p>;
 }

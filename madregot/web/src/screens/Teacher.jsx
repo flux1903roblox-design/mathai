@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Copy, RefreshCw, Hand, TriangleAlert, CircleCheck, CircleAlert, LogOut, Plus, KeyRound, NotebookPen, Users, CalendarDays, Target, ChevronLeft, UserMinus } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api, teacherHeaders } from '@/lib/api.js';
+import { useParent } from '@/lib/parent.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
 import { Button, ChapterMark, Field, LevelPips, Sheet } from '@/components/ui.jsx';
 import { Stat } from '@/components/ds.jsx';
@@ -77,7 +78,9 @@ function AddClass({ open, onClose }) {
   const submit = async () => {
     if (!f.className.trim()) return; setBusy(true);
     try {
-      const r = await api('/api/classes', { method: 'POST', body: { teacherName: profile.name, className: f.className, grade: f.grade } });
+      // signed in with an email in this tab (the licence or the tutor's sign-in): the new class is bound to it at once
+      const sess = useParent.getState().session;
+      const r = await api('/api/classes', { method: 'POST', body: { teacherName: profile.name, className: f.className, grade: f.grade }, ...(sess?.token ? { headers: { 'X-Account-Token': sess.token } } : {}) });
       const cls = { code: r.code, key: r.teacherKey, className: r.className, grade: r.grade, fresh: true };
       setProfile({ ...profile, classes: [...profile.classes, cls], active: cls.code }); setF({ className: '', grade: '7' }); onClose();
     } catch (err) { toast.error(err.message); } finally { setBusy(false); }

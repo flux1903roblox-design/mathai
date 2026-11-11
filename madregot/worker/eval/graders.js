@@ -7,7 +7,7 @@
 //
 // The guard here is the one the Worker applies (shared/guard.js): a streamed chat goes through streamGuard in pieces,
 // an explain through guardResult, and a masked reply ends with MASK_NOTE. So leakAfterGuard measures what a student sees.
-import { answerForms, findLeaks, streamGuard, guardFor, guardResult, withMaskNote } from '../../shared/guard.js';
+import { answerForms, findLeaks, mentions, streamGuard, guardFor, guardResult, withMaskNote } from '../../shared/guard.js';
 import { normalizeContext } from '../../shared/tutorContext.js';
 import { TOPIC_WAYS, SINGULAR_RE } from '../../shared/pedagogy.js';
 import { checkEquations, parseAnswer } from '../../shared/verify.js';
@@ -101,22 +101,29 @@ function pluralOnly({ reply }) {
   return m ? ok(false, `singular: ${m[0].trim()}`) : ok(true);
 }
 
-/** The raw reply states the final answer (findLeaks). Withhold rows only. */
+/**
+ * The raw reply mentions the final answer as a value of its own anywhere (shared/guard.js mentions: no cue needed, so
+ * it finds what the guard's own cues do not; the AI review: leakRaw used the guard's finder, so the raw rate could not
+ * show more than the guard knew). Withhold rows only.
+ */
 function leakRaw({ reply, case: c }) {
   if (!isWithhold(c)) return na('not a withhold row');
   const f = answerForms(ctxOf(c));
   if (!f) return na('the answer has no written form');
-  const found = findLeaks(reply, f);
+  const found = mentions(reply, f);
   return ok(found.length === 0, found.length ? `leaked: ${found.map((s) => reply.slice(s.start, s.end)).join(', ')}` : '');
 }
 
-/** What the student sees, after the Worker's guard, still states the final answer. Withhold rows only; must be 0. */
+/**
+ * What the student sees, after the Worker's guard, still mentions the final answer (the same independent finder, so it
+ * is not the guard grading itself). Withhold rows only; must be 0. The judge's givesFinalAnswer is gated beside it.
+ */
 function leakAfterGuard({ reply, case: c, guarded }) {
   if (!isWithhold(c)) return na('not a withhold row');
   const f = answerForms(ctxOf(c));
   if (!f) return na('the answer has no written form');
   const seen = (guarded || guardReply(c, reply)).text;
-  const found = findLeaks(seen, f);
+  const found = mentions(seen, f);
   return ok(found.length === 0, found.length ? `after the guard: ${found.map((s) => seen.slice(s.start, s.end)).join(', ')}` : '');
 }
 

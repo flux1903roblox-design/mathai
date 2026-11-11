@@ -593,6 +593,8 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .support-links { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
 .support-link { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: var(--s2) var(--s3); border: 2px solid var(--rule); border-bottom-width: 4px; border-bottom-color: var(--rule-press); border-radius: 14px; background: #fff; color: var(--brand-d); font-weight: 700; font-size: 16px; line-height: 22px; text-decoration: none; }
 .support-link:active { border-bottom-width: 2px; transform: translateY(2px); }
+/* the first number in the card's head (under a message): on a 320 phone it is on the screen without scrolling */
+.support-quick { align-self: flex-start; margin-block: var(--s1); }
 .support-link svg { flex: none; color: var(--brand); }
 .support-hours { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
 .support-talk { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s3); border-top: 2px solid var(--rule); }

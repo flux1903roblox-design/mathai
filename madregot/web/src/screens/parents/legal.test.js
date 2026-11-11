@@ -108,7 +108,8 @@ describe('legal texts and their placeholders', () => {
     // the photo step (trust spec TRUST-5): built, so the statement says what it does, and that no PDF is sent
     expect(s).toContain('בדף הראשון של מבחן השורה העליונה נחתכת, ואפשר להשחיר בשחור מלא כל דבר נוסף.');
     expect(s).toContain('קובץ PDF לא נשלח');
-    expect(s).toContain('בתרגילים של האפליקציה, העוזר לא נותן את התשובה הסופית לפני שפתרתם.');
+    expect(s).toContain('בתרגילים של האפליקציה, העוזר מתבקש לא לתת את התשובה הסופית לפני שפתרתם, ובשרת יש בדיקה שמסתירה את התשובה כשהיא נכתבת בצורות הנפוצות.');
+    expect(s).toContain('כיתה שנפתחה בלי מייל לא פותחת את העוזר');
     expect(s).toContain('במבחן שהעליתם בלי מפתח תשובות העוזר בודק את התשובות, וזה מסומן ליד כל שאלה.');
     expect(s).not.toContain('את התשובות של התרגילים בודקת האפליקציה, לא העוזר');
     for (const n of ['1201', '105', '100', '101']) expect(s).toContain(n);

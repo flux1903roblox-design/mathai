@@ -783,6 +783,7 @@ export async function forgetAccount(env, accountId, { actor }) {
     env.DB.prepare('DELETE FROM account_sessions WHERE account_id = ?').bind(accountId),
     env.DB.prepare('DELETE FROM link_codes WHERE account_id = ?').bind(accountId),
     env.DB.prepare('DELETE FROM family_devices WHERE account_id = ?').bind(accountId),
+    env.DB.prepare('DELETE FROM class_owners WHERE account_id = ?').bind(accountId),
     env.DB.prepare('DELETE FROM licence_requests WHERE account_id = ?').bind(accountId),
     env.DB.prepare('DELETE FROM notices WHERE to_account = ? AND sent_at IS NULL').bind(accountId),
     env.DB.prepare('UPDATE subscriptions SET account_id = NULL, updated_at = ? WHERE account_id = ?').bind(now, accountId),

@@ -202,6 +202,23 @@ test.describe('help from the tutor counts as help', () => {
     expect(attempts.map((x) => [x.ok, x.independent])).toEqual([[true, true], [true, true], [true, false]]);
   });
 
+  test('a chat that failed is not help: the right answer keeps its praise and counts as independent (the AI review)', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.devices.push({ id: 'd1', label: 'הטאבלט', token: FAMILY }); st.plan = livePlan();
+    await open(page, '#/lesson/signed/1', family());
+    await expect.poll(() => item(page)).toBeTruthy();
+    // the tutor fails: no help reached the student
+    st.breakNext = { status: 502, body: { error: 'bad_output' } };
+    await openChat(page);
+    await chatSheet(page).getByRole('button', { name: 'איך מתחילים?' }).click();
+    await expect(chatSheet(page).getByRole('alert')).toBeVisible();
+    await closeChat(page);
+    await answer(page, true);
+    await expect(page.locator('#fb-title')).not.toHaveText('נכון! פתרתם עם קצת עזרה.');
+    await expect.poll(async () => (await saved(page)).learn?.skills?.['signed:1']?.attempts?.length).toBe(1);
+    expect((await saved(page)).learn.skills['signed:1'].attempts[0].independent).toBe(true);
+  });
+
   test('the chat intro follows the phase', async ({ page }, info) => {
     test.skip(info.project.name !== 'phone', 'the pictures are taken at 390×844');
     const { st } = await fakeServer(page, { parentOk: true }, baseOf());
@@ -236,6 +253,24 @@ test.describe('help from the tutor counts as help', () => {
 const SHOTS = process.env.SHOTS_DIR;
 test.describe('generated exercises', () => {
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+
+  test('a seed with a drawing that the AI kept is shown as the app shows it, never as the words for the drawing (the AI review)', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.devices.push({ id: 'd1', label: 'הטאבלט', token: FAMILY }); st.plan = livePlan();
+    await open(page, '#/assistant?generate=expr&level=2', family());
+    const sheet = page.getByRole('dialog', { name: 'תרגילים חדשים' });
+    await sheet.getByRole('button', { name: 'כתיבת תרגילים' }).click();
+    const first = sheet.locator('.gen-q').first();
+    await expect(first).toBeVisible();
+    const body = log.filter((r) => r.path === '/api/ai/generate').at(-1).body;
+    expect(body.seeds.every((sd) => sd.fig)).toBe(true);
+    // the request carries the drawing in words for the tutor; the screen shows the app's own text and the drawing
+    expect(body.seeds[0].text).toContain('[טבלה:');
+    for (const q of await sheet.locator('.gen-q-text').all()) expect(await q.innerText()).not.toContain('[טבלה');
+    await expect(first.locator('.gen-q-fig')).toBeVisible();
+    await first.scrollIntoViewIfNeeded();
+    await expect(first).toHaveScreenshot('gen-kept-fig.png');
+  });
 
   test('generated exercises are graded by code', async ({ page }, info) => {
     const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());

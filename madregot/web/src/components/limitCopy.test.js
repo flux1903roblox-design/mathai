@@ -75,6 +75,24 @@ describe('a device waiting for a parent\'s OK (trust spec TRUST-9 §4)', () => {
   });
 });
 
+describe('a teacher whose class is not bound to an email (TRUST-9, the trust review)', () => {
+  it('the sheet asks for an email, never a parent, and offers the sign-in in place', () => {
+    const v = limitVariant({ reason: 'parent_ok_needed', role: 'teacher' });
+    expect(v.title).toBe('קודם, כניסה עם מייל');
+    expect(v.actions).toEqual(['bind']);
+    expect(v.parents).toBe(false);
+    expect(v.text.join(' ')).not.toContain('הורה');
+  });
+  it('the allowance line and the tools say it in teacher words, with a sign-in and no parents\' link', () => {
+    expect(allowanceText({ state: 'parent_ok_needed', left: null, tier: null, role: 'teacher' })).toBe('העוזר החכם נפתח למורים אחרי כניסה עם המייל.');
+    const t = lockedText('check', { state: 'parent_ok_needed', role: 'teacher' });
+    expect(t.lines[0]).toBe('העוזר החכם נפתח למורים אחרי כניסה עם המייל.');
+    expect(t.bind).toBe(true); expect(t.parents).toBe(false);
+    // a child still sees the parents' line
+    expect(allowanceText({ state: 'parent_ok_needed', left: null, tier: null, role: 'student' })).toBe('העוזר החכם מחכה לאישור של הורה.');
+  });
+});
+
 describe('no copy a child sees has a price or a push to buy', () => {
   const variants = [];
   for (const reason of ['daily_limit', 'shared_limit', 'free_paused', 'monthly_fair_use', 'paid_only', 'class_ai_off', 'parent_ok_needed']) {

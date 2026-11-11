@@ -33,6 +33,15 @@
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeClassSteps", "forget.classDeleteSteps"]
     },
+    "class_owners": {
+      "personal": "no",
+      "about": ["teacher"],
+      "fields": ["class_code", "account_id", "bound_at", "help_digest"],
+      "purpose": "The signed-in teacher email a class is bound to: the adult behind the class, so its teacher may use the AI tutor (a teacher key alone proves no adult).",
+      "retention": "With the class; at once when the account is deleted.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.purgeClassSteps", "forget.classDeleteSteps", "forget.forgetAccount"]
+    },
     "class_locks": {
       "personal": "no",
       "about": ["none"],

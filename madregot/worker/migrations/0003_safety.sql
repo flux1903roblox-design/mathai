@@ -90,3 +90,16 @@ CREATE INDEX IF NOT EXISTS help_created ON help_requests (created_at);
 CREATE INDEX IF NOT EXISTS attempts_at ON attempts (at);
 CREATE INDEX IF NOT EXISTS exams_created ON exams (created_at);
 CREATE INDEX IF NOT EXISTS students_last_seen ON students (last_seen);
+
+-- A class bound to a teacher's signed-in email (trust spec TRUST-9, the trust review: a teacher key alone proves no
+-- adult, so a class's teacher reaches the tutor only when the class is bound to an email or has a licence in force).
+-- The same table, word for word, as the school lane's 0005_teacher migration (spec TEACHER-1), which binds classes the
+-- same way: whichever lands first creates it. Written by POST /api/classes with a session, and by POST
+-- /api/teacher/class/owner; read by entitle.js classHasAdult. Goes with the account (ON DELETE CASCADE).
+CREATE TABLE IF NOT EXISTS class_owners (
+  class_code TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
+  bound_at TEXT NOT NULL,
+  help_digest INTEGER NOT NULL DEFAULT 0 CHECK (help_digest IN (0, 1))   -- TEACHER-6: one email a day, counts only
+);
+CREATE INDEX IF NOT EXISTS class_owners_account ON class_owners (account_id);

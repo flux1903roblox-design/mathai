@@ -12,7 +12,8 @@ import Mascot from './Mascot.jsx';
 import SupportCard from './SupportCard.jsx';
 import { SupportLink } from './SupportSheet.jsx';
 import ReportAnswer from './ReportAnswer.jsx';
-import { CLASS_OFF_LINE, PARENT_OK_LINE } from './limitCopy.js';
+import { CLASS_OFF_LINE, waitingLine } from './limitCopy.js';
+import { useApp } from '@/lib/store.js';
 import { piiLine } from '@/content/support.js';
 
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
@@ -36,12 +37,14 @@ const toTutor = (list) => list.filter((m) => m.role === 'user' || m.role === 'as
  * Distress first (trust spec TRUST-3 §3.5): a message that reads as distress shows the support card at once, on the
  * device, whatever the tutor's state (resting, busy, offline). It still goes to the tutor when there is one (the server
  * answers it on its care path, never counted, never refused); a failure there is silent and the card stays.
- * Help counts as help (ai spec AI-3 Design 5): `onAsk` is called when a question really goes to the tutor (after the
- * distress check, which is never help), so the lesson can mark the open exercise as answered with help. `footnote`: one
+ * Help counts as help (ai spec AI-3 Design 5): `onAsk` is called when help arrives (the first words of the reply, or a
+ * whole reply that is not care), never for a message that reads as distress or a request that failed, so the lesson can
+ * mark the open exercise as answered with help. `footnote`: one
  * quiet line kept under the first reply about an exercise that is still open (the lesson says what help means there).
  */
 export default function AIChat({ context, intro, introTitle, restLine, messages: kept, onMessages, tools, onDone, onMadi, onAsk, footnote }) {
   const navigate = useNavigate();
+  const role = useApp((s) => s.profile?.role);
   const status = useAIStatus((x) => x.status);
   const access = aiAccess('chat', status);
   // the tutor does not answer here now: today's questions are used, it rests, the class has it off (TRUST-11), or a
@@ -107,8 +110,11 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
     if (!care && needIntro(() => send(content))) return;
     if (care) setRestBack(false);
     if (care && pending) abortRef.current?.abort(); // the maths answer gives way
-    // a question about the exercise is help with it (a message that reads as distress is not)
-    if (!care) onAsk?.();
+    // a question about the exercise is help with it once help arrives: the first words of the reply, or a whole reply
+    // that is neither care nor the calm sentence of a stopped one. A message that reads as distress is never help, and a
+    // request that failed or was refused helped with nothing (the AI review: the right answer read "with help")
+    let helped = false;
+    const help = () => { if (!care && !helped) { helped = true; onAsk?.(); } };
     const mine = ++sendRef.current;
     // what the tutor will not receive (the request masks it): said quietly under the child's own words
     const pii = maskPersonal(content).found;
@@ -121,7 +127,8 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
     const mineNow = () => sendRef.current === mine;
     try {
       // the app's context (ai spec AI-1): a version-2 context goes as ctx; an older caller's flat fields still go as context
-      const res = await runAI('chat', context?.v === 2 ? { messages: history, ctx: context } : { messages: history, context }, { onText: (t) => { if (mineNow()) setStreaming(t); }, signal: ctrl.signal, onMadi, quiet: care });
+      const res = await runAI('chat', context?.v === 2 ? { messages: history, ctx: context } : { messages: history, context }, { onText: (t) => { if (t.trim()) help(); if (mineNow()) setStreaming(t); }, signal: ctrl.signal, onMadi, quiet: care });
+      if (!res.care && !res.blocked && String(res.text || '').trim()) help();
       const reply = { role: 'assistant', content: res.text, ...(res.care ? { care: true } : {}), ...(res.blocked ? { blocked: true } : {}) };
       setMessages((ms) => {
         // the quiet line goes under the first reply about this exercise only, and stays with it
@@ -207,10 +214,12 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
         {showRest && (
           <section className="chat-rest" role="status" aria-label="העוזר החכם">
             {restLine !== null && (
-              <p>{restLine ?? (classOff ? `${CLASS_OFF_LINE} מדי, השיעורים והתרגול פתוחים כמו תמיד.` : parentOk ? `${PARENT_OK_LINE} מדי, השיעורים והתרגול פתוחים כמו תמיד.` : access.state === 'used' ? 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.' : 'העוזר החכם נח היום. מחר הוא חוזר.')}</p>
+              <p>{restLine ?? (classOff ? `${CLASS_OFF_LINE} מדי, השיעורים והתרגול פתוחים כמו תמיד.` : parentOk ? `${waitingLine(role)} ${role === 'teacher' ? 'הלוח והשיעורים פתוחים כמו תמיד.' : 'מדי, השיעורים והתרגול פתוחים כמו תמיד.'}` : access.state === 'used' ? 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.' : 'העוזר החכם נח היום. מחר הוא חוזר.')}</p>
             )}
             <div className="chat-rest-actions">
-              {parentOk ? (
+              {parentOk && role === 'teacher' ? (
+                <Button className="btn-sm" onClick={() => openLimitSheet({ reason: 'parent_ok_needed' })}>כניסה עם מייל</Button>
+              ) : parentOk ? (
                 <>
                   <Button className="btn-sm" onClick={() => navigate('/parents/info')}>להראות להורים</Button>
                   <Button variant="secondary" className="btn-sm" onClick={() => (onDone ? onDone() : navigate('/'))}>להמשיך לתרגל</Button>
@@ -231,7 +240,9 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
               .map((s) => <button key={s} type="button" className="starter" onClick={() => send(s)}>{s}</button>)}
           </div>
         )}
-        {tools?.length > 0 && (
+        {/* the other ways to help step aside while the tutor rests and under a support card, so on a small phone the
+            card's numbers are not pushed under the input (the trust review) */}
+        {tools?.length > 0 && !resting && !careLast && (
           <div className="chat-tools" role="group" aria-label="עוד דרכים לעזרה">
             {tools.map(({ label, icon: Icon, onClick }) => <button key={label} type="button" className="chat-tool" onClick={onClick}><Icon size={18} aria-hidden="true" />{label}</button>)}
           </div>
@@ -240,7 +251,7 @@ export default function AIChat({ context, intro, introTitle, restLine, messages:
           <label htmlFor="chat-draft" className="visually-hidden">ההודעה שלכם</label>
           {/* never disabled: a child whose questions are used up can still write, and a message that reads as
               distress always gets the card */}
-          <textarea id="chat-draft" rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={classOff ? 'העוזר החכם כבוי בכיתה הזו' : parentOk ? 'מחכים לאישור של הורה' : resting ? 'העוזר החכם חוזר מחר' : 'כתבו שאלה…'} maxLength={1000}
+          <textarea id="chat-draft" rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={classOff ? 'העוזר החכם כבוי בכיתה הזו' : parentOk ? (role === 'teacher' ? 'נפתח אחרי כניסה עם מייל' : 'מחכים לאישור של הורה') : resting ? 'העוזר החכם חוזר מחר' : 'כתבו שאלה…'} maxLength={1000}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
           <button type="submit" className="icon-btn send" disabled={!draft.trim() || (pending && !detectDistress(draft).flag)} aria-label="שליחה"><Send size={20} aria-hidden="true" /></button>
         </form>
