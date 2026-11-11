@@ -22,6 +22,7 @@
 //   dline       a double number line (move 't': the marker; 'max': the bottom line's end)  answer: that number
 //   simulate    a random experiment repeated {n, counts, batches, hist, pick?}  answer: { mode: 'trials', atLeast } (with
 //               manip.guided, a batch of 10 first and a 100 before any 1000) or { mode: 'estimate', choices, answer } (pick)
+//   chart       a bar chart or a pie the student builds, number[]       answer: { values } (every value equal)
 // numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
 
@@ -514,6 +515,42 @@ const simManip = {
   },
 };
 
+// ---------------------------------------------------------------- building a chart (DATA-2.2)
+// chart { mode: 'bar' | 'pie', cats (2–5 names), start, lock?, tones?, bar: { max, step, every?, unit? }, pie: { parts } }:
+// the value is number[] (a bar's height, a multiple of bar.step; or a category's number of pie slices, their sum at most
+// pie.parts); the answer is { values }. components/manip/Chart.jsx draws it and holds the moves (chartSet, chartKey).
+
+/** k slices of a pie of `parts` in percent, to a tenth: "25", "41.7". */
+export const chartPct = (k, parts) => String(Math.round((1000 * k) / parts) / 10);
+/** A category's colour family (figure.css .fig-tone-k): its own in `tones`, else its place. */
+export const chartTone = (m, i) => m.tones?.[i] ?? i;
+const chartVals = (u) => (Array.isArray(u) ? u : u?.values);
+const chartManip = {
+  correct(m, a, u) { return Array.isArray(u) && u.length === a.values.length && u.every((v, i) => near(v, a.values[i], 1e-9)); },
+  text(m, u) {
+    const vs = chartVals(u) || [];
+    if (m.mode === 'pie') return m.cats.map((c, i) => `${c} ${vs[i] === 1 ? 'חלק אחד' : `${vs[i]} חלקים`} (${chartPct(vs[i], m.pie.parts)}%)`).join(', ');
+    return m.cats.map((c, i) => `${c} ${chartNum(vs[i])}`).join(', ');
+  },
+  plain(m) {
+    const fixed = (m.lock || []).map((i) => `${m.cats[i]} ${m.mode === 'pie' ? m.start[i] : chartNum(m.start[i])}`);
+    const given = fixed.length ? `; ${fixed.length === 1 ? 'קבועה' : 'קבועות'}: ${fixed.join(', ')}` : '';
+    if (m.mode === 'pie') return `[עוגה מחולקת ל־${m.pie.parts} חלקים שווים; צובעים לכל קטגוריה חלקים: ${m.cats.join(', ')}${given}]`;
+    return `[דיאגרמת עמודות: ${m.cats.join(', ')}; הציר עד ${chartNum(m.bar.max)} בקפיצות של ${chartNum(m.bar.step)}${m.bar.unit ? ` (${m.bar.unit})` : ''}; מכוונים את גובה כל עמודה${given}]`;
+  },
+  // the first category that can move by one step (or one slice) and stay on the chart
+  wrong(m, a) {
+    const vs = [...a.values]; const pie = m.mode === 'pie';
+    const step = pie ? 1 : m.bar.step; const top = pie ? m.pie.parts - vs.reduce((t, v) => t + v, 0) : null;
+    for (let i = 0; i < vs.length; i += 1) {
+      if ((m.lock || []).includes(i)) continue;
+      if (pie ? top > 0 : vs[i] + step <= m.bar.max + 1e-9) { vs[i] += step; return vs; }
+      if (vs[i] - step >= -1e-9) { vs[i] -= step; return vs; }
+    }
+    return vs;
+  },
+};
+
 // ---------------------------------------------------------------- checking, words and test states
 
 export function manipCorrect(it, u) {
@@ -540,6 +577,7 @@ export function manipCorrect(it, u) {
     }
     case 'dline': { const v = dlineValue(m, u); return typeof v === 'number' && near(v, a, 1e-9); }
     case 'simulate': return simManip.correct(m, a, u);
+    case 'chart': return chartManip.correct(m, a, u);
     default: return false;
   }
 }
@@ -582,6 +620,7 @@ export function manipText(it, u = it.answer) {
     }
     case 'dline': { const v = dlineValue(m, u); return v == null ? '' : withUnit(v, m.move === 'max' ? m.bottom.unit : m.top.unit); }
     case 'simulate': return simManip.text(m, it.answer, u);
+    case 'chart': return chartManip.text(m, u);
     default: return '';
   }
 }
@@ -615,6 +654,7 @@ export function manipPlain(it) {
         : `[ציר כפול: למעלה ${line(m.top)}, למטה ${line(m.bottom)}; מזיזים את הסמן בצעדים של ${withUnit(m.top.step, m.top.unit)}]`;
     }
     case 'simulate': return simManip.plain(m, it.answer);
+    case 'chart': return chartManip.plain(m);
     default: return '';
   }
 }
@@ -635,6 +675,7 @@ export function manipSolution(it) {
       return { den, shaded: Math.round(a.value * den) };
     }
     case 'simulate': return simManip.solution(m, a);
+    case 'chart': return [...a.values];
     default: return a;
   }
 }
@@ -671,6 +712,8 @@ export function manipWrong(it) {
     }
     // a run not yet made (and, in the estimate mode, another choice)
     case 'simulate': return simManip.wrong(m, a);
+    // the first category that may move, one step (or one slice) off
+    case 'chart': return chartManip.wrong(m, a);
     default: return null;
   }
 }

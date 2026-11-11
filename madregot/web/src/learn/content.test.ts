@@ -87,6 +87,7 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       if (s.manip.kind === 'fbar') checkFbar(s.manip as any, s.answer as any, at);
       if (s.manip.kind === 'dline') checkDline(s.manip as any, s.answer as number, at);
       if (s.manip.kind === 'simulate') checkSimulate(s.manip as any, s.answer as any, at);
+      if (s.manip.kind === 'chart') checkChart(s.manip as any, s.answer as any, at);
       // a point goal must be on the drawn grid: the tool clamps every move to it, so a goal off the grid can never be reached
       if (s.manip.kind === 'plot') {
         const r = ((s.manip as { range?: number }).range) || 6;
@@ -123,6 +124,28 @@ function checkSimulate(m: { device: string; sectors?: { parts: number }[]; bag?:
   const w = simWatch(m);
   expect(w >= 0 && w < outs.length, `${at}: the watched outcome ${m.watch} is not one of the device's`).toBe(true);
   if (m.device === 'spinner') expect([10, 12], `${at}: a wheel is cut into 12 or 10 parts`).toContain(m.sectors!.reduce((t, x) => t + x.parts, 0));
+}
+
+/**
+ * A chart the student builds (DATA-2.2): 2 to 5 categories; a bar goal and start are multiples of the step within 0..max;
+ * a pie's are whole numbers of slices whose sum is at most the parts (10, 12 or 20); a locked category's goal is its
+ * start (it cannot move).
+ */
+function checkChart(m: { mode: string; cats: string[]; start: number[]; lock?: number[]; bar?: { max: number; step: number; every?: number }; pie?: { parts: number } }, a: { values: number[] }, at: string) {
+  expect(['bar', 'pie'], at).toContain(m.mode);
+  expect(m.cats.length >= 2 && m.cats.length <= 5, `${at}: ${m.cats.length} categories`).toBe(true);
+  for (const vs of [m.start, a.values]) {
+    expect(vs.length, `${at}: one value a category`).toBe(m.cats.length);
+    if (m.mode === 'bar') {
+      const { max, step } = m.bar!;
+      vs.forEach((v) => expect(v >= 0 && v <= max + 1e-9 && onParts(v / step, 1), `${at}: ${v} is not a multiple of ${step} within ${max}`).toBe(true));
+    } else {
+      expect([10, 12, 20], `${at}: a pie of ${m.pie?.parts} parts`).toContain(m.pie?.parts);
+      vs.forEach((v) => expect(Number.isInteger(v) && v >= 0, `${at}: ${v} slices`).toBe(true));
+      expect(vs.reduce((t, v) => t + v, 0), `${at}: more slices than the pie has`).toBeLessThanOrEqual(m.pie!.parts);
+    }
+  }
+  (m.lock || []).forEach((i) => expect(a.values[i], `${at}: the locked ${m.cats[i]} cannot reach its goal`).toBe(m.start[i]));
 }
 
 /** A value is a whole number of parts of size 1/den. */
@@ -606,6 +629,20 @@ describe('the algebra checks catch what they are for', () => {
     bad(explore({ kind: 'simulate', device: 'spinner', sectors, watch: 0, hidden: true }, { mode: 'estimate', choices: ['\\frac{1}{4}', '\\frac{1}{2}', '\\frac{3}{4}'], answer: 0 })); // practice only
     bad(explore({ kind: 'simulate', device: 'die', watch: 7 }, { mode: 'trials', atLeast: 100 })); // no face 7
     bad(explore({ kind: 'simulate', device: 'spinner', sectors: [{ label: 'אדום', parts: 3 }, { label: 'כחול', parts: 5 }], watch: 0 }, { mode: 'trials', atLeast: 100 })); // 8 parts
+  });
+  it('a chart to build: bars on the axis\'s steps, a pie within its parts, a locked category already there (DATA-2.2)', () => {
+    const cats = ['כדורגל', 'כדורסל', 'שחייה'];
+    const bar = { max: 14, step: 2 };
+    ok(explore({ kind: 'chart', mode: 'bar', cats, start: [0, 0, 0], bar }, { values: [12, 8, 6] }));
+    ok(explore({ kind: 'chart', mode: 'bar', cats, start: [12, 0, 0], lock: [0], bar }, { values: [12, 8, 6] }));
+    ok(explore({ kind: 'chart', mode: 'pie', cats, start: [0, 0, 0], pie: { parts: 12 } }, { values: [6, 3, 2] }));
+    bad(explore({ kind: 'chart', mode: 'bar', cats, start: [0, 0, 0], bar }, { values: [12, 7, 6] })); // 7 is not on a step of 2
+    bad(explore({ kind: 'chart', mode: 'bar', cats, start: [0, 0, 0], bar }, { values: [16, 8, 6] })); // past the top
+    bad(explore({ kind: 'chart', mode: 'bar', cats, start: [0, 0, 0], lock: [0], bar }, { values: [12, 8, 6] })); // locked at 0
+    bad(explore({ kind: 'chart', mode: 'bar', cats, start: [12, 8, 6], bar }, { values: [12, 8, 6] })); // starts on the goal
+    bad(explore({ kind: 'chart', mode: 'pie', cats, start: [0, 0, 0], pie: { parts: 12 } }, { values: [6, 4, 3] })); // 13 of 12
+    bad(explore({ kind: 'chart', mode: 'pie', cats, start: [0, 0, 0], pie: { parts: 8 } }, { values: [4, 2, 2] })); // 8 parts
+    bad(explore({ kind: 'chart', mode: 'pie', cats: ['א'], start: [0], pie: { parts: 10 } }, { values: [4] })); // one category
   });
   it('two lines: the goal is their meeting point', () => {
     ok(explore({ kind: 'plot', lines: [{ m: 2, b: -1 }, { m: -1.5, b: 6 }] }, [2, 3]));

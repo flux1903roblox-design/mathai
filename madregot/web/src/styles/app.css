@@ -2314,6 +2314,33 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .mp-sim-face.tumble, .mp-sim-coin.flip { animation: none; }
 }
 
+/* building a chart (DATA-2.2): bars on the still figure's axis (figure.css draws them), or a pie of equal slices with
+   its category chips under it; the selected category is tinted behind its bar, or outlined on the pie's rim */
+.manip-chart { gap: 6px; }
+.manip-readout.mp-chart-read { min-height: 34px; font-size: 20px; }
+.manip-chart-pie .manip-readout.mp-chart-read { flex-direction: column; justify-content: flex-start; gap: 0; }
+.mp-chart-line { font-size: 15px; line-height: 20px; font-weight: 700; }
+.mp-chart-nowrap { white-space: nowrap; }
+.mp-chart-line.sub { font-family: var(--font-ui); font-size: var(--t-sm); line-height: 20px; font-weight: 600; color: var(--ink-2); }
+.manip-canvas.mp-chart-pie { width: auto; max-width: 224px; aspect-ratio: 1 / 1; min-height: 120px; margin-inline: auto; }
+.mp-chart-selbg { fill: color-mix(in srgb, var(--c, var(--brand)) 13%, transparent); }
+.mp-chart-slot { outline: none; }
+.mp-chart-focus { fill: none; stroke: none; }
+.mp-chart-slot:focus-visible .mp-chart-focus { stroke: var(--brand); stroke-width: 3; }
+.mp-chart-grey { fill: var(--track); }
+.mp-chart-cut { stroke: var(--paper); stroke-width: 1.5; }
+.mp-chart-cut.grey { stroke: var(--track-edge); }
+.mp-chart-arc { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
+.mp-chart-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; }
+.mp-chart-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: 999px; border: 2px solid var(--rule-strong);
+  background: var(--paper); color: var(--ink); font-size: var(--t-sm); font-weight: 600; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.mp-chart-chip.on { border-color: var(--brand); background: var(--brand-tint); }
+.mp-chart-chip.fixed { border-style: dashed; }
+.mp-chart-chip:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.mp-chart-chip b { font-family: var(--font-display); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mp-chart-swatch { flex: none; width: 14px; height: 14px; }
+.mp-chart-chip-goal { font-size: var(--t-xs); font-weight: 700; color: var(--good-ink); }
+
 /* the still figures: a number line, bars, a cut rectangle, the double line, dots in rows */
 .figure.fg-numline { max-width: 340px; }
 .fg-nl-axis { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }

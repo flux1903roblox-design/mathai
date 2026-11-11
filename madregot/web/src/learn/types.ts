@@ -27,9 +27,11 @@ export type Rng = () => number;
  * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`.
  * Data and probability (curriculum stage 3, DATA-2): 'simulate' (a random experiment repeated { device: 'spinner' | 'die'
  * | 'coin' | 'bag' | 'dice2', sectors?, bag?, watch, seed?, truth?, hidden?, guided? }; the value is the run { n, counts,
- * batches, hist, pick? }; the answer is { mode: 'trials', atLeast } or { mode: 'estimate', choices, answer }).
+ * batches, hist, pick? }; the answer is { mode: 'trials', atLeast } or { mode: 'estimate', choices, answer }) and 'chart'
+ * (a bar chart or a pie the student builds { mode: 'bar' | 'pie', cats, start, lock?, tones?, bar: { max, step, every?,
+ * unit? }, pie: { parts: 10 | 12 | 20 } }; the value is number[]; the answer is { values }).
  */
-export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'simulate';
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'simulate' | 'chart';
 export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 
 // ------------------------------------------------------------------ Stage A: discover and understand
