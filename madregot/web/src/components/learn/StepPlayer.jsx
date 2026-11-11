@@ -162,9 +162,10 @@ function Rule({ step }) {
  * steps: DiscoverStep[]; start: the step to open on; onIndex(i): where the student is (saved, so leaving keeps it);
  * onDone(): after the last step. label: what this run is (for the progress). renderHead(bar): the screen's header
  * row with this run's progress bar in it (without it, the bar stands on its own). title/kicker: the lesson's name,
- * shown on its first screen.
+ * shown on its first screen and kept as every later step's heading for a screen reader; quietTitle: the screen before
+ * already showed it, so no step shows it again (a repair's activity after its explanation).
  */
-export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 'שלב', doneLabel = 'סיימתי', renderHead, title, kicker }) {
+export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 'שלב', doneLabel = 'סיימתי', renderHead, title, kicker, quietTitle = false }) {
   const [i, setI] = useState(Math.min(start, steps.length - 1));
   const [answers, setAnswers] = useState({}); // step index → chosen (predict) or true (explore done)
   const [sel, setSel] = useState({}); // predict: the card picked, before it is checked
@@ -235,7 +236,11 @@ export default function StepPlayer({ steps, start = 0, onIndex, onDone, label = 
       <AnimatePresence mode="wait" initial={false}>
         <m.section key={i} ref={ref} tabIndex={-1} className={clsx('sp-step', 'lm-card', `sp-${step.kind}`)} aria-label={`צעד ${i + 1} מתוך ${steps.length}`} data-region="content"
           initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 24 }} transition={enter(0.22)}>
-          {i === 0 && title && <div className="bl-intro"><h1 className="bl-title">{title}</h1>{kicker && <p className="bl-kicker">{kicker}</p>}</div>}
+          {/* the stage's name is the screen's heading on every step: shown on the first (unless the screen before showed
+              it, quietTitle), read by a screen reader on the others (PKG-1) */}
+          {title && (i === 0 && !quietTitle
+            ? <div className="bl-intro"><h1 className="bl-title">{title}</h1>{kicker && <p className="bl-kicker">{kicker}</p>}</div>
+            : <h1 className="visually-hidden">{title}</h1>)}
           {step.kind === 'say' && <Say step={step} />}
           {step.kind === 'predict' && <Predict step={step} chosen={answers[i]} sel={sel[i]} onSelect={(c) => setSel((x) => ({ ...x, [i]: c }))} />}
           {step.kind === 'explore' && <Explore step={step} done={!!answers[i]} onDone={() => setAnswers((a) => ({ ...a, [i]: true }))} onCtl={setCtl} />}

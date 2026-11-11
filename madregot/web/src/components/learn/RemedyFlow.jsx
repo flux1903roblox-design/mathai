@@ -26,7 +26,7 @@ export default function RemedyFlow({ content, misc, onDone, compact = false, don
           )}
         </>
       ) : (
-        <StepPlayer steps={def.remedy} label="התיקון" doneLabel={doneLabel} onDone={() => onDone?.()} renderHead={renderHead} />
+        <StepPlayer steps={def.remedy} label="התיקון" doneLabel={doneLabel} onDone={() => onDone?.()} renderHead={renderHead} title={title} quietTitle />
       )}
     </div>
   );

@@ -25,6 +25,7 @@
   /* brand and meaning */
   --brand: #1a5cf5;     --brand-d: #1246c4;   --brand-tint: #eaf1ff;  --brand-lip: #1246c4; --on-brand: #ffffff;
   --brand-line: #a9c3ff; /* borders of selected and brand-tinted things */
+  --bar-fill: #a9c3ff;   /* the brand part of a progress bar with its count written over it in --ink (PKG-1: 4.5:1) */
   --brand-ink: #1a5cf5;  /* the brand blue as text or an icon on the page or a card (lighter in dark) */
   --p-50: #f5f8ff;      --p-400: #5b8cff;     --p-600: #1651db; /* three steps of the v4 brand scale still in use (v4.css) */
   --glow: #1a5cf5;      --glow-ink: #1246c4;  --on-glow: #ffffff;

@@ -70,7 +70,7 @@ function Setup({ onSave }) {
       </header>
       <main className="ob-main" data-region="content">
         <div className="ob-ask" data-region="question">
-          <p className="ob-bubble" id="rs-q">{ASK[step]}</p>
+          <h1 className="ob-bubble" id="rs-q">{ASK[step]}</h1>
         </div>
         {step === 0 && (
           <>

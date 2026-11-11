@@ -258,7 +258,7 @@ function Onboarding({ onTeacher, onRestore, next = null }) {
       </header>
       <main className="ob-main" data-region="content">
         <div className="ob-ask" data-region="question">
-          <p className="ob-bubble" id="ob-q">{ask}</p>
+          <h1 className="ob-bubble" id="ob-q">{ask}</h1>
         </div>
 
         {step === 'name' && (

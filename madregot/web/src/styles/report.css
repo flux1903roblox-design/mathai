@@ -144,7 +144,7 @@
 .weeks-when { color: var(--ink-2); white-space: nowrap; }
 .weeks-min { color: var(--ink); font-weight: 600; text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .weeks-row .qbar { height: 24px; }
-.weeks-row .qbar > i { background: var(--brand-line); }
+.weeks-row .qbar > i { background: var(--bar-fill); }
 .weeks-row .qbar-text { line-height: 24px; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .weeks-row .qbar > i { transition: none; } }
 

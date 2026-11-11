@@ -182,7 +182,7 @@ a { color: var(--brand-d); }
 .section-card-guide, .section-card-jump { color: var(--brand-d); }
 .btn-on-color { --btn-bg: var(--brand); --btn-ink: var(--on-brand); --btn-line: var(--brand); --btn-lip: var(--brand-lip); background: var(--brand); color: var(--on-brand); }
 .qbar-light { background: var(--track); }
-.qbar-light > i { background: var(--brand); }
+.qbar-light > i { background: var(--bar-fill); } /* the count is written over it in --ink (PKG-1, axe color-contrast) */
 .qbar-light .qbar-text { color: var(--ink); }
 
 /* segmented choices (grade, settings) */
@@ -314,6 +314,7 @@ a { color: var(--brand-d); }
 .ob-ask { display: block; }
 .ob-bubble, .lesson .q-bubble { position: static; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; max-width: none;
   font-family: var(--font-ui); font-size: 22px; line-height: 30px; font-weight: 800; color: var(--ink); }
+.ob-bubble { letter-spacing: 0; } /* a question is the screen's h1 (PKG-1); it keeps the spacing it had as a paragraph */
 .ob-bubble::before, .ob-bubble::after, .lesson .q-bubble::before, .lesson .q-bubble::after { content: none; display: none; }
 .lesson .q-bubble { font-size: 20px; line-height: 28px; font-weight: 700; }
 @media (max-height: 640px) { .ob-bubble { font-size: 19px; line-height: 26px; } .lesson .q-bubble { font-size: 17px; line-height: 24px; } }
