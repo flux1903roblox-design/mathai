@@ -1,0 +1,14 @@
+/* Me.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only Me.jsx uses these classes. */
+.profile-top { position: relative; display: grid; place-items: center; height: 180px; margin: calc(-1 * var(--s2)) calc(-1 * var(--gutter)) 0; background: var(--p-100); border-bottom: 2px solid var(--line); }
+.profile-gear { position: absolute; top: var(--s2); inset-inline-end: var(--s2); background: var(--surface); border-radius: 12px; }
+.profile-id { display: flex; flex-direction: column; gap: 2px; }
+.profile-name { margin: 0; font-family: var(--font-display); font-size: 26px; line-height: 32px; }
+.profile-sub { margin: 0; color: var(--ink-2); }
+.profile-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+.profile-top { background: var(--brand-tint); border: 0; }
+.profile-name { font-family: var(--font-ui); font-size: 28px; line-height: 34px; font-weight: 800; }
+.profile-sub { color: var(--ink-2); font-size: 17px; }
+.profile-top { height: 140px; background: var(--brand-tint); }
+.profile-top { height: auto; background: none; border: 0; padding: var(--s4) 0 0; margin-bottom: 0; }
+.profile-madi-btn { align-self: flex-start; margin-top: var(--s3); }

@@ -22,7 +22,7 @@ async function fakeServer(page) {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
     const path = new URL(req.url()).pathname;
-    log.push({ path, headers: req.headers() });
+    log.push({ path, headers: req.headers(), body: req.postData() });
     const reply = (status, data) => route.fulfill({ status, contentType: 'application/json', headers: CORS, body: JSON.stringify(data) });
     if (path === '/api/ai/status') return reply(200, FREE);
     if (path === '/api/ai/chat') return reply(429, { error: 'daily_limit', tier: 'free', group: 'tutor', limit: 2, left: 0 });
@@ -81,12 +81,22 @@ async function useUpTheTutor(page) {
   return sheet;
 }
 
+/** The reach counts the page sent (STUDENT-14 beacons to /api/metrics), by name. */
+const beacons = (log) => log.filter((r) => r.path === '/api/metrics').map((r) => r.body);
+
 test('the Play Store app: a limit sheet, Settings and the parents\' pages with nothing to buy', async ({ page }) => {
-  await fakeServer(page);
+  const log = await fakeServer(page);
   await standalone(page);
   await open(page, '#/?src=play', withServer());
   await expect(page.locator('.unit').first()).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('madregot-src'))).toBe('play');
+  // the open is counted once a day (STUDENT-14): a reload the same day sends nothing more
+  await expect.poll(() => beacons(log)).toEqual(['store_open_play']);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('madregot')).state.nudges.storeOpenDay)).toBe('2026-11-05');
+  await page.reload();
+  await expect(page.locator('.unit').first()).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(beacons(log)).toEqual(['store_open_play']);
 
   const sheet = await useUpTheTutor(page);
   await expect(sheet).toContainText('סיימתם את השאלות לעוזר החכם להיום. מחר יש עוד. השיעורים, התרגול ומדי פתוחים תמיד.');
@@ -134,7 +144,7 @@ test('the Play Store app\'s first screen has no way to the parents\' or the canc
 });
 
 test('the website (no ?src=play), and ?src=play in an ordinary tab, keep the parents\' rows', async ({ page }) => {
-  await fakeServer(page);
+  const log = await fakeServer(page);
   await open(page, '#/', withServer());
   const sheet = await useUpTheTutor(page);
   await expect(sheet.getByRole('button', { name: 'מידע להורים' })).toBeVisible();
@@ -150,4 +160,6 @@ test('the website (no ?src=play), and ?src=play in an ordinary tab, keep the par
   expect(await page.evaluate(() => localStorage.getItem('madregot-src'))).toBe('play');
   await page.goto('./#/settings');
   await expect(page.getByRole('link', { name: 'ביטול מנוי' })).toBeVisible();
+  // and the website counts no store-app open
+  expect(beacons(log).filter((b) => /^store_open/.test(b))).toEqual([]);
 });

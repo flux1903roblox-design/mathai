@@ -19,6 +19,7 @@ import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import ParentsFrame, { NoServerNote } from './ParentsFrame.jsx';
+import '@/styles/lazy/parents.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const RUNNING = ['active', 'past_due', 'canceled'];
 const HERE_KEY = `${STORE_KEY}-here`;

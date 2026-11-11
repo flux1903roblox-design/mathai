@@ -10,6 +10,7 @@ import { Button, ChapterMark } from '@/components/ui.jsx';
 import { MathText, Tex } from '@/components/MathText.jsx';
 import Figure from '@/components/Figure.jsx';
 import { ScreenBar, ScreenFoot, EmptyState, Flow } from '@/components/Screen.jsx';
+import '@/styles/lazy/practiceExam.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 /** Pick topics and a length; the exam is drawn from the generators with an exact answer key. */
 export function NewPracticeExam() {

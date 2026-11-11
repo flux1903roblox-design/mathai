@@ -1,8 +1,18 @@
 {
-  "notes": "STUDENT-15's load budget, checked by scripts/check-budget.mjs after every npm run build. studentBootBaselineKB is the first-load JavaScript, gzipped (zlib's default level), of a vite build --manifest of 5618298, the commit the student lane started from, measured by the same script. lazyOnly modules must never be in the first load. chunkMaxKB holds every chunk loaded on demand; the entry chunk is DURABLE-11's to split (the teaching content per topic), and its own budget.json replaces this file's notes when that lane merges.",
+  "notes": "STUDENT-15's load budget, checked by scripts/check-budget.mjs after every npm run build. studentBootBaselineKB is the first-load JavaScript, gzipped (zlib's default level), of a vite build --manifest of 5618298, the commit the student lane started from, measured by the same script. studentCssBaselineKB is the first-load CSS (the stylesheets of the entry and its static imports, KaTeX's included), gzipped the same way on the same build of 5618298; studentCssDeltaKB 0 holds this lane's CSS to no net growth (STUDENT-15). lazyOnly modules must never be in the first load. chunkMaxKB holds every chunk loaded on demand; the entry chunk is DURABLE-11's to split (the teaching content per topic), and its own budget.json replaces this file's notes when that lane merges.",
   "studentBootBaselineCommit": "5618298",
   "studentBootBaselineKB": 624.3,
   "studentBootDeltaKB": 6,
+  "studentCssBaselineKB": 48.1,
+  "studentCssDeltaKB": 0,
   "chunkMaxKB": 150,
-  "lazyOnly": ["Wardrobe", "RecapSheet", "Accessories", "push", "canvas-confetti", "recharts", "cmdk"]
+  "lazyOnly": [
+    "Wardrobe",
+    "RecapSheet",
+    "Accessories",
+    "push",
+    "canvas-confetti",
+    "recharts",
+    "cmdk"
+  ]
 }

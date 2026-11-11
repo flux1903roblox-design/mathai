@@ -1,0 +1,5 @@
+/* Achievements.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only Achievements.jsx uses these classes. */
+.h-icon { color: var(--gold); flex: none; }
+.h-count { margin-inline-start: auto; font-family: var(--font-ui); font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
+.medal-progress { font-size: var(--t-xs); font-weight: 700; color: var(--ink-2); }

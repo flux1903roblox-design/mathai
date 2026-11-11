@@ -15,6 +15,7 @@ import { GradeSwitch } from './Welcome.jsx';
 import { useAIStatus } from '@/lib/account.js';
 import LicenceCard from '@/components/teacher/LicenceCard.jsx';
 import ClassGoalSettings from '@/components/teacher/ClassGoalSettings.jsx';
+import '@/styles/lazy/teacher.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const fmtDay = (iso) => {
   if (!iso) return 'אף פעם';

@@ -10,8 +10,14 @@ with the app's own tokens). The phone pictures inside the pages are the real no-
 |---|---|
 | `mivchan-390-light.png`, `mivchan-390-dark.png` | Parents: "מבחן במתמטיקה ביום חמישי?", the sentence and the button "לבנות תוכנית חזרה, חינם" in the first screen, then the plan in a phone, איך זה עובד (3 steps), the topics per grade (from `topicsFor`), what is free and what the family plan costs (₪29.90 / ₪249, VAT included, from the Worker's prices), privacy, four questions, the button again with מדי, and the footer (business, e-mail, terms, privacy, accessibility). |
 | `mivchan-1440-light.png`, `mivchan-1440-dark.png` | The same on a desktop: the hero in two columns, the steps in three. |
-| `pilot-390-light.png`, `pilot-390-dark.png` | Schools: "פיילוט של שבועיים בכיתה אחת. חינם.", "לפתוח כיתה", the teacher's board in a phone, what a class gets, privacy, the catalogue status, what the pilot measures, the message for parents to copy, the contact, and the footer. No price anywhere. |
+| `pilot-390-light.png`, `pilot-390-dark.png` | Schools: "פיילוט של שבועיים בכיתה אחת. חינם.", "לפתוח כיתה", the teacher's board in a phone, what a class gets (only what this build has: the "מה לחזור מחר" board, the class goal, code grading), privacy (removing a student deletes what the server kept), the catalogue status, the message for parents to copy, the contact, and the footer. No price anywhere. |
 | `pilot-1440-light.png`, `pilot-1440-dark.png` | The same on a desktop. |
+| `after-merge-pilot-390-*.png`, `after-merge-mivchan-390-*.png` | The same templates built with the other lanes' code present (the stand-in of `web/src/lib/testing/claimCode.js`): the demo-class button, assignments with a due date, the class report, the pilot kit, the school AI rule, what the pilot measures, deleting a class; on `/mivchan/` the weekly summary, the tutor that knows the mistake, and "למה לא פשוט צ׳אטבוט חינמי?". Nothing on these is typed into a page: each line is a claim of `web/src/content/claims.js` whose check found the code (STUDENT-17). |
+
+Every sentence about a feature is a checked claim (STUDENT-17). `node scripts/landing-build.mjs <dist>` prints which it
+showed and which it hid; on this branch it hides `teachers-assign, assign-due, class-report, pilot-kit, principal-form,
+class-delete, pilot-report, weekly-share, demo-class, school-ai-off, tutor-knows, coverage, chatbot, report-answer,
+parent-ok`, each with the lane it waits for.
 
 Checked by tests:
 

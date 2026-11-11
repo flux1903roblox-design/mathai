@@ -22,6 +22,7 @@ import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { Emblem } from '@/components/map/Scenery.jsx';
+import '@/styles/lazy/journey.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const STAGES = [
   { id: 'A', title: 'מבינים את הרעיון', icon: Lightbulb },

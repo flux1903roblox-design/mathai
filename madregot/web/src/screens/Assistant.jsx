@@ -13,6 +13,7 @@ import AIChat from '@/components/AIChat.jsx';
 import { Box, Button, Field, Sheet, Thinking } from '@/components/ui.jsx';
 import { Markdown } from '@/components/MathText.jsx';
 import OfflineChip from '@/components/durable/OfflineChip.jsx';
+import '@/styles/lazy/assistant.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 /** A result that appears below the fold scrolls up into view, clear of the tab bar. */
 function useReveal(dep) {

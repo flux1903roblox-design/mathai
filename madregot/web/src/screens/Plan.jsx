@@ -13,6 +13,7 @@ import { NeedSlots } from '@/components/ui.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { Markdown } from '@/components/MathText.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
+import '@/styles/lazy/plan.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const KIND_ICON = { practice: PencilRuler, exam: FileText, habit: Flame };
 const GO = { practice: 'לתרגל עכשיו', exam: 'הכנת מבחן תרגול', habit: 'לתרגול היומי' };

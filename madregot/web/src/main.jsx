@@ -14,7 +14,8 @@ import './styles/dark.css'; // last: the dark values of the tokens (STUDENT-2)
 import { toast } from 'sonner';
 import App from './App.jsx';
 import { registerSW } from './lib/swClient.js';
-import { initInstall, INSTALLED_TEXT } from './lib/install.js';
+import { initInstall, countStoreOpen, INSTALLED_TEXT } from './lib/install.js';
+import { useApp, today } from './lib/store.js';
 import { remindOnOpen } from './lib/reminder.js';
 
 // Test hook: with localStorage 'madregot-seed' set, exercises come out the same on every run (visual tests).
@@ -28,6 +29,8 @@ try {
 
 // the install offer (STUDENT-10): keep the browser's prompt for the app's own moment; after an install, say where it is
 initInstall(window, { onInstalled: () => toast.success(INSTALLED_TEXT) });
+// a store app's open, once a day a device (STUDENT-14): after initInstall, which notes a Play Store launch (?src=play)
+countStoreOpen(window, { day: today(), last: useApp.getState().nudges?.storeOpenDay, mark: (day) => useApp.getState().setNudge({ storeOpenDay: day }) });
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -35,7 +35,10 @@
     <div class="hero-text">
       <h1 id="h-hero">פיילוט של שבועיים בכיתה אחת. חינם.</h1>
       <p class="sub">לכיתות ז׳ וח׳. התלמידים מתרגלים בבית, בטלפון או במחשב, ואתם רואים כל בוקר מה כדאי לחזור עליו היום.</p>
-      <a class="btn" href="../#/?start=teacher&amp;src=pilot" data-cta>לפתוח כיתה</a>
+      <div class="ctas">
+        <a class="btn" href="../#/?start=teacher&amp;src=pilot" data-cta>לפתוח כיתה</a>
+        {{#CLAIM demo-class}}<a class="btn btn-2" href="../#/?start=demo&amp;src=pilot" data-cta>{{CLAIM demo-class}}</a>{{/CLAIM}}
+      </div>
     </div>
     <div class="shot"><img {{IMG phone-teacher.webp}} alt="לוח המורה בטלפון: כמה תלמידים תרגלו היום והשבוע, וטעויות שחוזרות בכיתה." fetchpriority="high" decoding="async"></div>
   </section>
@@ -43,28 +46,31 @@
   <section class="wrap" aria-labelledby="h-get">
     <h2 id="h-get">מה מקבלים</h2>
     <ul class="ticks">
-      <li>לוח "מה לחזור מחר" לפי הטעויות של הכיתה.</li>
-      <li>משימות לכיתה עם תאריך יעד.</li>
-      <li>דוח כיתה להדפסה ולייצוא.</li>
-      <li>מדריך למורה, מכתב להורים ואישור מנהל, מוכנים להדפסה.</li>
+      {{CLAIMS tomorrow-board class-goal assign-due class-report pilot-kit graded-by-code}}
     </ul>
   </section>
 
+  {{#CLAIM school-ai-off}}<section class="wrap" aria-labelledby="h-ai">
+    <h2 id="h-ai">העוזר החכם</h2>
+    <p>{{CLAIM school-ai-off}}</p>
+  </section>
+
+  {{/CLAIM}}
   <section class="wrap" aria-labelledby="h-privacy">
     <h2 id="h-privacy">פרטיות</h2>
-    <p>התלמידים נכנסים עם קוד כיתה ושם פרטי. לא מבקשים תעודת זהות, מייל או טלפון. אפשר למחוק את הכיתה בכל רגע.</p>
+    <p>התלמידים נכנסים עם קוד כיתה ושם פרטי. לא מבקשים תעודת זהות, מייל או טלפון. {{CLAIM student-remove}} {{CLAIM class-delete}} {{CLAIM no-ads}}</p>
   </section>
 
   <section class="wrap" aria-labelledby="h-ok">
     <h2 id="h-ok">אישור</h2>
-    <p>{{APP_NAME}} עוד לא אושרה בקטלוג החינוכי של משרד החינוך. עד אז, שימוש בכיתה הוא החלטה של מנהל בית הספר, ובערכה יש טופס מוכן לכך.</p>
+    <p>{{APP_NAME}} עוד לא אושרה בקטלוג החינוכי של משרד החינוך. עד אז, שימוש בכיתה הוא החלטה של מנהל בית הספר. {{CLAIM principal-form}}</p>
   </section>
 
-  <section class="wrap" aria-labelledby="h-measure">
+  {{#CLAIM pilot-report}}<section class="wrap" aria-labelledby="h-measure">
     <h2 id="h-measure">מה בודקים בפיילוט</h2>
-    <p>כמה תלמידים מתרגלים בכל שבוע, כמה חוזרים, ואילו טעויות פחתו. בסוף מקבלים דוח.</p>
+    <p>{{CLAIM pilot-report}}</p>
   </section>
-
+{{/CLAIM}}
   <section class="wrap" aria-labelledby="h-wa">
     <h2 id="h-wa">הודעה מוכנה להורים</h2>
     <p class="hint">אפשר להעתיק אותה לקבוצת הווטסאפ של הכיתה.</p>

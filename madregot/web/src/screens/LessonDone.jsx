@@ -100,7 +100,7 @@ function useWeekBest(passed) {
 
 /**
  * Whether the daily reminder's card comes last (STUDENT-11): the quick rules first (lib/reminder.js), then the server's
- * answer (lib/push.js pushState, loaded only then). settle() fixes the answer once the student moves on, so the screens
+ * answer (lib/push.js reminderState, loaded only then; in the iPhone app, the phone's permission). settle() fixes the answer once the student moves on, so the screens
  * never change under them.
  */
 function useReminderOffer(may) {
@@ -109,7 +109,7 @@ function useReminderOffer(may) {
   useEffect(() => {
     if (!may || !reminderDue(useApp.getState())) return undefined;
     let live = true;
-    import('@/lib/push.js').then((mod) => mod.pushState()).then((s) => { if (live && !settled.current && s === 'ready') setDue(true); }).catch(() => {});
+    import('@/lib/push.js').then((mod) => mod.reminderState()).then((s) => { if (live && !settled.current && s === 'ready') setDue(true); }).catch(() => {});
     return () => { live = false; };
   }, [may]);
   return { due, settle: () => { settled.current = true; } };

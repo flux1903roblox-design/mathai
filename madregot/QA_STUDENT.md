@@ -204,7 +204,8 @@ Nothing here can be done from code. Each step's code side is done and tested, an
 | 3 | Turn the daily reminder on | `npm run push:keys`, then `npx wrangler secret put VAPID_PRIVATE_JWK`, then `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT` and `PUSH = "on"` in `wrangler.toml`, and deploy (on Workers Paid, also `PUSH_BATCH = "400"`) | `README.md`, "התזכורת היומית" |
 | 4 | Check the manifest's type on GitHub Pages | `curl -sI <pages-url>/manifest.webmanifest` once after the next publish | commit `ffe07e5` |
 | 5 | Play Store | Account (personal: closed test, 12 adult testers for 14 days; or organisation with D-U-N-S), then `store/android/make.sh`, upload, asset links, Data safety, Israel only, paste the listing | `store/README.md` step 2, `store/android/README.md` |
-| 6 | App Store | Enrol, then build the Capacitor shell on a Mac (not built yet, see section 7), then App Privacy, Israel only, paste the listing | `store/README.md` step 3 |
+| 6 | App Store | Enrol, then on a Mac run `IOS_BUNDLE_ID=… PUBLIC_URL=… bash madregot/store/ios/make.sh`, archive in Xcode, App Privacy, Israel only, paste the listing | `store/README.md` step 3, `store/ios/README.md` |
+| 6a | Positioning | Read `docs/POSITIONING.md`, confirm the first market (teacher-led classes), add the direct link of the Vimi article, and re-check each rival's source before quoting it | `docs/POSITIONING.md` |
 | 7 | Submission day | Re-read Apple 3.1.1, 3.1.3 and 5.1.2 and Play's Payments and AI-Generated Content policies | `store/README.md` step 4 |
 | 8 | Lawyer | Review `store/privacy-answers.md` (DRAFT) and the privacy texts | `store/privacy-answers.md` |
 | 9 | The real-device check | Section 4 of this file, about 20 minutes | above |
@@ -217,20 +218,42 @@ Nothing here can be done from code. Each step's code side is done and tested, an
 
 This branch (`lane-student`) started from `5618298`. Each item below is left out on purpose, never half built.
 
+**Fixed in the review round (11 Nov 2026)**
+- **Landing pages and listing say only what the code backs** (STUDENT-17, `web/src/content/claims.js`). Every sentence
+  about a feature is a claim with a check that reads the code; the build prints the claims it showed and hid, and stops
+  if one of the app's own claims (diagnosis, code grading, the teacher's board, Exam Rescue…) no longer holds. On this
+  branch `/pilot/` no longer promises assignments with a due date, a printable class report, the pilot kit, deleting a
+  class, the pilot report or the demo class, and `/mivchan/` no longer promises the weekly summary; each comes back by
+  itself once its lane merges (its check names that lane's code). The store listing's teachers' line and the review
+  notes (report an AI answer, the parent's OK) follow the same claims. `docs/POSITIONING.md` is the internal position.
+- **The iPhone app's reminders are local notifications** (`web/src/lib/localReminder.js`): `pushState()` answers
+  `store-ios` first in the `VITE_STORE=ios` build, so Settings never shows the Home Screen sentence there. Haptics play
+  through Capacitor (`lib/native.js`). The Capacitor project is `store/ios/` (`make.sh`, pinned packages, privacy
+  manifest); only the Mac and the account are the owner's.
+- **Class-goal steps cannot be backdated**: a step counts on the day it is synced or the two days before, never in a
+  week that has ended, and one student adds at most 60 points a week (on top of 30 a day). A phone offline for longer
+  than that loses those steps for the class goal only (its own progress is untouched).
+- **Store-app opens are counted** (`store_open_play`, `store_open_ios`), once a day a device.
+- **First-load CSS is gated** (`studentCssDeltaKB: 0` in `web/budget.json`): 47.3 KB gzipped against 48.1 KB at
+  `5618298`. Eighteen screens' own rules moved into `web/src/styles/lazy/`, loaded with each screen; a computed-style
+  comparison of 15 screens in light and dark showed no difference.
+
 **Features that wait for another lane**
-- **STUDENT-6, the Sunday recap.** It needs PARENTS-1 (`learn/report.ts`, `weekLocal`) and PARENTS-2 (`ShareSheet`),
-  which are on the family lane. The week's Sunday recap test is a `test.skip` with this reason, and the
-  `recap_open` count has no caller yet.
-- **STUDENT-17** (added by coverage: `docs/POSITIONING.md`, `content/claims.js`, the claims on the landing pages and in
-  the listing). It is not in this lane's build stages, so it is not on this branch.
-- **The iPhone install guide** (DURABLE-3's InstallSheet) is not on this branch. On iPhone, the install offer
-  (STUDENT-10) shows nothing, and the reminder in Settings shows only the Home Screen sentence.
+- **STUDENT-6, the Sunday recap.** It takes its numbers from PARENTS-1's `weekLocal` (`learn/report.ts`) so the child
+  never sees two counts for one week, and shares through PARENTS-2's `ShareSheet`. Both are on the family lane (merged
+  into the main branch at `a93644b`), not on this branch, and building the recap on its own copy of the week's
+  arithmetic is what the spec forbids. Build it on the main branch right after this lane merges: `RecapCard` on Learn
+  (Sunday to Tuesday, a non-empty last week, `nudges.recapWeek`), a lazy `RecapSheet`, `look.earnedAt` in
+  `markEarned`, and the `recap_open` count. The week's Sunday recap test is a `test.skip` with this reason.
+- **The iPhone install guide** (DURABLE-3's InstallSheet) is on the family lane. In iPhone Safari (not the App Store
+  app) the install offer (STUDENT-10) shows nothing, and the reminder in Settings shows only the Home Screen sentence.
 - **TEACHER-9's class settings page.** The teacher's "מטרת כיתה שבועית" block sits in its allowed temporary home, the
   "תלמידים" view of `Teacher.jsx`, until TEACHER-9 moves it. That page's class deletion must also delete `class_steps`
   and `class_goal_weeks`.
 - **DURABLE-7's sync envelope.** The class-goal steps ride in the existing `/api/progress` body.
-- **TEACHER-4/5's assignments.** Their block is not on this branch. The listing's "ולתת משימות" describes them, so paste
-  the listing only after they merge.
+- **The pages' other-lane lines** (TEACHER-4/7/9/10/11/15, PARENTS-2, TRUST-4/9/11, AI-1/3, CURRICULUM-1) are claims
+  that turn on at merge; after merging, run `npm run build` and `node madregot/store/make-listing.mjs` and read the
+  printed claims (`claims.test.js` checks each lane's names with a stand-in of its code).
 - **TRUST-1's `worker/datamap.json`** is not on this branch. At merge, add:
   - the client keys `<STORE_KEY>-theme` and `<STORE_KEY>-src`, and IndexedDB `madregot-push`;
   - the tables `class_steps`, `class_goal_weeks`, `push_subs` and `metrics_daily`;
@@ -240,10 +263,13 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
 - **TRUST-2's axe harness** is not on this branch. The contrast checks use this lane's `e2e/contrast.js`.
 - **`web/e2e/fakeServer.js`** (trust lane) is not on this branch. `class-goal.spec.js` and `student-week.spec.js`
   carry their own `page.route` fakes.
+- **The account export of the class-goal settings** belongs to the trust lane's export.
 
-**Owner-side builds**
-- **The iPhone app's Capacitor project.** It needs the Capacitor packages, which may not be added here, and a Mac. The
-  web side of the iPhone build (`VITE_STORE=ios`) is done and tested (`store-ios.spec.js`).
+**Owner-side steps for the iPhone app**
+- Building it needs a Mac with Xcode (`store/ios/README.md`). The privacy report (Organizer, Generate Privacy Report) and
+  a TestFlight check of the reminder and haptics on a real iPhone are the owner's.
+- `VITE_STORE_CLASS_AI=0` (class AI off in the iPhone build, if App Review objects to 3.1.3(c)) is not built: it would
+  need the class AI gate that the trust lane's TRUST-11 owns.
 
 **Library work left to task #76**
 - **canvas-confetti** (M1, maths confetti) is not installed, so the existing Lottie confetti plays. If wanted, add the
@@ -254,8 +280,10 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
   - cmdk and Recharts stay off student routes.
 
 **Budget and publishing**
-- **`chunkMaxKB` does not apply to the entry chunk** until DURABLE-11's per-topic content split merges. Until then the
-  6 KB first-load delta holds it.
+- **The 260 KB boot JavaScript target** is DURABLE-11's (the per-topic content split, on the family lane). Here the boot
+  JavaScript is 612.4 KB gzipped, 11.9 KB under `5618298`, and `chunkMaxKB` does not apply to the entry chunk until
+  that split merges.
+- **The 32 KB CSS total** is DURABLE-11's too; this lane's share (no net growth) is met and gated.
 - **`publish-pages.sh`** (GitHub Pages) still runs a plain `vite build`, with no budget check. It was left alone to stay
   away from Pages.
 

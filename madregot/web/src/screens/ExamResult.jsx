@@ -13,6 +13,7 @@ import AIChat from '@/components/AIChat.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { ScreenBar, ScreenFoot, EmptyState, ConfirmSheet } from '@/components/Screen.jsx';
 import { pctTone } from './Exams.jsx';
+import '@/styles/lazy/examResult.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const ICON = { correct: Check, partial: Minus, wrong: X, missing: CircleDashed };
 // A bare answer like -5 or (3, 0) is set as math so the minus stays on the left in RTL text.

@@ -9,6 +9,10 @@
 //                        measured the same way on a build of the commit the student lane started from
 //   chunkMaxKB           no chunk loaded on demand is larger than this, gzipped. The entry chunk is DURABLE-11's to split
 //                        (the teaching content per topic); until that lands here it is held by the delta above.
+//   studentCssDeltaKB    the first load's CSS (the stylesheets of the entry and its static imports), gzipped, may grow by
+//                        at most this much over studentCssBaselineKB, measured the same way on the same commit. 0: this
+//                        lane's dark tokens and new screens are paid for by moving each screen's own rules into the
+//                        chunk that loads with it (src/styles/lazy/).
 // Then it removes <dist>/.vite, so the two lists are never deployed.
 //
 // Usage: node scripts/check-budget.mjs [dist] [--keep]      (default dist)
@@ -36,17 +40,22 @@ export function staticGraph(manifest) {
 /** Gzipped size of a built file, in bytes (zlib's default level, the same for the baseline and today). */
 export const gzipSize = (path) => gzipSync(readFileSync(path)).length;
 
-/** First-load JavaScript and every JavaScript chunk, gzipped, from a build folder with .vite/manifest.json. */
+/** First-load JavaScript and CSS, and every JavaScript chunk, gzipped, from a build folder with .vite/manifest.json. */
 export function measure(dist) {
   const manifest = JSON.parse(readFileSync(join(dist, '.vite', 'manifest.json'), 'utf8'));
   const boot = staticGraph(manifest);
+  const bootCss = new Set([...boot].flatMap((key) => manifest[key].css || []));
+  const bootCssBytes = [...bootCss].reduce((sum, f) => sum + gzipSize(join(dist, f)), 0);
   const files = new Map(); // file → { gzip, boot }
   for (const [key, c] of Object.entries(manifest)) {
     if (!c.file?.endsWith('.js') || files.has(c.file)) continue;
     files.set(c.file, { gzip: gzipSize(join(dist, c.file)), boot: boot.has(key), entry: !!c.isEntry });
   }
   const bootBytes = [...files.values()].filter((f) => f.boot).reduce((s, f) => s + f.gzip, 0);
-  return { bootJsGzipKB: kb(bootBytes), chunks: [...files].map(([file, f]) => ({ file, gzipKB: kb(f.gzip), boot: f.boot, entry: f.entry })) };
+  return {
+    bootJsGzipKB: kb(bootBytes), bootCssGzipKB: kb(bootCssBytes), bootCss: [...bootCss],
+    chunks: [...files].map(([file, f]) => ({ file, gzipKB: kb(f.gzip), boot: f.boot, entry: f.entry })),
+  };
 }
 
 /** Does a module path (src/screens/Wardrobe.jsx, node_modules/cmdk/dist/index.mjs) match a lazyOnly name? */
@@ -87,9 +96,15 @@ export function check(dist, budget) {
   for (const c of m.chunks) {
     if (!c.entry && typeof budget.chunkMaxKB === 'number' && c.gzipKB > budget.chunkMaxKB) problems.push(`${c.file} is ${c.gzipKB} KB gzipped, over ${budget.chunkMaxKB} KB`);
   }
+  const cssBase = budget.studentCssBaselineKB;
+  const cssDelta = Math.round((m.bootCssGzipKB - cssBase) * 10) / 10;
+  if (typeof cssBase === 'number' && typeof budget.studentCssDeltaKB === 'number' && cssDelta > budget.studentCssDeltaKB) {
+    problems.push(`first-load CSS is ${m.bootCssGzipKB} KB gzipped: ${cssDelta} KB over ${budget.studentBootBaselineCommit || 'the baseline'} (${cssBase} KB), more than the ${budget.studentCssDeltaKB} KB allowed. Move a screen's own rules into src/styles/lazy/ and import them from that screen.`);
+  }
   const vs = delta >= 0 ? `${delta} KB more than` : `${Math.round(-delta * 10) / 10} KB less than`;
   const largest = Math.max(0, ...m.chunks.filter((c) => !c.boot).map((c) => c.gzipKB));
-  const report = `first load ${m.bootJsGzipKB} KB JS gzipped, ${vs} ${budget.studentBootBaselineCommit || 'the baseline'} (at most ${budget.studentBootDeltaKB} KB more allowed); ${m.chunks.length} chunks, the largest loaded on demand ${largest} KB`;
+  const cssVs = typeof cssBase === 'number' ? ` (${cssDelta >= 0 ? `${cssDelta} KB more` : `${Math.round(-cssDelta * 10) / 10} KB less`} than ${cssBase} KB, at most ${budget.studentCssDeltaKB} KB more allowed)` : '';
+  const report = `first load ${m.bootJsGzipKB} KB JS gzipped, ${vs} ${budget.studentBootBaselineCommit || 'the baseline'} (at most ${budget.studentBootDeltaKB} KB more allowed), and ${m.bootCssGzipKB} KB CSS${cssVs}; ${m.chunks.length} chunks, the largest loaded on demand ${largest} KB`;
   return { problems, report, measured: m };
 }
 

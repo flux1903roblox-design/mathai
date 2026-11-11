@@ -16,6 +16,7 @@ import { MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { ScreenBar, ConfirmSheet } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
+import '@/styles/lazy/rescue.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const CONF = [{ v: 1, label: 'לא בטוחים בכלל' }, { v: 2, label: 'קצת בטוחים' }, { v: 3, label: 'די בטוחים' }, { v: 4, label: 'בטוחים' }];
 const MINUTES = [10, 15, 20, 30];

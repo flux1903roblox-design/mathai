@@ -16,6 +16,7 @@ import StepPlayer from './StepPlayer.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import WorkedExample from './WorkedExample.jsx';
 import RemedyFlow from './RemedyFlow.jsx';
+import '@/styles/lazy/tutorSheet.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 function StepsReveal({ steps }) {
   const [n, setN] = useState(1);

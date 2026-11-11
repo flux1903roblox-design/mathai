@@ -13,6 +13,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { aiAccess, gate, useAIStatus } from '@/lib/account.js';
 import ToolLocked from '@/components/ToolLocked.jsx';
+import '@/styles/lazy/examCheck.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 async function imageToJpeg(file) {
   const url = URL.createObjectURL(file);

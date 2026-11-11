@@ -108,3 +108,82 @@ test('nothing to buy and no family rows; the parents\' pages are the store\'s; n
   await page.waitForTimeout(1500);
   expect(await page.evaluate(() => navigator.serviceWorker.getRegistrations().then((r) => r.length))).toBe(0);
 });
+
+/**
+ * The native shell's bridge as Capacitor's iOS shell puts it in the page (window.Capacitor.nativePromise), with
+ * LocalNotifications and Haptics that record what they were asked. `answer` is the student's answer to iOS's question.
+ */
+const nativeShell = (page, answer = 'granted') => page.addInitScript((ans) => {
+  const pending = new Map();
+  let permission = 'prompt';
+  window.__native = { pending, asked: [] };
+  const plugins = {
+    LocalNotifications: {
+      checkPermissions: async () => ({ display: permission }),
+      requestPermissions: async () => { permission = ans; return { display: ans }; },
+      schedule: async ({ notifications }) => { for (const n of notifications) pending.set(n.id, { ...n, at: new Date(n.schedule.at).toISOString() }); return {}; },
+      cancel: async ({ notifications }) => { for (const n of notifications) pending.delete(n.id); },
+      getPending: async () => ({ notifications: [...pending.values()].map((n) => ({ id: n.id })) }),
+    },
+    Haptics: { impact: async () => {}, notification: async () => {} },
+  };
+  window.Capacitor = {
+    isNativePlatform: () => true,
+    nativePromise: (name, method, options) => { window.__native.asked.push(`${name}.${method}`); return plugins[name][method](options); },
+  };
+}, answer);
+const pendingIds = (page) => page.evaluate(() => [...window.__native.pending.keys()].sort());
+
+test.describe('the daily reminder in the iPhone app is a local notification', () => {
+  // the App Store app's web view (WKWebView): an iPhone, not added to the Home Screen
+  test.use({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148' });
+
+  test('Settings turns it on at an hour: 60 days ahead without Shabbat and its eve; never "add to the Home Screen"', async ({ page }) => {
+    await fakeServer(page);
+    await nativeShell(page);
+    await open(page, '#/settings');
+    const section = page.locator('section[aria-labelledby="rem-title"]');
+    await expect(section.getByRole('heading', { name: 'תזכורת יומית' })).toBeVisible();
+    await expect(section).not.toContainText('מסך הבית');
+    const onOff = section.getByRole('radiogroup').first();
+    await onOff.getByRole('radio', { name: 'פועלת' }).click();
+    await expect(page.getByText('התזכורת תגיע בכל יום ב־17:00')).toBeVisible();
+    // Thursday 5 Nov 2026 at 10:00: 60 days from today (to Sunday 3 Jan), without the 9 Fridays and 9 Saturdays in them
+    const ids = await pendingIds(page);
+    expect(ids).toHaveLength(60 - 9 - 9);
+    expect(ids[0]).toBe(20261105);
+    expect(ids).not.toContain(20261106); // Friday, Shabbat's eve
+    expect(ids).not.toContain(20261107); // Shabbat
+    const first = await page.evaluate(() => window.__native.pending.get(20261105));
+    expect(first).toMatchObject({ title: 'מדרגות', body: expect.any(String) });
+    expect(new Date(first.at).getHours()).toBe(17);
+    // another hour moves every one of them
+    await section.getByRole('radio', { name: '19:00' }).click();
+    await expect.poll(async () => page.evaluate(() => new Date(window.__native.pending.get(20261105).at).getHours())).toBe(19);
+    await section.scrollIntoViewIfNeeded();
+    await shot(page, 'reminder-on');
+    // off: nothing stays pending
+    await onOff.getByRole('radio', { name: 'כבויה' }).click();
+    await expect.poll(() => pendingIds(page)).toEqual([]);
+  });
+
+  test('notifications refused on the phone: the line says where to turn them on, and nothing is scheduled', async ({ page }) => {
+    await fakeServer(page);
+    await nativeShell(page, 'denied');
+    await open(page, '#/settings');
+    const section = page.locator('section[aria-labelledby="rem-title"]');
+    await section.getByRole('radiogroup').first().getByRole('radio', { name: 'פועלת' }).click();
+    await expect(section).toContainText('ההתראות של מדרגות כבויות בהגדרות של האייפון.');
+    expect(await pendingIds(page)).toEqual([]);
+    await section.scrollIntoViewIfNeeded();
+    await shot(page, 'reminder-denied');
+  });
+
+  test('outside the native shell (a browser opening this build) there is no reminder, and no Home Screen advice', async ({ page }) => {
+    await fakeServer(page);
+    await open(page, '#/settings');
+    const section = page.locator('section[aria-labelledby="rem-title"]');
+    await expect(section).toContainText('בגרסה הזו אין תזכורות.');
+    await expect(section).not.toContainText('מסך הבית');
+  });
+});

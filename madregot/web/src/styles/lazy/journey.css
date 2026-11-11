@@ -1,0 +1,21 @@
+/* Journey.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only Journey.jsx uses these classes. */
+.journey-head { display: flex; align-items: center; gap: var(--s3); padding: var(--s4); border-radius: 24px; background: linear-gradient(160deg, var(--c-tint), var(--surface) 80%); border: 2px solid color-mix(in srgb, var(--c) 22%, var(--rule)); }
+.journey-topic { margin: 0; }
+.journey-title { margin: 2px 0 6px; font-size: var(--t-xl); line-height: var(--lh-xl); }
+.mastery-chip { display: inline-flex; margin: 0; padding: 2px 10px; border-radius: 999px; font-size: var(--t-xs); font-weight: 700; background: var(--ground); color: var(--ink-2); }
+.journey-miscon .mc-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.journey-miscon .mc-row p { margin: 0; }
+.journey-rules { padding: var(--s3) var(--s4); border-radius: 16px; background: var(--ground); }
+.journey-rules summary { min-height: 44px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
+.journey-wip { display: flex; align-items: center; gap: var(--s3); padding: var(--s3); border-radius: 16px; background: var(--gold-tint); color: var(--gold-ink); }
+.journey-wip p { margin: 0; }
+.journey-head { border-radius: var(--r-xl); box-shadow: none; border: 2px solid var(--line); }
+.jclimb { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); }
+.jclimb-next { display: flex; flex-direction: column; gap: var(--s2); }
+.jclimb-label { margin: 0; font-weight: 700; color: var(--ink-2); font-size: var(--fs-sm); }
+.journey-head { background: var(--surface); border: 2px solid var(--rule); border-top: 6px solid var(--c, var(--rule)); }
+.journey-head-text { flex: 1; min-width: 0; }
+@media (max-width: 360px) {
+  .journey-head { gap: var(--s2); }
+}

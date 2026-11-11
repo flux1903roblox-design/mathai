@@ -9,13 +9,23 @@ import { topicsFor } from '@/content/index.js';
 import { GOALS } from '@/lib/quests.js';
 import { LIST_PRICES, formatAgorot, vatLine } from '@/lib/price.js';
 import { APP_NAME } from '../../shared/brand.js';
-import { WEB, IMAGES, buildLanding, imageSize, wranglerVars } from './landing-build.mjs';
+import { WEB, IMAGES, buildLanding, imageSize, wranglerVars, repoCode, renderClaims } from './landing-build.mjs';
+import { CLAIMS, CLAIM, claimStatus, claimData } from '@/content/claims.js';
+import { codeWith, MERGED } from '@/lib/testing/claimCode.js';
 
 const ENV = {
   PUBLIC_URL: 'https://madregot.example.test/', CONTACT_EMAIL: 'hello@example.test', BUSINESS_NAME: 'מדרגות & שות׳ <בע״מ>',
   API_BASE: 'https://api.example.test', VITE_API_URL: 'none',
 };
 const read = (...p) => readFileSync(join(...p), 'utf8');
+const escHtml = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+/** What appData() hands buildLanding, with the real claims module (the tests' fixture app keeps the rest small). */
+const claimsApp = { status: claimStatus, all: CLAIMS.map((c) => c.id), data: claimData() };
+const smallApp = () => ({ topics: { 7: ['א'], 8: ['ב'] }, minutes: [5, 10], madi: { small: '<svg></svg>', big: '<svg></svg>' }, price: { LIST_PRICES, formatAgorot, vatLine }, claims: claimsApp });
+/** The claim ids a template names: {{CLAIM id}}, {{#CLAIM id}} and {{CLAIMS id …}}. */
+const namedIn = (tpl) => [...tpl.matchAll(/\{\{#?CLAIMS? ([\w -]+)\}\}/g)].flatMap((m) => m[1].trim().split(/\s+/));
+/** The product names the public pages never use (STUDENT-17: comparisons stay in docs/POSITIONING.md). */
+const RIVALS = [/libri/i, /ליברי/, /vimi/i, /וימי/, /chatgpt/i, /gemini/i, /photomath/i, /matific/i, /מטיפיק/, /go ?math/i, /mathins/i, /kedmathic/i, /khan/i];
 /** --name: value pairs of a CSS block, comments out and spaces normalised, in order. */
 const decls = (css) => [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[\w-]+|color-scheme)\s*:\s*([^;}]+)/g)].map((m) => [m[1], m[2].replace(/\s+/g, ' ').replace(/\s*,\s*/g, ',').trim()]);
 const fakeDist = () => {
@@ -150,7 +160,7 @@ describe('landing-build', () => {
     expect(read(dist, 'l/count.js')).toContain('var A="https://api.example.test"');
     const other = fakeDist();
     try {
-      const app = { topics: { 7: ['א'], 8: ['ב'] }, minutes: [5, 10], madi: { small: '<svg></svg>', big: '<svg></svg>' }, price: { LIST_PRICES, formatAgorot, vatLine } };
+      const app = smallApp();
       const { warn } = await buildLanding(other, { env: { VITE_API_URL: 'none', PUBLIC_URL: '', CONTACT_EMAIL: '', BUSINESS_NAME: '' }, app });
       expect(read(other, 'l/count.js')).toContain('var A="none"');
       // without the owner's values the parts that need them are left out, and the build says so
@@ -164,6 +174,73 @@ describe('landing-build', () => {
       await buildLanding(other, { env: { PUBLIC_URL: '' }, app });
       expect(read(other, 'l/count.js')).toContain('var A=""');
     } finally { rmSync(other, { recursive: true, force: true }); }
+  });
+
+  it('says about the product only the claims the code backs, each in its own words (STUDENT-17)', () => {
+    const toml = wranglerVars(read(WEB, '../worker/wrangler.toml'));
+    const status = Object.fromEntries(claimStatus({ code: repoCode(), data: { ...claimData(), vars: toml } }).map((c) => [c.id, c]));
+    for (const name of ['mivchan', 'pilot']) {
+      const ids = namedIn(read(WEB, 'landing', `${name}.html`));
+      expect(ids.length, name).toBeGreaterThan(3);
+      for (const id of ids) {
+        expect(status[id], `${name}: ${id}`).toBeTruthy();
+        if (status[id].visible) expect(page[name], `${name} shows ${id}`).toContain(escHtml(status[id].text));
+        else {
+          expect(page[name], `${name} hides ${id}`).not.toContain(escHtml(CLAIM[id].he || CLAIM[id].en).split('{{')[0]);
+          for (const mark of CLAIM[id].marks || []) expect(page[name], `${name}: "${mark}" (${id} is hidden)`).not.toContain(mark);
+        }
+      }
+    }
+    // the features the reviewers found promised with nothing behind them on this branch
+    for (const gone of ['תאריך יעד', 'לייצוא', 'מדריך למורה', 'מכתב להורים', 'למחוק את הכיתה', 'בסוף מקבלים דוח', 'כיתה לדוגמה']) expect(page.pilot, gone).not.toContain(gone);
+    expect(page.mivchan).not.toContain('סיכום שבועי');
+    // and what this branch does have is there
+    expect(page.pilot).toContain('לוח &quot;מה לחזור מחר&quot; לפי הטעויות של הכיתה.');
+    expect(page.pilot).toContain('אפשר להסיר תלמיד מהכיתה בכל רגע');
+    expect(page.mivchan).toMatch(/המערכת מזהה \d+ טעויות נפוצות בשמן/);
+  });
+
+  it('no template writes a feature by hand: a claim\'s words and marks come only through its slot', () => {
+    for (const name of ['mivchan', 'pilot']) {
+      const tpl = read(WEB, 'landing', `${name}.html`);
+      for (const c of CLAIMS) {
+        const words = (c.he || c.en).split('{{')[0];
+        expect(tpl, `${name}: the words of ${c.id}`).not.toContain(words.length > 12 ? words : '\u0000');
+        for (const mark of c.marks || []) expect(tpl, `${name}: "${mark}" belongs to ${c.id}`).not.toContain(mark);
+      }
+    }
+  });
+
+  it('names no rival product on the public pages', () => {
+    for (const [name, html] of Object.entries(page)) for (const re of RIVALS) expect(html, `${name} ${re}`).not.toMatch(re);
+    for (const c of CLAIMS) for (const re of RIVALS) expect(c.he || c.en, c.id).not.toMatch(re);
+  });
+
+  it('after the merge the waiting lines appear by themselves; an app that lost a feature stops the build', async () => {
+    const other = fakeDist();
+    try {
+      const { claims } = await buildLanding(other, { env: { ...ENV }, app: smallApp(), code: codeWith(MERGED) });
+      expect(claims.filter((c) => !c.visible).map((c) => c.id).sort()).toEqual(['coverage', 'teachers']);
+      const pilot = read(other, 'pilot/index.html');
+      for (const id of ['assign-due', 'class-report', 'pilot-kit', 'principal-form', 'class-delete', 'pilot-report', 'school-ai-off']) {
+        expect(pilot, id).toContain(escHtml(CLAIM[id].he));
+      }
+      expect(pilot).toContain('href="../#/?start=demo&amp;src=pilot" data-cta>לראות כיתה לדוגמה</a>');
+      expect(pilot).toMatch(/<h2 id="h-measure">מה בודקים בפיילוט<\/h2>/);
+      expect(pilot).toMatch(/<h2 id="h-ai">העוזר החכם<\/h2>/);
+      const mivchan = read(other, 'mivchan/index.html');
+      for (const id of ['weekly-share', 'chatbot', 'tutor-knows']) expect(mivchan, id).toContain(escHtml(CLAIM[id].he));
+      // the app without its teacher's board: the build stops rather than hide what the pages are about
+      await expect(buildLanding(other, { env: { ...ENV }, app: smallApp(), code: codeWith({}, { drop: ['web/src/screens/Teacher.jsx'] }) }))
+        .rejects.toThrow(/no longer backs what the pages say: tomorrow-board/);
+    } finally { rmSync(other, { recursive: true, force: true }); }
+  });
+
+  it('renderClaims: a hidden claim leaves no empty item, paragraph or double space, and an unknown id stops the build', () => {
+    const tpl = '<ul class="ticks">\n      {{CLAIMS a b}}\n    </ul>\n<p>אחת. {{CLAIM b}} שתיים.</p>\n<p>{{CLAIM b}}</p>\n{{#CLAIM b}}<section>ב</section>{{/CLAIM}}\n<ul class="ticks">\n<li>{{CLAIM b}}</li>\n</ul>';
+    const out = renderClaims(tpl, { shown: { a: 'א & ב' }, known: ['a', 'b'] });
+    expect(out).toBe('<ul class="ticks">\n      <li>א &amp; ב</li>\n    </ul>\n<p>אחת. שתיים.</p>\n\n');
+    expect(() => renderClaims('{{CLAIM nope}}', { shown: {}, known: ['a'] })).toThrow(/no claim "nope"/);
   });
 
   it('reads image sizes from PNG and WebP headers', () => {

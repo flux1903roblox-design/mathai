@@ -15,6 +15,7 @@ import Mascot from '@/components/Mascot.jsx';
 import { ItemArt } from '@/components/mascot/Accessories.jsx';
 import { Sheet, Button, Choices, Choice, ChoiceMark } from '@/components/ui.jsx';
 import { count } from '@/lib/metrics.js';
+import '@/styles/lazy/wardrobe.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const NONE = 'none';
 // how long Madi looks happy after a change (no hop under reduced motion: Mascot keeps still)

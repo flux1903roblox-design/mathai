@@ -20,6 +20,7 @@
 // deleted (cron.js purgeRecordsSql).
 import { dayOf, hourOf, json, HttpError, body, sha256, randomToken, netKey, limitOrThrow, secretEqual } from './util.js';
 import { isQuietDay, isQuietEve } from '../../shared/restDays.js';
+import { TITLE, messageFor, dayOfYear } from '../../shared/reminder.js';
 import { encryptPayload, vapidJwt, vapidAuth, fromB64u, importPublic, parseVapidJwk, publicOfJwk } from './webpush.js';
 import { countServer } from './metrics.js';
 import { shiftDay } from './goal.js';
@@ -38,27 +39,10 @@ export const PUSH_KEEP_DAYS = 45;
 export const PUSH_BATCH_DEFAULT = 10;
 const ENDPOINT_MAX = 2048;
 
-/** The six texts, one a day in turn (messageFor). Never a name, a number, the plan or a streak. */
-export const TEXTS = [
-  'חמש דקות של מתמטיקה? מדי מחכה עם תרגיל קצר.',
-  'שיעור קצר אחד היום, וזה מספיק.',
-  'המשימה של היום מחכה לכם, מתי שנוח.',
-  'מדרגה אחת בכל פעם. נמשיך מאיפה שעצרתם?',
-  'יש לכם כמה דקות? תרגיל אחד ונראה איך הולך.',
-  'מדי הכין לכם משימה קצרה להיום.',
-];
-export const TITLE = 'מדרגות';
+// the six texts, the title and the day's turn are shared with the iPhone app's local reminders (shared/reminder.js)
+export { TEXTS, TITLE, dayOfYear, messageFor } from '../../shared/reminder.js';
 
 export const pushOn = (env) => String(env.PUSH || 'off') === 'on';
-
-/** 1 for 1 January. */
-export function dayOfYear(day) {
-  const [y, m, d] = day.split('-').map(Number);
-  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 1)) / 864e5) + 1;
-}
-
-/** The day's text, in turn by the day of the year. */
-export const messageFor = (day) => TEXTS[dayOfYear(day) % TEXTS.length];
 
 /** The reminder as the push message carries it: the declarative format (RFC 8030 + Safari 18.4), read by sw.js too. */
 export function payloadFor(env, day) {

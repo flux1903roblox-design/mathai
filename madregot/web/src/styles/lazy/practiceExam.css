@@ -1,0 +1,13 @@
+/* PracticeExam.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only PracticeExam.jsx uses these classes. */
+.exam-sheet { display: flex; flex-direction: column; gap: var(--s5); border: 1px solid var(--rule); border-radius: var(--r-md); padding: var(--s5); }
+.exam-sheet-head { display: flex; flex-direction: column; gap: var(--s2); border-bottom: 2px solid var(--ink); padding-bottom: var(--s3); }
+.exam-sheet-meta { display: flex; gap: var(--s6); flex-wrap: wrap; font-weight: 600; }
+.exam-qs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s6); }
+.exam-q { display: flex; flex-direction: column; gap: var(--s2); break-inside: avoid; }
+.exam-work { height: 120px; border: 1px dashed var(--rule-strong); border-radius: 6px; background-image: linear-gradient(to bottom, var(--rule) 1px, transparent 1px); background-size: 100% 24px; }
+.exam-answer-line { font-weight: 700; display: flex; gap: var(--s2); align-items: flex-end; }
+@media print {
+  .exam-sheet { border: 0; padding: 0; }
+}
+.sheet-note { margin: 0; }

@@ -18,7 +18,7 @@ describe('colour lint', () => {
 
   it('reads the loaded stylesheets and every component', () => {
     const names = colourFiles().map((f) => path.basename(f));
-    for (const f of ['app.css', 'v4.css', 'canon.css', 'motion.css', 'Mascot.jsx', 'LineBuilder.jsx', 'Learn.jsx']) expect(names).toContain(f);
+    for (const f of ['app.css', 'v4.css', 'canon.css', 'motion.css', 'Mascot.jsx', 'LineBuilder.jsx', 'Learn.jsx', 'wardrobe.css', 'teacher.css', 'figure.css']) expect(names).toContain(f);
     expect(names).not.toContain('tokens.css');
   });
 

@@ -10,6 +10,7 @@ import { masteryState, STATE_LABEL } from '@/learn/mastery.ts';
 import { MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
 import { Badge, Stat } from '@/components/ds.jsx';
+import '@/styles/lazy/progressSummary.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const TONE = { 'needs-support': 'support', 'needs-review': 'review' };
 

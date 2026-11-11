@@ -1,0 +1,25 @@
+/* AIChat.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only AIChat.jsx uses these classes. */
+.chat-list { display: flex; flex-direction: column; gap: var(--s3); overflow-y: auto; min-height: 120px; max-height: 52dvh; }
+.chat-intro { color: var(--ink-2); }
+.streaming { white-space: pre-wrap; }
+.starter { min-height: 40px; padding: 0 var(--s3); border-radius: 999px; border: 1.5px solid var(--magenta); color: var(--magenta); background: var(--paper); font-weight: 600; font-size: var(--t-sm); }
+.chat-input { display: flex; gap: var(--s2); align-items: flex-end; border: 1.5px solid var(--rule-strong); border-radius: 14px; padding: var(--s1) var(--s1) var(--s1) var(--s2); background: var(--paper); }
+.chat-input:focus-within { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-tint); }
+.chat-input textarea { flex: 1; border: 0; resize: none; min-height: 40px; max-height: 140px; padding: var(--s2); background: transparent; line-height: var(--lh-base); field-sizing: content; }
+.chat-input textarea:focus { outline: none; }
+.chat-list { gap: var(--s3); padding: var(--s1); }
+.starter { min-height: 44px; border: 2px solid var(--brand-line); border-bottom-width: 4px; color: var(--ai-ink); }
+.starter:active { border-bottom-width: 2px; transform: translateY(2px); }
+.chat-input { border-width: 2px; border-radius: 20px; }
+.chat-input:focus-within { border-color: var(--ai); box-shadow: 0 0 0 3px var(--ai-tint); }
+.chat-dock-live { position: sticky; bottom: 0; z-index: 3; display: flex; flex-direction: column; gap: var(--s2); padding: var(--s2) 0 var(--s1); background: var(--paper); }
+.chat-tools { display: flex; gap: var(--s2); overflow-x: auto; }
+.chat-tool { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s3); border: 2px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 700; font-size: var(--fs-sm); cursor: pointer; }
+.chat-tool svg { color: var(--ai-ink); }
+.chat-tool:hover { border-color: var(--line-2); background: var(--ground); }
+.chat-left { padding-inline: var(--s2); }
+.chat-rest { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) var(--s4); margin-bottom: var(--s2); border: 2px solid var(--rule); border-radius: 16px; background: var(--ground); }
+.chat-rest p { margin: 0; color: var(--ink); font-weight: 600; }
+.chat-rest-actions { display: flex; gap: var(--s2); }
+.chat-input textarea:disabled { background: var(--ground); color: var(--ink-2); }

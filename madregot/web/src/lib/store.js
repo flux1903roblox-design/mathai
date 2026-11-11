@@ -42,7 +42,7 @@ const empty = {
   // which counts as set aside unless the app got installed (STUDENT-10, lib/install.js). They belong to the device: a
   // progress reset keeps them.
   // pushOffered: the daily reminder's card after a lesson was shown (STUDENT-11, once ever; a progress reset keeps it)
-  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null, pushOffered: false },
+  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null, pushOffered: false, storeOpenDay: null },
   // the opt-in daily reminder (STUDENT-11, lib/push.js): on, the hour (16-20), the id and secret the server gave once,
   // 'paused' when the server stopped it because it did not help, and the days already told to the server (opened,
   // learned). It belongs to the device: a progress reset keeps it; deleting everything or signing out turns it off.
@@ -344,7 +344,7 @@ export const useApp = create(
         const { classCode, className, teacherName, token, studentId, ...rest } = p;
         set({ profile: rest, outbox: [], stepsOut: [] });
       },
-      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], stepsOut: [], classGoals: {}, exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null }, nudges: { ...empty.nudges, goalSeen: {}, installOffers: get().nudges?.installOffers || 0, installDismissedAt: get().nudges?.installDismissedAt || null, pushOffered: !!get().nudges?.pushOffered }, gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook() }),
+      resetProgress: () => set({ progress: {}, days: {}, xp: 0, mistakes: {}, lastTopic: null, outbox: [], stepsOut: [], classGoals: {}, exams: [], practiceExams: [], planBase: {}, wins: {}, path: {}, freezes: 0, streak: { lastRepair: null }, nudges: { ...empty.nudges, goalSeen: {}, installOffers: get().nudges?.installOffers || 0, installDismissedAt: get().nudges?.installDismissedAt || null, pushOffered: !!get().nudges?.pushOffered, storeOpenDay: get().nudges?.storeOpenDay || null }, gaps: {}, placement: null, learn: emptyLearn(), look: emptyLook() }),
       // the device keeps its id, its family-device link and its tutor settings; a waiting link code does not survive
       // the theme chosen for this device (prefs) stays too; Madi's look belongs to the student and goes back to the default
       // (sound goes back to its default, so the next student's own choice starts unset)

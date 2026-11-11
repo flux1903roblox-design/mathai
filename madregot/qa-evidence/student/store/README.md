@@ -8,6 +8,8 @@ taste. Thursday 5 November 2026. 390x844 unless named 320x568.
 |---|---|
 | `ios-consent.png`, `ios-consent-dark.png` | The iPhone build, the first question to the tutor: "לפני שמדברים עם העוזר החכם", who the helper is (Claude by Anthropic, a program and not a person), what is sent and to the US, what is never sent or kept, "מה עוד כדאי לדעת", "כן, להמשיך" and "לא עכשיו". Nothing was sent yet. |
 | `ios-settings.png` | The iPhone build's Settings, "העוזר החכם": the free taste line and "מידע להורים" only. No family plan row, no unlinking (the saved family token is never sent), no cancel row. |
+| `ios-reminder-on.png`, `ios-reminder-on-dark.png` | The iPhone app's Settings with the native shell's bridge stood in: "תזכורת יומית" on at 19:00 and the toast "התזכורת תגיע בכל יום ב־19:00". The reminder is a local notification on each of the next 60 days without Shabbat, its eve and the holidays (`lib/localReminder.js`); there is no "add to the Home Screen" sentence in the App Store app. |
+| `ios-reminder-denied.png` | The same when the student refused notifications on the phone: "ההתראות של מדרגות כבויות בהגדרות של האייפון. אפשר להפעיל אותן שם, ואז לחזור לכאן." Nothing is scheduled. |
 | `ios-parents-info.png` | `/parents/info` in the iPhone build: "מידע להורים" and the sentence about the parent's free one-time OK. The footer has the legal links and no cancel link. |
 | `play-limit-sheet.png`, `play-limit-sheet-dark.png`, `320x568-limit-sheet.png` | The Play Store app when today's free questions are used: "סיימתם את השאלות לעוזר החכם להיום. מחר יש עוד. השיעורים, התרגול ומדי פתוחים תמיד." No parents link, no price, no plan. |
 | `play-settings.png`, `320x568-settings-dark.png` | Settings in the Play Store app: "מידע להורים" only. |

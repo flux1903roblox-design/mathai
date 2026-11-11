@@ -58,8 +58,9 @@ account is deleted on the website (`<PUBLIC_URL>/#/parents` › delete account);
 
 ## Apple: App Privacy (nutrition label) and age
 
-**Data used to track you:** none. **Tracking domains:** none (the iOS project's `PrivacyInfo.xcprivacy`, when it is
-made, declares `NSPrivacyTracking` false and no tracking domains).
+**Data used to track you:** none. **Tracking domains:** none (`store/ios/PrivacyInfo.xcprivacy`, which `make.sh`
+copies into the Xcode project, declares `NSPrivacyTracking` false and no tracking domains; `web/scripts/check-dist.mjs`
+refuses any build that names an analytics or ads host).
 
 | Apple data type | Linked to the user? | Purpose | Notes |
 |---|---|---|---|

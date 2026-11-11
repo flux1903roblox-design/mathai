@@ -4,6 +4,8 @@
 // never offer it. iPhone has no such event: nothing here shows there.
 // - initInstall(window) runs once from main.jsx: it keeps the event, notes appinstalled (a toast, and the count),
 //   remembers a launch from the Play Store app (?src=play), and follows a shortcut tapped while the app is open.
+// - countStoreOpen() (main.jsx, after initInstall) counts a store app's open once a day: store_open_play or
+//   store_open_ios, the owner's "opened the store apps" (STUDENT-14). Nothing is counted on the web.
 // - <STORE_KEY>-src = 'play' is that note. A Trusted Web Activity shares Chrome's storage for the address, so the note
 //   counts only while the page also runs standalone: the same phone's ordinary Chrome tab is never a store app.
 import { useSyncExternalStore } from 'react';
@@ -33,6 +35,24 @@ export function isStoreApp(w = win()) {
     if (String(w?.document?.referrer || '').startsWith('android-app://')) return true;
     return w?.localStorage?.getItem(SRC_KEY) === 'play' && isStandalone(w);
   } catch { return false; }
+}
+
+/** Which store app this is, for the reach count (STUDENT-14): 'store_open_ios', 'store_open_play' or null (the web). */
+export function storeOpenName(w = win()) {
+  if (import.meta.env.VITE_STORE === 'ios') return 'store_open_ios';
+  return isStoreApp(w) ? 'store_open_play' : null;
+}
+
+/**
+ * Count an open of a store app (STUDENT-14 "opened the store apps"): once a day a device, nothing on the web. `last` is
+ * the day it was last counted (nudges.storeOpenDay) and `mark(day)` keeps the new one. Returns the name counted or null.
+ */
+export function countStoreOpen(w = win(), { day, last, mark } = {}) {
+  const name = storeOpenName(w);
+  if (!name || !day || last === day) return null;
+  mark?.(day);
+  count(name);
+  return name;
 }
 
 /** The browser offered an install that has not been used yet. */

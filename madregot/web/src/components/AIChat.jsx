@@ -8,6 +8,7 @@ import { Markdown } from './MathText.jsx';
 import { Thinking } from './ui.jsx';
 import AIAllowance from './AIAllowance.jsx';
 import Mascot from './Mascot.jsx';
+import '@/styles/lazy/aiChat.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
 const THINK = ['קורא את התרגיל', 'חושב על הדרך', 'מנסח הסבר'];

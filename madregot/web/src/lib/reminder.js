@@ -1,10 +1,13 @@
 // The daily reminder's light half (STUDENT-11): what is known without loading lib/push.js, which loads on demand.
 // - reminderDue(state): LessonDone may offer the reminder once, ever: from the third learning day, on a device and a
 //   browser that can take it, where the server has one. Whether the server's switch is on is asked by pushState().
-// - remindOnOpen(): the first open of a day tells the server (lib/push.js markSeen) while the reminder is on.
+// - remindOnOpen(): the first open of a day tells the server (lib/push.js markSeen) while the reminder is on; in the
+//   iPhone app it schedules the next 60 days of local reminders again (lib/localReminder.js).
 import { useApp, today } from './store.js';
 import { hasServer } from './api.js';
 import { learnDaysTotal } from './streak.js';
+import { isNativeApp } from './native.js';
+import { TEXTS } from '@shared/reminder.js';
 
 /** The offer comes from this many learning days (days with a finished lesson, stage or check). */
 export const REMINDER = { fromDays: 3 };
@@ -28,10 +31,15 @@ export const pushSupported = (w = globalThis) => !!(w?.navigator && 'serviceWork
 /** The build registers the service worker (lib/swClient.js): production, and not VITE_SW=off (the store apps). */
 export const swEnabled = (env = import.meta.env) => !!env.PROD && env.VITE_SW !== 'off';
 
-/** LessonDone's reminder card may come (the server's answer is asked when the screen opens). */
+/**
+ * LessonDone's reminder card may come (the server's answer, or the iPhone app's permission, is asked when the screen
+ * opens). In the iPhone app (VITE_STORE=ios) the reminder is a local notification: it needs the native shell, not a
+ * server, a service worker or web push.
+ */
 export function reminderDue({ days = {}, nudges = {}, reminder = {} } = {}, w = globalThis, env = import.meta.env) {
-  return learnDaysTotal(days || {}) >= REMINDER.fromDays && !nudges?.pushOffered && !reminder?.on
-    && hasServer() && !isIosBrowser(w) && pushSupported(w) && swEnabled(env) && w.Notification.permission !== 'denied';
+  if (learnDaysTotal(days || {}) < REMINDER.fromDays || nudges?.pushOffered || reminder?.on) return false;
+  if (env.VITE_STORE === 'ios') return isNativeApp(w);
+  return hasServer() && !isIosBrowser(w) && pushSupported(w) && swEnabled(env) && w.Notification.permission !== 'denied';
 }
 
 /** The first open of a day (and a return after the day changed), while the reminder is on. Never throws. */
@@ -60,8 +68,10 @@ export const REMINDER_TEXT = {
   unsupported: 'הדפדפן הזה לא תומך בתזכורות.',
   noServer: 'בגרסה הזו אין תזכורות.',
   ios: 'באייפון התזכורות עובדות אחרי שמוסיפים את מדרגות למסך הבית.',
+  /** The iPhone app (local notifications): the app's notifications are off in the phone's settings. */
+  deniedApp: 'ההתראות של מדרגות כבויות בהגדרות של האייפון. אפשר להפעיל אותן שם, ואז לחזור לכאן.',
   toastOn: (slot) => `התזכורת תגיע בכל יום ב־${slot}:00`,
   toastOff: 'התזכורות כבויות',
-  /** A sample of what arrives (the first of the server's six texts, worker/src/push.js TEXTS). */
-  sample: 'חמש דקות של מתמטיקה? מדי מחכה עם תרגיל קצר.',
+  /** A sample of what arrives (the first of the six texts, shared/reminder.js TEXTS). */
+  sample: TEXTS[0],
 };

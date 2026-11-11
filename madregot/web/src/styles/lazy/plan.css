@@ -1,0 +1,8 @@
+/* Plan.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only Plan.jsx uses these classes. */
+.plan-target { font-weight: 600; }
+.plan-meter { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.plan-head { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4); border-radius: var(--r-m); background: color-mix(in srgb, var(--ch-petrol) 12%, var(--surface)); }
+.plan-head-count { margin: 0; font-weight: 700; color: var(--ink-2); font-size: var(--fs-sm); }
+.plan-head-next { margin: 0; font-size: 17px; }
+.plan-stages .plan-meter { margin-top: var(--s2); }

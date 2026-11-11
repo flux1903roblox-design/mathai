@@ -5,7 +5,7 @@ What is here, and what each piece is for:
 | Path | What | Made by |
 |---|---|---|
 | `listing.he.json` | the listing text to paste: App Store (name, subtitle, promotional text, keywords, description) and Play (title, short and full description), plus the English review notes for each store | `node madregot/store/make-listing.mjs` |
-| `description.he.md` | the description's template; `{{TOPICS_7}}` and `{{TOPICS_8}}` are filled from the app's own topics | edited by hand |
+| `description.he.md` | the description's template; `{{TOPICS_7}}` and `{{TOPICS_8}}` are filled from the app's own topics, and `{{CLAIM id}}` from the checked claims (`web/src/content/claims.js`) | edited by hand |
 | `apple/iphone-6.9-1…5-*.jpg` | App Store screenshots, iPhone 6.9": 1320 × 2868 JPEG, no alpha | `node madregot/store/capture.cjs store` |
 | `apple/icon-1024.png` | App Store icon, 1024 × 1024, no alpha | the same |
 | `play/phone-1…5-*.png`, `play/phone-dark-3-map.png` | Play phone screenshots, 1080 × 1920, and one in dark mode | the same |
@@ -13,6 +13,7 @@ What is here, and what each piece is for:
 | `../web/public/screens/*.png` | the web manifest's screenshots (the install sheet): three 1080 × 2340, one 1920 × 1080 | the same |
 | `privacy-answers.md` | **DRAFT** answers for Play's Data safety and Apple's App Privacy, per mode | by hand, from the schema |
 | `android/` | the Play Store app (a Trusted Web Activity): `twa-manifest.json`, `make.sh`, its README | |
+| `ios/` | the iPhone app (Capacitor around the `VITE_STORE=ios` build): `capacitor.config.json`, the pinned `package.json`, `PrivacyInfo.xcprivacy`, `make.sh`, its README | |
 
 `web/scripts/listing.test.mjs` checks the listing against the stores' limits (Apple: name and subtitle 30, promotional
 text 170, keywords 100 with no space after a comma, description 4000; Play: title 30, short 80, full 4000), finds no
@@ -75,11 +76,10 @@ Nothing below can be done from the code. Each step says where its code side is.
       feature graphic, the icon). Category Education. The privacy policy address is `<PUBLIC_URL>/#/privacy`.
    8. Review notes (App content › App access): paste `reviewNotes.play`.
    9. After the 14 days (personal account), apply for production and submit.
-3. **Apple** ($99 a year; needs a Mac with current Xcode). The iPhone app's Capacitor project is not built yet (it needs
-   the Capacitor packages and a Mac): the web side of the iOS build is done (`VITE_STORE=ios`, see "Store mode" below).
-   When it is made:
+3. **Apple** ($99 a year; needs a Mac with current Xcode). The iPhone app is Capacitor's shell around the
+   `VITE_STORE=ios` build: `ios/README.md` (the settings, `make.sh`, the privacy manifest, local reminders, haptics).
    1. Enrol in the Apple Developer Program; create the bundle id and the App Store Connect record (iPhone only).
-   2. Build, archive and upload from Xcode.
+   2. Build with `ios/make.sh` (one command), then archive and upload from Xcode (`ios/README.md`, steps 3-5).
    3. App Privacy: from `privacy-answers.md` (it names Anthropic as the third party that receives what a student types or
       photographs for the AI). Age rating: answer the questionnaire on the day. Not the Kids category.
    4. Availability: **Israel only**. Paste `listing.he.json` › `apple`, upload `apple/*`, and paste `reviewNotes.apple`
@@ -91,8 +91,10 @@ Nothing below can be done from the code. Each step says where its code side is.
 
 Merges this lane's store submission waits for (each named in `privacy-answers.md`): TRUST-4 (report an AI answer, which
 Play's AI policy requires), TRUST-9 (the free parent OK), TRUST-1 (the data map), TEACHER-1 (a teacher can delete the
-account in the app; Apple 5.1.1(v)). The description's "ולתת משימות" describes TEACHER-4/5's assignments: paste the
-listing only once they are merged too.
+account in the app; Apple 5.1.1(v)). The listing and the review notes say only what the code has: `make-listing.mjs`
+asks the same checked claims as the landing pages (`web/src/content/claims.js`), so the teachers' line names
+assignments, and the review notes name reporting an AI answer and the parent's OK, only once those lanes have merged.
+Run `node madregot/store/make-listing.mjs` again after a merge and paste what it writes.
 
 ## Landing page pictures
 
@@ -126,9 +128,15 @@ The iPhone build only (`VITE_STORE=ios`):
 - no service worker is registered (WKWebView runs none on `capacitor://`, and the files are on the phone);
 - the Worker allows the app's origin, `capacitor://localhost`, in `ALLOWED_ORIGINS` (`worker/wrangler.toml`).
 
-Build it with `VITE_STORE=ios VITE_API_URL=<PUBLIC_URL> npx vite build --base ./ --outDir dist-ios` in `web/` (the
-Capacitor project's `make.sh` will run this once that project exists; it is not built yet). The tests: `web/e2e/store-mode.spec.js` (the Play Store app, phone) and
-`web/e2e/store-ios.spec.js` (the `ios` Playwright project, which builds `dist-ios-test` on its own port).
+- the daily reminder is a local notification on the phone (`web/src/lib/localReminder.js`; `pushState()` answers
+  `store-ios` first, so Settings never tells the student to add the app to the Home Screen), and the phone's own
+  haptics play (`web/src/lib/sound.js`), both through the shell's bridge (`web/src/lib/native.js`);
+- each day's first open counts `store_open_ios` once (STUDENT-14); the Play Store app counts `store_open_play` the
+  same way (`web/src/lib/install.js countStoreOpen`).
+
+`ios/make.sh` builds it (`VITE_STORE=ios VITE_API_URL=<PUBLIC_URL> npx vite build --base ./`) into the Capacitor
+project. The tests: `web/e2e/store-mode.spec.js` (the Play Store app, phone) and `web/e2e/store-ios.spec.js` (the `ios`
+Playwright project, which builds `dist-ios-test` on its own port, with a stand-in for the shell's bridge).
 
 The product's name is `APP_NAME` in `shared/brand.js`: the web manifest, `index.html`, the landing pages, the store
 listing (`make-listing.mjs`), the Play app (`android/make.sh`) and the feature graphic read it, so a rename is one line,

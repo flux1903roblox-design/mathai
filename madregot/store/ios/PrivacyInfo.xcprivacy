@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The iPhone app's privacy manifest (STUDENT-12 §3). make.sh copies it to ios/App/App/PrivacyInfo.xcprivacy.
+  No tracking and no tracking domains. The app collects no data for itself; what the AI helper sends (the exercise, what
+  the student typed, a photo if they took one) is declared in App Store Connect's App Privacy answers
+  (store/privacy-answers.md), not here. The Capacitor plugins ship their own manifests. The app's own web code calls
+  no required-reason API (the reminder's day and the progress live in the web view's storage).
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array/>
+</dict>
+</plist>

@@ -1,7 +1,8 @@
 // The opt-in daily reminder by web push (STUDENT-11), the page's half. Loaded on demand (ReminderCard, Settings, and
 // after learning when the reminder is on): it never weighs on the first screen. The server's half is worker/src/push.js.
 //
-// pushState()    what the device can do now: 'no-server' | 'off-server' (the server's switch is off) | 'unsupported' |
+// pushState()    what the device can do now: 'store-ios' (the iPhone app: local reminders, lib/localReminder.js, and
+//                no web push at all) | 'no-server' | 'off-server' (the server's switch is off) | 'unsupported' |
 //                'ios-install' (iPhone or iPad Safari: reminders need the app on the Home Screen) | 'denied' (the
 //                browser blocks notifications from this site) | 'ready' | 'on' | 'offline' (the server did not answer)
 // enable(slot)   from a click: ask the browser, subscribe with the server's key, send the subscription with the hour
@@ -10,6 +11,9 @@
 // disable()      tell the server to delete the row, unsubscribe, forget the id
 // markDone()     a lesson, a check or a teaching stage was finished: tell the server once a day, so no reminder comes
 // markSeen()     the app was opened today (once a day): the server keeps the row 45 days from the last open
+// reminderState() what the screens show: pushState(), with the iPhone app's answer filled in by lib/localReminder.js
+//                ('unsupported-app' | 'denied-app' | 'ready' | 'on')
+// In the iPhone app (VITE_STORE=ios) enable, disable, markDone and markSeen are lib/localReminder.js's, loaded here.
 // The store keeps reminder: { on, slot, id, secret, state ('on' | 'paused' | null), seenDay, doneDay }.
 import { api, apiBase, hasServer, ApiError } from './api.js';
 import { useApp, today } from './store.js';
@@ -55,8 +59,13 @@ async function serverKey() {
   }
 }
 
+/** The iPhone store app: reminders are local notifications there (STUDENT-12 §3). */
+export const storeIos = (env = import.meta.env) => env.VITE_STORE === 'ios';
+const localReminder = () => import('./localReminder.js');
+
 /** What the reminder can do on this device now (see the top of this file). `env` and `w` are for the unit tests. */
 export async function pushState({ env = import.meta.env, w = globalThis } = {}) {
+  if (storeIos(env)) return 'store-ios';
   if (!hasServer()) return 'no-server';
   if (isIosBrowser(w)) return 'ios-install';
   if (!pushSupported(w) || !swEnabled(env)) return 'unsupported';
@@ -65,6 +74,12 @@ export async function pushState({ env = import.meta.env, w = globalThis } = {}) 
   if (r.on && r.id) return 'on';
   const k = await serverKey();
   return k.key ? 'ready' : k.reason;
+}
+
+/** What Settings and LessonDone show: pushState(), or in the iPhone app the local reminder's state. */
+export async function reminderState(opts = {}) {
+  const s = await pushState(opts);
+  return s === 'store-ios' ? (await localReminder()).localState() : s;
 }
 
 /** The id and secret: IndexedDB first (the service worker may have replaced them), then the store. */
@@ -81,6 +96,7 @@ async function current() {
  * the person closed the browser's question), and throws the server's error (ApiError) for the caller to show.
  */
 export async function enable(slot, { w = globalThis } = {}) {
+  if (storeIos()) return (await localReminder()).enable(slot);
   const permission = await w.Notification.requestPermission();
   if (permission !== 'granted') return { ok: false, state: permission === 'denied' ? 'denied' : 'ready' };
   const k = await serverKey();
@@ -110,6 +126,7 @@ export async function enable(slot, { w = globalThis } = {}) {
  * { quiet: true } (deleting everything, signing out) counts nothing; { state: 'paused' } keeps the pause line.
  */
 export async function disable({ quiet = false, state = null, w = globalThis } = {}) {
+  if (storeIos()) return (await localReminder()).disable({ quiet });
   const prev = await current();
   if (prev?.id) await api('/api/push/off', { method: 'POST', auth: false, body: { id: prev.id, secret: prev.secret } }).catch(() => {});
   try {
@@ -142,8 +159,8 @@ async function seen(done) {
     return false;
   }
 }
-export const markDone = () => seen(true);
-export const markSeen = () => seen(false);
+export const markDone = async () => (storeIos() ? (await localReminder()).markDone() : seen(true));
+export const markSeen = async () => (storeIos() ? (await localReminder()).markSeen() : seen(false));
 
 /** For the unit tests: forget the key fetched in this page. */
 export const _forgetKey = () => { keyCache = null; };

@@ -14,6 +14,7 @@ import Achievements from '@/components/Achievements.jsx';
 import ProgressSummary from '@/components/learn/ProgressSummary.jsx';
 import MyNumbers from '@/components/learn/MyNumbers.jsx';
 import Mascot from '@/components/Mascot.jsx';
+import '@/styles/lazy/me.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 export default function Me() {
   const { profile, days, path } = useApp();

@@ -1,5 +1,6 @@
 // The daily reminder's offer after a lesson (STUDENT-11): the last screen of LessonDone, once ever, from the third
-// learning day, where the browser and the server can send one (lib/reminder.js reminderDue, then pushState 'ready').
+// learning day, where the browser and the server (or the iPhone app) can send one (lib/reminder.js reminderDue, then
+// reminderState 'ready').
 // A notification as it would arrive, one sentence on the rules, the hour, and two answers. "להפעיל" asks the browser
 // (inside the tap) and turns it on: the button turns busy, then says "התזכורת פועלת" with a check (STUDENT-15 A1; so no
 // toast says it again); "לא, תודה" goes on. Either way the student goes back to the map, and only Settings offers it
@@ -42,7 +43,7 @@ export default function ReminderCard({ onDone }) {
     enable(slot)
       .then((r) => {
         if (r.ok) { setState('done'); setTimeout(onDone, DONE_MS); return; }
-        if (r.state === 'denied') onNextScreen(() => toast(T.denied));
+        if (r.state === 'denied' || r.state === 'denied-app') onNextScreen(() => toast(r.state === 'denied' ? T.denied : T.deniedApp));
         onDone();
       })
       .catch((e) => { onNextScreen(() => toast.error(e?.code ? errorText(e.code) : T.unsupported)); onDone(); });

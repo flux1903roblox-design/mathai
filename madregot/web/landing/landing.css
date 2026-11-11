@@ -30,6 +30,10 @@ h1 { font-size: clamp(32px, 8.4vw, 52px); line-height: 1.15; font-weight: 800; }
 .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; padding: var(--s3) var(--s6); margin: var(--s2) 0 var(--lip); border-radius: var(--r-md); background: var(--brand); color: var(--on-brand); box-shadow: 0 var(--lip) 0 var(--brand-lip); font-size: 18px; line-height: 24px; font-weight: 700; text-align: center; text-decoration: none; transition: transform var(--duration-micro) var(--ease-out), box-shadow var(--duration-micro) var(--ease-out); }
 .btn:hover { background: var(--brand-lip); }
 .btn:active { transform: translateY(var(--lip)); box-shadow: 0 0 0 var(--brand-lip); }
+.ctas { display: flex; flex-wrap: wrap; gap: var(--s3); }
+.btn-2 { background: var(--surface); color: var(--brand-d); border: 2px solid var(--brand-line); box-shadow: 0 var(--lip) 0 var(--brand-line); }
+.btn-2:hover { background: var(--brand-tint); }
+.btn-2:active { box-shadow: 0 0 0 var(--brand-line); }
 
 main > section:not(.hero) { padding-block: var(--s6); border-top: 2px solid var(--rule); }
 h2 { font-size: 26px; line-height: 34px; font-weight: 800; margin-bottom: var(--s4); }

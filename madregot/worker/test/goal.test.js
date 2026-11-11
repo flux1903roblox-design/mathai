@@ -1,10 +1,11 @@
-// The class goal of the week (STUDENT-4): steps sent with the progress sync, the per-student daily caps, the weekly
+// The class goal of the week (STUDENT-4): steps sent with the progress sync, the per-student daily and weekly caps, the
+// two-day window for late steps (no backdating into past days or weeks), the weekly
 // target fixed at its first read, the student's and the teacher's views, Jerusalem week boundaries in winter and
 // summer, retention and removal. In-memory D1; nothing leaves the machine.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { setup, makeClass, bearer, rows, one } from './helpers.js';
-import { goalFor, teacherGoal, weekOf, shiftDay, autoTarget, GOAL } from '../src/goal.js';
+import { goalFor, teacherGoal, weekOf, shiftDay, autoTarget, GOAL, stepStatements, firstStepDay } from '../src/goal.js';
 import { purgeRecordsSql } from '../src/cron.js';
 import { dayOf } from '../src/util.js';
 
@@ -30,6 +31,13 @@ function addStudents(env, code, n, prefix = 'x') {
   }
   return ids;
 }
+/** A sync as the server would take it at `now` (an ISO time): the steps' statements, run; returns how many counted. */
+async function syncAt(cls, s, steps, now) {
+  const stmts = stepStatements(h.env, who(cls, s), steps, Date.parse(now));
+  const res = stmts.length ? await h.env.DB.batch(stmts) : [];
+  return res.reduce((n, r) => n + Number(r?.meta?.changes || 0), 0);
+}
+/** A step written straight into the database: one synced in its own week, long ago. */
 const addStep = (env, id, code, day, pts = 1) => env.DB.raw.prepare('INSERT INTO class_steps (sid, student_id, class_code, day, pts, at) VALUES (?, ?, ?, ?, ?, ?)')
   .run(uuid(), id, code, day, pts, noon(day));
 
@@ -78,9 +86,10 @@ test('2. a step worth 5, a bad id or a missing student is ignored; a future time
   // a step with no time, or a broken one, is now
   await sync(noa, [{ sid: uuid(), pts: 1 }, { sid: uuid(), pts: 1, at: 'yesterday' }]);
   assert.equal(rows(h.env, 'SELECT * FROM class_steps WHERE day = ?', dayOf()).length, 3);
-  // 60 steps on 60 different days (each far under its day's cap): only the first 50 are read
-  const old = Array.from({ length: 60 }, (_, i) => step(1, noon(shiftDay(dayOf(), -(i + 1)))));
-  assert.deepEqual(await (await sync(noa, old)).json(), { saved: 0, steps: GOAL.maxItems });
+  // only the first 50 steps of a sync are read: 50 that are not steps, then 10 good ones, count nothing
+  const padded = [...Array.from({ length: GOAL.maxItems }, () => step(5)), ...many(10, 1)];
+  assert.deepEqual(await (await sync(noa, padded)).json(), { saved: 0, steps: 0 });
+  assert.deepEqual(await (await sync(noa, padded.slice(GOAL.maxItems))).json(), { saved: 0, steps: 10 }, 'the same 10 alone count');
   assert.equal((await h.call('POST', '/api/progress', { body: { steps: [step(1)] } })).status, 401, 'a class token is needed');
   assert.equal((await h.call('POST', '/api/progress', { headers: bearer(noa), body: { steps: 'many' } })).status, 200, 'steps that are not a list are ignored');
 });
@@ -90,9 +99,9 @@ test('3. the target is automatic from active students, and fixed at the week\'s 
   const week = thisWeek();
   // five students, three of them with a step in the 14 days before this week: 3 x 4 = 12 -> 15
   const a = await makeClass(h, { students: ['א', 'ב', 'ג', 'ד', 'ה'] });
-  for (const [i, s] of a.students.slice(0, 3).entries()) assert.equal((await (await sync(s, [step(1, noon(shiftDay(week, -(i * 5 + 1))))])).json()).steps, 1);
+  for (const [i, s] of a.students.slice(0, 3).entries()) addStep(h.env, s.studentId, a.code, shiftDay(week, -(i * 5 + 1)));
   // a step 15 days before the week is too old to make anyone active
-  await sync(a.students[3], [step(1, noon(shiftDay(week, -15)))]);
+  addStep(h.env, a.students[3].studentId, a.code, shiftDay(week, -15));
   const g = await read(a.students[4]);
   assert.equal(g.target, 15);
   assert.equal(g.week, week); assert.equal(g.have, 0); assert.equal(g.mine, 0); assert.equal(g.reached, false);
@@ -129,9 +138,52 @@ test('3a. one student adds at most 30 points and 6 three-point steps in a Jerusa
   const batch = many(5, 3);
   assert.equal((await (await sync(dana, batch)).json()).steps, 5);
   assert.equal((await (await sync(dana, [...batch, step(3)])).json()).steps, 1, 'the sixth three-point step still counts after a retry');
-  // the cap is per day: another day (last week's Saturday) is a day of its own
-  assert.equal((await (await sync(noa, many(10, 1, noon(shiftDay(thisWeek(), -1))))).json()).steps, 10);
   assert.equal((await read(noa)).have, 30 + 30 + 18, 'this week: 30 + 30 + 18');
+});
+
+test('3b. the day cap is per day, and one student adds at most 60 points in a week', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
+  const [noa, itai] = cls.students;
+  // Tuesday 10 Nov 2026 at noon in Jerusalem: Sunday and Monday are still open, Tuesday is today
+  const tue = '2026-11-10T10:00:00.000Z';
+  assert.equal(await syncAt(cls, noa, many(30, 1, noon('2026-11-10')), tue), 30, 'today: 30');
+  assert.equal(await syncAt(cls, noa, many(20, 1, noon('2026-11-09')), tue), 20, 'yesterday is a day of its own');
+  assert.equal(await syncAt(cls, noa, many(20, 1, noon('2026-11-08')), tue), 10, 'Sunday: only up to the week\'s 60');
+  assert.equal(await syncAt(cls, noa, many(2, 3, noon('2026-11-11')), '2026-11-11T10:00:00.000Z'), 0, 'Wednesday: the week is full');
+  const g = await goalFor(h.env, who(cls, noa), new Date('2026-11-11T10:00:00.000Z'));
+  assert.equal(g.mine, GOAL.weekPts); assert.equal(g.have, 60);
+  // another student has a week of their own, and a new week starts from nothing
+  assert.equal(await syncAt(cls, itai, many(5, 3, noon('2026-11-11')), '2026-11-11T10:00:00.000Z'), 5);
+  assert.equal(await syncAt(cls, noa, many(3, 1, noon('2026-11-15')), '2026-11-15T10:00:00.000Z'), 3, 'next Sunday counts again');
+});
+
+test('3c. a backdated step counts only on the last two days and never in a past week (no burst fills the goal)', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
+  const [noa, itai] = cls.students;
+  assert.equal(firstStepDay(Date.parse('2026-11-11T10:00:00.000Z')), '2026-11-09', 'Wednesday: Monday on');
+  assert.equal(firstStepDay(Date.parse('2026-11-09T10:00:00.000Z')), '2026-11-08', 'Monday: Sunday on, not last week');
+  assert.equal(firstStepDay(Date.parse('2026-11-08T10:00:00.000Z')), '2026-11-08', 'Sunday: Sunday only');
+  // Saturday 14 Nov: a script sends 30 steps for every day since last Sunday, and for the week before
+  const sat = '2026-11-14T10:00:00.000Z';
+  const burst = [];
+  for (let d = -13; d <= 0; d++) burst.push(...many(30, 1, noon(shiftDay('2026-11-14', d))));
+  let counted = 0;
+  for (let i = 0; i < burst.length; i += GOAL.maxItems) counted += await syncAt(cls, noa, burst.slice(i, i + GOAL.maxItems), sat);
+  assert.equal(counted, GOAL.weekPts, 'Thursday to Saturday are open, and the week holds 60');
+  const days = rows(h.env, 'SELECT DISTINCT day FROM class_steps WHERE student_id = ? ORDER BY day', noa.studentId).map((r) => r.day);
+  assert.deepEqual(days, ['2026-11-12', '2026-11-13'], 'nothing before Thursday; Saturday found the week already full');
+  const g = await goalFor(h.env, who(cls, itai), new Date(sat));
+  assert.equal(g.have, 60, 'a classmate sees at most 60 from one student');
+  assert.ok(g.have < 30 * 7);
+  // last week's total (what the class scarf reads) cannot be raised from the new week
+  const before = await goalFor(h.env, who(cls, noa), new Date('2026-11-07T10:00:00.000Z'));
+  assert.equal(await syncAt(cls, itai, many(10, 1, noon('2026-11-07')), '2026-11-08T08:00:00.000Z'), 0, 'Sunday morning: Saturday\'s steps are last week\'s');
+  assert.equal((await goalFor(h.env, who(cls, noa), new Date('2026-11-08T10:00:00.000Z'))).last.have, before.have);
+  // the same through the real sync, today: steps older than two days count nothing
+  const old = many(10, 1, noon(shiftDay(dayOf(), -3)));
+  assert.equal((await (await sync(itai, old)).json()).steps, 0);
 });
 
 test('4. a teacher\'s size applies from next week, or at once when this week has no steps yet', async () => {
@@ -186,9 +238,9 @@ test('6. a student sees the class total and their own share, never another stude
   const cls = await makeClass(h, { students: ['נועה', 'איתי', 'דנה'] });
   const [noa, itai, dana] = cls.students;
   const week = thisWeek();
-  // last week, read once by someone, so it has a target
-  await sync(itai, many(5, 1, noon(shiftDay(week, -3))));
-  await sync(noa, many(2, 1, noon(shiftDay(week, -2))));
+  // last week (synced back then), read once by someone, so it has a target
+  for (let i = 0; i < 5; i++) addStep(h.env, itai.studentId, cls.code, shiftDay(week, -3));
+  for (let i = 0; i < 2; i++) addStep(h.env, noa.studentId, cls.code, shiftDay(week, -2));
   await goalFor(h.env, who(cls, dana), new Date(Date.parse(noon(shiftDay(week, -1)))));
   await sync(noa, [step(3), step(1)]);
   await sync(itai, many(6, 1));
@@ -252,7 +304,9 @@ test('8. week boundaries follow Jerusalem: Saturday 23:30 is the old week, Sunda
     { sat: '2026-03-28T20:30:00.000Z', sun: '2026-03-28T21:10:00.000Z', satDay: '2026-03-28', sunDay: '2026-03-29' },
   ];
   for (const c of cases) {
-    assert.equal((await (await sync(noa, [step(1, c.sat), step(3, c.sun)])).json()).steps, 2);
+    // each step synced as it happens (a step from a week that has ended no longer counts)
+    assert.equal(await syncAt(cls, noa, [step(1, c.sat)], c.sat), 1);
+    assert.equal(await syncAt(cls, noa, [step(3, c.sun)], c.sun), 1);
     assert.equal(one(h.env, 'SELECT day FROM class_steps WHERE at = ?', c.sat).day, c.satDay);
     assert.equal(one(h.env, 'SELECT day FROM class_steps WHERE at = ?', c.sun).day, c.sunDay);
     assert.equal(weekOf(c.sunDay), c.sunDay, 'Sunday starts a week');
@@ -270,7 +324,9 @@ test('9. the nightly purge drops steps after 120 days and weeks after 400; remov
   const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
   const [noa, itai] = cls.students;
   const today = dayOf();
-  await sync(noa, [step(1, noon(shiftDay(today, -121))), step(1, noon(shiftDay(today, -119))), step(1)]);
+  addStep(h.env, noa.studentId, cls.code, shiftDay(today, -121));
+  addStep(h.env, noa.studentId, cls.code, shiftDay(today, -119));
+  await sync(noa, [step(1)]);
   await sync(itai, [step(1)]);
   h.env.DB.raw.prepare('INSERT INTO class_goal_weeks (class_code, week, target) VALUES (?, ?, 10), (?, ?, 10)')
     .run(cls.code, weekOf(shiftDay(today, -402)), cls.code, weekOf(shiftDay(today, -390)));

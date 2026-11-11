@@ -57,17 +57,24 @@
     </ul>
   </section>
 
+  <section class="wrap" aria-labelledby="h-why">
+    <h2 id="h-why">מה מיוחד כאן</h2>
+    <ul class="ticks">
+      {{CLAIMS mistakes graded-by-code rest coverage tutor-knows}}
+    </ul>
+  </section>
+
   <section class="wrap" aria-labelledby="h-plans">
     <h2 id="h-plans">מה בחינם ומה במנוי</h2>
     <div class="plans">
       <div class="card">
         <h3>בחינם</h3>
-        <p>כל השיעורים, התרגול, תוכנית החזרה למבחן ומבחן תרגול להדפסה עם תשובות.</p>
+        <p>{{CLAIM free-list}}</p>
       </div>
       <div class="card">
         <h3>העוזר החכם (מנוי משפחתי)</h3>
-        <p>עוזר שמסביר לילד את הטעות בתרגיל שעל המסך ובודק דף פתרון מצולם.</p>
-        <p class="price">{{PRICE_MONTH}} לחודש או {{PRICE_YEAR}} לשנה, {{VAT_LINE}}. בלי התחייבות, מבטלים באתר.</p>
+        <p>{{CLAIM ai-helper}}</p>
+        <p class="price">{{PRICE_MONTH}} לחודש או {{PRICE_YEAR}} לשנה, {{VAT_LINE}}. {{CLAIM cancel-web}}</p>
       </div>
     </div>
     <p><a class="more" href="../#/parents">למידע להורים</a></p>
@@ -75,7 +82,7 @@
 
   <section class="wrap" aria-labelledby="h-privacy">
     <h2 id="h-privacy">פרטיות</h2>
-    <p>בלי פרסומות. לא צריך הרשמה כדי ללמוד. ההתקדמות נשמרת במכשיר.</p>
+    <p>{{CLAIM no-ads}} לא צריך הרשמה כדי ללמוד. ההתקדמות נשמרת במכשיר.</p>
   </section>
 
   <section class="wrap" aria-labelledby="h-faq">
@@ -88,7 +95,10 @@
       <h3>זה עובד בטלפון?</h3>
       <p>כן, בכל דפדפן. אפשר גם להוסיף למסך הבית.</p>
       <h3>מי רואה את הנתונים?</h3>
-      <p>אם הילד לא בכיתה של מורה, ההתקדמות נשמרת רק במכשיר שלו. אפשר לשתף אתכם בסיכום שבועי.</p>
+      <p>אם הילד לא בכיתה של מורה, ההתקדמות נשמרת רק במכשיר שלו. {{CLAIM weekly-share}}</p>
+      {{#CLAIM chatbot}}<h3>למה לא פשוט צ׳אטבוט חינמי?</h3>
+      <p>{{CLAIM chatbot}}</p>
+      {{/CLAIM}}
     </div>
   </section>
 

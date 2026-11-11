@@ -4,8 +4,11 @@
 //
 // - The device mints each step with its own id (sid), so a retry or a second tab never counts twice; the steps ride
 //   in POST /api/progress (saveProgress calls stepStatements).
-// - The device mints the steps, so one student can add at most 30 points and 6 three-point steps in a Jerusalem day;
-//   anything over is dropped without a word. 30 points is about 20 lessons, far above a real day.
+// - The device mints the steps, so one student can add at most 30 points and 6 three-point steps in a Jerusalem day,
+//   and at most 60 points in a week; anything over is dropped without a word. 30 points is about 20 lessons, far above
+//   a real day, and 60 far above a real week. A step counts only on the day it is synced or the two days before, and
+//   never in a week that has ended: a phone that was offline still counts yesterday's lessons, but a script cannot write
+//   steps into last week (whose total the class scarf reads) or fill every past day of this one at once.
 // - A week runs Sunday to Saturday in Jerusalem. Its target is fixed at the week's first read (class_goal_weeks), so it
 //   never moves mid-week: the teacher's number (10-400), or 4 steps for each student with a step in the 14 days before
 //   the week (the class size when nobody has one), rounded up to 5, from 10 to 400.
@@ -16,7 +19,7 @@ import { dayOf, nowIso, HttpError, body, json } from './util.js';
 import { requireStudent, requireTeacher } from './entitle.js';
 import { countServer } from './metrics.js';
 
-export const GOAL = { maxItems: 50, dayPts: 30, dayThrees: 6, min: 10, max: 400, perActive: 4, activeDays: 14 };
+export const GOAL = { maxItems: 50, dayPts: 30, dayThrees: 6, weekPts: 60, lateDays: 2, min: 10, max: 400, perActive: 4, activeDays: 14 };
 const SID = /^[0-9a-f-]{36}$/;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
 
@@ -34,24 +37,37 @@ export const ceil5 = (n) => Math.ceil(n / 5) * 5;
 /** The automatic target for n active students: 4 steps each, rounded up to 5, from 10 to 400. */
 export const autoTarget = (n) => Math.min(GOAL.max, Math.max(GOAL.min, ceil5(GOAL.perActive * n)));
 
+/** The first Jerusalem day a step synced at `now` may count on: two days back, but never before this week's Sunday. */
+export function firstStepDay(now = Date.now()) {
+  const today = dayOf(new Date(now));
+  const late = shiftDay(today, -GOAL.lateDays); const week = weekOf(today);
+  return late > week ? late : week;
+}
+
 /**
  * The steps of one progress sync, as statements for its batch (they commit with the answers or not at all). At most 50
- * are read; a step needs a UUID-shaped sid, pts 1 or 3, and an `at` that is clamped to now like an answer's. Each insert
- * reads the student's points for that Jerusalem day first and is skipped when it would pass the day's caps, so a sid
- * already saved (a retry) neither counts again nor uses up the cap, and two tabs syncing at once cannot pass it.
+ * are read; a step needs a UUID-shaped sid, pts 1 or 3, and an `at` that is clamped to now like an answer's and falls
+ * on firstStepDay(now) or later (an older one is dropped). Each insert reads the student's points for that Jerusalem
+ * day and that week first and is skipped when it would pass a cap, so a sid already saved (a retry) neither counts
+ * again nor uses up the cap, and two tabs syncing at once cannot pass it.
  */
 export function stepStatements(env, s, steps, now = Date.now()) {
   const out = []; const seen = new Set();
+  const from = firstStepDay(now);
   for (const x of (Array.isArray(steps) ? steps : []).slice(0, GOAL.maxItems)) {
     const sid = typeof x?.sid === 'string' ? x.sid : ''; const pts = x?.pts;
     if (!SID.test(sid) || seen.has(sid) || (pts !== 1 && pts !== 3)) continue;
     seen.add(sid);
     const at = new Date(Math.min(Number(new Date(x.at)) || now, now));
+    const day = dayOf(at);
+    if (day < from) continue;
+    const week = weekOf(day);
     out.push(env.DB.prepare(`INSERT OR IGNORE INTO class_steps (sid, student_id, class_code, day, pts, at)
       SELECT ?1, ?2, ?3, ?4, ?5, ?6
       WHERE (SELECT COALESCE(SUM(pts), 0) FROM class_steps WHERE student_id = ?2 AND day = ?4) + ?5 <= ?7
-        AND (?5 = 1 OR (SELECT COUNT(*) FROM class_steps WHERE student_id = ?2 AND day = ?4 AND pts = 3) < ?8)`)
-      .bind(sid, s.id, s.class_code, dayOf(at), pts, at.toISOString(), GOAL.dayPts, GOAL.dayThrees));
+        AND (?5 = 1 OR (SELECT COUNT(*) FROM class_steps WHERE student_id = ?2 AND day = ?4 AND pts = 3) < ?8)
+        AND (SELECT COALESCE(SUM(pts), 0) FROM class_steps WHERE student_id = ?2 AND day >= ?9 AND day < ?10) + ?5 <= ?11`)
+      .bind(sid, s.id, s.class_code, day, pts, at.toISOString(), GOAL.dayPts, GOAL.dayThrees, week, shiftDay(week, 7), GOAL.weekPts));
   }
   return out;
 }

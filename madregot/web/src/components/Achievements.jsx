@@ -4,6 +4,7 @@ import { useApp, streakOf, dayBefore, today, isActiveDay, keptDay } from '@/lib/
 import { TOPICS } from '@/content/index.js';
 import { doneCount, chestOpen } from '@/lib/path.js';
 import RewardBadge from './RewardBadge.jsx';
+import '@/styles/lazy/achievements.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const active = isActiveDay; // a finished lesson, check or teaching stage
 

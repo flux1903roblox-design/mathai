@@ -17,6 +17,11 @@
 //   API_BASE             where count.js sends: API_BASE in the env, else from VITE_API_URL ('none' → none; unset or '/'
 //                        → '' = this Worker; an address → that address)
 //   APP_NAME             shared/brand.js
+// What the pages say about the product is checked (STUDENT-17): every such sentence is a claim of
+// src/content/claims.js, named in a page as {{CLAIM id}} (its words, or nothing), {{#CLAIM id}}…{{/CLAIM}} (a part
+// kept only while the claim is shown) or {{CLAIMS id id …}} (list items of those shown). A claim whose check fails is
+// left out, and the build prints which (a feature another lane has not merged yet); a required claim that fails stops
+// the build (the app lost something the pages promise). A list item or paragraph left empty is removed.
 // A slot the owner has not filled yet leaves its part out ({{#NAME}}…{{/NAME}}): no canonical link, link preview or
 // sitemap without PUBLIC_URL, no e-mail line without CONTACT_EMAIL. The build says which are missing.
 //
@@ -27,6 +32,8 @@ import { fileURLToPath } from 'node:url';
 import { APP_NAME } from '../../shared/brand.js';
 
 export const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+/** The madregot/ folder: claims read the code by paths from here (web/src/…, worker/src/…, shared/…). */
+export const MADREGOT = resolve(WEB, '..');
 export const LANDING = join(WEB, 'landing');
 export const PAGES = ['mivchan', 'pilot'];
 /** The images the pages use, made by store/capture.cjs into web/landing/img/ and copied to <dist>/l/. */
@@ -131,9 +138,36 @@ export function imageSize(buf) {
   return null;
 }
 
-/** Fill a page: {{#NAME}}…{{/NAME}} kept only when NAME has a value, {{IMG file}} the image's src and size, {{NAME}}. */
-export function render(tpl, vars, { images = {}, madi = {} } = {}) {
-  let out = tpl.replace(/\{\{#([A-Z_0-9]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_, name, body) => (vars[name] ? body : ''));
+/** The repository's files as the claims' checks read them (paths from madregot/). */
+export function repoCode(root = MADREGOT) {
+  return {
+    has: (p) => existsSync(join(root, p)),
+    read: (p) => { try { return readFileSync(join(root, p), 'utf8'); } catch { return ''; } },
+  };
+}
+
+/**
+ * The claim slots of a page: `claims` is { shown: { id: text }, known: [every id] }. A claim id that is not known is a
+ * typo and stops the build.
+ */
+export function renderClaims(tpl, { shown = {}, known = [] } = {}) {
+  const ids = new Set(known);
+  const want = (id) => { if (!ids.has(id)) throw new Error(`landing-build: no claim "${id}" in src/content/claims.js`); return id in shown; };
+  let out = tpl.replace(/\{\{#CLAIM ([\w-]+)\}\}([\s\S]*?)\{\{\/CLAIM\}\}/g, (_, id, body) => (want(id) ? body : ''));
+  out = out.replace(/\{\{CLAIMS ([\w -]+)\}\}/g, (_, list) => list.trim().split(/\s+/).filter(want).map((id) => `<li>${esc(shown[id])}</li>`).join('\n      '));
+  out = out.replace(/\{\{CLAIM ([\w-]+)\}\}/g, (_, id) => (want(id) ? esc(shown[id]) : ''));
+  // what a hidden claim left behind: an empty item, paragraph or list, and the space before a closing tag
+  return out.replace(/^[ \t]*<li>\s*<\/li>\n/gm, '').replace(/(\S) {2,}(?=\S)/g, '$1 ').replace(/ +<\/(p|li)>/g, '</$1>')
+    .replace(/<p>\s*<\/p>\n?/g, '').replace(/<ul class="ticks">\s*<\/ul>/g, '').replace(/\n[ \t]+\n/g, '\n\n').replace(/\n{3,}/g, '\n\n');
+}
+
+/**
+ * Fill a page: the claims (renderClaims), {{#NAME}}…{{/NAME}} kept only when NAME has a value, {{IMG file}} the
+ * image's src and size, {{NAME}}.
+ */
+export function render(tpl, vars, { images = {}, madi = {}, claims = { shown: {}, known: [] } } = {}) {
+  let out = renderClaims(tpl, claims);
+  out = out.replace(/\{\{#([A-Z_0-9]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_, name, body) => (vars[name] ? body : ''));
   out = out.replace(/\{\{IMG ([\w.-]+)\}\}/g, (_, file) => {
     const s = images[file];
     if (!s) throw new Error(`landing-build: ${file} is missing from web/landing/img (run: node madregot/store/capture.cjs landing)`);
@@ -170,6 +204,7 @@ export async function appData() {
     const { GOALS } = await server.ssrLoadModule('/src/lib/quests.js');
     const { default: Mascot } = await server.ssrLoadModule('/src/components/Mascot.jsx');
     const { LIST_PRICES, formatAgorot, vatLine } = await server.ssrLoadModule('/src/lib/price.js');
+    const claims = await server.ssrLoadModule('/src/content/claims.js');
     const { createElement } = await import('react');
     const { renderToStaticMarkup } = await import('react-dom/server');
     // React's generated ids («R0») become plain ones, distinct for the two drawings on a page
@@ -179,19 +214,32 @@ export async function appData() {
       minutes: GOALS.map((g) => g.mins),
       madi: { small: madi('idle', 36, 's'), big: madi('happy', 96, 'b') },
       price: { LIST_PRICES, formatAgorot, vatLine },
+      claims: { status: claims.claimStatus, all: claims.CLAIMS.map((c) => c.id), data: claims.claimData() },
     };
   } finally {
     await server.close();
   }
 }
 
-/** Build the pages into `dist`. Returns { files, warn }. `app` defaults to appData(). */
-export async function buildLanding(dist, { env = process.env, app, src = LANDING } = {}) {
+/**
+ * The claims checked against this repository (or `code`, for the tests): { shown: { id: text }, known, status }.
+ * Throws when a required claim fails.
+ */
+export function checkClaims(app, toml, code = repoCode()) {
+  const status = app.claims.status({ code, data: { ...app.claims.data, vars: toml } });
+  const lost = status.filter((c) => c.required && !c.visible);
+  if (lost.length) throw new Error(`landing-build: the app no longer backs what the pages say: ${lost.map((c) => `${c.id} (${c.why})`).join(', ')}`);
+  return { shown: Object.fromEntries(status.filter((c) => c.visible).map((c) => [c.id, c.text])), known: app.claims.all, status };
+}
+
+/** Build the pages into `dist`. Returns { files, warn, claims }. `app` defaults to appData(), `code` to this repository. */
+export async function buildLanding(dist, { env = process.env, app, src = LANDING, code } = {}) {
   const tomlPath = join(WEB, '..', 'worker', 'wrangler.toml');
   const toml = wranglerVars(existsSync(tomlPath) ? read(tomlPath) : '');
   const data = app || await appData();
   const tokens = tokenBlocks();
   const { vars, api, warn } = landingVars(env, toml, data, tokens);
+  const claims = checkClaims(data, toml, code);
   const files = [];
   const write = (rel, text) => { const p = join(dist, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); files.push(rel); };
 
@@ -207,20 +255,23 @@ export async function buildLanding(dist, { env = process.env, app, src = LANDING
   }
   write('l/landing.css', `${fontFaces(dist)}${tokens.root}${tokens.dark}\n${minifyCss(read(join(src, 'landing.css')))}\n`);
   write('l/count.js', buildCount(read(join(src, 'count.js')), api));
-  for (const page of PAGES) write(`${page}/index.html`, render(read(join(src, `${page}.html`)), vars, { images, madi: data.madi }));
+  for (const page of PAGES) write(`${page}/index.html`, render(read(join(src, `${page}.html`)), vars, { images, madi: data.madi, claims }));
   const base = vars.PUBLIC_URL;
   write('robots.txt', `User-agent: *\nAllow: /\n${base ? `Sitemap: ${base}/sitemap.xml\n` : ''}`);
   if (base) {
     write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${PAGES.map((p) => `  <url><loc>${esc(`${base}/${p}/`)}</loc></url>\n`).join('')}</urlset>\n`);
   }
-  return { files, warn };
+  return { files, warn, claims: claims.status };
 }
 
 // node scripts/landing-build.mjs [dist]
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const dist = resolve(process.argv[2] || join(WEB, 'dist'));
-  buildLanding(dist).then(({ files, warn }) => {
+  buildLanding(dist).then(({ files, warn, claims }) => {
     for (const w of warn) console.warn(`landing-build: ${w} (set it in worker/wrangler.toml [vars] or the build env)`);
+    console.log(`landing-build: claims shown: ${claims.filter((c) => c.visible).map((c) => c.id).join(', ')}`);
+    const hidden = claims.filter((c) => !c.visible);
+    if (hidden.length) console.log(`landing-build: claims hidden (no code behind them in this build): ${hidden.map((c) => `${c.id} (${c.why})`).join('; ')}`);
     console.log(`landing-build: ${files.length} files in ${dist} (/mivchan/, /pilot/, /l/, robots.txt${files.includes('sitemap.xml') ? ', sitemap.xml' : ''})`);
   }).catch((e) => { console.error(e.message || e); process.exit(1); });
 }

@@ -35,6 +35,7 @@ import { AreaArt, areaView } from './manip/AreaModel.jsx';
 import { RayArt, RAY_VIEW } from './manip/Ray.jsx';
 import { TilesArt, TILES_VIEW } from './manip/Tiles.jsx';
 import { panWords, tilesWords, rayText, areaTex, figWords, figNum, ruleText, linesMeet, machineIO } from '@/content/manip.js';
+import '@/styles/lazy/figure.css'; // this screen's own rules, loaded with it (STUDENT-15)
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
 

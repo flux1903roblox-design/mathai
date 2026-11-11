@@ -92,6 +92,32 @@ describe('check-budget', () => {
     expect(check(fakeDist(app({ 'assets/index-a1.js': { kb: 400, entry: true, imports: ['assets/vendor-b2.js'], modules: [] } })), { ...BUDGET, studentBootBaselineKB: 1000 }).problems).toEqual([]);
   });
 
+  it('measures the first load\'s CSS (the entry\'s and its static imports\' stylesheets), and refuses growth over studentCssDeltaKB', () => {
+    const withCss = (bootKb, lazyKb) => {
+      const dist = fakeDist(app());
+      const manifest = JSON.parse(readFileSync(join(dist, '.vite', 'manifest.json'), 'utf8'));
+      writeFileSync(join(dist, 'assets/index-a1.css'), randomBytes(Math.round(bootKb * 1024)));
+      writeFileSync(join(dist, 'assets/Wardrobe-c3.css'), randomBytes(Math.round(lazyKb * 1024)));
+      manifest['index.html'].css = ['assets/index-a1.css'];
+      manifest['src/Wardrobe.jsx'].css = ['assets/Wardrobe-c3.css'];
+      writeFileSync(join(dist, '.vite', 'manifest.json'), JSON.stringify(manifest));
+      return dist;
+    };
+    const CSS = { ...BUDGET, studentCssBaselineKB: 40, studentCssDeltaKB: 0 };
+    // 39 KB first, and a screen's own 20 KB that loads with it: under the baseline
+    const ok = check(withCss(39, 20), CSS);
+    expect(ok.problems).toEqual([]);
+    expect(ok.measured.bootCss).toEqual(['assets/index-a1.css']);
+    expect(ok.measured.bootCssGzipKB).toBeGreaterThan(38.9);
+    expect(ok.measured.bootCssGzipKB).toBeLessThan(39.2);
+    expect(ok.report).toMatch(/and 39(\.\d)? KB CSS \([\d.]+ KB less than 40 KB, at most 0 KB more allowed\)/);
+    // the same 20 KB put in the first load instead: refused
+    const over = check(withCss(44, 1), CSS);
+    expect(over.problems).toEqual([expect.stringMatching(/^first-load CSS is 44(\.\d)? KB gzipped: 4(\.\d)? KB over 5618298 \(40 KB\), more than the 0 KB allowed/)]);
+    // a budget with no CSS baseline checks no CSS
+    expect(check(withCss(44, 1), BUDGET).problems).toEqual([]);
+  });
+
   it('refuses a build without the module map', () => {
     const dist = fakeDist(app());
     rmSync(join(dist, '.vite', 'modules.json'));
@@ -107,6 +133,8 @@ describe('the budget as configured', () => {
     expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk']);
     expect(budget).toMatchObject({ studentBootBaselineCommit: '5618298', studentBootDeltaKB: 6, chunkMaxKB: 150 });
     expect(budget.studentBootBaselineKB).toBeGreaterThan(0);
+    // STUDENT-15: no net CSS growth over the same commit's first load (48.1 KB gzipped, KaTeX's stylesheet included)
+    expect(budget).toMatchObject({ studentCssBaselineKB: 48.1, studentCssDeltaKB: 0 });
   });
 
   it('npm run build makes the manifest and runs the check', () => {

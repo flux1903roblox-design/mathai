@@ -1,0 +1,10 @@
+{
+  "appId": "<IOS_BUNDLE_ID>",
+  "appName": "<APP_NAME>",
+  "webDir": "www",
+  "loggingBehavior": "none",
+  "ios": {
+    "contentInset": "always",
+    "scheme": "capacitor"
+  }
+}
