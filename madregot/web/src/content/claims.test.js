@@ -22,8 +22,9 @@ describe('the claims', () => {
       expect(typeof c.check, c.id).toBe('function');
       if (c.lang === 'en') expect(c.en, c.id).toMatch(/^[A-Z][\x20-\x7e’–]+\.$/);
       else expect(c.he, c.id).toMatch(/[֐-׿]/);
-      // a claim waiting for another lane says which; one of the app's own core may stop the build instead
-      expect(!!c.required || !!c.needs || c.id === 'teachers', c.id).toBe(true);
+      // a claim waiting for another lane says which, one that depends on how the deployment sells says that; one of the
+      // app's own core may stop the build instead
+      expect(!!c.required || !!c.needs || !!c.deploy || c.id === 'teachers', c.id).toBe(true);
     }
   });
 
@@ -62,6 +63,19 @@ describe('the claims', () => {
     expect([byId.teachers.visible, byId['teachers-assign'].visible]).toEqual([false, true]);
     const before = Object.fromEntries(claimStatus({ code: codeWith({}, { drop: ['worker/src/assignments.js'] }), data }).map((s) => [s.id, s.visible]));
     expect([before.teachers, before['teachers-assign']]).toEqual([true, false]);
+  });
+
+  it('"מבטלים באתר" only while a plan that renews is sold online; "subscribe on our website" while any family plan is (COUNCIL2-30)', () => {
+    const at = (vars) => Object.fromEntries(claimStatus({ code: codeWith(), data: { ...data, vars } }).filter((s) => ['cancel-web', 'subscribe-web'].includes(s.id)).map((s) => [s.id, s.visible]));
+    expect(at({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'on' })).toEqual({ 'cancel-web': true, 'subscribe-web': true });
+    expect(at({ BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off' })).toEqual({ 'cancel-web': false, 'subscribe-web': true });
+    expect(at({ BILLING_PROVIDER: 'test' })).toEqual({ 'cancel-web': true, 'subscribe-web': true });
+    expect(at({ BILLING_PROVIDER: 'manual' })).toEqual({ 'cancel-web': false, 'subscribe-web': false });
+    expect(at({})).toEqual({ 'cancel-web': false, 'subscribe-web': false });
+    // a /cancel route alone is not enough: the plan must renew and be sold
+    const noRoute = claimStatus({ code: codeWith({}, { drop: ['web/src/App.jsx'] }), data: { ...data, vars: { BILLING_PROVIDER: 'test' } } }).find((s) => s.id === 'cancel-web');
+    expect(noRoute.visible).toBe(false);
+    expect(claimStatus({ code: codeWith(), data }).find((s) => s.id === 'cancel-web').why).toBe('not in this deployment: a plan that renews, sold online');
   });
 
   it('the school AI line follows the Worker\'s approval: hidden once the owner sets MOE_AI_APPROVAL = "approved"', () => {

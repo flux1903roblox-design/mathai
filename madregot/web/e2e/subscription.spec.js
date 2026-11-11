@@ -436,6 +436,38 @@ test.describe('the smart tutor', () => {
     expect(log.find((r) => r.path === '/api/billing/checkout').body).toMatchObject({ plan: 'family_year', adult: true, terms: '2026-11' });
   });
 
+  test('with only the one-year plan sold online (Grow before it may stop a standing order), /parents offers and prices it alone, never "write to us"', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true, planOnline: { family_month: false } }, baseOf());
+    // a parent who has not signed in: what the plan is, the yearly price alone, how a one-year plan is cancelled
+    await open(page, '#/parents', parentPhone());
+    await expect(page.getByRole('heading', { name: 'העוזר החכם של מדרגות · להורים' })).toBeVisible();
+    await expect(page.locator('.parents-price')).toHaveText('₪249 לשנה, כולל מע״מלשנה אחת, לא מתחדש מעצמו');
+    await expect(page.getByText('אפשר לבטל כאן באתר בשתי לחיצות. ב־14 הימים הראשונים מקבלים את כל הכסף בחזרה, ואחר כך החזר יחסי על הימים שנשארו.')).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('₪29.90');
+    await expect(page.locator('body')).not.toContainText('לחודש,');
+    await expect(page.getByText('בלי התחייבות. מבטלים כאן באתר בשתי לחיצות.', { exact: false })).toHaveCount(0);
+    await shot(page, 'parents-year-only-info');
+    // signed in: the yearly plan, chosen, with its line; no monthly plan and no "write to us"
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/parents', parentPhone(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(9), email: 'parent@example.test' }) } });
+    await expect(page.getByRole('heading', { name: 'אין מנוי פעיל' })).toBeVisible();
+    await expect(page.getByText(/ההצטרפות באתר עוד לא פתוחה/)).toHaveCount(0);
+    const plans = page.getByRole('radiogroup', { name: 'מסלול' });
+    await expect(plans.getByRole('radio')).toHaveCount(1);
+    await expect(plans.getByRole('radio', { name: /שנתי/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(plans.getByRole('radio', { name: /שנתי/ })).toContainText('₪249 לשנה, כולל מע״מ (₪20.75 לחודש) · לשנה אחת, לא מתחדש מעצמו');
+    await expect(page.getByText('סה״כ לתשלום היום: ₪249 (כולל מע״מ 18%).', { exact: true })).toBeVisible();
+    await expect(page.getByText('המנוי לשנה אחת, עד 05.11.2027. הוא לא מתחדש מעצמו ולא נחייב אתכם שוב. 45 ימים לפני הסוף נשלח מייל, ואם תרצו, תחדשו בלחיצה.')).toBeVisible();
+    await expect(page.getByText(/החיוב הבא|מתחדש אוטומטית/)).toHaveCount(0);
+    for (const b of await page.getByRole('radio').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await shot(page, 'parents-year-only-checkout');
+    await page.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
+    await page.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
+    await page.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
+    await page.waitForURL(`${PAY}/**`);
+    expect(log.find((r) => r.path === '/api/billing/checkout').body).toMatchObject({ plan: 'family_year', adult: true, terms: '2026-11' });
+  });
+
   test('the end-date email\'s link (?renew=year): a one-year plan in its last 45 days renews here, a new consent; earlier, the page says from when', async ({ page }) => {
     const year = { plan: 'family_year', priceAgorot: 24900, renews: false, canRefundNow: false, canResume: false };
     const { st, log } = await fakeServer(page, { parentOk: true, plan: livePlan({ ...year, periodEnd: '2026-11-25T10:00:00Z', canRenew: true, renewFrom: '2026-10-11T10:00:00Z' }) }, baseOf());

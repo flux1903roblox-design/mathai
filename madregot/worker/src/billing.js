@@ -10,6 +10,7 @@ import { refuseSchoolSale } from './classai.js';
 import { reportOn, summaryState, rowToDay } from './report.js';
 import { decide, endAt, cleanDetail, recurringPlan } from './apply.js';
 import { providerById, currentProvider, webhookProvider, capsOf } from './providers/index.js';
+import { sellsOnline, PLAN_IDS } from '../../shared/sold.js';
 import { testSignature } from './providers/test.js';
 import { noticeStmt, ownerNotice, monthSpendUsd } from './spend.js';
 import { flushNotices, escapeHtml, shekels } from './email.js';
@@ -69,17 +70,20 @@ export function legalMissing(env) {
 /** The lawyer-approved texts are live and every detail they quote is set: online checkout may open. */
 export const legalReady = (env) => legalMissing(env).length === 0;
 
-export const PLAN_IDS = ['family_month', 'family_year', 'class_year'];
+export { PLAN_IDS } from '../../shared/sold.js';
 /**
  * Can this plan be bought online here: the switch on, the legal texts approved (legalReady), a provider that takes
- * payments online, and one that can cancel what it sells (a provider that sells only some plans says which with
- * planOnline: Grow sells the monthly plan only once it may stop the standing order).
+ * payments online with its keys set, and one that sells this plan: shared/sold.js, the same rule the landing pages, the
+ * store listing and the claims read (Grow sells the one-year plans as one charge, and the monthly plan only once it may
+ * stop the standing order).
  */
 export function planOnline(env, plan) {
   const p = currentProvider(env);
   const caps = capsOf(env, p);
   if (!paywallOn(env) || !legalReady(env) || !p || !caps?.online) return false;
-  return typeof p.planOnline === 'function' ? !!p.planOnline(env, plan) : !!caps.cancelApi;
+  // a plan that renews is sold only by a provider that can stop it (a cancellation must reach the provider)
+  if (recurringPlan(plan) && !caps.cancelApi) return false;
+  return sellsOnline(env, plan, p.id);
 }
 /** Online sign-up is open when at least one plan can be bought online. */
 export const onlineCheckout = (env) => PLAN_IDS.some((plan) => planOnline(env, plan));

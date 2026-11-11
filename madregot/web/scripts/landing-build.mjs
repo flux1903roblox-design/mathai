@@ -9,10 +9,16 @@
 //
 // What fills the {{…}} slots, so the pages say what the app and the server really do:
 //   TOPICS_7, TOPICS_8   the grade's topic names (src/content topicsFor), GOAL_MINUTES the daily goals (lib/quests GOALS)
-//   PRICE_MONTH/_YEAR    LANDING_PRICE_MONTH_AGOROT / LANDING_PRICE_YEAR_AGOROT, else the Worker's
-//                        PRICE_FAMILY_*_AGOROT in worker/wrangler.toml, else lib/price.js LIST_PRICES (₪29.90, ₪249),
-//                        written by lib/price.js formatAgorot and vatLine (read through Vite, as the app's code)
-//   VAT_LINE             LANDING_VAT_MODE, else wrangler.toml VAT_MODE: 'כולל מע״מ' (or 'המחיר סופי' for an exempt dealer)
+//   PRICE_LINE           the family plans that can be bought online, and only those (COUNCIL2-30: shared/sold.js, the
+//                        rule the Worker sells by, from BILLING_PROVIDER and GROW_DIRECT_DEBIT_API in the build env,
+//                        else wrangler.toml): both, '₪29.90 לחודש או ₪249 לשנה, כולל מע״מ.'; the one-year plan alone
+//                        (Grow before it may stop a standing order), '₪249 לשנה, כולל מע״מ. לשנה אחת, לא מתחדש מעצמו.';
+//                        none (the manual provider), no price line at all. The prices: LANDING_PRICE_MONTH_AGOROT /
+//                        LANDING_PRICE_YEAR_AGOROT, else the Worker's PRICE_FAMILY_*_AGOROT in worker/wrangler.toml,
+//                        else lib/price.js LIST_PRICES (₪29.90, ₪249), written by lib/price.js formatAgorot and vatLine
+//                        (read through Vite, as the app's code), with LANDING_VAT_MODE, else wrangler.toml VAT_MODE
+//                        ('כולל מע״מ', or 'המחיר סופי' for an exempt dealer). "מבטלים באתר" is the claim cancel-web,
+//                        shown only when a plan that renews is sold online.
 //   PUBLIC_URL, CONTACT_EMAIL, BUSINESS_NAME   the build env, else wrangler.toml [vars] (the owner fills them once there)
 //   API_BASE             where count.js sends: API_BASE in the env, else from VITE_API_URL ('none' → none; unset or '/'
 //                        → '' = this Worker; an address → that address)
@@ -30,6 +36,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFi
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_NAME } from '../../shared/brand.js';
+import { soldOnline, recurringPlan } from '../../shared/sold.js';
 
 export const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** The madregot/ folder: claims read the code by paths from here (web/src/…, worker/src/…, shared/…). */
@@ -87,6 +94,26 @@ const agorot = (...vals) => vals.map(Number).find((v) => Number.isInteger(v) && 
 const orList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} או ${xs[xs.length - 1]}`);
 
 /**
+ * The settings that decide what is sold online (shared/sold.js), from the build env, else wrangler.toml [vars]: the pages
+ * and the claims read the same ones.
+ */
+export function saleVars(env, toml) {
+  const pick = (name) => String(env[name] ?? toml[name] ?? '').trim();
+  return { BILLING_PROVIDER: pick('BILLING_PROVIDER') || 'manual', GROW_DIRECT_DEBIT_API: pick('GROW_DIRECT_DEBIT_API') || 'off' };
+}
+
+/**
+ * The price sentence for the family plans sold online: both, the one-year plan alone (it never renews by itself), the
+ * monthly plan alone, or '' when none is sold online (no price is offered for a plan that cannot be bought).
+ */
+export function priceLine(sold, { month, year, vat }) {
+  if (sold.family_month && sold.family_year) return `${month} לחודש או ${year} לשנה, ${vat}.`;
+  if (sold.family_year) return `${year} לשנה, ${vat}.${recurringPlan('family_year') ? '' : ' לשנה אחת, לא מתחדש מעצמו.'}`;
+  if (sold.family_month) return `${month} לחודש, ${vat}.`;
+  return '';
+}
+
+/**
  * The values of the slots, from the build env, then wrangler.toml, then the defaults. `app` is appData() (topics,
  * goal minutes, Madi, lib/price.js); `warn` collects what the owner has not filled in.
  */
@@ -109,10 +136,12 @@ export function landingVars(env, toml, app, tokens) {
   if (api && api !== 'none' && !isUrl(api)) { warn.push(`API_BASE "${api}" is not an address: nothing is counted`); api = 'none'; }
   const month = agorot(env.LANDING_PRICE_MONTH_AGOROT, toml.PRICE_FAMILY_MONTH_AGOROT, LIST_PRICES.month);
   const year = agorot(env.LANDING_PRICE_YEAR_AGOROT, toml.PRICE_FAMILY_YEAR_AGOROT, LIST_PRICES.year);
+  const sold = soldOnline(saleVars(env, toml));
+  if (!sold.family) warn.push(`no family plan is sold online with BILLING_PROVIDER "${saleVars(env, toml).BILLING_PROVIDER}": the parents' page shows no price`);
   return {
     vars: {
       APP_NAME, PUBLIC_URL: publicUrl, CONTACT_EMAIL: email, BUSINESS_NAME: business,
-      PRICE_MONTH: formatAgorot(month), PRICE_YEAR: formatAgorot(year), VAT_LINE: vatLine(pick('LANDING_VAT_MODE') || toml.VAT_MODE || 'included'),
+      PRICE_LINE: priceLine(sold, { month: formatAgorot(month), year: formatAgorot(year), vat: vatLine(pick('LANDING_VAT_MODE') || toml.VAT_MODE || 'included') }),
       TOPICS_7: app.topics['7'].join(', '), TOPICS_8: app.topics['8'].join(', '), GOAL_MINUTES: orList(app.minutes.map(String)),
       THEME_LIGHT: tokenValue(tokens.root, '--paper'), THEME_DARK: tokenValue(tokens.dark, '--paper'),
     },
@@ -225,8 +254,9 @@ export async function appData() {
  * The claims checked against this repository (or `code`, for the tests): { shown: { id: text }, known, status }.
  * Throws when a required claim fails.
  */
-export function checkClaims(app, toml, code = repoCode()) {
-  const status = app.claims.status({ code, data: { ...app.claims.data, vars: toml } });
+export function checkClaims(app, toml, code = repoCode(), env = {}) {
+  // what is sold online is read as the price line reads it: the build env first (saleVars)
+  const status = app.claims.status({ code, data: { ...app.claims.data, vars: { ...toml, ...saleVars(env, toml) } } });
   const lost = status.filter((c) => c.required && !c.visible);
   if (lost.length) throw new Error(`landing-build: the app no longer backs what the pages say: ${lost.map((c) => `${c.id} (${c.why})`).join(', ')}`);
   return { shown: Object.fromEntries(status.filter((c) => c.visible).map((c) => [c.id, c.text])), known: app.claims.all, status };
@@ -239,7 +269,7 @@ export async function buildLanding(dist, { env = process.env, app, src = LANDING
   const data = app || await appData();
   const tokens = tokenBlocks();
   const { vars, api, warn } = landingVars(env, toml, data, tokens);
-  const claims = checkClaims(data, toml, code);
+  const claims = checkClaims(data, toml, code, env);
   const files = [];
   const write = (rel, text) => { const p = join(dist, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); files.push(rel); };
 

@@ -4,8 +4,8 @@
 // A refund or chargeback truth carries the charge's providerPaymentId and, where the provider has one, its own
 // providerRefundId: without it, one refund per charge is recorded (a later report about it counts as a repeat).
 // grow.js is the Israeli provider (PARENTS-11). An adapter whose capabilities depend on the deployment (Grow's cancel
-// needs a permission the owner asks for) has capabilitiesOf(env); read them through capsOf. One that sells only some
-// plans online has planOnline(env, plan).
+// needs a permission the owner asks for) has capabilitiesOf(env); read them through capsOf. Which plans each provider
+// sells online is one rule, shared/sold.js, read by billing.js planOnline and by the pages (COUNCIL2-30).
 import manual from './manual.js';
 import test from './test.js';
 import grow from './grow.js';

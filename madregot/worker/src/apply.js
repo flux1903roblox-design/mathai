@@ -17,10 +17,11 @@ export const REFUND_DAYS = 14;
 /**
  * The plans with a standing order at the provider (trust spec TRUST-10 §1): only the monthly plan renews by itself. The
  * one-year plan (Consumer Protection Law s.13א) and the class licence are one payment each; a new year is a new act of
- * the payer. A lawyer who reads s.13א otherwise changes this one list.
+ * the payer. A lawyer who reads s.13א otherwise changes the one list, in shared/sold.js (the pages read it too).
  */
-export const RECURRING_PLANS = Object.freeze(['family_month']);
-export const recurringPlan = (plan) => RECURRING_PLANS.includes(plan);
+import { RECURRING_PLANS, recurringPlan } from '../../shared/sold.js';
+
+export { RECURRING_PLANS, recurringPlan };
 const DAY = 864e5;
 
 /**

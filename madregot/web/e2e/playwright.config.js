@@ -33,10 +33,12 @@ export default defineConfig({
     command: `npx vite build --base ./ --outDir dist-test --emptyOutDir && node scripts/landing-build.mjs dist-test && npx vite preview --outDir dist-test --port ${PORT} --strictPort --host 127.0.0.1`,
     cwd: '..',
     // no server, as the public site; VITE_TEACHER_URL: the public teacher page points to the full app (TEACHER-1);
-    // the landing pages' stand-in owner values (scripts/landing-build.mjs)
+    // the landing pages' stand-in owner values (scripts/landing-build.mjs), selling as Grow does at launch, before it
+    // lets us stop a standing order: the one-year plan only (COUNCIL2-30)
     env: {
       VITE_API_URL: 'none', VITE_TEACHER_URL: 'https://example.test/',
       PUBLIC_URL: 'https://madregot.example.test', CONTACT_EMAIL: 'hello@example.test', BUSINESS_NAME: 'מדרגות (דוגמה)', API_BASE: 'https://api.madregot.test',
+      BILLING_PROVIDER: 'grow', GROW_DIRECT_DEBIT_API: 'off',
     },
     url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,

@@ -50,8 +50,12 @@ test('/mivchan/: the question, the plan in one screen, and its button leads to E
   await expect(cta).toBeInViewport();
   await expect(page.getByText('בונה לילד תוכנית חזרה לימים שנשארו')).toBeInViewport();
   await expect(page.getByRole('img', { name: /מסך תוכנית החזרה/ })).toBeVisible();
-  // the price is the server's own, with its VAT words, and the topics are the app's
-  await expect(page.getByText('₪29.90 לחודש או ₪249 לשנה, כולל מע״מ. בלי התחייבות, מבטלים באתר.')).toBeVisible();
+  // the price is the server's own, with its VAT words, for the plans sold online only (the build sells as Grow does
+  // before it may stop a standing order: the one-year plan, which never renews, and no "cancel on the site"), and the
+  // topics are the app's
+  await expect(page.getByText('₪249 לשנה, כולל מע״מ. לשנה אחת, לא מתחדש מעצמו.', { exact: true })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('לחודש');
+  await expect(page.locator('body')).not.toContainText('מבטלים באתר');
   await expect(page.getByRole('listitem').filter({ hasText: 'כיתה ז׳:' })).toContainText('מספרים מכוונים');
   await expect.poll(() => counted).toEqual(['landing_view_mivchan']);
   await shot(page, 'mivchan');

@@ -41,7 +41,8 @@ export const FIELDS = {
 export const NOTES = {
   common: ['Madregot is a Hebrew maths practice app for grades 7–8. All lessons and practice work offline.', { claim: 'local-reminders' }, 'The app sells nothing and shows no prices or purchase links. No account is needed to use the app.'],
   apple: ["(iOS version) The AI helper is limited to a small free daily allowance, or is included in class licences that schools buy directly from us (guideline 3.1.3(c)). No consumer subscription is unlocked in this app. Before the first AI request the app explains that the exercise text (and a photo, if the student takes one) is sent to Anthropic's Claude to get an answer, and asks permission (5.1.2(i)).", { claim: 'parent-ok' }],
-  play: ['(Android version) Families who subscribe on our website can use the AI helper here; nothing can be bought in the app, and there are no links to purchase (consumption-only).', { claim: 'report-answer' }],
+  // "subscribe on our website" only while a family plan is sold online there (the claim subscribe-web, shared/sold.js)
+  play: ['(Android version)', { claim: 'subscribe-web' }, 'Nothing can be bought in the app, and there are no links to purchase (consumption-only).', { claim: 'report-answer' }],
   test: ['Test path: open the app, choose a name and grade, tap "מתחילים מההתחלה".'],
 };
 
@@ -107,7 +108,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const { appData, checkClaims, wranglerVars } = await import('../web/scripts/landing-build.mjs');
   const app = await appData();
   const toml = join(HERE, '..', 'worker', 'wrangler.toml');
-  const claims = checkClaims(app, wranglerVars(existsSync(toml) ? readFileSync(toml, 'utf8') : ''));
+  // what is sold online is read as the landing pages read it: the build env first, then wrangler.toml (COUNCIL2-30)
+  const claims = checkClaims(app, wranglerVars(existsSync(toml) ? readFileSync(toml, 'utf8') : ''), undefined, process.env);
   const { topics } = app;
   const privacyUrl = privacyUrlFor(publicUrl());
   const out = listing({ appName: APP_NAME, topics, privacyUrl, claims });

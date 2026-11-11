@@ -30,6 +30,13 @@ const HERE_KEY = `${STORE_KEY}-here`;
 const flag = { get: () => { try { return sessionStorage.getItem(HERE_KEY) === '1'; } catch { return false; } }, set: (on) => { try { if (on) sessionStorage.setItem(HERE_KEY, '1'); else sessionStorage.removeItem(HERE_KEY); } catch { /* blocked */ } } };
 const addMonths = (d, n) => { const x = new Date(d); const day = x.getDate(); x.setMonth(x.getMonth() + n); if (x.getDate() < day) x.setDate(0); return x; };
 const planOf = (plans, id) => plans?.plans?.find((p) => p.id === id) || null;
+/**
+ * A family plan the payment company can sell online here, else null (COUNCIL2-30: shared/sold.js on the server; with
+ * Grow before it may stop a standing order, the one-year plan alone). Only these are offered and priced on the page.
+ */
+const soldPlan = (plans, id) => { const p = planOf(plans, id); return plans?.online && p && p.online !== false ? p : null; };
+/** How a one-year plan is cancelled (terms.md: the 14 days, then the unused days), where it is the only plan sold. */
+export const YEAR_CANCEL = 'אפשר לבטל כאן באתר בשתי לחיצות. ב־14 הימים הראשונים מקבלים את כל הכסף בחזרה, ואחר כך החזר יחסי על הימים שנשארו.';
 
 // ---------------------------------------------------------------- what the tutor is, for a parent who is not signed in
 /**
@@ -64,7 +71,8 @@ export const FIRST_LINK_REPORT = 'אחרי החיבור יופיע כאן סיכ
 
 function About({ plans }) {
   const f = plans?.limits?.family;
-  const month = planOf(plans, 'family_month'); const year = planOf(plans, 'family_year');
+  // the price of each plan sold online here, and only those: the monthly line only while the monthly plan is sold
+  const month = soldPlan(plans, 'family_month'); const year = soldPlan(plans, 'family_year');
   const vat = vatLine(plans?.vatMode);
   return (
     <section className="card parents-card parents-about" aria-labelledby="about-title">
@@ -80,7 +88,10 @@ function About({ plans }) {
       <p className="parents-free-report">{ABOUT_FREE_REPORT}</p>
       {f && <p>במנוי: עד {f.tutor} שאלות ביום, {f.check} בדיקות דף, {f.exam} בדיקות מבחן ביום (עד {f.examMonthly} בחודש), {f.generate} סדרות תרגילים, עד {f.devices} מכשירים. בחודש עם שימוש גבוה במיוחד השיחה ממשיכה, ובדיקות הצילום והמבחן נחות עד ה־1 בחודש (שימוש הוגן, מפורט בתקנון).</p>}
       {month && year && <p className="parents-price">{formatAgorot(month.amountAgorot)} לחודש, {vat}<br />או {formatAgorot(year.amountAgorot)} לשנה, {vat}</p>}
-      <p>בלי התחייבות. מבטלים כאן באתר בשתי לחיצות. ב־14 הימים הראשונים אפשר לבטל ולקבל את כל הכסף בחזרה.</p>
+      {month && !year && <p className="parents-price">{formatAgorot(month.amountAgorot)} לחודש, {vat}</p>}
+      {year && !month && <p className="parents-price">{formatAgorot(year.amountAgorot)} לשנה, {vat}<br />לשנה אחת, לא מתחדש מעצמו</p>}
+      {month && <p>בלי התחייבות. מבטלים כאן באתר בשתי לחיצות. ב־14 הימים הראשונים אפשר לבטל ולקבל את כל הכסף בחזרה.</p>}
+      {year && !month && <p>{YEAR_CANCEL}</p>}
       {/* what is kept, as the data map says it (trust spec TRUST-1 §5), with the parents lane's summary sentences (PARENTS-9) */}
       <p className="muted parents-data">{ABOUT_DATA.join(' ')} <Link to="/privacy">{ABOUT_DATA_LINK}</Link></p>
     </section>
@@ -115,8 +126,9 @@ const yearLine = (until) => `המנוי לשנה אחת, עד ${until}. הוא �
 
 function Checkout({ plans, linkCode, onError, initial = 'family_month' }) {
   // a plan the payment company cannot sell online here (each plan says so: Grow sells the monthly plan only once it may
-  // stop the standing order) is not offered; the one asked for first, else the other
-  const sold = (id) => { const p = planOf(plans, id); return p && p.online !== false ? p : null; };
+  // stop the standing order, and the one-year plan always, as one charge) is not offered; the one asked for first, else
+  // the other
+  const sold = (id) => soldPlan(plans, id);
   const other = initial === 'family_year' ? 'family_month' : 'family_year';
   const [choice, setChoice] = useState(() => (sold(initial) || !sold(other) ? initial : other));
   const [adult, setAdult] = useState(false);

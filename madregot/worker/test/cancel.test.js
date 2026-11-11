@@ -177,17 +177,21 @@ test("another account's subscription is 404", async () => {
   assert.equal(one(h.env, 'SELECT status FROM subscriptions WHERE id = ?', b.sub.id).status, 'active');
 });
 
-test('online checkout stays closed when the provider has no cancel API', async () => {
+test('a provider with no cancel API sells no plan that renews online; the one-charge plans need no cancel and still sell', async () => {
   h = await setup();
   const { default: testProvider } = await import('../src/providers/test.js');
   const caps = testProvider.capabilities;
   testProvider.capabilities = { ...caps, cancelApi: false };
   try {
     const plans = await (await h.call('GET', '/api/billing/plans')).json();
-    assert.equal(plans.online, false);
+    // (COUNCIL2-30: before, no plan at all was sold; the one-year plan never renews, so nothing has to be stopped)
+    assert.deepEqual(plans.plans.map((p) => [p.id, p.online]), [['family_month', false], ['family_year', true], ['class_year', true]]);
+    assert.equal(plans.online, true, 'the yearly plan on /parents');
     const token = await signIn(h, 'nocancel@example.test');
     const r = await h.call('POST', '/api/billing/checkout', { headers: { 'X-Account-Token': token, 'Idempotency-Key': 'no-cancel-api-012345' }, body: { plan: 'family_month', adult: true, terms: '2026-11' } });
     assert.equal(r.status, 501);
+    const y = await h.call('POST', '/api/billing/checkout', { headers: { 'X-Account-Token': token, 'Idempotency-Key': 'no-cancel-api-year-0123' }, body: { plan: 'family_year', adult: true, terms: '2026-11' } });
+    assert.equal(y.status, 201);
   } finally { testProvider.capabilities = caps; }
 });
 
