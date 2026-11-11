@@ -16,6 +16,9 @@ import { FRAC } from './frac.js';
 import { candidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
+import { AREA } from './area.js';
+// the grid object's rules, which the app loads after the first screen (content/late.js)
+import './grid.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -693,7 +696,111 @@ const PROPS = {
     'ignore-freq': (it, u) => { const vals = it.key.split(':')[1].split(',').map(Number); return near(u, sum(vals) / vals.length); },
     'wrong-count': (it, u) => { const [vals, freqs] = it.key.split(':').slice(1).map((x) => x.split(',').map(Number)); return near(u, sum(vals.map((v, i) => v * freqs[i])) / vals.length); },
   },
+  // stage 2's areas and perimeters (content/area.js), from the numbers in each key: ar1r:k:a:b (k 1 is a perimeter),
+  // ar1m:k:a:X (X the area, or with k 1 the perimeter), ar1s:k:s, ar1u:k (k even asks an area), ar2l:a:b:at,
+  // ar2t:a:b:c:at, ar2x:a:S:c:at (c 0 when no hypotenuse is written), ar2g:b:h:s:out, ar2q:b:h:t, ar2w:b:d:h:PMI (the
+  // letters of the perpendicular, the midpoint and the slanted foot), ar3l:W:H:w:h, ar3t:W:H:p:q, ar3k:d1:d2:kite,
+  // ar3u:a:b:t, ar3g:x1:y1:x2:y2:x3:y3, ar3m:W:H:w:h:form, ar4p:a:h:s, ar4t:a:b:h:s, ar4i:0:S:a and ar4i:1:S:a:b,
+  // ar5l:W:H:w:h, ar5p:0:p:q and ar5p:1:a:b:h, ar5u:a:b, ar5c:w1:h1:w2:h2
+  area: {
+    perimeter: (it, u) => {
+      const k = areaKind(it); const n = nums(it.key);
+      if (k === 'ar1r') { const [q, a, b] = n; return q === 0 && near(u, 2 * (a + b)); }
+      if (k === 'ar1s') { const [q, s] = n; return q === 0 && near(u, 4 * s); }
+      return false;
+    },
+    'add-sides': (it, u) => {
+      const k = areaKind(it); const n = nums(it.key);
+      if (k === 'ar1r') { const [q, a, b] = n; return q === 0 && near(u, a + b); }
+      if (k === 'ar2l') { const [a, b] = n; return near(u, a + b); }
+      return false;
+    },
+    'area-for-perim': (it, u) => {
+      const k = areaKind(it); const n = nums(it.key);
+      if (k === 'ar1r') { const [q, a, b] = n; return q === 1 && near(u, a * b); }
+      if (k === 'ar1s') { const [q, s] = n; return q === 1 && near(u, s * s); }
+      if (k === 'ar5l') { const [W, H, w, h] = n; return near(u, W * H - w * h); }
+      return false;
+    },
+    'two-sides': (it, u) => {
+      const k = areaKind(it); const n = nums(it.key);
+      if (k === 'ar1r') { const [q, a, b] = n; return q === 1 && near(u, a + b); }
+      if (k === 'ar5u') { const [a, b] = n; return fits(u, 100 * a + b); }
+      return false;
+    },
+    'one-side-perim': (it, u) => { const [q, a, X] = nums(it.key); return areaKind(it) === 'ar1m' && q === 1 && near(u, X - a); },
+    'perim-as-area': (it, u) => { const [q, a, X] = nums(it.key); return areaKind(it) === 'ar1m' && q === 1 && fits(u, X / a); },
+    'no-half': (it, u) => {
+      const k = areaKind(it); const n = nums(it.key);
+      if (k === 'ar2l' || k === 'ar2t' || k === 'ar2g' || k === 'ar2q') return near(u, n[0] * n[1]); // the legs, or base and height, not halved
+      if (k === 'ar2x') { const [a, S] = n; return fits(u, S / a); }
+      if (k === 'ar3t') { const [W, H, p, q] = n; return near(u, W * H - p * q); }
+      if (k === 'ar4t') { const [a, b, h] = n; return near(u, (a + b) * h); }
+      if (k === 'ar4i') { const [q, S, a, b] = n; return q === 1 && fits(u, S / (a + b)); }
+      return false;
+    },
+    'diag-no-half': (it, u) => { const [d1, d2] = nums(it.key); return areaKind(it) === 'ar3k' && near(u, d1 * d2); },
+    'div-by-side': (it, u) => { const [a, b, t] = nums(it.key); return areaKind(it) === 'ar3u' && fits(u, (100 * a * b) / t); },
+    'half-twice': (it, u) => { const [a, S] = nums(it.key); return areaKind(it) === 'ar2x' && fits(u, S / (2 * a)); },
+    'hyp-as-height': (it, u) => {
+      const k = areaKind(it); const n = nums(it.key);
+      if (k === 'ar2t') { const [a, b, c] = n; return a * a + b * b === c * c && (fits(u, (c * a) / 2) || fits(u, (c * b) / 2)); }
+      if (k === 'ar2x') { const [a, S, c] = n; return c > 0 && a * a + ((2 * S) / a) ** 2 === c * c && fits(u, (2 * S) / c); }
+      return false;
+    },
+    'slant-as-height': (it, u) => {
+      const k = areaKind(it); const n = nums(it.key);
+      if (k === 'ar2g') { const [b, h, s] = n; return s > h && fits(u, (b * s) / 2); }
+      if (k === 'ar4p') { const [a, h, s] = n; return s > h && near(u, a * s); }
+      if (k === 'ar4t') { const [a, b, h, s] = n; return s > h && fits(u, ((a + b) * s) / 2); }
+      return false;
+    },
+    // a choice: the slanted segment inside the obtuse triangle, which is neither the height nor the median
+    'inside-height': (it, u) => { const letters = it.key.split(':')[4] || ''; return areaKind(it) === 'ar2w' && chosen(it, u) === `A${letters[2]}`; },
+    'no-subtract': (it, u) => {
+      const k = areaKind(it); const n = nums(it.key);
+      if (k === 'ar3l' || k === 'ar3t') return near(u, n[0] * n[1]);
+      if (k === 'ar3g') { const xs = [n[0], n[2], n[4]]; const ys = [n[1], n[3], n[5]]; return near(u, (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))); }
+      return false;
+    },
+    'double-count': (it, u) => {
+      const k = areaKind(it); const [W, H, w, h] = nums(it.key); const twice = W * (H - h) + (W - w) * H;
+      if (k === 'ar3l') return near(u, twice);
+      if (k === 'ar3m') { const t = chosen(it, u); return !!t && near(evaluate(texToExpr(t)), twice); }
+      return false;
+    },
+    'one-base': (it, u) => { const [a, b, h] = nums(it.key); return areaKind(it) === 'ar4t' && a > b && near(u, a * h); },
+    'half-para': (it, u) => {
+      const k = areaKind(it); const n = nums(it.key);
+      if (k === 'ar4p') { const [a, h] = n; return fits(u, (a * h) / 2); }
+      if (k === 'ar4i') { const [q, S, a] = n; return q === 0 && fits(u, (2 * S) / a); }
+      return false;
+    },
+    'missing-sides': (it, u) => {
+      const k = areaKind(it); const n = nums(it.key);
+      if (k === 'ar5l') return near(u, sum(n)); // W + H + w + h: only the sides with a number
+      if (k === 'ar5p') return n[0] === 0 ? near(u, n[1] + n[2]) : near(u, n[1] + n[2] + n[3]);
+      return false;
+    },
+    'add-legs': (it, u) => {
+      const [q, a, b, h] = nums(it.key);
+      if (areaKind(it) !== 'ar5p') return false;
+      return q === 0 ? near(u, 2 * (a + b)) : near(u, a + b + h + (a - b) + h); // the hypotenuse taken as its two legs together
+    },
+    'no-convert': (it, u) => { const [a, b] = nums(it.key); return areaKind(it) === 'ar5u' && fits(u, 2 * (a + b)); },
+    'same-perim-same-area': (it, u) => {
+      const [w1, h1, w2, h2] = nums(it.key);
+      return areaKind(it) === 'ar5c' && w1 + h1 === w2 + h2 && w1 * h1 !== w2 * h2 && it.choices[u]?.text === 'השטחים שווים';
+    },
+    'unit-mix': (it, u) => {
+      if (areaKind(it) !== 'ar1u') return false;
+      const [k] = nums(it.key); const t = it.choices[u]?.text;
+      return k % 2 === 0 ? ['מ׳', 'ס״מ'].includes(t) : ['מ״ר', 'סמ״ר'].includes(t); // a length unit for an area, or the other way
+    },
+  },
 };
+/** The kind of an area item: its key's prefix. */
+const areaKind = (it) => it.key.split(':')[0];
 
 /**
  * An inequality item answered as if it said x rel' B with rel' = wrong(q): the ray drawn that way, the count of the
@@ -734,9 +841,34 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
+// Areas and perimeters (stage 2) are not on the path yet: their generators are sampled straight from the topic object,
+// as makeItem would give them (an answer that is right is never a mistake), and the words come from its own cats.
+describe('every mistake label describes the answer: areas and perimeters, before they are on the path', () => {
+  AREA.levels.forEach((L, i) => {
+    const level = i + 1;
+    it(`area level ${level}: ${L.title}`, () => {
+      const named = new Set();
+      for (let k = 0; k < ITEMS_PER_LEVEL; k += 1) {
+        const raw = L.gen(); const item = { ...raw, topic: 'area', level, diag: (u) => (isCorrect(raw, u) ? null : raw.diag(u)) };
+        for (const u of candidates(item)) {
+          if (isCorrect(item, u)) continue;
+          const cat = item.diag(u);
+          if (!cat) continue;
+          named.add(cat);
+          const prop = PROPS.area[cat];
+          expect(prop, `area:${level} returns '${cat}', which has no property here`).toBeTruthy();
+          expect(prop(item, u), `area:${level} ${item.key}: answer ${JSON.stringify(u)} labelled '${cat}' (${AREA.cats[cat]})`).toBe(true);
+          expect(AREA.cats[cat], `area:${level} '${cat}' has no words`).toBeTruthy();
+        }
+      }
+      expect(named.size, `area:${level} names some mistake`).toBeGreaterThan(0);
+    });
+  });
+});
+
 describe('the algebra, fraction, ratio and percent topics name only what a property can check', () => {
   it('every category of expressions, equations, systems, fractions, ratio and percent has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, AREA]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not
