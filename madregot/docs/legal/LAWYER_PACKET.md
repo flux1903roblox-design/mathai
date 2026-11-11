@@ -55,7 +55,7 @@
 
 ## 4. בדיקת הנגישות שלכם
 
-1. מריצים את הבדיקה האוטומטית (במחשב שלא מריץ עוד עותק שלה, או עם `E2E_PORT` אחר): `cd madregot/web && npx playwright test -c e2e/playwright.config.js e2e/trust.spec.js -g "accessibility statement|legal pages"`. כל שורה תחת "מה הותאם" בהצהרה בדוקה שם. שורה בלי בדיקה מפילה אותה.
+1. מריצים את הבדיקה האוטומטית (במחשב שלא מריץ עוד עותק שלה, או עם `E2E_PORT` אחר): `cd madregot/web && npx playwright test -c e2e/playwright.config.js e2e/trust.spec.js -g "accessibility statement|legal pages"`, ואת בדיקת axe על כל המסכים, בהיר וכהה: `npx playwright test -c e2e/playwright.config.js --project=phone --project=phone-dark e2e/a11y.spec.js`. כל שורה תחת "מה הותאם" בהצהרה בדוקה שם. שורה בלי בדיקה מפילה אותה. החלק האוטומטי הזה כבר עובר, ו־CI מריץ אותו בכל שינוי.
 2. חצי שעה עם VoiceOver באייפון ועם TalkBack באנדרואיד: מסך הפתיחה ← שיעור ראשון ← "צריכים לדבר עם מישהו?" ← כניסה לעמוד ההורים ← ביטול מנוי.
 3. ממלאים את `ACCESS_STATEMENT_DATE` ואת `ACCESS_TESTED` (למשל "VoiceOver ב־iOS 26, ‏TalkBack 16, ‏Chrome ו־Safari"), ואת פרטי רכז הנגישות: `ACCESS_COORD_NAME`, `ACCESS_COORD_PHONE`, `ACCESS_COORD_EMAIL`. אם משהו לא עבד, מעבירים את השורה שלו ל"מה עוד לא נגיש".
 

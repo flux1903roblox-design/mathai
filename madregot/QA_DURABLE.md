@@ -326,11 +326,9 @@ count  kind   route           release  agents  name            message          
 
 ### Still short of the proof the specs ask for
 
-- **DURABLE-3 / PARENTS-5, an automated accessibility pass** on Settings › שמירת ההתקדמות and the `/parents` report: the
-  repo has no axe runner, and this lane may not add a package. It needs `@axe-core/playwright@4.10.2` (dev dependency of
-  `madregot/web`); then one spec per screen, `new AxeBuilder({ page }).include('.save-backup').analyze()` and the same
-  for `.parents-report`, expecting no violations. Until then: keyboard and screen-reader paths are covered by the e2e
-  (roles, names, focus) and the 44 px checks in `layout.spec.js`.
+- **DURABLE-3 / PARENTS-5, an automated accessibility pass** on Settings › שמירת ההתקדמות and the `/parents` report:
+  done since, with the axe package the owner approved (PKG-1, FOLLOWUP-27). See "The automated accessibility pass on
+  the saving and the parents' report" at the end of this file.
 - **DURABLE-3, the manifest panel** screenshot is the owner's (a local CDP check found no installability errors).
 - **DURABLE-11, FCP on the slow-phone profile**: the last measurement on this branch was 2.79 s against the 2.5 s budget
   (the test fails over 2.75 s). Not re-measured here: the machine's load was too high for a timing that means anything.
@@ -986,3 +984,36 @@ instead of the two hand-made stand-ins (`memoryIdb()` for the durable store, and
   its timer, a failed mirror write taken as saved (4), a prune that keeps everything, the page's record under another
   key, and a `clearReminderDevice` that deletes nothing each fail their tests.
 - The real implementation found no bug in `idb.js`, `storage.js`, `push.js`, `sw.js` or `reminder.js`.
+- **The one hand-made stand-in that stayed, and why:** `memoryIdb()` in `durable/testing.js`, used only with
+  `{ delay: 400 }` by DURABLE-1 test (11) and the two other late-copy cases in `storage.test.js`. They need the copy on
+  the device to answer later than the boot waits for it, on demand, and fake-indexeddb answers within a few turns of
+  the event loop. `lib/testing/fakeIdb.js` is gone.
+
+## The automated accessibility pass on the saving and the parents' report (PKG-1, FOLLOWUP-27)
+
+The owner approved `@axe-core/playwright` 4.10.2 (a dev dependency of `madregot/web`; it brings axe-core 4.10.3).
+`web/e2e/axe.js` `expectNoAxeViolations(page)` runs axe on the whole page with the tags `wcag2a`, `wcag2aa`, `wcag21a`
+and `wcag21aa` (WCAG 2.0 and 2.1, levels A and AA) and fails with each rule, its impact, its help text and every element
+it hit. `web/e2e/a11y.spec.js` runs it on every screen and state of the app, at phone size (390x844), on the `phone`
+project (light) and again on `phone-dark`; CI runs both (`.github/workflows/ci.yml`). `web/e2e/axe-self.spec.js`
+proves the helper fails on a known violation (a button with no name, text under 4.5:1).
+
+- **Settings › שמירת ההתקדמות (`.save-backup`):** with no server (the backup file, the reminder's line, the delete-all
+  sheet), a backup file read back (RestorePreview), with a server (joining a class, the backup code made, shown and
+  stopped), a class student whose class keeps the code (escrow), and the restore screen (the code, a typing mistake,
+  the file). No violation, light or dark.
+- **The `/parents` report (`.parents-report`):** each device's week with FamilyReport and WeeksChart, last week, a device
+  switched off, and the first day (a device linked with nothing yet); also the sign-in, the plan card, the devices and
+  the cancel sheet. No violation, light or dark.
+- **Nothing is left out and no rule is turned off.** `NOT_JUDGED` in `axe.js` is empty: KaTeX's MathML twin is read by
+  screen readers and axe judges it correctly, so it stays in every scan. `color-contrast` cannot be turned off at all
+  (the helper throws); any other rule could be turned off only with a written reason, and none is. The one change
+  these screens took is the shared bar fill (`--bar-fill`, canon.css), made when axe found the count on the Topics bar
+  at 3.35:1; the weeks chart in the parents' report uses it too.
+- **What axe does not check**, and what covers it: control edges and the focus ring at 3:1 (WCAG 1.4.11) are measured by
+  `e2e/contrast.js`; keyboard reach with a visible ring and the 320 px width on the main screens by `e2e/trust.spec.js`
+  › "accessibility statement"; the 44 px targets by `layout.spec.js` and `targets.spec.js`. A real screen reader pass
+  (VoiceOver, TalkBack) is the owner's (`docs/legal/LAWYER_PACKET.md` §4).
+- **Run it:** `cd madregot/web && npx playwright test -c e2e/playwright.config.js --project=phone --project=phone-dark
+  e2e/a11y.spec.js` (with `E2E_PORT=<port>` when another copy runs its suite); only these screens:
+  `-g "Settings|restore screen|parents' report"`.

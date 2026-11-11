@@ -38,6 +38,10 @@ Checked by tests:
 - `web/src/lib/deepLink.test.js`: only `/rescue`, `/teacher`, `/parents`, `/quests` are followed; `welcome_from_landing`
   is counted once per load, only for `src=mivchan` or `src=pilot`.
 
-Not here yet: an axe run (TRUST-2's `e2e/axe.js` is not on this branch; the contrast probe stands in for text
-contrast), the `/pilot/` block "העוזר החכם" (TRUST's `shared/schoolRules.js`) and the "לראות כיתה לדוגמה" button
-(TEACHER-15's demo class).
+- `web/e2e/a11y.spec.js` › "the landing page /mivchan/" and "the landing page /pilot/" (PKG-1): axe-core 4.10.3
+  through `@axe-core/playwright` 4.10.2 (`e2e/axe.js`, WCAG 2.0 and 2.1, levels A and AA) on the whole page, in light
+  (`phone`) and in dark (`phone-dark`): no violation, nothing left out, no rule turned off. The contrast probe above
+  stays for what axe only lists for review: text over a picture or a gradient.
+
+Added since these pictures: the `/pilot/` block "העוזר החכם" and the "לראות כיתה לדוגמה" button (TEACHER-15's demo
+class), each shown only while its checked claim holds (`{{#CLAIM school-ai-off}}`, `{{#CLAIM demo-class}}`, STUDENT-17).

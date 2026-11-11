@@ -166,7 +166,7 @@ lesson. Then go through the rows. Mark each cell ✓, ✗ (and add a note) or n/
 | 7 | The keyboard | Name field on the first screen and the class code in Settings. The keyboard does not hide the field or the button. Inside lessons the app's own keypad is used, and the phone's keyboard never opens | | | | | |
 | 8 | Install | C: the install offer after a lesson on the second learning day opens Chrome's prompt, and the app opens from the home screen with its icon and name. B: the app opens full screen with its icon | | | | | |
 | 9 | Offline | Turn on flight mode in the installed app (B, C or D). Open the map, a lesson and Settings. The offline chip shows, and the work is kept when the network is back | | | | | |
-| 10 | Animations | Lottie confetti, the streak flame and Madi's moments play smoothly, and stop when the phone asks for reduced motion | | | | | |
+| 10 | Animations | Finish a whole unit: with the new colour, the maths burst (+ − × ÷ = in the app's colours) falls for under 3 seconds and never blocks a tap. It plays again only on the class goal's moment, never on an answer. The Lottie confetti at a lesson's end, the streak flame and Madi's moments play smoothly. With reduced motion on in the phone's settings, the burst does not play at all and the rest stand still | | | | | |
 
 Date of the check: ________ · Build (version.json): ________ · Who checked (role only, e.g. "owner"): ________
 
@@ -289,7 +289,21 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
     parent's OK gives (`familyInApp`), so a solo student in the iPhone app cannot get the OK there;
   - a teacher who signs in by email in a store app has no "מחיקת החשבון" there (it is on `/parents`, which the store
     apps replace), which Apple 5.1.1(v) requires.
-- **TRUST-2's axe harness** is not on this branch. The contrast checks use this lane's `e2e/contrast.js`.
+- **TRUST-2's axe harness: done (PKG-1, FOLLOWUP-20, FOLLOWUP-42's axe half).** The owner approved
+  `@axe-core/playwright` 4.10.2 (dev; it brings axe-core 4.10.3). `e2e/axe.js` `expectNoAxeViolations(page)` runs axe on
+  the whole page with the tags `wcag2a`, `wcag2aa`, `wcag21a` and `wcag21aa` (WCAG 2.0 and 2.1, levels A and AA).
+  `e2e/a11y.spec.js` runs it on every student screen and state this lane built or touched, at 390x844, in light
+  (`phone`) and in dark (`phone-dark`): Welcome and onboarding, the placement test, the map, stairs and Topics, a lesson
+  in each of its states (the notebook page included), the end screens with the new colour and the maths burst playing,
+  Rescue, Quests with the class goal and its moment, Sunday's recap card and sheet, a challenge, Me and the wardrobe,
+  Settings with the reminder (on, blocked, and its offer after a lesson), and the weekly summary. No violation, light
+  or dark. Nothing is left out of a scan (`NOT_JUDGED` is empty: KaTeX's MathML twin is read by screen readers and axe
+  judges it correctly) and no rule is turned off (`color-contrast` cannot be at all). What axe found was fixed in the
+  app: the count on the Topics bar (3.35:1, now on `--bar-fill`), screens with no heading, and the question squeezed
+  out of view when the notebook opens. `e2e/axe-self.spec.js` proves the helper fails on a known violation. Run:
+  `cd madregot/web && npx playwright test -c e2e/playwright.config.js --project=phone --project=phone-dark
+  e2e/a11y.spec.js` (CI runs both). `e2e/contrast.js` stays for what axe does not check: control edges and the focus
+  ring at 3:1 (WCAG 1.4.11), and text over a gradient or a picture, which axe only lists for review.
 - **`web/e2e/fakeServer.js`** (trust lane) is merged; `class-goal.spec.js` and `student-week.spec.js` keep their own
   `page.route` fakes, which are enough for them.
 - **The account export of the class-goal settings: done (FOLLOWUP-43).** Each bound class has `goal: { on, size }` in

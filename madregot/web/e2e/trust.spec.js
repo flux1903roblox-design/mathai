@@ -5,26 +5,28 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { NOW, student, livedIn, answer, proceed, appReady, examPng } from './helpers.js';
-import { fakeServer, API, CORS, livePlan } from './fakeServer.js';
+import { NOW, student, livedIn, answer, proceed, appReady, examPng, keyTeacher } from './helpers.js';
+import { fakeServer, API, CORS, livePlan, parentServer, nine, PARENT } from './fakeServer.js';
 
 /** Open a route with a saved state, seeded before the app starts (as subscription.spec.js does). */
 let seeds = 0;
-async function open(page, route, state = null) {
+async function open(page, route, state = null, local = {}) {
   await page.clock.setFixedTime(NOW);
   await page.goto('about:blank');
   seeds += 1;
   const key = `seeded-${seeds}-${Date.now()}`;
-  await page.addInitScript(([s, k]) => {
+  await page.addInitScript(([s, k, more]) => {
     if (location.protocol === 'about:' || sessionStorage.getItem(k)) return;
     sessionStorage.setItem(k, '1');
     localStorage.clear();
     localStorage.setItem('madregot-debug', '1');
     localStorage.setItem('madregot-seed', '424242');
     if (s) localStorage.setItem('madregot', JSON.stringify(s));
+    // other keys the screen needs (the parent's sign-in on /parents)
+    for (const [name, value] of Object.entries(more)) localStorage.setItem(name, value);
     // the copy of the progress on the device goes too: the app's own open waits behind this delete
     indexedDB.deleteDatabase('madregot-durable');
-  }, [state, key]);
+  }, [state, key, local]);
   await page.goto(`./${route}`);
   await appReady(page);
 }
@@ -1426,21 +1428,37 @@ test.describe('privacy lines', () => {
 test.describe('accessibility statement', () => {
   // trust spec TRUST-2, Appendix C: accessibility.md says only what a check backs. Every line under "מה הותאם" maps to
   // a check here and runs on every screen its "מה בדקנו" names; a line with no check fails the first test, so a new
-  // claim either gets a check or goes under "מה עוד לא נגיש". The owner's own pass with a screen reader is separate
-  // (ACCESS_TESTED, TRUST-13 step 4).
+  // claim either gets a check or goes under "מה עוד לא נגיש". The axe line is backed by e2e/a11y.spec.js (PKG-1), which
+  // scans every screen in light and dark; the test "axe: every screen ..." below checks that it really does. The
+  // owner's own pass with a screen reader is separate (ACCESS_TESTED, TRUST-13 step 4).
   test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
   const md = readFileSync(new URL('../src/content/legal/accessibility.md', import.meta.url), 'utf8');
   const section = (id) => md.split(/^## /m).find((s) => s.includes(`{#${id}}`)) || '';
   const bullets = (id) => section(id).split('\n').filter((l) => l.startsWith('- ')).map((l) => l.slice(2).trim());
+  const parentSignedIn = { 'madregot-parent': JSON.stringify({ token: PARENT, email: 'parent@example.test' }) };
+  // [the name "מה בדקנו" gives it, route, saved state, and the server and other keys it needs (a fake, as elsewhere)]
   const SCREENS = [
     ['מסך הפתיחה', '#/', null], ['המסך הראשי', '#/', livedIn('7')], ['שיעור ותרגול', '#/lesson/signed/1', student('7')],
     ['העוזר החכם', '#/assistant', livedIn('7')], ['ההגדרות', '#/settings', livedIn('7')], ['המסך "אני"', '#/me', livedIn('7')],
     ['הנושאים', '#/topics', livedIn('8')], ['המשימות', '#/quests', livedIn('7')], ['המבחנים', '#/exams', livedIn('7')],
-    ['הכניסה לעמוד ההורים', '#/parents', null], ['ביטול המנוי', '#/cancel', null],
+    ['הכניסה לעמוד ההורים', '#/parents', null],
+    // the parents' area after the sign-in: the plan, the devices and the report of two devices (fakeServer.js)
+    ['עמוד ההורים אחרי הכניסה', '#/parents', withServer({ profile: null }), async (page) => {
+      await parentServer(page.context(), baseOf());
+      return { local: parentSignedIn, ready: () => expect(page.locator('.parents-report .report-device-head h3')).toHaveText(['הטאבלט', 'הטלפון']) };
+    }],
+    // the teacher's board, with a class of nine
+    ['לוח המורה', '#/teacher', keyTeacher(), async (page) => {
+      await fakeServer(page, { students: nine() }, baseOf());
+      return { ready: () => expect(page.getByRole('region', { name: 'כדאי לבדוק איתם' }).locator('.t-row').first()).toBeVisible() };
+    }],
+    ['ביטול המנוי', '#/cancel', null],
     ['התקנון', '#/terms', null], ['הפרטיות', '#/privacy', null], ['הנגישות', '#/accessibility', null], ['הבטיחות', '#/safety', null],
   ];
   // each line of "מה הותאם", word for word, and the check that backs it: a check run on every screen, or a test below
   const CLAIMS = {
+    // (axe\u2011core: a hyphen that does not break, so the name stays whole at the end of a right-to-left line)
+    'אין אף הפרה של הכללים שהכלי axe\u2011core בודק ב־WCAG 2.0 ו־2.1 ברמות A ו־AA, בתצוגה בהירה ובתצוגה כהה. למשל: שם לכל כפתור, קישור ושדה, תיאור לתמונות, רשימות וטבלאות שבנויות נכון, וניגודיות של הטקסט.': 'axe',
     'השפה של הדף מוגדרת כעברית, וכיוון הכתיבה מימין לשמאל.': 'lang',
     'לכל כפתור, קישור ושדה יש שם שקוראי מסך מקריאים.': 'names',
     'אפשר להגיע לכל כפתור, קישור ושדה במקלדת (במקש Tab), ורואים מסגרת סביב מה שנבחר.': 'keyboard',
@@ -1455,6 +1473,9 @@ test.describe('accessibility statement', () => {
 
   test('every line under "מה הותאם" has its check, and "מה בדקנו" names every screen the checks visit', () => {
     expect(bullets('done').sort()).toEqual(Object.keys(CLAIMS).sort());
+    // and each check a line maps to is one a test here runs (a line mapped to a name no test uses fails too)
+    const self = readFileSync(new URL(import.meta.url), 'utf8');
+    for (const id of new Set(Object.values(CLAIMS))) expect(self, `a test checks "${id}"`).toMatch(new RegExp(`expect\\([^;]*claimOf\\('${id}'\\)`));
     const tested = section('tested');
     for (const [label] of SCREENS) expect(tested, label).toContain(label);
     // the owner's pass is the owner's words, never ours
@@ -1464,11 +1485,13 @@ test.describe('accessibility statement', () => {
   /** A role with no name in the accessibility tree: "- button" or "- link [disabled]", with no quoted name. */
   const NAMELESS = /^\s*- (button|link|textbox|checkbox|radio|combobox|switch|slider|spinbutton|searchbox|tab|menuitem)(?=\s*(?::|\[|$))/;
 
-  for (const [label, route, state] of SCREENS) {
+  for (const [label, route, state, setup] of SCREENS) {
     test(`on ${label}: language, names, keyboard, contrast and 320px`, async ({ page }) => {
-      await open(page, route, state);
-      // the screen itself, not the loading line its code shows while it arrives
+      const { local = {}, ready } = setup ? await setup(page) : {};
+      await open(page, route, state, local);
+      // the screen itself, not the loading line its code shows while it arrives (and, with a server, its data)
       await expect(page.locator('.loading-state')).toHaveCount(0);
+      if (ready) await ready();
       await expect(page.locator('h1, h2').first()).toBeVisible();
       await page.waitForTimeout(200);
 
@@ -1556,6 +1579,36 @@ test.describe('accessibility statement', () => {
       expect(over, claimOf('narrow')).toBeLessThanOrEqual(0);
     });
   }
+
+  test('axe: every screen, light and dark, WCAG 2.0 and 2.1 A and AA, nothing turned off (a11y.spec.js)', () => {
+    // the line under "מה הותאם" and the axe check behind it: e2e/axe.js runs the four WCAG tags, scopes nothing out and
+    // turns no rule off; e2e/a11y.spec.js scans the groups of screens "מה בדקנו" names; playwright.config.js runs it in
+    // dark too (phone-dark) and CI runs both; the version the statement names is the one installed. axe-self.spec.js
+    // proves the helper fails on a known violation.
+    const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
+    const helper = read('./axe.js');
+    const spec = read('./a11y.spec.js');
+    expect(helper, claimOf('axe')).toContain("export const WCAG_TAGS = Object.freeze(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']);");
+    // nothing left out of a scan and no rule turned off, anywhere in the suite
+    const notJudged = helper.slice(helper.indexOf('export const NOT_JUDGED'), helper.indexOf(']);', helper.indexOf('export const NOT_JUDGED')));
+    expect(notJudged.split('\n').filter((l) => /^\s*\{/.test(l)), 'axe.js NOT_JUDGED is empty').toEqual([]);
+    expect(spec).not.toMatch(/\b(exclude|disableRules|include)\s*:/);
+    expect(spec).toContain("import { expectNoAxeViolations } from './axe.js';");
+    // the groups the statement names, each a block of scans
+    for (const group of ["test.describe('first visit'", "test.describe('a lesson'", "test.describe('the tutor'", "test.describe('the exams'",
+      "test.describe('the parents\\' area'", "test.describe('the public pages'", "test.describe('the teacher'"]) expect(spec, group).toContain(group);
+    for (const state of ["'the parents\\' report'", "'the board, מחר'", "'the legal pages with no server", "'PhotoPrep on a PDF page'", "openLanding(page, path)", "['mivchan/', ", "['pilot/', "]) {
+      expect(spec, state).toContain(state);
+    }
+    expect(read('./playwright.config.js')).toMatch(/name: 'phone-dark'.*testMatch: \/\([^)]*\ba11y\b[^)]*\)\\.spec\\.js\//);
+    const ci = readFileSync(new URL('../../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+    expect(ci, 'CI scans in light (the phone run takes every spec file)').toContain('--project=phone --grep-invert @perf');
+    expect(ci, 'CI scans in dark').toContain('--project=phone-dark a11y.spec.js');
+    // the version the statement names
+    const installed = JSON.parse(readFileSync(new URL('../node_modules/axe-core/package.json', import.meta.url), 'utf8')).version;
+    expect(section('tested')).toContain(`axe\u2011core (גרסה ${installed})`);
+    expect(section('tested')).toContain('WCAG 2.0 ו־2.1 ברמות A ו־AA');
+  });
 
   test('feedback on an answer is announced at once', async ({ page }) => {
     await open(page, '#/lesson/signed/1', student('7'));

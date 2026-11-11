@@ -297,6 +297,23 @@ test.describe('a lesson', () => {
     await scan(page, 'the exit sheet');
   });
 
+  test('the notebook page (writing the way by hand), empty and written on', async ({ page }) => {
+    // the page itself is a drawing a screen reader cannot read (accessibility.md, "מה עוד לא נגיש"); its tools, its
+    // name and the way back to the answer are scanned like the rest of the lesson
+    await openOn(page, '#/lesson/signed/1', student('7'), form('num'));
+    await page.getByRole('button', { name: 'מחברת', exact: true }).click();
+    const nb = page.locator('.notebook');
+    await expect(nb.getByRole('img', { name: /^דף מחברת/ })).toBeVisible();
+    await scan(page, 'the notebook page');
+    const box = await nb.locator('canvas').boundingBox();
+    await page.mouse.move(box.x + 40, box.y + 40);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 120, box.y + 70, { steps: 5 });
+    await page.mouse.up();
+    await expect(nb.getByRole('button', { name: 'בטל' })).toBeEnabled();
+    await scan(page, 'the notebook page, written on');
+  });
+
   test('the tutor\'s chat sheet in a lesson, asked and answered', async ({ page }) => {
     const FAMILY = `fd1.${'c'.repeat(64)}`;
     const { st } = await fakeServer(page, { parentOk: true }, baseOf());

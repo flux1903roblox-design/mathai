@@ -35,7 +35,10 @@ screen readers: NOT TESTED** (A-2, A-3 in the audit).
 - **Playwright suite** (`npm run test:e2e`): layout of 14 exercise kinds and the keypad on S, C, T, L; 8 journeys on
   C and L; 11 screens on S, C, T, L; 39 visual baselines on S, C, L; keyboard typing on L.
 - **Retest scripts for the review** (47 checks), **AI failure states** (8), **axe-core** (30 scans), **keyboard focus**
-  (7 screens).
+  (7 screens). These were one-off scripts in that round's session, not files in the repo; the axe numbers in this file
+  above "The standing axe suite" are from them.
+- **The standing axe suite** (since 11 November 2026, PKG-1): `web/e2e/a11y.spec.js`, part of the normal Playwright
+  suite and of CI. See its own section below.
 
 ## Exercise screen
 
@@ -107,7 +110,7 @@ Share of the screen taken by the bottom region (answer, keypad, tools, check) / 
 
 | Check | Result |
 |---|---|
-| axe-core WCAG 2.1 A/AA, 15 screens on C and L (30 scans) | PASS, 0 violations (was 1: math-only choices without a name, fixed) |
+| axe-core WCAG 2.1 A/AA, 15 screens on C and L (30 scans; a one-off script in that round, see "The standing axe suite" for the suite that runs now) | PASS, 0 violations (was 1: math-only choices without a name, fixed) |
 | Keyboard: Tab through 7 screens on L, focus ring on every control | PASS (text inputs had a border-only focus state, fixed) |
 | Keyboard in an exercise: digits, Enter to check and continue; choices with arrows, number keys, one tab stop (D-022, R-22) | PASS (Playwright and retest, L) |
 | App keypad: minus, decimal point, fraction, next field, delete; the phone keyboard stays closed | PASS (Playwright, S C T L) |
@@ -126,8 +129,29 @@ Share of the screen taken by the bottom region (answer, keypad, tools, check) / 
 | Screen audit | 171 checks (19 screens × 9 sizes, both builds): 125 PASS, 46 FIXED AND RETESTED, 0 FAIL, 0 tap targets under 32 px |
 | Review retest scripts | 47 checks, all passing |
 | AI failure states | 8 of 8 |
-| axe-core | 30 scans, 0 violations |
+| axe-core (the round's one-off script) | 30 scans, 0 violations |
 | Keyboard focus walk | 7 screens, every control shows a ring |
+
+## The standing axe suite (PKG-1)
+
+Added 11 November 2026, with the package the owner approved: `@axe-core/playwright` 4.10.2, which brings axe-core
+4.10.3. Unlike the round's one-off 30 scans above, it is a file in the repo that runs with every Playwright run of the
+`phone` project, and CI runs it again on `phone-dark`.
+
+| What | How |
+|---|---|
+| The check | `web/e2e/axe.js` `expectNoAxeViolations(page)`: axe on the whole page, tags `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` (WCAG 2.0 and 2.1, levels A and AA). A failure lists each rule, its impact, its help text and every element it hit |
+| The screens | `web/e2e/a11y.spec.js`: every screen of the site and its main states, one test per screen or flow (the student, the tutor and the exams, the parents' area, the legal and landing pages, every teacher screen and the demo), on C (390×844) |
+| The themes | light (`phone`) and dark (`phone-dark`) |
+| Left out, turned off | nothing: `NOT_JUDGED` in `axe.js` is empty (KaTeX's MathML twin is judged correctly and stays in), no test passes `exclude` or `disableRules`, and `color-contrast` cannot be turned off at all |
+| Proof the check can fail | `web/e2e/axe-self.spec.js`: a button with no name and text under 4.5:1 each fail, with the rule named |
+| Not judged by axe | control edges at 3:1 (WCAG 1.4.11: `e2e/contrast.js`), keyboard reach with a visible ring and the 320 px width (`e2e/trust.spec.js` › "accessibility statement"), and a real screen reader (VoiceOver, TalkBack: the owner's pass, NOT TESTED) |
+| Run it | `cd madregot/web && npx playwright test -c e2e/playwright.config.js --project=phone --project=phone-dark e2e/a11y.spec.js` |
+
+**Result, 11 November 2026:** 105 tests on `phone` and the same 105 on `phone-dark`, every one passed: no WCAG 2.0 or
+2.1 A/AA violation on any screen, in either theme. The 5 tests of `axe-self.spec.js` passed. Adding the notebook page
+to the suite found one real defect (`scrollable-region-focusable`: the question squeezed into a clipped strip when the
+notebook opens), fixed in `app.css` before this run.
 
 ## The parents' progress report (PARENTS-1 to PARENTS-10)
 

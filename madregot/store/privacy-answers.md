@@ -14,7 +14,7 @@ crash SDK, and no data is sold. All traffic is HTTPS.
 | Mode | Kept on the phone | Sent to our server (Cloudflare Worker and D1) | Sent to others |
 |---|---|---|---|
 | **Solo, no AI** (the default; works offline) | progress, settings, the name typed on the first screen (`madregot` in localStorage), theme (`madregot-theme`), store-app flag (`madregot-src`) | nothing, except the reach counts in the last row | none |
-| **Solo, AI used** (free daily taste) | as above, plus a random device id (32 hex characters) | the question, the exercise on screen, what the student typed, and a photo if one was taken (for the answer only; **not stored**). The device id and a one-way hash of the network address count the daily allowance (`ai_usage`). | **Anthropic** (Claude) receives the same text and photo to write the answer: no name, email or phone. In the iOS app the student is asked first (`AIConsentSheet`, Apple 5.1.2(i)). |
+| **Solo, AI used** (free daily taste) | as above, plus a random device id (32 hex characters) | the question, the exercise on screen, what the student typed, and a photo if one was taken, or a page of a PDF the student chose, drawn as a picture on the phone (the PDF file itself is never sent; each page goes through the same crop and black-out step as a photo) (for the answer only; **not stored**). The device id and a one-way hash of the network address count the daily allowance (`ai_usage`). | **Anthropic** (Claude) receives the same text and photo to write the answer: no name, email or phone. In the iOS app the student is asked first (`AIConsentSheet`, Apple 5.1.2(i)). |
 | **Class student** | as above | the first name chosen for the class, a PIN (hashed), each answer (topic, step, right or wrong, first try, hint, the mistake's type, seconds, day), step levels, help requests to the teacher and the replies in their thread (question, note, optional notebook photo; `help_requests`, `help_messages`), the work on the teacher's assignments and class exams (`assignment_work`, `exams`), and class-goal points (no topic, no answer; `class_steps`). The teacher sees them. With the backup code on, the class keeps the code by default (`vault_escrow`), so the student gets the progress back with the PIN; that copy is not end-to-end encrypted. | Anthropic, as above, when AI is used |
 | **Linked family device** (Android app only; the iOS app never sends the family token) | the device's token | the token's hash and the label the parent chose ("הטאבלט") (`family_devices`). While the child's and the parent's sharing switches are both on: one summary a day for the parents' report, with counts and stair and mistake codes only (`family_daily`). The parent's account (email) is made on the website, never in the app. | Anthropic, as above |
 | **Daily reminder on** | Android: the push address in IndexedDB `madregot-push`. iOS: local notifications, so nothing leaves the phone. | Android only: the browser's push address and keys, the hour chosen, and three days (last opened, last lesson, last sent) in `push_subs`. No name, class or device id. | Android only: the browser's push service (Google's) delivers the reminder, encrypted. |
@@ -53,7 +53,7 @@ account is deleted on the website (`<PUBLIC_URL>/#/parents` › delete account);
 |---|---|---|---|---|
 | Personal info › Name | yes | App functionality | yes | a class student's first name, the teacher's name; only for a class |
 | Personal info › Email address | yes | App functionality, Account management | yes | a teacher who signs in by email (TEACHER-1) or asks for a trial or quote |
-| Photos and videos › Photos | yes | App functionality | yes | a notebook photo for the AI (processed ephemerally) or for the teacher (kept with the help request) |
+| Photos and videos › Photos | yes | App functionality | yes | a notebook or exam photo, or a PDF page drawn as a picture on the phone (never the PDF file), for the AI (processed ephemerally); a notebook photo for the teacher (kept with the help request) |
 | App activity › Other user-generated content | yes | App functionality | yes | questions typed to the AI (processed ephemerally); a class student's answers |
 | App activity › App interactions | yes | App functionality, Analytics | yes | a class student's practice record; the reach counts (not linked to anyone) |
 | Device or other IDs | yes | App functionality, Fraud prevention and security | yes | the random device id for the free AI allowance; the push address for the reminder |
@@ -70,14 +70,14 @@ refuses any build that names an analytics or ads host).
 |---|---|---|---|
 | Contact Info › Name | yes | App Functionality | class student's first name, teacher's name |
 | Contact Info › Email Address | yes | App Functionality | a teacher who signs in by email, or asks for a trial or quote |
-| User Content › Photos or Videos | yes (class) / no (solo) | App Functionality | notebook photos for the AI or the teacher |
+| User Content › Photos or Videos | yes (class) / no (solo) | App Functionality | notebook and exam photos (or PDF pages drawn as pictures on the phone) for the AI; notebook photos for the teacher |
 | User Content › Other User Content | yes (class) / no (solo) | App Functionality | questions to the AI, a class student's answers |
 | Identifiers › Device ID | no | App Functionality | the random id that counts the free AI allowance |
 | Usage Data › Product Interaction | yes (class) / no (counts) | App Functionality, Analytics | the class practice record; the anonymous reach counts |
 | Diagnostics › Crash Data, Other Diagnostic Data | no | App Functionality | the app's error reports (DURABLE-9), scrubbed, with no device id |
 
 **Third parties to name** (Apple 5.1.2(i), from 13 Nov 2025): Anthropic receives what the student types or photographs
-for the AI, in the US. Cloudflare hosts the server and database. Resend sends sign-in codes to teachers.
+(or the pages of a PDF, drawn as pictures on the phone) for the AI, in the US. Cloudflare hosts the server and database. Resend sends sign-in codes to teachers.
 
 **Category and age:** Education, **not** the Kids category (that category is for 11 and under). Answer the age-rating
 questionnaire on the submission day. The app has no user-to-user communication and no web browsing outside the app's own

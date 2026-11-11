@@ -73,6 +73,10 @@ jobs:
       - run: npx playwright test -c e2e/playwright.config.js --project=phone --grep-invert @perf
         env:
           CI: '1'
+      # The axe scan of every screen again in dark mode (PKG-1, e2e/a11y.spec.js): the phone run above scans in light.
+      - run: npx playwright test -c e2e/playwright.config.js --project=phone-dark a11y.spec.js
+        env:
+          CI: '1'
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
