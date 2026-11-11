@@ -24,6 +24,7 @@ import { protractorFig, clockFig } from './content/geo';
 // @ts-ignore: plain JS
 import { makeItem } from '@/content/index.js';
 import { seeded } from './expr';
+import { CHALLENGES } from './challenges/index';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -450,6 +451,15 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     const bad = figs.flatMap(({ where, f }) => selfProblems('func:4', f).map((x) => `${where}: ${x}`));
     expect(bad).toEqual([]);
     for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
+  it('the challenge tasks\' situation graphs agree with themselves and render (func:c2, func:c3)', () => {
+    const graphs = CHALLENGES.filter((t) => t.fig?.type === 'sgraph');
+    expect(graphs.map((t) => t.id)).toEqual(expect.arrayContaining(['func:c2', 'func:c3']));
+    graphs.forEach((t) => {
+      expect(selfProblems(t.after, t.fig as AnyFig), t.id).toEqual([]);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: t.fig })), t.id).not.toMatch(/NaN|undefined|Infinity/);
+    });
   });
 
   it('lets right figures through', () => {

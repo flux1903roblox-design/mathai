@@ -1774,6 +1774,9 @@ button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
 .ch-chev { transition: transform var(--duration-quick) var(--ease-out); }
 .ch-chev.open { transform: rotate(180deg); }
 .ch-pin.short .ch-story { max-height: 40dvh; }
+/* on a short phone the story is opened on purpose: a graph read for its values (func:c3's ride) gets more height, and
+   the story scrolls inside its box */
+.ch-pin.short .ch-story-fig .figure { max-height: 30dvh; }
 .ch-main { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: var(--s4) var(--gutter) 0; }
 .ch-part { flex: 1 0 auto; outline: none; }
 .ch-part > .ch-foot { margin-top: auto; }

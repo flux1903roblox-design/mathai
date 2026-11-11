@@ -34,9 +34,9 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 // A unit whose stairs are still landing in this build round (stage5.md FUNC-7): its tasks come after its last stair,
-// so until then it may have fewer than one of each kind. Empty when every unit is whole. The functions unit (func) has
-// its first stair; its three tasks follow func:3 and func:4.
-const PENDING_CHALLENGES = new Set<string>(['func']);
+// so until then it may have fewer than one of each kind. Empty when every unit is whole: the functions unit (func) has
+// its four stairs and its three tasks, so every topic now has all three kinds.
+const PENDING_CHALLENGES = new Set<string>([]);
 
 describe('the challenge tasks', () => {
   it('every topic of TOPIC_ORDER has its tasks, the bridge included, numbered c1, c2, … and in topic order', () => {
@@ -86,6 +86,42 @@ describe('the challenge tasks', () => {
     expect(['expr:c2', 'eq:c2', 'sys:c2'].map((id) => challengeById(id)!.misc)).toEqual(['partial-dist', 'move-no-flip', 'move-no-flip']);
     const named = new Set(ALL_SKILLS.flatMap((id) => contentOf(id)?.misconceptions.map((m) => m.id) || []));
     CHALLENGES.filter((t) => t.misc).forEach((t) => expect(named.has(t.misc!), `${t.id}: ${t.misc}`).toBe(true));
+  });
+
+  it('the functions unit\'s three tasks are the spec\'s (stage5.md FUNC-7; Critique notes 21 and 22)', () => {
+    expect(PENDING_CHALLENGES.size, 'every unit is whole').toBe(0);
+    expect(challengesOf('func').map((t) => [t.id, t.kind, t.after, t.minutes, t.misc ?? null])).toEqual([
+      ['func:c1', 'claim', 'func:4', 4, 'from-zero'], ['func:c2', 'error', 'func:3', 4, 'rtl-read'], ['func:c3', 'literacy', 'func:4', 8, null],
+    ]);
+    // c1: "משתנה", so every whole start but 0 is a counterexample, cooling ones too; the hint's 8 is one, and 0 is not
+    const c1 = challengeById('func:c1')!.parts[0] as Claim;
+    expect(c1.claim).toContain('משתנה');
+    expect(c1.verdict).toBe('sometimes');
+    expect(c1.example).toMatchObject({ domain: 'positive-int', expr: '40 - s', rel: '!=', value: 40 });
+    expect(exampleHolds(c1.example!, { s: 8 })).toBe(true);
+    expect(exampleHolds(c1.example!, { s: 0 })).toBe(false);
+    // the expression is the temperature after 4 minutes from s at the start and 20 after 2, for every start 1..60
+    for (let s = 1; s <= 60; s += 1) expect(same(evaluate(c1.example!.expr, { s }), s + 4 * ((20 - s) / 2)), `start ${s}`).toBe(true);
+    const mc1 = challengeById('func:c1')!.parts[1] as Extract<ChallengePart, { type: 'mc' }>;
+    expect(mc1.choices.find((c) => c.ok)!.text).toBe('כשההתחלה $0^\\circ$');
+    // c2: Tal's graph rises on 0 < x < 3 and falls on 3 < x < 8, read left to right; the wrong line says it rises there
+    const c2 = challengeById('func:c2')!;
+    const pts = (c2.fig as { series: { pts: [number, number][] }[] }).series[0].pts;
+    expect(pts).toEqual([[0, 1], [3, 7], [8, 2], [10, 2]]);
+    const err = c2.parts[0] as Extract<ChallengePart, { type: 'error' }>;
+    expect([err.wrong, err.fix.answer, err.fix.check]).toEqual([1, 3, '3-0']);
+    expect(err.lines[1]).toContain('$3 < x < 8$');
+    // c3: Yoav's ride; the average (11) is neither part's speed (18 and 12), so the last speed is not marked right
+    const c3 = challengeById('func:c3')!;
+    const ride = (c3.fig as { series: { pts: [number, number][] }[] }).series[0].pts;
+    expect(ride).toEqual([[0, 0], [20, 6], [35, 6], [60, 11]]);
+    const speed = (a: [number, number], b: [number, number]) => ((b[1] - a[1]) / (b[0] - a[0])) * 60;
+    const nums = c3.parts.filter((p): p is Extract<ChallengePart, { type: 'num' }> => p.type === 'num').map((p) => p.answer);
+    expect(nums).toEqual([ride[2][0] - ride[1][0], speed(ride[0], ride[1]), (ride[3][1] / ride[3][0]) * 60]);
+    expect([speed(ride[0], ride[1]), speed(ride[2], ride[3])]).toEqual([18, 12]);
+    expect([18, 12]).not.toContain(nums[2]);
+    const mc3 = c3.parts.find((p) => p.type === 'mc') as Extract<ChallengePart, { type: 'mc' }>;
+    expect(mc3.choices.find((c) => c.ok)!.text).toBe('בקטע הראשון');
   });
 
   it('ids are unique, each follows a real stair of its own topic, and has its kind, minutes and 2 to 5 parts', () => {
