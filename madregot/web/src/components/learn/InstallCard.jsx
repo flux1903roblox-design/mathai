@@ -1,7 +1,9 @@
 // The install offer after a lesson (STUDENT-10): the last stage of LessonDone, from the second learning day, at most
 // twice, 30 days apart, and only where the browser can install (lib/install.js installDue). A home screen with the app's
-// icon on it, one sentence on what it gives, and two answers: "להתקין" opens the browser's own install prompt, "לא
-// עכשיו" goes on. Either way the student goes back to the map. Calm: no badge, no timer, nothing to lose.
+// icon on it, one sentence on what it gives, and two answers: "להתקין" opens the browser's own install prompt (the button
+// is busy while it is up, so a second tap does nothing, and says "ההתקנה התחילה" with a check once it is accepted:
+// STUDENT-15 A1), "לא עכשיו" goes on. Either way the student goes back to the map. Calm: no badge, no timer, nothing to
+// lose.
 import { useEffect, useRef, useState } from 'react';
 import { m, useReducedMotion } from 'motion/react';
 import { useApp, today } from '@/lib/store.js';
@@ -12,10 +14,13 @@ import { SPRING } from '@/lib/motion.js';
 
 const focusQuietly = (el) => { if (el) el.focus({ preventScroll: true }); };
 const ICON = `${import.meta.env.BASE_URL}icons/maskable-512.png`;
+// how long the button shows that the install started before the map
+const DONE_MS = 900;
+export const INSTALL_STARTED = 'ההתקנה התחילה';
 
 export default function InstallCard({ onDone }) {
   const reduce = useReducedMotion();
-  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState('idle'); // the install button: idle | busy | done
   const shown = useRef(false);
   // shown: one of the two offers is used, and it counts as set aside from today unless the app gets installed
   useEffect(() => {
@@ -25,7 +30,12 @@ export default function InstallCard({ onDone }) {
     useApp.getState().setNudge({ installOffers: (n.installOffers || 0) + 1, installDismissedAt: today() });
     count('install_offer');
   }, []);
-  const install = async () => { setBusy(true); await offer(); onDone(); };
+  const install = async () => {
+    setState('busy');
+    if ((await offer()) !== 'accepted') { onDone(); return; }
+    setState('done');
+    setTimeout(onDone, DONE_MS);
+  };
   return (
     <div className="done-screen install-stage">
       <div className="done-hero install-hero" aria-hidden="true">
@@ -43,8 +53,8 @@ export default function InstallCard({ onDone }) {
         <p className="install-text" id="install-text">פותחים בלחיצה, עובד גם בלי אינטרנט, וההתקדמות נשמרת טוב יותר.</p>
       </div>
       <div className="done-actions" data-region="footer">
-        <Button className="btn-block btn-lg" onClick={install} disabled={busy} ref={focusQuietly} aria-describedby="install-title install-text">להתקין</Button>
-        <Button variant="ghost" className="btn-block done-quiet" onClick={onDone} disabled={busy}>לא עכשיו</Button>
+        <Button className="btn-block btn-lg" onClick={install} state={state} doneText={INSTALL_STARTED} ref={focusQuietly} aria-describedby="install-title install-text">להתקין</Button>
+        <Button variant="ghost" className="btn-block done-quiet" onClick={onDone} disabled={state !== 'idle'}>לא עכשיו</Button>
       </div>
     </div>
   );

@@ -1,11 +1,11 @@
 // The teacher's "מטרת כיתה שבועית" block (STUDENT-4 §7): on or off, and the size of the goal (empty: automatic, 4 steps
 // for each active student). Its temporary home is the "תלמידים" view of the teacher's board; TEACHER-9's class settings
 // page takes it over. The students see only the class total and their own share.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { api, teacherHeaders } from '@/lib/api.js';
-import { Button } from '@/components/ui.jsx';
+import { Button, Segmented } from '@/components/ui.jsx';
 
 const MIN = 10; const MAX = 400;
 const OPTIONS = [[true, 'פועלת'], [false, 'כבויה']];
@@ -24,7 +24,6 @@ export default function ClassGoalSettings({ cls, goal, onSaved }) {
   const [size, setSize] = useState(goal?.custom ? String(goal.custom) : '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const radios = useRef([]);
   useEffect(() => { setOn(goal?.on !== false); setSize(goal?.custom ? String(goal.custom) : ''); }, [goal?.on, goal?.custom]);
 
   const save = async (nextOn, text, what) => {
@@ -39,24 +38,13 @@ export default function ClassGoalSettings({ cls, goal, onSaved }) {
       onSaved?.();
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
+  // the shared Segmented: one Tab stop, the arrows move between the two options and choose
   const pick = (v) => { if (busy || v === on) return; setOn(v); save(v, size, 'switch'); };
-  // a radio group: the arrows move between the two options (and choose), Tab leaves the group
-  const onKey = (e) => {
-    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
-    e.preventDefault();
-    const next = !on; pick(next);
-    radios.current[next ? 0 : 1]?.focus();
-  };
 
   return (
     <section className="set-group t-goal" aria-labelledby="t-goal-title">
       <h2 id="t-goal-title" className="set-head">מטרת כיתה שבועית</h2>
-      <div className="segmented t-goal-seg" role="radiogroup" aria-labelledby="t-goal-title" onKeyDown={onKey}>
-        {OPTIONS.map(([v, label], i) => (
-          <button key={label} ref={(el) => { radios.current[i] = el; }} type="button" role="radio" aria-checked={on === v} tabIndex={on === v ? 0 : -1}
-            className={clsx('seg', on === v && 'on')} onClick={() => pick(v)} disabled={busy && on !== v}>{label}</button>
-        ))}
-      </div>
+      <Segmented className="t-goal-seg" value={on} onValueChange={pick} busy={busy} options={OPTIONS} labelledBy="t-goal-title" />
       {on && (
         <form className="t-goal-size" onSubmit={(e) => { e.preventDefault(); save(true, size, 'size'); }} noValidate>
           <label htmlFor="t-goal-n" className="field-label">גודל המטרה (צעדים בשבוע)</label>

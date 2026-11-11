@@ -3,13 +3,15 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import serviceWorker from './scripts/vite-plugin-sw.mjs';
 import brand from './scripts/vite-plugin-brand.mjs';
+import budgetMap from './scripts/vite-plugin-budget.mjs';
 
 // BASE_PATH lets the same build live at a GitHub Pages sub-path, e.g. /madregot/.
 export default defineConfig({
   base: process.env.BASE_PATH || '/',
   // serviceWorker: dist/sw.js with the list of files kept for offline use (DURABLE-10)
   // brand: the product's name from shared/brand.js in index.html and the web manifest (STUDENT-12)
-  plugins: [react(), brand(), serviceWorker()],
+  // budgetMap: .vite/modules.json, which module is in which chunk, for scripts/check-budget.mjs (STUDENT-15)
+  plugins: [react(), brand(), serviceWorker(), budgetMap()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/landing-build.mjs dist && node scripts/check-dist.mjs dist",
+    "build": "vite build --manifest && node scripts/landing-build.mjs dist && node scripts/check-dist.mjs dist && node scripts/check-budget.mjs dist",
     "preview": "vite preview",
     "test": "vitest run",
     "lint:colors": "node scripts/check-colors.mjs",

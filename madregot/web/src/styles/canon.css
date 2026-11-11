@@ -29,6 +29,18 @@ a { color: var(--brand-d); }
 .btn-ghost { --btn-bg: transparent; --btn-line: transparent; --btn-lip: transparent; color: var(--brand-d); }
 .btn:disabled { --btn-bg: var(--disabled-bg); --btn-ink: var(--disabled-ink); --btn-lip: var(--disabled-lip); --btn-line: var(--disabled-bg); }
 .btn:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; }
+/* a button doing its job (STUDENT-15 A1): a spinner while busy, a check drawn when done; it keeps its colours and its
+   focus. One turn of the spinner takes --duration-slow; under reduced motion neither moves (the words change instead). */
+.btn.is-busy, .btn.is-done { cursor: default; }
+.btn.is-busy:active, .btn.is-done:active { transform: none; box-shadow: 0 var(--lip) 0 var(--btn-lip); }
+.btn-spin { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid currentColor; border-inline-start-color: transparent; animation: btn-spin var(--duration-slow) linear infinite; }
+@keyframes btn-spin { to { transform: rotate(1turn); } }
+.btn-check { flex: none; }
+.btn-check path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: t-check-draw var(--duration-slow) var(--check-ease-path, ease-out) forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-spin { animation: none; }
+  .btn-check path { animation: none; stroke-dashoffset: 0; }
+}
 .icon-btn { color: var(--ink-2); }
 
 /* ------------------------------------------------------------------ the tab bar: icon and name, the active tab in brand */

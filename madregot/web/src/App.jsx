@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect } from 'react';
 import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
+import { DirectionProvider } from '@base-ui/react/direction-provider';
+import { CircleCheck, CircleAlert, Info } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
 import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
@@ -17,9 +19,13 @@ import Welcome from '@/screens/Welcome.jsx';
 import Learn from '@/screens/Learn.jsx';
 import Topics from '@/screens/Topics.jsx';
 import Topic from '@/screens/Topic.jsx';
-import Lesson from '@/screens/Lesson.jsx';
 import Quests from '@/screens/Quests.jsx';
 // Screens that are not on the daily path load on demand.
+// The lesson loads on demand (STUDENT-15's budget: the figures and lesson screens grew the first load past what the
+// lane may add), and is fetched while the browser is idle after the first screen, so the first tap on a lesson rarely
+// waits for it.
+const loadLesson = () => import('@/screens/Lesson.jsx');
+const Lesson = lazy(loadLesson);
 const Assistant = lazy(() => import('@/screens/Assistant.jsx'));
 const Me = lazy(() => import('@/screens/Me.jsx'));
 const Wardrobe = lazy(() => import('@/screens/Wardrobe.jsx'));
@@ -85,6 +91,16 @@ function StatusWatch() {
   return null;
 }
 
+// Sonner in the app's look (STUDENT-15 SO1, SO2): the region is called "הודעות" for screen readers (not "Notifications
+// alt+T"), the toasts take their colours, radius and font from the tokens (app.css .app-toaster, both themes), and the
+// icons are the app's own.
+const TOAST_ICONS = { success: <CircleCheck size={20} aria-hidden="true" />, error: <CircleAlert size={20} aria-hidden="true" />, info: <Info size={20} aria-hidden="true" /> };
+const TOAST_OPTIONS = {
+  className: 'toast',
+  classNames: { title: 'toast-title', description: 'toast-desc', icon: 'toast-icon', success: 'toast-good', error: 'toast-bad', info: 'toast-info', actionButton: 'toast-action', cancelButton: 'toast-cancel' },
+};
+const toaster = { dir: 'rtl', className: 'app-toaster', containerAriaLabel: 'הודעות', customAriaLabel: 'הודעות', icons: TOAST_ICONS, toastOptions: TOAST_OPTIONS };
+
 /**
  * A toast belongs to the screen that raised it: cleared when the route changes. Above the tab bar on
  * most screens; in a lesson (no tab bar, the keypad at the bottom) it appears at the top instead.
@@ -94,8 +110,8 @@ function Toasts() {
   useEffect(() => { toast.dismiss(); }, [pathname]);
   const lesson = /^\/(lesson|practice|placement)/.test(pathname);
   return lesson
-    ? <Toaster key="top" position="top-center" dir="rtl" offset={72} mobileOffset={{ top: 72 }} toastOptions={{ className: 'toast' }} />
-    : <Toaster key="bottom" position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />;
+    ? <Toaster key="top" position="top-center" offset={72} mobileOffset={{ top: 72 }} {...toaster} />
+    : <Toaster key="bottom" position="bottom-center" offset={96} mobileOffset={{ bottom: 96 }} {...toaster} />;
 }
 
 // Each lesson route starts a fresh lesson, so the screen remounts per route.
@@ -213,11 +229,21 @@ export default function App() {
   useSync();
   // the saved look (Settings, מראה); public/theme-boot.js already applied an explicit choice before the first paint
   useEffect(() => { applyTheme(useApp.getState().prefs?.theme); }, []);
+  // the lesson's code, fetched once the first screen is up and the browser has nothing else to do
+  useEffect(() => {
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1500));
+    const id = idle(() => { loadLesson().catch(() => { /* offline or a new release: it loads when it is opened */ }); });
+    return () => (window.cancelIdleCallback || clearTimeout)(id);
+  }, []);
+  // DirectionProvider (STUDENT-15 B1): Base UI's radio groups and composites read the direction from here, not from
+  // <html dir>, so the arrow keys follow Hebrew reading order in every screen
   return (
+    <DirectionProvider direction="rtl">
     <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="user">
       <RouterProvider router={router} />
     </MotionConfig>
     </LazyMotion>
+    </DirectionProvider>
   );
 }

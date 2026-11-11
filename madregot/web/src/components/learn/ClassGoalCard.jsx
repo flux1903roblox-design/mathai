@@ -9,11 +9,10 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Users } from 'lucide-react';
-import { Progress } from '@base-ui/react/progress';
 import NumberFlow from '@number-flow/react';
 import Mascot from '@/components/Mascot.jsx';
 import Lottie from '@/components/Lottie.jsx';
-import { Button, Sheet } from '@/components/ui.jsx';
+import { Button, Sheet, Progress } from '@/components/ui.jsx';
 import { useApp } from '@/lib/store.js';
 import { useClassGoal, dayOfWeek } from '@/lib/classGoal.js';
 import { useMadiLook } from '@/lib/madiLook.js';
@@ -49,9 +48,7 @@ function FullGoal({ g }) {
         )}
         {reached && <Mascot mood="happy" size={64} className="cg-madi" />}
       </div>
-      <Progress.Root className="cg-progress" value={Math.min(have, target)} max={target} aria-labelledby="cg-h" getAriaValueText={() => `${have} מתוך ${target} צעדים`}>
-        <Progress.Track className="bar cg-track"><Progress.Indicator className="cg-fill" /></Progress.Track>
-      </Progress.Root>
+      <Progress className="cg-progress" trackClassName="cg-track" fillClassName="cg-fill" value={Math.min(have, target)} max={target} labelledBy="cg-h" valueText={`${have} מתוך ${target} צעדים`} />
       {reached && <p className="cg-reached">{mine > 0 ? REACHED_MINE : REACHED_NOT_MINE}</p>}
       {have > 0 && (!reached || mine > 0) && <p className="cg-mine">{shareText(mine)}</p>}
       {showLast && <p className="cg-last">בשבוע שעבר: {last.have} מתוך {last.target}{last.reached ? '. הגעתם למטרה.' : '.'}</p>}

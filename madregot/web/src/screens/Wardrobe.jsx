@@ -1,21 +1,19 @@
 // "המדי שלי" (STUDENT-3): the student styles מדי with what learning earned. Madi stands at the top in the look being
 // worn; under him, one radio group of colours and one per slot (בלי first). A choice is saved at once (no save button
 // and no toast: the change is visible). A locked option stays focusable and says how it opens.
-// The groups are Base UI RadioGroups in a right-to-left DirectionProvider, so arrow keys follow the reading direction.
+// Each group is the shared Choices (components/ui.jsx: Base UI's RadioGroup; App.jsx sets the direction to right to
+// left, so the arrow keys follow the reading order).
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { ArrowRight, Check, Lock } from 'lucide-react';
-import { RadioGroup } from '@base-ui/react/radio-group';
-import { Radio } from '@base-ui/react/radio';
-import { DirectionProvider } from '@base-ui/react/direction-provider';
 import { useApp } from '@/lib/store.js';
 import { useMadiLook } from '@/lib/madiLook.js';
 import { COLORS, ITEMS, SLOTS, SLOT_NAME, MADI_PALETTE, ownedLook, lockedReason, itemOf, colorOf, nameOf } from '@/lib/wardrobe.js';
 import { TOPIC } from '@/content/index.js';
 import Mascot from '@/components/Mascot.jsx';
 import { ItemArt } from '@/components/mascot/Accessories.jsx';
-import { Sheet, Button } from '@/components/ui.jsx';
+import { Sheet, Button, Choices, Choice, ChoiceMark } from '@/components/ui.jsx';
 import { count } from '@/lib/metrics.js';
 
 const NONE = 'none';
@@ -35,38 +33,16 @@ function Swatch({ id }) {
   );
 }
 
-/**
- * Base UI's composite skips items marked aria-disabled when the arrow keys move, so a locked option could never be
- * reached from the keyboard. While an arrow key is handled, the locked options of the group lose the attribute (and
- * get it back right after), so they are focusable and still announced as unavailable.
- */
-function reachLocked(e) {
-  if (!e.key.startsWith('Arrow')) return;
-  const locked = [...e.currentTarget.querySelectorAll('[data-locked][aria-disabled="true"]')];
-  locked.forEach((el) => el.removeAttribute('aria-disabled'));
-  setTimeout(() => locked.forEach((el) => el.setAttribute('aria-disabled', 'true')), 0);
-}
-
 function Option({ id, label, sub, art, locked, describedBy, onLocked }) {
   return (
-    <Radio.Root
-      value={id}
-      data-value={id}
-      className={clsx('wardrobe-opt', locked && 'is-locked')}
-      data-locked={locked || undefined}
-      aria-disabled={locked || undefined}
-      aria-describedby={describedBy}
-      // a locked option opens its reason: a click or a tap, Enter, or Space (Base UI's own handler is skipped, so it is never chosen)
-      onClick={locked ? (e) => { e.preventBaseUIHandler?.(); onLocked(id); } : undefined}
-      onKeyDown={locked ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLocked(id); } } : undefined}
-    >
+    <Choice value={id} locked={locked} onLocked={onLocked} describedBy={describedBy} className={clsx('wardrobe-opt', locked && 'is-locked')}>
       <span className="wardrobe-pic">{art}</span>
       <span className="wardrobe-text">
         <span className="wardrobe-name">{label}</span>
         {sub && <span className="wardrobe-sub">{sub}</span>}
       </span>
-      <span className="wardrobe-mark" aria-hidden="true">{locked ? <Lock size={18} /> : <Radio.Indicator className="wardrobe-check"><Check size={18} strokeWidth={3} /></Radio.Indicator>}</span>
-    </Radio.Root>
+      <span className="wardrobe-mark" aria-hidden="true">{locked ? <Lock size={18} /> : <ChoiceMark className="wardrobe-check"><Check size={18} strokeWidth={3} /></ChoiceMark>}</span>
+    </Choice>
   );
 }
 
@@ -75,14 +51,8 @@ function Group({ id, title, value, options, owned, grade, classColor, onChoose, 
   return (
     <section className="section wardrobe-group" aria-labelledby={`${uid}-h`}>
       <h2 id={`${uid}-h`} className="set-head">{title}</h2>
-      <RadioGroup
-        value={value} aria-labelledby={`${uid}-h`} className="wardrobe-grid" onKeyDownCapture={reachLocked}
-        onValueChange={(v, details) => {
-          // moving onto a locked option with the arrow keys focuses it; it is never chosen
-          if (v !== NONE && !owned.has(v)) { details.cancel(); return; }
-          onChoose(id, v);
-        }}
-      >
+      {/* moving onto a locked option with the arrow keys focuses it; it is never chosen */}
+      <Choices value={value} labelledBy={`${uid}-h`} className="wardrobe-grid" locked={options.filter((o) => o !== NONE && !owned.has(o))} onValueChange={(v) => onChoose(id, v)}>
         {options.map((o) => {
           if (o === NONE) return <Option key={NONE} id={NONE} label="בלי" art={<span className="wardrobe-none" />} />;
           const locked = !owned.has(o);
@@ -92,7 +62,7 @@ function Group({ id, title, value, options, owned, grade, classColor, onChoose, 
               art={colorOf(o) ? <Swatch id={o} /> : <ItemArt id={o} classColor={classColor} className="wardrobe-art" />} />
           );
         })}
-      </RadioGroup>
+      </Choices>
       {/* how each locked option opens, read out with it */}
       {options.filter((o) => o !== NONE && !owned.has(o)).map((o) => <span key={o} id={`${uid}-${o}`} className="visually-hidden">{lockedReason(o, grade).text}</span>)}
     </section>
@@ -167,11 +137,9 @@ export default function Wardrobe() {
         <Mascot size={160} mood={mood} beat={beat} className="wardrobe-madi" />
       </div>
       <p className="wardrobe-sub-head">צבעים ואביזרים מקבלים כשלומדים: חצי ראשון של יחידה פותח אביזר, ויחידה שלמה פותחת צבע.</p>
-      <DirectionProvider direction="rtl">
-        {groups.map((g) => (
-          <Group key={g.id} {...g} owned={owned} grade={grade} classColor={worn.classColor} onChoose={choose} onLocked={setLocked} />
-        ))}
-      </DirectionProvider>
+      {groups.map((g) => (
+        <Group key={g.id} {...g} owned={owned} grade={grade} classColor={worn.classColor} onChoose={choose} onLocked={setLocked} />
+      ))}
       <Sheet open={!!locked} onOpenChange={(o) => !o && setLocked(null)} title={locked ? nameOf(locked) : ''}>
         {reason && (
           <div className="wardrobe-lock">

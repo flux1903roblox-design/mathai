@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
+import { useReducedMotion } from 'motion/react';
 import { Dialog } from '@base-ui/react/dialog';
-import { Delete, X, ArrowRightLeft, ArrowLeft } from 'lucide-react';
+import { RadioGroup } from '@base-ui/react/radio-group';
+import { Radio } from '@base-ui/react/radio';
+import { Progress as BaseProgress } from '@base-ui/react/progress';
+import { Delete, X, ArrowRightLeft, ArrowLeft, Check } from 'lucide-react';
 import { MathText } from './MathText.jsx';
 
 /** The chapter mark: a solid circle in the topic's colour with its number. */
@@ -68,8 +72,109 @@ export function Steps({ steps, stepwise = false }) {
   );
 }
 
-export function Button({ variant = 'primary', className, children, ...rest }) {
-  return <button type="button" className={clsx('btn', `btn-${variant}`, className)} {...rest}>{children}</button>;
+/**
+ * The app's button. `state` (STUDENT-15 A1, the Aceternity "stateful button" idea written here) is for an action that
+ * takes a moment: 'busy' while it runs (aria-busy, a spinner next to the words; with reduced motion the words change to
+ * `busyText` instead), 'done' when it worked (a check drawn next to `doneText`; with reduced motion the words only).
+ * While busy or done the button keeps its place and its focus (aria-disabled, not disabled) and ignores taps, so a
+ * double tap sends one request. A screen that shows 'done' does not also say it in a toast.
+ */
+export function Button({ variant = 'primary', className, children, state = 'idle', busyText = 'רגע…', doneText, onClick, ...rest }) {
+  const reduce = useReducedMotion();
+  const held = state === 'busy' || state === 'done';
+  let content = children;
+  if (state === 'busy') content = reduce ? busyText : <><span className="btn-spin" aria-hidden="true" />{children}</>;
+  if (state === 'done') content = reduce ? (doneText ?? children) : <><Check className="btn-check" size={20} strokeWidth={3} aria-hidden="true" />{doneText ?? children}</>;
+  return (
+    <button type="button" className={clsx('btn', `btn-${variant}`, held && `is-${state}`, className)} {...rest}
+      onClick={held ? (e) => e.preventDefault() : onClick}
+      aria-busy={state === 'busy' || undefined} aria-disabled={held || rest['aria-disabled'] || undefined}>
+      {content}
+    </button>
+  );
+}
+
+/**
+ * A segmented choice (STUDENT-15 B3): Base UI's RadioGroup drawing the .segmented / .seg buttons, so the look does not
+ * change. The group is one Tab stop; the arrow keys move and choose (right to left: App.jsx sets the direction), Space
+ * chooses. `options` is [[value, label], …] or [{ value, label, disabled }, …]. While `busy` nothing is chosen (the
+ * focus still moves, and every option says it is unavailable).
+ */
+export function Segmented({ value, onValueChange, options, labelledBy, describedBy, label, className, busy = false }) {
+  return (
+    <RadioGroup
+      value={value} className={clsx('segmented', className)} aria-labelledby={labelledBy} aria-describedby={describedBy} aria-label={label}
+      onValueChange={(v, details) => { if (busy) { details.cancel(); return; } onValueChange?.(v); }}
+    >
+      {options.map((o) => {
+        const { value: v, label: text, disabled } = Array.isArray(o) ? { value: o[0], label: o[1] } : o;
+        return (
+          <Radio.Root key={String(v)} value={v} disabled={disabled} nativeButton render={<button type="button" />}
+            className={(st) => clsx('seg', st.checked && 'on')} aria-disabled={busy || undefined}>
+            {text}
+          </Radio.Root>
+        );
+      })}
+    </RadioGroup>
+  );
+}
+
+/**
+ * Base UI's composite skips items marked aria-disabled when the arrow keys move, so a locked choice could never be
+ * reached from the keyboard. While an arrow key is handled, the locked choices of the group lose the attribute (and get
+ * it back right after), so they are focusable and still announced as unavailable.
+ */
+function reachLocked(e) {
+  if (!e.key.startsWith('Arrow')) return;
+  const locked = [...e.currentTarget.querySelectorAll('[data-locked][aria-disabled="true"]')];
+  locked.forEach((el) => el.removeAttribute('aria-disabled'));
+  setTimeout(() => locked.forEach((el) => el.setAttribute('aria-disabled', 'true')), 0);
+}
+
+/**
+ * Choice cards (STUDENT-15 B4): Base UI's RadioGroup for a set of tap cards (מדי's wardrobe). One Tab stop, arrows in
+ * reading order. A value in `locked` is never chosen: moving onto it with the arrows only focuses it, and the card's own
+ * `onLocked` says how it opens.
+ */
+export function Choices({ value, onValueChange, locked = [], labelledBy, className, children }) {
+  return (
+    <RadioGroup
+      value={value} aria-labelledby={labelledBy} className={className} onKeyDownCapture={reachLocked}
+      onValueChange={(v, details) => { if (locked.includes(v)) { details.cancel(); return; } onValueChange?.(v); }}
+    >
+      {children}
+    </RadioGroup>
+  );
+}
+
+/** One card in Choices. A locked card stays focusable, is announced as unavailable, and opens `onLocked` (tap, Enter, Space). */
+export function Choice({ value, locked = false, onLocked, describedBy, className, children }) {
+  return (
+    <Radio.Root
+      value={value} data-value={value} className={className} data-locked={locked || undefined} aria-disabled={locked || undefined}
+      aria-describedby={describedBy}
+      // a locked card opens its reason (Base UI's own handler is skipped, so it is never chosen)
+      onClick={locked ? (e) => { e.preventBaseUIHandler?.(); onLocked?.(value); } : undefined}
+      onKeyDown={locked ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLocked?.(value); } } : undefined}
+    >
+      {children}
+    </Radio.Root>
+  );
+}
+
+/** The check inside a chosen Choice (Base UI shows it only on the chosen one). */
+export const ChoiceMark = Radio.Indicator;
+
+/**
+ * A progress bar (STUDENT-15 B8) on Base UI's Progress, drawn with the existing .bar track and the screen's own fill
+ * class: role=progressbar with its value, and `valueText` as what a screen reader says.
+ */
+export function Progress({ value, max = 100, labelledBy, valueText, className, trackClassName, fillClassName }) {
+  return (
+    <BaseProgress.Root className={className} value={value} max={max} aria-labelledby={labelledBy} getAriaValueText={valueText ? () => valueText : undefined}>
+      <BaseProgress.Track className={clsx('bar', trackClassName)}><BaseProgress.Indicator className={fillClassName} /></BaseProgress.Track>
+    </BaseProgress.Root>
+  );
 }
 
 /** Number keypad with a minus key: phone keyboards have none in numeric mode. */

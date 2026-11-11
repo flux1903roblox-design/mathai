@@ -2,7 +2,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { Flame, Snowflake, Zap, Check, Target, Route, ChevronLeft, BookOpen, Star, Trophy, Footprints } from 'lucide-react';
 import { m, useReducedMotion } from 'motion/react';
-import { Progress } from '@base-ui/react/progress';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { learnDaysThisMonth, learnDaysTotal, weekStart, weekSteps, bestWeek } from '@/lib/streak.js';
 import { useRepair, repairText } from '@/components/learn/RepairCard.jsx';
@@ -10,6 +9,7 @@ import { questProgress, GOALS } from '@/lib/quests.js';
 import { usePlan } from '@/lib/usePlan.js';
 import { Week } from './LessonDone.jsx';
 import PageHero from '@/components/PageHero.jsx';
+import { Progress } from '@/components/ui.jsx';
 import Lottie from '@/components/Lottie.jsx';
 import { EASE } from '@/lib/motion.js';
 import TodayCard from '@/components/learn/TodayCard.jsx';
@@ -32,10 +32,8 @@ function WeekBestCard({ days }) {
     <section className="card week-best-card" aria-labelledby="wk-h">
       <h2 id="wk-h" className="card-title"><Footprints size={22} aria-hidden="true" className="brand-icon" />השבוע שלי</h2>
       <p className="wk-line">{steps === 0 ? 'השבוע עוד לא התחיל. כל שיעור קצר הוא צעד.' : `השבוע: ${stepsText(steps)}`}</p>
-      <Progress.Root className="wk-progress" value={Math.min(steps, target)} max={target} aria-labelledby="wk-h"
-        getAriaValueText={() => (best ? `השבוע ${stepsText(steps)}, השיא ${stepsText(best.steps)}` : `השבוע ${stepsText(steps)}`)}>
-        <Progress.Track className="bar wk-track"><Progress.Indicator className="wk-fill" /></Progress.Track>
-      </Progress.Root>
+      <Progress className="wk-progress" trackClassName="wk-track" fillClassName="wk-fill" value={Math.min(steps, target)} max={target} labelledBy="wk-h"
+        valueText={best ? `השבוע ${stepsText(steps)}, השיא ${stepsText(best.steps)}` : `השבוע ${stepsText(steps)}`} />
       <p className="wk-best">{best ? `השיא שלכם: ${stepsText(best.steps)} בשבוע` : 'זה השבוע הראשון. מה שתעשו השבוע יהיה השיא.'}</p>
       <p className="field-hint">צעד הוא שיעור, שלב לימוד או בדיקה. בדיקת שליטה שעברתם שווה 3.</p>
     </section>

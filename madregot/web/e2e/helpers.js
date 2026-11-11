@@ -41,6 +41,19 @@ export async function open(page, route, state = null, seed = '424242') {
   await page.goto(`./${route}`);
   await page.reload();
   await page.evaluate(() => document.fonts.ready);
+  await screenReady(page, route);
+}
+
+/**
+ * A screen that loads on demand (the lesson since STUDENT-15's budget, Settings, the wardrobe…) shows the loading state
+ * first: wait until it is up. On a lesson route, also until the lesson's QA hook is in place, so the exercise on
+ * screen can be read (window.__madregotItem; it is set by the lesson once it has drawn its first screen).
+ */
+export async function screenReady(page, route = '') {
+  await page.waitForFunction(() => document.getElementById('root')?.childElementCount > 0 && !document.querySelector('.loading-state'));
+  if (/^#\/(lesson|practice|placement|rescue\/(check|exam))\b/.test(route)) {
+    await page.waitForFunction(() => '__madregotItem' in window, null, { timeout: 10_000 }).catch(() => { /* a lesson that opens on something else */ });
+  }
 }
 
 export const item = (page) => page.evaluate(() => window.__madregotItem);
@@ -57,6 +70,8 @@ const values = (it) => (it.form === 'pt' ? it.answer : it.form === 'line' ? [it.
 
 /** Answer the current exercise, right or wrong (a wrong choice that is still enabled). */
 export async function answer(page, right) {
+  // the lesson may still be loading (it loads on demand): wait for its exercise
+  await expect.poll(() => item(page)).toBeTruthy();
   const it = await item(page);
   if (it.form === 'manip') {
     // an interactive exercise: the QA hook puts the object in a right state or a near miss

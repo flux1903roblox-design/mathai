@@ -149,8 +149,11 @@ test('from the third learning day, the last screen offers the reminder; "להפ�
   expect(calls(log, '/api/metrics').map((r) => r.body)).toContain('push_offer');
   await shot(page, 'card-390');
   await yes.click();
-  await expect(page.getByText('התזכורת תגיע בכל יום ב־17:00')).toBeVisible();
+  // the button says it worked (STUDENT-15 A1: busy, then done; reduced motion: the words only), then the map, with no
+  // toast saying it again
+  await expect(card.getByRole('button', { name: 'התזכורת פועלת', exact: true })).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('.learn-top')).toBeVisible();
+  await expect(page.getByText('התזכורת תגיע בכל יום ב־17:00')).toHaveCount(0);
   const [sub] = calls(log, '/api/push/subscribe');
   expect(sub.body.endpoint).toBe('https://fcm.googleapis.com/fcm/send/e2e-1');
   expect(Number(sub.body.slot)).toBe(17);

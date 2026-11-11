@@ -1,14 +1,17 @@
 // Settings, "תזכורת יומית" (STUDENT-11): on or off, the hour (16:00-20:00), and one line on the rules; or the one line
 // that says why there is no reminder here (no server, the browser, iPhone in a tab, notifications blocked). Turning it
-// on asks the browser inside the tap; a new hour subscribes again with `replaces`. Same segmented pattern as the other
-// choices in Settings.
+// on asks the browser inside the tap; a new hour subscribes again with `replaces`. Both choices are the shared Segmented
+// (components/ui.jsx), as the other choices in Settings.
 import { useEffect, useState } from 'react';
-import clsx from 'clsx';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { pushState, enable, disable } from '@/lib/push.js';
 import { errorText } from '@/lib/api.js';
 import { SLOTS, DEFAULT_SLOT, REMINDER_TEXT as T } from '@/lib/reminder.js';
+import { Segmented } from '@/components/ui.jsx';
+
+/** The hours as the shared Segmented's options: the hour read left to right, "16:00". */
+const SLOT_OPTIONS = SLOTS.map((h) => [h, <span key={h} dir="ltr">{h}:00</span>]);
 
 const LINE = { 'no-server': T.noServer, 'off-server': T.noServer, unsupported: T.unsupported, 'ios-install': T.ios, denied: T.denied };
 
@@ -41,7 +44,7 @@ export default function ReminderSettings() {
       : disable().then(() => { setState('ready'); toast(T.toastOff); });
     job.catch(fail).finally(() => setBusy(false));
   };
-  // while busy the choices stay focusable (aria-disabled), so a keyboard user keeps their place
+  // while busy the choices stay focusable (Segmented's busy: aria-disabled, nothing chosen), so a keyboard user keeps their place
   const move = (h) => {
     if (busy || h === slot) return;
     setBusy(true);
@@ -52,20 +55,11 @@ export default function ReminderSettings() {
       <h2 id="rem-title" className="set-head">{T.title}</h2>
       {LINE[state] ? <p className="field-hint" id="rem-hint">{LINE[state]}</p> : (
         <>
-          <div className="segmented" role="radiogroup" aria-labelledby="rem-title" aria-describedby="rem-hint">
-            <button type="button" role="radio" aria-checked={on} className={clsx('seg', on && 'on')} onClick={() => turn(true)} aria-disabled={busy || undefined}>{T.optOn}</button>
-            <button type="button" role="radio" aria-checked={!on} className={clsx('seg', !on && 'on')} onClick={() => turn(false)} aria-disabled={busy || undefined}>{T.optOff}</button>
-          </div>
+          <Segmented value={on} onValueChange={turn} busy={busy} options={[[true, T.optOn], [false, T.optOff]]} labelledBy="rem-title" describedBy="rem-hint" />
           {on && (
             <div className="remind-slots">
               <span className="field-label" id="rem-slot">{T.slotLabel}</span>
-              <div className="segmented" role="radiogroup" aria-labelledby="rem-slot">
-                {SLOTS.map((h) => (
-                  <button key={h} type="button" role="radio" aria-checked={slot === h} className={clsx('seg', slot === h && 'on')} onClick={() => move(h)} aria-disabled={busy || undefined}>
-                    <span dir="ltr">{h}:00</span>
-                  </button>
-                ))}
-              </div>
+              <Segmented value={slot} onValueChange={move} busy={busy} options={SLOT_OPTIONS} labelledBy="rem-slot" />
             </div>
           )}
           {!on && r.state === 'paused' && <p className="remind-paused">{T.paused}</p>}

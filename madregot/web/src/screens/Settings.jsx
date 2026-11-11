@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { ArrowRight, ChevronLeft, Download } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { api, hasServer } from '@/lib/api.js';
-import { Button, Field } from '@/components/ui.jsx';
+import { Button, Field, Segmented } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import { useAIStatus, leaveFamily, familyInApp } from '@/lib/account.js';
@@ -235,27 +235,20 @@ function ThemeSetting() {
   return (
     <section className="section set-group" aria-labelledby="look-title">
       <h2 id="look-title" className="set-head">מראה</h2>
-      <div className="segmented" role="radiogroup" aria-labelledby="look-title" aria-describedby="look-hint">
-        {LOOKS.map(([v, label]) => (
-          <button key={v} type="button" role="radio" aria-checked={theme === v} className={clsx('seg', theme === v && 'on')} onClick={() => setTheme(v)}>{label}</button>
-        ))}
-      </div>
+      <Segmented value={theme} onValueChange={setTheme} options={LOOKS} labelledBy="look-title" describedBy="look-hint" />
       <p className="field-hint" id="look-hint">"כמו במכשיר" עובר לכהה כשהטלפון במצב כהה.</p>
     </section>
   );
 }
 
-/** Two choices made the same way (a radio group of two segments), with a short line under them. */
+/** Two choices made the same way (the shared Segmented: one radio group of two segments), with a short line under them. */
 function OnOff({ id, title, value, onChange, on, off, hint, children }) {
   return (
     <section className="section set-group" aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`} className="set-head">{title}</h2>
       {children ?? (
         <>
-          <div className="segmented" role="radiogroup" aria-labelledby={`${id}-title`} aria-describedby={`${id}-hint`}>
-            <button type="button" role="radio" aria-checked={value} className={clsx('seg', value && 'on')} onClick={() => onChange(true)}>{on}</button>
-            <button type="button" role="radio" aria-checked={!value} className={clsx('seg', !value && 'on')} onClick={() => onChange(false)}>{off}</button>
-          </div>
+          <Segmented value={!!value} onValueChange={onChange} options={[[true, on], [false, off]]} labelledBy={`${id}-title`} describedBy={`${id}-hint`} />
           <p className="field-hint" id={`${id}-hint`}>{hint}</p>
         </>
       )}

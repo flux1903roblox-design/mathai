@@ -374,8 +374,31 @@ details.sol[open] summary { margin-bottom: var(--s2); }
 .add-class { display: flex; flex-direction: column; gap: var(--s3); max-width: 420px; border: 1px solid var(--rule); border-radius: var(--r-md); padding: var(--s4); }
 .t-out { margin-top: var(--s10); }
 
-/* ---------- toasts ---------- */
-.toast { font-family: var(--font-ui) !important; font-size: var(--t-base) !important; }
+/* ---------- toasts (STUDENT-15 SO2): Sonner's variables mapped to the tokens, so light and dark follow the theme ---------- */
+[data-sonner-toaster][data-sonner-theme].app-toaster {
+  --normal-bg: var(--surface); --normal-border: var(--rule-strong); --normal-text: var(--ink);
+  --success-bg: var(--surface); --success-border: var(--good-line); --success-text: var(--ink);
+  --error-bg: var(--surface); --error-border: var(--bad-line); --error-text: var(--ink);
+  --info-bg: var(--surface); --info-border: var(--brand-line); --info-text: var(--ink);
+  --border-radius: var(--r-md);
+  font-family: var(--font-ui);
+}
+.app-toaster [data-sonner-toast][data-styled="true"] {
+  gap: var(--s3); padding: var(--s3) var(--s4); font-size: var(--t-base); line-height: var(--lh-base); box-shadow: var(--shadow-lift);
+}
+.app-toaster [data-sonner-toast][data-styled="true"] .toast-title { font-weight: 600; line-height: var(--lh-base); }
+.app-toaster [data-sonner-toast][data-styled="true"] .toast-desc { color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.app-toaster [data-sonner-toast][data-styled="true"] [data-icon] { width: 20px; height: 20px; margin: 0; color: var(--ink-3); }
+.app-toaster .toast-good [data-icon] { color: var(--good-ink); }
+.app-toaster .toast-bad [data-icon] { color: var(--bad-ink); }
+.app-toaster .toast-info [data-icon] { color: var(--brand-ink); }
+/* an action in a toast is a real target: 44px, the brand blue, the app's radius */
+.app-toaster [data-sonner-toast][data-styled="true"] [data-button] {
+  min-height: 44px; height: auto; padding-inline: var(--s3); border-radius: var(--r-sm); font-family: var(--font-ui); font-size: var(--t-sm); font-weight: 700;
+  background: var(--brand); color: var(--on-brand);
+}
+.app-toaster [data-sonner-toast][data-styled="true"] [data-cancel] { background: var(--ground); color: var(--ink); }
+.app-toaster [data-sonner-toast]:focus-visible, .app-toaster [data-sonner-toast] [data-button]:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; box-shadow: var(--shadow-lift); }
 
 /* ---------- notebook: write the working like in a squared math notebook ---------- */
 .notebook { display: flex; flex-direction: column; gap: var(--s2); }

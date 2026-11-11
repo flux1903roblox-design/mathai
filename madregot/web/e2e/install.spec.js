@@ -73,9 +73,12 @@ test('from the second learning day, the last screen after a lesson offers the in
   await expect(card).not.toContainText(/₪|שקל|נשאר|עוד \d+ (שניות|דקות)|תפספסו/);
   // one of the two offers is used, and it is set aside from today
   expect((await saved(page)).nudges).toMatchObject({ installOffers: 1, installDismissedAt: '2026-11-05' });
-  await yes.click();
+  // a second tap while the browser's prompt is up does nothing; once accepted the button says the install started
+  await yes.dblclick();
   await expect.poll(() => prompted(page)).toBe(1);
+  await expect(card.getByRole('button', { name: 'ההתקנה התחילה', exact: true })).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('.learn-top')).toBeVisible();
+  expect(await prompted(page)).toBe(1);
   // the browser installs: a calm toast says where the app is now
   await page.evaluate(() => window.dispatchEvent(new Event('appinstalled')));
   await expect(page.getByText('מדרגות הותקנה. אפשר לפתוח אותה ממסך הבית.')).toBeVisible();

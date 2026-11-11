@@ -47,6 +47,8 @@ export const REMINDER_TEXT = {
   cardTitle: 'רוצים תזכורת קטנה?',
   cardBody: 'הודעה אחת ביום, בשעה שתבחרו. לא בשבת ובחגים, ולא ביום שכבר למדתם.',
   on: 'להפעיל',
+  /** The turn-on button once it worked (it says so itself: no toast after it). */
+  doneOn: 'התזכורת פועלת',
   no: 'לא, תודה',
   title: 'תזכורת יומית',
   optOn: 'פועלת',
