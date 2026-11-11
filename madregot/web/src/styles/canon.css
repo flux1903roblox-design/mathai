@@ -1459,6 +1459,13 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 @media (max-width: 359px) { .ss-strip { gap: 3px; } .ss-strip i { width: 15px; height: 15px; } }
 .ss-actions .set-row { width: 100%; gap: var(--s2); }
 .ss-done { margin: 0; color: var(--ink-2); font-weight: 600; }
+/* the one-time code after a PIN reset (COUNCIL2-25): shown once, large, left to right, with a 44px copy button */
+.ss-claim { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4); border: 2px solid var(--brand-line); border-radius: var(--r-md); background: var(--brand-tint); color: var(--ink); }
+.ss-claim:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.ss-claim-title { margin: 0; font-weight: 800; }
+.ss-claim-code { margin: 0; font-size: 2rem; font-variant-numeric: tabular-nums; line-height: 1.2; font-weight: 800; letter-spacing: 0.18em; text-align: center; user-select: all; overflow-wrap: anywhere; }
+.ss-claim-line { margin: 0; line-height: 1.5; }
+.ss-claim-copy { align-self: stretch; min-height: 44px; }
 .ss-error { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); }
 
 /* student AI by the Ministry's rules (TRUST-11): the class settings' card, the setting question, the per-student badge */

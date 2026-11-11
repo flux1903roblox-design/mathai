@@ -52,11 +52,14 @@ test('each migration has its own number (two lanes that took the same one must r
 // What a later migration adds to a table of 0000_base: SQLite writes an ALTER's column as ", <coldef>" before the table's
 // closing parenthesis (schema.sql says the same), and its new indexes are the same lines in both files.
 const ALTERS_BASE = MIGRATIONS.filter((m) => m.name >= '0003' && /^ALTER TABLE /m.test(m.sql)).map((m) => m.sql);
-const withoutAlters = (sql) => sql.replace(/\n, [^\n]*\);/g, '\n);').split('\n')
+// A table with a table constraint (students' UNIQUE) gets its added columns inline, after its last column: "last_seen
+// TEXT, claim_hash TEXT, claim_expires TEXT," (0009_claim_code), so those plain "name TYPE" columns are taken out too.
+const INLINE = ALTERS_BASE.flatMap((m) => [...m.matchAll(/^ALTER TABLE \w+ ADD COLUMN (\w+ \w+);$/gm)].map((x) => x[1]));
+const withoutAlters = (sql) => sql.replace(new RegExp(`(?:, (?:${INLINE.join('|')}))+,\n`, 'g'), ',\n').replace(/\n, [^\n]*\);/g, '\n);').split('\n')
   .filter((line) => !(line.startsWith('CREATE ') && ALTERS_BASE.some((m) => m.includes(line)))).join('\n');
 
 test('every migration, in name order, on an empty database gives the same tables and indexes as schema.sql', () => {
-  assert.deepEqual(MIGRATIONS.slice(0, 9).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql', '0006_parent_report.sql', '0007_student.sql', '0008_vault_guard.sql']);
+  assert.deepEqual(MIGRATIONS.slice(0, 10).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql', '0006_parent_report.sql', '0007_student.sql', '0008_vault_guard.sql', '0009_claim_code.sql']);
   assert.equal(new Set(MIGRATIONS.map((m) => m.name.slice(0, 4))).size, MIGRATIONS.length, 'each migration number is used once');
   const a = new DatabaseSync(':memory:'); a.exec(schema);
   const b = new DatabaseSync(':memory:'); for (const m of MIGRATIONS) b.exec(m.sql);

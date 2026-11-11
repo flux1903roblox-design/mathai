@@ -206,6 +206,7 @@ export const PURGE_ROUNDS = 5;
 
 /**
  * Class data past its time (spec TRUST-7; the periods are in shared/retention.js), as [name, statement] steps:
+ * a teacher's one-time claim code once it has expired (COUNCIL2-25),
  * notebook pages 30 days after the request was closed (60 at most), help requests 180 days after closing (365 at most)
  * with their help_meta rows and the replies on them, attempts and exams after 400 days, assignments 400 days after
  * their due date (with their work and targets), students nobody has seen for 400 days (with all their rows and
@@ -239,6 +240,9 @@ export function purgeClassSteps(env, now = new Date()) {
     // the replies on a request that is gone (TEACHER-6): the help step above, or anything that removed one
     ['helpMessages', stmt(`DELETE FROM help_messages WHERE id IN (SELECT m.id FROM help_messages m
       WHERE NOT EXISTS (SELECT 1 FROM help_requests h WHERE h.id = m.help_id) LIMIT ${N})`)],
+    // a teacher's one-time claim code (COUNCIL2-25) past its end: it no longer works, so its hash goes (RETENTION.claimCodeDays)
+    ['claimCodes', stmt(`UPDATE students SET claim_hash = NULL, claim_expires = NULL WHERE id IN (SELECT id FROM students
+      WHERE claim_expires IS NOT NULL AND claim_expires < ? LIMIT ${N})`, now.toISOString())],
     ['attempts', stmt(`DELETE FROM attempts WHERE id IN (SELECT id FROM attempts WHERE at < ? LIMIT ${N})`, iso(R.attemptsDays))],
     ['exams', stmt(`DELETE FROM exams WHERE id IN (SELECT id FROM exams WHERE created_at < ? LIMIT ${N})`, iso(R.examsDays))],
     // assignments 400 days after their due date (a Jerusalem day): what was done on them and who they were for first,

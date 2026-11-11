@@ -10,7 +10,7 @@ import { ArrowRight, ChevronLeft, Download } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { api, hasServer } from '@/lib/api.js';
 import { Button, Field, Sheet, Segmented } from '@/components/ui.jsx';
-import { GradeSwitch, joinClass, joinedProfile } from './Welcome.jsx';
+import { GradeSwitch, joinClass, joinedProfile, ClaimField, CLAIM_COPY } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { openSupport } from '@/components/SupportSheet.jsx';
@@ -56,6 +56,8 @@ function ClassSection() {
   const backup = useApp((s) => s.backup);
   const escrowClass = useApp((s) => s.durable?.escrowClass !== false);
   const [code, setCode] = useState(''); const [pin, setPin] = useState('');
+  // the teacher's one-time code, asked for once the server says this name's PIN was reset (COUNCIL2-25)
+  const [claim, setClaim] = useState(''); const [needClaim, setNeedClaim] = useState(false);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [confirmLeave, setConfirmLeave] = useState(false);
 
@@ -78,9 +80,11 @@ function ClassSection() {
     );
   }
   const join = async (e) => {
-    e.preventDefault(); setError(''); setBusy(true);
+    e.preventDefault(); setError('');
+    if (needClaim && !claim) { setError(CLAIM_COPY.missing); return; }
+    setBusy(true);
     try {
-      const c = await joinClass({ code: code || profile.classCode, name: profile.name, pin });
+      const c = await joinClass({ code: code || profile.classCode, name: profile.name, pin, claim: needClaim ? claim : '' });
       setProfile({ ...profile, ...joinedProfile(c), role: 'student' });
       useApp.getState().quietForClass(); // sounds start off in a class, unless the student already chose them
       // the class's copy comes back (merged with what is here), or this device's code is kept by the class (DURABLE-6)
@@ -90,16 +94,20 @@ function ClassSection() {
       if (r.restored) toast.success(r.toast);
       else if (c.vault) hello();
       if (r.toast && !r.restored) toast(r.toast);
-    } catch (err) { setError(err.message); } finally { setBusy(false); }
+    } catch (err) {
+      if (err.code === 'claim_code_needed') setNeedClaim(true);
+      else setError(err.message);
+    } finally { setBusy(false); }
   };
   return (
     <section className="section set-group" aria-labelledby="cls-title">
       <h2 id="cls-title" className="set-head">{profile.classCode ? 'התחברות מחדש לכיתה' : 'הצטרפות לכיתה'}</h2>
       <form className="stack" onSubmit={join} noValidate>
         {!profile.classCode && (
-          <Field label="קוד כיתה" id="me-code"><input id="me-code" className="input mono" dir="ltr" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={6} /></Field>
+          <Field label="קוד כיתה" id="me-code"><input id="me-code" className="input mono" dir="ltr" value={code} onChange={(e) => { setNeedClaim(false); setCode(e.target.value.toUpperCase()); }} maxLength={6} /></Field>
         )}
-        <Field label="קוד אישי של 4 ספרות" id="me-pin" hint="אם זו הפעם הראשונה, בחרו קוד ותזכרו אותו.">
+        {needClaim && <ClaimField id="me-claim" value={claim} onChange={(v) => { setError(''); setClaim(v); }} />}
+        <Field label={needClaim ? CLAIM_COPY.pinLabel : 'קוד אישי של 4 ספרות'} id="me-pin" hint={needClaim ? null : 'אם זו הפעם הראשונה, בחרו קוד ותזכרו אותו.'}>
           <input id="me-pin" className="input mono" dir="ltr" inputMode="numeric" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
         </Field>
         {escrowClass && (

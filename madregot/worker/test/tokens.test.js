@@ -15,7 +15,7 @@ afterEach(() => h?.done());
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 const DAY = 864e5;
 const send = (s) => h.call('POST', '/api/progress', { headers: bearer(s), body: { events: [] } });
-const join = (code, name = 'נועה', pin = '1234') => h.call('POST', `/api/classes/${code}/join`, { body: { name, pin } }).then((r) => r.json());
+const join = (code, name = 'נועה', pin = '1234', claim) => h.call('POST', `/api/classes/${code}/join`, { body: { name, pin, ...(claim ? { claim } : {}) } }).then((r) => r.json());
 const tokensOf = (id) => rows(h.env, 'SELECT * FROM student_tokens WHERE student_id = ? ORDER BY created_at, rowid', id);
 
 test('two devices join as one student: both stay signed in, with their own tokens', async () => {
@@ -60,11 +60,13 @@ test('a PIN reset signs out every device (all 401); the next join sets the PIN a
   // another class's teacher: nothing changes
   assert.equal((await h.call('POST', `/api/teacher/students/${a.studentId}/reset-pin`, { headers: other.teacher, body: {} })).status, 200);
   assert.equal(tokensOf(a.studentId).length, 3);
-  assert.equal((await h.call('POST', `/api/teacher/students/${a.studentId}/reset-pin`, { headers: cls.teacher, body: {} })).status, 200);
+  const r = await h.call('POST', `/api/teacher/students/${a.studentId}/reset-pin`, { headers: cls.teacher, body: {} });
+  assert.equal(r.status, 200);
+  const { claimCode } = await r.json();
   for (const s of [a, b, c]) assert.equal((await send(s)).status, 401);
   assert.equal(tokensOf(a.studentId).length, 0);
   assert.equal((await send(cls.students[0])).status, 200, 'a classmate stays signed in');
-  const back = await join(cls.code, 'נועה', '5678');
+  const back = await join(cls.code, 'נועה', '5678', claimCode);
   assert.equal(back.studentId, a.studentId);
   assert.equal((await send(back)).status, 200);
 });

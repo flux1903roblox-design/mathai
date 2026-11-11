@@ -224,7 +224,12 @@ describe('demoApi answers in the Worker\'s shapes', () => {
     const id = st.students[0].id;
     expect(call(st, 'POST', `/api/teacher/students/${id}/ai`, { off: true }).body).toEqual({ id, aiOff: true });
     expect(get(st, `/api/teacher/students/${id}`).student.aiOff).toBe(true);
-    expect(call(st, 'POST', `/api/teacher/students/${id}/reset-pin`, {}).body).toEqual({ ok: true });
+    // the reset answers a one-time code as the server does (COUNCIL2-25): the same for the same student, from the alphabet
+    const reset = call(st, 'POST', `/api/teacher/students/${id}/reset-pin`, {}).body;
+    expect(keys(reset)).toEqual(['claimCode', 'claimExpires', 'ok']);
+    expect(reset.claimCode).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{6}$/);
+    expect(call(st, 'POST', `/api/teacher/students/${id}/reset-pin`, {}).body.claimCode).toBe(reset.claimCode);
+    expect(get(st, `/api/teacher/students/${id}`).student.pinReset).toBe(true);
     expect(call(st, 'POST', `/api/teacher/students/${id}/remove`, {}).body).toEqual({ ok: true });
     expect(get(st, '/api/teacher/dashboard').students).toHaveLength(23);
     for (const p of ['/api/teacher/class/delete', '/api/teacher/class/rekey', '/api/teacher/class/owner']) expect(call(st, 'POST', p, { confirm: 'DELETE' })).toEqual({ status: 403, body: { error: 'demo_readonly' } });

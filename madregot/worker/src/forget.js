@@ -48,7 +48,8 @@ export const STUDENT_ROWS = [
  */
 export const studentWhere = ([, col, via, and], match) => (and ? `${and} AND ` : '') + (via ? `${col} IN (${via} ${match})` : `${col} ${match}`);
 /**
- * ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN tries, also per network (TRUST-12),
+ * ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN and claim-code tries, per network, an
+ * hour and a day (TRUST-12, COUNCIL2-25: pin:<id>:<net> and pin:<id>:<net>:day; the student row takes its claim code with it),
  * every AI tier and its tries, care (TRUST-3), the student's reported AI answers (TRUST-4), the student's assignment
  * reports, and their replies to the teacher (TEACHER-6), the student's backup lookups and escrow writes
  * (DURABLE-5, DURABLE-6: vault.js vault:miss:s:<id>, escrow:s:<id>), and the day's write budget (COUNCIL2-18: index.js

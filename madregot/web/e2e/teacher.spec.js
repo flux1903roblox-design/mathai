@@ -2060,8 +2060,8 @@ test.describe('TEACHER-8: each student has a page, and a short ranked list', () 
     await page.getByRole('row', { name: /דנה/ }).getByRole('button', { name: 'פרטים על דנה' }).click();
     const dana = page.getByRole('dialog', { name: 'דנה' });
     await dana.getByRole('button', { name: 'איפוס קוד אישי' }).click();
-    await expect(page.getByText('הקוד האישי של דנה אופס. בכניסה הבאה ייבחר קוד חדש.')).toBeVisible();
-    await expect(dana.getByText('הקוד האישי אופס. בכניסה הבאה ייבחר קוד חדש.')).toBeVisible();
+    // the one-time code to give her, shown once (COUNCIL2-25; claim.spec.js follows it to her phone)
+    await expect(dana.getByRole('group', { name: 'קוד הכניסה של דנה' })).toContainText('H4WQ7N');
     expect(st.students.find((s) => s.id === 's1').pinReset).toBe(true);
     await dana.getByRole('button', { name: 'סגירה' }).click();
     // נועה's page: her request, and the way to her requests in the help view

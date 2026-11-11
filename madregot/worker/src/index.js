@@ -7,7 +7,7 @@ import { streamGuard, guardResult, MASK_NOTE } from '../../shared/guard.js';
 import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
-  limitOrThrow, hmacHex, cleanName, resetsAt, release,
+  limitOrThrow, hmacHex, cleanName, resetsAt, release, safeEqual,
 } from './util.js';
 import { meterDbSize } from './dbsize.js';
 import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
@@ -73,6 +73,7 @@ const LIMIT = { small: 4 * KB, help: 700 * KB, progress: 256 * KB, exams: 64 * K
 const PHOTO_KINDS = new Set(['check', 'exam']);
 
 // ---------- secrets ----------
+/** A salted hash of a short secret (a 4-digit PIN, or a teacher's one-time claim code): "<salt>:<sha256(salt:secret)>". */
 async function hashPin(pin) {
   const salt = randomToken(8);
   return `${salt}:${await sha256(`${salt}:${pin}`)}`;
@@ -80,17 +81,32 @@ async function hashPin(pin) {
 async function verifyPin(pin, stored) {
   const [salt, h] = String(stored || '').split(':');
   if (!salt || !h) return false;
-  return (await sha256(`${salt}:${pin}`)) === h;
+  return safeEqual(await sha256(`${salt}:${pin}`), h);
 }
 const classCode = () => randomFrom(CODE_ALPHABET, 6);
 
-// Personal-code tries (trust spec TRUST-12 §1): 5 an hour from one network and 30 a day in all, per student. Each try is
-// taken before the code is compared and given back when it is right, so parallel guesses cannot pass the cap and a
-// student who types the right code never uses one up. On a school network a classmate can still cause a one-hour lock
-// with a 4-digit code; the teacher's reset (which clears these counters) is the remedy. 30 a day across networks keeps
-// guessing 10,000 codes at about half a year on average.
+// Personal-code tries (trust spec TRUST-12 §1, COUNCIL2-25): counted per student AND per network only, 5 an hour and
+// PIN_NET_DAY a day from one network. There is no count across networks any more: a stranger's wrong codes from their
+// own network must never lock the real student out at home or at school. Each try is taken before the code is compared
+// and given back when it is right, so parallel guesses cannot pass the cap and a student who types the right code never
+// uses one up. On a school network a classmate can still cause a lock there (an hour, or the rest of the day after
+// PIN_NET_DAY wrong codes); the teacher's reset (which clears these counters) is the remedy. The network-wide join cap
+// (join:n:<net>, 300 a day) stays. One network needs about a year on average to guess one of 10,000 codes; the
+// same counters guard the teacher's one-time claim code after a reset (31^6 codes, 7 days).
 const PIN_NET_HOUR = 5;
-const PIN_DAY = 30;
+const PIN_NET_DAY = 15;
+/** The one-time claim code a teacher's PIN reset gives the student (COUNCIL2-25): 6 characters of CODE_ALPHABET. */
+const claimCode = () => randomFrom(CODE_ALPHABET, 6);
+/** A claim code as typed: upper case, spaces and dashes dropped; anything else (or more than 12 characters) is ''. */
+const cleanClaim = (v) => { const c = String(v ?? '').toUpperCase().replace(/[\s-]/g, ''); return c.length <= 12 && /^[A-Z0-9]*$/.test(c) ? c : ''; };
+/** The tries one join may take on a student's secret (the PIN, or the claim code after a reset): per network only. */
+const pinTries = (id, net) => {
+  const err = new HttpError(429, 'too_many_pin');
+  return [
+    key(`pin:${id}:${net}`, PIN_NET_HOUR, { period: 'hour', refundable: true, err }),
+    key(`pin:${id}:${net}:day`, PIN_NET_DAY, { refundable: true, err }),
+  ];
+};
 /** A class student stays signed in on this many devices at once (DURABLE-6); a further join signs out the oldest. */
 const STUDENT_DEVICES = 3;
 
@@ -734,38 +750,49 @@ async function joinClass(code, req, env, cors) {
   // a class its teacher closed to new names still lets its students back in with their PIN
   if (!existing && (await joinLocked(env, cls.code))) throw new HttpError(403, 'class_locked');
   let id;
+  // A reset student (empty pin_hash) is claimed only with the teacher's one-time code (COUNCIL2-25); this join sets the
+  // new PIN. Without the code anyone who knew the name could take the account and the restore code the class kept.
+  const claiming = !!existing && !existing.pin_hash;
   if (existing) {
-    // An empty pin_hash means the teacher reset it: the next join sets a new PIN.
-    if (existing.pin_hash) {
-      // Each try is taken before the PIN is compared (DURABLE-8), so parallel guesses cannot all be compared against one
-      // stale count. A wrong PIN keeps its tries; the right one gives them back.
-      const err = new HttpError(429, 'too_many_pin');
-      const tries = [
-        key(`pin:${existing.id}:${net}`, PIN_NET_HOUR, { period: 'hour', refundable: true, err }),
-        key(`pin:${existing.id}`, PIN_DAY, { refundable: true, err }),
-      ];
-      const r = await take(env, tries);
-      if (!r.ok) throw r.error;
-      if (!(await verifyPin(pin, existing.pin_hash))) throw new HttpError(403, 'wrong_pin');
-      await giveBack(env, tries); // the right code costs no try
-    }
+    const claim = claiming ? cleanClaim(b.claim) : '';
+    if (claiming && !claim) throw new HttpError(403, 'claim_code_needed');
+    // Each try is taken before the secret is compared (DURABLE-8), so parallel guesses cannot all be compared against
+    // one stale count. A wrong one keeps its tries; the right one gives them back.
+    const tries = pinTries(existing.id, net);
+    const r = await take(env, tries);
+    if (!r.ok) throw r.error;
+    if (claiming) {
+      // a code that is wrong, past its 7 days, already used (cleared) or replaced by a newer reset: the same answer
+      const live = existing.claim_hash && String(existing.claim_expires || '') > nowIso();
+      if (!live || !(await verifyPin(claim, existing.claim_hash))) throw new HttpError(403, 'claim_code_bad');
+    } else if (!(await verifyPin(pin, existing.pin_hash))) throw new HttpError(403, 'wrong_pin');
+    await giveBack(env, tries); // the right code costs no try
     id = existing.id;
   } else id = randomToken(8);
   // DURABLE-6: each device keeps its own token (up to 3 per student: a 4th join signs out the oldest). students.token_hash
   // is still written, only so that an older Worker in a rollback lets the newest device in.
   const tokenHash = await sha256(token);
   const now = nowIso();
-  await env.DB.batch([
-    existing
-      ? env.DB.prepare('UPDATE students SET token_hash = ?, pin_hash = ?, last_seen = ? WHERE id = ?').bind(tokenHash, existing.pin_hash || (await hashPin(pin)), now, id)
-      : env.DB.prepare('INSERT INTO students (id, class_code, name, pin_hash, token_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, cls.code, name, await hashPin(pin), tokenHash, now, now),
-    env.DB.prepare('INSERT INTO student_tokens (token_hash, student_id, created_at, last_seen) VALUES (?, ?, ?, ?)').bind(tokenHash, id, now, now),
+  const res = await env.DB.batch([
+    !existing
+      ? env.DB.prepare('INSERT INTO students (id, class_code, name, pin_hash, token_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, cls.code, name, await hashPin(pin), tokenHash, now, now)
+      // the claim is used once: only the join that still finds this code stored sets the PIN (and clears the code); a
+      // second join with the same code at the same moment changes nothing and is refused below
+      : claiming
+        ? env.DB.prepare('UPDATE students SET token_hash = ?, pin_hash = ?, claim_hash = NULL, claim_expires = NULL, last_seen = ? WHERE id = ? AND pin_hash = \'\' AND claim_hash = ?')
+          .bind(tokenHash, await hashPin(pin), now, id, existing.claim_hash)
+        // the PIN that was checked: a reset at the same moment wins, and this join is not signed in
+        : env.DB.prepare('UPDATE students SET token_hash = ?, last_seen = ? WHERE id = ? AND pin_hash = ?').bind(tokenHash, now, id, existing.pin_hash),
+    // the device token only when the row above is this join's (its token_hash is this one)
+    env.DB.prepare(`INSERT INTO student_tokens (token_hash, student_id, created_at, last_seen)
+      SELECT ?1, ?2, ?3, ?3 WHERE EXISTS (SELECT 1 FROM students WHERE id = ?2 AND token_hash = ?1)`).bind(tokenHash, id, now),
     env.DB.prepare(`DELETE FROM student_tokens WHERE student_id = ?1 AND token_hash NOT IN (
       SELECT token_hash FROM student_tokens WHERE student_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT ?2)`).bind(id, STUDENT_DEVICES),
   ]);
-  // a returning student whose PIN was right (or who set a new one after the teacher's reset) gets the kept restore code
-  // back, when the class kept one and its vault is still there (DURABLE-6); without VAULT_SECRET there is none to give
+  if (existing && Number(res[0].meta?.changes) !== 1) throw new HttpError(403, claiming ? 'claim_code_bad' : 'claim_code_needed');
+  // a returning student whose PIN was right, or who claimed the account with the teacher's code, gets the kept restore
+  // code back, when the class kept one and its vault is still there (DURABLE-6); without VAULT_SECRET there is none
   const kept = existing ? await studentEscrowCode(env, id) : null;
   return json({
     studentId: id, token, name, className: cls.name, grade: cls.grade, classCode: cls.code, returning: !!existing, ...(kept ? { vault: { code: kept } } : {}),
@@ -1067,17 +1094,26 @@ async function helpImage(id, req, env, cors) {
   return json({ image: row.image }, 200, cors);
 }
 
+/**
+ * POST /api/teacher/students/:id/reset-pin: every device of the student is signed out and the PIN is cleared. The answer
+ * carries a one-time claim code (COUNCIL2-25), shown to the teacher once: { ok, claimCode, claimExpires }. The student's
+ * next join under the name needs it (403 claim_code_needed without it, claim_code_bad when wrong, past its
+ * RETENTION.claimCodeDays, used, or replaced by a newer reset) and sets the new PIN; only then is the kept restore code
+ * given back (DURABLE-6). Only the code's salted hash is stored. Another class's student: { ok: true } and nothing changes.
+ */
 async function resetPin(id, req, env, cors) {
   const cls = await requireTeacher(req, env);
-  // every device of the student is signed out (the next join sets a new PIN); the kept restore code stays, so that join
-  // gets the progress back (DURABLE-6)
+  const code = claimCode();
+  const expires = new Date(Date.now() + RETENTION.claimCodeDays * 864e5).toISOString();
   const [r] = await env.DB.batch([
-    env.DB.prepare('UPDATE students SET pin_hash = \'\', token_hash = ? WHERE id = ? AND class_code = ?').bind(await sha256(randomToken()), id, cls.code),
+    env.DB.prepare('UPDATE students SET pin_hash = \'\', token_hash = ?, claim_hash = ?, claim_expires = ? WHERE id = ? AND class_code = ?')
+      .bind(await sha256(randomToken()), await hashPin(code), expires, id, cls.code),
     env.DB.prepare('DELETE FROM student_tokens WHERE student_id = ? AND EXISTS (SELECT 1 FROM students WHERE id = ? AND class_code = ?)').bind(id, id, cls.code),
   ]);
-  // A reset also clears every wrong-code count (each network's and the day's), so the student can choose a new code now.
-  if (r.meta?.changes) await env.DB.prepare(`DELETE FROM ai_usage WHERE ${pinKeysWhere}`).bind(id).run();
-  return json({ ok: true }, 200, cors);
+  if (!r.meta?.changes) return json({ ok: true }, 200, cors);
+  // A reset also clears every wrong-code count (each network's, hourly and daily), so the student can claim at once.
+  await env.DB.prepare(`DELETE FROM ai_usage WHERE ${pinKeysWhere}`).bind(id).run();
+  return json({ ok: true, claimCode: code, claimExpires: expires }, 200, cors);
 }
 
 // ---------- router ----------

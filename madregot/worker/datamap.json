@@ -46,9 +46,9 @@
     "students": {
       "personal": "yes",
       "about": ["student"],
-      "fields": ["id", "class_code", "name", "pin_hash", "token_hash", "created_at", "last_seen"],
-      "purpose": "A student who joined a class with its code: the name the teacher sees, a salted hash of the 4-digit personal code, the hash of the device's class token, and when the student was last seen.",
-      "retention": "400 days after the student was last seen (RETENTION.studentIdleDays); at once when the student deletes all from the device, the teacher removes the student, or the class is deleted.",
+      "fields": ["id", "class_code", "name", "pin_hash", "token_hash", "created_at", "last_seen", "claim_hash", "claim_expires"],
+      "purpose": "A student who joined a class with its code: the name the teacher sees, a salted hash of the 4-digit personal code, the hash of the device's class token, and when the student was last seen. After the teacher resets the personal code: a salted hash of the one-time code the teacher gives the student to come back (never the code itself), and when it stops working (COUNCIL2-25).",
+      "retention": "400 days after the student was last seen (RETENTION.studentIdleDays); at once when the student deletes all from the device, the teacher removes the student, or the class is deleted. The one-time code's hash and end: cleared when the student uses it or the teacher resets again, and by the night purge once its RETENTION.claimCodeDays are over.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeClassSteps", "forget.studentsDeleteSteps", "forget.classDeleteSteps", "forget.forgetMe"]
     },

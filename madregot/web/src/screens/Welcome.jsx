@@ -46,12 +46,39 @@ const KNOW_SAMPLE = {
 export { GradeSwitch } from '@/components/GradeSwitch.jsx';
 
 /**
- * Join a class (or come back to it with the personal PIN). `vault`: the code the class kept for a returning student
- * (DURABLE-6), handed to durable/escrow.js afterClassJoin() and never kept in the profile.
+ * Join a class (or come back to it with the personal PIN). `claim`: the one-time code the teacher gave after resetting
+ * the student's PIN (COUNCIL2-25), sent only once the server asked for it (claim_code_needed). `vault`: the code the class
+ * kept for a returning student (DURABLE-6), handed to durable/escrow.js afterClassJoin() and never kept in the profile.
  */
-export async function joinClass({ code, name, pin }) {
-  const r = await api(`/api/classes/${code.trim().toUpperCase()}/join`, { method: 'POST', body: { name, pin } });
+export async function joinClass({ code, name, pin, claim = '' }) {
+  const c = cleanClaim(claim);
+  const r = await api(`/api/classes/${code.trim().toUpperCase()}/join`, { method: 'POST', body: { name, pin, ...(c ? { claim: c } : {}) } });
   return { classCode: r.classCode, className: r.className, grade: r.grade, token: r.token, studentId: r.studentId, name: r.name, returning: r.returning, ...(r.vault?.code ? { vault: { code: r.vault.code } } : {}) };
+}
+/** A claim code as typed: capitals and digits only, at most 6 (spaces, dashes and other marks dropped). */
+export const cleanClaim = (v) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+/** The words around the teacher's one-time code, after a PIN reset (COUNCIL2-25): plain, calm, no hurry. */
+export const CLAIM_COPY = {
+  note: 'המורה איפס את הקוד האישי שלכם, ונתן לכם קוד של 6 תווים. כתבו אותו כאן, ובחרו קוד אישי חדש.',
+  label: 'הקוד מהמורה',
+  hint: 'אותיות באנגלית ומספרים, כמו שהמורה כתב. אין לכם אותו? אפשר לבקש מהמורה, ובינתיים להמשיך לתרגל.',
+  pinLabel: 'קוד אישי חדש של 4 ספרות',
+  missing: 'כתבו את הקוד שקיבלתם מהמורה.',
+};
+/**
+ * The teacher's one-time code, shown once the server answered claim_code_needed (the student's PIN was reset). The note
+ * is a status, so a screen reader says why a field appeared; the field takes focus.
+ */
+export function ClaimField({ id, value, onChange }) {
+  return (
+    <>
+      <p className="ob-note" role="status">{CLAIM_COPY.note}</p>
+      <Field label={CLAIM_COPY.label} id={id} hint={CLAIM_COPY.hint}>
+        <input id={id} className="input mono" dir="ltr" value={value} onChange={(e) => onChange(cleanClaim(e.target.value))} maxLength={12}
+          autoCapitalize="characters" autoComplete="off" spellCheck={false} aria-describedby={`${id}-hint`} autoFocus />
+      </Field>
+    </>
+  );
 }
 /** What of a join goes into the profile (never the kept code). */
 export const joinedProfile = ({ vault, returning, ...c }) => c; // eslint-disable-line no-unused-vars
@@ -114,7 +141,9 @@ function Onboarding({ onTeacher, onRestore, next = null }) {
   const server = hasServer();
   const steps = ['name', 'grade', 'know', 'goal', ...(server ? ['class'] : []), ...(next ? [] : ['start'])];
   const [i, setI] = useState(-1); // -1: the hello screen
-  const [f, setF] = useState({ name: '', grade: null, know: null, goal: 20, code: '', pin: '', start: null });
+  const [f, setF] = useState({ name: '', grade: null, know: null, goal: 20, code: '', pin: '', claim: '', start: null });
+  // the server asked for the teacher's one-time code: this name's PIN was reset (COUNCIL2-25)
+  const [needClaim, setNeedClaim] = useState(false);
   const [joined, setJoined] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -156,14 +185,19 @@ function Onboarding({ onTeacher, onRestore, next = null }) {
     let j = joined;
     if (step === 'class' && f.code.trim() && !joined) {
       if (!/^\d{4}$/.test(f.pin)) { setError('בחרו קוד אישי של 4 ספרות.'); return; }
+      if (needClaim && !f.claim) { setError(CLAIM_COPY.missing); return; }
       setBusy(true);
       try {
-        const c = await joinClass({ code: f.code, name: f.name.trim(), pin: f.pin });
+        const c = await joinClass({ code: f.code, name: f.name.trim(), pin: f.pin, claim: needClaim ? f.claim : '' });
         if (c.vault && await rejoin(c)) return;
         j = { ...c, vault: undefined };
         setJoined(j);
         toast.success(c.returning ? `ברוכים השבים לכיתה ${c.className}` : `הצטרפתם לכיתה ${c.className}`);
-      } catch (err) { setError(err.message); return; } finally { setBusy(false); }
+      } catch (err) {
+        // not an error to fix: the field for the teacher's code appears, with its note
+        if (err.code === 'claim_code_needed') { setNeedClaim(true); setError(''); return; }
+        setError(err.message); return;
+      } finally { setBusy(false); }
     }
     if (i === steps.length - 1) { finish(j); return; }
     setError(''); setI(i + 1);
@@ -309,15 +343,16 @@ function Onboarding({ onTeacher, onRestore, next = null }) {
                   <Link to="/privacy" target="_blank" rel="noopener noreferrer">מה נשמר ולמה<span className="visually-hidden"> (נפתח בכרטיסייה חדשה)</span></Link>
                 </p>
                 <Field label="קוד כיתה" id="w-code">
-                  <input id="w-code" className="input mono" dir="ltr" value={f.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} maxLength={6} autoCapitalize="characters" autoComplete="off" placeholder="למשל K7Q2MD" />
+                  <input id="w-code" className="input mono" dir="ltr" value={f.code} onChange={(e) => { setNeedClaim(false); set({ code: e.target.value.toUpperCase() }); }} maxLength={6} autoCapitalize="characters" autoComplete="off" placeholder="למשל K7Q2MD" />
                 </Field>
                 {f.code.trim() && (
                   <>
-                    <Field label="קוד אישי של 4 ספרות" id="w-pin" hint="בפעם הראשונה בוחרים קוד. בפעמים הבאות מקלידים את אותו קוד.">
+                    {needClaim && <ClaimField id="w-claim" value={f.claim} onChange={(claim) => set({ claim })} />}
+                    <Field label={needClaim ? CLAIM_COPY.pinLabel : 'קוד אישי של 4 ספרות'} id="w-pin" hint={needClaim ? null : 'בפעם הראשונה בוחרים קוד. בפעמים הבאות מקלידים את אותו קוד.'}>
                       <input id="w-pin" className="input mono" dir="ltr" inputMode="numeric" pattern="\d{4}" maxLength={4} value={f.pin} onChange={(e) => set({ pin: e.target.value.replace(/\D/g, '') })} autoComplete="off" />
                     </Field>
                     {/* the first to join takes a name (trust spec TRUST-12 §3): say which name the teacher will see */}
-                    <p className="ob-note ob-name-claim">{nameClaimHint(f.name)}</p>
+                    {!needClaim && <p className="ob-note ob-name-claim">{nameClaimHint(f.name)}</p>}
                   </>
                 )}
               </>

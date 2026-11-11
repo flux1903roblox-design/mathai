@@ -115,7 +115,7 @@ test('RETENTION holds the numbers of the trust spec (TRUST-1 §4, TRUST-7) and t
   assert.deepEqual({ ...R }, {
     classIdleDays: 400, studentIdleDays: 400, attemptsDays: 400, examsDays: 400, assignmentsDays: 400, helpImageAfterDoneDays: 30,
     helpImageMaxDays: 60, helpAfterDoneDays: 180, helpMaxDays: 365, accountIdleDays: 730, safetyEventsDays: 400, answerReportsDays: 60,
-    licenceRequestAfterHandledDays: 730, licenceCodeAfterExpiryDays: 365, taxYears: 7,
+    licenceRequestAfterHandledDays: 730, licenceCodeAfterExpiryDays: 365, claimCodeDays: 7, taxYears: 7,
   });
   assert.ok(Object.isFrozen(R));
   assert.throws(() => { 'use strict'; R.accountIdleDays = 1; }, TypeError);
@@ -423,6 +423,7 @@ test('the privacy page quotes the purge\'s own numbers', () => {
     `הבקשה עצמה: ${R.helpAfterDoneDays} יום אחרי שנסגרה, ולכל היותר ${R.helpMaxDays} יום.`,
     `ספירות של איך העוזר ענה, ועלות העוזר לכל חשבון או כיתה: ${QUALITY_KEEP_DAYS} יום.`,
     `קוד כניסה במייל: ${CODE_TTL_MIN} דקות. כניסה לחשבון שלא השתמשו בה ${SESSION_IDLE_DAYS} יום: נמחקת.`,
+    `קוד חד־פעמי שהמורה נותן אחרי איפוס קוד אישי: נמחק כשמשתמשים בו, ולכל היותר אחרי ${R.claimCodeDays} ימים.`,
     `חשבון של הורה או מורה שלא נכנסו אליו ${R.accountIdleDays} יום (שנתיים)`,
     `בקשה לרישיון כיתה: ${R.licenceRequestAfterHandledDays} יום אחרי שטיפלנו בה.`,
     `ספירות בטיחות: ${R.safetyEventsDays} יום. תשובה של העוזר שדווחה: ${R.answerReportsDays} יום.`,

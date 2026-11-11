@@ -17,7 +17,8 @@
 // (three at most, no contact details), ראיתי/טופל/לפתוח שוב, the owner's daily email switch (st.digest), and the
 // student's side (GET /api/class/work's help, the student's answer only after the teacher's, /read).
 // Each student's page (TEACHER-8): GET /api/teacher/students/:id (st.studentPages by id adds or replaces its parts:
-// days14, levels, mistakes, work, help, exams), a PIN reset, and the board's rows with whose help it is, joinedOn and
+// days14, levels, mistakes, work, help, exams), a PIN reset with its one-time code (COUNCIL2-25: a member of K7Q2MD with
+// the same name then joins only with it), and the board's rows with whose help it is, joinedOn and
 // the late work count (a student in st.students may set lastPractice, week, late, joinedOn… for the attention list).
 // Student AI by the Ministry's rules (TRUST-11): st.classAiOff makes a class student's AI calls and status 403
 // class_ai_off, as the Worker answers both (st.staleStatus keeps the status as it was, as on a device that asked before
@@ -385,6 +386,15 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (join[1] !== 'K7Q2MD') return reply(route, 404, { error: 'no_class' });
       if (!/^\d{4}$/.test(body.pin || '')) return reply(route, 400, { error: 'bad_pin' });
       let m = st.members.find((x) => x.name === body.name);
+      // after the teacher's reset (COUNCIL2-25), as the Worker: the one-time code first (claim_code_needed without it,
+      // claim_code_bad when it does not match), and the join that brings it sets the new PIN and uses the code up
+      if (m && m.pin === null) {
+        if (!body.claim) return reply(route, 403, { error: 'claim_code_needed' });
+        if (String(body.claim).toUpperCase() !== m.claim) return reply(route, 403, { error: 'claim_code_bad' });
+        Object.assign(m, { pin: body.pin, claim: null });
+        const row = st.students.find((x) => x.name === m.name);
+        if (row) row.pinReset = false;
+      }
       if (m && m.pin !== body.pin) return reply(route, 403, { error: 'wrong_pin' });
       const returning = !!m;
       if (!m) { m = { id: `s${st.members.length + 1}`, name: body.name, pin: body.pin, tokens: [] }; st.members.push(m); }
@@ -876,7 +886,15 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (pm) {
         const s = code === 'K7Q2MD' && st.students.find((x) => x.id === pm[1]);
         if (!s) return reply(route, 404, { error: 'not_found' });
-        if (pm[2]) { s.pinReset = true; return reply(route, 200, { ok: true }); }
+        if (pm[2]) {
+          // a one-time code for the student (COUNCIL2-25, st.claimCode or a fixed one); a member who joined under the same
+          // name must bring it next time, and their devices are signed out
+          const claimCode = st.claimCode || 'H4WQ7N';
+          s.pinReset = true;
+          const m = st.members.find((x) => x.name === s.name);
+          if (m) { Object.assign(m, { pin: null, claim: claimCode }); for (const t of m.tokens) delete st.studentTokens[t]; m.tokens = []; }
+          return reply(route, 200, { ok: true, claimCode, claimExpires: new Date(Date.parse(`${st.today}T10:00:00Z`) + 7 * 864e5).toISOString() });
+        }
         return reply(route, 200, pageOf(s));
       }
     }

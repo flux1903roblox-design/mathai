@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS students (
   pin_hash TEXT NOT NULL,
   token_hash TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  last_seen TEXT,
+  last_seen TEXT, claim_hash TEXT, claim_expires TEXT,
   UNIQUE (class_code, name)
 );
 
@@ -83,6 +83,9 @@ CREATE INDEX IF NOT EXISTS exams_student ON exams (student_id);
 
 -- studentFrom() looks students up by token on every request.
 CREATE INDEX IF NOT EXISTS students_token ON students (token_hash);
+-- students.claim_hash and claim_expires (0009_claim_code, COUNCIL2-25): after the teacher resets a student's PIN, the
+-- salted hash of the one-time claim code the teacher gives the student, and when it stops working. SQLite writes the
+-- added columns after last_seen, before the UNIQUE constraint, so they sit there in the CREATE above.
 -- the daily clean-up deletes old counters by day
 CREATE INDEX IF NOT EXISTS ai_usage_day ON ai_usage (day);
 
