@@ -29,10 +29,20 @@ FREE_MODEL = "claude-haiku-5-5"
 # model solves each new story blind (it never sees the app's numbers or answers) before code decides what is shown.
 # BLIND_MODEL is that second model; empty = FREE_MODEL (effort high, 6000 tokens).
 BLIND_MODEL = ""
-# With the switch off: AI actions a day per class student, per teacher, and per network for students without a class.
+# With the switch off: AI actions a day per class student, per teacher, and per network for students without a class
+# (a device a parent approved, with no class, has its own SOLO_DAILY_LIMIT).
 AI_DAILY_LIMIT = "40"
 TEACHER_DAILY_LIMIT = "200"
 SOLO_DAILY_LIMIT = "20"
+# The breaker of the switch-off tier (COUNCIL2-19, src/entitle.js): what all its AI may cost in a day (USD, from what
+# Claude really cost, table ai_spend; each request also holds its worst case before it is sent, so parallel requests
+# pass it by one request at most). Past it the tutor rests until midnight (503 free_paused, the same calm sheet as the
+# free taste) and you get one email. The classes bound to one email share OPEN_ACCOUNT_DAILY_LIMIT actions a day (one
+# email may own 20 classes), and a class's students share OPEN_CLASS_DAILY_UNITS (chat 1, check 4, new exercises 3,
+# exam 20). The Anthropic workspace's own spend limit is still the hard backstop: set it in Anthropic's console.
+OPEN_DAILY_BUDGET_USD = "25"
+OPEN_ACCOUNT_DAILY_LIMIT = "200"
+OPEN_CLASS_DAILY_UNITS = "600"
 # "false" turns off AI for people who are not in a class (and, with the switch on, without a family plan).
 ALLOW_SOLO_AI = "true"
 # A parent's OK before a child alone uses the tutor (trust spec TRUST-9): "required" (the default) answers a device with
@@ -263,6 +273,9 @@ LEGACY_CLASS_AI_UNTIL = ""
 AI_DAILY_LIMIT = "40"
 TEACHER_DAILY_LIMIT = "200"
 SOLO_DAILY_LIMIT = "20"
+OPEN_DAILY_BUDGET_USD = "25"
+OPEN_ACCOUNT_DAILY_LIMIT = "200"
+OPEN_CLASS_DAILY_UNITS = "600"
 ALLOW_SOLO_AI = "false"
 # a child alone needs a parent's OK first, as in production (the safety lane's TRUST-9 var)
 AI_PARENT_OK = "required"

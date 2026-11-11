@@ -7,7 +7,7 @@ import { streamGuard, guardResult, MASK_NOTE } from '../../shared/guard.js';
 import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
-  limitOrThrow, hmacHex, cleanName, resetsAt,
+  limitOrThrow, hmacHex, cleanName, resetsAt, release,
 } from './util.js';
 import { meterDbSize } from './dbsize.js';
 import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
@@ -248,7 +248,28 @@ function wordStart(text, i) {
   return j;
 }
 
+/**
+ * POST /api/ai/:kind. A request of the open tier or the free taste holds its worst-case cost in usd:<pool> while it
+ * runs (entitle.js holdKey, COUNCIL2-19); the hold is given back here, after every reply of the request has been priced
+ * (recordSpend), however it ended: so the breaker always sees either the hold or the real cost, never neither.
+ */
 async function handleAI(kind, req, env, ctx, cors) {
+  const track = { hold: null, pending: [], streaming: null };
+  try {
+    return await answerAI(kind, req, env, ctx, cors, track);
+  } finally {
+    if (track.hold) ctx.waitUntil(releaseHold(env, track));
+  }
+}
+
+/** Give a request's dollar hold back once its stream (if any) has ended and every reply it got is priced. */
+async function releaseHold(env, track) {
+  try { await track.streaming; } catch { /* the stream's own errors are handled where it runs */ }
+  await Promise.allSettled(track.pending);
+  try { await release(env, [track.hold]); } catch (e) { console.error('hold', e?.message); }
+}
+
+async function answerAI(kind, req, env, ctx, cors, track) {
   if (!AI_KINDS.includes(kind)) throw new HttpError(404, 'not_found');
   const max = AI_BODY_MAX[kind];
   // a declared length over the kind's cap is refused before anything else (COUNCIL2-17); rawBody also stops reading
@@ -278,6 +299,7 @@ async function handleAI(kind, req, env, ctx, cors) {
     if (!hit.flag && !env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
     r = hit.flag ? await resolveCare(req, env, kind, input) : await resolve(req, env, kind, input);
   }
+  track.hold = r.hold || null;
   const careTier = r.tier === 'care';
   // every safety row of this request is capped per network and kind (src/safety.js EVENTS_PER_NET)
   const logged = { net: eventNet(req, env) };
@@ -306,7 +328,11 @@ async function handleAI(kind, req, env, ctx, cors) {
     await giveBackOnce();
     recordSafety(env, { kind: 'distress', surface: kind, source: 'model', tier: r.tier }, ctx, logged);
   };
-  const record = (message) => recordSpend(env, { pool: r.pool, kind, message }).catch((e) => console.error('spend', e?.message));
+  const record = (message) => {
+    const priced = recordSpend(env, { pool: r.pool, kind, message }).catch((e) => console.error('spend', e?.message));
+    track.pending.push(priced);
+    return priced;
+  };
   // The final-answer guard (ai spec AI-3 Design 3): on for chat, explain and check while the app's context says WITHHOLD
   // and carries the answer. A care reply is never guarded.
   let guard = { on: false, forms: null };
@@ -453,6 +479,7 @@ async function handleAI(kind, req, env, ctx, cors) {
         try { await writer.close(); } catch { /* the client went away */ }
       }
     })();
+    track.streaming = pump;
     ctx.waitUntil(pump);
     return new Response(readable, { headers: { ...cors, ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
   }

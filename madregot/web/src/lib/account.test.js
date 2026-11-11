@@ -68,6 +68,20 @@ describe('aiAccess: what each tutor action can do now', () => {
     expect(aiAccess('exam', OPEN)).toMatchObject({ state: 'open', left: 37, tier: 'open' });
     expect(aiAccess('chat', { ...OPEN, groups: { all: { left: 0, limit: 40 } } }).state).toBe('used');
   });
+  it('the switch off has a dollar day (COUNCIL2-19): spent, every tool rests until tomorrow; a class out of units rests for its students', () => {
+    for (const k of ['explain', 'chat', 'check', 'generate', 'exam']) {
+      expect(aiAccess(k, { ...OPEN, shared: 'paused' })).toMatchObject({ state: 'paused', left: 0, tier: 'open' });
+      expect(aiAccess(k, { ...OPEN, shared: 'class' })).toMatchObject({ state: 'resting', scope: 'class', tier: 'open' });
+    }
+    expect(hasTool('exam', { ...OPEN, shared: 'paused' })).toBe(true);
+    // a refused call says so at once: the next tap opens the calm sheet instead of asking again
+    useAIStatus.setState({ status: OPEN });
+    noteLimit({ error: 'free_paused', resetsAt: new Date(Date.now() + 864e5).toISOString() }, 'exam');
+    expect(aiAccess('exam').state).toBe('paused');
+    useAIStatus.setState({ status: OPEN });
+    noteLimit({ error: 'shared_limit', scope: 'class' }, 'chat');
+    expect(aiAccess('chat')).toMatchObject({ state: 'resting', scope: 'class' });
+  });
   it('hasTool: a spent group is still the device\'s tool; locked and economy are not', () => {
     expect(hasTool('exam', FREE())).toBe(false);
     expect(hasTool('exam', PAID('family'))).toBe(true);

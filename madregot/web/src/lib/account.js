@@ -149,6 +149,10 @@ export function aiAccess(kind, status = useAIStatus.getState().status) {
   const group = KIND_GROUP[kind] || 'tutor';
   const kinds = Array.isArray(status.kinds) ? status.kinds : null;
   if (tier === 'open') {
+    // the switch off has a dollar day too (COUNCIL2-19): spent, it rests until tomorrow ('paused'); a class whose
+    // students used its day of units rests for them ('resting', the class's copy)
+    if (status.shared === 'paused') return { state: 'paused', left: 0, tier };
+    if (status.shared === 'class' || status.shared === 'network') return { state: 'resting', left: 0, tier, scope: status.shared };
     const g = status.groups?.all;
     if (g && g.left <= 0) return { state: 'used', left: 0, tier };
     return { state: 'open', left: g ? g.left : null, tier };

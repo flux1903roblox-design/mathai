@@ -97,7 +97,7 @@ async function assignWork(cls) {
 const STUDENT_KEYS = (id) => [`pin:${id}`, `pin:${id}:n0123456789abcdef`, `s:${id}`, `s:${id}:tutor`, `free:s:${id}`, `care:s:${id}`, `report:s:${id}`,
   `work:s:${id}`, `helpreply:s:${id}`, `vault:miss:s:${id}`, `escrow:s:${id}`, `write:s:${id}:answers`, `write:s:${id}:levels`, `write:s:${id}:exams`];
 const CLASS_KEYS = (code) => [`t:${code}`, `t:${code}:tutor`, `free:t:${code}`, `free:c:${code}`, `cls:${code}`, `care:t:${code}`, `report:t:${code}`,
-  `licreq:c:${code}`, `licclaim:c:${code}`, `assign:c:${code}`, `report:c:${code}`, `aioff:c:${code}`];
+  `licreq:c:${code}`, `licclaim:c:${code}`, `assign:c:${code}`, `report:c:${code}`, `aioff:c:${code}`, `open:c:${code}`];
 async function counters(studentIds, code) {
   for (const id of studentIds) for (const who of STUDENT_KEYS(id)) await setCount(h.env, who, 1);
   for (const who of CLASS_KEYS(code)) await setCount(h.env, who, 1);

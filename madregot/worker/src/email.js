@@ -255,6 +255,7 @@ export function renderNotice(env, row) {
       if (what === 'vault:70' || what === 'vault:90') return vaultShareNotice(p, Number(what.slice(-2)));
       if (what.startsWith('vault_drift:')) return vaultDriftNotice(p);
       if (what.startsWith('db_size:')) return dbSizeNotice(p);
+      if (what.startsWith('open_paused:')) return openPausedNotice(p);
       return { subject: `[מדרגות] ${what}`, lines: [`${what}`, `ref: ${row.ref}`, ...Object.entries(p).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)] };
     }
     default:
@@ -499,6 +500,19 @@ function vaultDriftNotice(p) {
     lines: [
       `מונה הנפח של הגיבויים המוצפנים הראה ${p.was ?? '?'} בתים, והסכום האמיתי היה ${p.now ?? '?'}. המונה תוקן.`,
       'אם זה חוזר כמה לילות ברצף, כדאי לבדוק את הקוד שכותב גיבויים (worker/src/vault.js).',
+    ],
+  };
+}
+
+/** The open tier (AI_PAYWALL "off") reached its day in dollars (entitle.js, COUNCIL2-19): one notice a day. */
+function openPausedNotice(p) {
+  return {
+    subject: `[מדרגות] העוזר החכם נח עד חצות: העלות היום הגיעה ל־${p.budgetUsd ?? '?'}$`,
+    lines: [
+      `ב־${p.day || 'היום'} העלות של העוזר החכם הגיעה ל־${p.budgetUsd ?? '?'}$ (OPEN_DAILY_BUDGET_USD). עד חצות הוא נח לכולם, והילדים רואים "העוזר החכם נח היום", בלי מחיר ובלי לחץ. בחצות הוא חוזר לבד.`,
+      'מה לבדוק: בסיכום היומי, איזה סוג בקשות עלה הכי הרבה. כל מייל של מורה מוגבל ל־OPEN_ACCOUNT_DAILY_LIMIT פעולות ביום לכל הכיתות שלו, וכל כיתה ל־OPEN_CLASS_DAILY_UNITS יחידות.',
+      'אם זה שימוש אמיתי: אפשר להעלות את OPEN_DAILY_BUDGET_USD בקובץ worker/wrangler.toml ולפרסם מחדש.',
+      'הגבול הקשיח הוא מגבלת ההוצאה של ה־workspace בלוח של Anthropic. ודאו שהיא מוגדרת.',
     ],
   };
 }

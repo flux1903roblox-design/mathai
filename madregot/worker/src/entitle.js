@@ -4,6 +4,10 @@
 // AI_PAYWALL = "off" (the default) keeps the limits from before the paid tutor: a class student AI_DAILY_LIMIT actions
 // a day of any kind, a teacher TEACHER_DAILY_LIMIT, a student without a class SOLO_DAILY_LIMIT per network, all on
 // CLAUDE_MODEL. AI_PAYWALL = "on" turns on the tiers below. A paid caller never falls to the free taste.
+// The open tier has a dollar breaker too (COUNCIL2-13, COUNCIL2-19): the 'open' pool stops for the day at
+// OPEN_DAILY_BUDGET_USD (503 free_paused and one owner notice, as the free taste), every request holds its worst case
+// first (spend.js), the classes bound to one email share OPEN_ACCOUNT_DAILY_LIMIT, a class's students share
+// OPEN_CLASS_DAILY_UNITS, and a device a parent approved has its own SOLO_DAILY_LIMIT, not the network's.
 //
 //   class / teacher  a class with a live licence: per student and per kind group, a class-wide cap in units
 //   trial            an owner-approved class trial: tutor and check only, lower limits, a daily dollar breaker
@@ -32,7 +36,7 @@ import { AI_KINDS, AI_GROUPS, KIND_GROUP, AI_UNITS, FREE_KINDS, LITE_MODEL, buil
 import {
   HttpError, key, take, peek, sha256, hmacHex, netKey, devKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual,
 } from './util.js';
-import { daySpendUsd, monthSpendUsd, queueNotices, ownerNotice } from './spend.js';
+import { daySpendUsd, monthSpendUsd, queueNotices, ownerNotice, worstCaseNano } from './spend.js';
 import { classAiPolicy, studentAiAllowed, rulesEnv } from '../../shared/schoolRules.js';
 import { maskPersonal } from '../../shared/safety.js';
 import { recordSafety, eventNet } from './safety.js';
@@ -41,13 +45,15 @@ import { summaryState } from './report.js';
 
 // ---------------------------------------------------------------- limits
 export const DEFAULT_LIMITS = {
-  open: { student: 40, teacher: 200, solo: 20 },
+  // account: a day for all the classes bound to one email (class_owners), shared by their teachers; classUnits: a day
+  // for all the students of one class, in AI_UNITS (an exam is 20), as the legacy window's class cap (COUNCIL2-19)
+  open: { student: 40, teacher: 200, solo: 20, account: 200, classUnits: 600 },
   free: { student: 2, teacher: 5, net: 80, class: 80, global: 3000 },
   family: { tutor: 30, check: 6, generate: 5, exam: 2, examMonthly: 10, devices: 3 },
   class: { student: { tutor: 20, check: 3, generate: 3, exam: 1 }, teacher: { tutor: 100, check: 20, generate: 30, exam: 20 }, seatUnits: 25 },
   trial: { student: { tutor: 10, check: 2, generate: 0, exam: 0 }, teacher: { tutor: 50, check: 10, generate: 0, exam: 0 }, seatUnits: 10, maxSeats: 40, days: 14 },
   legacy: { student: 40, teacher: 200, classUnits: 600 },
-  budgets: { freeDailyUsd: 5, trialDailyUsd: 10, familyMonthlyUsd: 4, classSeatMonthlyUsd: 0.8, ownerAlertUsd: 20 },
+  budgets: { freeDailyUsd: 5, openDailyUsd: 25, trialDailyUsd: 10, familyMonthlyUsd: 4, classSeatMonthlyUsd: 0.8, ownerAlertUsd: 20 },
   // care replies (trust spec TRUST-3 §3.4): a day, per person, per network and for everyone; past them the fixed reply
   care: { person: 5, net: 30, global: 1000 },
   graceDays: 3,
@@ -57,6 +63,9 @@ const VARS = [
   ['AI_DAILY_LIMIT', ['open', 'student'], ['legacy', 'student']],
   ['TEACHER_DAILY_LIMIT', ['open', 'teacher'], ['legacy', 'teacher']],
   ['SOLO_DAILY_LIMIT', ['open', 'solo']],
+  ['OPEN_ACCOUNT_DAILY_LIMIT', ['open', 'account']],
+  ['OPEN_CLASS_DAILY_UNITS', ['open', 'classUnits']],
+  ['OPEN_DAILY_BUDGET_USD', ['budgets', 'openDailyUsd']],
   ['FREE_DAILY_LIMIT', ['free', 'student']],
   ['FREE_TEACHER_DAILY', ['free', 'teacher']],
   ['FREE_NET_DAILY', ['free', 'net']],
@@ -377,21 +386,72 @@ async function freeKeys(req, env, id) {
   return { keys, anon, limit };
 }
 
+/** The email a class is bound to (class_owners), or null: the teacher's session says so, else the table. */
+async function classOwner(env, teacher) {
+  if (teacher.accountId) return teacher.accountId;
+  const row = await env.DB.prepare('SELECT account_id FROM class_owners WHERE class_code = ?').bind(teacher.code).first();
+  return row?.account_id || null;
+}
+
 /**
- * With the switch off (the behaviour before the paid tutor, and the one-variable rollback): a class student, a
- * teacher, a device of a family whose plan is still live (it keeps its own key, so a family that is still paying is
- * never counted as a stranger on its network, nor refused when ALLOW_SOLO_AI is "false"), else the network's solo key.
- * strict: refuse with 403 solo_ai_off instead of returning null.
+ * With the switch off (the behaviour before the paid tutor, and the one-variable rollback), the counters of a request,
+ * the person's own first: a class student (s:<id>) and their class's units (open:c:<code>, so students the class never
+ * had cannot multiply its day); a teacher (t:<code>) and, when the class is bound to an email, that email's day
+ * (open:a:<account>, shared by every class it owns: up to 20, teacherAccount.js MAX_OWNED); a device of a family whose
+ * plan is still live (it keeps its own key, so a family that is still paying is never counted as a stranger on its
+ * network, nor refused when ALLOW_SOLO_AI is "false"); with solo AI allowed, a device a parent approved for free, with
+ * no class (its own key, open:fd:<device>, SOLO_DAILY_LIMIT: not the network's, which other children at that address
+ * share); else the network's solo key. The class key counts in AI_UNITS and carries `units`; the others count actions.
+ * `kind` sets the units (status asks with a chat: 1). strict: refuse with 403 solo_ai_off instead of returning null.
  */
-async function openKey(req, env, id, { strict = false } = {}) {
+async function openKeys(req, env, id, kind = 'chat', { strict = false } = {}) {
   const L = limits(env).open;
-  if (id.student) return key(`s:${id.student.id}`, L.student, { refundable: true, err: dailyErr('open', 'all', L.student) });
-  if (id.teacher) return key(`t:${id.teacher.code}`, L.teacher, { refundable: true, err: dailyErr('open', 'all', L.teacher) });
-  if (id.fam && (await liveFamily(env, id.fam.account_id))) {
-    return key(`fam:${id.fam.account_id}`, L.student, { refundable: true, err: dailyErr('open', 'all', L.student) });
+  const own = (who, limit) => key(who, limit, { refundable: true, err: dailyErr('open', 'all', limit) });
+  if (id.student) {
+    return [own(`s:${id.student.id}`, L.student),
+      { ...key(`open:c:${id.student.class_code}`, L.classUnits, { n: AI_UNITS[kind] || 1, err: sharedErr('class') }), units: true }];
   }
+  if (id.teacher) {
+    const account = await classOwner(env, id.teacher);
+    return [own(`t:${id.teacher.code}`, L.teacher), ...(account ? [own(`open:a:${account}`, L.account)] : [])];
+  }
+  if (id.fam && (await liveFamily(env, id.fam.account_id))) return [own(`fam:${id.fam.account_id}`, L.student)];
   if (soloOff(env)) { if (strict) throw new HttpError(403, 'solo_ai_off'); return null; }
-  return key(`solo:n:${await netKey(req, env)}`, L.solo, { refundable: true, err: dailyErr('open', 'all', L.solo) });
+  if (id.fam) return [own(`open:fd:${id.fam.device_id}`, L.solo)];
+  return [own(`solo:n:${await netKey(req, env)}`, L.solo)];
+}
+
+/**
+ * Is a pool's day spent (its ai_spend for today at or over budgetUsd)? Then the owner gets that day's notice, once
+ * (owner:<pool>_paused:<day>): the free taste's and the open tier's breaker.
+ */
+async function poolSpent(env, pool, budgetUsd) {
+  if ((await daySpendUsd(env, pool)) < budgetUsd) return false;
+  const day = dayOf();
+  await queueNotices(env, [ownerNotice(day, `owner:${pool}_paused:${day}`, { day, budgetUsd })]);
+  return true;
+}
+
+/**
+ * A request's dollar hold on a pool (COUNCIL2-19): its worst case (spend.js worstCaseNano) in usd:<pool>, taken with
+ * its counters while the pool's spend today plus the holds is under the budget, given back when it has been priced.
+ */
+function holdKey(env, pool, kind, params) {
+  const budgets = limits(env).budgets;
+  const usd = pool === 'open' ? budgets.openDailyUsd : budgets.freeDailyUsd;
+  return key(`usd:${pool}`, Math.floor(usd * 1e9), { n: worstCaseNano(params, kind, env), spend: pool, err: pausedErr() });
+}
+
+/**
+ * Why a take() with a hold failed: a counter's own error, or, when the hold is what was refused, the pool's day spent
+ * (503 free_paused and the owner's notice) or, while it is not, other requests holding the rest of it right now (429
+ * busy, Retry-After 30: they give it back within a minute).
+ */
+async function heldBack(env, r, hold) {
+  if (r.key !== hold) return r.error;
+  const budgets = limits(env).budgets;
+  if (await poolSpent(env, hold.spend, hold.spend === 'open' ? budgets.openDailyUsd : budgets.freeDailyUsd)) return pausedErr();
+  return new HttpError(429, 'busy', undefined, undefined, { 'Retry-After': '30' });
 }
 
 // ---------------------------------------------------------------- resolve: decide and count one AI request
@@ -454,7 +514,12 @@ async function planFor(req, env, kind, id) {
     await recordSafety(env, { kind: 'parent_ok_needed', surface: kind, source: 'server' }, null, { net: eventNet(req, env) });
     throw new HttpError(403, 'parent_ok_needed');
   }
-  if (!paywallOn(env)) return { mode: 'open', key: await openKey(req, env, id, { strict: true }) };
+  if (!paywallOn(env)) {
+    const keys = await openKeys(req, env, id, kind, { strict: true });
+    // the open tier's day in dollars (COUNCIL2-19): the same calm answer and owner notice as the free taste's
+    if (await poolSpent(env, 'open', limits(env).budgets.openDailyUsd)) throw pausedErr();
+    return { mode: 'open', keys };
+  }
 
   const buckets = await paidBuckets(env, id);
   if (buckets.length) {
@@ -475,23 +540,29 @@ async function planFor(req, env, kind, id) {
   if (!FREE_KINDS.includes(kind)) throw paidOnlyErr(kind);
   // a teacher of a class with no adult behind it is alone here too (TRUST-9): no tutor when solo is off
   if (alone(env, id) && soloOff(env)) throw new HttpError(403, 'solo_ai_off');
-  if ((await daySpendUsd(env, 'free')) >= limits(env).budgets.freeDailyUsd) {
-    const day = dayOf();
-    await queueNotices(env, [ownerNotice(day, `owner:free_paused:${day}`, { day })]);
-    throw pausedErr();
-  }
+  if (await poolSpent(env, 'free', limits(env).budgets.freeDailyUsd)) throw pausedErr();
   return { mode: 'free', keys: (await freeKeys(req, env, id)).keys };
 }
 
-/** Build the request from the body, then take the plan's counters, all or nothing. */
+/**
+ * Build the request from the body, then take the plan's counters, all or nothing. The open and free pools also take
+ * the request's dollar hold (result.hold, given back by index.js handleAI once the reply is priced).
+ */
 async function takePlan(env, kind, input, plan) {
   const g = KIND_GROUP[kind];
   if (plan.mode === 'open') {
-    const k = plan.key;
     const p = params(env, kind, input, 'full');
-    const r = await take(env, [k]);
-    if (!r.ok) throw r.error;
-    return { tier: 'open', pool: 'open', group: 'all', shape: 'full', params: p, refund: [k], left: k.limit - r.counts[0], limit: k.limit, economy: false };
+    const hold = holdKey(env, 'open', kind, p);
+    const r = await take(env, [...plan.keys, hold]);
+    if (!r.ok) throw await heldBack(env, r, hold);
+    // what the screen counts down: the fewest actions left of the person's own key and the email's (class units are
+    // the class's, told by status as shared: 'class')
+    const own = plan.keys.map((k, i) => (k.units ? Infinity : k.limit - r.counts[i]));
+    const k = plan.keys[0];
+    return {
+      tier: 'open', pool: 'open', group: 'all', shape: 'full', params: p, refund: plan.keys.filter((x) => x.refundable), hold,
+      left: Math.min(...own), limit: k.limit, economy: false,
+    };
   }
   if (plan.mode === 'paid') {
     const fails = [...plan.fails];
@@ -512,9 +583,14 @@ async function takePlan(env, kind, input, plan) {
   }
   const { keys } = plan;
   const p = params(env, kind, input, 'lite');
-  const r = await take(env, [keys.person, keys.tries, keys.net, keys.cls, keys.all]);
-  if (!r.ok) throw r.error;
-  return { tier: 'free', pool: 'free', group: 'tutor', shape: 'lite', params: p, refund: [keys.person], left: keys.person.limit - r.counts[0], limit: keys.person.limit, economy: false };
+  // the free taste's $5 day is held the same way (COUNCIL2-19): parallel questions pass it by one worst case at most
+  const hold = holdKey(env, 'free', kind, p);
+  const r = await take(env, [keys.person, keys.tries, keys.net, keys.cls, keys.all, hold]);
+  if (!r.ok) throw await heldBack(env, r, hold);
+  return {
+    tier: 'free', pool: 'free', group: 'tutor', shape: 'lite', params: p, refund: [keys.person], hold, left: keys.person.limit - r.counts[0],
+    limit: keys.person.limit, economy: false,
+  };
 }
 
 // ---------------------------------------------------------------- care: a message that reads as distress
@@ -584,13 +660,20 @@ export async function aiStatus(req, env) {
     return { headers, body: { paywall: paywallOn(env), tier: null, state: 'parent_ok_needed', kinds: [], groups: {}, resetsAt: resetsAt('day'), aiReady } };
   }
   if (!paywallOn(env)) {
-    const k = await openKey(req, env, id);
-    const [c] = k ? await peek(env, [k]) : [0];
+    const keys = await openKeys(req, env, id);
+    const counts = keys ? await peek(env, keys) : [];
+    // left: the fewest of the person's own and the email's (COUNCIL2-19); shared: the open pool's day is spent
+    // ('paused'), or this student's class has no units left today ('class')
+    const own = keys ? Math.min(...keys.map((k, i) => (k.units ? Infinity : left(k, counts[i])))) : 0;
+    const paused = keys && (await daySpendUsd(env, 'open')) >= limits(env).budgets.openDailyUsd;
+    const classFull = keys && keys.some((k, i) => k.units && counts[i] >= k.limit);
+    const shared = paused ? 'paused' : classFull ? 'class' : null;
     return {
       headers,
       // resetsAt: when today's count starts again, so a screen that stays open asks again after midnight
       body: {
-        paywall: false, tier: 'open', kinds: k ? AI_KINDS : [], groups: { all: k ? { left: left(k, c), limit: k.limit } : null }, resetsAt: resetsAt('day'), aiReady,
+        paywall: false, tier: 'open', kinds: keys ? AI_KINDS : [], groups: { all: keys ? { left: own, limit: keys[0].limit } : null }, resetsAt: resetsAt('day'), aiReady,
+        ...(shared ? { shared } : {}),
         ...(id.fam ? { linked: { label: id.fam.label || '', summary: 'off' } } : {}),
       },
     };

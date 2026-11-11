@@ -10,11 +10,13 @@
 // that file, so nothing else can be checked until it is fixed (COUNCIL2-10).
 //
 // One item per rule; `area` is the Hebrew name the printout groups it by, `label` names what is checked, `need` says what
-// is missing in plain words and `how` is the exact command. `required: false` items are reminders: printed, never a failure. `ok` is true when every
-// required item is. Rules exist only for what the owner turned on: the email when EMAIL_FROM is set, payments when
-// AI_PAYWALL is "on", the provider's own keys for the provider chosen, the backup's secret while VAULT is on, Turnstile
-// with FREE_DEVICE_MINT "turnstile", the daily reminder's keys with PUSH "on" (STUDENT-11). A lane that adds a secret or a switch adds its rule here in the same commit:
-// test/readiness.test.js fails on a secret named in wrangler.toml's secrets comment that no rule covers.
+// is missing in plain words and `how` is the exact command. `required: false` items are reminders: printed, never a
+// failure. `ok` is true when every required item is. Rules exist only for what the owner turned on: the email when
+// EMAIL_FROM is set, payments when AI_PAYWALL is "on" (and the open tier's dollar budget while it is off), the provider's
+// own keys for the provider chosen, the backup's secret while VAULT is on, Turnstile with FREE_DEVICE_MINT "turnstile",
+// the daily reminder's keys with PUSH "on" (STUDENT-11), the database's size notice (COUNCIL2-18). A lane that adds a
+// secret or a switch adds its rule here in the same commit: test/readiness.test.js fails on a secret named in
+// wrangler.toml's secrets comment that no rule covers.
 
 export const AREAS = {
   config: 'קובץ ההגדרות',
@@ -79,6 +81,14 @@ export function readiness(cfg = {}) {
   secret('login', 'AUTH_SECRET', 'מפתח לקודי הכניסה', random('AUTH_SECRET'));
   secret('login', 'IP_HASH_SECRET', 'מונים בלי כתובות רשת', random('IP_HASH_SECRET'));
   secret('ai', 'ANTHROPIC_API_KEY', 'העוזר החכם');
+  // the open tier's dollar breaker (COUNCIL2-19): with the paywall off it is the only dollar ceiling in the Worker, so it
+  // must be a positive amount (empty uses the 25 USD default); the Anthropic workspace's spend limit stays the backstop
+  if (on(vars.AI_PAYWALL) !== 'on') {
+    const open = String(vars.OPEN_DAILY_BUDGET_USD ?? '').trim();
+    add('ai:open-budget', 'ai', !open || Number(open) > 0, 'OPEN_DAILY_BUDGET_USD',
+      'OPEN_DAILY_BUDGET_USD צריך להיות סכום חיובי בדולרים: בלי מנוי, זו התקרה היחידה של העלות ביום. וגם: להגדיר מגבלת הוצאה ב־workspace של Anthropic',
+      'worker/wrangler.toml: OPEN_DAILY_BUDGET_USD = "25"  (ומגבלת הוצאה ל־workspace בלוח של Anthropic)');
+  }
   const url = String(vars.PUBLIC_URL || '').trim();
   add('site:url', 'site', /^https:\/\/[^\s/]+/.test(url), 'PUBLIC_URL', 'PUBLIC_URL צריך להיות כתובת https של האתר', 'worker/wrangler.toml: PUBLIC_URL = "https://…"');
   add('site:contact', 'site', !!String(vars.CONTACT_EMAIL || '').trim(), 'CONTACT_EMAIL', 'חסר CONTACT_EMAIL (מופיע בדפי המשפט ובמיילים)', 'worker/wrangler.toml: CONTACT_EMAIL = "…"');

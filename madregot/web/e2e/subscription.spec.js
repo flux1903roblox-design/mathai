@@ -666,6 +666,39 @@ test.describe('the smart tutor', () => {
     await expect(page.getByRole('link', { name: 'ביטול מנוי' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'להורים' })).toHaveCount(0);
   });
+
+  test('with the switch off and its day in dollars spent (COUNCIL2-19): a class student gets the calm resting sheet with no price, and the assistant rests without asking again', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true, paywall: false, ai: { ...PRIVATE_GROUP, studentAi: 'on' } }, baseOf());
+    await open(page, '#/assistant', classStudent());
+    st.breakNext = { status: 503, body: { error: 'free_paused', resetsAt: '2026-11-06T00:00:00+02:00' } };
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('שאלה'); await draft.press('Enter');
+    const rest = page.getByRole('dialog', { name: 'העוזר החכם נח היום' });
+    await expect(rest).toBeVisible();
+    await expect(rest.getByText('ומחר הוא חוזר')).toBeVisible();
+    const text = await page.locator('body').innerText();
+    expect(text).not.toMatch(FORBIDDEN);
+    expect(text).not.toContain('מנוי');
+    await expect(page.locator('.form-error')).toHaveCount(0);
+    await shot(page, 'open-paused-sheet');
+    await page.setViewportSize({ width: 320, height: 568 });
+    await shot(page, 'open-paused-sheet-320');
+    await rest.getByRole('button', { name: 'סגירה' }).click();
+    await expect(draft).toHaveValue('שאלה'); // the question waits for tomorrow
+    // the assistant itself now rests (before this stage the open tier ignored it and asked again): the calm line, the
+    // way back to practice, and no photo or exercise tools
+    const resting = page.getByRole('status', { name: 'העוזר החכם' });
+    await expect(resting.getByText('העוזר החכם נח היום. מחר הוא חוזר.')).toBeVisible();
+    await expect(resting.getByRole('button', { name: 'להמשיך לתרגל' })).toBeVisible();
+    await expect(draft).toHaveAttribute('placeholder', 'העוזר החכם חוזר מחר');
+    await expect(page.getByRole('button', { name: 'בדיקת פתרון מצולם' })).toHaveCount(0);
+    await shot(page, 'open-paused-assistant-320');
+    // asking again keeps the draft and the calm card, and nothing more is sent
+    await draft.press('Enter');
+    await expect(draft).toHaveValue('שאלה');
+    await expect(resting.getByText('העוזר החכם נח היום. מחר הוא חוזר.')).toBeVisible();
+    expect(aiCalls(log)).toHaveLength(1);
+  });
 });
 
 // TRUST-11 §6: a class whose students have no AI by the Ministry of Education's rules (a school class while Madregot is

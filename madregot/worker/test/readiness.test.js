@@ -112,6 +112,20 @@ test('the database size notice (COUNCIL2-18): empty or 1-10240 MB passes; the fo
   assert.equal(readiness(complete()).items.find((i) => i.id === 'edge:bindings').ok, true);
 });
 
+test('the open tier\'s dollar budget (COUNCIL2-19): with the paywall off it must be a positive amount; with it on there is no rule', () => {
+  const c = complete(); c.vars.AI_PAYWALL = 'off';
+  assert.equal(c.vars.OPEN_DAILY_BUDGET_USD, '25', 'wrangler.toml ships 25');
+  assert.equal(readiness(c).items.find((i) => i.id === 'ai:open-budget').ok, true);
+  for (const bad of ['0', '-1', 'abc']) {
+    const x = complete(); x.vars.AI_PAYWALL = 'off'; x.vars.OPEN_DAILY_BUDGET_USD = bad;
+    assert.deepEqual(failing(readiness(x)), ['ai:open-budget'], bad);
+    assert.match(formatReadiness(readiness(x)), /^✗ בינה מלאכותית: OPEN_DAILY_BUDGET_USD .*Anthropic/m);
+  }
+  const e = complete(); e.vars.AI_PAYWALL = 'off'; e.vars.OPEN_DAILY_BUDGET_USD = '';
+  assert.equal(readiness(e).ok, true, 'empty: the 25 USD default');
+  assert.ok(!readiness(complete()).items.some((i) => i.id === 'ai:open-budget'), 'the paywall on: the paid tiers have their own breakers');
+});
+
 test('wrangler.toml as the doctor reads it (wrangler\'s own reader): the vars, the database id and the edge bindings', () => {
   const t = shipped;
   assert.equal(t.error, undefined);

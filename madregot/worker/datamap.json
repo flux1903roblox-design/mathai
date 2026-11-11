@@ -110,7 +110,7 @@
       "personal": "pseudonymous",
       "about": ["student", "parent", "teacher", "device", "network"],
       "fields": ["who", "day", "count"],
-      "purpose": "Counters that keep the limits: questions to the tutor, sign-in codes, joins, PIN tries, care messages and reported answers, per student id, family device id, account id, class code, or keyed hash of the install id (devKey) or of the network address (netKey). Never a raw device id or address.",
+      "purpose": "Counters that keep the limits: questions to the tutor, sign-in codes, joins, PIN tries, care messages, reported answers and a class student's daily writes, per student id, family device id, account id, class code, or keyed hash of the install id (devKey) or of the network address (netKey); and the dollars the free and open pools hold for requests in flight (usd:<pool>, about no one). Never a raw device id or address.",
       "retention": "Daily and hourly counters 35 days, monthly ones 13 months; a student's, family device's or install's counters at once when it deletes all, and a student's or class's when the teacher removes or deletes them.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeCountersSql", "forget.studentCountersStmt", "forget.familyDeviceCountersStmt", "forget.deviceCountersStmt", "forget.classDeleteSteps"]
