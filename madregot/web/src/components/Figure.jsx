@@ -39,6 +39,9 @@
 //          on the top line; show which values are written at the marker; label writes one value under it ('1400', '?');
 //          blank writes no number on the bottom line but 0 (the whole is what the picture asks)
 //   groups { rows: [{ n, label }] }                     dots in fives, a Hebrew label at the start of each row
+// Measurement (stage 2): geo also takes grid, circles, arcs and polys[].tone (see Geo, below), and the solids are drawn by
+// components/SolidFigs.jsx:
+//   netfig { solid, dims, layout?, letters?, shade?, labels? }   a net, flat, with the net object's geometry
 import { useEffect, useId, useState } from 'react';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
@@ -50,6 +53,7 @@ import { TilesArt, TILES_VIEW } from './manip/Tiles.jsx';
 import { BarArt, MarksArt, WholeArt, HatchDef } from './manip/FracBar.jsx';
 import { DlineArt, DLINE_VIEW } from './manip/DoubleLine.jsx';
 import { SvgLabel, minus } from './manip/core.jsx';
+import { NetFig } from './SolidFigs.jsx';
 import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO } from '@/content/manip.js';
 import '@/styles/lazy/figure.css'; // this screen's own rules, loaded with it (STUDENT-15)
 const rad = (d) => (d * Math.PI) / 180;
@@ -933,6 +937,6 @@ const NumberLine = ({ fig }) => (fig.den ? <PartsLine fig={fig} /> : <NumLine fi
 
 export default function Figure({ fig }) {
   if (!fig) return null;
-  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups }[fig.type];
+  const C = { coord: Coord, linear: Linear, cross: Cross, parallel: Parallel, triangle: Triangle, right: RightTri, ladder: Ladder, table: Table, geo: Geo, scale: Scale, area: Area, ray: RayFig, tiles: TilesFig, numline: NumberLine, thermo: Thermo, machine: Machine, dots: Dots, bars: Bars, fbar: FBar, fgrid: FGrid, dline: DLine, groups: Groups, netfig: NetFig }[fig.type];
   return C ? <div className="figure-wrap"><C fig={fig} /></div> : null;
 }

@@ -8,6 +8,7 @@ import NumberPins from '@/components/manip/NumberPins.jsx';
 import FracBar from '@/components/manip/FracBar.jsx';
 import DoubleLine from '@/components/manip/DoubleLine.jsx';
 import GridShape from '@/components/manip/GridShape.jsx';
+import NetFold from '@/components/manip/NetFold.jsx';
 import { loadKatex } from '@/components/MathText.jsx';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, slotsFor, figPlain } from './index.js';
 import {
@@ -17,6 +18,7 @@ import {
   fbarDenFor, fbarWords, dlineAt, dlineNum, withUnit, ticksWords, manipCorrect,
 } from './manip.js';
 import { maxRectArea, polyArea, cutAreas, cutMakesRectangles, cutAt, gridControls, gridStep } from './grid.js';
+import { NET_LAYOUTS, netModel, netView, netWithSlot, foldFaces, oblique, netStep, netControls, oppositeFace, closedNeighbours, netfigLabels, prismSides, CYL_N } from './net.js';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
 
@@ -767,5 +769,250 @@ describe('the geo figure of stage 2: a grid, circles and arcs, parts taken away 
       const drawn = [...(fig.circles || []).map((x) => x.label), ...(fig.segs || []).map((x) => x.label)].filter((x) => x != null);
       drawn.forEach((n) => expect(words).toContain(n));
     }
+  });
+});
+
+// ---------------------------------------------------------------- nets of solids (stage 3, MEASURE-1.2 and 1.5)
+// No stair uses the object yet: these are fixtures, the spec's own explores (solid:1–4, circle:3, space:1) and every net.
+describe('nets of solids (פריסה)', () => {
+  const net = (manip, answer) => fixture({ kind: 'net', ...manip }, answer);
+  const boxFold = net({ solid: 'box', dims: { a: 4, b: 3, c: 2 }, layout: 'cross', task: 'fold', start: { t: 0 } }, { mode: 'fold', t: 1 });
+  const prismFold = net({ solid: 'prism', dims: { p: 3, q: 4, r: 5, L: 10 }, task: 'fold', start: { t: 0 } }, { mode: 'fold', t: 1 });
+  const unroll = net({ solid: 'cylinder', dims: { r: 2, h: 5 }, task: 'fold', start: { t: 1 } }, { mode: 'fold', t: 0 });
+  const face = net({ solid: 'cube', dims: { a: 3 }, layout: 'cross', task: 'face', shade: 'A', start: { face: null } }, { mode: 'face', face: 'C' });
+  const prismFix = net({ solid: 'prism', dims: { p: 6, q: 8, r: 10, L: 5 }, task: 'fix', loose: 'E', start: { slot: null } }, { mode: 'slot', ok: ['A-down', 'B-down', 'C-down'] });
+  const cylFix = net({ solid: 'cylinder', dims: { r: 2, h: 5 }, task: 'fix', start: { slot: null } }, { mode: 'slot', ok: ['side-down'] });
+  const build = net({ solid: 'box', task: 'build', start: { a: 1, b: 1, c: 2 } }, { mode: 'build', V: 24, fixed: { c: 2 } });
+  const diag = net({ solid: 'box', task: 'build', start: { a: 1, b: 1, c: 1 } }, { mode: 'build', d2: 81 });
+  const surf = net({ solid: 'box', task: 'build', start: { a: 1, b: 1, c: 1 } }, { mode: 'build', S: 52 });
+  const prismBuild = net({ solid: 'prism', task: 'build', start: { p: 1, q: 1, L: 6 } }, { mode: 'build', V: 36, fixed: { L: 6 } });
+  const all = [boxFold, prismFold, unroll, face, prismFix, cylFix, build, diag, surf, prismBuild];
+
+  // ---- an independent check that a net closed: no two faces on one place, and the faces bound the solid's volume
+  // (a closed surface's volume does not depend on where it is measured from; a surface with a gap's does)
+  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const dt = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const newell = (P) => P.reduce((n, p, i) => { const q = P[(i + 1) % P.length]; return [n[0] + (p[1] - q[1]) * (p[2] + q[2]), n[1] + (p[2] - q[2]) * (p[0] + q[0]), n[2] + (p[0] - q[0]) * (p[1] + q[1])]; }, [0, 0, 0]);
+  function volumeFrom(F, o) {
+    return F.reduce((v, f) => {
+      const P = dt(newell(f.p3), f.n) >= 0 ? f.p3 : [...f.p3].reverse(); // each face wound with its outer side
+      let s = 0; for (let i = 1; i < P.length - 1; i += 1) s += dt(sub3(P[0], o), crs(sub3(P[i], o), sub3(P[i + 1], o))) / 6;
+      return v + s;
+    }, 0);
+  }
+  function overlapping(F) {
+    for (let i = 0; i < F.length; i += 1) for (let j = i + 1; j < F.length; j += 1) {
+      const a = F[i]; const b = F[j];
+      if (Math.abs(Math.abs(dt(a.n, b.n)) - 1) > 1e-6 || Math.abs(dt(sub3(b.p3[0], a.p3[0]), a.n)) > 1e-6) continue; // not in one plane
+      const u = Math.abs(a.n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]; const e1 = crs(a.n, u); const e2 = crs(a.n, e1);
+      const flat = (f) => f.p3.map((p) => [dt(p, e1), dt(p, e2)]);
+      const A = flat(a); const B = flat(b);
+      const axes = [A, B].flatMap((P) => P.map((p, k) => { const q = P[(k + 1) % P.length]; return [q[1] - p[1], p[0] - q[0]]; }));
+      if (axes.every((ax) => { const pa = A.map((p) => p[0] * ax[0] + p[1] * ax[1]); const pb = B.map((p) => p[0] * ax[0] + p[1] * ax[1]); return Math.min(Math.max(...pa), Math.max(...pb)) - Math.max(Math.min(...pa), Math.min(...pb)) > 1e-6; })) return true;
+    }
+    return false;
+  }
+  const discArea = (r) => { const w = (2 * Math.PI * r) / CYL_N; return (CYL_N * w * w) / (4 * Math.tan(Math.PI / CYL_N)); };
+  function volumeOf(m) {
+    if (m.solid === 'cube') return m.dims.a ** 3;
+    if (m.solid === 'box') return m.dims.a * m.dims.b * m.dims.c;
+    if (m.solid === 'prism') { const s = prismSides(m.dims); const h = (s.p + s.q + s.r) / 2; return Math.sqrt(h * (h - s.p) * (h - s.q) * (h - s.r)) * s.L; }
+    return discArea(m.dims.r) * m.dims.h;
+  }
+  /** Did these faces, folded to t = 1, close the solid? */
+  function closes(m, tree) {
+    const F = foldFaces(tree, 1);
+    if (F.length !== { cube: 6, box: 6, prism: 5, cylinder: CYL_N + 2 }[m.solid] || overlapping(F)) return false;
+    const v1 = volumeFrom(F, [0, 0, 0]); const v2 = volumeFrom(F, [37, -21, 13]);
+    return Math.abs(v1 - v2) < 1e-6 && Math.abs(v1 - volumeOf(m)) < 1e-6 * Math.max(1, volumeOf(m));
+  }
+
+  it('every task: the solution is right, the near miss and the start are not, and the words hold no undefined', () => {
+    for (const it of all) solves(it);
+    expect(manipWrong(boxFold)).toEqual({ t: 0.5 });
+    expect(manipWrong(face).face).not.toBe('C'); expect(closedNeighbours(face.manip, 'C')).toContain(manipWrong(face).face);
+    expect(prismFix.answer.ok).not.toContain(manipWrong(prismFix).slot);
+    expect(manipSolution(build)).toEqual({ a: 4, b: 3, c: 2 }); // a ≥ b ≥ c, the first found
+    expect(manipWrong(build)).toEqual({ a: 5, b: 3, c: 2 });
+    expect(manipSolution(diag)).toEqual({ a: 6, b: 6, c: 3 }); // 36 + 36 + 9 = 81
+    expect(manipSolution(surf)).toEqual({ a: 4, b: 3, c: 2 }); // 2(12 + 8 + 6) = 52
+    expect(manipSolution(prismBuild)).toEqual({ p: 4, q: 3, L: 6 }); // p ≥ q: 4 · 3 / 2 · 6 = 36
+    expect(isCorrect(prismBuild, { p: 3, q: 4, L: 6 })).toBe(true);
+    expect(isCorrect(build, { a: 6, b: 2, c: 2 }) && isCorrect(build, { a: 3, b: 4, c: 2 })).toBe(true);
+    expect(isCorrect(build, { a: 12, b: 1, c: 2 }) || isCorrect(build, { a: 4, b: 2, c: 3 })).toBe(false); // too long; c is pinned at 2
+  });
+  it('the eleven cube nets, a box, a prism and a cylinder each fold closed', () => {
+    for (const layout of Object.keys(NET_LAYOUTS)) {
+      const m = { solid: 'cube', dims: { a: 2 }, layout, task: 'fold' };
+      expect(closes(m, netModel(m).tree), layout).toBe(true);
+    }
+    for (const m of [boxFold.manip, prismFold.manip, unroll.manip, { solid: 'prism', dims: { p: 10, q: 5, r: Math.sqrt(45), L: 8 }, task: 'fold' }]) expect(closes(m, netModel(m).tree), m.solid).toBe(true);
+    // and half folded, nothing closes
+    expect(closes(boxFold.manip, netModel(boxFold.manip).tree.map((f) => ({ ...f, angle: f.angle / 2 })))).toBe(false);
+  });
+  it('of all 35 hexominoes, exactly the eleven nets fold into a cube', () => {
+    const norm = (cells) => { const x0 = Math.min(...cells.map((c) => c[0])); const y0 = Math.min(...cells.map((c) => c[1])); return cells.map(([x, y]) => [x - x0, y - y0]).sort((a, b) => a[0] - b[0] || a[1] - b[1]); };
+    const forms = (cells) => { const out = []; let c = cells; for (let r = 0; r < 4; r += 1) { c = c.map(([x, y]) => [y, -x]); out.push(norm(c), norm(c.map(([x, y]) => [-x, y]))); } return out; };
+    const key = (cells) => forms(cells).map((f) => JSON.stringify(f)).sort()[0];
+    let shapes = new Map([[key([[0, 0]]), [[0, 0]]]]);
+    for (let n = 2; n <= 6; n += 1) {
+      const next = new Map();
+      for (const cells of shapes.values()) for (const [x, y] of cells) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const c = [x + dx, y + dy]; if (cells.some((d) => d[0] === c[0] && d[1] === c[1])) continue;
+        const grown = norm([...cells, c]); next.set(key(grown), grown);
+      }
+      shapes = next;
+    }
+    expect(shapes.size).toBe(35);
+    const folding = [...shapes.values()].filter((cells) => { const m = { solid: 'cube', dims: { a: 1 }, layout: cells, task: 'fold' }; return closes(m, netModel(m).tree); });
+    expect(folding.length).toBe(11);
+    expect(new Set(folding.map(key))).toEqual(new Set(Object.values(NET_LAYOUTS).map(key)));
+  });
+  it('fix: every slot in ok folds closed and no other slot does (the cube\'s 11 nets, a box, a prism, a cylinder)', () => {
+    const cases = [
+      // every face that hangs at the end of a net (a face with one neighbour) can be the loose one
+      ...Object.entries(NET_LAYOUTS).flatMap(([layout, cells]) => cells.map((c, i) => [c, 'ABCDEF'[i]])
+        .filter(([c]) => cells.filter((d) => Math.abs(d[0] - c[0]) + Math.abs(d[1] - c[1]) === 1).length === 1)
+        .map(([, loose]) => ({ solid: 'cube', dims: { a: 2 }, layout, task: 'fix', loose }))),
+      { solid: 'box', dims: { a: 4, b: 3, c: 2 }, task: 'fix' }, { solid: 'box', dims: { a: 5, b: 3, c: 2 }, task: 'fix', loose: 'D' },
+      prismFix.manip, { ...prismFix.manip, loose: 'D' }, { ...prismFix.manip, layout: 'column' },
+      cylFix.manip, { ...cylFix.manip, loose: 'top' },
+    ];
+    for (const m of cases) {
+      const nm = netModel(m);
+      const where = `${m.solid} ${m.layout || ''} loose ${m.loose || ''}`;
+      // a wrong place to choose: always on a cube's, a prism's and a cylinder's net (a box's back face 5 by 2 fits only
+      // the four edges where it closes the box)
+      if (!(m.solid === 'box' && m.loose === 'D')) expect(nm.slots.length, where).toBeGreaterThan(nm.okSlots.length);
+      expect(nm.okSlots.length, where).toBeGreaterThan(0);
+      for (const s of nm.slots) expect(closes(m, netWithSlot(m, s.id)), `${where} ${s.id}`).toBe(nm.okSlots.includes(s.id));
+    }
+    // the spec's prism: the loose triangle closes the net on the far end of any strip face, never beside its twin
+    expect(netModel(prismFix.manip).okSlots).toEqual(['A-down', 'B-down', 'C-down']);
+    expect(netModel(prismFix.manip).slots.map((s) => s.id)).toEqual(['A-up', 'A-down', 'B-down', 'C-up', 'C-down']);
+    expect(netModel(cylFix.manip).okSlots).toEqual(['side-down']);
+    expect(netModel({ solid: 'box', dims: { a: 5, b: 3, c: 2 }, task: 'fix', loose: 'D' }).okSlots).toEqual(['A-left', 'C-right', 'E-up', 'F-down']);
+    // a face that holds the net together is never the loose one
+    expect(() => netModel({ solid: 'cube', dims: { a: 2 }, layout: 'cross', task: 'fix', loose: 'B' })).toThrow(/holds the net together/);
+  });
+  it('face: the face opposite the shaded one; a near miss is a face beside it', () => {
+    expect(oppositeFace(face.manip, 'A')).toBe('C');
+    expect(oppositeFace(face.manip, 'B')).toBe('D');
+    expect(oppositeFace(face.manip, 'E')).toBe('F');
+    expect(oppositeFace({ solid: 'cube', dims: { a: 1 }, layout: 'steps' }, 'A')).toBe('D');
+    expect(oppositeFace(prismFold.manip, 'D')).toBe('E');
+    expect(oppositeFace(prismFold.manip, 'A')).toBe(null);
+    expect(closedNeighbours(face.manip, 'A').sort()).toEqual(['B', 'D', 'E', 'F']);
+  });
+  it('build reaches its target from its start by the steppers alone; the fold reaches its end by its stepper', () => {
+    for (const it of all.filter((x) => ['build', 'fold'].includes(x.manip.task))) {
+      const keys = netControls(it.manip, it.answer);
+      const seen = new Set([JSON.stringify(it.manip.start)]); const queue = [it.manip.start]; let found = null;
+      while (queue.length && !found) {
+        const v = queue.shift();
+        if (isCorrect(it, v)) { found = v; break; }
+        for (const k of keys) for (const d of [-1, 1]) { const n = netStep(it.manip, v, k, d, it.answer); const s = JSON.stringify(n); if (!seen.has(s)) { seen.add(s); queue.push(n); } }
+      }
+      expect(found, `${it.manip.task} ${JSON.stringify(it.answer)}`).toBeTruthy();
+    }
+    // a pinned dimension that the start already has keeps its stepper still; nothing goes past 1..9 or 0..100%
+    expect(netControls(build.manip, build.answer)).toEqual(['a', 'b']);
+    expect(netStep(build.manip, { a: 9, b: 1, c: 2 }, 'a', 1, build.answer)).toEqual({ a: 9, b: 1, c: 2 });
+    expect(netStep(build.manip, { a: 1, b: 1, c: 2 }, 'c', 1, build.answer)).toEqual({ a: 1, b: 1, c: 2 });
+    expect(netStep(boxFold.manip, { t: 1 }, 't', 1)).toEqual({ t: 1 });
+    expect(netStep(boxFold.manip, { t: 0.5 }, 't', -1)).toEqual({ t: 0.25 });
+  });
+  it('at 320 px the net fits its drawing at every step of the fold, and each cube face is at least 44 px', () => {
+    const px = 288 / 300; // a 300-wide drawing across a 320 px screen less its 16 px margins
+    for (const layout of Object.keys(NET_LAYOUTS)) {
+      for (const task of ['fold', 'face']) {
+        const m = { solid: 'cube', dims: { a: 3 }, layout, task }; const nm = netModel(m); const v0 = netView(m, nm);
+        expect([v0.W, v0.H]).toEqual([300, 220]);
+        expect(v0.s * 3 * px, `${layout} ${task}`).toBeGreaterThanOrEqual(44);
+        // the view follows the fold: every moment fits, and the drawing never shrinks much (a face that starts to turn
+        // widens the net a little) nor grows past twice the open net
+        for (let t = 0; t <= 1.0001; t += 0.05) {
+          const v = netView(m, nm, { t: task === 'fold' ? t : 0 });
+          expect(v.s, `${layout} at ${t}`).toBeGreaterThanOrEqual(0.9 * v0.s);
+          expect(v.s, `${layout} at ${t}`).toBeLessThanOrEqual(2 * v0.s + 1e-9);
+          for (const f of foldFaces(nm.tree, task === 'fold' ? t : 0)) for (const p of f.p3) {
+            expect(v.X(p) >= -1e-6 && v.X(p) <= 300 + 1e-6 && v.Y(p) >= -1e-6 && v.Y(p) <= 220 + 1e-6, `${layout} at ${t}`).toBe(true);
+          }
+        }
+      }
+    }
+    // the faces turn away from the viewer, and the far ones are drawn first: at t = 1 the root is the front
+    const F = foldFaces(netModel(boxFold.manip).tree, 1); const front = F.find((f) => f.id === 'B');
+    expect(front.n).toEqual([0, 0, -1]);
+    expect(oblique([0, 0, 2])[0]).toBeCloseTo(Math.cos(Math.PI / 6), 9); // depth at 30°, half its length
+    expect(oblique([0, 0, 2])[1]).toBeCloseTo(0.5, 9);
+  });
+  it('is said in words, as the spec writes them', () => {
+    expect(answerText(boxFold)).toBe('התיבה סגורה');
+    expect(answerText(boxFold, { t: 0.5 })).toBe('הפריסה מקופלת עד חצי');
+    expect(answerText(unroll)).toBe('הפריסה פתוחה');
+    expect(answerText(face)).toBe('פאה C');
+    expect(answerText(prismFix)).toBe('הבסיס החסר מתחת לפאה A או הבסיס החסר מתחת לפאה B או הבסיס החסר מתחת לפאה C');
+    expect(answerText(cylFix, { slot: 'side-right' })).toBe('הבסיס החסר מימין למעטפת');
+    expect(answerText(build)).toBe('תיבה 4 על 3 על 2');
+    expect(answerText(prismBuild)).toBe('מנסרה שניצביה 4 ו־3 ואורכה 6');
+    expect(manipPlain(boxFold)).toBe('[פריסה של תיבה 4 על 3 על 2; מקפלים ופורשים אותה ברבעים, מפריסה פתוחה עד תיבה סגורה]');
+    expect(manipPlain(face)).toBe('[פריסה של קובייה שמקצועה 3; A משמאל ל־B, C מימין ל־B, D מימין ל־C, E מעל B, F מתחת ל־B; פאה A צבועה; מקישים על פאה]');
+    expect(manipPlain(prismFix)).toBe('[פריסה של מנסרה משולשת שבסיסה משולש שצלעותיו 6, 8 ו־10, ואורכה 5, בלי פאה E; שמים את הבסיס החסר באחד המקומות המקווקווים]');
+    for (const it of all) expect(itemPlain(it)).not.toMatch(/undefined|NaN/);
+  });
+  it('draws: the fold is a slider with no drag, the faces are buttons, the slots are buttons, the build reads its sizes', () => {
+    const fold = html(NetFold, { m: boxFold.manip, value: { t: 0.5 }, answer: boxFold.answer });
+    expect(fold).toContain('role="slider"'); expect(fold).toContain('aria-valuetext="הפריסה מקופלת עד חצי"'); expect(fold).toContain('aria-valuenow="50"');
+    expect(fold).toContain('mp-net-canvas'); expect(fold).toContain('aria-label="לקפל עוד רבע"');
+    expect(html(NetFold, { m: boxFold.manip, value: { t: 1 }, answer: boxFold.answer })).toContain('aria-valuetext="התיבה סגורה"');
+    const faces = html(NetFold, { m: face.manip, value: { face: 'B' }, answer: face.answer });
+    expect((faces.match(/role="button"/g) || []).length).toBe(6);
+    expect(faces).toContain('aria-label="פאה C"'); expect(faces).toMatch(/aria-label="פאה B" aria-pressed="true"/);
+    expect(faces).toMatch(/tabindex="0"/);
+    const fix = html(NetFold, { m: prismFix.manip, value: { slot: null }, answer: prismFix.answer });
+    expect((fix.match(/class="mp-net-slot/g) || []).length).toBe(5);
+    expect(fix).toContain('aria-label="לשים את הבסיס החסר מתחת לפאה B"');
+    expect(fix).toMatch(/<circle[^>]*r="23"/); // each slot's target at least 46 units across
+    const b = html(NetFold, { m: build.manip, value: { a: 4, b: 3, c: 2 }, answer: build.answer });
+    expect(b).toContain('<span>תיבה 4 על 3 על 2</span><span>נפח 24 סמ״ק · שטח פנים 52 סמ״ר</span>');
+    expect(b).toContain('aria-label="אורך"'); expect(b).toContain('aria-label="רוחב"'); expect(b).toContain('aria-label="גובה"');
+    expect(html(NetFold, { m: diag.manip, value: { a: 2, b: 3, c: 4 }, answer: diag.answer })).toContain('<span>אלכסון בריבוע 29</span>');
+    const check = html(NetFold, { m: build.manip, value: { a: 4, b: 3, c: 2 }, answer: build.answer, test: true });
+    expect(check).toContain('תיבה 4 על 3 על 2'); expect(check).not.toMatch(/נפח|שטח|hit/);
+    const pb = html(NetFold, { m: prismBuild.manip, value: { p: 3, q: 4, L: 6 }, answer: prismBuild.answer });
+    expect(pb).toContain('aria-label="ניצב א׳"'); expect(pb).toContain('aria-label="ניצב ב׳"'); expect(pb).toContain('שטח הבסיס 6 סמ״ר · נפח 36 סמ״ק');
+    for (const it of all) {
+      const out = html(NetFold, { m: it.manip, value: it.manip.start, answer: it.answer, reveal: true });
+      expect(out, it.manip.task).not.toMatch(/NaN|undefined/);
+      expect(out, `${it.manip.task}: the answer is drawn after a miss`).toMatch(/mp-net-ghost/);
+    }
+  });
+  it('the netfig figure reads every number and letter it draws', () => {
+    const figs = [
+      { type: 'netfig', solid: 'cube', dims: { a: 3 }, layout: 'cross', letters: true, labels: true, shade: 'A' },
+      { type: 'netfig', solid: 'box', dims: { a: 4, b: 3, c: 2 }, letters: true, labels: true },
+      { type: 'netfig', solid: 'box', dims: { a: 4, b: 3, c: 2 }, letters: true, labels: 'area' },
+      { type: 'netfig', solid: 'box', dims: { a: 6, b: 5, c: 3 }, labels: true },
+      { type: 'netfig', solid: 'cube', dims: { a: 1 }, layout: 'steps' },
+      { type: 'netfig', solid: 'prism', dims: { p: 3, q: 4, L: 10 }, letters: true, labels: true },
+      { type: 'netfig', solid: 'prism', dims: { p: 6, q: 8, L: 5 }, labels: 'area' },
+      { type: 'netfig', solid: 'cylinder', dims: { r: 2, h: 5 }, labels: true, shade: 'side' },
+    ];
+    for (const fig of figs) {
+      const out = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(out).toMatch(/<svg/); expect(out).not.toMatch(/NaN|undefined|Infinity/);
+      const words = figPlain(fig);
+      expect(out).toContain(`aria-label="${words}"`);
+      const drawn = [...out.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((x) => x[1]).filter((t) => t !== '2πr');
+      if (fig.letters || fig.labels) expect(drawn.length, JSON.stringify(fig)).toBeGreaterThan(0);
+      for (const t of drawn) expect(words, `${fig.solid}: ${t}`).toContain(t);
+    }
+    expect(figPlain(figs[0])).toBe('פריסה של קובייה: A משמאל ל־B, C מימין ל־B, D מימין ל־C, E מעל B, F מתחת ל־B; כל פאה ריבוע שצלעו 3; פאה A צבועה');
+    expect(figPlain(figs[2])).toBe('פריסה של תיבה: A משמאל ל־B, C מימין ל־B, D מימין ל־C, E מעל B, F מתחת ל־B; שטחי הפאות: A 6, B 8, C 6, D 8, E 12, F 12');
+    expect(figPlain(figs[4])).toBe('פריסה של קובייה: בשורה העליונה ריבועים בעמודות 1, 2; בשורה השנייה ריבועים בעמודות 2, 3; בשורה התחתונה ריבועים בעמודות 3, 4');
+    expect(netfigLabels(figs[1]).edges.map((e) => e.text)).toEqual(['4', '3', '2']);
+    expect(netfigLabels(figs[5]).edges.map((e) => e.text)).toEqual(['3', '4', '5', '10']);
   });
 });

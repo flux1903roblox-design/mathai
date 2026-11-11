@@ -19,6 +19,8 @@ import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TIL
 // @ts-ignore: plain JS
 import { GRID_MAX, cutRange, moveRange, cutMakesRectangles } from '@/content/grid.js';
 // @ts-ignore: plain JS
+import { netModel, netControls, netStep, BUILD_MAX } from '@/content/net.js';
+// @ts-ignore: plain JS
 import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { T } from '@/content/util.js';
@@ -106,6 +108,7 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       if (s.manip.kind === 'area') checkArea(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'ray') checkRay(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'polygon') checkPolygon(s.manip as any, s.answer as any, at);
+      if (s.manip.kind === 'net') checkNet(s.manip as any, s.answer as any, at);
       expect(s.hint, at).toBeTruthy();
       expect(s.success, at).toBeTruthy();
     }
@@ -193,6 +196,42 @@ function checkArea(m: { start: { a: number; b: number }; maxA?: number; maxB?: n
  * the object can reach inside the grid: the solving rectangle fits, the move keeps the piece on the grid, every right
  * cut is a grid line inside the shape that leaves two rectangles, every right vertex is on the grid.
  */
+/**
+ * A net (stage 3): a fold starts on a quarter and ends open or closed; a face task's answer and shaded face are faces of
+ * the net, and not the same; a fix task's loose face hangs at an end of the net, and its answer lists exactly the slots
+ * where the net folds closed (computed by folding); a build reaches its goal from its start by its steppers within 9.
+ */
+function checkNet(m: any, a: any, at: string) {
+  expect(['cube', 'box', 'prism', 'cylinder']).toContain(m.solid);
+  if (m.task === 'build') {
+    expect(a.mode).toBe('build');
+    const keys = netControls(m, a); const it = { form: 'manip', manip: m, answer: a };
+    const seen = new Set([JSON.stringify(m.start)]); const queue = [m.start]; let found = false;
+    while (queue.length && !found) {
+      const v = queue.shift();
+      if (manipCorrect(it, v)) { found = true; break; }
+      for (const k of keys) for (const d of [-1, 1]) { const n = netStep(m, v, k, d, a); const key = JSON.stringify(n); if (!seen.has(key)) { seen.add(key); queue.push(n); } }
+    }
+    expect(found, `${at}: the goal is not reachable by the steppers from the start (each 1..${BUILD_MAX})`).toBe(true);
+    return;
+  }
+  const nm = netModel(m); // throws when a loose face holds the net together
+  if (m.task === 'fold') {
+    expect(a.mode).toBe('fold');
+    expect([0, 1], `${at}: a fold ends open (0) or closed (1)`).toContain(a.t);
+    expect([0, 0.25, 0.5, 0.75, 1], `${at}: the start is a quarter`).toContain(m.start.t);
+  }
+  if (m.task === 'face') {
+    expect(a.mode).toBe('face');
+    expect(nm.tree.map((f: any) => f.id), `${at}: no face ${a.face}`).toContain(a.face);
+    if (m.shade) { expect(nm.tree.map((f: any) => f.id)).toContain(m.shade); expect(a.face, `${at}: the answer is the shaded face`).not.toBe(m.shade); }
+  }
+  if (m.task === 'fix') {
+    expect(a.mode).toBe('slot');
+    expect([...a.ok].sort(), `${at}: the slots that close the net are ${nm.okSlots.join(', ')}`).toEqual([...nm.okSlots].sort());
+  }
+}
+
 function checkPolygon(m: any, a: any, at: string) {
   const [cols, rows] = m.grid;
   const [maxC, maxR] = GRID_MAX;
@@ -611,6 +650,24 @@ describe('the algebra checks catch what they are for', () => {
     bad(explore({ kind: 'polygon', grid: [8, 6], task: 'cut', shape: L, start: { axis: 'y', at: 1 } }, { mode: 'cut', lines: [{ axis: 'y', at: 2 }] })); // not two rectangles
     bad(explore({ kind: 'polygon', grid: [8, 6], task: 'cut', shape: L, start: { axis: 'y', at: 4 } }, { mode: 'cut', lines: [{ axis: 'y', at: 4 }] })); // starts on it
     bad(explore({ kind: 'polygon', grid: [10, 6], task: 'apex', base: { x0: 0, x1: 8, h: 7 }, start: { x: 6 } }, { mode: 'apex', xs: [0, 8] })); // above the grid
+  });
+  it('nets (stage 3): a fold ends open or closed, a face is a face, a fix lists every closing slot, a build is reachable', () => {
+    ok(explore({ kind: 'net', solid: 'box', dims: { a: 4, b: 3, c: 2 }, layout: 'cross', task: 'fold', start: { t: 0 } }, { mode: 'fold', t: 1 }));
+    ok(explore({ kind: 'net', solid: 'cylinder', dims: { r: 2, h: 5 }, task: 'fold', start: { t: 1 } }, { mode: 'fold', t: 0 }));
+    ok(explore({ kind: 'net', solid: 'cube', dims: { a: 3 }, layout: 'cross', task: 'face', shade: 'A', start: { face: null } }, { mode: 'face', face: 'C' }));
+    ok(explore({ kind: 'net', solid: 'prism', dims: { p: 6, q: 8, r: 10, L: 5 }, task: 'fix', loose: 'E', start: { slot: null } }, { mode: 'slot', ok: ['A-down', 'B-down', 'C-down'] }));
+    ok(explore({ kind: 'net', solid: 'box', task: 'build', start: { a: 1, b: 1, c: 2 } }, { mode: 'build', V: 24, fixed: { c: 2 } }));
+    ok(explore({ kind: 'net', solid: 'prism', task: 'build', start: { p: 1, q: 1, L: 6 } }, { mode: 'build', V: 36, fixed: { L: 6 } }));
+    ok(explore({ kind: 'net', solid: 'box', task: 'build', start: { a: 1, b: 1, c: 1 } }, { mode: 'build', d2: 81 }));
+    bad(explore({ kind: 'net', solid: 'box', dims: { a: 4, b: 3, c: 2 }, task: 'fold', start: { t: 1 } }, { mode: 'fold', t: 1 })); // starts closed
+    bad(explore({ kind: 'net', solid: 'box', dims: { a: 4, b: 3, c: 2 }, task: 'fold', start: { t: 0 } }, { mode: 'fold', t: 0.5 })); // ends half way
+    bad(explore({ kind: 'net', solid: 'cube', dims: { a: 3 }, task: 'face', shade: 'A', start: { face: null } }, { mode: 'face', face: 'A' })); // the shaded face
+    bad(explore({ kind: 'net', solid: 'cube', dims: { a: 3 }, task: 'face', start: { face: null } }, { mode: 'face', face: 'G' })); // no such face
+    bad(explore({ kind: 'net', solid: 'prism', dims: { p: 6, q: 8, r: 10, L: 5 }, task: 'fix', loose: 'E', start: { slot: null } }, { mode: 'slot', ok: ['A-down', 'B-down'] })); // C-down closes too
+    bad(explore({ kind: 'net', solid: 'prism', dims: { p: 6, q: 8, r: 10, L: 5 }, task: 'fix', loose: 'E', start: { slot: null } }, { mode: 'slot', ok: ['A-up', 'A-down', 'B-down', 'C-down'] })); // A-up does not
+    bad(explore({ kind: 'net', solid: 'cube', dims: { a: 2 }, task: 'fix', loose: 'B', start: { slot: null } }, { mode: 'slot', ok: ['A-up'] })); // B holds the net together
+    bad(explore({ kind: 'net', solid: 'box', task: 'build', start: { a: 1, b: 1, c: 2 } }, { mode: 'build', V: 1000 })); // past 9 by 9 by 9
+    ok(explore({ kind: 'net', solid: 'box', task: 'build', start: { a: 1, b: 1, c: 3 } }, { mode: 'build', V: 24, fixed: { c: 2 } })); // a pinned size the start lacks: its stepper reaches it
   });
   it('a cut number line: the goal is a whole number of parts, and the display is its value', () => {
     ok(explore({ kind: 'numberline', min: 0, max: 2, from: 0, start: 0, den: 3 }, 5 / 3, '\\frac{5}{3}'));

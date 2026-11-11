@@ -197,19 +197,21 @@ export const dlineNum = (v) => {
 export const withUnit = (v, unit) => (!unit ? dlineNum(v) : unit === '%' ? `${dlineNum(v)}%` : `${dlineNum(v)} ${unit}`);
 
 // ---------------------------------------------------------------- kinds whose rules load with their object
-// The objects of stage 2 on (the grid shapes, content/grid.js) keep their rules out of the first download: the file
-// registers them here when it loads. It is asked for as soon as this module loads (a small file after the first
-// screen), and it is also part of the object's own file, so a lesson or a teaching step that draws the object always
-// has them. Asked for before they are here, a rule throws: a missing rule is a bug, never a wrong answer.
-const LATE_KINDS = ['polygon'];
+// The objects of stage 2 on (the grid shapes, content/grid.js; the nets, content/net.js; the circle, content/circle.js)
+// keep their rules out of the first download: each file registers them here when it loads. content/late.js asks for
+// them as soon as this module loads (after the first screen), and each is also part of its object's own file, so a
+// lesson or a teaching step that draws the object always has them. Asked for before they are here, a
+// rule throws: a missing rule is a bug, never a wrong answer. The words of the still figures those files draw (a geo
+// drawing's stage-2 parts, 'netfig', 'solid') register the same way, by figure type.
+const LATE_KINDS = ['polygon', 'net'];
 const LATE = {};
 /** Called by a late kind's file: its correct, text, plain, solution and wrong. */
 export const registerKind = (kind, rules) => { LATE[kind] = rules; };
-/** Called by content/grid.js: the words of a geo drawing's stage-2 parts (a grid, circles, arcs, tones). */
-export const registerGeoWords = (fn) => { LATE.geoWords = fn; };
+/** Called by a late file: the words of a still figure of that type (before it loads, the figure says nothing). */
+export const registerFigWords = (type, fn) => { LATE[`fig:${type}`] = fn; };
 const late = (kind) => { if (!LATE[kind]) throw new Error(`${kind} rules not loaded`); return LATE[kind]; };
-// asked for now, after the first screen's own files (a test imports content/grid.js itself)
-import('./grid.js');
+// asked for now, after the first screen's own files (a test imports the late files itself)
+import('./late.js');
 
 // ---------------------------------------------------------------- the teaching figures in words (STUDENT-8)
 // The spoken name of each drawing (components/Figure.jsx puts it in aria-label): what a sighted student sees, never
@@ -253,9 +255,6 @@ function teachLineWords(f) {
 
 export function figWords(f) {
   switch (f.type) {
-    // the measurement additions of a geo drawing (stage 2) are read by content/grid.js; before it loads (a moment after
-    // the first screen), a geo drawing says nothing, as every geo drawing did before
-    case 'geo': return LATE.geoWords ? LATE.geoWords(f) : '';
     case 'numline': return f.den ? partsLineWords(f) : teachLineWords(f);
     case 'fbar': {
       const rows = f.rows?.length ? f.rows : [{ den: f.den, shaded: f.shaded }];
@@ -310,7 +309,10 @@ export function figWords(f) {
         rr && `צעד של ${figNum(Math.abs(rr.run))} ${rr.run > 0 ? 'ימינה' : 'שמאלה'} ו־${figNum(Math.abs(rr.rise))} ${rr.rise >= 0 ? 'למעלה' : 'למטה'}`,
         f.words?.length && `כתוב: ${f.words.map((w) => w.text).join(', ')}`].filter(Boolean).join(', ');
     }
-    default: return '';
+    // the measurement additions of a geo drawing (content/grid.js) and the nets and solids (content/net.js) are read by
+    // their late files; before those load (a moment after the first screen) the drawing says nothing, as a geo
+    // drawing did before
+    default: return LATE[`fig:${f.type}`]?.(f) || '';
   }
 }
 

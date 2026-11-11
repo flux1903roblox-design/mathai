@@ -27,8 +27,12 @@ export type Rng = () => number;
  * piece?, base? }; task 'rect' { w, h } answered { mode: 'rect', area?, perim? } | { mode: 'maxArea', perim }, 'move'
  * { dx, dy } answered { mode: 'move', dx, dy }, 'cut' { axis, at } answered { mode: 'cut', lines }, 'apex' { x } answered
  * { mode: 'apex', xs }).
+ * 'net' (stage 3; content/net.js): a solid's net { solid: 'cube' | 'box' | 'prism' | 'cylinder', dims, task, layout?, shade?,
+ * loose?, start }; task 'fold' { t } answered { mode: 'fold', t: 1 | 0 }, 'face' { face } answered { mode: 'face', face },
+ * 'fix' { slot } answered { mode: 'slot', ok }, 'build' { a, b, c } or a prism's { p, q, L } answered { mode: 'build', V?, S?,
+ * d2?, fixed? }.
  */
-export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'polygon';
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'polygon' | 'net';
 export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 
 // ------------------------------------------------------------------ Stage A: discover and understand
@@ -53,6 +57,12 @@ export type FgridFig = { type: 'fgrid'; rows: number; cols: number; shadeRows: n
 export type DlineFig = { type: 'dline'; top: DlineLine; bottom: DlineLine; at?: number; show?: 'both' | 'top' | 'bottom'; label?: string; blank?: boolean };
 /** Things counted in rows of dots, with a Hebrew label at the start of each row. */
 export type GroupsFig = { type: 'groups'; rows: { n: number; label: string }[] };
+/** A solid's net, flat (components/SolidFigs.jsx): face letters, a shaded face, each length once or each face's area. */
+export type NetFig = {
+  type: 'netfig'; solid: 'cube' | 'box' | 'prism' | 'cylinder';
+  dims: { a?: number; b?: number; c?: number; p?: number; q?: number; r?: number; L?: number; h?: number };
+  layout?: string; letters?: boolean; shade?: string | string[]; labels?: boolean | 'area';
+};
 /** The figures of fractions, percent and ratio: content writes them `satisfies FractionFig` so their fields are checked. */
 export type FractionFig = NumlineFig | FbarFig | FgridFig | DlineFig | GroupsFig;
 /**
@@ -79,6 +89,7 @@ export type FigSpec =
   }
   | GeoFig
   | FbarFig | FgridFig | DlineFig | GroupsFig
+  | NetFig
   | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
 /** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
 export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };

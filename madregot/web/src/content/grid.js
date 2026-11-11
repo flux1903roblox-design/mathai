@@ -2,7 +2,7 @@
 // a solving state and a near miss, and the geometry the object and the tests share. It loads after the first screen and
 // registers itself with content/manip.js (registerKind), which asks for it as soon as it loads; components/manip/
 // GridShape.jsx imports it too, so wherever the object is drawn its rules are here.
-import { registerKind, registerGeoWords, figNum, labelPlain } from './manip.js';
+import { registerKind, registerFigWords, figNum, labelPlain } from './manip.js';
 
 // maths inside a Hebrew sentence is isolated left to right, so x = 5 never reads 5 = x
 const ltr = (t) => `\u2066${t}\u2069`;
@@ -237,4 +237,4 @@ registerKind('polygon', {
   solution: polygonSolution,
   wrong: polygonWrong,
 });
-registerGeoWords(geoWords);
+registerFigWords('geo', geoWords);

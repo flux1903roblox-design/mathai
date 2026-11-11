@@ -1787,6 +1787,67 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { .mp-grid-shape { transition: none; } }
 
+/* the nets of solids (stage 3, NetFold.jsx). Every colour is a token: the faces mix the topic's colour (--c) into the
+   surface, lighter on top, darker on the side and darker still where the inside of a face shows; red and green only
+   for a right or wrong state. */
+/* no drag on a net's drawing: a finger on it scrolls the page (only the fix task's loose face is dragged) */
+.mp-net-canvas { touch-action: manipulation; cursor: default; }
+.mp-net-face {
+  --f: color-mix(in srgb, var(--c, var(--brand)) 18%, var(--surface));
+  fill: var(--f); stroke: var(--ink); stroke-width: 2; stroke-linejoin: round;
+}
+.mp-net-face.l1 { --f: color-mix(in srgb, var(--c, var(--brand)) 10%, var(--surface)); }
+.mp-net-face.l2 { --f: color-mix(in srgb, var(--c, var(--brand)) 20%, var(--surface)); }
+.mp-net-face.l3 { --f: color-mix(in srgb, var(--c, var(--brand)) 34%, var(--surface)); }
+.mp-net-face.in { --f: color-mix(in srgb, var(--c-d, var(--brand-d)) 42%, var(--surface)); }
+/* a cylinder's side is drawn in thin slats: each slat's outline in its own colour, so no seam shows between them */
+.mp-net-face.slat { stroke: var(--f); stroke-width: 0.8; }
+.mp-net-edge { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.mp-net-face.shade { --f: color-mix(in srgb, var(--c, var(--brand)) 62%, var(--surface)); }
+.mp-net-face.picked { --f: color-mix(in srgb, var(--brand) 26%, var(--surface)); stroke: var(--brand-d); stroke-width: 3.5; }
+.mp-net-face.hit, .mp-net-solid.hit .mp-net-face { --f: var(--good-tint); stroke: var(--good-d); }
+.mp-net-letter { fill: var(--ink); font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 19px; font-weight: 700; pointer-events: none; }
+
+/* face: each face is a button */
+.mp-net-pick { cursor: pointer; }
+.mp-net-pick:focus { outline: none; }
+.mp-net-pick:focus-visible .mp-net-face { stroke: var(--brand-d); stroke-width: 4.5; }
+
+/* fix: dashed slots, the loose face (the part the student moves) and its place beside the net */
+.mp-net-slot { cursor: pointer; }
+.mp-net-slot:focus { outline: none; }
+.mp-net-slot polygon { fill: color-mix(in srgb, var(--c, var(--brand)) 6%, transparent); stroke: var(--c-d, var(--brand-d)); stroke-width: 2; stroke-dasharray: 6 5; stroke-linejoin: round; }
+.mp-net-slot:focus-visible polygon { fill: color-mix(in srgb, var(--brand) 14%, transparent); stroke: var(--brand-d); stroke-width: 4; stroke-dasharray: none; }
+.mp-net-loose { cursor: grab; touch-action: none; }
+.mp-net-loose.dragging { cursor: grabbing; }
+.mp-net-loose .mp-net-face { --f: color-mix(in srgb, var(--c, var(--brand)) 48%, var(--surface)); stroke: var(--c-d, var(--brand-d)); stroke-width: 2.5; }
+.mp-net-loose .mp-net-face.hit { --f: color-mix(in srgb, var(--good) 40%, var(--surface)); stroke: var(--good-d); }
+.mp-net-tray { fill: none; stroke: var(--rule-strong); stroke-width: 2; stroke-dasharray: 4 4; stroke-linejoin: round; }
+
+/* the answer, after a miss: dashed in green */
+.mp-net-ghost polygon { fill: none; stroke: var(--good); stroke-width: 2.5; stroke-dasharray: 7 6; stroke-linejoin: round; }
+.mp-net-ghost-face { fill: color-mix(in srgb, var(--good) 14%, transparent); stroke: var(--good); stroke-width: 3; stroke-dasharray: 7 6; stroke-linejoin: round; pointer-events: none; }
+.mp-net-ghost-solid .mp-net-face { fill: none; stroke: var(--good); stroke-dasharray: 7 6; }
+.mp-net-ghost-solid line { display: none; }
+
+/* build: a box of unit cubes, a prism with its base shaded and its hidden edges dashed */
+.mp-net-unit { stroke: color-mix(in srgb, var(--ink) 38%, transparent); stroke-width: 1; }
+.mp-net-face.mp-net-base { --f: color-mix(in srgb, var(--c, var(--brand)) 55%, var(--surface)); }
+.mp-net-hidden { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 5 4; }
+
+/* the readout keeps room for its second line, so the drawing never moves under a finger */
+.mp-net-readout { font-variant-numeric: tabular-nums; }
+.mp-net-readout.two { flex-direction: column; gap: 0; min-height: 2.6em; justify-content: flex-start; }
+.mp-net-controls { align-items: center; }
+@media (max-width: 389px) {
+  .manip-net-build .mp-net-controls { gap: 6px; }
+  .manip-net-build .step-btn { width: 42px; height: 42px; }
+}
+/* the fold turns in JavaScript (300 ms a step, nothing under reduced motion); nothing here moves on its own */
+@media (prefers-reduced-motion: reduce) {
+  .mp-net-face, .mp-net-slot polygon { transition: none; }
+}
+
 /* two lines on the plane, and where they meet */
 .mp-line.two { stroke: var(--ink-2); stroke-width: 3.5; stroke-dasharray: 10 6; }
 .mp-lines-legend { gap: var(--s4); font-size: 19px; color: var(--ink); }

@@ -70,3 +70,7 @@
 .fig-cd-walk path { fill: none; stroke: var(--brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .fig-cd-meet circle { fill: var(--good-d); stroke: var(--ground); stroke-width: 2.5; }
 .fig-cd-meet-num { fill: var(--good-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+/* stage 3 (measurement): a net, flat (SolidFigs.jsx NetFig) */
+.fg-net-face { fill: color-mix(in srgb, var(--cyan) 7%, transparent); stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
+.fg-net-face.shade { fill: color-mix(in srgb, var(--brand) 32%, transparent); }
+.fg-net-letter { fill: var(--ink); font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 19px; font-weight: 700; }
