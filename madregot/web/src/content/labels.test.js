@@ -17,6 +17,7 @@ import { candidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { DATA } from './data.js';
+import { STATS2_CATS } from './stats2.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -759,8 +760,76 @@ const PROPS = {
     'mean-as-answer': (it, u) => near(u, Number(it.key.split(':').pop())),
     'ignore-freq': (it, u) => { const vals = it.key.split(':')[1].split(',').map(Number); return near(u, sum(vals) / vals.length); },
     'wrong-count': (it, u) => { const [vals, freqs] = it.key.split(':').slice(1).map((x) => x.split(',').map(Number)); return near(u, sum(vals.map((v, i) => v * freqs[i])) / vals.length); },
+    // stats:6-8 (curriculum stage 3, DATA-5), each read from the question's own numbers (its key)
+    // the largest value of the data the question asks about: as given (st6r), or after the change (st6s: M + c, 2M, 1.1M)
+    'range-max': (it, u) => {
+      if (it.key.startsWith('st6r:')) return fits(u, Math.max(...dataKey(it.key)[0]));
+      const st = st6s(it); return !!st && fits(u, st.f(Math.max(...st.vals)));
+    },
+    // the last value minus the first, the list unsorted
+    'first-last': (it, u) => { if (!it.key.startsWith('st6r:')) return false; const v = dataKey(it.key)[0]; return fits(u, Math.abs(v[v.length - 1] - v[0])); },
+    // the number added to every value added to the range too
+    'shift-range': (it, u) => { const st = st6s(it); return !!st && st.op === 'add' && fits(u, st.r + st.c); },
+    // every value multiplied, the range left as it was
+    'range-unchanged': (it, u) => { const st = st6s(it); return !!st && st.op !== 'add' && fits(u, st.r); },
+    // the old mean: all the values changed (st6m), or one wage raised (st6t)
+    'mean-unchanged': (it, u) => {
+      if (it.key.startsWith('st6m:')) return fits(u, Number(it.key.split(':')[2]));
+      const w = st6t(it); return !!w && fits(u, w.S / w.N);
+    },
+    // the whole raise added to the mean
+    'whole-raise': (it, u) => { const w = st6t(it); return !!w && fits(u, w.S / w.N + w.d); },
+    // the jumps' mean with the wind ignored: all five
+    'ignore-source': (it, u) => it.key.startsWith('st7j:') && fits(u, sum(dataKey(it.key)[1]) / 5),
+    // the legal jumps added (wind at most 2.0) and divided by all five
+    'all-count': (it, u) => { if (!it.key.startsWith('st7j:')) return false; const [wind, d] = dataKey(it.key); return fits(u, sum(d.filter((_, i) => wind[i] <= 2)) / 5); },
+    // this spring's total (March-May) against last spring's monthly mean
+    'total-not-mean': (it, u) => { if (!it.key.startsWith('st7b:')) return false; const [m, seasons] = dataKey(it.key); return fits(u, sum(m.slice(2)) - seasons[1]); },
+    // all five months averaged, against last spring's monthly mean
+    'all-months': (it, u) => { if (!it.key.startsWith('st7b:')) return false; const [m, seasons] = dataKey(it.key); return fits(u, sum(m) / 5 - seasons[1]); },
+    // the pie's percent of the chosen hobby written as the count
+    'count-as-pct': (it, u) => { if (!it.key.startsWith('st7p:')) return false; const [, ps, x] = dataKey(it.key); return fits(u, ps[x]); },
+    // interpolation: the middle of the two values, the whole difference each year, the steps counted from the other end,
+    // the change without the start
+    midpoint: (it, u) => { const q = st8i(it); return !!q && fits(u, (q.y1 + q.y2) / 2); },
+    'steps-not-scaled': (it, u) => { const q = st8i(it); return !!q && fits(u, q.y1 + q.j * (q.y2 - q.y1)); },
+    'wrong-end': (it, u) => { const q = st8i(it); return !!q && fits(u, q.y1 + (q.d - q.j) * q.rate); },
+    'no-start': (it, u) => { const q = st8i(it); return !!q && fits(u, Math.abs(q.j * q.rate)); },
+    // extrapolation of the tickets (t0 + i·a by 8, 10, 12, 14; s steps of two hours asked): stopped, one step, hours as steps
+    'last-value': (it, u) => { const q = st8e(it); return !!q && fits(u, q.t0 + 3 * q.a); },
+    'one-step': (it, u) => { const q = st8e(it); return !!q && q.s > 1 && fits(u, q.t0 + 4 * q.a); },
+    'hours-as-steps': (it, u) => { const q = st8e(it); return !!q && fits(u, q.t0 + 3 * q.a + 2 * q.s * q.a); },
+    // the choice that takes the trend far beyond the data as sure: the value carried on to the age asked, and nothing more
+    'far-extrap': (it, u) => {
+      if (!it.key.startsWith('st8l:')) return false;
+      const [, a, r, t1, T] = it.key.split(':').slice(1).map(Number); const c = it.choices[u];
+      return !!c && !c.ok && c.text.startsWith(`${a + r * (T - t1)} `) && !c.text.includes('הגיוני');
+    },
   },
 };
+
+/** stats:6 shiftRange's numbers from its key: the change, the values, the number added, the range, and the change as f. */
+function st6s(it) {
+  if (!it.key.startsWith('st6s:')) return null;
+  const [op, list, c] = it.key.split(':').slice(1); const vals = list.split(',').map(Number);
+  const f = op === 'add' ? (v) => v + Number(c) : op === 'x2' ? (v) => 2 * v : (v) => 1.1 * v;
+  return { op, vals, c: Number(c), r: Math.max(...vals) - Math.min(...vals), f };
+}
+/** stats:6 raise's numbers: the sum of the wages and the number of workers, and the raise. */
+function st6t(it) {
+  if (!it.key.startsWith('st6t:')) return null;
+  const [a, b, w1, w2, M, d] = nums(it.key); return { S: a * w1 + b * w2 + M, N: a + b + 1, d };
+}
+/** stats:8 interp's numbers: the years apart, the year asked, the change a year, the first value (and the second). */
+function st8i(it) {
+  if (!it.key.startsWith('st8i:')) return null;
+  const [d, j, rate, y1] = nums(it.key); return { d, j, rate, y1, y2: y1 + d * rate };
+}
+/** stats:8 extrap's numbers: the tickets by 8:00, the rise every two hours, the steps asked. */
+function st8e(it) {
+  if (!it.key.startsWith('st8e:')) return null;
+  const [t0, a, s] = nums(it.key); return { t0, a, s };
+}
 
 /**
  * An inequality item answered as if it said x rel' B with rel' = wrong(q): the ray drawn that way, the count of the
@@ -804,6 +873,9 @@ describe('every mistake label describes the answer', () => {
 describe('the algebra, fraction, ratio, percent and data topics name only what a property can check', () => {
   it('every category of expressions, equations, systems, fractions, ratio, percent and data has its property here', () => {
     for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, DATA]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+  });
+  it('every category of statistics stairs 6-8 has its property here', () => {
+    for (const cat of Object.keys(STATS2_CATS)) expect(PROPS.stats[cat], `stats '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

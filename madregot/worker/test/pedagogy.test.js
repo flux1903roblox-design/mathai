@@ -61,8 +61,9 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // cap moved up to 17,500; ratio and percent (their ways and their nine stairs) and the floor's frac:3-4 took it to
   // about 19,000 at the next merge, so it moved again; the lane's own stage 1 ways (shared/topicWays.js) and the "not
   // yet" list computed from the programme (its full Hebrew titles) took it to about 20,000, so it moved once more, on
-  // purpose. A further topic moves it only on purpose too.
-  assert.ok(s.length < 21000, `stable block is ${s.length} characters`);
+  // purpose. A further topic moves it only on purpose too: curriculum stage 3's statistics stairs 6-8 (the range, two
+  // sources, interpolation and extrapolation) added to the stats way took it from about 20,900 to 21,600, so it is 22,000.
+  assert.ok(s.length < 22000, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');
@@ -138,6 +139,11 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
   assert.ok(any(TOPIC_WAYS.stats.avoidRe, 'החציון הוא המספר האמצעי.'));
   assert.ok(!any(TOPIC_WAYS.stats.avoidRe, 'החציון הוא המספר האמצעי אחרי שמסדרים את המספרים.'));
   assert.ok(!any(TOPIC_WAYS.stats.avoidRe, 'קודם מסדרים מהקטן לגדול. החציון הוא המספר האמצעי.'), 'sorting said first');
+  // stats:6: the range is one number, the difference; its two ends given as the range is the book wording the app names once
+  for (const said of ['הטווח הוא מ־5 עד 17.', 'הטווח זה מ $5$ עד $17$.', 'טווח הוא מ-12 עד 40']) assert.ok(any(TOPIC_WAYS.stats.avoidRe, said), said);
+  for (const ok of ['הטווח הוא $17 - 5 = 12$.', 'הטווח הוא ההפרש בין הגדול לקטן.', 'יש ספרים שכותבים "הטווח הוא מ־5 עד 17", אבל הטווח הוא ההפרש.']) assert.ok(!any(TOPIC_WAYS.stats.avoidRe, ok), ok);
+  assert.ok(TOPIC_WAYS.stats.models.includes('The range is the largest value minus the smallest, one number.'));
+  assert.ok(TOPIC_WAYS.stats.models.includes('Interpolation estimates between known values'));
   // the curriculum lane's fractions (frac): the wrong expansion and the bigger denominator, never the app's own titles
   assert.ok(any(TOPIC_WAYS.frac.avoidRe, 'בהרחבה מוסיפים אותו מספר למונה ולמכנה.'));
   assert.ok(any(TOPIC_WAYS.frac.avoidRe, 'ככל שהמכנה גדול יותר, כך השבר גדול יותר.'));

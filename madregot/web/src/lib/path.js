@@ -73,7 +73,11 @@ export function unitNodes(topic, path = {}) {
  * Stairs added to a unit after students had climbed it: saved progress is kept by topic and level, so the stairs before
  * keep their state and the new one becomes the current stair after them. Its card says why it is there.
  */
-const ADDED_STAIRS = { 'signed:6': 'נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.' };
+const ADDED_STAIRS = {
+  'signed:6': 'נוספה מדרגה חדשה ליחידה: שברים ועשרוניים מכוונים.',
+  // curriculum stage 3 (DATA-5): three stairs after stats:5; the first of them says it for all three
+  'stats:6': 'נוספו ליחידה שלוש מדרגות חדשות: טווח, שני מקורות מידע, ואינטרפולציה ואקסטרפולציה.',
+};
 /** The line a stair's card adds while it is the current stair and the stair before it is done; computed, never stored. */
 export const addedStairNote = (n, path = {}) => (n?.kind === 'node' && n.state === 'current' && n.level > 1 && isDone(path, n.topic, n.level - 1)
   ? ADDED_STAIRS[`${n.topic}:${n.level}`] || null : null);

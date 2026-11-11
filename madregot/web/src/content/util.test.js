@@ -258,7 +258,9 @@ describe('practice-only questions are kept out of checks', () => {
   // (data:2), buildPie and pieOk (data:3), scaleMc and the covered wheel (data:4)
   const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b',
     'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m',
-    'da1r', 'da1c', 'da1g', 'da1b', 'da1a', 'da2c', 'da3b', 'da3o', 'da4s', 'da4w'];
+    'da1r', 'da1c', 'da1g', 'da1b', 'da1a', 'da2c', 'da3b', 'da3o', 'da4s', 'da4w',
+    // stats:6-8 (curriculum stage 3): which measure moves, what does not fit, between or beyond, a trend carried too far
+    'st6o', 'st7c', 'st8w', 'st8l'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

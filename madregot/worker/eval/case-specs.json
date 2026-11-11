@@ -365,6 +365,139 @@
       "tags": ["data", "generator"]
     },
     {
+      "id": "D1-stats6-shift-range", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "diag", "params": {"op": "add", "vals": [64, 78, 55, 91, 70, 82, 60, 73], "c": 4, "r": 36}, "wrong": [40, 41], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "shift-range", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 4 added to every grade was added to the range too. Adding the same number to every grade raises the largest and the smallest by 4, so the range stays 91 - 55 = 36. Ends at 36. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6-range-max", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "diag", "params": {"op": "add", "vals": [64, 78, 55, 91, 70, 82, 60, 73], "c": 4, "r": 36}, "wrong": [95, 41], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "range-max", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the largest grade after the change (95) was given instead of the range. The range is the largest minus the smallest, one number: 95 - 59 = 36. Ends at 36. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6-range-unchanged", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "diag", "params": {"op": "x2", "vals": [12, 5, 9, 17, 8, 14, 6, 11], "c": null, "r": 12}, "wrong": [12, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "range-unchanged", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the range was taken to stay as it was when every value was doubled. Multiplying every value by 2 doubles every distance, the range too: 34 - 10 = 24. Ends at 24. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6T-whole-raise", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "transfer", "params": {"a": 4, "b": 5, "w1": 5000, "w2": 5200, "M": 9000, "d": 2000, "N": 10, "S": 55000}, "wrong": [7500, 5600], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "whole-raise", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole raise of 2000 was added to the mean. The raise goes into the sum, which is shared by 10 workers: 2000 : 10 = 200, so the mean is 5500 + 200 = 5700. Ends at 5700. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6T-mean-unchanged", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "transfer", "params": {"a": 4, "b": 5, "w1": 5000, "w2": 5200, "M": 9000, "d": 2000, "N": 10, "S": 55000}, "wrong": [5500, 5600], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "mean-unchanged", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the mean was taken not to move when one wage changed. The manager's raise adds 2000 to the sum of 55000, and 57000 : 10 = 5700. Ends at 5700. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats6-gen-first-last", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:6", "source": "gen", "key": "st6r:14,26,18,35,16,57,11,17,57", "wrong": [43, 40], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "first-last", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the range was taken from the first and the last value of the list (57 - 14 = 43) without looking for the largest and the smallest. The largest is 57 and the smallest 11: 57 - 11 = 46. Ends at 46. Names no other mistake." },
+      "tags": ["stats", "generator"]
+    },
+    {
+      "id": "D1-stats7-ignore-source", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "diag", "params": {"L": 3, "legal": [0, 2, 3], "wind": [1.4, 2.3, 0.8, 1.9, 2.6], "d": [612, 640, 628, 635, 655]}, "wrong": [634, 630], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "ignore-source", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only one source was used, so all five jumps were averaged. The wind chart rules out jumps 2 and 5 (2.3 and 2.6, above 2.0); the legal jumps are 612, 628 and 635, and 1875 : 3 = 625. Ends at 625. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7-all-count", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "diag", "params": {"L": 3, "legal": [0, 2, 3], "wind": [1.4, 2.3, 0.8, 1.9, 2.6], "d": [612, 640, 628, 635, 655]}, "wrong": [375, 630], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "all-count", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the three legal jumps were added but divided by all five. Only three jumps count, so 1875 : 3 = 625. Ends at 625. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7T-total-not-mean", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "transfer", "params": {"m": [520, 480, 420, 390, 360], "S": 350, "seasons": [600, 350, 480, 400]}, "wrong": [820, 45], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "total-not-mean", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the spring total (1170) was compared with last spring's monthly mean (350). Compare a monthly mean with a monthly mean: 1170 : 3 = 390, and 390 - 350 = 40. Ends at 40. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7T-all-months", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "transfer", "params": {"m": [520, 480, 420, 390, 360], "S": 350, "seasons": [600, 350, 480, 400]}, "wrong": [84, 45], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "all-months", "maxWords": 130,
+        "describe": "Names the app's diagnosis: all five months were averaged, winter too. Spring is March, April and May: (420 + 390 + 360) : 3 = 390, and 390 - 350 = 40. Ends at 40. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats7-gen-count-as-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:7", "source": "gen", "key": "st7p:29,27,24:40,15,45:1", "wrong": [15, 20], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-as-pct", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the percent on the pie (15%) was written as the number of students. The table gives the whole grade, 29 + 27 + 24 = 80, and 15% of 80 is 12. Ends at 12. Names no other mistake." },
+      "tags": ["stats", "generator"]
+    },
+    {
+      "id": "D1-stats8-midpoint", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [200, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "midpoint", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the middle of 140 and 260 was taken, which fits only the middle year, 2016. The change is 120 in 8 years, 15 a year, and 2015 is 3 years after 2012: 140 + 45 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-steps-not-scaled", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [500, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "steps-not-scaled", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the whole difference of 120 was added for every year. 120 is the change of all 8 years together; one year is 120 : 8 = 15, so 2015 is 140 + 3 * 15 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-wrong-end", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [215, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "wrong-end", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the years were counted from the other end (5 years from 2020) and added to 140. 2015 is 3 years after 2012: 140 + 3 * 15 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-no-start", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "diag", "params": {"d": 8, "j": 3, "rate": 15, "y1": 140, "y2": 260, "x1": 2012}, "wrong": [45, 190], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "no-start", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the change (3 years of 15, 45) was given, without the starting value. The change is added to the 140 of 2012: 140 + 45 = 185. Ends at 185. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8T-last-value", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "transfer", "params": {"t0": 200, "a": 150, "s": 1, "vals": [200, 350, 500, 650], "at": 16}, "wrong": [650, 780], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "last-value", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the trend was taken to stop at the last value (650 by 14:00). Every two hours 150 more tickets are sold, so by 16:00 there are 650 + 150 = 800. Ends at 800. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8T-one-step", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "transfer", "params": {"t0": 120, "a": 60, "s": 3, "vals": [120, 180, 240, 300], "at": 20}, "wrong": [360, 450], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-step", "maxWords": 130,
+        "describe": "Names the app's diagnosis: one step of two hours was added though 20:00 is three steps after 14:00. 300 + 3 * 60 = 480. Ends at 480. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8T-hours-as-steps", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "transfer", "params": {"t0": 120, "a": 60, "s": 3, "vals": [120, 180, 240, 300], "at": 20}, "wrong": [660, 450], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "hours-as-steps", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 6 hours from 14:00 to 20:00 were counted as 6 steps, but the data were taken every two hours, so a step is two hours: 3 steps, 300 + 3 * 60 = 480. Ends at 480. Names no other mistake." },
+      "tags": ["stats"]
+    },
+    {
+      "id": "D1-stats8-gen-far-extrap", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "stats:8", "source": "gen", "key": "st8l:0:145:5:10:30", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "far-extrap", "maxWords": 110,
+        "describe": "Names the app's diagnosis: the trend was carried far beyond the data as if it were sure. 145 + 20 * 5 = 245 cm at 30 is not reasonable: people stop growing. The further from the data, the less sure the estimate. Does not say which choice is right." },
+      "tags": ["stats", "generator"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

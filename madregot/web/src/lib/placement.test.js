@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { startLesson, answer, next, resultOf, progressOf } from './lesson.js';
-import { nextProbe, startLevel, startPlacement, placementMax, PER_TOPIC, PROBE_LEN, PLACEMENT_XP } from './placement.js';
+import { nextProbe, startLevel, startPlacement, placementMax, placementTop, PER_TOPIC, PROBE_LEN, PLACEMENT_XP } from './placement.js';
 import { noteGap, gapsFromExam, gapsOf, gapTarget, boardOf, GAP_CLEAR } from './board.js';
 import { unitNodes, doneCount, reachedUpTo } from './path.js';
 import { useApp, today, streakOf } from './store.js';
@@ -28,6 +28,21 @@ describe('placement', () => {
     expect(startLevel(5, 1)).toBe(2);
     expect(startLevel(5, 2)).toBe(3);
     expect(startLevel(8, 3)).toBe(7);
+  });
+  it('statistics keeps its first-day reach (placementTop 5): stats:6-8 are December and January stairs', () => {
+    // eight levels, but the test probes as it did with five: the first probe is stats:2, 3 and 4 for know 1, 2 and 3
+    expect(TOPIC.stats.levels).toHaveLength(8);
+    expect(placementTop('stats')).toBe(5);
+    expect(placementTop('pyth')).toBe(TOPIC.pyth.levels.length); // a topic without the field: its last level
+    const firstProbe = (know) => {
+      let s = startLesson({ kind: 'placement', grade: '8', know }); let guard = 0;
+      while (s.topics[s.ti] !== 'stats' && guard++ < 60) s = next(answer(s, right(s)).s);
+      return s.item.level;
+    };
+    expect([1, 2, 3].map(firstProbe)).toEqual([2, 3, 4]);
+    // a student who knows everything is placed where five levels placed them (two probes: 2 then 4, 3 then 5, 4 then 5),
+    // never above stats:5 on the first day
+    expect([1, 2, 3].map((know) => take(startLesson({ kind: 'placement', grade: '8', know }), () => true).results.stats.level)).toEqual([4, 5, 5]);
   });
   it('the probe searches between the last right and the last wrong level (halfway, rounded up)', () => {
     expect(nextProbe({ lo: 3, hi: 6, asked: 1 })).toBe(5);

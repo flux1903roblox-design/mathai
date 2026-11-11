@@ -87,6 +87,10 @@ export const STAIR_NAMES = Object.freeze({
   'stats:3': 'ממוצע',
   'stats:4': 'ממוצע מטבלה',
   'stats:5': 'נתון חסר',
+  // curriculum stage 3 (DATA-5): the rest of ח׳ units 8.10 and 8.11
+  'stats:6': 'טווח ושינוי של כל הנתונים',
+  'stats:7': 'שני מקורות מידע',
+  'stats:8': 'אינטרפולציה ואקסטרפולציה',
   'sys:1': 'משוואות עם אחוזים',
   'sys:2': 'שיטת ההצבה',
   'sys:3': 'השוואת מקדמים',

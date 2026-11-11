@@ -110,10 +110,11 @@ export const PROGRAMME = {
     { id: '8.10', grade: '8', domain: 'uncertainty', title: 'טווח נתונים ומדדי מרכז, שני מקורות מידע', months: [12, 1],
       parts: [
         { hours: 8, skills: range('stats', 2, 5) },
-        { hours: 4, skills: [], note: 'טווח נתונים והשוואה בין שני מקורות מידע', later: 'S3' },
+        // curriculum stage 3 (DATA-5): the range and a change to every value, and two sources of data
+        { hours: 4, skills: ['stats:6', 'stats:7'] },
       ] },
     { id: '8.11', grade: '8', domain: 'uncertainty', title: 'אינטרפולציה, אקסטרפולציה', months: [1],
-      parts: [{ hours: 4, skills: [], note: 'אינטרפולציה ואקסטרפולציה', later: 'S3' }] },
+      parts: [{ hours: 4, skills: ['stats:8'] }] },
     { id: '8.12', grade: '8', domain: 'geometry', title: 'חפיפת משולשים, צלעות במשולש, תיכון', months: [1, 2],
       parts: [{ hours: 16, skills: [], note: 'חפיפת משולשים, צלעות במשולש ותיכון', later: 'S4' }] },
     { id: '8.13', grade: '8', domain: 'geometry', title: 'זווית חיצונית, שווה־שוקיים ומשפטים הפוכים, דמיון משולשים', months: [3, 4],

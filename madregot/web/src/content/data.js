@@ -47,13 +47,13 @@ const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b,
 const same = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
 const whole = (v) => Math.abs(v - Math.round(v)) <= 1e-9;
 /** Every prediction of a model for one draw. */
-const bugsAt = (model, p) => Object.fromEntries(Object.entries(model.bugs).map(([id, f]) => [id, f(p)]));
+export const bugsAt = (model, p) => Object.fromEntries(Object.entries(model.bugs).map(([id, f]) => [id, f(p)]));
 /**
  * diagOf, carrying the answers it can name (its predictions): content/index.js namesOf reads them instead of trying
  * thousands of typed numbers, so the probe of a verification after a repair (a misconception only some of these
  * exercises show, learn/items.ts genProbe) is found at once and not after seconds of search
  */
-function diagWith(ans, bugs) {
+export function diagWith(ans, bugs) {
   const d = diagOf(ans, bugs);
   d.wrongs = Object.values(bugs).filter((v) => v != null && Number.isFinite(v));
   return d;
@@ -106,7 +106,7 @@ export function cleanP(model, p) {
   return true;
 }
 const draw = (model, raw, rule) => (r) => { for (;;) { const p = raw(r); if (p && rule(model, p)) return p; } };
-function mk(m, rule = clean) { m.params = draw(m, m.raw, rule); m.rule = rule === cleanP ? 'P' : '0.06'; return m; }
+export function mk(m, rule = clean) { m.params = draw(m, m.raw, rule); m.rule = rule === cleanP ? 'P' : '0.06'; return m; }
 
 // ---------------------------------------------------------------- the models' draws (spec/models.mjs, unchanged)
 

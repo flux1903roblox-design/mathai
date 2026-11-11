@@ -4,6 +4,7 @@ import { LINEAR } from './linear.js';
 import { SYS } from './sys.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
+import { STATS2_LEVELS, STATS2_CATS } from './stats2.js';
 
 // ---------------------------------------------------------------- Pythagoras
 // About half the questions come from whole-number triangles (Pythagorean triples), the rest need a root that is not
@@ -331,13 +332,18 @@ export const GRADE8 = [
   },
   {
     id: 'stats', grade: '8', title: 'סטטיסטיקה', color: 'fuchsia',
-    desc: 'שכיח, חציון, ממוצע וטבלת שכיחויות',
+    desc: 'שכיח, חציון, ממוצע וטבלת שכיחויות; טווח, שני מקורות מידע, אינטרפולציה ואקסטרפולציה',
+    // The first-day placement test reaches stats:1-5 only (taught from September): stats:6-8 are December and January
+    // stairs, and eight levels instead of five would move every probe (lib/placement.js reads placementTop).
+    placementTop: 5,
     levels: [
       { title: 'שכיח', gen: mode },
       { title: 'חציון', gen: () => (Math.random() < 0.4 ? medianBars() : (median)()) },
       { title: 'ממוצע', gen: () => (Math.random() < 0.5 ? meanBars() : mean()) },
       { title: 'ממוצע מטבלה', gen: freqMean },
       { title: 'נתון חסר', gen: missingValue },
+      // the rest of units 8.10 and 8.11 (curriculum stage 3, DATA-5): content/stats2.js
+      ...STATS2_LEVELS,
     ],
     cats: {
       'mode-max': 'בחרו את הערך הגדול ביותר במקום השכיח',
@@ -350,6 +356,7 @@ export const GRADE8 = [
       'ignore-freq': 'התעלמו ממספר התלמידים בכל ציון',
       'wrong-count': 'חילקו במספר השורות ולא במספר התלמידים',
       'mean-as-answer': 'כתבו את הממוצע במקום המספר החסר',
+      ...STATS2_CATS,
     },
   },
   SYS,

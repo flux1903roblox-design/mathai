@@ -1145,10 +1145,71 @@
      2,
      2
     ]
+   },
+   "stats:6": {
+    "discover": 8,
+    "examples": [
+     4,
+     3
+    ],
+    "misconceptions": [
+     1,
+     2,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "stats:7": {
+    "discover": 8,
+    "examples": [
+     3,
+     2
+    ],
+    "misconceptions": [
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "stats:8": {
+    "discover": 8,
+    "examples": [
+     4,
+     3
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
    }
   },
-  "stairs": 5,
-  "steps": 142
+  "stairs": 8,
+  "steps": 212
  },
  "sys": {
   "skills": {

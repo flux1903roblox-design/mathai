@@ -147,4 +147,12 @@ describe('a stair added to a unit after it was climbed (signed:6)', () => {
     const all = { signed: { parts: {}, reviews: 1, jumped: 0, done: { ...five, 6: 'mastered' } } };
     expect(addedStairNote(unitNodes('signed', all)[5], all)).toBeNull();
   });
+  it('statistics (stats:6-8, curriculum stage 3): the first new stair is current after the five, and its card names all three', () => {
+    const path = { stats: { parts: {}, reviews: 1, jumped: 0, done: { 1: 'mastered', 2: 'mastered', 3: 'mastered', 4: 'mastered', 5: 'mastered' } } };
+    const nodes = unitNodes('stats', path);
+    expect(nodes.slice(5, 9).map((n) => [n.level, n.state])).toEqual([[6, 'current'], [7, 'locked'], [8, 'locked'], [8, 'locked']]);
+    expect(nodes[8]).toMatchObject({ kind: 'review', state: 'locked' });
+    expect(addedStairNote(nodes[5], path)).toBe('נוספו ליחידה שלוש מדרגות חדשות: טווח, שני מקורות מידע, ואינטרפולציה ואקסטרפולציה.');
+    nodes.filter((n) => n !== nodes[5]).forEach((n) => expect(addedStairNote(n, path)).toBeNull());
+  });
 });

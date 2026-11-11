@@ -12,7 +12,7 @@ export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'exp
 // GRADE_OF and STAIRS hold the topics this build has; TopicId also names curriculum stage 3's prob, which takes its
 // grade and its stairs in the commit that adds its content (and is in no list until then).
 export const GRADE_OF: Partial<Record<TopicId, '7' | '8'>> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', data: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Partial<Record<TopicId, number>> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, data: 4, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+export const STAIRS: Partial<Record<TopicId, number>> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, data: 4, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 8, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -120,6 +120,10 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'stats:3': ['frac:2'], // mean: sum and share; a mean is often a decimal, read and compared by place value (bridge edge)
   'stats:4': ['stats:3', 'data:1'], // mean from a frequency table (reading the table first, data:1)
   'stats:5': ['stats:3', 'eq:2'], // a missing value from the mean: the mean equation backwards, (sum + x) : n = mean, two steps
+  // curriculum stage 3 (DATA-5): the rest of ח׳ units 8.10 and 8.11
+  'stats:6': ['stats:2', 'stats:3'], // the range sits beside the median and the mean; adding to every value moves them
+  'stats:7': ['data:1', 'stats:3'], // two sources are a table and a chart read together; the question is often a mean
+  'stats:8': ['line:3', 'ratio:3'], // a uniform change is a constant rate (slope); between two values it splits in proportion
   // a percent change in a story becomes an equation (eq:5); x + 0.2x = 1.2x is collecting like terms (expr:3); the
   // change is a multiplier of the old price (pct:5, an own-grade edge: not new before pct:5 is done, as in school order)
   'sys:1': ['eq:5', 'expr:3', 'pct:5'],

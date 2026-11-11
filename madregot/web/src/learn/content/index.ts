@@ -37,7 +37,8 @@ function importTopic(topic: string): Promise<StairContent[]> {
     case 'pct': return import('./pct').then((m) => m.PCT);
     case 'line': return import('./line').then((m) => [...m.LINE1, ...m.LINE2]);
     case 'pyth': return import('./pyth').then((m) => m.PYTH);
-    case 'stats': return import('./stats').then((m) => m.STATS);
+    // stats:6-8 (curriculum stage 3: range, two sources, interpolation) are in their own file
+    case 'stats': return Promise.all([import('./stats'), import('./stats2')]).then(([a, b]) => [...a.STATS, ...b.STATS2]);
     case 'sys': return import('./sys').then((m) => m.SYS);
     // a topic with no teaching content has nothing to load
     default: return Promise.resolve([]);

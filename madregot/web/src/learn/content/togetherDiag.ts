@@ -273,6 +273,26 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // five friends of mean 12, six of mean 13: 78 − 60 = 18. The mean itself: 13. 13 times five: 65 − 60 = 5
     { bugs: { 'mean-as-answer': 13, 'known-count': 5 } },
   ],
+  // stats:6-8 (curriculum stage 3, DATA-5): the spec's entries, each prediction checked by its critique/check.mjs D
+  'stats:6': [
+    // 14, 3, 9, 21, 6, 17: the range 18. The largest value: 21. The last minus the first: 17 − 14 = 3
+    { bugs: { 'range-max': 21, 'first-last': 3 } },
+    // a range of 25 and 8 added to every grade: the 8 added to the range
+    { bugs: { 'shift-range': 33 } },
+  ],
+  'stats:7': [
+    // the spring total against a monthly mean: 1050 − 330 = 720; all five months: 390 − 330 = 60
+    { model: 'transfer', p: { m: [460, 440, 380, 350, 320], S: 330, seasons: [600, 330, 500, 400] } },
+    // a warm-up with one right path: no misconception of the stair shows on 155
+    { bugs: {} },
+  ],
+  'stats:8': [
+    // 48 in 2011, 84 in 2017, asked 2013: the midpoint 66, the whole change each year 120, from the other end 72, the
+    // change only 12
+    { model: 'diag', p: { d: 6, j: 2, rate: 6, y1: 48, y2: 84, x1: 2011 } },
+    // 240 by 12:00, 60 more every two hours, asked 18:00: the trend stopped 240, one step 300, hours as steps 600
+    { bugs: { 'last-value': 240, 'one-step': 300, 'hours-as-steps': 600 } },
+  ],
   // Algebra. As for coord:2 and pyth:3, a prediction counts only when the steps the student has just solved leave it
   // possible: a bracket opened right in a step is not "opened wrong" in the last one, and an equation chosen in a step
   // is not "reversed". What is left is what the last step itself asks.

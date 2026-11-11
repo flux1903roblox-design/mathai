@@ -185,7 +185,7 @@ describe('the data unit on the ח׳ path this year (the real ALSO_ON_PATH)', () 
 
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(66); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year), and data:1-4
+    expect(ALL_SKILLS).toHaveLength(69); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year), data:1-4 and stats:6-8
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));
@@ -259,8 +259,8 @@ describe('a unit on two grades\' paths (ALSO_ON_PATH)', () => {
     expect(unitGrade(expr, '8', {})).toBe('7');
     expect(unitGrade(expr, undefined, ALSO)).toBe('7');
   });
-  it('the real catalogue is unchanged by the table: 66 stairs and an 18-question first-day test for ח׳', async () => {
-    expect(ALL_SKILLS).toHaveLength(66);
+  it('the real catalogue is unchanged by the table: 69 stairs and an 18-question first-day test for ח׳', async () => {
+    expect(ALL_SKILLS).toHaveLength(69);
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
     expect(placementMax('8')).toBe(18);

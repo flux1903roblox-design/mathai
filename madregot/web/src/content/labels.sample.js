@@ -29,7 +29,8 @@ export function candidates(it) {
   // numbers: whole numbers far enough for squares and sums, tenths and simple fractions near zero; for ratio and scale,
   // the answer times and over 100, 1000 and 100000 too (units not converted, or converted too far)
   const scaled = it.topic === 'ratio' && typeof it.answer === 'number' ? [100, 1000, 100000].flatMap((k) => [it.answer * k, it.answer / k]) : [];
-  const out = new Set([...scaled, ...range(-60, 900), ...range(-30, 30, 0.1), ...range(-12, 12, 0.05), ...range(-100, 1000, 0.5), ...range(-100, 100, 0.1)]);
+  // and every prediction a diag() lists (content/data.js diagWith): a large one (a spring total, 1470) is tried too
+  const out = new Set([...scaled, ...(it.diag?.wrongs || []), ...range(-60, 900), ...range(-30, 30, 0.1), ...range(-12, 12, 0.05), ...range(-100, 1000, 0.5), ...range(-100, 100, 0.1)]);
   for (let q = 3; q <= 7; q += 1) for (let p = -40; p <= 40; p += 1) out.add(p / q);
   // square roots, as a misused theorem gives them (rounded the way the checker reads them)
   for (let n = 1; n <= 2000; n += 1) { out.add(Math.round(Math.sqrt(n) * 100) / 100); out.add(Math.round(Math.sqrt(n) * 10) / 10); }

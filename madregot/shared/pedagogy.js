@@ -175,11 +175,15 @@ export const TOPIC_WAYS = Object.freeze({
     avoidRe: [re(String.raw`(?:לפי\s+(?:ה)?נוסחה|הנוסחה(?:\s+היא)?|נוסחת\s+פיתגורס(?:\s+היא)?|(?:משתמשים|מציבים)\s+בנוסחה)\s*:?\s*\$?a\^2\s*\+\s*b\^2\s*=\s*c\^2${unless('יתר|ניצב|ישרה|ישר־זווית')}`)],
   },
   stats: {
-    models: 'The mode is the tallest pile of equal values. The median comes after sorting: the middle value, or the mean of the two middle ones. The mean is the height all bars reach when the total is shared equally: the sum over the number of values. In a frequency table each value counts as often as it appears. A missing value: the total is the mean times the count.',
-    words: ['שכיח', 'חציון', 'ממוצע', 'טבלת שכיחויות'],
-    avoid: ['taking the middle without sorting', 'dividing by the number of different values in a frequency table'],
+    models: 'The mode is the tallest pile of equal values. The median comes after sorting: the middle value, or the mean of the two middle ones. The mean is the height all bars reach when the total is shared equally: the sum over the number of values. In a frequency table each value counts as often as it appears. A missing value: the total is the mean times the count. The range is the largest value minus the smallest, one number. Adding the same number to every value moves the mode, median and mean by it and keeps the range; multiplying every value multiplies all of them, the range too. Two sources are joined by what they share (the same jump, the same month) and checked for contradictions. Interpolation estimates between known values (a uniform change: the change per step times the steps); extrapolation continues the trend beyond them, less surely the further it goes.',
+    words: ['שכיח', 'חציון', 'ממוצע', 'טבלת שכיחויות', 'טווח', 'מקור מידע', 'אינטרפולציה', 'אקסטרפולציה'],
+    avoid: ['taking the middle without sorting', 'dividing by the number of different values in a frequency table', '"the range is from … to …" as the answer (it is one number, the difference)', '"the midpoint is always the value in between"'],
     // a reply that calls the median the middle number and never mentions sorting (a lookahead from the start of the text)
-    avoidRe: [new RegExp(String.raw`^(?![\s\S]*(?:מסדר|סידור|לפי הסדר|ממוינ|ממיינ|מהקטן לגדול|מהגדול לקטן))[\s\S]*?${Q}החציון\s+(?:הוא|זה)\s+(?:פשוט\s+)?(?:המספר|הערך)\s+(?:ה)?אמצעי`)],
+    avoidRe: [
+      new RegExp(String.raw`^(?![\s\S]*(?:מסדר|סידור|לפי הסדר|ממוינ|ממיינ|מהקטן לגדול|מהגדול לקטן))[\s\S]*?${Q}החציון\s+(?:הוא|זה)\s+(?:פשוט\s+)?(?:המספר|הערך)\s+(?:ה)?אמצעי`),
+      // the range given as its two ends ("הטווח הוא מ־5 עד 17"), where the app teaches one number, the difference
+      re(String.raw`(?:ה)?טווח\s+(?:הוא|זה)\s+מ־?\s*\$?-?\d`),
+    ],
   },
   sys: {
     models: String.raw`A solution is checked by putting it back in. A percent is of the original quantity: call it $x$ and write the change as multiplication (20% more is $1.2x$, 30% off $0.7x$; $1.2x = 60$). A system's solution is a pair true in both equations, where the two lines meet. Substitute, in brackets, when one equation gives $y$ (or $x$); else subtract the equations when a variable's coefficients are equal, add them when opposite. 0, 1 or infinitely many solutions. A story with two unknowns has two "equals" sentences, one equation each. An inequality is solved like an equation; its direction reverses only when multiplying or dividing both sides by a negative number ($2 < 3$ but $-2 > -3$). Check the direction with one number from the range; the answer is a ray with a full or an empty end.`,

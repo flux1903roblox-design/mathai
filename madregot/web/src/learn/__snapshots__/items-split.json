@@ -642,6 +642,12 @@
   "stats:4/gen",
   "stats:5/diag",
   "stats:5/gen",
+  "stats:6/diag",
+  "stats:6/gen",
+  "stats:7/diag",
+  "stats:7/gen",
+  "stats:8/diag",
+  "stats:8/gen",
   "sys:1/diag",
   "sys:1/gen",
   "sys:2/diag",
@@ -2413,6 +2419,117 @@
     "stats:5/probe/mean-as-answer",
     "stats:5/probe/mean-as-answer",
     "stats:5/control/mean-as-answer"
+   ]
+  }
+ },
+ "stats:6": {
+  "items": [
+   "mastery0:st6r:59,42,32,25,28,15,34|44|gen",
+   "mastery1:st6m:6:14:x2:2|28|gen",
+   "mastery2:stats:6:diag:{\"op\":\"add\",\"vals\":[69,91,85,85,79,85,58,73],\"c\":3,\"r\":33}|33|diag",
+   "mastery3:st6r:18,33,18,59,15,53,12,9|50|gen",
+   "mastery4:stats:6:transfer:{\"a\":5,\"b\":4,\"w1\":4700,\"w2\":4800,\"M\":12000,\"d\":2500,\"N\":10,\"S\":54700}|5720|transfer",
+   "review0:stats:6:transfer:{\"a\":2,\"b\":2,\"w1\":4800,\"w2\":5200,\"M\":8000,\"d\":2000,\"N\":5,\"S\":28000}|6000|transfer",
+   "review1:st6r:33,46,5,55,34,38,41,58|53|gen",
+   "review2:stats:6:diag:{\"op\":\"add\",\"vals\":[69,91,85,85,79,85,58,73],\"c\":3,\"r\":33}|33|diag",
+   "verify0:stats:6:probe:{\"op\":\"add\",\"vals\":[57,69,89,70,78,40,69,52],\"c\":7,\"r\":49}|49|probe",
+   "verify1:stats:6:probe:{\"op\":\"add\",\"vals\":[82,70,76,61,78,72,93,52],\"c\":3,\"r\":41}|41|probe",
+   "verify2:stats:6:diag:{\"op\":\"x2\",\"vals\":[10,6,16,8,1,12,2,13],\"c\":null,\"r\":15}|30|diag",
+   "gen:st6m:8:35:add:4|39|gen",
+   "diag:stats:6:diag:{\"op\":\"x2\",\"vals\":[11,13,12,18,11,2,11,13],\"c\":null,\"r\":16}|32|diag",
+   "transfer:stats:6:transfer:{\"a\":4,\"b\":3,\"w1\":5100,\"w2\":5400,\"M\":12000,\"d\":1000,\"N\":8,\"S\":48600}|6200|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "stats:6/gen/",
+    "stats:6/gen/",
+    "stats:6/diag/",
+    "stats:6/gen/",
+    "stats:6/transfer/"
+   ],
+   "review": [
+    "stats:6/transfer/",
+    "stats:6/gen/",
+    "stats:6/diag/"
+   ],
+   "verify": [
+    "stats:6/probe/range-max",
+    "stats:6/probe/range-max",
+    "stats:6/control/range-max"
+   ]
+  }
+ },
+ "stats:7": {
+  "items": [
+   "mastery0:st7j:1.7,0.3,0.6,2.5,1:562,571,660,608,615|602|gen",
+   "mastery1:st7b:590,510,510,400,410:520,270,590,350|170|gen",
+   "mastery2:stats:7:diag:{\"L\":4,\"legal\":[0,1,3,4],\"wind\":[1.5,1.5,3,1.1,0.5],\"d\":[628,680,666,666,652]}|656.5|diag",
+   "mastery3:st7j:1.7,2.7,1.7,1,1.3:598,629,661,570,593|605.5|gen",
+   "mastery4:stats:7:transfer:{\"m\":[600,590,520,370,430],\"S\":250,\"seasons\":[680,250,500,330]}|190|transfer",
+   "review0:stats:7:transfer:{\"m\":[360,390,460,570,470],\"S\":410,\"seasons\":[500,410,500,330]}|90|transfer",
+   "review1:st7p:27,24,29:55,20,15,10:3|8|gen",
+   "review2:stats:7:diag:{\"L\":4,\"legal\":[0,1,3,4],\"wind\":[1.5,1.5,3,1.1,0.5],\"d\":[628,680,666,666,652]}|656.5|diag",
+   "verify0:stats:7:probe:{\"L\":4,\"legal\":[0,2,3,4],\"wind\":[2,3.2,1.2,2,0.9],\"d\":[629,592,641,643,657]}|642.5|probe",
+   "verify1:stats:7:probe:{\"L\":3,\"legal\":[0,1,4],\"wind\":[1.5,1.3,3.2,2.3,0.4],\"d\":[610,664,611,674,622]}|632|probe",
+   "verify2:stats:7:diag:{\"L\":3,\"legal\":[0,2,4],\"wind\":[1.3,3,1,3.1,0.4],\"d\":[652,686,596,667,609]}|619|diag",
+   "gen:st7c:0:50,45,15:40|0|gen",
+   "diag:stats:7:diag:{\"L\":4,\"legal\":[0,1,3,4],\"wind\":[1.2,0.4,2.7,1.3,1.1],\"d\":[622,670,615,647,649]}|647|diag",
+   "transfer:stats:7:transfer:{\"m\":[440,560,430,500,510],\"S\":280,\"seasons\":[530,280,450,360]}|200|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "stats:7/gen/",
+    "stats:7/gen/",
+    "stats:7/diag/",
+    "stats:7/gen/",
+    "stats:7/transfer/"
+   ],
+   "review": [
+    "stats:7/transfer/",
+    "stats:7/gen/",
+    "stats:7/diag/"
+   ],
+   "verify": [
+    "stats:7/probe/ignore-source",
+    "stats:7/probe/ignore-source",
+    "stats:7/control/ignore-source"
+   ]
+  }
+ },
+ "stats:8": {
+  "items": [
+   "mastery0:st8i:4:3:12:145:2013|181|gen",
+   "mastery1:st8i:6:4:-4:239:2013|223|gen",
+   "mastery2:stats:8:diag:{\"d\":8,\"j\":7,\"rate\":25,\"y1\":218,\"y2\":418,\"x1\":2015}|393|diag",
+   "mastery3:st8i:5:2:8:295:2011|311|gen",
+   "mastery4:stats:8:transfer:{\"t0\":400,\"a\":290,\"s\":2,\"vals\":[400,690,980,1270],\"at\":18}|1850|transfer",
+   "review0:stats:8:transfer:{\"t0\":120,\"a\":130,\"s\":2,\"vals\":[120,250,380,510],\"at\":18}|770|transfer",
+   "review1:st8e:320:60:3|680|gen",
+   "review2:stats:8:diag:{\"d\":8,\"j\":7,\"rate\":25,\"y1\":218,\"y2\":418,\"x1\":2015}|393|diag",
+   "verify0:stats:8:probe:{\"d\":5,\"j\":2,\"rate\":8,\"y1\":184,\"y2\":224,\"x1\":2014}|200|probe",
+   "verify1:stats:8:probe:{\"d\":4,\"j\":3,\"rate\":8,\"y1\":140,\"y2\":172,\"x1\":2014}|164|probe",
+   "verify2:stats:8:diag:{\"d\":5,\"j\":1,\"rate\":3,\"y1\":127,\"y2\":142,\"x1\":2016}|130|diag",
+   "gen:st8e:270:220:3|1590|gen",
+   "diag:stats:8:diag:{\"d\":8,\"j\":5,\"rate\":20,\"y1\":60,\"y2\":220,\"x1\":2013}|160|diag",
+   "transfer:stats:8:transfer:{\"t0\":230,\"a\":180,\"s\":2,\"vals\":[230,410,590,770],\"at\":18}|1130|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "stats:8/gen/",
+    "stats:8/gen/",
+    "stats:8/diag/",
+    "stats:8/gen/",
+    "stats:8/transfer/"
+   ],
+   "review": [
+    "stats:8/transfer/",
+    "stats:8/gen/",
+    "stats:8/diag/"
+   ],
+   "verify": [
+    "stats:8/probe/midpoint",
+    "stats:8/probe/midpoint",
+    "stats:8/control/midpoint"
    ]
   }
  },
