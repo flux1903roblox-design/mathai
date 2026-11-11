@@ -291,6 +291,9 @@ describe('names: shared/stairs.js equals the content, and misconception titles r
     // CLASSROOM-1: absolute value bars hug their number
     expect(texToPlain('$\\lvert -7 \\rvert = -7$')).toBe('⁦|−7| = −7⁩');
     expect(texToPlain('$\\lvert -6 \\rvert + \\lvert 3 \\rvert$', { isolate: false })).toBe('|−6| + |3|');
+    // the class's angle sign (CLASSROOM-9), hugging its letters, left to right inside Hebrew
+    expect(texToPlain('$\\sphericalangle AOB$')).toBe('⁦∢AOB⁩');
+    expect(texToPlain('הזווית $\\sphericalangle BOC = 75^\\circ$', { isolate: false })).toBe('הזווית ∢BOC = 75°');
     expect(texToPlain('$m x_1$')).toBe('⁦m x₁⁩');
     expect(texToPlain('$m x_1$', { isolate: false })).toBe('m x₁');
   });

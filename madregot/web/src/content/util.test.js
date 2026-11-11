@@ -307,7 +307,9 @@ describe('practice-only questions are kept out of checks', () => {
   const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b',
     'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m', 'sn1r', 'sn2m', 'sn3z', 'ex3r', 'ex3z',
     // the median bar whose answer is the number the question names (CURRICULUM-10's guessing test sets objects too)
-    'st2b'];
+    'st2b',
+    // the class's split triangle S1 (CLASSROOM-11): its answer is 90° minus a printed number
+    'an3a'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

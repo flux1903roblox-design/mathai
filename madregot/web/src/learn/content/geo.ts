@@ -11,11 +11,33 @@ type Pt = [number, number];
 const R = (v: number) => Math.round(v * 1e4) / 1e4;
 /** The point `len` from the origin (or from `from`) in the direction `deg` (counterclockwise from the right). */
 export const dir = (deg: number, len = 1, from: Pt = [0, 0]): Pt => [R(from[0] + len * Math.cos((deg * Math.PI) / 180)), R(from[1] + len * Math.sin((deg * Math.PI) / 180))];
-type Angle = { at: string; from: string; to: string; text?: string; target?: boolean; right?: boolean; r?: number; n?: number };
+type Angle = { at: string; from: string; to: string; text?: string; target?: boolean; right?: boolean; r?: number; n?: number; lt?: number };
 type Seg = { a: string; b: string; ext?: [number, number]; dash?: boolean; thin?: boolean; hi?: boolean; label?: string; side?: 'in'; t?: number; ticks?: number; arrows?: number };
 const geo = (label: string, f: Record<string, unknown>): GeoFig => ({ type: 'geo', label, ...f }) as GeoFig;
 
 // ---------------------------------------------------------------- angles
+
+/**
+ * How far out components/Figure.jsx puts an angle's number past its arc: further for a narrow angle (Geo). The drawn
+ * size can differ from `deg` by a rounding, so at 40° or 60° exactly it can be either: `near` gives the smaller, else the
+ * larger.
+ */
+const labelOut = (deg: number, text: string, near = false) => {
+  const out = (g: number) => (g < 40 ? 30 : g < 60 ? 22 : 16) + Math.max(0, text.length - 4) * 3;
+  return near ? out(deg + 0.01) : out(deg - 0.01);
+};
+/**
+ * The arc radius (at least `r`) that puts an angle's number clear of the two arms of the room it sits in (`room`
+ * degrees wide; `deg`, the angle's own size, sets how far past the arc Figure.jsx puts it). The number's box is measured
+ * in the app's font (Rubik, 17px; 19px for the asked angle): a digit 11.3 wide, ° 7, a letter 13.2, 15 high.
+ */
+function fitR(room: number, deg: number, text: string, r: number): number {
+  const need = (reach(text) + 4) / Math.sin((room * Math.PI) / 360);
+  return Math.max(r, Math.ceil(need - labelOut(deg, text, true)));
+}
+const textWidth = (text: string) => [...text].reduce((t, ch) => t + (/\d/.test(ch) ? 11.3 : ch === '°' ? 7 : 13.2), 0);
+/** How far a number's box reaches from its middle, at most (half its diagonal). */
+const reach = (text: string) => Math.hypot(textWidth(text) / 2, 7.5);
 
 /** Two rays from one point, the vertex, with the opening between them: what an angle is. */
 export const rays = (): GeoFig => geo('זווית: שתי קרניים שיוצאות מקודקוד', {
@@ -49,6 +71,90 @@ export function onLine(ray: number, { right, left, o = '', before, rightAngle }:
   if (right) angles.push({ at: O, from: '_R', to: '_B', r: 24, ...right });
   if (left) angles.push({ at: O, from: '_B', to: '_L', r: 34, ...left });
   return geo('ישר, נקודה עליו וקרן שיוצאת ממנה: שתי זוויות צמודות', { pts, segs, angles, moves, dots: [O] });
+}
+
+/**
+ * A straight line through _O and rays from _O at the directions `rays` (degrees, counterclockwise from the right): the
+ * angles side by side on the line, from the right, with `marks[i]` the mark of the i-th one (CLASSROOM-9: ∢1, ∢2, ∢3).
+ */
+export function lineRays(rays: number[], marks: (Partial<Angle> | null)[] = []): GeoFig {
+  const ends = rays.map((_, i) => `_P${i}`);
+  const pts: Record<string, Pt> = { _L: [-3, 0], _O: [0, 0], _R: [3, 0], ...Object.fromEntries(rays.map((d, i) => [ends[i], dir(d, 2.7)])) };
+  const arms = ['_R', ...ends, '_L'];
+  const angles = marks.flatMap((m, i) => (m ? [{ at: '_O', from: arms[i], to: arms[i + 1], r: 26, ...m }] : []));
+  return geo('ישר וקרניים שיוצאות מנקודה עליו: זוויות על קו ישר', { pts, segs: [{ a: '_L', b: '_R' }, ...ends.map((e) => ({ a: '_O', b: e }))], angles, dots: ['_O'] });
+}
+
+/**
+ * A fan of three rays from O (CLASSROOM-9): OA, OB and OC, with ∢AOC = T and ∢AOB = a, opening upwards. OA and OC are not
+ * on one line: ∢AOB and ∢BOC are side by side but add up to T, not to 180°. `marks` keyed AOB, BOC and AOC (the whole
+ * angle: a wide arc outside the two parts' arcs, its number past that arc and in the middle of the wider part, clear of
+ * OB).
+ */
+export function fan(T: number, a: number, marks: { AOB?: Partial<Angle>; BOC?: Partial<Angle>; AOC?: Partial<Angle> } = {}): GeoFig {
+  const t0 = 90 - T / 2; const b = T - a;
+  const pts: Record<string, Pt> = { O: [0, 0], A: dir(t0, 3), B: dir(t0 + a, 3), C: dir(t0 + T, 3) };
+  const tx = (m?: Partial<Angle>) => String(m?.text || '');
+  const rAOB = fitR(a, a, tx(marks.AOB), 26); const rBOC = fitR(b, b, tx(marks.BOC), 30);
+  // the whole angle's arc passes outside both parts' numbers
+  const out = Math.ceil(Math.max(marks.AOB ? rAOB + labelOut(a, tx(marks.AOB)) + reach(tx(marks.AOB)) : rAOB, marks.BOC ? rBOC + labelOut(b, tx(marks.BOC)) + reach(tx(marks.BOC)) : rBOC) + 5);
+  const angles = [
+    ...(marks.AOC ? [{ at: 'O', from: 'A', to: 'C', r: Math.max(76, out), lt: (a >= b ? a / 2 : a + b / 2) / T, ...marks.AOC }] : []),
+    ...(marks.AOB ? [{ at: 'O', from: 'A', to: 'B', r: rAOB, ...marks.AOB }] : []),
+    ...(marks.BOC ? [{ at: 'O', from: 'B', to: 'C', r: rBOC, ...marks.BOC }] : []),
+  ];
+  return geo('שלוש קרניים שיוצאות מנקודה O: OA, OB ו־OC', { pts, segs: [{ a: 'O', b: 'A' }, { a: 'O', b: 'B' }, { a: 'O', b: 'C' }], angles, dots: ['O'], view: [300, 230], pad: [30, 26] });
+}
+
+/**
+ * The class's split triangle (CLASSROOM-11): ABC with the right angle at C (its square always drawn), D on BC and the
+ * segment AD, so three triangles: ABD, ADC and the big ABC. β is the angle at B and d = ∢ADC (β < d). `marks` keyed B
+ * (β), ADC, ADB (at D), BAD, DAC, BAC (at A); `show` draws only the small triangle ADC or the big ABC (a helper sketch,
+ * שרטוט עזר, as the class redraws them); `dots` highlights vertices. With AD drawn, the whole angle at A (BAC) has the
+ * outer arc and its number sits in the middle of the wider of its two parts, clear of AD.
+ */
+export function splitTri(beta: number, d: number, marks: Record<string, Partial<Angle>> = {}, { show = 'all', dots = [] as string[] }: { show?: 'all' | 'ADC' | 'ABC'; dots?: string[] } = {}): GeoFig {
+  const h = 3; const rad = (x: number) => (x * Math.PI) / 180;
+  const all: Record<string, Pt> = { A: [0, h], B: [R(-h / Math.tan(rad(beta))), 0], C: [0, 0], D: [R(-h / Math.tan(rad(d))), 0] };
+  const names = show === 'ADC' ? ['A', 'D', 'C'] : show === 'ABC' ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'D'];
+  const pts = Object.fromEntries(names.map((k) => [k, all[k]]));
+  // at A, from AB: first ∢BAD = d − β, then ∢DAC = 90° − d; each mark's size, and the room its number has
+  const bad = d - beta; const dac = 90 - d; const split = show === 'all';
+  const span: Record<string, [string, string, string, number, number]> = {
+    B: ['B', 'C', 'A', 26, beta], ADC: ['D', 'C', 'A', 24, d], ADB: ['D', 'A', 'B', 22, 180 - d], BAD: ['A', 'B', 'D', 34, bad], DAC: ['A', 'D', 'C', 24, dac], BAC: ['A', 'B', 'C', 30, 90 - beta],
+  };
+  // the drawing's scale in pixels, as Figure.jsx fits it (30 in from each side of the view)
+  const view: [number, number] = show === 'all' ? [300, 210] : [300, 180];
+  const xs = Object.values(pts).map((p) => p[0]);
+  const px = Math.min((view[0] - 60) / (Math.max(...xs) - Math.min(...xs)), (view[1] - 60) / h);
+  const at = (k: string, m: Partial<Angle>) => {
+    const [v, from, to, r0, deg] = span[k]; const text = String(m.text || '');
+    if (k === 'ADC') {
+      // between D and the side AC (and its square at C): when DC is short, the number moves up, towards DA
+      const dc = Math.abs(all.D[0]) * px;
+      for (const lt of [0.5, 0.55, 0.6, 0.66, 0.72]) {
+        const phi = lt * deg; const r = fitR(2 * Math.min(phi, deg - phi), deg, text, 18); const L = r + labelOut(deg, text);
+        // the box's right edge, and its bottom (6 below its middle), against AC and the 13px square at C
+        const x = L * Math.cos((phi * Math.PI) / 180) + textWidth(text) / 2; const y = L * Math.sin((phi * Math.PI) / 180) - 6;
+        if (x + 2 <= dc && (x + 2 <= dc - 13 || y >= 15)) return { at: v, from, to, r, ...(lt === 0.5 ? {} : { lt }), ...m };
+      }
+    }
+    if (k !== 'BAC' || !split) return { at: v, from, to, r: fitR(deg, deg, text, r0), ...m };
+    // the whole angle at A, split by AD: its arc outside the parts' numbers, its number in the wider part
+    const parts = (['BAD', 'DAC'] as const).filter((q) => marks[q]).map((q) => { const t = String(marks[q].text || ''); const g = span[q][4]; return Math.ceil(fitR(g, g, t, span[q][3]) + labelOut(g, t) + reach(t) + 5); });
+    const room = Math.max(bad, dac);
+    return { at: v, from, to, r: Math.max(46, fitR(room, deg, text, 0), ...parts), lt: (bad >= dac ? bad / 2 : bad + dac / 2) / (bad + dac), ...m };
+  };
+  const angles = [
+    { at: 'C', from: 'A', to: names.includes('B') ? 'B' : 'D', right: true },
+    ...Object.entries(marks).map(([k, m]) => at(k, m)),
+  ];
+  const tri = show === 'ADC' ? ['A', 'D', 'C'] : ['A', 'B', 'C'];
+  const what = show === 'ADC' ? 'שרטוט עזר: המשולש הקטן ADC, ישר־זווית ב־C' : show === 'ABC' ? 'שרטוט עזר: המשולש הגדול ABC, ישר־זווית ב־C' : 'משולש ישר־זווית ABC (הזווית ב־C ישרה), הנקודה D על BC, והקטע AD';
+  return geo(what, {
+    pts, polys: [{ pts: tri }], segs: show === 'all' ? [{ a: 'A', b: 'D' }] : [], angles, ...(dots.length ? { dots } : {}),
+    view,
+  });
 }
 
 /**

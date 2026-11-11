@@ -26,6 +26,8 @@ import { T } from '@/content/util.js';
 import { drawPow, powValue, powBugs, POW_MIX } from '@/content/signed7.js';
 // @ts-ignore: plain JS
 import { STORY_MIX, storyMix } from '@/content/eq.js';
+import { readFileSync } from 'node:fs';
+import { CHALLENGES } from './challenges/index';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -936,5 +938,67 @@ describe('the angle stairs: two-step checks and their worked examples', () => {
       expect(m.solution(p).join(' ')).toContain(String(ans));
     }
     expect(Object.values(fired).some((n) => n > 2000 * 0.04), c.skill).toBe(true);
+  });
+});
+
+// CLASSROOM-9: the class writes an angle ∢AOB (\sphericalangle), never ∠. No stair's teaching, models (their questions,
+// hints and solutions, sampled), challenge or the triangle tool's readout uses the other sign.
+describe('the class\'s angle sign, ∢', () => {
+  const OLD = /\\angle(?![a-zA-Z])|∠/;
+  it('no stair, model, challenge or the drag readout writes ∠', () => {
+    const bad: string[] = [];
+    for (const c of stairs) {
+      if (OLD.test(JSON.stringify(c))) bad.push(`${c.skill} teaching`);
+      const rnd = seeded(9);
+      for (const [name, m] of [['diag', c.diag], ['transfer', c.transfer]] as const) {
+        if (!m) continue;
+        for (let i = 0; i < 200; i += 1) {
+          const p = m.params(rnd);
+          if (OLD.test([m.text(p), m.hint(p), ...m.solution(p)].join(' '))) { bad.push(`${c.skill} ${name} ${JSON.stringify(p)}`); break; }
+        }
+      }
+    }
+    if (OLD.test(JSON.stringify(CHALLENGES))) bad.push('challenges');
+    const drag = readFileSync(new URL('../components/manip/TriangleDrag.jsx', import.meta.url), 'utf8');
+    if (OLD.test(drag)) bad.push('TriangleDrag.jsx');
+    expect(bad).toEqual([]);
+    // and the angles stairs do write ∢
+    expect(JSON.stringify(CONTENT['angles:1'])).toContain('\\\\sphericalangle');
+    expect(drag).toContain('∢A');
+  });
+});
+
+// CLASSROOM-11: the class's way on the split triangle, two helper sketches (שרטוטי עזר), each its own small triangle with
+// its own right angle, each line with its reason, then a check in the third triangle
+describe('angles:3, the split triangle solved with helper sketches', () => {
+  const ex = CONTENT['angles:3'].examples.find((e) => /שרטוט עזר 1/.test(e.steps[0].action))!;
+  it('two helper sketches, then a check in the third triangle', () => {
+    expect(ex).toBeTruthy();
+    expect(ex.answer).toBe(45);
+    expect(ex.steps.map((st) => st.action.slice(0, 12))).toEqual(['שרטוט עזר 1:', 'שרטוט עזר 2:', 'בודקים במשול']);
+    ex.steps.forEach((st) => expect(st.why).toContain('סכום זוויות ב־$\\Delta$ שווה $180^\\circ$'));
+    expect(ex.steps[0].calc).toEqual({ expr: '180 - 90 - 64', value: 26 });
+    expect(same(evaluate(ex.steps[1].value!), 45)).toBe(true);
+    expect(ex.steps[2].calc).toEqual({ expr: '19 + 116 + 45', value: 180 });
+  });
+  it('each sketch is its own triangle with its own right angle at C, and the angle it finds marked', () => {
+    const sketch = (i: number) => ex.steps[i].fig as unknown as { pts: Record<string, [number, number]>; polys: { pts: string[] }[]; angles: { at: string; right?: boolean; text?: string; target?: boolean }[] };
+    const small = sketch(0); const big = sketch(1);
+    expect(Object.keys(small.pts).sort()).toEqual(['A', 'C', 'D']);
+    expect(Object.keys(big.pts).sort()).toEqual(['A', 'B', 'C']);
+    for (const f of [small, big]) {
+      expect(f.polys).toHaveLength(1);
+      expect(f.angles.some((g) => g.right && g.at === 'C')).toBe(true);
+    }
+    expect(small.angles.find((g) => g.target)?.text).toBe('α');
+    expect(small.angles.some((g) => g.text === '64°')).toBe(true);
+    expect(big.angles.find((g) => g.target)?.text).toBe('β');
+    expect(big.angles.some((g) => g.text === '45°')).toBe(true);
+  });
+  it('the notebook\'s β + 64° = 180° has a repair that asks whether the two angles share a vertex', () => {
+    const m = CONTENT['angles:3'].misconceptions.find((x) => x.id === 'other-vertex')!;
+    expect(m).toBeTruthy();
+    expect(m.remedy[0].text).toContain('קודקוד משותף');
+    expect((m.remedy[0] as { fig?: { dots?: string[] } }).fig?.dots).toEqual(['B', 'D']);
   });
 });

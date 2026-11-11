@@ -44,6 +44,8 @@ import { bracketZero, bracketFrom } from '@/content/eq.js';
 import { collectItem, bracketCollect } from '@/content/expr.js';
 // @ts-ignore: plain JS
 import { rectStory, transferTable, angleEqStory } from '@/content/eq.js';
+// @ts-ignore: plain JS
+import { fanItem, splitTriangleS1, splitTriangleS2 } from '@/content/angleItems.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -311,6 +313,29 @@ describe('the class\'s word problems cannot be guessed', () => {
       expect(guesses.some((v) => isCorrect(it, v)), it.key).toBe(false);
     });
   }, SLOW);
+});
+
+// CLASSROOM-9 and -11: the fan and the split triangle's S2 alone: no answer common enough to pass a check, and never a
+// copied number, nor 180°, 90° or 360° minus one (∢C = 90° is printed too). Their ranges stop where each number still
+// fits inside its own angle in the drawing, so the most common answer is about 6.2% (the fan) and 5.3% (S2), not the
+// spec's 5.2% and 3.5%: 4 of 5 by typing it is still below 1 in 10,000.
+// S1 is 90° minus a printed number by its nature: it is practice only and never reaches a check.
+describe('the class\'s new angle kinds cannot be guessed', () => {
+  it.each([['the fan', () => fanItem(), 0.075], ['the split triangle, S2', () => splitTriangleS2(), 0.065]] as const)('%s', (_name, make, most) => {
+    const items = Array.from({ length: 6000 }, () => make());
+    const freq = new Map<number, number>();
+    items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));
+    const common = Math.max(...freq.values()) / items.length;
+    expect(common).toBeLessThan(most);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(LIMIT / 100);
+    items.forEach((it) => {
+      const guesses = shownNumbers(it).flatMap((n) => [n, 180 - n, 90 - n, 360 - n]);
+      expect(guesses.some((v) => isCorrect(it, v)), it.key).toBe(false);
+    });
+  }, SLOW);
+  it('S1 never reaches a check', () => {
+    for (let i = 0; i < 200; i += 1) expect(splitTriangleS1().practiceOnly).toBe(true);
+  });
 });
 
 describe('the guessing measure itself', () => {

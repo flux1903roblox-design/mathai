@@ -21,7 +21,7 @@ const PROOF_FIG: FigSpec = {
   view: [300, 210],
 };
 /**
- * The track of angles:c3: triangle ABC with ∠A = 50° and ∠B = 70° (so ∠C = 60°), side AC extended past C, and the
+ * The track of angles:c3: triangle ABC with ∢A = 50° and ∢B = 70° (so ∢C = 60°), side AC extended past C, and the
  * exterior angle at C, between the extension and CB, marked "?". C is where the rays from A at 50° and from B at 110°
  * meet: AC = 5 · sin 70° / sin 60°.
  */
@@ -51,15 +51,15 @@ export const ANGLES_CHALLENGES: ChallengeTask[] = [
       { type: 'order', prompt: 'סדרו את שלבי ההוכחה, מהראשון לאחרון.',
         steps: [
           { text: 'מעבירים דרך $C$ ישר מקביל ל־$AB$.' },
-          { text: 'הזווית בין הישר ל־$CA$ שווה ל־$\\angle A$.', reason: WHY_EQUAL },
-          { text: 'הזווית בין הישר ל־$CB$ שווה ל־$\\angle B$.', reason: WHY_EQUAL },
+          { text: 'הזווית בין הישר ל־$CA$ שווה ל־$\\sphericalangle A$.', reason: WHY_EQUAL },
+          { text: 'הזווית בין הישר ל־$CB$ שווה ל־$\\sphericalangle B$.', reason: WHY_EQUAL },
           { text: 'שלוש הזוויות שליד $C$ יוצרות זווית שטוחה, $180°$.' },
-          { text: 'לכן $\\angle A + \\angle B + \\angle C = 180°$.' },
+          { text: 'לכן $\\sphericalangle A + \\sphericalangle B + \\sphericalangle C = 180°$.' },
         ],
         // the angles at A and at B can be found in either order: the proof holds both ways
         free: [[1, 2]] },
-      { type: 'num', prompt: 'ב־$\\triangle ABC$, $\\angle A = 50°$ ו־$\\angle B = 60°$. כמה $\\angle C$?', answer: 70, check: '180-50-60', unit: 'מעלות',
-        solution: ['סכום הזוויות במשולש הוא $180°$.', '$180 - 50 - 60 = 70$, כלומר $\\angle C = 70°$.'] },
+      { type: 'num', prompt: 'ב־$\\triangle ABC$, $\\sphericalangle A = 50°$ ו־$\\sphericalangle B = 60°$. כמה $\\sphericalangle C$?', answer: 70, check: '180-50-60', unit: 'מעלות',
+        solution: ['סכום הזוויות במשולש הוא $180°$.', '$180 - 50 - 60 = 70$, כלומר $\\sphericalangle C = 70°$.'] },
     ],
   },
   {
@@ -80,11 +80,11 @@ export const ANGLES_CHALLENGES: ChallengeTask[] = [
     id: 'angles:c3', topic: 'angles', after: 'angles:5', kind: 'literacy', title: 'הפניות במסלול הריצה', minutes: 7, fig: TRACK_FIG,
     story: 'נועה רצה במסלול בצורת משולש $ABC$, ובכל פינה היא פונה. זווית הפנייה היא הזווית החיצונית של המשולש באותה פינה.',
     parts: [
-      { type: 'num', prompt: 'במשולש $\\angle A = 50°$ ו־$\\angle B = 70°$. כמה מעלות הזווית של המשולש ב־$C$?', answer: 60, check: '180-50-70', unit: 'מעלות',
-        solution: ['סכום הזוויות במשולש הוא $180°$.', '$180 - 50 - 70 = 60$, כלומר $\\angle C = 60°$.'] },
+      { type: 'num', prompt: 'במשולש $\\sphericalangle A = 50°$ ו־$\\sphericalangle B = 70°$. כמה מעלות הזווית של המשולש ב־$C$?', answer: 60, check: '180-50-70', unit: 'מעלות',
+        solution: ['סכום הזוויות במשולש הוא $180°$.', '$180 - 50 - 70 = 60$, כלומר $\\sphericalangle C = 60°$.'] },
       { type: 'error', prompt: 'כך חישב דני את הפנייה ב־$C$.',
         lines: ['הזווית החיצונית ב־$C$ משלימה זווית ל־$180°$.', 'ולכן היא $180° - 50° = 130°$.', 'נועה פונה ב־$C$ ב־$130°$.'], wrong: 1,
-        why: 'הזווית החיצונית ב־$C$ צמודה לזווית של המשולש באותה פינה, $\\angle C = 60°$, ולא ל־$\\angle A$ הרחוקה. $180° - 60° = 120°$, וזה גם $50° + 70°$: הזווית החיצונית שווה לסכום שתי הזוויות הרחוקות.',
+        why: 'הזווית החיצונית ב־$C$ צמודה לזווית של המשולש באותה פינה, $\\sphericalangle C = 60°$, ולא ל־$\\sphericalangle A$ הרחוקה. $180° - 60° = 120°$, וזה גם $50° + 70°$: הזווית החיצונית שווה לסכום שתי הזוויות הרחוקות.',
         fix: { prompt: 'בכמה מעלות נועה פונה ב־$C$?', answer: 120, check: '180-(180-50-70)' } },
       { type: 'num', prompt: 'כמה מעלות נועה פונה בסך הכול, בשלוש הפינות?', answer: 360, check: '(180-50)+(180-70)+(50+70)', unit: 'מעלות',
         solution: ['ב־$A$: $180° - 50° = 130°$. ב־$B$: $180° - 70° = 110°$. ב־$C$: $120°$.', '$130 + 110 + 120$ הם $360$: סיבוב שלם, ונועה רצה שוב לכיוון שבו התחילה.'] },

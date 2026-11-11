@@ -224,7 +224,11 @@ describe('math checks', () => {
     for (let r = 0; r < RUNS; r++) {
       const t = makeItem('angles', 3);
       if (t.form === 'manip') continue; // the draggable triangle: checked in manip.test.js
-      expect(t.fig.angles.reduce((x, y) => x + y, 0)).toBe(180);
+      if (t.fig.type === 'triangle') { expect(t.fig.angles.reduce((x, y) => x + y, 0)).toBe(180); continue; }
+      // the class's split triangle (CLASSROOM-11): the big triangle ABC as drawn, its angle at C right, all three 180°
+      const P = t.fig.pts; const at = (v, p, q) => { const a = [P[p][0] - P[v][0], P[p][1] - P[v][1]]; const b = [P[q][0] - P[v][0], P[q][1] - P[v][1]]; return (Math.acos((a[0] * b[0] + a[1] * b[1]) / (Math.hypot(...a) * Math.hypot(...b))) * 180) / Math.PI; };
+      expect(at('C', 'A', 'B'), t.key).toBeCloseTo(90, 6);
+      expect(at('A', 'B', 'C') + at('B', 'C', 'A') + at('C', 'A', 'B'), t.key).toBeCloseTo(180, 6);
     }
   });
   it('parses student input', () => {

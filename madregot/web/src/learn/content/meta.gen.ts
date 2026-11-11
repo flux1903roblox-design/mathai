@@ -53,6 +53,10 @@ export const META: Record<SkillId, StairMeta> = {
         "title": "השתמשו ב־$360^\\circ$ במקום ב־$180^\\circ$"
       },
       {
+        "id": "other-vertex",
+        "title": "חיברו ל־$180^\\circ$ שתי זוויות בקודקודים שונים"
+      },
+      {
         "id": "one-angle",
         "title": "הורידו מ־$180^\\circ$ רק זווית אחת"
       }

@@ -18,7 +18,7 @@ import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { chainItem, regroupItem, absItem, oppItem, nestedItem, zeroOne } from './signedItems.js';
 import { powItem } from './signed7.js';
-import { straightThree, linearPairDiff, threeLines, crossBisect, parallelTriangle, parallelBisect } from './angleItems.js';
+import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect } from './angleItems.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -783,6 +783,17 @@ const PROPS = {
     // CURRICULUM-10: two adjacent angles d apart (an1d:d): the larger found, or the difference taken off and not halved
     'took-larger': (it, u) => { const [d] = nums(it.key); return it.key.startsWith('an1d:') && near(u, (180 + d) / 2); },
     'diff-not-halved': (it, u) => { const [d] = nums(it.key); return it.key.startsWith('an1d:') && near(u, 180 - d); },
+    // CLASSROOM-9, the fan (an1f:T:a): two angles side by side taken to make 180° (180° − a), or added (T + a)
+    'adjacent-not-line': (it, u) => { const [, a] = nums(it.key); return it.key.startsWith('an1f:') && near(u, 180 - a); },
+    'sum-not-diff': (it, u) => { const [T, a] = nums(it.key); return it.key.startsWith('an1f:') && near(u, T + a); },
+    // CLASSROOM-11, the split triangle (an3a:w:d:b|a, an3b:d:p): β paired with ∢ADC = d at another vertex (180° − d), or
+    // ∢BAD = p taken for the whole angle at A in ABC (90° − p)
+    'other-vertex': (it, u) => {
+      const p = it.key.split(':')[0]; const n = nums(it.key);
+      const d = p === 'an3a' ? n[1] : p === 'an3b' ? n[0] : NaN;
+      return (p === 'an3b' || it.key.endsWith(':b')) && near(u, 180 - d);
+    },
+    'part-for-whole': (it, u) => { const [, p] = nums(it.key); return it.key.startsWith('an3b:') && near(u, 90 - p); },
     // a bisector (an2b:a:v|s, an4b:g:e|s): the whole angle it halves, the given one (v, e) or 180° minus it (s)
     'no-half': (it, u) => {
       const [p, g, kind] = it.key.split(':');
@@ -1336,6 +1347,9 @@ describe('the two-step angle questions name only what the answer shows', () => {
     if (p === 'an1d') return (180 - a) / 2;
     if (p === 'an2b') return y === 'v' ? a / 2 : (180 - a) / 2;
     if (p === 'an4b') return y === 'e' ? a / 2 : (180 - a) / 2;
+    if (p === 'an1f') return a - b;
+    if (p === 'an3a') return key.endsWith(':b') ? 90 - a : 90 - b;
+    if (p === 'an3b') return a - b;
     return NaN;
   };
   const kinds = [
@@ -1345,6 +1359,10 @@ describe('the two-step angle questions name only what the answer shows', () => {
     ['a ray that halves an angle of a crossing', crossBisect, 2, ['no-half', 'supp-not-equal', 'equal-not-supp'], 1204],
     ['a triangle between parallel lines', parallelTriangle, 4, ['one-angle', 'supp-not-equal'], 1205],
     ['a ray that halves an angle after parallel lines', parallelBisect, 4, ['no-half', 'supp-not-equal', 'equal-not-supp'], 1206],
+    // CLASSROOM-9 and -11: the fan, and the split triangle's S1 (practice only) and S2
+    ['the fan: two angles side by side, not on a line', fanItem, 1, ['adjacent-not-line', 'sum-not-diff'], 1207],
+    ['the split triangle, S1', splitTriangleS1, 3, ['one-angle', 'other-vertex'], 1208],
+    ['the split triangle, S2', splitTriangleS2, 3, ['other-vertex', 'part-for-whole'], 1209],
   ];
   it.each(kinds)('%s', (_name, make, level, ids, seed) => {
     const shows = {};
@@ -1378,5 +1396,13 @@ describe('the two-step angle questions name only what the answer shows', () => {
     expect(props['no-half']({ key: 'an4b:80:e:ur:ur:80', answer: 40, form: 'num' }, 80)).toBe(true);
     expect(props['equal-not-supp']({ key: 'an2b:70:s:ul', answer: 55, form: 'num' }, 35)).toBe(true);
     expect(props['supp-not-equal']({ key: 'an4t:65:55:0', answer: 60, form: 'num' }, 10)).toBe(true);
+    // the spec's examples: the fan 130° and 55° (75°; 125° is adjacent-not-line), and S2 with d 64°, p 19° (45°; the
+    // notebook's β + 64° = 180° gives 116°, and 90° − 19° = 71°)
+    expect(props['adjacent-not-line']({ key: 'an1f:130:55', answer: 75, form: 'num' }, 125)).toBe(true);
+    expect(props['sum-not-diff']({ key: 'an1f:130:55', answer: 75, form: 'num' }, 185)).toBe(true);
+    expect(props['other-vertex']({ key: 'an3b:64:19', answer: 45, form: 'num' }, 116)).toBe(true);
+    expect(props['part-for-whole']({ key: 'an3b:64:19', answer: 45, form: 'num' }, 71)).toBe(true);
+    expect(props['other-vertex']({ key: 'an3a:38:67:b', answer: 52, form: 'num' }, 113)).toBe(true);
+    expect(props['one-angle']({ key: 'an3a:38:67:a', answer: 23, form: 'num' }, 113)).toBe(true);
   });
 });

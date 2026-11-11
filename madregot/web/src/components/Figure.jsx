@@ -195,8 +195,8 @@ function arcPath(cx, cy, rr, a0, a1) {
   const large = Math.abs(a1 - a0) > 180 ? 1 : 0;
   return `M ${p0[0]} ${p0[1]} A ${rr} ${rr} 0 ${large} 0 ${p1[0]} ${p1[1]}`;
 }
-function AngleMark({ cx, cy, a0, a1, text, target, rr = 30, lr: far }) {
-  const mid = (a0 + a1) / 2; const lr = far ?? rr + 16;
+function AngleMark({ cx, cy, a0, a1, text, target, rr = 30, lr: far, lt = 0.5 }) {
+  const mid = a0 + (a1 - a0) * lt; const lr = far ?? rr + 16;
   return (
     <g>
       <path d={arcPath(cx, cy, rr, a0, a1)} className={target ? 'fg-arc target' : 'fg-arc'} />
@@ -366,8 +366,9 @@ function Table({ fig }) {
 //   segs     [{ a, b, ext: [before, after], dash, thin, hi, label, side: 'in', t, ticks, arrows }]   t: where the label sits along ab
 //            a segment, or a line or ray when extended past a or b (in units); label: a number, '?', a letter, a word, an
 //            expression ('x + 5') or a length with its unit ('16 ס״מ'); ticks: equal sides carry the same number of ticks
-//   angles   [{ at, from, to, text, target, right, r, n }]       the angle swept counterclockwise from ray at→from to at→to;
-//            n: 2 or 3 arcs for angles that are equal; right: the small square of a right angle
+//   angles   [{ at, from, to, text, target, right, r, n, lt }]   the angle swept counterclockwise from ray at→from to at→to;
+//            n: 2 or 3 arcs for angles that are equal; right: the small square of a right angle; lt: where along the arc
+//            its number sits, 0 at `from` to 1 at `to` (default the middle; a whole angle split by a ray puts it in a part)
 //   squares  [{ a, b, away, text, hi }]                          the square on segment ab, on the side away from point `away`
 //   words    [{ at: [x, y] | name, text, dx, dy, anchor }]        a short Hebrew label
 //   moves    [{ from: [x, y], to: [x, y] }]                      a dashed arrow: something slides or turns
@@ -471,7 +472,8 @@ function Geo({ fig }) {
           <g key={`g${i}`}>
             {/* two or three arcs mark angles that are equal to each other */}
             {Array.from({ length: Math.max(0, (g.n || 1) - 1) }, (_, k) => <path key={k} d={arcPath(v[0], v[1], rr - 5 * (k + 1), a0, a1)} className={g.target ? 'fg-arc target' : 'fg-arc'} />)}
-            <AngleMark cx={v[0]} cy={v[1]} a0={a0} a1={a1} text={geoLabel(g.text || '')} target={g.target} rr={rr} lr={lr} />
+            {/* lt: where along the arc the number sits (a whole angle split by a ray puts it inside one of its parts) */}
+            <AngleMark cx={v[0]} cy={v[1]} a0={a0} a1={a1} text={geoLabel(g.text || '')} target={g.target} rr={rr} lr={lr} lt={g.lt} />
           </g>
         );
       })}

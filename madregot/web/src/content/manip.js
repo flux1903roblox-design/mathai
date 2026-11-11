@@ -5,7 +5,7 @@
 //   numberline  a whole number on a number line            answer: the number
 //   plot        a point [x, y] on the grid                 answer: [x, y], or any point in manip.quadrant (with manip.fixX / fixY: on that line)
 //   line        a line {m, b} built from two handles       answer: {m, b}
-//   angle       the turning ray's angle ∠AOB in degrees    answer: degrees
+//   angle       the turning ray's angle ∢AOB in degrees    answer: degrees
 //   squares     the legs {a, b} of a right triangle        answer: {c} (any whole a, b with a² + b² = c²)
 //   bars        the height of the movable bar              answer: the value (manip.stat 'median': the median is the target)
 //   pins        several labelled markers on a number line  answer: the position of each, in order

@@ -8,7 +8,7 @@
 // one is the goal (`target`), so the student has to think "together they are 180°" to know where to stop. Its
 // answer is the right angle, 180° − target.
 import type { DiagModel, StairContent, GeoFig } from '../types';
-import { rays, halfTurn, onLine, crossing, scissors, triangle, apex, similar, torn, triangleSum, twoRights, parallels, isosceles, exterior } from './geo';
+import { rays, halfTurn, onLine, lineRays, fan, splitTri, crossing, scissors, triangle, apex, similar, torn, triangleSum, twoRights, parallels, isosceles, exterior } from './geo';
 import { rint } from '../expr';
 // @ts-ignore: plain JS
 import { crossBisectFig, parallelTriangleFig, parallelLines } from '@/content/angleItems.js';
@@ -47,8 +47,8 @@ const adjModel: DiagModel<Adj> = {
     }
   },
   text: (p) => (p.k === 0
-    ? `הזוויות $\\angle AOB$ ו־$\\angle BOC$ צמודות, ו־$\\angle AOB = ${d(p.a)}$. מה גודל $\\angle BOC$?`
-    : `$O$ היא נקודה על הישר $AD$. הקרניים $OB$ ו־$OC$ מחלקות את הזווית השטוחה לשלוש זוויות: $\\angle AOB = ${d(p.a)}$ ו־$\\angle BOC = ${d(p.b)}$. מה גודל $\\angle COD$?`),
+    ? `הזוויות $\\sphericalangle AOB$ ו־$\\sphericalangle BOC$ צמודות, ו־$\\sphericalangle AOB = ${d(p.a)}$. מה גודל $\\sphericalangle BOC$?`
+    : `$O$ היא נקודה על הישר $AD$. הקרניים $OB$ ו־$OC$ מחלקות את הזווית השטוחה לשלוש זוויות: $\\sphericalangle AOB = ${d(p.a)}$ ו־$\\sphericalangle BOC = ${d(p.b)}$. מה גודל $\\sphericalangle COD$?`),
   answer: (p) => (p.k === 0 ? 180 - p.a : 180 - p.a - p.b),
   bugs: {
     // the two angles were taken to be equal
@@ -61,8 +61,8 @@ const adjModel: DiagModel<Adj> = {
     'one-angle': (p) => (p.k === 1 ? 180 - p.b : null),
   },
   solution: (p) => (p.k === 0
-    ? ['שתי הזוויות צמודות: יחד הן קו ישר, $180^\\circ$.', `$\\angle BOC = 180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`]
-    : ['שלוש הזוויות יחד ממלאות את הזווית השטוחה $\\angle AOD = 180^\\circ$.', `$\\angle COD = 180^\\circ - ${d(p.a)} - ${d(p.b)} = ${d(180 - p.a - p.b)}$`]),
+    ? ['שתי הזוויות צמודות: יחד הן קו ישר, $180^\\circ$.', `$\\sphericalangle BOC = 180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`]
+    : ['שלוש הזוויות יחד ממלאות את הזווית השטוחה $\\sphericalangle AOD = 180^\\circ$.', `$\\sphericalangle COD = 180^\\circ - ${d(p.a)} - ${d(p.b)} = ${d(180 - p.a - p.b)}$`]),
   hint: (p) => (p.k === 0
     ? 'שתי הזוויות יחד יוצרות קו ישר. כמה מעלות יש בקו ישר, וכמה מהן כבר תפוסות?'
     : 'כל שלוש הזוויות יחד ממלאות את הקו הישר $AD$. מורידים מ־$180^\\circ$ את שתי הזוויות הידועות.'),
@@ -151,6 +151,16 @@ const stair1: StairContent = {
       wrongWhy: { 0: 'זוויות צמודות שוות רק כששתיהן $90^\\circ$. כאן אחת חדה, ולכן השנייה קהה.', 2: '$55^\\circ$ משלימה ל־$90^\\circ$, לזווית ישרה. זוויות צמודות משלימות ל־$180^\\circ$, לקו ישר.' } },
     { kind: 'rule', fig: onLine(70, { right: { text: 'α' }, left: { text: 'β', n: 2 } }), text: 'הכלל: זוויות צמודות משלימות זו את זו ל־$180^\\circ$.', display: '\\alpha + \\beta = 180^\\circ',
       why: 'שתי הזוויות יחד הן הקו הישר כולו, זווית שטוחה של $180^\\circ$, והקרן רק מחלקת אותה לשניים. לכן הזווית הצמודה ל־$\\alpha$ היא $180^\\circ - \\alpha$.' },
+    // CLASSROOM-9: the class's two names, kept apart (its notes write "(או זוויות על קו ישר)" beside the rule)
+    { kind: 'rule', fig: lineRays([55, 120], [{ text: '1' }, { text: '2' }, { text: '3' }]),
+      text: 'שני שמות. זוויות צמודות הן זוג: קודקוד משותף, צלע משותפת, והצלעות האחרות שלהן יוצרות ישר אחד. שלוש זוויות או יותר זו ליד זו על ישר הן זוויות על קו ישר: יחד הן זווית שטוחה, $180^\\circ$.',
+      display: '\\sphericalangle 1 + \\sphericalangle 2 + \\sphericalangle 3 = 180^\\circ',
+      why: 'בשרטוט, $\\sphericalangle 1$ ו־$\\sphericalangle 2$ זו ליד זו, אבל הן לא זוג צמודות: הצלעות האחרות שלהן לא יוצרות ישר. שלוש הזוויות יחד ממלאות את הקו הישר, ולכן הסכום שלהן $180^\\circ$.' },
+    { kind: 'predict', fig: fan(130, 55, { AOC: { text: '130°' }, AOB: { text: '55°' }, BOC: { text: '?', target: true } }),
+      text: '$\\sphericalangle AOB$ ו־$\\sphericalangle BOC$ זו ליד זו. האם יחד הן $180^\\circ$?',
+      choices: ['לא: $OA$ ו־$OC$ לא על ישר אחד, ויחד הן $130^\\circ$', 'כן, כי הן זו ליד זו'], answer: 0,
+      why: 'יחד הן $\\sphericalangle AOC$, ולא קו ישר. לכן $\\sphericalangle BOC = 130^\\circ - 55^\\circ = 75^\\circ$.',
+      wrongWhy: { 1: 'זו ליד זו לא מספיק. שתי זוויות משלימות ל־$180^\\circ$ רק כשהצלעות האחרות שלהן יוצרות ישר אחד, וכאן $OA$ ו־$OC$ פותחות רק $130^\\circ$.' } },
     { kind: 'predict', fig: onLine(90, { right: { text: '?', target: true }, left: { text: '?', target: true } }), text: 'שתי זוויות צמודות שוות זו לזו. מה הגודל של כל אחת?',
       choices: ['$90^\\circ$', '$180^\\circ$', '$45^\\circ$'], answer: 0,
       why: 'שתי זוויות שוות שיחד הן $180^\\circ$: כל אחת $180^\\circ : 2 = 90^\\circ$. הקרן עומדת ישר, מאונכת לישר.',
@@ -160,11 +170,11 @@ const stair1: StairContent = {
       success: '$180^\\circ - 155^\\circ = 25^\\circ$. חישבתם לפני שסובבתם: זה הכלל בפעולה.' },
   ],
   examples: [
-    { problem: 'הזוויות $\\angle AOB$ ו־$\\angle BOC$ צמודות, ו־$\\angle AOB = 48^\\circ$. מה גודל $\\angle BOC$?', display: '\\angle AOB = 48^\\circ', answer: 132, check: '180 - 48',
+    { problem: 'הזוויות $\\sphericalangle AOB$ ו־$\\sphericalangle BOC$ צמודות, ו־$\\sphericalangle AOB = 48^\\circ$. מה גודל $\\sphericalangle BOC$?', display: '\\sphericalangle AOB = 48^\\circ', answer: 132, check: '180 - 48',
       steps: [
-        { action: 'מזהים את הזוג: לשתי הזוויות יש צלע משותפת, $OB$, והצלעות האחרות, $OA$ ו־$OC$, הן ישר אחד.', why: 'זה מה שהופך אותן לזוויות צמודות: יחד הן הזווית השטוחה $\\angle AOC$.', result: '\\angle AOB + \\angle BOC = 180^\\circ' },
-        { action: 'מורידים את הזווית הידועה מ־$180^\\circ$.', why: 'הזווית החסרה היא מה שנשאר מהקו הישר אחרי $48^\\circ$.', result: '\\angle BOC = 180^\\circ - 48^\\circ', value: '180 - 48' },
-        { action: 'מחשבים: $180 - 50 = 130$, ומוסיפים בחזרה $2$.', why: 'הורדנו $50$ במקום $48$, כלומר $2$ יותר מדי.', result: '\\angle BOC = 132^\\circ', value: '132', calc: { expr: '180 - 50 + 2', value: 132 } },
+        { action: 'מזהים את הזוג: לשתי הזוויות יש צלע משותפת, $OB$, והצלעות האחרות, $OA$ ו־$OC$, הן ישר אחד.', why: 'זה מה שהופך אותן לזוויות צמודות: יחד הן הזווית השטוחה $\\sphericalangle AOC$.', result: '\\sphericalangle AOB + \\sphericalangle BOC = 180^\\circ' },
+        { action: 'מורידים את הזווית הידועה מ־$180^\\circ$.', why: 'הזווית החסרה היא מה שנשאר מהקו הישר אחרי $48^\\circ$.', result: '\\sphericalangle BOC = 180^\\circ - 48^\\circ', value: '180 - 48' },
+        { action: 'מחשבים: $180 - 50 = 130$, ומוסיפים בחזרה $2$.', why: 'הורדנו $50$ במקום $48$, כלומר $2$ יותר מדי.', result: '\\sphericalangle BOC = 132^\\circ', value: '132', calc: { expr: '180 - 50 + 2', value: 132 } },
         { action: 'בודקים: מחברים את שתי הזוויות.', why: 'אם יוצא $180^\\circ$, הן באמת ממלאות קו ישר. וגם: אחת חדה ואחת קהה, כמו שצריך.', result: '48^\\circ + 132^\\circ = 180^\\circ', calc: { expr: '48 + 132', value: 180 } },
       ] },
     { problem: 'חצי פיצה מונח על צלחת. מהמרכז שלה, שנמצא על הצלע הישרה, חתכו שני חתכים, ונוצרו שלוש פרוסות. הזווית של פרוסה אחת $70^\\circ$, ושל השנייה $45^\\circ$. מה הזווית של הפרוסה השלישית?', answer: 65, check: '180 - 70 - 45',
@@ -176,20 +186,20 @@ const stair1: StairContent = {
       ] },
   ],
   together: [
-    { problem: 'הקרן $OB$ יוצאת מהנקודה $O$ שעל הישר $AC$, ו־$\\angle AOB = 38^\\circ$. נמצא יחד את $\\angle BOC$.', display: '\\angle AOB = 38^\\circ',
+    { problem: 'הקרן $OB$ יוצאת מהנקודה $O$ שעל הישר $AC$, ו־$\\sphericalangle AOB = 38^\\circ$. נמצא יחד את $\\sphericalangle BOC$.', display: '\\sphericalangle AOB = 38^\\circ',
       steps: [
-        { prompt: 'מה ידוע על $\\angle AOB$ ו־$\\angle BOC$ יחד?', choices: [
+        { prompt: 'מה ידוע על $\\sphericalangle AOB$ ו־$\\sphericalangle BOC$ יחד?', choices: [
           { text: 'יחד הן $180^\\circ$', ok: true, feedback: 'נכון: הן צמודות, ויחד הן הקו הישר $AC$.' },
           { text: 'הן שוות', ok: false, feedback: 'זוויות צמודות שוות רק כששתיהן $90^\\circ$. כאן אחת היא $38^\\circ$, חדה, ולכן השנייה קהה.' },
           { text: 'יחד הן $90^\\circ$', ok: false, feedback: '$90^\\circ$ היא פינה, זווית ישרה. שתי הזוויות יחד יוצרות קו ישר, לא פינה.' },
-        ], hints: ['הצלעות $OA$ ו־$OC$ הן ישר אחד. כמה מעלות יש בישר?', 'ישר הוא זווית שטוחה, $180^\\circ$, והקרן $OB$ מחלקת אותה לשתיים.'], done: '$\\angle AOB + \\angle BOC = 180^\\circ$' },
-        { prompt: 'איזה חישוב נותן את $\\angle BOC$?', choices: [
+        ], hints: ['הצלעות $OA$ ו־$OC$ הן ישר אחד. כמה מעלות יש בישר?', 'ישר הוא זווית שטוחה, $180^\\circ$, והקרן $OB$ מחלקת אותה לשתיים.'], done: '$\\sphericalangle AOB + \\sphericalangle BOC = 180^\\circ$' },
+        { prompt: 'איזה חישוב נותן את $\\sphericalangle BOC$?', choices: [
           { text: '$180^\\circ - 38^\\circ$', ok: true, feedback: 'נכון: מה שנשאר מהקו הישר.' },
-          { text: '$180^\\circ + 38^\\circ$', ok: false, feedback: 'זה יותר מקו ישר שלם. $\\angle BOC$ היא רק חלק מהקו, אז מחסירים.' },
+          { text: '$180^\\circ + 38^\\circ$', ok: false, feedback: 'זה יותר מקו ישר שלם. $\\sphericalangle BOC$ היא רק חלק מהקו, אז מחסירים.' },
           { text: '$90^\\circ - 38^\\circ$', ok: false, feedback: 'משלימים לקו ישר, $180^\\circ$, לא לזווית ישרה.' },
-        ], hints: ['מה נשאר מהקו הישר אחרי שלקחנו ממנו $38^\\circ$?', 'מהשלם, $180^\\circ$, מורידים את החלק הידוע, $38^\\circ$.'], done: '$\\angle BOC = 180^\\circ - 38^\\circ$' },
+        ], hints: ['מה נשאר מהקו הישר אחרי שלקחנו ממנו $38^\\circ$?', 'מהשלם, $180^\\circ$, מורידים את החלק הידוע, $38^\\circ$.'], done: '$\\sphericalangle BOC = 180^\\circ - 38^\\circ$' },
       ],
-      final: { prompt: 'כמה מעלות $\\angle BOC$? כתבו מספר.', answer: 142, check: '180 - 38', hints: ['$180 - 40 = 140$, ו־$38$ קטן מ־$40$.', 'הורדנו $2$ פחות מ־$40$, ולכן התוצאה גדולה מ־$140$ ב־$2$.'] } },
+      final: { prompt: 'כמה מעלות $\\sphericalangle BOC$? כתבו מספר.', answer: 142, check: '180 - 38', hints: ['$180 - 40 = 140$, ו־$38$ קטן מ־$40$.', 'הורדנו $2$ פחות מ־$40$, ולכן התוצאה גדולה מ־$140$ ב־$2$.'] } },
     { problem: 'אתגר: שתי זוויות צמודות, ואחת מהן גדולה מהשנייה ב־$30^\\circ$. מה הגדלים שלהן?',
       steps: [
         { prompt: 'כמה הן שתי הזוויות יחד?', choices: [
@@ -360,9 +370,9 @@ const stair2: StairContent = {
   ],
   idea: 'כששני ישרים נחתכים, הזוויות שעומדות זו מול זו שוות: כל אחת מהן צמודה לאותה זווית שביניהן, ולכן שתיהן שוות ל־$180^\\circ$ פחות אותה זווית.',
   why: [
-    'נמספר את ארבע הזוויות סביב נקודת החיתוך לפי הסדר: $1$, $2$, $3$, $4$. זווית $1$ וזווית $2$ צמודות על ישר אחד, ולכן $\\angle 1 = 180^\\circ - \\angle 2$.',
-    'זווית $3$ וזווית $2$ צמודות על הישר השני, ולכן $\\angle 3 = 180^\\circ - \\angle 2$.',
-    'שתיהן התקבלו מאותו חישוב על אותה זווית, ולכן $\\angle 1 = \\angle 3$. באותו אופן $\\angle 2 = \\angle 4$, דרך זווית $1$.',
+    'נמספר את ארבע הזוויות סביב נקודת החיתוך לפי הסדר: $1$, $2$, $3$, $4$. זווית $1$ וזווית $2$ צמודות על ישר אחד, ולכן $\\sphericalangle 1 = 180^\\circ - \\sphericalangle 2$.',
+    'זווית $3$ וזווית $2$ צמודות על הישר השני, ולכן $\\sphericalangle 3 = 180^\\circ - \\sphericalangle 2$.',
+    'שתיהן התקבלו מאותו חישוב על אותה זווית, ולכן $\\sphericalangle 1 = \\sphericalangle 3$. באותו אופן $\\sphericalangle 2 = \\sphericalangle 4$, דרך זווית $1$.',
   ],
   alt: [
     'חשבו על מספריים: כל להב והידית שלו הם מוט ישר אחד. כשפותחים את הלהבים, גם הידיות נפתחות, בדיוק באותה מידה.',
@@ -378,14 +388,14 @@ const stair2: StairContent = {
       ...turn(130), hint: 'זווית $1$ וזווית $2$ צמודות: יחד $180^\\circ$.', success: 'זווית $1$ היא $180^\\circ - 130^\\circ = 50^\\circ$.' },
     { kind: 'predict', fig: crossing(50, [null, { text: '130°', n: 2 }, { text: '?', target: true }, null], { second: true }), text: 'עכשיו הסתכלו על הישר השני. גם עליו זווית $2$ צמודה לזווית אחרת: לזווית $3$. כמה היא זווית $3$?',
       choices: ['$130^\\circ$', '$50^\\circ$', '$230^\\circ$'], answer: 1,
-      why: 'זווית $3$ משלימה את זווית $2$ ל־$180^\\circ$, בדיוק כמו זווית $1$: $180^\\circ - 130^\\circ = 50^\\circ$. לכן $\\angle 3 = \\angle 1$.',
+      why: 'זווית $3$ משלימה את זווית $2$ ל־$180^\\circ$, בדיוק כמו זווית $1$: $180^\\circ - 130^\\circ = 50^\\circ$. לכן $\\sphericalangle 3 = \\sphericalangle 1$.',
       wrongWhy: { 0: '$130^\\circ$ היא זווית $2$ עצמה. זווית $3$ צמודה לה, ולכן משלימה אותה ל־$180^\\circ$.', 2: 'זוויות צמודות יחד הן $180^\\circ$, לא $360^\\circ$.' } },
     { kind: 'explore', text: 'נשנה את החיתוך: עכשיו זווית $2$ היא $65^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $65^\\circ$, וקראו את זווית $1$.',
       ...turn(65), hint: 'זווית $1$ היא מה שחסר ל־$65^\\circ$ עד $180^\\circ$.', success: 'זווית $1$ היא $115^\\circ$, וזווית $3$ גם: שתיהן משלימות את אותה $65^\\circ$ ל־$180^\\circ$.' },
-    { kind: 'rule', fig: crossing(55, [{ text: '1' }, { text: '2', n: 2 }, { text: '3' }, { text: '4', n: 2 }]), text: 'הכלל: זוויות קודקודיות שוות זו לזו.', display: '\\angle 1 = \\angle 3,\\qquad \\angle 2 = \\angle 4',
-      why: 'זווית $1$ וזווית $3$ צמודות שתיהן לזווית $2$. כל אחת מהן היא $180^\\circ - \\angle 2$, ולכן הן שוות. אותו דבר לזוויות $2$ ו־$4$, דרך זווית $1$.' },
+    { kind: 'rule', fig: crossing(55, [{ text: '1' }, { text: '2', n: 2 }, { text: '3' }, { text: '4', n: 2 }]), text: 'הכלל: זוויות קודקודיות שוות זו לזו.', display: '\\sphericalangle 1 = \\sphericalangle 3,\\qquad \\sphericalangle 2 = \\sphericalangle 4',
+      why: 'זווית $1$ וזווית $3$ צמודות שתיהן לזווית $2$. כל אחת מהן היא $180^\\circ - \\sphericalangle 2$, ולכן הן שוות. אותו דבר לזוויות $2$ ו־$4$, דרך זווית $1$.' },
     { kind: 'predict', fig: crossing(70, [{ text: '70°' }, { text: '2', n: 2 }, { text: '3' }, { text: '4', n: 2 }]), text: 'זווית $1$ היא $70^\\circ$. מה שלוש האחרות?',
-      choices: ['$\\angle 2 = 110^\\circ$, $\\angle 3 = 70^\\circ$, $\\angle 4 = 110^\\circ$', 'כולן $70^\\circ$', '$\\angle 2 = 110^\\circ$, $\\angle 3 = 110^\\circ$, $\\angle 4 = 70^\\circ$'], answer: 0,
+      choices: ['$\\sphericalangle 2 = 110^\\circ$, $\\sphericalangle 3 = 70^\\circ$, $\\sphericalangle 4 = 110^\\circ$', 'כולן $70^\\circ$', '$\\sphericalangle 2 = 110^\\circ$, $\\sphericalangle 3 = 110^\\circ$, $\\sphericalangle 4 = 70^\\circ$'], answer: 0,
       why: 'זווית $3$ מול זווית $1$, ולכן שווה לה. זוויות $2$ ו־$4$ שכנות של זווית $1$, ולכן כל אחת $180^\\circ - 70^\\circ = 110^\\circ$.',
       wrongWhy: { 1: 'רק הזווית שמול $70^\\circ$ שווה לה. השכנות משלימות אותה ל־$180^\\circ$.', 2: 'זווית $3$ עומדת מול זווית $1$, לא לידה.' } },
     { kind: 'predict', fig: crossing(70, [{ text: '70°' }, { text: '110°', n: 2 }, { text: '70°' }, { text: '110°', n: 2 }]), text: 'וכמה כל ארבע הזוויות יחד?', choices: ['$180^\\circ$', '$360^\\circ$', '$280^\\circ$'], answer: 1,
@@ -395,11 +405,11 @@ const stair2: StairContent = {
       ...turn(140), hint: 'זווית $2$ משלימה את $40^\\circ$ ל־$180^\\circ$.', success: 'זווית $2$ היא $140^\\circ$, והימנית, זווית $1$, יצאה $40^\\circ$: בדיוק כמו זווית $3$ שמולה.' },
   ],
   examples: [
-    { problem: 'שני ישרים נחתכים, ו־$\\angle 1 = 62^\\circ$. מצאו את שלוש הזוויות האחרות. כמה היא $\\angle 4$?', display: '\\angle 1 = 62^\\circ', answer: 118, check: '180 - 62',
+    { problem: 'שני ישרים נחתכים, ו־$\\sphericalangle 1 = 62^\\circ$. מצאו את שלוש הזוויות האחרות. כמה היא $\\sphericalangle 4$?', display: '\\sphericalangle 1 = 62^\\circ', answer: 118, check: '180 - 62',
       steps: [
-        { action: 'הזווית שמול $\\angle 1$ היא $\\angle 3$: הן קודקודיות.', why: 'זוויות קודקודיות שוות, כי שתיהן משלימות את $\\angle 2$ ל־$180^\\circ$.', result: '\\angle 3 = \\angle 1 = 62^\\circ', calc: { expr: '62', value: 62 } },
-        { action: '$\\angle 2$ שכנה של $\\angle 1$: הן צמודות.', why: 'הן חולקות צלע, והצלעות האחרות שלהן הן ישר אחד.', result: '\\angle 2 = 180^\\circ - 62^\\circ = 118^\\circ', calc: { expr: '180 - 62', value: 118 } },
-        { action: '$\\angle 4$ עומדת מול $\\angle 2$, ולכן שווה לה.', why: 'שוב זוויות קודקודיות.', result: '\\angle 4 = \\angle 2 = 118^\\circ', value: '180 - 62' },
+        { action: 'הזווית שמול $\\sphericalangle 1$ היא $\\sphericalangle 3$: הן קודקודיות.', why: 'זוויות קודקודיות שוות, כי שתיהן משלימות את $\\sphericalangle 2$ ל־$180^\\circ$.', result: '\\sphericalangle 3 = \\sphericalangle 1 = 62^\\circ', calc: { expr: '62', value: 62 } },
+        { action: '$\\sphericalangle 2$ שכנה של $\\sphericalangle 1$: הן צמודות.', why: 'הן חולקות צלע, והצלעות האחרות שלהן הן ישר אחד.', result: '\\sphericalangle 2 = 180^\\circ - 62^\\circ = 118^\\circ', calc: { expr: '180 - 62', value: 118 } },
+        { action: '$\\sphericalangle 4$ עומדת מול $\\sphericalangle 2$, ולכן שווה לה.', why: 'שוב זוויות קודקודיות.', result: '\\sphericalangle 4 = \\sphericalangle 2 = 118^\\circ', value: '180 - 62' },
         { action: 'בודקים: ארבע הזוויות יחד.', why: 'סביב נקודת החיתוך יש סיבוב שלם, $360^\\circ$.', result: '62^\\circ + 118^\\circ + 62^\\circ + 118^\\circ = 360^\\circ', calc: { expr: '62 + 118 + 62 + 118', value: 360 } },
       ] },
     { problem: 'שני כבישים ישרים מצטלבים. שתיים מהפינות בצומת עומדות זו מול זו, ויחד הן $100^\\circ$. מה הזווית בכל אחת משתי הפינות האחרות?', answer: 130, check: '180 - 100 / 2',
@@ -419,20 +429,20 @@ const stair2: StairContent = {
       ] },
   ],
   together: [
-    { problem: 'שני ישרים נחתכים, ו־$\\angle 2 = 104^\\circ$. נמצא יחד את $\\angle 1$.', display: '\\angle 2 = 104^\\circ',
+    { problem: 'שני ישרים נחתכים, ו־$\\sphericalangle 2 = 104^\\circ$. נמצא יחד את $\\sphericalangle 1$.', display: '\\sphericalangle 2 = 104^\\circ',
       steps: [
-        { prompt: 'קודם כול: איזו זווית עומדת מול $\\angle 2$, ומה הגודל שלה?', choices: [
-          { text: '$\\angle 4$, גם היא $104^\\circ$', ok: true, feedback: 'נכון: זוויות קודקודיות שוות.' },
-          { text: '$\\angle 4$, והיא $76^\\circ$', ok: false, feedback: '$\\angle 4$ עומדת מול $\\angle 2$, ולכן שווה לה. משלימה ל־$180^\\circ$ רק זווית שכנה.' },
-          { text: '$\\angle 3$, גם היא $104^\\circ$', ok: false, feedback: '$\\angle 3$ שכנה של $\\angle 2$, לא מולה. במספור לפי הסדר, מול $\\angle 2$ נמצאת $\\angle 4$.' },
-        ], hints: ['במספור לפי הסדר, הזווית שמול כל זווית רחוקה ממנה בשני מספרים.', 'מול $\\angle 2$ נמצאת $\\angle 4$, וזוויות קודקודיות שוות.'], done: '$\\angle 4 = \\angle 2 = 104^\\circ$' },
-        { prompt: 'ואיך $\\angle 1$ קשורה ל־$\\angle 2$?', choices: [
+        { prompt: 'קודם כול: איזו זווית עומדת מול $\\sphericalangle 2$, ומה הגודל שלה?', choices: [
+          { text: '$\\sphericalangle 4$, גם היא $104^\\circ$', ok: true, feedback: 'נכון: זוויות קודקודיות שוות.' },
+          { text: '$\\sphericalangle 4$, והיא $76^\\circ$', ok: false, feedback: '$\\sphericalangle 4$ עומדת מול $\\sphericalangle 2$, ולכן שווה לה. משלימה ל־$180^\\circ$ רק זווית שכנה.' },
+          { text: '$\\sphericalangle 3$, גם היא $104^\\circ$', ok: false, feedback: '$\\sphericalangle 3$ שכנה של $\\sphericalangle 2$, לא מולה. במספור לפי הסדר, מול $\\sphericalangle 2$ נמצאת $\\sphericalangle 4$.' },
+        ], hints: ['במספור לפי הסדר, הזווית שמול כל זווית רחוקה ממנה בשני מספרים.', 'מול $\\sphericalangle 2$ נמצאת $\\sphericalangle 4$, וזוויות קודקודיות שוות.'], done: '$\\sphericalangle 4 = \\sphericalangle 2 = 104^\\circ$' },
+        { prompt: 'ואיך $\\sphericalangle 1$ קשורה ל־$\\sphericalangle 2$?', choices: [
           { text: 'הן צמודות: יחד $180^\\circ$', ok: true, feedback: 'נכון: הן שכנות על אותו ישר.' },
-          { text: 'הן קודקודיות: שוות', ok: false, feedback: '$\\angle 1$ לא מול $\\angle 2$, היא לידה. שכנות בחיתוך הן צמודות.' },
+          { text: 'הן קודקודיות: שוות', ok: false, feedback: '$\\sphericalangle 1$ לא מול $\\sphericalangle 2$, היא לידה. שכנות בחיתוך הן צמודות.' },
           { text: 'אין ביניהן קשר', ok: false, feedback: 'יש: הן חולקות צלע, והצלעות האחרות שלהן הן ישר אחד.' },
-        ], hints: ['זוויות שהמספרים שלהן עוקבים, כמו $1$ ו־$2$, הן שכנות.', 'שכנות בחיתוך הן צמודות: יחד $180^\\circ$.'], done: '$\\angle 1 = 180^\\circ - 104^\\circ$' },
+        ], hints: ['זוויות שהמספרים שלהן עוקבים, כמו $1$ ו־$2$, הן שכנות.', 'שכנות בחיתוך הן צמודות: יחד $180^\\circ$.'], done: '$\\sphericalangle 1 = 180^\\circ - 104^\\circ$' },
       ],
-      final: { prompt: 'כמה מעלות $\\angle 1$?', answer: 76, check: '180 - 104', hints: ['$180 - 100 = 80$, ואז מורידים עוד $4$.', '$\\angle 1 = 180^\\circ - 104^\\circ$. בדקו: יחד עם $104^\\circ$ צריך לצאת $180^\\circ$.'] } },
+      final: { prompt: 'כמה מעלות $\\sphericalangle 1$?', answer: 76, check: '180 - 104', hints: ['$180 - 100 = 80$, ואז מורידים עוד $4$.', '$\\sphericalangle 1 = 180^\\circ - 104^\\circ$. בדקו: יחד עם $104^\\circ$ צריך לצאת $180^\\circ$.'] } },
     { problem: 'הפתעה: שני ישרים נחתכים, ושתי זוויות שכנות שוות זו לזו. מה גודל הזוויות?',
       steps: [
         { prompt: 'שתי זוויות שכנות ושוות. כמה כל אחת?', choices: [
@@ -477,8 +487,8 @@ const stair2: StairContent = {
         'יחד $360^\\circ$: סיבוב שלם סביב הנקודה.',
       ],
       remedy: [
-        { kind: 'predict', text: 'בחיתוך, זווית $1$ היא $80^\\circ$. כמה הן $\\angle 2 + \\angle 3 + \\angle 4$?', choices: ['$100^\\circ$', '$280^\\circ$', '$180^\\circ$'], answer: 1,
-          why: '$\\angle 2 = 100^\\circ$, $\\angle 3 = 80^\\circ$, $\\angle 4 = 100^\\circ$. יחד $280^\\circ$, כלומר $360^\\circ - 80^\\circ$.',
+        { kind: 'predict', text: 'בחיתוך, זווית $1$ היא $80^\\circ$. כמה הן $\\sphericalangle 2 + \\sphericalangle 3 + \\sphericalangle 4$?', choices: ['$100^\\circ$', '$280^\\circ$', '$180^\\circ$'], answer: 1,
+          why: '$\\sphericalangle 2 = 100^\\circ$, $\\sphericalangle 3 = 80^\\circ$, $\\sphericalangle 4 = 100^\\circ$. יחד $280^\\circ$, כלומר $360^\\circ - 80^\\circ$.',
           wrongWhy: { 0: '$100^\\circ$ היא רק זווית $2$, שמשלימה את $80^\\circ$ לישר אחד. יש עוד שתי זוויות.' } },
         { kind: 'explore', text: 'מעל הישר יש זוג זוויות צמודות. זווית $1$ היא $80^\\circ$: סובבו את הקרן כך שהזווית השמאלית תהיה $80^\\circ$.', ...turn(80),
           hint: 'הימנית משלימה את $80^\\circ$ ל־$180^\\circ$.', success: 'מעל הישר: $80^\\circ + 100^\\circ = 180^\\circ$. מתחתיו יש עוד זוג כזה. בסך הכול $360^\\circ$.' },
@@ -506,8 +516,8 @@ const triModel: DiagModel<TriSum> = {
     }
   },
   text: (p) => (p.k === 0
-    ? `במשולש $ABC$: $\\angle A = ${d(p.a)}$ ו־$\\angle B = ${d(p.b)}$. מה גודל $\\angle C$?`
-    : `במשולש ישר־זווית $ABC$ הזווית $C$ ישרה, ו־$\\angle A = ${d(p.a)}$. מה גודל $\\angle B$?`),
+    ? `במשולש $ABC$: $\\sphericalangle A = ${d(p.a)}$ ו־$\\sphericalangle B = ${d(p.b)}$. מה גודל $\\sphericalangle C$?`
+    : `במשולש ישר־זווית $ABC$ הזווית $C$ ישרה, ו־$\\sphericalangle A = ${d(p.a)}$. מה גודל $\\sphericalangle B$?`),
   answer: (p) => 180 - p.a - p.b,
   bugs: {
     // a full turn instead of a straight line
@@ -516,8 +526,8 @@ const triModel: DiagModel<TriSum> = {
     'one-angle': (p) => 180 - p.a,
   },
   solution: (p) => (p.k === 0
-    ? ['סכום הזוויות במשולש הוא $180^\\circ$.', `$\\angle C = 180^\\circ - ${d(p.a)} - ${d(p.b)} = ${d(180 - p.a - p.b)}$`]
-    : ['סכום הזוויות במשולש הוא $180^\\circ$, והזווית $C$ לוקחת מהם $90^\\circ$.', `$\\angle B = 180^\\circ - 90^\\circ - ${d(p.a)} = ${d(90 - p.a)}$`]),
+    ? ['סכום הזוויות במשולש הוא $180^\\circ$.', `$\\sphericalangle C = 180^\\circ - ${d(p.a)} - ${d(p.b)} = ${d(180 - p.a - p.b)}$`]
+    : ['סכום הזוויות במשולש הוא $180^\\circ$, והזווית $C$ לוקחת מהם $90^\\circ$.', `$\\sphericalangle B = 180^\\circ - 90^\\circ - ${d(p.a)} = ${d(90 - p.a)}$`]),
   hint: (p) => (p.k === 0
     ? 'שלוש הזוויות יחד הן $180^\\circ$. כמה לוקחות שתי הידועות?'
     : 'גם הזווית הישרה היא אחת משלוש הזוויות: $90^\\circ$, גם אם לא כתוב לידה מספר.'),
@@ -563,10 +573,10 @@ const stair3: StairContent = {
   alt: [
     'ניסוי עם עיפרון: מניחים אותו על צלע אחת. בכל קודקוד מסובבים אותו, תמיד לאותו כיוון, בדיוק בזווית של הקודקוד, עד שהוא מונח על הצלע הבאה. אחרי שלושה קודקודים הוא חוזר לצלע הראשונה, אבל הפוך: הוא הסתובב חצי סיבוב, $180^\\circ$.',
     'חותכים מלבן באלכסון ומקבלים שני משולשים זהים. במלבן ארבע זוויות ישרות, $360^\\circ$, והן מתחלקות שווה בשווה בין שני המשולשים: $180^\\circ$ לכל אחד.',
-    'דמיינו שמורידים את הקודקוד $C$ עד הבסיס: המשולש נעשה שטוח. $\\angle A$ ו־$\\angle B$ מתכווצות לאפס, ו־$\\angle C$ נפתחת עד קו ישר, $180^\\circ$.',
+    'דמיינו שמורידים את הקודקוד $C$ עד הבסיס: המשולש נעשה שטוח. $\\sphericalangle A$ ו־$\\sphericalangle B$ מתכווצות לאפס, ו־$\\sphericalangle C$ נפתחת עד קו ישר, $180^\\circ$.',
   ],
   discover: [
-    { kind: 'say', fig: triangle(['A', 'B', 'C'], [[0, 0], [5, 0], [1.8, 3]], { A: {}, B: { n: 2 }, C: { n: 3, r: 22 } }), mood: 'thinking', text: 'במשולש $ABC$ יש שלוש זוויות, אחת בכל קודקוד: $\\angle A$, $\\angle B$ ו־$\\angle C$. האם יש קשר ביניהן? נבדוק.' },
+    { kind: 'say', fig: triangle(['A', 'B', 'C'], [[0, 0], [5, 0], [1.8, 3]], { A: {}, B: { n: 2 }, C: { n: 3, r: 22 } }), mood: 'thinking', text: 'במשולש $ABC$ יש שלוש זוויות, אחת בכל קודקוד: $\\sphericalangle A$, $\\sphericalangle B$ ו־$\\sphericalangle C$. האם יש קשר ביניהן? נבדוק.' },
     { kind: 'predict', fig: similar(), text: 'משולש גדול מאוד ומשולש קטן מאוד, באותה צורה. באיזה מהם סכום הזוויות גדול יותר?',
       choices: ['בגדול', 'בקטן', 'הסכום שווה בשניהם'], answer: 2,
       why: 'זווית מודדת פתיחה, לא אורך. כשמגדילים משולש פי $2$, הצלעות מתארכות, אבל הפינות נשארות אותן פינות.',
@@ -575,29 +585,37 @@ const stair3: StairContent = {
       manip: tri([-2, 3]), answer: [0, 5],
       hint: 'העלו את $C$ מעל האמצע של $AB$. כשהוא נמוך הזווית $C$ קהה, וכשהוא גבוה היא חדה.',
       success: 'הזווית $C$ ישרה. הזוויות $A$ ו־$B$ השתנו כל הזמן, אבל הסכום נשאר $180^\\circ$.' },
-    { kind: 'predict', fig: triangle(['A', 'B', 'C'], [[0, 0], [5, 0], [1.8, 2.4]], { A: { text: '?', target: true }, B: { text: '?', target: true, n: 2 }, C: { right: true } }), text: 'הזווית $C$ ישרה. כמה הן $\\angle A + \\angle B$ יחד?', choices: ['$90^\\circ$', '$180^\\circ$', '$45^\\circ$'], answer: 0,
-      why: 'שלוש הזוויות יחד הן $180^\\circ$, ו־$\\angle C$ לוקחת מזה $90^\\circ$. ל־$\\angle A$ ול־$\\angle B$ יחד נשאר $90^\\circ$.',
-      wrongWhy: { 1: '$180^\\circ$ הוא הסכום של שלוש הזוויות, כולל $\\angle C$.', 2: '$45^\\circ$ זה כל אחת, וגם זה רק כששתיהן שוות. יחד הן $90^\\circ$.' } },
+    { kind: 'predict', fig: triangle(['A', 'B', 'C'], [[0, 0], [5, 0], [1.8, 2.4]], { A: { text: '?', target: true }, B: { text: '?', target: true, n: 2 }, C: { right: true } }), text: 'הזווית $C$ ישרה. כמה הן $\\sphericalangle A + \\sphericalangle B$ יחד?', choices: ['$90^\\circ$', '$180^\\circ$', '$45^\\circ$'], answer: 0,
+      why: 'שלוש הזוויות יחד הן $180^\\circ$, ו־$\\sphericalangle C$ לוקחת מזה $90^\\circ$. ל־$\\sphericalangle A$ ול־$\\sphericalangle B$ יחד נשאר $90^\\circ$.',
+      wrongWhy: { 1: '$180^\\circ$ הוא הסכום של שלוש הזוויות, כולל $\\sphericalangle C$.', 2: '$45^\\circ$ זה כל אחת, וגם זה רק כששתיהן שוות. יחד הן $90^\\circ$.' } },
     { kind: 'say', fig: torn(), text: 'הסכום נשאר $180^\\circ$ בכל מקום שגררתם. אבל למה? ניסוי עם נייר: גוזרים משולש, קורעים את שלוש הפינות, ומצמידים אותן זו ליד זו כך שהקודקודים נפגשים בנקודה אחת.' },
     { kind: 'predict', fig: torn(), text: 'מה יוצרות שלוש הפינות יחד?', choices: ['קו ישר', 'זווית ישרה', 'סיבוב שלם'], answer: 0,
       why: 'שלוש הפינות ממלאות בדיוק קו ישר: זווית שטוחה, $180^\\circ$. זו הסיבה שסכום הזוויות במשולש הוא $180^\\circ$.' },
-    { kind: 'explore', text: 'נבנה את זה: במשולש $\\angle A = 70^\\circ$ ו־$\\angle B = 45^\\circ$. הנחנו את שתי הפינות זו ליד זו על הישר, ויחד הן $115^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $115^\\circ$.',
+    { kind: 'explore', text: 'נבנה את זה: במשולש $\\sphericalangle A = 70^\\circ$ ו־$\\sphericalangle B = 45^\\circ$. הנחנו את שתי הפינות זו ליד זו על הישר, ויחד הן $115^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $115^\\circ$.',
       ...turn(115, 90, NO_LETTERS), hint: 'השמאלית היא שתי הפינות יחד, $70^\\circ + 45^\\circ$. הימנית היא מה שנשאר עד $180^\\circ$.',
-      success: 'בצד ימין נשאר רווח של $65^\\circ$, והפינה $C$ נכנסת בו בדיוק: $\\angle C = 65^\\circ$.' },
-    { kind: 'rule', fig: triangleSum(), text: 'הכלל: סכום הזוויות בכל משולש הוא $180^\\circ$.', display: '\\angle A + \\angle B + \\angle C = 180^\\circ',
+      success: 'בצד ימין נשאר רווח של $65^\\circ$, והפינה $C$ נכנסת בו בדיוק: $\\sphericalangle C = 65^\\circ$.' },
+    { kind: 'rule', fig: triangleSum(), text: 'הכלל: סכום הזוויות בכל משולש הוא $180^\\circ$.', display: '\\sphericalangle A + \\sphericalangle B + \\sphericalangle C = 180^\\circ',
       why: 'שלוש הפינות של משולש, כשמצמידים אותן, ממלאות קו ישר. לכן זווית חסרה היא $180^\\circ$ פחות שתי הזוויות האחרות.' },
+    // CLASSROOM-11: the class's triangle split by a segment from a vertex ("יש 3 Δ בשרטוט")
+    { kind: 'say', fig: splitTri(45, 64, { ADC: { text: '64°' }, BAD: { text: '19°' }, B: { text: 'β', target: true } }),
+      text: 'במשולש ישר־זווית $ABC$ הנקודה $D$ על הצלע $BC$, והקטע $AD$ מחלק אותו. בשרטוט הזה יש שלושה משולשים: $ABD$, $ADC$, והגדול $ABC$. הזווית ב־$B$ היא $\\beta$.' },
+    { kind: 'predict', fig: splitTri(45, 64, { ADC: { text: '64°' }, BAD: { text: '19°' }, B: { text: 'β', target: true } }),
+      text: 'במשולש $ABC$ הזווית ב־$C$ ישרה, $D$ על $BC$, $\\sphericalangle ADC = 64^\\circ$ ו־$\\sphericalangle BAD = 19^\\circ$. כדי למצוא את $\\beta$, באיזה משולש כדאי להשתמש?',
+      choices: ['במשולש שיש בו את $\\beta$ ועוד שתי זוויות שאפשר למצוא: $ABD$, או הגדול $ABC$', 'אין צורך במשולש: $\\beta + 64^\\circ = 180^\\circ$'], answer: 0,
+      why: 'ב־$ABD$: $19^\\circ$ נתונה, והזווית שלו ב־$D$ צמודה ל־$64^\\circ$. ב־$ABC$: הזווית הישרה, והזווית ב־$A$ כולה, אחרי שמוצאים במשולש $ADC$ את החלק השני שלה. שתי הדרכים נותנות $\\beta = 45^\\circ$.',
+      wrongWhy: { 1: '$\\beta$ בקודקוד $B$, ו־$64^\\circ$ בקודקוד $D$. אין להן קודקוד משותף, ולכן הן לא משלימות זו את זו ל־$180^\\circ$. $180^\\circ - 64^\\circ = 116^\\circ$ היא $\\sphericalangle ADB$, לא $\\beta$.' } },
     { kind: 'predict', fig: twoRights(), text: 'האם יכול להיות משולש עם שתי זוויות ישרות?', choices: ['כן', 'לא'], answer: 1,
       why: 'שתי זוויות ישרות הן כבר $180^\\circ$. לזווית השלישית לא נשאר כלום, ושתי הצלעות לא ייפגשו: הן יעלו ישר למעלה זו ליד זו.' },
-    { kind: 'predict', fig: triangle(['A', 'B', 'C'], [[0, 0], [5, 0], apex(50, 60)], { A: { text: '50°' }, B: { text: '60°', n: 2 }, C: { text: '?', target: true } }), text: 'במשולש $\\angle A = 50^\\circ$ ו־$\\angle B = 60^\\circ$. מה $\\angle C$?', choices: ['$70^\\circ$', '$110^\\circ$', '$250^\\circ$'], answer: 0,
+    { kind: 'predict', fig: triangle(['A', 'B', 'C'], [[0, 0], [5, 0], apex(50, 60)], { A: { text: '50°' }, B: { text: '60°', n: 2 }, C: { text: '?', target: true } }), text: 'במשולש $\\sphericalangle A = 50^\\circ$ ו־$\\sphericalangle B = 60^\\circ$. מה $\\sphericalangle C$?', choices: ['$70^\\circ$', '$110^\\circ$', '$250^\\circ$'], answer: 0,
       why: '$180^\\circ - 50^\\circ - 60^\\circ = 70^\\circ$. בדיקה: $50 + 60 + 70 = 180$.',
-      wrongWhy: { 1: '$110^\\circ$ הוא $50^\\circ + 60^\\circ$: כמה ששתי הזוויות הידועות לוקחות. $\\angle C$ היא מה שנשאר מ־$180^\\circ$.', 2: '$250^\\circ$ יוצא מ־$360^\\circ$. שלוש פינות של משולש ממלאות קו ישר, לא סיבוב שלם.' } },
+      wrongWhy: { 1: '$110^\\circ$ הוא $50^\\circ + 60^\\circ$: כמה ששתי הזוויות הידועות לוקחות. $\\sphericalangle C$ היא מה שנשאר מ־$180^\\circ$.', 2: '$250^\\circ$ יוצא מ־$360^\\circ$. שלוש פינות של משולש ממלאות קו ישר, לא סיבוב שלם.' } },
   ],
   examples: [
-    { problem: 'במשולש $ABC$: $\\angle A = 48^\\circ$ ו־$\\angle B = 67^\\circ$. מה גודל $\\angle C$?', display: '\\angle A = 48^\\circ,\\quad \\angle B = 67^\\circ', answer: 65, check: '180 - 48 - 67',
+    { problem: 'במשולש $ABC$: $\\sphericalangle A = 48^\\circ$ ו־$\\sphericalangle B = 67^\\circ$. מה גודל $\\sphericalangle C$?', display: '\\sphericalangle A = 48^\\circ,\\quad \\sphericalangle B = 67^\\circ', answer: 65, check: '180 - 48 - 67',
       steps: [
-        { action: 'כותבים מה ידוע על כל שלוש הזוויות.', why: 'סכום הזוויות במשולש הוא $180^\\circ$: שלוש הפינות ממלאות קו ישר.', result: '48^\\circ + 67^\\circ + \\angle C = 180^\\circ' },
+        { action: 'כותבים מה ידוע על כל שלוש הזוויות.', why: 'סכום הזוויות במשולש הוא $180^\\circ$: שלוש הפינות ממלאות קו ישר.', result: '48^\\circ + 67^\\circ + \\sphericalangle C = 180^\\circ' },
         { action: 'מחברים את שתי הזוויות הידועות.', why: 'כך יודעים כמה מתוך $180^\\circ$ כבר תפוס.', result: '48^\\circ + 67^\\circ = 115^\\circ', calc: { expr: '48 + 67', value: 115 } },
-        { action: 'מורידים את התפוס מ־$180^\\circ$.', why: '$\\angle C$ היא מה שנשאר.', result: '\\angle C = 180^\\circ - 115^\\circ = 65^\\circ', value: '180 - 115' },
+        { action: 'מורידים את התפוס מ־$180^\\circ$.', why: '$\\sphericalangle C$ היא מה שנשאר.', result: '\\sphericalangle C = 180^\\circ - 115^\\circ = 65^\\circ', value: '180 - 115' },
         { action: 'בודקים: שלוש הזוויות יחד.', why: 'אם יוצא $180^\\circ$, החישוב נכון.', result: '48^\\circ + 67^\\circ + 65^\\circ = 180^\\circ', calc: { expr: '48 + 67 + 65', value: 180 } },
       ] },
     { problem: 'מפרש של סירה הוא משולש. התורן עומד ישר, מאונך למוט התחתון של המפרש. בראש התורן, הזווית בין התורן לשפת המפרש היא $28^\\circ$. מה הזווית בקצה המוט התחתון?', answer: 62, check: '180 - 90 - 28',
@@ -607,22 +625,36 @@ const stair3: StairContent = {
         { action: 'דרך קצרה: במשולש ישר־זווית, שתי הזוויות החדות יחד הן $90^\\circ$.', why: 'אחרי $90^\\circ$ של הזווית הישרה נשארים $90^\\circ$ לשתי האחרות.', result: 'x = 90^\\circ - 28^\\circ = 62^\\circ', value: '90 - 28' },
         { action: 'בודקים.', why: 'שלוש הזוויות צריכות למלא $180^\\circ$.', result: '90^\\circ + 28^\\circ + 62^\\circ = 180^\\circ', calc: { expr: '90 + 28 + 62', value: 180 } },
       ] },
+    // CLASSROOM-11: the class's way, two helper sketches (שרטוטי עזר), each its own triangle with its own right angle and
+    // givens, each line with its reason
+    { problem: 'במשולש ישר־זווית $ABC$ ($\\sphericalangle C = 90^\\circ$) הנקודה $D$ על הצלע $BC$. $\\sphericalangle ADC = 64^\\circ$ ו־$\\sphericalangle BAD = 19^\\circ$. מה גודל $\\beta$, הזווית ב־$B$?',
+      fig: splitTri(45, 64, { ADC: { text: '64°' }, BAD: { text: '19°' }, B: { text: 'β', target: true } }), answer: 45, check: '64 - 19',
+      steps: [
+        { action: 'שרטוט עזר 1: המשולש הקטן $ADC$, עם הזווית הישרה ב־$C$ ו־$64^\\circ$ ב־$D$. מוצאים בו את $\\alpha = \\sphericalangle DAC$.', why: 'סכום זוויות ב־$\\Delta$ שווה $180^\\circ$.',
+          result: '\\alpha = 180^\\circ - 90^\\circ - 64^\\circ = 26^\\circ', calc: { expr: '180 - 90 - 64', value: 26 },
+          fig: splitTri(45, 64, { ADC: { text: '64°' }, DAC: { text: 'α', target: true } }, { show: 'ADC' }) },
+        { action: 'שרטוט עזר 2: המשולש הגדול $ABC$, עם הזווית הישרה ב־$C$. הזווית ב־$A$ כולה: $19^\\circ + 26^\\circ = 45^\\circ$.', why: 'סכום זוויות ב־$\\Delta$ שווה $180^\\circ$.',
+          result: '\\beta = 180^\\circ - 90^\\circ - 45^\\circ = 45^\\circ', value: '180 - 90 - 45',
+          fig: splitTri(45, 64, { BAC: { text: '45°' }, B: { text: 'β', target: true } }, { show: 'ABC' }) },
+        { action: 'בודקים במשולש השלישי, $ABD$. הזווית שלו ב־$D$ צמודה ל־$64^\\circ$: $180^\\circ - 64^\\circ = 116^\\circ$.', why: 'סכום זוויות ב־$\\Delta$ שווה $180^\\circ$ גם בו.',
+          result: '19^\\circ + 116^\\circ + 45^\\circ = 180^\\circ', calc: { expr: '19 + 116 + 45', value: 180 } },
+      ] },
   ],
   together: [
-    { problem: 'במשולש $\\angle A = 35^\\circ$ ו־$\\angle C = 100^\\circ$. נמצא יחד את $\\angle B$.', display: '\\angle A = 35^\\circ,\\quad \\angle C = 100^\\circ',
+    { problem: 'במשולש $\\sphericalangle A = 35^\\circ$ ו־$\\sphericalangle C = 100^\\circ$. נמצא יחד את $\\sphericalangle B$.', display: '\\sphericalangle A = 35^\\circ,\\quad \\sphericalangle C = 100^\\circ',
       steps: [
         { prompt: 'מה ידוע על שלוש הזוויות?', choices: [
           { text: 'יחד הן $180^\\circ$', ok: true, feedback: 'נכון: שלוש הפינות ממלאות קו ישר.' },
           { text: 'יחד הן $360^\\circ$', ok: false, feedback: '$360^\\circ$ הוא סיבוב שלם. שלוש פינות של משולש ממלאות רק קו ישר.' },
           { text: 'הן שוות', ok: false, feedback: 'הן שוות רק במשולש שכל הצלעות שלו שוות. כאן נתונות שתי זוויות שונות.' },
-        ], hints: ['זכרו את שלוש הפינות הקרועות.', 'הפינות ממלאות קו ישר: $180^\\circ$.'], done: '$\\angle A + \\angle B + \\angle C = 180^\\circ$' },
-        { prompt: 'איזה חישוב נותן את $\\angle B$?', choices: [
+        ], hints: ['זכרו את שלוש הפינות הקרועות.', 'הפינות ממלאות קו ישר: $180^\\circ$.'], done: '$\\sphericalangle A + \\sphericalangle B + \\sphericalangle C = 180^\\circ$' },
+        { prompt: 'איזה חישוב נותן את $\\sphericalangle B$?', choices: [
           { text: '$180^\\circ - 35^\\circ - 100^\\circ$', ok: true, feedback: 'נכון: מה שנשאר אחרי שתי הזוויות הידועות.' },
-          { text: '$180^\\circ - 100^\\circ$', ok: false, feedback: 'הורדתם רק את $\\angle C$. גם $\\angle A$ לוקחת חלק מ־$180^\\circ$.' },
-          { text: '$35^\\circ + 100^\\circ$', ok: false, feedback: 'זה כמה ששתי הזוויות הידועות לוקחות יחד. $\\angle B$ היא מה שנשאר.' },
-        ], hints: ['כמה לוקחות שתי הזוויות הידועות יחד?', '$35^\\circ + 100^\\circ = 135^\\circ$, ו־$\\angle B$ היא מה שנשאר מ־$180^\\circ$.'], done: '$\\angle B = 180^\\circ - 35^\\circ - 100^\\circ$' },
+          { text: '$180^\\circ - 100^\\circ$', ok: false, feedback: 'הורדתם רק את $\\sphericalangle C$. גם $\\sphericalangle A$ לוקחת חלק מ־$180^\\circ$.' },
+          { text: '$35^\\circ + 100^\\circ$', ok: false, feedback: 'זה כמה ששתי הזוויות הידועות לוקחות יחד. $\\sphericalangle B$ היא מה שנשאר.' },
+        ], hints: ['כמה לוקחות שתי הזוויות הידועות יחד?', '$35^\\circ + 100^\\circ = 135^\\circ$, ו־$\\sphericalangle B$ היא מה שנשאר מ־$180^\\circ$.'], done: '$\\sphericalangle B = 180^\\circ - 35^\\circ - 100^\\circ$' },
       ],
-      final: { prompt: 'כמה מעלות $\\angle B$?', answer: 45, check: '180 - 35 - 100', hints: ['קודם $35 + 100$.', '$180 - 135$.'] } },
+      final: { prompt: 'כמה מעלות $\\sphericalangle B$?', answer: 45, check: '180 - 35 - 100', hints: ['קודם $35 + 100$.', '$180 - 135$.'] } },
     { problem: 'במשולש מסוים כל שלוש הזוויות שוות. מה גודל כל אחת?',
       steps: [
         { prompt: 'איך מוצאים זווית אחת?', choices: [
@@ -645,9 +677,25 @@ const stair3: StairContent = {
       remedy: [
         { kind: 'explore', text: 'גררו את $C$ לכמה מקומות ושימו לב לסכום. עצרו כשהזווית $C$ ישרה.', manip: tri([4, 1]), answer: [0, 5],
           hint: 'הזיזו את $C$ אל מעל האמצע של $AB$ ונסו גבהים שונים.', success: 'בכל מקום שגררתם, הסכום היה $180^\\circ$, לא $360^\\circ$.' },
-        { kind: 'predict', text: 'במשולש $\\angle A = 80^\\circ$ ו־$\\angle B = 60^\\circ$. מישהו ענה $\\angle C = 220^\\circ$. מה הטעות?',
+        { kind: 'predict', text: 'במשולש $\\sphericalangle A = 80^\\circ$ ו־$\\sphericalangle B = 60^\\circ$. מישהו ענה $\\sphericalangle C = 220^\\circ$. מה הטעות?',
           choices: ['זווית של $220^\\circ$ גדולה מקו ישר, ולא יכולה להיות פינה של משולש', 'אין טעות'], answer: 0,
           why: 'הוא השתמש ב־$360^\\circ$. הנכון: $180^\\circ - 80^\\circ - 60^\\circ = 40^\\circ$.' },
+      ] },
+    { id: 'other-vertex', title: 'חיברו ל־$180^\\circ$ שתי זוויות בקודקודים שונים',
+      cause: 'כשקטע מחלק את המשולש, זווית בקודקוד אחד וזווית בקודקוד אחר יכולות להיראות כמו זוג. אבל רק זוויות צמודות, באותו קודקוד ועל ישר אחד, משלימות זו את זו ל־$180^\\circ$.',
+      explain: [
+        '$\\beta$ בקודקוד $B$, והזווית הנתונה בקודקוד $D$. אין להן קודקוד משותף, ולכן הן לא זוג.',
+        'הזווית שצמודה לזווית ב־$D$ היא השנייה באותו קודקוד, $\\sphericalangle ADB$. היא נכנסת למשולש $ABD$ יחד עם $\\beta$.',
+      ],
+      remedy: [
+        { kind: 'predict', fig: splitTri(45, 64, { ADC: { text: '64°' }, B: { text: 'β', target: true } }, { dots: ['B', 'D'] }),
+          text: 'במשולש $ABC$ הזווית ב־$C$ ישרה, ו־$D$ על $BC$. האם ל־$\\beta$ ול־$64^\\circ$ יש קודקוד משותף?',
+          choices: ['לא: $\\beta$ בקודקוד $B$, ו־$64^\\circ$ בקודקוד $D$', 'כן'], answer: 0,
+          why: 'זוויות שמשלימות זו את זו ל־$180^\\circ$ על ישר הן צמודות: יש להן קודקוד משותף. ל־$\\beta$ ול־$64^\\circ$ אין, ולכן אין סיבה שיחד יהיו $180^\\circ$.' },
+        { kind: 'predict', fig: splitTri(45, 64, { ADC: { text: '64°' }, ADB: { text: '?', target: true } }),
+          text: 'במשולש $ABC$, ו־$D$ על $BC$: איזו זווית יחד עם $64^\\circ$ היא $180^\\circ$?',
+          choices: ['$\\sphericalangle ADB = 116^\\circ$, באותו קודקוד $D$', '$\\beta = 116^\\circ$'], answer: 0,
+          why: '$\\sphericalangle ADB$ ו־$\\sphericalangle ADC$ צמודות: קודקוד $D$ משותף, ו־$DB$ ו־$DC$ ישר אחד. $\\sphericalangle ADB$ נכנסת למשולש $ABD$, ושם מוצאים את $\\beta$.' },
       ] },
     { id: 'one-angle', title: 'הורידו מ־$180^\\circ$ רק זווית אחת',
       cause: 'שכחו שגם הזווית השנייה לוקחת חלק מ־$180^\\circ$. במשולש ישר־זווית קל במיוחד לשכוח את הזווית הישרה, כי לא כתוב לידה מספר.',
@@ -656,9 +704,9 @@ const stair3: StairContent = {
         'במשולש ישר־זווית, הזווית הישרה היא אחת מהן: $90^\\circ$, גם אם לא כתוב.',
       ],
       remedy: [
-        { kind: 'explore', text: 'במשולש ישר־זווית $\\angle A = 35^\\circ$. שתי הפינות הידועות על הישר: $90^\\circ + 35^\\circ = 125^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $125^\\circ$.', ...turn(125, 90, NO_LETTERS),
+        { kind: 'explore', text: 'במשולש ישר־זווית $\\sphericalangle A = 35^\\circ$. שתי הפינות הידועות על הישר: $90^\\circ + 35^\\circ = 125^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $125^\\circ$.', ...turn(125, 90, NO_LETTERS),
           hint: 'הימנית היא הזווית השלישית: מה שנשאר עד $180^\\circ$.', success: 'נשארו $55^\\circ$ לזווית השלישית. בלי הזווית הישרה הייתם מקבלים $145^\\circ$, ואז הסכום היה $90 + 35 + 145 = 270$, הרבה יותר מ־$180^\\circ$.' },
-        { kind: 'predict', text: 'במשולש $\\angle A = 40^\\circ$ ו־$\\angle B = 70^\\circ$. מה $\\angle C$?', choices: ['$140^\\circ$', '$70^\\circ$', '$110^\\circ$'], answer: 1,
+        { kind: 'predict', text: 'במשולש $\\sphericalangle A = 40^\\circ$ ו־$\\sphericalangle B = 70^\\circ$. מה $\\sphericalangle C$?', choices: ['$140^\\circ$', '$70^\\circ$', '$110^\\circ$'], answer: 1,
           why: '$180^\\circ - 40^\\circ - 70^\\circ = 70^\\circ$.',
           wrongWhy: { 0: 'הורדתם רק את $40^\\circ$. גם $70^\\circ$ לוקחת חלק.', 2: 'הורדתם רק את $70^\\circ$. גם $40^\\circ$ לוקחת חלק.' } },
       ] },
@@ -755,7 +803,7 @@ const parStory: DiagModel<Par> = {
   // a check asks the two-step story only: both legs of the trapezoid (CURRICULUM-10)
   testParams: trapezoidParams,
   text: (p) => [
-    `בטרפז $ABCD$ הבסיסים $AB$ ו־$CD$ מקבילים, ו־$AD$ היא שוק. $\\angle A = ${d(p.a)}$. מה גודל $\\angle D$?`,
+    `בטרפז $ABCD$ הבסיסים $AB$ ו־$CD$ מקבילים, ו־$AD$ היא שוק. $\\sphericalangle A = ${d(p.a)}$. מה גודל $\\sphericalangle D$?`,
     `באות $Z$ הקו העליון והקו התחתון מקבילים, והאלכסון מחבר ביניהם. הזווית בפינה העליונה, בין הקו העליון לאלכסון, היא $${d(p.a)}$. מה הזווית בפינה התחתונה, בין האלכסון לקו התחתון?`,
     `קרני השמש מקבילות זו לזו. קרן אחת פוגעת בקרקע השטוחה, והזווית בינה לבין הקרקע, בצד המזרחי, היא $${d(p.a)}$. מה הזווית בין קרן אחרת לבין הקרקע, גם בצד המזרחי?`,
     `בטרפז $ABCD$ הבסיסים $AB$ ו־$CD$ מקבילים. $\\sphericalangle A = ${d(p.a)}$ ו־$\\sphericalangle B = ${d(p.b)}$. מה הסכום $\\sphericalangle C + \\sphericalangle D$?`,
@@ -767,7 +815,7 @@ const parStory: DiagModel<Par> = {
     'equal-not-supp': (p) => (p.k === 0 ? p.a : p.k === 3 ? p.a + p.b : null),
   },
   solution: (p) => [
-    ['השוק $AD$ חותכת את שני הבסיסים המקבילים, ו־$\\angle A$, $\\angle D$ נמצאות ביניהם, באותו צד של השוק: חד־צדדיות.', `$\\angle D = 180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`],
+    ['השוק $AD$ חותכת את שני הבסיסים המקבילים, ו־$\\sphericalangle A$, $\\sphericalangle D$ נמצאות ביניהם, באותו צד של השוק: חד־צדדיות.', `$\\sphericalangle D = 180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`],
     ['האלכסון חותך שני ישרים מקבילים, ושתי הפינות נמצאות ביניהם, בצדדים שונים של האלכסון: זוויות מתחלפות.', `מתחלפות שוות: $${d(p.a)}$.`],
     ['הקרקע חותכת את שתי הקרניים המקבילות, ושתי הזוויות נמצאות באותו מקום בשני החיתוכים: זוויות מתאימות.', `מתאימות שוות: $${d(p.a)}$.`],
     ['כל שוק חותכת את הבסיסים המקבילים: ליד $AD$ הזוויות $\\sphericalangle A$ ו־$\\sphericalangle D$ חד־צדדיות, וליד $BC$ הזוויות $\\sphericalangle B$ ו־$\\sphericalangle C$.',
@@ -921,9 +969,9 @@ const isoModel: DiagModel<Iso> = {
     return { k: 2, a, b };
   },
   text: (p) => [
-    `במשולש שווה־שוקיים $ABC$ ($AB = AC$) זווית הראש היא $\\angle A = ${d(p.a)}$. מה גודל זווית הבסיס $\\angle B$?`,
-    `במשולש שווה־שוקיים $ABC$ ($AB = AC$) זווית הבסיס היא $\\angle B = ${d(p.a)}$. מה גודל זווית הראש $\\angle A$?`,
-    `במשולש $ABC$: $\\angle A = ${d(p.a)}$ ו־$\\angle B = ${d(p.b)}$. מה גודל הזווית החיצונית ליד הקודקוד $C$?`,
+    `במשולש שווה־שוקיים $ABC$ ($AB = AC$) זווית הראש היא $\\sphericalangle A = ${d(p.a)}$. מה גודל זווית הבסיס $\\sphericalangle B$?`,
+    `במשולש שווה־שוקיים $ABC$ ($AB = AC$) זווית הבסיס היא $\\sphericalangle B = ${d(p.a)}$. מה גודל זווית הראש $\\sphericalangle A$?`,
+    `במשולש $ABC$: $\\sphericalangle A = ${d(p.a)}$ ו־$\\sphericalangle B = ${d(p.b)}$. מה גודל הזווית החיצונית ליד הקודקוד $C$?`,
   ][p.k],
   answer: (p) => [(180 - p.a) / 2, 180 - 2 * p.a, p.a + p.b][p.k],
   bugs: {
@@ -938,13 +986,13 @@ const isoModel: DiagModel<Iso> = {
   },
   solution: (p) => [
     ['זוויות הבסיס שוות. מורידים את זווית הראש מ־$180^\\circ$:', `$180^\\circ - ${d(p.a)} = ${d(180 - p.a)}$`, `ומחלקים בין שתי זוויות הבסיס: $${180 - p.a} : 2 = ${d((180 - p.a) / 2)}$`],
-    [`זוויות הבסיס שוות, ולכן גם $\\angle C = ${d(p.a)}$.`, `$\\angle A = 180^\\circ - 2 \\cdot ${d(p.a)} = ${d(180 - 2 * p.a)}$`],
+    [`זוויות הבסיס שוות, ולכן גם $\\sphericalangle C = ${d(p.a)}$.`, `$\\sphericalangle A = 180^\\circ - 2 \\cdot ${d(p.a)} = ${d(180 - 2 * p.a)}$`],
     ['הזווית החיצונית שווה לסכום שתי הזוויות הפנימיות שלא צמודות לה.', `$${d(p.a)} + ${d(p.b)} = ${d(p.a + p.b)}$`],
   ][p.k],
   hint: (p) => [
     'זוויות הבסיס שוות. כמה מעלות נשארות לשתיהן יחד אחרי זווית הראש?',
     `גם זווית הבסיס השנייה היא $${d(p.a)}$. כמה נשאר לזווית הראש?`,
-    'הזווית החיצונית צמודה ל־$\\angle C$. מה עוד משלים את $\\angle C$ ל־$180^\\circ$?',
+    'הזווית החיצונית צמודה ל־$\\sphericalangle C$. מה עוד משלים את $\\sphericalangle C$ ל־$180^\\circ$?',
   ][p.k],
   unit: 'מעלות',
 };
@@ -994,13 +1042,13 @@ const stair5: StairContent = {
   idea: 'במשולש שווה־שוקיים, קיפול לאורך ציר הסימטריה מניח זווית בסיס אחת על השנייה, ולכן הן שוות. זווית חיצונית משלימה את הזווית הפנימית שלידה ל־$180^\\circ$, בדיוק כמו שתי הזוויות הפנימיות האחרות, ולכן היא שווה לסכום שלהן.',
   why: [
     'משולש שווה־שוקיים מתקפל לאורך הקו שיורד מזווית הראש לאמצע הבסיס. השוקיים נופלות זו על זו, וזווית בסיס אחת מכסה בדיוק את השנייה.',
-    'הזווית החיצונית ליד $C$ והזווית הפנימית $\\angle C$ יוצרות יחד קו ישר: $180^\\circ$.',
-    'גם $\\angle A + \\angle B$ משלימות את $\\angle C$ ל־$180^\\circ$, כי זה סכום הזוויות במשולש. שני דברים שמשלימים את אותה זווית ל־$180^\\circ$ שווים, ולכן הזווית החיצונית שווה ל־$\\angle A + \\angle B$.',
+    'הזווית החיצונית ליד $C$ והזווית הפנימית $\\sphericalangle C$ יוצרות יחד קו ישר: $180^\\circ$.',
+    'גם $\\sphericalangle A + \\sphericalangle B$ משלימות את $\\sphericalangle C$ ל־$180^\\circ$, כי זה סכום הזוויות במשולש. שני דברים שמשלימים את אותה זווית ל־$180^\\circ$ שווים, ולכן הזווית החיצונית שווה ל־$\\sphericalangle A + \\sphericalangle B$.',
   ],
   alt: [
     'גג של בית הוא לרוב משולש שווה־שוקיים: שני צדי הגג שווים, ולכן שניהם נוטים באותה זווית.',
     'זווית חיצונית היא כמה פונים בפינה. הולכים לאורך צלע, מגיעים לפינה $C$, ופונים אל הצלע הבאה: הפנייה היא הזווית החיצונית. ככל שהפינה חדה יותר, הפנייה גדולה יותר.',
-    'זה אותו רעיון כמו בזוויות קודקודיות: שם שתי זוויות השלימו את אותה זווית ל־$180^\\circ$, ולכן היו שוות. כאן הזווית החיצונית ו־$\\angle A + \\angle B$ משלימות שתיהן את $\\angle C$.',
+    'זה אותו רעיון כמו בזוויות קודקודיות: שם שתי זוויות השלימו את אותה זווית ל־$180^\\circ$, ולכן היו שוות. כאן הזווית החיצונית ו־$\\sphericalangle A + \\sphericalangle B$ משלימות שתיהן את $\\sphericalangle C$.',
   ],
   discover: [
     { kind: 'say', fig: isosceles(44, { top: {}, left: { n: 2 }, right: { n: 2 } }, { words: true }), mood: 'happy', text: 'משולש שווה־שוקיים הוא משולש עם שתי צלעות שוות, השוקיים. הצלע השלישית היא הבסיס. הזווית שבין השוקיים היא זווית הראש, ושתי האחרות, ליד הבסיס, הן זוויות הבסיס.' },
@@ -1013,39 +1061,39 @@ const stair5: StairContent = {
     { kind: 'explore', text: 'נניח את הפינות על ישר: זווית הראש, $40^\\circ$, משמאל. סובבו את הקרן כך שהזווית השמאלית תהיה $40^\\circ$. הזווית הימנית היא שתי זוויות הבסיס יחד.',
       ...turn(40, 90, NO_LETTERS), hint: 'הימנית היא מה שנשאר מ־$180^\\circ$ אחרי זווית הראש.',
       success: 'הימנית $140^\\circ$: שתי זוויות הבסיס יחד. הן שוות, ולכן כל אחת $140^\\circ : 2 = 70^\\circ$.' },
-    { kind: 'rule', fig: isosceles(44, { top: {}, left: { n: 2 }, right: { n: 2 } }, { names: ['B', 'C', 'A'] }), text: 'הכלל: במשולש שווה־שוקיים זוויות הבסיס שוות. מזווית הראש, כל זווית בסיס היא $180^\\circ$ פחות הראש, חלקי $2$.', display: '\\angle B = \\angle C = \\dfrac{180^\\circ - \\angle A}{2}',
+    { kind: 'rule', fig: isosceles(44, { top: {}, left: { n: 2 }, right: { n: 2 } }, { names: ['B', 'C', 'A'] }), text: 'הכלל: במשולש שווה־שוקיים זוויות הבסיס שוות. מזווית הראש, כל זווית בסיס היא $180^\\circ$ פחות הראש, חלקי $2$.', display: '\\sphericalangle B = \\sphericalangle C = \\dfrac{180^\\circ - \\sphericalangle A}{2}',
       why: 'הקיפול מראה שזוויות הבסיס שוות. אחרי שמורידים את זווית הראש מ־$180^\\circ$, מה שנשאר מתחלק שווה בשווה בין שתיהן.' },
     { kind: 'predict', fig: isosceles(50, { left: { text: '65°', n: 2 }, right: { n: 2 }, top: { text: '?', target: true } }), text: 'ועכשיו הפוך: זווית בסיס היא $65^\\circ$. מה זווית הראש?', choices: ['$115^\\circ$', '$50^\\circ$', '$57.5^\\circ$'], answer: 1,
       why: 'שתי זוויות הבסיס שוות: $65^\\circ + 65^\\circ = 130^\\circ$. לזווית הראש נשאר $180^\\circ - 130^\\circ = 50^\\circ$.',
       wrongWhy: { 0: '$115^\\circ$ יוצא כשמורידים רק זווית בסיס אחת. יש שתיים, ושתיהן $65^\\circ$.', 2: 'זה החישוב של זווית בסיס מזווית הראש. כאן נתונה זווית בסיס.' } },
     { kind: 'say', fig: exterior(50, 60, { ext: { target: true } }), text: 'עכשיו זווית חדשה. ממשיכים את הצלע $BC$ מעבר לקודקוד $C$. הזווית בין ההמשך לבין הצלע $CA$ נמצאת מחוץ למשולש: זו זווית חיצונית.' },
-    { kind: 'explore', text: 'במשולש $\\angle A = 50^\\circ$ ו־$\\angle B = 60^\\circ$, ולכן $\\angle C = 70^\\circ$. על המסך, הקו הוא $BC$ עם ההמשך שלו, והקרן היא $CA$. סובבו את הקרן כך שהזווית השמאלית, הפנימית $\\angle C$, תהיה $70^\\circ$.',
-      ...turn(70, 90, AT_C), hint: 'הזווית הימנית היא החיצונית. יחד עם $\\angle C$ היא קו ישר.',
-      success: 'הזווית החיצונית $110^\\circ$. ושימו לב: $50^\\circ + 60^\\circ = 110^\\circ$, בדיוק $\\angle A + \\angle B$.' },
-    { kind: 'predict', fig: exterior(30, 45, { A: { text: '30°' }, B: { text: '45°', n: 2 }, ext: { text: '?', target: true } }), text: 'צירוף מקרים? במשולש אחר $\\angle A = 30^\\circ$ ו־$\\angle B = 45^\\circ$. מה הזווית החיצונית ליד $C$?', choices: ['$75^\\circ$', '$105^\\circ$', '$150^\\circ$'], answer: 0,
-      why: '$\\angle C = 180^\\circ - 75^\\circ = 105^\\circ$, והחיצונית $180^\\circ - 105^\\circ = 75^\\circ$. שוב $\\angle A + \\angle B$: גם החיצונית וגם $\\angle A + \\angle B$ משלימות את $\\angle C$ ל־$180^\\circ$.',
-      wrongWhy: { 1: '$105^\\circ$ היא הזווית הפנימית $\\angle C$. החיצונית צמודה לה.', 2: '$150^\\circ$ משלימה רק את $\\angle A$ ל־$180^\\circ$. החיצונית ליד $C$ צמודה ל־$\\angle C$.' } },
-    { kind: 'rule', fig: exterior(50, 60, { A: {}, B: { n: 2 }, ext: { target: true } }), text: 'הכלל: זווית חיצונית של משולש שווה לסכום שתי הזוויות הפנימיות שלא צמודות לה.', display: '180^\\circ - \\angle C = \\angle A + \\angle B',
-      why: 'הזווית החיצונית משלימה את $\\angle C$ ל־$180^\\circ$ (קו ישר). גם $\\angle A + \\angle B$ משלימות את $\\angle C$ ל־$180^\\circ$ (סכום הזוויות במשולש). לכן הן שוות.' },
+    { kind: 'explore', text: 'במשולש $\\sphericalangle A = 50^\\circ$ ו־$\\sphericalangle B = 60^\\circ$, ולכן $\\sphericalangle C = 70^\\circ$. על המסך, הקו הוא $BC$ עם ההמשך שלו, והקרן היא $CA$. סובבו את הקרן כך שהזווית השמאלית, הפנימית $\\sphericalangle C$, תהיה $70^\\circ$.',
+      ...turn(70, 90, AT_C), hint: 'הזווית הימנית היא החיצונית. יחד עם $\\sphericalangle C$ היא קו ישר.',
+      success: 'הזווית החיצונית $110^\\circ$. ושימו לב: $50^\\circ + 60^\\circ = 110^\\circ$, בדיוק $\\sphericalangle A + \\sphericalangle B$.' },
+    { kind: 'predict', fig: exterior(30, 45, { A: { text: '30°' }, B: { text: '45°', n: 2 }, ext: { text: '?', target: true } }), text: 'צירוף מקרים? במשולש אחר $\\sphericalangle A = 30^\\circ$ ו־$\\sphericalangle B = 45^\\circ$. מה הזווית החיצונית ליד $C$?', choices: ['$75^\\circ$', '$105^\\circ$', '$150^\\circ$'], answer: 0,
+      why: '$\\sphericalangle C = 180^\\circ - 75^\\circ = 105^\\circ$, והחיצונית $180^\\circ - 105^\\circ = 75^\\circ$. שוב $\\sphericalangle A + \\sphericalangle B$: גם החיצונית וגם $\\sphericalangle A + \\sphericalangle B$ משלימות את $\\sphericalangle C$ ל־$180^\\circ$.',
+      wrongWhy: { 1: '$105^\\circ$ היא הזווית הפנימית $\\sphericalangle C$. החיצונית צמודה לה.', 2: '$150^\\circ$ משלימה רק את $\\sphericalangle A$ ל־$180^\\circ$. החיצונית ליד $C$ צמודה ל־$\\sphericalangle C$.' } },
+    { kind: 'rule', fig: exterior(50, 60, { A: {}, B: { n: 2 }, ext: { target: true } }), text: 'הכלל: זווית חיצונית של משולש שווה לסכום שתי הזוויות הפנימיות שלא צמודות לה.', display: '180^\\circ - \\sphericalangle C = \\sphericalangle A + \\sphericalangle B',
+      why: 'הזווית החיצונית משלימה את $\\sphericalangle C$ ל־$180^\\circ$ (קו ישר). גם $\\sphericalangle A + \\sphericalangle B$ משלימות את $\\sphericalangle C$ ל־$180^\\circ$ (סכום הזוויות במשולש). לכן הן שוות.' },
   ],
   examples: [
-    { problem: 'במשולש שווה־שוקיים $ABC$ ($AB = AC$) זווית הראש היא $\\angle A = 36^\\circ$. מה גודל $\\angle B$?', display: '\\angle A = 36^\\circ', answer: 72, check: '(180 - 36) / 2',
+    { problem: 'במשולש שווה־שוקיים $ABC$ ($AB = AC$) זווית הראש היא $\\sphericalangle A = 36^\\circ$. מה גודל $\\sphericalangle B$?', display: '\\sphericalangle A = 36^\\circ', answer: 72, check: '(180 - 36) / 2',
       steps: [
-        { action: 'מזהים: $AB = AC$, ולכן $\\angle B$ ו־$\\angle C$ הן זוויות הבסיס.', why: 'זוויות הבסיס הן אלה שמול השוקיים, ליד הבסיס $BC$. הן שוות.', result: '\\angle B = \\angle C' },
-        { action: 'מורידים את זווית הראש מ־$180^\\circ$.', why: 'מה שנשאר הוא שתי זוויות הבסיס יחד.', result: '\\angle B + \\angle C = 180^\\circ - 36^\\circ = 144^\\circ', calc: { expr: '180 - 36', value: 144 } },
-        { action: 'מחלקים לשתיים.', why: 'שתי זוויות שוות שיחד הן $144^\\circ$.', result: '\\angle B = 144^\\circ : 2 = 72^\\circ', value: '144 / 2' },
+        { action: 'מזהים: $AB = AC$, ולכן $\\sphericalangle B$ ו־$\\sphericalangle C$ הן זוויות הבסיס.', why: 'זוויות הבסיס הן אלה שמול השוקיים, ליד הבסיס $BC$. הן שוות.', result: '\\sphericalangle B = \\sphericalangle C' },
+        { action: 'מורידים את זווית הראש מ־$180^\\circ$.', why: 'מה שנשאר הוא שתי זוויות הבסיס יחד.', result: '\\sphericalangle B + \\sphericalangle C = 180^\\circ - 36^\\circ = 144^\\circ', calc: { expr: '180 - 36', value: 144 } },
+        { action: 'מחלקים לשתיים.', why: 'שתי זוויות שוות שיחד הן $144^\\circ$.', result: '\\sphericalangle B = 144^\\circ : 2 = 72^\\circ', value: '144 / 2' },
         { action: 'בודקים: ראש ועוד שתי זוויות בסיס.', why: 'צריך לצאת $180^\\circ$.', result: '36^\\circ + 72^\\circ + 72^\\circ = 180^\\circ', calc: { expr: '36 + 72 + 72', value: 180 } },
       ] },
     { problem: 'סולם דו־צדדי פתוח עומד על הרצפה. שתי הרגליים שלו שוות באורכן, והזווית ביניהן למעלה היא $40^\\circ$. מה הזווית בין רגל של הסולם לבין הרצפה, מחוץ לסולם?', answer: 110, check: '180 - (180 - 40) / 2',
       steps: [
-        { action: 'רואים משולש שווה־שוקיים: נקרא לראש הסולם $A$ ולרגליים $B$ ו־$C$. הרגליים הן השוקיים, הרצפה היא הבסיס.', why: 'רגליים שוות באורכן הן שוקיים שוות, ולכן הזוויות ליד הרצפה שוות.', result: '\\angle A = 40^\\circ,\\quad \\angle B = \\angle C' },
-        { action: 'מוצאים זווית בסיס: מורידים את הראש מ־$180^\\circ$ ומחלקים לשתיים.', why: 'מה שנשאר מתחלק שווה בין שתי זוויות הבסיס.', result: '\\angle B = (180^\\circ - 40^\\circ) : 2 = 70^\\circ', calc: { expr: '(180 - 40) / 2', value: 70 } },
+        { action: 'רואים משולש שווה־שוקיים: נקרא לראש הסולם $A$ ולרגליים $B$ ו־$C$. הרגליים הן השוקיים, הרצפה היא הבסיס.', why: 'רגליים שוות באורכן הן שוקיים שוות, ולכן הזוויות ליד הרצפה שוות.', result: '\\sphericalangle A = 40^\\circ,\\quad \\sphericalangle B = \\sphericalangle C' },
+        { action: 'מוצאים זווית בסיס: מורידים את הראש מ־$180^\\circ$ ומחלקים לשתיים.', why: 'מה שנשאר מתחלק שווה בין שתי זוויות הבסיס.', result: '\\sphericalangle B = (180^\\circ - 40^\\circ) : 2 = 70^\\circ', calc: { expr: '(180 - 40) / 2', value: 70 } },
         { action: 'הזווית שמחוץ לסולם צמודה לזווית הבסיס: יחד הן הקו הישר של הרצפה.', why: 'זו זווית חיצונית של המשולש, ליד $B$.', result: '180^\\circ - 70^\\circ = 110^\\circ', value: '180 - 70' },
         { action: 'בודקים בכלל של הזווית החיצונית: סכום שתי הזוויות הפנימיות הרחוקות.', why: 'הרחוקות מ־$B$ הן זווית הראש, $40^\\circ$, וזווית הבסיס השנייה, $70^\\circ$.', result: '40^\\circ + 70^\\circ = 110^\\circ', value: '40 + 70' },
       ] },
   ],
   together: [
-    { problem: 'במשולש שווה־שוקיים זווית בסיס היא $52^\\circ$. נמצא יחד את זווית הראש.', display: '\\angle B = 52^\\circ',
+    { problem: 'במשולש שווה־שוקיים זווית בסיס היא $52^\\circ$. נמצא יחד את זווית הראש.', display: '\\sphericalangle B = 52^\\circ',
       steps: [
         { prompt: 'כמה זוויות של $52^\\circ$ יש במשולש?', choices: [
           { text: 'שתיים: שתי זוויות הבסיס', ok: true, feedback: 'נכון: זוויות הבסיס שוות.' },
@@ -1056,18 +1104,18 @@ const stair5: StairContent = {
           { text: '$180^\\circ - 2 \\cdot 52^\\circ$', ok: true, feedback: 'נכון: מה שנשאר אחרי שתי זוויות הבסיס.' },
           { text: '$180^\\circ - 52^\\circ$', ok: false, feedback: 'הורדתם רק זווית בסיס אחת. יש שתיים.' },
           { text: '$(180^\\circ - 52^\\circ) : 2$', ok: false, feedback: 'כך מוצאים זווית בסיס מזווית הראש. כאן נתונה זווית בסיס, וזה הפוך.' },
-        ], hints: ['כמה לוקחות שתי זוויות הבסיס יחד?', '$52^\\circ + 52^\\circ = 104^\\circ$, והראש מקבל את מה שנשאר מ־$180^\\circ$.'], done: '$\\angle A = 180^\\circ - 104^\\circ$' },
+        ], hints: ['כמה לוקחות שתי זוויות הבסיס יחד?', '$52^\\circ + 52^\\circ = 104^\\circ$, והראש מקבל את מה שנשאר מ־$180^\\circ$.'], done: '$\\sphericalangle A = 180^\\circ - 104^\\circ$' },
       ],
       final: { prompt: 'כמה מעלות זווית הראש?', answer: 76, check: '180 - 2 * 52', hints: ['$180 - 104$.', '$180 - 100 = 80$, ועוד $4$ פחות.'] } },
-    { problem: 'במשולש $\\angle A = 38^\\circ$ ו־$\\angle B = 77^\\circ$. נמצא את הזווית החיצונית ליד $C$.', display: '\\angle A = 38^\\circ,\\quad \\angle B = 77^\\circ',
+    { problem: 'במשולש $\\sphericalangle A = 38^\\circ$ ו־$\\sphericalangle B = 77^\\circ$. נמצא את הזווית החיצונית ליד $C$.', display: '\\sphericalangle A = 38^\\circ,\\quad \\sphericalangle B = 77^\\circ',
       steps: [
         { prompt: 'מה הדרך הקצרה?', choices: [
-          { text: 'לחבר $\\angle A + \\angle B$', ok: true, feedback: 'נכון: הזווית החיצונית שווה לסכום שתי הזוויות הפנימיות הרחוקות.' },
-          { text: 'לחשב $180^\\circ - 38^\\circ - 77^\\circ$', ok: false, feedback: 'זו הזווית הפנימית $\\angle C$. החיצונית צמודה לה, מחוץ למשולש.' },
-          { text: 'לחשב $180^\\circ - 38^\\circ$', ok: false, feedback: 'הזווית החיצונית ליד $C$ צמודה ל־$\\angle C$, לא ל־$\\angle A$.' },
-        ], hints: ['החיצונית ו־$\\angle C$ יוצרות קו ישר. מה עוד משלים את $\\angle C$ ל־$180^\\circ$?', '$\\angle A + \\angle B$ משלימות את $\\angle C$ ל־$180^\\circ$, בדיוק כמו החיצונית.'], done: 'החיצונית $= \\angle A + \\angle B$' },
+          { text: 'לחבר $\\sphericalangle A + \\sphericalangle B$', ok: true, feedback: 'נכון: הזווית החיצונית שווה לסכום שתי הזוויות הפנימיות הרחוקות.' },
+          { text: 'לחשב $180^\\circ - 38^\\circ - 77^\\circ$', ok: false, feedback: 'זו הזווית הפנימית $\\sphericalangle C$. החיצונית צמודה לה, מחוץ למשולש.' },
+          { text: 'לחשב $180^\\circ - 38^\\circ$', ok: false, feedback: 'הזווית החיצונית ליד $C$ צמודה ל־$\\sphericalangle C$, לא ל־$\\sphericalangle A$.' },
+        ], hints: ['החיצונית ו־$\\sphericalangle C$ יוצרות קו ישר. מה עוד משלים את $\\sphericalangle C$ ל־$180^\\circ$?', '$\\sphericalangle A + \\sphericalangle B$ משלימות את $\\sphericalangle C$ ל־$180^\\circ$, בדיוק כמו החיצונית.'], done: 'החיצונית $= \\sphericalangle A + \\sphericalangle B$' },
       ],
-      final: { prompt: 'כמה מעלות הזווית החיצונית?', answer: 115, check: '38 + 77', hints: ['$38 + 77$.', '$38 + 77 = 115$. בדקו: $\\angle C = 65^\\circ$, ו־$65 + 115 = 180$.'] } },
+      final: { prompt: 'כמה מעלות הזווית החיצונית?', answer: 115, check: '38 + 77', hints: ['$38 + 77$.', '$38 + 77 = 115$. בדקו: $\\sphericalangle C = 65^\\circ$, ו־$65 + 115 = 180$.'] } },
   ],
   diag: isoModel,
   transfer: isoStory,
@@ -1106,8 +1154,8 @@ const stair5: StairContent = {
         'נתונה זווית בסיס: יש שתיים כאלה. מורידים אותה פעמיים מ־$180^\\circ$, ומה שנשאר הוא הראש.',
       ],
       remedy: [
-        { kind: 'predict', text: 'במשולש שווה־שוקיים $ABC$, $AB = AC$. איזו זווית היא זווית הראש?', choices: ['$\\angle A$, בין השוקיים', '$\\angle B$', '$\\angle C$'], answer: 0,
-          why: 'זווית הראש נמצאת בין שתי השוקיים השוות, $AB$ ו־$AC$: בקודקוד $A$. $\\angle B$ ו־$\\angle C$ הן זוויות הבסיס.' },
+        { kind: 'predict', text: 'במשולש שווה־שוקיים $ABC$, $AB = AC$. איזו זווית היא זווית הראש?', choices: ['$\\sphericalangle A$, בין השוקיים', '$\\sphericalangle B$', '$\\sphericalangle C$'], answer: 0,
+          why: 'זווית הראש נמצאת בין שתי השוקיים השוות, $AB$ ו־$AC$: בקודקוד $A$. $\\sphericalangle B$ ו־$\\sphericalangle C$ הן זוויות הבסיס.' },
         { kind: 'explore', text: 'זווית בסיס היא $50^\\circ$, ולכן שתי זוויות הבסיס יחד $100^\\circ$. סובבו את הקרן כך שהזווית השמאלית תהיה $100^\\circ$.', ...turn(100, 90, NO_LETTERS),
           hint: 'הימנית היא זווית הראש: מה שנשאר עד $180^\\circ$.', success: 'זווית הראש $80^\\circ$. החישוב $(180^\\circ - 50^\\circ) : 2 = 65^\\circ$ היה מתייחס ל־$50^\\circ$ כאילו היא זווית הראש.' },
         { kind: 'predict', text: 'זווית הראש היא $40^\\circ$. מה זווית בסיס?', choices: ['$100^\\circ$', '$70^\\circ$'], answer: 1,
@@ -1117,13 +1165,13 @@ const stair5: StairContent = {
       cause: 'החישוב "$180^\\circ$ פחות שתי הזוויות" מוכר מסכום הזוויות במשולש, והוא נותן את הזווית הפנימית ליד $C$. הזווית החיצונית היא הצמודה שלה, מחוץ למשולש.',
       explain: [
         'הזווית החיצונית נמצאת מחוץ למשולש, בין צלע לבין ההמשך של הצלע השכנה.',
-        'היא והזווית הפנימית שלידה יוצרות קו ישר. לכן היא $180^\\circ - \\angle C$, כלומר $\\angle A + \\angle B$.',
+        'היא והזווית הפנימית שלידה יוצרות קו ישר. לכן היא $180^\\circ - \\sphericalangle C$, כלומר $\\sphericalangle A + \\sphericalangle B$.',
       ],
       remedy: [
-        { kind: 'explore', text: '$\\angle A = 35^\\circ$ ו־$\\angle B = 75^\\circ$, ולכן $\\angle C = 70^\\circ$. סובבו את הקרן כך שהזווית השמאלית, הפנימית $\\angle C$, תהיה $70^\\circ$.', ...turn(70, 90, AT_C),
+        { kind: 'explore', text: '$\\sphericalangle A = 35^\\circ$ ו־$\\sphericalangle B = 75^\\circ$, ולכן $\\sphericalangle C = 70^\\circ$. סובבו את הקרן כך שהזווית השמאלית, הפנימית $\\sphericalangle C$, תהיה $70^\\circ$.', ...turn(70, 90, AT_C),
           hint: 'הימנית היא החיצונית, מחוץ למשולש.', success: 'הימנית היא החיצונית: $110^\\circ = 35^\\circ + 75^\\circ$. את $70^\\circ$, הפנימית, מצאתם בדרך.' },
-        { kind: 'predict', text: 'במשולש $\\angle A = 40^\\circ$ ו־$\\angle B = 30^\\circ$. מה הזווית החיצונית ליד $C$?', choices: ['$110^\\circ$', '$70^\\circ$'], answer: 1,
-          why: 'החיצונית היא $40^\\circ + 30^\\circ = 70^\\circ$. $110^\\circ$ היא הפנימית $\\angle C$, שבתוך המשולש.' },
+        { kind: 'predict', text: 'במשולש $\\sphericalangle A = 40^\\circ$ ו־$\\sphericalangle B = 30^\\circ$. מה הזווית החיצונית ליד $C$?', choices: ['$110^\\circ$', '$70^\\circ$'], answer: 1,
+          why: 'החיצונית היא $40^\\circ + 30^\\circ = 70^\\circ$. $110^\\circ$ היא הפנימית $\\sphericalangle C$, שבתוך המשולש.' },
       ] },
   ],
 };

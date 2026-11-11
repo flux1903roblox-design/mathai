@@ -11,6 +11,7 @@
 import { R, pick, near } from './util.js';
 import { slipOf } from '@/learn/misconceptions.ts';
 import { diagOf, triesOf } from './eq.js';
+import { fan, splitTri } from '@/learn/content/geo.ts';
 
 const rad = (d) => (d * Math.PI) / 180;
 const r4 = (v) => Math.round(v * 1e4) / 1e4;
@@ -97,6 +98,31 @@ export function linearPairDiff() {
         `בדיקה: $${small}^\\circ + ${big}^\\circ = 180^\\circ$, והגדולה גדולה ב־$${d}^\\circ$.`,
       ],
       diag: diagFor(small, bugs), tries: triesOf(bugs),
+    };
+  }
+}
+
+/**
+ * The fan (CLASSROOM-9): rays OA, OB, OC with ∢AOC = T and ∢AOB = a; ∢BOC = T − a (key an1f:T:a). The two angles are
+ * side by side but OA and OC are not on one line, so they do not add up to 180°. Mistakes: adjacent-not-line (180° − a,
+ * "side by side means 180°", the class's notes), sum-not-diff (T + a). T is 95° to 165°; a is at least 30° and ∢BOC at
+ * least 20° (the spec's 15° each draws a number that no longer fits its angle), so each number fits inside its own angle
+ * in the drawing, clear of the rays (learn/figures.test.ts).
+ */
+export function fanItem() {
+  for (;;) {
+    // every (T, a) pair equally likely, so no answer is much more common than another
+    const T = 5 * R(19, 33); const a = 5 * R(6, 29); const ans = T - a;
+    if (ans < 20 || a === ans) continue;
+    const bugs = { 'adjacent-not-line': 180 - a, 'sum-not-diff': T + a };
+    if (!fairAngle(ans, bugs, [T, a])) continue;
+    const fig = { ...fan(T, a, { AOC: given(T), AOB: given(a), BOC: asked }), label: `שלוש קרניים מ־O: ∢AOC = ${T}°, ∢AOB = ${a}°, ו־∢BOC מסומנת ב־?` };
+    return {
+      key: `an1f:${T}:${a}`, form: 'num', answer: ans, unit: DEG, fig,
+      text: `$\\sphericalangle AOC = ${T}^\\circ$ ו־$\\sphericalangle AOB = ${a}^\\circ$. מה גודל $\\sphericalangle BOC$?`,
+      hint: '$\\sphericalangle AOB$ ו־$\\sphericalangle BOC$ יחד הן $\\sphericalangle AOC$. הן זו ליד זו, אבל $OA$ ו־$OC$ לא על ישר אחד.',
+      solution: ['$\\sphericalangle AOB + \\sphericalangle BOC = \\sphericalangle AOC$', `$\\sphericalangle BOC = ${T}^\\circ - ${a}^\\circ = ${ans}^\\circ$`, `הן לא משלימות ל־$180^\\circ$: $OA$ ו־$OC$ לא על ישר אחד, ויחד הן $${T}^\\circ$.`],
+      diag: diagFor(ans, bugs), tries: triesOf(bugs),
     };
   }
 }
@@ -192,6 +218,64 @@ export function crossBisectFig(a, where, first = true) {
     ],
     dots: ['_O', '_M'],
   };
+}
+
+// ---------------------------------------------------------------- angles:3
+
+const SPLIT = 'במשולש ישר־זווית $ABC$ ($\\sphericalangle C = 90^\\circ$) הנקודה $D$ על הצלע $BC$.';
+/**
+ * The class's split triangle, S1 (CLASSROOM-11): ∢BAC = w and ∢ADC = d given; β = 90° − w (the big triangle ABC) or
+ * α = ∢DAC = 90° − d (the small ADC) asked (key an3a:w:d:b|a). Both are 90° minus a printed number, so it is practice
+ * only. Mistakes: one-angle (the right angle forgotten: 180° − w or 180° − d), other-vertex (β paired with d at D).
+ * w is 40° to 60° and d 48° to 70°, with ∢BAD = w + d − 90° at least 21° and ∢DAC = 90° − d at least 20°: the two
+ * parts of the angle at A are wide enough for their numbers, and D is far enough from C for d's (learn/figures.test.ts).
+ */
+export function splitTriangleS1() {
+  for (;;) {
+    const w = R(40, 60); const d = R(48, 70); const beta = 90 - w;
+    if (w + d - 90 < 21) continue;
+    const askBeta = Math.random() < 0.5;
+    const ans = askBeta ? beta : 90 - d;
+    const bugs = askBeta ? { 'one-angle': 180 - w, 'other-vertex': 180 - d } : { 'one-angle': 180 - d };
+    if (!fairAngle(ans, bugs, [])) continue;
+    const fig = splitTri(beta, d, { BAC: given(w), ADC: given(d), [askBeta ? 'B' : 'DAC']: { text: askBeta ? 'β' : 'α', target: true } });
+    return {
+      key: `an3a:${w}:${d}:${askBeta ? 'b' : 'a'}`, form: 'num', answer: ans, unit: DEG, fig, practiceOnly: true,
+      text: `${SPLIT} $\\sphericalangle BAC = ${w}^\\circ$ ו־$\\sphericalangle ADC = ${d}^\\circ$. ${askBeta ? 'מה גודל $\\beta$, הזווית ב־$B$?' : 'מה גודל $\\alpha = \\sphericalangle DAC$?'}`,
+      hint: 'בשרטוט שלושה משולשים. חפשו משולש שיש בו את הזווית המבוקשת ועוד שתי זוויות ידועות. גם הזווית הישרה ידועה.',
+      solution: askBeta
+        ? ['במשולש הגדול $ABC$: סכום זוויות ב־$\\Delta$ שווה $180^\\circ$.', `$\\beta = 180^\\circ - 90^\\circ - ${w}^\\circ = ${beta}^\\circ$`]
+        : ['במשולש הקטן $ADC$: סכום זוויות ב־$\\Delta$ שווה $180^\\circ$.', `$\\alpha = 180^\\circ - 90^\\circ - ${d}^\\circ = ${90 - d}^\\circ$`],
+      diag: diagFor(ans, bugs), tries: triesOf(bugs),
+    };
+  }
+}
+
+/**
+ * The split triangle, S2 (CLASSROOM-11): ∢ADC = d (48° to 72°) and ∢BAD = p (20° to 40°) given; β = d − p (at least
+ * 23°), through the left triangle ABD, whose angle at D is 180° − d (key an3b:d:p). Mistakes: other-vertex (β + d = 180°,
+ * the notebook's line), part-for-whole (∢BAD taken for the whole angle at A in ABC: 90° − p). The spec's d up to 80° and
+ * p from 10° draw a number that no longer fits its angle (a 10° wedge, or D a few pixels from C), so the ranges stop
+ * where every number still sits clear inside its own angle (learn/figures.test.ts).
+ */
+export function splitTriangleS2() {
+  for (;;) {
+    const d = R(48, 72); const p = R(20, 40); const beta = d - p;
+    if (beta < 23) continue;
+    const bugs = { 'other-vertex': 180 - d, 'part-for-whole': 90 - p };
+    if (!fairAngle(beta, bugs, [d, p, 90])) continue;
+    const fig = splitTri(beta, d, { ADC: given(d), BAD: given(p), B: { text: 'β', target: true } });
+    return {
+      key: `an3b:${d}:${p}`, form: 'num', answer: beta, unit: DEG, fig,
+      text: `${SPLIT} $\\sphericalangle ADC = ${d}^\\circ$ ו־$\\sphericalangle BAD = ${p}^\\circ$. מה גודל $\\beta$, הזווית ב־$B$?`,
+      hint: 'במשולש $ABD$ יש את $\\beta$ ואת $\\sphericalangle BAD$. הזווית השלישית שלו, ב־$D$, צמודה ל־$\\sphericalangle ADC$.',
+      solution: [
+        `$\\sphericalangle ADB$ צמודה ל־$\\sphericalangle ADC$: $180^\\circ - ${d}^\\circ = ${180 - d}^\\circ$`,
+        `במשולש $ABD$, סכום זוויות ב־$\\Delta$ שווה $180^\\circ$: $\\beta = 180^\\circ - ${p}^\\circ - ${180 - d}^\\circ = ${beta}^\\circ$`,
+      ],
+      diag: diagFor(beta, bugs), tries: triesOf(bugs),
+    };
+  }
 }
 
 // ---------------------------------------------------------------- angles:4

@@ -2,7 +2,7 @@
  "angles": {
   "skills": {
    "angles:1": {
-    "discover": 10,
+    "discover": 12,
     "examples": [
      4,
      4
@@ -38,12 +38,14 @@
     ]
    },
    "angles:3": {
-    "discover": 10,
+    "discover": 12,
     "examples": [
      4,
-     4
+     4,
+     3
     ],
     "misconceptions": [
+     2,
      2,
      2
     ],
@@ -90,7 +92,7 @@
    }
   },
   "stairs": 5,
-  "steps": 145
+  "steps": 154
  },
  "coord": {
   "skills": {

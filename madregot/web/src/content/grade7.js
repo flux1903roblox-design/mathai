@@ -7,7 +7,7 @@ import { SIGNED6_LEVEL } from './signed6.js';
 import { SIGNED7_LEVEL } from './signed7.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
 import { signOutside, chainItem, regroupItem, absItem, oppItem, absMc, zeroOne, nestedItem } from './signedItems.js';
-import { straightThree, linearPairDiff, threeLines, crossBisect, parallelTriangle, parallelBisect } from './angleItems.js';
+import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect } from './angleItems.js';
 
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 const rnd = () => Math.random();
@@ -498,11 +498,13 @@ export const GRADE7 = [
     // two-step questions (content/angleItems.js), each practised first at 30% of its stair's exercises. The mixes keep
     // every kind at 15% or more of a check and every check under the 2% guessing limit (learn/guessing.test.ts).
     levels: [
-      { title: 'זוויות צמודות', gen: () => mix([[0.2, linearPairTurn], [0.2, linearPair], [0.3, straightThree], [0.3, linearPairDiff]]),
-        testGen: () => mix([[0.25, linearPair], [0.5, straightThree], [0.25, linearPairDiff]]) },
+      // CLASSROOM-9: the fan (two angles side by side, not on a line) is a fifth of practice and of the checks
+      { title: 'זוויות צמודות', gen: () => mix([[0.15, linearPairTurn], [0.15, linearPair], [0.25, straightThree], [0.25, linearPairDiff], [0.2, fanItem]]),
+        testGen: () => mix([[0.2, linearPair], [0.4, straightThree], [0.2, linearPairDiff], [0.2, fanItem]]) },
       { title: 'זוויות קודקודיות', gen: () => mix([[0.4, vertical], [0.3, threeLines], [0.3, crossBisect]]),
         testGen: () => mix([[0.2, () => vertical(true)], [0.2, () => vertical(false)], [0.3, threeLines], [0.3, crossBisect]]) },
-      { title: 'סכום זוויות במשולש', gen: () => (Math.random() < 0.4 ? rightTriangleDrag() : triangleSum()) },
+      // CLASSROOM-11: the class's split triangle, S1 (practice only) and S2 (checks too), a quarter each
+      { title: 'סכום זוויות במשולש', gen: () => mix([[0.25, splitTriangleS1], [0.25, splitTriangleS2], [0.2, rightTriangleDrag], [0.3, triangleSum]]) },
       { title: 'ישרים מקבילים', gen: () => mix([[0.4, parallel], [0.3, parallelTriangle], [0.3, parallelBisect]]),
         testGen: () => mix([[0.2, () => parallel(pick(['corresponding', 'alternate']))], [0.2, () => parallel('cointerior')], [0.3, parallelTriangle], [0.3, parallelBisect]]) },
       { title: 'שווה־שוקיים וזווית חיצונית', gen: isosceles },
@@ -519,6 +521,11 @@ export const GRADE7 = [
       'took-larger': 'חישבו את הזווית הגדולה במקום הקטנה',
       'diff-not-halved': 'חיסרו את ההפרש מ־$180^\\circ$ ולא חילקו לשתיים',
       'no-half': 'לקחו את כל הזווית במקום חצי ממנה',
+      // CLASSROOM-9 (the fan) and CLASSROOM-11 (the split triangle)
+      'adjacent-not-line': 'חשבו ששתי זוויות זו ליד זו משלימות ל־$180^\\circ$, גם כשהצלעות האחרות לא על ישר אחד',
+      'sum-not-diff': 'חיברו את הזוויות במקום לחסר את החלק מהשלם',
+      'other-vertex': 'חיברו ל־$180^\\circ$ שתי זוויות שאינן צמודות (בקודקודים שונים)',
+      'part-for-whole': 'השתמשו בחלק של זווית כאילו הוא הזווית כולה',
     },
   },
   EXPR,

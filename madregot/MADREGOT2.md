@@ -190,9 +190,9 @@ the row to paste when one differs.
 | coord:3 | אורך קטע | 9 (plot) | 2 | 2 | 3 (add-coords, sign, coord-length) | yes | complete, tested |
 | coord:4 | שטח מלבן | 9 (plot) | 2 | 2 | 4 (perimeter, add-sides, add-coords, coord-length) | yes | complete, tested |
 | coord:5 | קודקוד חסר | 10 (plot) | 2 | 2 | 4 (swap, wrong-neighbour, coord-length, sign) | yes | complete, tested |
-| angles:1 | זוויות צמודות | 10 (angle) | 2 | 2 | 4 (equal-not-supp, wrong-total, sum-360, one-angle) | yes | complete, tested |
+| angles:1 | זוויות צמודות | 12 (angle) | 2 | 2 | 4 (equal-not-supp, wrong-total, sum-360, one-angle) | yes | complete, tested |
 | angles:2 | זוויות קודקודיות | 10 (angle) | 3 | 2 | 3 (supp-not-equal, equal-not-supp, wrong-total) | yes | complete, tested |
-| angles:3 | סכום זוויות במשולש | 10 (triangle, angle) | 2 | 2 | 2 (sum-360, one-angle) | yes | complete, tested |
+| angles:3 | סכום זוויות במשולש | 12 (triangle, angle) | 3 | 2 | 3 (sum-360, other-vertex, one-angle) | yes | complete, tested |
 | angles:4 | ישרים מקבילים | 10 (angle) | 3 | 2 | 2 (supp-not-equal, equal-not-supp) | yes | complete, tested |
 | angles:5 | שווה־שוקיים וזווית חיצונית | 10 (angle) | 2 | 2 | 4 (forgot-half, one-angle, apex-base-swap, interior-not-exterior) | yes | complete, tested |
 | expr:1 | הצבה בביטוי | 8 (numberline) | 3 | 2 | 3 (concat, order, neg-sub) | yes | complete, tested |
