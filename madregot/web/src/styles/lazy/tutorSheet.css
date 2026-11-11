@@ -1,0 +1,17 @@
+/* TutorSheet.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only TutorSheet.jsx uses these classes. */
+.tutor-turn { display: flex; flex-direction: column; gap: var(--s2); }
+.tutor-q { align-self: flex-start; margin: 0; padding: 6px 12px; border-radius: 14px; background: var(--brand); color: var(--on-brand); font-weight: 700; }
+.tutor-a { padding: var(--s3); border-radius: 14px; background: var(--ground); line-height: 1.55; }
+.tutor-a p { margin: 0; }
+.tutor-a p + p { margin-top: 6px; }
+.tutor-intents { position: sticky; bottom: 0; padding-top: var(--s2); background: var(--paper); }
+.tutor-chip:hover { border-color: var(--brand-line); background: var(--brand-tint); }
+.tutor-chip.dim { color: var(--ink-2); }
+.tutor-note { margin: 0; font-size: var(--t-xs); color: var(--ink-2); line-height: 1.5; }
+.tutor-steps { display: flex; flex-direction: column; gap: var(--s2); align-items: flex-start; }
+.chat-thread { display: flex; flex-direction: column; gap: var(--s3); }
+.chat-thread .tutor-turn { display: flex; flex-direction: column; gap: var(--s3); }
+.tutor-q p, .tutor-a p { margin: 0; }
+.tutor-a p + p { margin-top: 6px; }
+.tutor-action { margin-inline-start: 42px; padding: var(--s3); border: 2px solid var(--line); border-radius: var(--r-m); background: var(--surface); }

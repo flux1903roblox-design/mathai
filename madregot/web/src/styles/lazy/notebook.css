@@ -1,0 +1,16 @@
+/* Notebook.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only Notebook.jsx uses these classes. */
+.nb-tools { display: flex; gap: var(--s1); flex-wrap: wrap; }
+.nb-page {
+  --nb-grid: #c9d8ee; --nb-margin: #e48a9b; /* colour-ok: the notebook page stays light */
+  position: relative; border: 1px solid var(--rule-strong); border-radius: 6px; overflow: hidden;
+  background-color: var(--surface);
+  background-image:
+    linear-gradient(to left, transparent calc(2 * var(--sq) - 1px), var(--nb-margin) calc(2 * var(--sq) - 1px), var(--nb-margin) calc(2 * var(--sq) + 0.5px), transparent calc(2 * var(--sq) + 0.5px)),
+    linear-gradient(to bottom, var(--nb-grid) 1px, transparent 1px),
+    linear-gradient(to left, var(--nb-grid) 1px, transparent 1px);
+  background-size: 100% 100%, var(--sq) var(--sq), var(--sq) var(--sq);
+  background-position: 0 0, right calc(var(--sq) - 1px), right top;
+}
+.nb-canvas.erasing { cursor: cell; }
+.nb-more { align-self: center; display: inline-flex; align-items: center; gap: var(--s1); min-height: 44px; padding: 0 var(--s3); border: 0; background: transparent; color: var(--brand-ink); font-weight: 700; }

@@ -15,6 +15,7 @@ import ReportAnswer from './ReportAnswer.jsx';
 import { CLASS_OFF_LINE, waitingLine } from './limitCopy.js';
 import { useApp } from '@/lib/store.js';
 import { piiLine } from '@/content/support.js';
+import '@/styles/lazy/aiChat.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const STARTERS = ['איך מתחילים?', 'אפשר רמז קטן?', 'למה זה ככה?'];
 /** After the student already answered an exercise of the lesson, the first question is about their own answer. */

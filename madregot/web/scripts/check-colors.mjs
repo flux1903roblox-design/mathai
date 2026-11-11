@@ -26,7 +26,10 @@ function walk(dir, out = []) {
 export function colourFiles(src = SRC) {
   const styles = path.join(src, 'styles');
   const css = fs.readdirSync(styles).filter((f) => f.endsWith('.css') && !EXEMPT.has(f)).map((f) => path.join(styles, f));
-  return [...css, ...walk(src)];
+  // a screen's own stylesheet, loaded with its chunk (STUDENT-15)
+  const lazy = path.join(styles, 'lazy');
+  const own = fs.existsSync(lazy) ? fs.readdirSync(lazy).filter((f) => f.endsWith('.css')).map((f) => path.join(lazy, f)) : [];
+  return [...css, ...own, ...walk(src)];
 }
 
 // blank out /* comments */ in CSS, keeping the line breaks so line numbers stay true

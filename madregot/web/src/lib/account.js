@@ -24,9 +24,17 @@ export function deviceId() {
 // one function for every random id; it lives in a module with no imports, so the store can use it too
 export { randomHex };
 
+/**
+ * Does this build use a family plan at all? Not the iPhone store build (VITE_STORE=ios, STUDENT-12): Apple 3.1.3(b)/(c)
+ * lets an app unlock a consumer plan bought elsewhere only when the app also sells it by in-app purchase, which it does
+ * not. So that build never sends the family-device token and shows no family rows; the AI runs on the free daily taste
+ * or a class licence (sold to schools). VITE_STORE_FAMILY=1 turns it back on, for the day the owner adds in-app purchase.
+ */
+export const familyInApp = () => import.meta.env.VITE_STORE !== 'ios' || import.meta.env.VITE_STORE_FAMILY === '1';
+
 /** The headers of every tutor call from this device: its id, and its family-device token when it has one. */
 export function aiHeaders() {
-  const fd = useApp.getState().ai.familyDevice;
+  const fd = familyInApp() ? useApp.getState().ai.familyDevice : null;
   return { 'X-Device': deviceId(), ...(fd?.token ? { 'X-Family-Device': fd.token } : {}) };
 }
 
@@ -325,7 +333,8 @@ export async function pollLink({ onEscrow } = {}) {
 export async function leaveFamily() {
   const { ai, setAI } = useApp.getState();
   const token = ai.familyDevice?.token;
-  if (token && hasServer()) {
+  // the iPhone store build never sends the token, not even to leave (familyInApp)
+  if (token && hasServer() && familyInApp()) {
     try { await api('/api/family/devices/leave', { method: 'POST', body: {}, headers: { 'X-Family-Device': token }, auth: false }); } catch (e) {
       if (!(e instanceof ApiError) || e.code === 'network' || !e.status || e.status >= 500) throw e;
     }

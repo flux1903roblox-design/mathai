@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import clsx from 'clsx';
 import { Pencil, Eraser, Undo2, Trash2, Plus } from 'lucide-react';
 import { fitImage } from '@/lib/fitImage.js';
+import '@/styles/lazy/notebook.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 // A squared notebook page (like an Israeli math notebook: 5mm squares, red
 // margin on the right) that students write their working on with a finger,

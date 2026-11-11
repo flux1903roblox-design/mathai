@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import NumberFlow from '@number-flow/react';
 import clsx from 'clsx';
 import { m } from 'motion/react';
@@ -18,10 +18,13 @@ import { DUR, SPRING, enter } from '@/lib/motion.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';
 import GoalStage from '@/components/learn/GoalStage.jsx';
 import { installDue } from '@/lib/install.js';
+import { reminderDue } from '@/lib/reminder.js';
 import { UnlockStage, useNewUnlocks } from '@/lib/madiLook.js';
 
 // the install offer is shown to few, and late: its screen loads when it comes (STUDENT-10)
 const InstallCard = lazy(() => import('@/components/learn/InstallCard.jsx'));
+// so is the daily reminder's offer, once ever (STUDENT-11)
+const ReminderCard = lazy(() => import('@/components/learn/ReminderCard.jsx'));
 
 // The main button takes the focus (for a keyboard or a screen reader) without scrolling a tall celebration
 // down to it: on a small phone the climb at the top stays in view.
@@ -96,6 +99,23 @@ function useWeekBest(passed) {
   return !!pb;
 }
 
+/**
+ * Whether the daily reminder's card comes last (STUDENT-11): the quick rules first (lib/reminder.js), then the server's
+ * answer (lib/push.js reminderState, loaded only then; in the iPhone app, the phone's permission). settle() fixes the answer once the student moves on, so the screens
+ * never change under them.
+ */
+function useReminderOffer(may) {
+  const [due, setDue] = useState(false);
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!may || !reminderDue(useApp.getState())) return undefined;
+    let live = true;
+    import('@/lib/push.js').then((mod) => mod.reminderState()).then((s) => { if (live && !settled.current && s === 'ready') setDue(true); }).catch(() => {});
+    return () => { live = false; };
+  }, [may]);
+  return { due, settle: () => { settled.current = true; } };
+}
+
 export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   const days = useApp((s) => s.days);
   const freezes = useApp((s) => s.freezes);
@@ -107,13 +127,17 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   // decided once, as the screen opens)
   const unlocks = useNewUnlocks(topic.id);
   const [install] = useState(() => result.passed && installDue(useApp.getState(), today()));
-  const stages = ['summary', result.passed && unlocks.length > 0 && 'unlock', award.goalReached && 'goal', (award.streakExtended || award.streakRepaired) && result.passed && 'streak', award.questsDone && 'quests', install && 'install'].filter(Boolean);
+  // the daily reminder's offer (STUDENT-11): from the third learning day, once ever, where the server has it on; one
+  // card per result, so not after the install offer. The server is asked as the screen opens; the answer counts only
+  // while the student is still on the first screen.
+  const remind = useReminderOffer(result.passed && !install);
+  const stages = ['summary', result.passed && unlocks.length > 0 && 'unlock', award.goalReached && 'goal', (award.streakExtended || award.streakRepaired) && result.passed && 'streak', award.questsDone && 'quests', install && 'install', remind.due && 'reminder'].filter(Boolean);
   const [i, setI] = useState(0);
   // the first finished lesson is the moment to ask the browser to keep the data (once; never on Firefox from here)
   useEffect(() => { askAfterLesson(); }, []);
   const pb = useWeekBest(result.passed);
   const stage = stages[i];
-  const nextStage = () => (i + 1 < stages.length ? setI(i + 1) : onExit());
+  const nextStage = () => { remind.settle(); return i + 1 < stages.length ? setI(i + 1) : onExit(); };
   const levelTitle = topic.levels[result.level - 1]?.title;
 
   if (!result.passed) {
@@ -134,6 +158,7 @@ export default function LessonDone({ result, award, topic, onExit, onAgain }) {
   if (stage === 'goal') return <GoalStage onNext={nextStage} />;
   if (stage === 'streak') return <StreakStage streak={award.streak} repaired={!!award.streakRepaired} days={days} freezes={freezes} onNext={nextStage} />;
   if (stage === 'install') return <Suspense fallback={<div className="done-screen" />}><InstallCard onDone={nextStage} /></Suspense>;
+  if (stage === 'reminder') return <Suspense fallback={<div className="done-screen" />}><ReminderCard onDone={nextStage} /></Suspense>;
 
   if (stage === 'quests') {
     return (

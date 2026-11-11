@@ -1,0 +1,88 @@
+/* Teacher.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. The board's tabs use them, and so do the class settings page (teacher/Settings.jsx) and the class
+   report (teacher/Report.jsx), which import this file too since each can open without the board. */
+.t-head {
+  display: flex; align-items: center; gap: var(--s4) var(--s6); flex-wrap: wrap; justify-content: space-between;
+  padding: var(--s3) max(var(--s4), env(safe-area-inset-right, 0px)) var(--s3) max(var(--s4), env(safe-area-inset-left, 0px));
+  border-bottom: 1px solid var(--rule); background: var(--cyan-tint);
+}
+.t-class-name { font-size: var(--t-xl); line-height: var(--lh-xl); }
+.code-pair { display: flex; gap: var(--s4); flex-wrap: wrap; }
+.code-pair > div { display: flex; flex-direction: column; gap: var(--s1); }
+.t-main { max-width: 1200px; margin: 0 auto; padding: var(--s5) max(var(--s4), env(safe-area-inset-right, 0px)) var(--s10) max(var(--s4), env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: var(--s5); }
+.t-tabs { display: flex; gap: var(--s1); overflow-x: auto; padding-bottom: var(--s1); }
+.t-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); grid-auto-flow: row dense; gap: var(--s5) var(--s4); align-items: start; }
+.t-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.t-list li { display: flex; flex-direction: column; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
+.t-list li:last-child { border-bottom: 0; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: var(--r-md); }
+.t-table { border-collapse: collapse; width: 100%; font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
+.t-table th, .t-table td { padding: var(--s2) var(--s3); text-align: start; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.t-table thead th { position: sticky; top: 0; background: var(--ground); font-weight: 700; z-index: 1; }
+.t-table tbody th { position: sticky; inset-inline-start: 0; background: var(--paper); font-weight: 700; z-index: 1; }
+.th-topic { display: inline-flex; align-items: center; gap: var(--s1); }
+.help-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); }
+.help-item { border: 1px solid var(--rule); border-radius: var(--r-md); padding: var(--s3) var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
+.new-tag { font-size: var(--t-xs); font-weight: 800; background: var(--marker-strong); border-radius: 6px; padding: 0 6px; }
+.help-item-head { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
+.help-q { text-align: start; }
+.help-page { display: block; max-width: 100%; border: 1px solid var(--rule-strong); border-radius: 6px; }
+.qstrip { display: inline-flex; flex-wrap: wrap; gap: 3px; max-width: 220px; }
+.qstrip i { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 5px; font-style: normal; font-size: 11px; font-weight: 800; }
+.help-page-btn { display: block; padding: 0; border: 0; background: none; cursor: zoom-in; max-width: 320px; }
+.help-page-btn .help-page { width: 100%; height: auto; }
+@media (hover: hover) {
+  .t-table tbody tr:hover td, .t-table tbody tr:hover th { background: var(--ground); }
+}
+.t-head { background: color-mix(in srgb, var(--paper) 75%, transparent); border-bottom: 2px solid var(--rule); }
+.code-chip { max-width: 100%; }
+.code-chip > span { min-width: 0; overflow-wrap: anywhere; text-align: start; }
+@media (max-width: 480px) {
+  .code-chip { font-size: var(--t-sm); letter-spacing: 0.02em; }
+  .t-tabs { flex-wrap: wrap; overflow-x: visible; }
+}
+.table-wrap {
+  background:
+    linear-gradient(to right, var(--paper) 30%, transparent) left / 28px 100% no-repeat local,
+    linear-gradient(to left, var(--paper) 30%, transparent) right / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(36, 45, 58, 0.16), transparent) left / 12px 100% no-repeat scroll, /* colour-ok: shadow */
+    radial-gradient(farthest-side at 100% 50%, rgba(36, 45, 58, 0.16), transparent) right / 12px 100% no-repeat scroll, /* colour-ok: shadow */
+    var(--paper);
+}
+.table-wrap .t-table td { background: transparent; }
+.t-head { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: var(--s3); padding: var(--s3) max(var(--s4), env(safe-area-inset-right, 0px)) var(--s5) max(var(--s4), env(safe-area-inset-left, 0px)); background: color-mix(in srgb, var(--p-500) 30%, var(--p-700)); color: var(--on-brand); border-bottom: 0; }
+.t-head-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.t-head-who { display: flex; flex-direction: column; }
+.t-head-sub { font-size: var(--fs-sm); color: var(--on-brand); }
+.t-head-actions { display: flex; gap: var(--s2); }
+.t-icon { background: color-mix(in srgb, var(--on-brand) 16%, transparent); border-radius: 12px; }
+.t-icon:hover { background: color-mix(in srgb, var(--on-brand) 28%, transparent); }
+.t-class-select { min-width: 140px; }
+.t-main { max-width: 1100px; }
+.t-table thead th:has(.th-topic) { white-space: normal; min-width: 7.5em; }
+.t-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+@media (min-width: 900px) {
+  .t-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.t-group > .t-group-box { padding: 0 var(--s4); }
+.t-group-warm > .t-group-box { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); }
+.t-row { padding: var(--s3) 0; margin: 0; }
+.t-more { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 var(--s1); border: 0; background: none; font-weight: 700; color: var(--p-700); cursor: pointer; }
+.t-fresh { display: flex; flex-direction: column; align-items: center; gap: var(--s3); text-align: center; }
+.t-fresh-title { margin: 0; font-family: var(--font-display); font-size: 26px; color: var(--good-ink); }
+.t-fresh .code-pair { justify-content: center; }
+.t-head { background: var(--surface); color: var(--ink); border-bottom: 1px solid var(--rule); }
+.t-head-sub { color: var(--ink-2); }
+.t-icon { background: var(--surface); color: var(--ink); border: 2px solid var(--rule); }
+.t-group-box { background: var(--surface); border: 2px solid var(--rule); border-radius: 16px; padding: var(--s4); }
+.t-group > .t-group-box, .t-group-warm > .t-group-box { background: var(--surface); border: 2px solid var(--rule); border-radius: 16px; padding: var(--s1) var(--s4); }
+.t-lock { margin-bottom: var(--s4); }
+.t-lock-row { font-weight: 700; }
+.t-goal-chip { min-height: 36px; }
+.t-actions { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); white-space: nowrap; }
+/* (moved here from canon.css at the integration: .t-head's own rules above now load after canon.css, so the wide-screen
+   inner width has to come after them, as it did there) */
+@media (min-width: 1100px) {
+  /* the header's name, code and buttons line up with the board's column (.t-main, 1100px) */
+  .t-head { padding-inline: calc((100% - 1100px) / 2 + var(--s4)); }
+}

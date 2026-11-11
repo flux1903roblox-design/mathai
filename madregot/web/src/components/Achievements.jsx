@@ -6,6 +6,7 @@ import { CHALLENGES, challengesOf, isOpen, isSolved, solvedCount } from '@/learn
 import { TOPIC_ORDER } from '@/learn/skills.ts';
 import { doneCount, chestOpen } from '@/lib/path.js';
 import RewardBadge from './RewardBadge.jsx';
+import '@/styles/lazy/achievements.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const active = isActiveDay; // a finished lesson, check or teaching stage
 

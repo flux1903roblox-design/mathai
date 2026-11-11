@@ -1,0 +1,62 @@
+/* Figure.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only Figure.jsx uses these classes. */
+.figure-wrap { display: flex; justify-content: center; }
+.fg-axis-head { fill: var(--ink-2); }
+.fg-axis-name { fill: var(--ink-2); font-size: 15px; font-style: italic; }
+.fg-seg { fill: none; stroke: var(--cyan); stroke-width: 3; stroke-linecap: round; }
+.fg-poly { fill: color-mix(in srgb, var(--cyan) 14%, transparent); stroke: var(--cyan); stroke-width: 2; }
+.fg-helper { fill: none; stroke: var(--rule-strong); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.fg-ray { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; fill: none; }
+.fg-vertex { fill: var(--ink); }
+.fg-arc { fill: none; stroke: var(--cyan); stroke-width: 2; }
+.fg-angle { fill: var(--cyan); font-size: 15px; font-weight: 700; }
+.fg-par { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.fg-tri { fill: color-mix(in srgb, var(--cyan) 7%, transparent); stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
+.fg-side { fill: var(--ink); font-size: 16px; font-weight: 700; }
+.fg-wall { fill: var(--ground); stroke: var(--rule-strong); }
+.fg-ladder { stroke: var(--streak); stroke-width: 4; stroke-linecap: round; }
+.fg-math { font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 20px; }
+.fg-word { fill: var(--ink-2); font-size: 16px; font-weight: 600; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fg-sq { fill: color-mix(in srgb, var(--brand) 10%, transparent); stroke: var(--brand); stroke-width: 1.5; stroke-linejoin: round; }
+.fg-sq-text { fill: var(--brand-d); font-size: 18px; font-weight: 800; }
+.fg-move { stroke: var(--brand); stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
+.fg-move-head { fill: var(--brand); }
+.fig-var { font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; }
+.fig-nl-axis { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fig-nl-head { fill: var(--ink); }
+.fig-nl-tick { stroke: var(--ink); stroke-width: 2; }
+.fig-nl-num { fill: var(--ink-2); font-size: 15px; font-weight: 500; }
+.fig-nl-mark circle { fill: var(--brand); stroke: var(--ground); stroke-width: 2.5; }
+.fig-nl-name { fill: var(--ink); font-size: 19px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-nl-jump path { fill: none; stroke: var(--brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.fig-nl-move { fill: var(--brand-d); font-size: 18px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-th-glass { fill: var(--surface); stroke: var(--ink-2); stroke-width: 2.5; }
+.fig-th-fill { fill: var(--bad); }
+.fig-th-col { fill: none; stroke: var(--bad); stroke-width: 12; }
+.fig-th-tick { stroke: var(--ink-2); stroke-width: 2; }
+.fig-th-num { fill: var(--ink-2); font-size: 15px; font-weight: 500; }
+.fig-th-pointer { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 3 3; }
+.fig-th-read { fill: var(--ink); font-size: 22px; font-weight: 800; }
+.fig-mc-io rect { fill: var(--surface); stroke: var(--control-line); stroke-width: 2; }
+.fig-mc-io text { fill: var(--ink); font-size: 24px; font-weight: 700; }
+.fig-mc-box { fill: var(--brand-tint); stroke: var(--brand); stroke-width: 2.5; }
+.fig-mc-rule { fill: var(--ink); font-family: KaTeX_Main, 'Times New Roman', serif; font-size: 30px; }
+.fig-mc-arrow { fill: none; stroke: var(--ink-2); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.fig-dt-dot { fill: var(--brand); stroke: var(--ground); stroke-width: 1.5; }
+.fig-dt-fulcrum { fill: var(--ink-2); }
+.fig-bar rect { fill: var(--brand); }
+.fig-bar-num { fill: var(--ink); font-size: 16px; font-weight: 700; }
+.fig-bar-name { fill: var(--ink-2); font-weight: 600; }
+.fig-bar-base { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fig-bar-level line { stroke: var(--streak-d); stroke-width: 2.5; stroke-dasharray: 8 5; }
+.fig-bar-level-num { fill: var(--streak-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-word { fill: var(--ink); font-size: 17px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-word.fig-var { font-size: 20px; font-weight: 400; }
+.fig-cd-quad { fill: var(--ink-2); font-size: 15px; font-weight: 600; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-line { fill: none; stroke-width: 3; stroke-linecap: round; }
+.fig-cd-tag { font-size: 17px; font-weight: 700; font-style: italic; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-rr path { fill: none; stroke: var(--streak-d); stroke-width: 2.5; stroke-dasharray: 6 4; }
+.fig-cd-rr-num { fill: var(--streak-ink); font-size: 17px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-walk path { fill: none; stroke: var(--brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.fig-cd-meet circle { fill: var(--good-d); stroke: var(--ground); stroke-width: 2.5; }
+.fig-cd-meet-num { fill: var(--good-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }

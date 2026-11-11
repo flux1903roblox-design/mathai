@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import serviceWorker, { precacheFilter } from '../../scripts/vite-plugin-sw.mjs';
+import { fakeIndexedDB } from '../lib/testing/fakeIdb.js';
 
 const CODE = readFileSync(new URL('./sw.js', import.meta.url), 'utf8');
 
@@ -75,7 +76,7 @@ describe('the Vite plugin', () => {
 const SCOPE = 'https://app.example.test/madregot/';
 const ok = (body, init) => new Response(body, { status: 200, ...init });
 
-function worker({ precache = ['index.html', 'assets/index-a.js', 'manifest.webmanifest'], release = 'r1', net, stores = new Map() } = {}) {
+function worker({ precache = ['index.html', 'assets/index-a.js', 'manifest.webmanifest'], release = 'r1', net, stores = new Map(), self: more = {}, scope: globals = {} } = {}) {
   const on = {};
   const cacheOf = (name) => {
     if (!stores.has(name)) stores.set(name, new Map());
@@ -99,8 +100,9 @@ function worker({ precache = ['index.html', 'assets/index-a.js', 'manifest.webma
   const self = {
     __PRECACHE: precache, __RELEASE: release, registration: { scope: SCOPE }, location: new URL('sw.js', SCOPE),
     addEventListener: (type, fn) => { on[type] = fn; }, clients: { claim: vi.fn(async () => {}) }, skipWaiting: vi.fn(),
+    ...more,
   };
-  runInNewContext(CODE, { self, caches, fetch: (r) => net(r), Request, Response, URL, setTimeout, Promise });
+  runInNewContext(CODE, { self, caches, fetch: (r, init) => net(r, init), Request, Response, URL, setTimeout, Promise, atob, JSON, Uint8Array, String, ...globals });
   const lifecycle = async (type) => { let p; on[type]({ waitUntil: (x) => { p = x; } }); await p; };
   /** The worker's answer to a request, or 'browser' when it leaves the request to the browser. */
   const request = async (url, mode = 'cors', method = 'GET') => {
@@ -204,9 +206,85 @@ describe('sw.js', () => {
     await expect(w.request('icons/none.png')).rejects.toThrow('offline');
   });
 
-  it('handles no push: that section is left for STUDENT-11', () => {
-    const w = worker({ net: online });
-    expect(w.on.push).toBeUndefined();
-    expect(CODE).toContain('// push handlers (STUDENT-11)');
+});
+
+// ---------------------------------------------------------------- the daily reminder (STUDENT-11)
+describe('sw.js: the daily reminder', () => {
+  const TODAY = `${SCOPE}#/?go=today&src=push`;
+  /** A worker with notifications, windows and a push manager to watch, and IndexedDB madregot-push. */
+  function pushWorker({ windows = [], record, net = vi.fn(async () => new Response(null, { status: 204 })) } = {}) {
+    const idb = fakeIndexedDB();
+    if (record) idb.dbs.set('madregot-push', new Map([['sub', new Map([['current', record]])]]));
+    const registration = {
+      scope: SCOPE,
+      showNotification: vi.fn(async () => {}),
+      pushManager: { subscribe: vi.fn(async () => ({ toJSON: () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/new', keys: { p256dh: 'BNEW', auth: 'ANEW' } }) })) },
+    };
+    const clients = { claim: vi.fn(), matchAll: vi.fn(async () => windows), openWindow: vi.fn(async () => {}) };
+    const w = worker({ net, self: { registration, clients }, scope: { indexedDB: idb } });
+    /** Fire an event that waits (push, notificationclick, pushsubscriptionchange) and wait for it. */
+    const fire = async (type, data) => { let p; w.on[type]({ ...data, waitUntil: (x) => { p = x; } }); await p; };
+    return { ...w, idb, registration, clients, fire, net };
+  }
+  const pushData = (obj) => ({ data: { json: () => (typeof obj === 'string' ? JSON.parse(obj) : obj) } });
+
+  it('a declarative message is shown right to left, in Hebrew, titled מדרגות, with the address to open', async () => {
+    const w = pushWorker();
+    await w.fire('push', pushData({ web_push: 8030, notification: { title: 'מדרגות', body: 'שיעור קצר אחד היום, וזה מספיק.', lang: 'he', dir: 'rtl', navigate: TODAY, tag: 'daily', silent: false } }));
+    expect(w.registration.showNotification).toHaveBeenCalledWith('מדרגות', {
+      body: 'שיעור קצר אחד היום, וזה מספיק.', lang: 'he', dir: 'rtl', icon: 'icons/192.png', badge: 'icons/badge-96.png', tag: 'daily', data: { url: TODAY },
+    });
+  });
+
+  it('any other shape still shows a calm notification; an address on another site opens today\'s lesson here', async () => {
+    const w = pushWorker();
+    await w.fire('push', pushData({ title: 'מדרגות', body: 'טקסט', navigate: 'https://evil.example.test/' }));
+    await w.fire('push', { data: { json: () => { throw new SyntaxError('not json'); } } });
+    await w.fire('push', {});
+    const calls = w.registration.showNotification.mock.calls;
+    expect(calls.map(([title, o]) => [title, o.body, o.dir, o.data.url])).toEqual([
+      ['מדרגות', 'טקסט', 'rtl', TODAY], ['מדרגות', '', 'rtl', TODAY], ['מדרגות', '', 'rtl', TODAY]]);
+  });
+
+  it('a tap brings the open app forward on today\'s lesson, and counts push_open with the page\'s server address', async () => {
+    const win = { url: `${SCOPE}#/me`, focus: vi.fn(async () => {}), navigate: vi.fn(async () => {}) };
+    const w = pushWorker({ windows: [{ url: 'https://other.example.test/', focus: vi.fn() }, win], record: { id: 'a'.repeat(16), secret: 'b'.repeat(32), slot: 17, key: 'BKEY', api: 'https://api.example.test' } });
+    const close = vi.fn();
+    await w.fire('notificationclick', { notification: { close, data: { url: TODAY } } });
+    expect(close).toHaveBeenCalled();
+    expect(win.focus).toHaveBeenCalled();
+    expect(win.navigate).toHaveBeenCalledWith(TODAY);
+    expect(w.clients.openWindow).not.toHaveBeenCalled();
+    const [url, init] = w.net.mock.calls.at(-1);
+    expect(url).toBe('https://api.example.test/api/metrics');
+    expect(init).toMatchObject({ method: 'POST', body: 'push_open' });
+  });
+
+  it('with no window open, a tap opens the app there', async () => {
+    const w = pushWorker();
+    await w.fire('notificationclick', { notification: { close: vi.fn(), data: { url: TODAY } } });
+    expect(w.clients.openWindow).toHaveBeenCalledWith(TODAY);
+    expect(w.net.mock.calls.at(-1)[0]).toBe('https://app.example.test/api/metrics');
+  });
+
+  it('a replaced subscription is sent again with replaces, and the new id and secret are kept for the page', async () => {
+    const record = { id: 'a'.repeat(16), secret: 'b'.repeat(32), slot: 18, key: 'BPkey_-A', api: 'https://api.example.test' };
+    const net = vi.fn(async () => new Response(JSON.stringify({ id: 'c'.repeat(16), secret: 'd'.repeat(32) }), { status: 200 }));
+    const w = pushWorker({ record, net });
+    await w.fire('pushsubscriptionchange', {});
+    const opts = w.registration.pushManager.subscribe.mock.calls[0][0];
+    expect(opts.userVisibleOnly).toBe(true);
+    expect([...opts.applicationServerKey]).toEqual([...Buffer.from('BPkey_-A', 'base64url')]);
+    const [url, init] = net.mock.calls[0];
+    expect(url).toBe('https://api.example.test/api/push/subscribe');
+    expect(JSON.parse(init.body)).toEqual({ endpoint: 'https://fcm.googleapis.com/fcm/send/new', keys: { p256dh: 'BNEW', auth: 'ANEW' }, slot: '18', replaces: { id: record.id, secret: record.secret } });
+    expect(w.idb.peek('madregot-push', 'sub', 'current')).toEqual({ ...record, id: 'c'.repeat(16), secret: 'd'.repeat(32) });
+  });
+
+  it('with no reminder kept on the device, a replaced subscription is left alone', async () => {
+    const w = pushWorker();
+    await w.fire('pushsubscriptionchange', {});
+    expect(w.registration.pushManager.subscribe).not.toHaveBeenCalled();
+    expect(w.net).not.toHaveBeenCalled();
   });
 });

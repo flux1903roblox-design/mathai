@@ -138,8 +138,9 @@ describe('what the law asks each text to say (TRUST-2 tests, TRUST-13)', () => {
     // s.11: voluntary or not, and what happens without; the purpose; who receives it; transfers abroad
     for (const t of ['אין חובה לפי חוק למסור לנו מידע', 'למה:', '## למי המידע עובר', 'העברת מידע אל מאגרי מידע שמחוץ לגבולות המדינה', 'לרשות להגנת הפרטיות']) expect(p, t).toContain(t);
     // every service the data map says receives data is named, with where it is
-    for (const name of ['Cloudflare', 'Anthropic', 'Resend', '{{PAYMENT_PROVIDER}}']) expect(section(p, 'share'), name).toContain(name);
-    expect(Object.keys(datamap.recipients).sort()).toEqual(['anthropic', 'cloudflare', 'payment', 'resend']);
+    // (the student lane's daily reminder adds the browser's push service, STUDENT-11)
+    for (const name of ['Cloudflare', 'Anthropic', 'Resend', '{{PAYMENT_PROVIDER}}', 'שירות ההתראות של הדפדפן']) expect(section(p, 'share'), name).toContain(name);
+    expect(Object.keys(datamap.recipients).sort()).toEqual(['anthropic', 'cloudflare', 'payment', 'push', 'resend']);
     expect(section(p, 'share')).toContain('{{DB_PLACE}}');
   });
 

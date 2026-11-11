@@ -14,6 +14,7 @@ import { DEMO_COPY } from './demo.js';
 
 /** The demo's sample answer, after its label: how the assistant explains a step, with no question sent. */
 const DEMO_AI_SAMPLE = 'למשל, כך אפשר להסביר חיבור של מספר חיובי ומספר שלילי: מתחילים במספר הראשון על ציר המספרים, וזזים שמאלה כמספר היחידות של המספר השלילי. $7 + (-3) = 4$. אחר כך כדאי לתת שני תרגילים דומים, ואחד עם התשובה השלילית: $3 + (-7) = -4$.';
+import { needsConsent, askConsent } from './aiConsent.js';
 
 export { aiMode, aiReady };
 
@@ -93,6 +94,9 @@ function limited(kind, data, status, onMadi, quiet = false) {
 export async function runAI(kind, input, { onText, signal, onMadi, quiet = false } = {}) {
   const mode = aiMode();
   if (mode === 'none') throw new ApiError('no_server');
+  // a store build asks before the first request on this device (STUDENT-12): "לא עכשיו" sends nothing, and the screen
+  // goes quietly back to where it was (callers treat .limit as "already said")
+  if (needsConsent() && !(await askConsent())) throw Object.assign(new ApiError('no_consent'), { limit: true });
 
   // the demo class (TEACHER-15): a fixed sample answer, labelled as one; nothing is sent
   if (mode === 'demo') {

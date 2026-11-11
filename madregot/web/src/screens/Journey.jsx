@@ -26,6 +26,7 @@ import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
 import { workBanner } from '@/lib/classWork.js';
 import { Emblem } from '@/components/map/Scenery.jsx';
+import '@/styles/lazy/journey.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 export const CHALLENGE_CARD = 'אתגר · לבחירה';
 export const CHALLENGE_LOCKED = 'נפתח אחרי בדיקת השליטה';

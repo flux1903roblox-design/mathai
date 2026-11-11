@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import serviceWorker from './scripts/vite-plugin-sw.mjs';
+import brand from './scripts/vite-plugin-brand.mjs';
+import budgetMap from './scripts/vite-plugin-budget.mjs';
 
 // The commit a build was made from, written into every save (meta.app), every error report (lib/monitor.js) and
 // window.__RELEASE (main.jsx), so all say which build they came from: VITE_RELEASE when it is set (the update test
@@ -21,7 +23,9 @@ export default defineConfig({
   base: process.env.BASE_PATH || '/',
   define: { __RELEASE__: JSON.stringify(RELEASE), 'import.meta.env.VITE_RELEASE': JSON.stringify(RELEASE) },
   // serviceWorker: dist/sw.js with the list of files kept for offline use (DURABLE-10)
-  plugins: [react(), serviceWorker()],
+  // brand: the product's name from shared/brand.js in index.html and the web manifest (STUDENT-12)
+  // budgetMap: .vite/modules.json, which module is in which chunk, for scripts/check-budget.mjs (STUDENT-15)
+  plugins: [react(), brand(), serviceWorker(), budgetMap()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -48,7 +52,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)', '../shared/**/*.test.js'],
-    exclude: ['**/node_modules/**', 'e2e/**', 'dist-test/**'],
+    exclude: ['**/node_modules/**', 'e2e/**', 'dist-test/**', 'dist-ios-test/**'],
     setupFiles: ['./src/testYield.js'],
   },
 });

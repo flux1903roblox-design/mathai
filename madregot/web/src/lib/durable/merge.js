@@ -30,9 +30,11 @@ export const OUTBOX_KEEP = 1000;
  * (classWork, the last copy fetched with this device's class token) and its reports waiting for the server (workOutbox)
  * are this device's like the answers' outbox: the class server has the truth, and the app fetches it again. So are the
  * student lane's class-goal steps waiting for the server (stepsOut) and the weeks it last reported (classGoals,
- * STUDENT-4), and this device's one-time notes and install offers (nudges, STUDENT-5/10).
+ * STUDENT-4), this device's one-time notes and install offers (nudges, STUDENT-5/10), and its daily reminder
+ * (reminder, STUDENT-11: the id and secret of this browser's push subscription; another device's would remind the wrong
+ * phone).
  */
-export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox', 'stepsOut', 'classGoals', 'nudges'];
+export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox', 'stepsOut', 'classGoals', 'nudges', 'reminder'];
 /** This device's settings: a restore never changes them (haptics and prefs, the look and the sound choice: STUDENT-2/7). */
 export const SETTINGS = ['sound', 'goalXp', 'solveMode', 'helpSent', 'haptics', 'prefs'];
 /**

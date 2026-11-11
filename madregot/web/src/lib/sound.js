@@ -2,8 +2,10 @@
 // correct, a soft low note for "not yet", a small arpeggio when a lesson ends, a brighter one for the daily goal.
 // They play only after the student has tapped something, and only when sound is on.
 // Vibration is its own setting (haptics): short, distinct patterns, only where the phone can vibrate and never under
-// reduced motion (some people map motion sensitivity to vibration too).
+// reduced motion (some people map motion sensitivity to vibration too). In the iPhone app (VITE_STORE=ios) the phone's
+// own haptics play instead (Capacitor's Haptics, through lib/native.js): Safari has no navigator.vibrate.
 import { useApp } from './store.js';
+import { nativePlugin } from './native.js';
 
 let ctx = null;
 function audio() {
@@ -51,11 +53,35 @@ const reducedMotion = () => {
   try { return typeof globalThis.matchMedia === 'function' && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
 };
 
-/** Vibrate when the student wants it, the platform can (Android; iOS ignores it) and reduced motion is off. */
-function vibrate(pattern) {
+/** The iPhone app's haptics for each kind: Capacitor Haptics method and options (a light tap, a warning, a success). */
+export const NATIVE_HAPTICS = {
+  correct: ['impact', { style: 'LIGHT' }],
+  wrong: ['notification', { type: 'WARNING' }],
+  complete: ['notification', { type: 'SUCCESS' }],
+  goal: ['notification', { type: 'SUCCESS' }],
+  buzz: ['impact', { style: 'MEDIUM' }],
+};
+
+/** The phone's own haptics, in the iPhone app only. True when one was asked for. */
+function nativeHaptic(kind, env = import.meta.env) {
+  if (env.VITE_STORE !== 'ios') return false;
+  const h = nativePlugin('Haptics');
+  const [method, options] = NATIVE_HAPTICS[kind] || [];
+  if (!h || !method) return false;
+  Promise.resolve().then(() => h[method](options)).catch(() => { /* optional */ });
+  return true;
+}
+
+/**
+ * Vibrate when the student wants it, the platform can and reduced motion is off: the iPhone app's haptics (`kind`),
+ * else navigator.vibrate (Android; Safari has none).
+ */
+function vibrate(pattern, kind) {
   try {
+    if (!useApp.getState().haptics || reducedMotion()) return false;
+    if (nativeHaptic(kind)) return true;
     const nav = globalThis.navigator;
-    if (!useApp.getState().haptics || !nav || typeof nav.vibrate !== 'function' || reducedMotion()) return false;
+    if (!nav || typeof nav.vibrate !== 'function') return false;
     nav.vibrate(pattern);
     return true;
   } catch { return false; } // optional
@@ -64,10 +90,10 @@ function vibrate(pattern) {
 /** The vibration that goes with a sound: 'correct', 'wrong', 'complete' or 'goal'. */
 export function haptic(kind) {
   const pattern = HAPTICS[kind];
-  return pattern ? vibrate(pattern) : false;
+  return pattern ? vibrate(pattern, kind) : false;
 }
 
 /** A single short vibration. It follows the vibration setting, not the sound setting. */
 export function buzz(ms = 30) {
-  return vibrate(ms);
+  return vibrate(ms, 'buzz');
 }

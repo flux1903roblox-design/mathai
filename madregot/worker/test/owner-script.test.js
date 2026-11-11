@@ -291,10 +291,17 @@ Install
   installed                                2       4       3       5       1      15
   accepted per offer                     33%     44%     38%     50%      0%     39%
 Reminders
-  push_offer                               0       0       0       0       0       0
-  push_on                                  0       0       0       0       0       0
-  push_off                                 0       0       0       0       0       0
-  push_open                                0       0       0       0       0       0
+  push_offer                               0       0       0       5       2       7
+  push_on                                  0       0       0       3       1       4
+  push_off                                 0       0       0       0       1       1
+  push_sent                                0       0       0       6       4      10
+  push_open                                0       0       0       2       1       3
+  push_deferred                            0       0       0       0       0       0
+  push_failed                              0       0       0       1       0       1
+  push_rejected                            0       0       0       0       0       0
+  push_paused                              0       0       0       0       1       1
+  opened per sent                          -       -       -     33%     25%     30%
+  now: 3 on, 1 paused; 2 of their students learned in the last 7 days
 Store apps
   store_open_play                          0       0       0       0       0       0
   store_open_ios                           0       0       0       0       0       0
@@ -307,7 +314,8 @@ Classes
 Families
   (no family_daily table on this database yet)
 
-Kept: metrics_daily 400 days, class_steps 120 days. A student is counted once a week however much they learned.`;
+Kept: metrics_daily 400 days, class_steps 120 days, push_subs 45 days after the app was last opened.
+A student is counted once a week however much they learned.`;
 
 test('reach on synthetic rows prints the weekly table (snapshot); family_daily is read only where it exists', () => {
   const env = makeEnv();
@@ -321,7 +329,8 @@ test('reach on synthetic rows prints the weekly table (snapshot); family_daily i
   assert.equal(reach({ days: '28' }, query, new Date(REACH_NOW)), REACH_EXPECTED);
   assert.ok(!ran.some((s) => s.includes('FROM family_daily')), 'no statement names a table that is not there');
   // every statement reads counts only: no column that names a person comes back
-  for (const s of ran) for (const row of db.prepare(s).all()) assert.deepEqual(Object.keys(row).filter((k) => !['week', 'name', 'n'].includes(k)), [], s);
+  for (const s of ran) for (const row of db.prepare(s).all()) assert.deepEqual(Object.keys(row).filter((k) => !['week', 'name', 'n', 'on_n', 'paused_n', 'learned7'].includes(k)), [], s);
+  assert.ok(!ran.some((s) => /endpoint|p256dh|auth|secret/.test(s)), 'no statement reads a push address or key');
   // with the parents lane's table: its devices that learned, per week and in all
   seedFamily(db);
   const withFamily = reach({}, query, new Date(REACH_NOW));

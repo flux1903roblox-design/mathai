@@ -1,0 +1,42 @@
+/* Assistant.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only Assistant.jsx uses these classes. */
+.tabs { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 4px; gap: 4px; background: var(--ground); border: 1px solid var(--rule); border-radius: 12px; }
+.upload-empty { display: flex; flex-direction: column; align-items: center; gap: var(--s2); padding: var(--s8) var(--s4); font-weight: 700; color: var(--ink-2); }
+.upload-preview { display: block; width: 100%; max-height: 320px; object-fit: contain; background: var(--surface); }
+.gen-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s4); }
+.gen-q { border-bottom: 1px solid var(--rule); padding-bottom: var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
+.gen-q-head { display: flex; gap: var(--s3); align-items: flex-start; font-weight: 600; }
+.gen-q-answer { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
+.gen-ok { display: inline-flex; gap: var(--s1); align-items: center; color: var(--ok); font-weight: 700; }
+.gen-bad { color: var(--magenta); font-weight: 700; }
+.tabs { border: 0; background: var(--ai-tint); border-radius: 16px; }
+.reveal-anchor { height: 0; scroll-margin-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+.ai-offline { display: flex; flex-direction: column; gap: var(--s4); padding: var(--s4); border: 2px solid var(--brand-line); border-radius: 24px; background: var(--paper); }
+.ai-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); }
+.ai-features li { display: flex; align-items: flex-start; gap: var(--s3); }
+.ai-features li > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ai-features li span span { color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }
+.ai-feature-icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: var(--ai-tint); color: var(--ai-ink); }
+.ai-offline-actions { display: flex; flex-direction: column; gap: var(--s2); }
+@media (max-width: 420px) {
+  .gen-pick { grid-template-columns: minmax(0, 1fr); }
+}
+.chat-like { display: flex; flex-direction: column; gap: var(--s4); min-height: calc(100dvh - 160px); padding: 0; border: 0; background: none; box-shadow: none; }
+.chat-log { display: flex; flex-direction: column; gap: var(--s3); }
+.chat-msg { display: flex; align-items: flex-end; gap: var(--s2); }
+.chat-avatar, .chat-avatar-space { flex: none; width: 44px; }
+.chat-bubble { flex: 1; min-width: 0; padding: var(--s3) var(--s4); border-radius: 18px 18px 18px 6px; background: var(--surface-2); border: 2px solid var(--line); }
+[dir="rtl"] .chat-bubble { border-radius: 18px 18px 6px 18px; }
+.chat-bubble p { margin: 0; }
+.chat-bubble .ai-features { margin: var(--s2) 0 0; }
+.chat-dock { position: sticky; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); margin-top: auto; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) 0; background: var(--paper); border-top: 2px solid var(--line); }
+@media (min-width: 900px) {
+  .chat-dock { bottom: 0; }
+}
+.assistant-page { min-height: calc(100dvh - 76px - env(safe-area-inset-bottom, 0px)); padding-bottom: 0; }
+.assistant-chat { flex: 1; display: flex; flex-direction: column; gap: var(--s2); min-height: 0; }
+.assistant-note { margin: 0; text-align: center; }
+@media (min-width: 960px) {
+  .assistant-page { min-height: 100dvh; }
+}
+.sheet-cta { position: sticky; bottom: calc(-1 * var(--s4)); z-index: 2; margin: 0 calc(-1 * var(--s4)); padding: var(--s3) var(--s4); background: var(--paper); border-top: 2px solid var(--line); }

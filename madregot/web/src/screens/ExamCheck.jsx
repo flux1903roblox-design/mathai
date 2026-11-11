@@ -18,6 +18,7 @@ import SupportCard from '@/components/SupportCard.jsx';
 import { scrubTitle } from '@shared/safety.js';
 import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
 import PhotoPrep, { EXAM_HEADER } from '@/components/PhotoPrep.jsx';
+import '@/styles/lazy/examCheck.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 /**
  * What the request says about the pages' preparation (trust spec TRUST-5 §2): whether any top band was cut and how many

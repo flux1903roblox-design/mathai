@@ -92,12 +92,25 @@ export async function open(page, route, state = null, seed = '424242') {
   await page.goto(`./${route}`);
   await page.reload();
   await appReady(page);
+  await screenReady(page, route);
 }
 
 /** The app has drawn its first screen (it waits for the copy on the device first, at most 300 ms) and its fonts. */
 export async function appReady(page) {
   await page.waitForFunction(() => !!document.getElementById('root')?.firstElementChild);
   await page.evaluate(() => document.fonts.ready);
+}
+
+/**
+ * A screen that loads on demand (the lesson since STUDENT-15's budget, Settings, the wardrobe…) shows the loading state
+ * first: wait until it is up. On a lesson route, also until the lesson's QA hook is in place, so the exercise on
+ * screen can be read (window.__madregotItem; it is set by the lesson once it has drawn its first screen).
+ */
+export async function screenReady(page, route = '') {
+  await page.waitForFunction(() => document.getElementById('root')?.childElementCount > 0 && !document.querySelector('.loading-state'));
+  if (/^#\/(lesson|practice|placement|rescue\/(check|exam))\b/.test(route)) {
+    await page.waitForFunction(() => '__madregotItem' in window, null, { timeout: 10_000 }).catch(() => { /* a lesson that opens on something else */ });
+  }
 }
 
 export const item = (page) => page.evaluate(() => window.__madregotItem);
@@ -242,4 +255,24 @@ export async function playDiscover(page) {
     await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
   }
   throw new Error('the stage did not end');
+}
+
+/**
+ * Through the first questions (Welcome) as a new student, the way a person does: מתחילים, the name, the grade, how much
+ * is known (קצת מוכר), the daily goal (the default) and where to start ('test' | 'scratch'). A landing page's link
+ * (#/?next=/rescue) has no start question: pass start: null, and the daily goal's button goes on to the link's place.
+ */
+export async function onboard(page, { name = 'נועה', grade = '7', start = 'scratch' } = {}) {
+  await page.getByRole('button', { name: 'מתחילים', exact: true }).click();
+  await page.fill('#w-name', name);
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('radio', { name: grade === '8' ? /^כיתה ח׳/ : /^כיתה ז׳/ }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('radio', { name: /^קצת מוכר/ }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  const last = page.locator('.ob-foot button[type="submit"]');
+  if (!start) { await last.click(); return; } // the daily goal (the default) is the last question
+  await page.getByRole('button', { name: 'המשך', exact: true }).click(); // the daily goal: the default
+  await page.getByRole('radio', { name: start === 'test' ? /^בדיקת רמה קצרה/ : /^מתחילים מההתחלה/ }).click();
+  await last.click();
 }

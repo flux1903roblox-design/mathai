@@ -27,6 +27,7 @@ import ClassSettingQuestion, { settingBody, settingReady } from '@/components/te
 import StudentSheet from '@/components/teacher/StudentSheet.jsx';
 import { rememberBoard } from '@/lib/teacherBoard.js';
 import ClassGoalSettings from '@/components/teacher/ClassGoalSettings.jsx';
+import '@/styles/lazy/teacher.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const TABS = ['tomorrow', 'work', 'students', 'exams', 'help'];
 

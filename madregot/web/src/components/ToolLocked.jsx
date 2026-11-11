@@ -6,13 +6,14 @@ import clsx from 'clsx';
 import { useApp } from '@/lib/store.js';
 import { Button } from './ui.jsx';
 import Mascot from './Mascot.jsx';
+import { canSell } from '@/lib/price.js';
 import { lockedText } from './limitCopy.js';
 import { openLimitSheet } from '@/lib/account.js';
 
 export default function ToolLocked({ kind, state = 'locked', onTeacher, children, className, compact = false }) {
   const inClass = useApp((s) => !!s.profile?.token);
   const teacher = useApp((s) => s.profile?.role === 'teacher');
-  const t = lockedText(kind, { state, inClass, role: teacher ? 'teacher' : 'student' });
+  const t = lockedText(kind, { state, inClass, role: teacher ? 'teacher' : 'student', store: !canSell() });
   return (
     <section className={clsx('tool-locked', compact && 'is-compact', className)} role="status" aria-live="polite">
       {!compact && <Mascot mood="encouraging" size={72} />}

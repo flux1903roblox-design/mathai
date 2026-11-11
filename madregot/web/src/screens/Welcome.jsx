@@ -21,6 +21,8 @@ import RestorePreview from '@/components/durable/RestorePreview.jsx';
 import { isStandalone } from '@/lib/durable/install.js';
 import { findCode, formatCode } from '@/lib/durable/code.js';
 import { afterClassJoin } from '@/lib/durable/escrow.js';
+import { deepLink, countFromLanding } from '@/lib/deepLink.js';
+import { canSell } from '@/lib/price.js';
 
 /**
  * The first open of the Home Screen app (DURABLE-3): on an iPhone it keeps its data apart from Safari, so the front page
@@ -75,10 +77,9 @@ function Option({ on, onPick, title, sub, glyph, aside, badge }) {
   );
 }
 
-/**
- * First time on the app: a few short questions, one per screen, then a choice
- * between a placement test and starting from the first stair.
- */
+// a link from a landing page (lib/deepLink.js) lands here after the first questions; the last button says where
+const NEXT_CTA = { '/rescue': 'לתוכנית החזרה', '/quests': 'למשימות של היום', '/parents': 'לאזור ההורים' };
+
 /**
  * After "delete all" (lib/wipe.js) the app reloads at ?wiped=1 (the device and the server) or ?wiped=device (this
  * device only): the front page says so once, as a status line, and the parameter leaves the address at once, so a
@@ -100,13 +101,18 @@ function useWiped() {
   return wiped;
 }
 
-function Onboarding({ onTeacher, onRestore }) {
+/**
+ * First time on the app: a few short questions, one per screen, then a choice
+ * between a placement test and starting from the first stair. With `next` (a landing page's link, e.g. /rescue) there
+ * is no such choice: after the questions the student goes straight there.
+ */
+function Onboarding({ onTeacher, onRestore, next = null }) {
   const navigate = useNavigate();
   const wiped = useWiped();
   const setProfile = useApp((s) => s.setProfile);
   const setGoalXp = useApp((s) => s.setGoalXp);
   const server = hasServer();
-  const steps = ['name', 'grade', 'know', 'goal', ...(server ? ['class'] : []), 'start'];
+  const steps = ['name', 'grade', 'know', 'goal', ...(server ? ['class'] : []), ...(next ? [] : ['start'])];
   const [i, setI] = useState(-1); // -1: the hello screen
   const [f, setF] = useState({ name: '', grade: null, know: null, goal: 20, code: '', pin: '', start: null });
   const [joined, setJoined] = useState(null);
@@ -121,12 +127,14 @@ function Onboarding({ onTeacher, onRestore }) {
   const floorOffered = f.know === 0;
   const start = f.start === 'floor' && !floorOffered ? recommended : f.start || recommended;
 
-  const finish = () => {
+  // j: the class just joined (the state may not have caught up when the class question is the last one)
+  const finish = (j = joined) => {
     setGoalXp(f.goal);
-    setProfile({ role: 'student', name: joined?.name || f.name.trim(), grade, know: f.know ?? 1, ...(joined ? joinedProfile(joined) : {}) });
-    if (joined) useApp.getState().quietForClass(); // a classroom is quiet: sounds start off (STUDENT-7)
+    setProfile({ role: 'student', name: j?.name || f.name.trim(), grade: j?.grade || grade, know: f.know ?? 1, ...(j ? joinedProfile(j) : {}) });
+    if (j) useApp.getState().quietForClass(); // a classroom is quiet: sounds start off (STUDENT-7)
     // a class keeps this student's code (DURABLE-6): made in the background once the profile is here, never in the way
-    if (joined) afterClassJoin(joined).then((r) => { if (r.toast) toast(r.toast); });
+    if (j) afterClassJoin(j).then((r) => { if (r.toast) toast(r.toast); });
+    if (next) { navigate(next, { replace: true }); return; }
     // "to the first lesson" opens it: the first stair of the grade's first topic
     // from the first stair: it starts by understanding (the stair's first teaching stage), not with exercises
     const first = topicsFor(grade)[0].id;
@@ -140,21 +148,24 @@ function Onboarding({ onTeacher, onRestore }) {
   const status = useAIStatus((x) => x.status);
   useEffect(() => { if (server && !useAIStatus.getState().status) refreshStatus(); }, [server]);
   const parentHere = (() => { try { return !!(localStorage.getItem(`${STORE_KEY}-parent`) || sessionStorage.getItem(`${STORE_KEY}-parent`)); } catch { return false; } })();
-  const billing = server && (status?.paywall === true || parentHere);
+  // a store app sells nothing, so its first screen has no way to the parents' or the cancel page (STUDENT-12)
+  const billing = server && canSell() && (status?.paywall === true || parentHere);
 
   const go = async () => {
     if (step === 'name' && !f.name.trim()) { setError('כתבו את השם שלכם.'); return; }
+    let j = joined;
     if (step === 'class' && f.code.trim() && !joined) {
       if (!/^\d{4}$/.test(f.pin)) { setError('בחרו קוד אישי של 4 ספרות.'); return; }
       setBusy(true);
       try {
         const c = await joinClass({ code: f.code, name: f.name.trim(), pin: f.pin });
         if (c.vault && await rejoin(c)) return;
-        setJoined({ ...c, vault: undefined });
+        j = { ...c, vault: undefined };
+        setJoined(j);
         toast.success(c.returning ? `ברוכים השבים לכיתה ${c.className}` : `הצטרפתם לכיתה ${c.className}`);
       } catch (err) { setError(err.message); return; } finally { setBusy(false); }
     }
-    if (step === 'start') { finish(); return; }
+    if (i === steps.length - 1) { finish(j); return; }
     setError(''); setI(i + 1);
   };
   const back = () => { setError(''); setI(i - 1); };
@@ -234,7 +245,9 @@ function Onboarding({ onTeacher, onRestore }) {
     class: 'יש לכם קוד כיתה מהמורה?',
     start: 'מאיפה מתחילים?',
   }[step];
-  const cta = step === 'class' ? (joined ? 'המשך' : f.code.trim() ? 'הצטרפות לכיתה' : 'המשך בלי קוד') : step === 'start' ? ({ test: 'לבדיקת הרמה', floor: 'לבדיקת היסודות' }[start] || 'לשיעור הראשון') : 'המשך';
+  const last = i === steps.length - 1;
+  const cta = step === 'class' ? (joined ? (last && next ? NEXT_CTA[next] : 'המשך') : f.code.trim() ? 'הצטרפות לכיתה' : last && next ? NEXT_CTA[next] : 'המשך בלי קוד')
+    : step === 'start' ? ({ test: 'לבדיקת הרמה', floor: 'לבדיקת היסודות' }[start] || 'לשיעור הראשון') : last && next ? NEXT_CTA[next] : 'המשך';
 
   return (
     <form className="ob" onSubmit={(e) => { e.preventDefault(); if (can && !busy) go(); }} noValidate>
@@ -369,17 +382,22 @@ function RestoreStart({ onBack }) {
 /**
  * The first screen with no profile: the student's onboarding, the teacher's way in, or a restore from a backup file. A
  * link to the app with ?start=teacher (the public site's "ללוח המורה") or ?role=teacher (the landing pages) opens the
- * teacher's way in; ?start=demo opens the demo class (TEACHER-15).
+ * teacher's way in; ?start=demo opens the demo class (TEACHER-15); ?next=/rescue (the parents' landing page,
+ * STUDENT-13) takes a new student there after the first questions.
  */
 export default function Welcome() {
   const [params, setParams] = useSearchParams();
   // #/?start=demo reached inside the app (on opening, lib/demo.js bootDemo already did it): the demo class, here
   const wantsDemo = params.get('start') === 'demo';
   useEffect(() => { if (wantsDemo) openDemo(); }, [wantsDemo]);
-  const asked = params.get('start') === 'teacher' || params.get('role') === 'teacher';
+  // a landing page's link (STUDENT-13, lib/deepLink.js): ?next=/rescue&src=mivchan, or ?start=teacher&src=pilot; the
+  // place and the source are read once, on arrival (the source is counted once)
+  const [link] = useState(() => deepLink(`?${params}`));
+  useEffect(() => { countFromLanding(link); }, [link]);
+  const asked = deepLink(`?${params}`).teacher;
   const [mode, setMode] = useState(asked ? 'teacher' : null); // null: the first visit; 'teacher'; 'restore'
   const back = () => { setMode(null); if (asked) setParams({}, { replace: true }); };
   if (mode === 'restore') return <RestoreStart onBack={() => setMode(null)} />;
-  if (mode !== 'teacher' && !asked) return <Onboarding onTeacher={() => setMode('teacher')} onRestore={() => setMode('restore')} />;
+  if (mode !== 'teacher' && !asked) return <Onboarding onTeacher={() => setMode('teacher')} onRestore={() => setMode('restore')} next={link.next} />;
   return <Suspense fallback={<LoadingState />}><TeacherStart onBack={back} /></Suspense>;
 }

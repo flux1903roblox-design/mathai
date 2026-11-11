@@ -43,6 +43,8 @@ import { getVault, putVault, deleteVault, vaultOn, vaultFull, putEscrow, deleteE
 import { stepStatements, classGoal, setClassGoal, teacherGoal } from './goal.js';
 import { postMetric } from './metrics.js';
 import { edgeGuard } from './edge.js';
+import { pushKey, pushSubscribe, pushSeen, pushOff, pushDue, PUSH_CRON } from './push.js';
+import { assetLinksResponse } from './assetlinks.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -1011,6 +1013,8 @@ async function route(req, env, ctx, cors) {
   const M = req.method;
   let m;
   if (M === 'GET' && p === '/api/health') return json(await health(env), 200, cors);
+  // the Play Store app's Digital Asset Links (assetlinks.js): [] until the owner sets the package and its fingerprints
+  if ((M === 'GET' || M === 'HEAD') && p === '/.well-known/assetlinks.json') return assetLinksResponse(env);
   // the edge rate limit (DURABLE-16, edge.js) in front of sign-in, class lookup and join, new devices and the AI routes;
   // the D1 counters in each handler stay the source of truth
   await edgeGuard(M, p, req, env);
@@ -1036,6 +1040,11 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/me/forget') return forgetMe(req, env, ctx, cors);
   // reach counts (metrics.js): a name on the list adds 1 to its day; 204 always
   if (M === 'POST' && p === '/api/metrics') return postMetric(req, env, cors);
+  // the opt-in daily reminder (push.js): 404 while PUSH is off
+  if (M === 'GET' && p === '/api/push/key') return pushKey(req, env, cors);
+  if (M === 'POST' && p === '/api/push/subscribe') return pushSubscribe(req, env, cors);
+  if (M === 'POST' && p === '/api/push/seen') return pushSeen(req, env, cors);
+  if (M === 'POST' && p === '/api/push/off') return pushOff(req, env, cors);
   // parent and teacher accounts
   if (M === 'POST' && p === '/api/account/code') return startLogin(req, env, cors);
   if (M === 'POST' && p === '/api/account/verify') return verifyLogin(req, env, cors);
@@ -1139,7 +1148,9 @@ export default {
       return json({ error: 'server_error' }, 500, cors);
     }
   },
+  // two schedules (wrangler.toml): the reminders run alone in theirs, so their crypto never shares the billing jobs' CPU
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runCron(env, { now: new Date(event?.scheduledTime || Date.now()) }));
+    const now = new Date(event?.scheduledTime || Date.now());
+    ctx.waitUntil(event?.cron === PUSH_CRON ? pushDue(env, now).catch((e) => console.error('push', e?.message)) : runCron(env, { now }));
   },
 };

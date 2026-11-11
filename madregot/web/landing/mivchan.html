@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="he" dir="rtl" data-page="mivchan">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מבחן במתמטיקה ביום חמישי? · {{APP_NAME}}</title>
+<meta name="description" content="{{APP_NAME}} בונה לילד תוכנית חזרה לימים שנשארו עד המבחן במתמטיקה, עם תרגול שנבדק במקום והסבר לכל טעות. לכיתות ז׳ וח׳, בעברית.">
+{{#PUBLIC_URL}}<link rel="canonical" href="{{PUBLIC_URL}}/mivchan/">
+<meta property="og:url" content="{{PUBLIC_URL}}/mivchan/">
+<meta property="og:image" content="{{PUBLIC_URL}}/l/og-mivchan.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="מבחן במתמטיקה ביום חמישי? תוכנית חזרה במדרגות, לצד מסך התוכנית בטלפון.">
+{{/PUBLIC_URL}}<meta property="og:type" content="website">
+<meta property="og:locale" content="he_IL">
+<meta property="og:site_name" content="{{APP_NAME}}">
+<meta property="og:title" content="מבחן במתמטיקה ביום חמישי?">
+<meta property="og:description" content="תוכנית חזרה לימים שנשארו, תרגול שנבדק במקום והסבר לכל טעות. לכיתות ז׳ וח׳, חינם.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="{{THEME_LIGHT}}" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="{{THEME_DARK}}" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../icons/192.png">
+<link rel="apple-touch-icon" href="../icons/180.png">
+<link rel="stylesheet" href="../l/landing.css">
+<script src="../l/count.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">דילוג לתוכן העיקרי</a>
+<header class="top wrap">
+  <span class="brand">{{MADI_SMALL}}<span class="wordmark">{{APP_NAME}}</span></span>
+</header>
+<main id="main" tabindex="-1">
+  <section class="hero wrap" aria-labelledby="h-hero">
+    <div class="hero-text">
+      <h1 id="h-hero">מבחן במתמטיקה ביום חמישי?</h1>
+      <p class="sub">{{APP_NAME}} בונה לילד תוכנית חזרה לימים שנשארו, עם תרגול שנבדק במקום והסבר לכל טעות. לכיתות ז׳ וח׳, בעברית.</p>
+      <a class="btn" href="../#/?next=/rescue&amp;src=mivchan" data-cta>לבנות תוכנית חזרה, חינם</a>
+    </div>
+    <div class="shot"><img {{IMG phone-rescue.webp}} alt="מסך תוכנית החזרה בטלפון: כמה ימים נשארו עד המבחן, מה כבר ברור, והמשימות של כל יום." fetchpriority="high" decoding="async"></div>
+  </section>
+
+  <section class="wrap" aria-labelledby="h-how">
+    <h2 id="h-how">איך זה עובד</h2>
+    <ol class="steps">
+      <li>בוחרים את תאריך המבחן ואת הנושאים.</li>
+      <li>בדיקה קצרה מראה מה כבר ברור ומה עוד לא.</li>
+      <li>כל יום מתרגלים לפי התוכנית, כמה דקות. שבת נשארת חופשית.</li>
+    </ol>
+  </section>
+
+  <section class="wrap" aria-labelledby="h-what">
+    <h2 id="h-what">מה יש באפליקציה</h2>
+    <ul class="topics">
+      <li><b>כיתה ז׳:</b> {{TOPICS_7}}.</li>
+      <li><b>כיתה ח׳:</b> {{TOPICS_8}}.</li>
+    </ul>
+  </section>
+
+  <section class="wrap" aria-labelledby="h-why">
+    <h2 id="h-why">מה מיוחד כאן</h2>
+    <ul class="ticks">
+      {{CLAIMS mistakes graded-by-code rest coverage tutor-knows}}
+    </ul>
+  </section>
+
+  <section class="wrap" aria-labelledby="h-plans">
+    <h2 id="h-plans">מה בחינם ומה במנוי</h2>
+    <div class="plans">
+      <div class="card">
+        <h3>בחינם</h3>
+        <p>{{CLAIM free-list}}</p>
+      </div>
+      <div class="card">
+        <h3>העוזר החכם (מנוי משפחתי)</h3>
+        <p>{{CLAIM ai-helper}}</p>
+        <p class="price">{{PRICE_MONTH}} לחודש או {{PRICE_YEAR}} לשנה, {{VAT_LINE}}. {{CLAIM cancel-web}}</p>
+      </div>
+    </div>
+    <p><a class="more" href="../#/parents">למידע להורים</a></p>
+  </section>
+
+  <section class="wrap" aria-labelledby="h-privacy">
+    <h2 id="h-privacy">פרטיות</h2>
+    <p>{{CLAIM no-ads}} לא צריך הרשמה כדי ללמוד. ההתקדמות נשמרת במכשיר.</p>
+  </section>
+
+  <section class="wrap" aria-labelledby="h-faq">
+    <h2 id="h-faq">שאלות נפוצות</h2>
+    <div class="faq">
+      <h3>זה מתאים לתכנית הלימודים?</h3>
+      <p>הנושאים שבאפליקציה הם חלק מתכנית הלימודים של משרד החינוך לכיתות ז׳–ח׳, ועוד נושאים בדרך. הרשימה המדויקת של מה שיש היום נמצאת למעלה.</p>
+      <h3>כמה זמן ביום?</h3>
+      <p>הילד בוחר יעד: {{GOAL_MINUTES}} דקות.</p>
+      <h3>זה עובד בטלפון?</h3>
+      <p>כן, בכל דפדפן. אפשר גם להוסיף למסך הבית.</p>
+      <h3>מי רואה את הנתונים?</h3>
+      <p>אם הילד לא בכיתה של מורה, ההתקדמות נשמרת רק במכשיר שלו. {{CLAIM weekly-share}}</p>
+      {{#CLAIM chatbot}}<h3>למה לא פשוט צ׳אטבוט חינמי?</h3>
+      <p>{{CLAIM chatbot}}</p>
+      {{/CLAIM}}
+    </div>
+  </section>
+
+  <div class="end wrap">
+    {{MADI}}
+    <a class="btn" href="../#/?next=/rescue&amp;src=mivchan" data-cta>לבנות תוכנית חזרה, חינם</a>
+  </div>
+</main>
+<footer class="foot wrap">
+  <p>{{#BUSINESS_NAME}}<span>{{BUSINESS_NAME}}</span>{{/BUSINESS_NAME}}{{#CONTACT_EMAIL}}<span><a href="mailto:{{CONTACT_EMAIL}}" dir="ltr">{{CONTACT_EMAIL}}</a></span>{{/CONTACT_EMAIL}}</p>
+  <nav aria-label="מידע משפטי">
+    <a href="../#/terms">תנאי שימוש</a>
+    <a href="../#/privacy">פרטיות</a>
+    <a href="../#/accessibility">נגישות</a>
+  </nav>
+</footer>
+</body>
+</html>

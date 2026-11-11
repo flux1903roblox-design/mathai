@@ -453,7 +453,7 @@ export const wranglerRows = (out) => { const v = JSON.parse(out); return (Array.
 export const REACH_GROUPS = [
   ['Landing pages', ['landing_view_mivchan', 'landing_cta_mivchan', 'landing_view_pilot', 'landing_cta_pilot', 'welcome_from_landing']],
   ['Install', ['install_offer', 'install_accept', 'installed']],
-  ['Reminders', ['push_offer', 'push_on', 'push_off', 'push_open']],
+  ['Reminders', ['push_offer', 'push_on', 'push_off', 'push_sent', 'push_open', 'push_deferred', 'push_failed', 'push_rejected', 'push_paused']],
   ['Store apps', ['store_open_play', 'store_open_ios']],
   ['In the app', ['wardrobe_open', 'recap_open']],
   ['Classes', ['class_goal_reached']],
@@ -479,6 +479,9 @@ export function reachPlan(o = {}, now = new Date()) {
       `SELECT ${WEEK_SQL} AS week, COUNT(DISTINCT student_id) AS n FROM class_steps WHERE ${range} GROUP BY week`,
       `SELECT COUNT(DISTINCT student_id) AS n FROM class_steps WHERE ${range}`,
       "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = 'family_daily'",
+      // the daily reminders as they are now (STUDENT-11): on, paused, and whose student learned in the last 7 days
+      `SELECT COALESCE(SUM(status = 'on'), 0) AS on_n, COALESCE(SUM(status = 'paused'), 0) AS paused_n,
+        COALESCE(SUM(last_done_day > ${q(shiftDay(to, -7))}), 0) AS learned7 FROM push_subs`,
     ],
     // the parents lane's table, read only where it exists (a statement naming a missing table would fail the rest)
     familySql: [
@@ -499,23 +502,30 @@ export function reachTable(plan, res, family = null) {
   const lines = [];
   const row = (label, cells) => lines.push(label.padEnd(LABEL) + cells.map((c) => String(c).padStart(CELL)).join(''));
   const counts = (label, m, total = sum(m)) => row(`  ${label}`, [...weeks.map((w) => m[w] || 0), total]);
+  const pct = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : '-');
+  const rate = (label, top, bottom) => {
+    const a = byName[top] || {}; const b = byName[bottom] || {};
+    row(`  ${label}`, [...weeks.map((w) => pct(a[w] || 0, b[w] || 0)), pct(sum(a), sum(b))]);
+  };
   lines.push(`Reach, ${plan.from} to ${plan.to} (Jerusalem days; a week starts on Sunday; * this week so far)`);
   lines.push('Counts of steps only: no person, device or address is behind any number.', '');
   row('week of', [...weeks.map((w, i) => `${w.slice(5)}${i === weeks.length - 1 ? '*' : ''}`), 'total']);
   for (const [title, names] of REACH_GROUPS) {
     lines.push(title);
     for (const name of names) counts(name, byName[name] || {});
-    if (title === 'Install') {
-      const offer = byName.install_offer || {}; const accept = byName.install_accept || {};
-      const pct = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : '-');
-      row('  accepted per offer', [...weeks.map((w) => pct(accept[w] || 0, offer[w] || 0)), pct(sum(accept), sum(offer))]);
+    if (title === 'Install') rate('accepted per offer', 'install_accept', 'install_offer');
+    if (title === 'Reminders') {
+      rate('opened per sent', 'push_open', 'push_sent');
+      const p = res[4]?.[0] || {};
+      lines.push(`  now: ${Number(p.on_n) || 0} on, ${Number(p.paused_n) || 0} paused; ${Number(p.learned7) || 0} of their students learned in the last 7 days`);
     }
     if (title === 'Classes') counts('students who learned (class_steps)', perWeek(res[1]), Number(res[2]?.[0]?.n || 0));
   }
   lines.push('Families');
   if (family) counts('linked devices that learned', perWeek(family[0]), Number(family[1]?.[0]?.n || 0));
   else lines.push('  (no family_daily table on this database yet)');
-  lines.push('', 'Kept: metrics_daily 400 days, class_steps 120 days. A student is counted once a week however much they learned.');
+  lines.push('', 'Kept: metrics_daily 400 days, class_steps 120 days, push_subs 45 days after the app was last opened.',
+    'A student is counted once a week however much they learned.');
   return lines.join('\n');
 }
 

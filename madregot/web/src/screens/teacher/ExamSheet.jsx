@@ -18,6 +18,8 @@ import { ScreenBar, ScreenFoot, EmptyState, LoadingState } from '@/components/Sc
 import AssignSheet from '@/components/teacher/AssignSheet.jsx';
 import { ExamQuestion, KeyAnswer } from '../PracticeExam.jsx';
 import { skippedNote } from './ExamNew.jsx';
+// the exam sheet's rules live with the student's practice exam (STUDENT-15); the class exam uses the same sheet
+import '@/styles/lazy/practiceExam.css';
 
 export const KEY_NOTE = 'השאלות נוצרו באפליקציה, וכל תשובה חושבה ונבדקה בקוד, לא בבינה מלאכותית. אורך שאינו מספר שלם מעוגל לעשיריות, וגם תשובה קרובה יותר (למשל 7.07 במקום 7.1) נכונה.';
 const TITLE_MAX = 80;

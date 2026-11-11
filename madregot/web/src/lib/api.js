@@ -40,6 +40,7 @@ const MESSAGES = {
   daily_limit: 'להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.',
   class_ai_off: 'בכיתה הזו העוזר החכם כבוי.',
   parent_ok_needed: 'כדי לשאול את העוזר החכם צריך אישור של הורה, פעם אחת.',
+  no_consent: 'בסדר. אפשר לשאול את העוזר החכם בפעם אחרת.', // a store build's permission sheet: "לא עכשיו" (lib/aiConsent.js)
   // sign-in and the parent's account
   bad_email: 'כתובת המייל לא נראית תקינה. בדקו אותה ונסו שוב.',
   bad_code: 'הקוד צריך להיות 6 ספרות.',
@@ -128,6 +129,10 @@ const MESSAGES = {
   report_off: 'הסיכום להורים לא פעיל כרגע.',
   already_answered: 'כבר עניתם השבוע. תודה.',
   bad_feedback: 'משהו בבקשה לא תקין. נסו שוב.',
+  // the daily reminder (lib/push.js)
+  too_many_push: 'היום כבר שינו את התזכורת הרבה פעמים. אפשר לנסות שוב מחר.',
+  bad_endpoint: 'הדפדפן הזה לא תומך בתזכורות.',
+  bad_keys: 'הדפדפן הזה לא תומך בתזכורות.',
   // other
   bot_check: 'לא הצלחנו לאשר את המכשיר. נסו שוב.',
   server_config: 'השרת עוד לא הוגדר עד הסוף.',

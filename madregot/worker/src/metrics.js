@@ -7,7 +7,9 @@
 // A network may add at most 300 counts a day (the hashed network key, as every other counter; past it nothing is added).
 // No cookie, device id, address or user agent is read into the table. Rows are kept 400 days (cron.js purge).
 //
-// The server adds counts it already knows (countServer): class_goal_reached when a class first reaches its week's goal.
+// The server adds counts it already knows (countServer): class_goal_reached when a class first reaches its week's goal,
+// and the daily reminder's (push.js, STUDENT-11): push_sent, push_deferred (due but over the run's batch), push_failed
+// (429, 5xx or no answer: tried again the next day), push_rejected (refused for good: the row is deleted) and push_paused.
 import { dayOf, netKey, limitOrThrow, rawBody } from './util.js';
 
 /** The names a page may count. Anything else is ignored. */
@@ -16,7 +18,7 @@ export const METRIC_NAMES = [
   'install_offer', 'install_accept', 'installed', 'push_offer', 'push_on', 'push_off', 'push_open',
   'store_open_play', 'store_open_ios', 'recap_open', 'wardrobe_open'];
 /** Counts only the server adds (never accepted from a page). */
-export const SERVER_METRICS = ['class_goal_reached'];
+export const SERVER_METRICS = ['class_goal_reached', 'push_sent', 'push_deferred', 'push_failed', 'push_rejected', 'push_paused'];
 /** Counts a network may add in a Jerusalem day. */
 export const METRICS_PER_NET = 300;
 /** The largest body read: a name, or { "n": name }, is far smaller. */
@@ -36,15 +38,15 @@ export function metricName(raw) {
   } catch { return null; }
 }
 
-/** One more of a name on a Jerusalem day. */
-export const countStmt = (env, name, now = new Date()) => env.DB.prepare(
-  'INSERT INTO metrics_daily (day, name, n) VALUES (?, ?, 1) ON CONFLICT (day, name) DO UPDATE SET n = n + 1',
-).bind(dayOf(now), name);
+/** `by` more (1 unless said) of a name on a Jerusalem day. */
+export const countStmt = (env, name, now = new Date(), by = 1) => env.DB.prepare(
+  'INSERT INTO metrics_daily (day, name, n) VALUES (?, ?, ?) ON CONFLICT (day, name) DO UPDATE SET n = n + excluded.n',
+).bind(dayOf(now), name, by);
 
 /** A count the server knows by itself (SERVER_METRICS). Never throws: a count is never worth failing a request. */
-export async function countServer(env, name, now = new Date()) {
-  if (!SERVER.has(name)) return;
-  try { await countStmt(env, name, now).run(); } catch (e) { console.error('metric', name, e?.message); }
+export async function countServer(env, name, now = new Date(), by = 1) {
+  if (!SERVER.has(name) || !(by > 0)) return;
+  try { await countStmt(env, name, now, Math.floor(by)).run(); } catch (e) { console.error('metric', name, e?.message); }
 }
 
 /** POST /api/metrics: 204 always. */

@@ -1,13 +1,27 @@
 // After `vite build`: refuse a build that carries a secret, or (unless VITE_ALLOW_PERSONAL_KEY=1) the Claude SDK that
 // only the personal-key mode needs, or whose _headers lost a security header (scripts/headers.mjs: CSP with
 // frame-ancestors 'none', nosniff, Referrer-Policy, Permissions-Policy). Every text file is scanned, the service worker
-// (sw.js) included. Also refuse a build whose service worker is missing or unsound (DURABLE-10): its precache list must
+// (sw.js) and the landing pages included. Also refuse a build that names an analytics, advertising or tag-manager host
+// (TRACKERS): the pages say "בלי פרסומות ובלי מעקב" (STUDENT-17, web/src/content/claims.js 'no-ads'), and this is what
+// keeps it true. And refuse a build whose service worker is missing or unsound (DURABLE-10): its precache list must
 // come first, hold index.html, name only files the build has (its install would fail, and the app would not open
 // offline), and hold no source map, no .ttf or .woff and nothing under api/. Usage: node scripts/check-dist.mjs <dist folder>
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { headerProblems } from './headers.mjs';
+
+/** Hosts of analytics, advertising, tag managers and session recorders: none may appear in any built file. */
+export const TRACKERS = [
+  'google-analytics.com', 'googletagmanager.com', 'googleadservices.com', 'googlesyndication.com', 'doubleclick.net',
+  'analytics.google.com', 'stats.g.doubleclick.net', 'facebook.net', 'connect.facebook.net', 'facebook.com/tr',
+  'hotjar.com', 'hotjar.io', 'segment.io', 'segment.com/analytics', 'cdn.segment.com', 'mixpanel.com', 'amplitude.com',
+  'clarity.ms', 'fullstory.com', 'heap.io', 'heapanalytics.com', 'posthog.com', 'plausible.io', 'tiktok.com/i18n/pixel',
+  'analytics.tiktok.com', 'snap.licdn.com', 'static.ads-twitter.com', 'bat.bing.com', 'sentry.io', 'logrocket.com',
+];
+const TRACKER_RE = new RegExp(`(^|[^a-z0-9-])(${TRACKERS.map((h) => h.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')).join('|')})`, 'i');
+/** The tracker host a text names, or null. */
+export const trackerIn = (text) => TRACKER_RE.exec(String(text))?.[2] || null;
 
 const SECRETS = [
   [/sk-ant-/, 'an Anthropic API key (sk-ant-)'],
@@ -35,6 +49,8 @@ export function distProblems(dir, { personal = false } = {}) {
   for (const f of files(dir)) {
     const text = readFileSync(f, 'utf8');
     for (const [re, what] of [...SECRETS, ...(personal ? [] : SDK)]) if (re.test(text)) problems.push(`${relative(dir, f)}: ${what}`);
+    const tracker = trackerIn(text);
+    if (tracker) problems.push(`${relative(dir, f)}: an analytics or ads host (${tracker})`);
   }
   // the security headers: vite copies public/_headers into every build
   const headersFile = join(dir, '_headers');
@@ -59,6 +75,8 @@ export function distProblems(dir, { personal = false } = {}) {
   }
   return problems;
 }
+/** The student lane's name for the same check (scripts/check-dist.test.mjs). */
+export const checkDist = distProblems;
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const dir = process.argv[2] || 'dist';

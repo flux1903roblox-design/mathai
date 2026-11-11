@@ -12,7 +12,8 @@
     "cloudflare": "Cloudflare runs the Worker and keeps the D1 database: in the EU once it was created with --jurisdiction=eu (setup.ps1, DB_JURISDICTION = \"eu\"). Invocation logs are off (wrangler.toml), so request headers and bodies are not logged; our own console lines and errors are kept 3-7 days and hold no request contents (test/logs.test.js).",
     "resend": "Resend (in the US) sends the service emails: the recipient's address and the email itself (a sign-in code, a receipt or notice with dates, amounts and a device label).",
     "payment": "The payment company receives the payer's email address, the order id, the plan and the amount; card details are typed only on its page and never reach us.",
-    "anthropic": "Anthropic (in the US) runs the tutor. It receives what the \"ai\" block lists, per request; nothing of it is kept in these tables."
+    "anthropic": "Anthropic (in the US) runs the tutor. It receives what the \"ai\" block lists, per request; nothing of it is kept in these tables.",
+    "push": "The browser's push service (Google, Apple, Mozilla or Microsoft, chosen by the browser) carries the daily reminder to a device that turned it on (STUDENT-11): it receives the push address it gave the browser and the reminder, encrypted end to end (RFC 8291), with no name, class or account."
   },
   "tables": {
     "classes": {
@@ -428,6 +429,15 @@
       "retention": "400 days after its day (cron.js purgeRecordsSql).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeRecordsSql"]
+    },
+    "push_subs": {
+      "personal": "pseudonymous",
+      "about": ["student"],
+      "fields": ["id", "secret_hash", "endpoint", "p256dh", "auth", "slot", "status", "created_at", "last_seen_day", "last_done_day", "last_sent_day", "misses"],
+      "purpose": "The opt-in daily reminder by web push (STUDENT-11): the browser's push address and keys, the hour chosen (16-20, Jerusalem), and the days the app was last opened, a lesson last finished and a reminder last sent, so one reminder a day at most is sent, never on a day the student learned. No name, class, account or device id; the browser holds the id and secret, the server only the secret's hash.",
+      "retention": "Until the reminder is turned off (POST /api/push/off, also from Delete all), the push service says the address is gone, or 45 days after the app was last opened (cron.js purgeRecordsSql, push.js purgePushSql).",
+      "recipients": ["cloudflare", "push"],
+      "purgedBy": ["cron.purgeRecordsSql"]
     }
   },
   "client": {
@@ -549,6 +559,13 @@
       "holds": "A number set by hand on a test device.",
       "purpose": "QA only: the same exercises on every run.",
       "removedBy": "Delete all, or by hand."
+    },
+    "madregot-push": {
+      "store": "indexedDB",
+      "personal": "pseudonymous",
+      "holds": "The daily reminder's id and secret on this device (database madregot-push, store 'sub', key 'current'), which the service worker reads to report an opened reminder and to renew a changed push subscription.",
+      "purpose": "The opt-in daily reminder (STUDENT-11, lib/push.js and sw.js): the server knows the reminder only by this id and the secret's hash.",
+      "removedBy": "Turning the reminder off (lib/push.js disable), signing out, or Delete all (lib/reminder.js: the server's row first, then this database on every path)."
     },
     "madregot-*": {
       "store": "sessionStorage or cache",

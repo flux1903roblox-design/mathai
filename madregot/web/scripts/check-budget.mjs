@@ -7,8 +7,16 @@
 // KB is 1000 bytes and MB 1,000,000, as in the spec's measurements.
 // It prints a table (value, gate, target) and exits 1 when a value is over its gate; a missed target only warns.
 // The boot JS gate is a ratchet: each commit that makes boot smaller lowers it to the new value + 5%, never raises it.
-// Usage: node scripts/check-budget.mjs [dist] [--budget budget.json]
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+//
+// And the student lane's rule (STUDENT-15): the modules in budget.json's lazyOnly (the wardrobe, the Sunday recap, מדי's
+// accessories, the reminder code, and the libraries kept off student screens) must load on demand only. None may be in
+// a boot file: the entry script or anything it modulepreloads, which is every chunk it imports statically. A name
+// matches a source file by its base name (Wardrobe → src/screens/Wardrobe.jsx) or a package by its name
+// (node_modules/cmdk/…). Vite names only each chunk's entry module, so a module bundled into another chunk is found
+// through <dist>/.vite/modules.json (scripts/vite-plugin-budget.mjs). The command removes <dist>/.vite afterwards
+// (unless --keep), so that list is never deployed.
+// Usage: node scripts/check-budget.mjs [dist] [--budget budget.json] [--keep]
+import { readFileSync, readdirSync, statSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gzipSync } from 'node:zlib';
@@ -52,6 +60,34 @@ export function measure(dir) {
   };
 }
 
+/** Does a module path (src/screens/Wardrobe.jsx, node_modules/cmdk/dist/index.mjs) match a lazyOnly name? */
+export function matches(module, name) {
+  if (module.includes(`node_modules/${name}/`)) return true;
+  if (module.includes('node_modules/')) return false;
+  const base = module.split('/').pop().replace(/\.[^.]+$/, '');
+  return base === name;
+}
+
+/** lazyOnly modules found in a boot file: [{ name, module, chunk }]. `modulesMap` is .vite/modules.json. */
+export function lazyLeaks(modulesMap, bootFiles, names) {
+  const out = [];
+  for (const [chunk, c] of Object.entries(modulesMap)) {
+    if (!bootFiles.has(chunk)) continue;
+    for (const module of c.modules) for (const name of names) if (matches(module, name)) out.push({ name, module, chunk });
+  }
+  return out;
+}
+
+/** The lazyOnly rule (STUDENT-15) on a build: one line per problem, [] when every listed module loads on demand. */
+export function lazyProblems(dir, m, names = []) {
+  if (!names.length) return [];
+  const mapPath = join(dir, '.vite', 'modules.json');
+  if (!existsSync(mapPath)) return ['.vite/modules.json is missing (vite.config.js must use scripts/vite-plugin-budget.mjs)'];
+  const boot = new Set(m.js.map((f) => f.file));
+  return lazyLeaks(JSON.parse(readFileSync(mapPath, 'utf8')), boot, names)
+    .map((l) => `${l.name} must load on demand, but ${l.module} is in the first load (${l.chunk})`);
+}
+
 /** The checks: { name, value, gate, target, unit, over, missed } for each, from the measures and the budget. */
 export function judge(m, budget) {
   const rows = [
@@ -77,19 +113,21 @@ export function report(m, rows) {
   return lines.join('\n');
 }
 
-/** Run the check: { ok, text }. */
+/** Run the check: { ok, text, rows, measures, problems } (problems: the lazyOnly rule's). */
 export function check(dir, budget) {
   const m = measure(dir);
   const rows = judge(m, budget);
   const over = rows.filter((r) => r.over);
   const missed = rows.filter((r) => !r.over && r.missed);
+  const problems = lazyProblems(dir, m, budget.lazyOnly || []);
   const text = [
     report(m, rows), '',
     ...over.map((r) => `FAIL ${r.name}: ${fmt(r.value, r.unit)} is over the gate of ${fmt(r.gate, r.unit)}`),
+    ...problems.map((p) => `FAIL ${p}`),
     ...missed.map((r) => `warning ${r.name}: ${fmt(r.value, r.unit)} misses the target of ${fmt(r.target, r.unit)}`),
-    over.length ? '' : 'budget: every gate passes',
+    over.length || problems.length ? '' : `budget: every gate passes${budget.lazyOnly?.length ? `, and the ${budget.lazyOnly.length} lazy-only modules load on demand` : ''}`,
   ].join('\n');
-  return { ok: !over.length, text, rows, measures: m };
+  return { ok: !over.length && !problems.length, text, rows, measures: m, problems };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -98,6 +136,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const budgetFile = at >= 0 ? args[at + 1] : join(dirname(fileURLToPath(import.meta.url)), '../budget.json');
   const dir = args.find((a, i) => !a.startsWith('--') && (at < 0 || i !== at + 1)) || 'dist';
   const { ok, text } = check(dir, JSON.parse(readFileSync(budgetFile, 'utf8')));
+  if (!args.includes('--keep')) rmSync(join(dir, '.vite'), { recursive: true, force: true });
   console.log(text);
   if (!ok) process.exit(1);
 }

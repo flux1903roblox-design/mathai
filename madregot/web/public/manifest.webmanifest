@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "מדרגות",
-  "short_name": "מדרגות",
+  "name": "%APP_NAME%",
+  "short_name": "%APP_NAME%",
   "description": "תרגול מתמטיקה יומי לכיתות ז׳ וח׳, בעברית.",
   "lang": "he",
   "dir": "rtl",
@@ -21,5 +21,11 @@
     { "name": "השיעור של היום", "short_name": "היום", "url": "./#/?go=today", "icons": [{ "src": "icons/sc-today-96.png", "sizes": "96x96", "type": "image/png" }] },
     { "name": "משימות", "url": "./#/quests", "icons": [{ "src": "icons/sc-quests-96.png", "sizes": "96x96", "type": "image/png" }] },
     { "name": "מבחן קרוב", "url": "./#/rescue", "icons": [{ "src": "icons/sc-rescue-96.png", "sizes": "96x96", "type": "image/png" }] }
+  ],
+  "screenshots": [
+    { "src": "screens/narrow-1.png", "sizes": "1080x2340", "type": "image/png", "form_factor": "narrow", "label": "שיעור עם ציר מספרים" },
+    { "src": "screens/narrow-2.png", "sizes": "1080x2340", "type": "image/png", "form_factor": "narrow", "label": "מדי מסביר מה כנראה קרה" },
+    { "src": "screens/narrow-3.png", "sizes": "1080x2340", "type": "image/png", "form_factor": "narrow", "label": "מפה עם יחידה לכל נושא" },
+    { "src": "screens/wide-1.png", "sizes": "1920x1080", "type": "image/png", "form_factor": "wide", "label": "המפה במחשב" }
   ]
 }

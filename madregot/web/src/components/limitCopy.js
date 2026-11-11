@@ -1,8 +1,24 @@
 // The words of the tutor's limits, in one place so a test can read every one of them. They speak to a child calmly:
 // no price, no plan, no buy button, no countdown, no lock. Madi and practice are always the way on.
+// In a store app (store: !canSell(), STUDENT-12) no variant has a way to the parents' pages, and the day's limit says
+// only when the questions come back: nothing that points to a plan or to buying anything.
 
-/** What the sheet says when the tutor says "not now". actions: 'madi' | 'practice' | 'licence' | 'parents'; parents: a small link. */
-export function limitVariant({ reason, tier = null, scope = null, role = 'student' } = {}) {
+/** The free questions are over for today, in a store app. */
+export const STORE_DAILY_TEXT = 'סיימתם את השאלות לעוזר החכם להיום. מחר יש עוד. השיעורים, התרגול ומדי פתוחים תמיד.';
+
+/**
+ * What the sheet says when the tutor says "not now". actions: 'madi' | 'practice' | 'licence' | 'parents' | 'bind';
+ * parents: a small link. In a store app (store: true) the day's limit says only when the questions come back, and no
+ * variant has the small link to the parents' pages.
+ */
+export function limitVariant({ reason, tier = null, scope = null, role = 'student', store = false } = {}) {
+  const v = variant({ reason, tier, scope, role });
+  if (!store) return v;
+  if (reason === 'daily_limit' && role !== 'teacher') return { title: 'העוזר החכם חוזר מחר', text: [STORE_DAILY_TEXT], actions: ['madi', 'practice'], parents: false };
+  return { ...v, parents: false };
+}
+
+function variant({ reason, tier, scope, role }) {
   const free = tier === 'free';
   const teacher = role === 'teacher';
   // the class's tutor is off under the Ministry's rules (trust spec TRUST-11 §6): a school context, so no price, no
@@ -102,8 +118,15 @@ export const TEACHER_EMAIL_LINE = 'העוזר החכם נפתח למורים א�
 /** The line for a device that waits: a parent's OK for a child, an email for a teacher. */
 export const waitingLine = (role) => (role === 'teacher' ? TEACHER_EMAIL_LINE : PARENT_OK_LINE);
 
-/** What a tool says instead of opening the camera (ToolLocked). */
-export function lockedText(kind, { state = 'locked', inClass = false, role = 'student' } = {}) {
+/**
+ * What a tool says instead of opening the camera (ToolLocked). In a store app (store: true) there is no parents' link.
+ */
+export function lockedText(kind, { state = 'locked', inClass = false, role = 'student', store = false } = {}) {
+  const t = lockedLines(kind, { state, inClass, role });
+  return store ? { ...t, parents: false } : t;
+}
+
+function lockedLines(kind, { state, inClass, role }) {
   if (state === 'class_off') return { lines: [CLASS_OFF_LINE, 'מדי, השיעורים והתרגול פתוחים כמו תמיד.'], teacher: false, parents: false };
   if (state === 'parent_ok_needed' && role === 'teacher') return { lines: [TEACHER_EMAIL_LINE, 'הלוח והשיעורים פתוחים כמו תמיד.'], teacher: false, parents: false, bind: true };
   if (state === 'parent_ok_needed') return { lines: [PARENT_OK_LINE, 'מדי, השיעורים והתרגול פתוחים כמו תמיד.'], teacher: false, parents: true };

@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { createStore } from 'zustand/vanilla';
 import { mergeDevices, mergeTabs, noteMerge, dataOf, DEVICE_ONLY } from './merge.js';
+import { snapshotForBackup } from './payload.js';
 import { seeded, deepFreeze } from './testing.js';
 import { sumXp } from './xp.js';
 import { validateState } from './validate.js';
@@ -162,6 +163,16 @@ describe('mergeDevices: the named cases', () => {
     const b = base({ ai: { device: 'theirs', familyDevice: { token: 'x' } }, outbox: [{ id: 't1' }], durable: { tag: 'b2c3d4e5' }, backup: { on: true, code: 'secret' } });
     const m = mergeDevices(a, b, { localAt: A0, remoteAt: B0 });
     for (const k of DEVICE_ONLY) expect(m[k]).toEqual(a[k]);
+  });
+
+  it('the daily reminder (STUDENT-11) is this browser\'s: a restore never brings another device\'s push id and secret, and a backup leaves it out', () => {
+    const mine = { on: false, slot: 17, id: null, secret: null, state: null, seenDay: null, doneDay: null };
+    const theirs = { on: true, slot: 19, id: 'a'.repeat(16), secret: 'b'.repeat(32), state: 'on', seenDay: '2026-11-04', doneDay: '2026-11-04' };
+    const a = base({ reminder: mine });
+    const b = base({ reminder: theirs });
+    for (const [x, y] of [[a, b], [b, a]]) expect(mergeDevices(x, y, { localAt: A0, remoteAt: B0 }).reminder).toEqual(x.reminder);
+    expect(DEVICE_ONLY).toContain('reminder');
+    expect(snapshotForBackup(b)).not.toHaveProperty('reminder');
   });
 
   it('a restore never marks the parents\' summary notice as seen, nor brings what another device sent (PARENTS-4)', () => {

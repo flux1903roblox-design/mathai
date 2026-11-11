@@ -32,7 +32,7 @@ describe('sw.js', () => {
     expect(src.split('\n').slice(0, 2)).toEqual(['self.__PRECACHE = ["index.html","assets/a.js"];', 'self.__RELEASE = "abc1234";']);
     expect(src.endsWith(readFileSync(SW_SOURCE, 'utf8'))).toBe(true);
   });
-  it('the worker never handles the API, never skips waiting by itself, and leaves the push section to STUDENT-11', () => {
+  it('the worker never handles the API, never skips waiting by itself, and its push handlers are in STUDENT-11\'s section', () => {
     // (one worker: the student lane's src/sw/sw.js, whose API rule is this line; src/sw/sw.test.js runs it)
     const sw = readFileSync(SW_SOURCE, 'utf8');
     expect(sw).toMatch(/if \(url\.pathname\.startsWith\('\/api\/'\) \|\| path\.startsWith\('api\/'\)\) return;/);
@@ -40,7 +40,13 @@ describe('sw.js', () => {
     expect(sw.match(/skipWaiting\(\)/g)).toHaveLength(1);
     expect(sw).toMatch(/SKIP_WAITING'\) self\.skipWaiting\(\)/);
     expect(sw).toContain('push handlers (STUDENT-11)');
-    expect(sw).not.toMatch(/addEventListener\('push'/);
+    // the daily reminder (STUDENT-11) filled that section: every push listener comes after its marker (src/sw/sw.test.js
+    // runs them)
+    const marker = sw.indexOf('push handlers (STUDENT-11)');
+    for (const ev of ['push', 'notificationclick', 'pushsubscriptionchange']) {
+      const at = sw.indexOf(`addEventListener('${ev}'`);
+      expect(at, ev).toBeGreaterThan(marker);
+    }
   });
   it('the plugin emits sw.js from the bundle and the public folder, and refuses a bundle with no index.html', () => {
     const plugin = swPlugin({ release: 'r1' });

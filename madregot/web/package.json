@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/gen-content-meta.mjs && vite",
-    "build": "node scripts/gen-content-meta.mjs && vite build && node scripts/check-dist.mjs dist && node scripts/check-budget.mjs dist",
+    "build": "node scripts/gen-content-meta.mjs && vite build && node scripts/landing-build.mjs dist && node scripts/check-dist.mjs dist && node scripts/check-budget.mjs dist",
     "preview": "vite preview",
     "test": "vitest run",
     "lint:colors": "node scripts/check-colors.mjs",
     "test:e2e": "playwright test -c e2e/playwright.config.js",
+    "test:week": "playwright test -c e2e/playwright.config.js --grep @student --project=phone --project=phone-small --project=phone-dark",
     "typecheck": "tsc -p tsconfig.json",
     "programme:md": "vite-node scripts/programme-md.mjs --write",
     "programme:check": "vite-node scripts/programme-md.mjs --check"

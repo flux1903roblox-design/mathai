@@ -19,10 +19,11 @@ import { durableBoot, errorLog } from './lib/durable/storage.js';
 import { apiBase } from './lib/api.js';
 import { onMoment, keepaliveBudget, MOMENT_ORDER } from './lib/durable/moments.js';
 import { registerSW } from './lib/swClient.js';
-import { useApp } from './lib/store.js';
+import { useApp, today } from './lib/store.js';
 import { bootTopics } from './lib/bootTopics.js';
 import { bootDemo } from './lib/demo.js';
-import { initInstall, INSTALLED_TEXT } from './lib/install.js';
+import { initInstall, countStoreOpen, INSTALLED_TEXT } from './lib/install.js';
+import { remindOnOpen } from './lib/reminder.js';
 // the durable lane's parts of "delete all" (lib/wipe.js): the backup on the server and the copy in the browser's database
 import './lib/durable/wipeSteps.js';
 
@@ -53,6 +54,11 @@ initInstall(window, { onInstalled: () => toast.success(INSTALLED_TEXT) });
 // (lib/bootTopics.js), so it appears whole.
 (async () => {
   await durableBoot();
+  // a store app's open, once a day a device (STUDENT-14): after initInstall, which notes a Play Store launch (?src=play),
+  // and after the boot, so the day it remembers is the saved one
+  countStoreOpen(window, { day: today(), last: useApp.getState().nudges?.storeOpenDay, mark: (day) => useApp.getState().setNudge({ storeOpenDay: day }) });
+  // the daily reminder (STUDENT-11): the first open of a day keeps it alive on the server (only while it is on)
+  remindOnOpen();
   bootDemo();
   await bootTopics(window.location.hash, useApp.getState());
   createRoot(document.getElementById('root')).render(
@@ -63,5 +69,9 @@ initInstall(window, { onInstalled: () => toast.success(INSTALLED_TEXT) });
 })();
 
 // The service worker (DURABLE-10; production builds only): registerSW waits for the page to finish loading, so it
-// never competes with the first screen.
-registerSW();
+// never competes with the first screen. Not in the iPhone store build (STUDENT-12): WKWebView runs no service worker on
+// capacitor://, and the app's files are on the phone already.
+if (import.meta.env.VITE_STORE !== 'ios') registerSW();
+
+// the daily reminder (STUDENT-11): a return to the app after the day changed tells the server too
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') remindOnOpen(); });

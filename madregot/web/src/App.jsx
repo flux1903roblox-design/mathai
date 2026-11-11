@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect } from 'react';
 import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
+import { DirectionProvider } from '@base-ui/react/direction-provider';
+import { CircleCheck, CircleAlert, Info } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
 import { useMoments, onMoment, MOMENT_ORDER } from '@/lib/durable/moments.js';
@@ -16,6 +18,8 @@ import { fetchClassWork, flushWork } from '@/lib/classWork.js';
 import { previewBack } from '@/lib/teacher.js';
 import { applyTheme } from '@/lib/theme.js';
 import { MadiLookProvider } from '@/lib/madiLook.js';
+import { deepLink } from '@/lib/deepLink.js';
+import { canSell } from '@/lib/price.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import SupportSheet from '@/components/SupportSheet.jsx';
 import AIIntro from '@/components/AIIntro.jsx';
@@ -63,6 +67,10 @@ const Programme = lazy(() => import('@/screens/Programme.jsx'));
 const SharedReport = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.SharedReport })));
 // "יש לי קוד גיבוי": with or without a profile, so it is routed with the parents' area (DURABLE-5)
 const Restore = lazy(() => import('@/screens/Restore.jsx'));
+// a store app's parents' pages (STUDENT-12): how a parent lets the child ask the tutor, and nothing to buy
+const StoreParents = lazy(() => import('@/screens/parents/StoreParents.jsx'));
+// a store build asks before the first AI request (STUDENT-12, Apple 5.1.2(i)); the web build does not carry the sheet
+const AIConsentSheet = import.meta.env.VITE_STORE ? lazy(() => import('@/components/AIConsentSheet.jsx')) : null;
 const Exams = lazy(() => import('@/screens/Exams.jsx'));
 const ExamCheck = lazy(() => import('@/screens/ExamCheck.jsx'));
 const ExamResult = lazy(() => import('@/screens/ExamResult.jsx'));
@@ -133,6 +141,16 @@ function StatusWatch() {
   return null;
 }
 
+// Sonner in the app's look (STUDENT-15 SO1, SO2): the region is called "הודעות" for screen readers (not "Notifications
+// alt+T"), the toasts take their colours, radius and font from the tokens (app.css .app-toaster, both themes), and the
+// icons are the app's own.
+const TOAST_ICONS = { success: <CircleCheck size={20} aria-hidden="true" />, error: <CircleAlert size={20} aria-hidden="true" />, info: <Info size={20} aria-hidden="true" /> };
+const TOAST_OPTIONS = {
+  className: 'toast',
+  classNames: { title: 'toast-title', description: 'toast-desc', icon: 'toast-icon', success: 'toast-good', error: 'toast-bad', info: 'toast-info', actionButton: 'toast-action', cancelButton: 'toast-cancel' },
+};
+const toaster = { dir: 'rtl', className: 'app-toaster', containerAriaLabel: 'הודעות', customAriaLabel: 'הודעות', icons: TOAST_ICONS, toastOptions: TOAST_OPTIONS };
+
 /**
  * A toast belongs to the screen that raised it: cleared when the route changes. Above the tab bar on
  * most screens; in a lesson (no tab bar, the keypad at the bottom) it appears at the top instead.
@@ -142,8 +160,8 @@ function Toasts() {
   useEffect(() => { toast.dismiss(); }, [pathname]);
   const lesson = /^\/(lesson|practice|placement|floor|facts)/.test(pathname) || /^\/class\/exam\/[^/]+\/run$/.test(pathname);
   return lesson
-    ? <Toaster key="top" position="top-center" dir="rtl" offset={72} mobileOffset={{ top: 72 }} toastOptions={{ className: 'toast' }} />
-    : <Toaster key="bottom" position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />;
+    ? <Toaster key="top" position="top-center" offset={72} mobileOffset={{ top: 72 }} {...toaster} />
+    : <Toaster key="bottom" position="bottom-center" offset={96} mobileOffset={{ bottom: 96 }} {...toaster} />;
 }
 
 /**
@@ -239,6 +257,21 @@ function LearnClock() {
   return null;
 }
 
+/**
+ * A landing page's link (#/?next=/rescue&src=mivchan, STUDENT-13) opened by a student who already has a profile: straight
+ * to the place it names. A new visitor answers the first questions first (Welcome reads the same link).
+ */
+function LinkTarget() {
+  const { pathname, search } = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (pathname !== '/' || !search) return;
+    const { next } = deepLink(search);
+    if (next) navigate(next, { replace: true });
+  }, [pathname, search, navigate]);
+  return null;
+}
+
 /** The student's own screens: מדי wears the student's look there (STUDENT-3); everywhere else he has the default one. */
 function StudentLook() {
   return <MadiLookProvider><Outlet /></MadiLookProvider>;
@@ -247,6 +280,7 @@ function StudentLook() {
 /** The app's screens. Rendered under a data router so a lesson can ask before the back button leaves it. */
 function Root() {
   const role = useApp((s) => s.profile?.role);
+  const sell = canSell();
   useAIStatusBoot();
   usePreloadLastTopic(role);
   return (
@@ -257,6 +291,7 @@ function Root() {
       {role && <LimitSheet />}
       {role && <SupportSheet />}
       {role && <AIIntro />}
+      {role && AIConsentSheet && <Suspense fallback={null}><AIConsentSheet /></Suspense>}
       {role && <StatusWatch />}
       {/* the demo class asked for on a device someone uses: it opens in a new tab (lib/demo.js) */}
       <DemoAsk />
@@ -265,6 +300,7 @@ function Root() {
       {/* a linked device: the child is told about the parents' summary before anything is sent (lib/familySync.js) */}
       {role === 'student' && <SharingNotice />}
       {role === 'student' && <LearnClock />}
+      {role === 'student' && <LinkTarget />}
       {/* a new screen opens at the top; back restores where the student was */}
       <ScrollRestoration />
       <ErrorBoundary>
@@ -272,11 +308,16 @@ function Root() {
       <Routes>
         {/* the parents' area, the legal pages, the programme page, the restore screen and a child's weekly summary come
             first: they open from a QR code, a payment page, an email link, a new phone or a WhatsApp message, on a device
-            with no profile at all */}
-        <Route path="/parents" element={<Parents mode="home" />} />
-        <Route path="/parents/link" element={<Parents mode="link" />} />
-        <Route path="/parents/info" element={<ParentHandoff />} />
-        <Route path="/cancel" element={<Parents mode="cancel" />} />
+            with no profile at all. A store app sells nothing (STUDENT-12): its parents' pages say how a parent lets the
+            child ask the tutor, and nothing more */}
+        {sell ? (
+          <>
+            <Route path="/parents" element={<Parents mode="home" />} />
+            <Route path="/parents/link" element={<Parents mode="link" />} />
+            <Route path="/parents/info" element={<ParentHandoff />} />
+            <Route path="/cancel" element={<Parents mode="cancel" />} />
+          </>
+        ) : ['/parents', '/parents/link', '/parents/info', '/cancel'].map((p) => <Route key={p} path={p} element={<StoreParents />} />)}
         <Route path="/terms" element={<Legal doc="terms" />} />
         <Route path="/privacy" element={<Legal doc="privacy" />} />
         <Route path="/accessibility" element={<Legal doc="accessibility" />} />
@@ -377,11 +418,15 @@ export default function App() {
   useEffect(() => watchPersisted(), []);
   // the saved look (Settings, מראה); public/theme-boot.js already applied an explicit choice before the first paint
   useEffect(() => { applyTheme(useApp.getState().prefs?.theme); }, []);
+  // DirectionProvider (STUDENT-15 B1): Base UI's radio groups and composites read the direction from here, not from
+  // <html dir>, so the arrow keys follow Hebrew reading order in every screen
   return (
+    <DirectionProvider direction="rtl">
     <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="user">
       <RouterProvider router={router} />
     </MotionConfig>
     </LazyMotion>
+    </DirectionProvider>
   );
 }

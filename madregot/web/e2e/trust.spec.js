@@ -1323,7 +1323,11 @@ test.describe('accessibility statement', () => {
         const sig = (el) => { const out = []; for (let e = el, i = 0; e && i < 4; e = e.parentElement, i += 1) { const c = getComputedStyle(e); out.push(`${c.outlineStyle} ${c.outlineWidth} ${c.outlineColor} ${c.boxShadow}`); } return out.join('|'); };
         const all = [...document.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
           .filter((el) => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden' && !el.closest('[inert], [aria-hidden="true"]'))
-          .filter((el) => !(el.type === 'radio' && !el.checked && document.querySelector(`input[type="radio"][name="${el.name}"]:checked`)));
+          .filter((el) => !(el.type === 'radio' && !el.checked && document.querySelector(`input[type="radio"][name="${el.name}"]:checked`)))
+          // the same for an ARIA radio group (the student lane's shared Segmented, Base UI, STUDENT-15): one Tab stop, the
+          // checked choice; the arrow keys reach the others
+          .filter((el) => !(el.getAttribute('role') === 'radio' && el.getAttribute('aria-checked') !== 'true'
+            && el.closest('[role="radiogroup"]')?.querySelector('[role="radio"][aria-checked="true"]')));
         window.__a11y = { rest: new Map(all.map((el) => [el, sig(el)])), sig, hit: new Set() };
         document.activeElement?.blur?.(); window.scrollTo(0, 0);
         return all.length;

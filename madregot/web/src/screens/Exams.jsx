@@ -8,6 +8,8 @@ import { ClipboardCheck, Printer, ChevronLeft, FileText } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import PageHero from '@/components/PageHero.jsx';
 import ExamLoss from '@/components/learn/ExamLoss.jsx';
+import { Bar } from '@/components/ds.jsx';
+import '@/styles/lazy/exams.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const fmtDate = (iso) => new Date(iso).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit' });
 export const pctTone = (pct) => (pct >= 80 ? 'high' : pct >= 60 ? 'mid' : 'low');

@@ -10,6 +10,8 @@ import { ArrowRight, Copy, Trash2, FileDown } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { useParent } from '@/lib/parent.js';
 import { teacherApi, renameClass, rekey, useEmailSignIn, openedHere, boundElsewhere } from '@/lib/teacher.js';
+// the board's rules (the lock row, the code chips) live with the board (STUDENT-15); this page also opens on its own
+import '@/styles/lazy/teacher.css';
 import { dateNum } from '@/lib/price.js';
 import { useAIStatus } from '@/lib/account.js';
 import { rememberBoard, boardOf } from '@/lib/teacherBoard.js';

@@ -58,6 +58,7 @@ function ReportCard() {
 }
 
 import Mascot from '@/components/Mascot.jsx';
+import '@/styles/lazy/me.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 export default function Me() {
   if (qaThrow() === 'render') throw new Error('QA: a test error while the profile renders');

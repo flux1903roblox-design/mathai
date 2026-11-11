@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { teacherApi } from '@/lib/teacher.js';
-import { formatAgorot, vatLine, dateNum } from '@/lib/price.js';
+import { formatAgorot, vatLine, dateNum, canSell } from '@/lib/price.js';
 import { Button, Field } from '@/components/ui.jsx';
 import { AI_COPY, beforeApproval } from '@/content/classAi.js';
 import LicenceSheet from './LicenceSheet.jsx';
@@ -98,7 +98,8 @@ export default function LicenceCard({ cls, aiPolicy }) {
         <div className="licence-actions">
           {lic.request?.wants !== 'trial' && <Button className="btn-block" onClick={() => setSheet('trial')}>ניסיון של שבועיים לכיתה</Button>}
           {lic.request?.wants !== 'quote' && <Button variant="secondary" className="btn-block" onClick={() => setSheet('quote')}>הצעת מחיר לבית הספר</Button>}
-          {offer.online && (
+          {/* a store app sells nothing in the app: a trial or a quote (invoiced to the school) only, with no price */}
+          {offer.online && canSell() && (
             <>
               <Button variant="secondary" className="btn-block" onClick={() => setSheet('buy')}>רכישה בכרטיס אשראי</Button>
               <p className="footnote licence-price">{formatAgorot(offer.seatYearAgorot)} לתלמיד לשנה, {vatLine(offer.vatMode)}, לפחות {offer.minSeats || 10} תלמידים</p>

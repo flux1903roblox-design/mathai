@@ -18,6 +18,8 @@ import { mistakeLine } from '@/lib/teacherText.js';
 import { plusDays, dm } from '@/lib/workDates.js';
 import { topicsFor } from '@/content/index.js';
 import { Stat } from '@/components/ds.jsx';
+// the board's rules (tiles, groups, the table) live with the board (STUDENT-15); the report also opens on its own
+import '@/styles/lazy/teacher.css';
 import { Button, ChapterMark, LevelPips } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';

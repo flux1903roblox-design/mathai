@@ -10,7 +10,7 @@
 // is missing in plain words and `how` is the exact command. `required: false` items are reminders: printed, never a failure. `ok` is true when every
 // required item is. Rules exist only for what the owner turned on: the email when EMAIL_FROM is set, payments when
 // AI_PAYWALL is "on", the provider's own keys for the provider chosen, the backup's secret while VAULT is on, Turnstile
-// with FREE_DEVICE_MINT "turnstile". A lane that adds a secret or a switch adds its rule here in the same commit:
+// with FREE_DEVICE_MINT "turnstile", the daily reminder's keys with PUSH "on" (STUDENT-11). A lane that adds a secret or a switch adds its rule here in the same commit:
 // test/readiness.test.js fails on a secret named in wrangler.toml's secrets comment that no rule covers.
 
 export const AREAS = {
@@ -23,6 +23,7 @@ export const AREAS = {
   site: 'כתובת האתר',
   edge: 'הגנה מעומס',
   devices: 'מכשירים חדשים',
+  push: 'תזכורת יומית',
 };
 
 const put = (name) => `npx wrangler secret put ${name}`;
@@ -100,6 +101,16 @@ export function readiness(cfg = {}) {
 
   // ---- the encrypted backup: the class and family copies of a code need VAULT_SECRET
   if (on(vars.VAULT || 'on') !== 'off') secret('vault', 'VAULT_SECRET', 'שמירת קוד הגיבוי בכיתה ובמנוי המשפחתי', random('VAULT_SECRET'));
+
+  // ---- the daily reminder by web push (STUDENT-11), once PUSH is "on": the private key as a secret, the public key and
+  //      a subject Apple accepts as vars (push.js pushConfigError checks the same, and sends nothing while one is wrong)
+  if (on(vars.PUSH) === 'on') {
+    secret('push', 'VAPID_PRIVATE_JWK', 'המפתח הפרטי של התזכורות', 'npm run push:keys  (ואז npx wrangler secret put VAPID_PRIVATE_JWK)');
+    add('push:public-key', 'push', !!String(vars.VAPID_PUBLIC_KEY || '').trim(), 'VAPID_PUBLIC_KEY', 'חסר VAPID_PUBLIC_KEY (המפתח הציבורי ש־npm run push:keys מדפיס)',
+      'worker/wrangler.toml: VAPID_PUBLIC_KEY = "…"');
+    add('push:subject', 'push', /^(mailto:\S+@\S+|https:\/\/\S+)$/.test(String(vars.VAPID_SUBJECT || '').trim()), 'VAPID_SUBJECT',
+      'VAPID_SUBJECT צריך להיות mailto: עם כתובת אמיתית, או כתובת https:', 'worker/wrangler.toml: VAPID_SUBJECT = "mailto:…"');
+  }
 
   // ---- Turnstile for new devices on the free taste
   if (on(vars.FREE_DEVICE_MINT) === 'turnstile') {

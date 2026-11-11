@@ -1,4 +1,5 @@
-// The hourly cron ([triggers] crons = ["7 * * * *"] in wrangler.toml; scheduled() in index.js calls run()).
+// The hourly cron ([triggers] crons = ["7 * * * *", "37 * * * *"] in wrangler.toml; scheduled() in index.js calls
+// run() for "7 * * * *", and push.js pushDue, the daily reminder, alone for "37 * * * *").
 //
 // Every hour: end plans whose time is over (past_due after the grace days, finished terms, trials, class licences and
 // one-year family plans, canceled plans at their period end), expire open orders after 2 h, retry cancellations the
@@ -6,10 +7,12 @@
 //
 // In the 03:00 hour in Jerusalem: reconcile the monthly plans whose period is over with the provider (extend only from
 // the truth pulled from it, or end the plan), queue the one-year plan's end-date emails (30-45 days and 7 days ahead,
-// trust spec TRUST-10 §2) and the licence-ending email (30 days ahead), purge what is no longer needed (spec §6.9, the
-// safety records, the class data by TRUST-7, and money records, licence records and idle accounts by TRUST-1 §4:
-// shared/retention.js; error reports after 30 days; class students' device tokens unused for 400 days, and tokens and
-// escrows whose student or account is gone, DURABLE-6; the parents' daily summaries after 90 days, PARENTS-3), alert
+// trust spec TRUST-10 §2) and the licence-ending email (30 days ahead), back off the daily reminders that were ignored
+// (push.js pushNight), purge what is no longer needed (spec §6.9, the safety records, the class data by TRUST-7, and
+// money records, licence records and idle accounts by TRUST-1 §4: shared/retention.js; a daily reminder 45 days after
+// the app was last opened, STUDENT-11; error reports after 30 days; class students' device tokens unused for 400 days,
+// and tokens and escrows whose student or account is gone, DURABLE-6; the parents' daily summaries after 90 days,
+// PARENTS-3), alert
 // the owner when yesterday's safety events jumped, queue the owner's notice of yesterday's app errors when there were
 // many (errors.js), run the encrypted vaults' night (vault.js: purge vaults unused for 400 days, recompute the size
 // meter, the 70% notice), and queue the owner's daily summary when OWNER_DAILY_SUMMARY = "true". In the 16:00 hour: the
@@ -40,6 +43,7 @@ import { qualityCounts, QUALITY_KEEP_DAYS } from './quality.js';
 // purgedBy) can name every purge as cron.<export> (test/datamap.test.js).
 export { purgeAccountsSql, purgeFamilySql, purgeErrorsSql, purgeReportSql, purgeIdentitySql, vaultNight };
 import { shiftDay } from './goal.js';
+import { pushNight, purgePushSql, pushReach } from './push.js';
 
 const DAY = 864e5;
 const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
@@ -161,7 +165,7 @@ export function purgeCountersSql(env, now = new Date()) {
 /** Retention (spec §6.9): notices 90 days after sending, expired orders after 30 days, spend after 400 days, the audit
  *  log after 2 years, provider events after 7 years, the app's error reports after 30 days. Payments are kept. The class
  *  goal (STUDENT-4): steps after 120 days, its weeks after 400 days (Jerusalem days). Reach counts (STUDENT-14) after
- *  400 days. */
+ *  400 days. A daily reminder (STUDENT-11) 45 days after the app was last opened. */
 export function purgeRecordsSql(env, now = new Date()) {
   const t = now.getTime();
   const iso = (days) => new Date(t - days * DAY).toISOString();
@@ -177,6 +181,7 @@ export function purgeRecordsSql(env, now = new Date()) {
     env.DB.prepare('DELETE FROM class_steps WHERE day < ?').bind(dayOf(new Date(t - 120 * DAY))),
     env.DB.prepare('DELETE FROM class_goal_weeks WHERE week < ?').bind(dayOf(new Date(t - 400 * DAY))),
     env.DB.prepare('DELETE FROM metrics_daily WHERE day < ?').bind(dayOf(new Date(t - 400 * DAY))),
+    purgePushSql(env, now),
   ];
 }
 
@@ -432,14 +437,15 @@ export async function errorsNotice(env, now = new Date()) {
 }
 
 /**
- * The summary's reach block (STUDENT-14): yesterday's counts by name (metrics_daily, names with a count only), and the
- * class students who added a class-goal step in the 7 days up to yesterday (class_steps, distinct students). Counts only:
- * nothing in them tells who. `npm run owner -- reach` shows the weeks.
+ * The summary's reach block (STUDENT-14): yesterday's counts by name (metrics_daily, names with a count only), the
+ * class students who added a class-goal step in the 7 days up to yesterday (class_steps, distinct students), and the
+ * daily reminders (STUDENT-11): on, paused, and those whose student learned in those 7 days (weekly active reminder
+ * users). Counts only: nothing in them tells who. `npm run owner -- reach` shows the weeks.
  */
 export async function reachSummary(env, day) {
   const counts = Object.fromEntries((await all(env, 'SELECT name, n FROM metrics_daily WHERE day = ? AND n > 0 ORDER BY name', day)).map((r) => [r.name, Number(r.n)]));
   const week = await first(env, 'SELECT COUNT(DISTINCT student_id) AS n FROM class_steps WHERE day > ? AND day <= ?', shiftDay(day, -7), day);
-  return { counts, classStudents7: Number(week?.n || 0) };
+  return { counts, classStudents7: Number(week?.n || 0), reminders: await pushReach(env, day) };
 }
 
 /**
@@ -537,6 +543,7 @@ export async function run(env, { now = new Date() } = {}) {
   await step('refunds', () => processRefundQueue(env));
   if (night) {
     await step('reminders', () => reminders(env));
+    await step('pushNight', () => pushNight(env, now));
     await step('purge', () => purge(env, now));
     await step('safety', () => safetySpike(env, now));
     await step('errors', () => errorsNotice(env, now));

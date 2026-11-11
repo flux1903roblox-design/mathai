@@ -1,5 +1,6 @@
 // Settings, laid out like Duolingo's settings screen: a bar with the way back and the title, then grouped sections,
-// each a bordered group with a small heading (my details, class, the assistant, the look, sound, vibration, deleting data).
+// each a bordered group with a small heading (my details, class, the assistant, the look, sound, vibration, the daily
+// reminder, the app, deleting data).
 // A student sees nothing about servers or keys: those are for the adult who sets the app up, behind "מתקדם".
 import { useState, useEffect } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
@@ -8,13 +9,14 @@ import { toast } from 'sonner';
 import { ArrowRight, ChevronLeft, Download } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 import { api, hasServer } from '@/lib/api.js';
-import { Button, Field, Sheet } from '@/components/ui.jsx';
+import { Button, Field, Sheet, Segmented } from '@/components/ui.jsx';
 import { GradeSwitch, joinClass, joinedProfile } from './Welcome.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { openSupport } from '@/components/SupportSheet.jsx';
 import { SUPPORT_LINK } from '@/content/support.js';
-import { useAIStatus, leaveFamily } from '@/lib/account.js';
+import { useAIStatus, leaveFamily, familyInApp } from '@/lib/account.js';
+import { canSell } from '@/lib/price.js';
 import { PARENT_OK_LINE } from '@/components/limitCopy.js';
 import { useApp, PERSONAL_KEY } from '@/lib/store.js';
 import SaveSection from '@/components/durable/SaveSection.jsx';
@@ -28,6 +30,8 @@ import { WIPE_VAULT, WIPE_KEPT } from '@/lib/durable/wipeSteps.js';
 import { useInstall, isStoreApp, isStandalone } from '@/lib/install.js';
 import { count } from '@/lib/metrics.js';
 import SharingSheet, { stateWord } from '@/components/SharingSheet.jsx';
+import { disable as disableReminder } from '@/lib/push.js';
+import ReminderSettings from '@/components/learn/ReminderSettings.jsx';
 
 export const SIGNOUT_VAULT = 'הגיבוי בשרת נשאר. כדי לחזור להתקדמות, פותחים את מדרגות ובוחרים "יש לי קוד גיבוי".';
 /**
@@ -206,6 +210,9 @@ export function AdvancedSettings() {
  * open for the class. With no parent's OK yet on a device alone: the screen for the parents. With the paywall off or
  * no server: as before. A linked device always has "שיתוף עם ההורים" (PARENTS-4), whatever the plan: the child can
  * see what is shared, and stop it, in every state the server reports.
+ * A store app (STUDENT-12) has no row that leads to buying or cancelling a plan: only "מידע להורים". A Play Store app
+ * already linked to a family plan keeps it (Play allows using a plan bought elsewhere) and can unlink; the iPhone build
+ * uses no family plan at all (familyInApp), so it shows neither the plan nor unlinking.
  */
 function AISection() {
   const { ai, profile } = useApp();
@@ -224,7 +231,8 @@ function AISection() {
   };
   const tier = status?.tier;
   const paid = served && status?.paywall === true && tier && tier !== 'open';
-  const linked = !!ai.familyDevice;
+  const sell = canSell();
+  const linked = familyInApp() && !!ai.familyDevice;
   const rows = [];
   let text;
   if (paid && linked && tier === 'family') {
@@ -237,10 +245,10 @@ function AISection() {
   } else if (paid) {
     text = `בכל יום אפשר לשאול את העוזר החכם ${status.groups?.tutor?.limit ?? 2} שאלות. מדי, השיעורים והתרגול פתוחים תמיד.`;
     if (linked) rows.push(<button key="unlink" type="button" className="set-row" onClick={() => setUnlink(true)}>ניתוק המכשיר מהמנוי</button>);
-    else rows.push(<Link key="link" to="/parents/info" className="set-row"><span>חיבור למנוי משפחתי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
+    else if (sell) rows.push(<Link key="link" to="/parents/info" className="set-row"><span>חיבור למנוי משפחתי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
     rows.push(<Link key="info" to="/parents/info" className="set-row"><span>מידע להורים</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
   }
-  if (paid) rows.push(<Link key="cancel" to="/cancel" className="set-row"><span>ביטול מנוי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
+  if (paid && sell) rows.push(<Link key="cancel" to="/cancel" className="set-row"><span>ביטול מנוי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
   const shared = linked && !!status?.linked;
   if (shared) {
     rows.unshift(
@@ -293,27 +301,20 @@ function ThemeSetting() {
   return (
     <section className="section set-group" aria-labelledby="look-title">
       <h2 id="look-title" className="set-head">מראה</h2>
-      <div className="segmented" role="radiogroup" aria-labelledby="look-title" aria-describedby="look-hint">
-        {LOOKS.map(([v, label]) => (
-          <button key={v} type="button" role="radio" aria-checked={theme === v} className={clsx('seg', theme === v && 'on')} onClick={() => setTheme(v)}>{label}</button>
-        ))}
-      </div>
+      <Segmented value={theme} onValueChange={setTheme} options={LOOKS} labelledBy="look-title" describedBy="look-hint" />
       <p className="field-hint" id="look-hint">"כמו במכשיר" עובר לכהה כשהטלפון במצב כהה.</p>
     </section>
   );
 }
 
-/** Two choices made the same way (a radio group of two segments), with a short line under them. */
+/** Two choices made the same way (the shared Segmented: one radio group of two segments), with a short line under them. */
 function OnOff({ id, title, value, onChange, on, off, hint, children }) {
   return (
     <section className="section set-group" aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`} className="set-head">{title}</h2>
       {children ?? (
         <>
-          <div className="segmented" role="radiogroup" aria-labelledby={`${id}-title`} aria-describedby={`${id}-hint`}>
-            <button type="button" role="radio" aria-checked={value} className={clsx('seg', value && 'on')} onClick={() => onChange(true)}>{on}</button>
-            <button type="button" role="radio" aria-checked={!value} className={clsx('seg', !value && 'on')} onClick={() => onChange(false)}>{off}</button>
-          </div>
+          <Segmented value={!!value} onValueChange={onChange} options={[[true, on], [false, off]]} labelledBy={`${id}-title`} describedBy={`${id}-hint`} />
           <p className="field-hint" id={`${id}-hint`}>{hint}</p>
         </>
       )}
@@ -355,6 +356,14 @@ function InstallRow() {
       </div></div>
     </section>
   );
+}
+
+/**
+ * Signing out turns the daily reminder off: the server deletes its row, the browser drops it (STUDENT-11). "Delete all"
+ * does the same through its own step (lib/reminder.js, registered with lib/wipe.js).
+ */
+async function forgetReminder() {
+  if (useApp.getState().reminder?.on) await disableReminder({ quiet: true }).catch(() => {});
 }
 
 /** A parent's session and the parents' pages' leftovers on this device go too (lib/parent.js, loaded on demand). */
@@ -461,7 +470,7 @@ export default function Settings() {
     if (leaving) return;
     setLeaving(true);
     if (vaultOn) await Promise.race([syncVault({ moment: 'lesson' }).catch(() => {}), new Promise((r) => { setTimeout(r, LAST_PUSH_MS); })]);
-    await forgetParent(); signOut();
+    await forgetReminder(); await forgetParent(); signOut();
   };
   return (
     <div className="page pushed settings">
@@ -486,6 +495,7 @@ export default function Settings() {
       <AISection />
       <ThemeSetting />
       <SoundSettings />
+      <ReminderSettings />
       <SafetySection />
       <InstallRow />
       <AdvancedRow />

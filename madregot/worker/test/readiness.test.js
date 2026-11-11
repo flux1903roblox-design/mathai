@@ -72,14 +72,25 @@ test('rules follow the switches: no email rule without EMAIL_FROM, no payment ru
 });
 
 test('every secret wrangler.toml names has a rule (or a stated reason not to check it)', () => {
-  const comment = toml.split('\n').filter((l) => /^#\s+[A-Z][A-Z0-9_]{3,}\b/.test(l)).flatMap((l) => l.match(/\b[A-Z][A-Z0-9_]{3,}\b/g).filter((n) => /SECRET|KEY|GROW_|_ID$/.test(n)));
+  const comment = toml.split('\n').filter((l) => /^#\s+[A-Z][A-Z0-9_]{3,}\b/.test(l)).flatMap((l) => l.match(/\b[A-Z][A-Z0-9_]{3,}\b/g).filter((n) => /SECRET|KEY|JWK|GROW_|_ID$/.test(n)));
   const named = new Set(comment.filter((n) => !['ON', 'TURNSTILE'].includes(n)));
   // every rule turned on at once: the secrets the rules check
-  const all = readiness({ ...complete(), vars: { ...complete().vars, FREE_DEVICE_MINT: 'turnstile' }, secrets: new Set() });
+  const all = readiness({ ...complete(), vars: { ...complete().vars, FREE_DEVICE_MINT: 'turnstile', PUSH: 'on' }, secrets: new Set() });
   const checked = new Set(all.items.filter((i) => i.id.startsWith('secret:')).map((i) => i.id.slice('secret:'.length)));
   for (const name of named) assert.ok(checked.has(name) || NOT_CHECKED[name], `wrangler.toml names ${name}, but no rule in readiness.js checks it`);
   for (const name of RANDOM_SECRETS) assert.ok(checked.has(name), name);
-  assert.ok(named.has('GROW_PAGE_CODE_RECURRING') && named.has('VAULT_SECRET'));
+  assert.ok(named.has('GROW_PAGE_CODE_RECURRING') && named.has('VAULT_SECRET') && named.has('VAPID_PRIVATE_JWK'));
+});
+
+test('the daily reminder (STUDENT-11): nothing while PUSH is off; with it on, the private key, the public key and a subject Apple accepts', () => {
+  assert.ok(!readiness(complete()).items.some((i) => i.area === 'תזכורת יומית'), 'PUSH is off in wrangler.toml');
+  const c = complete(); c.vars.PUSH = 'on'; c.vars.VAPID_PUBLIC_KEY = ''; c.vars.VAPID_SUBJECT = 'hello@example.test';
+  assert.deepEqual(failing(readiness(c)), ['secret:VAPID_PRIVATE_JWK', 'push:public-key', 'push:subject']);
+  assert.match(formatReadiness(readiness(c)), /^✗ תזכורת יומית: חסר VAPID_PRIVATE_JWK \(המפתח הפרטי של התזכורות\) → npm run push:keys/m);
+  c.secrets.add('VAPID_PRIVATE_JWK'); c.vars.VAPID_PUBLIC_KEY = 'BPub'; c.vars.VAPID_SUBJECT = 'mailto:hello@example.test';
+  assert.equal(readiness(c).ok, true);
+  c.vars.VAPID_SUBJECT = 'https://madregot.example.test';
+  assert.equal(readiness(c).ok, true);
 });
 
 test('wrangler.toml as the doctor reads it: the vars, the database id and the edge bindings', () => {

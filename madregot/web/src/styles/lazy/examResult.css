@@ -1,0 +1,16 @@
+/* ExamResult.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only ExamResult.jsx uses these classes. */
+.qs-head { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.status-chip { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-size: var(--t-sm); border-radius: 999px; padding: 0 var(--s2); min-height: 28px; }
+.topic-tag { display: inline-flex; align-items: center; gap: var(--s1); font-size: var(--t-sm); font-weight: 700; }
+.weak-reason { font-size: var(--t-sm); }
+.result-hero { display: flex; flex-direction: column; align-items: center; gap: var(--s2); text-align: center; padding-top: var(--s3); }
+.result-title { margin: 0; font-family: var(--font-display); font-size: 26px; line-height: 32px; font-weight: 700; text-wrap: balance; }
+.result-sub { margin: 0; color: var(--ink-2); }
+.result-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.result-say { padding: var(--s3) var(--s4); border-radius: var(--r-m); background: var(--ground); }
+.result-say p { margin: 0; }
+.weak-row .topic-tag { font-weight: 700; }
+.weak-level { font-weight: 600; color: var(--ink-2); }
+.weak-row .weak-reason { font-size: var(--fs-sm); color: var(--ink-2); }
+.weak-row .weak-reason p { margin: 0; }

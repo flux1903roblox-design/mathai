@@ -124,6 +124,40 @@ describe('store apps and installed apps', () => {
   });
 });
 
+describe('the store apps\' open count (STUDENT-14)', () => {
+  const run = (w, last) => { const marks = []; const name = mod.countStoreOpen(w, { day: '2026-11-11', last, mark: (d) => marks.push(d) }); return { name, marks }; };
+
+  it('a Play Store launch (?src=play, standalone) counts store_open_play once a day', () => {
+    const w = fakeWindow({ hash: '#/?src=play', standalone: true });
+    mod.initInstall(w);
+    expect(run(w, null)).toEqual({ name: 'store_open_play', marks: ['2026-11-11'] });
+    expect(counted).toEqual(['store_open_play']);
+    expect(run(w, '2026-11-11')).toEqual({ name: null, marks: [] }); // opened again the same day: not again
+    expect(run(w, '2026-11-10').name).toBe('store_open_play'); // the next day
+    expect(counted).toEqual(['store_open_play', 'store_open_play']);
+  });
+
+  it('a later launch of the Play app with no ?src counts too (the note and standalone), and the referrer alone does', () => {
+    expect(run(fakeWindow({ standalone: true, storage: { 'madregot-src': 'play' } }), null).name).toBe('store_open_play');
+    expect(run(fakeWindow({ referrer: 'android-app://com.example.app/' }), null).name).toBe('store_open_play');
+  });
+
+  it('the web counts nothing: a tab, an installed web app, and Chrome on a phone that has the Play app', () => {
+    for (const w of [fakeWindow(), fakeWindow({ standalone: true }), fakeWindow({ storage: { 'madregot-src': 'play' } })]) {
+      expect(run(w, null)).toEqual({ name: null, marks: [] });
+    }
+    expect(counted).toEqual([]);
+  });
+
+  it('the iPhone build counts store_open_ios once a day', () => {
+    vi.stubEnv('VITE_STORE', 'ios');
+    const w = fakeWindow();
+    expect(run(w, null)).toEqual({ name: 'store_open_ios', marks: ['2026-11-11'] });
+    expect(run(w, '2026-11-11').name).toBe(null);
+    expect(counted).toEqual(['store_open_ios']);
+  });
+});
+
 describe('when LessonDone offers it', () => {
   const learned = (n, end = 11) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`2026-11-${String(end - i).padStart(2, '0')}`, { lessons: 1 }]));
   const DAY = '2026-11-11';

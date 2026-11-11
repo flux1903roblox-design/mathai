@@ -235,6 +235,20 @@ test('0007_student (the student lane\'s 0003_student): the class goal tables run
   assert.equal(db.prepare('SELECT on_flag, target FROM class_goal_settings').get().on_flag, 1, 'on by default, automatic size');
 });
 
+test('0007_student (the student lane\'s 0003_student): push_subs keeps one row per push address, an hour from 16 to 20 and on or paused only', () => {
+  const db = new DatabaseSync(':memory:');
+  for (const m of MIGRATIONS.filter((x) => x.name < '0007')) db.exec(m.sql);
+  db.exec(m7); db.exec(m7);
+  const sub = (id, endpoint, slot = 17, status = 'on') => db.prepare(`INSERT INTO push_subs (id, secret_hash, endpoint, p256dh, auth, slot, status, created_at)
+    VALUES (?, 'h', ?, 'k', 'a', ?, ?, '2026-11-10T15:00:00Z')`).run(id, endpoint, slot, status);
+  sub('0000000000000001', 'https://fcm.googleapis.com/fcm/send/a');
+  assert.throws(() => sub('0000000000000002', 'https://fcm.googleapis.com/fcm/send/a'), /UNIQUE/, 'one row per push address');
+  for (const slot of [15, 21]) assert.throws(() => sub(`000000000000003${slot % 10}`, `https://fcm.googleapis.com/fcm/send/s${slot}`, slot), /CHECK/, String(slot));
+  assert.throws(() => sub('0000000000000004', 'https://fcm.googleapis.com/fcm/send/b', 17, 'off'), /CHECK/);
+  sub('0000000000000005', 'https://fcm.googleapis.com/fcm/send/c', 20, 'paused');
+  assert.deepEqual({ ...db.prepare("SELECT status, misses FROM push_subs WHERE id = '0000000000000001'").get() }, { status: 'on', misses: 0 });
+});
+
 test('0008_vault_guard (the family lane\'s 0005_vault_guard): the tombstone table runs twice and keeps one row per vault hash', () => {
   const db = new DatabaseSync(':memory:');
   for (const m of MIGRATIONS.filter((x) => x.name < '0008')) db.exec(m.sql);
