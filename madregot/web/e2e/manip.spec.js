@@ -280,3 +280,136 @@ for (const [w, h] of [[390, 664], [320, 568]]) {
     await expect(page.locator('.lm-actions.has-warm')).toHaveCount(0);
   });
 }
+
+// ---------------------------------------------------------------- the data unit's two objects (DATA-2, on DATA-4's routes)
+// A run of a random experiment (simulate) and a chart built (chart), where a student meets them: data:4's teaching and
+// practice, data:1's bar chart, data:3's pie. On a phone and on the small phone: each is whole on screen, nothing scrolls
+// sideways, and the buttons a finger presses are in view.
+
+/** Walk a stair's teaching to its first explore step, answering the steps before it right. */
+async function toExplore(page, route, grade) {
+  await open(page, route, student(grade));
+  await expect(page.locator('.step-player')).toBeVisible();
+  for (let i = 0; i < 12; i += 1) {
+    await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+    const st = await page.evaluate(() => window.__madregotStep);
+    if (st.kind === 'explore') { await expect(page.locator('.ls-explore .manip')).toBeVisible(); return st; }
+    if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); await expect(page.locator('.lm-actions.has-good')).toBeVisible(); }
+    const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+    await page.locator('.sp-next').click();
+    await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+  }
+  throw new Error(`no explore step in ${route}`);
+}
+const simBtn = (page, k) => page.locator('.manip-simulate .mp-sim-btn').nth(k);
+const simRows = (page) => page.locator('.manip-simulate .mp-sim-table tbody tr').allTextContents();
+
+test('simulate (data:4 teaching): 100 opens after 10 and 1000 after 100, and each batch changes the table', async ({ page }) => {
+  await toExplore(page, '#/learn/data/4/A', '8');
+  const sim = page.locator('.ls-explore .manip-simulate');
+  await expectNoSidewaysScroll(page);
+  // guided: only 10 is open; a locked button says what comes first
+  await expect(simBtn(page, 0)).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(simBtn(page, 1)).toHaveAttribute('aria-disabled', 'true');
+  await expect(simBtn(page, 1)).toContainText('קודם 10');
+  await expect(simBtn(page, 2)).toHaveAttribute('aria-disabled', 'true');
+  await expect(simBtn(page, 2)).toContainText('קודם 100');
+  await sim.locator('.mp-sim-more').click();
+  await expect(sim.locator('.mp-sim-table')).toBeVisible();
+  const empty = await simRows(page);
+  // pressing a locked batch runs nothing (it is aria-disabled, so the press is forced)
+  await simBtn(page, 2).click({ force: true });
+  expect(await simRows(page)).toEqual(empty);
+  await simBtn(page, 0).click();
+  await expect.poll(() => simRows(page)).not.toEqual(empty);
+  await expect(simBtn(page, 1)).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(simBtn(page, 2)).toHaveAttribute('aria-disabled', 'true');
+  const ten = await simRows(page);
+  await simBtn(page, 1).click();
+  await expect.poll(() => simRows(page)).not.toEqual(ten);
+  await expect(simBtn(page, 2)).not.toHaveAttribute('aria-disabled', 'true');
+  const more = await simRows(page);
+  await simBtn(page, 2).click();
+  await expect.poll(() => simRows(page)).not.toEqual(more);
+  // 1110 spins: the readout says so, and the step can be checked
+  await expect(sim.locator('.mp-sim-small')).toContainText('מתוך 1110');
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+});
+
+test('simulate at 320 × 568: the object is at most 300px tall and its buttons are in view', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await toExplore(page, '#/learn/data/4/A', '7');
+  await expectNoSidewaysScroll(page);
+  const box = await page.locator('.ls-explore .manip-simulate').boundingBox();
+  expect(box.height, 'the simulate object').toBeLessThanOrEqual(300);
+  for (let k = 0; k < 4; k += 1) {
+    const b = simBtn(page, k);
+    await expect(b).toBeInViewport();
+    const r = await b.boundingBox();
+    expect(Math.min(r.width, r.height), 'a batch button is thumb-sized').toBeGreaterThanOrEqual(44);
+  }
+  await simBtn(page, 0).click(); await simBtn(page, 1).click(); await simBtn(page, 2).click();
+  await expect(page.locator('.manip-simulate .mp-sim-small')).toContainText('מתוך 1110');
+  expect((await page.locator('.ls-explore .manip-simulate').boundingBox()).height).toBeLessThanOrEqual(300);
+  await expectNoSidewaysScroll(page);
+});
+
+test('simulate (data:4 practice): the covered wheel\'s part is right after many spins; a wrong pick after a few is "few trials"', async ({ page }) => {
+  const est = (it) => it.form === 'manip' && it.manip.kind === 'simulate' && it.answer?.mode === 'estimate';
+  const it = await openOn(page, '#/lesson/data/4?part=1', student('7'), est);
+  await expectNoSidewaysScroll(page);
+  await expect(checkBtn(page)).toBeDisabled();
+  // the right part: the watched sector's share of the wheel, after 10 + 100 + 1000 spins
+  for (let k = 0; k < 3; k += 1) await simBtn(page, k).click();
+  await page.locator('.mp-sim-choice').nth(it.answer.answer).click();
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-good')).toBeVisible();
+  await proceed(page);
+  // the next one: ten spins and a wrong pick name the mistake of trusting a few trials
+  const next = await openOn(page, '#/lesson/data/4?part=1', student('7'), est);
+  await simBtn(page, 0).click();
+  await page.locator('.mp-sim-choice').nth((next.answer.answer + 1) % next.answer.choices.length).click();
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  // on a short screen the panel is folded under the object until "רמז" opens it
+  const more = page.locator('section.fb-folded').getByRole('button', { name: 'רמז', exact: true });
+  if (await more.count()) await more.click();
+  await expect(page.locator('section.fb-retry')).toContainText('סמכו על מעט ניסויים כאילו הם נותנים את ההסתברות');
+});
+
+test('chart (data:1 practice): a drag on a bar changes its value, and the chart is large enough to work with', async ({ page }) => {
+  await openOn(page, '#/lesson/data/1?part=1', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'chart' && it.manip.mode !== 'pie');
+  await expectNoSidewaysScroll(page);
+  const canvas = page.locator('.manip-chart .manip-canvas');
+  const box = await canvas.boundingBox();
+  expect(box.height, 'the chart').toBeGreaterThanOrEqual(120);
+  const read = () => page.locator('.manip-chart .mp-chart-read').textContent();
+  const before = await read();
+  // the first bar (the chart is drawn left to right): from the bottom to near the top
+  const slot = await page.locator('.mp-chart-slot').first().boundingBox();
+  await page.mouse.move(slot.x + slot.width / 2, box.y + box.height * 0.85);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i += 1) await page.mouse.move(slot.x + slot.width / 2, box.y + box.height * (0.85 - 0.5 * i / 8));
+  await page.mouse.up();
+  await expect.poll(read, 'the drag changed the bar').not.toBe(before);
+  await expect(checkBtn(page)).toBeEnabled();
+  await expectNoSidewaysScroll(page);
+});
+
+test('chart (data:3 practice): a chip and + colour a slice of the pie', async ({ page }) => {
+  await openOn(page, '#/lesson/data/3?part=1', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'chart' && it.manip.mode === 'pie');
+  await expectNoSidewaysScroll(page);
+  const pie = page.locator('.manip-chart-pie');
+  expect((await pie.locator('.manip-canvas').boundingBox()).height, 'the pie').toBeGreaterThanOrEqual(120);
+  const grey = () => pie.locator('.mp-chart-grey').count();
+  const before = await grey();
+  const chip = pie.locator('.mp-chart-chip:not(.fixed)').first();
+  await chip.click();
+  await expect(chip).toHaveClass(/\bon\b/);
+  await pie.getByRole('button', { name: /^לצבוע עוד חלק ל/ }).click();
+  await expect.poll(grey, 'one more slice is coloured').toBe(before - 1);
+  await expect(checkBtn(page)).toBeEnabled();
+  await expectNoSidewaysScroll(page);
+});

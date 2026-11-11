@@ -617,12 +617,24 @@ describe('one next: every surface names the same step', () => {
     expect(first.reason).not.toContain('לפי תוכנית הלימודים');
   });
 
+  it('a ח׳ student in November with ratio and percent done is offered data:1, taught in October this year', () => {
+    expect(monthIndex('data:1', '8')).toBe(1);
+    const day = '2026-11-11';
+    const L = emptyLearn();
+    ALL_SKILLS.filter((s) => ['ratio', 'pct'].includes(parseSkill(s).topic)).forEach((s) => { L.skills[s] = masteredRec(ago(5), 60); });
+    const first = planNext(ctxOf(L, { grade: '8', day })).items.find((x) => x.kind === 'new')!;
+    expect(first.skill).toBe('data:1');
+    expect(first.to).toBe('/learn/data/1/A');
+    expect(first.reason).toContain('לפי תוכנית הלימודים, זה נלמד בכיתה באוקטובר.');
+  });
+
   it('a ח׳ student is not offered sys:1 (equations with percents) as new while pct:5 is not done', () => {
-    // February: sys:1 (December) is taught by now. Ratio, line, Pythagoras and statistics are done; percent is not started
+    // February: sys:1 (December) is taught by now. Ratio, this year's data unit, line, Pythagoras and statistics are done;
+    // percent is not started
     const day = '2027-02-09'; const now = `${day}T09:00:00.000Z`;
     const done = (L: LearnState, ids: SkillId[]) => ids.forEach((s) => { L.skills[s] = masteredRec(ago(5, now), 60); });
     const L = emptyLearn();
-    done(L, ALL_SKILLS.filter((s) => ['ratio', 'line', 'pyth', 'stats'].includes(parseSkill(s).topic)));
+    done(L, ALL_SKILLS.filter((s) => ['ratio', 'data', 'line', 'pyth', 'stats'].includes(parseSkill(s).topic)));
     const news = () => planNext(ctxOf(L, { grade: '8', day })).items.filter((x) => x.kind === 'new').map((x) => x.skill);
     expect(prereqsOf('sys:1')).toContain('pct:5');
     expect(news()).toEqual(['pct:1']);

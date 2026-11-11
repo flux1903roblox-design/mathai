@@ -94,7 +94,8 @@ export const PROGRAMME = {
     { id: '8.6', grade: '8', domain: 'uncertainty', title: 'איסוף וקריאת מידע, שכיחות, שכיחות יחסית', months: [10, 11],
       parts: [
         { hours: 1, skills: ['stats:1'] }, // the mode
-        { hours: 7, skills: [], note: 'איסוף וקריאת מידע ושכיחות יחסית', later: 'S3' },
+        // the ז׳ data unit, learnt in ח׳ in the transition year (on the ח׳ path through learn/skills.ts ALSO_ON_PATH)
+        { hours: 7, skills: ['data:1', 'data:2', 'data:3'] },
       ] },
     { id: '8.7', grade: '8', domain: 'algebra', title: 'מבוא לפונקציות: ייצוגים, עלייה וירידה', months: [11],
       parts: [{ hours: 8, skills: [], note: 'פונקציה: גרף, טבלה וביטוי, עלייה וירידה', later: 'S5' }] },
@@ -125,7 +126,11 @@ export const PROGRAMME = {
     { id: '8.15', grade: '8', domain: 'algebra', title: 'אי שוויונות', months: [5],
       parts: [{ hours: 4, skills: ['sys:5'] }] },
     { id: '8.16', grade: '8', domain: 'uncertainty', title: 'הסתברות א ו־ב', months: [3],
-      parts: [{ hours: 6, skills: [], note: 'הסתברות: מאורע, מאורע משלים וניסוי בשני שלבים', later: 'S3' }] },
+      parts: [
+        // "הסתברות א – בסיס" is data:4 (probability from relative frequency); "הסתברות ב" is the prob unit, still to come
+        { hours: 2, skills: ['data:4'] },
+        { hours: 4, skills: [], note: 'הסתברות: תוצאות שוות סיכוי, מאורע משלים וניסוי בשני שלבים', later: 'S3' },
+      ] },
     { id: '8.17', grade: '8', domain: 'geometry', title: 'משפט פיתגורס במרחב', months: [5],
       parts: [{ hours: 6, skills: [], note: 'משפט פיתגורס בגופים במרחב', later: 'S2' }] },
   ],

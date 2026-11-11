@@ -3,10 +3,10 @@
 // differs from the one on screen, fails here.
 import { describe, it, expect } from 'vitest';
 // @ts-ignore: plain JS shared with the Worker
-import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, NOT_YET, stairName } from '@shared/stairs.js';
+import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, TOPIC_ALSO, NOT_YET, stairName } from '@shared/stairs.js';
 // @ts-ignore: plain JS
 import { TOPIC } from '@/content/index.js';
-import { TOPIC_ORDER, GRADE_OF, STAIRS, ALL_SKILLS, skillId } from './skills';
+import { TOPIC_ORDER, GRADE_OF, STAIRS, ALL_SKILLS, ALSO_ON_PATH, skillId } from './skills';
 import { contentOf, loadAllContent } from './content/index';
 
 // every topic's teaching content, loaded once (the durable lane's split, DURABLE-11: topics load on demand)
@@ -20,6 +20,8 @@ describe('shared/stairs.js is the app\'s own list', () => {
   it('the topics, in teaching order, with their grades and names', () => {
     expect(Object.keys(TOPIC_NAMES)).toEqual(TOPIC_ORDER);
     expect(TOPIC_GRADE).toEqual(GRADE_OF);
+    // the units a grade also learns this year (the tutor's stair map names them): the app's own table
+    expect(TOPIC_ALSO).toEqual(Object.fromEntries(Object.entries(ALSO_ON_PATH).map(([t, e]) => [t, e!.grade])));
     for (const t of TOPIC_ORDER) {
       expect(TOPIC_NAME[t], t).toBe(TOPIC[t].title);
       expect(TOPIC_GRADE_OF[t], t).toBe(TOPIC[t].grade);

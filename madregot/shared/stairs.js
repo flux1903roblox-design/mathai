@@ -113,6 +113,13 @@ export const stairName = (id) => {
 export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', data: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' });
 
 /**
+ * Units a grade also learns this school year though filed under the other (learn/skills.ts ALSO_ON_PATH: the תשפ״ז
+ * transition year has ח׳ learn the ז׳ data unit): topic → that grade. The tutor's stair map names them on a line of
+ * their own (pedagogy.js curriculumBlock); stairs.test.ts keeps the two tables equal.
+ */
+export const TOPIC_ALSO = Object.freeze({ data: '8' });
+
+/**
  * Parts of the Ministry's programme for grades 7 and 8 that the app does not teach yet, as Hebrew titles (never topic
  * ids), so the tutor helps with them without inventing a stair. Computed, never typed (CURRICULUM-1): coverage.js
  * `notYet` over the stairs named here, so it shrinks by itself with every new stair, and it is the same list the

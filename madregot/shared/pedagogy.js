@@ -5,7 +5,7 @@
 // This file ships to the browser (shared/ai.js imports it), so no regex here uses lookbehind (ai spec §0.3; Safari
 // before 16.4 fails to load a chunk that has one): a word start is a prefix group, (?:^|[^א-ת]), and an end a lookahead.
 import { safetyPrompt } from './safety.js';
-import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, NOT_YET } from './stairs.js';
+import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, TOPIC_ALSO, NOT_YET } from './stairs.js';
 import { TOPIC_WAYS_STAGE1, SIGNED_FRACTIONS } from './topicWays.js';
 
 /** The one sentence that names the singular forms to avoid (the plural-only check skips it). */
@@ -58,10 +58,16 @@ export const PEDAGOGY = `How Madregot teaches, and how you teach inside it.
 export function curriculumBlock() {
   const stairsOf = (t) => Object.keys(STAIR_NAMES).filter((id) => id.split(':')[0] === t).map((id) => `${id.split(':')[1]} ${STAIR_NAMES[id]}`);
   const grade = (g) => Object.keys(TOPIC_NAMES).filter((t) => TOPIC_GRADE[t] === g).map((t) => `${TOPIC_NAMES[t]}: ${stairsOf(t).join(', ')}`).join(' | ');
+  // a unit filed under one grade that the other also learns this school year: named once more, on a line of its own
+  const also = ['7', '8'].flatMap((g) => {
+    const names = Object.keys(TOPIC_ALSO).filter((t) => TOPIC_ALSO[t] === g).map((t) => TOPIC_NAMES[t]);
+    return names.length ? [`This school year (תשפ״ז) grade ${g} also learns: ${names.join(', ')}.`] : [];
+  });
   return [
     "Madregot's stairs, in teaching order (topic: numbered stairs). Help with any of them; name a stair the way the app does.",
     `Grade 7 (ז׳): ${grade('7')}`,
     `Grade 8 (ח׳): ${grade('8')}`,
+    ...also,
     `Topics of grades 7-8 the app does not teach yet: ז׳: ${NOT_YET['7'].join(', ')}; ח׳: ${NOT_YET['8'].join(', ')}. Help with them in the usual way. Do not invent a stair, a lesson or a link for them.`,
   ].join('\n');
 }

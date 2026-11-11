@@ -27,16 +27,31 @@ export type AlsoOnPath = Partial<Record<TopicId, { grade: '7' | '8'; after: Topi
 /**
  * Units on two grades' paths. The Ministry's תשפ״ז transition year has ח׳ learn the ז׳ data unit too (8.6 in October and
  * November; its last stair, probability from relative frequency, is ח׳'s "הסתברות א – בסיס" in March): `data` is filed
- * under ז׳ and drawn on the ח׳ path after percent, from the commit that adds its content. programme.test.ts fails when no
- * unit of that grade lists one of the topic's stairs, so an entry is removed when the programme moves on.
+ * under ז׳ and drawn on the ח׳ path after percent. programme.test.ts fails when no unit of that grade lists one of the
+ * topic's stairs, so the entry is removed when the programme moves on (shared/stairs.js TOPIC_ALSO with it).
  * A table, not a special case in each screen: topicsFor (content/index.js), gradeSkillsOf, isMissing (recommend.ts)
  * and the screens that name a unit's grade read it through onGradePath. The helpers take another table for tests.
  */
-export const ALSO_ON_PATH: AlsoOnPath = {};
+export const ALSO_ON_PATH: AlsoOnPath = { data: { grade: '8', after: 'pct' } };
 /** Is a topic on a grade's path: filed in it, or also climbed in it (never a bridge unit)? */
 export const onGradePath = (t: TopicId, g: '7' | '8', also: AlsoOnPath = ALSO_ON_PATH): boolean => !BRIDGE.has(t) && (GRADE_OF[t] === g || also[t]?.grade === g);
-/** A grade's own stairs, in order: the stairs of the topics on its path, without the bridge units. */
-export const gradeSkillsOf = (g: '7' | '8', also: AlsoOnPath = ALSO_ON_PATH): SkillId[] => ALL_SKILLS.filter((id) => onGradePath(id.split(':')[0] as TopicId, g, also));
+/**
+ * A grade's topics in the order of its path (the map's, content/index.js topicsFor): its own in TOPIC_ORDER, and a unit
+ * also climbed in it right after the unit named in `after`, never a bridge unit. For ח׳ this year: ratio, pct, data, line…
+ */
+export const gradePathOf = (g: '7' | '8', also: AlsoOnPath = ALSO_ON_PATH): TopicId[] => {
+  const out = TOPIC_ORDER.filter((t) => !BRIDGE.has(t) && GRADE_OF[t] === g);
+  TOPIC_ORDER.filter((t) => !BRIDGE.has(t) && GRADE_OF[t] !== g && also[t]?.grade === g).forEach((t) => {
+    const i = out.indexOf(also[t]!.after); out.splice(i < 0 ? out.length : i + 1, 0, t);
+  });
+  return out;
+};
+/**
+ * A grade's own stairs, in the order of its path, without the bridge units. The order matters: the next new stair is the
+ * first one here (learn/next.ts), so a ח׳ student meets ratio (September) and percent (October) before this year's data
+ * unit, as the map draws them, though data is filed earlier, under ז׳, in ALL_SKILLS.
+ */
+export const gradeSkillsOf = (g: '7' | '8', also: AlsoOnPath = ALSO_ON_PATH): SkillId[] => gradePathOf(g, also).flatMap((t) => ALL_SKILLS.filter((id) => id.split(':')[0] === t));
 /** Is this stair in a bridge unit (the floor under both grades)? */
 export const isBridgeSkill = (id: SkillId) => BRIDGE.has(id.split(':')[0] as TopicId);
 /** The bridge stairs, in order: the floor under every grade. */

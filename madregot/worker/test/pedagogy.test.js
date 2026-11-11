@@ -7,7 +7,7 @@ import { buildRequest, AI_KINDS, FREE_KINDS, TOPIC_IDS, stableSystem as fromAi }
 import {
   stableSystem, TUTOR_BODY, PEDAGOGY, TOPIC_WAYS, topicWaysBlock, curriculumBlock, SINGULAR_EXAMPLES, SINGULAR_RE, SINGULAR_WORDS,
 } from '../../shared/pedagogy.js';
-import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, NOT_YET, stairName } from '../../shared/stairs.js';
+import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, TOPIC_ALSO, NOT_YET, stairName } from '../../shared/stairs.js';
 import { safetyPrompt } from '../../shared/safety.js';
 import { TOPIC_WAYS_STAGE1, SIGNED_FRACTIONS } from '../../shared/topicWays.js';
 import { notYet } from '../../shared/coverage.js';
@@ -203,6 +203,12 @@ test('the stair map names every stair and topic under its grade, and what the ap
     Object.keys(STAIR_NAMES).filter((s) => s.startsWith(`${id}:`)).forEach((s) => assert.ok(line(g).includes(`${s.split(':')[1]} ${STAIR_NAMES[s]}`), s));
   }
   assert.match(block, /does not teach yet: ז׳: .*; ח׳: .*\. Help with them in the usual way\. Do not invent a stair, a lesson or a link for them\./);
+  // the תשפ״ז transition year: the ז׳ data unit stays on the Grade 7 line only, and one more line says ח׳ learns it too
+  assert.deepEqual({ ...TOPIC_ALSO }, { data: '8' });
+  assert.ok(block.split('\n').includes('This school year (תשפ״ז) grade 8 also learns: נתונים ושכיחות.'));
+  assert.ok(line('7').includes('נתונים ושכיחות: '));
+  assert.ok(!line('8').includes('נתונים ושכיחות'));
+  assert.ok(!block.includes('grade 7 also learns'));
   NOT_YET['7'].concat(NOT_YET['8']).forEach((t) => assert.ok(block.includes(t), t));
 });
 

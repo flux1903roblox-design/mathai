@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { LearnState, SkillRecord } from './types';
-import { TOPIC_ORDER, ALL_SKILLS, PREREQS, STAIRS, GRADE_OF, ancestorsOf, prereqsOf, gradeSkillsOf, BRIDGE, BRIDGE_SKILLS, ALSO_ON_PATH, onGradePath } from './skills';
+import { TOPIC_ORDER, ALL_SKILLS, PREREQS, STAIRS, GRADE_OF, ancestorsOf, prereqsOf, gradeSkillsOf, gradePathOf, BRIDGE, BRIDGE_SKILLS, ALSO_ON_PATH, onGradePath } from './skills';
 import type { AlsoOnPath } from './skills';
 // @ts-ignore: plain JS
 import { TOPIC, topicsFor, bridgeTopicsFor, rescueTopicsFor, unitNumber, earlierUnit, unitGrade } from '@/content/index.js';
@@ -117,8 +117,9 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
     const { placementMax } = await import('@/lib/placement.js');
     // @ts-ignore: plain JS
     const { topicsFor, placementTopicsFor, rescueTopicsFor } = await import('@/content/index.js');
-    // ratio and pct are on the map of ח׳ but not in the first-day test (placement: false): 3 topics × 2 probes × 3
-    expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 3)).toEqual(['ratio', 'pct', 'line']);
+    // ratio, pct and (this year) data are on the map of ח׳ but not in the first-day test (placement: false): 3 topics ×
+    // 2 probes × 3
+    expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 4)).toEqual(['ratio', 'pct', 'data', 'line']);
     expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('pct');
     expect(placementMax('8')).toBe(18);
     // ז׳ meets percents in relative frequency: Exam Rescue offers the unit to ז׳ too
@@ -136,6 +137,49 @@ describe('grade 7 in school order (data and frequency in January–February, bef
     expect(placementTopicsFor('7').map((t: { id: string }) => t.id)).not.toContain('data');
     expect(gradeSkillsOf('7')).toEqual(expect.arrayContaining(['data:1', 'data:2', 'data:3', 'data:4']));
     expect(placementMax('8')).toBe(18);
+  });
+});
+
+// The תשפ״ז transition year (DATA-1): ח׳ learns the ז׳ data unit too, in October–November (8.6), drawn after percent
+describe('the data unit on the ח׳ path this year (the real ALSO_ON_PATH)', () => {
+  const ids = (list: { id: string }[]) => list.map((t) => t.id);
+  it('is the ח׳ map\'s third unit and stays on the ז׳ map, once in every list', async () => {
+    expect(ALSO_ON_PATH).toEqual({ data: { grade: '8', after: 'pct' } });
+    expect(ids(topicsFor('8'))).toEqual(['ratio', 'pct', 'data', 'line', 'pyth', 'stats', 'sys']);
+    expect(ids(topicsFor('7'))).toEqual(['signed', 'coord', 'angles', 'expr', 'data', 'eq']);
+    for (const g of ['7', '8']) {
+      const list = ids(rescueTopicsFor(g));
+      expect(new Set(list).size, `grade ${g}`).toBe(list.length);
+      expect(list, `grade ${g}`).toContain('data');
+    }
+    // @ts-ignore: plain JS
+    const { placementMax } = await import('@/lib/placement.js');
+    expect(placementMax('8')).toBe(18); // data is not in the first-day test
+  });
+  it('a grade\'s stairs follow its path, as the map draws it: ח׳ meets ratio and percent before data', () => {
+    const topicsOf = (ids: string[]) => [...new Set(ids.map((id) => id.split(':')[0]))];
+    for (const g of ['7', '8'] as const) {
+      expect(gradePathOf(g), `grade ${g}`).toEqual(ids(topicsFor(g)));
+      expect(topicsOf(gradeSkillsOf(g)), `grade ${g}`).toEqual(ids(topicsFor(g)));
+    }
+    expect(gradeSkillsOf('8').slice(0, 10)).toEqual(['ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5', 'data:1']);
+    // with a fixture table too: expressions right after percent on the ח׳ path
+    expect(gradePathOf('8', { expr: { grade: '8', after: 'pct' } })).toEqual(['ratio', 'pct', 'expr', 'line', 'pyth', 'stats', 'sys']);
+  });
+  it('its stairs are ח׳\'s own; a fresh one is missing; the screens number and name it for ח׳', () => {
+    for (let l = 1; l <= STAIRS.data!; l += 1) {
+      expect(gradeSkillsOf('8')).toContain(`data:${l}`);
+      expect(gradeSkillsOf('7')).toContain(`data:${l}`);
+    }
+    expect(onGradePath('data', '8')).toBe(true);
+    expect(isMissing(ctx(empty(), '8'), 'data:1')).toBe(true);
+    expect(isMissing(ctx(empty(), '7'), 'data:1')).toBe(true);
+    expect(unitNumber(TOPIC.data, '8')).toBe(3); // Topic.jsx, ExamResult.jsx: "יחידה 3" for ח׳
+    expect(unitNumber(TOPIC.data, '7')).toBe(5);
+    expect(earlierUnit(TOPIC.data, '8')).toBe(false); // Rescue.jsx: not "מכיתה ז׳" for ח׳
+    expect(unitGrade(TOPIC.data, '8')).toBe('8'); // Lesson.jsx: the tutor hears grade 8
+    expect(unitGrade(TOPIC.data, '7')).toBe('7');
+    expect(unitGrade(TOPIC.expr, '8')).toBe('7'); // a ז׳ unit not on the ח׳ path stays ז׳'s
   });
 });
 
@@ -158,9 +202,9 @@ describe('the prerequisite graph', () => {
   });
 });
 
-// A unit filed under one grade and also climbed in another this school year (skills.ts ALSO_ON_PATH). The table is empty
-// until curriculum stage 3's data unit lands, so a fixture puts a ז׳ unit (algebraic expressions) on the ח׳ path after
-// percent: every reader of the path follows it, and nothing else moves.
+// A unit filed under one grade and also climbed in another this school year (skills.ts ALSO_ON_PATH). A fixture puts a ז׳
+// unit (algebraic expressions) on the ח׳ path after percent: every reader of the path follows it, and nothing else moves.
+// The real table (the data unit) is tested on its own below.
 describe('a unit on two grades\' paths (ALSO_ON_PATH)', () => {
   const ALSO: AlsoOnPath = { expr: { grade: '8', after: 'pct' } };
   const ids = (list: { id: string }[]) => list.map((t) => t.id);

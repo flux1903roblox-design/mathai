@@ -37,7 +37,13 @@ describe('a unit on two grades\' paths is in that grade\'s schedule', () => {
   const unlisted = (also: AlsoOnPath) => Object.entries(also).filter(([t, e]) => !PROGRAMME.units.some((u) => u.grade === e!.grade
     && u.parts.some((p) => p.skills.some((s) => parseSkill(s).topic === t)))).map(([t]) => t);
   it('every entry of ALSO_ON_PATH is listed in a unit of its other grade', () => {
+    expect(Object.keys(ALSO_ON_PATH)).toEqual(['data']); // not vacuous: this year's entry
     expect(unlisted(ALSO_ON_PATH)).toEqual([]);
+    // 8.6 lists data:1-3 (October–November), 8.16 data:4 (March, "הסתברות א – בסיס")
+    expect(monthIndex('data:1', '8')).toBe(1);
+    expect(monthIndex('data:3', '8')).toBe(1);
+    expect(monthIndex('data:4', '8')).toBe(6);
+    expect(monthIndex('data:1', '7')).toBe(4);
   });
   it('the rule bites: expressions are in no ח׳ unit, Pythagoras is in ז׳ 7.6 and 7.14', () => {
     expect(unlisted({ expr: { grade: '8', after: 'pct' } })).toEqual(['expr']);
@@ -47,7 +53,7 @@ describe('a unit on two grades\' paths is in that grade\'s schedule', () => {
 
 // Stage 1 is complete with percent, and curriculum stage 3's data unit has landed: the live coverage, from the stairs
 // this build has, is worker/test/coverage.test.js's stage-1 fixture (HEAD's 48 stairs, signed:6, ratio:1-4, pct:1-5)
-// with data:1-4 (7.15-7.17 taught): ז׳ 117 of 150, ח׳ 66 of 147 (the ח׳ units of data list it from stage 6), 62%.
+// with data:1-4 (7.15-7.17 taught, and this year 8.6 and the first half of 8.16): ז׳ 117 of 150, ח׳ 75 of 147, 65%.
 describe('stage 1\'s coverage and the data unit, live', () => {
   const STAGE1 = [
     ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
@@ -59,8 +65,10 @@ describe('stage 1\'s coverage and the data unit, live', () => {
     expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE1, ...DATA].sort());
     const c7 = coverageOf('7'); const c8 = coverageOf('8');
     expect([c7.taught, c7.hours]).toEqual([117, 150]);
-    expect([c8.taught, c8.hours]).toEqual([66, 147]);
-    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(62);
+    expect([c8.taught, c8.hours]).toEqual([75, 147]);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(65);
+    expect(c8.units.find((u) => u.id === '8.6')).toMatchObject({ taught: 8, state: 'yes' });
+    expect(c8.units.find((u) => u.id === '8.16')).toMatchObject({ taught: 2, state: 'part' });
     expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
     for (const id of ['7.15', '7.16', '7.17']) expect(c7.units.find((u) => u.id === id), id).toMatchObject({ state: 'yes' });
   });
