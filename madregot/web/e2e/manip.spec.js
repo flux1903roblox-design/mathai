@@ -379,6 +379,38 @@ test('simulate (data:4 practice): the covered wheel\'s part is right after many 
   await expect(page.locator('section.fb-retry')).toContainText('סמכו על מעט ניסויים כאילו הם נותנים את ההסתברות');
 });
 
+// DATA-6: two dice thrown many times (prob:3), in the teaching and in practice, where the documented errors are choices
+test('simulate dice2 (prob:3 teaching) at 320 × 568: sums of two dice, 1110 throws, whole on screen, the step checked', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const st = await toExplore(page, '#/learn/prob/3/A', '8');
+  expect(st.manip).toMatchObject({ kind: 'simulate', device: 'dice2', watch: 7 });
+  // the step before (the 6 × 6 table) may still be sliding out: wait for the page to settle, then nothing scrolls sideways
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await expectNoSidewaysScroll(page);
+  const sim = page.locator('.ls-explore .manip-simulate');
+  expect((await sim.boundingBox()).height, 'the simulate object').toBeLessThanOrEqual(300);
+  for (let k = 0; k < 3; k += 1) { await expect(simBtn(page, k)).toBeInViewport(); await simBtn(page, k).click(); }
+  await expect(sim.locator('.mp-sim-small')).toContainText('מתוך 1110');
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+});
+
+test('simulate dice2 (prob:3 practice): 1/11 after many throws names the equally likely sums', async ({ page }) => {
+  const est = (it) => it.form === 'manip' && it.manip.kind === 'simulate' && it.manip.device === 'dice2' && it.answer?.mode === 'estimate';
+  const it = await openOn(page, '#/lesson/prob/3?part=1', student('8'), est);
+  await expectNoSidewaysScroll(page);
+  for (let k = 0; k < 3; k += 1) await simBtn(page, k).click();
+  const sums = it.answer.choices.findIndex((c) => c.tag === 'equiprob-sums');
+  expect(sums).toBeGreaterThanOrEqual(0);
+  await page.locator('.mp-sim-choice').nth(sums).click();
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-retry')).toBeVisible();
+  const more = page.locator('section.fb-folded').getByRole('button', { name: 'רמז', exact: true });
+  if (await more.count()) await more.click();
+  await expect(page.locator('section.fb-retry')).toContainText('חשבו שכל הסכומים של שתי קוביות שווי סיכוי');
+});
+
 test('chart (data:1 practice): a drag on a bar changes its value, and the chart is large enough to work with', async ({ page }) => {
   await openOn(page, '#/lesson/data/1?part=1', student('8'), (it) => it.form === 'manip' && it.manip.kind === 'chart' && it.manip.mode !== 'pie');
   await expectNoSidewaysScroll(page);

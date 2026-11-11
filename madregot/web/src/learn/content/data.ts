@@ -52,7 +52,7 @@ type P1 = { s: number; vals: number[]; i: number; j: number; max: number };
 const data1: DiagModel<P1> = {
   params: (rnd) => G.DATA1.params(rnd),
   text: (p) => G.data1Text(p),
-  fig: (p) => G.data1Fig(p),
+  fig: (p) => G.data1Fig(p) as FigSpec,
   answer: (p) => G.DATA1.answer(p),
   bugs: G.DATA1.bugs,
   solution: (p) => G.data1Solution(p),
@@ -62,7 +62,7 @@ type P1T = { k: number; icons: number[]; x: number };
 const data1T: DiagModel<P1T> = {
   params: (rnd) => G.DATA1T.params(rnd),
   text: (p) => G.data1TText(p),
-  fig: (p) => G.data1TFig(p),
+  fig: (p) => G.data1TFig(p) as FigSpec,
   answer: (p) => G.DATA1T.answer(p),
   bugs: G.DATA1T.bugs,
   solution: (p) => G.data1TSolution(p),
@@ -209,7 +209,7 @@ type P2 = { f: number[]; N: number; j: number };
 const data2: DiagModel<P2> = {
   params: (rnd) => G.DATA2.params(rnd),
   text: (p) => G.data2Text(p),
-  fig: (p) => G.data2Fig(p),
+  fig: (p) => G.data2Fig(p) as FigSpec,
   answer: (p) => G.DATA2.answer(p),
   bugs: G.DATA2.bugs,
   solution: (p) => G.data2Solution(p),
@@ -375,7 +375,7 @@ type P3 = { N: number; ps: number[]; x: number };
 const data3: DiagModel<P3> = {
   params: (rnd) => G.DATA3.params(rnd),
   text: (p) => G.data3Text(p),
-  fig: (p) => G.data3Fig(p),
+  fig: (p) => G.data3Fig(p) as FigSpec,
   answer: (p) => G.DATA3.answer(p),
   bugs: G.DATA3.bugs,
   solution: (p) => G.data3Solution(p),
@@ -385,7 +385,7 @@ type P3T = { p: number; N: number; c: number };
 const data3T: DiagModel<P3T> = {
   params: (rnd) => G.DATA3T.params(rnd),
   text: (p) => G.data3TText(p),
-  fig: (p) => G.data3TFig(p),
+  fig: (p) => G.data3TFig(p) as FigSpec,
   answer: (p) => G.DATA3T.answer(p),
   bugs: G.DATA3T.bugs,
   solution: (p) => G.data3TSolution(p),
@@ -543,7 +543,7 @@ type P4 = { c: number[]; N: number; j: number; k: number };
 const data4: DiagModel<P4> = {
   params: (rnd) => G.DATA4.params(rnd),
   text: (p) => G.data4Text(p),
-  fig: (p) => G.data4Fig(p),
+  fig: (p) => G.data4Fig(p) as FigSpec,
   answer: (p) => G.DATA4.answer(p),
   bugs: G.DATA4.bugs,
   solution: (p) => G.data4Solution(p),

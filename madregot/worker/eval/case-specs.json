@@ -498,6 +498,132 @@
       "tags": ["stats", "generator"]
     },
     {
+      "id": "D1-prob1-count-not-prob", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "diag", "params": {"n": 12, "e": "mult", "t": 4, "k": 3}, "wrong": [3, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "count-not-prob", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the number of fitting cards (3: 4, 8 and 12) was written, not the probability. The 12 cards are equally likely, so the probability is 3 out of 12: 3/12 = 0.25. Ends at 0.25. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1-one-over-n", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "diag", "params": {"n": 12, "e": "mult", "t": 4, "k": 3}, "wrong": [0.08, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-over-n", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the probability of one card (1/12, about 0.08) was given, but three cards fit (4, 8 and 12). Three of the 12 equally likely cards: 3/12 = 0.25. Ends at 0.25. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1-equiprob-event", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "diag", "params": {"n": 12, "e": "mult", "t": 4, "k": 3}, "wrong": [0.5, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "equiprob-event", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 'it happens or it does not' was taken as two equally likely outcomes, a half. The outcomes are the 12 cards; 3 of them fit: 3/12 = 0.25. Ends at 0.25. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1T-fencepost", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "transfer", "params": {"N": 80, "a": 6, "b": 61, "w": 26}, "wrong": [0.3125, 0.2], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "fencepost", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the tickets from 61 to 80 were counted as 80 - 61 = 19, but 61 wins too: 20 tickets. With 1 to 6, 26 winning tickets of 80: 26/80 = 0.325. Ends at 0.325. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob1-gen-no-symmetry", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:1", "source": "gen", "key": "pr1f:0", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "no-symmetry", "maxWords": 110,
+        "describe": "Names the app's diagnosis: one over the number of sides was assumed for a die, a coin or a wheel that is not symmetric. Without symmetry the outcomes are not equally likely; the probability is estimated from the relative frequency of many trials. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob2-same-prob", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "diag", "params": {"p": [0.3, 0.25, 0.2], "g": 0.25, "x": 1}, "wrong": [0.25, 0.6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "same-prob", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 'not blue' was given blue's own probability, 0.25. Blue and not blue together are everything that can happen, 1: 1 - 0.25 = 0.75. Ends at 0.75. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2-hundred-minus", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "diag", "params": {"p": [0.3, 0.25, 0.2], "g": 0.25, "x": 1}, "wrong": [99.75, 0.6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "hundred-minus", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 0.25 was taken from 100, as if it were a percent. Written as a number, a probability is between 0 and 1, and the whole is 1: 1 - 0.25 = 0.75. Ends at 0.75. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2-others-given", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "diag", "params": {"p": [0.3, 0.25, 0.2], "g": 0.25, "x": 1}, "wrong": [0.5, 0.6], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "others-given", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the colours whose probabilities are written (red 0.3 and yellow 0.2) were added, and green, the rest, was left out. Not blue is everything but blue: 1 - 0.25 = 0.75. Ends at 0.75. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2T-one-part", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "transfer", "params": {"N": 28, "a": 2, "b": 7, "m": 2, "blue": 8, "pink": 16}, "wrong": [0.71, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-part", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the blue pens were taken away (1 - 2/7). Neither blue nor pink leaves out the pink pens too: 8 blue and 16 pink of 28 leave 4, and 4/28 = 1/7, about 0.14. Ends at 1/7. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob2-gen-complement-only", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2a:6:3", "wrong": [0.33, 0.5], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "complement-only", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the probability of the complement, less than 3 (1 and 2, so 2/6), was found and not taken from 1. At least 3 is everything else: 1 - 2/6 = 4/6 = 2/3. Ends at 2/3. Names no other mistake." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob2-gen-gambler", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2g:1:4", "wrong": [2], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "gambler", "maxWords": 110,
+        "describe": "Names the app's diagnosis: after a run of one side the other side was taken as 'due' (or the same side as 'hot'). A fair coin has no memory: on every toss the chance of each side is a half. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob2-gen-same-prob-pct", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:2", "source": "gen", "key": "pr2c:65:3", "wrong": [65, 50], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "same-prob", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the dry day was given the chance of rain itself (65%). Rain and no rain together are everything that can happen, 100%: 100% - 65% = 35%. Ends at 35%. Names no other mistake." },
+      "tags": ["prob", "generator"]
+    },
+    {
+      "id": "D1-prob3-equiprob-sums", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "diag", "params": {"e": "sum", "t": 7, "sums": [7]}, "wrong": [{"n": 1, "d": 11}, {"n": 1, "d": 5}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "equiprob-sums", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 11 sums from 2 to 12 were taken as equally likely. The 36 cells of the table are equally likely, and sum 7 has 6 of them: 6/36 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3-unordered", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "diag", "params": {"e": "sum", "t": 7, "sums": [7]}, "wrong": [{"n": 3, "d": 36}, {"n": 1, "d": 5}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "unordered", "maxWords": 130,
+        "describe": "Names the app's diagnosis: (1, 6) and (6, 1) were counted as one cell, so sum 7 got 3 cells. They are two cells of the table (a red die and a blue die): 6 cells of 36, 6/36 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3-space-21", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "diag", "params": {"e": "sum", "t": 7, "sums": [7]}, "wrong": [{"n": 3, "d": 21}, {"n": 1, "d": 5}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "space-21", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 21 pairs without order were taken as the equally likely outcomes. They are not: a double is one cell, a pair of two numbers is two. Count the 36 cells: sum 7 has 6, 6/36 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3T-add-probs", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "transfer", "params": {"kind": "coin-die", "n1": 2, "n2": 6, "k1": 1, "k2": 2}, "wrong": [{"n": 5, "d": 6}, {"n": 1, "d": 4}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "add-probs", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the probabilities of the two stages were added (1/2 + 2/6). Heads and then more than 4 is the cells where both hold: in the table of 2 * 6 = 12 cells, (heads, 5) and (heads, 6), so 2/12 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3T-one-stage", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "transfer", "params": {"kind": "coin-die", "n1": 2, "n2": 6, "k1": 1, "k2": 2}, "wrong": [{"n": 1, "d": 3}, {"n": 1, "d": 4}], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "one-stage", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only the die was counted (2/6), and the coin was forgotten. The outcome is a pair; in the table of 12 cells, heads and 5 or 6 are 2 cells: 2/12 = 1/6. Ends at 1/6. Names no other mistake." },
+      "tags": ["prob"]
+    },
+    {
+      "id": "D1-prob3-gen-representativeness", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "prob:3", "source": "gen", "key": "pr3s:1:2:3", "wrong": [0], "phase": "retry",
+      "expect": { "first": "misconception", "diagnosis": "representativeness", "maxWords": 110,
+        "describe": "Names the app's diagnosis: a result that looks mixed was taken as likelier than a double. Each, in order, is one cell of the 36 in the table, with the same chance, 1/36. Does not say which choice is right." },
+      "tags": ["prob", "generator"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

@@ -293,6 +293,25 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // 240 by 12:00, 60 more every two hours, asked 18:00: the trend stopped 240, one step 300, hours as steps 600
     { bugs: { 'last-value': 240, 'one-step': 300, 'hours-as-steps': 600 } },
   ],
+  // Probability (curriculum stage 3, DATA-6)
+  'prob:1': [
+    // cards 1 to 10, more than 7: the count 3, one card 1/10, "it happens or not" 1/2
+    { model: 'diag', p: { n: 10, e: 'gt', t: 7, k: 3 } },
+    // tickets 1 to 100, winners 1-5 and 91-100: 91 to 100 counted as 9 gives 14/100, the count 15
+    { model: 'transfer', p: { N: 100, a: 5, b: 91, w: 15 } },
+  ],
+  'prob:2': [
+    // red 0.35, blue 0.4, not blue: blue's own 0.4, 100 − 0.4, only red added 0.35
+    { bugs: { 'same-prob': 0.4, 'hundred-minus': 99.6, 'others-given': 0.35 } },
+    // winning 3/8, not winning: the same 3/8, 100 − 3/8
+    { bugs: { 'same-prob': 3 / 8, 'hundred-minus': 100 - 3 / 8 } },
+  ],
+  'prob:3': [
+    // a double of two dice: the 21 pairs without order taken as equally likely, 6/21
+    { bugs: { 'space-21': 6 / 21 } },
+    // red (one of three) and tails (one of two): the two added 1/3 + 1/2, one stage only 1/3 or 1/2
+    { bugs: { 'add-probs': 1 / 3 + 1 / 2, 'one-stage': [1 / 3, 1 / 2] } },
+  ],
   // Algebra. As for coord:2 and pyth:3, a prediction counts only when the steps the student has just solved leave it
   // possible: a bracket opened right in a step is not "opened wrong" in the last one, and an equation chosen in a step
   // is not "reversed". What is left is what the last step itself asks.

@@ -2,6 +2,7 @@
 import { R, pick, shuffle, near, TRIPLES, listMath } from './util.js';
 import { LINEAR } from './linear.js';
 import { SYS } from './sys.js';
+import { PROB } from './prob.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { STATS2_LEVELS, STATS2_CATS } from './stats2.js';
@@ -360,4 +361,6 @@ export const GRADE8 = [
     },
   },
   SYS,
+  // curriculum stage 3 (DATA-6): "הסתברות ב", the last unit of ח׳ (March)
+  PROB,
 ];

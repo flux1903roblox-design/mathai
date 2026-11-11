@@ -360,6 +360,14 @@ describe('each unit has its own identity', () => {
       for (let i = 1; i < list.length; i += 1) expect(list[i].color, `grade ${grade}: ${list[i - 1].id} then ${list[i].id}`).not.toBe(list[i - 1].color);
     }
   });
+  // DATA-6: probability (fuchsia) follows systems (petrol), the last unit of ח׳; violet would clash with stage 2's
+  // space unit (violet, May), which school order puts right after it
+  it('probability is fuchsia, beside systems on the ח׳ path, and not violet', () => {
+    const list = topicsFor('8').map((t) => t.id);
+    expect(list.slice(-2)).toEqual(['sys', 'prob']);
+    expect(TOPICS.find((t) => t.id === 'prob').color).toBe('fuchsia');
+    expect(TOPICS.find((t) => t.id === 'sys').color).not.toBe('fuchsia');
+  });
   it('every topic has three drawings: its emblem and two for beside the path', () => {
     for (const t of TOPICS) {
       expect(SCENERY[t.id], `${t.id} has drawings`).toBeTruthy();

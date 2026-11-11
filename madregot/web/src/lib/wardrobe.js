@@ -41,6 +41,8 @@ export const ITEMS = [
   { id: 'percent-pin', slot: 'body', topic: 'pct', name: 'סיכת אחוז', unlock: { chest: 'pct' } },
   // curriculum stage 3's data unit: a tally pin, so every unit in TOPICS has its piece
   { id: 'tally-pin', slot: 'body', topic: 'data', name: 'סיכת ספירה', unlock: { chest: 'data' } },
+  // curriculum stage 3's probability unit: a die pin, so every unit in TOPICS has its piece
+  { id: 'die-pin', slot: 'body', topic: 'prob', name: 'סיכת קובייה', unlock: { chest: 'prob' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
 ];
 

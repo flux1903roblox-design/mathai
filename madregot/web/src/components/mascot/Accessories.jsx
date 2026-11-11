@@ -126,6 +126,13 @@ const DRAW = {
       <path d="M96.5 99 L111.5 91" style={S(ch('sky'))} strokeWidth="2.2" {...round} />
     </>
   ),
+  // probability: a die face showing five, tilted a little
+  'die-pin': () => (
+    <>
+      <rect x="94" y="85" width="20" height="20" rx="5" transform="rotate(-12 104 95)" style={{ ...F(WHITE), ...S(ch('fuchsia', '-d')) }} strokeWidth="2" />
+      {[[99, 90], [109, 90], [104, 95], [99, 100], [109, 100]].map(([x, y]) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.9" transform="rotate(-12 104 95)" style={F(ch('fuchsia'))} />)}
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

@@ -1,7 +1,7 @@
 // Every number curriculum stage 3 writes into its content, computed here: [label, value computed, value written].
 // Labels name the stair and the place (disc n = discover step n, ex = worked example, tog = solve together, mis = a
 // misconception's remedy, ch = challenge, pts = lesson.points, min = the Ministry's own item, as the content retells it).
-// The models' values come from the app's own models (content/data.js), so a quoted bug value is what the app predicts.
+// The models' values come from the app's own models (content/data.js, stats2.js, prob.js), so a quoted bug value is what the app predicts.
 //
 //   npx vite-node scripts/verify/facts-stage3.mjs                         the facts
 //   npx vite-node scripts/verify/facts-stage3.mjs --models <models.mjs>   and the port check: the app's models against
@@ -9,6 +9,7 @@
 //                                                                          by draw, from the same seeds
 import { DATA1, DATA1T, DATA2, DATA2T, DATA3, DATA3T, DATA4, DATA4T, DATA4J } from '../../src/content/data.js';
 import { STATS6, STATS6T, STATS7, STATS7T, STATS8, STATS8T } from '../../src/content/stats2.js';
+import { PROB1, PROB1T, PROB2, PROB2T, PROB3, PROB3T, sumCount, sumPairs } from '../../src/content/prob.js';
 import { PROGRAMME } from '../../../shared/programme.js';
 import { monthIndex } from '../../../shared/coverage.js';
 
@@ -20,6 +21,7 @@ const f = (label, got, want) => F.push([label, got, want]);
 const M = {
   data1: DATA1, data1T: DATA1T, data2: DATA2, data2T: DATA2T, data3: DATA3, data3T: DATA3T, data4: DATA4, data4T: DATA4T, data4J: DATA4J,
   stats6: STATS6, stats6T: STATS6T, stats7: STATS7, stats7T: STATS7T, stats8: STATS8, stats8T: STATS8T,
+  prob1: PROB1, prob1T: PROB1T, prob2: PROB2, prob2T: PROB2T, prob3: PROB3, prob3T: PROB3T,
 };
 const bug = (m, id, p) => M[m].bugs[id](p);
 const ans = (m, p) => M[m].answer(p);
@@ -290,6 +292,67 @@ f('stats:8 mis wrong-end: 2010 100, 2018 180, a year', (180 - 100) / 8, 10);
 f('stats:8 mis wrong-end: 2012', 100 + 2 * 10, 120);
 f('stats:8 mis wrong-end: from 2018 instead', 100 + 6 * 10, 160);
 
+// ======================================================================= prob:1-3 (DATA-6)
+const count = (n, ok) => Array.from({ length: n }, (_, i) => i + 1).filter(ok).length;
+f('prob:1 disc2 a 4 on a die', 1 / 6, 1 / 6);
+f('prob:1 disc3 even: 3 faces', count(6, (v) => v % 2 === 0), 3);
+f('prob:1 disc3 3/6 = 1/2 (lesson point)', 3 / 6, 0.5);
+f('prob:1 raffle 1-9 and 46-72: 9 + 27', 9 + (72 - 46 + 1), 36);
+f('prob:1 raffle 36/72', 36 / 72, 0.5);
+f('prob:1 raffle fencepost 46-72 counted as 26: 35/72', ans('prob1T', { N: 72, a: 9, b: 46, w: 36 }) - 1 / 72, 35 / 72);
+f('prob:1 raffle model 36/72', ans('prob1T', { N: 72, a: 9, b: 46, w: 36 }), 0.5);
+f('prob:1 sticker die counts add to 1000', 255 + 168 + 165 + 170 + 162 + 80, 1000);
+f('prob:1 ex1 multiples of 3 in 1-20', count(20, (v) => v % 3 === 0), 6);
+f('prob:1 ex1 6/20', 6 / 20, 0.3);
+f('prob:1 ex2 more than 5 in 1-8', count(8, (v) => v > 5), 3);
+f('prob:1 ex2 3/8', 3 / 8, 0.375);
+f('prob:1 ex3 two letters of four', 2 / 4, 0.5);
+f('prob:1 tg1 more than 7 in 1-10', count(10, (v) => v > 7), 3);
+f('prob:1 tg1 model answer 3/10', ans('prob1', { n: 10, e: 'gt', t: 7, k: 3 }), 0.3);
+f('prob:1 tg1 one card 1/10', bug('prob1', 'one-over-n', { n: 10, e: 'gt', t: 7, k: 3 }), 0.1);
+f('prob:1 tg2 91-100 is 10 tickets', 100 - 91 + 1, 10);
+f('prob:1 tg2 15/100', ans('prob1T', { N: 100, a: 5, b: 91, w: 15 }), 0.15);
+f('prob:1 tg2 fencepost 14/100', bug('prob1T', 'fencepost', { N: 100, a: 5, b: 91, w: 15 }), 0.14);
+f('prob:1 mis fencepost 72 - 46 = 26 jumps', 72 - 46, 26);
+f('prob:2 Haifa dry 1 - 0.9', r2(1 - 0.9), 0.1);
+f('prob:2 not red: 9 of 12', 9 / 12, 0.75);
+f('prob:2 not red 1 - 3/12', 1 - 3 / 12, 0.75);
+f('prob:2 green 1 - 0.3 - 0.25', r2(1 - 0.3 - 0.25), 0.45);
+f('prob:2 red or blue 0.3 + 0.25', r2(0.3 + 0.25), 0.55);
+f('prob:2 only red taken 1 - 0.3', r2(1 - 0.3), 0.7);
+f('prob:2 at least 2: 5 faces', count(6, (v) => v >= 2), 5);
+f('prob:2 not 6: 5/6', 1 - 1 / 6, 5 / 6);
+f('prob:2 pens: blue 28 · 2/7', (28 * 2) / 7, 8);
+f('prob:2 pens: pink 2 · 8', 2 * 8, 16);
+f('prob:2 pens: others 28 - 8 - 16', 28 - 8 - 16, 4);
+f('prob:2 pens model 4/28 = 1/7', ans('prob2T', { N: 28, a: 2, b: 7, m: 2, blue: 8, pink: 16 }), 1 / 7);
+f('prob:2 pens one-part 1 - 2/7', bug('prob2T', 'one-part', { N: 28, a: 2, b: 7, m: 2, blue: 8, pink: 16 }), 5 / 7);
+f('prob:2 30% rain: 70% dry', 100 - 30, 70);
+f('prob:2 tg1 not blue 1 - 0.4', r2(1 - 0.4), 0.6);
+f('prob:2 tg2 not winning 1 - 3/8', 1 - 3 / 8, 5 / 8);
+f('prob:2 lesson 1 - 0.35', r2(1 - 0.35), 0.65);
+f('prob:3 sum 7: 6 cells', sumCount(7), 6);
+f('prob:3 sum 12: 1 cell', sumCount(12), 1);
+f('prob:3 sum 11: 2 cells', sumCount(11), 2);
+f('prob:3 sum 7 6/36 = 1/6', ans('prob3', { e: 'sum', t: 7, sums: [7] }), 1 / 6);
+f('prob:3 sum 7 equiprob 1/11', bug('prob3', 'equiprob-sums', { e: 'sum', t: 7, sums: [7] }), 1 / 11);
+f('prob:3 sum 7 unordered 3/36', bug('prob3', 'unordered', { e: 'sum', t: 7, sums: [7] }), 3 / 36);
+f('prob:3 sum 7 unordered pairs', sumPairs(7), 3);
+f('prob:3 at least 10: 3 + 2 + 1', sumCount(10) + sumCount(11) + sumCount(12), 6);
+f('prob:3 coin and die: 2 · 6 cells', 2 * 6, 12);
+f('prob:3 heads and more than 4: 2/12', ans('prob3T', { kind: 'coin-die', n1: 2, n2: 6, k1: 1, k2: 2 }), 1 / 6);
+f('prob:3 coin-die add-probs 1/2 + 2/6', bug('prob3T', 'add-probs', { kind: 'coin-die', n1: 2, n2: 6, k1: 1, k2: 2 }), 5 / 6);
+f('prob:3 doubles 6/36', 6 / 36, 1 / 6);
+f('prob:3 doubles on the diagonal', [1, 2, 3, 4, 5, 6].length, 6);
+f('prob:3 wheel of 3 and coin: 6 cells', 3 * 2, 6);
+f('prob:3 21 pairs without order', sumPairs(2) + sumPairs(3) + sumPairs(4) + sumPairs(5) + sumPairs(6) + sumPairs(7) + sumPairs(8) + sumPairs(9) + sumPairs(10) + sumPairs(11) + sumPairs(12), 21);
+f('prob:3 double 1 is one cell, 1 and 2 in any order two', JSON.stringify([sumCount(2), sumCount(3)]), JSON.stringify([1, 2]));
+f('prob:3 together diag space-21 6/21', 6 / 21, 2 / 7);
+f('prob:c2 sum 11 twice sum 12', sumCount(11) / sumCount(12), 2);
+f('prob:c3 Haifa dry 1 - 0.9', r2(1 - 0.9), 0.1);
+f('prob:c3 Arad 0.05 < 0.2', 0.05 < 0.2, true);
+f('prob:c1 not 6 on a die', 5 / 6, 1 - 1 / 6);
+
 // ======================================================================= challenges and points
 f('data:c1 (min) Ido 12 of 20', (100 * 12) / 20, 60);
 f('data:c1 (min) Noam 7 of 10', (100 * 7) / 10, 70);
@@ -316,11 +379,14 @@ f('8.10 is 8 h of stats:2-5 and 4 h of stats:6-7', JSON.stringify(units['8.10'].
 f('8.11 is 4 h of stats:8', JSON.stringify(units['8.11'].parts.map((p) => [p.hours, p.skills])), JSON.stringify([[4, ['stats:8']]]));
 f('month stats:6 for ח׳ (December)', monthIndex('stats:6', '8'), 3);
 f('month stats:8 for ח׳ (January)', monthIndex('stats:8', '8'), 4);
+f('8.16 is 2 h of data:4 and 4 h of prob:1-3', JSON.stringify(units['8.16'].parts.map((p) => [p.hours, p.skills])), JSON.stringify([[2, ['data:4']], [4, ['prob:1', 'prob:2', 'prob:3']]]));
+f('month prob:1 for ח׳ (March)', monthIndex('prob:1', '8'), 6);
+f('prob:1 is no ז׳ stair', monthIndex('prob:1', '7'), null);
 
 const same = (a, b) => (typeof a === 'number' && typeof b === 'number' ? Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b)) : a === b);
 const bad = F.filter(([, got, want]) => !same(got, want));
 bad.forEach(([label, got, want]) => console.log(`  FAIL ${label}: computed ${got}, written ${want}`));
-console.log(`${F.length} data:1-4 and stats:6-8 facts checked${bad.length ? `, ${bad.length} FAILED` : ', all pass'}`);
+console.log(`${F.length} data:1-4, stats:6-8 and prob:1-3 facts checked${bad.length ? `, ${bad.length} FAILED` : ', all pass'}`);
 
 // ---------------------------------------------------------------- the port check (optional)
 const at = process.argv.indexOf('--models');
@@ -339,6 +405,6 @@ if (at > 0) {
       if (ka !== ks || JSON.stringify(va) !== JSON.stringify(vs)) { portBad += 1; if (portBad < 5) console.log(`  PORT ${name} draw ${i}: ${ka} ≠ ${ks}`); }
     }
   }
-  console.log(`${n} draws of the ${Object.keys(M).length} data and statistics models compared with the spec's, ${portBad} differences`);
+  console.log(`${n} draws of the ${Object.keys(M).length} data, statistics and probability models compared with the spec's, ${portBad} differences`);
 }
 process.exit(bad.length || portBad ? 1 : 0);

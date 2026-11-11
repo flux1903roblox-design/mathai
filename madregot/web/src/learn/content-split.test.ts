@@ -25,6 +25,7 @@ import { CATS_SIGNED6 } from './content/signed6';
 import { CATS_RATIO } from './content/ratio';
 import { CATS_PCT } from './content/pct';
 import { CATS_DATA } from './content/data';
+import { CATS_PROB } from './content/prob';
 // @ts-ignore: no Node types in this project
 import { spawnSync } from 'node:child_process';
 // @ts-ignore: no Node types in this project
@@ -120,8 +121,8 @@ describe('meta.gen.ts', () => {
     const before: Record<string, Record<string, string>> = {
       signed: { ...CATS_SIGNED, ...CATS_SIGNED6 }, coord: CATS_COORD, angles: CATS_ANGLES, expr: CATS_EXPR, eq: CATS_EQ, line: { ...CATS_LINE1, ...CATS_LINE2 }, pyth: CATS_PYTH, stats: CATS_STATS, sys: CATS_SYS,
       // the curriculum lane's units, as its registry had them: the bridge unit (frac), signed:6 in its own file (its
-      // names join signed's), and grade 8's ratio and percent; curriculum stage 3's data names all its own in the topic
-      frac: CATS_FRAC, ratio: CATS_RATIO, pct: CATS_PCT, data: CATS_DATA,
+      // names join signed's), and grade 8's ratio and percent; curriculum stage 3's data names all its own in the topic, and so does its probability
+      frac: CATS_FRAC, ratio: CATS_RATIO, pct: CATS_PCT, data: CATS_DATA, prob: CATS_PROB,
     };
     expect(Object.keys(NEW_CATS).sort()).toEqual(Object.keys(before).sort());
     for (const t of Object.keys(before)) expect(JSON.stringify(NEW_CATS[t as keyof typeof NEW_CATS]), t).toBe(JSON.stringify(before[t]));

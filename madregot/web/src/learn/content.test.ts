@@ -19,7 +19,7 @@ import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TIL
 // @ts-ignore: plain JS
 import { TOPIC, fairForCheck, makeItem, namesOf } from '@/content/index.js';
 // @ts-ignore: plain JS
-import { T } from '@/content/util.js';
+import { T, exactTex } from '@/content/util.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -291,8 +291,10 @@ function checkModel(model: DiagModel<any>, c: StairContent, name: string) {
     expect(model.hint(p), at).toBeTruthy();
     const sol = model.solution(p);
     expect(sol.length, at).toBeGreaterThan(0);
-    // the worked solution ends at the same answer the checker accepts
-    expect(sol.join(' ').includes(String(T(ans))) || sol.join(' ').includes(String(ans)), `${at}: solution does not reach ${ans}`).toBe(true);
+    // the worked solution ends at the same answer the checker accepts (a model answered as a fraction, at the fraction in
+    // lowest terms: prob:3's 10/36 = 5/18)
+    const reaches = sol.join(' ').includes(String(T(ans))) || sol.join(' ').includes(String(ans)) || (model.form === 'frac' && sol.join(' ').includes(exactTex(ans)));
+    expect(reaches, `${at}: solution does not reach ${ans}`).toBe(true);
     Object.entries(model.bugs).forEach(([id, f]) => {
       const v = f(p);
       if (v != null && Number.isFinite(v) && !same(v, ans)) fired[id] = (fired[id] || 0) + 1;
@@ -604,6 +606,58 @@ describe('data and frequency teaches with pictures', () => {
       }
     }
     expect(listed).toBeGreaterThan(150);
+  }, 30_000);
+});
+
+describe('probability teaches with pictures (DATA-6)', () => {
+  const prob = stairs.filter((c) => c.topic === 'prob');
+  it('every discover step of prob:1-3 has a figure or an object, and the unit throws dice and coins for real', () => {
+    expect(prob.map((c) => c.skill)).toEqual(['prob:1', 'prob:2', 'prob:3']);
+    const bare = prob.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
+    expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
+    const devices = prob.flatMap((c) => [...c.discover, ...c.misconceptions.flatMap((m) => m.remedy)].filter((st) => st.kind === 'explore').map((st) => (st as { manip: { kind: string; device?: string } }).manip))
+      .filter((m) => m.kind === 'simulate').map((m) => m.device);
+    expect(new Set(devices)).toEqual(new Set(['die', 'dice2', 'coin']));
+  });
+  it('every figure of the unit renders, and a table of outcomes is plain text', () => {
+    const figs = prob.flatMap((c) => [
+      ...c.discover, ...c.misconceptions.flatMap((m) => m.remedy),
+      ...c.examples, ...c.together,
+    ].map((x) => (x as { fig?: FigSpec }).fig).filter(Boolean) as FigSpec[]);
+    expect(new Set(figs.map((f) => f.type))).toEqual(new Set(['outcomes', 'chart', 'table', 'fbar', 'numline']));
+    figs.filter((f) => f.type === 'outcomes').forEach((f) => {
+      const o = f as unknown as { rows?: string[]; cols: string[]; cells?: string[][] };
+      [...(o.rows || []), ...o.cols, ...(o.cells || []).flat()].forEach((cell) => expect(String(cell), 'an outcome cell').not.toMatch(/\$/));
+    });
+    figs.forEach((fig) => {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, fig.type).toMatch(/<svg|<table/);
+      expect(html, fig.type).not.toMatch(/NaN|undefined|Infinity/);
+    });
+  });
+  // the updated curriculum: "בשלב הזה עדיין לא משתמשים בסימון של מאורע באותיות"
+  it('names no event with a letter: no P(A), no "P =", in the teaching or the practice', () => {
+    const LETTER = /P\s*(?:\\left)?\s*\(|P\s*=|\\(?:mathrm|text)\{P\}/;
+    expect(JSON.stringify(prob)).not.toMatch(LETTER);
+    for (const level of [1, 2, 3]) {
+      for (let i = 0; i < 80; i += 1) {
+        const it = makeItem('prob', level);
+        expect(JSON.stringify([it.text, it.display, it.solution, it.hint, it.choices]), it.key).not.toMatch(LETTER);
+      }
+    }
+  });
+  it('an exercise\'s listed predictions name every misconception the search finds', () => {
+    let listed = 0;
+    for (const level of [1, 2]) {
+      for (let i = 0; i < 60; i += 1) {
+        const it = makeItem('prob', level);
+        if (!it.diag.wrongs || it.form !== 'num') continue;
+        listed += 1;
+        const searched = namesOf({ ...it, diag: (u: unknown) => it.diag(u) });
+        expect(namesOf(it), it.key).toEqual(expect.arrayContaining(searched));
+      }
+    }
+    expect(listed).toBeGreaterThan(60);
   }, 30_000);
 });
 

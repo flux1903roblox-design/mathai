@@ -15,7 +15,8 @@ import { checkPlan, itemFor, modelItem } from './items';
 import { ensureTopics, topicsReady, hasContent, META } from './content/index';
 import type { DiagModel, StairContent } from './types';
 // @ts-ignore: plain JS
-import { TOPICS, topicsFor, isCorrect, readAnswer, answerText, answerInput } from '@/content/index.js';
+import { TOPICS, topicsFor, isCorrect, readAnswer, answerText, answerInput, makeItem, namesOf } from '@/content/index.js';
+import { PROB } from './content/prob';
 
 // the same generator as main.jsx's test seed
 const seeded = (seed: number) => { let t = seed >>> 0; return () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; };
@@ -115,5 +116,38 @@ describe('a model answered as a fraction', () => {
   it('a model with no form is a number, as before', () => {
     const num = modelItem(stair, { ...DICE, form: undefined }, { s: 7 }, 'diag');
     expect(num.form).toBe('num');
+  });
+});
+
+// Curriculum stage 3's real prob:3 (DATA-6): its model and its practice exercise answer as a fraction, as the fixture
+// above does.
+describe('prob:3, the sum of two dice, answered as a fraction', () => {
+  it('its model: 6/36 and 1/6 right; 1/11, 3/36 and 3/21 the three documented errors', () => {
+    const stair = PROB[2];
+    expect(stair.skill).toBe('prob:3');
+    const it7 = modelItem(stair, stair.diag!, { e: 'sum', t: 7, sums: [7] }, 'diag');
+    expect(it7.form).toBe('frac');
+    expect(isCorrect(it7, { n: 6, d: 36 })).toBe(true);
+    expect(isCorrect(it7, { n: 1, d: 6 })).toBe(true);
+    expect(isCorrect(it7, { n: 1, d: 11 })).toBe(false);
+    expect(it7.diag({ n: 1, d: 11 })).toBe('equiprob-sums');
+    expect(it7.diag({ n: 3, d: 36 })).toBe('unordered');
+    expect(it7.diag({ n: 1, d: 7 })).toBe('space-21');
+  });
+  it('its practice exercise: the same, and a fraction near a prediction (1/10 for 1/11) names nothing', () => {
+    let it7: any = null;
+    for (let i = 0; i < 20000 && !it7; i += 1) { const x = makeItem('prob', 3); if (x.key === 'pr3:sum:7') it7 = x; }
+    expect(it7, 'the generator makes sum 7').toBeTruthy();
+    expect(it7.form).toBe('frac');
+    expect(isCorrect(it7, { n: 6, d: 36 })).toBe(true);
+    expect(isCorrect(it7, readAnswer(it7, { n: '1', d: '6' }))).toBe(true);
+    expect(it7.diag({ n: 1, d: 11 })).toBe('equiprob-sums');
+    expect(it7.diag({ n: 2, d: 22 })).toBe('equiprob-sums');
+    expect(it7.diag({ n: 1, d: 12 })).toBe('unordered');
+    expect(it7.diag({ n: 3, d: 21 })).toBe('space-21');
+    expect(it7.diag({ n: 1, d: 10 })).toBeNull();
+    expect(it7.diag({ n: 6, d: 36 })).toBeNull();
+    // a verification's probe finds the three at once (the predictions, listed as fractions)
+    expect(namesOf(it7).sort()).toEqual(['equiprob-sums', 'space-21', 'unordered']);
   });
 });

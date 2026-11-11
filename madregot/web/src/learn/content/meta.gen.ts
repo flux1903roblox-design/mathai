@@ -827,6 +827,100 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "prob:1": {
+    "title": "תוצאות שוות סיכוי",
+    "misconceptions": [
+      {
+        "id": "count-not-prob",
+        "title": "כתבו את מספר התוצאות המתאימות במקום ההסתברות"
+      },
+      {
+        "id": "one-over-n",
+        "title": "כתבו את ההסתברות של תוצאה אחת במקום של כל התוצאות המתאימות"
+      },
+      {
+        "id": "equiprob-event",
+        "title": "חשבו שמה שקורה או לא קורה הוא חצי"
+      },
+      {
+        "id": "fencepost",
+        "title": "ספרו את המספרים מ־$a$ עד $b$ כאילו יש $b - a$ ולא $b - a + 1$"
+      },
+      {
+        "id": "no-symmetry",
+        "title": "הניחו סיכוי שווה גם כשהקובייה או המטבע לא סימטריים"
+      }
+    ],
+    "transfer": true
+  },
+  "prob:2": {
+    "title": "מאורע משלים",
+    "misconceptions": [
+      {
+        "id": "same-prob",
+        "title": "נתנו למשלים אותה הסתברות"
+      },
+      {
+        "id": "hundred-minus",
+        "title": "השלימו ל־$100$ הסתברות שכתובה כמספר בין $0$ ל־$1$"
+      },
+      {
+        "id": "others-given",
+        "title": "חיברו רק את ההסתברויות שכתובות, ושכחו תוצאה שלא כתובה"
+      },
+      {
+        "id": "one-part",
+        "title": "הורידו רק חלק מהתוצאות שאינן מתאימות"
+      },
+      {
+        "id": "count-not-prob",
+        "title": "כתבו את מספר התוצאות המתאימות במקום ההסתברות"
+      },
+      {
+        "id": "gambler",
+        "title": "חשבו שאחרי הרבה פעמים אותה תוצאה, הסיכוי לשנייה גדל"
+      },
+      {
+        "id": "outcome-approach",
+        "title": "קראו הסתברות כתחזית בטוחה או כחלק מהזמן"
+      },
+      {
+        "id": "complement-only",
+        "title": "חישבו את ההסתברות של המשלים, ולא החסירו אותה מ־$1$"
+      }
+    ],
+    "transfer": true
+  },
+  "prob:3": {
+    "title": "ניסוי בשני שלבים",
+    "misconceptions": [
+      {
+        "id": "equiprob-sums",
+        "title": "חשבו שכל הסכומים של שתי קוביות שווי סיכוי"
+      },
+      {
+        "id": "unordered",
+        "title": "ספרו את $(5, 6)$ ואת $(6, 5)$ כתוצאה אחת"
+      },
+      {
+        "id": "space-21",
+        "title": "מנו $21$ זוגות בלי סדר כאילו הם שווי סיכוי"
+      },
+      {
+        "id": "add-probs",
+        "title": "חיברו את ההסתברויות של שני השלבים"
+      },
+      {
+        "id": "one-stage",
+        "title": "חישבו את ההסתברות של שלב אחד בלבד"
+      },
+      {
+        "id": "representativeness",
+        "title": "חשבו שתוצאה שנראית \"מסודרת\" פחות סבירה מתוצאה שנראית מעורבבת"
+      }
+    ],
+    "transfer": true
+  },
   "pyth:1": {
     "title": "מציאת היתר",
     "misconceptions": [
@@ -1423,6 +1517,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "neg-length": "השאירו אורך שלילי, והשטח יצא שלילי"
   },
   "pct": {},
+  "prob": {},
   "pyth": {
     "wrong-hyp": "זיהו לא נכון מי היתר",
     "assume-right": "הניחו שהמשולש ישר־זווית בלי לבדוק",

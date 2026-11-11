@@ -35,14 +35,14 @@ const LIST = [12, 5, 9, 17, 8];
 const WIND = [0.5, 1.2, 2.4, 1.8];
 const YOAV = ['6.20', '6.45', '6.80', '6.50'];
 const jumpPair = (cross: boolean) => pair(
-  G.windFig(WIND, { xs: [1, 2, 3, 4], ...(cross ? { cross: [2] } : {}) }),
+  G.windFig(WIND, { xs: [1, 2, 3, 4], ...(cross ? { cross: [2] } : {}) }) as FigSpec,
   table(['קפיצה', 'מרחק (מטר)'], YOAV.map((d, i) => [i + 1, d]), cross ? { cross: [2] } : {}),
   ['מקור 1: הרוח', 'מקור 2: הקפיצות של יואב'],
 );
 /** Five jumps of another jumper, in centimetres (stair 7, step 4 and example 1). */
 const WIND5 = [1.4, 2.3, 0.8, 1.9, 2.6];
 const DIST5 = [612, 640, 628, 635, 655];
-const jumps5 = pair(G.windFig(WIND5), G.jumpsTable(DIST5), ['מקור 1: הרוח', 'מקור 2: המרחקים']);
+const jumps5 = pair(G.windFig(WIND5) as FigSpec, G.jumpsTable(DIST5) as FigSpec, ['מקור 1: הרוח', 'מקור 2: המרחקים']);
 /** The bill (the Ministry's, own numbers): this year January–May, last year's seasonal monthly means. */
 const BILL = { m: [520, 480, 420, 390, 360], seasons: [600, 350, 480, 400] };
 /** The population (the Ministry's): 2.0 million in 2010, 3.2 million in 2016. */
@@ -204,7 +204,7 @@ type P7 = { L: number; legal: number[]; wind: number[]; d: number[] };
 const stats7: DiagModel<P7> = {
   params: (rnd) => G.STATS7.params(rnd),
   text: () => G.stats7Text(),
-  fig: (p) => G.stats7Fig(p),
+  fig: (p) => G.stats7Fig(p) as FigSpec,
   answer: (p) => G.STATS7.answer(p),
   bugs: G.STATS7.bugs,
   solution: (p) => G.stats7Solution(p),
@@ -215,7 +215,7 @@ type P7T = { m: number[]; S: number; seasons: number[] };
 const stats7T: DiagModel<P7T> = {
   params: (rnd) => G.STATS7T.params(rnd),
   text: () => G.stats7TText(),
-  fig: (p) => G.billFig(p),
+  fig: (p) => G.billFig(p) as FigSpec,
   answer: (p) => G.STATS7T.answer(p),
   bugs: G.STATS7T.bugs,
   solution: (p) => G.stats7TSolution(p),
@@ -230,7 +230,7 @@ const JUMPS5_PREDICT = { kind: 'predict' as const, text: 'קפיצה נחשבת 
   choices: ['$625$', '$634$', '$375$'], answer: 0,
   why: 'נחשבות $1$, $3$, $4$: $612 + 628 + 635 = 1875$, ו־$1875 : 3 = 625$.',
   wrongWhy: { 1: '$634$ הוא הממוצע של כל חמש הקפיצות, גם הפסולות.', 2: 'חילקתם ב־$5$ את הסכום של שלוש.' } };
-const BILL_PREDICT = { kind: 'predict' as const, text: 'בכמה קוט״ש הממוצע החודשי באביב השנה (מרץ, אפריל ומאי) גבוה מהממוצע החודשי באביב בשנה שעברה?', fig: G.billFig(BILL),
+const BILL_PREDICT = { kind: 'predict' as const, text: 'בכמה קוט״ש הממוצע החודשי באביב השנה (מרץ, אפריל ומאי) גבוה מהממוצע החודשי באביב בשנה שעברה?', fig: G.billFig(BILL) as FigSpec,
   choices: ['$40$', '$820$', '$84$'], answer: 0,
   why: '$420 + 390 + 360 = 1170$, ו־$1170 : 3 = 390$; $390 - 350 = 40$.',
   wrongWhy: { 1: '$1170 - 350$ משווה סכום של שלושה חודשים לממוצע של חודש.', 2: '$84$: הממוצע של כל חמשת החודשים, גם החורף.' } };
@@ -287,7 +287,7 @@ const stair7: StairContent = {
   ],
   together: [
     { problem: 'השנה צרכה משפחה $460$, $440$, $380$, $350$ ו־$320$ קוט״ש בינואר עד מאי. בשנה שעברה הממוצע החודשי באביב היה $330$. בכמה גבוה הממוצע החודשי באביב השנה?',
-      fig: G.billFig({ m: [460, 440, 380, 350, 320], seasons: [600, 330, 500, 400] }),
+      fig: G.billFig({ m: [460, 440, 380, 350, 320], seasons: [600, 330, 500, 400] }) as FigSpec,
       steps: [
         { prompt: 'אילו חודשים הם האביב?', choices: [
           { text: 'מרץ, אפריל, מאי', ok: true, feedback: 'נכון: שלושת חודשי האביב.' },
@@ -343,7 +343,7 @@ type P8 = { d: number; j: number; rate: number; y1: number; y2: number; x1: numb
 const stats8: DiagModel<P8> = {
   params: (rnd) => G.STATS8.params(rnd),
   text: (p) => G.stats8Text(p),
-  fig: (p) => G.stats8Fig(p),
+  fig: (p) => G.stats8Fig(p) as FigSpec,
   answer: (p) => G.STATS8.answer(p),
   bugs: G.STATS8.bugs,
   solution: (p) => G.stats8Solution(p),
@@ -353,7 +353,7 @@ type P8T = { t0: number; a: number; s: number; vals: number[]; at: number };
 const stats8T: DiagModel<P8T> = {
   params: (rnd) => G.STATS8T.params(rnd),
   text: (p) => G.stats8TText(p),
-  fig: (p) => G.stats8TFig(p),
+  fig: (p) => G.stats8TFig(p) as FigSpec,
   answer: (p) => G.STATS8T.answer(p),
   bugs: G.STATS8T.bugs,
   solution: (p) => G.stats8TSolution(p),
@@ -367,7 +367,7 @@ const POP_PREDICT = { kind: 'predict' as const, text: 'מה הייתה האוכ�
 const POP_EXPLORE = { kind: 'explore' as const, text: 'הזיזו את הסמן ל־$2014$, ארבע שנים אחרי $2010$.',
   manip: moveT({ max: 6, step: 1, label: 'שנים אחרי 2010' }, { max: 1.2, step: 0.2, label: 'גידול (מיליונים)' }), answer: 4,
   hint: 'כל שנה היא שנתה אחת למעלה.', success: '$0.8$ מיליון גידול: $2.0 + 0.8 = 2.8$.' };
-const FESTIVAL = { kind: 'predict' as const, text: 'אם המגמה תימשך, כמה כרטיסים יימכרו עד $16{:}00$?', fig: G.ticketsFig(TICKETS),
+const FESTIVAL = { kind: 'predict' as const, text: 'אם המגמה תימשך, כמה כרטיסים יימכרו עד $16{:}00$?', fig: G.ticketsFig(TICKETS) as FigSpec,
   choices: ['$800$', '$650$', '$950$'], answer: 0,
   why: 'בכל שעתיים עוד $150$: $650 + 150 = 800$.',
   wrongWhy: { 1: '$650$ הם הכרטיסים עד $14{:}00$. אם המגמה נמשכת, נמכרים עוד.', 2: '$950$: ספרתם שתי שעות כשני צעדים. צעד אחד הוא שעתיים.' } };
@@ -376,7 +376,7 @@ const GROWTH = { kind: 'predict' as const, text: 'ילד גדל $6$ ס״מ בש�
   choices: ['לא הגיוני להמשיך כך: $258$ ס״מ, ואנשים מפסיקים לגדול', '$258$ ס״מ'], answer: 0,
   why: '$138 + 20 \\cdot 6 = 258$ ס״מ, יותר משני מטרים וחצי. מגמה לא נמשכת לעד.' };
 const STEPS_PREDICT = { kind: 'predict' as const, text: 'ב־$8{:}00$ נמכרו $120$ כרטיסים, ב־$10{:}00$ $180$ וב־$12{:}00$ $240$. כמה צעדים של שעתיים יש מ־$12{:}00$ עד $18{:}00$?',
-  fig: G.ticketsFig([120, 180, 240]),
+  fig: G.ticketsFig([120, 180, 240]) as FigSpec,
   choices: ['$3$', '$6$', '$1$'], answer: 0,
   why: '$14{:}00$, $16{:}00$ ו־$18{:}00$: שלושה צעדים של שעתיים. עד $18{:}00$ נמכרים $240 + 3 \\cdot 60 = 420$.',
   wrongWhy: { 1: '$6$ שעות הן $3$ צעדים של שעתיים.', 2: '$14{:}00$ הוא רק הצעד הראשון.' } };
@@ -408,7 +408,7 @@ const stair8: StairContent = {
       wrongWhy: { 1: '$7400$ הוא השכר בפברואר: כאילו השכר לא עלה במרץ.', 2: '$7900$ הוא השכר באפריל, חודש אחרי מרץ.' } },
     FESTIVAL,
     { kind: 'rule', text: 'אקסטרפולציה: מעריכים מעבר לנתונים, לפי המגמה. ככל שמתרחקים, ההערכה פחות בטוחה.',
-      why: 'לא יודעים אם המגמה תימשך: אולי הכרטיסים ייגמרו.', fig: G.ticketsFig([...TICKETS, 800], { dashed: 1 }) },
+      why: 'לא יודעים אם המגמה תימשך: אולי הכרטיסים ייגמרו.', fig: G.ticketsFig([...TICKETS, 800], { dashed: 1 }) as FigSpec },
     GROWTH,
   ],
   examples: [
@@ -442,7 +442,7 @@ const stair8: StairContent = {
       ],
       final: { prompt: 'כמה חברים היו ב־$2013$?', answer: 60, check: '48 + 2*6', hints: ['$2013$ היא שנתיים אחרי $2011$.', '$48 + 2 \\cdot 6$.'] } },
     { problem: 'ב־$8{:}00$ נמכרו $120$ כרטיסים, ב־$10{:}00$ $180$, ב־$12{:}00$ $240$. אם המגמה תימשך, כמה עד $18{:}00$?',
-      fig: G.ticketsFig([120, 180, 240]),
+      fig: G.ticketsFig([120, 180, 240]) as FigSpec,
       steps: [
         { prompt: 'כמה צעדים של שעתיים מ־$12{:}00$ עד $18{:}00$?', choices: [
           { text: '$3$', ok: true, feedback: 'נכון: $14{:}00$, $16{:}00$ ו־$18{:}00$.' },

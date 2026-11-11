@@ -884,6 +884,13 @@ script. They now load one topic at a time, and nothing the student sees changed.
   script for offline use, so the precache grew to 4.84 MB, over its 4.79 MB gate; moving code behind an import cannot
   shrink it (a lazy chunk is precached too), so that gate moved by the same rule (measured + 5%, rounded down) to
   **5.08 MB**. Open work, unchanged.
+  Its statistics stairs 6-8 and probability unit (`stats:6-8`, `prob:1-3`, the stage's seventh and eighth steps) add
+  their exercise generators (`content/stats2.js`, `content/prob.js`) and three more challenge tasks: boot JS **465.7 KB**,
+  over the gate. So the first open work item was done: the challenge tasks' stories and parts left the first download
+  (`learn/challenges/all.ts`, imported only by the challenge screen, a chunk of its own: `Challenge-*.js`, 22.8 KB
+  gzipped), and the first load keeps each task's id, topic, stair, kind, title and minutes (`learn/challenges/meta.gen.ts`,
+  written by `scripts/gen-content-meta.mjs` with the content meta and checked the same way). Boot JS **450.7 KB** under
+  the 456 KB gate, CSS 54.4 KB unchanged, precache 4.97 MB under 5.08 MB; no gate moved. Open work: the figure words.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

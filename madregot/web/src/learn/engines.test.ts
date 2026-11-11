@@ -112,7 +112,7 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
   it('puts pct after ratio and before line, and keeps the first-day test at 18 questions', async () => {
     expect(TOPIC_ORDER.indexOf('pct')).toBe(TOPIC_ORDER.indexOf('ratio') + 1);
     expect(TOPIC_ORDER.indexOf('pct')).toBeLessThan(TOPIC_ORDER.indexOf('line'));
-    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'data', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys']);
+    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'data', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys', 'prob']);
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
     // @ts-ignore: plain JS
@@ -145,7 +145,7 @@ describe('the data unit on the ח׳ path this year (the real ALSO_ON_PATH)', () 
   const ids = (list: { id: string }[]) => list.map((t) => t.id);
   it('is the ח׳ map\'s third unit and stays on the ז׳ map, once in every list', async () => {
     expect(ALSO_ON_PATH).toEqual({ data: { grade: '8', after: 'pct' } });
-    expect(ids(topicsFor('8'))).toEqual(['ratio', 'pct', 'data', 'line', 'pyth', 'stats', 'sys']);
+    expect(ids(topicsFor('8'))).toEqual(['ratio', 'pct', 'data', 'line', 'pyth', 'stats', 'sys', 'prob']);
     expect(ids(topicsFor('7'))).toEqual(['signed', 'coord', 'angles', 'expr', 'data', 'eq']);
     for (const g of ['7', '8']) {
       const list = ids(rescueTopicsFor(g));
@@ -164,7 +164,7 @@ describe('the data unit on the ח׳ path this year (the real ALSO_ON_PATH)', () 
     }
     expect(gradeSkillsOf('8').slice(0, 10)).toEqual(['ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5', 'data:1']);
     // with a fixture table too: expressions right after percent on the ח׳ path
-    expect(gradePathOf('8', { expr: { grade: '8', after: 'pct' } })).toEqual(['ratio', 'pct', 'expr', 'line', 'pyth', 'stats', 'sys']);
+    expect(gradePathOf('8', { expr: { grade: '8', after: 'pct' } })).toEqual(['ratio', 'pct', 'expr', 'line', 'pyth', 'stats', 'sys', 'prob']);
   });
   it('its stairs are ח׳\'s own; a fresh one is missing; the screens number and name it for ח׳', () => {
     for (let l = 1; l <= STAIRS.data!; l += 1) {
@@ -183,9 +183,34 @@ describe('the data unit on the ח׳ path this year (the real ALSO_ON_PATH)', () 
   });
 });
 
+// Curriculum stage 3 (DATA-6): ח׳'s "הסתברות ב" (March, unit 8.16) is the last unit of the year, on the ח׳ path only
+describe('probability, the last unit of ח׳', () => {
+  it('ends TOPIC_ORDER and the ח׳ map, is ח׳\'s own, and is not in the first-day test', async () => {
+    expect(TOPIC_ORDER.at(-1)).toBe('prob');
+    expect(GRADE_OF.prob).toBe('8');
+    expect(STAIRS.prob).toBe(3);
+    expect(topicsFor('8').at(-1)!.id).toBe('prob');
+    expect(gradeSkillsOf('8').slice(-3)).toEqual(['prob:1', 'prob:2', 'prob:3']);
+    expect(gradeSkillsOf('7').filter((s) => s.startsWith('prob:'))).toEqual([]);
+    expect(topicsFor('7').map((t: { id: string }) => t.id)).not.toContain('prob');
+    // a ז׳ student is never missing a ח׳ stair; a ח׳ student starts it like any stair of the year
+    expect(isMissing(ctx(empty(), '7'), 'prob:1')).toBe(false);
+    expect(isMissing(ctx(empty(), '8'), 'prob:1')).toBe(true);
+    expect(prereqsOf('prob:1')).toEqual(['data:4']);
+    expect(prereqsOf('prob:3')).toEqual(['prob:1', 'prob:2']);
+    // @ts-ignore: plain JS
+    const { placementMax } = await import('@/lib/placement.js');
+    // @ts-ignore: plain JS
+    const { placementTopicsFor } = await import('@/content/index.js');
+    expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('prob');
+    expect(placementMax('8')).toBe(18); // taught in March: the first-day test does not ask it
+    expect(unitNumber(TOPIC.prob, '8')).toBe(8);
+  });
+});
+
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(69); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year), data:1-4 and stats:6-8
+    expect(ALL_SKILLS).toHaveLength(72); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year), data:1-4, stats:6-8 and prob:1-3
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));
@@ -217,7 +242,7 @@ describe('a unit on two grades\' paths (ALSO_ON_PATH)', () => {
     }
   });
   it('draws the unit on the other grade\'s path right after its `after` unit, and keeps it on its own', () => {
-    expect(ids(topicsFor('8', ALSO))).toEqual(['ratio', 'pct', 'expr', 'line', 'pyth', 'stats', 'sys']);
+    expect(ids(topicsFor('8', ALSO))).toEqual(['ratio', 'pct', 'expr', 'line', 'pyth', 'stats', 'sys', 'prob']);
     expect(ids(topicsFor('7', ALSO))).toEqual(ids(topicsFor('7', {})));
     expect(ids(topicsFor('7', ALSO)).filter((id) => id === 'expr')).toHaveLength(1);
     // an `after` that is not on the path puts it last; a bridge unit is never drawn
@@ -259,8 +284,8 @@ describe('a unit on two grades\' paths (ALSO_ON_PATH)', () => {
     expect(unitGrade(expr, '8', {})).toBe('7');
     expect(unitGrade(expr, undefined, ALSO)).toBe('7');
   });
-  it('the real catalogue is unchanged by the table: 69 stairs and an 18-question first-day test for ח׳', async () => {
-    expect(ALL_SKILLS).toHaveLength(69);
+  it('the real catalogue is unchanged by the table: 72 stairs and an 18-question first-day test for ח׳', async () => {
+    expect(ALL_SKILLS).toHaveLength(72);
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
     expect(placementMax('8')).toBe(18);

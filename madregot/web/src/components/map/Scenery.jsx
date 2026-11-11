@@ -3,7 +3,8 @@
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
 // statistics, tiles and brackets for expressions, a balance for equations, two crossing lines for systems, a
 // fraction bar, a pie in eighths and a jug in tenths for the fractions floor, a tally board, a pictogram row and a
-// ballot box for data. Colours come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is
+// ballot box for data, a wheel with its pointer, a coin in the air and a table of outcomes for probability. Colours
+// come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is
 // the unit's emblem on its banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
 
 const Thermometer = () => (
@@ -409,6 +410,44 @@ const SurveyBox = () => (
   </svg>
 );
 
+// Probability.
+/**
+ * The emblem: a wheel of four sectors, two of them one colour, a centre pin and a large pointer at the top. The pointer
+ * tells it from stats' pie and the fractions' eighths at 24 px, and the wheel is not a loading spinner.
+ */
+const WheelPointer = () => (
+  <svg viewBox="0 0 100 100">
+    <circle cx="50" cy="56" r="38" className="sc-w sc-line" />
+    <path d="M50 56 L50 18 A38 38 0 0 1 88 56 Z" className="sc-c" />
+    <path d="M50 56 L12 56 A38 38 0 0 1 50 18 Z" className="sc-t" />
+    <path d="M50 56 L50 94 A38 38 0 0 1 12 56 Z" className="sc-c" />
+    <path d="M50 18 V94 M12 56 H88" className="sc-stroke" />
+    <circle cx="50" cy="56" r="38" className="sc-line sc-none" />
+    <path d="M50 30 L40 4 H60 Z" className="sc-d sc-line" />
+    <circle cx="50" cy="56" r="6" className="sc-g sc-line" />
+  </svg>
+);
+/** A coin on its edge in the air over a dotted arc: one toss. */
+const CoinFlip = () => (
+  <svg viewBox="0 0 100 90">
+    <path d="M12 82 Q50 4 88 82" className="sc-route" />
+    <ellipse cx="50" cy="34" rx="20" ry="24" className="sc-g sc-line" />
+    <ellipse cx="50" cy="34" rx="12" ry="15" className="sc-none sc-stroke" />
+    <path d="M50 26 V42 M44 30 H56" className="sc-stroke" />
+    <path d="M6 82 H94" className="sc-stroke" />
+  </svg>
+);
+/** A table of outcomes: a 3 × 3 grid with its diagonal marked (the doubles of a two-stage experiment). */
+const OutcomeGrid = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="10" y="10" width="80" height="80" rx="10" className="sc-w sc-line" />
+    {[0, 1, 2].map((i) => <rect key={i} x={14 + i * 25} y={14 + i * 25} width="22" height="22" rx="5" className="sc-c" />)}
+    <path d="M36.7 12 V88 M63.3 12 V88 M12 36.7 H88 M12 63.3 H88" className="sc-grid" />
+    <circle cx="75" cy="25" r="4" className="sc-d" />
+    <circle cx="25" cy="75" r="4" className="sc-d" />
+  </svg>
+);
+
 export const SCENERY = {
   signed: [Thermometer, SeaLevel, Cloud],
   coord: [GridMap, Compass, Pin],
@@ -423,6 +462,7 @@ export const SCENERY = {
   ratio: [ScaleBarArt, MixGlasses, ScaleCopy],
   pct: [PctBarArt, HundredGrid, SaleTag],
   data: [TallyBoard, PictoRow, SurveyBox],
+  prob: [WheelPointer, CoinFlip, OutcomeGrid],
 };
 
 /** The unit's own sign for its header: the first piece of its world. */

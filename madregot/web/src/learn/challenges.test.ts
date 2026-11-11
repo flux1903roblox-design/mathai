@@ -1,10 +1,12 @@
 // The challenge track (CURRICULUM-6): every task is checked mathematically and for its wording, the set is stage 1's 36
-// and the data unit's 3 (three per topic, one claim, one error or proof, one literacy task each), and the grading rules
+// and the data and probability units' 3 each (three per topic, one claim, one error or proof, one literacy task each), and the grading rules
 // (two tries, XP, the order check, the counterexample check) are pinned.
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
 import type { ChallengePart, ChallengeTask } from './types';
-import { CHALLENGES, challengeById, challengesAfter, challengesOf } from './challenges/index';
+import { CHALLENGES as META_LIST, challengeById, challengesAfter, challengesOf } from './challenges/index';
+// the tasks with their parts (the registry keeps only their meta for the first load)
+import { CHALLENGE_TASKS as CHALLENGES, taskById } from './challenges/all';
 import { challengeXP, scoredParts, numCheck, exampleHolds, domainValues, firstOutOfPlace, shuffledOrder, moveStep } from './challenges/grade';
 import { ALL_SKILLS, TOPIC_ORDER, parseSkill } from './skills';
 import { evaluate, same } from './expr';
@@ -34,10 +36,19 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 describe('the challenge tasks', () => {
-  it('39 tasks (stage 1\'s 36 and data\'s 3): three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
+  it('the first load knows each task without its story and parts (meta.gen.ts): the same tasks, in the same order', () => {
+    expect(META_LIST.map((t) => t.id)).toEqual(CHALLENGES.map((t) => t.id));
+    for (const t of CHALLENGES) expect(challengeById(t.id)).toEqual({ id: t.id, topic: t.topic, after: t.after, kind: t.kind, title: t.title, minutes: t.minutes, ...(t.misc ? { misc: t.misc } : {}) });
+    expect(META_LIST.some((t) => 'parts' in t || 'story' in t)).toBe(false);
+    expect(taskById('prob:c2')?.parts).toHaveLength(2);
+    expect(taskById('nope')).toBeNull();
+  });
+  it('42 tasks (stage 1\'s 36, data\'s 3 and probability\'s 3): three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
-    expect(CHALLENGES).toHaveLength(39);
+    expect(CHALLENGES).toHaveLength(42);
     expect(challengesOf('data').map((t) => [t.id, t.kind, t.after])).toEqual([['data:c1', 'literacy', 'data:3'], ['data:c2', 'claim', 'data:2'], ['data:c3', 'error', 'data:4']]);
+    // DATA-7: a claim with no "לכל" (two plain sentences), Danny's unordered pairs, the Ministry's rain table
+    expect(challengesOf('prob').map((t) => [t.id, t.kind, t.after])).toEqual([['prob:c1', 'claim', 'prob:1'], ['prob:c2', 'error', 'prob:3'], ['prob:c3', 'literacy', 'prob:2']]);
     TOPIC_ORDER.forEach((tp) => expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]));
     expect(TOPIC_ORDER).toContain('frac');
     expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => [tp, tp, tp]));
@@ -168,7 +179,7 @@ describe('grading a challenge', () => {
     expect(challengeXP(4)).toBe(40);
     expect(challengeXP(7)).toBe(40);
     // an explain part carries no score
-    expect(scoredParts(challengeById('pct:c1')!).map((p) => p.type)).toEqual(['num', 'num', 'mc']);
+    expect(scoredParts(taskById('pct:c1')!).map((p) => p.type)).toEqual(['num', 'num', 'mc']);
   });
 
   it('a typed number is read as students type it, and compared exactly', () => {
@@ -182,14 +193,14 @@ describe('grading a challenge', () => {
   });
 
   it('a counterexample: the values in the domain, the expression real, the relation holding', () => {
-    const frac = (challengeById('frac:c1')!.parts[0] as Claim).example!;
+    const frac = (taskById('frac:c1')!.parts[0] as Claim).example!;
     expect(exampleHolds(frac, { a: 3, b: 2, k: 1 })).toBe(true); // 3/2 → 4/3: smaller
     expect(exampleHolds(frac, { a: 2, b: 2, k: 5 })).toBe(true); // 1 stays 1: it does not grow
     expect(exampleHolds(frac, { a: 1, b: 2, k: 1 })).toBe(false); // 1/2 → 2/3: it grows
     expect(exampleHolds(frac, { a: 3, b: 2, k: 0.5 })).toBe(false); // not a positive whole number
     expect(exampleHolds(frac, { a: 3, b: -2, k: 1 })).toBe(false);
     expect(exampleHolds(frac, { a: 3, b: 2 })).toBe(false); // a slot left empty
-    const mean = (challengeById('stats:c1')!.parts[3] as Claim).example!;
+    const mean = (taskById('stats:c1')!.parts[3] as Claim).example!;
     expect(exampleHolds(mean, { x: 1, y: 2 })).toBe(true);
     expect(exampleHolds(mean, { x: -1.5, y: 4 })).toBe(true);
     expect(exampleHolds(mean, { x: 3, y: 3 })).toBe(false);
@@ -198,7 +209,7 @@ describe('grading a challenge', () => {
   });
 
   it('the proof: the first step out of place, steps found in either order accepted, and a shuffle never already right', () => {
-    const proof = challengeById('angles:c1')!.parts[0] as Order;
+    const proof = taskById('angles:c1')!.parts[0] as Order;
     expect(firstOutOfPlace(proof, [0, 1, 2, 3, 4])).toBe(-1);
     expect(firstOutOfPlace(proof, [0, 2, 1, 3, 4])).toBe(-1); // A's angle and B's, either order: still a proof
     expect(firstOutOfPlace(proof, [1, 0, 2, 3, 4])).toBe(0);

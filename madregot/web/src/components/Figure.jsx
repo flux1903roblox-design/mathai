@@ -46,8 +46,9 @@
 //          o'clock with its legend in chips under it; a line chart left to right (level: a dashed line at that value,
 //          dashed: the last points continue the trend in a dashed line, mark: an x marked on the line, cross: points or
 //          bars crossed out); a pictogram with its key and half icons drawn as halves
-//   outcomes { rowHead?, colHead?, rows?, cols, cells?, marked?, label? }   a table of outcomes (two stages: rows × cols,
-//          a cell is the pair unless cells says what; one stage: one row); marked cells shaded, outlined and said
+//   outcomes { rowHead?, colHead?, rows?, cols, cells?, marked?, label?, dots? }   a table of outcomes (two stages: rows ×
+//          cols, a cell is the pair unless cells says what, or a dot with dots; one stage: one row); marked cells shaded,
+//          outlined and said
 //   pair   { items: [fig, fig], titles? }               two sources stacked ('מקור 1', 'מקור 2'), each at most 150px tall
 // and, for the steps of those units: table { highlight?: (row | [row, col])[], cross?: rows[] }, fbar { tones: [{ n,
 // label?, tone? }] } (parts in several tones, each group named under it), dots { span: { from, to, label? } } (a range
@@ -1023,7 +1024,8 @@ function Chart({ fig, compact }) {
 function Outcomes({ fig, compact }) {
   const two = !!fig.rows?.length;
   const cols = fig.cols || [];
-  const cellOf = (i, j) => (fig.cells?.[i]?.[j] ?? (two ? `(${fig.rows[i]}, ${cols[j]})` : cols[j]));
+  // a wide two-stage table (coin × die: six columns) draws each cell as a dot, the pair being its row and column
+  const cellOf = (i, j) => (fig.cells?.[i]?.[j] ?? (two ? (fig.dots ? '•' : `(${fig.rows[i]}, ${cols[j]})`) : cols[j]));
   const on = new Set((fig.marked || []).map(([i, j]) => `${i}:${j}`));
   const show = (v) => (WORD.test(String(v)) && !/\d/.test(String(v)) ? <bdi dir="rtl">{v}</bdi> : <bdi dir="ltr">{cell(v)}</bdi>);
   const td = (i, j) => (

@@ -7,12 +7,11 @@ import type { SkillId, TopicId } from './types';
 // order. A bridge stair is in no grade's own list (gradeSkillsOf), is missing only on evidence and is new only when the
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
 // ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), both
-// before linear functions. ז׳'s data and frequency (January–February) comes before equations (March).
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'data', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
-// GRADE_OF and STAIRS hold the topics this build has; TopicId also names curriculum stage 3's prob, which takes its
-// grade and its stairs in the commit that adds its content (and is in no list until then).
-export const GRADE_OF: Partial<Record<TopicId, '7' | '8'>> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', data: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Partial<Record<TopicId, number>> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, data: 4, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 8, sys: 5 };
+// before linear functions. ז׳'s data and frequency (January–February) comes before equations (March). ח׳'s probability
+// ("הסתברות ב", March, unit 8.16) is the last unit of the year.
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'data', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys', 'prob'];
+export const GRADE_OF: Partial<Record<TopicId, '7' | '8'>> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', data: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8', prob: '8' };
+export const STAIRS: Partial<Record<TopicId, number>> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, data: 4, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 8, sys: 5, prob: 3 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -131,6 +130,10 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'sys:3': ['sys:2', 'expr:5'], // the second unknown is found by substituting (sys:2); subtracting an equation is a minus before brackets (expr:5)
   'sys:4': ['sys:3', 'eq:5'], // a story with two unknowns: each sentence that says "equal" is an equation (eq:5), then the system is solved (sys:3)
   'sys:5': ['eq:3', 'signed:2', 'signed:3'], // solved like an equation (eq:3); the answer is a range on the number line (signed:2); dividing by a negative reverses the order (signed:3)
+  // curriculum stage 3 (DATA-6): ח׳'s "הסתברות ב" in unit 8.16
+  'prob:1': ['data:4'], // equally likely outcomes build on probability as a relative frequency ("הסתברות א – בסיס")
+  'prob:2': ['prob:1'], // the complement is 1 minus a probability found by counting outcomes
+  'prob:3': ['prob:1', 'prob:2'], // a table of pairs is equally likely outcomes counted; "at least" is often its complement
 };
 
 export const prereqsOf = (id: SkillId): SkillId[] => PREREQS[id] || [];

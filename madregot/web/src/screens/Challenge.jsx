@@ -14,7 +14,8 @@ import Figure from '@/components/Figure.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import Lottie from '@/components/Lottie.jsx';
 import { Button } from '@/components/ui.jsx';
-import { challengeById } from '@/learn/challenges/index.ts';
+// the tasks with their parts: in this screen's own chunk, never in the first load (learn/challenges/all.ts)
+import { taskById } from '@/learn/challenges/all.ts';
 import { parseSkill } from '@/learn/skills.ts';
 import { DUR, enter } from '@/lib/motion.js';
 import NumPart from '@/components/challenge/NumPart.jsx';
@@ -80,7 +81,7 @@ function ChallengeDone({ award, onExit }) {
 
 export default function Challenge() {
   const { id } = useParams();
-  const task = challengeById(id || '');
+  const task = taskById(id || '');
   const navigate = useNavigate();
   const startChallenge = useApp((s) => s.startChallenge);
   const finishChallenge = useApp((s) => s.finishChallenge);

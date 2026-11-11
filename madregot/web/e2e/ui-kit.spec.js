@@ -65,7 +65,7 @@ test('Settings › צלילים: two options on the same Segmented, chosen by a 
 
 test('the wardrobe: each group is one Tab stop, and ArrowLeft moves to the next card on the left', async ({ page }) => {
   const done = (levels) => ({ parts: {}, reviews: 0, jumped: 0, done: Object.fromEntries(levels.map((l) => [l, 'mastered'])) });
-  await open(page, '#/me/madi', student('7', { path: { angles: done([1, 2, 3]), stats: done([1, 2, 3, 4, 5]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['petrol'], seen: ['petrol', 'fuchsia'] } }));
+  await open(page, '#/me/madi', student('7', { path: { angles: done([1, 2, 3]), stats: done([1, 2, 3, 4, 5, 6, 7, 8]) }, look: { color: 'sky', head: null, face: null, neck: null, body: null, earned: ['petrol'], seen: ['petrol', 'fuchsia'] } }));
   const colours = page.getByRole('radiogroup', { name: 'צבע' });
   const head = page.getByRole('radiogroup', { name: 'על הראש' });
   const blue = colours.getByRole('radio', { name: 'כחול', exact: true });

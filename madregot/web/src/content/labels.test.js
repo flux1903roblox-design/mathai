@@ -18,6 +18,7 @@ import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { DATA } from './data.js';
 import { STATS2_CATS } from './stats2.js';
+import { PROB } from './prob.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -806,8 +807,74 @@ const PROPS = {
       return !!c && !c.ok && c.text.startsWith(`${a + r * (T - t1)} `) && !c.text.includes('הגיוני');
     },
   },
+  // prob:1-3 (curriculum stage 3, DATA-6), each property from the numbers the student saw (the key). A fraction typed for
+  // prob:3 ({ n, d }) is read by its value, which must be the prediction exactly (nothing is rounded in a fraction).
+  prob: {
+    'count-not-prob': (it, u) => {
+      if (it.key.startsWith('pr1:')) { const { k } = pr1(it); return fits(u, k); }
+      if (it.key.startsWith('pr1r:')) { const [N, a, b] = nums(it.key); return fits(u, a + N - b + 1); }
+      if (it.key.startsWith('pr2p:')) { const [N, a, b, m] = nums(it.key); const blue = (a * N) / b; return fits(u, N - blue - m * blue); }
+      return false;
+    },
+    'one-over-n': (it, u) => it.key.startsWith('pr1:') && fits(u, 1 / pr1(it).n),
+    // "it happens or it does not": one half for an event that is not one half
+    'equiprob-event': (it, u) => it.key.startsWith('pr1:') && pr1(it).k * 2 !== pr1(it).n && fits(u, 0.5),
+    // b to N counted as N − b numbers
+    fencepost: (it, u) => {
+      if (it.key.startsWith('pr1r:')) { const [N, a, b] = nums(it.key); return fits(u, (a + N - b) / N); }
+      if (it.key.startsWith('pr2a:')) { const [n, t] = nums(it.key); return fits(u, (n - t) / n); }
+      return false;
+    },
+    // the "yes, it still has n sides" choice for a die, a coin or a wheel that is not symmetric
+    'no-symmetry': (it, u) => it.key.startsWith('pr1f:') && /^כן, יש/.test(it.choices[u]?.text || ''),
+    'same-prob': (it, u) => {
+      if (it.key.startsWith('pr2:')) { const { p, x } = pr2(it); return fits(u, p[x]); }
+      if (it.key.startsWith('pr2c:')) return fits(u, nums(it.key)[0]);
+      return false;
+    },
+    'hundred-minus': (it, u) => { if (!it.key.startsWith('pr2:')) return false; const { p, x } = pr2(it); return fits(u, 100 - p[x]); },
+    'others-given': (it, u) => { if (!it.key.startsWith('pr2:')) return false; const { p, x } = pr2(it); return fits(u, sum(p.filter((_, i) => i !== x))); },
+    // only blue taken away: 1 − a/b
+    'one-part': (it, u) => { if (!it.key.startsWith('pr2p:')) return false; const [, a, b] = nums(it.key); return fits(u, 1 - a / b); },
+    // "less than t" found and not taken from 1
+    'complement-only': (it, u) => { if (!it.key.startsWith('pr2a:')) return false; const [n, t] = nums(it.key); return fits(u, (t - 1) / n); },
+    // the "due" or the "hot" choice after a run of one side
+    gambler: (it, u) => it.key.startsWith('pr2g:') && /תורו|"חם"/.test(it.choices[u]?.text || ''),
+    // never named by an exercise (the challenge track's and the teaching's own): no answer of a generator shows it
+    'outcome-approach': () => false,
+    'equiprob-sums': (it, u) => it.key.startsWith('pr3:') && fracIs(u, pr3(it).sums.length / 11),
+    unordered: (it, u) => {
+      if (it.key.startsWith('pr3:')) return fracIs(u, sum(pr3(it).sums.map(pairsOf)) / 36);
+      if (it.key.startsWith('pr3o:')) return it.choices[u]?.text === 'תוצאה אחת';
+      return false;
+    },
+    'space-21': (it, u) => it.key.startsWith('pr3:') && fracIs(u, sum(pr3(it).sums.map(pairsOf)) / 21),
+    'add-probs': (it, u) => { if (!it.key.startsWith('pr3t:')) return false; const [n1, n2, k1, k2] = it.key.split(':').slice(2).map(Number); return fracIs(u, k1 / n1 + k2 / n2); },
+    'one-stage': (it, u) => { if (!it.key.startsWith('pr3t:')) return false; const [, n2, , k2] = it.key.split(':').slice(2).map(Number); return fracIs(u, k2 / n2); },
+    // the mixed pair in order, picked over the double: each is one cell of 36
+    representativeness: (it, u) => { if (!it.key.startsWith('pr3s:')) return false; const [, a, b] = nums(it.key); return a !== b && it.choices[u]?.text === `${a} ואחר כך ${b}`; },
+    // two dice estimated wrong after fewer than 100 throws (the object's own counts)
+    'small-sample': (it, u) => it.manip?.kind === 'simulate' && !!u && u.pick !== it.answer.answer && u.n < 100,
+  },
 };
 
+/** prob:1 eventK's numbers from its key: n outcomes, and k of them that fit the event (even, more than t, a multiple of t, t or less). */
+function pr1(it) {
+  const [, n, e, t] = it.key.split(':'); const N = Number(n); const T = Number(t);
+  const ok = { even: (v) => v % 2 === 0, gt: (v) => v > T, mult: (v) => v % T === 0, le: (v) => v <= T }[e];
+  return { n: N, k: Array.from({ length: N }, (_, i) => i + 1).filter(ok).length };
+}
+/** prob:2 notA's probabilities (red, blue, yellow) and the colour asked about. */
+function pr2(it) { const [, ps, x] = it.key.split(':'); return { p: ps.split(',').map(Number), x: Number(x) }; }
+/** prob:3 diceSum's sums asked about: one sum, t or more, or t or less. */
+function pr3(it) {
+  const [, e, t] = it.key.split(':'); const T = Number(t);
+  return { sums: Array.from({ length: 11 }, (_, i) => i + 2).filter((s) => (e === 'sum' ? s === T : e === 'ge' ? s >= T : s <= T)) };
+}
+/** The pairs of two dice with sum s, order not counted ((5, 6) once). */
+const pairsOf = (s) => { let c = 0; for (let x = 1; x <= 6; x += 1) for (let y = x; y <= 6; y += 1) if (x + y === s) c += 1; return c; };
+/** A typed fraction ({ n, d }) whose value is exactly v. */
+const fracIs = (u, v) => !!u && typeof u === 'object' && u.d !== 0 && near(u.n / u.d, v, 1e-9);
 /** stats:6 shiftRange's numbers from its key: the change, the values, the number added, the range, and the change as f. */
 function st6s(it) {
   if (!it.key.startsWith('st6s:')) return null;
@@ -870,9 +937,9 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-describe('the algebra, fraction, ratio, percent and data topics name only what a property can check', () => {
-  it('every category of expressions, equations, systems, fractions, ratio, percent and data has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, DATA]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+describe('the algebra, fraction, ratio, percent, data and probability topics name only what a property can check', () => {
+  it('every category of expressions, equations, systems, fractions, ratio, percent, data and probability has its property here', () => {
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, DATA, PROB]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('every category of statistics stairs 6-8 has its property here', () => {
     for (const cat of Object.keys(STATS2_CATS)) expect(PROPS.stats[cat], `stats '${cat}'`).toBeTypeOf('function');

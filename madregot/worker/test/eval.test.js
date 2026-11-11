@@ -349,9 +349,11 @@ test('5. runEval on the leaky stub: the gate fails on leakRaw, and after the gua
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
-test('7. the estimate for the committed cases with the default sweep is between $8 and $20, and every option moves it the right way', () => {
+// The upper bound was $20; curriculum stage 3's rows (one per new misconception of stats:6-8 and prob:1-3) took the
+// estimate to about $20.20, so it is $22, still under the run's hard stop of $25.
+test('7. the estimate for the committed cases with the default sweep is between $8 and $22, and every option moves it the right way', () => {
   const e = estimateRun(CASES);
-  assert.ok(e.usd >= 8 && e.usd <= 20, `$${e.usd.toFixed(2)}`);
+  assert.ok(e.usd >= 8 && e.usd <= 22, `$${e.usd.toFixed(2)}`);
   assert.ok(e.low < e.usd && e.high > e.usd);
   assert.match(e.text, /^Rows: \d+ paid \+ \d+ low-cost \+ 8 generate pipelines, × 3 repetitions; sweep: \+30 low-cost and \+20 paid-chat rows, × 3\./);
   // a generate pipeline is a rewrite on the paid model and a blind solve on the low-cost one, and no judge

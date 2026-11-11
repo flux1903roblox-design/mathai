@@ -657,7 +657,13 @@
   "sys:4/diag",
   "sys:4/gen",
   "sys:5/diag",
-  "sys:5/gen"
+  "sys:5/gen",
+  "prob:1/diag",
+  "prob:1/gen",
+  "prob:2/diag",
+  "prob:2/gen",
+  "prob:3/diag",
+  "prob:3/gen"
  ],
  "eq:1": {
   "items": [
@@ -1679,6 +1685,117 @@
     "pct:5/probe/add-pct",
     "pct:5/probe/add-pct",
     "pct:5/control/add-pct"
+   ]
+  }
+ },
+ "prob:1": {
+  "items": [
+   "mastery0:pr1:6:le:4|0.6666666666666666|gen",
+   "mastery1:pr1r:72:7:43|0.5138888888888888|gen",
+   "mastery2:prob:1:diag:{\"n\":12,\"e\":\"mult\",\"t\":5,\"k\":2}|0.16666666666666666|diag",
+   "mastery3:pr1r:100:5:57|0.49|gen",
+   "mastery4:prob:1:transfer:{\"N\":120,\"a\":12,\"b\":100,\"w\":33}|0.275|transfer",
+   "review0:prob:1:transfer:{\"N\":120,\"a\":8,\"b\":98,\"w\":31}|0.25833333333333336|transfer",
+   "review1:pr1:10:le:2|0.2|gen",
+   "review2:prob:1:diag:{\"n\":12,\"e\":\"mult\",\"t\":5,\"k\":2}|0.16666666666666666|diag",
+   "verify0:prob:1:probe:{\"n\":6,\"e\":\"gt\",\"t\":3,\"k\":3}|0.5|probe",
+   "verify1:prob:1:probe:{\"n\":8,\"e\":\"mult\",\"t\":4,\"k\":2}|0.25|probe",
+   "verify2:prob:1:diag:{\"n\":12,\"e\":\"gt\",\"t\":4,\"k\":8}|0.6666666666666666|diag",
+   "gen:pr1f:1|0|gen",
+   "diag:prob:1:diag:{\"n\":10,\"e\":\"mult\",\"t\":4,\"k\":2}|0.2|diag",
+   "transfer:prob:1:transfer:{\"N\":80,\"a\":8,\"b\":61,\"w\":28}|0.35|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "prob:1/gen/",
+    "prob:1/gen/",
+    "prob:1/diag/",
+    "prob:1/gen/",
+    "prob:1/transfer/"
+   ],
+   "review": [
+    "prob:1/transfer/",
+    "prob:1/gen/",
+    "prob:1/diag/"
+   ],
+   "verify": [
+    "prob:1/probe/count-not-prob",
+    "prob:1/probe/count-not-prob",
+    "prob:1/control/count-not-prob"
+   ]
+  }
+ },
+ "prob:2": {
+  "items": [
+   "mastery0:pr2:0.2,0.25,0.15:1|0.75|gen",
+   "mastery1:pr2a:6:2|0.8333333333333334|gen",
+   "mastery2:prob:2:diag:{\"p\":[0.3,0.25,0.35],\"g\":0.1,\"x\":2}|0.65|diag",
+   "mastery3:pr2a:10:3|0.8|gen",
+   "mastery4:prob:2:transfer:{\"N\":28,\"a\":1,\"b\":7,\"m\":3,\"blue\":4,\"pink\":12}|0.42857142857142855|transfer",
+   "review0:prob:2:transfer:{\"N\":40,\"a\":1,\"b\":8,\"m\":3,\"blue\":5,\"pink\":15}|0.5|transfer",
+   "review1:pr2c:30:2|70|gen",
+   "review2:prob:2:diag:{\"p\":[0.3,0.25,0.35],\"g\":0.1,\"x\":2}|0.65|diag",
+   "verify0:prob:2:probe:{\"p\":[0.15,0.2,0.25],\"g\":0.4,\"x\":2}|0.75|probe",
+   "verify1:prob:2:probe:{\"p\":[0.2,0.3,0.3],\"g\":0.2,\"x\":2}|0.7|probe",
+   "verify2:prob:2:diag:{\"p\":[0.2,0.1,0.15],\"g\":0.55,\"x\":1}|0.9|diag",
+   "gen:pr2:0.15,0.15,0.15:0|0.85|gen",
+   "diag:prob:2:diag:{\"p\":[0.25,0.25,0.3],\"g\":0.2,\"x\":1}|0.75|diag",
+   "transfer:prob:2:transfer:{\"N\":30,\"a\":1,\"b\":6,\"m\":2,\"blue\":5,\"pink\":10}|0.5|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "prob:2/gen/",
+    "prob:2/gen/",
+    "prob:2/diag/",
+    "prob:2/gen/",
+    "prob:2/transfer/"
+   ],
+   "review": [
+    "prob:2/transfer/",
+    "prob:2/gen/",
+    "prob:2/diag/"
+   ],
+   "verify": [
+    "prob:2/probe/same-prob",
+    "prob:2/probe/same-prob",
+    "prob:2/control/same-prob"
+   ]
+  }
+ },
+ "prob:3": {
+  "items": [
+   "mastery0:pr3:sum:11|0.05555555555555555|gen",
+   "mastery1:pr3t:die-spin:6:4:3:2|0.25|gen",
+   "mastery2:prob:3:diag:{\"e\":\"ge\",\"t\":9,\"sums\":[9,10,11,12]}|0.2777777777777778|diag",
+   "mastery3:pr3:sum:9|0.1111111111111111|gen",
+   "mastery4:prob:3:transfer:{\"kind\":\"spin-spin\",\"n1\":4,\"n2\":5,\"k1\":1,\"k2\":2}|0.1|transfer",
+   "review0:prob:3:transfer:{\"kind\":\"coin-die\",\"n1\":2,\"n2\":6,\"k1\":1,\"k2\":2}|0.16666666666666666|transfer",
+   "review1:pr3:sum:9|0.1111111111111111|gen",
+   "review2:prob:3:diag:{\"e\":\"ge\",\"t\":9,\"sums\":[9,10,11,12]}|0.2777777777777778|diag",
+   "verify0:prob:3:probe:{\"e\":\"sum\",\"t\":5,\"sums\":[5]}|0.1111111111111111|probe",
+   "verify1:prob:3:probe:{\"e\":\"sum\",\"t\":9,\"sums\":[9]}|0.1111111111111111|probe",
+   "verify2:prob:3:diag:{\"e\":\"le\",\"t\":6,\"sums\":[2,3,4,5,6]}|0.4166666666666667|diag",
+   "gen:pr3t:coin-die:2:6:1:2|0.16666666666666666|gen",
+   "diag:prob:3:diag:{\"e\":\"sum\",\"t\":7,\"sums\":[7]}|0.16666666666666666|diag",
+   "transfer:prob:3:transfer:{\"kind\":\"die-spin\",\"n1\":6,\"n2\":4,\"k1\":3,\"k2\":2}|0.25|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "prob:3/gen/",
+    "prob:3/gen/",
+    "prob:3/diag/",
+    "prob:3/gen/",
+    "prob:3/transfer/"
+   ],
+   "review": [
+    "prob:3/transfer/",
+    "prob:3/gen/",
+    "prob:3/diag/"
+   ],
+   "verify": [
+    "prob:3/probe/equiprob-sums",
+    "prob:3/probe/equiprob-sums",
+    "prob:3/control/equiprob-sums"
    ]
   }
  },

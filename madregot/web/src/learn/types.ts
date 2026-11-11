@@ -87,7 +87,8 @@ export type ChartFig = {
  * one row of cols (the six faces; many outcomes as runs, '1–9', '10–45', '46–72'). marked: [row, col] cells (row 0 for
  * one stage); label: what the table is of, in words ("של שתי קוביות").
  */
-export type OutcomesFig = { type: 'outcomes'; cols: string[]; rows?: string[]; rowHead?: string; colHead?: string; cells?: string[][]; marked?: [number, number][]; label?: string };
+/** dots: each cell of a two-stage table is a dot, not its pair (a wide table, coin × die, fits a 320 px phone). */
+export type OutcomesFig = { type: 'outcomes'; cols: string[]; rows?: string[]; rowHead?: string; colHead?: string; cells?: string[][]; marked?: [number, number][]; label?: string; dots?: boolean };
 /** Two sources stacked, titled 'מקור 1' and 'מקור 2' unless titles says otherwise (a pair holds no pair). */
 export type PairFig = { type: 'pair'; items: [FigSpec, FigSpec]; titles?: [string, string] };
 /** The figures of curriculum stage 3: content writes them `satisfies DataFig` so their fields are checked. */
@@ -357,6 +358,8 @@ export interface ChallengeTask {
   /** The mistake (a misconception id of the content, e.g. 'partial-dist') the task is built on, when it is one. */
   misc?: string;
 }
+/** A task without its story and parts: what the first load knows of it (learn/challenges/meta.gen.ts). */
+export type ChallengeMeta = Pick<ChallengeTask, 'id' | 'topic' | 'after' | 'kind' | 'title' | 'minutes' | 'misc'>;
 /**
  * One part of a challenge.
  *   num      a typed number, checked against `answer` (`check` is an expression for the same quantity, tested)

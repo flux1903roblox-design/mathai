@@ -62,8 +62,9 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // about 19,000 at the next merge, so it moved again; the lane's own stage 1 ways (shared/topicWays.js) and the "not
   // yet" list computed from the programme (its full Hebrew titles) took it to about 20,000, so it moved once more, on
   // purpose. A further topic moves it only on purpose too: curriculum stage 3's statistics stairs 6-8 (the range, two
-  // sources, interpolation and extrapolation) added to the stats way took it from about 20,900 to 21,600, so it is 22,000.
-  assert.ok(s.length < 22000, `stable block is ${s.length} characters`);
+  // sources, interpolation and extrapolation) added to the stats way took it from about 20,900 to 21,600, so it is 22,000;
+  // its probability unit (a way of its own and three stairs) took it to about 22,400, so it is 23,000.
+  assert.ok(s.length < 23000, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');
@@ -144,6 +145,10 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
   for (const ok of ['הטווח הוא $17 - 5 = 12$.', 'הטווח הוא ההפרש בין הגדול לקטן.', 'יש ספרים שכותבים "הטווח הוא מ־5 עד 17", אבל הטווח הוא ההפרש.']) assert.ok(!any(TOPIC_WAYS.stats.avoidRe, ok), ok);
   assert.ok(TOPIC_WAYS.stats.models.includes('The range is the largest value minus the smallest, one number.'));
   assert.ok(TOPIC_WAYS.stats.models.includes('Interpolation estimates between known values'));
+  // prob (DATA-6): two outcomes are a half each only when they are equally likely; the app's own claim to judge is quoted
+  for (const said of ['יש שתי תוצאות, ולכן ההסתברות לכל אחת היא חצי.', 'יש 2 אפשרויות, כלומר $\\frac{1}{2}$.', 'שתי תוצאות: יורד גשם או יבש, 50% לכל אחת.']) assert.ok(any(TOPIC_WAYS.prob.avoidRe, said), said);
+  for (const ok of ['יש שתי תוצאות במטבע הוגן, ולכל אחת חצי.', 'שתי תוצאות שאינן שוות סיכוי: "6" ו"לא 6".', 'הטענה "יש שתי תוצאות, ולכן חצי" לא נכונה תמיד.', 'יש שתי תוצאות שוות סיכוי, ולכן לכל אחת $\\frac{1}{2}$.']) assert.ok(!any(TOPIC_WAYS.prob.avoidRe, ok), ok);
+  assert.ok(TOPIC_WAYS.prob.models.includes('Grade 8 does not name events with letters'));
   // the curriculum lane's fractions (frac): the wrong expansion and the bigger denominator, never the app's own titles
   assert.ok(any(TOPIC_WAYS.frac.avoidRe, 'בהרחבה מוסיפים אותו מספר למונה ולמכנה.'));
   assert.ok(any(TOPIC_WAYS.frac.avoidRe, 'ככל שהמכנה גדול יותר, כך השבר גדול יותר.'));

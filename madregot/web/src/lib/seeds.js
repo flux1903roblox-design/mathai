@@ -12,7 +12,11 @@ import { verifyRewrite } from '@shared/verify.js';
 /** How many draws a seed may take: to find a key not used yet, and an exercise without a drawing when there is one. */
 export const SEED_DRAWS = 40;
 
-/** An exercise the rewrite can use: one number for an answer, and a key. */
+/**
+ * An exercise the rewrite can use: one number for an answer, and a key. A stair whose models answer as a fraction
+ * (prob:3, two dice's probabilities 1/36 apart) has none: the server checks a story against one number within 0.01,
+ * too loose for them, so the screen offers no new exercises there (screens/Assistant.jsx).
+ */
 const usable = (it) => !!it && it.form === 'num' && Number.isFinite(it.answer) && typeof it.key === 'string';
 
 /**

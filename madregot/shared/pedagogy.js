@@ -199,6 +199,15 @@ export const TOPIC_WAYS = Object.freeze({
       re(String.raw`(?:מעבירים|להעביר|מעביר|תעבירו|העבירו)\s+(?:את\s+\S+\s+)?(?:ל)?אגף\s+(?:ו|ו־)?(?:מחליפים|להחליף|מחליף|החליפו|משנים|לשנות)\s+(?:את\s+ה)?סימן${unless('בשני האגפים|משני האגפים|לשני האגפים|אותו דבר')}`),
     ],
   },
+  // curriculum stage 3 (DATA-6): ח׳'s "הסתברות ב". No letters for events in grade 8 (the updated curriculum)
+  prob: {
+    models: 'Equally likely outcomes: each of n has probability 1/n, an event of k of them k/n; this needs symmetry (a fair die, equal sectors), otherwise only many repetitions estimate it. The probability that something does not happen is 1 minus the probability that it happens; outcomes that do not overlap add. Grade 8 does not name events with letters: say "the probability of rain", never P(A). A two-stage experiment is a table of pairs: (5, 6) and (6, 5) are two cells, all n1·n2 cells equally likely when each stage is fair; count the cells.',
+    words: ['תוצאות שוות סיכוי', 'מאורע משלים', 'ניסוי בשני שלבים', 'טבלת תוצאות'],
+    avoid: ['"two possible outcomes means 1/2"', '"all sums of two dice are equally likely"', '"after many heads, tails is due"', '"P(A) or a letter for an event"'],
+    // two outcomes said to be a half each, as a rule: not when the sentence says they are equally likely (a fair coin)
+    // or that they are not
+    avoidRe: [re(String.raw`(?:שתי|2)\s+(?:אפשרויות|תוצאות)${unless('לא |אינן|אבל|שוות סיכוי|שווי סיכוי|הוגן')}[\s\S]{0,40}?(?:חצי|1\/2|\\frac\{1\}\{2\}|50\s*\\?%)`)],
+  },
 });
 
 /** The topic ways, rendered under one heading: "{topic}: {models} Words the app uses: …. Never taught as a rule: (1) …; (2) …." */

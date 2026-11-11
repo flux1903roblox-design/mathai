@@ -128,9 +128,10 @@ export const PROGRAMME = {
       parts: [{ hours: 4, skills: ['sys:5'] }] },
     { id: '8.16', grade: '8', domain: 'uncertainty', title: 'הסתברות א ו־ב', months: [3],
       parts: [
-        // "הסתברות א – בסיס" is data:4 (probability from relative frequency); "הסתברות ב" is the prob unit, still to come
+        // 8.16: "הסתברות א – בסיס" is data:4 (probability from relative frequency); "הסתברות ב" is prob:1-3 (equally
+        // likely outcomes, the complement, a two-stage experiment counted in a table)
         { hours: 2, skills: ['data:4'] },
-        { hours: 4, skills: [], note: 'הסתברות: תוצאות שוות סיכוי, מאורע משלים וניסוי בשני שלבים', later: 'S3' },
+        { hours: 4, skills: ['prob:1', 'prob:2', 'prob:3'] },
       ] },
     { id: '8.17', grade: '8', domain: 'geometry', title: 'משפט פיתגורס במרחב', months: [5],
       parts: [{ hours: 6, skills: [], note: 'משפט פיתגורס בגופים במרחב', later: 'S2' }] },

@@ -21,6 +21,7 @@ export const TOPIC_NAMES = Object.freeze({
   pyth: 'משפט פיתגורס',
   stats: 'סטטיסטיקה',
   sys: 'משוואות ומערכות',
+  prob: 'הסתברות', // curriculum stage 3: ח׳'s "הסתברות ב" (March), last of the grade in school order
 });
 
 /** Each stair's name, as its lesson and its teaching content call it. */
@@ -96,6 +97,10 @@ export const STAIR_NAMES = Object.freeze({
   'sys:3': 'השוואת מקדמים',
   'sys:4': 'בעיות עם שני נעלמים',
   'sys:5': 'אי־שוויונות',
+  // curriculum stage 3 (DATA-6): ח׳'s "הסתברות ב" in unit 8.16
+  'prob:1': 'תוצאות שוות סיכוי',
+  'prob:2': 'מאורע משלים',
+  'prob:3': 'ניסוי בשני שלבים',
 });
 
 /**
@@ -114,7 +119,7 @@ export const stairName = (id) => {
  * The grade each topic is filed under in the app (learn/skills.ts GRADE_OF). Pythagoras stays under ח׳ as the app files
  * it today. (ai spec AI-5)
  */
-export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', data: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' });
+export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', data: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8', prob: '8' });
 
 /**
  * Units a grade also learns this school year though filed under the other (learn/skills.ts ALSO_ON_PATH: the תשפ״ז
