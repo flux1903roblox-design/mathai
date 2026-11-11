@@ -6,7 +6,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { TOPICS, topicsFor } from '@/content/index.js';
 import { APP_NAME } from '../../shared/brand.js';
-import { listing, description, privacyUrlFor, LISTING_FILE, NOTES } from '../../store/make-listing.mjs';
+import { listing, description, privacyUrlFor, countsCoverage, LISTING_FILE, COUNTS_FILE, NOTES } from '../../store/make-listing.mjs';
+import { coverageOf, coverageSentence } from '@/learn/programme';
 import { CLAIMS, claimStatus, claimData } from '@/content/claims.js';
 import { repoCode, wranglerVars, checkClaims } from './landing-build.mjs';
 
@@ -117,6 +118,29 @@ describe('the store listing', () => {
     // every sentence of the notes that names a feature is a claim
     for (const part of Object.values(NOTES).flat()) if (typeof part !== 'string') expect(CLAIMS.map((c) => c.id)).toContain(part.claim);
     expect(() => listing({ appName: APP_NAME, topics, privacyUrl: '', claims: { shown: {}, known: [] }, template })).toThrow(/no claim/);
+  });
+
+  it('quotes each grade\'s share of the programme from counts.json, never a number typed by hand (FOLLOWUP-15)', () => {
+    const counts = JSON.parse(readFileSync(COUNTS_FILE, 'utf8'));
+    // counts.json holds the /programme page's sentences, from the code (claims.test.ts keeps the file fresh)
+    for (const g of ['7', '8']) expect(counts.coverage[g]).toBe(coverageSentence(g, coverageOf(g)));
+    expect(countsCoverage()).toEqual(counts.coverage);
+    // each one is a whole line of the description, for both stores
+    for (const text of [json.apple.description, json.play.fullDescription]) {
+      const lines = text.split('\n');
+      expect(lines).toContain(counts.coverage['7']);
+      expect(lines).toContain(counts.coverage['8']);
+      expect(lines.indexOf(counts.coverage['8'])).toBe(lines.indexOf(counts.coverage['7']) + 1);
+    }
+    // the template names the slots on lines of their own, and holds no number or share of its own
+    expect(template).toMatch(/^\{\{COVERAGE_7\}\}$/m);
+    expect(template).toMatch(/^\{\{COVERAGE_8\}\}$/m);
+    expect(template.replace(/\{\{[^}]*\}\}/g, '')).not.toMatch(/[0-9%]/);
+    // with no counts.json the two lines are left out, and no gap is left behind
+    const none = description(template, { appName: 'שם', topics: { 7: ['א'], 8: ['ג'] }, privacyUrl: '', coverage: {}, claims });
+    expect(none).not.toMatch(/שעות ההוראה/);
+    expect(none).not.toMatch(/\n{3,}/);
+    expect(countsCoverage('/nonexistent/counts.json')).toEqual({});
   });
 
   it('a privacy address, when there is one, is the app\'s https privacy page', () => {

@@ -1,7 +1,9 @@
 // The store listing (STUDENT-12 §4): writes store/listing.he.json, what the owner pastes into App Store Connect and
 // Play Console. The description's topic lines come from the app's own content (topicsFor('7'), topicsFor('8'), read
 // through Vite as the landing pages read them), so the listing can never name a topic the app does not teach; the name
-// comes from shared/brand.js APP_NAME. Edit the words here (the short fields) or in description.he.md (the description),
+// comes from shared/brand.js APP_NAME. Each grade's share of the Ministry's programme ({{COVERAGE_7}}, {{COVERAGE_8}})
+// is quoted from store/counts.json (coverage['7'], coverage['8']: the /programme page's sentences, written from the code
+// by `npm run programme:md`), so no number in the listing is typed by hand (FOLLOWUP-15). Edit the words here (the short fields) or in description.he.md (the description),
 // then run it again:
 //
 //   node madregot/store/make-listing.mjs
@@ -19,6 +21,15 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const LISTING_FILE = join(HERE, 'listing.he.json');
 export const TEMPLATE_FILE = join(HERE, 'description.he.md');
+export const COUNTS_FILE = join(HERE, 'counts.json');
+
+/** Each grade's coverage sentence from counts.json ({ 7, 8 }); {} while the file or its sentences are missing. */
+export function countsCoverage(file = COUNTS_FILE) {
+  try {
+    const c = JSON.parse(readFileSync(file, 'utf8'))?.coverage || {};
+    return Object.fromEntries(['7', '8'].filter((g) => typeof c[g] === 'string' && c[g].trim()).map((g) => [g, c[g].trim()]));
+  } catch { return {}; }
+}
 
 /** The fields with no generated part. {{APP_NAME}} is the product's name. */
 export const FIELDS = {
@@ -57,11 +68,15 @@ const notesText = (parts, claims) => parts.map((p) => (typeof p === 'string' ? p
 const list = (names) => names.join(', ');
 
 /**
- * The description: the template with its slots filled; a line whose slot has no value (the privacy line) is left out.
- * {{CLAIM id}} is that claim's sentence, or nothing while it is hidden; a line left empty is left out.
+ * The description: the template with its slots filled; a line whose slot has no value (the privacy line, a coverage line
+ * with no counts.json) is left out. {{CLAIM id}} is that claim's sentence, or nothing while it is hidden; a line left
+ * empty is left out. `coverage` is countsCoverage().
  */
-export function description(template, { appName, topics, privacyUrl, claims = { shown: {}, known: [] } }) {
-  const slots = { APP_NAME: appName, TOPICS_7: list(topics['7']), TOPICS_8: list(topics['8']), PRIVACY_URL: privacyUrl || '' };
+export function description(template, { appName, topics, privacyUrl, coverage = {}, claims = { shown: {}, known: [] } }) {
+  const slots = {
+    APP_NAME: appName, TOPICS_7: list(topics['7']), TOPICS_8: list(topics['8']), PRIVACY_URL: privacyUrl || '',
+    COVERAGE_7: coverage['7'] || '', COVERAGE_8: coverage['8'] || '',
+  };
   const withClaims = template.replace(/\r\n/g, '\n').replace(/\{\{CLAIM ([\w-]+)\}\}/g, (_, id) => claimOf(claims, id));
   const unknown = [...withClaims.matchAll(/\{\{(\w+)\}\}/g)].find((m) => !(m[1] in slots));
   if (unknown) throw new Error(`description.he.md: unknown slot ${unknown[0]}`);
@@ -76,9 +91,9 @@ export function description(template, { appName, topics, privacyUrl, claims = { 
  * The whole listing for the app as it is. `topics` is { 7: [titles], 8: [titles] }; `claims` is the landing build's
  * checked claims ({ shown: { id: text }, known: [ids] }, web/scripts/landing-build.mjs checkClaims).
  */
-export function listing({ appName, topics, privacyUrl, claims, template = readFileSync(TEMPLATE_FILE, 'utf8') }) {
+export function listing({ appName, topics, privacyUrl, claims, coverage = countsCoverage(), template = readFileSync(TEMPLATE_FILE, 'utf8') }) {
   const name = (s) => s.replaceAll('{{APP_NAME}}', appName);
-  const text = description(template, { appName, topics, privacyUrl, claims });
+  const text = description(template, { appName, topics, privacyUrl, coverage, claims });
   return {
     apple: { ...Object.fromEntries(Object.entries(FIELDS.apple).map(([k, v]) => [k, name(v)])), description: text },
     play: { ...Object.fromEntries(Object.entries(FIELDS.play).map(([k, v]) => [k, name(v)])), fullDescription: text },

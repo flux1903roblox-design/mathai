@@ -2,7 +2,7 @@
 // sends nothing, and the iPhone build never sends the family-device token (Apple 3.1.3(b)/(c)). The web build is as before.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useApp } from './store.js';
-import { aiHeaders, familyInApp, useAIStatus, closeLimitSheet } from './account.js';
+import { aiHeaders, familyInApp, classAiInApp, aiAccess, autoAskAllowed, refreshStatus, useAIStatus, closeLimitSheet } from './account.js';
 import { needsConsent, askConsent, answerConsent, useConsent, storeBuild } from './aiConsent.js';
 import { runAI } from './ai.js';
 import { CONSENT_TITLE, CONSENT_TEXT } from '../components/AIConsentSheet.jsx';
@@ -76,6 +76,59 @@ describe('the iPhone store build (VITE_STORE=ios)', () => {
     await runAI('explain', { question: '2+2' });
     expect(sent).toHaveLength(2);
     expect(useConsent.getState().open).toBe(false);
+  });
+});
+
+describe('VITE_STORE_CLASS_AI=0, the owner\'s rebuild if App Review objects to class licences (3.1.3(c), FOLLOWUP-44)', () => {
+  const ALL = ['explain', 'chat', 'generate', 'check', 'exam'];
+  const CLASS = (tier = 'class') => ({ paywall: true, tier, kinds: ALL, groups: { tutor: { left: 20, limit: 20 }, check: { left: 3, limit: 3 }, generate: { left: 3, limit: 3 }, exam: { left: 1, limit: 1 } }, economy: false, shared: null });
+  const FREE = { paywall: true, tier: 'free', kinds: ['explain', 'chat'], groups: { tutor: { left: 2, limit: 2 }, check: null, generate: null, exam: null }, economy: false, shared: null };
+  beforeEach(() => {
+    useApp.getState().setAI({ familyDevice: null, consentAt: '2026-11-05T10:00:00.000Z' });
+    useApp.getState().setProfile({ role: 'student', name: 'נועה', grade: '7', classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' });
+  });
+
+  it('default on: the web, and the iPhone build without it (or with 1), send no X-Class-AI and read a class licence as it is', () => {
+    expect(classAiInApp()).toBe(true);
+    vi.stubEnv('VITE_STORE_CLASS_AI', '0'); // outside the iPhone build it changes nothing
+    expect(classAiInApp()).toBe(true);
+    vi.stubEnv('VITE_STORE', 'ios');
+    vi.stubEnv('VITE_STORE_CLASS_AI', '');
+    expect(classAiInApp()).toBe(true);
+    vi.stubEnv('VITE_STORE_CLASS_AI', '1');
+    expect(classAiInApp()).toBe(true);
+    expect(aiHeaders()['X-Class-AI']).toBeUndefined();
+    expect(aiAccess('check', CLASS()).state).toBe('open');
+  });
+
+  it('0 in the iPhone build: the calls and the status say X-Class-AI: off, and the student has the free taste only', async () => {
+    vi.stubEnv('VITE_STORE', 'ios');
+    vi.stubEnv('VITE_STORE_CLASS_AI', '0');
+    expect(classAiInApp()).toBe(false);
+    expect(aiHeaders()).toEqual({ 'X-Device': expect.stringMatching(/^[a-f0-9]{32}$/), 'X-Class-AI': 'off' });
+    // the status is asked with it, and the Worker answers the free taste (worker/test/paid.test.js)
+    const sent = [];
+    vi.stubGlobal('fetch', vi.fn(async (url, init) => {
+      sent.push({ url: String(url), headers: init?.headers || {} });
+      const body = String(url).endsWith('/api/ai/status') ? FREE : { text: 'הסבר' };
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json', 'X-AI-Tier': 'free', 'X-AI-Group': 'tutor', 'X-AI-Left': '1' } });
+    }));
+    await refreshStatus();
+    expect(sent[0].url).toBe('https://api.example.test/api/ai/status');
+    expect(sent[0].headers['X-Class-AI']).toBe('off');
+    expect(aiAccess('explain')).toMatchObject({ state: 'free', left: 2 });
+    for (const k of ['check', 'generate', 'exam']) expect(aiAccess(k).state).toBe('locked');
+    // a question goes with the class token (the Worker still knows the class: its rules and its shared ceiling) and the header
+    await runAI('explain', { question: '1+1' });
+    const call = sent.find((r) => r.url.endsWith('/api/ai/explain'));
+    expect(call.headers).toMatchObject({ Authorization: 'Bearer stu_token_1', 'X-Class-AI': 'off' });
+    // even a status that still names a class licence offers no class-only tool, and nothing is asked by itself
+    for (const tier of ['class', 'teacher', 'trial', 'legacy']) {
+      expect(aiAccess('explain', CLASS(tier))).toMatchObject({ state: 'free', tier: 'free', left: 20 });
+      expect(aiAccess('check', CLASS(tier)).state).toBe('locked');
+    }
+    useAIStatus.setState({ status: CLASS() });
+    expect(autoAskAllowed()).toBe(false);
   });
 });
 

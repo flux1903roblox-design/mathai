@@ -32,10 +32,19 @@ export { randomHex };
  */
 export const familyInApp = () => import.meta.env.VITE_STORE !== 'ios' || import.meta.env.VITE_STORE_FAMILY === '1';
 
-/** The headers of every tutor call from this device: its id, and its family-device token when it has one. */
+/**
+ * Does this build let a class licence open the AI? Yes, except the iPhone store build made with VITE_STORE_CLASS_AI=0
+ * (STUDENT-12, FOLLOWUP-44): 3.1.3(c) is worded for apps sold only to organisations, so if App Review objects to a class
+ * licence (sold to schools) unlocking the AI in the app, the owner rebuilds with it (store/ios/README.md, step 3). Then
+ * every tutor call and the status carry X-Class-AI: off, the Worker counts no class licence for this device, and its
+ * student (or teacher) gets the free taste only. Default on, like familyInApp's off: only '0' in the iPhone build.
+ */
+export const classAiInApp = () => import.meta.env.VITE_STORE !== 'ios' || import.meta.env.VITE_STORE_CLASS_AI !== '0';
+
+/** The headers of every tutor call from this device: its id, its family-device token when it has one, and class AI off. */
 export function aiHeaders() {
   const fd = familyInApp() ? useApp.getState().ai.familyDevice : null;
-  return { 'X-Device': deviceId(), ...(fd?.token ? { 'X-Family-Device': fd.token } : {}) };
+  return { 'X-Device': deviceId(), ...(fd?.token ? { 'X-Family-Device': fd.token } : {}), ...(classAiInApp() ? {} : { 'X-Class-AI': 'off' }) };
 }
 
 /** A teacher's open class (its licence is what counts for the teacher's own questions). */
@@ -61,6 +70,13 @@ export function aiMode() {
 export const aiReady = () => aiMode() !== 'none';
 
 export const PAID_TIERS = ['family', 'class', 'teacher', 'trial', 'legacy'];
+/** The tiers a class licence (or its trial, or the legacy window) gives. */
+const CLASS_TIERS = ['class', 'teacher', 'trial', 'legacy'];
+/**
+ * The status as this build reads it: where class AI is off (classAiInApp), a class tier is the free taste's, whatever an
+ * older Worker that ignores X-Class-AI answers, so no class-only tool is offered and nothing is asked by itself.
+ */
+const asBuilt = (status) => (!classAiInApp() && CLASS_TIERS.includes(status?.tier) ? { ...status, tier: 'free', kinds: [...FREE_KINDS] } : status);
 
 /**
  * What the device knows when the server says class_ai_off (trust spec TRUST-11): the student's class has the tutor
@@ -138,7 +154,8 @@ function readLinked(res) {
  *   parent_ok_needed  a child alone: a parent approves the tutor on this device once, for free (TRUST-9)
  * An unknown status gives 'open', so a failed status call never blocks anything.
  */
-export function aiAccess(kind, status = useAIStatus.getState().status) {
+export function aiAccess(kind, given = useAIStatus.getState().status) {
+  const status = asBuilt(given);
   const mode = aiMode();
   if (mode === 'none') return { state: 'offline', left: null, tier: null };
   if (mode === 'personal') return { state: 'open', left: null, tier: 'personal' };
@@ -188,7 +205,7 @@ export function autoAskAllowed() {
   const mode = aiMode();
   if (mode === 'personal') return true;
   if (mode !== 'server') return false;
-  const tier = useAIStatus.getState().status?.tier;
+  const tier = asBuilt(useAIStatus.getState().status)?.tier;
   return tier === 'open' || PAID_TIERS.includes(tier);
 }
 

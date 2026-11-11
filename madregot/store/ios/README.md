@@ -19,6 +19,8 @@ What the iPhone build does differently (all tested in `web/e2e/store-ios.spec.js
 the unit tests named):
 
 - **Nothing is sold** and no family plan is unlocked (Apple 3.1.1, 3.1.3(b)/(c)); see `../README.md`, "Store mode".
+  A class licence (sold to schools, 3.1.3(c)) does open the AI, unless the build is made with `VITE_STORE_CLASS_AI=0`
+  (step 3; `web/src/lib/aiConsent.test.js`).
 - **AI permission first** (Apple 5.1.2(i)): the sheet that names Claude by Anthropic and what is sent comes before the
   first AI request.
 - **Daily reminder = local notifications** (`web/src/lib/localReminder.js`, `localReminder.test.js`): at the hour the
@@ -49,6 +51,17 @@ the unit tests named):
      `ios/App/App/PrivacyInfo.xcprivacy` into the App group in Xcode once, with the App target ticked.
    - Run it again after every change to the app: it rebuilds the web files and copies them in (`npx cap sync ios`).
    - `--config-only` checks the settings on any computer without building.
+   - **If App Review objects to class licences unlocking the AI in the app** (3.1.3(c) is worded for apps sold only to
+     organisations), rebuild with class AI off, one line, and upload that build:
+     ```bash
+     VITE_STORE_CLASS_AI=0 IOS_BUNDLE_ID=il.example.madregot PUBLIC_URL=https://madregot.example bash madregot/store/ios/make.sh
+     ```
+     `make.sh` says "class AI in this build: off". In that build every tutor call and the status carry
+     `X-Class-AI: off` (`web/src/lib/account.js` `classAiInApp`), and the Worker counts no class licence for the phone
+     (`worker/src/entitle.js` `paidBuckets`, tested in `worker/test/paid.test.js`): a class student, and the teacher's
+     own questions, get the free taste only. The web app and the Play app are not changed. Without the variable (or
+     with `1`) class AI is on, as before. Tell the reviewer in the review notes' reply that class licences no longer
+     unlock anything in the iPhone app.
 4. **Xcode:** open `~/madregot-ios/ios/App/App.xcodeproj` (or `App.xcworkspace` if there is one). In Signing &
    Capabilities choose your team. Set the version and build number (one higher for every upload). Then Product ›
    Archive, and in the Organizer: Distribute App › App Store Connect › Upload.
@@ -57,7 +70,3 @@ the unit tests named):
    and see it arrive; finish a lesson and see that today's does not; answer a question and feel the tap.
 6. Go on with `../README.md`, step 3 (App Privacy from `privacy-answers.md`, age rating, Israel only, the listing, the
    iOS review notes, submit).
-
-If App Review objects to class licences unlocking the AI in the app (3.1.3(c) is worded for apps sold only to
-organisations), the class AI in the iPhone build would need a switch that this branch does not have yet; see
-`../../QA_STUDENT.md` §7.

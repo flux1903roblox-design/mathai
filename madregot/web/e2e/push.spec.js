@@ -4,7 +4,8 @@
 // a synthetic push address. From the third learning day the last screen after a lesson offers the reminder; "להפעיל"
 // sends the subscription with the hour; Settings shows it on, changes the hour with `replaces`, and turns it off. A
 // push delivered to the service worker (DevTools ServiceWorker.deliverPushMessage) shows a Hebrew notification, right
-// to left. iPhone Safari in a tab gets only the Home Screen sentence. The clock is Thursday 5 November 2026.
+// to left. iPhone Safari in a tab gets the Home Screen sentence and the button that opens the Home Screen guide
+// (FOLLOWUP-39). The clock is Thursday 5 November 2026.
 // PUSH_SHOTS=<folder> saves screenshots for a look (nothing is compared).
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
@@ -242,19 +243,37 @@ test('no reminder where there is none: a server with the switch off, and no serv
 
 test.describe('iPhone Safari in a tab', () => {
   test.use({ userAgent: IPHONE });
-  test('Settings says the Home Screen sentence, and no card comes after a lesson', async ({ page }) => {
+  test('Settings says the Home Screen sentence and opens the Home Screen guide (FOLLOWUP-39); no card comes after a lesson', async ({ page }) => {
     const log = await fakeServer(page);
     await playPush(page);
     await open(page, '#/settings', withServer({ days: TWO_DAYS }));
     const section = page.getByRole('region', { name: 'תזכורת יומית' });
     await expect(section).toContainText('באייפון התזכורות עובדות אחרי שמוסיפים את מדרגות למסך הבית.');
     await expect(section.getByRole('radio')).toHaveCount(0);
-    await expect(section.getByRole('button')).toHaveCount(0);
+    // one button: the one Home Screen guide (DURABLE-3's InstallSheet), as Learn and the save section open it
+    const how = section.getByRole('button', { name: 'איך מוסיפים למסך הבית' });
+    await expect(section.getByRole('button')).toHaveCount(1);
+    expect((await how.boundingBox()).height).toBeGreaterThanOrEqual(44);
     await section.scrollIntoViewIfNeeded();
     await shot(page, 'settings-iphone-390');
+    expect((await saved(page)).durable.installHintAt).toBeNull();
+    await how.click();
+    const guide = page.getByRole('dialog', { name: 'להוסיף את מדרגות למסך הבית' });
+    await expect(guide).toBeVisible();
+    await expect(guide).toContainText('קודם שומרים את ההתקדמות.');
+    await expect(guide.getByRole('button', { name: 'ליצור קוד גיבוי' })).toBeVisible();
+    await shot(page, 'settings-iphone-guide-390');
+    // opening it notes the time, so Learn's card waits 30 days (lib/durable/install.js)
+    await expect.poll(async () => (await saved(page)).durable.installHintAt).toBe(new Date(NOW).toISOString());
+    await page.keyboard.press('Escape');
+    await expect(guide).toBeHidden();
+    await expect(how).toBeFocused();
+    // the third learning day: the browser has no install prompt here, so LessonDone offers none (STUDENT-10), and the
+    // guide just opened keeps Learn's card away
     await page.goto('./#/lesson/signed/1');
     await playLesson(page);
     expect(await walkEndScreens(page)).toBe('map');
+    await expect(page.locator('.install-card')).toHaveCount(0);
     expect(calls(log, '/api/push/key')).toEqual([]);
   });
 });

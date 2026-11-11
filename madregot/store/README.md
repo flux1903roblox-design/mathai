@@ -5,7 +5,7 @@ What is here, and what each piece is for:
 | Path | What | Made by |
 |---|---|---|
 | `listing.he.json` | the listing text to paste: App Store (name, subtitle, promotional text, keywords, description) and Play (title, short and full description), plus the English review notes for each store | `node madregot/store/make-listing.mjs` |
-| `description.he.md` | the description's template; `{{TOPICS_7}}` and `{{TOPICS_8}}` are filled from the app's own topics, and `{{CLAIM id}}` from the checked claims (`web/src/content/claims.js`) | edited by hand |
+| `description.he.md` | the description's template; `{{TOPICS_7}}` and `{{TOPICS_8}}` are filled from the app's own topics, `{{COVERAGE_7}}` and `{{COVERAGE_8}}` from `counts.json` (each grade's share of the programme), and `{{CLAIM id}}` from the checked claims (`web/src/content/claims.js`) | edited by hand |
 | `apple/iphone-6.9-1…5-*.jpg` | App Store screenshots, iPhone 6.9": 1320 × 2868 JPEG, no alpha | `node madregot/store/capture.cjs store` |
 | `apple/icon-1024.png` | App Store icon, 1024 × 1024, no alpha | the same |
 | `play/phone-1…5-*.png`, `play/phone-dark-3-map.png` | Play phone screenshots, 1080 × 1920, and one in dark mode | the same |
@@ -39,9 +39,9 @@ tokens (the brand tint behind, ink for the headline) and Rubik. Every phone in a
 The topic count in the third frame is built by `frames.cjs` from `counts.json`, which `npm run programme:md` (in `web/`)
 writes from the app's stairs, so the store never states a count by hand. What the app teaches of the Ministry's
 programme, unit by unit, is in `../PROGRAMME.md` (generated the same way); store text must not claim more than it shows.
-The listing does not state a share of the programme yet; when it does, it quotes each grade's coverage sentence from
-`counts.json` (`coverage['7']`, `coverage['8']`, the same words as the app's "מה לומדים במדרגות" page), never a share
-typed by hand. The parents' landing page states the share through the checked claim `coverage` (`web/src/content/claims.js`),
+The listing states each grade's share of the programme by quoting its coverage sentence from `counts.json`
+(`coverage['7']`, `coverage['8']`, the same words as the app's "מה לומדים במדרגות" page), never a share typed by hand
+(FOLLOWUP-15; `web/scripts/listing.test.mjs` checks the two lines against `counts.json` and the programme's code). The parents' landing page states the share through the checked claim `coverage` (`web/src/content/claims.js`),
 computed from the same programme.
 
 To make them again after a screen changes:
@@ -97,12 +97,22 @@ Nothing below can be done from the code. Each step says where its code side is.
    AI-Generated Content policies, and check that the store builds still do what this file says. Then record Play's
    pre-launch report and the TestFlight build number here.
 
-Merges this lane's store submission waits for (each named in `privacy-answers.md`): TRUST-4 (report an AI answer, which
-Play's AI policy requires), TRUST-9 (the free parent OK), TRUST-1 (the data map), TEACHER-1 (a teacher can delete the
-account in the app; Apple 5.1.1(v)). The listing and the review notes say only what the code has: `make-listing.mjs`
-asks the same checked claims as the landing pages (`web/src/content/claims.js`), so the teachers' line names
-assignments, and the review notes name reporting an AI answer and the parent's OK, only once those lanes have merged.
-Run `node madregot/store/make-listing.mjs` again after a merge and paste what it writes.
+The merges the store submission waited for are in (11 Nov 2026, FOLLOWUP-40): TRUST-4 (report an AI answer, which
+Play's AI policy requires), TRUST-9 (the free parent OK), TRUST-1 (the data map, which `privacy-answers.md` was checked
+against) and TEACHER-1 (the teacher's email account). `npm run build` and `make-listing.mjs` show every claim that waited
+for them, so the listing's teachers' line names assignments and the review notes name reporting an AI answer and the
+parent's OK. The listing also quotes each grade's share of the programme from `counts.json` (FOLLOWUP-15). Run
+`node madregot/store/make-listing.mjs` again after any merge and paste what it writes.
+
+Two store-only pieces are still missing, and each blocks a submission (code work, not an owner step):
+- **The parent's OK inside the store apps.** `/parents/info` in a store app is `StoreParents`, which says the sentence
+  but has no QR code or link yet (`ParentHandoff` has them on the web), and the iPhone build never sends the
+  family-device token that a parent's OK gives this device (`familyInApp`), so with `AI_PARENT_OK = "required"` a
+  student alone in the iPhone app always meets "parent_ok_needed". The fix has to let the iPhone app carry an OK
+  without unlocking a family plan bought on the web (3.1.3(b)).
+- **Deleting a teacher's account in the store apps** (Apple 5.1.1(v)). A teacher can sign in by email in the app, but
+  "מחיקת החשבון" is on `/parents`, which the store apps replace with `StoreParents`; the teacher's screens need their
+  own row for it.
 
 ## Landing page pictures
 
@@ -122,7 +132,7 @@ and running standalone; the same phone's ordinary Chrome tab is not a store app)
   השיעורים, התרגול ומדי פתוחים תמיד."), and no sheet or locked tool links to the parents' pages;
 - Settings has no "חיבור למנוי משפחתי" and no "ביטול מנוי" row; "מידע להורים" stays;
 - `/parents`, `/parents/link`, `/parents/info` and `/cancel` show one page, "מידע להורים", with the sentence about the
-  parent's free one-time OK (TRUST-9's QR code and link go under it when that lane merges); no plan, price,
+  parent's free one-time OK (TRUST-9 is merged, but its QR code and link are not under it yet: see below); no plan, price,
   subscription or website;
 - the first screen has no "להורים" or "ביטול מנוי" link, and the teacher's licence card offers a trial or a quote (by
   invoice) but no card purchase and no price.
@@ -131,6 +141,10 @@ The iPhone build only (`VITE_STORE=ios`):
 
 - the family plan is not used (Apple 3.1.3(b)/(c)): the family-device token is never sent and the family rows are
   hidden. `VITE_STORE_FAMILY=1` turns it back on, for the day the owner sells the plan by Apple in-app purchase;
+- a class licence (sold to schools, 3.1.3(c)) opens the AI, unless the build is made with `VITE_STORE_CLASS_AI=0`
+  (FOLLOWUP-44): then every tutor call carries `X-Class-AI: off`, the Worker counts no class licence for the phone, and a
+  class student gets the free taste only. It is the owner's one-line rebuild if App Review objects
+  (`ios/README.md`, step 3);
 - before the first AI request the app asks, naming Claude by Anthropic, what is sent and to the US, and what is never
   sent or kept (Apple 5.1.2(i)); "לא עכשיו" sends nothing, "כן, להמשיך" is kept in `ai.consentAt`;
 - no service worker is registered (WKWebView runs none on `capacitor://`, and the files are on the phone);
@@ -142,7 +156,7 @@ The iPhone build only (`VITE_STORE=ios`):
 - each day's first open counts `store_open_ios` once (STUDENT-14); the Play Store app counts `store_open_play` the
   same way (`web/src/lib/install.js countStoreOpen`).
 
-`ios/make.sh` builds it (`VITE_STORE=ios VITE_API_URL=<PUBLIC_URL> npx vite build --base ./`) into the Capacitor
+`ios/make.sh` builds it (`VITE_STORE=ios VITE_API_URL=<PUBLIC_URL> [VITE_STORE_CLASS_AI=0] npx vite build --base ./`) into the Capacitor
 project. The tests: `web/e2e/store-mode.spec.js` (the Play Store app, phone) and `web/e2e/store-ios.spec.js` (the `ios`
 Playwright project, which builds `dist-ios-test` on its own port, with a stand-in for the shell's bridge).
 

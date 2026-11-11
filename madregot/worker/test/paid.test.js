@@ -114,6 +114,37 @@ test('class: each student has their own limits; seats x 25 units stop a leaked-c
   assert.equal(countOf(h.env, `cls:${cls.code}`), 25);
 });
 
+test('X-Class-AI: off (the iPhone build with VITE_STORE_CLASS_AI=0, FOLLOWUP-44): no class licence on this device, only the free taste', async () => {
+  h = await setup();
+  const cls = await makeClass(h, { studentAi: true, students: ['נועה'] });
+  insertSub(h.env, { kind: 'class', class_code: cls.code, seats: 30 });
+  const noa = cls.students[0];
+  const off = { ...bearer(noa), 'X-Class-AI': 'off' };
+  // the same student on another device: the licence
+  const licensed = await (await h.call('GET', '/api/ai/status', { headers: bearer(noa) })).json();
+  assert.equal(licensed.tier, 'class');
+  // on this one: the free taste (its kinds and its count), and nothing moves on the class licence
+  const s = await (await h.call('GET', '/api/ai/status', { headers: off })).json();
+  assert.equal(s.tier, 'free');
+  assert.deepEqual(s.groups.tutor, { left: 2, limit: 2 });
+  const r = await ai(h, 'explain', off);
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('X-AI-Tier'), 'free');
+  assert.equal(countOf(h.env, `free:s:${noa.studentId}`), 1);
+  assert.equal(countOf(h.env, `s:${noa.studentId}:tutor`), 0);
+  assert.equal(countOf(h.env, `cls:${cls.code}`), 0);
+  // what the free taste does not include stays out, even with the licence in force
+  const check = await ai(h, 'check', off);
+  assert.equal(check.status, 402); assert.equal((await check.json()).error, 'paid_only');
+  // the teacher's own questions on such a device: the teacher's free taste, not the licence
+  const t = await ai(h, 'explain', { ...cls.teacher, 'X-Class-AI': 'off' });
+  assert.equal(t.status, 200); assert.equal(t.headers.get('X-AI-Tier'), 'free');
+  // any other value changes nothing, and the iPhone app's preflight may send the header
+  assert.equal((await ai(h, 'explain', { ...bearer(noa), 'X-Class-AI': 'on' })).headers.get('X-AI-Tier'), 'class');
+  const pre = await h.call('OPTIONS', '/api/ai/explain', { headers: { Origin: 'capacitor://localhost' } });
+  assert.match(pre.headers.get('Access-Control-Allow-Headers'), /\bX-Class-AI\b/);
+});
+
 test('a licensed teacher counts into the class and has the teacher limits', async () => {
   h = await setup();
   const cls = await makeClass(h);

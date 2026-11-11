@@ -67,7 +67,7 @@ describe('store/ios', () => {
 
   it('make.sh builds the iPhone build from the web folder, syncs it, and makes the app iPhone-only', () => {
     const sh = read('make.sh');
-    expect(sh).toMatch(/VITE_STORE=ios VITE_API_URL="\$\{PUBLIC_URL%\/\}" npx vite build --base \.\/ --outDir "\$IOS_DIR\/www"/);
+    expect(sh).toMatch(/VITE_STORE=ios VITE_API_URL="\$\{PUBLIC_URL%\/\}" VITE_STORE_CLASS_AI="\$\{VITE_STORE_CLASS_AI:-\}" npx vite build --base \.\/ --outDir "\$IOS_DIR\/www"/);
     expect(sh).toMatch(/npx cap add ios/);
     expect(sh).toMatch(/npx cap sync ios/);
     expect(sh).toMatch(/PrivacyInfo\.xcprivacy" ios\/App\/App\/PrivacyInfo\.xcprivacy/);
@@ -80,6 +80,16 @@ describe('store/ios', () => {
     expect(filled).toEqual({ ...config, appId: 'il.example.madregot', appName: APP_NAME });
     expect(copied).toEqual(pkg);
     expect(out).toContain('il.example.madregot');
+  }, 30_000);
+
+  it('VITE_STORE_CLASS_AI (FOLLOWUP-44): on by default, 0 turns class AI off in the build and says so; anything else is refused', async () => {
+    const env = { IOS_BUNDLE_ID: 'il.example.madregot', PUBLIC_URL: 'https://madregot.example.test' };
+    expect((await make(env)).out).toContain('class AI in this build: on');
+    expect((await make({ ...env, VITE_STORE_CLASS_AI: '1' })).out).toContain('class AI in this build: on');
+    expect((await make({ ...env, VITE_STORE_CLASS_AI: '0' })).out).toContain('class AI in this build: off (VITE_STORE_CLASS_AI=0: the free taste only)');
+    expect(await fails({ ...env, VITE_STORE_CLASS_AI: 'no' })).toMatch(/VITE_STORE_CLASS_AI is 0/);
+    // the owner's one line is in the README's build step
+    expect(read('README.md')).toContain('VITE_STORE_CLASS_AI=0 IOS_BUNDLE_ID=il.example.madregot PUBLIC_URL=https://madregot.example bash madregot/store/ios/make.sh');
   }, 30_000);
 
   it('make.sh refuses a bad bundle id, a plain-http address, missing settings and a folder inside the repository', async () => {

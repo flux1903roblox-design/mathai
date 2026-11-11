@@ -242,9 +242,13 @@ export async function deviceFrom(req, env) {
 /**
  * Everyone a child-side request speaks for. X-Account-Token is read only together with X-Class-Code, as the owner's
  * teacher credential (requireTeacher); it never gives family or free-device AI: a parent session alone gives no AI.
+ * X-Class-AI: off (the iPhone build made with VITE_STORE_CLASS_AI=0, STUDENT-12 / FOLLOWUP-44) says this device uses no
+ * class licence: its student or teacher gets the free taste, as if the class had none (paidBuckets). It can only take
+ * AI away, so it needs no proof.
  */
 export async function identify(req, env) {
   const id = { student: null, teacher: null, fam: null, famBad: false, device: null };
+  id.classAiOff = String(req.headers.get('X-Class-AI') || '').trim().toLowerCase() === 'off';
   id.student = await studentFrom(req, env);
   const asTeacher = req.headers.get('X-Teacher-Key') || (req.headers.get('X-Class-Code') && req.headers.get('X-Account-Token'));
   if (!id.student && asTeacher) {
@@ -302,7 +306,9 @@ async function paidBuckets(env, id) {
   const cls = id.student?.class_code ?? id.teacher?.code ?? null;
   const createdAt = id.student?.class_created_at ?? id.teacher?.created_at ?? null;
   const out = [];
-  const lic = cls ? await liveLicence(env, cls) : null;
+  // a device whose build has class AI off (X-Class-AI: off) counts no class licence or legacy allowance: the free taste
+  const classAi = !!cls && !id.classAiOff;
+  const lic = classAi ? await liveLicence(env, cls) : null;
   if (lic) {
     const trial = lic.plan === 'trial';
     const T = trial ? L.trial : L.class;
@@ -323,7 +329,7 @@ async function paidBuckets(env, id) {
       economyAt: trial ? null : (lic.seats || 0) * L.budgets.classSeatMonthlyUsd,
       paused: trial ? (await daySpendUsd(env, 'trial')) >= L.budgets.trialDailyUsd : false,
     });
-  } else if (cls && legacyWindow(env, createdAt)) {
+  } else if (classAi && legacyWindow(env, createdAt)) {
     const subj = id.student ? `s:${id.student.id}` : `t:${cls}`;
     const limit = id.student ? L.legacy.student : L.legacy.teacher;
     out.push({

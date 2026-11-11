@@ -20,6 +20,9 @@
 #   IOS_BUNDLE_ID      required, e.g. il.example.madregot (the App Store Connect record's bundle id; never changes)
 #   PUBLIC_URL         required, https://… (the Worker's address, the same value as in worker/wrangler.toml)
 #   IOS_DIR            the iOS project's folder, outside the repository (default ~/madregot-ios)
+#   VITE_STORE_CLASS_AI  0: class AI off in this build (FOLLOWUP-44): a class licence does not open the AI on the
+#                      phone, and a class student gets only the free taste (web/src/lib/account.js classAiInApp, the
+#                      Worker's X-Class-AI). Empty or 1 (the default): on. Only if App Review objects to 3.1.3(c).
 # --config-only writes IOS_DIR/capacitor.config.json and package.json and stops (no build, no download, no Xcode).
 set -euo pipefail
 
@@ -34,6 +37,11 @@ case "$IOS_DIR" in /*) ;; *) IOS_DIR="$PWD/$IOS_DIR" ;; esac
 case "$IOS_DIR/" in "$REPO"/*)
   echo "make.sh: $IOS_DIR is inside the repository; the iOS project lives outside it" >&2
   exit 1 ;;
+esac
+case "${VITE_STORE_CLASS_AI:-}" in
+  ''|1) CLASS_AI=on ;;
+  0) CLASS_AI=off ;;
+  *) echo "make.sh: VITE_STORE_CLASS_AI is 0 (class AI off in this build) or empty or 1 (on), not \"$VITE_STORE_CLASS_AI\"" >&2; exit 1 ;;
 esac
 export IOS_BUNDLE_ID PUBLIC_URL
 
@@ -59,6 +67,7 @@ writeFileSync(join(out, 'capacitor.config.json'), `${JSON.stringify(filled, null
 copyFileSync(join(here, 'package.json'), join(out, 'package.json'));
 console.log(`make.sh: ${join(out, 'capacitor.config.json')} (${id}, ${APP_NAME}), API ${site.origin}`);
 NODE
+echo "make.sh: class AI in this build: $CLASS_AI$([ "$CLASS_AI" = off ] && echo ' (VITE_STORE_CLASS_AI=0: the free taste only)')"
 
 if [ "${1:-}" = "--config-only" ]; then exit 0; fi
 
@@ -68,7 +77,7 @@ if [ "$(uname -s)" != "Darwin" ] || ! command -v xcodebuild >/dev/null; then
 fi
 
 # 2. the web app for the iPhone (relative paths: the files load from capacitor://localhost)
-(cd "$MADREGOT/web" && VITE_STORE=ios VITE_API_URL="${PUBLIC_URL%/}" npx vite build --base ./ --outDir "$IOS_DIR/www" --emptyOutDir)
+(cd "$MADREGOT/web" && VITE_STORE=ios VITE_API_URL="${PUBLIC_URL%/}" VITE_STORE_CLASS_AI="${VITE_STORE_CLASS_AI:-}" npx vite build --base ./ --outDir "$IOS_DIR/www" --emptyOutDir)
 
 # 3. the pinned packages, the iOS project (first time) and the web files copied into it
 cd "$IOS_DIR"

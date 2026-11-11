@@ -54,7 +54,7 @@ function corsHeaders(req, env) {
   return {
     'Access-Control-Allow-Origin': ok ? origin : allowed[0] || '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Class-Code, X-Teacher-Key, X-Account-Token, X-Device, X-Family-Device, X-Vault, Idempotency-Key',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Class-Code, X-Teacher-Key, X-Account-Token, X-Device, X-Family-Device, X-Class-AI, X-Vault, Idempotency-Key',
     'Access-Control-Expose-Headers': 'X-AI-Tier, X-AI-Group, X-AI-Left, X-AI-Economy, X-AI-Linked',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',

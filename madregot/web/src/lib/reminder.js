@@ -103,6 +103,8 @@ export const REMINDER_TEXT = {
   unsupported: 'הדפדפן הזה לא תומך בתזכורות.',
   noServer: 'בגרסה הזו אין תזכורות.',
   ios: 'באייפון התזכורות עובדות אחרי שמוסיפים את מדרגות למסך הבית.',
+  /** Under that line in iPhone Safari: it opens the Home Screen guide (InstallSheet). */
+  iosHow: 'איך מוסיפים למסך הבית',
   /** The iPhone app (local notifications): the app's notifications are off in the phone's settings. */
   deniedApp: 'ההתראות של מדרגות כבויות בהגדרות של האייפון. אפשר להפעיל אותן שם, ואז לחזור לכאן.',
   toastOn: (slot) => `התזכורת תגיע בכל יום ב־${slot}:00`,

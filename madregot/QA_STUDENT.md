@@ -253,8 +253,13 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
   and the week's Sunday (section 2); pictures in `qa-evidence/student/recap/`. The family lane's
   `VITE_REPORT_BANNER` switch no longer exists in the code, so the recap card is the one Sunday card. The tiles are plain
   numbers: the parents' ProgressRing (UI plan M2) and the Drawer (B2) still wait for task #76.
-- **The iPhone install guide** (DURABLE-3's InstallSheet) is on the family lane. In iPhone Safari (not the App Store
-  app) the install offer (STUDENT-10) shows nothing, and the reminder in Settings shows only the Home Screen sentence.
+- **The iPhone install guide: done on the integrated branch (FOLLOWUP-39).** In iPhone Safari (not the App Store app)
+  the reminder in Settings says the Home Screen sentence and, under it, "איך מוסיפים למסך הבית", which opens DURABLE-3's
+  one `InstallSheet` (as Learn's card and Settings › שמירת ההתקדמות do) and notes `durable.installHintAt`
+  (`e2e/push.spec.js`, iPhone Safari). LessonDone's install offer (STUDENT-10) and Learn's Home Screen card never both
+  come on one device: the first needs the browser's install prompt, which iPhone Safari never fires
+  (`lib/install.js installDue`), and the second only shows on an iPhone or iPad in the browser
+  (`lib/durable/install.js showLearnCard`).
 - **TEACHER-9's class settings page: done on the integrated branch (FOLLOWUP-43).** The teacher's "מטרת כיתה שבועית"
   block left its temporary home on the board's "תלמידים" view: it is on the class settings page, between the daily
   help email and how long the data is kept, and nowhere else (the board keeps only the total in its header).
@@ -262,25 +267,41 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
   the size; `worker/test/teacher-account.test.js` 7b). The class deletion deletes `class_steps`, `class_goal_weeks` and
   `class_goal_settings` (`worker/src/forget.js`).
 - **DURABLE-7's sync envelope.** The class-goal steps ride in the existing `/api/progress` body.
-- **The pages' other-lane lines** (TEACHER-4/7/9/10/11/15, PARENTS-2, TRUST-4/9/11, AI-1/3, CURRICULUM-1) are claims
-  that turn on at merge; after merging, run `npm run build` and `node madregot/store/make-listing.mjs` and read the
-  printed claims (`claims.test.js` checks each lane's names with a stand-in of its code).
-- **TRUST-1's `worker/datamap.json`** is not on this branch. At merge, add:
-  - the client keys `<STORE_KEY>-theme` and `<STORE_KEY>-src`, and IndexedDB `madregot-push`;
-  - the tables `class_steps`, `class_goal_weeks`, `push_subs` and `metrics_daily`;
-  - then re-check `store/privacy-answers.md` against it.
-- **Store submission** waits for TRUST-4 (report an AI answer, which Play's AI policy requires), TRUST-9 (the free
-  parent OK) and TEACHER-1 (in-app teacher account deletion, Apple 5.1.1(v)).
+- **The pages' other-lane lines: all shown on the integrated branch (FOLLOWUP-40, 11 Nov 2026).** `npm run build`
+  prints every claim that waits for another lane as shown: teachers-assign, assign-due, class-report, pilot-kit,
+  principal-form, class-delete, pilot-report, weekly-share, demo-class, school-ai-off, tutor-knows, coverage, chatbot,
+  report-answer and parent-ok. The one claim it hides, `teachers`, is the teachers' line from before assignments; it
+  gives way to `teachers-assign` by design (`claims.test.js`). `node madregot/store/make-listing.mjs` hides the same
+  one, and `store/listing.he.json` is regenerated from it.
+- **The store listing quotes each grade's share of the programme (FOLLOWUP-15).** `store/description.he.md` has the
+  slots `{{COVERAGE_7}}` and `{{COVERAGE_8}}`, filled from `store/counts.json` (`coverage['7']`, `coverage['8']`, the
+  /programme page's sentences, written from the code by `npm run programme:md`); no number is typed by hand.
+  `scripts/listing.test.mjs` checks that the two lines equal `counts.json`, that `counts.json` equals the programme's
+  own sentences, and that the listing stays inside both stores' limits.
+- **TRUST-1's `worker/datamap.json` is merged**, with this lane's client keys (`<STORE_KEY>-theme`, `<STORE_KEY>-src`,
+  IndexedDB `madregot-push`) and tables (`class_steps`, `class_goal_weeks`, `class_goal_settings`, `push_subs`,
+  `metrics_daily`). `store/privacy-answers.md` was checked against it on 11 Nov 2026.
+- **Store submission: TRUST-4, TRUST-9 and TEACHER-1 are merged.** The report button (`/api/ai/report`) and the
+  parent's OK are in the code, and the review notes now say both (`listing.he.json` › `reviewNotes`). Two store-only
+  pieces are still missing and block the submissions (not built here; see `store/README.md`):
+  - in the store apps, `/parents/info` is `StoreParents`, which shows only the sentence about the parent's OK, without
+    TRUST-9's QR code and link (`ParentHandoff`), and the iPhone build never sends the family-device token that the
+    parent's OK gives (`familyInApp`), so a solo student in the iPhone app cannot get the OK there;
+  - a teacher who signs in by email in a store app has no "מחיקת החשבון" there (it is on `/parents`, which the store
+    apps replace), which Apple 5.1.1(v) requires.
 - **TRUST-2's axe harness** is not on this branch. The contrast checks use this lane's `e2e/contrast.js`.
-- **`web/e2e/fakeServer.js`** (trust lane) is not on this branch. `class-goal.spec.js` and `student-week.spec.js`
-  carry their own `page.route` fakes.
-- **The account export of the class-goal settings** belongs to the trust lane's export.
+- **`web/e2e/fakeServer.js`** (trust lane) is merged; `class-goal.spec.js` and `student-week.spec.js` keep their own
+  `page.route` fakes, which are enough for them.
+- **The account export of the class-goal settings: done (FOLLOWUP-43).** Each bound class has `goal: { on, size }` in
+  `GET /api/account/export`.
 
 **Owner-side steps for the iPhone app**
 - Building it needs a Mac with Xcode (`store/ios/README.md`). The privacy report (Organizer, Generate Privacy Report) and
   a TestFlight check of the reminder and haptics on a real iPhone are the owner's.
-- `VITE_STORE_CLASS_AI=0` (class AI off in the iPhone build, if App Review objects to 3.1.3(c)) is not built: it would
-  need the class AI gate that the trust lane's TRUST-11 owns.
+- **`VITE_STORE_CLASS_AI=0` is built (FOLLOWUP-44).** If App Review objects to 3.1.3(c), the owner rebuilds the iPhone
+  app with it, one line (`store/ios/README.md`, step 3): every tutor call and the status carry `X-Class-AI: off`, the
+  Worker counts no class licence for that phone, and its class student gets the free taste only
+  (`worker/test/paid.test.js`, `web/src/lib/aiConsent.test.js`, `web/scripts/store-ios.test.mjs`).
 
 **Library work left to task #76**
 - **canvas-confetti** (M1, maths confetti) is not installed, so the existing Lottie confetti plays. If wanted, add the
