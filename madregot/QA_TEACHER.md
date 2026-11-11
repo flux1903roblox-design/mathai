@@ -76,7 +76,8 @@ In the table, `teacher-x` means the four files `__screens__/{phone-small,phone,t
   then the message and the Classroom link"; "a week from a Saturday is a Saturday"; ""משימות" for a class of 24";
   "from the library: "לתת לכיתה" …". TEACHER-5 (7 cases). TEACHER-7 cases 1-4. TEACHER-8 cases 1-3.
 - **Pictures.** `teacher-assign-sheet`, `teacher-assign-share`, `teacher-assign-restday`, `teacher-work-tab`,
-  `teacher-assignment-detail`, `teacher-student-today-teacher-work`, `teacher-student-home-teacher-chip`,
+  `teacher-assignment-detail`, `teacher-student-today-teacher-work`, `teacher-student-home-teacher-work` (the home's
+  banner names the work once it is the plan's next step, FOLLOWUP-17; it replaced `teacher-student-home-teacher-chip`),
   `teacher-report`, `teacher-student-sheet`, `teacher-student-sheet-end`, `teacher-attention`.
 - **Commits.** `e56fc95`, `224ff2e`, `33f27a5`, `245b8c6`, `38125a7`.
 

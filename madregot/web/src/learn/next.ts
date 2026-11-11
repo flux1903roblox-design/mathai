@@ -3,6 +3,8 @@
 // never send the student to two different next things, and every suggestion says why in one sentence.
 //
 // Bands, highest first (rank = band × 100 + place in the band):
+//   1 teacher    the teacher's work not done yet, due within 3 days or past by at most 14, earliest due first (the rows
+//                TodayCard lists: lib/classRows.js classRows `show`), each to where its row leads (workRoute)
 //   2 exam       an exam in the next two weeks: the diagnostic first, then Exam Rescue's steps for today (none on Shabbat)
 //   3 repair     a confirmed misconception that can be offered today
 //   4 review     a review that is due
@@ -17,10 +19,12 @@
 //                the grade mastered) it moves up into band 5, right after the points lost in an exam: never above an
 //                exam step, a repair, a due review or an exam loss
 //  10            with nothing else but a challenge: a short review of the earliest mastered stair
-// (Band 1 is the teacher's work, which comes with the class lane.)
 //
-// planNext is pure: the same context gives the same plan. It never reads the clock: `now`, `day` and the school `month`
-// come in the context (lib/useLearn.js useNext fills them).
+// planNext is pure: the same context gives the same plan. It never reads the clock or the store: `now`, `day`, the
+// school `month` and the class's work with this device's reports come in the context (lib/useLearn.js useNext fills
+// them).
+// A stair the teacher gave is not suggested again lower down at the same stage (add: the same activity), and the
+// teacher's work is never a part of today's mission (learn/mission.ts): it has its own rows above it.
 import type { Action, ActionKind, LearnEvent, MissionItem, RescueTask, SkillId, SkillRecord, Stage } from './types';
 import { ALL_SKILLS, BRIDGE_SKILLS, STAIRS, ancestorsOf, gradeSkillsOf, isBridgeSkill, parseSkill, prereqsOf, skillId } from './skills';
 import { dueReviews, daysBetween, STATE_LABEL } from './mastery';
@@ -39,14 +43,17 @@ import { isKept, isDone, unitNodes } from '@/lib/path.js';
 import { PARTS } from '@/lib/lesson.js';
 // @ts-ignore: plain JS
 import { topicsFor, bridgeTopicsFor } from '@/content/index.js';
+// @ts-ignore: plain JS
+import { classRows, workBanner } from '@/lib/classRows.js';
+import type { ClassAssignment } from './assignments';
 
 export type NextKind = ActionKind;
-/** Where a suggestion comes from: Exam Rescue's plan, the learning engine, a checked exam, or the challenge track. */
-export type NextSource = 'rescue' | 'engine' | 'exam-check' | 'challenge';
+/** Where a suggestion comes from: the class's teacher, Exam Rescue's plan, the learning engine, a checked exam, or the challenge track. */
+export type NextSource = 'teacher' | 'rescue' | 'engine' | 'exam-check' | 'challenge';
 export interface NextItem extends Action {
   kind: NextKind;
   source: NextSource;
-  /** The exam's date, for a step of the exam band. */
+  /** The exam's date, for a step of the exam band; the due day, for the teacher's work. */
   due?: string;
   /** band × 100 + place inside the band: stable, and lower comes first. */
   rank: number;
@@ -60,6 +67,11 @@ export interface NextContext extends Context {
   exams?: CheckedExam[];
   /** The school month of `day`: September 0 … June 9 (programme.ts schoolMonth). */
   month: number;
+  /**
+   * In a class: the teacher's assignments with this device's reports (classWork.assignments, each `mine` merged with
+   * the workOutbox report by mergeWork: lib/classRows.js classAssignments). None outside a class.
+   */
+  classWork?: ClassAssignment[];
 }
 export interface NextPlan {
   items: NextItem[];
@@ -70,7 +82,7 @@ export interface NextPlan {
   restDay: boolean;
 }
 
-export const BAND = { exam: 2, repair: 3, review: 4, 'exam-loss': 5, floor: 6, prereq: 6, mastery: 7, continue: 7, new: 8, challenge: 9, last: 10 } as const;
+export const BAND = { teacher: 1, exam: 2, repair: 3, review: 4, 'exam-loss': 5, floor: 6, prereq: 6, mastery: 7, continue: 7, new: 8, challenge: 9, last: 10 } as const;
 /** An exam this close puts its steps first. */
 export const EXAM_SOON_DAYS = 14;
 /** Points lost in a checked exam are worth working on for this long. */
@@ -158,6 +170,11 @@ export const challengeReason = (after: SkillId) => `עברתם את בדיקת �
  */
 export const leansOn = (id: SkillId, what: string) => `המדרגה "${titleOf(id)}" נשענת על ${what}.`;
 
+/** One row of lib/classRows.js classRows: the assignment with this device's report, where it leads and its minutes. */
+interface TeacherRow { a: ClassAssignment; done: boolean; minutes: number; to: string }
+/** The kinds that are a stage of a stair: one the teacher's work names at that stage is not suggested again. */
+const TEACHER_COVERS: NextKind[] = ['continue', 'new', 'prereq', 'mastery', 'exam-loss'];
+
 /** Is a stair taught by now in the student's grade (the Ministry's school calendar)? */
 const taughtByNow = (ctx: NextContext, id: SkillId) => { const m = monthIndex(id, ctx.grade); return m != null && m <= ctx.month; };
 
@@ -165,9 +182,14 @@ export function planNext(ctx: NextContext): NextPlan {
   const st = states(ctx);
   const items: NextItem[] = [];
   const place: Record<number, number> = {};
-  /** Add a suggestion to its band, unless the same one (or the very same activity) is already higher up. */
+  /**
+   * Add a suggestion to its band, unless the same one (or the very same activity) is already higher up: the same kind,
+   * stair, stage, misconception and assignment, the same route, or a stage of a stair the teacher's work already names
+   * (the teacher's stair or check at that very stage).
+   */
   const add = (band: number, source: NextSource, a: Action & { due?: string }) => {
-    if (items.some((x) => (x.kind === a.kind && x.skill === a.skill && x.stage === a.stage && x.misc === a.misc) || x.to === a.to)) return;
+    if (items.some((x) => (x.kind === a.kind && x.skill === a.skill && x.stage === a.stage && x.misc === a.misc && x.assignment === a.assignment) || x.to === a.to
+      || (x.kind === 'teacher' && !!x.skill && x.skill === a.skill && !!a.stage && x.stage === a.stage && TEACHER_COVERS.includes(a.kind)))) return;
     const n = place[band] || 0; place[band] = n + 1;
     items.push({ ...a, source, rank: band * 100 + n });
   };
@@ -176,6 +198,15 @@ export function planNext(ctx: NextContext): NextPlan {
   const floorOn = !!ctx.learn.floor?.on;
   const gradeSkills = floorOn ? [...BRIDGE_SKILLS, ...own] : own;
   const restDay = isShabbatDay(ctx.day);
+
+  // 1. the teacher's work: what TodayCard's rows show and is not done, in their order (earliest due first, then the
+  // order it was given), to where each row leads. A stair names the stage it is at, a mastery check stage E.
+  classRows({ assignments: ctx.classWork || [] }, {}, ctx.day).show.filter((r: TeacherRow) => !r.done).forEach((r: TeacherRow) => {
+    const { a } = r;
+    const skill = a.kind === 'exam' ? '' : a.skill || '';
+    const stage: Stage | undefined = a.kind === 'check' ? 'E' : a.kind === 'stair' && skill ? stairStage(skill, ctx.learn.skills[skill]) : undefined;
+    add(BAND.teacher, 'teacher', { kind: 'teacher', skill, ...(stage ? { stage } : {}), assignment: a.id, due: a.dueOn, title: a.title, reason: `${workBanner(a.dueOn, ctx.day)}.`, minutes: r.minutes, to: r.to });
+  });
 
   // 2. an exam in the next two weeks: Exam Rescue's steps for today, in its order (teaching before checking)
   const examToday = examTodayOf(ctx, restDay);

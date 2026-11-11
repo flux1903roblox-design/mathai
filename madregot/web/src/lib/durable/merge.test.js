@@ -408,6 +408,46 @@ describe('mergeTabs', () => {
     expect(m.outbox.map((x) => x.id)).toEqual(['o3', 'o4']);
   });
 
+  // FOLLOWUP-2: the teacher's work waiting for the server (workOutbox) is merged per assignment with
+  // learn/assignments.ts mergeWork, the server's own monotonic rules, not taken whole from the tab that wrote last
+  it('the class work outbox: two tabs from one base report different assignments, and both reports are kept', () => {
+    const base = deepFreeze({ workOutbox: { a0: { state: 'started', stage: 1 } } });
+    const a = { workOutbox: { a0: { state: 'started', stage: 1 }, a1: { state: 'started', stage: 2 } } };
+    const b = { workOutbox: { a0: { state: 'started', stage: 1 }, a2: { state: 'done', passed: true, right: 5, asked: 5, doneAt: at(5) } } };
+    for (const [mineAt, theirsAt] of [[{ workOutbox: '2' }, { workOutbox: '1' }], [{ workOutbox: '1' }, { workOutbox: '2' }]]) {
+      expect(mergeTabs(base, a, b, { mineAt, theirsAt }).workOutbox).toEqual({ a0: { state: 'started', stage: 1 }, a1: a.workOutbox.a1, a2: b.workOutbox.a2 });
+    }
+    // a report one tab sent (the server took it, so it left that tab's outbox) stays gone
+    expect(mergeTabs(base, { workOutbox: {} }, b).workOutbox).toEqual({ a2: b.workOutbox.a2 });
+  });
+
+  it('the class work outbox: one assignment at different stages in two tabs merges as the server does (stage goes up, done wins, the first finished result is kept)', () => {
+    const base = deepFreeze({ workOutbox: { a1: { state: 'started', stage: 1 } } });
+    const ahead = { workOutbox: { a1: { state: 'started', stage: 4 } } }; // this tab went on to stage 4
+    const done = { workOutbox: { a1: { state: 'done', stage: 3, passed: true, right: 4, asked: 5, doneAt: at(7) } } };
+    const want = { state: 'done', stage: 4, passed: true, right: 4, asked: 5, doneAt: at(7) };
+    // whichever tab wrote last, nothing goes down
+    for (const [mineAt, theirsAt] of [[{ workOutbox: '2' }, { workOutbox: '1' }], [{ workOutbox: '1' }, { workOutbox: '2' }]]) {
+      expect(mergeTabs(base, ahead, done, { mineAt, theirsAt }).workOutbox).toEqual({ a1: want });
+      expect(mergeTabs(base, done, ahead, { mineAt, theirsAt }).workOutbox).toEqual({ a1: want });
+    }
+    // both finished: the result finished first stays, whichever tab wrote last
+    const late = { workOutbox: { a1: { state: 'done', stage: 5, passed: false, right: 2, asked: 5, doneAt: at(9) } } };
+    for (const [m, t] of [[done, late], [late, done]]) {
+      expect(mergeTabs(base, m, t, { mineAt: { workOutbox: '1' }, theirsAt: { workOutbox: '2' } }).workOutbox.a1).toEqual({ state: 'done', stage: 5, passed: true, right: 4, asked: 5, doneAt: at(7) });
+    }
+  });
+
+  it('the class work outbox stays this device\'s across devices, and a reset leaves it alone', () => {
+    expect(DEVICE_ONLY).toContain('workOutbox');
+    const mine = { workOutbox: { a1: { state: 'started', stage: 2 } } };
+    expect(mergeDevices(mine, { workOutbox: { a9: { state: 'done' } } }).workOutbox).toEqual(mine.workOutbox);
+    const base = deepFreeze({ xp: 10, xpBy: { a1b2c3d4: 10 }, resetAt: null, workOutbox: {} });
+    const reset = { xp: 0, xpBy: {}, resetAt: '2026-11-05T10:00:00.000Z', workOutbox: {} };
+    const work = { xp: 10, xpBy: { a1b2c3d4: 10 }, resetAt: null, workOutbox: { a1: { state: 'started', stage: 2 } } };
+    expect(mergeTabs(base, work, reset).workOutbox).toEqual(work.workOutbox);
+  });
+
   it('is pure: it never changes its inputs', () => {
     const rnd = seeded(3);
     const [b, m, t] = [randomState(rnd), randomState(rnd), randomState(rnd)].map(deepFreeze);

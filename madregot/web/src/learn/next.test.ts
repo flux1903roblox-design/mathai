@@ -17,6 +17,8 @@ import { challengeById, CHALLENGES } from './challenges/index';
 import { isKept } from '@/lib/path.js';
 // @ts-ignore: plain JS
 import { topicsFor } from '@/content/index.js';
+// @ts-ignore: plain JS
+import { classAssignments, classRows } from '@/lib/classRows.js';
 
 // every topic's teaching content, loaded once (the durable lane's split, DURABLE-11: topics load on demand)
 await loadAllContent();
@@ -590,6 +592,64 @@ describe('one next: every surface names the same step', () => {
     expect(seen.restDay).toBeGreaterThan(10);
     expect(seen.lead).toBeGreaterThan(0);
     expect(seen.lead).toBeLessThan(seen.stairOnMap);
+  });
+
+  // CURRICULUM-7.1 band 1 (FOLLOWUP-17): the teacher's work, as TodayCard's rows select it, is the top of the one plan
+  it('a teacher row: top when due tomorrow, not band 1 when due in 4 days or overdue 15 days, gone when done; every surface names it', () => {
+    // a student in the middle of signed:3 (stage C next), on Tuesday 10.11
+    const L = emptyLearn();
+    L.skills['signed:3'] = taughtRec(ago(1), ['A', 'B']);
+    const work = (over: Record<string, unknown> = {}) => ({ id: 'a1', kind: 'stair', skill: 'signed:3', title: 'חיבור וחיסור של מספרים מכוונים', note: '', startsOn: '2026-11-09', dueOn: '2026-11-11', createdAt: '2026-11-09T08:00:00.000Z', mine: null, ...over });
+    const planWith = (list: Record<string, unknown>[], box: Record<string, unknown> = {}) => planNext({ ...ctxOf(L), classWork: classAssignments(list, box) });
+    const alone = planNext(ctxOf(L));
+    expect(alone.top).toMatchObject({ kind: 'continue', skill: 'signed:3', stage: 'C' });
+
+    // due tomorrow: the top, to where the row leads, with the due day in its words
+    const p = planWith([work()]);
+    expect(p.top).toMatchObject({ kind: 'teacher', source: 'teacher', rank: BAND.teacher * 100, skill: 'signed:3', stage: 'C', assignment: 'a1', due: '2026-11-11',
+      title: 'חיבור וחיסור של מספרים מכוונים', reason: 'משימה מהמורה, עד מחר.', to: '/learn/signed/3?assignment=a1' });
+    expect(p.top!.to).toBe(classRows({ assignments: [work()] }, {}, ctxOf(L).day).show[0].to);
+    // the stair the teacher gave is not suggested again lower down at the same stage
+    expect(p.items.filter((x) => x.skill === 'signed:3' && x.kind !== 'teacher')).toEqual([]);
+    checkRules(ctxOf(L), p);
+    // TodayCard: its button is the plan's top while that is the teacher's work, and the mission never takes it as a part
+    const mission = missionFor({ ...L, missions: {} }, ctxOf(L).day, p.items).items;
+    expect(mission.some((x) => x.kind === 'teacher' || x.skill === 'signed:3')).toBe(false);
+    // the map: the teacher's work is no stop of the map, so the map's banner names it (and the profile's next step is top)
+    const ids = mapTopics('7', false).map((t) => t.id);
+    expect(onMap(p.top, ids)).toBe(false);
+    expect(mapFocus({ from: null, top: p.top, lastTopic: 'signed', topicIds: ids, firstId: ids[0], path: ctxOf(L).path! }).next).toBeNull();
+
+    // due in 4 days: shown later, folded; not band 1, so the stair in progress is the top again
+    const later = planWith([work({ dueOn: '2026-11-14' })]);
+    expect(later.items.some((x) => x.kind === 'teacher')).toBe(false);
+    expect(later.top).toEqual(alone.top);
+    // overdue by 14 days it still counts; by 15 it does not
+    expect(planWith([work({ dueOn: '2026-10-27' })]).top).toMatchObject({ kind: 'teacher', reason: 'משימה מהמורה. המועד עבר, ועדיין אפשר להשלים.' });
+    expect(planWith([work({ dueOn: '2026-10-26' })]).items.some((x) => x.kind === 'teacher')).toBe(false);
+    // done: on the server, or in this device's report still waiting in the outbox
+    expect(planWith([work({ mine: { state: 'done', stage: 5 } })]).items.some((x) => x.kind === 'teacher')).toBe(false);
+    expect(planWith([work()], { a1: { state: 'done', stage: 5, doneAt: NOW } }).items.some((x) => x.kind === 'teacher')).toBe(false);
+    // started, the report says how far: still the top until it is done
+    expect(planWith([work()], { a1: { state: 'started', stage: 2 } }).top).toMatchObject({ kind: 'teacher', assignment: 'a1' });
+
+    // several: earliest due first, then the order they were given; a check leads to its mastery check, an exam to the class exam
+    const many = planWith([
+      work({ id: 'b2', kind: 'exam', skill: null, title: 'מבחן תרגול', dueOn: '2026-11-12', hasExam: true, examCount: 4 }),
+      work({ id: 'c3', kind: 'check', skill: 'signed:2', title: 'בדיקת שליטה', dueOn: '2026-11-11', createdAt: '2026-11-09T09:00:00.000Z' }),
+      work({ dueOn: '2026-11-11' }),
+    ]);
+    const teacher = many.items.filter((x) => x.kind === 'teacher');
+    expect(teacher.map((x) => [x.assignment, x.to, x.minutes])).toEqual([
+      ['a1', '/learn/signed/3?assignment=a1', teacher[0].minutes],
+      ['c3', '/lesson/signed/2?kind=check&purpose=mastery&assignment=c3', 3],
+      ['b2', '/class/exam/b2', 12],
+    ]);
+    expect(teacher.map((x) => x.rank)).toEqual([100, 101, 102]);
+    expect(teacher[1]).toMatchObject({ skill: 'signed:2', stage: 'E' });
+    expect(teacher[2].skill).toBe('');
+    // outside a class there is no band 1
+    expect(planNext({ ...ctxOf(L), classWork: [] }).items.some((x) => x.kind === 'teacher')).toBe(false);
   });
 
   it('a ח׳ student is not offered sys:1 (equations with percents) as new while pct:5 is not done', () => {

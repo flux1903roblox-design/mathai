@@ -1657,16 +1657,20 @@ test.describe('TEACHER-5: the teacher\'s work on the student\'s side', () => {
     expect(log.filter((r) => r.path.startsWith('/api/class/'))).toHaveLength(0);
   });
 
-  test('6. the missions tab has a dot for new work, the home has a chip, and opening the missions clears the dot', async ({ page }) => {
+  test('6. the missions tab has a dot for new work, the home\'s banner names it, and opening the missions clears the dot', async ({ page }) => {
     await fakeServer(page, { today: '2026-11-09', assignments: [given()] }, baseOf());
     await open(page, '#/', inClass(), { at: MONDAY });
     await expect(missionsTab(page)).toHaveAccessibleName('משימות · יש משהו חדש מהמורה');
     await expect(page.locator('.tab-dot')).toHaveCount(1);
-    const chip = page.getByRole('link', { name: 'משימה מהמורה: מספרים מכוונים: חיבור וחיסור · עד יום חמישי' });
-    await expect(chip).toBeVisible();
-    expect((await chip.boundingBox()).height).toBeGreaterThanOrEqual(44);
-    await shot(page, 'student-home-teacher-chip');
-    await chip.click();
+    // the work due on Thursday is the plan's next step (learn/next.ts band 1): the banner above the map names it and
+    // leads to it, and no second chip repeats it (FOLLOWUP-17)
+    const banner = page.getByRole('region', { name: 'הצעד הבא' });
+    await expect(banner).toContainText('מספרים מכוונים: חיבור וחיסור');
+    await expect(banner).toContainText('משימה מהמורה, עד יום חמישי, 12.11 · ');
+    await expect(page.locator('.learn-work-chip')).toHaveCount(0);
+    expect((await banner.getByRole('button', { name: 'לצעד הבא' }).boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await shot(page, 'student-home-teacher-work');
+    await missionsTab(page).click();
     await expect(page).toHaveURL(/#\/quests$/);
     await expect(page.getByRole('region', { name: 'מהמורה רונית' })).toBeVisible();
     await expect(missionsTab(page)).toHaveAccessibleName('משימות');

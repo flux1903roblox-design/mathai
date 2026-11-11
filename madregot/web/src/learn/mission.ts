@@ -1,6 +1,8 @@
 // "המשימה שלי להיום": about five minutes, chosen from the ranked plan (learn/next.ts planNext().items) and fixed for the
 // day once made (so it does not change under the student's feet). Mixed on purpose: something to strengthen and
-// something new. Its first item is the plan's top, so the mission's button and the home's next step agree.
+// something new. Its first item is the plan's top, so the mission's button and the home's next step agree. The
+// teacher's work (band 1) is never a part: it has its own rows above the mission (ClassWork), and TodayCard's button
+// starts it while it is the plan's top.
 import type { Action, LearnState, MissionItem, Stage } from './types';
 import { STAGE_NAME, STAGE_N, routeOf, titleOf } from './recommend';
 
@@ -10,7 +12,8 @@ export const MISSION_MAX = 3;
 const STRENGTHEN: Action['kind'][] = ['repair', 'review', 'prereq', 'exam', 'exam-loss', 'floor'];
 
 /** Choose today's mission from the ranked plan: the most valuable item, then one of the other kind, up to ~5 minutes. */
-export function buildMission(actions: Action[]): MissionItem[] {
+export function buildMission(plan: Action[]): MissionItem[] {
+  const actions = plan.filter((a) => a.kind !== 'teacher');
   if (!actions.length) return [];
   const out: MissionItem[] = [actions[0]];
   let minutes = actions[0].minutes;

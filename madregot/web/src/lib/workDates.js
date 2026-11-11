@@ -1,6 +1,6 @@
 // Due dates of class work (spec TEACHER-4 and TEACHER-5), as both sides of the class read them. Every day is a
 // 'YYYY-MM-DD' string; the weekday is read at noon UTC, so it is the same day in every time zone.
-import { isShabbat } from './store.js';
+import { isShabbat } from './days.js';
 
 const LONG = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];

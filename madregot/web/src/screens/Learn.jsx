@@ -214,7 +214,8 @@ function SidePanel({ streak, todayXp, goalXp, freezes, days }) {
 
 /**
  * The installed app's shortcut "השיעור של היום" (./#/?go=today, STUDENT-10) opens what TodayCard's button opens: the
- * mission's next part, or the missions tab when the day's mission is done. The mission is fixed for the day once
+ * teacher's work while it is the plan's top, else the mission's next part, or the missions tab when the day's mission
+ * is done. The mission is fixed for the day once
  * shown, as TodayCard fixes it. The address is replaced, so Back does not come here again.
  */
 function GoToday() {
@@ -229,7 +230,7 @@ function GoToday() {
     went.current = true;
     const { saveMission, learnEvent } = useApp.getState();
     if (fresh && items.length) { saveMission(today(), items); learnEvent({ e: 'mission-start' }); }
-    navigate(todayRoute(items), { replace: true });
+    navigate(plan.top?.kind === 'teacher' ? plan.top.to : todayRoute(items), { replace: true });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
@@ -267,9 +268,6 @@ function LearnMap() {
   const focus = mapFocus({ from: state?.from, top, lastTopic, topicIds, firstId: own[0]?.id, path });
   const focusKey = focus.key;
   const banner = top && !onMap(top, topicIds) ? top : null;
-  const repair = useRepair();
-  const repairDismissed = useApp((s) => s.nudges?.repairDismissed);
-  const repairOn = !!repair && repairDismissed !== today();
 
   useEffect(() => { settleStreak(); }, [settleStreak]);
   // The screen opens at the top of the path; back from a lesson, or on another grade, it opens on the place to continue from.
@@ -294,10 +292,15 @@ function LearnMap() {
 
   const onStart = (to) => navigate(to);
   const otherGrade = view === '7' ? '8' : '7';
-  // the teacher's most urgent work, due within 3 days (only in a class): a chip to the missions tab
+  // the teacher's most urgent work, due within 3 days (only in a class): a chip to the missions tab, unless the banner
+  // already names it (the plan's top is the teacher's work: band 1 of learn/next.ts, the same selection)
   const classWork = useApp((s) => s.classWork);
   const workOutbox = useApp((s) => s.workOutbox);
-  const urgent = profile.token ? urgentWork(classWork, workOutbox) : null;
+  const repair = useRepair();
+  const repairDismissed = useApp((s) => s.nudges?.repairDismissed);
+  const repairOn = !!repair && repairDismissed !== today();
+  const bannerShown = !!banner && !repairOn;
+  const urgent = profile.token && !(bannerShown && banner.kind === 'teacher') ? urgentWork(classWork, workOutbox) : null;
 
   return (
     <div className="learn">
@@ -327,7 +330,7 @@ function LearnMap() {
         <RepairCard />
         {/* the next step when it is not a stop of the map; it stacks last under any other banner, and at most one shows:
             while the repair card is up, its button already goes to this same next step */}
-        {banner && !repairOn && <NextBanner item={banner} onGo={() => onStart(banner.to)} />}
+        {bannerShown && <NextBanner item={banner} onGo={() => onStart(banner.to)} />}
         {/* the home screen is the path, as on Duolingo: units under their sticky banners, the current stop marked */}
         {topics.map((t) => (
           <Unit key={t.id} t={t} n={own.indexOf(t) + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} focusNext={focus.next} fresh={state?.from}

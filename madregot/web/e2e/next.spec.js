@@ -3,6 +3,7 @@
 // first, and the review is under them.
 import { test, expect } from '@playwright/test';
 import { open, student, item, answer, saved, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { API, fakeServer } from './fakeServer.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the next step runs on both phones'); });
 
@@ -58,6 +59,58 @@ test('the home banner, the mission\'s first row and Rescue\'s start button lead 
   await shot(page, 'rescue');
   await today.getByRole('button', { name: 'מתחילים', exact: true }).click();
   expect(route(page)).toBe(fromHome);
+});
+
+// CURRICULUM-7.1 band 1 (FOLLOWUP-17): the teacher's work due tomorrow is the plan's top, so the mission's big button,
+// the banner above the map and the profile's next step all lead to it, as its row on the missions tab does.
+test('a class student with work due tomorrow: Today, the map\'s banner and Me all lead to it', async ({ page }) => {
+  const work = { id: 'a000000000000001', kind: 'stair', skill: 'signed:1', title: 'מספרים מכוונים: חיבור וחיסור', note: '', startsOn: '2026-11-04', dueOn: '2026-11-06',
+    forAll: true, targets: [], createdAt: '2026-11-04T07:00:00.000Z' };
+  await fakeServer(page, { assignments: [work] }, test.info().project.use.baseURL);
+  // the device fetched the class's work earlier today (it fetches again on opening): the plan has it from the first paint
+  const inClass = () => ({ ...student('7', {
+    profile: { role: 'student', name: 'דנה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', teacherName: 'רונית', token: 'stok-a1', studentId: 'a1' },
+    ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true },
+    classWork: { at: '2026-11-05T07:00:00.000Z', today: '2026-11-05', teacherName: 'רונית', help: [], exams: {}, seenAt: '2026-11-05T07:00:00.000Z', noticed: {},
+      assignments: [{ id: work.id, kind: work.kind, skill: work.skill, title: work.title, note: '', startsOn: work.startsOn, dueOn: work.dueOn, createdAt: work.createdAt, hasExam: false, examCount: null, mine: null }] },
+  }), version: 3 });
+  const WORK = '#/learn/signed/1?assignment=a000000000000001';
+
+  // Today: the teacher's row first, and the big button starts that work
+  await open(page, '#/quests', inClass());
+  const row = page.getByRole('region', { name: 'מהמורה רונית' }).getByRole('listitem').first();
+  await expect(row).toContainText('מספרים מכוונים: חיבור וחיסור');
+  await expect(row).toContainText('מדרגה ללמוד · עד מחר');
+  const go = page.locator('.continue-go');
+  await expect(go).toHaveText('מתחילים במשימה מהמורה');
+  await expectUsable(page, go, 'the big button');
+  await expectNoSidewaysScroll(page);
+  // the mission's own parts never repeat the stair the teacher gave
+  await expect(page.locator('.today-items li').filter({ hasText: 'חיבור וחיסור' })).toHaveCount(1);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot(page, 'today-teacher');
+  await go.click();
+  expect(route(page)).toBe(WORK);
+  await expect(page.getByText('משימה מהמורה, עד מחר')).toBeVisible();
+
+  // the map: the next step is no stop of the map, so the banner above it names the work, and no second chip repeats it
+  await open(page, '#/', inClass());
+  const banner = page.getByRole('region', { name: 'הצעד הבא' });
+  await expect(banner).toContainText('מספרים מכוונים: חיבור וחיסור');
+  await expect(banner).toContainText('משימה מהמורה, עד מחר · ');
+  await expect(page.locator('.learn-work-chip')).toHaveCount(0);
+  await expectNoSidewaysScroll(page);
+  await shot(page, 'home-teacher');
+  await banner.getByRole('button', { name: 'לצעד הבא' }).click();
+  expect(route(page)).toBe(WORK);
+
+  // Me: the next step is the same work, and says it is from the teacher
+  await open(page, '#/me', inClass());
+  const next = page.locator('.ps-next');
+  await expect(next).toContainText('מספרים מכוונים: חיבור וחיסור');
+  await expect(next).toContainText('הצעד הבא: משימה מהמורה');
+  await next.getByRole('button', { name: 'מתחילים' }).click();
+  expect(route(page)).toBe(WORK);
 });
 
 test('with the next step a stair of the map, there is no banner and the map opens on that stair', async ({ page }) => {

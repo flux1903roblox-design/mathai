@@ -351,11 +351,11 @@ export interface LearnState {
 // ------------------------------------------------------------------ what to do next
 
 /**
- * What a suggestion is (learn/next.ts planNext ranks them): an Exam Rescue step, a misconception to repair, a due
- * review, points lost in a checked exam ('exam-loss'), the floor check of the fractions unit ('floor'), a missing
+ * What a suggestion is (learn/next.ts planNext ranks them): the teacher's work ('teacher', a stair, a mastery check or a
+ * class exam the class's teacher gave), an Exam Rescue step, a misconception to repair, a due review, points lost in a checked exam ('exam-loss'), the floor check of the fractions unit ('floor'), a missing
  * prerequisite, a mastery check, the stair in progress, a new stair, or a challenge task of a mastered stair.
  */
-export type ActionKind = 'exam' | 'repair' | 'review' | 'exam-loss' | 'floor' | 'prereq' | 'continue' | 'new' | 'mastery' | 'challenge';
+export type ActionKind = 'teacher' | 'exam' | 'repair' | 'review' | 'exam-loss' | 'floor' | 'prereq' | 'continue' | 'new' | 'mastery' | 'challenge';
 export type Stage = 'A' | 'B' | 'C' | 'D' | 'E';
 /** The kind of an Exam Rescue step, as its plan names it (examRescue.ts PlanTask), plus the diagnostic before a plan. */
 export type RescueTask = 'learn' | 'practice' | 'mastery' | 'review' | 'exam' | 'diagnostic';
@@ -368,6 +368,8 @@ export interface Action {
   task?: RescueTask;
   /** A challenge: which task (its skill is the stair it follows), so the mission item is done only by that task. */
   challengeId?: string;
+  /** The teacher's work (kind 'teacher', CURRICULUM-7.1 band 1): which assignment of the class. */
+  assignment?: string;
   title: Text; reason: Text; minutes: number;
   /** The route that starts it. */
   to: string;

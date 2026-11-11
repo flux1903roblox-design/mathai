@@ -5,15 +5,18 @@
 // Under it the exam entry as its own card. The mission is fixed for the day once shown.
 // It is one view of the one plan (learn/next.ts planNext): its items, its first unfinished item is the button, and the
 // exam card names Exam Rescue's step for today, so the home, this card and Rescue name the same next step.
-// A student in a class sees the teacher's work first, inside the card (ClassWork, TEACHER-5 §5): the big button starts
-// the earliest unfinished work from the teacher, and the minutes count it too. The stairs the teacher gave report how
-// far they are whenever this card opens or the learning record changes (lib/classWork.js).
+// A student in a class sees the teacher's work first, inside the card (ClassWork, TEACHER-5 §5), and the minutes count it
+// too. The big button reads the plan's top: while that is the teacher's work (band 1 of learn/next.ts: due within 3
+// days or past by at most 14) it starts that work, the row it names is the one marked next, and the home's banner and
+// the profile's next step name the same; otherwise it starts the mission's next part. The teacher's work is never a
+// part of the mission itself. The stairs the teacher gave report how far they are whenever this card opens or the
+// learning record changes (lib/classWork.js).
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Play, CalendarClock, Footprints, Target, ChevronLeft, Sparkles, Check, Wrench, RotateCcw, Award, ArrowLeft, FileCheck, Layers, Puzzle } from 'lucide-react';
+import { Play, CalendarClock, Footprints, Target, ChevronLeft, Sparkles, Check, Wrench, RotateCcw, Award, ArrowLeft, FileCheck, Layers, Puzzle, School } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { useNext } from '@/lib/useLearn.js';
 import { boardOf } from '@/lib/board.js';
@@ -29,8 +32,8 @@ import { Bar } from '@/components/ds.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { enter } from '@/lib/motion.js';
 
-export const KIND_ICON = { repair: Wrench, review: RotateCcw, 'exam-loss': FileCheck, floor: Layers, prereq: Footprints, continue: ArrowLeft, new: Sparkles, mastery: Award, exam: CalendarClock, challenge: Puzzle };
-export const KIND_LABEL = { repair: 'תיקון', review: 'בדיקת זיכרון', 'exam-loss': 'מהמבחן', floor: 'יסודות', prereq: 'מדרגה קודמת', continue: 'ממשיכים', new: 'חדש', mastery: 'בדיקת שליטה', exam: 'הכנה למבחן', challenge: 'אתגר' };
+export const KIND_ICON = { teacher: School, repair: Wrench, review: RotateCcw, 'exam-loss': FileCheck, floor: Layers, prereq: Footprints, continue: ArrowLeft, new: Sparkles, mastery: Award, exam: CalendarClock, challenge: Puzzle };
+export const KIND_LABEL = { teacher: 'משימה מהמורה', repair: 'תיקון', review: 'בדיקת זיכרון', 'exam-loss': 'מהמבחן', floor: 'יסודות', prereq: 'מדרגה קודמת', continue: 'ממשיכים', new: 'חדש', mastery: 'בדיקת שליטה', exam: 'הכנה למבחן', challenge: 'אתגר' };
 
 /** A part's bar: a stage of a stair shows how far the stair is (stage n of 5); anything else is done or not yet. */
 function partBar(it) {
@@ -60,6 +63,9 @@ export default function TodayCard({ grade, onBoard }) {
   useEffect(() => { if (fresh && items.length) { saveMission(day, items); learnEvent({ e: 'mission-start' }); } }, [fresh]); // eslint-disable-line react-hooks/exhaustive-deps
   const b = boardOf({ grade, path, progress, gaps, placement });
   const next = missionNext(items);
+  // the plan's top, while it is the teacher's work: the big button starts it, and its row is the one marked next
+  const teacherTop = plan.top?.kind === 'teacher' ? plan.top : null;
+  const topRow = teacherTop && work ? work.show.find((r) => r.a.id === teacherTop.assignment) || null : null;
   const strengthen = toStrengthen(plan.items);
   const examStep = plan.examToday[0];
   const done = missionDone(items);
@@ -79,7 +85,7 @@ export default function TodayCard({ grade, onBoard }) {
           {done && <p className="continue-sub">{partialStairNote(items) || 'כל החלקים של המשימה בוצעו.'} מחר תחכה משימה חדשה.</p>}
           {!items.length && !work?.show.length && <p className="continue-sub">הכול מעודכן להיום. אפשר לבחור מדרגה במסלול ולהמשיך משם.</p>}
         </div>
-        {work && <ClassWork rows={work} teacherName={classWork.teacherName} />}
+        {work && <ClassWork rows={{ ...work, next: topRow }} teacherName={classWork.teacherName} />}
         {items.length > 0 && (
           <ol className="today-items quest-rows" aria-label={`המשימה: ${items.length} חלקים, בערך ${missionMinutes(items)} דקות`}>
             {items.map((it) => {
@@ -101,8 +107,8 @@ export default function TodayCard({ grade, onBoard }) {
             })}
           </ol>
         )}
-        {work?.next
-          ? <Button className="btn-block btn-lg continue-go" onClick={() => navigate(work.next.to)} data-region="primary"><Play size={20} aria-hidden="true" fill="currentColor" />{work.next.started ? 'ממשיכים במשימה מהמורה' : 'מתחילים במשימה מהמורה'}</Button>
+        {teacherTop
+          ? <Button className="btn-block btn-lg continue-go" onClick={() => navigate(teacherTop.to)} data-region="primary"><Play size={20} aria-hidden="true" fill="currentColor" />{topRow?.started ? 'ממשיכים במשימה מהמורה' : 'מתחילים במשימה מהמורה'}</Button>
           : next && <Button className="btn-block btn-lg continue-go" onClick={() => navigate(next.to)} data-region="primary"><Play size={20} aria-hidden="true" fill="currentColor" />{started ? 'ממשיכים במשימה' : 'מתחילים את המשימה שלי'}</Button>}
         {done && <Mascot mood="achievement" size={72} className="quest-mascot" />}
       </div>

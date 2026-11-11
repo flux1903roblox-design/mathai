@@ -16,6 +16,7 @@
 import { sumXp } from './xp.js';
 import { logEvent, MAX_EVENTS } from '@/learn/analytics.ts';
 import { KEEP_ATTEMPTS } from '@/learn/mastery.ts';
+import { mergeWork } from '@/learn/assignments.ts';
 
 /** Checked exams and practice exams kept (newest first), as the store keeps them. */
 export const EXAMS_KEEP = 30;
@@ -32,7 +33,8 @@ export const OUTBOX_KEEP = 1000;
  * student lane's class-goal steps waiting for the server (stepsOut) and the weeks it last reported (classGoals,
  * STUDENT-4), this device's one-time notes and install offers (nudges, STUDENT-5/10), and its daily reminder
  * (reminder, STUDENT-11: the id and secret of this browser's push subscription; another device's would remind the wrong
- * phone).
+ * phone). Between two tabs of this device the work outbox is merged per assignment (FOLLOWUP-2: workJoin), never taken
+ * whole from the tab that wrote last.
  */
 export const DEVICE_ONLY = ['ai', 'outbox', 'durable', 'backup', 'classWork', 'workOutbox', 'stepsOut', 'classGoals', 'nudges', 'reminder'];
 /** This device's settings: a restore never changes them (haptics and prefs, the look and the sound choice: STUDENT-2/7). */
@@ -282,9 +284,19 @@ function tabSlice(k, b, m, t, c) {
     case 'outbox': return lastN(set3(b, m, t, idKey).sort(byAsc((e) => e?.at)), OUTBOX_KEEP);
     case 'stepsOut': return lastN(set3(b, m, t, sidKey).sort(byAsc((e) => e?.at)), STEPS_KEEP);
     case 'look': return lookJoin(generic3(b, m, t, c.wins), m, t);
+    // the teacher's work waiting for the server: per assignment, as the server merges reports (FOLLOWUP-2)
+    case 'workOutbox': return perKey3(b, m, t, (x, y, z) => three(x, y, z, (bw, mw, tw) => workJoin(mw, tw)));
     default: return generic3(b, m, t, c.wins);
   }
 }
+
+/**
+ * Two tabs' reports of one assignment: learn/assignments.ts mergeWork, the same monotonic rules as the server and
+ * lib/classWork.js (done stays done, stage and passed only go up, the first finished result is kept). The report that
+ * finished first goes in as the older one, so its result is the one kept whichever tab wrote last; a report one tab
+ * sent and the other did not touch stays sent (three).
+ */
+const workJoin = (x, y) => (x?.doneAt && y?.doneAt && str(y.doneAt) < str(x.doneAt) ? mergeWork(y, x) : mergeWork(x, y));
 
 function tabDay(b, m, t, wins) {
   if (!isObj(m)) return t; if (!isObj(t)) return m;

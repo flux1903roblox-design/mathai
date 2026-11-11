@@ -158,8 +158,10 @@ function StairCheckDone({ result: r, award, onExit, work }) {
   useEffect(() => { askAfterLesson(); }, []);
   const rescue = r.purpose === 'diagnostic' || r.purpose === 'exam';
   const classExam = r.purpose === 'class';
-  // the next step of the plan, never this check again, and never this stair's challenge while the card offers it
-  const nextA = actions.find((a) => !(a.skill === skill && (a.kind === (r.purpose === 'mastery' ? 'mastery' : r.purpose) || (offer && a.kind === 'challenge'))));
+  // the next step of the plan, never this check again (nor the teacher's mastery check of this stair, whose report may
+  // still be on its way), and never this stair's challenge while the card offers it
+  const nextA = actions.find((a) => !(a.skill === skill && (a.kind === (r.purpose === 'mastery' ? 'mastery' : r.purpose)
+    || (r.purpose === 'mastery' && a.kind === 'teacher' && a.stage === 'E') || (offer && a.kind === 'challenge'))));
   const putOff = () => { setLater(true); ref.current?.focus({ preventScroll: true }); };
   const weak = Object.entries(r.perSkill || {}).filter(([, x]) => x.right < x.asked).map(([s]) => s);
   // A new piece for מדי (STUDENT-3) comes after the result: the way on the student picks waits behind its moment.
