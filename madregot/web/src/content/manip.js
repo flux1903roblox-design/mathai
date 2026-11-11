@@ -20,6 +20,9 @@
 //   fbar        a bar cut into equal parts, some shaded {den, shaded}     answer: { mode: 'value', value } (shaded/den is the
 //               value, any den), { mode: 'common', of: [3, 4] } (den a multiple of each), { mode: 'exact', den, shaded }
 //   dline       a double number line (move 't': the marker; 'max': the bottom line's end)  answer: that number
+//   transform   a copy of a shape moved, flipped and turned on the grid: the copy's vertices [[x, y], …] in the order of
+//               the shape's names   answer: { pts, match? }; match 'labels' (default) every vertex in place, 'set' the
+//               copy covers the goal whatever its letters (GEOM-2: content/transform.js, registered below)
 // numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
 
@@ -193,6 +196,19 @@ export const dlineNum = (v) => {
 /** A number with its unit, the unit word outside the number: "30%", "7 ס״מ", "72". */
 export const withUnit = (v, unit) => (!unit ? dlineNum(v) : unit === '%' ? `${dlineNum(v)}%` : `${dlineNum(v)} ${unit}`);
 
+// ---------------------------------------------------------------- kinds that load with their content
+// A kind of object that the first screen never shows keeps its checking and words in its own file, which registers
+// them here when it loads (content/transform.js: the transform object of curriculum stage 4, and the words of its
+// still twin on the coord figure). The functions below ask the registry for any kind they do not know.
+const KIND_IMPL = {};
+/** impl: { correct(it, u), text(it, u), plain(it), solution(it), wrong(it) }. */
+export function registerManipKind(kind, impl) { KIND_IMPL[kind] = impl; }
+const COORD_WORDS = [];
+/** More of a coord figure in words: { words(f): for its name, plain(f): for figPlain }, each a list of phrases. */
+export function registerCoordWords(w) { if (!COORD_WORDS.includes(w)) COORD_WORDS.push(w); }
+/** The registered phrases of a coord figure: 'words' (its spoken name) or 'plain' (every number, figPlain). */
+export const coordWords = (f, which) => COORD_WORDS.flatMap((w) => w[which]?.(f) || []);
+
 // ---------------------------------------------------------------- the teaching figures in words (STUDENT-8)
 // The spoken name of each drawing (components/Figure.jsx puts it in aria-label): what a sighted student sees, never
 // more. A coordinate plane names its points but not where they are, because an exercise may ask exactly that.
@@ -287,6 +303,8 @@ export function figWords(f) {
         meet && `הישרים נפגשים ב־(${figNum(meet[0])}, ${figNum(meet[1])})`,
         f.path?.length && 'מסלול מראשית הצירים',
         rr && `צעד של ${figNum(Math.abs(rr.run))} ${rr.run > 0 ? 'ימינה' : 'שמאלה'} ו־${figNum(Math.abs(rr.rise))} ${rr.rise >= 0 ? 'למעלה' : 'למטה'}`,
+        // more of the plane from the kinds that register it (content/transform.js: shapes, a mirror, a centre and its turn)
+        ...coordWords(f, 'words'),
         f.words?.length && `כתוב: ${f.words.map((w) => w.text).join(', ')}`].filter(Boolean).join(', ');
     }
     default: return '';
@@ -318,7 +336,7 @@ export function manipCorrect(it, u) {
       return near(u.shaded / u.den, a.value, 1e-9);
     }
     case 'dline': { const v = dlineValue(m, u); return typeof v === 'number' && near(v, a, 1e-9); }
-    default: return false;
+    default: return KIND_IMPL[m.kind] ? KIND_IMPL[m.kind].correct(it, u) : false;
   }
 }
 
@@ -359,7 +377,7 @@ export function manipText(it, u = it.answer) {
       return `${u.shaded}/${u.den}`;
     }
     case 'dline': { const v = dlineValue(m, u); return v == null ? '' : withUnit(v, m.move === 'max' ? m.bottom.unit : m.top.unit); }
-    default: return '';
+    default: return KIND_IMPL[m.kind] ? KIND_IMPL[m.kind].text(it, u) : '';
   }
 }
 
@@ -391,7 +409,7 @@ export function manipPlain(it) {
         ? `[ציר כפול: למעלה ${line(m.top)}, למטה ${m.bottom.label}; הסמן קבוע על ${withUnit(m.fixT, m.top.unit)}; מותחים את הציר התחתון (השלם) בצעדים של ${dlineNum(m.bottom.step)}, עד ${withUnit(m.bottom.max, m.bottom.unit)}]`
         : `[ציר כפול: למעלה ${line(m.top)}, למטה ${line(m.bottom)}; מזיזים את הסמן בצעדים של ${withUnit(m.top.step, m.top.unit)}]`;
     }
-    default: return '';
+    default: return KIND_IMPL[m.kind] ? KIND_IMPL[m.kind].plain(it) : '';
   }
 }
 
@@ -410,7 +428,7 @@ export function manipSolution(it) {
       const den = m.lockDen ? m.start.den : fbarDenFor(a.value, m.maxDen || FBAR_MAX_DEN);
       return { den, shaded: Math.round(a.value * den) };
     }
-    default: return a;
+    default: return KIND_IMPL[m.kind] ? KIND_IMPL[m.kind].solution(it) : a;
   }
 }
 
@@ -444,6 +462,6 @@ export function manipWrong(it) {
       const L = m.move === 'max' ? m.bottom : m.top; const lo = m.move === 'max' ? L.step : 0;
       return a + L.step <= L.max + 1e-9 ? a + L.step : Math.max(lo, a - L.step);
     }
-    default: return null;
+    default: return KIND_IMPL[m.kind] ? KIND_IMPL[m.kind].wrong(it) : null;
   }
 }

@@ -15,6 +15,9 @@ import {
   tilesTex, tilesPairs, tilesWords, areaTex, areaSumTex, rayText, rayTex, rayHas, TILES_MAX,
   fbarDenFor, fbarWords, dlineAt, dlineNum, withUnit, ticksWords, manipCorrect,
 } from './manip.js';
+import { tfSlide, tfReflect, tfRotate, tfInside, tfOrient, tfMoves, tfImages, transformReachable } from './transform.js';
+import Transform from '@/components/manip/Transform.jsx';
+import { KINDS, transformCoach } from '@/components/manip/Manip.jsx';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
 
@@ -611,5 +614,204 @@ describe('a geo drawing in words (GEOM-1.5): what it marks, for the tutor and an
   });
   it('a drawing that marks nothing still says it is a drawing', () => {
     expect(figPlain({ type: 'geo', pts: { A: [0, 0], B: [1, 0] }, segs: [{ a: 'A', b: 'B' }] })).toBe('שרטוט');
+  });
+});
+
+// ---------------------------------------------------------------- the transform object (GEOM-2)
+describe('the transform object: moves on the grid (GEOM-2)', () => {
+  const tri = { pts: [[1, 1], [4, 1], [1, 3]], names: ['A', 'B', 'C'] };
+  it('slides, reflects in x, y, x = k and y = k, and turns about a centre, in exact whole numbers', () => {
+    expect(tfSlide(tri.pts, 2, -3)).toEqual([[3, -2], [6, -2], [3, 0]]);
+    expect(tfReflect([[4, 1]], { x: 2 })).toEqual([[0, 1]]); // the spec's flip in x = 2
+    expect(tfReflect([[4, 1]], 'x')).toEqual([[4, -1]]);
+    expect(tfReflect([[4, 1]], 'y')).toEqual([[-4, 1]]);
+    expect(tfReflect([[4, 1]], { y: -1 })).toEqual([[4, -3]]);
+    expect(tfRotate([[4, 0]], [0, 0], 90)).toEqual([[0, 4]]); // a quarter turn ↶ about the origin
+    expect(tfRotate([[4, 0]], [0, 0], -90)).toEqual([[0, -4]]);
+    expect(tfRotate([[4, 0]], [1, 1], 180)).toEqual([[-2, 2]]);
+    expect(tfRotate([[3, 1]], [1, 1], 90)).toEqual([[1, 3]]);
+    // never −0, so a vertex reads (0, 1) and compares equal
+    expect(Object.is(tfReflect([[0, 1]], 'y')[0][0], 0)).toBe(true);
+    // four quarter turns, or two flips in one line, bring the copy back
+    let p = tri.pts; for (let k = 0; k < 4; k += 1) p = tfRotate(p, [2, -1], 90);
+    expect(p).toEqual(tri.pts);
+    expect(tfReflect(tfReflect(tri.pts, { x: 3 }), { x: 3 })).toEqual(tri.pts);
+  });
+  it('a flip reverses the cyclic order of the letters; a slide and a turn keep it', () => {
+    const o = Math.sign(tfOrient(tri.pts));
+    expect(o).toBe(1); // A, B, C run counterclockwise
+    expect(Math.sign(tfOrient(tfReflect(tri.pts, 'y')))).toBe(-o);
+    expect(Math.sign(tfOrient(tfReflect(tri.pts, { y: 2 })))).toBe(-o);
+    expect(Math.sign(tfOrient(tfSlide(tri.pts, -5, 2)))).toBe(o);
+    expect(Math.sign(tfOrient(tfRotate(tri.pts, [0, 0], 90)))).toBe(o);
+    expect(Math.sign(tfOrient(tfRotate(tri.pts, [1, -2], 180)))).toBe(o);
+  });
+  it('a vertex off the plane is off: the test every refused move uses', () => {
+    expect(tfInside([[6, -6], [0, 0]])).toBe(true);
+    expect(tfInside([[7, 0]])).toBe(false);
+    expect(tfInside([[0, -7]], 6)).toBe(false);
+    expect(tfInside([[7, 0]], 8)).toBe(true);
+    // a flip in x = 4 of a copy slid to the left edge would leave the plane
+    expect(tfInside(tfReflect([[-5, 1], [-2, 1], [-5, 3]], { x: 4 }))).toBe(false);
+  });
+  it('transformReachable: only with the item\'s own moves, never through a vertex off the plane', () => {
+    const slide = { shape: tri, moves: { drag: true } };
+    expect(transformReachable(slide, tfSlide(tri.pts, -5, -4))).toBe(true);
+    expect(transformReachable(slide, tfReflect(tri.pts, 'y'))).toBe(false); // a slide never gives a mirror image
+    expect(transformReachable(slide, tfSlide(tri.pts, 3, 0))).toBe(false); // B would be at x = 7
+    const flip = { shape: tri, moves: { flips: ['y'] } };
+    expect(transformReachable(flip, tfReflect(tri.pts, 'y'))).toBe(true);
+    expect(transformReachable(flip, tfSlide(tfReflect(tri.pts, 'y'), 0, 1))).toBe(false); // no drag: no slide
+    const turn = { shape: tri, moves: { drag: true, turns: { centre: [0, 0], by: 90 } } };
+    expect(transformReachable(turn, tfSlide(tfRotate(tri.pts, [0, 0], -90), -1, 2))).toBe(true);
+    expect(transformReachable(turn, tfReflect(tri.pts, 'x'))).toBe(false);
+    const half = { shape: tri, moves: { turns: { centre: [3, 3], by: 180 } } };
+    expect(transformReachable(half, tfRotate(tri.pts, [3, 3], 180))).toBe(true);
+    expect(transformReachable(half, tfRotate(tri.pts, [3, 3], 90))).toBe(false);
+    // a flip in x = 4 from a copy at the left edge would cross the other edge: the copy is slid nearer the line first
+    const far = { shape: tri, start: [[-6, 0], [-3, 0], [-6, 2]], moves: { drag: true, flips: [{ x: 4 }] } };
+    const goal = tfReflect(tfSlide(far.start, 8, 0), { x: 4 });
+    expect(tfInside(tfReflect(far.start, { x: 4 }))).toBe(false);
+    expect(goal).toEqual([[6, 0], [3, 0], [6, 2]]);
+    expect(transformReachable(far, goal)).toBe(true);
+    // without drag, the same goal is out of reach: the only flip leaves the plane
+    expect(transformReachable({ ...far, moves: { flips: [{ x: 4 }] } }, goal)).toBe(false);
+    // a cover whatever the letters: a half turn of a rectangle about its middle covers it
+    const rect = { shape: { pts: [[0, 0], [4, 0], [4, 2], [0, 2]], names: ['A', 'B', 'C', 'D'] }, start: [[-5, -4], [-1, -4], [-1, -2], [-5, -2]], moves: { drag: true } };
+    expect(transformReachable(rect, [[4, 2], [0, 2], [0, 0], [4, 0]], 'set')).toBe(true);
+    expect(transformReachable(rect, [[4, 2], [0, 2], [0, 0], [4, 0]])).toBe(false);
+  });
+  it('tfMoves lists only the item\'s moves; tfImages its flips\' and turns\' images on the plane', () => {
+    expect(tfMoves({ shape: tri, moves: { drag: true, flips: ['y', { x: 2 }], turns: { centre: [0, 0], by: 90 } } }).map((mv) => mv.id))
+      .toEqual(['left', 'right', 'up', 'down', 'flip:y', 'flip:x=2', 'ccw', 'cw']);
+    expect(tfMoves({ shape: tri, moves: { turns: { centre: [1, 1], by: 180 } } }).map((mv) => mv.id)).toEqual(['half']);
+    expect(tfImages({ shape: tri, moves: { drag: true, flips: ['x'] } }, tri.pts)).toEqual([tfReflect(tri.pts, 'x')]);
+  });
+});
+
+describe('the transform object: checking and words (GEOM-2.7)', () => {
+  const tri = { pts: [[1, 1], [4, 1], [1, 3]], names: ['A', 'B', 'C'] };
+  const labels = fixture({ kind: 'transform', shape: tri, start: [[-3, -2], [0, -2], [-3, 0]], moves: { drag: true, flips: ['y'], turns: { centre: [0, 0], by: 90 } } },
+    { pts: [[1, -1], [4, -1], [1, 2]] });
+  const cover = fixture({ kind: 'transform', shape: { pts: [[-4, -4], [0, -4], [0, -2], [-4, -2]], names: ['A', 'B', 'C', 'D'] }, moves: { drag: true },
+    target: { pts: [[1, 2], [5, 2], [5, 4], [1, 4]] } }, { pts: [[5, 4], [1, 4], [1, 2], [5, 2]], match: 'set' });
+  const edge = fixture({ kind: 'transform', shape: tri, moves: { drag: true } }, { pts: [[3, 0], [6, 0], [3, 2]] });
+  it('labels: every vertex in place; set: the same vertices whatever the letters', () => {
+    solves(labels);
+    solves(cover);
+    expect(manipCorrect(labels, [[4, -1], [1, -1], [1, 2]])).toBe(false); // the right place, the letters swapped
+    expect(manipCorrect(cover, [[1, 2], [5, 2], [5, 4], [1, 4]])).toBe(true); // the cover with other letters
+    expect(manipCorrect(cover, [[1, 2], [5, 2], [5, 4], [1, 5]])).toBe(false);
+    expect(manipCorrect(labels, null)).toBe(false);
+    expect(manipCorrect(labels, [[1, -1], [4, -1]])).toBe(false);
+  });
+  it('the near miss is one step right, or one step left when right leaves the plane', () => {
+    expect(manipWrong(labels)).toEqual([[2, -1], [5, -1], [2, 2]]);
+    expect(manipWrong(edge)).toEqual([[2, 0], [5, 0], [2, 2]]);
+    expect(manipCorrect(edge, manipWrong(edge))).toBe(false);
+    expect(manipSolution(labels)).toEqual(labels.answer.pts);
+    expect(manipSolution(labels)).not.toBe(labels.answer.pts); // a copy: the lesson may hold it
+  });
+  it('in words: the copy with its letters, the setup for the tutor, no undefined', () => {
+    expect(manipText(labels, [[1, -1], [4, -1], [1, 2]])).toBe('⁦A′(1, −1), B′(4, −1), C′(1, 2)⁩');
+    expect(manipText(labels)).toBe('⁦A′(1, −1), B′(4, −1), C′(1, 2)⁩');
+    expect(manipText(cover)).toBe('העותק מכסה את ⁦(5, 4), (1, 4), (1, 2), (5, 2)⁩');
+    expect(answerText(labels)).toBe(manipText(labels));
+    expect(manipPlain(labels)).toBe('[משולש A(1, 1), B(4, 1), C(1, 3); אפשר להזיז, לשקף ביחס לציר y, לסובב רבע סיבוב סביב O(0, 0); העותק מתחיל ב־(−3, −2), (0, −2), (−3, 0)]');
+    expect(manipPlain(cover)).toBe('[מרובע A(−4, −4), B(0, −4), C(0, −2), D(−4, −2); אפשר להזיז; יעד מקווקו: (1, 2), (5, 2), (5, 4), (1, 4)]');
+    expect(manipPlain(fixture({ kind: 'transform', shape: tri, moves: { flips: [{ x: 2 }], turns: { centre: [1, -1], by: 180 } } }, { pts: tri.pts })))
+      .toBe('[משולש A(1, 1), B(4, 1), C(1, 3); אפשר לשקף ביחס לישר x = 2, לסובב חצי סיבוב סביב O(1, −1)]');
+    for (const it of [labels, cover, edge]) {
+      for (const u of [it.answer, manipSolution(it), manipWrong(it)]) expect(manipText(it, u)).not.toMatch(/undefined|NaN/);
+      expect(itemPlain({ ...it, text: 'הזיזו את העותק.' })).not.toMatch(/undefined|NaN/);
+    }
+  });
+});
+
+describe('the transform object drawn (GEOM-2.3 to 2.6)', () => {
+  beforeAll(() => loadKatex());
+  const tri = { pts: [[1, 1], [4, 1], [1, 3]], names: ['A', 'B', 'C'] };
+  const busy = { kind: 'transform', shape: tri, start: [[-4, -2], [-1, -2], [-4, 0]], moves: { drag: true, flips: ['y'], turns: { centre: [0, 0], by: 90 } }, target: { pts: [[2, -3], [5, -3], [2, -1]], names: ['K', 'L', 'M'] } };
+  const ans = { pts: [[2, -3], [5, -3], [2, -1]] };
+  const coords = /\(\s*[−-]?\d+\s*,\s*[−-]?\d+\s*\)/;
+  const buttons = (out) => [...out.matchAll(/<button[^>]*aria-label="([^"]*)"/g)].map((x) => x[1]);
+  it('in practice: the plane, the readout chips, A′ B′ C′, every mirror and O, and one button per move', () => {
+    const out = html(Transform, { m: busy, value: null, answer: ans });
+    expect(out).toMatch(/role="application"/);
+    expect(out).toMatch(/aria-roledescription="מערכת צירים"/);
+    expect(out).toMatch(/viewBox="0 0 316 316"/);
+    expect(out).toContain('A′(−4, −2)');
+    expect(out).toMatch(/aria-label="משולש ABC\. העותק: A′ ב־\(−4, −2\)/);
+    expect(out).toMatch(/class="mp-tf-mirror"/);
+    expect(out).toContain('>O<');
+    expect(out).not.toMatch(/undefined|NaN/);
+    expect(buttons(out)).toEqual(['הזיזו שמאלה', 'הזיזו למעלה', 'הזיזו למטה', 'הזיזו ימינה', 'התחלה מחדש', 'שיקוף ביחס לציר y',
+      'סיבוב של 90° נגד כיוון השעון סביב O', 'סיבוב של 90° עם כיוון השעון סביב O']);
+    // two rows at most: the arrows with התחלה מחדש, then the flips and turns
+    expect((out.match(/class="mp-tf-row/g) || []).length).toBe(2);
+  });
+  it('in a check (test): no coordinate text anywhere, the moves counted instead, and buttons only for the listed moves', () => {
+    const out = html(Transform, { m: busy, value: null, answer: ans, test: true });
+    expect(out).not.toMatch(coords);
+    expect(out).not.toMatch(/mp-tf-chip|manip-readout/);
+    expect(out).toMatch(/aria-label="משולש ABC\. העותק במקום שבו התחיל"/);
+    const onlyFlip = html(Transform, { m: { kind: 'transform', shape: tri, moves: { flips: [{ x: 2 }] } }, value: null, answer: ans, test: true });
+    expect(onlyFlip).not.toMatch(coords);
+    expect(buttons(onlyFlip)).toEqual(['שיקוף ביחס לישר x = 2', 'התחלה מחדש']);
+    expect(onlyFlip).not.toMatch(/הזיזו/);
+    expect(onlyFlip).toContain('x</tspan> = 2'); // the mirror line's equation is drawn
+  });
+  it('letters: the original\'s are hidden where the copy covers them; a shown answer is green and dashed', () => {
+    const on = html(Transform, { m: { kind: 'transform', shape: tri, moves: { drag: true } }, value: null, answer: ans });
+    expect((on.match(/mp-tf-letter orig/g) || []).length).toBe(0);
+    expect((on.match(/mp-tf-letter copy/g) || []).length).toBe(3);
+    const off = html(Transform, { m: { kind: 'transform', shape: tri, moves: { drag: true } }, value: tfSlide(tri.pts, -4, 0), answer: ans });
+    expect((off.match(/mp-tf-letter orig/g) || []).length).toBe(3);
+    const shown = html(Transform, { m: busy, value: null, answer: ans, reveal: true });
+    expect(shown).toMatch(/class="mp-tf-ghost"/);
+    const locked = html(Transform, { m: busy, value: null, answer: ans, locked: true });
+    expect((locked.match(/<button[^>]*disabled=""/g) || []).length).toBe(buttons(locked).length);
+  });
+  it('Manip draws it as KINDS.transform (loaded when needed), and מדי names the moves the item has', () => {
+    // loaded on demand (React.lazy): the first screen's bundle does not carry it
+    expect(KINDS.transform.$$typeof).toBe(Symbol.for('react.lazy'));
+    expect(transformCoach(busy, null, false, null)).toBe('גררו את העותק, או השתמשו בכפתורים: חצים מזיזים, שיקוף הופך, סיבוב מסובב.');
+    expect(transformCoach({ ...busy, moves: { flips: ['x'] } }, null, false, null)).toBe('השתמשו בכפתורים: שיקוף הופך.');
+    expect(transformCoach(busy, null, true, { move: 'flip' })).toBe('העותק הפוך עכשיו, כמו במראה: האותיות רצות בכיוון השני.');
+    expect(transformCoach(busy, null, true, { move: 'refuse', text: 'העותק ייצא מהרשת. הזיזו אותו קודם קרוב יותר לישר השיקוף.' })).toMatch(/^העותק ייצא מהרשת/);
+    expect(transformCoach(busy, tfSlide(busy.start, 4, 1), true, { move: 'slide' })).toBe('מהמקום שבו התחלתם: 4 ימינה ו־1 למעלה.');
+    expect(transformCoach(busy, tfSlide(busy.start, -2, 0), true, { move: 'slide' })).toBe('מהמקום שבו התחלתם: 2 שמאלה.');
+    expect(transformCoach(busy, tfReflect(busy.start, 'y'), true, { move: 'slide' })).toMatch(/^העותק זז\./);
+    const turned = renderToStaticMarkup(createElement('p', null, transformCoach(busy, tfRotate(busy.start, [0, 0], 90), true, { move: 'turn' })));
+    expect(turned).toContain('לא השתנה');
+  });
+});
+
+describe('the coord figure twin of the transform object (GEOM-2.8)', () => {
+  const fig = {
+    type: 'coord',
+    shapes: [{ pts: [[-4, 1], [-1, 1], [-4, 3]], names: ['A', 'B', 'C'] }, { pts: [[1, -1], [4, -1], [1, 1]], names: ['A′', 'B′', 'C′'], tone: 'alt' }, { pts: [[2, 2], [5, 2], [2, 4]], tone: 'ghost', label: 'יעד' }],
+    arrows: [{ from: [-4, 1], to: [1, -1] }],
+    mirror: { x: 2 }, centre: [1, 1], turn: 90,
+  };
+  it('draws the shapes with their letters, the arrow, the mirror and its equation, O and the turn', () => {
+    const out = renderToStaticMarkup(createElement(Figure, { fig }));
+    expect(out).toMatch(/<svg/);
+    expect(out).not.toMatch(/NaN|undefined|Infinity/);
+    expect((out.match(/class="fig-cd-shape tone-/g) || []).length).toBe(3);
+    for (const n of ['A', 'B′', 'C′']) expect(out).toContain(`>${n}<`);
+    expect(out).toContain('x = 2');
+    expect(out).toMatch(/class="fig-cd-arrow"/);
+    expect(out).toMatch(/class="fig-cd-centre"/);
+    expect(out).toContain('>O<');
+    expect((out.match(/class="arc"/g) || []).length).toBe(2); // the curved arrow and its head
+    for (const t of [-90, 180]) expect(renderToStaticMarkup(createElement(Figure, { fig: { ...fig, turn: t } }))).not.toMatch(/NaN/);
+    // the drawing's name reads its shapes by name, never where they are
+    expect(out).toMatch(/aria-label="[^"]*משולש ABC[^"]*ישר השיקוף x = 2[^"]*מרכז סיבוב O, חץ של 90° נגד כיוון השעון/);
+  });
+  it('figPlain reads every vertex, the arrow, the mirror, the centre and the turn', () => {
+    expect(figPlain(fig)).toBe('צורות: ABC (A(−4, 1), B(−1, 1), C(−4, 3)), A′B′C′ (A′(1, −1), B′(4, −1), C′(1, 1)), ((2, 2), (5, 2), (2, 4)) יעד; חץ מ־(−4, 1) ל־(1, −1); ישר שיקוף x = 2; מרכז סיבוב O(1, 1), 90° נגד כיוון השעון');
+    expect(figPlain({ type: 'coord', mirror: 'y', centre: [0, 0], turn: 180 })).toBe('ישר השיקוף: ציר y; מרכז סיבוב O(0, 0), חצי סיבוב');
+    expect(figPlain({ type: 'coord', centre: [2, -1], turn: -90 })).toBe('מרכז סיבוב O(2, −1), 90° עם כיוון השעון');
   });
 });

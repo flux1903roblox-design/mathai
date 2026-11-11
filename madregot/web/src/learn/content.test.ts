@@ -17,6 +17,8 @@ import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togeth
 // @ts-ignore: plain JS
 import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX } from '@/content/manip.js';
 // @ts-ignore: plain JS
+import { transformReachable, tfStart, tfSame, tfSameSet, tfInside, TF_RANGE } from '@/content/transform.js';
+// @ts-ignore: plain JS
 import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { T } from '@/content/util.js';
@@ -103,11 +105,36 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       if (s.manip.kind === 'tiles') checkTiles(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'area') checkArea(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'ray') checkRay(s.manip as any, s.answer as any, s.display, at);
+      if (s.manip.kind === 'transform') checkTransform(s.manip as any, s.answer as any, at);
       expect(s.hint, at).toBeTruthy();
       expect(s.success, at).toBeTruthy();
     }
     if (s.kind === 'rule') expect(s.why, at).toBeTruthy();
   });
+}
+
+/**
+ * The transform object (GEOM-2): the copy does not start on the goal, the goal is an isometric image of the shape (the
+ * same side lengths, in order), every vertex is on the plane, and the goal is reachable with the item's own moves,
+ * never through a vertex off the plane (a flip in x = k or a turn about another centre can leave it).
+ */
+function checkTransform(m: { shape: { pts: [number, number][]; names: string[] }; range?: number; target?: { pts: [number, number][] } }, a: { pts: [number, number][]; match?: 'labels' | 'set' }, at: string) {
+  const range = m.range || TF_RANGE;
+  const { pts, names } = m.shape;
+  expect(names.length, `${at}: a letter for every vertex`).toBe(pts.length);
+  expect(a.pts.length, `${at}: the goal has the shape's vertices`).toBe(pts.length);
+  const start = tfStart(m);
+  expect(a.match === 'set' ? tfSameSet(start, a.pts) : tfSame(start, a.pts), `${at}: the copy starts on the goal`).toBe(false);
+  for (const p of [...pts, ...start, ...a.pts, ...(m.target?.pts || [])]) expect(tfInside([p], range), `${at}: (${p}) is off the ${range}-grid`).toBe(true);
+  // isometric: each side (and, for a cover, the goal taken in any order that makes it the same shape) keeps its length
+  const sides = (q: [number, number][]) => q.map((p, i) => { const r = q[(i + 1) % q.length]; return (p[0] - r[0]) ** 2 + (p[1] - r[1]) ** 2; });
+  const want = sides(pts).join(',');
+  const turnsOf = (q: [number, number][]) => q.map((_, k) => [...q.slice(k), ...q.slice(0, k)] as [number, number][]);
+  const iso = a.match === 'set' ? [...turnsOf(a.pts), ...turnsOf([...a.pts].reverse())].some((q) => sides(q).join(',') === want) : sides(a.pts).join(',') === want;
+  expect(iso, `${at}: the goal is not the shape moved`).toBe(true);
+  expect(transformReachable(m, a.pts, a.match || 'labels'), `${at}: the goal cannot be reached with the item's moves`).toBe(true);
+  // a named target is the goal the question shows
+  if (m.target) expect(tfSameSet(m.target.pts, a.pts), `${at}: the dashed target is not the goal`).toBe(true);
 }
 
 /** A value is a whole number of parts of size 1/den. */
@@ -581,6 +608,23 @@ describe('the algebra checks catch what they are for', () => {
     bad(explore({ kind: 'dline', top, bottom: { max: 240, step: 24 }, move: 't', start: { t: 0 } }, 110)); // off the line
     bad(explore({ kind: 'dline', top: top5, bottom: { max: 6000, step: 100 }, move: 'max', fixT: 35, start: { t: 35, max: 1050 } }, 4000)); // not in steps
     bad(explore({ kind: 'dline', top: top5, bottom: { max: 6000, step: 100 }, move: 'max', fixT: 35, start: { t: 35, max: 4000 } }, 4000)); // starts on it
+  });
+  it('a transform: not the start, the shape moved, on the plane, and reachable with the item\'s own moves', () => {
+    const shape = { pts: [[1, 1], [4, 1], [1, 3]], names: ['A', 'B', 'C'] };
+    // flip in y, then 3 down: the transf:4-style goal
+    ok(explore({ kind: 'transform', shape, moves: { drag: true, flips: ['y'] } }, { pts: [[-1, -2], [-4, -2], [-1, 0]] }));
+    // a quarter turn about the origin, no slide
+    ok(explore({ kind: 'transform', shape, moves: { turns: { centre: [0, 0], by: 90 } } }, { pts: [[-1, 1], [-1, 4], [-3, 1]] }));
+    // a cover whatever the letters, with the dashed target drawn
+    ok(explore({ kind: 'transform', shape, start: [[-5, -5], [-2, -5], [-5, -3]], moves: { drag: true, flips: ['x'] }, target: { pts: [[2, 3], [5, 3], [2, 1]] } }, { pts: [[2, 3], [5, 3], [2, 1]], match: 'set' }));
+    bad(explore({ kind: 'transform', shape, moves: { drag: true } }, { pts: [[1, 1], [4, 1], [1, 3]] })); // starts on the goal
+    bad(explore({ kind: 'transform', shape, moves: { drag: true } }, { pts: [[-1, 1], [-4, 1], [-1, 3]] })); // a mirror image, and no flip
+    bad(explore({ kind: 'transform', shape, moves: { drag: true, flips: ['y'] } }, { pts: [[0, 0], [4, 0], [0, 3]] })); // not the same shape
+    bad(explore({ kind: 'transform', shape, moves: { drag: true } }, { pts: [[4, 1], [7, 1], [4, 3]] })); // off the 6-grid
+    // without a slide the copy reaches nothing but its flips: a flip in x = 4 from the far left leaves the plane
+    bad(explore({ kind: 'transform', shape, start: [[-6, 0], [-3, 0], [-6, 2]], moves: { flips: [{ x: 4 }] } }, { pts: [[6, 0], [3, 0], [6, 2]] }));
+    ok(explore({ kind: 'transform', shape, start: [[-6, 0], [-3, 0], [-6, 2]], moves: { drag: true, flips: [{ x: 4 }] } }, { pts: [[6, 0], [3, 0], [6, 2]] }));
+    bad(explore({ kind: 'transform', shape, moves: { drag: true }, target: { pts: [[2, 3], [5, 3], [2, 5]] } }, { pts: [[-3, -3], [0, -3], [-3, -1]] })); // the target is not the goal
   });
   it('two lines: the goal is their meeting point', () => {
     ok(explore({ kind: 'plot', lines: [{ m: 2, b: -1 }, { m: -1.5, b: 6 }] }, [2, 3]));

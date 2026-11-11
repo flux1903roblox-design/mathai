@@ -2,7 +2,7 @@ import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
 import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
 import { LESSONS } from './lessons.js';
-import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText } from './manip.js';
+import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, coordWords } from './manip.js';
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
@@ -253,6 +253,8 @@ export function figPlain(f) {
       f.line ? `ישר y = ${f.line.m}x + ${f.line.b}` : '',
       f.lines?.length ? `ישרים: ${f.lines.map(lineText).join(', ')}` : '',
       f.polygon ? `מצולע: ${f.polygon.map(([x, y]) => `(${x}, ${y})`).join(' ')}` : '',
+      // more of the plane in words from the kinds that register them (content/transform.js: shapes, arrows, a mirror, a turn)
+      ...coordWords(f, 'plain'),
     ].filter(Boolean).join('; ');
     case 'linear': return `זוויות צמודות: זווית נתונה ${f.a}°`;
     case 'cross': return `ישרים נחתכים: זווית נתונה ${f.a}°, הזווית המבוקשת ${f.target === 'vertical' ? 'קודקודית לה' : 'צמודה לה'}`;

@@ -796,3 +796,20 @@ describe('the council\'s reproductions', () => {
     expect(catLabel('coord', 1, 'sign')).toBe('טעות בסימן של אחד השיעורים');
   });
 });
+
+describe('the wrong answers sampled for a transform object (GEOM-1 Tests, GEOM-2)', () => {
+  it('are the answer, the answer one step each way, and its images under the item\'s flips and turns, all on the plane', () => {
+    const shape = { pts: [[1, 1], [4, 1], [1, 3]], names: ['A', 'B', 'C'] };
+    const item = { form: 'manip', manip: { kind: 'transform', shape, moves: { drag: true, flips: ['y'], turns: { centre: [0, 0], by: 90 } } }, answer: { pts: [[2, -3], [5, -3], [2, -1]] } };
+    const got = candidates(item).map((p) => JSON.stringify(p));
+    expect(got).toContain(JSON.stringify(item.answer.pts));
+    expect(got).toContain(JSON.stringify([[3, -3], [6, -3], [3, -1]])); // one step right
+    expect(got).toContain(JSON.stringify([[-2, -3], [-5, -3], [-2, -1]])); // the flip in the y-axis
+    expect(got).toContain(JSON.stringify([[3, 2], [3, 5], [1, 2]])); // a quarter turn counterclockwise about O
+    expect(got).toHaveLength(8); // the answer, four slides, a flip and two quarter turns (none off the plane here)
+    // at the edge, a move that leaves the plane is not a candidate
+    const edge = { ...item, answer: { pts: [[3, 0], [6, 0], [3, 2]] } };
+    expect(candidates(edge).every((p) => p.every(([x, y]) => Math.abs(x) <= 6 && Math.abs(y) <= 6))).toBe(true);
+    expect(candidates(edge).map((p) => JSON.stringify(p))).not.toContain(JSON.stringify([[4, 0], [7, 0], [4, 2]]));
+  });
+});

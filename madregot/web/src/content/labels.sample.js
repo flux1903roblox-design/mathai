@@ -1,6 +1,7 @@
 // Wrong answers to try on an exercise, shared by the tests that sample what the generators' diag() can return
 // (content/labels.test.js: every label describes the answer; lib/teacherText.test.js: the teacher reads the student's
 // words for each). Only tests import this file.
+import { tfSlide, tfImages, tfInside, TF_RANGE } from './transform.js';
 
 /** Wrong answers to try, in the shape of the item: wide enough to reach every prediction a diag() makes. */
 export function candidates(it) {
@@ -23,6 +24,12 @@ export function candidates(it) {
       case 'ray': return range(m.min ?? -10, m.max ?? 10).flatMap((at) => [-1, 1].flatMap((dir) => [false, true].map((closed) => ({ at, dir, closed }))));
       case 'pins': { const st = 1 / (m.den || 1); const opts = it.answer.map((v, i) => [v, -v, m.start[i], v + st]); return opts.reduce((acc, o) => acc.flatMap((a) => o.map((x) => [...a, x])), [[]]); }
       case 'fbar': return range(1, m.maxDen || 24).flatMap((den) => range(0, den).map((shaded) => ({ den, shaded })));
+      // the copy (GEOM-2): the answer, the answer moved one step each way, and its images under the item's flips and
+      // turns (a wrong mirror, the other way round), each on the plane
+      case 'transform': {
+        const a = it.answer.pts;
+        return [a, ...[[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => tfSlide(a, dx, dy)), ...tfImages(m, a)].filter((p) => tfInside(p, m.range || TF_RANGE));
+      }
       default: return [];
     }
   }

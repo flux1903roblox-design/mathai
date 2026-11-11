@@ -60,3 +60,21 @@
 .fig-cd-walk path { fill: none; stroke: var(--brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .fig-cd-meet circle { fill: var(--good-d); stroke: var(--ground); stroke-width: 2.5; }
 .fig-cd-meet-num { fill: var(--good-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+/* the transform object's still twin on the plane (GEOM-2.8): shapes with their letters, arrows from a point to its
+   image, a mirror line with its equation, the centre O and the turn's curved arrow */
+.fig-cd-shape polygon { stroke-width: 2.5; stroke-linejoin: round; }
+.fig-cd-shape.tone-brand polygon { fill: color-mix(in srgb, var(--brand) 18%, transparent); stroke: var(--brand); }
+.fig-cd-shape.tone-alt polygon { fill: color-mix(in srgb, var(--streak) 16%, transparent); stroke: var(--streak-d); }
+.fig-cd-shape.tone-ghost polygon { fill: none; stroke: var(--ink-2); stroke-dasharray: 6 5; }
+.fig-cd-vx { fill: var(--ink); font-size: 17px; font-style: italic; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-shape.tone-brand .fig-cd-vx { fill: var(--brand-d); }
+.fig-cd-shape.tone-alt .fig-cd-vx { fill: var(--streak-ink); }
+.fig-cd-shape.tone-ghost .fig-cd-vx { fill: var(--ink-2); }
+.fig-cd-shape-label { fill: var(--ink); font-size: 15px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-arrow path { fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 5 4; stroke-linecap: round; }
+.fig-cd-arrow path.head { stroke-dasharray: none; stroke-linejoin: round; }
+.fig-cd-arrow-label { fill: var(--ink-2); font-size: 14px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-mirror line { stroke: var(--ink); stroke-width: 2.5; stroke-dasharray: 7 5; stroke-linecap: round; }
+.fig-cd-eq { fill: var(--ink); font-size: 16px; font-weight: 700; font-style: italic; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-centre circle { fill: var(--ink); stroke: var(--ground); stroke-width: 2; }
+.fig-cd-centre .arc { fill: none; stroke: var(--streak-d); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }

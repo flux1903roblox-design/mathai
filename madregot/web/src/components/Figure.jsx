@@ -25,6 +25,10 @@
 //          left to right, for a table whose columns are the terms of an equation (x, y, the right side), as it is written
 //   coord   also { quadrants?, path?, lines?: [{ m, b, label?, tone? }], meet?, riseRun?: { x, run }, words?, anim? }
 //          (see Coord). Never draw a function's graph with 'linear': that one is a linear pair of angles.
+//          The transform object's still twin (GEOM-2.8): shapes?: [{ pts, names?, tone?: 'brand' | 'alt' | 'ghost', label? }]
+//          (polygons with letters at their vertices; ghost is dashed), arrows?: [{ from, to, label? }] (dashed, from a
+//          point to its image), mirror?: 'x' | 'y' | { x } | { y } (a dashed line with its equation), centre?: [x, y] and
+//          turn?: 90 | -90 | 180 (the centre O and a curved arrow: 90 counterclockwise, −90 clockwise)
 // With anim, a figure draws itself once as its step comes in (useDraw); under reduced motion it is there at once.
 // Fractions, percent and ratio (curriculum stage 1):
 //   numline { from, to, den, marks?: [{ x, label?, tone? }], jumps?: [{ from, to, label? }], step?, anim? }
@@ -51,6 +55,8 @@ import { BarArt, MarksArt, WholeArt, HatchDef } from './manip/FracBar.jsx';
 import { DlineArt, DLINE_VIEW } from './manip/DoubleLine.jsx';
 import { SvgLabel, minus } from './manip/core.jsx';
 import { panWords, tilesWords, rayText, areaTex, withUnit, dlineAt, figWords, figNum, ruleText, linesMeet, machineIO } from '@/content/manip.js';
+// the transform object's still twin on the plane: its words register with figWords when this loads (GEOM-2.8)
+import { mirrorWords } from '@/content/transform.js';
 import '@/styles/lazy/figure.css'; // this screen's own rules, loaded with it (STUDENT-15)
 const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
@@ -167,6 +173,57 @@ function Coord({ fig }) {
         <text key={`wd${i}`} x={X(w.at[0])} y={Y(w.at[1]) + 6} textAnchor="middle" direction={WORD.test(w.text) ? 'rtl' : undefined}
           className={w.tone ? clsx('fig-cd-tag', toneOf(w.tone)) : clsx('fig-cd-word', /^[a-z]$/.test(w.text) && 'fig-var')} style={w.tone ? { fontFamily: MATH_FONT } : undefined}>{w.text}</text>
       ))}
+      {fig.mirror && (() => {
+        // the mirror line, dashed, with its equation at its end (an axis is named on the plane already)
+        const mr = fig.mirror; const vertical = mr === 'y' || mr.x != null; const k = mr.x ?? mr.y ?? 0; const e = r + 0.5;
+        return (
+          <g className="fig-cd-mirror">
+            {vertical ? <line x1={X(k)} y1={Y(e)} x2={X(k)} y2={Y(-e)} /> : <line x1={X(-e)} y1={Y(k)} x2={X(e)} y2={Y(k)} />}
+            {typeof mr !== 'string' && <text x={vertical ? X(k) + 6 : X(r)} y={vertical ? Y(r) + 4 : Y(k) - 7} textAnchor={vertical ? 'start' : 'end'} className="fig-cd-eq" style={{ fontFamily: MATH_FONT }}>{mirrorWords(mr)}</text>}
+          </g>
+        );
+      })()}
+      {(fig.shapes || []).map((sh, i) => {
+        // a shape with its letters outside it, away from its middle; its label (a name) in the middle
+        const mid = [sh.pts.reduce((a, p) => a + p[0], 0) / sh.pts.length, sh.pts.reduce((a, p) => a + p[1], 0) / sh.pts.length];
+        return (
+          <g key={`sh${i}`} className={clsx('fig-cd-shape', `tone-${sh.tone || 'brand'}`)}>
+            <polygon points={sh.pts.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ')} />
+            {(sh.names || []).map((n, j) => {
+              const [px, py] = sh.pts[j]; const vx = px - mid[0]; const vy = py - mid[1]; const len = Math.hypot(vx, vy) || 1;
+              return <text key={n} x={X(px) + (vx / len) * 15} y={Y(py) - (vy / len) * 15 + 6} textAnchor="middle" className="fig-cd-vx" style={{ fontFamily: MATH_FONT }}>{n}</text>;
+            })}
+            {sh.label && <text x={X(mid[0])} y={Y(mid[1]) + 6} textAnchor="middle" className="fig-cd-shape-label" direction={WORD.test(sh.label) ? 'rtl' : undefined}>{sh.label}</text>}
+          </g>
+        );
+      })}
+      {(fig.arrows || []).map((a, i) => {
+        const p = [X(a.from[0]), Y(a.from[1])]; const q = [X(a.to[0]), Y(a.to[1])];
+        return (
+          <g key={`ar${i}`} className="fig-cd-arrow">
+            <path d={`M ${p[0]} ${p[1]} L ${q[0]} ${q[1]}`} />
+            <path d={head(q[0], q[1], Math.atan2(q[1] - p[1], q[0] - p[0]), 9)} className="head" />
+            {a.label && <text x={(p[0] + q[0]) / 2} y={(p[1] + q[1]) / 2 - 8} textAnchor="middle" className="fig-cd-arrow-label" direction={WORD.test(a.label) ? 'rtl' : undefined}>{a.label}</text>}
+          </g>
+        );
+      })}
+      {fig.centre && (() => {
+        // the centre O, and the turn as a curved arrow around it: counterclockwise for 90, clockwise for −90, half for 180
+        const [cx, cy] = [X(fig.centre[0]), Y(fig.centre[1])]; const rr = 26;
+        const turn = fig.turn; const a0 = 20; const sweep = turn === 180 ? 180 : 90; const ccw = turn !== -90;
+        const at = (deg) => [cx + rr * Math.cos(rad(deg)), cy - rr * Math.sin(rad(deg))];
+        const s0 = at(ccw ? a0 : a0 + sweep); const s1 = at(ccw ? a0 + sweep : a0);
+        // the head's direction: along the arc's tangent at its end
+        const endDeg = ccw ? a0 + sweep : a0; const th = Math.atan2(-Math.cos(rad(endDeg)) * (ccw ? 1 : -1), -Math.sin(rad(endDeg)) * (ccw ? 1 : -1));
+        return (
+          <g className="fig-cd-centre">
+            {turn && <path d={`M ${s0[0]} ${s0[1]} A ${rr} ${rr} 0 0 ${ccw ? 0 : 1} ${s1[0]} ${s1[1]}`} className="arc" />}
+            {turn && <path d={head(s1[0], s1[1], th, 8)} className="arc" />}
+            <circle cx={cx} cy={cy} r="4.5" />
+            <text x={cx - 8} y={cy + 20} textAnchor="end" className="fig-cd-vx" style={{ fontFamily: MATH_FONT }}>O</text>
+          </g>
+        );
+      })()}
       {visible.map((p) => {
         // the letter sits on the side away from both axes, so it never lands on their numbers; a long name, like
         // (7, 0), near the edge goes to the other side so it stays on the drawing

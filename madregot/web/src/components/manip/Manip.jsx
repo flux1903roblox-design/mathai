@@ -17,21 +17,42 @@ import AreaModel, { areaCoach } from './AreaModel.jsx';
 import Ray, { rayCoach } from './Ray.jsx';
 import FracBar, { fbarCoach } from './FracBar.jsx';
 import DoubleLine, { dlineCoach } from './DoubleLine.jsx';
+import { lazy, Suspense, useState } from 'react';
 import { triangleAngles } from '@/content/manip.js';
+import { tfStart, tfSlide, tfSame, tfSlideWords } from '@/content/transform.js';
 import { minus, partsTex } from './core.jsx';
 import { Tex } from '../MathText.jsx';
 
+// the transform object (GEOM-2) is loaded when an exercise needs it: the first screen's try-out never does
+const Transform = lazy(() => import('./Transform.jsx'));
+
 export const KINDS = {
   numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag,
-  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine,
+  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine, transform: Transform,
 };
 
 // A number inside Hebrew text keeps its minus sign on the left.
 const N = ({ v }) => <bdi dir="ltr">{minus(v)}</bdi>;
 const steps = (n, one, many) => (Math.abs(n) === 1 ? one : <><N v={Math.abs(n)} /> {many}</>);
 
-/** What מדי says about the object as it is now. */
-function coach(it, v, touched) {
+/** What מדי says about the transform object: the moves the item has, then what the last move did (GEOM-2.7). */
+export function transformCoach(m, v, touched, last) {
+  const can = [m.moves?.drag && 'חצים מזיזים', m.moves?.flips?.length && 'שיקוף הופך', m.moves?.turns && 'סיבוב מסובב'].filter(Boolean);
+  if (!touched || !last) return `${m.moves?.drag ? 'גררו את העותק, או השתמשו בכפתורים' : 'השתמשו בכפתורים'}: ${can.join(', ')}.`;
+  if (last.move === 'refuse') return last.text;
+  if (last.move === 'reset') return 'העותק חזר להתחלה.';
+  if (last.move === 'flip') return 'העותק הפוך עכשיו, כמו במראה: האותיות רצות בכיוון השני.';
+  if (last.move === 'turn') return <>העותק הסתובב סביב <Tex tex="O" />. המרחק של כל קודקוד מ־<Tex tex="O" /> לא השתנה.</>;
+  // slides: how far from the start, while the copy is only slid
+  const s = tfStart(m); const cur = v || s;
+  const dx = cur[0][0] - s[0][0]; const dy = cur[0][1] - s[0][1];
+  if (!tfSame(tfSlide(s, dx, dy), cur)) return 'העותק זז. כל הקודקודים זזים יחד, באותו כיוון ובאותו מרחק.';
+  if (!dx && !dy) return 'העותק במקום שבו התחלתם.';
+  return `מהמקום שבו התחלתם: ${tfSlideWords(dx, dy)}.`;
+}
+
+/** What מדי says about the object as it is now (`last`: what the object said its last move did, for transform). */
+function coach(it, v, touched, last) {
   const m = it.manip;
   switch (m.kind) {
     case 'numberline': {
@@ -94,19 +115,26 @@ function coach(it, v, touched) {
     case 'ray': return rayCoach(m, v, touched);
     case 'fbar': return fbarCoach(m, v, touched);
     case 'dline': return dlineCoach(m, v, touched);
+    case 'transform': return transformCoach(m, v, touched, last);
     default: return null;
   }
 }
 
 export default function Manip({ item, value, onChange, locked, reveal, good, touched, mood, hint, test = false }) {
+  // an object that says what its last move did (transform: a flip, a turn, a move it refused), for this exercise only
+  const [said, setSaid] = useState({ key: null, last: null });
   const C = KINDS[item.manip.kind];
   if (!C) return null;
+  const last = said.key === item.key ? said.last : null;
   return (
     <>
-      <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} test={test && !reveal && !good} />
+      <Suspense fallback={<div className="manip manip-loading" aria-busy="true" />}>
+        <C m={item.manip} value={value} onChange={onChange} locked={locked} reveal={reveal} good={good} answer={item.answer} hint={hint && !locked} test={test && !reveal && !good}
+          onSay={(x) => setSaid({ key: item.key, last: x })} />
+      </Suspense>
       {!test && (
         <div className="manip-coach">
-          <p className="coach-say">{coach(item, value, touched)}</p>
+          <p className="coach-say">{coach(item, value, touched, last)}</p>
         </div>
       )}
     </>
