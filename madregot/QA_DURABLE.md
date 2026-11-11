@@ -409,3 +409,54 @@ table of the council's probes comes with the proof pack (DURABLE-15); this file 
 - **Evidence.** `qa-evidence/durable/offline-me.png`, `offline-lesson.png`, `offline-learn.png` (390x844) and the same
   with `-320` (320x568); `offline-assistant.png`, `offline-restore.png` (390x844). They replace the council's
   `03-offline-open-me.png` failure ("משהו במסך הזה לא עבד").
+
+## Teaching content per topic, loaded on demand (DURABLE-11, first half)
+
+The council measured a heavy first download: every topic's teaching journeys and diagnostic models were in the main
+script. They now load one topic at a time, and nothing the student sees changed.
+
+- **The meta** (`web/src/learn/content/meta.gen.ts`, written by `web/scripts/gen-content-meta.mjs` from every
+  `learn/content/*.ts`): per stair its title, its misconceptions' ids and titles, and whether it has transfer
+  questions; per topic the misconception names the content adds (`NEW_CATS`). It is all the first screens need:
+  `hasContent`, `catLabel` (`content/index.js`), `recommend.ts` (the stage of a stair, the repair title), `checkPlan`'s
+  `has`/`hasT`, `lib/lesson.js` and `lib/placement.js` (which source a question comes from), `CheckDone` (the repaired
+  misconception's name), `Welcome` (the first stair) and the feedback chip in `Lesson`. `npm run build` and
+  `npm run dev` run the generator first; a stale file fails `learn/content-split.test.ts`.
+- **The content** (`learn/content/index.ts`): `loadTopic(topic)` is a `switch` of dynamic imports, one file per topic
+  (`signed`, `coord`, `angles`, `expr`, `eq`, `line` (stairs 1-4 and 5-8 through `line.ts`), `pyth`, `stats`, `sys`;
+  `angles` and `pyth` share the small `geo` drawings file). `contentOf(skill)` reads what has loaded and is `null`
+  before; in development it throws for a stair whose topic was never asked for, so no screen can quietly fall back to
+  plain exercises. `ensureTopics(skills or topics)` waits for several at once.
+- **Who waits.** `useStairContent(skill)` (`learn/useStairContent.js`, React's `use`) in `Journey`, `Teach` and
+  `Repair`: the app's existing loading screen shows until the topic is there. `Lesson` waits with `useTopics` for
+  `lessonTopics(spec)`: its own topic, every topic the placement test asks, or the topics of an Exam Rescue
+  diagnostic or practice exam, so `items.ts` never makes a question from a topic that has not loaded. The Exam Rescue
+  plan fetches its exam's topics while it is read, so the check opens at once. After the first screen, when the
+  browser is idle, the topic worked on last loads (`requestIdleCallback`, `App.jsx`). Opened straight on a lesson, a
+  stair, a teaching stage, a repair, the placement test or a rescue check (a reload, a link), `main.jsx` waits for that
+  screen's topics with the device copy (`lib/bootTopics.js`, at most 2 s), so the screen appears whole, as before,
+  instead of after a loading screen.
+- **Found by the e2e.** A screen that waited for its topic and then rendered again sometimes broke its own hooks
+  (React error 467 inside a concurrent render, recovered, so only a console error): React expects the same `use()` call
+  in the same place on that second render, and the first version skipped it once the topic had loaded. `useTopics`
+  now always calls `use()`, and `ensureTopics` hands it a promise marked as settled when nothing is loading, so it never
+  suspends then (`restore.spec.js`'s class test failed 1 run in 3 before, 0 in 6 after). `e2e/helpers.js answer()` waits
+  for the exercise to be on screen, because a lesson opened inside the app may first wait for its topic.
+- **Offline.** The service worker (DURABLE-10) keeps every topic's file, so after one visit every topic opens offline.
+  Without a service worker, a topic never loaded cannot open offline; the topic worked on last is loaded at idle. The
+  class-sync e2e (which blocks the service worker) now gives its student a last topic and waits for that file before
+  it goes offline.
+- **Tests.** `learn/content-split.test.ts`: before anything loads, the meta answers and `contentOf` throws; a topic
+  loads once, is `null` while it loads; every topic in `TOPICS` has a `loadTopic` case that loads exactly the meta's
+  stairs; each topic's stairs and steps equal the counts recorded on the code before the split
+  (`learn/__snapshots__/content-split.counts.json`); `meta.gen.ts` equals a fresh generation (in the test and by
+  `node scripts/gen-content-meta.mjs --check`) and matches the loaded misconception ids and titles; `NEW_CATS` equals
+  what the registry gathered before, keys in order. `learn/items.test.ts`: every check plan is made before any topic
+  loads (the meta alone), then, once `ensureTopics` resolved, every question for the same seeds equals the record
+  made by the same test on the code before the split (`learn/__snapshots__/items-split.json`; a deliberate content
+  change updates both files with `vitest -u`). `lib/bootTopics.test.js` (which screens wait for which topics). The
+  content, integrity, guessing, engine, check, figure, lesson and placement tests run on the loaded content.
+  Visual baselines (`visual.spec.js` on phone, phone-small and desktop; `screens.spec.js`) unchanged.
+- **Numbers** (gzip level 9, `dist/index.html`'s entry and modulepreloads, measured on this machine): boot JS
+  666.6 KB before (main script 544.2 + KaTeX 77.0 + markdown 45.4) and 475.8 KB after (main 353.5 + 77.0 + 45.4).
+  Render-blocking CSS unchanged at 50.7 KB. The ten new files are 3.8 to 36.7 KB gzip each. Stage 17 sets the gate.

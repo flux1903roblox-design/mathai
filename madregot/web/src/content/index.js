@@ -4,7 +4,8 @@ import { parseNum, near, plainNum, linText } from './util.js';
 import { LESSONS } from './lessons.js';
 import { manipCorrect, manipText, manipPlain, panWords, tilesWords, rayText, areaTex } from './manip.js';
 
-import { NEW_CATS, CONTENT } from '@/learn/content/index.ts';
+// the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
+import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
 
 // Each topic's misconception names include those the 2.0 teaching content adds.
 export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
@@ -27,7 +28,7 @@ export const rescueTopicsFor = (grade) => [...topicsFor(grade), ...TOPICS.filter
  */
 export function catLabel(topicId, level, cat) {
   if (!cat) return null;
-  const own = CONTENT[`${topicId}:${level}`]?.misconceptions.find((m) => m.id === cat);
+  const own = META[`${topicId}:${level}`]?.misconceptions.find((m) => m.id === cat);
   return own?.title || TOPIC[topicId]?.cats[cat] || null;
 }
 

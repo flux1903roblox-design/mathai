@@ -10,10 +10,13 @@ import { describe, it, expect } from 'vitest';
 import { createElement } from 'react';
 // @ts-ignore: react-dom has no type declarations here
 import { renderToStaticMarkup } from 'react-dom/server';
-import { contentOf } from './content/index';
+import { contentOf, loadAllContent } from './content/index';
 import type { DiscoverStep, FigSpec } from './types';
 // @ts-ignore: plain JS
 import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
+
+// the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
+await loadAllContent();
 
 type Pt = [number, number];
 type Geo = FigSpec & { pts: Record<string, Pt>; segs?: any[]; angles?: any[]; squares?: any[]; polys?: any[]; dots?: string[]; words?: any[]; hide?: string[] };

@@ -4,7 +4,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/index.js';
-import { contentOf } from '@/learn/content/index.ts';
+import { useStairContent } from '@/learn/useStairContent.js';
 import { skillId } from '@/learn/skills.ts';
 import { VERIFY_N } from '@/learn/misconceptions.ts';
 import { MathText } from '@/components/MathText.jsx';
@@ -19,7 +19,7 @@ export default function Repair() {
   const level = Number(L);
   const navigate = useNavigate();
   const skill = skillId(topic, level);
-  const c = contentOf(skill);
+  const c = useStairContent(skill);
   const t = TOPIC[topic];
   const def = c?.misconceptions.find((m) => m.id === misc);
   const [ready, setReady] = useState(false);

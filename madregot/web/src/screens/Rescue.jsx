@@ -1,7 +1,7 @@
 // מציל המבחנים (Exam Rescue): the exam's date and stairs, a short diagnostic, then a day-by-day plan that follows
 // the student's real answers. Never a promised grade. Choosing the topics by photo needs the server (AI); without it
 // the topics are chosen by hand, and the screen says so.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { CalendarClock, Check, Trash2, ClipboardCheck, ArrowRight, Star, Trophy } from 'lucide-react';
@@ -11,6 +11,7 @@ import { TOPIC, rescueTopicsFor } from '@/content/index.js';
 import { examPlan, validInput, isShabbatDay, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
 import { skillId } from '@/learn/skills.ts';
 import { titleOf } from '@/learn/recommend.ts';
+import { ensureTopics } from '@/learn/content/index.ts';
 import { aiReady } from '@/lib/ai.js';
 import { MathText } from '@/components/MathText.jsx';
 import { Button } from '@/components/ui.jsx';
@@ -126,6 +127,9 @@ function Plan({ plan }) {
   const setExam = useApp((s) => s.setExam);
   const ctx = useLearnCtx();
   const p = useMemo(() => examPlan(plan, ctx.learn, ctx.now, ctx.day), [plan, ctx]);
+  // the diagnostic and the practice exam ask from the exam topics' teaching content: fetched while the plan is read, so
+  // the check opens at once (the lesson screen waits for it too, lib/lesson.js lessonTopics)
+  useEffect(() => { ensureTopics(plan.skills).catch(() => {}); }, [plan.skills]);
   return (
     <div className="rescue-plan">
       <section className="rescue-hero" aria-label="הזמן עד המבחן">

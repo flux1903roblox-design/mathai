@@ -4,6 +4,10 @@ import { unitNodes, recordOnPath, nextNode, markMastered, doneCount, reachedUpTo
 import { questsFor, questProgress } from './quests.js';
 import { useApp, streakOf, today, dayBefore } from './store.js';
 import { TOPIC, topicsFor } from '@/content/index.js';
+import { loadAllContent } from '@/learn/content/index.ts';
+
+// the screen waits for the lesson's topics before it starts one (DURABLE-11, lessonTopics): so do these tests
+await loadAllContent();
 
 const right = (s) => s.item.answer;
 const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : s.item.form === 'lin' ? { k: 999, c: 999 } : 99999);

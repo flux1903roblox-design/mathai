@@ -2,10 +2,10 @@
 // Wrong once: try again with a hint. Wrong twice: see the answer and the steps,
 // and a similar exercise comes back at the end of the lesson. The lesson ends
 // when every slot has been answered correctly (each slot can come back twice at most).
-import { TOPIC, makeItem, testItem, isCorrect } from '@/content/index.js';
+import { TOPIC, makeItem, testItem, isCorrect, placementTopicsFor } from '@/content/index.js';
 import { startPlacement, placementAnswer, placementNext, placementProgress, placementResult } from './placement.js';
 import { checkPlan, itemFor } from '@/learn/items.ts';
-import { contentOf } from '@/learn/content/index.ts';
+import { metaOf } from '@/learn/content/index.ts';
 import { parseSkill, skillId } from '@/learn/skills.ts';
 import { MASTERY_N, MASTERY_NEED, REVIEW_NEED } from '@/learn/mastery.ts';
 import { VERIFY_NEED } from '@/learn/misconceptions.ts';
@@ -66,19 +66,31 @@ function startCheck(opts) {
 
 /** In a practice lesson on a stair with teaching content: a diagnostic question and a transfer question join in. */
 function practiceItem(topic, level, slot, avoidKey) {
-  const c = contentOf(skillId(topic, level));
-  if (c && slot === 3) return itemFor(c.skill, 'diag', Math.random, avoidKey);
-  if (c?.transfer && slot === 6) return itemFor(c.skill, 'transfer', Math.random, avoidKey);
+  const skill = skillId(topic, level); const m = metaOf(skill);
+  if (m && slot === 3) return itemFor(skill, 'diag', Math.random, avoidKey);
+  if (m?.transfer && slot === 6) return itemFor(skill, 'transfer', Math.random, avoidKey);
   return makeItem(topic, level, avoidKey);
 }
 
 /** A jump test is a check: the stair's exercises, a diagnostic and a transfer question, each one able to show the skill. */
 export const JUMP_SOURCES = ['gen', 'diag', 'gen', 'transfer', 'gen'];
 function jumpItem(topic, level, slot, avoidKey) {
-  const c = contentOf(skillId(topic, level));
+  const skill = skillId(topic, level); const m = metaOf(skill);
   const source = JUMP_SOURCES[slot] || 'gen';
-  if (c && source !== 'gen') return itemFor(c.skill, source === 'transfer' && !c.transfer ? 'diag' : source, Math.random, avoidKey, undefined, { test: true });
+  if (m && source !== 'gen') return itemFor(skill, source === 'transfer' && !m.transfer ? 'diag' : source, Math.random, avoidKey, undefined, { test: true });
   return testItem(topic, level, avoidKey);
+}
+
+/**
+ * The topics whose teaching content a lesson needs before its first question (learn/content/index.ts ensureTopics):
+ * the placement test every topic it tests, a check over several stairs (Exam Rescue's diagnostic and practice exam)
+ * the topics of those stairs, and any other lesson its own topic.
+ */
+export function lessonTopics(spec) {
+  if (!spec) return [];
+  if (spec.kind === 'placement') return placementTopicsFor(spec.grade || '7').map((t) => t.id);
+  if (spec.skills?.length) return [...spec.skills];
+  return [spec.skill || spec.topic].filter(Boolean);
 }
 
 export function startLesson(opts) {

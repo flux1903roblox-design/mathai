@@ -9,8 +9,11 @@ import { examPlan, newPlan, recordDiagnostic, validInput } from './examRescue';
 import { tutorReply } from './tutor';
 import { metrics, logEvent } from './analytics';
 import { evaluate, seeded, identical, texToExpr, texRelation, holds } from './expr';
-import { contentOf } from './content/index';
+import { contentOf, loadAllContent } from './content/index';
 import { addSubModel } from './content/signed';
+
+// the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
+await loadAllContent();
 
 const NOW = '2026-11-08T10:00:00.000Z';
 const DAY = '2026-11-08';

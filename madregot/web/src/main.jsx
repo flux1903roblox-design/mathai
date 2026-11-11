@@ -17,6 +17,8 @@ import { durableBoot, errorLog } from './lib/durable/storage.js';
 import { apiBase } from './lib/api.js';
 import { onMoment, keepaliveBudget, MOMENT_ORDER } from './lib/durable/moments.js';
 import { registerSW } from './lib/swClient.js';
+import { useApp } from './lib/store.js';
+import { bootTopics } from './lib/bootTopics.js';
 
 // Which release this page runs (the update test reads it; error reports carry the same name).
 window.__RELEASE = import.meta.env.VITE_RELEASE;
@@ -36,9 +38,11 @@ try {
 } catch { /* storage blocked */ }
 
 // The first screen waits for the copy of the progress on the device (at most 300 ms, lib/durable/storage.js), so a
-// broken or lost save is already back when the app appears.
+// broken or lost save is already back when the app appears; opened straight on a lesson or a stair, also for that
+// screen's teaching content (lib/bootTopics.js), so it appears whole.
 (async () => {
   await durableBoot();
+  await bootTopics(window.location.hash, useApp.getState());
   createRoot(document.getElementById('root')).render(
     <StrictMode>
       <App />

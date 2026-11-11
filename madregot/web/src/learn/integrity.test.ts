@@ -9,7 +9,7 @@ import { itemFor } from './items';
 import { examPlan, newPlan, recordDiagnostic } from './examRescue';
 import { ALL_SKILLS, ancestorsOf } from './skills';
 import { seeded } from './expr';
-import { CONTENT } from './content/index';
+import { loadAllContent } from './content/index';
 import { testModel, legModel } from './content/pyth';
 import { quadModel } from './content/coord';
 import { diagnoseFinal, namedMistake } from './content/togetherDiag';
@@ -19,6 +19,9 @@ import { isCorrect, fairForCheck, makeItem } from '@/content/index.js';
 import { inDays } from '@/content/util.js';
 // @ts-ignore: plain JS
 import { placementMax, startPlacement, PER_TOPIC, PROBE_LEN } from '@/lib/placement.js';
+
+// the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
+const CONTENT = await loadAllContent();
 
 const NOW = '2026-11-10T10:00:00.000Z';
 const empty = (): LearnState => ({ skills: {}, miscon: {}, exam: null, missions: {}, events: [] });

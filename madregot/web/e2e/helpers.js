@@ -67,8 +67,12 @@ export async function type(page, value) {
 const slotNames = (it) => (it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : it.form === 'lin' ? ['k', 'c'] : ['v']);
 const values = (it) => (it.form === 'pt' ? it.answer : it.form === 'line' ? [it.answer.m, it.answer.b] : it.form === 'lin' ? [it.answer.k, it.answer.c] : [it.answer]);
 
-/** Answer the current exercise, right or wrong (a wrong choice that is still enabled). */
+/**
+ * Answer the current exercise, right or wrong (a wrong choice that is still enabled). A lesson opened inside the app may
+ * first wait for its topic's teaching file (DURABLE-11): the exercise is there before it is answered.
+ */
 export async function answer(page, right) {
+  await expect.poll(() => item(page)).toBeTruthy();
   const it = await item(page);
   if (it.form === 'manip') {
     // an interactive exercise: the QA hook puts the object in a right state or a near miss

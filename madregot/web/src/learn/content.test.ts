@@ -2,7 +2,7 @@
 // worked examples step by step, guided problems, interactive goals, the diagnostic models and their
 // misconception predictions. A stair added to the registry is covered without writing new tests.
 import { describe, it, expect } from 'vitest';
-import { CONTENT } from './content/index';
+import { loadAllContent } from './content/index';
 import type { DiscoverStep, DiagModel, StairContent, WorkedExample } from './types';
 import { evaluate, same, seeded, identical, texToExpr, texRelation, holds } from './expr';
 import { discriminating, diagnose } from './misconceptions';
@@ -14,6 +14,9 @@ import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TIL
 import { TOPIC } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { T } from '@/content/util.js';
+
+// the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
+const CONTENT = await loadAllContent();
 
 const stairs = Object.values(CONTENT) as StairContent[];
 const DRAWS = 400;

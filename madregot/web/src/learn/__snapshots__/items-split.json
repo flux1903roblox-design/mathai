@@ -1,0 +1,1902 @@
+{
+ "angles:1": {
+  "items": [
+   "mastery0:an1t:30|150|gen",
+   "mastery1:an1:120|60|gen",
+   "mastery2:angles:1:diag:{\"k\":0,\"a\":95,\"b\":0}|85|diag",
+   "mastery3:an1:75|105|gen",
+   "mastery4:angles:1:transfer:{\"k\":1,\"a\":150}|30|transfer",
+   "review0:angles:1:transfer:{\"k\":0,\"a\":110}|70|transfer",
+   "review1:an1t:55|125|gen",
+   "review2:angles:1:diag:{\"k\":0,\"a\":95,\"b\":0}|85|diag",
+   "verify0:angles:1:probe:{\"k\":0,\"a\":65,\"b\":0}|115|probe",
+   "verify1:angles:1:probe:{\"k\":0,\"a\":130,\"b\":0}|50|probe",
+   "verify2:angles:1:control:{\"k\":1,\"a\":80,\"b\":75}|25|control",
+   "gen:an1:125|55|gen",
+   "diag:angles:1:diag:{\"k\":0,\"a\":95,\"b\":0}|85|diag",
+   "transfer:angles:1:transfer:{\"k\":1,\"a\":95}|85|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "angles:1/gen/",
+    "angles:1/gen/",
+    "angles:1/diag/",
+    "angles:1/gen/",
+    "angles:1/transfer/"
+   ],
+   "review": [
+    "angles:1/transfer/",
+    "angles:1/gen/",
+    "angles:1/diag/"
+   ],
+   "verify": [
+    "angles:1/probe/equal-not-supp",
+    "angles:1/probe/equal-not-supp",
+    "angles:1/control/equal-not-supp"
+   ]
+  }
+ },
+ "angles:2": {
+  "items": [
+   "mastery0:an2:20:true|20|gen",
+   "mastery1:an2:160:false|20|gen",
+   "mastery2:angles:2:diag:{\"k\":1,\"a\":95}|85|diag",
+   "mastery3:an2:95:true|95|gen",
+   "mastery4:angles:2:transfer:{\"k\":2,\"a\":100}|100|transfer",
+   "review0:angles:2:transfer:{\"k\":0,\"a\":30}|30|transfer",
+   "review1:an2:85:true|85|gen",
+   "review2:angles:2:diag:{\"k\":1,\"a\":95}|85|diag",
+   "verify0:angles:2:probe:{\"k\":0,\"a\":65}|65|probe",
+   "verify1:angles:2:probe:{\"k\":0,\"a\":130}|130|probe",
+   "verify2:angles:2:control:{\"k\":1,\"a\":95}|85|control",
+   "gen:an2:100:false|80|gen",
+   "diag:angles:2:diag:{\"k\":1,\"a\":95}|85|diag",
+   "transfer:angles:2:transfer:{\"k\":1,\"a\":95}|85|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "angles:2/gen/",
+    "angles:2/gen/",
+    "angles:2/diag/",
+    "angles:2/gen/",
+    "angles:2/transfer/"
+   ],
+   "review": [
+    "angles:2/transfer/",
+    "angles:2/gen/",
+    "angles:2/diag/"
+   ],
+   "verify": [
+    "angles:2/probe/supp-not-equal",
+    "angles:2/probe/supp-not-equal",
+    "angles:2/control/supp-not-equal"
+   ]
+  }
+ },
+ "angles:3": {
+  "items": [
+   "mastery0:an3d:-6:-1:-2,2|[-2,2]|gen",
+   "mastery1:an3:55:45|80|gen",
+   "mastery2:angles:3:diag:{\"k\":0,\"a\":70,\"b\":90}|20|diag",
+   "mastery3:an3:35:55|90|gen",
+   "mastery4:angles:3:transfer:{\"k\":0,\"a\":45,\"b\":60}|75|transfer",
+   "review0:angles:3:transfer:{\"k\":1,\"a\":60,\"b\":90}|30|transfer",
+   "review1:an3:40:30|110|gen",
+   "review2:angles:3:diag:{\"k\":0,\"a\":70,\"b\":90}|20|diag",
+   "verify0:angles:3:probe:{\"k\":1,\"a\":35,\"b\":90}|55|probe",
+   "verify1:angles:3:probe:{\"k\":1,\"a\":70,\"b\":90}|20|probe",
+   "verify2:angles:3:diag:{\"k\":0,\"a\":40,\"b\":30}|110|diag",
+   "gen:an3:55:30|95|gen",
+   "diag:angles:3:diag:{\"k\":0,\"a\":70,\"b\":75}|35|diag",
+   "transfer:angles:3:transfer:{\"k\":0,\"a\":65,\"b\":75}|40|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "angles:3/gen/",
+    "angles:3/gen/",
+    "angles:3/diag/",
+    "angles:3/gen/",
+    "angles:3/transfer/"
+   ],
+   "review": [
+    "angles:3/transfer/",
+    "angles:3/gen/",
+    "angles:3/diag/"
+   ],
+   "verify": [
+    "angles:3/probe/sum-360",
+    "angles:3/probe/sum-360",
+    "angles:3/control/sum-360"
+   ]
+  }
+ },
+ "angles:4": {
+  "items": [
+   "mastery0:an4:35:corresponding|35|gen",
+   "mastery1:an4:145:cointerior|35|gen",
+   "mastery2:angles:4:diag:{\"k\":2,\"a\":95}|85|diag",
+   "mastery3:an4:80:alternate|80|gen",
+   "mastery4:angles:4:transfer:{\"k\":2,\"a\":70}|70|transfer",
+   "review0:angles:4:transfer:{\"k\":0,\"a\":70}|110|transfer",
+   "review1:an4:60:alternate|60|gen",
+   "review2:angles:4:diag:{\"k\":2,\"a\":95}|85|diag",
+   "verify0:angles:4:probe:{\"k\":0,\"a\":65}|65|probe",
+   "verify1:angles:4:probe:{\"k\":0,\"a\":125}|125|probe",
+   "verify2:angles:4:control:{\"k\":2,\"a\":95}|85|control",
+   "gen:an4:115:corresponding|115|gen",
+   "diag:angles:4:diag:{\"k\":1,\"a\":95}|95|diag",
+   "transfer:angles:4:transfer:{\"k\":1,\"a\":55}|55|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "angles:4/gen/",
+    "angles:4/gen/",
+    "angles:4/diag/",
+    "angles:4/gen/",
+    "angles:4/transfer/"
+   ],
+   "review": [
+    "angles:4/transfer/",
+    "angles:4/gen/",
+    "angles:4/diag/"
+   ],
+   "verify": [
+    "angles:4/probe/supp-not-equal",
+    "angles:4/probe/supp-not-equal",
+    "angles:4/control/supp-not-equal"
+   ]
+  }
+ },
+ "angles:5": {
+  "items": [
+   "mastery0:an5:iso:20|80|gen",
+   "mastery1:an5:ext:55:45|100|gen",
+   "mastery2:angles:5:diag:{\"k\":2,\"a\":45,\"b\":60}|105|diag",
+   "mastery3:an5:iso:80|50|gen",
+   "mastery4:angles:5:transfer:{\"k\":2,\"a\":80,\"b\":70}|150|transfer",
+   "review0:angles:5:transfer:{\"k\":0,\"a\":100,\"b\":0}|40|transfer",
+   "review1:an5:iso:90|45|gen",
+   "review2:angles:5:diag:{\"k\":2,\"a\":45,\"b\":60}|105|diag",
+   "verify0:angles:5:probe:{\"k\":0,\"a\":60,\"b\":0}|60|probe",
+   "verify1:angles:5:probe:{\"k\":0,\"a\":110,\"b\":0}|35|probe",
+   "verify2:angles:5:control:{\"k\":2,\"a\":45,\"b\":60}|105|control",
+   "gen:an5:ext:30:25|55|gen",
+   "diag:angles:5:diag:{\"k\":1,\"a\":60,\"b\":0}|60|diag",
+   "transfer:angles:5:transfer:{\"k\":1,\"a\":75,\"b\":0}|30|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "angles:5/gen/",
+    "angles:5/gen/",
+    "angles:5/diag/",
+    "angles:5/gen/",
+    "angles:5/transfer/"
+   ],
+   "review": [
+    "angles:5/transfer/",
+    "angles:5/gen/",
+    "angles:5/diag/"
+   ],
+   "verify": [
+    "angles:5/probe/forgot-half",
+    "angles:5/probe/forgot-half",
+    "angles:5/control/forgot-half"
+   ]
+  }
+ },
+ "coord:1": {
+  "items": [
+   "mastery0:cp1p:-6:6|[-6,6]|gen",
+   "mastery1:cp1:-1:-3|[-1,-3]|gen",
+   "mastery2:coord:1:diag:{\"k\":0,\"x\":1,\"y\":3,\"ask\":1,\"rev\":0}|3|diag",
+   "mastery3:cp1:3:-3|[3,-3]|gen",
+   "mastery4:coord:1:transfer:{\"k\":0,\"x\":3,\"y\":-4,\"ask\":0,\"rev\":0,\"n\":1}|3|transfer",
+   "review0:coord:1:transfer:{\"k\":0,\"x\":-4,\"y\":-2,\"ask\":1,\"rev\":0,\"n\":2}|-2|transfer",
+   "review1:cp1p:3:-4|[3,-4]|gen",
+   "review2:coord:1:diag:{\"k\":0,\"x\":1,\"y\":3,\"ask\":1,\"rev\":0}|3|diag",
+   "verify0:coord:1:probe:{\"k\":0,\"x\":-2,\"y\":5,\"ask\":1,\"rev\":0}|5|probe",
+   "verify1:coord:1:probe:{\"k\":0,\"x\":3,\"y\":1,\"ask\":1,\"rev\":0}|1|probe",
+   "verify2:coord:1:diag:{\"k\":1,\"x\":-2,\"y\":0,\"ask\":0,\"rev\":0}|-2|diag",
+   "gen:cp1p:-3:-3|[-3,-3]|gen",
+   "diag:coord:1:diag:{\"k\":0,\"x\":4,\"y\":-1,\"ask\":1,\"rev\":0}|-1|diag",
+   "transfer:coord:1:transfer:{\"k\":1,\"x\":4,\"y\":-1,\"ask\":1,\"rev\":1,\"n\":0}|-1|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "coord:1/gen/",
+    "coord:1/gen/",
+    "coord:1/diag/",
+    "coord:1/gen/",
+    "coord:1/transfer/"
+   ],
+   "review": [
+    "coord:1/transfer/",
+    "coord:1/gen/",
+    "coord:1/diag/"
+   ],
+   "verify": [
+    "coord:1/probe/swap",
+    "coord:1/probe/swap",
+    "coord:1/control/swap"
+   ]
+  }
+ },
+ "coord:2": {
+  "items": [
+   "mastery0:cp2p:1:-:|[3,2]|gen",
+   "mastery1:cp2p:2:x:-3|[-3,2]|gen",
+   "mastery2:coord:2:diag:{\"k\":3,\"x\":9,\"y\":-7,\"t\":4,\"pts\":[],\"ask\":1}|-7|diag",
+   "mastery3:cp2:-5:-7|2|gen",
+   "mastery4:coord:2:transfer:{\"k\":1,\"sx\":-1,\"sy\":-1,\"n\":0}|3|transfer",
+   "review0:coord:2:transfer:{\"k\":0,\"sx\":-1,\"sy\":1,\"n\":2}|2|transfer",
+   "review1:cp2:-6:-3|2|gen",
+   "review2:coord:2:diag:{\"k\":3,\"x\":9,\"y\":-7,\"t\":4,\"pts\":[],\"ask\":1}|-7|diag",
+   "verify0:coord:2:probe:{\"k\":0,\"x\":8,\"y\":-5,\"t\":4,\"pts\":[]}|4|probe",
+   "verify1:coord:2:probe:{\"k\":3,\"x\":3,\"y\":-1,\"t\":4,\"pts\":[],\"ask\":0}|3|probe",
+   "verify2:coord:2:control:{\"k\":2,\"x\":0,\"y\":0,\"t\":3,\"pts\":[[-3,-1],[4,1],[0,-2],[-4,0]]}|1|control",
+   "gen:cp2p:3:y:-2|[-2,-2]|gen",
+   "diag:coord:2:diag:{\"k\":3,\"x\":6,\"y\":-8,\"t\":4,\"pts\":[],\"ask\":1}|-8|diag",
+   "transfer:coord:2:transfer:{\"k\":0,\"sx\":1,\"sy\":-1,\"n\":1}|4|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "coord:2/gen/",
+    "coord:2/gen/",
+    "coord:2/diag/",
+    "coord:2/gen/",
+    "coord:2/transfer/"
+   ],
+   "review": [
+    "coord:2/transfer/",
+    "coord:2/gen/",
+    "coord:2/diag/"
+   ],
+   "verify": [
+    "coord:2/probe/swap",
+    "coord:2/probe/swap",
+    "coord:2/control/swap"
+   ]
+  }
+ },
+ "coord:3": {
+  "items": [
+   "mastery0:cp3:5:-5:3:-5|2|gen",
+   "mastery1:cp3:-1:-1:-1:-3|2|gen",
+   "mastery2:coord:3:diag:{\"h\":1,\"f\":2,\"p\":10,\"q\":4}|6|diag",
+   "mastery3:cp3:3:-3:3:-4|1|gen",
+   "mastery4:coord:3:transfer:{\"k\":1,\"f\":-3,\"p\":6,\"q\":-5}|11|transfer",
+   "review0:coord:3:transfer:{\"k\":0,\"f\":2,\"p\":6,\"q\":-4}|10|transfer",
+   "review1:cp3:0:-4:0:-2|2|gen",
+   "review2:coord:3:diag:{\"h\":1,\"f\":2,\"p\":10,\"q\":4}|6|diag",
+   "verify0:coord:3:probe:{\"h\":1,\"f\":2,\"p\":4,\"q\":-2}|6|probe",
+   "verify1:coord:3:probe:{\"h\":0,\"f\":2,\"p\":4,\"q\":-5}|9|probe",
+   "verify2:coord:3:control:{\"h\":1,\"f\":2,\"p\":10,\"q\":4}|6|control",
+   "gen:cp3:-3:0:6:0|9|gen",
+   "diag:coord:3:diag:{\"h\":1,\"f\":-5,\"p\":9,\"q\":4}|5|diag",
+   "transfer:coord:3:transfer:{\"k\":0,\"f\":1,\"p\":-6,\"q\":4}|10|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "coord:3/gen/",
+    "coord:3/gen/",
+    "coord:3/diag/",
+    "coord:3/gen/",
+    "coord:3/transfer/"
+   ],
+   "review": [
+    "coord:3/transfer/",
+    "coord:3/gen/",
+    "coord:3/diag/"
+   ],
+   "verify": [
+    "coord:3/probe/add-coords",
+    "coord:3/probe/add-coords",
+    "coord:3/control/add-coords"
+   ]
+  }
+ },
+ "coord:4": {
+  "items": [
+   "mastery0:cp4:-6:-4:2:6|8|gen",
+   "mastery1:cp4:-2:1:-2:0|6|gen",
+   "mastery2:coord:4:diag:{\"x1\":4,\"x2\":9,\"y1\":4,\"y2\":8,\"d\":0}|20|diag",
+   "mastery3:cp4:-2:2:-4:-2|8|gen",
+   "mastery4:coord:4:transfer:{\"x1\":3,\"x2\":5,\"y1\":-4,\"y2\":-2,\"d\":1}|4|transfer",
+   "review0:coord:4:transfer:{\"x1\":-3,\"x2\":4,\"y1\":2,\"y2\":4,\"d\":0}|14|transfer",
+   "review1:cp4:0:4:-5:-2|12|gen",
+   "review2:coord:4:diag:{\"x1\":4,\"x2\":9,\"y1\":4,\"y2\":8,\"d\":0}|20|diag",
+   "verify0:coord:4:probe:{\"x1\":-3,\"x2\":4,\"y1\":2,\"y2\":4,\"d\":0}|14|probe",
+   "verify1:coord:4:probe:{\"x1\":-2,\"x2\":4,\"y1\":-5,\"y2\":-3,\"d\":0}|12|probe",
+   "verify2:coord:4:control:{\"x1\":3,\"x2\":6,\"y1\":-2,\"y2\":4,\"d\":0}|18|control",
+   "gen:cp4:-4:0:-4:0|16|gen",
+   "diag:coord:4:diag:{\"x1\":-4,\"x2\":3,\"y1\":2,\"y2\":5,\"d\":0}|21|diag",
+   "transfer:coord:4:transfer:{\"x1\":-4,\"x2\":3,\"y1\":2,\"y2\":5,\"d\":1}|21|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "coord:4/gen/",
+    "coord:4/gen/",
+    "coord:4/diag/",
+    "coord:4/gen/",
+    "coord:4/transfer/"
+   ],
+   "review": [
+    "coord:4/transfer/",
+    "coord:4/gen/",
+    "coord:4/diag/"
+   ],
+   "verify": [
+    "coord:4/probe/perimeter",
+    "coord:4/probe/perimeter",
+    "coord:4/control/perimeter"
+   ]
+  }
+ },
+ "coord:5": {
+  "items": [
+   "mastery0:cp5r:-5:5:1:4|[-5,4]|gen",
+   "mastery1:cp5r:-1:2:-1:4|[-1,4]|gen",
+   "mastery2:coord:5:diag:{\"k\":0,\"x1\":-1,\"x2\":5,\"y1\":3,\"y2\":6,\"r\":2,\"m\":2,\"ask\":1,\"s\":0,\"o\":0,\"d\":0,\"L\":0,\"h\":0}|3|diag",
+   "mastery3:cp5r:-4:4:-1:1|[-4,1]|gen",
+   "mastery4:coord:5:transfer:{\"k\":1,\"x1\":0,\"x2\":0,\"y1\":0,\"y2\":0,\"mi\":0,\"order\":[],\"ask\":1,\"ax\":-5,\"bx\":0,\"ay\":-3,\"d\":1}|2|transfer",
+   "review0:coord:5:transfer:{\"k\":0,\"x1\":-1,\"x2\":6,\"y1\":-1,\"y2\":5,\"mi\":1,\"order\":[3,2,0],\"ask\":0,\"ax\":0,\"bx\":0,\"ay\":0,\"d\":0}|6|transfer",
+   "review1:cp5r:-3:2:-3:5|[-3,5]|gen",
+   "review2:coord:5:diag:{\"k\":0,\"x1\":-1,\"x2\":5,\"y1\":3,\"y2\":6,\"r\":2,\"m\":2,\"ask\":1,\"s\":0,\"o\":0,\"d\":0,\"L\":0,\"h\":0}|3|diag",
+   "verify0:coord:5:probe:{\"k\":0,\"x1\":-3,\"x2\":3,\"y1\":2,\"y2\":5,\"r\":2,\"m\":0,\"ask\":1,\"s\":0,\"o\":0,\"d\":0,\"L\":0,\"h\":0}|5|probe",
+   "verify1:coord:5:probe:{\"k\":0,\"x1\":1,\"x2\":5,\"y1\":0,\"y2\":3,\"r\":2,\"m\":2,\"ask\":1,\"s\":0,\"o\":0,\"d\":0,\"L\":0,\"h\":0}|0|probe",
+   "verify2:coord:5:control:{\"k\":0,\"x1\":0,\"x2\":5,\"y1\":3,\"y2\":5,\"r\":0,\"m\":2,\"ask\":1,\"s\":0,\"o\":0,\"d\":0,\"L\":0,\"h\":0}|5|control",
+   "gen:cp5r:2:4:-4:-1|[2,-1]|gen",
+   "diag:coord:5:diag:{\"k\":0,\"x1\":-1,\"x2\":4,\"y1\":-1,\"y2\":6,\"r\":2,\"m\":0,\"ask\":1,\"s\":0,\"o\":0,\"d\":0,\"L\":0,\"h\":0}|6|diag",
+   "transfer:coord:5:transfer:{\"k\":1,\"x1\":0,\"x2\":0,\"y1\":0,\"y2\":0,\"mi\":0,\"order\":[],\"ask\":1,\"ax\":0,\"bx\":4,\"ay\":1,\"d\":-1}|-3|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "coord:5/gen/",
+    "coord:5/gen/",
+    "coord:5/diag/",
+    "coord:5/gen/",
+    "coord:5/transfer/"
+   ],
+   "review": [
+    "coord:5/transfer/",
+    "coord:5/gen/",
+    "coord:5/diag/"
+   ],
+   "verify": [
+    "coord:5/probe/swap",
+    "coord:5/probe/swap",
+    "coord:5/control/swap"
+   ]
+  }
+ },
+ "diagnostic-7": [
+  "signed:1/diag",
+  "signed:1/gen",
+  "signed:2/diag",
+  "signed:2/gen",
+  "signed:3/diag",
+  "signed:3/gen",
+  "signed:4/diag",
+  "signed:4/gen",
+  "signed:5/diag",
+  "signed:5/gen",
+  "coord:1/diag",
+  "coord:1/gen",
+  "coord:2/diag",
+  "coord:2/gen",
+  "coord:3/diag",
+  "coord:3/gen",
+  "coord:4/diag",
+  "coord:4/gen",
+  "coord:5/diag",
+  "coord:5/gen",
+  "angles:1/diag",
+  "angles:1/gen",
+  "angles:2/diag",
+  "angles:2/gen",
+  "angles:3/diag",
+  "angles:3/gen",
+  "angles:4/diag",
+  "angles:4/gen",
+  "angles:5/diag",
+  "angles:5/gen",
+  "expr:1/diag",
+  "expr:1/gen",
+  "expr:2/diag",
+  "expr:2/gen",
+  "expr:3/diag",
+  "expr:3/gen",
+  "expr:4/diag",
+  "expr:4/gen",
+  "expr:5/diag",
+  "expr:5/gen",
+  "eq:1/diag",
+  "eq:1/gen",
+  "eq:2/diag",
+  "eq:2/gen",
+  "eq:3/diag",
+  "eq:3/gen",
+  "eq:4/diag",
+  "eq:4/gen",
+  "eq:5/diag",
+  "eq:5/gen"
+ ],
+ "diagnostic-8": [
+  "line:1/diag",
+  "line:1/gen",
+  "line:2/diag",
+  "line:2/gen",
+  "line:3/diag",
+  "line:3/gen",
+  "line:4/diag",
+  "line:4/gen",
+  "line:5/diag",
+  "line:5/gen",
+  "line:6/diag",
+  "line:6/gen",
+  "line:7/diag",
+  "line:7/gen",
+  "line:8/diag",
+  "line:8/gen",
+  "pyth:1/diag",
+  "pyth:1/gen",
+  "pyth:2/diag",
+  "pyth:2/gen",
+  "pyth:3/diag",
+  "pyth:3/gen",
+  "pyth:4/diag",
+  "pyth:4/gen",
+  "pyth:5/diag",
+  "pyth:5/gen",
+  "stats:1/diag",
+  "stats:1/gen",
+  "stats:2/diag",
+  "stats:2/gen",
+  "stats:3/diag",
+  "stats:3/gen",
+  "stats:4/diag",
+  "stats:4/gen",
+  "stats:5/diag",
+  "stats:5/gen",
+  "sys:1/diag",
+  "sys:1/gen",
+  "sys:2/diag",
+  "sys:2/gen",
+  "sys:3/diag",
+  "sys:3/gen",
+  "sys:4/diag",
+  "sys:4/gen",
+  "sys:5/diag",
+  "sys:5/gen"
+ ],
+ "eq:1": {
+  "items": [
+   "mastery0:eq1:x + 15 = 20|5|gen",
+   "mastery1:eq1w:x^2 + 20 = 9x:6,10,9|2|gen",
+   "mastery2:eq:1:diag:{\"k\":2,\"a\":8,\"x\":9,\"b\":72}|9|diag",
+   "mastery3:eq1:x : 3 = 7|21|gen",
+   "mastery4:eq:1:transfer:{\"k\":3,\"a\":7,\"x\":-5,\"b\":-35,\"n\":3}|-5|transfer",
+   "review0:eq:1:transfer:{\"k\":2,\"a\":2,\"x\":-10,\"b\":-5,\"n\":2}|-10|transfer",
+   "review1:eq1:-2 = x - 9|7|gen",
+   "review2:eq:1:diag:{\"k\":2,\"a\":8,\"x\":9,\"b\":72}|9|diag",
+   "verify0:eq:1:probe:{\"k\":0,\"a\":6,\"x\":1,\"b\":7}|1|probe",
+   "verify1:eq:1:probe:{\"k\":0,\"a\":12,\"x\":1,\"b\":13}|1|probe",
+   "verify2:eq:1:control:{\"k\":2,\"a\":8,\"x\":9,\"b\":72}|9|control",
+   "gen:eq1b:1:4:0:9|5|gen",
+   "diag:eq:1:diag:{\"k\":2,\"a\":6,\"x\":7,\"b\":42}|7|diag",
+   "transfer:eq:1:transfer:{\"k\":1,\"a\":10,\"x\":5,\"b\":-5,\"n\":2}|5|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "eq:1/gen/",
+    "eq:1/gen/",
+    "eq:1/diag/",
+    "eq:1/gen/",
+    "eq:1/transfer/"
+   ],
+   "review": [
+    "eq:1/transfer/",
+    "eq:1/gen/",
+    "eq:1/diag/"
+   ],
+   "verify": [
+    "eq:1/probe/move-no-flip",
+    "eq:1/probe/move-no-flip",
+    "eq:1/control/move-no-flip"
+   ]
+  }
+ },
+ "eq:2": {
+  "items": [
+   "mastery0:eq2:7x + 15 = 8|-1|gen",
+   "mastery1:eq2:31 = -4x + 7|-6|gen",
+   "mastery2:eq:2:diag:{\"k\":2,\"a\":-9,\"b\":1,\"x\":4,\"c\":-35}|4|diag",
+   "mastery3:eq2:4x + 1 = 33|8|gen",
+   "mastery4:eq:2:transfer:{\"f\":20,\"r\":9,\"h\":7}|7|transfer",
+   "review0:eq:2:transfer:{\"f\":8,\"r\":4,\"h\":5}|5|transfer",
+   "review1:eq2:4x - 11 = -47|-9|gen",
+   "review2:eq:2:diag:{\"k\":2,\"a\":-9,\"b\":1,\"x\":4,\"c\":-35}|4|diag",
+   "verify0:eq:2:probe:{\"k\":0,\"a\":6,\"b\":-6,\"x\":4,\"c\":18}|4|probe",
+   "verify1:eq:2:probe:{\"k\":0,\"a\":6,\"b\":8,\"x\":4,\"c\":32}|4|probe",
+   "verify2:eq:2:diag:{\"k\":1,\"a\":4,\"b\":6,\"x\":2.5,\"c\":16}|2.5|diag",
+   "gen:eq2b:3:5:0:11|2|gen",
+   "diag:eq:2:diag:{\"k\":1,\"a\":6,\"b\":1,\"x\":1,\"c\":7}|1|diag",
+   "transfer:eq:2:transfer:{\"f\":13,\"r\":6,\"h\":6}|6|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "eq:2/gen/",
+    "eq:2/gen/",
+    "eq:2/diag/",
+    "eq:2/gen/",
+    "eq:2/transfer/"
+   ],
+   "review": [
+    "eq:2/transfer/",
+    "eq:2/gen/",
+    "eq:2/diag/"
+   ],
+   "verify": [
+    "eq:2/probe/move-no-flip",
+    "eq:2/probe/move-no-flip",
+    "eq:2/control/move-no-flip"
+   ]
+  }
+ },
+ "eq:3": {
+  "items": [
+   "mastery0:eq3:9x - 1 = 7x - 5|-2|gen",
+   "mastery1:eq3:7x + 8 = 3x - 20|-7|gen",
+   "mastery2:eq:3:diag:{\"a\":7,\"b\":13,\"c\":8,\"d\":15,\"x\":-2}|-2|diag",
+   "mastery3:eq3:4x - 6 = 3x - 5|1|gen",
+   "mastery4:eq:3:transfer:{\"a\":60,\"b\":80,\"c\":50,\"d\":200,\"m\":12}|12|transfer",
+   "review0:eq:3:transfer:{\"a\":70,\"b\":130,\"c\":50,\"d\":270,\"m\":7}|7|transfer",
+   "review1:eq3b:2:3:3:1|2|gen",
+   "review2:eq:3:diag:{\"a\":7,\"b\":13,\"c\":8,\"d\":15,\"x\":-2}|-2|diag",
+   "verify0:eq:3:probe:{\"a\":3,\"b\":2,\"c\":5,\"d\":-14,\"x\":8}|8|probe",
+   "verify1:eq:3:probe:{\"a\":7,\"b\":-4,\"c\":5,\"d\":2,\"x\":3}|3|probe",
+   "verify2:eq:3:diag:{\"a\":9,\"b\":8,\"c\":3,\"d\":-16,\"x\":-4}|-4|diag",
+   "gen:eq3:7x + 13 = 9x + 7|3|gen",
+   "diag:eq:3:diag:{\"a\":5,\"b\":11,\"c\":6,\"d\":9,\"x\":2}|2|diag",
+   "transfer:eq:3:transfer:{\"a\":140,\"b\":110,\"c\":110,\"d\":170,\"m\":2}|2|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "eq:3/gen/",
+    "eq:3/gen/",
+    "eq:3/diag/",
+    "eq:3/gen/",
+    "eq:3/transfer/"
+   ],
+   "review": [
+    "eq:3/transfer/",
+    "eq:3/gen/",
+    "eq:3/diag/"
+   ],
+   "verify": [
+    "eq:3/probe/move-no-flip",
+    "eq:3/probe/move-no-flip",
+    "eq:3/control/move-no-flip"
+   ]
+  }
+ },
+ "eq:4": {
+  "items": [
+   "mastery0:eq4f:x + \\frac{1}{3}x = 5|3.75|gen",
+   "mastery1:eq4e:x - 3 + 5x = 4x - (x + 3)|0|gen",
+   "mastery2:eq:4:diag:{\"k\":2,\"a\":0,\"b\":5,\"c\":7,\"x\":1,\"d\":1}|1|diag",
+   "mastery3:eq4:-4(x + 5) = 8|-7|gen",
+   "mastery4:eq:4:transfer:{\"n2\":12,\"e\":1,\"p\":2}|24|transfer",
+   "review0:eq:4:transfer:{\"n2\":14,\"e\":3,\"p\":9}|42|transfer",
+   "review1:eq4:3(x + 9) = -3x + 3|-4|gen",
+   "review2:eq:4:diag:{\"k\":2,\"a\":0,\"b\":5,\"c\":7,\"x\":1,\"d\":1}|1|diag",
+   "verify0:eq:4:probe:{\"k\":0,\"a\":6,\"b\":1,\"c\":0,\"x\":-4,\"d\":-18}|-4|probe",
+   "verify1:eq:4:probe:{\"k\":0,\"a\":-5,\"b\":1,\"c\":0,\"x\":6,\"d\":-35}|6|probe",
+   "verify2:eq:4:control:{\"k\":2,\"a\":0,\"b\":5,\"c\":7,\"x\":1,\"d\":1}|1|control",
+   "gen:eq4:2(x + 5) = 12|1|gen",
+   "diag:eq:4:diag:{\"k\":1,\"a\":4,\"b\":2,\"c\":-5,\"x\":1,\"d\":17}|1|diag",
+   "transfer:eq:4:transfer:{\"n2\":13,\"e\":2,\"p\":8}|52|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "eq:4/gen/",
+    "eq:4/gen/",
+    "eq:4/diag/",
+    "eq:4/gen/",
+    "eq:4/transfer/"
+   ],
+   "review": [
+    "eq:4/transfer/",
+    "eq:4/gen/",
+    "eq:4/diag/"
+   ],
+   "verify": [
+    "eq:4/probe/partial-dist",
+    "eq:4/probe/partial-dist",
+    "eq:4/control/partial-dist"
+   ]
+  }
+ },
+ "eq:5": {
+  "items": [
+   "mastery0:eq5s:4:6:1|16|gen",
+   "mastery1:eq5t:30:0|30|gen",
+   "mastery2:eq:5:diag:{\"t\":1,\"k\":4,\"g\":12,\"tt\":0,\"b\":0,\"q\":2,\"n\":2}|40|diag",
+   "mastery3:eq5b:12:11:5:1|60|gen",
+   "mastery4:eq:5:transfer:{\"k\":5,\"boys\":8,\"q\":1}|40|transfer",
+   "review0:eq:5:transfer:{\"k\":2,\"boys\":4,\"q\":0}|4|transfer",
+   "review1:eq5c:36:2|13|gen",
+   "review2:eq:5:diag:{\"t\":1,\"k\":4,\"g\":12,\"tt\":0,\"b\":0,\"q\":2,\"n\":2}|40|diag",
+   "verify0:eq:5:probe:{\"t\":0,\"k\":3,\"g\":16,\"tt\":8,\"b\":4,\"q\":1,\"n\":0}|28|probe",
+   "verify1:eq:5:probe:{\"t\":1,\"k\":3,\"g\":9,\"tt\":0,\"b\":0,\"q\":1,\"n\":0}|27|probe",
+   "verify2:eq:5:control:{\"t\":0,\"k\":3,\"g\":16,\"tt\":8,\"b\":5,\"q\":0,\"n\":2}|13|control",
+   "gen:eq5s:2:8:2|48|gen",
+   "diag:eq:5:diag:{\"t\":1,\"k\":3,\"g\":8,\"tt\":0,\"b\":0,\"q\":2,\"n\":1}|32|diag",
+   "transfer:eq:5:transfer:{\"k\":4,\"boys\":6,\"q\":1}|24|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "eq:5/gen/",
+    "eq:5/gen/",
+    "eq:5/diag/",
+    "eq:5/gen/",
+    "eq:5/transfer/"
+   ],
+   "review": [
+    "eq:5/transfer/",
+    "eq:5/gen/",
+    "eq:5/diag/"
+   ],
+   "verify": [
+    "eq:5/probe/wrong-unknown",
+    "eq:5/probe/wrong-unknown",
+    "eq:5/control/wrong-unknown"
+   ]
+  }
+ },
+ "exam-7": [
+  "signed:3/transfer",
+  "signed:2/transfer",
+  "signed:4/transfer",
+  "signed:5/gen",
+  "signed:2/gen",
+  "signed:1/gen",
+  "signed:3/gen",
+  "signed:1/transfer",
+  "signed:5/transfer",
+  "signed:4/gen"
+ ],
+ "exam-8": [
+  "line:3/transfer",
+  "line:2/transfer",
+  "line:4/transfer",
+  "line:5/gen",
+  "line:2/gen",
+  "line:1/gen",
+  "line:3/gen",
+  "line:1/transfer",
+  "line:5/transfer",
+  "line:4/gen"
+ ],
+ "expr:1": {
+  "items": [
+   "mastery0:ex1:0:9:5:2|23|gen",
+   "mastery1:ex1:1:3:1:5|-14|gen",
+   "mastery2:expr:1:diag:{\"f\":1,\"a\":6,\"b\":6,\"x\":9}|-48|diag",
+   "mastery3:ex1:0:8:-8:-1|-16|gen",
+   "mastery4:expr:1:transfer:{\"a\":9,\"b\":15,\"n\":7}|78|transfer",
+   "review0:expr:1:transfer:{\"a\":3,\"b\":8,\"n\":6}|26|transfer",
+   "review1:ex1:1:4:12:-3|24|gen",
+   "review2:expr:1:diag:{\"f\":1,\"a\":6,\"b\":6,\"x\":9}|-48|diag",
+   "verify0:expr:1:probe:{\"f\":0,\"a\":4,\"b\":1,\"x\":8}|33|probe",
+   "verify1:expr:1:probe:{\"f\":0,\"a\":8,\"b\":1,\"x\":4}|33|probe",
+   "verify2:expr:1:control:{\"f\":0,\"a\":7,\"b\":-5,\"x\":-6}|-47|control",
+   "gen:ex1m:3:3|2|gen",
+   "diag:expr:1:diag:{\"f\":1,\"a\":6,\"b\":3,\"x\":3}|-15|diag",
+   "transfer:expr:1:transfer:{\"a\":6,\"b\":10,\"n\":6}|46|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "expr:1/gen/",
+    "expr:1/gen/",
+    "expr:1/diag/",
+    "expr:1/gen/",
+    "expr:1/transfer/"
+   ],
+   "review": [
+    "expr:1/transfer/",
+    "expr:1/gen/",
+    "expr:1/diag/"
+   ],
+   "verify": [
+    "expr:1/probe/concat",
+    "expr:1/probe/concat",
+    "expr:1/control/concat"
+   ]
+  }
+ },
+ "expr:2": {
+  "items": [
+   "mastery0:ex2l:2:9:שבוע|{\"k\":9,\"c\":-7}|gen",
+   "mastery1:ex2n:7:5:26:צורה|132|gen",
+   "mastery2:expr:2:diag:{\"s\":11,\"d\":6,\"k\":5,\"m\":6,\"n\":30}|185|diag",
+   "mastery3:ex2m:5:3:false:שבוע|3|gen",
+   "mastery4:expr:2:transfer:{\"s\":15,\"d\":9,\"k\":4,\"m\":3,\"n\":12}|114|transfer",
+   "review0:expr:2:transfer:{\"s\":9,\"d\":7,\"k\":2,\"m\":4,\"n\":8}|58|transfer",
+   "review1:ex2n:6:9:36:צורה|321|gen",
+   "review2:expr:2:diag:{\"s\":11,\"d\":6,\"k\":5,\"m\":6,\"n\":30}|185|diag",
+   "verify0:expr:2:probe:{\"s\":9,\"d\":7,\"k\":2,\"m\":4,\"n\":8}|58|probe",
+   "verify1:expr:2:probe:{\"s\":3,\"d\":8,\"k\":4,\"m\":5,\"n\":20}|155|probe",
+   "verify2:expr:2:diag:{\"s\":10,\"d\":3,\"k\":4,\"m\":2,\"n\":8}|31|diag",
+   "gen:ex2l:4:3:צורה|{\"k\":3,\"c\":1}|gen",
+   "diag:expr:2:diag:{\"s\":9,\"d\":6,\"k\":4,\"m\":4,\"n\":16}|99|diag",
+   "transfer:expr:2:transfer:{\"s\":9,\"d\":6,\"k\":4,\"m\":4,\"n\":16}|99|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "expr:2/gen/",
+    "expr:2/gen/",
+    "expr:2/diag/",
+    "expr:2/gen/",
+    "expr:2/transfer/"
+   ],
+   "review": [
+    "expr:2/transfer/",
+    "expr:2/gen/",
+    "expr:2/diag/"
+   ],
+   "verify": [
+    "expr:2/probe/start-n",
+    "expr:2/probe/start-n",
+    "expr:2/control/start-n"
+   ]
+  }
+ },
+ "expr:3": {
+  "items": [
+   "mastery0:ex3:9x - 2 - 8x + 5|{\"k\":1,\"c\":3}|gen",
+   "mastery1:ex3i:5 - 2x + 4x|2|gen",
+   "mastery2:expr:3:diag:{\"p\":7,\"r\":-5,\"q\":6,\"s\":12,\"ask\":1}|18|diag",
+   "mastery3:ex3:-4x + 10 + 7 + x|{\"k\":-3,\"c\":17}|gen",
+   "mastery4:expr:3:transfer:{\"p\":4,\"q\":9,\"r\":3,\"ask\":0}|14|transfer",
+   "review0:expr:3:transfer:{\"p\":1,\"q\":3,\"r\":3,\"ask\":1}|6|transfer",
+   "review1:ex3i:4x + 4 - x|0|gen",
+   "review2:expr:3:diag:{\"p\":7,\"r\":-5,\"q\":6,\"s\":12,\"ask\":1}|18|diag",
+   "verify0:expr:3:probe:{\"p\":2,\"r\":-3,\"q\":1,\"s\":10,\"ask\":1}|11|probe",
+   "verify1:expr:3:probe:{\"p\":2,\"r\":-7,\"q\":1,\"s\":4,\"ask\":0}|-5|probe",
+   "verify2:expr:3:diag:{\"p\":6,\"r\":-1,\"q\":5,\"s\":-2,\"ask\":0}|5|diag",
+   "gen:ex3i:9x + 2 - 8x|0|gen",
+   "diag:expr:3:diag:{\"p\":8,\"r\":-5,\"q\":-10,\"s\":1,\"ask\":1}|-9|diag",
+   "transfer:expr:3:transfer:{\"p\":2,\"q\":7,\"r\":3,\"ask\":0}|10|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "expr:3/gen/",
+    "expr:3/gen/",
+    "expr:3/diag/",
+    "expr:3/gen/",
+    "expr:3/transfer/"
+   ],
+   "review": [
+    "expr:3/transfer/",
+    "expr:3/gen/",
+    "expr:3/diag/"
+   ],
+   "verify": [
+    "expr:3/probe/conjoin",
+    "expr:3/probe/conjoin",
+    "expr:3/control/conjoin"
+   ]
+  }
+ },
+ "expr:4": {
+  "items": [
+   "mastery0:ex4t:6:4|{\"k\":24,\"c\":0}|gen",
+   "mastery1:ex4:5:1:-7|{\"k\":5,\"c\":-35}|gen",
+   "mastery2:expr:4:diag:{\"a\":6,\"c\":3,\"b\":8}|48|diag",
+   "mastery3:ex4m:6:99|594|gen",
+   "mastery4:expr:4:transfer:{\"k\":1,\"a\":9,\"b\":7,\"c\":1}|891|transfer",
+   "review0:expr:4:transfer:{\"k\":0,\"a\":5,\"b\":6,\"c\":3}|30|transfer",
+   "review1:ex4:-7:2:-7|{\"k\":-14,\"c\":49}|gen",
+   "review2:expr:4:diag:{\"a\":6,\"c\":3,\"b\":8}|48|diag",
+   "verify0:expr:4:probe:{\"a\":-3,\"c\":1,\"b\":7}|-21|probe",
+   "verify1:expr:4:probe:{\"a\":2,\"c\":1,\"b\":3}|6|probe",
+   "verify2:expr:4:diag:{\"a\":3,\"c\":1,\"b\":3}|9|diag",
+   "gen:ex4:-6:3:2|{\"k\":-18,\"c\":-12}|gen",
+   "diag:expr:4:diag:{\"a\":5,\"c\":3,\"b\":7}|35|diag",
+   "transfer:expr:4:transfer:{\"k\":1,\"a\":6,\"b\":5,\"c\":3}|582|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "expr:4/gen/",
+    "expr:4/gen/",
+    "expr:4/diag/",
+    "expr:4/gen/",
+    "expr:4/transfer/"
+   ],
+   "review": [
+    "expr:4/transfer/",
+    "expr:4/gen/",
+    "expr:4/diag/"
+   ],
+   "verify": [
+    "expr:4/probe/partial-dist",
+    "expr:4/probe/partial-dist",
+    "expr:4/control/partial-dist"
+   ]
+  }
+ },
+ "expr:5": {
+  "items": [
+   "mastery0:ex5:6(x + 4) - 3x + 1|{\"k\":3,\"c\":25}|gen",
+   "mastery1:ex5e:4(x - 5) - (x - 3)|2|gen",
+   "mastery2:expr:5:diag:{\"k\":1,\"a\":4,\"b\":4,\"c\":5,\"d\":8,\"e\":4}|12|diag",
+   "mastery3:ex5:3(x + 7) - 2(x - 6)|{\"k\":1,\"c\":33}|gen",
+   "mastery4:expr:5:transfer:{\"a\":5,\"b\":6,\"c\":7}|74|transfer",
+   "review0:expr:5:transfer:{\"a\":2,\"b\":2,\"c\":5}|18|transfer",
+   "review1:ex5:2(x + 8) + 4(x + 1)|{\"k\":6,\"c\":20}|gen",
+   "review2:expr:5:diag:{\"k\":1,\"a\":4,\"b\":4,\"c\":5,\"d\":8,\"e\":4}|12|diag",
+   "verify0:expr:5:probe:{\"k\":0,\"a\":3,\"b\":1,\"c\":4,\"d\":1,\"e\":4}|4|probe",
+   "verify1:expr:5:probe:{\"k\":0,\"a\":5,\"b\":1,\"c\":2,\"d\":-2,\"e\":4}|3|probe",
+   "verify2:expr:5:diag:{\"k\":1,\"a\":4,\"b\":-3,\"c\":4,\"d\":-9,\"e\":8}|-20|diag",
+   "gen:ex5s:square:8:-2|64|gen",
+   "diag:expr:5:diag:{\"k\":1,\"a\":4,\"b\":2,\"c\":1,\"d\":7,\"e\":1}|7|diag",
+   "transfer:expr:5:transfer:{\"a\":4,\"b\":4,\"c\":6}|44|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "expr:5/gen/",
+    "expr:5/gen/",
+    "expr:5/diag/",
+    "expr:5/gen/",
+    "expr:5/transfer/"
+   ],
+   "review": [
+    "expr:5/transfer/",
+    "expr:5/gen/",
+    "expr:5/diag/"
+   ],
+   "verify": [
+    "expr:5/probe/partial-dist",
+    "expr:5/probe/partial-dist",
+    "expr:5/control/partial-dist"
+   ]
+  }
+ },
+ "line:1": {
+  "items": [
+   "mastery0:lf1p:-2:3:1|[1,1]|gen",
+   "mastery1:lf1:-1:0:1|-1|gen",
+   "mastery2:line:1:diag:{\"m\":2,\"b\":1,\"x\":4}|9|diag",
+   "mastery3:lf1p:2:-2:3|[3,4]|gen",
+   "mastery4:line:1:transfer:{\"k\":1,\"s\":0,\"m\":5,\"b\":8,\"n\":6}|38|transfer",
+   "review0:line:1:transfer:{\"k\":0,\"s\":0,\"m\":8,\"b\":30,\"n\":6}|78|transfer",
+   "review1:lf1p:-2:-2:-1|[-1,0]|gen",
+   "review2:line:1:diag:{\"m\":2,\"b\":1,\"x\":4}|9|diag",
+   "verify0:line:1:probe:{\"m\":-3,\"b\":-2,\"x\":4}|-14|probe",
+   "verify1:line:1:probe:{\"m\":-3,\"b\":3,\"x\":3}|-6|probe",
+   "verify2:line:1:control:{\"m\":-3,\"b\":0,\"x\":4}|-12|control",
+   "gen:lf1:2:-6:0|-6|gen",
+   "diag:line:1:diag:{\"m\":1,\"b\":1,\"x\":3}|4|diag",
+   "transfer:line:1:transfer:{\"k\":1,\"s\":0,\"m\":1,\"b\":5,\"n\":9}|14|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "line:1/gen/",
+    "line:1/gen/",
+    "line:1/diag/",
+    "line:1/gen/",
+    "line:1/transfer/"
+   ],
+   "review": [
+    "line:1/transfer/",
+    "line:1/gen/",
+    "line:1/diag/"
+   ],
+   "verify": [
+    "line:1/probe/forgot-b",
+    "line:1/probe/forgot-b",
+    "line:1/control/forgot-b"
+   ]
+  }
+ },
+ "line:2": {
+  "items": [
+   "mastery0:lf2b:-3:4|{\"m\":-3,\"b\":4}|gen",
+   "mastery1:lf2:dir:-3:1|1|gen",
+   "mastery2:line:2:diag:{\"m\":3,\"b\":7,\"rev\":0,\"ask\":1,\"x1\":2,\"x2\":3}|7|diag",
+   "mastery3:lf2b:-2:2|{\"m\":-2,\"b\":2}|gen",
+   "mastery4:line:2:transfer:{\"m\":4,\"b\":6,\"ask\":1,\"dx\":1,\"x0\":1}|6|transfer",
+   "review0:line:2:transfer:{\"m\":-3,\"b\":-2,\"ask\":1,\"dx\":1,\"x0\":-2}|-2|transfer",
+   "review1:lf2:m:-1:-4:y = -x - 4|-1|gen",
+   "review2:line:2:diag:{\"m\":3,\"b\":7,\"rev\":0,\"ask\":1,\"x1\":2,\"x2\":3}|7|diag",
+   "verify0:line:2:probe:{\"m\":-1,\"b\":7,\"rev\":0,\"ask\":1,\"x1\":-2,\"x2\":2}|7|probe",
+   "verify1:line:2:probe:{\"m\":-3,\"b\":0,\"rev\":0,\"ask\":1,\"x1\":-1,\"x2\":3}|0|probe",
+   "verify2:line:2:control:{\"m\":-1,\"b\":-1,\"rev\":1,\"ask\":0,\"x1\":-2,\"x2\":2}|-1|control",
+   "gen:lf2b:3:-2|{\"m\":3,\"b\":-2}|gen",
+   "diag:line:2:diag:{\"m\":1,\"b\":6,\"rev\":0,\"ask\":1,\"x1\":-2,\"x2\":2}|6|diag",
+   "transfer:line:2:transfer:{\"m\":1,\"b\":1,\"ask\":1,\"dx\":1,\"x0\":3}|1|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "line:2/gen/",
+    "line:2/gen/",
+    "line:2/diag/",
+    "line:2/gen/",
+    "line:2/transfer/"
+   ],
+   "review": [
+    "line:2/transfer/",
+    "line:2/gen/",
+    "line:2/diag/"
+   ],
+   "verify": [
+    "line:2/probe/m-b",
+    "line:2/probe/m-b",
+    "line:2/control/m-b"
+   ]
+  }
+ },
+ "line:3": {
+  "items": [
+   "mastery0:lf3:0:1:-1:2|-0.5|gen",
+   "mastery1:lf3:-2:-3:-1:1|-1|gen",
+   "mastery2:line:3:diag:{\"run\":3,\"rise\":1}|0.3333333333333333|diag",
+   "mastery3:lf3:-3:-3:2:1|2|gen",
+   "mastery4:line:3:transfer:{\"k\":1,\"run\":6,\"rise\":-18}|-3|transfer",
+   "review0:line:3:transfer:{\"k\":0,\"run\":5,\"rise\":2}|0.4|transfer",
+   "review1:lf3:-3:-2:-2:1|-2|gen",
+   "review2:line:3:diag:{\"run\":3,\"rise\":1}|0.3333333333333333|diag",
+   "verify0:line:3:probe:{\"run\":2,\"rise\":5}|2.5|probe",
+   "verify1:line:3:probe:{\"run\":1,\"rise\":3}|3|probe",
+   "verify2:line:3:diag:{\"run\":2,\"rise\":6}|3|diag",
+   "gen:lf3:0:-3:-1:1|-1|gen",
+   "diag:line:3:diag:{\"run\":3,\"rise\":1}|0.3333333333333333|diag",
+   "transfer:line:3:transfer:{\"k\":1,\"run\":4,\"rise\":-10}|-2.5|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "line:3/gen/",
+    "line:3/gen/",
+    "line:3/diag/",
+    "line:3/gen/",
+    "line:3/transfer/"
+   ],
+   "review": [
+    "line:3/transfer/",
+    "line:3/gen/",
+    "line:3/diag/"
+   ],
+   "verify": [
+    "line:3/probe/inverse",
+    "line:3/probe/inverse",
+    "line:3/control/inverse"
+   ]
+  }
+ },
+ "line:4": {
+  "items": [
+   "mastery0:lf4:-6:7:-5:6|-1|gen",
+   "mastery1:lf4:2:-5:1:0|-5|gen",
+   "mastery2:line:4:diag:{\"x1\":4,\"y1\":3,\"x2\":3,\"y2\":6}|-3|diag",
+   "mastery3:lf4:-3:-3:1:12|3.75|gen",
+   "mastery4:line:4:transfer:{\"k\":1,\"t1\":16,\"d\":2,\"T1\":13,\"dT\":-4}|-2|transfer",
+   "review0:line:4:transfer:{\"k\":0,\"t1\":7,\"d\":3,\"T1\":-5,\"dT\":6}|2|transfer",
+   "review1:lf4:-5:1:-2:8|2.3333333333333335|gen",
+   "review2:line:4:diag:{\"x1\":4,\"y1\":3,\"x2\":3,\"y2\":6}|-3|diag",
+   "verify0:line:4:probe:{\"x1\":-4,\"y1\":0,\"x2\":-2,\"y2\":8}|4|probe",
+   "verify1:line:4:probe:{\"x1\":-2,\"y1\":1,\"x2\":3,\"y2\":9}|1.6|probe",
+   "verify2:line:4:control:{\"x1\":-5,\"y1\":4,\"x2\":-3,\"y2\":6}|1|control",
+   "gen:lf4:1:2:6:11|1.8|gen",
+   "diag:line:4:diag:{\"x1\":-1,\"y1\":2,\"x2\":1,\"y2\":3}|0.5|diag",
+   "transfer:line:4:transfer:{\"k\":1,\"t1\":17,\"d\":4,\"T1\":13,\"dT\":-10}|-2.5|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "line:4/gen/",
+    "line:4/gen/",
+    "line:4/diag/",
+    "line:4/gen/",
+    "line:4/transfer/"
+   ],
+   "review": [
+    "line:4/transfer/",
+    "line:4/gen/",
+    "line:4/diag/"
+   ],
+   "verify": [
+    "line:4/probe/inverse",
+    "line:4/probe/inverse",
+    "line:4/control/inverse"
+   ]
+  }
+ },
+ "line:5": {
+  "items": [
+   "mastery0:lf5:false:-3:3:0:0|{\"m\":-1,\"b\":0}|gen",
+   "mastery1:lf5:true:-2:2:1:-4|{\"m\":-2,\"b\":-2}|gen",
+   "mastery2:line:5:diag:{\"k\":1,\"m\":2,\"b\":1,\"x1\":3,\"x2\":7}|1|diag",
+   "mastery3:lf5:true:3:6:4:9|{\"m\":3,\"b\":-3}|gen",
+   "mastery4:line:5:transfer:{\"k\":2,\"m\":4,\"b\":4,\"x1\":-2,\"x2\":0}|4|transfer",
+   "review0:line:5:transfer:{\"k\":0,\"m\":-1,\"b\":23,\"x1\":3,\"x2\":6}|23|transfer",
+   "review1:lf5:true:0:-3:4:-11|{\"m\":-2,\"b\":-3}|gen",
+   "review2:line:5:diag:{\"k\":1,\"m\":2,\"b\":1,\"x1\":3,\"x2\":7}|1|diag",
+   "verify0:line:5:probe:{\"k\":1,\"m\":-4,\"b\":0,\"x1\":-3,\"x2\":0}|0|probe",
+   "verify1:line:5:probe:{\"k\":1,\"m\":-3,\"b\":5,\"x1\":2,\"x2\":4}|5|probe",
+   "verify2:line:5:diag:{\"k\":0,\"m\":2,\"b\":-7,\"x1\":3,\"x2\":7}|-7|diag",
+   "gen:lf5:false:0:1:3:10|{\"m\":3,\"b\":1}|gen",
+   "diag:line:5:diag:{\"k\":0,\"m\":2,\"b\":-6,\"x1\":-4,\"x2\":-2}|-6|diag",
+   "transfer:line:5:transfer:{\"k\":1,\"m\":20,\"b\":80,\"x1\":4,\"x2\":9}|80|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "line:5/gen/",
+    "line:5/gen/",
+    "line:5/diag/",
+    "line:5/gen/",
+    "line:5/transfer/"
+   ],
+   "review": [
+    "line:5/transfer/",
+    "line:5/gen/",
+    "line:5/diag/"
+   ],
+   "verify": [
+    "line:5/probe/b-is-y",
+    "line:5/probe/b-is-y",
+    "line:5/control/b-is-y"
+   ]
+  }
+ },
+ "line:6": {
+  "items": [
+   "mastery0:lf6:8:8:true|[-1,0]|gen",
+   "mastery1:lf6:-1:-11:false|[0,-11]|gen",
+   "mastery2:line:6:diag:{\"m\":2,\"b\":1,\"ax\":0,\"f\":0,\"n\":2}|-0.5|diag",
+   "mastery3:lf6:-4:-14:true|[-3.5,0]|gen",
+   "mastery4:line:6:transfer:{\"k\":2,\"m\":4,\"b\":-12}|3|transfer",
+   "review0:line:6:transfer:{\"k\":0,\"m\":2,\"b\":-10}|5|transfer",
+   "review1:lf6:-5:-5:true|[-1,0]|gen",
+   "review2:line:6:diag:{\"m\":2,\"b\":1,\"ax\":0,\"f\":0,\"n\":2}|-0.5|diag",
+   "verify0:line:6:probe:{\"m\":2,\"b\":-12,\"ax\":0,\"f\":1,\"n\":1}|6|probe",
+   "verify1:line:6:probe:{\"m\":3,\"b\":-6,\"ax\":0,\"f\":0,\"n\":0}|2|probe",
+   "verify2:line:6:control:{\"m\":3,\"b\":-6,\"ax\":1,\"f\":1,\"n\":2}|-6|control",
+   "gen:lf6:-5:-15:true|[-3,0]|gen",
+   "diag:line:6:diag:{\"m\":1,\"b\":2,\"ax\":0,\"f\":1,\"n\":1}|-2|diag",
+   "transfer:line:6:transfer:{\"k\":1,\"m\":30,\"b\":-270}|9|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "line:6/gen/",
+    "line:6/gen/",
+    "line:6/diag/",
+    "line:6/gen/",
+    "line:6/transfer/"
+   ],
+   "review": [
+    "line:6/transfer/",
+    "line:6/gen/",
+    "line:6/diag/"
+   ],
+   "verify": [
+    "line:6/probe/sign",
+    "line:6/probe/sign",
+    "line:6/control/sign"
+   ]
+  }
+ },
+ "line:7": {
+  "items": [
+   "mastery0:lf7:-1:-3|4.5|gen",
+   "mastery1:lf7:-3:3|1.5|gen",
+   "mastery2:line:7:diag:{\"k\":0,\"m\":4,\"b\":-12}|18|diag",
+   "mastery3:lf7:2:-6|9|gen",
+   "mastery4:line:7:transfer:{\"k\":2,\"m\":-2,\"b\":10}|25|transfer",
+   "review0:line:7:transfer:{\"k\":1,\"m\":2,\"b\":-10}|25|transfer",
+   "review1:lf7:1:2|2|gen",
+   "review2:line:7:diag:{\"k\":0,\"m\":4,\"b\":-12}|18|diag",
+   "verify0:line:7:probe:{\"k\":0,\"m\":-2,\"b\":10}|25|probe",
+   "verify1:line:7:probe:{\"k\":0,\"m\":1,\"b\":-1}|0.5|probe",
+   "verify2:line:7:diag:{\"k\":0,\"m\":-2,\"b\":-10}|25|diag",
+   "gen:lf7:4:4|2|gen",
+   "diag:line:7:diag:{\"k\":0,\"m\":3,\"b\":-3}|1.5|diag",
+   "transfer:line:7:transfer:{\"k\":2,\"m\":-3,\"b\":6}|6|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "line:7/gen/",
+    "line:7/gen/",
+    "line:7/diag/",
+    "line:7/gen/",
+    "line:7/transfer/"
+   ],
+   "review": [
+    "line:7/transfer/",
+    "line:7/gen/",
+    "line:7/diag/"
+   ],
+   "verify": [
+    "line:7/probe/no-half",
+    "line:7/probe/no-half",
+    "line:7/control/no-half"
+   ]
+  }
+ },
+ "line:8": {
+  "items": [
+   "mastery0:lf8:4:-1:2:-1|[0,-1]|gen",
+   "mastery1:lf8:-2:-8:2:0|[-2,-4]|gen",
+   "mastery2:line:8:diag:{\"m1\":3,\"b1\":7,\"m2\":-3,\"b2\":7,\"x\":0,\"y\":7,\"ask\":1}|7|diag",
+   "mastery3:lf8:2:-1:-3:-6|[-1,-3]|gen",
+   "mastery4:line:8:transfer:{\"k\":1,\"a1\":29,\"r1\":-2,\"a2\":23,\"r2\":-1,\"x\":6,\"ask\":0}|6|transfer",
+   "review0:line:8:transfer:{\"k\":0,\"a1\":230,\"r1\":25,\"a2\":70,\"r2\":45,\"x\":8,\"ask\":0}|8|transfer",
+   "review1:lf8:-3:3:-2:3|[0,3]|gen",
+   "review2:line:8:diag:{\"m1\":3,\"b1\":7,\"m2\":-3,\"b2\":7,\"x\":0,\"y\":7,\"ask\":1}|7|diag",
+   "verify0:line:8:probe:{\"m1\":-3,\"b1\":7,\"m2\":-2,\"b2\":7,\"x\":0,\"y\":7,\"ask\":0}|0|probe",
+   "verify1:line:8:probe:{\"m1\":-3,\"b1\":2,\"m2\":2,\"b2\":2,\"x\":0,\"y\":2,\"ask\":0}|0|probe",
+   "verify2:line:8:control:{\"m1\":3,\"b1\":7,\"m2\":-3,\"b2\":7,\"x\":0,\"y\":7,\"ask\":1}|7|control",
+   "gen:lf8:-4:2:4:2|[0,2]|gen",
+   "diag:line:8:diag:{\"m1\":3,\"b1\":2,\"m2\":-4,\"b2\":2,\"x\":0,\"y\":2,\"ask\":0}|0|diag",
+   "transfer:line:8:transfer:{\"k\":1,\"a1\":33,\"r1\":-4,\"a2\":21,\"r2\":-2,\"x\":6,\"ask\":0}|6|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "line:8/gen/",
+    "line:8/gen/",
+    "line:8/diag/",
+    "line:8/gen/",
+    "line:8/transfer/"
+   ],
+   "review": [
+    "line:8/transfer/",
+    "line:8/gen/",
+    "line:8/diag/"
+   ],
+   "verify": [
+    "line:8/probe/move-no-flip",
+    "line:8/probe/move-no-flip",
+    "line:8/control/move-no-flip"
+   ]
+  }
+ },
+ "pyth:1": {
+  "items": [
+   "mastery0:py1s:5:4|{\"c\":5,\"a\":4,\"b\":3}|gen",
+   "mastery1:py1:6:7|9.2|gen",
+   "mastery2:pyth:1:diag:{\"a\":7,\"b\":10,\"c\":12.206555615733702}|12.2|diag",
+   "mastery3:py1s:15:12|{\"c\":15,\"a\":12,\"b\":9}|gen",
+   "mastery4:pyth:1:transfer:{\"k\":1,\"a\":10,\"b\":4,\"c\":10.770329614269007}|10.8|transfer",
+   "review0:pyth:1:transfer:{\"k\":0,\"a\":16,\"b\":12,\"c\":20}|20|transfer",
+   "review1:py1s:5:4|{\"c\":5,\"a\":4,\"b\":3}|gen",
+   "review2:pyth:1:diag:{\"a\":7,\"b\":10,\"c\":12.206555615733702}|12.2|diag",
+   "verify0:pyth:1:probe:{\"a\":12,\"b\":9,\"c\":15}|15|probe",
+   "verify1:pyth:1:probe:{\"a\":21,\"b\":20,\"c\":29}|29|probe",
+   "verify2:pyth:1:diag:{\"a\":20,\"b\":15,\"c\":25}|25|diag",
+   "gen:py1:9:12|15|gen",
+   "diag:pyth:1:diag:{\"a\":7,\"b\":8,\"c\":10.63014581273465}|10.6|diag",
+   "transfer:pyth:1:transfer:{\"k\":1,\"a\":8,\"b\":8,\"c\":11.313708498984761}|11.3|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "pyth:1/gen/",
+    "pyth:1/gen/",
+    "pyth:1/diag/",
+    "pyth:1/gen/",
+    "pyth:1/transfer/"
+   ],
+   "review": [
+    "pyth:1/transfer/",
+    "pyth:1/gen/",
+    "pyth:1/diag/"
+   ],
+   "verify": [
+    "pyth:1/probe/add-legs",
+    "pyth:1/probe/add-legs",
+    "pyth:1/control/add-legs"
+   ]
+  }
+ },
+ "pyth:2": {
+  "items": [
+   "mastery0:py2:4:5|3|gen",
+   "mastery1:py2:8:13|10.2|gen",
+   "mastery2:pyth:2:diag:{\"a\":11,\"b\":6.928203230275509,\"c\":13}|6.9|diag",
+   "mastery3:py2:12:13|5|gen",
+   "mastery4:pyth:2:transfer:{\"k\":1,\"a\":8,\"b\":13.856406460551018,\"c\":16}|13.9|transfer",
+   "review0:pyth:2:transfer:{\"k\":0,\"a\":16,\"b\":12,\"c\":20}|12|transfer",
+   "review1:py2:3:9|8.5|gen",
+   "review2:pyth:2:diag:{\"a\":11,\"b\":6.928203230275509,\"c\":13}|6.9|diag",
+   "verify0:pyth:2:probe:{\"a\":12,\"b\":9,\"c\":15}|9|probe",
+   "verify1:pyth:2:probe:{\"a\":21,\"b\":20,\"c\":29}|20|probe",
+   "verify2:pyth:2:diag:{\"a\":8,\"b\":6,\"c\":10}|6|diag",
+   "gen:py2:6:13|11.5|gen",
+   "diag:pyth:2:diag:{\"a\":9,\"b\":9.38083151964686,\"c\":13}|9.4|diag",
+   "transfer:pyth:2:transfer:{\"k\":1,\"a\":10,\"b\":9.797958971132712,\"c\":14}|9.8|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "pyth:2/gen/",
+    "pyth:2/gen/",
+    "pyth:2/diag/",
+    "pyth:2/gen/",
+    "pyth:2/transfer/"
+   ],
+   "review": [
+    "pyth:2/transfer/",
+    "pyth:2/gen/",
+    "pyth:2/diag/"
+   ],
+   "verify": [
+    "pyth:2/probe/add-not-sub",
+    "pyth:2/probe/add-not-sub",
+    "pyth:2/control/add-not-sub"
+   ]
+  }
+ },
+ "pyth:3": {
+  "items": [
+   "mastery0:py3w:26,24,10;8,16,15;5,12,14;9,8,6|0|gen",
+   "mastery1:py3w:12,15,5;6,9,8;12,17,20;24,7,27|4|gen",
+   "mastery2:pyth:3:diag:{\"sets\":[[10,24,26],[25,15,20],[12,17,20],[21,20,29]]}|3|diag",
+   "mastery3:py3w:18,15,8;9,15,12;22,29,20;8,6,11|1|gen",
+   "mastery4:pyth:3:transfer:{\"k\":1,\"sets\":[[40,30,50],[150,80,170],[120,50,130],[40,30,50]]}|4|transfer",
+   "review0:pyth:3:transfer:{\"k\":0,\"sets\":[[25,24,7],[13,6,12],[8,6,11],[12,16,21]]}|1|transfer",
+   "review1:py3w:9,12,16;12,22,16;7,10,8;24,26,10|3|gen",
+   "review2:pyth:3:diag:{\"sets\":[[10,24,26],[25,15,20],[12,17,20],[21,20,29]]}|3|diag",
+   "verify0:pyth:3:probe:{\"sets\":[[13,12,5],[3,4,5],[29,20,21],[25,24,7]]}|4|probe",
+   "verify1:pyth:3:probe:{\"sets\":[[12,6,13],[15,13,9],[8,25,24],[12,15,9]]}|1|probe",
+   "verify2:pyth:3:control:{\"sets\":[[16,8,15],[21,20,28],[16,8,17],[26,25,10]]}|0|control",
+   "gen:py3n:9,15,13;10,24,26;25,24,7;14,12,5|2|gen",
+   "diag:pyth:3:diag:{\"sets\":[[25,15,20],[20,13,16],[15,20,24],[8,10,6]]}|2|diag",
+   "transfer:pyth:3:transfer:{\"k\":1,\"sets\":[[120,50,130],[40,30,51],[120,90,149],[120,50,130]]}|2|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "pyth:3/gen/",
+    "pyth:3/gen/",
+    "pyth:3/diag/",
+    "pyth:3/gen/",
+    "pyth:3/transfer/"
+   ],
+   "review": [
+    "pyth:3/transfer/",
+    "pyth:3/gen/",
+    "pyth:3/diag/"
+   ],
+   "verify": [
+    "pyth:3/probe/wrong-hyp",
+    "pyth:3/probe/wrong-hyp",
+    "pyth:3/control/wrong-hyp"
+   ]
+  }
+ },
+ "pyth:4": {
+  "items": [
+   "mastery0:py4:h:10:26|24|gen",
+   "mastery1:py4:L:7:13|14.8|gen",
+   "mastery2:pyth:4:diag:{\"k\":0,\"ask\":1,\"c\":19,\"big\":17.233687939614086,\"small\":8}|17.2|diag",
+   "mastery3:py4:h:4:21|20.6|gen",
+   "mastery4:pyth:4:transfer:{\"k\":2,\"ask\":1,\"c\":13,\"big\":10.246950765959598,\"small\":8}|10.2|transfer",
+   "review0:pyth:4:transfer:{\"k\":1,\"ask\":1,\"c\":20,\"big\":16,\"small\":12}|16|transfer",
+   "review1:py4:h:3:17|16.7|gen",
+   "review2:pyth:4:diag:{\"k\":0,\"ask\":1,\"c\":19,\"big\":17.233687939614086,\"small\":8}|17.2|diag",
+   "verify0:pyth:4:probe:{\"k\":0,\"ask\":0,\"c\":18.027756377319946,\"big\":15,\"small\":10}|18|probe",
+   "verify1:pyth:4:probe:{\"k\":0,\"ask\":0,\"c\":21.095023109728988,\"big\":18,\"small\":11}|21.1|probe",
+   "verify2:pyth:4:control:{\"k\":0,\"ask\":1,\"c\":19,\"big\":17.233687939614086,\"small\":8}|17.2|control",
+   "gen:py4:h:8:17|15|gen",
+   "diag:pyth:4:diag:{\"k\":0,\"ask\":1,\"c\":27,\"big\":20.12461179749811,\"small\":18}|20.1|diag",
+   "transfer:pyth:4:transfer:{\"k\":2,\"ask\":1,\"c\":20,\"big\":18.33030277982336,\"small\":8}|18.3|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "pyth:4/gen/",
+    "pyth:4/gen/",
+    "pyth:4/diag/",
+    "pyth:4/gen/",
+    "pyth:4/transfer/"
+   ],
+   "review": [
+    "pyth:4/transfer/",
+    "pyth:4/gen/",
+    "pyth:4/diag/"
+   ],
+   "verify": [
+    "pyth:4/probe/add-legs",
+    "pyth:4/probe/add-legs",
+    "pyth:4/control/add-legs"
+   ]
+  }
+ },
+ "pyth:5": {
+  "items": [
+   "mastery0:py5:-1:0:-5:-3|5|gen",
+   "mastery1:py5:-2:-1:6:6|10.6|gen",
+   "mastery2:pyth:5:diag:{\"x1\":6,\"y1\":3,\"x2\":-1,\"y2\":-2}|8.6|diag",
+   "mastery3:py5:6:1:-2:-6|10.6|gen",
+   "mastery4:pyth:5:transfer:{\"x1\":2,\"y1\":4,\"x2\":-2,\"y2\":1}|5|transfer",
+   "review0:pyth:5:transfer:{\"x1\":5,\"y1\":1,\"x2\":-3,\"y2\":7}|10|transfer",
+   "review1:py5:1:3:2:-2|5.1|gen",
+   "review2:pyth:5:diag:{\"x1\":6,\"y1\":3,\"x2\":-1,\"y2\":-2}|8.6|diag",
+   "verify0:pyth:5:probe:{\"x1\":5,\"y1\":1,\"x2\":-3,\"y2\":7}|10|probe",
+   "verify1:pyth:5:probe:{\"x1\":2,\"y1\":-2,\"x2\":-10,\"y2\":-11}|15|probe",
+   "verify2:pyth:5:diag:{\"x1\":2,\"y1\":-5,\"x2\":-6,\"y2\":-8}|8.5|diag",
+   "gen:py5:4:2:-4:-1|8.5|gen",
+   "diag:pyth:5:diag:{\"x1\":5,\"y1\":0,\"x2\":11,\"y2\":-5}|7.8|diag",
+   "transfer:pyth:5:transfer:{\"x1\":5,\"y1\":0,\"x2\":11,\"y2\":-5}|7.8|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "pyth:5/gen/",
+    "pyth:5/gen/",
+    "pyth:5/diag/",
+    "pyth:5/gen/",
+    "pyth:5/transfer/"
+   ],
+   "review": [
+    "pyth:5/transfer/",
+    "pyth:5/gen/",
+    "pyth:5/diag/"
+   ],
+   "verify": [
+    "pyth:5/probe/add-legs",
+    "pyth:5/probe/add-legs",
+    "pyth:5/control/add-legs"
+   ]
+  }
+ },
+ "signed:1": {
+  "items": [
+   "mastery0:sn1n:-2 + (-1)|-3|gen",
+   "mastery1:sn1:6 + (-6)|0|gen",
+   "mastery2:signed:1:diag:{\"a\":8,\"b\":-9,\"s\":1}|-1|diag",
+   "mastery3:sn1:-8 + (-3)|-11|gen",
+   "mastery4:signed:1:transfer:{\"k\":1,\"a\":-4,\"b\":7}|3|transfer",
+   "review0:signed:1:transfer:{\"k\":0,\"a\":9,\"b\":-8}|17|transfer",
+   "review1:sn1:-5 + 12|7|gen",
+   "review2:signed:1:diag:{\"a\":8,\"b\":-9,\"s\":1}|-1|diag",
+   "verify0:signed:1:probe:{\"a\":-5,\"b\":-11,\"s\":-1}|6|probe",
+   "verify1:signed:1:probe:{\"a\":7,\"b\":-8,\"s\":-1}|15|probe",
+   "verify2:signed:1:control:{\"a\":8,\"b\":-9,\"s\":1}|-1|control",
+   "gen:sn1:-8 + (-9)|-17|gen",
+   "diag:signed:1:diag:{\"a\":1,\"b\":-8,\"s\":-1}|9|diag",
+   "transfer:signed:1:transfer:{\"k\":1,\"a\":-3,\"b\":6}|3|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "signed:1/gen/",
+    "signed:1/gen/",
+    "signed:1/diag/",
+    "signed:1/gen/",
+    "signed:1/transfer/"
+   ],
+   "review": [
+    "signed:1/transfer/",
+    "signed:1/gen/",
+    "signed:1/diag/"
+   ],
+   "verify": [
+    "signed:1/probe/minus-minus",
+    "signed:1/probe/minus-minus",
+    "signed:1/control/minus-minus"
+   ]
+  }
+ },
+ "signed:2": {
+  "items": [
+   "mastery0:sn2p:7,-9,0|[7,-9,0]|gen",
+   "mastery1:sn2:-12:-8|0|gen",
+   "mastery2:signed:2:diag:{\"k\":1,\"v\":[-13,-12,-10,1,-7]}|-13|diag",
+   "mastery3:sn2p:5,-7,-6|[5,-7,-6]|gen",
+   "mastery4:signed:2:transfer:{\"k\":1,\"v\":[-8,-29,-23]}|-8|transfer",
+   "review0:signed:2:transfer:{\"k\":0,\"v\":[-4,8,-7]}|-7|transfer",
+   "review1:sn2p:-5,-4,9|[-5,-4,9]|gen",
+   "review2:signed:2:diag:{\"k\":1,\"v\":[-13,-12,-10,1,-7]}|-13|diag",
+   "verify0:signed:2:probe:{\"k\":0,\"v\":[-11,-1,-14,-8,-9]}|-1|probe",
+   "verify1:signed:2:probe:{\"k\":1,\"v\":[-8,-1,-2,-7,-14]}|-14|probe",
+   "verify2:signed:2:control:{\"k\":0,\"v\":[-13,9,-4,-7,-14]}|9|control",
+   "gen:sn2p:-6,-9,4|[-6,-9,4]|gen",
+   "diag:signed:2:diag:{\"k\":1,\"v\":[-12,2,-11,-7,-13]}|-13|diag",
+   "transfer:signed:2:transfer:{\"k\":0,\"v\":[-7,-8,4]}|-8|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "signed:2/gen/",
+    "signed:2/gen/",
+    "signed:2/diag/",
+    "signed:2/gen/",
+    "signed:2/transfer/"
+   ],
+   "review": [
+    "signed:2/transfer/",
+    "signed:2/gen/",
+    "signed:2/diag/"
+   ],
+   "verify": [
+    "signed:2/probe/neg-compare",
+    "signed:2/probe/neg-compare",
+    "signed:2/control/neg-compare"
+   ]
+  }
+ },
+ "signed:3": {
+  "items": [
+   "mastery0:sn3:-11 \\cdot 9|-99|gen",
+   "mastery1:sn3:2 : (-2)|-1|gen",
+   "mastery2:signed:3:diag:{\"f\":1,\"a\":-48,\"b\":6,\"c\":1}|-8|diag",
+   "mastery3:sn3:-9 \\cdot 5|-45|gen",
+   "mastery4:signed:3:transfer:{\"k\":2,\"r\":6,\"t\":5}|-6|transfer",
+   "review0:signed:3:transfer:{\"k\":0,\"r\":3,\"t\":4}|-12|transfer",
+   "review1:sn3:18 : (-6)|-3|gen",
+   "review2:signed:3:diag:{\"f\":1,\"a\":-48,\"b\":6,\"c\":1}|-8|diag",
+   "verify0:signed:3:probe:{\"f\":0,\"a\":5,\"b\":-6,\"c\":1}|-30|probe",
+   "verify1:signed:3:probe:{\"f\":0,\"a\":-10,\"b\":6,\"c\":1}|-60|probe",
+   "verify2:signed:3:diag:{\"f\":1,\"a\":27,\"b\":-3,\"c\":1}|-9|diag",
+   "gen:sn3:1 \\cdot (-4)|-4|gen",
+   "diag:signed:3:diag:{\"f\":1,\"a\":-42,\"b\":6,\"c\":1}|-7|diag",
+   "transfer:signed:3:transfer:{\"k\":1,\"r\":4,\"t\":5}|20|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "signed:3/gen/",
+    "signed:3/gen/",
+    "signed:3/diag/",
+    "signed:3/gen/",
+    "signed:3/transfer/"
+   ],
+   "review": [
+    "signed:3/transfer/",
+    "signed:3/gen/",
+    "signed:3/diag/"
+   ],
+   "verify": [
+    "signed:3/probe/sign",
+    "signed:3/probe/sign",
+    "signed:3/control/sign"
+   ]
+  }
+ },
+ "signed:4": {
+  "items": [
+   "mastery0:sn4:-10 \\cdot (-6) - 6|54|gen",
+   "mastery1:sn4:-7 + 3 \\cdot (-4)|-19|gen",
+   "mastery2:signed:4:diag:{\"f\":2,\"a\":9,\"b\":-12,\"c\":3,\"s\":1}|5|diag",
+   "mastery3:sn4:1 \\cdot (-3) + 6|3|gen",
+   "mastery4:signed:4:transfer:{\"k\":0,\"s\":-9,\"w\":6,\"q\":4}|-33|transfer",
+   "review0:signed:4:transfer:{\"k\":0,\"s\":-1,\"w\":4,\"q\":5}|-21|transfer",
+   "review1:sn4:-6 \\cdot (-5) + (-4)|26|gen",
+   "review2:signed:4:diag:{\"f\":2,\"a\":9,\"b\":-12,\"c\":3,\"s\":1}|5|diag",
+   "verify0:signed:4:probe:{\"f\":0,\"a\":-3,\"b\":6,\"c\":-6,\"s\":-1}|33|probe",
+   "verify1:signed:4:probe:{\"f\":0,\"a\":1,\"b\":2,\"c\":-2,\"s\":1}|-3|probe",
+   "verify2:signed:4:control:{\"f\":1,\"a\":3,\"b\":-3,\"c\":7,\"s\":1}|-2|control",
+   "gen:sn4:5 \\cdot (-6) - 5|-35|gen",
+   "diag:signed:4:diag:{\"f\":1,\"a\":1,\"b\":1,\"c\":7,\"s\":-1}|-6|diag",
+   "transfer:signed:4:transfer:{\"k\":1,\"s\":-4,\"w\":5,\"q\":4}|16|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "signed:4/gen/",
+    "signed:4/gen/",
+    "signed:4/diag/",
+    "signed:4/gen/",
+    "signed:4/transfer/"
+   ],
+   "review": [
+    "signed:4/transfer/",
+    "signed:4/gen/",
+    "signed:4/diag/"
+   ],
+   "verify": [
+    "signed:4/probe/order",
+    "signed:4/probe/order",
+    "signed:4/control/order"
+   ]
+  }
+ },
+ "signed:5": {
+  "items": [
+   "mastery0:sn5:-10 - (-7 - 8) \\cdot 2|20|gen",
+   "mastery1:sn5:-2 - (-1 - (-4)) \\cdot 2|-8|gen",
+   "mastery2:signed:5:diag:{\"f\":0,\"a\":7,\"b\":-6,\"c\":5,\"s\":1,\"o\":-1,\"d\":1}|8|diag",
+   "mastery3:sn5:-5 - (-6 - 4) \\cdot (-3)|-35|gen",
+   "mastery4:signed:5:transfer:{\"k\":1,\"a\":-3,\"b\":9,\"c\":7,\"n\":3}|3|transfer",
+   "review0:signed:5:transfer:{\"k\":1,\"a\":-6,\"b\":6,\"c\":2,\"n\":2}|2|transfer",
+   "review1:sn5:-3 - (-4 - 1) \\cdot (-2)|-13|gen",
+   "review2:signed:5:diag:{\"f\":0,\"a\":7,\"b\":-6,\"c\":5,\"s\":1,\"o\":-1,\"d\":1}|8|diag",
+   "verify0:signed:5:probe:{\"f\":0,\"a\":1,\"b\":-4,\"c\":5,\"s\":1,\"o\":-1,\"d\":1}|0|probe",
+   "verify1:signed:5:probe:{\"f\":0,\"a\":-2,\"b\":5,\"c\":5,\"s\":1,\"o\":-1,\"d\":1}|-12|probe",
+   "verify2:signed:5:control:{\"f\":1,\"a\":2,\"b\":4,\"c\":7,\"s\":-1,\"o\":-1,\"d\":-4}|-10|control",
+   "gen:sn5:10 - (-4 - 6) \\cdot (-3)|-20|gen",
+   "diag:signed:5:diag:{\"f\":1,\"a\":7,\"b\":1,\"c\":5,\"s\":1,\"o\":-1,\"d\":-4}|31|diag",
+   "transfer:signed:5:transfer:{\"k\":1,\"a\":8,\"b\":5,\"c\":6,\"n\":5}|3|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "signed:5/gen/",
+    "signed:5/gen/",
+    "signed:5/diag/",
+    "signed:5/gen/",
+    "signed:5/transfer/"
+   ],
+   "review": [
+    "signed:5/transfer/",
+    "signed:5/gen/",
+    "signed:5/diag/"
+   ],
+   "verify": [
+    "signed:5/probe/minus-bracket",
+    "signed:5/probe/minus-bracket",
+    "signed:5/control/minus-bracket"
+   ]
+  }
+ },
+ "stats:1": {
+  "items": [
+   "mastery0:st1:7,4,2,3,2,8,4,11,11,15,2,7,9|2|gen",
+   "mastery1:st1:14,5,10,2,14,12,9,10,11,9,5,5,15|5|gen",
+   "mastery2:stats:1:diag:{\"list\":[12,9,9,11,8,13,14,11,3,15,8,5,14,9,13]}|9|diag",
+   "mastery3:st1:9,10,6,5,9,1,2,14,3,3,9,11,14,6,5|9|gen",
+   "mastery4:stats:1:transfer:{\"sizes\":[39,40,41,42,43,44],\"freqs\":[9,3,6,1,11,7]}|43|transfer",
+   "review0:stats:1:transfer:{\"sizes\":[36,37,38,39],\"freqs\":[7,11,7,9]}|37|transfer",
+   "review1:st1:15,5,2,2,11,13,12,5,10,9,9,7,12,2,8|2|gen",
+   "review2:stats:1:diag:{\"list\":[12,9,9,11,8,13,14,11,3,15,8,5,14,9,13]}|9|diag",
+   "verify0:stats:1:probe:{\"list\":[9,11,4,3,6,8,1,6,3,6,10,14,8]}|6|probe",
+   "verify1:stats:1:probe:{\"list\":[9,14,2,11,4,15,6,12,6,10,11,11,9]}|11|probe",
+   "verify2:stats:1:diag:{\"list\":[10,2,12,3,8,6,8,12,8,2,6,3,13]}|8|diag",
+   "gen:st1:6,3,13,8,15,10,13,8,4,3,10,8,9,15,12|8|gen",
+   "diag:stats:1:diag:{\"list\":[13,7,8,11,2,10,3,7,11,8,9,9,13,10,8]}|8|diag",
+   "transfer:stats:1:transfer:{\"sizes\":[37,38,39,40,41],\"freqs\":[8,8,11,7,1]}|39|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "stats:1/gen/",
+    "stats:1/gen/",
+    "stats:1/diag/",
+    "stats:1/gen/",
+    "stats:1/transfer/"
+   ],
+   "review": [
+    "stats:1/transfer/",
+    "stats:1/gen/",
+    "stats:1/diag/"
+   ],
+   "verify": [
+    "stats:1/probe/mode-max",
+    "stats:1/probe/mode-max",
+    "stats:1/control/mode-max"
+   ]
+  }
+ },
+ "stats:2": {
+  "items": [
+   "mastery0:st2b:9,11,1,5:7|7|gen",
+   "mastery1:st2:8,20,4,11,6,4,16,6,11|8|gen",
+   "mastery2:stats:2:diag:{\"list\":[11,16,20,19,15,14,17,10]}|15.5|diag",
+   "mastery3:st2b:3,5,12,9:8|8|gen",
+   "mastery4:stats:2:transfer:{\"temps\":[32,27,18,22,14,30,23]}|23|transfer",
+   "review0:stats:2:transfer:{\"temps\":[19,24,30,24,27,14]}|24|transfer",
+   "review1:st2b:7,1,3,8:4|4|gen",
+   "review2:stats:2:diag:{\"list\":[11,16,20,19,15,14,17,10]}|15.5|diag",
+   "verify0:stats:2:probe:{\"list\":[7,11,18,12,14,1]}|11.5|probe",
+   "verify1:stats:2:probe:{\"list\":[3,2,9,1,4,16,6]}|4|probe",
+   "verify2:stats:2:diag:{\"list\":[20,4,3,18,2,20,4,1]}|4|diag",
+   "gen:st2:19,7,8,3,15,7,3,14|7.5|gen",
+   "diag:stats:2:diag:{\"list\":[11,13,12,18,11,2,11]}|11|diag",
+   "transfer:stats:2:transfer:{\"temps\":[24,25,25,30,24,15,24]}|24|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "stats:2/gen/",
+    "stats:2/gen/",
+    "stats:2/diag/",
+    "stats:2/gen/",
+    "stats:2/transfer/"
+   ],
+   "review": [
+    "stats:2/transfer/",
+    "stats:2/gen/",
+    "stats:2/diag/"
+   ],
+   "verify": [
+    "stats:2/probe/unsorted",
+    "stats:2/probe/unsorted",
+    "stats:2/control/unsorted"
+   ]
+  }
+ },
+ "stats:3": {
+  "items": [
+   "mastery0:st3b:3,6,8,3:5|5|gen",
+   "mastery1:st3:10,2,3,16,9|8|gen",
+   "mastery2:stats:3:diag:{\"list\":[17,8,13,4,10,14]}|11|diag",
+   "mastery3:st3b:2,2,10,4:5|7|gen",
+   "mastery4:stats:3:transfer:{\"temps\":[8,4,-3,0,-6,6]}|1.5|transfer",
+   "review0:stats:3:transfer:{\"temps\":[-2,1,7,2]}|2|transfer",
+   "review1:st3:2,15,19,12,17|13|gen",
+   "review2:stats:3:diag:{\"list\":[17,8,13,4,10,14]}|11|diag",
+   "verify0:stats:3:probe:{\"list\":[2,11,6,11,13,5]}|8|probe",
+   "verify1:stats:3:probe:{\"list\":[18,11,4,3,9]}|9|probe",
+   "verify2:stats:3:control:{\"list\":[17,8,13,4,10,14]}|11|control",
+   "gen:st3:20,14,17,13|16|gen",
+   "diag:stats:3:diag:{\"list\":[12,13,13,18,12]}|13.6|diag",
+   "transfer:stats:3:transfer:{\"temps\":[-1,2,-5,2,2]}|0|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "stats:3/gen/",
+    "stats:3/gen/",
+    "stats:3/diag/",
+    "stats:3/gen/",
+    "stats:3/transfer/"
+   ],
+   "review": [
+    "stats:3/transfer/",
+    "stats:3/gen/",
+    "stats:3/diag/"
+   ],
+   "verify": [
+    "stats:3/probe/mean-as-answer",
+    "stats:3/probe/mean-as-answer",
+    "stats:3/control/mean-as-answer"
+   ]
+  }
+ },
+ "stats:4": {
+  "items": [
+   "mastery0:st4:2,6,7,9:2,1,5,4|6.75|gen",
+   "mastery1:st4:2,5,9:3,1,1|4|gen",
+   "mastery2:stats:4:diag:{\"vals\":[5,6,8],\"freqs\":[3,6,5]}|6.5|diag",
+   "mastery3:st4:1,2,9:2,1,1|3.25|gen",
+   "mastery4:stats:4:transfer:{\"vals\":[0,1,2,3],\"freqs\":[2,1,4,1]}|1.5|transfer",
+   "review0:stats:4:transfer:{\"vals\":[0,1,2,3,4],\"freqs\":[2,5,2,5,6]}|2.4|transfer",
+   "review1:st4:1,3,4,8:2,2,3,3|4.4|gen",
+   "review2:stats:4:diag:{\"vals\":[5,6,8],\"freqs\":[3,6,5]}|6.5|diag",
+   "verify0:stats:4:probe:{\"vals\":[1,2,3,10],\"freqs\":[2,4,4,5]}|4.8|probe",
+   "verify1:stats:4:probe:{\"vals\":[1,5,6],\"freqs\":[2,2,6]}|4.8|probe",
+   "verify2:stats:4:control:{\"vals\":[5,6,8],\"freqs\":[3,6,5]}|6.5|control",
+   "gen:st4:1,8,9,10:2,2,1,5|7.7|gen",
+   "diag:stats:4:diag:{\"vals\":[5,9,10],\"freqs\":[4,5,1]}|7.5|diag",
+   "transfer:stats:4:transfer:{\"vals\":[0,1,2,3,4],\"freqs\":[4,6,6,2,2]}|1.6|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "stats:4/gen/",
+    "stats:4/gen/",
+    "stats:4/diag/",
+    "stats:4/gen/",
+    "stats:4/transfer/"
+   ],
+   "review": [
+    "stats:4/transfer/",
+    "stats:4/gen/",
+    "stats:4/diag/"
+   ],
+   "verify": [
+    "stats:4/probe/ignore-freq",
+    "stats:4/probe/ignore-freq",
+    "stats:4/control/ignore-freq"
+   ]
+  }
+ },
+ "stats:5": {
+  "items": [
+   "mastery0:st5:6,12,15,6:10|11|gen",
+   "mastery1:st5:11,5,8:13|28|gen",
+   "mastery2:stats:5:diag:{\"n\":6,\"avg\":13,\"known\":[8,13,4,10,14]}|29|diag",
+   "mastery3:st5:7,20,6:10|7|gen",
+   "mastery4:stats:5:transfer:{\"n\":10,\"a\":14,\"d\":3}|47|transfer",
+   "review0:stats:5:transfer:{\"n\":7,\"a\":11,\"d\":2}|27|transfer",
+   "review1:st5:12,13,14:15|21|gen",
+   "review2:stats:5:diag:{\"n\":6,\"avg\":13,\"known\":[8,13,4,10,14]}|29|diag",
+   "verify0:stats:5:probe:{\"n\":4,\"avg\":12,\"known\":[14,6,5]}|23|probe",
+   "verify1:stats:5:probe:{\"n\":4,\"avg\":13,\"known\":[12,14,9]}|17|probe",
+   "verify2:stats:5:diag:{\"n\":6,\"avg\":12,\"known\":[3,3,13,19,17]}|17|diag",
+   "gen:st5:19,17,2,5,8:11|15|gen",
+   "diag:stats:5:diag:{\"n\":4,\"avg\":10,\"known\":[13,10,11]}|6|diag",
+   "transfer:stats:5:transfer:{\"n\":8,\"a\":12,\"d\":2}|30|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "stats:5/gen/",
+    "stats:5/gen/",
+    "stats:5/diag/",
+    "stats:5/gen/",
+    "stats:5/transfer/"
+   ],
+   "review": [
+    "stats:5/transfer/",
+    "stats:5/gen/",
+    "stats:5/diag/"
+   ],
+   "verify": [
+    "stats:5/probe/mean-as-answer",
+    "stats:5/probe/mean-as-answer",
+    "stats:5/control/mean-as-answer"
+   ]
+  }
+ },
+ "sys:1": {
+  "items": [
+   "mastery0:sy1:true:15:420:3|420|gen",
+   "mastery1:sy1:true:10:420:4|420|gen",
+   "mastery2:sys:1:diag:{\"k\":1,\"cheap\":true,\"p\":40,\"x\":300,\"o\":180,\"T\":480,\"q\":1,\"n\":2}|180|diag",
+   "mastery3:sy1h:30:120:1|48|gen",
+   "mastery4:sys:1:transfer:{\"up\":false,\"p\":40,\"x\":685,\"N\":411,\"c\":0,\"q\":0}|685|transfer",
+   "review0:sys:1:transfer:{\"up\":true,\"p\":15,\"x\":520,\"N\":598,\"c\":2,\"q\":0}|520|transfer",
+   "review1:sy1e:true:25:256|1|gen",
+   "review2:sys:1:diag:{\"k\":1,\"cheap\":true,\"p\":40,\"x\":300,\"o\":180,\"T\":480,\"q\":1,\"n\":2}|180|diag",
+   "verify0:sys:1:probe:{\"k\":0,\"up\":true,\"p\":25,\"x\":540,\"N\":675,\"n\":2}|540|probe",
+   "verify1:sys:1:probe:{\"k\":0,\"up\":false,\"p\":25,\"x\":400,\"N\":300,\"n\":1}|400|probe",
+   "verify2:sys:1:control:{\"k\":1,\"cheap\":true,\"p\":40,\"x\":300,\"o\":180,\"T\":480,\"q\":1,\"n\":2}|180|control",
+   "gen:sy1e:true:15:260|2|gen",
+   "diag:sys:1:diag:{\"k\":0,\"up\":false,\"p\":30,\"x\":370,\"N\":259,\"n\":4}|370|diag",
+   "transfer:sys:1:transfer:{\"up\":true,\"p\":20,\"x\":585,\"N\":702,\"c\":1,\"q\":1}|117|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "sys:1/gen/",
+    "sys:1/gen/",
+    "sys:1/diag/",
+    "sys:1/gen/",
+    "sys:1/transfer/"
+   ],
+   "review": [
+    "sys:1/transfer/",
+    "sys:1/gen/",
+    "sys:1/diag/"
+   ],
+   "verify": [
+    "sys:1/probe/pct-of-new",
+    "sys:1/probe/pct-of-new",
+    "sys:1/control/pct-of-new"
+   ]
+  }
+ },
+ "sys:2": {
+  "items": [
+   "mastery0:sy2:\\begin{cases} y = 3x + 11 \\\\ -2x + 5y = 16 \\end{cases}|[-3,2]|gen",
+   "mastery1:sy2:\\begin{cases} 5x - 3y = 16 \\\\ y = -4x + 6 \\end{cases}|[2,-2]|gen",
+   "mastery2:sys:2:diag:{\"xe\":false,\"x\":1,\"y\":3,\"m\":4,\"b\":-1,\"p\":5,\"q\":2,\"r\":11,\"top\":true,\"ask\":0}|1|diag",
+   "mastery3:sys-n:\\begin{cases} y = -x - 3 \\\\ -3x - 3y = 9 \\end{cases}|2|gen",
+   "mastery4:sys:2:transfer:{\"A\":60,\"d\":20,\"na\":4,\"nc\":2,\"M\":320,\"q\":1}|40|transfer",
+   "review0:sys:2:transfer:{\"A\":35,\"d\":10,\"na\":3,\"nc\":5,\"M\":230,\"q\":0}|35|transfer",
+   "review1:sy2:\\begin{cases} x + 4y = -19 \\\\ y = 4x + 8 \\end{cases}|[-3,-4]|gen",
+   "review2:sys:2:diag:{\"xe\":false,\"x\":1,\"y\":3,\"m\":4,\"b\":-1,\"p\":5,\"q\":2,\"r\":11,\"top\":true,\"ask\":0}|1|diag",
+   "verify0:sys:2:probe:{\"xe\":true,\"x\":-2,\"y\":5,\"m\":2,\"b\":-12,\"p\":-5,\"q\":-3,\"r\":-5,\"top\":true,\"ask\":1}|5|probe",
+   "verify1:sys:2:probe:{\"xe\":true,\"x\":2,\"y\":-6,\"m\":1,\"b\":8,\"p\":-5,\"q\":-1,\"r\":-4,\"top\":false,\"ask\":0}|2|probe",
+   "verify2:sys:2:diag:{\"xe\":true,\"x\":-1,\"y\":1,\"m\":3,\"b\":-4,\"p\":5,\"q\":3,\"r\":-2,\"top\":true,\"ask\":0}|-1|diag",
+   "gen:sy2m:0:0:2:-2|[1,0]|gen",
+   "diag:sys:2:diag:{\"xe\":false,\"x\":-2,\"y\":2,\"m\":-2,\"b\":-2,\"p\":-5,\"q\":3,\"r\":16,\"top\":false,\"ask\":1}|2|diag",
+   "transfer:sys:2:transfer:{\"A\":45,\"d\":15,\"na\":3,\"nc\":4,\"M\":255,\"q\":0}|45|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "sys:2/gen/",
+    "sys:2/gen/",
+    "sys:2/diag/",
+    "sys:2/gen/",
+    "sys:2/transfer/"
+   ],
+   "review": [
+    "sys:2/transfer/",
+    "sys:2/gen/",
+    "sys:2/diag/"
+   ],
+   "verify": [
+    "sys:2/probe/partial-dist",
+    "sys:2/probe/partial-dist",
+    "sys:2/control/partial-dist"
+   ]
+  }
+ },
+ "sys:3": {
+  "items": [
+   "mastery0:sy3:\\begin{cases} 3x - 2y = 13 \\\\ 9x + 3y = -6 \\end{cases}|[1,-5]|gen",
+   "mastery1:sy3:\\begin{cases} x + y = -3 \\\\ -4x - 2y = 16 \\end{cases}|[-5,2]|gen",
+   "mastery2:sys:3:diag:{\"k\":1,\"x\":-6,\"y\":-1,\"gone\":\"y\",\"mul\":1,\"sub\":false,\"top\":1,\"r1\":[5,5,-35],\"r2\":[3,-5,-13],\"a1\":5,\"a2\":3,\"g1\":5,\"g2\":-5,\"c1\":-35,\"c2\":-13,\"ask\":1}|-1|diag",
+   "mastery3:sys-n:\\begin{cases} -x - 3y = 1 \\\\ 2x + 6y = -2 \\end{cases}|0|gen",
+   "mastery4:sys:3:transfer:{\"a\":4,\"n1\":4,\"n2\":7,\"P\":3,\"N\":7,\"q\":1}|3|transfer",
+   "review0:sys:3:transfer:{\"a\":2,\"n1\":2,\"n2\":5,\"P\":9,\"N\":8,\"q\":0}|8|transfer",
+   "review1:sy3:\\begin{cases} -5x + y = 7 \\\\ -4x + 2y = 8 \\end{cases}|[-1,2]|gen",
+   "review2:sys:3:diag:{\"k\":1,\"x\":-6,\"y\":-1,\"gone\":\"y\",\"mul\":1,\"sub\":false,\"top\":1,\"r1\":[5,5,-35],\"r2\":[3,-5,-13],\"a1\":5,\"a2\":3,\"g1\":5,\"g2\":-5,\"c1\":-35,\"c2\":-13,\"ask\":1}|-1|diag",
+   "verify0:sys:3:probe:{\"k\":2,\"x\":-4,\"y\":-2,\"gone\":\"x\",\"mul\":2,\"sub\":true,\"top\":1,\"r1\":[-5,3,14],\"r2\":[-10,5,30],\"a1\":3,\"a2\":5,\"g1\":-5,\"g2\":-10,\"c1\":14,\"c2\":30,\"ask\":0}|-4|probe",
+   "verify1:sys:3:probe:{\"k\":0,\"x\":4,\"y\":1,\"gone\":\"y\",\"mul\":1,\"sub\":true,\"top\":2,\"r1\":[1,2,6],\"r2\":[6,2,26],\"a1\":1,\"a2\":6,\"g1\":2,\"g2\":2,\"c1\":6,\"c2\":26,\"ask\":1}|1|probe",
+   "verify2:sys:3:control:{\"k\":1,\"x\":-6,\"y\":-1,\"gone\":\"y\",\"mul\":1,\"sub\":false,\"top\":1,\"r1\":[5,5,-35],\"r2\":[3,-5,-13],\"a1\":5,\"a2\":3,\"g1\":5,\"g2\":-5,\"c1\":-35,\"c2\":-13,\"ask\":1}|-1|control",
+   "gen:sy3:\\begin{cases} -3x - y = 19 \\\\ 2x - y = -11 \\end{cases}|[-6,-1]|gen",
+   "diag:sys:3:diag:{\"k\":1,\"x\":-6,\"y\":1,\"gone\":\"y\",\"mul\":1,\"sub\":false,\"top\":1,\"r1\":[4,3,-21],\"r2\":[3,-3,-21],\"a1\":4,\"a2\":3,\"g1\":3,\"g2\":-3,\"c1\":-21,\"c2\":-21,\"ask\":1}|1|diag",
+   "transfer:sys:3:transfer:{\"a\":3,\"n1\":3,\"n2\":6,\"P\":6,\"N\":11,\"q\":1}|6|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "sys:3/gen/",
+    "sys:3/gen/",
+    "sys:3/diag/",
+    "sys:3/gen/",
+    "sys:3/transfer/"
+   ],
+   "review": [
+    "sys:3/transfer/",
+    "sys:3/gen/",
+    "sys:3/diag/"
+   ],
+   "verify": [
+    "sys:3/probe/minus-bracket",
+    "sys:3/probe/minus-bracket",
+    "sys:3/control/minus-bracket"
+   ]
+  }
+ },
+ "sys:4": {
+  "items": [
+   "mastery0:sy4:legs:4:2:16:38:0|3|gen",
+   "mastery1:sy4:legs:4:2:29:108:1|4|gen",
+   "mastery2:sys:4:diag:{\"s\":\"coins\",\"p\":10,\"q\":5,\"n\":21,\"x\":19,\"y\":2,\"M\":200,\"ask\":1}|2|diag",
+   "mastery3:sy4p:tickets:35:20:20:565|1|gen",
+   "mastery4:sys:4:transfer:{\"s\":\"legs\",\"p\":4,\"q\":2,\"n\":30,\"x\":21,\"y\":9,\"M\":102,\"ask\":0}|21|transfer",
+   "review0:sys:4:transfer:{\"s\":\"legs\",\"p\":4,\"q\":2,\"n\":21,\"x\":14,\"y\":7,\"M\":70,\"ask\":0}|14|transfer",
+   "review1:sy4:legs:4:2:20:58:1|11|gen",
+   "review2:sys:4:diag:{\"s\":\"coins\",\"p\":10,\"q\":5,\"n\":21,\"x\":19,\"y\":2,\"M\":200,\"ask\":1}|2|diag",
+   "verify0:sys:4:probe:{\"s\":\"coins\",\"p\":5,\"q\":2,\"n\":17,\"x\":5,\"y\":12,\"M\":49,\"ask\":1}|12|probe",
+   "verify1:sys:4:probe:{\"s\":\"tickets\",\"p\":45,\"q\":20,\"n\":16,\"x\":6,\"y\":10,\"M\":470,\"ask\":1}|10|probe",
+   "verify2:sys:4:diag:{\"s\":\"coins\",\"p\":5,\"q\":2,\"n\":14,\"x\":11,\"y\":3,\"M\":61,\"ask\":0}|11|diag",
+   "gen:sy4:legs:4:2:25:62:1|19|gen",
+   "diag:sys:4:diag:{\"s\":\"coins\",\"p\":10,\"q\":5,\"n\":18,\"x\":10,\"y\":8,\"M\":140,\"ask\":1}|8|diag",
+   "transfer:sys:4:transfer:{\"s\":\"legs\",\"p\":4,\"q\":2,\"n\":21,\"x\":12,\"y\":9,\"M\":66,\"ask\":1}|9|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "sys:4/gen/",
+    "sys:4/gen/",
+    "sys:4/diag/",
+    "sys:4/gen/",
+    "sys:4/transfer/"
+   ],
+   "review": [
+    "sys:4/transfer/",
+    "sys:4/gen/",
+    "sys:4/diag/"
+   ],
+   "verify": [
+    "sys:4/probe/wrong-unknown",
+    "sys:4/probe/wrong-unknown",
+    "sys:4/control/wrong-unknown"
+   ]
+  }
+ },
+ "sys:5": {
+  "items": [
+   "mastery0:sy5r:-2x - 12 < 0|{\"at\":-6,\"dir\":1,\"closed\":false}|gen",
+   "mastery1:sy5r:2x + 2 < 0|{\"at\":-1,\"dir\":-1,\"closed\":false}|gen",
+   "mastery2:sys:5:diag:{\"form\":0,\"a\":4,\"b\":8,\"d\":0,\"e\":28,\"A\":4,\"B\":5,\"rel\":\">\",\"sol\":\">\",\"show\":\"4x + 8 > 28\",\"minus\":false,\"list\":[3,4,5,6,7,8],\"ask\":\"sum\"}|21|diag",
+   "mastery3:sy5t:6x + 6 > -12:5x + 12 < 12|2|gen",
+   "mastery4:sys:5:transfer:{\"s\":2,\"w\":8,\"P\":13,\"W\":30,\"n\":2}|2|transfer",
+   "review0:sys:5:transfer:{\"s\":0,\"w\":20,\"P\":80,\"W\":700,\"n\":31}|31|transfer",
+   "review1:sy5m:4x + 11 > 15:-1:-5:3|1|gen",
+   "review2:sys:5:diag:{\"form\":0,\"a\":4,\"b\":8,\"d\":0,\"e\":28,\"A\":4,\"B\":5,\"rel\":\">\",\"sol\":\">\",\"show\":\"4x + 8 > 28\",\"minus\":false,\"list\":[3,4,5,6,7,8],\"ask\":\"sum\"}|21|diag",
+   "verify0:sys:5:probe:{\"form\":0,\"a\":-2,\"b\":-6,\"d\":0,\"e\":6,\"A\":-2,\"B\":-6,\"rel\":\">\",\"sol\":\"<\",\"show\":\"-2x - 6 > 6\",\"minus\":true,\"list\":[-8,-7,-6,-5,-4,-3],\"ask\":\"sum\"}|-15|probe",
+   "verify1:sys:5:probe:{\"form\":1,\"a\":-2,\"b\":-3,\"d\":0,\"e\":-17,\"A\":-2,\"B\":7,\"rel\":\"<\",\"sol\":\">\",\"show\":\"-3 - 2x < -17\",\"minus\":true,\"list\":[4,5,6,7,8,9],\"ask\":\"sum\"}|17|probe",
+   "verify2:sys:5:control:{\"form\":0,\"a\":4,\"b\":8,\"d\":0,\"e\":28,\"A\":4,\"B\":5,\"rel\":\">\",\"sol\":\">\",\"show\":\"4x + 8 > 28\",\"minus\":false,\"list\":[3,4,5,6,7,8],\"ask\":\"sum\"}|21|control",
+   "gen:sy5r:6x - 5 < 4x - 3|{\"at\":1,\"dir\":-1,\"closed\":false}|gen",
+   "diag:sys:5:diag:{\"form\":0,\"a\":4,\"b\":-10,\"d\":0,\"e\":10,\"A\":4,\"B\":5,\"rel\":\">\",\"sol\":\">\",\"show\":\"4x - 10 > 10\",\"minus\":true,\"list\":[2,3,4,5,6,7],\"ask\":\"sum\"}|13|diag",
+   "transfer:sys:5:transfer:{\"s\":1,\"w\":6,\"P\":11,\"W\":50,\"n\":6}|6|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "sys:5/gen/",
+    "sys:5/gen/",
+    "sys:5/diag/",
+    "sys:5/gen/",
+    "sys:5/transfer/"
+   ],
+   "review": [
+    "sys:5/transfer/",
+    "sys:5/gen/",
+    "sys:5/diag/"
+   ],
+   "verify": [
+    "sys:5/probe/no-flip",
+    "sys:5/probe/no-flip",
+    "sys:5/control/no-flip"
+   ]
+  }
+ }
+}

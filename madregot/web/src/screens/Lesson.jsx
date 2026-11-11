@@ -8,7 +8,7 @@ import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, itemPlain, slotsFor, itemMath, catLabel, displayTex } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
-import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS } from '@/lib/lesson.js';
+import { startLesson, answer, next, withHint, progressOf, resultOf, PARTS, lessonTopics } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
 import { autoAskAllowed, gate, aiAccess, useAIStatus } from '@/lib/account.js';
@@ -28,7 +28,8 @@ import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import CheckDone from './CheckDone.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import RemedyFlow from '@/components/learn/RemedyFlow.jsx';
-import { contentOf } from '@/learn/content/index.ts';
+import { contentOf, metaOf } from '@/learn/content/index.ts';
+import { useTopics } from '@/learn/useStairContent.js';
 import { skillId, parseSkill } from '@/learn/skills.ts';
 import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
@@ -157,6 +158,8 @@ function useLessonSpec() {
 
 export default function Lesson() {
   const spec = useLessonSpec();
+  // the lesson's questions come from its topics' teaching content: the app's loading screen shows until it is here
+  useTopics(lessonTopics(spec));
   const navigate = useNavigate();
   const st = useApp();
   const [s, setS] = useState(() => (spec ? startLesson(spec) : null));
@@ -577,7 +580,7 @@ export default function Lesson() {
                 <div className="fb-body">
                   {last?.cat && catLabel(item.topic || spec.topic, item.level, last.cat) && !last.diagnosis?.ambiguous && <p><MathText text={`מה כנראה קרה: ${catLabel(item.topic || spec.topic, item.level, last.cat)}.`} /></p>}
                   {last?.diagnosis?.ambiguous && <p><MathText text={ambiguousText(item.topic || spec.topic, item.level, last.diagnosis.candidates)} /></p>}
-                  {!isTest(s.kind) && last?.cat && !last.diagnosis?.ambiguous && contentOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
+                  {!isTest(s.kind) && last?.cat && !last.diagnosis?.ambiguous && metaOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
                     <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
                   )}
                   <p className="hint-line"><Lightbulb size={16} aria-hidden="true" /><MathText text={item.hint} /></p>
@@ -606,7 +609,7 @@ export default function Lesson() {
                     <Button variant="secondary" className="btn-sm" onClick={askMadi}><HelpCircle size={16} aria-hidden="true" />שאלה למדי</Button>
                   )}
                   {!isTest(s.kind) && <p className="fb-note">תרגיל דומה יחזור בסוף השיעור.</p>}
-                  {!isTest(s.kind) && last?.cat && contentOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
+                  {!isTest(s.kind) && last?.cat && metaOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
                     <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
                   )}
                 </div>

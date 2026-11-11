@@ -10,6 +10,7 @@ import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import { useDurable } from '@/lib/durable/useDurable.js';
 import { watchPersisted } from '@/lib/durable/persist.js';
+import { loadTopic } from '@/learn/content/index.ts';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import BackupNudge from '@/components/durable/BackupNudge.jsx';
 import Shell from '@/components/Shell.jsx';
@@ -113,6 +114,24 @@ function RestoreToast() {
   return null;
 }
 
+/**
+ * The teaching content loads one topic at a time (DURABLE-11, learn/content/index.ts). After the first screen, when the
+ * browser is idle, the topic the student worked on last loads in the background, so its stairs open without a wait.
+ */
+function usePreloadLastTopic(role) {
+  useEffect(() => {
+    const topic = role === 'student' ? useApp.getState().lastTopic : null;
+    if (!topic) return undefined;
+    const run = () => { loadTopic(topic).catch(() => {}); };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(run, { timeout: 5000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(run, 2000);
+    return () => clearTimeout(id);
+  }, [role]);
+}
+
 // Each lesson route starts a fresh lesson, so the screen remounts per route.
 function LessonRoute() {
   const { pathname, search } = useLocation();
@@ -128,6 +147,7 @@ function TeachRoute() {
 function Root() {
   const role = useApp((s) => s.profile?.role);
   useAIStatusBoot();
+  usePreloadLastTopic(role);
   return (
     <>
       <Toasts />

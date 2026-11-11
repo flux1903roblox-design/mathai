@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import { Check, Lightbulb, BookOpen, Users, PencilLine, Award, HelpCircle } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/index.js';
-import { contentOf } from '@/learn/content/index.ts';
+import { useStairContent } from '@/learn/useStairContent.js';
 import { skillId } from '@/learn/skills.ts';
 import { masteryState, nextStage, STATE_LABEL, MASTERY_RULES, MASTERY_N, daysBetween } from '@/learn/mastery.ts';
 import { openMisconceptions } from '@/learn/misconceptions.ts';
@@ -40,8 +40,9 @@ export default function Journey() {
   const miscon = useApp((s) => s.learn.miscon);
   const path = useApp((s) => s.path);
   const [tutor, setTutor] = useState(false);
+  // the stair's teaching (its topic's file): the loading screen shows until it is here
+  const c = useStairContent(skill);
   if (!t || !t.levels[level - 1]) return <div className="page pushed"><ScreenBar title="מדרגה" back="/" backLabel="למפה" /><EmptyState mood="encouraging" title="המדרגה לא נמצאה"><p>אולי הקישור ישן. המסלול שלכם מחכה במפה.</p></EmptyState><ScreenFoot><Link to="/" className="btn btn-primary btn-block btn-lg">חזרה למסלול</Link></ScreenFoot></div>;
-  const c = contentOf(skill);
   const now = new Date().toISOString();
   const state = masteryState(rec, now);
   const stage = c ? nextStage(rec) : (rec?.attempts?.some((a) => a.purpose === 'practice' && a.ok) ? 'E' : 'D');

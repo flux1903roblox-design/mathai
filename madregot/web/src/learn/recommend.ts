@@ -6,7 +6,7 @@ import type { Action, LearnState, MasteryState, SkillId, Stage } from './types';
 import { ALL_SKILLS, GRADE_OF, parseSkill, prereqsOf } from './skills';
 import { masteryState, nextStage, dueReviews, daysBetween, STATE_LABEL } from './mastery';
 import { openMisconceptions, canOffer } from './misconceptions';
-import { contentOf } from './content/index';
+import { hasContent, metaOf } from './content/index';
 // @ts-ignore: plain JS
 import { TOPIC } from '@/content/index.js';
 // @ts-ignore: plain JS
@@ -47,7 +47,7 @@ export const routeOf = {
 };
 
 /** The next stage of a stair for this student (a stair without teaching content starts at practice). */
-const stageOf = (ctx: Context, id: SkillId): Stage => (contentOf(id) ? nextStage(ctx.learn.skills[id]) : (ctx.learn.skills[id]?.attempts.some((a) => a.purpose === 'practice' && a.ok) ? 'E' : 'D'));
+const stageOf = (ctx: Context, id: SkillId): Stage => (hasContent(id) ? nextStage(ctx.learn.skills[id]) : (ctx.learn.skills[id]?.attempts.some((a) => a.purpose === 'practice' && a.ok) ? 'E' : 'D'));
 
 /** The state of every skill now. */
 export function states(ctx: Context): Record<SkillId, MasteryState> {
@@ -111,7 +111,7 @@ export function nextActions(ctx: Context): Action[] {
   // 2. a confirmed misconception (not offered too often, not after it failed twice)
   openMisconceptions(ctx.learn.miscon).forEach((m) => {
     if (m.state !== 'confirmed' || !canOffer(m, ctx.day)) return;
-    const c = contentOf(m.skill); const def = c?.misconceptions.find((x) => x.id === m.id);
+    const def = metaOf(m.skill)?.misconceptions.find((x) => x.id === m.id);
     if (!def) return;
     add({ kind: 'repair', skill: m.skill, misc: m.id, title: `תיקון: ${def.title}`, reason: `ראינו את זה ב־${m.seen.length} שאלות ב${titleOf(m.skill)}. נראה את זה אחרת, ואז נבדוק.`, minutes: MINUTES.repair, to: routeOf.repair(m.skill, m.id) });
   });

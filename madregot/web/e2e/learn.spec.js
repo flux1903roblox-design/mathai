@@ -205,7 +205,10 @@ test('the profile shows what the evidence says, on this device, and can delete e
   await expect(page.getByText('עוד אין מספיק נתונים').first()).toBeVisible();
   await page.getByRole('link', { name: 'הגדרות' }).click();
   await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+  // deleting signs out (the first screen shows at once) and then reloads the page: wait for that reload
+  const reloaded = page.waitForEvent('load');
   await page.getByRole('button', { name: 'כן, למחוק הכול' }).click();
+  await reloaded;
   await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible(); // back to the first screen
   const left = await page.evaluate(() => JSON.parse(localStorage.getItem('madregot') || 'null')?.state?.profile ?? null);
   expect(left).toBeNull();
@@ -227,7 +230,8 @@ test('saved progress from before 2.0 survives the update', async ({ page }) => {
 
 test('reviewer P1: two right diagnostic answers per stair are "passed the first check", never "mastered"', async ({ page }) => {
   await open(page, '#/rescue', student('7'));
-  const d = new Date(); d.setDate(d.getDate() + 3);
+  // three days after the app's own (fixed) today, a Sunday: the real date could land on Shabbat, which the form refuses
+  const d = new Date(NOW); d.setDate(d.getDate() + 3);
   await page.locator('#exam-date').fill(d.toLocaleDateString('en-CA'));
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByText('חיבור וחיסור', { exact: true }).click();

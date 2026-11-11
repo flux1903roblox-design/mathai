@@ -10,6 +10,7 @@ const classStudent = () => ({
   ...student('7', {
     ai: { mode: 'server', apiUrl: API, key: '', device: '' },
     profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' },
+    lastTopic: 'signed',
   }),
   version: 3,
 });
@@ -46,11 +47,15 @@ test.describe('class progress sync', () => {
     const context = page.context();
     const { st, log } = await fakeServer(context, {}, baseOf());
     const online = await network(context);
+    const signedLoaded = new Promise((done) => { page.on('response', (r) => { if (/\/signed-[\w-]+\.js$/.test(r.url()) && r.ok()) done(); }); });
     await open(page, '#/', classStudent());
     await expect(page.locator('.learn')).toBeVisible();
     // opening the app sends the levels (nothing is waiting yet)
     await expect.poll(() => progressPosts(log).length).toBeGreaterThan(0);
     expect(progressPosts(log).every((r) => r.body.events.length === 0)).toBe(true);
+    // the teaching content loads one topic at a time (DURABLE-11): the topic worked on last loads once the app is idle.
+    // These tests block the service worker (which would keep every topic), so that is what the offline lessons ask from
+    await signedLoaded;
 
     await online(false);
     const sentOnline = progressPosts(log).length;
