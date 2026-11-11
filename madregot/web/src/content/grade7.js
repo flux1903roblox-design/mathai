@@ -2,6 +2,7 @@
 import { R, NZ, pick, shuffle, T, near } from './util.js';
 import { EXPR } from './expr.js';
 import { EQ } from './eq.js';
+import { DATA } from './data.js';
 import { FRAC } from './frac.js';
 import { SIGNED6_LEVEL } from './signed6.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
@@ -481,6 +482,8 @@ export const GRADE7 = [
     },
   },
   EXPR,
+  // data and frequency: January–February, before equations in March (school order)
+  DATA,
   EQ,
   // last, so the units of grade 7 keep their numbers (Topic.jsx, ExamResult): a bridge unit is not one of them
   FRAC,

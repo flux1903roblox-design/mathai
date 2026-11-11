@@ -91,6 +91,8 @@ export function makeItem(topicId, level, avoidKey) {
   if (it.precise && it.form === 'num') it = withFormatNote(it);
   // A misconception can only be diagnosed for an answer that is actually wrong.
   const diag = (u) => (isCorrect(it, u) ? null : it.diag(u));
+  // the answers diag() names, when the generator lists them (content/data.js; namesOf reads them)
+  if (it.diag?.wrongs) diag.wrongs = it.diag.wrongs;
   return { ...it, diag, topic: topicId, level, levelTitle: L.title };
 }
 
@@ -145,7 +147,9 @@ function* tryAnswers(it) {
  */
 export function namesOf(it, want = []) {
   const found = new Set();
-  for (const u of tryAnswers(it)) {
+  // a diag() that lists the answers it names (its predictions, content/data.js) is asked only those: every name the
+  // search below finds, and a prediction off its grid too (0.36), without trying thousands of typed numbers
+  for (const u of it.diag?.wrongs || tryAnswers(it)) {
     if (isCorrect(it, u)) continue;
     const cat = it.diag(u);
     if (cat) { found.add(cat); if (want.length && want.every((w) => found.has(w))) break; }

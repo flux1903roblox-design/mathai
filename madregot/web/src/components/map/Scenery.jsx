@@ -2,9 +2,9 @@
 // line for signed numbers, a treasure grid for coordinates, a protractor for angles, slope stairs
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
 // statistics, tiles and brackets for expressions, a balance for equations, two crossing lines for systems, a
-// fraction bar, a pie in eighths and a jug in tenths for the fractions floor. Colours
-// come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on its
-// banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
+// fraction bar, a pie in eighths and a jug in tenths for the fractions floor, a tally board, a pictogram row and a
+// ballot box for data. Colours come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is
+// the unit's emblem on its banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
 
 const Thermometer = () => (
   <svg viewBox="0 0 96 110">
@@ -364,6 +364,51 @@ const MeetFlag = () => (
   </svg>
 );
 
+/** Data: a clipboard with a three-row frequency table, its tally marks in groups of five (the fifth stroke across). */
+const TallyBoard = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="16" y="12" width="68" height="82" rx="10" className="sc-w sc-line" />
+    <rect x="36" y="6" width="28" height="14" rx="5" className="sc-c sc-line" />
+    {[34, 56, 78].map((y) => <path key={y} d={`M24 ${y + 9} H76`} className="sc-grid" />)}
+    {[[34, 7], [56, 4], [78, 6]].map(([y, n]) => (
+      <g key={y}>
+        <circle cx="30" cy={y} r="4.5" className="sc-c" />
+        {Array.from({ length: Math.min(n, 4) }, (_, k) => <path key={k} d={`M${42 + 6 * k} ${y - 7} V${y + 7}`} className="sc-stroke" />)}
+        {n >= 5 && <path d={`M38 ${y + 6} L66 ${y - 6}`} className="sc-stroke-c" />}
+        {Array.from({ length: Math.max(0, n - 5) }, (_, k) => <path key={`r${k}`} d={`M${70 + 6 * k} ${y - 7} V${y + 7}`} className="sc-stroke" />)}
+      </g>
+    ))}
+  </svg>
+);
+/** Data: a pictogram row of three and a half people over its key, one person for four. */
+const PictoRow = () => (
+  <svg viewBox="0 0 110 90">
+    <rect x="4" y="8" width="102" height="48" rx="12" className="sc-t" />
+    {[18, 42, 66].map((x) => (
+      <g key={x}>
+        <circle cx={x} cy="22" r="7" className="sc-c" />
+        <path d={`M${x - 10} 48 Q${x - 10} 32 ${x} 32 Q${x + 10} 32 ${x + 10} 48 Z`} className="sc-c" />
+      </g>
+    ))}
+    <path d="M90 15 A7 7 0 0 0 90 29 Z M80 48 Q80 32 90 32 V48 Z" className="sc-c" />
+    <circle cx="30" cy="72" r="5" className="sc-d" />
+    <path d="M23 86 Q23 78 30 78 Q37 78 37 86 Z" className="sc-d" />
+    <path d="M48 76 H60 M48 82 H60" className="sc-stroke" />
+    <text x="78" y="86" className="sc-math">4</text>
+  </svg>
+);
+/** Data: a ballot box with two folded slips going in (a survey). */
+const SurveyBox = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M30 18 L48 10 L54 30 L36 36 Z" className="sc-w sc-line" />
+    <path d="M56 22 L74 20 L72 40 L54 40 Z" className="sc-g sc-line" />
+    <rect x="14" y="44" width="72" height="48" rx="8" className="sc-c sc-line" />
+    <rect x="28" y="40" width="44" height="10" rx="4" className="sc-d" />
+    <path d="M34 45 H66" className="sc-stroke-w" />
+    <path d="M30 70 L44 70 M56 70 L70 70" className="sc-stroke-w" />
+  </svg>
+);
+
 export const SCENERY = {
   signed: [Thermometer, SeaLevel, Cloud],
   coord: [GridMap, Compass, Pin],
@@ -377,6 +422,7 @@ export const SCENERY = {
   frac: [FracBarArt, PieEighths, TenthsJug],
   ratio: [ScaleBarArt, MixGlasses, ScaleCopy],
   pct: [PctBarArt, HundredGrid, SaleTag],
+  data: [TallyBoard, PictoRow, SurveyBox],
 };
 
 /** The unit's own sign for its header: the first piece of its world. */

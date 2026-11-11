@@ -17,7 +17,7 @@ import { TOGETHER_DIAG, finalPredictions, diagnoseFinal } from './content/togeth
 // @ts-ignore: plain JS
 import { manipCorrect, manipSolution, balanceTilt, balanceReachable, rayHas, TILES_MAX, simOutcomes, simWatch } from '@/content/manip.js';
 // @ts-ignore: plain JS
-import { TOPIC, fairForCheck } from '@/content/index.js';
+import { TOPIC, fairForCheck, makeItem, namesOf } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { T } from '@/content/util.js';
 
@@ -556,6 +556,55 @@ describe('percent teaches with pictures', () => {
     expect(html).not.toMatch(/>4,?000</); // no text of the drawing says it
     expect(html.match(/aria-label="([^"]*)"/)![1]).not.toMatch(/4,?000/); // nor its words for a screen reader
   });
+});
+
+describe('data and frequency teaches with pictures', () => {
+  const data = stairs.filter((c) => c.topic === 'data');
+  it('every discover step of data:1-4 has a figure or an object', () => {
+    expect(data.map((c) => c.skill)).toEqual(['data:1', 'data:2', 'data:3', 'data:4']);
+    const bare = data.flatMap((c) => c.discover.map((st, i) => ({ c, i, st })).filter(({ st }) => !(st as { fig?: unknown }).fig && st.kind !== 'explore'));
+    expect(bare.map(({ c, i }) => `${c.skill} #${i + 1}`)).toEqual([]);
+  });
+  it('the unit uses both objects in real steps: a chart to build and a run of a spinner (DATA-2)', () => {
+    const kinds = data.flatMap((c) => c.discover.filter((st) => st.kind === 'explore').map((st) => (st as { manip: { kind: string } }).manip.kind));
+    expect(kinds).toEqual(expect.arrayContaining(['chart', 'simulate']));
+  });
+  it('every figure of the unit renders, with no broken numbers, and a check\'s chart prints no number on its bars', () => {
+    const figs = data.flatMap((c) => [
+      ...c.discover, ...c.misconceptions.flatMap((m) => m.remedy),
+      ...c.examples, ...c.together,
+    ].map((x) => (x as { fig?: FigSpec }).fig).filter(Boolean) as FigSpec[]);
+    expect(new Set(figs.map((f) => f.type))).toEqual(new Set(['chart', 'table', 'fbar', 'numline', 'pair']));
+    // a table cell is plain text (a table draws no maths): "20 ש״ח", never "$20$ ש״ח"
+    figs.filter((f) => f.type === 'table').forEach((f) => (f as { rows: (string | number)[][] }).rows.flat().forEach((cell) => expect(String(cell), 'a table cell').not.toMatch(/\$/)));
+    figs.forEach((fig) => {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, fig.type).toMatch(/<svg|<table/);
+      expect(html, fig.type).not.toMatch(/NaN|undefined|Infinity/);
+    });
+    // the model's bar chart reads off the axis: no value printed on a bar (the axis labels are the only numbers)
+    const rnd = seeded(3);
+    for (let i = 0; i < 20; i += 1) {
+      const p = CONTENT['data:1'].diag.params(rnd);
+      const fig = CONTENT['data:1'].diag.fig!(p) as { labels?: boolean };
+      expect(fig.labels).toBe(false);
+    }
+  });
+  // its exercises list their predictions, so a verification's probe is found at once (content/index.js namesOf): the
+  // list names everything the search of typed numbers names, and is never shorter
+  it('an exercise\'s listed predictions name every misconception the search finds', () => {
+    let listed = 0;
+    for (const level of [1, 2, 3, 4]) {
+      for (let i = 0; i < 60; i += 1) {
+        const it = makeItem('data', level);
+        if (!it.diag.wrongs) continue;
+        listed += 1;
+        const searched = namesOf({ ...it, diag: (u: unknown) => it.diag(u) });
+        expect(namesOf(it), it.key).toEqual(expect.arrayContaining(searched));
+      }
+    }
+    expect(listed).toBeGreaterThan(150);
+  }, 30_000);
 });
 
 // The checks above are what keeps the algebra stairs honest before they exist: each is shown here to pass a right

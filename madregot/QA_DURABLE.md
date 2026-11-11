@@ -877,6 +877,13 @@ script. They now load one topic at a time, and nothing the student sees changed.
   **456 KB** (CSS 52.7 KB under 59, precache 4.71 MB under 4.79). Open work, unchanged: the challenge tasks behind a
   per-topic import, and the figure words (`figPlain`, `figWords`, `itemPlain`) in a module of their own that only the
   screens that show or send an exercise import.
+  Its data unit (`data:1-4`, the stage's fifth step) adds the unit's exercise generators (`content/data.js`, read by the
+  map, the placement test and the class exam) and its three challenge tasks to the first download: boot JS 436.2 →
+  **449.1 KB** (+12.9 KB, under the 456 KB gate, so the challenge tasks stay where they are), CSS 54.4 KB unchanged. Its
+  teaching content is a chunk of its own (`data-*.js`, 55.9 KB raw), loaded with the unit. The service worker keeps every
+  script for offline use, so the precache grew to 4.84 MB, over its 4.79 MB gate; moving code behind an import cannot
+  shrink it (a lazy chunk is precached too), so that gate moved by the same rule (measured + 5%, rounded down) to
+  **5.08 MB**. Open work, unchanged.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

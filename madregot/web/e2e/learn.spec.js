@@ -214,7 +214,7 @@ test('Exam Rescue offers ז׳ Pythagoras (taught in March in ז׳) as one of the
   await toTopics();
   const heads = page.locator('.rescue-topic-head .topic-row');
   // percent (ח׳, October) is offered to ז׳ too: they meet it in relative frequency in February
-  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'משפט פיתגורס (כל הנושא)']);
+  await expect(heads).toHaveText(['מספרים מכוונים (כל הנושא)', 'מערכת צירים (כל הנושא)', 'זוויות (כל הנושא)', 'ביטויים אלגבריים (כל הנושא)', 'נתונים ושכיחות (כל הנושא)', 'משוואות (כל הנושא)', 'אחוזים (כל הנושא)', 'משפט פיתגורס (כל הנושא)']);
   await page.getByText('מציאת ניצב', { exact: true }).click();
   await expect(page.locator('.rescue-topic').last().locator('.rescue-topic-count')).toHaveText('1/5');
   await expectNoSidewaysScroll(page);

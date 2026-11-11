@@ -1,4 +1,4 @@
-// Seeds for exercises the tutor rewrites (ai spec AI-4 Design 1, Tests "seeds"): every one of the stairs (48, the curriculum lane's fractions floor (4), signed:6, ratio (4) and percent (5): 62) gives
+// Seeds for exercises the tutor rewrites (ai spec AI-4 Design 1, Tests "seeds"): every one of the stairs (48, the curriculum lane's fractions floor (4), signed:6, ratio (4), percent (5) and data (4): 66) gives
 // distinct exercises with one number for an answer, as the generate request carries them, and the server's checks
 // (shared/verify.js) can read and verify every one of them. No model, no network.
 import { describe, it, expect } from 'vitest';
@@ -17,12 +17,12 @@ const N = 7; // count + 2 for five exercises, as the request asks
 const BY_SKILL = Object.fromEntries(ALL_SKILLS.map((skill) => [skill, seedsFor(skill, N, seeded(1))]));
 
 describe('seedsFor, over every stair', () => {
-  it('covers all 62 stairs, the algebra, fraction, ratio and percent ones included', () => {
-    expect(ALL_SKILLS.length).toBe(62);
+  it('covers all 66 stairs, the algebra, fraction, ratio, percent and data ones included', () => {
+    expect(ALL_SKILLS.length).toBe(66);
     for (const t of ['expr', 'eq', 'sys']) expect(ALL_SKILLS.filter((s) => s.startsWith(`${t}:`)).length).toBe(5);
   });
 
-  // one test over the 62 stairs (not 62 tests): the messages name the stair
+  // one test over the 66 stairs (not 66 tests): the messages name the stair
   it('every stair: seven distinct exercises, each one number, readable, with the full item kept', () => {
     for (const skill of ALL_SKILLS) everyStair(skill);
   });

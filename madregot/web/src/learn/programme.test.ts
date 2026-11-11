@@ -45,21 +45,24 @@ describe('a unit on two grades\' paths is in that grade\'s schedule', () => {
   });
 });
 
-// Stage 1 is complete with percent: the live coverage, from the stairs this build has, is the stage-1 fixture's of
-// worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4 and pct:1-5): ז׳ 104 of 150, ח׳ 66 of 147, 57%.
-describe('stage 1\'s coverage, live', () => {
+// Stage 1 is complete with percent, and curriculum stage 3's data unit has landed: the live coverage, from the stairs
+// this build has, is worker/test/coverage.test.js's stage-1 fixture (HEAD's 48 stairs, signed:6, ratio:1-4, pct:1-5)
+// with data:1-4 (7.15-7.17 taught): ז׳ 117 of 150, ח׳ 66 of 147 (the ח׳ units of data list it from stage 6), 62%.
+describe('stage 1\'s coverage and the data unit, live', () => {
   const STAGE1 = [
     ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
     ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
     'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
   ];
-  it('has exactly the stage-1 stairs (the bridge unit aside), and their hours', () => {
-    expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE1].sort());
+  const DATA = ['data:1', 'data:2', 'data:3', 'data:4'];
+  it('has exactly the stage-1 stairs and data:1-4 (the bridge unit aside), and their hours', () => {
+    expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE1, ...DATA].sort());
     const c7 = coverageOf('7'); const c8 = coverageOf('8');
-    expect([c7.taught, c7.hours]).toEqual([104, 150]);
+    expect([c7.taught, c7.hours]).toEqual([117, 150]);
     expect([c8.taught, c8.hours]).toEqual([66, 147]);
-    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(57);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(62);
     expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+    for (const id of ['7.15', '7.16', '7.17']) expect(c7.units.find((u) => u.id === id), id).toMatchObject({ state: 'yes' });
   });
 });
 

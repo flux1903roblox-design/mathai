@@ -71,6 +71,25 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     { model: 'diag', p: { k: 0, p: 15, up: false, N: 300 } }, // 300 less 15%: 15 shekels off 285; the discount alone 45
     { model: 'diag', p: { k: 0, p: 15, up: true, N: 300 } }, // 300 plus 15%: 15 shekels on 315; the rise alone 45
   ],
+  // data:1-4 (curriculum stage 3, DATA-4): the spec's entries, each prediction checked by its critique/check.mjs D
+  'data:1': [
+    { model: 'diag', p: { s: 2, vals: [6, 10, 4], i: 1, j: 2, max: 14 } }, // blue − red: the squares counted 3; blue's own 10
+    // the pupils measured: the shoe sizes added (190) and the rows counted (5) are no misconception of the stair
+    { bugs: {} },
+  ],
+  'data:2': [
+    // 7 of 25 chose volleyball: against the other 18 (7/18), the whole over the part (25/7), the count (7), in percent (28)
+    { bugs: { 'part-part': 7 / 18, 'inverse-ratio': 25 / 7, 'freq-only': 7, 'pct-for-dec': 28 } },
+    { bugs: { 'part-part': 6 / 14 } }, // 6 vegetarians of 20 against the other 14
+  ],
+  'data:3': [
+    { model: 'diag', p: { N: 300, ps: [20, 45, 35], x: 1 } }, // 45% of 300: the percent itself 45; 300 : 45
+    { model: 'transfer', p: { p: 25, N: 240, c: 60 } }, // 60 is 25%: 25% of 60 is 15; 60 : 25 = 2.4
+  ],
+  'data:4': [
+    { model: 'diag', p: { c: [5, 2, 3], N: 10, j: 1, k: 3 } }, // red of 5, 2, 3: each colour a third 1/3; red against the rest 2/8
+    { bugs: { equiprob: 1 / 6, 'part-part': 150 / 450 } }, // the fair die's 1/6; 150 against the other 450
+  ],
   'signed:1': [
     { model: 'diag', p: { a: -3, b: -8, s: -1 } }, // −3 − (−8)
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)

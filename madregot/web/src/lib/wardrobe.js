@@ -39,6 +39,8 @@ export const ITEMS = [
   // the curriculum lane's grade 8 units (ratio and scale, percent): drawn at the merge, for the same reason
   { id: 'scale-pin', slot: 'body', topic: 'ratio', name: 'סיכת קנה מידה', unlock: { chest: 'ratio' } },
   { id: 'percent-pin', slot: 'body', topic: 'pct', name: 'סיכת אחוז', unlock: { chest: 'pct' } },
+  // curriculum stage 3's data unit: a tally pin, so every unit in TOPICS has its piece
+  { id: 'tally-pin', slot: 'body', topic: 'data', name: 'סיכת ספירה', unlock: { chest: 'data' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
 ];
 

@@ -7,12 +7,12 @@ import type { SkillId, TopicId } from './types';
 // order. A bridge stair is in no grade's own list (gradeSkillsOf), is missing only on evidence and is new only when the
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
 // ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), both
-// before linear functions.
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
-// GRADE_OF and STAIRS hold the topics this build has; TopicId also names curriculum stage 3's data and prob, which take
-// their grade and their stairs in the commit that adds their content (and are in no list until then).
-export const GRADE_OF: Partial<Record<TopicId, '7' | '8'>> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Partial<Record<TopicId, number>> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+// before linear functions. ז׳'s data and frequency (January–February) comes before equations (March).
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'data', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
+// GRADE_OF and STAIRS hold the topics this build has; TopicId also names curriculum stage 3's prob, which takes its
+// grade and its stairs in the commit that adds its content (and is in no list until then).
+export const GRADE_OF: Partial<Record<TopicId, '7' | '8'>> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', data: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
+export const STAIRS: Partial<Record<TopicId, number>> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, data: 4, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -69,6 +69,10 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'expr:3': ['expr:1', 'signed:1'], // equality is checked by substituting; coefficients are added as signed numbers
   'expr:4': ['expr:1', 'signed:3'], // what ax means; each term is multiplied with the sign rules
   'expr:5': ['expr:3', 'expr:4'], // open the brackets, then collect like terms
+  'data:1': [], // reading a chart and a frequency table starts from counting
+  'data:2': ['data:1', 'frac:2'], // a relative frequency is a frequency over the total, a fraction or a decimal (bridge edge)
+  'data:3': ['data:2'], // a percent is a relative frequency in hundredths; a pie shows the parts of one whole
+  'data:4': ['data:2'], // picking at random from a group, the probability of a kind is its relative frequency
   'eq:1': ['expr:1', 'signed:1', 'signed:3', 'frac:4'], // a solution is checked by substituting; the inverse operations work with signed numbers; answers such as 1/4 are fractions (bridge edge)
   'eq:2': ['eq:1'], // two one-step moves, undone in reverse order
   'eq:3': ['eq:2', 'expr:3'], // the x-terms of both sides are collected first, then it is a two-step equation
@@ -99,7 +103,7 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'stats:1': [], // mode: counting
   'stats:2': ['signed:2'], // median: ordering numbers first
   'stats:3': ['frac:2'], // mean: sum and share; a mean is often a decimal, read and compared by place value (bridge edge)
-  'stats:4': ['stats:3'], // mean from a frequency table
+  'stats:4': ['stats:3', 'data:1'], // mean from a frequency table (reading the table first, data:1)
   'stats:5': ['stats:3', 'eq:2'], // a missing value from the mean: the mean equation backwards, (sum + x) : n = mean, two steps
   // a percent change in a story becomes an equation (eq:5); x + 0.2x = 1.2x is collecting like terms (expr:3); the
   // change is a multiplier of the old price (pct:5, an own-grade edge: not new before pct:5 is done, as in school order)

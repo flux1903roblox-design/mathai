@@ -118,6 +118,14 @@ const DRAW = {
       <path d="M109 89.5 L99 100.5" style={S(ch('petrol', '-d'))} strokeWidth="2" {...round} />
     </>
   ),
+  // data and frequency: tally marks, four strokes and the fifth across
+  'tally-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('sky', '-d')) }} strokeWidth="2" />
+      <path d="M99 89.5 V100.5 M102.3 89.5 V100.5 M105.6 89.5 V100.5 M108.9 89.5 V100.5" style={S(ch('sky', '-d'))} strokeWidth="1.6" {...round} />
+      <path d="M96.5 99 L111.5 91" style={S(ch('sky'))} strokeWidth="2.2" {...round} />
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

@@ -709,6 +709,8 @@ describe('a random experiment repeated (simulate, DATA-2.1)', () => {
     expect(fresh).toContain('קודם 10</span>');
     expect(fresh).toContain('aria-live="polite"');
     expect(fresh).toContain('role="img" aria-label="עוד לא סובבתם את הגלגל."');
+    // the line shown before the first trial is short (the long sentence ran past the card at 320 × 568)
+    expect(fresh).toContain('<span class="mp-sim-small" aria-hidden="true">עוד אין סיבובים</span>');
     const ten = html(Simulate, { m: wheel.manip, value: simRun(wheel.manip, [10]), answer: wheel.answer });
     expect(buttons(ten).slice(1, 4)).toEqual(['10 סיבובים', '100 סיבובים', '1000 סיבובים, קודם 100']);
     const run = simRun(wheel.manip, [10, 100, 1000]);

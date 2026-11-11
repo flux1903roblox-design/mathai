@@ -28,6 +28,13 @@ const STAGE1 = [
   'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
 ];
 const BRIDGE = ['frac:1', 'frac:2', 'frac:3', 'frac:4'];
+// Curriculum stage 3 (data and probability): its ten stairs. The programme lists them as each lands (7.15-7.17 list
+// data:1-4 now; 8.6, 8.10, 8.11 and 8.16 still wait for theirs), so a stair here that no part lists adds nothing yet.
+const STAGE3 = [
+  'data:1', 'data:2', 'data:3', 'data:4',
+  'stats:6', 'stats:7', 'stats:8',
+  'prob:1', 'prob:2', 'prob:3',
+];
 
 // The schedules' hours per unit (7.1-7.17, 8.1-8.17) and the hours each milestone teaches, unit by unit.
 const HOURS = {
@@ -46,13 +53,15 @@ const TAUGHT = {
     stage1: [8, 7, 8, 0, 0, 1, 0, 8, 6, 8, 0, 0, 3, 13, 4, 0, 0],
   },
 };
-// After stage 1, the hours each later stage adds (§0.3: S2 = 7.6, 7.12, 7.13, 8.4, 8.17; S3 = 7.15-7.17, 8.6, 8.10,
-// 8.11, 8.16; S4 = 7.11, 8.5, 8.12, 8.13; S5 = 7.9, 7.10, 8.7, 8.9), and the totals after each (ז׳ 126, 139, 144, 150;
-// ח׳ 78, 99, 133, 147).
-const AFTER = { '7': { S2: 126, S3: 139, S4: 144, S5: 150 }, '8': { S2: 78, S3: 99, S4: 133, S5: 147 } };
+// With the stairs built so far (stage 1 and stage 3's data unit), what is taught, and the hours each later stage still
+// adds (§0.3: S2 = 7.6, 7.12, 7.13, 8.4, 8.17; S3's ח׳ units 8.6, 8.10, 8.11, 8.16; S4 = 7.11, 8.5, 8.12, 8.13; S5 = 7.9,
+// 7.10, 8.7, 8.9), and the totals after each. ז׳'s S3 units (7.15-7.17) are taught by data:1-4: 104 + 13 = 117, and the
+// roadmap's ז׳ totals hold (139 after S2, 144, 150). ח׳ is 66 until 8.6 and 8.16 list data stairs (stage 6 of the lane).
+const BASE = { '7': 117, '8': 66 };
+const AFTER = { '7': { S2: 139, S3: 139, S4: 144, S5: 150 }, '8': { S2: 78, S3: 99, S4: 133, S5: 147 } };
 const COMPLETES = {
   S2: ['7.6', '7.12', '7.13', '8.4', '8.17'],
-  S3: ['7.15', '7.16', '7.17', '8.6', '8.10', '8.11', '8.16'],
+  S3: ['8.6', '8.10', '8.11', '8.16'],
   S4: ['7.11', '8.5', '8.12', '8.13'],
   S5: ['7.9', '7.10', '8.7', '8.9'],
 };
@@ -87,11 +96,11 @@ test('the programme: 17 units a grade, in the schedules\' order, with their hour
   assert.equal(coverage('8', []).hours, 147);
 });
 
-test('every stair a part lists is one of stage 1\'s; a part with none is a later stage\'s, with a note', () => {
-  const known = new Set(STAGE1);
+test('every stair a part lists is one of stage 1\'s or stage 3\'s; a part with none is a later stage\'s, with a note', () => {
+  const known = new Set([...STAGE1, ...STAGE3]);
   for (const { unit, part } of allParts) {
     if (part.skills.length) {
-      part.skills.forEach((s) => assert.ok(known.has(s), `${unit.id} lists ${s}, which is not a stage-1 stair`));
+      part.skills.forEach((s) => assert.ok(known.has(s), `${unit.id} lists ${s}, which is not a stage-1 or stage-3 stair`));
       assert.equal(part.later, undefined, `${unit.id}: a part with stairs is not waiting for a later stage`);
     } else {
       assert.ok(['S2', 'S3', 'S4', 'S5'].includes(part.later), `${unit.id}: an empty part names its stage`);
@@ -106,6 +115,10 @@ test('every stair a part lists is one of stage 1\'s; a part with none is a later
   // one stair can serve several units
   assert.deepEqual(PROGRAMME.units.filter((u) => u.parts.some((p) => p.skills.includes('pyth:1'))).map((u) => u.id), ['7.6', '7.14', '8.3']);
   assert.ok(listing('7.9').includes('line:1'));
+  // stage 3: the ז׳ data unit (DATA-8)
+  assert.deepEqual(PROGRAMME.units.find((u) => u.id === '7.15').parts, [{ hours: 2, skills: ['stats:1'] }, { hours: 4, skills: ['data:1'] }]);
+  assert.deepEqual(listing('7.16'), ['data:2', 'data:3']);
+  assert.deepEqual(listing('7.17'), ['data:4']);
   assert.ok(listing('8.3').includes('angles:4'));
 });
 
@@ -168,10 +181,21 @@ test('a unit\'s state, stairs and missing parts', () => {
   assert.equal(at('8', [...STAGE1, 'func:1', 'func:2'], '8.7').taught, 0);
 });
 
-test('with the stage-1 stairs, every untaught part names the later stage that brings it, and the stages add up', () => {
+test('stage 3\'s data unit: ז׳ 117 of 150 (78%); 7.15-7.17 taught; nothing moves in ח׳ yet', () => {
+  const c7 = coverage('7', [...STAGE1, ...STAGE3]); const c8 = coverage('8', [...STAGE1, ...STAGE3]);
+  assert.deepEqual([c7.taught, c7.pct, c8.taught, c8.pct], [117, 78, 66, 45]);
+  for (const id of ['7.15', '7.16', '7.17']) assert.equal(c7.units.find((u) => u.id === id).state, 'yes', id);
+  // the data stairs alone add 13 hours to ז׳, and only through 7.15-7.17
+  const without = coverage('7', STAGE1);
+  assert.equal(c7.taught - without.taught, 13);
+  assert.deepEqual(c7.units.filter((u, i) => u.taught !== without.units[i].taught).map((u) => u.id), ['7.15', '7.16', '7.17']);
+});
+
+test('with the stairs built so far, every untaught part names the later stage that brings it, and the stages add up', () => {
   for (const g of ['7', '8']) {
-    const c = coverage(g, STAGE1);
+    const c = coverage(g, [...STAGE1, ...STAGE3]);
     let taught = c.taught;
+    assert.equal(taught, BASE[g], `grade ${g} now`);
     for (const u of c.units) {
       for (const p of u.parts.filter((x) => !x.taught)) assert.ok(['S2', 'S3', 'S4', 'S5'].includes(p.later), `${u.id}: ${p.note}`);
     }
@@ -232,6 +256,11 @@ test('the school calendar: the month a grade meets a stair, and where a date fal
   // every stage-1 stair has a month in its own grade
   const gradeOf = (s) => (/^(signed|coord|angles|expr|eq):/.test(s) ? '7' : '8');
   STAGE1.forEach((s) => assert.equal(typeof monthIndex(s, gradeOf(s)), 'number', s));
+  // stage 3's data unit: ז׳ January (7.15) and February (7.16, 7.17); probability is in no ז׳ unit
+  assert.equal(monthIndex('data:1', '7'), 4);
+  assert.equal(monthIndex('data:2', '7'), 5);
+  assert.equal(monthIndex('data:4', '7'), 5);
+  assert.equal(monthIndex('prob:1', '7'), null);
 
   assert.equal(schoolMonth('2026-09-01'), 0);
   assert.equal(schoolMonth('2026-11-10'), 2);

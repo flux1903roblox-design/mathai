@@ -370,6 +370,7 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(bad).toEqual([]);
   });
 
+  // every teaching figure of every unit drawn to HTML: over 5 s on a busy machine since the data unit, hence its own limit
   it('every figure renders, with no broken numbers', () => {
     for (const { where, st } of ALL_STEPS()) {
       const fig = figOf(st); if (!fig) continue;
@@ -377,7 +378,7 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
       expect(html, where).toMatch(/<svg|<table/);
       expect(html, where).not.toMatch(/NaN|undefined|Infinity/);
     }
-  });
+  }, 30_000);
 
   // the checks themselves, on made-up steps: each catches what it is for, and lets a right figure through
   const say = (text: string, fig: AnyFig): DiscoverStep => ({ kind: 'say', text, fig: fig as FigSpec });

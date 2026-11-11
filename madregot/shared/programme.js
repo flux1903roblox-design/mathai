@@ -73,12 +73,12 @@ export const PROGRAMME = {
     { id: '7.15', grade: '7', domain: 'uncertainty', title: 'איסוף, ייצוג וקריאת מידע, שכיחות', months: [1, 2],
       parts: [
         { hours: 2, skills: ['stats:1'] }, // the mode
-        { hours: 4, skills: [], note: 'איסוף נתונים, ייצוג בדיאגרמות וקריאתן', later: 'S3' },
+        { hours: 4, skills: ['data:1'] }, // charts, the pictogram and the frequency table
       ] },
     { id: '7.16', grade: '7', domain: 'uncertainty', title: 'שכיחות יחסית (בלי ועם אחוזים)', months: [2],
-      parts: [{ hours: 5, skills: [], note: 'שכיחות יחסית, גם באחוזים', later: 'S3' }] },
+      parts: [{ hours: 5, skills: ['data:2', 'data:3'] }] }, // relative frequency; in percent and the pie
     { id: '7.17', grade: '7', domain: 'uncertainty', title: 'הסתברות בהקשר של שכיחות יחסית', months: [2],
-      parts: [{ hours: 4, skills: [], note: 'הסתברות כשכיחות יחסית', later: 'S3' }] },
+      parts: [{ hours: 4, skills: ['data:4'] }] }, // probability from relative frequency
 
     // ---------------- ח׳ (147 hours)
     { id: '8.1', grade: '8', domain: 'numbers', title: 'יחס, פרופורציה וקנה מידה', months: [9, 10],

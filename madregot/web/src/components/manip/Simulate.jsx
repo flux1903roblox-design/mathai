@@ -292,7 +292,9 @@ export default function Simulate({ m, value, onChange, locked, reveal, good, ans
               {(m.device === 'spinner' || m.device === 'bag') && <i className={`mp-sim-swatch fig-tone-${o.tone % 8}`} />}
               <span className="mp-sim-name">{o.name}:</span> <b dir="ltr">{view.n ? simFreq(kw, view.n) : '–'}</b>
             </span>
-            <span className="mp-sim-small" aria-hidden="true">{view.n ? `${kw} מתוך ${view.n} ${words.noun}` : `${words.none}`}</span>
+            {/* before the first trial a short line ("עוד אין סיבובים"): the whole sentence is read out above, and the long one
+                ran past the card at 320 */}
+            <span className="mp-sim-small" aria-hidden="true">{view.n ? `${kw} מתוך ${view.n} ${words.noun}` : `עוד אין ${words.noun}`}</span>
           </div>
           <button type="button" className="mp-sim-more" aria-expanded={open} aria-controls={tableId} onClick={() => setOpen((x) => !x)}>
             כל התוצאות <ChevronDown size={16} strokeWidth={2.6} aria-hidden="true" className={clsx(open && 'up')} />

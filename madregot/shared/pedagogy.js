@@ -130,6 +130,14 @@ export const TOPIC_WAYS = Object.freeze({
     avoid: ['key-word rules ("יותר מ… זה תמיד פלוס")', 'joining unlike terms', 'dropping the minus in front of a term'],
     avoidRe: [re(String.raw`(?:יותר|פחות)\s+מ\S*\s+(?:זה\s+)?תמיד\s+(?:פלוס|מינוס|חיבור|חיסור)`)],
   },
+  // curriculum stage 3's data unit (data:1-4, web/src/learn/content/data.ts): ז׳, and ח׳ this school year too
+  data: {
+    models: 'A frequency is how many times a value appears; the frequency table and the bar chart show the same counts (read the axis: its steps can be 2, 5 or 10). The relative frequency is the frequency over the total of all data: a fraction, a decimal or a percent; the relative frequencies add up to 1 (100%). A pie shows the parts of one whole. Picking at random from a group, the probability of a kind is its relative frequency; many repetitions of an experiment estimate a probability, a few do not.',
+    words: ['שכיחות', 'שכיחות יחסית', 'טבלת שכיחויות', 'דיאגרמת עמודות', 'דיאגרמת עוגה', 'פיקטוגרמה', 'הסתברות'],
+    avoid: ['"each bar or each kind is an equal part"', '"more of them means a bigger share"', '"a few tries give the probability"'],
+    // every kind (bar, colour) said to have the same chance or the same part, as a rule
+    avoidRe: [re(String.raw`(?:כל|לכל)\s+(?:עמודה|סוג|צבע)\s+(?:יש\s+)?(?:אותו\s+)?(?:סיכוי|חלק)\s+(?:שווה|זהה)`)],
+  },
   eq: {
     models: String.raw`An equation is a balanced scale: doing the same to both sides keeps it level and keeps its solution (equivalent equations). Undo in reverse order: first what was added to $x$, then what multiplied it. With $x$ on both sides, take the same number of $x$'s from both. A word problem: one unknown, the other quantities written with it, and two expressions the story says are equal. A full solution ends with a check by substituting into the original equation, and a story's answer must fit the story. The scale carries positive whole numbers; negatives follow the same rule without it.`,
     words: ['נעלם', 'אגף ימין', 'אגף שמאל', 'משוואות שקולות', 'בדיקה בהצבה', '"עושים אותו דבר בשני האגפים"'],

@@ -16,10 +16,13 @@ import { FRAC } from './frac.js';
 import { candidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
+import { DATA } from './data.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
 const nums = (key) => key.split(':').slice(1).map(Number);
+/** A data key's fields: numbers, and lists (the bars' values, a table's counts, '6,10,4') as arrays of numbers. */
+const dataKey = (key) => key.split(':').slice(1).map((x) => (x.includes(',') ? x.split(',').map(Number) : Number(x)));
 const sum = (a) => a.reduce((x, y) => x + y, 0);
 const sortN = (a) => [...a].sort((x, y) => x - y);
 const median = (a) => { const s = sortN(a); const n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
@@ -678,6 +681,70 @@ const PROPS = {
     },
     'assume-right': (it, u) => it.key.startsWith('py3n:') && u === 4 && it.answer < 4,
   },
+  // data:1-4 (curriculum stage 3), each property from the numbers the student saw (the key). A list in the key (the bars'
+  // values, a table's counts) is read as an array. The P-rule predictions (a share, a probability) may be typed rounded:
+  // they are compared through fits (the value or its rounding to tenths or hundredths), as diagOf reads them.
+  data: {
+    'scale-units': (it, u) => {
+      const p = it.key.split(':')[0]; const k = dataKey(it.key);
+      if (p === 'da1r') { const [s, vals, i] = k; return fits(u, vals[i] / s); }
+      if (p === 'da1d') { const [s, vals, i, j] = k; return fits(u, (vals[i] - vals[j]) / s); }
+      if (p === 'da1l') { const [step, vals, a, b] = k; return fits(u, (vals[b] - vals[a]) / step); }
+      return false;
+    },
+    'one-value': (it, u) => { const [, vals, i] = dataKey(it.key); return it.key.startsWith('da1d:') && fits(u, vals[i]); },
+    'icon-count': (it, u) => { const [, icons, x] = dataKey(it.key); return it.key.startsWith('da1p:') && fits(u, icons[x]); },
+    'half-icon': (it, u) => { const [k, icons, x] = dataKey(it.key); return it.key.startsWith('da1p:') && icons[x] % 1 !== 0 && fits(u, Math.ceil(icons[x]) * k); },
+    // the "yes, r times" choice, where the bars drawn from `from` look r times apart
+    'truncated-axis': (it, u) => { const [from, a, b] = dataKey(it.key); return it.key.startsWith('da1a:') && it.choices[u]?.text === `כן, פי ${(a - from) / (b - from)}`; },
+    'part-part': (it, u) => {
+      const p = it.key.split(':')[0]; const k = dataKey(it.key);
+      if (p === 'da2' || p === 'da4') { const [f, j] = k; const N = sum(f); return fits(u, f[j] / (N - f[j])); }
+      if (p === 'da2b') { const [n1, k1, n2, k2] = k; const [n, c] = k1 / n1 > k2 / n2 ? [n1, k1] : [n2, k2]; return fits(u, c / (n - c)); }
+      return false;
+    },
+    'inverse-ratio': (it, u) => {
+      const p = it.key.split(':')[0]; const k = dataKey(it.key);
+      if (p === 'da2') { const [f, j] = k; return fits(u, sum(f) / f[j]); }
+      if (p === 'da3p') { const [rows, x] = k; return fits(u, (100 * sum(rows)) / rows[x]); }
+      return false;
+    },
+    'freq-only': (it, u) => { const [f, j] = dataKey(it.key); return it.key.startsWith('da2:') && fits(u, f[j]); },
+    'per-category': (it, u) => { const [f] = dataKey(it.key); return it.key.startsWith('da2:') && fits(u, 1 / f.length); },
+    'pct-for-dec': (it, u) => { const [f, j] = dataKey(it.key); return it.key.startsWith('da2:') && fits(u, (100 * f[j]) / sum(f)); },
+    'bigger-count': (it, u) => {
+      const [n1, k1, n2, k2] = dataKey(it.key); const more = k1 > k2 ? 0 : 1;
+      // the share of the class with more of them, which is not the larger share
+      if (it.key.startsWith('da2b:')) return [k1 / n1, k2 / n2][more] < [k1 / n1, k2 / n2][1 - more] && fits(u, [k1 / n1, k2 / n2][more]);
+      if (it.key.startsWith('da2c:')) return u === more && [k1 / n1, k2 / n2][more] <= [k1 / n1, k2 / n2][1 - more] + 1e-9;
+      return false;
+    },
+    'div-by-rel': (it, u) => { const [N, rel] = dataKey(it.key); return it.key.startsWith('da2r:') && fits(u, N / rel); },
+    'count-as-pct': (it, u) => {
+      const p = it.key.split(':')[0]; const k = dataKey(it.key);
+      if (p === 'da3') { const [, ps, x] = k; return fits(u, ps[x]); }
+      if (p === 'da3p') { const [rows, x] = k; return fits(u, rows[x]); }
+      return false;
+    },
+    'div-by-pct': (it, u) => { const [N, ps, x] = dataKey(it.key); return it.key.startsWith('da3:') && fits(u, N / ps[x]); },
+    'pct-of-part': (it, u) => { const [p, c] = dataKey(it.key); return it.key.startsWith('da3w:') && fits(u, (c * p) / 100); },
+    'stop-at-one': (it, u) => { const [p, c] = dataKey(it.key); return it.key.startsWith('da3w:') && fits(u, c / p); },
+    // "yes" for three classes' percents that do not add up to one whole
+    'pie-not-whole': (it, u) => { const [kind, ps] = dataKey(it.key); return it.key.startsWith('da3o:') && kind === 0 && sum(ps) !== 100 && it.choices[u]?.text === 'כן'; },
+    equiprob: (it, u) => { const [c] = dataKey(it.key); return it.key.startsWith('da4:') && fits(u, 1 / c.length); },
+    'old-total': (it, u) => { const [N, p, m] = dataKey(it.key); return it.key.startsWith('da4j:') && fits(u, ((p * N) / 100 + m) / N); },
+    'new-not-counted': (it, u) => { const [N, p, m] = dataKey(it.key); return it.key.startsWith('da4j:') && fits(u, ((p * N) / 100) / (N + m)); },
+    'old-rel': (it, u) => { const [, p] = dataKey(it.key); return it.key.startsWith('da4j:') && fits(u, p / 100); },
+    'rel-not-scaled': (it, u) => {
+      const p = it.key.split(':')[0]; const k = dataKey(it.key);
+      if (p === 'da4e') { const [, n, w] = k; return fits(u, w / n); }
+      if (p === 'da4x') { const [, a, b] = k; return fits(u, a / b); }
+      return false;
+    },
+    'draws-as-count': (it, u) => { const [, , w] = dataKey(it.key); return it.key.startsWith('da4e:') && fits(u, w); },
+    // a covered wheel picked wrong after fewer than 100 spins (the object's own counts)
+    'small-sample': (it, u) => it.manip?.kind === 'simulate' && !!u && u.pick !== it.answer.answer && u.n < 100,
+  },
   stats: {
     'mode-max': (it, u) => near(u, Math.max(...nums(it.key.replace(/,/g, ':')))),
     'mode-median': (it, u) => { const l = sortN(nums(it.key.replace(/,/g, ':'))); return near(u, l[Math.floor(l.length / 2)]); },
@@ -734,9 +801,9 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-describe('the algebra, fraction, ratio and percent topics name only what a property can check', () => {
-  it('every category of expressions, equations, systems, fractions, ratio and percent has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+describe('the algebra, fraction, ratio, percent and data topics name only what a property can check', () => {
+  it('every category of expressions, equations, systems, fractions, ratio, percent and data has its property here', () => {
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, DATA]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

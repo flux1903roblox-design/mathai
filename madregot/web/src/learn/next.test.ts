@@ -9,6 +9,7 @@ import { buildMission, completeMissionItems, missionDone, missionFor } from './m
 import { examPlan, newPlan, recordDiagnostic, isShabbatDay } from './examRescue';
 import { ALL_SKILLS, GRADE_OF, STAIRS, TOPIC_ORDER, isBridgeSkill, parseSkill, skillId, prereqsOf } from './skills';
 import { contentOf, loadAllContent } from './content/index';
+import { monthIndex } from './programme';
 import { seeded } from './expr';
 import { addDays } from './mastery';
 import { LEARNERS, ctxOf, emptyLearn, checkedExam, ago, masteredRec, taughtRec, strugglingRec, pathOf, checkEvents, NOW } from './__fixtures__/learners';
@@ -95,7 +96,8 @@ describe('planNext: the bands, highest first, for each learner', () => {
     expect(planNext(LEARNERS.newSeventhSeptember()).top).toMatchObject({ kind: 'new', skill: 'angles:1' });
     expect(planNext(LEARNERS.newSeventhSeptember()).top!.reason).toContain('בספטמבר');
     // a stair the calendar has not reached says nothing about the calendar
-    const path = Object.fromEntries((['signed', 'coord', 'angles', 'expr'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 6 }]));
+    // (every ז׳ unit before equations, data and frequency (January) included, passed on the map)
+    const path = Object.fromEntries((['signed', 'coord', 'angles', 'expr', 'data'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 6 }]));
     const eq = planNext(ctxOf(emptyLearn(), { path })).top!;
     expect(eq).toMatchObject({ kind: 'new', skill: 'eq:1' });
     expect(eq.reason).not.toContain('לפי תוכנית הלימודים');
@@ -590,6 +592,29 @@ describe('one next: every surface names the same step', () => {
     expect(seen.restDay).toBeGreaterThan(10);
     expect(seen.lead).toBeGreaterThan(0);
     expect(seen.lead).toBeLessThan(seen.stairOnMap);
+  });
+
+  it('a ז׳ student in November is not offered data:1 before the stairs taught by now (data is January)', () => {
+    expect(monthIndex('data:1', '7')).toBe(4);
+    const day = '2026-11-11';
+    const done = (L: LearnState, topics: string[]) => ALL_SKILLS.filter((s) => topics.includes(parseSkill(s).topic)).forEach((s) => { L.skills[s] = masteredRec(ago(5), 60); });
+    const news = (L: LearnState) => planNext(ctxOf(L, { grade: '7', day })).items.filter((x) => x.kind === 'new').map((x) => x.skill);
+    // nothing done: signed numbers (October–November) first, and data nowhere ahead of it
+    const fresh = news(emptyLearn());
+    expect(fresh[0]).toBe('signed:1');
+    expect(fresh.indexOf('data:1') < 0 || fresh.indexOf('data:1') > fresh.indexOf('signed:1')).toBe(true);
+    // the units of September to November done: expressions (December) come before data (January)
+    const L = emptyLearn(); done(L, ['signed', 'coord', 'angles']);
+    const next = news(L);
+    expect(next[0]).toBe('expr:1');
+    expect(next).not.toContain('data:1');
+    // expressions done too: data is the next new unit, before equations (March), and the calendar is not quoted yet
+    done(L, ['expr']);
+    const p = planNext(ctxOf(L, { grade: '7', day }));
+    const first = p.items.find((x) => x.kind === 'new')!;
+    expect(first.skill).toBe('data:1');
+    expect(first.to).toBe('/learn/data/1/A');
+    expect(first.reason).not.toContain('לפי תוכנית הלימודים');
   });
 
   it('a ח׳ student is not offered sys:1 (equations with percents) as new while pct:5 is not done', () => {

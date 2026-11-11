@@ -254,8 +254,11 @@ describe('practice-only questions are kept out of checks', () => {
   // the kinds whose answer is a choice among two or three, or an object whose target the question names (spec §0.5)
   // ratio: ratioMc, addSame and beads (ratio:1), statements (ratio:2), isProp and the double line (ratio:3), the scale bar
   // pct: shade, estimate and over100 (pct:1, estimate also in pct:2), classes (pct:2), the stretch (pct:4), multMc (pct:5)
+  // data: barRead (an axis label), listCount (a number of the list), groupsMc, buildBar and axisMc (data:1), compareMc
+  // (data:2), buildPie and pieOk (data:3), scaleMc and the covered wheel (data:4)
   const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b',
-    'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m'];
+    'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m',
+    'da1r', 'da1c', 'da1g', 'da1b', 'da1a', 'da2c', 'da3b', 'da3o', 'da4s', 'da4w'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {
