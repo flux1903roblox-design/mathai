@@ -709,3 +709,126 @@ test.describe('parent OK', () => {
     await shot(page, 'parent-ok-approved');
   });
 });
+
+test.describe('legal pages', () => {
+  // trust spec TRUST-2: the four pages and the AI safety statement, their anchors in a hash router, the draft banner
+  // that follows the owner's sign-off, and the links to them from the front page, the profile and the introduction
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const PAGES = [['#/privacy', 'מדיניות פרטיות'], ['#/terms', 'תקנון'], ['#/accessibility', 'הצהרת נגישות'], ['#/safety', 'בטיחות בעוזר החכם']];
+  const noSideScroll = (page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+
+  test('each page has its h1 and no sideways scroll at 320px; without a server each shows the draft banner and visible blanks', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await open(page, '#/');
+    for (const [route, title] of PAGES) {
+      await page.goto(`./${route}`);
+      await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+      await expect(page.getByRole('note')).toHaveText('טיוטה לבדיקה משפטית. הנוסח עוד לא סופי.');
+      expect(await noSideScroll(page), route).toBe(true);
+      await expect(page.locator('article.legal')).not.toContainText('{{');
+      await expect(page.locator('article.legal')).not.toContainText('{#');
+      await shot(page, `legal-${route.slice(2)}-320`);
+    }
+    await expect(page.locator('article.legal')).toContainText('ער״ן 1201');
+    await expect(page.locator('article.legal')).toContainText('______'); // no server: the contact is a visible blank
+  });
+
+  test('the plain path /terms#cancel opens the cancel section, scrolled to and focused', async ({ page }) => {
+    await open(page, '#/');
+    await page.goto('./terms#cancel');
+    await expect(page).toHaveURL(/\/#\/terms#cancel$/);
+    const heading = page.getByRole('heading', { level: 2, name: 'ביטול והחזר' });
+    await expect(heading).toBeFocused();
+    await expect(heading).toBeInViewport();
+    // under the sticky bar, not behind it
+    const bar = await page.locator('.parents-bar').boundingBox();
+    expect((await heading.boundingBox()).y).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+    await shot(page, 'legal-terms-cancel');
+  });
+
+  test('a link inside a page moves inside the app, with no new page load', async ({ page }) => {
+    await open(page, '#/terms');
+    await page.evaluate(() => { window.__samePage = 'yes'; });
+    await page.locator('article.legal').getByRole('link', { name: 'בטיחות בעוזר החכם' }).click();
+    await expect(page).toHaveURL(/#\/safety$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'בטיחות בעוזר החכם' })).toBeVisible();
+    expect(await page.evaluate(() => window.__samePage)).toBe('yes');
+    // and the statement links back to the cancel section of the terms the same way
+    await page.locator('article.legal').getByRole('link', { name: 'תקנון' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'תקנון' })).toBeVisible();
+    expect(await page.evaluate(() => window.__samePage)).toBe('yes');
+  });
+
+  test('the draft banner follows the server\'s legalApproved, and the details fill in from it', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.legalApproved = false;
+    await open(page, '#/terms', withServer());
+    await expect(page.getByRole('note')).toHaveText('טיוטה לבדיקה משפטית. הנוסח עוד לא סופי.');
+    await expect(page.locator('article.legal')).toContainText('מדרגות בדיקה, מספר עוסק 000000000');
+    await expect(page.locator('article.legal')).toContainText('גרסה 2026-11 · עודכן ב־01.11.2026');
+    st.legalApproved = true;
+    await page.reload();
+    await expect(page.locator('article.legal')).toContainText('מדרגות בדיקה');
+    await expect(page.getByRole('note')).toHaveCount(0);
+    await expect(page.getByText('טיוטה')).toHaveCount(0);
+    await expect(page.locator('article.legal')).not.toContainText('______');
+    await shot(page, 'legal-terms-approved');
+  });
+
+  test('the profile ends with the legal links; with a server, "ביטול מנוי" opens the cancel page', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/me', withServer());
+    const nav = page.getByRole('navigation', { name: 'מידע משפטי' });
+    for (const name of ['פרטיות', 'תקנון', 'נגישות', 'בטיחות', 'ביטול מנוי']) {
+      const link = nav.getByRole('link', { name, exact: true });
+      await expect(link).toBeVisible();
+      expect((await link.boundingBox()).height, name).toBeGreaterThanOrEqual(44);
+    }
+    await nav.scrollIntoViewIfNeeded();
+    await shot(page, 'me-footer');
+    await nav.getByRole('link', { name: 'ביטול מנוי' }).click();
+    await expect(page).toHaveURL(/#\/cancel$/);
+    await expect(page.getByRole('heading', { name: 'ביטול מנוי' })).toBeVisible();
+    // a copy without a server sells nothing: no cancel link there
+    await open(page, '#/me', student());
+    await expect(page.getByRole('navigation', { name: 'מידע משפטי' }).getByRole('link', { name: 'בטיחות' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'ביטול מנוי' })).toHaveCount(0);
+  });
+
+  test('the front page always links privacy, accessibility and safety; the cancel link and its note come with the paid tutor', async ({ page }) => {
+    await open(page, '#/');
+    let nav = page.getByRole('navigation', { name: 'מידע משפטי' });
+    for (const name of ['פרטיות', 'נגישות', 'בטיחות']) await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
+    for (const name of ['תקנון', 'ביטול מנוי', 'להורים']) await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
+    await nav.getByRole('link', { name: 'בטיחות' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'בטיחות בעוזר החכם' })).toBeVisible();
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/', withServer({ profile: null }));
+    nav = page.getByRole('navigation', { name: 'להורים ומידע משפטי' });
+    for (const name of ['להורים', 'ביטול מנוי', 'תקנון', 'פרטיות', 'נגישות', 'בטיחות']) await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
+    const cancel = nav.getByRole('link', { name: 'ביטול מנוי' });
+    await expect(cancel).toHaveAccessibleDescription('ביטול בשתי לחיצות, באתר, במייל או בטלפון');
+    await expect(page.getByText('ביטול בשתי לחיצות, באתר, במייל או בטלפון')).toBeVisible();
+    for (const b of ['מתחילים', 'אני מורה']) await expect(page.getByRole('button', { name: b })).toBeInViewport();
+    await shot(page, 'welcome-legal');
+  });
+
+  test('the introduction links the safety statement: it closes, sends nothing, and comes again next time', async ({ page }) => {
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', firstTime());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('מה זה מספר שלילי?'); await draft.press('Enter');
+    const intro = page.getByRole('dialog', { name: 'לפני שמתחילים עם העוזר החכם' });
+    const more = intro.getByRole('link', { name: 'עוד על בטיחות ופרטיות' });
+    expect((await more.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await more.click();
+    await expect(page.getByRole('heading', { level: 1, name: 'בטיחות בעוזר החכם' })).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(chatCalls(log)).toHaveLength(0);
+    await page.getByRole('button', { name: 'חזרה' }).click();
+    await expect(page.getByLabel('ההודעה שלכם')).toBeVisible();
+    await page.getByLabel('ההודעה שלכם').fill('שוב'); await page.getByLabel('ההודעה שלכם').press('Enter');
+    await expect(intro).toBeVisible();
+  });
+});

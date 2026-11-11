@@ -2,6 +2,9 @@
 // is software, not a person; what it is for; where what is written goes; what never to write; and that a person to
 // talk to is one tap away. Mounted once in the app; opened by gate() and by the chat (account.js needIntro). Its one
 // button remembers it on this device and continues what the child asked for. Madi waits beside the words, still.
+// "עוד על בטיחות ופרטיות" opens the public safety statement (/safety); it closes the introduction and sends nothing,
+// so the introduction comes again before the next AI action.
+import { Link } from 'react-router-dom';
 import { useAIIntro, acceptAIIntro, closeAIIntro } from '@/lib/account.js';
 import { AI_INTRO } from '@/content/aiSafety.js';
 import { Button, Sheet } from './ui.jsx';
@@ -17,6 +20,7 @@ export default function AIIntro() {
         <ul className="ai-intro-list">
           {AI_INTRO.lines.map((line) => <li key={line}>{line}</li>)}
         </ul>
+        <Link to="/safety" className="ai-intro-more" onClick={closeAIIntro}>{AI_INTRO.more}</Link>
       </div>
     </Sheet>
   );

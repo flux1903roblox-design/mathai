@@ -402,7 +402,9 @@ test.describe('the smart tutor', () => {
     await expect(page.getByRole('radio', { name: /שנתי/ })).toContainText('₪249 לשנה, כולל מע״מ (₪20.75 לחודש)');
     // the disclosure, before payment
     await expect(page.getByLabel('פרטי העסק')).toContainText('מדרגות בדיקה');
+    await expect(page.getByLabel('פרטי העסק').getByRole('link', { name: 'מדיניות הביטול' })).toHaveAttribute('href', '#/terms#cancel');
     await expect(page.getByRole('contentinfo', { name: 'ביטול מנוי ומידע משפטי' })).toContainText('רחוב הבדיקה 1');
+    await expect(page.getByRole('contentinfo', { name: 'ביטול מנוי ומידע משפטי' }).getByRole('link', { name: 'בטיחות' })).toHaveAttribute('href', '#/safety');
   });
 
   test('before paying: the monthly plan renews each month until cancelled; the yearly plan is one year and never renews by itself', async ({ page }) => {
@@ -613,7 +615,8 @@ test.describe('the smart tutor', () => {
     await fakeServer(page, { parentOk: true, paywall: false }, baseOf());
     await open(page, '#/', parentPhone());
     const nav = page.getByRole('navigation', { name: 'מידע משפטי' });
-    await expect(nav.getByRole('link', { name: 'תקנון' })).toBeVisible();
+    for (const name of ['פרטיות', 'נגישות', 'בטיחות']) await expect(nav.getByRole('link', { name })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'תקנון' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'ביטול מנוי' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'להורים' })).toHaveCount(0);
   });

@@ -77,13 +77,36 @@ FREE_DEVICE_MINT = "off"
 # midnight), and at most this many wrong codes a day from one network (so a stranger cannot burn a parent's codes).
 MAIL_DAILY_CAP = "3000"
 VERIFY_FAIL_NET_DAILY = "30"
-# Business details for the checkout disclosure and the emails.
+# Business details for the checkout disclosure, the legal pages and the emails (trust spec TRUST-2 §4-5).
 BUSINESS_NAME = ""
 BUSINESS_ID = ""
+# "עוסק מורשה", "עוסק פטור" or "חברה בע״מ", as the terms say it before the number
+BUSINESS_KIND = ""
 BUSINESS_ADDRESS = ""
 CONTACT_EMAIL = ""
 CONTACT_PHONE = ""
 OWNER_EMAIL = ""
+# The payment company's name as the terms show it, e.g. "Grow (משולם)"
+PAYMENT_PROVIDER_NAME = ""
+# ---- the legal pages and the go-live gate (trust spec TRUST-2, TRUST-13) ----
+# The date the legal texts were last changed (YYYY-MM-DD), shown on them.
+LEGAL_DATE = ""
+# Where the D1 database is: "eu" once it was created with --jurisdiction=eu (TRUST-15 step 1). The privacy notice says
+# "באיחוד האירופי" only then; any other value keeps checkout closed.
+DB_JURISDICTION = ""
+# THE OWNER'S ONE ACTION after the lawyer approved the texts: set LEGAL_APPROVED to the TERMS_VERSION above (e.g.
+# "2026-11") and deploy. Until it matches, and while any business detail above, PAYMENT_PROVIDER_NAME, LEGAL_DATE or
+# DB_JURISDICTION is empty, online checkout answers 503 legal_not_ready for every plan and the legal pages show "טיוטה".
+# A new TERMS_VERSION closes checkout again until it is approved too. GET /api/billing/plans lists what is missing
+# (legalMissing). A school licence code (npm run owner -- grant-school) is not gated by this.
+LEGAL_APPROVED = ""
+# The accessibility statement's coordinator, the date of the last check and what it was checked with (TRUST-13 step 4),
+# e.g. ACCESS_TESTED = "axe 4.10.2, VoiceOver iOS 26, TalkBack 16, Chrome ו־Safari".
+ACCESS_COORD_NAME = ""
+ACCESS_COORD_PHONE = ""
+ACCESS_COORD_EMAIL = ""
+ACCESS_STATEMENT_DATE = ""
+ACCESS_TESTED = ""
 # Codes and notices are sent from this address through Resend (the domain must be verified there).
 EMAIL_FROM = ""
 

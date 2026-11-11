@@ -129,17 +129,19 @@ function Onboarding({ onTeacher }) {
         <footer className="hello-foot" data-region="footer">
           <Button className="btn-block btn-lg" onClick={() => setI(0)}>מתחילים</Button>
           <Button variant="secondary" className="btn-block" onClick={onTeacher}>אני מורה</Button>
-          {/* the site's front page carries the dedicated cancel link and the parents' page while the tutor is sold,
-              and the legal pages (with a server) */}
-          {server && (
-            <nav className="hello-legal" aria-label={billing ? 'להורים ומידע משפטי' : 'מידע משפטי'}>
-              {billing && <Link to="/parents">להורים</Link>}
-              {billing && <Link to="/cancel">ביטול מנוי</Link>}
-              <Link to="/terms">תקנון</Link>
-              <Link to="/privacy">פרטיות</Link>
-              <Link to="/accessibility">נגישות</Link>
-            </nav>
-          )}
+          {/* the site's front page (trust spec TRUST-2 §7): the privacy notice, the accessibility statement and the AI
+              safety statement always (each page renders without a server); while the tutor is sold, also the parents'
+              page, the terms, and the dedicated cancel link with how to cancel beside it (Consumer Protection Law
+              s.14ט(ב), (ה)(2)). Every device without a profile opens here, the parent's own phone too. */}
+          <nav className="hello-legal" aria-label={billing ? 'להורים ומידע משפטי' : 'מידע משפטי'}>
+            {billing && <Link to="/parents">להורים</Link>}
+            {billing && <Link to="/cancel" aria-describedby="hello-cancel-how">ביטול מנוי</Link>}
+            {billing && <Link to="/terms">תקנון</Link>}
+            <Link to="/privacy">פרטיות</Link>
+            <Link to="/accessibility">נגישות</Link>
+            <Link to="/safety">בטיחות</Link>
+          </nav>
+          {billing && <p id="hello-cancel-how" className="hello-legal-note">ביטול בשתי לחיצות, באתר, במייל או בטלפון</p>}
         </footer>
       </div>
     );

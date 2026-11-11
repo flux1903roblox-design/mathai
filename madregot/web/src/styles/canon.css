@@ -470,6 +470,12 @@ a { color: var(--brand-d); }
 /* the legal pages: plain reading */
 .legal { display: flex; flex-direction: column; gap: var(--s3); font-size: var(--t-base); line-height: 1.7; }
 .legal h2 { font-size: 20px; line-height: 26px; margin: var(--s3) 0 0; }
+.legal h3 { font-size: 17px; line-height: 24px; margin: var(--s2) 0 0; }
+/* a section opened by its anchor (#/terms#cancel) lands under the sticky bar, and its focus ring hugs the words */
+.legal [id] { scroll-margin-top: 72px; border-radius: 6px; }
+.legal a { overflow-wrap: anywhere; }
+/* one note while the texts wait for the lawyer's review (TRUST-2 §2) */
+.legal-draft { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); font-weight: 600; }
 .legal ul { margin: 0; padding-inline-start: var(--s5); }
 .legal blockquote { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--gold-tint); color: var(--gold-ink); }
 .legal p { margin: 0; }
@@ -477,6 +483,12 @@ a { color: var(--brand-d); }
 /* the front page: the parents' and legal links, small, under the two ways in */
 .hello-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
 .hello-legal a { color: var(--ink-2); font-weight: 600; padding: 6px 0; min-height: 32px; }
+/* how to cancel, beside the cancel link (Consumer Protection Law s.14ט(ה)(2)) */
+.hello-legal-note { margin: calc(-1 * var(--s1)) 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
+/* the profile's last row: the legal pages, quiet, each a full-size target */
+.me-foot { margin-top: var(--s5); padding-top: var(--s3); border-top: 2px solid var(--rule); }
+.me-foot-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); }
+.me-foot-links a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: var(--s1); color: var(--ink-2); font-size: var(--t-sm); font-weight: 600; }
 /* a short phone with the links: the character and the gaps give up a little room, so the two buttons stay in view */
 @media (max-height: 700px) {
   .hello-duo:has(.hello-legal) .hello-center { padding-block: var(--s3); gap: var(--s2); }
@@ -608,6 +620,7 @@ button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .ai-intro-madi { flex: none; }
 .ai-intro-list { display: flex; flex-direction: column; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
 .ai-intro-list li { position: relative; padding-inline-start: var(--s4); font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
+.ai-intro-more { display: inline-flex; align-items: center; min-height: 44px; color: var(--brand-d); font-weight: 700; font-size: var(--t-base); }
 .ai-intro-list li::before { content: ''; position: absolute; inset-inline-start: 0; top: 0.62em; width: 7px; height: 7px; border-radius: 50%; background: var(--brand); }
 .report-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; color: var(--ink-2); background: transparent; }
 .report-btn:hover:not(:disabled) { color: var(--brand-d); background: var(--brand-tint); }

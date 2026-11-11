@@ -1,5 +1,6 @@
 // The frame of every page in the parents' area: its own bar ("מדרגות · להורים"), no tab bar, and the footer with the
-// cancel link, the legal pages and the business details (the same on every view, as the consumer law asks).
+// cancel link, the legal pages, the AI safety statement and the business details (the same on every view, as the
+// consumer law asks).
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
@@ -23,6 +24,7 @@ export function ParentsFooter({ business }) {
         <Link to="/terms">תקנון</Link>
         <Link to="/privacy">פרטיות</Link>
         <Link to="/accessibility">הצהרת נגישות</Link>
+        <Link to="/safety">בטיחות</Link>
       </nav>
       {(details || b.email) && (
         <p className="parents-foot-biz">{details}{details && b.email ? ' · ' : ''}{b.email && <a href={`mailto:${b.email}`} dir="ltr">{b.email}</a>}</p>

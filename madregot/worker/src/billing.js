@@ -2,7 +2,7 @@
 // us pull the truth, applied in one atomic batch behind its billing_events row), cancellation (which stands even when
 // the provider is down), resume, refunds, and the parent's account page (overview, export, deletion).
 import {
-  HttpError, body, json, rawBody, sha256, randomToken, nowIso, dayOf, daysAgo, secretEqual, limitOrThrow,
+  HttpError, body, json, rawBody, sha256, randomToken, nowIso, dayOf, daysAgo, secretEqual, limitOrThrow, isDay,
 } from './util.js';
 import { requireAccount, requireRecentCode } from './account.js';
 import { requireTeacher, limits, paywallOn, parentOkRequired } from './entitle.js';
@@ -41,10 +41,40 @@ export const termsVersion = (env) => String(env.TERMS_VERSION || '2026-11');
 export const SEATS = { min: 10, max: 45 };
 const publicUrl = (env) => String(env.PUBLIC_URL || '').replace(/\/+$/, '');
 
-/** Online sign-up opens only when the switch is on and the provider can both take payments and cancel them online. */
+// ---------------------------------------------------------------- the legal gate (trust spec TRUST-2 §5-6, TRUST-13)
+/**
+ * The vars the legal pages and the checkout disclosure are filled from. Every one must be set before money can be
+ * taken: the business (name, number, kind, address), how to reach it, the payment company's name, the date of the
+ * legal texts, and where the database is. DB_JURISDICTION must be "eu", the only place the privacy notice has words
+ * for (TRUST-15 step 1), so the notice never names a place the database is not in.
+ */
+export const LEGAL_VARS = Object.freeze([
+  'BUSINESS_NAME', 'BUSINESS_ID', 'BUSINESS_KIND', 'BUSINESS_ADDRESS', 'CONTACT_EMAIL', 'CONTACT_PHONE', 'PAYMENT_PROVIDER_NAME', 'LEGAL_DATE', 'DB_JURISDICTION',
+]);
+const filled = (env, k) => String(env[k] ?? '').trim();
+/**
+ * The names of the vars that keep the legal gate closed: each LEGAL_VARS entry that is empty or wrong (LEGAL_DATE not a
+ * YYYY-MM-DD day, DB_JURISDICTION not "eu"), and LEGAL_APPROVED unless it names the current TERMS_VERSION. The owner's
+ * one action after the lawyer's review is LEGAL_APPROVED = "<TERMS_VERSION>"; a new terms version closes the gate again
+ * until it is approved too.
+ */
+export function legalMissing(env) {
+  const out = LEGAL_VARS.filter((k) => !filled(env, k));
+  if (filled(env, 'LEGAL_DATE') && !isDay(filled(env, 'LEGAL_DATE'))) out.push('LEGAL_DATE');
+  if (filled(env, 'DB_JURISDICTION') && filled(env, 'DB_JURISDICTION') !== 'eu') out.push('DB_JURISDICTION');
+  if (filled(env, 'LEGAL_APPROVED') !== termsVersion(env)) out.push('LEGAL_APPROVED');
+  return out;
+}
+/** The lawyer-approved texts are live and every detail they quote is set: online checkout may open. */
+export const legalReady = (env) => legalMissing(env).length === 0;
+
+/**
+ * Online sign-up opens only when the switch is on, the legal texts are approved (legalReady), and the provider can both
+ * take payments and cancel them online.
+ */
 export function onlineCheckout(env) {
   const p = currentProvider(env);
-  return paywallOn(env) && !!p && p.capabilities.online && p.capabilities.cancelApi;
+  return paywallOn(env) && legalReady(env) && !!p && p.capabilities.online && p.capabilities.cancelApi;
 }
 function checkoutHosts(env) {
   const hosts = String(env.BILLING_CHECKOUT_HOSTS || '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
@@ -75,8 +105,19 @@ export function plansView(env) {
       free: { tutor: L.free.student },
     },
     checkoutHosts: checkoutHosts(env),
-    business: { name: env.BUSINESS_NAME || '', id: env.BUSINESS_ID || '', address: env.BUSINESS_ADDRESS || '', email: env.CONTACT_EMAIL || '', phone: env.CONTACT_PHONE || '' },
+    // the details the legal pages and the checkout disclosure quote (TRUST-2 §4-5); the web app fills {{NAME}} from them
+    business: {
+      name: env.BUSINESS_NAME || '', id: env.BUSINESS_ID || '', kind: env.BUSINESS_KIND || '', address: env.BUSINESS_ADDRESS || '',
+      email: env.CONTACT_EMAIL || '', phone: env.CONTACT_PHONE || '', provider: env.PAYMENT_PROVIDER_NAME || '',
+    },
+    accessibility: {
+      name: env.ACCESS_COORD_NAME || '', phone: env.ACCESS_COORD_PHONE || '', email: env.ACCESS_COORD_EMAIL || '',
+      date: env.ACCESS_STATEMENT_DATE || '', tested: env.ACCESS_TESTED || '',
+    },
     contact: env.CONTACT_EMAIL || '',
+    legalDate: env.LEGAL_DATE || '', dbJurisdiction: env.DB_JURISDICTION || '',
+    // false until the owner's sign-off (TRUST-13): the legal pages show the draft banner and checkout stays closed
+    legalApproved: legalReady(env), legalMissing: legalMissing(env),
   };
 }
 
@@ -95,6 +136,8 @@ export const cancelReference = async (subId, requestedAt) => `C-${(await sha256(
 export async function checkout(req, env, cors) {
   const account = await requireAccount(req, env);
   if (!paywallOn(env)) throw new HttpError(503, 'paywall_off');
+  // no money before the lawyer-approved texts are live, for every plan (a school code, licenceClaim, is not gated here)
+  if (!legalReady(env)) throw new HttpError(503, 'legal_not_ready');
   const b = await body(req);
   const idem = String(req.headers.get('Idempotency-Key') || '');
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(idem)) throw new HttpError(400, 'bad_idempotency_key');

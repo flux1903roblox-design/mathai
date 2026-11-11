@@ -90,6 +90,17 @@ export function makeEnv(over = {}) {
     PRICE_CLASS_SEAT_YEAR_AGOROT: '4900',
     VAT_MODE: 'included',
     TERMS_VERSION: '2026-11',
+    // the legal gate (trust spec TRUST-2 §5): every detail set and the current terms approved, so checkout is open;
+    // legal.test.js closes it var by var. Synthetic details only.
+    BUSINESS_NAME: 'מדרגות בדיקה',
+    BUSINESS_ID: '000000000',
+    BUSINESS_KIND: 'עוסק מורשה',
+    BUSINESS_ADDRESS: 'רחוב הבדיקה 1, תל אביב',
+    CONTACT_PHONE: '03-0000000',
+    PAYMENT_PROVIDER_NAME: 'ספק בדיקה',
+    LEGAL_DATE: '2026-11-01',
+    DB_JURISDICTION: 'eu',
+    LEGAL_APPROVED: '2026-11',
     RESEND_API_KEY: 'resend-test',
     EMAIL_FROM: 'מדרגות <no-reply@example.test>',
     ...SECRETS,

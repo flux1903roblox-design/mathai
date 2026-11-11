@@ -127,6 +127,7 @@ function Root() {
         <Route path="/terms" element={<Legal doc="terms" />} />
         <Route path="/privacy" element={<Legal doc="privacy" />} />
         <Route path="/accessibility" element={<Legal doc="accessibility" />} />
+        <Route path="/safety" element={<Legal doc="safety" />} />
         {!role && <Route path="*" element={<Welcome />} />}
         {role === 'teacher' && (
           <>

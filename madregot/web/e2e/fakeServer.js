@@ -18,8 +18,11 @@ export const PLANS = {
     { id: 'class_year', kind: 'class', interval: 'year', seatAgorot: 4900, minSeats: 10, maxSeats: 45, renews: false },
   ],
   limits: { family: { ...FAMILY, examMonthly: 10, devices: 3 }, class: CLASS, free: { tutor: 2 } },
-  business: { name: 'מדרגות בדיקה', id: '000000000', address: 'רחוב הבדיקה 1, תל אביב', email: 'hello@example.test', phone: '03-0000000' },
+  business: { name: 'מדרגות בדיקה', id: '000000000', kind: 'עוסק מורשה', address: 'רחוב הבדיקה 1, תל אביב', email: 'hello@example.test', phone: '03-0000000', provider: 'ספק בדיקה' },
+  accessibility: { name: 'רכזת בדיקה', phone: '03-0000001', email: 'access@example.test', date: '2026-11-02', tested: 'axe, VoiceOver' },
   contact: 'hello@example.test',
+  // the legal gate (trust spec TRUST-2 §5): approved here; st.legalApproved = false shows the draft banner
+  legalDate: '2026-11-01', dbJurisdiction: 'eu', legalApproved: true, legalMissing: [],
 };
 export const TOKEN = (n) => String(n).padStart(64, 'a');
 
@@ -38,7 +41,7 @@ export const livePlan = (over = {}) => ({
  */
 export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:4173/') {
   const st = {
-    paywall: true, online: true, shared: null, breakNext: null, economy: false, parentOk: false,
+    paywall: true, online: true, legalApproved: true, shared: null, breakNext: null, economy: false, parentOk: false,
     freeUsed: {}, freeLimit: 2, famUsed: { tutor: 0, check: 0, generate: 0, exam: 0 }, classLicence: false,
     plan: null, sessions: new Set(), recent: new Set(), devices: [], links: {}, orders: {}, n: 0,
     licence: { status: 'none', until: null, seats: null, students: 2, aiWeek: 0, joinLocked: false, request: null, legacyUntil: null, offer: { seatYearAgorot: 4900, minSeats: 10, vatMode: 'included', online: true } },
@@ -160,7 +163,10 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       st.n += 1; const t = TOKEN(st.n); st.sessions.add(t); st.recent.add(t);
       return reply(route, 200, { token: t, email: body.email });
     }
-    if (path === '/api/billing/plans') return reply(route, 200, { ...PLANS, paywall: st.paywall, online: st.online });
+    if (path === '/api/billing/plans') {
+      const legal = st.legalApproved !== false;
+      return reply(route, 200, { ...PLANS, paywall: st.paywall, online: st.online && legal, legalApproved: legal, legalMissing: legal ? [] : ['LEGAL_APPROVED'] });
+    }
     if (path.startsWith('/api/account') || path.startsWith('/api/billing') || path === '/api/family/link/claim' || path.startsWith('/api/family/devices') || path === '/api/teacher/licence/request') {
       if (path.startsWith('/api/teacher')) { /* checked below with the class too */ } else if (!signed) return reply(route, 401, { error: 'not_account' });
     }

@@ -45,6 +45,8 @@ const MESSAGES = {
   confirm_required: 'צריך לאשר את המחיקה.',
   // checkout
   checkout_not_configured: 'ההצטרפות באתר עוד לא פתוחה. כתבו לנו ונפעיל את המנוי לחשבון.',
+  // the legal texts are not approved yet (trust spec TRUST-2 §6): no payment page opens
+  legal_not_ready: 'ההצטרפות באתר עוד לא פתוחה. כתבו לנו ונפעיל את המנוי לחשבון.',
   already_subscribed: 'יש לכם כבר מנוי פעיל.',
   adult_required: 'כדי להמשיך צריך לאשר שאתם מעל גיל 18 וההורים או האפוטרופוס.',
   terms_required: 'כדי להמשיך צריך לאשר את התקנון ואת מדיניות הביטול.',
