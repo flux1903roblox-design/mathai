@@ -149,6 +149,31 @@ function childText(kind, input) {
 
 const hostOf = (url) => { try { return new URL(url).hostname.toLowerCase(); } catch { return ''; } };
 
+// Photos (trust spec TRUST-5). Every page passes the step that crops and blacks out on the device, and a PDF cannot pass
+// it, so the server takes none: an older app cannot skip the step. "%PDF" is "JVBERi" in base64, the start of every PDF.
+const isPdf = (mediaType, data) => {
+  const d = String(data || '');
+  return String(mediaType || '').toLowerCase() === 'application/pdf' || /^data:application\/pdf/i.test(d) || d.replace(/^data:[^,]*,/, '').startsWith('JVBERi');
+};
+function sendsPdf(kind, input) {
+  if (kind === 'exam') return (Array.isArray(input.pages) ? input.pages : []).some((p) => isPdf(p?.mediaType, p?.data));
+  if (kind === 'check') return isPdf(input.mediaType, input.image);
+  return false;
+}
+/**
+ * How the photos of this request were prepared on the device: input.prep = { crop, boxes }. One safety event per thing
+ * done ('crop' for a cut top band, 'black' for blacked-out boxes) or 'none', with nothing of the pages.
+ */
+function photoPrepRows(kind, input, tier) {
+  const p = input.prep;
+  if ((kind !== 'exam' && kind !== 'check') || !p || typeof p !== 'object') return [];
+  const row = (category) => ({ kind: 'photo_redacted', category, surface: kind, source: 'client', tier });
+  const crop = p.crop === true;
+  const black = Number.isInteger(p.boxes) && p.boxes > 0;
+  if (!crop && !black) return [row('none')];
+  return [...(crop ? [row('crop')] : []), ...(black ? [row('black')] : [])];
+}
+
 /**
  * Screen every string of a JSON reply (trust spec TRUST-4 §4.2). → { data, blocked, linksRemoved }. `care`: a care
  * result is never checked against the blocklist; its links still are.
@@ -192,6 +217,8 @@ async function handleAI(kind, req, env, ctx, cors) {
   // writes that they are in distress gets an answer even when the server has no AI key, the day's questions are used
   // up, or the plan does not cover the AI. That answer is never counted against a question.
   const input = await body(req, AI_BODY_MAX[kind]);
+  // a PDF never reaches Claude, and nothing is counted for it
+  if (sendsPdf(kind, input)) throw new HttpError(400, 'pdf_not_allowed');
   const hit = detectDistress(freeText(kind, input));
   if (!hit.flag && !env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
   const r = hit.flag ? await resolveCare(req, env, kind, input) : await resolve(req, env, kind, input);
@@ -204,6 +231,8 @@ async function handleAI(kind, req, env, ctx, cors) {
   // of detail, with nothing of the text (trust spec TRUST-4 §4.1).
   const pii = scanPersonal(childText(kind, input));
   if (pii.length) recordSafety(env, pii.map((category) => ({ kind: 'pii_masked', category, surface: kind, source: 'regex', tier: r.tier })), ctx);
+  const prepped = photoPrepRows(kind, input, r.tier);
+  if (prepped.length) recordSafety(env, prepped, ctx);
   const screen = { hosts: [hostOf(env.PUBLIC_URL)].filter(Boolean) };
   const event = (k) => recordSafety(env, { kind: k, surface: kind, source: 'server', tier: r.tier }, ctx);
   let returned = false;

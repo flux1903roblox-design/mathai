@@ -139,6 +139,8 @@ test.describe('what the tutor is told', () => {
     // a small synthetic picture of a page (one white pixel)
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==', 'base64');
     await sheet.locator('input[type="file"]').setInputFiles({ name: 'work.png', mimeType: 'image/png', buffer: png });
+    // every photo passes the step that hides personal details on the device (trust spec TRUST-5); here nothing to hide
+    await page.getByRole('dialog', { name: 'מסתירים פרטים אישיים' }).getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
     await expect(sheet.getByRole('img', { name: 'התמונה שבחרתם' })).toBeVisible();
     await sheet.getByLabel('על איזה תרגיל מדובר? (לא חובה)').fill('3x = 12');
     await sheet.getByRole('button', { name: 'בדיקת הפתרון' }).click();
@@ -148,6 +150,7 @@ test.describe('what the tutor is told', () => {
     expect(body.ctx.item).toBeUndefined();
     expect(body.question).toBe('3x = 12');
     expect(body.image).toMatch(/^data:image\/jpeg;base64,/);
+    expect(body.prep).toEqual({ crop: false, boxes: 0 });
   });
 });
 

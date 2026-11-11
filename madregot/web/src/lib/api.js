@@ -109,6 +109,8 @@ const MESSAGES = {
   free_paused: 'העוזר החכם נח היום. מחר הוא חוזר.',
   monthly_fair_use: 'הבדיקות של החודש נגמרו. הן חוזרות ב־1 בחודש.',
   too_large: 'הקובץ גדול מדי. נסו תמונה קטנה יותר.',
+  // every page passes the step that hides personal details on the device, and a PDF cannot (trust spec TRUST-5 §3)
+  pdf_not_allowed: 'אי אפשר לשלוח קובץ PDF לבדיקה. אפשר לצלם את הדפים במקום.',
 };
 export const errorText = (code) => MESSAGES[code] || 'משהו השתבש. נסו שוב.';
 /**

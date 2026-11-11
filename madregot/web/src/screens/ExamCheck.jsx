@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Camera, FileUp, FileText, X } from 'lucide-react';
+import { Camera, ImageUp, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady } from '@/lib/ai.js';
@@ -16,25 +16,30 @@ import { aiAccess, gate, useAIStatus } from '@/lib/account.js';
 import ToolLocked from '@/components/ToolLocked.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
 import { scrubTitle } from '@shared/safety.js';
+import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
+import PhotoPrep, { EXAM_HEADER } from '@/components/PhotoPrep.jsx';
 
-async function imageToJpeg(file) {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    const scale = Math.min(1, 1800 / Math.max(img.width, img.height));
-    const c = document.createElement('canvas'); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-    const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL('image/jpeg', 0.85);
-  } finally { URL.revokeObjectURL(url); }
-}
-const readDataUrl = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+/**
+ * What the request says about the pages' preparation (trust spec TRUST-5 §2): whether any top band was cut and how many
+ * boxes were blacked out, in all. The server counts it, with nothing of the pages.
+ */
+const prepOf = (pages) => ({ crop: pages.some((p) => p.prep?.crop), boxes: pages.reduce((n, p) => n + (p.prep?.boxes || 0), 0) });
+// No PDF is sent any more: every page passes PhotoPrep, and a PDF cannot (trust spec TRUST-5 §3).
+const PDF_TOAST = 'אי אפשר לבדוק כאן קובץ PDF. אפשר לצלם את הדפים במקום.';
 
 export default function ExamCheck() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { profile, practiceExams, progress, exams, wins, addExam, resetPlanBase } = useApp();
   const practice = practiceExams.find((p) => p.id === params.get('practice')) || null;
-  const [pages, setPages] = useState([]); // { data, mediaType, name }
+  const [pages, setPages] = useState([]); // { data, mediaType, name, prep }
+  // pictures waiting for PhotoPrep, the first one open: { id, file }
+  const [queue, setQueue] = useState([]);
+  const queued = useRef(0);
+  const camRef = useRef(null);
+  const pickRef = useRef(null);
+  const lastInput = useRef(null);
+  const { ask, warn: photoWarn } = usePhotoWarn();
   const [title, setTitle] = useState('');
   const [state, setState] = useState({ phase: 'idle' });
   const mounted = useRef(true);
@@ -47,21 +52,25 @@ export default function ExamCheck() {
     return () => window.removeEventListener('beforeunload', warn);
   }, [state.phase]);
 
-  const add = async (e) => {
+  // the warning first (once a session), then the camera or the picker; the input remembered for "צילום מחדש"
+  const openInput = (el) => { lastInput.current = el; ask(el); };
+  const add = (e) => {
     const files = [...(e.target.files || [])]; e.target.value = '';
-    const next = [...pages];
+    let room = MAX_EXAM_PAGES - pages.length - queue.length;
+    const next = [];
     for (const f of files) {
-      if (next.length >= MAX_EXAM_PAGES) { toast(`אפשר עד ${MAX_EXAM_PAGES} דפים בבדיקה אחת`); break; }
-      try {
-        if (f.type === 'application/pdf') {
-          if (f.size > 9_000_000) { toast.error('קובץ ה־PDF גדול מדי (עד 9MB).'); continue; }
-          next.push({ data: await readDataUrl(f), mediaType: 'application/pdf', name: f.name });
-        } else if (f.type.startsWith('image/')) {
-          next.push({ data: await imageToJpeg(f), mediaType: 'image/jpeg', name: f.name });
-        }
-      } catch { toast.error(`לא הצלחנו לקרוא את ${f.name}`); }
+      if (!f.type.startsWith('image/')) { toast.error(f.type === 'application/pdf' ? PDF_TOAST : `לא הצלחנו לקרוא את ${f.name}`); continue; }
+      if (room <= 0) { toast(`אפשר עד ${MAX_EXAM_PAGES} דפים בבדיקה אחת`); break; }
+      room -= 1; queued.current += 1;
+      next.push({ id: queued.current, file: f });
     }
-    setPages(next);
+    if (next.length) setQueue((q) => [...q, ...next]);
+  };
+  const current = queue[0] || null;
+  const shift = () => setQueue((q) => q.slice(1));
+  const prepDone = ({ data, prep }) => {
+    setPages((list) => [...list, { data, mediaType: 'image/jpeg', name: current.file.name, prep }]);
+    shift();
   };
 
   const check = async () => {
@@ -76,7 +85,7 @@ export default function ExamCheck() {
       const own = rescueTopicsFor(profile.grade || '7').map((t) => t.id);
       const topics = TOPICS.filter((t) => own.includes(t.id) || practice?.items.some((i) => i.topic === t.id)).map((t) => ({ id: t.id, title: t.title, levels: t.levels.map((l) => l.title) }));
       const result = await runAI('exam', {
-        grade: profile.grade || '7', pages: pages.map(({ data, mediaType }) => ({ data, mediaType })), topics,
+        grade: profile.grade || '7', pages: pages.map(({ data, mediaType }) => ({ data, mediaType })), topics, prep: prepOf(pages),
         key: practice ? practice.items.map((i) => ({ prompt: i.plain, answer: i.answer })) : undefined,
       });
       if (!result.readable || !result.questions?.length) {
@@ -158,7 +167,7 @@ export default function ExamCheck() {
       ) : (
         <>
           <div className="ob-ask check-ask" data-region="question">
-            <p className="ob-bubble">{practice ? `${practice.title}: צלמו את הדפים שפתרתם. התשובות הנכונות כבר אצלי, אז אני רק קורא ומשווה.` : 'צלמו את דפי המבחן, דף אחד בכל צילום, או העלו PDF. אבדוק כל שאלה ואסביר.'}</p>
+            <p className="ob-bubble">{practice ? `${practice.title}: צלמו את הדפים שפתרתם. התשובות הנכונות כבר אצלי, אז אני רק קורא ומשווה.` : 'צלמו את דפי המבחן, דף אחד בכל צילום. אבדוק כל שאלה ואסביר.'}</p>
           </div>
           {/* a failed check says so right under the question, where it is seen without scrolling */}
           {state.phase === 'error' && <p className="form-error check-error" role="alert">{state.message}</p>}
@@ -168,9 +177,7 @@ export default function ExamCheck() {
             <ul className="page-thumbs">
               {pages.map((p, i) => (
                 <li key={`${p.name}-${i}`} className="page-thumb">
-                  {p.mediaType === 'application/pdf'
-                    ? <span className="pdf-thumb"><FileText size={28} aria-hidden="true" /><span>{p.name}</span></span>
-                    : <img src={p.data} alt={`דף ${i + 1}`} width={96} height={128} />}
+                  <img src={p.data} alt={`דף ${i + 1}`} width={96} height={128} />
                   <span className="page-num">{i + 1}</span>
                   <button type="button" className="icon-btn page-remove" aria-label={`הסרת דף ${i + 1}`} onClick={() => setPages(pages.filter((_, k) => k !== i))}><X size={18} /></button>
                 </li>
@@ -178,23 +185,24 @@ export default function ExamCheck() {
               {pages.length < MAX_EXAM_PAGES && (
                 <>
                 <li>
-                  <label className="page-add">
-                    <input type="file" accept="image/*" capture="environment" className="visually-hidden" onChange={add} />
+                  <button type="button" className="page-add" onClick={() => openInput(camRef.current)}>
                     <Camera size={26} aria-hidden="true" />
                     <span>{pages.length ? 'צילום דף נוסף' : 'צילום דף'}</span>
-                  </label>
+                  </button>
                 </li>
                 <li>
-                  <label className="page-add">
-                    <input type="file" accept="image/*,application/pdf" multiple className="visually-hidden" onChange={add} />
-                    <FileUp size={26} aria-hidden="true" />
-                    <span>תמונה או PDF</span>
-                  </label>
+                  <button type="button" className="page-add" onClick={() => openInput(pickRef.current)}>
+                    <ImageUp size={26} aria-hidden="true" />
+                    <span>בחירת תמונה</span>
+                  </button>
                 </li>
                 </>
               )}
             </ul>
-            <p className="field-hint">לתמונה טובה: אור טוב, הדף שטוח וכולו בתמונה.</p>
+            {/* images only: a PDF could not pass the step that hides personal details */}
+            <input ref={camRef} type="file" accept="image/*" capture="environment" className="visually-hidden" tabIndex={-1} aria-hidden="true" onChange={add} />
+            <input ref={pickRef} type="file" accept="image/*" multiple className="visually-hidden" tabIndex={-1} aria-hidden="true" onChange={add} />
+            <p className="field-hint">לתמונה טובה: אור טוב, הדף שטוח וכולו בתמונה. בלי שם ובלי תעודת זהות.</p>
           </section>
           {!practice && (
             <Field label="שם המבחן (לא חובה)" id="ex-title">
@@ -204,6 +212,11 @@ export default function ExamCheck() {
           <ScreenFoot>
             <Button className="btn-block btn-lg" onClick={check} disabled={!pages.length} data-region="primary">{state.phase === 'error' ? 'לבדוק שוב' : 'בדיקת המבחן'}</Button>
           </ScreenFoot>
+          {photoWarn}
+          {/* every page passes here before it joins the list: the first page of an exam loses its top band by default */}
+          <PhotoPrep file={current?.file || null} crop={pages.length === 0 ? EXAM_HEADER : 0} onDone={prepDone}
+            onRetake={() => { shift(); ask(lastInput.current); }} onCancel={shift}
+            onError={() => { toast.error(`לא הצלחנו לקרוא את ${current?.file.name || 'התמונה'}`); shift(); }} />
         </>
       )}
     </div>

@@ -36,10 +36,10 @@ export default function Exams() {
   const lead = planOn
     ? { key: 'plan', to: '/plan', icon: Route, title: 'התוכנית שלי לשיפור', desc: `${plan.done} מתוך ${plan.steps.length} צעדים. הצעד הבא מחכה.`, go: 'המשך בתוכנית', bar: [plan.done, plan.steps.length] }
     : ai
-      ? { key: 'check', to: '/exams/check', icon: ClipboardCheck, title: 'בדיקת מבחן שפתרתם', desc: 'מצלמים את הדפים או מעלים PDF. העוזר בודק כל שאלה ומסביר מה לתרגל.', go: 'לבדיקת מבחן' }
+      ? { key: 'check', to: '/exams/check', icon: ClipboardCheck, title: 'בדיקת מבחן שפתרתם', desc: 'מצלמים את הדפים. העוזר בודק כל שאלה ומסביר מה לתרגל.', go: 'לבדיקת מבחן' }
       : { key: 'new', to: '/exams/new', icon: Printer, title: 'מבחן תרגול להדפסה', desc: 'מבחן מהנושאים שלכם, עם מפתח תשובות לבדיקה מדויקת.', go: 'הכנת מבחן תרגול' };
   const rows = [
-    lead.key !== 'check' && { to: '/exams/check', icon: ClipboardCheck, title: 'בדיקת מבחן שפתרתם', desc: ai ? 'צילום או PDF, והעוזר בודק כל תשובה' : examState === 'offline' ? 'צריך את העוזר, שעוד לא מחובר בגרסה הזו' : examState === 'economy' ? 'הבדיקה הזו חוזרת ב־1 בחודש' : examState === 'class_off' ? 'בכיתה הזו העוזר החכם כבוי' : 'את הבדיקה הזו עושה העוזר החכם המלא' },
+    lead.key !== 'check' && { to: '/exams/check', icon: ClipboardCheck, title: 'בדיקת מבחן שפתרתם', desc: ai ? 'מצלמים את הדפים, והעוזר בודק כל תשובה' : examState === 'offline' ? 'צריך את העוזר, שעוד לא מחובר בגרסה הזו' : examState === 'economy' ? 'הבדיקה הזו חוזרת ב־1 בחודש' : examState === 'class_off' ? 'בכיתה הזו העוזר החכם כבוי' : 'את הבדיקה הזו עושה העוזר החכם המלא' },
     lead.key !== 'new' && { to: '/exams/new', icon: Printer, title: 'מבחן תרגול להדפסה', desc: 'מהנושאים שלכם, עם מפתח תשובות' },
     lead.key !== 'plan' && { to: '/plan', icon: Route, title: 'התוכנית שלי לשיפור', desc: plan.weak.length ? `${plan.done} מתוך ${plan.steps.length} צעדים הושלמו` : 'נבנית מהטעויות בתרגול ובמבחנים' },
   ].filter(Boolean);

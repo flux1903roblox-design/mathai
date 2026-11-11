@@ -18,6 +18,8 @@ import Figure from '@/components/Figure.jsx';
 import AIChat from '@/components/AIChat.jsx';
 import { buildTutorContext } from '@/lib/tutorContext.js';
 import { Box, Button, Field, Sheet, Thinking } from '@/components/ui.jsx';
+import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
+import PhotoPrep from '@/components/PhotoPrep.jsx';
 import { Markdown } from '@/components/MathText.jsx';
 
 /** A result that appears below the fold scrolls up into view, clear of the tab bar. */
@@ -75,34 +77,34 @@ function AiOffline() {
   );
 }
 
-async function shrinkImage(file) {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
-    const c = document.createElement('canvas'); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL('image/jpeg', 0.85);
-  } finally { URL.revokeObjectURL(url); }
-}
-
+/**
+ * The notebook photo check (trust spec TRUST-5 §4): the warning before the camera (once a session), then PhotoPrep with
+ * no default cut, where the child can black out anything personal. Only the prepared picture is kept and sent.
+ */
 function PhotoCheck() {
   const grade = useApp((s) => s.profile.grade) || '7';
   const [image, setImage] = useState(null);
+  const [prep, setPrep] = useState(null);
+  const [file, setFile] = useState(null); // the picture in PhotoPrep
   const [question, setQuestion] = useState('');
   const [state, setState] = useState({ phase: 'idle' });
-  const pick = async (e) => {
-    const f = e.target.files?.[0]; if (!f) return;
+  const inputRef = useRef(null);
+  const { ask, warn } = usePhotoWarn();
+  const pick = (e) => {
+    const f = e.target.files?.[0]; e.target.value = '';
+    if (!f) return;
     setState({ phase: 'idle' });
-    try { setImage(await shrinkImage(f)); } catch { setState({ phase: 'error', message: 'לא הצלחנו לפתוח את התמונה. נסו תמונה אחרת.' }); }
+    if (!f.type.startsWith('image/')) { setState({ phase: 'error', message: 'אפשר לבדוק כאן רק תמונה. צלמו את הדף מהמחברת.' }); return; }
+    setFile(f);
   };
+  const prepared = ({ data, prep: p }) => { setImage(data); setPrep(p); setFile(null); };
   const send = async () => {
     setState({ phase: 'loading' });
     try {
       // the photo is the student's own question (policy homework): the check may say whether their final answer is right;
       // the question they typed goes as their own words, never as the app's
       const ctx = buildTutorContext({ surface: 'assistant', grade, learn: useApp.getState().learn });
-      const r = await runAI('check', { ctx, image, mediaType: 'image/jpeg', question });
+      const r = await runAI('check', { ctx, image, mediaType: 'image/jpeg', question, prep });
       setState({ phase: 'done', r });
     } catch (e) { setState(e.limit ? { phase: 'idle' } : { phase: 'error', message: e.message }); }
   };
@@ -111,10 +113,20 @@ function PhotoCheck() {
   return (
     <div className="stack">
       <p>צלמו את הדרך שכתבתם במחברת. אבדוק כל שלב ואראה איפה כדאי לתקן.</p>
-      <label className="upload">
-        <input type="file" accept="image/*" capture="environment" onChange={pick} className="visually-hidden" />
-        {image ? <img src={image} alt="התמונה שבחרתם" className="upload-preview" /> : <span className="upload-empty"><ImageUp size={28} aria-hidden="true" />צילום או בחירת תמונה</span>}
-      </label>
+      {image ? (
+        <div className="upload-picked">
+          <img src={image} alt="התמונה שבחרתם" className="upload-preview" />
+          <Button variant="secondary" className="btn-sm" onClick={() => ask(inputRef.current)}><Camera size={20} aria-hidden="true" />צילום אחר</Button>
+        </div>
+      ) : (
+        <button type="button" className="upload" onClick={() => ask(inputRef.current)}>
+          <span className="upload-empty"><ImageUp size={28} aria-hidden="true" />צילום או בחירת תמונה</span>
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" capture="environment" onChange={pick} className="visually-hidden" tabIndex={-1} aria-hidden="true" />
+      {warn}
+      <PhotoPrep file={file} crop={0} onDone={prepared} onRetake={() => { setFile(null); ask(inputRef.current); }} onCancel={() => setFile(null)}
+        onError={() => { setFile(null); setState({ phase: 'error', message: 'לא הצלחנו לפתוח את התמונה. נסו תמונה אחרת.' }); }} />
       <Field label="על איזה תרגיל מדובר? (לא חובה)" id="pc-q">
         <input id="pc-q" className="input" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={300} placeholder="למשל: פתרו את המשוואה 3x − 5 = 10" />
       </Field>

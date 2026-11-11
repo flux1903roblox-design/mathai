@@ -103,12 +103,14 @@ describe('legal texts and their placeholders', () => {
     }
   });
 
-  it('the safety statement says what is built, and only that: no photo redaction yet, and the reworded final-answer line', () => {
+  it('the safety statement says what is built, and only that: the photo step, and the reworded final-answer line', () => {
     const s = read('safety.md');
+    // the photo step (trust spec TRUST-5): built, so the statement says what it does, and that no PDF is sent
+    expect(s).toContain('בדף הראשון של מבחן השורה העליונה נחתכת, ואפשר להשחיר בשחור מלא כל דבר נוסף.');
+    expect(s).toContain('קובץ PDF לא נשלח');
     expect(s).toContain('בתרגילים של האפליקציה, העוזר לא נותן את התשובה הסופית לפני שפתרתם.');
     expect(s).toContain('במבחן שהעליתם בלי מפתח תשובות העוזר בודק את התשובות, וזה מסומן ליד כל שאלה.');
     expect(s).not.toContain('את התשובות של התרגילים בודקת האפליקציה, לא העוזר');
-    expect(s).not.toMatch(/חותכים את השורה/);
     for (const n of ['1201', '105', '100', '101']) expect(s).toContain(n);
   });
 });

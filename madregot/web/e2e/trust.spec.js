@@ -944,3 +944,174 @@ test.describe('delete all', () => {
     await shot(page, 'wipe-done-device');
   });
 });
+
+test.describe('photo', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  // a device with the family plan, where the exam check and the photo check are open (trust spec TRUST-5)
+  const FD = `fd1.${'c'.repeat(64)}`;
+  const family = () => withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true, familyDevice: { token: FD, label: 'הטאבלט' } } });
+  async function setUp(page) {
+    const server = await fakeServer(page, { parentOk: true }, baseOf());
+    server.st.devices.push({ id: 'd1', label: 'הטאבלט', token: FD }); server.st.plan = livePlan();
+    return server;
+  }
+  /** A synthetic 1200×1600 exam page drawn in the page itself: the top 10% red (where a name and an ID would be). */
+  const examPng = async (page, { red = true } = {}) => Buffer.from(await page.evaluate((r) => {
+    const c = document.createElement('canvas'); c.width = 1200; c.height = 1600;
+    const x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, 1200, 1600);
+    if (r) { x.fillStyle = '#ff0000'; x.fillRect(0, 0, 1200, 160); }
+    x.fillStyle = '#222'; x.font = '48px sans-serif';
+    for (let i = 0; i < 10; i += 1) x.fillText(`${i + 1})  3x + ${i} = ${3 * (i + 2) + i}`, 80, 320 + i * 110);
+    return c.toDataURL('image/png').split(',')[1];
+  }, red), 'base64');
+  /** The page as the server got it, drawn into a canvas inside the page: its size and the colour of some pixels. */
+  const sentPixels = (page, src, points) => page.evaluate(async ([s, pts]) => {
+    const img = new Image(); img.src = s; await img.decode();
+    const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    return { width: c.width, height: c.height, px: pts.map(([px, py]) => [...x.getImageData(px, py, 1, 1).data].slice(0, 3)) };
+  }, [src, points]);
+  const prepSheet = (page) => page.getByRole('dialog', { name: 'מסתירים פרטים אישיים' });
+  const warnSheet = (page) => page.getByRole('dialog', { name: 'לפני שמצלמים' });
+
+  test('exam: the warning comes first, page 1 loses its top band on the device, and the header pixel sent is not red', async ({ page }) => {
+    const { log } = await setUp(page);
+    await open(page, '#/exams/check', family());
+    // pictures only: no PDF is offered or mentioned
+    for (const input of await page.locator('input[type=file]').all()) await expect(input).toHaveAttribute('accept', 'image/*');
+    await expect(page.getByText(/PDF/)).toHaveCount(0);
+    await expect(page.getByText('לתמונה טובה: אור טוב, הדף שטוח וכולו בתמונה. בלי שם ובלי תעודת זהות.')).toBeVisible();
+    // "צילום דף" opens the warning, never the camera
+    let choosers = 0; page.on('filechooser', () => { choosers += 1; });
+    await page.getByRole('button', { name: 'צילום דף' }).click();
+    const warn = warnSheet(page);
+    await expect(warn).toBeVisible();
+    await expect(warn).toContainText('בדף של מבחן יש לפעמים שם, תעודת זהות, ציון, כיתה ובית ספר. את הפרטים האלה לא שולחים לעוזר.');
+    await expect(warn).toContainText('התמונה נשלחת לעוזר החכם (Anthropic, בארה״ב) כדי לבדוק אותה, ולא נשמרת אצלנו.');
+    expect(choosers).toBe(0);
+    await shot(page, 'photo-warn');
+    // its button opens the camera itself, in the same tap
+    const camera = page.waitForEvent('filechooser');
+    await warn.getByRole('button', { name: 'הבנתי, לצלם' }).click();
+    const fc = await camera;
+    expect(fc.isMultiple()).toBe(false);
+    expect(await page.evaluate(() => sessionStorage.getItem('madregot-photo-warned'))).toBe('1');
+    await fc.setFiles({ name: 'page1.png', mimeType: 'image/png', buffer: await examPng(page) });
+    const prep = prepSheet(page);
+    await expect(prep).toBeVisible();
+    await expect(warn).toHaveCount(0);
+    // page 1 of an exam: the top 15% is shaded and will not be sent
+    const cut = prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' });
+    await expect(cut).toHaveAttribute('aria-valuenow', '15');
+    await expect(prep.getByText('השורה הזו לא תישלח')).toBeVisible();
+    // the whole page is on the screen, nothing to scroll
+    const frame = await prep.locator('.prep-frame').boundingBox();
+    const vp = page.viewportSize();
+    expect(frame.y).toBeGreaterThanOrEqual(0);
+    expect(frame.y + frame.height).toBeLessThanOrEqual(vp.height);
+    expect(frame.width / frame.height).toBeCloseTo(1200 / 1600, 1);
+    await shot(page, 'photo-prep');
+    // the keyboard: the line moves with the arrows, a box is added, moved and resized
+    await cut.focus(); await page.keyboard.press('ArrowDown');
+    await expect(cut).toHaveAttribute('aria-valuenow', '16');
+    await page.keyboard.press('ArrowUp');
+    await expect(cut).toHaveAttribute('aria-valuenow', '15');
+    await prep.getByRole('button', { name: 'הוספת מלבן' }).click();
+    const box = prep.getByRole('button', { name: 'מלבן שחור 1' });
+    await expect(box).toBeFocused();
+    const b0 = await box.boundingBox();
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(async () => (await box.boundingBox()).y).toBeGreaterThan(b0.y);
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect.poll(async () => (await box.boundingBox()).width).toBeGreaterThan(b0.width);
+    await shot(page, 'photo-prep-box');
+    // undo takes the last box away; one more box for the request
+    await prep.getByRole('button', { name: 'ביטול האחרון' }).click();
+    await expect(box).toHaveCount(0);
+    await expect(prep.getByRole('button', { name: 'ביטול האחרון' })).toBeDisabled();
+    await prep.getByRole('button', { name: 'הוספת מלבן' }).click();
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(prep).toHaveCount(0);
+    await expect(page.getByRole('img', { name: 'דף 1' })).toBeVisible();
+    // the second photo of the session: no warning, the picker at once, and no cut on page 2
+    const picker = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'בחירת תמונה' }).click();
+    const fc2 = await picker;
+    expect(fc2.isMultiple()).toBe(true);
+    await expect(warnSheet(page)).toHaveCount(0);
+    await fc2.setFiles({ name: 'page2.png', mimeType: 'image/png', buffer: await examPng(page, { red: false }) });
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '0');
+    await expect(prep.getByText('השורה הזו לא תישלח')).toHaveCount(0);
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(page.getByRole('img', { name: 'דף 2' })).toBeVisible();
+    await shot(page, 'photo-pages');
+    // a PDF that slips past the picker is not taken
+    const picker2 = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'בחירת תמונה' }).click();
+    await (await picker2).setFiles({ name: 'exam.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n%synthetic\n') });
+    await expect(page.getByText('אי אפשר לבדוק כאן קובץ PDF. אפשר לצלם את הדפים במקום.')).toBeVisible();
+    await expect(prep).toHaveCount(0);
+    await expect(page.getByRole('img', { name: 'דף 3' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'בדיקת המבחן' }).click();
+    await expect.poll(() => log.filter((r) => r.path === '/api/ai/exam').length).toBe(1);
+    const sent = log.find((r) => r.path === '/api/ai/exam').body;
+    expect(JSON.stringify(sent)).not.toContain('application/pdf');
+    expect(sent.pages.map((p) => p.mediaType)).toEqual(['image/jpeg', 'image/jpeg']);
+    expect(sent.prep).toEqual({ crop: true, boxes: 1 });
+    // page 1 as sent: 15% shorter, pixel (10,10) is not the red header, and the box is solid black
+    const one = await sentPixels(page, sent.pages[0].data, [[10, 10], [600, 680]]);
+    expect([one.width, one.height]).toEqual([1200, 1360]);
+    const [r, g] = one.px[0];
+    expect(r < 200 || g > 80, `pixel (10,10) is ${one.px[0]}`).toBe(true);
+    expect(Math.max(...one.px[1]), `the box is ${one.px[1]}`).toBeLessThan(40);
+    // page 2 as sent: the whole page
+    const two = await sentPixels(page, sent.pages[1].data, [[10, 10]]);
+    expect([two.width, two.height]).toEqual([1200, 1600]);
+  });
+
+  test('notebook photo: the warning first, then the step with no cut; the check sends only the prepared picture', async ({ page }) => {
+    const { log } = await setUp(page);
+    await open(page, '#/assistant', family());
+    await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
+    const sheet = page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' });
+    await sheet.getByRole('button', { name: 'צילום או בחירת תמונה' }).click();
+    const warn = warnSheet(page);
+    await expect(warn).toBeVisible();
+    // closing the warning opens nothing, and it comes again
+    await page.keyboard.press('Escape');
+    await expect(warn).toHaveCount(0);
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: 'צילום או בחירת תמונה' }).click();
+    const camera = page.waitForEvent('filechooser');
+    await warnSheet(page).getByRole('button', { name: 'הבנתי, לצלם' }).click();
+    await (await camera).setFiles({ name: 'work.png', mimeType: 'image/png', buffer: await examPng(page) });
+    const prep = prepSheet(page);
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '0');
+    await expect(prep.getByText('השורה הזו לא תישלח')).toHaveCount(0);
+    await shot(page, 'photo-check-prep');
+    // "השחרה" draws a box with a drag
+    await prep.getByRole('button', { name: 'השחרה' }).click();
+    await expect(prep.getByRole('button', { name: 'השחרה' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(prep.getByText('גררו על הדף כדי להשחיר.')).toBeVisible();
+    const f = await prep.locator('.prep-frame').boundingBox();
+    await page.mouse.move(f.x + f.width * 0.05, f.y + f.height * 0.01);
+    await page.mouse.down();
+    await page.mouse.move(f.x + f.width * 0.6, f.y + f.height * 0.08, { steps: 5 });
+    await page.mouse.up();
+    await expect(prep.getByRole('button', { name: 'מלבן שחור 1' })).toBeVisible();
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(sheet.getByRole('img', { name: 'התמונה שבחרתם' })).toBeVisible();
+    await shot(page, 'photo-check-picked');
+    await sheet.getByRole('button', { name: 'בדיקת הפתרון' }).click();
+    await expect(sheet.getByText('התשובה הסופית נכונה.')).toBeVisible();
+    const sent = log.find((r) => r.path === '/api/ai/check').body;
+    expect(sent.prep).toEqual({ crop: false, boxes: 1 });
+    expect(sent.image).toMatch(/^data:image\/jpeg;base64,/);
+    // the whole page, and the red where the box was drawn is black now
+    const px = await sentPixels(page, sent.image, [[300, 60]]);
+    expect([px.width, px.height]).toEqual([1200, 1600]);
+    expect(Math.max(...px.px[0]), `pixel ${px.px[0]}`).toBeLessThan(40);
+  });
+});
