@@ -1,6 +1,6 @@
 // Named synthetic learners for the "what next" tests (learn/next.test.ts): each is a whole planNext context, built the
 // way the app builds its state (a passed mastery check also marks the stair done on the map). No real student data.
-import type { LearnState, SkillId, SkillRecord, MisconRecord } from '../types';
+import type { LearnState, LearnEvent, SkillId, SkillRecord, MisconRecord } from '../types';
 import type { NextContext, CheckedExam } from '../next';
 import { gradeSkillsOf, parseSkill } from '../skills';
 import { schoolMonth } from '../programme';
@@ -45,6 +45,9 @@ export function ctxOf(learn: LearnState, opts: { grade?: '7' | '8'; day?: string
   const now = opts.now || `${day}T09:00:00.000Z`;
   return { learn, grade: opts.grade || '7', path: opts.path ?? pathOf(learn.skills), progress: {}, now, day, exams: opts.exams || [], month: schoolMonth(day) };
 }
+
+/** The analytics log of finished mastery checks, oldest first: [stair, passed, days ago]. */
+export const checkEvents = (checks: [SkillId, boolean, number][], now = NOW): LearnEvent[] => checks.map(([s, ok, d]) => ({ t: ago(d, now), e: 'check-done', s, p: 'mastery', ok, n: ok ? 1 : 0.4 }));
 
 const confirmed = (skill: SkillId, id: string, at: string): Record<string, MisconRecord> => ({ [`${skill}|${id}`]: { skill, id, score: 2, seen: ['a', 'b'], state: 'confirmed', at } });
 
@@ -123,6 +126,23 @@ export const LEARNERS: Record<string, () => NextContext> = {
     ['signed:1', 'signed:2', 'signed:3', 'signed:4', 'signed:5'].forEach((id) => { L.skills[id] = masteredRec(ago(12), 40, 4); });
     L.skills['signed:6'] = strugglingRec(ago(1));
     return ctxOf(L);
+  },
+  /**
+   * A ח׳ student strong today: the last three mastery checks (ratio:1, pct:1, pct:2) passed on the first attempt, so
+   * pct:2's challenge moves up. Above it stay an exam in three days, a confirmed misconception, pct:1's due review and
+   * points lost on pct:1 in a checked exam; below it, the next new stair.
+   */
+  strongEighth: () => {
+    const L = emptyLearn();
+    L.skills['ratio:1'] = masteredRec(ago(12), 40, 3);
+    L.skills['pct:1'] = masteredRec(ago(10), 1);
+    L.skills['pct:2'] = masteredRec(ago(2), 20);
+    L.events = checkEvents([['ratio:1', true, 12], ['pct:1', true, 10], ['pct:2', true, 2]]);
+    L.miscon = confirmed('ratio:1', 'reversed-ratio', ago(1));
+    let plan = newPlan({ grade: '8', date: '2026-11-13', skills: ['ratio:2'], confidence: 2, minutes: 15 }, `${DAY}T08:00:00.000Z`);
+    plan = recordDiagnostic(plan, 'ratio:2', 0, 2, `${DAY}T08:00:00.000Z`);
+    L.exam = plan;
+    return ctxOf(L, { grade: '8', exams: [checkedExam(5, [['pct', 1, 'wrong'], ['ratio', 1, 'correct']])] });
   },
   /** Every ז׳ stair mastered, no review due. */
   allSeventhMastered: () => {

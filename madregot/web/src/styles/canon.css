@@ -708,3 +708,28 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 .ch-done-stats { grid-template-columns: minmax(0, 160px); justify-content: center; }
 @media (max-width: 360px) { .ch-seg-opt { font-size: 15px; } .ch-step-text { font-size: 15px; } }
 @media (prefers-reduced-motion: reduce) { .ch-chev { transition: none; } }
+
+/* ------------------------------------------------------------------ where challenges appear (CURRICULUM-6.3) */
+/* after a passed mastery check: a quiet card under the stat tiles, never the main button */
+.check-challenge { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: #fff; text-align: start; }
+.check-challenge-row { display: flex; align-items: center; gap: var(--s3); }
+.check-challenge-icon, .jchallenge-icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; background: var(--brand-tint); color: var(--brand); }
+.check-challenge-text { flex: 1; min-width: 0; }
+.check-challenge-title { margin: 0; font-family: var(--font-ui); font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); text-wrap: balance; }
+.check-challenge-sub { margin: 2px 0 0; font-size: 15px; line-height: 22px; color: var(--ink-2); overflow-wrap: anywhere; }
+.check-challenge-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.check-challenge-actions .btn { flex: 1 1 120px; min-height: 44px; }
+/* the stair page: a sixth card under the five stages, optional (a dashed edge) and locked until the mastery check */
+.jchallenge { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); padding: var(--s3); border: 2px dashed var(--rule-strong); border-radius: 16px; background: #fff; }
+.jchallenge + .jchallenge { margin-top: var(--s2); }
+.jchallenge.locked .jchallenge-icon { background: var(--ground); color: var(--ink-2); }
+.jchallenge.solved .jchallenge-icon { background: var(--good); color: var(--on-good); }
+.jchallenge-text { flex: 1; min-width: 0; }
+.jchallenge-title { margin: 0; font-weight: 700; color: var(--ink); }
+.jchallenge-sub { margin: 2px 0 0; font-size: 15px; line-height: 22px; color: var(--ink-2); overflow-wrap: anywhere; }
+.jchallenge .btn { flex: none; min-height: 44px; }
+.journey-challenges { list-style: none; margin: 0; padding: 0; }
+/* the topics screen: a unit's challenges, once one is open */
+.section-card-ch { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: 0; font-size: 15px; line-height: 22px; font-weight: 600; color: var(--ink-2); }
+a.section-card-ch { color: var(--brand-d); text-decoration: none; }
+a.section-card-ch:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }

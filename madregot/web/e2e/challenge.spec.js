@@ -2,7 +2,7 @@
 // ordered with the buttons from the keyboard alone, a counterexample typed into its slots, and the end screen's XP. A
 // challenge counts for the day like a lesson and never touches mastery.
 import { test, expect } from '@playwright/test';
-import { open, student, saved, expectNoSidewaysScroll } from './helpers.js';
+import { open, student, saved, item, answer, expectNoSidewaysScroll, expectUsable } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the challenge screen is checked on the two phones'); });
 
@@ -167,4 +167,72 @@ test('a wrong counterexample gets a second try, then the part goes on with its h
   await go(page, 'בדיקה').click(); // 1/2 grows to 2/3: not a counterexample
   await expect(page.locator('.ch-foot .lm-banner')).toHaveText('עוד לא. נסו שוב, יש עוד ניסיון.');
   await expect(page.locator('.ch-foot')).toContainText('נסו שבר שהמונה שלו גדול מהמכנה.');
+});
+
+// ------------------------------------------------------------------ where challenges appear (CURRICULUM-6.3)
+
+/** A ח׳ student who has mastered pct:1 and learned pct:2 (taught, practised) but not checked it: pct:c1 follows pct:2. */
+const beforeCheck = () => ({
+  ...student('8', {
+    path: { pct: { parts: { 1: 2, 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'mastered' } } },
+    learn: {
+      skills: { 'pct:1': mastered, 'pct:2': { taught: { A: at, B: at, C: at }, attempts: Array.from({ length: 6 }, () => ({ at, ok: true, independent: true, purpose: 'practice' })) } },
+      miscon: {}, exam: null, missions: {}, events: [], floor: null, challenges: {},
+    },
+  }),
+  version: 4,
+});
+/** Pass pct:2's mastery check: five right answers. */
+async function passCheck(page) {
+  await expect.poll(() => item(page)).toBeTruthy();
+  for (let i = 0; i < 5; i += 1) { await answer(page, true); await page.locator('section.fb .fb-actions .btn').click(); }
+  await expect(page.getByRole('heading', { name: 'שולטים לבד!' })).toBeVisible();
+}
+
+test('the stair page: the challenge card is locked until the mastery check, then opens the task', async ({ page }) => {
+  await open(page, '#/learn/pct/2', beforeCheck());
+  const card = page.locator('.jchallenge');
+  await expect(card).toHaveCount(1);
+  await expect(card).toHaveClass(/locked/);
+  await expect(card).toContainText('אתגר · לבחירה');
+  await expect(card).toContainText('נפתח אחרי בדיקת השליטה');
+  await expect(card.getByRole('button')).toHaveCount(0); // locked: nothing to press
+  // a stair without a task has no card
+  await page.goto('./#/learn/pct/1');
+  await expect(page.locator('.journey-title')).toBeVisible();
+  await expect(page.locator('.jchallenge')).toHaveCount(0);
+  // pass the check; put the offer off for now
+  await page.goto('./#/lesson/pct/2?kind=check&purpose=mastery');
+  await page.reload();
+  await passCheck(page);
+  await page.getByRole('button', { name: 'לא עכשיו' }).click();
+  await expect(page.locator('.check-challenge')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'שולטים לבד!' })).toBeFocused();
+  // the stair page now opens it
+  await page.goto('./#/learn/pct/2');
+  await expect(card).not.toHaveClass(/locked/);
+  await expect(card).toContainText('שתי דרכים לשלם עמלה');
+  const go = card.getByRole('button', { name: 'לאתגר: שתי דרכים לשלם עמלה' });
+  await go.scrollIntoViewIfNeeded();
+  await expectUsable(page, go, 'the challenge button');
+  expect((await go.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await expectNoSidewaysScroll(page);
+  await go.click();
+  await expect(page).toHaveURL(/#\/challenge\/pct:c1$/);
+  await expect(page.locator('.ch-title')).toHaveText('שתי דרכים לשלם עמלה');
+});
+
+test('a passed mastery check offers the stair\'s challenge in a quiet card, which opens it', async ({ page }) => {
+  await open(page, '#/lesson/pct/2?kind=check&purpose=mastery', beforeCheck());
+  await passCheck(page);
+  const card = page.locator('.check-challenge');
+  await expect(card.getByRole('heading', { name: 'יש אתגר למדרגה הזאת. רוצים לנסות?' })).toBeVisible();
+  await expect(card).toContainText('שתי דרכים לשלם עמלה');
+  // the main button is still the plan's next step, never this stair's challenge a second time
+  await expect(page.locator('.check-done .form-actions .btn-lg')).not.toContainText('אתגר');
+  for (const name of ['לאתגר', 'לא עכשיו']) expect((await card.getByRole('button', { name }).boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await expectNoSidewaysScroll(page);
+  await card.getByRole('button', { name: 'לאתגר' }).click();
+  await expect(page).toHaveURL(/#\/challenge\/pct:c1$/);
+  await expect(page.locator('.ch-count')).toHaveText('חלק 1 מתוך 4');
 });

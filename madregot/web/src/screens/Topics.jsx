@@ -5,6 +5,8 @@
 // and the board adds no primary. Under the grade's units, the floor under them (יסודות לחיזוק): the fractions unit,
 // always reachable from here, the short floor check, multiplication facts after a missed fact, and the way to take the
 // unit off the map again.
+// Under a unit's bar, once one of its challenge tasks is open (its stair mastered): "אתגרים: {done} מתוך {open}", a link to
+// the next one not solved yet (CURRICULUM-6.3). It never shows while nothing is open: no row of zeros.
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { ArrowRight, BookOpen } from 'lucide-react';
@@ -17,6 +19,7 @@ import { GradeSwitch } from './Welcome.jsx';
 import { Bar } from '@/components/ds.jsx';
 import { Emblem } from '@/components/map/Scenery.jsx';
 import Board from '@/components/Board.jsx';
+import ChallengeLine from '@/components/learn/ChallengeLine.jsx';
 
 function SectionCard({ t, n, current }) {
   const navigate = useNavigate();
@@ -33,6 +36,7 @@ function SectionCard({ t, n, current }) {
         <p className="section-card-desc">{t.desc}</p>
         <Bar value={prog.stages} max={prog.of} text={unitCountText(prog)} label={`${t.title}: ${prog.stages} מתוך ${prog.of} שלבים, ${prog.done} מתוך ${prog.stairs} מדרגות`} tone="light" />
         {now && <p className="section-card-now">עכשיו: {now.title}</p>}
+        <ChallengeLine topic={t.id} />
         <div className="section-card-actions">
           {/* one solid button on the screen: the unit being climbed now (Duolingo's "Continue"); the others jump quietly */}
           {current
@@ -69,6 +73,7 @@ function FloorCard({ t }) {
         <p className="section-card-desc">{t.desc}</p>
         {prog.stages > 0 && <Bar value={prog.stages} max={prog.of} text={unitCountText(prog)} label={`${t.title}: ${prog.stages} מתוך ${prog.of} שלבים, ${prog.done} מתוך ${prog.stairs} מדרגות`} tone="light" />}
         {now && <p className="section-card-now">עכשיו: {now.title}</p>}
+        <ChallengeLine topic={t.id} />
         <div className="section-card-actions">
           <button type="button" className="section-card-jump" onClick={() => navigate(`/learn/${t.id}/${node?.level || 1}`)} aria-label={`${label}: ${t.title}`}>{label}</button>
           <Link to={`/topic/${t.id}`} className="section-card-guide" aria-label={`תזכורת מהשיעור: ${t.title}`}><BookOpen size={20} aria-hidden="true" />תזכורת</Link>

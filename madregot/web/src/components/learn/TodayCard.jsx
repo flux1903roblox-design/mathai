@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { m, useReducedMotion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Play, CalendarClock, Footprints, Target, ChevronLeft, Sparkles, Check, Wrench, RotateCcw, Award, ArrowLeft, FileCheck, Layers } from 'lucide-react';
+import { Play, CalendarClock, Footprints, Target, ChevronLeft, Sparkles, Check, Wrench, RotateCcw, Award, ArrowLeft, FileCheck, Layers, Puzzle } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { useNext } from '@/lib/useLearn.js';
 import { boardOf } from '@/lib/board.js';
@@ -24,8 +24,8 @@ import { Bar } from '@/components/ds.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import { enter } from '@/lib/motion.js';
 
-export const KIND_ICON = { repair: Wrench, review: RotateCcw, 'exam-loss': FileCheck, floor: Layers, prereq: Footprints, continue: ArrowLeft, new: Sparkles, mastery: Award, exam: CalendarClock };
-export const KIND_LABEL = { repair: 'תיקון', review: 'בדיקת זיכרון', 'exam-loss': 'מהמבחן', floor: 'יסודות', prereq: 'מדרגה קודמת', continue: 'ממשיכים', new: 'חדש', mastery: 'בדיקת שליטה', exam: 'הכנה למבחן' };
+export const KIND_ICON = { repair: Wrench, review: RotateCcw, 'exam-loss': FileCheck, floor: Layers, prereq: Footprints, continue: ArrowLeft, new: Sparkles, mastery: Award, exam: CalendarClock, challenge: Puzzle };
+export const KIND_LABEL = { repair: 'תיקון', review: 'בדיקת זיכרון', 'exam-loss': 'מהמבחן', floor: 'יסודות', prereq: 'מדרגה קודמת', continue: 'ממשיכים', new: 'חדש', mastery: 'בדיקת שליטה', exam: 'הכנה למבחן', challenge: 'אתגר' };
 
 /** A part's bar: a stage of a stair shows how far the stair is (stage n of 5); anything else is done or not yet. */
 function partBar(it) {

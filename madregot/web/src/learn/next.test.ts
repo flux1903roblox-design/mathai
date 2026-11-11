@@ -2,7 +2,7 @@
 // mission's completion of the new kinds, and that planNext is pure.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { LearnState, SkillId, SkillRecord } from './types';
-import { planNext, examLosses, mapTopics, mapFocus, onMap, nodeRoute, cardRoute, missionNext } from './next';
+import { planNext, examLosses, mapTopics, mapFocus, onMap, nodeRoute, cardRoute, missionNext, strongToday, BAND } from './next';
 import type { NextContext, CheckedExam } from './next';
 import { nextActions } from './recommend';
 import { buildMission, completeMissionItems, missionDone, missionFor } from './mission';
@@ -11,7 +11,8 @@ import { ALL_SKILLS, STAIRS, TOPIC_ORDER, isBridgeSkill, parseSkill, skillId, pr
 import { contentOf } from './content/index';
 import { seeded } from './expr';
 import { addDays } from './mastery';
-import { LEARNERS, ctxOf, emptyLearn, checkedExam, ago, masteredRec, taughtRec, strugglingRec, pathOf, NOW } from './__fixtures__/learners';
+import { LEARNERS, ctxOf, emptyLearn, checkedExam, ago, masteredRec, taughtRec, strugglingRec, pathOf, checkEvents, NOW } from './__fixtures__/learners';
+import { challengeById, CHALLENGES } from './challenges/index';
 // @ts-ignore: plain JS
 import { isKept } from '@/lib/path.js';
 // @ts-ignore: plain JS
@@ -31,7 +32,10 @@ describe('planNext: the bands, highest first, for each learner', () => {
     ['eighthNovemberLine', [['continue', 'line:1'], ['new', 'ratio:1']]],
     ['weakFloor', [['new', 'frac:1']]],
     ['hardFractionsNoFloor', [['floor', 'signed:6'], ['continue', 'signed:6'], ['new', 'coord:1']]],
-    ['allSeventhMastered', [['review', 'signed:1']]],
+    // a challenge first, then the old "everything mastered" review
+    ['allSeventhMastered', [['challenge', 'angles:4'], ['review', 'signed:1']]],
+    // strong today: the challenge moves up, right after the exam loss and never above the exam, a repair or a review
+    ['strongEighth', [['exam', 'ratio:2'], ['exam', 'ratio:2'], ['exam', 'ratio:2'], ['repair', 'ratio:1'], ['review', 'pct:1'], ['exam-loss', 'pct:1'], ['challenge', 'pct:2'], ['new', 'pct:3']]],
     ['keptStairs', [['mastery', 'signed:1'], ['new', 'signed:3']]],
     ['examLossCoord4', [['exam-loss', 'coord:4'], ['new', 'signed:3']]],
     ['examLossRecovered', [['new', 'signed:3']]],
@@ -133,6 +137,81 @@ describe('planNext: the bands, highest first, for each learner', () => {
   });
 });
 
+describe('planNext: the challenge band', () => {
+  it('a learner with every ז׳ stair mastered and no review due gets a challenge first (angles:c1), the review after it', () => {
+    const p = planNext(LEARNERS.allSeventhMastered());
+    const task = challengeById('angles:c1')!;
+    expect(p.top).toMatchObject({ kind: 'challenge', source: 'challenge', skill: 'angles:4', challengeId: 'angles:c1', title: `אתגר: ${task.title}`, minutes: task.minutes, to: '/challenge/angles:c1' });
+    expect(p.top!.reason).toBe('עברתם את בדיקת השליטה במדרגה "ישרים מקבילים". רוצים משהו קשה יותר?');
+    expect(p.items[1]).toMatchObject({ kind: 'review', title: 'חיזוק: חיבור וחיסור' });
+    // once it is solved, the next open task (if any) or the review alone
+    const c = LEARNERS.allSeventhMastered();
+    c.learn.challenges = Object.fromEntries(CHALLENGES.map((t) => [t.id, { startedAt: NOW, doneAt: NOW, firstTry: 1, parts: 2 }]));
+    expect(planNext(c).items.map((x) => x.kind)).toEqual(['review']);
+  });
+
+  it('offers a challenge only for a mastered stair, the most recently mastered first, one at a time', () => {
+    // nothing mastered: no challenge
+    expect(planNext(LEARNERS.newSeventh()).items.some((x) => x.kind === 'challenge')).toBe(false);
+    // a stair in progress is not mastered: pct:2 taught but not checked
+    const L = emptyLearn();
+    L.skills['pct:1'] = masteredRec(ago(9), 30, 3);
+    L.skills['pct:2'] = taughtRec(ago(1), ['A', 'B', 'C']);
+    expect(planNext(ctxOf(L, { grade: '8' })).items.some((x) => x.kind === 'challenge')).toBe(false);
+    // pct:2 and stats:3 mastered (both open a task), not strong: one challenge, at the bottom, the newer stair's
+    L.skills['pct:2'] = masteredRec(ago(3), 30, 3);
+    L.skills['stats:3'] = masteredRec(ago(1), 30, 3);
+    const p = planNext(ctxOf(L, { grade: '8' }));
+    const ch = p.items.filter((x) => x.kind === 'challenge');
+    expect(ch.map((x) => x.challengeId)).toEqual(['stats:c1']);
+    expect(p.items[p.items.length - 1]).toBe(ch[0]);
+    expect(Math.floor(ch[0].rank / 100)).toBe(BAND.challenge);
+  });
+
+  it('strong today: the last three mastery checks passed on the first attempt, or every stair of the grade mastered', () => {
+    const L = emptyLearn();
+    expect(strongToday({ learn: L, grade: '8' })).toBe(false);
+    L.events = checkEvents([['ratio:1', true, 9], ['pct:1', true, 5]]);
+    expect(strongToday({ learn: L, grade: '8' })).toBe(false); // two are not three
+    L.events = checkEvents([['ratio:1', true, 9], ['pct:1', true, 5], ['pct:2', true, 2]]);
+    expect(strongToday({ learn: L, grade: '8' })).toBe(true);
+    // pct:2 passed only on its second attempt: not a first-attempt pass
+    L.events = checkEvents([['pct:2', false, 12], ['ratio:1', true, 9], ['pct:1', true, 5], ['pct:2', true, 2]]);
+    expect(strongToday({ learn: L, grade: '8' })).toBe(false);
+    // a failed check among the last three
+    L.events = checkEvents([['ratio:1', true, 9], ['pct:1', false, 5], ['pct:2', true, 2]]);
+    expect(strongToday({ learn: L, grade: '8' })).toBe(false);
+    // an older failure on another stair does not count, and other events in the log are ignored
+    L.events = [...checkEvents([['ratio:2', false, 20], ['ratio:1', true, 9], ['pct:1', true, 5]]), { t: ago(3), e: 'check-done', s: 'pct:1', p: 'review', ok: false }, ...checkEvents([['pct:2', true, 2]])];
+    expect(strongToday({ learn: L, grade: '8' })).toBe(true);
+    // every stair of the grade mastered
+    expect(strongToday(LEARNERS.allSeventhMastered())).toBe(true);
+  });
+
+  it('the strong-today move-up never goes above bands 2 to 5, and without it the challenge waits at the bottom', () => {
+    const strong = planNext(LEARNERS.strongEighth());
+    const kinds = strong.items.map((x) => x.kind);
+    const at = kinds.indexOf('challenge');
+    expect(at).toBe(kinds.lastIndexOf('exam-loss') + 1);
+    expect(strong.items[at].rank).toBe(BAND['exam-loss'] * 100 + 1);
+    expect(kinds.slice(0, at).every((k) => ['exam', 'repair', 'review', 'exam-loss'].includes(k))).toBe(true);
+    expect(kinds.slice(at + 1)).toEqual(['new']);
+    // one of the three checks failed before its pass: not strong, so the challenge comes after the new stair
+    const weak = LEARNERS.strongEighth();
+    weak.learn.events = checkEvents([['pct:2', false, 4], ['ratio:1', true, 12], ['pct:1', true, 10], ['pct:2', true, 2]]);
+    const p = planNext(weak);
+    expect(p.items.map((x) => x.kind).slice(-2)).toEqual(['new', 'challenge']);
+    expect(Math.floor(p.items[p.items.length - 1].rank / 100)).toBe(BAND.challenge);
+    // every fixture made strong keeps the rule (checkRules: no challenge above bands 2 to 5)
+    Object.values(LEARNERS).forEach((f) => {
+      const c = f();
+      const mastered = Object.keys(c.learn.skills).filter((id) => c.learn.skills[id].mastered);
+      c.learn.events = checkEvents(mastered.slice(-3).map((id, k) => [id, true, 3 - k] as [SkillId, boolean, number]));
+      checkRules(c);
+    });
+  });
+});
+
 /** Every rule a plan keeps, whatever the learner. */
 export function checkRules(c: NextContext, p = planNext(c)) {
   const taught = (id: SkillId) => { const t = c.learn.skills[id]?.taught; return !!(t?.A && t?.B && t?.C); };
@@ -151,6 +230,22 @@ export function checkRules(c: NextContext, p = planNext(c)) {
       const evidence = !!c.learn.skills[x.skill] || !!c.learn.floor?.results?.[x.skill] || Object.values(c.learn.miscon).some((m) => m.skill === x.skill) || !!c.learn.exam?.diagnostic?.[x.skill] || x.kind === 'exam-loss' || x.kind === 'exam';
       expect(evidence || !!c.learn.floor?.on, `${x.kind} ${x.skill}`).toBe(true);
     }
+  });
+  // a challenge: one at most, of a mastered stair, not solved yet; never above an exam step, a repair, a due review or
+  // an exam loss (bands 2 to 5), and below band 5 only at the very bottom (band 9)
+  const ch = p.items.filter((x) => x.kind === 'challenge');
+  expect(ch.length).toBeLessThanOrEqual(1);
+  ch.forEach((x) => {
+    const task = challengeById(x.challengeId || '');
+    expect(task, x.challengeId).toBeTruthy();
+    expect(x.skill).toBe(task!.after);
+    expect(!!c.learn.skills[x.skill]?.mastered, `${x.challengeId}: its stair is mastered`).toBe(true);
+    expect(c.learn.challenges?.[x.challengeId!]?.doneAt).toBeUndefined();
+    expect(x.to).toBe(`/challenge/${x.challengeId}`);
+    expect(x.minutes).toBe(task!.minutes);
+    const i = p.items.indexOf(x);
+    p.items.forEach((y, j) => { if (['exam', 'repair', 'review', 'exam-loss'].includes(y.kind) && y.rank < BAND.last * 100) expect(j, `${y.kind} ${y.skill} before the challenge`).toBeLessThan(i); });
+    expect([BAND['exam-loss'], BAND.challenge]).toContain(Math.floor(x.rank / 100));
   });
   // nothing for the exam on Shabbat
   if (p.restDay) { expect(p.items.some((x) => x.kind === 'exam')).toBe(false); expect(p.examToday).toEqual([]); }
@@ -203,6 +298,18 @@ describe('the mission from the plan', () => {
     expect(done(diag, { skill: 'signed:2', kind: 'exam' })[0].done).toBe(NOW);
     // a Rescue item saved before steps were named is done by any Rescue work, as before
     expect(done([{ kind: 'exam', skill: 'signed:1', title: 'x', reason: 'x', minutes: 5, to: '/rescue' }], { skill: 'signed:2', kind: 'exam' })[0].done).toBe(NOW);
+  });
+  it('a challenge item is done by finishing that very task, and by nothing else', () => {
+    const items = buildMission(planNext(LEARNERS.allSeventhMastered()).items);
+    expect(items[0]).toMatchObject({ kind: 'challenge', skill: 'angles:4', challengeId: 'angles:c1', to: '/challenge/angles:c1' });
+    // work on its stair, a review or another task does not tick it
+    for (const d of [{ skill: 'angles:4', kind: 'review' }, { skill: 'angles:4', kind: 'mastery', stage: 'E' }, { skill: 'angles:4', kind: 'continue', stage: 'D' }, { skill: 'angles:4', kind: 'challenge', challengeId: 'angles:c2' }, { kind: 'challenge' }] as const) {
+      expect(done(items, d)[0].done, JSON.stringify(d)).toBeUndefined();
+    }
+    expect(done(items, { skill: 'angles:4', kind: 'challenge', challengeId: 'angles:c1' })[0].done).toBe(NOW);
+    // and a finished challenge never ticks a learning item on its stair
+    const learning = buildMission(planNext(LEARNERS.midSigned3()).items);
+    expect(done(learning, { skill: 'signed:3', kind: 'challenge', challengeId: 'angles:c1' }).every((x) => !x.done)).toBe(true);
   });
   it('can be finished', () => {
     const items = buildMission(planNext(LEARNERS.dueReview()).items);

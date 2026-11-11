@@ -120,4 +120,19 @@ describe('a finished challenge', () => {
     useApp.getState().startChallenge('stats:c1');
     expect(useApp.getState().learn.challenges['stats:c1'].startedAt).toBe(started);
   });
+
+  it('ticks its own item of today\'s mission (and only it), and the mission quest when that finishes the mission', () => {
+    const d = today();
+    const item = { kind: 'challenge', skill: 'pct:2', challengeId: 'pct:c1', title: 'אתגר: שתי דרכים לשלם עמלה', reason: 'x', minutes: 6, to: '/challenge/pct:c1' };
+    const other = { ...item, skill: 'stats:3', challengeId: 'stats:c1', to: '/challenge/stats:c1' };
+    useApp.getState().saveMission(d, [item, other]);
+    useApp.getState().finishChallenge('pct:c1', { firstTry: 3, parts: 3 });
+    let items = useApp.getState().learn.missions[d].items;
+    expect(items.map((x) => !!x.done)).toEqual([true, false]);
+    expect(useApp.getState().days[d].missionDone).toBeUndefined();
+    useApp.getState().finishChallenge('stats:c1', { firstTry: 1, parts: 4 });
+    items = useApp.getState().learn.missions[d].items;
+    expect(items.every((x) => x.done)).toBe(true);
+    expect(useApp.getState().days[d].missionDone).toBe(1);
+  });
 });

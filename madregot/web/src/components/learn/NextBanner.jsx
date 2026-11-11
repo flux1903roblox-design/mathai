@@ -1,5 +1,5 @@
 // The next step, above the home map, when it is not a stop of the map: an Exam Rescue step, a misconception to repair,
-// a due review, points lost in an exam, or the floor check (learn/next.ts planNext().top). When the next step is a
+// a due review, points lost in an exam, the floor check, or a challenge task (learn/next.ts planNext().top). When the next step is a
 // stair of the map, the map focuses that stair instead and there is no banner. At most one banner shows above the path;
 // this one stacks last under any other.
 import clsx from 'clsx';

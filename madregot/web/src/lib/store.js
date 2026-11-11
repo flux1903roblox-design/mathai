@@ -12,6 +12,7 @@ import { startRepair as startRepairRec } from '@/learn/misconceptions.ts';
 import { completeMissionItems, missionDone } from '@/learn/mission.ts';
 import { newPlan, recordDiagnostic } from '@/learn/examRescue.ts';
 import { challengeXP } from '@/learn/challenges/grade.ts';
+import { challengeById } from '@/learn/challenges/index.ts';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
 export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return today(d); };
@@ -231,15 +232,22 @@ export const useApp = create(
        * parts are not among them). The first finish earns 20 XP and 5 per first-try part (at most 40), and counts for the
        * day like a lesson (days[d].lessons and xp: the streak, the daily goal and the quests); a second finish earns
        * nothing. It never touches mastery: learn.skills and the checks are left as they are. The analytics event carries
-       * the share right on the first try (n), and no text. Returns what to celebrate.
+       * the share right on the first try (n), and no text. The finish is reported to today's mission (Done.kind
+       * 'challenge'): it ticks that task's item, and when that finishes the mission, its quest (and maybe the chest).
+       * Returns what to celebrate.
        */
       finishChallenge: (id, result) => {
         const st = get(); const L = st.learn; const at = new Date().toISOString(); const all = L.challenges ?? {};
+        const task = challengeById(id);
+        const toMission = (out) => {
+          const m = get().completeMission({ kind: 'challenge', challengeId: id, ...(task ? { skill: task.after } : {}) });
+          return { ...out, questsDone: out.questsDone || m.questsDone, freezeEarned: out.freezeEarned || m.freezeEarned };
+        };
         const firstTry = Math.max(0, result?.firstTry || 0); const parts = Math.max(0, result?.parts || 0);
         const n = parts ? firstTry / parts : 0;
         if (all[id]?.doneAt) {
           set({ learn: { ...L, events: logEvent(L.events, { e: 'challenge-done', m: id, n }, at) } });
-          return { xp: 0, again: true, streakExtended: false, streak: streakOf(st.days), goalReached: false, questsDone: false, freezeEarned: false };
+          return toMission({ xp: 0, again: true, streakExtended: false, streak: streakOf(st.days), goalReached: false, questsDone: false, freezeEarned: false });
         }
         const xp = challengeXP(firstTry);
         const d = today(); const cur = st.days[d] || {};
@@ -255,7 +263,7 @@ export const useApp = create(
           days, xp: st.xp + xp, freezes: Math.min(2, st.freezes + (freezeEarned ? 1 : 0)),
           learn: { ...L, challenges: { ...all, [id]: rec }, events: logEvent(L.events, { e: 'challenge-done', m: id, n }, at) },
         });
-        return { xp, again: false, streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned };
+        return toMission({ xp, again: false, streakExtended: !learnedOn(cur), streak: streakOf(days), goalReached: !goalBefore && day.xp >= st.goalXp, questsDone, freezeEarned });
       },
       setExam: (input) => { const L = get().learn; const at = new Date().toISOString(); set({ learn: { ...L, exam: input ? newPlan(input, at) : null, events: input ? logEvent(L.events, { e: 'rescue-created' }, at) : L.events } }); },
       recordExamDiagnostic: (skill, right, asked) => { const L = get().learn; if (!L.exam) return; set({ learn: { ...L, exam: recordDiagnostic(L.exam, skill, right, asked, new Date().toISOString()) } }); },

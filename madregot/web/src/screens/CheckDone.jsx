@@ -1,9 +1,11 @@
 // The end of a check: what it showed, said honestly and kindly, and the next useful step.
 // Layout: Duolingo's lesson-complete screen (character, title, stat tiles, one button at the bottom).
-import { useEffect, useRef } from 'react';
+// After a passed mastery check of a stair that has a challenge task (CURRICULUM-6.3), a quiet card offers it: optional,
+// one tap to try, one tap to put it off. The main button stays the plan's next step.
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { Award, RotateCcw, Check, ArrowLeft, Gift } from 'lucide-react';
+import { Award, RotateCcw, Check, ArrowLeft, Gift, Puzzle } from 'lucide-react';
 import { TOPIC } from '@/content/index.js';
 import { useApp } from '@/lib/store.js';
 import { skillId, parseSkill } from '@/learn/skills.ts';
@@ -11,6 +13,7 @@ import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS } from '@/learn/mastery.ts';
 import { titleOf } from '@/learn/recommend.ts';
 import { contentOf } from '@/learn/content/index.ts';
 import { useNext } from '@/lib/useLearn.js';
+import { nextAfter } from '@/learn/challenges/index.ts';
 import { Button } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import Mascot from '@/components/Mascot.jsx';
@@ -102,17 +105,43 @@ export default function CheckDone({ result: r, award, onExit }) {
   return <StairCheckDone result={r} award={award} onExit={onExit} />;
 }
 
+/** The challenge offer after a passed mastery check: the stair's first task not solved yet. */
+export const CHALLENGE_ASK = 'יש אתגר למדרגה הזאת. רוצים לנסות?';
+function ChallengeOffer({ task, onGo, onLater }) {
+  return (
+    <section className="check-challenge" aria-labelledby="cc-title">
+      <div className="check-challenge-row">
+        <span className="check-challenge-icon" aria-hidden="true"><Puzzle size={22} /></span>
+        <div className="check-challenge-text">
+          <h2 id="cc-title" className="check-challenge-title">{CHALLENGE_ASK}</h2>
+          <p className="check-challenge-sub"><MathText text={task.title} /> · {task.minutes} דק׳</p>
+        </div>
+      </div>
+      <div className="check-challenge-actions">
+        <Button variant="secondary" className="btn-sm" onClick={onGo}>לאתגר</Button>
+        <Button variant="ghost" className="btn-sm" onClick={onLater}>לא עכשיו</Button>
+      </div>
+    </section>
+  );
+}
+
 function StairCheckDone({ result: r, award, onExit }) {
   const navigate = useNavigate();
   const skill = r.skill || (r.topic && r.level ? skillId(r.topic, r.level) : null);
   const rec = useApp((s) => (skill ? s.learn.skills[skill] : null));
+  const solved = useApp((s) => s.learn.challenges);
+  // what it offers is fixed when the screen opens: solving it elsewhere later does not swap the card
+  const [offer] = useState(() => (r.purpose === 'mastery' && r.passed && skill ? nextAfter(skill, solved) : null));
+  const [later, setLater] = useState(false);
   const def = r.misc ? contentOf(skill)?.misconceptions.find((m) => m.id === r.misc) : null;
   const { items: actions } = useNext();
   const c = copy(r, rec, def, award);
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
   const rescue = r.purpose === 'diagnostic' || r.purpose === 'exam';
-  const nextA = actions.find((a) => !(a.skill === skill && a.kind === (r.purpose === 'mastery' ? 'mastery' : r.purpose)));
+  // the next step of the plan, never this check again, and never this stair's challenge while the card offers it
+  const nextA = actions.find((a) => !(a.skill === skill && (a.kind === (r.purpose === 'mastery' ? 'mastery' : r.purpose) || (offer && a.kind === 'challenge'))));
+  const putOff = () => { setLater(true); ref.current?.focus({ preventScroll: true }); };
   const weak = Object.entries(r.perSkill || {}).filter(([, x]) => x.right < x.asked).map(([s]) => s);
   return (
     <div className="page check-done" role="main">
@@ -137,6 +166,7 @@ function StairCheckDone({ result: r, award, onExit }) {
           </div>
         )}
       </div>
+      {offer && !later && <ChallengeOffer task={offer} onGo={() => navigate(`/challenge/${offer.id}`, { replace: true })} onLater={putOff} />}
       {rescue && weak.length > 0 && (
         <div className="box box-note"><h2 className="box-tab">מה עוד לא יצא</h2><div className="box-body"><ul className="plain-list">{weak.map((s) => <li key={s}>{titleOf(s)}</li>)}</ul></div></div>
       )}

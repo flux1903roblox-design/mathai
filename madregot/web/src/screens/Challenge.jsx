@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { m } from 'motion/react';
-import { X, ChevronDown, Zap } from 'lucide-react';
+import { X, ChevronDown, Zap, Target, Snowflake, Check } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/index.js';
 import { MathText } from '@/components/MathText.jsx';
@@ -49,8 +49,13 @@ function Story({ task, id }) {
   );
 }
 
-/** The end: מדי, the line, the XP (the first finish only), and the way back. */
+/** The end: מדי, the line, the XP (the first finish only), what else the day got from it, and the way back. */
 function ChallengeDone({ award, onExit }) {
+  const pills = [
+    award.goalReached && { icon: Target, tone: 'gold', label: 'הגעתם ליעד היומי' },
+    award.freezeEarned && { icon: Snowflake, tone: 'brand', label: 'קיבלתם הקפאת רצף' },
+    award.questsDone && !award.freezeEarned && { icon: Check, tone: 'good', label: 'סיימתם את המשימות של היום' },
+  ].filter(Boolean);
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
   return (
@@ -66,7 +71,7 @@ function ChallengeDone({ award, onExit }) {
             <div className="stat stat-gold"><span className="stat-label">XP</span><span className="stat-value"><Zap size={20} aria-hidden="true" /><span>{`+${award.xp}`}</span></span></div>
           </div>
         )}
-        {award.goalReached && <div className="badges"><span className="done-earned tone-gold"><Zap size={16} aria-hidden="true" />הגעתם ליעד היומי</span></div>}
+        {pills.length > 0 && <div className="badges">{pills.map((b) => <span key={b.label} className={`done-earned tone-${b.tone}`}><b.icon size={16} aria-hidden="true" />{b.label}</span>)}</div>}
       </m.div>
       <div className="done-actions" data-region="footer"><Button ref={ref} className="btn-block btn-lg" onClick={onExit}>המשך</Button></div>
     </div>

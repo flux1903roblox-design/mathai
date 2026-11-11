@@ -29,7 +29,8 @@ export const titleOf = (id: SkillId): string => { const { topic, level } = parse
 export const topicTitleOf = (id: SkillId): string => TOPIC[parseSkill(id).topic]?.title || '';
 const stairName = (id: SkillId) => `${topicTitleOf(id)}: ${titleOf(id)}`;
 
-export const MINUTES: Record<Action['kind'], number> = { exam: 5, repair: 3, review: 2, 'exam-loss': 4, floor: 3, prereq: 4, continue: 4, new: 5, mastery: 3 };
+/** About how long each kind takes. A challenge item carries its own task's minutes (4 to 10); 6 is only the typical one. */
+export const MINUTES: Record<Action['kind'], number> = { exam: 5, repair: 3, review: 2, 'exam-loss': 4, floor: 3, prereq: 4, continue: 4, new: 5, mastery: 3, challenge: 6 };
 
 /** The five stages of a stair, as the student sees them. */
 export const STAGE_NAME: Record<Stage, string> = { A: 'מבינים את הרעיון', B: 'דוגמה פתורה', C: 'פותרים יחד', D: 'תרגול', E: 'בדיקת שליטה' };

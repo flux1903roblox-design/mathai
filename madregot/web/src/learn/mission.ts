@@ -23,8 +23,8 @@ export function buildMission(actions: Action[]): MissionItem[] {
     if (out.includes(a) || out.some((x) => x.skill === a.skill && x.kind === a.kind)) continue;
     out.push(a); minutes += a.minutes;
   }
-  // a mission item keeps what the mission needs, not the plan's ranking fields
-  return out.map(({ source, rank, due, challengeId, ...a }: Action & { source?: unknown; rank?: unknown; due?: unknown; challengeId?: unknown }) => ({ ...a }));
+  // a mission item keeps what the mission needs (a challenge's task id included), not the plan's ranking fields
+  return out.map(({ source, rank, due, ...a }: Action & { source?: unknown; rank?: unknown; due?: unknown }) => ({ ...a }));
 }
 
 /** Today's mission: the saved one, or a new one. */
@@ -44,13 +44,17 @@ export function missionFor(learn: LearnState, day: string, actions: Action[]): {
  *    learning on its stair;
  *  - points lost in an exam ('exam-loss') are done by practice, a review or a mastery check on that stair (or by the
  *    teaching stage the item itself names);
- *  - the floor check item by the floor check (Done.kind 'floor', on no stair).
+ *  - the floor check item by the floor check (Done.kind 'floor', on no stair);
+ *  - a challenge item by finishing that very task (Done.kind 'challenge' with its challengeId), never by work on its
+ *    stair, and a challenge never completes a learning item.
  * Items saved before stages existed (no `stage`) are completed by any learning on their stair.
  */
 export interface Done {
-  /** The stair; none for an activity on no stair (the floor check). */
+  /** The stair; none for an activity on no stair (the floor check). For a challenge, the stair it follows. */
   skill?: string;
   kind: Action['kind']; stage?: Stage; misc?: string;
+  /** A finished challenge: which task. */
+  challengeId?: string;
 }
 const practice = (done: Done) => done.kind === 'continue' && (!done.stage || done.stage === 'D');
 function completesRescue(it: MissionItem, done: Done): boolean {
@@ -67,6 +71,8 @@ function completesRescue(it: MissionItem, done: Done): boolean {
 function completes(it: MissionItem, done: Done): boolean {
   if (it.kind === 'exam') return completesRescue(it, done);
   if (it.kind === 'floor') return done.kind === 'floor';
+  if (it.kind === 'challenge') return done.kind === 'challenge' && !!it.challengeId && done.challengeId === it.challengeId;
+  if (done.kind === 'challenge') return false;
   if (it.skill !== done.skill) return false;
   switch (it.kind) {
     case 'repair': return done.kind === 'repair' && done.misc === it.misc;

@@ -12,12 +12,16 @@
 //   7 mastery    the stair in progress (its next stage, or its mastery check), then a kept stair's mastery check
 //     continue
 //   8 new        the next new stair: taught by now in the school calendar first, in school order
-//   9            with nothing else: a short review of the earliest mastered stair
-// (Band 1 is the teacher's work, which comes with the class lane; challenges come in a later stage.)
+//   9 challenge  the first unsolved challenge task of a mastered stair (the most recently mastered first). When the
+//                student is strong today (their last 3 mastery checks passed on the first attempt, or every stair of
+//                the grade mastered) it moves up into band 5, right after the points lost in an exam: never above an
+//                exam step, a repair, a due review or an exam loss
+//  10            with nothing else but a challenge: a short review of the earliest mastered stair
+// (Band 1 is the teacher's work, which comes with the class lane.)
 //
 // planNext is pure: the same context gives the same plan. It never reads the clock: `now`, `day` and the school `month`
 // come in the context (lib/useLearn.js useNext fills them).
-import type { Action, ActionKind, MissionItem, RescueTask, SkillId, SkillRecord, Stage } from './types';
+import type { Action, ActionKind, LearnEvent, MissionItem, RescueTask, SkillId, SkillRecord, Stage } from './types';
 import { ALL_SKILLS, BRIDGE_SKILLS, STAIRS, ancestorsOf, gradeSkillsOf, isBridgeSkill, parseSkill, prereqsOf, skillId } from './skills';
 import { dueReviews, daysBetween, STATE_LABEL } from './mastery';
 import { openMisconceptions, canOffer } from './misconceptions';
@@ -25,6 +29,7 @@ import { contentOf } from './content/index';
 import { examPlan, isShabbatDay } from './examRescue';
 import { monthIndex, monthNameOf } from './programme';
 import { states, isMissing, smallestMissing, struggling, onPath, stairStage, titleOf, topicTitleOf, routeOf, MINUTES, STAGE_NAME, STAGE_N, STAGE_MIN } from './recommend';
+import { firstOpenChallenge } from './challenges/index';
 import type { Context } from './recommend';
 // @ts-ignore: plain JS
 import { focusLevel } from '@/lib/exam.js';
@@ -36,15 +41,13 @@ import { PARTS } from '@/lib/lesson.js';
 import { topicsFor, bridgeTopicsFor } from '@/content/index.js';
 
 export type NextKind = ActionKind;
-/** Where a suggestion comes from: Exam Rescue's plan, the learning engine, or a checked exam. */
-export type NextSource = 'rescue' | 'engine' | 'exam-check';
+/** Where a suggestion comes from: Exam Rescue's plan, the learning engine, a checked exam, or the challenge track. */
+export type NextSource = 'rescue' | 'engine' | 'exam-check' | 'challenge';
 export interface NextItem extends Action {
   kind: NextKind;
   source: NextSource;
   /** The exam's date, for a step of the exam band. */
   due?: string;
-  /** A challenge task's id (the challenge band of a later stage). */
-  challengeId?: string;
   /** band × 100 + place inside the band: stable, and lower comes first. */
   rank: number;
 }
@@ -67,13 +70,15 @@ export interface NextPlan {
   restDay: boolean;
 }
 
-export const BAND = { exam: 2, repair: 3, review: 4, 'exam-loss': 5, floor: 6, prereq: 6, mastery: 7, continue: 7, new: 8, last: 9 } as const;
+export const BAND = { exam: 2, repair: 3, review: 4, 'exam-loss': 5, floor: 6, prereq: 6, mastery: 7, continue: 7, new: 8, challenge: 9, last: 10 } as const;
 /** An exam this close puts its steps first. */
 export const EXAM_SOON_DAYS = 14;
 /** Points lost in a checked exam are worth working on for this long. */
 export const EXAM_LOSS_DAYS = 45;
 /** Independent right answers on a stair after the exam that count as recovered. */
 export const RECOVER_RIGHT = 3;
+/** Mastery checks in a row passed on the first attempt that make a student strong today. */
+export const STRONG_CHECKS = 3;
 
 const STEP_REASON = 'זה הצעד של היום בתוכנית ההכנה.';
 const examReason = (left: number) => (left === 0 ? `המבחן היום. ${STEP_REASON}` : left === 1 ? `המבחן מחר. ${STEP_REASON}` : `המבחן בעוד ${left} ימים. ${STEP_REASON}`);
@@ -142,6 +147,21 @@ export function examLosses(ctx: NextContext): { skill: SkillId; exam: CheckedExa
   return out;
 }
 
+/**
+ * Strong today: every stair of the grade is mastered, or the last STRONG_CHECKS mastery checks (the analytics log's
+ * 'check-done' events of purpose 'mastery') all passed, each on its stair's first attempt (no failed mastery check on
+ * that stair before it). Then a challenge is worth more than the next new stair.
+ */
+export function strongToday(ctx: Pick<NextContext, 'learn' | 'grade'>): boolean {
+  if (gradeSkillsOf(ctx.grade).every((id) => !!ctx.learn.skills[id]?.mastered)) return true;
+  const checks = (ctx.learn.events || []).filter((e: LearnEvent) => e.e === 'check-done' && e.p === 'mastery' && !!e.s);
+  if (checks.length < STRONG_CHECKS) return false;
+  return checks.slice(-STRONG_CHECKS).every((e) => e.ok && !checks.slice(0, checks.indexOf(e)).some((x) => x.s === e.s && !x.ok));
+}
+
+/** Why a challenge: the stair is named as the app names stairs ("במדרגה "…""), so every title reads well after ב. */
+export const challengeReason = (after: SkillId) => `עברתם את בדיקת השליטה במדרגה "${titleOf(after)}". רוצים משהו קשה יותר?`;
+
 /** Is a stair taught by now in the student's grade (the Ministry's school calendar)? */
 const taughtByNow = (ctx: NextContext, id: SkillId) => { const m = monthIndex(id, ctx.grade); return m != null && m <= ctx.month; };
 
@@ -195,6 +215,12 @@ export function planNext(ctx: NextContext): NextPlan {
     add(BAND['exam-loss'], 'exam-check', { kind: 'exam-loss', skill: id, ...(practiced ? {} : { stage: sg }), title: `מהמבחן: ${titleOf(id)}`, reason: `במבחן מ־${dayMonth(ex.at)} ירדו כאן נקודות. תרגול קצר ואז בדיקה.`, minutes: MINUTES['exam-loss'], to: practiced ? `/lesson/${topic}/${level}?part=${PARTS}` : routeOf.stage(id, sg) });
   });
 
+  // 9. a challenge task of a mastered stair: at the bottom, or, for a student strong today, right after band 5
+  const task = firstOpenChallenge(ctx.learn.skills, ctx.learn.challenges);
+  const strong = !!task && strongToday(ctx);
+  const challenge = task && { kind: 'challenge' as const, skill: task.after, challengeId: task.id, title: `אתגר: ${task.title}`, reason: challengeReason(task.after), minutes: task.minutes, to: `/challenge/${task.id}` };
+  if (challenge && strong) add(BAND['exam-loss'], 'challenge', challenge);
+
   // 6. a stair that is hard right now: its smallest missing prerequisite, or, when nothing below it is known to be
   // missing but it leans on fractions and there is no floor evidence yet, the short floor check
   let floorOffered = false;
@@ -239,8 +265,11 @@ export function planNext(ctx: NextContext): NextPlan {
     learnAdd(BAND.new, { kind: 'new', skill: next, stage: sg, title: `${STAGE_NAME[sg]}: ${titleOf(next)}`, reason: `מדרגה חדשה, שלב ${STAGE_N[sg]} מתוך 5. ${why}${when}`, minutes: STAGE_MIN[sg], to: routeOf.stage(next, sg) });
   }
 
-  // 9. when everything in the grade is mastered: the earliest mastered stair, for a stronger memory
-  if (!items.length) {
+  if (challenge && !strong) add(BAND.challenge, 'challenge', challenge);
+
+  // 10. when nothing is left but a challenge (everything in the grade mastered): the earliest mastered stair, for a
+  // stronger memory, after the challenge
+  if (!items.some((x) => x.kind !== 'challenge')) {
     const any = own.find((id) => st[id] === 'mastered');
     if (any) add(BAND.last, 'engine', { kind: 'review', skill: any, title: `חיזוק: ${titleOf(any)}`, reason: 'כל המדרגות פתוחות. חזרה קצרה שומרת את מה שלמדתם.', minutes: MINUTES.review, to: routeOf.check(any, 'review') });
   }

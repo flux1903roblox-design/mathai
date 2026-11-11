@@ -2,10 +2,12 @@
 // Laid out like a Brilliant course page: the stair's header with the next step and its button, then the five stages
 // as an outline, each a node on one line, done ones checked and the current one filled.
 // The student sees where they are, what each stage is, what "mastered" means, and can go to any stage.
+// A stair that has a challenge task shows a sixth card under the five stages, "אתגר · לבחירה" (CURRICULUM-6.3): locked
+// until the mastery check is passed, then one tap opens the task. It is optional, so it is not one of the stages.
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { Check, Lightbulb, BookOpen, Users, PencilLine, Award, HelpCircle } from 'lucide-react';
+import { Check, Lightbulb, BookOpen, Users, PencilLine, Award, HelpCircle, Puzzle, Lock } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { TOPIC } from '@/content/index.js';
 import { contentOf } from '@/learn/content/index.ts';
@@ -13,6 +15,7 @@ import { skillId } from '@/learn/skills.ts';
 import { masteryState, nextStage, STATE_LABEL, MASTERY_RULES, MASTERY_N, daysBetween } from '@/learn/mastery.ts';
 import { openMisconceptions } from '@/learn/misconceptions.ts';
 import { routeOf } from '@/learn/recommend.ts';
+import { challengesAfter, isSolved } from '@/learn/challenges/index.ts';
 import { LESSON_LEN, PARTS } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { MathText } from '@/components/MathText.jsx';
@@ -21,6 +24,43 @@ import { Button, ChapterMark } from '@/components/ui.jsx';
 import TutorSheet from '@/components/learn/TutorSheet.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
 import { Segments } from '@/components/ds.jsx';
+
+export const CHALLENGE_CARD = 'אתגר · לבחירה';
+export const CHALLENGE_LOCKED = 'נפתח אחרי בדיקת השליטה';
+
+/** The stair's challenge tasks: one locked card until the mastery check is passed, then a card per task. */
+function ChallengeCards({ skill, mastered }) {
+  const navigate = useNavigate();
+  const recs = useApp((s) => s.learn.challenges);
+  const tasks = challengesAfter(skill);
+  if (!tasks.length) return null;
+  return (
+    <ul className="journey-challenges" aria-label="אתגר לבחירה">
+      {!mastered ? (
+        <li className="jchallenge locked">
+          <span className="jchallenge-icon" aria-hidden="true"><Lock size={20} /></span>
+          <div className="jchallenge-text">
+            <p className="jchallenge-title">{CHALLENGE_CARD}</p>
+            <p className="jchallenge-sub">{CHALLENGE_LOCKED}</p>
+          </div>
+        </li>
+      ) : tasks.map((task) => {
+        const solved = isSolved(task, recs);
+        const go = solved ? 'שוב' : 'לאתגר';
+        return (
+          <li key={task.id} className={clsx('jchallenge', solved && 'solved')}>
+            <span className="jchallenge-icon" aria-hidden="true">{solved ? <Check size={20} strokeWidth={3} /> : <Puzzle size={20} />}</span>
+            <div className="jchallenge-text">
+              <p className="jchallenge-title">{CHALLENGE_CARD}</p>
+              <p className="jchallenge-sub"><MathText text={task.title} /> · {solved ? 'פתרתם' : `${task.minutes} דק׳`}</p>
+            </div>
+            <Button variant={solved ? 'ghost' : 'secondary'} className="btn-sm" onClick={() => navigate(`/challenge/${task.id}`)} aria-label={`${go}: ${task.title.replace(/\$/g, '')}`}>{go}</Button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 const STAGES = [
   { id: 'A', title: 'מבינים את הרעיון', icon: Lightbulb },
@@ -109,6 +149,7 @@ export default function Journey() {
           );
         })}
       </ol>
+      <ChallengeCards skill={skill} mastered={!!rec?.mastered} />
 
       {c && (
         <section className="journey-goals" aria-labelledby="goals-title">
