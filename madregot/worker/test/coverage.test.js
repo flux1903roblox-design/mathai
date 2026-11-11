@@ -1,7 +1,8 @@
 // The Ministry programme in code (shared/programme.js) and the coverage computed from it (shared/coverage.js).
 // The fixtures are skill lists typed here, so these numbers do not move when a stage lands: the council's 33 stairs,
 // HEAD's 48 (after the algebra build), stage 1's (HEAD plus signed:6, ratio:1-4 and pct:1-5), and stage 1's with the
-// transformations of curriculum stage 4 (transf:1-4, GEOM-4: units 7.11 and 8.5). The hours and the per-unit taught hours are those of the Ministry's תשפ״ז schedules, as the curriculum spec checked them (§0.3).
+// transformations of curriculum stage 4 (transf:1-4, GEOM-4: units 7.11 and 8.5), then its congruence (congr:1-5, GEOM-5:
+// 8.12) and its isosceles triangles and similarity (sim:1-4, GEOM-6: 8.13's second part). The hours and the per-unit taught hours are those of the Ministry's תשפ״ז schedules, as the curriculum spec checked them (§0.3).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PROGRAMME, ROADMAP_NEXT } from '../../shared/programme.js';
@@ -34,8 +35,12 @@ const STAGE4 = [...STAGE1, ...TRANSF];
 const CONGR = ['congr:1', 'congr:2', 'congr:3', 'congr:4', 'congr:5'];
 const STAGE6 = [...STAGE4, ...CONGR.slice(0, 4)];
 const STAGE7 = [...STAGE4, ...CONGR];
+// isosceles triangles and similarity (GEOM-6): 8.13's second part (13 hours) lists sim:1-4, the lane's stage 8; with it
+// no part waits for S4 any more
+const SIM = ['sim:1', 'sim:2', 'sim:3', 'sim:4'];
+const STAGE8 = [...STAGE7, ...SIM];
 /** The later stage that brings an untaught part: its `later`, or, for a part that lists its stairs, the stage of the ones still missing. */
-const STAGE_OF_TOPIC = { congr: 'S4' };
+const STAGE_OF_TOPIC = { congr: 'S4', sim: 'S4' };
 const laterOf = (p, have) => p.later || (p.skills.length ? STAGE_OF_TOPIC[p.skills.find((s) => !have.has(s))?.split(':')[0]] || null : null);
 const BRIDGE = ['frac:1', 'frac:2', 'frac:3', 'frac:4'];
 
@@ -65,6 +70,8 @@ const TAUGHT = {
 const AFTER = { '7': { S2: 131, S3: 144, S4: 144, S5: 150 }, '8': { S2: 83, S3: 104, S4: 133, S5: 147 } };
 // With congr:5 too (the lane's stage 7) 8.12's 16 hours are taught already: ח׳ 99, 120, then the same 133 and 147.
 const AFTER7 = { '7': AFTER['7'], '8': { S2: 99, S3: 120, S4: 133, S5: 147 } };
+// With sim:1-4 too (the lane's stage 8) 8.13's 13 hours are taught as well: ח׳ 112, 133, and S4 brings nothing more.
+const AFTER8 = { '7': AFTER['7'], '8': { S2: 112, S3: 133, S4: 133, S5: 147 } };
 const COMPLETES = {
   S2: ['7.6', '7.12', '7.13', '8.4', '8.17'],
   S3: ['7.15', '7.16', '7.17', '8.6', '8.10', '8.11', '8.16'],
@@ -102,11 +109,11 @@ test('the programme: 17 units a grade, in the schedules\' order, with their hour
   assert.equal(coverage('8', []).hours, 147);
 });
 
-test('every stair a part lists is one of stage 1\'s, a transformation or a congruence stair; a part with none is a later stage\'s, with a note', () => {
-  const known = new Set([...STAGE4, ...CONGR]);
+test('every stair a part lists is one of stage 1\'s, a transformation, congruence or similarity stair; a part with none is a later stage\'s, with a note', () => {
+  const known = new Set([...STAGE4, ...CONGR, ...SIM]);
   for (const { unit, part } of allParts) {
     if (part.skills.length) {
-      part.skills.forEach((s) => assert.ok(known.has(s), `${unit.id} lists ${s}, which is not a stage-1 stair, a transformation or a congruence stair`));
+      part.skills.forEach((s) => assert.ok(known.has(s), `${unit.id} lists ${s}, which is not a stage-1 stair, a transformation, congruence or similarity stair`));
       assert.equal(part.later, undefined, `${unit.id}: a part with stairs is not waiting for a later stage`);
     } else {
       assert.ok(['S2', 'S3', 'S4', 'S5'].includes(part.later), `${unit.id}: an empty part names its stage`);
@@ -122,8 +129,12 @@ test('every stair a part lists is one of stage 1\'s, a transformation or a congr
   assert.deepEqual(listing('7.11'), TRANSF);
   assert.deepEqual(listing('8.5'), TRANSF);
   for (const id of ['7.11', '8.5']) assert.ok(PROGRAMME.units.find((u) => u.id === id).parts.every((p) => p.later !== 'S4'), id);
-  // congruence: 8.12 lists its five stairs (the fifth, the sides of a triangle, still to come)
+  // congruence: 8.12 lists its five stairs; similarity: 8.13 lists angles:5 (the isosceles and exterior angles, 3 hours)
+  // and sim:1-4 (13 hours)
   assert.deepEqual(listing('8.12'), CONGR);
+  assert.deepEqual(listing('8.13'), ['angles:5', ...SIM]);
+  // grade-8 geometry is all built: no part still waits for S4
+  assert.deepEqual(allParts.filter(({ part }) => part.later === 'S4').map(({ unit }) => unit.id), []);
   // one stair can serve several units
   assert.deepEqual(PROGRAMME.units.filter((u) => u.parts.some((p) => p.skills.includes('pyth:1'))).map((u) => u.id), ['7.6', '7.14', '8.3']);
   assert.ok(listing('7.9').includes('line:1'));
@@ -188,6 +199,20 @@ test('coverage from the four fixtures: the council\'s 33 stairs, HEAD\'s 48, sta
     parts: [{ hours: 16, skills: CONGR, note: 'חפיפת משולשים, צלעות במשולש ותיכון', later: null, taught: true }],
   });
   assert.deepEqual(c7.units.map((u) => u.taught), [8, 7, 8, 0, 5, 1, 0, 8, 6, 8, 0, 16, 3, 13, 4, 0, 0]);
+  // with sim:1-4 too (the lane's stage 8), 8.13 whole: ח׳ 100 of 147 (68%), ז׳ still 109 of 150 (73%), both grades 70%
+  const s8 = coverage('8', STAGE8);
+  assert.equal(STAGE8.length, 71);
+  assert.deepEqual([coverage('7', STAGE8).taught, coverage('7', STAGE8).pct, s8.taught, s8.pct], [109, 73, 100, 68]);
+  assert.equal(Math.round((100 * (109 + 100)) / 297), 70);
+  assert.deepEqual(s8.units.find((u) => u.id === '8.13'), {
+    id: '8.13', domain: 'geometry', title: 'זווית חיצונית, שווה־שוקיים ומשפטים הפוכים, דמיון משולשים', months: [3, 4], hours: 16, taught: 16, state: 'yes',
+    stairs: ['angles:5', ...SIM], missing: [],
+    parts: [
+      { hours: 3, skills: ['angles:5'], note: null, later: null, taught: true },
+      { hours: 13, skills: SIM, note: 'משפטים הפוכים בשווה־שוקיים ודמיון משולשים', later: null, taught: true },
+    ],
+  });
+  assert.deepEqual(s8.units.map((u) => u.taught), [8, 7, 8, 0, 5, 1, 0, 8, 6, 8, 0, 16, 16, 13, 4, 0, 0]);
 });
 
 test('a unit\'s state, stairs and missing parts', () => {
@@ -213,8 +238,8 @@ test('a unit\'s state, stairs and missing parts', () => {
   assert.equal(at('8', [...STAGE1, 'func:1', 'func:2'], '8.7').taught, 0);
 });
 
-test('with the stage-1 stairs and the transformations (and congr:1-4, then congr:1-5), every untaught part names the later stage that brings it, and the stages add up', () => {
-  for (const skills of [STAGE4, STAGE6, STAGE7]) {
+test('with the stage-1 stairs and the transformations (and congr:1-4, congr:1-5, then sim:1-4), every untaught part names the later stage that brings it, and the stages add up', () => {
+  for (const skills of [STAGE4, STAGE6, STAGE7, STAGE8]) {
     const have = new Set(skills);
     for (const g of ['7', '8']) {
       const c = coverage(g, skills);
@@ -224,13 +249,13 @@ test('with the stage-1 stairs and the transformations (and congr:1-4, then congr
       }
       for (const stage of ['S2', 'S3', 'S4', 'S5']) {
         taught += sum(c.units.flatMap((u) => u.parts.filter((p) => !p.taught && laterOf(p, have) === stage).map((p) => p.hours)));
-        assert.equal(taught, (skills === STAGE7 ? AFTER7 : AFTER)[g][stage], `grade ${g} after ${stage}`);
+        assert.equal(taught, (skills === STAGE8 ? AFTER8 : skills === STAGE7 ? AFTER7 : AFTER)[g][stage], `grade ${g} after ${stage}`);
       }
     }
     for (const [stage, ids] of Object.entries(COMPLETES)) {
       const units = ['7', '8'].flatMap((g) => coverage(g, skills).units);
-      // with congr:5, 8.12 is taught: S4 still brings 8.13
-      const want = skills === STAGE7 && stage === 'S4' ? ['8.13'] : ids;
+      // with congr:5, 8.12 is taught: S4 still brings 8.13; with sim:1-4, S4 brings nothing more
+      const want = stage !== 'S4' ? ids : skills === STAGE8 ? [] : skills === STAGE7 ? ['8.13'] : ids;
       assert.deepEqual(units.filter((u) => u.parts.some((p) => !p.taught && laterOf(p, have) === stage)).map((u) => u.id), want, stage);
     }
   }

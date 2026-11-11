@@ -448,6 +448,42 @@ const RoofTruss = () => (
   </svg>
 );
 
+// isosceles triangles and similarity (GEOM-6): a small triangle inside a large one, sharing the top vertex, with
+// parallel bases (the emblem); a person and a palm tree with their shadows under one sun ray; an isosceles tent with
+// its dashed axis of symmetry
+const NestedTriangles = () => (
+  <svg viewBox="0 0 108 92">
+    <path d="M54 8 L100 84 L8 84 Z" className="sc-t sc-line" />
+    <path d="M54 8 L77 46 L31 46 Z" className="sc-c" />
+    {/* the two bases are parallel: one arrow mark on each */}
+    <path d="M31 46 H77" className="sc-stroke" />
+    <path d="M50 42 L55 46 L50 50" className="sc-stroke" />
+    <path d="M50 80 L55 84 L50 88" className="sc-stroke" />
+    <path d="M60 18 A12 12 0 0 1 48 18" className="sc-stroke-gold" />
+  </svg>
+);
+const PalmShadow = () => (
+  <svg viewBox="0 0 120 92">
+    <circle cx="14" cy="14" r="8" className="sc-g" />
+    {/* one sun ray past the tops of both, to the ends of their shadows */}
+    <path d="M20 18 L112 84" className="sc-route" />
+    <path d="M60 84 V40" className="sc-stroke" />
+    <path d="M60 40 C52 34 44 36 40 42 M60 40 C68 32 78 34 82 40 M60 40 C58 30 62 24 70 22" className="sc-stroke-c" />
+    <path d="M26 84 V64" className="sc-stroke" />
+    <circle cx="26" cy="60" r="4.5" className="sc-d" />
+    <path d="M26 86 H40 M60 86 H112" className="sc-stroke-gold" />
+  </svg>
+);
+const TentAxis = () => (
+  <svg viewBox="0 0 110 86">
+    <path d="M55 10 L100 78 L10 78 Z" className="sc-c sc-line" />
+    <path d="M55 40 L70 78 L40 78 Z" className="sc-d" />
+    {/* the axis of symmetry, dashed, from the top to the middle of the base */}
+    <path d="M55 4 V84" className="sc-route" />
+    <path d="M28 46 L34 49 M82 46 L76 49" className="sc-stroke-w" />
+  </svg>
+);
+
 export const SCENERY = {
   signed: [Thermometer, SeaLevel, Cloud],
   coord: [GridMap, Compass, Pin],
@@ -457,6 +493,7 @@ export const SCENERY = {
   pyth: [Squares, Ladder, Pyramid],
   stats: [BarSkyline, PieSun, Dice],
   congr: [TwinTriangles, Dividers, RoofTruss],
+  sim: [NestedTriangles, PalmShadow, TentAxis],
   expr: [ExprTiles, XBox, Brackets],
   eq: [EqScale, Seesaw, Keyhole],
   sys: [SysCross, TwoRoads, MeetFlag],

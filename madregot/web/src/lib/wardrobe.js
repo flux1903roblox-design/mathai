@@ -43,6 +43,8 @@ export const ITEMS = [
   { id: 'mirror-pin', slot: 'body', topic: 'transf', name: 'סיכת מראה', unlock: { chest: 'transf' } },
   // curriculum stage 4's congruent triangles (ח׳): two triangles, one the mirror image of the other
   { id: 'twin-pin', slot: 'body', topic: 'congr', name: 'סיכת משולשים חופפים', unlock: { chest: 'congr' } },
+  // and its isosceles triangles and similarity: a small triangle inside a large one, with parallel bases
+  { id: 'nested-pin', slot: 'body', topic: 'sim', name: 'סיכת משולשים דומים', unlock: { chest: 'sim' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
 ];
 

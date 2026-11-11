@@ -20,6 +20,8 @@ import { PCT } from './pct.js';
 import { TRANSF } from './transf.js';
 import { shiftPlain } from './transf.gen.js';
 import { CONGR } from './congr.js';
+import { SIM } from './sim.js';
+import { CONVERSES } from './sim.gen.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -301,6 +303,10 @@ const isSlide = (m) => m.p === 'tf1s' || m.p === 'tf1v';
 // ---------------------------------------------------------------- congruent triangles: read back from what is on screen
 /** Every whole number the text prints alone in maths, in order: `$12$` (the lengths of the sides questions). */
 const numsIn = (text) => [...text.matchAll(/\$(\d+)\$/g)].map((m) => Number(m[1]));
+/** Every number the text prints alone in maths, decimals too, in order: `$1.6$` (the similarity questions). */
+const decsIn = (text) => [...text.matchAll(/\$(\d+(?:\.\d+)?)\$/g)].map((m) => Number(m[1]));
+/** The sides written as expressions, `$AB = 3x + 2$`, as { AB: [3, 2] }. */
+const sideExprs = (text) => Object.fromEntries([...text.matchAll(/\$([A-C]{2}) = (\d)x ([+-]) (\d+)\$/g)].map((m) => [m[1], [Number(m[2]), (m[3] === '+' ? 1 : -1) * Number(m[4])]]));
 /** Every angle the text prints in degrees, by its name: { A: 50, MBD: 70 }. */
 const anglesIn = (text) => Object.fromEntries([...text.matchAll(/\\sphericalangle ([A-Z]+) = (\d+)°/g)].map((m) => [m[1], Number(m[2])]));
 /** Every length the text prints: { BC: 14, AD: 6 } (a side with a number, `$XY = n$`). */
@@ -623,6 +629,74 @@ const PROPS = {
       const X = (/\\sphericalangle ([A-C])/.exec(choiceAny(it, u)) || [])[1];
       return !!X && longest.includes(X);
     },
+  },
+  // curriculum stage 4's isosceles triangles and similarity (content/sim.gen.js): every property reads what the student
+  // saw, the numbers and expressions the question prints, the chosen choice's words or maths, and a proof from the table
+  // the student left (PROOF_PROPS)
+  sim: {
+    // AB set equal to BC, the sides at B (not opposite the equal angles): AB at the x where px + q = tx + u
+    'side-at-angle': (it, u) => {
+      const e = sideExprs(it.text); if (!e.AB || !e.BC || e.AB[0] === e.BC[0]) return false;
+      const x2 = (e.BC[1] - e.AB[1]) / (e.AB[0] - e.BC[0]);
+      return x2 > 0 && near(u, e.AB[0] * x2 + e.AB[1]);
+    },
+    // x itself, where AB = AC: the equation solved and the question left
+    'stopped-at-x': (it, u) => { const e = sideExprs(it.text); return !!e.AB && !!e.AC && e.AB[0] !== e.AC[0] && near(u, (e.AC[1] - e.AB[1]) / (e.AB[0] - e.AC[0])); },
+    // the whole base in Pythagoras: √(AB² − BC²), typed as it rounds to a tenth
+    'whole-base': (it, u) => {
+      const m = /\$AB = AC = (\d+)\$.*\$BC = (\d+)\$/.exec(it.text); if (!m) return false;
+      const [ab, bc] = [Number(m[1]), Number(m[2])];
+      return ab > bc && Math.abs(u - Math.sqrt(ab * ab - bc * bc)) < 0.051;
+    },
+    // "נכון" said of a converse that is not necessarily true
+    'converse-equal': (it, u) => it.key.startsWith('sm1v:') && choiceText(it, u) === 'נכון' && CONVERSES[Number(it.key.split(':')[1])].ok === false,
+    // the same added to every side: the image of a side plus the change of another, or the change itself for the factor,
+    // or "similar" said of rectangles that gained the same on both sides
+    additive: (it, u) => {
+      const p = it.key.split(':')[0]; const n = decsIn(it.text); const L = lengthsIn(it.text);
+      if (p === 'sm2m') return near(u, n[1] + n[2] - n[0]);
+      if (p === 'sm2f') return near(u, n[1] - n[0]);
+      if (p === 'sm3p') return near(u, L.DE + L.DB);
+      if (p === 'sm3b') return near(u, L.AB + L.MD - L.AM);
+      if (p === 'sm3s') return near(u, n[0] + n[2] - n[1]);
+      if (p === 'sm2s') { const r = /\$(\d+) \\times (\d+)\$ ו־\$(\d+) \\times (\d+)\$/.exec(it.text); return !!r && choiceText(it, u).startsWith('כן') && Number(r[3]) - Number(r[1]) === Number(r[4]) - Number(r[2]) && Number(r[1]) !== Number(r[2]); }
+      return false;
+    },
+    // the factor turned over: the image divided by the factor, the old side over the new, the area over k²
+    'ratio-flip': (it, u) => {
+      const p = it.key.split(':')[0]; const n = decsIn(it.text); const L = lengthsIn(it.text);
+      if (p === 'sm2m') return near(u, n[1] / (n[2] / n[0]));
+      if (p === 'sm2f') return near(u, n[0] / n[1]);
+      if (p === 'sm3b') return near(u, (L.AB * L.AM) / L.MD);
+      if (p === 'sm3s') return near(u, (n[0] * n[1]) / n[2]);
+      if (p === 'sm4a') return near(u, n[n.length - 1] * (L.AB / L.DE) ** 2);
+      return false;
+    },
+    // "similar" said of every two rectangles, whose angles are all equal
+    'angles-enough': (it, u) => it.key === 'sm2s:rects' && choiceText(it, u).startsWith('כן'),
+    // DB, a part of AB, compared with AD: DE · DB / AD
+    'part-not-whole': (it, u) => { const L = lengthsIn(it.text); return it.key.startsWith('sm3p:') && near(u, (L.DE * L.DB) / L.AD); },
+    // the similar triangle named in an order whose vertices do not match: ACB for ABC, CMD for DMC
+    'order-mixed': (it, u) => it.key.startsWith('sm3w:') && ['\\triangle ACB', '\\triangle CMD'].includes(choiceAny(it, u)),
+    // "not similar" said of two triangles whose third angles make the same three angles
+    'third-angle': (it, u) => {
+      if (!it.key.startsWith('sm3a:')) return false;
+      const [a, b, b2, c2] = [...it.text.matchAll(/\$(\d+)°\$/g)].map((m) => Number(m[1]));
+      return choiceText(it, u).startsWith('לא') && b === b2 && 180 - a - b === c2;
+    },
+    // the area scaled like a length: S · k, the area ratio applied to a side, or the side's factor for the area
+    'linear-area': (it, u) => {
+      const p = it.key.split(':')[0]; const n = decsIn(it.text); const L = lengthsIn(it.text);
+      if (p === 'sm4a') return near(u, (n[n.length - 1] * L.DE) / L.AB);
+      if (p === 'sm4k') return near(u, (n[2] * n[1]) / n[0]);
+      if (p === 'sm4g') return choiceAny(it, u) === String(n[0]);
+      return false;
+    },
+    // the perimeter scaled by k² too: P · (DE / AB)²
+    'area-for-perimeter': (it, u) => { const L = lengthsIn(it.text); const n = decsIn(it.text); return it.key.startsWith('sm4p:') && near(u, n[n.length - 1] * (L.DE / L.AB) ** 2); },
+    // the proofs of the unit (T5, T6, T7): a conclusion above the congruence or the similarity, another theorem on it
+    circular: (it, u) => it.form === 'manip' && PROOF_PROPS.circular(it, u),
+    'wrong-theorem': (it, u) => it.form === 'manip' && PROOF_PROPS['wrong-theorem'](it, u),
   },
   ratio: {
     // the ratio read in the other order: the other term's value
@@ -1027,6 +1101,9 @@ describe('the algebra, fraction, ratio, percent and transformation topics name o
     // congruence: every category but 'no-half', which only the kite transfer model predicts (no exercise names it)
     for (const cat of Object.keys(CONGR.cats)) if (cat !== 'no-half') expect(PROPS.congr[cat], `congr '${cat}'`).toBeTypeOf('function');
     expect(Object.keys(CONGR.cats)).toHaveLength(20);
+    // similarity: every category, the practice-choice tags (converse-equal, angles-enough, order-mixed, third-angle) too
+    for (const cat of Object.keys(SIM.cats)) expect(PROPS.sim[cat], `sim '${cat}'`).toBeTypeOf('function');
+    expect(Object.keys(SIM.cats)).toHaveLength(14);
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

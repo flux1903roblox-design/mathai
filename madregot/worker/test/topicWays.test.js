@@ -110,7 +110,7 @@ test('no lookbehind: the file ships to the browser (Safari before 16.4 cannot lo
 const GEOM_ALL = Object.values(GEOM).flatMap((w) => w.avoidRe);
 
 test('transf has models, the app\'s words and a pattern for every shortcut, and the tutor\'s ways take it after the angles', () => {
-  assert.deepEqual(Object.keys(GEOM), ['transf', 'congr']);
+  assert.deepEqual(Object.keys(GEOM), ['transf', 'congr', 'sim']);
   const w = GEOM.transf;
   assert.ok(w.models.length > 200);
   assert.match(w.models, /same distance in the same direction.*from a point to its image.*perpendicular.*\(x, -y\).*line \$x = k\$.*centre, an angle and a direction.*\(-x, -y\).*congruent.*equal areas or equal perimeters.*shared side.*360/s);
@@ -170,6 +170,37 @@ test('congr: a shortcut stated as a rule is caught; the app\'s own words and the
     'התיכון מחלק את המשולש לשני משולשים שווי שטח, אבל הם לא חופפים.',
     'לשני המשולשים אותו היקף, $18$. הם חופפים?',
   ].forEach((l) => assert.ok(!GEOM.congr.avoidRe.some((r) => r.test(l)), l));
+});
+
+// ---------------------------------------------------------------- curriculum stage 4: isosceles triangles and similarity (GEOM-1 item 8)
+test('sim has models, the app\'s words and a pattern for every shortcut, and the tutor\'s ways take it after congruence', () => {
+  const w = GEOM.sim;
+  assert.ok(w.models.length > 200);
+  assert.match(w.models, /legs are equal.*base angles.*bisector.*median and the altitude.*converses are theorems of their own.*opposite the equal angles.*checked separately.*one ratio.*multiplies every length.*never adds.*equal angles are not enough.*ז\.ז.*order of corresponding vertices.*whole side.*bowtie.*crosses over.*areas by \$k\^2\$.*square root/s);
+  assert.deepEqual(w.words, ['שוקיים', 'בסיס', 'זווית הראש', 'משפט הפוך', 'דומים', 'יחס הדמיון', 'ז.ז']);
+  assert.ok(w.avoid.length === 2 && w.avoidRe.length >= 2);
+  assert.equal(TOPIC_WAYS.sim, w);
+  const order = Object.keys(TOPIC_WAYS);
+  assert.equal(order.indexOf('sim'), order.indexOf('congr') + 1);
+});
+
+test('sim: a shortcut stated as a rule is caught; the app\'s own words and the right rule pass', () => {
+  [
+    'כדי להגדיל מוסיפים אותו מספר לכל צלע.',
+    'מוסיפים את אותו מספר לכל הצלעות ומקבלים צורה דומה.',
+    'השטח גדל פי אותו מספר.',
+    'השטח גדל באותו יחס כמו הצלעות.',
+    'גם השטח משתנה פי יחס הדמיון.',
+  ].forEach((l) => assert.ok(GEOM.sim.avoidRe.some((r) => r.test(l)), l));
+  [
+    // sim:2's own misconception: the same number added, named as what does not work
+    'מוסיפים אותו מספר לכל צלע במקום לכפול באותו מספר.',
+    'מוסיפים אותו מספר לכל צלע? זה לא שומר על הצורה.',
+    'הוספה של אותו מספר לכל צלע משנה את הצורה.',
+    'השטח גדל פי יחס הדמיון בריבוע.',
+    'השטח גדל פי $k^2$, וההיקף פי $k$.',
+    'כל צלע גדלה פי $1.5$.',
+  ].forEach((l) => assert.ok(!GEOM.sim.avoidRe.some((r) => r.test(l)), l));
 });
 
 test('transf: no line of the app\'s content, generators or challenges trips a pattern, and none uses lookbehind', () => {

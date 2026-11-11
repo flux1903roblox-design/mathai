@@ -36,9 +36,10 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 describe('the challenge tasks', () => {
-  it('stage 1, the transformations and congruence have 42 tasks: three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
+  it('stage 1, the transformations, congruence and similarity have 45 tasks: three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
-    expect(CHALLENGES).toHaveLength(42);
+    expect(CHALLENGES).toHaveLength(45);
+    expect(challengesOf('sim').map((t) => [t.id, t.kind, t.after])).toEqual([['sim:c1', 'claim', 'sim:2'], ['sim:c2', 'proof', 'sim:1'], ['sim:c3', 'literacy', 'sim:4']]);
     expect(challengesOf('transf').map((t) => [t.id, t.kind, t.after])).toEqual([['transf:c1', 'claim', 'transf:3'], ['transf:c2', 'error', 'transf:3'], ['transf:c3', 'literacy', 'transf:4']]);
     TOPIC_ORDER.forEach((tp) => expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]));
     expect(TOPIC_ORDER).toContain('frac');
@@ -136,6 +137,16 @@ describe('the challenge tasks', () => {
     expect(order.free).toEqual(PROOF.T1.free);
     // the two givens show their reason, נתון; the vertical angles, the congruence and the conclusion are asked
     expect(order.steps.map((st) => (st.fixed ? 'fixed' : 'asked'))).toEqual(['fixed', 'fixed', 'asked', 'asked', 'asked']);
+  });
+
+  it('sim:c2 orders template T6\'s rows, written into the challenge (the track loads first): the same claims, the same right reasons', () => {
+    const order = challengeById('sim:c2')!.parts.find((p) => p.type === 'order') as Order;
+    const right = (st: any) => st.fixed ?? st.reason.choices[st.reason.answer];
+    expect(order.steps.map((st) => st.text)).toEqual(PROOF.T6.steps.map((st: any) => st.text));
+    expect(order.steps.map(right)).toEqual(PROOF.T6.steps.map(right));
+    expect(order.free).toEqual(PROOF.T6.free);
+    // the given, the bisector and the common side show their reason; the third angle and the theorem are asked
+    expect(order.steps.map((st) => (st.fixed ? 'fixed' : 'asked'))).toEqual(['fixed', 'fixed', 'fixed', 'asked', 'asked', 'fixed']);
   });
 
   it('the seven proof templates follow the same rules, so a template that serves a challenge passes both engines (GEOM-3)', () => {

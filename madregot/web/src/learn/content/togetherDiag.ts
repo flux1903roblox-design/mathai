@@ -130,6 +130,32 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // the isosceles triangle with sides 6 and 14 (34): legs of 6, which do not meet over 14, give 6 + 6 + 14 = 26
     { bugs: { 'ignore-inequality': 26 } },
   ],
+  // curriculum stage 4's isosceles triangles and similarity (learn/content/sim.ts)
+  'sim:1': [
+    // ∢B = ∢C, AB = 2x + 5, AC = 4x − 3, BC = 3x − 1 (13): AB set equal to BC gives x = 6 and 17; x = 4 left as it is
+    { model: 'diag', p: { x: 4, p: 2, q: 5, r: 4, s: -3, t: 3, u: -1 } },
+    // the height from AB = AC = 10 over BC = 12 (8): the whole base gives √(100 − 144), no number; no other mistake of the
+    // stair gives a number here
+    { bugs: {} },
+  ],
+  'sim:2': [
+    // 10 × 4 → 25 × ? (10): the same added gives 19, the factor turned over 1.6
+    { model: 'diag', p: { k: 2.5, p: 10, q: 4 } },
+    // 6 → 9, what 12 becomes (18): the same added gives 15, the factor turned over 8
+    { model: 'diag', p: { k: 1.5, p: 6, q: 12 } },
+  ],
+  'sim:3': [
+    // DE ∥ BC, AD = 5, DB = 10, DE = 4 (12): DB compared instead of AB gives 8, the same added 14
+    { model: 'diag', p: { a: 5, b: 10, d: 4 } },
+    // a stick 1 m with a shadow 1.5 m, a pole's shadow 6 m (4): the ratio turned over gives 0.25, the same added 5.5
+    { model: 'transfer', p: { h: 1, s: 1.5, S: 6 } },
+  ],
+  'sim:4': [
+    // k = 3 and the small area 7 (63): the area scaled like a length gives 21, the factor turned over 7/9
+    { model: 'diag', p: { k: 3, p: 1, q: 3, S: 7 } },
+    // the perimeter 24 with 6 → 9 (36): the perimeter scaled by k² gives 24 · 2.25 = 54
+    { bugs: { 'area-for-perimeter': 54 } },
+  ],
   'signed:1': [
     { model: 'diag', p: { a: -3, b: -8, s: -1 } }, // −3 − (−8)
     { model: 'diag', p: { a: -5, b: -5, s: -1 } }, // −5 − (−5)

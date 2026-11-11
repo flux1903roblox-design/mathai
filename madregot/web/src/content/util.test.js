@@ -261,10 +261,13 @@ describe('practice-only questions are kept out of checks', () => {
   // congr (curriculum stage 4): the angle by the ticks (cg1t: its answer is always 180° minus both printed), which side
   // (cg1p), which theorem (cg2w), what is missing (cg2n), the same perimeter (cg2p), the proof object (cg3f, cg3o), which
   // row is wrong (cg3e), which segment (cg4s), a claim about the median (cg4c), can these lengths make a triangle (cg5c),
-  // which angle is the largest (cg5m)
+  // which angle is the largest (cg5m); sim: how many isosceles triangles (sm1c), a theorem's converse (sm1v), the
+  // isosceles proofs (sm1p), similar shapes (sm2s), which triangle in which order (sm3w), the similarity proof (sm3o),
+  // two angles in each triangle (sm3a), the area on the grid (sm4g)
   const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b',
     'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m', 'tf1c', 'tf1w', 'tf2c', 'tf2s', 'tf3c', 'tf3r', 'tf4m', 'tf4r', 'tf4t',
-    'cg1t', 'cg1p', 'cg2w', 'cg2n', 'cg2p', 'cg3f', 'cg3o', 'cg3e', 'cg4s', 'cg4c', 'cg5c', 'cg5m'];
+    'cg1t', 'cg1p', 'cg2w', 'cg2n', 'cg2p', 'cg3f', 'cg3o', 'cg3e', 'cg4s', 'cg4c', 'cg5c', 'cg5m',
+    'sm1c', 'sm1v', 'sm1p', 'sm2s', 'sm3w', 'sm3o', 'sm3a', 'sm4g'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

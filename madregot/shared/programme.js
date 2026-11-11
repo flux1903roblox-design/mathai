@@ -119,7 +119,7 @@ export const PROGRAMME = {
     { id: '8.13', grade: '8', domain: 'geometry', title: 'זווית חיצונית, שווה־שוקיים ומשפטים הפוכים, דמיון משולשים', months: [3, 4],
       parts: [
         { hours: 3, skills: ['angles:5'] }, // isosceles and exterior angles
-        { hours: 13, skills: [], note: 'משפטים הפוכים בשווה־שוקיים ודמיון משולשים', later: 'S4' },
+        { hours: 13, skills: range('sim', 1, 4), note: 'משפטים הפוכים בשווה־שוקיים ודמיון משולשים' }, // GEOM-6
       ] },
     { id: '8.14', grade: '8', domain: 'algebra', title: 'מערכות משוואות (בסיסית, המשך, שאלות מילוליות)', months: [2, 4, 5],
       parts: [{ hours: 1, skills: ['line:8'] }, { hours: 12, skills: range('sys', 2, 4) }] },

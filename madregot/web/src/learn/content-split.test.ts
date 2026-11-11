@@ -26,6 +26,7 @@ import { CATS_RATIO } from './content/ratio';
 import { CATS_PCT } from './content/pct';
 import { CATS_TRANSF } from './content/transf';
 import { CATS_CONGR } from './content/congr';
+import { CATS_SIM } from './content/sim';
 // @ts-ignore: no Node types in this project
 import { spawnSync } from 'node:child_process';
 // @ts-ignore: no Node types in this project
@@ -127,6 +128,8 @@ describe('meta.gen.ts', () => {
       transf: CATS_TRANSF,
       // and its congruent triangles: every name is the topic's own too (content/congr.js)
       congr: CATS_CONGR,
+      // and its isosceles triangles and similarity: the same (content/sim.js)
+      sim: CATS_SIM,
     };
     expect(Object.keys(NEW_CATS).sort()).toEqual(Object.keys(before).sort());
     for (const t of Object.keys(before)) expect(JSON.stringify(NEW_CATS[t as keyof typeof NEW_CATS]), t).toBe(JSON.stringify(before[t]));

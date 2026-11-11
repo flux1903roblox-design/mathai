@@ -1111,6 +1111,90 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "sim:1": {
+    "title": "שווה־שוקיים ומשפטים הפוכים",
+    "misconceptions": [
+      {
+        "id": "side-at-angle",
+        "title": "השוו צלעות שיוצאות מהזוויות השוות, ולא את הצלעות שמולן"
+      },
+      {
+        "id": "stopped-at-x",
+        "title": "מצאו את $x$ ועצרו, בלי לחשב את אורך הצלע"
+      },
+      {
+        "id": "whole-base",
+        "title": "השתמשו בכל הבסיס במקום בחצי שלו"
+      },
+      {
+        "id": "converse-equal",
+        "title": "חשבו שמשפט והמשפט ההפוך לו נכונים או לא נכונים יחד"
+      }
+    ],
+    "transfer": true
+  },
+  "sim:2": {
+    "title": "צורות דומות",
+    "misconceptions": [
+      {
+        "id": "additive",
+        "title": "הוסיפו לכל צלע אותו מספר במקום לכפול באותו מספר"
+      },
+      {
+        "id": "ratio-flip",
+        "title": "הכפילו ביחס הדמיון ההפוך"
+      },
+      {
+        "id": "angles-enough",
+        "title": "חשבו שבמרובעים זוויות שוות מספיקות לדמיון"
+      }
+    ],
+    "transfer": true
+  },
+  "sim:3": {
+    "title": "דמיון משולשים (ז.ז)",
+    "misconceptions": [
+      {
+        "id": "part-not-whole",
+        "title": "השוו לחלק של הצלע במקום לכל הצלע"
+      },
+      {
+        "id": "additive",
+        "title": "הוסיפו לכל צלע אותו מספר במקום לכפול באותו מספר"
+      },
+      {
+        "id": "ratio-flip",
+        "title": "הכפילו ביחס הדמיון ההפוך"
+      },
+      {
+        "id": "order-mixed",
+        "title": "כתבו את הדמיון בסדר קודקודים שאינו מתאים"
+      },
+      {
+        "id": "third-angle",
+        "title": "השוו זוויות בלי לחשב קודם את הזווית השלישית"
+      }
+    ],
+    "transfer": true
+  },
+  "sim:4": {
+    "title": "יחס צלעות ויחס שטחים",
+    "misconceptions": [
+      {
+        "id": "linear-area",
+        "title": "חשבו שהשטח גדל פי אותו מספר כמו האורכים"
+      },
+      {
+        "id": "ratio-flip",
+        "title": "הכפילו ביחס הדמיון ההפוך"
+      },
+      {
+        "id": "area-for-perimeter",
+        "title": "העלו בריבוע גם את יחס ההיקפים"
+      }
+    ],
+    "transfer": true
+  },
   "stats:1": {
     "title": "שכיח",
     "misconceptions": [
@@ -1425,6 +1509,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "minus-bracket": "מינוס לפני סוגריים הפך רק את המספר הראשון",
     "ignore-brackets": "חישבו כאילו אין סוגריים"
   },
+  "sim": {},
   "stats": {
     "one-middle": "במספר זוגי של נתונים לקחו רק אחד משני האמצעיים",
     "median-position": "כתבו את המקום של החציון ברשימה במקום את הערך שלו",

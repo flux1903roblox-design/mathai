@@ -193,7 +193,7 @@ describe('a check cannot be passed by guessing', () => {
 
 describe('the placement test cannot be passed by guessing', () => {
   // the topics the first-day placement test asks (content/index.js placementTopicsFor): a unit taught later in the year
-  // (placement: false, the transformations and congruence) is never probed there, and each of its stairs' jump tests is
+  // (placement: false, the transformations, congruence and similarity) is never probed there, and each of its stairs' jump tests is
   // held to the same 2% above
   const topics = [...placementTopicsFor('7'), ...placementTopicsFor('8')] as { id: string; levels: unknown[] }[];
   it.each(topics.map((t) => t.id))('%s: a guesser is placed on or above any stair less than 2% of the time', (topic) => {
@@ -246,8 +246,8 @@ describe('the guessing measure itself', () => {
     expect(passRate([copy, copy, copy, copy, copy], 4)).toBeGreaterThan(0.9);
   });
   it('the arithmetic shortcuts of congruence and similarity run, and only there (GEOM-1 Tests)', () => {
-    // synthetic items show the guessers guess (the congruence unit's real ones run in the checks above; similarity's,
-    // GEOM-6, are still to come), so they cannot pass a real check by never running
+    // synthetic items show the guessers guess (the congruence and similarity units' real ones run in the checks above),
+    // so they cannot pass a real check by never running
     const third = { form: 'num', topic: 'congr', text: 'במשולש $ABC$: $\\sphericalangle A = 50^\\circ$, $\\sphericalangle B = 60^\\circ$. כמה מעלות $\\sphericalangle C$?', answer: 70, key: 'syn:third' };
     expect(printedParts(third)).toEqual({ angles: [50, 60], lengths: [] });
     expect(ARITH[0](third)).toBe(1);

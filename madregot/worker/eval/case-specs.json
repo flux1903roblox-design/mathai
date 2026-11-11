@@ -337,6 +337,13 @@
       "tags": ["congr", "generator"]
     },
     {
+      "id": "D1-sim2-additive", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "sim:2", "source": "diag", "params": {"k": 2.5, "p": 10, "q": 4}, "wrong": [19, 13], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "additive", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the same 15 added to the width as to the length (10 to 25). Similar rectangles keep one ratio: the length was multiplied by 25 : 10 = 2.5, so the width is multiplied by 2.5 too: 4 · 2.5 = 10. Adding the same changes the shape (a 25 × 19 rectangle is almost square). Ends at 10. Names no other mistake." },
+      "tags": ["sim"]
+    },
+    {
       "id": "D1-transf1-shiftsign", "cat": "D1", "kind": "explain", "shapes": ["full"],
       "skill": "transf:1", "source": "diag", "params": { "a1": 3, "a2": -3, "dx": -5, "dy": 2, "c1": -1, "c2": -2, "ask": "y" }, "wrong": [-4, 7], "phase": "reveal",
       "expect": { "first": "misconception", "diagnosis": "shift-sign", "maxWords": 130,

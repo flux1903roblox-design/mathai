@@ -138,6 +138,15 @@ const DRAW = {
       <path d="M99.5 99 V102 M108.5 99 V102" style={S(ch('cobalt', '-d'))} strokeWidth="1.2" {...round} />
     </>
   ),
+  // isosceles triangles and similarity: a small triangle inside a large one, sharing the top vertex (the unit's
+  // emblem, small)
+  'nested-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('sky', '-d')) }} strokeWidth="2" />
+      <path d="M104 87.5 L111.5 101 L96.5 101Z" style={{ ...F(WHITE), ...S(ch('sky')) }} strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M104 87.5 L107.6 94 L100.4 94Z" style={F(ch('sky'))} />
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

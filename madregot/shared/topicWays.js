@@ -82,9 +82,10 @@ export const SIGNED_FRACTIONS = String.raw`Fractions and decimals with a sign (s
 
 /**
  * The tutor's ways for curriculum stage 4's geometry (stage4 spec GEOM-1 item 8, through AI-2's rules as above):
- * transformations (transf:1-4, web/src/learn/content/transf.ts) and congruent triangles (congr:1-5,
- * web/src/learn/content/congr.ts). pedagogy.js takes them into TOPIC_WAYS in school order: the transformations after the
- * angles, congruence after statistics.
+ * transformations (transf:1-4, web/src/learn/content/transf.ts), congruent triangles (congr:1-5,
+ * web/src/learn/content/congr.ts) and isosceles triangles and similarity (sim:1-4, web/src/learn/content/sim.ts).
+ * pedagogy.js takes them into TOPIC_WAYS in school order: the transformations after the angles, congruence after
+ * statistics, similarity after congruence.
  */
 export const TOPIC_WAYS_GEOM = Object.freeze({
   transf: {
@@ -117,6 +118,20 @@ export const TOPIC_WAYS_GEOM = Object.freeze({
       re(String.raw`שתי\s+צלעות\s+וזווית\s+(?:אחת\s+)?(?:מספיקות|מספיק|זה\s+מספיק|הן\s+מספיקות)${unless('ביניהן|כלואה|בין שתי')}`),
       // equal areas (or perimeters) given as the reason for congruence: "שווי שטח, ולכן הם חופפים"
       re(String.raw`(?:שווי|שוות|שווים|אותו)\s+(?:שטח|היקף)[^.\n]*?(?:ולכן|לכן|אז)\s+(?:הם\s+|הן\s+|המשולשים\s+)?חופפ`),
+    ],
+  },
+  sim: {
+    models: String.raw`In an isosceles triangle the legs are equal and so are the base angles opposite them; the bisector of the apex angle cuts it into two congruent triangles (צ.ז.צ), so it is also the median and the altitude to the base. The converses are theorems of their own, each proved by congruence: a triangle with two equal angles is isosceles (the sides opposite the equal angles are equal, not the sides at them), and a triangle whose median to a side is also the altitude to it is isosceles. A theorem and its converse are checked separately (congruent triangles have equal areas; equal areas do not make triangles congruent). Similar shapes have every pair of corresponding angles equal and one ratio for every pair of corresponding sides: an enlargement multiplies every length by the same number $k$, never adds the same amount ($4 \to 6$ is $\times 1.5$, so $6 \to 9$). For quadrilaterals equal angles are not enough. Two equal angles make two triangles similar (ז.ז), written in the order of corresponding vertices. A line parallel to a side cuts off a similar triangle: compare its side with the whole side of the large triangle ($AD$ with $AB$, not with $DB$); in the "bowtie" (two parallel segments joined by two crossing segments) the correspondence crosses over ($A \leftrightarrow D$). Perimeters scale by $k$, areas by $k^2$, and $k$ is the square root of the ratio of the areas.`,
+    words: ['שוקיים', 'בסיס', 'זווית הראש', 'משפט הפוך', 'דומים', 'יחס הדמיון', 'ז.ז'],
+    avoid: [
+      '"add the same to every side" (an enlargement multiplies every side by one number)',
+      '"the area grows by the same factor" (areas grow by the square of the ratio)',
+    ],
+    avoidRe: [
+      // the same number added to every side, stated as the way to enlarge (and not what not to do)
+      re(String.raw`מוסיפים\s+(?:אותו\s+מספר|את\s+אותו\s+מספר|את\s+אותו)\s+לכל\s+(?:ה)?צלע${unless('במקום|לא נותנ|לא שומר|משנה את|משנים את')}`),
+      // the area said to grow by the same factor as the lengths (by the ratio itself, and not its square)
+      re(String.raw`(?:ה)?שטח\s+(?:גדל|קטן|גדלה|משתנה)\s+(?:גם\s+)?(?:פי\s+)?(?:אותו\s+(?:מספר|יחס)|יחס\s+הדמיון|באותו\s+יחס)${unless('בריבוע|ריבוע|\\^2')}`),
     ],
   },
 });

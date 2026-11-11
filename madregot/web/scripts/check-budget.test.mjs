@@ -147,7 +147,7 @@ describe('the budget as configured', () => {
   const pkg = JSON.parse(readFileSync(join(WEB, 'package.json'), 'utf8'));
 
   it('names the student lane\'s lazy-only modules, and curriculum stage 4\'s, beside the load-time gates', () => {
-    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'transform', 'proof', 'transf.gen', 'proofs', 'congr.gen']);
+    expect(budget.lazyOnly).toEqual(['Wardrobe', 'RecapSheet', 'Accessories', 'push', 'canvas-confetti', 'recharts', 'cmdk', 'transform', 'proof', 'transf.gen', 'proofs', 'congr.gen', 'sim.gen']);
     for (const k of ['bootJsGzipKB', 'cssGzipKB', 'anyChunkGzipKB', 'precacheMB']) expect(typeof budget[k], k).toBe('number');
   });
 

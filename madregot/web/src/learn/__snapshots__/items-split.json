@@ -689,6 +689,14 @@
   "congr:4/gen",
   "congr:5/diag",
   "congr:5/gen",
+  "sim:1/diag",
+  "sim:1/gen",
+  "sim:2/diag",
+  "sim:2/gen",
+  "sim:3/diag",
+  "sim:3/gen",
+  "sim:4/diag",
+  "sim:4/gen",
   "sys:1/diag",
   "sys:1/gen",
   "sys:2/diag",
@@ -2275,6 +2283,154 @@
     "signed:6/probe/abs-add",
     "signed:6/probe/abs-add",
     "signed:6/control/abs-add"
+   ]
+  }
+ },
+ "sim:1": {
+  "items": [
+   "mastery0:sm1x:3:4:-5:5:-8:1:5|7|gen",
+   "mastery1:sm1h:8:15:17|15|gen",
+   "mastery2:sim:1:diag:{\"x\":7,\"p\":6,\"q\":-6,\"r\":4,\"s\":8,\"t\":3,\"u\":8}|36|diag",
+   "mastery3:sm1x:8:3:-1:4:-9:5:4|23|gen",
+   "mastery4:sim:1:transfer:{\"x\":9,\"p\":6,\"q\":-5,\"r\":5,\"s\":4,\"t\":3,\"u\":-9}|49|transfer",
+   "review0:sim:1:transfer:{\"x\":9,\"p\":4,\"q\":6,\"r\":6,\"s\":-12,\"t\":1,\"u\":4}|42|transfer",
+   "review1:sm1h:5:12:13|12|gen",
+   "review2:sim:1:diag:{\"x\":7,\"p\":6,\"q\":-6,\"r\":4,\"s\":8,\"t\":3,\"u\":8}|36|diag",
+   "verify0:sim:1:probe:{\"x\":4,\"p\":6,\"q\":3,\"r\":3,\"s\":15,\"t\":4,\"u\":8}|27|probe",
+   "verify1:sim:1:probe:{\"x\":3,\"p\":5,\"q\":3,\"r\":4,\"s\":6,\"t\":2,\"u\":4}|18|probe",
+   "verify2:sim:1:control:{\"x\":8,\"p\":6,\"q\":6,\"r\":5,\"s\":14,\"t\":2,\"u\":2}|54|control",
+   "gen:sm1p:T5:0|{\"order\":[0,1,2,3,4,5,6],\"reasons\":[null,0,null,0,null,null,2]}|gen",
+   "diag:sim:1:diag:{\"x\":7,\"p\":6,\"q\":-1,\"r\":4,\"s\":13,\"t\":2,\"u\":-9}|41|diag",
+   "transfer:sim:1:transfer:{\"x\":7,\"p\":6,\"q\":-1,\"r\":4,\"s\":13,\"t\":2,\"u\":-9}|41|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "sim:1/gen/",
+    "sim:1/gen/",
+    "sim:1/diag/",
+    "sim:1/gen/",
+    "sim:1/transfer/"
+   ],
+   "review": [
+    "sim:1/transfer/",
+    "sim:1/gen/",
+    "sim:1/diag/"
+   ],
+   "verify": [
+    "sim:1/probe/side-at-angle",
+    "sim:1/probe/side-at-angle",
+    "sim:1/control/side-at-angle"
+   ]
+  }
+ },
+ "sim:2": {
+  "items": [
+   "mastery0:sm2m:2:10:12|24|gen",
+   "mastery1:sm2m:2:13:9|18|gen",
+   "mastery2:sim:2:diag:{\"k\":0.5,\"p\":10,\"q\":13}|6.5|diag",
+   "mastery3:sm2m:2.5:6:10|25|gen",
+   "mastery4:sim:2:transfer:{\"k\":2,\"p\":8,\"q\":2}|4|transfer",
+   "review0:sim:2:transfer:{\"k\":2,\"p\":6,\"q\":9}|18|transfer",
+   "review1:sm2m:2.5:10:13|32.5|gen",
+   "review2:sim:2:diag:{\"k\":0.5,\"p\":10,\"q\":13}|6.5|diag",
+   "verify0:sim:2:probe:{\"k\":2,\"p\":6,\"q\":9}|18|probe",
+   "verify1:sim:2:probe:{\"k\":1.5,\"p\":13,\"q\":10}|15|probe",
+   "verify2:sim:2:diag:{\"k\":1.5,\"p\":14,\"q\":15}|22.5|diag",
+   "gen:sm2m:0.5:16:11|5.5|gen",
+   "diag:sim:2:diag:{\"k\":3,\"p\":9,\"q\":11}|33|diag",
+   "transfer:sim:2:transfer:{\"k\":3,\"p\":9,\"q\":11}|33|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "sim:2/gen/",
+    "sim:2/gen/",
+    "sim:2/diag/",
+    "sim:2/gen/",
+    "sim:2/transfer/"
+   ],
+   "review": [
+    "sim:2/transfer/",
+    "sim:2/gen/",
+    "sim:2/diag/"
+   ],
+   "verify": [
+    "sim:2/probe/additive",
+    "sim:2/probe/additive",
+    "sim:2/control/additive"
+   ]
+  }
+ },
+ "sim:3": {
+  "items": [
+   "mastery0:sm3p:6:4:6|10|gen",
+   "mastery1:sm3p:4:6:7|17.5|gen",
+   "mastery2:sim:3:diag:{\"a\":7,\"b\":10,\"d\":7}|17|diag",
+   "mastery3:sm3p:8:12:8|20|gen",
+   "mastery4:sim:3:transfer:{\"h\":2,\"s\":3,\"S\":12}|8|transfer",
+   "review0:sim:3:transfer:{\"h\":1.5,\"s\":1.2,\"S\":10}|12.5|transfer",
+   "review1:sm3p:8:3:12|16.5|gen",
+   "review2:sim:3:diag:{\"a\":7,\"b\":10,\"d\":7}|17|diag",
+   "verify0:sim:3:probe:{\"a\":9,\"b\":8,\"d\":9}|17|probe",
+   "verify1:sim:3:probe:{\"a\":2,\"b\":3,\"d\":3}|7.5|probe",
+   "verify2:sim:3:diag:{\"a\":5,\"b\":3,\"d\":5}|8|diag",
+   "gen:sm3s:1.8:1:8|14.4|gen",
+   "diag:sim:3:diag:{\"a\":8,\"b\":5,\"d\":8}|13|diag",
+   "transfer:sim:3:transfer:{\"h\":1.8,\"s\":2,\"S\":11}|9.9|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "sim:3/gen/",
+    "sim:3/gen/",
+    "sim:3/diag/",
+    "sim:3/gen/",
+    "sim:3/transfer/"
+   ],
+   "review": [
+    "sim:3/transfer/",
+    "sim:3/gen/",
+    "sim:3/diag/"
+   ],
+   "verify": [
+    "sim:3/probe/part-not-whole",
+    "sim:3/probe/part-not-whole",
+    "sim:3/control/part-not-whole"
+   ]
+  }
+ },
+ "sim:4": {
+  "items": [
+   "mastery0:sm4a:2:8:16:23|92|gen",
+   "mastery1:sm4a:2:6:12:10|40|gen",
+   "mastery2:sim:4:diag:{\"k\":0.5,\"p\":12,\"q\":6,\"S\":22}|5.5|diag",
+   "mastery3:sm4p:12:24:45|90|gen",
+   "mastery4:sim:4:transfer:{\"d1\":2.5,\"d2\":5,\"k\":2,\"A\":2}|8|transfer",
+   "review0:sim:4:transfer:{\"d1\":1.5,\"d2\":3,\"k\":2,\"A\":1.2}|4.8|transfer",
+   "review1:sm4a:0.5:8:4:20|5|gen",
+   "review2:sim:4:diag:{\"k\":0.5,\"p\":12,\"q\":6,\"S\":22}|5.5|diag",
+   "verify0:sim:4:probe:{\"k\":2,\"p\":5,\"q\":10,\"S\":17}|68|probe",
+   "verify1:sim:4:probe:{\"k\":2,\"p\":10,\"q\":20,\"S\":9}|36|probe",
+   "verify2:sim:4:diag:{\"k\":2,\"p\":6,\"q\":12,\"S\":8}|32|diag",
+   "gen:sm4k:8:50:10|25|gen",
+   "diag:sim:4:diag:{\"k\":2,\"p\":6,\"q\":12,\"S\":12}|48|diag",
+   "transfer:sim:4:transfer:{\"d1\":2,\"d2\":4,\"k\":2,\"A\":2}|8|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "sim:4/gen/",
+    "sim:4/gen/",
+    "sim:4/diag/",
+    "sim:4/gen/",
+    "sim:4/transfer/"
+   ],
+   "review": [
+    "sim:4/transfer/",
+    "sim:4/gen/",
+    "sim:4/diag/"
+   ],
+   "verify": [
+    "sim:4/probe/linear-area",
+    "sim:4/probe/linear-area",
+    "sim:4/control/linear-area"
    ]
   }
  },

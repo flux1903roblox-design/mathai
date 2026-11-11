@@ -5,6 +5,7 @@ import { SYS } from './sys.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { CONGR } from './congr.js';
+import { SIM } from './sim.js';
 
 // ---------------------------------------------------------------- Pythagoras
 // About half the questions come from whole-number triangles (Pythagorean triples), the rest need a root that is not
@@ -353,7 +354,9 @@ export const GRADE8 = [
       'mean-as-answer': 'כתבו את הממוצע במקום המספר החסר',
     },
   },
-  // congruent triangles, January and February (8.12), before the systems of February–May, which end the year
+  // congruent triangles, January and February (8.12), and isosceles triangles and similarity, March and April (8.13),
+  // before the systems of February–May, which end the year
   CONGR,
+  SIM,
   SYS,
 ];

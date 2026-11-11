@@ -65,8 +65,10 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // gap, the line x = k, the turn's direction and the glued side, and four stair names) took it to about 21,400; the
   // congruent triangles (their way: the order of the letters, the three theorems and what is not one, the proof's table
   // and the median, and four stair names) to about 23,050, so the cap moved to 24,000, on purpose; congr:5 (the third
-  // side and the largest angle, and its stair name) to about 23,200.
-  assert.ok(s.length < 24000, `stable block is ${s.length} characters`);
+  // side and the largest angle, and its stair name) to about 23,200; the isosceles triangles and similarity (their way:
+  // the converses, the ratio that multiplies, the order of the vertices, the bowtie and k², and four stair names) to
+  // about 24,970, so the cap moved to 25,500, on purpose.
+  assert.ok(s.length < 25500, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');

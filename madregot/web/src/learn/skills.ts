@@ -8,10 +8,11 @@ import type { SkillId, TopicId } from './types';
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
 // ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), both
 // before linear functions.
-// ח׳'s congruent triangles (8.12, January and February) come after statistics and before the systems, which end the year.
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'transf', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'congr', 'sys'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', transf: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', congr: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, transf: 4, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, congr: 5, sys: 5 };
+// ח׳'s congruent triangles (8.12, January and February) come after statistics, and its isosceles triangles and similarity
+// (8.13, March and April) after them, before the systems, which end the year.
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'transf', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'congr', 'sim', 'sys'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', transf: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', congr: '8', sim: '8', sys: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, transf: 4, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, congr: 5, sim: 4, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -116,6 +117,12 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'congr:3': ['congr:2', 'angles:2', 'angles:4'], // the third part: a common side, vertical angles, alternate angles (T4)
   'congr:4': ['congr:1', 'coord:4'], // a median halves the base; the area of a triangle is half a rectangle's (coord:4)
   'congr:5': ['angles:3'], // the sides of a triangle: the third side between the difference and the sum
+  // isosceles triangles and similarity (ח׳). The ז׳ stairs (angles, eq) are cross-grade edges: evidence only, as above;
+  // when CLASSROOM-10's angles:6 (the bisector) lands, sim:1 gains it (T5 and T6 use the bisector).
+  'sim:1': ['angles:5', 'congr:3', 'pyth:2', 'eq:3'], // base angles (ז׳), proofs by congruence, the height by a leg; px + q = rx + s
+  'sim:2': ['ratio:3'], // similar shapes keep one ratio: a proportion
+  'sim:3': ['sim:2', 'angles:4'], // two equal angles, often from parallels (corresponding angles)
+  'sim:4': ['sim:3', 'ratio:4', 'pyth:1'], // areas grow by the square, as scale drawings did; k from k² is a square root
   // a percent change in a story becomes an equation (eq:5); x + 0.2x = 1.2x is collecting like terms (expr:3); the
   // change is a multiplier of the old price (pct:5, an own-grade edge: not new before pct:5 is done, as in school order)
   'sys:1': ['eq:5', 'expr:3', 'pct:5'],

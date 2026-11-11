@@ -20,6 +20,8 @@ import { mirrorWords } from '@/content/transform.js';
 import { TRANSF_KINDS } from '@/content/transf.gen.js';
 // @ts-ignore: plain JS
 import { CONGR_KINDS } from '@/content/congr.gen.js';
+// @ts-ignore: plain JS
+import { SIM_KINDS } from '@/content/sim.gen.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -28,7 +30,7 @@ const CONTENT = await loadAllContent();
 type Pt = [number, number];
 type Geo = FigSpec & { pts: Record<string, Pt>; segs?: any[]; angles?: any[]; squares?: any[]; polys?: any[]; dots?: string[]; words?: any[]; hide?: string[]; match?: [string, string][] };
 
-const TOPICS = { angles: 5, pyth: 5, congr: 5 } as Record<string, number>;
+const TOPICS = { angles: 5, pyth: 5, congr: 5, sim: 4 } as Record<string, number>;
 
 const steps = () => Object.entries(TOPICS).flatMap(([topic, n]) => Array.from({ length: n }, (_, i) => `${topic}:${i + 1}`))
   .flatMap((skill) => contentOf(skill)!.discover.map((st, i) => ({ skill, i, st })));
@@ -512,6 +514,44 @@ describe('the congruence questions\' drawings (GEOM-5)', () => {
     }
     expect(n).toBeGreaterThan(15);
   });
+});
+
+// curriculum stage 4: every drawn kind of the similarity questions (content/sim.gen.js), 200 draws of each: the figure
+// renders with no broken numbers, agrees with itself and with its text, every angle written in degrees is drawn that
+// size, every number on a side is in proportion to the drawn lengths (one scale per drawing), and a choice question's
+// figure never writes its answer
+describe('the similarity questions\' drawings (GEOM-6)', () => {
+  const drawn = Object.entries(SIM_KINDS as Record<string, () => any>).filter(([, gen]) => gen().fig);
+  it('cover every kind that draws', () => {
+    expect(drawn.map(([k]) => k).sort()).toEqual(['aaWhich', 'angleCheck', 'bowtie', 'factor', 'gridSquares', 'isSimilarMc', 'isoAlt', 'isoCount', 'isoX', 'missingSide', 'parallelCut', 'shadow']);
+  });
+  for (const [kind, gen] of drawn) {
+    it(`${kind}: 200 drawings`, () => {
+      for (let i = 0; i < 200; i += 1) {
+        const it = gen();
+        const f = it.fig as AnyFig;
+        const html = renderToStaticMarkup(createElement(Figure, { fig: f }));
+        expect(html, `${kind} ${it.key}`).toMatch(/<svg|<table/);
+        expect(html, `${kind} ${it.key}`).not.toMatch(/NaN|undefined|Infinity/);
+        expect(selfProblems('sim:1', f), `${kind} ${it.key}`).toEqual([]);
+        const st = (it.form === 'mc'
+          ? { kind: 'predict', text: it.text, fig: f, choices: it.choices.map((c: any) => c.text ?? c.tex), answer: it.answer, why: '' }
+          : { kind: 'say', text: it.text, fig: f }) as DiscoverStep;
+        expect(textProblems(st, f), `${kind} ${it.key}: ${it.text}`).toEqual([]);
+        if (f.type !== 'geo') continue;
+        const g = f as Geo;
+        for (const a of g.angles || []) {
+          const { deg } = geoSweep(g.pts, a);
+          const m = /^(\d+)°$/.exec(a.text || '');
+          if (m) expect(Math.abs(deg - Number(m[1])), `${kind} ${it.key}: ${a.text} at ${a.at} is drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+          if (a.right) expect(Math.min(deg, 360 - deg), `${kind} ${it.key}: right angle at ${a.at}`).toBeCloseTo(90, 1);
+          if (!a.right) expect(deg, `${kind} ${it.key}: the arc at ${a.at}`).toBeLessThanOrEqual(180.0001);
+        }
+        const ratios = (g.segs || []).map((s: any) => (num(s.label) != null ? num(s.label)! / dist(g.pts[s.a], g.pts[s.b]) : null)).filter((x): x is number => x != null);
+        ratios.forEach((r) => expect(Math.abs(r / ratios[0] - 1), `${kind} ${it.key}: sides out of proportion`).toBeLessThan(0.01));
+      }
+    });
+  }
 });
 
 // curriculum stage 4: every drawn kind of the transformations' practice questions (content/transf.gen.js), 200 draws of
