@@ -67,7 +67,7 @@ test('1. the same step id sent twice (a retry, a second tab) is one row', async 
   const row = one(h.env, 'SELECT * FROM class_steps');
   assert.equal(row.student_id, noa.studentId); assert.equal(row.class_code, cls.code); assert.equal(row.day, dayOf()); assert.equal(row.pts, 1);
   // the answers in the same sync are saved as before
-  const withEvents = await sync(noa, [step(3)], [{ topic: 'neg', level: 1, ok: true, first: true, secs: 5 }]);
+  const withEvents = await sync(noa, [step(3)], [{ topic: 'signed', level: 1, ok: true, first: true, secs: 5 }]);
   assert.deepEqual(await withEvents.json(), { saved: 1, steps: 1 });
   assert.equal(rows(h.env, 'SELECT * FROM attempts').length, 1);
   assert.equal((await read(noa)).mine, 4);

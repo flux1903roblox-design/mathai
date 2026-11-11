@@ -148,8 +148,9 @@ export async function reminders(env) {
 }
 
 /**
- * Old counters: daily (and hourly) rows after 35 days, monthly rows after 13 months (length(day) keeps them apart), and
- * the tutor's quality counts (ai_quality) after 400 days.
+ * Old counters: daily (and hourly) rows after 35 days, monthly rows after 13 months (length(day) keeps them apart), the
+ * tutor's quality counts (ai_quality) after 400 days, and the database size meter's days (meters db_size:<day>, dbsize.js)
+ * after 35 days.
  */
 export function purgeCountersSql(env, now = new Date()) {
   const [y, m] = monthOf(now).split('-').map(Number);
@@ -159,6 +160,7 @@ export function purgeCountersSql(env, now = new Date()) {
     env.DB.prepare('DELETE FROM ai_usage WHERE length(day) >= 10 AND day < ?').bind(daysAgo(35)),
     env.DB.prepare('DELETE FROM ai_usage WHERE length(day) = 7 AND day < ?').bind(oldMonth),
     env.DB.prepare('DELETE FROM ai_quality WHERE day < ?').bind(dayOf(new Date(now.getTime() - QUALITY_KEEP_DAYS * DAY))),
+    env.DB.prepare("DELETE FROM meters WHERE name >= 'db_size:' AND name < ?").bind(`db_size:${dayOf(new Date(now.getTime() - 35 * DAY))}`),
   ];
 }
 

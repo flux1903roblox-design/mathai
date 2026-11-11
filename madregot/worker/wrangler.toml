@@ -132,6 +132,10 @@ VAULT = "on"
 # All encrypted backups together, in MB. Raise only on Workers Paid; the database also holds billing
 # (on the Free plan the whole database stops at 500 MB). Up to 3000 on Workers Paid.
 VAULT_MAX_MB = "200"
+# The whole database's size, in MB, over which the owner gets one notice a day (COUNCIL2-18, src/dbsize.js: the largest
+# size a class student's write saw that day, from D1's own reading). 400 is four fifths of Workers Free's 500 MB; on
+# Workers Paid (10 GB a database) raise it to about 8000.
+DB_SIZE_NOTICE_MB = "400"
 
 # ---- the opt-in daily reminder by web push (STUDENT-11, src/push.js) ----
 # "off" (the default): no reminder is offered or sent, and /api/push/* answers 404. To turn it on (after a deploy):
@@ -225,6 +229,14 @@ name = "RL_AI"
 namespace_id = "7002"
 simple = { limit = 30, period = 60 }
 
+# A class student's answers, levels and exams (POST /api/progress, /api/exams): 60 a minute per student token the server
+# found, per location; a token it did not find counts against its network (src/edge.js). The app sends a batch every 5
+# answers. The exact daily budget is the handler's own (src/index.js WRITE_BUDGET).
+[[ratelimits]]
+name = "RL_WRITE"
+namespace_id = "7003"
+simple = { limit = 60, period = 60 }
+
 # ---- staging: a second Worker with its own database, for the load test of the Ministry catalogue's technical check
 # (scripts/loadtest.mjs refuses any Worker whose GET /api/health does not say staging: true) and for the checker's test
 # account. Wrangler does not carry [vars] or the database into an environment, so both are written out here. Once:
@@ -236,8 +248,8 @@ simple = { limit = 30, period = 60 }
 # Then each time: npm run staging:deploy   (npx wrangler deploy --env staging)
 # No AI key, no email and no payments on staging: the AI, sign-in codes and checkout stay off there. The encrypted
 # backup is on there (VAULT and PARENT_REPORT "on"; no VAULT_SECRET, so no escrow) without the VAULT_RL,
-# RL_AUTH and RL_AI burst filters, which wrangler does not carry into an environment either (the routes work without
-# them: src/edge.js checks nothing with no binding).
+# RL_AUTH, RL_AI and RL_WRITE burst filters, which wrangler does not carry into an environment either (the routes work
+# without them: src/edge.js checks nothing with no binding).
 [env.staging]
 name = "madregot-api-staging"
 
@@ -291,6 +303,7 @@ OWNER_ALERT_USD = "20"
 PARENT_REPORT = "on"
 VAULT = "on"
 VAULT_MAX_MB = "200"
+DB_SIZE_NOTICE_MB = "400"
 # no reminders on staging (no VAPID_PRIVATE_JWK there)
 PUSH = "off"
 # the legal pages' details: empty, so staging shows the draft texts and its checkout stays closed (legal_not_ready)

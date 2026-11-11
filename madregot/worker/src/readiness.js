@@ -42,6 +42,8 @@ export const NOT_CHECKED = {
   BILLING_WEBHOOK_SECRET_OLD: 'set only while a signing secret is rotated',
   TEST_WEBHOOK_SECRET: 'the test provider, in .dev.vars only',
 };
+/** The [[ratelimits]] bindings wrangler.toml must have (src/edge.js, src/vault.js). */
+export const EDGE_BINDINGS = ['RL_AUTH', 'RL_AI', 'RL_WRITE', 'VAULT_RL'];
 /** The Worker secrets setup.ps1 / setup.sh make by themselves (random), and the ones the owner pastes. */
 export const RANDOM_SECRETS = ['AUTH_SECRET', 'IP_HASH_SECRET', 'WEBHOOK_PATH_SECRET', 'VAULT_SECRET'];
 
@@ -83,8 +85,13 @@ export function readiness(cfg = {}) {
   if (url) {
     add('site:health', 'site', cfg.health?.ok === true, `${url}/api/health עונה`, cfg.health ? 'השרת עונה, אבל לא אומר ok' : `לא הצלחנו להגיע אל ${url}/api/health`, 'npx wrangler deploy');
   }
+  // the database's size notice (COUNCIL2-18, src/dbsize.js): empty uses the 400 MB default; anything else must be a size a
+  // D1 database can reach (10 GB on Workers Paid), or the owner would never hear of it
+  const sizeMb = String(vars.DB_SIZE_NOTICE_MB ?? '').trim();
+  add('db:size-notice', 'db', !sizeMb || (Number(sizeMb) > 0 && Number(sizeMb) <= 10240), 'DB_SIZE_NOTICE_MB',
+    'DB_SIZE_NOTICE_MB צריך להיות מספר מגה־בייט בין 1 ל־10240 (ההודעה על גודל בסיס הנתונים)', 'worker/wrangler.toml: DB_SIZE_NOTICE_MB = "400"');
   const rl = new Set(cfg.ratelimits || []);
-  add('edge:bindings', 'edge', ['RL_AUTH', 'RL_AI', 'VAULT_RL'].every((n) => rl.has(n)), 'RL_AUTH, RL_AI, VAULT_RL', 'חסרות הגדרות [[ratelimits]] ב־wrangler.toml (RL_AUTH, RL_AI, VAULT_RL)', 'worker/wrangler.toml', false);
+  add('edge:bindings', 'edge', EDGE_BINDINGS.every((n) => rl.has(n)), EDGE_BINDINGS.join(', '), `חסרות הגדרות [[ratelimits]] ב־wrangler.toml (${EDGE_BINDINGS.join(', ')})`, 'worker/wrangler.toml', false);
 
   // ---- email: codes, notices and the Sunday summary go through Resend once EMAIL_FROM is set
   if (String(vars.EMAIL_FROM || '').trim()) secret('mail', 'RESEND_API_KEY', 'שליחת מיילים דרך Resend');

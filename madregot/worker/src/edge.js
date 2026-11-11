@@ -1,7 +1,7 @@
 // The edge rate limit (DURABLE-16): Cloudflare's Workers Rate Limiting bindings in front of sign-in, class lookup and
-// join, device minting and the AI routes. A burst filter, not a quota: Cloudflare counts per location and approximately
-// (developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/), so it writes nothing to the database and never
-// replaces the D1 counters (util.js take(), the source of truth), which run after it unchanged.
+// join, device minting, the AI routes and a class student's writes. A burst filter, not a quota: Cloudflare counts per
+// location and approximately (developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/), so it writes nothing
+// to the database and never replaces the D1 counters (util.js take(), the source of truth), which run after it unchanged.
 //
 //   RL_AUTH  20 a minute per network (IPv6 by its /48), per location:
 //            POST /api/account/code, POST /api/account/verify, GET /api/classes/:code, POST /api/classes/:code/join,
@@ -12,6 +12,10 @@
 //            minted by POST /api/devices (its signature checks with DEVICE_SECRET), hashed. Anything else counts against
 //            the network: no credential, or one that does not check, so a made-up X-Device on every request buys no
 //            fresh limit. Two class students behind one school address are still counted apart.
+//   RL_WRITE 60 a minute per class student, per location (COUNCIL2-18): POST /api/progress and POST /api/exams. The key
+//            is the student's Bearer once it is found in student_tokens, hashed; a token that does not check (the
+//            handler then answers 401) counts against its network. The app sends a batch every 5 answers, so a student
+//            stays far below it; the exact daily budget is the handler's (index.js WRITE_BUDGET).
 // Over the limit: 429 slow_down with Retry-After: 60. With no binding (tests, `wrangler dev` without it) nothing is checked.
 import { HttpError, netKey, sha256, hmacHex, safeEqual } from './util.js';
 import { requireTeacher } from './entitle.js';
@@ -32,6 +36,8 @@ export const AUTH_ROUTES = [
   ['POST', /^\/api\/devices$/],
 ];
 const AI_ROUTE = /^\/api\/ai\/\w+$/;
+/** The routes RL_WRITE guards: a class student's answers, levels and exams (POST). */
+export const WRITE_ROUTES = ['/api/progress', '/api/exams'];
 
 const found = async (env, sql, ...args) => !!(await env.DB.prepare(sql).bind(...args).first());
 
@@ -40,9 +46,8 @@ const found = async (env, sql, ...args) => !!(await env.DB.prepare(sql).bind(...
  * 't:<class>', 'd:<id>'), or null when there is none: a header that is missing, malformed or not found counts for nothing.
  */
 export async function verifiedCaller(req, env) {
-  const auth = req.headers.get('Authorization') || '';
-  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-  if (bearer && bearer.length <= 128 && await found(env, 'SELECT 1 AS x FROM student_tokens WHERE token_hash = ?', await sha256(bearer))) return `s:${bearer}`;
+  const bearer = await checkedStudent(req, env);
+  if (bearer) return `s:${bearer}`;
   const fd = String(req.headers.get('X-Family-Device') || '').trim();
   if (/^fd1\.[a-f0-9]{64}$/.test(fd) && await found(env, 'SELECT 1 AS x FROM family_devices WHERE token_hash = ?', await sha256(fd))) return `f:${fd}`;
   if (req.headers.get('X-Class-Code') && (req.headers.get('X-Teacher-Key') || req.headers.get('X-Account-Token'))) {
@@ -51,6 +56,19 @@ export async function verifiedCaller(req, env) {
   const signed = String(req.headers.get('X-Device') || '').match(/^dv1\.([a-f0-9]{32})\.([a-f0-9]{32})$/);
   if (signed && env.DEVICE_SECRET && safeEqual((await hmacHex(env.DEVICE_SECRET, `device:${signed[1]}`)).slice(0, 32), signed[2])) return `d:${signed[1]}`;
   return null;
+}
+
+/** A class student's Bearer token, when student_tokens has it; else null. */
+async function checkedStudent(req, env) {
+  const auth = req.headers.get('Authorization') || '';
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  return bearer && bearer.length <= 128 && await found(env, 'SELECT 1 AS x FROM student_tokens WHERE token_hash = ?', await sha256(bearer)) ? bearer : null;
+}
+
+/** The writer of a progress or exam request: a hash of a checked student token, else its network. */
+async function writerKey(req, env) {
+  const bearer = await checkedStudent(req, env);
+  return bearer ? `s:${(await sha256(`edge-write:${bearer}`)).slice(0, 32)}` : `n:${await netKey(req, env)}`;
 }
 
 /** The caller of an AI request, as a key that holds no credential: a hash of a checked one, else its network. */
@@ -68,5 +86,9 @@ export async function edgeGuard(method, path, req, env) {
   if (method === 'POST' && AI_ROUTE.test(path)) {
     if (typeof env.RL_AI?.limit !== 'function') return;
     return edgeLimit(env.RL_AI, await callerKey(req, env));
+  }
+  if (method === 'POST' && WRITE_ROUTES.includes(path)) {
+    if (typeof env.RL_WRITE?.limit !== 'function') return;
+    return edgeLimit(env.RL_WRITE, await writerKey(req, env));
   }
 }

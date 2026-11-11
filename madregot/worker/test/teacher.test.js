@@ -41,10 +41,10 @@ test('removing a student deletes their rows, and their token stops working', asy
   h = await setup();
   const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
   const [noa, itai] = cls.students;
-  await h.call('POST', '/api/progress', { headers: bearer(noa), body: { events: [{ topic: 'neg', level: 1, ok: true, first: true, secs: 5 }], levels: { neg: { level: 2, max: 2 } } } });
-  await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'neg', question: '3 - 8', answer: '5' } });
+  await h.call('POST', '/api/progress', { headers: bearer(noa), body: { events: [{ topic: 'signed', level: 1, ok: true, first: true, secs: 5 }], levels: { signed: { level: 2, max: 2 } } } });
+  await h.call('POST', '/api/help', { headers: bearer(noa), body: { topic: 'signed', question: '3 - 8', answer: '5' } });
   await h.call('POST', '/api/exams', { headers: bearer(noa), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } });
-  await h.call('POST', '/api/progress', { headers: bearer(itai), body: { events: [{ topic: 'neg', level: 1, ok: true, first: true, secs: 5 }] } });
+  await h.call('POST', '/api/progress', { headers: bearer(itai), body: { events: [{ topic: 'signed', level: 1, ok: true, first: true, secs: 5 }] } });
   await setCount(h.env, `pin:${noa.studentId}`, 3);
   for (const who of [`s:${noa.studentId}`, `s:${noa.studentId}:tutor`, `free:s:${noa.studentId}`]) await setCount(h.env, who, 1);
   await setCount(h.env, `s:${itai.studentId}`, 1);

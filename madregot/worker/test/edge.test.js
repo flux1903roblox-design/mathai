@@ -1,6 +1,7 @@
 // The edge rate limit (DURABLE-16, src/edge.js) with a stub of Cloudflare's binding: sign-in, verify, class lookup,
 // join and new devices count per network (IPv6 by its /48); the AI routes per checked caller (COUNCIL2-11), so two class
-// students behind one school address are counted apart and a made-up device id counts the network; over the limit is
+// students behind one school address are counted apart and a made-up device id counts the network; a class student's
+// progress and exams per checked token (RL_WRITE, COUNCIL2-18); over the limit is
 // 429 slow_down with Retry-After: 60; with no binding nothing is checked and the D1 counters (counters.test.js) still
 // hold.
 import { test, afterEach } from 'node:test';
@@ -74,6 +75,42 @@ test('the AI limiter keys by checked caller: two class students behind one schoo
   assert.equal((await ask({ 'X-Device': 'b'.repeat(32) })).status, 429, 'a different made-up id is the same network');
   assert.equal((await ask(null)).status, 429, 'no credential: the network');
   assert.equal([...RL_AI.seen.keys()].filter((k) => /^n:[0-9a-f]{16}$/.test(k)).length, 1);
+});
+
+test('RL_WRITE (COUNCIL2-18): a class student\'s progress and exams count per checked token; two students of one school apart; a bad token counts the network', async () => {
+  const RL_WRITE = stubLimiter(1);
+  h = await setup({ RL_WRITE });
+  const cls = await makeClass(h, { students: ['נועה', 'איתי'] });
+  const [noa, itai] = cls.students;
+  const progress = (headers) => h.call('POST', '/api/progress', { ip: '192.0.2.10', headers, body: { events: [] } });
+  const exam = (headers) => h.call('POST', '/api/exams', { ip: '192.0.2.10', headers, body: { title: 'מבחן', questions: [] } });
+  assert.equal((await progress(bearer(noa))).status, 200);
+  assert.equal((await progress(bearer(itai))).status, 200, 'another student on the same network');
+  const again = await exam(bearer(noa));
+  assert.equal(again.status, 429, 'progress and exams share the student\'s minute');
+  assert.equal(again.headers.get('Retry-After'), '60');
+  assert.equal((await again.json()).error, 'slow_down');
+  const keys = [...RL_WRITE.seen.keys()];
+  assert.equal(keys.length, 2);
+  for (const k of keys) { assert.match(k, /^s:[0-9a-f]{32}$/); assert.ok(!k.includes(noa.token.slice(0, 12))); }
+  // a token the server does not have: the network's key, so made-up tokens buy nothing
+  assert.equal((await progress({ Authorization: `Bearer ${'f'.repeat(48)}` })).status, 401);
+  assert.equal((await exam({ Authorization: `Bearer ${'e'.repeat(48)}` })).status, 429);
+  assert.equal([...RL_WRITE.seen.keys()].filter((k) => /^n:[0-9a-f]{16}$/.test(k)).length, 1);
+  // other routes are not the write limiter's: a student's GET and the AI pass it by
+  const before = RL_WRITE.seen.size;
+  await h.call('GET', '/api/class/work', { headers: bearer(noa) });
+  assert.equal(RL_WRITE.seen.size, before);
+  assert.equal([...RL_WRITE.seen.values()].reduce((a, b) => a + b, 0), 5);
+});
+
+test('/api/health says edge: true only with all three request limiters bound', async () => {
+  const on = { limit: async () => ({ success: true }) };
+  h = await setup({ RL_AUTH: on, RL_AI: on });
+  assert.equal((await (await h.call('GET', '/api/health')).json()).edge, false, 'RL_WRITE missing');
+  h.done();
+  h = await setup({ RL_AUTH: on, RL_AI: on, RL_WRITE: on });
+  assert.equal((await (await h.call('GET', '/api/health')).json()).edge, true);
 });
 
 test('no binding: 50 requests pass the edge, and only the D1 caps apply', async () => {

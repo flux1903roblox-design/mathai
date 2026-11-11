@@ -50,10 +50,11 @@ export const studentWhere = ([, col, via, and], match) => (and ? `${and} AND ` :
 /**
  * ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN tries, also per network (TRUST-12),
  * every AI tier and its tries, care (TRUST-3), the student's reported AI answers (TRUST-4), the student's assignment
- * reports, and their replies to the teacher (TEACHER-6), and the student's backup lookups and escrow writes
- * (DURABLE-5, DURABLE-6: vault.js vault:miss:s:<id>, escrow:s:<id>)).
+ * reports, and their replies to the teacher (TEACHER-6), the student's backup lookups and escrow writes
+ * (DURABLE-5, DURABLE-6: vault.js vault:miss:s:<id>, escrow:s:<id>), and the day's write budget (COUNCIL2-18: index.js
+ * write:s:<id>:answers, :exams, :levels)).
  */
-export const STUDENT_COUNTERS = ['pin:', 's:', 'free:s:', 'care:s:', 'report:s:', 'work:s:', 'helpreply:s:', 'vault:miss:s:', 'escrow:s:'];
+export const STUDENT_COUNTERS = ['pin:', 's:', 'free:s:', 'care:s:', 'report:s:', 'work:s:', 'helpreply:s:', 'vault:miss:s:', 'escrow:s:', 'write:s:'];
 /**
  * ai_usage keys that carry a class code: the teacher's AI, the class's free and paid pools, the teacher's care and
  * reported-answer counters (TRUST-3, TRUST-4), licence requests and claims, the assignments made a day (TEACHER-4), the

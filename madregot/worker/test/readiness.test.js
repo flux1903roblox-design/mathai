@@ -95,11 +95,28 @@ test('the daily reminder (STUDENT-11): nothing while PUSH is off; with it on, th
   assert.equal(readiness(c).ok, true);
 });
 
+test('the database size notice (COUNCIL2-18): empty or 1-10240 MB passes; the four edge limiters are a reminder', () => {
+  const c = complete();
+  assert.equal(c.vars.DB_SIZE_NOTICE_MB, '400', 'wrangler.toml ships 400');
+  assert.equal(readiness(c).items.find((i) => i.id === 'db:size-notice').ok, true);
+  for (const bad of ['0', '-5', 'abc', '20000']) {
+    const x = complete(); x.vars.DB_SIZE_NOTICE_MB = bad;
+    assert.deepEqual(failing(readiness(x)), ['db:size-notice'], bad);
+  }
+  const e = complete(); e.vars.DB_SIZE_NOTICE_MB = '';
+  assert.equal(readiness(e).ok, true, 'empty: the 400 MB default');
+  const r = complete(); r.ratelimits = ['RL_AUTH', 'RL_AI', 'VAULT_RL'];
+  const edge = readiness(r).items.find((i) => i.id === 'edge:bindings');
+  assert.equal(edge.ok, false); assert.equal(edge.required, false);
+  assert.match(edge.need, /RL_WRITE/);
+  assert.equal(readiness(complete()).items.find((i) => i.id === 'edge:bindings').ok, true);
+});
+
 test('wrangler.toml as the doctor reads it (wrangler\'s own reader): the vars, the database id and the edge bindings', () => {
   const t = shipped;
   assert.equal(t.error, undefined);
   assert.equal(t.databaseId, 'REPLACE_WITH_DATABASE_ID');
-  assert.deepEqual(t.ratelimits.sort(), ['RL_AI', 'RL_AUTH', 'VAULT_RL']);
+  assert.deepEqual(t.ratelimits.sort(), ['RL_AI', 'RL_AUTH', 'RL_WRITE', 'VAULT_RL']);
   assert.equal(t.vars.BILLING_PROVIDER, 'manual');
   assert.equal(t.vars.FAMILY_MONTHLY_BUDGET_USD, '4');
   assert.deepEqual(devVarNames('AUTH_SECRET=abc\n# note\nVAULT_SECRET="x=y"\n  RESEND_API_KEY = re_123\n'), ['AUTH_SECRET', 'VAULT_SECRET', 'RESEND_API_KEY']);

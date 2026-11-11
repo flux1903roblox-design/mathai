@@ -7,8 +7,9 @@ import { streamGuard, guardResult, MASK_NOTE } from '../../shared/guard.js';
 import { detectDistress, CARE_MARK, CARE_STATIC, scanPersonal, maskPersonal, screenOutput, blockHit, BLOCKED_TEXT, scrubTitle } from '../../shared/safety.js';
 import {
   dayOf, nowIso, daysAgo, json, HttpError, body, sha256, randomToken, randomFrom, CODE_ALPHABET, netKey, devKey, take, key, giveBack,
-  limitOrThrow, hmacHex, cleanName,
+  limitOrThrow, hmacHex, cleanName, resetsAt,
 } from './util.js';
+import { meterDbSize } from './dbsize.js';
 import { startLogin, verifyLogin, signOut, requireAccount } from './account.js';
 import { resolve, precheck, counted, resolveCare, aiStatus, requireStudent, requireTeacher, paywallOn, identify } from './entitle.js';
 import { recordSafety, eventNet } from './safety.js';
@@ -747,6 +748,33 @@ async function joinClass(code, req, env, cors) {
 // ---------- student data ----------
 const PROGRESS_EVENTS = 500; // one request; the app sends batches of 300
 const EVENT_ID = /^[a-f0-9]{12}$/; // the app's id for one answer (12 hex), so a retried batch is stored once
+/** The highest level a stair can have (shared/stairs.js has at most 8 per topic; the exam check already caps at 12). */
+export const MAX_LEVEL = 12;
+/** A level as the server keeps it: a whole number from 1 to MAX_LEVEL; anything else is 1. */
+const levelOf = (v) => {
+  const n = Math.trunc(Number(v));
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_LEVEL) : 1;
+};
+/**
+ * What one class student may write in a Jerusalem day (COUNCIL2-12, COUNCIL2-18), counted with take() under
+ * write:s:<id>:<what> (forget.js STUDENT_COUNTERS): answers stored, exams stored, and level rows written. Joining a class
+ * needs no account and the same database holds billing, so a token must not be able to fill it. Each is far above a real
+ * day (a student who practises all afternoon sends a few hundred answers, the app's levels go with each batch of 5, and
+ * an exam check is a few a week), so only a script reaches them. Past one: 429 too_many_writes with Retry-After until
+ * midnight; the app keeps its outbox and sends it again later (web/src/lib/api.js syncNow).
+ */
+export const WRITE_BUDGET = Object.freeze({ answers: 3000, exams: 30, levels: 6000 });
+
+/** Take today's write budget for these counts ({ answers, exams, levels }), all or nothing; throws 429 when one is full. */
+async function takeWrites(env, studentId, counts) {
+  const until = resetsAt('day');
+  const wait = Math.max(60, Math.ceil((Date.parse(until) - Date.now()) / 1000));
+  const err = new HttpError(429, 'too_many_writes', undefined, { resetsAt: until }, { 'Retry-After': String(wait) });
+  const keys = Object.entries(counts).filter(([, n]) => n > 0)
+    .map(([what, n]) => key(`write:s:${studentId}:${what}`, WRITE_BUDGET[what], { n, err }));
+  const r = await take(env, keys);
+  if (!r.ok) throw r.error;
+}
 
 /**
  * A class student's answers and levels (DURABLE-7). Every event the app sent is acknowledged ({ saved } = how many it
@@ -755,8 +783,12 @@ const EVENT_ID = /^[a-f0-9]{12}$/; // the app's id for one answer (12 hex), so a
  * and both count as saved, because there is nothing more to send. An answer from an older app has no id and is
  * stored as it comes. One statement writes them all (json_each), so a full batch stays one query. Any student activity
  * marks the class as used today (class_settings.last_seen, TRUST-7 §2).
+ * COUNCIL2-12: an answer whose topic is not one the app teaches (TOPIC_IDS) is dropped and still acknowledged, so an old
+ * outbox drains; a level row is written only for such a topic; every level is a whole number from 1 to 12. What is
+ * stored is counted against the day's WRITE_BUDGET first, and the batch's size reading goes to the size meter
+ * (dbsize.js).
  */
-async function saveProgress(req, env, cors) {
+async function saveProgress(req, env, ctx, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.progress);
   const events = (Array.isArray(b.events) ? b.events : []).slice(0, PROGRESS_EVENTS);
@@ -765,14 +797,16 @@ async function saveProgress(req, env, cors) {
   const oldest = now - RETENTION.attemptsDays * 864e5;
   const rows = [];
   for (const e of events) {
-    if (!e || typeof e !== 'object') continue;
+    if (!e || typeof e !== 'object' || !TOPIC_IDS.includes(e.topic)) continue;
     const at = Math.min(Number(new Date(e.at)) || now, now);
     if (at < oldest) continue;
-    const level = Math.trunc(Number(e.level));
-    rows.push([String(e.topic).slice(0, 20), Number.isFinite(level) && level > 0 ? Math.min(level, 99) : 1, e.ok ? 1 : 0, e.first ? 1 : 0, e.hint ? 1 : 0,
+    rows.push([e.topic, levelOf(e.level), e.ok ? 1 : 0, e.first ? 1 : 0, e.hint ? 1 : 0,
       e.cat ? String(e.cat).slice(0, 30) : null, Math.min(Math.max(Number(e.secs) || 0, 0), 600), dayOf(new Date(at)), new Date(at).toISOString(),
       e.id == null ? null : String(e.id)]);
   }
+  const levels = Object.entries(b.levels && typeof b.levels === 'object' ? b.levels : {})
+    .filter(([topic, v]) => TOPIC_IDS.includes(topic) && v && typeof v === 'object').slice(0, 20);
+  await takeWrites(env, s.id, { answers: rows.length, levels: levels.length });
   const stmts = [];
   if (rows.length) {
     const col = (i) => `json_extract(value, '$[${i}]')`;
@@ -781,11 +815,10 @@ async function saveProgress(req, env, cors) {
        SELECT ?, ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(col).join(', ')} FROM json_each(?) ORDER BY key`,
     ).bind(s.id, JSON.stringify(rows)));
   }
-  for (const [topic, v] of Object.entries(b.levels && typeof b.levels === 'object' ? b.levels : {}).slice(0, 20)) {
-    if (!v || typeof v !== 'object') continue;
+  for (const [topic, v] of levels) {
     stmts.push(env.DB.prepare(
       'INSERT INTO levels (student_id, topic, level, max_level, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (student_id, topic) DO UPDATE SET level = excluded.level, max_level = MAX(levels.max_level, excluded.max_level), updated_at = excluded.updated_at',
-    ).bind(s.id, String(topic).slice(0, 20), Number(v.level) || 1, Number(v.max) || 1, nowIso()));
+    ).bind(s.id, topic, levelOf(v.level), levelOf(v.max), nowIso()));
   }
   // the class goal's steps (goal.js): idempotent by sid, capped per student and day
   const steps = stepStatements(env, s, b.steps, now);
@@ -794,6 +827,7 @@ async function saveProgress(req, env, cors) {
   stmts.push(env.DB.prepare('UPDATE students SET last_seen = ? WHERE id = ?').bind(nowIso(), s.id));
   stmts.push(classSeenStmt(env, s.class_code));
   const res = await env.DB.batch(stmts);
+  ctx.waitUntil(meterDbSize(env, res));
   const counted = res.slice(stepsAt, stepsAt + steps.length).reduce((n, r) => n + Number(r?.meta?.changes || 0), 0);
   // saved stays the number of events sent (the outbox depends on it); steps, only when the sync carried class-goal
   // steps, is how many of them counted (an older app, or a sync with answers only, gets { saved } as before)
@@ -803,7 +837,8 @@ async function saveProgress(req, env, cors) {
 /** The title a class exam is kept under: no name-like ID, phone or long number (trust spec TRUST-5 §6). */
 const examTitle = (t) => scrubTitle(String(t || '').trim() || 'מבחן').slice(0, 80);
 
-async function saveExam(req, env, cors) {
+/** A class student's exam check result (topics from TOPIC_IDS, levels 0-12), counted against the day's WRITE_BUDGET. */
+async function saveExam(req, env, ctx, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.exams);
   const qs = (Array.isArray(b.questions) ? b.questions : []).slice(0, 40).map((q) => ({
@@ -811,11 +846,13 @@ async function saveExam(req, env, cors) {
     level: Number.isInteger(q.level) && q.level > 0 && q.level <= 12 ? q.level : 0,
   }));
   const weak = (Array.isArray(b.weakTopics) ? b.weakTopics : []).filter((t) => TOPIC_IDS.includes(t)).slice(0, 6);
-  await env.DB.batch([
+  await takeWrites(env, s.id, { exams: 1 });
+  const res = await env.DB.batch([
     env.DB.prepare('INSERT INTO exams (student_id, title, correct, total, questions, weak, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(s.id, examTitle(b.title), Number(b.correct) || 0, Number(b.total) || qs.length, JSON.stringify(qs), JSON.stringify(weak), nowIso()),
     classSeenStmt(env, s.class_code),
   ]);
+  ctx.waitUntil(meterDbSize(env, res));
   return json({ ok: true }, 200, cors);
 }
 
@@ -1035,7 +1072,7 @@ async function health(env) {
     // what `npm run owner -- doctor` reads from the live server (DURABLE-16): whether each of these is set, never a value
     resend: !!env.RESEND_API_KEY, webhookPath: !!env.WEBHOOK_PATH_SECRET,
     grow: !!(env.GROW_USER_ID && env.GROW_PAGE_CODE_ONCE && env.GROW_PAGE_CODE_RECURRING),
-    edge: typeof env.RL_AUTH?.limit === 'function' && typeof env.RL_AI?.limit === 'function',
+    edge: ['RL_AUTH', 'RL_AI', 'RL_WRITE'].every((name) => typeof env[name]?.limit === 'function'),
   };
 }
 
@@ -1122,12 +1159,12 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/classes') return createClass(req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})$/))) return classInfo(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})\/join$/))) return joinClass(m[1], req, env, cors);
-  if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, cors);
+  if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/help') return askHelp(req, env, ctx, cors);
   // the student's side of a help request's thread (help.js)
   if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/reply$/))) return studentReply(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/read$/))) return readHelp(m[1], req, env, cors);
-  if (M === 'POST' && p === '/api/exams') return saveExam(req, env, cors);
+  if (M === 'POST' && p === '/api/exams') return saveExam(req, env, ctx, cors);
   // the teacher's assignments, as the student sees them (assignments.js)
   if (M === 'GET' && p === '/api/class/work') return classWork(req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})\/exam$/))) return workExam(m[1], req, env, cors);

@@ -148,6 +148,26 @@ describe('syncNow', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('the day\'s write budget is full (429 too_many_writes, COUNCIL2-18): nothing leaves the outbox, the class token stays, and a later sync sends it all', async () => {
+    record(320);
+    const order = outbox().map((e) => e.id);
+    answer = () => ({ status: 429, body: { error: 'too_many_writes', resetsAt: '2026-11-12T00:00:00+02:00' } });
+    await syncNow();
+    expect(calls).toHaveLength(1);
+    expect(outbox().map((e) => e.id)).toEqual(order);
+    expect(useApp.getState().profile.token).toBe('stu_token_1');
+    // the edge limiter's 429 (slow_down) is kept the same way
+    answer = () => ({ status: 429, body: { error: 'slow_down' } });
+    await syncNow();
+    expect(outbox()).toHaveLength(320);
+    // after midnight the server takes them again: every answer goes, in order, once
+    calls.length = 0;
+    answer = (body) => ({ saved: body.events.length });
+    await syncNow();
+    expect(sent()).toEqual(order);
+    expect(outbox()).toEqual([]);
+  });
+
   it('answers saved before they had ids get one, and are acknowledged like the rest', async () => {
     useApp.setState({ outbox: [event(1), event(2)] });
     await syncNow();

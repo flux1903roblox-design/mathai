@@ -1,7 +1,7 @@
 // wrangler.toml as wrangler reads it at deploy (COUNCIL2-10, COUNCIL2-16). The installed wrangler's own config reader
 // (scripts/wranglerConfig.mjs, unstable_readConfig) loads the file twice, for the top level and for env "staging": the
 // file must parse (a var defined twice in [vars] made it invalid TOML, and setup.sh, deploy.ps1, `npm run deploy` and
-// db:migrate all read it), the D1 binding and the three edge limiters must be there, and every [vars] name the Worker
+// db:migrate all read it), the D1 binding and the four edge limiters must be there, and every [vars] name the Worker
 // reads must be written out in [env.staging.vars] too, since wrangler carries no vars into an environment. Nothing runs
 // wrangler's command line or reaches the network.
 import { test } from 'node:test';
@@ -58,23 +58,27 @@ test('the installed wrangler is the pinned one, and its reader parses wrangler.t
   assert.equal((head.match(/^PAYMENT_PROVIDER_NAME\s*=/gm) || []).length, 1);
 });
 
-test('the top level has the D1 binding and the VAULT_RL, RL_AUTH and RL_AI edge limiters', () => {
+test('the top level has the D1 binding and the VAULT_RL, RL_AUTH, RL_AI and RL_WRITE edge limiters', () => {
   const top = readWranglerConfig(FILE);
   const db = top.d1_databases.find((d) => d.binding === 'DB');
   assert.ok(db, 'the DB binding');
   assert.equal(db.database_name, 'madregot');
   assert.equal(db.migrations_dir, 'migrations');
   const rl = Object.fromEntries(top.ratelimits.map((r) => [r.name, r]));
-  for (const name of ['VAULT_RL', 'RL_AUTH', 'RL_AI']) {
+  for (const name of ['VAULT_RL', 'RL_AUTH', 'RL_AI', 'RL_WRITE']) {
     assert.ok(rl[name], name);
     assert.ok(rl[name].simple.limit > 0 && rl[name].simple.period > 0, `${name} has a limit`);
   }
   assert.equal(rl.RL_AUTH.simple.limit, 20);
   assert.equal(rl.RL_AI.simple.limit, 30);
+  // a class student's writes (COUNCIL2-18): its own namespace, 60 a minute
+  assert.equal(rl.RL_WRITE.namespace_id, '7003');
+  assert.deepEqual({ ...rl.RL_WRITE.simple }, { limit: 60, period: 60 });
+  assert.equal(new Set(top.ratelimits.map((r) => r.namespace_id)).size, top.ratelimits.length, 'each limiter has its own namespace');
   // what the doctor reads of it (scripts/owner.mjs)
   const parts = deployParts(top);
   assert.equal(parts.databaseId, 'REPLACE_WITH_DATABASE_ID');
-  assert.deepEqual(parts.ratelimits.sort(), ['RL_AI', 'RL_AUTH', 'VAULT_RL']);
+  assert.deepEqual(parts.ratelimits.sort(), ['RL_AI', 'RL_AUTH', 'RL_WRITE', 'VAULT_RL']);
   assert.equal(parts.vars.BILLING_PROVIDER, 'manual');
 });
 

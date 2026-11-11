@@ -317,10 +317,10 @@
       "personal": "no",
       "about": ["none"],
       "fields": ["name", "value"],
-      "purpose": "One running total per name: vault_bytes, the bytes of every encrypted backup together, so new backups stop at VAULT_MAX_MB. Recomputed every night from the vaults themselves (cron.vaultNight).",
-      "retention": "Kept: a single number that cannot point at anyone, recomputed every night.",
+      "purpose": "One running total per name: vault_bytes, the bytes of every encrypted backup together, so new backups stop at VAULT_MAX_MB, recomputed every night from the vaults themselves (cron.vaultNight); and db_size:<day>, the largest size the whole database reached that day (D1's size_after on a class student's writes), so the owner gets one notice a day above DB_SIZE_NOTICE_MB (COUNCIL2-18, src/dbsize.js).",
+      "retention": "vault_bytes is kept: a single number that cannot point at anyone, recomputed every night. A day's db_size row is deleted after 35 days, with the counters.",
       "recipients": ["cloudflare"],
-      "purgedBy": ["never"]
+      "purgedBy": ["cron.purgeCountersSql"]
     },
     "vault_escrow": {
       "personal": "pseudonymous",

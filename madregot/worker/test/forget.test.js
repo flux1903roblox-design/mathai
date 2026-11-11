@@ -26,9 +26,9 @@ const traces = (needles, skip = () => false) => tablesText().filter((r) => needl
 
 /** A class student with data in every student table and every counter a student can have. */
 async function busyStudent(cls, s) {
-  const events = Array.from({ length: 20 }, (_, i) => ({ topic: 'neg', level: 1, ok: i % 2 === 0, first: i === 0, cat: 'sign', secs: 9 }));
-  assert.equal((await h.call('POST', '/api/progress', { headers: bearer(s), body: { events, levels: { neg: { level: 2, max: 2 } } } })).status, 200);
-  assert.equal((await h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'neg', question: '3 - 8', answer: '5', image: IMAGE } })).status, 200);
+  const events = Array.from({ length: 20 }, (_, i) => ({ topic: 'signed', level: 1, ok: i % 2 === 0, first: i === 0, cat: 'sign', secs: 9 }));
+  assert.equal((await h.call('POST', '/api/progress', { headers: bearer(s), body: { events, levels: { signed: { level: 2, max: 2 } } } })).status, 200);
+  assert.equal((await h.call('POST', '/api/help', { headers: bearer(s), body: { topic: 'signed', question: '3 - 8', answer: '5', image: IMAGE } })).status, 200);
   assert.equal((await h.call('POST', '/api/help', { headers: bearer(s), body: { kind: 'talk' } })).status, 200);
   assert.equal((await h.call('POST', '/api/exams', { headers: bearer(s), body: { title: 'מבחן', correct: 1, total: 2, questions: [] } })).status, 200);
   // the teacher's AI switch for the student, with its audit row (target student:<id>)

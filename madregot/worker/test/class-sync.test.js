@@ -9,7 +9,7 @@ let h;
 afterEach(() => h?.done());
 
 const hex12 = (n) => n.toString(16).padStart(12, '0');
-const answer = (n, over = {}) => ({ id: hex12(n), topic: 'neg', level: 2, ok: n % 3 !== 0, first: n % 2 === 0, hint: false, cat: n % 3 ? null : 'sign', secs: 7, at: new Date(Date.now() - 60_000).toISOString(), ...over });
+const answer = (n, over = {}) => ({ id: hex12(n), topic: 'signed', level: 2, ok: n % 3 !== 0, first: n % 2 === 0, hint: false, cat: n % 3 ? null : 'sign', secs: 7, at: new Date(Date.now() - 60_000).toISOString(), ...over });
 const send = (s, events, levels) => h.call('POST', '/api/progress', { headers: bearer(s), body: { events, ...(levels ? { levels } : {}) } });
 const count = (s) => one(h.env, 'SELECT COUNT(*) AS n FROM attempts WHERE student_id = ?', s.studentId).n;
 
@@ -22,7 +22,7 @@ async function student() {
 test('500 answers give 500 rows; the same 500 again give still 500 rows and saved: 500', async () => {
   const [noa] = await student();
   const events = Array.from({ length: 500 }, (_, i) => answer(i + 1));
-  const first = await send(noa, events, { neg: { level: 2, max: 3 } });
+  const first = await send(noa, events, { signed: { level: 2, max: 3 } });
   assert.equal(first.status, 200);
   assert.deepEqual(await first.json(), { saved: 500 });
   assert.equal(count(noa), 500);
@@ -32,9 +32,9 @@ test('500 answers give 500 rows; the same 500 again give still 500 rows and save
   // the rows are the answers, in order, with their ids
   const stored = rows(h.env, 'SELECT client_id, topic, level, ok, first_try, hint, cat, secs FROM attempts WHERE student_id = ? ORDER BY id', noa.studentId);
   assert.deepEqual(stored.slice(0, 3).map((r) => ({ ...r })), [
-    { client_id: hex12(1), topic: 'neg', level: 2, ok: 1, first_try: 0, hint: 0, cat: null, secs: 7 },
-    { client_id: hex12(2), topic: 'neg', level: 2, ok: 1, first_try: 1, hint: 0, cat: null, secs: 7 },
-    { client_id: hex12(3), topic: 'neg', level: 2, ok: 0, first_try: 0, hint: 0, cat: 'sign', secs: 7 },
+    { client_id: hex12(1), topic: 'signed', level: 2, ok: 1, first_try: 0, hint: 0, cat: null, secs: 7 },
+    { client_id: hex12(2), topic: 'signed', level: 2, ok: 1, first_try: 1, hint: 0, cat: null, secs: 7 },
+    { client_id: hex12(3), topic: 'signed', level: 2, ok: 0, first_try: 0, hint: 0, cat: 'sign', secs: 7 },
   ]);
   assert.equal(stored.at(-1).client_id, hex12(500));
   assert.deepEqual({ ...one(h.env, 'SELECT level, max_level FROM levels WHERE student_id = ?', noa.studentId) }, { level: 2, max_level: 3 });
@@ -104,7 +104,7 @@ test('two students may send the same id: each keeps their own answer', async () 
 
 test('junk in the body (not an event, a broken level, a level out of range) never stops the real answers', async () => {
   const [noa] = await student();
-  const r = await send(noa, [null, 'x', answer(1, { level: 'Infinity' }), answer(2, { level: -3 })], { neg: null, frac: { level: 2, max: 2 } });
+  const r = await send(noa, [null, 'x', answer(1, { level: 'Infinity' }), answer(2, { level: -3 })], { signed: null, frac: { level: 2, max: 2 } });
   assert.equal(r.status, 200);
   assert.deepEqual(await r.json(), { saved: 4 });
   assert.deepEqual(rows(h.env, 'SELECT level FROM attempts WHERE student_id = ? ORDER BY id', noa.studentId).map((x) => x.level), [1, 1]);

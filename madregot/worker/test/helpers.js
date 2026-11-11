@@ -12,19 +12,23 @@ export const schemaSql = () => readFileSync(path.join(here, '..', 'schema.sql'),
 
 const returnsRows = (sql) => /^\s*(SELECT|WITH|PRAGMA)\b/i.test(sql) || /\bRETURNING\b/i.test(sql);
 
-/** A D1 look-alike. batch() runs inside BEGIN/COMMIT (ROLLBACK on error) like D1, and returns {results, meta} per statement. */
+/**
+ * A D1 look-alike. batch() runs inside BEGIN/COMMIT (ROLLBACK on error) like D1, and returns {results, meta} per statement.
+ * meta.size_after is the database's size in bytes after the statement, as D1 gives it (pages times page size).
+ */
 export function memoryD1(sql = schemaSql()) {
   const db = new DatabaseSync(':memory:');
   db.exec(sql);
   const norm = (row) => (row === undefined ? null : row);
+  const size = () => Number(db.prepare('PRAGMA page_count').get().page_count) * Number(db.prepare('PRAGMA page_size').get().page_size);
   const exec = (st) => {
     const prepared = db.prepare(st.sql);
     if (returnsRows(st.sql)) {
       const rows = prepared.all(...st.args);
-      return { results: rows, meta: { changes: rows.length } };
+      return { results: rows, meta: { changes: rows.length, size_after: size() } };
     }
     const r = prepared.run(...st.args);
-    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
+    return { results: [], meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid), size_after: size() } };
   };
   const statement = (sql) => {
     const s = {

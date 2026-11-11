@@ -254,6 +254,7 @@ export function renderNotice(env, row) {
       if (what.startsWith('errors:')) return errorsNotice(p, what.slice('errors:'.length));
       if (what === 'vault:70' || what === 'vault:90') return vaultShareNotice(p, Number(what.slice(-2)));
       if (what.startsWith('vault_drift:')) return vaultDriftNotice(p);
+      if (what.startsWith('db_size:')) return dbSizeNotice(p);
       return { subject: `[מדרגות] ${what}`, lines: [`${what}`, `ref: ${row.ref}`, ...Object.entries(p).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)] };
     }
     default:
@@ -498,6 +499,19 @@ function vaultDriftNotice(p) {
     lines: [
       `מונה הנפח של הגיבויים המוצפנים הראה ${p.was ?? '?'} בתים, והסכום האמיתי היה ${p.now ?? '?'}. המונה תוקן.`,
       'אם זה חוזר כמה לילות ברצף, כדאי לבדוק את הקוד שכותב גיבויים (worker/src/vault.js).',
+    ],
+  };
+}
+
+/** The whole database passed DB_SIZE_NOTICE_MB today (dbsize.js, COUNCIL2-18): one notice a day. */
+function dbSizeNotice(p) {
+  return {
+    subject: `[מדרגות] בסיס הנתונים הגיע ל־${p.mb ?? '?'} MB`,
+    lines: [
+      `ב־${p.day || 'היום'} בסיס הנתונים הגיע ל־${p.mb ?? '?'} MB, מעל ${p.noticeMb ?? '?'} MB (DB_SIZE_NOTICE_MB).`,
+      'בתוכנית החינמית של Cloudflare כל בסיס הנתונים נעצר ב־500 MB, והוא שומר גם את התשלומים. כשהוא מלא, שום דבר חדש לא נשמר.',
+      'מה לבדוק: בסיכום היומי, אם מספר התשובות או הגיבויים קפץ. כל תלמיד מוגבל ל־3000 תשובות ו־30 מבחנים ביום, אז קפיצה גדולה היא הרבה תלמידים, לא תלמיד אחד.',
+      'בתוכנית Workers Paid בסיס נתונים מחזיק עד 10 GB: אפשר לעבור אליה, ואז להעלות את DB_SIZE_NOTICE_MB בקובץ worker/wrangler.toml ולפרסם מחדש.',
     ],
   };
 }
