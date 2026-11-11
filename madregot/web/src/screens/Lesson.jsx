@@ -9,6 +9,7 @@ import { useApp } from '@/lib/store.js';
 import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { FACTS } from '@/content/frac.js';
+import { piRow, PI_VALUE_LINE } from '@/content/util.js';
 import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN } from '@/lib/lesson.js';
 import { unitNodes } from '@/lib/path.js';
 import { runAI, aiReady } from '@/lib/ai.js';
@@ -79,7 +80,7 @@ function HintBox({ text, clamp }) {
 
 const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b', k: 'המקדם של x', c: 'המספר החופשי', n: 'המונה', d: 'המכנה' };
 /** A slot's name for a screen reader; an expression's letter may be another one than x (3n + 1). */
-const slotLabel = (item, k) => (k === 'k' && item?.var ? `המקדם של ${item.var}` : SLOT_LABEL[k]);
+const slotLabel = (item, k) => (k === 'k' && item?.var ? `המקדם של ${item.var}` : k === 'v' && piRow(item) ? 'התשובה: המספר שלפני פאי' : SLOT_LABEL[k]);
 /** "to" a slot: ל־ takes the place of the article (למונה, לשיפוע m), as people say it. */
 const toSlot = (label) => (!label ? 'לשדה הבא' : /^[a-z]/i.test(label) ? `ל־${label}` : `ל${label.startsWith('ה') ? label.slice(1) : label}`);
 /** A fraction's two fields, as a screen reader names them. */
@@ -87,7 +88,7 @@ const FRAC_FIELD = { n: 'מונה', d: 'מכנה' };
 /** What to type when a slot is empty or unreadable. */
 const INVALID = { pt: 'מלאו את שני השיעורים.', line: 'מלאו את m ואת b.', lin: 'מלאו את המקדם ואת המספר החופשי.', frac: 'מלאו מונה ומכנה, מספרים שלמים.' };
 /** A right value in a form the question does not take yet (lib/lesson.js answer): a note on its form, not a mistake. */
-const PARTIAL = { 'not-reduced': 'נכון, ואפשר לצמצם עוד. צמצמו עד הסוף.' };
+const PARTIAL = { 'not-reduced': 'נכון, ואפשר לצמצם עוד. צמצמו עד הסוף.', 'pi-value': PI_VALUE_LINE };
 
 const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
 // Help named honestly (ai spec AI-3 Hebrew copy): a first try that was right with the hint or the tutor open is not
@@ -138,7 +139,8 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
         {item.form === 'line' && (<><span className="answer-lab"><Tex tex="y =" /></span>{input('m', { ph: 'm' })}<span className="answer-lab"><Tex tex="x\,+" /></span>{input('b', { ph: 'b' })}</>)}
         {/* an expression: the coefficient, the letter, the constant (□x + □) */}
         {item.form === 'lin' && (<>{input('k')}<span className="answer-lab"><Tex tex={`${item.var || 'x'}\\,+`} /></span>{input('c')}</>)}
-        {item.form === 'num' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}{input('v')}</>)}
+        {/* a number, with maths before its slot (x =) and after it (□π: the student types the number before π) */}
+        {item.form === 'num' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}{input('v')}{item.after && <span className="answer-lab answer-after" aria-hidden="true"><Tex tex={item.after} /></span>}</>)}
         {/* a fraction: the numerator over a bar over the denominator */}
         {item.form === 'frac' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}
           <span className="answer-frac" role="group" aria-label="שבר">{input('n', { aria: FRAC_FIELD.n })}<span className="answer-frac-bar" aria-hidden="true" />{input('d', { aria: FRAC_FIELD.d })}</span></>)}
@@ -666,7 +668,7 @@ export default function Lesson() {
           </div>
         )}
         {last?.invalid && (last.partial
-          ? <p className="answer-error answer-partial" role="status">{last.text}</p>
+          ? <p className="answer-error answer-partial" role="status"><MathText text={last.text} /></p>
           : <p className="form-error answer-error" role="alert">{last.text}</p>)}
         {feedback ? (
           <m.section className={clsx('fb', `fb-${feedback}`, folded && 'fb-folded')} aria-live="assertive" aria-labelledby="fb-title" data-region="feedback"

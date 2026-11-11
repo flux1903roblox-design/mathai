@@ -144,6 +144,45 @@ export function withFormatNote(it) {
   return { ...it, text: `${it.text ? `${it.text} ` : ''}${fractionHint(example)}` };
 }
 
+// ---------------------------------------------------------------- answers with π (stage 2, MEASURE-1 item 4)
+// Two answer forms the Ministry accepts. "With π": the slot is followed by π (`after: '\\pi'`) and the student types the
+// number before it, 25 for 25π. "With π ≈ 3.14": the item carries `pk`, the multiple of π, and its `answer` is
+// 3.14 · pk rounded to tenths; a student who used the calculator's π is right too.
+
+/** π after an answer slot: the item's `after`, as TeX. */
+export const PI_AFTER = '\\pi';
+/** Does this item's answer row end with π (□π)? */
+export const piRow = (it) => it?.after === PI_AFTER;
+/**
+ * Is `u` the value of k·π computed with π ≈ 3.14 or with the calculator's π, within half a tenth? The rule for an item
+ * with `pk` (isCorrect), for a pk item's diag (compare each misconception's multiple of π the same two ways), and for a
+ * decimal typed into a □π row (partialOf).
+ */
+export function piNear(u, k) {
+  if (typeof u !== 'number' || !Number.isFinite(u) || typeof k !== 'number' || !Number.isFinite(k)) return false;
+  return Math.abs(u - 3.14 * k) <= 0.05 + 1e-9 || Math.abs(u - Math.PI * k) <= 0.05 + 1e-9;
+}
+/** k·π with π ≈ 3.14, rounded to tenths: a pk item's `answer`. */
+export const piValue = (k) => Math.round(31.4 * k) / 10;
+
+// (a no-break space keeps "שלפני π" on one line: π alone at the start of a line reads as a stray sign)
+/** The note after a □π row's first question in a lesson: what to type (the question already says "בעזרת π"). */
+export const PI_NOTE = '(כותבים רק את המספר שלפני\u00a0$\\pi$.)';
+/** The line shown when the value of the answer is typed into a □π row as a decimal: right, and in another form. */
+export const PI_VALUE_LINE = 'נכון בקירוב. כאן כותבים רק את המספר שלפני\u00a0$\\pi$.';
+
+/**
+ * A question whose answer row ends with π says what to type there: the item comes back with PI_NOTE after its text.
+ * An item with no π row, or one that already says it, comes back as it is. A lesson adds it to its first such question
+ * only (lib/lesson.js).
+ */
+export function withPiNote(it) {
+  if (!piRow(it) || String(it.text || '').includes(PI_NOTE)) return it;
+  return { ...it, text: `${it.text ? `${it.text} ` : ''}${PI_NOTE}` };
+}
+/** TeX drawn after a slot, as plain text: \pi is π. */
+export const afterPlain = (after) => String(after || '').replace(/\\pi(?![a-zA-Z])/g, 'π').replace(/\\[a-zA-Z]+|[{}$]/g, '').trim();
+
 /**
  * A list of numbers inside a Hebrew sentence, kept in its order: each number is maths ($4$), and the whole list is
  * isolated left to right (U+2066 ... U+2069), so "4, 7, 10" never reads "10, 7, 4". The marks never reach the AI text.

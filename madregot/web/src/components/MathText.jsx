@@ -52,7 +52,7 @@ export function texText(tex) {
     .replace(/\\text\{([^{}]*)\}/g, '$1')
     .replace(/\^\{?\\circ\}?/g, '°').replace(/\\(cdot|times)/g, '×').replace(/\\div/g, ':').replace(/\\circ/g, '°')
     .replace(/\\leq?(?![a-z])/g, '≤').replace(/\\geq?(?![a-z])/g, '≥').replace(/\\neq?(?![a-z])/g, '≠')
-    .replace(/\^\{?2\}?/g, '²')
+    .replace(/\^\{?2\}?/g, '²').replace(/\\pi(?![a-zA-Z])/g, 'π')
     .replace(/\\(left|right)|\\[,;! ]/g, ' ')
     .replace(/[{}]/g, '').replace(/\\([a-zA-Z]+)/g, '$1')
     .replace(/\s+/g, ' ').trim();

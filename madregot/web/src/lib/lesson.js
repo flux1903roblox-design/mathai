@@ -4,6 +4,7 @@
 // when every slot has been answered correctly (each slot can come back twice at most).
 import { TOPIC, makeItem, testItem, isCorrect, partialOf, placementTopicsFor } from '@/content/index.js';
 import { factsItem } from '@/content/frac.js';
+import { withPiNote, piRow } from '@/content/util.js';
 import { startPlacement, placementAnswer, placementNext, placementProgress, placementResult } from './placement.js';
 import { checkPlan, itemFor } from '@/learn/items.ts';
 import { metaOf } from '@/learn/content/index.ts';
@@ -106,7 +107,20 @@ export function lessonTopics(spec) {
   return [spec.skill || spec.topic].filter(Boolean);
 }
 
+/**
+ * The first question of a lesson whose answer row ends with π (□π) says what to type there (content/util.js
+ * withPiNote); the next ones in the same lesson do not repeat it. Every new question passes through here.
+ */
+function notePi(s) {
+  if (!s?.item || s.piNoted || !piRow(s.item)) return s;
+  return { ...s, item: withPiNote(s.item), piNoted: true };
+}
+
 export function startLesson(opts) {
+  return notePi(startAny(opts));
+}
+
+function startAny(opts) {
   if (opts.kind === 'placement') return startPlacement(opts);
   if (opts.kind === 'check') return startCheck(opts);
   // multiplication facts are practice with no stair: level 0 everywhere, so nothing is filed under a stair or the path
@@ -203,6 +217,10 @@ export function answer(s, u) {
 
 /** Move on after feedback. */
 export function next(s) {
+  return notePi(nextOf(s));
+}
+
+function nextOf(s) {
   if (s.kind === 'placement') return placementNext(s);
   if (s.kind === 'jump' && s.failed) return { ...s, finished: true };
   const slot = s.slot + 1;

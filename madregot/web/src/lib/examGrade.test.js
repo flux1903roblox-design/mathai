@@ -77,6 +77,26 @@ describe('gradeByKey: the spec\'s table', () => {
     expect(gradeByKey(q('7', 'correct'), it).status).toBe('wrong');
     expect(gradeByKey(q('7.07', 'wrong'), num('7.1')).status).toBe('wrong');
   });
+
+  it('π ≈ 3.14 (pk): 3.14 or the calculator\'s π, within half a tenth, as a lesson grades it (stage 2)', () => {
+    const it = num('314', { pk: 100, text: 'חשבו עם $\\pi \\approx 3.14$ ועגלו לעשירית.' });
+    expect(gradeByKey(q('314', 'wrong'), it)).toMatchObject({ status: 'correct', graded: 'key' });
+    expect(gradeByKey(q('314.2', 'wrong'), it).status).toBe('correct'); // π · 100 = 314.16
+    expect(gradeByKey(q('314.3', 'correct'), it).status).toBe('wrong');
+    expect(gradeByKey(q('100', 'correct'), it).status).toBe('wrong');
+  });
+
+  it('with π (after \\pi): the number before π, written with π or without; the whole value is right in another form', () => {
+    const it = num('25π', { after: '\\pi', text: 'מה שטח עיגול שרדיוסו $5$? כתבו בעזרת $\\pi$.' });
+    for (const said of ['25π', '$25\\pi$', '25', '25 π', '25·π']) expect(gradeByKey(q(said, 'wrong'), it), said).toMatchObject({ status: 'correct', graded: 'key' });
+    expect(gradeByKey(q('26π', 'correct'), it)).toMatchObject({ status: 'wrong', graded: 'key', overridden: true });
+    // 78.5 (25 · 3.14) is the right value, not in the form asked: partial, never wrong
+    expect(gradeByKey(q('78.5', 'wrong'), it)).toMatchObject({ status: 'partial', graded: 'key', overridden: true });
+    expect(gradeByKey(q('78.5π', 'correct'), it).status).toBe('wrong'); // that is 78.5 times π
+    expect(gradeByKey(q('π', 'wrong'), num('π', { after: '\\pi' })).status).toBe('correct');
+    expect(gradeByKey(q('-π', 'wrong'), num('-π', { after: '\\pi' })).status).toBe('correct');
+    expect(gradeByKey(q('בערך', 'correct'), it).graded).toBe('ai');
+  });
 });
 
 describe('gradeExam: a key only when the questions match it one for one', () => {

@@ -4,7 +4,7 @@
 import type { ChallengePart, ChallengeTask } from '../types';
 import { evaluate, seeded } from '../expr';
 // @ts-ignore: plain JS, the one rule for reading and checking typed numbers
-import { readNumCandidates, numRight } from '@/content/util.js';
+import { readNumCandidates, numRight, piNear, PI_AFTER } from '@/content/util.js';
 
 export const TRIES = 2;
 export const XP_BASE = 20;
@@ -28,6 +28,18 @@ export function numCheck(answer: number, typed: string): { u: number; ok: boolea
   const u = cands.find(ok) ?? cands[0];
   return { u, ok: ok(u) };
 }
+
+/**
+ * A part whose slot is followed by π (`after: '\\pi'`, the answer the number before π), answered with the whole value
+ * as a decimal: 31.4 for 10π. Right, in another form: the part says so and the try does not count (content/index.js
+ * partialOf 'pi-value', as in a lesson).
+ */
+export function piValueTyped(answer: number, after: string | undefined, u: number): boolean {
+  return after === PI_AFTER && answer !== 0 && !numRight(u, answer, true) && piNear(u, answer);
+}
+
+/** A number part's answer as TeX, with what is drawn after its slot: 25\pi. */
+export const answerTexOf = (answer: number, after?: string) => `${answer}${after || ''}`;
 
 type Example = NonNullable<Extract<ChallengePart, { type: 'claim' }>['example']>;
 const inDomain = (v: number, domain: Example['domain']) => Number.isFinite(v)

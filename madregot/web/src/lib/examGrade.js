@@ -5,19 +5,37 @@
 // keeps the model's own status and says so: graded 'ai'.
 //
 //   num, pt     parseAnswer (shared/verify.js) on both sides, within 0.01 (0.05 when the exercise asks to round)
+//   num with π  (stage 2) `after: '\\pi'`: the number before π, the π written or not (25π, 25\pi, 25); the whole value
+//               as a decimal (78.5 for 25π) is right in another form, partial. `pk`: within half a tenth of 3.14·pk
+//               or of π·pk, as a lesson compares it (content/util.js piNear)
 //   frac        (the curriculum lane's fractions) and a `precise` exercise: the value exactly, as a lesson compares it
 //               (content/util.js numRight: a fraction, or a short decimal close enough for an answer with none)
 //   mc          the letter the printed sheet shows (א, ב, ג …), or the text of a choice
 //   line, lin   texToExpr and identical (learn/expr.ts): the two expressions agree at six probe values
 import { parseAnswer } from '@shared/verify.js';
 import { texToExpr, identical } from '@/learn/expr.ts';
-import { numRight } from '@/content/util.js';
+import { numRight, piNear } from '@/content/util.js';
 
 /** The letter the printed practice exam puts before choice k (PracticeExam.jsx, ExamResult.jsx: א = 0, ב = 1, ג = 2 …). */
 export const choiceLetter = (k) => String.fromCharCode(1488 + k);
 
 /** A transcription without its maths marks, direction marks and spacing. */
 const bare = (s) => String(s ?? '').replace(/[$⁦-⁩‎‏]/g, '').replace(/\\[,;:! ]/g, ' ').replace(/[−–—]/g, '-').replace(/\s+/g, ' ').trim();
+
+/** π in a transcription: the letter, or TeX's \pi. */
+const PI_MARK = /\\pi(?![a-zA-Z])|π/;
+/**
+ * A number written with π as its number before π: "25π" and "25\pi" are 25, "π" is 1, "-π" is -1; null when it cannot
+ * be read. `pi`: whether π was written at all.
+ */
+function piCoefficient(s) {
+  const t = bare(s).replace(/\s+/g, '');
+  const pi = PI_MARK.test(t);
+  const rest = t.replace(new RegExp(PI_MARK.source, 'g'), '').replace(/\\cdot|\*|·|×/g, '');
+  if (pi && (rest === '' || rest === '+' || rest === '-')) return { u: rest === '-' ? -1 : 1, pi };
+  const u = parseAnswer(rest);
+  return typeof u === 'number' ? { u, pi } : null;
+}
 
 /** Same value: a number or a point [x, y], within tol. */
 function sameAnswer(u, key, tol) {
@@ -60,7 +78,19 @@ export function gradeByKey(q, item) {
   if (!item || !said || item.answer == null) return ai;
   const tol = /עגלו/.test(String(item.text || '')) ? 0.05 : 0.01;
   let ok;
-  if (item.form === 'num' || item.form === 'pt' || item.form === 'frac' || !item.form) {
+  if (item.form === 'num' && Number.isFinite(item.pk)) {
+    // π ≈ 3.14: the value with 3.14 or with the calculator's π, within half a tenth
+    const u = parseAnswer(said);
+    if (typeof u !== 'number') return ai;
+    ok = piNear(u, item.pk);
+  } else if (item.form === 'num' && item.after === '\\pi') {
+    // with π: the number before π (the key is written 25π)
+    const u = piCoefficient(said); const key = piCoefficient(item.answer);
+    if (!u || !key) return ai;
+    ok = sameAnswer(u.u, key.u, 0.01);
+    // the whole value as a decimal (78.5 for 25π): right, though not in the form asked
+    if (!ok && !u.pi && piNear(u.u, key.u)) return { ...q, status: 'partial', graded: 'key', overridden: q.status !== 'partial' };
+  } else if (item.form === 'num' || item.form === 'pt' || item.form === 'frac' || !item.form) {
     const u = parseAnswer(said); const key = parseAnswer(item.answer);
     if (u == null || key == null) return ai;
     ok = (item.form === 'frac' || item.precise === true) && typeof key === 'number' ? numRight(u, key, true) : sameAnswer(u, key, tol);

@@ -1,6 +1,6 @@
 import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
-import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
+import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote, piNear, piRow, afterPlain } from './util.js';
 import { LESSONS } from './lessons.js';
 import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText } from './manip.js';
 
@@ -193,6 +193,8 @@ export function isCorrect(it, u) {
     return typeof u === 'object' && Number.isInteger(u.n) && Number.isInteger(u.d) && u.d !== 0 && near(u.n / u.d, it.answer, 1e-9)
       && (!it.reduced || (u.d > 0 && gcd(u.n, u.d) === 1));
   }
+  // a value with π ≈ 3.14 (`pk`, the multiple of π): right within half a tenth of 3.14·k or of the calculator's π·k
+  if (Number.isFinite(it.pk)) return piNear(u, it.pk);
   // a length rounded to tenths (a root that is not whole): right within half a tenth of the exact value, so 7.1 and
   // 7.07 are both right for √50, and 7 or 7.0 are not. The exact value decides, not the rounded answer: √288 = 16.97…
   // rounds to 17.0, a whole number, and 16.97 is still right
@@ -201,18 +203,43 @@ export function isCorrect(it, u) {
   return numRight(u, it.answer, !!it.precise);
 }
 
+/** Does a misconception of the item (its model's bugs, or its generator's diag) predict this wrong answer? */
+function predicted(it, u) {
+  const d = typeof it.diagnosis === 'function' ? it.diagnosis(u) : null;
+  if (d?.kind === 'misconception') return true;
+  return typeof it.diag === 'function' && !!it.diag(u);
+}
+
 /**
- * A right value in a form the question does not take yet: 'not-reduced' when a fraction has the right value but the
- * question asks for lowest terms. It is a note on the form, not a mistake: the lesson says so and keeps the question
- * open, records no attempt and no answer event, and nothing reaches the misconception record. Otherwise null.
+ * A right value in a form the question does not take yet. It is a note on the form, not a mistake: the lesson says so
+ * and keeps the question open, records no attempt and no answer event, and nothing reaches the misconception record.
+ *   'not-reduced'  a fraction has the right value but the question asks for lowest terms;
+ *   'pi-value'     the answer row ends with π (□π) and the number typed is the whole value, 31.4 for 10π: within half a
+ *                  tenth of 3.14 · answer or of π · answer, and no misconception of the item predicts it.
+ * Otherwise null.
  */
 export function partialOf(it, u) {
+  if (piRow(it) && it.form === 'num' && typeof u === 'number' && typeof it.answer === 'number' && it.answer !== 0) {
+    return !isCorrect(it, u) && piNear(u, it.answer) && !predicted(it, u) ? 'pi-value' : null;
+  }
   if (it?.form !== 'frac' || !it.reduced || u == null || typeof u !== 'object') return null;
   return near(u.n / u.d, it.answer, 1e-9) && !isCorrect(it, u) ? 'not-reduced' : null;
 }
 
-/** How a typed number is written back: decimals for stats, Pythagoras and fmt: 'dec'; exact fractions up to /100 when precise. */
-const numFormat = (it) => ({ decimal: it.topic === 'stats' || it.topic === 'pyth' || it.fmt === 'dec', maxDen: it.precise ? 100 : 12, places: it.precise || it.fmt === 'dec' ? 3 : 2 });
+/**
+ * Topics whose answers are measures written as decimals (a 3.14 value 62.8, a rounded length, a grid triangle's 6.5),
+ * never as 314/5 or 13/2: statistics, Pythagoras and the measurement topics of stage 2 (§0.5).
+ */
+const DECIMAL_TOPICS = new Set(['stats', 'pyth', 'area', 'solid', 'circle', 'space']);
+/** How a typed number is written back: decimals for those topics, a π ≈ 3.14 value and fmt: 'dec'; exact fractions up to /100 when precise. */
+const numFormat = (it) => ({ decimal: DECIMAL_TOPICS.has(it.topic) || Number.isFinite(it.pk) || it.fmt === 'dec', maxDen: it.precise ? 100 : 12, places: it.precise || it.fmt === 'dec' ? 3 : 2 });
+
+/** A number in a □π row as written: 25π, π for 1, −π for −1, 0 for 0. */
+function withAfter(it, text) {
+  const after = afterPlain(it.after);
+  if (piRow(it) && (text === '1' || text === '-1')) return text === '1' ? after : `-${after}`;
+  return text === '0' ? text : `${text}${after}`;
+}
 
 /** Answers as plain text, for the screen and for the AI. */
 export function answerText(it, u = it.answer) {
@@ -229,7 +256,9 @@ export function answerText(it, u = it.answer) {
   if (it.form === 'lin') return linText(u, it.var || 'x');
   // a fraction as written: the student's own n/d, or the answer in lowest terms
   if (it.form === 'frac') { const f = typeof u === 'object' ? u : toFrac(u); return f ? (typeof u !== 'object' && f.d === 1 ? String(f.n) : `${f.n}/${f.d}`) : plainNum(u, { maxDen: 100, places: 3 }); }
-  return plainNum(u, numFormat(it));
+  const text = plainNum(u, numFormat(it));
+  // a number typed before π (□π) is that many π: 25π
+  return it.after && it.form === 'num' ? withAfter(it, text) : text;
 }
 
 /**
@@ -277,12 +306,15 @@ export function itemMath(it) {
 }
 
 export function itemPlain(it) {
-  const strip = (s) => String(s || '').replace(/[$\u2066\u2069]/g, '');
+  // π is read as π (25\pi is 25π), as answerText writes the answer
+  const strip = (s) => String(s || '').replace(/[$\u2066\u2069]/g, '').replace(/\\pi(?![a-zA-Z])/g, 'π');
   const desc = figPlain(it.fig);
   const fig = desc ? ` [${desc}]` : '';
   const choices = it.form === 'mc' ? ` אפשרויות: ${it.choices.map((c) => c.text || c.tex).join(' / ')}` : '';
   const manip = it.form === 'manip' ? ` ${manipPlain(it)}` : '';
-  return `${strip(it.text)}${it.display ? ` ${it.display}` : ''}${fig}${choices}${manip}`.trim();
+  // the answer row's form when something is drawn after the slot: the student types the number before π
+  const row = it.form === 'num' && it.after ? ` [התשובה בצורה □${afterPlain(it.after)}]` : '';
+  return `${strip(it.text)}${it.display ? ` ${strip(it.display)}` : ''}${fig}${choices}${manip}${row}`.trim();
 }
 
 export const COLORS = ['sky', 'fuchsia', 'petrol', 'cobalt', 'violet'];

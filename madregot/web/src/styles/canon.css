@@ -1785,6 +1785,10 @@ button.upload { width: 100%; padding: 0; font-family: inherit; color: inherit; }
 .ch-field { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .ch-field-label { font-size: 15px; line-height: 20px; color: var(--ink-2); font-weight: 600; }
 .ch-field-row { display: inline-flex; align-items: center; gap: var(--s2); }
+/* the slot and the maths after it (□π), left to right */
+.ch-field-math { display: inline-flex; align-items: center; gap: 4px; }
+.ch-after { font-size: 24px; }
+.ch-note { margin: 0; text-align: center; }
 .ch-slot { width: clamp(96px, 34vw, 160px); height: 52px; font-size: 24px; }
 .ch-fields.many .ch-slot { width: clamp(72px, 24vw, 110px); }
 .ch-slot.good { border-color: var(--good-d); background: var(--good-tint); }

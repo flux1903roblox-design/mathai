@@ -29,6 +29,9 @@ export const FLOOR_FACTS = 2;
 export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source: Source) {
   // a model whose questions are of two kinds may choose the answer's form per question (decimals, or quarters)
   const fmt = typeof model.fmt === 'function' ? model.fmt(p) : model.fmt;
+  // maths drawn after the answer slot (□π: the number before π is typed), per question too: a circumference asked with
+  // π, its radius without it. (A model never carries `pk`: its answers are whole multiples of π, for a clean diagnosis.)
+  const after = typeof model.after === 'function' ? model.after(p) : model.after;
   const it = {
     key: `${c.skill}:${source}:${JSON.stringify(p)}`,
     text: model.text(p), display: model.display?.(p), fig: model.fig?.(p), form: 'num' as const, unit: model.unit,
@@ -37,7 +40,7 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
     diagnosis: (u: number) => diagnose(model, p, u),
     could: couldShow(model, p),
     topic: c.topic, level: c.level, levelTitle: c.title, source,
-    ...(model.precise ? { precise: true } : {}), ...(fmt ? { fmt } : {}),
+    ...(model.precise ? { precise: true } : {}), ...(fmt ? { fmt } : {}), ...(after ? { after } : {}),
   };
   // an exact answer with no short decimal (7/12) says once how to write it, as a generated exercise does
   return model.precise ? withFormatNote(it) : it;

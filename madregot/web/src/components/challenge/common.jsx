@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { m } from 'motion/react';
 import { Check, Lightbulb } from 'lucide-react';
 import { Button, Keypad } from '@/components/ui.jsx';
-import { MathText, mathPlain } from '@/components/MathText.jsx';
+import { MathText, Tex, mathPlain } from '@/components/MathText.jsx';
 import { ResultWhy } from '@/components/learn/StepPlayer.jsx';
 import { enter } from '@/lib/motion.js';
 import { TRIES } from '@/learn/challenges/grade.ts';
@@ -69,9 +69,13 @@ export function typeKey(value, k) {
 /**
  * Typed numbers with the lesson's keypad: one field or several (a counterexample's slots), the keypad typing into the
  * active one and its "next" key moving on. A hardware keyboard types too (the phone's own keyboard stays closed, as in
- * a lesson). fields: [{ name, label, unit? }]; values: { name: text }.
+ * a lesson). fields: [{ name, label, unit?, after? }] (`after`: TeX drawn after the slot, '\\pi' for □π); values:
+ * { name: text }. `note`: a line under the fields that is not a result (a right value typed in another form).
  */
-export function NumFields({ fields, values, onChange, locked = false, state = null, onEnter }) {
+/** A screen reader's name for a slot followed by π. */
+const AFTER_SAID = 'המספר שלפני פאי';
+
+export function NumFields({ fields, values, onChange, locked = false, state = null, onEnter, note = null }) {
   const [active, setActive] = useState(fields[0].name);
   const set = (name, v) => onChange({ ...values, [name]: v });
   const next = () => { const i = fields.findIndex((f) => f.name === active); setActive(fields[(i + 1) % fields.length].name); };
@@ -82,19 +86,24 @@ export function NumFields({ fields, values, onChange, locked = false, state = nu
           <label key={f.name} className="ch-field">
             {fields.length > 1 && <span className="ch-field-label"><MathText text={f.label} /></span>}
             <span className="ch-field-row">
-              <input
-                id={`ch-slot-${f.name}`} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false} placeholder="?"
-                className={clsx('slot', 'ch-slot', active === f.name && !locked && 'active', state === 'good' && 'good', state === 'bad' && 'struck')}
-                aria-label={fields.length > 1 ? undefined : mathPlain(f.label)} value={values[f.name] || ''} readOnly={locked}
-                onFocus={() => setActive(f.name)}
-                onChange={(e) => set(f.name, e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9))}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter?.(); } }}
-              />
+              {/* a slot with maths after it (□π) is set left to right, the number then π; the unit stays after both */}
+              <span className="ch-field-math" dir="ltr">
+                <input
+                  id={`ch-slot-${f.name}`} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false} placeholder="?"
+                  className={clsx('slot', 'ch-slot', active === f.name && !locked && 'active', state === 'good' && 'good', state === 'bad' && 'struck')}
+                  aria-label={fields.length > 1 ? (f.after ? AFTER_SAID : undefined) : `${mathPlain(f.label)}${f.after ? `, ${AFTER_SAID}` : ''}`} value={values[f.name] || ''} readOnly={locked}
+                  onFocus={() => setActive(f.name)}
+                  onChange={(e) => set(f.name, e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter?.(); } }}
+                />
+                {f.after && <span className="answer-lab ch-after" aria-hidden="true"><Tex tex={f.after} /></span>}
+              </span>
               {f.unit && <span className="answer-unit">{f.unit}</span>}
             </span>
           </label>
         ))}
       </div>
+      {note && <p className="answer-partial ch-note" role="status"><MathText text={note} /></p>}
       {/* after a miss the struck value is replaced by the next key, as in a lesson */}
       {!locked && <Keypad onKey={(k) => set(active, typeKey(state === 'bad' ? '' : values[active], k))} onNext={fields.length > 1 ? next : undefined} />}
     </div>

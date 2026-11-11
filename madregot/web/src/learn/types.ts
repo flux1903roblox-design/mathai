@@ -197,6 +197,11 @@ export interface DiagModel<P = Record<string, number>> {
   precise?: boolean;
   /** Show the answer as a decimal (-1.3, not -13/10); a function chooses per question (decimals, or quarters as fractions). */
   fmt?: 'dec' | ((p: P) => 'dec' | undefined);
+  /**
+   * TeX drawn after the answer slot, as `label` is before it: '\pi' asks the number before π (25 for 25π). A function
+   * chooses per question (a circumference with π, its radius without: `(p) => (p.k ? undefined : '\pi')`).
+   */
+  after?: string | ((p: P) => string | undefined);
 }
 
 // ------------------------------------------------------------------ the stair
@@ -311,24 +316,26 @@ export interface ChallengeTask {
 }
 /**
  * One part of a challenge.
- *   num      a typed number, checked against `answer` (`check` is an expression for the same quantity, tested)
+ *   num      a typed number, checked against `answer` (`check` is an expression for the same quantity, tested);
+ *            `after: '\\pi'` draws π after the slot and `answer` is the number before it (25 for 25π)
  *   mc       one right choice among several, each with its own feedback
  *   claim    always / sometimes / never true; with `example`, a counterexample typed into the slots: `expr` evaluated
  *            at the slots' values (learn/expr.ts) must satisfy `rel value`, the values in `domain`
  *   order    a proof's steps, shown shuffled, put in order; a step with `reason` then asks why, as a choice. `free`
  *            lists groups of steps that may come in any order among themselves (two equal angles found one after the
  *            other): the proof is right either way, so the check accepts both
- *   error    someone's solution as lines: the wrong line (`wrong`), then the right value typed (`fix`)
+ *   error    someone's solution as lines: the wrong line (`wrong`), then the right value typed (`fix`, which may
+ *            carry `after` as a num part does)
  *   explain  the student's own words (kept on the screen only), then the sample answer and the rubric to tick
  */
 export type ChallengePart =
-  | { type: 'num'; prompt: Text; answer: number; check: string; unit?: string; solution: Text[] }
+  | { type: 'num'; prompt: Text; answer: number; check: string; unit?: string; after?: string; solution: Text[] }
   | { type: 'mc'; prompt: Text; choices: { text: Text; ok: boolean; feedback: Text }[] }
   | { type: 'claim'; prompt: Text; claim: Text; verdict: 'always' | 'sometimes' | 'never'; why: Text;
       example?: { ask: Text; slots: { name: string; label: Text }[]; domain: 'positive-int' | 'int' | 'number';
                   expr: string; rel: '<' | '<=' | '>' | '>=' | '!='; value: number; hint: Text } }
   | { type: 'order'; prompt: Text; steps: { text: Text; reason?: { choices: Text[]; answer: number } }[]; free?: number[][] }
-  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; fix: { prompt: Text; answer: number; check: string } }
+  | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; fix: { prompt: Text; answer: number; check: string; after?: string } }
   | { type: 'explain'; prompt: Text; rubric: Text[]; sample: Text };
 /** A challenge task (curriculum stage 1, CURRICULUM-6): when it started, when it was finished, parts right first time. */
 export interface ChallengeRecord { startedAt: string; doneAt?: string; firstTry: number; parts: number }
