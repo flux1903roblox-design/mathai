@@ -196,7 +196,8 @@ test('the status reports the free taste without counting', async () => {
   await ai(h, 'chat', { 'X-Device': DEVICE });
   const s = await (await h.call('GET', '/api/ai/status', { headers: { 'X-Device': DEVICE } })).json();
   assert.equal(s.paywall, true); assert.equal(s.tier, 'free');
-  assert.deepEqual(s.kinds, ['explain', 'chat']);
+  // the tutor's kinds: feedback on a written explanation is one of the same 2 questions (ai spec AI-10)
+  assert.deepEqual(s.kinds, ['explain', 'chat', 'feedback']);
   assert.deepEqual(s.groups, { tutor: { left: 1, limit: 2 }, check: null, generate: null, exam: null });
   assert.equal(s.linked, null);
   assert.equal(countOf(h.env, `free:d:${await devOf(h.env)}`), 1);

@@ -354,7 +354,7 @@ CREATE TABLE IF NOT EXISTS safety_events (
   day TEXT NOT NULL,                                   -- YYYY-MM-DD Jerusalem; no time of day
   kind TEXT NOT NULL CHECK (kind IN ('distress','pii_masked','output_blocked','link_removed','refusal','user_report','class_ai_off','parent_ok_needed','photo_redacted')),
   category TEXT NOT NULL DEFAULT '' CHECK (length(category) <= 20),
-  surface TEXT NOT NULL CHECK (surface IN ('chat','explain','check','exam','generate','help_note','photo')),
+  surface TEXT NOT NULL CHECK (surface IN ('chat','explain','check','exam','generate','feedback','help_note','photo')),
   source TEXT NOT NULL CHECK (source IN ('regex','model','client','server')),
   tier TEXT NOT NULL DEFAULT '' CHECK (length(tier) <= 10)
 );
@@ -377,7 +377,7 @@ CREATE TABLE IF NOT EXISTS answer_reports (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at TEXT NOT NULL,
   reason TEXT NOT NULL CHECK (reason IN ('wrong_math','not_nice','not_for_kids','other')),
-  kind TEXT NOT NULL CHECK (kind IN ('chat','explain','check','exam','generate')),
+  kind TEXT NOT NULL CHECK (kind IN ('chat','explain','check','exam','generate','feedback')),
   reply TEXT NOT NULL CHECK (length(reply) <= 4000),
   tier TEXT NOT NULL DEFAULT ''
 );

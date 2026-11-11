@@ -213,7 +213,7 @@ const schemaOf = (params) => params.output_config?.format?.schema?.properties ||
 export function claudeReply(params, opts = {}) {
   const structured = params.output_config?.format;
   const shape = schemaOf(params);
-  const json = shape.items ? keptRewrite(params) : shape.answers ? { answers: [] }
+  const json = shape.items ? keptRewrite(params) : shape.answers ? { answers: [] } : shape.points ? FEEDBACK_REPLY
     : { questions: [], readable: true, transcript: '', steps: [], final: 'unknown', summary: '', title: '', weakTopics: [], nextSteps: [] };
   const text = opts.text ?? (structured ? JSON.stringify(json) : 'הסבר קצר.');
   const message = claudeMessage(params, { ...opts, text });
@@ -234,12 +234,39 @@ export async function setup(over = {}, fetchOpts = {}) {
 
 /** Seeds as the app sends them for new exercises (ai spec AI-4): its own exercises and the answers it computed. */
 export const GEN_SEEDS = Object.freeze([{ i: 0, text: 'חשבו: 3 - (-5)', answer: '8', round: false, fig: false }, { i: 1, text: 'בתל אביב 20 מעלות, ובפסגת החרמון -8 מעלות. בכמה מעלות חם יותר בתל אביב?', answer: '28', round: false, fig: false }, { i: 2, text: 'חשבו: -8 - (-7)', answer: '-1', round: false, fig: false }, { i: 3, text: 'מעלית יצאה מקומה -2 (בחניון) ועלתה 7 קומות. באיזו קומה היא עכשיו?', answer: '5', round: false, fig: false }, { i: 4, text: 'חשבו: -12 + (-1)', answer: '-13', round: false, fig: false }]);
+/**
+ * A finished challenge (ai spec AI-10): the app's context for it, and a feedback request on a written explanation.
+ * Synthetic: the task, rubric and model answer are written for the tests; the "student" text is invented.
+ */
+export const FEEDBACK_CTX = Object.freeze({
+  v: 2, surface: 'challenge', grade: '7', skill: 'expr:4', topicId: 'expr', topic: 'ביטויים אלגבריים', stair: 'חוק הפילוג',
+  item: { text: 'הסבירו למה $3(x + 4) = 3x + 12$.', answerFrom: 'app' },
+  policy: { answer: 'reveal', why: 'A finished challenge: the model answer and the rubric are on the screen.' },
+});
+export const FEEDBACK_INPUT = Object.freeze({
+  ctx: FEEDBACK_CTX,
+  rubric: ['הסברתי בעזרת שטח של מלבן', 'אמרתי למה כל איבר בסוגריים נכפל ב־$3$'],
+  sample: 'מלבן ברוחב $3$ ובאורך $x + 4$ מתחלק לשני מלבנים: אחד בשטח $3x$ ואחד בשטח $3 \\cdot 4 = 12$. השטח של כל המלבן הוא סכום השטחים של שני החלקים, ולכן $3(x + 4) = 3x + 12$.',
+  text: 'ציירתי מלבן שהרוחב שלו 3 והאורך שלו x ועוד 4. חילקתי אותו לשני חלקים, ויצא 3x ועוד 12.',
+});
+
+/** Claude's feedback on FEEDBACK_INPUT (ai spec AI-10): point 0 covered in the student's words, point 1 partly, with a tip. */
+export const FEEDBACK_REPLY = Object.freeze({
+  points: [
+    { i: 0, status: 'yes', quote: 'ציירתי מלבן שהרוחב שלו 3 והאורך שלו x ועוד 4', tip: '' },
+    { i: 1, status: 'partly', quote: 'ויצא 3x ועוד 12', tip: 'כתבו מה קורה לכל אחד מהחלקים בסוגריים, ולמה.' },
+  ],
+  summary: 'המלבן מסביר את הרעיון יפה. חסר משפט שאומר למה גם ה־4 נכפל ב־3.',
+  care: false,
+});
+
 export const INPUT = {
   explain: { question: '3 - 8', correct: '-5', studentAnswer: '5' },
   chat: { messages: [{ role: 'user', content: 'איך מתחילים?' }], context: { question: '3 - 8' } },
   generate: { grade: '7', skill: 'signed:1', topic: 'מספרים מכוונים', stair: 'חיבור וחיסור', count: 3, seeds: GEN_SEEDS },
   check: { image: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' },
   exam: { pages: [{ data: 'data:image/jpeg;base64,/9j/4AAQ', mediaType: 'image/jpeg' }] },
+  feedback: FEEDBACK_INPUT,
 };
 export const DEVICE = 'a'.repeat(32);
 export const ai = (h, kind, headers = {}, { ip, body } = {}) => h.call('POST', `/api/ai/${kind}`, { headers, ip, body: body ?? INPUT[kind] });

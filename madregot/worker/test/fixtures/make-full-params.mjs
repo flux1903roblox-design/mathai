@@ -33,6 +33,17 @@ export const INPUTS = {
     topics: [{ id: 'line', title: 'פונקציה קווית', levels: ['א', 'ב'] }],
     key: [{ prompt: 'מה השיפוע?', answer: '3' }],
   },
+  // a finished challenge (ai spec AI-10): the app's context, the rubric, the model answer and the student's explanation,
+  // long enough to show every clip, with a phone number the request masks
+  feedback: {
+    ctx: {
+      v: 2, surface: 'challenge', grade: '7', skill: 'expr:4', topicId: 'expr', topic: 'ביטויים אלגבריים', stair: 'חוק הפילוג',
+      item: { text: 'הסבירו למה $3(x + 4) = 3x + 12$.' }, policy: { answer: 'reveal', why: 'A finished challenge.' },
+    },
+    rubric: ['הסברתי בעזרת שטח של מלבן', `אמרתי למה כל איבר בסוגריים נכפל ${'w'.repeat(300)}`],
+    sample: `מלבן ברוחב $3$ ובאורך $x + 4$ ${'s'.repeat(700)}`,
+    text: `ציירתי מלבן, תתקשרו 050-1234567 ${'t'.repeat(1500)}`,
+  },
 };
 
 export function make() {

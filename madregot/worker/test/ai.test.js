@@ -5,13 +5,14 @@ import { readFileSync } from 'node:fs';
 import {
   buildRequest, buildCare, readResult, splitCare, STREAMED, AI_KINDS, FREE_KINDS, MAX_EXAM_PAGES, CARE_NOTE, LITE_MODEL, LITE_NOTE,
   ECONOMY_NOTE, LITE_EFFORT, LITE_MAX_TOKENS, ECONOMY_MAX_TOKENS, DEFAULT_MODEL, gradeLine, stableSystem, BLIND_SYSTEM, REWRITE_SCHEMA,
-  generateVerified, seedsOf,
+  generateVerified, seedsOf, FEEDBACK_SCHEMA, FEEDBACK_EFFORT, FEEDBACK_MAX_TOKENS, KIND_GROUP, AI_UNITS, studentsWords, copiesRun, clipWords,
+  feedbackInput,
 } from '../../shared/ai.js';
 import { normalizeContext, legacyToV2, renderContext, CTX_BUDGET, CTX_VERSION } from '../../shared/tutorContext.js';
 import { safetyPrompt } from '../../shared/safety.js';
 import {
   systemText, setup, ai, rows, countOf, devOf, claudeReply, claudeMessage, signIn, accountId, insertSub, linkDevice, DEVICE, GEN_SEEDS,
-  claudeDown, one,
+  claudeDown, one, FEEDBACK_INPUT, FEEDBACK_CTX,
 } from './helpers.js';
 import { MASK_NOTE } from '../../shared/guard.js';
 import { bumpQuality } from '../src/quality.js';
@@ -27,6 +28,7 @@ test('every kind builds a request with the fallback beta, the cache mark on the 
     generate: { topic: 'מספרים מכוונים', stair: 'חיבור', count: 3, seeds: GEN_SEEDS },
     check: { image: page.data },
     exam: { pages: [page] },
+    feedback: FEEDBACK_INPUT,
   };
   for (const kind of AI_KINDS) {
     const r = buildRequest(kind, { grade: '8', ...inputs[kind] });
@@ -90,6 +92,7 @@ const INPUTS = {
   generate: { topic: 'מספרים מכוונים', stair: 'חיבור', count: 3, seeds: GEN_SEEDS },
   check: { image: page.data },
   exam: { pages: [page] },
+  feedback: FEEDBACK_INPUT,
 };
 const SAFETY_PARTS = ['1201', '052-845-1201', '08:00–02:00', '055-957-1399', '105', '100', '101', '[[care]]'];
 /** Every request the tutor can send: each kind in each shape it has, and the care request. */
@@ -110,7 +113,8 @@ function everyRequest() {
 test('every kind and every shape, and the care request, start with the safety block and carry every support number', () => {
   const block = safetyPrompt();
   const seen = everyRequest();
-  assert.equal(seen.length, 5 * 2 + 2 * 2 + 1);
+  assert.equal(seen.length, AI_KINDS.length * 2 + FREE_KINDS.length * 2 + 1);
+  assert.equal(seen.length, 6 * 2 + 3 * 2 + 1);
   for (const [name, params] of seen) {
     const sys = systemText(params);
     assert.ok(sys.startsWith(block), `${name}: the safety block comes first`);
@@ -323,7 +327,7 @@ test('the system prompt is three blocks: the stable block with the cache mark, t
   for (const shape of SHAPES) {
     for (const kind of FREE_KINDS) {
       for (const ctx of [SIGNED1, ctx2]) {
-        const input = kind === 'chat' ? { ctx, messages: [{ role: 'user', content: 'איך מתחילים?' }] } : { ctx };
+        const input = kind === 'chat' ? { ctx, messages: [{ role: 'user', content: 'איך מתחילים?' }] } : kind === 'feedback' ? { ...FEEDBACK_INPUT, ctx } : { ctx };
         const p = buildRequest(kind, input, { shape });
         assert.equal(p.system.length, 3, `${kind}/${shape}`);
         assert.deepEqual(p.system[0], { type: 'text', text: stable, cache_control: { type: 'ephemeral' } }, `${kind}/${shape}`);
@@ -379,12 +383,14 @@ test('exam and generate keep their user turns: the grade line first, as before',
 const TABLE = {
   explain: { full: [DEFAULT_MODEL, 'medium', 4000], lite: [LITE_MODEL, 'high', 4000], economy: [LITE_MODEL, 'high', 4000] },
   chat: { full: [DEFAULT_MODEL, 'low', 4000], lite: [LITE_MODEL, 'high', 4000], economy: [LITE_MODEL, 'high', 4000] },
+  // ai spec AI-10 Design 5: a short structured reply on the paid model; the low-cost shapes as the table
+  feedback: { full: [DEFAULT_MODEL, 'low', 3000], lite: [LITE_MODEL, 'high', 4000], economy: [LITE_MODEL, 'high', 4000] },
 };
 
 test('the same pedagogy in every shape: system[0] identical, each note only in its shape, effort and tokens by the table', () => {
   assert.equal(LITE_EFFORT, 'high'); assert.equal(LITE_MAX_TOKENS, 4000); assert.equal(ECONOMY_MAX_TOKENS, 4000);
   for (const kind of FREE_KINDS) {
-    const input = kind === 'chat' ? { ctx: SIGNED1, messages: [{ role: 'user', content: 'למה זה לא -2?' }] } : { ctx: SIGNED1 };
+    const input = kind === 'chat' ? { ctx: SIGNED1, messages: [{ role: 'user', content: 'למה זה לא -2?' }] } : kind === 'feedback' ? { ...FEEDBACK_INPUT, ctx: SIGNED1 } : { ctx: SIGNED1 };
     const firsts = new Set();
     for (const shape of SHAPES) {
       const p = buildRequest(kind, input, { shape });
@@ -741,4 +747,133 @@ test('generateVerified: a refusal on the rewrite is thrown with its code; a blin
   assert.equal(out.blind, 'ok');
   assert.equal(out.messages.length, 3, 'every message that came back, to be priced');
   assert.deepEqual(out.items.map((it) => it.seed), [0, 3, 4]);
+});
+
+// ---------------------------------------------------------------- feedback on a written explanation (ai spec AI-10)
+test('feedback is a tutor kind: one unit, in the free taste, its own route and body limit', () => {
+  assert.ok(AI_KINDS.includes('feedback'));
+  assert.equal(KIND_GROUP.feedback, 'tutor');
+  assert.equal(AI_UNITS.feedback, 1);
+  assert.ok(FREE_KINDS.includes('feedback'));
+  assert.equal(STREAMED('feedback'), false);
+});
+
+test('feedback in each shape: the strict schema, effort and tokens by Design 5, the stable block first, C.8, the challenge context', () => {
+  const want = { full: [DEFAULT_MODEL, FEEDBACK_EFFORT, FEEDBACK_MAX_TOKENS], lite: [LITE_MODEL, 'high', 4000], economy: [LITE_MODEL, 'high', 4000] };
+  assert.equal(FEEDBACK_EFFORT, 'low'); assert.equal(FEEDBACK_MAX_TOKENS, 3000);
+  for (const shape of SHAPES) {
+    const p = buildRequest('feedback', FEEDBACK_INPUT, { shape });
+    assert.deepEqual([p.model, p.output_config.effort, p.max_tokens], want[shape], shape);
+    assert.deepEqual(p.output_config.format, { type: 'json_schema', schema: FEEDBACK_SCHEMA }, shape);
+    assert.equal(p.system[0].text, stableSystem(), shape);
+    assert.deepEqual(p.system[0].cache_control, { type: 'ephemeral' });
+    assert.ok(p.system[1].text.startsWith('Task: the student wrote their own explanation for a challenge question in the app context.'), shape);
+    assert.match(p.system[1].text, /Never rewrite the student's explanation, never quote or paraphrase the model answer, and never give a score\./);
+    assert.equal(p.system[1].text.includes(LITE_NOTE), shape === 'lite', shape);
+    assert.equal(p.system[1].text.includes(ECONOMY_NOTE), shape === 'economy', shape);
+    assert.match(p.system[2].text, /Final-answer policy: REVEAL/);
+    assert.ok(p.system[2].text.includes(`Exercise on screen: ${FEEDBACK_CTX.item.text}`));
+    assert.equal(p.cache_control, undefined, 'no top-level mark: the turn is unique');
+    assert.equal(p.messages.length, 1);
+  }
+  // the strict schema: every point has its index, status, quote and tip; the reply has points, a summary and the care flag
+  assert.deepEqual(FEEDBACK_SCHEMA.required, ['points', 'summary', 'care']);
+  assert.deepEqual(FEEDBACK_SCHEMA.properties.points.items.required, ['i', 'status', 'quote', 'tip']);
+  assert.deepEqual(FEEDBACK_SCHEMA.properties.points.items.properties.status.enum, ['yes', 'partly', 'no']);
+  assert.equal(FEEDBACK_SCHEMA.additionalProperties, false); assert.equal(FEEDBACK_SCHEMA.properties.points.items.additionalProperties, false);
+  assert.ok(!Object.keys(FEEDBACK_SCHEMA.properties).some((k) => /score|grade|mark/i.test(k)), 'no score field');
+  // the student's turn: the rubric by index, the model answer for the tutor only, then the student's own words
+  assert.equal(buildRequest('feedback', FEEDBACK_INPUT).messages[0].content, [
+    'Rubric:', `0. ${FEEDBACK_INPUT.rubric[0]}`, `1. ${FEEDBACK_INPUT.rubric[1]}`,
+    'Model answer (for you only, never quote it):', FEEDBACK_INPUT.sample,
+    'The student\'s explanation:', `«${FEEDBACK_INPUT.text}»`,
+  ].join('\n'));
+});
+
+test('feedback input: the explanation masked and clipped to 1,200, the rubric 1-6 points of 200, the model answer 600; the context is required', () => {
+  const long = buildRequest('feedback', { ...FEEDBACK_INPUT, text: `תתקשרו אליי 050-1234567 או noa@example.test ${'א'.repeat(2000)}`, rubric: ['נ'.repeat(300)], sample: 'ס'.repeat(900) });
+  const turn = long.messages[0].content;
+  assert.ok(!turn.includes('050-1234567') && !turn.includes('noa@example.test'));
+  assert.ok(turn.includes('[טלפון]') && turn.includes('[מייל]'));
+  const said = turn.split('«')[1].replace(/»$/, '');
+  assert.equal(said.length, 1200);
+  assert.ok(turn.includes(`0. ${'נ'.repeat(200)}\n`) && !turn.includes('נ'.repeat(201)));
+  assert.ok(turn.includes(`${'ס'.repeat(600)}\n`) && !turn.includes('ס'.repeat(601)));
+  // no model answer: the line is left out
+  assert.ok(!buildRequest('feedback', { ...FEEDBACK_INPUT, sample: '' }).messages[0].content.includes('Model answer'));
+  for (const bad of [
+    { ...FEEDBACK_INPUT, rubric: [] }, { ...FEEDBACK_INPUT, rubric: Array(7).fill('נקודה') }, { ...FEEDBACK_INPUT, rubric: ['נקודה', ' '] },
+    { ...FEEDBACK_INPUT, rubric: 'נקודה' }, { ...FEEDBACK_INPUT, text: '   ' }, { ...FEEDBACK_INPUT, text: 7 }, { ...FEEDBACK_INPUT, ctx: undefined },
+    { ...FEEDBACK_INPUT, ctx: { surface: 'challenge' } },
+  ]) assert.throws(() => buildRequest('feedback', bad), JSON.stringify(bad).slice(0, 80));
+  assert.deepEqual(feedbackInput(FEEDBACK_INPUT), { rubric: FEEDBACK_INPUT.rubric, sample: FEEDBACK_INPUT.sample, text: FEEDBACK_INPUT.text });
+});
+
+const fbMsg = (data) => msg(JSON.stringify({ care: false, ...data }));
+test('readResult(feedback): one entry per rubric point, a quote only from the student\'s words, short tips, no tip copied from the model answer', () => {
+  const sample = 'מלבן ברוחב 3 ובאורך x ועוד 4 מתחלק לשני מלבנים קטנים, אחד בשטח 3x ואחד בשטח 12, ולכן השטח של כל המלבן הוא 3x ועוד 12.';
+  const input = { ...FEEDBACK_INPUT, rubric: ['שטח של מלבן', 'כל איבר נכפל', 'דוגמה עם מספרים'], sample };
+  const tip21 = Array.from({ length: 25 }, (_, i) => `מילה${i}`).join(' ');
+  const r = readResult('feedback', fbMsg({
+    points: [
+      { i: 1, status: 'partly', quote: '  "ויצא   3x ועוד 12."  ', tip: tip21 },
+      { i: 0, status: 'yes', quote: 'ציירתי משולש', tip: 'אין צורך' },
+      { i: 0, status: 'no', quote: '', tip: 'כפילות' },
+      { i: 7, status: 'yes', quote: 'ציירתי מלבן', tip: '' },
+      { i: 2.5, status: 'yes', quote: '', tip: '' },
+    ],
+    summary: Array.from({ length: 50 }, () => 'יפה').join(' '),
+  }), input);
+  assert.deepEqual(r.points.map((p) => p.i), [0, 1, 2], 'one per rubric point, in order; extras and repeats dropped');
+  assert.deepEqual(r.points[0], { i: 0, status: 'yes', quote: '', tip: '' }, 'a quote that is not in the text is blanked; no tip on yes');
+  assert.equal(r.points[1].quote, 'ויצא 3x ועוד 12', 'the student\'s own words, cut from their text');
+  assert.ok(FEEDBACK_INPUT.text.includes(r.points[1].quote));
+  assert.equal(r.points[1].tip.split(' ').length, 20); assert.ok(r.points[1].tip.endsWith('…'), 'clipped to 20 words');
+  assert.deepEqual(r.points[2], { i: 2, status: 'no', quote: '', tip: '' }, 'a missing point is "no"');
+  assert.equal(r.summary.split(' ').length, 40); assert.ok(r.summary.endsWith('…'), 'the summary clipped to 40 words');
+  assert.equal(r.care, false);
+  // a tip that copies 9 or more words of the model answer in a row is a rewrite in disguise: dropped; 8 words are fine
+  const nine = 'מתחלק לשני מלבנים קטנים, אחד בשטח 3x ואחד בשטח 12';
+  const eight = 'מלבן ברוחב 3 ובאורך x ועוד 4 מתחלק';
+  const copied = readResult('feedback', fbMsg({ points: [{ i: 0, status: 'no', quote: '', tip: `כתבו: ${nine}` }, { i: 1, status: 'partly', quote: 'ויצא 3x', tip: `${eight} - נסו בעצמכם` }], summary: 'כמעט.' }), input);
+  assert.equal(copied.points[0].tip, '', 'nine words of the model answer: dropped');
+  assert.equal(copied.points[1].tip, `${eight} - נסו בעצמכם`, 'eight words: kept');
+  assert.equal(copied.points[1].quote, 'ויצא 3x');
+  // a "no" never carries a quote
+  assert.equal(readResult('feedback', fbMsg({ points: [{ i: 0, status: 'no', quote: 'ציירתי מלבן', tip: 'נסו' }], summary: '' }), input).points[0].quote, '');
+});
+
+test('readResult(feedback): a care reply keeps its whole summary; a reply that is not the asked JSON is bad_output; a refusal is a refusal', () => {
+  const words = Array.from({ length: 60 }, () => 'מילה').join(' ');
+  const care = readResult('feedback', msg(JSON.stringify({ points: [], summary: `${words} ער״ן 1201`, care: true })), FEEDBACK_INPUT);
+  assert.equal(care.care, true); assert.ok(care.summary.endsWith('ער״ן 1201'), 'the help lines are never cut');
+  assert.equal(care.points.length, 2);
+  for (const bad of ['{oops', '{}', JSON.stringify({ points: {}, summary: '' }), JSON.stringify({ points: [], summary: 3 })]) {
+    assert.throws(() => readResult('feedback', msg(bad), FEEDBACK_INPUT), (e) => e.code === 'bad_output', bad);
+  }
+  assert.throws(() => readResult('feedback', msg('', 'refusal'), FEEDBACK_INPUT), (e) => e.code === 'refusal');
+});
+
+test('the helpers behind the feedback checks: the student\'s words, a run copied from the model answer, clipping by words', () => {
+  const text = 'ציירתי מלבן   שהרוחב שלו 3, והאורך ״x ועוד 4״.\nויצא 3x ועוד 12';
+  assert.equal(studentsWords(text, 'ציירתי מלבן שהרוחב שלו 3'), 'ציירתי מלבן   שהרוחב שלו 3', 'spaces normalised, the original cut');
+  assert.equal(studentsWords(text, '"x ועוד 4"'), 'x ועוד 4', 'quotation marks around a quote are not words');
+  assert.equal(studentsWords(text, 'והאורך "x ועוד'), 'והאורך ״x ועוד', 'one quotation mark is as good as another');
+  assert.equal(studentsWords(text, 'ויצא $3x$ ועוד 12'), 'ויצא 3x ועוד 12', 'a $ the model added is not a difference');
+  assert.equal(studentsWords(text, 'ויצא 3x ועוד 13'), '');
+  assert.equal(studentsWords(text, 'ו'), '', 'too short to point at anything');
+  assert.equal(studentsWords(text, ''), '');
+  assert.equal(copiesRun('אחת שתיים שלוש ארבע חמש שש שבע שמונה תשע', 'זה: אחת, שתיים, שלוש, ארבע, חמש, שש, שבע, שמונה, תשע.'), true);
+  assert.equal(copiesRun('אחת שתיים שלוש ארבע חמש שש שבע שמונה', 'אחת שתיים שלוש ארבע חמש שש שבע שמונה תשע'), false);
+  assert.equal(clipWords('א ב ג', 5), 'א ב ג');
+  assert.equal(clipWords('א ב $x + 1$ ג', 3), 'א ב…', 'never cut inside $…$');
+  assert.equal(clipWords('א, ב, ג, ד', 2), 'א, ב…');
+});
+
+test('the care request reads a challenge explanation when there is no chat', () => {
+  const p = buildCare({ ...FEEDBACK_INPUT, text: 'אני רוצה למות. התקשרו 050-1234567' });
+  assert.equal(p.messages.length, 1);
+  assert.equal(p.messages[0].role, 'user');
+  assert.ok(p.messages[0].content.includes('אני רוצה למות') && p.messages[0].content.includes('[טלפון]'));
+  assert.ok(!JSON.stringify(p).includes(FEEDBACK_INPUT.rubric[0]), 'nothing of the task: no maths in a care request');
 });

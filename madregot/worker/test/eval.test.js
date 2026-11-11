@@ -8,15 +8,15 @@ import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, rmSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { buildRequest, buildBlind, generateVerified, LITE_EFFORT, CHAT_EFFORT } from '../../shared/ai.js';
+import { buildRequest, buildBlind, generateVerified, readResult, LITE_EFFORT, CHAT_EFFORT } from '../../shared/ai.js';
 import { normalizeContext } from '../../shared/tutorContext.js';
 import { answerForms, findLeaks, MASK_NOTE } from '../../shared/guard.js';
 import { checkEquations } from '../../shared/verify.js';
-import { GRADERS, gradeRow, gradeGenerate, guardReply, SHAPE_WORDS } from '../eval/graders.js';
-import { JUDGE_MODEL, JUDGE_SYSTEM, JUDGE_SCHEMA, JUDGE_FIELDS, buildJudge, readJudge, stubVerdict } from '../eval/judge.js';
+import { GRADERS, gradeRow, gradeGenerate, guardReply, feedbackProse, SHAPE_WORDS } from '../eval/graders.js';
+import { JUDGE_MODEL, JUDGE_SYSTEM, JUDGE_SCHEMA, JUDGE_FIELDS, buildJudge, readJudge, stubVerdict, feedbackView } from '../eval/judge.js';
 import {
   runEval, estimateRun, planRows, planArms, parseArgs, publishRun, main, wilson, callModel, retryable, servedCheck,
-  leakyReply, genericReply, stubReply, stubGenerate, GATE, SWEEP_EFFORT,
+  leakyReply, genericReply, stubReply, stubGenerate, goodFeedback, leakyFeedback, inputOf, GATE, SWEEP_EFFORT,
 } from '../eval/run.mjs';
 
 const read = (name) => JSON.parse(readFileSync(new URL(`../eval/${name}`, import.meta.url), 'utf8'));
@@ -24,9 +24,9 @@ const SPECS = read('case-specs.json').cases;
 const CASES = read('cases.json').cases;
 const REFS = read('references.json').references;
 const byId = new Map(CASES.map((c) => [c.id, c]));
-const inputOf = (c) => (c.kind === 'generate' ? c.input : c.kind === 'chat' ? { ctx: c.ctx, messages: c.messages } : { ctx: c.ctx });
-const TUTOR_CASES = CASES.filter((c) => c.kind !== 'generate');
+const TUTOR_CASES = CASES.filter((c) => c.kind === 'explain' || c.kind === 'chat');
 const GEN_CASES = CASES.filter((c) => c.kind === 'generate');
+const FB_CASES = CASES.filter((c) => c.kind === 'feedback');
 
 
 // ---------------------------------------------------------------- 1. every case is a request the app can send
@@ -56,6 +56,21 @@ test('1. every case: a valid context, a request in each of its shapes, WITHHOLD 
   }
   // withhold cases are where the guard matters: the answer the guard looks for exists in a written form
   for (const c of TUTOR_CASES.filter((x) => x.expect.withhold)) assert.ok(answerForms(c.ctx)?.forms.length, `${c.id}: the guard has forms to find`);
+  // feedback on a written explanation (F, AI-10): 4 rows on the challenge surface, policy reveal, the request the
+  // challenge screen sends; all points covered, none, one partly, one copied from the model answer
+  assert.deepEqual(FB_CASES.map((c) => c.id), ['F-expr4-partly', 'F-pyth2-all', 'F-eq5-none', 'F-expr2-copied']);
+  for (const c of FB_CASES) {
+    assert.deepEqual(c.shapes, ['full'], c.id);
+    assert.equal(c.ctx.surface, 'challenge'); assert.equal(c.expect.policy, 'reveal'); assert.equal(c.expect.withhold, false);
+    const p = buildRequest('feedback', inputOf(c));
+    assert.equal(p.system.length, 3, c.id);
+    assert.match(p.system[2].text, /Final-answer policy: REVEAL/, c.id);
+    assert.ok(p.messages[0].content.endsWith(`«${c.input.text}»`), c.id);
+    for (const pt of c.expect.points) if (pt.status !== 'no') assert.ok(c.input.text.includes(pt.quote), `${c.id}: the expected quote is the student's`);
+  }
+  assert.ok(FB_CASES.some((c) => c.expect.points.every((pt) => pt.status === 'yes')));
+  assert.ok(FB_CASES.some((c) => c.expect.points.every((pt) => pt.status === 'no')));
+  assert.ok(FB_CASES.some((c) => c.expect.points.some((pt) => pt.status === 'partly')));
 });
 
 // ---------------------------------------------------------------- 2. the oracle: the hand-written references
@@ -313,7 +328,9 @@ test('the plan: production arms at production efforts, sweep arms on the same ro
   const rows = planRows(CASES, { reps: 1 });
   const full = rows.filter((r) => r.arm.id === 'full');
   assert.equal(full.length, CASES.length);
-  assert.deepEqual([...new Set(full.map((r) => r.case.kind))], ['chat', 'explain', 'generate'], 'the chats first, then the explains, then the pipelines');
+  assert.deepEqual([...new Set(full.map((r) => r.case.kind))], ['chat', 'explain', 'feedback', 'generate'], 'the chats first, then the explains, the feedback rows, then the pipelines');
+  // the feedback rows run once per repetition in the paid arm only (their effort is fixed, Design 5 of AI-10)
+  assert.deepEqual(rows.filter((r) => r.case.kind === 'feedback').map((r) => r.arm.id), FB_CASES.map(() => 'full'));
   for (const r of rows.filter((x) => !x.arm.sweep)) {
     const input = inputOf(r.case);
     assert.deepEqual(buildRequest(r.case.kind, input, { shape: r.arm.shape }).output_config.effort, buildRequest(r.case.kind, input, { model: r.arm.model, shape: r.arm.shape }).output_config.effort);
@@ -327,8 +344,8 @@ test('the plan: production arms at production efforts, sweep arms on the same ro
   // the pipelines run once per repetition in the paid arm only (no sweep: their efforts are fixed)
   assert.equal(rows.filter((r) => r.case.kind === 'generate').length, GEN_CASES.length);
   assert.ok(rows.filter((r) => r.case.kind === 'generate').every((r) => r.arm.id === 'full'));
-  // a kind the runner cannot run yet is refused, not skipped
-  assert.throws(() => planRows([{ ...CASES[0], id: 'F-x', kind: 'feedback' }], {}), /no feedback rows yet/);
+  // a kind the runner cannot run is refused, not skipped
+  assert.throws(() => planRows([{ ...CASES[0], id: 'X-exam', kind: 'exam' }], {}), /the runner has no exam rows yet/);
 });
 
 test('the command line: flags, values, refusals', () => {
@@ -584,8 +601,11 @@ test('Wilson intervals and the gate table', () => {
     leakAfterGuard: [1, 1], leakRaw: [0.97, 0.95], noCandidateVerdict: [1, 0.95], sameDiagnosis: [0.95, 0.9], namesOtherMistake: [0.98, 0.96],
     teachesStairWay: [0.9, 0.85], mathCorrect: [0.98, 0.95], bannedRule: [1, 1], mathEquations: [0.99, 0.97], refusesToHelp: [0.95, 0.95],
     hebrew: [0.98, 0.95], latex: [0.98, 0.95], pluralOnly: [0.98, 0.95], words: [0.95, 0.95], noClosingQuestion: [null, 0.95],
+    // AI-10's feedback rows: statuses on 90% of the points, every quote the student's, a rewrite on at most 5%
+    feedbackMatch: [0.9, null], quoteIsStudents: [1, null], rewritesForStudent: [0.95, null],
     passShare: [1, null], shownWrong: [1, null],
   });
+  assert.equal(GATE.find((m) => m.id === 'feedbackMatch').from, 'points', 'pooled over the points, not the rows');
   // generate passShare: the bar is every stair, each at a mean of at least 80% over its repetitions
   assert.equal(GATE.find((m) => m.id === 'passShare').stairBar, 0.8);
 });
@@ -628,4 +648,131 @@ test('the generate stubs go through generateVerified: fixtures pass every story,
   const items = JSON.parse(stubGenerate('fixtures', c, buildRequest('generate', c.input))).items;
   const answers = JSON.parse(stubGenerate('fixtures', c, buildBlind(items))).answers;
   assert.deepEqual(answers.map((a) => a.answer), c.input.seeds.map((sd) => sd.answer));
+});
+
+// ---------------------------------------------------------------- feedback rows (category F, ai spec AI-10)
+/** A stub feedback reply as the runner reads it: the model's JSON, and what the server's checks leave for the screen. */
+const asRead = (c, json) => {
+  const message = { stop_reason: 'end_turn', content: [{ type: 'text', text: json }] };
+  const shown = readResult('feedback', message, inputOf(c));
+  return { raw: JSON.parse(json), shown, prose: feedbackProse(shown), view: feedbackView(c, shown) };
+};
+
+test('F: the good stub feedback passes every grader, statuses as a teacher marked them, quotes the student\'s own words, no rewrite', () => {
+  for (const c of FB_CASES) {
+    const f = asRead(c, goodFeedback(c));
+    const g = gradeRow(c, { reply: f.prose, feedback: f });
+    assert.deepEqual(g.errors, [], c.id);
+    for (const [name, v] of Object.entries(g.grades)) assert.notEqual(v.pass, false, `${c.id}: ${name} ${v.detail}`);
+    assert.equal(g.grades.feedbackMatch.matched, c.expect.points.length, c.id);
+    assert.equal(g.grades.feedbackMatch.total, c.expect.points.length, c.id);
+    assert.equal(g.grades.quoteIsStudents.pass, c.expect.points.some((p) => p.quote) ? true : null, c.id);
+    // the server kept every quote (they are the student's), and the judge stub sees no rewrite, even where the student's
+    // own sentence is copied from the model answer (F-expr2-copied): a quote is the student's text, not the tutor's
+    assert.deepEqual(f.shown.points.map((p) => p.quote), c.expect.points.map((p) => p.quote || ''), c.id);
+    const v = stubVerdict(c, f.view);
+    assert.equal(v.rewritesForStudent, 'no', c.id); assert.equal(v.mathCorrect, 'yes', c.id);
+    assert.ok(f.view.includes('Summary: ') && c.expect.points.every((p, i) => f.view.includes(`${i}. ${c.input.rubric[i]}: `)), c.id);
+  }
+  const copied = byId.get('F-expr2-copied');
+  assert.ok(copied.input.sample.includes(copied.expect.points[0].quote), 'the copied row quotes words that are also the model answer\'s');
+});
+
+test('F: the leaky stub feedback fails feedbackMatch, quoteIsStudents and rewritesForStudent; the server blanks the invented quotes', () => {
+  let matched = 0; let total = 0;
+  for (const c of FB_CASES) {
+    const f = asRead(c, leakyFeedback(c));
+    const g = gradeRow(c, { reply: f.prose, feedback: f }).grades;
+    matched += g.feedbackMatch.matched; total += g.feedbackMatch.total;
+    assert.equal(g.quoteIsStudents.pass, false, c.id);
+    assert.ok(f.shown.points.every((p) => p.quote === ''), `${c.id}: no invented quote reaches the screen`);
+    assert.equal(stubVerdict(c, f.view).rewritesForStudent, 'yes', `${c.id}: the summary is the model answer`);
+  }
+  assert.ok(matched / total < 0.9, `${matched}/${total}`);
+});
+
+test('F: each feedback grader catches what it is for', () => {
+  const c = byId.get('F-expr4-partly');
+  const json = (points, summary = 'יפה.') => JSON.stringify({ points, summary, care: false });
+  const grade = (j) => { const f = asRead(c, j); return gradeRow(c, { reply: f.prose, feedback: f }).grades; };
+  const good = c.expect.points.map((p, i) => ({ i, status: p.status, quote: p.quote || '', tip: p.tip || '' }));
+  // one status off out of two: 50% of the points, below 90%
+  const off = grade(json([{ ...good[0] }, { ...good[1], status: 'yes', tip: '' }]));
+  assert.deepEqual([off.feedbackMatch.matched, off.feedbackMatch.total, off.feedbackMatch.pass], [1, 2, false]);
+  // a missing point reads as "no" (the server fills it), which is not what the teacher marked
+  assert.equal(grade(json([good[0]])).feedbackMatch.matched, 1);
+  // a quote with one word the student never wrote is not theirs, though most of it is
+  assert.equal(grade(json([{ ...good[0], quote: `${good[0].quote} בזהירות` }, good[1]])).quoteIsStudents.pass, false);
+  // a quote the model wrapped in quotation marks, with its own spacing, is still the student's
+  assert.equal(grade(json([{ ...good[0], quote: `"${good[0].quote.replace(/ /g, '  ')}"` }, good[1]])).quoteIsStudents.pass, true);
+  // the prose graders read the tutor's own words: a singular tip fails pluralOnly, a quote of the student never does
+  assert.equal(grade(json([good[0], { ...good[1], tip: 'תכתוב מה קורה ל־4.' }])).pluralOnly.pass, false);
+  // a broken reply: no point matched (the runner records it as bad_output)
+  assert.throws(() => asRead(c, '{"points": 1'), (e) => e.code === 'bad_output');
+  assert.equal(GRADERS.feedbackMatch({ case: c, feedback: { raw: null, shown: null } }).matched, 0);
+  // the feedback graders do not apply to the other rows
+  const w = byId.get('W1-signed4-what');
+  assert.equal(gradeRow(w, { reply: 'נסו את הצעד הראשון.' }).grades.feedbackMatch.pass, null);
+  assert.equal(gradeRow(w, { reply: 'נסו את הצעד הראשון.' }).grades.quoteIsStudents.pass, null);
+});
+
+test('F: the judge sees the rubric, the model answer as the tutor\'s reference, the student\'s text, and the reply as the screen shows it', () => {
+  const c = byId.get('F-expr4-partly');
+  const f = asRead(c, goodFeedback(c));
+  const p = buildJudge(c, f.view);
+  const situation = p.messages[0].content[0].text;
+  for (const part of [...c.input.rubric, c.input.sample, `«${c.input.text}»`, c.expect.describe, '<app_context>']) assert.ok(situation.includes(part), part);
+  assert.match(situation, /must not rewrite the explanation/);
+  const reply = p.messages[0].content[1].text;
+  assert.ok(reply.includes('Tip: ') && reply.includes('The student\'s own words it points to: «'));
+  assert.ok(reply.includes(`0. ${c.input.rubric[0]}: covered ("יש")`) && reply.includes(`1. ${c.input.rubric[1]}: partly covered ("יש חלק")`));
+});
+
+test('F: runEval on the fixtures stub grades every feedback row; the leaky stub fails all three F metrics', async () => {
+  const out = tmp('fb');
+  try {
+    const { summary, results } = await runEval({ stub: 'fixtures', reps: 1, only: ['F'], out, log: quiet });
+    const fb = results.filter((r) => r.kind === 'feedback');
+    assert.equal(fb.length, FB_CASES.length);
+    for (const r of fb) {
+      assert.equal(r.status, 'ok', r.case);
+      assert.equal(r.grades.feedbackMatch.matched, r.grades.feedbackMatch.total, r.case);
+      assert.equal(r.judge.rewritesForStudent, 'no', r.case);
+      assert.ok(r.guarded.includes('Summary: '), `${r.case}: what the student saw`);
+      assert.doesNotThrow(() => JSON.parse(r.reply), `${r.case}: the model's own JSON is kept`);
+    }
+    const metric = (id) => summary.gate.columns.full.metrics.find((m) => m.metric === id);
+    assert.deepEqual([metric('feedbackMatch').n, metric('feedbackMatch').passes, metric('feedbackMatch').pass], [9, 9, true]);
+    assert.deepEqual([metric('quoteIsStudents').n, metric('quoteIsStudents').pass], [3, true], 'the row with no quote is not counted');
+    assert.deepEqual([metric('rewritesForStudent').n, metric('rewritesForStudent').pass], [4, true]);
+    assert.equal(metric('teachesStairWay').n, 0, 'not asked of a feedback row');
+  } finally { rmSync(out, { recursive: true, force: true }); }
+  const bad = tmp('fb-leaky');
+  try {
+    const { summary } = await runEval({ stub: 'leaky', reps: 1, only: ['F'], out: bad, log: quiet });
+    const failing = summary.gate.failures.map((f) => `${f.column}:${f.metric}`);
+    for (const f of ['full:feedbackMatch', 'full:quoteIsStudents', 'full:rewritesForStudent']) assert.ok(failing.includes(f), f);
+  } finally { rmSync(bad, { recursive: true, force: true }); }
+});
+
+test('F, the real path: the request the app sends, the judge on the screen\'s view, and a reply that is not JSON is bad_output with no judge', async () => {
+  const out = tmp('fb-real');
+  const c = byId.get('F-pyth2-all');
+  try {
+    let mode = 'ok';
+    const client = fakeClient({ tutor: (p) => textMsg(p.model, mode === 'ok' ? goodFeedback(c) : '{"points": [') });
+    const { results, errors } = await runEval({ yes: true, client, cases: [c], reps: 1, sweep: false, out, log: quiet, ...fastCall });
+    assert.deepEqual(errors, []);
+    const tutorCalls = client.calls.filter((x) => x.params.system !== JUDGE_SYSTEM);
+    assert.deepEqual(tutorCalls.map((x) => x.params), [buildRequest('feedback', inputOf(c), { shape: 'full' })]);
+    const judged = client.calls.filter((x) => x.params.system === JUDGE_SYSTEM).map((x) => x.params.messages[0].content[1].text);
+    assert.equal(judged.length, 1); assert.ok(judged[0].includes(results[0].guarded));
+    assert.equal(results[0].grades.feedbackMatch.matched, 2);
+    mode = 'broken';
+    const again = await runEval({ yes: true, client, cases: [c], reps: 1, sweep: false, out: `${out}-2`, log: quiet, ...fastCall });
+    assert.equal(again.results[0].status, 'bad_output');
+    assert.equal(again.results[0].judge, null);
+    assert.deepEqual([again.results[0].grades.feedbackMatch.matched, again.results[0].grades.feedbackMatch.pass], [0, false]);
+    assert.equal(again.summary.gate.pass, false);
+  } finally { rmSync(out, { recursive: true, force: true }); rmSync(`${out}-2`, { recursive: true, force: true }); }
 });

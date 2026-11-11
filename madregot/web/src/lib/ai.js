@@ -81,8 +81,9 @@ function limited(kind, data, status, onMadi, quiet = false) {
  * Run an AI action. For 'chat', pass onText to receive the reply as it streams. onMadi: what the calm sheet's
  * "לשאול את מדי" does when the tutor says no for today (the opener's own way to Madi). quiet: never open the limit
  * sheet (a message that reads as distress: the support card is already on screen, and no paywall or limit may follow).
- * Resolves to { text, care } for explain/chat, or the parsed JSON for generate/check/exam (with care for check/exam;
- * care: true means the reply is about the student's wellbeing, and the screen shows the support card).
+ * Resolves to { text, care } for explain/chat, or the parsed JSON for generate/check/exam/feedback (with care for
+ * check/exam/feedback; care: true means the reply is about the student's wellbeing, and the screen shows the support
+ * card: for feedback, the summary is that reply, and the rubric is not shown).
  */
 export async function runAI(kind, input, { onText, signal, onMadi, quiet = false } = {}) {
   const mode = aiMode();
@@ -117,13 +118,14 @@ export async function runAI(kind, input, { onText, signal, onMadi, quiet = false
         const g = guard.on && guard.forms ? streamGuard(guard.forms) : null;
         let shown = '';
         stream.on('text', (t) => { shown += g ? g.push(t) : t; onText(streamView(shown)); });
-        const res = withCare(readResult(kind, await stream.finalMessage()));
+        const res = withCare(readResult(kind, await stream.finalMessage(), input));
         if (!g || res.care) return res;
         shown += g.end();
         return { ...res, text: withMaskNote(splitCare(shown).text, g.masked) };
       }
-      if (STREAMED(kind)) return withCare(readResult(kind, await client.beta.messages.stream(params, { signal }).finalMessage()));
-      return withCare(guardResult(kind, readResult(kind, await client.beta.messages.create(params, { signal })), guard).result);
+      if (STREAMED(kind)) return withCare(readResult(kind, await client.beta.messages.stream(params, { signal }).finalMessage(), input));
+      // feedback (ai spec AI-10) reads its reply against what was sent: quotes from the student's own text, tips clipped
+      return withCare(guardResult(kind, readResult(kind, await client.beta.messages.create(params, { signal }), input), guard).result);
     } catch (e) {
       if (e?.name === 'AbortError' || e?.constructor?.name === 'APIUserAbortError') throw e;
       throw personalError(e);

@@ -14,7 +14,7 @@ export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 // recommended model for that refusal category instead of coming back empty.
 export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
-export const AI_KINDS = ['explain', 'chat', 'generate', 'check', 'exam'];
+export const AI_KINDS = ['explain', 'chat', 'generate', 'check', 'exam', 'feedback'];
 // Topic ids the exam check maps each question to, so the app can recommend practice: every topic the app teaches
 // (shared/stairs.js, one list for the app, the Worker and the prompt), and 'other'.
 export const TOPIC_IDS = Object.freeze([...Object.keys(TOPIC_NAMES), 'other']);
@@ -56,6 +56,8 @@ Feedback must be personal: name the specific mistake in this student's working a
 Give a model solution in short steps for every question. Map each question to one topic id from the list and to the number of the level in that topic's list that it practises (0 if none fits), and name the skill in a few Hebrew words.
 Finally list the weak topics (only where the student lost points) with the reason, and 3 to 5 concrete next steps.
 ${PERSONAL_RULE} The exam title must name the subject only, never a person.`,
+  // Appendix C.8 (ai spec AI-10): which rubric points the student's own words already cover; never a rewrite, never a score
+  feedback: `Task: the student wrote their own explanation for a challenge question in the app context. You get the rubric points a good explanation covers, and the app's model answer for your reference only. For each rubric point, say whether the student's own words already cover it ("yes"), cover part of it ("partly") or not yet ("no"). For "yes" and "partly", copy the student's exact words that do it into "quote". For "partly" and "no", give one short hint (at most 20 words, plural) that points to what is missing without writing the sentence for them. Never rewrite the student's explanation, never quote or paraphrase the model answer, and never give a score. The summary is one or two honest sentences: what is already good, and what to add.`,
   check: `Task: the student photographed their handwritten work. First transcribe what you can read. Then check each step in order: mark each as correct or not, and for the first wrong step say exactly what went wrong. Do not redo the whole exercise for them; point to the step to fix. If the photo is unreadable, say what is missing (light, focus, the whole page).
 ${PERSONAL_RULE}
 If the final-answer policy in the app context is WITHHOLD, judge each step that leads to the result, but never write the final value in a comment or the summary, never say whether the final value is right, and set "final" to "unknown": the student types the answer in the app, which checks it. (The app does not show your mark on the line that states the final value.)`,
@@ -230,6 +232,148 @@ const clip = (s, n) => String(s ?? '').slice(0, n);
 /** Text a child wrote, as it goes to the AI: personal details masked first, then clipped (trust spec TRUST-4 §4.1). */
 const own = (s, n) => clip(maskPersonal(s).text, n);
 
+// ---------------------------------------------------------------- feedback on a written explanation (ai spec AI-10)
+/** What a feedback request may carry (Design 2): 1-6 rubric points of at most 200 characters, a model answer of 600, and
+ * the student's own explanation of 1,200. */
+export const FEEDBACK_RUBRIC_MAX = 6;
+export const FEEDBACK_RUBRIC_CHARS = 200;
+export const FEEDBACK_SAMPLE_CHARS = 600;
+export const FEEDBACK_TEXT_CHARS = 1200;
+/** Design 5: the paid model at low effort (a short, structured reply); lite and economy use the shape table (high, 4,000). */
+export const FEEDBACK_EFFORT = 'low';
+export const FEEDBACK_MAX_TOKENS = 3000;
+/** Design 4: a tip of at most 20 words, a summary of 40, and a tip that repeats more than 8 words of the model answer in a
+ * row is dropped (a rewrite in disguise). */
+export const FEEDBACK_TIP_WORDS = 20;
+export const FEEDBACK_SUMMARY_WORDS = 40;
+export const FEEDBACK_COPY_WORDS = 8;
+export const FEEDBACK_STATUSES = Object.freeze(['yes', 'partly', 'no']);
+
+/**
+ * The reply (Design 3): per rubric point, whether the student's own words cover it, their words that do, and one short
+ * tip; then a summary, never a score. `care` is the safety block's JSON flag (trust spec TRUST-3: "In a JSON answer, set
+ * care to true"), as in the check and exam schemas: without it a strict schema would leave the model no way to say so.
+ */
+export const FEEDBACK_SCHEMA = Object.freeze({
+  type: 'object',
+  additionalProperties: false,
+  required: ['points', 'summary', 'care'],
+  properties: {
+    points: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['i', 'status', 'quote', 'tip'],
+        properties: {
+          i: { type: 'integer', description: 'The rubric point index, from 0' },
+          status: { type: 'string', enum: [...FEEDBACK_STATUSES] },
+          quote: { type: 'string', description: 'The exact words of the student that cover this point, copied; empty when status is no' },
+          tip: { type: 'string', description: 'For partly or no: one short hint in Hebrew, plural, at most 20 words, that does not write the sentence for them; empty for yes' },
+        },
+      },
+    },
+    summary: { type: 'string', description: 'One or two short Hebrew sentences, plural, honest and specific; no score' },
+    care: { type: 'boolean', description: 'true if the explanation shows the student is in distress or danger' },
+  },
+});
+
+/**
+ * A feedback request's own fields as the tutor gets them: { rubric, sample, text }. The rubric and the model answer are
+ * the app's (clipped); the explanation is the student's own words: personal details masked, then clipped (trust spec
+ * TRUST-4 §4.1). Throws on a rubric that is not 1-6 non-empty strings (its indices are the screen's lines) and on an
+ * empty explanation. readResult reads the same fields, so a quote is checked against exactly what the tutor saw.
+ */
+export function feedbackInput(input = {}) {
+  const raw = input.rubric;
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > FEEDBACK_RUBRIC_MAX) throw new Error(`feedback needs 1-${FEEDBACK_RUBRIC_MAX} rubric points`);
+  const rubric = raw.map((r) => (typeof r === 'string' ? clip(r.replace(/\s+/g, ' ').trim(), FEEDBACK_RUBRIC_CHARS) : ''));
+  if (rubric.some((r) => !r)) throw new Error('every rubric point needs its text');
+  const sample = typeof input.sample === 'string' ? clip(input.sample.trim(), FEEDBACK_SAMPLE_CHARS) : '';
+  const text = typeof input.text === 'string' ? own(input.text, FEEDBACK_TEXT_CHARS).trim() : '';
+  if (!text) throw new Error('feedback needs the student\'s explanation');
+  return { rubric, sample, text };
+}
+
+// Text as a quote is matched: spaces collapsed, no $, one kind of quotation mark and of dash, Latin in lower case. Each
+// kept character remembers where it was, so a match is cut from the student's own text.
+const QUOTE_MARKS = /["״“”„«»]/; const APOSTROPHES = /['׳‘’`]/; const DASHES = /[־‐‑–—−]/;
+function matchable(s) {
+  let out = ''; const at = [];
+  for (let i = 0; i < s.length; i += 1) {
+    let ch = s[i];
+    if (ch === '$') continue;
+    if (/\s/.test(ch)) { if (!out || out.endsWith(' ')) continue; ch = ' '; }
+    else if (QUOTE_MARKS.test(ch)) ch = '"';
+    else if (APOSTROPHES.test(ch)) ch = "'";
+    else if (DASHES.test(ch)) ch = '-';
+    else ch = ch.toLowerCase();
+    out += ch; at.push(i);
+  }
+  return { out, at };
+}
+// what a quote may carry around the student's words: quotation marks, an ellipsis, a closing full stop
+const QUOTE_EDGE = /^[\s"'״׳“”„«»‘’…]+|[\s"'״׳“”„«»‘’….,;:!?]+$/g;
+
+/**
+ * The student's own words for a quote (Design 4): the stretch of `text` the quote copies, matched after whitespace (and
+ * the quotation marks, dashes and $ a model may change) are normalised, cut from the student's text so the screen can
+ * highlight it. '' when the quote is not in the text, or is too short to point at anything.
+ */
+export function studentsWords(text, quote) {
+  const q = matchable(String(quote ?? '').replace(QUOTE_EDGE, '')).out.trim();
+  if ((q.match(/[\p{L}\p{N}]/gu) || []).length < 2) return '';
+  const t = matchable(String(text ?? ''));
+  const k = t.out.indexOf(q);
+  if (k < 0) return '';
+  return String(text).slice(t.at[k], t.at[k + q.length - 1] + 1);
+}
+
+const wordsOf = (s) => String(s ?? '').replace(/\$/g, ' ').split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}]/gu, '').toLowerCase()).filter(Boolean);
+/** Does `a` repeat more than `n` words of `b` in a row (the same words, in order, punctuation and $ aside)? */
+export function copiesRun(a, b, n = FEEDBACK_COPY_WORDS) {
+  const x = wordsOf(a); const y = wordsOf(b);
+  if (x.length <= n || y.length <= n) return false;
+  const runs = new Set();
+  for (let i = 0; i + n < y.length; i += 1) runs.add(y.slice(i, i + n + 1).join(' '));
+  for (let i = 0; i + n < x.length; i += 1) if (runs.has(x.slice(i, i + n + 1).join(' '))) return true;
+  return false;
+}
+
+/** At most n words, cut at a word and never inside $…$, with "…" when anything was cut. */
+export function clipWords(s, n) {
+  const words = String(s ?? '').trim().split(/\s+/).filter(Boolean);
+  if (words.length <= n) return words.join(' ');
+  let out = words.slice(0, n).join(' ');
+  if ((out.match(/(^|[^\\])\$/g) || []).length % 2) out = out.slice(0, out.lastIndexOf('$')).trim();
+  return `${out.replace(/[\s,;:–-]+$/, '')}…`;
+}
+
+/**
+ * The feedback reply as the student may see it (Design 4): one entry per rubric point, in order (a missing one is "no",
+ * an extra or repeated one is dropped); a quote that is not the student's own words blanked (and none on "no"); a tip
+ * only on "partly" and "no", at most 20 words, and dropped when it repeats the model answer; the summary at most 40
+ * words. A care reply keeps its summary whole: it carries the help lines. → { points, summary, care }.
+ */
+function readFeedback(data, input) {
+  if (!data || !Array.isArray(data.points) || typeof data.summary !== 'string') throw Object.assign(new Error('not a feedback reply'), { code: 'bad_output' });
+  const { rubric, sample, text } = feedbackInput(input);
+  const byIndex = new Map();
+  for (const p of data.points) {
+    if (!p || !Number.isInteger(p.i) || p.i < 0 || p.i >= rubric.length || byIndex.has(p.i) || !FEEDBACK_STATUSES.includes(p.status)) continue;
+    byIndex.set(p.i, p);
+  }
+  const points = rubric.map((_, i) => {
+    const p = byIndex.get(i);
+    if (!p) return { i, status: 'no', quote: '', tip: '' };
+    const quote = p.status === 'no' ? '' : studentsWords(text, p.quote);
+    const tip = p.status === 'yes' || typeof p.tip !== 'string' || (sample && copiesRun(p.tip, sample)) ? '' : clipWords(p.tip, FEEDBACK_TIP_WORDS);
+    return { i, status: p.status, quote, tip };
+  });
+  const care = data.care === true;
+  return { points, summary: care ? data.summary.trim() : clipWords(data.summary, FEEDBACK_SUMMARY_WORDS), care };
+}
+
 /** The grade line that leads the exam and generate requests ('' with no grade): those kinds keep their own inputs. */
 export function gradeLine(grade) {
   return grade ? `Grade: ${grade === '8' ? '8 (ח׳)' : '7 (ז׳)'}` : '';
@@ -267,11 +411,12 @@ const base = (model, effort, maxTokens) => ({
 const AUTO_CACHE = { cache_control: { type: 'ephemeral' } };
 
 // Which AI kinds share a daily limit (a "group"), and what each kind weighs against a class-wide cap.
-export const KIND_GROUP = { explain: 'tutor', chat: 'tutor', check: 'check', generate: 'generate', exam: 'exam' };
-export const AI_UNITS = { explain: 1, chat: 1, check: 4, generate: 3, exam: 20 };
+export const KIND_GROUP = { explain: 'tutor', chat: 'tutor', check: 'check', generate: 'generate', exam: 'exam', feedback: 'tutor' };
+export const AI_UNITS = { explain: 1, chat: 1, check: 4, generate: 3, exam: 20, feedback: 1 };
 export const AI_GROUPS = ['tutor', 'check', 'generate', 'exam'];
-// The free taste covers only the short kinds.
-export const FREE_KINDS = ['explain', 'chat'];
+// The free taste covers only the short kinds: the tutor's group (feedback on a written explanation is one of its
+// questions, ai spec AI-10).
+export const FREE_KINDS = ['explain', 'chat', 'feedback'];
 // The model for the free taste and for economy mode when FREE_MODEL is empty. Never the main model.
 export const LITE_MODEL = 'claude-haiku-5-5';
 // Effort and max_tokens per kind and shape (ai spec AI-6 §2). The low-cost model runs the free taste and economy mode at
@@ -299,8 +444,9 @@ function dropFallback(params) {
 
 /**
  * Build the request params for one AI action. Throws on invalid input.
- * shape: 'full' (every kind, the main model), 'lite' (the free taste: explain and chat only, a low-cost model, one
- * short answer) or 'economy' (a paid pool over its monthly budget: explain and chat on the low-cost model, shorter).
+ * shape: 'full' (every kind, the main model), 'lite' (the free taste: the tutor's kinds only, FREE_KINDS, a low-cost
+ * model, one short answer) or 'economy' (a paid pool over its monthly budget: the same kinds on the low-cost model,
+ * shorter).
  * `lite: true` is kept as an alias of shape 'lite'.
  */
 export function buildRequest(kind, input = {}, { model, shape, lite = false } = {}) {
@@ -357,7 +503,8 @@ export function buildCare(input = {}, { model } = {}) {
     .map((m) => ({ role: m.role, content: own(m.content, 2000) }));
   while (history.length && history[0].role !== 'user') history.shift();
   if (!history.length) {
-    const said = [input.studentAnswer, input.note].filter((x) => typeof x === 'string' && x.trim()).map((x) => own(x, 2000)).join('\n');
+    // an explain's typed answer, a help note, or a challenge explanation sent for feedback (ai spec AI-10)
+    const said = [input.studentAnswer, input.note, input.text].filter((x) => typeof x === 'string' && x.trim()).map((x) => own(x, 2000)).join('\n');
     if (!said) throw new Error('care needs a student message');
     history = [{ role: 'user', content: said }];
   }
@@ -420,6 +567,24 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
       }],
     };
   }
+  if (kind === 'feedback') {
+    // Design 2 and 5: the app's context (surface 'challenge') in the system block; the rubric, the model answer and the
+    // student's masked explanation in the turn
+    const { rubric, sample, text } = feedbackInput(input);
+    const { v2, text: context } = appContext();
+    if (!v2) throw new Error('feedback needs the app context');
+    const turn = [
+      'Rubric:', ...rubric.map((r, i) => `${i}. ${r}`),
+      ...(sample ? ['Model answer (for you only, never quote it):', sample] : []),
+      'The student\'s explanation:', `«${text}»`,
+    ].join('\n');
+    return {
+      ...base(model, FEEDBACK_EFFORT, FEEDBACK_MAX_TOKENS),
+      system: systemBlocks(kind, shape, context),
+      output_config: { effort: FEEDBACK_EFFORT, format: { type: 'json_schema', schema: FEEDBACK_SCHEMA } },
+      messages: [{ role: 'user', content: turn }],
+    };
+  }
   if (kind === 'check') {
     const data = String(input.image || '').replace(/^data:[^,]+,/, '');
     const media = /^image\/(png|jpeg|webp|gif)$/.test(input.mediaType) ? input.mediaType : 'image/jpeg';
@@ -471,8 +636,11 @@ function buildFull(kind, input = {}, { model, shape = 'full', maxMessages = 12, 
   throw new Error(`unknown AI action: ${kind}`);
 }
 
-/** Turn a Claude message into the app's result shape. */
-export function readResult(kind, message) {
+/**
+ * Turn a Claude message into the app's result shape. `input` is the request's input: feedback checks its reply against
+ * the rubric, the model answer and the student's own text (Design 4).
+ */
+export function readResult(kind, message, input = {}) {
   if (!message) throw new Error('empty response');
   if (message.stop_reason === 'refusal') {
     const err = new Error('refusal');
@@ -480,9 +648,10 @@ export function readResult(kind, message) {
     throw err;
   }
   const text = (message.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
-  if (kind === 'generate' || kind === 'check' || kind === 'exam') {
+  if (kind === 'generate' || kind === 'check' || kind === 'exam' || kind === 'feedback') {
     let data;
     try { data = JSON.parse(text); } catch { const e = new Error('bad json'); e.code = 'bad_output'; throw e; }
+    if (kind === 'feedback') return readFeedback(data, input);
     // the rewrite's exercises, as written: code decides which may be shown (generateVerified, shared/verify.js)
     if (kind === 'generate') data.items = (Array.isArray(data.items) ? data.items : []).filter((it) => it && typeof it === 'object').slice(0, MAX_SEEDS * 2);
     if (kind === 'exam') {

@@ -11,6 +11,7 @@ import { answerForms, findLeaks, streamGuard, guardFor, guardResult, withMaskNot
 import { normalizeContext } from '../../shared/tutorContext.js';
 import { TOPIC_WAYS, SINGULAR_RE } from '../../shared/pedagogy.js';
 import { checkEquations, parseAnswer } from '../../shared/verify.js';
+import { feedbackInput, studentsWords } from '../../shared/ai.js';
 
 /** Words a reply may use per shape (the notes in shared/ai.js); a case's own maxWords applies in full. */
 export const SHAPE_WORDS = Object.freeze({ lite: 90, economy: 110 });
@@ -203,8 +204,47 @@ function overMask({ reply, case: c, guarded, judge }) {
   return ok(said !== 'no', `${masked} masked; before the guard the reply ${said === 'no' ? 'gave no' : 'gave the'} final answer`);
 }
 
+// ---------------------------------------------------------------- feedback on a written explanation (category F, AI-10)
+/**
+ * What the tutor itself wrote in a feedback reply, as one text for the prose graders (Hebrew, LaTeX, plural, words,
+ * equations, banned rules): the tips, then the summary. The quotes are the student's words and the rubric is the app's,
+ * so neither is graded as the tutor's.
+ */
+export function feedbackProse(shown) {
+  return [...(shown?.points || []).map((p) => p.tip).filter(Boolean), shown?.summary || ''].filter((t) => t.trim()).join('\n');
+}
+
+/**
+ * The statuses the student sees (after the server's checks) are the ones a teacher gave the points (expect.points).
+ * matched / total feed the gate, which pools the points of every row (Design 2 of AI-10's eval: ≥ 90% of points).
+ * A reply that was not the asked JSON matches nothing.
+ */
+function feedbackMatch({ case: c, feedback }) {
+  if (c.kind !== 'feedback') return na('not a feedback row');
+  const want = (c.expect?.points || []).map((p) => p.status);
+  const got = (feedback?.shown?.points || []).map((p) => p.status);
+  const matched = want.filter((s, i) => got[i] === s).length;
+  const wrong = want.map((s, i) => (got[i] === s ? null : `${i}: ${got[i] ?? 'none'} for ${s}`)).filter(Boolean);
+  return { pass: want.length > 0 && matched / want.length >= 0.9, matched, total: want.length, detail: wrong.length ? wrong.join('; ') : `${matched}/${want.length}` };
+}
+
+/**
+ * Every quote the model wrote (its own JSON, before the server blanked anything) is the student's words: found in the
+ * student's text as the tutor got it (masked), after whitespace, quotation marks and $ are set aside. The server blanks a
+ * quote that is not; this measures how often it has to. No quote at all: not applicable.
+ */
+function quoteIsStudents({ case: c, feedback }) {
+  if (c.kind !== 'feedback') return na('not a feedback row');
+  const quotes = (Array.isArray(feedback?.raw?.points) ? feedback.raw.points : []).map((p) => (typeof p?.quote === 'string' ? p.quote.trim() : '')).filter(Boolean);
+  if (!quotes.length) return na('no quote');
+  const { text } = feedbackInput(c.input);
+  const invented = quotes.filter((q) => !studentsWords(text, q));
+  return ok(invented.length === 0, invented.length ? `not the student's words: ${invented.map((q) => `"${q.slice(0, 60)}"`).join(', ')}` : `${quotes.length} quotes, all the student's`);
+}
+
 export const GRADERS = Object.freeze({
   hebrew, latex, words, pluralOnly, leakRaw, leakAfterGuard, noCandidateVerdict, bannedRule, noClosingQuestion, mathEquations, overMask,
+  feedbackMatch, quoteIsStudents,
 });
 
 // ---------------------------------------------------------------- the generate pipeline (category G)
@@ -254,15 +294,16 @@ export function gradeGenerate(c, { items = [], dropped = {}, blindAnswers = null
 
 /**
  * Grade one reply: { guarded, masked, grades: { name: { pass, detail } }, errors: [{ class: 'grader', case, shape, grader,
- * message }] }. `graders` defaults to GRADERS (a test passes its own).
+ * message }] }. `graders` defaults to GRADERS (a test passes its own). A feedback row passes `reply` as the tutor's own
+ * prose (feedbackProse) and `feedback`: { raw: the model's JSON, shown: the reply after the server's checks }.
  */
-export function gradeRow(c, { shape = 'full', reply, judge = null } = {}, { graders = GRADERS } = {}) {
+export function gradeRow(c, { shape = 'full', reply, judge = null, feedback = null } = {}, { graders = GRADERS } = {}) {
   const text = String(reply ?? '');
   const guarded = guardReply(c, text);
   const grades = {}; const errors = [];
   for (const [name, grade] of Object.entries(graders)) {
     try {
-      const g = grade({ case: c, shape, reply: text, guarded, judge });
+      const g = grade({ case: c, shape, reply: text, guarded, judge, feedback });
       if (!g || !('pass' in g)) throw new Error('a grader must return { pass, detail }');
       grades[name] = g;
     } catch (e) {

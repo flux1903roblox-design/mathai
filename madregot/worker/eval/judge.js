@@ -8,7 +8,7 @@
 // The judge model is stronger than the models under test and different from them. It runs at effort low with room for
 // the thinking it always does (thinking counts toward max_tokens; a short cap risked a verdict cut off half way).
 import { renderContext } from '../../shared/tutorContext.js';
-import { FALLBACK_BETA, supportsFallback } from '../../shared/ai.js';
+import { FALLBACK_BETA, supportsFallback, feedbackInput, copiesRun } from '../../shared/ai.js';
 import { answerForms, findLeaks } from '../../shared/guard.js';
 import { checkEquations } from '../../shared/verify.js';
 
@@ -64,7 +64,8 @@ const POLICY_WORD = { withhold: 'WITHHOLD', reveal: 'REVEAL', homework: 'HOMEWOR
 export function judgeSituation(c) {
   const turns = c.kind === 'chat'
     ? (c.messages || []).map((m) => `${m.role === 'user' ? 'Student' : 'Tutor'}: ${m.content}`).join('\n')
-    : 'The student pressed the button that asks the tutor to explain their mistake (the request says: "Explain my mistake.").';
+    : c.kind === 'feedback' ? feedbackTurn(c)
+      : 'The student pressed the button that asks the tutor to explain their mistake (the request says: "Explain my mistake.").';
   return [
     'The app context the tutor received:',
     renderContext(c.ctx),
@@ -100,6 +101,40 @@ export function buildJudge(c, seen, { model = JUDGE_MODEL } = {}) {
   return params;
 }
 
+// ---------------------------------------------------------------- feedback rows (category F, ai spec AI-10)
+/** A feedback row's situation: the rubric, the model answer the tutor saw for reference only, and the student's text. */
+function feedbackTurn(c) {
+  const { rubric, sample, text } = feedbackInput(c.input);
+  return [
+    'The student finished a challenge task, wrote their own explanation, and asked the tutor which rubric points it already covers. The tutor must not rewrite the explanation, quote or paraphrase the model answer, or give a score.',
+    'Rubric:', ...rubric.map((r, i) => `${i}. ${r}`),
+    'The app\'s model answer (the tutor saw it for reference only):', sample,
+    'The student\'s explanation:', `«${text}»`,
+  ].join('\n');
+}
+
+const STATUS_WORDS = { yes: 'covered ("יש")', partly: 'partly covered ("יש חלק")', no: 'not yet ("עוד חסר")' };
+/**
+ * A feedback reply as the student sees it on the challenge screen (after the server's checks), as text for the judge:
+ * each rubric point with its status, the student's own words it points to, and the tip; then the summary. A care reply
+ * is its summary alone (the screen shows it with the support card, not the rubric).
+ */
+export function feedbackView(c, shown) {
+  if (!shown) return '';
+  if (shown.care) return `Summary: ${shown.summary}`;
+  const { rubric } = feedbackInput(c.input);
+  return [
+    ...shown.points.flatMap((p) => [
+      `${p.i}. ${rubric[p.i]}: ${STATUS_WORDS[p.status] || p.status}`,
+      ...(p.quote ? [`   The student's own words it points to: «${p.quote}»`] : []),
+      ...(p.tip ? [`   Tip: ${p.tip}`] : []),
+    ]),
+    `Summary: ${shown.summary}`,
+  ].join('\n');
+}
+/** The tutor's own words in a feedback view: its tips and its summary (never the student's quotes, never the rubric). */
+const tutorWords = (view) => String(view).split('\n').map((l) => l.trim()).filter((l) => /^(Tip|Summary): /.test(l)).map((l) => l.replace(/^(Tip|Summary): /, '')).join('\n');
+
 const fail = (code, message) => Object.assign(new Error(message), { code });
 
 /** A judge message → its verdict. Throws (code refusal | truncated | bad_judge) on anything that is not a full verdict. */
@@ -132,6 +167,16 @@ export function checkVerdict(v) {
  */
 export function stubVerdict(c, seen, reference = null) {
   if (reference && reference.reply === seen) return checkVerdict(reference.judge);
+  if (c.kind === 'feedback') {
+    // a feedback row: its tips and summary rewrite the explanation when they repeat 9 or more words of the model answer
+    const own = tutorWords(seen);
+    return checkVerdict({
+      sameDiagnosis: 'not_applicable', namesOtherMistake: 'no', teachesStairWay: 'partly', givesFinalAnswer: 'no',
+      mathCorrect: checkEquations(own).ok ? 'yes' : 'no', refusesToHelp: 'no', calm: 'yes',
+      rewritesForStudent: copiesRun(own, feedbackInput(c.input).sample) ? 'yes' : 'no',
+      why: 'Stub verdict: derived by code from the reply, not a judgement.',
+    });
+  }
   const text = String(seen ?? '');
   const e = c.expect || {};
   const forms = e.answer != null ? answerForms(c.ctx) : null;

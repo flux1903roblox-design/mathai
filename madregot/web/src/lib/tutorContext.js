@@ -36,11 +36,16 @@ const WHY = {
   reveal: 'The app already shows the answer and the worked solution.',
   homework: "The student's own question: the app does not know its answer.",
   exam: 'A checked exam: the answer and the result are on the screen.',
+  challenge: 'A finished challenge: the model answer and the rubric are on the screen.',
 };
-/** The final-answer policy of a surface in a phase: the assistant is homework, a checked exam reveal, a lesson by phase. */
+/**
+ * The final-answer policy of a surface in a phase: the assistant is homework, a checked exam and a finished challenge
+ * reveal, a lesson by phase.
+ */
 export function policyFor(surface, phase) {
   if (surface === 'assistant') return { answer: 'homework', why: WHY.homework };
   if (surface === 'exam-review') return { answer: 'reveal', why: WHY.exam };
+  if (surface === 'challenge') return { answer: 'reveal', why: WHY.challenge };
   return phase === 'reveal' || phase === 'correct' ? { answer: 'reveal', why: WHY.reveal } : { answer: 'withhold', why: WHY.withhold };
 }
 
@@ -203,15 +208,43 @@ function examContext({ exam: q, grade, answerFrom }) {
 }
 
 /**
+ * A challenge task the student finished, for feedback on their written explanation (ai spec AI-10; the screen is the
+ * curriculum lane's, CURRICULUM-6): the task's story and question as the exercise, its stair and that stair's teaching,
+ * and policy reveal. The explanation itself is not in the context: it is the feedback request's own field (`text`),
+ * where the server masks it and reads it for distress.
+ */
+function challengeContext({ skill, story, prompt, grade }) {
+  const ok = typeof skill === 'string' && /^[a-z]+:\d{1,2}$/.test(skill);
+  const { topic, level } = ok ? parseSkill(skill) : {};
+  const T = ok ? TOPIC[topic] : null;
+  const known = !!T && level >= 1 && level <= T.levels.length;
+  return tidy({
+    v: CTX_VERSION,
+    surface: 'challenge',
+    grade: grade || T?.grade ? String(grade || T.grade) : undefined,
+    skill: known ? skill : undefined,
+    topicId: known ? topic : undefined,
+    topic: known ? T.title : undefined,
+    stair: known ? T.levels[level - 1].title : undefined,
+    item: { text: clip([story, prompt].filter((x) => typeof x === 'string' && x.trim()).join('\n'), CLIP.text), answerFrom: 'app' },
+    teach: known ? teachOf(contentOf(skill)) : undefined,
+    policy: policyFor('challenge'),
+  });
+}
+
+/**
  * The tutor's context for one surface:
  *   lesson, notebook  { item, s, last?, spec?, guide?, learn, grade, now }: the exercise on screen and the lesson state
  *                     (last: the result the screen shows; its cat decides the repair button, as the screen does)
  *   assistant         { grade, learn }: the student's own question, so the learner summary only (policy homework)
  *   exam-review       { grade, exam: the question, answerFrom }: a checked exam's question (policy reveal)
+ *   challenge         { skill, story?, prompt, grade? }: a finished challenge task, for feedback on the student's
+ *                     explanation (policy reveal; ai spec AI-10)
  */
 export function buildTutorContext(opts = {}) {
   const surface = SURFACES.includes(opts.surface) ? opts.surface : 'lesson';
   if (surface === 'exam-review' && opts.exam) return examContext(opts);
+  if (surface === 'challenge' && typeof opts.prompt === 'string' && opts.prompt.trim()) return challengeContext(opts);
   if ((surface === 'lesson' || surface === 'notebook') && opts.item) return lessonContext({ ...opts, surface });
   return tidy({
     v: CTX_VERSION,

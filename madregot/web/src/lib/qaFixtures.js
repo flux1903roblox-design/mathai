@@ -3,7 +3,10 @@
 // with no request at all, so every state can be screenshotted. The choice is kept for the visit (sessionStorage).
 //   qa-ai:      free2 | free1 | free0 | family | class | shared | paused | economy | ended
 //   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | nosrv
+import { AI_KINDS, FREE_KINDS } from '@shared/ai.js';
 import { qaOn } from './qa.js';
+
+const QA_TEXT = 'זו תשובה לדוגמה של העוזר החכם במצב בדיקה. בגרסה הזו אין שרת, אז שום שאלה לא נשלחה.';
 
 const AI_STATES = ['free2', 'free1', 'free0', 'family', 'class', 'shared', 'paused', 'economy', 'ended'];
 const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv'];
@@ -32,15 +35,15 @@ const groups = (tutor, rest = null) => ({ tutor, check: rest, generate: rest, ex
 export function qaStatus() {
   const s = qaAI();
   if (!s) return null;
-  const free = (left) => ({ paywall: true, tier: 'free', kinds: ['explain', 'chat'], groups: groups({ left, limit: 2 }), economy: false, shared: null, resetsAt: dayEnd(), linked: null, legacyUntil: null, aiReady: true });
-  const all = ['explain', 'chat', 'generate', 'check', 'exam'];
+  const free = (left) => ({ paywall: true, tier: 'free', kinds: [...FREE_KINDS], groups: groups({ left, limit: 2 }), economy: false, shared: null, resetsAt: dayEnd(), linked: null, legacyUntil: null, aiReady: true });
+  const all = [...AI_KINDS];
   const S = {
     free2: free(2), free1: free(1), free0: free(0),
     family: { ...free(0), tier: 'family', kinds: all, groups: { tutor: { left: 27, limit: 30 }, check: { left: 6, limit: 6 }, generate: { left: 5, limit: 5 }, exam: { left: 2, limit: 2, monthLeft: 9 } }, linked: { label: 'הטאבלט' } },
     class: { ...free(0), tier: 'class', kinds: all, groups: { tutor: { left: 18, limit: 20 }, check: { left: 3, limit: 3 }, generate: { left: 3, limit: 3 }, exam: { left: 1, limit: 1 } } },
     shared: { ...free(2), shared: 'network' },
     paused: { ...free(2), shared: 'paused' },
-    economy: { ...free(0), tier: 'family', kinds: ['explain', 'chat'], economy: true, groups: groups({ left: 20, limit: 30 }), linked: { label: 'הטאבלט' } },
+    economy: { ...free(0), tier: 'family', kinds: [...FREE_KINDS], economy: true, groups: groups({ left: 20, limit: 30 }), linked: { label: 'הטאבלט' } },
     ended: free(2),
   };
   return { status: S[s], ended: s === 'ended' };
@@ -56,8 +59,13 @@ export function qaReply(kind, input = {}) {
   if (s === 'free0') throw fail('daily_limit', { tier: 'free', group: 'tutor', limit: 2, left: 0 });
   if (s === 'paused') throw fail('free_paused');
   if (s === 'shared') throw fail('shared_limit', { scope: 'network' });
-  if (['free1', 'free2', 'ended'].includes(s) && !['explain', 'chat'].includes(kind)) throw fail('paid_only', { kind });
-  if (s === 'economy' && !['explain', 'chat'].includes(kind)) throw fail('monthly_fair_use');
+  if (['free1', 'free2', 'ended'].includes(s) && !FREE_KINDS.includes(kind)) throw fail('paid_only', { kind });
+  if (s === 'economy' && !FREE_KINDS.includes(kind)) throw fail('monthly_fair_use');
+  // feedback on a written explanation (ai spec AI-10): the reply's shape, every rubric point still open, nothing invented
+  if (kind === 'feedback') {
+    const n = Array.isArray(input.rubric) ? input.rubric.length : 0;
+    return { points: Array.from({ length: n }, (_, i) => ({ i, status: 'no', quote: '', tip: '' })), summary: QA_TEXT, care: false };
+  }
   if (kind === 'generate') {
     const seeds = Array.isArray(input.seeds) ? input.seeds : [];
     const items = seeds.map((sd) => ({
@@ -66,7 +74,7 @@ export function qaReply(kind, input = {}) {
     }));
     return { items, dropped: {}, fallback: false };
   }
-  return { text: 'זו תשובה לדוגמה של העוזר החכם במצב בדיקה. בגרסה הזו אין שרת, אז שום שאלה לא נשלחה.' };
+  return { text: QA_TEXT };
 }
 
 // ---------------------------------------------------------------- the parents page

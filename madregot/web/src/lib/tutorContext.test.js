@@ -271,3 +271,29 @@ describe('the review of a checked exam', () => {
     expect(renderContext(ctx)).toContain('Correct answer (from the answer key, authoritative): $x = 4$');
   });
 });
+
+describe('a finished challenge, for feedback on the student\'s explanation (ai spec AI-10)', () => {
+  const task = { skill: 'expr:4', story: 'גינה מלבנית ברוחב $3$ מטר.', prompt: 'הסבירו למה $3(x + 4) = 3x + 12$.' };
+  it('reveal, the task as the exercise with no answer, the stair and its teaching; only the keys the server knows', () => {
+    const ctx = buildTutorContext({ surface: 'challenge', ...task });
+    expect(ctx).toMatchObject({ v: CTX_VERSION, surface: 'challenge', grade: String(TOPIC.expr.grade), skill: 'expr:4', topicId: 'expr', topic: TOPIC.expr.title, stair: TOPIC.expr.levels[3].title });
+    expect(ctx.policy).toEqual(policyFor('challenge'));
+    expect(ctx.policy.answer).toBe('reveal');
+    expect(ctx.item).toEqual({ text: `${task.story}\n${task.prompt}`, answerFrom: 'app' });
+    expect(ctx.teach.idea).toBe(contentOf('expr:4').idea);
+    expect(ctx.tries).toBeUndefined();
+    expect(badKeys(ctx)).toEqual([]);
+    const text = renderContext(normalizeContext(ctx));
+    expect(text).toContain('Final-answer policy: REVEAL');
+    expect(text).toContain(`Exercise on screen: ${task.story}\n${task.prompt}`);
+    expect(text).not.toContain('Correct answer');
+  });
+  it('an unknown stair keeps the task and drops the stair; no prompt is the assistant\'s context', () => {
+    const ctx = buildTutorContext({ surface: 'challenge', skill: 'nope:9', prompt: 'הסבירו.' });
+    expect(ctx.skill).toBeUndefined(); expect(ctx.teach).toBeUndefined();
+    expect(ctx.item.text).toBe('הסבירו.');
+    expect(buildTutorContext({ surface: 'challenge', skill: 'expr:4' }).surface).toBe('assistant');
+    // a context with no policy from a challenge reads as reveal on the server too
+    expect(normalizeContext({ v: CTX_VERSION, surface: 'challenge', item: { text: 'הסבירו.' } }).policy.answer).toBe('reveal');
+  });
+});

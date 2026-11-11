@@ -9,6 +9,7 @@ import {
 } from '../../shared/pedagogy.js';
 import { TOPIC_NAMES, STAIR_NAMES, TOPIC_GRADE, NOT_YET, stairName } from '../../shared/stairs.js';
 import { safetyPrompt } from '../../shared/safety.js';
+import { FEEDBACK_INPUT } from './helpers.js';
 
 const SHARED = new URL('../../shared/', import.meta.url);
 const CONTENT = new URL('../../web/src/learn/content/', import.meta.url);
@@ -22,6 +23,7 @@ const INPUTS = {
   generate: { grade: '7', topic: 'מספרים מכוונים', stair: 'חיבור וחיסור', count: 3, seeds: [{ i: 0, text: 'חשבו: 3 - (-5)', answer: '8' }] },
   check: { grade: '8', image: page.data, question: '2x = 4' },
   exam: { grade: '8', pages: [page] },
+  feedback: FEEDBACK_INPUT,
 };
 
 // ---------------------------------------------------------------- AI-2: the topic ways and the stable block

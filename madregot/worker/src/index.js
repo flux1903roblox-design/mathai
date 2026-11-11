@@ -43,7 +43,7 @@ function corsHeaders(req, env) {
 
 // Body limits, checked before JSON.parse (413 too_large above them).
 const KB = 1024;
-const AI_BODY_MAX = { chat: 32 * KB, explain: 32 * KB, generate: 16 * KB, check: 8 * KB * KB, exam: 100 * KB * KB };
+const AI_BODY_MAX = { chat: 32 * KB, explain: 32 * KB, generate: 16 * KB, check: 8 * KB * KB, exam: 100 * KB * KB, feedback: 8_000 };
 const LIMIT = { small: 4 * KB, help: 700 * KB, progress: 256 * KB, exams: 64 * KB };
 
 // ---------- secrets ----------
@@ -102,13 +102,23 @@ function aiHeaders(r) {
   };
 }
 
-/** The last thing the student typed in a chat: the only free text a child sends the AI (photos rely on the model's flag). */
+/** The last thing the student typed in a chat (photos rely on the model's flag). */
 function lastUser(messages) {
   const list = Array.isArray(messages) ? messages : [];
   for (let i = list.length - 1; i >= 0; i--) {
     const m = list[i];
     if (m && m.role === 'user' && typeof m.content === 'string') return m.content.slice(0, 4000);
   }
+  return '';
+}
+
+/**
+ * The free text a child writes to the AI in this request, read for distress before anything else (trust spec TRUST-3
+ * §3.4): the newest chat message, and a challenge explanation sent for feedback (ai spec AI-10 Design 2).
+ */
+function freeText(kind, input) {
+  if (kind === 'chat') return lastUser(input.messages);
+  if (kind === 'feedback') return typeof input.text === 'string' ? input.text.slice(0, 4000) : '';
   return '';
 }
 
@@ -128,6 +138,8 @@ function childText(kind, input) {
   if (kind === 'explain') return [input.studentAnswer, ...typed];
   // the question typed next to a photo of the student's own work
   if (kind === 'check') return [input.question, ...typed];
+  // a challenge explanation sent for feedback (ai spec AI-10)
+  if (kind === 'feedback') return [input.text];
   return [];
 }
 
@@ -176,7 +188,7 @@ async function handleAI(kind, req, env, ctx, cors) {
   // writes that they are in distress gets an answer even when the server has no AI key, the day's questions are used
   // up, or the plan does not cover the AI. That answer is never counted against a question.
   const input = await body(req, AI_BODY_MAX[kind]);
-  const hit = detectDistress(kind === 'chat' ? lastUser(input.messages) : '');
+  const hit = detectDistress(freeText(kind, input));
   if (!hit.flag && !env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured');
   const r = hit.flag ? await resolveCare(req, env, kind, input) : await resolve(req, env, kind, input);
   const careTier = r.tier === 'care';
@@ -363,7 +375,8 @@ async function handleAI(kind, req, env, ctx, cors) {
   ctx.waitUntil(record(message));
   let result;
   try {
-    result = readResult(kind, message);
+    // a care reply is text whatever the kind (buildCare); feedback checks its reply against what was sent (AI-10)
+    result = readResult(careTier ? 'chat' : kind, message, r.input ?? input);
   } catch (e) {
     if (e?.code === 'refusal') event('refusal'); // the model's own boundary (trust spec TRUST-4 §4.3): counted, with no text
     if (careTier) return careStaticReply(kind, input, cors, headers);
@@ -447,7 +460,7 @@ async function generateReply({ env, ctx, cors, headers, r, input, client, record
 
 // ---------- a child reports an AI answer (trust spec TRUST-4 §4.5) ----------
 const REPORT_REASONS = Object.freeze(['wrong_math', 'not_nice', 'not_for_kids', 'other']);
-const REPORT_KINDS = Object.freeze(['chat', 'explain', 'check', 'exam', 'generate']);
+const REPORT_KINDS = Object.freeze(['chat', 'explain', 'check', 'exam', 'generate', 'feedback']);
 const REPORT_TIERS = ['free', 'family', 'class', 'teacher', 'trial', 'legacy', 'open', 'care', 'personal'];
 const REPORT_MAX = 4000;
 // 10 a day from one child or device, and a ceiling for a whole network (a school shares one), so the table cannot be

@@ -11,7 +11,7 @@ import { flushNotices } from '../src/email.js';
 import { dayOf } from '../src/util.js';
 import {
   setup, ai, makeClass, bearer, signIn, accountId, insertSub, linkDevice, setCount, countOf, rows, one, claudeReply, claudeDown,
-  claudeMessage, devOf, netOf, systemText, DEVICE,
+  claudeMessage, devOf, netOf, systemText, DEVICE, FEEDBACK_INPUT, FEEDBACK_REPLY,
 } from './helpers.js';
 
 let h;
@@ -181,6 +181,47 @@ test('only the last student message is checked: an earlier one does not turn a m
   await ai(h, 'chat', { 'X-Device': DEVICE }, { body: chat(`${SAD}. תפתרו לי 3x + 5 = 11`) });
   assert.ok(systemText(h.net.log.claude.at(-1)).endsWith(CARE_NOTE));
   assert.equal(countOf(h.env, `free:d:${await devOf(h.env)}`), 1);
+});
+
+test('a challenge explanation sent for feedback that reads as distress takes the care path: no rubric check, nothing counted (AI-10)', async () => {
+  h = await setup({}, { claude: (p) => claudeReply(p, { text: '[[care]]\nתודה שכתבתם. ער״ן 1201.' }) });
+  const dev = await devOf(h.env);
+  await setCount(h.env, `free:d:${dev}`, 2); // the free taste is used up today: a distressed child is still answered
+  const r = await ai(h, 'feedback', { 'X-Device': DEVICE }, { body: { ...FEEDBACK_INPUT, text: `${SAD}. ציירתי מלבן.` } });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { text: 'תודה שכתבתם. ער״ן 1201.', care: true });
+  assert.equal(r.headers.get('X-AI-Tier'), null);
+  assert.equal(countOf(h.env, `free:d:${dev}`), 2, 'nothing counted');
+  assert.equal(countOf(h.env, `care:d:${dev}`), 1);
+  // the care-only request: the safety block and the no-maths line, the child's words, nothing of the task or the rubric
+  const sent = h.net.log.claude.at(-1);
+  assert.equal(systemText(sent), `${safetyPrompt()}\n\n${CARE_NOTE}`);
+  assert.equal(sent.output_config.format, undefined, 'no rubric schema');
+  assert.ok(sent.messages[0].content.includes(SAD));
+  assert.ok(!JSON.stringify(sent).includes(FEEDBACK_INPUT.rubric[0]) && !JSON.stringify(sent).includes('Model answer'));
+  await h.ctx.flush();
+  assert.deepEqual(events(), [{ kind: 'distress', category: 'self_harm', surface: 'feedback', source: 'regex', tier: 'care' }]);
+  // with no Claude key on the server, the fixed reply, never 503
+  h.done();
+  h = await setup({ ANTHROPIC_API_KEY: '' });
+  const fixed = await ai(h, 'feedback', { 'X-Device': DEVICE }, { body: { ...FEEDBACK_INPUT, text: SAD } });
+  assert.equal(fixed.status, 200);
+  assert.deepEqual(await fixed.json(), { text: CARE_STATIC, care: true });
+  assert.equal((await ai(h, 'feedback', { 'X-Device': DEVICE })).status, 503, 'any other explanation is 503 ai_not_configured');
+});
+
+test('feedback whose reply the model marked care gives the question back and keeps the help lines whole', async () => {
+  const help = 'תודה שכתבתם. מה שאתם מרגישים חשוב, וזה לא באשמתכם. ספרו היום למבוגר שאתם סומכים עליו: הורה, היועצת או מורה. ער״ן: חיוג 1201 בכל שעה, בלי לומר שם. בסכנה מיידית: משטרה 100, מד״א 101.';
+  h = await setup({}, { claude: (p) => claudeReply(p, { text: JSON.stringify({ ...FEEDBACK_REPLY, summary: help, care: true }) }) });
+  const dev = await devOf(h.env);
+  const r = await ai(h, 'feedback', { 'X-Device': DEVICE }, { body: { ...FEEDBACK_INPUT, text: 'אף אחד לא שם לב אליי. ציירתי מלבן.' } });
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.care, true); assert.equal(body.summary, help, 'never clipped');
+  assert.equal(r.headers.get('X-AI-Left'), '2');
+  assert.equal(countOf(h.env, `free:d:${dev}`), 0, 'given back');
+  await h.ctx.flush();
+  assert.deepEqual(events(), [{ kind: 'distress', category: '', surface: 'feedback', source: 'model', tier: 'free' }]);
 });
 
 test('a normal chat whose reply the model marked [[care]] gives the question back', async () => {

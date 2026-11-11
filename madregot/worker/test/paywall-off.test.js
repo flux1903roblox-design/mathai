@@ -74,7 +74,7 @@ test('off: the status endpoint reports the open tier and what is left, counting 
   await ai(h, 'explain', bearer(cls.students[0]));
   const s = await (await h.call('GET', '/api/ai/status', { headers: bearer(cls.students[0]) })).json();
   const { resetsAt } = await import('../src/util.js');
-  assert.deepEqual(s, { paywall: false, tier: 'open', kinds: ['explain', 'chat', 'generate', 'check', 'exam'], groups: { all: { left: 39, limit: 40 } }, resetsAt: resetsAt('day'), aiReady: true });
+  assert.deepEqual(s, { paywall: false, tier: 'open', kinds: ['explain', 'chat', 'generate', 'check', 'exam', 'feedback'], groups: { all: { left: 39, limit: 40 } }, resetsAt: resetsAt('day'), aiReady: true });
   assert.match(s.resetsAt, /T00:00:00\+0[23]:00$/, 'the next midnight in Jerusalem: a screen left open asks again then');
   assert.equal(countOf(h.env, `s:${cls.students[0].studentId}`), 1);
 });

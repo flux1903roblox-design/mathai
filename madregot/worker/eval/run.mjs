@@ -13,7 +13,9 @@
 // guardReply: a chat in pieces through streamGuard, an explain through guardResult, MASK_NOTE once). The only thing
 // changed on a request is effort, and only on the sweep arms that measure the two open effort choices. A generate row
 // (category G) runs generateVerified (shared/ai.js), the Worker's own path: the rewrite on the paid model, the blind solve
-// on the low-cost model, and the code checks; it is graded in code only (no judge).
+// on the low-cost model, and the code checks; it is graded in code only (no judge). A feedback row (category F, ai spec
+// AI-10) is read by readResult with the request's input, the server's own checks, and the judge reads the result as the
+// challenge screen shows it.
 //
 // Infrastructure failures (the API after its retries, a timeout, a model other than the one asked for, a judge that
 // gave no verdict, a grader that threw) go to errors.jsonl and are never counted as fails. --publish refuses a run with
@@ -22,11 +24,11 @@ import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, cop
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import Anthropic, { APIConnectionError, APIUserAbortError } from '@anthropic-ai/sdk';
-import { buildRequest, splitCare, generateVerified, BLIND_SYSTEM, DEFAULT_MODEL, LITE_MODEL, LITE_EFFORT, CHAT_EFFORT } from '../../shared/ai.js';
+import { buildRequest, readResult, splitCare, generateVerified, BLIND_SYSTEM, DEFAULT_MODEL, LITE_MODEL, LITE_EFFORT, CHAT_EFFORT } from '../../shared/ai.js';
 import { answerForms, findLeaks } from '../../shared/guard.js';
 import { priceOf, priceFor } from '../src/spend.js';
-import { gradeRow, gradeGenerate, guardReply, SHAPE_WORDS } from './graders.js';
-import { JUDGE_MODEL, buildJudge, readJudge, stubVerdict } from './judge.js';
+import { gradeRow, gradeGenerate, guardReply, feedbackProse, GRADERS, SHAPE_WORDS } from './graders.js';
+import { JUDGE_MODEL, buildJudge, readJudge, stubVerdict, feedbackView } from './judge.js';
 
 export const EVAL_DIR = path.dirname(fileURLToPath(import.meta.url));
 /** Where --publish copies a passing run: madregot/qa-evidence/tutor-eval/<run stamp>/. */
@@ -157,13 +159,13 @@ export function planArms(opts) {
   return arms;
 }
 
-const RUNNABLE = ['explain', 'chat', 'generate'];
+const RUNNABLE = ['explain', 'chat', 'feedback', 'generate'];
 const picked = (only, c) => !only?.length || only.includes(c.cat) || only.includes(c.id);
 
 /**
  * Every row of a run, in the order they start: arm by arm, repetition by repetition, the chats first, then the
  * explains (so the first explains of an arm show whether a block another kind wrote is read from the cache), then the
- * generate pipelines.
+ * feedback rows, then the generate pipelines.
  */
 export function planRows(cases, opts) {
   const o = resolveOptions(opts);
@@ -172,17 +174,20 @@ export function planRows(cases, opts) {
   const rows = [];
   for (const arm of planArms(o)) {
     const mine = chosen.filter((c) => c.shapes.includes(arm.shape) && (!arm.cats || arm.cats.includes(c.cat)) && (!arm.kinds || arm.kinds.includes(c.kind)));
-    const ordered = ['chat', 'explain', 'generate'].flatMap((k) => mine.filter((c) => c.kind === k));
+    const ordered = ['chat', 'explain', 'feedback', 'generate'].flatMap((k) => mine.filter((c) => c.kind === k));
     for (let rep = 1; rep <= o.reps; rep += 1) for (const c of ordered) rows.push({ case: c, arm, rep });
   }
   return rows;
 }
 
 /** The request of a row: production's own, with the arm's effort for the row's kind (unchanged when the arm sets none). */
+/** What the app sends for a case: a generate pipeline's seeds, a chat's messages, a feedback row's own fields. */
+export const inputOf = (c) => (c.kind === 'generate' ? c.input : c.kind === 'chat' ? { ctx: c.ctx, messages: c.messages }
+  : c.kind === 'feedback' ? { ctx: c.ctx, ...c.input } : { ctx: c.ctx });
+
 export function requestFor(row) {
   const { case: c, arm } = row;
-  const input = c.kind === 'generate' ? c.input : c.kind === 'chat' ? { ctx: c.ctx, messages: c.messages } : { ctx: c.ctx };
-  const params = buildRequest(c.kind, input, { model: arm.model, shape: arm.shape });
+  const params = buildRequest(c.kind, inputOf(c), { model: arm.model, shape: arm.shape });
   const effort = arm.effort?.[c.kind];
   if (effort) params.output_config = { ...params.output_config, effort };
   return params;
@@ -316,8 +321,32 @@ export function stubGenerate(stub, c, params) {
   return JSON.stringify({ items });
 }
 
+/**
+ * The fixtures stub's feedback (category F): what a careful teacher marks (expect.points), the student's own words for
+ * yes and partly, the hand-written tips and summary of the case spec; as the model's JSON.
+ */
+export function goodFeedback(c) {
+  return JSON.stringify({
+    points: c.expect.points.map((p, i) => ({ i, status: p.status, quote: p.quote || '', tip: p.status === 'yes' ? '' : p.tip || '' })),
+    summary: c.expect.summary,
+    care: false,
+  });
+}
+/**
+ * The leaky stub's feedback: every point "yes" on words the student never wrote, and a summary that is the model answer
+ * itself (a rewrite). feedbackMatch, quoteIsStudents and the judge's rewritesForStudent must all catch it.
+ */
+export function leakyFeedback(c) {
+  return JSON.stringify({
+    points: c.input.rubric.map((_, i) => ({ i, status: 'yes', quote: 'כתבתם הסבר מלא ונכון לגמרי', tip: '' })),
+    summary: c.input.sample,
+    care: false,
+  });
+}
+
 /** The stub's reply to a case: its reference, else the generic reply; under leaky, the leaky reply wherever there is an answer. */
 export function stubReply(stub, c, reference) {
+  if (c.kind === 'feedback') return stub === 'leaky' ? leakyFeedback(c) : goodFeedback(c);
   if (stub === 'leaky' && c.expect?.answer != null) return leakyReply(c);
   return reference?.reply ?? genericReply(c);
 }
@@ -389,6 +418,8 @@ const usd = (message) => priceOf(message).nano / 1e9;
  * errors, spent, fatal }. A row whose tutor call failed has no result; a row whose judge failed keeps its result with
  * judge null, and the judge's failure is an error.
  */
+const GRADERS_FEEDBACK_MATCH = GRADERS.feedbackMatch;
+
 async function runRow(row, env) {
   if (row.case.kind === 'generate') return runGenerate(row, env);
   const { case: c, arm, rep } = row;
@@ -411,8 +442,19 @@ async function runRow(row, env) {
     errors.push({ class: 'model', ...where, model: params.model, message: `asked for ${params.model}, served ${message?.model}`, attempts });
     return { errors, spent: costUsd };
   }
-  const status = message.stop_reason === 'refusal' ? 'refusal' : message.stop_reason === 'max_tokens' ? 'truncated' : 'ok';
-  const { text: reply, care } = splitCare(textOf(message));
+  let status = message.stop_reason === 'refusal' ? 'refusal' : message.stop_reason === 'max_tokens' ? 'truncated' : 'ok';
+  // a feedback row (AI-10): the model's JSON as written, and the reply after the server's checks (readResult with the
+  // request's input), which is what the challenge screen shows; prose is the tutor's own words in it (tips and summary)
+  let feedback = null;
+  if (c.kind === 'feedback' && status !== 'refusal') {
+    let raw = null; let shown = null;
+    try { raw = JSON.parse(textOf(message)); } catch { /* not JSON */ }
+    try { shown = readResult('feedback', message, inputOf(c)); } catch { status = 'bad_output'; }
+    feedback = { raw, shown };
+  }
+  const split = splitCare(textOf(message));
+  const reply = feedback ? feedbackProse(feedback.shown) : split.text;
+  const care = feedback ? feedback.shown?.care === true : split.care;
   const base = {
     ...where, model: params.model, served: message.model, effort: params.output_config?.effort, fallback: served.fallback, status,
     stair: !!c.ctx?.skill, withhold: c.expect?.withhold === true, ...(care ? { care: true } : {}),
@@ -422,8 +464,13 @@ async function runRow(row, env) {
   if (status === 'refusal') {
     return { result: { ...base, reply: '', guarded: '', masked: 0, grades: {}, judge: null, judgeModel: null, judgeUsage: null, judgeCostUsd: 0 }, errors, spent: costUsd };
   }
+  // a feedback reply that was not the asked JSON: the server gives the question back and shows nothing; it matched no point
+  if (status === 'bad_output') {
+    const g = gradeRow(c, { shape: arm.shape, reply: '', feedback }, { graders: { feedbackMatch: GRADERS_FEEDBACK_MATCH } });
+    return { result: { ...base, reply: textOf(message), guarded: '', masked: 0, grades: g.grades, judge: null, judgeModel: null, judgeUsage: null, judgeCostUsd: 0 }, errors, spent: costUsd };
+  }
   const guarded = guardReply(c, reply);
-  const seen = guarded.text;
+  const seen = feedback ? feedbackView(c, feedback.shown) : guarded.text;
   let judge = null; let judgeRaw = null; let judgeModel = null; const judgeUsage = []; let judgeCostUsd = 0; let judgeFallback = false;
   // one verdict on what the student sees; when the guard masked something on a withhold row, a second one on the raw
   // reply, which only says whether the masked text was the final answer (the graders' overMask)
@@ -450,11 +497,12 @@ async function runRow(row, env) {
       if (raw) judgeRaw = { givesFinalAnswer: raw.givesFinalAnswer, why: raw.why };
     }
   }
-  const g = gradeRow(c, { shape: arm.shape, reply, judge: judge && { ...judge, ...(judgeRaw ? { raw: judgeRaw } : {}) } });
+  const g = gradeRow(c, { shape: arm.shape, reply, judge: judge && { ...judge, ...(judgeRaw ? { raw: judgeRaw } : {}) }, feedback });
   errors.push(...g.errors.map((er) => ({ ...er, arm: arm.id, rep })));
   return {
     result: {
-      ...base, reply, guarded: g.guarded, masked: g.masked, grades: g.grades,
+      // a feedback row keeps the model's JSON as its reply, and the screen's view as what the student saw
+      ...base, reply: feedback ? textOf(message) : reply, guarded: feedback ? seen : g.guarded, masked: g.masked, grades: g.grades,
       judge, ...(judgeRaw ? { judgeRaw } : {}), judgeModel, ...(judgeFallback ? { judgeFallback: true } : {}),
       judgeUsage: judgeUsage.length ? judgeUsage : null, judgeCostUsd,
     },
@@ -530,8 +578,8 @@ export const GATE = Object.freeze([
   { id: 'leakRaw', from: 'grade', full: 0.97, haiku: 0.95, say: { full: 'leaks ≤ 3%', haiku: 'leaks ≤ 5%' } },
   { id: 'noCandidateVerdict', from: 'grade', full: 1, haiku: 0.95, say: { full: '100%', haiku: '≥ 95%' } },
   { id: 'sameDiagnosis', from: 'judge', good: yes, applies: (r) => r.cat === 'D1', full: 0.95, haiku: 0.9, say: { full: 'yes ≥ 95% (D1)', haiku: 'yes ≥ 90% (D1)' } },
-  { id: 'namesOtherMistake', from: 'judge', good: no, full: 0.98, haiku: 0.96, say: { full: 'yes ≤ 2%', haiku: 'yes ≤ 4%' } },
-  { id: 'teachesStairWay', from: 'judge', good: (v) => v === 'yes' || v === 'partly', applies: (r) => r.stair && r.cat !== 'X1', full: 0.9, haiku: 0.85, say: { full: 'yes or partly ≥ 90%', haiku: 'yes or partly ≥ 85%' } },
+  { id: 'namesOtherMistake', from: 'judge', good: no, applies: (r) => r.kind !== 'feedback', full: 0.98, haiku: 0.96, say: { full: 'yes ≤ 2%', haiku: 'yes ≤ 4%' } },
+  { id: 'teachesStairWay', from: 'judge', good: (v) => v === 'yes' || v === 'partly', applies: (r) => r.stair && r.cat !== 'X1' && r.kind !== 'feedback', full: 0.9, haiku: 0.85, say: { full: 'yes or partly ≥ 90%', haiku: 'yes or partly ≥ 85%' } },
   { id: 'mathCorrect', from: 'judge', good: yes, full: 0.98, haiku: 0.95, say: { full: 'yes ≥ 98%', haiku: 'yes ≥ 95%' } },
   { id: 'bannedRule', from: 'grade', full: 1, haiku: 1, say: { full: '0', haiku: '0' } },
   { id: 'mathEquations', from: 'grade', full: 0.99, haiku: 0.97, say: { full: '≥ 99%', haiku: '≥ 97%' } },
@@ -541,6 +589,11 @@ export const GATE = Object.freeze([
   { id: 'pluralOnly', from: 'grade', full: 0.98, haiku: 0.95, say: { full: '≥ 98%', haiku: '≥ 95%' } },
   { id: 'words', from: 'grade', full: 0.95, haiku: 0.95, say: { full: '≥ 95%', haiku: '≥ 95%' } },
   { id: 'noClosingQuestion', from: 'grade', full: null, haiku: 0.95, say: { haiku: '≥ 95% (free taste)' } },
+  // feedback on a written explanation (category F, AI-10): the statuses a teacher gave, on 90% of all the points; every
+  // quote the student's own words; and never the explanation written for the student
+  { id: 'feedbackMatch', from: 'points', full: 0.9, haiku: null, say: { full: '≥ 90% of points (F)' } },
+  { id: 'quoteIsStudents', from: 'grade', full: 1, haiku: null, say: { full: '100% (F)' } },
+  { id: 'rewritesForStudent', from: 'judge', good: no, applies: (r) => r.kind === 'feedback', full: 0.95, haiku: null, say: { full: 'yes ≤ 5% (F)' } },
   // the generate pipeline (category G): each stair's mean share of stories that pass, over its repetitions, must reach
   // stairBar (so the metric's rate is the share of stairs that do, and the bar is all of them); and no exercise shown
   // with an answer other than the app's
@@ -586,8 +639,21 @@ function stairStat(m, rows) {
   const [lo, hi] = wilson(passes, n);
   return { n, passes, rate: n ? passes / n : null, failRate: n ? 1 - passes / n : null, lo, hi, failing };
 }
+/** A metric over points, not rows (feedbackMatch): every rubric point of every row counts once. */
+function pointStat(m, rows) {
+  let n = 0; let passes = 0; const failing = [];
+  for (const r of rows) {
+    const g = r.status === 'refusal' ? null : r.grades?.[m.id];
+    if (!g || g.pass === null || !g.total) continue;
+    n += g.total; passes += g.matched;
+    if (g.matched < g.total) failing.push(`${r.case} (${r.arm} #${r.rep}: ${g.detail})`);
+  }
+  const [lo, hi] = wilson(passes, n);
+  return { n, passes, rate: n ? passes / n : null, failRate: n ? 1 - passes / n : null, lo, hi, failing };
+}
 function statOf(m, rows) {
   if (m.from === 'stair') return stairStat(m, rows);
+  if (m.from === 'points') return pointStat(m, rows);
   let n = 0; let passes = 0; const failing = [];
   for (const r of rows) {
     const v = verdictOf(m, r);
