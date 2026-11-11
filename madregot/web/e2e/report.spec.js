@@ -16,8 +16,8 @@
 // Screenshots for the evidence folder with REPORT_SHOTS=<folder>.
 import { mkdirSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
-import { open, student, reportWeek, appReady, saved, NOW } from './helpers.js';
-import { API, fakeServer, livePlan, TOKEN } from './fakeServer.js';
+import { open, student, reportWeek, appReady, saved, linkedWeek, NOW } from './helpers.js';
+import { API, fakeServer, livePlan, TABLET, PHONE, PARENT, srow, byDay, TABLET_ROWS, parentServer as serverFor } from './fakeServer.js';
 
 const API_HOST = new URL(API).host;
 const WA = 'https://wa.me/?text=';
@@ -274,15 +274,9 @@ test('on a Sunday the summary opens on last week, the week that has just ended',
 });
 
 // ---------------------------------------------------------------- flow 3: a linked device, the notice first (PARENTS-4)
-const FD = `fd1.${'1'.repeat(64)}`;
-const DEVICE = { id: 'd000000000000001', label: 'הטאבלט', token: FD };
-/** The week to report on, on a device linked to a family plan; the backup question has been asked already. */
-const linkedWeek = () => {
-  const s = withServer();
-  s.state.ai.familyDevice = { token: FD, label: 'הטאבלט' };
-  s.state.durable = { nudgeCount: 2 };
-  return s;
-};
+// the week to report on, on a device linked to a family plan (linkedWeek, helpers.js): the tablet of fakeServer.js
+const FD = TABLET.token;
+const DEVICE = { id: TABLET.id, label: TABLET.label, token: FD };
 const notice = (page) => page.getByRole('dialog', { name: 'ההורים יראו סיכום קצר של התרגול' });
 const summaryPosts = (log) => log.filter((r) => r.path === '/api/family/summary');
 
@@ -457,7 +451,8 @@ test('flow 5: a class student\'s numbers say the teacher sees every answer, not 
 });
 
 // ---------------------------------------------------------------- flow 4: the parent's /parents (PARENTS-5, PARENTS-6)
-const PARENT = TOKEN(9);
+// the parent (PARENT), the devices (TABLET, PHONE), their rows (srow, TABLET_ROWS) and the paying parent's server are
+// fakeServer.js's, shared with a11y.spec.js
 /** The parent's own phone: no profile, the app pointed at the fake server, the parent signed in (kept in localStorage). */
 async function openParent(page, route = '#/parents') {
   const phone = withServer();
@@ -475,26 +470,7 @@ async function openParent(page, route = '#/parents') {
   await page.reload();
   await appReady(page);
 }
-const srow = (d, over = {}) => ({ v: 1, d, m: 20, q: 12, ls: 1, st: 0, sk: ['signed:1'], ma: [], rv: 0, fx: [], sr: 1, ex: null, ...over });
-const byDay = (rows) => Object.fromEntries(rows.map((r) => [r.d, r]));
-/** The tablet's last weeks: this week (1–5.11) 4 days, 75 minutes, 46 questions; last week 2 days, 45 minutes; older weeks. */
-const TABLET_ROWS = [
-  srow('2026-09-30', { m: 10, q: 5 }), srow('2026-10-12', { m: 22, q: 14 }), srow('2026-10-19', { m: 16, q: 9, ls: 2 }),
-  srow('2026-10-26', { m: 30, q: 20, ls: 2, sk: ['signed:1', 'coord:1'] }), srow('2026-10-28', { m: 15, q: 8 }),
-  srow('2026-11-01', { m: 20, q: 12, ma: ['signed:1'], sr: 1 }), srow('2026-11-02', { m: 25, q: 15, ls: 2, sk: ['signed:2'], sr: 2 }),
-  srow('2026-11-04', { m: 18, q: 10, ls: 0, st: 1, sk: ['coord:1'], sr: 3 }),
-  srow('2026-11-05', { m: 12, q: 9, sk: ['coord:1'], fx: [['coord:1', 'swap', 'o']], sr: 4, ex: { d: '2026-11-12', n: 1, of: 3 } }),
-];
-const TABLET = { id: 'd000000000000001', label: 'הטאבלט', token: FD, linkedAt: '2026-09-20T16:00:00Z', lastSync: '2026-11-05T08:10:00Z' };
-const PHONE = { id: 'd000000000000002', label: 'הטלפון', token: `fd1.${'2'.repeat(64)}`, linkedAt: '2026-10-20T18:00:00Z', lastSync: '2026-11-03T17:00:00Z' };
-const parentServer = async (page, baseURL, over = {}) => {
-  const server = await fakeServer(page.context(), {
-    report: true, plan: livePlan(), devices: [{ ...PHONE }, { ...TABLET }],
-    summaries: { [TABLET.id]: byDay(TABLET_ROWS), [PHONE.id]: byDay([srow('2026-11-03', { m: 14, q: 10, sk: ['stats:1'] })]) }, ...over,
-  }, baseURL);
-  server.st.sessions.add(PARENT);
-  return server;
-};
+const parentServer = (page, baseURL, over = {}) => serverFor(page.context(), baseURL, over);
 const deviceCard = (page, name) => page.locator('.report-device').filter({ has: page.getByRole('heading', { level: 3, name, exact: true }) });
 
 test('flow 4: the parent sees each device\'s week and 8 weeks, holds their own switch, deletes a device\'s history, and is asked once if it helps', async ({ page, baseURL }) => {

@@ -5,7 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { NOW, student, livedIn, answer, proceed, appReady } from './helpers.js';
+import { NOW, student, livedIn, answer, proceed, appReady, examPng } from './helpers.js';
 import { fakeServer, API, CORS, livePlan } from './fakeServer.js';
 
 /** Open a route with a saved state, seeded before the app starts (as subscription.spec.js does). */
@@ -1014,16 +1014,7 @@ test.describe('photo', () => {
     server.st.devices.push({ id: 'd1', label: 'הטאבלט', token: FD }); server.st.plan = livePlan();
     return server;
   }
-  /** A synthetic 1200×1600 exam page drawn in the page itself: the top 10% red (where a name and an ID would be). */
-  const examPng = async (page, { red = true } = {}) => Buffer.from(await page.evaluate((r) => {
-    const c = document.createElement('canvas'); c.width = 1200; c.height = 1600;
-    const x = c.getContext('2d');
-    x.fillStyle = '#fff'; x.fillRect(0, 0, 1200, 1600);
-    if (r) { x.fillStyle = '#ff0000'; x.fillRect(0, 0, 1200, 160); }
-    x.fillStyle = '#222'; x.font = '48px sans-serif';
-    for (let i = 0; i < 10; i += 1) x.fillText(`${i + 1})  3x + ${i} = ${3 * (i + 2) + i}`, 80, 320 + i * 110);
-    return c.toDataURL('image/png').split(',')[1];
-  }, red), 'base64');
+  // examPng (helpers.js, shared with a11y.spec.js): a synthetic exam page, its top 10% red
   /** The page as the server got it, drawn into a canvas inside the page: its size and the colour of some pixels. */
   const sentPixels = (page, src, points) => page.evaluate(async ([s, pts]) => {
     const img = new Image(); img.src = s; await img.decode();

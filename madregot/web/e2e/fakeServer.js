@@ -27,7 +27,8 @@
 // Worker starts); the dashboard's aiPolicy from shared/schoolRules.js, the students' aiOff, POST /api/teacher/class/ai
 // and /api/teacher/students/:id/ai, a new class's setting, and 409 school_ai_not_approved for a trial, a licence code
 // or a class purchase while the rules do not allow selling to the class.
-// `st.down = true` makes every call fail as a lost connection.
+// `st.down = true` makes every call fail as a lost connection. `st.push = { key }` answers the daily reminder's key, seen
+// day and off (STUDENT-11); without it they are 404, as on a Worker with no push keys.
 // The family lane's routes:
 // POST /api/errors keeps each report it is sent (st.errors, DURABLE-9). The backup code's vault (DURABLE-5) keeps sealed
 // copies by their X-Vault header in st.vaults, with the Worker's revisions: create with ifRev null (409 when it exists),
@@ -51,11 +52,16 @@
 // 401 not_linked with X-AI-Linked: 0; a device that leaves by itself takes its escrow with it, an unlink keeps it only
 // while the child's switch is on; restoreFrom on a still-linked device's escrow is 409 escrow_in_use; GET
 // /api/family/summary gives each device `kept` (all its rows, also those older than the days asked for).
+// Shared fixtures (synthetic), for the specs that need the same server state: the family's devices and the paying
+// parent (TABLET, PHONE, PARENT, srow, byDay, TABLET_ROWS, parentServer), the class exam and the teacher's work
+// (EXAM_ITEMS, given, examWork), the TEACHER-8 class of nine (nine, helpNoa, yoavPage), and the reminder's key (PUSH_KEY).
 import { MOE_RULES, classAiPolicy, notSellable } from '../../shared/schoolRules.js';
 import { detectDistress } from '../../shared/safety.js';
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
+/** A synthetic VAPID public key for the daily reminder (st.push). */
+export const PUSH_KEY = 'BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8';
 export const CORS = {
   'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Expose-Headers': 'X-AI-Tier, X-AI-Group, X-AI-Left, X-AI-Economy, X-AI-Linked',
@@ -85,6 +91,77 @@ export const livePlan = (over = {}) => ({
   id: '5ab0000000000001', plan: 'family_month', status: 'active', priceAgorot: 2990, periodEnd: '2026-12-10T10:00:00Z',
   cancelAtPeriodEnd: false, cancelRequestedAt: null, refundUntil: '2026-11-19T10:00:00Z', canRefundNow: true, canProrata: false,
   prorataAgorot: null, canResume: true, portal: false, economy: false, ...over,
+});
+
+// ---- shared fixtures (synthetic) for the specs that need the same server state
+/** A device linked to a family plan, and a second one (PARENTS-3/5): ids, labels, AI-only tokens, when linked and last synced. */
+export const TABLET = Object.freeze({ id: 'd000000000000001', label: 'הטאבלט', token: `fd1.${'1'.repeat(64)}`, linkedAt: '2026-09-20T16:00:00Z', lastSync: '2026-11-05T08:10:00Z' });
+export const PHONE = Object.freeze({ id: 'd000000000000002', label: 'הטלפון', token: `fd1.${'2'.repeat(64)}`, linkedAt: '2026-10-20T18:00:00Z', lastSync: '2026-11-03T17:00:00Z' });
+/** The parent's session token on their own phone (kept in localStorage 'madregot-parent'). */
+export const PARENT = TOKEN(9);
+/** One day's summary row as a linked device sends it. */
+export const srow = (d, over = {}) => ({ v: 1, d, m: 20, q: 12, ls: 1, st: 0, sk: ['signed:1'], ma: [], rv: 0, fx: [], sr: 1, ex: null, ...over });
+export const byDay = (rows) => Object.fromEntries(rows.map((r) => [r.d, r]));
+/** The tablet's last weeks: this week (1–5.11) 4 days, 75 minutes, 46 questions; last week 2 days, 45 minutes; older weeks. */
+export const TABLET_ROWS = Object.freeze([
+  srow('2026-09-30', { m: 10, q: 5 }), srow('2026-10-12', { m: 22, q: 14 }), srow('2026-10-19', { m: 16, q: 9, ls: 2 }),
+  srow('2026-10-26', { m: 30, q: 20, ls: 2, sk: ['signed:1', 'coord:1'] }), srow('2026-10-28', { m: 15, q: 8 }),
+  srow('2026-11-01', { m: 20, q: 12, ma: ['signed:1'], sr: 1 }), srow('2026-11-02', { m: 25, q: 15, ls: 2, sk: ['signed:2'], sr: 2 }),
+  srow('2026-11-04', { m: 18, q: 10, ls: 0, st: 1, sk: ['coord:1'], sr: 3 }),
+  srow('2026-11-05', { m: 12, q: 9, sk: ['coord:1'], fx: [['coord:1', 'swap', 'o']], sr: 4, ex: { d: '2026-11-12', n: 1, of: 3 } }),
+]);
+/**
+ * The paying parent's server (PARENTS-5): the report on, a live plan, the phone and the tablet linked with their rows,
+ * and PARENT signed in. `target` is a page or a browser context.
+ */
+export async function parentServer(target, base, over = {}) {
+  const server = await fakeServer(target, {
+    report: true, plan: livePlan(), devices: [{ ...PHONE }, { ...TABLET }],
+    summaries: { [TABLET.id]: byDay(TABLET_ROWS), [PHONE.id]: byDay([srow('2026-11-03', { m: 14, q: 10, sk: ['stats:1'] })]) }, ...over,
+  }, base);
+  server.st.sessions.add(PARENT);
+  return server;
+}
+
+/** A class exam of three frozen questions, as the teacher's device made them (lib/exam.js freezeItem). */
+export const EXAM_ITEMS = Object.freeze([
+  { key: 'sn3:-8:3', topic: 'signed', level: 3, levelTitle: 'כפל וחילוק', text: 'חשבו:', display: '-8 \\cdot 3', form: 'num', choices: null, fig: null, label: null, unit: null, var: null, exact: null, answer: -24, answerText: '-24', solution: ['הסימנים שונים, לכן התוצאה שלילית.', '$8 \\cdot 3 = 24$'], hint: 'מה קורה לסימן כשכופלים שלילי בחיובי?' },
+  { key: 'sn2c:-3:2', topic: 'signed', level: 2, levelTitle: 'השוואת מספרים', text: 'איזה סימן מתאים?', display: '-3 \\;\\square\\; 2', form: 'mc', choices: [{ tex: '<' }, { tex: '=' }, { tex: '>' }], fig: null, label: null, unit: null, var: null, exact: null, answer: 0, answerText: '<', solution: ['$-3$ משמאל ל־$2$ על ציר המספרים.'], hint: 'איפה כל מספר על הציר?' },
+  { key: 'py1:5:5', topic: 'pyth', level: 1, levelTitle: 'מציאת היתר', text: 'במשולש ישר־זווית הניצבים $5$ ו־$5$. מה אורך היתר? עגלו לעשיריות.', display: null, form: 'num', choices: null, fig: null, label: null, unit: 'ס״מ', var: null, exact: Math.sqrt(50), answer: 7.1, answerText: '7.1', solution: ['$5^2 + 5^2 = 50$', '$\\sqrt{50} \\approx 7.1$'], hint: 'מחברים את ריבועי הניצבים.' },
+]);
+/** A teacher's assignment for K7Q2MD (a stair by default; the class exam with { kind: 'exam', exam: EXAM_ITEMS }). */
+export const given = (over = {}) => ({
+  id: 'a000000000000001', kind: 'stair', skill: 'signed:1', title: 'מספרים מכוונים: חיבור וחיסור', note: 'לקראת המבחן ביום חמישי',
+  startsOn: '2026-11-09', dueOn: '2026-11-12', forAll: true, targets: [], createdAt: '2026-11-09T07:00:00.000Z', ...over,
+});
+/** The class exam as the class gets it: version ב of three questions, due Wednesday 11.11. */
+export const examWork = (over = {}) => given({ id: 'a000000000000004', kind: 'exam', skill: null, title: 'מבחן תרגול: לפני החנוכה', note: '', exam: EXAM_ITEMS, version: 'b', dueOn: '2026-11-11', ...over });
+
+/**
+ * A class of nine for the board's "כדאי לבדוק איתם" (TEACHER-8), on the server's day Thursday 5 November 2026: each
+ * student's reason and score; נועה's help request waiting; יואב's page (14 days, a stair, a repeated mistake, an exam).
+ */
+export const nine = () => [
+  { id: 's1', name: 'דנה', lastPractice: '2026-10-20T08:00:00Z' }, // idle 16 days: 10
+  { id: 's2', name: 'יואב', week: { n: 10, first: 2, days: 3 } }, // 20% first try: 16
+  { id: 's3', name: 'נועה', late: 2 }, // two late (4) and a help request waiting (3): 7
+  { id: 's4', name: 'איתי', lastPractice: null, joinedOn: '2026-10-31', today: { n: 0 }, week: { n: 0, first: 0, days: 0 } }, // never, 5 days: 5.5
+  { id: 's5', name: 'מאיה', lastPractice: '2026-11-01T08:00:00Z' }, // idle 4: 5
+  { id: 's6', name: 'רוני', week: { n: 8, first: 4, days: 2 } }, // 50%: 4
+  { id: 's7', name: 'עדי', lastPractice: '2026-11-02T08:00:00Z' }, // idle 3: 4.5
+  { id: 's8', name: 'שירה', late: 1 }, // 2
+  { id: 's9', name: 'תמר' }, // practising and doing well
+];
+export const helpNoa = () => [{ id: 7, studentId: 's3', name: 'נועה', topic: 'signed', level: 1, question: '$3 - 8$', answer: '5', note: '', has_image: 0, created_at: '2026-11-05T07:00:00.000Z', seen_at: null, done_at: null, messages: [] }];
+export const yoavPage = () => ({
+  days14: Array.from({ length: 14 }, (_, i) => {
+    const day = new Date(Date.UTC(2026, 9, 23 + i)).toISOString().slice(0, 10);
+    const n = [0, 4, 0, 0, 12, 0, 0, 3, 0, 6, 0, 0, 5, 2][i];
+    return { day, n, first: Math.floor(n / 3), minutes: n * 2 };
+  }),
+  levels: { signed: { level: 2, max: 2 } },
+  mistakes: [{ topic: 'signed', cat: 'sign', level: 1, n: 4, lastAt: '2026-11-04T10:00:00.000Z' }],
+  exams: [{ id: '31', title: 'מבחן במספרים מכוונים', correct: 6, total: 10, at: '2026-11-02T10:00:00.000Z', questions: [{ topic: 'signed', status: 'correct' }, { topic: 'signed', status: 'wrong' }] }],
 });
 
 /**
@@ -128,6 +205,9 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     // the parents' report (the Worker's PARENT_REPORT): off unless a spec turns it on, so the flows written before it
     // run as they did; report.spec.js turns it on
     report: false, summaries: {}, feedback: [], reportEmail: false,
+    // the daily reminder's server (STUDENT-11): off (404, as a Worker with no push keys) unless a spec sets
+    // { key } here; then the key, a seen day and turning off are answered (push.spec.js drives the rest itself)
+    push: null,
     ...over,
   };
   // the class's student AI (TRUST-11): a school class, off, no consent, Madregot not in the catalogue, unless the test says
@@ -295,6 +375,11 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       // a class student whose class has the AI off: the same 403 an AI call gets (worker/src/entitle.js aiStatus)
       if (h.authorization && st.classAiOff && !st.staleStatus) return reply(route, 403, { error: 'class_ai_off', message: 'class_ai_off' });
       return reply(route, 200, status(h), h['x-family-device'] && !famOf(h) ? { 'X-AI-Linked': '0' } : {});
+    }
+    if (path.startsWith('/api/push/') && st.push) {
+      if (path === '/api/push/key') return reply(route, 200, { key: st.push.key });
+      if (path === '/api/push/seen') return reply(route, 200, { status: 'on' });
+      if (path === '/api/push/off') return reply(route, 200, { ok: true });
     }
     // a reported answer (trust spec TRUST-4 §4.5): kept, never counted as a question
     if (path === '/api/ai/report') return reply(route, 200, { ok: true });

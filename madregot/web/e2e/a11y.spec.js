@@ -4,16 +4,28 @@
 // its entrances ended. The whole page is scanned. It runs on 'phone' (light) and on 'phone-dark' (playwright.config.js
 // adds this file to that project), so every colour pair is checked in both themes. A violation is fixed in the app,
 // never scoped out here. Server screens answer from e2e/fakeServer.js (no Worker, no AI, synthetic data).
+// The screens, in order: the first visit, the map and the topics, a lesson in all its states, the result screens,
+// Rescue, Quests and a challenge (the student's core); the profile, Settings with its saving states, the daily reminder,
+// the restore screen and the weekly summary; the tutor with its sheets, the photo check (a photo and a PDF page through
+// PhotoPrep) and the exams; the parents' area; the legal and landing pages; and every teacher screen, the demo included.
+// The setups the other specs use too (the class, the teachers, the parent and the family devices, the class exam, the
+// landing pages) live in helpers.js and fakeServer.js.
 import { test, expect } from '@playwright/test';
-import { NOW, open, openOn, student, livedIn, item, answer, proceed, proceedToNext, appReady, screenReady, DURABLE_DB } from './helpers.js';
-import { fakeServer, API, CORS, livePlan } from './fakeServer.js';
+import { fileURLToPath } from 'node:url';
+import {
+  NOW, open, openOn, student, livedIn, item, answer, proceed, proceedToNext, appReady, screenReady, DURABLE_DB,
+  withServer, inClass, dressed, doneStairs, linkedWeek, reportWeek, backupFile, examPng, keyTeacher, openLanding, landingMetrics,
+} from './helpers.js';
+import {
+  fakeServer, API, CORS, livePlan, TABLET, examWork, given, PUSH_KEY, PARENT, parentServer, nine, helpNoa, yoavPage,
+} from './fakeServer.js';
 import { expectNoAxeViolations } from './axe.js';
+import { derive } from '../src/lib/durable/crypto.js';
+import { makeCode } from '../src/lib/durable/code.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-dark'].includes(info.project.name), 'axe runs on one phone, light and dark'); });
 
 const baseOf = () => test.info().project.use.baseURL;
-/** A device that talks to the (fake) server. */
-const withServer = (extra = {}) => ({ ...student('7', { ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true }, ...extra }), version: 3 });
 
 /**
  * The screen is drawn: nothing is loading, its heading is on screen, and its entrances have ended (a fade that is
@@ -348,7 +360,7 @@ test.describe('a lesson', () => {
 });
 
 // ---------------------------------------------------------------- the result screens (PKG-1g)
-const done = (levels) => ({ parts: {}, reviews: 0, jumped: 0, done: Object.fromEntries(levels.map((l) => [l, 'mastered'])) });
+const done = doneStairs;
 /** Every end screen in turn, back to the map, each scanned; returns the kinds scanned. */
 async function scanEndScreens(page, what) {
   const kinds = [];
@@ -550,5 +562,730 @@ test.describe('a challenge', () => {
     await go(page, 'לסיום').click();
     await expect(page.getByRole('heading', { name: 'אתגר הושלם. זה לא היה פשוט, והצלחתם.' })).toBeVisible();
     await scan(page, 'the challenge done');
+  });
+});
+
+// ---------------------------------------------------------------- the profile, Settings and saving (PKG-1j)
+test.describe('the profile and Settings', () => {
+  test('Me, the profile', async ({ page }) => {
+    await open(page, '#/me', livedIn('7'));
+    await expect(page.locator('.profile-name')).toBeVisible();
+    await scan(page, 'Me');
+  });
+
+  test('Me on a device linked to a family plan: the notice, the sharing chip and its sheet', async ({ page }) => {
+    await fakeServer(page.context(), { report: true, plan: livePlan(), devices: [{ id: TABLET.id, label: TABLET.label, token: TABLET.token }] }, baseOf());
+    await open(page, '#/me', linkedWeek());
+    const notice = page.getByRole('dialog', { name: 'ההורים יראו סיכום קצר של התרגול' });
+    await expect(notice).toBeVisible();
+    await scan(page, 'the sharing notice');
+    await notice.getByRole('button', { name: 'הבנתי' }).click();
+    await expect(notice).toBeHidden();
+    const chip = page.getByRole('button', { name: 'משותף עם ההורים' });
+    await expect(chip).toBeVisible();
+    await scan(page, 'Me with the sharing chip');
+    await chip.click();
+    await expect(page.getByRole('dialog', { name: 'שיתוף עם ההורים' }).locator('.sharing-status')).toContainText('פועל');
+    await scan(page, 'the sharing sheet');
+  });
+
+  test('the wardrobe, and a locked piece\'s sheet', async ({ page }) => {
+    await open(page, '#/me/madi', dressed());
+    await expect(page.getByRole('heading', { level: 1, name: 'המדי שלי' })).toBeVisible();
+    await scan(page, 'the wardrobe');
+    const colours = page.getByRole('radiogroup', { name: 'צבע' });
+    await colours.getByRole('radio', { name: /^זהב/ }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'זהב' })).toContainText('נפתח כשתשלטו');
+    await scan(page, 'the locked piece\'s sheet');
+  });
+
+  test('Settings with no server: the backup file, the reminder\'s line, the delete-all sheet', async ({ page }) => {
+    await open(page, '#/settings', livedIn('7'));
+    await expect(page.locator('.save-section')).toBeVisible();
+    await scan(page, 'Settings, no server');
+    await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+    await expect(page.getByRole('dialog', { name: 'למחוק הכול?' })).toBeVisible();
+    await scan(page, 'the delete-all sheet');
+  });
+
+  test('Settings: a backup file read back (RestorePreview)', async ({ page }) => {
+    await open(page, '#/settings', livedIn('7'));
+    const sibling = { ...student('8').state, profile: { role: 'student', name: 'יואב', grade: '8', know: 1 }, xp: 75, xpBy: { b2c3d4e5: 75 }, days: { '2026-11-03': { lessons: 2, xp: 75, q: 16, ok: 15 } } };
+    await page.getByLabel('לשחזר מקובץ').setInputFiles(backupFile(sibling, 'madregot-backup.json'));
+    await expect(page.getByRole('dialog', { name: 'מצאנו גיבוי' }).locator('.restore-summary')).toContainText('יואב');
+    await scan(page, 'a backup file\'s preview');
+  });
+
+  test('Settings with a server: joining a class, the backup code made, shown and stopped', async ({ page }) => {
+    await fakeServer(page.context(), { parentOk: true }, baseOf());
+    await open(page, '#/settings', withServer());
+    await expect(page.getByRole('button', { name: 'ליצור קוד גיבוי' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'הצטרפות לכיתה' })).toBeVisible();
+    await scan(page, 'Settings with a server, the backup off');
+    await page.getByRole('button', { name: 'ליצור קוד גיבוי' }).click();
+    const sheet = page.getByRole('dialog', { name: 'קוד הגיבוי שלכם' });
+    await expect(sheet.locator('.backup-code')).toBeVisible();
+    await scan(page, 'the backup code sheet');
+    await page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'להציג את קוד הגיבוי' })).toBeVisible();
+    await scan(page, 'Settings, the backup on');
+    await page.getByRole('button', { name: 'להפסיק את הגיבוי' }).click();
+    await expect(page.getByRole('dialog', { name: 'להפסיק את הגיבוי?' })).toBeVisible();
+    await scan(page, 'stopping the backup');
+  });
+
+  test('Settings for a class student whose class keeps the code (escrow)', async ({ page }) => {
+    await fakeServer(page.context(), { parentOk: true }, baseOf());
+    const code = makeCode();
+    const { lookup } = await derive(code);
+    const st = inClass();
+    st.state.backup = { on: true, code, lookup, rev: null, at: null, hash: null, escrow: 'class', state: 'idle' };
+    await open(page, '#/settings', st);
+    await expect(page.getByRole('switch', { name: 'שמירת עותק בשרת הכיתה' })).toBeChecked();
+    await expect(page.locator('.save-kept')).toBeVisible();
+    await scan(page, 'Settings, the class keeps the code');
+  });
+
+  test('Settings › מתקדם: the public build has no such screen, and the address leads back to Settings', async ({ page }) => {
+    // the personal-key screen exists only in the owner's own test builds (VITE_ALLOW_PERSONAL_KEY=1); every copy
+    // people use, this suite's included, sends its address back to Settings, which is scanned here once more
+    await open(page, '#/settings/advanced', livedIn('7'));
+    await expect(page).toHaveURL(/#\/settings$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'הגדרות' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'מתקדם' })).toHaveCount(0);
+    await scan(page, 'Settings, from the advanced address');
+  });
+
+  test('the restore screen: the code, a typing mistake, and the file', async ({ page }) => {
+    await fakeServer(page.context(), { parentOk: true }, baseOf());
+    await open(page, '#/restore', withServer({ profile: null }));
+    const input = page.getByLabel('קוד הגיבוי');
+    await expect(input).toBeVisible();
+    await scan(page, 'Restore, the code');
+    await input.fill('ABCD-EFGH');
+    await page.getByRole('button', { name: 'לחפש את הגיבוי' }).click();
+    await expect(page.getByRole('alert')).toBeVisible();
+    await scan(page, 'Restore, a typing mistake');
+    await page.getByRole('button', { name: 'יש לי קובץ גיבוי' }).click();
+    await expect(page.getByLabel('לשחזר מקובץ')).toBeAttached();
+    await scan(page, 'Restore, the file');
+  });
+
+  test('the weekly summary and its share sheet', async ({ page }) => {
+    await open(page, '#/report', reportWeek());
+    await expect(page.getByRole('heading', { level: 1, name: 'הסיכום השבועי' })).toBeVisible();
+    await scan(page, 'the weekly summary');
+    await page.getByRole('button', { name: 'לשלוח להורים' }).click();
+    await expect(page.getByRole('dialog', { name: 'לשלוח להורים' })).toBeVisible();
+    await scan(page, 'the share sheet');
+  });
+});
+
+test.describe('the daily reminder', () => {
+  // the browser's answer about notifications is played (this headless browser always says 'denied'; push.spec.js drives
+  // the real permission in the full Chromium); the reminder's id and secret are seeded, so Settings shows it on with no
+  // push service. Nothing here is subscribed or sent.
+  const notifications = (page, answer) => page.addInitScript((a) => { Object.defineProperty(Notification, 'permission', { configurable: true, get: () => a }); }, answer);
+
+  test('Settings: the daily reminder on, with its hour', async ({ page }) => {
+    await notifications(page, 'granted');
+    await fakeServer(page.context(), { parentOk: true, push: { key: PUSH_KEY } }, baseOf());
+    await open(page, '#/settings', withServer({ reminder: { on: true, slot: 17, id: 'a'.repeat(16), secret: 'b'.repeat(32), state: 'on' } }));
+    const section = page.getByRole('region', { name: 'תזכורת יומית' });
+    await expect(section.getByRole('radio', { name: 'פועלת' })).toHaveAttribute('aria-checked', 'true');
+    await expect(section.getByRole('radiogroup', { name: 'באיזו שעה?' })).toBeVisible();
+    await section.scrollIntoViewIfNeeded();
+    await scan(page, 'Settings, the reminder on');
+  });
+
+  test('the reminder\'s offer after a lesson (ReminderCard)', async ({ page }) => {
+    await notifications(page, 'default');
+    await fakeServer(page.context(), { parentOk: true, push: { key: PUSH_KEY } }, baseOf());
+    const days = { '2026-11-03': { lessons: 1, xp: 12, q: 8, ok: 7 }, '2026-11-04': { lessons: 1, xp: 12, q: 8, ok: 7 } };
+    await open(page, '#/lesson/signed/1', withServer({ days }));
+    await playLesson(page);
+    // through the end screens to the reminder's offer (push.spec.js walks them the same way)
+    const heading = () => page.locator('.done-screen h1').first().textContent({ timeout: 1000 }).catch(() => null);
+    for (let k = 0; k < 8; k += 1) {
+      await expect(page.locator('.remind-stage, .learn-top, .done-screen .done-actions .btn').first()).toBeVisible();
+      if (await page.locator('.remind-stage, .learn-top').first().isVisible()) break;
+      const before = await heading();
+      await page.locator('.done-screen .done-actions .btn').first().click();
+      await expect.poll(async () => { const now = await heading(); return now === null || now !== before; }, { timeout: 5000 }).toBe(true);
+    }
+    await expect(page.locator('.remind-stage')).toBeVisible();
+    await scan(page, 'the reminder\'s offer');
+  });
+
+  test('Settings: notifications blocked by the browser, the line that says so', async ({ page }) => {
+    await fakeServer(page.context(), { parentOk: true }, baseOf());
+    await notifications(page, 'denied');
+    await open(page, '#/settings', withServer());
+    await expect(page.getByRole('region', { name: 'תזכורת יומית' })).toContainText('הדפדפן חוסם התראות');
+    await scan(page, 'Settings, notifications blocked');
+  });
+});
+
+// ---------------------------------------------------------------- the tutor and the exams (PKG-1k)
+const FD = `fd1.${'c'.repeat(64)}`;
+/** A device on the family plan: the photo check and the exam check are open (trust spec TRUST-5). */
+const family = (extra = {}) => withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true, familyDevice: { token: FD, label: 'הטאבלט' } }, ...extra });
+async function familyServer(page) {
+  const server = await fakeServer(page, { parentOk: true }, baseOf());
+  server.st.devices.push({ id: 'd1', label: 'הטאבלט', token: FD }); server.st.plan = livePlan();
+  return server;
+}
+const PDF = fileURLToPath(new URL('./fixtures/exam-2-pages.pdf', import.meta.url));
+const warnSheet = (page) => page.getByRole('dialog', { name: 'לפני שמצלמים' });
+const prepSheet = (page) => page.getByRole('dialog', { name: 'מסתירים פרטים אישיים' });
+const refuseClassAi = (route) => (route.request().method() === 'OPTIONS'
+  ? route.fulfill({ status: 204, headers: CORS })
+  : route.fulfill({ status: 403, contentType: 'application/json', headers: CORS, body: JSON.stringify({ error: 'class_ai_off', message: 'class_ai_off' }) }));
+// an exam checked by the AI, one question wrong (tutor.spec.js reads the same kind)
+const checkedQ = { number: '1', prompt: 'פתרו: $2x + 3 = 11$', studentAnswer: '$x = 5$', status: 'wrong', correctAnswer: '$x = 4$', feedback: 'כדאי לבדוק את החיסור.', solution: ['$2x = 8$', '$x = 4$'], topic: 'eq', level: 2, skill: 'משוואה בשני צעדים', graded: 'ai' };
+const keyQ = { number: '2', prompt: 'חשבו: $3 - (-5)$', studentAnswer: '$8$', status: 'correct', correctAnswer: '8', feedback: 'חיסור של שלילי הוא חיבור, ועשיתם את זה נכון.', solution: ['$3 - (-5) = 3 + 5 = 8$'], topic: 'signed', level: 1, skill: 'חיבור וחיסור', graded: 'key', overridden: true, item: { text: 'חשבו:', display: '3 - (-5)', fig: null, form: 'num', choices: null } };
+const checkedExam = { id: 'ex1', at: '2026-11-04T10:00:00.000Z', title: 'מבחן במשוואות', source: 'upload', practiceId: null, result: { readable: true, title: 'מבחן במשוואות', questions: [checkedQ, keyQ], summary: 'כמעט.', weakTopics: [], nextSteps: [], care: false }, score: { correct: 1, total: 2, pct: 50 }, levels: {} };
+
+test.describe('the tutor', () => {
+  test('the assistant: a question and its finished reply', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    await expect(page.getByText('שאלו כל שאלה במתמטיקה')).toBeVisible();
+    await scan(page, 'the assistant');
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך מחברים 3 ועוד מינוס 5?'); await draft.press('Enter');
+    await expect(page.locator('.msg-row.assistant').last()).toContainText('כדי לחבר מספרים');
+    await scan(page, 'the assistant with a reply');
+  });
+
+  test('the assistant with no server: not connected, and the support sheet from it', async ({ page }) => {
+    await open(page, '#/assistant', student('7'));
+    await expect(page.getByRole('heading', { name: 'העוזר עוד לא מחובר' })).toBeVisible();
+    await scan(page, 'the assistant, not connected');
+    await page.getByRole('button', { name: 'צריכים לדבר עם מישהו?' }).click();
+    await expect(page.getByRole('dialog', { name: 'חשוב לנו שתהיו בסדר' })).toBeVisible();
+    await scan(page, 'the support sheet');
+  });
+
+  test('a message that reads as distress: the support card in the chat', async ({ page }) => {
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await page.route(`${API}/api/ai/chat`, (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      log.push({ path: '/api/ai/chat' });
+      return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: CORS, body: 'תודה שכתבתם. מה שאתם מרגישים חשוב. אפשר להתקשר לער״ן, 1201, בכל שעה.\n[[care]]' });
+    });
+    await open(page, '#/assistant', withServer());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('אני רוצה להיעלם'); await draft.press('Enter');
+    await expect(page.locator('.chat .support-card')).toBeVisible();
+    await expect(page.locator('.msg-row.assistant').last()).toContainText('תודה שכתבתם');
+    await scan(page, 'the support card in the chat');
+  });
+
+  test('the tutor\'s introduction (AIIntro) before the first message', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '' } }));
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('מה זה מספר שלילי?'); await draft.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'לפני שמתחילים עם העוזר החכם' })).toBeVisible();
+    await scan(page, 'the tutor\'s introduction');
+  });
+
+  test('a class whose AI is off: the assistant says so', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await page.route(`${API}/api/ai/status`, refuseClassAi);
+    await open(page, '#/assistant', inClass());
+    await expect(page.getByRole('heading', { name: 'בכיתה הזו העוזר החכם כבוי' })).toBeVisible();
+    await scan(page, 'the assistant, class AI off');
+  });
+
+  test('a class whose AI is off: the sheet after a refused answer', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf()); // the status still says free: the refusal comes with the answer
+    await page.route(`${API}/api/ai/chat`, refuseClassAi);
+    await open(page, '#/assistant', inClass());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך פותרים 3x = 12?'); await draft.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'בכיתה הזו העוזר החכם כבוי' })).toBeVisible();
+    await scan(page, 'the class-AI-off sheet');
+  });
+
+  test('waiting for a parent\'s OK: the assistant and the sheet', async ({ page }) => {
+    await fakeServer(page, {}, baseOf()); // parentOk false, as on the real server
+    await open(page, '#/assistant', withServer());
+    await expect(page.getByRole('heading', { name: 'קודם, אישור של הורה' })).toBeVisible();
+    await scan(page, 'the assistant, waiting for a parent');
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('מה זה שבר?'); await draft.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'קודם, אישור של הורה' })).toBeVisible();
+    await scan(page, 'the parent-OK sheet');
+  });
+
+  test('the limit sheet in a lesson', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/lesson/signed/1', withServer());
+    await answer(page, false); await proceed(page); await answer(page, false);
+    await expect(page.locator('section.fb-reveal')).toBeVisible();
+    st.freeLimit = 0;
+    await page.getByRole('button', { name: 'למה טעיתי?' }).click();
+    await expect(page.getByRole('dialog', { name: 'העוזר החכם חוזר מחר' })).toBeVisible();
+    await scan(page, 'the limit sheet');
+  });
+
+  test('a class student: the help request\'s support card (SupportCard) after a note that reads as distress', async ({ page }) => {
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await page.route(`${API}/api/help`, (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+      log.push({ path: '/api/help' });
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: CORS, body: '{"ok":true}' });
+    });
+    await open(page, '#/lesson/signed/1', inClass());
+    await page.getByRole('button', { name: 'למורה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'לבקש עזרה מהמורה' });
+    await sheet.getByLabel('מה לא ברור? (לא חובה)').fill('לא הבנתי, וגם עושים לי חרם בכיתה');
+    await sheet.getByRole('button', { name: 'שליחה למורה' }).click();
+    await expect(sheet.locator('.support-card')).toBeVisible();
+    await scan(page, 'the support card in the help sheet');
+  });
+
+  test('the photo check: the tool, the warning, PhotoPrep on a photo, and the result', async ({ page }) => {
+    await familyServer(page);
+    await open(page, '#/assistant', family());
+    await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
+    const sheet = page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' });
+    await expect(sheet.getByRole('button', { name: 'צילום הדף' })).toBeVisible();
+    await scan(page, 'the photo check');
+    await sheet.getByRole('button', { name: 'צילום הדף' }).click();
+    await expect(warnSheet(page)).toBeVisible();
+    await scan(page, 'PhotoWarn');
+    const camera = page.waitForEvent('filechooser');
+    await warnSheet(page).getByRole('button', { name: 'הבנתי, לצלם' }).click();
+    await (await camera).setFiles({ name: 'work.png', mimeType: 'image/png', buffer: await examPng(page) });
+    await expect(prepSheet(page).getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toBeVisible();
+    await scan(page, 'PhotoPrep on a photo');
+    await prepSheet(page).getByRole('button', { name: 'הוספת מלבן' }).click();
+    await expect(prepSheet(page).getByRole('button', { name: 'מלבן שחור 1' })).toBeFocused();
+    await scan(page, 'PhotoPrep with a box');
+    await prepSheet(page).getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(sheet.getByRole('img', { name: 'התמונה שבחרתם' })).toBeVisible();
+    await scan(page, 'the photo check, a picture chosen');
+    await sheet.getByRole('button', { name: 'בדיקת הפתרון' }).click();
+    await expect(sheet.getByText('התשובה הסופית נכונה.')).toBeVisible();
+    await scan(page, 'the photo check\'s result');
+  });
+
+  test('the free tutor\'s photo check: what it is, before any upload', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
+    await expect(page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' }).getByText('את הבדיקה הזו עושה העוזר החכם המלא.')).toBeVisible();
+    await scan(page, 'the photo check, locked');
+  });
+});
+
+test.describe('the exams', () => {
+  test('the exams list', async ({ page }) => {
+    await open(page, '#/exams', family({ exams: [checkedExam] }));
+    await expect(page.getByRole('heading', { name: 'מבחנים שנבדקו' })).toBeVisible();
+    await scan(page, 'the exams list');
+  });
+
+  test('the exam check: locked on the free tutor', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/exams/check', withServer());
+    await expect(page.getByText('את בדיקת המבחן עושה העוזר החכם המלא.')).toBeVisible();
+    await scan(page, 'the exam check, locked');
+  });
+
+  test('the exam check: the pages, PhotoPrep on a PDF page, the pages chosen', async ({ page }) => {
+    await familyServer(page);
+    await open(page, '#/exams/check', family());
+    await expect(page.getByRole('button', { name: 'תמונה או PDF' })).toBeVisible();
+    await scan(page, 'the exam check');
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'תמונה או PDF' }).click();
+    await warnSheet(page).getByRole('button', { name: 'הבנתי, לצלם' }).click();
+    await (await chooser).setFiles(PDF);
+    const prep = prepSheet(page);
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '15');
+    await scan(page, 'PhotoPrep on a PDF page');
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '0');
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(prep).toHaveCount(0);
+    await expect(page.getByRole('img', { name: 'דף 2' })).toBeVisible();
+    await scan(page, 'the exam check with two pages');
+  });
+
+  test('a checked exam (ExamResult) and its question sheet', async ({ page }) => {
+    await familyServer(page);
+    await open(page, '#/exams/ex1', family({ exams: [checkedExam] }));
+    await expect(page.locator('.q-card')).toHaveCount(2);
+    await scan(page, 'ExamResult');
+    await page.getByRole('button', { name: 'שאלו על השאלה' }).first().click();
+    await expect(page.getByRole('dialog', { name: 'שאלה 1' })).toBeVisible();
+    await scan(page, 'a question\'s sheet');
+  });
+
+  test('a new practice exam (NewPracticeExam), then its sheet (PracticeSheet)', async ({ page }) => {
+    await open(page, '#/exams/new', livedIn('7'));
+    await scan(page, 'NewPracticeExam, the topics');
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await page.getByRole('radio', { name: /10 שאלות/ }).click();
+    await scan(page, 'NewPracticeExam, the length');
+    await page.getByRole('button', { name: 'הכנת המבחן' }).click();
+    await expect(page.locator('.exam-q')).toHaveCount(10);
+    await scan(page, 'PracticeSheet');
+  });
+
+  test('a class exam from the teacher (ClassExam)', async ({ page }) => {
+    await fakeServer(page, { today: '2026-11-09', assignments: [examWork()] }, baseOf());
+    await open(page, '#/class/exam/a000000000000004', inClass(), undefined, { at: new Date('2026-11-09T10:00:00') });
+    await expect(page.getByRole('heading', { level: 1, name: 'מבחן תרגול: לפני החנוכה' })).toBeVisible();
+    await scan(page, 'ClassExam');
+  });
+});
+
+// ---------------------------------------------------------------- the parents' area (PKG-1n)
+/** The parent's own phone: no student profile, the app pointed at the fake server, and (signedIn) the parent's session. */
+const parentPhone = () => withServer({ profile: null });
+const session = { 'madregot-parent': JSON.stringify({ token: PARENT, email: 'parent@example.test' }) };
+
+test.describe('the parents\' area', () => {
+  test('the adult step on a child\'s device, open and then closed for a child\'s year', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/parents?here=1', withServer());
+    const gate = page.locator('.adult-gate');
+    await expect(gate.getByRole('heading', { name: 'המסך הזה בשביל ההורים' })).toBeVisible();
+    await scan(page, 'the adult step');
+    await gate.getByLabel('שנת הלידה שלכם').fill('2013');
+    await gate.getByRole('button', { name: 'המשך' }).click();
+    await expect(gate.getByText('המסך הזה מיועד להורים.', { exact: false })).toBeVisible();
+    await scan(page, 'the adult step, closed');
+  });
+
+  test('the parents\' sign-in: the email, then the code, then a wrong code', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/parents', parentPhone());
+    await expect(page.getByRole('heading', { name: 'כניסה עם המייל' })).toBeVisible();
+    await scan(page, 'the parents\' sign-in');
+    await page.getByLabel('כתובת המייל שלכם').fill('parent@example.test');
+    await page.getByRole('button', { name: 'שליחת קוד' }).click();
+    await expect(page.getByText('שלחנו קוד בן 6 ספרות אל')).toBeVisible();
+    await scan(page, 'the code form');
+    await page.getByLabel('הקוד מהמייל').fill('111111');
+    await expect(page.getByRole('alert')).toContainText('הקוד לא נכון');
+    await scan(page, 'a wrong code');
+  });
+
+  test('/parents signed in: the plan card, the cancel sheet, the devices', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true, plan: livePlan() }, baseOf());
+    st.sessions.add(PARENT);
+    st.devices.push({ id: 'd000000000000009', label: 'הטאבלט', token: `fd1.${'9'.repeat(64)}` });
+    await open(page, '#/parents', parentPhone(), undefined, { local: session });
+    await expect(page.getByRole('heading', { name: /^המנוי פעיל/ })).toBeVisible();
+    await scan(page, '/parents with a plan');
+    await page.getByRole('button', { name: 'מכשירים מחוברים (1)' }).click();
+    await expect(page.getByRole('button', { name: 'ניתוק' })).toBeVisible();
+    await scan(page, '/parents, the devices open');
+    await page.getByRole('button', { name: 'ביטול המנוי' }).click();
+    await expect(page.getByRole('dialog', { name: 'לבטל את המנוי?' })).toBeVisible();
+    await scan(page, 'the cancel sheet');
+  });
+
+  test('/parents signed in with no plan: the plans', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.sessions.add(PARENT);
+    await open(page, '#/parents', parentPhone(), undefined, { local: session });
+    await expect(page.getByRole('heading', { name: 'אין מנוי פעיל' })).toBeVisible();
+    await scan(page, '/parents, no plan');
+  });
+
+  test('the parents\' report (.parents-report): each device\'s week, the 8 weeks, the switches', async ({ page }) => {
+    await parentServer(page.context(), baseOf());
+    await open(page, '#/parents', parentPhone(), undefined, { local: session });
+    await expect(page.getByRole('heading', { level: 2, name: 'ההתקדמות' })).toBeVisible();
+    await expect(page.locator('.report-device-head h3')).toHaveText(['הטאבלט', 'הטלפון']);
+    await expect(page.locator('.weeks-chart table tbody tr').first()).toBeAttached();
+    await page.locator('.parents-report').scrollIntoViewIfNeeded();
+    await scan(page, 'the parents\' report');
+    const tablet = page.locator('.report-device').filter({ has: page.getByRole('heading', { level: 3, name: 'הטאבלט', exact: true }) });
+    await tablet.getByRole('radio', { name: 'השבוע שעבר' }).click();
+    await expect(tablet.locator('.report-dates')).toHaveText('א׳ 25.10 – ש׳ 31.10');
+    await scan(page, 'the parents\' report, last week');
+    await tablet.getByRole('button', { name: 'לכבות' }).click();
+    await expect(tablet.getByText('כיביתם את הסיכום מהמכשיר הזה.')).toBeVisible();
+    await scan(page, 'the parents\' report, a device switched off');
+  });
+
+  test('the parents\' report on the first day: a device linked with nothing yet', async ({ page }) => {
+    await parentServer(page.context(), baseOf(), { summaries: {} });
+    await open(page, '#/parents', parentPhone(), undefined, { local: session });
+    await expect(page.getByRole('heading', { level: 2, name: 'ההתקדמות' })).toBeVisible();
+    await scan(page, 'the parents\' report, nothing yet');
+  });
+
+  test('/parents/link: the consent for the child\'s device', async ({ page }) => {
+    const { st } = await fakeServer(page, { links: { K7M4QX: { secret: 'f'.repeat(32), claimed: false, collected: false } } }, baseOf());
+    st.sessions.add(PARENT);
+    await open(page, '#/parents/link?c=K7M4QX', parentPhone(), undefined, { local: session });
+    const card = page.locator('section', { has: page.getByRole('heading', { name: 'אישור העוזר החכם במכשיר של הילד' }) });
+    await expect(card).toBeVisible();
+    await scan(page, '/parents/link');
+    await card.getByRole('button', { name: 'אישור וחיבור המכשיר' }).click();
+    await expect(card.getByRole('alert')).toBeVisible();
+    await scan(page, '/parents/link, the box not ticked');
+  });
+
+  test('/parents/info: the screen for the parents on the child\'s device', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/parents/info', withServer());
+    await expect(page.getByRole('heading', { name: 'המסך הזה בשביל ההורים' })).toBeVisible();
+    await expect(page.locator('.handoff-code')).toHaveText('K7M4QX');
+    await scan(page, '/parents/info');
+  });
+
+  test('/cancel: signed out', async ({ page }) => {
+    await fakeServer(page, { parentOk: true, plan: livePlan({ canRefundNow: false }) }, baseOf());
+    await open(page, '#/cancel', parentPhone());
+    await expect(page.getByRole('heading', { name: 'ביטול מנוי' })).toBeVisible();
+    await scan(page, '/cancel');
+  });
+
+  test('the shared report (/r/:data), and a cut link', async ({ page }) => {
+    await open(page, '#/report', reportWeek());
+    await page.getByRole('button', { name: 'לשלוח להורים' }).click();
+    const href = await page.getByRole('dialog', { name: 'לשלוח להורים' }).getByRole('link', { name: 'וואטסאפ' }).getAttribute('href');
+    const payload = /#\/r\/(1\.[A-Za-z0-9_-]+)/.exec(decodeURIComponent(href))[1];
+    await open(page, `#/r/${payload}`);
+    await expect(page.getByRole('link', { name: 'מה זה מדרגות?' })).toBeVisible();
+    await scan(page, 'the shared report');
+    await open(page, `#/r/${payload.slice(0, 20)}`);
+    await scan(page, 'a cut link');
+  });
+});
+
+// ---------------------------------------------------------------- the public pages (PKG-1o)
+const LEGAL = [['#/privacy', 'מדיניות פרטיות'], ['#/terms', 'תקנון'], ['#/accessibility', 'הצהרת נגישות'], ['#/safety', 'בטיחות בעוזר החכם']];
+test.describe('the public pages', () => {
+  test('the legal pages with no server: the draft banner and the blanks', async ({ page }) => {
+    await open(page, '#/');
+    for (const [route, title] of LEGAL) {
+      await page.goto(`./${route}`);
+      await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+      await expect(page.getByRole('note')).toHaveText('טיוטה לבדיקה משפטית. הנוסח עוד לא סופי.');
+      await scan(page, `${title}, no server`);
+    }
+  });
+
+  test('the legal pages with a server: approved, the details filled in', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/privacy', withServer());
+    for (const [route, title] of LEGAL) {
+      await page.goto(`./${route}`);
+      await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+      await expect(page.getByRole('note')).toHaveCount(0); // approved: no draft banner
+      await expect(page.locator('article.legal')).not.toContainText('______'); // the details are filled in
+      await scan(page, `${title}, approved`);
+    }
+  });
+
+  test('the legal pages with a server whose texts wait for the lawyer: the draft banner and the details', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.legalApproved = false;
+    await open(page, '#/terms', withServer());
+    await expect(page.getByRole('note')).toHaveText('טיוטה לבדיקה משפטית. הנוסח עוד לא סופי.');
+    await expect(page.locator('article.legal')).toContainText('מדרגות בדיקה, עוסק מורשה 000000000');
+    await scan(page, 'the terms, a draft with the details');
+  });
+
+  for (const [path, title] of [['mivchan/', 'מבחן במתמטיקה ביום חמישי?'], ['pilot/', null]]) {
+    test(`the landing page /${path}`, async ({ page }) => {
+      await landingMetrics(page);
+      await openLanding(page, path);
+      if (title) await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+      else await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await scan(page, `the landing page /${path}`);
+    });
+  }
+});
+
+// ---------------------------------------------------------------- the teacher (PKG-1p)
+const EMAIL = 'teacher@example.test';
+const tools = (page) => page.getByRole('navigation', { name: 'כלים' });
+/** A class of nine with work, mistakes, help and a page for יואב (fakeServer.js's TEACHER-8 class). */
+const richClass = () => ({
+  students: nine(), help: helpNoa(), studentPages: { s2: yoavPage() }, assignments: [given({ startsOn: '2026-11-02', createdAt: '2026-11-02T07:00:00.000Z' })],
+  mistakes: [{ topic: 'signed', cat: 'sign', level: 1, n: 3, students: 2, ids: ['s1', 's2'], names: ['דנה', 'יואב'] }],
+});
+
+test.describe('the teacher', () => {
+  test('TeacherStart: the way in, the email, the code, the class\'s details, the class ready', async ({ page }) => {
+    await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/', withServer({ profile: null }));
+    await page.getByRole('button', { name: 'אני מורה', exact: true }).click();
+    await expect(page.getByText('שלום! איך נכנסים ללוח המורה?')).toBeVisible();
+    await scan(page, 'TeacherStart, the way in');
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await expect(page.getByText('מה המייל שלכם?')).toBeVisible();
+    await scan(page, 'TeacherStart, the email');
+    await page.getByLabel('כתובת המייל שלכם').fill(EMAIL);
+    await page.getByRole('button', { name: 'שליחת קוד' }).click();
+    await expect(page.getByLabel('הקוד מהמייל')).toBeVisible();
+    await scan(page, 'TeacherStart, the code');
+    await page.getByLabel('הקוד מהמייל').fill('123456');
+    await expect(page.getByText('איך קוראים לכם ולכיתה?')).toBeVisible();
+    await scan(page, 'TeacherStart, the details');
+    await page.locator('#t-name').fill('רונית כהן');
+    await page.locator('#t-class').fill('ז׳3');
+    await page.getByRole('button', { name: 'פתיחת הכיתה' }).click();
+    await expect(page.getByRole('heading', { name: 'הכיתה מוכנה!' })).toBeVisible();
+    await scan(page, 'the class ready (FreshClass)');
+  });
+
+  test('the board: מחר, משימות, תלמידים, מבחנים, עזרה', async ({ page }) => {
+    await fakeServer(page, richClass(), baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await expect(page.getByRole('region', { name: 'כדאי לבדוק איתם' }).locator('.t-row')).toHaveCount(6);
+    await scan(page, 'the board, מחר');
+    for (const tab of [/^משימות/, /^תלמידים/, /^מבחנים/, /^עזרה/]) {
+      await page.getByRole('tab', { name: tab }).click();
+      await expect(page.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true');
+      await scan(page, `the board, ${tab.source.slice(1)}`);
+    }
+  });
+
+  test('the board\'s sheets: a student\'s page, giving work, the work\'s detail, another class', async ({ page }) => {
+    await fakeServer(page, richClass(), baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    const group = page.getByRole('region', { name: 'כדאי לבדוק איתם' });
+    await group.getByRole('button', { name: 'יואב', exact: true }).click();
+    const sheet = page.getByRole('dialog', { name: 'יואב' });
+    await expect(sheet.getByRole('heading', { name: 'מבחנים', exact: true })).toBeVisible();
+    await scan(page, 'a student\'s page (StudentSheet)');
+    await sheet.getByRole('button', { name: 'לתת תרגול' }).click();
+    await expect(page.getByRole('dialog', { name: 'משימה לכיתה ז׳3' })).toBeVisible();
+    await scan(page, 'giving work (AssignSheet)');
+    await page.keyboard.press('Escape');
+    await page.getByRole('tab', { name: /^משימות/ }).click();
+    await page.locator('.tw-row').first().click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await scan(page, 'the work\'s detail (AssignmentSheet)');
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'כיתה נוספת' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await scan(page, 'another class');
+  });
+
+  test('the lessons, and a lesson in the student view (PreviewFrame)', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher', keyTeacher());
+    await tools(page).getByRole('link', { name: 'השיעורים' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'השיעורים של כיתה ז׳' })).toBeVisible();
+    await scan(page, 'the lessons');
+    await page.getByRole('region', { name: 'מספרים מכוונים' }).getByRole('link', { name: 'לשיעור: חיבור וחיסור' }).click();
+    const bar = page.getByRole('region', { name: 'תצוגת תלמיד' });
+    await expect(bar).toBeVisible();
+    await expect(page.getByRole('list', { name: 'שלבי המדרגה' })).toBeVisible();
+    await scan(page, 'a stair in the student view');
+    await page.evaluate(() => { window.location.hash = '#/lesson/signed/1'; });
+    await expect.poll(() => item(page)).toBeTruthy();
+    await expect(bar).toBeVisible();
+    await scan(page, 'a lesson in the student view');
+  });
+
+  test('the class settings: the class AI card, the licence, and the delete flow', async ({ page }) => {
+    await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/teacher/settings', keyTeacher());
+    await expect(page.getByRole('region', { name: 'העוזר החכם לתלמידים' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'הצעת מחיר לבית הספר' })).toBeVisible();
+    await scan(page, 'the class settings');
+    await page.getByRole('button', { name: 'מחיקת הכיתה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'למחוק את הכיתה ז׳3?' });
+    await expect(sheet).toBeVisible();
+    await scan(page, 'deleting the class');
+    await sheet.getByLabel('כדי לאשר, כתבו את שם הכיתה: ז׳3').fill('ז׳3');
+    await expect(sheet.getByRole('button', { name: 'כן, למחוק את הכיתה' })).toBeEnabled();
+    await scan(page, 'deleting the class, the name typed');
+  });
+
+  test('the class settings, AI approved: the consent and then the switch', async ({ page }) => {
+    const { st } = await fakeServer(page.context(), { owned: true, ai: { approval: 'approved', consentAt: '2026-11-01T10:00:00.000Z', studentAi: 'on' } }, baseOf());
+    st.sessions.add(PARENT);
+    await open(page, '#/teacher/settings', keyTeacher(), undefined, { local: { 'madregot-parent': JSON.stringify({ token: PARENT, email: EMAIL }) } });
+    const card = page.getByRole('region', { name: 'העוזר החכם לתלמידים' });
+    await expect(card).toBeVisible();
+    await card.scrollIntoViewIfNeeded();
+    await scan(page, 'the class AI card, approved');
+  });
+
+  test('the class report', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher/report', keyTeacher());
+    await expect(page.getByRole('heading', { name: 'דוח הכיתה' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'טבלת הדוח' })).toBeVisible();
+    await scan(page, 'the class report');
+  });
+
+  test('the teacher\'s assistant, asked and answered', async ({ page }) => {
+    await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/teacher/assistant', keyTeacher());
+    await expect(page.getByRole('heading', { level: 1, name: 'העוזר החכם' })).toBeVisible();
+    await scan(page, 'the teacher\'s assistant');
+    await page.getByLabel('ההודעה שלכם').fill('איך להסביר חיבור של מספר חיובי ומספר שלילי?');
+    await page.getByRole('button', { name: 'שליחה' }).click();
+    await expect(page.locator('.msg-row.assistant').last()).toContainText('כדי לחבר מספרים');
+    await scan(page, 'the teacher\'s assistant with a reply');
+  });
+
+  test('a class exam: the builder\'s questions, then the sheet', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher/exam/new', keyTeacher());
+    await expect(page.getByText('על אילו מדרגות יהיה המבחן?')).toBeVisible();
+    await scan(page, 'the exam builder, the stairs');
+    await page.getByRole('checkbox', { name: 'כל היחידה: מספרים מכוונים' }).click();
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await scan(page, 'the exam builder, the next question');
+    for (let k = 0; k < 4 && /\/exam\/new/.test(page.url()); k += 1) {
+      const next = page.locator('.ob-foot button[type="submit"], .ob-foot .btn-primary').last();
+      if (!(await next.isVisible().catch(() => false))) break;
+      await next.click();
+    }
+    await expect(page).toHaveURL(/#\/teacher\/exam\/(?!new$)[^/]+$/);
+    await expect(page.locator('.exam-q').first()).toBeVisible();
+    await scan(page, 'the exam sheet');
+  });
+
+  test('the teacher\'s guide and a document in it', async ({ page }) => {
+    await fakeServer(page, {}, baseOf());
+    await open(page, '#/teacher/guide', keyTeacher());
+    await expect(page.getByRole('link', { name: /מכתב להורים ואישור השתתפות/ })).toBeVisible();
+    await scan(page, 'the teacher\'s guide');
+    await page.getByRole('link', { name: /מכתב להורים ואישור השתתפות/ }).click();
+    await expect(page.getByRole('heading', { name: 'מכתב להורים ואישור השתתפות', level: 1 })).toBeVisible();
+    await scan(page, 'the parent letter');
+  });
+
+  test('the demo board (TEACHER-15): every view, a student\'s page, the settings', async ({ page }) => {
+    await open(page, '#/?start=demo');
+    await expect(page.getByRole('heading', { name: 'ז׳3 (דוגמה)' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'כיתה לדוגמה' })).toBeVisible();
+    await scan(page, 'the demo board');
+    for (const tab of [/^משימות/, /^תלמידים/, /^מבחנים/, /^עזרה/]) {
+      await page.getByRole('tab', { name: tab }).click();
+      await expect(page.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true');
+      await scan(page, `the demo board, ${tab.source.slice(1)}`);
+    }
+    await tools(page).getByRole('link', { name: 'הגדרות הכיתה' }).click();
+    await expect(page.getByRole('heading', { name: 'הגדרות הכיתה ז׳3 (דוגמה)' })).toBeVisible();
+    await scan(page, 'the demo\'s settings');
+  });
+
+  test('the student\'s Quests with the teacher\'s block', async ({ page }) => {
+    await fakeServer(page, { today: '2026-11-09', assignments: [given(), examWork()] }, baseOf());
+    await open(page, '#/quests', inClass(), undefined, { at: new Date('2026-11-09T10:00:00') });
+    await expect(page.getByRole('region', { name: 'מהמורה רונית' }).getByRole('listitem').first()).toBeVisible();
+    await scan(page, 'Quests with the teacher\'s work');
   });
 });

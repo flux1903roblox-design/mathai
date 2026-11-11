@@ -5,14 +5,13 @@
 // PKG_SHOTS=<folder> saves pictures of the burst for a look (nothing is compared).
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { open, student, answer, proceed, proceedToNext, saved, item, expectNoSidewaysScroll, expectUsable } from './helpers.js';
+import { open, student, answer, proceed, proceedToNext, saved, item, expectNoSidewaysScroll, expectUsable, dressed, doneStairs } from './helpers.js';
 import { expectTextContrast } from './contrast.js';
 
 const only = (...names) => ({}, info) => test.skip(!names.includes(info.project.name), `runs on ${names.join(' and ')}`);
-const done = (levels) => ({ parts: {}, reviews: 0, jumped: 0, done: Object.fromEntries(levels.map((l) => [l, 'mastered'])) });
-// the angles chest open (stairs 1 to 3), the stats unit mastered (all 5); טורקיז earned before, and stays earned
-const look = (extra = {}) => ({ color: 'sky', head: null, face: null, neck: null, body: null, earned: ['petrol'], seen: ['petrol', 'fuchsia', 'protractor-crown', 'bars-pin'], earnedAt: { petrol: '2026-10-20' }, ...extra });
-const dressed = (extra = {}) => student('7', { path: { angles: done([1, 2, 3]), stats: done([1, 2, 3, 4, 5]) }, look: look(extra) });
+// dressed (helpers.js, shared with a11y.spec.js): the angles chest open (stairs 1 to 3), the stats unit mastered (all 5);
+// טורקיז earned before, and stays earned
+const done = doneStairs;
 const lo = (page) => page.locator('.wardrobe-madi').getAttribute('style');
 
 // the last stair of זוויות still to master; the unit's chest (the crown) was opened and shown before
