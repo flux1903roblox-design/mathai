@@ -30,7 +30,7 @@ export const STAIR_NAMES = Object.freeze({
   'frac:3': 'חיבור וחיסור שברים',
   'frac:4': 'כפל וחילוק שברים',
   'signed:1': 'חיבור וחיסור',
-  'signed:2': 'השוואת מספרים',
+  'signed:2': 'השוואה וערך מוחלט',
   'signed:3': 'כפל וחילוק',
   'signed:4': 'סדר פעולות',
   'signed:5': 'סוגריים',

@@ -616,3 +616,67 @@ describe('the algebra checks catch what they are for', () => {
     exBad(ex([st('y = 2x', { eq: 'y = 2*x' }), st('x + 2x = 8', { eq: 'x + 2*x = 8' })], base));
   });
 });
+
+// CLASSROOM-1 and -2: the book's order in signed:1, the class's chains in its two steps, absolute value and opposites
+describe('the real classroom: signed:1 and signed:2', () => {
+  const s1 = CONTENT['signed:1'];
+  const s2 = CONTENT['signed:2'];
+  const words = (st: DiscoverStep) => JSON.stringify(st);
+  it('signed:1 teaches in the book\'s order: the line, absolute value as arrows, adding, opposites, subtracting', () => {
+    const at = (pred: (st: DiscoverStep) => boolean) => s1.discover.findIndex(pred);
+    const arrows = at((st) => words(st).includes('הערך המוחלט') && words(st).includes('\\\\lvert'));
+    const adding = at((st) => st.kind === 'explore' && /\+/.test(st.display || ''));
+    const opposites = at((st) => st.kind === 'rule' && st.text.includes('נגדיים'));
+    const subtracting = at((st) => st.text.startsWith('ומה עם חיסור?'));
+    expect(arrows).toBe(1);
+    expect(arrows < adding && adding < opposites && opposites < subtracting, `${arrows} ${adding} ${opposites} ${subtracting}`).toBe(true);
+    // the word "the opposite" is never used before the step that teaches it
+    s1.discover.slice(0, opposites).forEach((st, i) => expect(words(st), `step ${i + 1} says הנגדי before the opposites rule`).not.toContain('הנגדי'));
+    expect(words(s1.discover[opposites + 1])).toContain('מה הנגדי של $-17$?');
+  });
+  it('signed:2 asks which is bigger and which is farther from zero, after its comparison rule', () => {
+    const rule = s2.discover.findIndex((st) => st.kind === 'rule');
+    const both = s2.discover.findIndex((st) => st.kind === 'predict' && st.text.includes('\\lvert -9 \\rvert'));
+    expect(rule).toBeGreaterThanOrEqual(0);
+    expect(both).toBeGreaterThan(rule);
+  });
+  it('the chains\' worked examples are the class\'s two steps, and every step evaluates', () => {
+    const chains = s1.examples.filter((e) => /\(\+/.test(e.display || ''));
+    expect(chains.map((e) => e.answer)).toEqual([-12, -17]);
+    chains.forEach((e, k) => checkExample(e, k));
+    const said = JSON.stringify(chains);
+    for (const w of ['מורידים סוגריים', 'השליליים יחד', 'החיוביים יחד', 'מחסרים $0$: לא משתנה כלום']) expect(said).toContain(w);
+    expect(evaluate(chains[0].check)).toBe(-12);
+    expect(evaluate(chains[1].check)).toBe(-17);
+  });
+  it('the chain in signed:1\'s model: a quarter of the draws, and each of its mistakes shows (spec 100%, 97%, 52%)', () => {
+    const rnd = seeded(2026);
+    const fired: Record<string, number> = {}; let chains = 0;
+    for (let i = 0; i < 4000; i += 1) {
+      const p = s1.diag.params(rnd);
+      if (p.f !== 2) continue;
+      chains += 1;
+      const ans = s1.diag.answer(p);
+      Object.entries(s1.diag.bugs).forEach(([id, f]) => { const v = f(p); if (v != null && !same(v, ans)) fired[id] = (fired[id] || 0) + 1; });
+    }
+    expect(chains / 4000).toBeGreaterThan(0.2);
+    expect(chains / 4000).toBeLessThan(0.3);
+    expect(fired['minus-minus']).toBe(chains);
+    expect(fired.sign / chains).toBeGreaterThan(0.9);
+    expect(fired['drop-sign'] / chains).toBeGreaterThan(0.4);
+    for (const id of ['abs-add', 'neg-neg-plus', 'direction']) expect(fired[id] || 0, id).toBe(0);
+  });
+  it('absolute value and opposites each show on more than 4% of signed:2\'s model draws', () => {
+    const rnd = seeded(2027);
+    const fired: Record<string, number> = {};
+    for (let i = 0; i < DRAWS * 5; i += 1) {
+      const p = s2.diag.params(rnd); const ans = s2.diag.answer(p);
+      Object.entries(s2.diag.bugs).forEach(([id, f]) => { const v = f(p); if (v != null && !same(v, ans)) fired[id] = (fired[id] || 0) + 1; });
+    }
+    expect(fired['abs-keep-sign'] / (DRAWS * 5)).toBeGreaterThan(0.04);
+    expect(fired['opp-same'] / (DRAWS * 5)).toBeGreaterThan(0.04);
+    expect(s2.misconceptions.map((m) => m.id)).toEqual(expect.arrayContaining(['abs-keep-sign', 'opp-same']));
+    // each remedy draws: an arrow from 0 for the absolute value, two marks at one distance for the opposite
+    for (const id of ['abs-keep-sign', 'opp-same']) expect(s2.misconceptions.find((m) => m.id === id)!.remedy.some((st) => (st as { fig?: FigSpec }).fig?.type === 'numline'), id).toBe(true);
+  });
+});

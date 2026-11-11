@@ -32,6 +32,8 @@ import { toFrac } from '@/content/util.js';
 import { probeItem, startLevel, nextProbe, PER_TOPIC, PROBE_LEN, KNOW } from '@/lib/placement.js';
 // @ts-ignore: plain JS
 import { JUMP_SOURCES, JUMP_MISTAKES } from '@/lib/lesson.js';
+// @ts-ignore: plain JS
+import { chainItem, absItem, oppItem } from '@/content/signedItems.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
 const CONTENT = await loadAllContent();
@@ -186,6 +188,21 @@ describe('the placement test cannot be passed by guessing', () => {
     });
     expect(PER_TOPIC).toBe(2);
   }, SLOW);
+});
+
+// CLASSROOM-1 and -2: the class's new kinds alone, as the spec simulated them (the chain 3.8%, absItem 4.6%, oppItem 4.0%
+// for the most common answer): never answered by a number printed in them, and no answer common enough to pass a check
+describe('the class\'s signed kinds cannot be guessed', () => {
+  it.each([['the chain of five', chainItem, 0.05], ['absolute value', absItem, 0.06], ['the opposite', oppItem, 0.055]] as const)('%s', (_name, make, most) => {
+    const items = Array.from({ length: 4000 }, () => make(Math.random));
+    const freq = new Map<number, number>();
+    items.forEach((it) => freq.set(it.answer, (freq.get(it.answer) || 0) + 1));
+    const common = Math.max(...freq.values()) / items.length;
+    expect(common).toBeLessThan(most);
+    expect(atLeast([common, common, common, common, common], 4)).toBeLessThan(LIMIT / 10);
+    // a number copied from the question is never the answer
+    items.forEach((it) => expect(shownNumbers(it).some((v) => isCorrect(it, v)), it.key).toBe(false));
+  });
 });
 
 describe('the guessing measure itself', () => {

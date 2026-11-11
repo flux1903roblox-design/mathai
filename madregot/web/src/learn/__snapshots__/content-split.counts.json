@@ -855,8 +855,10 @@
  "signed": {
   "skills": {
    "signed:1": {
-    "discover": 10,
+    "discover": 13,
     "examples": [
+     3,
+     4,
      3,
      4
     ],
@@ -866,25 +868,28 @@
      2,
      2,
      1,
+     2,
      2
     ],
-    "objectives": 3,
+    "objectives": 4,
     "together": [
      2,
      1
     ]
    },
    "signed:2": {
-    "discover": 10,
+    "discover": 11,
     "examples": [
      3,
      3
     ],
     "misconceptions": [
      3,
+     3,
+     3,
      3
     ],
-    "objectives": 3,
+    "objectives": 4,
     "together": [
      2,
      2
@@ -963,7 +968,7 @@
    }
   },
   "stairs": 6,
-  "steps": 168
+  "steps": 187
  },
  "stats": {
   "skills": {

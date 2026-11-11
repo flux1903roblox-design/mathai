@@ -170,8 +170,8 @@ the row to paste when one differs.
 | frac:2 | השוואת שברים ועשרוניים | 8 (pins) | 2 | 2 | 3 (longer-larger, shorter-larger, bigger-den) | yes | יסודות; complete, tested |
 | frac:3 | חיבור וחיסור שברים | 8 (fbar) | 3 | 2 | 2 (add-across, num-not-scaled) | yes | יסודות; complete, tested |
 | frac:4 | כפל וחילוק שברים | 8 (numberline) | 3 | 2 | 3 (keep-den, divide-flip, mult-bigger) | yes | יסודות; complete, tested |
-| signed:1 | חיבור וחיסור | 10 (numberline) | 2 | 2 | 6 (minus-minus, sign, abs-add, drop-sign, neg-neg-plus, direction) | yes | complete, tested |
-| signed:2 | השוואת מספרים | 10 (pins, numberline) | 2 | 2 | 2 (neg-compare, ignore-sign) | yes | complete, tested |
+| signed:1 | חיבור וחיסור | 13 (numberline) | 4 | 2 | 7 (minus-minus, sign, abs-add, drop-sign, neg-neg-plus, drop-minus, direction) | yes | complete, tested |
+| signed:2 | השוואה וערך מוחלט | 11 (pins, numberline) | 2 | 2 | 4 (neg-compare, abs-keep-sign, opp-same, ignore-sign) | yes | complete, tested |
 | signed:3 | כפל וחילוק | 10 (numberline) | 2 | 2 | 3 (sign, add-sign, neg-many) | yes | complete, tested |
 | signed:4 | סדר פעולות | 10 (numberline) | 2 | 2 | 3 (order, minus-minus, mul-sign) | yes | complete, tested |
 | signed:5 | סוגריים | 10 (numberline) | 2 | 2 | 4 (minus-bracket, ignore-brackets, order, minus-minus) | yes | complete, tested |

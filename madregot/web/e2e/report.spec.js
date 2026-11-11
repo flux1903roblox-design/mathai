@@ -53,11 +53,11 @@ async function expectWeekNumbers(page) {
   await expect(tile(page, 'דקות')).toHaveText('62');
   await expect(tile(page, 'שאלות')).toHaveText('43');
   await expect(tile(page, 'ימים ברצף')).toHaveText('2');
-  await expect(page.locator('.report-mastered li')).toHaveText(['מספרים מכוונים: השוואת מספרים', 'מספרים מכוונים: חיבור וחיסור']);
-  await expect(page.locator('.report-worked .report-dots li')).toHaveText(['מערכת צירים: קריאת נקודה', 'מספרים מכוונים: השוואת מספרים', 'מספרים מכוונים: חיבור וחיסור']);
+  await expect(page.locator('.report-mastered li')).toHaveText(['מספרים מכוונים: השוואה וערך מוחלט', 'מספרים מכוונים: חיבור וחיסור']);
+  await expect(page.locator('.report-worked .report-dots li')).toHaveText(['מערכת צירים: קריאת נקודה', 'מספרים מכוונים: השוואה וערך מוחלט', 'מספרים מכוונים: חיבור וחיסור']);
   const fixes = page.locator('.report-fix');
   await expect(fixes).toHaveCount(3);
-  await expect(fixes.nth(0)).toContainText('מספרים מכוונים: השוואת מספרים');
+  await expect(fixes.nth(0)).toContainText('מספרים מכוונים: השוואה וערך מוחלט');
   await expect(fixes.nth(0)).toContainText('בתיקון');
   await expect(fixes.nth(2)).toContainText('תוקן השבוע');
   await expect(page.locator('.report-exam')).toContainText('מבחן ב־12.11. 2 מתוך 3 המדרגות של המבחן כבר בשליטה.');
@@ -114,8 +114,8 @@ test('flow 1: the child previews the week and sends it, and nothing reaches a se
   expect(text.split('\n')).toEqual([
     'הסיכום השבועי של נועה במדרגות (1.11–7.11):',
     '• תרגלתי 4 ימים, בערך 62 דקות',
-    '• עברתי בדיקת שליטה בשתי מדרגות: מספרים מכוונים: השוואת מספרים, מספרים מכוונים: חיבור וחיסור',
-    '• תרגלתי: מערכת צירים: קריאת נקודה, מספרים מכוונים: השוואת מספרים, מספרים מכוונים: חיבור וחיסור',
+    '• עברתי בדיקת שליטה בשתי מדרגות: מספרים מכוונים: השוואה וערך מוחלט, מספרים מכוונים: חיבור וחיסור',
+    '• תרגלתי: מערכת צירים: קריאת נקודה, מספרים מכוונים: השוואה וערך מוחלט, מספרים מכוונים: חיבור וחיסור',
     '• בתיקון עכשיו: שתי טעויות שחוזרות',
     '• רצף: יומיים',
     expect.stringMatching(/^לסיכום המלא: http:\/\/127\.0\.0\.1:\d+\/#\/r\/1\.[A-Za-z0-9_-]+$/),

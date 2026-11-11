@@ -27,7 +27,8 @@ test('a new stair is learned before it is practised: understand, a worked exampl
   await page.getByRole('button', { name: 'מתחילים' }).click();
   await expect(page.locator('.worked-step')).toHaveCount(1);
   await expect(page.locator('.worked-why').first()).toBeVisible();
-  for (let e = 0; e < 2; e += 1) {
+  // four examples: two of one subtraction each, then the class's two chains of five bracketed numbers (CLASSROOM-2)
+  for (let e = 0; e < 4; e += 1) {
     while (await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).count()) await page.getByRole('button', { name: /^(מתחילים|הצעד הבא)$/ }).click();
     await page.getByRole('button', { name: /לדוגמה הבאה|לפתור יחד/ }).click();
   }
@@ -268,7 +269,7 @@ test('reviewer P1: two right diagnostic answers per stair are "passed the first 
   await page.locator('#exam-date').fill(d.toLocaleDateString('en-CA'));
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByText('חיבור וחיסור', { exact: true }).click();
-  await page.getByText('השוואת מספרים', { exact: true }).click();
+  await page.getByText('השוואה וערך מוחלט', { exact: true }).click();
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByRole('button', { name: 'המשך', exact: true }).click();
   await page.getByRole('button', { name: /לבניית התוכנית/ }).click();

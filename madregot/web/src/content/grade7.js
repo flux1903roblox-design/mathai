@@ -5,8 +5,10 @@ import { EQ } from './eq.js';
 import { FRAC } from './frac.js';
 import { SIGNED6_LEVEL } from './signed6.js';
 import { quadOf as quadOfPt, triangleAngles } from './manip.js';
+import { signOutside, chainItem, regroupItem, absItem, oppItem, absMc } from './signedItems.js';
 
 const sgn = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
+const rnd = () => Math.random();
 
 // ---------------------------------------------------------------- signed numbers
 function addSub() {
@@ -16,13 +18,14 @@ function addSub() {
   const bb = op === '-' ? -b : b; // what is really being added
   let hint;
   if (op === '-') hint = `חיסור הוא חיבור של הנגדי: $${T(a)} - ${T(b, true)} = ${T(a)} + ${T(-b, true)}$.`;
-  else if (sgn(a) === sgn(b)) hint = 'שני המספרים באותו סימן: מחברים את המרחקים מאפס ושומרים על הסימן.';
-  else hint = 'סימנים שונים: מחסרים את המרחקים מאפס, והסימן הוא של המספר הרחוק יותר מאפס.';
+  else if (sgn(a) === sgn(b)) hint = 'שני המספרים באותו סימן: מחברים את המרחקים מאפס (הערכים המוחלטים) ושומרים על הסימן.';
+  else hint = 'סימנים שונים: מחסרים את הערכים המוחלטים (המרחקים מאפס), והסימן הוא של המספר הרחוק יותר מאפס.';
   const steps = [];
   if (op === '-') steps.push(`$${display} = ${T(a)} + ${T(bb, true)}$`);
-  if (sgn(a) === sgn(bb)) steps.push(`אותו סימן: $${Math.abs(a)} + ${Math.abs(bb)} = ${Math.abs(ans)}$, והסימן ${a < 0 ? 'שלילי' : 'חיובי'}.`);
+  // the class's line: the sign outside the brackets, the absolute values inside, (+4) + (-11) = -(11 - 4) = -7
+  if (sgn(a) === sgn(bb)) steps.push(`אותו סימן: מחברים את הערכים המוחלטים ושומרים על הסימן, $${signOutside(a, bb)}$.`);
   else if (ans === 0) steps.push(`סימנים שונים ושני המספרים באותו מרחק מאפס: $${Math.abs(a)} - ${Math.abs(bb)} = 0$. מספר ועוד הנגדי שלו הם אפס.`);
-  else steps.push(`סימנים שונים: $${Math.max(Math.abs(a), Math.abs(bb))} - ${Math.min(Math.abs(a), Math.abs(bb))} = ${Math.abs(ans)}$, והסימן של המספר הרחוק יותר מאפס.`);
+  else steps.push(`סימנים שונים: מחסרים את הערכים המוחלטים, והסימן של המספר הרחוק יותר מאפס, $${signOutside(a, bb)}$.`);
   steps.push(`התשובה: $${T(ans)}$`);
   return {
     key: `sn1:${display}`, text: 'חשבו:', display, form: 'num', answer: ans, hint, solution: steps,
@@ -422,8 +425,11 @@ export const GRADE7 = [
     id: 'signed', grade: '7', title: 'מספרים מכוונים', color: 'sky',
     desc: 'חיבור, חיסור, כפל וחילוק, וסדר פעולות',
     levels: [
-      { title: 'חיבור וחיסור', gen: () => (Math.random() < 0.5 ? addSubLine() : addSub()) },
-      { title: 'השוואת מספרים', gen: () => (Math.random() < 0.4 ? orderPins() : compare()) },
+      // CLASSROOM-2: 35% on the number line, 35% two numbers, 30% the class's chains of five bracketed numbers (three
+      // typed chains to one practice-only choice of the regrouped line)
+      { title: 'חיבור וחיסור', gen: () => { const x = Math.random(); return x < 0.35 ? addSubLine() : x < 0.7 ? addSub() : x < 0.925 ? chainItem(rnd) : regroupItem(rnd); } },
+      // CLASSROOM-1: 40% comparing (as before), 25% absolute value, 20% opposites, 15% a practice-only choice
+      { title: 'השוואה וערך מוחלט', gen: () => { const x = Math.random(); return x < 0.4 ? (Math.random() < 0.4 ? orderPins() : compare()) : x < 0.65 ? absItem(rnd) : x < 0.85 ? oppItem(rnd) : absMc(rnd); } },
       { title: 'כפל וחילוק', gen: mulDiv },
       { title: 'סדר פעולות', gen: order },
       { title: 'סוגריים', gen: brackets },
@@ -440,6 +446,11 @@ export const GRADE7 = [
       'neg-neg-plus': 'הפכו גם את המספר הראשון לחיובי ("מינוס ומינוס זה פלוס")',
       direction: 'זזו לכיוון ההפוך על ציר המספרים',
       'toward-zero': 'מיקמו שבר שלילי בצד הלא נכון של השלם',
+      // the class's slip when a chain is regrouped (CLASSROOM-2), with the name the expr topic gives it
+      'drop-minus': 'המינוס שלפני איבר נעלם',
+      // CLASSROOM-1
+      'abs-keep-sign': 'חישבו ערך מוחלט של מספר שלילי כאילו הוא נשאר שלילי ($\\lvert -7 \\rvert = -7$)',
+      'opp-same': 'כתבו את אותו מספר במקום הנגדי שלו',
     },
   },
   {

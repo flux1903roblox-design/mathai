@@ -3,11 +3,12 @@
 // imports, the same on the web and in the Worker.
 //
 // Rules (PARENTS-8): `$` goes; ^\circ → °, \cdot → ·, \times → ×, \le → ≤, \ge → ≥, \ne and \neq → ≠; ^2 → ², ^3 → ³,
-// _1 → ₁, _2 → ₂; \frac{a}{b} → a/b; \sqrt{x} → √x; inside maths a minus right before a digit or "(" becomes the
-// minus sign U+2212; braces go; TeX's small spaces become a space. Each maths run is wrapped in U+2066 (left-to-right
-// isolate) … U+2069 (pop) when `isolate` is true, so Hebrew around it never reorders it. Anything else that still
-// looks like a TeX command is left as it is, visible: web/src/learn/report.test.ts runs every misconception title
-// through this and fails on a "\", a "$" or a brace, so a new title with TeX this cannot read is caught there.
+// _1 → ₁, _2 → ₂; \frac{a}{b} → a/b; \sqrt{x} → √x; \lvert and \rvert → | (CLASSROOM-1, |−7|); inside maths a minus
+// right before a digit or "(" becomes the minus sign U+2212; braces go; TeX's small spaces become a space. Each maths
+// run is wrapped in U+2066 (left-to-right isolate) … U+2069 (pop) when `isolate` is true, so Hebrew around it never
+// reorders it. Anything else that still looks like a TeX command is left as it is, visible: web/src/learn/report.test.ts
+// runs every misconception title through this and fails on a "\", a "$" or a brace, so a new title with TeX this cannot
+// read is caught there.
 
 const LRI = '⁦';
 const PDI = '⁩';
@@ -26,6 +27,9 @@ function mathRun(tex) {
   s = s
     .replace(/\^\s*(?:\{\s*\\circ\s*\}|\\circ)/g, '°')
     .replace(/\\circ(?![a-zA-Z])/g, '°')
+    // absolute value bars hug their number: \lvert -7 \rvert is |−7|
+    .replace(/\\lvert(?![a-zA-Z])\s*/g, '|')
+    .replace(/\s*\\rvert(?![a-zA-Z])/g, '|')
     .replace(/\\cdot(?![a-zA-Z])/g, '·')
     .replace(/\\times(?![a-zA-Z])/g, '×')
     .replace(/\\(?:le|leq)(?![a-zA-Z])/g, '≤')

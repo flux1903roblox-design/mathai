@@ -67,7 +67,9 @@ export const Tex = memo(function Tex({ tex, display = false, className }) {
 
 /**
  * Display maths, as large as it fits: a long expression (3(x - 2) - (x + 4) = ?) is set smaller until it fits
- * the width, down to 60% of the size, instead of scrolling sideways. A display that fits is left alone.
+ * the width, down to 60% of the size, instead of scrolling sideways. A display that fits is left alone. A large display
+ * (an exercise's question) may go further, down to the size of the text around it (15px), so the class's chain of five
+ * bracketed numbers, (+3) + (-4) + (+7) - (-10) - (+7), fits a 320 phone in one line (CLASSROOM-2).
  * The question of an exercise (className 'qdisplay') and the maths of a teaching step ('lm-expr') use it.
  */
 export function FitDisplay({ tex, className = 'qdisplay' }) {
@@ -88,7 +90,8 @@ export function FitDisplay({ tex, className = 'qdisplay' }) {
       box.style.transition = 'none';
       box.style.fontSize = '';
       const base = parseFloat(getComputedStyle(box).fontSize); const parent = parseFloat(getComputedStyle(box.parentElement).fontSize);
-      if (box.scrollWidth - box.clientWidth > 1 && base > 0 && parent > 0) box.style.fontSize = `${(base * Math.max(0.6, (box.clientWidth / box.scrollWidth) * 0.97)) / parent}em`;
+      const floor = Math.min(0.6, 15 / base);
+      if (box.scrollWidth - box.clientWidth > 1 && base > 0 && parent > 0) box.style.fontSize = `${(base * Math.max(floor, (box.clientWidth / box.scrollWidth) * 0.97)) / parent}em`;
     };
     fit();
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;

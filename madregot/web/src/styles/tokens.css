@@ -157,4 +157,8 @@ img, svg { max-width: 100%; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  /* A duration on every element gives every property a transition (the default property is all), so maths took one frame
+     to reach a new font size: FitDisplay measured the old size and left a long line (five bracketed numbers) running out
+     of its panel. Maths never animates. */
+  :root .katex, :root .katex * { transition: none !important; }
 }

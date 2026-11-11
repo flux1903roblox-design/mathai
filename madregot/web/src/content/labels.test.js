@@ -8,7 +8,7 @@ import { TOPICS, makeItem, isCorrect, catLabel } from './index.js';
 import { quadOf as quadOfPt } from './manip.js';
 import { startLesson, answer } from '@/lib/lesson.js';
 import { learnAfterAnswer, emptyLearn } from '@/learn/storeGlue.ts';
-import { evaluate, texToExpr, texRelation, holds } from '@/learn/expr.ts';
+import { evaluate, texToExpr, texRelation, holds, seeded } from '@/learn/expr.ts';
 import { roundsTo, EQ } from './eq.js';
 import { EXPR } from './expr.js';
 import { SYS } from './sys.js';
@@ -16,6 +16,7 @@ import { FRAC } from './frac.js';
 import { candidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
+import { chainItem, regroupItem, absItem, oppItem } from './signedItems.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -28,17 +29,31 @@ const ptEq = (u, p) => Array.isArray(u) && near(u[0], p[0]) && near(u[1], p[1]);
 
 /**
  * The numbers of a signed-number exercise, read from what is on screen: whole numbers, decimals (-2.5) and fractions,
- * mixed numbers included (\frac{3}{4}, -\frac{3}{4}, -1\frac{1}{4}, in \left( \right) brackets or not).
+ * mixed numbers included (\frac{3}{4}, -\frac{3}{4}, -1\frac{1}{4}, in \left( \right) brackets or not); the class's
+ * bracketed numbers with their sign, (+3) and (-8), in chains of five (CLASSROOM-2); absolute value bars as "|"
+ * (\lvert -7 \rvert, CLASSROOM-1).
  */
 function signedFacts(it) {
-  const d = it.display.replace(/\\left|\\right/g, '').replace(/\\cdot/g, '*').replace(/[()]/g, '').trim();
+  const d = String(it.display || '').replace(/\\left|\\right/g, '').replace(/\\[lr]vert/g, ' | ').replace(/\\cdot/g, '*').replace(/[()]/g, '').trim();
   const num = (x) => {
     const f = x.match(/^(-?)(\d*)\\frac\{(\d+)\}\{(\d+)\}$/);
     if (f) { const v = Number(f[2] || 0) + Number(f[3]) / Number(f[4]); return f[1] ? -v : v; }
-    return /^-?\d+(\.\d+)?$/.test(x) ? Number(x) : x;
+    return /^[+-]?\d+(\.\d+)?$/.test(x) ? Number(x) : x;
   };
   return d.split(/\s+/).map(num);
 }
+/** A chain's terms from its key, sn1c:+,+,-,-,+:-8,3,-6,9,-4: the ops and the numbers in brackets the student saw. */
+function chainOf(key) {
+  const [ops, vals] = key.split(':').slice(1);
+  return { o: ops.split(',').map((x) => (x === '-' ? -1 : 1)), v: vals.split(',').map(Number) };
+}
+/** Each term once the brackets are removed, the right way, and with every −(−n) read as −n. */
+const chainRight = (c) => c.o.map((o, i) => o * c.v[i]);
+const chainMm = (c) => c.o.map((o, i) => (o < 0 && c.v[i] < 0 ? c.v[i] : o * c.v[i]));
+/** A line of signed numbers, "-8 - 9 + 3", as its terms [-8, -9, 3]. */
+const lineTerms = (tex) => (String(tex).replace(/\s+/g, '').match(/[+-]?\d+/g) || []).map(Number);
+/** The regrouped line: the negatives in order, then the positives (no zero in a regroup question). */
+const regrouped = (ws) => [...ws.filter((w) => w < 0), ...ws.filter((w) => w > 0)];
 /** The value subtracted in a signed exercise, when it is negative: the "minus-minus" spot. */
 function subtractedNegative(it) {
   const p = it.key.split(':')[0];
@@ -562,7 +577,27 @@ const PROPS = {
     // a fraction's prediction may be typed rounded, as diagOf reads it (-2.25 as -2.2): fits is near for whole numbers
     sign: (it, u) => it.answer !== 0 && fits(u, -it.answer),
     direction: (it, u) => it.manip?.kind === 'numberline' && u - it.manip.from === -(it.answer - it.manip.from),
-    'minus-minus': (it, u) => { const q = subtractedNegative(it); return q != null && fits(u, it.answer - 2 * Math.abs(q)); },
+    'minus-minus': (it, u) => {
+      // a chain of five (CLASSROOM-2): every −(−n) of the key read as −n, and only when the chain has one
+      if (it.key.startsWith('sn1c:')) { const c = chainOf(it.key); return chainMm(c).some((w, i) => w !== chainRight(c)[i]) && fits(u, chainMm(c).reduce((a, w) => a + w, 0)); }
+      // the regrouping choice: the line chosen holds exactly the terms of the brackets removed that wrong way
+      if (it.key.startsWith('sn1r:')) { const c = chainOf(it.key); const got = sortN(lineTerms(it.choices[u]?.tex)); return JSON.stringify(got) === JSON.stringify(sortN(chainMm(c))) && JSON.stringify(got) !== JSON.stringify(sortN(chainRight(c))); }
+      const q = subtractedNegative(it); return q != null && fits(u, it.answer - 2 * Math.abs(q));
+    },
+    // the first number's minus dropped (a chain: the first number in brackets is negative)
+    'drop-sign': (it, u) => { if (!it.key.startsWith('sn1c:')) return false; const c = chainOf(it.key); return c.v[0] < 0 && fits(u, it.answer - 2 * c.v[0]); },
+    // the regrouped line with one negative number's minus gone, everything else as it should be
+    'drop-minus': (it, u) => {
+      if (!it.key.startsWith('sn1r:')) return false;
+      const right = regrouped(chainRight(chainOf(it.key))); const got = lineTerms(it.choices[u]?.tex);
+      if (got.length !== right.length) return false;
+      const diff = right.map((w, i) => i).filter((i) => got[i] !== right[i]);
+      return diff.length === 1 && right[diff[0]] < 0 && got[diff[0]] === -right[diff[0]];
+    },
+    // |a| ± |b| with the bars read as brackets: a ± b (CLASSROOM-1)
+    'abs-keep-sign': (it, u) => { if (!it.key.startsWith('sn2a:')) return false; const [k, a, b] = nums(it.key); return a < 0 && fits(u, k ? a - b : a + b); },
+    // the opposite of a written as a
+    'opp-same': (it, u) => { if (!it.key.startsWith('sn2o:')) return false; const [, a] = nums(it.key); return fits(u, a); },
     // whole numbers: the distances added, with the first number's sign; signed:6 (sn6a, decimals): with the sign of
     // the one farther from zero, as the plan's model predicts (-2.5 + 1.2 as -3.7)
     'abs-add': (it, u) => {
@@ -759,6 +794,86 @@ function recorded(item, u) {
   const learn = learnAfterAnswer(emptyLearn(), result.event);
   return { cat: result.cat, miscon: Object.keys(learn.miscon) };
 }
+
+// CLASSROOM-1 and -2: the class's chains, absolute value and opposites, 2,000 of each, every label against the key
+describe('the class\'s signed questions name only what the answer shows', () => {
+  const N = 2000;
+  const real = Math.random;
+  const props = PROPS.signed;
+  /** Every whole answer near the question's numbers, and each prediction: any label must hold, each prediction labelled. */
+  const sweep = (it, predicted) => {
+    for (let u = -90; u <= 90; u += 1) {
+      if (isCorrect(it, u)) continue;
+      const cat = it.diag(u);
+      if (cat) expect(props[cat](it, u), `${it.key}: ${u} labelled ${cat}`).toBe(true);
+    }
+    Object.entries(predicted).forEach(([id, v]) => { if (v != null) expect(it.diag(v), `${it.key}: ${v} should be ${id}`).toBe(id); });
+  };
+  it('reads what the student sees: brackets with a sign, five terms, absolute value bars', () => {
+    expect(signedFacts({ display: '(-8) + (+3) - (-6) - (+9) + (-4)' })).toEqual([-8, '+', 3, '-', -6, '-', 9, '+', -4]);
+    expect(signedFacts({ display: '(+5) - 0 + (-2) - (+1) - (-7)' })).toEqual([5, '-', 0, '+', -2, '-', 1, '-', -7]);
+    expect(signedFacts({ display: '\\lvert -7 \\rvert + \\lvert 4 \\rvert' })).toEqual(['|', -7, '|', '+', '|', 4, '|']);
+  });
+  it('a chain of five: minus-minus, drop-sign and sign, recomputed from the key', () => {
+    let seen = { 'minus-minus': 0, 'drop-sign': 0, sign: 0 };
+    try {
+      Math.random = seeded(1111);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...chainItem(Math.random), topic: 'signed', level: 1 };
+        const c = chainOf(it.key);
+        // the key is what is on screen
+        const t = signedFacts(it);
+        expect(t.filter((x, j) => j % 2 === 0), it.key).toEqual(c.v);
+        expect(t.filter((x, j) => j % 2 === 1).map((x) => (x === '-' ? -1 : 1)), it.key).toEqual(c.o.slice(1));
+        const right = chainRight(c).reduce((a, w) => a + w, 0);
+        expect(it.answer).toBe(right);
+        const mm = chainMm(c).reduce((a, w) => a + w, 0);
+        const pred = { 'minus-minus': mm, 'drop-sign': c.v[0] < 0 ? right - 2 * c.v[0] : null, sign: right ? -right : null };
+        Object.entries(pred).forEach(([k, v]) => { if (v != null) seen[k] += 1; });
+        sweep(it, pred);
+      }
+    } finally { Math.random = real; }
+    // each one shows on a fair share of chains (spec: 100%, 52%, 97%)
+    expect(seen['minus-minus']).toBe(N);
+    expect(seen['drop-sign'] / N).toBeGreaterThan(0.4);
+    expect(seen.sign / N).toBeGreaterThan(0.9);
+  });
+  it('the regrouping choice: drop-minus and minus-minus are the lines they claim to be', () => {
+    try {
+      Math.random = seeded(1112);
+      for (let i = 0; i < N; i += 1) {
+        const it = regroupItem(Math.random);
+        expect(it.practiceOnly).toBe(true);
+        expect(it.choices.length).toBe(3);
+        expect(lineTerms(it.choices[it.answer].tex)).toEqual(regrouped(chainRight(chainOf(it.key))));
+        it.choices.forEach((ch, u) => { if (u === it.answer) return; const cat = it.diag(u); expect(cat).toBeTruthy(); expect(props[cat](it, u), `${it.key}: ${ch.tex} as ${cat}`).toBe(true); });
+      }
+    } finally { Math.random = real; }
+  });
+  it('absolute value: abs-keep-sign is u = a + b or a − b, from the key', () => {
+    try {
+      Math.random = seeded(1113);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...absItem(Math.random), topic: 'signed', level: 2 };
+        const [k, a, b] = nums(it.key);
+        expect(it.answer).toBe(k ? Math.abs(a) - Math.abs(b) : Math.abs(a) + Math.abs(b));
+        expect(signedFacts(it).filter((x) => typeof x === 'number')).toEqual([a, b]);
+        sweep(it, { 'abs-keep-sign': k ? a - b : a + b });
+      }
+    } finally { Math.random = real; }
+  });
+  it('opposites: opp-same is u = a, from the key', () => {
+    try {
+      Math.random = seeded(1114);
+      for (let i = 0; i < N; i += 1) {
+        const it = { ...oppItem(Math.random), topic: 'signed', level: 2 };
+        const [, a] = nums(it.key);
+        expect(it.answer).toBe(-a);
+        sweep(it, { 'opp-same': a });
+      }
+    } finally { Math.random = real; }
+  });
+});
 
 describe('the council\'s reproductions', () => {
   it('a wrong-direction move on the number line is a direction mistake, never a sign mistake', () => {

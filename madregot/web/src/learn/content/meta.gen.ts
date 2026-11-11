@@ -885,6 +885,10 @@ export const META: Record<SkillId, StairMeta> = {
         "title": "הפכו גם את המספר הראשון לחיובי (\"מינוס ומינוס זה פלוס\")"
       },
       {
+        "id": "drop-minus",
+        "title": "המינוס שלפני איבר נעלם"
+      },
+      {
         "id": "direction",
         "title": "זזו לכיוון ההפוך על הציר"
       }
@@ -892,11 +896,19 @@ export const META: Record<SkillId, StairMeta> = {
     "transfer": true
   },
   "signed:2": {
-    "title": "השוואת מספרים",
+    "title": "השוואה וערך מוחלט",
     "misconceptions": [
       {
         "id": "neg-compare",
         "title": "חשבו שבין שני מספרים שליליים, הרחוק יותר מאפס גדול יותר"
+      },
+      {
+        "id": "abs-keep-sign",
+        "title": "חישבו ערך מוחלט של מספר שלילי כאילו הוא נשאר שלילי ($\\lvert -7 \\rvert = -7$)"
+      },
+      {
+        "id": "opp-same",
+        "title": "כתבו את אותו מספר במקום הנגדי שלו"
       },
       {
         "id": "ignore-sign",

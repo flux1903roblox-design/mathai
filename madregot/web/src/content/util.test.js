@@ -2,7 +2,7 @@
 // mixed numbers and thousands on a computer keyboard, the `precise` rule, the fraction answer form and its
 // "not reduced yet" note, the format sentence, exact answer text, and practice-only questions kept out of checks.
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote } from './util.js';
+import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote, S } from './util.js';
 import { TOPIC, makeItem, testItem, fairForCheck, slotsFor, readAnswer, isCorrect, partialOf, answerText } from './index.js';
 import { startLesson, answer } from '../lib/lesson.js';
 import { finalCheck } from '../components/learn/Together.jsx';
@@ -67,6 +67,19 @@ describe('reading numbers as students type them', () => {
     expect(typedRight(num(3.25), '3 1/4')).toBe(true);
     expect(typedRight(num(3.25), '13/4')).toBe(true);
     expect(readAnswer(num(1), { v: '' })).toBeNull();
+  });
+});
+
+describe('a signed number in the class\'s brackets (CLASSROOM-2)', () => {
+  it('S writes every number with its sign in brackets, and zero alone', () => {
+    expect(S(14)).toBe('(+14)');
+    expect(S(-9)).toBe('(-9)');
+    expect(S(1)).toBe('(+1)');
+    expect(S(-12)).toBe('(-12)');
+    expect(S(0)).toBe('0');
+  });
+  it('the bracketed form reads back as the same number', () => {
+    for (const n of [-12, -1, 0, 1, 12]) expect(parseNum(S(n).replace(/[()]/g, ''))).toBe(n);
   });
 });
 
@@ -254,8 +267,9 @@ describe('practice-only questions are kept out of checks', () => {
   // the kinds whose answer is a choice among two or three, or an object whose target the question names (spec §0.5)
   // ratio: ratioMc, addSame and beads (ratio:1), statements (ratio:2), isProp and the double line (ratio:3), the scale bar
   // pct: shade, estimate and over100 (pct:1, estimate also in pct:2), classes (pct:2), the stretch (pct:4), multMc (pct:5)
+  // signed (CLASSROOM-1, -2): the regrouped line of a chain (signed:1) and which numbers have absolute value n (signed:2)
   const PRACTICE_ONLY = ['fr1p', 'fr2p', 'fr2o', 'fr3c', 'fr4g', 'sn6b', 'sn6p', 'ra1m', 'ra1a', 'ra1b', 'ra2t', 'ra3p', 'ra3l', 'ra4b',
-    'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m'];
+    'pc1s', 'pc1e', 'pc1o', 'pc2c', 'pc4s', 'pc5m', 'sn1r', 'sn2m'];
   it('only the named practice-only kinds carry the flag', () => {
     Object.values(TOPIC).forEach((t) => t.levels.forEach((L, i) => {
       for (let k = 0; k < 60; k += 1) {

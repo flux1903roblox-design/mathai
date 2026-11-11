@@ -17,6 +17,12 @@ export const T = (n, wrap = false) => {
   return fracTex(n, wrap);
 };
 
+/**
+ * A whole number as the class writes it in a chain of signed numbers: always in brackets with its sign, (+14) and
+ * (-9); zero alone, with no sign (CLASSROOM-2: "(−9) + (−4) − (+5) − 0").
+ */
+export const S = (n) => (n === 0 ? '0' : n > 0 ? `(+${n})` : `(${n})`);
+
 /** Reduce p/q to [p, q] with q > 0. */
 export const reduce = (p, q) => { const g = gcd(p, q); const s = q < 0 ? -1 : 1; return [(s * p) / g, (s * q) / g]; };
 
