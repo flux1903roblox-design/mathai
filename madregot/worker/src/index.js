@@ -22,6 +22,7 @@ import { run as runCron } from './cron.js';
 import { stepStatements, classGoal, setClassGoal, teacherGoal } from './goal.js';
 import { postMetric } from './metrics.js';
 import { pushKey, pushSubscribe, pushSeen, pushOff, pushDue, PUSH_CRON } from './push.js';
+import { assetLinksResponse } from './assetlinks.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -422,6 +423,8 @@ async function route(req, env, ctx, cors) {
   const M = req.method;
   let m;
   if (M === 'GET' && p === '/api/health') return json(health(env), 200, cors);
+  // the Play Store app's Digital Asset Links (assetlinks.js): [] until the owner sets the package and its fingerprints
+  if ((M === 'GET' || M === 'HEAD') && p === '/.well-known/assetlinks.json') return assetLinksResponse(env);
   // child side: AI
   if (M === 'GET' && p === '/api/ai/status') {
     const s = await aiStatus(req, env);

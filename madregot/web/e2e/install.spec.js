@@ -1,7 +1,8 @@
 // The install offer on Android and desktop (STUDENT-10). Chrome's beforeinstallprompt is played by an init script: a
 // synthetic event with a stub prompt() that counts its calls, dispatched on every load. The offer comes as the last
 // screen after a lesson from the second learning day, never on the first, never in a store app or the installed app;
-// Settings always has the row while the browser offers it. The manifest's shortcuts, and "today's lesson" (?go=today).
+// Settings always has the row while the browser offers it. The manifest's shortcuts and screenshots, and "today's lesson"
+// (?go=today).
 // The clock is fixed on Thursday 5 November 2026 (helpers.js NOW).
 import { test, expect } from '@playwright/test';
 import { open, student, answer, proceedToNext, saved, expectUsable } from './helpers.js';
@@ -146,6 +147,29 @@ test('the manifest has an id, a description, three shortcuts with their icons, a
     const buf = await img.body();
     expect(buf.subarray(0, 8).toString('hex'), 'a PNG file').toBe('89504e470d0a1a0a');
     expect(`${buf.readUInt32BE(16)}x${buf.readUInt32BE(20)}`).toBe(s.icons[0].sizes);
+  }
+});
+
+test('the manifest has four screenshots (three for a phone, one for a computer), each loading at its stated size', async ({ page, request }) => {
+  await page.goto('./');
+  const href = await page.locator('link[rel="manifest"]').evaluate((el) => el.href);
+  const m = await (await request.get(href)).json();
+  expect(m.screenshots.map((s) => [s.src, s.sizes, s.form_factor])).toEqual([
+    ['screens/narrow-1.png', '1080x2340', 'narrow'], ['screens/narrow-2.png', '1080x2340', 'narrow'],
+    ['screens/narrow-3.png', '1080x2340', 'narrow'], ['screens/wide-1.png', '1920x1080', 'wide'],
+  ]);
+  for (const s of m.screenshots) {
+    expect(s.type).toBe('image/png');
+    expect(s.label, s.src).toMatch(/[\u0590-\u05FF]/); // a Hebrew label: the install sheet reads it aloud
+    const img = await request.get(new URL(s.src, href).href);
+    expect(img.status(), s.src).toBe(200);
+    const buf = await img.body();
+    expect(buf.subarray(0, 8).toString('hex'), 'a PNG file').toBe('89504e470d0a1a0a');
+    expect(`${buf.readUInt32BE(16)}x${buf.readUInt32BE(20)}`, s.src).toBe(s.sizes);
+    // the browser decodes it at that size too
+    expect(await page.evaluate(async (src) => {
+      const im = new Image(); im.src = src; await im.decode(); return `${im.naturalWidth}x${im.naturalHeight}`;
+    }, new URL(s.src, href).href)).toBe(s.sizes);
   }
 });
 

@@ -84,6 +84,13 @@ VAPID_SUBJECT = ""
 # Reminders sent per run (one run an hour, at :37). 10 fits Workers Free's 10 ms of CPU a cron; raise to 400 on Workers Paid.
 PUSH_BATCH = "10"
 
+# ---- the Play Store app (STUDENT-12, store/android/README.md) ----
+# /.well-known/assetlinks.json lets the app open this site with no browser bar. Empty (the default): it answers [].
+# ANDROID_PACKAGE: the package id chosen in store/android/make.sh. ANDROID_CERT_SHA256: Play Console › Test and release ›
+# App integrity › App signing key certificate › SHA-256, and the upload key's too while testing, comma-separated.
+ANDROID_PACKAGE = ""
+ANDROID_CERT_SHA256 = ""
+
 # Secrets (never in this file, never in the app), each set with: npx wrangler secret put <NAME>
 #   ANTHROPIC_API_KEY       the owner's Claude API key
 #   RESEND_API_KEY          sends codes and notices
@@ -104,11 +111,12 @@ crons = ["7 * * * *", "37 * * * *"]
 
 # The same Worker serves the built web app (web/dist), so the app and its API share one address
 # (production builds call the API on their own address unless VITE_API_URL says otherwise).
-# Requests under /api/ run the Worker code; everything else is a static file.
+# Requests under /api/ (and /.well-known/, for the Play Store app's asset links) run the Worker code; everything else is
+# a static file.
 [assets]
 directory = "../web/dist"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*"]
+run_worker_first = ["/api/*", "/.well-known/*"]
 
 [[d1_databases]]
 binding = "DB"

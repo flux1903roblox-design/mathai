@@ -9,7 +9,10 @@
 //   sc-today-96.png, sc-quests-96.png, sc-rescue-96.png   install shortcuts (STUDENT-10): the app's own icons for
 //                      "today's lesson" (Play), quests (Target, the tab icon) and Exam Rescue (CalendarClock)
 //   badge-96.png       the stair alone, white on transparent: Android's notification badge (STUDENT-11)
+// The store icons (Play 512, Apple 1024: the full square, no transparency) come from the same drawing: store/frames.cjs
+// imports ART and renderIcon from here.
 import { mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -34,6 +37,16 @@ function shortcut(Icon) {
   return svg(`<circle cx="16" cy="16" r="15" fill="${BRAND}"/>${glyph}`);
 }
 
+/** The three drawings: the favicon circle, the full square (Home Screen and store icons), the badge. */
+export const ART = { FAVICON, SQUARE, BADGE };
+
+/** Draw `art` at size × size into `file`: transparent around the drawing if `transparent`, else an opaque PNG (RGB). */
+export async function renderIcon(page, art, size, file, { transparent = true } = {}) {
+  await page.setViewportSize({ width: size, height: size });
+  await page.setContent(`<!doctype html><html><body style="margin:0;background:${transparent ? 'transparent' : BRAND}"><div style="width:${size}px;height:${size}px">${art}</div></body></html>`);
+  await page.screenshot({ path: file, omitBackground: transparent, clip: { x: 0, y: 0, width: size, height: size } });
+}
+
 const ICONS = [
   ['180.png', 180, SQUARE],
   ['192.png', 192, FAVICON],
@@ -45,16 +58,17 @@ const ICONS = [
   ['badge-96.png', 96, BADGE],
 ];
 
-mkdirSync(OUT, { recursive: true });
-const browser = await chromium.launch();
-try {
-  const page = await browser.newPage({ deviceScaleFactor: 1 });
-  for (const [name, size, art] of ICONS) {
-    await page.setViewportSize({ width: size, height: size });
-    await page.setContent(`<!doctype html><html><body style="margin:0;background:transparent"><div style="width:${size}px;height:${size}px">${art}</div></body></html>`);
-    await page.screenshot({ path: `${OUT}${name}`, omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } });
-    console.log(`icons/${name} ${size}×${size}`);
+// node scripts/make-icons.mjs
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  mkdirSync(OUT, { recursive: true });
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ deviceScaleFactor: 1 });
+    for (const [name, size, art] of ICONS) {
+      await renderIcon(page, art, size, `${OUT}${name}`);
+      console.log(`icons/${name} ${size}×${size}`);
+    }
+  } finally {
+    await browser.close();
   }
-} finally {
-  await browser.close();
 }

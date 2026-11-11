@@ -8,9 +8,11 @@
 //                                                 at most 70 KB (WebP encoded in the page by Chromium's canvas: no
 //                                                 image package)
 //         og-mivchan.png, og-pilot.png            the link previews (WhatsApp, Facebook), 1200 × 630
-//   node madregot/store/capture.cjs store [--dist <built app>]
-//     → raw-1-numberline.png … raw-5-topics.png in the current folder, at iPhone 6.7" size (430 × 932 at 3x), for
-//       frames.cjs (README.md says how)
+//   node madregot/store/capture.cjs store [--dist <built app>] [--raw <folder>] [--no-frames] [--only <scene>]
+//     → the five scenes (SCENES below) at 390 × 844 at 3x, and the home path in dark, as raw-<n>-<scene>.png in --raw
+//       (else a temporary folder); then frames.cjs makes the store images in store/apple/ and store/play/
+//     → web/public/screens/narrow-1…3.png (1080 × 2340) and wide-1.png (1920 × 1080), the web manifest's screenshots
+//     --only <scene> takes that one screen into --raw and stops (to look at it after a screen changes)
 //
 // It builds the app into a temporary folder unless --dist names a build made with VITE_API_URL=none (e.g. web/dist-test),
 // serves it with vite preview on CAPTURE_PORT (default 4238) and stops it at the end. Run it again after a screen it
@@ -67,10 +69,10 @@ async function serve(dir) {
 }
 
 /** A page at a phone's size, with a saved state, a fixed clock and repeatable exercises, on `route`. */
-async function open(browser, state, route, { width = 390, height = 844, scale = 3, seed = '5', setup } = {}) {
+async function open(browser, state, route, { width = 390, height = 844, scale = 3, seed = '5', setup, scheme = 'light', mobile = true } = {}) {
   const context = await browser.newContext({
-    viewport: { width, height }, deviceScaleFactor: scale, isMobile: true, hasTouch: true, locale: 'he-IL', timezoneId: 'Asia/Jerusalem',
-    colorScheme: 'light', reducedMotion: 'reduce', serviceWorkers: 'block',
+    viewport: { width, height }, deviceScaleFactor: scale, isMobile: mobile, hasTouch: mobile, locale: 'he-IL', timezoneId: 'Asia/Jerusalem',
+    colorScheme: scheme, reducedMotion: 'reduce', serviceWorkers: 'block',
   });
   const page = await context.newPage();
   await page.clock.setFixedTime(NOW);
@@ -258,61 +260,122 @@ async function landing(browser, dist) {
   }
 }
 
-// ---------- the store screens (frames.cjs puts them in frames) ----------
+// ---------- the store screens (STUDENT-12 §5; frames.cjs puts them in frames) ----------
+// Five scenes, the same in every set, in the order of the listing (frames.cjs FRAMES has the headlines):
+//   1 mistake    a coordinates exercise answered with x and y swapped: "עוד לא" and "מה כנראה קרה"
+//   2 numberline the number line, the marker moved +5 by hand
+//   3 map        the home path, each unit in its own colour
+//   4 rescue     the Exam Rescue plan for next Thursday's test
+//   5 wardrobe   מדי's wardrobe, with colours and accessories earned from what was learned
 const daysAgo = (n) => { const d = new Date(NOW); d.setDate(d.getDate() - n); return d.toLocaleDateString('en-CA'); };
+const mastered = (levels) => ({ parts: {}, reviews: 0, jumped: 0, done: Object.fromEntries(levels.map((l) => [l, 'mastered'])) });
+/** A grade 7 student two weeks in: signed numbers mastered, coordinates half way, angles started; four days in a row. */
 const lived = () => {
   const days = {};
-  [0, 1, 2, 3].forEach((n) => { days[daysAgo(n)] = { lessons: 2, xp: 30, q: 16, ok: 14 }; });
-  return student('7', { days, xp: 260, freezes: 1, lastTopic: 'signed', path: { signed: { parts: { 1: 2, 2: 2, 3: 1 } } } });
+  [0, 1, 2, 3, 6, 7, 8].forEach((n) => { days[daysAgo(n)] = { lessons: 2, xp: 30, q: 16, ok: 14 }; });
+  return student('7', {
+    days, xp: 420, freezes: 1, lastTopic: 'coord',
+    path: { signed: mastered([1, 2, 3, 4, 5]), coord: { parts: { 1: 2, 2: 2, 3: 1 }, reviews: 0, jumped: 0, done: { 1: 'mastered', 2: 'mastered' } } },
+  });
 };
-async function storeScreens(browser) {
-  const at430 = (route, state, seed) => open(browser, state, route, { width: 430, height: 932, scale: 3, seed });
-  const onKind = async (g, route, want) => {
-    for (let sd = 1; sd <= 40; sd += 1) {
-      const p = await at430(route, student(g), String(sd));
-      const it = await p.evaluate(() => window.__madregotItem);
-      if (it && want(it)) return p;
-      await p.context().close();
-    }
-    throw new Error(`not reached ${route}`);
-  };
-  // 1. the number line, moved by hand
-  let p = await onKind('7', '/lesson/signed/1?part=1', (it) => it.manip?.kind === 'numberline');
-  await p.evaluate(() => window.__madregotSolve(true)); await wait(600);
-  await p.screenshot({ path: 'raw-1-numberline.png' }); await p.context().close();
-  // 2. the map, at the first unit
-  p = await at430('/', lived());
-  await p.locator('.unit').first().evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 64)); await wait(800);
-  await p.screenshot({ path: 'raw-2-map.png' }); await p.context().close();
-  // 3. a hint drawn on the triangle
-  p = await onKind('7', '/lesson/angles/3?part=1', (it) => it.manip?.kind === 'triangle');
-  await p.getByRole('button', { name: 'רמז', exact: true }).click(); await wait(800);
-  await p.screenshot({ path: 'raw-3-hint.png' }); await p.context().close();
-  // 4. the climb at the end of a lesson that finished a stair
-  p = await at430('/lesson/coord/2?part=2', student('7', { path: { coord: { parts: { 1: 2, 2: 1 } } } }), '99');
-  for (let k = 0; k < 24 && !(await p.locator('.done-screen').count()); k += 1) {
+/** מדי dressed: two units mastered (two colours), two half units (two accessories), violet on and a crown. */
+const dressed = () => student('7', {
+  path: { signed: mastered([1, 2, 3, 4, 5]), angles: mastered([1, 2, 3]), stats: mastered([1, 2, 3, 4, 5]) },
+  look: { color: 'fuchsia', head: 'protractor-crown', face: null, neck: null, body: null, earned: ['sky', 'fuchsia'], seen: ['sky', 'fuchsia', 'protractor-crown', 'bars-pin'], earnedAt: {} },
+});
+
+const KEY_NAME = { '-': 'מינוס', '/': 'שבר', '.': 'נקודה עשרונית' };
+async function typeOn(page, value) {
+  for (const ch of String(value)) await page.getByRole('button', { name: KEY_NAME[ch] || ch, exact: true }).click();
+}
+/** The lesson on a seed whose first exercise is the one wanted (exercises are drawn at random; seeds repeat). */
+async function lessonOn(browser, route, want, view) {
+  for (let sd = 1; sd <= 60; sd += 1) {
+    const p = await open(browser, student('7'), route, { ...view, seed: String(sd) });
+    await p.waitForFunction(() => !!window.__madregotItem, null, { timeout: 15000 });
     const it = await p.evaluate(() => window.__madregotItem);
-    if (it.form === 'manip') await p.evaluate(() => window.__madregotSolve(true));
-    else if (it.form === 'mc') await p.locator('.choice').nth(it.answer).click();
-    else {
-      const names = it.form === 'pt' ? ['x', 'y'] : it.form === 'line' ? ['m', 'b'] : ['v'];
-      const vals = it.form === 'pt' ? it.answer : it.form === 'line' ? [it.answer.m, it.answer.b] : [it.answer];
-      for (let j = 0; j < names.length; j += 1) await p.locator(`#slot-${names[j]}`).fill(String(vals[j]));
-    }
-    await p.getByRole('button', { name: 'בדיקה', exact: true }).first().click(); await wait(250);
-    await p.locator('section.fb .fb-actions .btn').click(); await wait(350);
-    if (await p.locator('.combo-pop').count()) { await p.locator('.combo-pop').click(); await wait(250); }
+    if (it && want(it)) return { page: p, it };
+    await p.context().close();
   }
-  await wait(2600); await p.screenshot({ path: 'raw-4-climb.png' }); await p.context().close();
-  // 5. the topics, each with its unit
-  p = await at430('/topics', lived()); await wait(500);
-  await p.screenshot({ path: 'raw-5-topics.png' }); await p.context().close();
+  throw new Error(`no seed opens ${route} on the exercise wanted`);
+}
+
+const SCENES = {
+  async mistake(browser, view) {
+    // "read the point": the student types y for x and x for y
+    const { page, it } = await lessonOn(browser, '/lesson/coord/1', (x) => x.form === 'pt' && /^cp1:/.test(x.key) && x.answer[0] !== x.answer[1] && x.answer[0] > 0 && x.answer[1] < 0, view);
+    for (const [slot, v] of [['x', it.answer[1]], ['y', it.answer[0]]]) { await page.locator(`#slot-${slot}`).click(); await typeOn(page, v); }
+    await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+    await page.locator('section.fb-retry').getByText('מה כנראה קרה', { exact: false }).waitFor();
+    return page;
+  },
+  async numberline(browser, view) {
+    const { page } = await lessonOn(browser, '/lesson/signed/1', (x) => x.manip?.kind === 'numberline' && x.answer - x.manip.from === 5, view);
+    await page.evaluate(() => window.__madregotSolve(true));
+    await wait(700);
+    return page;
+  },
+  async map(browser, view) {
+    const page = await open(browser, lived(), '/', view);
+    await page.locator('.unit').nth(1).waitFor();
+    // the second unit's banner near the top, the first unit's last stops above it
+    await page.locator('.unit').nth(1).evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.3));
+    await wait(600);
+    return page;
+  },
+  async rescue(browser, view) {
+    const page = await open(browser, rescueStudent(), '/rescue', view);
+    await page.locator('.rescue-plan .readiness').waitFor();
+    return page;
+  },
+  async wardrobe(browser, view) {
+    const page = await open(browser, dressed(), '/me/madi', view);
+    await page.getByRole('radiogroup', { name: 'צבע' }).waitFor();
+    return page;
+  },
+};
+
+/** One scene as a PNG at a size: { width, height } in CSS pixels at `scale`, light unless scheme is 'dark'. */
+async function shoot(browser, name, view) {
+  const page = await SCENES[name](browser, view);
+  await settle(page);
+  const png = await page.screenshot();
+  await page.context().close();
+  return png;
+}
+
+const PHONE = { width: 390, height: 844, scale: 3 }; // the screen inside the store frames
+const NARROW = { width: 360, height: 780, scale: 3 }; // the web manifest's screenshots: 1080 × 2340
+const WIDE = { width: 1280, height: 720, scale: 1.5, mobile: false }; // 1920 × 1080, the map on a computer
+const PUBLIC_SCREENS = path.join(WEB, 'public/screens');
+
+async function storeScreens(browser, raw) {
+  fs.mkdirSync(raw, { recursive: true });
+  const only = arg('--only'); // one scene again, in the phone size only (to check it after a screen changes)
+  if (only) {
+    fs.writeFileSync(path.join(raw, `raw-${only}.png`), await shoot(browser, only, { ...PHONE, scheme: arg('--scheme') || 'light' }));
+    return false;
+  }
+  const order = ['mistake', 'numberline', 'map', 'rescue', 'wardrobe'];
+  for (const [i, name] of order.entries()) {
+    fs.writeFileSync(path.join(raw, `raw-${i + 1}-${name}.png`), await shoot(browser, name, PHONE));
+    console.log(`raw-${i + 1}-${name}.png`);
+  }
+  fs.writeFileSync(path.join(raw, 'raw-3-map-dark.png'), await shoot(browser, 'map', { ...PHONE, scheme: 'dark' }));
+  // the web manifest's screenshots (STUDENT-10): the bare screens, no frame, as the install sheet shows them
+  fs.mkdirSync(PUBLIC_SCREENS, { recursive: true });
+  const manifest = [['narrow-1.png', 'numberline', NARROW], ['narrow-2.png', 'mistake', NARROW], ['narrow-3.png', 'map', NARROW], ['wide-1.png', 'map', WIDE]];
+  for (const [file, name, view] of manifest) {
+    fs.writeFileSync(path.join(PUBLIC_SCREENS, file), await shoot(browser, name, view));
+    console.log(path.join(PUBLIC_SCREENS, file));
+  }
+  return true;
 }
 
 (async () => {
   const mode = process.argv[2];
   if (!['landing', 'store'].includes(mode)) {
-    console.error('usage: node madregot/store/capture.cjs landing|store [--dist <a build made with VITE_API_URL=none>]');
+    console.error('usage: node madregot/store/capture.cjs landing|store [--dist <a build made with VITE_API_URL=none>] [--raw <folder>] [--no-frames]');
     process.exit(2);
   }
   const { dir, cleanup } = build();
@@ -322,7 +385,16 @@ async function storeScreens(browser) {
     stop = await serve(dir);
     browser = await chromium.launch();
     if (mode === 'landing') await landing(browser, dir);
-    else await storeScreens(browser);
+    else {
+      // the bare screens go to --raw (kept) or a temporary folder; frames.cjs makes the store images from them
+      const raw = arg('--raw') ? path.resolve(arg('--raw')) : fs.mkdtempSync(path.join(os.tmpdir(), 'madregot-raw-'));
+      try {
+        const all = await storeScreens(browser, raw);
+        if (all && !process.argv.includes('--no-frames')) await require('./frames.cjs').makeFrames(browser, raw, dir);
+      } finally {
+        if (!arg('--raw')) fs.rmSync(raw, { recursive: true, force: true });
+      }
+    }
     console.log('captured');
   } finally {
     await browser?.close();
