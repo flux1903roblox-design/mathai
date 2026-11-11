@@ -28,6 +28,9 @@ import { urgentWork, urgentText } from '@/lib/classWork.js';
 import { chestItem } from '@/lib/wardrobe.js';
 import ClassGoalCard, { ClassGoalMoment } from '@/components/learn/ClassGoalCard.jsx';
 
+// the Sunday recap's card (STUDENT-6) loads only from Sunday to Tuesday, and not back from a lesson; the card itself
+// applies the whole rule (lib/recap.js), so the home screen's first download carries none of it
+const RecapCard = lazy(() => import('@/components/learn/RecapCard.jsx'));
 // the picture of what a unit's chest holds loads with the first chest card opened (Madi's accessories are not in the boot bundle)
 const ItemArt = lazy(() => import('@/components/mascot/Accessories.jsx').then((m) => ({ default: m.ItemArt })));
 
@@ -300,6 +303,8 @@ function LearnMap() {
   const repairDismissed = useApp((s) => s.nudges?.repairDismissed);
   const repairOn = !!repair && repairDismissed !== today();
   const bannerShown = !!banner && !repairOn;
+  // decided once as the screen opens, so the card (and the share sheet it opens) stays mounted after it is closed
+  const [recapHere] = useState(() => !state?.from && new Date(`${today()}T12:00:00Z`).getUTCDay() < 3);
   const urgent = profile.token && !(bannerShown && banner.kind === 'teacher') ? urgentWork(classWork, workOutbox) : null;
 
   return (
@@ -328,6 +333,8 @@ function LearnMap() {
       <div className="learn-body">
         {/* a missed school day: two items today keep the streak (STUDENT-5); closed for the day with its X */}
         <RepairCard />
+        {/* the Sunday recap (STUDENT-6): Sunday to Tuesday after a week with learning, once, never right after a lesson */}
+        {recapHere && <Suspense fallback={null}><RecapCard afterLesson={!!state?.from} /></Suspense>}
         {/* the next step when it is not a stop of the map; it stacks last under any other banner, and at most one shows:
             while the repair card is up, its button already goes to this same next step */}
         {bannerShown && <NextBanner item={banner} onGo={() => onStart(banner.to)} />}

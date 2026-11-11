@@ -74,7 +74,8 @@ export const empty = {
   // which counts as set aside unless the app got installed (STUDENT-10, lib/install.js). They belong to the device: a
   // progress reset keeps them.
   // pushOffered: the daily reminder's card after a lesson was shown (STUDENT-11, once ever; a progress reset keeps it)
-  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null, pushOffered: false, storeOpenDay: null },
+  // recapWeek: the Sunday of the week whose Sunday recap was closed (STUDENT-6, lib/recap.js): that recap never comes back
+  nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 0, installDismissedAt: null, pushOffered: false, storeOpenDay: null, recapWeek: null },
   // the opt-in daily reminder (STUDENT-11, lib/push.js): on, the hour (16-20), the id and secret the server gave once,
   // 'paused' when the server stopped it because it did not help, and the days already told to the server (opened,
   // learned). It belongs to the device: a progress reset keeps it; deleting everything or signing out turns it off.

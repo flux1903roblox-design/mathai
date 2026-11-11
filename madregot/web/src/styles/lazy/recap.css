@@ -1,0 +1,25 @@
+/* The Sunday recap (STUDENT-6, FOLLOWUP-38): its card and its sheet, loaded with components/learn/RecapCard.jsx on a day
+   the card is due, never in the boot CSS. The week strip is the app's own (.week, app.css); colours are canon.css tokens,
+   so dark mode follows by itself. */
+/* the card: one quiet card above the path, Sunday to Tuesday */
+.recap-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: var(--s3); padding: var(--s4); padding-inline-end: 52px; border: 2px solid var(--brand-line); border-radius: 16px; background: var(--brand-tint); }
+.recap-card-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.recap-card-title { margin: 0; font-family: var(--font-ui); font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.recap-card-text p { margin: 0; font-size: 15px; line-height: 22px; color: var(--ink-2); }
+.recap-card-go { min-height: 44px; padding-inline: var(--s5); }
+.recap-card-close { position: absolute; top: 4px; inset-inline-end: 4px; }
+/* the sheet */
+.recap-week { width: 100%; max-width: 360px; margin-inline: auto; justify-content: space-between; }
+.recap-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
+.recap-tiles .kpi { flex-direction: column; align-items: center; gap: 4px; padding: var(--s3) 6px; text-align: center; }
+.recap-tiles .kpi-text { align-items: center; }
+.recap-tiles .kpi-num { font-size: 26px; line-height: 30px; }
+.recap-tiles .kpi-cap { font-size: 14px; line-height: 18px; text-wrap: balance; }
+.recap-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.recap-lines li { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); color: var(--ink); font-size: 16px; line-height: 24px; overflow-wrap: anywhere; }
+.recap-lines .recap-best { background: var(--gold-tint); color: var(--ink); font-weight: 600; }
+.recap-earned { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 14px; }
+.recap-earned p { margin: 0; flex: 1; min-width: 0; font-size: 16px; line-height: 24px; color: var(--ink); }
+.recap-earned .mascot { flex: none; }
+.recap-actions { display: flex; flex-direction: column; gap: var(--s2); }
+.recap-actions .btn { min-height: 48px; }

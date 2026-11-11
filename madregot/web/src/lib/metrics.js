@@ -2,7 +2,8 @@
 // else is sent: no id, no name, no page. A beacon (navigator.sendBeacon) carries the name as plain text, so it never
 // waits, never holds up leaving a page and needs no answer. With no server (VITE_API_URL=none, the e2e build, a copy
 // that keeps everything on the device) it does nothing. The names the server accepts are worker/src/metrics.js
-// METRIC_NAMES; any other name is dropped there.
+// METRIC_NAMES; any other name is dropped there. The screens' own: install_offer, push_offer, wardrobe_open and
+// recap_open (the Sunday recap's sheet opened, components/learn/RecapCard.jsx).
 import { apiBase } from './api.js';
 
 /** Count one step by name. Returns true when a beacon was queued. Never throws. */

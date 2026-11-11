@@ -8,8 +8,8 @@
 //   Thursday   three mastery checks in זוויות: the third opens the unit's chest, Madi's new piece, the wardrobe
 //   Friday     no learning; the Worker's own reminder code sends nothing (Shabbat eve), and an ordinary evening would
 //   Shabbat    the streak is kept (a rest day; the freeze earned on Wednesday covers Friday), and no reminder goes out
-//   Sunday     the recap (STUDENT-6) is not on this branch: skipped with its reason; last week's class goal was reached
-//              with her steps: the moment, and Madi's class scarf
+//   Sunday     last week's class goal was reached with her steps: the moment, and Madi's class scarf; then the Sunday
+//              recap (STUDENT-6): the card, its sheet with /report's numbers for that week, and "לשלוח להורים"
 // Also captured, as the council's "not completed end to end" list asks: the placement result, the unit review, Exam
 // Rescue to its first task; and the council's seven screenshots again, now (qa-evidence/student/after/).
 // Every test fails on a console error, and every picture first checks that the page does not scroll sideways. The server
@@ -568,10 +568,6 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     } finally { net.restore(); }
   });
 
-  test('Sunday 15.11: the recap card, its sheet and "לשלוח להורים" (STUDENT-6)', async () => {
-    test.skip(true, 'STUDENT-6 (the Sunday recap) is not built on lane-student: it needs PARENTS-1 (learn/report.ts weekLocal) and PARENTS-2 (ShareSheet), which are on the family lane, not on this branch.');
-  });
-
   test('Sunday 15.11: last week\'s class goal was reached with her steps: the moment, and Madi\'s class scarf', async () => {
     await day('2026-11-15T10:00:00');
     const mine = server.steps['2026-11-08'];
@@ -598,6 +594,51 @@ test.describe('a week in a student\'s life', { tag: '@student' }, () => {
     await settled(page);
     await page.waitForTimeout(400);
     await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+
+  test('Sunday 15.11: the recap card, its sheet and "לשלוח להורים" (STUDENT-6)', async () => {
+    await day('2026-11-15T11:00:00');
+    // the class goal's moment was seen above; the Sunday card is on the home screen, above the path
+    const card = page.locator('.recap-card');
+    await expect(card.getByRole('heading', { name: 'איך היה השבוע שעבר?' })).toBeVisible();
+    await snap(page, shots, '9-sunday-recap-card');
+    await card.getByRole('button', { name: 'לראות' }).click();
+    const sheet = page.getByRole('dialog', { name: 'השבוע שעבר, 8.11–14.11' });
+    await expect(sheet).toBeVisible();
+    const num = (label) => sheet.locator('.recap-tiles .kpi').filter({ hasText: label }).locator('.kpi-num');
+    const days = Number(await num('ימי לימוד').textContent());
+    expect(days).toBeGreaterThanOrEqual(3); // Sunday, Wednesday, Thursday at least (Tuesday and Friday had none)
+    // her steps are the week's own count (STUDENT-5): the 12 the class got, and Sunday's before she joined
+    const st = await saved(page);
+    let steps = 0;
+    for (let i = 0; i < 7; i += 1) { const d = new Date(Date.UTC(2026, 10, 8 + i)).toISOString().slice(0, 10); const r = st.days[d] || {}; steps += (r.lessons || 0) + (r.stages || 0) + 2 * (r.mp || 0); }
+    await expect(num('צעדים')).toHaveText(String(steps));
+    expect(steps).toBeGreaterThanOrEqual(server.steps['2026-11-08']);
+    await expect(num('מדרגות בשליטה')).toHaveText('3'); // Thursday's three mastery checks in זוויות
+    await expect(sheet.locator('.recap-mastered')).toContainText('מדרגות חדשות בשליטה: ');
+    await expect(sheet.locator('.recap-class')).toHaveText(`הכיתה: ${CLASSMATES_FINAL + server.steps['2026-11-08']} מתוך ${TARGET}. הגעתם למטרה יחד. החלק שלכם: ${server.steps['2026-11-08']} צעדים.`);
+    await expect(sheet.locator('.recap-earned')).toContainText('כתר מד־זווית'); // the chest she opened on Thursday
+    await expect(sheet).not.toContainText(PRESSURE);
+    await snap(page, shots, '9b-sunday-recap-sheet');
+    await sheet.locator('.recap-actions').getByRole('button', { name: 'לשלוח להורים' }).click();
+    const share = page.getByRole('dialog', { name: 'לשלוח להורים' });
+    await expect(share.locator('a.share-wa')).toHaveAttribute('href', /^https:\/\/wa\.me\/\?text=/);
+    await snap(page, shots, '9c-sunday-recap-share');
+    await page.keyboard.press('Escape');
+    await expect(share).toHaveCount(0);
+    expect((await saved(page)).nudges.recapWeek).toBe('2026-11-08');
+    // the parents' page for "השבוע שעבר" counts the same week the same way
+    await page.goto('./#/report');
+    await settled(page);
+    await page.getByRole('radio', { name: 'השבוע שעבר' }).click();
+    await expect(page.locator('.report-tiles .kpi').filter({ hasText: 'ימי תרגול' }).locator('.kpi-num')).toHaveText(String(days));
+    await expect(page.locator('.report-mastered li')).toHaveCount(3);
+    // and the card does not come back
+    await page.goto('./#/');
+    await page.reload();
+    await settled(page);
+    await page.waitForTimeout(400);
+    await expect(page.locator('.recap-card')).toHaveCount(0);
   });
 });
 

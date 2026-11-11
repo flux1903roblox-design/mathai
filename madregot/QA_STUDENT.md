@@ -41,7 +41,8 @@ machine. The pictures it writes:
 
 | Folder | What |
 |---|---|
-| `qa-evidence/student/week/<project>/` | one picture per day (two or three on Thursday and Sunday) |
+| `qa-evidence/student/week/<project>/` | one picture per day (three on Thursday, five on Sunday: the class goal, the wardrobe, and the recap's card, sheet and share sheet) |
+| `qa-evidence/student/recap/` | the Sunday recap on its own (`e2e/recap.spec.js` with `RECAP_SHOTS`): the card, the sheet and the share sheet, light and dark, at 390 and 320 |
 | `qa-evidence/student/extra/<project>/` | the placement result, the unit review, Exam Rescue's plan and its first task |
 | `qa-evidence/student/after/` | the council's seven screens, taken again (section 5) |
 | `qa-evidence/student/before/` | the council's own screenshots, copied from its run |
@@ -79,8 +80,8 @@ K7Q2MD), and the class goal is 60 steps.
 | **Thu 12.11**, 16:00 | From the map: זוויות, stair 1, "כל חמשת השלבים", "בדיקת שליטה". Then stairs 2 and 3 | All three checks give "שולטים לבד!". The third says "פתחתם תיבת אוצר". Then comes the unlock moment ("מדי קיבל משהו חדש", "שלטתם בחצי הראשון של זוויות, ומדי קיבל כתר מד־זווית.") and she taps "לשמור על מדי". The chest on the path says "פתחתם: כתר מד־זווית.". In the wardrobe the crown is chosen and the class scarf is locked. The day has mp = 3 | [5-thursday-unlock](qa-evidence/student/week/phone/5-thursday-unlock.png), [5b chest](qa-evidence/student/week/phone/5b-thursday-chest.png), [5c wardrobe](qa-evidence/student/week/phone/5c-thursday-wardrobe.png) |
 | **Fri 13.11** | Does not learn. In the morning she looks at the reminder in Settings | Settings shows the reminder on at 17:00, with the rule ("לא נשלחת בשבת ובחגים… לא אחרי 12:00 בערב שלהם"). The app had told the server that she learned on Thursday. Then the Worker's `pushDue` runs on her row: at 16:37 to 20:37 it returns `skipped: 'quiet'` (Shabbat eve), and at 11:37 `skipped: 'hour'`. **Nothing is sent** | [6-friday-reminder](qa-evidence/student/week/phone/6-friday-reminder.png) |
 | **Shabbat 14.11**, 11:00 | Opens the app, then the missions tab | On opening, Wednesday's freeze covers Friday (`frozen: true`, freezes 0). Shabbat is a rest day, and the streak is still **4**. "בשבת ובחג הרצף נשמר." The class has not reached its goal yet, so there is no moment. `pushDue` at 16:37 to 20:37 returns `quiet`, and nothing is sent. Control: the same row on Monday 16.11 at 17:37 is sent once, to her address, so the silence is the rule and not a dead row | [7-shabbat-streak](qa-evidence/student/week/phone/7-shabbat-streak.png) |
-| **Sun 15.11** (recap) | The recap card, its sheet and "לשלוח להורים" | **Skipped, with the reason** in the test: STUDENT-6 is not on this branch (section 7) | none |
 | **Sun 15.11**, 10:00 | Opens the app | Last week's goal was reached (50 steps from the class plus her **12**). The moment "עשינו את זה יחד" says "הכיתה שלכם עברה את המטרה של השבוע שעבר, ואתם הוספתם 12 צעדים. מדי קיבל צעיף כיתה." The 12 is what the server counted from the steps her phone sent: 1 on Monday, 2 on Wednesday and 3×3 on Thursday. "לראות את מדי" opens the wardrobe with the class scarf on, next to the crown. After a reload the moment does not come again | [8-sunday-class-goal](qa-evidence/student/week/phone/8-sunday-class-goal.png), [8b wardrobe](qa-evidence/student/week/phone/8b-sunday-wardrobe.png) |
+| **Sun 15.11**, 11:00 | Opens the app again; the recap card above the path, "לראות", then "לשלוח להורים" | The card "איך היה השבוע שעבר?" (STUDENT-6). The sheet "השבוע שעבר, 8.11–14.11": the week strip (Shabbat marked), **4** ימי לימוד, **14** צעדים (her days' own count: Sunday's lesson and stage before she joined, then the 12 the class got) and **3** מדרגות בשליטה, the three זוויות stairs by name, "שיא שבועי חדש: 14 צעדים!", "הכיתה: 62 מתוך 60. הגעתם למטרה יחד. החלק שלכם: 12 צעדים.", and "מדי קיבל השבוע: כתר מד־זווית." with a still Madi wearing it. No pressure words. "לשלוח להורים" opens the parents' share sheet with a wa.me link. `/report` for "השבוע שעבר" shows the same 4 days and 3 stairs. After a reload the card does not come again | [9-sunday-recap-card](qa-evidence/student/week/phone/9-sunday-recap-card.png), [9b sheet](qa-evidence/student/week/phone/9b-sunday-recap-sheet.png), [9c share](qa-evidence/student/week/phone/9c-sunday-recap-share.png) |
 
 The same days at 320x568 are in `qa-evidence/student/week/phone-small/`, and in dark mode in `.../week/phone-dark/`.
 
@@ -110,7 +111,7 @@ spec (`STUDENT-n`). "integrity" means the merged integrity build that this lane 
 |---|---|---|---|
 | Critical #21: the first session has no payoff | integrity (StageDone: XP and streak for a teaching stage), STUDENT-7 (the daily goal's moment) | `flows.spec.js` "the first session gives something back"; "the daily goal has its own moment"; the week, Sunday | week/phone/1-sunday-goal |
 | Major #22: teaching screens are mostly text | STUDENT-8 (a drawing or object on every teaching step, all topics) | `teach-all.spec.js` (every step at 320x568); `figures.test`, `visuals.test` | after/i13f-02-teach-0, after/t6-01-predict-wrong |
-| Major #23: progress feels like zero | integrity (counters that move), STUDENT-5 (learning days, a weekly best) | `flows.spec.js` (the unit and stair counters); `streak.spec.js` (the weekly best, learning days); the week, Shabbat | after/L2-09-end-16, week/phone/7-shabbat-streak |
+| Major #23: progress feels like zero | integrity (counters that move), STUDENT-5 (learning days, a weekly best), STUDENT-6 (the Sunday recap: the week's days, steps and stairs in one place, sent to a parent in one tap) | `flows.spec.js` (the unit and stair counters); `streak.spec.js` (the weekly best, learning days); `recap.spec.js`, `lib/recap.test.js`; the week, Shabbat and Sunday | after/L2-09-end-16, week/phone/7-shabbat-streak, week/phone/9b-sunday-recap-sheet, recap/ |
 | Major #24: the path is identical across units | STUDENT-1 (colour, emblem and drawings per unit) | `identity.spec.js`; `tokens.test.js` | after/h1-02-home-full |
 | Major #25: no teen motivators (no avatar, no league, chests give only freezes, no dark mode) | STUDENT-2 (dark mode), STUDENT-3 (Madi's wardrobe, chests that say what they hold), STUDENT-4 (a cooperative class goal instead of a league), STUDENT-5 (a weekly personal best for solo students) | `dark.spec.js`, `wardrobe.spec.js`, `class-goal.spec.js`, `streak.spec.js`; the week, Monday, Thursday and Sunday | after/dark-home, after/T13-06-__me-full, week/phone/2, 5, 5c, 8, 8b |
 | Adult and developer copy on student screens | integrity (`/settings/advanced`), STUDENT-9 §6 (Me in the student's words) | `flows.spec.js` "settings: a student sees no server address or key"; `learn.spec.js` "the profile shows what the evidence says" | after/T13-06-__me-full |
@@ -242,12 +243,16 @@ This branch (`lane-student`) started from `5618298`. Each item below is left out
   exam sheet open without the board, so they import `lazy/teacher.css` / `lazy/practiceExam.css` themselves.)
 
 **Features that wait for another lane**
-- **STUDENT-6, the Sunday recap.** It takes its numbers from PARENTS-1's `weekLocal` (`learn/report.ts`) so the child
-  never sees two counts for one week, and shares through PARENTS-2's `ShareSheet`. Both are on the family lane (merged
-  into the main branch at `a93644b`), not on this branch, and building the recap on its own copy of the week's
-  arithmetic is what the spec forbids. Build it on the main branch right after this lane merges: `RecapCard` on Learn
-  (Sunday to Tuesday, a non-empty last week, `nudges.recapWeek`), a lazy `RecapSheet`, `look.earnedAt` in
-  `markEarned`, and the `recap_open` count. The week's Sunday recap test is a `test.skip` with this reason.
+- **STUDENT-6, the Sunday recap: built on the integrated branch (FOLLOWUP-38).** `RecapCard` sits on Learn above the
+  path, Sunday to Tuesday (never on Shabbat or a holiday, never right after a lesson, never a push), after a week with
+  learning, until it is closed once (`nudges.recapWeek`, this device only). Its numbers (days, stairs mastered, mistakes
+  fixed) come from one `weekLocal` call (`learn/report.ts`) for last week's Sunday, the call `/report` makes for
+  "השבוע שעבר", and the sheet never counts them again; steps and the best week are STUDENT-5's, the class line is
+  `classGoals[start]`, and Madi's pieces are those whose `look.earnedAt` is in the week. The lazy `RecapSheet` opens
+  PARENTS-2's `ShareSheet` for that Sunday, and `recap_open` is counted. Tests: `lib/recap.test.js`, `e2e/recap.spec.js`
+  and the week's Sunday (section 2); pictures in `qa-evidence/student/recap/`. The family lane's
+  `VITE_REPORT_BANNER` switch no longer exists in the code, so the recap card is the one Sunday card. The tiles are plain
+  numbers: the parents' ProgressRing (UI plan M2) and the Drawer (B2) still wait for task #76.
 - **The iPhone install guide** (DURABLE-3's InstallSheet) is on the family lane. In iPhone Safari (not the App Store
   app) the install offer (STUDENT-10) shows nothing, and the reminder in Settings shows only the Home Screen sentence.
 - **TEACHER-9's class settings page.** The teacher's "מטרת כיתה שבועית" block sits in its allowed temporary home, the

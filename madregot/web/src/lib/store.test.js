@@ -218,17 +218,17 @@ describe('the earned repair (STUDENT-5), through the store', async () => {
   });
   it('resetProgress clears the repair and the one-time notes', () => {
     start('2026-11-01');
-    useApp.getState().setNudge({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08' });
-    expect(useApp.getState().nudges).toEqual({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08', goalSeen: {}, installOffers: 0, installDismissedAt: null, pushOffered: false, storeOpenDay: null });
+    useApp.getState().setNudge({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08', recapWeek: '2026-11-01' });
+    expect(useApp.getState().nudges).toEqual({ repairDismissed: '2026-11-11', pbWeek: '2026-11-08', goalSeen: {}, installOffers: 0, installDismissedAt: null, pushOffered: false, storeOpenDay: null, recapWeek: '2026-11-01' });
     useApp.getState().resetProgress();
-    expect(useApp.getState()).toMatchObject({ streak: { lastRepair: null }, nudges: { repairDismissed: null, pbWeek: null, goalSeen: {} } });
+    expect(useApp.getState()).toMatchObject({ streak: { lastRepair: null }, nudges: { repairDismissed: null, pbWeek: null, goalSeen: {}, recapWeek: null } });
   });
   it('resetProgress keeps the install offers, the store-open day and the reminder: they belong to the device, not to the progress', () => {
     start('2026-11-01');
     useApp.getState().setNudge({ installOffers: 1, installDismissedAt: '2026-11-01', pbWeek: '2026-11-01', pushOffered: true, storeOpenDay: '2026-11-01' });
     useApp.getState().setReminder({ on: true, slot: 18, id: 'a'.repeat(16), secret: 'b'.repeat(32), state: 'on', doneDay: '2026-11-01' });
     useApp.getState().resetProgress();
-    expect(useApp.getState().nudges).toEqual({ repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 1, installDismissedAt: '2026-11-01', pushOffered: true, storeOpenDay: '2026-11-01' });
+    expect(useApp.getState().nudges).toEqual({ repairDismissed: null, pbWeek: null, goalSeen: {}, installOffers: 1, installDismissedAt: '2026-11-01', pushOffered: true, storeOpenDay: '2026-11-01', recapWeek: null });
     expect(useApp.getState().reminder).toMatchObject({ on: true, slot: 18, id: 'a'.repeat(16) });
     // signing out (Settings turns the reminder off on the server first) starts the device afresh
     useApp.getState().signOut();
