@@ -7,10 +7,11 @@ import type { SkillId, TopicId } from './types';
 // order. A bridge stair is in no grade's own list (gradeSkillsOf), is missing only on evidence and is new only when the
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
 // ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), both
-// before linear functions.
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+// before linear functions. ז׳'s areas and perimeters (stage 2) start in December, beside expressions and before March's
+// equations: it is inserted after expr (no topic moves relative to another).
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, area: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -53,6 +54,14 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'expr:3': ['expr:1', 'signed:1'], // equality is checked by substituting; coefficients are added as signed numbers
   'expr:4': ['expr:1', 'signed:3'], // what ax means; each term is multiplied with the sign rules
   'expr:5': ['expr:3', 'expr:4'], // open the brackets, then collect like terms
+  'area:1': ['coord:4'], // area = length × width, first met on the grid
+  'area:2': ['area:1'], // a triangle is half a rectangle (or of a parallelogram) with the same base and height
+  'area:3': ['area:2'], // a composite shape is cut into rectangles and triangles, or completed and subtracted
+  'area:4': ['area:2', 'area:3'], // a parallelogram is cut and moved into a rectangle; a trapezoid is two triangles or half of a parallelogram
+  // perimeters: every side counted once, a missing side found from the others. No edge to pyth:1, though ar5p uses a
+  // hypotenuse: pyth comes after area in ALL_SKILLS, and the stair repairs the slip itself (its add-legs remedy); its
+  // questions come in May, after March's unit 7.14
+  'area:5': ['area:1'],
   'eq:1': ['expr:1', 'signed:1', 'signed:3', 'frac:4'], // a solution is checked by substituting; the inverse operations work with signed numbers; answers such as 1/4 are fractions (bridge edge)
   'eq:2': ['eq:1'], // two one-step moves, undone in reverse order
   'eq:3': ['eq:2', 'expr:3'], // the x-terms of both sides are collected first, then it is a two-step equation

@@ -64,7 +64,13 @@ export const PROGRAMME = {
     { id: '7.12', grade: '7', domain: 'geometry', title: 'שטחים א, שטחים ב, חישוב היקפים', months: [12, 1, 4, 5],
       parts: [
         { hours: 1, skills: ['coord:4'] }, // the area of a rectangle on the grid
-        { hours: 9, skills: [], note: 'שטח משולש, מקבילית וטרפז, וחישוב היקפים', later: 'S2' },
+        // stage 2 (MEASURE-6.1): each area stair in the months the schedule teaches it (areas A in December and January,
+        // areas B in April, perimeters in May), so a stair is not "taught by now" before its class meets it
+        { hours: 1, skills: ['area:1'], months: [12], note: 'היקף ושטח של מלבן' },
+        { hours: 2, skills: ['area:2'], months: [12, 1], note: 'שטח משולש, גם משולש ישר־זווית' },
+        { hours: 1, skills: ['area:3'], months: [1], note: 'שטחים של צורות מורכבות' },
+        { hours: 2, skills: ['area:4'], months: [4], note: 'שטח מקבילית וטרפז' },
+        { hours: 3, skills: ['area:5'], months: [5], note: 'חישוב היקפים' },
       ] },
     { id: '7.13', grade: '7', domain: 'geometry', title: 'גופים במרחב: קובייה, תיבה, מנסרה משולשת', months: [1, 5],
       parts: [{ hours: 9, skills: [], note: 'קובייה, תיבה ומנסרה: פריסה, שטח פנים ונפח', later: 'S2' }] },

@@ -1,8 +1,9 @@
 // The world around each unit of the map, drawn from the topic itself: a thermometer and the sea
 // line for signed numbers, a treasure grid for coordinates, a protractor for angles, slope stairs
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
-// statistics, tiles and brackets for expressions, a balance for equations, two crossing lines for systems, a
-// fraction bar, a pie in eighths and a jug in tenths for the fractions floor. Colours
+// statistics, tiles and brackets for expressions, an L on a grid, a tiled floor and a fenced plot for areas and
+// perimeters, a balance for equations, two crossing lines for systems, a fraction bar, a pie in eighths and a jug in
+// tenths for the fractions floor. Colours
 // come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on its
 // banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
 
@@ -329,6 +330,39 @@ const SaleTag = () => (
     <path d="M74 30 L46 70" className="sc-stroke-w" />
   </svg>
 );
+/** Areas and perimeters: an L shaded on a grid, one of its cells outlined (area counts the squares inside). */
+const GridL = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="6" y="6" width="88" height="88" rx="14" className="sc-w sc-line" />
+    <path d="M18 18 H50 V50 H82 V82 H18 Z" className="sc-t" />
+    {[34, 50, 66].map((v) => <path key={v} d={`M${v} 14 V86 M14 ${v} H86`} className="sc-grid" />)}
+    <path d="M18 18 H50 V50 H82 V82 H18 Z" className="sc-none sc-line" />
+    <rect x="18" y="66" width="16" height="16" className="sc-c" />
+    <circle cx="74" cy="26" r="6" className="sc-g" />
+  </svg>
+);
+/** Areas: a floor of square tiles, the first row laid and the rest still to come. */
+const TileFloor = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="10" y="22" width="80" height="64" className="sc-w sc-line" />
+    {[30, 50, 70].map((x) => <path key={`v${x}`} d={`M${x} 22 V86`} className="sc-grid" />)}
+    {[38, 54, 70].map((y) => <path key={`h${y}`} d={`M10 ${y} H90`} className="sc-grid" />)}
+    {[10, 30, 50, 70].map((x) => <rect key={x} x={x + 1.5} y="71.5" width="17" height="13" rx="2" className="sc-c" />)}
+    <rect x="62" y="8" width="16" height="12" rx="2" className="sc-d" />
+  </svg>
+);
+/** Perimeters: a garden plot with a fence round it, its posts at equal steps (the fence is the perimeter). */
+const FencePlot = () => (
+  <svg viewBox="0 0 110 90">
+    <rect x="14" y="20" width="82" height="56" rx="4" className="sc-t" />
+    <rect x="14" y="20" width="82" height="56" rx="4" className="sc-none sc-line" />
+    {[14, 41, 68, 96].flatMap((x) => [20, 76].map((y) => <rect key={`${x}-${y}`} x={x - 4} y={y - 8} width="8" height="14" rx="2" className="sc-d" />))}
+    {[48].flatMap((y) => [14, 96].map((x) => <rect key={`${x}-${y}`} x={x - 4} y={y - 8} width="8" height="14" rx="2" className="sc-d" />))}
+    <circle cx="40" cy="48" r="7" className="sc-c" />
+    <circle cx="70" cy="50" r="5" className="sc-g" />
+  </svg>
+);
+
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -372,6 +406,7 @@ export const SCENERY = {
   pyth: [Squares, Ladder, Pyramid],
   stats: [BarSkyline, PieSun, Dice],
   expr: [ExprTiles, XBox, Brackets],
+  area: [GridL, TileFloor, FencePlot],
   eq: [EqScale, Seesaw, Keyhole],
   sys: [SysCross, TwoRoads, MeetFlag],
   frac: [FracBarArt, PieEighths, TenthsJug],

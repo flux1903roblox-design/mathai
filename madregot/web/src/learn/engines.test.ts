@@ -111,7 +111,7 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
   it('puts pct after ratio and before line, and keeps the first-day test at 18 questions', async () => {
     expect(TOPIC_ORDER.indexOf('pct')).toBe(TOPIC_ORDER.indexOf('ratio') + 1);
     expect(TOPIC_ORDER.indexOf('pct')).toBeLessThan(TOPIC_ORDER.indexOf('line'));
-    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys']);
+    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys']);
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
     // @ts-ignore: plain JS
@@ -125,9 +125,30 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
   });
 });
 
+describe('grade 7 in school order (areas and perimeters in December, after expressions and before equations)', () => {
+  it('puts area after expr and before eq, off the first-day test, so placementMax(\'7\') does not move', async () => {
+    expect(TOPIC_ORDER.indexOf('area')).toBe(TOPIC_ORDER.indexOf('expr') + 1);
+    expect(TOPIC_ORDER.indexOf('area')).toBeLessThan(TOPIC_ORDER.indexOf('eq'));
+    expect(STAIRS.area).toBe(5);
+    // @ts-ignore: plain JS
+    const { placementMax } = await import('@/lib/placement.js');
+    // @ts-ignore: plain JS
+    const { topicsFor, placementTopicsFor } = await import('@/content/index.js');
+    expect(topicsFor('7').map((t: { id: string }) => t.id)).toEqual(['signed', 'coord', 'angles', 'expr', 'area', 'eq']);
+    expect(placementTopicsFor('7').map((t: { id: string }) => t.id)).not.toContain('area');
+    // the first-day test of ז׳ asks the same 18 questions as before the unit landed (placement: false: it is taught from
+    // December)
+    expect(placementTopicsFor('7').map((t: { id: string }) => t.id)).toEqual(['signed', 'coord', 'angles']);
+    expect(placementMax('7')).toBe(18);
+    // every edge into the unit points back in ALL_SKILLS (no area:5 → pyth:1: the stair repairs the slip itself)
+    ['area:1', 'area:2', 'area:3', 'area:4', 'area:5'].forEach((id) => prereqsOf(id).forEach((p) => expect(ALL_SKILLS.indexOf(p), `${id} → ${p}`).toBeLessThan(ALL_SKILLS.indexOf(id))));
+    expect(prereqsOf('area:5')).toEqual(['area:1']);
+  });
+});
+
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(62); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year)
+    expect(ALL_SKILLS).toHaveLength(67); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year) and area:1-5 (ז׳ 7.12)
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));
@@ -192,7 +213,8 @@ describe('the bridge unit (fractions): the floor under the grade, never a stair 
   it('an edge into a bridge stair counts on evidence only: equations are still new for grade 7 with no fraction evidence', () => {
     expect(PREREQS['eq:1']).toContain('frac:4');
     // every grade 7 unit before equations passed on the map; nothing at all is known about fractions
-    const path = Object.fromEntries((['signed', 'coord', 'angles', 'expr'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: STAIRS[t] }]));
+    // (areas and perimeters, stage 2, comes before equations on the path too)
+    const path = Object.fromEntries((['signed', 'coord', 'angles', 'expr', 'area'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: STAIRS[t] }]));
     const fresh = nextActions(ctx(empty(), '7', { path })).find((a) => a.kind === 'new');
     expect(fresh).toMatchObject({ skill: 'eq:1' });
     // and the reason does not claim the fractions stair as something the student already has

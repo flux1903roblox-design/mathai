@@ -290,5 +290,7 @@ describe('checkEquations agrees with the app\'s own maths', () => {
     }
     expect(wrong.slice(0, 10)).toEqual([]);
     expect(checked).toBeGreaterThan(4000);
-  });
+    // under a second alone; every stair added adds its draws, and with the whole suite running beside it the default
+    // 5 s was reached once the areas joined the path
+  }, 30_000);
 });

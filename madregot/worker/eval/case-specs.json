@@ -197,6 +197,13 @@
       "tags": ["pct"]
     },
     {
+      "id": "D1-area2-slant-as-height", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "area:2", "source": "diag", "params": { "b": 6, "h": 4, "d": 3, "s": 5, "out": 1 }, "wrong": [15, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "slant-as-height", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the slanted side AB = 5 was used as the height. The height to BC is the dashed 4, outside the triangle on the extension of BC and perpendicular to it, so the area is 6 · 4 / 2 = 12. Ends at 12. Names no other mistake." },
+      "tags": ["area"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

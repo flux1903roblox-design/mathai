@@ -118,6 +118,15 @@ const DRAW = {
       <path d="M109 89.5 L99 100.5" style={S(ch('petrol', '-d'))} strokeWidth="2" {...round} />
     </>
   ),
+  // areas and perimeters: an L shaded on a grid of squares, its edge outlined
+  'grid-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('fuchsia', '-d')) }} strokeWidth="2" />
+      <path d="M98 89 H104 V95 H110 V101 H98Z" style={F(ch('fuchsia'))} />
+      <path d="M101 89 V101 M98 92 H104 M98 95 H110 M98 98 H110 M104 95 V101 M107 95 V101" style={S(WHITE)} strokeWidth="0.9" />
+      <path d="M98 89 H104 V95 H110 V101 H98Z" style={S(ch('fuchsia', '-d'))} strokeWidth="1.4" fill="none" {...round} />
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

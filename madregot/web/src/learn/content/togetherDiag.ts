@@ -289,6 +289,32 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // the step gave 7 − x; what is left is putting in x = 2
     { bugs: {} },
   ],
+  // stage 2 (measurement): areas and perimeters
+  'area:1': [
+    { model: 'diag', p: { k: 0, a: 11, b: 3 } }, // the area of 11 by 3: the perimeter 28; the sides added 14
+    { model: 'transfer', p: { a: 14, b: 6, P: 40 } }, // a fence of 40 round a garden 14 long: one length off 26; 40 : 14
+  ],
+  'area:2': [
+    // legs 9 and 12, hypotenuse 15: not halved 108; the hypotenuse taken as the height to either leg 90 or 67.5
+    { bugs: { 'no-half': 108, 'hyp-as-height': [90, 67.5] } },
+    // AC = 2x with BC = 6 and the area 48 (AC is 16): not halved, halved twice and x itself (8) all give 8, so the
+    // number names no one mistake
+    { bugs: {} },
+  ],
+  'area:3': [
+    { model: 'diag', p: { W: 12, H: 8, w: 5, h: 3 } }, // the L 12 by 8 less 5 by 3: the whole 96; the shared part twice 116
+    { model: 'transfer', p: { W: 8, H: 5, p: 4, q: 2 } }, // 8 by 5 less the triangle 4, 2: the whole 40; the rectangle taken off 32
+  ],
+  'area:4': [
+    { model: 'transfer', p: { a: 14, h: 5, s: 6 } }, // the parallelogram 14, height 5, side 6: the slanted side 84; halved 35
+    // the trapezoid 6 and 10, height 5: not halved 80; only the long base 50
+    { bugs: { 'no-half': 80, 'one-base': 50 } },
+  ],
+  'area:5': [
+    { model: 'diag', p: { W: 12, H: 9, w: 5, h: 4 } }, // the L's fence: the written sides only 30; its area 88
+    // the square 5 against the 8 by 2 rectangle, both of perimeter 20: the same perimeter read as the same area, 0
+    { bugs: { 'same-perim-same-area': 0 } },
+  ],
   'eq:1': [
     // −5x = 30, the step chose to divide by −5: 30 : (−5) = −6. The minus of −5 lost: 6
     { bugs: { sign: 6 } },

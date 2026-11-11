@@ -1,7 +1,7 @@
 // The exercise screen on every device: for each kind of exercise, the question, the maths, the answer field
 // and the check button stay usable, the keypad never covers them, and the page never scrolls.
 import { test, expect } from '@playwright/test';
-import { open, openOn, student, item, answer, proceed, expectUsable, expectNoSidewaysScroll } from './helpers.js';
+import { open, openOn, student, item, answer, proceed, expectUsable, expectNoSidewaysScroll, type } from './helpers.js';
 
 const CASES = [
   ['a number (signed numbers)', 'signed/1', '7'],
@@ -38,6 +38,8 @@ const CASES = [
   // percent: finding the whole (the hardest of the three questions) and the volunteers' table, on every phone
   ['finding the whole from a percent', 'pct/4', '8'],
   ['what percent, from a table', 'pct/3', '8', (x) => x.fig?.type === 'table'],
+  // areas (stage 2): a triangle whose height falls outside it, drawn with the height dashed on BC's extension
+  ['a triangle with its height outside (areas)', 'area/2', '7', (x) => /^ar2g:.*:1$/.test(x.key || '')],
 ];
 
 for (const [what, route, grade, want = () => true] of CASES) {
@@ -191,4 +193,28 @@ test('on a computer: digits typed anywhere go to the answer, Enter checks and En
   await page.keyboard.press('Enter');
   await expect(page.locator('section.fb')).toHaveCount(0);
   await expect.poll(async () => (await item(page)).key).not.toBe(it.key);
+});
+
+// CLASSROOM-13 (area:2): the class's right triangle, a wrong leg typed twice (6.5, the leg with the half forgotten when
+// the area is 39 and the other leg 6), then the class's solution lines: the givens, the formula with the legs at the
+// square and the equation with its slash marks, every line whole on the smallest phone
+test('the class\'s right triangle: after 6.5 twice, the solution in the class\'s form fits the phone', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/area/2', student('7'), (x) => /^ar2x:/.test(x.key || ''));
+  for (let k = 0; k < 2; k += 1) {
+    await type(page, '6.5');
+    await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+    if (k === 0) { await expect(page.locator('section.fb-retry')).toBeVisible(); await proceed(page); }
+  }
+  await expect(page.locator('section.fb-reveal')).toBeVisible();
+  await expect(page.locator('.fb-answer')).toContainText(String(it.answer));
+  const panel = page.locator('section.fb');
+  await expect(panel).toContainText('נתון');
+  await expectNoSidewaysScroll(page);
+  // every line of maths in the panel is inside the panel's box (nothing cut at 320px)
+  const outside = await page.evaluate(() => {
+    const p = document.querySelector('section.fb').getBoundingClientRect();
+    return [...document.querySelectorAll('section.fb .katex')].map((k) => k.getBoundingClientRect()).filter((r) => r.left < p.left - 1 || r.right > p.right + 1).length;
+  });
+  expect(outside, 'maths that sticks out of the solution').toBe(0);
+  await page.screenshot({ path: test.info().outputPath('ar2x-solution.png') });
 });

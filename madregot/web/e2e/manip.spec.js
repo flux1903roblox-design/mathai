@@ -30,6 +30,10 @@ const KINDS = [
   ['dline', 'ratio/3', '8', [0.1, 0.35, 0.6, 0.35], (it) => it.manip.move === 't', 'a proportion on the double number line'],
   // the percent bar stretched: the marker stays at p%, a drag along the bottom line moves its end (pct:4 "find the whole")
   ['dline', 'pct/4', '8', [0.5, 0.72, 0.85, 0.72], (it) => it.manip.move === 'max', 'the whole, by stretching the percent bar'],
+  // the grid object (stage 2), first used by area: a drag anywhere puts the rectangle's corner there (area:1 "build a
+  // rectangle"), and a drag on the parallelogram's triangle slides it a whole number of cells (area:4)
+  ['polygon', 'area/1', '7', [0.15, 0.85, 0.55, 0.45], (it) => it.manip.task === 'rect', 'a rectangle on the grid, its corner dragged'],
+  ['polygon', 'area/4', '7', [0.2, 0.6, 0.75, 0.6], (it) => it.manip.task === 'move', "the parallelogram's triangle moved across"],
 ];
 const state = (page) => page.evaluate(() => {
   const c = document.querySelector('.manip-canvas'); const r = document.querySelector('.manip-readout');
@@ -105,6 +109,27 @@ for (const [kind, route, grade, [fx, fy, tx, ty], extra = () => true, name = kin
     await expect.poll(async () => (await item(page))?.form !== 'manip' || (await page.locator('section.fb').count()) === 0).toBe(true);
   });
 }
+
+// the grid object on the smallest phone: the drawing keeps room to work in, its corner follows a finger, and nothing
+// scrolls sideways (MEASURE-1 e2e)
+test('the grid object on a 320×568 phone: tall enough, its corner dragged, no sideways scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await openOn(page, '#/lesson/area/1?part=1', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'polygon' && it.manip.task === 'rect');
+  await expectNoSidewaysScroll(page);
+  const canvas = page.locator('.manip-canvas');
+  const box = await canvas.boundingBox();
+  expect(box.height, 'the grid is at least 160px high on the smallest phone').toBeGreaterThanOrEqual(160);
+  const read = () => canvas.getAttribute('aria-valuetext');
+  const before = await read();
+  await page.mouse.move(box.x + box.width * 0.15, box.y + box.height * 0.85);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i += 1) await page.mouse.move(box.x + box.width * (0.15 + 0.45 * i / 8), box.y + box.height * (0.85 - 0.45 * i / 8));
+  await page.mouse.up();
+  await expect.poll(read, 'the corner followed the finger').not.toBe(before);
+  expect(await read()).toMatch(/^מלבן ברוחב \d+ ובגובה \d+ משבצות/);
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath('grid-phone-small.png') });
+});
 
 test('interactive exercise: the second miss shows the answer on the object', async ({ page }) => {
   await openOn(page, '#/lesson/coord/1?part=1', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'plot');

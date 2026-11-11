@@ -158,6 +158,14 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
   assert.ok(!any(TOPIC_WAYS.ratio.avoidRe, 'השטח גדל פי קנה המידה בריבוע.'));
   assert.ok(any(TOPIC_WAYS.pct.avoidRe, 'אחוז לא יכול להיות יותר מ־100.'));
   assert.ok(any(TOPIC_WAYS.pct.avoidRe, 'מתייקר ב־10% ואז מוזל ב־10%, חוזרים למחיר המקורי.'));
+  // stage 2's areas and perimeters: each shortcut stated as a rule, never the app's own names of the mistakes
+  assert.ok(any(TOPIC_WAYS.area.avoidRe, 'הצלע המשופעת היא הגובה.'));
+  assert.ok(any(TOPIC_WAYS.area.avoidRe, 'שטח והיקף זה אותו דבר.'));
+  assert.ok(any(TOPIC_WAYS.area.avoidRe, 'הגובה תמיד בתוך המשולש.'));
+  assert.ok(any(TOPIC_WAYS.area.avoidRe, 'כופלים את כל הצלעות.'));
+  for (const ok of ['כפלו בצלע משופעת במקום בגובה', 'חשבו שגובה נמצא תמיד בתוך המשולש', 'הצלע המשופעת אינה הגובה.', '$AB = 5$ היא צלע משופעת, לא הגובה.', 'חשבו שבאותו היקף יש אותו שטח']) {
+    assert.ok(!any(TOPIC_WAYS.area.avoidRe, ok), ok);
+  }
   // the prompt itself, and every line of the stairs' own teaching, pass every pattern: the tutor may quote the app
   const all = TOPICS.flatMap((id) => TOPIC_WAYS[id].avoidRe);
   assert.ok(!any(all, stableSystem()), 'the prompt names the shortcuts only in quotation marks');

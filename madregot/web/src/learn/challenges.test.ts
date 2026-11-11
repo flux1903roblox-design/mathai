@@ -34,9 +34,11 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 describe('the challenge tasks', () => {
-  it('stage 1 has 36 tasks: three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
+  it('three tasks per topic of TOPIC_ORDER, the bridge included, in topic order (stage 1\'s 36 and stage 2\'s area: 39)', () => {
     console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
-    expect(CHALLENGES).toHaveLength(36);
+    // the count is computed from the topics: a topic lands with its three tasks
+    expect(CHALLENGES).toHaveLength(3 * TOPIC_ORDER.length);
+    expect(CHALLENGES).toHaveLength(39);
     TOPIC_ORDER.forEach((tp) => expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]));
     expect(TOPIC_ORDER).toContain('frac');
     expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => [tp, tp, tp]));
@@ -44,6 +46,8 @@ describe('the challenge tasks', () => {
     expect(challengeById('nope')).toBeNull();
     expect(challengesAfter('ratio:2').map((t) => t.id)).toEqual(['ratio:c1']);
     expect(challengesAfter('expr:4').map((t) => t.id)).toEqual(['expr:c1', 'expr:c2']);
+    // stage 2 (MEASURE-7): the claim after area:5, CLASSROOM-13's error after area:2, the deck after area:4
+    expect(['area:c1', 'area:c2', 'area:c3'].map((id) => [challengeById(id)?.kind, challengeById(id)?.after])).toEqual([['claim', 'area:5'], ['error', 'area:2'], ['literacy', 'area:4']]);
   });
 
   it('each topic has one claim, one error or proof, and one literacy task', () => {
@@ -192,6 +196,13 @@ describe('grading a challenge', () => {
     expect(exampleHolds(mean, { x: 1, y: 2 })).toBe(true);
     expect(exampleHolds(mean, { x: -1.5, y: 4 })).toBe(true);
     expect(exampleHolds(mean, { x: 3, y: 3 })).toBe(false);
+    // area:c1: the long thin rectangle 8 by 1 (perimeter 18 > 16, area 8 < 16) is a counterexample; the square 4 by 4
+    // and the 5 by 4 (both grow) are not
+    const rect = (challengeById('area:c1')!.parts[1] as Claim).example!;
+    expect(exampleHolds(rect, { a: 8, b: 1 })).toBe(true);
+    expect(exampleHolds(rect, { a: 4, b: 4 })).toBe(false);
+    expect(exampleHolds(rect, { a: 5, b: 4 })).toBe(false);
+    expect(exampleHolds(rect, { a: 7, b: 2 })).toBe(true); // perimeter 18, area 14
     // an expression that cannot be evaluated there (a zero denominator) is not a counterexample
     expect(exampleHolds({ ...frac, domain: 'int' }, { a: 1, b: 0, k: 0 })).toBe(false);
   });

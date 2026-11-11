@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'stats' | 'sys';
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'area' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'stats' | 'sys';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -63,7 +63,7 @@ export type GroupsFig = { type: 'groups'; rows: { n: number; label: string }[] }
 export type NetFig = {
   type: 'netfig'; solid: 'cube' | 'box' | 'prism' | 'cylinder';
   dims: { a?: number; b?: number; c?: number; p?: number; q?: number; r?: number; L?: number; h?: number };
-  layout?: string; letters?: boolean; shade?: string | string[]; labels?: boolean | 'area';
+  layout?: string | [number, number][]; letters?: boolean; shade?: string | string[]; labels?: boolean | 'area';
 };
 /**
  * A solid, still (components/SolidFigs.jsx): a box, a cube or a prism in the oblique view, a cylinder or a cone on
@@ -221,7 +221,8 @@ export interface DiagModel<P = Record<string, number>> {
   bugs: Record<string, (p: P) => number | null>;
   solution: (p: P) => Text[];
   hint: (p: P) => Text;
-  unit?: string;
+  /** The answer's unit, written after the slot; a function chooses per question (an area in סמ״ר, a perimeter in ס״מ). */
+  unit?: string | ((p: P) => string);
   /** Compare the typed answer exactly (content/util.js numRight), as an exercise marked `precise`. */
   precise?: boolean;
   /** Show the answer as a decimal (-1.3, not -13/10); a function chooses per question (decimals, or quarters as fractions). */

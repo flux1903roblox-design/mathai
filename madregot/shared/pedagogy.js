@@ -130,6 +130,19 @@ export const TOPIC_WAYS = Object.freeze({
     avoid: ['key-word rules ("יותר מ… זה תמיד פלוס")', 'joining unlike terms', 'dropping the minus in front of a term'],
     avoidRe: [re(String.raw`(?:יותר|פחות)\s+מ\S*\s+(?:זה\s+)?תמיד\s+(?:פלוס|מינוס|חיבור|חיסור)`)],
   },
+  // stage 2 (measurement, MEASURE-2): areas and perimeters, ז׳ 7.12 (web/src/learn/content/area.ts)
+  area: {
+    models: 'Area counts the unit squares inside; perimeter is the length of the boundary, every side once. A triangle is half of a rectangle or parallelogram with the same base and height; the height is drawn from the opposite vertex perpendicular to the base\'s line, inside or outside the triangle (in a right triangle the legs are a side and its height). A parallelogram is cut and moved into a rectangle; two copies of a trapezoid make a parallelogram with base $a + b$. Composite shapes are cut into parts, or completed and the extra subtracted. Equal perimeters do not mean equal areas.',
+    words: ['היקף', 'שטח', 'גובה', 'בסיס', 'פירוק', 'השלמה'],
+    avoid: ['"the slanted side is the height"', '"area and perimeter are the same thing"', '"a height is always inside the triangle"', '"multiply all the sides"'],
+    avoidRe: [
+      // the slanted side (or the leg of a trapezoid, the hypotenuse) taken as the height, said as a rule
+      re(String.raw`(?:ה)?(?:צלע|שוק)\s+(?:ה)?משופעת\s+(?:היא|זו|זה|היא\s+גם)\s+(?:ה)?גובה`),
+      re(String.raw`(?:ה)?(?:שטח\s+ו(?:ה)?היקף|היקף\s+ו(?:ה)?שטח)\s+(?:הם|זה)\s+(?:בעצם\s+|בדיוק\s+)?(?:אותו\s+(?:ה)?דבר|דבר\s+אחד)`),
+      re(String.raw`(?:ה)?גובה\s+(?:הוא\s+|נמצא\s+|נופל\s+)?תמיד\s+(?:נמצא\s+|נופל\s+)?(?:בתוך|בפנים|בתוך\s+(?:ה)?משולש)`),
+      re(String.raw`(?:כופלים|לכפול|כפלו)\s+(?:את\s+)?כל\s+(?:ה)?צלעות`),
+    ],
+  },
   eq: {
     models: String.raw`An equation is a balanced scale: doing the same to both sides keeps it level and keeps its solution (equivalent equations). Undo in reverse order: first what was added to $x$, then what multiplied it. With $x$ on both sides, take the same number of $x$'s from both. A word problem: one unknown, the other quantities written with it, and two expressions the story says are equal. A full solution ends with a check by substituting into the original equation, and a story's answer must fit the story. The scale carries positive whole numbers; negatives follow the same rule without it.`,
     words: ['נעלם', 'אגף ימין', 'אגף שמאל', 'משוואות שקולות', 'בדיקה בהצבה', '"עושים אותו דבר בשני האגפים"'],

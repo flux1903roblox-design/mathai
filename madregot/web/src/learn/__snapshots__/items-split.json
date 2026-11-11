@@ -184,6 +184,191 @@
    ]
   }
  },
+ "area:1": {
+  "items": [
+   "mastery0:ar1r:0:15:9|135|gen",
+   "mastery1:ar1m:0:7:28|4|gen",
+   "mastery2:area:1:diag:{\"k\":1,\"a\":15,\"b\":9}|48|diag",
+   "mastery3:ar1m:1:5:16|3|gen",
+   "mastery4:area:1:transfer:{\"a\":20,\"b\":15,\"P\":70}|15|transfer",
+   "review0:area:1:transfer:{\"a\":7,\"b\":6,\"P\":26}|6|transfer",
+   "review1:ar1r:0:14:4|56|gen",
+   "review2:area:1:diag:{\"k\":1,\"a\":15,\"b\":9}|48|diag",
+   "verify0:area:1:probe:{\"k\":0,\"a\":6,\"b\":5}|30|probe",
+   "verify1:area:1:probe:{\"k\":0,\"a\":12,\"b\":7}|84|probe",
+   "verify2:area:1:control:{\"k\":1,\"a\":15,\"b\":9}|48|control",
+   "gen:ar1r:1:11:9|40|gen",
+   "diag:area:1:diag:{\"k\":1,\"a\":9,\"b\":8}|34|diag",
+   "transfer:area:1:transfer:{\"a\":12,\"b\":9,\"P\":42}|9|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "area:1/gen/",
+    "area:1/gen/",
+    "area:1/diag/",
+    "area:1/gen/",
+    "area:1/transfer/"
+   ],
+   "review": [
+    "area:1/transfer/",
+    "area:1/gen/",
+    "area:1/diag/"
+   ],
+   "verify": [
+    "area:1/probe/perimeter",
+    "area:1/probe/perimeter",
+    "area:1/control/perimeter"
+   ]
+  }
+ },
+ "area:2": {
+  "items": [
+   "mastery0:ar2l:3:16:A|24|gen",
+   "mastery1:ar2x:8:40:0:A|10|gen",
+   "mastery2:area:2:diag:{\"b\":16,\"h\":15,\"d\":8,\"s\":17,\"out\":0}|120|diag",
+   "mastery3:ar2t:12:5:13:B|30|gen",
+   "mastery4:area:2:transfer:{\"a\":16,\"x\":15,\"S\":120,\"at\":\"A\"}|15|transfer",
+   "review0:area:2:transfer:{\"a\":8,\"x\":7,\"S\":28,\"at\":\"B\"}|7|transfer",
+   "review1:ar2l:8:7:B|28|gen",
+   "review2:area:2:diag:{\"b\":16,\"h\":15,\"d\":8,\"s\":17,\"out\":0}|120|diag",
+   "verify0:area:2:probe:{\"b\":12,\"h\":12,\"d\":5,\"s\":13,\"out\":1}|72|probe",
+   "verify1:area:2:probe:{\"b\":13,\"h\":4,\"d\":3,\"s\":5,\"out\":0}|26|probe",
+   "verify2:area:2:diag:{\"b\":10,\"h\":4,\"d\":3,\"s\":5,\"out\":0}|20|diag",
+   "gen:ar2t:20:21:29:A|210|gen",
+   "diag:area:2:diag:{\"b\":10,\"h\":12,\"d\":5,\"s\":13,\"out\":0}|60|diag",
+   "transfer:area:2:transfer:{\"a\":11,\"x\":10,\"S\":55,\"at\":\"B\"}|10|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "area:2/gen/",
+    "area:2/gen/",
+    "area:2/diag/",
+    "area:2/gen/",
+    "area:2/transfer/"
+   ],
+   "review": [
+    "area:2/transfer/",
+    "area:2/gen/",
+    "area:2/diag/"
+   ],
+   "verify": [
+    "area:2/probe/no-half",
+    "area:2/probe/no-half",
+    "area:2/control/no-half"
+   ]
+  }
+ },
+ "area:3": {
+  "items": [
+   "mastery0:ar3l:6:12:4:6|48|gen",
+   "mastery1:ar3t:10:5:6:4|38|gen",
+   "mastery2:area:3:diag:{\"W\":12,\"H\":9,\"w\":8,\"h\":7}|52|diag",
+   "mastery3:ar3l:7:11:4:3|65|gen",
+   "mastery4:area:3:transfer:{\"W\":14,\"H\":10,\"p\":10,\"q\":3}|125|transfer",
+   "review0:area:3:transfer:{\"W\":10,\"H\":8,\"p\":2,\"q\":5}|75|transfer",
+   "review1:ar3t:8:7:3:6|47|gen",
+   "review2:area:3:diag:{\"W\":12,\"H\":9,\"w\":8,\"h\":7}|52|diag",
+   "verify0:area:3:probe:{\"W\":7,\"H\":7,\"w\":4,\"h\":5}|29|probe",
+   "verify1:area:3:probe:{\"W\":7,\"H\":11,\"w\":4,\"h\":7}|49|probe",
+   "verify2:area:3:diag:{\"W\":12,\"H\":8,\"w\":7,\"h\":4}|68|diag",
+   "gen:ar3l:13:6:3:2|72|gen",
+   "diag:area:3:diag:{\"W\":10,\"H\":9,\"w\":6,\"h\":5}|60|diag",
+   "transfer:area:3:transfer:{\"W\":10,\"H\":7,\"p\":6,\"q\":4}|58|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "area:3/gen/",
+    "area:3/gen/",
+    "area:3/diag/",
+    "area:3/gen/",
+    "area:3/transfer/"
+   ],
+   "review": [
+    "area:3/transfer/",
+    "area:3/gen/",
+    "area:3/diag/"
+   ],
+   "verify": [
+    "area:3/probe/no-subtract",
+    "area:3/probe/no-subtract",
+    "area:3/control/no-subtract"
+   ]
+  }
+ },
+ "area:4": {
+  "items": [
+   "mastery0:ar4p:16:3:5|48|gen",
+   "mastery1:ar4t:12:7:12:13|114|gen",
+   "mastery2:area:4:diag:{\"a\":20,\"b\":8,\"h\":9,\"s\":15}|126|diag",
+   "mastery3:ar4t:16:8:6:10|72|gen",
+   "mastery4:area:4:transfer:{\"a\":16,\"h\":15,\"s\":17}|240|transfer",
+   "review0:area:4:transfer:{\"a\":8,\"h\":6,\"s\":10}|48|transfer",
+   "review1:ar4i:1:25:7:3|5|gen",
+   "review2:area:4:diag:{\"a\":20,\"b\":8,\"h\":9,\"s\":15}|126|diag",
+   "verify0:area:4:probe:{\"a\":14,\"b\":6,\"h\":6,\"s\":10}|60|probe",
+   "verify1:area:4:probe:{\"a\":13,\"b\":10,\"h\":4,\"s\":5}|46|probe",
+   "verify2:area:4:diag:{\"a\":18,\"b\":6,\"h\":9,\"s\":15}|108|diag",
+   "gen:ar4t:20:12:6:10|96|gen",
+   "diag:area:4:diag:{\"a\":13,\"b\":8,\"h\":12,\"s\":13}|126|diag",
+   "transfer:area:4:transfer:{\"a\":10,\"h\":8,\"s\":17}|80|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "area:4/gen/",
+    "area:4/gen/",
+    "area:4/diag/",
+    "area:4/gen/",
+    "area:4/transfer/"
+   ],
+   "review": [
+    "area:4/transfer/",
+    "area:4/gen/",
+    "area:4/diag/"
+   ],
+   "verify": [
+    "area:4/probe/slant-as-height",
+    "area:4/probe/slant-as-height",
+    "area:4/control/slant-as-height"
+   ]
+  }
+ },
+ "area:5": {
+  "items": [
+   "mastery0:ar5l:6:12:4:6|36|gen",
+   "mastery1:ar5p:1:9:4:12|38|gen",
+   "mastery2:area:5:diag:{\"W\":14,\"H\":10,\"w\":9,\"h\":7}|48|diag",
+   "mastery3:ar5p:0:9:12|36|gen",
+   "mastery4:area:5:transfer:{\"a\":3.5,\"b\":90}|880|transfer",
+   "review0:area:5:transfer:{\"a\":1.6,\"b\":40}|400|transfer",
+   "review1:ar5l:14:9:8:6|46|gen",
+   "review2:area:5:diag:{\"W\":14,\"H\":10,\"w\":9,\"h\":7}|48|diag",
+   "verify0:area:5:probe:{\"W\":10,\"H\":10,\"w\":2,\"h\":5}|40|probe",
+   "verify1:area:5:probe:{\"W\":7,\"H\":11,\"w\":4,\"h\":7}|36|probe",
+   "verify2:area:5:diag:{\"W\":9,\"H\":10,\"w\":7,\"h\":5}|38|diag",
+   "gen:ar5b:24|{\"mode\":\"maxArea\",\"perim\":24}|gen",
+   "diag:area:5:diag:{\"W\":10,\"H\":9,\"w\":6,\"h\":5}|38|diag",
+   "transfer:area:5:transfer:{\"a\":2.3,\"b\":55}|570|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "area:5/gen/",
+    "area:5/gen/",
+    "area:5/diag/",
+    "area:5/gen/",
+    "area:5/transfer/"
+   ],
+   "review": [
+    "area:5/transfer/",
+    "area:5/gen/",
+    "area:5/diag/"
+   ],
+   "verify": [
+    "area:5/probe/missing-sides",
+    "area:5/probe/missing-sides",
+    "area:5/control/missing-sides"
+   ]
+  }
+ },
  "coord:1": {
   "items": [
    "mastery0:cp1p:-6:6|[-6,6]|gen",
@@ -412,6 +597,16 @@
   "expr:4/gen",
   "expr:5/diag",
   "expr:5/gen",
+  "area:1/diag",
+  "area:1/gen",
+  "area:2/diag",
+  "area:2/gen",
+  "area:3/diag",
+  "area:3/gen",
+  "area:4/diag",
+  "area:4/gen",
+  "area:5/diag",
+  "area:5/gen",
   "eq:1/diag",
   "eq:1/gen",
   "eq:2/diag",

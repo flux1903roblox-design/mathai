@@ -95,6 +95,128 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "area:1": {
+    "title": "היקף ושטח של מלבן",
+    "misconceptions": [
+      {
+        "id": "perimeter",
+        "title": "חישבו היקף במקום שטח"
+      },
+      {
+        "id": "add-sides",
+        "title": "חיברו את הצלעות במקום לכפול"
+      },
+      {
+        "id": "area-for-perim",
+        "title": "חישבו שטח במקום היקף"
+      },
+      {
+        "id": "two-sides",
+        "title": "בהיקף נספרו רק שתי צלעות (חצי היקף)"
+      },
+      {
+        "id": "one-side-perim",
+        "title": "הורידו מההיקף רק אורך אחד, ולא שניים"
+      },
+      {
+        "id": "perim-as-area",
+        "title": "חילקו את ההיקף באורך, כאילו הוא שטח"
+      }
+    ],
+    "transfer": true
+  },
+  "area:2": {
+    "title": "שטח משולש",
+    "misconceptions": [
+      {
+        "id": "no-half",
+        "title": "שכחו לחלק ב־2 בשטח המשולש"
+      },
+      {
+        "id": "slant-as-height",
+        "title": "כפלו בצלע משופעת במקום בגובה"
+      },
+      {
+        "id": "half-twice",
+        "title": "חילקו ב־$2$ גם באגף השני, במקום לכפול ב־$2$"
+      },
+      {
+        "id": "hyp-as-height",
+        "title": "כפלו ביתר במקום בניצב"
+      }
+    ],
+    "transfer": true
+  },
+  "area:3": {
+    "title": "צורות מורכבות",
+    "misconceptions": [
+      {
+        "id": "no-subtract",
+        "title": "חישבו את הצורה השלמה ולא הורידו את החלק החסר"
+      },
+      {
+        "id": "double-count",
+        "title": "ספרו פעמיים חלק ששייך לשני החלקים"
+      },
+      {
+        "id": "no-half",
+        "title": "שכחו לחלק ב־2 בשטח המשולש שהורידו"
+      }
+    ],
+    "transfer": true
+  },
+  "area:4": {
+    "title": "מקבילית וטרפז",
+    "misconceptions": [
+      {
+        "id": "slant-as-height",
+        "title": "כפלו בצלע משופעת במקום בגובה"
+      },
+      {
+        "id": "one-base",
+        "title": "כפלו בגובה רק בסיס אחד"
+      },
+      {
+        "id": "no-half",
+        "title": "שכחו לחלק ב־2 בשטח הטרפז"
+      },
+      {
+        "id": "half-para",
+        "title": "חילקו ב־$2$ כמו במשולש"
+      }
+    ],
+    "transfer": true
+  },
+  "area:5": {
+    "title": "היקפים: אותו היקף, שטח אחר",
+    "misconceptions": [
+      {
+        "id": "missing-sides",
+        "title": "חיברו רק את הצלעות שכתוב עליהן מספר"
+      },
+      {
+        "id": "same-perim-same-area",
+        "title": "חשבו שבאותו היקף יש אותו שטח"
+      },
+      {
+        "id": "no-convert",
+        "title": "שכחו להמיר בין סנטימטרים למטרים"
+      },
+      {
+        "id": "two-sides",
+        "title": "בהיקף נספרו רק שתי צלעות (חצי היקף)"
+      },
+      {
+        "id": "area-for-perim",
+        "title": "חישבו שטח במקום היקף"
+      },
+      {
+        "id": "add-legs",
+        "title": "חיברו את הצלעות בלי לרבע"
+      }
+    ],
+    "transfer": true
+  },
   "coord:1": {
     "title": "קריאת נקודה",
     "misconceptions": [
@@ -1179,6 +1301,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
   "angles": {
     "apex-base-swap": "התבלבלו בין זווית הראש לזווית הבסיס"
   },
+  "area": {},
   "coord": {
     "axis-zero": "חשבו שנקודה על ציר $x$ היא נקודה שבה $x = 0$",
     "quad-order": "מספרו את הרביעים עם כיוון השעון",

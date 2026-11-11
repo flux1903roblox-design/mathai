@@ -30,6 +30,8 @@ function importTopic(topic: string): Promise<StairContent[]> {
     case 'coord': return import('./coord').then((m) => m.COORD);
     case 'angles': return import('./angles').then((m) => m.ANGLES);
     case 'expr': return import('./expr').then((m) => m.EXPR);
+    // stage 2 (measurement): areas and perimeters, ז׳ 7.12
+    case 'area': return import('./area').then((m) => m.AREA);
     case 'eq': return import('./eq').then((m) => m.EQ);
     // the curriculum lane's grade 8 units in school order: ratio and scale, then percent
     case 'ratio': return import('./ratio').then((m) => m.RATIO);

@@ -196,23 +196,36 @@ export function polygonWrong(it) {
  * The measurement additions of a geo drawing (stage 2, MEASURE-1.5) in words: the shape on a grid with its corners (the
  * student counts its lengths, so the words give the corners), circles with their centre and the radius written on
  * them, arcs, and the parts taken away or added. Every number the drawing writes is read (its sides' and radii's
- * labels too). A geo drawing with none of these says nothing here, as before.
+ * labels too), and so is a right angle it marks: a shape of the areas unit (a triangle and its height, a trapezoid) is
+ * read by its name and the lengths written on it (§0.5: every number is in the text and in the words too), and a named
+ * drawing with lettered points by its name and letters. A geo drawing with none of these (no grid, circle, arc, tone,
+ * written length, right angle or name with letters) says nothing here, as before.
  */
 export function geoWords(f) {
   const tones = (f.polys || []).some((pg) => pg.tone);
-  if (!f.grid && !f.circles?.length && !f.arcs?.length && !tones) return '';
+  const written = (f.segs || []).some((s) => s.label != null && s.label !== '');
+  const right = (f.angles || []).some((g) => g.right);
   const P = f.pts || {};
   const named = (k) => typeof k === 'string' && !k.startsWith('_') && !(f.hide || []).includes(k);
+  // a drawing with a name and lettered points (a triangle and the segments from its vertex A) says its name and letters
+  const lettered = !!f.label && Object.keys(P).some(named);
+  if (!f.grid && !f.circles?.length && !f.arcs?.length && !tones && !written && !right && !lettered) return '';
   const at = (k) => (Array.isArray(k) ? k : P[k]);
   const xy = (p) => ltr(`(${figNum(p[0])}, ${figNum(p[1])})`);
   const out = [];
   if (f.grid) { const [x0, y0, x1, y1] = f.grid; out.push(`רשת משבצות ${figNum(x1 - x0)} על ${figNum(y1 - y0)}, כל משבצת ריבוע שצלעו 1`); }
+  // off the grid, a drawing with a name ('טרפז ישר־זווית') says it first; its shapes without letters need no more words
+  const titled = !f.grid && f.label;
+  if (titled) out.push(labelPlain(f.label));
   (f.polys || []).forEach((pg) => {
     const names = pg.pts.filter(named);
+    if (titled && !pg.tone && names.length !== pg.pts.length) return;
     // on a grid the corners are where they are; elsewhere a shape is named by its letters
     const shape = f.grid ? `צורה שקודקודיה ${pg.pts.map((k) => `${named(k) ? k : ''}${xy(at(k))}`).join(' ')}` : names.length === pg.pts.length ? `מצולע ${names.join('')}` : 'מצולע';
     out.push(`${shape}${pg.tone === 'cut' ? ' (חלק שהוסר, מקווקו)' : pg.tone === 'add' ? ' (חלק שנוסף, צבוע)' : ''}`);
   });
+  const rights = (f.angles || []).filter((g) => g.right).map((g) => (named(g.at) ? `זווית ישרה ב־${g.at}` : 'זווית ישרה'));
+  if (rights.length) out.push([...new Set(rights)].join(', '));
   (f.circles || []).forEach((c) => {
     out.push(`${c.dash ? 'עיגול מקווקו' : 'עיגול'}${named(c.c) ? ` שמרכזו ${c.c}` : ''}${c.label != null ? `${named(c.c) ? ' ו' : ' ש'}רדיוסו ${labelPlain(c.label)}` : ''}`);
   });

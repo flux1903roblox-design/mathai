@@ -32,9 +32,11 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
   // maths drawn after the answer slot (□π: the number before π is typed), per question too: a circumference asked with
   // π, its radius without it. (A model never carries `pk`: its answers are whole multiples of π, for a clean diagnosis.)
   const after = typeof model.after === 'function' ? model.after(p) : model.after;
+  // the answer's unit, per question too: a rectangle asked for its area (סמ״ר) or its perimeter (ס״מ)
+  const unit = typeof model.unit === 'function' ? model.unit(p) : model.unit;
   const it = {
     key: `${c.skill}:${source}:${JSON.stringify(p)}`,
-    text: model.text(p), display: model.display?.(p), fig: model.fig?.(p), form: 'num' as const, unit: model.unit,
+    text: model.text(p), display: model.display?.(p), fig: model.fig?.(p), form: 'num' as const, unit,
     answer: model.answer(p), exact: model.exact?.(p), hint: model.hint(p), solution: model.solution(p),
     diag: (u: number) => { const d = diagnose(model, p, u); return d.kind === 'misconception' ? d.candidates[0].id : null; },
     diagnosis: (u: number) => diagnose(model, p, u),

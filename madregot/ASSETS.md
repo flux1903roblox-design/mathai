@@ -79,6 +79,11 @@ assets are used.
 The map scenery (thermometer, sea line, treasure grid, compass, protractor, peaks, kite, slope stairs, ramp, paper
 plane, the squares on a right triangle, ladder, pyramid, bar chart, pie chart, dice) and the reward medals are
 original SVG drawn for Madregot (`web/src/components/map/Scenery.jsx`, `web/src/components/RewardBadge.jsx`).
+The areas-and-perimeters unit (stage 2) adds three more pieces, drawn in code with the map's own colour tokens and no
+picture file:
+- `GridL`: an L shaded on a grid of squares, one of its cells outlined (the unit's emblem);
+- `TileFloor`: a floor of square tiles with its first row laid;
+- `FencePlot`: a garden plot with a fence round it, the fence posts at equal steps.
 
 ## 4. Original artwork drawn in code (no third-party source)
 

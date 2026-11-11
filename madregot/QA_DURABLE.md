@@ -867,6 +867,14 @@ script. They now load one topic at a time, and nothing the student sees changed.
   4.56 MB, so both gates moved by the same rule to **433 KB** and **4.79 MB** (CSS 57.3 KB, under its 59 KB gate). Open
   work: the challenge tasks behind a dynamic import per topic (the curriculum spec asks for it), with the plan reading
   only their ids and stairs at boot.
+  The stage-2 lane (measurement, `finish/specs/stage2.md`) put its first unit on the ז׳ path: areas and perimeters
+  (`area:1-5`). Its exercise generators and their models (`content/area.js`, read by the map, the placement test and the
+  class exam) and its three challenge tasks join the first download: boot JS 433.0 → **447.3 KB** (+14.3 KB; HEAD
+  measured exactly at its 433 KB gate), CSS 53.9 KB unchanged. Its teaching content is a chunk of its own (`area-*.js`),
+  loaded with the unit, and the grid object's rules (`grid-*.js`) still load after the first screen. The precache grew
+  from 4.76 to 4.88 MB, over its 4.79 MB gate. Both gates moved by the same rule (measured + 5%, rounded down) to
+  **469 KB** and **5.12 MB**. Open work, unchanged: the challenge tasks behind a per-topic import, and the exercise
+  generators of units that are not this month's behind one too.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

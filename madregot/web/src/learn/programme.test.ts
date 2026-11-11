@@ -29,21 +29,31 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   });
 });
 
-// Stage 1 is complete with percent: the live coverage, from the stairs this build has, is the stage-1 fixture's of
-// worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4 and pct:1-5): ז׳ 104 of 150, ח׳ 66 of 147, 57%.
-describe('stage 1\'s coverage, live', () => {
+// Stage 1 is complete with percent, and stage 2 adds its topics one at a time: the live coverage, from the stairs this
+// build has, is the stage-1 fixture of worker/test/coverage.test.js (HEAD's 48 stairs, signed:6, ratio:1-4 and pct:1-5)
+// with stage 2's areas and perimeters (area:1-5, ז׳ 7.12 whole): ז׳ 113 of 150, ח׳ 66 of 147, 60%.
+describe('stage 2\'s coverage, live', () => {
   const STAGE1 = [
     ...['signed', 'coord', 'angles', 'expr', 'eq', 'pyth', 'stats', 'sys'].flatMap((t) => Array.from({ length: 5 }, (_, i) => `${t}:${i + 1}`)),
     ...Array.from({ length: 8 }, (_, i) => `line:${i + 1}`),
     'signed:6', 'ratio:1', 'ratio:2', 'ratio:3', 'ratio:4', 'pct:1', 'pct:2', 'pct:3', 'pct:4', 'pct:5',
   ];
-  it('has exactly the stage-1 stairs (the bridge unit aside), and their hours', () => {
-    expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE1].sort());
+  const STAGE2 = [...STAGE1, 'area:1', 'area:2', 'area:3', 'area:4', 'area:5'];
+  it('has exactly the stage-1 stairs and stage 2\'s landed ones (the bridge unit aside), and their hours', () => {
+    expect([...ALL_SKILLS.filter((s) => !isBridge(s))].sort()).toEqual([...STAGE2].sort());
     const c7 = coverageOf('7'); const c8 = coverageOf('8');
-    expect([c7.taught, c7.hours]).toEqual([104, 150]);
+    expect([c7.taught, c7.hours]).toEqual([113, 150]);
     expect([c8.taught, c8.hours]).toEqual([66, 147]);
-    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(57);
+    expect(Math.round((100 * (c7.taught + c8.taught)) / (c7.hours + c8.hours))).toBe(60);
     expect(c8.units.find((u) => u.id === '8.2')).toMatchObject({ taught: 7, state: 'yes' });
+    expect(c7.units.find((u) => u.id === '7.12')).toMatchObject({ taught: 10, state: 'yes' });
+  });
+  it('reads each area stair in its own months (MEASURE-6.1): December, January, April, May', () => {
+    expect(['area:1', 'area:2', 'area:3', 'area:4', 'area:5'].map((s) => monthIndex(s, '7'))).toEqual([3, 3, 4, 7, 8]);
+    // a stair with no months of its own keeps its unit's: Pythagoras is March in ז׳ (7.14) and September in ח׳ (8.3)
+    expect(monthIndex('pyth:1', '7')).toBe(3);
+    expect(monthIndex('pyth:1', '8')).toBe(0);
+    expect(monthIndex('coord:4', '7')).toBe(1);
   });
 });
 

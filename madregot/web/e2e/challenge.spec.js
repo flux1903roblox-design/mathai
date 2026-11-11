@@ -242,7 +242,7 @@ test('a passed mastery check offers the stair\'s challenge in a quiet card, whic
 // "70 · 30"), where the page itself did not scroll sideways. Every task is walked to its end the way a struggling student
 // meets the most text: each part missed twice (so its solution shows), each explanation sent for the self-check. At every
 // step nothing inside the challenge screen scrolls sideways, and no piece of maths sits past the screen's edge.
-const TOPICS = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
+const TOPICS = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
 
 async function nothingCutOff(page, where) {
   const over = await page.evaluate(async () => {

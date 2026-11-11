@@ -716,7 +716,7 @@ describe('percent: every answer from the numbers shown', () => {
 });
 
 // Areas and perimeters (stage 2, MEASURE-2): the practice and diagnosis layer, tested on the topic object itself
-// (content/area.js), which is not on the path yet. Every check reads the question as the student sees it.
+// (content/area.js), the same object GRADE7 puts on the path. Every check reads the question as the student sees it.
 describe('areas and perimeters: every practice kind, from the numbers in its text', () => {
   const { AREA, KIND_KEYS, UNIT } = AW;
   /** An item as makeItem gives it: an answer that is right is never a mistake. */
@@ -1064,7 +1064,9 @@ describe('areas and perimeters: the diagnostic and transfer models', () => {
     expect(AREA.cats['no-half']).toBe(named('line', 'no-half'));
     expect(AREA.cats['add-legs']).toBe(named('pyth', 'add-legs'));
     expect(AREA.cats['no-convert']).toBe(named('ratio', 'no-convert'));
-    // not on the path yet: no grade's map lists it until its teaching lands (the registration sitting turns this round)
-    expect(TOPICS.some((t) => t.id === 'area')).toBe(false);
+    // on the ז׳ path since its teaching landed: after expressions, before equations, between cobalt and violet
+    expect(TOPICS.find((t) => t.id === 'area').levels).toBe(AREA.levels);
+    expect(topicsFor('7').map((t) => t.id)).toEqual(['signed', 'coord', 'angles', 'expr', 'area', 'eq']);
+    expect(topicsFor('7').map((t) => t.color).slice(3, 6)).toEqual(['cobalt', 'fuchsia', 'violet']);
   });
 });

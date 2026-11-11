@@ -1,10 +1,10 @@
 {
-  "bootJsGzipKB": 433,
+  "bootJsGzipKB": 469,
   "bootJsTargetKB": 260,
   "cssGzipKB": 59,
   "cssTargetKB": 32,
   "anyChunkGzipKB": 150,
-  "precacheMB": 4.79,
+  "precacheMB": 5.12,
   "timing": { "fcpMs": 2500, "lcpMs": 3000, "longestBootTaskMs": 200, "repeatLcpMs": 1500 },
   "lazyOnly": [
     "Wardrobe",

@@ -94,11 +94,34 @@ describe('planNext: the bands, highest first, for each learner', () => {
     // September: signed starts in October, angles is taught now; the unit's own order is kept (no signed:2 before signed:1)
     expect(planNext(LEARNERS.newSeventhSeptember()).top).toMatchObject({ kind: 'new', skill: 'angles:1' });
     expect(planNext(LEARNERS.newSeventhSeptember()).top!.reason).toContain('בספטמבר');
-    // a stair the calendar has not reached says nothing about the calendar
+    // a stair the calendar has not reached says nothing about the calendar: in November, areas (December) and
+    // equations (March) are both ahead
     const path = Object.fromEntries((['signed', 'coord', 'angles', 'expr'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 6 }]));
-    const eq = planNext(ctxOf(emptyLearn(), { path })).top!;
+    const area = planNext(ctxOf(emptyLearn(), { path })).top!;
+    expect(area).toMatchObject({ kind: 'new', skill: 'area:1' });
+    expect(area.reason).not.toContain('לפי תוכנית הלימודים');
+    const eq = planNext(ctxOf(emptyLearn(), { path: { ...path, area: { parts: {}, reviews: 0, jumped: 5 } } })).top!;
     expect(eq).toMatchObject({ kind: 'new', skill: 'eq:1' });
     expect(eq.reason).not.toContain('לפי תוכנית הלימודים');
+  });
+
+  it('each area stair keeps its own month (MEASURE-6.1): the parallelogram is April\'s, and says so only then', () => {
+    const path = {
+      ...Object.fromEntries((['signed', 'coord', 'angles', 'expr'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 6 }])),
+      area: { parts: {}, reviews: 0, jumped: 3 },
+    };
+    // January: area:1-3 done, area:4 (April) is not "taught by now", so its line says nothing about the class
+    const jan = planNext(ctxOf(emptyLearn(), { path, day: '2027-01-12' })).top!;
+    expect(jan).toMatchObject({ kind: 'new', skill: 'area:4' });
+    expect(jan.reason).not.toContain('לפי תוכנית הלימודים');
+    // April: the class meets it now
+    const apr = planNext(ctxOf(emptyLearn(), { path, day: '2027-04-13' })).top!;
+    expect(apr).toMatchObject({ kind: 'new', skill: 'area:4' });
+    expect(apr.reason).toContain('לפי תוכנית הלימודים, זה נלמד בכיתה באפריל.');
+    // and December's first stair says December, not the unit's later months
+    const dec = planNext(ctxOf(emptyLearn(), { path: { ...path, area: { parts: {}, reviews: 0, jumped: 0 } }, day: '2026-12-08' })).top!;
+    expect(dec).toMatchObject({ kind: 'new', skill: 'area:1' });
+    expect(dec.reason).toContain('בדצמבר');
   });
 
   it('offers the floor check for a hard stair that leans on fractions, only while there is no floor evidence', () => {
