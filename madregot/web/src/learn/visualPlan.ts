@@ -7,7 +7,7 @@
 // finished topic is still listed, so the set never goes stale). The shared figure types landed first; the topics follow.
 
 /** Topics whose teaching steps are not all drawn yet. */
-export const PENDING_VISUALS: ReadonlySet<string> = new Set(['signed', 'coord', 'line', 'stats', 'expr', 'eq', 'sys', 'pyth']);
+export const PENDING_VISUALS: ReadonlySet<string> = new Set(['line', 'stats', 'expr', 'eq', 'sys', 'pyth']);
 
 /**
  * Steps that may stay without a drawing or an object, `${skill}#${index}` → why (one sentence). At most 5% of a topic's

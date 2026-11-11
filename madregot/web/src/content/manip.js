@@ -134,7 +134,9 @@ export function figWords(f) {
       const at = (v) => figNum(v, !f.den);
       return `ציר מספרים מ־${at(f.from)} עד ${at(f.to)}${f.den ? `, כל יחידה מחולקת ל־${f.den} חלקים` : ''}${(f.marks || []).map((k) => `, נקודה${/^[A-Z]$/.test(k.label || '') ? ` ${k.label}` : ''} ב־${at(k.x)}`).join('')}${(f.jumps || []).map((j) => `, קפיצה מ־${at(j.from)} ל־${at(j.to)}`).join('')}`;
     }
-    case 'thermo': return `מדחום שמראה ${figNum(f.value)} מעלות${f.label ? `, ${f.label}` : ''}`;
+    case 'thermo': return f.also
+      ? `שני מדחומים: ${[f, f.also].map((t) => `${t.label ? `${t.label} ` : ''}${figNum(t.value)} מעלות`).join(', ')}`
+      : `מדחום שמראה ${figNum(f.value)} מעלות${f.label ? `, ${f.label}` : ''}`;
     case 'machine': {
       const out = machineIO(f.outY, 'y');
       return `מכונה: נכנס ${machineIO(f.inX, 'x')}, הכלל ${ruleText(f.rule)}, יוצא ${out === '?' ? 'סימן שאלה' : out}`;
@@ -150,11 +152,16 @@ export function figWords(f) {
       const meet = f.meet && f.lines?.length > 1 ? linesMeet(f.lines[0], f.lines[1]) : null;
       const rr = f.riseRun && lines[0] ? { run: f.riseRun.run, rise: lines[0].m * f.riseRun.run } : null;
       const said = lines.map((l) => l.label).filter(Boolean);
-      return ['מערכת צירים', f.quadrants && 'ארבעה רביעים', names.length && `${names.length === 1 ? 'הנקודה' : 'הנקודות'} ${names.join(', ')}`,
+      // a rectangle with sides along the grid is named so; a shape's sides and the words on the plane are read out
+      const rect = f.polygon?.length === 4 && f.polygon.every(([x, y], i) => { const [u, v] = f.polygon[(i + 1) % 4]; return x === u || y === v; });
+      const segs = f.segments?.length || 0;
+      return ['מערכת צירים', f.quadrants && 'ארבעה רביעים', f.polygon && (rect ? 'מלבן' : 'מצולע'), segs && (segs === 1 ? 'קטע' : `${segs} קטעים`),
+        names.length && `${names.length === 1 ? 'הנקודה' : 'הנקודות'} ${names.join(', ')}`,
         lines.length && (lines.length === 1 ? `ישר${said.length ? ` ${said[0]}` : ''}` : `${lines.length} ישרים${said.length ? `: ${said.join(', ')}` : ''}`),
         meet && `הישרים נפגשים ב־(${figNum(meet[0])}, ${figNum(meet[1])})`,
         f.path?.length && 'מסלול מראשית הצירים',
-        rr && `צעד של ${figNum(Math.abs(rr.run))} ${rr.run > 0 ? 'ימינה' : 'שמאלה'} ו־${figNum(Math.abs(rr.rise))} ${rr.rise >= 0 ? 'למעלה' : 'למטה'}`].filter(Boolean).join(', ');
+        rr && `צעד של ${figNum(Math.abs(rr.run))} ${rr.run > 0 ? 'ימינה' : 'שמאלה'} ו־${figNum(Math.abs(rr.rise))} ${rr.rise >= 0 ? 'למעלה' : 'למטה'}`,
+        f.words?.length && `כתוב: ${f.words.map((w) => w.text).join(', ')}`].filter(Boolean).join(', ');
     }
     default: return '';
   }

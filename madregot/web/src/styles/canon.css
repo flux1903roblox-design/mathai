@@ -608,6 +608,7 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
    drawing; text has a halo of the panel it sits on. */
 .figure.fig-numline, .figure.fig-dots, .figure.fig-bars { max-width: 360px; }
 .figure.fig-thermo { max-width: 200px; }
+.figure.fig-thermo.two { max-width: 300px; }
 .figure.fig-machine { max-width: 280px; }
 .fig-var { font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; }
 .fig-nl-axis { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
@@ -628,6 +629,7 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .fig-nl-move { fill: var(--brand-d); font-size: 18px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
 .fig-th-glass { fill: var(--surface); stroke: var(--ink-2); stroke-width: 2.5; }
 .fig-th-fill { fill: var(--bad); }
+.fig-th-col { fill: none; stroke: var(--bad); stroke-width: 12; }
 .fig-th-tick { stroke: var(--ink-2); stroke-width: 2; }
 .fig-th-tick.sub { stroke-width: 1.25; }
 .fig-th-tick.zero { stroke: var(--ink); stroke-width: 2.5; }
@@ -635,6 +637,9 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .fig-th-num.zero { fill: var(--ink); font-weight: 700; }
 .fig-th-pointer { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 3 3; }
 .fig-th-read { fill: var(--ink); font-size: 22px; font-weight: 800; }
+.fig-thermo.two .fig-th-num { font-size: 19px; }
+.fig-thermo.two .fig-th-read { font-size: 26px; }
+.fig-thermo.two .fg-word { font-size: 20px; }
 .fig-mc-io rect { fill: var(--surface); stroke: var(--control-line); stroke-width: 2; }
 .fig-mc-io text { fill: var(--ink); font-size: 24px; font-weight: 700; }
 .fig-mc-io.target rect { stroke: var(--brand); stroke-width: 2.5; }
@@ -650,6 +655,8 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .fig-bar-num { fill: var(--ink); font-size: 16px; font-weight: 700; }
 .fig-bar-name { fill: var(--ink-2); font-weight: 600; }
 .fig-bar-base { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.fig-cd-word { fill: var(--ink); font-size: 17px; font-weight: 700; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+.fig-cd-word.fig-var { font-size: 20px; font-weight: 400; }
 .fig-cd-quad { fill: var(--ink-2); font-size: 15px; font-weight: 600; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
 .fig-cd-line { fill: none; stroke-width: 3; stroke-linecap: round; }
 .fig-cd-line.tone-brand { stroke: var(--brand); }
@@ -666,6 +673,11 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .fig-cd-walk path { fill: none; stroke: var(--brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .fig-cd-meet circle { fill: var(--good-d); stroke: var(--ground); stroke-width: 2.5; }
 .fig-cd-meet-num { fill: var(--good-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
+
+/* a long formula in a rule's "why" (an inline expression never splits, tokens.css) scrolls inside its box on a 320px
+   phone instead of pushing the whole page sideways; the box is positioned so KaTeX's hidden, positioned MathML stays
+   inside it too */
+.lm-why { position: relative; overflow-x: auto; }
 
 /* on a short phone the tall drawings shrink to keep the text and the button in view */
 @media (max-height: 700px) { .lm-fig .figure.fig-machine, .lm-fig .figure.fig-thermo { max-height: 30dvh; } }

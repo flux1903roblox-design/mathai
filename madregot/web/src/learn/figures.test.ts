@@ -172,7 +172,7 @@ function labelsOf(f: AnyFig): Set<string> {
   const out: unknown[] = (() => {
     switch (f.type) {
       case 'numline': return [...(f.marks || []).map((k: any) => k.label), ...(f.jumps || []).map((j: any) => j.label)];
-      case 'thermo': return [fmt(f.value), f.label];
+      case 'thermo': return [fmt(f.value), f.label, ...(f.also ? [fmt(f.also.value), f.also.label] : [])];
       case 'machine': return [io(f.inX, 'x'), io(f.outY, 'y'), f.rule];
       case 'dots': return [];
       case 'bars': return [...f.labels, ...f.values.map(fmt), f.unit];
@@ -181,7 +181,7 @@ function labelsOf(f: AnyFig): Set<string> {
         const meet = f.meet && f.lines?.length > 1 ? meetOf(f.lines[0], f.lines[1]) : null;
         const rr = f.riseRun && lines[0] ? [fmt(f.riseRun.run), fmt(lines[0].m * f.riseRun.run)] : [];
         return ['x', 'y', ...(f.points || []).filter((p: any) => !p.hidden).map((p: any) => p.label), ...(f.lines || []).map((l: any) => l.label),
-          ...(meet ? [`(${fmt(meet[0])}, ${fmt(meet[1])})`] : []), ...rr];
+          ...(meet ? [`(${fmt(meet[0])}, ${fmt(meet[1])})`] : []), ...rr, ...(f.words || []).map((w: any) => w.text)];
       }
       case 'geo': return [...Object.keys(f.pts).filter((k) => !k.startsWith('_') && !(f.hide || []).includes(k)), ...(f.segs || []).map((s: any) => s.label),
         ...(f.angles || []).map((g: any) => g.text), ...(f.squares || []).map((q: any) => q.text), ...(f.words || []).map((w: any) => w.text)];
@@ -210,7 +210,7 @@ function selfProblems(skill: string, f: AnyFig): string[] {
     for (const k of f.marks || []) if (!within(k.x, f.from, f.to)) bad.push(`numline mark at ${k.x} outside [${f.from}, ${f.to}]`);
     for (const j of f.jumps || []) if (!within(j.from, f.from, f.to) || !within(j.to, f.from, f.to)) bad.push(`numline jump ${j.from} → ${j.to} outside [${f.from}, ${f.to}]`);
   }
-  if (f.type === 'thermo' && !(f.min < f.max && within(f.value, f.min, f.max))) bad.push(`thermo ${f.value} on a scale ${f.min}..${f.max}`);
+  if (f.type === 'thermo') for (const v of [f.value, ...(f.also ? [f.also.value] : [])]) if (!(f.min < f.max && within(v, f.min, f.max))) bad.push(`thermo ${v} on a scale ${f.min}..${f.max}`);
   if (f.type === 'machine' && !String(f.rule || '').trim()) bad.push('a machine with no rule');
   if (f.type === 'dots') {
     const [lo, hi] = f.axis; const vs: number[] = f.values; const k = f.mark || {};
@@ -250,10 +250,14 @@ function selfProblems(skill: string, f: AnyFig): string[] {
   return bad;
 }
 
-/** The checks against the text, for topics that are fully drawn. */
+/** The checks against the text, for topics that are fully drawn. A predict step that asks where a point is, or what its
+ * coordinates are, lists that point as hidden (in its place, not drawn), so the figure does not answer the question:
+ * there a hidden point counts as the text's point. */
 function textProblems(st: DiscoverStep, f: AnyFig): string[] {
   const bad: string[] = [];
+  const asks = st.kind === 'predict';
   const labels = labelsOf(f);
+  if (asks && f.type === 'coord') for (const p of f.points || []) if (p.hidden) labels.add(plainOf(p.label));
   const groups = [...st.text.matchAll(/\$([^$]+)\$/g)].map((m) => m[1]);
   // a letter named alone, or a point named by its coordinates, is written in the figure; a letter as a shape ("צורת $Z$",
   // the shape of alternate angles) names no point
@@ -271,7 +275,7 @@ function textProblems(st: DiscoverStep, f: AnyFig): string[] {
       const lines = f.lines || [];
       const meet = f.meet && lines.length > 1 ? meetOf(lines[0], lines[1]) : null;
       const at = (p: Pt) => Math.abs(p[0] - x) < 1e-9 && Math.abs(p[1] - y) < 1e-9;
-      const ok = (f.points || []).some((p: any) => !p.hidden && (!m[1] || p.label === m[1]) && at([p.x, p.y]))
+      const ok = (f.points || []).some((p: any) => (asks || !p.hidden) && (!m[1] || p.label === m[1]) && at([p.x, p.y]))
         || (!m[1] && ((meet && at(meet)) || (f.path || []).some((p: Pt) => at(p))));
       if (!ok) bad.push(`${m[0]} is not drawn there`);
     }
@@ -282,7 +286,7 @@ function textProblems(st: DiscoverStep, f: AnyFig): string[] {
   }
   // a prediction's answer is not written in its own figure (a table's cells are data, where a number may come up by
   // chance: its headings count)
-  const written = f.type === 'table' ? new Set((f.head as unknown[]).map(plainOf)) : labels;
+  const written = f.type === 'table' ? new Set((f.head as unknown[]).map(plainOf)) : labelsOf(f);
   if (st.kind === 'predict' && written.has(plainOf(st.choices[st.answer]))) bad.push(`the answer ${plainOf(st.choices[st.answer])} is written in the figure`);
   return bad;
 }
@@ -328,6 +332,13 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(both('stats:1', say('הציונים: $6, 7, 7, 8, 9$.', { type: 'dots', values: [6, 7, 7, 8, 9], axis: [5, 10], mark: { mode: 7, median: 7, mean: 7.4 } }))).toEqual([]);
     expect(both('stats:1', say('כמה תלמידים בחרו כל ענף.', { type: 'bars', labels: ['כדורגל', 'כדורסל'], values: [12, 8], highlight: 0 }))).toEqual([]);
     expect(both('signed:1', say('בלילה הטמפרטורה ירדה.', { type: 'thermo', value: -4, min: -10, max: 10 }))).toEqual([]);
+    expect(both('signed:2', say('ביום ראשון $-3$ מעלות, וביום שני $-8$.', { type: 'thermo', value: -3, label: 'יום ראשון', also: { value: -8, label: 'יום שני' }, min: -10, max: 10 }))).toEqual([]);
+    expect(both('coord:4', say('שטח מלבן הוא רוחב $a$ כפול גובה $b$.', { type: 'coord', range: 5, polygon: [[0, 0], [4, 0], [4, 3], [0, 3]], words: [{ at: [2, -0.6], text: 'a' }, { at: [4.6, 1.5], text: 'b' }] }))).toEqual([]);
+    // a predict step that asks where a point is keeps it hidden, in its place
+    const asked = { type: 'coord', range: 6, quadrants: true, points: [{ x: 0, y: -3, label: 'E', hidden: true }] };
+    expect(both('coord:1', predict('ואיפה $E(0, -3)$?', asked, ['על ציר $y$', 'בראשית'], 0))).toEqual([]);
+    const corner = { type: 'coord', range: 6, points: [{ x: 1, y: -3, label: 'A' }, { x: 1, y: 2, label: 'D', hidden: true }] };
+    expect(both('coord:5', predict('נתון $A(1, -3)$. מה השיעורים של $D$?', corner, ['$(1, 2)$', '$(2, 1)$'], 0))).toEqual([]);
   });
 
   it('catches a figure that disagrees with itself', () => {
@@ -345,6 +356,7 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(selfProblems('sys:1', { type: 'coord', range: 6, lines: [{ m: 1, b: 0 }, { m: -1, b: 16 }], meet: true })[0]).toMatch(/inside the plane/);
     expect(selfProblems('line:2', { type: 'coord', riseRun: { x: 0, run: 1 } })).toEqual(['riseRun with no line']);
     expect(selfProblems('stats:2', { type: 'bars', labels: ['א'], values: [1, 2] })).toHaveLength(1);
+    expect(selfProblems('signed:2', { type: 'thermo', value: -3, also: { value: -12 }, min: -10, max: 10 })).toEqual(['thermo -12 on a scale -10..10']);
   });
 
   it('catches a figure that disagrees with its text, or gives away the answer', () => {
@@ -362,5 +374,23 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(textProblems(predict('מה יוצא מהמכונה?', asked, ['$7$', '$6$'], 0), asked)).toEqual([]);
     const meet = { type: 'coord', lines: [{ m: 1, b: 1 }, { m: -1, b: 5 }], meet: true };
     expect(textProblems(predict('איפה הישרים נפגשים?', meet, ['$(2, 3)$', '$(3, 2)$'], 0), meet)).toEqual(['the answer (2, 3) is written in the figure']);
+    // a hidden point stands for the text's point only where a prediction asks about it, and only in its place
+    const hid = { type: 'coord', points: [{ x: 0, y: -3, label: 'E', hidden: true }] };
+    expect(textProblems(say('הנקודה $E(0, -3)$ על ציר $y$.', hid), hid)).toEqual(['the text names E, the figure does not', 'E(0, -3) is not drawn there']);
+    const off = { type: 'coord', points: [{ x: 0, y: 3, label: 'E', hidden: true }] };
+    expect(textProblems(predict('ואיפה $E(0, -3)$?', off, ['$1$', '$2$'], 0), off)).toEqual(['E(0, -3) is not drawn there']);
+    const side = { type: 'coord', words: [{ at: [0, 0], text: 'a' }] };
+    expect(textProblems(say('רוחב $a$ כפול גובה $b$.', side), side)).toEqual(['the text names b, the figure does not']);
+    const pair = { type: 'thermo', value: -3, also: { value: -8 }, min: -10, max: 10 };
+    expect(textProblems(predict('איפה קר יותר?', pair, ['$-8$', '$-3$'], 0), pair)).toEqual(['the answer -8 is written in the figure']);
+  });
+
+  it('in every fully drawn topic, a say step that opens a stair draws itself in when its figure can', () => {
+    const DRAWS = new Set(['numline', 'thermo', 'machine', 'dots', 'coord']);
+    const bad = Object.values(CONTENT).filter((c) => !PENDING_VISUALS.has(c.skill.split(':')[0])).flatMap((c) => {
+      const st = c.discover[0]; const f = figOf(st) as AnyFig | undefined;
+      return st.kind === 'say' && f && DRAWS.has(f.type) && !f.anim ? [`${c.skill} #0: ${f.type} without anim`] : [];
+    });
+    expect(bad).toEqual([]);
   });
 });

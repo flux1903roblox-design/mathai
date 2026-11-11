@@ -5,6 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { open, student } from './helpers.js';
 import { STAIRS, GRADE_OF as GRADE } from '../src/learn/skills.ts';
+import { PENDING_VISUALS } from '../src/learn/visualPlan.ts';
 
 test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone', 'one phone is enough for the content walk'); });
 const plain = (x) => (Number.isInteger(x) ? String(x) : String(Math.round(x * 1e6) / 1e6));
@@ -88,6 +89,44 @@ for (const [topic, n] of Object.entries(STAIRS)) {
     });
   }
 }
+
+// STUDENT-8: a picture or an object on every teaching step. On a small phone (320×568), every step of Stage A in a fully
+// drawn topic (one not in learn/visualPlan.ts PENDING_VISUALS) has its visual region, with a drawing or an object to
+// move in it, at least 120px tall.
+test.describe('every teaching step of a drawn topic shows its drawing on a small phone', () => {
+  test.use({ viewport: { width: 320, height: 568 } });
+  for (const topic of Object.keys(STAIRS).filter((t) => !PENDING_VISUALS.has(t))) {
+    for (let level = 1; level <= STAIRS[topic]; level += 1) {
+      test(`${topic}:${level}: a drawing on every step at 320px`, async ({ page }) => {
+        await open(page, `#/learn/${topic}/${level}/A`, student(GRADE[topic], { goalXp: 50 }));
+        let done = false;
+        for (let i = 0; i < 20 && !done; i += 1) {
+          await expect.poll(() => page.evaluate(() => window.__madregotStep)).toBeTruthy();
+          const st = await page.evaluate(() => window.__madregotStep);
+          await expect(page.locator('.sp-step')).toHaveCount(1); // the step before has left
+          const visual = page.locator('.sp-step [data-region="visual"]');
+          await expect(visual, `${topic}:${level} #${i}`).toHaveCount(1);
+          await expect(visual.locator('.lm-fig [role="img"], .lm-fig table, .manip').first(), `${topic}:${level} #${i}: a drawing or an object`).toBeVisible();
+          expect((await visual.boundingBox()).height, `${topic}:${level} #${i}: the visual's height`).toBeGreaterThanOrEqual(120);
+          if (st.kind === 'explore') {
+            await expect.poll(() => page.evaluate(() => window.__madregotSolveStep?.forStep === window.__madregotStep)).toBe(true);
+            await page.evaluate(() => window.__madregotSolveStep());
+            await page.locator('.lm-check').click();
+          }
+          if (st.kind === 'predict') { await page.locator('.ls-choice').nth(st.answer).click(); await page.locator('.lm-check').click(); }
+          const next = page.locator('.sp-next');
+          done = (await next.textContent()).includes('לדוגמה'); // the last step: every step was measured
+          if (!done) {
+            const at = await page.locator('.sp-progress').getAttribute('aria-valuenow');
+            await next.click();
+            await expect(page.locator('.sp-progress')).not.toHaveAttribute('aria-valuenow', at);
+          }
+        }
+        expect(done, `${topic}:${level}: reached the last step`).toBe(true);
+      });
+    }
+  }
+});
 
 // STUDENT-9 §4: nothing that looks active is disabled. Step 1 has no "previous" button at all; step 2 has one.
 test('the first teaching step has no "previous" button; the second has a working one', async ({ page }) => {

@@ -63,3 +63,46 @@ real ones), on a phone with reduced motion:
 Measured with esbuild (minified, gzip -9, the libraries left out), each new type adds: numline 670 B, thermo 328 B,
 machine 323 B, dots 455 B, bars 262 B (each under the 1.5 KB of the spec). The plane's new fields and the shared
 drawing code add about 1.2 KB. They stay in the lesson's code (today the boot bundle, as `Lesson.jsx` is not split yet).
+
+## Stage 14: every teaching step of signed numbers and the coordinate plane is drawn
+
+The 35 bare steps of `signed` and the 29 of `coord` now have a figure, the Hebrew text unchanged; both topics left
+`PENDING_VISUALS` (signed 50/50, coord 48/48, no exemptions). The rules: a step that names an object draws it; a step that
+asks about a configuration draws it without the answer; a rule step redraws its example with the rule's numbers; a say
+step that opens a stair draws itself in (`anim`).
+
+| File | What it shows |
+| --- | --- |
+| `council-before-after-signed1-0.png` | The council's `i13f-02-teach-0.png` (one sentence on an empty phone) next to `signed:1#0` now: the spec's number line, a jump of +5 from −2 to 3 |
+| `signed-first-steps.png` | The first step of each signed stair, light and dark, 390x844: the number line; a thermometer below zero; 3 · 4 as three jumps of 4; Roni's 5 points; the package (2 + 3) |
+| `coord-first-steps.png` | The first step of each coord stair: the origin; the four quadrants; a horizontal and a vertical segment; a shape of squares; three corners of a rectangle |
+
+How the figures follow the steps, by stair:
+
+- signed:1-5. Moves are jumps over the number line, with their size on them (−(−3), 3·(−2), (2 + 3)). A prediction shows
+  where it starts, never where it lands: `2 − (−3)` shows 2; the pattern 5 − 2, 5 − 1, 5 − 0 shows 3, 4, 5 and the +1
+  steps, not 6. The two Hermon mornings are two thermometers side by side (`also`), so the explore step that puts −8 and
+  −3 on the line is not given away. `signed:5#1` (the same numbers with and without brackets) is a small table of what is
+  done first, since any line would compute one of the two answers.
+- coord:1-5. Every point the text names is drawn where the text says. A prediction about where a point is (or what its
+  coordinates are) keeps that point hidden: it is in the data, in its place, and not drawn (`E(0, −3)`, `(5, −1)`, the
+  missing corner `D`). The quadrant rule names one point in each quadrant by its signs; the area rule writes `a` and `b`
+  on the sides (`words`, a new field of the plane).
+
+What changed in the shared figures while drawing these, each after looking at the screens:
+
+- The number line spaces its numbers to fit a 320px phone (every 1, 2, 5… so a minus sign and two digits never touch),
+  and always writes where a jump starts and lands. A jump that goes back over an earlier one (10 − 4 + 3) is an arch above
+  it, so the two arcs and their labels never cross.
+- The thermometer can stand two on one scale (`also`), drawn shorter so its numbers stay readable on a small phone, and
+  draws its column up with `anim`.
+- The plane takes `words` (a side's letter, a shape's name); its screen-reader name says when it shows a rectangle or
+  segments.
+- `.lm-why` keeps a long formula inside its box: on a 320px phone the rule `signed:5#7`'s why pushed the page 21px
+  sideways (an inline formula never splits, and KaTeX's hidden MathML is positioned, so the box is positioned too).
+
+Checks: `learn/figures.test.ts` now holds signed and coord to their text (no answer written in a prediction's figure, every
+named point drawn or, in a prediction, hidden in its place) and to "a say step that opens a stair draws itself in";
+`e2e/teach-all.spec.js` walks every step of every drawn topic at 320x568 and finds its visual region, with a drawing or an
+object in it, at least 120px tall. Made with `walk.cjs` (every step of a stair, at a size), `firsts.cjs` and `proof.py`
+against a `vite preview` of the build on port 4232.

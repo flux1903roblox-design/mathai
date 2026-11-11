@@ -34,7 +34,7 @@ export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 export type FigTone = 'brand' | 'good' | 'bad';
 export type FigSpec =
   | { type: 'numline'; from: number; to: number; step?: number; den?: number; marks?: { x: number; label?: string; tone?: FigTone }[]; jumps?: { from: number; to: number; label?: string }[]; anim?: boolean }
-  | { type: 'thermo'; value: number; min: number; max: number; label?: string }
+  | { type: 'thermo'; value: number; min: number; max: number; label?: string; also?: { value: number; label?: string }; anim?: boolean }
   | { type: 'machine'; inX?: number | string; rule: string; outY?: number | string; anim?: boolean }
   | { type: 'dots'; values: number[]; axis: [number, number]; mark?: { mode?: number; median?: number; mean?: number }; anim?: boolean }
   | { type: 'bars'; labels: string[]; values: number[]; highlight?: number; unit?: string }
@@ -45,6 +45,7 @@ export type FigSpec =
     line?: { m: number; b: number };
     lines?: { m: number; b: number; label?: string; tone?: FigTone }[];
     meet?: boolean; riseRun?: { x: number; run: number }; quadrants?: boolean; path?: [number, number][]; anim?: boolean;
+    words?: { at: [number, number]; text: string }[];
   }
   | GeoFig
   | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'table' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };

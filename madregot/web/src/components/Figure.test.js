@@ -32,6 +32,9 @@ describe('the new figure types render with role="img" and their Hebrew name', ()
   it('thermo: the reading in degrees', () => {
     expect(named({ type: 'thermo', value: -4, min: -10, max: 10 })).toBe('מדחום שמראה −4 מעלות');
     expect(named({ type: 'thermo', value: 12, min: -10, max: 30, label: 'בצהריים' })).toBe('מדחום שמראה 12 מעלות, בצהריים');
+    // two thermometers on one scale (two days)
+    expect(named({ type: 'thermo', value: -3, label: 'יום ראשון', also: { value: -8, label: 'יום שני' }, min: -10, max: 10 }))
+      .toBe('שני מדחומים: יום ראשון −3 מעלות, יום שני −8 מעלות');
   });
 
   it('machine: in, the rule in words, out; a question mark when the output is asked', () => {
@@ -59,6 +62,11 @@ describe('the new figure types render with role="img" and their Hebrew name', ()
       .toBe('מערכת צירים, 2 ישרים: y = x + 1, y = −x + 5, הישרים נפגשים ב־(2, 3)');
     expect(named({ type: 'coord', range: 6, line: { m: 2, b: -1 }, riseRun: { x: 0, run: 1 } })).toBe('מערכת צירים, ישר, צעד של 1 ימינה ו־2 למעלה');
     expect(named({ type: 'coord', range: 6, line: { m: -0.5, b: 2 }, riseRun: { x: -2, run: 2 } })).toBe('מערכת צירים, ישר, צעד של 2 ימינה ו־1 למטה');
+    // a rectangle on the grid, its sides' letters; segments
+    expect(named({ type: 'coord', range: 5, polygon: [[0, 0], [4, 0], [4, 3], [0, 3]], words: [{ at: [2, -0.6], text: 'a' }, { at: [4.6, 1.5], text: 'b' }] }))
+      .toBe('מערכת צירים, מלבן, כתוב: a, b');
+    expect(named({ type: 'coord', range: 6, segments: [[[1, 2], [5, 2]]], points: [{ x: 1, y: 2, label: 'C' }, { x: 5, y: 2, label: 'D' }, { x: 0, y: -3, label: 'E', hidden: true }] }))
+      .toBe('מערכת צירים, קטע, הנקודות C, D');
   });
 });
 
@@ -83,6 +91,30 @@ describe('what each figure draws', () => {
     const out = html({ type: 'dots', values: [3, 1, 2, 2, 5], axis: [0, 6], mark: { median: 2 } });
     expect(out.match(/<circle/g)).toHaveLength(5);
     expect(out.match(/fig-dt-dot hi/g)).toHaveLength(1);
+  });
+
+  it('numbers on a long line are spaced to fit, but where a jump starts and lands is always written', () => {
+    const out = html({ type: 'numline', from: -12, to: 12, jumps: [{ from: 0, to: 7 }] });
+    const nums = [...out.matchAll(/class="fig-nl-num[^"]*">([^<]+)</g)].map((m) => m[1]);
+    expect(nums).toEqual(['−10', '−5', '0', '7', '10']); // every 5 fits; 5 gives way to the 7 the jump lands on
+  });
+
+  it('a jump that goes back over an earlier one rises above it, so the arcs and their labels do not cross', () => {
+    const out = html({ type: 'numline', from: 0, to: 12, marks: [{ x: 10, label: '10' }], jumps: [{ from: 10, to: 6, label: '-4' }, { from: 6, to: 9, label: '+3' }] });
+    const ys = [...out.matchAll(/class="fig-nl-move"[^>]*y="([\d.]+)"|y="([\d.]+)"[^>]*class="fig-nl-move"/g)].map((m) => Number(m[1] || m[2]));
+    expect(ys).toHaveLength(2);
+    expect(ys[0] - ys[1]).toBeGreaterThan(30); // the second label is well above the first
+    // jumps one after another the same way (10 − 3 − 2) stay at their own height
+    const flat = html({ type: 'numline', from: 0, to: 12, jumps: [{ from: 10, to: 7 }, { from: 7, to: 5 }] });
+    expect(/viewBox="0 0 320 ([\d.]+)"/.exec(flat)[1]).toBe(/viewBox="0 0 320 ([\d.]+)"/.exec(html({ type: 'numline', from: 0, to: 12, jumps: [{ from: 10, to: 7 }] }))[1]);
+  });
+
+  it('two thermometers: the first on the right, each named under it; the plane writes its words', () => {
+    const out = html({ type: 'thermo', value: -3, label: 'יום ראשון', also: { value: -8, label: 'יום שני' }, min: -10, max: 10 });
+    const x = (name) => Number(new RegExp(`<text x="([\\d.]+)"[^>]*>${name}<`).exec(out)[1]);
+    expect(x('יום ראשון')).toBeGreaterThan(x('יום שני'));
+    expect(out.match(/class="fig-th-glass"/g)).toHaveLength(2);
+    expect(html({ type: 'coord', range: 5, words: [{ at: [2, -0.6], text: 'a' }] })).toMatch(/class="fig-cd-word fig-var">a</);
   });
 
   it('bars: the first bar is on the right', () => {
@@ -118,6 +150,7 @@ describe('drawing in, once, and never under reduced motion', () => {
       { type: 'machine', inX: 3, rule: '2x + 1', outY: '?', anim: true },
       { type: 'dots', values: [1, 2, 2], axis: [0, 4], anim: true },
       { type: 'coord', range: 6, lines: [{ m: 1, b: 0 }], path: [[2, 0]], anim: true },
+      { type: 'thermo', value: -3, min: -10, max: 10, anim: true },
     ];
     for (const f of animated) {
       expect(html(f), f.type).toMatch(/opacity="0"/);
