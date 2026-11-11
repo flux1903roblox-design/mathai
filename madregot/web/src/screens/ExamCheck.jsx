@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Camera, ImageUp, X } from 'lucide-react';
+import { Camera, FileUp, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady } from '@/lib/ai.js';
@@ -18,6 +18,7 @@ import SupportCard from '@/components/SupportCard.jsx';
 import { scrubTitle } from '@shared/safety.js';
 import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
 import PhotoPrep, { EXAM_HEADER } from '@/components/PhotoPrep.jsx';
+import { pdfPages, isPdf, pdfMessage, PDF_COPY } from '@/lib/pdfPages.js';
 import '@/styles/lazy/examCheck.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 /**
@@ -25,8 +26,7 @@ import '@/styles/lazy/examCheck.css'; // this screen's own rules, loaded with it
  * boxes were blacked out, in all. The server counts it, with nothing of the pages.
  */
 const prepOf = (pages) => ({ crop: pages.some((p) => p.prep?.crop), boxes: pages.reduce((n, p) => n + (p.prep?.boxes || 0), 0) });
-// No PDF is sent any more: every page passes PhotoPrep, and a PDF cannot (trust spec TRUST-5 §3).
-const PDF_TOAST = 'אי אפשר לבדוק כאן קובץ PDF. אפשר לצלם את הדפים במקום.';
+const LIMIT = `אפשר עד ${MAX_EXAM_PAGES} דפים בבדיקה אחת`;
 
 export default function ExamCheck() {
   const [params] = useSearchParams();
@@ -34,8 +34,9 @@ export default function ExamCheck() {
   const { profile, practiceExams, progress, addExam } = useApp();
   const practice = practiceExams.find((p) => p.id === params.get('practice')) || null;
   const [pages, setPages] = useState([]); // { data, mediaType, name, prep }
-  // pictures waiting for PhotoPrep, the first one open: { id, file }
+  // pictures waiting for PhotoPrep, the first one open: { id, file, pdf } (pdf: a page drawn from a PDF)
   const [queue, setQueue] = useState([]);
+  const [opening, setOpening] = useState(false); // a PDF's pages are being drawn (lib/pdfPages.js)
   const queued = useRef(0);
   const camRef = useRef(null);
   const pickRef = useRef(null);
@@ -54,18 +55,31 @@ export default function ExamCheck() {
   }, [state.phase]);
 
   // the warning first (once a session), then the camera or the picker; the input remembered for "צילום מחדש"
-  const openInput = (el) => { lastInput.current = el; ask(el); };
-  const add = (e) => {
+  const openInput = (el) => { if (opening) return; lastInput.current = el; ask(el); };
+  // Pictures join the queue as they are; a PDF's pages are drawn on the device first, one JPEG per page (trust spec
+  // TRUST-5 §3), and each then passes PhotoPrep like a photo, so no page, a PDF's included, skips the step. The PDF
+  // itself is never sent. The files are taken in the order they were picked.
+  const add = async (e) => {
     const files = [...(e.target.files || [])]; e.target.value = '';
     let room = MAX_EXAM_PAGES - pages.length - queue.length;
     const next = [];
+    const take = (file, pdf = false) => { room -= 1; queued.current += 1; next.push({ id: queued.current, file, pdf }); };
     for (const f of files) {
-      if (!f.type.startsWith('image/')) { toast.error(f.type === 'application/pdf' ? PDF_TOAST : `לא הצלחנו לקרוא את ${f.name}`); continue; }
-      if (room <= 0) { toast(`אפשר עד ${MAX_EXAM_PAGES} דפים בבדיקה אחת`); break; }
-      room -= 1; queued.current += 1;
-      next.push({ id: queued.current, file: f });
+      if (room <= 0) { toast(LIMIT); break; }
+      if (f.type.startsWith('image/')) { take(f); continue; }
+      if (!isPdf(f)) { toast.error(`לא הצלחנו לקרוא את ${f.name}`); continue; }
+      setOpening(true);
+      try {
+        const { pages: drawn, total } = await pdfPages(f, { max: room });
+        for (const page of drawn) take(page, true);
+        if (total > drawn.length) { toast(LIMIT); break; }
+      } catch (err) {
+        toast.error(pdfMessage(err));
+      } finally {
+        if (mounted.current) setOpening(false);
+      }
     }
-    if (next.length) setQueue((q) => [...q, ...next]);
+    if (next.length && mounted.current) setQueue((q) => [...q, ...next]);
   };
   const current = queue[0] || null;
   const shift = () => setQueue((q) => q.slice(1));
@@ -184,23 +198,24 @@ export default function ExamCheck() {
               {pages.length < MAX_EXAM_PAGES && (
                 <>
                 <li>
-                  <button type="button" className="page-add" onClick={() => openInput(camRef.current)}>
+                  <button type="button" className="page-add" onClick={() => openInput(camRef.current)} aria-disabled={opening || undefined}>
                     <Camera size={26} aria-hidden="true" />
                     <span>{pages.length ? 'צילום דף נוסף' : 'צילום דף'}</span>
                   </button>
                 </li>
                 <li>
-                  <button type="button" className="page-add" onClick={() => openInput(pickRef.current)}>
-                    <ImageUp size={26} aria-hidden="true" />
-                    <span>בחירת תמונה</span>
+                  <button type="button" className="page-add" onClick={() => openInput(pickRef.current)} aria-disabled={opening || undefined}>
+                    <FileUp size={26} aria-hidden="true" />
+                    <span>תמונה או PDF</span>
                   </button>
                 </li>
                 </>
               )}
             </ul>
-            {/* images only: a PDF could not pass the step that hides personal details */}
+            {/* always there, so a screen reader hears it when a PDF starts opening */}
+            <p className="pdf-status" role="status">{opening && <><span className="btn-spin" aria-hidden="true" />{PDF_COPY.opening}</>}</p>
             <input ref={camRef} type="file" accept="image/*" capture="environment" className="visually-hidden" tabIndex={-1} aria-hidden="true" onChange={add} />
-            <input ref={pickRef} type="file" accept="image/*" multiple className="visually-hidden" tabIndex={-1} aria-hidden="true" onChange={add} />
+            <input ref={pickRef} type="file" accept="image/*,application/pdf" multiple className="visually-hidden" tabIndex={-1} aria-hidden="true" onChange={add} />
             <p className="field-hint">לתמונה טובה: אור טוב, הדף שטוח וכולו בתמונה. בלי שם ובלי תעודת זהות.</p>
           </section>
           {!practice && (
@@ -209,12 +224,14 @@ export default function ExamCheck() {
             </Field>
           )}
           <ScreenFoot>
-            <Button className="btn-block btn-lg" onClick={check} disabled={!pages.length} data-region="primary">{state.phase === 'error' ? 'לבדוק שוב' : 'בדיקת המבחן'}</Button>
+            <Button className="btn-block btn-lg" onClick={check} disabled={!pages.length || opening} data-region="primary">{state.phase === 'error' ? 'לבדוק שוב' : 'בדיקת המבחן'}</Button>
           </ScreenFoot>
           {photoWarn}
-          {/* every page passes here before it joins the list: the first page of an exam loses its top band by default */}
+          {/* every page passes here before it joins the list, a PDF's pages too: the first page of an exam loses its top
+              band by default. "צילום מחדש" drops this page and opens the camera again, or for a PDF's page the picker, so a
+              photo of that page (or another file) can take its place; the PDF's other pages stay in line. */}
           <PhotoPrep file={current?.file || null} crop={pages.length === 0 ? EXAM_HEADER : 0} onDone={prepDone}
-            onRetake={() => { shift(); ask(lastInput.current); }} onCancel={shift}
+            onRetake={() => { const pdf = current?.pdf; shift(); ask(pdf ? pickRef.current : lastInput.current); }} onCancel={shift}
             onError={() => { toast.error(`לא הצלחנו לקרוא את ${current?.file.name || 'התמונה'}`); shift(); }} />
         </>
       )}

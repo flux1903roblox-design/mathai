@@ -4,6 +4,7 @@
 // a fake (page.route, or a fetch that streams in pieces); nothing leaves the machine.
 import { test, expect } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { NOW, student, livedIn, answer, proceed, appReady } from './helpers.js';
 import { fakeServer, API, CORS, livePlan } from './fakeServer.js';
 
@@ -1036,9 +1037,10 @@ test.describe('photo', () => {
   test('exam: the warning comes first, page 1 loses its top band on the device, and the header pixel sent is not red', async ({ page }) => {
     const { log } = await setUp(page);
     await open(page, '#/exams/check', family());
-    // pictures only: no PDF is offered or mentioned
-    for (const input of await page.locator('input[type=file]').all()) await expect(input).toHaveAttribute('accept', 'image/*');
-    await expect(page.getByText(/PDF/)).toHaveCount(0);
+    // the camera takes photos; the picker a picture or a PDF (PKG-2), whose pages go through the same step
+    await expect(page.locator('input[type=file][capture]')).toHaveAttribute('accept', 'image/*');
+    await expect(page.locator('input[type=file]:not([capture])')).toHaveAttribute('accept', 'image/*,application/pdf');
+    await expect(page.getByRole('button', { name: 'תמונה או PDF' })).toBeVisible();
     await expect(page.getByText('לתמונה טובה: אור טוב, הדף שטוח וכולו בתמונה. בלי שם ובלי תעודת זהות.')).toBeVisible();
     // "צילום דף" opens the warning, never the camera
     let choosers = 0; page.on('filechooser', () => { choosers += 1; });
@@ -1094,7 +1096,7 @@ test.describe('photo', () => {
     await expect(page.getByRole('img', { name: 'דף 1' })).toBeVisible();
     // the second photo of the session: no warning, the picker at once, and no cut on page 2
     const picker = page.waitForEvent('filechooser');
-    await page.getByRole('button', { name: 'בחירת תמונה' }).click();
+    await page.getByRole('button', { name: 'תמונה או PDF' }).click();
     const fc2 = await picker;
     expect(fc2.isMultiple()).toBe(true);
     await expect(warnSheet(page)).toHaveCount(0);
@@ -1104,13 +1106,6 @@ test.describe('photo', () => {
     await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
     await expect(page.getByRole('img', { name: 'דף 2' })).toBeVisible();
     await shot(page, 'photo-pages');
-    // a PDF that slips past the picker is not taken
-    const picker2 = page.waitForEvent('filechooser');
-    await page.getByRole('button', { name: 'בחירת תמונה' }).click();
-    await (await picker2).setFiles({ name: 'exam.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n%synthetic\n') });
-    await expect(page.getByText('אי אפשר לבדוק כאן קובץ PDF. אפשר לצלם את הדפים במקום.')).toBeVisible();
-    await expect(prep).toHaveCount(0);
-    await expect(page.getByRole('img', { name: 'דף 3' })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'בדיקת המבחן' }).click();
     await expect.poll(() => log.filter((r) => r.path === '/api/ai/exam').length).toBe(1);
@@ -1134,14 +1129,14 @@ test.describe('photo', () => {
     await open(page, '#/assistant', family());
     await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
     const sheet = page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' });
-    await sheet.getByRole('button', { name: 'צילום או בחירת תמונה' }).click();
+    await sheet.getByRole('button', { name: 'צילום הדף' }).click();
     const warn = warnSheet(page);
     await expect(warn).toBeVisible();
     // closing the warning opens nothing, and it comes again
     await page.keyboard.press('Escape');
     await expect(warn).toHaveCount(0);
     await expect(sheet).toBeVisible();
-    await sheet.getByRole('button', { name: 'צילום או בחירת תמונה' }).click();
+    await sheet.getByRole('button', { name: 'צילום הדף' }).click();
     const camera = page.waitForEvent('filechooser');
     await warnSheet(page).getByRole('button', { name: 'הבנתי, לצלם' }).click();
     await (await camera).setFiles({ name: 'work.png', mimeType: 'image/png', buffer: await examPng(page) });
@@ -1171,6 +1166,156 @@ test.describe('photo', () => {
     const px = await sentPixels(page, sent.image, [[300, 60]]);
     expect([px.width, px.height]).toEqual([1200, 1600]);
     expect(Math.max(...px.px[0]), `pixel ${px.px[0]}`).toBeLessThan(40);
+  });
+
+  // ---- PDFs (PKG-2): drawn on the device page by page (lib/pdfPages.js), each page through the same step as a photo.
+  // The fixtures are synthetic (scripts/make-pdf-fixture.mjs): 2 A4 pages, a red band across the top of page 1.
+  const PDF = fileURLToPath(new URL('./fixtures/exam-2-pages.pdf', import.meta.url));
+  const BROKEN = fileURLToPath(new URL('./fixtures/broken.pdf', import.meta.url));
+  const PDF_FAILED = 'לא הצלחנו לפתוח את ה־PDF. אפשר לצלם את הדפים במקום.';
+  /** pdf.js's chunk is held until release(), so the "opening" line can be seen. */
+  async function holdPdfEngine(page) {
+    let release; const held = new Promise((r) => { release = r; });
+    await page.route(/\/assets\/pdf-[\w-]+\.js$/, async (route) => { await held; await route.continue(); });
+    return release;
+  }
+  /** Choose a file with "תמונה או PDF"; `warn`: the warning comes first (the first time in the session). */
+  async function choose(page, scope, file, { warn = false } = {}) {
+    const chooser = page.waitForEvent('filechooser');
+    await scope.getByRole('button', { name: 'תמונה או PDF' }).click();
+    if (warn) await warnSheet(page).getByRole('button', { name: 'הבנתי, לצלם' }).click();
+    else await expect(warnSheet(page)).toHaveCount(0);
+    const fc = await chooser;
+    await fc.setFiles(file);
+    return fc;
+  }
+
+  test('exam with a PDF: opened on the device, page 1 loses its band, page 2 is whole, and only 2 JPEG pages are sent', async ({ page }) => {
+    const { log } = await setUp(page);
+    const requests = [];
+    page.on('request', (r) => requests.push(r.url()));
+    await open(page, '#/exams/check', family());
+    await shot(page, 'pdf-exam-start');
+    // pdf.js is not loaded with the screen
+    expect(requests.filter((u) => /\/assets\/pdf[-.]/.test(u))).toEqual([]);
+    const release = await holdPdfEngine(page);
+    const from = requests.length;
+    const fc = await choose(page, page, PDF, { warn: true });
+    expect(fc.isMultiple()).toBe(true);
+    // the opening line, said to a screen reader too; nothing else can be added meanwhile
+    const status = page.getByRole('status').filter({ hasText: 'פותחים את ה־PDF…' });
+    await expect(status).toBeVisible();
+    await expect(page.getByRole('button', { name: 'תמונה או PDF' })).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByRole('button', { name: 'בדיקת המבחן' })).toBeDisabled();
+    await shot(page, 'pdf-opening');
+    release();
+    // page 1 of the PDF: the step opens with the top 15% shaded, the whole page on the screen
+    const prep = prepSheet(page);
+    await expect(prep).toBeVisible();
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '15');
+    await expect(prep.getByText('השורה הזו לא תישלח')).toBeVisible();
+    const frame = await prep.locator('.prep-frame').boundingBox();
+    expect(frame.width / frame.height).toBeCloseTo(595 / 842, 1);
+    expect(frame.y + frame.height).toBeLessThanOrEqual(page.viewportSize().height);
+    await expect(status).toHaveCount(0);
+    await shot(page, 'pdf-prep-page1');
+    // everything the PDF needed came from the app itself: pdf.js, its worker, nothing from anywhere else
+    const opened = requests.slice(from);
+    expect(opened.some((u) => /\/assets\/pdf-[\w-]+\.js$/.test(u))).toBe(true);
+    expect(opened.some((u) => /\/assets\/pdf\.worker\.min-[\w-]+\.mjs$/.test(u))).toBe(true);
+    // (the app's own server, faked here, may be asked about the plan meanwhile; nothing goes anywhere else)
+    expect(opened.filter((u) => ![baseOf(), API, 'blob:', 'data:'].some((ok) => u.startsWith(ok)))).toEqual([]);
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    // page 2: no cut
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '0');
+    await expect(prep.getByText('השורה הזו לא תישלח')).toHaveCount(0);
+    await shot(page, 'pdf-prep-page2');
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(prep).toHaveCount(0);
+    await expect(page.getByRole('img', { name: 'דף 1' })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'דף 2' })).toBeVisible();
+    await shot(page, 'pdf-pages');
+
+    await page.getByRole('button', { name: 'בדיקת המבחן' }).click();
+    await expect.poll(() => log.filter((r) => r.path === '/api/ai/exam').length).toBe(1);
+    const sent = log.find((r) => r.path === '/api/ai/exam').body;
+    expect(JSON.stringify(sent)).not.toContain('application/pdf');
+    expect(JSON.stringify(sent)).not.toContain('JVBERi'); // "%PDF" in base64: no PDF bytes either
+    expect(sent.pages.map((p) => p.mediaType)).toEqual(['image/jpeg', 'image/jpeg']);
+    for (const p of sent.pages) expect(p.data).toMatch(/^data:image\/jpeg;base64,/);
+    expect(sent.prep).toEqual({ crop: true, boxes: 0 });
+    // page 1 as sent: drawn at 1272 x 1800, then 15% cut off the top; pixel (10,10) is not the red band
+    const one = await sentPixels(page, sent.pages[0].data, [[10, 10]]);
+    expect(Math.max(one.width, one.height)).toBeLessThanOrEqual(1800);
+    expect([one.width, one.height]).toEqual([1272, 1530]);
+    const [r, g] = one.px[0];
+    expect(r < 200 || g > 80, `pixel (10,10) is ${one.px[0]}`).toBe(true);
+    const two = await sentPixels(page, sent.pages[1].data, [[10, 10]]);
+    expect([two.width, two.height]).toEqual([1272, 1800]);
+  });
+
+  test('exam with a PDF: "צילום מחדש" on a PDF page drops that page and opens the picker; a broken PDF says so calmly', async ({ page }) => {
+    await setUp(page);
+    await open(page, '#/exams/check', family());
+    await choose(page, page, BROKEN, { warn: true });
+    await expect(page.getByText(PDF_FAILED, { exact: true })).toBeVisible();
+    await expect(prepSheet(page)).toHaveCount(0);
+    await expect(page.getByRole('img', { name: 'דף 1' })).toHaveCount(0);
+    await shot(page, 'pdf-broken');
+    // the PDF: page 1 is open; "צילום מחדש" drops it and opens the picker (pictures or a PDF) in the same tap
+    await choose(page, page, PDF);
+    const prep = prepSheet(page);
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '15');
+    const picker = page.waitForEvent('filechooser');
+    await prep.getByRole('button', { name: 'צילום מחדש' }).click();
+    const fc = await picker;
+    expect(fc.isMultiple()).toBe(true);
+    expect(await fc.element().getAttribute('accept')).toBe('image/*,application/pdf');
+    // the PDF's page 2 is next, and with page 1 gone it is the exam's first page now: its top band is cut
+    await fc.setFiles({ name: 'page1-photo.png', mimeType: 'image/png', buffer: await examPng(page) });
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '15');
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    // then the photo that replaced page 1
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '0');
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(prep).toHaveCount(0);
+    await expect(page.getByRole('img', { name: 'דף 2' })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'דף 3' })).toHaveCount(0);
+  });
+
+  test('notebook photo with a PDF: its first page goes through the step, one JPEG is sent, and a longer PDF says only page 1 is checked', async ({ page }) => {
+    const { log } = await setUp(page);
+    await open(page, '#/assistant', family());
+    await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
+    const sheet = page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' });
+    // the camera stays a camera; the picker takes a picture or a PDF
+    await expect(sheet.locator('input[type=file][capture="environment"]')).toHaveAttribute('accept', 'image/*');
+    await expect(sheet.locator('input[type=file]:not([capture])')).toHaveAttribute('accept', 'image/*,application/pdf');
+    await shot(page, 'pdf-photo-check-start');
+    const fc = await choose(page, sheet, PDF, { warn: true });
+    expect(fc.isMultiple()).toBe(false);
+    const prep = prepSheet(page);
+    await expect(prep.getByRole('slider', { name: 'כמה לחתוך מלמעלה' })).toHaveAttribute('aria-valuenow', '0');
+    await shot(page, 'pdf-photo-check-prep');
+    await prep.getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
+    await expect(sheet.getByRole('img', { name: 'התמונה שבחרתם' })).toBeVisible();
+    await expect(sheet.getByRole('status').filter({ hasText: 'ב־PDF' })).toHaveText('ב־PDF יש 2 דפים. כאן בודקים דף אחד: את הדף הראשון.');
+    await shot(page, 'pdf-photo-check-picked');
+    await sheet.getByRole('button', { name: 'בדיקת הפתרון' }).click();
+    await expect(sheet.getByText('התשובה הסופית נכונה.')).toBeVisible();
+    const calls = log.filter((r) => r.path === '/api/ai/check');
+    expect(calls).toHaveLength(1);
+    const sent = calls[0].body;
+    expect(JSON.stringify(sent)).not.toContain('application/pdf');
+    expect(sent.mediaType).toBe('image/jpeg');
+    expect(sent.image).toMatch(/^data:image\/jpeg;base64,/);
+    expect(sent.prep).toEqual({ crop: false, boxes: 0 });
+    const px = await sentPixels(page, sent.image, [[10, 400]]);
+    expect([px.width, px.height]).toEqual([1272, 1800]);
+    // a broken PDF: the same calm words, inline, and nothing opens
+    await choose(page, sheet, BROKEN);
+    await expect(sheet.getByRole('alert')).toHaveText(PDF_FAILED);
+    await expect(prep).toHaveCount(0);
   });
 });
 

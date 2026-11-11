@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import Mascot from '@/components/Mascot.jsx';
 import clsx from 'clsx';
-import { Camera, MessageCircle, Wand2, Check, ImageUp } from 'lucide-react';
+import { Camera, MessageCircle, Wand2, Check, FileUp } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { runAI, aiReady, aiMode } from '@/lib/ai.js';
 import { gate, aiAccess, useAIStatus, needIntro } from '@/lib/account.js';
@@ -24,6 +24,7 @@ import { RichText } from '@/components/RichText.jsx';
 import OfflineChip from '@/components/durable/OfflineChip.jsx';
 import { usePhotoWarn } from '@/components/PhotoWarn.jsx';
 import PhotoPrep from '@/components/PhotoPrep.jsx';
+import { pdfPages, isPdf, pdfMessage, PDF_COPY } from '@/lib/pdfPages.js';
 import '@/styles/lazy/assistant.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 /** A result that appears below the fold scrolls up into view, clear of the tab bar. */
@@ -88,26 +89,44 @@ function AiOffline() {
 const PHOTO_FINAL = { ...FINAL, correct: 'התשובה הסופית נכונה.' };
 
 /**
- * The notebook photo check (trust spec TRUST-5 §4): the warning before the camera (once a session), then PhotoPrep with
- * no default cut, where the child can black out anything personal. Only the prepared picture is kept and sent.
+ * The notebook photo check (trust spec TRUST-5 §4): the warning before the camera or the picker (once a session), then
+ * PhotoPrep with no default cut, where the child can black out anything personal. Only the prepared picture is kept and
+ * sent. The camera takes a photo; the picker takes a picture or a PDF (PKG-2), whose first page is drawn on the device
+ * (lib/pdfPages.js) and goes through PhotoPrep like a photo. One page is checked here, so a longer PDF says so.
  */
 function PhotoCheck() {
   const grade = useApp((s) => s.profile.grade) || '7';
   const [image, setImage] = useState(null);
   const [prep, setPrep] = useState(null);
   const [file, setFile] = useState(null); // the picture in PhotoPrep
+  const [opening, setOpening] = useState(false); // a PDF's first page is being drawn
+  const [note, setNote] = useState(''); // under the picture: only the first page of a longer PDF is checked
   const [question, setQuestion] = useState('');
   const [state, setState] = useState({ phase: 'idle' });
-  const inputRef = useRef(null);
+  const camRef = useRef(null);
+  const pickRef = useRef(null);
+  const lastInput = useRef(null);
   const { ask, warn } = usePhotoWarn();
-  const pick = (e) => {
+  const openInput = (el) => { if (opening) return; lastInput.current = el; ask(el); };
+  const pick = async (e) => {
     const f = e.target.files?.[0]; e.target.value = '';
     if (!f) return;
-    setState({ phase: 'idle' });
-    if (!f.type.startsWith('image/')) { setState({ phase: 'error', message: 'אפשר לבדוק כאן רק תמונה. צלמו את הדף מהמחברת.' }); return; }
-    setFile(f);
+    setState({ phase: 'idle' }); setNote('');
+    if (f.type.startsWith('image/')) { setFile(f); return; }
+    if (!isPdf(f)) { setState({ phase: 'error', message: 'אפשר לבדוק כאן תמונה או PDF. צלמו את הדף מהמחברת.' }); return; }
+    setOpening(true);
+    try {
+      const { pages, total } = await pdfPages(f, { max: 1 });
+      setNote(total > 1 ? PDF_COPY.firstOnly(total) : '');
+      setFile(pages[0]);
+    } catch (err) {
+      setState({ phase: 'error', message: pdfMessage(err) });
+    } finally {
+      setOpening(false);
+    }
   };
   const prepared = ({ data, prep: p }) => { setImage(data); setPrep(p); setFile(null); };
+  const closePrep = () => { setFile(null); setNote(''); };
   const send = async () => {
     setState({ phase: 'loading' });
     try {
@@ -123,20 +142,33 @@ function PhotoCheck() {
   return (
     <div className="stack">
       <p>צלמו את הדרך שכתבתם במחברת. אבדוק כל שלב ואראה איפה כדאי לתקן.</p>
-      {image ? (
-        <div className="upload-picked">
-          <img src={image} alt="התמונה שבחרתם" className="upload-preview" />
-          <Button variant="secondary" className="btn-sm" onClick={() => ask(inputRef.current)}><Camera size={20} aria-hidden="true" />צילום אחר</Button>
-        </div>
-      ) : (
-        <button type="button" className="upload" onClick={() => ask(inputRef.current)}>
-          <span className="upload-empty"><ImageUp size={28} aria-hidden="true" />צילום או בחירת תמונה</span>
-        </button>
-      )}
-      <input ref={inputRef} type="file" accept="image/*" capture="environment" onChange={pick} className="visually-hidden" tabIndex={-1} aria-hidden="true" />
+      <div className="photo-pick">
+        {/* always there, so a screen reader hears it: the PDF opening, then (a longer PDF) that one page is checked; first,
+            so a small phone shows it above the picture */}
+        <p className="pdf-status" role="status">{opening ? <><span className="btn-spin" aria-hidden="true" />{PDF_COPY.opening}</> : (image && note) || ''}</p>
+        {image ? (
+          <div className="upload-picked">
+            <img src={image} alt="התמונה שבחרתם" className="upload-preview" />
+            <div className="upload-actions">
+              <Button variant="secondary" className="btn-sm" onClick={() => openInput(camRef.current)} aria-disabled={opening || undefined}><Camera size={20} aria-hidden="true" />צילום אחר</Button>
+              <Button variant="secondary" className="btn-sm" onClick={() => openInput(pickRef.current)} aria-disabled={opening || undefined}><FileUp size={20} aria-hidden="true" />תמונה או PDF</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <button type="button" className="upload" onClick={() => openInput(camRef.current)} aria-disabled={opening || undefined}>
+              <span className="upload-empty"><Camera size={28} aria-hidden="true" />צילום הדף</span>
+            </button>
+            <Button variant="secondary" className="btn-block upload-file" onClick={() => openInput(pickRef.current)} aria-disabled={opening || undefined}><FileUp size={20} aria-hidden="true" />תמונה או PDF</Button>
+          </>
+        )}
+      </div>
+      <input ref={camRef} type="file" accept="image/*" capture="environment" onChange={pick} className="visually-hidden" tabIndex={-1} aria-hidden="true" />
+      <input ref={pickRef} type="file" accept="image/*,application/pdf" onChange={pick} className="visually-hidden" tabIndex={-1} aria-hidden="true" />
       {warn}
-      <PhotoPrep file={file} crop={0} onDone={prepared} onRetake={() => { setFile(null); ask(inputRef.current); }} onCancel={() => setFile(null)}
-        onError={() => { setFile(null); setState({ phase: 'error', message: 'לא הצלחנו לפתוח את התמונה. נסו תמונה אחרת.' }); }} />
+      {/* "צילום מחדש" opens the input the picture came from again: the camera, or the picker for a picture or a PDF */}
+      <PhotoPrep file={file} crop={0} onDone={prepared} onRetake={() => { closePrep(); ask(lastInput.current); }} onCancel={closePrep}
+        onError={() => { closePrep(); setState({ phase: 'error', message: 'לא הצלחנו לפתוח את התמונה. נסו תמונה אחרת.' }); }} />
       <Field label="על איזה תרגיל מדובר? (לא חובה)" id="pc-q">
         <input id="pc-q" className="input" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={300} placeholder="למשל: פתרו את המשוואה 3x − 5 = 10" />
       </Field>

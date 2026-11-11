@@ -138,7 +138,7 @@ test.describe('what the tutor is told', () => {
     const sheet = page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' });
     // a small synthetic picture of a page (one white pixel)
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==', 'base64');
-    await sheet.locator('input[type="file"]').setInputFiles({ name: 'work.png', mimeType: 'image/png', buffer: png });
+    await sheet.locator('input[type="file"][capture]').setInputFiles({ name: 'work.png', mimeType: 'image/png', buffer: png });
     // every photo passes the step that hides personal details on the device (trust spec TRUST-5); here nothing to hide
     await page.getByRole('dialog', { name: 'מסתירים פרטים אישיים' }).getByRole('button', { name: 'סיימתי, אין בדף פרטים אישיים' }).click();
     await expect(sheet.getByRole('img', { name: 'התמונה שבחרתם' })).toBeVisible();
