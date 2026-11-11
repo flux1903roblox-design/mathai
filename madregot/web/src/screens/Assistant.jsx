@@ -12,6 +12,7 @@ import ReportAnswer, { checkText, generateText } from '@/components/ReportAnswer
 import SupportCard from '@/components/SupportCard.jsx';
 import { SupportLink } from '@/components/SupportSheet.jsx';
 import { TOPIC, topicsFor, readAnswer, isCorrect, diagnosisLine, answerText, displayTex, itemPlain } from '@/content/index.js';
+import { formatLineOf } from '@/content/util.js';
 import { skillId } from '@/learn/skills.ts';
 import { ensureTopics } from '@/learn/content/index.ts';
 import { seedsFor, seedPayload, exercisesFrom } from '@/lib/seeds.js';
@@ -220,7 +221,9 @@ function GeneratedQuestion({ ex, n }) {
   const hint = (story && story.hint) || seed.hint;
   // a story is shown in its own words; a seed the AI kept (every seed with a drawing) is shown as the app shows it, with
   // its display and its drawing under it, never as the words the tutor reads for the drawing (the AI review: "[טבלה: …]")
-  const prompt = story && !story.kept ? story.prompt : `${seed.text || ''}${seed.display ? ` $${displayTex(seed)}$` : ''}`;
+  // a story gets the seed's line on how to write the answer (a fraction, or a decimal rounded to two places), which the
+  // request leaves out (lib/seeds.js seedPayload)
+  const prompt = story && !story.kept ? [story.prompt, formatLineOf(seed.text)].filter(Boolean).join(' ') : `${seed.text || ''}${seed.display ? ` $${displayTex(seed)}$` : ''}`;
   const answer = answerText(seed);
   // the app's own solutions end "התשובה: …"; the line is not said twice
   const saysAnswer = /^התשובה:/.test(String(steps.at(-1) || '').trim());

@@ -1,6 +1,6 @@
 import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
-import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
+import { parseNum, near, plainNum, linText, readNumCandidates, numRight, roundsTo, toFrac, gcd, withFormatNote } from './util.js';
 import { LESSONS } from './lessons.js';
 import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText } from './manip.js';
 
@@ -88,8 +88,8 @@ export function makeItem(topicId, level, avoidKey) {
   const L = t.levels[Math.min(Math.max(level, 1), t.levels.length) - 1];
   let it; let guard = 0;
   do { it = L.gen(); } while (avoidKey && it.key === avoidKey && guard++ < 10);
-  // a typed answer that has no short decimal (7/12) says once how to write it
-  if (it.precise && it.form === 'num') it = withFormatNote(it);
+  // a typed answer that has no exact two-place decimal (7/12, a slope of -5/6, a mean of 13/3) says once how to write it
+  if (it.form === 'num') it = withFormatNote(it);
   // A misconception can only be diagnosed for an answer that is actually wrong. diag() gives the first name (the one a
   // lesson counts and shows when there is one); diagnosis() gives them all in the diagnostic models' contract, so an
   // answer two mistakes explain is ambiguous wherever it is shown or recorded, never named as one of them by chance.
@@ -233,10 +233,10 @@ export function isCorrect(it, u) {
     return typeof u === 'object' && Number.isInteger(u.n) && Number.isInteger(u.d) && u.d !== 0 && near(u.n / u.d, it.answer, 1e-9)
       && (!it.reduced || (u.d > 0 && gcd(u.n, u.d) === 1));
   }
-  // a length rounded to tenths (a root that is not whole): right within half a tenth of the exact value, so 7.1 and
-  // 7.07 are both right for √50, and 7 or 7.0 are not. The exact value decides, not the rounded answer: √288 = 16.97…
-  // rounds to 17.0, a whole number, and 16.97 is still right
-  if (roundedLength(it)) return Math.abs(u - it.exact) <= 0.05 + 1e-9;
+  // a length rounded to tenths (a root that is not whole): the exact value correctly rounded at the places typed, tenths
+  // or finer, so 7.1, 7.07 and 7.071 are right for √50 and 7, 7.0, 7.12 and 7.05 are not. The exact value decides, not
+  // the rounded answer: √288 = 16.97… rounds to 17.0, a whole number, and 16.97 is right too
+  if (roundedLength(it)) return roundsTo(u, it.exact, 1);
   // within ±0.01, or exactly when the item is marked precise (util.js numRight)
   return numRight(u, it.answer, !!it.precise);
 }

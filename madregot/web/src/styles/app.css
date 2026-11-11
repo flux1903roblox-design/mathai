@@ -1224,7 +1224,14 @@ a.side-card:active { border-bottom-width: 2px; transform: translateY(2px); }
 .lesson-foot .lesson-dock { position: static; border: 0; background: none; display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s2); padding-bottom: var(--s2); }
 .lesson-foot .lesson-dock .btn { margin-bottom: var(--lip); }
 .lesson .keypad { gap: 6px; }
-.lesson .key { height: clamp(40px, 6.3dvh, 52px); font-size: clamp(20px, 3dvh, 24px); border-radius: 12px; }
+/* the keypad is the control tapped most: never under 44px tall (SK-STUDENT-3) */
+.lesson .key { height: clamp(44px, 6.3dvh, 52px); font-size: clamp(20px, 3dvh, 24px); border-radius: 12px; }
+/* the space of a mixed number (5 1/3): a word, not a symbol, as on a phone keyboard */
+.lesson .key-space { font-size: 16px; font-weight: 700; color: var(--ink-2); }
+/* a one-number answer widens with what is typed (5 1/3, -1.333) instead of scrolling inside its slot */
+.lesson #slot-v { min-width: min(calc(var(--len, 0) * 1ch + 28px), 52vw); }
+/* a mixed number typed as "5 1/3" shown as written, beside the slot */
+.answer-echo { font-size: clamp(18px, 2.8dvh, 22px); color: var(--ink-2); white-space: nowrap; }
 .lesson .key-minus { font-size: clamp(24px, 3.6dvh, 30px); }
 .dock-row { display: flex; gap: var(--s2); align-items: flex-start; }
 .dock-row .tools { flex: none; display: flex; flex-wrap: nowrap; gap: 6px; }
@@ -1400,7 +1407,10 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .lesson .key[data-k="d6"] { grid-area: d6; } .lesson .key[data-k="d7"] { grid-area: d7; } .lesson .key[data-k="d8"] { grid-area: d8; }
   .lesson .key[data-k="d9"] { grid-area: d9; } .lesson .key[data-k="minus"] { grid-area: minus; } .lesson .key[data-k="dot"] { grid-area: dot; }
   .lesson .key[data-k="frac"] { grid-area: frac; } .lesson .key[data-k="del"] { grid-area: del; } .lesson .key[data-k="next"] { grid-area: next; }
-  .lesson .key { height: 42px; }
+  /* with the space of a mixed number, it takes the second cell of delete */
+  .lesson .keypad:has(.key-space) { grid-template-areas: "d1 d2 d3 d4 d5" "d6 d7 d8 d9 d0" "minus dot frac space del"; }
+  .lesson .key[data-k="space"] { grid-area: space; }
+  .lesson .key { height: 44px; }
   .lesson .fg-table th, .lesson .fg-table td { padding: 3px 12px; line-height: 1.35; }
   .lesson .q-mascot { display: none; }
   .lesson .q-bubble { max-height: 22dvh; font-size: 15px; line-height: 1.4; padding: 7px 12px; margin-bottom: 2px; }
@@ -1415,7 +1425,7 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 /* a drawing can be enlarged on phones: a small button on its corner opens it full width in a sheet */
 .fig-zoomable { position: relative; }
 .fig-zoom {
-  display: none; position: absolute; inset-block-start: 0; inset-inline-start: 0; width: 40px; height: 40px;
+  display: none; position: absolute; inset-block-start: 0; inset-inline-start: 0; width: 44px; height: 44px;
   align-items: center; justify-content: center; border-radius: 12px; color: var(--brand-d);
   background: color-mix(in srgb, var(--paper) 88%, transparent); border: 2px solid var(--rule); box-shadow: 0 2px 0 var(--rule-press);
 }

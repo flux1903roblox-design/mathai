@@ -2,7 +2,7 @@
 // keeping the place, mastery only from a check without hints, a misconception repaired and verified,
 // Exam Rescue from a diagnostic to a plan, today's mission, and the profile's numbers and data deletion.
 import { test, expect } from '@playwright/test';
-import { open, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
+import { open, openOn, student, item, answer, saved, proceed, NOW, playDiscover, stageDone, expectNoSidewaysScroll } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'desktop'].includes(info.project.name), 'journeys run on phone and desktop'); });
 
@@ -369,4 +369,28 @@ test('a stair mastered out of order: the stairs before it are open, not locked, 
   await expect(nodes.nth(3)).toHaveClass(/node-locked/);
   // the halfway chest opens with every stair up to it done, as the store awards it
   await expect(unit.getByRole('button', { name: /^תיבת אוצר\. נפתחת/ })).toBeVisible();
+});
+
+// PRODUCT2-10: a mixed number is typed on the phone keypad: the whole number, the space key (רווח), the fraction. The
+// slot shows "5 1/3", beside it the mixed number as written, and the lesson takes it as the answer.
+test('a mixed number on the keypad: a fraction sum answered as a whole number and a fraction (5 1/3)', async ({ page }) => {
+  const mixed = (x) => x?.form === 'num' && x.answer > 1 && !Number.isInteger(Math.round(x.answer * 1e9) / 1e9) && [2, 3, 4, 5, 6, 8].some((d) => Math.abs(x.answer * d - Math.round(x.answer * d)) < 1e-9);
+  const it = await openOn(page, '#/lesson/frac/3', student('7'), mixed);
+  const d = [2, 3, 4, 5, 6, 8].find((q) => Math.abs(it.answer * q - Math.round(it.answer * q)) < 1e-9);
+  const whole = Math.floor(it.answer); const num = Math.round((it.answer - whole) * d);
+  const key = (name) => page.getByRole('button', { name, exact: true }).click();
+  await page.locator('#slot-v').click();
+  for (const ch of String(whole)) await key(ch);
+  await key('רווח, בין השלם לשבר');
+  for (const ch of String(num)) await key(ch);
+  await key('שבר');
+  for (const ch of String(d)) await key(ch);
+  await expect(page.locator('#slot-v')).toHaveValue(`${whole} ${num}/${d}`);
+  // the mixed number as it is written, beside the slot
+  await expect(page.locator('.answer-echo .katex')).toBeVisible();
+  // a second space is not typed
+  await key('רווח, בין השלם לשבר');
+  await expect(page.locator('#slot-v')).toHaveValue(`${whole} ${num}/${d}`);
+  await page.getByRole('button', { name: 'בדיקה', exact: true }).click();
+  await expect(page.locator('section.fb.fb-good')).toBeVisible();
 });

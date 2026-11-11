@@ -18,8 +18,8 @@ export const scoredParts = (task: ChallengeTask): ChallengePart[] => task.parts.
 
 /**
  * A typed number against an answer: "2,000" may be 2 or 2000, and either reading that is right counts; compared as
- * every precise answer is (content/util.js numRight: exactly, or within half a hundredth for an answer with no short
- * decimal). Null when nothing readable was typed.
+ * every precise answer is (content/util.js numRight: exactly, or a decimal of two or more places that is the exact
+ * value correctly rounded). Null when nothing readable was typed.
  */
 export function numCheck(answer: number, typed: string): { u: number; ok: boolean } | null {
   const cands: number[] = readNumCandidates(typed);

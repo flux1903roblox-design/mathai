@@ -14,6 +14,8 @@ const CASES = [
   ['parallel lines', 'angles/4', '7'],
   ['a table of values', 'line/1', '8'],
   ['a graph', 'line/3', '8'],
+  // a slope with no two-place decimal says how to write it (PRODUCT2-6): the longer question still fits every phone
+  ['a slope between two points, with the line on how to write it', 'line/4', '8', (x) => /מעוגל לשתי ספרות/.test(x.text || '')],
   ['a line equation (two fields)', 'line/5', '8'],
   ['a word problem with a drawing', 'pyth/4', '8'],
   ['a list of data', 'stats/2', '8'],
@@ -110,6 +112,35 @@ for (const [what, route, grade, want = () => true] of CASES) {
     await expectUsable(page, page.locator('#qtext'), 'the next question');
   });
 }
+
+// PRODUCT2-6, PRODUCT2-10, SK-STUDENT-3: a slope whose answer has no two-place decimal says how to write it, and on the
+// smallest phone the line stays inside the question while every key of the keypad (the space of a mixed number among
+// them) stays whole on screen and at least 44px tall. KEYPAD_SHOTS=<folder> saves a picture for a look.
+test('a question with its format line keeps the whole keypad on screen', async ({ page }, info) => {
+  await openOn(page, '#/lesson/line/4', student('8'), (x) => x.form === 'num' && /מעוגל לשתי ספרות/.test(x.text || ''));
+  await expect(page.locator('#qtext')).toContainText('אפשר לכתוב כשבר');
+  const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
+  expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);
+  await expectUsable(page, page.locator('#qtext'), 'the question with its format line');
+  await expectUsable(page, page.locator('.answer-bar .answer'), 'the answer field');
+  await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
+  const keys = page.locator('.lesson .keypad .key');
+  expect(await keys.count()).toBe(15);
+  for (let k = 0; k < 15; k += 1) {
+    const b = await keys.nth(k).boundingBox();
+    expect(b.height, `key ${k + 1} is at least 44px tall`).toBeGreaterThanOrEqual(43.5);
+    expect(b.y + b.height, `key ${k + 1} is on screen`).toBeLessThanOrEqual(page.viewportSize().height + 1);
+  }
+  await expectUsable(page, page.getByRole('button', { name: 'רווח, בין השלם לשבר', exact: true }), 'the space key');
+  const dir = process.env.KEYPAD_SHOTS;
+  if (dir) {
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ path: `${dir}/line4-format-${info.project.name}.png` });
+    await page.locator('#slot-v').click();
+    for (const k of ['5', 'רווח, בין השלם לשבר', '1', 'שבר', '3']) await page.getByRole('button', { name: k, exact: true }).click();
+    await page.screenshot({ path: `${dir}/keypad-mixed-${info.project.name}.png` });
+  }
+});
 
 test('the keypad: minus, decimal point, fraction, next field and delete', async ({ page }) => {
   await openOn(page, '#/lesson/coord/1', student('7'), (x) => x.form === 'pt');

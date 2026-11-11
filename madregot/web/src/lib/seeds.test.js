@@ -7,6 +7,7 @@ import { itemPlain, answerText, isCorrect } from '@/content/index.js';
 import { itemFor } from '@/learn/items.ts';
 import { ALL_SKILLS } from '@/learn/skills.ts';
 import { seeded } from '@/learn/expr.ts';
+import { FORMAT_LINE, formatLineOf, withoutFormatLine, fractionHint } from '@/content/util.js';
 import { numbersIn, parseAnswer, verifyRewrite, finishRewrite, checkEquations } from '@shared/verify.js';
 import { loadAllContent } from '@/learn/content/index.ts';
 
@@ -123,6 +124,20 @@ describe('seedPayload: what the generate request carries, and what the server ca
   it('every seed states numbers the server checks, except "which quadrant is (a, b) in" exercises, which have none', () => {
     const none = ALL_SKILLS.flatMap((skill) => seedPayload(BY_SKILL[skill]).filter((p) => numbersIn(p.text).length === 0).map((p) => `${skill}: ${p.text}`));
     for (const x of none) expect(x).toMatch(/^coord:2: .*רביע/);
+  });
+});
+
+describe('the line on how to write the answer (PRODUCT2-6) is the app\'s, not the story\'s', () => {
+  it('a seed whose answer has no two-place decimal carries it on the device, and the request leaves it out', () => {
+    // line:4: a slope between two points, often a fraction such as 7/3 or -5/6
+    const seeds = seedsFor('line:4', 12, seeded(4));
+    const withLine = seeds.filter((it) => FORMAT_LINE.test(it.text));
+    expect(withLine.length).toBeGreaterThan(0);
+    for (const p of seedPayload(seeds)) expect(p.text).not.toContain('אפשר לכתוב כשבר');
+    // the screen puts it back under the story (Assistant.jsx)
+    expect(formatLineOf(withLine[0].text)).toMatch(FORMAT_LINE);
+    expect(formatLineOf('מה השיפוע?')).toBe('');
+    expect(withoutFormatLine(`מה השיפוע? ${fractionHint()}`)).toBe('מה השיפוע?');
   });
 });
 

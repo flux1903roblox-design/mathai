@@ -30,7 +30,7 @@ import CheckResult from '@/components/CheckResult.jsx';
 import ReportAnswer, { checkText } from '@/components/ReportAnswer.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import SupportCard from '@/components/SupportCard.jsx';
-import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake } from '@/components/ui.jsx';
+import { Box, Button, Keypad, Sheet, Steps, Thinking, useShake, typeInto } from '@/components/ui.jsx';
 import { detectDistress } from '@shared/safety.js';
 import LessonDone, { PlacementDone } from './LessonDone.jsx';
 import CheckDone from './CheckDone.jsx';
@@ -112,6 +112,20 @@ const inlineChoices = (item) => item.choices.length === 3 && item.choices.every(
 /** Under an expression's two slots: what to write for x alone, for −x and for no constant. */
 const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־$-${v}$: המקדם $-1$. אין מספר חופשי? כתבו $0$.`;
 
+/** An answer that is one number (not a question that asks for a decimal) can be a mixed number: the keypad has a space. */
+const takesMixed = (it) => it?.form === 'num' && !it.askDec;
+const MIXED_TYPED = /^(-?)(\d+) (\d+)\/(\d+)$/;
+
+/**
+ * A mixed number typed as "5 1/3" is shown beside the slot as it is written, 5⅓, so the student sees the space read as
+ * a whole number and a fraction. The slot itself is what a screen reader reads ("5 1/3"), so this is for the eye only.
+ */
+function MixedEcho({ text }) {
+  const m = String(text ?? '').match(MIXED_TYPED);
+  if (!m || Number(m[4]) === 0) return null;
+  return <span className="answer-lab answer-echo" aria-hidden="true"><Tex tex={`=\\,${m[1]}${m[2]}\\tfrac{${m[3]}}{${m[4]}}`} /></span>;
+}
+
 function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKey, onEnter, struck, unstrike, good }) {
   const shakeRef = useShake(shakeKey);
   const names = slotsFor(item);
@@ -121,6 +135,8 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
       className={clsx('slot', active === k && !struck && !locked && 'active', struck && 'struck', good && 'good')}
       aria-label={struck ? `${extra.aria || slotLabel(item, k)}, התשובה הקודמת: ${slots[k] || ''}. כתבו תשובה חדשה` : extra.aria || slotLabel(item, k)} placeholder={extra.ph || '?'}
       value={slots[k] || ''} readOnly={locked}
+      // a one-number answer widens with what is typed (a mixed number, 5 1/3, or -1.333) rather than scroll inside its slot
+      style={k === 'v' ? { '--len': String(slots[k] || '').length } : undefined}
       onFocus={() => setActive(k)}
       onChange={(e) => {
         // a computer keyboard may also type a space: "2 1/2" is a mixed number (the phone keypad has no space)
@@ -138,7 +154,7 @@ function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKe
         {item.form === 'line' && (<><span className="answer-lab"><Tex tex="y =" /></span>{input('m', { ph: 'm' })}<span className="answer-lab"><Tex tex="x\,+" /></span>{input('b', { ph: 'b' })}</>)}
         {/* an expression: the coefficient, the letter, the constant (□x + □) */}
         {item.form === 'lin' && (<>{input('k')}<span className="answer-lab"><Tex tex={`${item.var || 'x'}\\,+`} /></span>{input('c')}</>)}
-        {item.form === 'num' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}{input('v')}</>)}
+        {item.form === 'num' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}{input('v')}<MixedEcho text={slots.v} /></>)}
         {/* a fraction: the numerator over a bar over the denominator */}
         {item.form === 'frac' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}
           <span className="answer-frac" role="group" aria-label="שבר">{input('n', { aria: FRAC_FIELD.n })}<span className="answer-frac-bar" aria-hidden="true" />{input('d', { aria: FRAC_FIELD.d })}</span></>)}
@@ -344,12 +360,7 @@ export default function Lesson() {
     if (s.phase !== 'answer' && s.phase !== 'retry') return;
     const base = struck ? {} : slots;
     if (struck) setStruck(false);
-    const cur = base[active] || '';
-    let v = cur;
-    if (k === 'del') v = cur.slice(0, -1);
-    else if (k === '-') v = cur.startsWith('-') ? cur.slice(1) : `-${cur}`;
-    else if (cur.length < 9) v = cur + k;
-    setSlots({ ...base, [active]: v });
+    setSlots({ ...base, [active]: typeInto(base[active] || '', k) });
     focusSlot(active);
   };
 
@@ -470,7 +481,9 @@ export default function Lesson() {
         return;
       }
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey || !item || item.form === 'mc' || isManip || nbOn) return;
-      const k = /^[0-9./]$/.test(e.key) ? e.key : e.key === '-' ? '-' : e.key === 'Backspace' ? 'del' : null;
+      // the space of a mixed number (5 1/3), where the keypad has it; never while a button has the focus (Space presses it)
+      const space = e.key === ' ' && takesMixed(item) && !['BUTTON', 'A', 'SUMMARY'].includes(tag);
+      const k = /^[0-9./]$/.test(e.key) ? e.key : e.key === '-' ? '-' : e.key === 'Backspace' ? 'del' : space ? ' ' : null;
       if (k) { e.preventDefault(); onKey(k); }
     };
     window.addEventListener('keydown', onDoc);
@@ -740,7 +753,7 @@ export default function Lesson() {
             {/* as in Duolingo's maths exercises: the full-width check button sits right above the number pad, and the
                 pad fills the bottom of the screen; help sits in the top bar, where Duolingo keeps its counter */}
             {!compact && <div className="dock-row" data-region="primary">{checkButton}</div>}
-            {typed && <div className="pad-panel"><Keypad onKey={onKey} onNext={names.length > 1 ? nextSlot : undefined} nextLabel={`מעבר ${toSlot(slotLabel(item, names[(names.indexOf(active) + 1) % names.length]))}`} /></div>}
+            {typed && <div className="pad-panel"><Keypad onKey={onKey} mixed={takesMixed(item)} onNext={names.length > 1 ? nextSlot : undefined} nextLabel={`מעבר ${toSlot(slotLabel(item, names[(names.indexOf(active) + 1) % names.length]))}`} /></div>}
           </div>
         )}
       </div>

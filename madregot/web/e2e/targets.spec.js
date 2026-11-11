@@ -3,7 +3,7 @@
 // list item's text, or carry data-inline. Each screen's sizes are written to targets.json in the test's output, for the
 // before/after table in qa-evidence/student/polish/.
 import { test, expect } from '@playwright/test';
-import { open, livedIn, student } from './helpers.js';
+import { open, openOn, livedIn, student } from './helpers.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'touch targets are a phone matter'); });
 
@@ -68,4 +68,24 @@ test('a teaching step', async ({ page }) => {
   await open(page, '#/learn/signed/1/A', student('7'));
   await expect(page.locator('.step-player')).toBeVisible();
   await check(page, 'teach');
+});
+
+// SK-STUDENT-3: on every typed answer the maths keypad is the control tapped most; its keys (the space of a mixed number
+// among them) and the drawing's zoom button are at least 44×44, on the council's lessons, on both phones. The question
+// opened is one with a typed answer (a fixed seed whose first exercise is typed).
+const typed = (it) => it && !['mc', 'manip'].includes(it.form);
+for (const [name, route] of [['signed:4', '#/lesson/signed/4'], ['angles:1', '#/lesson/angles/1'], ['eq:1', '#/lesson/eq/1']]) {
+  test(`a typed answer on ${name}: the keypad and the drawing's zoom`, async ({ page }) => {
+    const it = await openOn(page, route, student('7'), typed);
+    await expect(page.locator('.lesson .keypad')).toBeVisible();
+    if (it.fig && it.fig.type !== 'table') await expect(page.locator('.fig-zoom')).toBeVisible();
+    await check(page, `lesson-${name.replace(':', '-')}-typed`);
+  });
+}
+
+test('the multiplication facts: the keypad', async ({ page }) => {
+  await open(page, '#/facts', student('7'));
+  await expect(page.locator('.lesson .keypad')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'רווח, בין השלם לשבר' })).toBeVisible();
+  await check(page, 'facts');
 });

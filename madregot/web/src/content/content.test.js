@@ -1,8 +1,11 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, vi } from 'vitest';
 import katex from 'katex';
 import { TOPICS, topicsFor, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem } from './index.js';
 import { SCENERY } from '@/components/map/Scenery.jsx';
-import { parseNum, plainNum, gcd } from './util.js';
+import { parseNum, plainNum, gcd, needsFormat, FORMAT_LINE } from './util.js';
+import { ALL_SKILLS } from '@/learn/skills.ts';
+import { itemFor } from '@/learn/items.ts';
+import { loadAllContent, contentOf } from '@/learn/content/index.ts';
 import { factsItem } from './frac.js';
 import { holds, identical, texToExpr, texRelation, seeded, evaluate, same } from '@/learn/expr.ts';
 
@@ -709,4 +712,44 @@ describe('percent: every answer from the numbers shown', () => {
     }
     expect(twice).toBeGreaterThan(80);
   });
+});
+
+// CURRICULUM-12 / PRODUCT2-6: no student is marked wrong for a format nobody told them about. Every typed number whose
+// answer has no exact two-place decimal says, once, how to write it (a fraction, or a decimal rounded to two places),
+// from every source a lesson or a check draws: the stair's generator, its diagnostic model and its transfer model. A
+// rounded length (it carries `exact` and says to round to tenths) and a question that asks for a decimal are the
+// exceptions; nothing that does not need the line has it.
+describe('every typed number says how to write an answer with no two-place decimal', () => {
+  it('2,000 items per stair per source (gen, diag, transfer)', async () => {
+    await loadAllContent();
+    const rnd = seeded(12);
+    vi.spyOn(Math, 'random').mockImplementation(seeded(2026));
+    const missing = {}; const extra = {}; let needed = 0;
+    const once = (t) => (String(t).match(/אפשר לכתוב כשבר/g) || []).length <= 1;
+    try {
+      for (const skill of ALL_SKILLS) {
+        const c = contentOf(skill);
+        for (const source of ['gen', 'diag', 'transfer']) {
+          if (source === 'diag' && !c?.diag) continue;
+          if (source === 'transfer' && !c?.transfer) continue;
+          for (let i = 0; i < 2000; i += 1) {
+            const it = itemFor(skill, source, rnd);
+            if (it.form !== 'num') continue;
+            const where = `${skill} ${source}`;
+            expect(once(it.text), `${where} ${it.key}: the line twice`).toBe(true);
+            // a question that asks for a decimal always has one with two places or fewer
+            if (it.askDec) { expect(needsFormat(it.answer), `${where} ${it.key}`).toBe(false); continue; }
+            const need = needsFormat(it.answer) && it.exact == null;
+            const has = FORMAT_LINE.test(it.text);
+            if (need) needed += 1;
+            if (need && !has) missing[where] ||= `${it.key} :: ${it.text} => ${it.answer}`;
+            if (!need && has) extra[where] ||= `${it.key} :: ${it.text} => ${it.answer}`;
+          }
+        }
+      }
+    } finally { vi.restoreAllMocks(); }
+    expect(missing, 'answers with no two-place decimal and no format line').toEqual({});
+    expect(extra, 'a format line where none is needed').toEqual({});
+    expect(needed).toBeGreaterThan(5000);
+  }, 300_000);
 });

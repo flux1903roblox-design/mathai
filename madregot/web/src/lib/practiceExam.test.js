@@ -136,9 +136,9 @@ describe('grading a photographed practice exam keeps the lesson\'s exactness', (
     expect([grade('1/36', d36), grade('$\\frac{1}{36}$', d36), grade('1/35', d36), grade('0.0285', d36)]).toEqual(['correct', 'correct', 'wrong', 'wrong']);
     const d712 = frozen({ answer: 7 / 12, precise: true });
     expect([grade('7/12', d712), grade('0.58', d712), grade('0.59', d712), grade('14/24', d712)]).toEqual(['correct', 'correct', 'wrong', 'correct']);
-    // a short decimal is the value itself: 0.12 and 0.13 are not 0.125, and an ordinary question keeps ±0.01
+    // 0.125 is right, and so is its rounding to two places (0.13), never 0.12; an ordinary question keeps ±0.01
     const eighth = frozen({ answer: 0.125, precise: true, fmt: 'dec' });
-    expect([grade('0.125', eighth), grade('1/8', eighth), grade('0.12', eighth)]).toEqual(['correct', 'correct', 'wrong']);
+    expect([grade('0.125', eighth), grade('1/8', eighth), grade('0.13', eighth), grade('0.12', eighth)]).toEqual(['correct', 'correct', 'correct', 'wrong']);
     const mean = frozen({ topic: 'stats', answer: 13 / 3 });
     expect([grade('4.33', mean), grade('4.3', mean)]).toEqual(['correct', 'wrong']);
   });
@@ -147,6 +147,8 @@ describe('grading a photographed practice exam keeps the lesson\'s exactness', (
     const root50 = frozen({ topic: 'pyth', level: 1, text: 'מה אורך היתר? אם יוצא מספר לא שלם, עגלו לעשירית.', answer: 7.1, exact: Math.sqrt(50), unit: 'ס״מ' });
     expect(root50).toMatchObject({ answer: '7.1', exact: Math.sqrt(50) });
     expect([grade('7.1', root50), grade('7.07', root50), grade('7.1 ס״מ', root50), grade('7.14', root50), grade('7', root50)]).toEqual(['correct', 'correct', 'correct', 'wrong', 'wrong']);
+    // and by the lesson's rule (PRODUCT2-6, SK-MATH-2): a correct rounding at any finer place, never a wrong one
+    expect([grade('7.071', root50), grade('7.12', root50), grade('7.05', root50)]).toEqual(['correct', 'wrong', 'wrong']);
   });
 
   it('a fraction in lowest terms is asked for: 8/10 is not the answer to "reduce 32/40"', () => {

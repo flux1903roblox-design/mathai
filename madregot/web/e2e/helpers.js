@@ -129,6 +129,9 @@ const values = (it) => {
   if (it.form === 'line') return [it.answer.m, it.answer.b];
   if (it.form === 'lin') return [it.answer.k, it.answer.c];
   if (it.form === 'frac') { const f = toFrac(it.answer); return [f.n, f.d]; }
+  // a number with more digits than a slot takes (2/3 = 0.6666666666666666) is typed as its fraction, as a student
+  // would: nine digits cut off are a truncation, which a question compared exactly rejects
+  if (typeof it.answer === 'number' && String(it.answer).length > 9) { const f = toFrac(it.answer); if (f) return [`${f.n}/${f.d}`]; }
   return [it.answer];
 };
 

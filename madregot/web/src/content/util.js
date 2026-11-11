@@ -114,32 +114,77 @@ export const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 /** At most three decimal places: 0.125, 2.5, 7 (and not 7/12 = 0.5833…, not 1/36). */
 export const shortDec = (x) => Math.abs(Math.round(x * 1000) - x * 1000) < 1e-6;
 
+/** The decimal places a number is written with: 0.67 → 2, 0.6667 → 4, 7 → 0 (10 for more than nine). */
+export function placesOf(x) {
+  for (let p = 0; p <= 9; p += 1) { const v = x * 10 ** p; if (Math.abs(v - Math.round(v)) < 1e-6) return p; }
+  return 10;
+}
+
+/** x rounded to p decimal places as school rounds: a half goes away from zero (0.125 → 0.13, −1.335 → −1.34). */
+export function roundTo(x, p) {
+  const k = 10 ** p;
+  // the nudge keeps a half that floating point stored a hair below (1.005) a half
+  return (Math.sign(x) * Math.round(Math.abs(x) * k + 1e-9)) / k;
+}
+
+/** The same number, up to floating point (16/3 typed as a fraction is 16/3). */
+const same = (u, a) => Math.abs(u - a) <= 1e-9 * Math.max(1, Math.abs(a));
+
+/**
+ * Is a decimal a correct rounding of x at its own number of places, counted as at least `min`? 0.67, 0.667 and
+ * 0.6667 are for 2/3; 0.666 and 0.6666 (cut off, not rounded) are not. With min 1, 17 (17.0) is √288 = 16.97…
+ * rounded to tenths, and 7 (7.0) is not √50 = 7.07… rounded to tenths.
+ */
+export function roundsTo(u, x, min) {
+  const p = Math.max(min, placesOf(u));
+  return p <= 9 && same(u, roundTo(x, p));
+}
+
 /**
  * Is a typed number right for an answer? The one rule for every typed number: isCorrect, and the last step of
  * "solve together". By default within ±0.01, as always. An item marked `precise` (the fractions, percent and ratio
- * stairs) is compared exactly: the exact value is right, and when the answer has no short decimal (7/12, 1/36) a
- * decimal of at most three places within half a hundredth is right too (0.58 or 0.583 for 7/12, never 0.59). So 1/35
- * is wrong for 1/36, and 0.12 and 0.13 are wrong for 0.125.
+ * stairs) is compared exactly: the exact value is right (7/12, 14/24, 5 1/3), and so is a decimal of two or more places
+ * that is the exact value correctly rounded at its own number of places: 0.58, 0.583 and 0.5833 for 7/12, 0.67 and
+ * 0.6667 for 2/3, 0.13 for 0.125 (a question whose answer has no exact two-place decimal says so, withFormatNote). A
+ * decimal cut off instead of rounded (0.666, 0.6666 for 2/3), a wrong rounding (0.59 for 7/12) and one place (0.7)
+ * are wrong, and so is 1/35 for 1/36.
  */
 export function numRight(u, a, precise = false) {
   if (typeof u !== 'number' || !Number.isFinite(u) || typeof a !== 'number') return false;
   if (!precise) return near(u, a, 0.01);
-  return near(u, a, 1e-6) || (!shortDec(a) && shortDec(u) && Math.abs(u - a) < 0.005 + 1e-9);
+  return same(u, a) || (placesOf(u) >= 2 && roundsTo(u, a, 2));
 }
+
+/**
+ * Does a typed answer need to be told how to write it? Yes when it has no exact decimal with at most two places (7/12,
+ * −4/3, 1/36, 0.125): it is written as a fraction or rounded to two places, and the question says so (withFormatNote).
+ */
+export const needsFormat = (a) => typeof a === 'number' && Number.isFinite(a) && Math.abs(Math.round(a * 100) - a * 100) > 1e-6;
 
 /** Example fractions for the format note, in order of preference: never the question's own answer or its negative. */
 const NOTE_EXAMPLES = ['7/12', '5/9', '-4/3'];
-/** How to write an answer that has no short decimal, with an example fraction. */
+/** How to write an answer that has no two-place decimal, with an example fraction. */
 export const fractionHint = (example = NOTE_EXAMPLES[0]) => `אפשר לכתוב כשבר (למשל $${example}$) או כמספר עשרוני מעוגל לשתי ספרות אחרי הנקודה.`;
+/** The format line with its usual example (CURRICULUM-12: one wording everywhere). */
+export const FRACTION_HINT = fractionHint();
+/** A question that already says how to write its answer: the format line, or the fractions stairs' own "אפשר לכתוב כשבר או כמספר עשרוני". */
 const HINT_START = 'אפשר לכתוב כשבר';
+/** The format line, whatever its example, with its maths marks or as plain text (itemPlain): what a test looks for. */
+export const FORMAT_LINE = /אפשר לכתוב כשבר \(למשל \$?[^$()]+\$?\) או כמספר עשרוני מעוגל לשתי ספרות אחרי הנקודה\./;
+
+/** The format line of a question's text ('' when it has none), and the text without it. */
+export const formatLineOf = (text) => String(text ?? '').match(FORMAT_LINE)?.[0] || '';
+export const withoutFormatLine = (text) => String(text ?? '').replace(FORMAT_LINE, '').replace(/\s+$/, '');
 
 /**
- * A question whose answer has no short decimal (7/12, 1/36) says once how to write it (CURRICULUM-2 item 6): the item
- * comes back with the sentence after its text. An item that already says it, or whose answer is whole or a short
- * decimal, comes back as it is. The example is never the answer itself.
+ * A typed number whose answer has no exact two-place decimal (7/12, −4/3, a slope of −5/6, a mean of 13/3) says once
+ * how to write it (CURRICULUM-12): the item comes back with the line after its text. An item that already says it, a
+ * rounded length (it carries `exact` and says to round to tenths), a question that asks for a decimal (askDec: a
+ * fraction is not read there), and an answer that is whole or has two places or fewer come back as they are. The
+ * example is never the answer itself.
  */
 export function withFormatNote(it) {
-  if (typeof it?.answer !== 'number' || shortDec(it.answer) || String(it.text || '').includes(HINT_START)) return it;
+  if (!needsFormat(it?.answer) || it.exact != null || it.askDec || String(it.text || '').includes(HINT_START)) return it;
   const example = NOTE_EXAMPLES.find((e) => !near(Math.abs(parseNum(e)), Math.abs(it.answer), 1e-9));
   return { ...it, text: `${it.text ? `${it.text} ` : ''}${fractionHint(example)}` };
 }

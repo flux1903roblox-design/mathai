@@ -2,7 +2,7 @@
 // mixed numbers and thousands on a computer keyboard, the `precise` rule, the fraction answer form and its
 // "not reduced yet" note, the format sentence, exact answer text, and practice-only questions kept out of checks.
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote } from './util.js';
+import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote, needsFormat, placesOf, roundTo, FRACTION_HINT, FORMAT_LINE } from './util.js';
 import { TOPIC, makeItem, testItem, fairForCheck, slotsFor, readAnswer, isCorrect, partialOf, answerText } from './index.js';
 import { startLesson, answer } from '../lib/lesson.js';
 import { finalCheck } from '../components/learn/Together.jsx';
@@ -76,19 +76,30 @@ describe('the precise rule (items marked precise: true)', () => {
     [1 / 12, '0.08', true], [1 / 12, '0.083', true], [1 / 12, '1/12', true], [1 / 12, '0.1', false],
     [7 / 12, '0.58', true], [7 / 12, '0.583', true], [7 / 12, '7/12', true], [7 / 12, '14/24', true], [7 / 12, '0.59', false],
     [1 / 36, '1/36', true], [1 / 36, '1/35', false],
-    [0.125, '0.125', true], [0.125, '1/8', true], [0.125, '0.12', false], [0.125, '0.13', false],
+    // 0.125 has no two-place decimal: its question says to round to two places, and 0.13 is that rounding (0.12 is not)
+    [0.125, '0.125', true], [0.125, '1/8', true], [0.125, '0.12', false], [0.125, '0.13', true],
     [-4 / 3, '-1.33', true], [-4 / 3, '-4/3', true], [-4 / 3, '-1.3', false],
+    // PRODUCT2-6: a better rounding is right, a decimal cut off is not
+    [2 / 3, '0.67', true], [2 / 3, '0.667', true], [2 / 3, '0.6667', true], [2 / 3, '2/3', true],
+    [2 / 3, '0.666', false], [2 / 3, '0.6666', false], [2 / 3, '0.7', false], [2 / 3, '0.66', false],
+    [7 / 12, '0.5833', true], [7 / 12, '0.58333', true], [7 / 12, '0.5834', false], [7 / 12, '0.584', false],
+    [4 / 3, '1.3333', true], [4 / 3, '1.333', true], [4 / 3, '1.33', true], [4 / 3, '1 1/3', true], [4 / 3, '1.334', false], [4 / 3, '1.3', false],
+    [-4 / 3, '-1.3333', true], [-4 / 3, '-1.333', true], [-4 / 3, '-1.334', false], [-4 / 3, '-1.3334', false],
+    [16 / 3, '5 1/3', true], [16 / 3, '5.33', true], [16 / 3, '5.3', false],
     [2.5, '2.5', true], [2.5, '2 1/2', true], [2.5, '2.51', false],
   ];
   it.each(TABLE)('answer %d, typed %s: right is %s', (a, typed, right) => {
     expect(typedRight(num(a, { precise: true }), typed)).toBe(right);
   });
 
-  it('an exact value is right, and a short decimal within half a hundredth only when the answer has no short decimal', () => {
+  it('an exact value is right, and so is a decimal of two or more places rounded correctly at its own places', () => {
     expect(shortDec(0.125)).toBe(true);
     expect(shortDec(7)).toBe(true);
     expect(shortDec(7 / 12)).toBe(false);
     expect(shortDec(1 / 35)).toBe(false);
+    expect([placesOf(7), placesOf(0.67), placesOf(0.6667), placesOf(-1.3333), placesOf(16.97)]).toEqual([0, 2, 4, 4, 2]);
+    // school rounding: a half goes away from zero, also where floating point stores it a hair below
+    expect([roundTo(0.125, 2), roundTo(-1.335, 2), roundTo(1.005, 2), roundTo(2 / 3, 4)]).toEqual([0.13, -1.34, 1.01, 0.6667]);
     expect(numRight(0.08, 1 / 12, true)).toBe(true);
     expect(numRight(1 / 35, 1 / 36, true)).toBe(false);
     expect(numRight(NaN, 1, true)).toBe(false);
@@ -122,17 +133,28 @@ describe('the precise rule (items marked precise: true)', () => {
     expect(exactTex(3)).toBe('3');
   });
 
-  it('a question whose answer has no short decimal says once how to write it, with an example that is not its answer', () => {
+  it('a question whose answer has no two-place decimal says once how to write it, with an example that is not its answer', () => {
     const it7 = withFormatNote(num(7 / 12, { precise: true }));
     expect(it7.text).toBe(`כמה? ${fractionHint('5/9')}`);
     expect(withFormatNote(it7)).toBe(it7); // once
     expect(withFormatNote(num(1 / 36, { precise: true })).text).toBe(`כמה? ${fractionHint()}`);
     expect(fractionHint()).toBe('אפשר לכתוב כשבר (למשל $7/12$) או כמספר עשרוני מעוגל לשתי ספרות אחרי הנקודה.');
-    // whole and short decimal answers need no note
+    expect(FRACTION_HINT).toBe(fractionHint());
+    expect(FORMAT_LINE.test(fractionHint('-4/3'))).toBe(true);
+    // whole answers and those with two places or fewer need no note; 0.125 has three, so it is rounded to two (0.13)
     const whole = num(3, { precise: true });
     expect(withFormatNote(whole)).toBe(whole);
-    const short = num(0.125, { precise: true });
+    const short = num(0.25, { precise: true });
     expect(withFormatNote(short)).toBe(short);
+    expect(withFormatNote(num(0.125, { precise: true })).text).toBe(`כמה? ${fractionHint()}`);
+    expect([needsFormat(0.125), needsFormat(0.29), needsFormat(-1.3), needsFormat(4 / 3), needsFormat(3), needsFormat('1/3')]).toEqual([true, false, false, true, false, false]);
+    // every typed number gets it, not only the precise ones (a slope of -5/6, a mean of 13/3), but never a rounded
+    // length (it says to round to tenths) or a question that asks for a decimal (a fraction is not read there)
+    expect(withFormatNote(num(-5 / 6)).text).toBe(`כמה? ${fractionHint()}`);
+    const root = num(7.1, { exact: Math.sqrt(50), text: 'מה אורך היתר? אם יוצא מספר לא שלם, עגלו לעשירית.' });
+    expect(withFormatNote(root)).toBe(root);
+    const dec = num(0.375, { askDec: true, precise: true, text: 'כתבו כמספר עשרוני:' });
+    expect(withFormatNote(dec)).toBe(dec);
   });
 });
 
@@ -147,12 +169,36 @@ describe('a question made from a diagnostic model follows the same rule', () => 
     expect(typedRight(it, '0.59')).toBe(false);
     expect(answerText(it)).toBe('7/12');
   });
-  it('a model without the flag is as before: ±0.01, no note', () => {
+  it('a model without the flag keeps ±0.01, and its answer with no two-place decimal says how to write it', () => {
     const it = modelItem(stair, model({}), {}, 'diag');
     expect(it.precise).toBeUndefined();
-    expect(it.text).toBe('כמה?');
+    expect(it.text).toBe(`כמה? ${fractionHint('5/9')}`);
     expect(typedRight(it, '0.59')).toBe(true);
+    expect(modelItem(stair, model({ answer: () => 0.75 }), {}, 'diag').text).toBe('כמה?');
     expect(modelItem(stair, model({ fmt: 'dec', answer: () => -1.3 }), {}, 'diag').fmt).toBe('dec');
+  });
+});
+
+describe('isCorrect, as the lesson reads a typed answer (PRODUCT2-6, SK-MATH-2)', () => {
+  // [item, typed, right?]: precise answers, ordinary ones (±0.01), and lengths rounded to tenths (their exact value)
+  const P = (a) => num(a, { precise: true });
+  const L = (exact) => num(Math.round(exact * 10) / 10, { topic: 'pyth', exact, text: 'מה אורך היתר? אם יוצא מספר לא שלם, עגלו לעשירית.' });
+  const TABLE = [
+    [P(2 / 3), '0.67', true], [P(2 / 3), '0.6667', true], [P(2 / 3), '0.666', false], [P(2 / 3), '0.6666', false],
+    [P(7 / 12), '0.58', true], [P(7 / 12), '0.5833', true], [P(7 / 12), '0.59', false],
+    [P(4 / 3), '1.33', true], [P(4 / 3), '1.3333', true], [P(4 / 3), '1 1/3', true], [P(4 / 3), '1.3', false],
+    [P(-4 / 3), '-1.33', true], [P(-4 / 3), '-1.3333', true], [P(-4 / 3), '-4/3', true], [P(-4 / 3), '-1.3', false], [P(-4 / 3), '-1.4', false],
+    // an ordinary item keeps ±0.01: -1.33, -1.333 and -4/3 right for -4/3 (its question says so), -1.3 and -1.4 not
+    [num(-4 / 3), '-1.33', true], [num(-4 / 3), '-1.333', true], [num(-4 / 3), '-4/3', true], [num(-4 / 3), '-1.3', false], [num(-4 / 3), '-1.4', false],
+    // √50 = 7.0710…: the exact value rounded at the places typed, tenths or finer
+    [L(Math.sqrt(50)), '7.1', true], [L(Math.sqrt(50)), '7.07', true], [L(Math.sqrt(50)), '7.071', true],
+    [L(Math.sqrt(50)), '7.12', false], [L(Math.sqrt(50)), '7.05', false], [L(Math.sqrt(50)), '7', false], [L(Math.sqrt(50)), '7.0', false], [L(Math.sqrt(50)), '7.08', false],
+    // √288 = 16.970…: 17.0 is its rounding to tenths, a whole number, and 16.97 is right too
+    [L(Math.sqrt(288)), '17', true], [L(Math.sqrt(288)), '17.0', true], [L(Math.sqrt(288)), '16.97', true], [L(Math.sqrt(288)), '16.971', true],
+    [L(Math.sqrt(288)), '16.9', false], [L(Math.sqrt(288)), '16.98', false], [L(Math.sqrt(288)), '17.02', false],
+  ];
+  it.each(TABLE)('%#: typed %s', (it, typed, right) => {
+    expect(typedRight(it, typed), `${it.answer} ${typed}`).toBe(right);
   });
 });
 

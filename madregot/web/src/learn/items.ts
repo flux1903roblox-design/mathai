@@ -39,8 +39,9 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
     topic: c.topic, level: c.level, levelTitle: c.title, source,
     ...(model.precise ? { precise: true } : {}), ...(fmt ? { fmt } : {}),
   };
-  // an exact answer with no short decimal (7/12) says once how to write it, as a generated exercise does
-  return model.precise ? withFormatNote(it) : it;
+  // an answer with no exact two-place decimal (7/12, a slope of 4/3) says once how to write it, as a generated exercise
+  // does (a rounded length, which carries `exact`, says to round to tenths instead)
+  return withFormatNote(it);
 }
 
 /** The forms of a stair's exercises that can show some misconceptions, learned once from a sample (see genProbe). */

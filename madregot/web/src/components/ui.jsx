@@ -177,24 +177,41 @@ export function Progress({ value, max = 100, labelledBy, valueText, className, t
   );
 }
 
-/** Number keypad with a minus key: phone keyboards have none in numeric mode. */
+/** Grid-area names, so a short screen can lay the same keys out in three rows (see .lesson .keypad in app.css). */
+const KEY_AREA = { '-': 'minus', '.': 'dot', '/': 'frac', ' ': 'space', del: 'del' };
+'0123456789'.split('').forEach((d) => { KEY_AREA[d] = `d${d}`; });
+/** What a screen reader says for each key that is not a digit (the space key's name starts with the word it shows). */
+const KEY_NAME = { del: 'מחיקה', '-': 'מינוס', '/': 'שבר', '.': 'נקודה עשרונית', ' ': 'רווח, בין השלם לשבר' };
+/** The longest answer a slot takes. */
+export const SLOT_MAX = 9;
+
+/**
+ * What a keypad key does to a typed value: a digit, a point or a fraction bar is added (SLOT_MAX characters at most),
+ * the minus goes on or off at the start, delete takes the last character, and the space, between a whole number and a
+ * fraction (5 1/3, which parseNum reads as a mixed number), only right after a whole number.
+ */
+export function typeInto(value, k) {
+  const v = String(value ?? '');
+  if (k === 'del') return v.slice(0, -1);
+  if (k === '-') return v.startsWith('-') ? v.slice(1) : `-${v}`;
+  if (k === ' ' && !/^-?\d+$/.test(v)) return v;
+  return v.length < SLOT_MAX ? v + k : v;
+}
+
 /**
  * The maths keypad: digits, minus, fraction bar, decimal point, delete. With onNext (an answer in two fields,
- * a point or a line) the last cell moves to the next field; otherwise the 0 key takes the row.
+ * a point or a line) the last cell moves to the next field; otherwise the 0 key takes the row. With `mixed` (an answer
+ * that is one number) a space key ("רווח") sits beside the point, so a mixed number can be typed: 5, רווח, 1/3.
  */
-/** Grid-area names, so a short screen can lay the same keys out in three rows (see .lesson .keypad in app.css). */
-const KEY_AREA = { '-': 'minus', '.': 'dot', '/': 'frac', del: 'del' };
-'0123456789'.split('').forEach((d) => { KEY_AREA[d] = `d${d}`; });
-
-export function Keypad({ onKey, primary, onPrimary, primaryDisabled, onNext, nextLabel = 'לשדה הבא' }) {
-  const keys = ['7', '8', '9', 'del', '4', '5', '6', '-', '1', '2', '3', '/', '0', '.'];
+export function Keypad({ onKey, primary, onPrimary, primaryDisabled, onNext, nextLabel = 'לשדה הבא', mixed = false }) {
+  const keys = ['7', '8', '9', 'del', '4', '5', '6', '-', '1', '2', '3', '/', '0', '.', ...(mixed ? [' '] : [])];
   return (
     <div className="keypad" dir="ltr">
       {keys.map((k) => (
-        <button key={k} type="button" data-k={KEY_AREA[k]} className={clsx('key', k === '-' && 'key-minus', k === 'del' && 'key-del', k === '0' && primary == null && (onNext ? 'key-wide' : 'key-wide3'))}
-          aria-label={k === 'del' ? 'מחיקה' : k === '-' ? 'מינוס' : k === '/' ? 'שבר' : k === '.' ? 'נקודה עשרונית' : k}
+        <button key={k} type="button" data-k={KEY_AREA[k]} className={clsx('key', k === '-' && 'key-minus', k === 'del' && 'key-del', k === ' ' && 'key-space', k === '0' && primary == null && (onNext || mixed ? 'key-wide' : 'key-wide3'))}
+          aria-label={KEY_NAME[k] || k}
           onPointerDown={(e) => e.preventDefault()} onClick={() => onKey(k)}>
-          {k === 'del' ? <Delete size={22} aria-hidden="true" /> : k === '-' ? '−' : k}
+          {k === 'del' ? <Delete size={22} aria-hidden="true" /> : k === '-' ? '−' : k === ' ' ? 'רווח' : k}
         </button>
       ))}
       {onNext && primary == null && (
