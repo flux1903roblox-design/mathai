@@ -186,7 +186,7 @@ the row to paste when one differs.
 | angles:3 | סכום זוויות במשולש | 10 (triangle, angle) | 2 | 2 | 2 (sum-360, one-angle) | yes | complete, tested |
 | angles:4 | ישרים מקבילים | 10 (angle) | 2 | 2 | 2 (supp-not-equal, equal-not-supp) | yes | complete, tested |
 | angles:5 | שווה־שוקיים וזווית חיצונית | 10 (angle) | 2 | 2 | 4 (forgot-half, one-angle, apex-base-swap, interior-not-exterior) | yes | complete, tested |
-| expr:1 | הצבה בביטוי | 8 (numberline) | 3 | 2 | 3 (concat, order, neg-sub) | yes | complete, tested |
+| expr:1 | הצבה בביטוי | 8 (numberline) | 3 | 2 | 5 (concat, order, neg-sub, plus, coef) | yes | complete, tested |
 | expr:2 | כותבים ביטוי | 8 | 2 | 2 | 5 (start-n, diff-only, whole-object, reversal, times-plus) | yes | complete, tested |
 | expr:3 | כינוס איברים דומים | 9 (tiles) | 2 | 2 | 3 (conjoin, detach, drop-minus) | yes | complete, tested |
 | expr:4 | חוק הפילוג | 9 (area) | 3 | 2 | 2 (partial-dist, minus-bracket) | yes | complete, tested |

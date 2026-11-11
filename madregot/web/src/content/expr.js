@@ -90,22 +90,47 @@ function substTable() {
   }
 }
 
-// 3x at x = 4 is 12, not 34 and not 7: the three readings side by side. With x = 1 or a negative x the product is
-// the smallest of the three (3 · 1 = 3 against 31 and 4; 3 · (−4) = −12 against 12 and −1), so "the middle number"
-// is not the answer by itself; a negative x put in without brackets loses its minus (neg-sub).
+// 3x at x = 4 is 12, not 34 and not 7: the right value beside two misreadings of ax, each a documented mistake with
+// its own name in the topic's cats: the digits written side by side (concat: 34; with a negative x its minus kept in
+// front, 3x at x = −4 read as −34), the term read as addition (plus: 3 + 4 = 7), a negative x put in without brackets
+// so that its minus is lost (neg-sub: 12 for x = −4), and the number before the letter dropped (coef: 3x read as x, 4).
+// Which two are shown makes the answer the smallest, the middle or the largest of the three about a third of the time
+// each (FOLLOWUP-36), so "never the largest" or "the middle one" is not a rule a student can follow:
+//   x < 0 (40%): neg-sub and plus lie above ax, concat below: {neg-sub, plus} (smallest) 2/3, concat and one of them 1/3
+//   x = 1 (10%): concat and plus lie above a, coef (1) below: {concat, plus} (smallest) 2/3, coef and one of them 1/3
+//   x ≥ 2 (50%): plus and coef lie below ax, concat above: {plus, coef} (largest) 2/3, concat and one of them 1/3
+// so the smallest is 0.5 · 2/3 = 1/3 of all, the largest 0.5 · 2/3 = 1/3, and the middle the other third.
+const SUB_READ = {
+  concat: (a, x) => (x > 0 ? 10 * a + x : -(10 * a - x)),
+  plus: (a, x) => a + x,
+  'neg-sub': (a, x) => -a * x,
+  coef: (a, x) => x,
+};
+/** The solution's words for a wrong choice: where its number comes from. */
+const SUB_WHY = {
+  concat: (v) => `$${T(v)}$ יוצא כשכותבים את הספרות זו ליד זו`,
+  plus: (v, a, x) => `$${T(v)}$ הוא חיבור: $${a} + ${T(x, true)}$`,
+  'neg-sub': (v, a, x) => `$${T(v)}$ יוצא כשהמינוס של $${T(x)}$ נעלם`,
+  coef: (v, a) => `$${T(v)}$ הוא רק $x$, בלי ה־$${a}$`,
+};
+/** The two misreadings shown beside ax: both on one side of it (2/3), or one on each side (1/3). */
+function substPair(x) {
+  if (Math.random() < 2 / 3) return x < 0 ? ['neg-sub', 'plus'] : x === 1 ? ['concat', 'plus'] : ['plus', 'coef'];
+  return x < 0 ? ['concat', pick(['neg-sub', 'plus'])] : x === 1 ? ['coef', pick(['concat', 'plus'])] : ['concat', pick(['plus', 'coef'])];
+}
 function substMc() {
   for (;;) {
     const a = R(2, 9); const r = Math.random(); const x = r < 0.4 ? -R(1, 6) : r < 0.5 ? 1 : R(2, 9);
-    const wrong = x > 0 ? [[10 * a + x, 'concat'], [a + x]] : [[-a * x, 'neg-sub'], [a + x]];
-    if (new Set([a * x, ...wrong.map(([v]) => v)]).size < 3) continue; // 2x at x = 2: two choices would be the same
+    const wrong = substPair(x).map((bug) => [SUB_READ[bug](a, x), bug]);
+    if (new Set([a * x, ...wrong.map(([v]) => v)]).size < 3) continue; // 2x at x = 2: 2 + 2 would be the answer itself
     const choices = shuffle([{ ...tex(T(a * x)), ok: true }, ...wrong.map(([v, bug]) => ({ ...tex(T(v)), bug }))]);
+    const why = wrong.map(([v, bug]) => SUB_WHY[bug](v, a, x));
     return {
       key: `ex1m:${a}:${x}`, text: `מה ערך הביטוי כש־$x = ${T(x)}$?`, display: `${a}x`, form: 'mc',
       choices, answer: choices.findIndex((c) => c.ok),
       hint: x < 0 ? `$${a}x$ הוא $${a} \\cdot x$. מספר שלילי מציבים בסוגריים: $${a} \\cdot ${T(x, true)}$.` : `$${a}x$ הוא קיצור של $${a} \\cdot x$: מספר צמוד לאות כופל אותה.`,
-      solution: [`$${a}x = ${a} \\cdot x$`, `$${a} \\cdot ${T(x, true)} = ${T(a * x)}$`,
-        x > 0 ? `$${10 * a + x}$ הוא מה שיוצא כשכותבים את הספרות זו ליד זו, ו־$${a + x}$ הוא חיבור.`
-          : `$${T(-a * x)}$ יוצא כשהמינוס של $${T(x)}$ נעלם, ו־$${T(a + x)}$ הוא חיבור.`],
+      // the last line names the two misreadings actually shown
+      solution: [`$${a}x = ${a} \\cdot x$`, `$${a} \\cdot ${T(x, true)} = ${T(a * x)}$`, `${why[0]}, ו־${why[1]}.`],
       diag: (u) => choices[u]?.bug || null,
     };
   }
@@ -447,6 +472,8 @@ export const EXPR = {
     concat: '$3x$ נקרא כמספר דו־ספרתי במקום כפל',
     order: 'חישבו משמאל לימין בלי לתת קדימות לכפל',
     'neg-sub': 'מספר שלילי הוצב בלי סוגריים, והמינוס נעלם',
+    plus: '$3x$ נקרא כחיבור, $3 + x$, במקום כפל',
+    coef: '$3x$ חושב כאילו כתוב רק $x$: המספר שלפני האות נשכח',
     'start-n': 'נספרו $n$ צעדים מהאיבר הראשון במקום $n - 1$',
     'diff-only': 'רק הצעד נכפל ב־$n$, וההתחלה נשכחה',
     'whole-object': 'איבר שלם הוכפל: האיבר ה־$20$ אינו פי $2$ מהאיבר ה־$10$',

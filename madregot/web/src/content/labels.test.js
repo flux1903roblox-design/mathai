@@ -389,9 +389,16 @@ const PROPS = {
     'add-same': (it, u) => { const [p, q] = nums(it.key); return it.key.startsWith('ra1a:') && p !== q && /^לא/.test(it.choices[u]?.text || ''); },
   },
   expr: {
-    concat: (it, u) => { const q = substOf(it); return q.x >= 1 && q.x <= 9 && near(substVal(it, u), withProd(q, 10 * q.a + q.x)); },
+    // ax read as the digits a and x side by side: 3x at x = 4 is 34, and at x = −4, with its minus kept in front, −34
+    concat: (it, u) => {
+      const q = substOf(it); const digits = 10 * q.a + Math.abs(q.x);
+      return Math.abs(q.x) >= 1 && Math.abs(q.x) <= 9 && near(substVal(it, u), withProd(q, q.x > 0 ? digits : -digits));
+    },
     order: (it, u) => { const q = substOf(it); return q.f < 2 && near(u, (q.f === 0 ? q.b + q.a : q.b - q.a) * q.x); },
     'neg-sub': (it, u) => { const q = substOf(it); return q.x < 0 && near(substVal(it, u), withProd(q, q.a * -q.x)); },
+    // ax read as a + x, and ax read as x alone (the number before the letter dropped)
+    plus: (it, u) => { const q = substOf(it); return near(substVal(it, u), withProd(q, q.a + q.x)); },
+    coef: (it, u) => { const q = substOf(it); return near(substVal(it, u), withProd(q, q.x)); },
     // n steps of d from the first term instead of n − 1, and the step times n with the start forgotten
     'start-n': (it, u) => {
       const [s, d] = nums(it.key);

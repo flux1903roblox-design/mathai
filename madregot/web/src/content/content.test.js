@@ -314,13 +314,18 @@ describe('a choice is not given away by its look', () => {
     const tally = {}; const add = (k, ok) => { (tally[k] ||= [0, 0]); tally[k][1] += 1; if (ok) tally[k][0] += 1; };
     // a rule that names several choices picks one of them at random (its expected share is counted)
     const share = (k, win, ans) => { (tally[k] ||= [0, 0]); tally[k][1] += 1; if (win.includes(ans)) tally[k][0] += 1 / win.length; };
+    // expr:1's three readings of ax side by side (FOLLOWUP-36): where the right one stands among them, by size
+    const rankOf = (it) => {
+      const v = it.choices.map(numOf); const s = [...v].sort((a, b) => a - b);
+      add('expr:1 the smallest', v[it.answer] === s[0]); add('expr:1 the middle number', v[it.answer] === s[1]); add('expr:1 the largest', v[it.answer] === s[2]);
+    };
     try {
       for (let i = 0; i < 8000; i += 1) {
         const L = 1 + (i % 5);
         for (const topic of ['expr', 'eq', 'sys']) {
           const it = makeItem(topic, L); const k = String(it.key).split(':')[0];
           if (it.form !== 'mc') continue;
-          if (k === 'ex1m') { const v = it.choices.map(numOf); const s = [...v].sort((a, b) => a - b); add('expr:1 the middle number', v[it.answer] === s[1]); add('expr:1 the smallest', v[it.answer] === s[0]); }
+          if (k === 'ex1m') rankOf(it);
           if (k === 'ex2m') { const m = it.choices.map((c) => plain(c).includes('-')); share('expr:2 a choice with a minus', m.some(Boolean) ? m.map((x, j) => (x ? j : -1)).filter((j) => j >= 0) : it.choices.map((_, j) => j), it.answer); }
           if (k === 'eq1w' && !/^x\^2|^x\(/.test(it.display)) {
             const v = it.choices.map(numOf); const sc = v.map((x) => (v.includes(-x) && x !== 0 ? 1 : 0) + (v.includes(x + 2) ? 1 : 0) + (v.includes(x - 2) ? 1 : 0));
@@ -334,10 +339,17 @@ describe('a choice is not given away by its look', () => {
           if (k === 'sy5m' || k === 'sy5g') { const v = it.choices.map(numOf); share('sys:5 the largest or the smallest choice', v.map((x, j) => (x === Math.max(...v) || x === Math.min(...v) ? j : -1)).filter((j) => j >= 0), it.answer); }
         }
       }
+      // and more of expr:1's choices on their own, so its three ranks are measured on a sample large enough for the
+      // tighter limit below (with only the loop's few hundred, one order of the run could pass and another fail)
+      for (let i = 0; i < 6000; i += 1) { const it = makeItem('expr', 1); if (String(it.key).startsWith('ex1m:')) rankOf(it); }
     } finally { Math.random = real; }
     Object.entries(tally).forEach(([rule, [ok, n]]) => {
       expect(n, rule).toBeGreaterThan(100);
-      expect(ok / n, `${rule}: ${(100 * ok / n).toFixed(1)}% of ${n}`).toBeLessThan(0.55);
+      const said = `${rule}: ${(100 * ok / n).toFixed(1)}% of ${n}`;
+      // the answer of expr:1 is the smallest, the middle or the largest of its three choices about as often each: none
+      // of the three ranks is a rule to follow (over 40%), and none is a rule to avoid (under 25%)
+      if (rule.startsWith('expr:1 ')) { expect(ok / n, said).toBeLessThan(0.40); expect(ok / n, said).toBeGreaterThan(0.25); return; }
+      expect(ok / n, said).toBeLessThan(0.55);
     });
   });
   it('the same question every time is practice only, never a check', () => {

@@ -289,6 +289,8 @@
     "misconceptions": [
      3,
      2,
+     2,
+     3,
      2
     ],
     "objectives": 3,
@@ -370,7 +372,7 @@
    }
   },
   "stairs": 5,
-  "steps": 138
+  "steps": 143
  },
  "frac": {
   "skills": {

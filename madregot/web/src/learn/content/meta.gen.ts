@@ -301,6 +301,14 @@ export const META: Record<SkillId, StairMeta> = {
       {
         "id": "neg-sub",
         "title": "מספר שלילי הוצב בלי סוגריים"
+      },
+      {
+        "id": "plus",
+        "title": "$3x$ נקרא כחיבור"
+      },
+      {
+        "id": "coef",
+        "title": "המספר שלפני $x$ נשכח"
       }
     ],
     "transfer": true
