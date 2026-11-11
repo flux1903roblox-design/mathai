@@ -9,10 +9,10 @@
 // the truth pulled from it, or end the plan), queue the one-year plan's end-date emails (30-45 days and 7 days ahead,
 // trust spec TRUST-10 §2) and the licence-ending email (30 days ahead), back off the daily reminders that were ignored
 // (push.js pushNight), purge what is no longer needed (spec §6.9, the safety records, the class data by TRUST-7, and
-// money records, licence records and idle accounts by TRUST-1 §4: shared/retention.js; a daily reminder 45 days after
-// the app was last opened, STUDENT-11; error reports after 30 days; class students' device tokens unused for 400 days,
-// and tokens and escrows whose student or account is gone, DURABLE-6; the parents' daily summaries after 90 days,
-// PARENTS-3), alert
+// money records, licence records and idle accounts by TRUST-1 §4; a daily reminder 45 days after the app was last
+// opened, STUDENT-11; error reports after 30 days; class students' device tokens unused for 400 days, and tokens and
+// escrows whose student or account is gone, DURABLE-6; the parents' daily summaries after 90 days, PARENTS-3; every
+// period is in shared/retention.js), alert
 // the owner when yesterday's safety events jumped, queue the owner's notice of yesterday's app errors when there were
 // many (errors.js), run the encrypted vaults' night (vault.js: purge vaults unused for 400 days, recompute the size
 // meter, the 70% notice), and queue the owner's daily summary when OWNER_DAILY_SUMMARY = "true". In the 16:00 hour: the
@@ -22,7 +22,7 @@
 // On Sunday from 07:00 to 20:00 in Jerusalem: queue the parents' weekly email (report.js weeklyQueue; a second run adds
 // nothing), and send it after the other notices with its own flush (flushWeekly), so it never delays a legal notice.
 // Each step runs on its own: one failing step never stops the others.
-import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
+import { nowIso, addDays, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
 import { retryCancels, processRefundQueue, prices, vatOf, forgetAccount } from './billing.js';
 import { purgeAccountsSql } from './account.js';
@@ -37,7 +37,7 @@ import { RETENTION } from '../../shared/retention.js';
 import { helpDigest, digestHour } from './help.js';
 import { errorsOf, errorsNoticeDue, purgeErrorsSql } from './errors.js';
 import { vaultNight, vaultStats, purgeIdentitySql } from './vault.js';
-import { qualityCounts, QUALITY_KEEP_DAYS } from './quality.js';
+import { qualityCounts } from './quality.js';
 // The purge rules of the sign-in and family tables, the error reports, the parents' daily summaries, the class tokens and
 // escrows, and the vaults live beside their routes; they are named here too, so the data map (worker/datamap.json,
 // purgedBy) can name every purge as cron.<export> (test/datamap.test.js).
@@ -148,39 +148,44 @@ export async function reminders(env) {
 }
 
 /**
- * Old counters: daily (and hourly) rows after 35 days, monthly rows after 13 months (length(day) keeps them apart), and
- * the tutor's quality counts (ai_quality) after 400 days.
+ * Old counters (periods in shared/retention.js): daily (and hourly) rows after RETENTION.aiUsageDays, monthly rows
+ * after RETENTION.aiUsageMonths (length(day) keeps them apart), and the tutor's quality counts (ai_quality) after
+ * RETENTION.aiQualityDays.
  */
 export function purgeCountersSql(env, now = new Date()) {
+  const R = RETENTION;
   const [y, m] = monthOf(now).split('-').map(Number);
-  const back = new Date(Date.UTC(y, m - 1 - 13, 1));
+  const back = new Date(Date.UTC(y, m - 1 - R.aiUsageMonths, 1));
   const oldMonth = `${back.getUTCFullYear()}-${String(back.getUTCMonth() + 1).padStart(2, '0')}`;
   return [
-    env.DB.prepare('DELETE FROM ai_usage WHERE length(day) >= 10 AND day < ?').bind(daysAgo(35)),
+    env.DB.prepare('DELETE FROM ai_usage WHERE length(day) >= 10 AND day < ?').bind(dayOf(new Date(now.getTime() - R.aiUsageDays * DAY))),
     env.DB.prepare('DELETE FROM ai_usage WHERE length(day) = 7 AND day < ?').bind(oldMonth),
-    env.DB.prepare('DELETE FROM ai_quality WHERE day < ?').bind(dayOf(new Date(now.getTime() - QUALITY_KEEP_DAYS * DAY))),
+    env.DB.prepare('DELETE FROM ai_quality WHERE day < ?').bind(dayOf(new Date(now.getTime() - R.aiQualityDays * DAY))),
   ];
 }
 
-/** Retention (spec §6.9): notices 90 days after sending, expired orders after 30 days, spend after 400 days, the audit
- *  log after 2 years, provider events after 7 years, the app's error reports after 30 days. Payments are kept. The class
- *  goal (STUDENT-4): steps after 120 days, its weeks after 400 days (Jerusalem days). Reach counts (STUDENT-14) after
- *  400 days. A daily reminder (STUDENT-11) 45 days after the app was last opened. */
+/** Retention (spec §6.9; the periods are in shared/retention.js): notices RETENTION.noticesDays after sending,
+ *  expired orders after unpaidOrderDays, spend after aiSpendDays, the audit log after auditLogDays, provider events after
+ *  billingEventsDays, the app's error reports after clientErrorsDays (errors.js). Payments are kept. The class goal
+ *  (STUDENT-4): steps after classStepsDays, its weeks after classGoalWeeksDays (Jerusalem days). Reach counts
+ *  (STUDENT-14) after metricsDays. A daily reminder (STUDENT-11) pushIdleDays after the app was last opened (push.js). */
 export function purgeRecordsSql(env, now = new Date()) {
+  const R = RETENTION;
   const t = now.getTime();
   const iso = (days) => new Date(t - days * DAY).toISOString();
+  const day = (days) => dayOf(new Date(t - days * DAY));
   return [
-    env.DB.prepare('DELETE FROM notices WHERE (sent_at IS NOT NULL AND sent_at < ?1) OR (sent_at IS NULL AND tries >= 6 AND created_at < ?1)').bind(iso(90)),
+    env.DB.prepare('DELETE FROM notices WHERE (sent_at IS NOT NULL AND sent_at < ?1) OR (sent_at IS NULL AND tries >= 6 AND created_at < ?1)').bind(iso(R.noticesDays)),
     env.DB.prepare(`DELETE FROM orders WHERE status = 'expired' AND created_at < ?
-      AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.order_id = orders.id)`).bind(iso(30)),
+      AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.order_id = orders.id)`).bind(iso(R.unpaidOrderDays)),
     env.DB.prepare('DELETE FROM ai_spend WHERE (length(period) = 10 AND period < ?) OR (length(period) = 7 AND period < ?)')
-      .bind(dayOf(new Date(t - 400 * DAY)), monthOf(new Date(t - 400 * DAY))),
-    env.DB.prepare('DELETE FROM audit_log WHERE at < ?').bind(iso(730)),
-    env.DB.prepare('DELETE FROM billing_events WHERE received_at < ?').bind(iso(7 * 365 + 2)),
+      .bind(day(R.aiSpendDays), monthOf(new Date(t - R.aiSpendDays * DAY))),
+    env.DB.prepare('DELETE FROM audit_log WHERE at < ?').bind(iso(R.auditLogDays)),
+    env.DB.prepare('DELETE FROM billing_events WHERE received_at < ?').bind(iso(R.billingEventsDays)),
     purgeErrorsSql(env, now),
-    env.DB.prepare('DELETE FROM class_steps WHERE day < ?').bind(dayOf(new Date(t - 120 * DAY))),
-    env.DB.prepare('DELETE FROM class_goal_weeks WHERE week < ?').bind(dayOf(new Date(t - 400 * DAY))),
-    env.DB.prepare('DELETE FROM metrics_daily WHERE day < ?').bind(dayOf(new Date(t - 400 * DAY))),
+    env.DB.prepare('DELETE FROM class_steps WHERE day < ?').bind(day(R.classStepsDays)),
+    env.DB.prepare('DELETE FROM class_goal_weeks WHERE week < ?').bind(day(R.classGoalWeeksDays)),
+    env.DB.prepare('DELETE FROM metrics_daily WHERE day < ?').bind(day(R.metricsDays)),
     purgePushSql(env, now),
   ];
 }

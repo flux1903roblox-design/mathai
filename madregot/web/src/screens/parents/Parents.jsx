@@ -23,6 +23,7 @@ import { ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import ParentsFrame, { NoServerNote } from './ParentsFrame.jsx';
 import FamilyReport from './FamilyReport.jsx';
+import { RETENTION } from '@shared/retention.js';
 import '@/styles/lazy/parents.css'; // this screen's own rules, loaded with it (STUDENT-15)
 
 const RUNNING = ['active', 'past_due', 'canceled'];
@@ -43,13 +44,13 @@ export const CHECKOUT_REPORT = 'המנוי כולל: סיכום התקדמות �
 /**
  * What is kept about the family (PARENTS-9, TRUST-1's text with the summary sentence merged in, and the progress copy a
  * linked device keeps so it can move to a new one, DURABLE-6). Every clause matches the code: the account, the plan and
- * its payments (no card), the devices; the daily summary (codes and counts, 90 days: report.js REPORT_KEEP_DAYS); the
+ * its payments (no card), the devices; the daily summary (codes and counts, 90 days: RETENTION.familyDailyDays, shared/retention.js); the
  * progress copy, which the server can open, so it is never called encrypted; no name asked, no chats kept; the tutor's
  * messages go to Anthropic. Legal.test.js pins it.
  */
 export const ABOUT_DATA = [
   'מה נשמר אצלנו: כתובת המייל שלכם, פרטי המנוי והתשלומים (בלי פרטי כרטיס), והמכשירים שחיברתם.',
-  'במנוי, מכל מכשיר מחובר מגיע סיכום קצר של התרגול, בלי תשובות, שיחות, תמונות או שם, והוא נמחק אחרי 90 יום.',
+  `במנוי, מכל מכשיר מחובר מגיע סיכום קצר של התרגול, בלי תשובות, שיחות, תמונות או שם, והוא נמחק אחרי ${RETENTION.familyDailyDays} יום.`,
   'נשמר גם עותק של ההתקדמות בכל מכשיר מחובר, כדי שאפשר יהיה להעביר אותה למכשיר חדש.',
   'את השם של הילד לא מבקשים, והשיחות שלו עם העוזר לא נשמרות אצלנו.',
   'מה שהוא כותב לעוזר נשלח ל־Anthropic בארה״ב כדי לקבל תשובה.',

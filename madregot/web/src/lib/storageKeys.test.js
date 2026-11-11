@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { RELOAD_KEY } from './monitor.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.resolve(here, '..');
@@ -61,6 +62,15 @@ describe('storage keys and the data map', () => {
   it('every key in web/src has an entry in worker/datamap.json → client', () => {
     const missing = [...FOUND.entries()].filter(([k]) => !ENTRIES.some((e) => covers(e, k))).map(([k, files]) => `${k} (${files.join(', ')})`);
     expect(missing).toEqual([]);
+  });
+
+  it('the reload guard (lib/monitor.js RELOAD_KEY) has an entry of its own, not only the madregot-* wildcard', () => {
+    // the wildcard describes the QA keys and the offline cache; a key with another purpose says its own purpose
+    expect([...FOUND.keys()]).toContain(RELOAD_KEY);
+    expect(ENTRIES).toContain(RELOAD_KEY);
+    expect(MAP.client[RELOAD_KEY]).toMatchObject({ store: 'sessionStorage', personal: 'no' });
+    expect(MAP.client[RELOAD_KEY].purpose).toMatch(/reload loop/);
+    expect(MAP.client[RELOAD_KEY].removedBy).toMatch(/Closing the tab/);
   });
 
   it('every client entry is still a key the app uses', () => {

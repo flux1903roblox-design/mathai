@@ -53,3 +53,47 @@ describe('the retention words follow shared/retention.js', () => {
     }
   });
 });
+
+// FOLLOWUP-24: the periods the family, durable and student lanes kept beside their routes (errors.js, report.js,
+// vault.js, push.js, quality.js, family.js, account.js) now live here, and every purge reads them
+// (worker/test/retention.test.js checks each cutoff). The words the parents read about their summaries come from the
+// same number.
+describe('the periods the other lanes kept on their own', () => {
+  it('have their keys here, with the numbers their purges and the privacy notice use', () => {
+    expect({
+      clientErrorsDays: RETENTION.clientErrorsDays, familyDailyDays: RETENTION.familyDailyDays, vaultIdleDays: RETENTION.vaultIdleDays,
+      studentTokenIdleDays: RETENTION.studentTokenIdleDays, pushIdleDays: RETENTION.pushIdleDays, aiQualityDays: RETENTION.aiQualityDays,
+      familyDeviceIdleDays: RETENTION.familyDeviceIdleDays, familyLinkDays: RETENTION.familyLinkDays, sessionIdleDays: RETENTION.sessionIdleDays,
+    }).toEqual({
+      clientErrorsDays: 30, familyDailyDays: 90, vaultIdleDays: 400, studentTokenIdleDays: 400, pushIdleDays: 45, aiQualityDays: 400,
+      familyDeviceIdleDays: 365, familyLinkDays: 1, sessionIdleDays: 180,
+    });
+    for (const [k, v] of Object.entries(RETENTION)) expect(Number.isInteger(v) && v > 0, k).toBe(true);
+    expect(Object.isFrozen(RETENTION)).toBe(true);
+  });
+
+  it('no Worker module keeps a period of its own any more', () => {
+    for (const [file, name] of [['errors.js', 'KEEP_DAYS'], ['report.js', 'REPORT_KEEP_DAYS'], ['vault.js', 'VAULT_KEEP_DAYS'], ['push.js', 'PUSH_KEEP_DAYS'],
+      ['quality.js', 'QUALITY_KEEP_DAYS'], ['account.js', 'SESSION_IDLE_DAYS']]) {
+      const src = readFileSync(new URL(`../worker/src/${file}`, import.meta.url), 'utf8');
+      expect(src, file).not.toMatch(new RegExp(`\\b${name}\\b`));
+      expect(src, file).toContain('RETENTION.');
+    }
+  });
+
+  it("the parents' words about their summaries say familyDailyDays, read from here", async () => {
+    const days = `${RETENTION.familyDailyDays} יום`;
+    const { SOURCE_NOTE } = await import('../web/src/components/report/ReportView.jsx');
+    const { SHARING } = await import('../web/src/components/SharingSheet.jsx');
+    const { REPORT } = await import('../web/src/screens/parents/FamilyReport.jsx');
+    expect(SOURCE_NOTE.synced).toContain(`ונשמר ${days}.`);
+    expect(SHARING.kept).toBe(`הסיכומים נשמרים ${days} ואז נמחקים.`);
+    expect(REPORT.ended).toContain(`נשמרים עד ${days} ואז נמחקים.`);
+    for (const file of ['../web/src/components/report/ReportView.jsx', '../web/src/components/SharingSheet.jsx', '../web/src/screens/parents/FamilyReport.jsx',
+      '../web/src/screens/parents/Parents.jsx']) {
+      const src = readFileSync(new URL(file, import.meta.url), 'utf8');
+      expect(src, file).toContain('RETENTION.familyDailyDays');
+      expect(src, file).not.toMatch(/\b90 יום/);
+    }
+  });
+});

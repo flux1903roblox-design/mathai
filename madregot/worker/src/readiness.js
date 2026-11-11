@@ -10,8 +10,13 @@
 // is missing in plain words and `how` is the exact command. `required: false` items are reminders: printed, never a failure. `ok` is true when every
 // required item is. Rules exist only for what the owner turned on: the email when EMAIL_FROM is set, payments when
 // AI_PAYWALL is "on", the provider's own keys for the provider chosen, the backup's secret while VAULT is on, Turnstile
-// with FREE_DEVICE_MINT "turnstile", the daily reminder's keys with PUSH "on" (STUDENT-11). A lane that adds a secret or a switch adds its rule here in the same commit:
-// test/readiness.test.js fails on a secret named in wrangler.toml's secrets comment that no rule covers.
+// with FREE_DEVICE_MINT "turnstile", the daily reminder's keys with PUSH "on" (STUDENT-11). The legal gate (TRUST-1,
+// TRUST-2, TRUST-13: billing.js legalMissing, the one check that keeps checkout closed) is required while the paid
+// tutor is on and a reminder before; the Ministry's approval (TRUST-11) is always a reminder (FOLLOWUP-32). A lane that
+// adds a secret or a switch adds its rule here in the same commit: test/readiness.test.js fails on a secret named in
+// wrangler.toml's secrets comment that no rule covers.
+import { legalMissing, termsVersion } from './billing.js';
+import { rulesEnv } from '../../shared/schoolRules.js';
 
 export const AREAS = {
   db: 'בסיס הנתונים',
@@ -24,6 +29,7 @@ export const AREAS = {
   edge: 'הגנה מעומס',
   devices: 'מכשירים חדשים',
   push: 'תזכורת יומית',
+  legal: 'משפט ואישורים',
 };
 
 const put = (name) => `npx wrangler secret put ${name}`;
@@ -111,6 +117,26 @@ export function readiness(cfg = {}) {
     add('push:subject', 'push', /^(mailto:\S+@\S+|https:\/\/\S+)$/.test(String(vars.VAPID_SUBJECT || '').trim()), 'VAPID_SUBJECT',
       'VAPID_SUBJECT צריך להיות mailto: עם כתובת אמיתית, או כתובת https:', 'worker/wrangler.toml: VAPID_SUBJECT = "mailto:…"');
   }
+
+  // ---- the legal gate (TRUST-2 §5-6, TRUST-13, TRUST-15 step 1): billing.js legalMissing, the same list that answers
+  //      checkout with 503 legal_not_ready and shows the legal pages as "טיוטה". Required while the paid tutor is on (only
+  //      then can checkout open: billing.js planOnline); before that a reminder, since the pages say "טיוטה" until it passes.
+  const paid = on(vars.AI_PAYWALL) === 'on';
+  const legal = legalMissing(vars);
+  const tv = termsVersion(vars);
+  const details = legal.filter((k) => k !== 'LEGAL_APPROVED' && k !== 'DB_JURISDICTION');
+  add('legal:details', 'legal', !details.length, 'פרטי העסק בדפי המשפט', `חסרים פרטים שדפי המשפט והגילוי לפני התשלום מציגים: ${details.join(', ')}`,
+    `worker/wrangler.toml: ${(details.length ? details : ['BUSINESS_NAME']).map((k) => `${k} = "${k === 'LEGAL_DATE' ? 'YYYY-MM-DD' : '…'}"`).join(', ')}  (ואז npx wrangler deploy)`, paid);
+  add('legal:jurisdiction', 'legal', !legal.includes('DB_JURISDICTION'), 'DB_JURISDICTION = "eu"',
+    'DB_JURISDICTION צריך להיות "eu": מדיניות הפרטיות מתארת רק בסיס נתונים באיחוד האירופי',
+    'לפני שיש מידע אמיתי: sh setup.sh או setup.ps1, שיוצרים את בסיס הנתונים עם --jurisdiction=eu וכותבים DB_JURISDICTION = "eu" ב־worker/wrangler.toml', paid);
+  add('legal:approved', 'legal', !legal.includes('LEGAL_APPROVED'), `LEGAL_APPROVED = "${tv}"`,
+    `הטקסטים המשפטיים בגרסה ${tv} עוד לא אושרו: LEGAL_APPROVED צריך להיות "${tv}" אחרי שעורך הדין אישר אותם`,
+    `worker/wrangler.toml: LEGAL_APPROVED = "${tv}"  (ואז npx wrangler deploy)`, paid);
+  // ---- the Ministry of Education's approval (TRUST-11, shared/schoolRules.js): a reminder of what "none" means
+  add('legal:moe', 'legal', rulesEnv(vars).approval === 'approved', 'MOE_AI_APPROVAL = "approved"',
+    'MOE_AI_APPROVAL = "none": עד שמדרגות בקטלוג של משרד החינוך, העוזר החכם כבוי לתלמידים בכל כיתה של בית ספר, בקשת ניסיון מתקבלת רק מקבוצה פרטית (של בית ספר נענית 409), ורישיון עם העוזר לא נמכר לכיתה של בית ספר. בקשה להצעת מחיר נשארת פתוחה',
+    'כשהאישור מגיע: worker/wrangler.toml: MOE_AI_APPROVAL = "approved" (ו־MOE_AI_FROM_GRADE), ואז npx wrangler deploy', false);
 
   // ---- Turnstile for new devices on the free taste
   if (on(vars.FREE_DEVICE_MINT) === 'turnstile') {

@@ -6,17 +6,25 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { readiness, formatReadiness, NOT_CHECKED, RANDOM_SECRETS } from '../src/readiness.js';
 import { readToml, devVarNames, unappliedFrom } from '../scripts/owner.mjs';
+import { legalMissing, LEGAL_VARS } from '../src/billing.js';
 import { setup } from './helpers.js';
 
 const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
 const ALWAYS = ['AUTH_SECRET', 'IP_HASH_SECRET', 'ANTHROPIC_API_KEY'];
+/** Every business detail the legal pages show, synthetic. */
+const LEGAL_FILLED = {
+  BUSINESS_NAME: 'מדרגות בדיקה', BUSINESS_ID: '000000000', BUSINESS_KIND: 'עוסק פטור', BUSINESS_ADDRESS: 'רחוב הבדיקה 1, תל אביב', CONTACT_PHONE: '03-0000000',
+  PAYMENT_PROVIDER_NAME: 'Grow (משולם)', LEGAL_DATE: '2026-11-01', DB_JURISDICTION: 'eu',
+};
 /** A complete live configuration with the paid tutor on and Grow as the provider. */
 const complete = () => ({
   vars: {
     ...readToml(toml).vars, PUBLIC_URL: 'https://madregot.example.test', CONTACT_EMAIL: 'hello@example.test', EMAIL_FROM: 'מדרגות <hello@example.test>',
     AI_PAYWALL: 'on', BILLING_PROVIDER: 'grow', BILLING_MODE: 'live', GROW_API_BASE: 'https://grow.example.test/api/light/server/1.0/',
     BILLING_CHECKOUT_HOSTS: 'pay.example.test', GROW_DIRECT_DEBIT_API: 'on',
+    // the legal gate (TRUST-2, TRUST-13): the business details, the EU database and the lawyer's approval of this version
+    ...LEGAL_FILLED, LEGAL_APPROVED: readToml(toml).vars.TERMS_VERSION,
   },
   databaseId: '00000000-0000-0000-0000-000000000000',
   secrets: new Set([...ALWAYS, 'RESEND_API_KEY', 'WEBHOOK_PATH_SECRET', 'VAULT_SECRET', 'GROW_USER_ID', 'GROW_PAGE_CODE_ONCE', 'GROW_PAGE_CODE_RECURRING', 'GROW_API_KEY']),
@@ -113,4 +121,78 @@ test('/api/health says whether things are set, as booleans, never a value', asyn
     const text = JSON.stringify(body);
     for (const v of ['re_test_secret_value', 'f'.repeat(64), 'grow-user-1']) assert.ok(!text.includes(v), v);
   } finally { h.done(); }
+});
+
+// ---- the legal area (FOLLOWUP-32): one case per rule. Each reads billing.js legalMissing, the gate checkout itself
+//      uses, so the go-live check and the 503 legal_not_ready can never disagree.
+const legalItem = (r, id) => r.items.find((i) => i.id === id);
+
+test('legal:details: every business detail the legal pages show; required while the paid tutor is on, a reminder before', () => {
+  const c = complete();
+  assert.equal(legalItem(readiness(c), 'legal:details').ok, true);
+  c.vars.BUSINESS_ID = ''; c.vars.LEGAL_DATE = '1 בנובמבר';
+  const r = readiness(c);
+  assert.deepEqual(failing(r), ['legal:details']);
+  const i = legalItem(r, 'legal:details');
+  assert.equal(i.area, 'משפט ואישורים');
+  assert.match(i.need, /BUSINESS_ID, LEGAL_DATE$/);
+  assert.equal(i.how, 'worker/wrangler.toml: BUSINESS_ID = "…", LEGAL_DATE = "YYYY-MM-DD"  (ואז npx wrangler deploy)');
+  // the same names the gate gives: no second list
+  assert.deepEqual(legalMissing(c.vars), ['BUSINESS_ID', 'LEGAL_DATE']);
+  for (const k of LEGAL_VARS.filter((x) => x !== 'DB_JURISDICTION')) {
+    const one = complete(); one.vars[k] = '';
+    assert.deepEqual(failing(readiness(one)), k === 'CONTACT_EMAIL' ? ['site:contact', 'legal:details'] : ['legal:details'], k);
+  }
+  c.vars.AI_PAYWALL = 'off';
+  assert.equal(readiness(c).ok, true, 'before the paid tutor it is a reminder');
+  assert.equal(legalItem(readiness(c), 'legal:details').required, false);
+  assert.match(formatReadiness(readiness(c)), /^! משפט ואישורים: חסרים פרטים/m);
+});
+
+test('legal:jurisdiction: DB_JURISDICTION must be "eu"; the one action is the setup script that creates the database in the EU', () => {
+  const c = complete();
+  assert.equal(legalItem(readiness(c), 'legal:jurisdiction').ok, true);
+  for (const v of ['', 'fedramp', 'EU ']) {
+    c.vars.DB_JURISDICTION = v;
+    assert.deepEqual(failing(readiness(c)), ['legal:jurisdiction'], JSON.stringify(v));
+  }
+  const i = legalItem(readiness(c), 'legal:jurisdiction');
+  assert.match(i.how, /setup\.sh או setup\.ps1/);
+  assert.match(i.how, /--jurisdiction=eu/);
+  assert.match(i.how, /DB_JURISDICTION = "eu"/);
+  c.vars.AI_PAYWALL = 'off';
+  assert.equal(readiness(c).ok, true);
+});
+
+test('legal:approved: LEGAL_APPROVED must name the current TERMS_VERSION; a new version needs a new approval', () => {
+  const c = complete();
+  assert.equal(legalItem(readiness(c), 'legal:approved').ok, true);
+  c.vars.LEGAL_APPROVED = '';
+  let r = readiness(c);
+  assert.deepEqual(failing(r), ['legal:approved']);
+  assert.equal(legalItem(r, 'legal:approved').how, `worker/wrangler.toml: LEGAL_APPROVED = "${c.vars.TERMS_VERSION}"  (ואז npx wrangler deploy)`);
+  c.vars.LEGAL_APPROVED = c.vars.TERMS_VERSION; c.vars.TERMS_VERSION = '2027-01';
+  r = readiness(c);
+  assert.deepEqual(failing(r), ['legal:approved']);
+  assert.match(legalItem(r, 'legal:approved').need, /בגרסה 2027-01/);
+  assert.match(formatReadiness(r), /^✗ משפט ואישורים: .*→ worker\/wrangler\.toml: LEGAL_APPROVED = "2027-01"/m);
+  c.vars.AI_PAYWALL = 'off';
+  assert.equal(readiness(c).ok, true);
+});
+
+test('legal:moe: the Ministry\'s approval is a reminder that says what "none" means for schools and their trial requests', () => {
+  const c = complete();
+  const none = legalItem(readiness(c), 'legal:moe');
+  assert.equal(readToml(toml).vars.MOE_AI_APPROVAL, 'none');
+  assert.equal(none.ok, false);
+  assert.equal(none.required, false);
+  assert.equal(readiness(c).ok, true, 'never a failure');
+  assert.match(none.need, /בקשת ניסיון מתקבלת רק מקבוצה פרטית/);
+  assert.match(none.need, /כבוי לתלמידים בכל כיתה של בית ספר/);
+  assert.match(none.how, /MOE_AI_APPROVAL = "approved"/);
+  assert.match(formatReadiness(readiness(c)), /^! משפט ואישורים: MOE_AI_APPROVAL = "none"/m);
+  c.vars.MOE_AI_APPROVAL = 'approved';
+  assert.equal(legalItem(readiness(c), 'legal:moe').ok, true);
+  c.vars.MOE_AI_APPROVAL = 'yes';
+  assert.equal(legalItem(readiness(c), 'legal:moe').ok, false, 'anything but "approved" is "none" (shared/schoolRules.js rulesEnv)');
 });

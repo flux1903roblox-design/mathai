@@ -4,12 +4,13 @@
 // "מה נשמר במכשיר עצמו", the family device's subsection with every field the child is told about, Resend and the Sunday
 // email, the 90 days, and the rights; the page's About paragraph is one merged text that no longer says "only your
 // email" and says the summary goes after 90 days. worker/test/notice.test.js pins the 90 to the Worker's
-// REPORT_KEEP_DAYS. (The family lane named this file Legal.test.js; on the main branch the trust lane's legal.test.js
+// RETENTION.familyDailyDays (shared/retention.js), and the page reads it from there. (The family lane named this file Legal.test.js; on the main branch the trust lane's legal.test.js
 // sits beside it, a name that differs only in case, so it is reportCopy.test.js here.)
 import { describe, it, expect } from 'vitest';
 import privacy from '@/content/legal/privacy.md?raw';
 import parentsSource from './Parents.jsx?raw';
 import { NOTICE } from '@/components/learn/SharingNotice.jsx';
+import { RETENTION } from '@shared/retention.js';
 
 const section = (title) => privacy.split(/^## /m).find((p) => p.startsWith(title)) || '';
 const sub = (title) => (privacy.split(/^### /m).find((p) => p.startsWith(title)) || '').split(/^## /m)[0];
@@ -70,7 +71,8 @@ describe('privacy.md: the parents\' report', () => {
 describe('Parents.jsx: what is kept, in one merged text', () => {
   it('no longer says only the email is kept, and says the summary goes after 90 days', () => {
     expect(parentsSource).not.toContain('שומרים רק את כתובת המייל שלכם');
-    expect(parentsSource).toContain('נמחק אחרי 90 יום');
+    expect(parentsSource).toContain('נמחק אחרי ${RETENTION.familyDailyDays} יום');
+    expect(RETENTION.familyDailyDays).toBe(90);
   });
 
   it('names the progress copy a linked device keeps, and never calls it encrypted', () => {

@@ -1,6 +1,6 @@
 // Error reports (DURABLE-9): counts of what broke, per day, with no per-user trail. No device id, no address, no name,
 // no route values: a row is (day, fingerprint, release, browser class, route pattern) and how many times it happened.
-// Kept 30 days (cron.js). Separate from any product metrics: other tables, other retention.
+// Kept RETENTION.clientErrorsDays (30 days, shared/retention.js; the purge is purgeErrorsSql, run by cron.js). Separate from any product metrics: other tables, other retention.
 //
 //   POST /api/errors   { v: 1, release, items: [≤ 10 × { kind, name, message, frame, route, agent }] }, ≤ 8 KB, no auth.
 //     The app sends it as text/plain (no CORS preflight; sendBeacon can carry it), and the JSON is read from that body.
@@ -11,11 +11,11 @@
 //   (routePattern): a path with a secret in it (the payment webhook) is stored as its pattern, never as it was.
 import { ERROR_KINDS, CLIENT_KINDS, LIMITS, MAX_ITEMS, clean, fingerprintText } from '../../shared/errors.js';
 import { dayOf, nowIso, json, HttpError, rawBody, sha256, netKey, take, key } from './util.js';
+import { RETENTION } from '../../shared/retention.js';
 
 export const BODY_MAX = 8 * 1024;
 export const NET_DAILY = 100;
 export const ALL_DAILY = 20_000;
-export const KEEP_DAYS = 30;
 
 const FRAME = /^[\w.-]{1,90}\.js:\d{1,7}:\d{1,7}$/;
 const ROUTE = /^\/[A-Za-z0-9/:*_-]{0,59}$/;
@@ -141,5 +141,6 @@ export const NOTICE_TOTAL = 300;
 export const NOTICE_ONE = 100;
 export const errorsNoticeDue = (e) => e.total > NOTICE_TOTAL || e.worst > NOTICE_ONE;
 
-/** Retention: rows older than 30 days go. */
-export const purgeErrorsSql = (env, now = new Date()) => env.DB.prepare('DELETE FROM client_errors WHERE day < ?').bind(dayOf(new Date(now.getTime() - KEEP_DAYS * 864e5)));
+/** Retention: rows older than RETENTION.clientErrorsDays go. */
+export const purgeErrorsSql = (env, now = new Date()) => env.DB.prepare('DELETE FROM client_errors WHERE day < ?')
+  .bind(dayOf(new Date(now.getTime() - RETENTION.clientErrorsDays * 864e5)));

@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import * as cron from '../src/cron.js';
 import * as forget from '../src/forget.js';
 import { memoryD1 } from './helpers.js';
+import { RETENTION as R } from '../../shared/retention.js';
 
 const MAP = JSON.parse(readFileSync(new URL('../datamap.json', import.meta.url), 'utf8'));
 const MODULES = { cron, forget };
@@ -110,6 +111,28 @@ test('the functions a table names really reach it: each that runs mentions the t
     }
     assert.ok(deleted, `${t}: none of ${e.purgedBy.join(', ')} deletes from it`);
   }
+});
+
+// The retention texts say what the purges do (FOLLOWUP-24): a text names the shared/retention.js key behind each
+// period it quotes, the key exists, its number is in the text, and every "N days" or "N months" in a text is one of the
+// keys it names. A period changed in shared/retention.js fails here until the map says the same.
+test('every period a retention text quotes is the RETENTION key it names', () => {
+  const cited = new Set();
+  for (const [t, e] of entries) {
+    const keys = [...e.retention.matchAll(/RETENTION\.([A-Za-z]+)/g)].map((m) => m[1]);
+    for (const k of keys) {
+      assert.ok(Number.isInteger(R[k]), `${t}: RETENTION.${k} is not a key of shared/retention.js`);
+      if (k === 'taxYears') assert.match(e.retention, new RegExp(`${R.taxYears}th calendar year`), `${t}: the tax period`);
+      else assert.match(e.retention, new RegExp(`\\b${R[k]} ${k.endsWith('Months') ? 'months' : 'days?'}\\b`), `${t}: RETENTION.${k} is ${R[k]}`);
+      cited.add(k);
+    }
+    for (const [, n, unit] of e.retention.matchAll(/\b(\d+) (days?|months)\b/g)) {
+      const fits = keys.filter((k) => R[k] === Number(n) && k.endsWith(unit === 'months' ? 'Months' : 'Days'));
+      assert.ok(fits.length, `${t}: "${n} ${unit}" names no RETENTION key with that number`);
+    }
+  }
+  // every period of the night purge is quoted by some table (the tax years too)
+  for (const k of Object.keys(R)) assert.ok(cited.has(k), `RETENTION.${k} is quoted by no table's retention`);
 });
 
 test('a table added without an entry makes the map fail (the check the trust judge asked to see red)', () => {

@@ -1,7 +1,8 @@
 // How the tutor's answers fared, as counts only (ai spec AI-3 Design 6): a reply whose final answer the guard masked, a
 // streamed reply that came back empty, and (with AI-4) the generated exercises code dropped. One row per Jerusalem day,
 // kind and reason, with a count: no person, device, pool or text, so a row can never point to anyone or hold what was
-// written. The owner's daily summary reads yesterday's counts (cron.js); rows go after QUALITY_KEEP_DAYS.
+// written. The owner's daily summary reads yesterday's counts (cron.js); rows go after RETENTION.aiQualityDays
+// (shared/retention.js; the purge is cron.js purgeCountersSql).
 import { dayOf } from './util.js';
 
 export const QUALITY_KINDS = Object.freeze(['explain', 'chat', 'check', 'generate']);
@@ -13,7 +14,6 @@ export const QUALITY_REASONS = Object.freeze([
   'gen_kept', 'gen_latex', 'gen_numbers', 'gen_leak', 'gen_solution', 'gen_equations', 'gen_blind', 'gen_all_failed', 'blind_skipped',
 ]);
 export const GEN_DROPPED = Object.freeze(['gen_kept', 'gen_latex', 'gen_numbers', 'gen_leak', 'gen_solution', 'gen_equations', 'gen_blind']);
-export const QUALITY_KEEP_DAYS = 400;
 
 const UPSERT = 'INSERT INTO ai_quality (day, kind, reason, n) VALUES (?, ?, ?, ?) ON CONFLICT (day, kind, reason) DO UPDATE SET n = n + excluded.n';
 

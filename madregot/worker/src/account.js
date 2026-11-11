@@ -9,12 +9,12 @@ import {
 } from './util.js';
 import { sendLoginCode, emailReady } from './email.js';
 import { queueNotices, ownerNotice } from './spend.js';
+import { RETENTION } from '../../shared/retention.js';
 
 export const CODE_TTL_MIN = 10;
 export const CODE_TRIES = 5;
 export const RESEND_SECONDS = 60;
 export const MAX_SESSIONS = 3;
-export const SESSION_IDLE_DAYS = 180;
 export const STEP_UP_MINUTES = 10;
 // Codes sent a day: 5 to one address from one network, 15 to one address in all (so a stranger on another network
 // cannot use up the owner's own sends), 40 from one network (IPv6 counted by its /48), and a global ceiling
@@ -165,7 +165,7 @@ async function sessionOf(req, env) {
      FROM account_sessions s JOIN accounts a ON a.id = s.account_id WHERE s.token_hash = ?`,
   ).bind(hash).first();
   if (!row) return null;
-  if (row.last_seen < addDays(nowIso(), -SESSION_IDLE_DAYS)) {
+  if (row.last_seen < addDays(nowIso(), -RETENTION.sessionIdleDays)) {
     await env.DB.prepare('DELETE FROM account_sessions WHERE token_hash = ?').bind(hash).run();
     return null;
   }
@@ -215,9 +215,9 @@ export async function signOut(req, env, cors) {
   return json({ ok: true, revoked: Number(r.meta?.changes || 0) }, 200, cors);
 }
 
-/** Purge rules for the cron: expired codes and sessions unused for 180 days. */
-export const purgeAccountsSql = (env) => [
-  env.DB.prepare('DELETE FROM login_codes WHERE expires_at < ?').bind(nowIso()),
-  env.DB.prepare('DELETE FROM account_sessions WHERE last_seen < ?').bind(addDays(nowIso(), -SESSION_IDLE_DAYS)),
+/** Purge rules for the cron: expired codes and sessions unused for RETENTION.sessionIdleDays. */
+export const purgeAccountsSql = (env, now = new Date()) => [
+  env.DB.prepare('DELETE FROM login_codes WHERE expires_at < ?').bind(now.toISOString()),
+  env.DB.prepare('DELETE FROM account_sessions WHERE last_seen < ?').bind(addDays(now.toISOString(), -RETENTION.sessionIdleDays)),
 ];
 

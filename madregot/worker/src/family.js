@@ -38,6 +38,7 @@ import { requireAccount } from './account.js';
 import { deviceFrom, liveFamily, limits } from './entitle.js';
 import { flushNotices } from './email.js';
 import { deviceEscrowCode } from './vault.js';
+import { RETENTION } from '../../shared/retention.js';
 
 export const LINK_TTL_MIN = 60;
 /** Once claimed, the child's device has at least this long to collect its token. */
@@ -330,14 +331,15 @@ export async function unlinkDevice(id, req, env, cors) {
 }
 
 /**
- * Night-time purge: link codes a day past their expiry, devices that never collected a token, devices unused for a year.
+ * Night-time purge (periods in shared/retention.js): link codes RETENTION.familyLinkDays past their expiry, devices that
+ * never collected a token as long after they were made, devices unused for RETENTION.familyDeviceIdleDays (a year).
  * A deleted device's escrow stays with the account (device_id NULL) as on an unlink, under the same rule (the child's
  * sharing switch on). Its daily summaries go with it:
  * purge() runs report.js purgeReportSql after this in the same batch, whose orphan sweep removes them (so does the FK).
  */
 export function purgeFamilySql(env, now = new Date()) {
-  const dayAgo = new Date(now.getTime() - 864e5).toISOString();
-  const yearAgo = dayOf(new Date(now.getTime() - 365 * 864e5));
+  const dayAgo = new Date(now.getTime() - RETENTION.familyLinkDays * 864e5).toISOString();
+  const yearAgo = dayOf(new Date(now.getTime() - RETENTION.familyDeviceIdleDays * 864e5));
   const never = 'token_hash IS NULL AND created_at < ?';
   const unused = 'token_hash IS NOT NULL AND last_seen < ?';
   return [

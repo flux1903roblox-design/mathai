@@ -9,13 +9,14 @@ import {
 import { readFileSync, readdirSync } from 'node:fs';
 import { dayOf, monthOf, hourOf, jerusalemMidnight } from '../src/util.js';
 import {
-  shiftDay, REPORT_KEEP_DAYS, cleanDay, feedbackCounts, FEEDBACK_KEYS, weeklyQueue, flushWeekly, weeklyParams, weeklyWindow, unsubToken, UNSUB_TEXT,
+  shiftDay, cleanDay, feedbackCounts, FEEDBACK_KEYS, weeklyQueue, flushWeekly, weeklyParams, weeklyWindow, unsubToken, UNSUB_TEXT,
 } from '../src/report.js';
 import { flushNotices, MAX_NOTICE_TRIES, renderNotice, business } from '../src/email.js';
 import { purge, run } from '../src/cron.js';
 import { weekStart, weekFrom } from '../../shared/week.js';
 import { stairName } from '../../shared/stairs.js';
 import { texToPlain } from '../../shared/plain.js';
+import { RETENTION } from '../../shared/retention.js';
 
 let h;
 afterEach(() => h?.done());
@@ -210,7 +211,7 @@ test('7. the parent reads only their own devices, 7 to 90 days, as the app\'s Da
   raw(ago(10), 1); raw(ago(60), 2); raw(ago(89), 3);
   const get = async (q = '') => (await h.call('GET', `/api/family/summary${q}`, { headers: fam.parent })).json();
   const all = await get();
-  assert.equal(all.retentionDays, REPORT_KEEP_DAYS);
+  assert.equal(all.retentionDays, RETENTION.familyDailyDays);
   assert.equal(all.days, 56);
   assert.equal(all.devices.length, 1, 'never another account\'s device');
   const d = all.devices[0];

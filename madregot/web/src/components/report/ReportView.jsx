@@ -10,6 +10,7 @@ import { Stat } from '@/components/ds.jsx';
 import { stairName, misconName, withPrefix, he } from '@/learn/report.ts';
 import { MASTERY_N, MASTERY_NEED } from '@/learn/mastery.ts';
 import { dm, newestFirst } from '@/lib/share.js';
+import { RETENTION } from '@shared/retention.js';
 import '@/styles/report.css';
 
 const LETTERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -20,7 +21,7 @@ const WORKED_SHOWN = 6;
 export const SOURCE_NOTE = {
   local: 'לא נכלל בסיכום: התשובות עצמן, שיחות עם העוזר החכם ותמונות.',
   link: 'הסיכום נוצר במכשיר של הילד ונשלח ממנו. מדרגות לא שומרת אותו. לא נכלל: התשובות עצמן, שיחות עם העוזר החכם ותמונות.',
-  synced: 'הסיכום מתעדכן מהמכשיר במהלך היום ונשמר 90 יום. לא נכלל: התשובות עצמן, שיחות עם העוזר החכם ותמונות.',
+  synced: `הסיכום מתעדכן מהמכשיר במהלך היום ונשמר ${RETENTION.familyDailyDays} יום. לא נכלל: התשובות עצמן, שיחות עם העוזר החכם ותמונות.`,
 };
 
 /** 'א׳ 8.11 – ש׳ 14.11' */

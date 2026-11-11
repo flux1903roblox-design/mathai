@@ -16,14 +16,15 @@
 // reminder a day at most, in the hour the student chose (16:00-20:00 Jerusalem), never on Shabbat, Yom Tov, the memorial
 // days or Tish'a B'Av, never on their eve (they begin at sundown), and never on a day the student already learned.
 // A night step (pushNight, with the 03:00 jobs) backs off when reminders are ignored: from 3 ignored days in a row only
-// every other day, from 6 the reminder pauses until the student turns it on again. Rows not used for 45 days are
-// deleted (cron.js purgeRecordsSql).
+// every other day, from 6 the reminder pauses until the student turns it on again. Rows not used for
+// RETENTION.pushIdleDays (45 days, shared/retention.js) are deleted (purgePushSql, run by cron.js purgeRecordsSql).
 import { dayOf, hourOf, json, HttpError, body, sha256, randomToken, netKey, limitOrThrow, secretEqual } from './util.js';
 import { isQuietDay, isQuietEve } from '../../shared/restDays.js';
 import { TITLE, messageFor, dayOfYear } from '../../shared/reminder.js';
 import { encryptPayload, vapidJwt, vapidAuth, fromB64u, importPublic, parseVapidJwk, publicOfJwk } from './webpush.js';
 import { countServer } from './metrics.js';
 import { shiftDay } from './goal.js';
+import { RETENTION } from '../../shared/retention.js';
 
 export const PUSH_CRON = '37 * * * *';
 export const SLOTS = [16, 17, 18, 19, 20];
@@ -34,7 +35,6 @@ export const PUSH_LIMITS = { subscribe: 20, off: 20, seen: 200, key: 200 };
 /** Back-off: from this many ignored reminders in a row only on even days of the year; from PAUSE_AT, paused. */
 export const BACKOFF = { evenDaysAt: 3, pauseAt: 6 };
 /** Rows not seen for this many days are deleted. */
-export const PUSH_KEEP_DAYS = 45;
 /** Reminders sent per run when PUSH_BATCH is not set (Workers Free). On Workers Paid the owner sets 400. */
 export const PUSH_BATCH_DEFAULT = 10;
 const ENDPOINT_MAX = 2048;
@@ -255,10 +255,10 @@ export async function pushNight(env, now = new Date()) {
   return { missed: Number(r[0]?.meta?.changes || 0), reset: Number(r[1]?.meta?.changes || 0), paused };
 }
 
-/** Retention: a row whose app has not been opened for 45 days (or never, 45 days after it was made). */
+/** Retention: a row whose app has not been opened for RETENTION.pushIdleDays (or never, that long after it was made). */
 export const purgePushSql = (env, now = new Date()) => env.DB.prepare(
   'DELETE FROM push_subs WHERE COALESCE(last_seen_day, substr(created_at, 1, 10)) < ?',
-).bind(dayOf(new Date(now.getTime() - PUSH_KEEP_DAYS * 864e5)));
+).bind(dayOf(new Date(now.getTime() - RETENTION.pushIdleDays * 864e5)));
 
 /** The reminders now on and paused, and those whose student learned in the 7 days up to `day` (the owner's summary). */
 export async function pushReach(env, day) {

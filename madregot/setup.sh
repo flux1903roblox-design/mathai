@@ -15,19 +15,26 @@ echo "=== 2/7: Cloudflare login (opens the browser) ==="
 cd worker
 npx wrangler login
 
-echo "=== 3/7: Creating the database ==="
+echo "=== 3/7: Creating the database (in the European Union) ==="
+# The data stays in the EU (trust spec TRUST-15 step 1), as in setup.ps1. Cloudflare sets a database's jurisdiction only
+# when it is created, so this runs once, before any real data exists. DB_JURISDICTION = "eu" in wrangler.toml records
+# it: the privacy notice says "באיחוד האירופי" only then, and online checkout stays closed without it.
 if grep -q 'REPLACE_WITH_DATABASE_ID' wrangler.toml; then
-  out=$(npx wrangler d1 create madregot --binding DB --update-config=false 2>&1) || { printf '%s\n' "$out"; exit 1; }
+  out=$(npx wrangler d1 create madregot --binding DB --update-config=false --jurisdiction=eu 2>&1) || { printf '%s\n' "$out"; exit 1; }
   printf '%s\n' "$out"
   id=$(printf '%s' "$out" | grep -Eo '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -n 1 || true)
   if [ -z "$id" ]; then
     echo "Could not read the database id above. Put it in worker/wrangler.toml (database_id) and run this script again."
     exit 1
   fi
-  sed "s/REPLACE_WITH_DATABASE_ID/$id/" wrangler.toml > wrangler.toml.new && mv wrangler.toml.new wrangler.toml
-  echo "Saved database id $id in worker/wrangler.toml"
+  sed -e "s/REPLACE_WITH_DATABASE_ID/$id/" -e 's/^DB_JURISDICTION = ""$/DB_JURISDICTION = "eu"/' wrangler.toml > wrangler.toml.new && mv wrangler.toml.new wrangler.toml
+  echo "Saved database id $id and DB_JURISDICTION = \"eu\" in worker/wrangler.toml"
 else
   echo "worker/wrangler.toml already has a database id; using it."
+  if ! grep -q '^DB_JURISDICTION = "eu"$' wrangler.toml; then
+    echo "DB_JURISDICTION is not \"eu\": this database was not created by this script in the EU, so online checkout stays closed."
+    echo "Before any real data: delete it in the Cloudflare dashboard, put database_id back to REPLACE_WITH_DATABASE_ID and run this script again."
+  fi
 fi
 npx wrangler d1 migrations apply madregot --remote   # database changes go only through worker/migrations
 

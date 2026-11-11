@@ -194,7 +194,7 @@ code is kept, and the code goes when the teacher removes the student, the studen
 parent deletes the kept progress, the account is deleted, or "מחיקת כל הנתונים" runs ("מוצפן" is never said of that
 copy); error reports in DURABLE-9's sentence (30 days, no name, device id or address); Cloudflare as processor. Tests:
 `web/src/content/legal/privacy.test.js` (5) and `worker/test/notice.test.js` (the notice's 400 and 30 days equal
-`VAULT_KEEP_DAYS` and the error reports' `KEEP_DAYS`). Screenshots: `privacy-390.png`, `privacy-320.png` (no sideways
+`RETENTION.vaultIdleDays` and `RETENTION.clientErrorsDays` in `shared/retention.js`, FOLLOWUP-24). Screenshots: `privacy-390.png`, `privacy-320.png` (no sideways
 scroll at either width).
 
 ### What this branch's suites gave at this stage (11 November 2026)
@@ -241,7 +241,9 @@ scroll at either width).
 
 `worker/src/readiness.js` (the rules), `npm run owner -- doctor` (`scripts/owner.mjs`), `setup.sh` beside `setup.ps1`
 (both now create every random secret and end with the doctor), `worker/src/edge.js` with `RL_AUTH` and `RL_AI`, and
-`/api/health` booleans `resend`, `webhookPath`, `grow`, `edge`. Tests: `worker/test/readiness.test.js` (6),
+`/api/health` booleans `resend`, `webhookPath`, `grow`, `edge`. The legal area (FOLLOWUP-32) reads billing.js `legalMissing`:
+business details, `DB_JURISDICTION`, `LEGAL_APPROVED`, required while `AI_PAYWALL` is on, and `MOE_AI_APPROVAL` as a reminder.
+Tests: `worker/test/readiness.test.js` (11),
 `worker/test/edge.test.js` (6), `worker/test/owner-script.test.js` "doctor --local…" and "--grow-sandbox".
 
 The doctor on this checkout (`npm run owner -- doctor --local`, nothing set yet):

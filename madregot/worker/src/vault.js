@@ -31,11 +31,11 @@
 // So one network moves the size meter by at most 20 MiB a day, and one student or device by at most 3 blobs.
 // The size meter (meters.vault_bytes) changes in the same batch as the vault row, under the same guard, so both apply or
 // neither. Creates stop at VAULT_MAX_MB; updates of existing vaults go on. Every night (cron.js) vaults nobody wrote or
-// read for 400 days are deleted, the meter is recomputed from SUM(bytes) (a drift becomes an owner notice), and the
+// read for RETENTION.vaultIdleDays (400, shared/retention.js) are deleted, the meter is recomputed from SUM(bytes) (a drift becomes an owner notice), and the
 // owner hears once a month when the vaults pass 70% of the limit, and again at 90%.
 //
 // Tombstones (vault_tombstones): "להפסיק את הגיבוי" and "delete everything" delete the vault and keep its id_hash with
-// the time, nothing else, for 400 days. Another device with the same code then hears 410 vault_deleted on every route
+// the time, nothing else, for RETENTION.vaultIdleDays. Another device with the same code then hears 410 vault_deleted on every route
 // and turns its backup off, instead of making the copy again; a typed code that was deleted says so on the Restore
 // screen. Only a vault that expired (no tombstone) is made again.
 //
@@ -54,8 +54,8 @@ import {
 } from './util.js';
 import { studentFrom, familyDeviceFrom } from './entitle.js';
 import { ownerNotice, queueNotices } from './spend.js';
+import { RETENTION } from '../../shared/retention.js';
 
-export const VAULT_KEEP_DAYS = 400;
 export const BLOB_MIN = 40;
 export const BLOB_MAX = 349_526; // base64url of 256 KiB
 export const BODY_MAX = 350 * 1024; // the largest blob and its JSON around it
@@ -283,12 +283,12 @@ export async function forgetVault(env, req) {
 
 // ---------------------------------------------------------------- the night job, health and the summary
 /**
- * Retention: a vault goes when MAX(updated_at, COALESCE(read_at, updated_at)) is more than 400 days ago, written here
- * as updated_at < cutoff AND (read_at IS NULL OR read_at < cutoff), the same condition in a form the index can use.
- * Its bytes leave the meter in the same batch.
+ * Retention: a vault goes when MAX(updated_at, COALESCE(read_at, updated_at)) is more than RETENTION.vaultIdleDays ago,
+ * written here as updated_at < cutoff AND (read_at IS NULL OR read_at < cutoff), the same condition in a form the index
+ * can use. Its bytes leave the meter in the same batch.
  */
 export function purgeVaultsSql(env, now = new Date()) {
-  const cutoff = new Date(now.getTime() - VAULT_KEEP_DAYS * DAY).toISOString();
+  const cutoff = new Date(now.getTime() - RETENTION.vaultIdleDays * DAY).toISOString();
   const stale = 'updated_at < ?1 AND (read_at IS NULL OR read_at < ?1)';
   return [
     env.DB.prepare(`UPDATE meters SET value = value - COALESCE((SELECT SUM(bytes) FROM vaults WHERE ${stale}), 0) WHERE name = 'vault_bytes'`).bind(cutoff),
@@ -460,11 +460,11 @@ export async function deleteEscrow(req, env, cors) {
 }
 
 /**
- * The night's sweep of identities (cron.js purge): student tokens unused for 400 days, and tokens and escrows whose
- * student or account is gone (a backstop for any deletion path that forgot them).
+ * The night's sweep of identities (cron.js purge): student tokens unused for RETENTION.studentTokenIdleDays, and
+ * tokens and escrows whose student or account is gone (a backstop for any deletion path that forgot them).
  */
 export function purgeIdentitySql(env, now = new Date()) {
-  const cutoff = new Date(now.getTime() - VAULT_KEEP_DAYS * DAY).toISOString();
+  const cutoff = new Date(now.getTime() - RETENTION.studentTokenIdleDays * DAY).toISOString();
   return [
     env.DB.prepare('DELETE FROM student_tokens WHERE last_seen < ?').bind(cutoff),
     env.DB.prepare('DELETE FROM student_tokens WHERE student_id NOT IN (SELECT id FROM students)'),

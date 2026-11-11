@@ -13,6 +13,7 @@ import { DayView } from '@/components/report/ReportView.jsx';
 import { daySummary } from '@/learn/report.ts';
 import { Button, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
+import { RETENTION } from '@shared/retention.js';
 
 export const SHARING = {
   title: 'שיתוף עם ההורים',
@@ -21,7 +22,7 @@ export const SHARING = {
   see: 'לראות',
   hide: 'להסתיר',
   never: 'מה לא נשלח אף פעם: התשובות עצמן, השיחות עם העוזר החכם, תמונות והשם שלכם.',
-  kept: 'הסיכומים נשמרים 90 יום ואז נמחקים.',
+  kept: `הסיכומים נשמרים ${RETENTION.familyDailyDays} יום ואז נמחקים.`,
   stop: 'להפסיק לשתף',
   start: 'להפעיל שוב את השיתוף',
   bothHint: 'הסיכום יחזור להישלח רק אם גם ההורים יפעילו אותו.',

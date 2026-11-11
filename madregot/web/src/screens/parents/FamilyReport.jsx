@@ -25,6 +25,7 @@ import { qaFamilySummary } from '@/components/report/qaFamily.js';
 import { StateCard } from '@/components/ds.jsx';
 import { Button } from '@/components/ui.jsx';
 import { ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
+import { RETENTION } from '@shared/retention.js';
 
 export const REPORT = {
   title: 'ההתקדמות',
@@ -49,7 +50,7 @@ export const REPORT = {
   lastPractice: (d) => `התרגול האחרון: ${dm(d)}.`,
   childOff: (at) => `השיתוף כבוי במכשיר עצמו${at ? ` מאז ${dm(dayOf(new Date(at)))}` : ''}. אם תרצו, אפשר לדבר על זה יחד. רק במכשיר עצמו אפשר להפעיל אותו שוב.`,
   noPlan: (label) => `${label}: הסיכום היומי כלול במנוי המשפחתי.`,
-  ended: 'המנוי הסתיים. הסיכומים שכבר הגיעו נשמרים עד 90 יום ואז נמחקים. אפשר למחוק אותם עכשיו.',
+  ended: `המנוי הסתיים. הסיכומים שכבר הגיעו נשמרים עד ${RETENTION.familyDailyDays} יום ואז נמחקים. אפשר למחוק אותם עכשיו.`,
   deleteRow: 'מחיקת ההיסטוריה של המכשיר',
   deleteTitle: (label) => `למחוק את הסיכומים של ${label}?`,
   deleteBody: 'נמחק את כל הסיכומים שהגיעו מהמכשיר הזה. הסיכום הבא יגיע אחרי התרגול הבא.',

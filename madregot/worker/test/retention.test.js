@@ -8,11 +8,14 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { RETENTION as R } from '../../shared/retention.js';
-import { QUALITY_KEEP_DAYS } from '../src/quality.js';
-import { CODE_TTL_MIN, SESSION_IDLE_DAYS } from '../src/account.js';
-import { purge, run, PURGE_BATCH } from '../src/cron.js';
+import { CODE_TTL_MIN } from '../src/account.js';
+import {
+  purge, run, PURGE_BATCH, purgeCountersSql, purgeAccountsSql, purgeFamilySql, purgeRecordsSql, purgeSafetySql, purgeReportSql,
+  purgeIdentitySql, purgeClassSteps, purgeLongTermSql, idleAccounts, taxCutoffIso, ACCOUNT_PURGE_LIMIT,
+} from '../src/cron.js';
+import { purgeVaultsSql } from '../src/vault.js';
 import { keyIn, STUDENT_ROWS, studentWhere, STUDENT_COUNTERS, CLASS_COUNTERS } from '../src/forget.js';
-import { dayOf, jerusalemMidnight } from '../src/util.js';
+import { dayOf, monthOf, jerusalemMidnight } from '../src/util.js';
 import { setup, makeClass, bearer, signIn, insertSub, setCount, rows, one, advanceClock } from './helpers.js';
 
 let h;
@@ -111,16 +114,110 @@ function age(code, days) {
 
 // The retention numbers have one home, shared/retention.js: the purge jobs, the privacy page and the teacher's screen
 // read them from there, so a number is never written twice.
-test('RETENTION holds the numbers of the trust spec (TRUST-1 §4, TRUST-7) and the teacher spec (TEACHER-4), and cannot be changed at run time', () => {
+test('RETENTION holds the numbers of the trust spec (TRUST-1 §4, TRUST-7), the teacher spec (TEACHER-4) and the other lanes (FOLLOWUP-24), and cannot be changed at run time', () => {
   assert.deepEqual({ ...R }, {
     classIdleDays: 400, studentIdleDays: 400, attemptsDays: 400, examsDays: 400, assignmentsDays: 400, helpImageAfterDoneDays: 30,
     helpImageMaxDays: 60, helpAfterDoneDays: 180, helpMaxDays: 365, accountIdleDays: 730, safetyEventsDays: 400, answerReportsDays: 60,
     licenceRequestAfterHandledDays: 730, licenceCodeAfterExpiryDays: 365, taxYears: 7,
+    // spec §6.9 and the student lane's tables
+    noticesDays: 90, unpaidOrderDays: 30, auditLogDays: 730, billingEventsDays: 2557, aiUsageDays: 35, aiUsageMonths: 13, aiQualityDays: 400,
+    aiSpendDays: 400, classStepsDays: 120, classGoalWeeksDays: 400, metricsDays: 400,
+    // the family and durable lanes and the daily reminder, which used to keep their own constants beside their routes
+    clientErrorsDays: 30, familyDailyDays: 90, vaultIdleDays: 400, studentTokenIdleDays: 400, familyDeviceIdleDays: 365, familyLinkDays: 1,
+    sessionIdleDays: 180, pushIdleDays: 45,
   });
   assert.ok(Object.isFrozen(R));
   assert.throws(() => { 'use strict'; R.accountIdleDays = 1; }, TypeError);
   for (const [k, v] of Object.entries(R)) assert.ok(Number.isInteger(v) && v > 0, k);
   assert.ok(R.helpImageAfterDoneDays <= R.helpImageMaxDays && R.helpAfterDoneDays <= R.helpMaxDays);
+});
+
+// Every purge binds the cutoff its RETENTION key gives, and nothing else (FOLLOWUP-24): the builders run against a
+// database that only records what they prepare, at a fixed moment, and every date, day or month a statement is bound
+// to is matched to the period it comes from. A period written into a purge by hand (or a key read for the wrong table)
+// fails here, and so does a new purge statement with a date this list does not explain.
+test('every purge statement deletes before the cutoff its RETENTION period gives', async () => {
+  const NOW = new Date('2030-06-15T10:00:00Z'); // 13:00 in Jerusalem: a day's cut never moves with summer time
+  const t = NOW.getTime();
+  const iso = (days) => new Date(t - days * DAY).toISOString();
+  const day = (days) => dayOf(new Date(t - days * DAY));
+  const month = (days) => monthOf(new Date(t - days * DAY));
+  const [y, m] = monthOf(NOW).split('-').map(Number);
+  const usageMonth = monthOf(new Date(Date.UTC(y, m - 1 - R.aiUsageMonths, 15)));
+  const prepared = [];
+  const stmt = (sql) => {
+    const s = { sql: sql.replace(/\s+/g, ' '), args: [], bind: (...a) => { s.args = a; return s; }, first: async () => null, all: async () => ({ results: [] }), run: async () => ({ meta: { changes: 0 } }) };
+    prepared.push(s);
+    return s;
+  };
+  const env = { DB: { prepare: stmt, batch: async (list) => list.map(() => ({ results: [], meta: { changes: 0 } })) } };
+  const builders = {
+    purgeCountersSql: () => purgeCountersSql(env, NOW), purgeAccountsSql: () => purgeAccountsSql(env, NOW), purgeFamilySql: () => purgeFamilySql(env, NOW),
+    purgeRecordsSql: () => purgeRecordsSql(env, NOW), purgeSafetySql: () => purgeSafetySql(env, NOW), purgeReportSql: () => purgeReportSql(env, NOW),
+    purgeIdentitySql: () => purgeIdentitySql(env, NOW), purgeVaultsSql: () => purgeVaultsSql(env, NOW), purgeClassSteps: () => purgeClassSteps(env, NOW),
+    purgeLongTermSql: () => purgeLongTermSql(env, NOW), idleAccounts: () => idleAccounts(env, NOW),
+  };
+  // [builder, what the statement says, the dates it is bound to]
+  const CUTOFFS = [
+    ['purgeCountersSql', /ai_usage WHERE length\(day\) >= 10/, [day(R.aiUsageDays)]],
+    ['purgeCountersSql', /ai_usage WHERE length\(day\) = 7/, [usageMonth]],
+    ['purgeCountersSql', /FROM ai_quality/, [day(R.aiQualityDays)]],
+    ['purgeAccountsSql', /FROM login_codes WHERE expires_at/, [NOW.toISOString()]], // at its expiry: no period
+    ['purgeAccountsSql', /FROM account_sessions/, [iso(R.sessionIdleDays)]],
+    ['purgeFamilySql', /FROM link_codes/, [iso(R.familyLinkDays)]],
+    ['purgeFamilySql', /token_hash IS NULL AND created_at/, [iso(R.familyLinkDays)]],
+    ['purgeFamilySql', /token_hash IS NOT NULL AND last_seen/, [day(R.familyDeviceIdleDays)]],
+    ['purgeRecordsSql', /FROM notices/, [iso(R.noticesDays)]],
+    ['purgeRecordsSql', /FROM orders WHERE status = 'expired'/, [iso(R.unpaidOrderDays)]],
+    ['purgeRecordsSql', /FROM ai_spend/, [day(R.aiSpendDays), month(R.aiSpendDays)]],
+    ['purgeRecordsSql', /FROM audit_log/, [iso(R.auditLogDays)]],
+    ['purgeRecordsSql', /FROM billing_events/, [iso(R.billingEventsDays)]],
+    ['purgeRecordsSql', /FROM client_errors/, [day(R.clientErrorsDays)]],
+    ['purgeRecordsSql', /FROM class_steps/, [day(R.classStepsDays)]],
+    ['purgeRecordsSql', /FROM class_goal_weeks/, [day(R.classGoalWeeksDays)]],
+    ['purgeRecordsSql', /FROM metrics_daily/, [day(R.metricsDays)]],
+    ['purgeRecordsSql', /FROM push_subs/, [day(R.pushIdleDays)]],
+    ['purgeSafetySql', /FROM safety_events/, [day(R.safetyEventsDays)]],
+    ['purgeSafetySql', /FROM answer_reports/, [iso(R.answerReportsDays)]],
+    // the last familyDailyDays Jerusalem days are kept, today included: the cut is the day familyDailyDays − 1 back
+    ['purgeReportSql', /FROM family_daily WHERE day/, [day(R.familyDailyDays - 1)]],
+    ['purgeIdentitySql', /FROM student_tokens WHERE last_seen/, [iso(R.studentTokenIdleDays)]],
+    ['purgeVaultsSql', /vaults WHERE updated_at/, [iso(R.vaultIdleDays)]],
+    ['purgeVaultsSql', /FROM vault_tombstones/, [iso(R.vaultIdleDays)]],
+    ['purgeClassSteps', /UPDATE help_requests SET image = NULL/, [iso(R.helpImageAfterDoneDays), iso(R.helpImageMaxDays)]],
+    ['purgeClassSteps', /DELETE FROM help_requests WHERE id IN/, [iso(R.helpAfterDoneDays), iso(R.helpMaxDays)]],
+    ['purgeClassSteps', /FROM attempts WHERE at/, [iso(R.attemptsDays)]],
+    ['purgeClassSteps', /FROM exams WHERE created_at/, [iso(R.examsDays)]],
+    ['purgeClassSteps', /a\.due_on < \?/, [day(R.assignmentsDays)]],
+    ['purgeClassSteps', /SELECT id FROM students WHERE last_seen < \?1/, [iso(R.studentIdleDays)]],
+    ['purgeClassSteps', /SELECT c\.code FROM classes c/, [day(R.classIdleDays), iso(R.classIdleDays)]],
+    ['purgeLongTermSql', /FROM licence_codes/, [iso(R.licenceCodeAfterExpiryDays)]],
+    ['purgeLongTermSql', /FROM licence_requests/, [iso(R.licenceRequestAfterHandledDays)]],
+    ['purgeLongTermSql', /refund_queue|payments|orders|subscriptions|order_renewals/, [taxCutoffIso(NOW)]],
+    ['idleAccounts', /FROM accounts a/, [day(R.accountIdleDays), day(R.classIdleDays), iso(R.classIdleDays)]],
+  ];
+  const isDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}(-\d{2}(T[\d:.]+Z)?)?$/.test(v);
+  const unexplained = [];
+  for (const [name, build] of Object.entries(builders)) {
+    prepared.length = 0;
+    await build();
+    const mine = CUTOFFS.filter(([b]) => b === name);
+    for (const [, re] of mine) assert.ok(prepared.some((s) => re.test(s.sql)), `${name}: no statement matches ${re}`);
+    for (const s of prepared) {
+      const dates = s.args.filter(isDate);
+      if (!dates.length) continue;
+      // a statement can say more than one rule's words (a student's rows under the idle-students select): the dates
+      // must be exactly one of those rules' dates
+      const rules = mine.filter(([, re]) => re.test(s.sql));
+      if (!rules.length) { unexplained.push(`${name}: ${s.sql.slice(0, 90)} ${dates}`); continue; }
+      assert.ok(rules.some(([, , want]) => JSON.stringify(want) === JSON.stringify(dates)),
+        `${name}: ${s.sql.slice(0, 120)} is bound to ${dates}, not to ${rules.map(([, , want]) => want.join(' ')).join(' | ')}`);
+    }
+  }
+  assert.deepEqual(unexplained, [], 'a purge bound to a date no RETENTION period explains');
+  // the cutoffs are those periods: one day more or less would be another date
+  assert.notEqual(day(R.classStepsDays), day(R.classStepsDays + 1));
+  assert.ok(ACCOUNT_PURGE_LIMIT > 0);
 });
 
 test('notebook pages: 30 days after the request is closed, 60 at most; the request itself 180 days after closing, 365 at most', async () => {
@@ -421,11 +518,17 @@ test('the privacy page quotes the purge\'s own numbers', () => {
     `כיתה שלא הייתה בה פעילות ${R.classIdleDays} יום ואין לה רישיון פעיל: נמחקת, עם כל המידע עליה.`,
     `דף מחברת שנשלח למורה: ${R.helpImageAfterDoneDays} יום אחרי שהמורה סוגר את הבקשה, ולכל היותר ${R.helpImageMaxDays} יום.`,
     `הבקשה עצמה: ${R.helpAfterDoneDays} יום אחרי שנסגרה, ולכל היותר ${R.helpMaxDays} יום.`,
-    `ספירות של איך העוזר ענה, ועלות העוזר לכל חשבון או כיתה: ${QUALITY_KEEP_DAYS} יום.`,
-    `קוד כניסה במייל: ${CODE_TTL_MIN} דקות. כניסה לחשבון שלא השתמשו בה ${SESSION_IDLE_DAYS} יום: נמחקת.`,
+    `ספירת השאלות לעוזר והקודים של מכשירים ורשתות: ${R.aiUsageDays} יום (ספירה חודשית: ${R.aiUsageMonths} חודשים).`,
+    `ספירות של איך העוזר ענה, ועלות העוזר לכל חשבון או כיתה: ${R.aiQualityDays} יום.`,
+    `קוד כניסה במייל: ${CODE_TTL_MIN} דקות. כניסה לחשבון שלא השתמשו בה ${R.sessionIdleDays} יום: נמחקת. מכשיר מחובר שלא היה בשימוש שנה: מנותק ונמחק.`,
     `חשבון של הורה או מורה שלא נכנסו אליו ${R.accountIdleDays} יום (שנתיים)`,
     `בקשה לרישיון כיתה: ${R.licenceRequestAfterHandledDays} יום אחרי שטיפלנו בה.`,
     `ספירות בטיחות: ${R.safetyEventsDays} יום. תשובה של העוזר שדווחה: ${R.answerReportsDays} יום.`,
+    `הזמנה שלא שולמה: ${R.unpaidOrderDays} יום.`,
+    `יומן הפעולות על כסף ועל גישה: ${R.auditLogDays} יום. מיילים שנשלחו: ${R.noticesDays} יום אחרי השליחה.`,
+    `הצעדים של מטרת הכיתה: ${R.classStepsDays} יום, וגם כשהמורה מסיר תלמיד מהכיתה. הספירות היומיות בלי זיהוי: ${R.metricsDays} יום.`,
+    `נמחק אחרי ${R.vaultIdleDays} יום שבהם לא עודכן ולא נפתח.`,
+    `הסימון נמחק אחרי ${R.vaultIdleDays} יום.`,
   ];
   for (const t of sentences) assert.ok(retention.includes(t), `privacy.md says: ${t}`);
   // the money records: the end of the 7th calendar year after the tax year
@@ -433,4 +536,6 @@ test('the privacy page quotes the purge\'s own numbers', () => {
   assert.ok(retention.includes('עד סוף השנה השביעית אחרי שנת המס'), 'the tax period as the purge counts it');
   assert.equal(R.accountIdleDays, 730, '"שנתיים" beside the number');
   assert.equal(R.examsDays, R.attemptsDays, 'answers and exam summaries share one sentence');
+  assert.equal(R.aiSpendDays, R.aiQualityDays, 'the tutor\'s quality counts and its cost share one sentence');
+  assert.equal(R.familyDeviceIdleDays, 365, '"שנה" for a linked device nobody used');
 });

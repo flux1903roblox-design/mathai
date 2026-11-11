@@ -112,7 +112,7 @@ test('a school licence code still attaches a class with LEGAL_APPROVED unset (th
   assert.equal(rows(h.env, "SELECT * FROM subscriptions WHERE kind = 'class' AND status = 'active'").length, 1);
 });
 
-test('setup.ps1 creates the database in the EU and records DB_JURISDICTION = "eu" with its id (TRUST-15 step 1)', () => {
+test('setup.ps1 and setup.sh create the database in the EU and record DB_JURISDICTION = "eu" with its id (TRUST-15 step 1)', () => {
   const ps = readFileSync(new URL('../../setup.ps1', import.meta.url), 'utf8');
   const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
   const create = ps.split('\n').find((l) => /wrangler d1 create madregot/.test(l));
@@ -121,6 +121,10 @@ test('setup.ps1 creates the database in the EU and records DB_JURISDICTION = "eu
   // the same write that saves the id sets the var, and the shipped wrangler.toml has the empty value it replaces
   assert.match(ps, /\.Replace\('REPLACE_WITH_DATABASE_ID', \$id\)\.Replace\('DB_JURISDICTION = ""', 'DB_JURISDICTION = "eu"'\)/);
   assert.match(toml, /^DB_JURISDICTION = ""$/m);
+  // setup.sh, its twin for a Mac or Linux machine, does the same (the go-live check names either one: readiness.js)
+  const sh = readFileSync(new URL('../../setup.sh', import.meta.url), 'utf8');
+  assert.match(sh.split('\n').find((l) => /wrangler d1 create madregot/.test(l)) || '', /--jurisdiction=eu\b/);
+  assert.match(sh, /sed -e "s\/REPLACE_WITH_DATABASE_ID\/\$id\/" -e 's\/\^DB_JURISDICTION = ""\$\/DB_JURISDICTION = "eu"\/'/);
   assert.match(toml, /^database_id = "REPLACE_WITH_DATABASE_ID"$/m);
   // and the gate reads it: "eu" is the only value that opens checkout
   assert.equal(legalMissing(makeEnv({ DB_JURISDICTION: 'eu' })).includes('DB_JURISDICTION'), false);

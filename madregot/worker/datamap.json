@@ -75,7 +75,7 @@
       "about": ["student"],
       "fields": ["id", "student_id", "topic", "level", "question", "answer", "note", "image", "created_at", "seen_at", "done_at"],
       "purpose": "A class student's request for help, sent to the teacher: the exercise, what the student answered, an optional note in the student's words (it may hold words of distress the child chose to send the teacher), and an optional notebook page.",
-      "retention": "The notebook page 30 days after the teacher closes the request, 60 days at most (RETENTION.helpImageAfterDoneDays, helpImageMaxDays); the request 180 days after it is closed, 365 days at most (helpAfterDoneDays, helpMaxDays); with the student.",
+      "retention": "The notebook page 30 days after the teacher closes the request, 60 days at most (RETENTION.helpImageAfterDoneDays, RETENTION.helpImageMaxDays); the request 180 days after it is closed, 365 days at most (RETENTION.helpAfterDoneDays, RETENTION.helpMaxDays); with the student.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps"]
     },
@@ -111,7 +111,7 @@
       "about": ["student", "parent", "teacher", "device", "network"],
       "fields": ["who", "day", "count"],
       "purpose": "Counters that keep the limits: questions to the tutor, sign-in codes, joins, PIN tries, care messages and reported answers, per student id, family device id, account id, class code, or keyed hash of the install id (devKey) or of the network address (netKey). Never a raw device id or address.",
-      "retention": "Daily and hourly counters 35 days, monthly ones 13 months; a student's, family device's or install's counters at once when it deletes all, and a student's or class's when the teacher removes or deletes them.",
+      "retention": "Daily and hourly counters 35 days, monthly ones 13 months (RETENTION.aiUsageDays, RETENTION.aiUsageMonths); a student's, family device's or install's counters at once when it deletes all, and a student's or class's when the teacher removes or deletes them.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeCountersSql", "forget.studentCountersStmt", "forget.familyDeviceCountersStmt", "forget.deviceCountersStmt", "forget.classDeleteSteps"]
     },
@@ -120,7 +120,7 @@
       "about": ["none"],
       "fields": ["day", "kind", "reason", "n"],
       "purpose": "How the tutor's answers fared, as counts per day (an answer masked, an empty reply, a generated exercise dropped). No person, device or text.",
-      "retention": "400 days (src/quality.js QUALITY_KEEP_DAYS).",
+      "retention": "400 days (RETENTION.aiQualityDays).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeCountersSql"]
     },
@@ -138,7 +138,7 @@
       "about": ["parent", "teacher"],
       "fields": ["email_hash", "code_hash", "expires_at", "tries", "sent_at"],
       "purpose": "A sign-in code waiting to be typed, keyed by a keyed hash of the address, so an address that never signs in is never stored.",
-      "retention": "Until it expires (10 minutes), then deleted by the hourly job.",
+      "retention": "Until it expires (10 minutes, account.js CODE_TTL_MIN), then deleted by the night purge.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeAccountsSql"]
     },
@@ -147,7 +147,7 @@
       "about": ["parent", "teacher"],
       "fields": ["token_hash", "account_id", "created_at", "last_seen", "verified_at"],
       "purpose": "A signed-in browser of a parent or teacher: the hash of its token.",
-      "retention": "Until signing out, 180 days unused, or the account is deleted.",
+      "retention": "Until signing out, 180 days unused (RETENTION.sessionIdleDays), or the account is deleted.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeAccountsSql", "forget.forgetAccount"]
     },
@@ -156,7 +156,7 @@
       "about": ["device", "parent"],
       "fields": ["id", "account_id", "token_hash", "label", "created_at", "last_seen", "share_child", "share_parent", "share_at", "summary_sent_at"],
       "purpose": "A child's device linked to a parent's account (the family plan, or the parent's OK for the tutor): the hash of its token and an optional label the parent chose. Never the child's name. The two switches of the parents' report (PARENTS-3): the child's on the device and the parent's on /parents (a daily summary is kept only while both are on), when the child last changed theirs, and when the device last sent a summary.",
-      "retention": "Until the parent unlinks it or the device deletes all; a year unused; a day if it never collected its token; with the account.",
+      "retention": "Until the parent unlinks it or the device deletes all; 365 days unused (RETENTION.familyDeviceIdleDays); 1 day if it never collected its token (RETENTION.familyLinkDays); with the account.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeFamilySql", "forget.familyDeviceDeleteStmts", "forget.forgetAccount"]
     },
@@ -165,7 +165,7 @@
       "about": ["device", "parent"],
       "fields": ["code_hash", "secret_hash", "device_hint", "account_id", "device_id", "created_at", "expires_at", "claimed_at", "collected_at", "restore_escrow"],
       "purpose": "A pending link between a child's device and a parent's account: hashes of the 6-character code and of the device's secret. device_hint is always NULL: the device is not recorded here. restore_escrow: the id of the family's kept restore code (vault_escrow) a new link continues from (DURABLE-6), so the new device gets its backup back.",
-      "retention": "A day after it expires (it expires an hour after it was made); with the device or the account.",
+      "retention": "1 day after it expires (RETENTION.familyLinkDays; it expires an hour after it was made); with the device or the account.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeFamilySql", "forget.familyDeviceDeleteStmts", "forget.forgetAccount"]
     },
@@ -174,7 +174,7 @@
       "about": ["parent", "teacher"],
       "fields": ["id", "account_id", "plan", "class_code", "seats", "amount_agorot", "vat_agorot", "currency", "provider", "mode", "provider_checkout_id", "idempotency_key", "status", "subscription_id", "created_at", "expires_at", "paid_at"],
       "purpose": "A checkout priced on the server: the plan, the amount and the payment company's reference. It loses its account id when the account is deleted.",
-      "retention": "An order never paid: 30 days after it expired. A paid order is a money record: to the end of the 7th calendar year after its tax year (RETENTION.taxYears).",
+      "retention": "An order never paid: 30 days after it was made (RETENTION.unpaidOrderDays; it expires 2 hours after). A paid order is a money record: to the end of the 7th calendar year after its tax year (RETENTION.taxYears).",
       "recipients": ["cloudflare", "payment"],
       "purgedBy": ["cron.purgeRecordsSql", "cron.purgeLongTermSql"]
     },
@@ -192,7 +192,7 @@
       "about": ["parent", "teacher"],
       "fields": ["id", "kind", "account_id", "class_code", "plan", "status", "provider", "provider_subscription_id", "price_agorot", "seats", "invoice_ref", "current_period_start", "current_period_end", "cancel_at_period_end", "cancel_requested_at", "cancel_synced_at", "first_paid_at", "refund_until", "ended_reason", "last_event_at", "note", "created_at", "updated_at"],
       "purpose": "A family plan or a class licence: its dates, price, cancellation and refund window. It loses its account id when the account is deleted.",
-      "retention": "While it runs; an ended plan is a money record: to the end of the 7th calendar year after its tax year, and longer while a kept payment, refund or renewal still points at it.",
+      "retention": "While it runs; an ended plan is a money record: to the end of the 7th calendar year after its tax year (RETENTION.taxYears), and longer while a kept payment, refund or renewal still points at it.",
       "recipients": ["cloudflare", "payment"],
       "purgedBy": ["cron.purgeLongTermSql"]
     },
@@ -201,7 +201,7 @@
       "about": ["parent", "teacher"],
       "fields": ["id", "provider", "provider_payment_id", "kind", "subscription_id", "order_id", "amount_agorot", "currency", "status", "period_end", "invoice_url", "occurred_at", "recorded_at"],
       "purpose": "Money that moved (charges, refunds, chargebacks), for the tax records. No card numbers, names or phones.",
-      "retention": "To the end of the 7th calendar year after its tax year (Jerusalem years), and longer while a kept refund points at it.",
+      "retention": "To the end of the 7th calendar year after its tax year (Jerusalem years, RETENTION.taxYears), and longer while a kept refund points at it.",
       "recipients": ["cloudflare", "payment"],
       "purgedBy": ["cron.purgeLongTermSql"]
     },
@@ -210,7 +210,7 @@
       "about": ["parent", "teacher"],
       "fields": ["id", "subscription_id", "payment_id", "amount_agorot", "reason", "requested_at", "tries", "manual", "done_at", "result"],
       "purpose": "Refunds to make (cooling-off, pro rata, duplicates), and their outcome.",
-      "retention": "Until done; then a money record: to the end of the 7th calendar year after its tax year.",
+      "retention": "Until done; then a money record: to the end of the 7th calendar year after its tax year (RETENTION.taxYears).",
       "recipients": ["cloudflare", "payment"],
       "purgedBy": ["cron.purgeLongTermSql"]
     },
@@ -219,7 +219,7 @@
       "about": ["none"],
       "fields": ["provider", "event_id", "type", "outcome", "subscription_id", "amount_agorot", "detail", "occurred_at", "received_at"],
       "purpose": "Every event from the payment company, once, so none is applied twice. A reason only, never a payload, name, phone or card data.",
-      "retention": "7 years after it was received.",
+      "retention": "2557 days (7 years) after it was received (RETENTION.billingEventsDays).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeRecordsSql"]
     },
@@ -228,7 +228,7 @@
       "about": ["parent", "teacher"],
       "fields": ["ref", "kind", "to_account", "params", "created_at", "sent_at", "tries"],
       "purpose": "The outbox of service emails (receipts, cancellations, plan reminders, a device linked, the owner's alerts). The address is looked up only when the email is sent; params hold dates, amounts and labels, never a code or card data.",
-      "retention": "90 days after it was sent (or gave up); a pending one goes with its account, class or device.",
+      "retention": "90 days after it was sent or gave up (RETENTION.noticesDays); a pending one goes with its account, class or device.",
       "recipients": ["cloudflare", "resend"],
       "purgedBy": ["cron.purgeRecordsSql", "forget.classDeleteSteps", "forget.familyDeviceDeleteStmts", "forget.forgetAccount"]
     },
@@ -255,7 +255,7 @@
       "about": ["parent", "teacher", "none"],
       "fields": ["pool", "period", "calls", "input_tokens", "output_tokens", "cache_tokens", "nano_usd"],
       "purpose": "What the tutor cost, per pool (a family account id, a class code, or a shared pool) and day or month, to keep the budget caps.",
-      "retention": "400 days after its day or month.",
+      "retention": "400 days after its day or month (RETENTION.aiSpendDays).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeRecordsSql"]
     },
@@ -264,7 +264,7 @@
       "about": ["parent", "teacher", "student", "device"],
       "fields": ["id", "at", "actor", "action", "target", "detail"],
       "purpose": "Who changed money or access, and when (licences, cancellations, refunds, linked devices, a student removed, a class's AI rules). Ids only; no personal data in detail.",
-      "retention": "730 days; the rows about a student, class or family device go with it (a licence's rows stay as the licence does).",
+      "retention": "730 days (RETENTION.auditLogDays); the rows about a student, class or family device go with it (a licence's rows stay as the licence does).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeRecordsSql", "forget.studentDeleteStmts", "forget.classDeleteSteps", "forget.familyDeviceDeleteStmts"]
     },
@@ -291,7 +291,7 @@
       "about": ["none"],
       "fields": ["day", "fp", "release", "kind", "name", "message", "frame", "route", "agent", "count", "first_at", "last_at"],
       "purpose": "The app's error reports (DURABLE-9): what broke, counted per day, scrubbed again on the server: a fingerprint, the release, the kind, the error's name and message, one stack frame, the route's pattern (never its values) and a browser class. No device id, no address, no name.",
-      "retention": "30 days after its day (errors.js KEEP_DAYS).",
+      "retention": "30 days after its day (RETENTION.clientErrorsDays).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeErrorsSql"]
     },
@@ -300,7 +300,7 @@
       "about": ["student", "device"],
       "fields": ["id_hash", "rev", "blob", "prev_rev", "prev_blob", "bytes", "created_at", "updated_at", "read_at"],
       "purpose": "The encrypted backup of a device's practice (DURABLE-5): ciphertext only, found by the SHA-256 of a lookup token the device derives from its restore code. The key and the code never reach the server, so nobody here can open it; the previous version is kept for one step back.",
-      "retention": "400 days with no write and no read (vault.js VAULT_KEEP_DAYS); at once when the device stops the backup or deletes all (the app deletes it before anything local).",
+      "retention": "400 days with no write and no read (RETENTION.vaultIdleDays); at once when the device stops the backup or deletes all (the app deletes it before anything local).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.vaultNight"]
     },
@@ -309,7 +309,7 @@
       "about": ["student", "device"],
       "fields": ["id_hash", "deleted_at"],
       "purpose": "A backup its owner deleted (stop the backup, or delete all; DURABLE-5, migration 0008_vault_guard): only the hash the vault was stored under and when it was deleted, so another device that still has the same restore code is told the backup was deleted (410 vault_deleted) instead of making it again. No content, no code, no address.",
-      "retention": "400 days after the deletion, as long as an unused vault is kept (vault.js, the vaults' night); a vault that expired leaves none.",
+      "retention": "400 days after the deletion, as long as an unused vault is kept (RETENTION.vaultIdleDays, the vaults' night); a vault that expired leaves none.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.vaultNight"]
     },
@@ -336,7 +336,7 @@
       "about": ["student", "device"],
       "fields": ["token_hash", "student_id", "created_at", "last_seen"],
       "purpose": "The hash of each device token of a class student (DURABLE-6: up to three devices), and when each was last used.",
-      "retention": "400 days unused (vault.js VAULT_KEEP_DAYS); with the student.",
+      "retention": "400 days unused (RETENTION.studentTokenIdleDays); with the student.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeIdentitySql", "forget.studentDeleteStmts", "forget.studentsDeleteSteps"]
     },
@@ -345,7 +345,7 @@
       "about": ["teacher"],
       "fields": ["class_code", "account_id", "bound_at", "help_digest"],
       "purpose": "The teacher's account a class is bound to (TEACHER-1), so the teacher opens it with an email sign-in instead of the key, and whether the teacher asked for the daily help email (TEACHER-6). It is also the adult behind the class (TRUST-9): a teacher key alone proves no adult, so a class's teacher may use the AI tutor only when the class is bound to an email or has a licence in force.",
-      "retention": "With the class (deleted by the teacher, or idle 400 days); at once when the account is deleted.",
+      "retention": "With the class (deleted by the teacher, or idle 400 days: RETENTION.classIdleDays); at once when the account is deleted.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeClassSteps", "forget.classDeleteSteps", "forget.forgetAccount"]
     },
@@ -372,7 +372,7 @@
       "about": ["student"],
       "fields": ["assignment_id", "student_id", "state", "stage", "right_n", "asked", "passed", "questions", "tries", "started_at", "done_at", "done_day", "updated_at"],
       "purpose": "What a student did on an assignment, worked out on the student's device: started or done, stages done, how many right of how many, the check passed, an exam's questions as topic, stair and status, tries and dates.",
-      "retention": "With its assignment (400 days after the due date) or the student.",
+      "retention": "With its assignment (400 days after the due date: RETENTION.assignmentsDays) or the student.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps", "forget.classDeleteSteps"]
     },
@@ -381,7 +381,7 @@
       "about": ["student", "teacher"],
       "fields": ["id", "help_id", "from_role", "body", "created_at", "read_at"],
       "purpose": "Short replies on a help request between the teacher and the student (TEACHER-6): three a side, plain text with no link, email address or phone number, and when the other side read it.",
-      "retention": "With its help request (180 days after the teacher closes it, 365 at most); with the student.",
+      "retention": "With its help request (180 days after the teacher closes it, 365 days at most: RETENTION.helpAfterDoneDays, RETENTION.helpMaxDays); with the student.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps"]
     },
@@ -390,7 +390,7 @@
       "about": ["device", "parent"],
       "fields": ["device_id", "day", "minutes", "questions", "lessons", "stages", "reviews", "streak", "worked", "mastered", "fixes", "exam", "updated_at"],
       "purpose": "A linked device's day for the parents' report (PARENTS-3), only while the child's and the parent's switches are both on: minutes, questions, lessons, stages, reviews, the streak, and stair and mistake codes. No names, no Hebrew, no answers.",
-      "retention": "90 days (report.js REPORT_KEEP_DAYS); at once when the child stops sharing and deletes, the parent deletes the history, the device is unlinked or deletes all, or the account is deleted.",
+      "retention": "90 days (RETENTION.familyDailyDays); at once when the child stops sharing and deletes, the parent deletes the history, the device is unlinked or deletes all, or the account is deleted.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeReportSql", "forget.familyDeviceDeleteStmts", "forget.forgetAccount"]
     },
@@ -399,7 +399,7 @@
       "about": ["student"],
       "fields": ["sid", "student_id", "class_code", "day", "pts", "at"],
       "purpose": "The class goal of the week (STUDENT-4): one row per finished lesson, teaching stage, check or placement (1 point) or passed mastery check (3 points) of a class student, with the student id, the class and the Jerusalem day, so the class sees one shared total. A random step id from the device makes a retry count once. No topic, no answer, no name.",
-      "retention": "120 days after its day (cron.js purgeRecordsSql); with the student or the class.",
+      "retention": "120 days after its day (RETENTION.classStepsDays); with the student or the class.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeRecordsSql", "cron.purgeClassSteps", "forget.studentDeleteStmts", "forget.studentsDeleteSteps", "forget.classDeleteSteps"]
     },
@@ -408,7 +408,7 @@
       "about": ["teacher"],
       "fields": ["class_code", "week", "target", "reached_at"],
       "purpose": "A class's goal for one week (STUDENT-4): the target fixed at the week's first read, and when the class reached it.",
-      "retention": "400 days after its week (cron.js purgeRecordsSql); with the class.",
+      "retention": "400 days after its week (RETENTION.classGoalWeeksDays); with the class.",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeRecordsSql", "cron.purgeClassSteps", "forget.classDeleteSteps"]
     },
@@ -426,7 +426,7 @@
       "about": ["none"],
       "fields": ["day", "name", "n"],
       "purpose": "Reach counts with no tracker (STUDENT-14): how many times a named step happened on a Jerusalem day (a landing page seen, an install offered, reminders turned on). The three columns are the whole table: no device, address, user agent, account, class or student.",
-      "retention": "400 days after its day (cron.js purgeRecordsSql).",
+      "retention": "400 days after its day (RETENTION.metricsDays).",
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.purgeRecordsSql"]
     },
@@ -435,7 +435,7 @@
       "about": ["student"],
       "fields": ["id", "secret_hash", "endpoint", "p256dh", "auth", "slot", "status", "created_at", "last_seen_day", "last_done_day", "last_sent_day", "misses"],
       "purpose": "The opt-in daily reminder by web push (STUDENT-11): the browser's push address and keys, the hour chosen (16-20, Jerusalem), and the days the app was last opened, a lesson last finished and a reminder last sent, so one reminder a day at most is sent, never on a day the student learned. No name, class, account or device id; the browser holds the id and secret, the server only the secret's hash.",
-      "retention": "Until the reminder is turned off (POST /api/push/off, also from Delete all), the push service says the address is gone, or 45 days after the app was last opened (cron.js purgeRecordsSql, push.js purgePushSql).",
+      "retention": "Until the reminder is turned off (POST /api/push/off, also from Delete all), the push service says the address is gone, or 45 days after the app was last opened (RETENTION.pushIdleDays).",
       "recipients": ["cloudflare", "push"],
       "purgedBy": ["cron.purgeRecordsSql"]
     }
@@ -566,6 +566,13 @@
       "holds": "The daily reminder's id and secret on this device (database madregot-push, store 'sub', key 'current'), which the service worker reads to report an opened reminder and to renew a changed push subscription.",
       "purpose": "The opt-in daily reminder (STUDENT-11, lib/push.js and sw.js): the server knows the reminder only by this id and the secret's hash.",
       "removedBy": "Turning the reminder off (lib/push.js disable), signing out, or Delete all (lib/reminder.js: the server's row first, then this database on every path)."
+    },
+    "madregot-reloaded": {
+      "store": "sessionStorage",
+      "personal": "no",
+      "holds": "When the page was last reloaded after a part of the app failed to load (a new release replaced it), as a time and nothing else (lib/monitor.js RELOAD_KEY, DURABLE-9).",
+      "purpose": "The page is reloaded at most once a minute for such a failure, so a part that keeps failing never starts a reload loop.",
+      "removedBy": "Closing the tab, or delete all."
     },
     "madregot-*": {
       "store": "sessionStorage or cache",

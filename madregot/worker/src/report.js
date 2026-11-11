@@ -28,8 +28,8 @@
 // time from the stored rows with weekFrom, the same function the page uses, in at most 3 SELECTs for 100 notices, and
 // sends them through Resend's batch call, 50 at a time. Counts and stair names only: no mistake names, no price.
 //
-// Retention: REPORT_KEEP_DAYS, fixed in code (not a var, so it cannot drift upward); the night purge keeps the last 90
-// days. Rows also go with the device (unlink, leave, the device purge: family.js), the account (billing.js
+// Retention: RETENTION.familyDailyDays (shared/retention.js), fixed in code (not a var, so it cannot drift upward); the
+// night purge keeps the last 90 days. Rows also go with the device (unlink, leave, the device purge: family.js), the account (billing.js
 // forgetAccount), the parent's "delete history" and the child's "stop and delete". PARENT_REPORT = "off" (wrangler.toml)
 // stops storing (503 report_off on the device's routes); rows already kept stay readable and deletable until the purge,
 // and the child can still stop sharing and delete. TRUST-6's "delete everything" route, when it lands and does not call
@@ -48,9 +48,8 @@ import { weekStart, weekFrom } from '../../shared/week.js';
 import { requireAccount } from './account.js';
 import { familyDeviceFrom, liveFamily, paywallOn, limits } from './entitle.js';
 import { emailReady, renderNotice, sendBatch, BATCH_MAX, MAX_NOTICE_TRIES } from './email.js';
+import { RETENTION } from '../../shared/retention.js';
 
-/** How long a day's summary is kept. Fixed in code. */
-export const REPORT_KEEP_DAYS = 90;
 export const SUMMARY_LIMITS = { device: 150, net: 3000 };
 export const SUMMARY_MAX_BYTES = 8192;
 export const SUMMARY_MAX_DAYS = 8;
@@ -260,7 +259,7 @@ export async function deleteHistory(id, req, env, cors) {
 export async function familySummary(req, env, cors) {
   const a = await requireAccount(req, env);
   const asked = Number(new URL(req.url).searchParams.get('days'));
-  const n = Number.isInteger(asked) && asked > 0 ? Math.min(REPORT_KEEP_DAYS, Math.max(7, asked)) : 56;
+  const n = Number.isInteger(asked) && asked > 0 ? Math.min(RETENTION.familyDailyDays, Math.max(7, asked)) : 56;
   const from = shiftDay(dayOf(), -(n - 1));
   const devices = (await env.DB.prepare(`SELECT id, account_id, label, created_at, last_seen, share_child, share_parent, share_at, summary_sent_at
     FROM family_devices WHERE account_id = ? AND token_hash IS NOT NULL ORDER BY created_at`).bind(a.id).all()).results || [];
@@ -279,17 +278,17 @@ export async function familySummary(req, env, cors) {
       days: rows.filter((r) => r.device_id === d.id).map(rowToDay),
     });
   }
-  return json({ retentionDays: REPORT_KEEP_DAYS, days: n, devices: out }, 200, cors);
+  return json({ retentionDays: RETENTION.familyDailyDays, days: n, devices: out }, 200, cors);
 }
 
 // ---------------------------------------------------------------- retention
 /**
- * The night purge (cron.js), after purgeFamilySql in the same batch: rows older than the last 90 days (the cut is
- * Jerusalem day 89 days before today, so exactly 90 days are kept), and rows whose device is gone (the FK cascade removes them too).
+ * The night purge (cron.js), after purgeFamilySql in the same batch: rows older than the last RETENTION.familyDailyDays
+ * (90: the cut is the Jerusalem day 89 days before today, so exactly 90 days are kept), and rows whose device is gone (the FK cascade removes them too).
  */
 export function purgeReportSql(env, now = new Date()) {
   return [
-    env.DB.prepare('DELETE FROM family_daily WHERE day < ?').bind(shiftDay(dayOf(now), -(REPORT_KEEP_DAYS - 1))),
+    env.DB.prepare('DELETE FROM family_daily WHERE day < ?').bind(shiftDay(dayOf(now), -(RETENTION.familyDailyDays - 1))),
     env.DB.prepare('DELETE FROM family_daily WHERE device_id NOT IN (SELECT id FROM family_devices)'),
   ];
 }
