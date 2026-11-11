@@ -1,0 +1,30 @@
+/* The tutor's feedback on a challenge's written explanation (FOLLOWUP-16, ai spec AI-10). Loaded with the challenge
+   screen (components/challenge/ExplainPart.jsx), never in the boot CSS. Colours are canon.css tokens, so dark mode
+   follows by itself; nothing here moves. */
+.ch-fb { display: flex; flex-direction: column; gap: var(--s3); }
+.ch-fb-ask { min-height: 48px; white-space: normal; text-wrap: balance; }
+/* the part's footer is pinned at the bottom of the scroller: what the keyboard or the reply brings into view stops above it */
+.ch-fb-ask, .ch-fb-live { scroll-margin-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); scroll-margin-top: var(--s3); }
+.ch-fb-error { margin: 0; }
+.ch-fb-live:empty { display: none; }
+.ch-fb-result, .ch-fb-care { display: flex; flex-direction: column; gap: var(--s3); }
+.ch-fb-intro { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); font-size: 16px; line-height: 1.6; }
+.ch-fb-points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.ch-fb-point { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); border: 2px solid var(--rule); border-inline-start-width: 6px; border-radius: 14px; background: var(--surface); }
+.ch-fb-point.is-yes { border-inline-start-color: var(--good-d); }
+.ch-fb-point.is-partly { border-inline-start-color: var(--gold-d); }
+.ch-fb-point.is-no { border-inline-start-color: var(--rule-strong); }
+.ch-fb-head { display: flex; align-items: flex-start; gap: var(--s2); }
+.ch-fb-line { flex: 1; min-width: 0; font-size: 16px; line-height: 1.5; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.ch-fb-status { flex: none; padding: 2px 10px; border-radius: 999px; font-size: 14px; line-height: 22px; font-weight: 700; white-space: nowrap; }
+.ch-fb-point.is-yes .ch-fb-status { background: var(--good-tint); color: var(--good-ink); }
+.ch-fb-point.is-partly .ch-fb-status { background: var(--gold-tint); color: var(--gold-ink); }
+.ch-fb-point.is-no .ch-fb-status { background: var(--ground); color: var(--ink-2); }
+.ch-fb-quote { margin: 0; padding-inline-start: var(--s3); border-inline-start: 2px solid var(--rule); font-size: 15px; line-height: 1.6; color: var(--ink-2); overflow-wrap: anywhere; white-space: pre-wrap; }
+.ch-fb-mark { background: var(--marker-strong); color: var(--ink); border-radius: 4px; padding: 0 2px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.ch-fb-tip { margin: 0; display: flex; align-items: flex-start; gap: var(--s2); font-size: 15px; line-height: 1.6; color: var(--ink); }
+.ch-fb-tip-icon { flex: none; margin-top: 3px; color: var(--gold-ink); }
+.ch-fb-summary { margin: 0; font-size: 16px; line-height: 1.6; color: var(--ink); }
+@media (forced-colors: active) { .ch-fb-mark { forced-color-adjust: none; background: Mark; color: MarkText; } }
+/* asked once: the button turns into a quiet line that points at the reply (aria-disabled, it does nothing more) */
+.ch-fb-ask.is-done { --btn-ink: var(--ink-2); --btn-lip: transparent; box-shadow: none; }

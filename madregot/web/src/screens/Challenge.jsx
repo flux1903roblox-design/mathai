@@ -130,7 +130,7 @@ export default function Challenge() {
       </div>
       <main className="ch-main" ref={main}>
         <section key={i} ref={top} tabIndex={-1} className="lm ch-part" aria-label={`חלק ${i + 1} מתוך ${task.parts.length}`} data-region="content">
-          <P part={part} seed={`${task.id}:${i}`} onDone={done} last={last} />
+          <P part={part} seed={`${task.id}:${i}`} onDone={done} last={last} task={task} />
         </section>
       </main>
     </div>

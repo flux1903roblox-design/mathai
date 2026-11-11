@@ -2,7 +2,9 @@
 // ordered with the buttons from the keyboard alone, a counterexample typed into its slots, and the end screen's XP. A
 // challenge counts for the day like a lesson and never touches mastery.
 import { test, expect } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
 import { open, student, saved, item, answer, expectNoSidewaysScroll, expectUsable } from './helpers.js';
+import { API, CORS } from './fakeServer.js';
 
 test.beforeEach(({}, info) => { test.skip(!['phone', 'phone-small'].includes(info.project.name), 'the challenge screen is checked on the two phones'); });
 
@@ -77,6 +79,132 @@ test('pct:c1, from a fixture with pct:2 mastered: a wrong first try, the right o
   expect(JSON.stringify(st)).not.toContain('מי שקונה בפחות'); // the explanation stayed on the screen
   await page.getByRole('button', { name: 'המשך' }).click();
   await expect(page).toHaveURL(/#\/learn\/pct\/2$/);
+});
+
+// ------------------------------------------------------------------ the tutor's feedback on the explanation (FOLLOWUP-16)
+// After "סיימתי", a device with the tutor's feedback tool has a second button. Only its press sends the text; the reply
+// marks each rubric point "יש", "יש חלק" or "עוד חסר", with the student's own words highlighted and a tip; nothing is kept.
+const SHOTS = process.env.SHOTS_DIR || '';
+const WRITTEN = 'מי שקונה בפחות מ־400 משלם פחות במסלול א. מעל זה כדאי מסלול ב.';
+const FEEDBACK_REPLY = {
+  care: false,
+  summary: 'כבר כתבתם מתי כל מסלול זול יותר. נשאר להוסיף דוגמה עם מספרים.',
+  points: [
+    { i: 0, status: 'yes', quote: 'מי שקונה בפחות מ־400 משלם פחות במסלול א', tip: '' },
+    { i: 1, status: 'partly', quote: '400', tip: 'כתבו מה קורה בדיוק בסכום הזה.' },
+    { i: 2, status: 'no', quote: '', tip: 'בחרו סכום אחד וחשבו את שתי העמלות.' },
+  ],
+};
+const FAMILY_STATUS = {
+  paywall: true, tier: 'family', kinds: ['explain', 'chat', 'check', 'generate', 'exam', 'feedback'], economy: false, shared: null, aiReady: true,
+  groups: { tutor: { left: 29, limit: 30 }, check: { left: 6, limit: 6 }, generate: { left: 5, limit: 5 }, exam: { left: 2, limit: 2 } },
+  resetsAt: '2026-11-06T00:00:00+02:00', linked: null,
+};
+
+/** Parts 1-3 of pct:c1, right first time, up to its explanation. */
+async function toExplain(page) {
+  await type(page, '7.5'); await go(page, 'בדיקה').click(); await go(page, 'המשך').click();
+  await type(page, '400'); await go(page, 'בדיקה').click(); await go(page, 'המשך').click();
+  await page.getByRole('radio', { name: /מסלול ב/ }).click(); await go(page, 'בדיקה').click(); await go(page, 'המשך').click();
+  await expect(page.locator('.ch-count')).toHaveText('חלק 4 מתוך 4');
+}
+
+test('the tutor\'s feedback on the explanation: sent only on the press, each point\'s status, the student\'s words marked', async ({ page }, info) => {
+  const sent = [];
+  await page.route(`${API}/**`, async (route) => {
+    const req = route.request(); const path = new URL(req.url()).pathname;
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    if (path === '/api/ai/status') return route.fulfill({ status: 200, contentType: 'application/json', headers: CORS, body: JSON.stringify(FAMILY_STATUS) });
+    if (path === '/api/ai/feedback') {
+      sent.push(JSON.parse(req.postData()));
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: { ...CORS, 'X-AI-Tier': 'family', 'X-AI-Group': 'tutor', 'X-AI-Left': '28' }, body: JSON.stringify(FEEDBACK_REPLY) });
+    }
+    return route.fulfill({ status: 204, headers: CORS });
+  });
+  const st = pctStudent();
+  st.state.ai = { mode: 'server', apiUrl: API, key: '', introSeen: true };
+  await open(page, '#/challenge/pct:c1', st);
+  await toExplain(page);
+  await page.locator('.ch-explain').fill(WRITTEN);
+  const ask = page.getByRole('button', { name: 'בקשו מהעוזר משוב על ההסבר' });
+  await expect(ask).toHaveCount(0); // not before the self-check
+  await go(page, 'סיימתי').click();
+  await expect(ask).toBeVisible();
+  await ask.evaluate((el) => el.scrollIntoView({ block: 'center' })); // under the self-check: the student scrolls to it
+  await expectUsable(page, ask, 'the feedback button');
+  expect((await ask.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  expect(sent).toHaveLength(0); // the text has not left the device
+  if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await ask.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/challenge-feedback-button-${info.project.name}.png` }); }
+
+  await ask.click();
+  const result = page.locator('.ch-fb-live .ch-fb-result');
+  await expect(result).toBeVisible();
+  await expect(result).toContainText('העוזר סימן אילו נקודות כבר יש בהסבר שלכם. את ההסבר עצמו הוא לא משנה, וזה לא ציון.');
+  await expect(page.locator('.ch-fb-live')).toHaveAttribute('aria-live', 'polite');
+  const point = (s) => result.locator(`.ch-fb-point[data-status="${s}"]`);
+  await expect(point('yes').locator('.ch-fb-status')).toHaveText(/יש$/);
+  await expect(point('partly').locator('.ch-fb-status')).toHaveText(/יש חלק$/);
+  await expect(point('no').locator('.ch-fb-status')).toHaveText(/עוד חסר$/);
+  await expect(point('yes')).toContainText('אמרתי מתי כל מסלול זול יותר');
+  await expect(point('yes').locator('mark')).toHaveText('מי שקונה בפחות מ־400 משלם פחות במסלול א');
+  await expect(point('yes').locator('.ch-fb-quote')).toContainText('. מעל זה כדאי מסלול ב.'); // marked inside the student's own text
+  await expect(point('partly').locator('mark')).toHaveText('400');
+  await expect(point('partly')).toContainText('כתבו מה קורה בדיוק בסכום הזה.');
+  await expect(point('no').locator('mark')).toHaveCount(0);
+  await expect(point('no')).toContainText('בחרו סכום אחד וחשבו את שתי העמלות.');
+  await expect(result).toContainText(FEEDBACK_REPLY.summary);
+  // asked once: the button stays where the focus was, says the reply is below, and does nothing more
+  const ready = page.getByRole('button', { name: 'המשוב מהעוזר כאן למטה' });
+  await expect(ready).toHaveAttribute('aria-disabled', 'true');
+  await expect(ask).toHaveCount(0);
+  await ready.click({ force: true });
+  await expectNoSidewaysScroll(page);
+  if (SHOTS) {
+    await result.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/challenge-feedback-result-${info.project.name}.png` });
+    await page.emulateMedia({ colorScheme: 'dark' }); await page.screenshot({ path: `${SHOTS}/challenge-feedback-result-dark-${info.project.name}.png` }); await page.emulateMedia({ colorScheme: 'light' });
+  }
+
+  // one request, with exactly the challenge's context, its rubric and model answer, and the text as typed
+  expect(sent).toHaveLength(1);
+  const body = sent[0];
+  expect(Object.keys(body).sort()).toEqual(['ctx', 'rubric', 'sample', 'stream', 'text']);
+  expect(body.stream).toBe(false);
+  expect(body.text).toBe(WRITTEN);
+  expect(body.rubric).toEqual(['אמרתי מתי כל מסלול זול יותר', 'השתמשתי בסכום שבו הם שווים', 'נתתי דוגמה עם מספרים']);
+  expect(body.sample).toContain('מסלול א');
+  expect(body.ctx).toMatchObject({ v: 2, surface: 'challenge', skill: 'pct:2', topicId: 'pct', grade: '8', policy: { answer: 'reveal' } });
+  expect(body.ctx.item.text).toContain('למי כדאי מסלול א, ולמי מסלול ב?');
+
+  // nothing of it is kept: not the text, not the reply
+  await go(page, 'לסיום').click();
+  await expect(page.getByRole('heading', { name: 'אתגר הושלם. זה לא היה פשוט, והצלחתם.' })).toBeVisible();
+  const kept = JSON.stringify(await saved(page));
+  expect(kept).not.toContain('מעל זה כדאי מסלול ב');
+  expect(kept).not.toContain(FEEDBACK_REPLY.summary);
+});
+
+test('a QA build (no server) answers the feedback from its fixtures: every point still open, nothing sent', async ({ page }) => {
+  const sent = [];
+  await page.route('**/api/ai/**', (route) => { sent.push(route.request().url()); return route.abort(); });
+  await open(page, '#/challenge/pct:c1?qa-ai=family', pctStudent());
+  await toExplain(page);
+  await page.locator('.ch-explain').fill(WRITTEN);
+  await go(page, 'סיימתי').click();
+  await page.getByRole('button', { name: 'בקשו מהעוזר משוב על ההסבר' }).click();
+  const result = page.locator('.ch-fb-result');
+  await expect(result).toBeVisible();
+  await expect(result.locator('.ch-fb-point[data-status="no"]')).toHaveCount(3);
+  await expect(result).toContainText('בגרסה הזו אין שרת');
+  expect(sent).toEqual([]);
+});
+
+test('without the tutor on this device there is no feedback button, and the self-check is as it was', async ({ page }) => {
+  await open(page, '#/challenge/pct:c1', pctStudent());
+  await toExplain(page);
+  await page.locator('.ch-explain').fill(WRITTEN);
+  await go(page, 'סיימתי').click();
+  await expect(page.getByRole('heading', { name: 'בדקו את התשובה שלכם' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'בקשו מהעוזר משוב על ההסבר' })).toHaveCount(0);
 });
 
 test('angles:c1: the proof put in order with the move buttons from the keyboard alone', async ({ page }) => {
