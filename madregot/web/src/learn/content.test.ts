@@ -21,6 +21,8 @@ import { GRID_MAX, cutRange, moveRange, cutMakesRectangles } from '@/content/gri
 // @ts-ignore: plain JS
 import { netModel, netControls, netStep, BUILD_MAX } from '@/content/net.js';
 // @ts-ignore: plain JS
+import { circleRange, SECTORS } from '@/content/circle.js';
+// @ts-ignore: plain JS
 import { TOPIC, fairForCheck } from '@/content/index.js';
 // @ts-ignore: plain JS
 import { T } from '@/content/util.js';
@@ -109,6 +111,7 @@ function checkSteps(steps: DiscoverStep[], where: string) {
       if (s.manip.kind === 'ray') checkRay(s.manip as any, s.answer as any, s.display, at);
       if (s.manip.kind === 'polygon') checkPolygon(s.manip as any, s.answer as any, at);
       if (s.manip.kind === 'net') checkNet(s.manip as any, s.answer as any, at);
+      if (s.manip.kind === 'circle') checkCircle(s.manip as any, s.answer as any, at);
       expect(s.hint, at).toBeTruthy();
       expect(s.success, at).toBeTruthy();
     }
@@ -229,6 +232,24 @@ function checkNet(m: any, a: any, at: string) {
   if (m.task === 'fix') {
     expect(a.mode).toBe('slot');
     expect([...a.ok].sort(), `${at}: the slots that close the net are ${nm.okSlots.join(', ')}`).toEqual([...nm.okSlots].sort());
+  }
+}
+
+/**
+ * The circle (stage 4): its radii are whole steps from rStep to rMax (the start's and a radius goal's), an unrolling
+ * starts short of one turn, and a number of sectors is one the stepper has, more than the start.
+ */
+function checkCircle(m: any, a: any, at: string) {
+  expect(['circumference', 'area']).toContain(m.show);
+  const { step, max } = circleRange(m);
+  const onSteps = (r: number) => r >= step - 1e-9 && r <= max + 1e-9 && Math.abs(r / step - Math.round(r / step)) < 1e-9;
+  expect(onSteps(m.start.r), `${at}: the start's radius ${m.start.r} is not a step between ${step} and ${max}`).toBe(true);
+  if (a.mode === 'r') { expect(m.show).toBe('circumference'); expect(onSteps(a.r), `${at}: the radius ${a.r} cannot be set`).toBe(true); }
+  if (a.mode === 'unrolled') { expect(m.show).toBe('circumference'); expect(m.start.t ?? 0, `${at}: already rolled`).toBeLessThan(1); }
+  if (a.mode === 'sectors') {
+    expect(m.show).toBe('area');
+    expect(SECTORS, `${at}: the start's ${m.start.n} sectors`).toContain(m.start.n);
+    expect(a.min > SECTORS[0] && a.min <= SECTORS[SECTORS.length - 1], `${at}: at least ${a.min} sectors`).toBe(true);
   }
 }
 
@@ -668,6 +689,16 @@ describe('the algebra checks catch what they are for', () => {
     bad(explore({ kind: 'net', solid: 'cube', dims: { a: 2 }, task: 'fix', loose: 'B', start: { slot: null } }, { mode: 'slot', ok: ['A-up'] })); // B holds the net together
     bad(explore({ kind: 'net', solid: 'box', task: 'build', start: { a: 1, b: 1, c: 2 } }, { mode: 'build', V: 1000 })); // past 9 by 9 by 9
     ok(explore({ kind: 'net', solid: 'box', task: 'build', start: { a: 1, b: 1, c: 3 } }, { mode: 'build', V: 24, fixed: { c: 2 } })); // a pinned size the start lacks: its stepper reaches it
+  });
+  it('the circle (stage 4): a radius it can set, a roll short of the end, sectors the stepper has', () => {
+    ok(explore({ kind: 'circle', show: 'circumference', start: { r: 2, t: 0 }, rMax: 8, rStep: 0.5 }, { mode: 'unrolled' }));
+    ok(explore({ kind: 'circle', show: 'circumference', start: { r: 2, t: 0 } }, { mode: 'r', r: 5 }));
+    ok(explore({ kind: 'circle', show: 'area', start: { r: 4, n: 4 } }, { mode: 'sectors', min: 16 }));
+    bad(explore({ kind: 'circle', show: 'circumference', start: { r: 2, t: 1 } }, { mode: 'unrolled' })); // already rolled
+    bad(explore({ kind: 'circle', show: 'circumference', start: { r: 2, t: 0 } }, { mode: 'r', r: 9 })); // past rMax
+    bad(explore({ kind: 'circle', show: 'circumference', start: { r: 2, t: 0 } }, { mode: 'r', r: 2.3 })); // not a step
+    bad(explore({ kind: 'circle', show: 'area', start: { r: 4, n: 4 } }, { mode: 'sectors', min: 4 })); // starts on it
+    bad(explore({ kind: 'circle', show: 'area', start: { r: 4, n: 4 } }, { mode: 'sectors', min: 40 })); // past 32
   });
   it('a cut number line: the goal is a whole number of parts, and the display is its value', () => {
     ok(explore({ kind: 'numberline', min: 0, max: 2, from: 0, start: 0, den: 3 }, 5 / 3, '\\frac{5}{3}'));

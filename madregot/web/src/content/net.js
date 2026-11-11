@@ -1,5 +1,5 @@
 // The rules and the geometry of the nets (kind 'net', פריסה; stage 3, MEASURE-1.2) and the words of the still figures
-// 'netfig' and 'solid' (MEASURE-1.5). It loads after the first screen through content/late.js and registers itself with
+// 'netfig' (stage 3) and 'solid' (stage 4, MEASURE-1.5). It loads after the first screen through content/late.js and registers itself with
 // content/manip.js; components/manip/NetFold.jsx and components/SolidFigs.jsx import it too, so wherever a net or a
 // solid is drawn its geometry and words are here.
 //
@@ -20,6 +20,9 @@
 //   build Steppers אורך, רוחב, גובה (box) or ניצב א׳, ניצב ב׳, אורך (prism), 1..9
 //         value { a, b, c } or { p, q, L }; answer { mode: 'build', V?, S?, d2?, fixed? } (every property given holds)
 import { registerKind, registerFigWords, figNum } from './manip.js';
+// the circle's rules (stage 4) travel with the nets' and the solids': a cylinder and a cone are drawn from circles, and
+// so content/late.js's one request for the drawings brings all three
+import './circle.js';
 
 // maths inside a Hebrew sentence is isolated left to right
 const ltr = (t) => `⁦${t}⁩`;
@@ -623,6 +626,64 @@ export function netfigWords(f) {
   return out.join('; ');
 }
 
+// ---------------------------------------------------------------- the solid figure (stage 4, MEASURE-1.5)
+// { shape: 'box' | 'cube' | 'prism' | 'cylinder' | 'cone', a?, b?, c?, p?, q?, r?, L?, h?, l?, labels?, diag?, cubes?, cut?,
+//   open?, label? }, drawn by components/SolidFigs.jsx SolidFig: a box (a long, b deep, c high), a cube (a), a prism (its
+// base in front: p along the bottom; with q alone a right triangle with legs p and q, with h a triangle of height h on p
+// and q its left side, with q and r three sides; L its length, into the page), a cylinder (r, h) or a cone (r, h, l).
+// labels: true (the default) writes every length given, false none, or an object writes its own text for some ('x',
+// '?'). diag: 'face' (the base's diagonal), 'space' (the box's), 'tri' (the base's diagonal, the upright edge at its end
+// and the box's diagonal, the right triangle shaded), 'axial' (a cone's or a cylinder's axial section), 'rod' (a rod
+// across a cylinder's axial section), or a list of them. cubes: unit cubes; cut: 'diagonal' | 'half'; open: no lid;
+// label: a word written under the solid ("1 ליטר").
+const SOLID_KEYS = { box: ['a', 'b', 'c'], cube: ['a'], prism: ['p', 'q', 'r', 'h', 'L'], cylinder: ['r', 'h'], cone: ['r', 'h', 'l'] };
+/** The lengths a solid figure writes, by key: every length given (labels: true or absent), none, or the texts given. */
+export function solidLabels(f) {
+  if (f.labels === false) return {};
+  const over = f.labels && typeof f.labels === 'object' ? f.labels : {};
+  const out = {};
+  (SOLID_KEYS[f.shape] || []).forEach((k) => {
+    if (over[k] != null) out[k] = String(over[k]);
+    else if (typeof f[k] === 'number') out[k] = figNum(Math.round(f[k] * 100) / 100);
+  });
+  return out;
+}
+/** A prism's base in its own plane: [0, 0], [p, 0] and its third corner (see SOLID_KEYS above). */
+export function prismBase(f) {
+  if (f.h != null) return [[0, 0], [f.p, 0], [f.q != null ? Math.sqrt(Math.max(0, f.q * f.q - f.h * f.h)) : f.p * 0.35, f.h]];
+  if (f.q != null && f.r != null) return [[0, 0], [f.p, 0], apexOn([0, 0], [f.p, 0], f.q, f.r, [0, 1])];
+  return [[0, 0], [f.p, 0], [0, f.q]];
+}
+const DIAG_WORDS = {
+  face: 'אלכסון של הבסיס', space: 'אלכסון התיבה',
+  tri: 'המשולש ישר־הזווית שצלעותיו אלכסון הבסיס, המקצוע האנכי שבקצה שלו ואלכסון התיבה',
+  rod: 'מוט מקצה הבסיס התחתון לקצה הנגדי של הבסיס העליון, אלכסון של החתך הצירי',
+};
+/** A solid figure in words: "תיבה: אורך 7, רוחב 4, גובה 3; מסומן אלכסון התיבה". */
+export function solidWords(f) {
+  const L = solidLabels(f); const out = [];
+  const join = (parts) => parts.filter(Boolean).join(', ');
+  if (f.shape === 'box') out.push(`תיבה${Object.keys(L).length ? `: ${join([L.a && `אורך ${L.a}`, L.b && `רוחב ${L.b}`, L.c && `גובה ${L.c}`])}` : ''}`);
+  if (f.shape === 'cube') out.push(`קובייה${L.a ? ` שמקצועה ${L.a}` : ''}`);
+  if (f.shape === 'prism') {
+    const base = f.h != null ? `בסיס: משולש שצלע אחת שלו ${L.p ?? 'לא כתובה'} והגובה אליה ${L.h ?? 'לא כתוב'}${L.q ? `, וצלע נוספת ${L.q}` : ''}`
+      : f.r != null ? `בסיס: משולש שצלעותיו ${join([L.p, L.q])}${L.r ? ` ו־${L.r}` : ''}`
+        : `בסיס: משולש ישר־זווית${L.p || L.q ? ` שניצביו ${[L.p, L.q].filter(Boolean).join(' ו־')}` : ''}`;
+    out.push(`מנסרה משולשת: ${base}${L.L ? `; אורך המנסרה ${L.L}` : ''}`);
+  }
+  if (f.shape === 'cylinder') out.push(`גליל${Object.keys(L).length ? `: ${join([L.r && `רדיוס הבסיס ${L.r}`, L.h && `גובה ${L.h}`])}` : ''}`);
+  if (f.shape === 'cone') out.push(`חרוט${Object.keys(L).length ? `: ${join([L.r && `רדיוס הבסיס ${L.r}`, L.h && `גובה ${L.h}`, L.l && `קו יוצר ${L.l}`])}` : ''}`);
+  const diags = [].concat(f.diag || []).map((d) => (d === 'axial' ? (f.shape === 'cone' ? 'החתך הצירי: משולש שווה־שוקיים' : 'החתך הצירי: מלבן') : DIAG_WORDS[d])).filter(Boolean);
+  if (diags.length) out.push(`${diags.length > 1 ? 'מסומנים' : 'מסומן'} ${diags.join(' ו')}`);
+  const fem = f.shape !== 'cylinder' && f.shape !== 'cone';
+  if (f.cubes) out.push(`${fem ? 'בנויה' : 'בנוי'} מקוביות שמקצוען 1`);
+  if (f.cut === 'diagonal') out.push('חתוכה לאורך אלכסון הבסיס לשתי מנסרות');
+  if (f.cut === 'half') out.push('חתוכה לשני חצאים שווים');
+  if (f.open) out.push('בלי מכסה');
+  if (f.label) out.push(`כתוב: ${f.label}`);
+  return out.join('; ');
+}
+
 registerKind('net', {
   correct: (it, u) => netCorrect(it.manip, it.answer, u),
   text: netText,
@@ -631,3 +692,4 @@ registerKind('net', {
   wrong: netWrong,
 });
 registerFigWords('netfig', netfigWords);
+registerFigWords('solid', solidWords);

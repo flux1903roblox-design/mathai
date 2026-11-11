@@ -9,6 +9,7 @@ import FracBar from '@/components/manip/FracBar.jsx';
 import DoubleLine from '@/components/manip/DoubleLine.jsx';
 import GridShape from '@/components/manip/GridShape.jsx';
 import NetFold from '@/components/manip/NetFold.jsx';
+import CircleRoll, { sectorStrip, circleSaid } from '@/components/manip/CircleRoll.jsx';
 import { loadKatex } from '@/components/MathText.jsx';
 import { TOPICS, makeItem, isCorrect, answerText, itemPlain, readAnswer, slotsFor, figPlain } from './index.js';
 import {
@@ -18,7 +19,8 @@ import {
   fbarDenFor, fbarWords, dlineAt, dlineNum, withUnit, ticksWords, manipCorrect,
 } from './manip.js';
 import { maxRectArea, polyArea, cutAreas, cutMakesRectangles, cutAt, gridControls, gridStep } from './grid.js';
-import { NET_LAYOUTS, netModel, netView, netWithSlot, foldFaces, oblique, netStep, netControls, oppositeFace, closedNeighbours, netfigLabels, prismSides, CYL_N } from './net.js';
+import { NET_LAYOUTS, netModel, netView, netWithSlot, foldFaces, oblique, netStep, netControls, oppositeFace, closedNeighbours, netfigLabels, prismSides, CYL_N, solidLabels } from './net.js';
+import { circleStep, circleControls, SECTORS } from './circle.js';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
 
@@ -1014,5 +1016,153 @@ describe('nets of solids (פריסה)', () => {
     expect(figPlain(figs[4])).toBe('פריסה של קובייה: בשורה העליונה ריבועים בעמודות 1, 2; בשורה השנייה ריבועים בעמודות 2, 3; בשורה התחתונה ריבועים בעמודות 3, 4');
     expect(netfigLabels(figs[1]).edges.map((e) => e.text)).toEqual(['4', '3', '2']);
     expect(netfigLabels(figs[5]).edges.map((e) => e.text)).toEqual(['3', '4', '5', '10']);
+  });
+});
+
+// ---------------------------------------------------------------- the circle (stage 4, MEASURE-1.3)
+// No stair uses the object yet: these are fixtures, the spec's own explores (circle:1, circle:2) and a radius to set.
+describe('the circle (עיגול)', () => {
+  const circ = (manip, answer) => fixture({ kind: 'circle', rMax: 8, rStep: 0.5, ...manip }, answer);
+  const radius = circ({ show: 'circumference', start: { r: 2, t: 0 } }, { mode: 'r', r: 5 });
+  const roll = circ({ show: 'circumference', start: { r: 2, t: 0 } }, { mode: 'unrolled' });
+  const slices = circ({ show: 'area', start: { r: 4, n: 4 } }, { mode: 'sectors', min: 16 });
+  const all = [radius, roll, slices];
+  it('every answer kind: the solution is right, the near miss and the start are not, and the words hold no undefined', () => {
+    for (const it of all) solves(it);
+    expect(manipSolution(radius)).toEqual({ r: 5, t: 0 }); expect(manipWrong(radius)).toEqual({ r: 5.5, t: 0 });
+    expect(manipSolution(roll)).toEqual({ r: 2, t: 1 }); expect(manipWrong(roll)).toEqual({ r: 2, t: 0.5 });
+    expect(manipSolution(slices)).toEqual({ r: 4, n: 16 }); expect(manipWrong(slices)).toEqual({ r: 4, n: 4 });
+    expect(isCorrect(slices, { r: 4, n: 32 })).toBe(true); // at least min
+    expect(isCorrect(slices, { r: 4, n: 17 })).toBe(false); // not a number of sectors the stepper has
+    expect(isCorrect(radius, { r: 5, t: 1 })).toBe(true); // the roll does not matter to the radius
+    expect(isCorrect(radius, { r: 9, t: 0 }) || isCorrect(radius, { r: 0, t: 0 })).toBe(false);
+    expect(manipWrong(circ({ show: 'circumference', start: { r: 2, t: 0 } }, { mode: 'r', r: 8 }))).toEqual({ r: 7.5, t: 0 });
+  });
+  it('every task reaches its answer by its steppers alone, within rMax', () => {
+    for (const it of all) {
+      const keys = circleControls(it.manip);
+      const seen = new Set([JSON.stringify(it.manip.start)]); const queue = [it.manip.start]; let found = null;
+      while (queue.length && !found) {
+        const v = queue.shift();
+        if (isCorrect(it, v)) { found = v; break; }
+        for (const k of keys) for (const d of [-1, 1]) { const n = circleStep(it.manip, v, k, d); const s2 = JSON.stringify(n); if (!seen.has(s2)) { seen.add(s2); queue.push(n); } }
+      }
+      expect(found, JSON.stringify(it.answer)).toBeTruthy();
+    }
+    expect(circleStep(radius.manip, { r: 8, t: 0 }, 'r', 1)).toEqual({ r: 8, t: 0 });
+    expect(circleStep(radius.manip, { r: 0.5, t: 0 }, 'r', -1)).toEqual({ r: 0.5, t: 0 });
+    expect(circleStep(roll.manip, { r: 2, t: 1 }, 't', 1)).toEqual({ r: 2, t: 1 });
+    expect(circleStep(slices.manip, { r: 4, n: 32 }, 'n', 1)).toEqual({ r: 4, n: 32 });
+    expect(SECTORS).toEqual([4, 6, 8, 12, 16, 24, 32]);
+  });
+  it('is said in words; the readouts as the spec writes them, and in a check no circumference or area', () => {
+    expect(answerText(radius)).toBe('רדיוס 5');
+    expect(answerText(roll, { r: 5, t: 1 })).toBe('עיגול ברדיוס 5, מגולגל עד הסוף');
+    expect(answerText(slices, { r: 5, n: 32 })).toBe('עיגול ברדיוס 5, חתוך ל־32 פרוסות');
+    expect(circleSaid(roll.manip, { r: 5, t: 1 }).line).toBe('רדיוס 5 · קוטר 10 · היקף ≈ 31.4');
+    expect(circleSaid(slices.manip, { r: 5, n: 32 }).line).toBe('32 פרוסות · בסיס ≈ 15.7 · גובה 5 · שטח ≈ 78.5');
+    expect(circleSaid(roll.manip, { r: 5, t: 1 }, { test: true }).line).toBe('רדיוס 5 · קוטר 10');
+    for (const it of all) expect(itemPlain(it)).not.toMatch(/undefined|NaN/);
+    const open = html(CircleRoll, { m: roll.manip, value: { r: 5, t: 1 }, answer: roll.answer });
+    expect(open).toContain('aria-valuetext="עיגול ברדיוס 5, מגולגל עד הסוף"');
+    expect(open).toContain('≈ 3.14 קטרים'); expect(open).toContain('היקף ≈ 31.4');
+    // the readout's pairs are kept whole: a narrow screen wraps between them, never inside one
+    expect(open).toMatch(/<span class="mp-circ-part"><span class="mp-circ-sep"> · <\/span>היקף ≈ 31.4<\/span>/);
+    for (const [it, v] of [[roll, { r: 5, t: 1 }], [radius, { r: 5, t: 0.5 }], [slices, { r: 5, n: 32 }]]) {
+      const check = html(CircleRoll, { m: it.manip, value: v, answer: it.answer, test: true });
+      expect(check, JSON.stringify(v)).not.toMatch(/היקף|שטח|≈|hit/);
+      expect(check.replace(/<[^>]+>/g, '')).toContain('רדיוס 5 · קוטר 10');
+    }
+    // the line is marked in diameters: 0, d, 2d, 3d, 4d for the radius set
+    const marks = [...html(CircleRoll, { m: radius.manip, value: { r: 2.5, t: 0 }, answer: radius.answer }).matchAll(/class="mp-num">([^<]*)</g)].map((x) => x[1]);
+    expect(marks).toEqual(['0', '5', '10', '15', '20']);
+    for (const it of all) {
+      const out = html(CircleRoll, { m: it.manip, value: it.manip.start, answer: it.answer, reveal: true });
+      expect(out).not.toMatch(/NaN|undefined/);
+      expect(out).toMatch(/mp-circ-ghost/);
+    }
+  });
+  it('the sectors lie alternately up and down, each sharing an edge with the next, into a shape πr wide', () => {
+    for (const n of SECTORS) {
+      const st = sectorStrip(n, 50, 0); const th = (2 * Math.PI) / n;
+      const ends = (p) => [p.a, p.b].map((a) => [p.apex[0] + 50 * Math.cos(a), p.apex[1] + 50 * Math.sin(a)]);
+      for (let k = 0; k + 1 < n; k += 1) {
+        const [x, y] = [st[k], st[k + 1]];
+        // the right edge of one piece is the left edge of the next: from one's apex to the other's
+        const shared = [x.apex, ...ends(x)].filter((p) => [y.apex, ...ends(y)].some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-9));
+        expect(shared.length, `${n} sectors, pieces ${k} and ${k + 1}`).toBe(2);
+        expect(x.up).toBe(!y.up);
+      }
+      // the base: along the top, from the first apex to the last piece's far corner, n/2 chords (πr as n grows)
+      const base = st[n - 1].apex[0] + 50 * Math.sin(th / 2) - st[0].apex[0];
+      expect(base).toBeCloseTo((n / 2) * 100 * Math.sin(th / 2), 9);
+      if (n === 32) expect(Math.abs(base - Math.PI * 50) / (Math.PI * 50)).toBeLessThan(0.005);
+    }
+  });
+});
+
+// ---------------------------------------------------------------- the solid figure (stage 4, MEASURE-1.5)
+describe('the solid figure: box, cube, prism, cylinder and cone, with their diagonals, cubes, cuts and sections', () => {
+  const figs = [
+    { type: 'solid', shape: 'box', a: 7, b: 4, c: 3 },
+    { type: 'solid', shape: 'box', a: 7, b: 4, c: 3, diag: 'space' },
+    { type: 'solid', shape: 'box', a: 6, b: 4, c: 5, diag: ['face', 'space'] },
+    { type: 'solid', shape: 'box', a: 3, b: 4, c: 6, diag: 'tri' },
+    { type: 'solid', shape: 'box', a: 4, b: 3, c: 2, cubes: true },
+    { type: 'solid', shape: 'box', a: 6, b: 4, c: 5, cut: 'diagonal' },
+    { type: 'solid', shape: 'box', a: 8, b: 4, c: 5, cut: 'half' },
+    { type: 'solid', shape: 'box', a: 6, b: 4, c: 3, open: true },
+    { type: 'solid', shape: 'box', a: 8, b: 4, c: 5, labels: { a: 'x', c: '?' } },
+    { type: 'solid', shape: 'cube', a: 4 },
+    { type: 'solid', shape: 'cube', a: 10, label: '1 ליטר' },
+    { type: 'solid', shape: 'cube', a: 2, diag: 'face' },
+    { type: 'solid', shape: 'prism', p: 3, q: 4, L: 10 },
+    { type: 'solid', shape: 'prism', p: 3, q: 4, r: 5, L: 10 },
+    { type: 'solid', shape: 'prism', p: 10, h: 3, q: 5, L: 8 },
+    { type: 'solid', shape: 'cylinder', r: 3, h: 10 },
+    { type: 'solid', shape: 'cylinder', r: 2, h: 5, diag: 'axial' },
+    { type: 'solid', shape: 'cylinder', r: 3, h: 8, diag: 'rod' },
+    { type: 'solid', shape: 'cone', r: 6, h: 8, l: 10 },
+    { type: 'solid', shape: 'cone', r: 6, h: 8, l: 10, diag: 'axial' },
+    { type: 'solid', shape: 'box', a: 5, b: 3, c: 2, labels: false },
+  ];
+  it('each renders, with no broken numbers, and reads every number and word it writes', () => {
+    for (const fig of figs) {
+      const out = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(out, JSON.stringify(fig)).toMatch(/<svg/);
+      expect(out, JSON.stringify(fig)).not.toMatch(/NaN|undefined|Infinity/);
+      const words = figPlain(fig);
+      expect(out).toContain(`aria-label="${words}"`);
+      const drawn = [...out.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((x) => x[1]);
+      for (const t of drawn) expect(words, `${JSON.stringify(fig)}: ${t}`).toContain(t);
+      // every length given is written, unless labels say otherwise
+      if (fig.labels == null) Object.values(solidLabels(fig)).forEach((t) => expect(drawn, `${JSON.stringify(fig)}: ${t}`).toContain(t));
+    }
+  });
+  it('says what it draws', () => {
+    expect(figPlain(figs[1])).toBe('תיבה: אורך 7, רוחב 4, גובה 3; מסומן אלכסון התיבה');
+    expect(figPlain(figs[2])).toBe('תיבה: אורך 6, רוחב 4, גובה 5; מסומנים אלכסון של הבסיס ואלכסון התיבה');
+    expect(figPlain(figs[3])).toBe('תיבה: אורך 3, רוחב 4, גובה 6; מסומן המשולש ישר־הזווית שצלעותיו אלכסון הבסיס, המקצוע האנכי שבקצה שלו ואלכסון התיבה');
+    expect(figPlain(figs[4])).toBe('תיבה: אורך 4, רוחב 3, גובה 2; בנויה מקוביות שמקצוען 1');
+    expect(figPlain(figs[7])).toBe('תיבה: אורך 6, רוחב 4, גובה 3; בלי מכסה');
+    expect(figPlain(figs[8])).toBe('תיבה: אורך x, רוחב 4, גובה ?');
+    expect(figPlain(figs[10])).toBe('קובייה שמקצועה 10; כתוב: 1 ליטר');
+    expect(figPlain(figs[12])).toBe('מנסרה משולשת: בסיס: משולש ישר־זווית שניצביו 3 ו־4; אורך המנסרה 10');
+    expect(figPlain(figs[14])).toBe('מנסרה משולשת: בסיס: משולש שצלע אחת שלו 10 והגובה אליה 3, וצלע נוספת 5; אורך המנסרה 8');
+    expect(figPlain(figs[16])).toBe('גליל: רדיוס הבסיס 2, גובה 5; מסומן החתך הצירי: מלבן');
+    expect(figPlain(figs[19])).toBe('חרוט: רדיוס הבסיס 6, גובה 8, קו יוצר 10; מסומן החתך הצירי: משולש שווה־שוקיים');
+    expect(figPlain(figs[20])).toBe('תיבה');
+  });
+  it('draws its hidden edges dashed, the base of a cylinder and a cone half dashed, and its marks', () => {
+    const r = (fig) => renderToStaticMarkup(createElement(Figure, { fig }));
+    expect((r(figs[0]).match(/class="fg-solid-hidden"/g) || []).length).toBe(3); // the three edges at the hidden corner
+    expect((r(figs[12]).match(/class="fg-solid-hidden"/g) || []).length).toBe(3);
+    expect((r(figs[15]).match(/fg-solid-hidden/g) || []).length).toBe(1); // the back of the base
+    expect((r(figs[18]).match(/fg-solid-hidden/g) || []).length).toBe(2); // the back of the base and the height
+    expect(r(figs[3])).toMatch(/fg-solid-tri/); expect(r(figs[3])).toMatch(/fg-solid-diag edge/);
+    expect(r(figs[2])).toMatch(/fg-solid-diag face/); expect(r(figs[2])).toMatch(/fg-solid-diag space/);
+    expect((r(figs[4]).match(/fg-solid-unit/g) || []).length).toBe((4 - 1) * 2 + (2 - 1) * 2 + (3 - 1) * 2);
+    expect(r(figs[5])).toMatch(/fg-solid-cut/); expect(r(figs[7])).toMatch(/fg-solid-inside/);
+    expect(r(figs[17])).toMatch(/fg-solid-axial/);
   });
 });

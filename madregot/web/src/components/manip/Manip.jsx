@@ -19,13 +19,14 @@ import FracBar, { fbarCoach } from './FracBar.jsx';
 import DoubleLine, { dlineCoach } from './DoubleLine.jsx';
 import GridShape, { gridCoach } from './GridShape.jsx';
 import NetFold, { netCoach } from './NetFold.jsx';
+import CircleRoll, { circleCoach } from './CircleRoll.jsx';
 import { triangleAngles } from '@/content/manip.js';
 import { minus, partsTex } from './core.jsx';
 import { Tex } from '../MathText.jsx';
 
 export const KINDS = {
   numberline: NumberLine, plot: PlotPoint, line: LineBuilder, angle: AngleTurner, squares: PythSquares, bars: DataBars, pins: NumberPins, triangle: TriangleDrag,
-  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine, polygon: GridShape, net: NetFold,
+  balance: Balance, tiles: Tiles, area: AreaModel, ray: Ray, fbar: FracBar, dline: DoubleLine, polygon: GridShape, net: NetFold, circle: CircleRoll,
 };
 
 // A number inside Hebrew text keeps its minus sign on the left.
@@ -98,6 +99,7 @@ function coach(it, v, touched) {
     case 'dline': return dlineCoach(m, v, touched);
     case 'polygon': return gridCoach(m, v, touched);
     case 'net': return netCoach(m, v, touched);
+    case 'circle': return circleCoach(m, v, touched);
     default: return null;
   }
 }

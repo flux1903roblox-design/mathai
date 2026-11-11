@@ -15,7 +15,7 @@ import type { DiscoverStep, FigSpec } from './types';
 // @ts-ignore: plain JS
 import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
 // @ts-ignore: plain JS
-import { netfigLabels, netModel } from '@/content/net.js';
+import { netfigLabels, netModel, solidLabels } from '@/content/net.js';
 
 // the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
 // stair, for the student lane's sweeps over every teaching step)
@@ -188,6 +188,8 @@ function labelsOf(f: AnyFig): Set<string> {
       // a net (stage 3) writes its face letters, its lengths or its faces' areas
       case 'netfig': return [...(f.letters && f.solid !== 'cylinder' ? netModel({ ...f, task: 'face' }).ids : []),
         ...netfigLabels(f).faces.map((x: any) => x.text), ...netfigLabels(f).edges.map((x: any) => x.text)];
+      // a solid (stage 4) writes its lengths and its word
+      case 'solid': return [...Object.values(solidLabels(f)), f.label];
       // the algebra objects write x on a box or a long tile, and the rectangle its sides (and parts' areas)
       case 'tiles': return [f.px && 'x', f.nx && '-x', f.p1 && '1', f.n1 && '-1'];
       case 'scale': return [(f.left.x || f.right.x) && 'x'];

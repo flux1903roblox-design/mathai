@@ -31,8 +31,10 @@ export type Rng = () => number;
  * loose?, start }; task 'fold' { t } answered { mode: 'fold', t: 1 | 0 }, 'face' { face } answered { mode: 'face', face },
  * 'fix' { slot } answered { mode: 'slot', ok }, 'build' { a, b, c } or a prism's { p, q, L } answered { mode: 'build', V?, S?,
  * d2?, fixed? }.
+ * 'circle' (stage 4; content/circle.js): { show: 'circumference' | 'area', start: { r, t } | { r, n }, rMax?, rStep? };
+ * answered { mode: 'r', r } (the radius set), { mode: 'unrolled' } (rolled one turn) or { mode: 'sectors', min }.
  */
-export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'polygon' | 'net';
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'polygon' | 'net' | 'circle';
 export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 
 // ------------------------------------------------------------------ Stage A: discover and understand
@@ -63,6 +65,18 @@ export type NetFig = {
   dims: { a?: number; b?: number; c?: number; p?: number; q?: number; r?: number; L?: number; h?: number };
   layout?: string; letters?: boolean; shade?: string | string[]; labels?: boolean | 'area';
 };
+/**
+ * A solid, still (components/SolidFigs.jsx): a box, a cube or a prism in the oblique view, a cylinder or a cone on
+ * ellipses; labels true (the default) writes every length given, false none, an object its own texts; diag marks a
+ * diagonal, the right triangle inside a box, an axial section or a rod (content/net.js solidWords has the details).
+ */
+export type SolidDiag = 'face' | 'space' | 'tri' | 'axial' | 'rod';
+export type SolidFig = {
+  type: 'solid'; shape: 'box' | 'cube' | 'prism' | 'cylinder' | 'cone';
+  a?: number; b?: number; c?: number; p?: number; q?: number; r?: number; L?: number; h?: number; l?: number;
+  labels?: boolean | Partial<Record<'a' | 'b' | 'c' | 'p' | 'q' | 'r' | 'L' | 'h' | 'l', string | number>>;
+  diag?: SolidDiag | SolidDiag[]; cubes?: boolean; cut?: 'diagonal' | 'half'; open?: boolean; label?: string;
+};
 /** The figures of fractions, percent and ratio: content writes them `satisfies FractionFig` so their fields are checked. */
 export type FractionFig = NumlineFig | FbarFig | FgridFig | DlineFig | GroupsFig;
 /**
@@ -89,7 +103,7 @@ export type FigSpec =
   }
   | GeoFig
   | FbarFig | FgridFig | DlineFig | GroupsFig
-  | NetFig
+  | NetFig | SolidFig
   | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
 /** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
 export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };

@@ -23,6 +23,10 @@
 //   polygon     shapes on a grid of unit squares (stage 2): task rect { w, h }, move { dx, dy }, cut { axis, at },
 //               apex { x }; answer { mode: 'rect' | 'maxArea' | 'move' | 'cut' | 'apex', … }; its rules are in
 //               content/grid.js, which registers them here (see "kinds whose rules load with their object")
+//   net         a solid's net (stage 3): task fold { t }, face { face }, fix { slot }, build { a, b, c } | { p, q, L };
+//               rules in content/net.js
+//   circle      a circle (stage 4): show circumference { r, t } or area { r, n }; answer { mode: 'r' | 'unrolled' |
+//               'sectors', … }; rules in content/circle.js
 // numberline and pins also take `den`: ticks every 1/den, values k/den, compared exactly; `fmt: 'dec'` writes decimals.
 import { near, plainNum, gcd, linText } from './util.js';
 
@@ -203,7 +207,7 @@ export const withUnit = (v, unit) => (!unit ? dlineNum(v) : unit === '%' ? `${dl
 // lesson or a teaching step that draws the object always has them. Asked for before they are here, a
 // rule throws: a missing rule is a bug, never a wrong answer. The words of the still figures those files draw (a geo
 // drawing's stage-2 parts, 'netfig', 'solid') register the same way, by figure type.
-const LATE_KINDS = ['polygon', 'net'];
+const LATE_KINDS = ['polygon', 'net', 'circle'];
 const LATE = {};
 /** Called by a late kind's file: its correct, text, plain, solution and wrong. */
 export const registerKind = (kind, rules) => { LATE[kind] = rules; };

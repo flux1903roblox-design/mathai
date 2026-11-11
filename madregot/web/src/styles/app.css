@@ -1835,6 +1835,39 @@ html { scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .mp-net-face.mp-net-base { --f: color-mix(in srgb, var(--c, var(--brand)) 55%, var(--surface)); }
 .mp-net-hidden { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 5 4; }
 
+/* the circle (stage 4, CircleRoll.jsx): it rolls on a line marked in diameters, or lies cut into sectors. A finger on the
+   drawing scrolls the page; only the radius handle is dragged. */
+.mp-circ-canvas { touch-action: manipulation; cursor: default; }
+.mp-circ-handle { cursor: grab; touch-action: none; }
+.mp-circ-handle.held { cursor: grabbing; }
+.mp-circ-line { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.mp-circ-tick { stroke: var(--ink); stroke-width: 2; }
+.mp-circ-unrolled { stroke: var(--c, var(--brand)); stroke-width: 6; stroke-linecap: round; }
+.mp-circ-unrolled.hit { stroke: var(--good-d); }
+.mp-circ-end { stroke: var(--c-d, var(--brand-d)); stroke-width: 3; stroke-linecap: round; }
+.mp-circ-note { fill: var(--c-d, var(--brand-d)); font-size: 15px; font-weight: 700; }
+.mp-circ-disc { fill: color-mix(in srgb, var(--c, var(--brand)) 14%, var(--surface)); stroke: var(--c-d, var(--brand-d)); stroke-width: 3; }
+.mp-circ-disc.hit { stroke: var(--good-d); }
+.mp-circ-spoke { stroke: var(--c, var(--brand)); stroke-width: 2; }
+.mp-circ-mark { fill: var(--c, var(--brand)); stroke: var(--surface); stroke-width: 2; }
+.mp-circ-radius { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.mp-circ-r { fill: var(--ink); font-size: 15px; font-weight: 700; }
+.mp-circ-ghost { stroke: var(--good); stroke-width: 4; stroke-dasharray: 7 6; }
+.mp-circ-ghost-text { fill: var(--good-ink); font-size: 14px; font-weight: 700; }
+.mp-circ-sector { stroke: var(--c-d, var(--brand-d)); stroke-width: 1; stroke-linejoin: round; }
+.mp-circ-sector.a { fill: color-mix(in srgb, var(--c, var(--brand)) 26%, var(--surface)); }
+.mp-circ-sector.b { fill: color-mix(in srgb, var(--c, var(--brand)) 56%, var(--surface)); }
+.mp-circ-sector.hit.a { fill: var(--good-tint); }
+.mp-circ-sector.hit.b { fill: color-mix(in srgb, var(--good) 40%, var(--surface)); }
+.mp-circ-ghost-shape { fill: none; stroke: var(--good); stroke-width: 2.5; stroke-dasharray: 7 6; }
+.mp-circ-dim { stroke: var(--ink-2); stroke-width: 1.5; }
+.mp-circ-readout { font-variant-numeric: tabular-nums; gap: 2px 8px; }
+.mp-circ-part { white-space: nowrap; }
+.mp-circ-sep { color: var(--ink-2); }
+.mp-circ-controls { align-items: center; }
+/* the roll and the radius follow their steppers in JavaScript (300 ms, nothing under reduced motion) */
+@media (prefers-reduced-motion: reduce) { .mp-circ-disc, .mp-circ-unrolled { transition: none; } }
+
 /* the readout keeps room for its second line, so the drawing never moves under a finger */
 .mp-net-readout { font-variant-numeric: tabular-nums; }
 .mp-net-readout.two { flex-direction: column; gap: 0; min-height: 2.6em; justify-content: flex-start; }

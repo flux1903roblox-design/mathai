@@ -74,3 +74,18 @@
 .fg-net-face { fill: color-mix(in srgb, var(--cyan) 7%, transparent); stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
 .fg-net-face.shade { fill: color-mix(in srgb, var(--brand) 32%, transparent); }
 .fg-net-letter { fill: var(--ink); font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 19px; font-weight: 700; }
+/* stage 4 (measurement): a solid, still (SolidFigs.jsx SolidFig): faces turned to the viewer lightly filled, hidden
+   edges dashed, diagonals in two tones, the right triangle inside a box and an axial section shaded */
+.fg-solid-face { fill: color-mix(in srgb, var(--cyan) 8%, transparent); stroke: none; }
+.fg-solid-edge { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fg-solid-edge.top { fill: color-mix(in srgb, var(--cyan) 12%, transparent); }
+.fg-solid-hidden { fill: none; stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 5 4; stroke-linecap: round; }
+.fg-solid-unit { stroke: color-mix(in srgb, var(--ink) 35%, transparent); stroke-width: 1; }
+.fg-solid-inside { fill: color-mix(in srgb, var(--ink) 10%, transparent); stroke: none; }
+.fg-solid-cut { fill: color-mix(in srgb, var(--brand) 20%, transparent); stroke: var(--brand-d); stroke-width: 2; stroke-dasharray: 6 4; stroke-linejoin: round; }
+.fg-solid-tri { fill: color-mix(in srgb, var(--brand) 20%, transparent); stroke: none; }
+.fg-solid-axial { fill: none; stroke: var(--brand-d); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.fg-solid-diag { fill: none; stroke-width: 3; stroke-linecap: round; }
+.fg-solid-diag.face { stroke: var(--streak-d); }
+.fg-solid-diag.space { stroke: var(--brand-d); }
+.fg-solid-diag.edge { stroke: var(--cyan); stroke-width: 4; }
