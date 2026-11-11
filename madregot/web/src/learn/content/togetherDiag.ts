@@ -351,6 +351,15 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // or the gap of 60 km closed at the sum of the speeds, 60 : 150 = 0.4 (rel-speed)
     { model: 'diag', p: { k: 'catch', v1: 60, h: 1, v2: 90, t: 2, q: 0 } },
   ],
+  'eq:7': [
+    // x/3 − x/5 = 4, the step chose 15: 5x − 3x = 60, x = 30. The 4 not multiplied by 15: 2x = 4, x = 2
+    { bugs: { 'lcd-partial': 2 } },
+    // (x + 2)/4 = (x − 1)/3, the step wrote 3(x + 2) = 4(x − 1), so x = 10; only x multiplied (3x + 2 = 4x − 1, x = 3)
+    // is what that step ruled out
+    { bugs: {} },
+    // x + x/3 = 8 (the ז׳ programme's form): 6; the 8 not multiplied by 3 gives 8 : 4 = 2, added across 8 · 4 : 2 = 16
+    { model: 'diag', p: { k: 1, a: 3, x: 6, c: 8 } },
+  ],
   'sys:1': [
     // the steps wrote 1.1x = 55, so the percent is of the old price: x = 50
     { bugs: {} },

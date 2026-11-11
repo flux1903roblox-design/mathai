@@ -802,6 +802,58 @@ describe('motion problems (eq:6): every answer from the text\'s own numbers', ()
   });
 });
 
+// Equations with denominators and proportion (eq:7, stage5.md FUNC-4): every answer substituted back into the equation
+// displayed (learn/expr.ts holds), and no other number near it solves it; the mistakes' numbers do not; x in a
+// denominator is whole and never a number of the equation; the smallest common denominator is the right choice.
+describe('equations with denominators (eq:7): every answer solves the equation displayed', () => {
+  it('two fractions, x and a fraction of it, two numerators with a minus, a proportion, x in a denominator, the LCD', () => {
+    const kinds = {};
+    for (let i = 0; i < 1500; i += 1) {
+      const it = makeItem('eq', 7);
+      const k = it.key.startsWith('eq7:') ? it.key.split(':').slice(0, 2).join(':') : it.key.split(':')[0]; kinds[k] = (kinds[k] || 0) + 1;
+      if (it.form === 'num') {
+        expect(holds(it.display, { x: it.answer }), `${it.key}: x = ${it.answer} in ${it.display}`).toBe(true);
+        for (const d of [-1, 1, 0.5]) expect(holds(it.display, { x: it.answer + d }), `${it.key}: x = ${it.answer + d} also solves ${it.display}`).toBe(false);
+        expect(Number.isInteger(it.answer), it.key).toBe(true);
+        // the displayed equation's own numbers are never the answer
+        const shown = (it.display.match(/\d+/g) || []).map(Number);
+        expect(shown, `${it.key}: the answer is a number of the equation`).not.toContain(it.answer);
+        // a mistake's number does not solve the equation (it is a different number)
+        for (let u = it.answer - 60; u <= it.answer + 300; u += 1) if (u !== it.answer && it.diag(u)) expect(holds(it.display, { x: u }), `${it.key}: ${u}`).toBe(false);
+        expect(fairForCheck(it), it.key).toBe(true);
+      }
+      if (k === 'eq7:0') expect(it.display, it.key).toMatch(/^\\frac\{x\}\{\d\} \+ \\frac\{x\}\{\d\} = \d+$/);
+      if (k === 'eq7:1') expect(it.display, it.key).toMatch(/^x \+ \\frac\{x\}\{\d\} = \d+$/);
+      if (k === 'eq7:2') expect(it.display, it.key).toMatch(/^\\frac\{x \+ \d\}\{\d\} - \\frac\{x - \d\}\{\d\} = \d$/);
+      if (k === 'eq7p') {
+        const [a, b, c, d] = it.key.split(':').slice(1).map(Number);
+        expect(it.diag((a + c) / (b - d)), `${it.key}: only x multiplied`).toBe('partial-dist');
+      }
+      if (k === 'eq7x') {
+        // a/x = b/c with b/c in lowest terms, so a/x is not b/c reduced and x is no number printed
+        const [a, b, c] = it.key.split(':').slice(1).map(Number);
+        expect(gcd(b, c), it.key).toBe(1);
+        expect(it.answer, it.key).toBe((a * c) / b);
+        expect([a, b, c], it.key).not.toContain(it.answer);
+      }
+      if (k === 'eq7l') {
+        // four different numbers: the lcm (right), the product, the sum and the larger denominator
+        const [a, b] = it.key.split(':').slice(1).map(Number); const L = (a * b) / gcd(a, b);
+        const vals = it.choices.map((c) => Number(c.tex));
+        expect(new Set(vals).size, it.key).toBe(4);
+        expect(vals.sort((x, y) => x - y), it.key).toEqual([b, a + b, L, a * b].sort((x, y) => x - y));
+        expect(Number(it.choices[it.answer].tex), it.key).toBe(L);
+        expect(it.practiceOnly, it.key).toBe(true);
+      }
+    }
+    // every kind was drawn, in about the spec's mix (55%, 20%, 15%, 10%)
+    expect(Object.keys(kinds).sort()).toEqual(['eq7:0', 'eq7:1', 'eq7:2', 'eq7l', 'eq7p', 'eq7x']);
+    const e7 = (kinds['eq7:0'] + kinds['eq7:1'] + kinds['eq7:2']) / 1500;
+    expect(e7 > 0.48 && e7 < 0.62, `e7 ${e7}`).toBe(true);
+    expect(kinds.eq7p / 1500).toBeGreaterThan(0.15);
+  }, 60_000);
+});
+
 describe('functions: every answer from the graph and the text', () => {
   /** The numbers of the text's maths, in order ("18^\circ" is 18). */
   const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).map((m) => Number(m.slice(1, -1).replace(/\^\\circ/g, '').trim()));

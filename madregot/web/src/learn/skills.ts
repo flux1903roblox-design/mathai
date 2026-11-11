@@ -10,7 +10,7 @@ import type { SkillId, TopicId } from './types';
 // introduction to functions the third (November), all before linear functions (rate and slope, December).
 export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'func', 'line', 'pyth', 'stats', 'sys'];
 export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', func: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 6, ratio: 4, pct: 5, func: 4, line: 8, pyth: 5, stats: 5, sys: 5 };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 7, ratio: 4, pct: 5, func: 4, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -59,6 +59,7 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'eq:4': ['eq:3', 'expr:5'], // open the brackets and collect (simplifying), then solve
   'eq:5': ['eq:4', 'expr:2'], // the story becomes expressions (writing an expression), then an equation
   'eq:6': ['eq:5'], // a motion story becomes an equation like any story; distance = speed × time, a row per mover
+  'eq:7': ['eq:4', 'frac:3'], // clearing denominators gives brackets (eq:4); a common denominator (frac:3, bridge edge)
   'ratio:1': ['frac:1'], // simplifying a ratio is simplifying a fraction (bridge edge)
   'ratio:2': ['ratio:1'], // m : n is m + n equal parts
   'ratio:3': ['ratio:1', 'frac:4'], // the unit rate is a quotient; the missing value is a product (bridge edge)

@@ -336,6 +336,20 @@
       "tags": ["eq", "algebra"]
     },
     {
+      "id": "D1-eq7-lcd-partial", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:7", "source": "diag", "params": { "k": 0, "a": 4, "b": 6, "L": 12, "x": 24, "c": 10 }, "wrong": [2, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "lcd-partial", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the fractions were multiplied by the common denominator 12, but the 10 on the right was not. Every term of both sides is multiplied: 3x + 2x = 120, so 5x = 120 and x = 24; check by substitution, 24 : 4 + 24 : 6 = 6 + 4 = 10. Ends at 24. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq7-partial-dist", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:7", "source": "diag", "params": { "k": 2, "q": 2, "p": 3, "s": 1, "r": 5, "x": 13 }, "wrong": [16, 10], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "partial-dist", "maxWords": 130,
+        "describe": "Names the app's diagnosis in this stair's words: only the x of the numerator x + 3 was multiplied, not the whole numerator. Times 4, each numerator is a bracket: 2(x + 3) - (x - 1) = 20, so 2x + 6 - x + 1 = 20 and x = 13; check, 16 : 2 - 12 : 4 = 8 - 3 = 5. Ends at 13. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

@@ -423,7 +423,9 @@
   "eq:5/diag",
   "eq:5/gen",
   "eq:6/diag",
-  "eq:6/gen"
+  "eq:6/gen",
+  "eq:7/diag",
+  "eq:7/gen"
  ],
  "diagnostic-8": [
   "ratio:1/diag",
@@ -718,6 +720,43 @@
     "eq:6/probe/rel-speed",
     "eq:6/probe/rel-speed",
     "eq:6/control/rel-speed"
+   ]
+  }
+ },
+ "eq:7": {
+  "items": [
+   "mastery0:eq7:0:6:5:33|90|gen",
+   "mastery1:eq7:1:3:32|24|gen",
+   "mastery2:eq:7:diag:{\"k\":1,\"a\":6,\"x\":42,\"c\":49}|42|diag",
+   "mastery3:eq7:2:4:3:7:9|39|gen",
+   "mastery4:eq:7:transfer:{\"k\":1,\"a\":6,\"x\":60,\"c\":50}|60|transfer",
+   "review0:eq:7:transfer:{\"k\":0,\"a\":3,\"b\":5,\"L\":15,\"x\":135,\"c\":72}|135|transfer",
+   "review1:eq7p:1:7:2:6|20|gen",
+   "review2:eq:7:diag:{\"k\":1,\"a\":6,\"x\":42,\"c\":49}|42|diag",
+   "verify0:eq:7:probe:{\"k\":0,\"a\":3,\"b\":4,\"L\":12,\"x\":60,\"c\":35}|60|probe",
+   "verify1:eq:7:probe:{\"k\":0,\"a\":5,\"b\":4,\"L\":20,\"x\":80,\"c\":36}|80|probe",
+   "verify2:eq:7:control:{\"k\":2,\"q\":3,\"p\":5,\"s\":3,\"r\":6,\"x\":23}|23|control",
+   "gen:eq7:2:2:3:4:3|10|gen",
+   "diag:eq:7:diag:{\"k\":1,\"a\":4,\"x\":20,\"c\":25}|20|diag",
+   "transfer:eq:7:transfer:{\"k\":0,\"a\":4,\"b\":6,\"L\":12,\"x\":84,\"c\":35}|84|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "eq:7/gen/",
+    "eq:7/gen/",
+    "eq:7/diag/",
+    "eq:7/gen/",
+    "eq:7/transfer/"
+   ],
+   "review": [
+    "eq:7/transfer/",
+    "eq:7/gen/",
+    "eq:7/diag/"
+   ],
+   "verify": [
+    "eq:7/probe/lcd-partial",
+    "eq:7/probe/lcd-partial",
+    "eq:7/control/lcd-partial"
    ]
   }
  },

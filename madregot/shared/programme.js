@@ -53,7 +53,7 @@ export const PROGRAMME = {
       parts: [
         { hours: 21, skills: range('eq', 1, 5) },
         // ח׳ content a ז׳ class meets too, in June (the motion task): no hours of its own
-        { hours: 0, skills: ['eq:6'], months: [6], note: 'שאלות תנועה ומשוואות עם מכנים' },
+        { hours: 0, skills: ['eq:6', 'eq:7'], months: [6], note: 'שאלות תנועה ומשוואות עם מכנים' },
       ] },
     { id: '7.9', grade: '7', domain: 'algebra', title: 'נקודות על גרף ברביע I', months: [5],
       parts: [
@@ -115,7 +115,7 @@ export const PROGRAMME = {
       parts: [
         { hours: 1, skills: ['line:8'] },
         { hours: 5, skills: ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'sys:1'] },
-        { hours: 6, skills: [], note: 'שאלות תנועה, משתנה במכנה, משוואות בעזרת פרופורציה', later: 'S5' },
+        { hours: 6, skills: ['eq:6', 'eq:7'], note: 'שאלות תנועה, משתנה במכנה, משוואות בעזרת פרופורציה' },
       ] },
     { id: '8.10', grade: '8', domain: 'uncertainty', title: 'טווח נתונים ומדדי מרכז, שני מקורות מידע', months: [12, 1],
       parts: [

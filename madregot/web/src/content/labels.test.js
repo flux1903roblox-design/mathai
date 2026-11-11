@@ -165,7 +165,7 @@ function minusDropped(terms) {
   return out;
 }
 /** The quantities a story asks about (the unknown and the others built from it), from its key. */
-/** The numbers of an eq:6 key after its kind (eq6:toward:40:60:300:0 gives [40, 60, 300, 0]). */
+/** The numbers of an eq:6 or eq:7 key after its kind (eq6:toward:40:60:300:0 gives [40, 60, 300, 0], eq7:1:3:8 [3, 8]). */
 const motionNums = (key) => key.split(':').slice(2).map(Number);
 function storyValues(it) {
   const [p, ...r] = it.key.split(':'); const n = r.map(Number);
@@ -555,6 +555,10 @@ const PROPS = {
       const xs = xSide(it.display); return !!xs && xs[0].k < 0 && near(u, -it.answer);
     },
     'partial-dist': (it, u) => {
+      // eq:7, (x + p)/q − (x − s)/(2q) = r times 2q with 2(x + p) written 2x + p: x = 2qr − p − s; a proportion
+      // (x + a)/b = (x − c)/d with only x multiplied, dx + a = bx − c: x = (a + c)/(b − d)
+      if (it.key.startsWith('eq7:2:')) { const [p, q, s, r] = motionNums(it.key); return fits(u, 2 * q * r - p - s); }
+      if (it.key.startsWith('eq7p:')) { const [a, b, c, d] = nums(it.key); return fits(u, (a + c) / (b - d)); }
       // ages: x + g − b = k(x − b) opened as kx − b, then what was asked (the older one is g more)
       if (it.key.startsWith('eq5a:')) { const [k, t, b, q] = nums(it.key); const g = (k - 1) * t; return fits(u, solveLin({ k: 1, c: g - b }, { k, c: -b }) + (q ? g : 0)); }
       // balls: n1·x = n2(x + p) opened as n2·x + p, then what was asked (the dearer ball is p more)
@@ -568,7 +572,24 @@ const PROPS = {
       }
       return solvesOpened(it.display, u, 'partial');
     },
-    'minus-bracket': (it, u) => solvesOpened(it.display, u, 'minus'),
+    // eq:7, (x + p)/q − (x − s)/(2q) = r times 2q with −(x − s) opened as −x − s: x = 2qr − 2p + s
+    'minus-bracket': (it, u) => {
+      if (it.key.startsWith('eq7:2:')) { const [p, q, s, r] = motionNums(it.key); return fits(u, 2 * q * r - 2 * p + s); }
+      return solvesOpened(it.display, u, 'minus');
+    },
+    // eq:7, from eq7:0:a:b:c (x/a + x/b = c) and eq7:1:a:c (x + x/a = c): times the common denominator L, but c not
+    // multiplied, c / (L/a + L/b) or c / (a + 1)
+    'lcd-partial': (it, u) => {
+      if (it.key.startsWith('eq7:0:')) { const [a, b, c] = motionNums(it.key); const L = (a * b) / gcdOf(a, b); return fits(u, c / (L / a + L / b)); }
+      if (it.key.startsWith('eq7:1:')) { const [a, c] = motionNums(it.key); return fits(u, c / (a + 1)); }
+      return false;
+    },
+    // added across: x/a + x/b read as 2x/(a + b), x + x/a as 2x/(1 + a)
+    'add-across': (it, u) => {
+      if (it.key.startsWith('eq7:0:')) { const [a, b, c] = motionNums(it.key); return fits(u, (c * (a + b)) / 2); }
+      if (it.key.startsWith('eq7:1:')) { const [a, c] = motionNums(it.key); return fits(u, (c * (a + 1)) / 2); }
+      return false;
+    },
     // a quantity of the story, but not the one asked; eq:6's catching up: the hours since the first one left, t + h,
     // when the car's hours were asked (t = v1·h / (v2 − v1), from eq6:catch:v1:h:v2:q)
     'wrong-unknown': (it, u) => {

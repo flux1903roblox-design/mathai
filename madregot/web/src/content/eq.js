@@ -1,6 +1,7 @@
 // Grade 7 (ז׳): equations (משוואות), in the order of the Ministry's programme (March to May): what an equation and
 // its solution are, two-step equations, the unknown on both sides, brackets, and word problems; then motion problems
-// (eq:6), ח׳ 8.9's (December), which a ז׳ class meets in June (the schedule's motion task). Every worked solution
+// (eq:6) and equations with denominators and proportion (eq:7), ח׳ 8.9's (December), which a ז׳ class meets in June
+// (the schedule's motion task). Every worked solution
 // ends with a check by substitution ("פתרון מלא כולל בדיקה", curriculum note 7). The balance is practice too: a pan
 // loses one item at a time, so keeping it level is the student's own decision (content/manip.js).
 // Taught from March, so the first-day placement test skips it (placement: false); grade 8 tests revise equations, so
@@ -826,9 +827,190 @@ function tableMc() {
   };
 }
 
+// ---------------------------------------------------------------- 7. equations with denominators and proportion
+// An equation with denominators is cleared by multiplying every term of both sides by a common denominator; a numerator
+// of two terms behaves as a bracket, and so does the minus before a fraction; a proportion is solved by multiplying by
+// both denominators, also with x in a denominator; every answer is checked in the original (stage5.md FUNC-4). The
+// diagnostic models are the critique's (EQ7: scratchpad/lanes/stage5/spec/critique/models.mjs eq7, whose second kind is
+// the ז׳ programme's x + x/a = c) and the spec's (EQ7T: models.mjs eq7T), ported unchanged with the draw rule of eq:6.
+// Errors and their sources:
+//   lcd-partial    multiplied by the common denominator, but not the number on the other side (Booth et al. 2014,
+//                  fractions errors; "forgetting to multiply BOTH sides by the LCD")
+//   add-across     x/a + x/b read as 2x/(a + b) (frac's id and name; Siegler & Pyke 2013)
+//   minus-bracket  the minus before the second fraction changed only the first sign of its numerator (eq's id)
+//   partial-dist   the first numerator multiplied as if it were not a bracket, 2(x + p) as 2x + p; in a proportion,
+//                  only x multiplied: dx + a = bx − c (eq's id; Booth et al. 2014, the fraction bar not read as a grouping)
+// "Only x divided, not the whole numerator" is eq:2's divide-part, already diagnosed on (x + p)/q = r: no new id for it.
+
+export const EQ7 = mkModel({
+  raw: (r) => {
+    const k = rint6(r, 0, 2);
+    if (k === 0) { // x/a + x/b = c
+      const a = rint6(r, 2, 6); const b = rint6(r, 2, 6); if (a === b) return null;
+      const L = lcm(a, b); const x = L * rint6(r, 1, 5); return { k, a, b, L, x, c: x / a + x / b };
+    }
+    if (k === 1) { // x + x/a = c
+      const a = rint6(r, 2, 6); const x = a * rint6(r, 1, 8); return { k, a, x, c: x + x / a };
+    }
+    // (x + p)/q − (x − s)/(2q) = r
+    const q = pick6(r, [2, 3]); const p = rint6(r, 1, 6); const s = rint6(r, 1, 9); const rr = rint6(r, 2, 9); const x = 2 * q * rr - 2 * p - s;
+    if (x <= s) return null; return { k, q, p, s, r: rr, x };
+  },
+  answer: (p) => p.x,
+  bugs: {
+    // multiplied by the common denominator, but not the number on the other side
+    'lcd-partial': (p) => (p.k === 0 ? p.c / (p.L / p.a + p.L / p.b) : p.k === 1 ? p.c / (p.a + 1) : null),
+    // added across: x/a + x/b as 2x/(a + b); x + x/a as 2x/(1 + a)
+    'add-across': (p) => (p.k === 0 ? (p.c * (p.a + p.b)) / 2 : p.k === 1 ? (p.c * (p.a + 1)) / 2 : null),
+    // the minus before the second fraction changed only the first sign of its numerator
+    'minus-bracket': (p) => (p.k === 2 ? 2 * p.q * p.r - 2 * p.p + p.s : null),
+    // the first numerator, multiplied by 2, as if it were not a bracket: 2(x + p) written 2x + p
+    'partial-dist': (p) => (p.k === 2 ? 2 * p.q * p.r - p.p - p.s : null),
+  },
+  textNums: (p) => (p.k === 0 ? [p.a, p.b, p.c] : p.k === 1 ? [p.a, p.c] : [p.p, p.q, p.s, 2 * p.q, p.r]),
+});
+/** The spec's eq7T: a share of the money and another share of it come to c (or what is left after spending 1/a of it). */
+export const EQ7T = mkModel({
+  raw: (r) => {
+    if (r() < 0.6) { const a = rint6(r, 2, 5); const b = rint6(r, a + 1, 6); const L = lcm(a, b); const x = L * rint6(r, 2, 10); return { k: 0, a, b, L, x, c: x / a + x / b }; }
+    const a = rint6(r, 3, 6); const x = a * rint6(r, 3, 12); return { k: 1, a, x, c: x - x / a };
+  },
+  answer: (p) => p.x,
+  bugs: {
+    'lcd-partial': (p) => (p.k === 0 ? p.c / (p.L / p.a + p.L / p.b) : p.c / (p.a - 1)),
+    'add-across': (p) => (p.k === 0 ? (p.c * (p.a + p.b)) / 2 : null),
+  },
+  textNums: (p) => (p.k === 0 ? [1, p.a, 1, p.b, p.c] : [1, p.a, p.c]),
+});
+
+/** The equation as the student sees it (\frac, as the other eq displays write it). */
+export const eq7Show = (p) => (p.k === 0 ? `\\frac{x}{${p.a}} + \\frac{x}{${p.b}} = ${p.c}` : p.k === 1 ? `x + \\frac{x}{${p.a}} = ${p.c}` : `\\frac{x + ${p.p}}{${p.q}} - \\frac{x - ${p.s}}{${2 * p.q}} = ${p.r}`);
+export const eq7Key = (p) => (p.k === 0 ? `eq7:0:${p.a}:${p.b}:${p.c}` : p.k === 1 ? `eq7:1:${p.a}:${p.c}` : `eq7:2:${p.p}:${p.q}:${p.s}:${p.r}`);
+export function eq7Hint(p) {
+  if (p.k === 0) return `מחפשים מכנה משותף: מספר שמתחלק גם ב־$${p.a}$ וגם ב־$${p.b}$. כופלים בו כל איבר בשני האגפים, גם את $${p.c}$.`;
+  if (p.k === 1) return `כופלים את שני האגפים ב־$${p.a}$, כל איבר: גם את $x$ וגם את $${p.c}$.`;
+  return `כופלים כל איבר ב־$${2 * p.q}$. כל מונה הוא סוגריים, והמינוס שלפני השבר הופך את שני הסימנים שבמונה.`;
+}
+export function eq7Solution(p) {
+  if (p.k === 0) {
+    const { a, b, L, c, x } = p;
+    return [
+      `המכנה המשותף של $${a}$ ו־$${b}$: $${L}$. כופלים בו כל איבר בשני האגפים: $${linTex(L / a, 0)} + ${linTex(L / b, 0)} = ${L * c}$`,
+      `מכנסים: $${linTex(L / a + L / b, 0)} = ${L * c}$, ולכן $x = ${x}$.`,
+      `בדיקה: $${x} : ${a} + ${x} : ${b} = ${x / a} + ${x / b} = ${c}$`,
+    ];
+  }
+  if (p.k === 1) {
+    const { a, c, x } = p;
+    return [
+      `כופלים כל איבר בשני האגפים ב־$${a}$: $${linTex(a, 0)} + x = ${a * c}$`,
+      `מכנסים: $${linTex(a + 1, 0)} = ${a * c}$, ולכן $x = ${x}$.`,
+      `בדיקה: $${x} + ${x} : ${a} = ${x} + ${x / a} = ${c}$`,
+    ];
+  }
+  const { q, s, r, x } = p; const Q = 2 * q;
+  return [
+    `כופלים כל איבר ב־$${Q}$, וכל מונה בסוגריים: $2(x + ${p.p}) - (x - ${s}) = ${Q * r}$`,
+    `פותחים סוגריים, והמינוס הופך את שני הסימנים: $2x + ${2 * p.p} - x + ${s} = ${Q * r}$`,
+    `מכנסים: $x + ${2 * p.p + s} = ${Q * r}$, ולכן $x = ${x}$.`,
+    `בדיקה: $2(${x} + ${p.p}) - (${x} - ${s}) = ${2 * (x + p.p) - (x - s)} = ${Q} \\cdot ${r}$`,
+  ];
+}
+const SPENDERS = ['דני', 'עומר', 'איתי', 'יואב'];
+const spender = (p) => SPENDERS[(p.x + p.a) % SPENDERS.length];
+export const eq7TText = (p) => (p.k === 0
+  ? `${spender(p)} קיבל כסף. הוא הוציא $\\frac{1}{${p.a}}$ ממנו על ספרים ו־$\\frac{1}{${p.b}}$ ממנו על משחק, יחד $${p.c}$ ש״ח. כמה כסף קיבל?`
+  : `${spender(p)} קיבל כסף. הוא הוציא $\\frac{1}{${p.a}}$ מהכסף ונשארו לו $${p.c}$ ש״ח. כמה כסף קיבל?`);
+export const eq7THint = (p) => (p.k === 0
+  ? `נסמן ב־$x$ את הכסף: $\\frac{x}{${p.a}} + \\frac{x}{${p.b}} = ${p.c}$. כופלים כל איבר במכנה משותף.`
+  : `נסמן ב־$x$ את הכסף. נשאר $x - \\frac{x}{${p.a}}$, והוא $${p.c}$. כופלים כל איבר ב־$${p.a}$.`);
+export function eq7TSolution(p) {
+  if (p.k === 0) {
+    const { a, b, L, c, x } = p;
+    return [
+      `נסמן ב־$x$ את הכסף: $\\frac{x}{${a}} + \\frac{x}{${b}} = ${c}$`,
+      `כופלים כל איבר ב־$${L}$: $${linTex(L / a, 0)} + ${linTex(L / b, 0)} = ${L * c}$, כלומר $${linTex(L / a + L / b, 0)} = ${L * c}$, ולכן $x = ${x}$.`,
+      `בדיקה: $${x} : ${a} + ${x} : ${b} = ${x / a} + ${x / b} = ${c}$ ש״ח.`,
+    ];
+  }
+  const { a, c, x } = p;
+  return [
+    `נסמן ב־$x$ את הכסף: $x - \\frac{x}{${a}} = ${c}$`,
+    `כופלים כל איבר ב־$${a}$: $${linTex(a, 0)} - x = ${a * c}$, כלומר $${linTex(a - 1, 0)} = ${a * c}$, ולכן $x = ${x}$.`,
+    `בדיקה: הוציא $${x} : ${a} = ${x / a}$, ונשארו $${x} - ${x / a} = ${c}$ ש״ח.`,
+  ];
+}
+
+/** e7 (the critique's eq7): two fractions of x, x and a fraction of it, or two numerators with a minus between them. */
+function denomItem() {
+  const p = EQ7.params(rnd6); const ans = EQ7.answer(p);
+  return { key: eq7Key(p), text: 'פתרו את המשוואה.', display: eq7Show(p), form: 'num', answer: ans, hint: eq7Hint(p), solution: eq7Solution(p), diag: diagOf(ans, bugsOf(EQ7, p)) };
+}
+/** A proportion (x + a)/b = (x − c)/d, b ≠ d, with a whole answer that is no number of the equation. */
+export function propDraw(r = rnd6) {
+  for (;;) {
+    const b = rint6(r, 2, 7); const d = rint6(r, 2, 7); if (b === d) continue;
+    const a = rint6(r, 1, 9); const c = rint6(r, 1, 9); const x = (d * a + b * c) / (b - d);
+    if (!Number.isInteger(x) || abs(x) > 60 || [a, b, c, d].includes(x)) continue;
+    // only x multiplied, the numerators not as brackets: dx + a = bx − c
+    const pd = (a + c) / (b - d);
+    if (same6(pd, x) || slipLike(pd, x) || abs(pd - x) <= 0.06) continue;
+    return { a, b, c, d, x, pd };
+  }
+}
+function propItem() {
+  const { a, b, c, d, x, pd } = propDraw();
+  return {
+    key: `eq7p:${a}:${b}:${c}:${d}`, text: 'פתרו את המשוואה.', display: `\\frac{x + ${a}}{${b}} = \\frac{x - ${c}}{${d}}`, form: 'num', answer: x,
+    hint: 'כופלים את שני האגפים בשני המכנים. כל מונה הוא סוגריים: כל המונה נכפל.',
+    solution: [
+      `כופלים את שני האגפים ב־$${b} \\cdot ${d}$, וכל מונה בסוגריים: $${d}(x + ${a}) = ${b}(x - ${c})$`,
+      `פותחים סוגריים: $${linTex(d, d * a)} = ${linTex(b, -b * c)}$, ולכן $${linTex(b - d, 0)} = ${d * a + b * c}$ ו־$x = ${T(x)}$.`,
+      `בדיקה: $${d}(${T(x)} + ${a}) = ${d * (x + a)}$, וגם $${b}(${T(x)} - ${c}) = ${b * (x - c)}$`,
+    ],
+    diag: diagOf(x, { 'partial-dist': pd }),
+  };
+}
+/** a/x = b/c with x in the denominator: x = ac/b, whole, never a number of the equation (a/x is not b/c reduced). */
+export function xDenDraw(r = rnd6) {
+  for (;;) {
+    const b = rint6(r, 2, 7); const c = rint6(r, b + 1, 12); if (gcdN(b, c) !== 1) continue;
+    const m = rint6(r, 2, 6); const a = b * m; const x = c * m;
+    if ([a, b, c].includes(x)) continue;
+    return { a, b, c, m, x };
+  }
+}
+function xDenItem() {
+  const { a, b, c, m, x } = xDenDraw();
+  return {
+    key: `eq7x:${a}:${b}:${c}`, text: 'פתרו את המשוואה.', display: `\\frac{${a}}{x} = \\frac{${b}}{${c}}`, form: 'num', answer: x,
+    hint: `$x$ במכנה: כופלים את שני האגפים ב־$${c}x$, ואז נשארת משוואה של צעד אחד.`,
+    solution: [`כופלים את שני האגפים ב־$${c}x$: $${a * c} = ${b}x$`, `מחלקים ב־$${b}$: $x = ${x}$`, `בדיקה: $\\frac{${a}}{${x}}$ מצטמצם ב־$${m}$ ל־$\\frac{${b}}{${c}}$.`],
+    diag: () => null,
+  };
+}
+/** Pairs neither coprime nor one a multiple of the other, so the lcm, the product, the sum and the larger differ. */
+export const LCD_PAIRS = [[4, 6], [6, 8], [6, 9], [4, 10], [6, 10], [8, 12], [9, 12], [10, 15]];
+/**
+ * The smallest common denominator: the lcm, the product (it clears the fractions too, but is not the smallest), the sum
+ * and the larger denominator. Four numbers to pick from and the answer is read off them, so practice only.
+ */
+function lcdMc() {
+  const [a, b] = pick(LCD_PAIRS); const L = lcm(a, b);
+  const opts = [[L, true], [a * b], [a + b], [b]];
+  const choices = shuffle(opts.map(([v, ok]) => ({ ...tex(String(v)), ok: ok === true })));
+  const multiples = Array.from({ length: L / b }, (_, i) => b * (i + 1));
+  return {
+    key: `eq7l:${a}:${b}`, text: `מה המכנה המשותף הקטן ביותר של $${a}$ ו־$${b}$?`, form: 'mc', choices, answer: choices.findIndex((c) => c.ok), practiceOnly: true,
+    hint: `עוברים על הכפולות של $${b}$, ומחפשים את הראשונה שמתחלקת גם ב־$${a}$.`,
+    solution: [`הכפולות של $${b}$: $${multiples.join(', ')}$. הראשונה שמתחלקת גם ב־$${a}$ היא $${L}$.`, `גם $${a * b}$ מבטל את שני המכנים, אבל $${L}$ קטן ממנו, והחשבון קצר יותר.`],
+    diag: () => null,
+  };
+}
+
 export const EQ = {
   id: 'eq', grade: '7', title: 'משוואות', color: 'violet',
-  desc: 'משוואה ופתרונה, פעולות על שני האגפים, בדיקה בהצבה, בעיות מילוליות ושאלות תנועה',
+  desc: 'משוואה ופתרונה, פעולות על שני האגפים, בדיקה בהצבה, בעיות מילוליות, שאלות תנועה ומשוואות עם מכנים',
   placement: false, alsoFor: ['8'],
   levels: [
     { title: 'משוואה ופתרון', gen: () => { const r = Math.random(); return r < 0.45 ? oneStepItem() : r < 0.62 ? whichSolves() : r < 0.82 ? missingItem() : balance1(); } },
@@ -838,6 +1020,9 @@ export const EQ = {
     { title: 'בעיות מילוליות', gen: () => { const r = Math.random(); return r < 0.7 ? pick([stampsStory, agesStory, parcelsStory, anglesStory, ballsStory, consecutiveStory])() : pickEquation(); } },
     // the spec's mix: a motion story 50%, minutes and hours 25%, the meeting read off a graph 10%, which equation 15%
     { title: 'שאלות תנועה', gen: () => { const r = Math.random(); return r < 0.5 ? motionItem() : r < 0.75 ? minutesItem() : r < 0.85 ? meetGraph() : tableMc(); } },
+    // the spec's mix: two fractions or x and a fraction of it 55%, a proportion 20%, x in a denominator 15%, the smallest
+    // common denominator 10%
+    { title: 'משוואות עם מכנים ופרופורציה', gen: () => { const r = Math.random(); return r < 0.55 ? denomItem() : r < 0.75 ? propItem() : r < 0.9 ? xDenItem() : lcdMc(); } },
   ],
   cats: {
     'move-no-flip': 'מספר עבר לאגף השני בלי פעולה הפוכה ($x + 5 = 12$ הפך ל־$x = 17$)',
@@ -856,6 +1041,9 @@ export const EQ = {
     'minutes-as-hours': 'השתמשו בדקות כאילו הן שעות',
     'decimal-minutes': 'כתבו דקות כשבר עשרוני של שעה, כאילו בשעה $100$ דקות',
     'formula-flip': 'חילקו במקום לכפול: דרך היא מהירות כפול זמן',
+    // eq:7, equations with denominators and proportion (stage5.md FUNC-4); add-across is frac's id and name
+    'lcd-partial': 'כפלו במכנה המשותף רק חלק מהאיברים',
+    'add-across': 'חיברו מונה עם מונה ומכנה עם מכנה',
   },
   lesson: {
     points: [
@@ -866,6 +1054,7 @@ export const EQ = {
       'תמיד בודקים: מציבים את הפתרון במשוואה המקורית.',
       'בבעיה מילולית בודקים גם בסיפור, ועונים על מה שנשאל.',
       'שאלות תנועה: דרך = מהירות × זמן, באותן יחידות. זה לקראת זה מחברים את המהירויות, ומי שמשיג סוגר את הפער בהפרש שלהן.',
+      'משוואה עם מכנים: כופלים כל איבר בשני האגפים במכנה משותף. המונה כולו נכפל, כמו סוגריים: $\\frac{x}{2} + \\frac{x}{3} = 10$, ולכן $3x + 2x = 60$.',
     ],
   },
 };

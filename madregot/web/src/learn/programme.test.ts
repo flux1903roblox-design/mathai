@@ -76,19 +76,25 @@ describe('stage 5\'s functions unit, live', () => {
   });
 });
 
-// Stage 5 (stage5.md FUNC-8 Design 1): the motion problems (eq:6) are ח׳ 8.9's, and a ז׳ class meets them in June, the
-// schedule's motion task: 7.8 lists eq:6 in a 0-hour part with its own months, so ז׳ is not told they are taught in
-// March, and no hour moves.
-describe('stage 5\'s motion problems, live', () => {
-  it('7.8 lists eq:6 in a 0-hour part of its own month, and stays whole', () => {
+// Stage 5 (stage5.md FUNC-8 Design 1): the motion problems (eq:6) and equations with denominators (eq:7) are ח׳ 8.9's,
+// and a ז׳ class meets them in June, the schedule's motion task: 7.8 lists them in a 0-hour part with its own months, so
+// ז׳ is not told they are taught in March, and no ז׳ hour moves; 8.9's six hours are theirs.
+describe('stage 5\'s motion problems and equations with denominators, live', () => {
+  it('7.8 lists eq:6 and eq:7 in a 0-hour part of its own month, and stays whole', () => {
     const u78 = coverageOf('7').units.find((u) => u.id === '7.8')!;
     expect(u78).toMatchObject({ hours: 21, taught: 21, state: 'yes', missing: [] });
-    expect(u78.stairs).toContain('eq:6');
-    expect(u78.parts.find((p) => p.skills.includes('eq:6'))).toMatchObject({ hours: 0, taught: true, note: 'שאלות תנועה ומשוואות עם מכנים' });
+    expect(u78.stairs).toEqual(expect.arrayContaining(['eq:6', 'eq:7']));
+    expect(u78.parts.find((p) => p.skills.includes('eq:6'))).toMatchObject({ hours: 0, skills: ['eq:6', 'eq:7'], taught: true, note: 'שאלות תנועה ומשוואות עם מכנים' });
     expect((PROGRAMME.units.find((u) => u.id === '7.8')!.parts.find((p) => p.skills.includes('eq:6')) as { months?: number[] }).months).toEqual([6]);
   });
-  it('places eq:6 in June for ז׳, and leaves eq:1-5 in March', () => {
-    expect(monthIndex('eq:6', '7')).toBe(9);
+  it('8.9 is taught whole: its six hours of motion, x in a denominator and proportion are eq:6 and eq:7\'s', () => {
+    const u89 = coverageOf('8').units.find((u) => u.id === '8.9')!;
+    expect(u89).toMatchObject({ hours: 12, taught: 12, state: 'yes', missing: [] });
+    expect(u89.parts.find((p) => p.skills.includes('eq:7'))).toMatchObject({ hours: 6, skills: ['eq:6', 'eq:7'], taught: true, later: null });
+  });
+  it('places eq:6 and eq:7 in June for ז׳ and December for ח׳, and leaves eq:1-5 in March', () => {
+    expect([monthIndex('eq:6', '7'), monthIndex('eq:7', '7')]).toEqual([9, 9]);
+    expect([monthIndex('eq:6', '8'), monthIndex('eq:7', '8')]).toEqual([3, 3]);
     for (let k = 1; k <= 5; k += 1) expect(monthIndex(`eq:${k}`, '7'), `eq:${k}`).toBe(6);
   });
 });

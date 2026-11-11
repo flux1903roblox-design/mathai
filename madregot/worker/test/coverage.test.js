@@ -134,7 +134,7 @@ test('the spec\'s two worked units, 7.3 and 8.9, are exactly as written', () => 
   assert.deepEqual(unit('8.9').parts, [
     { hours: 1, skills: ['line:8'] },
     { hours: 5, skills: ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'sys:1'] },
-    { hours: 6, skills: [], note: 'שאלות תנועה, משתנה במכנה, משוואות בעזרת פרופורציה', later: 'S5' },
+    { hours: 6, skills: ['eq:6', 'eq:7'], note: 'שאלות תנועה, משתנה במכנה, משוואות בעזרת פרופורציה' },
   ]);
 });
 
@@ -196,15 +196,21 @@ test('a unit\'s state, stairs and missing parts', () => {
   assert.equal(coverage('8', with4).taught, coverage('8', [...STAGE1, 'func:1', 'func:2', 'func:3']).taught);
   assert.equal(coverage('8', with4).taught, 74);
   assert.equal(monthIndex('func:4', '8'), 2); // 8.8, November
-  // 7.8 lists eq:6 in a part of 0 hours with its own month (June, the motion task: ח׳ content a ז׳ class meets too): it
-  // moves no hour, and names the motion problems as missing until eq:6 is there
-  const u78 = at('7', STAGE1, '7.8');
+  // 7.8 lists eq:6 and eq:7 in a part of 0 hours with its own month (June, the motion task: ח׳ content a ז׳ class meets
+  // too): it moves no hour, and names the part as missing until both stairs are there
+  const u78 = at('7', [...STAGE1, 'eq:6'], '7.8');
   assert.deepEqual([u78.taught, u78.hours, u78.state, u78.missing], [21, 21, 'yes', ['שאלות תנועה ומשוואות עם מכנים']]);
-  const with6 = at('7', [...STAGE1, 'eq:6'], '7.8');
-  assert.deepEqual([with6.taught, with6.missing, with6.stairs.includes('eq:6')], [21, [], true]);
-  assert.deepEqual(with6.parts.map((p) => [p.hours, p.skills, p.taught]), [[21, ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5'], true], [0, ['eq:6'], true]]);
+  const with67 = at('7', [...STAGE1, 'eq:6', 'eq:7'], '7.8');
+  assert.deepEqual([with67.taught, with67.missing, with67.stairs.includes('eq:6'), with67.stairs.includes('eq:7')], [21, [], true, true]);
+  assert.deepEqual(with67.parts.map((p) => [p.hours, p.skills, p.taught]), [[21, ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5'], true], [0, ['eq:6', 'eq:7'], true]]);
   assert.deepEqual(PROGRAMME.units.find((u) => u.id === '7.8').parts[1].months, [6]);
-  assert.equal(coverage('7', [...STAGE1, 'eq:6']).taught, coverage('7', STAGE1).taught);
+  assert.equal(coverage('7', [...STAGE1, 'eq:6', 'eq:7']).taught, coverage('7', STAGE1).taught);
+  // 8.9's third part, the motion problems, x in a denominator and proportions (6 hours), is eq:6 and eq:7's: untaught
+  // until both are there; with the functions unit, ח׳ is then 80 of 147
+  const S5_8 = [...STAGE1, 'func:1', 'func:2', 'func:3', 'func:4'];
+  assert.deepEqual([at('8', [...S5_8, 'eq:6'], '8.9').taught, at('8', [...S5_8, 'eq:6', 'eq:7'], '8.9').taught], [6, 12]);
+  assert.deepEqual(at('8', [...S5_8, 'eq:6', 'eq:7'], '8.9').missing, []);
+  assert.deepEqual([coverage('8', [...S5_8, 'eq:6', 'eq:7']).taught, coverage('8', [...S5_8, 'eq:6', 'eq:7']).hours], [80, 147]);
   // func:1 teaches ז׳ 7.9's situation graph (2 hours): ז׳ 104 + 2 = 106 of 150, ח׳ unchanged at 66 of 147
   assert.deepEqual([coverage('7', [...STAGE1, 'func:1']).taught, coverage('8', [...STAGE1, 'func:1']).taught], [106, 66]);
   assert.deepEqual(at('7', [...STAGE1, 'func:1'], '7.9'), {
@@ -265,9 +271,11 @@ test('the school calendar: the month a grade meets a stair, and where a date fal
   assert.equal(monthIndex('expr:1', '7'), 3); // December
   assert.equal(monthIndex('eq:1', '7'), 6); // March
   assert.equal(monthIndex('eq:1', '8'), 3); // 8.9, December
-  // a part's own months come before its unit's: 7.8 lists eq:6 in June (the motion task), while eq:1-5 stay March's
-  assert.equal(monthIndex('eq:6', '7'), 9);
+  // a part's own months come before its unit's: 7.8 lists eq:6 and eq:7 in June (the motion task), while eq:1-5 stay
+  // March's; for ח׳ both are 8.9's, December
+  assert.deepEqual([monthIndex('eq:6', '7'), monthIndex('eq:7', '7')], [9, 9]);
   for (let k = 1; k <= 5; k += 1) assert.equal(monthIndex(`eq:${k}`, '7'), 6, `eq:${k}`);
+  assert.deepEqual([monthIndex('eq:6', '8'), monthIndex('eq:7', '8')], [3, 3]);
   // a stair in both grades has a month in each: pyth:1 is December in ז׳ (powers and roots) and September in ח׳
   assert.equal(monthIndex('pyth:1', '7'), 3);
   assert.equal(monthIndex('pyth:2', '7'), 6); // 7.14, March

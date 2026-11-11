@@ -1,6 +1,6 @@
 // Equations (משוואות), grade 7, in the order of the Ministry's programme (March to May): what an equation and its
-// solution are, two steps, the unknown on both sides, brackets, word problems; then motion problems (eq:6, ח׳ 8.9's,
-// which a ז׳ class meets in June).
+// solution are, two steps, the unknown on both sides, brackets, word problems; then motion problems (eq:6) and equations
+// with denominators and proportion (eq:7), ח׳ 8.9's, which a ז׳ class meets in June.
 // One idea carries the five stairs: an equation is a balance. Doing the same to both sides keeps it level and keeps
 // its solution, and the solution is checked by putting it back in (the curriculum: "פתרון מלא כולל בחובו הצבה במשוואה
 // המקורית לצורך בדיקה"). The balance carries positive whole numbers only; negatives follow the same rule without it
@@ -16,8 +16,8 @@ import { slipLike } from '../misconceptions';
 import { T } from '@/content/util.js';
 // @ts-ignore: plain JS, the same TeX the expression generators print
 import { linTex, sumTex } from '@/content/expr.js';
-// @ts-ignore: plain JS, eq:6's models (the critique's eq6, the spec's eq6T), texts and worked solutions
-import { EQ6, EQ6T, eq6Text, eq6Hint, eq6Solution, eq6TText, eq6THint, eq6TSolution } from '@/content/eq.js';
+// @ts-ignore: plain JS, eq:6's and eq:7's models (the critique's eq6 and eq7, the spec's eq6T and eq7T), texts and worked solutions
+import { EQ6, EQ6T, eq6Text, eq6Hint, eq6Solution, eq6TText, eq6THint, eq6TSolution, EQ7, EQ7T, eq7Show, eq7Hint, eq7Solution, eq7TText, eq7THint, eq7TSolution } from '@/content/eq.js';
 
 const abs = Math.abs;
 /** A still scale: boxes and weights on each pan; tilt 1 when the right pan is down, −1 the left. */
@@ -1133,7 +1133,202 @@ const stair6: StairContent = {
   ],
 };
 
-export const EQ: StairContent[] = [stair1, stair2, stair3, stair4, stair5, stair6];
+// ================================================================ stair 7: equations with denominators and proportion
+// An equation with denominators is cleared by multiplying every term of both sides by a common denominator; a numerator
+// of two terms is a bracket, and so is the minus before a fraction; a proportion is solved by multiplying by both
+// denominators, also with x in a denominator; every answer is checked in the original (stage5.md FUNC-4). Written in
+// words where the class's slash marks (CLASSROOM-7) would go, except the one display of the rule. The models are
+// content/eq.js EQ7 (the critique's eq7) and EQ7T (the spec's eq7T), ported unchanged; the sources are listed there.
+
+type P7 = { k: number; a?: number; b?: number; L?: number; c?: number; x: number; q?: number; p?: number; s?: number; r?: number };
+const eq7: DiagModel<P7> = {
+  params: (rnd) => EQ7.params(rnd),
+  text: () => 'פתרו את המשוואה.',
+  display: (p) => eq7Show(p),
+  answer: (p) => EQ7.answer(p),
+  bugs: EQ7.bugs,
+  solution: (p) => eq7Solution(p),
+  hint: (p) => eq7Hint(p),
+};
+type P7T = { k: number; a: number; b?: number; L?: number; c: number; x: number };
+const eq7T: DiagModel<P7T> = {
+  params: (rnd) => EQ7T.params(rnd),
+  text: (p) => eq7TText(p),
+  answer: (p) => EQ7T.answer(p),
+  bugs: EQ7T.bugs,
+  solution: (p) => eq7TSolution(p),
+  hint: (p) => eq7THint(p),
+  unit: 'ש״ח',
+};
+
+/** A half and a third of the same amount, one bar each. */
+const HALF_THIRD: FigSpec = { type: 'fbar', rows: [{ den: 2, shaded: 1, label: 'חצי' }, { den: 3, shaded: 1, label: 'שליש' }] };
+/** The same half and third in sixths: 3 of 6 parts and 2 of 6. */
+const SIXTHS: FigSpec = { type: 'fbar', rows: [{ den: 6, shaded: 3, label: 'חצי' }, { den: 6, shaded: 2, label: 'שליש' }] };
+
+/** Which number clears both denominators (discover step 2, and the add-across remedy). */
+const clearStep = {
+  kind: 'predict' as const, text: 'במה כדאי לכפול את שני האגפים כדי שלא יישארו מכנים?', fig: HALF_THIRD, display: '\\frac{x}{2} + \\frac{x}{3} = 150',
+  choices: ['$6$', '$5$', '$2$'], answer: 0,
+  why: '$6$ מתחלק גם ב־$2$ וגם ב־$3$.',
+  wrongWhy: { 1: '$5$ הוא סכום המכנים. כפל ב־$5$ לא מבטל את המכנה $2$: $\\frac{5x}{2}$ עדיין שבר.', 2: 'כפל ב־$2$ מבטל רק את המכנה $2$: $\\frac{2x}{3}$ נשאר שבר.' },
+};
+/** Every term times 6, the 10 too (discover step 4, and the lcd-partial remedy). */
+const everyTermStep = {
+  kind: 'predict' as const, text: 'כופלים את שני האגפים ב־$6$. מה מקבלים?', display: '\\frac{x}{2} + \\frac{x}{3} = 10', fig: { type: 'fbar', den: 6, shaded: 0 } as FigSpec,
+  choices: ['$3x + 2x = 60$', '$3x + 2x = 10$', '$x + x = 60$'], answer: 0,
+  why: 'כל איבר נכפל ב־$6$, גם ה־$10$. אז $5x = 60$ ו־$x = 12$.',
+  wrongWhy: { 1: 'ה־$10$ לא הוכפל, והאיזון נשבר: יוצא $x = 2$, ו־$\\frac{2}{2} + \\frac{2}{3}$ אינו $10$.', 2: 'גם המכנים נעלמו, אבל $\\frac{x}{2}$ כפול $6$ הוא $3x$, לא $x$.' },
+};
+/** The rule, with the class's slash mark (discover step 5, and the lcd-partial remedy). */
+const clearRule = {
+  kind: 'rule' as const, text: 'כופלים כל איבר בשני האגפים במכנה המשותף, ואז פותרים כרגיל.', fig: SIXTHS,
+  display: '\\frac{x}{2} + \\frac{x}{3} = 10 \\;/\\cdot 6 \\quad\\Rightarrow\\quad 3x + 2x = 60',
+  why: 'כפל של שני האגפים באותו מספר שומר על האיזון. חצי הוא $3$ שישיות, ושליש הוא $2$ שישיות.',
+};
+/** A numerator of two terms is a bracket (discover step 6, and the partial-dist remedy). */
+const bracketStep = {
+  kind: 'predict' as const, text: 'מה $x$?', display: '\\frac{x + 4}{3} = 5', fig: { type: 'machine', inX: 'x + 4', rule: ': 3', outY: 5 } as FigSpec,
+  choices: ['$11$', '$3$', '$19$'], answer: 0,
+  why: '$x + 4 = 15$, ולכן $x = 11$. כל המונה, $x + 4$, מתחלק ב־$3$.',
+  wrongWhy: { 1: '$3$ יוצא כשמחלקים רק את $x$: $\\frac{x}{3} + 4 = 5$.', 2: '$19$ יוצא כשמעבירים את $4$ בלי להפוך את הפעולה.' },
+};
+/** The minus before a fraction is a minus before brackets (discover step 7, and the minus-bracket remedy). */
+const minusStep = {
+  kind: 'predict' as const, text: 'מה השורה הבאה?', display: '\\frac{x + 1}{2} - \\frac{x - 3}{4} = 3 \\;/\\cdot 4', fig: { type: 'tiles', px: 0, nx: 1, p1: 3, n1: 0 } as FigSpec,
+  choices: ['$2(x + 1) - (x - 3) = 12$', '$2(x + 1) - x - 3 = 12$'], answer: 0,
+  why: 'המינוס לפני השבר הוא מינוס לפני סוגריים: $-(x - 3) = -x + 3$. ואז $x = 7$.',
+  wrongWhy: { 1: 'כך המינוס הפך רק את $x$, ויוצא $13$ במקום $7$.' },
+};
+/**
+ * x in the denominator: a proportion (discover step 8). The two fractions side by side in a table, numerator and
+ * denominator: the spec's bar of twelve twentieths would show the 20 asked for, and would not name x.
+ */
+const xDenStep = {
+  kind: 'predict' as const, text: 'מה $x$?', display: '\\frac{12}{x} = \\frac{3}{5}', fig: { type: 'table', head: ['', 'מונה', 'מכנה'], rows: [['השבר עם x', 12, 'x'], ['השבר השני', 3, 5]] } as FigSpec,
+  choices: ['$20$', '$7.2$'], answer: 0,
+  why: 'כופלים את שני האגפים ב־$5x$: $60 = 3x$, ולכן $x = 20$. בדיקה: $\\frac{12}{20} = \\frac{3}{5}$.',
+  wrongWhy: { 1: '$7.2$ הוא $\\frac{3}{5}$ מ־$12$, אבל $x$ במכנה: $\\frac{12}{7.2}$ אינו $\\frac{3}{5}$.' },
+};
+/** Cut the bar so that a half and a third both fall on lines (discover step 3, and the add-across remedy). */
+const commonExplore = {
+  kind: 'explore' as const, text: 'חלקו את הפס כך שגם חצי וגם שליש ייפלו על קווים.',
+  manip: { kind: 'fbar', start: { den: 1, shaded: 0 }, marks: [1 / 2, 1 / 3] } as ManipSpec, answer: { mode: 'common', of: [2, 3] },
+  hint: 'נסו מספר חלקים שמתחלק ב־$2$ וגם ב־$3$.',
+  success: '$6$ חלקים: חצי הם $3$ חלקים, ושליש $2$.',
+};
+
+const stair7: StairContent = {
+  skill: 'eq:7', topic: 'eq', level: 7, title: 'משוואות עם מכנים ופרופורציה',
+  objectives: [
+    'להיפטר מהמכנים: כופלים כל איבר בשני האגפים במכנה משותף.',
+    'לזכור שמונה עם שני איברים הוא כמו סוגריים, גם כשיש מינוס לפני השבר.',
+    'לפתור פרופורציה, גם כש־$x$ במכנה, ולבדוק בהצבה.',
+  ],
+  idea: 'במשוואה עם מכנים כופלים את שני האגפים, כל איבר, במכנה משותף. המונה כולו נכפל, כמו סוגריים.',
+  why: [
+    'כפל של שני האגפים באותו מספר שומר על האיזון, כמו בכל משוואה.',
+    '$\\frac{x + 4}{3}$ הוא $(x + 4) : 3$: כל המונה מתחלק.',
+  ],
+  alt: ['$\\frac{x}{2} + \\frac{x}{3}$ הוא חצי ועוד שליש של אותו דבר: $\\frac{5}{6}$ ממנו.'],
+  discover: [
+    { kind: 'say', text: 'חצי מהכסף ועוד שליש ממנו הם $150$ ש״ח: $\\frac{x}{2} + \\frac{x}{3} = 150$. בסוף השלב נדע שהיו $180$ ש״ח.', fig: HALF_THIRD },
+    clearStep,
+    commonExplore,
+    everyTermStep,
+    clearRule,
+    bracketStep,
+    minusStep,
+    xDenStep,
+  ],
+  examples: [
+    { problem: 'פתרו את המשוואה.', display: '\\frac{x}{4} + \\frac{x}{6} = 5', answer: 12, check: '5*12/5',
+      steps: [
+        { action: 'המכנה המשותף של $4$ ו־$6$: $12$.', why: '$12$ מתחלק גם ב־$4$ וגם ב־$6$, והוא הקטן ביותר כזה.', result: '\\frac{x}{4} + \\frac{x}{6} = 5', eq: 'x/4 + x/6 = 5' },
+        { action: 'כופלים כל איבר ב־$12$.', why: '$\\frac{x}{4}$ כפול $12$ הוא $3x$, ו־$\\frac{x}{6}$ כפול $12$ הוא $2x$. גם $5$ נכפל: $60$.', result: '3x + 2x = 60', eq: '3*x + 2*x = 60' },
+        { action: 'מכנסים.', why: '$3x + 2x = 5x$.', result: '5x = 60', eq: '5*x = 60' },
+        { action: 'מחלקים ב־$5$.', why: 'כך נשאר $x$ לבד.', result: 'x = 12', value: '60/5' },
+        { action: 'בודקים במשוואה המקורית.', why: '$12 : 4 = 3$ ו־$12 : 6 = 2$, ויחד $5$.', result: '3 + 2 = 5', calc: { expr: '12/4 + 12/6', value: 5 } },
+      ] },
+    { problem: 'פתרו את המשוואה.', display: '\\frac{x - 2}{3} = \\frac{x + 4}{5}', answer: 11, check: '(10+12)/2',
+      steps: [
+        { action: 'כופלים את שני האגפים ב־$15$; כל מונה בסוגריים.', why: '$15$ מתחלק ב־$3$ וב־$5$. השבר שמכנהו $3$ נכפל ב־$5$, וזה שמכנהו $5$ נכפל ב־$3$.', result: '5(x - 2) = 3(x + 4)', eq: '5*(x - 2) = 3*(x + 4)' },
+        { action: 'פותחים סוגריים.', why: 'המספר שלפני הסוגריים כופל כל איבר בתוכם.', result: '5x - 10 = 3x + 12', eq: '5*x - 10 = 3*x + 12' },
+        { action: 'מחסירים $3x$ ומוסיפים $10$ לשני האגפים.', why: 'כך $x$ נשאר רק באגף אחד.', result: '2x = 22', eq: '2*x = 22' },
+        { action: 'מחלקים ב־$2$.', why: '$22 : 2 = 11$.', result: 'x = 11', value: '22/2' },
+        { action: 'בודקים בשורה שאחרי הכפל.', why: '$5 \\cdot 11 - 10 = 45$, וגם $3 \\cdot 11 + 12 = 45$.', result: '45 = 45', calc: { expr: '5*11 - 10', value: 45 } },
+        { action: 'ובמשוואה המקורית.', why: '$\\frac{9}{3} = 3$ ו־$\\frac{15}{5} = 3$: שני האגפים שווים.', result: '3 = 3', calc: { expr: '(11+4)/5', value: 3 } },
+      ] },
+    { problem: 'פתרו את המשוואה.', display: '\\frac{18}{x} = \\frac{3}{4}', answer: 24, check: '18*4/3',
+      steps: [
+        { action: 'כופלים את שני האגפים ב־$4x$.', why: '$\\frac{18}{x}$ כפול $4x$ הוא $18 \\cdot 4 = 72$, ו־$\\frac{3}{4}$ כפול $4x$ הוא $3x$.', result: '72 = 3x', eq: '72 = 3*x', calc: { expr: '18*4', value: 72 } },
+        { action: 'מחלקים ב־$3$.', why: '$72 : 3 = 24$.', result: 'x = 24', value: '72/3' },
+        { action: 'בודקים.', why: '$\\frac{18}{24}$ מצטמצם ב־$6$ ל־$\\frac{3}{4}$.', result: '\\frac{18}{24} = \\frac{3}{4}', calc: { expr: '18/24', value: 0.75 } },
+      ] },
+  ],
+  together: [
+    { problem: 'פתרו את המשוואה.', display: '\\frac{x}{3} - \\frac{x}{5} = 4',
+      steps: [
+        { prompt: 'במה כופלים?', choices: [
+          { text: '$15$', ok: true, feedback: 'נכון: $15$ מתחלק גם ב־$3$ וגם ב־$5$.' },
+          { text: '$8$', ok: false, feedback: '$8$ הוא סכום המכנים. צריך מספר שמתחלק בשניהם.' },
+          { text: '$2$', ok: false, feedback: '$2$ הוא ההפרש. כפל ב־$2$ לא מבטל את המכנים $3$ ו־$5$.' },
+        ], hints: ['איזה מספר מתחלק גם ב־$3$ וגם ב־$5$?', 'הכפולות של $5$: $5$, $10$, $15$. איזו מהן מתחלקת ב־$3$?'], done: 'כופלים ב־$15$: $5x - 3x = 60$.' },
+      ],
+      final: { prompt: 'מה $x$?', answer: 30, check: '4*15/2', hints: ['$5x - 3x = 2x$.', '$2x = 60$.'] } },
+    { problem: 'פתרו את המשוואה.', display: '\\frac{x + 2}{4} = \\frac{x - 1}{3}',
+      steps: [
+        { prompt: 'מה מקבלים אחרי הכפל ב־$12$?', choices: [
+          { text: '$3(x + 2) = 4(x - 1)$', ok: true, feedback: 'נכון: כל שבר נכפל, וכל המונה שלו בסוגריים.' },
+          { text: '$3x + 2 = 4x - 1$', ok: false, feedback: 'כל המונה נכפל: $3(x + 2) = 3x + 6$.' },
+          { text: '$4(x + 2) = 3(x - 1)$', ok: false, feedback: '$12$ חלקי $4$ הוא $3$: השבר שמכנהו $4$ נכפל ב־$3$.' },
+        ], hints: ['$12 : 4 = 3$ ו־$12 : 3 = 4$. במה נכפל כל שבר?', 'כל מונה נכפל כולו, כמו סוגריים.'], done: '$3(x + 2) = 4(x - 1)$, כלומר $3x + 6 = 4x - 4$.' },
+      ],
+      final: { prompt: 'מה $x$?', answer: 10, check: '6+4', hints: ['מחסירים $3x$ ומוסיפים $4$ לשני האגפים.', '$6 + 4 = x$.'] } },
+    { problem: 'פתרו את המשוואה.', display: 'x + \\frac{x}{3} = 8',
+      steps: [
+        { prompt: 'כופלים את שני האגפים ב־$3$. מה מקבלים?', choices: [
+          { text: '$3x + x = 24$', ok: true, feedback: 'נכון: כל איבר נכפל ב־$3$.' },
+          { text: '$3x + x = 8$', ok: false, feedback: 'גם $8$ נכפל ב־$3$: כל איבר, בשני האגפים.' },
+          { text: '$x + x = 24$', ok: false, feedback: 'גם $x$ הוא איבר: $3 \\cdot x = 3x$.' },
+        ], hints: ['כל איבר בשני האגפים נכפל ב־$3$.', '$x$ כפול $3$ הוא $3x$, $\\frac{x}{3}$ כפול $3$ הוא $x$, ו־$8$ כפול $3$ הוא $24$.'], done: '$4x = 24$.' },
+      ],
+      final: { prompt: 'מה $x$?', answer: 6, check: '24/4', hints: ['$3x + x = 4x$.', '$4x = 24$.'] } },
+  ],
+  diag: eq7,
+  transfer: eq7T,
+  words: ['מכנה משותף', 'כפל שני האגפים', 'מונה', 'פרופורציה', 'משתנה במכנה', 'בדיקה בהצבה'],
+  misconceptions: [
+    { id: 'lcd-partial', title: 'כפלו במכנה המשותף רק חלק מהאיברים',
+      cause: 'מתמקדים בשברים ושוכחים את המספר שבאגף השני.',
+      explain: ['כופלים כל איבר בשני האגפים, גם את המספר שאין לו מכנה.', 'ב־$\\frac{x}{2} + \\frac{x}{3} = 10$ כפול $6$ יוצא $3x + 2x = 60$. אם ה־$10$ לא נכפל, יוצא $x = 2$, וזה לא פותר את המשוואה.'],
+      remedy: [everyTermStep, clearRule,
+        { kind: 'predict', text: 'כופלים את שני האגפים ב־$3$. מה מקבלים?', display: 'x + \\frac{x}{3} = 8', choices: ['$3x + x = 24$', '$3x + x = 8$'], answer: 0,
+          why: 'כל איבר נכפל ב־$3$: גם $x$ וגם $8$. אז $4x = 24$ ו־$x = 6$.',
+          wrongWhy: { 1: 'ה־$8$ לא הוכפל. בדיקה: $x = 2$ נותן $2 + \\frac{2}{3}$, לא $8$.' } }] },
+    { id: 'partial-dist', title: 'כפלו רק את $x$ שבמונה, ולא את כל המונה',
+      cause: 'קו השבר לא נראה כמו סוגריים.',
+      explain: ['מונה עם שני איברים הוא כמו סוגריים: כשכופלים את השבר, כל המונה נכפל.', 'ב־$\\frac{x + 2}{4} = \\frac{x - 1}{3}$ כפול $12$ יוצא $3(x + 2) = 4(x - 1)$, כלומר $3x + 6 = 4x - 4$, ולא $3x + 2 = 4x - 1$.'],
+      prereq: 'eq:4',
+      remedy: [bracketStep,
+        { kind: 'predict', text: 'מה מקבלים אחרי הכפל ב־$12$?', display: '\\frac{x + 2}{4} = \\frac{x - 1}{3}', choices: ['$3(x + 2) = 4(x - 1)$', '$3x + 2 = 4x - 1$'], answer: 0,
+          why: 'כל המונה נכפל: $3(x + 2) = 3x + 6$ ו־$4(x - 1) = 4x - 4$. אז $x = 10$, ובדיקה: $\\frac{12}{4} = 3$ וגם $\\frac{9}{3} = 3$.',
+          wrongWhy: { 1: 'כך נכפל רק $x$. יוצא $x = 3$, ובדיקה: $\\frac{5}{4}$ אינו $\\frac{2}{3}$.' } }] },
+    { id: 'minus-bracket', title: 'מינוס לפני סוגריים הפך רק את הסימן הראשון',
+      cause: 'המינוס כתוב לפני השבר, רחוק מהמספר שבסוף המונה.',
+      explain: ['מינוס לפני שבר הוא מינוס לפני סוגריים: הוא הופך את הסימן של כל איבר במונה.', 'ב־$\\frac{x + 1}{2} - \\frac{x - 3}{4} = 3$ כפול $4$ יוצא $2(x + 1) - (x - 3) = 12$, ו־$-(x - 3) = -x + 3$.'],
+      remedy: [minusStep,
+        { kind: 'rule', text: 'מינוס לפני שבר הוא מינוס לפני סוגריים: אחרי הכפל, המונה נשאר בסוגריים.', fig: { type: 'tiles', px: 0, nx: 1, p1: 3, n1: 0 } as FigSpec, display: '-(x - 3) = -x + 3',
+          why: 'מורידים את כל המונה, $x - 3$: גם את $x$ וגם את ה־$-3$ שבו, ולכן $+3$.' }] },
+    { id: 'add-across', title: 'חיברו מונה עם מונה ומכנה עם מכנה',
+      cause: 'חיבור של שברים נראה כמו חיבור של מספרים זה ליד זה.',
+      explain: ['$\\frac{x}{2} + \\frac{x}{3}$ הוא חצי ועוד שליש של אותו דבר, $\\frac{5}{6}$ ממנו, ולא $\\frac{2x}{5}$.', 'במשוואה לא מחברים את השברים בכלל: כופלים כל איבר במכנה משותף, והמכנים נעלמים.'],
+      prereq: 'frac:3',
+      remedy: [commonExplore, clearRule] },
+  ],
+};
+
+export const EQ: StairContent[] = [stair1, stair2, stair3, stair4, stair5, stair6, stair7];
 /** Names of misconceptions new to this topic: none beyond the topic's own (content/eq.js names them all). */
 export const CATS_EQ: Record<string, string> = {};
-export { oneStepModel, twoStepModel, bothModel, brkModel, storyModel, eq6, eq6T };
+export { oneStepModel, twoStepModel, bothModel, brkModel, storyModel, eq6, eq6T, eq7, eq7T };

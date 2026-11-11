@@ -317,6 +317,28 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "eq:7": {
+    "title": "משוואות עם מכנים ופרופורציה",
+    "misconceptions": [
+      {
+        "id": "lcd-partial",
+        "title": "כפלו במכנה המשותף רק חלק מהאיברים"
+      },
+      {
+        "id": "partial-dist",
+        "title": "כפלו רק את $x$ שבמונה, ולא את כל המונה"
+      },
+      {
+        "id": "minus-bracket",
+        "title": "מינוס לפני סוגריים הפך רק את הסימן הראשון"
+      },
+      {
+        "id": "add-across",
+        "title": "חיברו מונה עם מונה ומכנה עם מכנה"
+      }
+    ],
+    "transfer": true
+  },
   "expr:1": {
     "title": "הצבה בביטוי",
     "misconceptions": [

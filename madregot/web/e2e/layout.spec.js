@@ -29,6 +29,9 @@ const CASES = [
   ['a motion problem: two movers in one story', 'eq/6', '7', (x) => x.form === 'num' && x.key.startsWith('eq6:')],
   ['a meeting read off a graph of two cars', 'eq/6', '7', (x) => x.form === 'num' && x.fig?.type === 'sgraph'],
   ['which equation fits a motion table', 'eq/6', '7', (x) => x.form === 'mc' && x.key.startsWith('eq6t:')],
+  // two stacked fractions with a minus between them: on the smallest phone the equation fits, with no sideways scroll
+  ['an equation with two stacked fractions', 'eq/7', '7', (x) => x.form === 'num' && x.key.startsWith('eq7:2:')],
+  ['a proportion', 'eq/7', '7', (x) => x.form === 'num' && x.key.startsWith('eq7p:')],
   ['an equation with a percent', 'sys/1', '8'],
   ['a system of two equations (a pair answer)', 'sys/2', '8'],
   ['a system by equal coefficients', 'sys/3', '8'],
