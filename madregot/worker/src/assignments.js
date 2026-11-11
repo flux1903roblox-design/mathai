@@ -19,6 +19,7 @@ import { TOPIC_IDS } from '../../shared/ai.js';
 import { HttpError, body, json, nowIso, dayOf, nextDay, isDay, randomToken, key, take, giveBack, limitOrThrow } from './util.js';
 import { requireTeacher, requireStudent } from './entitle.js';
 import { classSeenStmt, teacherDetail } from './licence.js';
+import { myHelp } from './help.js';
 
 const KB = 1024;
 export const ASSIGN = Object.freeze({
@@ -35,11 +36,17 @@ export const ASSIGN = Object.freeze({
   aheadDays: 120,
   /** Work reports a student sends in a day (ai_usage work:s:<id>). */
   workPerDay: 200,
+  /**
+   * A check assignment is the app's mastery check: this many questions, and "passed" needs this many right
+   * (web/src/learn/mastery.ts MASTERY_N and MASTERY_NEED; assignments.test.js keeps them equal).
+   */
+  checkQuestions: 5,
+  checkNeed: 4,
 });
 const LIMIT = { create: 64 * KB, small: 4 * KB };
 /** Topics a teacher can assign: every stair topic of the app (the algebra lane's included), never 'other'. */
 const TOPICS = TOPIC_IDS.filter((t) => t !== 'other');
-const FORMS = ['num', 'mc', 'pt', 'line', 'lin'];
+const FORMS = ['num', 'mc', 'pt', 'line', 'lin', 'frac'];
 const STATUSES = ['correct', 'partial', 'wrong', 'missing'];
 
 const bad = (field, extra = {}) => new HttpError(400, 'bad_assignment', undefined, { field, ...extra });
@@ -108,6 +115,7 @@ function cleanItem(it) {
   }
   const ok = {
     num: () => num(a),
+    frac: () => num(a), // the fraction's value; the student types its numerator and denominator
     mc: () => Number.isInteger(a) && a >= 0 && !!choices && a < choices.length,
     pt: () => Array.isArray(a) && a.length === 2 && num(a[0]) && num(a[1]),
     line: () => !!a && typeof a === 'object' && !Array.isArray(a) && Object.keys(a).length === 2 && num(a.m) && num(a.b),
@@ -117,11 +125,14 @@ function cleanItem(it) {
   // `exact` is what a rounded Pythagoras length is graded against (num only); `var` is an expression's letter (lin only)
   if (it.exact != null && (it.form !== 'num' || !num(it.exact))) return null;
   if (it.var != null && (it.form !== 'lin' || typeof it.var !== 'string' || !/^[A-Za-z]$/.test(it.var))) return null;
+  // how the app checks the answer: a fraction in lowest terms (frac), a number compared exactly or asked as a decimal
+  if (it.reduced != null && (it.form !== 'frac' || it.reduced !== true)) return null;
+  if ((it.precise != null && it.precise !== true) || (it.askDec != null && it.askDec !== true) || (it.fmt != null && it.fmt !== 'dec')) return null;
   if (it.fig != null && (typeof it.fig !== 'object' || Array.isArray(it.fig) || bytes(JSON.stringify(it.fig)) > 2048)) return null;
   if (!optStr(it.label, 30) || !optStr(it.unit, 30) || !optStr(it.levelTitle, 80) || !optStr(it.answerText, 120) || !optStr(it.hint, 300)) return null;
   if (it.solution != null && (!Array.isArray(it.solution) || it.solution.length > 8 || !it.solution.every((x) => str(x, 300)))) return null;
   const out = {};
-  for (const k of ['topic', 'level', 'key', 'text', 'display', 'form', 'answer', 'exact', 'var', 'choices', 'fig', 'label', 'unit', 'levelTitle', 'answerText', 'solution', 'hint']) {
+  for (const k of ['topic', 'level', 'key', 'text', 'display', 'form', 'answer', 'exact', 'var', 'reduced', 'precise', 'askDec', 'fmt', 'choices', 'fig', 'label', 'unit', 'levelTitle', 'answerText', 'solution', 'hint']) {
     if (it[k] !== undefined) out[k] = it[k];
   }
   return out;
@@ -324,13 +335,13 @@ const mineView = (w) => (w && w.state ? {
 /**
  * GET /api/class/work → {today, teacherName, assignments, help}: the started assignments for this student due in the
  * last 14 days or later, and older ones (30 days) not done yet; not done first, by due date; at most 20. Each carries
- * createdAt, so the app can mark work that is new since the student last looked. `help` (the teacher's replies) comes
- * with TEACHER-6.
+ * createdAt, so the app can mark work that is new since the student last looked. `help`: the student's own help
+ * requests of the last 30 days with where each stands and the replies on it (help.js myHelp, TEACHER-6), never a page.
  */
 export async function classWork(req, env, cors) {
   const s = await requireStudent(req, env);
   const today = dayOf();
-  const [cls, list] = await Promise.all([
+  const [cls, list, help] = await Promise.all([
     first(env, 'SELECT teacher_name FROM classes WHERE code = ?', s.class_code),
     all(env, `SELECT a.id, a.kind, a.skill, a.title, a.note, a.starts_on, a.due_on, a.created_at, a.exam IS NOT NULL AS has_exam,
         CASE WHEN a.exam IS NOT NULL THEN json_array_length(a.exam) END AS exam_count,
@@ -339,6 +350,7 @@ export async function classWork(req, env, cors) {
       WHERE ${MINE} AND (a.due_on >= ?4 OR (COALESCE(w.state, '') != 'done' AND a.due_on >= ?5))
       ORDER BY CASE WHEN w.state = 'done' THEN 1 ELSE 0 END, a.due_on, a.created_at LIMIT 20`,
     s.id, s.class_code, today, plusDays(today, -14), plusDays(today, -30)),
+    myHelp(env, s.id),
   ]);
   return json({
     today, teacherName: cls?.teacher_name || '',
@@ -346,7 +358,7 @@ export async function classWork(req, env, cors) {
       id: a.id, kind: a.kind, skill: a.skill, title: a.title, note: a.note, startsOn: a.starts_on, dueOn: a.due_on, createdAt: a.created_at,
       hasExam: !!a.has_exam, examCount: a.exam_count == null ? null : Number(a.exam_count), mine: mineView(a),
     })),
-    help: [],
+    help,
   }, 200, cors);
 }
 
@@ -367,8 +379,13 @@ export async function workExam(id, req, env, cors) {
 
 /** Which result fields each kind reports. */
 const FIELDS = { stair: ['stage', 'passed'], check: ['right', 'asked', 'passed'], exam: ['right', 'asked', 'questions'] };
-/** A report checked against its assignment's kind: {state, stage, right, asked, passed, questions (JSON)}. */
-export function cleanWork(b, kind) {
+/**
+ * A report checked against its assignment: {state, stage, right, asked, passed, questions (JSON)}. Each kind reports
+ * only its own fields, and a finished result must be one the assignment can give: a class exam of `examCount`
+ * questions reports exactly that many, with a status for each; a check is a mastery check of ASSIGN.checkQuestions
+ * questions at most, and "passed" needs all of them asked and ASSIGN.checkNeed right.
+ */
+export function cleanWork(b, kind, { examCount = null } = {}) {
   const state = b.state;
   if (state !== 'started' && state !== 'done') throw badWork('state');
   const has = (k) => b[k] !== undefined && b[k] !== null;
@@ -392,6 +409,14 @@ export function cleanWork(b, kind) {
     });
     out.questions = JSON.stringify(clean);
   }
+  if (kind === 'exam' && state === 'done') {
+    if (out.asked !== examCount) throw badWork('asked');
+    if (!Array.isArray(b.questions) || b.questions.length !== examCount) throw badWork('questions');
+  }
+  if (kind === 'check') {
+    if (out.asked !== null && out.asked > ASSIGN.checkQuestions) throw badWork('asked');
+    if (out.passed === 1 && (out.asked !== ASSIGN.checkQuestions || out.right < ASSIGN.checkNeed)) throw badWork('passed');
+  }
   return out;
 }
 
@@ -406,7 +431,7 @@ export async function postWork(id, req, env, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.small);
   const row = await mineRow(env, s, id);
-  const w = cleanWork(b, row.kind);
+  const w = cleanWork(b, row.kind, { examCount: row.exam ? JSON.parse(row.exam).length : null });
   await limitOrThrow(env, `work:s:${s.id}`, ASSIGN.workPerDay, 429, 'slow_down');
   const now = nowIso(); const day = dayOf();
   const done = w.state === 'done';

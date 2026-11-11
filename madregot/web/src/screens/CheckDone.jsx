@@ -36,12 +36,24 @@ function copy(r, rec, def, award) {
       return { mood: 'happy', title: 'הבדיקה הסתיימה', body: `${r.right} מתוך ${r.asked} נכונות. עכשיו אפשר לבנות תוכנית שמתאימה בדיוק למה שצריך.` };
     case 'exam':
       return { mood: r.accuracy >= 80 ? 'achievement' : 'happy', title: 'מבחן התרגול הסתיים', body: `${r.right} מתוך ${r.asked} נכונות. בתוכנית רואים מה עוד כדאי לחזק לפני המבחן.` };
+    case 'class':
+      return { mood: r.accuracy >= 80 ? 'achievement' : 'happy', title: 'סיימתם את המבחן', body: `${r.right} מתוך ${r.asked} תשובות נכונות.` };
     default:
       return { mood: 'happy', title: 'סיימתם', body: '' };
   }
 }
 
-export default function CheckDone({ result: r, award, onExit }) {
+/**
+ * Where the class exam's result is (TEACHER-5 §4): on its way, with the teacher, or waiting on this device for a
+ * connection (it is sent by itself when the app is back online, lib/classWork.js).
+ */
+function SentLine({ work }) {
+  const waiting = useApp((s) => !!s.workOutbox?.[work.id]);
+  const text = !work.tried ? 'שולחים את התוצאה למורה…' : waiting ? 'התוצאה תישלח למורה כשיהיה חיבור.' : 'התוצאה נשלחה למורה.';
+  return <p className="check-sent" role="status">{text}</p>;
+}
+
+export default function CheckDone({ result: r, award, onExit, work }) {
   const navigate = useNavigate();
   const skill = r.skill || (r.topic && r.level ? skillId(r.topic, r.level) : null);
   const rec = useApp((s) => (skill ? s.learn.skills[skill] : null));
@@ -53,6 +65,7 @@ export default function CheckDone({ result: r, award, onExit }) {
   // a finished check counts as a finished lesson: the moment to ask the browser to keep the data (durable/persist.js)
   useEffect(() => { askAfterLesson(); }, []);
   const rescue = r.purpose === 'diagnostic' || r.purpose === 'exam';
+  const classExam = r.purpose === 'class';
   const nextA = actions.find((a) => !(a.skill === skill && a.kind === (r.purpose === 'mastery' ? 'mastery' : r.purpose)));
   const weak = Object.entries(r.perSkill || {}).filter(([, x]) => x.right < x.asked).map(([s]) => s);
   return (
@@ -61,6 +74,7 @@ export default function CheckDone({ result: r, award, onExit }) {
       <div className="check-hero" data-region="content"><Mascot mood={c.mood} size={150} className="check-mascot" /></div>
       <h1 ref={ref} tabIndex={-1} className={clsx('check-title', r.passed ? 'good' : 'warm')}>{c.title}</h1>
       <p className="lead">{c.body}</p>
+      {classExam && work?.id && <SentLine work={work} />}
       {/* a passed mastery check is what moves the path: the stair is done, and the unit's count goes up */}
       {r.purpose === 'mastery' && r.passed && award?.done != null && TOPIC[r.topic] && (
         <p className="climb-caption">{TOPIC[r.topic].title}: <bdi>{award.done}</bdi> מתוך <bdi>{TOPIC[r.topic].levels.length}</bdi> מדרגות</p>
@@ -82,7 +96,9 @@ export default function CheckDone({ result: r, award, onExit }) {
         <div className="box box-note"><h2 className="box-tab">מה עוד לא יצא</h2><div className="box-body"><ul className="plain-list">{weak.map((s) => <li key={s}>{titleOf(s)}</li>)}</ul></div></div>
       )}
       <div className="form-actions" data-region="footer">
-        {rescue ? (
+        {classExam ? (
+          <Button className="btn-block btn-lg" onClick={onExit}>חזרה למשימות</Button>
+        ) : rescue ? (
           <Button className="btn-block btn-lg" onClick={() => navigate('/rescue', { replace: true })}>לתוכנית ההכנה<ArrowLeft size={18} aria-hidden="true" /></Button>
         ) : !r.passed && skill ? (
           <>
@@ -92,7 +108,7 @@ export default function CheckDone({ result: r, award, onExit }) {
         ) : nextA ? (
           <Button className="btn-block btn-lg" onClick={() => navigate(nextA.to, { replace: true })}>הלאה: <MathText text={nextA.title} /></Button>
         ) : null}
-        <Button variant="ghost" className="btn-block" onClick={onExit}>למפה</Button>
+        {!classExam && <Button variant="ghost" className="btn-block" onClick={onExit}>למפה</Button>}
       </div>
     </div>
   );

@@ -1,0 +1,2 @@
+/* Applied only while a visual baseline is taken (teacher.spec.js shot()): toasts leave on their own timer. */
+[data-sonner-toaster] { visibility: hidden !important; }

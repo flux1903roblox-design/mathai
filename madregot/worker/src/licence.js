@@ -93,6 +93,7 @@ export async function licenceRequest(req, env, ctx, cors) {
   const b = await body(req, SMALL);
   const wants = String(b.wants || '');
   if (!['trial', 'quote'].includes(wants)) throw new HttpError(400, 'bad_request');
+  // a trial is student AI: not for a class the Ministry's rules keep it from (TRUST-11 §5); a quote stays open
   if (wants === 'trial') await refuseSchoolSale(env, cls);
   const school = cleanText(b.school, 80);
   if (!school) throw new HttpError(400, 'missing_fields');
@@ -140,6 +141,9 @@ export const licenceCodeHash = (code) => sha256(code);
 export async function licenceClaim(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const b = await body(req, SMALL);
+  // a school licence code is student AI for a school class: not while the Ministry's rules keep it off there (TRUST-11
+  // §5: 409 school_ai_not_approved); checked first, so it uses up no try and no place of the code
+  await refuseSchoolSale(env, cls);
   const net = await netKey(req, env);
   const tooMany = new HttpError(429, 'too_many_tries');
   const r = await take(env, [
@@ -147,7 +151,6 @@ export async function licenceClaim(req, env, cors) {
     key(`licclaim:c:${cls.code}`, CLAIM_LIMITS.classDay, { err: tooMany }),
   ]);
   if (!r.ok) throw r.error;
-  await refuseSchoolSale(env, cls);
   const code = normLicenceCode(b.code);
   if (!code) throw new HttpError(400, 'bad_licence_code');
   const hash = await licenceCodeHash(code);
@@ -198,9 +201,9 @@ export const pinKeysWhere = "(who = 'pin:' || ?1 OR who LIKE 'pin:' || ?1 || ':%
 
 /**
  * POST /api/teacher/students/:id/remove {}: one batch deletes the student's rows (STUDENT_ROWS in forget.js: attempts,
- * levels, help requests with their help_meta rows, exams, assignment work, the student's AI switch), their counters (PIN
- * tries and the AI counters) and the student; the student's token stops working. The practice saved on the device
- * itself stays there.
+ * levels, help requests with their help_meta rows and the replies on them, exams, assignment work and targets, the
+ * student's AI switch), their counters (PIN tries and the AI counters) and the student; the student's token stops
+ * working. The practice saved on the device itself stays there.
  */
 export async function removeStudent(id, req, env, cors) {
   const cls = await requireTeacher(req, env);

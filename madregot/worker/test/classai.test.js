@@ -300,7 +300,8 @@ test('owner CLI: grant-class and grant-school refuse while MOE_AI_APPROVAL is no
   const grantClass = { class: 'ABC234', until: '2027-08-31', seats: '30' };
   const grantSchool = { classes: '2', seats: '30', until: '2027-08-31', invoice: 'INV-3' };
   for (const [cmd, o] of [['grant-class', grantClass], ['grant-class', { ...grantClass, trial: true, until: undefined }], ['grant-school', grantSchool]]) {
-    assert.throws(() => build(cmd, o, { now: NOW, approval: 'none' }), /refused: student AI in school classes waits for the Ministry's catalogue approval/, cmd);
+    // grant-school also says why a school code is refused ("a school licence code is for school classes, and ...")
+    assert.throws(() => build(cmd, o, { now: NOW, approval: 'none' }), /refused: .*student AI in school classes waits for the Ministry's catalogue approval/, cmd);
     assert.throws(() => build(cmd, { ...o, 'private-ok': true }, { now: NOW, approval: 'none', confirmed: 'private' }), /needs --note/, cmd);
     assert.throws(() => build(cmd, { ...o, 'private-ok': true, note: true }, { now: NOW, approval: 'none', confirmed: 'private' }), /needs --note/, cmd);
     assert.throws(() => build(cmd, { ...o, 'private-ok': true, note: 'חוג' }, { now: NOW, approval: 'none', confirmed: 'yes' }), /not confirmed/, cmd);
@@ -340,9 +341,11 @@ test('owner CLI exit codes: refused grants exit 1 and never reach wrangler', () 
   const script = fileURLToPath(new URL('../scripts/owner.mjs', import.meta.url));
   const dir = mkdtempSync(path.join(tmpdir(), 'owner-'));
   try {
-    // a stand-in npx that leaves a mark: no refused command may run it (and --local keeps any slip off the real database)
+    // a stand-in npx that leaves a mark: no refused command may write through it (and --local keeps any slip off the real
+    // database). grant-class first reads the class's setting (one read-only --command, answered here: a school class)
     const mark = path.join(dir, 'ran');
-    writeFileSync(path.join(dir, 'npx'), `#!/bin/sh\necho "$@" > "${mark}"\nexit 3\n`);
+    const row = JSON.stringify([{ results: [{ code: 'ABC234', grade: '7', setting: 'school' }] }]);
+    writeFileSync(path.join(dir, 'npx'), `#!/bin/sh\ncase "$*" in *--command*) echo '${row}'; exit 0;; esac\necho "$@" > "${mark}"\nexit 3\n`);
     chmodSync(path.join(dir, 'npx'), 0o755);
     const env = { ...process.env, PATH: dir };
     delete env.MOE_AI_APPROVAL;
@@ -351,7 +354,7 @@ test('owner CLI exit codes: refused grants exit 1 and never reach wrangler', () 
     const school = ['grant-school', '--classes', '2', '--seats', '30', '--until', '2027-08-31', '--invoice', 'INV-3'];
     for (const args of [cls, school]) {
       const r = run(args); // the approval read from wrangler.toml: "none"
-      assert.equal(r.status, 1, `${args[0]}: ${r.stderr}`); assert.match(r.stderr, /refused: student AI in school classes/);
+      assert.equal(r.status, 1, `${args[0]}: ${r.stderr}`); assert.match(r.stderr, /refused: .*student AI in school classes/);
       const env1 = run(args, { extra: { MOE_AI_APPROVAL: 'none' } });
       assert.equal(env1.status, 1);
       const noNote = run([...args, '--private-ok']);
@@ -361,7 +364,7 @@ test('owner CLI exit codes: refused grants exit 1 and never reach wrangler', () 
       const none = run([...args, '--private-ok', '--note', 'חוג']); // no answer at all
       assert.equal(none.status, 1);
     }
-    assert.equal(existsSync(mark), false, 'wrangler was never run');
+    assert.equal(existsSync(mark), false, 'wrangler never wrote');
     assert.equal(run(['help']).status, 0);
     // "private" typed: the command goes on to the database step (here the stand-in, which fails, so the exit is 1)
     const ok = run([...cls, '--private-ok', '--note', 'חוג'], { input: 'private\n' });

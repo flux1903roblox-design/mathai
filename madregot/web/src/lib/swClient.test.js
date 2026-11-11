@@ -7,13 +7,13 @@ describe('the update rule', () => {
   it('never reloads inside a lesson, a teaching stage, a repair, a check or placement', () => {
     for (const r of ['/lesson/signed/1', '/lesson/signed/3?kind=check', '/practice/abc', '/placement', '/learn/signed/1/A',
       '/learn/eq/2/C', '/repair/signed/1/sub-neg', '/rescue/check', '/rescue/exam', '/exams/check', '/exams/new', '/assistant', '/parents/link?c=K7M4QX',
-      '/teacher/assistant', '/teacher/settings']) {
+      '/teacher/assistant', '/teacher/settings', '/teacher/exam/new', '/class/exam/0123456789abcdef/run']) {
       expect(isBusyRoute(r), r).toBe(true);
       expect(shouldUpdate({ waiting: {}, hiddenMs: 2 * HIDDEN_LONG_MS, route: r }), r).toBe(false);
     }
   });
   it('reloads on a calm screen after 30 minutes out of sight, when a new worker waits', () => {
-    for (const r of ['/', '/quests', '/topics', '/topic/signed', '/learn/signed/1', '/me', '/settings', '/rescue', '/exams', '/exams/abc', '/teacher', '/teacher/lessons']) {
+    for (const r of ['/', '/quests', '/topics', '/topic/signed', '/learn/signed/1', '/me', '/settings', '/rescue', '/exams', '/exams/abc', '/teacher', '/teacher/lessons', '/teacher/report', '/class/exam/0123456789abcdef']) {
       expect(isBusyRoute(r), r).toBe(false);
       expect(shouldUpdate({ waiting: {}, hiddenMs: HIDDEN_LONG_MS, route: r }), r).toBe(true);
     }

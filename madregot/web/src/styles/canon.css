@@ -1088,3 +1088,292 @@ a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px;
 .answer-frac-bar { display: block; height: 3px; border-radius: 2px; background: var(--ink); }
 .lesson .answer-frac .slot { width: clamp(84px, 26vw, 140px); height: 44px; font-size: 22px; }
 .answer-partial { color: var(--brand-d); font-weight: 600; }
+
+/* ------------------------------------------------------------------ the class exam (TEACHER-3): its builder and its sheet */
+.xn-step { display: flex; flex-direction: column; gap: var(--s5); }
+.xn-topic { display: flex; flex-direction: column; gap: var(--s2); }
+.xn-topic-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
+.xn-topic-title { margin: 0; display: flex; align-items: center; gap: var(--s2); font-size: 18px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.xn-all { flex: none; font-size: 15px; }
+.xn-all[aria-checked="mixed"] { border-color: var(--brand-line); }
+.xn-stairs { gap: var(--s2); }
+.ob-opt.xn-stair { min-height: 52px; padding: var(--s2) var(--s4); }
+.xn-stair .ob-opt-text b { font-size: 17px; line-height: 24px; }
+.xn-n { color: var(--ink-2); font-weight: 700; }
+.ob-opt.on .xn-n { color: var(--brand-d); }
+.xn-count { margin: 0; }
+.xn-notes { display: flex; flex-direction: column; gap: var(--s2); }
+.xn-notes p { margin: 0; }
+.xn-saved { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s4); padding-top: var(--s5); border-top: 2px solid var(--rule); }
+.xn-saved .set-head { margin: 0; }
+.xn-saved-empty { margin: 0; }
+.xn-saved .tw-row { text-decoration: none; }
+
+.xs .xs-top { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4) 0 var(--s3); }
+.xs .xs-top .field { margin: 0; }
+.xs .xs-top .input { width: 100%; }
+.xs-versions { gap: 0; }
+.xs-lead { margin: 0; }
+.xs .as-hint { margin: 0; }
+.xs-screen { margin-bottom: var(--s4); }
+.xs-screen .h-page { margin: 0; font-size: 22px; line-height: 28px; overflow-wrap: anywhere; }
+.xs-screen .exam-sheet-meta { gap: var(--s2) var(--s5); font-size: 15px; }
+.xs-screen .figure { max-width: min(100%, 300px); margin-inline: auto; }
+.xs .screen-foot .btn svg { flex: none; }
+.xs-send { gap: var(--s2); border: 0; background: none; font: inherit; font-weight: 700; color: var(--brand-d); cursor: pointer; }
+.xs-send:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 10px; }
+
+/* the class exam in the assign sheet, and printing it again from an assignment's detail */
+.as-no-exam { padding: var(--s3) var(--s4); border: 2px dashed var(--rule-strong); border-radius: 16px; color: var(--ink); }
+.as-link { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--brand-d); }
+.as-versions { margin-top: var(--s2); }
+.aw-actions a.set-row { justify-content: flex-start; gap: var(--s2); }
+
+/* ------------------------------------------------------------------ the class exam, the student's side (TEACHER-5 §4):
+   the start card (what it is, how it runs, where the result goes) and the result's line on the done screen */
+.cx-card { display: flex; flex-direction: column; align-items: center; gap: var(--s3); padding: var(--s5) 0 var(--s4); text-align: center; }
+.cx-madi { margin-bottom: var(--s1); }
+.cx-title { margin: 0; font-size: 26px; line-height: 32px; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; }
+.cx-due { margin: 0; color: var(--ink-2); font-weight: 600; }
+.cx-note { margin: 0; color: var(--ink); font-style: normal; overflow-wrap: anywhere; }
+.cx-lines { list-style: none; margin: var(--s2) 0 0; padding: var(--s4); display: flex; flex-direction: column; gap: var(--s3); width: 100%; text-align: start; border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
+.cx-lines li { font-size: 17px; line-height: 25px; color: var(--ink); }
+.cx-lines li + li { padding-top: var(--s3); border-top: 1px solid var(--rule); }
+.cx-again { margin: 0; width: 100%; padding: var(--s3) var(--s4); border-radius: 12px; background: var(--brand-tint); color: var(--ink); font-weight: 600; text-align: start; }
+.check-sent { margin: var(--s2) auto 0; color: var(--ink-2); font-weight: 600; }
+
+/* ------------------------------------------------------------------ the class report (TEACHER-7 §2): the range chips,
+   the tiles, a table that scrolls sideways with the names fixed, the class's mistakes, the note. Its printed copy is in
+   styles/app.css (.print-sheet[data-mode="report"]). */
+.t-report { display: flex; flex-direction: column; gap: var(--s4); }
+.t-report > .screen-bar { margin-bottom: calc(-1 * var(--s2)); }
+.t-report-sub { margin: 0; color: var(--ink-2); font-weight: 600; text-align: center; overflow-wrap: anywhere; }
+.rp-range { gap: var(--s3); }
+.rp-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2) var(--s3); }
+.rp-date { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rp-date .input { width: 100%; min-height: 44px; }
+.rp-bad { grid-column: 1 / -1; margin: 0; }
+.t-report-status { margin: 0; }
+.t-report-error { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); }
+.t-report-error .form-error { margin: 0; }
+.t-report-kpis { margin: 0; }
+.t-report-table { display: flex; flex-direction: column; gap: var(--s2); }
+.t-report-table .set-head { margin: 0; }
+.rp-table thead th { vertical-align: bottom; }
+.rp-assign-h { white-space: normal !important; min-width: 8em; max-width: 12em; }
+.rp-assign-t { display: block; overflow-wrap: anywhere; }
+.rp-due { display: block; font-weight: 600; color: var(--ink-2); font-size: 13px; }
+.rp-mis { white-space: normal !important; min-width: 14em; max-width: 22em; }
+.rp-mis-one { display: block; line-height: 20px; }
+.rp-mis-one + .rp-mis-one { margin-top: 4px; }
+.t-report .t-group { margin: 0; }
+.t-report-note { margin: 0; }
+.t-report .screen-foot .btn svg { flex: none; }
+@media (max-width: 359px) { .rp-dates { grid-template-columns: minmax(0, 1fr); } }
+.t-set-year svg { color: var(--brand); flex: none; }
+a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
+.t-delete-export { align-self: center; gap: var(--s2); }
+.t-delete-export:disabled { opacity: 0.6; }
+
+/* ------------------------------------------------------------------ help both ways (TEACHER-6): a request's thread as
+   bubbles (as Hebrew chat apps lay them out: the other side's on the right, the reader's own tinted on the left), the
+   teacher's reply box with its quick
+   replies, the filters, and the student's "הבקשות שלי למורה" card with its status chips. Calm: no red anywhere. */
+.hb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.hb { max-width: 88%; display: flex; flex-direction: column; gap: 2px; padding: var(--s2) var(--s3); border-radius: 14px; }
+.hb-me { align-self: flex-end; background: var(--brand-tint); border-start-end-radius: 4px; }
+.hb-them { align-self: flex-start; background: var(--ground); border: 1px solid var(--rule); border-start-start-radius: 4px; }
+.hb.unread { border-color: var(--brand-line); box-shadow: inset 0 0 0 1px var(--brand-line); }
+.hb-who { font-size: 13px; line-height: 18px; font-weight: 700; color: var(--ink-2); }
+.hb-text { margin: 0; font-size: 16px; line-height: 23px; color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
+.t-hb { margin-top: var(--s1); }
+.hf-filters { margin-bottom: var(--s3); }
+.hr-form { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s2); border-top: 1px solid var(--rule); }
+.hr-form .field-label { margin: 0; }
+.hr-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.hr-chip { min-height: 44px; padding: 6px var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; line-height: 20px; font-weight: 600; text-align: start; cursor: pointer; }
+.hr-chip:hover { border-color: var(--brand-line); }
+.hr-chip:focus-visible, .mh-row:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.hr-text { width: 100%; min-height: 64px; resize: vertical; }
+.hr-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.hr-count, .mh-count { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hr-send { min-height: 44px; min-width: 104px; }
+.hr-limit, .mh-limit { margin: 0; padding: var(--s2) var(--s3); border-radius: 12px; background: var(--ground); color: var(--ink); font-size: 15px; line-height: 21px; }
+
+.mh-card { display: flex; flex-direction: column; gap: var(--s2); }
+.mh-card .card-title { margin: 0; display: flex; align-items: center; gap: var(--s2); }
+.mh-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mh-list li + li { border-top: 1px solid var(--rule); }
+.mh-row { width: 100%; min-height: 56px; display: flex; align-items: center; gap: var(--s2); padding: var(--s2) 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
+.mh-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mh-row-q { font-weight: 600; font-size: 16px; line-height: 23px; overflow-wrap: anywhere; }
+.mh-row-meta { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.mh-day { font-size: 14px; color: var(--ink-2); }
+.mh-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--brand); }
+.mh-chip { display: inline-flex; align-items: center; min-height: 24px; padding: 0 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--ground); color: var(--ink-2); }
+.mh-chip.mh-answered { background: var(--brand-tint); color: var(--brand-d); }
+.mh-chip.mh-done { background: var(--ok-tint); color: var(--good-d); }
+.mh-thread { display: flex; flex-direction: column; gap: var(--s3); }
+.mh-ex { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: var(--s3); border: 2px solid var(--rule); border-radius: 14px; }
+.mh-ex-label { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.mh-ex-q { margin: 0; font-size: 17px; line-height: 25px; font-weight: 600; overflow-wrap: anywhere; }
+.mh-wait { margin: 0; color: var(--ink-2); }
+.mh-answers { display: flex; flex-direction: column; gap: var(--s2); }
+.mh-answers .btn svg, .mh-still .btn svg { flex: none; }
+.mh-still { display: flex; flex-direction: column; gap: var(--s2); }
+.mh-still .input { width: 100%; min-height: 80px; }
+.mh-count { align-self: flex-end; }
+/* a toast's action ("לקריאה", "לתוצאות"): a 44px button in the app's blue, not the library's small default */
+[data-sonner-toast].toast [data-button] { height: auto !important; min-height: 44px; padding: 0 var(--s4) !important; border-radius: 12px !important; background: var(--brand) !important; color: var(--on-brand) !important; font-family: var(--font-ui) !important; font-size: 15px !important; font-weight: 700 !important; }
+[data-sonner-toast].toast [data-button]:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+/* a toast never stands between the pointer and the screen under it: a sheet's button below it still takes the click,
+   and a mouse resting there does not hold the toast open. Only the toast's own action takes the pointer. */
+[data-sonner-toaster], [data-sonner-toast] { pointer-events: none; }
+[data-sonner-toast] :is(button, a) { pointer-events: auto; }
+
+/* ------------------------------------------------------------------ each student has a page (TEACHER-8): names as
+   quiet links on the board, the ranked "כדאי לבדוק איתם" with its reason chips, the students tab's sort, and the
+   student's sheet (sections, a 14-day strip of squares, the student's two actions at the end). Calm: no red. */
+.link-btn.t-name { min-height: 44px; padding: 0; font-weight: 700; color: var(--brand-d); text-align: start; overflow-wrap: anywhere; }
+.t-table th .link-btn.t-name { font-size: inherit; }
+.t-attn { list-style: none; margin: 0; padding: 0; }
+.t-attn .t-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.t-attn .t-row + .t-row { border-top: 1px solid var(--rule); }
+.t-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.t-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 14px; line-height: 20px; font-weight: 700; background: var(--ground); color: var(--ink-2); }
+.t-chip-help { background: var(--brand-tint); color: var(--brand-d); }
+.t-chip-late { background: var(--streak-tint); color: var(--streak-ink); }
+.t-sort { flex-direction: row; align-items: center; gap: var(--s3); margin: 0 0 var(--s3); }
+.t-sort .field-label { margin: 0; flex: none; }
+.t-sort-select { min-height: 44px; width: auto; max-width: 100%; }
+.hf-who { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); margin-bottom: var(--s3); padding: var(--s2) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); }
+
+.ss-body { display: flex; flex-direction: column; gap: var(--s5); }
+.ss-sub { margin: 0; color: var(--ink-2); font-weight: 600; }
+.ss-part { display: flex; flex-direction: column; gap: var(--s2); }
+.ss-h { margin: 0; font-size: 18px; line-height: 24px; font-weight: 800; color: var(--ink); }
+.ss-empty, .ss-line { margin: 0; }
+.ss-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ss-list > li + li { border-top: 1px solid var(--rule); }
+.ss-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: var(--s2) 0; }
+.ss-row-main { overflow-wrap: anywhere; }
+/* a repeated mistake: its stair on a line of its own, then the student's words (TEACHER-16) */
+.t-mis-stair { display: block; }
+.ss-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.ss-act { align-self: flex-start; margin-top: var(--s1); min-height: 44px; }
+.ss-level { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); min-height: 44px; padding: 6px 0; }
+.ss-level-name { display: inline-flex; align-items: center; gap: var(--s2); font-weight: 600; }
+.ss-strip-wrap { display: inline-flex; flex-direction: column; gap: 4px; align-self: flex-start; }
+.ss-strip { display: inline-flex; gap: 4px; }
+.ss-strip i { width: 18px; height: 18px; border-radius: 5px; background: var(--ground); border: 1px solid var(--rule); }
+.ss-strip i.some { background: var(--brand-line); border-color: var(--brand-line); }
+.ss-strip i.lots { background: var(--brand); border-color: var(--brand); }
+.ss-strip-ends { display: flex; justify-content: space-between; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+@media (max-width: 359px) { .ss-strip { gap: 3px; } .ss-strip i { width: 15px; height: 15px; } }
+.ss-actions .set-row { width: 100%; gap: var(--s2); }
+.ss-done { margin: 0; color: var(--ink-2); font-weight: 600; }
+.ss-error { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); }
+
+/* student AI by the Ministry's rules (TRUST-11): the class settings' card, the setting question, the per-student badge */
+.cs-set { margin-top: var(--s2); }
+.cs-set > legend { font-weight: 700; color: var(--ink); }
+.cs-attest, .cai-box { align-items: flex-start; padding: var(--s1) 0; line-height: var(--lh-base); }
+.cs-attest input, .cai-box input { margin-top: 2px; }
+.as-choice.is-disabled { cursor: default; opacity: 0.6; }
+.cai-status { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-weight: 600; color: var(--ink); }
+.cai-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px; border-radius: 999px; font-size: 15px; font-weight: 800; }
+.cai-chip.off { background: var(--ground); color: var(--ink-2); }
+.cai-chip.on { background: var(--brand-tint); color: var(--brand-d); }
+.cai-where legend { margin-bottom: var(--s2); }
+.cai-text { margin: 0; overflow-wrap: anywhere; }
+.cai-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cai-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; color: var(--brand-d); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.cai-link svg { flex: none; }
+.cai-rules { margin: 0; }
+.cai-consent { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; }
+.cai-save { align-self: flex-start; min-width: 96px; }
+.cai-switch { display: flex; flex-direction: column; gap: 4px; }
+.cai-sheet p { margin: 0; }
+.licence-before { margin-bottom: 0; }
+.t-lic-line { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); min-height: 48px; margin: 0 0 var(--s3); padding: var(--s2) var(--s4); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); font-weight: 700; text-decoration: none; }
+.t-lic-line svg { flex: none; color: var(--brand); }
+.t-lic-line:hover { border-color: var(--brand-line); }
+.ss-badges { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.t-actions .t-ai-off { white-space: nowrap; }
+.cai-where { padding-top: var(--s4); border-top: 2px solid var(--rule); }
+
+/* the demo class (TEACHER-15): the banner above every teacher screen, the disabled lines, the public page's button */
+.demo-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); padding: var(--s2) var(--gutter); background: var(--brand-tint); border-bottom: 2px solid var(--brand-line); color: var(--ink); }
+.demo-banner-text { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; flex: 1 1 220px; font-size: 15px; line-height: 21px; font-weight: 600; }
+.demo-banner-text svg { flex: none; margin-top: 2px; color: var(--brand-d); }
+.demo-banner-actions { display: flex; flex-wrap: wrap; gap: 0 var(--s3); }
+.demo-banner-btn { min-height: 44px; padding: 0 var(--s1); border: 0; background: none; color: var(--brand-d); font: inherit; font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.demo-banner-btn.strong { text-decoration: none; }
+.demo-banner-btn:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }
+@media print { .demo-banner { display: none !important; } }
+.t-demo-line { margin: var(--s2) 0 0; font-size: 15px; }
+.set-row:disabled { color: var(--ink-2); cursor: default; opacity: 0.7; }
+.teacher-off-demo { margin-top: var(--s4); }
+.demo-ask .lead { margin: 0; }
+/* a scrolling table contains what is positioned inside it: KaTeX's hidden MathML (position: absolute) in a far column
+   would otherwise widen the whole page on a phone (the report's mistake column) */
+.table-wrap { position: relative; }
+
+/* the pilot kit (TEACHER-10): the list of documents, the pilot's details, the actions, and the document on screen as a
+   sheet of paper. Its printed copy is in styles/app.css (.print-sheet[data-mode="doc"]). */
+.t-guide { display: flex; flex-direction: column; gap: var(--s4); }
+.t-guide > .screen-bar { margin-bottom: calc(-1 * var(--s2)); }
+.t-guide .screen-bar-title { text-wrap: balance; overflow-wrap: anywhere; }
+.t-guide-sub { margin: 0; color: var(--ink-2); }
+.t-guide > .section { margin-top: 0; }
+.sd-list ul { list-style: none; margin: 0; padding: 0; }
+.sd-list li + li { border-top: 2px solid var(--rule); }
+a.set-row.sd-row { min-height: 64px; padding-block: var(--s3); padding-inline: 0; }
+.sd-row svg { color: var(--ink-2); }
+.sd-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sd-row-title { font-weight: 700; color: var(--ink); }
+.sd-row-line { font-weight: 400; font-size: 15px; line-height: 21px; color: var(--ink-2); }
+.sd-form .field { margin: 0; }
+.sd-form .input { width: 100%; min-height: 48px; }
+.sd-form-note, .sd-late { margin: 0; }
+.sd-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+@media (max-width: 359px) { .sd-dates { grid-template-columns: minmax(0, 1fr); } }
+.sd-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.sd-actions .btn { min-height: 44px; }
+.sd-actions .btn svg { flex: none; }
+.sd-paper { padding: var(--s5) var(--s4); border: 1px solid var(--rule-strong); border-radius: var(--r-md); background: var(--surface); box-shadow: 0 2px 0 var(--rule); overflow-wrap: anywhere; }
+.sd-doc h2 { margin: 0; font-size: 22px; line-height: 28px; }
+.sd-doc h3 { margin: var(--s3) 0 0; font-size: 18px; line-height: 24px; }
+.sd-doc ol { margin: 0; padding-inline-start: var(--s5); }
+.sd-doc li + li { margin-top: 4px; }
+.sd-doc ul:has(> li.sd-check) { padding-inline-start: 0; list-style: none; }
+.sd-doc code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; direction: ltr; unicode-bidi: isolate; }
+.sd-doc hr { width: 100%; margin: var(--s4) 0; border: 0; border-top: 2px dashed var(--ink-2); }
+.t-fresh-letter { align-self: center; }
+.t-fresh-letter svg, .cai-letter svg { flex: none; }
+.cai-letter { align-self: flex-start; }
+
+/* ------------------------------------------------------------------ the teacher's screens on a tablet or a computer
+   (TEACHER-14 §3: what the tablet and desktop baselines showed) */
+/* the new-class form fills its sheet: no box of its own inside the sheet, no narrower column */
+.add-class { max-width: none; border: 0; border-radius: 0; padding: 0; }
+@media (min-width: 600px) {
+  /* there is room: the tools wrap onto a second row instead of hiding behind the fade */
+  .t-tools ul { flex-wrap: wrap; overflow-x: visible; padding-inline-end: 0; -webkit-mask-image: none; mask-image: none; }
+}
+@media (min-width: 648px) {
+  /* "מחר" in two or three columns: the cards stand side by side under level headings, with no rule above some of them */
+  .t-grid > .set-group + .set-group { padding-top: 0; border-top: 0; }
+}
+@media (min-width: 1100px) {
+  /* the header's name, code and buttons line up with the board's column (.t-main, 1100px) */
+  .t-head { padding-inline: calc((100% - 1100px) / 2 + var(--s4)); }
+}
+@media (min-width: 1024px) {
+  /* a laptop shows the class report's table whole: the board's width, and its two buttons side by side */
+  .page.t-report { max-width: 1100px; }
+  .t-report > .screen-foot { flex-direction: row; }
+  .t-report > .screen-foot .btn { flex: 1 1 0; width: auto; }
+  /* each repeated mistake on about one line, so a student's row is not five lines tall */
+  .rp-mis { min-width: 22em; max-width: 32em; }
+}

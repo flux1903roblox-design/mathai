@@ -20,6 +20,8 @@ import { KEEP_ATTEMPTS } from '@/learn/mastery.ts';
 /** Checked exams and practice exams kept (newest first), as the store keeps them. */
 export const EXAMS_KEEP = 30;
 export const PRACTICE_EXAMS_KEEP = 20;
+/** A teacher's printable class exams kept on a device (the teacher lane's TEACHER-3; store.js TEACHER_EXAMS). */
+export const TEACHER_EXAMS_KEEP = 8;
 /** A class student's answers waiting for the server, at most (the oldest give way first). */
 export const OUTBOX_KEEP = 1000;
 
@@ -233,6 +235,7 @@ function tabSlice(k, b, m, t, c) {
     case 'learn': return isObj(m) && isObj(t) ? tabLearn(b, m, t, c) : generic3(b, m, t, c.wins);
     case 'exams': return newestFirst(set3(b, m, t, idKey), EXAMS_KEEP);
     case 'practiceExams': return newestFirst(set3(b, m, t, idKey), PRACTICE_EXAMS_KEEP);
+    case 'teacherExams': return newestFirst(set3(b, m, t, idKey), TEACHER_EXAMS_KEEP);
     case 'outbox': return lastN(set3(b, m, t, idKey).sort(byAsc((e) => e?.at)), OUTBOX_KEEP);
     default: return generic3(b, m, t, c.wins);
   }
@@ -363,6 +366,7 @@ function deviceSlice(k, x, y, c) {
     case 'learn': return isObj(x) && isObj(y) ? deviceLearn(x, y, c) : c.newer(x, y);
     case 'exams': return newestFirst(unionById(x, y, c), EXAMS_KEEP);
     case 'practiceExams': return newestFirst(unionById(x, y, c), PRACTICE_EXAMS_KEEP);
+    case 'teacherExams': return newestFirst(unionById(x, y, c), TEACHER_EXAMS_KEEP);
     case 'placement': case 'lastTopic': case 'planBase': case 'freezes': return c.newer(x, y);
     default: return isNum(x) && isNum(y) ? Math.max(x, y) : c.newer(x, y); // a field this merge does not know
   }

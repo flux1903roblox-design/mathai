@@ -6,6 +6,7 @@
 //   flushWork()        sends each waiting report: confirmed (200) it leaves the outbox; a lost connection keeps it;
 //                      404 (the teacher deleted it) or 400 drops it
 //   reportStairs()     a stair the teacher gave reports its stage and done state, from the learning record
+//   fetchExamItems(id) a class exam's frozen questions, kept on the device (classWork.exams)
 //
 // The reports are idempotent and never go backwards (worker/src/assignments.js postWork), so sending one again, late
 // or out of order is safe.
@@ -16,8 +17,8 @@ import { mergeWork, workFromLearn, adds } from '@/learn/assignments.ts';
 import { routeOf, STAGE_MIN } from '@/learn/recommend.ts';
 
 const EVERY = 5 * 60_000;
-/** The kinds this version shows to students (the class exam joins with its screens). */
-export const SHOWN = ['stair', 'check'];
+/** The kinds a student sees: a stair, a mastery check and a class exam. */
+export const SHOWN = ['stair', 'check', 'exam'];
 
 const ready = () => { const p = useApp.getState().profile; return p?.role === 'student' && !!p.token && hasServer(); };
 
@@ -37,6 +38,24 @@ export function fetchClassWork({ force = false } = {}) {
     return r;
   }, () => null).finally(() => { fetching = null; });
   return fetching;
+}
+
+/**
+ * A class exam's questions (GET /api/class/work/:id/exam), kept in classWork.exams so the exam opens again offline.
+ * Only the exams still in the list are kept. Resolves to the items, or rejects with the ApiError (404: not this
+ * student's, or deleted).
+ */
+export async function fetchExamItems(id) {
+  const cached = useApp.getState().classWork?.exams?.[id];
+  if (cached?.length) return cached;
+  if (!ready()) throw Object.assign(new Error('offline'), { status: 0 });
+  const r = await api(`/api/class/work/${id}/exam`);
+  const items = Array.isArray(r?.items) ? r.items : [];
+  const cw = useApp.getState().classWork;
+  const live = new Set((cw.assignments || []).map((a) => a.id));
+  const exams = Object.fromEntries(Object.entries(cw.exams || {}).filter(([k]) => live.has(k)));
+  useApp.setState({ classWork: { ...cw, exams: { ...exams, [id]: items } } });
+  return items;
 }
 
 /** What is sent: the report's own fields (the device's time of a done report stays on the device). */
@@ -137,12 +156,13 @@ export function workBanner(dueOn, day = today()) {
   return daysFrom(day, dueOn) < 0 ? `משימה מהמורה. ${d}` : `משימה מהמורה, ${d}`;
 }
 
-/** Where a row leads: the stair's page (with its banner), or the mastery check counted for this assignment. */
-export const workRoute = (a) => (a.kind === 'check' ? `${routeOf.check(a.skill, 'mastery')}&assignment=${a.id}` : `${routeOf.journey(a.skill)}?assignment=${a.id}`);
+/** Where a row leads: the stair's page (with its banner), the mastery check counted for it, or the class exam's start. */
+export const workRoute = (a) => (a.kind === 'exam' ? `/class/exam/${a.id}` : a.kind === 'check' ? `${routeOf.check(a.skill, 'mastery')}&assignment=${a.id}` : `${routeOf.journey(a.skill)}?assignment=${a.id}`);
 
 const STAGES = ['A', 'B', 'C', 'D', 'E'];
-/** Minutes left: the stages a stair still has, or a check's 3. */
-const minutesLeft = (a, w) => (a.kind === 'check' ? 3 : STAGES.slice(Math.min(5, w?.stage || 0)).reduce((s, x) => s + STAGE_MIN[x], 0));
+/** Minutes left: the stages a stair still has, a check's 3, or 3 for each question of a class exam. */
+export const EXAM_MIN_PER_Q = 3;
+const minutesLeft = (a, w) => (a.kind === 'exam' ? (a.examCount || 0) * EXAM_MIN_PER_Q : a.kind === 'check' ? 3 : STAGES.slice(Math.min(5, w?.stage || 0)).reduce((s, x) => s + STAGE_MIN[x], 0));
 
 /**
  * The rows of the "מהמורה" block on a day: due within 3 days, or past by at most 14 days and not done (`show`), later
@@ -150,7 +170,7 @@ const minutesLeft = (a, w) => (a.kind === 'check' ? 3 : STAGES.slice(Math.min(5,
  * (the big button's target); `minutes` the time the shown unfinished rows still take.
  */
 export function classRows(cw, box = {}, day = today()) {
-  const rows = (cw?.assignments || []).filter((a) => SHOWN.includes(a.kind) && a.skill).map((a) => {
+  const rows = (cw?.assignments || []).filter((a) => SHOWN.includes(a.kind) && (a.kind === 'exam' ? a.hasExam !== false : !!a.skill)).map((a) => {
     const w = mergeWork(a.mine, box[a.id]);
     const done = w?.state === 'done';
     const left = daysFrom(day, a.dueOn);

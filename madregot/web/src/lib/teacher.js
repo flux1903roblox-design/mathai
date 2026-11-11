@@ -1,6 +1,8 @@
 // The one place a teacher's credentials are chosen (spec TEACHER-1). A class bound to the teacher's email (owned) opens
 // with the signed-in session (X-Account-Token, lib/parent.js) on any device; otherwise with the class's teacher key.
-// The server checks either (requireTeacher). Every teacher call goes through teacherHeaders() or teacherApi().
+// The server checks either (requireTeacher). Every teacher call goes through teacherHeaders() or teacherApi(). The
+// demo class (TEACHER-15, lib/demo.js) is checked first: its calls are answered on the device by lib/teacherDemo.js,
+// and teacherHeaders is never called for it.
 // The email is never copied into the saved profile: it is read from the session.
 import { useEffect, useState } from 'react';
 import { useApp, today, STORE_KEY } from './store.js';
@@ -38,6 +40,11 @@ export function patchClass(code, patch) {
  *   marked owned on this device.
  */
 export async function teacherApi(path, opts = {}, cls) {
+  // the demo class (TEACHER-15): answered on this device, in the Worker's shapes; no credentials are ever chosen
+  if (useApp.getState().profile?.demo === true) {
+    const { demoCall } = await import('./teacherDemo.js');
+    return demoCall(opts.method || 'GET', path, opts.body);
+  }
   const send = (h) => api(path, { ...opts, auth: false, headers: { ...(opts.headers || {}), ...h } });
   const first = teacherHeaders(cls);
   try {
@@ -171,6 +178,8 @@ export function useEmailSignIn() {
   const [email, setEmail] = useState(null);
   useEffect(() => {
     let on = true;
+    // the demo class asks nothing of a server: no email sign-in in it
+    if (useApp.getState().profile?.demo === true) { setEmail(false); return () => { on = false; }; }
     serverHealth().then((h) => { if (on) setEmail(h ? h.email !== false : null); });
     return () => { on = false; };
   }, []);
@@ -186,8 +195,28 @@ export function dayPlus(day, days) {
 /** "לא עכשיו" on the bind card: ask again in a week. */
 export const BIND_LATER_DAYS = 7;
 export const remindBindLater = (cls, day = today()) => patchClass(cls.code, { bindLater: dayPlus(day, BIND_LATER_DAYS) });
-/** Offer to bind this class to the email: it opens only with its key here, and "לא עכשיו" was not pressed this week. */
-export const offerBind = (cls, day = today()) => !!cls && !cls.owned && !!cls.key && !(cls.bindLater && cls.bindLater > day);
+/**
+ * This device opened the class (TeacherStart, or "כיתה נוספת" on the board): only here does the app offer to bind it to
+ * an email. A co-teacher who was given the key is not asked (the review of the teacher lane: a co-teacher pressed the
+ * card and the class left its creator). Classes saved before `createdHere` existed carry `fresh` (true, then false)
+ * only when they were opened here; a class entered with its code and key, or restored from the email, never does.
+ */
+export const openedHere = (cls) => !!cls && (cls.createdHere === true || (cls.createdHere === undefined && 'fresh' in cls));
+/**
+ * Offer to bind this class to the email on the board: it opens only with its key here, this device opened it, the
+ * server does not say it is bound already (`board`: the dashboard), and "לא עכשיו" was not pressed this week.
+ */
+export const offerBind = (cls, day = today(), board = null) => openedHere(cls) && !cls.owned && !!cls.key && !board?.boundElsewhere && !(cls.bindLater && cls.bindLater > day);
+/** The days after a late bind in which the key cannot be replaced (worker/src/teacherAccount.js LATE_BIND_HOLD_DAYS). */
+export const LATE_BIND_HOLD_DAYS = 7;
+/**
+ * The class is bound to an email, but not from this device (the dashboard's boundElsewhere, for a device that opens it
+ * with the key): { at, until } (until: the end of the 7 days in which a mistake is undone by writing to us), or null.
+ */
+export function boundElsewhere(cls, board) {
+  if (!board?.boundElsewhere || !board.boundAt || cls?.owned) return null;
+  return { at: board.boundAt, until: new Date(Date.parse(board.boundAt) + LATE_BIND_HOLD_DAYS * 864e5).toISOString() };
+}
 
 /**
  * The public site's "ללוח המורה": the hosted app (VITE_TEACHER_URL) opened on the teacher's way in. '' for anything

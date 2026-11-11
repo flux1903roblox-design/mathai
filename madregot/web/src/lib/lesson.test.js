@@ -3,7 +3,8 @@ import { startLesson, answer, next, resultOf, progressOf, planLevels, LESSON_LEN
 import { unitNodes, recordOnPath, nextNode, markMastered, doneCount, reachedUpTo, stairProgress, migratePath, isKept, chestOpen, reopenKept } from './path.js';
 import { questsFor, questProgress } from './quests.js';
 import { useApp, streakOf, today, dayBefore } from './store.js';
-import { TOPIC, topicsFor } from '@/content/index.js';
+import { TOPIC, topicsFor, makeItem } from '@/content/index.js';
+import { freezeItem, thawItem } from './exam.js';
 
 const right = (s) => s.item.answer;
 const wrongOf = (s) => (s.item.form === 'mc' ? (s.item.answer + 1) % s.item.choices.length : s.item.form === 'pt' ? [999, 999] : s.item.form === 'line' ? { m: 999, b: 999 } : s.item.form === 'lin' ? { k: 999, c: 999 } : 99999);
@@ -252,5 +253,82 @@ describe('streak rules', () => {
     s = run(s, [false, false, ...Array(LESSON_LEN - 1).fill(true), true]);
     expect(s.finished).toBe(true);
     expect(resultOf(s)).toMatchObject({ fixed: 1, xp: XP.lesson + XP.fix });
+  });
+});
+
+describe('a class exam: the teacher\'s fixed questions (TEACHER-5 §4)', () => {
+  const frozenExam = () => [
+    freezeItem(makeItem('signed', 3)), freezeItem(makeItem('pyth', 2)), freezeItem({ key: 'cmp:1', topic: 'signed', level: 2, levelTitle: 'השוואת מספרים', text: 'מה נכון?', form: 'mc', choices: [{ tex: '<' }, { tex: '=' }, { tex: '>' }], answer: 2, solution: [], hint: '' }),
+  ];
+  const start = (items) => startLesson({ kind: 'check', purpose: 'class', fixedItems: items.map(thawItem), assignmentId: 'a000000000000001', topic: items[0].topic, level: items[0].level });
+
+  it('serves exactly the fixed questions in order, with no probe and no redo; the numeric `fixed` stays 0', () => {
+    const items = frozenExam();
+    let s = start(items);
+    expect(s).toMatchObject({ kind: 'check', purpose: 'class', total: 3, fixed: 0, slot: 0 });
+    expect(s.plan.map((q) => q.source)).toEqual(['fixed', 'fixed', 'fixed']);
+    const seen = [];
+    // wrong, right, wrong: every miss is shown once and the exam goes on
+    for (const ok of [false, true, false]) {
+      seen.push(s.item.key);
+      s = answer(s, ok ? right(s) : wrongOf(s)).s;
+      expect(s.phase).toBe(ok ? 'correct' : 'reveal');
+      s = next(s);
+    }
+    expect(seen).toEqual(items.map((x) => x.key));
+    expect(s.finished).toBe(true);
+    expect(s.fixed).toBe(0);
+    expect(s.redo).toEqual([]); expect(s.probes).toEqual([]);
+  });
+
+  it('every answer is diagnostic evidence (it moves no stair\'s stages)', () => {
+    let s = start(frozenExam());
+    const purposes = [];
+    while (!s.finished) { const r = answer(s, right(s)); purposes.push(r.result.event.purpose); s = next(r.s); }
+    expect(purposes).toEqual(['diagnostic', 'diagnostic', 'diagnostic']);
+  });
+
+  it('the result says how each question went, and earns a practice exam\'s XP', () => {
+    const s = run(start(frozenExam()), [true, false, true]);
+    const r = resultOf(s);
+    expect(r).toMatchObject({ purpose: 'class', right: 2, asked: 3, passed: true, xp: XP.exam });
+    expect(XP.exam).toBe(10);
+    expect(r.questions).toEqual([
+      { topic: 'signed', level: 3, status: 'correct' }, { topic: 'pyth', level: 2, status: 'wrong' }, { topic: 'signed', level: 2, status: 'correct' },
+    ]);
+    // a check of another purpose has no per-question list
+    expect(resultOf(run(startLesson({ kind: 'check', purpose: 'mastery', skill: 'signed:3' }), [true, true, true, true, true])).questions).toBeUndefined();
+  });
+
+  it('7.07 for √50 is right: the frozen exact length reaches the grading', () => {
+    const root = freezeItem({ key: 'py1:5:5', topic: 'pyth', level: 1, levelTitle: 'יתר', text: 'מה אורך היתר?', form: 'num', answer: 7.1, exact: Math.sqrt(50), unit: 'ס״מ', solution: ['a'], hint: 'h' });
+    const s = startLesson({ kind: 'check', purpose: 'class', fixedItems: [thawItem(JSON.parse(JSON.stringify(root)))] });
+    const r = answer(s, 7.07);
+    expect(r.result.ok).toBe(true);
+    expect(resultOf(next(r.s)).questions).toEqual([{ topic: 'pyth', level: 1, status: 'correct' }]);
+    expect(answer(startLesson({ kind: 'check', purpose: 'class', fixedItems: [thawItem(root)] }), 7).result.ok).toBe(false);
+  });
+
+  it('in any check, a choice missed on one question is not marked or locked on the next', () => {
+    const mc = (key) => ({ key, topic: 'signed', level: 2, levelTitle: '', text: 'מה נכון?', form: 'mc', choices: [{ tex: '<' }, { tex: '=' }, { tex: '>' }], answer: 2, solution: [], hint: '' });
+    let s = startLesson({ kind: 'check', purpose: 'class', fixedItems: [thawItem(freezeItem(mc('m1'))), thawItem(freezeItem(mc('m2')))] });
+    s = answer(s, 0).s;
+    expect(s.wrong).toEqual([0]);
+    s = next(s);
+    expect(s.item.key).toBe('m2');
+    expect(s.wrong).toEqual([]);
+    let m = startLesson({ kind: 'check', purpose: 'mastery', skill: 'signed:3' });
+    m = next(answer(m, wrongOf(m)).s);
+    expect(m.wrong).toEqual([]);
+  });
+
+  it('a finished class exam is logged on the device and changes no stair', () => {
+    useApp.getState().signOut();
+    const before = useApp.getState().learn.skills;
+    const r = resultOf(run(start(frozenExam()), [true, true, false]));
+    useApp.getState().completeCheck(r);
+    const L = useApp.getState().learn;
+    expect(L.skills).toEqual(before);
+    expect(L.events.at(-1)).toMatchObject({ e: 'class-exam-done', n: 2 / 3 });
   });
 });

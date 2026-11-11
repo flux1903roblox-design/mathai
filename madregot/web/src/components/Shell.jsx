@@ -4,6 +4,7 @@ import { House, Target, ClipboardCheck, Sparkles, User } from 'lucide-react';
 import { DUR, enter } from '@/lib/motion.js';
 import { useApp } from '@/lib/store.js';
 import { hasNewWork } from '@/lib/classWork.js';
+import { hasUnreadReply } from '@/lib/help.js';
 
 const TABS = [
   { to: '/', label: 'לימוד', icon: House, end: true },
@@ -15,11 +16,13 @@ const TABS = [
 
 /**
  * Student layout: content plus the tab bar (bottom on phones, top on wide screens). The missions tab carries a dot
- * when the teacher gave work since the student last opened it (TEACHER-5 §6); only in a class.
+ * when the teacher gave work since the student last opened it (TEACHER-5 §6), or replied to a help request and the
+ * reply is not read yet (TEACHER-6 §4); only in a class.
  */
 export default function Shell() {
   const { pathname } = useLocation();
-  const newWork = useApp((s) => !!s.profile?.token && hasNewWork(s.classWork, s.workOutbox));
+  // new work from the teacher, or a reply from the teacher not read yet (TEACHER-6 §4)
+  const newWork = useApp((s) => !!s.profile?.token && (hasNewWork(s.classWork, s.workOutbox) || hasUnreadReply(s.classWork)));
   return (
     <div className="shell">
       <nav className="tabbar" aria-label="ניווט ראשי" data-region="nav">

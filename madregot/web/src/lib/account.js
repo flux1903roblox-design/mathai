@@ -41,6 +41,8 @@ const statusHeaders = () => {
 /** How the tutor runs on this device: through the server, with a personal key (only where compiled in), or not at all. */
 export function aiMode() {
   const { ai, profile } = useApp.getState();
+  // the demo class (TEACHER-15): a fixed sample answer on the device, no AI call
+  if (profile?.demo === true) return 'demo';
   // A personal key is for practising alone; a class always goes through its server.
   if (PERSONAL_KEY && ai.mode === 'personal' && ai.key && !profile?.classCode) return 'personal';
   if (qaActive()) return 'server';
@@ -70,6 +72,8 @@ export const useAIStatus = create(() => ({ status: null, loading: false, error: 
 
 let refreshing = null;
 export async function refreshStatus() {
+  // the demo class asks no server: no status, so nothing is offered for sale in it
+  if (useApp.getState().profile?.demo === true) { useAIStatus.setState({ status: null, loading: false, error: null }); return null; }
   const qa = qaStatus();
   if (qa) { useAIStatus.setState({ status: qa.status, loading: false, error: null, ended: !!qa.ended }); return qa.status; }
   if (!hasServer()) { useAIStatus.setState({ status: null, loading: false, error: 'no_server' }); return null; }
@@ -207,11 +211,12 @@ export function acceptAIIntro() {
 }
 /**
  * Is the introduction still due before an AI action here? Then it opens (with `then`, the action, to run after it) and
- * this returns true: the caller stops. Never on a device with no tutor (nothing would be sent), and never for a
- * message that reads as distress (the caller checks that first: a child in distress never meets the introduction).
+ * this returns true: the caller stops. Never on a device with no tutor (nothing would be sent), never in the teacher
+ * lane's demo class (a fixed sample answer on the device: nothing goes to Anthropic, which the introduction is about),
+ * and never for a message that reads as distress (the caller checks that first: a child in distress never meets it).
  */
 export function needIntro(then) {
-  if (introSeen() || aiMode() === 'none') return false;
+  if (introSeen() || aiMode() === 'none' || aiMode() === 'demo') return false;
   openAIIntro(then || null);
   return true;
 }

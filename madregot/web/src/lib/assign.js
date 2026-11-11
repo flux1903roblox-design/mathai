@@ -5,8 +5,8 @@ import { teacherApi } from './teacher.js';
 import { TOPIC } from '@/content/index.js';
 import { weekdayName, dm } from './workDates.js';
 
-/** The kinds a teacher gives in this version: a stair to learn and a mastery check (the class exam comes with its builder). */
-export const ASSIGN_KINDS = ['stair', 'check'];
+/** The kinds a teacher gives: a stair to learn, a mastery check, and a class exam made with the exam builder. */
+export const ASSIGN_KINDS = ['stair', 'check', 'exam'];
 /** The kind as the teacher's rows name it. */
 export const KIND_LABEL = { stair: 'מדרגה', check: 'בדיקת שליטה', exam: 'מבחן' };
 

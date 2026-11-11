@@ -166,6 +166,20 @@ test('a school licence code attaches a class once, uses up one place, and expire
   assert.equal((await claimL(c, 'MNPQ-RSTU-VWXY')).status, 400);
 });
 
+test('a Gefen order\'s code (grant-school --gefen): the class that claims it carries the order in its licence\'s note', async () => {
+  h = await setup();
+  const code = 'GFNA-BCDE-FGHJ';
+  // a Gefen order comes only after the Ministry's catalogue approval (TRUST-11: before it, grant-school refuses)
+  h.env.DB.raw.exec(build('grant-school', { classes: '1', seats: '30', until: '2099-08-31', invoice: 'INV-77', gefen: '778899' }, { code, approval: 'approved' }).sql);
+  const a = await makeClass(h, { ai: true });
+  const r = await h.call('POST', '/api/teacher/licence/claim', { headers: a.teacher, body: { code } });
+  assert.equal(r.status, 200);
+  const sub = one(h.env, 'SELECT note, invoice_ref FROM subscriptions WHERE class_code = ?', a.code);
+  assert.deepEqual({ ...sub }, { note: 'gefen:778899', invoice_ref: 'INV-77' });
+  // and the owner's list finds it
+  assert.deepEqual(rows(h.env, build('list', { gefen: '778899' }).sql).map((x) => x.class_code), [a.code]);
+});
+
 test('licence claims are limited per network (10 an hour) and per class (10 a day)', async () => {
   h = await setup();
   const cls = await makeClass(h, { setting: 'private' });
@@ -541,7 +555,7 @@ test('the dashboard of a 3-student class: today, the week by Jerusalem days, fir
   const sum = (k) => d.students.reduce((a, s) => a + s.week[k], 0);
   assert.equal(Math.round((100 * sum('first')) / sum('n')), 60);
   // mistakes this week: most students first, with their names; נועה's is too old, the other class's is not here
-  // each with the stair it happened on most and the students' ids (TEACHER-4 §5: "give practice on this")
+  // each on its stair (TEACHER-16), with the students' ids (TEACHER-4 §5: "give practice on this")
   assert.deepEqual(d.mistakes.map((m) => ({ ...m, ids: [...m.ids].sort(), names: [...m.names].sort() })), [
     { topic: 'signed', cat: 'sign', n: 2, students: 2, level: 1, ids: [dana.studentId, yoav.studentId].sort(), names: ['דנה', 'יואב'] },
     { topic: 'signed', cat: 'order', n: 1, students: 1, level: 1, ids: [yoav.studentId], names: ['יואב'] },
@@ -563,6 +577,33 @@ test('the dashboard of a 3-student class: today, the week by Jerusalem days, fir
   assert.doesNotMatch(JSON.stringify(d), /זר|1 - 9/, 'nothing from the other class');
   assert.equal((await h.call('GET', '/api/teacher/dashboard')).status, 401);
   assert.equal((await h.call('GET', '/api/teacher/dashboard', { headers: { ...cls.teacher, 'X-Teacher-Key': other.teacherKey } })).status, 401, 'another class\'s key');
+});
+
+test('TEACHER-16: one id on two stairs is two rows, each with its stair and its own students, on the board, the report and the student page', async () => {
+  h = await setup();
+  pinClock();
+  const cls = await makeClass(h, { students: ['דנה', 'יואב', 'נועה'] });
+  const [dana, yoav, noa] = cls.students;
+  const wrong = (level, cat, at) => ({ ...ev('signed', at, { ok: false, cat }), level });
+  // 'sign' at signed:1 (דנה, יואב) and at signed:3 (דנה twice, נועה); 'direction' at signed:1 (יואב)
+  await progress(dana, { events: [wrong(1, 'sign', '2026-11-12T07:00:00Z'), wrong(3, 'sign', '2026-11-12T07:01:00Z'), wrong(3, 'sign', '2026-11-12T07:02:00Z')] });
+  await progress(yoav, { events: [wrong(1, 'sign', '2026-11-11T07:00:00Z'), wrong(1, 'direction', '2026-11-11T07:01:00Z')] });
+  await progress(noa, { events: [wrong(3, 'sign', '2026-11-10T07:00:00Z')] });
+  const d = await dashboardOf(cls);
+  const ids = (...s) => s.map((x) => x.studentId).sort();
+  assert.deepEqual(d.mistakes.map((m) => ({ ...m, ids: [...m.ids].sort() })), [
+    { topic: 'signed', level: 3, cat: 'sign', n: 3, students: 2, ids: ids(dana, noa), names: ['דנה', 'נועה'] },
+    { topic: 'signed', level: 1, cat: 'sign', n: 2, students: 2, ids: ids(dana, yoav), names: ['דנה', 'יואב'] },
+    { topic: 'signed', level: 1, cat: 'direction', n: 1, students: 1, ids: ids(yoav), names: ['יואב'] },
+  ]);
+  // the report has the same rows (names only), and each student's own mistakes per stair
+  const r = await (await h.call('GET', '/api/teacher/report?from=2026-11-06&to=2026-11-12', { headers: cls.teacher })).json();
+  assert.deepEqual(r.mistakes, d.mistakes.map(({ ids: _, ...m }) => m));
+  assert.deepEqual(r.students.find((s) => s.name === 'דנה').topMistakes, [
+    { topic: 'signed', cat: 'sign', level: 3, n: 2 }, { topic: 'signed', cat: 'sign', level: 1, n: 1 },
+  ]);
+  const page = await (await h.call('GET', `/api/teacher/students/${dana.studentId}`, { headers: cls.teacher })).json();
+  assert.deepEqual(page.mistakes.map((m) => [m.topic, m.level, m.cat, m.n]), [['signed', 3, 'sign', 2], ['signed', 1, 'sign', 1]]);
 });
 
 test('asking for help twice on one exercise gives one request with the newest note and page; a done one opens a new request', async () => {

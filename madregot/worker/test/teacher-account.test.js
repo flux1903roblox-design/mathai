@@ -259,7 +259,7 @@ test('11. a new private class with a session: bound to the account with its atte
   assert.equal(one(h.env, 'SELECT account_id FROM class_owners WHERE class_code = ?', c.code).account_id, a);
   assert.equal(one(h.env, 'SELECT setting FROM class_settings WHERE code = ?', c.code).setting, 'private');
   // 19 owned now (written directly); two private classes at once: one is made, the other is refused, and nothing of
-  // the refused one is written (its setting row and audit row are taken back in the same batch when the cap stops it)
+  // the refused one is written (its setting row and audit row are written only if its class row was: classai.js newClassStmts)
   const raw = h.env.DB.raw;
   for (let i = 0; i < 18; i++) {
     const code = `ZZ${String(i).padStart(4, '0')}`;
@@ -271,4 +271,50 @@ test('11. a new private class with a session: bound to the account with its atte
   assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM class_owners WHERE account_id = ?', a).n, 20);
   assert.equal(one(h.env, 'SELECT COUNT(*) AS n FROM class_settings WHERE code NOT IN (SELECT code FROM classes)').n, 0);
   assert.equal(one(h.env, "SELECT COUNT(*) AS n FROM audit_log WHERE action = 'class.setting' AND substr(target, 7) NOT IN (SELECT code FROM classes)").n, 0);
+});
+
+test('12. a class bound with its key after it was opened: key devices are told when, no new key for 7 days, and the owner can undo it', async () => {
+  h = await setup();
+  const DAY = 864e5;
+  const rekey = (headers) => h.call('POST', '/api/teacher/class/rekey', { headers, body: {} });
+  // teacher A opens the class with the key flow and gives the key to a co-teacher, as the settings page invites
+  const c = await makeClass(h);
+  const before = await (await dash(c.teacher)).json();
+  assert.deepEqual([before.boundElsewhere, before.boundAt], [false, null], 'an unbound class');
+  advanceClock(60_000);
+  // co-teacher B presses "לקשר למייל שלי" on a device that has only the key
+  let tB = await signIn(h, 'coteacher@example.test');
+  assert.equal((await h.call('POST', '/api/teacher/class/owner', { headers: { ...c.teacher, ...acct(tB) }, body: {} })).status, 200);
+  const boundAt = one(h.env, 'SELECT bound_at FROM class_owners WHERE class_code = ?', c.code).bound_at;
+  // every device that opens it with the key is told it is now bound to an email, and when
+  const keyView = await (await dash(c.teacher)).json();
+  assert.deepEqual([keyView.boundElsewhere, keyView.boundAt], [true, boundAt]);
+  // the account it is bound to is not told "elsewhere"
+  const ownerView = await (await dash(owner(c.code, tB))).json();
+  assert.deepEqual([ownerView.boundElsewhere, ownerView.boundAt], [false, null]);
+  assert.equal(ownerView.rekeyFrom, new Date(Date.parse(boundAt) + 7 * DAY).toISOString(), 'the owner sees from when a new key can be made');
+  assert.equal(keyView.rekeyFrom, null);
+  // for 7 days nobody can replace the key, so a mistaken bind is undone before anyone is locked out
+  const held = await rekey(owner(c.code, tB));
+  assert.equal(held.status, 409);
+  const hb = await held.json();
+  assert.equal(hb.error, 'rekey_hold');
+  assert.equal(hb.until, new Date(Date.parse(boundAt) + 7 * DAY).toISOString());
+  assert.equal((await dash(c.teacher)).status, 200, 'the creator\'s key still opens the class');
+  assert.equal(rows(h.env, "SELECT * FROM audit_log WHERE action = 'class.rekey'").length, 0);
+  advanceClock(7 * DAY - 120_000);
+  tB = await signIn(h, 'coteacher@example.test', acct(tB));
+  assert.equal(await errorOf(await rekey(owner(c.code, tB))), 'rekey_hold', 'still inside the 7 days');
+  advanceClock(120_000);
+  tB = await signIn(h, 'coteacher@example.test', acct(tB));
+  assert.equal((await rekey(owner(c.code, tB))).status, 200, 'after 7 days the owner can');
+  assert.equal((await (await dash(owner(c.code, tB))).json()).rekeyFrom, null);
+  // a class bound when it was made (with a session) has no hold and tells key devices nothing new
+  const tA = await signIn(h, 'creator@example.test');
+  const made = await ownedClass(tA);
+  const k = { 'X-Class-Code': made.code, 'X-Teacher-Key': made.teacherKey };
+  const v = await (await dash(k)).json();
+  assert.deepEqual([v.boundElsewhere, v.boundAt, v.rekeyFrom], [false, null, null]);
+  assert.equal((await (await dash(owner(made.code, tA))).json()).rekeyFrom, null);
+  assert.equal((await rekey(owner(made.code, tA))).status, 200);
 });

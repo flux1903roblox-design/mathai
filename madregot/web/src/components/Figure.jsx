@@ -31,6 +31,8 @@ const rad = (d) => (d * Math.PI) / 180;
 const MATH_FONT = "KaTeX_Main, 'Times New Roman', serif";
 
 function Coord({ fig }) {
+  // its own clip id: an exam page holds several planes (and a printed copy of each), and an id must be unique
+  const clip = `plane-${useId().replace(/[^\w-]/g, '')}`;
   const r = fig.range || 6; const c = 22; const pad = 26;
   const size = 2 * r * c + 2 * pad; const o = size / 2;
   const X = (x) => o + x * c; const Y = (y) => o - y * c;
@@ -45,7 +47,7 @@ function Coord({ fig }) {
   return (
     <svg viewBox={`0 0 ${size} ${size}`} className="figure coord" role="img" aria-label="מערכת צירים">
       <defs>
-        <clipPath id="plane"><rect x={X(-r - 0.5)} y={Y(r + 0.5)} width={(2 * r + 1) * c} height={(2 * r + 1) * c} /></clipPath>
+        <clipPath id={clip}><rect x={X(-r - 0.5)} y={Y(r + 0.5)} width={(2 * r + 1) * c} height={(2 * r + 1) * c} /></clipPath>
       </defs>
       {ticks.map((i) => <line key={`v${i}`} x1={X(i)} y1={Y(r + 0.5)} x2={X(i)} y2={Y(-r - 0.5)} className="fg-grid" />)}
       {ticks.map((i) => <line key={`h${i}`} x1={X(-r - 0.5)} y1={Y(i)} x2={X(r + 0.5)} y2={Y(i)} className="fg-grid" />)}
@@ -61,7 +63,7 @@ function Coord({ fig }) {
           <text x={o - 6} y={Y(i) + 5} textAnchor="end" className="fg-tick">{label(i)}</text>
         </g>
       ))}
-      <g clipPath="url(#plane)">
+      <g clipPath={`url(#${clip})`}>
         {fig.polygon && <polygon points={fig.polygon.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ')} className="fg-poly" />}
         {lineEl}
         {fig.helper && <polyline points={fig.helper.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ')} className="fg-helper" />}

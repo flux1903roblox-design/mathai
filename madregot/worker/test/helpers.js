@@ -243,12 +243,18 @@ export const accountId = (env, email) => one(env, 'SELECT id FROM accounts WHERE
  * class, and its students cannot reach the tutor until the Ministry's catalogue approval (trust spec TRUST-11).
  * `studentAi: true` makes it a private group whose teacher attested it and recorded the parents' consent, with student
  * AI on (written straight to class_settings: no audit row), for tests about limits and tiers. `setting: 'private'`
- * makes it a private group only. classai.test.js covers the rule itself.
+ * makes it a private group only. `ai: true` (the teacher lane's) does what `studentAi: true` does through the API: the
+ * private setting with its attestation when the class is made, then POST /api/teacher/class/ai with the consent and
+ * the switch on, so its audit rows are there too. classai.test.js covers the rule itself.
  */
-export async function makeClass(h, { students = [], createdAt, studentAi = false, setting = studentAi ? 'private' : 'school' } = {}) {
-  const c = await (await h.call('POST', '/api/classes', { body: { className: 'ז׳3', teacherName: 'רונית', grade: '7' } })).json();
+export async function makeClass(h, { students = [], createdAt, studentAi = false, setting = studentAi ? 'private' : 'school', ai = false } = {}) {
+  const extra = ai ? { setting: 'private', privateAttest: true } : {};
+  const c = await (await h.call('POST', '/api/classes', { body: { className: 'ז׳3', teacherName: 'רונית', grade: '7', ...extra } })).json();
   if (createdAt) h.env.DB.raw.prepare('UPDATE classes SET created_at = ? WHERE code = ?').run(createdAt, c.code);
-  if (setting === 'private') {
+  if (ai) {
+    const on = await h.call('POST', '/api/teacher/class/ai', { headers: { 'X-Class-Code': c.code, 'X-Teacher-Key': c.teacherKey }, body: { consent: true, studentAi: 'on' } });
+    if (on.status !== 200) throw new Error(`class ai: ${on.status} ${await on.text()}`);
+  } else if (setting === 'private') {
     const at = new Date().toISOString();
     h.env.DB.raw.prepare('INSERT INTO class_settings (code, setting, student_ai, ai_consent_at, private_attested_at) VALUES (?, ?, ?, ?, ?)')
       .run(c.code, 'private', studentAi ? 'on' : 'off', studentAi ? at : null, at);

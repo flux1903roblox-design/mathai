@@ -9,18 +9,25 @@
 // The practice saved on the devices themselves is never touched from here.
 
 /**
- * [table, column] pairs: every row of a student, deleted before the student row itself. The teacher's assignments
- * (TEACHER-4): what the student did on each, and the assignments given to them by name. The trust lane's help_meta (a
- * help request's kind and care mark, TRUST-3) is keyed by the help request: [table, column, 'help'] means the column
- * holds the ids of the student's help requests, so it comes before help_requests. student_ai_off is the teacher's AI
- * switch for the student (TRUST-11).
+ * [table, column] pairs, or [table, column, via] for a table keyed by another table's id: every row of a student,
+ * deleted before the student row itself. `via` is a SELECT of those ids by student ("SELECT id FROM help_requests WHERE
+ * student_id"), so such a table comes before the table it reads. The trust lane's help_meta (a help request's kind and
+ * care mark, TRUST-3) and the replies on the student's help requests (TEACHER-6) are keyed by the help request; the
+ * teacher's assignments (TEACHER-4): what the student did on each, and the assignments given to them by name.
  */
 export const STUDENT_ROWS = [
-  ['attempts', 'student_id'], ['levels', 'student_id'], ['help_meta', 'help_id', 'help'], ['help_requests', 'student_id'], ['exams', 'student_id'],
-  ['assignment_work', 'student_id'], ['assignment_targets', 'student_id'], ['student_ai_off', 'student_id'],
+  ['attempts', 'student_id'], ['levels', 'student_id'],
+  ['help_meta', 'help_id', 'SELECT id FROM help_requests WHERE student_id'],
+  ['help_messages', 'help_id', 'SELECT id FROM help_requests WHERE student_id'],
+  ['help_requests', 'student_id'], ['exams', 'student_id'],
+  ['assignment_work', 'student_id'], ['assignment_targets', 'student_id'],
+  // the teacher turned the AI off for this student (TRUST-11), and the audit rows of the teacher's actions on the
+  // student (student.ai): they carry the student's id, so they go with the student
+  ['student_ai_off', 'student_id'],
+  ['audit_log', 'target', "SELECT 'student:' || id FROM students WHERE id"],
 ];
-/** The WHERE of one STUDENT_ROWS entry, for the students `sel` selects. */
-const rowsOf = ([, col, via], sel) => (via === 'help' ? `${col} IN (SELECT id FROM help_requests WHERE student_id IN (${sel}))` : `${col} IN (${sel})`);
+/** The WHERE of one STUDENT_ROWS entry, for a student test `match` ("= ?" or "IN (<a SELECT of ids>)"). */
+export const studentWhere = ([, col, via], match) => (via ? `${col} IN (${via} ${match})` : `${col} ${match}`);
 /**
  * ai_usage keys that carry a student id: <prefix><id>, or <prefix><id>:<more> (PIN tries, every AI tier, care, the
  * student's reported AI answers (TRUST-4), the student's assignment reports, and their replies to the teacher, TEACHER-6).
@@ -28,10 +35,10 @@ const rowsOf = ([, col, via], sel) => (via === 'help' ? `${col} IN (SELECT id FR
 export const STUDENT_COUNTERS = ['pin:', 's:', 'free:s:', 'care:s:', 'report:s:', 'work:s:', 'helpreply:s:'];
 /**
  * ai_usage keys that carry a class code: the teacher's AI, the class's free and paid pools, the teacher's care and
- * reported-answer counters (TRUST-3, TRUST-4), licence requests and claims, the assignments made a day (TEACHER-4) and
- * the class report's exports (TEACHER-7).
+ * reported-answer counters (TRUST-3, TRUST-4), licence requests and claims, the assignments made a day (TEACHER-4), the
+ * class report's exports (TEACHER-7) and the student AI requests refused in a class whose AI is off (TRUST-11).
  */
-export const CLASS_COUNTERS = ['t:', 'free:t:', 'free:c:', 'cls:', 'care:t:', 'report:t:', 'licreq:c:', 'licclaim:c:', 'assign:c:', 'report:c:'];
+export const CLASS_COUNTERS = ['t:', 'free:t:', 'free:c:', 'cls:', 'care:t:', 'report:t:', 'licreq:c:', 'licclaim:c:', 'assign:c:', 'report:c:', 'aioff:c:'];
 
 /**
  * SQL that is true for an ai_usage row whose key is <prefix><id> or <prefix><id>:<more>, with <id> in `sel` (a SELECT
@@ -47,7 +54,7 @@ export function keyIn(prefix, sel) {
 const countersStmt = (env, prefixes, sel, args) => env.DB.prepare(`DELETE FROM ai_usage WHERE ${prefixes.map((p) => keyIn(p, sel)).join(' OR ')}`).bind(...args);
 
 /** One student's rows (STUDENT_ROWS): the statements for a batch that then deletes the counters and the student row. */
-export const studentDeleteStmts = (env, id) => STUDENT_ROWS.map((r) => env.DB.prepare(`DELETE FROM ${r[0]} WHERE ${rowsOf(r, 'SELECT ?1')}`).bind(id));
+export const studentDeleteStmts = (env, id) => STUDENT_ROWS.map((row) => env.DB.prepare(`DELETE FROM ${row[0]} WHERE ${studentWhere(row, '= ?')}`).bind(id));
 /** One student's counters (STUDENT_COUNTERS). */
 export const studentCountersStmt = (env, id) => countersStmt(env, STUDENT_COUNTERS, 'SELECT ?1', [id]);
 
@@ -58,7 +65,7 @@ export const studentCountersStmt = (env, id) => countersStmt(env, STUDENT_COUNTE
  */
 export function studentsDeleteSteps(env, sel, args = []) {
   return [
-    ...STUDENT_ROWS.map((r) => ['studentRows', env.DB.prepare(`DELETE FROM ${r[0]} WHERE ${rowsOf(r, sel)}`).bind(...args)]),
+    ...STUDENT_ROWS.map((row) => ['studentRows', env.DB.prepare(`DELETE FROM ${row[0]} WHERE ${studentWhere(row, `IN (${sel})`)}`).bind(...args)]),
     ['studentCounters', countersStmt(env, STUDENT_COUNTERS, sel, args)],
     ['students', env.DB.prepare(`DELETE FROM students WHERE id IN (${sel})`).bind(...args)],
   ];

@@ -45,6 +45,8 @@ const withServer = (extra = {}, grade = '7') => ({ ...student(grade, { ai: { mod
 const classStudent = (extra = {}) => withServer({ profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' }, ...extra });
 const parentPhone = () => withServer({ profile: null });
 const teacher = () => withServer({ profile: { role: 'teacher', name: 'רונית', classes: [{ code: 'K7Q2MD', key: 'tkey-123', className: 'ז׳3', grade: '7' }], active: 'K7Q2MD' } });
+/** A private group whose parents agreed (TRUST-11): the class licence is sold to it as before. */
+const PRIVATE_GROUP = { setting: 'private', consentAt: '2026-11-01T10:00:00.000Z' };
 const aiCalls = (log) => log.filter((r) => r.path.startsWith('/api/ai/') && r.path !== '/api/ai/status');
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
 
@@ -409,8 +411,9 @@ test.describe('the smart tutor', () => {
   });
 
   test('a teacher: the licence card, a request with code sign-in, a licence code, the join lock and removing a student', async ({ page }) => {
-    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
-    await open(page, '#/teacher', teacher());
+    // a private group with the parents' consent (TRUST-11): a licence may be sold to it; the card is in the class settings
+    const { st, log } = await fakeServer(page, { parentOk: true, ai: PRIVATE_GROUP }, baseOf());
+    await open(page, '#/teacher/settings', teacher());
     const card = page.locator('#t-licence');
     await expect(card.getByRole('heading', { name: 'העוזר החכם בכיתה' })).toBeVisible();
     await expect(card.getByText('בלי רישיון, כל תלמיד יכול לשאול את העוזר החכם 2 שאלות ביום.')).toBeVisible();
@@ -422,7 +425,7 @@ test.describe('the smart tutor', () => {
     await shot(page, 'licence-signin-shared');
     await signIn(sheet);
     await sheet.getByLabel('שם בית הספר').fill('חטיבת הביניים <הדר>');
-    expect(await page.evaluate(() => [!!sessionStorage.getItem('madregot-parent'), localStorage.getItem('madregot-parent')])).toEqual([true, null]);
+    await expect.poll(() => page.evaluate(() => [!!sessionStorage.getItem('madregot-parent'), localStorage.getItem('madregot-parent')])).toEqual([true, null]);
     await sheet.getByLabel('כמה תלמידים בכיתה').fill('32');
     await shot(page, 'licence-request');
     await sheet.getByRole('button', { name: 'שליחה' }).click();
@@ -439,13 +442,16 @@ test.describe('the smart tutor', () => {
     await expect(card.getByRole('heading', { name: 'רישיון כיתה פעיל עד 31.08.2027' })).toBeVisible();
     await expect(card.getByText('35 מקומות · 2 תלמידים בכיתה')).toBeVisible();
     // the students tab: the join lock and removing a student
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
     await page.getByRole('tab', { name: 'תלמידים' }).click();
     await page.getByRole('switch', { name: 'נעילת הכיתה לתלמידים חדשים' }).click();
     await expect(page.getByText('הכיתה נעולה לתלמידים חדשים.')).toBeVisible();
     await expect(page.getByRole('switch', { name: 'נעילת הכיתה לתלמידים חדשים' })).toBeChecked();
     expect(st.joinLocked).toBe(true);
     await shot(page, 'teacher-students');
-    await page.getByRole('row', { name: /יואב/ }).getByRole('button', { name: 'הסרה מהכיתה' }).click();
+    // removing a student is on the student's page (TEACHER-8): the row's "פרטים", then "הסרה מהכיתה"
+    await page.getByRole('row', { name: /יואב/ }).getByRole('button', { name: 'פרטים על יואב' }).click();
+    await page.getByRole('dialog', { name: 'יואב' }).getByRole('button', { name: 'הסרה מהכיתה' }).click();
     const rm = page.getByRole('dialog', { name: 'להסיר את יואב מהכיתה?' });
     await expect(rm.getByText('כדי שלא תהיה הצטרפות מחדש באותו שם, נעלו את הכיתה.')).toBeVisible();
     await rm.getByRole('button', { name: 'כן, להסיר' }).click();
@@ -540,7 +546,6 @@ test.describe('the smart tutor', () => {
     const profile = { role: 'teacher', name: 'רונית', grade: '7', classes: [{ code: 'K7Q2MD', key: null, className: 'ז׳3', grade: '7', owned: true }], active: 'K7Q2MD' };
     await open(page, '#/teacher', withServer({ profile }), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(5), email: 'teacher@example.test', shared: false }) } });
     await expect(page.getByText('תרגלו היום')).toBeVisible();
-    await expect(page.locator('#t-licence').getByRole('heading', { name: 'העוזר החכם בכיתה' })).toBeVisible();
     await shot(page, 'teacher-board-by-email');
     const teacherCalls = log.filter((r) => r.path.startsWith('/api/teacher/') || r.path === '/api/ai/status');
     expect(teacherCalls.length).toBeGreaterThan(1);
@@ -567,9 +572,12 @@ test.describe('the smart tutor', () => {
   });
 
   test('the licence card: an ending licence offers only the renewal quote; a trial takes a school licence code', async ({ page }) => {
-    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    const { st } = await fakeServer(page, { parentOk: true, ai: PRIVATE_GROUP }, baseOf());
     st.licence = { ...st.licence, status: 'ending', until: '2026-11-20T10:00:00Z', seats: 30 };
+    // "מחר" keeps one line while the licence ends; it opens the class settings at the card (TEACHER-9 §1.4)
     await open(page, '#/teacher', teacher());
+    await page.getByRole('link', { name: /רישיון הכיתה מסתיים ב־20\.11\.2026\. לחידוש/ }).click();
+    await expect(page).toHaveURL(/#\/teacher\/settings$/);
     const card = page.locator('#t-licence');
     await expect(card.getByRole('heading', { name: 'הרישיון מסתיים ב־20.11.2026' })).toBeVisible();
     await expect(card.getByRole('button', { name: 'לחידוש: הצעת מחיר' })).toBeVisible();
@@ -590,5 +598,65 @@ test.describe('the smart tutor', () => {
     await expect(nav.getByRole('link', { name: 'תקנון' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'ביטול מנוי' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'להורים' })).toHaveCount(0);
+  });
+});
+
+// TRUST-11 §6: a class whose students have no AI by the Ministry of Education's rules (a school class while Madregot is
+// not in the catalogue, or the teacher's switch). The child sees calm words about the class's rules and the way back to
+// practice: never a price, a plan, or a link to parents. The screens are the safety lane's (trust.spec.js has the same
+// states): Madi's bubble says it with no tools, and the input stays usable (TRUST-3: a message that reads as distress
+// still goes), with the class's placeholder.
+test.describe('TRUST-11: a class whose AI is off', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const CALM = 'כך החליטו בכיתה, לפי ההנחיות של משרד החינוך. מדי, השיעורים והתרגול פתוחים כמו תמיד.';
+  const noPrice = async (page) => {
+    const text = await page.locator('body').innerText();
+    expect(text).not.toMatch(FORBIDDEN);
+    expect(text).not.toContain('מנוי');
+    expect(text).not.toContain('₪');
+  };
+
+  test('the server says the class\'s AI is off: the assistant shows the calm card, with nothing to buy and no parents', async ({ page }) => {
+    const { log } = await fakeServer(page, { classAiOff: true }, baseOf());
+    await open(page, '#/assistant', classStudent());
+    await expect(page.getByRole('heading', { name: 'בכיתה הזו העוזר החכם כבוי' })).toBeVisible();
+    await expect(page.getByText(CALM)).toBeVisible();
+    const draft = page.getByLabel('ההודעה שלכם');
+    await expect(draft).toBeEnabled();
+    await expect(draft).toHaveAttribute('placeholder', 'העוזר החכם כבוי בכיתה הזו');
+    await expect(page.locator('.chat-rest').getByRole('button', { name: 'להמשיך לתרגל' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'איך מחברים את העוזר' })).toHaveCount(0);
+    await expect(page.getByText('כשהעוזר מחובר, אפשר:')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'מידע להורים' })).toHaveCount(0);
+    await noPrice(page);
+    expect(aiCalls(log)).toHaveLength(0);
+    await shot(page, 'class-ai-off-assistant');
+  });
+
+  test('a call refused with class_ai_off (the status was older): the calm sheet, then the screen says it too', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { classAiOff: true, staleStatus: true, classLicence: true }, baseOf());
+    await open(page, '#/assistant', classStudent());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך מחסרים מספר שלילי?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: 'בכיתה הזו העוזר החכם כבוי' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText(CALM)).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'להמשיך לתרגל' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'מידע להורים' })).toHaveCount(0);
+    await expect(sheet.getByRole('button', { name: 'על רישיון כיתה' })).toHaveCount(0);
+    await noPrice(page);
+    await shot(page, 'class-ai-off-sheet');
+    expect(aiCalls(log).at(-1).headers.authorization).toBe('Bearer stu_token_1');
+    // behind the sheet the screen already says it: the class's placeholder, and Madi's calm card under the conversation
+    await expect(draft).toHaveAttribute('placeholder', 'העוזר החכם כבוי בכיתה הזו');
+    await expect(page.locator('.chat-rest')).toBeAttached();
+    const calls = aiCalls(log).length;
+    // "להמשיך לתרגל" goes back to practice; nothing more is asked
+    st.staleStatus = false;
+    await sheet.getByRole('button', { name: 'להמשיך לתרגל' }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(page).toHaveURL(/#\/$/);
+    await noPrice(page);
+    expect(aiCalls(log)).toHaveLength(calls);
   });
 });

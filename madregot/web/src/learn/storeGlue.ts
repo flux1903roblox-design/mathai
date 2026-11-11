@@ -48,7 +48,8 @@ export function learnAfterAnswer(learn: LearnState, e: AnswerEvent): LearnState 
 
 /** A finished check (lib/lesson.js resultOf for kind 'check'). */
 export interface CheckResult {
-  purpose: 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam';
+  /** class: the teacher's class exam (TEACHER-5 §4); its answers were already recorded as diagnostic evidence. */
+  purpose: 'mastery' | 'review' | 'verify' | 'diagnostic' | 'exam' | 'class';
   skill?: string; misc?: string;
   right: number; asked: number;
   perSkill: Record<string, { right: number; asked: number }>;
@@ -78,6 +79,9 @@ export function learnAfterCheck(learn: LearnState, r: CheckResult, at: string, _
     });
   } else if (r.purpose === 'exam') {
     events = logEvent(events, { e: 'rescue-exam-done', n: share(r) }, at);
+  } else if (r.purpose === 'class') {
+    // the class exam is the teacher's: it is logged, and changes no stair, misconception or Exam Rescue plan
+    events = logEvent(events, { e: 'class-exam-done', n: share(r) }, at);
   }
   return { ...learn, skills, miscon, exam, events };
 }

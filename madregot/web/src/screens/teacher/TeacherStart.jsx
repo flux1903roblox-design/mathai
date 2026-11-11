@@ -5,6 +5,8 @@
 // - With a server that has no email set up: new classes use the key flow, with the warning.
 // - With no server at all (the public practice site): the page says where the real teacher app is (VITE_TEACHER_URL)
 //   or how to ask for it (VITE_CONTACT_EMAIL). It never tells a teacher to set up a server.
+// Both offer the demo class (TEACHER-15): "לראות לוח לדוגמה, בלי הרשמה" opens a full board of invented students with
+// no server and no sign-in.
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { ArrowRight, Users, Repeat, Hand, ClipboardList, CalendarCheck, Printer } from 'lucide-react';
@@ -12,10 +14,12 @@ import { useApp } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
 import { useParent, accountCall } from '@/lib/parent.js';
 import { myClasses, restore, useEmailSignIn, teacherSiteLink } from '@/lib/teacher.js';
+import { openDemo, DEMO_COPY } from '@/lib/demo.js';
 import { Button, Field } from '@/components/ui.jsx';
 import { Flow, ConfirmSheet } from '@/components/Screen.jsx';
 import { GradeSwitch } from '@/components/GradeSwitch.jsx';
 import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
+import ClassSettingQuestion, { settingBody, settingReady } from '@/components/teacher/ClassSettingQuestion.jsx';
 
 const TEACHER_URL = import.meta.env.VITE_TEACHER_URL || '';
 const CONTACT = String(import.meta.env.VITE_CONTACT_EMAIL || '').trim();
@@ -60,6 +64,8 @@ function PublicTeacherPage({ onBack }) {
         ) : CONTACT && (
           <p className="teacher-off-lead">רוצים לנסות אותו בכיתה שלכם? כתבו לנו: <a href={`mailto:${CONTACT}`}><bdi dir="ltr">{CONTACT}</bdi></a></p>
         )}
+        {/* something real to try even here: the board with a class of invented students, nothing sent (TEACHER-15) */}
+        <Button variant="secondary" className="btn-block teacher-off-demo" onClick={openDemo}>{DEMO_COPY.link}</Button>
         <WhatTeachersSee />
       </main>
       <footer className="ob-foot" data-region="footer">
@@ -103,7 +109,7 @@ function ServerTeacherStart({ onBack }) {
   const [way, setWay] = useState('new'); // new | restore
   const [noEmail, setNoEmail] = useState(false); // a new class with the key only
   const [askNoEmail, setAskNoEmail] = useState(false);
-  const [f, setF] = useState({ teacherName: '', className: '', grade: '7', code: '', key: '' });
+  const [f, setF] = useState({ teacherName: '', className: '', grade: '7', setting: 'school', attest: false, code: '', key: '' });
   const [list, setList] = useState(null);
   const [picked, setPicked] = useState(() => new Set());
   const [busy, setBusy] = useState(false);
@@ -140,13 +146,14 @@ function ServerTeacherStart({ onBack }) {
   const openClass = async () => {
     setError(''); setBusy(true);
     try {
-      const body = { teacherName: f.teacherName.trim(), className: f.className.trim(), grade: f.grade };
+      // where the class learns (TRUST-11): a school class unless a private group is picked and attested
+      const body = { teacherName: f.teacherName.trim(), className: f.className.trim(), grade: f.grade, ...settingBody(f.setting, f.attest) };
       const s = noEmail ? null : useParent.getState().session;
       // signed in: the server binds the class to the email in the same step (owned), and a stale sign-in is refused
       const r = s ? await accountCall('/api/classes', { method: 'POST', body }) : await api('/api/classes', { method: 'POST', body });
       const owned = !!r.owned;
       // a shared computer keeps no key: the class opens there only while the sign-in lasts
-      const cls = { code: r.code, key: owned && s?.shared ? null : r.teacherKey, className: r.className, grade: r.grade, fresh: true, ...(owned ? { owned: true } : {}) };
+      const cls = { code: r.code, key: owned && s?.shared ? null : r.teacherKey, className: r.className, grade: r.grade, fresh: true, createdHere: true, ...(owned ? { owned: true } : {}) };
       setProfile({ role: 'teacher', name: r.teacherName, grade: r.grade, classes: [cls], active: cls.code });
     } catch (e) {
       if (e.code === 'not_account') setStack(['choose', 'email']);
@@ -158,7 +165,8 @@ function ServerTeacherStart({ onBack }) {
     try {
       const code = f.code.trim().toUpperCase();
       const d = await api('/api/teacher/dashboard', { headers: { 'X-Class-Code': code, 'X-Teacher-Key': f.key.trim() } });
-      const cls = { code, key: f.key.trim(), className: d.class.name, grade: d.class.grade };
+      // entered with the key: maybe a co-teacher's device, so the board does not offer to bind it (lib/teacher.js openedHere)
+      const cls = { code, key: f.key.trim(), className: d.class.name, grade: d.class.grade, createdHere: false };
       setProfile({ role: 'teacher', name: d.class.teacherName, grade: d.class.grade, classes: [cls], active: code });
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
@@ -178,6 +186,7 @@ function ServerTeacherStart({ onBack }) {
           {emailOn !== false && <Way on={pickedWay === 'restore'} onPick={() => setWay('restore')} title="כבר יש לי כיתה" sub="נכנסים עם המייל, מכל מכשיר" />}
         </div>
         <p className="ob-links"><button type="button" className="link-btn" onClick={() => go('key')}>יש לי קוד כיתה ומפתח מורה</button></p>
+        <p className="ob-links"><button type="button" className="link-btn" onClick={openDemo}>{DEMO_COPY.link}</button></p>
         {err}
       </Flow>
     );
@@ -202,7 +211,7 @@ function ServerTeacherStart({ onBack }) {
   }
 
   if (view === 'details') {
-    const can = !!(f.teacherName.trim() && f.className.trim());
+    const can = !!(f.teacherName.trim() && f.className.trim()) && settingReady(f.setting, f.attest);
     return (
       <Flow {...flow} steps={steps} className="teacher-flow" ask="איך קוראים לכם ולכיתה?" onSubmit={() => can && !busy && openClass()}
         foot={<Button type="submit" className="btn-block btn-lg" disabled={!can || busy}>{busy ? 'רגע…' : 'פתיחת הכיתה'}</Button>}>
@@ -210,6 +219,7 @@ function ServerTeacherStart({ onBack }) {
           <Field label="השם שלכם (כך התלמידים יראו אותו)" id="t-name"><input id="t-name" className="input input-lg" value={f.teacherName} onChange={set('teacherName')} maxLength={30} placeholder="למשל: רונית כהן" /></Field>
           <Field label="שם הכיתה" id="t-class"><input id="t-class" className="input input-lg" value={f.className} onChange={set('className')} maxLength={30} placeholder="למשל: ז׳3" /></Field>
           <div className="field"><span className="field-label" id="t-grade">שכבה</span><GradeSwitch value={f.grade} onChange={(g) => setF({ ...f, grade: g })} id="t-grade" /></div>
+          <ClassSettingQuestion idPrefix="t" setting={f.setting} attest={f.attest} onChange={({ setting, attest }) => setF({ ...f, setting, attest })} />
           {!noEmail && session && <p className="ob-note">הכיתה תישמר בחשבון של <bdi dir="ltr">{session.email}</bdi>.</p>}
           {noEmail && emailOn === false && <p className="ob-note">{NO_EMAIL}</p>}
         </div>
@@ -226,7 +236,7 @@ function ServerTeacherStart({ onBack }) {
         foot={none ? <Button type="submit" className="btn-block btn-lg">כניסה עם קוד ומפתח</Button>
           : <Button type="submit" className="btn-block btn-lg" disabled={!picked.size}>כניסה ללוח</Button>}>
         {none ? (
-          <p className="ob-note" data-region="answers">לא מצאנו כיתות שמקושרות ל־<bdi dir="ltr">{session?.email}</bdi>. אם פתחתם כיתה בלי מייל, נכנסים עם קוד הכיתה ומפתח המורה, ואז מקשרים אותה למייל מתוך הלוח.</p>
+          <p className="ob-note" data-region="answers">לא מצאנו כיתות שמקושרות ל־<bdi dir="ltr">{session?.email}</bdi>. אם פתחתם כיתה בלי מייל, נכנסים עם קוד הכיתה ומפתח המורה, ואז מקשרים אותה למייל בהגדרות הכיתה.</p>
         ) : (
           <fieldset className="t-pick" data-region="answers">
             <legend className="visually-hidden">הכיתות שייפתחו בלוח</legend>

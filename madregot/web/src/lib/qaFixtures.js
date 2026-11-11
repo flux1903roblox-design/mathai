@@ -3,9 +3,11 @@
 // with no request at all, so every state can be screenshotted. The choice is kept for the visit (sessionStorage).
 //   qa-ai:      free2 | free1 | free0 | family | class | shared | paused | economy | ended
 //   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | nosrv
+//   qa-teacher: demo (the demo class of TEACHER-15, lib/demo.js: every teacher screen with no request)
 import { qaOn } from './qa.js';
 
 const AI_STATES = ['free2', 'free1', 'free0', 'family', 'class', 'shared', 'paused', 'economy', 'ended'];
+const TEACHER_STATES = ['demo'];
 const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv'];
 
 function param(name, allowed) {
@@ -22,6 +24,7 @@ function param(name, allowed) {
 
 export const qaAI = () => param('qa-ai', AI_STATES);
 export const qaParent = () => param('qa-parent', PARENT_STATES);
+export const qaTeacher = () => param('qa-teacher', TEACHER_STATES);
 export const qaActive = () => !!qaAI();
 
 // the next midnight, as the server sends it (a day ahead is close enough for screenshots)

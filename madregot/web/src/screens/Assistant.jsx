@@ -268,7 +268,10 @@ export default function Assistant({ head = null, lead = null, className }) {
       {lead}
       {!ready ? <AiOffline /> : (
         <section className="assistant-chat" aria-label="שיחה עם העוזר" data-region="content">
-          {!off && <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode || profile?.role === 'teacher' ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>}
+          {/* the teacher lane's demo class (TEACHER-15): no question leaves the device, and the note says so */}
+          {!off && (aiMode() === 'demo'
+            ? <p className="footnote assistant-note">בכיתה לדוגמה העוזר מראה תשובה לדוגמה, ושום שאלה לא נשלחת.</p>
+            : <p className="footnote assistant-note">{aiMode() === 'personal' ? 'העוזר פועל עם המפתח האישי ששמרתם במכשיר הזה.' : profile?.classCode || profile?.role === 'teacher' ? 'העוזר פועל דרך השרת של הכיתה.' : 'העוזר פועל דרך השרת של האפליקציה.'} Claude של Anthropic.</p>)}
           {off ? (
             <AIChat context={{ grade }} introTitle={off.title} intro={off.text[0]} restLine={null} />
           ) : (

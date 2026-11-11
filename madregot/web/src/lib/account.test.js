@@ -151,6 +151,14 @@ describe('the introduction before the first AI action on a device (trust spec TR
     expect(needIntro(vi.fn())).toBe(false);
     expect(useAIIntro.getState().open).toBe(false);
   });
+  it('never in the demo class (TEACHER-15): its sample answer stays on the device', () => {
+    const before = useApp.getState().profile;
+    useApp.getState().setProfile({ role: 'teacher', name: 'מורה לדוגמה', grade: '7', active: 'DEMO01', demo: true, classes: [{ code: 'DEMO01', key: null, className: 'ז׳3 (דוגמה)', grade: '7' }] });
+    try {
+      expect(needIntro(vi.fn())).toBe(false);
+      expect(useAIIntro.getState().open).toBe(false);
+    } finally { useApp.getState().setProfile(before); }
+  });
 });
 
 describe('AI calls carry the device and its family link, never the parent session', () => {

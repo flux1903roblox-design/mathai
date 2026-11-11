@@ -1,34 +1,44 @@
 // "תלמידים": the join lock, then a table of the class (last practice, today, days this week, first-try rate and the
-// level on each topic of the grade) with resetting a student's PIN and removing a student, and a quiet last row that
-// deletes the whole class (the same sheet as in the class settings).
+// level on each topic of the grade), sorted by name or by "מי צריך תשומת לב" (?sort=need: the score of
+// learn/attention.ts, as on "מחר"), and a quiet last row that deletes the whole class (the same sheet as in the class
+// settings). Each name, and the row's "פרטים", opens the student's page, where resetting a PIN and removing a student
+// now live (TEACHER-8).
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { KeyRound, UserMinus, Trash2 } from 'lucide-react';
+import { Trash2, ChevronLeft } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
 import { topicsFor } from '@/content/index.js';
+import { rankAll, openHelpBy } from '@/learn/attention';
+import { AI_COPY, perStudentAi } from '@/content/classAi.js';
+import { useDemo, DEMO_COPY } from '@/lib/demo.js';
 import { ChapterMark, LevelPips } from '@/components/ui.jsx';
-import { ConfirmSheet } from '@/components/Screen.jsx';
-import { fmtDay, pct, Rate } from './common.jsx';
+import { fmtDay, pct, Rate, StudentName } from './common.jsx';
 import DeleteClassSheet, { useClassDeleted } from './DeleteClass.jsx';
 
-export default function StudentsTab({ cls, data, students, onChanged }) {
-  const [removing, setRemoving] = useState(null);
+export const SORTS = [['name', 'לפי שם'], ['need', 'מי צריך תשומת לב']];
+
+export default function StudentsTab({ cls, data, students, onChanged, onStudent }) {
   const [deleting, setDeleting] = useState(false);
+  const demo = useDemo();
+  const [params, setParams] = useSearchParams();
+  const sort = params.get('sort') === 'need' ? 'need' : 'name';
+  const setSort = (v) => setParams((p) => { const n = new URLSearchParams(p); n.set('tab', 'students'); if (v === 'need') n.set('sort', 'need'); else n.delete('sort'); return n; }, { replace: true });
   const gone = useClassDeleted();
   const topics = topicsFor(cls.grade);
-  const resetPin = async (s) => {
-    try { await teacherApi(`/api/teacher/students/${s.id}/reset-pin`, { method: 'POST', body: {} }, cls); toast.success(`הקוד האישי של ${s.name} אופס. בכניסה הבאה הוא יבחר קוד חדש.`); onChanged(); } catch (e) { toast.error(e.message); }
-  };
   const setLock = async (locked) => {
     try {
       await teacherApi('/api/teacher/class/lock', { method: 'POST', body: { locked } }, cls);
       toast.success(locked ? 'הכיתה נעולה לתלמידים חדשים.' : 'הכיתה פתוחה לתלמידים חדשים.'); onChanged();
     } catch (e) { toast.error(e.message); }
   };
-  const removeStudent = async () => {
-    const st = removing; setRemoving(null);
-    try { await teacherApi(`/api/teacher/students/${st.id}/remove`, { method: 'POST', body: {} }, cls); toast(`${st.name} הוסר/ה מהכיתה`); onChanged(); } catch (e) { toast.error(e.message); }
-  };
+  const day = data.today || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
+  const helpBy = openHelpBy(data.help);
+  // the student AI switched off for one student (TRUST-11): shown only where the class's students can have it
+  const aiBadge = perStudentAi(data.aiPolicy);
+  const rows = sort === 'need'
+    ? rankAll(students.map((s) => ({ ...s, openHelp: helpBy[s.id] || 0 })), day).map((a) => a.student)
+    : [...students].sort((a, b) => a.name.localeCompare(b.name, 'he'));
 
   return (
     <>
@@ -41,41 +51,52 @@ export default function StudentsTab({ cls, data, students, onChanged }) {
         <p className="field-hint">תלמידים שכבר בכיתה ממשיכים להיכנס עם הקוד האישי שלהם.</p>
       </section>
       {students.length > 0 && (
-        <div className="table-wrap" tabIndex={0} role="region" aria-label="טבלת התלמידים">
-          <table className="t-table">
-            <thead>
-              <tr>
-                <th scope="col">שם</th><th scope="col">תרגול אחרון</th><th scope="col">היום</th><th scope="col">ימים השבוע</th><th scope="col">נכון בניסיון ראשון</th>
-                {topics.map((t, i) => <th key={t.id} scope="col"><span className="th-topic"><ChapterMark color={t.color} n={i + 1} size="sm" />{t.title}</span></th>)}
-                <th scope="col"><span className="visually-hidden">פעולות</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((s) => (
-                <tr key={s.id}>
-                  <th scope="row">{s.name}</th>
-                  <td>{fmtDay(s.lastPractice)}</td>
-                  <td>{s.today.n ? `${s.today.n} תרגילים` : '–'}</td>
-                  <td>{s.week.days}</td>
-                  <td><Rate value={pct(s.week.first, s.week.n)} /></td>
-                  {topics.map((t) => { const l = s.levels[t.id]; return <td key={t.id}>{l ? <LevelPips total={t.levels.length} level={l.level} max={l.max} color={t.color} /> : <span className="muted">–</span>}</td>; })}
-                  <td className="t-actions">
-                    {s.pinReset ? <span className="muted">קוד אופס</span> : <button type="button" className="link-btn" onClick={() => resetPin(s)}><KeyRound size={14} aria-hidden="true" />איפוס קוד אישי</button>}
-                    <button type="button" className="link-btn" onClick={() => setRemoving(s)}><UserMinus size={14} aria-hidden="true" />הסרה מהכיתה</button>
-                  </td>
+        <>
+          <div className="field t-sort">
+            <label htmlFor="t-sort" className="field-label">סדר הרשימה</label>
+            <select id="t-sort" className="input t-sort-select" value={sort} onChange={(e) => setSort(e.target.value)}>
+              {SORTS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            </select>
+          </div>
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="טבלת התלמידים">
+            <table className="t-table">
+              <thead>
+                <tr>
+                  <th scope="col">שם</th><th scope="col">תרגול אחרון</th><th scope="col">היום</th><th scope="col">ימים השבוע</th><th scope="col">נכון בניסיון ראשון</th>
+                  {topics.map((t, i) => <th key={t.id} scope="col"><span className="th-topic"><ChapterMark color={t.color} n={i + 1} size="sm" />{t.title}</span></th>)}
+                  <th scope="col"><span className="visually-hidden">פרטים</span></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((s) => (
+                  <tr key={s.id}>
+                    <th scope="row"><StudentName id={s.id} name={s.name} onOpen={onStudent} /></th>
+                    <td>{fmtDay(s.lastPractice)}</td>
+                    <td>{s.today.n ? `${s.today.n} תרגילים` : '–'}</td>
+                    <td>{s.week.days}</td>
+                    <td><Rate value={pct(s.week.first, s.week.n)} /></td>
+                    {topics.map((t) => { const l = s.levels[t.id]; return <td key={t.id}>{l ? <LevelPips total={t.levels.length} level={l.level} max={l.max} color={t.color} /> : <span className="muted">–</span>}</td>; })}
+                    <td className="t-actions">
+                      {s.pinReset && <span className="muted">קוד אופס</span>}
+                      {aiBadge && s.aiOff && <span className="t-chip t-ai-off">{AI_COPY.badge}</span>}
+                      {onStudent && (
+                        <button type="button" className="link-btn" onClick={() => onStudent({ id: s.id, name: s.name })} aria-label={`פרטים על ${s.name}`}>
+                          פרטים<ChevronLeft size={16} aria-hidden="true" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
       <div className="set-rows-wrap t-quiet-rows"><div className="set-rows">
-        <button type="button" className="set-row t-quiet-row" onClick={() => setDeleting(true)}><Trash2 size={18} aria-hidden="true" />מחיקת הכיתה</button>
+        <button type="button" className="set-row t-quiet-row" onClick={() => setDeleting(true)} disabled={demo} aria-describedby={demo ? 't-demo-delete' : undefined}><Trash2 size={18} aria-hidden="true" />מחיקת הכיתה</button>
       </div></div>
-      <DeleteClassSheet cls={cls} open={deleting} onOpenChange={setDeleting} onDeleted={() => { setDeleting(false); gone(cls); }} />
-      <ConfirmSheet open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title={removing ? `להסיר את ${removing.name} מהכיתה?` : ''} keep="לא להסיר" confirm="כן, להסיר" onConfirm={removeStudent}>
-        <p>נמחק את ההתקדמות של {removing?.name} מלוח הכיתה, והכניסה לכיתה תיסגר. התרגול שנשמר במכשיר עצמו נשאר. כדי שלא תהיה הצטרפות מחדש באותו שם, נעלו את הכיתה.</p>
-      </ConfirmSheet>
+      {demo && <p className="muted t-demo-line" id="t-demo-delete">{DEMO_COPY.noDelete}</p>}
+      <DeleteClassSheet cls={cls} open={deleting && !demo} onOpenChange={setDeleting} onDeleted={() => { setDeleting(false); gone(cls); }} />
     </>
   );
 }

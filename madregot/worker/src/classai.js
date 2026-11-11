@@ -8,14 +8,18 @@
 //
 // A class with no class_settings row is a school class with student AI off and no consent: the safe default, and what
 // every class is until its teacher says otherwise. Every change is audited (class.setting, class.ai, student.ai) with
-// no personal data in the detail.
+// no personal data in the detail; a change the teacher made signed in with the class's email (not the key) also says
+// via: 'account' (the teacher lane's detail). The teacher lane's screens (ClassAICard, the setting question, the student
+// sheet's switch, LicenceCard) and its demo class read these shapes.
 import { MOE_RULES, classAiPolicy, rulesEnv, notSellable } from '../../shared/schoolRules.js';
 import { HttpError, body, json, nowIso } from './util.js';
 import { requireTeacher } from './entitle.js';
 
 const SMALL = 4096;
-const audit = (env, code, action, target, detail, at = nowIso()) => env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
-  .bind(at, `teacher:${code}`, action, target, JSON.stringify(detail));
+/** The audit detail, with via: 'account' when the teacher came in with the class's email session (requireTeacher's via). */
+const detailOf = (via, detail) => (via === 'account' ? { ...detail, via: 'account' } : detail);
+const audit = (env, code, action, target, detail, at = nowIso(), via = null) => env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
+  .bind(at, `teacher:${code}`, action, target, JSON.stringify(detailOf(via, detail)));
 
 /** A class's choices as the rule reads them (the safe default when it has no row). */
 export async function classSettings(env, code) {
@@ -56,12 +60,21 @@ export function newClassSetting(b = {}) {
   return setting;
 }
 
-/** What a new class writes beside its classes row: nothing for a school class (no row is the default), else the attested private row and its audit. */
-export function newClassStmts(env, code, setting, now = nowIso()) {
+/**
+ * What a new class writes beside its classes row, in the same batch after it: nothing for a school class (no row is the
+ * default), else the attested private row and its audit. Both are written only if the class row was (the teacher lane's
+ * guard: with a session the owned-class cap can stop the class row when two are made at once, and then nothing of the
+ * class is left). `opts` is { now, via } (via 'account' when made with an email session), or the time alone.
+ */
+export function newClassStmts(env, code, setting, opts = {}) {
   if (setting !== 'private') return [];
+  const { now = nowIso(), via = null } = typeof opts === 'string' ? { now: opts } : opts;
+  const made = 'EXISTS (SELECT 1 FROM classes WHERE code = ?1)';
   return [
-    env.DB.prepare("INSERT INTO class_settings (code, setting, private_attested_at) VALUES (?, 'private', ?)").bind(code, now),
-    audit(env, code, 'class.setting', `class:${code}`, { setting: 'private', attested: true }, now),
+    env.DB.prepare(`INSERT INTO class_settings (code, setting, student_ai, ai_consent_at, private_attested_at) SELECT ?1, 'private', 'off', NULL, ?2 WHERE ${made}
+      ON CONFLICT (code) DO UPDATE SET setting = 'private', student_ai = 'off', ai_consent_at = NULL, private_attested_at = excluded.private_attested_at`).bind(code, now),
+    env.DB.prepare(`INSERT INTO audit_log (at, actor, action, target, detail) SELECT ?2, 'teacher:' || ?1, 'class.setting', 'class:' || ?1, ?3 WHERE ${made}`)
+      .bind(code, now, JSON.stringify(detailOf(via, { setting: 'private', attested: true }))),
   ];
 }
 
@@ -100,8 +113,8 @@ export async function setClassAi(req, env, cors) {
     env.DB.prepare(`INSERT INTO class_settings (code, setting, student_ai, ai_consent_at, private_attested_at) VALUES (?1, ?2, ?3, ?4, ?5)
       ON CONFLICT (code) DO UPDATE SET setting = ?2, student_ai = ?3, ai_consent_at = ?4, private_attested_at = ?5`)
       .bind(cls.code, next.setting, next.studentAi, next.consentAt, next.privateAttestedAt),
-    ...(moved ? [audit(env, cls.code, 'class.setting', target, { setting, attested: setting === 'private' }, now)] : []),
-    ...(studentAi !== undefined || consent !== undefined ? [audit(env, cls.code, 'class.ai', target, { studentAi: studentAi ?? null, consent: consent === true }, now)] : []),
+    ...(moved ? [audit(env, cls.code, 'class.setting', target, { setting, attested: setting === 'private' }, now, cls.via)] : []),
+    ...(studentAi !== undefined || consent !== undefined ? [audit(env, cls.code, 'class.ai', target, { studentAi: studentAi ?? null, consent: consent === true }, now, cls.via)] : []),
   ]);
   return json({ policy: aiPolicyView(env, cls, next) }, 200, cors);
 }
@@ -121,7 +134,7 @@ export async function setStudentAi(id, req, env, cors) {
     b.off
       ? env.DB.prepare('INSERT OR IGNORE INTO student_ai_off (student_id, at) VALUES (?, ?)').bind(st.id, now)
       : env.DB.prepare('DELETE FROM student_ai_off WHERE student_id = ?').bind(st.id),
-    audit(env, cls.code, 'student.ai', `student:${st.id}`, { off: b.off }, now),
+    audit(env, cls.code, 'student.ai', `student:${st.id}`, { off: b.off }, now, cls.via),
   ]);
   return json({ id: st.id, aiOff: b.off }, 200, cors);
 }

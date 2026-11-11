@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { toast } from 'sonner';
 import { useApp, STORE_KEY } from '@/lib/store.js';
 import { api, hasServer } from '@/lib/api.js';
+import { openDemo } from '@/lib/demo.js';
 import { useAIStatus, refreshStatus } from '@/lib/account.js';
 import { Button, Field } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
@@ -275,10 +276,13 @@ function RestoreStart({ onBack }) {
 /**
  * The first screen with no profile: the student's onboarding, the teacher's way in, or a restore from a backup file. A
  * link to the app with ?start=teacher (the public site's "ללוח המורה") or ?role=teacher (the landing pages) opens the
- * teacher's way in.
+ * teacher's way in; ?start=demo opens the demo class (TEACHER-15).
  */
 export default function Welcome() {
   const [params, setParams] = useSearchParams();
+  // #/?start=demo reached inside the app (on opening, lib/demo.js bootDemo already did it): the demo class, here
+  const wantsDemo = params.get('start') === 'demo';
+  useEffect(() => { if (wantsDemo) openDemo(); }, [wantsDemo]);
   const asked = params.get('start') === 'teacher' || params.get('role') === 'teacher';
   const [mode, setMode] = useState(asked ? 'teacher' : null); // null: the first visit; 'teacher'; 'restore'
   const back = () => { setMode(null); if (asked) setParams({}, { replace: true }); };

@@ -92,6 +92,7 @@ const MESSAGES = {
   private_attest_required: 'כדי לבחור קבוצה פרטית צריך לאשר שהיא לא פועלת במסגרת בית ספר.',
   bad_licence_code: 'קוד הרישיון לא נכון, פג או כבר נוצל.',
   owned_by_other: 'הכיתה הזו כבר מקושרת לחשבון אחר. אם זו טעות, כתבו לנו.',
+  rekey_hold: 'בשבוע הראשון אחרי שכיתה מקושרת למייל, מפתח המורה נשאר כמו שהוא. כך אפשר לתקן קישור שנעשה בטעות.',
   not_owner: 'את זה יכול לעשות רק מי שהכיתה מקושרת למייל שלו.',
   too_many_classes_owned: 'אפשר לקשר עד 20 כיתות לחשבון אחד. כתבו לנו אם צריך יותר.',
   too_many_lists: 'ביקשתם את רשימת הכיתות הרבה פעמים בשעה האחרונה. נסו שוב בעוד שעה.',
@@ -102,6 +103,18 @@ const MESSAGES = {
   // class work (TEACHER-4)
   bad_assignment: 'משהו בפרטי המשימה לא תקין. בדקו את התאריך ואת המדרגה.',
   too_many_assignments: 'נוצרו היום הרבה משימות בכיתה הזו. אפשר להמשיך מחר.',
+  // the class report (TEACHER-7); its own code, since too_many_reports is a child's reported AI answers (TRUST-4)
+  bad_range: 'הטווח לא תקין. בוחרים תאריך התחלה ותאריך סיום עד היום.',
+  too_many_class_reports: 'ביקשתם את הדוח הרבה פעמים בשעה האחרונה. נסו שוב בעוד שעה.',
+  // help replies (TEACHER-6)
+  reply_limit: 'הגעתם למספר התשובות לבקשה הזו. את השאר כדאי להמשיך בכיתה.',
+  reply_has_contact: 'בלי קישורים, מספרי טלפון או כתובות מייל בתשובה. כל השאר אפשר להמשיך בכיתה.',
+  no_reply_yet: 'אפשר לענות אחרי שהמורה כותב תשובה. עד אז הבקשה מחכה אצל המורה.',
+  bad_reply: 'ההודעה ריקה או ארוכה מדי. כתבו כמה מילים על התרגיל.',
+  // the demo class (TEACHER-15)
+  demo_offline: 'בכיתה לדוגמה שום דבר לא נשלח לשרת.',
+  demo_readonly: 'בכיתה לדוגמה אי אפשר למחוק או להחליף מפתח.',
+  demo_ai: 'בכיתה לדוגמה העוזר מראה רק תשובה לדוגמה בשיחה. בכיתה אמיתית הוא גם יוצר תרגילים ובודק פתרונות.',
   // other
   bot_check: 'לא הצלחנו לאשר את המכשיר. נסו שוב.',
   server_config: 'השרת עוד לא הוגדר עד הסוף.',
@@ -144,6 +157,8 @@ export class ApiError extends Error {
  * `keepalive: true` lets the request finish after the page is gone (the caller has claimed its bytes; see moments.js).
  */
 export async function api(path, { method = 'GET', body, headers = {}, signal, auth = true, onResponse, keepalive = false } = {}) {
+  // the demo class (TEACHER-15) never reaches a server: its teacher calls are answered on the device (lib/teacherDemo.js)
+  if (useApp.getState().profile?.demo === true) throw new ApiError('demo_offline');
   const base = apiBase();
   if (!base) throw new ApiError('no_server');
   const token = auth ? useApp.getState().profile?.token : null;
@@ -170,7 +185,7 @@ export async function api(path, { method = 'GET', body, headers = {}, signal, au
  */
 let health = null;
 export function serverHealth() {
-  if (!hasServer()) return Promise.resolve(null);
+  if (!hasServer() || useApp.getState().profile?.demo === true) return Promise.resolve(null);
   health ||= api('/api/health', { auth: false }).catch(() => { health = null; return null; });
   return health;
 }

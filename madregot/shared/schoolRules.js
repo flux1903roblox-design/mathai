@@ -64,5 +64,8 @@ export function classAiPolicy(cls = {}, env = {}) {
 /** May this student reach the tutor in their class? Only when the class's student AI is on and theirs is not off. */
 export const studentAiAllowed = (policy, student) => policy?.students === 'on' && !student?.aiOff;
 
-/** The policy reasons under which no AI class licence may be sold to the class (TRUST-11 §5). */
+/**
+ * The policy reasons under which no AI class licence may be sold to the class (TRUST-11 §5): the Worker's licence, trial,
+ * claim and checkout gates, the owner's CLI, and the teacher lane's demo class and fake server all ask notSellable().
+ */
 export const notSellable = (policy) => policy?.reason === 'not_in_catalogue' || policy?.reason === 'grade';

@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation } from 'react-router-dom';
+import { createHashRouter, Navigate, Outlet, Route, RouterProvider, Routes, ScrollRestoration, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react';
 import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
 import { useMoments, onMoment, MOMENT_ORDER } from '@/lib/durable/moments.js';
+import { toAnnounce, markNoticed, focusedRoute, HELP_NOTICE } from '@/lib/help.js';
 import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import { useDurable } from '@/lib/durable/useDurable.js';
@@ -15,6 +16,7 @@ import { applyTheme } from '@/lib/theme.js';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import SupportSheet from '@/components/SupportSheet.jsx';
 import AIIntro from '@/components/AIIntro.jsx';
+import DemoAsk from '@/components/DemoAsk.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
 import Welcome from '@/screens/Welcome.jsx';
@@ -34,7 +36,12 @@ const Teacher = fromTeacher('Teacher');
 const ClassSettings = fromTeacher('ClassSettings');
 const TeacherLibrary = fromTeacher('TeacherLibrary');
 const TeacherAssistant = fromTeacher('TeacherAssistant');
+const TeacherExamNew = fromTeacher('TeacherExamNew');
+const TeacherExamSheet = fromTeacher('TeacherExamSheet');
+const ClassReport = fromTeacher('ClassReport');
+const TeacherGuide = fromTeacher('TeacherGuide');
 const PreviewFrame = fromTeacher('PreviewFrame');
+const DemoBanner = fromTeacher('DemoBanner');
 // The parents' area (its own header, no tab bar) works with or without a profile: one chunk, loaded on demand.
 const Parents = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.Parents })));
 const ParentHandoff = lazy(() => import('@/screens/parents/parents.js').then((m) => ({ default: m.ParentHandoff })));
@@ -51,6 +58,7 @@ const Repair = lazy(() => import('@/screens/Repair.jsx'));
 const Rescue = lazy(() => import('@/screens/Rescue.jsx'));
 const NewPracticeExam = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.NewPracticeExam })));
 const PracticeSheet = lazy(() => import('@/screens/PracticeExam.jsx').then((m) => ({ default: m.PracticeSheet })));
+const ClassExam = lazy(() => import('@/screens/ClassExam.jsx'));
 
 /**
  * A class student's answers go to the class server at the app's sync moments (lib/durable/moments.js): when the app
@@ -117,7 +125,7 @@ function StatusWatch() {
 function Toasts() {
   const { pathname } = useLocation();
   useEffect(() => { toast.dismiss(); }, [pathname]);
-  const lesson = /^\/(lesson|practice|placement)/.test(pathname);
+  const lesson = /^\/(lesson|practice|placement)/.test(pathname) || /^\/class\/exam\/[^/]+\/run$/.test(pathname);
   return lesson
     ? <Toaster key="top" position="top-center" dir="rtl" offset={72} mobileOffset={{ top: 72 }} toastOptions={{ className: 'toast' }} />
     : <Toaster key="bottom" position="bottom-center" dir="rtl" offset={96} mobileOffset={{ bottom: 96 }} toastOptions={{ className: 'toast' }} />;
@@ -138,6 +146,27 @@ function RestoreToast() {
   return null;
 }
 
+/**
+ * "יש תשובה מהמורה על בקשת העזרה" (TEACHER-6 §4): once per new reply from the teacher (classWork.noticed), on the first
+ * screen after the class's work came in, never inside a lesson (it waits for the next screen). "לקריאה" opens the
+ * request's thread on the missions screen.
+ */
+function HelpNotice() {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const token = useApp((s) => (s.profile?.role === 'student' ? s.profile?.token : null));
+  const help = useApp((s) => s.classWork?.help);
+  useEffect(() => {
+    if (!token || focusedRoute(pathname)) return;
+    const fresh = toAnnounce(useApp.getState().classWork);
+    if (!fresh.length) return;
+    markNoticed(fresh.map((x) => x.message.id));
+    const id = fresh[0].help.id;
+    toast('יש תשובה מהמורה על בקשת העזרה', { id: HELP_NOTICE, duration: 10_000, action: { label: 'לקריאה', onClick: () => navigate('/quests', { state: { help: id } }) } });
+  }, [token, help, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 // Each lesson route starts a fresh lesson, so the screen remounts per route.
 function LessonRoute() {
   const { pathname, search } = useLocation();
@@ -149,11 +178,16 @@ function TeachRoute() {
   return <Teach key={pathname} />;
 }
 
-/** Every /teacher screen: opening one ends the student view, so the stored way back is cleared (lib/teacher.js). */
+/**
+ * Every /teacher screen: opening one ends the student view, so the stored way back is cleared (lib/teacher.js). In the
+ * demo class (TEACHER-15) the banner sits above each of them; the student view keeps its own bar, which already says
+ * nothing is sent.
+ */
 function TeacherArea() {
   const { pathname } = useLocation();
+  const demo = useApp((s) => s.profile?.demo === true);
   useEffect(() => { previewBack.clear(); }, [pathname]);
-  return <Outlet />;
+  return <>{demo && <DemoBanner />}<Outlet /></>;
 }
 /**
  * A teacher on a student landing path ("/", "/quests", ...): a student screen of the preview ended there (a check
@@ -173,10 +207,13 @@ function Root() {
     <>
       <Toasts />
       <RestoreToast />
+      {role === 'student' && <HelpNotice />}
       {role && <LimitSheet />}
       {role && <SupportSheet />}
       {role && <AIIntro />}
       {role && <StatusWatch />}
+      {/* the demo class asked for on a device someone uses: it opens in a new tab (lib/demo.js) */}
+      <DemoAsk />
       {/* a new screen opens at the top; back restores where the student was */}
       <ScrollRestoration />
       <ErrorBoundary>
@@ -201,6 +238,10 @@ function Root() {
               <Route path="/teacher/lessons" element={<TeacherLibrary />} />
               <Route path="/teacher/assistant" element={<TeacherAssistant />} />
               <Route path="/teacher/settings" element={<ClassSettings />} />
+              <Route path="/teacher/exam/new" element={<TeacherExamNew />} />
+              <Route path="/teacher/exam/:id" element={<TeacherExamSheet />} />
+              <Route path="/teacher/report" element={<ClassReport />} />
+              <Route path="/teacher/guide/:doc?" element={<TeacherGuide />} />
             </Route>
             {/* the student view: the student screens of a stair, under the "תצוגת תלמיד" bar */}
             <Route element={<PreviewFrame />}>
@@ -236,6 +277,7 @@ function Root() {
               <Route path="/learn/:topic/:level" element={<Journey />} />
               <Route path="/mission" element={<Navigate to="/quests" replace />} />
               <Route path="/rescue" element={<Rescue />} />
+              <Route path="/class/exam/:id" element={<ClassExam />} />
             </Route>
             <Route path="/lesson/:topic/:level" element={<LessonRoute />} />
             <Route path="/practice/:id" element={<LessonRoute />} />
@@ -244,6 +286,7 @@ function Root() {
             <Route path="/repair/:topic/:level/:misc" element={<Repair />} />
             <Route path="/rescue/check" element={<LessonRoute />} />
             <Route path="/rescue/exam" element={<LessonRoute />} />
+            <Route path="/class/exam/:id/run" element={<LessonRoute />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}

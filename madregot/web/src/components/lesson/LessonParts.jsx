@@ -10,11 +10,11 @@ function stripText(marks, total) {
 }
 
 /** The lesson's top bar: leave, the progress bar, and the combo or the tested topic. */
-export function ProgressHeader({ pct, label, onExit, combo, topic, extra = null, marks = null, total = 0 }) {
+export function ProgressHeader({ pct, label, onExit, combo, topic, extra = null, marks = null, total = 0, exitLabel = 'יציאה מהשיעור' }) {
   const reduce = useReducedMotion();
   return (
     <header className="lesson-top">
-      <button type="button" className="icon-btn lesson-x" onClick={onExit} aria-label="יציאה מהשיעור"><X size={26} /></button>
+      <button type="button" className="icon-btn lesson-x" onClick={onExit} aria-label={exitLabel}><X size={26} /></button>
       {/* one thick bar that fills as the lesson goes (the steps' results are read aloud) */}
       <div className="lesson-bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
         aria-valuetext={marks ? stripText(marks, total) : undefined}>

@@ -14,6 +14,7 @@ import './styles/dark.css'; // last: the dark values of the tokens (STUDENT-2)
 import App from './App.jsx';
 import { durableBoot } from './lib/durable/storage.js';
 import { registerSW } from './lib/swClient.js';
+import { bootDemo } from './lib/demo.js';
 
 // Test hook: with localStorage 'madregot-seed' set, exercises come out the same on every run (visual tests).
 try {
@@ -25,9 +26,12 @@ try {
 } catch { /* storage blocked */ }
 
 // The first screen waits for the copy of the progress on the device (at most 300 ms, lib/durable/storage.js), so a
-// broken or lost save is already back when the app appears.
+// broken or lost save is already back when the app appears. Then the demo class (TEACHER-15): a reload inside it, or
+// an address that asks for it, opens it before the first screen (it holds saving, so the device's own save stays as
+// it was).
 (async () => {
   await durableBoot();
+  bootDemo();
   createRoot(document.getElementById('root')).render(
     <StrictMode>
       <App />

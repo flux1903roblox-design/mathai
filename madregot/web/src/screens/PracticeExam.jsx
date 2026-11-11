@@ -65,17 +65,40 @@ export function NewPracticeExam() {
   );
 }
 
-/** The printable sheet: questions, figures and room to write. The key stays folded away. */
-/** One line of the answer key: the choice letter and its maths, or the value left to right. */
-function KeyAnswer({ it }) {
+/**
+ * One line of the answer key: the choice letter and its maths, or the value left to right (and its unit). A practice
+ * exam keeps the answer as text; a class exam keeps the raw answer (a choice's index) and its text (`answerText`).
+ */
+export function KeyAnswer({ it }) {
   if (it.form === 'mc' && it.choices) {
-    const k = it.choices.findIndex((c) => (c.text || c.tex) === it.answer);
+    const k = Number.isInteger(it.answer) ? it.answer : it.choices.findIndex((c) => (c.text || c.tex) === it.answer);
     const c = it.choices[k];
-    return <span>{k >= 0 && `${String.fromCharCode(1488 + k)}. `}{c?.tex ? <Tex tex={c.tex} /> : (c?.text ?? it.answer)}</span>;
+    return <span>{k >= 0 && `${String.fromCharCode(1488 + k)}. `}{c?.tex ? <Tex tex={c.tex} /> : (c?.text ?? it.answerText ?? it.answer)}</span>;
   }
-  return <bdi dir="ltr" className="mathline">{String(it.answer).replace(/-/g, '\u2212')}</bdi>;
+  const text = String(it.answerText ?? it.answer);
+  // Hebrew words stay in the line's own direction; numbers and expressions are set left to right
+  if (/[\u0590-\u05FF]/.test(text)) return <span>{text}</span>;
+  return <><bdi dir="ltr" className="mathline">{text.replace(/-/g, '\u2212')}</bdi>{it.answerText != null && it.unit ? ` ${it.unit}` : ''}</>;
 }
 
+/**
+ * One question of a printed exam: its number, the words and the maths, the drawing, the choices, room to work and the
+ * answer line. The student's practice sheet and the teacher's class exam print the same way.
+ */
+export function ExamQuestion({ it, n, className, as: Tag = 'li' }) {
+  return (
+    <Tag className={clsx('exam-q', it.fig && 'has-fig', className)}>
+      <p className="qtext"><span className="ex-num">{n}</span><MathText text={it.text} /></p>
+      {it.display && <div className="qdisplay small"><Tex tex={displayTex(it)} display /></div>}
+      <Figure fig={it.fig} />
+      {it.form === 'mc' && <p className="exam-choices">{it.choices.map((c, k) => <span key={k}>{String.fromCharCode(1488 + k)}. {c.tex ? <Tex tex={c.tex} /> : c.text}</span>)}</p>}
+      <div className="exam-work" aria-hidden="true" />
+      <p className="exam-answer-line">תשובה: <span className="blank" /></p>
+    </Tag>
+  );
+}
+
+/** The printable sheet: questions, figures and room to write. The key stays folded away. */
 export function PracticeSheet() {
   const { id } = useParams();
   const { profile, practiceExams } = useApp();
@@ -95,16 +118,7 @@ export function PracticeSheet() {
           <p className="exam-sheet-meta"><span>שם: {profile.name}</span><span>תאריך: ________</span><span>{pe.items.length} שאלות</span></p>
         </header>
         <ol className="exam-qs">
-          {pe.items.map((it, i) => (
-            <li key={it.key} className="exam-q">
-              <p className="qtext"><span className="ex-num">{i + 1}</span><MathText text={it.text} /></p>
-              {it.display && <div className="qdisplay small"><Tex tex={displayTex(it)} display /></div>}
-              <Figure fig={it.fig} />
-              {it.form === 'mc' && <p className="exam-choices">{it.choices.map((c, k) => <span key={k}>{String.fromCharCode(1488 + k)}. {c.tex ? <Tex tex={c.tex} /> : c.text}</span>)}</p>}
-              <div className="exam-work" aria-hidden="true" />
-              <p className="exam-answer-line">תשובה: <span className="blank" /></p>
-            </li>
-          ))}
+          {pe.items.map((it, i) => <ExamQuestion key={it.key} it={it} n={i + 1} />)}
         </ol>
       </article>
       <details className="sol no-print" id="answer-key">

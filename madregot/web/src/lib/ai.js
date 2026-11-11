@@ -9,6 +9,10 @@ import { apiBase, ApiError, errorText } from './api.js';
 import { aiHeaders, aiMode, aiReady, noteUsage, noteLimit, openLimitSheet, LIMIT_ERRORS, useAIStatus } from './account.js';
 import { qaActive, qaReply } from './qaFixtures.js';
 import { teacherHeaders } from './teacher.js';
+import { DEMO_COPY } from './demo.js';
+
+/** The demo's sample answer, after its label: how the assistant explains a step, with no question sent. */
+const DEMO_AI_SAMPLE = 'למשל, כך אפשר להסביר חיבור של מספר חיובי ומספר שלילי: מתחילים במספר הראשון על ציר המספרים, וזזים שמאלה כמספר היחידות של המספר השלילי. $7 + (-3) = 4$. אחר כך כדאי לתת שני תרגילים דומים, ואחד עם התשובה השלילית: $3 + (-7) = -4$.';
 
 export { aiMode, aiReady };
 
@@ -87,6 +91,14 @@ function limited(kind, data, status, onMadi, quiet = false) {
 export async function runAI(kind, input, { onText, signal, onMadi, quiet = false } = {}) {
   const mode = aiMode();
   if (mode === 'none') throw new ApiError('no_server');
+
+  // the demo class (TEACHER-15): a fixed sample answer, labelled as one; nothing is sent
+  if (mode === 'demo') {
+    if (kind !== 'chat' && kind !== 'explain') throw new ApiError('demo_ai');
+    const text = `${DEMO_COPY.aiSample}\n\n${DEMO_AI_SAMPLE}`;
+    onText?.(text);
+    return { text };
+  }
 
   if (qaActive()) {
     try {

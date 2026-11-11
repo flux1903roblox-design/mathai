@@ -15,7 +15,7 @@ import { randomHex } from './random.js';
 import { migrate, CURRENT_VERSION, AI_DEFAULTS, BACKUP_DEFAULTS, DURABLE_DEFAULTS, emptyClassWork } from './durable/migrations.js';
 import { addXp, newTag } from './durable/xp.js';
 import { durableStorage, bindDurableStore, STORE_KEY } from './durable/storage.js';
-import { EXAMS_KEEP, PRACTICE_EXAMS_KEEP, OUTBOX_KEEP } from './durable/merge.js';
+import { EXAMS_KEEP, PRACTICE_EXAMS_KEEP, OUTBOX_KEEP, TEACHER_EXAMS_KEEP } from './durable/merge.js';
 import { applyTheme } from './theme.js';
 
 export const today = (d = new Date()) => d.toLocaleDateString('en-CA');
@@ -24,9 +24,25 @@ export const dayBefore = (key) => { const d = new Date(`${key}T12:00:00`); d.set
 /** Nothing from a teacher yet (and after leaving the class): the class work slice (its shape: durable/migrations.js). */
 export { emptyClassWork };
 
+/**
+ * Saving can be held (the demo class, TEACHER-15): while it is, nothing is written to the device's saved state, so a
+ * demo opened on a device someone uses never touches their profile or progress, and leaving the demo reads the saved
+ * state back as it was (lib/demo.js). The hold wraps the family lane's durable storage (durable/storage.js): while it
+ * is on, writes and removals are skipped and a read finds nothing, so neither a save another tab makes (its `storage`
+ * event rehydrates this store) nor the copy on the device read at boot replaces the demo in this tab.
+ */
+let saving = true;
+export const holdSaving = (hold) => { saving = !hold; };
+export const savingHeld = () => !saving;
+const heldStorage = {
+  getItem: (name) => (saving ? durableStorage.getItem(name) : null),
+  setItem: (name, value) => (saving ? durableStorage.setItem(name, value) : undefined),
+  removeItem: (name) => (saving ? durableStorage.removeItem(name) : undefined),
+};
+
 const empty = {
   // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? }
-  // | { role: 'teacher', name, grade, classes: [{ code, key: string|null, className, grade, owned?: boolean, fresh?: boolean, bindLater?: 'YYYY-MM-DD', pilot?: {...} }], active, demo?: true }
+  // | { role: 'teacher', name, grade, classes: [{ code, key: string|null, className, grade, owned?: boolean, fresh?: boolean, createdHere?: boolean, bindLater?: 'YYYY-MM-DD', pilot?: {...} }], active, demo?: true }
   // A teacher's email is never kept here: it is read from the signed-in session (lib/parent.js).
   profile: null,
   progress: {}, // topicId -> { level, max }
@@ -65,7 +81,13 @@ const empty = {
   // shows offline too; when the student last opened the missions tab; and the reports not yet confirmed by the server
   classWork: emptyClassWork(),
   workOutbox: {}, // assignmentId -> the newest report waiting for the server (merged with learn/assignments.ts mergeWork)
+  // the teacher's printable class exams on this device (TEACHER-3), newest first, at most TEACHER_EXAMS:
+  // { id (12 hex), classCode, at, title, skills: ['signed:2', ...], count, versions: [{ label: 'א', items }, { label: 'ב', items }?],
+  //   skipped: stairs left out (dragging only), assignmentId: null }
+  teacherExams: [],
 };
+/** Class exams a teacher keeps on a device (the merge between tabs and devices keeps as many: durable/merge.js). */
+export const TEACHER_EXAMS = TEACHER_EXAMS_KEEP;
 
 /** A class student's answers waiting for the server, at most (the oldest give way first). */
 export const OUTBOX_MAX = OUTBOX_KEEP;
@@ -104,6 +126,9 @@ export const appState = (set, get) => ({
       addExam: (exam) => set({ exams: [exam, ...get().exams].slice(0, EXAMS_KEEP), gaps: gapsFromExam(get().gaps, exam) }),
       removeExam: (id) => set({ exams: get().exams.filter((e) => e.id !== id) }),
       addPracticeExam: (pe) => set({ practiceExams: [pe, ...get().practiceExams].slice(0, PRACTICE_EXAMS_KEEP) }),
+      /** A new class exam (TEACHER-3): first in the list, and the oldest beyond TEACHER_EXAMS goes. */
+      addTeacherExam: (te) => set({ teacherExams: [te, ...(get().teacherExams || []).filter((x) => x.id !== te.id)].slice(0, TEACHER_EXAMS) }),
+      updateTeacherExam: (id, patch) => set({ teacherExams: (get().teacherExams || []).map((x) => (x.id === id ? { ...x, ...patch } : x)) }),
       resetPlanBase: (patch) => set({ planBase: { ...get().planBase, ...patch } }),
       setLevel: (topicId, level, max) => set({
         progress: { ...get().progress, [topicId]: { level, max: Math.max(max, get().progress[topicId]?.max || 1) } },
@@ -286,7 +311,7 @@ export const persistOptions = (storage) => ({ name: STORE_KEY, storage, version:
 // VITE_STORE_KEY lets a staging copy on the same web address keep its own saved state (production: 'madregot').
 // Saved through the safe write path (lib/durable/storage.js): one write per tick, the copy on the device, quarantine,
 // and the merge with another tab's writes (durable/tabs.js).
-export const useApp = create(persist(appState, persistOptions(durableStorage)));
+export const useApp = create(persist(appState, persistOptions(heldStorage)));
 // a restore from the copy on the device loads into this store
 bindDurableStore(useApp);
 

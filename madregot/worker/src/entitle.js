@@ -103,6 +103,12 @@ export const parentOkRequired = (env) => String(env.AI_PARENT_OK ?? 'required').
 const needsParentOk = (env, id) => parentOkRequired(env) && !id.student && !id.teacher && !id.fam && !soloOff(env);
 
 // ---------------------------------------------------------------- who is asking
+/**
+ * The class student a request carries (Authorization: Bearer <token>), with what the Ministry's rules need (TRUST-11):
+ * the class's setting, the teacher's switch and consent (no class_settings row: school, off, none), and whether the
+ * teacher turned the AI off for this student. (The durable lane's multi-device tokens rewrite this query too: whichever
+ * lands second keeps both joins.)
+ */
 export async function studentFrom(req, env) {
   const auth = req.headers.get('Authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
@@ -147,6 +153,12 @@ function maskFields(v, name = '') {
   if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, maskFields(x, k)]));
   return v;
 }
+
+/**
+ * One more refused request in a class whose AI is off (ai_usage aioff:c:<code>, a day: the owner's view of it, purged
+ * with the class's other counters in forget.js CLASS_COUNTERS). The teacher lane's counter, beside the safety event.
+ */
+const noteClassOff = (env, code) => take(env, [key(`aioff:c:${code}`, 1e9)]).catch(() => null);
 export async function requireStudent(req, env) {
   const s = await studentFrom(req, env);
   if (!s) throw new HttpError(401, 'not_signed_in');
@@ -366,9 +378,12 @@ export async function resolve(req, env, kind, input) {
 
 async function decide(req, env, kind, input, id) {
   const g = KIND_GROUP[kind];
+  const code = id.student?.class_code;
   if (classGate(env, id) === 'off') {
-    // counted with no person and no text (trust spec TRUST-4 §4.4); the child sees a calm sheet, never a price
+    // counted with no person and no text (trust spec TRUST-4 §4.4), and on the class's refusal counter; the child sees
+    // a calm sheet, never a price
     await recordSafety(env, { kind: 'class_ai_off', surface: kind, source: 'server' });
+    await noteClassOff(env, code);
     throw new HttpError(403, 'class_ai_off');
   }
   if (needsParentOk(env, id)) {

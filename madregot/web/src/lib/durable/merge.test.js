@@ -228,6 +228,14 @@ describe('mergeDevices: the named cases', () => {
     const more = base({ exams: exams(Array.from({ length: 30 }, (_, i) => i + 20)).reverse() });
     expect(mergeDevices(many, more).exams).toHaveLength(30);
   });
+  it('a teacher\'s class exams (TEACHER-3): joined by id across devices and tabs, newest first, at most 8', () => {
+    const tx = (ids) => ids.map((n) => ({ id: `t${n}`, at: at(n), title: `${n}`, classCode: 'K7Q2MD' })).reverse();
+    expect(mergeDevices(base({ teacherExams: tx([1, 3]) }), base({ teacherExams: tx([2, 3]) })).teacherExams.map((e) => e.id)).toEqual(['t3', 't2', 't1']);
+    expect(mergeDevices(base({ teacherExams: tx([1, 2, 3, 4, 5]) }), base({ teacherExams: tx([6, 7, 8, 9, 10]) })).teacherExams.map((e) => e.id))
+      .toEqual(['t10', 't9', 't8', 't7', 't6', 't5', 't4', 't3']);
+    const t0 = deepFreeze({ teacherExams: tx([1]) });
+    expect(mergeTabs(t0, { teacherExams: tx([1, 2]) }, { teacherExams: tx([1, 3]) }).teacherExams.map((e) => e.id)).toEqual(['t3', 't2', 't1']);
+  });
 });
 const A0 = '2026-11-04T10:00:00.000Z'; const B0 = '2026-11-05T10:00:00.000Z';
 

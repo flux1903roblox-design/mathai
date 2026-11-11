@@ -109,3 +109,19 @@ describe('allowanceText: the quiet line about today', () => {
     expect(allowanceText({ state: 'free', left: 2, tier: 'free', ended: true })).toBe('העוזר החכם עובד עכשיו עם 2 שאלות ביום.');
   });
 });
+
+describe('the class\'s AI is off (TRUST-11 §6): calm, the class rules, no price and no parents link', () => {
+  it('the sheet, the quiet line and a tool', () => {
+    for (const role of ['student', 'teacher']) {
+      const v = limitVariant({ reason: 'class_ai_off', tier: 'class_off', role });
+      expect(v.title).toBe('בכיתה הזו העוזר החכם כבוי');
+      expect(v.text).toEqual(['כך החליטו בכיתה, לפי ההנחיות של משרד החינוך. מדי, השיעורים והתרגול פתוחים כמו תמיד.']);
+      expect(v.actions).toEqual(['practice']);
+      expect(v.parents).toBe(false);
+    }
+    expect(allowanceText({ state: 'class_off', left: null, tier: 'class_off' })).toBe('בכיתה הזו העוזר החכם כבוי.');
+    const t = lockedText('check', { state: 'class_off', inClass: true });
+    expect(t.lines[0]).toBe('בכיתה הזו העוזר החכם כבוי.');
+    expect([t.teacher, t.parents]).toEqual([false, false]);
+  });
+});

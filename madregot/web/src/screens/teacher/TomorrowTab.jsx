@@ -1,14 +1,27 @@
-// "מחר": what to do in tomorrow's lesson. The class licence card (when the paywall is on), mistakes that repeat this
-// week (each with "לתת תרגול על זה": that stair, for the students who made the mistake, TEACHER-4 §6), weak topics in
-// checked exams, who to check in with, and the newest help requests.
+// "מחר": what to do in tomorrow's lesson. A one-line link to the class licence while it ends or after it ended (the
+// card itself is in the class settings, TEACHER-9 §1.4), mistakes that repeat this week, one row per stair with the
+// words the student saw there (TEACHER-16; each with "לתת תרגול על זה": that stair, for the students who made the mistake
+// there, TEACHER-4 §6), weak topics in
+// checked exams, who to check in with (TEACHER-8: at most 6, ranked by learn/attention.ts with the reasons as chips, and
+// the rest one tap away on the students tab, sorted the same way), and the newest help requests (those the student
+// answered again count as new). A student's name opens their page.
 import clsx from 'clsx';
+import { Link } from 'react-router-dom';
 import { ChevronLeft, Send } from 'lucide-react';
 import { TOPIC } from '@/content/index.js';
 import { MathText } from '@/components/MathText.jsx';
 import { useAIStatus } from '@/lib/account.js';
-import LicenceCard from '@/components/teacher/LicenceCard.jsx';
+import { useLicence } from '@/components/teacher/LicenceCard.jsx';
+import { dateNum } from '@/lib/price.js';
 import { isStair } from '@/lib/assign.js';
-import { fmtDay, pct, TALK } from './common.jsx';
+import { lastMessage } from '@/lib/help.js';
+import { attentionList, openHelpBy, reasonText } from '@/learn/attention';
+import { StudentName, MistakeWords, TALK } from './common.jsx';
+
+/** A help request that needs the teacher: not seen yet, or the student wrote last (TEACHER-6 §3). */
+const isFresh = (h) => !h.seen_at || lastMessage(h)?.from === 'student';
+/** Those first, then the rest, each in the board's order (newest first). */
+const freshFirst = (list) => [...list.filter(isFresh), ...list.filter((h) => !isFresh(h))];
 
 /** A group in the "what to do tomorrow" view: a small heading over plain rows (the settings grammar). */
 function Group({ title, tone, children, more }) {
@@ -21,10 +34,24 @@ function Group({ title, tone, children, more }) {
   );
 }
 
-export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp, onAssign }) {
+/** The licence is ending or has ended: one line that opens the class settings at the licence. */
+function LicenceLine({ cls }) {
+  const { lic } = useLicence(cls);
+  if (!lic || !['ending', 'ended'].includes(lic.status)) return null;
+  const until = lic.until ? dateNum(lic.until) : '';
+  return (
+    <Link className="t-lic-line" to="/teacher/settings" state={{ focus: 'licence' }}>
+      <span>{lic.status === 'ending' ? `רישיון הכיתה מסתיים ב־${until}. לחידוש` : `רישיון הכיתה הסתיים ב־${until}. לפרטים`}</span>
+      <ChevronLeft size={18} aria-hidden="true" />
+    </Link>
+  );
+}
+
+export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp, onAssign, onStudent, onAll }) {
   const paywall = useAIStatus((x) => x.status?.paywall === true);
-  const idle = (s) => !s.lastPractice || (Date.now() - new Date(s.lastPractice)) > 3 * 864e5;
-  const attention = students.filter((s) => idle(s) || (s.week.n >= 5 && pct(s.week.first, s.week.n) < 60));
+  const helpBy = openHelpBy(data.help);
+  const day = data.today || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
+  const { top: attention, more } = attentionList(students.map((s) => ({ ...s, openHelp: helpBy[s.id] || 0 })), day);
   // Topics where the class lost points in checked exams (last two weeks).
   const examWeak = Object.values((data?.exams || []).filter((e) => Date.now() - new Date(e.at) < 14 * 864e5).reduce((acc, e) => {
     e.questions.forEach((q) => {
@@ -37,7 +64,7 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
 
   return (
     <>
-      {paywall && <LicenceCard cls={cls} />}
+      {paywall && <LicenceLine key={cls.code} cls={cls} />}
       {students.length > 0 && (
         <div className="t-grid">
           <Group title="טעויות שחוזרות השבוע" tone="warm">
@@ -45,11 +72,12 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
               <ul className="t-list">
                 {data.mistakes.map((m) => {
                   const skill = `${m.topic}:${m.level}`;
-                  const rowId = `t-mis-${m.topic}-${m.cat}`;
+                  const rowId = `t-mis-${m.topic}-${m.level}-${m.cat}`;
                   const ids = m.ids || [];
+                  // the stair, then the words the student saw on it (TEACHER-16), never a raw id
                   return (
-                    <li key={`${m.topic}:${m.cat}`} className="t-row">
-                      <span className="t-list-main" id={rowId}><b>{TOPIC[m.topic]?.title}</b>: <MathText text={TOPIC[m.topic]?.cats[m.cat] || m.cat} /></span>
+                    <li key={`${m.topic}:${m.level}:${m.cat}`} className="t-row">
+                      <span className="t-list-main" id={rowId}><MistakeWords topic={m.topic} level={m.level} cat={m.cat} /></span>
                       <span className="muted">{m.students === 1 ? 'תלמיד אחד' : `${m.students} תלמידים`}: {m.names.slice(0, 6).join(', ')}{m.names.length > 6 ? '…' : ''}</span>
                       {onAssign && isStair(skill) && ids.length > 0 && (
                         <button type="button" className="btn btn-secondary btn-sm t-row-act" aria-describedby={rowId}
@@ -75,21 +103,29 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
               </ul>
             </Group>
           )}
-          <Group title="כדאי לבדוק איתם">
-            {attention.length === 0 ? <p className="t-row muted">{openHelp.length ? 'כולם מתרגלים ומצליחים. יש בקשות עזרה שמחכות לכם.' : 'כולם מתרגלים ומצליחים.'}</p> : (
-              <ul className="t-list">
-                {attention.map((s) => (
+          <Group title="כדאי לבדוק איתם" more={more > 0 && onAll && <button type="button" className="t-more" onClick={onAll}>ועוד {more}. לרשימה המלאה<ChevronLeft size={18} aria-hidden="true" /></button>}>
+            {attention.length === 0 ? <p className="t-row muted">כולם מתרגלים ומצליחים.</p> : (
+              <ol className="t-list t-attn">
+                {attention.map(({ student: s, reasons }) => (
                   <li key={s.id} className="t-row">
-                    <span className="t-list-main"><b>{s.name}</b></span>
-                    <span className="muted">{idle(s) ? (s.lastPractice ? `תרגול אחרון ${fmtDay(s.lastPractice)}` : 'עוד לא תרגלו אף פעם') : `נכון בניסיון ראשון: ${pct(s.week.first, s.week.n)}%`}</span>
+                    <span className="t-list-main"><StudentName id={s.id} name={s.name} onOpen={onStudent} /></span>
+                    <span className="t-chips">{reasons.map((r) => <span key={r.kind} className={`t-chip t-chip-${r.kind}`}>{reasonText(r)}</span>)}</span>
                   </li>
                 ))}
-              </ul>
+              </ol>
             )}
           </Group>
           <Group title="בקשות עזרה חדשות" more={openHelp.length > 0 && <button type="button" className="t-more" onClick={onOpenHelp}>לכל הבקשות<ChevronLeft size={18} aria-hidden="true" /></button>}>
             {openHelp.length === 0 ? <p className="t-row muted">אין בקשות פתוחות.</p> : (
-              <ul className="t-list">{openHelp.slice(0, 5).map((h) => <li key={h.id} className={clsx('t-row', !h.seen_at && 'unseen')}><span className="t-list-main"><b>{h.name}</b>{h.kind === 'talk' ? '' : `, ${TOPIC[h.topic]?.title || ''}`}</span><span className="muted">{h.kind === 'talk' ? TALK : h.note || <MathText text={h.question} />}</span></li>)}</ul>
+              <ul className="t-list">{freshFirst(openHelp).slice(0, 5).map((h) => {
+                const last = lastMessage(h);
+                return (
+                  <li key={h.id} className={clsx('t-row', isFresh(h) && 'unseen')}>
+                    <span className="t-list-main"><StudentName id={h.studentId} name={h.name} onOpen={onStudent} />{h.kind === 'talk' ? '' : `, ${TOPIC[h.topic]?.title || ''}`}</span>
+                    <span className="muted">{last?.from === 'student' ? `“${last.body}”` : h.kind === 'talk' ? TALK : h.note || <MathText text={h.question} />}</span>
+                  </li>
+                );
+              })}</ul>
             )}
           </Group>
         </div>

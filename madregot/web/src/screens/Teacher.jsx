@@ -1,20 +1,21 @@
 // The teacher's board: the header, the overview tiles, the switch between the views, the data loading, adding a class
 // and the first look at a new class. Each view is its own file in screens/teacher/.
-import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target, Settings as SettingsIcon, BookOpen, Sparkles } from 'lucide-react';
+import { Copy, RefreshCw, Hand, LogOut, Plus, Users, CalendarDays, Target, Settings as SettingsIcon, BookOpen, Sparkles, Printer, FileDown, LifeBuoy } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { api } from '@/lib/api.js';
 import { teacherApi, useEmailSignIn, offerBind } from '@/lib/teacher.js';
 import { useParent, accountCall, signOut as endSession } from '@/lib/parent.js';
+import { DEMO_COPY, exitDemo } from '@/lib/demo.js';
 import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { Stat } from '@/components/ds.jsx';
 import { EmptyState, ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import { GradeSwitch } from '@/components/GradeSwitch.jsx';
 import { copy, pct } from './teacher/common.jsx';
-import { FreshClass, BindCard, SignInAgain, MoreClasses } from './teacher/ClassAccount.jsx';
+import { FreshClass, BindCard, SignInAgain, MoreClasses, BoundElsewhere } from './teacher/ClassAccount.jsx';
 import TomorrowTab from './teacher/TomorrowTab.jsx';
 import WorkTab from './teacher/WorkTab.jsx';
 import StudentsTab from './teacher/StudentsTab.jsx';
@@ -22,30 +23,38 @@ import ExamsTab from './teacher/ExamsTab.jsx';
 import HelpTab from './teacher/HelpTab.jsx';
 import { takePendingToast } from './teacher/DeleteClass.jsx';
 import AssignSheet from '@/components/teacher/AssignSheet.jsx';
+import ClassSettingQuestion, { settingBody, settingReady } from '@/components/teacher/ClassSettingQuestion.jsx';
+import StudentSheet from '@/components/teacher/StudentSheet.jsx';
+import { rememberBoard } from '@/lib/teacherBoard.js';
 
 const TABS = ['tomorrow', 'work', 'students', 'exams', 'help'];
 
+const NEW_CLASS = { className: '', grade: '7', setting: 'school', attest: false };
+
 function AddClass({ open, onClose }) {
   const { profile, setProfile } = useApp();
-  const [f, setF] = useState({ className: '', grade: '7' }); const [busy, setBusy] = useState(false);
+  const [f, setF] = useState(NEW_CLASS); const [busy, setBusy] = useState(false);
+  const can = !!f.className.trim() && settingReady(f.setting, f.attest);
   const submit = async () => {
-    if (!f.className.trim()) return; setBusy(true);
+    if (!can) return; setBusy(true);
     try {
-      const body = { teacherName: profile.name, className: f.className, grade: f.grade };
+      // where the class learns (TRUST-11): a school class unless the teacher picks a private group and attests to it
+      const body = { teacherName: profile.name, className: f.className, grade: f.grade, ...settingBody(f.setting, f.attest) };
       // signed in: the new class is bound to the email at once (owned), like the first one
       const session = useParent.getState().session;
       const r = session ? await accountCall('/api/classes', { method: 'POST', body }) : await api('/api/classes', { method: 'POST', body });
-      const cls = { code: r.code, key: r.owned && session?.shared ? null : r.teacherKey, className: r.className, grade: r.grade, fresh: true, ...(r.owned ? { owned: true } : {}) };
-      setProfile({ ...profile, classes: [...profile.classes, cls], active: cls.code, grade: cls.grade }); setF({ className: '', grade: '7' }); onClose();
+      const cls = { code: r.code, key: r.owned && session?.shared ? null : r.teacherKey, className: r.className, grade: r.grade, fresh: true, createdHere: true, ...(r.owned ? { owned: true } : {}) };
+      setProfile({ ...profile, classes: [...profile.classes, cls], active: cls.code, grade: cls.grade }); setF(NEW_CLASS); onClose();
     } catch (err) { toast.error(err.message); } finally { setBusy(false); }
   };
   // a sheet like every other one: the title and the way out, the fields, its one action pinned at the bottom
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()} title="כיתה נוספת"
-      footer={<Button className="btn-block btn-lg" onClick={submit} disabled={busy || !f.className.trim()}>{busy ? 'רגע…' : 'פתיחת הכיתה'}</Button>}>
+      footer={<Button className="btn-block btn-lg" onClick={submit} disabled={busy || !can}>{busy ? 'רגע…' : 'פתיחת הכיתה'}</Button>}>
       <form className="add-class ob-field" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <Field label="שם הכיתה החדשה" id="ac-name"><input id="ac-name" className="input input-lg" value={f.className} onChange={(e) => setF({ ...f, className: e.target.value })} maxLength={30} placeholder="למשל: ח׳2" /></Field>
         <div className="field"><span className="field-label" id="ac-grade">שכבה</span><GradeSwitch value={f.grade} onChange={(g) => setF({ ...f, grade: g })} id="ac-grade" /></div>
+        <ClassSettingQuestion idPrefix="ac" setting={f.setting} attest={f.attest} onChange={({ setting, attest }) => setF({ ...f, setting, attest })} />
       </form>
     </Sheet>
   );
@@ -57,32 +66,36 @@ export default function Teacher() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [errorCode, setErrorCode] = useState('');
-  const session = useParent((s) => s.session);
+  // the demo class (TEACHER-15): no account, no other class to add, and leaving is leaving the demo
+  const demo = profile.demo === true;
+  const signedIn = useParent((s) => s.session);
+  const session = demo ? null : signedIn;
   const emailOn = useEmailSignIn();
   const [moreOpen, setMoreOpen] = useState(false);
   const [params, setParams] = useSearchParams();
   const tab = TABS.includes(params.get('tab')) ? params.get('tab') : 'tomorrow';
-  const setTab = (t) => setParams(t === 'tomorrow' ? {} : { tab: t }, { replace: true });
+  // a view, with its own parameters: the students tab's ?sort=need, the help view's ?student=<id> (TEACHER-8)
+  const setTab = (t, extra = {}) => setParams(t === 'tomorrow' ? {} : { tab: t, ...extra }, { replace: true });
   const [adding, setAdding] = useState(false);
   // the assign sheet (TEACHER-4): opened from "משימות" or a repeated mistake on "מחר"; each opening starts fresh
   const [assign, setAssign] = useState(null); // { preset, n } while open
   const [workVersion, setWorkVersion] = useState(0);
   const opened = useRef(0);
   const openAssign = (preset = {}) => { opened.current += 1; setAssign({ preset, n: opened.current }); };
+  // a student's page (TEACHER-8): any name on the board opens it; its actions lead to the assign sheet or the help view
+  const [sheetFor, setSheetFor] = useState(null); // { id, name } while open
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const openStudent = (s) => { setSheetFor(s); setSheetOpen(true); };
   const [confirmOut, setConfirmOut] = useState(false);
-  const { state: nav } = useLocation();
   // a class deleted from its settings page: the board opens on the next class and says so
   useEffect(() => { const t = takePendingToast(); if (t) toast(t); }, []);
-  // "על רישיון כיתה" from the tutor's sheet: the licence card, at the top of the "מחר" view
-  useEffect(() => {
-    if (nav?.focus !== 'licence') return undefined;
-    if (tab !== 'tomorrow') setTab('tomorrow');
-    const t = setTimeout(() => document.getElementById('t-licence')?.scrollIntoView({ block: 'start' }), 300);
-    return () => clearTimeout(t);
-  }, [nav]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
-    try { setData(await teacherApi('/api/teacher/dashboard', {}, cls)); setError(''); setErrorCode(''); } catch (e) { setError(e.message); setErrorCode(e.code || ''); }
+    try {
+      const d = await teacherApi('/api/teacher/dashboard', {}, cls);
+      rememberBoard(cls.code, d);
+      setData(d); setError(''); setErrorCode('');
+    } catch (e) { setError(e.message); setErrorCode(e.code || ''); }
   }, [cls]);
   useEffect(() => { setData(null); load(); const t = setInterval(load, 120_000); return () => clearInterval(t); }, [load]);
 
@@ -129,7 +142,7 @@ export default function Teacher() {
           <span className="t-head-who"><span className="wordmark sm">מדרגות</span><span className="t-head-sub">לוח המורה של {profile.name}</span></span>
           <span className="t-head-actions">
             <button type="button" className="icon-btn t-icon" onClick={load} aria-label="רענון הנתונים"><RefreshCw size={20} aria-hidden="true" /></button>
-            <button type="button" className="icon-btn t-icon" onClick={() => setAdding(true)} aria-label="כיתה נוספת"><Plus size={22} aria-hidden="true" /></button>
+            {!demo && <button type="button" className="icon-btn t-icon" onClick={() => setAdding(true)} aria-label="כיתה נוספת"><Plus size={22} aria-hidden="true" /></button>}
           </span>
         </div>
         <div className="t-class">
@@ -143,12 +156,17 @@ export default function Teacher() {
         {/* signed in: the email's other classes can be added to this device */}
         {session && <button type="button" className="link-btn t-more" onClick={() => setMoreOpen(true)}>עוד כיתות מהחשבון שלי…</button>}
       </header>
-      <AddClass open={adding} onClose={() => setAdding(false)} />
+      {!demo && <AddClass open={adding} onClose={() => setAdding(false)} />}
       {assign && data && (
         <AssignSheet key={`${cls.code}-${assign.n}`} cls={cls} students={students} today={data.today} preset={assign.preset} open
           onOpenChange={(o) => { if (!o) setAssign(null); }} onSent={() => { setWorkVersion((v) => v + 1); load(); }} />
       )}
       {session && <MoreClasses open={moreOpen} onOpenChange={setMoreOpen} />}
+      {sheetFor && data && (
+        <StudentSheet cls={cls} student={sheetFor} today={data.today} aiPolicy={data.aiPolicy} open={sheetOpen} onOpenChange={setSheetOpen} onChanged={load}
+          onAssign={(preset) => { setSheetOpen(false); openAssign(preset); }}
+          onHelp={(id) => { setSheetOpen(false); setTab('help', { student: id }); }} />
+      )}
 
       <main className="t-main">
         {cls.fresh && <FreshClass cls={cls} onDone={dismissFresh} />}
@@ -173,12 +191,15 @@ export default function Teacher() {
             </div>
 
             {/* the class's tools (TEACHER-2 §7): chips in one row that scrolls sideways on a narrow screen and never
-                wraps; the exam, the report and the guide add theirs between these as they land */}
+                wraps; the last is the pilot kit and its guides (TEACHER-10) */}
             <nav className="t-tools" aria-label="כלים">
               <ul>
                 <li><Link className="t-tool" to="/teacher/lessons"><BookOpen size={18} aria-hidden="true" />השיעורים</Link></li>
+                <li><Link className="t-tool" to="/teacher/exam/new"><Printer size={18} aria-hidden="true" />מבחן להדפסה</Link></li>
                 <li><Link className="t-tool" to="/teacher/assistant"><Sparkles size={18} aria-hidden="true" />העוזר החכם</Link></li>
+                <li><Link className="t-tool" to="/teacher/report"><FileDown size={18} aria-hidden="true" />דוח וייצוא</Link></li>
                 <li><Link className="t-tool" to="/teacher/settings"><SettingsIcon size={18} aria-hidden="true" />הגדרות הכיתה</Link></li>
+                <li><Link className="t-tool" to="/teacher/guide"><LifeBuoy size={18} aria-hidden="true" />מדריך למורה</Link></li>
               </ul>
             </nav>
 
@@ -188,7 +209,8 @@ export default function Teacher() {
               ))}
             </div>
 
-            {tab === 'tomorrow' && emailOn && !cls.fresh && offerBind(cls) && <BindCard cls={cls} />}
+            {tab === 'tomorrow' && emailOn && !cls.fresh && offerBind(cls, undefined, data) && <BindCard cls={cls} />}
+            {tab === 'tomorrow' && !demo && <BoundElsewhere cls={cls} board={data} where="board" />}
 
             {students.length === 0 && (
               <EmptyState mood="idle" title="עוד אין תלמידים בכיתה">
@@ -197,16 +219,23 @@ export default function Teacher() {
               </EmptyState>
             )}
 
-            {tab === 'tomorrow' && <TomorrowTab cls={cls} data={data} students={students} openHelp={openHelp} onOpenHelp={() => setTab('help')} onAssign={openAssign} />}
+            {tab === 'tomorrow' && (
+              <TomorrowTab cls={cls} data={data} students={students} openHelp={openHelp} onOpenHelp={() => setTab('help')} onAssign={openAssign}
+                onStudent={openStudent} onAll={() => setTab('students', { sort: 'need' })} />
+            )}
             {tab === 'work' && <WorkTab cls={cls} today={data.today} version={workVersion} onNew={() => openAssign()} onChanged={load} />}
-            {tab === 'students' && <StudentsTab cls={cls} data={data} students={students} onChanged={load} />}
-            {tab === 'exams' && <ExamsTab data={data} />}
-            {tab === 'help' && <HelpTab cls={cls} data={data} onChanged={load} />}
+            {tab === 'students' && <StudentsTab cls={cls} data={data} students={students} onChanged={load} onStudent={openStudent} />}
+            {tab === 'exams' && <ExamsTab data={data} onStudent={openStudent} />}
+            {tab === 'help' && <HelpTab key={params.get('student') || ''} cls={cls} data={data} onChanged={load} onStudent={openStudent} />}
           </>
         )}
 
         <section className="section set-group t-out">
-          <div className="set-rows-wrap"><div className="set-rows"><button type="button" className="set-row danger" onClick={() => setConfirmOut(true)}><LogOut size={18} aria-hidden="true" />יציאה מהלוח</button></div></div>
+          <div className="set-rows-wrap"><div className="set-rows">
+            {demo
+              ? <button type="button" className="set-row" onClick={exitDemo}><LogOut size={18} aria-hidden="true" />{DEMO_COPY.exit}</button>
+              : <button type="button" className="set-row danger" onClick={() => setConfirmOut(true)}><LogOut size={18} aria-hidden="true" />יציאה מהלוח</button>}
+          </div></div>
           <ConfirmSheet open={confirmOut} onOpenChange={setConfirmOut} title="לצאת מהלוח?" keep="להישאר בלוח" confirm="כן, לצאת" onConfirm={leave}>
             {profile.classes.every((c) => c.owned)
               ? <p>הלוח ייסגר במכשיר הזה. כדי לחזור, נכנסים עם המייל {session?.email ? <bdi dir="ltr">{session.email}</bdi> : 'שלכם'}.</p>

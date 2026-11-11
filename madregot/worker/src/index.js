@@ -22,10 +22,12 @@ import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFa
 import {
   licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked, pinKeysWhere, renameClass, deleteClass, classSeenStmt,
 } from './licence.js';
-import { myClasses, bindClass, rekeyClass, ownedClassStmts, checkOwnedCap } from './teacherAccount.js';
+import { myClasses, bindClass, rekeyClass, ownedClassStmts, checkOwnedCap, bindingView } from './teacherAccount.js';
 import {
   listAssignments, createAssignment, getAssignment, updateAssignment, deleteAssignment, classWork, workExam, postWork, classAssignments,
 } from './assignments.js';
+import { classReport, studentDetail } from './report.js';
+import { teacherReply, studentReply, readHelp, setDigest, helpThreads, markReadStmt } from './help.js';
 import { RETENTION } from '../../shared/retention.js';
 import { run as runCron } from './cron.js';
 import { newClassSetting, newClassStmts, classSettings, aiPolicyView, setClassAi, setStudentAi } from './classai.js';
@@ -441,9 +443,11 @@ async function mintDevice(req, env, cors) {
 
 // ---------- classes ----------
 /**
- * POST /api/classes {className, teacherName, grade}: a new class and its teacher key (shown once). With a session
- * (X-Account-Token) the class is bound to that account in the same batch and the answer says owned: true; a session
- * that is sent but not valid is 401 not_account, never a class left unbound by mistake.
+ * POST /api/classes {className, teacherName, grade, setting?, privateAttest?}: a new class and its teacher key (shown
+ * once). With a session (X-Account-Token) the class is bound to that account in the same batch and the answer says
+ * owned: true; a session that is sent but not valid is 401 not_account, never a class left unbound by mistake.
+ * setting (TRUST-11): missing is 'school' (student AI off by the Ministry's rules); 'private' needs privateAttest: true
+ * (400 private_attest_required), and stores the attestation with an audit row.
  */
 async function createClass(req, env, cors) {
   const b = await body(req, LIMIT.small);
@@ -461,25 +465,19 @@ async function createClass(req, env, cors) {
     const code = classCode();
     const now = nowIso();
     try {
-      const settingStmts = newClassStmts(env, code, setting, now);
       if (account) {
-        // the class row, its owner and its setting in one batch; when the cap stopped the class row (another request at
-        // the same moment), the last statements take the setting rows back, so nothing is left of a class never made
+        // the class row, its owner and its setting in one batch; the setting rows are written only if the class row was
+        // (the cap may stop it when another request makes a class at the same moment): nothing is left of a class never made
         const res = await env.DB.batch([
           ...ownedClassStmts(env, { code, name, grade, teacherName, keyHash, now }, account.id),
-          ...settingStmts,
-          ...(settingStmts.length ? [
-            env.DB.prepare('DELETE FROM class_settings WHERE code = ?1 AND NOT EXISTS (SELECT 1 FROM classes WHERE code = ?1)').bind(code),
-            env.DB.prepare(`DELETE FROM audit_log WHERE action = 'class.setting' AND target = 'class:' || ?1 AND at = ?2
-              AND NOT EXISTS (SELECT 1 FROM classes WHERE code = ?1)`).bind(code, now),
-          ] : []),
+          ...newClassStmts(env, code, setting, { now, via: 'account' }),
         ]);
         if (Number(res[0].meta?.changes) !== 1) throw new HttpError(409, 'too_many_classes_owned');
       } else {
         await env.DB.batch([
           env.DB.prepare('INSERT INTO classes (code, name, grade, teacher_name, teacher_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
             .bind(code, name, grade, teacherName, keyHash, now),
-          ...settingStmts,
+          ...newClassStmts(env, code, setting, { now }),
         ]);
       }
       return json({ code, teacherKey, className: name, grade, teacherName, setting, ...(account ? { owned: true } : {}) }, 200, cors);
@@ -663,25 +661,24 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings, , assignments, classExams] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, aiOffRows, aiSettings, , assignments, classExams, threads, owner, lateRows, binding] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.first_try) AS first, COUNT(DISTINCT a.day) AS days, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day >= ? GROUP BY a.student_id`, cls.code, weekStart),
     q('SELECT l.student_id, l.topic, l.level, l.max_level FROM levels l JOIN students s ON s.id = l.student_id WHERE s.class_code = ?', cls.code),
-    // each repeated mistake, with the stair it happened on most this week (a tie: the lower one), so "מחר" can give
-    // practice on that stair (TEACHER-4 §5)
-    q(`SELECT a.topic, a.cat, COUNT(*) AS n, COUNT(DISTINCT a.student_id) AS students,
-         (SELECT a2.level FROM attempts a2 JOIN students s2 ON s2.id = a2.student_id
-          WHERE s2.class_code = ?1 AND a2.day >= ?2 AND a2.topic = a.topic AND a2.cat = a.cat
-          GROUP BY a2.level ORDER BY COUNT(*) DESC, a2.level LIMIT 1) AS level
+    // each repeated mistake on its stair (TEACHER-16): one id means different things on different stairs ('sign' is a
+    // negative length on coord:3), so the row is the stair's, with the words the student saw there, and "מחר" gives
+    // practice on that stair to the students who made it there (TEACHER-4 §5)
+    q(`SELECT a.topic, a.level, a.cat, COUNT(*) AS n, COUNT(DISTINCT a.student_id) AS students
        FROM attempts a JOIN students s ON s.id = a.student_id
-       WHERE s.class_code = ?1 AND a.day >= ?2 AND a.cat IS NOT NULL GROUP BY a.topic, a.cat ORDER BY students DESC, n DESC LIMIT 12`, cls.code, weekStart),
-    q(`SELECT DISTINCT a.topic, a.cat, s.id, s.name FROM attempts a JOIN students s ON s.id = a.student_id
-       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL ORDER BY s.name`, cls.code, weekStart),
+       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL GROUP BY a.topic, a.level, a.cat
+       ORDER BY students DESC, n DESC, a.topic, a.level, a.cat LIMIT 12`, cls.code, weekStart),
+    q(`SELECT DISTINCT a.topic, a.level, a.cat, s.id, s.name FROM attempts a JOIN students s ON s.id = a.student_id
+       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL ORDER BY s.name, s.id`, cls.code, weekStart),
     // kind 'help' or 'talk' and care 0/1 (trust spec TRUST-3 §3.5): a request with no help_meta row is a plain 'help', care 0
-    q(`SELECT h.id, h.topic, h.level, h.question, h.answer, h.note, h.image IS NOT NULL AS has_image, h.created_at, h.seen_at, h.done_at, s.name,
+    q(`SELECT h.id, h.topic, h.level, h.question, h.answer, h.note, h.image IS NOT NULL AS has_image, h.created_at, h.seen_at, h.done_at, s.name, s.id AS studentId,
        COALESCE(m.kind, 'help') AS kind, COALESCE(m.care, 0) AS care
        FROM help_requests h JOIN students s ON s.id = h.student_id LEFT JOIN help_meta m ON m.help_id = h.id
        WHERE s.class_code = ? AND (h.done_at IS NULL OR h.done_at >= ?) ORDER BY h.created_at DESC LIMIT 100`, cls.code, daysAgo(7)),
@@ -699,10 +696,24 @@ async function dashboard(req, env, cors) {
        FROM assignment_work w JOIN assignments a ON a.id = w.assignment_id JOIN students s ON s.id = w.student_id
        WHERE a.class_code = ? AND a.kind = 'exam' AND w.state = 'done' AND s.class_code = a.class_code
        ORDER BY w.done_at DESC LIMIT 200`, cls.code),
+    // the replies on the help requests above (TEACHER-6): one query for all of them
+    helpThreads(env, `SELECT h.id FROM help_requests h JOIN students s ON s.id = h.student_id
+      WHERE s.class_code = ?1 AND (h.done_at IS NULL OR h.done_at >= ?2)`, [cls.code, daysAgo(7)]),
+    // the daily help email: only the owner, signed in, sees (and changes) it
+    cls.via === 'account' ? env.DB.prepare('SELECT help_digest FROM class_owners WHERE class_code = ? AND account_id = ?').bind(cls.code, cls.accountId).first() : null,
+    // each student's work that is behind (TEACHER-8, the attention list): given to them, due before today and at most 30
+    // days ago (the work a student still sees), and not finished
+    q(`SELECT s.id AS student_id, COUNT(*) AS late FROM assignments a JOIN students s ON s.class_code = a.class_code
+       LEFT JOIN assignment_work w ON w.assignment_id = a.id AND w.student_id = s.id
+       WHERE a.class_code = ?1 AND a.due_on < ?2 AND a.due_on >= ?3 AND (w.state IS NULL OR w.state != 'done')
+         AND (a.for_all = 1 OR EXISTS (SELECT 1 FROM assignment_targets t WHERE t.assignment_id = a.id AND t.student_id = s.id))
+       GROUP BY s.id`, cls.code, today, daysAgo(30)),
+    // a class bound to an email after it was opened, told to the devices that come with the key (teacherAccount.js)
+    bindingView(env, cls),
   ]);
   const aiOff = new Set(aiOffRows.map((r) => r.student_id));
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
-  const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows);
+  const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows); const late = by(lateRows);
   const lv = {};
   for (const r of levelRows) (lv[r.student_id] ||= {})[r.topic] = { level: r.level, max: r.max_level };
   return json({
@@ -711,7 +722,8 @@ async function dashboard(req, env, cors) {
     joinLocked: locked,
     aiPolicy: aiPolicyView(env, cls, aiSettings),
     students: students.map((s) => ({
-      id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset, aiOff: aiOff.has(s.id),
+      id: s.id, name: s.name, lastSeen: s.last_seen, lastPractice: lastPractice[s.id]?.last || null, pinReset: !!s.pin_reset,
+      joinedOn: s.created_at ? dayOf(new Date(s.created_at)) : null, late: Number(late[s.id]?.late || 0), aiOff: aiOff.has(s.id),
       today: t[s.id] ? { n: t[s.id].n, ok: t[s.id].ok, first: t[s.id].first, minutes: Math.round((t[s.id].secs || 0) / 60) } : { n: 0, ok: 0, first: 0, minutes: 0 },
       week: w[s.id] ? { n: w[s.id].n, first: w[s.id].first, days: w[s.id].days, minutes: Math.round((w[s.id].secs || 0) / 60) } : { n: 0, first: 0, days: 0, minutes: 0 },
       levels: lv[s.id] || {},
@@ -724,11 +736,13 @@ async function dashboard(req, env, cors) {
       })),
     ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, 200),
     mistakes: catRows.map((r) => {
-      const who = catStudents.filter((c) => c.topic === r.topic && c.cat === r.cat);
-      return { ...r, level: r.level == null ? null : Number(r.level), ids: who.map((c) => c.id), names: who.map((c) => c.name) };
+      const who = catStudents.filter((c) => c.topic === r.topic && c.level === r.level && c.cat === r.cat);
+      return { topic: r.topic, level: Number(r.level), cat: r.cat, n: r.n, students: r.students, ids: who.map((c) => c.id), names: who.map((c) => c.name) };
     }),
     assignments,
-    help,
+    help: help.map((x) => ({ ...x, messages: threads[x.id]?.messages || [], unreadFromStudent: threads[x.id]?.unreadFromStudent || 0 })),
+    helpDigest: owner ? !!owner.help_digest : null,
+    ...binding,
   }, 200, cors);
 }
 
@@ -741,7 +755,9 @@ async function updateHelp(id, req, env, cors) {
     : col ? `UPDATE help_requests SET ${col} = COALESCE(${col}, ?) WHERE id = ? AND student_id IN (SELECT id FROM students WHERE class_code = ?)` : null;
   if (!sql) throw new HttpError(400, 'bad_action');
   const args = b.action === 'reopen' ? [Number(id), cls.code] : [nowIso(), Number(id), cls.code];
-  await env.DB.prepare(sql).bind(...args).run();
+  const res = await env.DB.prepare(sql).bind(...args).run();
+  // the teacher looked at the request: the student's replies on it are read (TEACHER-6)
+  if (res.meta?.changes) await markReadStmt(env, id, 'student').run();
   return json({ ok: true }, 200, cors);
 }
 
@@ -772,6 +788,8 @@ function health(env) {
     deviceMint: String(env.FREE_DEVICE_MINT || 'off') === 'turnstile' ? 'turnstile' : 'off', turnstileSiteKey: env.TURNSTILE_SITE_KEY || null,
     // whether the secrets that classes, sign-in and network counters need are set (never their values)
     netKeys: !!env.IP_HASH_SECRET, auth: !!env.AUTH_SECRET,
+    // the staging Worker (wrangler.toml [env.staging]): the load test runs only against a Worker that says so
+    staging: env.STAGING === 'true',
   };
 }
 
@@ -820,6 +838,9 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/classes\/([A-Za-z0-9]{6})\/join$/))) return joinClass(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/progress') return saveProgress(req, env, cors);
   if (M === 'POST' && p === '/api/help') return askHelp(req, env, ctx, cors);
+  // the student's side of a help request's thread (help.js)
+  if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/reply$/))) return studentReply(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/help\/(\d+)\/read$/))) return readHelp(m[1], req, env, cors);
   if (M === 'POST' && p === '/api/exams') return saveExam(req, env, cors);
   // the teacher's assignments, as the student sees them (assignments.js)
   if (M === 'GET' && p === '/api/class/work') return classWork(req, env, cors);
@@ -827,10 +848,17 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && (m = p.match(/^\/api\/class\/work\/([a-f0-9]{16})$/))) return postWork(m[1], req, env, cors);
   // teacher
   if (M === 'GET' && p === '/api/teacher/dashboard') return dashboard(req, env, cors);
+  if (M === 'GET' && p === '/api/teacher/report') return classReport(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)$/))) return updateHelp(m[1], req, env, cors);
   if (M === 'GET' && (m = p.match(/^\/api\/teacher\/help\/(\d+)\/image$/))) return helpImage(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/help\/(\d+)\/reply$/))) return teacherReply(m[1], req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/digest') return setDigest(req, env, cors);
+  if (M === 'GET' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]{1,32})$/))) return studentDetail(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/reset-pin$/))) return resetPin(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/remove$/))) return removeStudent(m[1], req, env, cors);
+  // student AI by the Ministry's rules (classai.js, TRUST-11)
+  if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/ai$/))) return setStudentAi(m[1], req, env, cors);
+  if (M === 'POST' && p === '/api/teacher/class/ai') return setClassAi(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/lock') return lockClass(req, env, cors);
   if (M === 'POST' && p === '/api/teacher/class/ai') return setClassAi(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/teacher\/students\/([a-f0-9]+)\/ai$/))) return setStudentAi(m[1], req, env, cors);
