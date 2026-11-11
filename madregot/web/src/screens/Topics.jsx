@@ -11,8 +11,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
-import { useApp } from '@/lib/store.js';
-import { topicsFor, bridgeTopicsFor } from '@/content/index.js';
+import { useApp, today } from '@/lib/store.js';
+import { bridgeTopicsFor, pathTopicsFor, pathColours } from '@/content/index.js';
+import { schoolMonth } from '@/learn/programme.ts';
 import { Button } from '@/components/ui.jsx';
 import { doneCount, unitProgress, unitCountText, unitNodes } from '@/lib/path.js';
 import { GradeSwitch } from './Welcome.jsx';
@@ -21,7 +22,7 @@ import { Emblem } from '@/components/map/Scenery.jsx';
 import Board from '@/components/Board.jsx';
 import ChallengeLine from '@/components/learn/ChallengeLine.jsx';
 
-function SectionCard({ t, n, current }) {
+function SectionCard({ t, n, current, colour }) {
   const navigate = useNavigate();
   const path = useApp((s) => s.path);
   const skills = useApp((s) => s.learn.skills);
@@ -29,7 +30,7 @@ function SectionCard({ t, n, current }) {
   const prog = unitProgress(t.id, path, skills);
   const now = prog.stages > 0 && prog.done < prog.stairs ? unitNodes(t.id, path).find((x) => x.kind === 'node' && x.state === 'current') : null;
   return (
-    <li className={`section-card ch-${t.color}${current ? ' is-current' : ''}`}>
+    <li className={`section-card ch-${colour || t.color}${current ? ' is-current' : ''}`}>
       <div className="section-card-text">
         <h2 className="section-card-title">{t.title}</h2>
         <p className="section-card-label">יחידה {n}</p>
@@ -110,7 +111,9 @@ export default function Topics() {
   const [grade, setGrade] = useState(own);
   const navigate = useNavigate();
   const { state } = useLocation();
-  const list = topicsFor(grade);
+  // the grade's path this month: its own units, and those of the other grade the programme teaches here by now
+  const list = pathTopicsFor(grade, schoolMonth(today()));
+  const colours = pathColours(list);
   const { path } = useApp();
   const current = list.find((t) => doneCount(t.id, path) < t.levels.length);
   return (
@@ -125,7 +128,7 @@ export default function Topics() {
         <GradeSwitch value={grade} onChange={setGrade} id="tp-grade" />
       </div>
       <ul className="section-cards" data-region="content">
-        {list.map((t, i) => <SectionCard key={t.id} t={t} n={i + 1} current={t === current} />)}
+        {list.map((t, i) => <SectionCard key={t.id} t={t} n={i + 1} current={t === current} colour={colours[t.id]} />)}
       </ul>
       <FloorSection grade={grade} />
       <Link to={`/programme?grade=${grade}`} className="prog-entry">כל תוכנית הלימודים</Link>

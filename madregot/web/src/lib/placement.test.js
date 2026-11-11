@@ -4,7 +4,7 @@ import { nextProbe, startLevel, startPlacement, placementMax, PER_TOPIC, PROBE_L
 import { noteGap, gapsFromExam, gapsOf, gapTarget, boardOf, GAP_CLEAR } from './board.js';
 import { unitNodes, doneCount, reachedUpTo } from './path.js';
 import { useApp, today, streakOf } from './store.js';
-import { TOPIC, topicsFor, placementTopicsFor, rescueTopicsFor } from '@/content/index.js';
+import { TOPIC, topicsFor, placementTopicsFor, rescueTopicsFor, pathTopicsFor } from '@/content/index.js';
 import { loadAllContent } from '@/learn/content/index.ts';
 
 // the screen waits for every tested topic before the placement test starts (DURABLE-11, lessonTopics): so do these tests
@@ -91,7 +91,9 @@ describe('store: placement sets the path', () => {
     expect(unitNodes('signed', path).slice(0, 3).map((n) => n.state)).toEqual(['open', 'open', 'open']);
     expect(unitNodes('signed', path).find((n) => n.state === 'current').level).toBe(4);
     expect(reachedUpTo('coord', path)).toBe(0);
-    expect(unitNodes('angles', path).find((n) => n.state === 'current').kind).toBe('review');
+    // every angles stair passed over: they wait for their checks, and the unit review waits for them (SK-LEARN-6)
+    expect(unitNodes('angles', path).slice(0, 5).map((n) => n.state)).toEqual(['open', 'open', 'open', 'open', 'open']);
+    expect(unitNodes('angles', path)[5]).toMatchObject({ kind: 'review', state: 'locked' });
     expect(days[today()]).toMatchObject({ lessons: 1, xp: PLACEMENT_XP });
     expect(streakOf(days)).toBe(1);
     expect(award.streakExtended).toBe(true);
@@ -164,21 +166,52 @@ describe('topic flags', () => {
     expect(startPlacement({ grade: '7' }).topics).toEqual(['signed', 'coord', 'angles']);
     // grade 8's equations and systems too (December to May)
     expect(TOPIC.sys.placement).toBe(false);
-    expect(startPlacement({ grade: '8' }).topics).toEqual(['line', 'pyth', 'stats']);
+    expect(startPlacement({ grade: '8', month: 0 }).topics).toEqual(['line', 'pyth', 'stats']);
+  });
+  it('ח׳ ratio and percent are asked once the school calendar has taught them (PRODUCT2-19)', () => {
+    // ratio is taught from September (unit 8.1), percent from October (8.2): a student who starts after those months
+    // learned them in class, so the first-day test asks about them; one who starts in September has not yet
+    const at = (month) => startPlacement({ grade: '8', month });
+    expect(at(0).topics).toEqual(['line', 'pyth', 'stats']); // September
+    expect(at(1).topics).toEqual(['ratio', 'line', 'pyth', 'stats']); // October
+    expect(at(2).topics).toEqual(['ratio', 'pct', 'line', 'pyth', 'stats']); // November
+    expect(at(9).topics).toEqual(['ratio', 'pct', 'line', 'pyth', 'stats']); // the summer counts as the whole year
+    expect(at(2).total).toBe(placementMax('8', 2));
+    expect(placementMax('8', 2)).toBe(5 * PER_TOPIC * PROBE_LEN);
+    expect(placementMax('8', 0)).toBe(3 * PER_TOPIC * PROBE_LEN);
+    // the first ratio question of a November start is ratio's own, and its result lands on the path like any topic's
+    expect(at(2).item.topic).toBe('ratio');
+    expect(placementTopicsFor('8', 2).map((t) => t.id)).toEqual(at(2).topics);
+    // ז׳ is unchanged: algebra is still skipped in any month (its flag is false, not month-aware)
+    expect(startPlacement({ grade: '7', month: 5 }).topics).toEqual(['signed', 'coord', 'angles']);
   });
   it('alsoFor offers a topic to another grade in Exam Rescue, after that grade\'s own', () => {
-    // grade 8 tests revise equations with brackets, so grade 7 expressions and equations are offered to grade 8 already
-    expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'expr', 'eq']);
+    // grade 8 tests revise equations with brackets, so grade 7 expressions and equations are offered to grade 8 already,
+    // and the ח׳ programme completes angles between parallels (8.3) and the isosceles and exterior angles (8.13)
+    expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'angles', 'expr', 'eq']);
     // the updated ז׳ programme teaches Pythagoras in March (unit 7.14): it stays filed under ח׳ and is offered to ז׳
     expect(TOPIC.pyth.grade).toBe('8');
     expect(topicsFor('7').map((t) => t.id)).not.toContain('pyth');
-    // and percent (ח׳, October) too: ז׳ meets it in relative frequency in February
-    expect(rescueTopicsFor('7').map((t) => t.id)).toEqual([...topicsFor('7').map((t) => t.id), 'pct', 'pyth']);
+    // and percent (ח׳, October) too: ז׳ meets it in relative frequency in February; and ז׳ meets a table of values
+    // (7.9) and the mode (7.15)
+    expect(rescueTopicsFor('7').map((t) => t.id)).toEqual([...topicsFor('7').map((t) => t.id), 'pct', 'line', 'pyth', 'stats']);
     TOPIC.signed.alsoFor = ['8'];
     try {
-      expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'signed', 'expr', 'eq']);
+      expect(rescueTopicsFor('8').map((t) => t.id)).toEqual([...topicsFor('8').map((t) => t.id), 'signed', 'angles', 'expr', 'eq']);
       // a grade's own topic is never offered twice
-      expect(rescueTopicsFor('7').map((t) => t.id)).toEqual([...topicsFor('7').map((t) => t.id), 'pct', 'pyth']);
+      expect(rescueTopicsFor('7').map((t) => t.id)).toEqual([...topicsFor('7').map((t) => t.id), 'pct', 'line', 'pyth', 'stats']);
     } finally { delete TOPIC.signed.alsoFor; }
+  });
+  it('alsoFor is month-aware on the path: a unit of the other grade joins it once the grade\'s programme teaches it (PRODUCT2-20)', () => {
+    const ids = (g, m) => pathTopicsFor(g, m).map((t) => t.id);
+    // ז׳: Pythagoras from December (7.6), the mode from January (7.15), a table of values from May (7.9); never percent
+    expect(ids('7', 2)).toEqual(topicsFor('7').map((t) => t.id));
+    expect(ids('7', 3)).toEqual([...topicsFor('7').map((t) => t.id), 'pyth']);
+    expect(ids('7', 6)).toEqual([...topicsFor('7').map((t) => t.id), 'pyth', 'stats']);
+    expect(ids('7', 8)).toEqual([...topicsFor('7').map((t) => t.id), 'line', 'pyth', 'stats']);
+    // ח׳: angles from September (8.3), equations from December (8.9); expressions never (no ח׳ unit lists them)
+    expect(ids('8', 0)).toEqual([...topicsFor('8').map((t) => t.id), 'angles']);
+    expect(ids('8', 3)).toEqual([...topicsFor('8').map((t) => t.id), 'angles', 'eq']);
+    expect(ids('8', 9)).not.toContain('expr');
   });
 });

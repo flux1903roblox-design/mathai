@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll, vi } from 'vitest';
 import katex from 'katex';
-import { TOPICS, topicsFor, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem } from './index.js';
+import { TOPICS, topicsFor, pathTopicsFor, pathColours, makeItem, isCorrect, answerText, itemPlain, readAnswer, answerInput, fairForCheck, testItem } from './index.js';
 import { SCENERY } from '@/components/map/Scenery.jsx';
 import { parseNum, plainNum, gcd, needsFormat, FORMAT_LINE, choiceWidth } from './util.js';
 import { ALL_SKILLS } from '@/learn/skills.ts';
@@ -389,6 +389,16 @@ describe('each unit has its own identity', () => {
       const list = topicsFor(grade);
       expect(list.length, `grade ${grade} has units`).toBeGreaterThan(1);
       for (let i = 1; i < list.length; i += 1) expect(list[i].color, `grade ${grade}: ${list[i - 1].id} then ${list[i].id}`).not.toBe(list[i - 1].color);
+    }
+  });
+  it('on a grade\'s path in any month, a unit joined from the other grade never sits beside its own colour', () => {
+    for (const grade of ['7', '8']) for (let month = 0; month <= 9; month += 1) {
+      const list = pathTopicsFor(grade, month);
+      const c = pathColours(list);
+      list.forEach((t) => expect(COLOURS, `${t.id}`).toContain(c[t.id]));
+      for (let i = 1; i < list.length; i += 1) expect(c[list[i].id], `grade ${grade}, month ${month}: ${list[i - 1].id} then ${list[i].id}`).not.toBe(c[list[i - 1].id]);
+      // a grade's own units keep their colours
+      topicsFor(grade).forEach((t) => expect(c[t.id]).toBe(t.color));
     }
   });
   it('every topic has three drawings: its emblem and two for beside the path', () => {

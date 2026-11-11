@@ -74,12 +74,12 @@ export function reportWeek(grade = '7') {
 export const DURABLE_DB = 'madregot-durable';
 
 /**
- * Open a route with a saved state (null: a first visit), a fixed clock and repeatable exercises.
+ * Open a route with a saved state (null: a first visit), a fixed clock (NOW unless `at` is given) and repeatable exercises.
  * madregot-debug exposes the current exercise as window.__madregotItem; madregot-seed fixes Math.random.
  * The seed is written once: a later reload starts from what the app saved since (and its copy on the device).
  */
-export async function open(page, route, state = null, seed = '424242') {
-  await page.clock.setFixedTime(NOW);
+export async function open(page, route, state = null, seed = '424242', at = NOW) {
+  await page.clock.setFixedTime(at);
   await page.goto('./');
   await page.evaluate(async ([s, sd, db]) => {
     localStorage.clear();

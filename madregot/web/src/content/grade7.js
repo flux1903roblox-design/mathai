@@ -466,6 +466,9 @@ export const GRADE7 = [
   {
     id: 'angles', grade: '7', title: 'זוויות', color: 'petrol',
     desc: 'צמודות, קודקודיות, משולש וישרים מקבילים',
+    // ח׳ completes angles between parallel lines in September (unit 8.3) and the isosceles and exterior angles in March
+    // (8.13): the unit is on the ח׳ path too (PRODUCT2-20)
+    alsoFor: ['8'],
     levels: [
       { title: 'זוויות צמודות', gen: () => (Math.random() < 0.5 ? linearPairTurn() : linearPair()) },
       { title: 'זוויות קודקודיות', gen: vertical },

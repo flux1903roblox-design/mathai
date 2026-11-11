@@ -116,10 +116,12 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
     const { placementMax } = await import('@/lib/placement.js');
     // @ts-ignore: plain JS
     const { topicsFor, placementTopicsFor, rescueTopicsFor } = await import('@/content/index.js');
-    // ratio and pct are on the map of ח׳ but not in the first-day test (placement: false): 3 topics × 2 probes × 3
+    // ratio and pct are on the map of ח׳; the first-day test asks them only once the school calendar has taught them
+    // (PRODUCT2-19): in September 3 topics × 2 probes × 3, from November all five
     expect(topicsFor('8').map((t: { id: string }) => t.id).slice(0, 3)).toEqual(['ratio', 'pct', 'line']);
-    expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('pct');
-    expect(placementMax('8')).toBe(18);
+    expect(placementTopicsFor('8', 0).map((t: { id: string }) => t.id)).not.toContain('pct');
+    expect(placementMax('8', 0)).toBe(18);
+    expect(placementTopicsFor('8', 2).map((t: { id: string }) => t.id)).toContain('pct');
     // ז׳ meets percents in relative frequency: Exam Rescue offers the unit to ז׳ too
     expect(rescueTopicsFor('7').map((t: { id: string }) => t.id)).toContain('pct');
   });

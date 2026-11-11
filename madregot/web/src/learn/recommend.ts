@@ -5,7 +5,7 @@
 // missing only on evidence (never because it was not started), and it is offered as new only when the floor is on.
 import type { Action, LearnState, MasteryState, SkillId, SkillRecord, Stage } from './types';
 import { ALL_SKILLS, GRADE_OF, isBridgeSkill, parseSkill, prereqsOf } from './skills';
-import { masteryState, nextStage, practiceDone } from './mastery';
+import { masteryState, nextStage, practiceDone, checkWaits } from './mastery';
 import { openMisconceptions } from './misconceptions';
 import { hasContent } from './content/index';
 import { planNext } from './next';
@@ -13,7 +13,7 @@ import { schoolMonth } from './programme';
 // @ts-ignore: plain JS
 import { TOPIC } from '@/content/index.js';
 // @ts-ignore: plain JS
-import { reachedUpTo } from '@/lib/path.js';
+import { reachedUpTo, isPlaced } from '@/lib/path.js';
 
 export interface Context {
   learn: LearnState;
@@ -53,8 +53,14 @@ export const routeOf = {
   },
 };
 
-/** The next stage of a stair for this student (a stair without teaching content starts at practice). */
-export const stairStage = (id: SkillId, rec: SkillRecord | undefined): Stage => (hasContent(id) ? nextStage(rec) : practiceDone(rec, 1) ? 'E' : 'D');
+/**
+ * The next stage of a stair for this student (a stair without teaching content starts at practice). `placed`: passed in
+ * placement or a jump test (lib/path.js isPlaced), so its mastery check comes next (mastery.ts nextStage).
+ */
+export const stairStage = (id: SkillId, rec: SkillRecord | undefined, placed = false): Stage => (hasContent(id) ? nextStage(rec, placed)
+  : placed ? (checkWaits(rec) ? 'D' : 'E') : practiceDone(rec, 1) ? 'E' : 'D');
+/** Is a stair passed over by a placement or jump test on this student's path, and not done yet? */
+export const placedOn = (ctx: Context, id: SkillId): boolean => { const { topic, level } = parseSkill(id); return isPlaced(ctx.path || {}, topic, level); };
 export const stageOf = (ctx: Context, id: SkillId): Stage => stairStage(id, ctx.learn.skills[id]);
 
 /** The state of every skill now. */

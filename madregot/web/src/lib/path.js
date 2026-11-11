@@ -18,6 +18,11 @@ export const partsOf = (path, topic, level) => path?.[topic]?.parts?.[level] || 
 export const isDone = (path, topic, level) => !!path?.[topic]?.done?.[level];
 /** Done only because it was kept from before mastery checks: its mastery check is still to be offered. */
 export const isKept = (path, topic, level) => path?.[topic]?.done?.[level] === 'kept';
+/**
+ * Passed over by a placement or jump test (or a kept stair whose check failed, reopenKept) and not done yet: the student
+ * has shown it, so its next stage is its mastery check, not its teaching (learn/mastery.ts nextStage, PRODUCT2-19).
+ */
+export const isPlaced = (path, topic, level) => level <= (path?.[topic]?.jumped || 0) && !isDone(path, topic, level);
 
 /** How many stairs of a unit are done (mastered): the "X מתוך 5 מדרגות" counter. */
 export function doneCount(topic, path = {}) {
@@ -53,7 +58,7 @@ function highestDone(topic, path = {}) {
 /**
  * Every stair of a unit with its state, plus the review: done (mastered) | open (passed over, its check waiting) |
  * current (the next stair to work on) | locked. A stair below one done out of order is open, never locked: a locked
- * stair always lies ahead of everything done.
+ * stair always lies ahead of everything done. The review is current once every stair is done, never before.
  */
 export function unitNodes(topic, path = {}) {
   const t = TOPIC[topic];
@@ -64,8 +69,10 @@ export function unitNodes(topic, path = {}) {
     const state = isDone(path, topic, level) ? 'done' : level <= reached ? 'open' : level === reached + 1 ? 'current' : level < top ? 'open' : 'locked';
     return { kind: 'node', topic, level, title: L.title, state, parts: Math.min(partsOf(path, topic, level), PARTS), kept: isKept(path, topic, level) };
   });
-  const allPassed = reached >= t.levels.length;
-  nodes.push({ kind: 'review', topic, level: t.levels.length, title: 'חזרה על כל היחידה', state: allPassed ? ((path?.[topic]?.reviews || 0) > 0 ? 'done' : 'current') : 'locked', parts: Math.min(path?.[topic]?.reviews || 0, 1) });
+  // the unit review opens once every stair is done (mastered, or kept from before mastery checks): a stair only passed
+  // over by a placement or jump test still waits for its own check, so it does not open the review (SK-LEARN-6)
+  const allDone = doneCount(topic, path) >= t.levels.length;
+  nodes.push({ kind: 'review', topic, level: t.levels.length, title: 'חזרה על כל היחידה', state: allDone ? ((path?.[topic]?.reviews || 0) > 0 ? 'done' : 'current') : 'locked', parts: Math.min(path?.[topic]?.reviews || 0, 1) });
   return nodes;
 }
 

@@ -30,7 +30,7 @@ import { examPlan } from './examRescue';
 // @ts-ignore: plain JS shared with the Worker
 import { isRestDay } from '@shared/restDays.js';
 import { monthIndex, monthNameOf } from './programme';
-import { states, isMissing, smallestMissing, struggling, onPath, stairStage, titleOf, topicTitleOf, routeOf, recoveredSince, RECOVER_RIGHT, MINUTES, STAGE_NAME, STAGE_N, STAGE_MIN } from './recommend';
+import { states, isMissing, smallestMissing, struggling, onPath, stairStage, placedOn, titleOf, topicTitleOf, routeOf, recoveredSince, RECOVER_RIGHT, MINUTES, STAGE_NAME, STAGE_N, STAGE_MIN } from './recommend';
 import { firstOpenChallenge } from './challenges/index';
 import type { Context } from './recommend';
 // @ts-ignore: plain JS
@@ -40,7 +40,7 @@ import { isKept, isDone, unitNodes } from '@/lib/path.js';
 // @ts-ignore: plain JS
 import { PARTS } from '@/lib/lesson.js';
 // @ts-ignore: plain JS
-import { topicsFor, bridgeTopicsFor } from '@/content/index.js';
+import { pathTopicsFor, bridgeTopicsFor } from '@/content/index.js';
 
 export type NextKind = ActionKind;
 /** Where a suggestion comes from: Exam Rescue's plan, the learning engine, a checked exam, or the challenge track. */
@@ -86,6 +86,8 @@ const STEP_REASON = 'זה הצעד של היום בתוכנית ההכנה.';
 /** Why the mastery check now: the first time, after enough practice; again, after practising since a failed one. */
 export const CHECK_FIRST = 'תרגלתם מספיק. חמש שאלות בלי רמזים יראו אם אתם שולטים בזה לבד.';
 export const CHECK_AGAIN = 'תרגלתם שוב מאז הבדיקה הקודמת. חמש שאלות בלי רמזים יראו אם אתם שולטים בזה לבד.';
+/** Why the mastery check of a stair passed in placement or a jump test: the student showed it already (PRODUCT2-19). */
+export const CHECK_PLACED = 'עברתם את זה במבחן הקצר. חמש שאלות בלי רמזים יראו אם אתם שולטים בזה לבד.';
 
 const examReason = (left: number) => (left === 0 ? `המבחן היום. ${STEP_REASON}` : left === 1 ? `המבחן מחר. ${STEP_REASON}` : `המבחן בעוד ${left} ימים. ${STEP_REASON}`);
 /** The stage a Rescue step is (practice is stage D, a mastery check stage E); a lesson or a review names none. */
@@ -164,6 +166,16 @@ export const challengeReason = (after: SkillId) => `עברתם את בדיקת �
  */
 export const leansOn = (id: SkillId, what: string) => `המדרגה "${titleOf(id)}" נשענת על ${what}.`;
 
+/**
+ * A grade's stairs on its path in a school month: its own (gradeSkillsOf), then those of the other grade's units that have
+ * joined its path by then (content/index.js pathTopicsFor, a month-aware alsoFor: PRODUCT2-20), in school order.
+ */
+export function pathSkillsOf(grade: '7' | '8', month: number): SkillId[] {
+  const own = gradeSkillsOf(grade);
+  const joined = new Set(pathTopicsFor(grade, month).map((t: { id: string }) => t.id));
+  return [...own, ...ALL_SKILLS.filter((id) => !own.includes(id) && joined.has(parseSkill(id).topic))];
+}
+
 /** Is a stair taught by now in the student's grade (the Ministry's school calendar)? */
 const taughtByNow = (ctx: NextContext, id: SkillId) => { const m = monthIndex(id, ctx.grade); return m != null && m <= ctx.month; };
 
@@ -177,7 +189,7 @@ export function planNext(ctx: NextContext): NextPlan {
     const n = place[band] || 0; place[band] = n + 1;
     items.push({ ...a, source, rank: band * 100 + n });
   };
-  const own = gradeSkillsOf(ctx.grade);
+  const own = pathSkillsOf(ctx.grade, ctx.month);
   // with the floor switched on, the bridge stairs come first; otherwise only one already in progress is continued
   const floorOn = !!ctx.learn.floor?.on;
   const gradeSkills = floorOn ? [...BRIDGE_SKILLS, ...own] : own;
@@ -212,7 +224,7 @@ export function planNext(ctx: NextContext): NextPlan {
   // 5. points lost in a checked exam: a short practice on the stair, then its check
   examLosses(ctx).forEach(({ skill: id, exam: ex }) => {
     const { topic, level } = parseSkill(id);
-    const sg = stairStage(id, ctx.learn.skills[id]);
+    const sg = stairStage(id, ctx.learn.skills[id], placedOn(ctx, id));
     // practice done (the mastery check is next, or the stair is mastered or done on the map): its second practice part
     const practiced = sg === 'E' || st[id] === 'mastered' || st[id] === 'needs-review' || isDone(ctx.path || {}, topic, level);
     add(BAND['exam-loss'], 'exam-check', { kind: 'exam-loss', skill: id, ...(practiced ? {} : { stage: sg }), title: `מהמבחן: ${titleOf(id)}`, reason: `במבחן מ־${dayMonth(ex.at)} ירדו כאן נקודות. תרגול קצר ואז בדיקה.`, minutes: MINUTES['exam-loss'], to: practiced ? `/lesson/${topic}/${level}?part=${PARTS}` : routeOf.stage(id, sg) });
@@ -231,7 +243,7 @@ export function planNext(ctx: NextContext): NextPlan {
     if (!struggling(ctx, id, st[id])) return;
     const p = smallestMissing(ctx, id, st);
     if (p) {
-      const sg = stairStage(p, ctx.learn.skills[p]);
+      const sg = stairStage(p, ctx.learn.skills[p], placedOn(ctx, p));
       learnAdd(BAND.prereq, { kind: 'prereq', skill: p, stage: sg, title: `קודם, ${titleOf(p)}: ${STAGE_NAME[sg]}`, reason: leansOn(id, `"${titleOf(p)}"`) + ` שלב ${STAGE_N[sg]} מתוך 5 שם יעזור לחזור לזה.`, minutes: STAGE_MIN[sg], to: routeOf.stage(p, sg) });
     } else if (!floorOffered && (ctx.learn.floor ?? null) === null && ancestorsOf(id).some(isBridgeSkill)) {
       floorOffered = true;
@@ -242,11 +254,13 @@ export function planNext(ctx: NextContext): NextPlan {
   // 7. the stair in progress: the next stage of its journey (or the mastery check)
   const inProgress = [...(floorOn ? [] : BRIDGE_SKILLS), ...gradeSkills].filter((id) => ['learning', 'practicing', 'needs-support'].includes(st[id]));
   // (after a failed mastery check the stage is practice again until fresh right answers bring the check back,
-  // mastery.ts nextStage, and both say so: PRODUCT2-16)
+  // mastery.ts nextStage, and both say so: PRODUCT2-16). A stair passed in placement or a jump test goes to its mastery
+  // check, not to its teaching: the student has shown it (PRODUCT2-19)
   inProgress.forEach((id) => {
     const rec = ctx.learn.skills[id];
-    const stage = stairStage(id, rec);
-    if (stage === 'E') learnAdd(BAND.mastery, { kind: 'mastery', skill: id, stage, title: `בדיקת שליטה: ${titleOf(id)}`, reason: rec?.lastFailAt ? CHECK_AGAIN : CHECK_FIRST, minutes: MINUTES.mastery, to: routeOf.check(id, 'mastery') });
+    const placed = placedOn(ctx, id);
+    const stage = stairStage(id, rec, placed);
+    if (stage === 'E') learnAdd(BAND.mastery, { kind: 'mastery', skill: id, stage, title: `בדיקת שליטה: ${titleOf(id)}`, reason: rec?.lastFailAt ? CHECK_AGAIN : placed ? CHECK_PLACED : CHECK_FIRST, minutes: MINUTES.mastery, to: routeOf.check(id, 'mastery') });
     else learnAdd(BAND.continue, { kind: 'continue', skill: id, stage, title: `${STAGE_NAME[stage]}: ${titleOf(id)}`, reason: stage === 'D' && checkWaits(rec) ? PRACTICE_AGAIN : `שלב ${STAGE_N[stage]} מתוך 5 במדרגה. ${STATE_LABEL[st[id]]}.`, minutes: STAGE_MIN[stage], to: routeOf.stage(id, stage) });
   });
   // and a stair done before mastery checks existed: it stays done, and its mastery check is offered (after a failed
@@ -294,9 +308,12 @@ export function planNext(ctx: NextContext): NextPlan {
 export const STAIR_KINDS: NextKind[] = ['continue', 'mastery', 'new', 'prereq'];
 const unitOf = (it: Pick<Action, 'skill'>) => parseSkill(it.skill).topic as string;
 
-/** The units the home map draws: the grade's own, and above them the fractions floor while it is on. */
-export function mapTopics(grade: '7' | '8', floorOn: boolean): { id: string; bridge?: boolean }[] {
-  return [...(floorOn ? bridgeTopicsFor(grade) : []), ...topicsFor(grade)];
+/**
+ * The units the home map draws in a school month: the grade's path (its own units, then those of the other grade that
+ * have joined it by then), and above them the fractions floor while it is on.
+ */
+export function mapTopics(grade: '7' | '8', floorOn: boolean, month: number): { id: string; bridge?: boolean }[] {
+  return [...(floorOn ? bridgeTopicsFor(grade) : []), ...pathTopicsFor(grade, month)];
 }
 
 /** Is the item a stair of the map now shown? (Otherwise the home shows it in the banner above the path.) */

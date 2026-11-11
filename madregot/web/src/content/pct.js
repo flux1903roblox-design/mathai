@@ -1,7 +1,7 @@
 // Percent (אחוזים, הגדלה והקטנה באחוזים): the second unit of grade 8 (ח׳) in the Ministry's תשפ״ז schedule, October
 // (curriculum stage 1, CURRICULUM-4). It is the base under sys:1 (equations with a percent change), relative frequency and
-// probability. Taught from October, so the first-day placement test skips it (placement: false): a ח׳ student who
-// learned it in class uses the unit's jump test, and the plan offers pct:1 among the first new stairs of a ח׳ student.
+// probability. Taught in October, so the first-day placement test asks about it from November on (placement: 'taught',
+// PRODUCT2-19); an earlier starter uses the unit's jump test, and the plan offers pct:1 among the first new stairs.
 // ז׳ meets "שכיחות יחסית עם אחוזים" in February, so Exam Rescue offers the unit to ז׳ as well (alsoFor).
 //
 // One picture carries it: a percent is hundredths of a whole, drawn as the percent bar (0% to 100% above, 0 to the whole
@@ -466,9 +466,9 @@ function multMc() {
 export const PCT = {
   id: 'pct', grade: '8', title: 'אחוזים', color: 'petrol',
   desc: 'אחוז כחלק ממאה, אחוז מכמות, איזה אחוז, מציאת השלם, ושינוי באחוזים',
-  // taught in October of ח׳: the first-day placement test does not ask about it (the jump test does); ז׳ meets percents
-  // in relative frequency (February), so Exam Rescue offers the unit to ז׳ too
-  placement: false,
+  // taught in October of ח׳: the first-day placement test asks about it from November on (PRODUCT2-19); ז׳ meets
+  // percents in relative frequency (February), so Exam Rescue offers the unit to ז׳ too
+  placement: 'taught',
   alsoFor: ['7'],
   levels: [
     { title: 'מהו אחוז', gen: () => { const r = Math.random(); return r < 0.4 ? toPct() : r < 0.65 ? shade() : r < 0.85 ? estimate() : over100(); } },

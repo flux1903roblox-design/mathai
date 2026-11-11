@@ -17,7 +17,7 @@ import { openMisconceptions } from '@/learn/misconceptions.ts';
 import { routeOf } from '@/learn/recommend.ts';
 import { challengesAfter, isSolved } from '@/learn/challenges/index.ts';
 import { LESSON_LEN, PARTS } from '@/lib/lesson.js';
-import { unitNodes } from '@/lib/path.js';
+import { unitNodes, isPlaced } from '@/lib/path.js';
 import { MathText } from '@/components/MathText.jsx';
 import { inDays } from '@/content/util.js';
 import { Button, ChapterMark } from '@/components/ui.jsx';
@@ -91,7 +91,9 @@ export default function Journey() {
   if (!t || !t.levels[level - 1]) return <div className="page pushed"><ScreenBar title="מדרגה" back="/" backLabel="למפה" /><EmptyState mood="encouraging" title="המדרגה לא נמצאה"><p>אולי הקישור ישן. המסלול שלכם מחכה במפה.</p></EmptyState><ScreenFoot><Link to="/" className="btn btn-primary btn-block btn-lg">חזרה למסלול</Link></ScreenFoot></div>;
   const now = new Date().toISOString();
   const state = masteryState(rec, now);
-  const stage = c ? nextStage(rec) : (practiceDone(rec, 1) ? 'E' : 'D');
+  // a stair passed in placement or a jump test goes to its mastery check (PRODUCT2-19), as the plan and the map send it
+  const placed = isPlaced(path, topic, level);
+  const stage = c ? nextStage(rec, placed) : (placed ? (checkWaits(rec) ? 'D' : 'E') : practiceDone(rec, 1) ? 'E' : 'D');
   const practiced = (rec?.attempts || []).filter((a) => a.purpose === 'practice' && a.ok).length;
   // after a failed mastery check: practice again, and the check returns after fresh right answers (mastery.ts)
   const waits = checkWaits(rec);

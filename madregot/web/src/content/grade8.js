@@ -321,8 +321,9 @@ export const GRADE8 = [
   {
     id: 'pyth', grade: '8', title: 'משפט פיתגורס', color: 'violet',
     desc: 'יתר, ניצב, בדיקת משולש ושאלות מילוליות',
-    // The updated ז׳ programme teaches Pythagoras in March (unit 7.14), so Exam Rescue offers it to ז׳ too. It stays
-    // filed under ח׳ (unit 8.3, September), where the map and the placement test have it.
+    // The updated ז׳ programme teaches squares and roots in December (unit 7.6) and Pythagoras in March (7.14), so the
+    // unit joins the ז׳ path and plan from December, and Exam Rescue offers it to ז׳ (PRODUCT2-20). It stays filed under
+    // ח׳ (unit 8.3, September), whose placement test has it.
     alsoFor: ['7'],
     levels: [
       { title: 'מציאת היתר', gen: () => { const r = Math.random(); return r < 0.3 ? squaresHyp() : r < 0.5 ? estimateRoot() : hypotenuse(); } },
@@ -343,6 +344,8 @@ export const GRADE8 = [
   {
     id: 'stats', grade: '8', title: 'סטטיסטיקה', color: 'fuchsia',
     desc: 'שכיח, חציון, ממוצע וטבלת שכיחויות',
+    // ז׳ learns the mode in January (unit 7.15): the unit joins the ז׳ path from then (PRODUCT2-20)
+    alsoFor: ['7'],
     levels: [
       { title: 'שכיח', gen: mode },
       { title: 'חציון', gen: () => (Math.random() < 0.4 ? medianBars() : (median)()) },

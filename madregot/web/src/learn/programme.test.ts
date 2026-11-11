@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { ALL_SKILLS, GRADE_OF, parseSkill } from './skills';
 import { PROGRAMME, ROADMAP_NEXT, coverageOf, notYetOf, monthIndex, schoolMonth } from './programme';
 import { TOPIC, TOPICS } from '@/content/index.js';
+import { pathSkillsOf } from './next';
 
 // a bridge topic (CURRICULUM-3's frac) carries bridge: true
 const isBridge = (skill: string) => (TOPIC as Record<string, { bridge?: boolean } | undefined>)[parseSkill(skill).topic]?.bridge === true;
@@ -26,6 +27,33 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   it('a bridge stair (elementary fractions) is in no unit: it adds no hours', () => {
     [...programmeStairs].forEach((s) => expect(s.startsWith('frac:'), s).toBe(false));
     ALL_SKILLS.filter(isBridge).forEach((s) => expect(programmeStairs.has(s), s).toBe(false));
+  });
+});
+
+// The coverage figure is a promise to a grade (PRODUCT2-20): every hour coverage() counts for a grade is an hour that
+// grade's student can learn on their own path. So every stair of a part it counts as taught is on that grade's path (the
+// map and the plan) in the month the programme teaches the unit: a unit of the other grade joins the path from the first
+// month the grade's programme teaches one of its stairs (a month-aware alsoFor; GRADE_OF does not move).
+describe('every hour coverage counts for a grade is on that grade\'s path when the programme teaches it', () => {
+  const SCHOOL = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6];
+  (['7', '8'] as const).forEach((grade) => it(`grade ${grade}`, () => {
+    const c = coverageOf(grade);
+    let hours = 0;
+    c.units.forEach((u) => u.parts.filter((p) => p.taught).forEach((p) => {
+      const month = SCHOOL.indexOf(u.months[0]);
+      const path = new Set(pathSkillsOf(grade, month));
+      p.skills.forEach((s) => expect(path.has(s), `${u.id} counts ${s} for grade ${grade}, but it is not on the path in month ${u.months[0]}`).toBe(true));
+      hours += p.hours;
+    }));
+    expect(hours).toBe(c.taught);
+  }));
+  it('Pythagoras is on the ז׳ path from December (squares and roots, 7.6) and stays a ח׳ unit', () => {
+    const MAR = 6; const NOV = 2; const DEC = 3;
+    expect(pathSkillsOf('7', NOV)).not.toContain('pyth:1');
+    expect(pathSkillsOf('7', DEC)).toContain('pyth:1');
+    expect(pathSkillsOf('7', MAR)).toEqual(expect.arrayContaining(['pyth:1', 'pyth:2', 'pyth:3', 'pyth:4', 'pyth:5']));
+    expect(GRADE_OF.pyth).toBe('8');
+    expect(pathSkillsOf('8', 0)).toContain('pyth:1');
   });
 });
 

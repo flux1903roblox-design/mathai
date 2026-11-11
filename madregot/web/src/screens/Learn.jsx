@@ -4,7 +4,8 @@ import clsx from 'clsx';
 import { Flame, Zap, Check, BookOpen, ChevronDown, ChevronLeft, ArrowUp, ArrowDown, School } from 'lucide-react';
 import { useApp, streakOf, today } from '@/lib/store.js';
 import { questProgress } from '@/lib/quests.js';
-import { topicsFor } from '@/content/index.js';
+import { topicsFor, pathColours } from '@/content/index.js';
+import { schoolMonth } from '@/learn/programme.ts';
 import { unitNodes, chestAfter, chestOpen, stairProgress, unitProgress, unitCountText, addedStairNote } from '@/lib/path.js';
 import { PARTS, JUMP_LEN, REVIEW_LEN } from '@/lib/lesson.js';
 import { MASTERY_N, checkWaits, PRACTICE_AGAIN } from '@/learn/mastery.ts';
@@ -51,7 +52,7 @@ function NodeCard({ n, t, onStart, next }) {
     return (
       <div className="node-card" role="group" aria-label={n.title}>
         <p className="node-card-title">חזרה על כל היחידה</p>
-        <p className="node-card-sub">{n.state === 'locked' ? 'נפתחת אחרי שמסיימים את כל המדרגות ביחידה.' : `${REVIEW_LEN} תרגילים מכל המדרגות, מעורבבים.`}</p>
+        <p className="node-card-sub">{n.state === 'locked' ? 'נפתחת אחרי בדיקת השליטה של כל המדרגות ביחידה.' : `${REVIEW_LEN} תרגילים מכל המדרגות, מעורבבים.`}</p>
         {n.state !== 'locked' && <Button className="btn-block" onClick={() => onStart(`/lesson/${t.id}/${top}?kind=review`)}>{n.state === 'done' ? 'עוד חזרה' : 'התחלה'}</Button>}
       </div>
     );
@@ -126,7 +127,7 @@ function lastDoneKey(topic) {
   return last ? `${topic}:${last.kind}:${last.level}` : null;
 }
 
-function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, focusNext, fresh, mastered, celebrate }) {
+function Unit({ t, colour, n, nodes, open, setOpen, onStart, currentRef, focusKey, focusNext, fresh, mastered, celebrate }) {
   const skills = useApp((s) => s.learn.skills);
   const path = useApp((s) => s.path);
   // the unit's counters move from the first stage: stairs done (mastered) once there is one, before that stages done,
@@ -136,7 +137,7 @@ function Unit({ t, n, nodes, open, setOpen, onStart, currentRef, focusKey, focus
   // the chest opens as the store awards it: once every stair up to it is done (not a stair done out of order)
   const chest = chestOpen(t.id, path);
   return (
-    <section className={clsx('unit', `ch-${t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
+    <section className={clsx('unit', `ch-${colour || t.color}`, `world-${t.id}`, mastered && 'is-mastered')} aria-labelledby={`unit-${t.id}`}>
       {/* the unit's banner, as on Duolingo's path: which unit, its name, and the guidebook; it stays on top while its path
           scrolls. The fractions floor is not one of the grade's units: it is named יסודות and has no number */}
       <header className="unit-head" data-region="banner">
@@ -257,8 +258,13 @@ function LearnMap() {
   const firstView = useRef(true);
   // the grade's own units, and above them the fractions floor while it is on (the floor check or the student put it there)
   const own = topicsFor(view);
-  const topics = mapTopics(view, floorOn);
+  // the path of the month: a unit of the other grade joins it once the programme teaches it here (PRODUCT2-20)
+  const topics = mapTopics(view, floorOn, schoolMonth(today()));
   const topicIds = topics.map((t) => t.id);
+  // a unit's number on this path: the grade's own units, then any unit of the other grade that has joined it
+  const unitNumber = (t) => topics.filter((x) => !x.bridge).indexOf(t) + 1;
+  // each banner's colour on this path: a joined unit never sits beside its own colour
+  const colours = pathColours(topics);
   const streak = streakOf(days);
   const todayXp = days[today()]?.xp || 0;
   // "Where I am" follows the one plan (learn/next.ts): back from a lesson, the unit just practised; on a fresh open, the
@@ -332,7 +338,7 @@ function LearnMap() {
         {banner && !repairOn && <NextBanner item={banner} onGo={() => onStart(banner.to)} />}
         {/* the home screen is the path, as on Duolingo: units under their sticky banners, the current stop marked */}
         {topics.map((t) => (
-          <Unit key={t.id} t={t} n={own.indexOf(t) + 1} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} focusNext={focus.next} fresh={state?.from}
+          <Unit key={t.id} t={t} colour={colours[t.id]} n={unitNumber(t)} nodes={unitNodes(t.id, path)} open={open} setOpen={setOpen} onStart={onStart} currentRef={currentRef} focusKey={focusKey} focusNext={focus.next} fresh={state?.from}
             mastered={(path[t.id]?.reviews || 0) > 0} celebrate={state?.from === t.id && state?.nodeDone ? lastDoneKey(t.id) : null} />
         ))}
         {/* the end of the path says plainly what the app has of the year's programme, and what it does not have yet;

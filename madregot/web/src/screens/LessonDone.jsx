@@ -13,7 +13,7 @@ import { skillId } from '@/learn/skills.ts';
 import { checkWaits } from '@/learn/mastery.ts';
 import { Segments } from '@/components/ds.jsx';
 import Lottie from '@/components/Lottie.jsx';
-import { placementTopicsFor } from '@/content/index.js';
+import { TOPIC, placementTopicsFor } from '@/content/index.js';
 import { Button } from '@/components/ui.jsx';
 import { DUR, SPRING, enter } from '@/lib/motion.js';
 import { askAfterLesson } from '@/lib/durable/persist.js';
@@ -259,7 +259,7 @@ export function PlacementDone({ result, award, onExit }) {
           <Stat tone="brand" icon={Timer} label="זמן" text={fmtTime(result.secs)} />
         </m.div>
         <m.ol variants={rise} className="place-list" aria-label="איפה מתחילים בכל נושא">
-          {placementTopicsFor(result.grade).map((t) => {
+          {(result.topics ? result.topics.map((id) => TOPIC[id]).filter(Boolean) : placementTopicsFor(result.grade)).map((t) => {
             const L = result.results[t.id]?.level ?? 0; const top = t.levels.length;
             return (
               <li key={t.id} className={clsx('place-row', `ch-${t.color}`)}>

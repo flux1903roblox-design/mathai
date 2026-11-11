@@ -239,6 +239,8 @@ function meet() {
 export const LINEAR = {
   id: 'line', grade: '8', title: 'פונקציה קווית', color: 'cobalt',
   desc: 'טבלת ערכים, שיפוע, משוואת ישר, חיתוך עם הצירים ונקודת מפגש',
+  // ז׳ meets a table of values and its points in May (unit 7.9): the unit joins the ז׳ path from then (PRODUCT2-20)
+  alsoFor: ['7'],
   levels: [
     { title: 'טבלת ערכים', gen: () => (Math.random() < 0.4 ? predictPoint() : (table)()) },
     { title: 'מה אומרים m ו־b', gen: () => (Math.random() < 0.5 ? buildLine() : meaning()) },

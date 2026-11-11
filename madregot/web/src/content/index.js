@@ -6,6 +6,7 @@ import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWord
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
+import { monthIndex, schoolMonth } from '@shared/coverage.js';
 import { GENERATOR_WEIGHT } from '@/learn/misconceptions.ts';
 
 // Each topic's misconception names include those the 2.0 teaching content adds.
@@ -16,14 +17,53 @@ export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grad
 /** The bridge units under a grade: of that grade, or with it in alsoFor (the floor; shown only when it is switched on). */
 export const bridgeTopicsFor = (grade) => TOPICS.filter((t) => t.bridge && (t.grade === String(grade) || (t.alsoFor || []).includes(String(grade))));
 /**
+ * The first school month (September 0 … June 9) in which a grade's programme (shared/programme.js) teaches one of a
+ * topic's stairs; null when it teaches none.
+ */
+export const joinMonth = (t, grade) => {
+  const ms = t.levels.map((_, i) => monthIndex(`${t.id}:${i + 1}`, String(grade))).filter((m) => m != null);
+  return ms.length ? Math.min(...ms) : null;
+};
+/**
+ * A grade's path (the map, the plan and Topics): its own units, then the units of the other grade it has in alsoFor,
+ * each from the month the grade's programme first teaches one of its stairs (a month-aware alsoFor, PRODUCT2-20). So
+ * every hour the coverage counts for a grade is on that grade's path when the school teaches it: ז׳ meets Pythagoras
+ * from December, the mode from January and a table of values in May; ח׳ angles between parallels from September and
+ * equations from December. A unit stays filed under its own grade (GRADE_OF, its placement test).
+ */
+export const pathTopicsFor = (grade, month = schoolMonth()) => [...topicsFor(grade), ...TOPICS.filter((t) => !t.bridge
+  && t.grade !== String(grade) && (t.alsoFor || []).includes(String(grade)) && (joinMonth(t, grade) ?? Infinity) <= month)];
+/** The five colour families of the units (canon.css .ch-*). */
+export const UNIT_COLOURS = ['sky', 'petrol', 'violet', 'fuchsia', 'cobalt'];
+/**
+ * The colour each unit of a path shows, by topic id: its own, unless it would sit beside the same colour. A grade's own
+ * units never do (content.test.js); a unit joined from the other grade then takes the first family colour that neither
+ * neighbour has, so two banners side by side always differ (STUDENT-1).
+ */
+export function pathColours(list) {
+  const out = list.map((t) => t.color);
+  for (let i = 1; i < list.length; i += 1) {
+    if (out[i] !== out[i - 1]) continue;
+    out[i] = UNIT_COLOURS.find((c) => c !== out[i - 1] && c !== list[i + 1]?.color) || out[i];
+  }
+  return Object.fromEntries(list.map((t, i) => [t.id, out[i]]));
+}
+/**
  * Two optional flags a topic may carry:
  *   placement: false   the first-day placement test skips it (it is taught later in the school year, so a new student
  *                      would only meet questions never taught); it starts at stair 1, and the unit jump test is there
  *                      for a student who already knows it
+ *   placement: 'taught'  the first-day test asks it once the school calendar has taught it: when the student starts
+ *                      after the month its first stair is taught in (shared/programme.js). ח׳ ratio (September) and
+ *                      percent (October) are taught at the very start of the year (PRODUCT2-19)
  *   alsoFor: ['8']     Exam Rescue (and the exam check's topic list) offers it to that grade too: a grade 8 test can
- *                      revise grade 7 equations, and grade 7 learns Pythagoras in March though the app files it in grade 8
+ *                      revise grade 7 equations, and grade 7 learns Pythagoras in March though the app files it in grade 8;
+ *                      and once that grade's programme teaches one of its stairs, it joins that grade's path (pathTopicsFor)
  */
-export const placementTopicsFor = (grade) => topicsFor(grade).filter((t) => t.placement !== false);
+export const placementTopicsFor = (grade, month = schoolMonth()) => topicsFor(grade).filter((t) => t.placement !== false
+  && (t.placement !== 'taught' || taughtBefore(t.id, grade, month)));
+/** Was a topic's first stair taught in a school month before `month` (September 0 … June 9; the summer counts as 9)? */
+const taughtBefore = (topic, grade, month) => { const m = monthIndex(`${topic}:1`, String(grade)); return m != null && month > m; };
 /** The topics Exam Rescue offers a grade: its own, then those of another grade that are revised in it (no bridge unit). */
 export const rescueTopicsFor = (grade) => [...topicsFor(grade), ...TOPICS.filter((t) => !t.bridge && t.grade !== String(grade) && (t.alsoFor || []).includes(String(grade)))];
 

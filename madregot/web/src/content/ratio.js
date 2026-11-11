@@ -1,8 +1,8 @@
 // Ratio, proportion and scale (יחס, פרופורציה וקנה מידה): the first unit of grade 8 (ח׳) in the Ministry's תשפ״ז
 // schedule, September to October (curriculum stage 1, CURRICULUM-5). It is the base that percent, slope, similarity
-// and probability lean on. Taught from the first week of the school year, so the first-day placement test skips it
-// (placement: false): a ח׳ student who learned it in class uses the unit's jump test, and the plan offers ratio:1 as
-// the first new stair of a ח׳ student in November (learn/next.ts, taught by now in school order).
+// and probability lean on. Taught from the first week of the school year, so the first-day placement test asks about it
+// from October on (placement: 'taught', PRODUCT2-19); a September starter uses the unit's jump test, and the plan offers
+// ratio:1 as the first new stair of a ח׳ student who has not climbed it (learn/next.ts, taught by now in school order).
 //
 // One picture carries it: a ratio compares two amounts in the order the question names them, and is kept by
 // multiplying (never by adding). m : n is m + n equal parts; a proportion is found through one unit or "פי כמה", on a
@@ -465,8 +465,9 @@ function scaleBar() {
 export const RATIO = {
   id: 'ratio', grade: '8', title: 'יחס וקנה מידה', color: 'sky',
   desc: 'יחס בין כמויות, חלוקה ביחס, פרופורציה וקנה מידה',
-  // taught from the first week of ח׳: the first-day placement test does not ask about it (the jump test does)
-  placement: false,
+  // taught from the first week of ח׳ (September): the first-day placement test asks about it from October on, once the
+  // class has taught it; a September starter has the unit's jump test (PRODUCT2-19)
+  placement: 'taught',
   levels: [
     { title: 'יחס', gen: () => { const r = Math.random(); return r < 0.45 ? ratioOf() : r < 0.7 ? ratioMc() : r < 0.85 ? addSame() : beads(); } },
     { title: 'חלוקה ביחס', gen: () => { const r = Math.random(); return r < 0.5 ? share() : r < 0.75 ? rect() : r < 0.9 ? profit() : statements(); } },

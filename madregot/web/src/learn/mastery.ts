@@ -123,8 +123,13 @@ export function independentAccuracy(rec: SkillRecord | undefined, last = 10): nu
   return a.length ? a.filter((x) => x.ok).length / a.length : null;
 }
 
-/** The stage to continue from on a stair: A, B, C (teaching), D (practice) or E (the mastery check). */
-export function nextStage(rec: SkillRecord | undefined): 'A' | 'B' | 'C' | 'D' | 'E' {
+/**
+ * The stage to continue from on a stair: A, B, C (teaching), D (practice) or E (the mastery check). A stair passed in
+ * placement or a jump test (`placed`, lib/path.js isPlaced) goes to its mastery check, whatever was taught: the student
+ * has already shown it (PRODUCT2-19). After a failed check it practises first, as any stair does (checkWaits).
+ */
+export function nextStage(rec: SkillRecord | undefined, placed = false): 'A' | 'B' | 'C' | 'D' | 'E' {
+  if (placed && !rec?.mastered) return checkWaits(rec) ? 'D' : 'E';
   if (!rec?.taught?.A) return 'A';
   if (!rec.taught.B) return 'B';
   if (!rec.taught.C) return 'C';
