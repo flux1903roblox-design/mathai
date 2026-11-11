@@ -1,7 +1,8 @@
 // The programme map against the stairs this build really has. The coverage numbers themselves are not asserted here:
 // they move with every content stage (the fixtures in worker/test/coverage.test.js carry the numbers).
 import { describe, expect, it } from 'vitest';
-import { ALL_SKILLS, GRADE_OF, parseSkill } from './skills';
+import { ALL_SKILLS, ALSO_ON_PATH, GRADE_OF, parseSkill } from './skills';
+import type { AlsoOnPath } from './skills';
 import { PROGRAMME, ROADMAP_NEXT, coverageOf, notYetOf, monthIndex, schoolMonth } from './programme';
 import { TOPIC, TOPICS } from '@/content/index.js';
 
@@ -17,7 +18,7 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   });
   it('has a school month in its own grade', () => {
     stairs.forEach((s) => {
-      const m = monthIndex(s, GRADE_OF[parseSkill(s).topic]);
+      const m = monthIndex(s, GRADE_OF[parseSkill(s).topic]!);
       expect(typeof m, `${s} has no month in grade ${GRADE_OF[parseSkill(s).topic]}`).toBe('number');
       expect(m).toBeGreaterThanOrEqual(0);
       expect(m).toBeLessThanOrEqual(9);
@@ -26,6 +27,21 @@ describe('every stair of the app has a place in the Ministry programme', () => {
   it('a bridge stair (elementary fractions) is in no unit: it adds no hours', () => {
     [...programmeStairs].forEach((s) => expect(s.startsWith('frac:'), s).toBe(false));
     ALL_SKILLS.filter(isBridge).forEach((s) => expect(programmeStairs.has(s), s).toBe(false));
+  });
+});
+
+// A unit also drawn on another grade's path (skills.ts ALSO_ON_PATH) is there because that grade's schedule teaches it
+// this year: some unit of that grade lists one of its stairs. When the programme moves to the next year and the unit is
+// no longer in that grade's schedule, this fails, and the entry is removed.
+describe('a unit on two grades\' paths is in that grade\'s schedule', () => {
+  const unlisted = (also: AlsoOnPath) => Object.entries(also).filter(([t, e]) => !PROGRAMME.units.some((u) => u.grade === e!.grade
+    && u.parts.some((p) => p.skills.some((s) => parseSkill(s).topic === t)))).map(([t]) => t);
+  it('every entry of ALSO_ON_PATH is listed in a unit of its other grade', () => {
+    expect(unlisted(ALSO_ON_PATH)).toEqual([]);
+  });
+  it('the rule bites: expressions are in no ח׳ unit, Pythagoras is in ז׳ 7.6 and 7.14', () => {
+    expect(unlisted({ expr: { grade: '8', after: 'pct' } })).toEqual(['expr']);
+    expect(unlisted({ pyth: { grade: '7', after: 'eq' } })).toEqual([]);
   });
 });
 

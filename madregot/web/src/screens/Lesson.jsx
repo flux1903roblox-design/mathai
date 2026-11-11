@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
 import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
-import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine } from '@/content/index.js';
+import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine, unitGrade } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { FACTS } from '@/content/frac.js';
 import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN } from '@/lib/lesson.js';
@@ -325,7 +325,8 @@ export default function Lesson() {
   // stair's teaching, a learner summary with nothing personal, and the final-answer policy for this phase. `st` and `res`
   // are the lesson state and the result being shown (after a second miss they are newer than this render's s and last).
   const tutorCtx = (st = s, res = last, surface = 'lesson') => buildTutorContext({
-    surface, item: st.item, s: st, last: res, spec, guide, learn: useApp.getState().learn, grade: t.grade, now: new Date().toISOString(),
+    // the student's grade when the unit is on their path (a ז׳ unit ח׳ also learns this year), else the unit's own
+    surface, item: st.item, s: st, last: res, spec, guide, learn: useApp.getState().learn, grade: unitGrade(t, useApp.getState().profile?.grade), now: new Date().toISOString(),
   });
 
   const askExplain = async () => {

@@ -13,21 +13,23 @@ import { contentOf, loadAllContent } from './content/index';
 await loadAllContent();
 
 const NAMES: Record<string, string> = STAIR_NAMES;
+const TOPIC_NAME: Record<string, string> = TOPIC_NAMES;
+const TOPIC_GRADE_OF: Record<string, string> = TOPIC_GRADE;
 
 describe('shared/stairs.js is the app\'s own list', () => {
   it('the topics, in teaching order, with their grades and names', () => {
     expect(Object.keys(TOPIC_NAMES)).toEqual(TOPIC_ORDER);
     expect(TOPIC_GRADE).toEqual(GRADE_OF);
     for (const t of TOPIC_ORDER) {
-      expect(TOPIC_NAMES[t], t).toBe(TOPIC[t].title);
-      expect(TOPIC_GRADE[t], t).toBe(TOPIC[t].grade);
+      expect(TOPIC_NAME[t], t).toBe(TOPIC[t].title);
+      expect(TOPIC_GRADE_OF[t], t).toBe(TOPIC[t].grade);
     }
   });
 
   it('every stair, with the name its lesson and its teaching content use', () => {
     expect(Object.keys(STAIR_NAMES)).toEqual(ALL_SKILLS);
     for (const t of TOPIC_ORDER) {
-      expect(TOPIC[t].levels).toHaveLength(STAIRS[t]);
+      expect(TOPIC[t].levels).toHaveLength(STAIRS[t]!);
       TOPIC[t].levels.forEach((L: { title: string }, i: number) => {
         const id = skillId(t, i + 1);
         expect(NAMES[id], id).toBe(L.title);

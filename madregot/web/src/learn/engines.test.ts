@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { LearnState, SkillRecord } from './types';
-import { TOPIC_ORDER, ALL_SKILLS, PREREQS, STAIRS, ancestorsOf, prereqsOf, gradeSkillsOf, BRIDGE, BRIDGE_SKILLS } from './skills';
+import { TOPIC_ORDER, ALL_SKILLS, PREREQS, STAIRS, GRADE_OF, ancestorsOf, prereqsOf, gradeSkillsOf, BRIDGE, BRIDGE_SKILLS, ALSO_ON_PATH, onGradePath } from './skills';
+import type { AlsoOnPath } from './skills';
 // @ts-ignore: plain JS
-import { topicsFor, bridgeTopicsFor, rescueTopicsFor } from '@/content/index.js';
+import { TOPIC, topicsFor, bridgeTopicsFor, rescueTopicsFor, unitNumber, earlierUnit, unitGrade } from '@/content/index.js';
 import { addAttempt, markTaught, masteryState, recordMasteryCheck, recordReview, nextStage, dueReviews, MASTERY_N, REVIEW_DAYS, addDays } from './mastery';
 import { addEvidence, addCounter, slipOf, slipLike, matchesValue, diagnose, discriminating, narrow, startRepair, finishVerify, canOffer, CONFIRM_SCORE } from './misconceptions';
 // @ts-ignore: plain JS
@@ -136,6 +137,76 @@ describe('the prerequisite graph', () => {
   });
   it('reaches down through several stairs', () => {
     expect(ancestorsOf('line:4')).toEqual(expect.arrayContaining(['line:3', 'signed:3', 'line:2', 'coord:1', 'line:1', 'signed:1']));
+  });
+  it('every edge points to an earlier stair of ALL_SKILLS, so the catalogue is in prerequisite order', () => {
+    const at = new Map(ALL_SKILLS.map((id, i) => [id, i]));
+    const late = ALL_SKILLS.flatMap((id) => prereqsOf(id).filter((p) => !(at.get(p)! < at.get(id)!)).map((p) => `${id} ← ${p}`));
+    expect(late).toEqual([]);
+  });
+});
+
+// A unit filed under one grade and also climbed in another this school year (skills.ts ALSO_ON_PATH). The table is empty
+// until curriculum stage 3's data unit lands, so a fixture puts a ז׳ unit (algebraic expressions) on the ח׳ path after
+// percent: every reader of the path follows it, and nothing else moves.
+describe('a unit on two grades\' paths (ALSO_ON_PATH)', () => {
+  const ALSO: AlsoOnPath = { expr: { grade: '8', after: 'pct' } };
+  const ids = (list: { id: string }[]) => list.map((t) => t.id);
+  it('each entry is a real unit, on another grade than its own, after a unit of that grade', () => {
+    for (const [t, e] of Object.entries(ALSO_ON_PATH) as [keyof typeof GRADE_OF, { grade: '7' | '8'; after: string }][]) {
+      expect(GRADE_OF[t], t).toBeDefined();
+      expect(GRADE_OF[t], t).not.toBe(e.grade);
+      expect(BRIDGE.has(t), t).toBe(false);
+      expect(ids(topicsFor(e.grade, {})), `${t}: after ${e.after}`).toContain(e.after);
+    }
+  });
+  it('draws the unit on the other grade\'s path right after its `after` unit, and keeps it on its own', () => {
+    expect(ids(topicsFor('8', ALSO))).toEqual(['ratio', 'pct', 'expr', 'line', 'pyth', 'stats', 'sys']);
+    expect(ids(topicsFor('7', ALSO))).toEqual(ids(topicsFor('7', {})));
+    expect(ids(topicsFor('7', ALSO)).filter((id) => id === 'expr')).toHaveLength(1);
+    // an `after` that is not on the path puts it last; a bridge unit is never drawn
+    expect(ids(topicsFor('8', { expr: { grade: '8', after: 'eq' } })).at(-1)).toBe('expr');
+    expect(ids(topicsFor('8', { frac: { grade: '8', after: 'pct' } }))).not.toContain('frac');
+  });
+  it('its stairs are the grade\'s own (gradeSkillsOf, onGradePath), and a fresh one is missing for that grade', () => {
+    for (let l = 1; l <= STAIRS.expr!; l += 1) expect(gradeSkillsOf('8', ALSO)).toContain(`expr:${l}`);
+    expect(gradeSkillsOf('8').some((id) => id.startsWith('expr:'))).toBe(false);
+    expect(gradeSkillsOf('7', ALSO)).toEqual(gradeSkillsOf('7'));
+    expect(onGradePath('expr', '8', ALSO)).toBe(true);
+    expect(onGradePath('expr', '8', {})).toBe(false);
+    expect(onGradePath('frac', '7')).toBe(false); // the floor is on no path
+    expect(isMissing(ctx(empty(), '8'), 'expr:1', undefined, ALSO)).toBe(true);
+    expect(isMissing(ctx(empty(), '8'), 'expr:1', undefined, {})).toBe(false);
+    expect(isMissing(ctx(empty(), '7'), 'line:1', undefined, ALSO)).toBe(false);
+  });
+  it('Exam Rescue offers each unit once, also one that is both on the path and revised (alsoFor)', () => {
+    const both: AlsoOnPath = { pyth: { grade: '7', after: 'eq' } }; // pyth carries alsoFor: ['7'] too
+    for (const also of [ALSO, both, ALSO_ON_PATH]) {
+      for (const g of ['7', '8'] as const) {
+        const list = ids(rescueTopicsFor(g, also));
+        expect(new Set(list).size, `${g}: ${list.join(', ')}`).toBe(list.length);
+        expect(list.slice(0, topicsFor(g, also).length)).toEqual(ids(topicsFor(g, also)));
+      }
+    }
+    expect(ids(rescueTopicsFor('7', both))).toContain('pyth');
+  });
+  it('numbers a unit on the viewer\'s path, calls it revision only off the path, and tells the tutor the viewer\'s grade', () => {
+    const expr = TOPIC.expr; const pyth = TOPIC.pyth;
+    expect(unitNumber(expr, '8', ALSO)).toBe(3); // ratio, pct, expr
+    expect(unitNumber(expr, '7', ALSO)).toBe(4); // signed, coord, angles, expr
+    expect(unitNumber(expr, '8', {})).toBe(4); // not on the ח׳ path: its own grade's number
+    expect(unitNumber(TOPIC.frac, '7')).toBe(0); // the floor has no number
+    expect(earlierUnit(expr, '8', ALSO)).toBe(false);
+    expect(earlierUnit(expr, '8', {})).toBe(true);
+    expect(earlierUnit(pyth, '7')).toBe(false); // a later grade's unit is not "from an earlier grade"
+    expect(unitGrade(expr, '8', ALSO)).toBe('8');
+    expect(unitGrade(expr, '8', {})).toBe('7');
+    expect(unitGrade(expr, undefined, ALSO)).toBe('7');
+  });
+  it('the real catalogue is unchanged by the table: 62 stairs and an 18-question first-day test for ח׳', async () => {
+    expect(ALL_SKILLS).toHaveLength(62);
+    // @ts-ignore: plain JS
+    const { placementMax } = await import('@/lib/placement.js');
+    expect(placementMax('8')).toBe(18);
   });
 });
 

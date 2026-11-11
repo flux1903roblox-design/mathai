@@ -11,10 +11,11 @@ vi.hoisted(() => {
   Math.random = () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
 });
 
-import { checkPlan, itemFor } from './items';
+import { checkPlan, itemFor, modelItem } from './items';
 import { ensureTopics, topicsReady, hasContent, META } from './content/index';
+import type { DiagModel, StairContent } from './types';
 // @ts-ignore: plain JS
-import { TOPICS, topicsFor } from '@/content/index.js';
+import { TOPICS, topicsFor, isCorrect, readAnswer, answerText, answerInput } from '@/content/index.js';
 
 // the same generator as main.jsx's test seed
 const seeded = (seed: number) => { let t = seed >>> 0; return () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; };
@@ -60,5 +61,59 @@ describe('checks with the content split per topic', () => {
       }
     } finally { Math.random = realRandom; }
     await expect(JSON.stringify(sortKeys(out), null, 1)).toMatchFileSnapshot('./__snapshots__/items-split.json');
+  });
+});
+
+// A model answered as a fraction (DiagModel form 'frac'): two dice's probabilities are 1/36 apart, so a decimal answer
+// would leave their documented errors ambiguous. The fixture is curriculum stage 3's prob:3 shape (P of a sum of two
+// dice), before that stair exists.
+describe('a model answered as a fraction', () => {
+  type P = { s: number };
+  const ways = (s: number) => 6 - Math.abs(7 - s); // ordered pairs of two dice with this sum
+  const unordered = (s: number) => Math.ceil(ways(s) / 2); // (5, 6) and (6, 5) counted once
+  const DICE: DiagModel<P> = {
+    form: 'frac', precise: true,
+    params: () => ({ s: 7 }),
+    text: (p) => `מטילים שתי קוביות. מה ההסתברות שהסכום יהיה $${p.s}$?`,
+    answer: (p) => ways(p.s) / 36,
+    bugs: {
+      'equiprob-sums': () => 1 / 11, // eleven sums, as if each were as likely
+      unordered: (p) => unordered(p.s) / 36,
+      'space-21': (p) => unordered(p.s) / 21,
+    },
+    solution: (p) => [`בטבלה $36$ תאים, ובסכום $${p.s}$ יש $${ways(p.s)}$ מהם.`],
+    hint: () => 'ספרו את התאים בטבלה.',
+  };
+  const stair = { skill: 'prob:3', topic: 'prob', level: 3, title: 'ניסוי בשני שלבים' } as unknown as StairContent;
+  const it7 = modelItem(stair, DICE, { s: 7 }, 'diag');
+
+  it('makes an item in the fraction form, with no note on how to type a decimal', () => {
+    expect(it7.form).toBe('frac');
+    expect(it7.answer).toBeCloseTo(1 / 6, 12);
+    expect(it7.text).toBe(DICE.text({ s: 7 }));
+    expect(answerInput(it7)).toEqual({ n: 1, d: 6 });
+    expect(answerText(it7)).toBe('1/6');
+  });
+  it('accepts the fraction as counted (6/36) and reduced (1/6), and nothing else', () => {
+    expect(isCorrect(it7, { n: 6, d: 36 })).toBe(true);
+    expect(isCorrect(it7, { n: 1, d: 6 })).toBe(true);
+    expect(isCorrect(it7, readAnswer(it7, { n: '6', d: '36' }))).toBe(true);
+    expect(isCorrect(it7, { n: 1, d: 11 })).toBe(false);
+    expect(isCorrect(it7, { n: 6, d: 35 })).toBe(false);
+  });
+  it('diagnoses a typed fraction by its value: the same mistake however it is written', () => {
+    expect(it7.diag({ n: 1, d: 11 })).toBe('equiprob-sums');
+    expect(it7.diag({ n: 2, d: 22 })).toBe('equiprob-sums');
+    expect(it7.diag({ n: 3, d: 36 })).toBe('unordered');
+    expect(it7.diag({ n: 1, d: 12 })).toBe('unordered');
+    expect(it7.diag({ n: 3, d: 21 })).toBe('space-21');
+    expect(it7.diagnosis({ n: 1, d: 7 })).toMatchObject({ kind: 'misconception' });
+    expect(it7.diag({ n: 5, d: 36 })).toBeNull();
+    // a number still works where one is typed (the default form)
+    expect(it7.diag(1 / 11)).toBe('equiprob-sums');
+  });
+  it('a model with no form is a number, as before', () => {
+    const num = modelItem(stair, { ...DICE, form: undefined }, { s: 7 }, 'diag');
+    expect(num.form).toBe('num');
   });
 });

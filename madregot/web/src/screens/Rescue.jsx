@@ -9,7 +9,7 @@ import clsx from 'clsx';
 import { CalendarClock, Check, Trash2, ClipboardCheck, ArrowRight, Star, Trophy } from 'lucide-react';
 import { useApp, today } from '@/lib/store.js';
 import { useLearnCtx, useNext } from '@/lib/useLearn.js';
-import { TOPIC, rescueTopicsFor } from '@/content/index.js';
+import { TOPIC, rescueTopicsFor, earlierUnit } from '@/content/index.js';
 import { examPlan, validInput, isShabbatDay, DIAG_PER_SKILL } from '@/learn/examRescue.ts';
 import { skillId } from '@/learn/skills.ts';
 import { titleOf } from '@/learn/recommend.ts';
@@ -91,8 +91,9 @@ function Setup({ onSave }) {
               const all = ids.every((x) => skills.includes(x));
               const some = ids.filter((x) => skills.includes(x)).length;
               // a topic of an earlier grade is revision and says so ("מכיתה ז׳"); Pythagoras, filed under ח׳, is taught in
-              // ז׳ too by this year's programme, so for ז׳ it is simply one of theirs
-              const earlier = Number(t.grade) < Number(grade);
+              // ז׳ too by this year's programme, so for ז׳ it is simply one of theirs; a unit also on this grade's path
+              // this year (learn/skills.ts ALSO_ON_PATH) is theirs too, not revision
+              const earlier = earlierUnit(t, grade);
               return (
                 <fieldset key={t.id} className={clsx('rescue-topic', `ch-${t.color}`)}>
                   <legend className="visually-hidden">{t.title}</legend>

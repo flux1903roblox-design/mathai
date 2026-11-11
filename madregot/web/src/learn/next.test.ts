@@ -534,7 +534,7 @@ function randomLearner(rnd: () => number): { ctx: NextContext; lastTopic: string
   if (chance(0.15)) {
     const n = 1 + Math.floor(rnd() * 2);
     for (let k = 0; k < n; k += 1) {
-      const qs = Array.from({ length: 3 + Math.floor(rnd() * 4) }, () => { const t = pick(TOPIC_ORDER); return [t, chance(0.8) ? 1 + Math.floor(rnd() * STAIRS[t]) : null, pick(['correct', 'wrong', 'partial', 'missing'])] as [string, number | null, string]; });
+      const qs = Array.from({ length: 3 + Math.floor(rnd() * 4) }, () => { const t = pick(TOPIC_ORDER); return [t, chance(0.8) ? 1 + Math.floor(rnd() * STAIRS[t]!) : null, pick(['correct', 'wrong', 'partial', 'missing'])] as [string, number | null, string]; });
       exams.push(checkedExam(1 + Math.floor(rnd() * 60), qs, now));
     }
   }

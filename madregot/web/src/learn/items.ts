@@ -26,21 +26,28 @@ export const FACTS_SKILL = 'facts:0';
 export const FLOOR_SKILLS = ['frac:1', 'frac:2', 'frac:3', 'frac:4'];
 export const FLOOR_FACTS = 2;
 
+/** A typed answer as the number the models predict: a fraction answer ({ n, d }, the 'frac' form) by its value. */
+export type TypedAnswer = number | { n: number; d: number };
+export const answerValue = (u: TypedAnswer): number => (typeof u === 'object' && u ? u.n / u.d : (u as number));
+
 export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source: Source) {
   // a model whose questions are of two kinds may choose the answer's form per question (decimals, or quarters)
   const fmt = typeof model.fmt === 'function' ? model.fmt(p) : model.fmt;
+  const form = model.form ?? 'num';
   const it = {
     key: `${c.skill}:${source}:${JSON.stringify(p)}`,
-    text: model.text(p), display: model.display?.(p), fig: model.fig?.(p), form: 'num' as const, unit: model.unit,
+    text: model.text(p), display: model.display?.(p), fig: model.fig?.(p), form, unit: model.unit,
     answer: model.answer(p), exact: model.exact?.(p), hint: model.hint(p), solution: model.solution(p),
-    diag: (u: number) => { const d = diagnose(model, p, u); return d.kind === 'misconception' ? d.candidates[0].id : null; },
-    diagnosis: (u: number) => diagnose(model, p, u),
+    // a fraction typed (form 'frac') is diagnosed by its value: 2/22 and 1/11 name the same mistake
+    diag: (u: TypedAnswer) => { const d = diagnose(model, p, answerValue(u)); return d.kind === 'misconception' ? d.candidates[0].id : null; },
+    diagnosis: (u: TypedAnswer) => diagnose(model, p, answerValue(u)),
     could: couldShow(model, p),
     topic: c.topic, level: c.level, levelTitle: c.title, source,
     ...(model.precise ? { precise: true } : {}), ...(fmt ? { fmt } : {}),
   };
-  // an exact answer with no short decimal (7/12) says once how to write it, as a generated exercise does
-  return model.precise ? withFormatNote(it) : it;
+  // an exact answer with no short decimal (7/12) says once how to write it, as a generated exercise does (a fraction
+  // answer is typed as a fraction: it needs no note)
+  return model.precise && form === 'num' ? withFormatNote(it) : it;
 }
 
 /** The forms of a stair's exercises that can show some misconceptions, learned once from a sample (see genProbe). */

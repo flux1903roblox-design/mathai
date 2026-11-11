@@ -9,8 +9,10 @@ import type { SkillId, TopicId } from './types';
 // ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), both
 // before linear functions.
 export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+// GRADE_OF and STAIRS hold the topics this build has; TopicId also names curriculum stage 3's data and prob, which take
+// their grade and their stairs in the commit that adds their content (and are in no list until then).
+export const GRADE_OF: Partial<Record<TopicId, '7' | '8'>> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
+export const STAIRS: Partial<Record<TopicId, number>> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -18,9 +20,23 @@ export const skillId = (topic: TopicId | string, level: number): SkillId => `${t
 export const parseSkill = (id: SkillId) => { const [topic, l] = id.split(':'); return { topic: topic as TopicId, level: Number(l) }; };
 
 /** Every skill in curriculum order (grade 7 topics, then grade 8). */
-export const ALL_SKILLS: SkillId[] = TOPIC_ORDER.flatMap((t) => Array.from({ length: STAIRS[t] }, (_, i) => skillId(t, i + 1)));
-/** A grade's own stairs, in order: its topics' stairs without the bridge units. */
-export const gradeSkillsOf = (g: '7' | '8'): SkillId[] => ALL_SKILLS.filter((id) => { const t = id.split(':')[0] as TopicId; return GRADE_OF[t] === g && !BRIDGE.has(t); });
+export const ALL_SKILLS: SkillId[] = TOPIC_ORDER.flatMap((t) => Array.from({ length: STAIRS[t] ?? 0 }, (_, i) => skillId(t, i + 1)));
+
+/** A unit filed under one grade that a school year also teaches in another: drawn on that grade's path after `after`. */
+export type AlsoOnPath = Partial<Record<TopicId, { grade: '7' | '8'; after: TopicId }>>;
+/**
+ * Units on two grades' paths. The Ministry's תשפ״ז transition year has ח׳ learn the ז׳ data unit too (8.6 in October and
+ * November; its last stair, probability from relative frequency, is ח׳'s "הסתברות א – בסיס" in March): `data` is filed
+ * under ז׳ and drawn on the ח׳ path after percent, from the commit that adds its content. programme.test.ts fails when no
+ * unit of that grade lists one of the topic's stairs, so an entry is removed when the programme moves on.
+ * A table, not a special case in each screen: topicsFor (content/index.js), gradeSkillsOf, isMissing (recommend.ts)
+ * and the screens that name a unit's grade read it through onGradePath. The helpers take another table for tests.
+ */
+export const ALSO_ON_PATH: AlsoOnPath = {};
+/** Is a topic on a grade's path: filed in it, or also climbed in it (never a bridge unit)? */
+export const onGradePath = (t: TopicId, g: '7' | '8', also: AlsoOnPath = ALSO_ON_PATH): boolean => !BRIDGE.has(t) && (GRADE_OF[t] === g || also[t]?.grade === g);
+/** A grade's own stairs, in order: the stairs of the topics on its path, without the bridge units. */
+export const gradeSkillsOf = (g: '7' | '8', also: AlsoOnPath = ALSO_ON_PATH): SkillId[] => ALL_SKILLS.filter((id) => onGradePath(id.split(':')[0] as TopicId, g, also));
 /** Is this stair in a bridge unit (the floor under both grades)? */
 export const isBridgeSkill = (id: SkillId) => BRIDGE.has(id.split(':')[0] as TopicId);
 /** The bridge stairs, in order: the floor under every grade. */

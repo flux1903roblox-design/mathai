@@ -3,7 +3,9 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'stats' | 'sys';
+// 'data' and 'prob' (curriculum stage 3) are named before their stairs land: ALSO_ON_PATH (learn/skills.ts) and the
+// model's answer form are built first, and GRADE_OF and STAIRS take each topic in the commit that adds its content.
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'stats' | 'sys' | 'data' | 'prob';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -197,6 +199,12 @@ export interface DiagModel<P = Record<string, number>> {
   precise?: boolean;
   /** Show the answer as a decimal (-1.3, not -13/10); a function chooses per question (decimals, or quarters as fractions). */
   fmt?: 'dec' | ((p: P) => 'dec' | undefined);
+  /**
+   * The answer's form: a number (the default), or a fraction typed as a numerator over a denominator ('frac': 6/36 and
+   * 1/6 both right, compared exactly; the diagnosis reads its value n/d). Two dice's probabilities are 1/36 apart, so a
+   * decimal would leave their documented errors ambiguous; a fraction tells them apart.
+   */
+  form?: 'num' | 'frac';
 }
 
 // ------------------------------------------------------------------ the stair

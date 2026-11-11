@@ -6,12 +6,32 @@ import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWord
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
+import { ALSO_ON_PATH, onGradePath } from '@/learn/skills';
 
 // Each topic's misconception names include those the 2.0 teaching content adds.
 export const TOPICS = [...GRADE7, ...GRADE8].map((t) => ({ ...t, cats: { ...t.cats, ...(NEW_CATS[t.id] || {}) }, lesson: t.lesson || LESSONS[t.id] || null }));
 export const TOPIC = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
-/** A grade's own units, in order. A bridge unit (bridge: true, the fractions floor) is not one of them. */
-export const topicsFor = (grade) => TOPICS.filter((t) => t.grade === String(grade) && !t.bridge);
+/**
+ * A grade's units, in order: its own, and a unit also climbed in it this school year (learn/skills.ts ALSO_ON_PATH)
+ * right after the unit named there (at the end when that one is not on the path). A bridge unit (bridge: true, the
+ * fractions floor) is not one of them. `also`: another table, for tests.
+ */
+export const topicsFor = (grade, also = ALSO_ON_PATH) => {
+  const g = String(grade); const out = TOPICS.filter((t) => t.grade === g && !t.bridge);
+  TOPICS.filter((t) => !t.bridge && t.grade !== g && also[t.id]?.grade === g).forEach((t) => {
+    const i = out.findIndex((x) => x.id === also[t.id].after); out.splice(i < 0 ? out.length : i + 1, 0, t);
+  });
+  return out;
+};
+/**
+ * A unit's number on a viewer's path ("יחידה 3"): among the viewer's grade's units when it is on that path (a unit also
+ * climbed in ח׳ this year is numbered there as ח׳ meets it), else among its own grade's; 0 for the fractions floor.
+ */
+export const unitNumber = (t, viewerGrade, also = ALSO_ON_PATH) => (!t ? 0 : (viewerGrade ? topicsFor(viewerGrade, also).indexOf(t) + 1 : 0) || topicsFor(t.grade, also).indexOf(t) + 1);
+/** Is a unit revision for this grade (filed under an earlier grade and not on this grade's path), labelled "מכיתה ז׳"? */
+export const earlierUnit = (t, grade, also = ALSO_ON_PATH) => Number(t.grade) < Number(grade) && !onGradePath(t.id, String(grade), also);
+/** The grade a student meets a unit in: their own when the unit is on their path, else the unit's (the tutor is told it). */
+export const unitGrade = (t, grade, also = ALSO_ON_PATH) => (grade && t && onGradePath(t.id, String(grade), also) ? String(grade) : t?.grade);
 /** The bridge units under a grade: of that grade, or with it in alsoFor (the floor; shown only when it is switched on). */
 export const bridgeTopicsFor = (grade) => TOPICS.filter((t) => t.bridge && (t.grade === String(grade) || (t.alsoFor || []).includes(String(grade))));
 /**
@@ -23,8 +43,14 @@ export const bridgeTopicsFor = (grade) => TOPICS.filter((t) => t.bridge && (t.gr
  *                      revise grade 7 equations, and grade 7 learns Pythagoras in March though the app files it in grade 8
  */
 export const placementTopicsFor = (grade) => topicsFor(grade).filter((t) => t.placement !== false);
-/** The topics Exam Rescue offers a grade: its own, then those of another grade that are revised in it (no bridge unit). */
-export const rescueTopicsFor = (grade) => [...topicsFor(grade), ...TOPICS.filter((t) => !t.bridge && t.grade !== String(grade) && (t.alsoFor || []).includes(String(grade)))];
+/**
+ * The topics Exam Rescue offers a grade: those on its path (topicsFor), then those of another grade that are revised in
+ * it (alsoFor; no bridge unit), each once.
+ */
+export const rescueTopicsFor = (grade, also = ALSO_ON_PATH) => {
+  const own = topicsFor(grade, also);
+  return [...own, ...TOPICS.filter((t) => !t.bridge && !own.includes(t) && (t.alsoFor || []).includes(String(grade)))];
+};
 
 /**
  * The words for a mistake on one stair: the stair's own misconception when it has one (one id can mean different
