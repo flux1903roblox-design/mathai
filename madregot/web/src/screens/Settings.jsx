@@ -15,7 +15,7 @@ import { useApp, PERSONAL_KEY } from '@/lib/store.js';
 import { durableWipe } from '@/lib/durable/storage.js';
 import SaveSection from '@/components/durable/SaveSection.jsx';
 import SupportInfo from '@/components/durable/SupportInfo.jsx';
-import { whereSavedText } from '@/lib/durable/copy.js';
+import { whereSavedText, WHERE_SAVED } from '@/lib/durable/copy.js';
 import { stopBackup, syncVault, vaultErrorText } from '@/lib/durable/vault.js';
 import { afterClassJoin } from '@/lib/durable/escrow.js';
 import SharingSheet, { stateWord } from '@/components/SharingSheet.jsx';
@@ -30,11 +30,24 @@ export const WIPE_FAILED = 'לא הצלחנו למחוק את הגיבוי בש�
 /** The device-unlink sheet and the wipe sheet on a linked device: the parents' summaries go with it (PARENTS-4). */
 export const UNLINK_SUMMARIES = 'העוזר החכם יחזור כאן ל־2 שאלות ביום, והסיכומים שנשלחו להורים מהמכשיר הזה יימחקו. ההורים יכולים לחבר אותו שוב.';
 export const WIPE_SUMMARIES = 'גם הסיכומים שנשלחו להורים מהמכשיר הזה יימחקו.';
+/** "Delete all" or the unlink could not reach the server to delete the summaries: the link stays, nothing is deleted here. */
+export const WIPE_LEAVE_FAILED = 'לא הצלחנו למחוק את הסיכומים שנשלחו להורים, ולכן לא מחקנו כלום. נסו שוב כשיש חיבור.';
+export const UNLINK_FAILED = 'לא הצלחנו לנתק את המכשיר, אז הוא עדיין מחובר והסיכומים לא נמחקו. נסו שוב כשיש חיבור.';
+/** The device already left the family, then the backup could not be deleted: what is on the device stays. */
+export const WIPE_FAILED_LINK_GONE = 'המכשיר נותק מהמנוי, אבל לא הצלחנו למחוק את הגיבוי בשרת, ולכן לא מחקנו את מה שבמכשיר.';
+/**
+ * Under the join form of Settings: the class keeps a copy (Welcome's CLASS_COPY_NOTE), and when this device already has a
+ * backup code that nobody keeps, joining gives that code to the class's server too: said before the join, with the way out.
+ */
+export const JOIN_COPY_NOTE = WHERE_SAVED.classCopyClause;
+export const JOIN_CODE_NOTE = 'קוד הגיבוי שכבר יש לכם יישמר גם בשרת הכיתה, כך שהשרת יוכל לפתוח את העותק הזה. אפשר לכבות את זה במתג "שמירת עותק בשרת הכיתה".';
 /** How long a sign-out waits for the last push of the backup before it goes on anyway. */
 const LAST_PUSH_MS = 4000;
 
 function ClassSection() {
   const { profile, setProfile, leaveClass } = useApp();
+  const backup = useApp((s) => s.backup);
+  const escrowClass = useApp((s) => s.durable?.escrowClass !== false);
   const [code, setCode] = useState(''); const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -81,6 +94,11 @@ function ClassSection() {
         <Field label="קוד אישי של 4 ספרות" id="me-pin" hint="אם זו הפעם הראשונה, בחרו קוד ותזכרו אותו.">
           <input id="me-pin" className="input mono" dir="ltr" inputMode="numeric" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
         </Field>
+        {escrowClass && (
+          <p className="field-hint join-copy-note">
+            {JOIN_COPY_NOTE}{backup?.on && !backup.escrow ? ` ${JOIN_CODE_NOTE}` : ''}
+          </p>
+        )}
         {error && <p className="form-error" role="alert">{error}</p>}
         <Button type="submit" disabled={busy}>{busy ? 'מצטרפים…' : 'הצטרפות'}</Button>
         {profile.classCode && <Button variant="ghost" className="btn-sm" onClick={() => setConfirmLeave(true)}>לא רוצים כיתה</Button>}
@@ -244,7 +262,11 @@ function AISection() {
       </div>
       {rows.length > 0 && <div className="set-rows-wrap"><div className="set-rows">{rows}</div></div>}
       <ConfirmSheet open={unlink} onOpenChange={setUnlink} title="לנתק את המכשיר מהמנוי?" keep="להשאיר מחובר" mood="idle"
-        confirm="כן, לנתק" onConfirm={async () => { setUnlink(false); await leaveFamily(); toast('המכשיר נותק מהמנוי'); }}>
+        confirm="כן, לנתק" onConfirm={async () => {
+          setUnlink(false);
+          // a leave the server did not hear keeps the link (and the summaries are not left behind): say so
+          try { await leaveFamily(); toast('המכשיר נותק מהמנוי'); } catch { toast.error(UNLINK_FAILED); }
+        }}>
         <p>{shared ? UNLINK_SUMMARIES : 'העוזר החכם יחזור כאן ל־2 שאלות ביום. ההורים יכולים לחבר אותו שוב.'}</p>
       </ConfirmSheet>
       {shared && <SharingSheet open={sharing} onOpenChange={setSharing} />}
@@ -292,16 +314,19 @@ export default function Settings() {
   const [wiping, setWiping] = useState(false);
   const [wipeError, setWipeError] = useState('');
   const vaultOn = !!backup?.on;
-  // "מחיקת כל הנתונים": with the backup code on, the copy on the server goes first; if that fails nothing is deleted
-  // here either, and the sheet says why. Then the family link and a parent's session, the saved progress, its copy on
-  // the device and the quarantine; this page writes nothing again, so it reloads.
+  // "מחיקת כל הנתונים": on a linked device the family link and the summaries sent to the parents go first, then, with the
+  // backup code on, the copy on the server. If either server step fails, nothing on the device is deleted, and the sheet
+  // says why (a second tap goes on from where it stopped). Then a parent's session, the saved progress, its copy on the
+  // device and the quarantine; this page writes nothing again, so it reloads.
   const wipe = async () => {
     if (wiping) return;
     setWiping(true); setWipeError('');
+    const wasLinked = familyLinked;
+    try { await leaveFamily(); } catch { setWipeError(WIPE_LEAVE_FAILED); setWiping(false); return; }
     if (vaultOn) {
-      try { await stopBackup(); } catch (e) { setWipeError(`${WIPE_FAILED} ${vaultErrorText(e)}`); setWiping(false); return; }
+      try { await stopBackup(); } catch (e) { setWipeError(`${wasLinked ? WIPE_FAILED_LINK_GONE : WIPE_FAILED} ${vaultErrorText(e)}`); setWiping(false); return; }
     }
-    await leaveFamily(); await forgetParent();
+    await forgetParent();
     await durableWipe(); signOut();
     window.location.hash = '#/'; window.location.reload();
   };

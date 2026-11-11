@@ -8,7 +8,8 @@ import { useApp, PERSONAL_KEY } from './store.js';
 import { api, apiBase, hasServer, ApiError } from './api.js';
 import { qaStatus, qaActive } from './qaFixtures.js';
 import { randomHex } from './random.js';
-import { afterFamilyLink } from './durable/escrow.js';
+import { afterFamilyLink, escrowWith } from './durable/escrow.js';
+import { familyGone } from './durable/vault.js';
 
 /** A random id for this device, made once. The server counts the free questions per device. */
 export function deviceId() {
@@ -85,9 +86,12 @@ export function refreshIfNewDay() {
   if (s?.resetsAt && !refreshing && Date.now() >= Date.parse(s.resetsAt) && (hasServer() || qaActive())) refreshStatus();
 }
 
-/** X-AI-Linked: 0 means the family-device token is no longer valid (unlinked, or the parent left): forget it. */
+/**
+ * X-AI-Linked: 0 means the family-device token is no longer valid (unlinked, or the parent left): forget it, and when the
+ * family kept this device's backup code, move the backup to a new code at the next sync (durable/vault.js familyGone).
+ */
 function readLinked(res) {
-  if (res.headers.get('X-AI-Linked') === '0' && useApp.getState().ai.familyDevice) useApp.getState().setAI({ familyDevice: null });
+  if (res.headers.get('X-AI-Linked') === '0' && useApp.getState().ai.familyDevice) familyGone(useApp);
 }
 
 /**
@@ -243,14 +247,25 @@ export async function pollLink({ onEscrow } = {}) {
   }
 }
 
-/** This device leaves the family plan (the settings row, and before deleting everything). Never fails the caller. */
+/**
+ * This device leaves the family plan (the settings row, and before deleting everything). The server deletes the link,
+ * the summaries sent to the parents and the code the family kept for this device. When the server could not be reached
+ * (no network, or it answered 5xx) this rejects and nothing changes here: the token stays, so the leave can be tried
+ * again and the summaries are never left behind on the server. Any other answer means the server no longer knows the
+ * token (it already left), and the device forgets it.
+ */
 export async function leaveFamily() {
   const { ai, setAI } = useApp.getState();
   const token = ai.familyDevice?.token;
   if (token && hasServer()) {
-    try { await api('/api/family/devices/leave', { method: 'POST', body: {}, headers: { 'X-Family-Device': token }, auth: false }); } catch { /* forgotten here either way */ }
+    try { await api('/api/family/devices/leave', { method: 'POST', body: {}, headers: { 'X-Family-Device': token }, auth: false }); } catch (e) {
+      if (!(e instanceof ApiError) || e.code === 'network' || !e.status || e.status >= 500) throw e;
+    }
   }
   setAI({ familyDevice: null, pendingLink: null });
+  // the family no longer keeps this device's code (the server deleted it with the link)
+  const b = useApp.getState().backup;
+  if (b?.escrow === 'family' || b?.escrow === 'both') useApp.setState({ backup: { ...b, escrow: escrowWith(b.escrow, 'family', false) } });
   if (hasServer()) await refreshStatus();
 }
 

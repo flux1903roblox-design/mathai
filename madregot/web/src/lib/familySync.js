@@ -13,7 +13,9 @@
 // X-Family-Device header needs a CORS preflight, which keepalive does not get everywhere) and the bytes fit the hidden
 // moment's budget. Also right after "הבנתי" and after the child turns sharing back on.
 // What: the days from the last day sent (or 7 days back, whichever is later) to today that had activity, and today
-// itself: at most 8. A later send replaces a day's row on the server, so the last day sent goes again with its final numbers.
+// itself once this profile has sent something (an empty today before that would replace, on the server, the day another
+// profile of this device already sent: a sibling who just signed in): at most 8. A later send replaces a day's row on the
+// server, so the last day sent goes again with its final numbers. Nothing to send is no send.
 // Answers: 200 → lastSent { at, days } (the exact rows, which the sharing sheet shows in words). 401 not_linked → the
 // token is forgotten. 402, 403, 429 and 503 → nothing more until the next status read (useAIStatus.refreshed), and the
 // state the server gave is shown. A failed send changes nothing here: the next moment tries again.
@@ -24,8 +26,11 @@ import { api, hasServer, sameOrigin } from './api.js';
 import { useAIStatus, refreshStatus } from './account.js';
 import { qaActive } from './qaFixtures.js';
 import { onMoment, MOMENT_ORDER, keepaliveBudget, bodyBytes } from './durable/moments.js';
+import { familyGone } from './durable/vault.js';
 
 export const FAMILY_MOMENTS = ['boot', 'lesson', 'hidden', 'tick'];
+/** A new profile on a device that sent summaries before (a sibling): the notice and the sharing sheet say they stay. */
+export const EARLIER_TEXT = 'הסיכומים שנשלחו קודם מהמכשיר הזה נשארים אצל ההורים, והסיכומים שלכם יופיעו לידם.';
 /** At most one send in this long (the hidden moment is the exception, when something changed). */
 export const SEND_EVERY = 10 * 60_000;
 /** How far back a send reaches (the Worker takes days up to 8 back), and how many days one send holds. */
@@ -56,7 +61,8 @@ export const lastSentDay = (fd) => (fd?.lastSent?.days || []).map((r) => r?.d).f
 
 /**
  * The rows to send: from the last day sent (or 7 days back, whichever is later) to `day`, the days with activity and
- * `day` itself, at most 8. `summary` is the engine's daySummary.
+ * `day` itself when it has activity or this profile has sent before, at most 8 (maybe none). `summary` is the engine's
+ * daySummary.
  */
 export function rowsToSend(state, { day = dayOf(), now = new Date(), summary }) {
   const floor = shift(day, -BACK_DAYS);
@@ -68,7 +74,7 @@ export function rowsToSend(state, { day = dayOf(), now = new Date(), summary }) 
   const rows = [];
   for (let d = from; d <= day; d = shift(d, 1)) {
     const s = summary(input, d, ctx);
-    if (d === day || hasActivity(s)) rows.push(s);
+    if (hasActivity(s) || (d === day && sent)) rows.push(s);
   }
   return rows.slice(-MAX_DAYS);
 }
@@ -107,6 +113,7 @@ async function run(moment, store, now) {
   const eng = engine || await loadEngine();
   const at = now();
   const rows = rowsToSend(st, { day: dayOf(at), now: at, summary: eng.daySummary });
+  if (!rows.length) return 'unchanged';
   if (fd.lastSent && JSON.stringify(rows) === JSON.stringify(fd.lastSent.days)) return 'unchanged';
   const force = moment === 'seen' || moment === 'switch';
   const last = Math.max(lastTry, Date.parse(fd.lastSent?.at) || 0);
@@ -119,7 +126,7 @@ async function run(moment, store, now) {
   } catch (e) {
     if (e?.status === 401) {
       // unlinked, or the parent left: the token is forgotten, as the tutor's X-AI-Linked: 0 does
-      if (e.code === 'not_linked' && store.getState().ai.familyDevice?.token === fd.token) store.getState().setAI({ familyDevice: null });
+      if (e.code === 'not_linked' && store.getState().ai.familyDevice?.token === fd.token) familyGone(store);
       return 'unlinked';
     }
     if (STOP.includes(e?.status)) {

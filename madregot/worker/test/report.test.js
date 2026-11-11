@@ -227,12 +227,32 @@ test('7. the parent reads only their own devices, 7 to 90 days, as the app\'s Da
   assert.equal((await get('?days=500')).days, 90);
   assert.deepEqual((await get('?days=500')).devices[0].days.map((x) => x.d), [ago(89), ago(60), ago(10), ago(2), today()]);
   assert.equal((await get('?days=abc')).days, 56);
+  // what the server holds for the device in all, whatever the window
+  assert.deepEqual(d.kept, { n: 5, from: ago(89), to: today() });
+  assert.deepEqual((await get('?days=7')).devices[0].kept, { n: 5, from: ago(89), to: today() });
   // after the plan ended: still readable (and deletable), the state says why nothing new arrives
   h.env.DB.raw.prepare("UPDATE subscriptions SET status = 'ended', current_period_end = ? WHERE account_id = ?").run(new Date(Date.now() - 864e5).toISOString(), fam.a);
   const ended = await get();
   assert.equal(ended.devices[0].sharing, 'no_plan');
   assert.equal(ended.devices[0].days.length, 3);
   assert.equal((await h.call('GET', '/api/family/summary')).status, 401);
+});
+
+test('7b. a device whose only rows are 57 to 89 days old: no rows in the window, but kept says the server holds them, and delete history removes them', async () => {
+  h = await setup();
+  const fam = await family();
+  await post(fam.dev.headers, [day(today())]);
+  h.env.DB.raw.prepare('DELETE FROM family_daily').run();
+  const raw = (d) => h.env.DB.raw.prepare(`INSERT INTO family_daily (device_id, day, minutes, updated_at) VALUES (?, ?, 5, 'x')`).run(fam.dev.id, d);
+  raw(ago(60)); raw(ago(65)); raw(ago(70));
+  const get = async () => (await (await h.call('GET', '/api/family/summary', { headers: fam.parent })).json()).devices[0];
+  const d = await get();
+  assert.deepEqual(d.days, [], 'nothing in the 8 weeks the page reads');
+  assert.deepEqual(d.kept, { n: 3, from: ago(70), to: ago(60) });
+  assert.ok(d.lastSync, 'the device has sent before');
+  const del = await h.call('POST', `/api/family/devices/${fam.dev.id}/history/delete`, { headers: fam.parent, body: {} });
+  assert.deepEqual(await del.json(), { ok: true, deleted: 3 });
+  assert.deepEqual((await get()).kept, { n: 0, from: null, to: null });
 });
 
 test('8. deletion: unlink, leave and the parent\'s delete history remove the rows explicitly, with the FK cascade off', async () => {
@@ -551,7 +571,8 @@ test('W3. the email: dates, each device, stair names in Hebrew, no mistake names
   const fixes = [['signed:1', 'minus-minus', 'o'], ['signed:3', 'sign', 'd'], ['eq:1', 'move-no-flip', 'd']];
   putDay(fam.dev.id, START, { m: 12, q: 16, ls: 2, st: 0, sk: ['signed:1'], ma: [], fx: [], sr: 1 });
   putDay(fam.dev.id, shiftDay(START, 2), { m: 20, q: 24, ls: 1, st: 1, sk: ['signed:3', 'eq:1', 'coord:2', 'angles:1', 'expr:1'], ma: ['signed:3'], fx: fixes.slice(1), sr: 2 });
-  putDay(fam.dev.id, shiftDay(START, 4), { m: 9, q: 10, ls: 1, st: 0, sk: ['eq:1'], ma: ['eq:1'], fx: fixes.slice(0, 1), sr: 3 });
+  // Friday: the streak still stands at the end of the week (Shabbat does not break it; a missed Friday would, as W3b shows)
+  putDay(fam.dev.id, shiftDay(START, 5), { m: 9, q: 10, ls: 1, st: 0, sk: ['eq:1'], ma: ['eq:1'], fx: fixes.slice(0, 1), sr: 3 });
   putDay(fam.dev.id, shiftDay(START, -3), { sk: ['line:1'], ma: ['line:1'] }); // the week before: not in this email
   await weeklyQueue(h.env, sunday);
   assert.deepEqual(await flushWeekly(h.env, { now: sunday }), { sent: 1, skipped: 0, failed: 0 });
@@ -563,7 +584,7 @@ test('W3. the email: dates, each device, stair names in Hebrew, no mistake names
     'הטאבלט\nימי תרגול: 3 · זמן תרגול: כ־41 דקות · שאלות: 50',
     `חדש בשליטה: ${stairName('eq:1')}, ${stairName('signed:3')}`,
     // newest first, as the page lists them (the days in order, each day's list reversed with them)
-    `תורגלו: ${stairName('expr:1')}, ${stairName('angles:1')}, ${stairName('coord:2')}, ${stairName('eq:1')} ועוד 2`,
+    `תורגלו: ${stairName('expr:1')}, ${stairName('angles:1')}, ${stairName('coord:2')}, ${stairName('eq:1')} ועוד שתי מדרגות`,
     'טעויות שחוזרות: טעות אחת בתיקון, שתי טעויות תוקנו השבוע',
     'רצף: 3 ימים (שבת לא שוברת רצף)',
     'הטלפון: השבוע לא היה תרגול.',
@@ -793,6 +814,19 @@ test('W9. the email reads the shared fixture week exactly as the page does (shar
   const msg = renderNotice({ PUBLIC_URL: 'https://madregot.example.test' }, { kind: `weekly:${fx.start}`, params: JSON.stringify({ ...p, unsub: 'https://madregot.example.test/api/report/unsubscribe?a=x&t=y' }) });
   assert.ok(msg.text.includes(`ימי תרגול: ${e.activeDays} · זמן תרגול: כ־${e.minutes} דקות · שאלות: ${e.questions}`));
   assert.equal(renderNotice({}, { kind: `weekly:${fx.start}`, params: JSON.stringify(p) }), null, 'never without its unsubscribe link');
+});
+
+test('W3b. a streak that ended during the week is not in the email: the child would see 0, so the parent does too', () => {
+  const toRow = (d, sr) => ({ device_id: 'd1', day: d, minutes: 5, questions: 8, lessons: 1, stages: 0, reviews: 0, streak: sr,
+    worked: '[]', mastered: '[]', fixes: '[]', exam: JSON.stringify({ d: shiftDay(START, 3), n: 1, of: 3 }) });
+  const dev = [{ id: 'd1', label: 'הטאבלט', created_at: OLD, share_child: 1, share_parent: 1 }];
+  const p = weeklyParams({ reportEmailAt: OLD, live: true }, dev, [toRow(START, 4), toRow(shiftDay(START, 1), 5)], { start: START, end: END });
+  assert.equal(p.devices[0].streak, 0, 'practice on Sunday and Monday only: the chain broke on Tuesday');
+  const msg = renderNotice({ PUBLIC_URL: 'https://madregot.example.test' }, { kind: `weekly:${START}`, params: JSON.stringify({ ...p, unsub: 'https://madregot.example.test/u' }) });
+  assert.ok(!msg.text.includes('רצף:'), msg.text);
+  // up to Friday, the streak holds through Shabbat
+  const q = weeklyParams({ reportEmailAt: OLD, live: true }, dev, [toRow(shiftDay(START, 4), 2), toRow(shiftDay(START, 5), 3)], { start: START, end: END });
+  assert.equal(q.devices[0].streak, 3);
 });
 
 test('W10. with the report off (PARENT_REPORT "off", or the paywall off) nothing is queued and nothing is sent', async () => {

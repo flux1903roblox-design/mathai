@@ -45,12 +45,25 @@ PRICE_FAMILY_YEAR_AGOROT = "24900"
 PRICE_CLASS_SEAT_YEAR_AGOROT = "4900"
 VAT_MODE = "included"
 TERMS_VERSION = "2026-11"
-# Payments: "manual" (the owner grants plans with npm run owner; schools pay by invoice) until a provider is chosen.
-# "test" rehearses the whole flow on a preview Worker (also needs BILLING_MODE "test" and ALLOW_TEST_BILLING "true").
+# Payments: "manual" (the owner grants plans with npm run owner; schools pay by invoice), "grow" (Grow / משולם, the
+# Israeli provider: src/providers/grow.js, SUBSCRIPTION.md "Grow"), or "test", which rehearses the whole flow on a preview
+# Worker (also needs BILLING_MODE "test" and ALLOW_TEST_BILLING "true").
 BILLING_PROVIDER = "manual"
 BILLING_MODE = "live"
-# Hosts the payment page may be on (comma-separated); checkout refuses any other.
+# Hosts the payment page may be on (comma-separated); checkout refuses any other. `npm run owner -- doctor --local
+# --grow-sandbox` prints the host Grow's sandbox page is on.
 BILLING_CHECKOUT_HOSTS = ""
+# Grow: the server API's base, copied from Grow's "live environment" page (ends with /). Empty in test mode uses the
+# sandbox; empty in live mode keeps Grow off (never a guessed live address).
+GROW_API_BASE = ""
+# "on" once Grow has enabled updateDirectDebit for the account: only then is the monthly plan sold online (a cancel
+# must stop the standing order at Grow). Off: the yearly plan and class licences only.
+GROW_DIRECT_DEBIT_API = "off"
+# Grow's callback addresses, comma-separated, copied from its "IP live" list. Empty: not checked (every state is pulled
+# from Grow with our own credentials, so a forged callback changes nothing).
+WEBHOOK_ALLOWED_IPS = ""
+# The payment company's name as the privacy notice and the emails say it, e.g. "Grow (משולם)".
+PAYMENT_PROVIDER_NAME = ""
 # Turnstile for new devices on the free taste: "off" unless free-tier abuse shows in ai_spend.
 FREE_DEVICE_MINT = "off"
 # Sign-in codes: at most this many sent a day in all (the owner gets a notice when it trips: nobody can sign in until
@@ -84,7 +97,12 @@ VAULT_MAX_MB = "200"
 #   BILLING_WEBHOOK_SECRET  verifies a signing provider's webhooks (+ BILLING_WEBHOOK_SECRET_OLD while rotating)
 #   TURNSTILE_SECRET, DEVICE_SECRET   only with FREE_DEVICE_MINT = "turnstile"
 #   VAULT_SECRET            seals the class and family copies of a restore code (openssl rand -hex 32); the vault itself does not need it
+#   GROW_USER_ID            Grow's userId (BILLING_PROVIDER = "grow")
+#   GROW_PAGE_CODE_ONCE     the pageCode of Grow's one-time payment page
+#   GROW_PAGE_CODE_RECURRING  the pageCode of Grow's standing-order (הוראת קבע) page
+#   GROW_API_KEY            Grow's apiKey, only if Grow issued one
 # TEST_WEBHOOK_SECRET belongs in .dev.vars only (the test provider).
+# setup.ps1 / setup.sh make the random ones; `npm run owner -- doctor` lists what is still missing (src/readiness.js).
 
 # The hourly jobs: notices, cancellation retries, refunds, expired orders and plans. At 03:00 (Jerusalem): reconciliation
 # with the payment provider, renewal and licence-ending reminders, the retention purge and the owner's daily summary.
@@ -112,3 +130,16 @@ migrations_dir = "migrations"
 name = "VAULT_RL"
 namespace_id = "1101"
 simple = { limit = 120, period = 60 }
+
+# The edge limit in front of sign-in codes, verify, class lookup, join and new devices: 20 a minute per network, per
+# location (src/edge.js). A burst filter only: the D1 counters stay the exact limits.
+[[ratelimits]]
+name = "RL_AUTH"
+namespace_id = "7001"
+simple = { limit = 20, period = 60 }
+
+# The AI routes: 30 a minute per caller (its device or credential, never the school's shared address), per location.
+[[ratelimits]]
+name = "RL_AI"
+namespace_id = "7002"
+simple = { limit = 30, period = 60 }

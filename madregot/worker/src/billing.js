@@ -8,7 +8,7 @@ import { requireAccount, requireRecentCode } from './account.js';
 import { requireTeacher, limits, paywallOn, liveFamily } from './entitle.js';
 import { reportOn, summaryState, rowToDay } from './report.js';
 import { decide, endAt, cleanDetail } from './apply.js';
-import { providerById, currentProvider, webhookProvider } from './providers/index.js';
+import { providerById, currentProvider, webhookProvider, capsOf } from './providers/index.js';
 import { testSignature } from './providers/test.js';
 import { noticeStmt, ownerNotice, monthSpendUsd } from './spend.js';
 import { flushNotices, escapeHtml, shekels } from './email.js';
@@ -36,11 +36,20 @@ export const termsVersion = (env) => String(env.TERMS_VERSION || '2026-11');
 export const SEATS = { min: 10, max: 45 };
 const publicUrl = (env) => String(env.PUBLIC_URL || '').replace(/\/+$/, '');
 
-/** Online sign-up opens only when the switch is on and the provider can both take payments and cancel them online. */
-export function onlineCheckout(env) {
+export const PLAN_IDS = ['family_month', 'family_year', 'class_year'];
+/**
+ * Can this plan be bought online here: the switch on, a provider that takes payments online, and one that can cancel
+ * what it sells (a provider that sells only some plans says which with planOnline: Grow sells the monthly plan only once
+ * it may stop the standing order).
+ */
+export function planOnline(env, plan) {
   const p = currentProvider(env);
-  return paywallOn(env) && !!p && p.capabilities.online && p.capabilities.cancelApi;
+  const caps = capsOf(env, p);
+  if (!paywallOn(env) || !p || !caps?.online) return false;
+  return typeof p.planOnline === 'function' ? !!p.planOnline(env, plan) : !!caps.cancelApi;
 }
+/** Online sign-up is open when at least one plan can be bought online. */
+export const onlineCheckout = (env) => PLAN_IDS.some((plan) => planOnline(env, plan));
 function checkoutHosts(env) {
   const hosts = String(env.BILLING_CHECKOUT_HOSTS || '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
   const p = currentProvider(env);
@@ -54,14 +63,15 @@ export function plansView(env) {
   const L = limits(env);
   const p = currentProvider(env);
   return {
-    paywall: paywallOn(env), online: onlineCheckout(env), vatMode: vatExempt(env) ? 'exempt' : 'included', vatRate: vatExempt(env) ? 0 : 0.18,
+    // online: a family plan can be bought on /parents (each plan says it for itself too)
+    paywall: paywallOn(env), online: planOnline(env, 'family_month') || planOnline(env, 'family_year'), vatMode: vatExempt(env) ? 'exempt' : 'included', vatRate: vatExempt(env) ? 0 : 0.18,
     currency: 'ILS', termsVersion: termsVersion(env), billing: p?.id || null,
     // the parents' progress report (report.js): false hides it on /parents
     report: reportOn(env),
     plans: [
-      { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: pr.family_month, vatAgorot: vatOf(env, pr.family_month), renews: true },
-      { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: pr.family_year, vatAgorot: vatOf(env, pr.family_year), renews: true },
-      { id: 'class_year', kind: 'class', interval: 'year', seatAgorot: pr.seat, minSeats: SEATS.min, maxSeats: SEATS.max, renews: false },
+      { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: pr.family_month, vatAgorot: vatOf(env, pr.family_month), renews: true, online: planOnline(env, 'family_month') },
+      { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: pr.family_year, vatAgorot: vatOf(env, pr.family_year), renews: true, online: planOnline(env, 'family_year') },
+      { id: 'class_year', kind: 'class', interval: 'year', seatAgorot: pr.seat, minSeats: SEATS.min, maxSeats: SEATS.max, renews: false, online: planOnline(env, 'class_year') },
     ],
     limits: {
       family: { tutor: L.family.tutor, check: L.family.check, generate: L.family.generate, exam: L.family.exam, examMonthly: L.family.examMonthly, devices: L.family.devices },
@@ -95,7 +105,7 @@ export async function checkout(req, env, cors) {
   const provider = currentProvider(env);
   // a held account opens no payment page at all, not even for an earlier attempt
   if (account.billingHoldAt) throw new HttpError(403, 'billing_hold');
-  if (!provider || !provider.capabilities.online || !provider.capabilities.cancelApi) throw new HttpError(501, 'checkout_not_configured');
+  if (!provider || !onlineCheckout(env)) throw new HttpError(501, 'checkout_not_configured');
 
   // the same attempt again: the same order and payment page, while that order can still be paid and nothing else is
   // live; a paid or expired order answers 409 order_closed, and the page starts a new attempt with a new key
@@ -107,7 +117,8 @@ export async function checkout(req, env, cors) {
   }
 
   const plan = String(b.plan || '');
-  if (!['family_month', 'family_year', 'class_year'].includes(plan)) throw new HttpError(422, 'bad_plan');
+  if (!PLAN_IDS.includes(plan)) throw new HttpError(422, 'bad_plan');
+  if (!planOnline(env, plan)) throw new HttpError(501, 'checkout_not_configured');
   if (b.adult !== true) throw new HttpError(400, 'adult_required');
   if (String(b.terms || '') !== termsVersion(env)) throw new HttpError(400, 'terms_required');
 
@@ -215,7 +226,9 @@ export async function webhook(providerId, pathSecret, req, env, ctx, cors) {
       console.error('billing: provider unreachable', provider.id);
       throw new HttpError(503, 'retry_later');
     }
-    results.push(await applyTruth(env, provider, hint, truth));
+    // the provider's acknowledgement data (Grow: the transaction's token) travels beside the truth, never into a row
+    const { ack, ...stored } = truth || {};
+    results.push(await applyTruth(env, provider, hint, truth ? stored : truth, ack));
   }
   ctx.waitUntil(flushNotices(env));
   return json({ ok: true, results }, 200, cors);
@@ -305,7 +318,7 @@ function opStmt(env, op) {
 }
 
 /** Apply one truth in one batch whose first statement is the billing_events row. Returns the outcome. */
-export async function applyTruth(env, provider, hint, truth) {
+export async function applyTruth(env, provider, hint, truth, ack = null) {
   for (let attempt = 0; ; attempt++) {
     const c = await loadCtx(env, provider, hint, truth);
     const d = decide(truth, c);
@@ -324,7 +337,7 @@ export async function applyTruth(env, provider, hint, truth) {
       if (/UNIQUE/.test(msg) && attempt === 0) continue; // the state moved under us: read it again and decide once more
       throw e;
     }
-    if (d.acknowledge) { try { await provider.acknowledge(env, truth); } catch { console.error('billing: acknowledge failed', provider.id); } }
+    if (d.acknowledge) { try { await provider.acknowledge(env, ack ? { ...truth, ack } : truth); } catch { console.error('billing: acknowledge failed', provider.id); } }
     return d.outcome;
   }
 }
@@ -390,7 +403,7 @@ async function cancelAnswer(env, sub) {
   const refunds = await first(env, "SELECT COALESCE(SUM(amount_agorot), 0) AS n FROM refund_queue WHERE subscription_id = ? AND reason IN ('cooling_off', 'prorata')", sub.id);
   return {
     ok: true, status: sub.status, endsAt: sub.current_period_end, refundAgorot: Number(refunds?.n || 0),
-    refundManual: !provider?.capabilities.refundApi, synced: !!sub.cancel_synced_at,
+    refundManual: !capsOf(env, provider)?.refundApi, synced: !!sub.cancel_synced_at,
     reference: await cancelReference(sub.id, sub.cancel_requested_at),
   };
 }
@@ -455,7 +468,7 @@ export async function cancelSubscription(env, ctx, sub, mode, { actor, inline = 
     ctx?.waitUntil?.(flushNotices(env));
   }
   const provider = providerById(env, sub.provider);
-  return { ok: true, status, endsAt, refundAgorot: refund?.amount || 0, refundManual: !provider?.capabilities.refundApi, synced, reference };
+  return { ok: true, status, endsAt, refundAgorot: refund?.amount || 0, refundManual: !capsOf(env, provider)?.refundApi, synced, reference };
 }
 
 /** Tell the provider to stop charging. A failure leaves cancel_synced_at empty for the hourly retry and is recorded. */
@@ -492,7 +505,7 @@ export async function processRefund(env, row) {
     env.DB.prepare('UPDATE refund_queue SET manual = 1, result = ? WHERE id = ?').bind(why, row.id),
     noticeStmt(env, ownerNotice(`refund:${row.id}`, 'owner:manual_refund', { subscription: row.subscription_id, amountAgorot: row.amount_agorot, reason: row.reason })),
   ]);
-  if (!provider || !provider.capabilities.refundApi) return manual('no refund api');
+  if (!provider || !capsOf(env, provider)?.refundApi) return manual('no refund api');
   const payment = row.payment_id ? await first(env, 'SELECT * FROM payments WHERE id = ?', row.payment_id) : null;
   try {
     const r = await provider.refund(env, payment, { amountAgorot: row.amount_agorot, idempotencyKey: `refund:${row.id}` });
@@ -521,7 +534,7 @@ export async function resume(req, env, cors) {
   const sub = await first(env, 'SELECT * FROM subscriptions WHERE id = ? AND account_id = ?', String(b.subscriptionId || ''), account.id);
   if (!sub) throw new HttpError(404, 'no_subscription');
   const provider = providerById(env, sub.provider);
-  const ok = sub.status === 'canceled' && sub.cancel_at_period_end && nowIso() < sub.current_period_end && !sub.ended_reason && provider?.capabilities.resumeApi;
+  const ok = sub.status === 'canceled' && sub.cancel_at_period_end && nowIso() < sub.current_period_end && !sub.ended_reason && capsOf(env, provider)?.resumeApi;
   if (!ok) throw new HttpError(409, 'not_resumable');
   try { await provider.resume(env, sub); } catch { throw new HttpError(409, 'not_resumable'); }
   try {
@@ -580,7 +593,7 @@ function planView(env, sub, charge, economy) {
     cancelAtPeriodEnd: !!sub.cancel_at_period_end, cancelRequestedAt: sub.cancel_requested_at, refundUntil: sub.refund_until,
     canRefundNow: running && !!sub.refund_until && now < sub.refund_until && !!charge,
     canProrata, prorataAgorot,
-    canResume: sub.status === 'canceled' && !!sub.cancel_at_period_end && now < sub.current_period_end && !sub.ended_reason && !!provider?.capabilities.resumeApi,
+    canResume: sub.status === 'canceled' && !!sub.cancel_at_period_end && now < sub.current_period_end && !sub.ended_reason && !!capsOf(env, provider)?.resumeApi,
     portal: !!provider?.portalUrl(env, sub), economy,
   };
 }

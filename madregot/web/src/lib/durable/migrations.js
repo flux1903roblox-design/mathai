@@ -36,7 +36,7 @@ export const DURABLE_DEFAULTS = Object.freeze({ tag: null, persistAsked: null, i
  * the sync's state ('idle' | 'offline' | 'error' | 'unavailable' | 'too_big' | 'other_student' | 'gone') and a one-time
  * note for Settings ('recreated').
  */
-export const BACKUP_DEFAULTS = Object.freeze({ on: false, code: null, lookup: null, rev: null, at: null, hash: null, escrow: null, undoUntil: null, forcePush: false, state: null, note: null });
+export const BACKUP_DEFAULTS = Object.freeze({ on: false, code: null, lookup: null, rev: null, at: null, hash: null, escrow: null, undoUntil: null, forcePush: false, moveCode: false, state: null, note: null });
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 

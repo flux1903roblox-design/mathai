@@ -259,12 +259,13 @@ export const appState = (set, get) => ({
       // The next student here gets a new device tag (their XP is counted apart) and no backup; what the browser was
       // asked, and the install hint, belong to the device and stay. The link stays, but the parents' summary notice
       // was seen by the last student, not the next one: it shows again before anything is sent, and what was sent
-      // is forgotten here (PARENTS-4).
+      // is forgotten here (PARENTS-4). `earlier` remembers that summaries went from this device before, so the next
+      // student is told they stay with the parents.
       signOut: () => {
         const { persistAsked, installHintAt } = get().durable || {};
         const fd = get().ai?.familyDevice;
         set({
-          ...empty, xpBy: {}, learn: emptyLearn(), ai: { ...get().ai, pendingLink: null, lastTier: null, familyDevice: fd ? { ...fd, sharingSeen: null, lastSent: null } : null },
+          ...empty, xpBy: {}, learn: emptyLearn(), ai: { ...get().ai, pendingLink: null, lastTier: null, familyDevice: fd ? { ...fd, sharingSeen: null, lastSent: null, earlier: !!(fd.lastSent || fd.earlier) } : null },
           durable: { ...DURABLE_DEFAULTS, persistAsked: persistAsked ?? null, installHintAt: installHintAt ?? null, tag: newTag() }, backup: { ...BACKUP_DEFAULTS },
           // a sign-out clears the progress on purpose, like a reset: another tab still open cannot bring it back
           resetAt: new Date().toISOString(),

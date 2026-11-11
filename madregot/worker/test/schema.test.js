@@ -11,6 +11,7 @@ const m1 = read('../migrations/0001_paid_tutor.sql');
 const m2 = read('../migrations/0002_refund_once.sql');
 const m3 = read('../migrations/0003_durable.sql');
 const m4 = read('../migrations/0004_parent_report.sql');
+const m5 = read('../migrations/0005_vault_guard.sql');
 const objects = (db) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
   .map((r) => `${r.type}:${r.name}:${String(r.sql).replace(/\s+/g, ' ')}`);
 
@@ -36,9 +37,9 @@ const ALTERS_BASE = [m3];
 const withoutAlters = (sql) => sql.replace(/\n, [^\n]*\);/g, '\n);').split('\n')
   .filter((line) => !(line.startsWith('CREATE ') && ALTERS_BASE.some((m) => m.includes(line)))).join('\n');
 
-test('migrations 0000 + 0001 + 0002 + 0003 + 0004 on an empty database give the same tables and indexes as schema.sql', () => {
+test('migrations 0000 + 0001 + 0002 + 0003 + 0004 + 0005 on an empty database give the same tables and indexes as schema.sql', () => {
   const a = new DatabaseSync(':memory:'); a.exec(schema);
-  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1); b.exec(m2); b.exec(m3); b.exec(m4);
+  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1); b.exec(m2); b.exec(m3); b.exec(m4); b.exec(m5);
   assert.deepEqual(objects(b), objects(a));
   const base = withoutAlters(schema);
   assert.equal(m0.trim(), base.slice(0, m0.length).trim(), '0000_base is the start of schema.sql, word for word (apart from what 0003 adds)');

@@ -2,9 +2,11 @@
 // device, in the order they were linked: when it last sent, this week or last week in the same renderer the child
 // previews (ReportView, source 'synced'), the last 8 weeks, and the parent's two controls: their own switch for the
 // device's summary (the child's state is shown beside it, never explained) and deleting the device's history.
-// Every early state has its own words: linked with nothing sent yet (with an example, marked as one), nothing this
-// week, sharing off on the device, off by the parent, a device the plan does not cover, and a plan that ended with
-// summaries still kept. Under the first card, once a week per browser: "הסיכום עוזר לכם?". Above the cards, the switch
+// Every early state has its own words: linked with nothing sent yet (with an example, marked as one: only while the
+// device never sent), nothing this week, nothing in the 8 weeks shown but older summaries kept (dated; still
+// deletable), nothing kept any more, sharing off on the device, off by the parent, a device the plan does not cover,
+// and a plan that ended with summaries still kept. "Delete history" shows whenever the server keeps a summary of the
+// device (its `kept` count, which also counts the days older than the 8 weeks read here). Under the first card, once a week per browser: "הסיכום עוזר לכם?". Above the cards, the switch
 // for the Sunday email (PARENTS-7, off by default). No percentage right anywhere. Built on lib/parent.js (summary,
 // setDeviceSharing, deleteDeviceHistory, reportFeedback, setReportEmail); the QA states (?qa-parent=report |
 // report-empty | report-off) draw from components/report/qaFamily.js and send nothing.
@@ -39,6 +41,10 @@ export const REPORT = {
   firstWeekText: 'בהתחלה רואים כאן בעיקר שלבי לימוד. כל מדרגה מתחילה בהסבר, בדוגמה, בפתרון משותף ובתרגול, ובדיקת השליטה מגיעה בסופה, בדרך כלל אחרי כמה ימים.',
   example: 'איך זה ייראה (דוגמה)',
   noneThisWeek: 'השבוע עוד לא היה תרגול במכשיר הזה.',
+  /** the device sent before, but nothing in the 8 weeks shown (older summaries may still be kept) */
+  olderOnly: (d) => `ב־8 השבועות האחרונים לא הגיע סיכום מהמכשיר הזה. הסיכום האחרון: ${dm(d)}.`,
+  /** the device sent before, and nothing is kept now (the parent deleted the history, or it aged out) */
+  noneKept: 'אין כרגע סיכומים שמורים מהמכשיר הזה. הסיכום הבא יגיע אחרי התרגול הבא במכשיר.',
   noneLastWeek: 'בשבוע שעבר לא היה תרגול במכשיר הזה.',
   lastPractice: (d) => `התרגול האחרון: ${dm(d)}.`,
   childOff: (at) => `השיתוף כבוי במכשיר עצמו${at ? ` מאז ${dm(dayOf(new Date(at)))}` : ''}. אם תרצו, אפשר לדבר על זה יחד. רק במכשיר עצמו אפשר להפעיל אותו שוב.`,
@@ -74,6 +80,8 @@ const CHILD_OFF = ['child_off', 'both_off'];
 const nameOf = (d) => d.label || 'מכשיר';
 const DAY_MS = 864e5;
 const lastWeekOf = (day) => new Date(Date.parse(`${weekStart(day)}T00:00:00Z`) - 7 * DAY_MS).toISOString().slice(0, 10);
+/** How many summaries the server keeps for a device in all (its `kept`; an older answer without it: the rows given). */
+const heldOf = (d) => (d.kept && Number.isFinite(d.kept.n) ? d.kept.n : (d.days?.length || 0));
 /** The newest day with any practice (time, an answer, a lesson or a stage), or null. */
 const lastPracticeOf = (rows) => [...rows].sort((a, b) => (a.d < b.d ? -1 : 1)).filter((r) => r.m > 0 || r.q > 0 || r.ls > 0 || r.st > 0).at(-1)?.d || null;
 
@@ -177,10 +185,13 @@ function DeviceCard({ device, plan, today, qa, onChange }) {
     setBusy(true);
     try {
       if (!qa) await deleteDeviceHistory(device.id);
-      setDel(false); onChange({ ...device, days: [] }); toast(REPORT.deleted);
+      setDel(false); onChange({ ...device, days: [], kept: { n: 0, from: null, to: null } }); toast(REPORT.deleted);
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   const last = lastPracticeOf(rows);
+  const held = heldOf(device);
+  // nothing sent yet from this device: the first day; it sent before, but nothing is in the 8 weeks shown: say since when
+  const never = !device.lastSync && held === 0;
   return (
     <section className="card parents-card report-device" aria-labelledby={`${id}-name`}>
       <header className="report-device-head">
@@ -188,7 +199,10 @@ function DeviceCard({ device, plan, today, qa, onChange }) {
         {device.lastSync && <p className="report-device-sync">{REPORT.updated(device.lastSync)}</p>}
       </header>
       {CHILD_OFF.includes(device.sharing) && <p className="parents-note report-off-note">{REPORT.childOff(device.sharingAt)}</p>}
-      {rows.length === 0 && plan && device.sharing === 'on' && <FirstDay device={device} />}
+      {rows.length === 0 && never && plan && device.sharing === 'on' && <FirstDay device={device} />}
+      {rows.length === 0 && !never && (held > 0 && device.kept?.to
+        ? <p className="parents-note report-older" role="status">{REPORT.olderOnly(device.kept.to)}</p>
+        : plan && device.sharing === 'on' && <p className="parents-note report-none-kept" role="status">{REPORT.noneKept}</p>)}
       {rows.length > 0 && (
         <>
           <div className="segmented report-switch" role="radiogroup" aria-label={`איזה שבוע להציג: ${label}`}>
@@ -204,7 +218,7 @@ function DeviceCard({ device, plan, today, qa, onChange }) {
           <WeeksChart rows={rows} today={today} id={`${id}-weeks`} level={4} />
         </>
       )}
-      {(sw || rows.length > 0) && (
+      {(sw || held > 0) && (
         <div className="report-controls">
           {sw && (
             <div className="report-control">
@@ -213,7 +227,7 @@ function DeviceCard({ device, plan, today, qa, onChange }) {
               {sw.hint && <p className="field-hint report-control-hint">{sw.hint}</p>}
             </div>
           )}
-          {rows.length > 0 && <button type="button" className="set-row danger report-delete" onClick={() => setDel(true)}>{REPORT.deleteRow}</button>}
+          {held > 0 && <button type="button" className="set-row danger report-delete" onClick={() => setDel(true)}>{REPORT.deleteRow}</button>}
         </div>
       )}
       <ConfirmSheet open={del} onOpenChange={(o) => { if (!o && !busy) setDel(false); }} title={REPORT.deleteTitle(label)} keep="לא למחוק"
@@ -255,7 +269,8 @@ export default function FamilyReport({ plan, devices = [], email = '', reportEma
   else {
     const list = [...(data.devices || [])].sort((a, b) => (a.linkedAt < b.linkedAt ? -1 : 1));
     if (!list.length) return null;
-    const withRows = list.filter((d) => d.days?.length);
+    // a device whose summaries the server still keeps (some may be older than the 8 weeks read here)
+    const withRows = list.filter((d) => heldOf(d) > 0);
     // no plan: the devices whose summaries are still kept can be read and deleted; the others say what the plan holds
     const shown = plan ? list : withRows;
     const firstWithRows = shown.find((d) => d.days?.length);
@@ -263,7 +278,7 @@ export default function FamilyReport({ plan, devices = [], email = '', reportEma
       <>
         {(plan || reportEmail) && <EmailSwitch email={email} on={reportEmail} qa={!!qa} onChange={onReportEmail} />}
         {!plan && withRows.length > 0 && <p className="parents-note report-ended">{REPORT.ended}</p>}
-        {!plan && list.filter((d) => !d.days?.length).map((d) => <p key={d.id} className="parents-note report-noplan">{REPORT.noPlan(nameOf(d))}</p>)}
+        {!plan && list.filter((d) => heldOf(d) === 0).map((d) => <p key={d.id} className="parents-note report-noplan">{REPORT.noPlan(nameOf(d))}</p>)}
         {shown.map((d) => (
           <div key={d.id} className="report-device-wrap">
             <DeviceCard device={d} plan={plan} today={today} qa={!!qa} onChange={change} />

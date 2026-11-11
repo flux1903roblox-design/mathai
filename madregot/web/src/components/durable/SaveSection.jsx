@@ -13,7 +13,9 @@
 //     code, push the first sealed copy, show the code in BackupCodeSheet), or, while it is on, "להציג את קוד הגיבוי"
 //     and "להפסיק את הגיבוי" (after a confirmation: the copy on the server is deleted). When the vault holds another
 //     student's progress, a note says so and offers "ליצור קוד חדש" or "להשאיר כך" (both let go of that vault without
-//     deleting it: it is the other student's). After the vault was made again, a one-time note says so.
+//     deleting it: it is the other student's). After the vault was made again (it expired), after it was deleted from
+//     another device with the same code (the backup is off here then), and after a family let go of this device (the
+//     backup moved to a new code), a one-time note says so.
 //     "לשחזר מקוד או מקובץ" opens the restore screen (#/restore), which takes the code or the file. The file part keeps
 //     its own "לשחזר מקובץ" (the file's share text names that button).
 //   - a class student (DURABLE-6): the switch "שמירת עותק בשרת הכיתה" (on while the class keeps the code; turning it off
@@ -170,9 +172,9 @@ export default function SaveSection({ role = 'student' }) {
           )}
           {inClass && classKept && <p className="save-note save-kept">{KEPT_NOTE.class}</p>}
           {!inClass && familyKept && <p className="save-note save-kept">{KEPT_NOTE.family}</p>}
-          {backup?.on && backup.note === 'recreated' && (
-            <div className="save-backup-note">
-              <p>{BACKUP_TEXT.recreated}</p>
+          {((backup?.on && (backup.note === 'recreated' || backup.note === 'moved')) || (!backup?.on && backup?.note === 'deleted')) && (
+            <div className="save-backup-note" role="status">
+              <p>{BACKUP_TEXT[backup.note]}</p>
               <Button variant="ghost" className="btn-block" onClick={() => clearBackupNote()}>הבנתי</Button>
             </div>
           )}

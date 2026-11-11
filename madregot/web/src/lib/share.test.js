@@ -189,9 +189,9 @@ describe('the message the child sends', () => {
     expect(shareText(two, { link: link(two) })).toContain('בדיקת שליטה בשתי מדרגות:');
   });
 
-  it('at most 3 stairs on the "תרגלתי" line, then "ועוד k"', () => {
+  it('at most 3 stairs on the "תרגלתי" line, then "ועוד שתי מדרגות", never a bare digit', () => {
     const w = week({ worked: ['signed:1', 'signed:2', 'signed:3', 'coord:1', 'coord:2'] });
-    expect(shareText(w, { link: link(w) })).toContain('• תרגלתי: מערכת צירים: רביעים, מערכת צירים: קריאת נקודה, מספרים מכוונים: כפל וחילוק ועוד 2');
+    expect(shareText(w, { link: link(w) })).toContain('• תרגלתי: מערכת צירים: רביעים, מערכת צירים: קריאת נקודה, מספרים מכוונים: כפל וחילוק ועוד שתי מדרגות');
   });
 
   it('plain text only: no TeX ($ or a backslash) in any message', () => {
@@ -210,11 +210,11 @@ describe('the message the child sends', () => {
     const masteredNames = [...w.mastered].reverse().map((s) => stairName(s));
     const worked = lines.find((x) => x.startsWith('• תרגלתי:'));
     const mastered = lines.find((x) => x.startsWith('• עברתי בדיקת שליטה'));
-    expect(worked).toBe(`• תרגלתי: ${names.slice(0, 2).join(', ')} ועוד 10`);
+    expect(worked).toBe(`• תרגלתי: ${names.slice(0, 2).join(', ')} ועוד 10 מדרגות`);
     // this week's longest names need more room: the mastered line names the newest 6 and counts the rest
-    expect(mastered).toBe(`• עברתי בדיקת שליטה ב־12 מדרגות: ${masteredNames.slice(0, 6).join(', ')} ועוד 6`);
+    expect(mastered).toBe(`• עברתי בדיקת שליטה ב־12 מדרגות: ${masteredNames.slice(0, 6).join(', ')} ועוד 6 מדרגות`);
     // with three names and every mastered name, the address would pass the limit
-    const full = text.replace(worked, `• תרגלתי: ${names.slice(0, 3).join(', ')} ועוד 9`)
+    const full = text.replace(worked, `• תרגלתי: ${names.slice(0, 3).join(', ')} ועוד 9 מדרגות`)
       .replace(mastered, `• עברתי בדיקת שליטה ב־12 מדרגות: ${masteredNames.join(', ')}`);
     expect(waHref(full).length).toBeGreaterThan(WA_MAX);
   });
@@ -229,8 +229,8 @@ describe('the message the child sends', () => {
     expect(text.endsWith(l)).toBe(true);
     const names = [...w.worked].reverse().map((s) => stairName(s));
     const worked = text.split('\n').find((x) => x.startsWith('• תרגלתי:'));
-    expect(worked).toBe(`• תרגלתי: ${names.slice(0, 2).join(', ')} ועוד 10`);
-    expect(waHref(text.replace(worked, `• תרגלתי: ${names.slice(0, 3).join(', ')} ועוד 9`)).length).toBeGreaterThan(WA_MAX);
+    expect(worked).toBe(`• תרגלתי: ${names.slice(0, 2).join(', ')} ועוד 10 מדרגות`);
+    expect(waHref(text.replace(worked, `• תרגלתי: ${names.slice(0, 3).join(', ')} ועוד 9 מדרגות`)).length).toBeGreaterThan(WA_MAX);
     const masteredNames = [...w.mastered].reverse().map((s) => stairName(s));
     expect(text).toContain(`• עברתי בדיקת שליטה ב־12 מדרגות: ${masteredNames.join(', ')}\n`);
   });
@@ -272,8 +272,8 @@ describe('the report renderer', () => {
     expect(out).toContain('ובקשו שיראו לכם איך נראה שיעור במדרגות.');
   });
 
-  it('at most 6 stairs under "מה תורגל", then "ועוד k"', () => {
-    expect(html(week({ worked: ALL_STAIRS.slice(0, 9) }))).toContain('ועוד 3');
+  it('at most 6 stairs under "מה תורגל", then "ועוד 3 מדרגות"', () => {
+    expect(html(week({ worked: ALL_STAIRS.slice(0, 9) }))).toContain('ועוד 3 מדרגות');
   });
 
   it('the link and the synced report each say where they came from', () => {

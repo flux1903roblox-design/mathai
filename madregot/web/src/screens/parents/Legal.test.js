@@ -56,10 +56,13 @@ describe('privacy.md: the parents\' report', () => {
     for (const when of ['כשמנתקים את המכשיר', 'כשמוחקים את החשבון', 'כשההורה מוחק את ההיסטוריה בעמוד ההורים', 'כשהילד מבקש במכשיר למחוק את מה שנשלח']) expect(days).toContain(when);
   });
 
-  it('the rights: the export holds the summaries, and the Sunday email stops from the email itself', () => {
+  it('the rights: the export holds the summaries, and the Sunday email stops from its link or the mail program\'s button', () => {
     const rights = section('הזכויות שלכם');
     expect(rights).toContain('הורדת הנתונים בעמוד ההורים כוללת גם את סיכומי ההתקדמות.');
-    expect(rights).toContain('את הסיכום השבועי במייל אפשר להפסיק בלחיצה אחת מתוך המייל.');
+    // the link opens a page with one button (report.js unsubscribeGet), so the notice never promises one click
+    expect(rights).toContain('את הסיכום השבועי במייל אפשר להפסיק מהקישור שבתחתית כל מייל, או מכפתור הביטול של תוכנת המייל.');
+    expect(rights).not.toContain('בלחיצה אחת');
+    expect(rights).toContain('ובמכשיר שמחובר למנוי המשפחתי גם את הסיכומים שנשלחו ממנו להורים.');
   });
 });
 

@@ -12,7 +12,7 @@
 import { qaOn } from './qa.js';
 
 const AI_STATES = ['free2', 'free1', 'free0', 'family', 'family-off', 'family-parent-off', 'class', 'shared', 'paused', 'economy', 'ended'];
-const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv', 'report', 'report-empty', 'report-off'];
+const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv', 'report', 'report-empty', 'report-off', 'report-old'];
 const REPORT_STATES = ['week', 'empty'];
 
 function param(name, allowed) {
@@ -132,7 +132,7 @@ export function qaParentView() {
       const a = account(plan());
       return { ...base, report: s, account: { ...a, devices: [...a.devices, { id: 'qa00000000000004', label: 'הטלפון', linkedAt: '2026-10-16T18:00:00Z', lastSeen: '2026-11-02' }] } };
     }
-    case 'report-empty': case 'report-off': return { ...base, report: s, account: account(plan()) };
+    case 'report-empty': case 'report-off': case 'report-old': return { ...base, report: s, account: account(plan()) };
     default: return null;
   }
 }

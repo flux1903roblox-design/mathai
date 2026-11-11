@@ -5,11 +5,14 @@
 //   POST /api/vault         X-Vault: <64 hex>, { ifRev: null | n, blob } → 200 { rev, updatedAt }
 //        ifRev null creates: 409 vault_conflict { rev } when the vault exists, 503 vault_full when the size meter is full.
 //        ifRev n updates by compare-and-swap: 409 vault_conflict { rev } when the vault moved on, 404 vault_gone when it
-//        is not there any more (expired or deleted elsewhere: the app creates it again).
+//        is not there any more because it expired (the app creates it again).
+//        Both answer 410 vault_deleted when its owner deleted it (a tombstone, below): the app turns its backup off.
+//        A write that carries an X-Family-Device token the server no longer knows (the parent unlinked the device) is
+//        401 not_linked with X-AI-Linked: 0, before anything is written: the app then moves to a new code (DURABLE-6).
 //        Also 400 bad_vault, 413 too_large (blob over 349,526 characters), 429 too_many_vaults | too_many_tries | slow_down.
-//   GET  /api/vault         → 200 { rev, blob, updatedAt } · 404 vault_not_found · 429 too_many_tries
+//   GET  /api/vault         → 200 { rev, blob, updatedAt } · 404 vault_not_found · 410 vault_deleted · 429 too_many_tries
 //   GET  /api/vault/rev     → 200 { rev, updatedAt } · the same errors
-//   POST /api/vault/delete  → 200 { deleted: 0 | 1 }
+//   POST /api/vault/delete  → 200 { deleted: 0 | 1 }, and the tombstone (also when nothing was there to delete)
 //   VAULT = "off" answers 503 vault_off (deleting still works: stopping a backup must really delete it). The VAULT_RL
 //   binding is checked before any database call (429 slow_down); with no binding the check is skipped.
 //
@@ -19,12 +22,22 @@
 //                       PIN pattern), so only misses add up and parallel guesses cannot pass it. Updates and deletes
 //                       count too: their answer would otherwise tell whether a vault exists.
 //   vault:new:n:<net>   60 creates a day from one network, for requests with no credential
+//   vault:new:i:<who>   3 creates a day for one class student or family device (a credential costs nothing to make: a
+//                       class needs no sign-in, so one person can hold many)
+//   vault:new:in:<net>  600 creates a day from one network by credentialed callers (a school's busiest day of joins)
+//   vault:newkb:<net>   20 MiB of new vaults a day from one network, credential or not (counted in KiB)
 //   vault:new:all       5,000 creates a day in all
 //   vault:w:<id16>      300 writes a day to one vault
+// So one network moves the size meter by at most 20 MiB a day, and one student or device by at most 3 blobs.
 // The size meter (meters.vault_bytes) changes in the same batch as the vault row, under the same guard, so both apply or
 // neither. Creates stop at VAULT_MAX_MB; updates of existing vaults go on. Every night (cron.js) vaults nobody wrote or
 // read for 400 days are deleted, the meter is recomputed from SUM(bytes) (a drift becomes an owner notice), and the
-// owner hears once a month when the vaults pass 70% of the limit.
+// owner hears once a month when the vaults pass 70% of the limit, and again at 90%.
+//
+// Tombstones (vault_tombstones): "להפסיק את הגיבוי" and "delete everything" delete the vault and keep its id_hash with
+// the time, nothing else, for 400 days. Another device with the same code then hears 410 vault_deleted on every route
+// and turns its backup off, instead of making the copy again; a typed code that was deleted says so on the Restore
+// screen. Only a vault that expired (no tombstone) is made again.
 //
 // Escrow (DURABLE-6): the restore code, sealed with a Worker secret (AES-GCM under HKDF(VAULT_SECRET, 'escrow-v1'),
 // with the owner as additional data), attached to an identity the user already has, so that identity can get the code
@@ -49,9 +62,13 @@ export const BODY_MAX = 350 * 1024; // the largest blob and its JSON around it
 export const MISS_DAILY = 20;
 export const NEW_NET_DAILY = 60;
 export const NEW_ALL_DAILY = 5000;
+export const NEW_ID_DAILY = 3;
+export const NEW_ID_NET_DAILY = 600;
+export const NEW_NET_KB_DAILY = 20 * 1024;
 export const WRITES_DAILY = 300;
 export const DEFAULT_MAX_MB = 200;
 export const NOTICE_SHARE = 0.7;
+export const NOTICE_SHARES = [0.7, 0.9];
 const MiB = 1024 * 1024;
 const DAY = 864e5;
 const TOKEN = /^[0-9a-f]{64}$/;
@@ -101,28 +118,36 @@ async function opening(req, env, { evenOff = false } = {}) {
 
 /** Whom the caps count: a valid class student or family device, else the network. */
 async function whoOf(req, env) {
+  const net = await netKey(req, env);
   const s = await studentFrom(req, env);
-  if (s) return { key: `s:${s.id}`, anonymous: false };
+  if (s) return { key: `s:${s.id}`, net, anonymous: false };
   const fd = req.headers.get('X-Family-Device');
   if (fd) {
     const d = await familyDeviceFrom(env, fd);
-    if (d) return { key: `fd:${d.device_id}`, anonymous: false };
+    if (d) return { key: `fd:${d.device_id}`, net, anonymous: false };
+    return { key: `n:${net}`, net, anonymous: true, staleFamily: true };
   }
-  const net = await netKey(req, env);
   return { key: `n:${net}`, net, anonymous: true };
 }
 const missKey = (who) => key(`vault:miss:${who.key}`, MISS_DAILY, { refundable: true, err: new HttpError(429, 'too_many_tries') });
 const writeKey = (id) => key(`vault:w:${id.slice(0, 16)}`, WRITES_DAILY, { err: new HttpError(429, 'slow_down') });
 const revOf = (env, id) => env.DB.prepare('SELECT rev FROM vaults WHERE id_hash = ?').bind(id).first();
 const conflict = (rev) => new HttpError(409, 'vault_conflict', undefined, { rev });
+const deletedErr = () => new HttpError(410, 'vault_deleted');
+const tombstoned = async (env, id) => !!(await env.DB.prepare('SELECT 1 AS x FROM vault_tombstones WHERE id_hash = ?').bind(id).first());
 
-/** The owner's notice at 70% of VAULT_MAX_MB, queued once a month (in the create batch and every night). */
-export function noticeStmt70(env, now = new Date()) {
+/**
+ * The owner's notice when the vaults pass `share` of VAULT_MAX_MB (0.7, then 0.9), each queued once a month (in the
+ * create batch and every night): kinds owner:vault:70 and owner:vault:90.
+ */
+export function noticeStmt(env, now = new Date(), share = NOTICE_SHARE) {
   const max = maxBytes(env);
+  const pct = Math.round(share * 100);
   return env.DB.prepare(`INSERT OR IGNORE INTO notices (ref, kind, to_account, params, created_at)
-    SELECT ?1, 'owner:vault:70', NULL, json_object('mb', round(value / 1048576.0, 1), 'maxMb', ?2), ?3
-    FROM meters WHERE name = 'vault_bytes' AND value >= ?4`).bind(monthOf(now), Math.round((max / MiB) * 10) / 10, now.toISOString(), Math.floor(max * NOTICE_SHARE));
+    SELECT ?1, ?5, NULL, json_object('mb', round(value / 1048576.0, 1), 'maxMb', ?2, 'pct', ?6), ?3
+    FROM meters WHERE name = 'vault_bytes' AND value >= ?4`).bind(monthOf(now), Math.round((max / MiB) * 10) / 10, now.toISOString(), Math.floor(max * share), `owner:vault:${pct}`, pct);
 }
+const noticeStmts = (env, now) => NOTICE_SHARES.map((x) => noticeStmt(env, now, x));
 
 // ---------------------------------------------------------------- reading
 /** GET /api/vault and GET /api/vault/rev. read_at is written at most once a day (retention counts the last read). */
@@ -132,7 +157,8 @@ export async function getVault(req, env, cors, { blob = false } = {}) {
   const t = await take(env, [miss]);
   if (!t.ok) throw t.error;
   const row = await env.DB.prepare(`SELECT rev, updated_at, read_at${blob ? ', blob' : ''} FROM vaults WHERE id_hash = ?`).bind(id).first();
-  if (!row) throw new HttpError(404, 'vault_not_found');
+  // a deleted vault says so (still a miss: only a holder of the code can ask); an expired one is simply not found
+  if (!row) throw (await tombstoned(env, id)) ? deletedErr() : new HttpError(404, 'vault_not_found');
   await giveBack(env, [miss]);
   const today = startOfDayIso(dayOf());
   if (!row.read_at || row.read_at < today) {
@@ -151,12 +177,21 @@ export async function putVault(req, env, cors) {
   if (typeof blob !== 'string' || blob.length < BLOB_MIN || !B64URL.test(blob)) throw new HttpError(400, 'bad_vault');
   if (!(ifRev === null || (Number.isInteger(ifRev) && ifRev >= 1))) throw new HttpError(400, 'bad_vault');
   const who = await whoOf(req, env);
+  // the family let go of this device (the parent unlinked it): nothing is written with its old identity, so the copy the
+  // family keeps stops receiving its progress; the app forgets the token and moves to a new code (DURABLE-6)
+  if (who.staleFamily) throw new HttpError(401, 'not_linked', undefined, undefined, { 'X-AI-Linked': '0' });
   return ifRev === null ? create(env, cors, id, blob, who) : update(env, cors, id, blob, ifRev, who);
 }
 
 async function create(env, cors, id, blob, who) {
+  const tooMany = new HttpError(429, 'too_many_vaults');
   const keys = [
-    who.anonymous ? key(`vault:new:n:${who.net}`, NEW_NET_DAILY, { refundable: true, err: new HttpError(429, 'too_many_vaults') }) : null,
+    who.anonymous ? key(`vault:new:n:${who.net}`, NEW_NET_DAILY, { refundable: true, err: tooMany }) : null,
+    // a credential is cheap to make (a class needs no sign-in): each one, and all of them on one network, are capped too
+    who.anonymous ? null : key(`vault:new:i:${who.key}`, NEW_ID_DAILY, { refundable: true, err: tooMany }),
+    who.anonymous ? null : key(`vault:new:in:${who.net}`, NEW_ID_NET_DAILY, { refundable: true, err: tooMany }),
+    // the bytes one network adds to the size meter in a day, whoever asks
+    key(`vault:newkb:${who.net}`, NEW_NET_KB_DAILY, { n: Math.ceil(blob.length / 1024), refundable: true, err: tooMany }),
     // the day's creates in all: beyond it the server cannot take new backups today (the app offers the file instead)
     key('vault:new:all', NEW_ALL_DAILY, { refundable: true, err: new HttpError(503, 'vault_full') }),
     writeKey(id),
@@ -171,17 +206,19 @@ async function create(env, cors, id, blob, who) {
   const res = await env.DB.batch([
     env.DB.prepare(`INSERT INTO vaults (id_hash, rev, blob, bytes, created_at, updated_at)
       SELECT ?1, 1, ?2, length(?2), ?3, ?4 WHERE (SELECT value FROM meters WHERE name = 'vault_bytes') + length(?2) <= ?5
+        AND NOT EXISTS (SELECT 1 FROM vault_tombstones WHERE id_hash = ?1)
       ON CONFLICT DO NOTHING RETURNING rev`).bind(id, blob, stamp, at, maxBytes(env)),
     env.DB.prepare(`UPDATE meters SET value = value + (SELECT bytes FROM vaults WHERE id_hash = ?1 AND created_at = ?2 AND rev = 1)
       WHERE name = 'vault_bytes' AND EXISTS (SELECT 1 FROM vaults WHERE id_hash = ?1 AND created_at = ?2 AND rev = 1)`).bind(id, stamp),
     env.DB.prepare('UPDATE vaults SET created_at = ?2 WHERE id_hash = ?1 AND created_at = ?3').bind(id, at, stamp),
-    noticeStmt70(env, now),
+    ...noticeStmts(env, now),
   ]);
   if (res[0].results?.length) return json({ rev: 1, updatedAt: at }, 200, cors);
   // nothing was created: the create counters are given back (the day's writes to this vault stay counted)
   await giveBack(env, keys);
   const row = await revOf(env, id);
   if (row) throw conflict(row.rev);
+  if (await tombstoned(env, id)) throw deletedErr();
   throw new HttpError(503, 'vault_full');
 }
 
@@ -204,17 +241,21 @@ async function update(env, cors, id, blob, ifRev, who) {
     return json({ rev: done.rev, updatedAt: at }, 200, cors);
   }
   const row = await revOf(env, id);
-  if (!row) throw new HttpError(404, 'vault_gone');
+  if (!row) throw (await tombstoned(env, id)) ? deletedErr() : new HttpError(404, 'vault_gone');
   await giveBack(env, [miss]);
   throw conflict(row.rev);
 }
 
 // ---------------------------------------------------------------- deleting
-/** The statements that delete one vault, take its bytes off the meter and drop its escrows, for one batch. */
+/**
+ * The statements that delete one vault at its owner's request, take its bytes off the meter, drop its escrows and leave
+ * its tombstone (so another device with the code turns its backup off instead of making it again), for one batch.
+ */
 export const deleteStmts = (env, id) => [
   env.DB.prepare("UPDATE meters SET value = value - COALESCE((SELECT bytes FROM vaults WHERE id_hash = ?), 0) WHERE name = 'vault_bytes'").bind(id),
   env.DB.prepare('DELETE FROM vaults WHERE id_hash = ?').bind(id),
   env.DB.prepare('DELETE FROM vault_escrow WHERE vault_id = ?').bind(id),
+  env.DB.prepare('INSERT INTO vault_tombstones (id_hash, deleted_at) VALUES (?1, ?2) ON CONFLICT (id_hash) DO UPDATE SET deleted_at = excluded.deleted_at').bind(id, nowIso()),
 ];
 
 /** POST /api/vault/delete ("להפסיק את הגיבוי"). Works with VAULT = "off" too. */
@@ -254,12 +295,14 @@ export function purgeVaultsSql(env, now = new Date()) {
     env.DB.prepare(`DELETE FROM vaults WHERE ${stale}`).bind(cutoff),
     // an escrow of a vault that is gone opens nothing any more
     env.DB.prepare('DELETE FROM vault_escrow WHERE vault_id NOT IN (SELECT id_hash FROM vaults)'),
+    // a tombstone is kept as long as a vault would be
+    env.DB.prepare('DELETE FROM vault_tombstones WHERE deleted_at < ?').bind(cutoff),
   ];
 }
 
 /**
  * The night's vault work (cron.js, 03:00 Jerusalem): purge, then recompute the meter from SUM(bytes) in one batch
- * (a drift becomes the owner notice owner:vault_drift:<day>), then the 70% notice.
+ * (a drift becomes the owner notice owner:vault_drift:<day>), then the 70% and 90% notices.
  */
 export async function vaultNight(env, now = new Date()) {
   const purged = Number((await env.DB.batch(purgeVaultsSql(env, now)))[1]?.meta?.changes || 0);
@@ -273,7 +316,7 @@ export async function vaultNight(env, now = new Date()) {
   const sum = Number(r[2].results?.[0]?.n || 0);
   const day = dayOf(now);
   if (was !== sum) await queueNotices(env, [ownerNotice(day, `owner:vault_drift:${day}`, { day, was, now: sum })]);
-  await noticeStmt70(env, now).run();
+  await env.DB.batch(noticeStmts(env, now));
   return { purged, drift: sum - was };
 }
 

@@ -220,6 +220,119 @@ scroll at either width).
 - The CI's first run (above).
 - The three-way tab merge is new design; its property test (`merge.test.js`) is the main safety net.
 
+## After the lane's review (11 November 2026)
+
+### What the reviewers reproduced, and what now stops it
+
+| finding | the fix | the test that failed before it |
+|---|---|---|
+| One self-made class student fills the size meter (599 creates; then nobody can back up for up to 400 days) | `vault.js` create(): `vault:new:i:<student or device>` 3 a day, `vault:new:in:<net>` 600 a day for credentialed creates, `vault:newkb:<net>` 20 MiB a day per network whoever asks; the owner hears at 90% as well as 70% | `worker/test/vault-guard.test.js` "one class Bearer cannot move the meter by more than 3 blobs", "many students of one self-made class … at most 20 MiB", "the owner hears at 90%" |
+| "להפסיק את הגיבוי" / "מחיקת כל הנתונים" undone by another device with the same code | `0005_vault_guard.sql` `vault_tombstones` (id_hash and time only, 400 days); every vault route answers 410 `vault_deleted`; the app turns its backup off with the one-time note "הגיבוי נמחק ממכשיר אחר…"; only an expired vault is made again | `vault-guard.test.js` "a deleted vault stays deleted", "an expired vault (no tombstone) is made again"; `web/src/lib/durable/vault.test.js` "a stop on one device is never undone by another"; `e2e/family-guard.spec.js` "a backup stopped on another device…" |
+| The family copy gives the parent's own phone the child's restore code (sharing off, child left, still linked) | `family.js`: restoreFrom only for a kept escrow (409 `escrow_in_use` while linked); a child's leave deletes the escrow; a parent's unlink keeps it only while the child's sharing switch is on; a write with an unlinked device's token is 401 `not_linked` and the app moves to a new code (`familyGone`, `moveToNewCode`); `/parents` offers only kept progress | `worker/test/family-guard.test.js` (5); `vault-guard.test.js` "a write with a family token the server no longer knows"; `vault.test.js` "the family let go of this device…", "familyGone…"; `e2e/family-guard.spec.js` "/parents offers to continue only from…" |
+| Joining a class from Settings escrowed a code-only backup with no sentence before | the join form says the class sentence, and with a code nobody keeps: "קוד הגיבוי שכבר יש לכם יישמר גם בשרת הכיתה…" with the switch's name | `e2e/family-guard.spec.js` "joining a class from Settings says, before the join…" |
+| A failed leave ignored by "delete all" and the child's unlink | `leaveFamily()` rejects on no network or 5xx and keeps the token; "delete all" leaves the family first and stops with "לא הצלחנו למחוק את הסיכומים…, ולכן לא מחקנו כלום"; the unlink says it did not happen | `web/src/lib/account.test.js` "leaveFamily: …" (3); `e2e/family-guard.spec.js` "the leave the server did not hear" (2) |
+| `/parents` read 56 days while 90 are kept: older summaries invisible and undeletable, and the first-day card shown wrongly | `GET /api/family/summary` gives each device `kept: { n, from, to }`; "מחיקת ההיסטוריה" shows whenever the server keeps a row; the first-day card only for a device that never sent; otherwise a dated line or "אין כרגע סיכומים שמורים" | `worker/test/report.test.js` "7b. a device whose only rows are 57 to 89 days old"; `WeeksChart.test.jsx` "a device whose only summaries are older…"; `e2e/family-guard.spec.js` (2) |
+| A stale streak and a past exam shown as current | `shared/week.js`: the streak of the newest summary on or before the day read, kept only while only rest days lie between (as `streakOf`); an exam before today dropped; the same function in the email | `shared/week.fixture.json` "stale" (7 cases, read by both `learn/report.test.ts` and `worker/test/week.test.js`); `report.test.js` "W3b" |
+| A sibling's new profile sent an empty today over the first child's day | no empty today before a profile's first send; the notice and the sharing sheet tell the new profile the earlier summaries stay | `familySync.test.js` "the new profile never sends an empty today…"; `e2e/report.spec.js` flow 3 |
+| privacy.md promised a one-click stop | "…מהקישור שבתחתית כל מייל, או מכפתור הביטול של תוכנת המייל." (and the tombstone and the escrow rules in the same notice) | `Legal.test.js`, `privacy.test.js` |
+| "ועוד 1" in the email, the report and the WhatsApp text | `he.stairs`: "ועוד מדרגה אחת", "ועוד שתי מדרגות", "ועוד 3 מדרגות" | `report.test.js` W3, `share.test.js`, `WeeksChart.test.jsx` "the worked list" |
+
+### Go live in one command (DURABLE-16)
+
+`worker/src/readiness.js` (the rules), `npm run owner -- doctor` (`scripts/owner.mjs`), `setup.sh` beside `setup.ps1`
+(both now create every random secret and end with the doctor), `worker/src/edge.js` with `RL_AUTH` and `RL_AI`, and
+`/api/health` booleans `resend`, `webhookPath`, `grow`, `edge`. Tests: `worker/test/readiness.test.js` (6),
+`worker/test/edge.test.js` (6), `worker/test/owner-script.test.js` "doctor --local…" and "--grow-sandbox".
+
+The doctor on this checkout (`npm run owner -- doctor --local`, nothing set yet):
+
+```
+✗ בסיס הנתונים: אין עדיין בסיס נתונים: database_id ב־wrangler.toml → npx wrangler d1 create madregot  (ואז להעתיק את database_id אל worker/wrangler.toml)
+✗ בסיס הנתונים: מיגרציות שלא הורצו: 0000_base.sql, 0001_paid_tutor.sql, 0002_refund_once.sql, 0003_durable.sql, 0004_parent_report.sql, 0005_vault_guard.sql → npm run db:migrate:local
+✗ כניסה במייל: חסר AUTH_SECRET (מפתח לקודי הכניסה) → openssl rand -hex 32 | npx wrangler secret put AUTH_SECRET
+✗ כניסה במייל: חסר IP_HASH_SECRET (מונים בלי כתובות רשת) → openssl rand -hex 32 | npx wrangler secret put IP_HASH_SECRET
+✗ בינה מלאכותית: חסר ANTHROPIC_API_KEY (העוזר החכם) → npx wrangler secret put ANTHROPIC_API_KEY
+✗ כתובת האתר: PUBLIC_URL צריך להיות כתובת https של האתר → worker/wrangler.toml: PUBLIC_URL = "https://…"
+✗ כתובת האתר: חסר CONTACT_EMAIL (מופיע בדפי המשפט ובמיילים) → worker/wrangler.toml: CONTACT_EMAIL = "…"
+✓ הגנה מעומס: RL_AUTH, RL_AI, VAULT_RL
+! מיילים: המיילים כבויים: EMAIL_FROM ריק, אז אין כניסה במייל להורים ולמורים → worker/wrangler.toml: EMAIL_FROM = "…"
+✗ גיבוי מוצפן: חסר VAULT_SECRET (שמירת קוד הגיבוי בכיתה ובמנוי המשפחתי) → openssl rand -hex 32 | npx wrangler secret put VAULT_SECRET
+(אין קובץ .dev.vars: אין סודות מקומיים)
+(PUBLIC_URL ריק: לא בדקנו את השרת החי)
+יש עוד מה להשלים (השורות עם ✗).
+```
+
+The same, after what the setup script does (a fixture: a database id, the migrations applied, the four random secrets
+in a `.dev.vars` of synthetic values, `PUBLIC_URL`, `CONTACT_EMAIL`, `AI_PAYWALL = "on"`): only the key the owner pastes
+is left, and no value of the file appears in the printout (checked by grep).
+
+```
+✓ בסיס הנתונים: database_id
+✓ בסיס הנתונים: כל המיגרציות הורצו
+✓ כניסה במייל: AUTH_SECRET
+✓ כניסה במייל: IP_HASH_SECRET
+✗ בינה מלאכותית: חסר ANTHROPIC_API_KEY (העוזר החכם) → npx wrangler secret put ANTHROPIC_API_KEY
+✓ כתובת האתר: PUBLIC_URL
+✓ כתובת האתר: CONTACT_EMAIL
+✓ הגנה מעומס: RL_AUTH, RL_AI, VAULT_RL
+! מיילים: המיילים כבויים: EMAIL_FROM ריק, אז אין כניסה במייל להורים ולמורים → worker/wrangler.toml: EMAIL_FROM = "…"
+✓ תשלום: WEBHOOK_PATH_SECRET
+! תשלום: ההצטרפות באתר כבויה: BILLING_PROVIDER = "manual" (מנויים ניתנים רק עם npm run owner) → worker/wrangler.toml: BILLING_PROVIDER = "grow"
+✓ תשלום: FAMILY_MONTHLY_BUDGET_USD
+✓ גיבוי מוצפן: VAULT_SECRET
+יש עוד מה להשלים (השורות עם ✗).
+```
+
+The edge limit on a real local Worker (`npx wrangler d1 migrations apply madregot --local`, then `npx wrangler dev
+--local` with synthetic `--var` secrets; `/api/health` answered `"edge": true`): 26 `POST /api/account/verify` from one
+address in a few seconds gave `410` ×20 (the D1 path: no such code), then `429` with `Retry-After: 60` and
+`{"error":"slow_down"}`. All six migrations, `0005_vault_guard.sql` included, applied cleanly to the local D1.
+
+### The PIN race (DURABLE-8), `node --test test/pin.test.js`
+
+```
+ok 1 - 50 wrong PINs at once: exactly 10 are compared (wrong_pin), 40 are refused (too_many_pin); the right PIN waits for the reset
+ok 2 - 5 wrong PINs and then the right one: 200, and only the 5 wrong tries stay counted
+ok 3 - the right PIN 5 times at once: 5 x 200, and the count is back at 0
+ok 4 - one student's wrong tries do not touch a classmate's, and a first join never counts a try
+# tests 4
+# pass 4
+# fail 0
+```
+
+### The owner's error table on a local Worker (DURABLE-9)
+
+The same local Worker, three `POST /api/errors` with the body the app's reporter sends (`text/plain`, two items each),
+then `npm run owner -- errors --local`:
+
+```
+count  kind   route           release  agents  name            message                                            frame                   first                     last
+-----  -----  --------------  -------  ------  --------------  -------------------------------------------------  ----------------------  ------------------------  ------------------------
+3      chunk  /learn/:topic   proof    1       ChunkLoadError  Loading chunk Teach failed                         index-abc123.js:1:999   2026-11-11T04:53:17.554Z  2026-11-11T04:53:17.590Z
+3      error  /lesson/:topic  proof    1       TypeError       Cannot read properties of undefined (reading 'x')  index-abc123.js:1:2345  2026-11-11T04:53:17.554Z  2026-11-11T04:53:17.590Z
+```
+
+### The suites at this commit
+
+- Worker, `node --test test/*.test.js`: 330 tests, 329 passed, 0 failed, 1 skipped (Grow's sandbox contract test, which
+  runs only with `GROW_SANDBOX=1` and the keys in `.dev.vars`).
+- Web, `npx vitest run`: 1,489 passed in 59 files; `tsc -p tsconfig.json` clean; the budget: boot JS 295.9 KB (gate
+  306), CSS 41.8 KB (gate 42), precache 3.67 MB.
+- End to end, the whole phone project (390x844): 235 passed, 2 skipped (the `@perf` timing test), 8.6 minutes.
+  `e2e/family-guard.spec.js` also passes on phone-small (320x568). No visual baseline changed.
+
+### Still short of the proof the specs ask for
+
+- **DURABLE-3 / PARENTS-5, an automated accessibility pass** on Settings › שמירת ההתקדמות and the `/parents` report: the
+  repo has no axe runner, and this lane may not add a package. It needs `@axe-core/playwright@4.10.2` (dev dependency of
+  `madregot/web`); then one spec per screen, `new AxeBuilder({ page }).include('.save-backup').analyze()` and the same
+  for `.parents-report`, expecting no violations. Until then: keyboard and screen-reader paths are covered by the e2e
+  (roles, names, focus) and the 44 px checks in `layout.spec.js`.
+- **DURABLE-3, the manifest panel** screenshot is the owner's (a local CDP check found no installability errors).
+- **DURABLE-11, FCP on the slow-phone profile**: the last measurement on this branch was 2.79 s against the 2.5 s budget
+  (the test fails over 2.75 s). Not re-measured here: the machine's load was too high for a timing that means anything.
+  The nightly `perf.yml` on a quiet runner gives the number; the byte gates pass.
+
 ---
 
 The detail of each item follows, in the order it was built.

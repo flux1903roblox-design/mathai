@@ -175,6 +175,27 @@ describe('weekFrom (shared/week.js)', () => {
     expect(weekFrom(ROWS, '2026-11-12', fixture.today)).toEqual(fixture.expected);
   });
 
+  it('a stale streak and a past exam are not current: the fixture\'s stale cases (the Worker\'s test reads them too)', () => {
+    for (const c of fixture.stale.cases) {
+      const rows = (fixture.stale.rows as unknown as DaySummary[]).filter((r) => !('sentUpTo' in c) || r.d <= (c as { sentUpTo: string }).sentUpTo);
+      const w = weekFrom(rows, c.start, c.today);
+      expect([w.streak, w.exam], `${c.start} on ${c.today}`).toEqual([c.streak, c.exam]);
+    }
+  });
+
+  it('the parent sees the streak the child sees: the device last sent on Monday, the page is read on Thursday', () => {
+    const days: Record<string, { lessons: number, q: number, secs: number }> = {};
+    for (const d of ['2026-10-28', '2026-10-29', '2026-10-30', '2026-11-01', '2026-11-02']) days[d] = { lessons: 1, q: 8, secs: 300 };
+    const input = { days, learn: { ...emptyLearn(), exam: { date: '2026-11-04', skills: ['signed:1'] } } } as unknown as ReportInput;
+    const sent = ['2026-11-01', '2026-11-02'].map((d) => daySummary(input, d, { today: '2026-11-02', now: '2026-11-02T18:00:00.000Z' }));
+    for (const today of ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06']) {
+      const child = weekLocal(input, '2026-11-01', { today, now: `${today}T10:00:00.000Z` });
+      const parent = weekFrom(sent, '2026-11-01', today);
+      expect(parent.streak, today).toBe(child.streak);
+      expect(parent.exam?.d ?? null, today).toBe(child.exam?.d ?? null);
+    }
+  });
+
   it('7 days; Saturday is rest, never a missed day; a holiday passed in as isRest is rest too', () => {
     const w = weekFrom(ROWS, fixture.start, fixture.today);
     expect(w.days.map((d) => d.d)).toEqual(weekDays('2026-11-08'));

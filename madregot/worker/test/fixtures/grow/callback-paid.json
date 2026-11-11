@@ -1,0 +1,32 @@
+{
+  "status": 1,
+  "err": "",
+  "data": {
+    "asmachta": "0123456",
+    "cardSuffix": "4580",
+    "cardType": "Local",
+    "cardTypeCode": "1",
+    "cardBrand": "Visa",
+    "cardBrandCode": "3",
+    "cardExp": "1229",
+    "firstPaymentSum": "0",
+    "periodicalPaymentSum": "0",
+    "status": "שולם",
+    "statusCode": "2",
+    "transactionTypeId": "1",
+    "paymentType": "1",
+    "sum": "29.90",
+    "paymentsNum": "0",
+    "allPaymentsNum": "1",
+    "paymentDate": "11/11/26",
+    "description": "מדרגות · מנוי משפחתי חודשי",
+    "fullName": "Test Parent",
+    "payerPhone": "0500000000",
+    "payerEmail": "parent@example.com",
+    "transactionId": "7100001",
+    "transactionToken": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    "processId": "5100001",
+    "processToken": "f0e1d2c3b4a5968778695a4b3c2d1e0f",
+    "customFields": { "cField1": "ORDER_ID" }
+  }
+}

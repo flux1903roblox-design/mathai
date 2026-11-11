@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { build, parseArgs, licenceCode, licenceHash, noteArg, InputError } from '../scripts/owner.mjs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { build, parseArgs, licenceCode, licenceHash, noteArg, InputError, doctor, growSandboxCheck } from '../scripts/owner.mjs';
 import { endOfDayIso } from '../src/util.js';
 import { makeEnv, rows, one } from './helpers.js';
 
@@ -127,4 +128,48 @@ test('the owner\'s revoke-device and forget delete the devices\' daily summaries
   run(env, build('forget', { email: 'rows@example.test' }, fixed).sql);
   assert.equal(rows(env, 'SELECT * FROM family_daily').length, 0);
   assert.equal(rows(env, 'SELECT * FROM family_devices').length, 0);
+});
+
+// ---- doctor (DURABLE-16): never wrangler or the network here; files, wrangler and fetch are stubs
+const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+const MIGRATIONS = readdirSync(new URL('../migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
+
+test('doctor --local: the missing items and exit 1; with everything set exit 0; never a value from .dev.vars', async () => {
+  const devVars = 'AUTH_SECRET=6c0ffee6c0ffee6c0ffee6c0ffee6c0ffee\nIP_HASH_SECRET=fee1deadfee1deadfee1dead\n';
+  const files = { '/fx/wrangler.toml': toml.replace('PUBLIC_URL = ""', 'PUBLIC_URL = "https://madregot.example.test"'), '/fx/.dev.vars': devVars };
+  const deps = (applied = []) => ({
+    read: (f) => { if (!(f in files)) throw new Error('no file'); return files[f]; },
+    list: () => MIGRATIONS,
+    exec: (args) => { assert.ok(args.includes('--local'), 'only the local database'); return MIGRATIONS.filter((m) => !applied.includes(m)).join('\n') || 'No migrations to apply'; },
+    fetch: () => { throw new Error('no network in --local'); },
+  });
+  const first = await doctor({ local: true, toml: '/fx/wrangler.toml', 'dev-vars': '/fx/.dev.vars' }, deps());
+  assert.equal(first.code, 1);
+  assert.match(first.out, /✗ בינה מלאכותית: חסר ANTHROPIC_API_KEY/);
+  assert.match(first.out, /✗ בסיס הנתונים: מיגרציות שלא הורצו/);
+  assert.match(first.out, /✓ כניסה במייל: AUTH_SECRET/);
+  for (const v of ['6c0ffee6c0ffee', 'fee1dead']) assert.ok(!first.out.includes(v), 'a value from .dev.vars was printed');
+  // everything set
+  files['/fx/wrangler.toml'] = files['/fx/wrangler.toml'].replace('REPLACE_WITH_DATABASE_ID', '00000000-0000-0000-0000-000000000000')
+    .replace('CONTACT_EMAIL = ""', 'CONTACT_EMAIL = "hello@example.test"');
+  files['/fx/.dev.vars'] = `${devVars}ANTHROPIC_API_KEY=sk-test-000\nVAULT_SECRET=0123abcd\n`;
+  const done = await doctor({ local: true, toml: '/fx/wrangler.toml', 'dev-vars': '/fx/.dev.vars' }, deps(MIGRATIONS));
+  assert.equal(done.code, 0, done.out);
+  assert.match(done.out, /הכול מוכן\./);
+  assert.ok(!done.out.includes('sk-test-000') && !done.out.includes('0123abcd'));
+});
+
+test('doctor --local --grow-sandbox: one ₪1 sandbox call with the .dev.vars keys; prints the page\'s host, never a key', async () => {
+  const seen = [];
+  const fetchFn = async (url, init) => { seen.push({ url, fields: Object.fromEntries(init.body.entries()) }); return new Response(JSON.stringify({ status: 1, data: { processId: 1, processToken: 't', url: 'https://sandbox.meshulam.co.il/s/x1' } })); };
+  const out = await growSandboxCheck({ PUBLIC_URL: 'https://madregot.example.test' }, 'GROW_USER_ID=grow-user-secretish\nGROW_PAGE_CODE_ONCE=page-once-secretish\n', fetchFn);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].url, 'https://sandbox.meshulam.co.il/api/light/server/1.0/createPaymentProcess');
+  assert.equal(seen[0].fields.sum, '1.00'); assert.equal(seen[0].fields.cField1, 'doctor');
+  assert.match(out, /BILLING_CHECKOUT_HOSTS = "sandbox\.meshulam\.co\.il"/);
+  assert.ok(!out.includes('secretish'));
+  const failed = await growSandboxCheck({}, 'GROW_USER_ID=grow-user-secretish\nGROW_PAGE_CODE_ONCE=p\n', async () => new Response(JSON.stringify({ status: 0, err: 'bad grow-user-secretish' })));
+  assert.match(failed, /^✗ תשלום/);
+  assert.ok(!failed.includes('secretish'), 'Grow\'s own error text is not printed');
+  assert.match(await growSandboxCheck({}, ''), /^! תשלום/);
 });

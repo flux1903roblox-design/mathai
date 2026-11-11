@@ -7,7 +7,7 @@ import { createContext, useContext, useId } from 'react';
 import clsx from 'clsx';
 import { CalendarCheck, Clock, ListChecks, Flame, Check, Moon } from 'lucide-react';
 import { Stat } from '@/components/ds.jsx';
-import { stairName, misconName, withPrefix } from '@/learn/report.ts';
+import { stairName, misconName, withPrefix, he } from '@/learn/report.ts';
 import { MASTERY_N, MASTERY_NEED } from '@/learn/mastery.ts';
 import { dm, newestFirst } from '@/lib/share.js';
 import '@/styles/report.css';
@@ -89,7 +89,7 @@ function Worked({ week }) {
       {list.length > 0 && (
         <ul className="report-list report-dots">
           {list.slice(0, WORKED_SHOWN).map((s) => <li key={s}><span>{stairName(s)}</span></li>)}
-          {more > 0 && <li className="report-more"><span>{`ועוד ${more}`}</span></li>}
+          {more > 0 && <li className="report-more"><span>{`ועוד ${he.stairs(more)}`}</span></li>}
         </ul>
       )}
       <p className="report-line">{`שלבי לימוד שהושלמו: ${week.stages} · שיעורים ובדיקות: ${week.lessons}`}</p>

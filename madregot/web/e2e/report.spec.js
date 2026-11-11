@@ -371,7 +371,7 @@ test('flow 3: the child is told first, nothing is sent before "הבנתי", and 
   await page.getByRole('button', { name: 'התנתקות מהמכשיר' }).click();
   await page.getByRole('dialog', { name: 'להתנתק מהמכשיר?' }).getByRole('button', { name: 'כן, להתנתק' }).click();
   await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
-  expect((await saved(page)).ai.familyDevice).toEqual({ token: FD, label: 'הטאבלט', sharingSeen: null, lastSent: null });
+  expect((await saved(page)).ai.familyDevice).toEqual({ token: FD, label: 'הטאבלט', sharingSeen: null, lastSent: null, earlier: true });
   const before = summaryPosts(log).length;
   await page.getByRole('button', { name: 'מתחילים', exact: true }).click();
   await page.fill('#w-name', 'יואב');
@@ -390,10 +390,14 @@ test('flow 3: the child is told first, nothing is sent before "הבנתי", and 
   await expect(notice(page)).toHaveCount(0);
   await page.getByRole('button', { name: 'סגירה. המקום נשמר' }).click();
   await expect(notice(page)).toBeVisible();
+  // the new profile hears that what the first child sent stays with the parents
+  await expect(notice(page)).toContainText('הסיכומים שנשלחו קודם מהמכשיר הזה נשארים אצל ההורים, והסיכומים שלכם יופיעו לידם.');
   await page.waitForTimeout(3500);
   expect(summaryPosts(log)).toHaveLength(before);
   await notice(page).getByRole('button', { name: 'הבנתי' }).click();
-  await expect.poll(() => summaryPosts(log).length).toBe(before + 1);
+  // nothing learned yet by the new profile: no empty day goes over the day the first child sent
+  await page.waitForTimeout(1500);
+  expect(summaryPosts(log)).toHaveLength(before);
 });
 
 test('the notice: closing it is "not yet", and it comes back when the app opens again; "לראות מה נשלח" shows the sheet first', async ({ page, baseURL }) => {
@@ -561,7 +565,8 @@ test('flow 4: the parent sees each device\'s week and 8 weeks, holds their own s
   await tablet.getByRole('button', { name: 'להפעיל' }).click();
   await expect(tablet.getByText('הסיכום מהמכשיר הזה: פועל')).toBeVisible();
 
-  // deleting the phone's history: asked first, then the card is back to its first day
+  // deleting the phone's history: asked first, then the card says nothing is kept (not the first day: the device has
+  // sent before, and its child has seen the notice already)
   const phone = deviceCard(page, 'הטלפון');
   await phone.getByRole('button', { name: 'מחיקת ההיסטוריה של המכשיר' }).click();
   const del = page.getByRole('dialog', { name: 'למחוק את הסיכומים של הטלפון?' });
@@ -570,7 +575,8 @@ test('flow 4: the parent sees each device\'s week and 8 weeks, holds their own s
   await expect(page.getByText('הסיכומים נמחקו')).toBeVisible();
   expect(log.filter((r) => r.path === `/api/family/devices/${PHONE.id}/history/delete`)).toHaveLength(1);
   expect(st.summaries[PHONE.id]).toBeUndefined();
-  await expect(phone.getByRole('heading', { name: 'הטלפון: עוד אין סיכום' })).toBeVisible();
+  await expect(phone.locator('.report-none-kept')).toHaveText('אין כרגע סיכומים שמורים מהמכשיר הזה. הסיכום הבא יגיע אחרי התרגול הבא במכשיר.');
+  await expect(phone.getByRole('heading', { name: 'הטלפון: עוד אין סיכום' })).toHaveCount(0);
 
   // the parent's unlink sheet says the summaries go with the device
   await page.getByRole('button', { name: /^מכשירים מחוברים/ }).click();

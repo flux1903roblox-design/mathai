@@ -12,7 +12,7 @@ import { useApp } from '@/lib/store.js';
 import { hasServer } from '@/lib/api.js';
 import { useAIStatus } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
-import { markSharingSeen } from '@/lib/familySync.js';
+import { markSharingSeen, EARLIER_TEXT } from '@/lib/familySync.js';
 import { Button, Sheet } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 // the sheet (with the report's renderer) loads only when it opens: the notice is on every linked student's screen
@@ -23,6 +23,8 @@ export const NOTICE = {
   what: 'המכשיר הזה מחובר למנוי המשפחתי. ההורים יראו סיכום של כל יום: באילו ימים ובכמה דקות תרגלתם, כמה שאלות, אילו מדרגות, מה עבר בדיקת שליטה, אילו טעויות שחוזרות מתקנים עכשיו, הרצף, ומבחן קרוב אם יש.',
   never: 'לא נשלחים: התשובות עצמן, השיחות עם העוזר החכם, תמונות והשם שלכם.',
   where: 'בכל רגע אפשר לראות מה נשלח, ולהפסיק, בהגדרות ← שיתוף עם ההורים.',
+  /** a new profile on a device that sent summaries before (a sibling): those stay where they are */
+  earlier: EARLIER_TEXT,
   ok: 'הבנתי',
   see: 'לראות מה נשלח',
 };
@@ -37,12 +39,13 @@ const AWAY = /^\/(parents|cancel|terms|privacy|accessibility|restore|r)(\/|$)/;
 export const noticeRoute = (pathname) => !BUSY.test(String(pathname ?? '')) && !AWAY.test(String(pathname ?? ''));
 
 /** The notice's words and its two buttons (the sheet around it is SharingNotice). */
-export function NoticeBody({ onOk, onSee }) {
+export function NoticeBody({ onOk, onSee, earlier = false }) {
   return (
     <div className="nudge-body sharing-notice">
       <Mascot mood="idle" size={88} />
       <p>{NOTICE.what}</p>
       <p>{NOTICE.never}</p>
+      {earlier && <p className="sharing-earlier">{NOTICE.earlier}</p>}
       <p className="nudge-how">{NOTICE.where}</p>
       <div className="nudge-actions">
         <Button className="btn-block btn-lg" onClick={onOk}>{NOTICE.ok}</Button>
@@ -58,6 +61,7 @@ let notYet = false;
 export default function SharingNotice() {
   const { pathname } = useLocation();
   const due = useApp((s) => !!s.ai.familyDevice?.token && !s.ai.familyDevice.sharingSeen);
+  const earlier = useApp((s) => !!s.ai.familyDevice?.earlier);
   const on = useAIStatus((x) => x.status?.linked?.summary === 'on');
   const [open, setOpen] = useState(false);
   const [sheet, setSheet] = useState(false);
@@ -81,7 +85,7 @@ export default function SharingNotice() {
   return (
     <>
       <Sheet open={open} onOpenChange={(o) => { if (!o) notNow(); }} title={NOTICE.title} className="nudge-sheet sharing-notice-sheet" dismissible={false}>
-        <NoticeBody onOk={ok} onSee={see} />
+        <NoticeBody onOk={ok} onSee={see} earlier={earlier} />
       </Sheet>
       {/* closing the sheet brings the notice back (its interval above), until "הבנתי" */}
       {sheet && <Suspense fallback={null}><SharingSheet open onOpenChange={(o) => { if (!o) setSheet(false); }} /></Suspense>}

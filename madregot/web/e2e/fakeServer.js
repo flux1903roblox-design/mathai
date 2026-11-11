@@ -19,6 +19,11 @@
 // /api/report/feedback (st.feedback; a second answer the same visit is 429 already_answered, as a second one a week is).
 // The Sunday email (PARENTS-7): POST /api/account/report-email {on} sets st.reportEmail, which GET /api/account shows
 // as reportEmail (503 report_off when turning it on with the report off, as the Worker answers).
+// After the review of the family lane, as the Worker does: a deleted vault leaves a tombstone (st.tombstones: 410
+// vault_deleted on every vault route); a vault write with the token of a device that was unlinked or left (st.gone) is
+// 401 not_linked with X-AI-Linked: 0; a device that leaves by itself takes its escrow with it, an unlink keeps it only
+// while the child's switch is on; restoreFrom on a still-linked device's escrow is 409 escrow_in_use; GET
+// /api/family/summary gives each device `kept` (all its rows, also those older than the days asked for).
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -41,6 +46,7 @@ export const PLANS = {
   contact: 'hello@example.test',
 };
 export const TOKEN = (n) => String(n).padStart(64, 'a');
+const shiftDay = (day, n) => { const [y, m, d] = day.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d) + n * 864e5).toISOString().slice(0, 10); };
 
 /** A live family plan, as GET /api/account shows it. */
 export const livePlan = (over = {}) => ({
@@ -61,10 +67,10 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     licence: { status: 'none', until: null, seats: null, students: 2, aiWeek: 0, joinLocked: false, request: null, legacyUntil: null, offer: { seatYearAgorot: 4900, minSeats: 10, vatMode: 'included', online: true } },
     classes: [], classPayments: [], failPayment: false,
     joinLocked: false, students: [{ id: 'a1', name: 'דנה' }, { id: 'b2', name: 'יואב' }],
-    answers: [], loseProgressReplies: 0, errors: [], vaults: {}, members: [], escrows: [], escrowOff: false,
+    answers: [], loseProgressReplies: 0, errors: [], vaults: {}, tombstones: new Set(), gone: new Set(), members: [], escrows: [], escrowOff: false,
     // the parents' report (the Worker's PARENT_REPORT): off unless a spec turns it on, so the flows written before it
     // run as they did; report.spec.js turns it on
-    report: false, summaries: {}, feedback: [], reportEmail: false,
+    report: false, summaries: {}, feedback: [], reportEmail: false, today: '2026-11-05',
     ...over,
   };
   const log = [];
@@ -160,14 +166,18 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (!/^[0-9a-f]{64}$/.test(id)) return reply(route, 400, { error: 'bad_vault' });
       const v = st.vaults[id];
       if (req.method() === 'GET') {
-        if (!v) return reply(route, 404, { error: 'vault_not_found' });
+        if (!v) return reply(route, st.tombstones.has(id) ? 410 : 404, { error: st.tombstones.has(id) ? 'vault_deleted' : 'vault_not_found' });
         return reply(route, 200, path === '/api/vault' ? { rev: v.rev, blob: v.blob, updatedAt: v.updatedAt } : { rev: v.rev, updatedAt: v.updatedAt });
       }
       if (path === '/api/vault/delete') {
         // `failVaultDelete`: the server breaks on a delete (the device must then delete nothing either)
         if (st.failVaultDelete) return reply(route, 500, { error: 'server_error' });
-        delete st.vaults[id]; return reply(route, 200, { deleted: v ? 1 : 0 });
+        delete st.vaults[id]; st.tombstones.add(id); st.escrows = st.escrows.filter((e) => e.lookup !== id);
+        return reply(route, 200, { deleted: v ? 1 : 0 });
       }
+      // (the fake reuses a token for the next device linked in the same place: only a token no device holds now is gone)
+      if (st.gone.has(h['x-family-device']) && !st.devices.some((d) => d.token === h['x-family-device'])) return reply(route, 401, { error: 'not_linked' }, { 'X-AI-Linked': '0' });
+      if (st.tombstones.has(id)) return reply(route, 410, { error: 'vault_deleted' });
       const updatedAt = new Date().toISOString();
       if (body.ifRev === null) {
         if (v) return reply(route, 409, { error: 'vault_conflict', rev: v.rev });
@@ -241,7 +251,15 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (kept) kept.device = d.id;
       return reply(route, 200, { deviceToken: d.token, label: d.label, ...(kept && st.vaults[kept.lookup] ? { vault: { code: kept.code } } : {}) });
     }
-    if (path === '/api/family/devices/leave') { st.devices = st.devices.filter((d) => d.token !== h['x-family-device']); return reply(route, 200, { ok: true }); }
+    if (path === '/api/family/devices/leave') {
+      const d = st.devices.find((x) => x.token && x.token === h['x-family-device']);
+      if (d) {
+        // the child left: the code the family kept goes, and the summaries with the link (PARENTS-3)
+        st.escrows = st.escrows.filter((e) => e.device !== d.id);
+        delete st.summaries[d.id]; st.gone.add(d.token);
+      }
+      st.devices = st.devices.filter((x) => x !== d); return reply(route, 200, { ok: true });
+    }
     // ---- the parents' daily summary from a linked device (X-Family-Device only)
     if ((path === '/api/family/summary' || path === '/api/family/summary/sharing') && req.method() === 'POST') {
       const fam = famOf(h);
@@ -272,7 +290,11 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       st.n += 1; const t = TOKEN(st.n); st.sessions.add(t); st.recent.add(t);
       return reply(route, 200, { token: t, email: body.email });
     }
-    if (path === '/api/billing/plans') return reply(route, 200, { ...PLANS, paywall: st.paywall, online: st.online, report: st.paywall && st.report });
+    // `planOnline` ({ family_month: false, … }): plans the provider cannot sell online here (each plan's own `online`)
+    if (path === '/api/billing/plans') {
+      const plans = PLANS.plans.map((pl) => (st.planOnline && pl.id in st.planOnline ? { ...pl, online: st.planOnline[pl.id] } : pl));
+      return reply(route, 200, { ...PLANS, plans, paywall: st.paywall, online: st.online, report: st.paywall && st.report });
+    }
     if (path.startsWith('/api/account') || path.startsWith('/api/billing') || path === '/api/family/link/claim' || path.startsWith('/api/family/devices') || path.startsWith('/api/family/vaults') || path === '/api/family/summary' || path === '/api/report/feedback' || path === '/api/teacher/licence/request') {
       if (path.startsWith('/api/teacher')) { /* checked below with the class too */ } else if (!signed) return reply(route, 401, { error: 'not_account' });
     }
@@ -317,6 +339,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (!live()) return reply(route, 402, { error: 'needs_subscription' });
       const restore = restoreOf();
       if (restore === false) return reply(route, 404, { error: 'escrow_not_found' });
+      if (restore?.device) return reply(route, 409, { error: 'escrow_in_use' });
       const l = st.links[body.code];
       if (!l) return reply(route, 404, { error: 'link_not_found' });
       if (l.claimed) return reply(route, 409, { error: 'link_used' });
@@ -328,6 +351,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (!live()) return reply(route, 402, { error: 'needs_subscription' });
       const restore = restoreOf();
       if (restore === false) return reply(route, 404, { error: 'escrow_not_found' });
+      if (restore?.device) return reply(route, 409, { error: 'escrow_in_use' });
       const d = { id: `d${'0'.repeat(14)}${st.devices.length + 1}`, label: body.label || '', token: `fd1.${'e'.repeat(64)}` };
       st.devices.push(d); st.sessions.delete(token);
       if (restore) restore.device = d.id;
@@ -337,7 +361,10 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     if (path === '/api/family/summary' && req.method() === 'GET') {
       const devices = st.devices.filter((d) => d.token).map((d) => ({
         id: d.id, label: d.label, linkedAt: d.linkedAt || '2026-11-05T09:00:00Z', lastSeen: '2026-11-05', sharing: summaryOf(d), sharingAt: d.sharingAt || null,
-        lastSync: d.lastSync || null, days: Object.values(st.summaries[d.id] || {}).sort((a, b) => (a.d < b.d ? -1 : 1)),
+        lastSync: d.lastSync || null,
+        // the last `days` days, counted from the tests' day (helpers.js NOW), as the Worker counts from its own today
+        days: Object.values(st.summaries[d.id] || {}).filter((r) => r.d >= shiftDay(st.today, -((Number(url.searchParams.get('days')) || 56) - 1))).sort((a, b) => (a.d < b.d ? -1 : 1)),
+        kept: (() => { const ds = Object.keys(st.summaries[d.id] || {}).sort(); return { n: ds.length, from: ds[0] || null, to: ds.at(-1) || null }; })(),
       }));
       return reply(route, 200, { retentionDays: 90, days: Number(url.searchParams.get('days')) || 56, devices });
     }
@@ -368,10 +395,13 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     }
     if (/^\/api\/family\/devices\/[a-z0-9]+\/unlink$/.test(path)) {
       const id = path.split('/')[4];
-      // the device's escrow stays with the account ("התקדמות שמורה")
+      const d = st.devices.find((x) => x.id === id);
+      // the device's escrow stays with the account ("התקדמות שמורה") while the child's switch is on; else it goes
+      if (d && d.shareChild === false) st.escrows = st.escrows.filter((e) => e.device !== id);
       for (const e of st.escrows) if (e.device === id) e.device = null;
       delete st.summaries[id]; // the device's summaries go with it (PARENTS-3)
-      st.devices = st.devices.filter((d) => d.id !== id); return reply(route, 200, { ok: true });
+      if (d?.token) st.gone.add(d.token);
+      st.devices = st.devices.filter((x) => x.id !== id); return reply(route, 200, { ok: true });
     }
     if (path === '/api/family/vaults') {
       const vaults = st.escrows.filter((e) => e.kind === 'account' && st.vaults[e.lookup]).map((e) => {

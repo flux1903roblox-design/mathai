@@ -48,4 +48,12 @@ describe('privacy notice: what the progress copies and the error reports are', (
     expect(cf).toContain('עותקי הגיבוי ודיווחי התקלות');
     expect(cf).toContain('כמעבד מידע');
   });
+
+  it('a deleted backup leaves only a mark with no content, kept 400 days; the family copy goes when the device leaves', () => {
+    const vault = bullet(privacy, 'עותק הגיבוי בשרת');
+    expect(vault).toContain('נשאר רק סימון שהעותק נמחק, בלי שום תוכן, כדי שמכשיר אחר עם אותו קוד לא ייצור אותו מחדש. הסימון נמחק אחרי 400 יום.');
+    const kept = bullet(privacy, 'קוד הגיבוי שהכיתה או המנוי המשפחתי שומרים');
+    expect(kept).toContain('כשהמכשיר מתנתק מהמנוי בעצמו');
+    expect(kept).toContain('כשההורה מנתק מכשיר שהשיתוף עם ההורים כבוי בו');
+  });
 });

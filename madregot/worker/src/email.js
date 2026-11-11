@@ -101,6 +101,9 @@ export function business(env) {
   return [env.BUSINESS_NAME, env.BUSINESS_ID, env.BUSINESS_ADDRESS, env.CONTACT_EMAIL, env.CONTACT_PHONE].filter(Boolean).join(' · ');
 }
 
+/** The welcome email's receipt line when Grow is the payment company: it sends the receipt itself. */
+export const RECEIPT_BY_GROW = 'הקבלה נשלחת אליכם במייל מ־Grow, חברת הסליקה.';
+
 /** Subject and lines of one notice, or null for a kind this Worker does not know. */
 export function renderNotice(env, row) {
   const p = (() => { try { return JSON.parse(row.params || '{}'); } catch { return {}; } })();
@@ -117,6 +120,8 @@ export function renderNotice(env, row) {
           renews
             ? `${PLAN_NAME[p.plan]}: ${shekels(p.priceAgorot)} ${per}, ${vatWords(env)}. מתחדש אוטומטית עד שמבטלים. החיוב הבא: ${hebDate(p.periodEnd)}.`
             : `${PLAN_NAME[p.plan] || 'מנוי'}: ${shekels(p.priceAgorot)}, ${vatWords(env)}. תשלום אחד, בלי חידוש אוטומטי. בתוקף עד ${hebDate(p.periodEnd)}.`,
+          // Grow issues the receipt or tax invoice for every charge, to the payer's email (PARENTS-11)
+          String(env.BILLING_PROVIDER || '') === 'grow' ? RECEIPT_BY_GROW : '',
           'אפשר לבטל בכל רגע באתר, במייל או בטלפון. ב־14 הימים הראשונים מקבלים החזר מלא.',
           'שימוש הוגן: יש מכסה יומית לכל סוג פעולה. בחודש עם שימוש גבוה במיוחד השיחה ממשיכה בגרסה קצרה, ובדיקות הצילום והמבחן חוזרות ב־1 בחודש.',
           `התקנון (גרסה ${env.TERMS_VERSION || ''}): ${env.PUBLIC_URL || ''}/terms`,
@@ -175,7 +180,7 @@ export function renderNotice(env, row) {
       if (what === 'licence_request') return licenceRequestNotice(p);
       if (what.startsWith('summary:')) return summaryNotice(p, what.slice('summary:'.length));
       if (what.startsWith('errors:')) return errorsNotice(p, what.slice('errors:'.length));
-      if (what === 'vault:70') return vault70Notice(p);
+      if (what === 'vault:70' || what === 'vault:90') return vaultShareNotice(p, Number(what.slice(-2)));
       if (what.startsWith('vault_drift:')) return vaultDriftNotice(p);
       return { subject: `[מדרגות] ${what}`, lines: [`${what}`, `ref: ${row.ref}`, ...Object.entries(p).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)] };
     }
@@ -188,6 +193,7 @@ export function renderNotice(env, row) {
 const dm = (day) => { const [, m, d] = String(day).split('-').map(Number); return `${d}.${m}`; };
 const plural = (one, two, many) => (n) => (n === 1 ? one : n === 2 ? two : many(n));
 const heDays = plural('יום אחד', 'יומיים', (n) => `${n} ימים`);
+const heStairs = plural('מדרגה אחת', 'שתי מדרגות', (n) => `${n} מדרגות`);
 const heMistakes = plural('טעות אחת', 'שתי טעויות', (n) => `${n} טעויות`);
 const fixedLine = plural('טעות אחת תוקנה השבוע', 'שתי טעויות תוקנו השבוע', (n) => `${n} טעויות תוקנו השבוע`);
 const aboutMinutes = (m) => (m === 1 ? 'כדקה' : m === 2 ? 'כשתי דקות' : `כ־${m} דקות`);
@@ -222,7 +228,7 @@ function weeklyDevice(d) {
     { head: label },
     [`ימי תרגול: ${d.activeDays}`, d.minutes > 0 ? `זמן תרגול: ${aboutMinutes(d.minutes)}` : '', `שאלות: ${d.questions}`].filter(Boolean).join(' · '),
     mastered.length ? `חדש בשליטה: ${mastered.map(stairText).join(', ')}` : WEEKLY_TEXT.noCheck,
-    worked.length ? `תורגלו: ${worked.slice(0, WORKED_IN_EMAIL).map(stairText).join(', ')}${more > 0 ? ` ועוד ${more}` : ''}` : '',
+    worked.length ? `תורגלו: ${worked.slice(0, WORKED_IN_EMAIL).map(stairText).join(', ')}${more > 0 ? ` ועוד ${heStairs(more)}` : ''}` : '',
     fixes.length ? `טעויות שחוזרות: ${fixes.join(', ')}` : '',
     d.streak > 0 ? `רצף: ${heDays(d.streak)} (שבת לא שוברת רצף)` : '',
   ].filter(Boolean);
@@ -341,11 +347,12 @@ function errorsNotice(p, day) {
 }
 
 /** The encrypted vaults passed 70% of VAULT_MAX_MB (vault.js), once a month. */
-function vault70Notice(p) {
+function vaultShareNotice(p, pct) {
   return {
-    subject: '[מדרגות] הגיבויים המוצפנים הגיעו ל־70% מהמקום',
+    subject: `[מדרגות] הגיבויים המוצפנים הגיעו ל־${pct}% מהמקום`,
     lines: [
       `הגיבויים המוצפנים בשרת תופסים ${p.mb ?? '?'} MB מתוך ${p.maxMb ?? '?'} MB (VAULT_MAX_MB).`,
+      ...(pct >= 90 ? ['זה קרוב לגבול. אם זה קרה מהר, בדקו בסיכום היומי כמה גיבויים חדשים נוצרו אתמול.'] : []),
       'כשהם מגיעים לגבול, אי אפשר ליצור גיבויים חדשים, והאפליקציה מציעה לשמור קובץ במקום. גיבויים קיימים ממשיכים להתעדכן.',
       'בתוכנית Workers Paid אפשר להעלות את VAULT_MAX_MB בקובץ worker/wrangler.toml (עד 3000) ולפרסם מחדש.',
       'בתוכנית החינמית לא מעלים: כל מסד הנתונים נעצר ב־500 MB, והוא שומר גם את התשלומים.',

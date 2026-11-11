@@ -5,6 +5,7 @@
 //                 phone with a few days
 //   report-empty  the tablet linked today, nothing sent yet (the first day, PARENTS-6 state 3)
 //   report-off    the tablet's child switched sharing off 3 days ago; its earlier days are still there (state 5)
+//   report-old    the tablet last sent 60 days ago: nothing in the 8 weeks read, 3 older summaries still kept
 const DAY_MS = 864e5;
 const shift = (day, n) => { const [y, m, d] = day.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d) + n * DAY_MS).toISOString().slice(0, 10); };
 const row = (d, over = {}) => ({ v: 1, d, m: 0, q: 0, ls: 0, st: 0, sk: [], ma: [], rv: 0, fx: [], sr: 0, ex: null, ...over });
@@ -52,6 +53,9 @@ export function qaFamilySummary(state, today) {
   if (state === 'report-off') {
     const rows = tabletRows(today).filter((r) => r.d < shift(today, -3));
     return { retentionDays: 90, days: 56, devices: [{ ...tablet, sharing: 'child_off', sharingAt: isoAt(shift(today, -3), 20, 15), lastSync: isoAt(shift(today, -4), 18, 5), days: rows }] };
+  }
+  if (state === 'report-old') {
+    return { retentionDays: 90, days: 56, devices: [{ ...tablet, sharing: 'on', sharingAt: null, lastSync: isoAt(shift(today, -60), 18, 5), kept: { n: 3, from: shift(today, -70), to: shift(today, -60) }, days: [] }] };
   }
   // any other QA state of the parents' page: no summaries, and nothing is asked of a server
   return { retentionDays: 90, days: 56, devices: [] };

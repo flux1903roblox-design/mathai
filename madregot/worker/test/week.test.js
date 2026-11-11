@@ -16,6 +16,15 @@ test('the fixture week gives the same WeekReport as on the web', () => {
   assert.deepEqual(w.days.map((d) => d.rest), fixture.expectedRest);
 });
 
+test('a stale streak and a past exam are not shown as current (the fixture\'s stale cases, as on the web)', () => {
+  for (const c of fixture.stale.cases) {
+    const rows = fixture.stale.rows.filter((r) => !c.sentUpTo || r.d <= c.sentUpTo);
+    const w = weekFrom(rows, c.start, c.today);
+    assert.equal(w.streak, c.streak, `${c.start} on ${c.today}`);
+    assert.deepEqual(w.exam, c.exam, `${c.start} on ${c.today}`);
+  }
+});
+
 test('the week runs Sunday to Saturday whatever the Worker\'s clock zone', () => {
   assert.equal(weekStart('2026-11-14'), '2026-11-08');
   assert.deepEqual(weekDays('2026-11-08'), ['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13', '2026-11-14']);

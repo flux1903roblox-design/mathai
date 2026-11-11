@@ -1,7 +1,8 @@
 // Escrow (DURABLE-6): the restore code kept for a class student or a family device, sealed with VAULT_SECRET.
 //   class   a rejoin with the right PIN gets the code back (a wrong PIN gets nothing), also after the teacher's PIN reset;
 //           the student's removal deletes the escrow and every token; the night sweep removes orphans
-//   family  an escrow per device; unlink and leave keep it in the account; a new device linked with restoreFrom gets the
+//   family  an escrow per device; the parent's unlink keeps it in the account (leaving deletes it, family-guard.test.js);
+//           a new device linked with restoreFrom gets the
 //           code and the escrow moves to it; another account's escrow is 404; GET /api/family/vaults and its delete;
 //           account deletion and export
 //   never   the code in GET /api/account, /api/account/export, /api/family/vaults or /api/teacher/dashboard, or in the
@@ -227,8 +228,8 @@ test('family: another account\'s escrow is 404 on claim and on devices/this; dev
   const mine = await linkDevice(h.env, p.a, 'הישן');
   const e = await vaultWithEscrow(mine.headers);
   const mineId = one(h.env, 'SELECT id FROM vault_escrow WHERE owner_id = ?', p.a).id;
-  await h.call('POST', '/api/family/devices/leave', { headers: mine.headers, body: {} });
-  assert.equal(one(h.env, 'SELECT device_id FROM vault_escrow WHERE id = ?', mineId).device_id, null, 'leaving keeps it in the account');
+  await h.call('POST', `/api/family/devices/${mine.id}/unlink`, { headers: p.headers, body: {} });
+  assert.equal(one(h.env, 'SELECT device_id FROM vault_escrow WHERE id = ?', mineId).device_id, null, 'the parent\'s unlink keeps it in the account');
   const thisDev = (token, restoreFrom) => h.call('POST', '/api/family/devices/this', { headers: { 'X-Account-Token': token, 'X-Device': 'c'.repeat(32) }, body: { label: 'כאן', restoreFrom } });
   assert.equal((await thisDev(p.token, theirId)).status, 404);
   const t = await thisDev(p.token, mineId);

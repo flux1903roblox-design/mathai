@@ -440,3 +440,11 @@ CREATE TABLE IF NOT EXISTS family_daily (
   PRIMARY KEY (device_id, day)
 );
 CREATE INDEX IF NOT EXISTS family_daily_day ON family_daily (day);
+
+-- DURABLE-5 (review): a backup that its owner deleted leaves a tombstone, so another device with the same code is told
+-- it was deleted (410 vault_deleted) instead of making it again. An expired vault leaves none. Kept 400 days (cron.js).
+CREATE TABLE IF NOT EXISTS vault_tombstones (
+  id_hash TEXT PRIMARY KEY,                 -- vaults.id_hash of the deleted vault
+  deleted_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS vault_tombstones_at ON vault_tombstones (deleted_at);

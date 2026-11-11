@@ -24,6 +24,7 @@ import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, 
 import { run as runCron } from './cron.js';
 import { postErrors, recordServerError } from './errors.js';
 import { getVault, putVault, deleteVault, vaultOn, vaultFull, putEscrow, deleteEscrow, studentEscrowCode } from './vault.js';
+import { edgeGuard } from './edge.js';
 
 // ---------- http helpers ----------
 function corsHeaders(req, env) {
@@ -457,6 +458,10 @@ async function health(env) {
     vault: vaultOn(env) ? 'on' : 'off', vaultFull: await vaultFull(env),
     // whether class and family copies of a restore code can be kept (VAULT_SECRET is set; never its value)
     escrow: !!env.VAULT_SECRET,
+    // what `npm run owner -- doctor` reads from the live server (DURABLE-16): whether each of these is set, never a value
+    resend: !!env.RESEND_API_KEY, webhookPath: !!env.WEBHOOK_PATH_SECRET,
+    grow: !!(env.GROW_USER_ID && env.GROW_PAGE_CODE_ONCE && env.GROW_PAGE_CODE_RECURRING),
+    edge: typeof env.RL_AUTH?.limit === 'function' && typeof env.RL_AI?.limit === 'function',
   };
 }
 
@@ -466,6 +471,9 @@ async function route(req, env, ctx, cors) {
   const M = req.method;
   let m;
   if (M === 'GET' && p === '/api/health') return json(await health(env), 200, cors);
+  // the edge rate limit (DURABLE-16, edge.js) in front of sign-in, class lookup and join, new devices and the AI routes;
+  // the D1 counters in each handler stay the source of truth
+  await edgeGuard(M, p, req, env);
   // error reports from the app (DURABLE-9): counts per day, no per-user trail
   if (M === 'POST' && p === '/api/errors') return postErrors(req, env, cors);
   // the encrypted backup (DURABLE-5): ciphertext only, found by the SHA-256 of a token derived from the restore code

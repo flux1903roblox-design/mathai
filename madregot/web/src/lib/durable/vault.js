@@ -10,7 +10,12 @@
 // it pulled, the pull also counts as pushed, so two devices never send each other the same progress back and forth.
 // Push: skipped when the SHA-256 of the copy's JSON is the one pushed last; else sealed and POSTed with ifRev (the
 // compare-and-swap). 409: pull, merge and push again, at most 3 times (then 'error', reported as vault/conflict_loop).
-// 404 vault_gone (expired or deleted elsewhere): created again with the same code, and Settings says so once.
+// 404 vault_gone (expired): created again with the same code, and Settings says so once.
+// 410 vault_deleted (its owner deleted it on another device: "להפסיק את הגיבוי" or "מחיקת כל הנתונים"): never created
+// again; the backup here turns off, and Settings says once that it was deleted from another device.
+// 401 not_linked on a write (the parent unlinked this device, so the family no longer keeps its code) or the family token
+// found gone elsewhere (familyGone): the backup moves to a new code before anything else is sent, so the copy the family
+// keeps stops receiving this device's progress; the old copy is left alone (it may be the family's kept progress).
 // 429: back to idle until the next moment, never an error shown to the child. No network: 'offline'.
 // After a replacing restore was undone (apply.js, backup.forcePush), the next sync reads the server's rev and pushes
 // over it without pulling, so the stale copy there cannot be merged back over the undo.
@@ -140,7 +145,7 @@ async function push(ctx) {
   } catch (e) {
     if (e?.code === 'vault_conflict') return 'conflict';
     if (e?.code === 'vault_gone' && !ctx.gone) {
-      // expired, or deleted from another device: made again with the same code
+      // expired (a deleted one is 410 vault_deleted, and is never made again): made again with the same code
       ctx.gone = true;
       setBackup(store, { rev: null, state: 'gone' });
       return push(ctx);
@@ -176,12 +181,55 @@ function failed(store, e) {
   return 'error';
 }
 
+/** 410 vault_deleted: the backup was deleted from another device. It turns off here, and Settings says so once. */
+function deletedElsewhere(store) {
+  const b = backupOf(store);
+  store.setState({ backup: { ...BACKUP_DEFAULTS, undoUntil: b.undoUntil, note: 'deleted' } });
+  return 'deleted';
+}
+
+/**
+ * The family no longer knows this device (the server said X-AI-Linked: 0 or not_linked): the token is forgotten, and
+ * when the family kept this device's code, the next sync moves the backup to a new code first. account.js and
+ * familySync.js call it too.
+ */
+export function familyGone(store = useApp) {
+  const st = store.getState();
+  if (st.ai?.familyDevice) {
+    if (typeof st.setAI === 'function') st.setAI({ familyDevice: null });
+    else store.setState({ ai: { ...st.ai, familyDevice: null } });
+  }
+  const b = backupOf(store);
+  if (b.on && (b.escrow === 'family' || b.escrow === 'both')) setBackup(store, { moveCode: true, escrow: b.escrow === 'both' ? 'class' : null });
+}
+
+/**
+ * The move to a new code: a new code and its first copy (createBackup), the one-time note, and the class keeps the new
+ * code when it kept the old one. On a failure the flag stays, and the next moment tries again; nothing goes to the old copy.
+ */
+async function moveToNewCode(store, now) {
+  const classToo = backupOf(store).escrow === 'class' || backupOf(store).escrow === 'both';
+  const code = await createBackup({ store, now });
+  setBackup(store, { note: 'moved' });
+  if (classToo) {
+    try {
+      const { lookup } = await derive(code);
+      await call(store, lookup, '/api/vault/escrow', { method: 'POST', body: { code, lookup } });
+      setBackup(store, { escrow: 'class' });
+    } catch { /* the class switch shows it off; turning it on keeps the new code */ }
+  }
+  return 'moved';
+}
+
 async function runSync(moment, store, { online, now }) {
   const b = backupOf(store);
   if (!hasServer() || !b.on || !isCode(b.code)) return 'off';
   // another student's copy: nothing is merged or pushed until the student chooses (Settings)
   if (b.state === 'other_student') return 'other_student';
   if (!online()) { setBackup(store, { state: 'offline' }); return 'offline'; }
+  if (b.moveCode) {
+    try { return await moveToNewCode(store, now); } catch (e) { return failed(store, e); }
+  }
   try {
     const { key, lookup } = await derive(b.code);
     const ctx = { store, key, lookup, now, hidden: moment === 'hidden', gone: false };
@@ -202,6 +250,16 @@ async function runSync(moment, store, { online, now }) {
     }
     return await pushLoop(ctx);
   } catch (e) {
+    if (e?.code === 'vault_deleted') return deletedElsewhere(store);
+    if (e?.code === 'not_linked') {
+      familyGone(store);
+      if (backupOf(store).moveCode) {
+        try { return await moveToNewCode(store, now); } catch (e2) { return failed(store, e2); }
+      }
+      // the family never kept this code: the next moment syncs as before, without the old token
+      setBackup(store, { state: 'idle' });
+      return 'idle';
+    }
     return failed(store, e);
   }
 }
@@ -210,7 +268,7 @@ let running = null;
 /**
  * One sync at a time: a moment that comes while one runs is left to it. `moment`: which moment (see the top of this
  * file). Resolves with what happened: 'off' | 'offline' | 'pulled' | 'pushed' | 'unchanged' | 'too_big' |
- * 'other_student' | 'idle' | 'unavailable' | 'error'. `store`, `online` and `now` are for tests.
+ * 'other_student' | 'idle' | 'unavailable' | 'deleted' | 'moved' | 'error'. `store`, `online` and `now` are for tests.
  */
 export function syncVault({ moment = 'manual', store = useApp, online = () => globalThis.navigator?.onLine !== false, now = () => new Date() } = {}) {
   if (running) return running;
@@ -312,7 +370,11 @@ export const BACKUP_TEXT = {
   tooBig: 'הגיבוי גדול מדי. שמרו קובץ במקום.',
   retry: 'פועל · ננסה לעדכן שוב בקרוב',
   paused: 'מושהה',
-  recreated: 'הגיבוי בשרת נמחק או פג, ויצרנו אותו מחדש עם אותו קוד.',
+  recreated: 'הגיבוי בשרת פג כי לא השתמשו בו הרבה זמן, ויצרנו אותו מחדש עם אותו קוד.',
+  /** 410 vault_deleted: stopped or deleted on another device with the same code */
+  deleted: 'הגיבוי נמחק ממכשיר אחר, אז הוא כבוי גם כאן. ההתקדמות במכשיר הזה נשארת. אפשר ליצור קוד גיבוי חדש.',
+  /** the family let go of this device: the backup moved to a new code */
+  moved: 'המכשיר כבר לא מחובר למנוי המשפחתי, אז הגיבוי עבר לקוד חדש. ההתקדמות במכשיר הזה נשארת.',
   otherStudent: 'בגיבוי של הקוד הזה יש התקדמות של מישהו אחר, אז לא איחדנו אותה עם מה שיש כאן. אפשר להפסיק את הגיבוי וליצור קוד חדש.',
 };
 

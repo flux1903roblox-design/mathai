@@ -252,7 +252,9 @@ export async function deleteHistory(id, req, env, cors) {
 
 /**
  * GET /api/family/summary?days=N (7 to 90, default 56): each linked device of the account with its state and its rows
- * of the last N days, as DaySummary. Answers after the plan has ended and with the report off, so the parent can read
+ * of the last N days, as DaySummary, and `kept`: how many rows the server holds for it in all and their first and last
+ * day ({ n, from, to }, n 0 with null days), so the page offers "delete history" and dates the last summary even when
+ * every row is older than N days. Answers after the plan has ended and with the report off, so the parent can read
  * and delete until the purge. Never another account's device.
  */
 export async function familySummary(req, env, cors) {
@@ -264,12 +266,16 @@ export async function familySummary(req, env, cors) {
     FROM family_devices WHERE account_id = ? AND token_hash IS NOT NULL ORDER BY created_at`).bind(a.id).all()).results || [];
   const rows = (await env.DB.prepare(`SELECT f.* FROM family_daily f JOIN family_devices d ON d.id = f.device_id
     WHERE d.account_id = ? AND f.day >= ? ORDER BY f.day`).bind(a.id, from).all()).results || [];
+  const held = (await env.DB.prepare(`SELECT f.device_id, COUNT(*) AS n, MIN(f.day) AS first, MAX(f.day) AS last FROM family_daily f
+    JOIN family_devices d ON d.id = f.device_id WHERE d.account_id = ? GROUP BY f.device_id`).bind(a.id).all()).results || [];
   const live = !!(await liveFamily(env, a.id));
   const out = [];
   for (const d of devices) {
+    const k = held.find((x) => x.device_id === d.id);
     out.push({
       id: d.id, label: d.label, linkedAt: d.created_at, lastSeen: d.last_seen,
       sharing: await summaryState(env, d, live), sharingAt: d.share_at || null, lastSync: d.summary_sent_at || null,
+      kept: k ? { n: Number(k.n), from: k.first, to: k.last } : { n: 0, from: null, to: null },
       days: rows.filter((r) => r.device_id === d.id).map(rowToDay),
     });
   }

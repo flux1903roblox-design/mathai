@@ -6,7 +6,7 @@ import { useApp } from './store.js';
 import { useAIStatus } from './account.js';
 import { keepaliveBudget, onMoment, emit, MOMENT_ORDER } from './durable/moments.js';
 import {
-  syncFamily, markSharingSeen, setChildSharing, rowsToSend, loadEngine, resetFamilySync, sharingReady, SEND_EVERY, MAX_DAYS,
+  syncFamily, markSharingSeen, setChildSharing, rowsToSend, loadEngine, resetFamilySync, sharingReady, SEND_EVERY, MAX_DAYS, EARLIER_TEXT,
 } from './familySync.js';
 
 const API = 'https://api.madregot.test';
@@ -88,12 +88,15 @@ describe('nothing is sent until every condition holds', () => {
 });
 
 describe('which days go', () => {
-  it('the days with activity from 7 days back to today, and today itself even when empty, at most 8', async () => {
+  it('the days with activity from 7 days back to today, and today itself even when empty once this profile has sent, at most 8', async () => {
     // a lesson 9 and 8 days back (too old), 7 back (the first that goes), 3 back; nothing today
     useApp.setState({ days: lessons('2026-10-27', '2026-10-28', '2026-10-29', '2026-11-02') });
     expect(await syncFamily({ moment: 'boot', now: at(0) })).toBe('sent');
-    expect(sentDays()).toEqual(['2026-10-29', '2026-11-02', '2026-11-05']);
-    const today = posts()[0].body.days.at(-1);
+    expect(sentDays()).toEqual(['2026-10-29', '2026-11-02'], 'no empty today in a profile\'s first send');
+    // once something was sent, today goes even while empty (the parent sees the device is in use)
+    expect(await syncFamily({ moment: 'hidden', now: at(30 * MIN) })).toBe('sent');
+    expect(sentDays()).toEqual(['2026-11-02', '2026-11-05']);
+    const today = posts()[1].body.days.at(-1);
     expect(today).toMatchObject({ v: 1, d: '2026-11-05', m: 0, q: 0, ls: 0 });
     // a lesson every day: still 8 at most (7 back to today)
     useApp.getState().setAI({ familyDevice: linked() });
@@ -113,7 +116,7 @@ describe('which days go', () => {
   it('time alone, an answer alone or a review counts as activity; a day with nothing does not', () => {
     useApp.setState({ days: { '2026-11-01': { tsecs: 120 }, '2026-11-02': { q: 3 }, '2026-11-03': {} } });
     const rows = rowsToSend(useApp.getState(), { day: '2026-11-05', now: T0, summary: engine.daySummary });
-    expect(rows.map((r) => r.d)).toEqual(['2026-11-01', '2026-11-02', '2026-11-05']);
+    expect(rows.map((r) => r.d)).toEqual(['2026-11-01', '2026-11-02']);
   });
 
   it('every row is the engine\'s whitelisted shape: codes and counts, no name', async () => {
@@ -253,9 +256,28 @@ describe('a new profile on a linked device', () => {
   it('signOut keeps the token and the label, and clears sharingSeen and lastSent: nothing goes until the notice is seen again', async () => {
     await syncFamily({ moment: 'boot', now: at(0) });
     useApp.getState().signOut();
-    expect(useApp.getState().ai.familyDevice).toEqual({ token: FD, label: 'הטאבלט', sharingSeen: null, lastSent: null });
+    expect(useApp.getState().ai.familyDevice).toEqual({ token: FD, label: 'הטאבלט', sharingSeen: null, lastSent: null, earlier: true });
     useApp.getState().setProfile({ role: 'student', name: 'יואב', grade: '8' });
     expect(await syncFamily({ moment: 'hidden', now: at(30 * MIN) })).toBe('not_seen');
     expect(posts()).toHaveLength(1);
+  });
+
+  it('the new profile never sends an empty today over the day the first child sent; its own practice goes', async () => {
+    expect(await syncFamily({ moment: 'boot', now: at(0) })).toBe('sent');
+    expect(posts()[0].body.days.at(-1)).toMatchObject({ d: '2026-11-05', ls: 1 });
+    useApp.getState().signOut();
+    useApp.getState().setProfile({ role: 'student', name: 'יואב', grade: '8' });
+    expect(await markSharingSeen({ now: at(20 * MIN) })).toBe('unchanged');
+    expect(await syncFamily({ moment: 'lesson', now: at(40 * MIN) })).toBe('unchanged');
+    expect(posts(), 'nothing replaced the first child\'s day').toHaveLength(1);
+    useApp.setState({ days: { '2026-11-05': { lessons: 1, q: 6, ok: 5, secs: 200 } } });
+    expect(await syncFamily({ moment: 'lesson', now: at(60 * MIN) })).toBe('sent');
+    expect(posts()).toHaveLength(2);
+  });
+
+  it('the notice and the sharing sheet tell the new profile that the earlier summaries stay with the parents', () => {
+    expect(EARLIER_TEXT).toBe('הסיכומים שנשלחו קודם מהמכשיר הזה נשארים אצל ההורים, והסיכומים שלכם יופיעו לידם.');
+    useApp.getState().signOut();
+    expect(useApp.getState().ai.familyDevice.earlier).toBe(false);
   });
 });

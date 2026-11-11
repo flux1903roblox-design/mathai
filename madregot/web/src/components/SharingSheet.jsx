@@ -6,7 +6,7 @@
 import { useId, useState } from 'react';
 import { useApp, today as dayOf } from '@/lib/store.js';
 import { useAIStatus } from '@/lib/account.js';
-import { setChildSharing } from '@/lib/familySync.js';
+import { setChildSharing, EARLIER_TEXT } from '@/lib/familySync.js';
 import { whenText } from '@/lib/when.js';
 import { useReportInput } from '@/components/report/useReportWeek.js';
 import { DayView } from '@/components/report/ReportView.jsx';
@@ -90,6 +90,7 @@ export default function SharingSheet({ open, onOpenChange }) {
           )}
           <p className="sharing-never">{SHARING.never}</p>
           <p className="sharing-kept">{SHARING.kept}</p>
+          {fd?.earlier && <p className="sharing-earlier">{EARLIER_TEXT}</p>}
           {error && <p className="form-error" role="alert">{error}</p>}
           {CHILD_ON.includes(summary) && <Button variant="secondary" className="btn-block" onClick={() => { setError(''); setConfirm(true); }}>{SHARING.stop}</Button>}
           {CHILD_OFF.includes(summary) && (

@@ -33,6 +33,16 @@ describe('the example week', () => {
   });
 });
 
+describe('the worked list', () => {
+  it('counts the stairs it does not name in words: "ועוד מדרגה אחת", "ועוד שתי מדרגות", never a bare digit', () => {
+    const ids = ['signed:1', 'signed:2', 'signed:3', 'coord:1', 'coord:2', 'eq:1', 'eq:2', 'expr:1'];
+    const html = (n) => text(renderToStaticMarkup(<ReportView week={{ ...EXAMPLE_WEEK, example: false, worked: ids.slice(0, n) }} audience="parent" source="synced" today={EXAMPLE_TODAY} />));
+    expect(html(7)).toContain('ועוד מדרגה אחת');
+    expect(html(8)).toContain('ועוד שתי מדרגות');
+    expect(html(8)).not.toMatch(/ועוד \d/);
+  });
+});
+
 describe('8 weeks', () => {
   const rows = [
     { v: 1, d: '2026-11-04', m: 20, q: 8, ls: 1, st: 0, sk: [], ma: [], rv: 0, fx: [], sr: 1 },
@@ -83,6 +93,20 @@ describe('/parents: the first-day states', () => {
     expect(t).toContain(PARENT_SWITCH.child_off.text);
     expect(t).toContain('מחיקת ההיסטוריה של המכשיר');
     expect(qaFamilySummary('report-off', today).devices[0].days.length).toBeGreaterThan(0);
+  });
+  it('a device whose only summaries are older than the 8 weeks: dated, deletable, never the first-day card', () => {
+    const today = dayOf();
+    const data = qaFamilySummary('report-old', today);
+    const t = text(renderToStaticMarkup(<FamilyReport plan={PLAN} devices={[{ id: 'qa00000000000002', label: 'הטאבלט' }]} qa="report-old" />));
+    expect(t).toContain(REPORT.olderOnly(data.devices[0].kept.to));
+    expect(t).toContain('מחיקת ההיסטוריה של המכשיר');
+    expect(t).not.toContain('עוד אין סיכום');
+    expect(t).not.toContain(REPORT.first);
+    // the same device after its plan ended: still deletable
+    const ended = text(renderToStaticMarkup(<FamilyReport plan={null} devices={[{ id: 'qa00000000000002', label: 'הטאבלט' }]} qa="report-old" />));
+    expect(ended).toContain(REPORT.ended);
+    expect(ended).toContain('מחיקת ההיסטוריה של המכשיר');
+    expect(ended).not.toContain('הסיכום היומי כלול במנוי המשפחתי');
   });
   it('a plan that ended with summaries kept, and a device the plan does not cover', () => {
     const data = qaFamilySummary('report', dayOf());
