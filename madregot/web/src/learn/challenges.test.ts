@@ -1,6 +1,6 @@
-// The challenge track (CURRICULUM-6): every task present is checked mathematically and for its wording, and the grading
-// rules (two tries, XP, the order check, the counterexample check) are pinned. The "36 tasks, three per topic" count
-// comes when stage 1 fills the rest of the tasks.
+// The challenge track (CURRICULUM-6): every task is checked mathematically and for its wording, the set is stage 1's 36
+// (three per topic, one claim, one error or proof, one literacy task each), and the grading rules (two tries, XP, the
+// order check, the counterexample check) are pinned.
 import { describe, it, expect } from 'vitest';
 import katex from 'katex';
 import type { ChallengePart, ChallengeTask } from './types';
@@ -8,6 +8,7 @@ import { CHALLENGES, challengeById, challengesAfter, challengesOf } from './chal
 import { challengeXP, scoredParts, numCheck, exampleHolds, domainValues, firstOutOfPlace, shuffledOrder, moveStep } from './challenges/grade';
 import { ALL_SKILLS, TOPIC_ORDER, parseSkill } from './skills';
 import { evaluate, same } from './expr';
+import { contentOf } from './content/index';
 
 type Claim = Extract<ChallengePart, { type: 'claim' }>;
 type Order = Extract<ChallengePart, { type: 'order' }>;
@@ -30,12 +31,46 @@ const tex = (s: string) => (s.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1,
 const outsideTex = (s: string) => s.replace(/\$[^$]+\$/g, ' ');
 
 describe('the challenge tasks', () => {
-  it('has the six complete exemplars of stage 1', () => {
-    expect(CHALLENGES.map((t) => t.id).sort()).toEqual(['angles:c1', 'frac:c1', 'pct:c1', 'pyth:c1', 'ratio:c1', 'stats:c1']);
+  it('stage 1 has 36 tasks: three per topic of TOPIC_ORDER, the bridge included, in topic order', () => {
+    console.log(`${CHALLENGES.length} challenge tasks:\n${TOPIC_ORDER.map((tp) => `  ${tp}: ${challengesOf(tp).map((t) => `${t.id} ${t.kind} after ${t.after}`).join(' · ')}`).join('\n')}`);
+    expect(CHALLENGES).toHaveLength(36);
+    TOPIC_ORDER.forEach((tp) => expect(challengesOf(tp).map((t) => t.id), tp).toEqual([`${tp}:c1`, `${tp}:c2`, `${tp}:c3`]));
+    expect(TOPIC_ORDER).toContain('frac');
+    expect(CHALLENGES.map((t) => t.topic)).toEqual(TOPIC_ORDER.flatMap((tp) => [tp, tp, tp]));
     expect(challengeById('pct:c1')?.after).toBe('pct:2');
     expect(challengeById('nope')).toBeNull();
     expect(challengesAfter('ratio:2').map((t) => t.id)).toEqual(['ratio:c1']);
-    expect(challengesOf('stats').map((t) => t.id)).toEqual(['stats:c1']);
+    expect(challengesAfter('expr:4').map((t) => t.id)).toEqual(['expr:c1', 'expr:c2']);
+  });
+
+  it('each topic has one claim, one error or proof, and one literacy task', () => {
+    TOPIC_ORDER.forEach((tp) => {
+      const kinds = challengesOf(tp).map((t) => t.kind);
+      expect(kinds.filter((k) => k === 'claim'), tp).toHaveLength(1);
+      expect(kinds.filter((k) => k === 'error' || k === 'proof'), tp).toHaveLength(1);
+      expect(kinds.filter((k) => k === 'literacy'), tp).toHaveLength(1);
+    });
+    // a task's kind is what its parts do: a claim task has a claim part, an error task an error part, a proof an order
+    CHALLENGES.forEach((t) => {
+      const types = t.parts.map((p) => p.type);
+      if (t.kind === 'claim') expect(types, t.id).toContain('claim');
+      if (t.kind === 'error') expect(types, t.id).toContain('error');
+      if (t.kind === 'proof') expect(types, t.id).toContain('order');
+      if (t.kind === 'literacy') expect(t.story, `${t.id}: a real-world task has its story`).toBeTruthy();
+    });
+  });
+
+  it('the nine algebra tasks are the spec\'s, and a task\'s mistake is one the content names', () => {
+    const algebra = CHALLENGES.filter((t) => ['expr', 'eq', 'sys'].includes(t.topic));
+    expect(algebra.map((t) => [t.id, t.kind, t.after, t.minutes])).toEqual([
+      ['expr:c1', 'claim', 'expr:4', 4], ['expr:c2', 'error', 'expr:4', 4], ['expr:c3', 'literacy', 'expr:2', 7],
+      ['eq:c1', 'claim', 'eq:3', 4], ['eq:c2', 'error', 'eq:2', 4], ['eq:c3', 'literacy', 'eq:5', 8],
+      ['sys:c1', 'claim', 'sys:2', 4], ['sys:c2', 'error', 'sys:2', 5], ['sys:c3', 'literacy', 'sys:4', 8],
+    ]);
+    // the spec names the mistake of each error task
+    expect(['expr:c2', 'eq:c2', 'sys:c2'].map((id) => challengeById(id)!.misc)).toEqual(['partial-dist', 'move-no-flip', 'move-no-flip']);
+    const named = new Set(ALL_SKILLS.flatMap((id) => contentOf(id)?.misconceptions.map((m) => m.id) || []));
+    CHALLENGES.filter((t) => t.misc).forEach((t) => expect(named.has(t.misc!), `${t.id}: ${t.misc}`).toBe(true));
   });
 
   it('ids are unique, each follows a real stair of its own topic, and has its kind, minutes and 2 to 5 parts', () => {

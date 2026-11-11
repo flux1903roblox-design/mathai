@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { m } from 'motion/react';
 import { Check, Lightbulb } from 'lucide-react';
 import { Button, Keypad } from '@/components/ui.jsx';
-import { MathText } from '@/components/MathText.jsx';
+import { MathText, mathPlain } from '@/components/MathText.jsx';
 import { ResultWhy } from '@/components/learn/StepPlayer.jsx';
 import { enter } from '@/lib/motion.js';
 import { TRIES } from '@/learn/challenges/grade.ts';
@@ -85,7 +85,7 @@ export function NumFields({ fields, values, onChange, locked = false, state = nu
               <input
                 id={`ch-slot-${f.name}`} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false} placeholder="?"
                 className={clsx('slot', 'ch-slot', active === f.name && !locked && 'active', state === 'good' && 'good', state === 'bad' && 'struck')}
-                aria-label={fields.length > 1 ? undefined : f.label} value={values[f.name] || ''} readOnly={locked}
+                aria-label={fields.length > 1 ? undefined : mathPlain(f.label)} value={values[f.name] || ''} readOnly={locked}
                 onFocus={() => setActive(f.name)}
                 onChange={(e) => set(f.name, e.target.value.replace(/[^\d\-−./,]/g, '').slice(0, 9))}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter?.(); } }}

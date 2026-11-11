@@ -267,6 +267,8 @@ export interface ChallengeTask {
   fig?: FigSpec;
   parts: ChallengePart[]; // 2..5, solved in order
   minutes: number; // 4..10
+  /** The mistake (a misconception id of the content, e.g. 'partial-dist') the task is built on, when it is one. */
+  misc?: string;
 }
 /**
  * One part of a challenge.

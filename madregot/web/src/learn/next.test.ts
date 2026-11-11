@@ -22,23 +22,24 @@ describe('planNext: the bands, highest first, for each learner', () => {
   it.each([
     ['newSeventh', [['new', 'signed:1']]],
     ['newSeventhSeptember', [['new', 'angles:1']]],
-    ['midSigned3', [['continue', 'signed:3'], ['new', 'signed:4']]],
+    // signed:1 is mastered, so its first challenge waits at the bottom (not strong today)
+    ['midSigned3', [['continue', 'signed:3'], ['new', 'signed:4'], ['challenge', 'signed:1']]],
     ['misconception', [['repair', 'signed:1'], ['continue', 'signed:1'], ['new', 'signed:2']]],
-    ['dueReview', [['review', 'coord:1'], ['new', 'signed:3']]],
+    ['dueReview', [['review', 'coord:1'], ['new', 'signed:3'], ['challenge', 'signed:1']]],
     ['examIn3Days', [['exam', 'signed:1'], ['exam', 'signed:1'], ['exam', 'signed:1'], ['review', 'coord:1'], ['new', 'coord:2']]],
     ['examUndiagnosed', [['exam', ''], ['new', 'signed:1']]],
     ['examOnShabbat', [['new', 'signed:1']]],
     // ratio and scale is the first unit of ח׳ (September): taught by now, it is the first new stair, before line:2
     ['eighthNovemberLine', [['continue', 'line:1'], ['new', 'ratio:1']]],
     ['weakFloor', [['new', 'frac:1']]],
-    ['hardFractionsNoFloor', [['floor', 'signed:6'], ['continue', 'signed:6'], ['new', 'coord:1']]],
+    ['hardFractionsNoFloor', [['floor', 'signed:6'], ['continue', 'signed:6'], ['new', 'coord:1'], ['challenge', 'signed:1']]],
     // a challenge first, then the old "everything mastered" review
-    ['allSeventhMastered', [['challenge', 'angles:4'], ['review', 'signed:1']]],
+    ['allSeventhMastered', [['challenge', 'signed:1'], ['review', 'signed:1']]],
     // strong today: the challenge moves up, right after the exam loss and never above the exam, a repair or a review
     ['strongEighth', [['exam', 'ratio:2'], ['exam', 'ratio:2'], ['exam', 'ratio:2'], ['repair', 'ratio:1'], ['review', 'pct:1'], ['exam-loss', 'pct:1'], ['challenge', 'pct:2'], ['new', 'pct:3']]],
     ['keptStairs', [['mastery', 'signed:1'], ['new', 'signed:3']]],
-    ['examLossCoord4', [['exam-loss', 'coord:4'], ['new', 'signed:3']]],
-    ['examLossRecovered', [['new', 'signed:3']]],
+    ['examLossCoord4', [['exam-loss', 'coord:4'], ['new', 'signed:3'], ['challenge', 'signed:1']]],
+    ['examLossRecovered', [['new', 'signed:3'], ['challenge', 'signed:1']]],
   ])('%s', (name, want) => {
     const p = planNext(LEARNERS[name]());
     expect(p.items.map((x) => [x.kind, x.skill])).toEqual(want);
@@ -138,15 +139,27 @@ describe('planNext: the bands, highest first, for each learner', () => {
 });
 
 describe('planNext: the challenge band', () => {
-  it('a learner with every ז׳ stair mastered and no review due gets a challenge first (angles:c1), the review after it', () => {
+  it('a learner with every ז׳ stair mastered and no review due gets a challenge first, the review after it', () => {
+    // every stair was mastered on the same day, so the first in school order: signed:c1 (with stage 15's six tasks
+    // alone this was angles:c1, the only ז׳ task then)
     const p = planNext(LEARNERS.allSeventhMastered());
-    const task = challengeById('angles:c1')!;
-    expect(p.top).toMatchObject({ kind: 'challenge', source: 'challenge', skill: 'angles:4', challengeId: 'angles:c1', title: `אתגר: ${task.title}`, minutes: task.minutes, to: '/challenge/angles:c1' });
-    expect(p.top!.reason).toBe('עברתם את בדיקת השליטה במדרגה "ישרים מקבילים". רוצים משהו קשה יותר?');
+    const task = challengeById('signed:c1')!;
+    expect(p.top).toMatchObject({ kind: 'challenge', source: 'challenge', skill: 'signed:1', challengeId: 'signed:c1', title: `אתגר: ${task.title}`, minutes: task.minutes, to: '/challenge/signed:c1' });
+    expect(p.top!.reason).toBe('עברתם את בדיקת השליטה במדרגה "חיבור וחיסור". רוצים משהו קשה יותר?');
     expect(p.items[1]).toMatchObject({ kind: 'review', title: 'חיזוק: חיבור וחיסור' });
-    // once it is solved, the next open task (if any) or the review alone
+    // solved, the next one: signed:c2, then on through the grade's tasks in school order
     const c = LEARNERS.allSeventhMastered();
-    c.learn.challenges = Object.fromEntries(CHALLENGES.map((t) => [t.id, { startedAt: NOW, doneAt: NOW, firstTry: 1, parts: 2 }]));
+    const solve = (ids: string[]) => { c.learn.challenges = Object.fromEntries(ids.map((id) => [id, { startedAt: NOW, doneAt: NOW, firstTry: 1, parts: 2 }])); };
+    solve(['signed:c1']);
+    expect(planNext(c).top?.challengeId).toBe('signed:c2');
+    solve(['signed:c1', 'signed:c2', 'signed:c3', 'coord:c1', 'coord:c2', 'coord:c3', 'angles:c2']);
+    expect(planNext(c).top?.challengeId).toBe('angles:c1');
+    // the most recently mastered stair's task comes first: a check passed again on angles:4 yesterday
+    c.learn.skills['angles:4'] = masteredRec(ago(1), 20, 0);
+    solve([]);
+    expect(planNext(c).top?.challengeId).toBe('angles:c1');
+    // all of them solved: the review alone
+    solve(CHALLENGES.map((t) => t.id));
     expect(planNext(c).items.map((x) => x.kind)).toEqual(['review']);
   });
 
@@ -301,15 +314,15 @@ describe('the mission from the plan', () => {
   });
   it('a challenge item is done by finishing that very task, and by nothing else', () => {
     const items = buildMission(planNext(LEARNERS.allSeventhMastered()).items);
-    expect(items[0]).toMatchObject({ kind: 'challenge', skill: 'angles:4', challengeId: 'angles:c1', to: '/challenge/angles:c1' });
+    expect(items[0]).toMatchObject({ kind: 'challenge', skill: 'signed:1', challengeId: 'signed:c1', to: '/challenge/signed:c1' });
     // work on its stair, a review or another task does not tick it
-    for (const d of [{ skill: 'angles:4', kind: 'review' }, { skill: 'angles:4', kind: 'mastery', stage: 'E' }, { skill: 'angles:4', kind: 'continue', stage: 'D' }, { skill: 'angles:4', kind: 'challenge', challengeId: 'angles:c2' }, { kind: 'challenge' }] as const) {
+    for (const d of [{ skill: 'signed:1', kind: 'review' }, { skill: 'signed:1', kind: 'mastery', stage: 'E' }, { skill: 'signed:1', kind: 'continue', stage: 'D' }, { skill: 'signed:1', kind: 'challenge', challengeId: 'signed:c2' }, { kind: 'challenge' }] as const) {
       expect(done(items, d)[0].done, JSON.stringify(d)).toBeUndefined();
     }
-    expect(done(items, { skill: 'angles:4', kind: 'challenge', challengeId: 'angles:c1' })[0].done).toBe(NOW);
+    expect(done(items, { skill: 'signed:1', kind: 'challenge', challengeId: 'signed:c1' })[0].done).toBe(NOW);
     // and a finished challenge never ticks a learning item on its stair
     const learning = buildMission(planNext(LEARNERS.midSigned3()).items);
-    expect(done(learning, { skill: 'signed:3', kind: 'challenge', challengeId: 'angles:c1' }).every((x) => !x.done)).toBe(true);
+    expect(done(learning, { skill: 'signed:3', kind: 'challenge', challengeId: 'signed:c3' }).every((x) => !x.done)).toBe(true);
   });
   it('can be finished', () => {
     const items = buildMission(planNext(LEARNERS.dueReview()).items);
