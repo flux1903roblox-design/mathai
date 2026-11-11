@@ -158,17 +158,41 @@ describe('the account\'s classes', () => {
 
 describe('the bind card and the public site\'s link', () => {
   it('the card is offered for a class that only its key opens here, and "לא עכשיו" hides it for a week', async () => {
-    const { teacher, useApp } = await load({ classes: [keyOnly] });
-    expect(teacher.offerBind(keyOnly, '2026-11-10')).toBe(true);
+    const mine = { ...keyOnly, createdHere: true };
+    const { teacher, useApp } = await load({ classes: [mine] });
+    expect(teacher.offerBind(mine, '2026-11-10')).toBe(true);
     expect(teacher.offerBind(owned, '2026-11-10')).toBe(false); // bound already
-    expect(teacher.offerBind({ ...keyOnly, key: null }, '2026-11-10')).toBe(false); // nothing to bind with
-    teacher.remindBindLater(keyOnly, '2026-11-10');
+    expect(teacher.offerBind({ ...mine, key: null }, '2026-11-10')).toBe(false); // nothing to bind with
+    teacher.remindBindLater(mine, '2026-11-10');
     const later = classOf(useApp);
     expect(later.bindLater).toBe('2026-11-17');
     expect(teacher.offerBind(later, '2026-11-16')).toBe(false);
     expect(teacher.offerBind(later, '2026-11-17')).toBe(true);
     // a week across a month end
     expect(teacher.dayPlus('2026-11-28', 7)).toBe('2026-12-05');
+  });
+
+  it('only the device that opened the class is asked to bind it; a co-teacher who typed the key is not (the review of the teacher lane)', async () => {
+    const { teacher } = await load();
+    expect(teacher.openedHere({ ...keyOnly, createdHere: true })).toBe(true);
+    expect(teacher.openedHere({ ...keyOnly, createdHere: false })).toBe(false); // the key was typed in (TeacherStart)
+    expect(teacher.openedHere({ ...keyOnly, fresh: false })).toBe(true); // saved before createdHere: opened here
+    expect(teacher.openedHere(keyOnly)).toBe(false); // saved before createdHere, entered with the key or restored
+    expect(teacher.offerBind({ ...keyOnly, createdHere: false }, '2026-11-10')).toBe(false);
+    expect(teacher.offerBind(keyOnly, '2026-11-10')).toBe(false);
+    expect(teacher.offerBind({ ...keyOnly, fresh: false }, '2026-11-10')).toBe(true);
+    // the server says it is bound already (from another device): no card
+    expect(teacher.offerBind({ ...keyOnly, createdHere: true }, '2026-11-10', { boundElsewhere: true, boundAt: '2026-11-09T08:00:00.000Z' })).toBe(false);
+  });
+
+  it('boundElsewhere: a key device is told when the class was bound, and until when a mistake is undone', async () => {
+    const { teacher } = await load();
+    const board = { boundElsewhere: true, boundAt: '2026-11-09T08:00:00.000Z' };
+    expect(teacher.boundElsewhere(keyOnly, board)).toEqual({ at: '2026-11-09T08:00:00.000Z', until: '2026-11-16T08:00:00.000Z' });
+    expect(teacher.boundElsewhere(owned, board)).toBe(null); // this device bound it
+    expect(teacher.boundElsewhere(keyOnly, { boundElsewhere: false, boundAt: null })).toBe(null);
+    expect(teacher.boundElsewhere(keyOnly, null)).toBe(null);
+    expect(teacher.LATE_BIND_HOLD_DAYS).toBe(7);
   });
 
   it('teacherSiteLink opens the hosted app on the teacher\'s way in, and refuses anything but an http(s) address', async () => {

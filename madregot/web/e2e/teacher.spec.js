@@ -86,7 +86,8 @@ async function open(page, route, state = null, { local = {}, at = NOW } = {}) {
 /** A device with the app pointed at the fake server. `profile: null`: nobody has used the app here yet. */
 const withServer = (extra = {}) => ({ ...student('7', { ai: { mode: 'server', apiUrl: API, key: '', device: '' }, ...extra }), version: 3 });
 const fresh = () => withServer({ profile: null });
-const keyClass = { code: 'K7Q2MD', key: 'tkey-123', className: 'ז׳3', grade: '7' };
+// a class this device opened with the key flow (createdHere): only such a device is offered to bind it to the email
+const keyClass = { code: 'K7Q2MD', key: 'tkey-123', className: 'ז׳3', grade: '7', createdHere: true };
 const keyTeacher = (cls = {}) => withServer({ profile: { role: 'teacher', name: 'רונית', grade: '7', classes: [{ ...keyClass, ...cls }], active: 'K7Q2MD' } });
 const ownedTeacher = () => withServer({ profile: { role: 'teacher', name: 'רונית', grade: '7', classes: [{ code: 'K7Q2MD', key: null, className: 'ז׳3', grade: '7', owned: true }], active: 'K7Q2MD' } });
 const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
@@ -194,17 +195,27 @@ test.describe('TEACHER-1: the class follows the teacher\'s email', () => {
     await page.getByRole('radio', { name: /כבר יש לי כיתה/ }).click();
     await page.getByRole('button', { name: 'המשך', exact: true }).click();
     await signIn(page);
-    await expect(page.getByText(`לא מצאנו כיתות שמקושרות ל־${EMAIL}. אם פתחתם כיתה בלי מייל, נכנסים עם קוד הכיתה ומפתח המורה, ואז מקשרים אותה למייל מתוך הלוח.`)).toBeVisible();
+    await expect(page.getByText(`לא מצאנו כיתות שמקושרות ל־${EMAIL}. אם פתחתם כיתה בלי מייל, נכנסים עם קוד הכיתה ומפתח המורה, ואז מקשרים אותה למייל בהגדרות הכיתה.`)).toBeVisible();
     await shot(page, 'teacher-restore-empty');
     await page.getByRole('button', { name: 'כניסה עם קוד ומפתח' }).click();
     await page.getByLabel('קוד כיתה').fill('K7Q2MD');
     await page.getByLabel('מפתח מורה').fill('tkey-123');
     await page.getByRole('button', { name: 'כניסה ללוח' }).click();
     await expect(page.getByText('תרגלו היום')).toBeVisible();
-    // signed in already, so the board offers to bind the class in one tap
-    const card = page.getByRole('region', { name: 'קישור הכיתה למייל' });
-    await card.getByRole('button', { name: 'לקשר למייל שלי' }).click();
+    // the key was typed in: this may be a co-teacher's device, so the board does not ask to bind the class (the review
+    // of the teacher lane); the settings say who binds it, and the teacher who opened it confirms first
+    expect((await saved(page)).profile.classes[0].createdHere).toBe(false);
+    await expect(page.getByRole('region', { name: 'קישור הכיתה למייל' })).toHaveCount(0);
+    await page.getByRole('navigation', { name: 'כלים' }).getByRole('link', { name: 'הגדרות הכיתה' }).click();
+    await expect(page.getByText('את הכיתה מקשר למייל רק מי שפתח אותה. מורים נוספים נכנסים עם מפתח המורה.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'לקשר למייל שלי' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'אני פתחתי את הכיתה הזו' }).click();
+    const ask = page.getByRole('dialog', { name: 'לקשר את הכיתה למייל שלכם?' });
+    await expect(ask).toContainText('רק מי שפתח את הכיתה מקשר אותה למייל שלו.');
+    await ask.getByRole('button', { name: 'כן, אני פתחתי אותה' }).click();
     await expect(page.getByText(`הכיתה ז׳3 מקושרת עכשיו ל־${EMAIL}.`)).toBeVisible();
+    await expect(page.getByText(`מקושרת ל־${EMAIL}.`)).toBeVisible();
+    expect(log.filter((r) => r.path === '/api/teacher/class/owner')).toHaveLength(1);
     expect(log.filter((r) => r.path === '/api/account/verify')).toHaveLength(1);
   });
 
@@ -370,6 +381,62 @@ test.describe('TEACHER-1: the class follows the teacher\'s email', () => {
     expect((await saved(page)).profile).toMatchObject({ active: 'AAA222', grade: '8' });
     await page.getByRole('combobox', { name: 'כיתה' }).selectOption('K7Q2MD');
     expect((await saved(page)).profile).toMatchObject({ active: 'K7Q2MD', grade: '7' });
+  });
+
+  // the review of the teacher lane: a co-teacher who was given the key bound the class to their own email by pressing
+  // the same card, and the class left the teacher who opened it
+  test('a device that came with the key is not asked to bind the class; a class bound from another device says when, and how to undo it', async ({ page }) => {
+    const { st, log } = await fakeServer(page.context(), {}, baseOf());
+    await open(page, '#/teacher', keyTeacher({ createdHere: false }));
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'קישור הכיתה למייל' })).toHaveCount(0);
+    await page.getByRole('navigation', { name: 'כלים' }).getByRole('link', { name: 'הגדרות הכיתה' }).click();
+    await expect(page.getByText('את הכיתה מקשר למייל רק מי שפתח אותה. מורים נוספים נכנסים עם מפתח המורה.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'לקשר למייל שלי' })).toHaveCount(0);
+    const quiet = page.getByRole('button', { name: 'אני פתחתי את הכיתה הזו' });
+    expect((await quiet.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await page.evaluate(() => document.getElementById('ts-access').scrollIntoView({ block: 'start' }));
+    await shot(page, 'teacher-settings-key-device');
+    // "לא, חזרה" binds nothing
+    await quiet.click();
+    await page.getByRole('dialog', { name: 'לקשר את הכיתה למייל שלכם?' }).getByRole('button', { name: 'לא, חזרה' }).click();
+    expect(log.filter((r) => r.path === '/api/teacher/class/owner')).toHaveLength(0);
+
+    // the class was bound to an email from another device on 4 November: every device that opens it with the key is told,
+    // the one that opened it too, and none of them is offered to bind it
+    st.lateBoundAt = '2026-11-04T09:00:00.000Z';
+    await open(page, '#/teacher', keyTeacher());
+    const line = page.getByRole('link', { name: 'הכיתה קושרה למייל ב־04.11.2026, לא מהמכשיר הזה. לפרטים' });
+    await expect(line).toBeVisible();
+    await expect(page.getByRole('region', { name: 'קישור הכיתה למייל' })).toHaveCount(0);
+    expect((await line.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await shot(page, 'teacher-bound-elsewhere-board');
+    await line.click();
+    await expect(page).toHaveURL(/#\/teacher\/settings$/);
+    const status = page.locator('.t-bound');
+    await expect(status).toHaveText('הכיתה קושרה למייל ב־04.11.2026, לא מהמכשיר הזה. מפתח המורה ממשיך לפתוח אותה כאן.אם זה לא נעשה בידיעתכם, כתבו לנו עד 11.11.2026, ונבטל את הקישור.');
+    await expect(status).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'לקשר למייל שלי' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'אני פתחתי את הכיתה הזו' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'העתקת מפתח המורה tkey-123' })).toBeVisible();
+    await shot(page, 'teacher-bound-elsewhere');
+    // after the week the board says nothing more; the settings still say whose class it is now
+    await open(page, '#/teacher', keyTeacher(), { at: new Date('2026-11-12T10:00:00') });
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    await expect(line).toHaveCount(0);
+    await page.goto('./#/teacher/settings');
+    await expect(status).toHaveText('הכיתה קושרה למייל ב־04.11.2026, לא מהמכשיר הזה. מפתח המורה ממשיך לפתוח אותה כאן.');
+  });
+
+  test('the owner of a class bound late cannot replace the key in the first week, and the page says from when', async ({ page }) => {
+    const { st, log } = await fakeServer(page.context(), { owned: true, rekeyFrom: '2026-11-11T09:00:00.000Z' }, baseOf());
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/teacher/settings', ownedTeacher(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(9), email: EMAIL, shared: false }) } });
+    await expect(page.getByText(`מקושרת ל־${EMAIL}.`)).toBeVisible();
+    await expect(page.getByText('אפשר ליצור מפתח מורה חדש מ־11.11.2026. בשבוע הראשון אחרי הקישור למייל המפתח נשאר כמו שהוא, כדי שאפשר יהיה לתקן קישור שנעשה בטעות.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'החלפת מפתח המורה' })).toHaveCount(0);
+    await expect(page.locator('.t-bound')).toHaveCount(0);
+    expect(log.filter((r) => r.path === '/api/teacher/class/rekey')).toHaveLength(0);
   });
 });
 
@@ -1118,10 +1185,39 @@ test.describe('TEACHER-4: assignments, from the teacher\'s side', () => {
   const catchClipboard = (page) => page.evaluate(() => { window.__copied = null; navigator.clipboard.writeText = (t) => { window.__copied = t; return Promise.resolve(); }; });
   const sheet = (page, name) => page.getByRole('dialog', { name });
 
+  // TEACHER-16: the words the student saw on that stair, with the stair named; the same id on two stairs is two rows
+  test('TEACHER-16: each repeated mistake names its stair and says what the student saw there; practice goes to that stair', async ({ page }) => {
+    const rows3 = [
+      { topic: 'signed', level: 3, cat: 'sign', n: 4, students: 2, ids: ['a1', 'b2'], names: ['דנה', 'יואב'] },
+      { topic: 'signed', level: 1, cat: 'sign', n: 2, students: 1, ids: ['a1'], names: ['דנה'] },
+      { topic: 'coord', level: 3, cat: 'sign', n: 1, students: 1, ids: ['b2'], names: ['יואב'] },
+    ];
+    await fakeServer(page, { mistakes: rows3 }, baseOf());
+    await open(page, '#/teacher', keyTeacher({ bindLater: '2026-11-30' }));
+    const group = page.getByRole('region', { name: 'טעויות שחוזרות השבוע' });
+    const rows = group.locator('.t-row');
+    await expect(rows).toHaveCount(3);
+    await expect(rows.locator('.t-list-main')).toHaveText([
+      'מספרים מכוונים, מדרגה 3: כפל וחילוק. הסימן של המכפלה או של המנה יצא הפוך',
+      'מספרים מכוונים, מדרגה 1: חיבור וחיסור. התשובה יצאה עם הסימן ההפוך',
+      'מערכת צירים, מדרגה 3: אורך קטע. יצא אורך שלילי',
+    ]);
+    await expect(group).not.toContainText('sign');
+    await expect(group).not.toContainText('טעות בסימן של אחד השיעורים'); // the topic's wording, not what the student saw
+    await group.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    await shot(page, 'teacher-tomorrow-stairs');
+    // practice from the level-3 row: that stair, for the two who made the mistake there
+    await rows.nth(0).getByRole('button', { name: 'לתת תרגול על זה' }).click();
+    const s = sheet(page, 'משימה לכיתה ז׳3');
+    await expect(s.getByLabel('איזו מדרגה?')).toHaveValue('signed:3');
+    await expect(s.getByRole('radio', { name: /לתלמידים שטעו בזה \(2\)/ })).toBeChecked();
+  });
+
   test('from "מחר": practice on that stair for the two students who made the mistake, then the message and the Classroom link', async ({ page }) => {
     const { st, log } = await fakeServer(page, { mistakes: [mistake] }, baseOf());
     await open(page, '#/teacher', keyTeacher());
     const row = page.locator('.t-row', { hasText: 'התשובה יצאה עם הסימן ההפוך' });
+    await expect(row.locator('.t-list-main')).toHaveText('מספרים מכוונים, מדרגה 1: חיבור וחיסור. התשובה יצאה עם הסימן ההפוך');
     await row.getByRole('button', { name: 'לתת תרגול על זה' }).click();
     const s = sheet(page, 'משימה לכיתה ז׳3');
     await expect(s).toBeVisible();
@@ -1561,7 +1657,7 @@ test.describe('TEACHER-7: the class report, its CSV and its printout', () => {
     await expect(page.locator('.kpi').filter({ hasText: 'משימות שהושלמו' })).toContainText('1/2');
     await expect(page.locator('.kpi').filter({ hasText: 'נכון בניסיון ראשון' })).toContainText('70%');
     const mis = page.getByRole('region', { name: 'טעויות שחוזרות בטווח' });
-    await expect(mis).toContainText('מספרים מכוונים');
+    await expect(mis.locator('.t-list-main')).toHaveText(['מספרים מכוונים, מדרגה 1: חיבור וחיסור. התשובה יצאה עם הסימן ההפוך']);
     await expect(mis).toContainText('תלמיד אחד: דנה');
     await expect(page.getByText('בקובץ יש רק את השמות כפי שהתלמידים כתבו אותם, בלי תעודות זהות ובלי מספרים מזהים.', { exact: false })).toBeVisible();
     for (const b of [page.getByRole('button', { name: 'הורדת קובץ CSV (לאקסל)' }), page.getByRole('button', { name: 'הדפסה' })]) {
@@ -1583,6 +1679,7 @@ test.describe('TEACHER-7: the class report, its CSV and its printout', () => {
     expect(lines[0].endsWith(',חיבור וחיסור (עד 06/11),טעויות שחוזרות')).toBe(true);
     expect(lines[1].startsWith('דנה,3,24,75,31,05/11/2026,')).toBe(true);
     expect(lines[1]).toContain(',הושלם · שולט/ת,');
+    expect(lines[1].endsWith(',"התשובה יצאה עם הסימן ההפוך (מספרים מכוונים, מדרגה 1)"')).toBe(true); // the stair, quoted for its comma
     expect(lines[2].startsWith('יואב,1,6,50,7,03/11/2026,')).toBe(true);
     expect(lines.at(-1)).toBe('');
     expect(lines).toHaveLength(4);
@@ -1874,13 +1971,14 @@ test.describe('TEACHER-8: each student has a page, and a short ranked list', () 
     await group.getByRole('button', { name: 'יואב', exact: true }).click();
     const sheet = page.getByRole('dialog', { name: 'יואב' });
     await expect(sheet).toBeVisible();
-    expect(log.some((r) => r.path === '/api/teacher/students/s2' && r.headers['x-teacher-key'] === 'tkey-123')).toBe(true);
+    await expect.poll(() => log.some((r) => r.path === '/api/teacher/students/s2' && r.headers['x-teacher-key'] === 'tkey-123')).toBe(true);
     for (const h of ['השבוע', 'מדרגות', 'טעויות שחוזרות', 'משימות', 'בקשות עזרה', 'מבחנים']) await expect(sheet.getByRole('heading', { name: h, exact: true })).toBeVisible();
     await expect(sheet.getByText('הצטרף/ה ב־2.9 · תרגול אחרון היום')).toBeVisible();
     await expect(sheet.getByRole('img', { name: 'ב־14 הימים האחרונים: 6 ימים עם תרגול' })).toBeVisible();
     await expect(sheet.getByText('4 ימים עם תרגול · 16 תרגילים · 32 דקות')).toBeVisible();
     await expect(sheet.getByRole('img', { name: 'מדרגה 2 מתוך 5' }).first()).toBeVisible();
     await expect(sheet.getByText('4 פעמים בחודש האחרון')).toBeVisible();
+    await expect(sheet.locator('.ss-row-main').first()).toHaveText('מספרים מכוונים, מדרגה 1: חיבור וחיסור. התשובה יצאה עם הסימן ההפוך');
     await expect(sheet.locator('#ss-work').locator('..').getByText('אין עדיין')).toBeVisible();
     await expect(sheet.getByText('מבחן במספרים מכוונים')).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'איפוס קוד אישי' })).toBeVisible();

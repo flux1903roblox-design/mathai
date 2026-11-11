@@ -133,16 +133,31 @@ test('4a. the contact guard, both ways: links, www, emails and phone numbers are
   for (const ok of ['פתרו את 3 + 4', 'שלב 2', 'x = 3.5 ו־y = 2.25', '−12 + 7 = −5', 'המכנה הוא 12, המונה 7', 'בשאלה 1234 + 5678', 'נעבור על זה מחר בכיתה']) {
     assert.equal(hasContact(ok), false, ok);
   }
+  // the same number written another way is the same number (the review of the teacher lane): other separators, a
+  // letter between the groups, full-width and Arabic-Indic digits, a handle, an address spelled out, a spaced domain
+  for (const bad of ['050_123_4567', '050*123*4567', '050+123+4567', '050,123,45,67', '050ש123ש4567', '０５０１２３４５６７', '٠٥٠١٢٣٤٥٦٧',
+    '۰۵۰-۱۲۳-۴۵۶۷', '050\u200b123\u200b4567', 'dana at gmail dot com', 'dana [at] gmail', 'dana@gmail', 'תכתבי לי לאינסטגרם @dana_k12', 'instagram . com/dana',
+    'gmail (dot) com', 'ｗｗｗ．x．test', 'dana שטרודל gmail נקודה com']) {
+    assert.equal(hasContact(bad), true, bad);
+  }
+  // and maths still passes: operators with spaces around them, lists, dates, decimals and thousands
+  for (const ok of ['3 + 4 = 7', '(-3)·(-4)', '(-3)·(-4) = 12', '2.5 + 3.75 = 6.25', '125 · 8 = 1000', '0.25 + 0.75 = 1', 'שאלות 1, 2, 3, 4, 5, 6, 7',
+    'עד 12.11.2026', 'נתראה ב־1/9/26', 'מיליון זה 1,000,000', '3x + 2 = 11', '1/2 + 3/4 = 5/4', '-3 - (-8) = 5', '(-12) · (-25) = 300', 'נקודה A היא (3, 4)',
+    'look at the line', 'השיפוע הוא 2, ונקודת החיתוך היא 5']) {
+    assert.equal(hasContact(ok), false, ok);
+  }
   h = await setup();
   pin();
   const cls = await makeClass(h, { students: ['דנה'] });
   const [dana] = cls.students;
   const id = await ask(dana);
-  for (const bad of ['https://x.test', 'www.x.test', 'a@b.test', '050-123 4567']) await refused(await teacherSays(cls, id, bad), 400, 'reply_has_contact');
+  for (const bad of ['https://x.test', 'www.x.test', 'a@b.test', '050-123 4567', 'תתקשרי אליי 050_123_4567']) await refused(await teacherSays(cls, id, bad), 400, 'reply_has_contact');
   assert.equal((await teacherSays(cls, id, 'פתרו את 3 + 4')).status, 201);
-  for (const bad of ['https://x.test', 'www.x.test', 'a@b.test', '050-123 4567']) await refused(await studentSays(dana, id, { quick: 'still', body: bad }), 400, 'reply_has_contact');
+  for (const bad of ['https://x.test', 'www.x.test', 'a@b.test', '050-123 4567', 'המספר שלי ０５０１２３４５６７', 'תכתבי לי לאינסטגרם @dana_k12']) {
+    await refused(await studentSays(dana, id, { quick: 'still', body: bad }), 400, 'reply_has_contact');
+  }
   assert.equal((await studentSays(dana, id, { quick: 'still', body: 'שלב 2' })).status, 201);
-  assert.doesNotMatch(JSON.stringify(rows(h.env, 'SELECT body FROM help_messages')), /x\.test|@|4567/);
+  assert.doesNotMatch(JSON.stringify(rows(h.env, 'SELECT body FROM help_messages')), /x\.test|@|4567|５|dana/);
 });
 
 test('4. the dashboard\'s help rows carry their thread oldest first and count the student\'s unread messages', async () => {

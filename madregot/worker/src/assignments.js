@@ -36,6 +36,12 @@ export const ASSIGN = Object.freeze({
   aheadDays: 120,
   /** Work reports a student sends in a day (ai_usage work:s:<id>). */
   workPerDay: 200,
+  /**
+   * A check assignment is the app's mastery check: this many questions, and "passed" needs this many right
+   * (web/src/learn/mastery.ts MASTERY_N and MASTERY_NEED; assignments.test.js keeps them equal).
+   */
+  checkQuestions: 5,
+  checkNeed: 4,
 });
 const LIMIT = { create: 64 * KB, small: 4 * KB };
 /** Topics a teacher can assign: every stair topic of the app (the algebra lane's included), never 'other'. */
@@ -369,8 +375,13 @@ export async function workExam(id, req, env, cors) {
 
 /** Which result fields each kind reports. */
 const FIELDS = { stair: ['stage', 'passed'], check: ['right', 'asked', 'passed'], exam: ['right', 'asked', 'questions'] };
-/** A report checked against its assignment's kind: {state, stage, right, asked, passed, questions (JSON)}. */
-export function cleanWork(b, kind) {
+/**
+ * A report checked against its assignment: {state, stage, right, asked, passed, questions (JSON)}. Each kind reports
+ * only its own fields, and a finished result must be one the assignment can give: a class exam of `examCount`
+ * questions reports exactly that many, with a status for each; a check is a mastery check of ASSIGN.checkQuestions
+ * questions at most, and "passed" needs all of them asked and ASSIGN.checkNeed right.
+ */
+export function cleanWork(b, kind, { examCount = null } = {}) {
   const state = b.state;
   if (state !== 'started' && state !== 'done') throw badWork('state');
   const has = (k) => b[k] !== undefined && b[k] !== null;
@@ -394,6 +405,14 @@ export function cleanWork(b, kind) {
     });
     out.questions = JSON.stringify(clean);
   }
+  if (kind === 'exam' && state === 'done') {
+    if (out.asked !== examCount) throw badWork('asked');
+    if (!Array.isArray(b.questions) || b.questions.length !== examCount) throw badWork('questions');
+  }
+  if (kind === 'check') {
+    if (out.asked !== null && out.asked > ASSIGN.checkQuestions) throw badWork('asked');
+    if (out.passed === 1 && (out.asked !== ASSIGN.checkQuestions || out.right < ASSIGN.checkNeed)) throw badWork('passed');
+  }
   return out;
 }
 
@@ -408,7 +427,7 @@ export async function postWork(id, req, env, cors) {
   const s = await requireStudent(req, env);
   const b = await body(req, LIMIT.small);
   const row = await mineRow(env, s, id);
-  const w = cleanWork(b, row.kind);
+  const w = cleanWork(b, row.kind, { examCount: row.exam ? JSON.parse(row.exam).length : null });
   await limitOrThrow(env, `work:s:${s.id}`, ASSIGN.workPerDay, 429, 'slow_down');
   const now = nowIso(); const day = dayOf();
   const done = w.state === 'done';

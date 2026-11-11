@@ -6,6 +6,12 @@
 //   POST /api/teacher/class/rekey    (the owner's session, a fresh code) a new teacher key; the old one stops working
 // POST /api/classes binds a new class at once when it comes with a session (createClass in index.js, ownedClassStmts).
 // Nothing here stores or returns the email of anyone but the caller.
+//
+// A late bind: a class opened with the key flow and bound to an email later, by whoever holds its key (the review of the
+// teacher lane: a co-teacher who has the key can bind it by mistake). The app offers the bind only on the device that
+// opened the class; here, the dashboard tells every device that comes with the key that the class is now bound to an
+// email, and when (boundElsewhere, boundAt), and nobody can replace the key for LATE_BIND_HOLD_DAYS after a late bind,
+// so a mistaken bind is undone (npm run owner -- unbind-class) before anyone is locked out.
 import { HttpError, body, json, nowIso, randomToken, sha256, limitOrThrow } from './util.js';
 import { requireTeacher } from './entitle.js';
 import { requireAccount, requireRecentCode } from './account.js';
@@ -22,6 +28,33 @@ const all = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).all().then((r) =>
 const ownedBy = (env, accountId) => first(env, 'SELECT COUNT(*) AS n FROM class_owners WHERE account_id = ?', accountId).then((r) => Number(r?.n || 0));
 const ownerOf = (env, code) => first(env, 'SELECT account_id FROM class_owners WHERE class_code = ?', code);
 const UNDER_CAP = '(SELECT COUNT(*) FROM class_owners WHERE account_id = ?2) < ?4';
+/** Days after a late bind during which the key cannot be replaced (409 rekey_hold). */
+export const LATE_BIND_HOLD_DAYS = 7;
+
+/**
+ * The class's late bind, or null: { at } when it was bound to an email after it was opened. A class bound when it was
+ * made has bound_at equal to created_at (ownedClassStmts writes both from one clock reading).
+ */
+export async function lateBind(env, code) {
+  const row = await first(env, 'SELECT o.bound_at FROM class_owners o JOIN classes c ON c.code = o.class_code WHERE o.class_code = ? AND o.bound_at > c.created_at', code);
+  return row ? { at: row.bound_at } : null;
+}
+/** The end of a late bind's hold on the key (ms), or 0. */
+const holdUntil = (late) => (late ? Date.parse(late.at) + LATE_BIND_HOLD_DAYS * 864e5 : 0);
+/**
+ * What the dashboard says about a late bind. To a device that came with the key: that the class is bound to an email
+ * now, and since when (boundElsewhere, boundAt). To the bound account: from when it may replace the key (rekeyFrom,
+ * while the hold lasts), so the settings page does not ask for a code it cannot use.
+ */
+export async function bindingView(env, cls) {
+  const late = await lateBind(env, cls.code);
+  const until = holdUntil(late);
+  return {
+    boundElsewhere: cls.via === 'key' && !!late,
+    boundAt: cls.via === 'key' && late ? late.at : null,
+    rekeyFrom: cls.via === 'account' && Date.now() < until ? new Date(until).toISOString() : null,
+  };
+}
 
 /**
  * The statements that create a class bound to an account, as one batch: the class row and its owner row, each written
@@ -93,8 +126,9 @@ export async function bindClass(req, env, cors) {
 
 /**
  * POST /api/teacher/class/rekey {}: the owner (account session only, with a code entered in the last 10 minutes) makes a
- * new teacher key. The old key stops working everywhere; signing in with the email keeps working. The owner gets an
- * email (one per minute at most). Returns the new key, shown once.
+ * new teacher key; not within LATE_BIND_HOLD_DAYS of a late bind (409 rekey_hold {until}). The old key stops working
+ * everywhere; signing in with the email keeps working. The owner gets an email (one per minute at most). Returns the new
+ * key, shown once.
  */
 export async function rekeyClass(req, env, ctx, cors) {
   const a = await requireAccount(req, env);
@@ -102,6 +136,9 @@ export async function rekeyClass(req, env, ctx, cors) {
   const code = String(req.headers.get('X-Class-Code') || '').toUpperCase().slice(0, 12);
   const cls = code ? await first(env, 'SELECT c.code, c.name FROM classes c JOIN class_owners o ON o.class_code = c.code WHERE c.code = ? AND o.account_id = ?', code, a.id) : null;
   if (!cls) throw new HttpError(403, 'not_owner');
+  // a late bind holds the key for LATE_BIND_HOLD_DAYS: the teacher who opened the class keeps her way in meanwhile
+  const until = holdUntil(await lateBind(env, cls.code));
+  if (Date.now() < until) throw new HttpError(409, 'rekey_hold', undefined, { until: new Date(until).toISOString() });
   requireRecentCode(a);
   const teacherKey = randomToken(12);
   const now = nowIso();

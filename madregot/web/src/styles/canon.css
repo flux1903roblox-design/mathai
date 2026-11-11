@@ -959,6 +959,8 @@ a.set-row.t-set-year { justify-content: flex-start; gap: var(--s2); }
 .ss-list > li + li { border-top: 1px solid var(--rule); }
 .ss-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: var(--s2) 0; }
 .ss-row-main { overflow-wrap: anywhere; }
+/* a repeated mistake: its stair on a line of its own, then the student's words (TEACHER-16) */
+.t-mis-stair { display: block; }
 .ss-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 .ss-act { align-self: flex-start; margin-top: var(--s1); min-height: 44px; }
 .ss-level { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); min-height: 44px; padding: 6px 0; }

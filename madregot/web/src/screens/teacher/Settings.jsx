@@ -9,7 +9,8 @@ import { toast } from 'sonner';
 import { ArrowRight, Copy, Trash2, FileDown } from 'lucide-react';
 import { useApp } from '@/lib/store.js';
 import { useParent } from '@/lib/parent.js';
-import { teacherApi, renameClass, rekey, useEmailSignIn } from '@/lib/teacher.js';
+import { teacherApi, renameClass, rekey, useEmailSignIn, openedHere, boundElsewhere } from '@/lib/teacher.js';
+import { dateNum } from '@/lib/price.js';
 import { useAIStatus } from '@/lib/account.js';
 import { rememberBoard, boardOf } from '@/lib/teacherBoard.js';
 import { DEMO_COPY } from '@/lib/demo.js';
@@ -19,7 +20,7 @@ import EmailCodeForm from '@/components/account/EmailCodeForm.jsx';
 import ClassAICard from '@/components/teacher/ClassAICard.jsx';
 import LicenceCard from '@/components/teacher/LicenceCard.jsx';
 import { copy } from './common.jsx';
-import { useBind } from './ClassAccount.jsx';
+import { useBind, BoundElsewhere, BindFromKeyDevice } from './ClassAccount.jsx';
 import DeleteClassSheet, { useClassDeleted } from './DeleteClass.jsx';
 
 const GRADE = { 7: 'ז׳', 8: 'ח׳' };
@@ -79,7 +80,9 @@ function RekeySheet({ cls, email, open, onOpenChange }) {
   useEffect(() => { if (open) { setStep('ask'); setKey(''); setError(''); } }, [open]);
   const make = async () => {
     setError('');
-    try { const r = await rekey(cls); setKey(r.teacherKey); setStep('done'); } catch (e) { setError(e.message); }
+    try { const r = await rekey(cls); setKey(r.teacherKey); setStep('done'); } catch (e) {
+      setError(e.code === 'rekey_hold' && e.data?.until ? `אפשר ליצור מפתח מורה חדש מ־${dateNum(e.data.until)}. ${e.message}` : e.message);
+    }
   };
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title={step === 'done' ? 'מפתח מורה חדש' : 'ליצור מפתח מורה חדש?'}>
@@ -109,8 +112,12 @@ function RekeySheet({ cls, email, open, onOpenChange }) {
   );
 }
 
-/** הכניסה לכיתה: the email the class is bound to (or binding it), the teacher key, a new key. */
-function AccessSection({ cls, demo }) {
+/**
+ * הכניסה לכיתה: the email the class is bound to (or binding it), the teacher key, a new key. Binding is offered on the
+ * device that opened the class; another device that has the key asks first (BindFromKeyDevice); a class bound to an
+ * email from another device says so (BoundElsewhere). `board`: the dashboard's binding fields.
+ */
+function AccessSection({ cls, demo, board }) {
   const session = useParent((s) => s.session);
   const emailOn = useEmailSignIn();
   const bind = useBind(cls);
@@ -130,14 +137,15 @@ function AccessSection({ cls, demo }) {
       <div className="set-box">
         {cls.owned ? (
           <p className="t-set-line">{session?.email ? <>מקושרת ל־<bdi dir="ltr">{session.email}</bdi>.</> : 'הכיתה מקושרת למייל.'}</p>
-        ) : (
-          <div className="t-set-bind">
-            <p className="t-set-line">הכיתה עוד לא מקושרת למייל. אם המכשיר הזה ילך לאיבוד, לא תוכלו לחזור אליה.</p>
-            {bind.error && <p className="form-error" role="alert">{bind.error}</p>}
-            {emailOn && cls.key && <Button variant="secondary" className="btn-sm" onClick={bind.start} disabled={bind.busy}>{bind.busy ? 'מקשרים…' : 'לקשר למייל שלי'}</Button>}
-            {bind.sheet}
-          </div>
-        )}
+        ) : boundElsewhere(cls, board) ? <BoundElsewhere cls={cls} board={board} />
+          : openedHere(cls) ? (
+            <div className="t-set-bind">
+              <p className="t-set-line">הכיתה עוד לא מקושרת למייל. אם המכשיר הזה ילך לאיבוד, לא תוכלו לחזור אליה.</p>
+              {bind.error && <p className="form-error" role="alert">{bind.error}</p>}
+              {emailOn && cls.key && <Button variant="secondary" className="btn-sm" onClick={bind.start} disabled={bind.busy}>{bind.busy ? 'מקשרים…' : 'לקשר למייל שלי'}</Button>}
+              {bind.sheet}
+            </div>
+          ) : <BindFromKeyDevice cls={cls} emailOn={emailOn} />}
         <div className="field">
           <span className="field-label">מפתח מורה (למורה נוסף או למכשיר בלי מייל)</span>
           {cls.key ? (
@@ -146,12 +154,15 @@ function AccessSection({ cls, demo }) {
             </button>
           ) : <p className="muted t-set-line">המפתח לא שמור במכשיר הזה.</p>}
         </div>
-        {cls.owned && session?.email && (
+        {cls.owned && session?.email && (board?.rekeyFrom && Date.now() < Date.parse(board.rekeyFrom) ? (
+          // a late bind's first week (teacherAccount.js): the key stays as it is, so the step-up is not asked for
+          <p className="t-set-line muted" id="ts-rekey-hold">אפשר ליצור מפתח מורה חדש מ־{dateNum(board.rekeyFrom)}. בשבוע הראשון אחרי הקישור למייל המפתח נשאר כמו שהוא, כדי שאפשר יהיה לתקן קישור שנעשה בטעות.</p>
+        ) : (
           <>
             <Button variant="secondary" className="btn-sm t-set-act" onClick={() => setRekeying(true)}>החלפת מפתח המורה</Button>
             <RekeySheet cls={cls} email={session.email} open={rekeying} onOpenChange={setRekeying} />
           </>
-        )}
+        ))}
       </div>
     </section>
   );
@@ -196,6 +207,7 @@ export default function ClassSettings() {
   const [locked, setLocked] = useState(null);
   const [digest, setDigest] = useState(null);
   const [aiPolicy, setAiPolicy] = useState(null);
+  const [binding, setBinding] = useState(null); // the dashboard's boundElsewhere, boundAt and rekeyFrom
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const gone = useClassDeleted();
@@ -207,17 +219,23 @@ export default function ClassSettings() {
       const d = await teacherApi('/api/teacher/dashboard', {}, cls);
       rememberBoard(cls.code, d);
       setLocked(!!d.joinLocked); setDigest(typeof d.helpDigest === 'boolean' ? d.helpDigest : null); setAiPolicy(d.aiPolicy || null); setError('');
+      setBinding({ boundElsewhere: !!d.boundElsewhere, boundAt: d.boundAt || null, rekeyFrom: d.rekeyFrom || null });
     } catch (e) { setError(e.message); }
   }, [cls]);
-  useEffect(() => { setLocked(null); setDigest(null); setAiPolicy(null); load(); }, [load]);
+  useEffect(() => { setLocked(null); setDigest(null); setAiPolicy(null); setBinding(null); load(); }, [load]);
   // a new policy: this page, and the board's copy the other teacher screens read (the assistant's note)
   const onPolicy = (p) => { setAiPolicy(p); const b = boardOf(cls.code); if (b) rememberBoard(cls.code, { ...b, aiPolicy: p }); };
   // "על רישיון כיתה" (the tutor's sheet) and the line on "מחר" open this page at the licence
   useEffect(() => {
+    // the board's line about a class bound from another device opens the page at the way in
+    if (nav?.focus === 'access' && binding) {
+      const t = setTimeout(() => document.getElementById('ts-access')?.scrollIntoView({ block: 'start' }), 200);
+      return () => clearTimeout(t);
+    }
     if (nav?.focus !== 'licence' || !aiPolicy) return undefined;
     const t = setTimeout(() => document.getElementById('ts-licence')?.scrollIntoView({ block: 'start' }), 200);
     return () => clearTimeout(t);
-  }, [nav, aiPolicy]);
+  }, [nav, aiPolicy, binding]);
   const lock = async (on) => {
     try {
       const r = await teacherApi('/api/teacher/class/lock', { method: 'POST', body: { locked: on } }, cls);
@@ -235,7 +253,7 @@ export default function ClassSettings() {
       </header>
       {error && <p className="form-error t-set-error" role="alert">{error}</p>}
       <ClassSection cls={cls} locked={locked} onLock={lock} />
-      <AccessSection cls={cls} demo={demo} />
+      <AccessSection cls={cls} demo={demo} board={binding} />
       <ClassAICard cls={cls} policy={aiPolicy} onPolicy={onPolicy} />
       {paywall && aiPolicy && (
         <section className="section set-group t-set" aria-labelledby="ts-licence">

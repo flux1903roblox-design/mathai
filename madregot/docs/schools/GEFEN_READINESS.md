@@ -42,7 +42,7 @@
 | אישור פדגוגי (אגף ספרי לימוד) | א | בעבודה | מיפוי מול תוכנית הלימודים (נתיב התוכן), "השיעורים" בלוח, מדריך למורה | הגשה ותשלום |
 | בדיקה טכנולוגית | א | בעבודה | כותרות אבטחה כבר קיימות (`web/public/_headers`, נבדקות ב־`web/src/headers.test.js`), נגישות (TRUST-2), CI (DURABLE-12) | תשלום לבודק של המשרד |
 | אבטחת מידע: בדיקת חדירות ובדיקת חוסן של הספק | א | בעלים | הגבלות קצב, סודות מגובבים, אין IP גולמי | הזמנת בודק חיצוני |
-| אבטחת מידע: בדיקת עומסים | א | בעבודה | `worker/scripts/loadtest.mjs` | הרצה על סביבת בדיקה ותיעוד כאן |
+| אבטחת מידע: בדיקת עומסים | א | בעבודה | `worker/scripts/loadtest.mjs`, וסביבת בדיקה `[env.staging]` ב־`worker/wrangler.toml` | פריסת סביבת הבדיקה, הרצה ותיעוד כאן (§4 שלב 5) |
 | פרטיות: מדיניות, מפת מידע, שמירה ומחיקה | א, ב, ג | בעבודה | TRUST-1, TRUST-2, TRUST-7, TEACHER-9 | בדיקת עורך דין (TRUST-13) |
 | שאלון סיכוני פרטיות של המשרד | א | בעלים | מפת המידע (TRUST-1) | מילוי והגשה (TRUST-14) |
 | מסד הנתונים באיחוד האירופי | א | בעלים | TRUST-15 | יצירת מסד הנתונים באזור EU |
@@ -62,7 +62,10 @@
 2. הפיילוט (TEACHER-13). אוספים את פלט `pilot-report` ומכתבי המלצה על נייר של בית הספר.
 3. אישור פדגוגי: פונים לאגף לאישור ספרי לימוד (טלפון המופיע בנוהל: 02-5603004), ומגישים לפי חוזר מנכ"ל 6.3-16.
 4. אישור טכנולוגי ואבטחה: מגישים את המוצר לבודק מטעם מינהל תקשוב, טכנולוגיה ומערכות מידע (לפי הנוהל), עם הרשאות כניסה לסביבת בדיקה, ומשלמים לפי הפריסה.
-5. הרצת `node worker/scripts/loadtest.mjs <כתובת סביבת הבדיקה>`, והעתקת התוצאות לטבלה למעלה.
+5. בדיקת העומסים, על סביבת הבדיקה בלבד (Worker נפרד בשם `madregot-api-staging` עם מסד נתונים משלו, `[env.staging]` ב־`worker/wrangler.toml`):
+   - פעם אחת: `cd madregot/worker && npx wrangler d1 create madregot-staging`, הדבקת ה־id שהודפס ב־`database_id` של `[[env.staging.d1_databases]]`, ואז `npm run staging:migrate`, `npx wrangler secret put AUTH_SECRET --env staging` ו־`npx wrangler secret put IP_HASH_SECRET --env staging`.
+   - בכל פעם: `cd madregot/worker && npx wrangler deploy --env staging` (או `npm run staging:deploy`), ואז `node scripts/loadtest.mjs https://madregot-api-staging.<החשבון>.workers.dev --classes 10 --minutes 5`, והעתקת התוצאות לטבלה למעלה.
+   - הסקריפט מסרב לרוץ על ה־Worker של הייצור (`madregot-api.*.workers.dev` וכתובת `PUBLIC_URL`), ולפני שהוא שולח משהו הוא בודק ש־`/api/health` עונה `"staging": true`, מה שרק סביבת הבדיקה עונה.
 6. החל מפברואר 2027: מעקב באתר מינהל הרכש (mr.gov.il) ובלוח ההודעות לספקים (sapakim.education.gov.il/tech/messages/) אחרי פתיחת מכרז התוכן הדיגיטלי, והגשה עם האישור.
 7. כשמגיעה הזמנה מגפ"ן: `cd madregot/worker && npm run owner -- grant-school --classes <K> --seats <N> --until <YYYY-MM-DD> --invoice <חשבונית> --gefen <מספר הזמנה>`, ושליחת קוד הרישיון שהודפס לבית הספר.
 

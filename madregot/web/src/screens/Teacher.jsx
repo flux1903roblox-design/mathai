@@ -15,7 +15,7 @@ import { Stat } from '@/components/ds.jsx';
 import { EmptyState, ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import { GradeSwitch } from '@/components/GradeSwitch.jsx';
 import { copy, pct } from './teacher/common.jsx';
-import { FreshClass, BindCard, SignInAgain, MoreClasses } from './teacher/ClassAccount.jsx';
+import { FreshClass, BindCard, SignInAgain, MoreClasses, BoundElsewhere } from './teacher/ClassAccount.jsx';
 import TomorrowTab from './teacher/TomorrowTab.jsx';
 import WorkTab from './teacher/WorkTab.jsx';
 import StudentsTab from './teacher/StudentsTab.jsx';
@@ -43,7 +43,7 @@ function AddClass({ open, onClose }) {
       // signed in: the new class is bound to the email at once (owned), like the first one
       const session = useParent.getState().session;
       const r = session ? await accountCall('/api/classes', { method: 'POST', body }) : await api('/api/classes', { method: 'POST', body });
-      const cls = { code: r.code, key: r.owned && session?.shared ? null : r.teacherKey, className: r.className, grade: r.grade, fresh: true, ...(r.owned ? { owned: true } : {}) };
+      const cls = { code: r.code, key: r.owned && session?.shared ? null : r.teacherKey, className: r.className, grade: r.grade, fresh: true, createdHere: true, ...(r.owned ? { owned: true } : {}) };
       setProfile({ ...profile, classes: [...profile.classes, cls], active: cls.code, grade: cls.grade }); setF(NEW_CLASS); onClose();
     } catch (err) { toast.error(err.message); } finally { setBusy(false); }
   };
@@ -209,7 +209,8 @@ export default function Teacher() {
               ))}
             </div>
 
-            {tab === 'tomorrow' && emailOn && !cls.fresh && offerBind(cls) && <BindCard cls={cls} />}
+            {tab === 'tomorrow' && emailOn && !cls.fresh && offerBind(cls, undefined, data) && <BindCard cls={cls} />}
+            {tab === 'tomorrow' && !demo && <BoundElsewhere cls={cls} board={data} where="board" />}
 
             {students.length === 0 && (
               <EmptyState mood="idle" title="עוד אין תלמידים בכיתה">

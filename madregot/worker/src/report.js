@@ -53,6 +53,9 @@ export function reportRange(params, today = dayOf()) {
 const IN_RANGE = 'a.class_code = ?1 AND a.due_on >= ?2 AND a.starts_on <= ?3';
 const all = async (env, sql, ...a) => (await env.DB.prepare(sql).bind(...a).all()).results || [];
 const num = (v) => Number(v) || 0;
+const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+/** Mistake rows in a fixed order: most answers first, then by topic, stair and mistake. */
+const byMistake = (a, b) => b.n - a.n || cmp(a.topic, b.topic) || a.level - b.level || cmp(a.cat, b.cat);
 
 /** GET /api/teacher/report?from&to → the report (see the top of this file). */
 export async function classReport(req, env, cors) {
@@ -74,16 +77,14 @@ export async function classReport(req, env, cors) {
     // each student's mistakes in the range, by stair (the stair names the words the student saw)
     all(env, `SELECT a.student_id, a.topic, a.level, a.cat, COUNT(*) AS n FROM attempts a JOIN students s ON s.id = a.student_id
       WHERE s.class_code = ? AND a.day BETWEEN ? AND ? AND a.cat IS NOT NULL GROUP BY a.student_id, a.topic, a.level, a.cat`, code, from, to),
-    // the class's repeated mistakes, as the dashboard has them: most students first, with the stair it happened on most
-    all(env, `SELECT a.topic, a.cat, COUNT(*) AS n, COUNT(DISTINCT a.student_id) AS students,
-        (SELECT a2.level FROM attempts a2 JOIN students s2 ON s2.id = a2.student_id
-          WHERE s2.class_code = ?1 AND a2.day BETWEEN ?2 AND ?3 AND a2.topic = a.topic AND a2.cat = a.cat
-          GROUP BY a2.level ORDER BY COUNT(*) DESC, a2.level LIMIT 1) AS level
+    // the class's repeated mistakes, as the dashboard has them: one row per stair and mistake (TEACHER-16), most
+    // students first
+    all(env, `SELECT a.topic, a.level, a.cat, COUNT(*) AS n, COUNT(DISTINCT a.student_id) AS students
       FROM attempts a JOIN students s ON s.id = a.student_id
-      WHERE s.class_code = ?1 AND a.day BETWEEN ?2 AND ?3 AND a.cat IS NOT NULL GROUP BY a.topic, a.cat
-      ORDER BY students DESC, n DESC LIMIT ${REPORT.mistakes}`, code, from, to),
-    all(env, `SELECT DISTINCT a.topic, a.cat, s.name FROM attempts a JOIN students s ON s.id = a.student_id
-      WHERE s.class_code = ? AND a.day BETWEEN ? AND ? AND a.cat IS NOT NULL ORDER BY s.name`, code, from, to),
+      WHERE s.class_code = ? AND a.day BETWEEN ? AND ? AND a.cat IS NOT NULL GROUP BY a.topic, a.level, a.cat
+      ORDER BY students DESC, n DESC, a.topic, a.level, a.cat LIMIT ${REPORT.mistakes}`, code, from, to),
+    all(env, `SELECT DISTINCT a.topic, a.level, a.cat, s.id, s.name FROM attempts a JOIN students s ON s.id = a.student_id
+      WHERE s.class_code = ? AND a.day BETWEEN ? AND ? AND a.cat IS NOT NULL ORDER BY s.name, s.id`, code, from, to),
     all(env, `SELECT a.id, a.kind, a.skill, a.title, a.for_all, a.due_on FROM assignments a WHERE ${IN_RANGE}
       ORDER BY a.due_on, a.created_at, a.id LIMIT ${REPORT.assignments}`, code, from, to),
     all(env, `SELECT w.assignment_id, w.student_id, w.state, w.stage, w.right_n, w.asked, w.passed, w.tries, w.done_day
@@ -96,16 +97,10 @@ export async function classReport(req, env, cors) {
   const range = by(rangeRows); const last = by(lastRows);
   const levels = {};
   for (const r of levelRows) (levels[r.student_id] ||= {})[r.topic] = { level: r.level, max: r.max_level };
-  // a student's mistakes: one row per topic and mistake, at the stair it happened on most (a tie: the lower one)
+  // a student's mistakes: one row per stair and mistake (TEACHER-16: the words the student saw on that stair)
   const mine = {};
-  for (const r of studentCats) {
-    const m = ((mine[r.student_id] ||= {})[`${r.topic}\u0000${r.cat}`] ||= { topic: r.topic, cat: r.cat, level: r.level, n: 0, top: 0 });
-    m.n += num(r.n);
-    if (num(r.n) > m.top || (num(r.n) === m.top && r.level < m.level)) { m.top = num(r.n); m.level = r.level; }
-  }
-  const topMistakes = (sid) => Object.values(mine[sid] || {})
-    .sort((a, b) => b.n - a.n || (a.topic < b.topic ? -1 : a.topic > b.topic ? 1 : 0) || (a.cat < b.cat ? -1 : a.cat > b.cat ? 1 : 0))
-    .slice(0, REPORT.studentMistakes).map(({ topic, cat, level, n }) => ({ topic, cat, level, n }));
+  for (const r of studentCats) (mine[r.student_id] ||= []).push({ topic: r.topic, cat: r.cat, level: Number(r.level), n: num(r.n) });
+  const topMistakes = (sid) => (mine[sid] || []).sort(byMistake).slice(0, REPORT.studentMistakes);
 
   const row = Object.fromEntries(students.map((s, i) => [s.id, i]));
   const done = {};
@@ -144,7 +139,7 @@ export async function classReport(req, env, cors) {
     }),
     mistakes: catRows.map((r) => ({
       topic: r.topic, cat: r.cat, level: r.level == null ? null : Number(r.level), n: num(r.n), students: num(r.students),
-      names: catNames.filter((c) => c.topic === r.topic && c.cat === r.cat).map((c) => c.name),
+      names: catNames.filter((c) => c.topic === r.topic && c.level === r.level && c.cat === r.cat).map((c) => c.name),
     })),
   }, 200, cors);
 }
@@ -169,8 +164,8 @@ export const DETAIL = Object.freeze({
  *   { student: { id, name, joinedOn, lastPractice, pinReset, aiOff },   aiOff: the teacher turned the AI off for them (TRUST-11)
  *     days14: [{ day, n, first, minutes }]          the last 14 Jerusalem days, oldest first, a day with no practice as zeros
  *     levels: { [topic]: { level, max } },
- *     mistakes: [{ topic, cat, level, n, lastAt }]   the last 30 days, most frequent first, at most 8; level: the stair it
- *                                                   happened on most (a tie: the lower one)
+ *     mistakes: [{ topic, cat, level, n, lastAt }]   the last 30 days, one row per stair and mistake (TEACHER-16), most
+ *                                                   frequent first, at most 8
  *     work: [{ assignmentId, title, kind, dueOn, state, stage, right, asked, passed, late }]   given to the student, due
  *                                                   in the last 60 days or later; late as in the class report
  *     help: [{ id, topic, question, createdAt, status }]   the last 30 days, newest first (status as the student sees it)
@@ -212,17 +207,10 @@ export async function studentDetail(id, req, env, cors) {
     return { day, n: num(r?.n), first: num(r?.first), minutes: Math.round(num(r?.secs) / 60) };
   });
   const levels = Object.fromEntries(levelRows.map((r) => [r.topic, { level: r.level, max: r.max_level }]));
-  // one row per topic and mistake, at the stair it happened on most (a tie: the lower one), with the latest time
-  const cats = {};
-  for (const r of catRows) {
-    const m = (cats[`${r.topic}\u0000${r.cat}`] ||= { topic: r.topic, cat: r.cat, level: r.level, n: 0, top: 0, lastAt: r.last_at });
-    m.n += num(r.n);
-    if (num(r.n) > m.top || (num(r.n) === m.top && r.level < m.level)) { m.top = num(r.n); m.level = r.level; }
-    if (r.last_at > m.lastAt) m.lastAt = r.last_at;
-  }
-  const mistakes = Object.values(cats)
-    .sort((a, b) => b.n - a.n || (a.lastAt < b.lastAt ? 1 : a.lastAt > b.lastAt ? -1 : 0) || (a.topic < b.topic ? -1 : a.topic > b.topic ? 1 : 0))
-    .slice(0, DETAIL.mistakes).map(({ topic, cat, level, n, lastAt }) => ({ topic, cat, level: Number(level), n, lastAt }));
+  // one row per stair and mistake (TEACHER-16), with its latest time: most frequent first, then the most recent
+  const mistakes = catRows.map((r) => ({ topic: r.topic, cat: r.cat, level: Number(r.level), n: num(r.n), lastAt: r.last_at }))
+    .sort((a, b) => b.n - a.n || (a.lastAt < b.lastAt ? 1 : a.lastAt > b.lastAt ? -1 : 0) || byMistake(a, b))
+    .slice(0, DETAIL.mistakes);
   const parse = (v) => { try { return JSON.parse(v || '[]'); } catch { return []; } };
   const exams = [
     ...examRows.map((e) => ({ id: String(e.id), title: e.title, correct: num(e.correct), total: num(e.total), at: e.created_at, questions: parse(e.questions) })),

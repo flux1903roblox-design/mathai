@@ -103,3 +103,51 @@ database_name = "madregot"
 database_id = "REPLACE_WITH_DATABASE_ID"
 # Real databases change only through these migrations (npm run db:migrate); schema.sql is the reference.
 migrations_dir = "migrations"
+
+# ---- staging: a second Worker with its own database, for the load test of the Ministry catalogue's technical check
+# (scripts/loadtest.mjs refuses any Worker whose GET /api/health does not say staging: true) and for the checker's test
+# account. Wrangler does not carry [vars] or the database into an environment, so both are written out here. Once:
+#   npx wrangler d1 create madregot-staging             (paste the id it prints into database_id below)
+#   npm run staging:migrate
+#   npx wrangler secret put AUTH_SECRET --env staging     and   npx wrangler secret put IP_HASH_SECRET --env staging
+# Then each time: npm run staging:deploy   (npx wrangler deploy --env staging)
+# No AI key, no email and no payments on staging: the AI, sign-in codes and checkout stay off there.
+[env.staging]
+name = "madregot-api-staging"
+
+[env.staging.vars]
+STAGING = "true"
+ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+PUBLIC_URL = ""
+AI_PAYWALL = "off"
+BILLING_START = ""
+LEGACY_CLASS_AI_UNTIL = ""
+AI_DAILY_LIMIT = "40"
+TEACHER_DAILY_LIMIT = "200"
+SOLO_DAILY_LIMIT = "20"
+ALLOW_SOLO_AI = "false"
+FREE_DAILY_LIMIT = "2"
+FREE_NET_DAILY = "80"
+FREE_CLASS_DAILY = "80"
+FREE_GLOBAL_DAILY = "3000"
+OWNER_DAILY_SUMMARY = "false"
+PRICE_FAMILY_MONTH_AGOROT = "2990"
+PRICE_FAMILY_YEAR_AGOROT = "24900"
+PRICE_CLASS_SEAT_YEAR_AGOROT = "4900"
+VAT_MODE = "included"
+TERMS_VERSION = "2026-11"
+BILLING_PROVIDER = "manual"
+BILLING_MODE = "live"
+BILLING_CHECKOUT_HOSTS = ""
+MOE_AI_APPROVAL = "none"
+MOE_AI_FROM_GRADE = "7"
+FREE_DEVICE_MINT = "off"
+MAIL_DAILY_CAP = "3000"
+VERIFY_FAIL_NET_DAILY = "30"
+EMAIL_FROM = ""
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "madregot-staging"
+database_id = "REPLACE_WITH_STAGING_DATABASE_ID"
+migrations_dir = "migrations"

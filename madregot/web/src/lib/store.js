@@ -43,7 +43,7 @@ const safeStorage = createJSONStorage(() => {
 
 const empty = {
   // { role: 'student', name, grade, classCode?, className?, teacherName?, token?, studentId? }
-  // | { role: 'teacher', name, grade, classes: [{ code, key: string|null, className, grade, owned?: boolean, fresh?: boolean, bindLater?: 'YYYY-MM-DD', pilot?: {...} }], active, demo?: true }
+  // | { role: 'teacher', name, grade, classes: [{ code, key: string|null, className, grade, owned?: boolean, fresh?: boolean, createdHere?: boolean, bindLater?: 'YYYY-MM-DD', pilot?: {...} }], active, demo?: true }
   // A teacher's email is never kept here: it is read from the signed-in session (lib/parent.js).
   profile: null,
   progress: {}, // topicId -> { level, max }

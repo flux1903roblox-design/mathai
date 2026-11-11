@@ -219,3 +219,17 @@ test('list --gefen shows the classes of Gefen orders; list --gefen <ref> one ord
   assert.deepEqual(rows(env, build('list', { gefen: '123' }, fixed).sql), []);
   assert.equal(rows(env, build('list', {}, fixed).sql).length, 2);
 });
+
+test('unbind-class: a mistaken bind is undone by support; the class keeps opening with its key, and the audit row says so', () => {
+  const env = withClass();
+  env.DB.raw.prepare("INSERT INTO accounts (id, email, created_at) VALUES ('acc1', 'coteacher@example.test', ?)").run(NOW);
+  env.DB.raw.prepare('INSERT INTO class_owners (class_code, account_id, bound_at) VALUES (?, ?, ?)').run('ABC234', 'acc1', NOW);
+  const b = build('unbind-class', { class: 'abc234' }, fixed);
+  assert.equal(b.readOnly, false);
+  run(env, b.sql);
+  assert.equal(rows(env, 'SELECT * FROM class_owners').length, 0);
+  assert.equal(rows(env, 'SELECT * FROM classes').length, 1, 'the class stays');
+  assert.deepEqual({ ...one(env, "SELECT actor, action, target, detail FROM audit_log WHERE action = 'class.unbind'") },
+    { actor: 'owner:cli', action: 'class.unbind', target: 'class:ABC234', detail: '{"by":"owner"}' });
+  assert.throws(() => build('unbind-class', { class: 'nope' }, fixed), InputError);
+});

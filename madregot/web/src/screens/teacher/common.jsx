@@ -1,6 +1,8 @@
 // Small helpers the teacher's board and its tabs share.
 import { toast } from 'sonner';
 import { TriangleAlert, CircleCheck, CircleAlert } from 'lucide-react';
+import { MathText } from '@/components/MathText.jsx';
+import { mistakeText, stairName } from '@/lib/teacherText.js';
 
 export const fmtDay = (iso) => {
   if (!iso) return 'אף פעם';
@@ -28,4 +30,18 @@ export function Rate({ value }) {
 export function StudentName({ id, name, onOpen, className }) {
   if (!id || !onOpen) return <b className={className}>{name}</b>;
   return <button type="button" className={`link-btn t-name${className ? ` ${className}` : ''}`} onClick={() => onOpen({ id, name })}>{name}</button>;
+}
+
+/**
+ * A repeated mistake as the teacher reads it (TEACHER-16): the stair on its own line, then the words the student saw on
+ * that stair. A screen reader hears the stair, a pause, then the words.
+ */
+export function MistakeWords({ topic, level, cat }) {
+  return (
+    <>
+      <b className="t-mis-stair"><MathText text={stairName(topic, level)} /></b>
+      <span className="visually-hidden">. </span>
+      <MathText text={mistakeText(topic, level, cat)} />
+    </>
+  );
 }

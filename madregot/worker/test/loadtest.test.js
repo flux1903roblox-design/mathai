@@ -5,7 +5,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { main, parse, plan, percentile, summarize, USAGE } from '../scripts/loadtest.mjs';
+import { readFileSync } from 'node:fs';
+import { setup } from './helpers.js';
+import { main, parse, plan, percentile, summarize, workerName, stagingName, USAGE } from '../scripts/loadtest.mjs';
 
 const SCRIPT = fileURLToPath(new URL('../scripts/loadtest.mjs', import.meta.url));
 const STAGING = 'https://staging.example.test';
@@ -42,6 +44,54 @@ test('it needs a staging address, and refuses production and bad options', () =>
   assert.match(proc.stderr, /the staging address is required/);
 });
 
+test('the production Worker\'s own workers.dev address is refused by name, with or without PUBLIC_URL', () => {
+  const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+  assert.equal(workerName(toml), 'madregot-api');
+  for (const url of ['https://madregot-api.owner.workers.dev', 'https://MADREGOT-API.someone.workers.dev/', 'https://madregot-api.x.workers.dev/api']) {
+    assert.throws(() => parse([url, '--dry-run'], {}, toml), /refused: .* is the production Worker/, url);
+  }
+  const proc = spawnSync(process.execPath, [SCRIPT, 'https://madregot-api.owner.workers.dev', '--dry-run'], { encoding: 'utf8', env: { PATH: process.env.PATH }, timeout: 20_000 });
+  assert.equal(proc.status, 1);
+  assert.match(proc.stderr, /production Worker/);
+  assert.doesNotMatch(proc.stdout, /Load test plan/, 'no plan is printed for production');
+  // the staging Worker of wrangler.toml [env.staging] is a different name, and is allowed
+  assert.equal(stagingName(toml), 'madregot-api-staging');
+  assert.equal(parse(['https://madregot-api-staging.owner.workers.dev', '--dry-run'], {}, toml).url, 'https://madregot-api-staging.owner.workers.dev');
+});
+
+test('a real run first asks /api/health and goes on only when the Worker says it is staging (STAGING = "true")', async () => {
+  const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+  const seen = [];
+  const health = (body) => async (url) => { seen.push(url); return { ok: true, status: 200, json: async () => body }; };
+  const io = (f) => ({ fetch: f, log: () => {}, now: () => 0, wait: async () => {}, random: () => 0, env: {}, toml });
+  const args = ['https://test-copy.example.test', '--classes', '1', '--students', '1', '--minutes', '0.01'];
+  await assert.rejects(main(args, io(health({ ok: true }))), /not a staging Worker/);
+  await assert.rejects(main(args, io(health({ ok: true, staging: false }))), /not a staging Worker/);
+  await assert.rejects(main(args, io(async () => { throw new Error('offline'); })), /could not ask .*\/api\/health/);
+  assert.deepEqual(seen, ['https://test-copy.example.test/api/health', 'https://test-copy.example.test/api/health'], 'nothing but the health check was sent');
+  // the staging Worker answers staging: true (wrangler.toml [env.staging.vars] STAGING = "true"), and the run goes on
+  assert.match(toml, /\[env\.staging\.vars\][^[]*STAGING = "true"/);
+  const calls = [];
+  const ok = async (url, init = {}) => {
+    calls.push(url);
+    const p = new URL(url).pathname;
+    const body = p === '/api/health' ? { ok: true, staging: true } : p === '/api/classes' ? { code: 'LT1', teacherKey: 'k' } : p.endsWith('/join') ? { token: 't' } : {};
+    return { ok: true, status: 200, json: async () => body };
+  };
+  await main(args, io(ok));
+  assert.equal(calls[0], 'https://test-copy.example.test/api/health');
+  assert.ok(calls.some((u) => u.endsWith('/api/classes')));
+  // the Worker itself: staging: true only with STAGING = "true"
+  for (const [over, want] of [[{ STAGING: 'true' }, true], [{}, false], [{ STAGING: 'yes' }, false]]) {
+    const w = await setup(over);
+    try { assert.equal((await (await w.call('GET', '/api/health')).json()).staging, want); } finally { w.done(); }
+  }
+  // a Worker on this computer (wrangler dev) needs no marker
+  const local = [];
+  await main(['http://localhost:8787', '--classes', '1', '--students', '1', '--minutes', '0.01'], io(async (url) => { local.push(url); return { ok: true, status: 200, json: async () => ({}) }; }));
+  assert.ok(!local.some((u) => u.endsWith('/api/health')));
+});
+
 test('a short run against a fake Worker: the pool\'s limit, p50/p95, the error rate, and the classes deleted', async () => {
   const calls = []; let inflight = 0; let most = 0; let clock = 0; let n = 0;
   const fake = async (url, init = {}) => {
@@ -52,6 +102,7 @@ test('a short run against a fake Worker: the pool\'s limit, p50/p95, the error r
     clock += 10;
     const p = new URL(url).pathname;
     const reply = (status, body) => ({ ok: status < 400, status, json: async () => body });
+    if (p === '/api/health') return reply(200, { ok: true, staging: true });
     if (p === '/api/classes') return reply(200, { code: `LT${calls.length}`, teacherKey: `key-${calls.length}` });
     if (p.endsWith('/join')) return reply(200, { token: `tok-${calls.length}` });
     if (p === '/api/progress') { n++; return n % 10 === 0 ? reply(500, { error: 'boom' }) : reply(200, { saved: 5 }); }

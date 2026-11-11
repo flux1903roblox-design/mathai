@@ -16,6 +16,7 @@ import { requireTeacher, requireStudent } from './entitle.js';
 import { requireAccount } from './account.js';
 import { teacherDetail, classSeenStmt } from './licence.js';
 import { cleanNote } from './assignments.js';
+import { hasContact } from '../../shared/contact.js';
 
 export const HELP = Object.freeze({
   /** Messages per side on one request. */
@@ -39,20 +40,10 @@ const first = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
 const all = async (env, sql, ...a) => (await env.DB.prepare(sql).bind(...a).all()).results || [];
 
 // ---------------------------------------------------------------- the contact guard
-// Top-level domains a link to the outside would use. A word with a dot and one of these after it ("abc.com",
-// "x.co.il") counts as a link; maths ("3.5", "x.y") does not.
-const TLDS = 'com|net|org|info|biz|io|co|il|me|app|dev|ai|ly|gl|gg|tv|to|cc|us|uk|de|fr|ru|edu|gov|link|site|online|xyz|page|club|live|chat|social|test';
-const LINK = new RegExp(`https?:\\/\\/|www\\.|[\\p{L}\\p{N}_-]\\.(${TLDS})(?![\\p{L}\\p{N}])`, 'iu');
-const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
-/**
- * The contact guard, both directions: a link (http(s)://, www., or a word with a dot and a known top-level domain), an
- * email address, or 7 digits or more in a row once spaces, dashes, dots and brackets are taken out (a phone number).
- */
-export function hasContact(text) {
-  const s = String(text ?? '');
-  if (LINK.test(s) || EMAIL.test(s)) return true;
-  return /\d{7,}/.test(s.replace(/[\s.\-–—()/]+/g, ''));
-}
+// shared/contact.js, the same function the demo class uses: a link, an email address (also spelled out), a handle or a
+// phone number however it is written (other separators, full-width or Arabic-Indic digits); maths passes.
+export { hasContact };
+
 /**
  * A message as it is kept: trimmed, without control characters (line breaks stay), 1..max characters; else 400
  * bad_reply. With a link, an email address or a phone number: 400 reply_has_contact.

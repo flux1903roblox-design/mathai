@@ -15,9 +15,13 @@
 //   --keep         keep the test classes afterwards (by default each is deleted with its teacher key at the end)
 //   --dry-run      print the plan and stop: nothing is sent anywhere
 //
-// Never against production: the address must be given, and the script refuses the production host
-// (MADREGOT_PRODUCTION_URL, else PUBLIC_URL in wrangler.toml). The classes it opens are school classes named
-// "בדיקת עומס", with invented students; the owner copies the printed numbers into docs/schools/GEFEN_READINESS.md.
+// Never against production, three ways: the address must be given; the script refuses the production Worker by name
+// (its own <name>.<account>.workers.dev address, the name read from wrangler.toml) and the production host
+// (MADREGOT_PRODUCTION_URL, else PUBLIC_URL in wrangler.toml); and before a real run it asks GET /api/health, and goes
+// on only when the Worker answers staging: true, which only the staging Worker of wrangler.toml [env.staging] says
+// (STAGING = "true"; `npm run staging:deploy` deploys it). A Worker on this computer (wrangler dev on localhost) needs
+// no marker. The classes it opens are school classes named "בדיקת עומס", with invented students; the owner copies the
+// printed numbers into docs/schools/GEFEN_READINESS.md.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -29,12 +33,25 @@ export const USAGE = 'usage: node scripts/loadtest.mjs <staging URL> [--classes 
 export class UsageError extends Error {}
 const fail = (m) => { throw new UsageError(m); };
 
+const readToml = (toml) => toml ?? (() => { try { return readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8'); } catch { return ''; } })();
 /** The production host this script must never load: MADREGOT_PRODUCTION_URL, else wrangler.toml's PUBLIC_URL. */
 export function productionHost(env = process.env, toml = null) {
-  const text = toml ?? (() => { try { return readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8'); } catch { return ''; } })();
+  const text = readToml(toml);
   const url = env.MADREGOT_PRODUCTION_URL || (text.match(/^PUBLIC_URL\s*=\s*"(.*)"/m) || [])[1] || '';
   try { return url ? new URL(url).host : ''; } catch { return ''; }
 }
+/** The production Worker's name: the top-level `name` of wrangler.toml (its workers.dev address starts with it). */
+export function workerName(toml = null) {
+  return ((readToml(toml).match(/^name\s*=\s*"([^"]+)"/m) || [])[1] || 'madregot-api').toLowerCase();
+}
+/** The staging Worker's name: `name` under [env.staging] (wrangler's default is <name>-staging). */
+export function stagingName(toml = null) {
+  const text = readToml(toml);
+  const section = (text.split(/^\[env\.staging\]\s*$/m)[1] || '').split(/^\[/m)[0];
+  return ((section.match(/^name\s*=\s*"([^"]+)"/m) || [])[1] || `${workerName(text)}-staging`).toLowerCase();
+}
+/** An address on this computer (wrangler dev): it needs no staging marker. */
+export const isLocal = (u) => ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
 
 /** The command line → { url, opts }. */
 export function parse(argv, env = process.env, toml = null) {
@@ -60,6 +77,10 @@ export function parse(argv, env = process.env, toml = null) {
   if (!/^https?:$/.test(u.protocol)) fail(`not an http(s) address: ${url}`);
   const prod = productionHost(env, toml);
   if (prod && u.host === prod) fail(`refused: ${u.host} is the production address. The load test runs on staging only.`);
+  const name = workerName(toml);
+  if (/\.workers\.dev$/i.test(u.hostname) && u.hostname.toLowerCase().split('.')[0] === name) {
+    fail(`refused: ${u.host} is the production Worker (${name}). The load test runs on staging only: ${stagingName(toml)}.<account>.workers.dev (npm run staging:deploy).`);
+  }
   return { url: u.origin + u.pathname.replace(/\/+$/, ''), opts };
 }
 
@@ -84,6 +105,7 @@ export function planText(url, opts) {
     `    each teacher: GET /api/teacher/dashboard every ${opts.board} s: about ${p.dashboard} requests`,
     `  cleanup: ${opts.keep ? 'none (--keep): the test classes stay' : `${opts.classes} POST /api/teacher/class/delete`}`,
     '  prints: p50, p95 and the error rate, per kind of request and overall',
+    `  first: GET /api/health must answer staging: true${isLocal(new URL(url)) ? ' (not asked: a Worker on this computer)' : ''}`,
   ].join('\n');
 }
 
@@ -134,6 +156,16 @@ export async function main(argv, io = {}) {
   const { url, opts } = parse(argv, env, toml);
   log(planText(url, opts));
   if (opts.dryRun) return null;
+
+  // the target must say it is the staging Worker before anything is written to it
+  if (!isLocal(new URL(url))) {
+    let h = null;
+    try {
+      const res = await f(`${url}/api/health`, { headers: { Accept: 'application/json' } });
+      h = await res.json().catch(() => null);
+    } catch (e) { fail(`could not ask ${url}/api/health (${e?.message || e}). Nothing was sent.`); }
+    if (h?.staging !== true) fail(`refused: ${url} is not a staging Worker (GET /api/health has no "staging": true). Deploy staging with npm run staging:deploy and use its address.`);
+  }
 
   const samples = [];
   const call = async (kind, pathname, init = {}) => {

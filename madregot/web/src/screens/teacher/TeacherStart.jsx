@@ -153,7 +153,7 @@ function ServerTeacherStart({ onBack }) {
       const r = s ? await accountCall('/api/classes', { method: 'POST', body }) : await api('/api/classes', { method: 'POST', body });
       const owned = !!r.owned;
       // a shared computer keeps no key: the class opens there only while the sign-in lasts
-      const cls = { code: r.code, key: owned && s?.shared ? null : r.teacherKey, className: r.className, grade: r.grade, fresh: true, ...(owned ? { owned: true } : {}) };
+      const cls = { code: r.code, key: owned && s?.shared ? null : r.teacherKey, className: r.className, grade: r.grade, fresh: true, createdHere: true, ...(owned ? { owned: true } : {}) };
       setProfile({ role: 'teacher', name: r.teacherName, grade: r.grade, classes: [cls], active: cls.code });
     } catch (e) {
       if (e.code === 'not_account') setStack(['choose', 'email']);
@@ -165,7 +165,8 @@ function ServerTeacherStart({ onBack }) {
     try {
       const code = f.code.trim().toUpperCase();
       const d = await api('/api/teacher/dashboard', { headers: { 'X-Class-Code': code, 'X-Teacher-Key': f.key.trim() } });
-      const cls = { code, key: f.key.trim(), className: d.class.name, grade: d.class.grade };
+      // entered with the key: maybe a co-teacher's device, so the board does not offer to bind it (lib/teacher.js openedHere)
+      const cls = { code, key: f.key.trim(), className: d.class.name, grade: d.class.grade, createdHere: false };
       setProfile({ role: 'teacher', name: d.class.teacherName, grade: d.class.grade, classes: [cls], active: code });
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
@@ -235,7 +236,7 @@ function ServerTeacherStart({ onBack }) {
         foot={none ? <Button type="submit" className="btn-block btn-lg">כניסה עם קוד ומפתח</Button>
           : <Button type="submit" className="btn-block btn-lg" disabled={!picked.size}>כניסה ללוח</Button>}>
         {none ? (
-          <p className="ob-note" data-region="answers">לא מצאנו כיתות שמקושרות ל־<bdi dir="ltr">{session?.email}</bdi>. אם פתחתם כיתה בלי מייל, נכנסים עם קוד הכיתה ומפתח המורה, ואז מקשרים אותה למייל מתוך הלוח.</p>
+          <p className="ob-note" data-region="answers">לא מצאנו כיתות שמקושרות ל־<bdi dir="ltr">{session?.email}</bdi>. אם פתחתם כיתה בלי מייל, נכנסים עם קוד הכיתה ומפתח המורה, ואז מקשרים אותה למייל בהגדרות הכיתה.</p>
         ) : (
           <fieldset className="t-pick" data-region="answers">
             <legend className="visually-hidden">הכיתות שייפתחו בלוח</legend>

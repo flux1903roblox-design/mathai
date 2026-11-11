@@ -86,6 +86,8 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     // has_image, created_at, seen_at, done_at, messages: [{ id, from, body, at, read }] }]
     help: [],
     digest: null, // the owner's daily help email (null: the dashboard does not say, as for a key)
+    lateBoundAt: null, // K7Q2MD was bound to someone's email after it was opened: key devices are told when
+    rekeyFrom: null, // the owner may make a new key from then (a late bind's 7 days)
     ...over,
   };
   // the class's student AI (TRUST-11): a school class, off, no consent, Madregot not in the catalogue, unless the test says
@@ -309,6 +311,9 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       const a = wm && st.assignments.find((x) => x.id === wm[1]);
       if (!a || !mine(a) || req.method() !== 'POST') return reply(route, 404, { error: 'not_found' });
       if (!['started', 'done'].includes(body.state)) return reply(route, 400, { error: 'bad_work', field: 'state' });
+      // as the Worker's cleanWork: a finished class exam reports exactly its questions; a check is a mastery check of 5
+      if (a.kind === 'exam' && body.state === 'done' && (body.asked !== a.exam.length || body.questions?.length !== a.exam.length)) return reply(route, 400, { error: 'bad_work', field: 'asked' });
+      if (a.kind === 'check' && body.asked > 5) return reply(route, 400, { error: 'bad_work', field: 'asked' });
       const old = workOf(a, sid); const done = body.state === 'done'; const at = `${st.today}T10:00:00.000Z`;
       const max = (x, y) => (x == null ? (y ?? null) : y == null ? x : Math.max(x, y));
       const first = old?.doneAt ? old : done ? body : old || {};
@@ -436,12 +441,21 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (path === '/api/teacher/class/rekey') {
         if (!signed) return reply(route, 401, { error: 'not_account' });
         if (!byAccount) return reply(route, 403, { error: 'not_owner' });
+        // a late bind holds the key for 7 days (teacherAccount.js LATE_BIND_HOLD_DAYS)
+        if (st.rekeyFrom) return reply(route, 409, { error: 'rekey_hold', until: st.rekeyFrom });
         if (!st.recent.has(token)) return reply(route, 401, { error: 'reauth_needed' });
         st.key = 'tkey-456';
         return reply(route, 200, { teacherKey: st.key });
       }
       if (!byKey && !byAccount) return reply(route, 401, { error: token && !signed && !h['x-teacher-key'] ? 'not_account' : 'not_teacher' });
-      if (path === '/api/teacher/dashboard') return reply(route, 200, { ...dashboard(code), helpDigest: byAccount ? st.digest : null });
+      if (path === '/api/teacher/dashboard') {
+        // the key is checked first, as requireTeacher does; a late bind is told to key devices, its hold to the owner
+        const viaKey = byKey && !!h['x-teacher-key'];
+        return reply(route, 200, {
+          ...dashboard(code), helpDigest: byAccount && !viaKey ? st.digest : null,
+          boundElsewhere: viaKey && !!st.lateBoundAt, boundAt: viaKey ? st.lateBoundAt || null : null, rekeyFrom: !viaKey ? st.rekeyFrom || null : null,
+        });
+      }
       const tm = path.match(/^\/api\/teacher\/help\/(\d+)(\/reply)?$/);
       if (tm) {
         const x = code === 'K7Q2MD' && st.help.find((r) => r.id === Number(tm[1]));

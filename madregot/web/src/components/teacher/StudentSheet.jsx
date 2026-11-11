@@ -12,7 +12,6 @@ import { toast } from 'sonner';
 import { KeyRound, UserMinus, Send, Hand, RefreshCw, Sparkles } from 'lucide-react';
 import { teacherApi } from '@/lib/teacher.js';
 import { topicsFor, TOPIC } from '@/content/index.js';
-import { mistakeText } from '@/lib/teacherText.js';
 import { AI_COPY, perStudentAi } from '@/content/classAi.js';
 import { workText } from '@/lib/teacherCsv.js';
 import { isStair } from '@/lib/assign.js';
@@ -22,7 +21,7 @@ import { Button, ChapterMark, LevelPips, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet } from '@/components/Screen.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { QuestionStrip } from '@/screens/teacher/ExamsTab.jsx';
-import { fmtDay, Rate } from '@/screens/teacher/common.jsx';
+import { fmtDay, Rate, MistakeWords } from '@/screens/teacher/common.jsx';
 
 /** "5.11", or "5.11.2025" in another year than `today`'s. */
 const dayText = (day, today) => (!day ? '' : day.slice(0, 4) === String(today || '').slice(0, 4) ? dm(day) : `${dm(day)}.${day.slice(0, 4)}`);
@@ -143,10 +142,10 @@ export default function StudentSheet({ cls, student, today, aiPolicy, open, onOp
             <Part id="ss-mis" title="טעויות שחוזרות" empty={!d.mistakes.length}>
               <ul className="ss-list">
                 {d.mistakes.map((m) => {
-                  const rowId = `ss-mis-${m.topic}-${m.cat}`;
+                  const rowId = `ss-mis-${m.topic}-${m.level}-${m.cat}`;
                   return (
-                    <li key={`${m.topic}:${m.cat}`} className="ss-row">
-                      <span className="ss-row-main" id={rowId}><b>{TOPIC[m.topic]?.title}</b>: <MathText text={mistakeText(m.topic, m.level, m.cat)} /></span>
+                    <li key={`${m.topic}:${m.level}:${m.cat}`} className="ss-row">
+                      <span className="ss-row-main" id={rowId}><MistakeWords topic={m.topic} level={m.level} cat={m.cat} /></span>
                       <span className="muted">{times(m.n)} בחודש האחרון</span>
                       {onAssign && isStair(`${m.topic}:${m.level}`) && (
                         <Button variant="secondary" className="btn-sm ss-act" aria-describedby={rowId} onClick={() => practise(m)}><Send size={16} aria-hidden="true" />לתת תרגול</Button>

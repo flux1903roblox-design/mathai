@@ -5,7 +5,7 @@
 // reportToCsv is pure: the words for topics, stairs and mistakes come in as arguments. reportCsv binds the app's
 // content; downloadCsv hands the file to the device.
 import { topicsFor } from '@/content/index.js';
-import { mistakeText } from './teacherText.js';
+import { mistakeLine } from './teacherText.js';
 
 export const BOM = '﻿';
 export const CRLF = '\r\n';
@@ -106,8 +106,8 @@ export function reportToCsv(report, { topics, mistakeText: words }) {
 
 /** The topics of a grade as reportToCsv reads them. */
 export const csvTopics = (grade) => topicsFor(grade).map((t) => ({ id: t.id, title: t.title, levels: t.levels.map((l) => l.title) }));
-/** The CSV of a report with the app's own words. */
-export const reportCsv = (report) => reportToCsv(report, { topics: csvTopics(report.class?.grade || '7'), mistakeText });
+/** The CSV of a report with the app's own words: each mistake as the student saw it, with its stair (TEACHER-16). */
+export const reportCsv = (report) => reportToCsv(report, { topics: csvTopics(report.class?.grade || '7'), mistakeText: mistakeLine });
 
 /** The file's name: madregot-{class}-{from}-{to}.csv, the class name kept to letters, digits and '-'. */
 export function csvName(className, from, to) {

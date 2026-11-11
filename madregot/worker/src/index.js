@@ -20,7 +20,7 @@ import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFa
 import {
   licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked, renameClass, deleteClass, classSeenStmt,
 } from './licence.js';
-import { myClasses, bindClass, rekeyClass, ownedClassStmts, checkOwnedCap } from './teacherAccount.js';
+import { myClasses, bindClass, rekeyClass, ownedClassStmts, checkOwnedCap, bindingView } from './teacherAccount.js';
 import {
   listAssignments, createAssignment, getAssignment, updateAssignment, deleteAssignment, classWork, workExam, postWork, classAssignments,
 } from './assignments.js';
@@ -374,23 +374,22 @@ async function dashboard(req, env, cors) {
   const cls = await requireTeacher(req, env);
   const today = dayOf(); const weekStart = daysAgo(6);
   const q = (sql, ...args) => env.DB.prepare(sql).bind(...args).all().then((r) => r.results || []);
-  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, , assignments, classExams, threads, owner, lateRows, aiPolicy, aiOff] = await Promise.all([
+  const [students, todayRows, weekRows, levelRows, catRows, catStudents, help, lastRows, examRows, locked, , assignments, classExams, threads, owner, lateRows, aiPolicy, aiOff, binding] = await Promise.all([
     q('SELECT id, name, last_seen, created_at, pin_hash = \'\' AS pin_reset FROM students WHERE class_code = ? ORDER BY name', cls.code),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.ok) AS ok, SUM(a.first_try) AS first, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day = ? GROUP BY a.student_id`, cls.code, today),
     q(`SELECT a.student_id, COUNT(*) AS n, SUM(a.first_try) AS first, COUNT(DISTINCT a.day) AS days, SUM(a.secs) AS secs
        FROM attempts a JOIN students s ON s.id = a.student_id WHERE s.class_code = ? AND a.day >= ? GROUP BY a.student_id`, cls.code, weekStart),
     q('SELECT l.student_id, l.topic, l.level, l.max_level FROM levels l JOIN students s ON s.id = l.student_id WHERE s.class_code = ?', cls.code),
-    // each repeated mistake, with the stair it happened on most this week (a tie: the lower one), so "מחר" can give
-    // practice on that stair (TEACHER-4 §5)
-    q(`SELECT a.topic, a.cat, COUNT(*) AS n, COUNT(DISTINCT a.student_id) AS students,
-         (SELECT a2.level FROM attempts a2 JOIN students s2 ON s2.id = a2.student_id
-          WHERE s2.class_code = ?1 AND a2.day >= ?2 AND a2.topic = a.topic AND a2.cat = a.cat
-          GROUP BY a2.level ORDER BY COUNT(*) DESC, a2.level LIMIT 1) AS level
+    // each repeated mistake on its stair (TEACHER-16): one id means different things on different stairs ('sign' is a
+    // negative length on coord:3), so the row is the stair's, with the words the student saw there, and "מחר" gives
+    // practice on that stair to the students who made it there (TEACHER-4 §5)
+    q(`SELECT a.topic, a.level, a.cat, COUNT(*) AS n, COUNT(DISTINCT a.student_id) AS students
        FROM attempts a JOIN students s ON s.id = a.student_id
-       WHERE s.class_code = ?1 AND a.day >= ?2 AND a.cat IS NOT NULL GROUP BY a.topic, a.cat ORDER BY students DESC, n DESC LIMIT 12`, cls.code, weekStart),
-    q(`SELECT DISTINCT a.topic, a.cat, s.id, s.name FROM attempts a JOIN students s ON s.id = a.student_id
-       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL ORDER BY s.name`, cls.code, weekStart),
+       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL GROUP BY a.topic, a.level, a.cat
+       ORDER BY students DESC, n DESC, a.topic, a.level, a.cat LIMIT 12`, cls.code, weekStart),
+    q(`SELECT DISTINCT a.topic, a.level, a.cat, s.id, s.name FROM attempts a JOIN students s ON s.id = a.student_id
+       WHERE s.class_code = ? AND a.day >= ? AND a.cat IS NOT NULL ORDER BY s.name, s.id`, cls.code, weekStart),
     q(`SELECT h.id, h.topic, h.level, h.question, h.answer, h.note, h.image IS NOT NULL AS has_image, h.created_at, h.seen_at, h.done_at, s.name, s.id AS studentId
        FROM help_requests h JOIN students s ON s.id = h.student_id
        WHERE s.class_code = ? AND (h.done_at IS NULL OR h.done_at >= ?) ORDER BY h.created_at DESC LIMIT 100`, cls.code, daysAgo(7)),
@@ -420,6 +419,8 @@ async function dashboard(req, env, cors) {
     // student AI by the Ministry's rules (TRUST-11): the class's policy and the students the teacher turned it off for
     classAiView(env, cls),
     aiOffIds(env, cls.code),
+    // a class bound to an email after it was opened, told to the devices that come with the key (teacherAccount.js)
+    bindingView(env, cls),
   ]);
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.student_id, r]));
   const t = by(todayRows); const w = by(weekRows); const lastPractice = by(lastRows); const late = by(lateRows);
@@ -444,13 +445,14 @@ async function dashboard(req, env, cors) {
       })),
     ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, 200),
     mistakes: catRows.map((r) => {
-      const who = catStudents.filter((c) => c.topic === r.topic && c.cat === r.cat);
-      return { ...r, level: r.level == null ? null : Number(r.level), ids: who.map((c) => c.id), names: who.map((c) => c.name) };
+      const who = catStudents.filter((c) => c.topic === r.topic && c.level === r.level && c.cat === r.cat);
+      return { topic: r.topic, level: Number(r.level), cat: r.cat, n: r.n, students: r.students, ids: who.map((c) => c.id), names: who.map((c) => c.name) };
     }),
     assignments,
     help: help.map((x) => ({ ...x, messages: threads[x.id]?.messages || [], unreadFromStudent: threads[x.id]?.unreadFromStudent || 0 })),
     helpDigest: owner ? !!owner.help_digest : null,
     aiPolicy,
+    ...binding,
   }, 200, cors);
 }
 
@@ -496,6 +498,8 @@ function health(env) {
     deviceMint: String(env.FREE_DEVICE_MINT || 'off') === 'turnstile' ? 'turnstile' : 'off', turnstileSiteKey: env.TURNSTILE_SITE_KEY || null,
     // whether the secrets that classes, sign-in and network counters need are set (never their values)
     netKeys: !!env.IP_HASH_SECRET, auth: !!env.AUTH_SECRET,
+    // the staging Worker (wrangler.toml [env.staging]): the load test runs only against a Worker that says so
+    staging: env.STAGING === 'true',
   };
 }
 

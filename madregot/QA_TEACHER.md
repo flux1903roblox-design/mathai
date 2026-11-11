@@ -3,7 +3,7 @@
 What the council found about the teacher's side, what changed, and where the proof is: the commit, the tests and the
 pictures. Every row below points to tests that run on the current code. Nothing is marked done from memory. The council's
 findings are numbered as in the council's own list (`council1.json`, `annotated`, counted from 0). The work items
-(TEACHER-1 … TEACHER-15) are the teacher lane's spec.
+(TEACHER-1 … TEACHER-16) are the teacher lane's spec.
 
 ## How to check it yourself
 
@@ -14,14 +14,14 @@ Worker and synthetic names, all at `example.test`):
 |---|---|---|
 | Worker (D1 in memory) | `cd worker && node --test test/*.test.js` | all pass |
 | Web unit | `cd web && npx vitest run` | all pass |
-| The teacher's side end to end, on all four sizes | `cd web && npx playwright test -c e2e/playwright.config.js teacher.spec.js` | 228 pass (57 cases × 4 projects) |
+| The teacher's side end to end, on all four sizes | `cd web && npx playwright test -c e2e/playwright.config.js teacher.spec.js` | 240 pass (60 cases × 4 projects) |
 | The demo class, by hand | open the public build, then **אני מורה** › **לראות לוח לדוגמה, בלי הרשמה** (or `#/?start=demo`) | the board of 24 invented students, with no request to `/api` |
 
 Another copy of the repo can run the suite on its own port: `E2E_PORT=4221 npx playwright …`.
 
 **The pictures.** Each `shot()` in `web/e2e/teacher.spec.js` is a visual baseline: the screen is compared with
 `web/e2e/__screens__/<project>/teacher-<name>.png` on all four projects, phone-small (320×568), phone (390×844), tablet
-(768×1024) and desktop (1440×900). That is 60 screens × 4 = 240 pictures, each looked at before it was accepted. Toasts
+(768×1024) and desktop (1440×900). That is 64 screens × 4 = 256 pictures, each looked at before it was accepted. Toasts
 are hidden in the compared picture (they leave on a timer; each test checks their words). After an intended change, look
 at the new pictures, then: `npx playwright test -c e2e/playwright.config.js teacher.spec.js --update-snapshots`.
 In the table, `teacher-x` means the four files `__screens__/{phone-small,phone,tablet,desktop}/teacher-x.png`.
@@ -313,6 +313,25 @@ to the same place; and the demo's "nothing reaches the server" check now waits f
 call before it starts counting. One case, TEACHER-5 "4. offline at the end …", failed once on desktop in a loaded run
 and passed in all 34 runs after it (12 of them on desktop); see "Not covered here".
 
+## The lane's review: what it reproduced, and what changed
+
+A review of this lane reproduced five problems against the in-memory D1 and the app. Each is fixed, with a test that
+failed before the fix.
+
+| Problem the review reproduced | What changed | Tests |
+|---|---|---|
+| Anyone with the teacher key could bind a class opened without email to their own email, and the normal co-teacher path did it by accident: the creator lost delete, and after a new key, her way in (major) | The app offers the bind only on the device that opened the class (`createdHere`, set by TeacherStart and "כיתה נוספת"; a class whose key was typed in gets a quiet "אני פתחתי את הכיתה הזו" in the settings, with a question first). A class bound after it was opened is a late bind: the dashboard tells every device that comes with the key when (`boundElsewhere`, `boundAt`; a line on "מחר" for the first week, and the settings), nobody can make a new key for 7 days (409 `rekey_hold`, the owner sees from when), and support undoes a mistaken bind in that week with `npm run owner -- unbind-class --class <CODE>` | worker `teacher-account.test.js` 11, `owner-script.test.js` "unbind-class"; web `teacher.test.js` "only the device that opened the class …", "boundElsewhere …"; e2e TEACHER-1 "a device that came with the key …", "the owner of a class bound late …", "an email with no classes …" |
+| The help-reply contact guard let phone numbers through with other separators (`_ * + ,`, a letter between groups), full-width or Arabic-Indic digits, handles and spelled-out addresses (minor) | `shared/contact.js`, used by the Worker (both directions) and the demo: NFKC, invisible characters removed, every script's digits read as ASCII; seven digits or more in one number across any short separator that is not maths; `@handle`, `at … dot`, `[at]`, `(dot)`, spaced domains. Maths still passes (`3 + 4 = 7`, `(-3)·(-4)`, lists, dates, decimals, thousands) | worker `help-thread.test.js` 4a (the review's variants, through both routes); web `teacherDemo.test.js` |
+| A student could report any score for a class exam or check: a 3-question exam kept as 40/40 (minor) | `cleanWork`: a finished class exam reports exactly its questions, one status each; a check is a mastery check of 5 at most, and "passed" needs 5 asked and 4 right (the numbers are `learn/mastery.ts`'s, and a test keeps them equal) | worker `assignments.test.js` "reports that do not fit …", "a check assignment is the app's mastery check …" |
+| "מחר" showed the topic's words for a mistake, sometimes a different mistake from the one the student was told, and grouped one id on two stairs as one row (TEACHER-16, minor) | Every mistake row is a stair's: the dashboard, the class report and the student's page group by topic, stair and mistake; "מחר", the student's sheet and the report name the stair on its own line, then the student's words (`lib/teacherText.js`: `mistakeText`, `stairName`); each student's cells, the printout and the CSV add the stair in brackets; "לתת תרגול על זה" goes to that stair, for the students who made the mistake there. The demo groups the same way | worker `teacher.test.js` "TEACHER-16 …"; web `lib/teacherText.test.js` (every stair, every id its content and its generators give), `teacherCsv.test.js` 6, `teacherDemo.test.js`; e2e TEACHER-4 "TEACHER-16 …" (`teacher-tomorrow-stairs`) |
+| The load test did not reliably stay off production, and the repo had no staging Worker for the owner's step (minor) | `loadtest.mjs` refuses the production Worker by name (`madregot-api.*.workers.dev`, read from `wrangler.toml`) as well as `PUBLIC_URL`, and before sending anything asks `GET /api/health` and goes on only when it says `"staging": true`, which only the `[env.staging]` Worker says (`STAGING = "true"`, its own D1 `madregot-staging`). `npm run staging:deploy` deploys it | worker `loadtest.test.js` "the production Worker's own workers.dev address is refused …", "a real run first asks /api/health …"; `subscription.test.js` "health reports …" |
+
+New pictures (each looked at on the four sizes): `teacher-tomorrow-stairs`, `teacher-settings-key-device`,
+`teacher-bound-elsewhere-board`, `teacher-bound-elsewhere`. Updated, because the mistake rows now name their stair:
+`teacher-report`, `teacher-student-sheet`, `teacher-student-sheet-end`, `teacher-demo-board`, `teacher-demo-assign`,
+`teacher-demo-report` and `teacher-assign-share`/`teacher-assign-sheet` (the board under the sheet); and
+`teacher-restore-empty`, whose words now send the teacher to the class settings to bind a class.
+
 ## Owner-only steps
 
 The code for each is done and tested; each needs the owner once.
@@ -323,20 +342,22 @@ The code for each is done and tested; each needs the owner once.
 | TEACHER-1: the public site links to the hosted app | not done (owner) | `export TEACHER_URL=https://<the hosted app>/ CONTACT_EMAIL=<support address>`, then `./publish-pages.sh` |
 | The lane's migration at deploy (`0003_teacher.sql`: `class_owners`, `class_settings`, assignments, help messages, `student_ai_off`) | not applied anywhere | `cd madregot/worker && npm run db:migrate` (then `npx wrangler deploy`) |
 | TEACHER-11: the pilot's numbers on the live database | not run (no pilot yet) | `cd madregot/worker && npm run owner -- pilot-report --class <CODE> --from <D1> --to <D10> --consented <N> --pre <A> --post <B> --json > pilot-<CODE>.json` (the ids from `pilot-report --class <CODE> --list`) |
-| TEACHER-12: the Gefen and catalogue filings | not started (owner) | the steps in `docs/schools/GEFEN_READINESS.md` §4; the load test on staging first: `node madregot/worker/scripts/loadtest.mjs <staging URL> --classes 10 --minutes 5`, its p50, p95 and error rate pasted into §3; the live headers once after deploy: `curl -sI https://<app>/ \| grep -i -E 'content-security\|nosniff\|referrer\|permissions'`; on the first order: `npm run owner -- grant-school --classes K --seats N --until YYYY-MM-DD --invoice R --gefen <order>` |
+| TEACHER-12: the Gefen and catalogue filings | not started (owner) | the steps in `docs/schools/GEFEN_READINESS.md` §4; the load test on staging first: once, the staging Worker's database and secrets (§4 step 5), then `cd madregot/worker && npm run staging:deploy && node scripts/loadtest.mjs https://madregot-api-staging.<account>.workers.dev --classes 10 --minutes 5`, its p50, p95 and error rate pasted into §3; the live headers once after deploy: `curl -sI https://<app>/ \| grep -i -E 'content-security\|nosniff\|referrer\|permissions'`; on the first order: `npm run owner -- grant-school --classes K --seats N --until YYYY-MM-DD --invoice R --gefen <order>` |
+| A class bound to the wrong email (a late bind, within its first week) | when a teacher writes in | `cd madregot/worker && npm run owner -- unbind-class --class <CODE>` (the class keeps its key; the teacher who opened it binds it from the device that opened it) |
 | TEACHER-13: the real pilot | not started (owner) | 3-5 teachers in at least 2 schools, run by `docs/schools/` (the principal's form, the parent letter, the plan), then the TEACHER-11 command per class |
 | The parent letter's legal look | not done (owner) | add the letter (Appendix B) to the lawyer's packet of TRUST-13 |
 
 ## Not covered here
 
-- **Axe on the teacher screens (TEACHER-14 §4).** Not run: `axe-core` is not among the installed packages, and this
-  lane adds no dependency. The e2e finds every control by its role and accessible name, which checks those; contrast and
-  axe's other rules are not checked here. The trust lane's axe helper can be pointed at `/teacher`, `/teacher/lessons`,
-  `/teacher/settings`, `/teacher/report` and the demo board when it lands.
-- **TEACHER-16** (added by coverage: the exact mistake words the student saw, per stair, everywhere a teacher looks).
-  The class report, its CSV and the student's page use them (`lib/teacherText.js`); the "מחר" rows still show the
-  topic-level words, and the dashboard query groups by topic and mistake, not by stair. Open.
-- **TRUST-3's distress check on a student's help reply** and its care marker: that lane has not landed here.
+- **Axe on the teacher screens (TEACHER-14 §4).** Not run: neither `axe-core` nor `@axe-core/playwright` is among the
+  installed packages, and this lane adds no dependency. The package to add is `@axe-core/playwright@4.10.1` (dev), then
+  one e2e case per screen: `/teacher`, `/teacher/lessons`, `/teacher/settings`, `/teacher/report`, the demo board and the
+  student's Quests class block. Until then the e2e finds every control by its role and accessible name, which checks
+  those; contrast and axe's other rules are not checked here.
+- **TRUST-3's distress check on a student's help reply** and its care marker: `detectDistress` is the trust lane's and
+  is not on this branch yet; the reply route is where it goes (`worker/src/help.js`, the student's side).
+- **The backup row in the class settings (TEACHER-9 §1.2, `SaveSection role="teacher"`)**: it waits on DURABLE-3/4,
+  which are not on this branch.
 - **A sync asked for while another is running is dropped** (`syncNow` in `web/src/lib/api.js`), so a class exam's
   result that waited offline can take up to the next minute's sync to reach the teacher. This is one possible cause of
   the one TEACHER-5 failure above; it belongs to the sync code, not this lane, and was left as it is.

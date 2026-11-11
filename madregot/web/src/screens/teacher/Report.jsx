@@ -14,14 +14,14 @@ import { Users, CalendarDays, Target, ListChecks, FileDown, Printer } from 'luci
 import { useApp, today as todayOf } from '@/lib/store.js';
 import { RANGES, rangeDays, customRange, rangeText, dmyDots, fetchReport, saveReportCsv, MAX_DAYS } from '@/lib/report.js';
 import { workText, pctOf, stripTex } from '@/lib/teacherCsv.js';
-import { mistakeText } from '@/lib/teacherText.js';
+import { mistakeLine } from '@/lib/teacherText.js';
 import { plusDays, dm } from '@/lib/workDates.js';
-import { TOPIC, topicsFor } from '@/content/index.js';
+import { topicsFor } from '@/content/index.js';
 import { Stat } from '@/components/ds.jsx';
 import { Button, ChapterMark, LevelPips } from '@/components/ui.jsx';
 import { MathText } from '@/components/MathText.jsx';
 import { ScreenBar, ScreenFoot, EmptyState } from '@/components/Screen.jsx';
-import { Rate, StudentName } from './common.jsx';
+import { Rate, StudentName, MistakeWords } from './common.jsx';
 import { useBoard, idsByName } from '@/lib/teacherBoard.js';
 import StudentSheet from '@/components/teacher/StudentSheet.jsx';
 import AssignSheet from '@/components/teacher/AssignSheet.jsx';
@@ -44,8 +44,8 @@ const shortDay = (iso, thisYear) => {
 /** "4.2", without a trailing ".0". */
 const oneDecimal = (n) => String(Math.round(n * 10) / 10);
 
-/** A student's mistakes in the range, as the student saw them. */
-const mistakeWords = (s) => (s.topMistakes || []).map((m) => mistakeText(m.topic, m.level, m.cat));
+/** A student's mistakes in the range, as the student saw them, each with its stair (TEACHER-16). */
+const mistakeWords = (s) => (s.topMistakes || []).map((m) => mistakeLine(m.topic, m.level, m.cat));
 
 /** The printed copy, at the end of <body>: hidden on screen; printed, it is the only thing on the page. */
 function PrintReport({ report, topics, title }) {
@@ -249,8 +249,8 @@ export default function ClassReport() {
               {shown.mistakes.length === 0 ? <p className="t-row muted">לא זוהו טעויות שחוזרות.</p> : (
                 <ul className="t-list">
                   {shown.mistakes.map((m) => (
-                    <li key={`${m.topic}:${m.cat}`} className="t-row">
-                      <span className="t-list-main"><b>{TOPIC[m.topic]?.title}</b>: <MathText text={mistakeText(m.topic, m.level, m.cat)} /></span>
+                    <li key={`${m.topic}:${m.level}:${m.cat}`} className="t-row">
+                      <span className="t-list-main"><MistakeWords topic={m.topic} level={m.level} cat={m.cat} /></span>
                       <span className="muted">{m.students === 1 ? 'תלמיד אחד' : `${m.students} תלמידים`}: {m.names.slice(0, 6).join(', ')}{m.names.length > 6 ? '…' : ''}</span>
                     </li>
                   ))}

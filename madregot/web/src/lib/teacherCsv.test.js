@@ -122,6 +122,10 @@ describe('the CSV of a class report', () => {
     const real = fixture();
     real.students[0].topMistakes = [{ topic: 'signed', cat: 'rule', level: 3, n: 1 }];
     expect(reportCsv(real)).not.toMatch(/[⁦-⁩$\\]/);
+    // each mistake with its stair (TEACHER-16): the same id on two stairs is told apart
+    real.students[0].topMistakes = [{ topic: 'signed', cat: 'sign', level: 3, n: 2 }, { topic: 'signed', cat: 'sign', level: 1, n: 1 }];
+    const cell = parseCsv(reportCsv(real))[1].at(-1);
+    expect(cell).toMatch(/^.+ \(מספרים מכוונים, מדרגה 3\) · .+ \(מספרים מכוונים, מדרגה 1\)$/);
   });
 
   it('7. the fixture round-trips: every cell parsed back is the cell written', () => {

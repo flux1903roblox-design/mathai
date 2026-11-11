@@ -1,5 +1,7 @@
 // "מחר": what to do in tomorrow's lesson. A one-line link to the class licence while it ends or after it ended (the
-// card itself is in the class settings, TEACHER-9 §1.4), mistakes that repeat this week (each with "לתת תרגול על זה": that stair, for the students who made the mistake, TEACHER-4 §6), weak topics in
+// card itself is in the class settings, TEACHER-9 §1.4), mistakes that repeat this week, one row per stair with the
+// words the student saw there (TEACHER-16; each with "לתת תרגול על זה": that stair, for the students who made the mistake
+// there, TEACHER-4 §6), weak topics in
 // checked exams, who to check in with (TEACHER-8: at most 6, ranked by learn/attention.ts with the reasons as chips, and
 // the rest one tap away on the students tab, sorted the same way), and the newest help requests (those the student
 // answered again count as new). A student's name opens their page.
@@ -14,7 +16,7 @@ import { dateNum } from '@/lib/price.js';
 import { isStair } from '@/lib/assign.js';
 import { lastMessage } from '@/lib/help.js';
 import { attentionList, openHelpBy, reasonText } from '@/learn/attention';
-import { StudentName } from './common.jsx';
+import { StudentName, MistakeWords } from './common.jsx';
 
 /** A help request that needs the teacher: not seen yet, or the student wrote last (TEACHER-6 §3). */
 const isFresh = (h) => !h.seen_at || lastMessage(h)?.from === 'student';
@@ -70,11 +72,12 @@ export default function TomorrowTab({ cls, data, students, openHelp, onOpenHelp,
               <ul className="t-list">
                 {data.mistakes.map((m) => {
                   const skill = `${m.topic}:${m.level}`;
-                  const rowId = `t-mis-${m.topic}-${m.cat}`;
+                  const rowId = `t-mis-${m.topic}-${m.level}-${m.cat}`;
                   const ids = m.ids || [];
+                  // the stair, then the words the student saw on it (TEACHER-16), never a raw id
                   return (
-                    <li key={`${m.topic}:${m.cat}`} className="t-row">
-                      <span className="t-list-main" id={rowId}><b>{TOPIC[m.topic]?.title}</b>: <MathText text={TOPIC[m.topic]?.cats[m.cat] || m.cat} /></span>
+                    <li key={`${m.topic}:${m.level}:${m.cat}`} className="t-row">
+                      <span className="t-list-main" id={rowId}><MistakeWords topic={m.topic} level={m.level} cat={m.cat} /></span>
                       <span className="muted">{m.students === 1 ? 'תלמיד אחד' : `${m.students} תלמידים`}: {m.names.slice(0, 6).join(', ')}{m.names.length > 6 ? '…' : ''}</span>
                       {onAssign && isStair(skill) && ids.length > 0 && (
                         <button type="button" className="btn btn-secondary btn-sm t-row-act" aria-describedby={rowId}

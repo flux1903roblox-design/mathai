@@ -13,7 +13,7 @@ const call = (st, method, path, body) => demoApi(st, method, path, body);
 const get = (st, path) => { const r = call(st, 'GET', path); expect(r.status, JSON.stringify(r.body)).toBe(200); return r.body; };
 
 const SHAPES = {
-  dashboard: ['aiPolicy', 'assignments', 'class', 'exams', 'help', 'helpDigest', 'joinLocked', 'mistakes', 'students', 'today'],
+  dashboard: ['aiPolicy', 'assignments', 'boundAt', 'boundElsewhere', 'class', 'exams', 'help', 'helpDigest', 'joinLocked', 'mistakes', 'rekeyFrom', 'students', 'today'],
   cls: ['code', 'grade', 'name', 'teacherName'],
   student: ['aiOff', 'id', 'joinedOn', 'lastPractice', 'lastSeen', 'late', 'levels', 'name', 'pinReset', 'today', 'week'],
   today: ['first', 'minutes', 'n', 'ok'],
@@ -81,6 +81,16 @@ describe('the board has content in every group', () => {
     expect(d.students.filter((s) => s.week.n > 0).length).toBeGreaterThan(15);
     expect(d.mistakes.length).toBeGreaterThan(3);
     expect(d.mistakes[0].students).toBeGreaterThan(3);
+    // one row per stair and mistake, as the Worker groups them (TEACHER-16)
+    const keys = d.mistakes.map((m) => `${m.topic}:${m.level}:${m.cat}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    const weekStart = new Date(Date.parse(`${DAY}T12:00:00Z`) - 6 * 864e5).toISOString().slice(0, 10);
+    const rows = st.attempts.filter((r) => r.cat && r.day >= weekStart);
+    for (const m of d.mistakes) {
+      const mine = rows.filter((r) => r.topic === m.topic && r.level === m.level && r.cat === m.cat);
+      expect(m.n).toBe(mine.length);
+      expect([...m.ids].sort()).toEqual([...new Set(mine.map((r) => r.sid))].sort());
+    }
     expect(d.help.filter((h) => !h.done_at)).toHaveLength(3);
     expect(d.exams).toHaveLength(6);
     expect(d.assignments).toHaveLength(3);
@@ -185,6 +195,10 @@ describe('demoApi answers in the Worker\'s shapes', () => {
     expect(row.messages.at(-1).from).toBe('teacher');
     expect(row.seen_at).toBeTruthy();
     expect(call(st, 'POST', '/api/teacher/help/9003/reply', { body: 'כתבו לי ל־teacher@example.test' }).body.error).toBe('reply_has_contact');
+    // the Worker's guard (shared/contact.js): a phone number with other separators, full-width digits, a handle
+    for (const bad of ['תתקשרי אליי 050_123_4567', 'המספר שלי ０５０１２３４５６７', 'באינסטגרם @dana_k12']) {
+      expect(call(st, 'POST', '/api/teacher/help/9003/reply', { body: bad }).body.error).toBe('reply_has_contact');
+    }
     call(st, 'POST', '/api/teacher/help/9003/reply', { body: 'עוד הסבר' });
     call(st, 'POST', '/api/teacher/help/9003/reply', { body: 'ועוד אחד' });
     expect(call(st, 'POST', '/api/teacher/help/9003/reply', { body: 'רביעי' })).toEqual({ status: 409, body: { error: 'reply_limit' } });

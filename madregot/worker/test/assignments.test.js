@@ -5,6 +5,7 @@
 // address is synthetic (example.test).
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { purge } from '../src/cron.js';
 import { plusDays, isRestDay, schoolDay, cleanExamItems, ASSIGN } from '../src/assignments.js';
 import { dayOf, jerusalemMidnight } from '../src/util.js';
@@ -341,7 +342,9 @@ test('8. the dashboard: open assignments with counts, mistakes with ids and thei
   assert.equal(d.mistakes[0].cat, 'sign');
   assert.deepEqual([...d.mistakes[0].ids].sort(), [dana.studentId, yoav.studentId].sort());
   assert.ok(Number.isInteger(d.mistakes[0].level));
-  assert.equal(d.mistakes[0].level, 1, 'level 1: three answers against two at level 3');
+  assert.equal(d.mistakes[0].level, 1, 'one row per stair: both made it on level 1');
+  assert.deepEqual(d.mistakes.map((m) => [m.level, m.cat, m.students, m.n]), [[1, 'sign', 2, 2], [3, 'sign', 1, 2]]);
+  assert.deepEqual(d.mistakes[1].ids, [dana.studentId], 'practice on level 3 goes only to who made the mistake there');
   assert.deepEqual(d.assignments.map((a) => a.id), [st.id, ex.id], 'open ones, soonest first');
   assert.deepEqual(d.assignments[1].counts, { assigned: 2, notStarted: 1, started: 0, done: 1, late: 0 });
   const mine = d.exams.find((e) => String(e.id).startsWith('a:'));
@@ -464,6 +467,19 @@ test('student: reports that do not fit their assignment are refused; 200 a day',
   await refused(await work(dana, e.id, { state: 'done', right: 1, asked: 2, questions: [{ topic: 'bogus', level: 1, status: 'correct' }] }), 400, 'bad_work', 'questions');
   await refused(await work(dana, e.id, { state: 'done', right: 1, asked: 2, questions: [{ topic: 'signed', level: 1, status: 'great' }] }), 400, 'bad_work', 'questions');
   await refused(await work(dana, e.id, { state: 'done', right: 1, asked: 2, questions: Array.from({ length: 41 }, () => q[0]) }), 400, 'bad_work', 'questions');
+  // a result must fit its assignment (the review of the teacher lane: a 2-question exam was kept as 40/40): an exam
+  // reports exactly its questions, one status each; a check is a mastery check of MASTERY_N questions, and "passed"
+  // needs MASTERY_NEED right
+  await refused(await work(dana, e.id, { state: 'done', right: 40, asked: 40, questions: [] }), 400, 'bad_work', 'asked');
+  await refused(await work(dana, e.id, { state: 'done', right: 3, asked: 3, questions: [q[0], q[0], q[0]] }), 400, 'bad_work', 'asked');
+  await refused(await work(dana, e.id, { state: 'done', right: 1, asked: 1, questions: [q[0]] }), 400, 'bad_work', 'asked');
+  await refused(await work(dana, e.id, { state: 'done', right: 2, asked: 2 }), 400, 'bad_work', 'questions');
+  await refused(await work(dana, e.id, { state: 'done', right: 2, asked: 2, questions: [q[0]] }), 400, 'bad_work', 'questions');
+  await refused(await work(dana, e.id, { state: 'done', right: 2, asked: 2, questions: [q[0], q[0], q[0]] }), 400, 'bad_work', 'questions');
+  await refused(await work(dana, c.id, { state: 'done', right: 40, asked: 40, passed: true }), 400, 'bad_work', 'asked');
+  await refused(await work(dana, c.id, { state: 'done', right: 6, asked: ASSIGN.checkQuestions + 1, passed: true }), 400, 'bad_work', 'asked');
+  await refused(await work(dana, c.id, { state: 'done', right: 1, asked: 5, passed: true }), 400, 'bad_work', 'passed');
+  await refused(await work(dana, c.id, { state: 'done', right: 2, asked: 2, passed: true }), 400, 'bad_work', 'passed');
   assert.equal(rows(h.env, 'SELECT * FROM assignment_work').length, 0, 'nothing refused was kept');
   await refused(await work(dana, 'a'.repeat(16), { state: 'started' }), 404, 'not_found');
   assert.equal((await h.call('POST', `/api/class/work/${s.id}`, { body: { state: 'started' } })).status, 401);
@@ -477,6 +493,12 @@ test('student: reports that do not fit their assignment are refused; 200 a day',
   await refused(await work(dana, s.id, { state: 'started', stage: 1 }), 429, 'slow_down');
   pin(NOW + DAY);
   assert.equal((await work(dana, s.id, { state: 'started', stage: 1 })).status, 200);
+});
+
+test('a check assignment is the app\'s mastery check: the server\'s numbers are the app\'s', () => {
+  const ts = readFileSync(new URL('../../web/src/learn/mastery.ts', import.meta.url), 'utf8');
+  assert.equal(ASSIGN.checkQuestions, Number(ts.match(/export const MASTERY_N = (\d+);/)[1]));
+  assert.equal(ASSIGN.checkNeed, Number(ts.match(/export const MASTERY_NEED = (\d+);/)[1]));
 });
 
 test('the night purge deletes an assignment 400 days after its due date, with its work and targets; 399 days stays', async () => {

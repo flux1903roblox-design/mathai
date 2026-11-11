@@ -23,6 +23,8 @@ import { TOPIC } from '@/content/index.js';
 import { CONTENT } from '@/learn/content/index.ts';
 import { TOPIC_IDS } from '@shared/ai.js';
 import { MOE_RULES, classAiPolicy, NOT_SELLABLE } from '@shared/schoolRules.js';
+// the Worker's own contact guard (worker/src/help.js uses the same function)
+import { hasContact } from '@shared/contact.js';
 import { makeClassExam, classExamTitle } from './exam.js';
 import { assignTitle } from './assign.js';
 import { ApiError } from './api.js';
@@ -226,23 +228,24 @@ const lateOf = (st, a, w) => (w?.state === 'done' ? w.doneDay > a.dueOn : a.dueO
 const helpStatus = (h, msgs) => (h.doneAt ? 'done' : msgs.some((m) => m.from === 'teacher') ? 'answered' : h.seenAt ? 'seen' : 'sent');
 const msgView = (m) => ({ id: m.id, from: m.from, body: m.body, at: m.at, read: !!m.read });
 
-/** The most frequent stair of a mistake's rows (a tie: the lower one). */
-function topLevel(rows) {
-  const n = {};
-  for (const r of rows) n[r.level] = (n[r.level] || 0) + 1;
-  return Number(Object.entries(n).sort((a, b) => b[1] - a[1] || Number(a[0]) - Number(b[0]))[0][0]);
+/** A practice row's mistakes, one group per stair and mistake (TEACHER-16; the Worker groups by topic, level, cat). */
+function byStair(rows) {
+  const groups = {};
+  for (const r of rows) if (r.cat) (groups[`${r.topic}\u0000${r.level}\u0000${r.cat}`] ||= []).push(r);
+  return Object.values(groups);
 }
+const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+/** The order of the Worker's mistake rows after their counts: topic, stair, mistake. */
+const byKey = (a, b) => cmp(a.topic, b.topic) || a.level - b.level || cmp(a.cat, b.cat);
 /** The class's repeated mistakes over some practice rows (most students first, then most answers; at most 12). */
 function classMistakes(st, rows, { ids = false } = {}) {
-  const groups = {};
-  for (const r of rows) if (r.cat) (groups[`${r.topic}\u0000${r.cat}`] ||= []).push(r);
-  return Object.values(groups).map((g) => {
+  return byStair(rows).map((g) => {
     const who = [...new Set(g.map((r) => r.sid))].map((id) => ({ id, name: nameOf(st, id) })).sort(byName);
     return {
-      topic: g[0].topic, cat: g[0].cat, n: g.length, students: who.length, level: topLevel(g),
+      topic: g[0].topic, level: g[0].level, cat: g[0].cat, n: g.length, students: who.length,
       ...(ids ? { ids: who.map((w) => w.id) } : {}), names: who.map((w) => w.name),
     };
-  }).sort((a, b) => b.students - a.students || b.n - a.n || (a.topic < b.topic ? -1 : a.topic > b.topic ? 1 : 0) || (a.cat < b.cat ? -1 : 1)).slice(0, 12);
+  }).sort((a, b) => b.students - a.students || b.n - a.n || byKey(a, b)).slice(0, 12);
 }
 
 /** GET /api/teacher/dashboard (worker/src/index.js dashboard). */
@@ -287,6 +290,8 @@ function dashboard(st) {
     }),
     helpDigest: null,
     aiPolicy: aiPolicyOf(st),
+    // the demo class is bound to no email (teacherAccount.js bindingView)
+    boundElsewhere: false, boundAt: null, rekeyFrom: null,
   };
 }
 
@@ -303,12 +308,9 @@ function report(st, params) {
   const inRange = rows.filter((r) => r.day >= from && r.day <= to);
   const students = [...st.students].sort(byName);
   const index = Object.fromEntries(students.map((s, i) => [s.id, i]));
-  const topMistakes = (id) => {
-    const g = {};
-    for (const r of inRange) if (r.sid === id && r.cat) (g[`${r.topic}\u0000${r.cat}`] ||= []).push(r);
-    return Object.values(g).map((list) => ({ topic: list[0].topic, cat: list[0].cat, level: topLevel(list), n: list.length }))
-      .sort((a, b) => b.n - a.n || (a.topic < b.topic ? -1 : a.topic > b.topic ? 1 : 0) || (a.cat < b.cat ? -1 : a.cat > b.cat ? 1 : 0)).slice(0, 3);
-  };
+  const topMistakes = (id) => byStair(inRange.filter((r) => r.sid === id))
+    .map((list) => ({ topic: list[0].topic, cat: list[0].cat, level: list[0].level, n: list.length }))
+    .sort((a, b) => b.n - a.n || byKey(a, b)).slice(0, 3);
   const assignments = st.assignments.filter((a) => a.dueOn >= from && a.startsOn <= to)
     .sort((a, b) => (a.dueOn < b.dueOn ? -1 : a.dueOn > b.dueOn ? 1 : a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1)).slice(0, 200);
   return ok({
@@ -350,10 +352,9 @@ function studentPage(st, id) {
     const day = plus(from14, i); const list = mine.filter((r) => r.day === day);
     return { day, n: list.length, first: list.reduce((x, r) => x + r.first, 0), minutes: Math.round(list.reduce((x, r) => x + r.secs, 0) / 60) };
   });
-  const g = {};
-  for (const r of mine) if (r.cat && r.day >= from30) (g[`${r.topic}\u0000${r.cat}`] ||= []).push(r);
-  const mistakes = Object.values(g).map((list) => ({ topic: list[0].topic, cat: list[0].cat, level: topLevel(list), n: list.length, lastAt: list.reduce((m, r) => (r.at > m ? r.at : m), '') }))
-    .sort((a, b) => b.n - a.n || (a.lastAt < b.lastAt ? 1 : a.lastAt > b.lastAt ? -1 : 0) || (a.topic < b.topic ? -1 : a.topic > b.topic ? 1 : 0)).slice(0, 8);
+  const mistakes = byStair(mine.filter((r) => r.day >= from30))
+    .map((list) => ({ topic: list[0].topic, cat: list[0].cat, level: list[0].level, n: list.length, lastAt: list.reduce((m, r) => (r.at > m ? r.at : m), '') }))
+    .sort((a, b) => b.n - a.n || cmp(b.lastAt, a.lastAt) || byKey(a, b)).slice(0, 8);
   const work = st.assignments.filter((a) => a.dueOn >= plus(today, -60) && a.startsOn <= today && forWhom(st, a).includes(id))
     .sort((a, b) => (a.dueOn < b.dueOn ? 1 : a.dueOn > b.dueOn ? -1 : a.createdAt < b.createdAt ? 1 : -1)).slice(0, 40)
     .map((a) => {
@@ -384,10 +385,6 @@ function cleanSkill(v) {
   const level = Number(m[2]);
   return level >= 1 && level <= 12 ? `${m[1]}:${level}` : null;
 }
-const TLDS = 'com|net|org|info|biz|io|co|il|me|app|dev|ai|ly|gl|gg|tv|to|cc|us|uk|de|fr|ru|edu|gov|link|site|online|xyz|page|club|live|chat|social|test';
-const LINK = new RegExp(`https?:\\/\\/|www\\.|[\\p{L}\\p{N}_-]\\.(${TLDS})(?![\\p{L}\\p{N}])`, 'iu');
-/** help.js hasContact: a link, an email address or a phone number. */
-const hasContact = (s) => LINK.test(s) || /[^\s@]+@[^\s@]+\.[^\s@]+/.test(s) || /\d{7,}/.test(s.replace(/[\s.\-–—()/]+/g, ''));
 const badAssignment = (field) => fail(400, 'bad_assignment', { field });
 function dueDate(st, value, from = st.today) {
   const v = String(value ?? '');

@@ -8,6 +8,8 @@
     "db:migrate": "wrangler d1 migrations apply madregot --remote",
     "db:migrate:local": "wrangler d1 migrations apply madregot --local",
     "db:init": "npm run db:migrate",
+    "staging:migrate": "wrangler d1 migrations apply madregot-staging --env staging --remote",
+    "staging:deploy": "wrangler deploy --env staging",
     "owner": "node scripts/owner.mjs",
     "test": "node --test \"test/*.test.js\""
   },

@@ -15,6 +15,7 @@
 //   refund --id S [--agorot N]
 //   clear-hold --email E
 //   revoke-device --id D
+//   unbind-class --class C                      a class bound to the wrong email: the class keeps its key, no owner
 //   forget --email E
 //   list [--class C | --email E | --status S | --gefen [G]]   requests [--open]   request-done --id R
 //   usage --from D --to D                        events [--outcome mismatch]
@@ -287,6 +288,13 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
     case 'clear-hold': {
       const email = emailArg(o.email);
       return { readOnly: false, sql: [`UPDATE accounts SET billing_hold_at = NULL WHERE email = ${q(email)};`, audit(now, 'billing.clear_hold', 'account', {})].join('\n') };
+    }
+    case 'unbind-class': {
+      // support's undo of a mistaken late bind (teacherAccount.js: a co-teacher with the key bound it to their email).
+      // Within the 7 days nobody could replace the key, so the teacher who opened the class still has it; she binds
+      // the class to her own email from the device that opened it.
+      const cls = classArg(o.class);
+      return { readOnly: false, sql: [`DELETE FROM class_owners WHERE class_code = ${q(cls)};`, audit(now, 'class.unbind', `class:${cls}`, { by: 'owner' })].join('\n') };
     }
     case 'revoke-device': {
       const dev = idArg(o.id, 'device id');

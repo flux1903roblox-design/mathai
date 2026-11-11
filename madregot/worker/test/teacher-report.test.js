@@ -81,7 +81,8 @@ test('the report of this week has the board\'s numbers, by name, with the stairs
   );
   assert.equal(dana.joinedOn, '2026-11-12');
   assert.deepEqual(dana.topMistakes, [{ topic: 'signed', cat: 'sign', level: 1, n: 1 }], 'the coord mistake of 1 November is outside');
-  assert.deepEqual(yoav.topMistakes, [{ topic: 'signed', cat: 'order', level: 2, n: 1 }, { topic: 'signed', cat: 'sign', level: 1, n: 1 }]);
+  // one row per stair and mistake; a tie in the stairs' order
+  assert.deepEqual(yoav.topMistakes, [{ topic: 'signed', cat: 'sign', level: 1, n: 1 }, { topic: 'signed', cat: 'order', level: 2, n: 1 }]);
   assert.deepEqual({ exercises: noa.exercises, activeDays: noa.activeDays, firstTry: noa.firstTry, topMistakes: noa.topMistakes }, { exercises: 0, activeDays: 0, firstTry: 0, topMistakes: [] });
   assert.equal(noa.lastPractice, '2026-11-02T12:00:00.000Z');
   // the class's mistakes: the board's rows, with names only
@@ -230,7 +231,7 @@ test('a student\'s page: 14 day rows with the empty days as zeros, the stairs, t
     { topic: 'coord', cat: 'swap', level: 2, n: 1, lastAt: '2026-11-01T09:00:00.000Z' },
   ]);
   assert.deepEqual([d.work, d.help, d.exams], [[], [], []]);
-  // יואב: his two mistakes on 9 November and the one of 5 November (all in 30 days); the stair it happened on most
+  // יואב: his two mistakes on 9 November and the one of 5 November (all in 30 days); one row per stair
   const y = await detailOf(cls, yoav.studentId);
   assert.deepEqual(y.mistakes.map((m) => [m.cat, m.level, m.n]), [['sign', 1, 2], ['order', 2, 1]]);
   // never practised: no last practice, every day zero
