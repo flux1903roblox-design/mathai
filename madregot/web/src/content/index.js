@@ -264,6 +264,18 @@ export function figPlain(f) {
     case 'area': return `מלבן: גובה ${f.a}, אורך ${f.b ? `x ועוד ${f.b}` : 'x'}${f.areas ? `; שטחי החלקים ${plainNum(f.a)}x ו־${plainNum(f.a * f.b)}, השטח כולו ${areaTex(f)}` : ''}`;
     case 'ray': return `ציר מספרים: עיגול ${f.closed ? 'מלא' : 'ריק'} ב־${plainNum(f.at)} וקרן ${f.dir > 0 ? 'ימינה' : 'שמאלה'} (${rayText(f)})`;
     case 'tiles': return `אריחים: ${tilesWords(f)}`;
+    // a teaching drawing from named points (GEOM-1.5): what it marks, so the tutor and an answer key read it too: an
+    // angle's text, a right angle, a labelled side, equal-side ticks ("_" starts a helper point's name: read without it)
+    case 'geo': {
+      const nm = (k) => String(k).replace(/^_/, '');
+      const marks = [
+        ...(f.angles || []).filter((g) => g.text).map((g) => `∢${nm(g.at)} ${g.text}`),
+        ...(f.angles || []).filter((g) => g.right).map((g) => `∢${nm(g.at)} ישרה`),
+        ...(f.segs || []).filter((sg) => sg.label != null && sg.label !== '').map((sg) => `${nm(sg.a)}${nm(sg.b)} = ${sg.label}`),
+        ...(f.segs || []).filter((sg) => sg.ticks).map((sg) => `${nm(sg.a)}${nm(sg.b)}: ${sg.ticks} סימונים`),
+      ];
+      return marks.length ? `שרטוט: ${marks.join(', ')}` : 'שרטוט';
+    }
     // the fraction figures (numline with parts, fbar, fgrid, dline, groups) and the teaching figures (STUDENT-8: numline,
     // thermo, machine, dots, bars) say in words what they draw
     default: return figWords(f);

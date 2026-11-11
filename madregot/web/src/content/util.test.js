@@ -1,12 +1,14 @@
 // Reading answers exactly as students write them, and the shared answer rules of stage 1 (CURRICULUM-2 items 4-7):
 // mixed numbers and thousands on a computer keyboard, the `precise` rule, the fraction answer form and its
-// "not reduced yet" note, the format sentence, exact answer text, and practice-only questions kept out of checks.
+// "not reduced yet" note, the format sentence, exact answer text, and practice-only questions kept out of checks; and
+// stage 4's rule that an answer is never a number the question shows (notGuessable).
 import { describe, it, expect, afterEach } from 'vitest';
 import { parseNum, readNumCandidates, numRight, shortDec, plainNum, toFrac, exactTex, fractionHint, withFormatNote } from './util.js';
 import { TOPIC, makeItem, testItem, fairForCheck, slotsFor, readAnswer, isCorrect, partialOf, answerText } from './index.js';
 import { startLesson, answer } from '../lib/lesson.js';
 import { finalCheck } from '../components/learn/Together.jsx';
 import { modelItem } from '../learn/items.ts';
+import { notGuessable } from './frac.js';
 
 /** A typed item, as a generator makes one. */
 const num = (answer, extra = {}) => ({ form: 'num', answer, topic: 'test', level: 1, key: 'k', text: 'כמה?', ...extra });
@@ -292,5 +294,33 @@ describe('"solve together": the last typed step follows the same rule', () => {
     expect(finalCheck({ answer: 2.5 }, '2 1/2')).toEqual({ u: 2.5, ok: true });
     expect(finalCheck({ answer: 3 }, '2,000')).toEqual({ u: 2, ok: false });
     expect(finalCheck({ answer: 3 }, '')).toBeNull();
+  });
+});
+
+describe('the answer is never shown (stage 4 §0.5, notGuessable)', () => {
+  it('an answer equal to a printed number is redrawn', () => {
+    expect(notGuessable(12, [8, 6])).toBe(true);
+    expect(notGuessable(6, [8, 6])).toBe(false);
+    expect(notGuessable(2.5, [2.5, 4])).toBe(false);
+    expect(notGuessable(-3, [3])).toBe(true); // the sign is part of the number
+    expect(notGuessable(5, [])).toBe(true);
+  });
+  it('an angle that is 180 − n, 90 − n or 360 − n of a printed n is redrawn; other answers keep that rule off', () => {
+    // ∢A = 50°, ∢B = 60°: the third angle 70° is none of 130, 120, 40, 30, 310, 300, 50, 60
+    expect(notGuessable(70, [50, 60], true)).toBe(true);
+    expect(notGuessable(130, [50, 60], true)).toBe(false); // 180 − 50
+    expect(notGuessable(30, [50, 60], true)).toBe(false); // 90 − 60
+    expect(notGuessable(310, [50, 60], true)).toBe(false); // 360 − 50
+    expect(notGuessable(60, [50, 60], true)).toBe(false); // printed
+    // a length is not an angle: 180 − 50 is a fair length
+    expect(notGuessable(130, [50, 60])).toBe(true);
+    // the critique's slip: (3x + 10)° with ∢M = 70° gave x = 20 = 90 − 70, which a 90 − n guesser types
+    expect(notGuessable(20, [3, 10, 70], true)).toBe(false);
+    expect(notGuessable(20, [2, 10, 70, 45], true)).toBe(false);
+    expect(notGuessable(30, [2, 10, 70, 45], true)).toBe(true); // (2x + 10)° = 70°: x = 30
+  });
+  it('compares to a billionth, as clean() does', () => {
+    expect(notGuessable(0.1 + 0.2, [0.3])).toBe(false);
+    expect(notGuessable(0.3001, [0.3])).toBe(true);
   });
 });

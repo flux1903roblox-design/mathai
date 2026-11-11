@@ -302,6 +302,18 @@ describe('names: shared/stairs.js equals the content, and misconception titles r
     expect(texToPlain('')).toBe('');
   });
 
+  it('the class\'s geometry signs (GEOM-1.4): triangle, congruent, similar, parallel, perpendicular, angle, prime', () => {
+    expect(texToPlain('$\\triangle ABC \\cong \\triangle KML$')).toBe('⁦△ABC ≅ △KML⁩');
+    expect(texToPlain('$\\triangle ADE \\sim \\triangle ABC$', { isolate: false })).toBe('△ADE ∼ △ABC');
+    expect(texToPlain('$DE \\parallel BC$', { isolate: false })).toBe('DE ∥ BC');
+    expect(texToPlain('$CD \\perp AB$', { isolate: false })).toBe('CD ⊥ AB');
+    expect(texToPlain('$\\sphericalangle A = 50^\\circ$', { isolate: false })).toBe('∢A = 50°');
+    expect(texToPlain('$A\'(1, -1)$ ו־$B^{\\prime}$', { isolate: false })).toBe('A′(1, −1) ו־B′');
+    // only the bare commands: a longer command that starts the same is left visible, as any unknown command is
+    expect(texToPlain('$a \\simeq b$', { isolate: false })).toBe('a \\simeq b');
+    expect(texToPlain('$\\triangleleft$', { isolate: false })).toBe('\\triangleleft');
+  });
+
   it('misconName: the content\'s title, else the topic\'s older name, else a calm fallback', () => {
     const own = META['angles:1'].misconceptions.find((m) => m.id === 'sum-360')!;
     expect(misconName('angles:1', 'sum-360')).toBe(texToPlain(own.title));

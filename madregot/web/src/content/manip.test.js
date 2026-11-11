@@ -595,3 +595,21 @@ describe('the still figures of stage 1 are drawn, and said in words with every n
     expect(figPlain({ type: 'numline', from: -6, to: 6, marks: [{ x: -2, label: 'B' }, { x: 0.75, label: '0.75' }] })).toBe('ציר מספרים מ־−6 עד 6, נקודה B ב־−2, נקודה ב־0.75');
   });
 });
+
+describe('a geo drawing in words (GEOM-1.5): what it marks, for the tutor and an answer key', () => {
+  // an isosceles triangle ABC (AB = AC, two ticks each), its height AH (a right angle at H), BC labelled 12, the apex
+  // angle 40° and the base angle at B asked; "_M" is a helper point drawn with no letter
+  const fig = {
+    type: 'geo', label: 'משולש שווה־שוקיים ABC והגובה AH',
+    pts: { A: [0, 5], B: [-3, 0], C: [3, 0], H: [0, 0], _M: [1.5, 2.5] },
+    segs: [{ a: 'A', b: 'B', ticks: 2 }, { a: 'A', b: 'C', ticks: 2 }, { a: 'B', b: 'C', label: '12' }, { a: 'A', b: 'H', dash: true }, { a: 'H', b: '_M', label: '' }],
+    angles: [{ at: 'A', from: 'B', to: 'C', text: '40°' }, { at: 'B', from: 'C', to: 'A', text: '?', target: true }, { at: 'H', from: 'C', to: 'A', right: true }, { at: '_M', from: 'A', to: 'H', text: 'x' }],
+  };
+  it('reads the angles with their text, the right angles, the labelled sides and the ticks, in that order', () => {
+    expect(figPlain(fig)).toBe('שרטוט: ∢A 40°, ∢B ?, ∢M x, ∢H ישרה, BC = 12, AB: 2 סימונים, AC: 2 סימונים');
+    expect(itemPlain({ form: 'num', text: 'מה גודל הזווית?', fig, answer: 70 })).toContain('[שרטוט: ∢A 40°');
+  });
+  it('a drawing that marks nothing still says it is a drawing', () => {
+    expect(figPlain({ type: 'geo', pts: { A: [0, 0], B: [1, 0] }, segs: [{ a: 'A', b: 'B' }] })).toBe('שרטוט');
+  });
+});

@@ -11,6 +11,11 @@
 //    still be passed by copying the angle drawn (angles:2 about 31%, angles:4 about 47%, from a run with drawings in),
 //    because its questions are one step, equal or adding to 180°. That needs the angle checks to mix in other kinds of
 //    questions, and is left for that change.
+// And two arithmetic shortcuts, only in the topics where they are a tool and not the skill (congruence and similarity,
+// GEOM-1; in `angles` 180 − a − b is the skill itself):
+//  - 180° minus the printed angles: the first two printed, or all of them (a congruence item that asks the third angle
+//    of a triangle can be answered so without reading the correspondence at all);
+//  - two printed lengths multiplied, over 4 (a median's half-triangle area: b·h/4).
 // Each question's chance is measured on a fresh sample; a check's pass rate is then exact (its questions are drawn
 // independently): mastery and jump tests need 4 of 5, a review 3 of 3, a verification 3 of 3; a placement probe needs
 // all three of its questions, and a topic's placement is followed through both its probes.
@@ -114,6 +119,31 @@ const SHOWN: ((it: Item) => number)[] = [
   (it) => { if (!TWO.has(it.form)) return 0; const ns = printed(it); return ns.length >= 2 && isCorrect(it, twoOf(it, ns[ns.length - 2], ns[ns.length - 1])) ? 1 : 0; },
 ];
 
+/**
+ * The numbers a question prints as angles (a number with a degree sign, in its text, its expression or a drawing's angle
+ * marks) and as lengths (every other printed number, and a drawing's side labels), each in reading order.
+ */
+const DEG = /(-?\d+(?:\.\d+)?)\s*(?:\^\s*\{?\s*\\circ\s*\}?|°)/g;
+export function printedParts(it: Item): { angles: number[]; lengths: number[] } {
+  const said = [it.text, it.display].filter(Boolean).join(' ');
+  const angles = [...said.matchAll(DEG)].map((m) => Number(m[1]));
+  const lengths = printed({ ...it, text: said.replace(DEG, ' '), display: '' });
+  if (it.fig?.type === 'geo') {
+    for (const g of it.fig.angles || []) for (const m of String(g.text || '').matchAll(DEG)) angles.push(Number(m[1]));
+    for (const sg of it.fig.segs || []) if (/^-?\d+(\.\d+)?$/.test(String(sg.label ?? ''))) lengths.push(Number(sg.label));
+  }
+  return { angles, lengths };
+}
+/** The topics where the arithmetic shortcuts are measured: there the triangle sum and b·h/4 are tools, not the skill. */
+const ARITH_TOPICS = new Set(['congr', 'sim']);
+const ARITH: ((it: Item) => number)[] = [
+  // 180° minus the first two printed angles
+  (it) => { if (it.form !== 'num' || !ARITH_TOPICS.has(it.topic)) return 0; const { angles: a } = printedParts(it); return a.length >= 2 && isCorrect(it, 180 - a[0] - a[1]) ? 1 : 0; },
+  // 180° minus every printed angle
+  (it) => { if (it.form !== 'num' || !ARITH_TOPICS.has(it.topic)) return 0; const { angles: a } = printedParts(it); return a.length >= 1 && isCorrect(it, 180 - a.reduce((x, y) => x + y, 0)) ? 1 : 0; },
+  // the first two printed lengths multiplied, over 4
+  (it) => { if (it.form !== 'num' || !ARITH_TOPICS.has(it.topic)) return 0; const { lengths: l } = printedParts(it); return l.length >= 2 && isCorrect(it, (l[0] * l[1]) / 4) ? 1 : 0; },
+];
 
 /** P(at least `need` right) for independent questions with these chances. */
 function atLeast(qs: number[], need: number) {
@@ -126,7 +156,7 @@ function atLeast(qs: number[], need: number) {
 function passRate(draws: Draw[], need: number) {
   const samples = draws.map((d) => Array.from({ length: N }, d));
   // the numbers-from-the-question guesses learn nothing, so they are measured on the same sample
-  const fromQuestion = SHOWN.map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
+  const fromQuestion = [...SHOWN, ...ARITH].map((c) => atLeast(samples.map((xs) => xs.reduce((a, it) => a + c(it), 0) / N), need));
   return Math.max(...learnGuesses(samples.flat()).map((g) => atLeast(chances(draws, g), need)), ...fromQuestion);
 }
 
@@ -207,6 +237,29 @@ describe('the guessing measure itself', () => {
     // (coefficient and constant as printed) would be passed by copying them
     const copy: Draw = () => { const k = 2 + Math.floor(Math.random() * 7); const c = 1 + Math.floor(Math.random() * 9); return { form: 'lin', text: 'כתבו בלי סוגריים:', display: `${k}x + ${c}`, answer: { k, c }, key: 'copy:x' }; };
     expect(passRate([copy, copy, copy, copy, copy], 4)).toBeGreaterThan(0.9);
+  });
+  it('the arithmetic shortcuts of congruence and similarity run, and only there (GEOM-1 Tests)', () => {
+    // no congr or sim item exists yet (GEOM-5, GEOM-6): synthetic ones show the guessers guess, so they cannot pass a
+    // real check later by never running
+    const third = { form: 'num', topic: 'congr', text: 'במשולש $ABC$: $\\sphericalangle A = 50^\\circ$, $\\sphericalangle B = 60^\\circ$. כמה מעלות $\\sphericalangle C$?', answer: 70, key: 'syn:third' };
+    expect(printedParts(third)).toEqual({ angles: [50, 60], lengths: [] });
+    expect(ARITH[0](third)).toBe(1);
+    expect(ARITH[1](third)).toBe(1);
+    // with three printed angles, "minus all of them" is the one that guesses
+    const all = { ...third, text: 'זוויות של $30°$, $40°$ ו־$50^{\\circ}$', answer: 60 };
+    expect(printedParts(all).angles).toEqual([30, 40, 50]);
+    expect([ARITH[0](all), ARITH[1](all)]).toEqual([0, 1]);
+    // two lengths multiplied over 4: the base 8 and the height 6 guess 12, in the text or as a drawing's side labels
+    const area = { form: 'num', topic: 'sim', text: '$BC = 8$, $AH = 6$. מה השטח של $\\triangle ABD$?', answer: 12, key: 'syn:area' };
+    expect(printedParts(area)).toEqual({ angles: [], lengths: [8, 6] });
+    expect(ARITH[2](area)).toBe(1);
+    const drawn = { form: 'num', topic: 'sim', text: 'מה השטח?', answer: 12, key: 'syn:drawn', fig: { type: 'geo', pts: { A: [0, 3], B: [0, 0], C: [4, 0] }, segs: [{ a: 'B', b: 'C', label: '8' }, { a: 'A', b: 'B', label: '6' }], angles: [{ at: 'B', from: 'C', to: 'A', right: true }] } };
+    expect(ARITH[2](drawn)).toBe(1);
+    // the triangle sum is the skill of `angles`: there the shortcut is not counted against the check
+    expect(ARITH.map((g) => g({ ...third, topic: 'angles' }))).toEqual([0, 0, 0]);
+    // and it reaches the pass rate: a check whose answer is always 180 − a − b falls to it
+    const draw: Draw = () => { const a = 5 * (7 + Math.floor(Math.random() * 10)); const b = 5 * (7 + Math.floor(Math.random() * 10)); return { ...third, text: `$\\sphericalangle A = ${a}^\\circ$, $\\sphericalangle B = ${b}^\\circ$`, answer: 180 - a - b, key: `syn:${a}:${b}` }; };
+    expect(passRate([draw, draw, draw, draw, draw], 4)).toBeGreaterThan(0.9);
   });
   it('sees the old pyth:5 hole: always typing 5 when the answers are 5 or 10', () => {
     // a check of five questions whose answers are 5 three times out of four: the measure must catch it

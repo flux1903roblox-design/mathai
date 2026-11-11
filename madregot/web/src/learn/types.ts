@@ -23,8 +23,26 @@ export type Rng = () => number;
  * is { mode: 'value', value } | { mode: 'common', of } | { mode: 'exact', den, shaded }) and 'dline' (the double number
  * line { top, bottom, move: 't' | 'max', start: { t, max? }, fixT? }; the answer is the marker's top value or the bottom
  * line's end). 'numberline' and 'pins' take `den` (ticks every 1/den, values k/den) and `fmt: 'dec'`.
+ * Geometry (curriculum stage 4): 'transform' (a copy of a shape moved, flipped and turned on the grid, GEOM-2: the
+ * spec is TransformSpec, the value the copy's vertices, the answer { pts, match? }) and 'proof' (a proof in the class's
+ * table טענה | נימוק, GEOM-3: the challenge track's `order` part as a practice object).
  */
-export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline';
+export type ManipKind = 'numberline' | 'plot' | 'line' | 'angle' | 'squares' | 'bars' | 'pins' | 'triangle' | 'balance' | 'tiles' | 'area' | 'ray' | 'fbar' | 'dline' | 'transform' | 'proof';
+/** A mirror line on the grid: an axis, or the line x = k or y = k. */
+export type Mirror = 'x' | 'y' | { x: number } | { y: number };
+/**
+ * The transform object (GEOM-2): the original shape stays, the student moves a copy that starts at `start` (default: on
+ * the original) with the moves the item lists: slides (drag, arrow keys and buttons), a flip in each mirror, quarter
+ * or half turns about `turns.centre`. `range` is the plane's half-width (default 6); `target` a dashed outline to cover.
+ */
+export type TransformSpec = {
+  kind: 'transform';
+  shape: { pts: [number, number][]; names: string[] };
+  start?: [number, number][];
+  moves: { drag?: boolean; flips?: Mirror[]; turns?: { centre: [number, number]; by: 90 | 180 } };
+  range?: number;
+  target?: { pts: [number, number][]; names?: string[] };
+};
 export interface ManipSpec { kind: ManipKind; [field: string]: unknown }
 
 // ------------------------------------------------------------------ Stage A: discover and understand
@@ -72,12 +90,23 @@ export type FigSpec =
     lines?: { m: number; b: number; label?: string; tone?: FigTone }[];
     meet?: boolean; riseRun?: { x: number; run: number }; quadrants?: boolean; path?: [number, number][]; anim?: boolean;
     words?: { at: [number, number]; text: string; tone?: FigTone | 'alt' }[];
+    // the transform object's still twin (GEOM-2.8): shapes with letters at their vertices (ghost: dashed), dashed arrows
+    // from a point to its image, a mirror line with its equation, a centre O with a curved arrow of the turn
+    shapes?: { pts: [number, number][]; names?: string[]; tone?: 'brand' | 'alt' | 'ghost'; label?: string }[];
+    arrows?: { from: [number, number]; to: [number, number]; label?: string }[];
+    mirror?: Mirror; centre?: [number, number]; turn?: 90 | -90 | 180;
   }
   | GeoFig
+  | ProofFig
   | FbarFig | FgridFig | DlineFig | GroupsFig
   | { type: 'linear' | 'cross' | 'parallel' | 'triangle' | 'right' | 'ladder' | 'scale' | 'area' | 'ray' | 'tiles'; [field: string]: unknown };
 /** A teaching drawing from named points (Figure type 'geo'; its fields are listed in components/Figure.jsx). */
 export type GeoFig = { type: 'geo'; label?: string; pts: Record<string, [number, number]>; [field: string]: unknown };
+/**
+ * A proof as a still table (GEOM-3.9): `נתון` and `צ״ל` lines, then the rows טענה | נימוק; `ask` writes "?" in that row's
+ * reason (a predict step that asks why). A teaching figure only, never in a check.
+ */
+export type ProofFig = { type: 'proof'; given?: Text; goal?: Text; rows: { claim: Text; reason: Text }[]; ask?: number };
 
 export interface SayStep { kind: 'say'; text: Text; display?: string; mood?: Mood; fig?: FigSpec }
 /** A prediction before the explanation: the student commits, then sees why. Any choice moves on. */
@@ -315,7 +344,8 @@ export interface ChallengeTask {
  *   mc       one right choice among several, each with its own feedback
  *   claim    always / sometimes / never true; with `example`, a counterexample typed into the slots: `expr` evaluated
  *            at the slots' values (learn/expr.ts) must satisfy `rel value`, the values in `domain`
- *   order    a proof's steps, shown shuffled, put in order; a step with `reason` then asks why, as a choice. `free`
+ *   order    a proof's steps, shown shuffled, put in order; a step with `reason` then asks why, as a choice, and a
+ *            step with `fixed` shows its reason and does not ask it (`נתון` on a given, GEOM-3.1). `free`
  *            lists groups of steps that may come in any order among themselves (two equal angles found one after the
  *            other): the proof is right either way, so the check accepts both
  *   error    someone's solution as lines: the wrong line (`wrong`), then the right value typed (`fix`)
@@ -327,7 +357,7 @@ export type ChallengePart =
   | { type: 'claim'; prompt: Text; claim: Text; verdict: 'always' | 'sometimes' | 'never'; why: Text;
       example?: { ask: Text; slots: { name: string; label: Text }[]; domain: 'positive-int' | 'int' | 'number';
                   expr: string; rel: '<' | '<=' | '>' | '>=' | '!='; value: number; hint: Text } }
-  | { type: 'order'; prompt: Text; steps: { text: Text; reason?: { choices: Text[]; answer: number } }[]; free?: number[][] }
+  | { type: 'order'; prompt: Text; steps: { text: Text; reason?: { choices: Text[]; answer: number }; fixed?: Text }[]; free?: number[][] }
   | { type: 'error'; prompt: Text; lines: Text[]; wrong: number; why: Text; fix: { prompt: Text; answer: number; check: string } }
   | { type: 'explain'; prompt: Text; rubric: Text[]; sample: Text };
 /** A challenge task (curriculum stage 1, CURRICULUM-6): when it started, when it was finished, parts right first time. */

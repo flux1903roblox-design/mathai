@@ -52,6 +52,23 @@ export function clean(model, p) {
   }
   return true;
 }
+/**
+ * The answer is never shown (curriculum stage 4, §0.5): false when `ans` is a number the question prints (in its text,
+ * its expression or its drawing: `nums`) or, for an answer in degrees (`deg`), 180 − n, 90 − n or 360 − n of a printed
+ * n, so a guesser who copies a number, or takes it from a straight, right or full angle, never passes a check. Every
+ * check-eligible geometry generator redraws until it holds (stage4 models.mjs notGuessable, unchanged).
+ * @param {number} ans
+ * @param {number[]} nums
+ * @param {boolean} [deg]
+ */
+export function notGuessable(ans, nums, deg = false) {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  for (const n of nums) {
+    if (near(ans, n)) return false;
+    if (deg && (near(ans, 180 - n) || near(ans, 90 - n) || near(ans, 360 - n))) return false;
+  }
+  return true;
+}
 const draw = (model, raw) => (r) => { for (;;) { const p = raw(r); if (p && clean(model, p)) return p; } };
 export function mk(m) { m.params = draw(m, m.raw); return m; }
 

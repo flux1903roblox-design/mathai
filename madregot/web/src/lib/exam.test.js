@@ -11,6 +11,14 @@ import { itemFor } from '@/learn/items.ts';
 // the server's own validator: a class exam the app makes is one the Worker keeps as it is
 import { cleanExamItems } from '../../../worker/src/assignments.js';
 
+// every question the generators make while this file runs, so a test can see what a printed exam was drawn from (the
+// printed copy keeps no practiceOnly flag): makeItem is the content's own, only recorded
+const made = vi.hoisted(() => []);
+vi.mock('@/content/index.js', async (importOriginal) => {
+  const real = await importOriginal();
+  return { ...real, makeItem: (...args) => { const it = real.makeItem(...args); made.push(it); return it; } };
+});
+
 describe('exam', () => {
   it('scores partial answers as half', () => {
     expect(scoreOf({ questions: [{ status: 'correct' }, { status: 'partial' }, { status: 'wrong' }, { status: 'missing' }] })).toEqual({ correct: 1.5, total: 4, pct: 38 });
@@ -28,6 +36,25 @@ describe('exam', () => {
       expect(() => JSON.stringify(i)).not.toThrow();
     }
     expect(makePracticeExam(['nope'], 5)).toEqual([]);
+  });
+  it('a printed practice exam has no practice-only question and nothing dragged on the screen (council2, GEOM-1 Tests)', () => {
+    // coord, ratio and frac have practice-only choices and dragged objects (coord:2 is mostly dragging); transf, congr
+    // and sim join the list when their stairs land (GEOM-4 to -6), with their practice-only transform and proof objects
+    const topics = ['coord', 'ratio', 'frac', 'transf', 'congr', 'sim'];
+    made.length = 0;
+    const items = makePracticeExam(topics, 40);
+    expect(items).toHaveLength(40);
+    expect(new Set(items.map((i) => i.topic))).toEqual(new Set(topics.filter((id) => TOPIC[id])));
+    // the generators did offer both kinds, so the filter was tried, not passed for nothing
+    expect(made.some((it) => it.practiceOnly)).toBe(true);
+    expect(made.some((it) => it.form === 'manip')).toBe(true);
+    const keys = new Set(items.map((i) => i.key));
+    for (const it of made.filter((m) => keys.has(m.key))) {
+      expect(it.practiceOnly, it.key).toBeFalsy();
+      expect(it.form, it.key).not.toBe('manip');
+      expect(fairForCheck(it), it.key).toBe(true);
+    }
+    for (const i of items) expect(i.form, i.key).not.toBe('manip');
   });
   it('ranks weak topics from exams and practice mistakes', () => {
     const exams = [{ result: { questions: [
