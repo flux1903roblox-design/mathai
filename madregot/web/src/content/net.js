@@ -528,9 +528,11 @@ export function netWrong(it) {
 // ---------------------------------------------------------------- the still figures in words
 const NEXT = { up: 'מעל ', down: 'מתחת ל־', right: 'מימין ל־', left: 'משמאל ל־' };
 const ROW_NAMES = ['העליונה', 'השנייה', 'השלישית'];
+/** A net's cells: a named layout's, or the cells given (a shape that may not fold, for a "which net folds?" choice). */
+const cellsOf = (f) => (Array.isArray(f.layout) ? f.layout : NET_LAYOUTS[f.layout || 'cross']);
 /** A cube's or a box's net with no letters drawn, row by row: "בשורה העליונה ריבוע בעמודה 2; …". */
 function netRows(f) {
-  const cells = NET_LAYOUTS[f.layout || 'cross']; const rows = [...new Set(cells.map((c) => c[1]))].sort((a, b) => a - b);
+  const cells = cellsOf(f); const rows = [...new Set(cells.map((c) => c[1]))].sort((a, b) => a - b);
   const what = f.solid === 'cube' ? ['ריבוע', 'ריבועים'] : ['מלבן', 'מלבנים'];
   return rows.map((r, i) => {
     const cols = cells.filter((c) => c[1] === r).map((c) => c[0] + 1).sort((a, b) => a - b);
@@ -538,7 +540,7 @@ function netRows(f) {
   }).join('; ');
 }
 /** Where a face of an unlettered cube or box net is: "הריבוע בשורה 1 ובעמודה 2". */
-const cellWords = (f, id) => { const c = NET_LAYOUTS[f.layout || 'cross'][IDS6.indexOf(id)]; return `${f.solid === 'cube' ? 'הריבוע' : 'המלבן'} בשורה ${c[1] + 1} ובעמודה ${c[0] + 1}`; };
+const cellWords = (f, id) => { const c = cellsOf(f)[IDS6.indexOf(id)]; return `${f.solid === 'cube' ? 'הריבוע' : 'המלבן'} בשורה ${c[1] + 1} ובעמודה ${c[0] + 1}`; };
 /**
  * How a net is laid out: a lettered cube or box net by the face each face hangs from ("A משמאל ל־B, E מעל B"), an
  * unlettered one row by row; a prism's strip and its two triangles; a cylinder's rectangle and its two discs.

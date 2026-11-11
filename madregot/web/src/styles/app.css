@@ -715,6 +715,14 @@ a, button, label, input, select, summary, [role="tab"], [role="radio"], [role="c
 .lesson .choice .choice-text { min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; }
 .lesson .choices.inline .choice { justify-content: center; }
 .lesson .choices.inline .choice-key { display: none; }
+/* choices that are drawings (four nets of a cube): two by two, the drawing as wide as the card, its number in the
+   bottom corner beside the caption, clear of the drawing */
+.lesson .choices.figs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
+.lesson .choices.figs .choice { position: relative; flex-direction: column; justify-content: center; padding: var(--s1) var(--s1) var(--s2); min-height: 44px; }
+.lesson .choices.figs .choice-key { position: absolute; bottom: 6px; inset-inline-start: 6px; width: 26px; height: 26px; background: var(--paper); }
+.choice-fig { display: grid; justify-items: center; gap: 2px; width: 100%; min-width: 0; }
+.choice-fig .figure { width: 100%; height: auto; max-height: 150px; }
+.choice-cap { font-size: var(--t-sm); color: var(--ink-2); }
 .lesson .choice:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--rule-press); }
 .choice-key { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; border: 2px solid var(--rule); border-radius: 8px; font-size: var(--t-sm); color: var(--ink-2); }
 .lesson .choice.on { border-color: var(--brand-line); background: var(--brand-tint); color: var(--brand-d); box-shadow: 0 4px 0 var(--brand-line); }

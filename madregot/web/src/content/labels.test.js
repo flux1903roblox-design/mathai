@@ -17,8 +17,10 @@ import { candidates } from './labels.sample.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { AREA } from './area.js';
+import { SOLID, CUBE_OPPOSITE } from './solid.js';
 // the grid object's rules, which the app loads after the first screen (content/late.js)
 import './grid.js';
+import './net.js';
 
 const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 const sgn = (x) => Math.sign(x);
@@ -801,6 +803,76 @@ const PROPS = {
 };
 /** The kind of an area item: its key's prefix. */
 const areaKind = (it) => it.key.split(':')[0];
+const surfOf = (a, b, c) => 2 * (a * b + b * c + a * c);
+/**
+ * Stage 2's boxes and prisms (content/solid.js, not on the path yet), from the numbers in each key: so1s:a:b:c,
+ * so1c:k:s (k 1 asks the edge), so1e:a:b:c, so1o:a:b:c (the opening a by b), so1n:layout:shade, so2v:a:b:c, so2m:V:a:b,
+ * so2c:k:s (k 1 asks the edge), so2l:0:a:b:c (litres) and so2l:1:a:b:L (the water's height), so2f:e:a:b:c, so3s:p:q:c:L,
+ * so3h:p:q:L, so3i:b:h:s:L, so4v:p:q:c:L, so4a:b:h:s:L, so4m:V:p:q, so4h:a:b:c, so4k:k
+ */
+PROPS.solid = {
+  'three-faces': (it, u) => { const [a, b, c] = nums(it.key); return areaKind(it) === 'so1s' && fits(u, a * b + b * c + a * c); },
+  'vol-for-surf': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'so1s' || k === 'so1o') { const [a, b, c] = n; return fits(u, a * b * c); }
+    if (k === 'so1c') { const [q, s] = n; return q === 0 && fits(u, s ** 3); }
+    return false;
+  },
+  'three-edges': (it, u) => { const [a, b, c] = nums(it.key); return areaKind(it) === 'so1e' && fits(u, a + b + c); },
+  'lid-counted': (it, u) => { const [a, b, c] = nums(it.key); return areaKind(it) === 'so1o' && fits(u, surfOf(a, b, c)); },
+  'no-root': (it, u) => { const [q, s] = nums(it.key); return areaKind(it) === 'so1c' && q === 1 && fits(u, s * s); },
+  // a face beside the shaded one: not the face opposite it on the cube, and not the shaded one itself
+  'opposite-adjacent': (it, u) => {
+    const [, layout, shade] = it.key.split(':');
+    return areaKind(it) === 'so1n' && !!u?.face && u.face !== shade && u.face !== CUBE_OPPOSITE[layout][shade];
+  },
+  'surf-for-vol': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'so2v') { const [a, b, c] = n; return fits(u, surfOf(a, b, c)); }
+    if (k === 'so2l') { const [q, a, b, c] = n; return q === 0 && fits(u, surfOf(a, b, c) / 1000); }
+    return false;
+  },
+  'add-edges': (it, u) => { const [a, b, c] = nums(it.key); return areaKind(it) === 'so2v' && fits(u, a + b + c); },
+  'one-divide': (it, u) => { const [V, a, b] = nums(it.key); return areaKind(it) === 'so2m' && (fits(u, V / a) || fits(u, V / b)); },
+  'cube-times3': (it, u) => { const [q, s] = nums(it.key); return areaKind(it) === 'so2c' && fits(u, q === 0 ? 3 * s : s ** 3 / 3); },
+  'square-not-cube': (it, u) => { const [q, s] = nums(it.key); return areaKind(it) === 'so2c' && q === 0 && fits(u, s * s); },
+  'no-convert': (it, u) => {
+    if (areaKind(it) !== 'so2l') return false;
+    const [q, a, b, x] = nums(it.key); return q === 0 ? fits(u, a * b * x) : fits(u, x / (a * b));
+  },
+  'div-by-edge': (it, u) => { const [e, a, b, c] = nums(it.key); return areaKind(it) === 'so2f' && fits(u, (a * b * c) / e); },
+  'one-base': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'so3s') { const [p, q, c, L] = n; return fits(u, (p * q) / 2 + L * (p + q + c)); }
+    if (k === 'so3i') { const [b, h, s, L] = n; return fits(u, (b * h) / 2 + L * (b + 2 * s)); }
+    return false;
+  },
+  'missing-face': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'so3s') { const [p, q, , L] = n; return fits(u, p * q + L * (p + q)); }
+    if (k === 'so3h') { const [p, q, L] = n; return fits(u, p * q + L * (p + q)); }
+    return false;
+  },
+  'slant-as-height': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'so3i') { const [b, , s, L] = n; return fits(u, b * s + L * (b + 2 * s)); }
+    if (k === 'so4a') { const [b, , s, L] = n; return fits(u, (b * s * L) / 2); }
+    return false;
+  },
+  // the hypotenuse taken as the sum of the legs: the third face as wide as p + q
+  'add-legs': (it, u) => { const [p, q, L] = nums(it.key); return areaKind(it) === 'so3h' && fits(u, p * q + L * (p + q + p + q)); },
+  'no-half': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'so4v') { const [p, q, , L] = n; return fits(u, p * q * L); }
+    if (k === 'so4a') { const [b, h, , L] = n; return fits(u, b * h * L); }
+    if (k === 'so4m') { const [V, p, q] = n; return fits(u, V / (p * q)); }
+    if (k === 'so4h') { const [a, b, c] = n; return fits(u, a * b * c); }
+    return false;
+  },
+  'hyp-as-height': (it, u) => { const [p, , c, L] = nums(it.key); return areaKind(it) === 'so4v' && fits(u, (p * c * L) / 2); },
+  'linear-volume': (it, u) => { const [k] = nums(it.key); return areaKind(it) === 'so4k' && fits(u, k); },
+  'square-scale': (it, u) => { const [k] = nums(it.key); return areaKind(it) === 'so4k' && fits(u, k * k); },
+};
 
 /**
  * An inequality item answered as if it said x rel' B with rel' = wrong(q): the ray drawn that way, the count of the
@@ -841,34 +913,37 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-// Areas and perimeters (stage 2) are not on the path yet: their generators are sampled straight from the topic object,
-// as makeItem would give them (an answer that is right is never a mistake), and the words come from its own cats.
-describe('every mistake label describes the answer: areas and perimeters, before they are on the path', () => {
-  AREA.levels.forEach((L, i) => {
-    const level = i + 1;
-    it(`area level ${level}: ${L.title}`, () => {
-      const named = new Set();
-      for (let k = 0; k < ITEMS_PER_LEVEL; k += 1) {
-        const raw = L.gen(); const item = { ...raw, topic: 'area', level, diag: (u) => (isCorrect(raw, u) ? null : raw.diag(u)) };
-        for (const u of candidates(item)) {
-          if (isCorrect(item, u)) continue;
-          const cat = item.diag(u);
-          if (!cat) continue;
-          named.add(cat);
-          const prop = PROPS.area[cat];
-          expect(prop, `area:${level} returns '${cat}', which has no property here`).toBeTruthy();
-          expect(prop(item, u), `area:${level} ${item.key}: answer ${JSON.stringify(u)} labelled '${cat}' (${AREA.cats[cat]})`).toBe(true);
-          expect(AREA.cats[cat], `area:${level} '${cat}' has no words`).toBeTruthy();
+// Areas and perimeters are on the path (the loop above samples them through makeItem); boxes and prisms (stage 2) are
+// not yet: their generators are sampled straight from the topic object, as makeItem would give them (an answer that is
+// right is never a mistake), and the words come from its own cats. Areas run here too, from their topic object.
+describe('every mistake label describes the answer: sampled from the topic objects of stage 2', () => {
+  for (const T of [AREA, SOLID]) {
+    T.levels.forEach((L, i) => {
+      const level = i + 1;
+      it(`${T.id} level ${level}: ${L.title}`, () => {
+        const named = new Set();
+        for (let k = 0; k < ITEMS_PER_LEVEL; k += 1) {
+          const raw = L.gen(); const item = { ...raw, topic: T.id, level, diag: (u) => (isCorrect(raw, u) ? null : raw.diag(u)) };
+          for (const u of candidates(item)) {
+            if (isCorrect(item, u)) continue;
+            const cat = item.diag(u);
+            if (!cat) continue;
+            named.add(cat);
+            const prop = PROPS[T.id][cat];
+            expect(prop, `${T.id}:${level} returns '${cat}', which has no property here`).toBeTruthy();
+            expect(prop(item, u), `${T.id}:${level} ${item.key}: answer ${JSON.stringify(u)} labelled '${cat}' (${T.cats[cat]})`).toBe(true);
+            expect(T.cats[cat], `${T.id}:${level} '${cat}' has no words`).toBeTruthy();
+          }
         }
-      }
-      expect(named.size, `area:${level} names some mistake`).toBeGreaterThan(0);
+        expect(named.size, `${T.id}:${level} names some mistake`).toBeGreaterThan(0);
+      });
     });
-  });
+  }
 });
 
 describe('the algebra, fraction, ratio and percent topics name only what a property can check', () => {
   it('every category of expressions, equations, systems, fractions, ratio and percent has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, AREA]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, AREA, SOLID]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

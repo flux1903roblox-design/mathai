@@ -23,6 +23,8 @@ export function candidates(it) {
       case 'ray': return range(m.min ?? -10, m.max ?? 10).flatMap((at) => [-1, 1].flatMap((dir) => [false, true].map((closed) => ({ at, dir, closed }))));
       case 'pins': { const st = 1 / (m.den || 1); const opts = it.answer.map((v, i) => [v, -v, m.start[i], v + st]); return opts.reduce((acc, o) => acc.flatMap((a) => o.map((x) => [...a, x])), [[]]); }
       case 'fbar': return range(1, m.maxDen || 24).flatMap((den) => range(0, den).map((shaded) => ({ den, shaded })));
+      // a face tapped on a net (stage 2's solids): every face of a cube's net
+      case 'net': return m.task === 'face' ? ['A', 'B', 'C', 'D', 'E', 'F'].map((face) => ({ face })) : [];
       default: return [];
     }
   }

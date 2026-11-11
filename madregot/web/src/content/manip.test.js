@@ -21,6 +21,7 @@ import {
 import { maxRectArea, polyArea, cutAreas, cutMakesRectangles, cutAt, gridControls, gridStep } from './grid.js';
 import { NET_LAYOUTS, netModel, netView, netWithSlot, foldFaces, oblique, netStep, netControls, oppositeFace, closedNeighbours, netfigLabels, prismSides, CYL_N, solidLabels } from './net.js';
 import { circleStep, circleControls, SECTORS } from './circle.js';
+import * as SW from './solid.js';
 import { linText, listMath } from './util.js';
 import { holds, texToExpr, identical, seeded } from '@/learn/expr.ts';
 
@@ -1016,6 +1017,92 @@ describe('nets of solids (פריסה)', () => {
     expect(figPlain(figs[4])).toBe('פריסה של קובייה: בשורה העליונה ריבועים בעמודות 1, 2; בשורה השנייה ריבועים בעמודות 2, 3; בשורה התחתונה ריבועים בעמודות 3, 4');
     expect(netfigLabels(figs[1]).edges.map((e) => e.text)).toEqual(['4', '3', '2']);
     expect(netfigLabels(figs[5]).edges.map((e) => e.text)).toEqual(['3', '4', '5', '10']);
+  });
+
+  // ---- the practice layer of boxes and prisms (content/solid.js, MEASURE-3) writes out what net.js computes, so that
+  // it does not load the folding code: every net, every opposite face and every slot that closes is checked here
+  describe('the nets of the boxes-and-prisms practice (content/solid.js)', () => {
+    /** Every draw of a stair's practice of one kind, as makeItem gives it (a right answer is never a mistake). */
+    const draws = (level, kind, n) => {
+      const out = []; const L = SW.SOLID.levels[level - 1];
+      for (let i = 0; out.length < n && i < 40 * n; i += 1) { const it = L.gen(); if (it.key.startsWith(`${kind}:`)) out.push({ ...it, diag: (u) => (isCorrect(it, u) ? null : it.diag(u)) }); }
+      expect(out.length, kind).toBe(n);
+      return out;
+    };
+    it('the eleven cube nets are net.js\'s, and every opposite face written out is the one the fold gives', () => {
+      expect(SW.CUBE_NETS).toEqual(NET_LAYOUTS);
+      for (const layout of Object.keys(NET_LAYOUTS)) {
+        for (const id of 'ABCDEF') expect(SW.CUBE_OPPOSITE[layout][id], `${layout} ${id}`).toBe(oppositeFace({ solid: 'cube', dims: { a: 3 }, layout }, id));
+      }
+    });
+    it('the six "not a net" shapes are six joined squares, none folds into a cube, and no two are the same shape', () => {
+      const norm = (cells) => { const x0 = Math.min(...cells.map((c) => c[0])); const y0 = Math.min(...cells.map((c) => c[1])); return cells.map(([x, y]) => [x - x0, y - y0]).sort((a, b) => a[0] - b[0] || a[1] - b[1]); };
+      const forms = (cells) => { const out = []; let c = cells; for (let r = 0; r < 4; r += 1) { c = c.map(([x, y]) => [y, -x]); out.push(norm(c), norm(c.map(([x, y]) => [-x, y]))); } return out; };
+      const key = (cells) => forms(cells).map((f) => JSON.stringify(f)).sort()[0];
+      for (const [name, cells] of Object.entries(SW.NOT_NETS)) {
+        expect(new Set(cells.map((c) => c.join())).size, name).toBe(6);
+        // joined: every square reached from the first through shared edges
+        const seen = new Set([cells[0].join()]); const queue = [cells[0]];
+        while (queue.length) { const [x, y] = queue.shift(); for (const c of cells) if (Math.abs(c[0] - x) + Math.abs(c[1] - y) === 1 && !seen.has(c.join())) { seen.add(c.join()); queue.push(c); } }
+        expect(seen.size, name).toBe(6);
+        const m = { solid: 'cube', dims: { a: 1 }, layout: cells, task: 'fold' };
+        expect(closes(m, netModel(m).tree), name).toBe(false);
+      }
+      const keys = Object.values(SW.NOT_NETS).map(key);
+      expect(new Set(keys).size).toBe(keys.length);
+      Object.values(NET_LAYOUTS).forEach((cells) => expect(keys).not.toContain(key(cells)));
+    });
+    it('so1n: the face to tap is the opposite one; a face beside the shaded one is named opposite-adjacent', () => {
+      for (const it of draws(1, 'so1n', 60)) {
+        solves(it);
+        const { layout, shade } = it.manip;
+        expect(it.answer.face, it.key).toBe(oppositeFace(it.manip, shade));
+        const beside = closedNeighbours(it.manip, shade);
+        expect(beside, it.key).toHaveLength(4);
+        beside.forEach((id) => expect(it.diag({ face: id }), `${it.key} ${id}`).toBe('opposite-adjacent'));
+        expect(it.diag({ face: it.answer.face })).toBeNull();
+        expect(it.diag({ face: shade }), `${layout}: the shaded face itself is not a mistake about opposite faces`).toBeNull();
+      }
+    });
+    it('so3n: the slots the answer accepts are exactly the slots that fold closed', () => {
+      for (const it of draws(3, 'so3n', 40)) {
+        solves(it);
+        const nm = netModel(it.manip);
+        expect([...nm.okSlots].sort(), it.key).toEqual([...SW.PRISM_FIX_OK].sort());
+        for (const s of nm.slots) {
+          expect(closes(it.manip, netWithSlot(it.manip, s.id)), `${it.key} ${s.id}`).toBe(SW.PRISM_FIX_OK.includes(s.id));
+          expect(isCorrect(it, { slot: s.id }), `${it.key} ${s.id}`).toBe(SW.PRISM_FIX_OK.includes(s.id));
+        }
+        expect(nm.slots.length, it.key).toBeGreaterThan(nm.okSlots.length);
+      }
+    });
+    it('so2b and so4b: the build reaches its volume from its start by the steppers alone, and draws without NaN', () => {
+      for (const it of [...draws(2, 'so2b', 25), ...draws(4, 'so4b', 25)]) {
+        solves(it);
+        const keys = netControls(it.manip, it.answer);
+        const seen = new Set([JSON.stringify(it.manip.start)]); const queue = [it.manip.start]; let found = null;
+        while (queue.length && !found) {
+          const v = queue.shift();
+          if (isCorrect(it, v)) { found = v; break; }
+          for (const k of keys) for (const d of [-1, 1]) { const n = netStep(it.manip, v, k, d, it.answer); const j = JSON.stringify(n); if (!seen.has(j)) { seen.add(j); queue.push(n); } }
+        }
+        expect(found, it.key).toBeTruthy();
+        expect(html(NetFold, { m: it.manip, value: it.manip.start, answer: it.answer })).not.toMatch(/NaN|undefined/);
+      }
+    });
+    it('so1m: four nets drawn as buttons with words, exactly one folds, and it is the answer', () => {
+      for (const it of draws(1, 'so1m', 40)) {
+        expect(it.choices).toHaveLength(4);
+        it.choices.forEach((c, i) => {
+          const m = { solid: 'cube', dims: { a: 1 }, layout: c.fig.layout, task: 'fold' };
+          expect(closes(m, netModel(m).tree), `${it.key} ${c.text}`).toBe(i === it.answer);
+          const out = renderToStaticMarkup(createElement(Figure, { fig: c.fig }));
+          expect(out).toMatch(/<svg/); expect(out).not.toMatch(/NaN|undefined|Infinity/);
+          expect(figPlain(c.fig)).toMatch(/^פריסה של קובייה: בשורה העליונה/);
+        });
+        expect(new Set(it.choices.map((c) => figPlain(c.fig))).size, it.key).toBe(4);
+      }
+    });
   });
 });
 

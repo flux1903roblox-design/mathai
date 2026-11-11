@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
 import { afterStrike } from '@/lib/strike.js';
 import { useApp } from '@/lib/store.js';
-import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine } from '@/content/index.js';
+import { TOPIC, readAnswer, answerText, slotsFor, itemMath, displayTex, diagnosisLine, figPlain } from '@/content/index.js';
 import { manipSolution, manipWrong } from '@/content/manip.js';
 import { FACTS } from '@/content/frac.js';
 import { piRow } from '@/content/util.js';
@@ -111,6 +111,8 @@ const chatIntro = (s) => (s?.phase === 'retry' ? CHAT_INTRO.retry : openExercise
  * since three expressions in one row overflow a phone.
  */
 const inlineChoices = (item) => item.choices.length === 3 && item.choices.every((c) => c.tex && c.tex.replace(/\s|\\[a-z]+/g, '').length <= 3);
+/** Choices that are drawings (four nets of a cube): two by two, each drawing as wide as a phone allows. */
+const figChoices = (item) => item.choices.length > 1 && item.choices.every((c) => c.fig);
 
 /** Under an expression's two slots: what to write for x alone, for −x and for no constant. */
 const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־$-${v}$: המקדם $-1$. אין מספר חופשי? כתבו $0$.`;
@@ -620,15 +622,17 @@ export default function Lesson() {
         )}
         {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} test={isTest(s.kind)} />}
         {item.form === 'mc' && (
-          <div className={clsx('choices', inlineChoices(item) && 'inline')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
+          <div className={clsx('choices', inlineChoices(item) && 'inline', figChoices(item) && 'figs')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
             {item.choices.map((c, i) => {
               const state = locked && i === item.answer ? 'good' : (feedback && choice === i && i !== item.answer) || s.wrong.includes(i) ? 'bad' : '';
               return (
-                <m.button key={i} type="button" role="radio" aria-checked={choice === i} tabIndex={(choice ?? item.choices.findIndex((_, k) => !s.wrong.includes(k))) === i ? 0 : -1} aria-label={c.tex ? texText(c.tex) : undefined} className={clsx('choice', choice === i && 'on', state)}
+                <m.button key={i} type="button" role="radio" aria-checked={choice === i} tabIndex={(choice ?? item.choices.findIndex((_, k) => !s.wrong.includes(k))) === i ? 0 : -1} aria-label={c.tex ? texText(c.tex) : c.fig ? `${c.text}: ${figPlain(c.fig)}` : undefined} className={clsx('choice', choice === i && 'on', state)}
                   whileTap={locked ? undefined : { scale: 0.96 }} animate={state === 'good' ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}
                   disabled={locked || s.wrong.includes(i)} onClick={() => { setChoice(i); play('tap'); if (feedback === 'retry') setLast(null); }}>
                   <span className="choice-key" aria-hidden="true">{state === 'good' ? <Check size={18} strokeWidth={3.4} /> : state === 'bad' ? <X size={18} strokeWidth={3.4} /> : i + 1}</span>
-                  <span className="choice-text">{c.tex ? <Tex tex={c.tex} /> : c.text}</span>
+                  {c.fig
+                    ? <span className="choice-fig"><Figure fig={c.fig} /><span className="choice-cap">{c.text}</span></span>
+                    : <span className="choice-text">{c.tex ? <Tex tex={c.tex} /> : c.text}</span>}
                 </m.button>
               );
             })}

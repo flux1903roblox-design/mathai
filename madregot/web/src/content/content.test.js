@@ -9,6 +9,9 @@ import * as AW from './area.js';
 import { manipWrong } from './manip.js';
 // the grid object's rules, which the app loads after the first screen (content/late.js)
 import { polyArea, boundsOf, movedPts } from './grid.js';
+// boxes and prisms (stage 2, MEASURE-3): their practice layer, and the net object's rules and words it draws with
+import * as SW from './solid.js';
+import { solidLabels } from './net.js';
 
 /**
  * The maths a student sees, checked as displayed (not from the generator's parameters), for every topic:
@@ -1068,5 +1071,310 @@ describe('areas and perimeters: the diagnostic and transfer models', () => {
     expect(TOPICS.find((t) => t.id === 'area').levels).toBe(AREA.levels);
     expect(topicsFor('7').map((t) => t.id)).toEqual(['signed', 'coord', 'angles', 'expr', 'area', 'eq']);
     expect(topicsFor('7').map((t) => t.color).slice(3, 6)).toEqual(['cobalt', 'fuchsia', 'violet']);
+  });
+});
+
+// Boxes and prisms (stage 2, MEASURE-3): the practice and diagnosis layer (content/solid.js), not on the path yet, tested
+// on its topic object. Every check reads the question as the student sees it.
+describe('boxes and prisms: every practice kind, from the numbers in its text', () => {
+  const { SOLID, KIND_KEYS, UNIT } = SW;
+  const solidItem = (level) => {
+    const L = SOLID.levels[level - 1]; const it = L.gen();
+    return { ...it, diag: (u) => (isCorrect(it, u) ? null : it.diag(u)), topic: 'solid', level, levelTitle: L.title };
+  };
+  const all = (level, n = RUNS) => Array.from({ length: n }, () => solidItem(level));
+  const seededRun = (seed, fn) => () => { const real = Math.random; Math.random = seeded(seed); try { fn(); } finally { Math.random = real; } };
+  const kindOf = (it) => it.key.split(':')[0];
+  const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).flatMap((m) => (m.match(/\d+(?:\.\d+)?/g) || []).map(Number));
+  const close = (a, b) => Math.abs(a - b) < 1e-9;
+  const surf = (a, b, c) => 2 * (a * b + b * c + a * c);
+  let checked = 0;
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || [])
+    .map((m) => m.slice(1, -1).replace(/\\cdot/g, '*').replace(/\\[;,]|\/\{[^}]*\}\d+/g, ' '))
+    .filter((m) => m.includes('=') && !/[a-zA-Z□]/.test(m.replace(/\\frac|\\sqrt/g, '')))
+    .forEach((m) => {
+      m.split('=').reduce((a, b) => { expect(same(evaluate(texToExpr(a)), evaluate(texToExpr(b))), `${it.key}: ${m}`).toBe(true); checked += 1; return b; });
+    }));
+  afterAll(() => expect(checked).toBeGreaterThan(2000));
+
+  /** The answer computed from the text alone; null for the kinds whose answer is not a number. */
+  function fromText(it) {
+    const n = shown(it.text); const t = it.text;
+    switch (kindOf(it)) {
+      case 'so1s': { const [a, b, c] = n; return surf(a, b, c); }
+      case 'so1c': { const [v] = n; return t.startsWith('מה שטח') ? 6 * v * v : Math.sqrt(v / 6); }
+      case 'so1e': { const [a, b, c] = n; return 4 * (a + b + c); }
+      case 'so1o': { const [a, b, c, a2, b2] = n; expect([a2, b2], it.key).toEqual([a, b]); return surf(a, b, c) - a * b; }
+      case 'so2v': { const [a, b, c] = n; return a * b * c; }
+      case 'so2m': { const [V, a, b] = n; return V / (a * b); }
+      case 'so2c': { const [v] = n; return t.startsWith('מה נפח') ? v ** 3 : Math.round(Math.cbrt(v)); }
+      case 'so2l': {
+        expect(t, it.key).toMatch(/ליטר/);
+        if (t.startsWith('אקווריום')) { const [a, b, c] = n; return (a * b * c) / 1000; }
+        const [a, b, L] = n; return (1000 * L) / (a * b);
+      }
+      case 'so2f': { const [e, a, b, c] = n; expect([a % e, b % e, c % e], it.key).toEqual([0, 0, 0]); return (a / e) * (b / e) * (c / e); }
+      case 'so3s': { const [p, q, c, L] = n; expect(p * p + q * q, it.key).toBe(c * c); return p * q + L * (p + q + c); }
+      case 'so3h': { const [p, q, L] = n; return p * q + L * (p + q + Math.sqrt(p * p + q * q)); }
+      case 'so3l': { const [a, b, c, L] = n; expect(a + b > c && a + c > b && b + c > a, it.key).toBe(true); return (a + b + c) * L; }
+      case 'so3i': { const [b, h, s, L] = n; expect((b / 2) ** 2 + h * h, it.key).toBe(s * s); return b * h + L * (b + 2 * s); }
+      case 'so4v': { const [p, q, c, L] = n; expect(p * p + q * q, it.key).toBe(c * c); return (p * q * L) / 2; }
+      case 'so4a': { const [b, h, s, L] = n; expect(s > h, it.key).toBe(true); return (b * h * L) / 2; }
+      case 'so4m': { const [V, a, b] = n; return (2 * V) / (a * b); }
+      case 'so4h': { const [a, b, c] = n; return (a * b * c) / 2; }
+      case 'so4k': { const [k] = n; return k ** 3; }
+      default: return null;
+    }
+  }
+  /** The answer's unit, from the question's words. */
+  const unitOf = (it) => {
+    const k = kindOf(it); const t = it.text;
+    if (['so1s', 'so1o', 'so3s', 'so3h', 'so3l'].includes(k)) return UNIT.cm2;
+    if (k === 'so3i') return UNIT.m2;
+    if (k === 'so1c') return t.startsWith('מה שטח') ? UNIT.cm2 : UNIT.cm;
+    if (k === 'so2c') return t.startsWith('מה נפח') ? UNIT.cm3 : UNIT.cm;
+    if (k === 'so2l') return t.startsWith('אקווריום') ? UNIT.litre : UNIT.cm;
+    if (['so1e', 'so2m', 'so4m'].includes(k)) return UNIT.cm;
+    if (k === 'so2f') return UNIT.cubes;
+    return UNIT.cm3; // so2v, so4v, so4a, so4h
+  };
+
+  for (let level = 1; level <= 4; level += 1) {
+    it(`solid:${level}: ${RUNS} draws, every kind; right answers are right, the words and the maths render`, () => {
+      const kinds = new Set();
+      for (const item of all(level)) {
+        kinds.add(kindOf(item));
+        expect(item.key).toBeTruthy();
+        expect(item.hint).toBeTruthy();
+        expect(item.solution?.length).toBeGreaterThan(0);
+        expect(isCorrect(item, answerInput(item)), item.key).toBe(true);
+        expect(item.diag(answerInput(item))).toBeNull();
+        if (item.form === 'manip') { expect(isCorrect(item, manipWrong(item)), item.key).toBe(false); expect(item.practiceOnly, item.key).toBe(true); }
+        if (item.form === 'num') {
+          expect(Number.isInteger(item.answer), item.key).toBe(true);
+          expect(parseNum(answerText(item))).toBe(item.answer);
+        }
+        if (item.form === 'mc') {
+          expect(item.choices[item.answer]).toBeTruthy();
+          expect(item.practiceOnly, item.key).toBe(true);
+          item.choices.forEach((c) => expect(c.text, item.key).not.toMatch(/\$/));
+        }
+        for (const tex of texChunks(item)) expect(() => katex.renderToString(tex, { throwOnError: true }), `${item.key}: ${tex}`).not.toThrow();
+        for (const s of [item.text, item.hint, ...item.solution]) (s.match(/\$[^$]+\$/g) || []).forEach((m) => expect(m, item.key).not.toMatch(/[֐-׿]/));
+        expect(itemPlain(item)).not.toMatch(/undefined|NaN|\[object/);
+        expect([item.text, item.hint, ...item.solution].join(' ')).not.toMatch(/undefined|NaN/);
+        if (item.fig) expect(figPlain(item.fig), item.key).toBeTruthy();
+        const wrong = item.form === 'num' ? item.answer + 1 : null;
+        if (wrong != null) { const c = item.diag(wrong); if (c) expect(SOLID.cats[c]).toBeTruthy(); }
+        solutionHolds(item);
+      }
+      expect([...kinds].sort()).toEqual([...KIND_KEYS[level]].sort());
+    });
+  }
+
+  it('every answer is the computation from the numbers in its text, and a build asks for what its text names', () => {
+    let n = 0;
+    for (let level = 1; level <= 4; level += 1) {
+      for (const it of all(level)) {
+        const want = fromText(it);
+        if (want != null) { expect(it.answer, it.key).toBeCloseTo(want, 9); n += 1; }
+        const k = kindOf(it); const v = shown(it.text);
+        if (k === 'so2b') { const [V, c] = v; expect(it.answer, it.key).toEqual({ mode: 'build', V, fixed: { c } }); expect(it.manip.start.c).toBe(c); }
+        if (k === 'so4b') { const [V, L] = v; expect(it.answer, it.key).toEqual({ mode: 'build', V, fixed: { L } }); expect(it.manip.start.L).toBe(L); }
+        if (k === 'so1n') expect(it.answer.face, it.key).toBe(SW.CUBE_OPPOSITE[it.manip.layout][it.manip.shade]);
+        if (k === 'so1m') expect(Object.keys(SW.CUBE_NETS), it.key).toContain(it.choices[it.answer].net);
+      }
+    }
+    expect(n).toBeGreaterThan(900);
+  });
+
+  it('every typed answer has its unit, the unit of what is asked; a question in litres says ליטר', () => {
+    let litres = 0;
+    for (let level = 1; level <= 4; level += 1) {
+      for (const it of all(level)) {
+        if (it.form !== 'num') continue;
+        if (kindOf(it) === 'so4k') { expect(it.unit, `${it.key}: "how many times" has no unit`).toBeUndefined(); expect(it.practiceOnly).toBe(true); continue; }
+        expect(typeof it.unit === 'string' && it.unit.length > 0, it.key).toBe(true);
+        expect(it.unit, it.key).toBe(unitOf(it));
+        if (it.unit === UNIT.litre) { litres += 1; expect(it.text, it.key).toMatch(/ליטר/); expect(it.solution.at(-1), it.key).toMatch(/ליטר$/); }
+      }
+    }
+    expect(litres).toBeGreaterThan(5);
+  });
+
+  it('no question\'s answer is a number its text prints, and every number a drawing writes is in the text', () => {
+    for (let level = 1; level <= 4; level += 1) {
+      for (const it of all(level)) {
+        const printed = shown(it.text);
+        if (it.form === 'num') expect(printed.some((v) => close(v, it.answer)), `${it.key}: ${it.answer} is printed`).toBe(false);
+        if (!it.fig || it.fig.type !== 'solid') continue;
+        Object.values(solidLabels(it.fig)).filter((l) => /^\d+(\.\d+)?$/.test(l))
+          .forEach((l) => expect(printed, `${it.key}: the drawing writes ${l}`).toContain(Number(l)));
+        // a length the question asks for is drawn as ?, never as its number
+        if (it.form === 'num' && /מה (אורך|המקצוע|אורכה)/.test(it.text)) expect(Object.values(solidLabels(it.fig)), it.key).not.toContain(String(it.answer));
+      }
+    }
+  });
+
+  it('every mistake a kind is built to name, it names (from the text\'s own numbers), and only those', seededRun(7131, () => {
+    // the wrong answer each mistake gives, computed from the numbers in the text
+    const PRED = {
+      so1s: ([a, b, c]) => [['three-faces', a * b + b * c + a * c], ['vol-for-surf', a * b * c]],
+      so1c: ([v], t) => (t.startsWith('מה שטח') ? [['vol-for-surf', v ** 3]] : [['no-root', v / 6]]),
+      so1e: ([a, b, c]) => [['three-edges', a + b + c]],
+      so1o: ([a, b, c]) => [['lid-counted', surf(a, b, c)], ['vol-for-surf', a * b * c]],
+      so2v: ([a, b, c]) => [['surf-for-vol', surf(a, b, c)], ['add-edges', a + b + c]],
+      so2m: ([V, a, b]) => [['one-divide', V / a], ['one-divide', V / b]],
+      so2c: ([v], t) => (t.startsWith('מה נפח') ? [['cube-times3', 3 * v], ['square-not-cube', v * v]] : [['cube-times3', v / 3]]),
+      so2l: (n, t) => { if (t.startsWith('אקווריום')) { const [a, b, c] = n; return [['no-convert', a * b * c], ['surf-for-vol', surf(a, b, c) / 1000]]; } const [a, b, L] = n; return [['no-convert', L / (a * b)]]; },
+      so2f: ([e, a, b, c]) => [['div-by-edge', (a * b * c) / e]],
+      so3s: ([p, q, c, L]) => [['one-base', (p * q) / 2 + L * (p + q + c)], ['missing-face', p * q + L * (p + q)]],
+      so3h: ([p, q, L]) => [['missing-face', p * q + L * (p + q)], ['add-legs', p * q + 2 * L * (p + q)]],
+      so3i: ([b, h, s, L]) => [['one-base', (b * h) / 2 + L * (b + 2 * s)], ['slant-as-height', b * s + L * (b + 2 * s)]],
+      so4v: ([p, q, c, L]) => [['no-half', p * q * L], ['hyp-as-height', (p * c * L) / 2]],
+      so4a: ([b, h, s, L]) => [['no-half', b * h * L], ['slant-as-height', (b * s * L) / 2]],
+      so4m: ([V, a, b]) => [['no-half', V / (a * b)]],
+      so4h: ([a, b, c]) => [['no-half', a * b * c]],
+      so4k: ([k]) => [['linear-volume', k], ['square-scale', k * k]],
+    };
+    const WANT = {
+      so1s: ['three-faces', 'vol-for-surf'], so1c: ['vol-for-surf', 'no-root'], so1e: ['three-edges'], so1o: ['lid-counted', 'vol-for-surf'], so1n: ['opposite-adjacent'], so1m: [],
+      so2v: ['surf-for-vol', 'add-edges'], so2m: ['one-divide'], so2c: ['cube-times3', 'square-not-cube'], so2l: ['no-convert', 'surf-for-vol'], so2f: ['div-by-edge'], so2b: [],
+      so3s: ['one-base', 'missing-face'], so3h: ['missing-face', 'add-legs'], so3l: [], so3i: ['one-base', 'slant-as-height'], so3n: [],
+      so4v: ['no-half', 'hyp-as-height'], so4a: ['no-half', 'slant-as-height'], so4m: ['no-half'], so4h: ['no-half'], so4k: ['linear-volume', 'square-scale'], so4b: [],
+    };
+    const got = {};
+    for (let level = 1; level <= 4; level += 1) {
+      for (const it of all(level, 200)) {
+        const k = kindOf(it); got[k] ||= new Set();
+        if (PRED[k]) {
+          for (const [id, v] of PRED[k](shown(it.text), it.text)) { expect(close(v, it.answer), `${it.key} ${id}`).toBe(false); expect(it.diag(v), `${it.key}: ${v}`).toBe(id); got[k].add(id); }
+        }
+        if (k === 'so1n') {
+          // every face but the shaded one and the answer is beside the shaded one on the cube
+          for (const f of 'ABCDEF') if (f !== it.manip.shade && f !== it.answer.face) { expect(it.diag({ face: f }), `${it.key} ${f}`).toBe('opposite-adjacent'); got[k].add('opposite-adjacent'); }
+        }
+        // whatever a wrong number is named, it is one of the kind's own mistakes
+        namesOf(it).forEach((c) => expect(WANT[k], `${it.key} names ${c}`).toContain(c));
+      }
+    }
+    for (const [k, ids] of Object.entries(WANT)) expect([...(got[k] || [])].sort(), k).toEqual([...ids].sort());
+    expect([...new Set(Object.values(WANT).flat())].sort()).toEqual(Object.keys(SOLID.cats).sort());
+  }));
+
+  it('no practice draw has two different mistakes that give the same number (the box 2 by 3 by 6 is redrawn)', seededRun(7132, () => {
+    let boxes = 0;
+    for (let level = 1; level <= 4; level += 1) {
+      for (const it of all(level, 400)) {
+        const k = kindOf(it); if (!['so1s', 'so1o', 'so2v'].includes(k)) continue;
+        boxes += 1; const [a, b, c] = shown(it.text);
+        if (k === 'so1s') expect(a * b * c === a * b + b * c + a * c, it.key).toBe(false);
+        if (k === 'so1o') expect(a * b * c === surf(a, b, c), it.key).toBe(false);
+        if (k === 'so2v') expect(a + b + c === surf(a, b, c), it.key).toBe(false);
+      }
+    }
+    expect(boxes).toBeGreaterThan(200);
+    // and the rule itself, on the box the models allow
+    expect(SW.SOLID1.answer({ a: 2, b: 3, c: 6 })).toBe(72);
+    expect(SW.SOLID1.bugs['three-faces']({ a: 2, b: 3, c: 6 })).toBe(SW.SOLID1.bugs['vol-for-surf']({ a: 2, b: 3, c: 6 }));
+  }));
+
+  it('a cube\'s surface area is never asked at an edge of 6, nor its volume at 3 (where two mistakes give the answer)', () => {
+    for (const it of [...all(1, 600), ...all(2, 600)]) {
+      if (kindOf(it) === 'so1c') expect(it.key.split(':')[2], it.key).not.toBe('6');
+      if (kindOf(it) === 'so2c') expect(it.key.split(':')[2], it.key).not.toBe('3');
+    }
+  });
+
+  it('the topic: grade 7, petrol, not in the placement test, four stairs, its words, and not on the path', () => {
+    expect(SOLID).toMatchObject({ id: 'solid', grade: '7', color: 'petrol', placement: false });
+    expect(SOLID.levels.map((L) => L.title)).toEqual(['תיבה: פריסה ושטח פנים', 'נפח תיבה וקובייה', 'מנסרה משולשת: פריסה ושטח פנים', 'נפח מנסרה']);
+    expect(SOLID.lesson.points.length).toBeGreaterThan(3);
+    expect(SOLID.lesson.words).toContain('ליטר');
+    expect(TOPICS.map((t) => t.id)).not.toContain('solid');
+    // the ids other topics use keep their names but for one-base and no-convert, said here in this unit's words
+    for (const t of TOPICS) for (const [id, name] of Object.entries(t.cats || {})) {
+      if (SOLID.cats[id] && !['one-base', 'no-convert'].includes(id)) expect(SOLID.cats[id], `${t.id} ${id}`).toBe(name);
+    }
+  });
+});
+
+// The eight models of boxes and prisms (stage2.md Appendix B): 4,000 seeded draws of each.
+describe('boxes and prisms: the diagnostic and transfer models', () => {
+  // [answer range, bug rates] as Appendix B gives them
+  const B = {
+    SOLID1: [[52, 724], { 'three-faces': 100, 'vol-for-surf': 100 }],
+    SOLID1T: [[40, 614], { 'lid-counted': 100, 'vol-for-surf': 100 }],
+    SOLID2: [[24, 1320], { 'surf-for-vol': 100, 'add-edges': 100 }],
+    SOLID2T: [[24, 270], { 'no-convert': 100, 'surf-for-vol': 100 }],
+    SOLID3: [[84, 920], { 'one-base': 100, 'missing-face': 100 }],
+    SOLID3T: [[104, 1296], { 'one-base': 100, 'slant-as-height': 100 }],
+    SOLID4: [[18, 900], { 'no-half': 100, 'hyp-as-height': 100 }],
+    SOLID4T: [[12, 720], { 'no-half': 100, 'slant-as-height': 100 }],
+  };
+  const { UNIT } = SW;
+  const WORDS = {
+    SOLID1: [SW.solid1Text, SW.solid1Fig, SW.solid1Solution, SW.solid1Hint, UNIT.cm2],
+    SOLID1T: [SW.openBoxText, SW.openBoxFig, SW.openBoxSolution, SW.openBoxHint, UNIT.cm2],
+    SOLID2: [SW.solid2Text, SW.solid2Fig, SW.solid2Solution, SW.solid2Hint, UNIT.cm3],
+    SOLID2T: [SW.tankText, SW.tankFig, SW.tankSolution, SW.tankHint, UNIT.litre],
+    SOLID3: [SW.solid3Text, SW.solid3Fig, SW.solid3Solution, SW.solid3Hint, UNIT.cm2],
+    SOLID3T: [SW.tentText, SW.tentFig, SW.tentSolution, SW.tentHint, UNIT.m2],
+    SOLID4: [SW.solid4Text, SW.solid4Fig, SW.solid4Solution, SW.solid4Hint, UNIT.cm3],
+    SOLID4T: [SW.rampText, SW.rampFig, SW.rampSolution, SW.rampHint, UNIT.m3],
+  };
+  const near = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+  const N = 4000;
+
+  it('the stairs\' models are these eight, a diagnostic and a transfer for each', () => {
+    expect(SW.STAIR_MODELS).toEqual({ 'solid:1': [SW.SOLID1, SW.SOLID1T], 'solid:2': [SW.SOLID2, SW.SOLID2T], 'solid:3': [SW.SOLID3, SW.SOLID3T], 'solid:4': [SW.SOLID4, SW.SOLID4T] });
+  });
+
+  for (const [name, [[lo, hi], rates]] of Object.entries(B)) {
+    it(`${name}: whole answers in ${lo}..${hi}, clean draws, every bug as Appendix B says, every pair told apart`, () => {
+      const m = SW[name]; const r = seeded(name.length * 7919 + 13 + name.charCodeAt(5));
+      const fired = {}; const draws = []; let min = Infinity; let max = -Infinity;
+      for (let i = 0; i < N; i += 1) {
+        const p = m.params(r); const a = m.answer(p); draws.push(p); min = Math.min(min, a); max = Math.max(max, a);
+        expect(Number.isInteger(a), `${name} ${JSON.stringify(p)}`).toBe(true);
+        expect(AW.clean(m, p), `${name} ${JSON.stringify(p)}`).toBe(true);
+        for (const [id, f] of Object.entries(m.bugs)) { const v = f(p); if (v != null && Number.isFinite(v) && !near(v, a)) fired[id] = (fired[id] || 0) + 1; }
+      }
+      expect(min, name).toBeGreaterThanOrEqual(lo); expect(max, name).toBeLessThanOrEqual(hi);
+      expect(Object.keys(m.bugs).sort()).toEqual(Object.keys(rates).sort());
+      for (const [id, want] of Object.entries(rates)) {
+        const rate = (100 * (fired[id] || 0)) / N;
+        expect(Math.abs(rate - want), `${name} ${id}: ${rate.toFixed(1)}% against ${want}%`).toBeLessThanOrEqual(1);
+      }
+      // told apart: some draw where the two predict different numbers (the spec's rule allows a rare tie, a box 2 by 3
+      // by 6 whose three faces and volume are both 36; the practice draws redraw it, see the next describe)
+      const ids = Object.keys(m.bugs);
+      for (let i = 0; i < ids.length; i += 1) for (let j = i + 1; j < ids.length; j += 1) {
+        const ties = draws.filter((p) => near(m.bugs[ids[i]](p), m.bugs[ids[j]](p))).length;
+        expect(ties / N, `${name}: ${ids[i]} and ${ids[j]}`).toBeLessThan(0.02);
+      }
+      const [text, fig, solution, hint, unit] = WORDS[name];
+      draws.filter((_, i) => i % 40 === 0).forEach((p) => {
+        const words = [text(p), hint(p), ...solution(p)];
+        words.forEach((w) => expect(w, name).not.toMatch(/undefined|NaN/));
+        words.forEach((w) => (w.match(/\$([^$]+)\$/g) || []).forEach((t) => expect(() => katex.renderToString(t.slice(1, -1), { throwOnError: true }), `${name}: ${t}`).not.toThrow()));
+        const last = solution(p).at(-1);
+        expect(last, name).toContain(String(m.answer(p)));
+        expect(last.endsWith(unit), `${name}: ${last}`).toBe(true);
+        const inText = (text(p).match(/\$([^$]+)\$/g) || []).flatMap((t) => (t.match(/\d+(?:\.\d+)?/g) || []).map(Number));
+        expect(inText.some((v) => near(v, m.answer(p))), `${name}: the answer is printed`).toBe(false);
+        const f = fig(p); expect(f.type).toBe('solid');
+        Object.values(solidLabels(f)).forEach((l) => expect(inText, `${name}: ${l}`).toContain(Number(l)));
+        expect(figPlain(f), name).toBeTruthy();
+      });
+    });
+  }
+
+  it('the transfer of solid:2 asks in litres and says so, and its answer is the cm³ over 1000', () => {
+    const p = { a: 50, b: 30, c: 40 };
+    expect(SW.tankText(p)).toBe('אקווריום $50$ על $30$ על $40$ ס״מ. כמה ליטרים מים הוא מחזיק?');
+    expect(SW.SOLID2T.answer(p)).toBe(60);
+    expect(SW.SOLID2T.bugs['no-convert'](p)).toBe(60000);
+    expect(SW.tankSolution(p).at(-1)).toBe('בליטר יש $1000$ סמ״ק: $60000 : 1000 = 60$ ליטר');
   });
 });

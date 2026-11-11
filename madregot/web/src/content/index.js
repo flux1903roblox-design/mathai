@@ -310,7 +310,8 @@ export function itemPlain(it) {
   const strip = (s) => String(s || '').replace(/[$\u2066\u2069]/g, '').replace(/\\pi(?![a-zA-Z])/g, 'π');
   const desc = figPlain(it.fig);
   const fig = desc ? ` [${desc}]` : '';
-  const choices = it.form === 'mc' ? ` אפשרויות: ${it.choices.map((c) => c.text || c.tex).join(' / ')}` : '';
+  // a choice that is a drawing (a net of a cube) is read by its name and the drawing's words
+  const choices = it.form === 'mc' ? ` אפשרויות: ${it.choices.map((c) => (c.fig ? `${c.text} (${figPlain(c.fig)})` : c.text || c.tex)).join(' / ')}` : '';
   const manip = it.form === 'manip' ? ` ${manipPlain(it)}` : '';
   // the answer row's form when something is drawn after the slot: the student types the number before π
   const row = it.form === 'num' && it.after ? ` [התשובה בצורה □${afterPlain(it.after)}]` : '';
