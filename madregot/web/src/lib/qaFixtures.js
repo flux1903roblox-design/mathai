@@ -4,6 +4,7 @@
 //   qa-ai:      free2 | free1 | free0 | family | family-off | family-parent-off | class | shared | paused | economy | ended
 //               (family: the parents' summary on; family-off: the child stopped it; family-parent-off: the parents did)
 //   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | nosrv
+//               report | report-empty | report-off (each device's progress: components/report/qaFamily.js)
 //   qa-report:  week | empty (the weekly summary from a fixed week and clock: components/report/qaWeek.js)
 // The family state's tablet (qa-ai=family names it 'הטאבלט') keeps its backup code with the family, and an older phone's
 // progress is kept in the account (DURABLE-6): every parents state with a plan lists both, so the device line, the kept
@@ -11,7 +12,7 @@
 import { qaOn } from './qa.js';
 
 const AI_STATES = ['free2', 'free1', 'free0', 'family', 'family-off', 'family-parent-off', 'class', 'shared', 'paused', 'economy', 'ended'];
-const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv'];
+const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv', 'report', 'report-empty', 'report-off'];
 const REPORT_STATES = ['week', 'empty'];
 
 function param(name, allowed) {
@@ -81,7 +82,7 @@ export function qaReply(kind) {
 
 // ---------------------------------------------------------------- the parents page
 const PLANS = {
-  paywall: true, online: true, vatMode: 'included', vatRate: 0.18, currency: 'ILS', termsVersion: '2026-11', checkoutHosts: [],
+  paywall: true, online: true, report: true, vatMode: 'included', vatRate: 0.18, currency: 'ILS', termsVersion: '2026-11', checkoutHosts: [],
   plans: [
     { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: 2990, vatAgorot: 456, renews: true },
     { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: 24900, vatAgorot: 3798, renews: true },
@@ -126,6 +127,12 @@ export function qaParentView() {
     case 'canceled': return { ...base, account: account(plan({ status: 'canceled', cancelAtPeriodEnd: true, cancelRequestedAt: '2026-11-10T09:00:00Z', canResume: true })) };
     case 'past_due': return { ...base, account: account(plan({ status: 'past_due' })) };
     case 'economy': return { ...base, account: account(plan({ economy: true })) };
+    // the progress report (PARENTS-5, PARENTS-6): the account's devices here, their summaries in qaFamily.js
+    case 'report': {
+      const a = account(plan());
+      return { ...base, report: s, account: { ...a, devices: [...a.devices, { id: 'qa00000000000004', label: 'הטלפון', linkedAt: '2026-10-16T18:00:00Z', lastSeen: '2026-11-02' }] } };
+    }
+    case 'report-empty': case 'report-off': return { ...base, report: s, account: account(plan()) };
     default: return null;
   }
 }

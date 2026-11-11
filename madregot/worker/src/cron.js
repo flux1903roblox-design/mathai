@@ -17,7 +17,7 @@ import { limits } from './entitle.js';
 import { retryCancels, processRefundQueue } from './billing.js';
 import { purgeAccountsSql } from './account.js';
 import { purgeFamilySql } from './family.js';
-import { purgeReportSql } from './report.js';
+import { purgeReportSql, reportOn, feedbackCounts } from './report.js';
 import { providerById } from './providers/index.js';
 import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
@@ -196,6 +196,8 @@ export async function dailySummary(env, now = new Date()) {
     openRequests: await count('SELECT COUNT(*) AS n FROM licence_requests WHERE handled_at IS NULL'),
     errors: await errorsOf(env, day).then(({ total, top }) => ({ total, top })),
     vaults: await vaultStats(env, startIso, endIso),
+    // "הסיכום עוזר לכם?" this month so far (PARENTS-5), while the parents' report is on
+    ...(reportOn(env) ? { reportFeedback: await feedbackCounts(env, new Date(now.getTime() - DAY)) } : {}),
     violations: [],
   };
   const v = params.violations;

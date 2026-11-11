@@ -344,6 +344,8 @@ CREATE INDEX IF NOT EXISTS audit_target ON audit_log (target);
 --   vaults:       vault:miss:s:<student> | vault:miss:fd:<family device> | vault:miss:n:<net> (lookups that found nothing)
 --                 vault:new:n:<net> (anonymous creates)  vault:new:all  vault:w:<id_hash[0:16]> (writes to one vault)
 --   parents' report: sum:d:<family device> (summary posts a day, 150)  sum:n:<net> (3000)
+--                 fb:report:yes | fb:report:no (YYYY-MM, "הסיכום עוזר לכם?" answers, no account)
+--                 fb:a:<account> (day = the week's Sunday, one answer a week; purged with the daily keys after 35 days)
 
 -- DURABLE-9: the app's error reports, counted per day and fingerprint, with no per-user trail: no device id, no address,
 -- no name, no route values (a route is its pattern). fp = the first 16 hex of SHA-256(kind|name|message|frame). Kept 30

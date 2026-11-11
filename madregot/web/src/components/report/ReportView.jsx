@@ -3,7 +3,7 @@
 // wording is the same for child and parent: what the child previews is what the parent sees. No percentage of right
 // answers appears anywhere (accuracy invites grade pressure; passed mastery checks are the honest signal), and the
 // maths in mistake names is plain text, so the report needs no KaTeX.
-import { useId } from 'react';
+import { createContext, useContext, useId } from 'react';
 import clsx from 'clsx';
 import { CalendarCheck, Clock, ListChecks, Flame, Check, Moon } from 'lucide-react';
 import { Stat } from '@/components/ds.jsx';
@@ -54,11 +54,16 @@ function Strip({ week, today }) {
   );
 }
 
+/** The report's own heading level (its title); its sections are one below. 2 on its own screen, deeper inside a card. */
+const Level = createContext(2);
+const H = ({ level, ...rest }) => { const Tag = `h${Math.min(6, Math.max(2, level))}`; return <Tag {...rest} />; };
+
 function Section({ title, children, className }) {
   const id = useId();
+  const level = useContext(Level) + 1;
   return (
     <section className={clsx('card report-sec', className)} aria-labelledby={id}>
-      <h3 id={id} className="report-sec-title">{title}</h3>
+      <H level={level} id={id} className="report-sec-title">{title}</H>
       {children}
     </section>
   );
@@ -191,20 +196,26 @@ export function DayView({ day, today }) {
  * One week (learn/report.ts WeekReport) in order: the dates, the 7-day strip, four tiles, mastered, practised,
  * repairs (only if any), an exam ahead (only if any), how to help, and where the report came from.
  * `today`: the day on the device that shows it (marks today on the strip; repairs from another day say their day).
- * `variant="day"` with `day` (a DaySummary) draws one day instead (DayView).
+ * `variant="day"` with `day` (a DaySummary) draws one day instead (DayView). `level`: the heading level of the report's
+ * title (2 on its own screen; deeper inside a /parents device card), its sections one below.
  */
-export default function ReportView({ week, audience = 'child', source = 'local', today, variant = 'week', day }) {
+export default function ReportView({ week, audience = 'child', source = 'local', today, variant = 'week', day, level = 2 }) {
   if (variant === 'day') return <DayView day={day} today={today} />;
-  return <WeekView week={week} audience={audience} source={source} today={today} />;
+  return <Level.Provider value={level}><WeekView week={week} audience={audience} source={source} today={today} /></Level.Provider>;
 }
+
+/** On a made-up week (exampleWeek.js, `week.example`): it says so above everything else. */
+export const EXAMPLE_RIBBON = 'דוגמה. אלה לא נתונים של הילד שלכם.';
 
 function WeekView({ week, audience, source, today }) {
   const titleId = useId();
+  const level = useContext(Level);
   return (
-    <article className="report" aria-labelledby={titleId} data-audience={audience} data-source={source}>
+    <article className={clsx('report', week.example && 'is-example')} aria-labelledby={titleId} data-audience={audience} data-source={source}>
+      {week.example && <p className="report-ribbon">{EXAMPLE_RIBBON}</p>}
       <section className="card report-week">
         <header className="report-head">
-          <h2 id={titleId} className="report-title">השבוע במדרגות</h2>
+          <H level={level} id={titleId} className="report-title">השבוע במדרגות</H>
           <p className="report-dates">{weekRange(week)}</p>
         </header>
         <Strip week={week} today={today} />
@@ -220,7 +231,7 @@ function WeekView({ week, audience, source, today }) {
       <Fixes week={week} today={today} />
       {week.exam && <Exam exam={week.exam} />}
       <Help week={week} />
-      <p className="footnote report-note">{SOURCE_NOTE[source] || SOURCE_NOTE.local}</p>
+      {!week.example && <p className="footnote report-note">{SOURCE_NOTE[source] || SOURCE_NOTE.local}</p>}
     </article>
   );
 }

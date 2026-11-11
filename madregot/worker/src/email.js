@@ -190,6 +190,7 @@ function summaryNotice(p, day) {
       `בקשות רישיון פתוחות: ${p.openRequests ?? 0}`,
       ...errorLines(p.errors),
       ...(p.vaults ? [`גיבויים מוצפנים: ${p.vaults.count ?? 0} (${p.vaults.mb ?? 0} MB) · חדשים: ${p.vaults.newYesterday ?? 0}`] : []),
+      ...(p.reportFeedback ? [`משוב על הסיכום החודש: כן ${p.reportFeedback.yes ?? 0} · לא ממש ${p.reportFeedback.no ?? 0}`] : []),
       v.length ? 'בדיקות שנכשלו:' : 'כל הבדיקות עברו.',
       ...v.map((x) => `- ${x}`),
     ],

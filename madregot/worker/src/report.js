@@ -16,6 +16,7 @@
 //   GET  /api/family/summary?days=7..90        X-Account-Token  the account's devices and their rows (also after the plan ends)
 //   POST /api/family/devices/:id/sharing       X-Account-Token  {on}: the parent's switch
 //   POST /api/family/devices/:id/history/delete X-Account-Token {}: the parent deletes the device's rows
+//   POST /api/report/feedback                  X-Account-Token  {useful}: "הסיכום עוזר לכם?" (PARENTS-5)
 // A parent's session (X-Account-Token) alone never posts a summary: 401 not_linked.
 //
 // Retention: REPORT_KEEP_DAYS, fixed in code (not a var, so it cannot drift upward); the night purge keeps the last 90
@@ -25,10 +26,13 @@
 // and the child can still stop sharing and delete. TRUST-6's "delete everything" route, when it lands and does not call
 // leaveFamily, deletes the device's rows the same way: DELETE FROM family_daily WHERE device_id = ? before the device.
 //
-// Counters (ai_usage): sum:d:<device> 150 posts a day, sum:n:<net> 3000. Audit actions (no personal data in detail):
+// Counters (ai_usage): sum:d:<device> 150 posts a day, sum:n:<net> 3000. The usefulness answers (PARENTS-5): fb:report:yes
+// and fb:report:no, one count per answer per month, with no account in them; fb:a:<account> on the week's Sunday, one
+// answer a week per account (429 already_answered), purged with the daily keys after 35 days. Audit actions (no personal data in detail):
 // summary.child_on | summary.child_off (actor device:<id>, detail {forget}), summary.parent_on | summary.parent_off and
 // summary.delete (actor account:<id>).
-import { HttpError, body, json, nowIso, dayOf, netKey, key, take, isDay } from './util.js';
+import { HttpError, body, json, nowIso, dayOf, netKey, key, take, peek, isDay } from './util.js';
+import { weekStart } from '../../shared/week.js';
 import { requireAccount } from './account.js';
 import { familyDeviceFrom, liveFamily, paywallOn } from './entitle.js';
 
@@ -265,4 +269,35 @@ export function purgeReportSql(env, now = new Date()) {
     env.DB.prepare('DELETE FROM family_daily WHERE day < ?').bind(shiftDay(dayOf(now), -(REPORT_KEEP_DAYS - 1))),
     env.DB.prepare('DELETE FROM family_daily WHERE device_id NOT IN (SELECT id FROM family_devices)'),
   ];
+}
+
+// ---------------------------------------------------------------- "הסיכום עוזר לכם?" (PARENTS-5)
+/** The monthly counts of the answers: aggregate only, no account in the key. */
+export const FEEDBACK_KEYS = Object.freeze({ yes: 'fb:report:yes', no: 'fb:report:no' });
+const FEEDBACK_CAP = 1_000_000;
+
+/** The account's one answer this week (the week of Sunday in Jerusalem), as a counter key take() accepts. */
+export const feedbackWeekKey = (accountId, now = new Date()) => ({
+  who: `fb:a:${accountId}`, day: weekStart(dayOf(now)), limit: 1, n: 1, period: 'week', err: new HttpError(429, 'already_answered'),
+});
+
+/**
+ * POST /api/report/feedback { useful: boolean }: a parent says whether the report helps. Counted once per account a
+ * week (429 already_answered) into the month's yes or no; no free text, and nothing else is kept. 503 report_off when
+ * the report is off.
+ */
+export async function feedback(req, env, cors) {
+  const a = await requireAccount(req, env);
+  if (!reportOn(env)) throw new HttpError(503, 'report_off');
+  const b = await body(req, SMALL);
+  if (!isPlain(b) || typeof b.useful !== 'boolean' || Object.keys(b).length !== 1) throw new HttpError(400, 'bad_feedback');
+  const r = await take(env, [feedbackWeekKey(a.id), key(b.useful ? FEEDBACK_KEYS.yes : FEEDBACK_KEYS.no, FEEDBACK_CAP, { period: 'month' })]);
+  if (!r.ok) throw r.error;
+  return json({ ok: true }, 200, cors);
+}
+
+/** The month's answers so far (the owner's daily summary): { yes, no }. `now`: a time in that month. */
+export async function feedbackCounts(env, now = new Date()) {
+  const [yes, no] = await peek(env, [key(FEEDBACK_KEYS.yes, FEEDBACK_CAP, { period: 'month', now }), key(FEEDBACK_KEYS.no, FEEDBACK_CAP, { period: 'month', now })]);
+  return { yes, no };
 }

@@ -20,6 +20,7 @@ import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import ParentsFrame, { NoServerNote } from './ParentsFrame.jsx';
+import FamilyReport from './FamilyReport.jsx';
 
 const RUNNING = ['active', 'past_due', 'canceled'];
 const HERE_KEY = `${STORE_KEY}-here`;
@@ -28,6 +29,19 @@ const addMonths = (d, n) => { const x = new Date(d); const day = x.getDate(); x.
 const planOf = (plans, id) => plans?.plans?.find((p) => p.id === id) || null;
 
 // ---------------------------------------------------------------- what the tutor is, for a parent who is not signed in
+/**
+ * What the plan adds for parents (PARENTS-5), and the free weekly summary the child can send without any account
+ * (PARENTS-2, PARENTS-6 state 1). The weekly email is not said here until it exists (PARENTS-7).
+ */
+export const ABOUT_REPORT = 'רואים מה הילד תרגל: סיכום יומי לכל מכשיר מחובר. הילד יודע על כך, רואה מה נשלח, ויכול להפסיק.';
+export const ABOUT_FREE_REPORT = 'גם בלי מנוי: מהאפליקציה של הילד אפשר לשלוח לכם סיכום שבועי בוואטסאפ, בלי חשבון.';
+/** Above the plan's options, so a parent knows before paying what the plan holds and that the child can stop sharing. */
+export const CHECKOUT_REPORT = 'המנוי כולל: סיכום התקדמות לכל מכשיר, ועוזר חכם שמסביר, בודק דפים ומכין תרגילים. הילד רואה מה נשלח אליכם ויכול להפסיק את השיתוף.';
+/** The parent's unlink sheet, while the report is on: the device's summaries go with it. */
+export const UNLINK_REPORT = 'הסיכומים שהגיעו מהמכשיר הזה יימחקו.';
+/** The first-link card (PARENTS-6 state 2): what comes after linking, and that the child is told and can stop. */
+export const FIRST_LINK_REPORT = 'אחרי החיבור יופיע כאן סיכום יומי של התרגול במכשיר. הילד יקבל על כך הודעה, יוכל לראות בדיוק מה נשלח, ויוכל להפסיק.';
+
 function About({ plans }) {
   const f = plans?.limits?.family;
   const month = planOf(plans, 'family_month'); const year = planOf(plans, 'family_year');
@@ -36,12 +50,14 @@ function About({ plans }) {
     <section className="card parents-card parents-about" aria-labelledby="about-title">
       <h2 id="about-title" className="card-title">העוזר החכם של מדרגות · להורים</h2>
       <ul className="parents-list">
+        {plans?.report && <li>{ABOUT_REPORT}</li>}
         <li>מסביר לילד את הטעות שלו, בתרגיל שעל המסך</li>
         <li>בודק דף פתרון מצולם ומראה איפה הטעות</li>
         <li>בודק מבחן שנפתר בבית</li>
         <li>מכין תרגילים חדשים ברמה המתאימה</li>
       </ul>
       <p>חינם תמיד: כל השיעורים והתרגול, ההסברים הכתובים של מדי, ו־{plans?.limits?.free?.tutor ?? 2} שאלות לעוזר החכם ביום. בחינם העוזר עונה בקצרה.</p>
+      <p className="parents-free-report">{ABOUT_FREE_REPORT}</p>
       {f && <p>במנוי: עד {f.tutor} שאלות ביום, {f.check} בדיקות דף, {f.exam} בדיקות מבחן ביום (עד {f.examMonthly} בחודש), {f.generate} סדרות תרגילים, עד {f.devices} מכשירים. בחודש עם שימוש גבוה במיוחד השיחה ממשיכה, ובדיקות הצילום והמבחן נחות עד ה־1 בחודש (שימוש הוגן, מפורט בתקנון).</p>}
       {month && year && <p className="parents-price">{formatAgorot(month.amountAgorot)} לחודש, {vat}<br />או {formatAgorot(year.amountAgorot)} לשנה, {vat}</p>}
       <p>בלי התחייבות. מבטלים כאן באתר בשתי לחיצות. ב־14 הימים הראשונים אפשר לבטל ולקבל את כל הכסף בחזרה.</p>
@@ -75,6 +91,7 @@ function Checkout({ plans, linkCode, onError }) {
   };
   return (
     <div className="parents-checkout stack">
+      {plans?.report && <p className="parents-includes">{CHECKOUT_REPORT}</p>}
       <div className="ob-opts" role="radiogroup" aria-label="מסלול">
         {month && (
           <button type="button" role="radio" aria-checked={choice === 'family_month'} className={clsx('ob-opt', choice === 'family_month' && 'on')} onClick={() => setChoice('family_month')}>
@@ -325,7 +342,7 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing, vau
         {open === 'payments' && <Receipts payments={payments} qa={qa} />}
       </div>
       <ConfirmSheet open={!!unlink} onOpenChange={(o) => !o && setUnlink(null)} title="לנתק את המכשיר?" keep="להשאיר מחובר" confirm="כן, לנתק" onConfirm={doUnlink} mood="idle">
-        <p>העוזר החכם יחזור {unlinkName} ל־2 שאלות ביום. אפשר לחבר אותו שוב בכל זמן.</p>
+        <p>העוזר החכם יחזור {unlinkName} ל־2 שאלות ביום. אפשר לחבר אותו שוב בכל זמן.{plans?.report ? ` ${UNLINK_REPORT}` : ''}</p>
       </ConfirmSheet>
     </section>
   );
@@ -658,6 +675,8 @@ export default function Parents({ mode = 'home' }) {
         {plans.paywall === false && <section className="card parents-card"><p className="card-title">כרגע העוזר החכם פתוח בלי מנוי.</p></section>}
         {plan && <PlanCard acct={acct} plans={plans} qa={!!qa} onChanged={loadAccount} onCancel={() => setCancelOpen(true)} onRenew={() => setRenewing(true)} renewing={renewing}
           vaults={vaults} linkFrom={here || linkCard ? '' : linkFrom} onLinkFrom={setLinkFrom} />}
+        {/* each device's progress (PARENTS-5), then the progress kept from earlier devices: one order at every width */}
+        {plans.report && (plan || (acct.devices?.length || 0) > 0) && <FamilyReport plan={plan} devices={acct.devices || []} qa={qa ? qa.report || 'none' : null} />}
         {plan && kept.length > 0 && <KeptCard kept={kept} qa={!!qa} onMove={(id) => { if (here) { setHereFrom(id); document.getElementById('here-title')?.scrollIntoView({ block: 'start' }); } else moveKept(id); }} onChanged={loadAccount} />}
         {plan && here && (
           <section className="card parents-card" aria-labelledby="here-title">
@@ -677,7 +696,8 @@ export default function Parents({ mode = 'home' }) {
         {plan && !here && !linkCode && !claimed && (acct.devices?.length || 0) === 0 && (
           <section className="card parents-card" aria-labelledby="first-link">
             <h2 id="first-link" className="card-title">חיבור המכשיר של הילד</h2>
-            <LinkForm qa={!!qa} intro={LINK_HOW} report={!!plans.report} onLinked={linked} vaults={vaults} from={linkFrom} />
+            <LinkForm qa={!!qa} intro={LINK_HOW} onLinked={linked} vaults={vaults} from={linkFrom} />
+            {plans.report && <p className="parents-note parents-first-link">{FIRST_LINK_REPORT}</p>}
           </section>
         )}
         {classLicences.map((c) => (

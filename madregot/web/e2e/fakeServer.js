@@ -14,6 +14,9 @@
 // plan, `report`, and each device's shareChild and shareParent switches, both on by default); POST /api/family/summary
 // keeps the rows a linked device sends in st.summaries[deviceId][day] (401 not_linked, 402, 403 sharing_off and 503
 // report_off as the Worker answers), and POST /api/family/summary/sharing is the child's switch (forget deletes the rows).
+// The parent's side (PARENTS-5): GET /api/family/summary (each linked device with its rows), POST
+// /api/family/devices/:id/sharing (the parent's switch), POST /api/family/devices/:id/history/delete, and POST
+// /api/report/feedback (st.feedback; a second answer the same visit is 429 already_answered, as a second one a week is).
 
 export const API = 'https://api.madregot.test';
 export const PAY = 'https://pay.example.test';
@@ -59,7 +62,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
     answers: [], loseProgressReplies: 0, errors: [], vaults: {}, members: [], escrows: [], escrowOff: false,
     // the parents' report (the Worker's PARENT_REPORT): off unless a spec turns it on, so the flows written before it
     // run as they did; report.spec.js turns it on
-    report: false, summaries: {},
+    report: false, summaries: {}, feedback: [],
     ...over,
   };
   const log = [];
@@ -103,7 +106,10 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
   const account = () => ({
     email: 'parent@example.test', billingHold: false, maxDevices: 3, plan: live() ? st.plan : null,
     // a claimed code the child's device has not collected yet is listed as pending, as the Worker does
-    devices: st.devices.map((d) => ({ id: d.id, label: d.label, linkedAt: '2026-11-05T09:00:00Z', lastSeen: '2026-11-05', ...(d.token ? {} : { pending: true }) })),
+    devices: st.devices.map((d) => ({
+      id: d.id, label: d.label, linkedAt: d.linkedAt || '2026-11-05T09:00:00Z', lastSeen: '2026-11-05', ...(d.token ? {} : { pending: true }),
+      sharing: summaryOf(d), sharingAt: d.sharingAt || null, lastSync: d.lastSync || null,
+    })),
     usageWeek: { tutor: st.famUsed.tutor, check: st.famUsed.check, generate: 0, exam: 0 },
     payments: [...(live() ? [{ id: 'p000000000000001', subscriptionId: st.plan.id, planKind: 'family', at: '2026-11-05T09:00:00Z', amountAgorot: 2990, kind: 'charge', hasInvoice: true }] : []), ...st.classPayments],
     classes: st.classes,
@@ -265,7 +271,7 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       return reply(route, 200, { token: t, email: body.email });
     }
     if (path === '/api/billing/plans') return reply(route, 200, { ...PLANS, paywall: st.paywall, online: st.online, report: st.paywall && st.report });
-    if (path.startsWith('/api/account') || path.startsWith('/api/billing') || path === '/api/family/link/claim' || path.startsWith('/api/family/devices') || path.startsWith('/api/family/vaults') || path === '/api/teacher/licence/request') {
+    if (path.startsWith('/api/account') || path.startsWith('/api/billing') || path === '/api/family/link/claim' || path.startsWith('/api/family/devices') || path.startsWith('/api/family/vaults') || path === '/api/family/summary' || path === '/api/report/feedback' || path === '/api/teacher/licence/request') {
       if (path.startsWith('/api/teacher')) { /* checked below with the class too */ } else if (!signed) return reply(route, 401, { error: 'not_account' });
     }
     if (path === '/api/account') return reply(route, 200, account());
@@ -325,10 +331,38 @@ export async function fakeServer(target, over = {}, base = 'http://127.0.0.1:417
       if (restore) restore.device = d.id;
       return reply(route, 200, { deviceToken: d.token, label: d.label, ...(restore && st.vaults[restore.lookup] ? { vault: { code: restore.code } } : {}) });
     }
+    // ---- the parent's view of each device's progress (PARENTS-5)
+    if (path === '/api/family/summary' && req.method() === 'GET') {
+      const devices = st.devices.filter((d) => d.token).map((d) => ({
+        id: d.id, label: d.label, linkedAt: d.linkedAt || '2026-11-05T09:00:00Z', lastSeen: '2026-11-05', sharing: summaryOf(d), sharingAt: d.sharingAt || null,
+        lastSync: d.lastSync || null, days: Object.values(st.summaries[d.id] || {}).sort((a, b) => (a.d < b.d ? -1 : 1)),
+      }));
+      return reply(route, 200, { retentionDays: 90, days: Number(url.searchParams.get('days')) || 56, devices });
+    }
+    const ds = path.match(/^\/api\/family\/devices\/([a-z0-9]+)\/(sharing|history\/delete)$/);
+    if (ds) {
+      const d = st.devices.find((x) => x.id === ds[1]);
+      if (!d) return reply(route, 404, { error: 'not_found' });
+      if (ds[2] === 'sharing') {
+        if (typeof body.on !== 'boolean') return reply(route, 400, { error: 'bad_sharing' });
+        d.shareParent = body.on;
+        return reply(route, 200, { sharing: summaryOf(d) });
+      }
+      const deleted = Object.keys(st.summaries[d.id] || {}).length;
+      delete st.summaries[d.id];
+      return reply(route, 200, { ok: true, deleted });
+    }
+    if (path === '/api/report/feedback') {
+      if (typeof body.useful !== 'boolean') return reply(route, 400, { error: 'bad_feedback' });
+      if (st.feedback.some((f) => f.token === token)) return reply(route, 429, { error: 'already_answered' });
+      st.feedback.push({ token, useful: body.useful });
+      return reply(route, 200, { ok: true });
+    }
     if (/^\/api\/family\/devices\/[a-z0-9]+\/unlink$/.test(path)) {
       const id = path.split('/')[4];
       // the device's escrow stays with the account ("התקדמות שמורה")
       for (const e of st.escrows) if (e.device === id) e.device = null;
+      delete st.summaries[id]; // the device's summaries go with it (PARENTS-3)
       st.devices = st.devices.filter((d) => d.id !== id); return reply(route, 200, { ok: true });
     }
     if (path === '/api/family/vaults') {

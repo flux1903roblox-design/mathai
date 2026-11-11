@@ -6,9 +6,10 @@ import assert from 'node:assert/strict';
 import {
   setup, signIn, accountId, insertSub, linkDevice, makeClass, bearer, rows, one, setCount, countOf, netOf,
 } from './helpers.js';
-import { dayOf } from '../src/util.js';
-import { shiftDay, REPORT_KEEP_DAYS, cleanDay } from '../src/report.js';
-import { purge } from '../src/cron.js';
+import { dayOf, monthOf, hourOf, jerusalemMidnight } from '../src/util.js';
+import { shiftDay, REPORT_KEEP_DAYS, cleanDay, feedbackCounts, FEEDBACK_KEYS } from '../src/report.js';
+import { purge, run } from '../src/cron.js';
+import { weekStart } from '../../shared/week.js';
 
 let h;
 afterEach(() => h?.done());
@@ -211,7 +212,9 @@ test('7. the parent reads only their own devices, 7 to 90 days, as the app\'s Da
   assert.ok(d.lastSync); assert.ok(d.linkedAt); assert.ok(d.lastSeen);
   assert.deepEqual(d.days.map((x) => x.d), [ago(10), ago(2), today()]);
   assert.deepEqual(d.days.slice(1), sent, 'the rows come back as the app sent them');
-  assert.doesNotMatch(JSON.stringify(all), /99|הטלפון/);
+  // nothing of the other account: not its device's label, not its row (99 minutes), whatever the random ids hold
+  assert.doesNotMatch(JSON.stringify(all), /הטלפון/);
+  assert.ok(all.devices.every((x) => x.id !== other.dev.id && x.days.every((r) => r.m !== 99)));
   // days clamps to 7..90
   assert.equal((await get('?days=3')).days, 7);
   assert.deepEqual((await get('?days=3')).devices[0].days.map((x) => x.d), [ago(2), today()]);
@@ -357,4 +360,75 @@ test('13. what is stored is ASCII codes and counts: no Hebrew, no label, no name
       assert.doesNotMatch(v, /@/, col);
     }
   }
+});
+
+// ---------------------------------------------------------------- "הסיכום עוזר לכם?" (PARENTS-5)
+const feedback = (fam, useful, extra = {}) => h.call('POST', '/api/report/feedback', { headers: fam.parent, body: { useful, ...extra } });
+
+test('F1. feedback: a yes or a no adds one to the month\'s count, with no account in it; one answer a week per account', async () => {
+  h = await setup();
+  const one1 = await family('one@example.test');
+  const two = await family('two@example.test');
+  const three = await family('three@example.test', { plan: false });
+  assert.equal((await feedback(one1, true)).status, 200);
+  assert.equal((await feedback(two, false)).status, 200);
+  assert.equal((await feedback(three, true)).status, 200, 'a parent whose plan ended may still answer');
+  const month = monthOf(new Date());
+  assert.equal(countOf(h.env, FEEDBACK_KEYS.yes), 2);
+  assert.equal(countOf(h.env, FEEDBACK_KEYS.no), 1);
+  assert.deepEqual(rows(h.env, "SELECT DISTINCT day FROM ai_usage WHERE who LIKE 'fb:report:%'").map((r) => r.day), [month], 'monthly keys');
+  assert.deepEqual(await feedbackCounts(h.env), { yes: 2, no: 1 });
+  // the aggregate keys hold no account: only the weekly key names one, on the week's Sunday
+  const weekly = rows(h.env, "SELECT who, day, count FROM ai_usage WHERE who LIKE 'fb:a:%' ORDER BY who");
+  assert.equal(weekly.length, 3);
+  for (const w of weekly) { assert.equal(w.day, weekStart(dayOf())); assert.equal(w.count, 1); }
+  // a second answer the same week: 429, and nothing counted
+  const again = await feedback(one1, false);
+  assert.equal(again.status, 429);
+  assert.equal((await again.json()).error, 'already_answered');
+  assert.deepEqual(await feedbackCounts(h.env), { yes: 2, no: 1 });
+  // next week: one more answer
+  const nextWeek = shiftDay(weekStart(dayOf()), 7);
+  h.env.DB.raw.prepare('UPDATE ai_usage SET day = ? WHERE who LIKE ?').run(shiftDay(weekStart(dayOf()), -7), 'fb:a:%');
+  assert.equal((await feedback(one1, false)).status, 200, `a new week (${nextWeek}) takes a new answer`);
+  assert.deepEqual(await feedbackCounts(h.env), { yes: 2, no: 2 });
+});
+
+test('F2. feedback: only a signed-in parent, only { useful: boolean }, and not while the report is off', async () => {
+  h = await setup();
+  const fam = await family();
+  assert.equal((await h.call('POST', '/api/report/feedback', { body: { useful: true } })).status, 401);
+  assert.equal((await h.call('POST', '/api/report/feedback', { headers: fam.dev.headers, body: { useful: true } })).status, 401, 'not the child\'s device');
+  for (const body of [{}, { useful: 'yes' }, { useful: 1 }, { useful: true, text: 'great' }]) {
+    const r = await h.call('POST', '/api/report/feedback', { headers: fam.parent, body });
+    assert.equal(r.status, 400, JSON.stringify(body));
+    assert.equal((await r.json()).error, 'bad_feedback');
+  }
+  assert.deepEqual(await feedbackCounts(h.env), { yes: 0, no: 0 });
+  assert.equal(rows(h.env, "SELECT * FROM ai_usage WHERE who LIKE 'fb:%'").length, 0, 'a refused answer counts nothing');
+  h.done();
+  h = await setup({ PARENT_REPORT: 'off' });
+  const off = await family();
+  const r = await h.call('POST', '/api/report/feedback', { headers: off.parent, body: { useful: true } });
+  assert.equal(r.status, 503);
+  assert.equal((await r.json()).error, 'report_off');
+});
+
+test('F3. the owner\'s daily summary has the month\'s answers: "משוב על הסיכום החודש: כן 2 · לא ממש 1"', async () => {
+  h = await setup({ OWNER_DAILY_SUMMARY: 'true' });
+  const night = new Date(jerusalemMidnight(dayOf()).ms + 3 * 3600_000 + 10 * 60_000);
+  assert.ok(hourOf(night).endsWith('T03'));
+  const lastMonth = monthOf(new Date(night.getTime() - 864e5));
+  h.env.DB.raw.prepare("INSERT INTO ai_usage (who, day, count) VALUES (?1, ?3, 2), (?2, ?3, 1)").run(FEEDBACK_KEYS.yes, FEEDBACK_KEYS.no, lastMonth);
+  await run(h.env, { now: night });
+  const mail = h.net.log.email.find((m) => m.subject.startsWith('[מדרגות] סיכום יומי'));
+  assert.ok(mail, 'sent');
+  assert.match(mail.text, /משוב על הסיכום החודש: כן 2 · לא ממש 1/);
+  // with the report off the line is left out
+  h.done();
+  h = await setup({ OWNER_DAILY_SUMMARY: 'true', PARENT_REPORT: 'off' });
+  await run(h.env, { now: night });
+  const quiet = h.net.log.email.find((m) => m.subject.startsWith('[מדרגות] סיכום יומי'));
+  assert.ok(quiet, 'sent');
+  assert.doesNotMatch(quiet.text, /משוב על הסיכום/);
 });

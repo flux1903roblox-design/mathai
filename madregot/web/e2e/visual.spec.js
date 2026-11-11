@@ -63,3 +63,11 @@ test('visual: report-week', async ({ page }) => {
   await open(page, '#/report', reportWeek());
   await shot(page, 'report-week', '.report-week');
 });
+
+// each device's progress on /parents (PARENTS-5), from the staging copy's QA state: the section, the first device's week
+test('visual: parents-report', async ({ page }) => {
+  await open(page, '#/parents?qa-parent=report');
+  await expect(page.locator('.report-device').first()).toBeVisible();
+  await page.evaluate(() => document.getElementById('report-title').scrollIntoView({ block: 'start' }));
+  await shot(page, 'parents-report', '.report-device-head h3 >> nth=0');
+});

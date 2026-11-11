@@ -17,7 +17,7 @@ import {
 } from './billing.js';
 import { currentProvider } from './providers/index.js';
 import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily, familyVaults, deleteFamilyVault } from './family.js';
-import { saveSummary, childSharing, familySummary, parentSharing, deleteHistory } from './report.js';
+import { saveSummary, childSharing, familySummary, parentSharing, deleteHistory, feedback as reportFeedback } from './report.js';
 import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked } from './licence.js';
 import { run as runCron } from './cron.js';
 import { postErrors, recordServerError } from './errors.js';
@@ -513,6 +513,8 @@ async function route(req, env, ctx, cors) {
   if (M === 'GET' && p === '/api/family/summary') return familySummary(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/family\/devices\/([a-f0-9]{16})\/sharing$/))) return parentSharing(m[1], req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/family\/devices\/([a-f0-9]{16})\/history\/delete$/))) return deleteHistory(m[1], req, env, cors);
+  // "הסיכום עוזר לכם?" on /parents (PARENTS-5): one answer a week per account, counted per month with no account in it
+  if (M === 'POST' && p === '/api/report/feedback') return reportFeedback(req, env, cors);
   // the progress kept for the family's devices (DURABLE-6): listed and deleted, never with the code
   if (M === 'GET' && p === '/api/family/vaults') return familyVaults(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/family\/vaults\/([a-f0-9]{16})\/delete$/))) return deleteFamilyVault(m[1], req, env, cors);

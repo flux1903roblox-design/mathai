@@ -8,12 +8,15 @@
 // stated. Flow 3 (PARENTS-4): a device linked to a family plan tells the child before anything is sent, and nothing is
 // sent until "הבנתי"; then one post carries the days with activity and today, with X-Family-Device only; the profile
 // shows the sign, the sheet shows what was sent, the child can stop it and delete what was sent; and a new profile on
-// the same device is told again before anything goes. Flow 5: a class student's numbers say the teacher sees them.
+// the same device is told again before anything goes. Flow 4 (PARENTS-5, PARENTS-6): the paying parent's /parents shows
+// each device's progress, the week switch, 8 weeks with a table, their own switch, deleting a device's history, the
+// usefulness question once, the unlink sentence, the checkout line, and every first-day state. Flow 5: a class
+// student's numbers say the teacher sees them.
 // Screenshots for the evidence folder with REPORT_SHOTS=<folder>.
 import { mkdirSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { open, student, reportWeek, appReady, saved, NOW } from './helpers.js';
-import { API, fakeServer, livePlan } from './fakeServer.js';
+import { API, fakeServer, livePlan, TOKEN } from './fakeServer.js';
 
 const API_HOST = new URL(API).host;
 const WA = 'https://wa.me/?text=';
@@ -446,4 +449,212 @@ test('flow 5: a class student\'s numbers say the teacher sees every answer, not 
   await expect(page.locator('.nums-where')).toHaveText('המספרים האלה מחושבים במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה. הזמן באפליקציה לא נספר כאן: רק מה שפתרתם לבד.');
   await expect(page.getByText('לשום מקום')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'משותף עם ההורים' })).toHaveCount(0);
+});
+
+// ---------------------------------------------------------------- flow 4: the parent's /parents (PARENTS-5, PARENTS-6)
+const PARENT = TOKEN(9);
+/** The parent's own phone: no profile, the app pointed at the fake server, the parent signed in (kept in localStorage). */
+async function openParent(page, route = '#/parents') {
+  const phone = withServer();
+  phone.state.profile = null;
+  await page.clock.setFixedTime(NOW);
+  await page.goto('./');
+  await page.evaluate(async ([s, t]) => {
+    localStorage.clear();
+    localStorage.setItem('madregot-debug', '1');
+    localStorage.setItem('madregot', JSON.stringify(s));
+    localStorage.setItem('madregot-parent', JSON.stringify({ token: t, email: 'parent@example.test' }));
+    await new Promise((done) => { const r = indexedDB.deleteDatabase('madregot-durable'); r.onsuccess = done; r.onerror = done; r.onblocked = done; });
+  }, [phone, PARENT]);
+  await page.goto(`./${route}`);
+  await page.reload();
+  await appReady(page);
+}
+const srow = (d, over = {}) => ({ v: 1, d, m: 20, q: 12, ls: 1, st: 0, sk: ['signed:1'], ma: [], rv: 0, fx: [], sr: 1, ex: null, ...over });
+const byDay = (rows) => Object.fromEntries(rows.map((r) => [r.d, r]));
+/** The tablet's last weeks: this week (1–5.11) 4 days, 75 minutes, 46 questions; last week 2 days, 45 minutes; older weeks. */
+const TABLET_ROWS = [
+  srow('2026-09-30', { m: 10, q: 5 }), srow('2026-10-12', { m: 22, q: 14 }), srow('2026-10-19', { m: 16, q: 9, ls: 2 }),
+  srow('2026-10-26', { m: 30, q: 20, ls: 2, sk: ['signed:1', 'coord:1'] }), srow('2026-10-28', { m: 15, q: 8 }),
+  srow('2026-11-01', { m: 20, q: 12, ma: ['signed:1'], sr: 1 }), srow('2026-11-02', { m: 25, q: 15, ls: 2, sk: ['signed:2'], sr: 2 }),
+  srow('2026-11-04', { m: 18, q: 10, ls: 0, st: 1, sk: ['coord:1'], sr: 3 }),
+  srow('2026-11-05', { m: 12, q: 9, sk: ['coord:1'], fx: [['coord:1', 'swap', 'o']], sr: 4, ex: { d: '2026-11-12', n: 1, of: 3 } }),
+];
+const TABLET = { id: 'd000000000000001', label: 'הטאבלט', token: FD, linkedAt: '2026-09-20T16:00:00Z', lastSync: '2026-11-05T08:10:00Z' };
+const PHONE = { id: 'd000000000000002', label: 'הטלפון', token: `fd1.${'2'.repeat(64)}`, linkedAt: '2026-10-20T18:00:00Z', lastSync: '2026-11-03T17:00:00Z' };
+const parentServer = async (page, baseURL, over = {}) => {
+  const server = await fakeServer(page.context(), {
+    report: true, plan: livePlan(), devices: [{ ...PHONE }, { ...TABLET }],
+    summaries: { [TABLET.id]: byDay(TABLET_ROWS), [PHONE.id]: byDay([srow('2026-11-03', { m: 14, q: 10, sk: ['stats:1'] })]) }, ...over,
+  }, baseURL);
+  server.st.sessions.add(PARENT);
+  return server;
+};
+const deviceCard = (page, name) => page.locator('.report-device').filter({ has: page.getByRole('heading', { level: 3, name, exact: true }) });
+
+test('flow 4: the parent sees each device\'s week and 8 weeks, holds their own switch, deletes a device\'s history, and is asked once if it helps', async ({ page, baseURL }) => {
+  test.setTimeout(90_000);
+  const { st, log } = await parentServer(page, baseURL);
+  await openParent(page);
+  await expect(page.getByRole('heading', { level: 2, name: 'ההתקדמות' })).toBeVisible();
+  await expect(page.getByText('סיכום יומי מכל מכשיר מחובר.')).toBeVisible();
+  // one card per device, in the order they were linked
+  await expect(page.locator('.report-device-head h3')).toHaveText(['הטאבלט', 'הטלפון']);
+  const tablet = deviceCard(page, 'הטאבלט');
+  await expect(tablet.locator('.report-device-sync')).toHaveText(/^עודכן לאחרונה: היום ב־\d\d:\d\d$/);
+  // this week, then last week: the numbers change
+  await expect(tablet.getByRole('radio', { name: 'השבוע', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await expect(tile(tablet, 'ימי תרגול')).toHaveText('4');
+  await expect(tile(tablet, 'דקות')).toHaveText('75');
+  await expect(tile(tablet, 'שאלות')).toHaveText('46');
+  await expect(tablet.locator('.report-dates')).toHaveText('א׳ 1.11 – ש׳ 7.11');
+  await expect(tablet.getByText('הסיכום מתעדכן מהמכשיר במהלך היום ונשמר 90 יום. לא נכלל: התשובות עצמן, שיחות עם העוזר החכם ותמונות.')).toBeVisible();
+  await tablet.getByRole('radio', { name: 'השבוע שעבר' }).click();
+  await expect(tile(tablet, 'ימי תרגול')).toHaveText('2');
+  await expect(tile(tablet, 'דקות')).toHaveText('45');
+  await expect(tablet.locator('.report-dates')).toHaveText('א׳ 25.10 – ש׳ 31.10');
+  await tablet.getByRole('radio', { name: 'השבוע', exact: true }).click();
+  // 8 weeks: a hidden table with 8 rows, the same numbers
+  const rows = tablet.locator('.weeks-chart table tbody tr');
+  await expect(rows).toHaveCount(8);
+  await expect(rows.nth(0)).toHaveText('1.11–7.11754');
+  await expect(rows.nth(1)).toHaveText('25.10–31.10452');
+  await expect(tablet.locator('.weeks-chart table thead th')).toHaveText(['שבוע', 'דקות', 'ימי תרגול']);
+  // no percentage right anywhere on the page
+  expect(await page.locator('.parents-report').innerText()).not.toMatch(/%/);
+  await page.evaluate(() => document.getElementById('report-title').scrollIntoView({ block: 'start' }));
+  await shot(page, 'parents-report-live');
+
+  // usefulness, under the first card: one answer, then thanks; not asked again this week in this browser
+  const fb = page.getByRole('region', { name: 'הסיכום עוזר לכם?' });
+  await expect(fb).toBeVisible();
+  await fb.getByRole('button', { name: 'כן', exact: true }).click();
+  await expect(page.getByText('תודה. זה עוזר לנו לשפר.')).toBeVisible();
+  expect(log.filter((r) => r.path === '/api/report/feedback').map((r) => r.body)).toEqual([{ useful: true }]);
+
+  // the parent's own switch for the tablet: off, and back on
+  await tablet.getByRole('button', { name: 'לכבות' }).click();
+  await expect(tablet.getByText('כיביתם את הסיכום מהמכשיר הזה.')).toBeVisible();
+  const sw = log.filter((r) => r.path === `/api/family/devices/${TABLET.id}/sharing`);
+  expect(sw.map((r) => r.body)).toEqual([{ on: false }]);
+  expect(sw[0].headers['x-account-token']).toBe(PARENT);
+  expect(sw[0].headers).not.toHaveProperty('x-family-device');
+  await tablet.getByRole('button', { name: 'להפעיל' }).click();
+  await expect(tablet.getByText('הסיכום מהמכשיר הזה: פועל')).toBeVisible();
+
+  // deleting the phone's history: asked first, then the card is back to its first day
+  const phone = deviceCard(page, 'הטלפון');
+  await phone.getByRole('button', { name: 'מחיקת ההיסטוריה של המכשיר' }).click();
+  const del = page.getByRole('dialog', { name: 'למחוק את הסיכומים של הטלפון?' });
+  await expect(del).toContainText('נמחק את כל הסיכומים שהגיעו מהמכשיר הזה. הסיכום הבא יגיע אחרי התרגול הבא.');
+  await del.getByRole('button', { name: 'כן, למחוק' }).click();
+  await expect(page.getByText('הסיכומים נמחקו')).toBeVisible();
+  expect(log.filter((r) => r.path === `/api/family/devices/${PHONE.id}/history/delete`)).toHaveLength(1);
+  expect(st.summaries[PHONE.id]).toBeUndefined();
+  await expect(phone.getByRole('heading', { name: 'הטלפון: עוד אין סיכום' })).toBeVisible();
+
+  // the parent's unlink sheet says the summaries go with the device
+  await page.getByRole('button', { name: /^מכשירים מחוברים/ }).click();
+  await page.locator('.parents-devices li').filter({ hasText: 'הטאבלט' }).getByRole('button', { name: 'ניתוק' }).click();
+  const unlink = page.getByRole('dialog', { name: 'לנתק את המכשיר?' });
+  await expect(unlink).toContainText('הסיכומים שהגיעו מהמכשיר הזה יימחקו.');
+  await unlink.getByRole('button', { name: 'להשאיר מחובר' }).click();
+
+  // a reload: the question is not asked again this week, and nothing more was sent
+  await page.reload();
+  await appReady(page);
+  await expect(page.locator('.report-device').first()).toBeVisible();
+  await expect(page.getByRole('region', { name: 'הסיכום עוזר לכם?' })).toHaveCount(0);
+  expect(log.filter((r) => r.path === '/api/report/feedback')).toHaveLength(1);
+});
+
+test('flow 4: sharing off on the child\'s device: the parent is told when, never why, can still read, delete and switch their side', async ({ page, baseURL }) => {
+  const { log } = await parentServer(page, baseURL, { devices: [{ ...TABLET, shareChild: false, sharingAt: '2026-11-02T18:00:00Z' }], summaries: { [TABLET.id]: byDay(TABLET_ROWS.slice(0, 6)) } });
+  await openParent(page);
+  const tablet = deviceCard(page, 'הטאבלט');
+  await expect(tablet.getByText('השיתוף כבוי במכשיר עצמו מאז 2.11. אם תרצו, אפשר לדבר על זה יחד. רק במכשיר עצמו אפשר להפעיל אותו שוב.')).toBeVisible();
+  await expect(tablet.getByText('השיתוף כבוי במכשיר עצמו.', { exact: true })).toBeVisible();
+  await expect(tile(tablet, 'ימי תרגול')).toHaveText('1'); // what came before it was switched off is still there
+  await expect(tablet.getByRole('button', { name: 'מחיקת ההיסטוריה של המכשיר' })).toBeVisible();
+  await page.evaluate(() => document.getElementById('report-title').scrollIntoView({ block: 'start' }));
+  await shot(page, 'parents-off-child-live');
+  await tablet.getByRole('button', { name: 'לכבות' }).click();
+  await expect(tablet.getByText('כיביתם את הסיכום, והשיתוף כבוי גם במכשיר עצמו.')).toBeVisible();
+  await expect(tablet.getByText('הסיכום יחזור רק כשהשיתוף יופעל גם במכשיר.')).toBeVisible();
+  expect(log.filter((r) => r.path === `/api/family/devices/${TABLET.id}/sharing`).map((r) => r.body)).toEqual([{ on: false }]);
+});
+
+test('flow 4: the QA state report-off shows the child\'s switch off and the parent\'s switch works with no server', async ({ page }) => {
+  await open(page, '#/parents?qa-parent=report-off');
+  const tablet = deviceCard(page, 'הטאבלט');
+  await expect(tablet.getByText(/^השיתוף כבוי במכשיר עצמו מאז \d{1,2}\.\d{1,2}\. /)).toBeVisible();
+  await page.evaluate(() => document.getElementById('report-title').scrollIntoView({ block: 'start' }));
+  await shot(page, 'parents-off-child');
+  await tablet.getByRole('button', { name: 'לכבות' }).click();
+  await expect(tablet.getByText('כיביתם את הסיכום, והשיתוף כבוי גם במכשיר עצמו.')).toBeVisible();
+});
+
+test('flow 4, the first day: signed out, a plan with no device, linked with nothing yet, nothing this week, a device the plan does not cover', async ({ page, baseURL }) => {
+  test.setTimeout(90_000);
+  // 1. signed out: what the plan adds, and the free weekly summary
+  const { st } = await parentServer(page, baseURL, { devices: [], summaries: {} });
+  const phone = withServer(); phone.state.profile = null;
+  await open(page, '#/parents', phone);
+  await expect(page.getByRole('heading', { name: 'כניסה עם המייל' })).toBeVisible();
+  await expect(page.locator('.parents-about li').first()).toHaveText('רואים מה הילד תרגל: סיכום יומי לכל מכשיר מחובר. הילד יודע על כך, רואה מה נשלח, ויכול להפסיק.');
+  await expect(page.getByText('גם בלי מנוי: מהאפליקציה של הילד אפשר לשלוח לכם סיכום שבועי בוואטסאפ, בלי חשבון.')).toBeVisible();
+
+  // 2. a plan, no device yet: the first-link card says what comes after linking
+  await openParent(page);
+  await expect(page.getByRole('heading', { name: 'חיבור המכשיר של הילד' })).toBeVisible();
+  await expect(page.getByText('אחרי החיבור יופיע כאן סיכום יומי של התרגול במכשיר. הילד יקבל על כך הודעה, יוכל לראות בדיוק מה נשלח, ויוכל להפסיק.')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'ההתקדמות' })).toHaveCount(0);
+
+  // 3. linked, nothing sent yet: what will come, and an example that says it is one
+  st.devices = [{ ...TABLET, lastSync: null }];
+  await page.reload(); await appReady(page);
+  const tablet = deviceCard(page, 'הטאבלט');
+  await expect(tablet.getByRole('heading', { name: 'הטאבלט: עוד אין סיכום' })).toBeVisible();
+  await expect(tablet).toContainText('הסיכום הראשון יופיע כאן אחרי התרגול הבא במכשיר.');
+  await expect(tablet.getByText('דוגמה. אלה לא נתונים של הילד שלכם.')).toBeHidden();
+  await tablet.getByText('איך זה ייראה (דוגמה)').click();
+  await expect(tablet.getByText('דוגמה. אלה לא נתונים של הילד שלכם.')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'הסיכום עוזר לכם?' })).toHaveCount(0); // nothing to judge yet
+  await page.evaluate(() => document.getElementById('report-title').scrollIntoView({ block: 'start' }));
+  await shot(page, 'parents-first-day');
+
+  // 4. summaries, but none this week: said, with the last practice day; last week still opens
+  st.summaries = { [TABLET.id]: byDay(TABLET_ROWS.filter((r) => r.d < '2026-11-01')) };
+  await page.reload(); await appReady(page);
+  await expect(tablet.getByText('השבוע עוד לא היה תרגול במכשיר הזה.')).toBeVisible();
+  await expect(tablet.getByText('התרגול האחרון: 28.10.')).toBeVisible();
+  await tablet.getByRole('radio', { name: 'השבוע שעבר' }).click();
+  await expect(tile(tablet, 'ימי תרגול')).toHaveText('2');
+
+  // 6b. no plan, a device linked: what the plan holds, with no price; and the checkout says the child can stop sharing
+  st.plan = null; st.summaries = {};
+  await page.reload(); await appReady(page);
+  await expect(page.getByText('הטאבלט: הסיכום היומי כלול במנוי המשפחתי.')).toBeVisible();
+  expect(await page.locator('.parents-report').innerText()).not.toMatch(/₪/);
+  await expect(page.locator('.parents-includes')).toHaveText('המנוי כולל: סיכום התקדמות לכל מכשיר, ועוזר חכם שמסביר, בודק דפים ומכין תרגילים. הילד רואה מה נשלח אליכם ויכול להפסיק את השיתוף.');
+  await expect(page.getByRole('heading', { name: 'אין מנוי פעיל' }).locator('..')).toContainText('ויכול להפסיק את השיתוף');
+
+  // 7. the plan ended, summaries kept: said, and they can be read and deleted
+  st.summaries = { [TABLET.id]: byDay(TABLET_ROWS) };
+  await page.reload(); await appReady(page);
+  await expect(page.getByText('המנוי הסתיים. הסיכומים שכבר הגיעו נשמרים עד 90 יום ואז נמחקים. אפשר למחוק אותם עכשיו.')).toBeVisible();
+  await expect(tile(tablet, 'ימי תרגול')).toHaveText('4');
+  await expect(tablet.getByRole('button', { name: 'מחיקת ההיסטוריה של המכשיר' })).toBeVisible();
+  await expect(tablet.getByRole('button', { name: 'לכבות' })).toHaveCount(0);
+});
+
+test('flow 4: the staging copy shows two devices\' progress with ?qa-parent=report, and asks nothing of a server', async ({ page }) => {
+  const reqs = watch(page);
+  await open(page, '#/parents?qa-parent=report');
+  await expect(page.locator('.report-device-head h3')).toHaveText(['הטאבלט', 'הטלפון']);
+  await expect(deviceCard(page, 'הטאבלט').locator('.weeks-chart table tbody tr')).toHaveCount(8);
+  await page.evaluate(() => document.getElementById('report-title').scrollIntoView({ block: 'start' }));
+  await shot(page, 'parents-report');
+  await shot(page, 'parents-report-full', { fullPage: true });
+  expect(reqs.filter((r) => r.url.includes('/api/'))).toEqual([]);
 });
