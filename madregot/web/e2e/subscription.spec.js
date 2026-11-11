@@ -530,7 +530,7 @@ test.describe('the smart tutor', () => {
     await open(page, '#/');
     await expect(page.getByRole('navigation', { name: 'להורים ומידע משפטי' })).toHaveCount(0);
     await page.goto('./#/terms');
-    await expect(page.getByRole('heading', { name: 'תקנון' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'תקנון' })).toBeVisible();
     await shot(page, 'legal-terms');
     expect(calls).toEqual([]);
   });

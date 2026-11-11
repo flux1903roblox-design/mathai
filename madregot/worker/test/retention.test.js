@@ -7,7 +7,10 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
 import { RETENTION } from '../../shared/retention.js';
+import { QUALITY_KEEP_DAYS } from '../src/quality.js';
+import { CODE_TTL_MIN, SESSION_IDLE_DAYS } from '../src/account.js';
 import { purge, run, PURGE_BATCH } from '../src/cron.js';
 import { keyIn, STUDENT_ROWS, STUDENT_COUNTERS, CLASS_COUNTERS } from '../src/forget.js';
 import { dayOf, jerusalemMidnight } from '../src/util.js';
@@ -326,4 +329,34 @@ test('the other class keeps everything when one class is deleted', async () => {
   assert.equal((await h.call('POST', '/api/teacher/class/delete', { headers: cls.teacher, body: { confirm: 'DELETE' } })).status, 200);
   assert.deepEqual(count(), before);
   assert.equal((await h.call('GET', '/api/teacher/dashboard', { headers: other.teacher })).status, 200);
+});
+
+// The privacy page (web/src/content/legal/privacy.md, trust spec Appendix A) quotes these periods to parents and
+// teachers. Each sentence is built here from the number the purge uses, so a change in shared/retention.js (or in a
+// constant below) fails this test until the page says the same (TRUST-7: "the same numbers in the code, the privacy
+// page and the teacher screen").
+test('the privacy page quotes the purge\'s own numbers', () => {
+  const page = readFileSync(new URL('../../web/src/content/legal/privacy.md', import.meta.url), 'utf8');
+  const retention = page.split(/^## /m).find((s) => s.includes('{#retention}'));
+  assert.ok(retention, 'privacy.md has its retention section');
+  // the four numbers the spec names, as they appear
+  for (const n of ['400 יום', '30 יום', '60 יום', '180 יום']) assert.ok(retention.includes(n), n);
+  const sentences = [
+    `תשובות בתרגול של תלמיד בכיתה, וסיכומי מבחנים: ${R.attemptsDays} יום.`,
+    `תלמיד שלא נכנס ${R.studentIdleDays} יום: נמחק, עם כל המידע עליו.`,
+    `כיתה שלא הייתה בה פעילות ${R.classIdleDays} יום ואין לה רישיון פעיל: נמחקת, עם כל המידע עליה.`,
+    `דף מחברת שנשלח למורה: ${R.helpImageAfterDoneDays} יום אחרי שהמורה סוגר את הבקשה, ולכל היותר ${R.helpImageMaxDays} יום.`,
+    `הבקשה עצמה: ${R.helpAfterDoneDays} יום אחרי שנסגרה, ולכל היותר ${R.helpMaxDays} יום.`,
+    `ספירות של איך העוזר ענה, ועלות העוזר לכל חשבון או כיתה: ${QUALITY_KEEP_DAYS} יום.`,
+    `קוד כניסה במייל: ${CODE_TTL_MIN} דקות. כניסה לחשבון שלא השתמשו בה ${SESSION_IDLE_DAYS} יום: נמחקת.`,
+    `חשבון של הורה או מורה שלא נכנסו אליו ${R.accountIdleDays} יום (שנתיים)`,
+    `בקשה לרישיון כיתה: ${R.licenceRequestAfterHandledDays} יום אחרי שטיפלנו בה.`,
+    `ספירות בטיחות: ${R.safetyEventsDays} יום. תשובה של העוזר שדווחה: ${R.answerReportsDays} יום.`,
+  ];
+  for (const t of sentences) assert.ok(retention.includes(t), `privacy.md says: ${t}`);
+  // the money records: the end of the 7th calendar year after the tax year
+  assert.equal(R.taxYears, 7);
+  assert.ok(retention.includes('עד סוף השנה השביעית אחרי שנת המס'), 'the tax period as the purge counts it');
+  assert.equal(R.accountIdleDays, 730, '"שנתיים" beside the number');
+  assert.equal(R.examsDays, R.attemptsDays, 'answers and exam summaries share one sentence');
 });

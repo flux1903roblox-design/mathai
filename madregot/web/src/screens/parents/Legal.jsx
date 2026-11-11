@@ -62,8 +62,12 @@ export function fillLegal(text, plans) {
   return String(text).replace(/\{\{([A-Z_]+)\}\}/g, (_, k) => (v[k] === undefined || v[k] === null || v[k] === '' ? BLANK : String(v[k])));
 }
 
-/** The page's own title is the frame's h1, so a text's first "# title" line is not shown a second time. */
-export const legalBody = (text) => String(text).replace(/^\s*#\s[^\n]*\n+/, '');
+/**
+ * The text as a reader sees it. The page's own title is the frame's h1, so a text's first "# title" line is not shown a
+ * second time; and a note for the lawyer, written in the text as <!-- … --> beside the words it is about (TRUST-13),
+ * is not shown at all (the markdown would print it as it is).
+ */
+export const legalBody = (text) => String(text).replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').replace(/^\s*#\s[^\n]*\n+/, '');
 
 const ANCHOR = /\s*\{#([a-z0-9-]+)\}\s*$/;
 /** A heading whose text ends with {#id}: the id goes on the heading (focusable from a link), the braces are dropped. */
@@ -91,7 +95,7 @@ function LegalLink({ node, href = '', children, ...rest }) {
 const COMPONENTS = { h2: anchored('h2'), h3: anchored('h3'), a: LegalLink };
 /** The markdown's own safe addresses, and a phone number to dial (tel:), which it would drop. */
 const urlTransform = (url) => (/^tel:\+?[\d-]+$/i.test(url) ? url : defaultUrlTransform(url));
-/** A legal text as the page shows it: the first "# title" line dropped, {{NAME}} filled, anchors and app links set. */
+/** A legal text as the page shows it: lawyer's notes and the first "# title" line dropped, {{NAME}} filled, anchors and app links set. */
 export const LegalMarkdown = ({ text, plans }) => (
   <ReactMarkdown components={COMPONENTS} urlTransform={urlTransform}>{fillLegal(legalBody(text), plans)}</ReactMarkdown>
 );
