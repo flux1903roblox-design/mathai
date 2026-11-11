@@ -1,7 +1,228 @@
 # QA: durable progress
 
-What protects a student's saved progress, how each part is tested, and the limits that remain. The full before/after
-table of the council's probes comes with the proof pack (DURABLE-15); this file starts with the parts built so far.
+What protects a student's saved progress, how each part is tested, and the limits that remain. The proof pack
+(DURABLE-15) comes first: every council finding of the engineering lens that this lane answers, re-tested, with the
+council's own probes run again next to the old code. After it, each item's detail, in the order it was built.
+
+## The proof pack (DURABLE-15)
+
+### Every finding, re-tested
+
+"Old" is the council's evidence; where this lane ran the council's probe again on the council's commit (`43e4948`, the
+ground truth of the spec), that result is given too. Every test named here passes on this branch (counts at the end of
+this section). Screenshots are in `qa-evidence/durable/`.
+
+| Council finding (lens, severity) | Old evidence | New test (file › name) | New result | Screenshot |
+|---|---|---|---|---|
+| All learner progress can be lost, and nothing can bring it back (engineering, critical; buyers: "a paying family's record is fragile") | One localStorage key; no `persist()`, service worker, manifest, export or restore endpoint; `joinClass`'s `returning` unused | `web/e2e/chaos.spec.js` › "(a) the backup code brings everything back", "(b) joining the class again with the PIN brings everything back"; `restore.spec.js` › "(1) the lost phone…", "class: A joins…", "family: A is linked…"; `backup-file.spec.js` › "save a backup file (a download), and restore it on a fresh browser through the first screen"; `install.spec.js` › "the browser is asked to keep the data once…" | After cookies, localStorage, sessionStorage, the IndexedDB copy and the caches are cleared, the app opens on Welcome; the code, and separately the class PIN, bring back every progress field equal (XP and its per-device counts, 3 days, the path, the stairs, the gaps, the mistakes, the learning model) | `chaos-welcome-after-eviction.png`, `chaos-restored-by-code.png`, `chaos-restored-by-class.png` (and `-320`) |
+| Two open tabs overwrite each other's whole saved state (engineering, major) | `probe.cjs` twoTabs: tab A saved sound off, stale tab B's write saved it on again | `durable.spec.js` › "two tabs: the sound turned off in one stays off when a tab opened earlier changes another setting" (with and without the event), "two tabs: a lesson finished in each…"; `src/lib/durable/tabs.test.js` (a)–(e) | Probe again (lane copy): old `43e4948` sound back **on** after B wrote; new sound stays **off**, and B's own change (the tutor's mode) is kept too | — (no screen: the saved values) |
+| Class progress sync drops answers (engineering, major) | `race.test.mjs`: 500 events → `saved: 300`, 300 rows; the outbox emptied before the request | `worker/test/class-sync.test.js` › "500 answers give 500 rows…", "half a batch already stored (a page closed mid-request)…"; `e2e/class-sync.spec.js` › "offline for three lessons, the page closed, opened again online: every answer reaches the class once" | Probe again: old `saved: 300`, 300 rows; new `saved: 500`, 500 rows | — |
+| Daily limits, the PIN limit and the sign-in code limit are bypassed by parallel requests (engineering, major) | `race.test.mjs`: 20/20 free calls, 200 wrong codes never `too_many_tries`; `pin.test.mjs`: PIN 7391 found among 10,000 parallel joins | `worker/test/pin.test.js` › "50 wrong PINs at once: exactly 10 are compared (wrong_pin), 40 are refused (too_many_pin)…"; `counters.test.js` › "take() admits exactly the limit under 20 parallel requests" (`cc91cb0`) | Probes again: free calls 2 of 20 and sign-in 5 tries then 195 refused, old and new (fixed before this lane, in `cc91cb0`); PIN: old 300 PINs compared against a limit of 10, new exactly 10 compared, 290 `too_many_pin`, 9,700 `too_many_joins`, PIN not found | — |
+| A full localStorage fails silently (engineering, minor) | `probe.cjs` storageFull: the screen said off, the save stayed on, an uncaught quota error | `durable.spec.js` › "storage full" › "the copy on the device works: the change survives a reload, and nothing alarms the child", "the copy cannot be written either: a calm banner says so…"; `src/lib/durable/storage.test.js` (3), (4), (7) | Probe again, filled to the last byte: old `43e4948` opened **Welcome** after the reload (the student looked gone until space was freed); new: no error, the IndexedDB copy holds the change, Settings says "נשמר", and the reload shows it | `probe-before-storage-full-reload.png`, `probe-after-storage-full-reload.png`, `durable-settings-saved.png`, `durable-full.png` (and `-320`) |
+| (spec, DURABLE-1) A corrupt saved key | Not probed by the council; at `43e4948` the progress is one key with no copy to fall back on | `durable.spec.js` › "a broken save comes back from the copy on the device, with one calm toast, and its bytes are kept"; `storage.test.js` (5), (6) | The progress comes back from the copy on the device, once, with "החזרנו את ההתקדמות מהעותק שנשמר במכשיר."; the broken bytes stay in quarantine | `durable-recovered.png` (and `-320`) |
+| Nothing works offline beyond the screen already loaded (engineering, minor) | `probe.cjs`: "משהו במסך הזה לא עבד" on `#/me` offline; a reload offline fails with `ERR_INTERNET_DISCONNECTED` | `e2e/offline.spec.js` › "after one visit, every screen opens offline, a reload works, and an answer given offline reaches the class", "a new release waits…" | Probe again: old the same error screen and a blank page on reload; new the profile opens offline, and the reload opens the app on the profile | `probe-before-offline-me.png`, `probe-after-offline-me.png`, `probe-before-offline-reload.png`, `probe-after-offline-reload.png`, `offline-*.png` |
+| Initial download is heavy for a mid-range phone (engineering, minor) | Boot JS 549 KB gzip; `perf.cjs`: FCP 3.3 s, boot long task 368 ms | `web/scripts/check-budget.mjs` (the build fails over the gate) and `check-budget.test.mjs`; `e2e/perf.spec.js` (`@perf`) | Boot JS 291.4 KB (gate 306 KB); `perf.cjs` again, same machine, same hour: old FCP 3.35 / 3.38 s, longest task 274 / 292 ms; new FCP 2.36 / 2.49 s, longest task 240 / 185 ms | `budget-*.png`, `probe` table below |
+| No CI, no monitoring, thin tests for class features and concurrency (engineering, minor) | No `.github/workflows`; the ErrorBoundary only logs to the console; no join, PIN or sync tests | `.github/workflows/ci.yml`, `perf.yml`; `e2e/monitor.spec.js` › "a screen that breaks: the error screen, one report to the server, and the details in Settings"; `worker/test/errors.test.js`; `pin.test.js`, `class-sync.test.js`, `teacher.test.js` | Workflows ready; their first run needs the owner's push (below). Errors counted on the app's own server with no name, device id or address | `error-screen.png`, `support-info.png` |
+| Minors' data cannot be deleted, and a teacher who loses the device loses the class (engineering, major) | No deletes; the teacher key only in the teacher's localStorage | Teacher key: `src/lib/durable/file.test.js` › "a teacher's file keeps the class keys (the only way back to a class with no email)"; `SaveSection.test.jsx` › "a teacher: the note says the class keys are in the file…" | A backup file carries the teacher's class keys and "יש לי קובץ גיבוי" restores them; the section that makes the file for a teacher waits for the teacher lane to place it. TEACHER-1 (email sign-in for teachers) is not on this branch. Deletion is the trust lane's | — |
+| Smaller security gaps: an aborted stream (engineering, minor) | "a client that aborts a streamed chat triggers giveBack()" | `worker/test/paid.test.js` › "a streamed chat the child leaves part-way, or that breaks, is still priced in ai_spend" (`9b061f0`, line 303 there; line 316 here) | Fixed before this lane; not rebuilt | — |
+| AI cost in money (engineering, major): the family budget's code default | `DEFAULT_LIMITS.budgets.familyMonthlyUsd: 5` | `worker/test/paid.test.js` › "the family budget and the main model are the same in code and in wrangler.toml (neither can drift alone)" | $4 in code and in `wrangler.toml` (DURABLE-13, `ad4d199`) | — |
+
+### The council's probes, run again
+
+The four files in `scratchpad/council/engineering/` were copied, never edited in place. `race.test.mjs` and
+`pin.test.mjs` changed only their import paths (this worktree, and a `git archive` of `43e4948` for the old column);
+`perf.cjs` only its port. `probe.cjs` needed four changes, marked `[lane copy]` in the copy: the port; tab B's
+"שרת הכיתה" radio moved to `#/settings/advanced` (opened by a hash change, so tab B keeps the state it holds); its fill
+continues down to single characters, as `e2e/durable.spec.js` does (the council's fill leaves a few bytes free, enough
+for the next save of the same size); and it also reads the IndexedDB copy and the screen after a reload. The council's
+own `probe.cjs` on `43e4948` found tab B's radio missing (0) and the fill not full, so it could no longer show either
+failure; the lane copy shows both again on the old build. Both builds are the council's staging build
+(`VITE_API_URL=none VITE_ALLOW_PERSONAL_KEY=1 VITE_STORE_KEY=madregot-staging`), served by `python3 -m http.server` on
+ports 4202 and 4203, uncompressed as the council served them. Machine load average 6 to 10 (other builds running).
+
+| Probe | Council (`5117e5b`) | Old again (`43e4948`) | New (this branch) |
+|---|---|---|---|
+| race: 20 parallel free questions, one device | 20 served | 2 served | 2 served |
+| race: 100 device ids, one address | 80 | 80 | 80 (by design: an anonymous caller is capped per network) |
+| race: 200 parallel wrong sign-in codes | 200 `wrong_code` | 5 `wrong_code`, 195 `too_many_tries` | the same |
+| race: 500 queued answers | `saved: 300`, 300 rows | `saved: 300`, 300 rows | `saved: 500`, 500 rows |
+| race: webhook, bad delivery then a good retry | 0 subscriptions | 404 both (the probe's `generic` provider was removed in `cc91cb0`) | 404 both; the case is `worker/test/webhook.test.js` › "a failure inside the apply batch leaves no billing_events row, so the retry applies it" |
+| pin: 10,000 parallel joins, one address | PIN 7391 found | 300 compared (limit 10), not found | 10 compared, 290 `too_many_pin`, 9,700 `too_many_joins`, not found |
+| probe: offline, open the profile | "משהו במסך הזה לא עבד" | the same | the profile |
+| probe: offline reload | `ERR_INTERNET_DISCONNECTED` | the same (a blank page) | the app, on the profile |
+| probe: storage full, sound off (lane copy) | saved on, uncaught quota error | saved off, then the reload opens Welcome | no error; the copy on the device has off; "נשמר"; off after the reload |
+| probe: two tabs (lane copy) | sound back on | sound back on, also after B's other change | sound stays off; B's change kept |
+| probe: heavy year, one full save | 830 KB, 17.5 ms | 829 KB, 18.4 to 31.1 ms (two runs) | 829 KB, 18.1 to 18.4 ms (the probe times its own `setItem`, not the app's code, so no change is expected: the app now writes once per tick, `storage.test.js` (1), and makes a heavy year smaller once, (2)) |
+| perf: first load, 4x CPU, 8 Mbit/s, 150 ms | FCP 3.3 s, long task 368 ms | FCP 3.35 / 3.38 s, longest task 274 / 292 ms, 2.21 MB | FCP 2.36 / 2.49 s, longest task 240 / 185 ms, 1.46 MB |
+
+The raw outputs and the copies are in the lane's scratch folder (`lanes/family/probes/`: `RESULTS.txt`,
+`probe-adapted-old.json`, `probe-adapted-new.json`, `probe-old.json`, `perf-runs.txt`).
+
+### The chaos suite
+
+`web/e2e/chaos.spec.js`, on the phone and phone-small projects.
+
+1. **The student.** Two saved days (3 and 4 November) and a lesson today, finished in the app. The class K7Q2MD is joined
+   from Settings with PIN 4821; the class keeps the backup code it makes (escrow). The page goes out of view, so the
+   vault has today's lesson. The code is read the way a student reads it: Settings › "להציג את קוד הגיבוי".
+2. **The eviction.** With the app closed (a blank page of the same address), cookies, localStorage, sessionStorage, the
+   IndexedDB database `madregot-durable` and every cache are cleared; the test checks that nothing is left. The test
+   build has no server compiled in (the public website's build), so the address of the fake server is put back alone,
+   as a production build carries it in its code.
+3. **Welcome.** "מתחילים", and the save holds no profile, no XP and no days.
+4. **(a) The code.** "יש לי קוד גיבוי", the code, "לחפש את הגיבוי", "מצאנו גיבוי" with the XP and the name, "להמשיך
+   מכאן", "ההתקדמות חזרה". Every progress field equals the one before the eviction. The class code comes back; the
+   class token never travels in a backup, so Settings shows "התחברות מחדש לכיתה" for the PIN.
+5. **(b) The class.** The first questions as on any new start, then the class code, the same name and the PIN:
+   "ברוכים השבים לכיתה ז׳3. ההתקדמות שלכם חזרה.", every progress field equal, a new class token, the code kept by the
+   class again.
+- **Found by the suite and fixed.** The class rejoin first came back without the streak freeze the student had earned
+  and without the last topic (the map opened on the first topic). The device had just made its profile, so it had saved
+  last, and the merge's "newer side" kept its empty defaults. A device with no progress now takes the copy's single
+  fields (`lib/durable/apply.js`; `apply.test.js` › "a device with no progress yet takes the copy's single fields, though
+  it saved last (a class rejoin after the first questions)", which fails without the fix). The same path serves a family
+  move to a new phone.
+
+### Storage full
+
+A full localStorage with a working IndexedDB copy is "saved", and only Settings says where; a calm banner appears only
+when nothing could save the change. Tests and evidence: the "storage full" row above, and DURABLE-1's detail in
+`web/src/lib/durable/storage.js` and its test. Owner check: none.
+
+### Corrupt key
+
+A key that does not parse, or one from a newer version, is kept in quarantine (IndexedDB, the newest 5 for 30 days) and
+the start comes from the copy on the device, with one calm toast. Tests: `storage.test.js` (5), (6), "the same broken
+bytes are kept once…"; `durable.spec.js` › "a broken save comes back from the copy on the device…".
+
+### Two tabs
+
+See "Two tabs on one device (DURABLE-2)" below. Probe: the table above.
+
+### Lost phone (the backup code)
+
+`restore.spec.js` (1) on two browsers, and `chaos.spec.js` (a) after an eviction on the same browser. Screenshots:
+`restore-code.png`, `restore-preview.png`, `restore-done.png`, `chaos-restored-by-code.png`.
+
+### Class rejoin
+
+`restore.spec.js` › "class: A joins, learns and syncs; a fresh phone types the class code, the name and the PIN and is
+back", and `chaos.spec.js` (b). Worker: `escrow.test.js` (the class rejoin with the right and the wrong PIN).
+Screenshots: `class-rejoin-restored.png`, `chaos-restored-by-class.png`.
+
+### Family move
+
+`restore.spec.js` › "family: A is linked and its code kept, the parent unlinks it, a new phone linked "continue from"
+gets A's progress". Screenshots: `parents-kept-progress.png`, `parents-link-continue-from.png`.
+
+### Offline
+
+`offline.spec.js` (both tests); the probe rows above. Screenshots: `offline-me.png`, `offline-lesson.png`,
+`offline-learn.png`, `probe-after-offline-reload.png`.
+
+### Killed tab during class sync
+
+The outbox keeps every answer until the server acknowledges its id; a resent answer counts once. `class-sync.spec.js`
+› "offline for three lessons, the page closed, opened again online: every answer reaches the class once";
+`worker/test/class-sync.test.js` › "half a batch already stored (a page closed mid-request): the rest is added, nothing
+twice"; `src/lib/sync.test.js` (keepalive within the hidden moment's budget).
+
+### PIN race
+
+`worker/test/pin.test.js` (four tests: 50 wrong PINs at once give exactly 10 comparisons; 5 wrong then the right one;
+the right PIN 5 times at once; a classmate's tries are apart). The probe: 10 compared, the PIN not found.
+
+### Aborted stream spend
+
+Done before this lane, in `9b061f0`: `worker/test/paid.test.js` › "a streamed chat the child leaves part-way, or that
+breaks, is still priced in ai_spend" (`git show 9b061f0:madregot/worker/test/paid.test.js`, line 303). Not rebuilt.
+
+### Teacher on a new device
+
+TEACHER-1 (a teacher signs in with email, the class has an owner, a key is reissued on request) is **not in this
+branch**; it is the teacher lane's, and it supersedes DURABLE-14. What this branch has is the backup-file path for the
+teacher key: a backup file keeps the class keys (`profile.classes[].key`, kept by `lib/durable/payload.js`
+`snapshotForBackup`), and "יש לי קובץ גיבוי" on a new device's first screen restores them (`apply.js` counts a teacher
+with classes as progress). The section that saves the file, `SaveSection role="teacher"` (its note says the file holds
+the class keys, so it is kept private), is built but not placed: teachers have no Settings route, and the teacher
+lane places it in the class settings (TEACHER-1/9). Until then no teacher screen offers the file. Tests:
+`file.test.js` › "a teacher's file keeps the class keys (the only way back to a class with no email)",
+`SaveSection.test.jsx` › "a teacher: the note says the class keys are in the file, so keep it to yourself".
+
+### Budget and timing
+
+The before/after of Stage 17 (detail in "A load-time budget enforced by the build" below), gzip level 9:
+
+| step | boot JS | render-blocking CSS |
+|---|---|---|
+| council (`43e4948`) | 549.2 KB | 47.9 KB |
+| before DURABLE-11 (`b0fbcb2`) | 666.6 KB | 50.7 KB |
+| after DURABLE-11 (this branch) | **291.4 KB** (gate 306, target 260) | **41.8 KB** (gate 42, target 32) |
+
+| release, `e2e/perf.spec.js` (gzip served, 4x CPU, 150 ms, 200,000 B/s) | FCP | LCP | longest boot task | repeat LCP |
+|---|---|---|---|---|
+| before DURABLE-11 (`b0fbcb2`) | 4.79 s | 4.79 s | 242 ms | 0.72 s |
+| this release | 2.79 s | 2.79 s | 178 ms | 0.41 s |
+| budget (fails over × 1.1) | 2.5 s | 3.0 s | 200 ms | 1.5 s |
+
+FCP missed its budget by 38 ms in that run, on a loaded machine; the nightly `perf.yml` gives the number on a quiet
+runner. The council's own `perf.cjs`, run again today on both builds, is in the probe table above.
+
+### Monitoring
+
+`monitor.spec.js` › "a screen that breaks: the error screen, one report to the server, and the details in Settings" (one
+`POST /api/errors` of kind `render` for `/me`) and "no server: nothing is sent, and the device still keeps the report";
+`worker/test/errors.test.js` (11 tests, including "no column holds the address the reports came from" and the owner's
+table). The owner's table is shown in DURABLE-9's detail below, from the tests' in-memory database. Screenshots:
+`error-screen.png`, `support-info.png`.
+
+### CI run
+
+**Workflow ready; the first run needs the owner's push** (owner step). `.github/workflows/ci.yml` runs web (types,
+vitest, build with the budget), worker and the phone e2e on every push to `main` and every pull request;
+`perf.yml` runs the timing test every night. Pushing files under `.github/workflows/` needs a token with the
+`workflow` scope, or the files can be pasted in GitHub's web editor (`README.md`, "CI"). Then branch protection on
+`main` with `web`, `worker` and `e2e` required. Result of the first run: ________ (date ________).
+
+### The privacy notice
+
+`web/src/content/legal/privacy.md` no longer says the progress is kept only on the device. Under its current headings
+(the trust lane's Appendix A, which moves these blocks to its own anchors, is not on this branch) it says: the code-only
+backup is an encrypted copy that only the code opens, kept 400 days after its last use and deleted by "להפסיק את
+הגיבוי" and by "מחיקת כל הנתונים"; when a class or a family plan keeps the code, the server can open that copy while the
+code is kept, and the code goes when the teacher removes the student, the student turns off "שמירת עותק בשרת הכיתה", the
+parent deletes the kept progress, the account is deleted, or "מחיקת כל הנתונים" runs ("מוצפן" is never said of that
+copy); error reports in DURABLE-9's sentence (30 days, no name, device id or address); Cloudflare as processor. Tests:
+`web/src/content/legal/privacy.test.js` (5) and `worker/test/notice.test.js` (the notice's 400 and 30 days equal
+`VAULT_KEEP_DAYS` and the error reports' `KEEP_DAYS`). Screenshots: `privacy-390.png`, `privacy-320.png` (no sideways
+scroll at either width).
+
+### What this branch's suites gave at this stage (11 November 2026)
+
+- Worker, `node --test test/*.test.js`: 255 passed, 0 failed.
+- Web, `npx vitest run`: 1,367 passed in 52 files.
+- End to end, the whole phone project (390x844) including `chaos.spec.js`: 207 passed, 2 skipped (the `@perf` timing
+  test, which runs only with `PERF=1`), 8.4 minutes. `chaos.spec.js` also passes on phone-small (320x568).
+
+### Still open
+
+- **A real iPhone.** Safari › use the app › create a code › Settings › Safari › Clear History and Website Data › reopen ›
+  restore by code; then the Home Screen path (DURABLE-3), noting the exact Hebrew labels of "שיתוף", "הוספה למסך הבית"
+  and the "open as app" switch of iOS 26's Share sheet, so `InstallSheet.jsx` `INSTALL_STEPS` can match them.
+  Result: ________ (pass/fail, date).
+- **A real Android.** Install from Chrome's menu; Settings › "שמירה קבועה בדפדפן" reads "כן". Result: ________
+  (pass/fail, date).
+- **D1 and the largest vault.** Whether D1 accepts a 349,526-character bound string in a real database (not
+  `node:sqlite`) is documented but not run: after the first deploy, one `POST /api/vault` with a blob of that length,
+  then `GET /api/vault`. Result: ________ (pass/fail, date).
+- **iOS 26's Share-sheet labels** (part of the iPhone check above): the InstallSheet copy quotes "שיתוף" and "הוספה למסך
+  הבית" until the owner reads them on a device.
+- The CI's first run (above).
+- The three-way tab merge is new design; its property test (`merge.test.js`) is the main safety net.
+
+---
+
+The detail of each item follows, in the order it was built.
 
 ## Two tabs on one device (DURABLE-2)
 
@@ -35,7 +256,8 @@ table of the council's probes comes with the proof pack (DURABLE-15); this file 
 - **Tests.** `web/src/lib/durable/file.test.js`, `apply.test.js`, `components/durable/SaveSection.test.jsx`,
   `e2e/backup-file.spec.js` (download, share sheet, a fresh browser restoring through the first screen, the same
   student, a sibling with undo, refusals, keyboard).
-- **Evidence.** `qa-evidence/durable/restore-preview-{empty,same,other}.png` (390x844).
+- **Evidence.** `qa-evidence/durable/restore-preview-{empty,same,other}.png` (390x844); `restore-start.png` (the file
+  screen) and `restore-undo.png` (Settings with "לבטל את השחזור האחרון"), copied in by the proof pack.
 - **Note for a test machine.** Chromium keeps a download's Hebrew name only when the system locale is UTF-8 (phones
   and computers are); on the POSIX locale it names the file "download". The e2e launches its browser with C.UTF-8.
 

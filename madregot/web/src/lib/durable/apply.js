@@ -72,7 +72,11 @@ export async function applyRestored(incoming, source, {
   const kind = restoreCase(local, copy);
   if (merge) {
     if (kind === 'other') return { kind, applied: false, undo: false };
-    store.setState(noteMerge(mergeDevices(local, copy, { localAt, remoteAt: at }), source, stamp));
+    // A device with no progress yet (a class rejoin or a family move right after the first questions) saved last, so
+    // "the newer side" would keep its defaults over the copy's: no streak freeze, no last topic. Nothing here can be
+    // lowered, so the copy is the newer side then (found by e2e/chaos.spec.js).
+    const times = kind === 'empty' ? { localAt: null, remoteAt: at || stamp } : { localAt, remoteAt: at };
+    store.setState(noteMerge(mergeDevices(local, copy, times), source, stamp));
     return { kind, applied: true, undo: false };
   }
   const restoreEvent = { e: 'restore', m: source };

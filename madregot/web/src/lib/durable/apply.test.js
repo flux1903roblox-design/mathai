@@ -178,6 +178,21 @@ describe('applyRestored with merge: true (the vault\'s sync between one student\
     expect(R.st().days).toEqual({});
   });
 
+  it('a device with no progress yet takes the copy\'s single fields, though it saved last (a class rejoin after the first questions)', async () => {
+    // this device: the profile was just made (Welcome), nothing learned, saved a moment ago
+    const D = device({ profile: { role: 'student', name: 'נועה', grade: '7', classCode: 'K7Q2MD', token: 'stu_2' }, xp: 0, days: {}, freezes: 0, lastTopic: null });
+    const copy = progress('נועה', 'b2c3d4e5', 45, { freezes: 1, lastTopic: 'coord', placement: { at: '2026-11-03T09:00:00.000Z', grade: '7', results: {} } });
+    const r = await applyRestored(copy, 'class', { merge: true, at: '2026-11-04T18:00:00.000Z', localAt: '2026-11-05T09:59:00.000Z', store: D.store, quarantine: D.quarantine, now });
+    expect(r).toEqual({ kind: 'empty', applied: true, undo: false });
+    expect(D.st()).toMatchObject({ xp: 45, freezes: 1, lastTopic: 'coord', placement: copy.placement, progress: copy.progress });
+    // the new profile (its class token) stays
+    expect(D.st().profile).toMatchObject({ classCode: 'K7Q2MD', token: 'stu_2' });
+    // a device with progress of its own keeps "the newer side" rule: its own later choices stay
+    const H = device(progress('נועה', 'a1b2c3d4', 20, { freezes: 0, lastTopic: 'signed' }));
+    await applyRestored(copy, 'vault', { merge: true, at: '2026-11-04T18:00:00.000Z', localAt: '2026-11-05T09:59:00.000Z', store: H.store, quarantine: H.quarantine, now });
+    expect(H.st()).toMatchObject({ freezes: 0, lastTopic: 'signed', xp: 65 });
+  });
+
   it('another student\'s copy is refused, nothing changes and nothing is kept aside', async () => {
     const D = device(progress('נועה', 'a1b2c3d4', 50));
     const before = D.st();
