@@ -13,6 +13,10 @@ import { cleanExamItems } from '../../../worker/src/assignments.js';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { KeyAnswer } from '@/screens/PracticeExam.jsx';
+// the rules of the objects the app loads after the first screen (content/late.js): a practice exam prints their answers
+// too (the grid shapes of the areas, the nets of the boxes and prisms)
+import '@/content/grid.js';
+import '@/content/net.js';
 
 describe('exam', () => {
   it('scores partial answers as half', () => {

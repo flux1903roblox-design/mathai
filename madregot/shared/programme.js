@@ -73,7 +73,13 @@ export const PROGRAMME = {
         { hours: 3, skills: ['area:5'], months: [5], note: 'חישוב היקפים' },
       ] },
     { id: '7.13', grade: '7', domain: 'geometry', title: 'גופים במרחב: קובייה, תיבה, מנסרה משולשת', months: [1, 5],
-      parts: [{ hours: 9, skills: [], note: 'קובייה, תיבה ומנסרה: פריסה, שטח פנים ונפח', later: 'S2' }] },
+      parts: [
+        // stage 2 (MEASURE-6.1): the cube and the box in January, the triangular prism in May, each stair in its months
+        { hours: 2, skills: ['solid:1'], months: [1], note: 'קובייה ותיבה: פריסה ושטח פנים' },
+        { hours: 2, skills: ['solid:2'], months: [1], note: 'נפח תיבה וקובייה' },
+        { hours: 3, skills: ['solid:3'], months: [5], note: 'מנסרה משולשת: פריסה ושטח פנים' },
+        { hours: 2, skills: ['solid:4'], months: [5], note: 'נפח מנסרה משולשת' },
+      ] },
     { id: '7.14', grade: '7', domain: 'geometry', title: 'משפט פיתגורס ושימושיו', months: [3],
       parts: [{ hours: 6, skills: range('pyth', 1, 5) }] },
     { id: '7.15', grade: '7', domain: 'uncertainty', title: 'איסוף, ייצוג וקריאת מידע, שכיחות', months: [1, 2],

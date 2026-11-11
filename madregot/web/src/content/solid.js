@@ -5,9 +5,8 @@
 //
 // This file is the practice and diagnosis layer: the topic object, the names of its mistakes, the generators of every
 // practice kind, and the eight diagnostic and transfer models (SOLID1 to SOLID4T) with their texts, drawings, solutions
-// and hints. It is not on the path yet (it is in neither GRADE7 nor TOPIC_ORDER): a topic goes on the path whole, with
-// its teaching (learn/content/solid.ts), its challenges, its programme parts, its scenery and its stair names, which land
-// together in a later sitting. Its tests import it directly.
+// and hints. GRADE7 puts it on the path after the areas; its teaching is learn/content/solid.ts, its challenges
+// learn/challenges/solid.ts.
 //
 // The models are the stage-2 spec's (scratchpad/lanes/stage2/spec/models.mjs), ported unchanged with the redraw rule of
 // content/area.js (clean: no prediction that is a slip of the hand, near the answer or near another prediction).

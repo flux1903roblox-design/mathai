@@ -131,6 +131,62 @@ test('the grid object on a 320×568 phone: tall enough, its corner dragged, no s
   await page.screenshot({ path: test.info().outputPath('grid-phone-small.png') });
 });
 
+// the net object (stage 3), first used by solid:1. In the teaching (discover 2) its Stepper folds the box's net closed a
+// quarter at a time (the drawing itself takes no drag, so the page still scrolls under a finger); in practice (so1n) a
+// tap on the face opposite the shaded one is right.
+async function toFold(page) {
+  await open(page, '#/learn/solid/1/A', student('7', { goalXp: 50 }));
+  await expect.poll(() => page.evaluate(() => window.__madregotStep?.kind)).toBe('say');
+  await page.locator('.sp-next').click();
+  await expect.poll(() => page.evaluate(() => window.__madregotStep?.kind)).toBe('explore');
+  await expect(page.locator('.ls-explore .manip')).toBeVisible();
+  // the step before has finished leaving (its card slides out, and on a narrow phone it may stick out while it goes)
+  await expect(page.locator('.sp-say')).toHaveCount(0);
+  return page.locator('.ls-explore .manip-canvas');
+}
+
+test('the net object (solid:1 discover 2): the fold Stepper to 100% closes the box', async ({ page }) => {
+  const canvas = await toFold(page);
+  await expect(canvas).toHaveAttribute('aria-valuenow', '0');
+  const more = page.getByRole('button', { name: 'לקפל עוד רבע', exact: true });
+  for (const want of ['25', '50', '75', '100']) {
+    await more.click();
+    await expect(canvas).toHaveAttribute('aria-valuenow', want);
+  }
+  await expect(canvas).toHaveAttribute('aria-valuetext', /התיבה סגורה/);
+  await expect(more).toBeDisabled();
+  await page.locator('.lm-check').click();
+  await expect(page.locator('.lm-actions.has-good')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath('net-fold-closed.png') });
+});
+
+test('the net object on a 320×568 phone: tall enough, its Stepper thumb-sized, no sideways scroll while it folds', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const canvas = await toFold(page);
+  await expectNoSidewaysScroll(page);
+  const box = await canvas.boundingBox();
+  expect(box.height, 'the net is at least 160px high on the smallest phone').toBeGreaterThanOrEqual(160);
+  for (const b of await page.locator('.ls-explore .step-btn').all()) {
+    const s = await b.boundingBox();
+    expect(Math.min(s.width, s.height), 'the fold buttons are thumb-sized').toBeGreaterThanOrEqual(44);
+  }
+  await page.getByRole('button', { name: 'לקפל עוד רבע', exact: true }).click();
+  await page.getByRole('button', { name: 'לקפל עוד רבע', exact: true }).click();
+  await expect(canvas).toHaveAttribute('aria-valuenow', '50');
+  await expectNoSidewaysScroll(page);
+  await page.screenshot({ path: test.info().outputPath('net-fold-phone-small.png') });
+});
+
+test('the net object in practice (solid:1): a tap on the face opposite the shaded one is right', async ({ page }) => {
+  const it = await openOn(page, '#/lesson/solid/1?part=1', student('7'), (x) => x.form === 'manip' && x.manip.kind === 'net' && x.manip.task === 'face');
+  await expectNoSidewaysScroll(page);
+  await expect(checkBtn(page)).toBeDisabled();
+  await page.getByRole('button', { name: `פאה ${it.answer.face}`, exact: true }).click();
+  await checkBtn(page).click();
+  await expect(page.locator('section.fb-good')).toBeVisible();
+});
+
 test('interactive exercise: the second miss shows the answer on the object', async ({ page }) => {
   await openOn(page, '#/lesson/coord/1?part=1', student('7'), (it) => it.form === 'manip' && it.manip.kind === 'plot');
   for (let k = 0; k < 2; k += 1) {

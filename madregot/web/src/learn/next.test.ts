@@ -100,20 +100,29 @@ describe('planNext: the bands, highest first, for each learner', () => {
     const area = planNext(ctxOf(emptyLearn(), { path })).top!;
     expect(area).toMatchObject({ kind: 'new', skill: 'area:1' });
     expect(area.reason).not.toContain('לפי תוכנית הלימודים');
-    const eq = planNext(ctxOf(emptyLearn(), { path: { ...path, area: { parts: {}, reviews: 0, jumped: 5 } } })).top!;
+    // then boxes and prisms (January), then equations (March)
+    const solid = planNext(ctxOf(emptyLearn(), { path: { ...path, area: { parts: {}, reviews: 0, jumped: 5 } } })).top!;
+    expect(solid).toMatchObject({ kind: 'new', skill: 'solid:1' });
+    expect(solid.reason).not.toContain('לפי תוכנית הלימודים');
+    const eq = planNext(ctxOf(emptyLearn(), { path: { ...path, area: { parts: {}, reviews: 0, jumped: 5 }, solid: { parts: {}, reviews: 0, jumped: 4 } } })).top!;
     expect(eq).toMatchObject({ kind: 'new', skill: 'eq:1' });
     expect(eq.reason).not.toContain('לפי תוכנית הלימודים');
   });
 
-  it('each area stair keeps its own month (MEASURE-6.1): the parallelogram is April\'s, and says so only then', () => {
+  it('each area and solid stair keeps its own month (MEASURE-6.1): the parallelogram is April\'s, and says so only then', () => {
     const path = {
       ...Object.fromEntries((['signed', 'coord', 'angles', 'expr'] as const).map((t) => [t, { parts: {}, reviews: 0, jumped: 6 }])),
       area: { parts: {}, reviews: 0, jumped: 3 },
     };
-    // January: area:1-3 done, area:4 (April) is not "taught by now", so its line says nothing about the class
+    // January: area:1-3 done, area:4 (April) is not "taught by now", and the box (solid:1, January) is: it comes first,
+    // and says January
     const jan = planNext(ctxOf(emptyLearn(), { path, day: '2027-01-12' })).top!;
-    expect(jan).toMatchObject({ kind: 'new', skill: 'area:4' });
-    expect(jan.reason).not.toContain('לפי תוכנית הלימודים');
+    expect(jan).toMatchObject({ kind: 'new', skill: 'solid:1' });
+    expect(jan.reason).toContain('לפי תוכנית הלימודים, זה נלמד בכיתה בינואר.');
+    // with the boxes done too, area:4 is next, and its line says nothing about the class in January
+    const jan2 = planNext(ctxOf(emptyLearn(), { path: { ...path, solid: { parts: {}, reviews: 0, jumped: 2 } }, day: '2027-01-12' })).top!;
+    expect(jan2).toMatchObject({ kind: 'new', skill: 'area:4' });
+    expect(jan2.reason).not.toContain('לפי תוכנית הלימודים');
     // April: the class meets it now
     const apr = planNext(ctxOf(emptyLearn(), { path, day: '2027-04-13' })).top!;
     expect(apr).toMatchObject({ kind: 'new', skill: 'area:4' });

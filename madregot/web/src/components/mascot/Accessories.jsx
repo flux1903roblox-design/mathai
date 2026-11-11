@@ -127,6 +127,15 @@ const DRAW = {
       <path d="M98 89 H104 V95 H110 V101 H98Z" style={S(ch('fuchsia', '-d'))} strokeWidth="1.4" fill="none" {...round} />
     </>
   ),
+  // boxes and prisms: a small box in the oblique view, its top and its side in two shades
+  'box-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('petrol', '-d')) }} strokeWidth="2" />
+      <path d="M97.5 92 L101 88.5 H110.5 L107 92 Z" style={F(ch('petrol'))} />
+      <path d="M107 92 L110.5 88.5 V97.5 L107 101 Z" style={F(ch('petrol', '-d'))} />
+      <path d="M97.5 92 H107 V101 H97.5 Z" style={{ ...F(WHITE), ...S(ch('petrol', '-d')) }} strokeWidth="1.4" {...round} />
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

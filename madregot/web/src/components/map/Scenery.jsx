@@ -2,7 +2,7 @@
 // line for signed numbers, a treasure grid for coordinates, a protractor for angles, slope stairs
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
 // statistics, tiles and brackets for expressions, an L on a grid, a tiled floor and a fenced plot for areas and
-// perimeters, a balance for equations, two crossing lines for systems, a fraction bar, a pie in eighths and a jug in
+// perimeters, a box opening into its net, a gift box and a stack of unit cubes for boxes and prisms, a balance for equations, two crossing lines for systems, a fraction bar, a pie in eighths and a jug in
 // tenths for the fractions floor. Colours
 // come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on its
 // banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
@@ -363,6 +363,41 @@ const FencePlot = () => (
   </svg>
 );
 
+/** Boxes and prisms: a box with its front opened down flat, the net unfolding from it (the inside lighter). */
+const BoxNet = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M18 30 L34 18 H80 L64 30 Z" className="sc-t sc-line" />
+    <path d="M64 30 L80 18 V52 L64 64 Z" className="sc-d" />
+    <rect x="18" y="30" width="46" height="34" className="sc-w sc-line" />
+    <path d="M18 30 L34 18 V52 L18 64" className="sc-grid" />
+    <rect x="18" y="64" width="46" height="26" className="sc-c" />
+    <path d="M18 64 H64" className="sc-stroke-w" />
+  </svg>
+);
+/** Surface area: a gift box wrapped in paper, a ribbon round it and a bow on the lid. */
+const GiftBox = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M14 46 L32 32 H84 L66 46 Z" className="sc-t sc-line" />
+    <path d="M66 46 L84 32 V74 L66 88 Z" className="sc-d" />
+    <rect x="14" y="46" width="52" height="42" className="sc-c" />
+    <rect x="36" y="46" width="8" height="42" className="sc-w" />
+    <path d="M40 46 L58 32" className="sc-stroke-w" />
+    <circle cx="44" cy="32" r="7" className="sc-g" />
+    <circle cx="57" cy="30" r="7" className="sc-g" />
+  </svg>
+);
+/** Volume: a stack of unit cubes, three by two in front, the top layer lighter (a layer is the base, the layers the height). */
+const CubeStack = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M12 44 L28 32 H88 L72 44 Z" className="sc-t sc-line" />
+    <path d="M72 44 L88 32 V72 L72 84 Z" className="sc-d" />
+    <rect x="12" y="44" width="60" height="20" className="sc-t sc-line" />
+    <rect x="12" y="64" width="60" height="20" className="sc-c" />
+    <path d="M32 44 V84 M52 44 V84 M12 64 H72 M32 44 L48 32 M52 44 L68 32" className="sc-grid" />
+    <path d="M72 64 L88 52" className="sc-stroke-w" />
+  </svg>
+);
+
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -407,6 +442,7 @@ export const SCENERY = {
   stats: [BarSkyline, PieSun, Dice],
   expr: [ExprTiles, XBox, Brackets],
   area: [GridL, TileFloor, FencePlot],
+  solid: [BoxNet, GiftBox, CubeStack],
   eq: [EqScale, Seesaw, Keyhole],
   sys: [SysCross, TwoRoads, MeetFlag],
   frac: [FracBarArt, PieEighths, TenthsJug],

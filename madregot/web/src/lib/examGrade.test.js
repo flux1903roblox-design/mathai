@@ -6,6 +6,10 @@ import { gradeByKey, gradeExam, gradedBy, choiceLetter } from './examGrade.js';
 import { makePracticeExam } from './exam.js';
 import { TOPICS } from '@/content/index.js';
 import { loadAllContent } from '@/learn/content/index.ts';
+// the rules of the objects the app loads after the first screen (content/late.js): a practice exam prints their answers
+// too (the grid shapes of the areas, the nets of the boxes and prisms)
+import '@/content/grid.js';
+import '@/content/net.js';
 
 // every topic's teaching content, loaded once (the durable lane's split, DURABLE-11: topics load on demand)
 await loadAllContent();

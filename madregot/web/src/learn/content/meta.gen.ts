@@ -1107,6 +1107,102 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "solid:1": {
+    "title": "תיבה: פריסה ושטח פנים",
+    "misconceptions": [
+      {
+        "id": "three-faces",
+        "title": "ספרו רק שלוש פאות, אחת מכל זוג"
+      },
+      {
+        "id": "vol-for-surf",
+        "title": "חישבו נפח במקום שטח פנים"
+      },
+      {
+        "id": "lid-counted",
+        "title": "ספרו גם פאה שאין לקופסה"
+      },
+      {
+        "id": "three-edges",
+        "title": "חיברו רק שלושה מקצועות, אחד מכל כיוון"
+      }
+    ],
+    "transfer": true
+  },
+  "solid:2": {
+    "title": "נפח תיבה וקובייה",
+    "misconceptions": [
+      {
+        "id": "surf-for-vol",
+        "title": "חישבו שטח פנים במקום נפח"
+      },
+      {
+        "id": "add-edges",
+        "title": "חיברו את המקצועות במקום לכפול"
+      },
+      {
+        "id": "cube-times3",
+        "title": "כפלו ב־$3$ במקום להעלות בחזקה שלישית"
+      },
+      {
+        "id": "no-convert",
+        "title": "שכחו להמיר בין סמ״ק לליטרים"
+      },
+      {
+        "id": "one-divide",
+        "title": "חילקו רק באחד המקצועות"
+      },
+      {
+        "id": "div-by-edge",
+        "title": "חילקו את הנפח במקצוע של הקובייה הקטנה ולא בנפח שלה"
+      }
+    ],
+    "transfer": true
+  },
+  "solid:3": {
+    "title": "מנסרה משולשת: פריסה ושטח פנים",
+    "misconceptions": [
+      {
+        "id": "one-base",
+        "title": "ספרו רק בסיס אחד"
+      },
+      {
+        "id": "missing-face",
+        "title": "שכחו את הפאה הצדדית שעל היתר"
+      },
+      {
+        "id": "slant-as-height",
+        "title": "כפלו בצלע משופעת במקום בגובה"
+      },
+      {
+        "id": "add-legs",
+        "title": "חיברו את הצלעות בלי לרבע"
+      }
+    ],
+    "transfer": true
+  },
+  "solid:4": {
+    "title": "נפח מנסרה",
+    "misconceptions": [
+      {
+        "id": "no-half",
+        "title": "חישבו נפח של תיבה, בלי לחלק ב־2 את הבסיס"
+      },
+      {
+        "id": "hyp-as-height",
+        "title": "כפלו ביתר במקום בניצב"
+      },
+      {
+        "id": "slant-as-height",
+        "title": "כפלו בצלע משופעת במקום בגובה"
+      },
+      {
+        "id": "linear-volume",
+        "title": "חשבו שהנפח גדל פי אותו מספר כמו המקצועות"
+      }
+    ],
+    "transfer": true
+  },
   "stats:1": {
     "title": "שכיח",
     "misconceptions": [
@@ -1337,6 +1433,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "minus-bracket": "מינוס לפני סוגריים הפך רק את המספר הראשון",
     "ignore-brackets": "חישבו כאילו אין סוגריים"
   },
+  "solid": {},
   "stats": {
     "one-middle": "במספר זוגי של נתונים לקחו רק אחד משני האמצעיים",
     "median-position": "כתבו את המקום של החציון ברשימה במקום את הערך שלו",

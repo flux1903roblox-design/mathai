@@ -17,12 +17,12 @@ const N = 7; // count + 2 for five exercises, as the request asks
 const BY_SKILL = Object.fromEntries(ALL_SKILLS.map((skill) => [skill, seedsFor(skill, N, seeded(1))]));
 
 describe('seedsFor, over every stair', () => {
-  it('covers all 67 stairs, the algebra, fraction, ratio, percent and area ones included', () => {
-    expect(ALL_SKILLS.length).toBe(67);
+  it('covers all 71 stairs, the algebra, fraction, ratio, percent, area and solid ones included', () => {
+    expect(ALL_SKILLS.length).toBe(71);
     for (const t of ['expr', 'eq', 'sys']) expect(ALL_SKILLS.filter((s) => s.startsWith(`${t}:`)).length).toBe(5);
   });
 
-  // one test over the 67 stairs (not 67 tests): the messages name the stair
+  // one test over the 71 stairs (not 71 tests): the messages name the stair
   it('every stair: seven distinct exercises, each one number, readable, with the full item kept', () => {
     for (const skill of ALL_SKILLS) everyStair(skill);
   });

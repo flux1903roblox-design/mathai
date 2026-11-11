@@ -84,6 +84,11 @@ picture file:
 - `GridL`: an L shaded on a grid of squares, one of its cells outlined (the unit's emblem);
 - `TileFloor`: a floor of square tiles with its first row laid;
 - `FencePlot`: a garden plot with a fence round it, the fence posts at equal steps.
+The boxes-and-prisms unit (stage 2) adds three more, drawn the same way:
+- `BoxNet`: a box with its front opened down flat, the net unfolding from it (the unit's emblem);
+- `GiftBox`: a gift box with a ribbon round it and a bow on the lid (wrapping it is its surface area);
+- `CubeStack`: a stack of unit cubes, three by two in front, the top layer lighter (a layer, and the layers).
+Its wardrobe piece, `box-pin`, is a small box in the same view (`web/src/components/mascot/Accessories.jsx`).
 
 ## 4. Original artwork drawn in code (no third-party source)
 

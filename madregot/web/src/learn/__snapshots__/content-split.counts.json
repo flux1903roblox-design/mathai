@@ -1069,6 +1069,90 @@
   "stairs": 6,
   "steps": 168
  },
+ "solid": {
+  "skills": {
+   "solid:1": {
+    "discover": 8,
+    "examples": [
+     5,
+     4,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "solid:2": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     3
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "solid:3": {
+    "discover": 8,
+    "examples": [
+     4,
+     3,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   },
+   "solid:4": {
+    "discover": 8,
+    "examples": [
+     2,
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     2,
+     1
+    ]
+   }
+  },
+  "stairs": 4,
+  "steps": 97
+ },
  "stats": {
   "skills": {
    "stats:1": {

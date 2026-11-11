@@ -41,6 +41,8 @@ export const ITEMS = [
   { id: 'percent-pin', slot: 'body', topic: 'pct', name: 'סיכת אחוז', unlock: { chest: 'pct' } },
   // stage 2's areas and perimeters: an L on a grid of squares
   { id: 'grid-pin', slot: 'body', topic: 'area', name: 'סיכת משבצות', unlock: { chest: 'area' } },
+  // and its boxes and prisms: a small box
+  { id: 'box-pin', slot: 'body', topic: 'solid', name: 'סיכת תיבה', unlock: { chest: 'solid' } },
   { id: 'class-scarf', slot: 'neck', topic: null, name: 'צעיף הכיתה', unlock: { classGoal: true } },
 ];
 

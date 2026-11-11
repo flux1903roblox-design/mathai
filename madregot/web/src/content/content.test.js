@@ -896,7 +896,7 @@ describe('areas and perimeters: every practice kind, from the numbers in its tex
     for (const [k, ids] of Object.entries(WANT)) expect([...(got[k] || [])].sort(), k).toEqual([...ids].sort());
     // together, every mistake the topic has a name for
     expect([...new Set(Object.values(WANT).flat())].sort()).toEqual(Object.keys(AREA.cats).sort());
-  }));
+  }), 30_000); // 200 draws a level and every wrong answer each mistake gives: a second alone, more beside the full suite
 
   it('a grid triangle whose area ends in a half is written 6.5, not 13/2', () => {
     let found = 0;
@@ -1067,15 +1067,15 @@ describe('areas and perimeters: the diagnostic and transfer models', () => {
     expect(AREA.cats['no-half']).toBe(named('line', 'no-half'));
     expect(AREA.cats['add-legs']).toBe(named('pyth', 'add-legs'));
     expect(AREA.cats['no-convert']).toBe(named('ratio', 'no-convert'));
-    // on the ז׳ path since its teaching landed: after expressions, before equations, between cobalt and violet
+    // on the ז׳ path since its teaching landed: after expressions, before the boxes and equations, between cobalt and petrol
     expect(TOPICS.find((t) => t.id === 'area').levels).toBe(AREA.levels);
-    expect(topicsFor('7').map((t) => t.id)).toEqual(['signed', 'coord', 'angles', 'expr', 'area', 'eq']);
-    expect(topicsFor('7').map((t) => t.color).slice(3, 6)).toEqual(['cobalt', 'fuchsia', 'violet']);
+    expect(topicsFor('7').map((t) => t.id)).toEqual(['signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq']);
+    expect(topicsFor('7').map((t) => t.color).slice(3, 7)).toEqual(['cobalt', 'fuchsia', 'petrol', 'violet']);
   });
 });
 
-// Boxes and prisms (stage 2, MEASURE-3): the practice and diagnosis layer (content/solid.js), not on the path yet, tested
-// on its topic object. Every check reads the question as the student sees it.
+// Boxes and prisms (stage 2, MEASURE-3): the practice and diagnosis layer (content/solid.js), tested on its topic object,
+// the same object GRADE7 puts on the path. Every check reads the question as the student sees it.
 describe('boxes and prisms: every practice kind, from the numbers in its text', () => {
   const { SOLID, KIND_KEYS, UNIT } = SW;
   const solidItem = (level) => {
@@ -1260,7 +1260,7 @@ describe('boxes and prisms: every practice kind, from the numbers in its text', 
     }
     for (const [k, ids] of Object.entries(WANT)) expect([...(got[k] || [])].sort(), k).toEqual([...ids].sort());
     expect([...new Set(Object.values(WANT).flat())].sort()).toEqual(Object.keys(SOLID.cats).sort());
-  }));
+  }), 30_000); // 200 draws a level and every wrong answer each mistake gives: a second alone, more beside the full suite
 
   it('no practice draw has two different mistakes that give the same number (the box 2 by 3 by 6 is redrawn)', seededRun(7132, () => {
     let boxes = 0;
@@ -1286,12 +1286,15 @@ describe('boxes and prisms: every practice kind, from the numbers in its text', 
     }
   });
 
-  it('the topic: grade 7, petrol, not in the placement test, four stairs, its words, and not on the path', () => {
+  it('the topic: grade 7, petrol, not in the placement test, four stairs, its words, and on the ז׳ path after the areas', () => {
     expect(SOLID).toMatchObject({ id: 'solid', grade: '7', color: 'petrol', placement: false });
     expect(SOLID.levels.map((L) => L.title)).toEqual(['תיבה: פריסה ושטח פנים', 'נפח תיבה וקובייה', 'מנסרה משולשת: פריסה ושטח פנים', 'נפח מנסרה']);
     expect(SOLID.lesson.points.length).toBeGreaterThan(3);
     expect(SOLID.lesson.words).toContain('ליטר');
-    expect(TOPICS.map((t) => t.id)).not.toContain('solid');
+    // on the path since its teaching landed: after the areas, before equations, petrol between fuchsia and violet
+    expect(TOPICS.find((t) => t.id === 'solid').levels).toBe(SOLID.levels);
+    expect(topicsFor('7').map((t) => t.id).slice(4, 7)).toEqual(['area', 'solid', 'eq']);
+    expect(topicsFor('7').map((t) => t.color).slice(4, 7)).toEqual(['fuchsia', 'petrol', 'violet']);
     // the ids other topics use keep their names but for one-base and no-convert, said here in this unit's words
     for (const t of TOPICS) for (const [id, name] of Object.entries(t.cats || {})) {
       if (SOLID.cats[id] && !['one-base', 'no-convert'].includes(id)) expect(SOLID.cats[id], `${t.id} ${id}`).toBe(name);

@@ -14,6 +14,7 @@ export const TOPIC_NAMES = Object.freeze({
   angles: 'זוויות',
   expr: 'ביטויים אלגבריים',
   area: 'שטחים והיקפים', // stage 2 (measurement): ז׳ 7.12, December to May
+  solid: 'תיבה ומנסרה', // stage 2 (measurement): ז׳ 7.13, January and May
   eq: 'משוואות',
   ratio: 'יחס וקנה מידה', // the curriculum lane's first unit of grade 8 (school order: ratio, percent, then linear functions)
   pct: 'אחוזים',
@@ -56,6 +57,10 @@ export const STAIR_NAMES = Object.freeze({
   'area:3': 'צורות מורכבות',
   'area:4': 'מקבילית וטרפז',
   'area:5': 'היקפים: אותו היקף, שטח אחר',
+  'solid:1': 'תיבה: פריסה ושטח פנים',
+  'solid:2': 'נפח תיבה וקובייה',
+  'solid:3': 'מנסרה משולשת: פריסה ושטח פנים',
+  'solid:4': 'נפח מנסרה',
   'eq:1': 'משוואה ופתרון',
   'eq:2': 'משוואה בשני צעדים',
   'eq:3': 'נעלם בשני האגפים',
@@ -111,7 +116,7 @@ export const stairName = (id) => {
  * The grade each topic is filed under in the app (learn/skills.ts GRADE_OF). Pythagoras stays under ח׳ as the app files
  * it today. (ai spec AI-5)
  */
-export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' });
+export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' });
 
 /**
  * Parts of the Ministry's programme for grades 7 and 8 that the app does not teach yet, as Hebrew titles (never topic

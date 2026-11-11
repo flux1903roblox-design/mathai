@@ -48,8 +48,14 @@ export function modelItem(c: StairContent, model: DiagModel<any>, p: any, source
   return model.precise ? withFormatNote(it) : it;
 }
 
-/** The forms of a stair's exercises that can show some misconceptions, learned once from a sample (see genProbe). */
+/**
+ * The forms of a stair's exercises that can show some misconceptions, and their kinds (a key's prefix, so1e:…), learned
+ * once from a sample (see genProbe). The kinds let the search skip, without trying its answers, an exercise of a kind
+ * the sample never saw show them (a stair of six kinds where one names the mistake).
+ */
 const PROBE_FORMS = new Map<string, Set<string>>();
+const PROBE_KINDS = new Map<string, Set<string>>();
+const kindOf = (it: { key?: unknown }) => String(it.key ?? '').split(':')[0];
 const PROBE_SAMPLE = 80;
 const PROBE_TRIES = 400;
 const PROBE_PICK = 4;
@@ -61,13 +67,17 @@ const PROBE_PICK = 4;
 function genProbe(topic: string, level: number, ids: string[], avoidKey?: string) {
   const k = `${topic}:${level}|${ids.join(',')}`;
   let forms = PROBE_FORMS.get(k);
+  let kinds = PROBE_KINDS.get(k)!;
   if (!forms) {
     // which kinds of exercise can show them at all, so a search skips the others at once
-    forms = new Set();
+    forms = new Set(); kinds = new Set();
     // (only exercises a check may ask: a practice-only one, such as the curriculum lane's two-choice questions, is one a
     // guesser gets right half the time, content/index.js fairForCheck)
-    for (let i = 0; i < PROBE_SAMPLE; i += 1) { const it = makeItem(topic, level); if (!fairForCheck(it)) continue; const n = namesOf(it, ids); if (ids.every((id) => n.includes(id))) forms.add(it.form); }
-    PROBE_FORMS.set(k, forms);
+    for (let i = 0; i < PROBE_SAMPLE; i += 1) {
+      const it = makeItem(topic, level); if (!fairForCheck(it)) continue;
+      const n = namesOf(it, ids); if (ids.every((id) => n.includes(id))) { forms.add(it.form); kinds.add(kindOf(it)); }
+    }
+    PROBE_FORMS.set(k, forms); PROBE_KINDS.set(k, kinds);
   }
   if (!forms.size) return null;
   // of a few that can show it, the one a guesser is least likely to get right: typed, else the most choices
@@ -75,7 +85,7 @@ function genProbe(topic: string, level: number, ids: string[], avoidKey?: string
   let best: any = null;
   for (let i = 0, found = 0; i < PROBE_TRIES && found < PROBE_PICK; i += 1) {
     const it = makeItem(topic, level, avoidKey);
-    if (!forms.has(it.form) || it.key === avoidKey || !fairForCheck(it)) continue;
+    if (!forms.has(it.form) || !kinds.has(kindOf(it)) || it.key === avoidKey || !fairForCheck(it)) continue;
     const could = namesOf(it, ids);
     if (!ids.every((id) => could.includes(id))) continue;
     found += 1;

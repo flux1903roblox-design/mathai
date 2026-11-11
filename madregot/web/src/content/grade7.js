@@ -1,8 +1,9 @@
 // Grade 7 (ז׳): signed numbers, the coordinate plane, angles; algebraic expressions (expr.js), areas and perimeters
-// (area.js) and equations (eq.js).
+// (area.js), boxes and prisms (solid.js) and equations (eq.js).
 import { R, NZ, pick, shuffle, T, near } from './util.js';
 import { EXPR } from './expr.js';
 import { AREA } from './area.js';
+import { SOLID } from './solid.js';
 import { EQ } from './eq.js';
 import { FRAC } from './frac.js';
 import { SIGNED6_LEVEL } from './signed6.js';
@@ -486,6 +487,9 @@ export const GRADE7 = [
   // areas and perimeters (stage 2, MEASURE-2): school order by first month, December beside expressions, before March's
   // equations; fuchsia between expr's cobalt and eq's violet
   AREA,
+  // boxes and prisms (stage 2, MEASURE-3): the box in January, after the areas and before March's equations; petrol
+  // between area's fuchsia and eq's violet
+  SOLID,
   EQ,
   // last, so the units of grade 7 keep their numbers (Topic.jsx, ExamResult): a bridge unit is not one of them
   FRAC,

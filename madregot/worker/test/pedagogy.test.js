@@ -61,8 +61,9 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // cap moved up to 17,500; ratio and percent (their ways and their nine stairs) and the floor's frac:3-4 took it to
   // about 19,000 at the next merge, so it moved again; the lane's own stage 1 ways (shared/topicWays.js) and the "not
   // yet" list computed from the programme (its full Hebrew titles) took it to about 20,000, so it moved once more, on
-  // purpose. A further topic moves it only on purpose too.
-  assert.ok(s.length < 21000, `stable block is ${s.length} characters`);
+  // purpose. A further topic moves it only on purpose too: the measurement lane's areas took it to about 20,950, and its
+  // boxes and prisms (their way, their four stairs) past 21,000, so it moved to 22,000.
+  assert.ok(s.length < 22000, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');
@@ -165,6 +166,13 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
   assert.ok(any(TOPIC_WAYS.area.avoidRe, 'כופלים את כל הצלעות.'));
   for (const ok of ['כפלו בצלע משופעת במקום בגובה', 'חשבו שגובה נמצא תמיד בתוך המשולש', 'הצלע המשופעת אינה הגובה.', '$AB = 5$ היא צלע משופעת, לא הגובה.', 'חשבו שבאותו היקף יש אותו שטח']) {
     assert.ok(!any(TOPIC_WAYS.area.avoidRe, ok), ok);
+  }
+  // stage 2's boxes and prisms: the same, for surface area and volume
+  assert.ok(any(TOPIC_WAYS.solid.avoidRe, 'שטח פנים ונפח זה אותו דבר.'));
+  assert.ok(any(TOPIC_WAYS.solid.avoidRe, 'כופלים את כל המספרים שרואים.'));
+  assert.ok(any(TOPIC_WAYS.solid.avoidRe, 'כשמכפילים את המקצועות פי 2, גם הנפח גדל פי 2.'));
+  for (const ok of ['חשבו שהנפח גדל פי אותו מספר כמו המקצועות', 'חישבו נפח במקום שטח פנים', 'כשכל מקצוע גדל פי $2$, הנפח גדל פי $2 \\cdot 2 \\cdot 2 = 8$.', 'שטח פנים הוא הקרטון מבחוץ, בסמ״ר.']) {
+    assert.ok(!any(TOPIC_WAYS.solid.avoidRe, ok), ok);
   }
   // the prompt itself, and every line of the stairs' own teaching, pass every pattern: the tutor may quote the app
   const all = TOPICS.flatMap((id) => TOPIC_WAYS[id].avoidRe);

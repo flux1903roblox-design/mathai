@@ -143,6 +143,18 @@ export const TOPIC_WAYS = Object.freeze({
       re(String.raw`(?:כופלים|לכפול|כפלו)\s+(?:את\s+)?כל\s+(?:ה)?צלעות`),
     ],
   },
+  // stage 2 (measurement, MEASURE-3): boxes and prisms, ז׳ 7.13 (web/src/learn/content/solid.ts)
+  solid: {
+    models: 'A box has three pairs of equal opposite faces; its surface area adds all six; its volume counts unit cubes as layers of (base area) cubes, as many layers as the height; a litre is 1,000 cm³. A right triangular prism is half a box, so its volume is the triangle\'s area times the length, and its lateral faces unroll into one rectangle as wide as the triangle\'s perimeter.',
+    words: ['פאה', 'מקצוע', 'פריסה', 'שטח פנים', 'נפח', 'סמ״ק'],
+    avoid: ['"surface area and volume are the same"', '"multiply all the numbers you see"', '"doubling the edges doubles the volume"'],
+    avoidRe: [
+      re(String.raw`(?:ה)?(?:שטח\s+(?:ה)?פנים\s+ו(?:ה)?נפח|(?:ה)?נפח\s+ו(?:ה)?שטח\s+(?:ה)?פנים)\s+(?:הם|זה)\s+(?:בעצם\s+|בדיוק\s+)?(?:אותו\s+(?:ה)?דבר|דבר\s+אחד)`),
+      re(String.raw`(?:כופלים|לכפול|כפלו)\s+(?:את\s+)?כל\s+(?:ה)?מספרים`),
+      // the volume said to grow by the edges' own factor (2), as a rule; the app's name of the mistake says "פי אותו מספר"
+      re(String.raw`(?:ה)?נפח\s+(?:גם\s+)?(?:גדל|יגדל|מוכפל|מכפיל\s+את\s+עצמו)\s+(?:גם\s+)?פי\s+(?:\$2\$|2|שתיים|שניים)(?=$|[\s.,;:!?])`),
+    ],
+  },
   eq: {
     models: String.raw`An equation is a balanced scale: doing the same to both sides keeps it level and keeps its solution (equivalent equations). Undo in reverse order: first what was added to $x$, then what multiplied it. With $x$ on both sides, take the same number of $x$'s from both. A word problem: one unknown, the other quantities written with it, and two expressions the story says are equal. A full solution ends with a check by substituting into the original equation, and a story's answer must fit the story. The scale carries positive whole numbers; negatives follow the same rule without it.`,
     words: ['נעלם', 'אגף ימין', 'אגף שמאל', 'משוואות שקולות', 'בדיקה בהצבה', '"עושים אותו דבר בשני האגפים"'],

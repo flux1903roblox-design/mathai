@@ -204,6 +204,13 @@
       "tags": ["area"]
     },
     {
+      "id": "D1-solid1-three-faces", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "solid:1", "source": "diag", "params": { "a": 7, "b": 4, "c": 3 }, "wrong": [61, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "three-faces", "maxWords": 130,
+        "describe": "Names the app's diagnosis: only three faces were counted, one of each pair. A box 7 by 4 by 3 has six faces in three equal pairs: 28 + 21 + 12 = 61 is one face of each pair, so the surface area is 2 · 61 = 122 cm². Ends at 122. Names no other mistake." },
+      "tags": ["solid"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

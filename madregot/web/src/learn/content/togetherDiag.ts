@@ -315,6 +315,27 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // the square 5 against the 8 by 2 rectangle, both of perimeter 20: the same perimeter read as the same area, 0
     { bugs: { 'same-perim-same-area': 0 } },
   ],
+  // stage 2 (measurement): boxes and prisms
+  'solid:1': [
+    { model: 'diag', p: { a: 10, b: 6, c: 4 } }, // the gift box 10 by 6 by 4: three faces 124; its volume 240
+    // the cube of edge 5: its volume 125 for the cardboard
+    { bugs: { 'vol-for-surf': 125 } },
+  ],
+  'solid:2': [
+    { model: 'diag', p: { a: 30, b: 20, c: 5 } }, // the baking tin 30 by 20 by 5: its surface 1700; the edges added 55
+    // cubes of edge 2 in the box 8 by 6 by 4: its volume 192 divided by the edge 2 gives 96
+    { bugs: { 'div-by-edge': 96 } },
+  ],
+  'solid:3': [
+    { model: 'diag', p: { p: 9, q: 12, c: 15, L: 20 } }, // legs 9 and 12, hypotenuse 15, length 20: one base 774; no face on the hypotenuse 528
+    // legs 6 and 8, length 10 (the hypotenuse 10 found): the legs added for it (14) 328; no face on it 188; one base 264
+    { bugs: { 'add-legs': 328, 'missing-face': 188, 'one-base': 264 } },
+  ],
+  'solid:4': [
+    // the trough (base 60 and its height 30, length 200) in litres: the base not halved 360
+    { bugs: { 'no-half': 360 } },
+    { model: 'diag', p: { p: 5, q: 12, c: 13, L: 10 } }, // legs 5 and 12, length 10: not halved 600; the hypotenuse for a leg 325
+  ],
   'eq:1': [
     // −5x = 30, the step chose to divide by −5: 30 : (−5) = −6. The minus of −5 lost: 6
     { bugs: { sign: 6 } },

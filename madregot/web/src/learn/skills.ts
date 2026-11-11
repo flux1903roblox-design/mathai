@@ -8,10 +8,11 @@ import type { SkillId, TopicId } from './types';
 // floor is switched on (recommend.ts); content/index.js keeps it out of topicsFor.
 // ח׳ in school order: ratio and scale is the first unit of the year (September), percent the second (October), both
 // before linear functions. ז׳'s areas and perimeters (stage 2) start in December, beside expressions and before March's
-// equations: it is inserted after expr (no topic moves relative to another).
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, area: 5, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
+// equations: it is inserted after expr (no topic moves relative to another). Boxes and prisms (stage 2) start in January,
+// after the areas and before March's equations.
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq', 'ratio', 'pct', 'line', 'pyth', 'stats', 'sys'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', stats: '8', sys: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, area: 5, solid: 4, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, stats: 5, sys: 5 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -62,6 +63,10 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   // hypotenuse: pyth comes after area in ALL_SKILLS, and the stair repairs the slip itself (its add-legs remedy); its
   // questions come in May, after March's unit 7.14
   'area:5': ['area:1'],
+  'solid:1': ['area:1'], // a face is a rectangle; the surface area adds six of them
+  'solid:2': ['solid:1'], // a box's volume: layers of unit cubes on its base
+  'solid:3': ['solid:1', 'area:2'], // a prism's faces: two triangles and three rectangles (no edge to pyth: the stair repairs add-legs itself)
+  'solid:4': ['solid:2', 'area:2'], // a prism's volume: the triangle's area times the length, half a box
   'eq:1': ['expr:1', 'signed:1', 'signed:3', 'frac:4'], // a solution is checked by substituting; the inverse operations work with signed numbers; answers such as 1/4 are fractions (bridge edge)
   'eq:2': ['eq:1'], // two one-step moves, undone in reverse order
   'eq:3': ['eq:2', 'expr:3'], // the x-terms of both sides are collected first, then it is a two-step equation

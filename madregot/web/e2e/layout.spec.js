@@ -218,3 +218,24 @@ test('the class\'s right triangle: after 6.5 twice, the solution in the class\'s
   expect(outside, 'maths that sticks out of the solution').toBe(0);
   await page.screenshot({ path: test.info().outputPath('ar2x-solution.png') });
 });
+
+// boxes and prisms (stage 2): the net of a cube in practice (solid:1 "the face opposite the shaded one") on the smallest
+// phone: the net keeps room to be read, every face is a target a thumb can tap, and nothing scrolls sideways
+test('the cube net on a 320×568 phone (solid:1): readable, every face a thumb target, no sideways scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await openOn(page, '#/lesson/solid/1?part=1', student('7'), (x) => x.form === 'manip' && x.manip.kind === 'net' && x.manip.task === 'face');
+  await expectNoSidewaysScroll(page);
+  const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
+  expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);
+  const canvas = page.locator('.manip-canvas');
+  await expectUsable(page, canvas, 'the net');
+  expect((await canvas.boundingBox()).height, 'the net is at least 160px high').toBeGreaterThanOrEqual(160);
+  const faces = page.locator('.mp-net-pick');
+  await expect(faces).toHaveCount(6);
+  for (const f of await faces.all()) {
+    const b = await f.boundingBox();
+    expect(Math.min(b.width, b.height), 'a face is a thumb target').toBeGreaterThanOrEqual(30);
+  }
+  await expectUsable(page, page.getByRole('button', { name: 'בדיקה', exact: true }), 'the check button');
+  await page.screenshot({ path: test.info().outputPath('net-face-phone-small.png') });
+});
