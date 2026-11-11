@@ -129,10 +129,13 @@ export function Thinking({ states: raw }) {
   );
 }
 
-/** Bottom sheet built on Base UI's dialog (focus trap, escape, scroll lock). */
-export function Sheet({ open, onOpenChange, title, children, footer, wide, className }) {
+/**
+ * Bottom sheet built on Base UI's dialog (focus trap, escape, scroll lock). `dismissible={false}`: a tap outside does not
+ * close it (Escape and the close button still do).
+ */
+export function Sheet({ open, onOpenChange, title, children, footer, wide, className, dismissible = true }) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={onOpenChange} disablePointerDismissal={!dismissible}>
       <Dialog.Portal>
         <Dialog.Backdrop className="sheet-backdrop" />
         <Dialog.Popup className={clsx('sheet', wide && 'wide', className)} dir="rtl" data-region="feedback">

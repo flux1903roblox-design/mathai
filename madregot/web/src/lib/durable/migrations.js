@@ -23,10 +23,11 @@ export const CURRENT_VERSION = 5;
 
 /**
  * The tutor on this device: the server (or a personal key, only in builds with VITE_ALLOW_PERSONAL_KEY=1), an anonymous
- * device id, the family-device token (AI only, never the parent's session), a link code waiting for a parent, and the
- * tier the server reported last (to say once that a plan ended).
+ * device id, the family-device token (the tutor and the parents' daily summary, never the parent's session) with when
+ * the child saw the summary's notice and what was sent last (lib/familySync.js), a link code waiting for a parent, and
+ * the tier the server reported last (to say once that a plan ended).
  */
-export const AI_DEFAULTS = Object.freeze({ mode: 'server', apiUrl: '', key: '', device: '', familyDevice: null /* {token, label} */, pendingLink: null /* {code, secret, expiresAt, url} */, lastTier: null });
+export const AI_DEFAULTS = Object.freeze({ mode: 'server', apiUrl: '', key: '', device: '', familyDevice: null /* {token, label, sharingSeen, lastSent} */, pendingLink: null /* {code, secret, expiresAt, url} */, lastTier: null });
 /** This device's save settings: its tag (xpBy), when the browser was asked to keep the data, and the save prompts. */
 export const DURABLE_DEFAULTS = Object.freeze({ tag: null, persistAsked: null, installHintAt: null, nudgeAt: null, nudgeCount: 0, escrowClass: true });
 /**

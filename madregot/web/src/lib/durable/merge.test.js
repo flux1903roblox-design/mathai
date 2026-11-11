@@ -164,6 +164,16 @@ describe('mergeDevices: the named cases', () => {
     for (const k of DEVICE_ONLY) expect(m[k]).toEqual(a[k]);
   });
 
+  it('a restore never marks the parents\' summary notice as seen, nor brings what another device sent (PARENTS-4)', () => {
+    const seen = { token: 'fd-other', label: 'הטאבלט', sharingSeen: '2026-11-01T09:00:00.000Z', lastSent: { at: '2026-11-04T19:00:00.000Z', days: [{ v: 1, d: '2026-11-04' }] } };
+    const notYet = { token: 'fd-mine', label: 'הטלפון', sharingSeen: null, lastSent: null };
+    const a = base({ ai: { device: 'mine', familyDevice: notYet } });
+    const b = base({ ai: { device: 'theirs', familyDevice: seen } });
+    for (const m of [mergeDevices(a, b, { localAt: A0, remoteAt: B0 }), mergeDevices(a, b, { localAt: B0, remoteAt: A0 })]) expect(m.ai.familyDevice).toEqual(notYet);
+    // a device that is not linked stays unlinked, whatever the other side had
+    expect(mergeDevices(base({ ai: { device: 'mine', familyDevice: null } }), b).ai.familyDevice).toBeNull();
+  });
+
   it('settings stay local; the profile is local with only missing fields added, never a token, student id or class key', () => {
     const a = base({ sound: false, goalXp: 30, solveMode: 'notebook', profile: { role: 'teacher', name: 'רונית', classes: [{ code: 'K7Q2MD', key: 'local-key' }] } });
     const b = base({ sound: true, goalXp: 10, solveMode: 'answer', profile: { role: 'teacher', name: 'אחרת', school: 'בית ספר', token: 't', studentId: 's', classes: [{ code: 'ZZZZZZ', key: 'their-key' }] } });

@@ -60,3 +60,39 @@
 .share-check input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--brand); }
 .share-actions { display: flex; flex-direction: column; gap: var(--s1); }
 .share-actions .btn { width: 100%; margin-inline: 0; }
+
+/* one day in words (PARENTS-4, ReportView variant "day"): the sharing sheet's "what is sent today" and the rows sent
+   last. A label and its value on one line, the value at the end; a long value (stair names, repairs) wraps under it. */
+.report-dayview { gap: var(--s2); }
+.report-dayview-title { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.report-daylist { margin: 0; display: flex; flex-direction: column; }
+.report-daylist-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px var(--s3); padding: var(--s2) 0; border-top: 1px solid var(--rule); font-size: 16px; line-height: 24px; }
+.report-daylist-row:first-child { border-top: 0; padding-top: 0; }
+.report-daylist-row dt { color: var(--ink-2); }
+.report-daylist-row dd { margin: 0; color: var(--ink); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.report-daylist-row.is-wide { flex-direction: column; }
+.report-daylist-fixes { margin: 0; padding-inline-start: var(--s4); display: flex; flex-direction: column; gap: 2px; font-weight: 600; }
+
+/* the sharing sheet (PARENTS-4, components/SharingSheet.jsx): the state, today's row, the rows sent last, what is never
+   sent, how long it is kept, and the child's switch */
+.sharing-body { display: flex; flex-direction: column; gap: var(--s4); }
+.sharing-status { margin: 0; font-size: 17px; line-height: 26px; font-weight: 700; color: var(--ink); }
+.sharing-sec { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: #fff; }
+.sharing-head { margin: 0; font-size: 17px; line-height: 24px; font-weight: 800; color: var(--ink); }
+.sharing-last { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
+.sharing-last .btn { min-height: 44px; }
+.sharing-rows { display: flex; flex-direction: column; gap: var(--s4); }
+.sharing-rows .report-dayview + .report-dayview { padding-top: var(--s3); border-top: 2px solid var(--rule); }
+.sharing-never, .sharing-kept, .sharing-hint { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.sharing-forget { justify-content: flex-start; text-align: start; font-weight: 600; }
+
+/* the child's sign (ICO standard 11): a quiet pill on the profile that opens the sheet */
+.share-chip { align-self: flex-start; min-height: 44px; margin-top: var(--s2); padding: 0 var(--s4); border: 2px solid var(--brand-line); background: var(--brand-tint); color: var(--brand-d); cursor: pointer; font-family: inherit; }
+.share-chip svg { color: var(--brand-d); }
+.share-chip:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+
+/* the Settings row that opens the sheet, with its state at the end ("שיתוף עם ההורים · פועל"); here, not in the canon's
+   render-blocking sheet, because only Settings has it and Settings loads this file with the sheet */
+.set-row-value { justify-content: space-between; gap: var(--s3); width: 100%; }
+.set-row-state { display: inline-flex; align-items: center; gap: var(--s1); color: var(--ink-2); font-weight: 600; }
+.set-row-state svg { margin-inline-end: 0; flex: none; }

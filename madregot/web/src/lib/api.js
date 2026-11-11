@@ -85,6 +85,12 @@ const MESSAGES = {
   too_many_requests: 'נשלחו היום הרבה בקשות מהכיתה הזו. נסו שוב מחר.',
   bad_request: 'משהו בפרטים לא תקין. בדקו ונסו שוב.',
   too_many_lookups: 'היו היום הרבה בדיקות קוד כיתה מהרשת הזו. נסו שוב מחר.',
+  // the parents' daily summary (PARENTS-3, PARENTS-4): the child's switch says these; the sync itself never shows one
+  not_linked: 'המכשיר כבר לא מחובר למנוי המשפחתי.',
+  sharing_off: 'השיתוף עם ההורים כבוי במכשיר הזה.',
+  bad_summary: 'הסיכום לא נשמר. נסו שוב מאוחר יותר.',
+  bad_sharing: 'משהו בבקשה לא תקין. נסו שוב.',
+  report_off: 'הסיכום להורים לא פעיל כרגע.',
   // other
   bot_check: 'לא הצלחנו לאשר את המכשיר. נסו שוב.',
   server_config: 'השרת עוד לא הוגדר עד הסוף.',

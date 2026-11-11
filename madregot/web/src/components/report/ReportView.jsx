@@ -143,12 +143,62 @@ function Help({ week }) {
   );
 }
 
+/** A day's name and date: 'יום חמישי 5.11' ('היום' for today). */
+const dayTitle = (d, today) => (d === today ? `היום, ${dm(d)}` : `יום ${DAY_NAMES[new Date(`${d}T00:00:00Z`).getUTCDay()]} ${dm(d)}`);
+const names = (list) => (list.length ? list.map(stairName).join(', ') : 'אין');
+
+/**
+ * One day's summary (learn/report.ts DaySummary) in words, every field it holds and nothing else: what a linked device
+ * sends its parents for that day (the sharing sheet shows today's, and the rows sent last). Maths in plain text.
+ */
+export function DayView({ day, today }) {
+  const titleId = useId();
+  const fixes = day.fx || [];
+  const rows = [
+    ['דקות על מסכי הלמידה', String(day.m)],
+    ['שאלות שנענו', String(day.q)],
+    ['שיעורים ובדיקות שהסתיימו', String(day.ls)],
+    ['שלבי לימוד שהושלמו', String(day.st)],
+    ['חזרות קצרות שעברו', String(day.rv)],
+    ['מדרגות שתורגלו', names(day.sk || [])],
+    ['עברו בדיקת שליטה', names(day.ma || [])],
+    ['ימים ברצף', String(day.sr)],
+    ['מבחן קרוב', day.ex ? `${withPrefix('ב', dm(day.ex.d))}, ${day.ex.n} מתוך ${day.ex.of} המדרגות שלו בשליטה` : 'אין'],
+  ];
+  return (
+    <article className="report report-dayview" aria-labelledby={titleId} data-variant="day">
+      <h4 id={titleId} className="report-dayview-title">{dayTitle(day.d, today)}</h4>
+      <dl className="report-daylist">
+        {rows.map(([k, v]) => <div key={k} className="report-daylist-row"><dt>{k}</dt><dd>{v}</dd></div>)}
+        <div className="report-daylist-row is-wide">
+          <dt>טעויות שחוזרות</dt>
+          <dd>
+            {fixes.length ? (
+              <ul className="report-daylist-fixes">
+                {fixes.map(([skill, id, state]) => (
+                  <li key={`${state}|${skill}|${id}`}>{`${misconName(skill, id)} (${stairName(skill)}): ${state === 'o' ? 'בתיקון' : 'תוקנה'}`}</li>
+                ))}
+              </ul>
+            ) : 'אין'}
+          </dd>
+        </div>
+      </dl>
+    </article>
+  );
+}
+
 /**
  * One week (learn/report.ts WeekReport) in order: the dates, the 7-day strip, four tiles, mastered, practised,
  * repairs (only if any), an exam ahead (only if any), how to help, and where the report came from.
  * `today`: the day on the device that shows it (marks today on the strip; repairs from another day say their day).
+ * `variant="day"` with `day` (a DaySummary) draws one day instead (DayView).
  */
-export default function ReportView({ week, audience = 'child', source = 'local', today }) {
+export default function ReportView({ week, audience = 'child', source = 'local', today, variant = 'week', day }) {
+  if (variant === 'day') return <DayView day={day} today={today} />;
+  return <WeekView week={week} audience={audience} source={source} today={today} />;
+}
+
+function WeekView({ week, audience, source, today }) {
   const titleId = useId();
   return (
     <article className="report" aria-labelledby={titleId} data-audience={audience} data-source={source}>

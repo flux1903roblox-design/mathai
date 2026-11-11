@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { useApp, STORE_KEY } from './store.js';
 import { api, ApiError } from './api.js';
-import { deviceId, randomHex, refreshStatus } from './account.js';
+import { deviceId, randomHex, refreshStatus, newFamilyDevice } from './account.js';
 import { afterFamilyLink } from './durable/escrow.js';
 
 const KEY = `${STORE_KEY}-parent`;
@@ -179,7 +179,7 @@ export const unlinkDevice = (id) => call(`/api/family/devices/${encodeURICompone
 export async function linkThisDevice(label, { restoreFrom = null, onEscrow } = {}) {
   const body = { ...(label ? { label } : {}), ...(restoreFrom ? { restoreFrom } : {}) };
   const r = await call('/api/family/devices/this', { method: 'POST', body, headers: { 'X-Device': deviceId() } });
-  useApp.getState().setAI({ familyDevice: { token: r.deviceToken, label: r.label || '' }, pendingLink: null });
+  useApp.getState().setAI({ familyDevice: newFamilyDevice(r), pendingLink: null });
   clearSession();
   refreshStatus();
   afterFamilyLink(r).then((x) => onEscrow?.(x));

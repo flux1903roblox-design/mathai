@@ -18,6 +18,7 @@ import SupportInfo from '@/components/durable/SupportInfo.jsx';
 import { whereSavedText } from '@/lib/durable/copy.js';
 import { stopBackup, syncVault, vaultErrorText } from '@/lib/durable/vault.js';
 import { afterClassJoin } from '@/lib/durable/escrow.js';
+import SharingSheet, { stateWord } from '@/components/SharingSheet.jsx';
 
 /** The danger zone's lines about the backup code (DURABLE-5), added while it is on. */
 export const WIPE_VAULT = 'גם הגיבוי המוצפן בשרת יימחק, וקוד הגיבוי יפסיק לעבוד.';
@@ -26,6 +27,9 @@ export const WIPE_KEPT = 'גם הגיבוי בשרת יימחק, וקוד הגי
 export const SIGNOUT_VAULT = 'הגיבוי בשרת נשאר. כדי לחזור להתקדמות, פותחים את מדרגות ובוחרים "יש לי קוד גיבוי".';
 /** "Delete all" could not delete the backup on the server, so it deleted nothing (the reason follows). */
 export const WIPE_FAILED = 'לא הצלחנו למחוק את הגיבוי בשרת, ולכן לא מחקנו כלום.';
+/** The device-unlink sheet and the wipe sheet on a linked device: the parents' summaries go with it (PARENTS-4). */
+export const UNLINK_SUMMARIES = 'העוזר החכם יחזור כאן ל־2 שאלות ביום, והסיכומים שנשלחו להורים מהמכשיר הזה יימחקו. ההורים יכולים לחבר אותו שוב.';
+export const WIPE_SUMMARIES = 'גם הסיכומים שנשלחו להורים מהמכשיר הזה יימחקו.';
 /** How long a sign-out waits for the last push of the backup before it goes on anyway. */
 const LAST_PUSH_MS = 4000;
 
@@ -177,7 +181,8 @@ export function AdvancedSettings() {
 /**
  * העוזר החכם: what the tutor is on this device and the ways a parent links or cancels. On the free taste: two
  * questions a day, with the rows for parents. On a linked device: the family plan, and unlinking. In a licensed class:
- * open for the class. With the paywall off or no server: as before.
+ * open for the class. With the paywall off or no server: as before. A linked device always has "שיתוף עם ההורים"
+ * (PARENTS-4), whatever the plan: the child can see what is shared, and stop it, in every state the server reports.
  */
 function AISection() {
   const { ai, profile } = useApp();
@@ -186,6 +191,7 @@ function AISection() {
   const served = hasServer();
   const [checking, setChecking] = useState('');
   const [unlink, setUnlink] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const test = async () => {
     setChecking('בודקים…');
     try {
@@ -212,6 +218,15 @@ function AISection() {
     rows.push(<Link key="info" to="/parents/info" className="set-row"><span>מידע להורים</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
   }
   if (paid) rows.push(<Link key="cancel" to="/cancel" className="set-row"><span>ביטול מנוי</span><ChevronLeft size={18} aria-hidden="true" /></Link>);
+  const shared = linked && !!status?.linked;
+  if (shared) {
+    rows.unshift(
+      <button key="share" type="button" className="set-row set-row-value" onClick={() => setSharing(true)}>
+        <span>שיתוף עם ההורים</span>
+        <span className="set-row-state">{stateWord(status.linked.summary)}<ChevronLeft size={18} aria-hidden="true" /></span>
+      </button>,
+    );
+  }
   if (!paid) {
     text = inClass ? `העוזר מחובר דרך הכיתה${profile.teacherName ? ` של ${profile.teacherName}` : ''}. אין צורך להגדיר כלום.`
       : served ? 'העוזר עובד דרך השרת של האפליקציה.'
@@ -230,8 +245,9 @@ function AISection() {
       {rows.length > 0 && <div className="set-rows-wrap"><div className="set-rows">{rows}</div></div>}
       <ConfirmSheet open={unlink} onOpenChange={setUnlink} title="לנתק את המכשיר מהמנוי?" keep="להשאיר מחובר" mood="idle"
         confirm="כן, לנתק" onConfirm={async () => { setUnlink(false); await leaveFamily(); toast('המכשיר נותק מהמנוי'); }}>
-        <p>העוזר החכם יחזור כאן ל־2 שאלות ביום. ההורים יכולים לחבר אותו שוב.</p>
+        <p>{shared ? UNLINK_SUMMARIES : 'העוזר החכם יחזור כאן ל־2 שאלות ביום. ההורים יכולים לחבר אותו שוב.'}</p>
       </ConfirmSheet>
+      {shared && <SharingSheet open={sharing} onOpenChange={setSharing} />}
     </section>
   );
 }
@@ -258,6 +274,8 @@ async function forgetParent() {
 
 export default function Settings() {
   const { profile, backup, patchProfile, resetProgress, signOut } = useApp();
+  const familyLinked = useApp((s) => !!s.ai.familyDevice?.token);
+  const summaryOn = useAIStatus((x) => x.status?.linked?.summary === 'on');
   const { state: nav, hash } = useLocation();
   const navigate = useNavigate();
   useEffect(() => { if (nav?.focus === 'ai') document.getElementById('ai-title')?.scrollIntoView({ block: 'start' }); }, [nav]);
@@ -335,7 +353,7 @@ export default function Settings() {
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'wipe'} onOpenChange={(o) => { if (!o && !wiping) { setDanger(null); setWipeError(''); } }} title="למחוק הכול?" keep="לא למחוק"
         confirm={wiping ? 'מוחקים…' : 'כן, למחוק הכול'} onConfirm={wipe}>
-        <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. {vaultOn && `${backup?.escrow ? WIPE_KEPT : WIPE_VAULT} `}אי אפשר לבטל.</p>
+        <p>כל מה שנשמר במכשיר הזה יימחק: השם, ההתקדמות, הטעויות שזוהו, תוכנית המבחן והמספרים. {vaultOn && `${backup?.escrow ? WIPE_KEPT : WIPE_VAULT} `}{familyLinked && `${WIPE_SUMMARIES} `}אי אפשר לבטל.</p>
         {wipeError && <p className="form-error" role="alert">{wipeError}</p>}
       </ConfirmSheet>
       <ConfirmSheet open={danger === 'out'} onOpenChange={(o) => !o && setDanger(null)} title="להתנתק מהמכשיר?" keep="להישאר מחוברים"
@@ -345,7 +363,7 @@ export default function Settings() {
       </ConfirmSheet>
       <SupportInfo />
       {/* where the progress lives, in the words the whole app uses (lib/durable/copy.js) */}
-      <p className="footnote">מדרגות. {whereSavedText({ profile, backup })}</p>
+      <p className="footnote">מדרגות. {whereSavedText({ profile, backup }, { summary: familyLinked && summaryOn })}</p>
     </div>
   );
 }

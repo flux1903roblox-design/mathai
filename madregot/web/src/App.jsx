@@ -6,6 +6,7 @@ import { useApp } from '@/lib/store.js';
 import { syncNow, hasServer } from '@/lib/api.js';
 import { useMoments, onMoment, MOMENT_ORDER } from '@/lib/durable/moments.js';
 import { useVaultSync } from '@/lib/durable/vault.js';
+import { useFamilySync } from '@/lib/familySync.js';
 import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import { useDurable } from '@/lib/durable/useDurable.js';
@@ -15,6 +16,7 @@ import { loadTopic } from '@/learn/content/index.ts';
 import { loadKatex } from '@/components/MathText.jsx';
 import LimitSheet from '@/components/LimitSheet.jsx';
 import BackupNudge from '@/components/durable/BackupNudge.jsx';
+import SharingNotice from '@/components/learn/SharingNotice.jsx';
 import Shell from '@/components/Shell.jsx';
 import { ErrorBoundary, LoadingState } from '@/components/Screen.jsx';
 import Welcome from '@/screens/Welcome.jsx';
@@ -169,6 +171,8 @@ function Root() {
       {role && <StatusWatch />}
       {/* once in a while, on a calm screen and never in a lesson: keep a backup? (lib/durable/nudge.js says when) */}
       {role === 'student' && <BackupNudge />}
+      {/* a linked device: the child is told about the parents' summary before anything is sent (lib/familySync.js) */}
+      {role === 'student' && <SharingNotice />}
       {role === 'student' && <LearnClock />}
       {/* a new screen opens at the top; back restores where the student was */}
       <ScrollRestoration />
@@ -242,6 +246,8 @@ export default function App() {
   // KaTeX is not part of the first download (DURABLE-11): fetched once the first screen is up, never waited for
   useEffect(() => { loadKatex().catch(() => {}); }, []);
   useMoments();
+  // a linked device's daily summary for the parents goes first on hidden, before the class outbox (lib/familySync.js)
+  useFamilySync();
   useSync();
   // the backup code's copy keeps in step at the same moments, after the class outbox (lib/durable/vault.js)
   useVaultSync();

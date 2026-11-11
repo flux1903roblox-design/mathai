@@ -1,7 +1,9 @@
 // "הלמידה שלי במספרים": what the evidence says, worked out on this device. Time in the app is not counted as learning.
 // A number with too little behind it is shown as "not enough yet", never as a percentage. Where the data goes is said by
-// the one sentence the app uses for it (lib/durable/copy.js): a class student's answers also go to the teacher.
+// the one sentence the app uses for it (lib/durable/copy.js): a class student's answers also go to the teacher, and a
+// linked device's short daily summary goes to the parents (PARENTS-4).
 import { useApp } from '@/lib/store.js';
+import { useAIStatus } from '@/lib/account.js';
 import { metrics, MIN_N } from '@/learn/analytics.ts';
 import { whereSavedText } from '@/lib/durable/copy.js';
 
@@ -11,6 +13,8 @@ export default function MyNumbers() {
   const learn = useApp((s) => s.learn);
   const profile = useApp((s) => s.profile);
   const backup = useApp((s) => s.backup);
+  const linked = useApp((s) => !!s.ai.familyDevice?.token);
+  const summaryOn = useAIStatus((x) => x.status?.linked?.summary === 'on');
   const m = metrics(learn, new Date().toISOString());
   const rows = [
     { label: 'מדרגות שאתם שולטים בהן לבד', value: String(m.masteredNow) },
@@ -41,7 +45,7 @@ export default function MyNumbers() {
         </dl>
         <p className="field-hint">מספר מוצג רק כשיש מאחוריו לפחות {MIN_N} מקרים.</p>
       </details>
-      <p className="field-hint nums-where">{whereSavedText({ profile, backup }, { about: 'numbers' })} הזמן באפליקציה לא נספר כאן: רק מה שפתרתם לבד.</p>
+      <p className="field-hint nums-where">{whereSavedText({ profile, backup }, { about: 'numbers', summary: linked && summaryOn })} הזמן באפליקציה לא נספר כאן: רק מה שפתרתם לבד.</p>
     </section>
   );
 }

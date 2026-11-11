@@ -5,11 +5,15 @@
 // Flow 2: the parent opens the link on another phone (a fresh browser context, no profile): the same numbers, no
 // request to /api/ or to any other host, and a cut link says so calmly. A phone whose app knows the server (as the
 // production build does) makes no request to it either. The "no server" claim is proved by the network log, not
-// stated. Screenshots for the evidence folder with REPORT_SHOTS=<folder>.
+// stated. Flow 3 (PARENTS-4): a device linked to a family plan tells the child before anything is sent, and nothing is
+// sent until "הבנתי"; then one post carries the days with activity and today, with X-Family-Device only; the profile
+// shows the sign, the sheet shows what was sent, the child can stop it and delete what was sent; and a new profile on
+// the same device is told again before anything goes. Flow 5: a class student's numbers say the teacher sees them.
+// Screenshots for the evidence folder with REPORT_SHOTS=<folder>.
 import { mkdirSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { open, student, reportWeek, appReady, saved, NOW } from './helpers.js';
-import { API, fakeServer } from './fakeServer.js';
+import { API, fakeServer, livePlan } from './fakeServer.js';
 
 const API_HOST = new URL(API).host;
 const WA = 'https://wa.me/?text=';
@@ -263,4 +267,183 @@ test('on a Sunday the summary opens on last week, the week that has just ended',
   await page.getByRole('radio', { name: 'השבוע', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'עוד אין מה לסכם השבוע.' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'לשלוח להורים' })).toBeDisabled();
+});
+
+// ---------------------------------------------------------------- flow 3: a linked device, the notice first (PARENTS-4)
+const FD = `fd1.${'1'.repeat(64)}`;
+const DEVICE = { id: 'd000000000000001', label: 'הטאבלט', token: FD };
+/** The week to report on, on a device linked to a family plan; the backup question has been asked already. */
+const linkedWeek = () => {
+  const s = withServer();
+  s.state.ai.familyDevice = { token: FD, label: 'הטאבלט' };
+  s.state.durable = { nudgeCount: 2 };
+  return s;
+};
+const notice = (page) => page.getByRole('dialog', { name: 'ההורים יראו סיכום קצר של התרגול' });
+const summaryPosts = (log) => log.filter((r) => r.path === '/api/family/summary');
+
+test('flow 3: the child is told first, nothing is sent before "הבנתי", and the child can see and stop what is shared', async ({ page, baseURL }) => {
+  test.setTimeout(120_000);
+  const { st, log } = await fakeServer(page.context(), { report: true, plan: livePlan(), devices: [{ ...DEVICE }] }, baseURL);
+  await open(page, '#/', linkedWeek());
+  const n = notice(page);
+  await expect(n).toBeVisible();
+  for (const word of ['דקות', 'שאלות', 'מדרגות', 'בדיקת שליטה', 'טעויות', 'רצף', 'מבחן']) await expect(n).toContainText(word);
+  await expect(n).toContainText('לא נשלחים: התשובות עצמן, השיחות עם העוזר החכם, תמונות והשם שלכם.');
+  // the app's first sync moment (3 s after it opened) comes and goes: nothing is sent while the notice waits
+  await page.waitForTimeout(4000);
+  expect(summaryPosts(log)).toEqual([]);
+  expect(st.summaries).toEqual({});
+  await shot(page, 'notice');
+
+  // "הבנתי": exactly one post, the days with activity from 7 days back and today, with the device's token only
+  await n.getByRole('button', { name: 'הבנתי' }).click();
+  await expect(n).toBeHidden();
+  await expect.poll(() => summaryPosts(log).length).toBe(1);
+  await page.waitForTimeout(1500);
+  expect(summaryPosts(log)).toHaveLength(1);
+  const post = summaryPosts(log)[0];
+  expect(post.headers['x-family-device']).toBe(FD);
+  expect(post.headers).not.toHaveProperty('x-account-token');
+  expect(post.headers).not.toHaveProperty('authorization');
+  expect(post.body.days.map((d) => d.d)).toEqual(['2026-10-29', '2026-11-01', '2026-11-02', '2026-11-04', '2026-11-05']);
+  expect(post.body.days.at(-1)).toMatchObject({ v: 1, d: '2026-11-05', q: 9, ls: 1, m: 10, sk: ['coord:1'] });
+  expect(JSON.stringify(post.body)).not.toContain('נועה');
+  expect(Object.keys(st.summaries[DEVICE.id]).sort()).toEqual(['2026-10-29', '2026-11-01', '2026-11-02', '2026-11-04', '2026-11-05']);
+  expect((await saved(page)).ai.familyDevice).toMatchObject({ token: FD, sharingSeen: expect.any(String), lastSent: { days: post.body.days } });
+
+  // the profile: the sign, and the numbers say the summary goes to the parents
+  await page.evaluate(() => { window.location.hash = '#/me'; });
+  const chip = page.getByRole('button', { name: 'משותף עם ההורים' });
+  await expect(chip).toBeVisible();
+  await expect(page.locator('.nums-where')).toContainText('סיכום קצר של התרגול נשלח להורים. בהגדרות אפשר לראות מה בדיוק.');
+  await shot(page, 'me-chip');
+  // the sheet: on, sent today at 10:00, today's row in words, and the rows sent
+  await chip.click();
+  const sheet = page.getByRole('dialog', { name: 'שיתוף עם ההורים' });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('.sharing-status')).toHaveText('פועל. הסיכום התעדכן לאחרונה היום ב־10:00.');
+  await expect(sheet.getByRole('region', { name: 'מה נשלח היום' })).toContainText('שאלות שנענו9');
+  await sheet.getByRole('button', { name: 'לראות' }).click();
+  const rows = sheet.locator('.sharing-rows .report-dayview-title');
+  await expect(rows).toHaveText(['היום, 5.11', 'יום רביעי 4.11', 'יום שני 2.11', 'יום ראשון 1.11', 'יום חמישי 29.10']);
+  await expect(sheet).toContainText('מה לא נשלח אף פעם: התשובות עצמן, השיחות עם העוזר החכם, תמונות והשם שלכם.');
+  await expect(sheet).toContainText('הסיכומים נשמרים 90 יום ואז נמחקים.');
+  // no plan and no price on the child's screens
+  expect(await sheet.innerText()).not.toMatch(/₪|מנוי/);
+
+  // stop, and delete what was sent: one post with {on:false, forget:true}; the sign goes
+  await sheet.getByRole('button', { name: 'להפסיק לשתף' }).click();
+  const confirm = page.getByRole('dialog', { name: 'להפסיק לשלוח סיכום להורים?' });
+  await expect(confirm).toContainText('ההורים יראו שהשיתוף כבוי במכשיר הזה, בלי סיבה ובלי פרטים.');
+  await confirm.getByRole('checkbox', { name: 'למחוק גם את מה שכבר נשלח' }).check();
+  await confirm.getByRole('button', { name: 'כן, להפסיק' }).click();
+  await expect(sheet.locator('.sharing-status')).toHaveText('כבוי. ההורים רואים שהשיתוף כבוי, בלי סיבה ובלי פרטים.');
+  const off = log.filter((r) => r.path === '/api/family/summary/sharing');
+  expect(off).toHaveLength(1);
+  expect(off[0].body).toEqual({ on: false, forget: true });
+  expect(off[0].headers['x-family-device']).toBe(FD);
+  expect(off[0].headers).not.toHaveProperty('x-account-token');
+  expect(st.summaries[DEVICE.id]).toBeUndefined();
+  await expect(sheet.getByRole('button', { name: 'להפעיל שוב את השיתוף' })).toBeVisible();
+  await shot(page, 'sharing-off');
+  await sheet.getByRole('button', { name: 'סגירה' }).click();
+  await expect(chip).toHaveCount(0);
+
+  // Settings: the row says it is off; it can be turned on again from there
+  await page.evaluate(() => { window.location.hash = '#/settings'; });
+  const row = page.getByRole('button', { name: /שיתוף עם ההורים/ });
+  await expect(row).toContainText('כבוי');
+  await row.click();
+  const again = page.getByRole('dialog', { name: 'שיתוף עם ההורים' });
+  await again.getByRole('button', { name: 'להפעיל שוב את השיתוף' }).click();
+  await expect(again.locator('.sharing-status')).toHaveText(/^פועל\./);
+  await expect.poll(() => log.filter((r) => r.path === '/api/family/summary/sharing').at(-1)?.body).toEqual({ on: true });
+  await shot(page, 'settings-sharing');
+  await again.getByRole('button', { name: 'סגירה' }).click();
+  await expect(row).toContainText('פועל');
+
+  // a new profile on the same device (התנתקות keeps the link): told again, and nothing goes before "הבנתי"
+  await page.getByRole('button', { name: 'התנתקות מהמכשיר' }).click();
+  await page.getByRole('dialog', { name: 'להתנתק מהמכשיר?' }).getByRole('button', { name: 'כן, להתנתק' }).click();
+  await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+  expect((await saved(page)).ai.familyDevice).toEqual({ token: FD, label: 'הטאבלט', sharingSeen: null, lastSent: null });
+  const before = summaryPosts(log).length;
+  await page.getByRole('button', { name: 'מתחילים', exact: true }).click();
+  await page.fill('#w-name', 'יואב');
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('radio', { name: /^כיתה ז׳/ }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('radio', { name: /^קצת מוכר/ }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await page.getByRole('button', { name: 'המשך בלי קוד' }).click(); // the app has a server: a class code is offered
+  await page.getByRole('radio', { name: /^מתחילים מההתחלה/ }).click();
+  await page.getByRole('button', { name: 'לשיעור הראשון', exact: true }).click();
+  // a teaching stage: never there
+  await expect(page).toHaveURL(/#\/learn\/signed\/1\/A/);
+  await page.waitForTimeout(2000);
+  await expect(notice(page)).toHaveCount(0);
+  await page.getByRole('button', { name: 'סגירה. המקום נשמר' }).click();
+  await expect(notice(page)).toBeVisible();
+  await page.waitForTimeout(3500);
+  expect(summaryPosts(log)).toHaveLength(before);
+  await notice(page).getByRole('button', { name: 'הבנתי' }).click();
+  await expect.poll(() => summaryPosts(log).length).toBe(before + 1);
+});
+
+test('the notice: closing it is "not yet", and it comes back when the app opens again; "לראות מה נשלח" shows the sheet first', async ({ page, baseURL }) => {
+  const { log } = await fakeServer(page.context(), { report: true, plan: livePlan(), devices: [{ ...DEVICE }] }, baseURL);
+  await open(page, '#/me', linkedWeek());
+  await notice(page).getByRole('button', { name: 'סגירה' }).click();
+  await expect(notice(page)).toBeHidden();
+  await page.evaluate(() => { window.location.hash = '#/quests'; });
+  await page.waitForTimeout(1500);
+  await expect(notice(page)).toHaveCount(0);
+  // the sign is there before the notice is seen: the summary is on, though nothing was sent yet
+  await page.evaluate(() => { window.location.hash = '#/me'; });
+  await expect(page.getByRole('button', { name: 'משותף עם ההורים' })).toBeVisible();
+  await page.reload();
+  await appReady(page);
+  await expect(notice(page)).toBeVisible();
+  await notice(page).getByRole('button', { name: 'לראות מה נשלח' }).click();
+  const sheet = page.getByRole('dialog', { name: 'שיתוף עם ההורים' });
+  await expect(sheet.locator('.sharing-status')).toHaveText('פועל. עוד לא נשלח סיכום.');
+  await sheet.getByRole('button', { name: 'סגירה' }).click();
+  // back to the notice, still nothing sent
+  await expect(notice(page)).toBeVisible();
+  expect(summaryPosts(log)).toEqual([]);
+});
+
+test('the parents switched the summary off: no notice, nothing sent, and the sheet says so', async ({ page, baseURL }) => {
+  const { log } = await fakeServer(page.context(), { report: true, plan: livePlan(), devices: [{ ...DEVICE, shareParent: false }] }, baseURL);
+  await open(page, '#/settings', linkedWeek());
+  const row = page.getByRole('button', { name: /שיתוף עם ההורים/ });
+  await expect(row).toContainText('כבוי');
+  await row.scrollIntoViewIfNeeded();
+  await shot(page, 'settings-row');
+  await page.waitForTimeout(4000);
+  await expect(notice(page)).toHaveCount(0);
+  await row.click();
+  const sheet = page.getByRole('dialog', { name: 'שיתוף עם ההורים' });
+  await expect(sheet.locator('.sharing-status')).toHaveText('ההורים כיבו את הסיכום מהמכשיר הזה. כרגע לא נשלח כלום.');
+  await expect(sheet.getByRole('button', { name: 'להפסיק לשתף' })).toBeVisible();
+  await expect(sheet.getByRole('region', { name: 'מה נשלח היום' })).toHaveCount(0);
+  expect(summaryPosts(log)).toEqual([]);
+  // the sheets that delete or unlink name the summaries
+  await sheet.getByRole('button', { name: 'סגירה' }).click();
+  await page.getByRole('button', { name: 'מחיקת כל הנתונים' }).click();
+  await expect(page.getByRole('dialog', { name: 'למחוק הכול?' })).toContainText('גם הסיכומים שנשלחו להורים מהמכשיר הזה יימחקו.');
+});
+
+// ---------------------------------------------------------------- flow 5: a class student's numbers say where they go
+test('flow 5: a class student\'s numbers say the teacher sees every answer, not "nothing is sent"', async ({ page, baseURL }) => {
+  await fakeServer(page.context(), {}, baseURL);
+  const s = withServer();
+  s.state.profile = { ...s.state.profile, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_s1_1', studentId: 's1' };
+  s.state.durable = { nudgeCount: 2 };
+  await open(page, '#/me', s);
+  await expect(page.locator('.nums-where')).toHaveText('המספרים האלה מחושבים במכשיר הזה. אתם בכיתה, ולכן כל תשובה בתרגול נשלחת גם ללוח של המורה. הזמן באפליקציה לא נספר כאן: רק מה שפתרתם לבד.');
+  await expect(page.getByText('לשום מקום')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'משותף עם ההורים' })).toHaveCount(0);
 });

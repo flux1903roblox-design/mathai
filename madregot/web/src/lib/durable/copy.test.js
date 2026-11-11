@@ -59,6 +59,19 @@ describe('whereSavedText', () => {
     expect(whereSavedText({ ...family, backup: kept }, { server: false })).toBe(WHERE_SAVED.noServer);
   });
 
+  it('a linked device whose parents\' summary is on: the summary clause follows every sentence, and "רק" goes (PARENTS-4)', () => {
+    const clause = 'סיכום קצר של התרגול נשלח להורים. בהגדרות אפשר לראות מה בדיוק.';
+    expect(whereSavedText(family, { server: true, summary: true })).toBe(`ההתקדמות נשמרת במכשיר הזה. ${clause}`);
+    expect(whereSavedText(family, { server: true, summary: true, about: 'numbers' })).toBe(`${WHERE_SAVED.device} ${clause}`);
+    const kept = { on: true, code: 'ABCDEFGHJKMNPQRS', escrow: 'family' };
+    expect(whereSavedText({ ...family, backup: kept }, { server: true, summary: true })).toBe(`${WHERE_SAVED.family} ${clause}`);
+    expect(whereSavedText({ ...family, backup: { ...kept, escrow: null } }, { server: true, summary: true })).toBe(`${WHERE_SAVED.backup} ${clause}`);
+    expect(whereSavedText({ ...cls, ...family, profile: cls.profile }, { server: true, summary: true, about: 'numbers' })).toBe(`${WHERE_SAVED.classNumbers} ${clause}`);
+    // the summary off (or no summary): the sentence as before; no server: nothing is sent at all
+    expect(whereSavedText(family, { server: true, summary: false })).toBe(WHERE_SAVED.solo);
+    expect(whereSavedText(family, { server: false, summary: true })).toBe(WHERE_SAVED.noServer);
+  });
+
   it('only the backup code\'s sentences promise encryption, and no sentence says the numbers are sent nowhere', () => {
     for (const [k, s] of Object.entries(WHERE_SAVED)) {
       if (k === 'backup' || k === 'backupClause') expect(s).toContain('עותק מוצפן שרק הקוד שלכם פותח');

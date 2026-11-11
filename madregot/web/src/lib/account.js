@@ -51,12 +51,15 @@ export const PAID_TIERS = ['family', 'class', 'teacher', 'trial', 'legacy'];
 
 // What the server said last: GET /api/ai/status, kept up to date by the headers of each answer.
 // `ended` is true for this visit when the device was on a paid tier and is now on the free taste (said once).
-export const useAIStatus = create(() => ({ status: null, loading: false, error: null, ended: false }));
+// `refreshed` counts the status reads that came back: the family summary (familySync.js) waits for the next one after
+// the server said "not now".
+export const useAIStatus = create(() => ({ status: null, loading: false, error: null, ended: false, refreshed: 0 }));
+const fresh = () => ({ refreshed: useAIStatus.getState().refreshed + 1 });
 
 let refreshing = null;
 export async function refreshStatus() {
   const qa = qaStatus();
-  if (qa) { useAIStatus.setState({ status: qa.status, loading: false, error: null, ended: !!qa.ended }); return qa.status; }
+  if (qa) { useAIStatus.setState({ status: qa.status, loading: false, error: null, ended: !!qa.ended, ...fresh() }); return qa.status; }
   if (!hasServer()) { useAIStatus.setState({ status: null, loading: false, error: 'no_server' }); return null; }
   if (refreshing) return refreshing;
   useAIStatus.setState({ loading: true, error: null });
@@ -66,7 +69,7 @@ export async function refreshStatus() {
       const { ai, setAI } = useApp.getState();
       const ended = !!ai.lastTier && PAID_TIERS.includes(ai.lastTier) && status.tier === 'free';
       if (status.tier !== ai.lastTier) setAI({ lastTier: status.tier });
-      useAIStatus.setState({ status, loading: false, ...(ended ? { ended: true } : {}) });
+      useAIStatus.setState({ status, loading: false, ...(ended ? { ended: true } : {}), ...fresh() });
       return status;
     } catch (e) {
       useAIStatus.setState({ loading: false, error: e.code || 'network' });
@@ -211,6 +214,12 @@ export async function startLink({ fresh = false } = {}) {
 }
 
 /**
+ * The family device as a new link writes it: its AI-only token and the parent's label for it. The summary's notice was
+ * not seen yet and nothing was sent (sharingSeen and lastSent, lib/familySync.js).
+ */
+export const newFamilyDevice = (r) => ({ token: r.deviceToken, label: r.label || '', sharingSeen: null, lastSent: null });
+
+/**
  * Ask once whether a parent claimed the code: 'waiting', 'linked' (the token is saved) or 'expired'. Once linked, the
  * family keeps this device's backup code, or the progress the parent chose to continue from comes here (DURABLE-6,
  * durable/escrow.js): that runs in the background, and `onEscrow({ toast, restored })` hears how it went.
@@ -222,7 +231,8 @@ export async function pollLink({ onEscrow } = {}) {
   try {
     const r = await api('/api/family/link/finish', { method: 'POST', body: { code: p.code, secret: p.secret }, auth: false });
     if (!r.deviceToken) return 'waiting';
-    setAI({ familyDevice: { token: r.deviceToken, label: r.label || '' }, pendingLink: null });
+    // a new link starts fresh: the child is told about the parents' summary again before anything is sent (PARENTS-4)
+    setAI({ familyDevice: newFamilyDevice(r), pendingLink: null });
     afterFamilyLink(r).then((x) => onEscrow?.(x));
     await refreshStatus();
     return 'linked';

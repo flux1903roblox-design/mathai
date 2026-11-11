@@ -181,6 +181,8 @@ function CancelSheet({ open, onOpenChange, plan, onCancelled, qa }) {
 
 // ---------------------------------------------------------------- linking a child's device by its code
 const LINK_HOW = 'במכשיר של הילד פותחים אני ← הגדרות ← העוזר החכם ← חיבור למנוי משפחתי, ומקלידים כאן את הקוד שמופיע שם.';
+/** Said before a parent links a device, when the progress report is on (PARENTS-4): the child is told and can stop. */
+export const LINK_TOLD = 'אחרי החיבור תראו כאן סיכום קצר של התרגול במכשיר. הילד יקבל על כך הודעה, יוכל לראות בדיוק מה נשלח, ויוכל להפסיק.';
 // A claimed code: the child's device takes its token when the screen with the code is open on it (it asks every few seconds)
 const LINKED_TEXT = 'קיבלנו את הקוד. המכשיר של הילד יתחבר ברגע שהמסך עם הקוד פתוח בו.';
 
@@ -211,7 +213,7 @@ function ContinueFrom({ vaults, value, onChange, id }) {
   );
 }
 
-function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro = `חיבור המכשיר של הילד: ${LINK_HOW.replace('במכשיר של הילד', 'במכשיר שלו')}`, vaults = [], from = '' }) {
+function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro = `חיבור המכשיר של הילד: ${LINK_HOW.replace('במכשיר של הילד', 'במכשיר שלו')}`, vaults = [], from = '', report = false }) {
   const [code, setCode] = useState(initial);
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
@@ -235,7 +237,7 @@ function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro =
   };
   return (
     <form ref={formRef} className="stack parents-link" onSubmit={go} noValidate>
-      <p>{intro}</p>
+      <p>{report ? `${intro} ${LINK_TOLD}` : intro}</p>
       {notice && <p className="parents-note">{notice}</p>}
       <Field label="הקוד מהמכשיר של הילד" id="pl-code">
         <input id="pl-code" className="input mono sub-code" dir="ltr" value={code} maxLength={6} autoCapitalize="characters" autoComplete="off"
@@ -313,7 +315,7 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing, vau
           </ul>
         )}
         {devices.length < (acct.maxDevices || 3) && <button type="button" className="set-row" aria-expanded={open === 'link'} onClick={() => setOpen(open === 'link' ? null : 'link')}>חיבור מכשיר נוסף</button>}
-        {open === 'link' && <LinkForm qa={qa} vaults={vaults} from={linkFrom} onLinked={() => { toast.success(LINKED_TEXT); setOpen('devices'); onLinkFrom?.(''); onChanged(); }} />}
+        {open === 'link' && <LinkForm qa={qa} vaults={vaults} from={linkFrom} report={!!plans?.report} onLinked={() => { toast.success(LINKED_TEXT); setOpen('devices'); onLinkFrom?.(''); onChanged(); }} />}
         {(p.portal || pastDue) && <button type="button" className="set-row" aria-expanded={p.portal ? undefined : open === 'card'} onClick={openPortal}>עדכון אמצעי תשלום</button>}
         {open === 'card' && (
           <p className="parents-note">עדכון אמצעי תשלום נעשה מול חברת הסליקה. כתבו לנו{plans?.contact ? <> אל <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a></> : ''} ונעזור.</p>
@@ -668,14 +670,14 @@ export default function Parents({ mode = 'home' }) {
         {plan && !here && linkCode && !claimed && (
           <section className="card parents-card" aria-labelledby="qr-link">
             <h2 id="qr-link" className="card-title">חיבור המכשיר של הילד</h2>
-            <LinkForm qa={!!qa} initial={linkCode} intro="הקוד מהמכשיר של הילד כבר כאן. אפשר לתת למכשיר שם, ואז ללחוץ על חיבור המכשיר."
+            <LinkForm qa={!!qa} initial={linkCode} report={!!plans.report} intro="הקוד מהמכשיר של הילד כבר כאן. אפשר לתת למכשיר שם, ואז ללחוץ על חיבור המכשיר."
               notice="המכשיר שמציג את הקוד הזה יקבל את העוזר החכם דרך המנוי שלכם. חברו רק מכשיר של הילד שלכם." onLinked={linked} onFailed={linkFailed} vaults={vaults} from={linkFrom} />
           </section>
         )}
         {plan && !here && !linkCode && !claimed && (acct.devices?.length || 0) === 0 && (
           <section className="card parents-card" aria-labelledby="first-link">
             <h2 id="first-link" className="card-title">חיבור המכשיר של הילד</h2>
-            <LinkForm qa={!!qa} intro={LINK_HOW} onLinked={linked} vaults={vaults} from={linkFrom} />
+            <LinkForm qa={!!qa} intro={LINK_HOW} report={!!plans.report} onLinked={linked} vaults={vaults} from={linkFrom} />
           </section>
         )}
         {classLicences.map((c) => (

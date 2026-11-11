@@ -1,7 +1,8 @@
 // Mocked tutor and parent states for the staging copy, which has no server (VITE_QA_HOOKS=1, or the debug flag on a
 // test device). A link with ?qa-ai=<state> or ?qa-parent=<state> (in the address or after the #) renders that state
 // with no request at all, so every state can be screenshotted. The choice is kept for the visit (sessionStorage).
-//   qa-ai:      free2 | free1 | free0 | family | class | shared | paused | economy | ended
+//   qa-ai:      free2 | free1 | free0 | family | family-off | family-parent-off | class | shared | paused | economy | ended
+//               (family: the parents' summary on; family-off: the child stopped it; family-parent-off: the parents did)
 //   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | nosrv
 //   qa-report:  week | empty (the weekly summary from a fixed week and clock: components/report/qaWeek.js)
 // The family state's tablet (qa-ai=family names it 'הטאבלט') keeps its backup code with the family, and an older phone's
@@ -9,7 +10,7 @@
 // list and the "continue from" choice can be seen without a server.
 import { qaOn } from './qa.js';
 
-const AI_STATES = ['free2', 'free1', 'free0', 'family', 'class', 'shared', 'paused', 'economy', 'ended'];
+const AI_STATES = ['free2', 'free1', 'free0', 'family', 'family-off', 'family-parent-off', 'class', 'shared', 'paused', 'economy', 'ended'];
 const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv'];
 const REPORT_STATES = ['week', 'empty'];
 
@@ -53,13 +54,16 @@ export function qaStatus() {
   const all = ['explain', 'chat', 'generate', 'check', 'exam'];
   const S = {
     free2: free(2), free1: free(1), free0: free(0),
-    family: { ...free(0), tier: 'family', kinds: all, groups: { tutor: { left: 27, limit: 30 }, check: { left: 6, limit: 6 }, generate: { left: 5, limit: 5 }, exam: { left: 2, limit: 2, monthLeft: 9 } }, linked: { label: 'הטאבלט' } },
+    family: { ...free(0), tier: 'family', kinds: all, groups: { tutor: { left: 27, limit: 30 }, check: { left: 6, limit: 6 }, generate: { left: 5, limit: 5 }, exam: { left: 2, limit: 2, monthLeft: 9 } }, linked: { label: 'הטאבלט', summary: 'on' } },
     class: { ...free(0), tier: 'class', kinds: all, groups: { tutor: { left: 18, limit: 20 }, check: { left: 3, limit: 3 }, generate: { left: 3, limit: 3 }, exam: { left: 1, limit: 1 } } },
     shared: { ...free(2), shared: 'network' },
     paused: { ...free(2), shared: 'paused' },
-    economy: { ...free(0), tier: 'family', kinds: ['explain', 'chat'], economy: true, groups: groups({ left: 20, limit: 30 }), linked: { label: 'הטאבלט' } },
+    economy: { ...free(0), tier: 'family', kinds: ['explain', 'chat'], economy: true, groups: groups({ left: 20, limit: 30 }), linked: { label: 'הטאבלט', summary: 'on' } },
     ended: free(2),
   };
+  // the parents' summary switched off on the device, or by the parents (PARENTS-4)
+  S['family-off'] = { ...S.family, linked: { label: 'הטאבלט', summary: 'child_off' } };
+  S['family-parent-off'] = { ...S.family, linked: { label: 'הטאבלט', summary: 'parent_off' } };
   return { status: S[s], ended: s === 'ended' };
 }
 
