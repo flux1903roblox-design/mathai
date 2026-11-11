@@ -287,6 +287,36 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "eq:6": {
+    "title": "שאלות תנועה",
+    "misconceptions": [
+      {
+        "id": "rel-speed",
+        "title": "חיברו מהירויות במקום לחסר, או חיסרו במקום לחבר"
+      },
+      {
+        "id": "wrong-unknown",
+        "title": "נמצא הנעלם, אבל התשובה לא עונה על מה שנשאל"
+      },
+      {
+        "id": "mean-speed",
+        "title": "השתמשו בממוצע של שתי המהירויות, אבל הזמנים שונים"
+      },
+      {
+        "id": "minutes-as-hours",
+        "title": "השתמשו בדקות כאילו הן שעות"
+      },
+      {
+        "id": "decimal-minutes",
+        "title": "כתבו דקות כשבר עשרוני של שעה, כאילו בשעה $100$ דקות"
+      },
+      {
+        "id": "formula-flip",
+        "title": "חילקו במקום לכפול: דרך היא מהירות כפול זמן"
+      }
+    ],
+    "transfer": true
+  },
   "expr:1": {
     "title": "הצבה בביטוי",
     "misconceptions": [

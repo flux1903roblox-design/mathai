@@ -301,6 +301,41 @@
       "tags": ["func"]
     },
     {
+      "id": "D1-eq6-rel-speed", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "diag", "params": { "k": "toward", "bike": false, "v1": 40, "v2": 60, "t": 3, "D": 300, "q": 0 }, "wrong": [15, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "rel-speed", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the speeds were subtracted, but the two cars drive toward each other, so each closes part of the 300 km and the gap shrinks by 40 + 60 = 100 km every hour; 300 : 20 = 15 would fit two cars driving the same way. The equation 40x + 60x = 300 gives x = 3. Ends at 3. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-mean-speed", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "diag", "params": { "k": "trip", "v1": 4, "v2": 6, "d": 12, "T": 5, "q": 0 }, "wrong": [12.5, 7], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "mean-speed", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the mean of the two speeds, 5 km/h, was used for the whole walk, but the walk there at 4 km/h takes longer than the walk back at 6. With x the length one way, x/4 + x/6 = 5; times 12, 3x + 2x = 60, so x = 12 (3 hours there, 2 back). Ends at 12. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-minutes-as-hours", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "transfer", "params": { "v": 54, "t": 40 }, "wrong": [2160, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "minutes-as-hours", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the 40 minutes were used as if they were hours. The speed is in km per hour, so the time must be in hours too: 40 minutes are 40/60 = 2/3 of an hour, and 54 times 2/3 is 36. Ends at 36. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-decimal-minutes", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "transfer", "params": { "v": 45, "t": 20 }, "wrong": [9, 12], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "decimal-minutes", "maxWords": 130,
+        "describe": "Names the app's diagnosis: 20 minutes were written as 0.2 hours, as if an hour had 100 minutes. An hour has 60 minutes, so 20 minutes are 20/60 = 1/3 of an hour, and 45 times 1/3 is 15. Ends at 15. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
+      "id": "D1-eq6-formula-flip", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "eq:6", "source": "transfer", "params": { "v": 48, "t": 45 }, "wrong": [64, 30], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "formula-flip", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the speed was divided by the time, but distance is speed times time. 45 minutes are 45/60 = 3/4 of an hour, and 48 times 3/4 is 36; in less than an hour the train covers less than 48 km, not more. Ends at 36. Names no other mistake." },
+      "tags": ["eq", "algebra"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

@@ -4,7 +4,7 @@
 import { PROGRAMME } from './programme.js';
 
 /**
- * @typedef {{ hours: number, skills: string[], note?: string, later?: 'S2' | 'S3' | 'S4' | 'S5' }} ProgrammePart
+ * @typedef {{ hours: number, skills: string[], note?: string, months?: number[], later?: 'S2' | 'S3' | 'S4' | 'S5' }} ProgrammePart
  * @typedef {{ hours: number, skills: string[], note: string | null, later: string | null, taught: boolean }} PartState
  * @typedef {{ id: string, domain: string, title: string, months: number[], hours: number, taught: number,
  *   state: 'yes' | 'part' | 'no', stairs: string[], missing: string[], parts: PartState[] }} UnitCoverage
@@ -64,7 +64,8 @@ const schoolIndex = (month) => (month >= 9 ? month - 9 : Math.min(month + 3, 9))
  * @returns {number | null}
  */
 export function monthIndex(skill, grade) {
-  const months = unitsOf(grade).filter((u) => u.parts.some((p) => p.skills.includes(skill))).flatMap((u) => u.months.map(schoolIndex));
+  // a part's own months come before its unit's (7.8's motion problems are June's, not March's)
+  const months = unitsOf(grade).flatMap((u) => u.parts.filter((p) => p.skills.includes(skill)).flatMap((p) => (p.months || u.months).map(schoolIndex)));
   return months.length ? Math.min(...months) : null;
 }
 

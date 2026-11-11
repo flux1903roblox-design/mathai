@@ -344,6 +344,13 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // the small angle is 35°, the large one 55°: the large one answered
     { bugs: { 'wrong-unknown': 55 } },
   ],
+  'eq:6': [
+    // two cyclists 54 km apart at 10 and 8 km/h: they meet after 54 : 18 = 3 hours; the speeds subtracted give 54 : 2 = 27
+    { model: 'diag', p: { k: 'toward', bike: true, v1: 10, v2: 8, t: 3, D: 54, q: 0 } },
+    // a car at 90 km/h an hour after a bus at 60: it catches up after 2 hours; the bus's 3 hours answered (wrong-unknown),
+    // or the gap of 60 km closed at the sum of the speeds, 60 : 150 = 0.4 (rel-speed)
+    { model: 'diag', p: { k: 'catch', v1: 60, h: 1, v2: 90, t: 2, q: 0 } },
+  ],
   'sys:1': [
     // the steps wrote 1.1x = 55, so the percent is of the old price: x = 50
     { bugs: {} },

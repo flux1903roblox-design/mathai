@@ -9,7 +9,9 @@
 // A unit's hours are split into parts. A part counts as taught when every skill (stair id, 'topic:level') it lists
 // exists in the app; a part with `skills: []` is not taught yet and names the build stage that will teach it in `later`
 // ('S2' measurement, 'S3' data and probability, 'S4' grade-8 geometry, 'S5' functions and word problems). A `note` says,
-// in a few Hebrew words, what the part is; the untaught notes are the "not yet" list (coverage.js `notYet`).
+// in a few Hebrew words, what the part is; the untaught notes are the "not yet" list (coverage.js `notYet`). A part may
+// carry its own `months` (calendar months, in school order), read before its unit's: a cross-listing the class meets
+// later than the unit's own lessons (7.8's motion problems are June's, not March's; coverage.js monthIndex).
 // One stair may serve several units (pyth:1 is squares and roots in 7.6 and Pythagoras in 7.14 and 8.3).
 // Bridge stairs (frac:1-4, elementary fractions) are never listed: the programme no longer teaches them, so they add
 // no hours.
@@ -48,7 +50,11 @@ export const PROGRAMME = {
     { id: '7.7', grade: '7', domain: 'algebra', title: 'משתנים וביטויים אלגבריים (כולל זהות, כינוס, חוק הפילוג)', months: [12, 1, 2, 3],
       parts: [{ hours: 25, skills: range('expr', 1, 5) }] },
     { id: '7.8', grade: '7', domain: 'algebra', title: 'משוואות ופתרונן, משוואות מיוחדות, שאלות בהקשרים', months: [3, 4, 5],
-      parts: [{ hours: 21, skills: range('eq', 1, 5) }] },
+      parts: [
+        { hours: 21, skills: range('eq', 1, 5) },
+        // ח׳ content a ז׳ class meets too, in June (the motion task): no hours of its own
+        { hours: 0, skills: ['eq:6'], months: [6], note: 'שאלות תנועה ומשוואות עם מכנים' },
+      ] },
     { id: '7.9', grade: '7', domain: 'algebra', title: 'נקודות על גרף ברביע I', months: [5],
       parts: [
         { hours: 1, skills: ['line:1'] }, // a table of values and its points on the grid

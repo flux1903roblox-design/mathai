@@ -719,6 +719,89 @@ describe('percent: every answer from the numbers shown', () => {
 // Functions (stage5.md FUNC-2): every answer recomputed from what the student sees, the graph in words (figPlain: its
 // points, its marked point and its band, as a screen reader reads them) and the numbers of the text, never from the
 // generator's parameters.
+// Motion problems (eq:6, stage5.md FUNC-3): every answer recomputed from the numbers the student reads (the text, and
+// the graph as figPlain writes it), the mover's noun and words agreeing with its speed, and every numeric line of the
+// worked solution true.
+describe('motion problems (eq:6): every answer from the text\'s own numbers', () => {
+  /** The numbers of the text's maths, in order. */
+  const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).map((m) => Number(m.slice(1, -1).trim()));
+  /** The hours after "כעבור": "שעה" 1, "שעתיים" 2, "$h$ שעות" h. */
+  const headStart = (text) => { const m = text.match(/כעבור (שעה|שעתיים|\$(\d+)\$ שעות) יצאה/); return m[2] ? Number(m[2]) : m[1] === 'שעה' ? 1 : 2; };
+  /** Every chain "$a = b = c$" of plain arithmetic in the worked solution holds (':' is division). */
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || []).map((m) => m.slice(1, -1).replace(/\\cdot/g, '*').replace(/:/g, '/'))
+    .filter((m) => m.includes('=') && !/[a-zA-Z(]/.test(m.replace(/\\cdot/g, ''))).forEach((m) => { const v = m.split('=').map((x) => evaluate(x)); v.forEach((x) => expect(same(x, v[0]), `${it.key}: ${m}`).toBe(true)); }));
+
+  it('the meeting, the catching up, the round trip, the minutes, the graph and the table', () => {
+    const kinds = {};
+    for (let i = 0; i < 2000; i += 1) {
+      const it = makeItem('eq', 6);
+      const [p, kind] = it.key.split(':'); const k = p === 'eq6' ? `eq6:${kind}` : p; kinds[k] = (kinds[k] || 0) + 1;
+      const n = shown(it.text);
+      if (k === 'eq6:toward') {
+        // D first, then the first one's speed and the second's; both movers of one kind, the words agreeing with it
+        const [D, v1, v2] = n; const t = D / (v1 + v2);
+        expect(Number.isInteger(t) && D <= 450, it.key).toBe(true);
+        const bike = v1 <= 30;
+        expect(bike === (v2 <= 30), `${it.key}: two movers of one kind`).toBe(true);
+        expect(it.text, it.key).toMatch(bike ? /^שני רוכבי אופניים יוצאים .* זה לקראת זה\./ : /^שתי מכוניות יוצאות .* זו לקראת זו\./);
+        if (/כעבור כמה שעות ייפגשו\?$/.test(it.text)) { expect(it.answer, it.key).toBe(t); expect(it.unit).toBe('שעות'); }
+        else { expect(it.text, it.key).toMatch(bike ? /מהכפר של הראשון ייפגשו\?$/ : /מהעיר של הראשונה ייפגשו\?$/); expect(it.answer, it.key).toBe(v1 * t); expect(it.unit).toBe('ק״מ'); }
+      }
+      if (k === 'eq6:catch') {
+        // a cyclist (up to 30 km/h) or a lorry (40 to 80) first; the car after it, at most 110 km/h
+        const [v1, v2] = n.length === 3 ? [n[0], n[2]] : n; const h = headStart(it.text); const t = (v1 * h) / (v2 - v1);
+        expect(Number.isInteger(t) && t > 0 && v2 <= 110 && v2 >= 40, it.key).toBe(true);
+        expect(it.text, it.key).toMatch(v1 <= 30 ? /^רוכב אופניים יצא .* יצאה אחריו מכונית .* תשיג אותו\?$/ : /^משאית יצאה .* יצאה אחריה מכונית .* תשיג אותה\?$/);
+        if (v1 > 30) expect(v1 >= 40 && v1 <= 80, it.key).toBe(true);
+        expect(it.answer, it.key).toBe(/כעבור כמה שעות מיציאתה/.test(it.text) ? t : v2 * t);
+        expect(it.text, `${it.key}: "$1$ שעות"`).not.toMatch(/\$1\$ שעות/);
+      }
+      if (k === 'eq6:trip') {
+        // there at v1, back at v2, T hours in all: the way one way is T·v1·v2 / (v1 + v2); the verb follows the speed
+        const [v1, v2, T] = n; const d = (T * v1 * v2) / (v1 + v2);
+        expect(it.answer, it.key).toBe(d);
+        expect(Number.isInteger(d / v1) && Number.isInteger(d / v2), it.key).toBe(true);
+        expect(it.text.startsWith(v1 <= 6 ? 'הלכו ' : v1 <= 30 ? 'רכבו על אופניים ' : 'נסעו '), it.key).toBe(true);
+        expect((v1 <= 6) === (v2 <= 6) && (v1 <= 30) === (v2 <= 30), `${it.key}: one way of moving`).toBe(true);
+        if (v1 <= 6) expect(d, `${it.key}: a walk of at most 15 km`).toBeLessThanOrEqual(15);
+      }
+      if (k === 'eq6u') {
+        const [v, t] = n; expect(it.answer, it.key).toBe((v * t) / 60); expect(Number.isInteger(it.answer), it.key).toBe(true);
+      }
+      if (k === 'eq6g') {
+        // the two lines as figPlain writes them; where they cross is a whole hour, on a grid line of distance
+        const words = figPlain(it.fig);
+        const lines = [...words.matchAll(/מכונית [אב]: \((\d+), (\d+)\) → \((\d+), (\d+)\)/g)].map((m) => m.slice(1).map(Number));
+        expect(lines, it.key).toHaveLength(2);
+        const [[a0, ay0, a1, ay1], [b0, by0, b1, by1]] = lines;
+        const sa = (ay1 - ay0) / (a1 - a0); const sb = (by1 - by0) / (b1 - b0);
+        const x = (by0 - ay0) / (sa - sb);
+        expect([a0, b0, ay0], it.key).toEqual([0, 0, 0]);
+        expect(it.answer, it.key).toBe(x);
+        expect(Number.isInteger(x) && x < a1, `${it.key}: they meet at a whole hour inside the graph`).toBe(true);
+        expect(Number.isInteger((sa * x) / it.fig.y.step), `${it.key}: the meeting is on a grid line`).toBe(true);
+        expect(by1 >= 0 && ay1 <= by0, `${it.key}: both cars still on the road`).toBe(true);
+        expect(words, `${it.key}: the words do not say where they meet`).not.toMatch(/נפגשים/);
+      }
+      if (k === 'eq6t') {
+        // exactly one equation holds at the story's x, the right one; the reversed relation is tagged rel-speed
+        const ok = it.choices.filter((c) => holds(c.tex, { x: it.solve }));
+        expect(ok.length, it.key).toBe(1);
+        expect(it.choices[it.answer], it.key).toBe(ok[0]);
+        expect(it.choices.filter((c) => c.bug === 'rel-speed'), it.key).toHaveLength(1);
+        it.choices.forEach((c, j) => expect(it.diag(j), `${it.key}: ${c.tex}`).toBe(c.bug || null));
+      }
+      expect(fairForCheck(it), it.key).toBe(k !== 'eq6t');
+      if (it.solution) solutionHolds(it);
+    }
+    // every kind was drawn, in about the spec's mix (50%, 25%, 10%, 15%)
+    expect(Object.keys(kinds).sort()).toEqual(['eq6:catch', 'eq6:toward', 'eq6:trip', 'eq6g', 'eq6t', 'eq6u']);
+    const motion = (kinds['eq6:toward'] + kinds['eq6:catch'] + kinds['eq6:trip']) / 2000;
+    expect(motion > 0.44 && motion < 0.56, `motion ${motion}`).toBe(true);
+    expect(kinds.eq6u / 2000).toBeGreaterThan(0.2);
+  });
+});
+
 describe('functions: every answer from the graph and the text', () => {
   /** The numbers of the text's maths, in order ("18^\circ" is 18). */
   const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).map((m) => Number(m.slice(1, -1).replace(/\^\\circ/g, '').trim()));

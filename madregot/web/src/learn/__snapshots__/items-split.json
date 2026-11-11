@@ -421,7 +421,9 @@
   "eq:4/diag",
   "eq:4/gen",
   "eq:5/diag",
-  "eq:5/gen"
+  "eq:5/gen",
+  "eq:6/diag",
+  "eq:6/gen"
  ],
  "diagnostic-8": [
   "ratio:1/diag",
@@ -679,6 +681,43 @@
     "eq:5/probe/wrong-unknown",
     "eq:5/probe/wrong-unknown",
     "eq:5/control/wrong-unknown"
+   ]
+  }
+ },
+ "eq:6": {
+  "items": [
+   "mastery0:eq6:toward:80:70:450:0|3|gen",
+   "mastery1:eq6:catch:20:3:50:1|100|gen",
+   "mastery2:eq:6:diag:{\"k\":\"catch\",\"v1\":25,\"v2\":75,\"h\":2,\"t\":1,\"q\":0}|1|diag",
+   "mastery3:eq6:toward:15:20:140:0|4|gen",
+   "mastery4:eq:6:transfer:{\"v\":90,\"t\":50}|75|transfer",
+   "review0:eq:6:transfer:{\"v\":30,\"t\":30}|15|transfer",
+   "review1:eq6:toward:15:10:50:1|30|gen",
+   "review2:eq:6:diag:{\"k\":\"catch\",\"v1\":25,\"v2\":75,\"h\":2,\"t\":1,\"q\":0}|1|diag",
+   "verify0:eq:6:probe:{\"k\":\"toward\",\"bike\":true,\"v1\":20,\"v2\":30,\"t\":3,\"D\":150,\"q\":1}|60|probe",
+   "verify1:eq:6:probe:{\"k\":\"toward\",\"bike\":false,\"v1\":70,\"v2\":80,\"t\":3,\"D\":450,\"q\":1}|210|probe",
+   "verify2:eq:6:control:{\"k\":\"trip\",\"v1\":10,\"v2\":20,\"d\":40,\"T\":6,\"q\":0}|40|control",
+   "gen:eq6:toward:60:40:400:1|240|gen",
+   "diag:eq:6:diag:{\"k\":\"catch\",\"v1\":30,\"v2\":60,\"h\":3,\"t\":3,\"q\":1}|180|diag",
+   "transfer:eq:6:transfer:{\"v\":54,\"t\":30}|27|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "eq:6/gen/",
+    "eq:6/gen/",
+    "eq:6/diag/",
+    "eq:6/gen/",
+    "eq:6/transfer/"
+   ],
+   "review": [
+    "eq:6/transfer/",
+    "eq:6/gen/",
+    "eq:6/diag/"
+   ],
+   "verify": [
+    "eq:6/probe/rel-speed",
+    "eq:6/probe/rel-speed",
+    "eq:6/control/rel-speed"
    ]
   }
  },

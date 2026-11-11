@@ -336,8 +336,9 @@ describe('misconceptions', () => {
     expect(diagOf(14, { 'partial-dist': 16 - 40 / 39 })(14.97)).toBe('partial-dist');
     expect(slipLike(16 - 40 / 39, 14)).toBe(true);
     // the diagnostic models: a draw whose prediction rounds to a slip is never asked, and if it were, it names nothing
+    // (eq:6's models redraw until clean, so the loop gets more than the default 5 s on a busy machine)
     const rnd = seeded(41);
-    for (const skill of ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'expr:1', 'expr:2', 'expr:3', 'expr:4', 'expr:5', 'sys:1', 'sys:2', 'sys:3', 'sys:4', 'sys:5']) {
+    for (const skill of ['eq:1', 'eq:2', 'eq:3', 'eq:4', 'eq:5', 'eq:6', 'expr:1', 'expr:2', 'expr:3', 'expr:4', 'expr:5', 'sys:1', 'sys:2', 'sys:3', 'sys:4', 'sys:5']) {
       const c = contentOf(skill)!;
       for (const m of [c.diag, c.transfer].filter(Boolean)) {
         for (let i = 0; i < 400; i += 1) {
@@ -353,7 +354,7 @@ describe('misconceptions', () => {
         }
       }
     }
-  });
+  }, 60_000);
   it('splits the evidence when two misconceptions explain one answer, and finds a question that tells them apart', () => {
     // −4 − (−7): "minus-minus", "abs-add" and "direction" all predict −11
     const d = diagnose(addSubModel, { a: -4, b: -7, s: -1 }, -11);

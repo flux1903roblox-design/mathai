@@ -75,11 +75,12 @@ describe('the challenge tasks', () => {
     });
   });
 
-  it('the nine algebra tasks are the spec\'s, and a task\'s mistake is one the content names', () => {
+  it('the ten algebra tasks are the spec\'s, and a task\'s mistake is one the content names', () => {
     const algebra = CHALLENGES.filter((t) => ['expr', 'eq', 'sys'].includes(t.topic));
+    // eq:c4, the race of three legs, follows the motion problems (eq:6; stage5.md FUNC-7.4)
     expect(algebra.map((t) => [t.id, t.kind, t.after, t.minutes])).toEqual([
       ['expr:c1', 'claim', 'expr:4', 4], ['expr:c2', 'error', 'expr:4', 4], ['expr:c3', 'literacy', 'expr:2', 7],
-      ['eq:c1', 'claim', 'eq:3', 4], ['eq:c2', 'error', 'eq:2', 4], ['eq:c3', 'literacy', 'eq:5', 8],
+      ['eq:c1', 'claim', 'eq:3', 4], ['eq:c2', 'error', 'eq:2', 4], ['eq:c3', 'literacy', 'eq:5', 8], ['eq:c4', 'literacy', 'eq:6', 8],
       ['sys:c1', 'claim', 'sys:2', 4], ['sys:c2', 'error', 'sys:2', 5], ['sys:c3', 'literacy', 'sys:4', 8],
     ]);
     // the spec names the mistake of each error task
@@ -122,6 +123,26 @@ describe('the challenge tasks', () => {
     expect([18, 12]).not.toContain(nums[2]);
     const mc3 = c3.parts.find((p) => p.type === 'mc') as Extract<ChallengePart, { type: 'mc' }>;
     expect(mc3.choices.find((c) => c.ok)!.text).toBe('בקטע הראשון');
+  });
+
+  it('eq:c4, three legs of a race (stage5.md FUNC-7.4): each leg\'s minutes from its distance and speed, and the average speed is not the mean of the speeds', () => {
+    const t = challengeById('eq:c4')!;
+    expect([t.title, t.kind, t.after, t.minutes]).toEqual(['שלושה מקצים', 'literacy', 'eq:6', 8]);
+    // the story's three legs: distance and speed, in its own order
+    const legs = [...t.story!.matchAll(/\$([\d.]+)\$ ק״מ ב־\$(\d+)\$ קמ״ש/g)].map((m) => [Number(m[1]), Number(m[2])]);
+    expect(legs).toEqual([[0.75, 3], [20, 30], [5, 10]]);
+    const minutes = legs.map(([d, v]) => (d / v) * 60);
+    const nums = t.parts.filter((p): p is Extract<ChallengePart, { type: 'num' }> => p.type === 'num').map((p) => p.answer);
+    expect(nums).toEqual([minutes[0], minutes[1], minutes[0] + minutes[1] + minutes[2]]);
+    expect(nums).toEqual([15, 40, 85]);
+    // the feedback's numbers: all the way in all the time, about 18.18 km/h; the mean of the speeds about 14.33
+    const avg = (legs.reduce((a, [d]) => a + d, 0) / (nums[2] / 60));
+    const mean = legs.reduce((a, [, v]) => a + v, 0) / 3;
+    expect([Math.round(avg * 100) / 100, Math.round(mean * 100) / 100]).toEqual([18.18, 14.33]);
+    const mc = t.parts.find((p) => p.type === 'mc') as Extract<ChallengePart, { type: 'mc' }>;
+    expect(mc.choices.find((c) => c.ok)!.text).toMatch(/^לא: /);
+    expect(mc.choices.find((c) => c.ok)!.feedback).toContain('$18.18$');
+    expect(mc.choices.find((c) => c.ok)!.feedback).toContain('$14.33$');
   });
 
   it('ids are unique, each follows a real stair of its own topic, and has its kind, minutes and 2 to 5 parts', () => {

@@ -165,6 +165,8 @@ function minusDropped(terms) {
   return out;
 }
 /** The quantities a story asks about (the unknown and the others built from it), from its key. */
+/** The numbers of an eq:6 key after its kind (eq6:toward:40:60:300:0 gives [40, 60, 300, 0]). */
+const motionNums = (key) => key.split(':').slice(2).map(Number);
 function storyValues(it) {
   const [p, ...r] = it.key.split(':'); const n = r.map(Number);
   switch (p) {
@@ -567,8 +569,32 @@ const PROPS = {
       return solvesOpened(it.display, u, 'partial');
     },
     'minus-bracket': (it, u) => solvesOpened(it.display, u, 'minus'),
-    // a quantity of the story, but not the one asked
-    'wrong-unknown': (it, u) => storyValues(it).some((v) => near(u, v)) && !near(u, it.answer),
+    // a quantity of the story, but not the one asked; eq:6's catching up: the hours since the first one left, t + h,
+    // when the car's hours were asked (t = v1·h / (v2 − v1), from eq6:catch:v1:h:v2:q)
+    'wrong-unknown': (it, u) => {
+      if (it.key.startsWith('eq6:catch:')) { const [v1, h, v2, q] = motionNums(it.key); return q === 0 && fits(u, (v1 * h) / (v2 - v1) + h); }
+      return storyValues(it).some((v) => near(u, v)) && !near(u, it.answer);
+    },
+    // eq:6, from the keys eq6:toward:v1:v2:D:q (a meeting, q0 when, q1 how far the first one went), eq6:catch:v1:h:v2:q
+    // (a car catches up h hours later; q0 when from its start, q1 how far), eq6:trip:v1:v2:T (there and back in T hours),
+    // eq6u:v:t (a train for t minutes) and eq6t:… (which equation fits the table)
+    // the speeds subtracted toward each other (D / |v1 − v2|), added catching up (v1·h / (v1 + v2)); in the table, the
+    // equation of the gap closed at the difference (meeting) or at the sum (catching up)
+    'rel-speed': (it, u) => {
+      if (it.key.startsWith('eq6:toward:')) { const [v1, v2, D, q] = motionNums(it.key); const t = D / Math.abs(v1 - v2); return fits(u, q === 0 ? t : v1 * t); }
+      if (it.key.startsWith('eq6:catch:')) { const [v1, h, v2, q] = motionNums(it.key); const t = (v1 * h) / (v1 + v2); return fits(u, q === 0 ? t : v2 * t); }
+      if (it.key.startsWith('eq6t:toward:')) { const [v1, v2, D] = motionNums(it.key); return chosen(it, u) === `${Math.max(v1, v2)}x - ${Math.min(v1, v2)}x = ${D}`; }
+      if (it.key.startsWith('eq6t:catch:')) { const [v1, h, v2] = motionNums(it.key); return chosen(it, u) === `${v1 + v2}x = ${v1 * h}`; }
+      return false;
+    },
+    // the round trip at the mean of the two speeds: T·(v1 + v2) / 2 for both ways, half of it each way
+    'mean-speed': (it, u) => { const [v1, v2, T] = motionNums(it.key); return it.key.startsWith('eq6:trip:') && fits(u, (T * (v1 + v2)) / 4); },
+    // the minutes used as hours: v·t
+    'minutes-as-hours': (it, u) => { const [v, t] = nums(it.key); return it.key.startsWith('eq6u:') && fits(u, v * t); },
+    // the minutes written as a decimal of an hour, as if it had 100 minutes: v·t / 100
+    'decimal-minutes': (it, u) => { const [v, t] = nums(it.key); return it.key.startsWith('eq6u:') && fits(u, (v * t) / 100); },
+    // divided by the time (in hours) instead of multiplying: v / (t/60)
+    'formula-flip': (it, u) => { const [v, t] = nums(it.key); return it.key.startsWith('eq6u:') && fits(u, v / (t / 60)); },
     // "k times" given to the smaller group: k·x written x/k, or k(…) moved to the other side
     reversal: (it, u) => {
       const right = it.key.slice('eq5p:'.length); const t = chosen(it, u);

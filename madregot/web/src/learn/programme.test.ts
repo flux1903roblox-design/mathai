@@ -76,6 +76,23 @@ describe('stage 5\'s functions unit, live', () => {
   });
 });
 
+// Stage 5 (stage5.md FUNC-8 Design 1): the motion problems (eq:6) are ח׳ 8.9's, and a ז׳ class meets them in June, the
+// schedule's motion task: 7.8 lists eq:6 in a 0-hour part with its own months, so ז׳ is not told they are taught in
+// March, and no hour moves.
+describe('stage 5\'s motion problems, live', () => {
+  it('7.8 lists eq:6 in a 0-hour part of its own month, and stays whole', () => {
+    const u78 = coverageOf('7').units.find((u) => u.id === '7.8')!;
+    expect(u78).toMatchObject({ hours: 21, taught: 21, state: 'yes', missing: [] });
+    expect(u78.stairs).toContain('eq:6');
+    expect(u78.parts.find((p) => p.skills.includes('eq:6'))).toMatchObject({ hours: 0, taught: true, note: 'שאלות תנועה ומשוואות עם מכנים' });
+    expect((PROGRAMME.units.find((u) => u.id === '7.8')!.parts.find((p) => p.skills.includes('eq:6')) as { months?: number[] }).months).toEqual([6]);
+  });
+  it('places eq:6 in June for ז׳, and leaves eq:1-5 in March', () => {
+    expect(monthIndex('eq:6', '7')).toBe(9);
+    for (let k = 1; k <= 5; k += 1) expect(monthIndex(`eq:${k}`, '7'), `eq:${k}`).toBe(6);
+  });
+});
+
 describe('coverage, bound to the stairs this build has', () => {
   it('counts every hour of both schedules, and only taught hours as taught', () => {
     const c7 = coverageOf('7'); const c8 = coverageOf('8');

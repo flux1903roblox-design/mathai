@@ -307,11 +307,13 @@ async function walk(page, id) {
   throw new Error(`${id} did not end in 80 steps`);
 }
 
+// three tasks a topic, and one more where a later stair brought its own (eq:c4, after the motion problems of eq:6)
+const COUNT = { eq: 4 };
 for (const topic of TOPICS) {
-  test(`at 320 px nothing is cut off in ${topic}'s three challenges, at any step`, async ({ page }, info) => {
+  test(`at 320 px nothing is cut off in ${topic}'s challenges, at any step`, async ({ page }, info) => {
     test.skip(info.project.name !== 'phone-small', 'the narrow phone is the one that cuts');
     await open(page, '#/', student(['ratio', 'pct', 'func', 'line', 'pyth', 'stats', 'sys'].includes(topic) ? '8' : '7'));
-    for (const n of [1, 2, 3]) {
+    for (let n = 1; n <= (COUNT[topic] || 3); n += 1) {
       const steps = await walk(page, `${topic}:c${n}`);
       expect(steps, `${topic}:c${n} walked`).toBeGreaterThan(2);
       await nothingCutOff(page, `${topic}:c${n}, the end`);

@@ -111,9 +111,9 @@ describe('counters that move from the first stage', () => {
     expect(unitCountText({ done: 1, stairs: 1, stages: 5, of: 5 })).toBe('מדרגה אחת, שולטים בה');
     expect(unitCountText({ done: 0, stairs: 1, stages: 2, of: 5 })).toBe('2 מתוך 5 שלבים');
     for (const p of [fresh, started, mastered]) expect(unitCountText(p)).not.toMatch(/^0 /);
-    // an algebra unit the same way
-    expect(unitCountText(unitProgress('eq', {}, {}))).toBe('5 מדרגות');
-    expect(unitCountText(unitProgress('eq', {}, { 'eq:1': { attempts: [], taught: { A: 'x', B: 'x' } } }))).toBe('2 מתוך 25 שלבים');
+    // an algebra unit the same way (equations: six stairs since eq:6, the motion problems)
+    expect(unitCountText(unitProgress('eq', {}, {}))).toBe('6 מדרגות');
+    expect(unitCountText(unitProgress('eq', {}, { 'eq:1': { attempts: [], taught: { A: 'x', B: 'x' } } }))).toBe('2 מתוך 30 שלבים');
     expect(unitCountText(unitProgress('sys', { sys: { parts: { 1: PARTS }, done: { 1: 'mastered' } } }, { 'sys:1': { attempts: [], taught: { A: 'x', B: 'x', C: 'x' }, mastered: { at: 'x', box: 0, due: 'x' } } }))).toBe('1 מתוך 5 מדרגות');
   });
 

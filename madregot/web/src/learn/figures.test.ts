@@ -453,6 +453,17 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
   });
 
+  it('200 meeting graphs of eq:6\'s exercises agree with themselves and render, the meeting on a grid crossing', () => {
+    const figs: { where: string; f: AnyFig }[] = [];
+    for (let i = 0; figs.length < 200 && i < 20000; i += 1) { const it = makeItem('eq', 6); if (it.fig?.type === 'sgraph') figs.push({ where: it.key, f: it.fig }); }
+    expect(figs.length).toBe(200);
+    // the meeting is read off the graph: it is not marked, but it lies on a grid crossing (meet checks it there)
+    const bad = figs.flatMap(({ where, f }) => selfProblems('eq:6', { ...f, meet: true }).map((x) => `${where}: ${x}`));
+    expect(bad).toEqual([]);
+    expect(figs.every(({ f }) => !(f as { meet?: boolean }).meet)).toBe(true);
+    for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
   it('the challenge tasks\' situation graphs agree with themselves and render (func:c2, func:c3)', () => {
     const graphs = CHALLENGES.filter((t) => t.fig?.type === 'sgraph');
     expect(graphs.map((t) => t.id)).toEqual(expect.arrayContaining(['func:c2', 'func:c3']));

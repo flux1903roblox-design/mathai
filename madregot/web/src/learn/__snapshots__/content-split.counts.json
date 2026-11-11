@@ -272,10 +272,31 @@
      2,
      2
     ]
+   },
+   "eq:6": {
+    "discover": 8,
+    "examples": [
+     4,
+     5,
+     4
+    ],
+    "misconceptions": [
+     2,
+     2,
+     2,
+     2,
+     2,
+     2
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     2
+    ]
    }
   },
-  "stairs": 5,
-  "steps": 144
+  "stairs": 6,
+  "steps": 180
  },
  "expr": {
   "skills": {
