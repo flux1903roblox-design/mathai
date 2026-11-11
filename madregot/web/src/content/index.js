@@ -2,7 +2,7 @@ import { GRADE7 } from './grade7.js';
 import { GRADE8 } from './grade8.js';
 import { parseNum, near, plainNum, linText, readNumCandidates, numRight, toFrac, gcd, withFormatNote } from './util.js';
 import { LESSONS } from './lessons.js';
-import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText } from './manip.js';
+import { manipCorrect, manipText, manipPlain, manipSolution, panWords, tilesWords, rayText, areaTex, figWords, lineText, chartWords, outcomesWords } from './manip.js';
 
 // the meta, not the content: a topic's teaching loads on demand (learn/content/index.ts)
 import { NEW_CATS, META } from '@/learn/content/meta.gen.ts';
@@ -273,7 +273,16 @@ export function figPlain(f) {
   const pt = (p) => `${p.label || ''}(${p.x}, ${p.y})`;
   const kinds = { corresponding: 'מתאימות', alternate: 'מתחלפות', cointerior: 'חד־צדדיות' };
   switch (f.type) {
-    case 'table': return `טבלה: ${f.rows.map((r) => r.join(' → ')).join('; ')}`;
+    case 'table': {
+      // a highlighted row or cell ("the 4 shaded") and a row struck through are said after the rows
+      const hl = (f.highlight || []).map((h) => (Array.isArray(h) ? String(f.rows[h[0]]?.[h[1]] ?? '') : f.rows[h]?.join(' → ') ?? '')).filter(Boolean);
+      const crossed = (f.cross || []).map((i) => f.rows[i]?.join(' → ')).filter(Boolean);
+      return `טבלה: ${f.rows.map((r) => r.join(' → ')).join('; ')}${hl.length ? `; מסומן: ${hl.join('; ')}` : ''}${crossed.length ? `; מחוק: ${crossed.join('; ')}` : ''}`;
+    }
+    // the data figures (curriculum stage 3, DATA-3): every number drawn, the axis, the marked and crossed things
+    case 'chart': return chartWords(f);
+    case 'outcomes': return outcomesWords(f);
+    case 'pair': return (f.items || []).slice(0, 2).map((x, i) => `${f.titles?.[i] || `מקור ${i + 1}`}: ${figPlain(x)}`).join('; ');
     case 'coord': return [
       f.points?.length ? `נקודות: ${f.points.map(pt).join(', ')}` : '',
       f.line ? `ישר y = ${f.line.m}x + ${f.line.b}` : '',

@@ -610,7 +610,7 @@ export default function Lesson() {
         {item.fig && (
           <div className="fig-zoomable">
             <Figure fig={item.fig} />
-            {item.fig.type !== 'table' && (
+            {item.fig.type !== 'table' && item.fig.type !== 'outcomes' && (
               <button type="button" className="fig-zoom" aria-label="הגדלת השרטוט" onClick={() => setZoom(true)}><Maximize2 size={18} aria-hidden="true" /></button>
             )}
           </div>

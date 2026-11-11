@@ -230,13 +230,101 @@ function partsLineWords(f) {
 /** A number line with no parts (a teaching figure, STUDENT-8): the student lane's words. */
 function teachLineWords(f) {
   const at = (v) => figNum(v);
-  return `ציר מספרים מ־${at(f.from)} עד ${at(f.to)}${(f.marks || []).map((k) => `, נקודה${/^[A-Z]$/.test(k.label || '') ? ` ${k.label}` : ''} ב־${at(k.x)}`).join('')}${(f.jumps || []).map((j) => `, קפיצה מ־${at(j.from)} ל־${at(j.to)}`).join('')}`;
+  // a word written at a point (בלתי אפשרי at 0, ודאי at 1) is read with it
+  const name = (k) => (/^[A-Z]$/.test(k.label || '') ? ` ${k.label}` : '');
+  const word = (k) => (HEB.test(k.label || '') ? `: ${k.label}` : '');
+  return `ציר מספרים מ־${at(f.from)} עד ${at(f.to)}${(f.marks || []).map((k) => `, נקודה${name(k)} ב־${at(k.x)}${word(k)}`).join('')}${(f.jumps || []).map((j) => `, קפיצה מ־${at(j.from)} ל־${at(j.to)}`).join('')}`;
+}
+
+// ---------------------------------------------------------------- data figures (curriculum stage 3, DATA-3)
+// chart { mode: 'bar' | 'pie' | 'line' | 'picto' }, outcomes and pair: every number the drawing writes is read (a
+// value printed nowhere, labels: false, is read too: an accessible chart says its values), a '?' as a question mark.
+const HEB = /[\u0590-\u05ff]/;
+/** A number as the data figures write it: up to three decimals (0.243), or exactly dp of them (2.0), a real minus sign. */
+export const chartNum = (v, dp) => (dp != null ? Number(v).toFixed(dp) : plainNum(v, { decimal: true, places: 3 })).replace(/^-/, '−');
+const NICE = [1, 2, 2.5, 5];
+/** The smallest "nice" step (1, 2, 2.5 or 5 times a power of ten) that cuts a span into at most n steps. */
+const niceStep = (span, n) => { for (let e = -3; e <= 6; e += 1) for (const m of NICE) { const s = m * 10 ** e; if (span / s <= n + 1e-9) return Math.round(s * 1e6) / 1e6; } return span; };
+/** At most this many numbers on an axis (critique note 25: a 220px axis with 15 labels is unreadable). */
+export const AXIS_LABELS = 8;
+/** At most this many numbers on a compact axis (a chart in a pair, 88 units high: 14px numbers need room). */
+export const AXIS_LABELS_COMPACT = 5;
+/**
+ * A chart's value axis: from `from` (0 unless the axis starts above it) to `max` in `step`s, with a grid line at every
+ * step and a number every `every` steps, never more than AXIS_LABELS numbers (or `most`). Missing fields are chosen
+ * from the values.
+ */
+export function chartAxis(f, most = AXIS_LABELS) {
+  const vals = (f.values || []).filter((v) => typeof v === 'number' && Number.isFinite(v));
+  const from = f.from ?? 0;
+  const top = Math.max(from + 1e-9, ...vals, f.level ?? -Infinity);
+  const step = f.step || niceStep(top - from, 8);
+  const max = f.max ?? Math.max(from + step, Math.ceil((top - from) / step - 1e-9) * step + from);
+  const n = Math.round((max - from) / step);
+  let every = Math.max(1, f.every || 1);
+  while (Math.floor(n / every) + 1 > most) every += 1;
+  const at = (k) => Math.round((from + k * step) * 1e6) / 1e6;
+  const ticks = Array.from({ length: n + 1 }, (_, k) => at(k));
+  return { from, max, step, every, ticks, labelled: ticks.filter((_, k) => k % every === 0) };
+}
+/** How many icons a value is in a pictogram (key items an icon), in halves: 3.5. */
+export const pictoIcons = (v, key) => Math.round((2 * v) / key) / 2;
+/** "3 סמלים וחצי", "סמל אחד", "חצי סמל": a row of a pictogram as a sighted reader counts it. */
+export function iconWords(n) {
+  const whole = Math.floor(n); const half = n - whole >= 0.5;
+  if (!whole) return half ? 'חצי סמל' : 'אין סמלים';
+  return `${whole === 1 ? 'סמל אחד' : `${whole} סמלים`}${half ? ' וחצי' : ''}`;
+}
+/** The chart's labels in words, in order: what each category or point is called (an empty name is left out). */
+function chartItems(f, value) {
+  const names = f.mode === 'line' ? (f.xs || []).map((x) => `${typeof x === 'number' ? chartNum(x) : x}:`) : f.cats || [];
+  return f.values.map((v, i) => {
+    const said = f.hide === i ? '?' : v == null ? 'חסר' : value(v);
+    const crossed = (f.cross || []).includes(i) ? ' (מחוק)' : '';
+    const est = f.mode === 'line' && f.dashed && i >= f.values.length - f.dashed ? ' (המשך המגמה, בקו מקווקו)' : '';
+    return `${[names[i], said].filter(Boolean).join(' ')}${est}${crossed}`;
+  }).join(', ');
+}
+/** A chart in words: its kind, every value, its axis, and what is drawn on it. */
+export function chartWords(f) {
+  const unit = f.unit ? ` (${f.unit})` : '';
+  if (f.mode === 'pie') {
+    const val = (v) => `${chartNum(v, f.dp)}${f.pct ? '%' : ''}`;
+    return `דיאגרמת עוגה, בכיוון השעון מלמעלה: ${chartItems(f, val)}${unit}`;
+  }
+  if (f.mode === 'picto') {
+    const key = `כל סמל ${chartNum(f.key)}${f.unit ? ` ${f.unit}` : ''}`;
+    return `פיקטוגרמה, ${key}: ${(f.cats || []).map((c, i) => `${c} ${f.hide === i ? '?' : iconWords(pictoIcons(f.values[i], f.key))}`).join(', ')}`;
+  }
+  const ax = chartAxis(f);
+  const axis = `${f.mode === 'line' ? 'הציר האנכי' : 'הציר'} מ־${chartNum(ax.from)} עד ${chartNum(ax.max)} בקפיצות של ${chartNum(ax.step)}`;
+  const level = f.level != null ? `; קו מקווקו בגובה ${chartNum(f.level, f.dp)}` : '';
+  const mark = f.mode === 'line' && f.mark != null ? `; מסומן ${typeof f.mark === 'number' ? chartNum(f.mark) : f.mark}` : '';
+  const kind = f.mode === 'line' ? 'גרף' : 'דיאגרמת עמודות';
+  return `${kind}: ${chartItems(f, (v) => chartNum(v, f.dp))}${unit}; ${axis}${level}${mark}`;
+}
+/** A table of outcomes in words: its headings, every cell row by row, and the marked cells. */
+export function outcomesWords(f) {
+  const two = !!f.rows?.length;
+  const cellOf = (i, j) => (f.cells?.[i]?.[j] ?? (two ? `(${f.rows[i]}, ${f.cols[j]})` : f.cols[j]));
+  const head = two ? `${f.rowHead || 'שורות'}: ${f.rows.join(', ')}; ${f.colHead || 'עמודות'}: ${f.cols.join(', ')}` : `${f.colHead ? `${f.colHead}: ` : ''}${f.cols.join(', ')}`;
+  const body = two && f.cells ? `; בתאים: ${f.rows.map((r, i) => `${r}: ${f.cols.map((_, j) => cellOf(i, j)).join(', ')}`).join('; ')}` : '';
+  const marked = (f.marked || []).map(([i, j]) => (two ? `(${f.rows[i]}, ${f.cols[j]})${f.cells ? ` ${cellOf(i, j)}` : ''}` : cellOf(0, j)));
+  const mk = marked.length ? `; ${marked.length === 1 ? 'מסומן תא אחד' : `מסומנים ${marked.length} תאים`}: ${marked.join(', ')}` : '';
+  return `טבלת תוצאות${f.label ? ` ${f.label}` : ''}: ${head}${body}${mk}`;
 }
 
 export function figWords(f) {
   switch (f.type) {
     case 'numline': return f.den ? partsLineWords(f) : teachLineWords(f);
     case 'fbar': {
+      // parts in several tones (6, 9 and 5 of 20): each group is read with its name
+      if (f.tones?.length) {
+        const parts = [`הפס מחולק ל־${f.den} חלקים`, f.tones.map((t) => `${t.label ? `${t.label} ` : ''}${t.n === 1 ? 'חלק אחד' : `${t.n} חלקים`}`).join(', ')];
+        const rest = f.den - f.tones.reduce((a, t) => a + t.n, 0);
+        if (rest > 0) parts.push(`${rest === 1 ? 'חלק אחד לא צבוע' : `${rest} לא צבועים`}`);
+        return `פס שברים: ${parts.join('; ')}`;
+      }
       const rows = f.rows?.length ? f.rows : [{ den: f.den, shaded: f.shaded }];
       const parts = rows.map((r) => `${r.label ? `${labelPlain(r.label)}: ` : ''}${fbarWords(r)}`);
       if (f.hatch) parts.push(`${f.hatch === 1 ? 'חלק צבוע אחד מקווקו' : `${f.hatch} מהחלקים הצבועים מקווקווים`}`);
@@ -265,8 +353,11 @@ export function figWords(f) {
     }
     case 'dots': {
       const k = f.mark || {};
-      return `תרשים נקודות של ${f.values.length} ערכים בין ${figNum(f.axis[0])} ל־${figNum(f.axis[1])}${k.mode != null ? ', השכיח מסומן' : ''}${k.median != null ? ', החציון מסומן' : ''}${k.mean != null ? ', הממוצע מסומן' : ''}${f.unit ? `: ${f.unit}` : ''}`;
+      const span = f.span ? `, חץ מ־${figNum(f.span.from)} עד ${figNum(f.span.to)}${f.span.label ? ` (${f.span.label})` : ''}` : '';
+      return `תרשים נקודות של ${f.values.length} ערכים בין ${figNum(f.axis[0])} ל־${figNum(f.axis[1])}${k.mode != null ? ', השכיח מסומן' : ''}${k.median != null ? ', החציון מסומן' : ''}${k.mean != null ? ', הממוצע מסומן' : ''}${span}${f.unit ? `: ${f.unit}` : ''}`;
     }
+    case 'chart': return chartWords(f);
+    case 'outcomes': return outcomesWords(f);
     case 'bars': {
       // a bar with no name is read by its value; a missing one says so; the level line is read last
       const bar = (l, v) => [l, v == null ? 'חסר' : figNum(v)].filter(Boolean).join(' ');

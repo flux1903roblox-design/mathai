@@ -867,6 +867,16 @@ script. They now load one topic at a time, and nothing the student sees changed.
   4.56 MB, so both gates moved by the same rule to **433 KB** and **4.79 MB** (CSS 57.3 KB, under its 59 KB gate). Open
   work: the challenge tasks behind a dynamic import per topic (the curriculum spec asks for it), with the plan reading
   only their ids and stairs at boot.
+  The stage-3 lane (data and probability, `finish/specs/stage3.md`) measured its own delta. Its first stage (one unit on
+  two grades' paths, the fraction answer form) left boot JS at 432.7 KB, 0.3 KB under the gate; its second (the data
+  figures: `chart`, `outcomes`, `pair`) adds their words to the first download, because `figPlain` in
+  `content/index.js` and `figWords` in `content/manip.js` are there and must say every number a drawing writes (the
+  tutor, an answer key and the guessers read them): +1.5 KB, 434.2 KB. The drawing itself (`components/manip/
+  ChartArt.jsx`) and its stylesheet load with the figure, on demand. With no challenge task of the new topics yet to
+  move behind a per-topic import (the spec's first remedy), the gate moved by the same rule (measured + 5%) to
+  **456 KB** (CSS 52.7 KB under 59, precache 4.71 MB under 4.79). Open work, unchanged: the challenge tasks behind a
+  per-topic import, and the figure words (`figPlain`, `figWords`, `itemPlain`) in a module of their own that only the
+  screens that show or send an exercise import.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from
