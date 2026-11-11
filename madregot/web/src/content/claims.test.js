@@ -7,6 +7,7 @@ import { CLAIMS, CLAIM, claimStatus, visibleClaims, countNamedMistakes, programm
 import { TOPICS } from './index.js';
 import { loadAllContent } from '@/learn/content/index.ts';
 import { codeWith, MERGED } from '@/lib/testing/claimCode.js';
+import { parts, current, apply } from '../../scripts/positioning-md.mjs';
 
 const data = { ...(await claimData()), vars: {} };
 // every stair's teaching content (DURABLE-11: topics load on demand)
@@ -144,7 +145,29 @@ describe('docs/POSITIONING.md', () => {
   });
 
   it('has the sections the owner and the judges read, and states the named-mistake count the code computes', () => {
-    for (const h of ['## המקום שלנו', '## מי עוד בשטח', '## מה אי אפשר להעתיק בשבוע', '## למה לא פשוט צ׳אטבוט חינמי?', '## הוכחות', '## מה עוד חסר']) expect(doc).toContain(h);
+    for (const h of ['## המקום שלנו', '## מי עוד בשטח', '## פרויקט 720 ו־Kaltura', '## מה אי אפשר להעתיק בשבוע', '## למה לא פשוט צ׳אטבוט חינמי?', '## הוכחות', '## מה עוד חסר']) expect(doc).toContain(h);
     expect(doc).toContain(`הקוד מכיר כרגע ${countNamedMistakes()} טעויות בשמן`);
+  });
+
+  // COUNCIL2-38: the proofs table said 92 while the app counted 119. Its numbers, and the mistake count, are now the
+  // generated parts of the document (npm run positioning:md); a stale one fails here.
+  it('its generated parts are what the code gives today (npm run positioning:md)', () => {
+    const now = parts();
+    for (const name of Object.keys(now)) expect(current(doc, name), name).toBe(now[name]);
+    expect(apply(doc)).toBe(doc);
+    expect(now.proofs).toContain(`| ${countNamedMistakes()} |`);
+    expect(now.proofs).toContain(`${programmeCoverage()}% משעות שתי השכבות`);
+  });
+
+  it('states no other number of named mistakes anywhere in it', () => {
+    const stated = [...doc.matchAll(/(\d+) טעויות/g)].map((m) => Number(m[1]));
+    expect(stated.length).toBeGreaterThan(0);
+    expect(stated.every((n) => n === countNamedMistakes())).toBe(true);
+    // and a count the code no longer gives is caught: the document as it was before COUNCIL2-38
+    expect(current(apply(doc, { ...parts(), proofs: parts().proofs.replace(`| ${countNamedMistakes()} |`, '| 92 |') }), 'proofs')).not.toBe(parts().proofs);
+  });
+
+  it('names the state\'s own grade 7-8 programme (Kaltura and 720, 3.11.2026) and the free tools a family already has', () => {
+    for (const s of ['Kaltura', '720', '3.11.2026', 'ישראל היום', 'Gemini', 'Study Mode', 'Go Math', '₪179.99', 'id6748574236']) expect(doc, s).toContain(s);
   });
 });
