@@ -40,6 +40,18 @@ const CASES = [
   ['what percent, from a table', 'pct/3', '8', (x) => x.fig?.type === 'table'],
 ];
 
+/**
+ * The question's maths (.qdisplay) keeps its whole height. Its box scrolls sideways inside itself, which gave it no
+ * minimum height in the maths region's flex column: when the feedback panel took the room, it alone was squeezed and
+ * the maths was cut in half. Now the maths region scrolls instead.
+ */
+async function expectWholeDisplay(page, when) {
+  const box = page.locator('.lesson .qdisplay');
+  if (!(await box.count())) return;
+  const { ch, sh } = await box.evaluate((el) => ({ ch: el.clientHeight, sh: el.scrollHeight }));
+  expect(ch, `the question's maths is whole ${when} (its box ${ch}px, its content ${sh}px)`).toBeGreaterThanOrEqual(sh);
+}
+
 for (const [what, route, grade, want = () => true] of CASES) {
   test(`exercise layout: ${what}`, async ({ page }) => {
     // typed and multiple-choice exercises (the interactive ones have their own spec, manip.spec.js)
@@ -99,15 +111,49 @@ for (const [what, route, grade, want = () => true] of CASES) {
     }
     await expectUsable(page, page.locator('section.fb .fb-actions .btn'), 'the try-again button');
     if (it.form !== 'mc') await expectUsable(page, page.locator('.answer-bar .answer'), 'the answer after a mistake');
+    await expectWholeDisplay(page, 'after a mistake');
     await proceed(page);
 
     // Then the right answer: the success panel, and on to the next exercise.
     await answer(page, true);
     await expect(page.locator('section.fb-good')).toBeVisible();
+    await expectWholeDisplay(page, 'after the right answer');
     await expectUsable(page, page.locator('section.fb .fb-actions .btn'), 'the continue button');
     await proceed(page);
     await expect(page.locator('section.fb')).toHaveCount(0);
     await expectUsable(page, page.locator('#qtext'), 'the next question');
+  });
+}
+
+// After a mistake, and again once the answer is shown, the question's maths keeps its whole height and the maths
+// region scrolls instead: an inequality with four tall choices (sys:5), a system of two equations by choice (sys:3)
+// and a typed fraction sum under its worked solution (frac:3) were each cut in half on a phone.
+for (const [what, route, grade, want] of [
+  ['an inequality with four choices', 'sys/5', '8', (x) => x.key.startsWith('sy5m:')],
+  ['a system of two equations, by choice', 'sys/3', '8', (x) => x.form === 'mc'],
+  ['a typed answer under its worked solution', 'frac/3', '7', (x) => x.key.startsWith('fr3a:')],
+]) {
+  test(`the question's maths stays whole in the feedback: ${what}`, async ({ page }) => {
+    const it = await openOn(page, `#/lesson/${route}`, student(grade), want);
+    await answer(page, false);
+    await expect(page.locator('section.fb-retry')).toBeVisible();
+    await expectWholeDisplay(page, 'after a mistake');
+    if (it.form === 'mc') {
+      // every choice still open can be scrolled into view above the feedback panel and pressed
+      const left = page.locator('.choice:not(:disabled)');
+      for (let k = 0; k < await left.count(); k += 1) {
+        await left.nth(k).evaluate((el) => el.scrollIntoView({ block: 'nearest' }));
+        await expectUsable(page, left.nth(k), `open choice ${k + 1}`);
+      }
+    }
+    await proceed(page);
+    await answer(page, false);
+    await expect(page.locator('section.fb-reveal')).toBeVisible();
+    await expectWholeDisplay(page, 'with the answer shown');
+    await expectUsable(page, page.locator('section.fb .fb-actions .btn'), 'the continue button');
+    await expectNoSidewaysScroll(page);
+    const doc = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, vh: innerHeight }));
+    expect(doc.h, 'the page itself does not scroll').toBeLessThanOrEqual(doc.vh + 1);
   });
 }
 
