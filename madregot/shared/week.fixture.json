@@ -1,0 +1,42 @@
+{
+  "about": "One week (Sunday 8 to Saturday 14 November 2026) of synthetic day summaries and the WeekReport weekFrom must give. Read by web/src/learn/report.test.ts and worker/test/week.test.js, so both sides of shared/week.js are pinned to the same answer. 7 November is outside the week and ignored; 12 November has answers only (not a practice day); the 8th's open mistake is older than the newest summary's and is not shown; restDays makes the 10th a holiday in the second case.",
+  "start": "2026-11-08",
+  "today": "2026-11-13",
+  "rows": [
+    { "v": 1, "d": "2026-11-07", "m": 30, "q": 40, "ls": 4, "st": 0, "sk": ["coord:1"], "ma": ["coord:1"], "rv": 0, "fx": [], "sr": 9, "ex": null },
+    { "v": 1, "d": "2026-11-08", "m": 12, "q": 16, "ls": 2, "st": 0, "sk": ["signed:1", "signed:2"], "ma": [], "rv": 0, "fx": [["signed:1", "sign-flip", "o"]], "sr": 1, "ex": null },
+    { "v": 1, "d": "2026-11-09", "m": 5, "q": 6, "ls": 0, "st": 1, "sk": ["expr:1"], "ma": [], "rv": 0, "fx": [], "sr": 2, "ex": null },
+    { "v": 1, "d": "2026-11-11", "m": 20, "q": 24, "ls": 3, "st": 0, "sk": ["signed:2", "eq:1"], "ma": ["signed:2"], "rv": 1, "fx": [["signed:2", "mul-sign", "d"]], "sr": 3, "ex": null },
+    { "v": 1, "d": "2026-11-12", "m": 3, "q": 5, "ls": 0, "st": 0, "sk": ["eq:1"], "ma": [], "rv": 0, "fx": [], "sr": 3, "ex": null },
+    { "v": 1, "d": "2026-11-13", "m": 7, "q": 8, "ls": 1, "st": 0, "sk": ["eq:1", "eq:2"], "ma": [], "rv": 0, "fx": [["eq:1", "move-sign", "o"], ["signed:2", "mul-sign", "d"]], "sr": 4, "ex": { "d": "2026-11-20", "n": 1, "of": 3 } }
+  ],
+  "expected": {
+    "start": "2026-11-08",
+    "end": "2026-11-14",
+    "days": [
+      { "d": "2026-11-08", "on": true, "rest": false, "future": false, "m": 12 },
+      { "d": "2026-11-09", "on": true, "rest": false, "future": false, "m": 5 },
+      { "d": "2026-11-10", "on": false, "rest": false, "future": false, "m": 0 },
+      { "d": "2026-11-11", "on": true, "rest": false, "future": false, "m": 20 },
+      { "d": "2026-11-12", "on": false, "rest": false, "future": false, "m": 3 },
+      { "d": "2026-11-13", "on": true, "rest": false, "future": false, "m": 7 },
+      { "d": "2026-11-14", "on": false, "rest": true, "future": true, "m": 0 }
+    ],
+    "activeDays": 4,
+    "minutes": 47,
+    "questions": 59,
+    "lessons": 6,
+    "stages": 1,
+    "reviews": 1,
+    "worked": ["signed:1", "signed:2", "expr:1", "eq:1", "eq:2"],
+    "mastered": ["signed:2"],
+    "open": [["eq:1", "move-sign"]],
+    "openAt": "2026-11-13",
+    "fixed": [["signed:2", "mul-sign"]],
+    "streak": 4,
+    "exam": { "d": "2026-11-20", "n": 1, "of": 3 },
+    "empty": false
+  },
+  "restDays": ["2026-11-10", "2026-11-14"],
+  "expectedRest": [false, false, true, false, false, false, true]
+}

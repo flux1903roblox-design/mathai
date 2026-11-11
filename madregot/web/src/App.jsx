@@ -10,6 +10,7 @@ import { refreshStatus, refreshIfNewDay } from '@/lib/account.js';
 import { qaActive } from '@/lib/qaFixtures.js';
 import { useDurable } from '@/lib/durable/useDurable.js';
 import { watchPersisted } from '@/lib/durable/persist.js';
+import { useLearnClock } from '@/lib/learnClock.js';
 import { loadTopic } from '@/learn/content/index.ts';
 import { loadKatex } from '@/components/MathText.jsx';
 import LimitSheet from '@/components/LimitSheet.jsx';
@@ -146,6 +147,12 @@ function TeachRoute() {
   return <Teach key={pathname} />;
 }
 
+/** Minutes on learning screens for the weekly summary (lib/learnClock.js), counted for a student only. */
+function LearnClock() {
+  useLearnClock();
+  return null;
+}
+
 /** The app's screens. Rendered under a data router so a lesson can ask before the back button leaves it. */
 function Root() {
   const role = useApp((s) => s.profile?.role);
@@ -159,6 +166,7 @@ function Root() {
       {role && <StatusWatch />}
       {/* once in a while, on a calm screen and never in a lesson: keep a backup? (lib/durable/nudge.js says when) */}
       {role === 'student' && <BackupNudge />}
+      {role === 'student' && <LearnClock />}
       {/* a new screen opens at the top; back restores where the student was */}
       <ScrollRestoration />
       <ErrorBoundary>

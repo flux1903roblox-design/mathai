@@ -39,6 +39,8 @@ describe('which case', () => {
     expect(hasProgress({ profile: null })).toBe(false);
     expect(hasProgress({ profile: { role: 'student', name: 'נועה' }, xp: 0, days: {} })).toBe(false);
     expect(hasProgress({ profile: { role: 'student', name: 'נועה' }, xp: 0, days: { '2026-11-05': { q: 1 } } })).toBe(true);
+    // a lesson opened and left: only the learning clock's time, not progress
+    expect(hasProgress({ profile: { role: 'student', name: 'נועה' }, xp: 0, days: { '2026-11-05': { tsecs: 40 } } })).toBe(false);
     expect(hasProgress({ profile: { role: 'teacher', name: 'רונית', classes: [{ code: 'K7Q2MD' }] } })).toBe(true);
   });
 

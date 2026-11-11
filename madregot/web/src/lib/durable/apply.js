@@ -37,11 +37,15 @@ const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 /** A name as people write it: no niqqud, one space, no direction marks, any letter case. */
 export const normName = (s) => (typeof s === 'string' ? s.normalize('NFKC').replace(/[֑-ׇ‎‏]/g, '').replace(/\s+/g, ' ').trim().toLowerCase() : '');
 
-/** Is there progress on this device: a teacher's classes, or a student's XP or days. */
+/**
+ * Is there progress on this device: a teacher's classes, or a student's XP or days. A day with nothing but time on
+ * learning screens (tsecs, lib/learnClock.js: a lesson opened and left) is not progress.
+ */
 export function hasProgress(st) {
   if (!isObj(st?.profile)) return false;
   if (st.profile.role === 'teacher') return Array.isArray(st.profile.classes) && st.profile.classes.length > 0;
-  return (Number(st.xp) || 0) > 0 || (isObj(st.days) && Object.keys(st.days).length > 0);
+  const learned = (d) => isObj(d) && Object.keys(d).some((k) => k !== 'tsecs');
+  return (Number(st.xp) || 0) > 0 || (isObj(st.days) && Object.values(st.days).some(learned));
 }
 
 /** 'empty' | 'same' | 'other': what restoring `incoming` here would do (see the top of this file). */
