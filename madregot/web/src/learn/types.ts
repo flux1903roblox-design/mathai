@@ -38,7 +38,7 @@ export type FigSpec =
   | { type: 'machine'; inX?: number | string; rule: string; outY?: number | string; anim?: boolean }
   | { type: 'dots'; values: number[]; axis: [number, number]; mark?: { mode?: number; median?: number; mean?: number }; unit?: string; anim?: boolean }
   | { type: 'bars'; labels: string[]; values: (number | null)[]; highlight?: number; unit?: string; level?: number; ltr?: boolean; anim?: boolean }
-  | { type: 'table'; head: string[]; rows: (number | string)[][]; anim?: boolean }
+  | { type: 'table'; head: string[]; rows: (number | string)[][]; anim?: boolean; ltr?: boolean }
   | {
     type: 'coord'; range?: number;
     points?: { x: number; y: number; label: string; hidden?: boolean }[];

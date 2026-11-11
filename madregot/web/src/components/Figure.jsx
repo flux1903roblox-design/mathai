@@ -4,7 +4,7 @@
 //   scale  { left: { x, n }, right: { x, n }, tilt? }  boxes x and weights on each pan; tilt −1 the left pan is down,
 //                                                       1 the right one, 0 or none level (a one-sided change, shown)
 //   area   { a, b, areas? }                             a rectangle a high and x + b long; areas: write each part's area
-//   ray    { at, dir, closed, min?, max? }              an inequality's solutions on the number line
+//   ray    { at, dir, closed, min?, max?, v? }          an inequality's solutions on the number line (v: its letter, x)
 //   tiles  { px, nx, p1, n1 }                           algebra tiles: x, −x, 1 and −1
 // The teaching figures (STUDENT-8), so every teaching step can draw what its text names (learn/types.ts has their shapes):
 //   numline { from, to, step?, den?, marks?: [{ x, label?, tone? }], jumps?: [{ from, to, label? }], anim? }
@@ -21,7 +21,8 @@
 //          over its bar; ltr: the first bar on the left, in the order of a list written in maths and of the bars object; a
 //          value null is a missing one (its place and a question mark); level: a dashed line at that height (the mean, the
 //          fair share), its number at its left end; a label may be '' (columns with no names, as in the bars object)
-//   table   also { anim? }                               with anim, its rows come in one after another
+//   table   also { anim?, ltr? }                         with anim, its rows come in one after another; ltr: its columns run
+//          left to right, for a table whose columns are the terms of an equation (x, y, the right side), as it is written
 //   coord   also { quadrants?, path?, lines?: [{ m, b, label?, tone? }], meet?, riseRun?: { x, run }, words?, anim? }
 //          (see Coord). Never draw a function's graph with 'linear': that one is a linear pair of angles.
 // With anim, a figure draws itself once as its step comes in (useDraw); under reduced motion it is there at once.
@@ -122,7 +123,7 @@ function Coord({ fig }) {
         {lineEl}
         {lines.map((l, i) => { const [x1, y1, x2, y2] = ends(l); return <m.path key={`l${i}`} d={`M ${x1} ${y1} L ${x2} ${y2}`} className={clsx('fig-cd-line', toneOf(l.tone || (i ? 'alt' : 'brand')))} {...draw(i)} />; })}
         {fig.helper && <polyline points={fig.helper.map(([x, y]) => `${X(x)},${Y(y)}`).join(' ')} className="fg-helper" />}
-        {(fig.segments || []).map(([[x1, y1], [x2, y2]], i) => <line key={i} x1={X(x1)} y1={Y(y1)} x2={X(x2)} y2={Y(y2)} className="fg-seg" />)}
+        {(fig.segments || []).map(([[x1, y1], [x2, y2]], i) => <m.path key={i} d={`M ${X(x1)} ${Y(y1)} L ${X(x2)} ${Y(y2)}`} className="fg-seg" {...draw(lines.length + Math.max(0, walk.length - 1) + i)} />)}
       </g>
       {lines.map((l, i) => l.label && (
         <m.text key={`lt${i}`} x={tagAt(l)[0]} y={tagAt(l)[1]} textAnchor="end" className={clsx('fig-cd-tag', toneOf(l.tone || (i ? 'alt' : 'brand')))} style={{ fontFamily: MATH_FONT }} {...draw(i, 'end')}>{l.label}</m.text>
@@ -321,16 +322,17 @@ function Ladder({ fig }) {
 }
 
 // Numbers stay left-to-right inside the RTL table, with a real minus sign; so does a heading that is maths (9 − x, which
-// the right-to-left table would turn into x − 9). A letter in a cell or a heading is in the maths font, as in the text.
+// the right-to-left table would turn into x − 9). A cell with Hebrew in it reads right to left ("פי 2", "עוד 20%").
+// A letter in maths is in the maths font, as in the text.
 const cell = (v) => String(v).replace(/^-/, '\u2212');
 const vars = (t) => String(t).split(/([a-zA-Z])/).map((p, i) => (i % 2 ? <span key={i} className="fig-var">{p}</span> : p));
 
 function Table({ fig }) {
   const draw = useDraw(fig.anim);
   return (
-    <table className="fg-table">
+    <table className={clsx('fg-table', fig.head.length >= 4 && 'cols4')} dir={fig.ltr ? 'ltr' : undefined}>
       <thead><tr>{fig.head.map((h, j) => <th key={j} scope="col">{WORD.test(h) ? vars(h) : <bdi dir="ltr">{vars(h)}</bdi>}</th>)}</tr></thead>
-      <tbody>{fig.rows.map((r, i) => <m.tr key={i} {...draw(i, 'fade')}>{r.map((v, j) => <td key={j}><bdi dir="ltr">{WORD.test(String(v)) ? cell(v) : vars(cell(v))}</bdi></td>)}</m.tr>)}</tbody>
+      <tbody>{fig.rows.map((r, i) => <m.tr key={i} {...draw(i, 'fade')}>{r.map((v, j) => <td key={j}>{WORD.test(String(v)) ? <bdi dir="rtl">{v}</bdi> : <bdi dir="ltr">{vars(cell(v))}</bdi>}</td>)}</m.tr>)}</tbody>
     </table>
   );
 }
@@ -472,7 +474,7 @@ function Area({ fig }) {
 }
 function RayFig({ fig }) {
   return (
-    <svg viewBox={RAY_VIEW} className="figure fg-obj fg-ray" role="img" aria-label={`ציר מספרים: ${rayText(fig)}`}>
+    <svg viewBox={RAY_VIEW} className="figure fg-obj fg-ray" role="img" aria-label={`ציר מספרים: ${rayText(fig, fig.v || 'x')}`}>
       <RayArt at={fig.at} dir={fig.dir} closed={!!fig.closed} min={fig.min ?? -10} max={fig.max ?? 10} />
     </svg>
   );

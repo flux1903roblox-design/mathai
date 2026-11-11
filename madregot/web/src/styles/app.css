@@ -192,7 +192,7 @@ textarea.input { resize: vertical; min-height: 88px; line-height: var(--lh-base)
 .fg-tick { fill: var(--ink-2); font-size: 14px; font-weight: 500; paint-order: stroke; stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round; }
 .fg-pt { fill: var(--cyan); stroke: var(--paper); stroke-width: 2; }
 .fg-pt-label { fill: var(--ink); font-size: 18px; font-weight: 700; font-style: italic; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
-.fg-seg { stroke: var(--cyan); stroke-width: 3; stroke-linecap: round; }
+.fg-seg { fill: none; stroke: var(--cyan); stroke-width: 3; stroke-linecap: round; }
 .fg-line { stroke: var(--magenta); stroke-width: 2.5; }
 .fg-poly { fill: color-mix(in srgb, var(--cyan) 14%, transparent); stroke: var(--cyan); stroke-width: 2; }
 .fg-helper { fill: none; stroke: var(--rule-strong); stroke-width: 1.5; stroke-dasharray: 4 4; }

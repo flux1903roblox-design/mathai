@@ -678,6 +678,11 @@ a.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
 .fig-cd-meet circle { fill: var(--good-d); stroke: var(--ground); stroke-width: 2.5; }
 .fig-cd-meet-num { fill: var(--good-ink); font-size: 16px; font-weight: 800; paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
 
+/* a table in a teaching step: a maths cell never breaks inside (2x − 7 on one line); four columns fit a 320px phone */
+.lm-fig .fg-table th, .lm-fig .fg-table td { padding: 4px 10px; }
+.lm-fig .fg-table.cols4 th, .lm-fig .fg-table.cols4 td { padding: 4px 6px; }
+.lm-fig .fg-table bdi[dir="ltr"] { white-space: nowrap; }
+
 /* a long formula in a rule's "why" (an inline expression never splits, tokens.css) scrolls inside its box on a 320px
    phone instead of pushing the whole page sideways; the box is positioned so KaTeX's hidden, positioned MathML stays
    inside it too */

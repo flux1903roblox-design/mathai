@@ -11,7 +11,6 @@ import { createElement } from 'react';
 // @ts-ignore: react-dom has no type declarations here
 import { renderToStaticMarkup } from 'react-dom/server';
 import { contentOf, CONTENT } from './content/index';
-import { PENDING_VISUALS } from './visualPlan';
 import type { DiscoverStep, FigSpec } from './types';
 // @ts-ignore: plain JS
 import Figure, { geoSweep, geoSquare } from '@/components/Figure.jsx';
@@ -20,11 +19,6 @@ type Pt = [number, number];
 type Geo = FigSpec & { pts: Record<string, Pt>; segs?: any[]; angles?: any[]; squares?: any[]; polys?: any[]; dots?: string[]; words?: any[]; hide?: string[] };
 
 const TOPICS = { angles: 5, pyth: 5 } as Record<string, number>;
-/** Steps that name no shape of their own, with the reason. */
-const NO_DRAWING: Record<string, number[]> = {
-  // "a word problem comes with no drawing: first find the hidden right triangle"; the next step draws the ladder
-  'pyth:4': [0],
-};
 
 const steps = () => Object.entries(TOPICS).flatMap(([topic, n]) => Array.from({ length: n }, (_, i) => `${topic}:${i + 1}`))
   .flatMap((skill) => contentOf(skill)!.discover.map((st, i) => ({ skill, i, st })));
@@ -44,7 +38,7 @@ const num = (t: unknown) => (typeof t === 'string' && /^\d+(\.\d+)?$/.test(t) ? 
 
 describe('teaching drawings: every step that names a shape shows it', () => {
   it('every angles and Pythagoras step of Stage A has a drawing or an object to move', () => {
-    const missing = steps().filter(({ skill, i, st }) => !figOf(st) && !(st as { manip?: unknown }).manip && !(NO_DRAWING[skill] || []).includes(i));
+    const missing = steps().filter(({ st }) => !figOf(st) && !(st as { manip?: unknown }).manip);
     expect(missing.map(({ skill, i, st }) => `${skill} #${i}: ${st.text.slice(0, 50)}`)).toEqual([]);
   });
 
@@ -152,8 +146,7 @@ describe('teaching drawings agree with their text and with themselves', () => {
 
 // ---------------------------------------------------------------- STUDENT-8: the teaching figures of every topic
 // The new types (numline, thermo, machine, dots, bars) and the plane's quadrants, walks, lines, meeting point and
-// rise-and-run must agree with themselves everywhere they appear, and, in every topic that is fully drawn (not in
-// visualPlan.ts PENDING_VISUALS), with their step's text:
+// rise-and-run must agree with themselves everywhere they appear, and, in every topic, with their step's text:
 //  - a letter the text names alone ($A$, $x$) or a point it names by its coordinates ($A(3, 4)$) is written in the figure;
 //  - a point named with its coordinates is drawn there (a mark on a number line, a point, a corner of a walk or the
 //    meeting point on a plane);
@@ -307,8 +300,8 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(bad).toEqual([]);
   });
 
-  it('in every fully drawn topic, a figure writes what its text names and never the answer it asks for', () => {
-    const bad = ALL_STEPS().filter(({ skill }) => !PENDING_VISUALS.has(skill.split(':')[0]))
+  it('in every topic, a figure writes what its text names and never the answer it asks for', () => {
+    const bad = ALL_STEPS()
       .flatMap(({ where, st }) => { const f = figOf(st) as AnyFig | undefined; return f ? textProblems(st, f).map((p) => `${where}: ${p}`) : []; });
     expect(bad).toEqual([]);
   });
@@ -409,9 +402,9 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
     expect(textProblems(say('עם $n$ נתונים.', { ...n, unit: undefined }), { ...n, unit: undefined })).toEqual(['the text names n, the figure does not']);
   });
 
-  it('in every fully drawn topic, a say step that opens a stair draws itself in when its figure can', () => {
+  it('in every topic, a say step that opens a stair draws itself in when its figure can', () => {
     const DRAWS = new Set(['numline', 'thermo', 'machine', 'dots', 'coord', 'bars', 'table']);
-    const bad = Object.values(CONTENT).filter((c) => !PENDING_VISUALS.has(c.skill.split(':')[0])).flatMap((c) => {
+    const bad = Object.values(CONTENT).flatMap((c) => {
       const st = c.discover[0]; const f = figOf(st) as AnyFig | undefined;
       return st.kind === 'say' && f && DRAWS.has(f.type) && !f.anim ? [`${c.skill} #0: ${f.type} without anim`] : [];
     });

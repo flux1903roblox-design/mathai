@@ -176,3 +176,60 @@ What changed in the shared figures, each after looking at the screens at 320px:
 Checks: `figures.test` holds stats and expr to their text; a bar is the step's data when the step gives that number (the
 4 of 2, 7, 4, 3), and otherwise counts as written; an opening say step with bars or a table draws itself in.
 `teach-all.spec` walks every stats and expr step at 320x568.
+
+## Stage 17: equations, systems and Pythagoras; every topic is drawn
+
+The 35 bare steps of `eq`, the 39 of `sys` and the last one of `pyth` now have a figure, the Hebrew text unchanged.
+`PENDING_VISUALS` is gone: `visuals.test` holds every topic of the catalogue (`learn/skills.ts` STAIRS) to "every
+discover step has a drawing or an object", so a topic or stair added later is held to it from its first commit. The
+only step without one is `line:5#4`, exempt with its reason in `learn/visualPlan.ts`.
+
+```
+topic    steps  visual  exempt  bare  done
+signed      50      50       0     0  100%
+coord       48      48       0     0  100%
+angles      50      50       0     0  100%
+expr        42      42       0     0  100%
+eq          47      47       0     0  100%
+line        80      79       1     0  100%
+pyth        50      50       0     0  100%
+stats       48      48       0     0  100%
+sys         45      45       0     0  100%
+```
+
+| File | What it shows |
+| --- | --- |
+| `eq-first-steps.png` | The first step of each eq stair, light and dark, 390x844: four balances and the stamps story as a table whose corner asks "x = ?" |
+| `sys-first-steps.png` | The same for sys: the percent table, the pair checked in a table, the pens and notebooks, the tickets' table, the lift's 80 and 600 on a number line |
+| `pyth-first-steps.png` | The same for pyth: `pyth:4#0` (a word problem) now shows the ladder against the wall, the scene the next step asks about |
+
+How the figures follow the steps:
+
+- eq. The balance wherever it can carry the numbers (positive, at most 6 boxes and 20 weights): the state after
+  taking the same from both pans, 2x + 3 against 2x + 5 tipped to the heavier side. Where it cannot (4x − 2 = 10,
+  3x = 21, 4x + 10 = 22, 20 − 3x = 8), "which number solves it?" is a machine with `?` going in and the right side coming
+  out. A solution reached by a move is a jump on the number line (12 − 5, three jumps of x to 21, 7 − x = 3). Brackets
+  are the rectangle; "both sides at a few x" and the word problems are tables.
+- sys. Two equations are two lines, each with its equation in its colour, meeting at the solution; a step that asks
+  for the solution or for x has no meeting point (the dashed x = 2 when x is found). No solution is two parallel lines.
+  Equal coefficients are tables whose columns are the equations' terms, left to right as they are written, so
+  subtracting or adding them is column by column; a word problem is a table of the story; percent equations are the
+  percent table (100% before, 120% after); an inequality's range is the ray on the number line.
+- Two choices the spec did not make: substitution is a table (y in one column, the equation it goes into in the next,
+  `?` for what it becomes), not two balances, because the stair's equations have negative terms (y = 2x − 1, 12 − x),
+  which a balance cannot carry (the eq stairs say so too); and "how many solutions has 2x + y = 5 with 4x + 2y = 10?"
+  is the table of the two equations' terms, since one line drawn twice would be the answer.
+- A prediction that asks which quantity to call x (`eq:5#0`, `sys:4#0`) shows the story's table with its corner asking
+  `x = ?` (or `x, y = ?`): the text names x, and writing x in any cell would answer.
+
+What changed in the shared figures, each after looking at every step at 320px:
+
+- `table` takes `ltr` (columns left to right, for a table whose columns are an equation's terms; in the right-to-left
+  table 2x − 3 stood to the right of x + 4); a cell with Hebrew reads right to left ("פי 2", "עוד 20%" came out
+  reversed); in a teaching step a maths cell never breaks inside (2x − 7 broke after the minus) and a table of four
+  columns uses narrower padding, so it fits a 320px phone.
+- The plane's segments draw themselves in with `anim` (`pyth:5#0`, the opening say of its stair).
+- The ray takes `v`, the letter its screen-reader name uses (n ≤ 20.8 for the lift's boxes).
+
+Checks: `figures.test` now holds every topic to its text, and `pyth:4#0` is no longer listed as a step without a
+drawing; `teach-all.spec`'s 320px check walks every step of every topic (the test of all 46 stairs).

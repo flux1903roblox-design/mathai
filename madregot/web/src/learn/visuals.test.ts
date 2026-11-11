@@ -1,10 +1,11 @@
 // A picture or an object on every teaching step (STUDENT-8). The council found the teaching screens "mostly text with no
-// pictures"; every discover step of a finished topic now shows a drawing (fig) or an object to move (manip). Topics still
-// being drawn are listed in learn/visualPlan.ts (PENDING_VISUALS), and a handful of steps may be exempt, each with a
-// reason (VISUAL_EXEMPT, at most 5% of a topic). The table of every topic is printed on each run.
+// pictures"; every discover step of every topic now shows a drawing (fig) or an object to move (manip). A handful of
+// steps may be exempt, each with a reason (learn/visualPlan.ts VISUAL_EXEMPT, at most 5% of a topic). A topic added
+// later is held to the same rule from its first commit. The table of every topic is printed on each run.
 import { describe, it, expect } from 'vitest';
 import { CONTENT } from './content/index';
-import { PENDING_VISUALS, VISUAL_EXEMPT } from './visualPlan';
+import { VISUAL_EXEMPT } from './visualPlan';
+import { STAIRS } from './skills';
 import type { DiscoverStep } from './types';
 
 const hasVisual = (st: DiscoverStep) => !!((st as { fig?: unknown }).fig || (st as { manip?: unknown }).manip);
@@ -29,16 +30,15 @@ describe('a picture or an object on every teaching step (STUDENT-8)', () => {
       const shown = steps.filter((s) => s.shown).length;
       const exempt = steps.filter((s) => !s.shown && VISUAL_EXEMPT[s.id]).length;
       const bare = steps.length - shown - exempt;
-      return `${t.padEnd(8)} ${String(steps.length).padStart(5)} ${String(shown).padStart(7)} ${String(exempt).padStart(7)} ${String(bare).padStart(5)} ${pct(shown + exempt, steps.length).padStart(5)}  ${PENDING_VISUALS.has(t) ? 'still being drawn' : 'done'}`;
+      return `${t.padEnd(8)} ${String(steps.length).padStart(5)} ${String(shown).padStart(7)} ${String(exempt).padStart(7)} ${String(bare).padStart(5)} ${pct(shown + exempt, steps.length).padStart(5)}`;
     });
     // eslint-disable-next-line no-console
     console.info(['topic    steps  visual  exempt  bare  done', ...rows].join('\n'));
     expect(rows.length).toBe(Object.keys(topics).length);
   });
 
-  it('every discover step of a finished topic has a drawing or an object to move', () => {
-    const bare = Object.entries(topics).filter(([t]) => !PENDING_VISUALS.has(t))
-      .flatMap(([, steps]) => steps.filter((s) => !s.shown && !VISUAL_EXEMPT[s.id]).map((s) => s.id));
+  it('every discover step of every topic has a drawing or an object to move', () => {
+    const bare = Object.values(topics).flatMap((steps) => steps.filter((s) => !s.shown && !VISUAL_EXEMPT[s.id]).map((s) => s.id));
     expect(bare).toEqual([]);
   });
 
@@ -56,17 +56,13 @@ describe('a picture or an object on every teaching step (STUDENT-8)', () => {
     }
   });
 
-  it('the pending list names real topics that still have steps to draw', () => {
-    for (const t of PENDING_VISUALS) {
-      expect(topics[t], `${t} is not a topic`).toBeTruthy();
-      const left = topics[t].filter((s) => !s.shown && !VISUAL_EXEMPT[s.id]).length;
-      expect(left, `${t} is fully drawn: take it out of PENDING_VISUALS`).toBeGreaterThan(0);
+  it('the rule covers every topic of the catalogue, every stair of it', () => {
+    // a topic or a stair added to the catalogue (learn/skills.ts) is in CONTENT, so the rule above holds it from its
+    // first commit: there is no list of topics still being drawn
+    expect(Object.keys(topics).sort()).toEqual(Object.keys(STAIRS).sort());
+    for (const [t, n] of Object.entries(STAIRS)) {
+      const stairs = new Set(topics[t].map((s) => s.id.split('#')[0]));
+      expect(stairs.size, `${t}: stairs with teaching steps`).toBe(n);
     }
-  });
-
-  it('the finished topics today: angles is drawn in full', () => {
-    // integrity drew every angles step; the content stages add the others one by one
-    expect(PENDING_VISUALS.has('angles')).toBe(false);
-    expect(topics.angles.every((s) => s.shown)).toBe(true);
   });
 });

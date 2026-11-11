@@ -193,7 +193,8 @@ describe('drawing in, once, and never under reduced motion', () => {
       { type: 'coord', range: 6, lines: [{ m: 1, b: 0 }], path: [[2, 0]], anim: true },
       { type: 'thermo', value: -3, min: -10, max: 10, anim: true },
       { type: 'bars', labels: ['א', 'ב'], values: [2, 4], level: 3, anim: true },
-    ];
+      { type: 'coord', range: 6, segments: [[[-5, 4], [-1, 4]]], anim: true }, // segments alone (pyth:5#0) draw in too
+    ]; // (a table's rows: in "a table keeps a heading that is maths left to right…" above)
     for (const f of animated) {
       expect(html(f), f.type).toMatch(/opacity="0"/);
       motion.reduce = true;

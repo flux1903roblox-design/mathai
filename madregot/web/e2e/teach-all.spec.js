@@ -5,7 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { open, student } from './helpers.js';
 import { STAIRS, GRADE_OF as GRADE } from '../src/learn/skills.ts';
-import { PENDING_VISUALS, VISUAL_EXEMPT } from '../src/learn/visualPlan.ts';
+import { VISUAL_EXEMPT } from '../src/learn/visualPlan.ts';
 
 test.beforeEach(({}, info) => { test.skip(info.project.name !== 'phone', 'one phone is enough for the content walk'); });
 const plain = (x) => (Number.isInteger(x) ? String(x) : String(Math.round(x * 1e6) / 1e6));
@@ -90,12 +90,12 @@ for (const [topic, n] of Object.entries(STAIRS)) {
   }
 }
 
-// STUDENT-8: a picture or an object on every teaching step. On a small phone (320×568), every step of Stage A in a fully
-// drawn topic (one not in learn/visualPlan.ts PENDING_VISUALS) has its visual region, with a drawing or an object to
-// move in it, at least 120px tall; a step in VISUAL_EXEMPT is the one allowed to have none.
-test.describe('every teaching step of a drawn topic shows its drawing on a small phone', () => {
+// STUDENT-8: a picture or an object on every teaching step. On a small phone (320×568), every step of Stage A in every
+// topic has its visual region, with a drawing or an object to move in it, at least 120px tall; a step in
+// learn/visualPlan.ts VISUAL_EXEMPT is the one allowed to have none.
+test.describe('every teaching step shows its drawing on a small phone', () => {
   test.use({ viewport: { width: 320, height: 568 } });
-  for (const topic of Object.keys(STAIRS).filter((t) => !PENDING_VISUALS.has(t))) {
+  for (const topic of Object.keys(STAIRS)) {
     for (let level = 1; level <= STAIRS[topic]; level += 1) {
       test(`${topic}:${level}: a drawing on every step at 320px`, async ({ page }) => {
         await open(page, `#/learn/${topic}/${level}/A`, student(GRADE[topic], { goalXp: 50 }));
