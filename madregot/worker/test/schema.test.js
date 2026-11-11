@@ -10,6 +10,7 @@ const m0 = read('../migrations/0000_base.sql');
 const m1 = read('../migrations/0001_paid_tutor.sql');
 const m2 = read('../migrations/0002_refund_once.sql');
 const m3 = read('../migrations/0003_durable.sql');
+const m4 = read('../migrations/0004_parent_report.sql');
 const objects = (db) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
   .map((r) => `${r.type}:${r.name}:${String(r.sql).replace(/\s+/g, ' ')}`);
 
@@ -35,9 +36,9 @@ const ALTERS_BASE = [m3];
 const withoutAlters = (sql) => sql.replace(/\n, [^\n]*\);/g, '\n);').split('\n')
   .filter((line) => !(line.startsWith('CREATE ') && ALTERS_BASE.some((m) => m.includes(line)))).join('\n');
 
-test('migrations 0000 + 0001 + 0002 + 0003 on an empty database give the same tables and indexes as schema.sql', () => {
+test('migrations 0000 + 0001 + 0002 + 0003 + 0004 on an empty database give the same tables and indexes as schema.sql', () => {
   const a = new DatabaseSync(':memory:'); a.exec(schema);
-  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1); b.exec(m2); b.exec(m3);
+  const b = new DatabaseSync(':memory:'); b.exec(m0); b.exec(m1); b.exec(m2); b.exec(m3); b.exec(m4);
   assert.deepEqual(objects(b), objects(a));
   const base = withoutAlters(schema);
   assert.equal(m0.trim(), base.slice(0, m0.length).trim(), '0000_base is the start of schema.sql, word for word (apart from what 0003 adds)');
@@ -103,4 +104,33 @@ test('0003 adds the vault tables: the meter starts at 0 once, and a blob is 40 t
   assert.throws(() => put('c', 349_527), /CHECK/);
   assert.throws(() => put('d', 39), /CHECK/);
   assert.throws(() => db.prepare("INSERT INTO vaults (id_hash, rev, blob, bytes, created_at, updated_at) VALUES ('e', 0, ?, 40, 'x', 'x')").run('A'.repeat(40)), /CHECK/);
+});
+
+test('0004 on a database with linked devices: both switches start on, and the CHECKs keep the summary rows to codes and counts', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(m0); db.exec(m1); db.exec(m2); db.exec(m3);
+  db.exec("INSERT INTO accounts (id, email, created_at) VALUES ('a1', 'p@example.test', '2026-11-01')");
+  db.exec("INSERT INTO family_devices (id, account_id, token_hash, label, created_at, last_seen) VALUES ('d1', 'a1', 'h', 'x', '2026-11-01', '2026-11-01')");
+  db.exec(m4);
+  assert.deepEqual({ ...db.prepare('SELECT share_child, share_parent, share_at, summary_sent_at FROM family_devices').get() },
+    { share_child: 1, share_parent: 1, share_at: null, summary_sent_at: null });
+  assert.equal(db.prepare('SELECT report_email_at FROM accounts').get().report_email_at, null);
+  const day = (over = {}) => {
+    const r = { minutes: 10, questions: 5, worked: '[]', fixes: '[]', exam: null, ...over };
+    db.prepare(`INSERT OR REPLACE INTO family_daily (device_id, day, minutes, questions, worked, fixes, exam, updated_at)
+      VALUES ('d1', '2026-11-09', ?, ?, ?, ?, ?, 'x')`).run(r.minutes, r.questions, r.worked, r.fixes, r.exam);
+  };
+  day(); day({ minutes: 600, questions: 2000 });
+  assert.throws(() => day({ minutes: 601 }), /CHECK/);
+  assert.throws(() => day({ questions: -1 }), /CHECK/);
+  assert.throws(() => day({ worked: `[${'"x",'.repeat(60)}"x"]` }), /CHECK/);
+  assert.throws(() => day({ fixes: 'x'.repeat(401) }), /CHECK/);
+  assert.throws(() => day({ exam: 'x'.repeat(61) }), /CHECK/);
+  assert.throws(() => db.exec("UPDATE family_devices SET share_child = 2"), /CHECK/);
+  assert.throws(() => db.exec("UPDATE family_devices SET share_parent = -1"), /CHECK/);
+  // a row belongs to a device: the cascade removes it with the device (the code also deletes it first, explicitly)
+  db.exec('PRAGMA foreign_keys = ON');
+  assert.throws(() => db.exec("INSERT INTO family_daily (device_id, day, updated_at) VALUES ('nobody', '2026-11-09', 'x')"), /FOREIGN KEY/);
+  db.exec("DELETE FROM family_devices WHERE id = 'd1'");
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM family_daily').get().n, 0);
 });

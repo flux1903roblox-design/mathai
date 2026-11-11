@@ -66,6 +66,9 @@ CONTACT_PHONE = ""
 OWNER_EMAIL = ""
 # Codes and notices are sent from this address through Resend (the domain must be verified there).
 EMAIL_FROM = ""
+# The parents' progress report (needs AI_PAYWALL "on": only then is there a family plan). See worker/src/report.js.
+# "off" stops the parents' progress report: nothing is stored or emailed (rows already kept stay readable until the 90-day purge).
+PARENT_REPORT = "on"
 # The encrypted backup (restore code). "off" stops it: the app then offers only the backup file.
 VAULT = "on"
 # All encrypted backups together, in MB. Raise only on Workers Paid; the database also holds billing

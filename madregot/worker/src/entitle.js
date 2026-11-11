@@ -16,6 +16,7 @@ import {
   HttpError, key, take, peek, sha256, hmacHex, netKey, nowIso, addDays, dayOf, resetsAt, endOfDayIso, startOfDayIso, isDay, safeEqual,
 } from './util.js';
 import { daySpendUsd, monthSpendUsd, queueNotices, ownerNotice } from './spend.js';
+import { summaryState } from './report.js';
 
 // ---------------------------------------------------------------- limits
 export const DEFAULT_LIMITS = {
@@ -109,14 +110,18 @@ export async function requireTeacher(req, env) {
   return cls;
 }
 
-/** A child's device linked to a family plan (X-Family-Device: fd1.<64 hex>), or null. */
+/**
+ * A child's device linked to a family plan (X-Family-Device: fd1.<64 hex>), or null. With its two sharing switches for
+ * the parents' report (report.js); the AI path ignores them.
+ */
 export async function familyDeviceFrom(env, token) {
   if (!/^fd1\.[a-f0-9]{64}$/.test(String(token || ''))) return null;
-  const row = await env.DB.prepare('SELECT id, account_id, label, last_seen FROM family_devices WHERE token_hash = ?').bind(await sha256(token)).first();
+  const row = await env.DB.prepare('SELECT id, account_id, label, last_seen, share_child, share_parent FROM family_devices WHERE token_hash = ?')
+    .bind(await sha256(token)).first();
   if (!row) return null;
   const today = dayOf();
   if (row.last_seen !== today) await env.DB.prepare('UPDATE family_devices SET last_seen = ? WHERE id = ?').bind(today, row.id).run();
-  return { device_id: row.id, account_id: row.account_id, label: row.label };
+  return { device_id: row.id, account_id: row.account_id, label: row.label, share_child: row.share_child, share_parent: row.share_parent };
 }
 
 /** The install's own id (X-Device). With FREE_DEVICE_MINT = "turnstile" only the signed form minted by POST /api/devices counts. */
@@ -348,7 +353,11 @@ async function decide(req, env, kind, input, id) {
 // ---------------------------------------------------------------- status: the same decision, counting nothing
 const left = (k, count) => Math.max(0, k.limit - count);
 
-/** What this device may ask today (GET /api/ai/status). Never an email, a plan or a price. */
+/**
+ * What this device may ask today (GET /api/ai/status). Never an email, a plan or a price. A linked family device also
+ * learns the state of its daily summary for the parents (linked.summary, report.js summaryState): with the paywall off
+ * it is 'off', and linked is still there so Settings can show the device as linked.
+ */
 export async function aiStatus(req, env) {
   const id = await identify(req, env);
   const aiReady = !!env.ANTHROPIC_API_KEY;
@@ -359,14 +368,17 @@ export async function aiStatus(req, env) {
     return {
       headers,
       // resetsAt: when today's count starts again, so a screen that stays open asks again after midnight
-      body: { paywall: false, tier: 'open', kinds: k ? AI_KINDS : [], groups: { all: k ? { left: left(k, c), limit: k.limit } : null }, resetsAt: resetsAt('day'), aiReady },
+      body: {
+        paywall: false, tier: 'open', kinds: k ? AI_KINDS : [], groups: { all: k ? { left: left(k, c), limit: k.limit } : null }, resetsAt: resetsAt('day'), aiReady,
+        ...(id.fam ? { linked: { label: id.fam.label || '', summary: 'off' } } : {}),
+      },
     };
   }
   const L = limits(env);
   const out = {
     paywall: true, tier: 'free', kinds: [], groups: Object.fromEntries(AI_GROUPS.map((g) => [g, null])),
     economy: false, shared: null, resetsAt: resetsAt('day'),
-    linked: id.fam ? { label: id.fam.label || '' } : null, legacyUntil: null, aiReady,
+    linked: id.fam ? { label: id.fam.label || '', summary: await summaryState(env, id.fam) } : null, legacyUntil: null, aiReady,
   };
   const buckets = await paidBuckets(env, id);
   if (buckets.length) {

@@ -130,3 +130,54 @@ test('a class licence bought by card shows on its buyer\'s page with its end, it
   const after = await (await h.call('GET', '/api/account', { headers: { 'X-Account-Token': token } })).json();
   assert.equal(after.classes[0].status, 'ended'); assert.equal(after.classes[0].plan, undefined);
 });
+
+// ---------------------------------------------------------------- the parents' daily summaries (PARENTS-3)
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
+const summary = (d, over = {}) => ({ v: 1, d, m: 18, q: 22, ls: 2, st: 1, sk: ['signed:1'], ma: [], rv: 0, fx: [['signed:1', 'minus-minus', 'o']], sr: 3, ex: null, ...over });
+const sendDay = (dev, over) => h.call('POST', '/api/family/summary', { headers: dev.headers, body: { days: [summary(today(), over)] } });
+
+test('account delete removes the devices\' daily summaries explicitly and before the devices (proved with the FK cascade off)', async () => {
+  h = await setup();
+  let token = await paidFamily('summaries@example.test');
+  const a = accountId(h.env, 'summaries@example.test');
+  const tablet = await linkDevice(h.env, a, 'הטאבלט');
+  const phone = await linkDevice(h.env, a, 'הטלפון');
+  await paidFamily('stays@example.test');
+  const other = await linkDevice(h.env, accountId(h.env, 'stays@example.test'), 'הטאבלט');
+  for (const d of [tablet, phone, other]) assert.equal((await sendDay(d)).status, 200);
+  assert.equal(rows(h.env, 'SELECT * FROM family_daily').length, 3);
+  // with the cascade off, only the explicit delete (through the devices, so before them) can remove the rows
+  h.env.DB.raw.exec('PRAGMA foreign_keys = OFF');
+  token = await signIn(h, 'summaries@example.test', { 'X-Account-Token': token });
+  const r = await h.call('POST', '/api/account/delete', { headers: { 'X-Account-Token': token }, body: { confirm: 'DELETE' } });
+  assert.equal(r.status, 200);
+  await h.ctx.flush();
+  assert.deepEqual(rows(h.env, 'SELECT device_id FROM family_daily').map((x) => x.device_id), [other.id], 'only the other family\'s row is left');
+  assert.equal(rows(h.env, 'SELECT * FROM family_devices WHERE account_id = ?', a).length, 0);
+});
+
+test('export includes the daily summaries of the caller\'s devices only; the account page shows each device\'s sharing', async () => {
+  h = await setup();
+  const mine = await paidFamily('export@example.test');
+  const a = accountId(h.env, 'export@example.test');
+  const tablet = await linkDevice(h.env, a, 'הטאבלט');
+  await paidFamily('elsewhere@example.test');
+  const theirs = await linkDevice(h.env, accountId(h.env, 'elsewhere@example.test'), 'הטלפון');
+  await sendDay(tablet, { ex: { d: today(), n: 1, of: 2 } });
+  await sendDay(theirs, { m: 77 });
+  const data = await (await h.call('GET', '/api/account/export', { headers: { 'X-Account-Token': mine } })).json();
+  assert.deepEqual(data.summaries, [{
+    device: tablet.id, day: today(), minutes: 18, questions: 22, lessons: 2, stages: 1, reviews: 0, streak: 3,
+    worked: ['signed:1'], mastered: [], fixes: [['signed:1', 'minus-minus', 'o']], exam: { d: today(), n: 1, of: 2 },
+  }]);
+  assert.ok(!JSON.stringify(data).includes(theirs.id));
+  // the account page: the state, since when the child's switch is as it is, the last sync
+  await h.call('POST', '/api/family/summary/sharing', { headers: tablet.headers, body: { on: false } });
+  const page = await (await h.call('GET', '/api/account', { headers: { 'X-Account-Token': mine } })).json();
+  const d = page.devices.find((x) => x.id === tablet.id);
+  assert.equal(d.sharing, 'child_off');
+  assert.ok(d.sharingAt); assert.ok(d.lastSync);
+  // the parent's history delete leaves the device and empties the export
+  await h.call('POST', `/api/family/devices/${tablet.id}/history/delete`, { headers: { 'X-Account-Token': mine }, body: {} });
+  assert.deepEqual((await (await h.call('GET', '/api/account/export', { headers: { 'X-Account-Token': mine } })).json()).summaries, []);
+});

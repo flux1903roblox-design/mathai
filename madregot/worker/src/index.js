@@ -17,6 +17,7 @@ import {
 } from './billing.js';
 import { currentProvider } from './providers/index.js';
 import { linkStart, linkFinish, linkClaim, linkThisDevice, unlinkDevice, leaveFamily, familyVaults, deleteFamilyVault } from './family.js';
+import { saveSummary, childSharing, familySummary, parentSharing, deleteHistory } from './report.js';
 import { licenceStatus, licenceRequest, licenceClaim, lockClass, removeStudent, joinLocked } from './licence.js';
 import { run as runCron } from './cron.js';
 import { postErrors, recordServerError } from './errors.js';
@@ -505,6 +506,13 @@ async function route(req, env, ctx, cors) {
   if (M === 'POST' && p === '/api/family/devices/this') return linkThisDevice(req, env, ctx, cors);
   if (M === 'POST' && p === '/api/family/devices/leave') return leaveFamily(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/family\/devices\/([a-f0-9]{16})\/unlink$/))) return unlinkDevice(m[1], req, env, cors);
+  // the parents' progress report (PARENTS-3): the child's device sends its days and holds its own switch (X-Family-Device);
+  // the parent reads, holds their own switch per device and deletes a device's history (X-Account-Token)
+  if (M === 'POST' && p === '/api/family/summary') return saveSummary(req, env, cors);
+  if (M === 'POST' && p === '/api/family/summary/sharing') return childSharing(req, env, cors);
+  if (M === 'GET' && p === '/api/family/summary') return familySummary(req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/family\/devices\/([a-f0-9]{16})\/sharing$/))) return parentSharing(m[1], req, env, cors);
+  if (M === 'POST' && (m = p.match(/^\/api\/family\/devices\/([a-f0-9]{16})\/history\/delete$/))) return deleteHistory(m[1], req, env, cors);
   // the progress kept for the family's devices (DURABLE-6): listed and deleted, never with the code
   if (M === 'GET' && p === '/api/family/vaults') return familyVaults(req, env, cors);
   if (M === 'POST' && (m = p.match(/^\/api\/family\/vaults\/([a-f0-9]{16})\/delete$/))) return deleteFamilyVault(m[1], req, env, cors);

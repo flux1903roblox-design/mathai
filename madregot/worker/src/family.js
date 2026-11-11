@@ -4,15 +4,17 @@
 //   2. a signed-in parent with a live family plan claims the code  POST /api/family/link/claim   {code, label} (X-Account-Token)
 //   3. the child's device collects its token, exactly once         POST /api/family/link/finish  {code, secret}
 //
-// The token (X-Family-Device: fd1.<64 hex>) works for the AI routes and for the device's own escrow
-// (/api/vault/escrow*, and it names the device for the vault's caps); the parent's session never reaches the child's
-// device. On the parent's own phone there is a shortcut: POST /api/family/devices/this makes a token for the device the
+// The token (X-Family-Device: fd1.<64 hex>) works for the AI routes, the daily summary for the parents
+// (/api/family/summary*, report.js) and the device's own escrow (/api/vault/escrow*, and it names the device for the
+// vault's caps), and for nothing in the account; the parent's session never reaches the child's device. On the parent's own phone there is a shortcut: POST /api/family/devices/this makes a token for the device the
 // parent is holding and deletes the session that asked, so nothing on that device can change the plan afterwards.
 // A family has at most 3 devices. The parent unlinks a device from the parents page; a device can leave by itself.
 // Every link is emailed to the parent. Only hashes of codes, secrets and tokens are stored.
 //
 // Escrow (DURABLE-6): each linked device can keep its backup code with the account (vault.js). Unlinking or leaving
 // keeps that escrow in the account (device_id NULL: "התקדמות שמורה"), in the same batch, before the device row goes.
+// The device's daily summaries (PARENTS-3, family_daily) are deleted in that batch too: after the escrow is detached and
+// before the device row, explicitly, although the foreign key would cascade.
 // Linking a new device can continue from one: claim (or devices/this) with restoreFrom: <escrow id> of this account;
 // the finish that hands over the token also points the escrow at the new device and returns vault: { code }.
 // GET /api/family/vaults lists the account's escrows (never the code); POST /api/family/vaults/:id/delete deletes one.
@@ -166,6 +168,8 @@ export async function leaveFamily(req, env, cors) {
     await env.DB.batch([
       // the device's escrow stays with the account ("התקדמות שמורה"), before the device row goes
       env.DB.prepare('UPDATE vault_escrow SET device_id = NULL WHERE device_id = ?').bind(dev.id),
+      // its daily summaries for the parents go with it (PARENTS-3)
+      env.DB.prepare('DELETE FROM family_daily WHERE device_id = ?').bind(dev.id),
       env.DB.prepare('DELETE FROM family_devices WHERE id = ?').bind(dev.id),
       env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
         .bind(nowIso(), `device:${dev.id}`, 'device.unlink', `device:${dev.id}`, JSON.stringify({ by: 'device' })),
@@ -273,6 +277,8 @@ export async function unlinkDevice(id, req, env, cors) {
   await env.DB.batch([
     // the device's escrow stays with the account ("התקדמות שמורה"), before the device row goes
     env.DB.prepare('UPDATE vault_escrow SET device_id = NULL WHERE device_id = ?').bind(dev.id),
+    // its daily summaries for the parents go with it (PARENTS-3)
+    env.DB.prepare('DELETE FROM family_daily WHERE device_id = ?').bind(dev.id),
     env.DB.prepare('DELETE FROM family_devices WHERE id = ? AND account_id = ?').bind(dev.id, a.id),
     env.DB.prepare('INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, ?, ?, ?)')
       .bind(nowIso(), `account:${a.id}`, 'device.unlink', `device:${dev.id}`, JSON.stringify({ by: 'parent' })),
@@ -282,7 +288,8 @@ export async function unlinkDevice(id, req, env, cors) {
 
 /**
  * Night-time purge: link codes a day past their expiry, devices that never collected a token, devices unused for a year.
- * A deleted device's escrow stays with the account (device_id NULL), as on an unlink.
+ * A deleted device's escrow stays with the account (device_id NULL), as on an unlink. Its daily summaries go with it:
+ * purge() runs report.js purgeReportSql after this in the same batch, whose orphan sweep removes them (so does the FK).
  */
 export function purgeFamilySql(env, now = new Date()) {
   const dayAgo = new Date(now.getTime() - 864e5).toISOString();

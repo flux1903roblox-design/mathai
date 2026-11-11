@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   adult_confirmed_at TEXT,                     -- ticked "18+ and the parent or guardian" at checkout
   terms_version TEXT,                          -- the terms accepted at checkout, e.g. '2026-11'
   billing_hold_at TEXT                         -- set by a chargeback: no new checkout until the owner clears it
-);
+, report_email_at TEXT);
 
 -- One pending sign-in code per address, keyed by an HMAC so an address that never signs in is never stored.
 CREATE TABLE IF NOT EXISTS login_codes (
@@ -122,7 +122,9 @@ CREATE TABLE IF NOT EXISTS account_sessions (
 );
 CREATE INDEX IF NOT EXISTS account_sessions_account ON account_sessions (account_id);
 
--- A child's device linked to a family subscription. Its token (X-Family-Device) works for the AI routes only.
+-- A child's device linked to a family subscription. Its token (X-Family-Device) works for the AI routes and the daily
+-- summary (and the device's own escrow). share_child is the child's switch on the device, share_parent the parent's on
+-- /parents: a summary is stored only while both are on (PARENTS-3). share_at: when the child last changed theirs.
 CREATE TABLE IF NOT EXISTS family_devices (
   id TEXT PRIMARY KEY,
   account_id TEXT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
@@ -130,7 +132,7 @@ CREATE TABLE IF NOT EXISTS family_devices (
   label TEXT NOT NULL DEFAULT '' CHECK (length(label) <= 30),   -- optional, chosen by the parent ('הטאבלט')
   created_at TEXT NOT NULL,
   last_seen TEXT NOT NULL                      -- YYYY-MM-DD
-);
+, share_child INTEGER NOT NULL DEFAULT 1 CHECK (share_child IN (0, 1)), share_parent INTEGER NOT NULL DEFAULT 1 CHECK (share_parent IN (0, 1)), share_at TEXT, summary_sent_at TEXT);
 CREATE INDEX IF NOT EXISTS family_devices_account ON family_devices (account_id);
 
 -- A pending link: the child's device shows the code, a signed-in parent claims it, the device collects its token.
@@ -341,6 +343,7 @@ CREATE INDEX IF NOT EXISTS audit_target ON audit_log (target);
 --   app errors:   err:n:<net> (items a day)  err:all
 --   vaults:       vault:miss:s:<student> | vault:miss:fd:<family device> | vault:miss:n:<net> (lookups that found nothing)
 --                 vault:new:n:<net> (anonymous creates)  vault:new:all  vault:w:<id_hash[0:16]> (writes to one vault)
+--   parents' report: sum:d:<family device> (summary posts a day, 150)  sum:n:<net> (3000)
 
 -- DURABLE-9: the app's error reports, counted per day and fingerprint, with no per-user trail: no device id, no address,
 -- no name, no route values (a route is its pattern). fp = the first 16 hex of SHA-256(kind|name|message|frame). Kept 30
@@ -413,3 +416,25 @@ CREATE TABLE IF NOT EXISTS student_tokens (
 CREATE INDEX IF NOT EXISTS student_tokens_student ON student_tokens (student_id);
 INSERT OR IGNORE INTO student_tokens (token_hash, student_id, created_at, last_seen)
   SELECT token_hash, id, created_at, COALESCE(last_seen, created_at) FROM students WHERE token_hash <> '';
+
+-- PARENTS-3: one small row per linked device and day, for the parents' progress report (worker/src/report.js). Codes and
+-- counts only: no names, no Hebrew, no answers. Written only while both switches of the device are on and its family
+-- plan is live; kept 90 days (REPORT_KEEP_DAYS in report.js, the night purge); deleted with the device (unlink, leave,
+-- the night's device purge), the account, the parent's "delete history" and the child's "stop and delete".
+CREATE TABLE IF NOT EXISTS family_daily (
+  device_id TEXT NOT NULL REFERENCES family_devices (id) ON DELETE CASCADE,
+  day TEXT NOT NULL,                                   -- YYYY-MM-DD, the device's day
+  minutes INTEGER NOT NULL DEFAULT 0 CHECK (minutes BETWEEN 0 AND 600),
+  questions INTEGER NOT NULL DEFAULT 0 CHECK (questions BETWEEN 0 AND 2000),
+  lessons INTEGER NOT NULL DEFAULT 0 CHECK (lessons BETWEEN 0 AND 200),
+  stages INTEGER NOT NULL DEFAULT 0 CHECK (stages BETWEEN 0 AND 200),
+  reviews INTEGER NOT NULL DEFAULT 0 CHECK (reviews BETWEEN 0 AND 200),
+  streak INTEGER NOT NULL DEFAULT 0 CHECK (streak BETWEEN 0 AND 3650),
+  worked TEXT NOT NULL DEFAULT '[]' CHECK (length(worked) <= 200),       -- JSON skill ids
+  mastered TEXT NOT NULL DEFAULT '[]' CHECK (length(mastered) <= 200),   -- JSON skill ids
+  fixes TEXT NOT NULL DEFAULT '[]' CHECK (length(fixes) <= 400),         -- JSON [[skill, id, 'o'|'d']]
+  exam TEXT CHECK (exam IS NULL OR length(exam) <= 60),                  -- JSON {d, n, of}
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (device_id, day)
+);
+CREATE INDEX IF NOT EXISTS family_daily_day ON family_daily (day);

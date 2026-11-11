@@ -131,7 +131,7 @@ test('every route of the Worker has its pattern; anything else is /api/other', (
   assert.ok(literal.length > 25);
   // and the routes with values in them: each regex route of index.js maps to a pattern
   for (const p of ['/api/ai/explain', '/api/billing/orders/0123456789abcdef', '/api/billing/payments/0123456789abcdef/invoice', '/api/billing/test-pay/0123456789abcdef',
-    '/api/family/devices/0123456789abcdef/unlink', '/api/classes/K7Q2MD', '/api/teacher/help/12', '/api/teacher/help/12/image', '/api/teacher/students/ab12/remove']) {
+    '/api/family/devices/0123456789abcdef/unlink', '/api/family/devices/0123456789abcdef/sharing', '/api/family/devices/0123456789abcdef/history/delete', '/api/classes/K7Q2MD', '/api/teacher/help/12', '/api/teacher/help/12/image', '/api/teacher/students/ab12/remove']) {
     assert.notEqual(routePattern(p), '/api/other', p);
     assert.doesNotMatch(routePattern(p), /\d|K7Q2MD/, p);
   }

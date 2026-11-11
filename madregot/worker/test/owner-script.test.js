@@ -111,3 +111,20 @@ test('read-only commands are marked read-only; arguments parse as --name value a
   assert.throws(() => build('events', { outcome: "x' OR 1=1" }, fixed), InputError);
   assert.deepEqual(parseArgs(['grant-class', '--class', 'ABC234', '--trial', '--seats', '10', '--local']), { cmd: 'grant-class', o: { class: 'ABC234', trial: true, seats: '10', local: true } });
 });
+
+test('the owner\'s revoke-device and forget delete the devices\' daily summaries first (PARENTS-3), also with the FK cascade off', () => {
+  const env = makeEnv();
+  env.DB.raw.exec('PRAGMA foreign_keys = OFF');
+  run(env, build('grant-family', { email: 'rows@example.test', until: '2027-01-31' }, fixed).sql);
+  const a = one(env, 'SELECT id FROM accounts').id;
+  const dev = (id) => env.DB.raw.prepare("INSERT INTO family_devices (id, account_id, token_hash, label, created_at, last_seen) VALUES (?, ?, ?, '', ?, '2026-11-10')").run(id, a, `h${id}`, NOW);
+  const day = (id) => env.DB.raw.prepare("INSERT INTO family_daily (device_id, day, updated_at) VALUES (?, '2026-11-10', 'x')").run(id);
+  dev('aaaaaaaaaaaaaaaa'); dev('bbbbbbbbbbbbbbbb'); day('aaaaaaaaaaaaaaaa'); day('bbbbbbbbbbbbbbbb');
+  const revoke = build('revoke-device', { id: 'aaaaaaaaaaaaaaaa' }, fixed).sql;
+  assert.ok(revoke.indexOf('DELETE FROM family_daily') < revoke.indexOf('DELETE FROM family_devices'));
+  run(env, revoke);
+  assert.deepEqual(rows(env, 'SELECT device_id FROM family_daily').map((r) => r.device_id), ['bbbbbbbbbbbbbbbb']);
+  run(env, build('forget', { email: 'rows@example.test' }, fixed).sql);
+  assert.equal(rows(env, 'SELECT * FROM family_daily').length, 0);
+  assert.equal(rows(env, 'SELECT * FROM family_devices').length, 0);
+});

@@ -204,7 +204,11 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
     }
     case 'revoke-device': {
       const dev = idArg(o.id, 'device id');
-      return { readOnly: false, sql: [`DELETE FROM family_devices WHERE id = ${q(dev)};`, audit(now, 'device.unlink', `device:${dev}`, { by: 'owner' })].join('\n') };
+      // the device's daily summaries for the parents (PARENTS-3) go first, then the device
+      return {
+        readOnly: false,
+        sql: [`DELETE FROM family_daily WHERE device_id = ${q(dev)};`, `DELETE FROM family_devices WHERE id = ${q(dev)};`, audit(now, 'device.unlink', `device:${dev}`, { by: 'owner' })].join('\n'),
+      };
     }
     case 'forget': {
       const email = emailArg(o.email);
@@ -218,6 +222,7 @@ export function build(cmd, o = {}, { now = new Date().toISOString(), id = random
   current_period_end = ${endNow}, updated_at = ${q(now)} WHERE kind = 'family' AND account_id = ${acc} AND ${RUNNING};`,
           `DELETE FROM account_sessions WHERE account_id = ${acc};`,
           `DELETE FROM link_codes WHERE account_id = ${acc};`,
+          `DELETE FROM family_daily WHERE device_id IN (SELECT id FROM family_devices WHERE account_id = ${acc});`,
           `DELETE FROM family_devices WHERE account_id = ${acc};`,
           `DELETE FROM licence_requests WHERE account_id = ${acc};`,
           `DELETE FROM notices WHERE to_account = ${acc} AND sent_at IS NULL;`,
