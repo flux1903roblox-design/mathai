@@ -846,7 +846,11 @@
   "sys:4/diag",
   "sys:4/gen",
   "sys:5/diag",
-  "sys:5/gen"
+  "sys:5/gen",
+  "space:1/diag",
+  "space:1/gen",
+  "space:2/diag",
+  "space:2/gen"
  ],
  "eq:1": {
   "items": [
@@ -2571,6 +2575,80 @@
     "solid:4/probe/no-half",
     "solid:4/probe/no-half",
     "solid:4/control/no-half"
+   ]
+  }
+ },
+ "space:1": {
+  "items": [
+   "mastery0:sp1s:6:18:13|23|gen",
+   "mastery1:sp1f:8:5:9|9.4|gen",
+   "mastery2:space:1:diag:{\"a\":6,\"b\":18,\"c\":13,\"d\":23}|23|diag",
+   "mastery3:sp1m:2:10:15|11|gen",
+   "mastery4:space:1:transfer:{\"a\":20,\"b\":20,\"c\":17,\"d\":33}|33|transfer",
+   "review0:space:1:transfer:{\"a\":2,\"b\":6,\"c\":9,\"d\":11}|11|transfer",
+   "review1:sp1m:4:13:21|16|gen",
+   "review2:space:1:diag:{\"a\":6,\"b\":18,\"c\":13,\"d\":23}|23|diag",
+   "verify0:space:1:probe:{\"a\":2,\"b\":6,\"c\":9,\"d\":11}|11|probe",
+   "verify1:space:1:probe:{\"a\":4,\"b\":4,\"c\":2,\"d\":6}|6|probe",
+   "verify2:space:1:diag:{\"a\":1,\"b\":4,\"c\":8,\"d\":9}|9|diag",
+   "gen:sp1f:6:9:6|10.8|gen",
+   "diag:space:1:diag:{\"a\":4,\"b\":16,\"c\":13,\"d\":21}|21|diag",
+   "transfer:space:1:transfer:{\"a\":4,\"b\":16,\"c\":13,\"d\":21}|21|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "space:1/gen/",
+    "space:1/gen/",
+    "space:1/diag/",
+    "space:1/gen/",
+    "space:1/transfer/"
+   ],
+   "review": [
+    "space:1/transfer/",
+    "space:1/gen/",
+    "space:1/diag/"
+   ],
+   "verify": [
+    "space:1/probe/face-for-space",
+    "space:1/probe/face-for-space",
+    "space:1/control/face-for-space"
+   ]
+  }
+ },
+ "space:2": {
+  "items": [
+   "mastery0:sp2r:1:4:3|5|gen",
+   "mastery1:sp2v:7:25|392|gen",
+   "mastery2:space:2:diag:{\"r\":8,\"d\":16,\"h\":12,\"rod\":20}|20|diag",
+   "mastery3:sp2t:8:15:6|51|gen",
+   "mastery4:space:2:transfer:{\"a\":12,\"b\":16,\"e\":20,\"c\":6}|60|transfer",
+   "review0:space:2:transfer:{\"a\":15,\"b\":8,\"e\":17,\"c\":18}|153|transfer",
+   "review1:sp2v:9:15|324|gen",
+   "review2:space:2:diag:{\"r\":8,\"d\":16,\"h\":12,\"rod\":20}|20|diag",
+   "verify0:space:2:probe:{\"r\":4,\"d\":8,\"h\":6,\"rod\":10}|10|probe",
+   "verify1:space:2:probe:{\"r\":3,\"d\":6,\"h\":8,\"rod\":10}|10|probe",
+   "verify2:space:2:diag:{\"r\":8,\"d\":16,\"h\":12,\"rod\":20}|20|diag",
+   "gen:sp2r:1:6:8|10|gen",
+   "diag:space:2:diag:{\"r\":5,\"d\":10,\"h\":24,\"rod\":26}|26|diag",
+   "transfer:space:2:transfer:{\"a\":15,\"b\":8,\"e\":17,\"c\":12}|102|transfer"
+  ],
+  "plans": {
+   "mastery": [
+    "space:2/gen/",
+    "space:2/gen/",
+    "space:2/diag/",
+    "space:2/gen/",
+    "space:2/transfer/"
+   ],
+   "review": [
+    "space:2/transfer/",
+    "space:2/gen/",
+    "space:2/diag/"
+   ],
+   "verify": [
+    "space:2/probe/r-for-d",
+    "space:2/probe/r-for-d",
+    "space:2/control/r-for-d"
    ]
   }
  },

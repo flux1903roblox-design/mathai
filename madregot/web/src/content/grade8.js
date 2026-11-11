@@ -5,6 +5,7 @@ import { SYS } from './sys.js';
 import { RATIO } from './ratio.js';
 import { PCT } from './pct.js';
 import { CIRCLE } from './circle.js';
+import { SPACE } from './space.js';
 
 // ---------------------------------------------------------------- Pythagoras
 // About half the questions come from whole-number triangles (Pythagorean triples), the rest need a root that is not
@@ -357,4 +358,6 @@ export const GRADE8 = [
     },
   },
   SYS,
+  // Pythagoras in space (stage 2, MEASURE-5): May's unit, last on the path; sky after sys's petrol
+  SPACE,
 ];

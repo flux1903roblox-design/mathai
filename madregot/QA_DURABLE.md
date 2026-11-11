@@ -875,6 +875,11 @@ script. They now load one topic at a time, and nothing the student sees changed.
   from 4.76 to 4.88 MB, over its 4.79 MB gate. Both gates moved by the same rule (measured + 5%, rounded down) to
   **469 KB** and **5.12 MB**. Open work, unchanged: the challenge tasks behind a per-topic import, and the exercise
   generators of units that are not this month's behind one too.
+  Its next three units joined the same way (generators, models and challenge tasks at boot, each unit's teaching a
+  chunk of its own): boxes and prisms (`solid:1-4`) and the circle, the cylinder and the cone (`circle:1-4`) took boot
+  JS to 465.1 KB, under the gate, and Pythagoras in space (`space:1-2`, the lane's last unit) to **470.9 KB**, 1.9 KB
+  over it (CSS 53.9 KB unchanged; precache 5.09 MB, under its 5.12 MB gate). The boot JS gate moved by the same rule
+  (measured + 5%, rounded down) to **494 KB**; the precache gate stays. Open work, unchanged.
 - **The timing test** (`web/e2e/perf.spec.js`, tag `@perf`, phone project, skipped unless `PERF=1`):
   `web/scripts/serve-gzip.mjs` serves the build gzipped on port 4204 (vite preview does not compress); Chrome DevTools
   Protocol slows the CPU 4x and the network to 150 ms, 200,000 B/s down, 93,750 B/s up; FCP and LCP from

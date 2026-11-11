@@ -63,8 +63,9 @@ test('the stable block holds the safety block first, then the tutor, the pedagog
   // yet" list computed from the programme (its full Hebrew titles) took it to about 20,000, so it moved once more, on
   // purpose. A further topic moves it only on purpose too: the measurement lane's areas took it to about 20,950, and its
   // boxes and prisms (their way, their four stairs) past 21,000, so it moved to 22,000; the circle, the cylinder and the
-  // cone (their way, four stairs and a shorter "not yet" list) took it to about 22,350, so it moved to 23,000.
-  assert.ok(s.length < 23000, `stable block is ${s.length} characters`);
+  // cone (their way, four stairs and a shorter "not yet" list) took it to about 22,350, so it moved to 23,000; Pythagoras in
+  // space (its way and two stairs) took it past 23,000, so it moved to 24,000.
+  assert.ok(s.length < 24000, `stable block is ${s.length} characters`);
   assert.ok(s.length > 6000);
   assert.equal(s, stableSystem(), 'the same string every time');
   assert.equal(fromAi(), s, 'shared/ai.js serves the same block');
@@ -182,6 +183,15 @@ test('avoidRe catches a shortcut stated as a rule, never the app\'s own quoted n
   assert.ok(any(TOPIC_WAYS.circle.avoidRe, 'מציבים את הקוטר בנוסחת השטח.'));
   for (const ok of ['היקף מעגל: $\\pi d = 2\\pi r$, ו־$\\pi \\approx 3.14$.', 'השתמשו בקו היוצר במקום בגובה', 'הקו היוצר הוא היתר של המשולש הישר־זווית שבחצי החתך.', 'העלו בריבוע את הקוטר במקום את הרדיוס', 'π הוא בערך 3.14.']) {
     assert.ok(!any(TOPIC_WAYS.circle.avoidRe, ok), ok);
+  }
+  // and Pythagoras in space: the diagonal as the edges' sum, a face's diagonal as the longest, the radius as the
+  // section's width, the triangle inside a box as a rectangle
+  assert.ok(any(TOPIC_WAYS.space.avoidRe, 'האלכסון הוא סכום המקצועות.'));
+  assert.ok(any(TOPIC_WAYS.space.avoidRe, 'אלכסון הפאה הוא הארוך ביותר.'));
+  assert.ok(any(TOPIC_WAYS.space.avoidRe, 'רוחב החתך הצירי הוא הרדיוס.'));
+  assert.ok(any(TOPIC_WAYS.space.avoidRe, 'המשולש בתוך התיבה הוא מלבן.'));
+  for (const ok of ['חישבו את אלכסון הפאה במקום את אלכסון התיבה', 'השתמשו ברדיוס במקום בקוטר כצלע של החתך', 'רוחב החתך הצירי הוא הקוטר.', 'אלכסון התיבה ארוך מאלכסון של כל פאה.', '$d^2 = a^2 + b^2 + c^2$.']) {
+    assert.ok(!any(TOPIC_WAYS.space.avoidRe, ok), ok);
   }
   // the prompt itself, and every line of the stairs' own teaching, pass every pattern: the tutor may quote the app
   const all = TOPICS.flatMap((id) => TOPIC_WAYS[id].avoidRe);

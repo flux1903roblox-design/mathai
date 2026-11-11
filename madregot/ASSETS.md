@@ -94,6 +94,11 @@ The circle, cylinder and cone unit (stage 2) adds three more, drawn the same way
 - `Can`: a can with its label half peeled off, the label a flat rectangle;
 - `IceCream`: an ice-cream cone with its scoop, the cone's height dashed down its middle.
 Its wardrobe piece, `wheel-pin`, is a small wheel with its radius (`web/src/components/mascot/Accessories.jsx`).
+The Pythagoras in space unit (stage 2) adds three more, drawn the same way:
+- `BoxDiagonal`: a box with its diagonal in the accent tone, from a bottom corner to the far top corner (the unit's emblem);
+- `AntBox`: a box's front face and lid unfolded flat, an ant's straight path across both (the challenge space:c3);
+- `PartyHat`: a party hat (a cone) with its height dashed from the tip to the middle of its rim.
+Its wardrobe piece, `diagonal-pin`, is a small box with its diagonal (`web/src/components/mascot/Accessories.jsx`).
 
 ## 4. Original artwork drawn in code (no third-party source)
 

@@ -145,6 +145,10 @@ export const PROGRAMME = {
     { id: '8.16', grade: '8', domain: 'uncertainty', title: 'הסתברות א ו־ב', months: [3],
       parts: [{ hours: 6, skills: [], note: 'הסתברות: מאורע, מאורע משלים וניסוי בשני שלבים', later: 'S3' }] },
     { id: '8.17', grade: '8', domain: 'geometry', title: 'משפט פיתגורס במרחב', months: [5],
-      parts: [{ hours: 6, skills: [], note: 'משפט פיתגורס בגופים במרחב', later: 'S2' }] },
+      parts: [
+        // stage 2 (MEASURE-6.1): both stairs in May, the unit's month
+        { hours: 3, skills: ['space:1'], note: 'אלכסון בקובייה ובתיבה' },
+        { hours: 3, skills: ['space:2'], note: 'משולשים ישרי־זווית בגופים' },
+      ] },
   ],
 };

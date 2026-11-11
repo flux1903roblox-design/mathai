@@ -81,7 +81,7 @@ function fitView(points, { W = 300, H = 220, pad = SOLID_PAD, below = 0 } = {}) 
   return { W, H: h, s, X: (p) => ox + at(p)[0] * s, Y: (p) => oy - at(p)[1] * s };
 }
 /** A label beside a point of the drawing, pushed (dx, dy) screen units away. */
-const Lab = ({ v, at, dx = 0, dy = 0, text, anchor = 'middle' }) => (text == null ? null : <text x={v.X(at) + dx} y={v.Y(at) + dy + 6} textAnchor={anchor} className="fg-side">{text}</text>);
+const Lab = ({ v, at, dx = 0, dy = 0, text, anchor = 'middle', cls = 'fg-side' }) => (text == null ? null : <text x={v.X(at) + dx} y={v.Y(at) + dy + 6} textAnchor={anchor} className={cls}>{text}</text>);
 /** A small right-angle mark at corner P between the directions u and w (unit vectors in space or the plane). */
 function RightMark({ v, P, u, w, k }) {
   const q = (a, b) => P.map((x, i) => x + (a * u[i] + b * w[i]) * k);
@@ -121,6 +121,12 @@ function Polyhedron({ fig, L }) {
   })() : [];
   const line = (p, q, cls, key) => <line key={key} x1={v.X(p)} y1={v.Y(p)} x2={v.X(q)} y2={v.Y(q)} className={cls} />;
   const mid = (p, q) => p.map((x, i) => (x + q[i]) / 2);
+  // a name written beside a segment, off its middle along the normal that points up (so it never sits on the line)
+  const beside = (p, q, k = 15) => {
+    const ex = v.X(q) - v.X(p); const ey = v.Y(q) - v.Y(p); const len = Math.hypot(ex, ey) || 1;
+    const up = -ex / len <= 0 ? 1 : -1;
+    return { dx: (up * ey * k) / len, dy: (-up * ex * k) / len };
+  };
   return (
     <svg viewBox={`0 0 ${v.W} ${v.H}`} className="figure fg-solid" role="img" aria-label={figWords(fig)}>
       {open && <polygon points={pts3(v, faces[1].map((i) => V[i]))} className="fg-solid-inside" />}
@@ -134,7 +140,10 @@ function Polyhedron({ fig, L }) {
       {box && diags.includes('tri') && line(V[5], V[6], TONE.edge, 'de')}
       {box && (diags.includes('space') || diags.includes('tri')) && line(V[0], V[6], TONE.space, 'ds')}
       {box && diags.includes('tri') && (() => { const d = Math.hypot(box.a, box.b); return <RightMark v={v} P={V[5]} u={[-box.a / d, 0, -box.b / d]} w={[0, 1, 0]} k={Math.min(box.a, box.b, box.c) * 0.18} />; })()}
+      {box && (fig.segs || []).map((s, i) => line(V[s.from], V[s.to], 'fg-solid-seg', `sg${i}`))}
       {edges.filter(visible).map(([p, q], i) => line(V[p], V[q], 'fg-solid-edge', `e${i}`))}
+      {box && L.d != null && (() => { const end = diags.includes('space') || diags.includes('tri') ? V[6] : V[5]; return <Lab v={v} at={mid(V[0], end)} {...beside(V[0], end)} text={L.d} cls="fg-side fg-solid-seglab" />; })()}
+      {box && (fig.segs || []).map((s, i) => <Lab key={`sl${i}`} v={v} at={mid(V[s.from], V[s.to])} {...beside(V[s.from], V[s.to])} text={s.label} cls="fg-side fg-solid-seglab" />)}
       {tri && fig.h != null && !fig.r && (() => { const C = [tri[2][0], tri[2][1], 0]; const F = [tri[2][0], 0, 0]; return <>{line(C, F, 'fg-solid-hidden', 'ht')}<RightMark v={v} P={F} u={[1, 0, 0]} w={[0, 1, 0]} k={fig.h * 0.16} /></>; })()}
       {/* a right angle at the base's left corner (legs p and q, or three sides that make one) is marked */}
       {tri && fig.h == null && Math.abs(tri[2][0]) < 1e-9 && <RightMark v={v} P={[0, 0, 0]} u={[1, 0, 0]} w={[0, 1, 0]} k={Math.min(fig.p, tri[2][1]) * 0.16} />}

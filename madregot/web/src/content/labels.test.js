@@ -19,6 +19,7 @@ import { PCT } from './pct.js';
 import { AREA } from './area.js';
 import { SOLID, CUBE_OPPOSITE } from './solid.js';
 import { CIRCLE } from './circle.js';
+import { SPACE } from './space.js';
 import { piNear } from './util.js';
 // the grid object's rules, which the app loads after the first screen (content/late.js)
 import './grid.js';
@@ -876,7 +877,7 @@ PROPS.solid = {
   'square-scale': (it, u) => { const [k] = nums(it.key); return areaKind(it) === 'so4k' && fits(u, k * k); },
 };
 /**
- * Stage 2's circle, cylinder and cone (content/circle.js, not on the path yet), from the numbers in each key: ci1p:k:r
+ * Stage 2's circle, cylinder and cone (content/circle.js), from the numbers in each key: ci1p:k:r
  * (k 1 asks the radius from 2r·π), ci1n:g:v (g 0 the diameter v, g 1 the radius v; π ≈ 3.14), ci1r:c, ci1w:r:n,
  * ci2p:k:r (k 1 gives the diameter 2r), ci2n:r, ci2h:q:r (q 1 a quarter), ci2r:r:w, ci3v:r:h, ci3l:r:h, ci3s:r:h,
  * ci3f:B:L, ci3m:a:b, ci4v:r:h:l, ci4h:r:l, ci4a:g:r:h, ci4c:V, ci4m:r:h. A π ≈ 3.14 question's mistake is its multiple of
@@ -938,6 +939,47 @@ PROPS.circle = {
   'no-half': (it, u) => { const [, r, h] = nums(it.key); return areaKind(it) === 'ci4a' && fits(u, 2 * r * h); },
   'same-sheet': (it, u) => areaKind(it) === 'ci3m' && it.choices[u]?.text === 'לשניהם אותו נפח',
 };
+/**
+ * Stage 2's Pythagoras in space (content/space.js), from the numbers in each key: sp1s:a:b:c, sp1f:a:b:c (the base a by
+ * b), sp1c:s, sp1m:a:b:d (the height asked), sp1w (the segments' corners), sp2r:g:d:h (g 1 gives the diameter d, g 0 its
+ * radius), sp2t:a:b:c, sp2v:r:l (the height not written), sp2p:a:b:L, sp2m:r:h. A length that is not whole is matched
+ * to tenths (fits).
+ */
+const hyp = (...xs) => Math.sqrt(xs.reduce((s, x) => s + x * x, 0));
+PROPS.space = {
+  'face-for-space': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'sp1s') { const [a, b] = n; return fits(u, hyp(a, b)); }
+    if (k === 'sp1c') return fits(u, n[0] * Math.SQRT2);
+    return false;
+  },
+  'add-edges3': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'sp1s') { const [a, b, c] = n; return fits(u, a + b + c); }
+    if (k === 'sp1c') return fits(u, 3 * n[0]);
+    return false;
+  },
+  'no-root': (it, u) => {
+    const k = areaKind(it); const [a, b, c] = nums(it.key);
+    if (k === 'sp1s') return fits(u, a * a + b * b + c * c);
+    if (k === 'sp1f') return fits(u, a * a + b * b);
+    return false;
+  },
+  'add-not-sub': (it, u) => { const [a, b, d] = nums(it.key); return areaKind(it) === 'sp1m' && fits(u, hyp(d, a, b)); },
+  'which-diagonal': (it, u) => areaKind(it) === 'sp1w' && !!it.choices[u] && !it.choices[u].ok,
+  'add-legs': (it, u) => {
+    const k = areaKind(it); const n = nums(it.key);
+    if (k === 'sp1f') { const [a, b] = n; return fits(u, a + b); }
+    if (k === 'sp2r') { const [, d, h] = n; return fits(u, d + h); }
+    if (k === 'sp2t') { const [a, b, c] = n; return fits(u, ((a + b) * c) / 2); }
+    if (k === 'sp2p') { const [a, b, L] = n; return fits(u, (a + b) * L); }
+    return false;
+  },
+  'r-for-d': (it, u) => { const [, d, h] = nums(it.key); return areaKind(it) === 'sp2r' && fits(u, hyp(d / 2, h)); },
+  'no-half': (it, u) => { const [a, b, c] = nums(it.key); return areaKind(it) === 'sp2t' && fits(u, hyp(a, b) * c); },
+  'no-third': (it, u) => { const [r, l] = nums(it.key); return areaKind(it) === 'sp2v' && fits(u, (r * r * Math.sqrt(l * l - r * r))); },
+  'slant-as-height': (it, u) => { const [r, l] = nums(it.key); return areaKind(it) === 'sp2v' && fits(u, (r * r * l) / 3); },
+};
 
 /**
  * An inequality item answered as if it said x rel' B with rel' = wrong(q): the ray drawn that way, the count of the
@@ -978,12 +1020,11 @@ describe('every mistake label describes the answer', () => {
   });
 });
 
-// Areas and perimeters, and boxes and prisms, are on the path (the loop above samples them through makeItem); the circle,
-// the cylinder and the cone (stage 2) are not yet: their generators are sampled straight from the topic object, as
-// makeItem would give them (an answer that is right is never a mistake), and the words come from its own cats. Areas and
-// boxes run here too, from their topic objects.
+// Stage 2's topics are on the path (the loop above samples them through makeItem); here their generators are sampled
+// once more straight from the topic objects, as makeItem would give them (an answer that is right is never a mistake),
+// with the words from their own cats, and each level must name some mistake.
 describe('every mistake label describes the answer: sampled from the topic objects of stage 2', () => {
-  for (const T of [AREA, SOLID, CIRCLE]) {
+  for (const T of [AREA, SOLID, CIRCLE, SPACE]) {
     T.levels.forEach((L, i) => {
       const level = i + 1;
       it(`${T.id} level ${level}: ${L.title}`, () => {
@@ -1009,7 +1050,7 @@ describe('every mistake label describes the answer: sampled from the topic objec
 
 describe('the algebra, fraction, ratio and percent topics name only what a property can check', () => {
   it('every category of expressions, equations, systems, fractions, ratio and percent has its property here', () => {
-    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, AREA, SOLID, CIRCLE]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
+    for (const t of [EXPR, EQ, SYS, FRAC, RATIO, PCT, AREA, SOLID, CIRCLE, SPACE]) for (const cat of Object.keys(t.cats)) expect(PROPS[t.id][cat], `${t.id} '${cat}'`).toBeTypeOf('function');
   });
   it('a number near a prediction is not that mistake unless it is the prediction rounded', () => {
     // x : 2 = 9 moved over as a division gives 4.5: 4.5 is that mistake, 4.45 and 4.55 are not

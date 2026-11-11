@@ -145,6 +145,16 @@ const DRAW = {
       <circle cx="104" cy="95" r="1.4" style={F(WHITE)} />
     </>
   ),
+  // Pythagoras in space: a small box, its diagonal from a bottom corner to the far top corner
+  'diagonal-pin': () => (
+    <>
+      <circle cx="104" cy="95" r="10.5" style={{ ...F(WHITE), ...S(ch('sky', '-d')) }} strokeWidth="2" />
+      <path d="M97.5 92 L101 88.5 H110.5 L107 92 Z" style={F(ch('sky'))} />
+      <path d="M107 92 L110.5 88.5 V97.5 L107 101 Z" style={F(ch('sky', '-d'))} />
+      <path d="M97.5 92 H107 V101 H97.5 Z" style={{ ...F(WHITE), ...S(ch('sky', '-d')) }} strokeWidth="1.4" {...round} />
+      <path d="M97.5 101 L110.5 88.5" style={S(ch('sky', '-d'))} strokeWidth="1.6" {...round} />
+    </>
+  ),
   'class-scarf': ({ classColor = 'sky' }) => (
     <>
       <path d="M66 104 H75 L77 119 H68Z" style={F(ch(classColor, '-d'))} />

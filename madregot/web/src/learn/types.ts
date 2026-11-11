@@ -3,7 +3,7 @@
 //
 // Text is Hebrew with inline TeX between $...$ (rendered by components/MathText). A `display` is TeX only.
 
-export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'area' | 'solid' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'circle' | 'stats' | 'sys';
+export type TopicId = 'frac' | 'signed' | 'coord' | 'angles' | 'expr' | 'area' | 'solid' | 'eq' | 'ratio' | 'pct' | 'line' | 'pyth' | 'circle' | 'stats' | 'sys' | 'space';
 /** One skill per stair: `${topic}:${level}`, e.g. 'signed:1'. Every stair is one skill. */
 export type SkillId = string;
 export type Text = string;
@@ -74,8 +74,13 @@ export type SolidDiag = 'face' | 'space' | 'tri' | 'axial' | 'rod';
 export type SolidFig = {
   type: 'solid'; shape: 'box' | 'cube' | 'prism' | 'cylinder' | 'cone';
   a?: number; b?: number; c?: number; p?: number; q?: number; r?: number; L?: number; h?: number; l?: number;
-  labels?: boolean | Partial<Record<'a' | 'b' | 'c' | 'p' | 'q' | 'r' | 'L' | 'h' | 'l', string | number>>;
+  labels?: boolean | Partial<Record<'a' | 'b' | 'c' | 'd' | 'p' | 'q' | 'r' | 'L' | 'h' | 'l', string | number>>;
   diag?: SolidDiag | SolidDiag[]; cubes?: boolean; cut?: 'diagonal' | 'half'; open?: boolean; label?: string;
+  /**
+   * Segments between a box's corners, all drawn alike and named by a letter (a choice of which one is the box's diagonal):
+   * corners 0-3 the front face (bottom left, bottom right, top right, top left), 4-7 the same at the back.
+   */
+  segs?: { from: number; to: number; label: string }[];
   /** A cylinder drawn as a stack of this many discs (its volume as layers of its base). */
   layers?: number;
   /** A cylinder with a cone of the same base and height inside it (the cone is a third of it). */

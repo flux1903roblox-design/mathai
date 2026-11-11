@@ -3,7 +3,8 @@
 // for linear functions, the squares on a right triangle for Pythagoras, a bar-chart skyline for
 // statistics, tiles and brackets for expressions, an L on a grid, a tiled floor and a fenced plot for areas and
 // perimeters, a box opening into its net, a gift box and a stack of unit cubes for boxes and prisms, a wheel rolled out
-// along a line, a can with its label half peeled and an ice-cream cone for the circle and its solids, a balance for equations, two crossing lines for systems, a fraction bar, a pie in eighths and a jug in
+// along a line, a can with its label half peeled and an ice-cream cone for the circle and its solids, a box with its
+// diagonal, an ant's path across a box and a party hat for Pythagoras in space, a balance for equations, two crossing lines for systems, a fraction bar, a pie in eighths and a jug in
 // tenths for the fractions floor. Colours
 // come from the unit (--c, --c-d, --c-tint) through the sc-* classes. The first piece is the unit's emblem on its
 // banner; the second and third sit beside its path (Learn.jsx), so every topic has three.
@@ -432,6 +433,40 @@ const IceCream = () => (
   </svg>
 );
 
+/** Pythagoras in space: a box with its diagonal in the accent tone, from a bottom corner to the far top corner. */
+const BoxDiagonal = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M14 40 L32 26 H86 L68 40 Z" className="sc-t sc-line" />
+    <path d="M68 40 L86 26 V68 L68 82 Z" className="sc-d" />
+    <rect x="14" y="40" width="54" height="42" className="sc-w sc-line" />
+    <path d="M14 82 L32 68 H86 M32 68 V26" className="sc-grid" />
+    <path d="M14 82 L86 26" className="sc-stroke-c" />
+    <circle cx="14" cy="82" r="4" className="sc-g" />
+    <circle cx="86" cy="26" r="4" className="sc-g" />
+  </svg>
+);
+/** The ant's walk: a box's front and lid unfolded flat, the straight path across both. */
+const AntBox = () => (
+  <svg viewBox="0 0 100 100">
+    <rect x="24" y="52" width="52" height="30" className="sc-c" />
+    <rect x="24" y="16" width="52" height="36" className="sc-t sc-line" />
+    <path d="M24 52 H76" className="sc-stroke-w" />
+    <path d="M24 82 L76 16" className="sc-route" />
+    <circle cx="24" cy="82" r="5" className="sc-d" />
+    <circle cx="76" cy="16" r="4" className="sc-g" />
+  </svg>
+);
+/** The cone once more: a party hat, its height dashed from the tip to the middle of its rim. */
+const PartyHat = () => (
+  <svg viewBox="0 0 100 100">
+    <path d="M24 78 L50 14 L76 78 Z" className="sc-c" />
+    <path d="M36 50 L64 50 M30 64 L70 64" className="sc-stroke-w" />
+    <ellipse cx="50" cy="78" rx="26" ry="7" className="sc-d" />
+    <path d="M50 14 V78" className="sc-route" />
+    <circle cx="50" cy="12" r="6" className="sc-g" />
+  </svg>
+);
+
 /** Systems and inequalities: two lines crossing at a point. */
 const SysCross = () => (
   <svg viewBox="0 0 100 100">
@@ -480,6 +515,7 @@ export const SCENERY = {
   circle: [WheelRoll, Can, IceCream],
   eq: [EqScale, Seesaw, Keyhole],
   sys: [SysCross, TwoRoads, MeetFlag],
+  space: [BoxDiagonal, AntBox, PartyHat],
   frac: [FracBarArt, PieEighths, TenthsJug],
   ratio: [ScaleBarArt, MixGlasses, ScaleCopy],
   pct: [PctBarArt, HundredGrid, SaleTag],

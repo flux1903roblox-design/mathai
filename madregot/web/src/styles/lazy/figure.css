@@ -90,5 +90,9 @@
 .fg-solid-diag.space { stroke: var(--brand-d); }
 .fg-solid-diag.edge { stroke: var(--cyan); stroke-width: 4; }
 /* stage 2 (circle): a cylinder in layers of its base, and the cone of the same base and height inside it */
+/* stage 2 (space): segments in a box named by letters, all alike (a choice of which is the box's diagonal) */
+.fg-solid-seg { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+/* a lettered segment's name and the diagonal's length sit on lines: a halo keeps them readable */
+.fg-solid-seglab { paint-order: stroke; stroke: var(--ground); stroke-width: 4px; stroke-linejoin: round; }
 .fg-solid-layer { fill: none; stroke: color-mix(in srgb, var(--ink) 35%, transparent); stroke-width: 1; }
 .fg-solid-inner { fill: color-mix(in srgb, var(--brand) 18%, transparent); stroke: var(--brand-d); stroke-width: 2; stroke-linejoin: round; }

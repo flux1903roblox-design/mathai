@@ -220,6 +220,18 @@ export const TOPIC_WAYS = Object.freeze({
       re(String.raw`(?:מעבירים|להעביר|מעביר|תעבירו|העבירו)\s+(?:את\s+\S+\s+)?(?:ל)?אגף\s+(?:ו|ו־)?(?:מחליפים|להחליף|מחליף|החליפו|משנים|לשנות)\s+(?:את\s+ה)?סימן${unless('בשני האגפים|משני האגפים|לשני האגפים|אותו דבר')}`),
     ],
   },
+  // stage 2 (measurement, MEASURE-5): Pythagoras in space, ח׳ 8.17 (web/src/learn/content/space.ts)
+  space: {
+    models: 'In a box, first the base\'s diagonal (a right triangle on the floor), then a right triangle standing on it with the height, so d² = a² + b² + c²; that standing triangle (the base\'s diagonal, the upright edge at its end and the box\'s diagonal) is right-angled at the edge\'s foot, so its legs give its area. In a cylinder the axial section is a rectangle 2r by h, whose diagonal is the longest rod; in a cone half the axial section is a right triangle with legs r and h and the slant height as its hypotenuse.',
+    words: ['אלכסון פאה', 'אלכסון התיבה', 'חתך צירי', 'קו יוצר'],
+    avoid: ['"the diagonal is the sum of the edges"', '"the face diagonal is the longest"', '"use the radius as the section\'s width"', '"the triangle inside a box is a whole rectangle"'],
+    avoidRe: [
+      re(String.raw`(?:ה)?אלכסון(?:\s+(?:של\s+)?(?:ה)?(?:תיבה|קובייה))?\s+(?:הוא|זה|שווה\s+ל־?)\s+(?:ה)?סכום\s+(?:של\s+)?(?:כל\s+)?(?:ה)?מקצועות`),
+      re(String.raw`(?:ה)?אלכסון\s+(?:של\s+)?(?:ה)?פאה\s+(?:הוא|זה)\s+(?:ה)?(?:קטע\s+(?:ה)?)?ארוך\s+ביותר`),
+      re(String.raw`(?:ה)?רוחב\s+(?:של\s+)?(?:ה)?חתך(?:\s+(?:ה)?צירי)?\s+(?:הוא|זה)\s+(?:ה)?רדיוס`),
+      re(String.raw`(?:ה)?משולש\s+(?:ש)?בתוך\s+(?:ה)?תיבה\s+(?:הוא|זה)\s+(?:בעצם\s+)?(?:כל\s+)?(?:ה)?מלבן`),
+    ],
+  },
 });
 
 /** The topic ways, rendered under one heading: "{topic}: {models} Words the app uses: …. Never taught as a rule: (1) …; (2) …." */

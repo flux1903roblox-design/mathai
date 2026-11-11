@@ -1240,6 +1240,52 @@
   "stairs": 4,
   "steps": 97
  },
+ "space": {
+  "skills": {
+   "space:1": {
+    "discover": 8,
+    "examples": [
+     3,
+     2,
+     2
+    ],
+    "misconceptions": [
+     2,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     1
+    ]
+   },
+   "space:2": {
+    "discover": 8,
+    "examples": [
+     3,
+     3,
+     3
+    ],
+    "misconceptions": [
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "objectives": 3,
+    "together": [
+     1,
+     2
+    ]
+   }
+  },
+  "stairs": 2,
+  "steps": 48
+ },
  "stats": {
   "skills": {
    "stats:1": {

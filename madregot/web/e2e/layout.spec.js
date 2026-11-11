@@ -43,6 +43,9 @@ const CASES = [
   // the circle (stage 2): a cylinder's volume with π (the answer row □ π סמ״ר) under a solid figure, and a disc with π ≈ 3.14
   ['a cylinder\'s volume with π (circle)', 'circle/3', '8', (x) => /^ci3v:/.test(x.key || '')],
   ['a disc\'s area with π ≈ 3.14 (circle)', 'circle/2', '8', (x) => /^ci2n:/.test(x.key || '')],
+  // Pythagoras in space (stage 2): a box with its diagonal marked, and the three segments of which only one is the box's
+  ['a box\'s diagonal (space)', 'space/1', '8', (x) => /^sp1s:/.test(x.key || '')],
+  ['which segment is the box\'s diagonal (space)', 'space/1', '8', (x) => /^sp1w:/.test(x.key || '')],
 ];
 
 for (const [what, route, grade, want = () => true] of CASES) {

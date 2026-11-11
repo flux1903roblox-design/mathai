@@ -218,6 +218,13 @@
       "tags": ["circle"]
     },
     {
+      "id": "D1-space2-r-for-d", "cat": "D1", "kind": "explain", "shapes": ["full"],
+      "skill": "space:2", "source": "diag", "params": { "r": 3, "d": 6, "h": 8, "rod": 10 }, "wrong": [8.5, 100], "phase": "reveal",
+      "expect": { "first": "misconception", "diagnosis": "r-for-d", "maxWords": 130,
+        "describe": "Names the app's diagnosis: the radius 3 was used as the width of the axial section. The axial section of a cylinder passes through the centre of the base, from rim to rim, so it is a rectangle of the diameter 6 by the height 8, and the longest rod is its diagonal: √(6² + 8²) = √100 = 10 cm. Ends at 10. Names no other mistake." },
+      "tags": ["space"]
+    },
+    {
       "id": "D2-signed3-two", "cat": "D2", "kind": "explain", "shapes": ["full"],
       "skill": "signed:3", "source": "diag", "params": { "f": 0, "a": -3, "b": -4, "c": 1 }, "wrong": [-12, 30], "phase": "reveal",
       "expect": { "first": "ambiguous", "candidates": ["add-sign", "sign"], "maxWords": 130,

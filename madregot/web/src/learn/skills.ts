@@ -10,10 +10,10 @@ import type { SkillId, TopicId } from './types';
 // before linear functions. ז׳'s areas and perimeters (stage 2) start in December, beside expressions and before March's
 // equations: it is inserted after expr (no topic moves relative to another). Boxes and prisms (stage 2) start in January,
 // after the areas and before March's equations. ח׳'s circle, cylinder and cone (stage 2) are October and November's,
-// after Pythagoras (the cone's height is a leg) and before statistics.
-export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq', 'ratio', 'pct', 'line', 'pyth', 'circle', 'stats', 'sys'];
-export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', circle: '8', stats: '8', sys: '8' };
-export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, area: 5, solid: 4, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, circle: 4, stats: 5, sys: 5 };
+// after Pythagoras (the cone's height is a leg) and before statistics. Pythagoras in space (stage 2) is May's, last.
+export const TOPIC_ORDER: TopicId[] = ['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq', 'ratio', 'pct', 'line', 'pyth', 'circle', 'stats', 'sys', 'space'];
+export const GRADE_OF: Record<TopicId, '7' | '8'> = { frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', circle: '8', stats: '8', sys: '8', space: '8' };
+export const STAIRS: Record<TopicId, number> = { frac: 4, signed: 6, coord: 5, angles: 5, expr: 5, area: 5, solid: 4, eq: 5, ratio: 4, pct: 5, line: 8, pyth: 5, circle: 4, stats: 5, sys: 5, space: 2 };
 /** Bridge units: a repair below the grade's programme, never a stair every student must climb. */
 export const BRIDGE = new Set<TopicId>(['frac']);
 
@@ -111,6 +111,10 @@ export const PREREQS: Record<SkillId, SkillId[]> = {
   'sys:3': ['sys:2', 'expr:5'], // the second unknown is found by substituting (sys:2); subtracting an equation is a minus before brackets (expr:5)
   'sys:4': ['sys:3', 'eq:5'], // a story with two unknowns: each sentence that says "equal" is an equation (eq:5), then the system is solved (sys:3)
   'sys:5': ['eq:3', 'signed:2', 'signed:3'], // solved like an equation (eq:3); the answer is a range on the number line (signed:2); dividing by a negative reverses the order (signed:3)
+  // a box's diagonal is two hypotenuses; an edge from the diagonal subtracts squares (pyth:2); the box's faces and edges
+  // (solid is ז׳'s: evidence only)
+  'space:1': ['pyth:1', 'pyth:2', 'solid:1'],
+  'space:2': ['space:1', 'circle:4', 'pyth:2'], // the right triangle inside a box, a cylinder's axial section, a cone's (circle:4)
 };
 
 export const prereqsOf = (id: SkillId): SkillId[] => PREREQS[id] || [];

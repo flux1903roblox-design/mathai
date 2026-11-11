@@ -189,7 +189,7 @@ function labelsOf(f: AnyFig): Set<string> {
       case 'netfig': return [...(f.letters && f.solid !== 'cylinder' ? netModel({ ...f, task: 'face' }).ids : []),
         ...netfigLabels(f).faces.map((x: any) => x.text), ...netfigLabels(f).edges.map((x: any) => x.text)];
       // a solid (stage 4) writes its lengths and its word
-      case 'solid': return [...Object.values(solidLabels(f)), f.label];
+      case 'solid': return [...Object.values(solidLabels(f)), f.label, ...(f.segs || []).map((s: any) => s.label)];
       // the algebra objects write x on a box or a long tile, and the rectangle its sides (and parts' areas)
       case 'tiles': return [f.px && 'x', f.nx && '-x', f.p1 && '1', f.n1 && '-1'];
       case 'scale': return [(f.left.x || f.right.x) && 'x'];
@@ -334,6 +334,23 @@ describe('the teaching figures (STUDENT-8) agree with themselves and with their 
       expect(html, where).toMatch(/<svg|<table/);
       expect(html, where).not.toMatch(/NaN|undefined|Infinity/);
     }
+  });
+
+  // Pythagoras in space (stage 2): a solid writes only numbers its step gives, and marks the box's diagonal (or a
+  // cube's) only where its step speaks of a diagonal or of the longest rod
+  it('in Pythagoras in space, a solid writes the numbers of its step and marks the box\'s diagonal only where the step speaks of it', () => {
+    const steps = ALL_STEPS().filter(({ skill }) => skill.startsWith('space:'));
+    expect(steps.length).toBeGreaterThan(20);
+    const bad = steps.flatMap(({ where, st }) => {
+      const f = figOf(st) as AnyFig | undefined; if (!f || f.type !== 'solid') return [];
+      const out: string[] = [];
+      const said = `${st.text} ${'display' in st ? st.display || '' : ''}`;
+      const given = new Set([...said.matchAll(/\d+(?:\.\d+)?/g)].map((m) => m[0]));
+      for (const l of Object.values(solidLabels(f))) if (/^\d+(\.\d+)?$/.test(String(l)) && !given.has(String(l))) out.push(`${where}: the solid writes ${l}, its step does not`);
+      if ([f.diag || []].flat().includes('space') && !/אלכסון|d\^2|מקל|מוט/.test(said)) out.push(`${where}: the box's diagonal is marked on a step that does not speak of it`);
+      return out;
+    });
+    expect(bad).toEqual([]);
   });
 
   // the checks themselves, on made-up steps: each catches what it is for, and lets a right figure through

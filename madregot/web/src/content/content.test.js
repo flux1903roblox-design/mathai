@@ -12,6 +12,7 @@ import { polyArea, boundsOf, movedPts } from './grid.js';
 // boxes and prisms (stage 2, MEASURE-3): their practice layer, and the net object's rules and words it draws with
 import * as SW from './solid.js';
 import * as CW from './circle.js';
+import * as PW from './space.js';
 import { PI_AFTER } from './util.js';
 import { solidLabels } from './net.js';
 
@@ -1300,8 +1301,8 @@ describe('boxes and prisms: every practice kind, from the numbers in its text', 
     expect(topicsFor('7').map((t) => t.color).slice(4, 7)).toEqual(['fuchsia', 'petrol', 'violet']);
     // the ids other topics use keep their names but for one-base and no-convert, said here in this unit's words
     for (const t of TOPICS) for (const [id, name] of Object.entries(t.cats || {})) {
-      // (the circle's slant-as-height is the cone's slant height, said in its own words)
-      if (SOLID.cats[id] && !['one-base', 'no-convert'].includes(id) && !(t.id === 'circle' && id === 'slant-as-height')) expect(SOLID.cats[id], `${t.id} ${id}`).toBe(name);
+      // (the circle's slant-as-height is the cone's slant height, said in its own words, and space says it as the circle does)
+      if (SOLID.cats[id] && !['one-base', 'no-convert'].includes(id) && !(['circle', 'space'].includes(t.id) && id === 'slant-as-height')) expect(SOLID.cats[id], `${t.id} ${id}`).toBe(name);
     }
   });
 });
@@ -1625,6 +1626,8 @@ describe('the circle, the cylinder and the cone: every practice kind, from the n
     expect(topicsFor('8').slice(at - 1, at + 2).map((t) => t.color)).toEqual(['violet', 'cobalt', 'fuchsia']);
     // the ids other topics use keep their names but for one-base, no-convert and slant-as-height, said in this unit's words
     for (const t of TOPICS) for (const [id, name] of Object.entries(t.cats || {})) {
+      // (space says r-for-d as the side of the axial section: its own test)
+      if (t.id === 'space' && id === 'r-for-d') continue;
       if (CIRCLE.cats[id] && !['one-base', 'no-convert', 'slant-as-height'].includes(id)) expect(CIRCLE.cats[id], `${t.id} ${id}`).toBe(name);
     }
     expect(CIRCLE.cats['no-convert']).toBe(SW.SOLID.cats['no-convert'].replace('סמ״ק לליטרים', 'ליטרים לסמ״ק'));
@@ -1713,6 +1716,291 @@ describe('the circle, the cylinder and the cone: the diagnostic and transfer mod
         const f = fig(p);
         const written = f.type === 'solid' ? Object.values(solidLabels(f)) : [...(f.segs || []).map((s) => s.label), ...(f.circles || []).map((c) => c.label)];
         written.filter((l) => /^\d+(\.\d+)?$/.test(String(l))).forEach((l) => expect(inText, `${name}: ${l}`).toContain(Number(l)));
+        expect(figPlain(f), name).toBeTruthy();
+      });
+    });
+  }
+});
+
+// Pythagoras in space (stage2.md MEASURE-5): every practice kind, read back from the numbers its text prints.
+describe('Pythagoras in space: every practice kind, from the numbers in its text', () => {
+  const { SPACE, KIND_KEYS, UNIT } = PW;
+  const spaceItem = (level) => {
+    const L = SPACE.levels[level - 1]; const it = L.gen();
+    return { ...it, diag: (u) => (isCorrect(it, u) ? null : it.diag(u)), topic: 'space', level, levelTitle: L.title };
+  };
+  const all = (level, n = RUNS) => Array.from({ length: n }, () => spaceItem(level));
+  const seededRun = (seed, fn) => () => { const real = Math.random; Math.random = seeded(seed); try { fn(); } finally { Math.random = real; } };
+  const kindOf = (it) => it.key.split(':')[0];
+  const shown = (text) => (text.match(/\$([^$]+)\$/g) || []).flatMap((m) => (m.match(/\d+(?:\.\d+)?/g) || []).map(Number));
+  const close = (a, b) => Math.abs(a - b) < 1e-9;
+  const tenth = (v) => Math.round(v * 10) / 10;
+  const typed = (v) => (Number.isInteger(v) ? v : tenth(v));
+  const hyp = (...xs) => Math.sqrt(xs.reduce((s, x) => s + x * x, 0));
+  let checked = 0;
+  const solutionHolds = (it) => it.solution.forEach((line) => (line.match(/\$([^$]+)\$/g) || [])
+    .map((m) => m.slice(1, -1).replace(/\\cdot/g, '*').replace(/\\pi/g, '(1)').replace(/\\approx[^=]*/g, ''))
+    .filter((m) => m.includes('=') && !/[a-zA-Z□]/.test(m.replace(/\\frac|\\sqrt/g, '')))
+    .forEach((m) => {
+      m.split('=').reduce((a, b) => { expect(same(evaluate(texToExpr(a)), evaluate(texToExpr(b))), `${it.key}: ${m}`).toBe(true); checked += 1; return b; });
+    }));
+  afterAll(() => expect(checked).toBeGreaterThan(1000));
+
+  /** The answer computed from the text alone, before rounding (a cone's volume: the multiple of π); null for a choice. */
+  function fromText(it) {
+    const n = shown(it.text); const t = it.text;
+    switch (kindOf(it)) {
+      case 'sp1s': { const [a, b, c] = n; return hyp(a, b, c); }
+      case 'sp1f': { const [a, b] = n; return hyp(a, b); }
+      case 'sp1c': { const [s] = n; return s * Math.sqrt(3); }
+      case 'sp1m': { const [d, a, b] = n; return Math.sqrt(d * d - a * a - b * b); }
+      case 'sp2r': { const [v, h] = n; return hyp(/שקוטרו/.test(t) ? v : 2 * v, h); }
+      case 'sp2t': { const [a, b, c] = n; return (hyp(a, b) * c) / 2; }
+      case 'sp2v': { const [r, l] = n; return (r * r * Math.sqrt(l * l - r * r)) / 3; }
+      case 'sp2p': { const [a, b, L] = n; return hyp(a, b) * L; }
+      default: return null;
+    }
+  }
+  const unitOf = (it) => {
+    const k = kindOf(it);
+    if (['sp2t', 'sp2p'].includes(k)) return UNIT.cm2;
+    if (k === 'sp2v') return UNIT.cm3;
+    return UNIT.cm;
+  };
+
+  for (let level = 1; level <= 2; level += 1) {
+    it(`space:${level}: ${RUNS} draws, every kind; right answers are right, the words and the maths render`, () => {
+      const kinds = new Set();
+      for (const item of all(level)) {
+        kinds.add(kindOf(item));
+        expect(item.key).toBeTruthy();
+        expect(item.hint).toBeTruthy();
+        expect(item.solution?.length).toBeGreaterThan(0);
+        expect(isCorrect(item, answerInput(item)), item.key).toBe(true);
+        expect(item.diag(answerInput(item))).toBeNull();
+        if (item.form === 'num') expect(parseNum(answerText(item).replace(/π$/, ''))).toBe(item.answer);
+        if (item.form === 'mc') {
+          expect(item.choices[item.answer]).toBeTruthy();
+          expect(item.practiceOnly, item.key).toBe(true);
+          expect(item.choices.filter((c) => c.ok)).toHaveLength(1);
+        }
+        for (const tex of texChunks(item)) expect(() => katex.renderToString(tex, { throwOnError: true }), `${item.key}: ${tex}`).not.toThrow();
+        for (const s of [item.text, item.hint, ...item.solution]) (s.match(/\$[^$]+\$/g) || []).forEach((m) => expect(m, item.key).not.toMatch(/[֐-׿]/));
+        expect(itemPlain(item)).not.toMatch(/undefined|NaN|\[object/);
+        expect([item.text, item.hint, ...item.solution].join(' ')).not.toMatch(/undefined|NaN/);
+        if (item.fig) expect(figPlain(item.fig), item.key).toBeTruthy();
+        const wrong = item.form === 'num' ? item.answer + 1 : null;
+        if (wrong != null) { const c = item.diag(wrong); if (c) expect(SPACE.cats[c]).toBeTruthy(); }
+        solutionHolds(item);
+      }
+      expect([...kinds].sort()).toEqual([...KIND_KEYS[level]].sort());
+    });
+  }
+
+  it('every answer is the computation from the numbers in its text: whole, or rounded to tenths and right within half a tenth', () => {
+    let n = 0; let rounded = 0;
+    for (let level = 1; level <= 2; level += 1) {
+      for (const it of all(level)) {
+        const want = fromText(it);
+        if (want == null) continue;
+        n += 1;
+        if (Number.isInteger(Math.round(want * 1e9) / 1e9)) { expect(it.answer, it.key).toBeCloseTo(want, 9); expect(it.exact, it.key).toBeUndefined(); continue; }
+        // a length that is not whole: rounded, its question says so, and both its rounding and its exact value are right
+        rounded += 1;
+        expect(it.answer, it.key).toBe(tenth(want));
+        expect(it.exact, it.key).toBeCloseTo(want, 9);
+        expect(it.text, it.key).toMatch(/עגלו לעשירית/);
+        expect(isCorrect(it, tenth(want)), it.key).toBe(true);
+        expect(isCorrect(it, tenth(want) + 0.2), it.key).toBe(false);
+      }
+    }
+    expect(n).toBeGreaterThan(450);
+    expect(rounded).toBeGreaterThan(40);
+  });
+
+  it('the cone\'s volume (sp2v) is asked with π, from a radius and a slant height whose height is whole', () => {
+    let pi = 0;
+    for (const it of all(2)) {
+      if (kindOf(it) !== 'sp2v') { expect(it.after, it.key).toBeUndefined(); continue; }
+      pi += 1;
+      expect(it.after, it.key).toBe(PI_AFTER);
+      expect(Number.isInteger(it.answer), it.key).toBe(true);
+      expect(it.text, it.key).toContain('כתבו בעזרת $\\pi$');
+      expect(answerText(it).endsWith('π'), it.key).toBe(true);
+      const [r, l] = shown(it.text); expect(Number.isInteger(Math.sqrt(l * l - r * r)), it.key).toBe(true);
+    }
+    expect(pi).toBeGreaterThan(20);
+    for (const it of all(1)) expect(it.after, it.key).toBeUndefined();
+  });
+
+  it('every typed answer has the unit of what is asked', () => {
+    for (let level = 1; level <= 2; level += 1) for (const it of all(level)) if (it.form === 'num') expect(it.unit, it.key).toBe(unitOf(it));
+  });
+
+  it('no question\'s answer is a number its text prints, and every number a drawing writes is in the text', () => {
+    for (let level = 1; level <= 2; level += 1) {
+      for (const it of all(level)) {
+        const printed = shown(it.text);
+        if (it.form === 'num') expect(printed.some((v) => close(v, it.answer)), `${it.key}: ${it.answer} is printed`).toBe(false);
+        if (!it.fig) continue;
+        const written = it.fig.type === 'solid' ? Object.values(solidLabels(it.fig)) : (it.fig.segs || []).map((s) => s.label);
+        written.filter((l) => /^\d+(\.\d+)?$/.test(String(l))).forEach((l) => expect(printed, `${it.key}: the drawing writes ${l}`).toContain(Number(l)));
+        // the length asked for is drawn as ?, never as its number
+        if (it.form === 'num') expect(written.map(String), it.key).not.toContain(String(it.answer));
+      }
+    }
+  });
+
+  it('a box\'s diagonal is marked only where the box\'s diagonal is asked; a face\'s where a face\'s is', () => {
+    for (let level = 1; level <= 2; level += 1) {
+      for (const it of all(level)) {
+        const diag = [it.fig?.diag || []].flat();
+        const asksBox = /האלכסון של (התיבה|קובייה)|המקל הארוך ביותר שנכנס בארגז|האלכסון של תיבה/.test(it.text);
+        // the triangle a box's diagonal stands in ('tri', sp2t) draws that diagonal as its hypotenuse
+        expect(diag.includes('space') || diag.includes('tri'), `${it.key}: ${it.text}`).toBe(asksBox || kindOf(it) === 'sp2t');
+        expect(diag.includes('face'), it.key).toBe(kindOf(it) === 'sp1f');
+        // which segment is the box's diagonal: the three are drawn alike and named by letters, never marked
+        if (kindOf(it) === 'sp1w') { expect(diag, it.key).toEqual([]); expect(it.fig.segs.map((s) => s.label), it.key).toEqual(['א', 'ב', 'ג']); }
+      }
+    }
+  });
+
+  it('which segment is the box\'s diagonal (sp1w): one runs corner to opposite corner, the other two lie on faces', () => {
+    const corner = (i) => [i === 1 || i === 2 || i === 5 || i === 6 ? 1 : 0, i === 2 || i === 3 || i === 6 || i === 7 ? 1 : 0, i >= 4 ? 1 : 0];
+    let n = 0;
+    for (const it of all(1)) {
+      if (kindOf(it) !== 'sp1w') continue;
+      n += 1;
+      it.fig.segs.forEach((s, i) => {
+        const differ = corner(s.from).filter((v, k) => v !== corner(s.to)[k]).length;
+        expect(differ, `${it.key} ${s.label}`).toBe(it.choices[i].ok ? 3 : 2);
+      });
+      expect(figPlain(it.fig), it.key).not.toMatch(/אלכסון/);
+    }
+    expect(n).toBeGreaterThan(20);
+  });
+
+  it('every mistake a kind is built to name, it names (from the text\'s own numbers), and only those', seededRun(8171, () => {
+    const PRED = {
+      sp1s: ([a, b, c]) => [['face-for-space', hyp(a, b)], ['add-edges3', a + b + c], ['no-root', a * a + b * b + c * c]],
+      sp1f: ([a, b]) => [['add-legs', a + b], ['no-root', a * a + b * b]],
+      sp1c: ([s]) => [['face-for-space', s * Math.SQRT2], ['add-edges3', 3 * s]],
+      sp1m: ([d, a, b]) => [['add-not-sub', hyp(d, a, b)]],
+      sp2r: ([v, h], t) => { const d = /שקוטרו/.test(t) ? v : 2 * v; return [['r-for-d', hyp(d / 2, h)], ['add-legs', d + h]]; },
+      sp2t: ([a, b, c]) => [['add-legs', ((a + b) * c) / 2], ['no-half', hyp(a, b) * c]],
+      sp2v: ([r, l]) => { const h = Math.sqrt(l * l - r * r); return [['no-third', r * r * h], ['slant-as-height', (r * r * l) / 3]]; },
+      sp2p: ([a, b, L]) => [['add-legs', (a + b) * L]],
+    };
+    const WANT = {
+      sp1s: ['face-for-space', 'add-edges3', 'no-root'], sp1f: ['add-legs', 'no-root'], sp1c: ['face-for-space', 'add-edges3'], sp1m: ['add-not-sub'], sp1w: ['which-diagonal'],
+      sp2r: ['r-for-d', 'add-legs'], sp2t: ['add-legs', 'no-half'], sp2v: ['no-third', 'slant-as-height'], sp2p: ['add-legs'], sp2m: [],
+    };
+    const got = {};
+    for (let level = 1; level <= 2; level += 1) {
+      for (const it of all(level, 200)) {
+        const k = kindOf(it); got[k] ||= new Set();
+        if (PRED[k]) {
+          for (const [id, v] of PRED[k](shown(it.text), it.text)) {
+            if (close(typed(v), it.answer)) continue;
+            expect(it.diag(typed(v)), `${it.key} ${id}: ${v}`).toBe(id);
+            got[k].add(id);
+          }
+        }
+        if (it.form === 'mc') it.choices.forEach((c, i) => { const d = it.diag(i); if (d) { expect(c.ok, it.key).toBeFalsy(); got[k].add(d); } });
+        namesOf(it).forEach((c) => expect(WANT[k], `${it.key} names ${c}`).toContain(c));
+      }
+    }
+    for (const [k, ids] of Object.entries(WANT)) expect([...(got[k] || [])].sort(), k).toEqual([...ids].sort());
+    expect([...new Set(Object.values(WANT).flat())].sort()).toEqual(Object.keys(SPACE.cats).sort());
+  }), 30_000);
+
+  it('the topic: grade 8, sky, not in the placement test, two stairs, its words, and last on the ח׳ path, after sys', () => {
+    expect(SPACE).toMatchObject({ id: 'space', grade: '8', title: 'פיתגורס במרחב', color: 'sky', placement: false });
+    expect(SPACE.levels.map((L) => L.title)).toEqual(['אלכסון בקובייה ובתיבה', 'משולשים ישרי־זווית בגופים']);
+    expect(SPACE.lesson.points).toHaveLength(5);
+    expect(SPACE.lesson.words).toEqual(expect.arrayContaining(['אלכסון פאה', 'אלכסון התיבה', 'חתך צירי']));
+    expect(TOPICS.find((t) => t.id === 'space').levels).toBe(SPACE.levels);
+    const g8 = topicsFor('8');
+    expect(g8.at(-1).id).toBe('space');
+    expect(g8.slice(-2).map((t) => [t.id, t.color])).toEqual([['sys', 'petrol'], ['space', 'sky']]);
+    // the ids other topics use keep their names, but for r-for-d, said here as the side of the axial section; the cone's
+    // slant height is said as the circle says it (areas and boxes say a slanted side)
+    for (const t of TOPICS) for (const [id, name] of Object.entries(t.cats || {})) {
+      if (t.id === 'space' || !SPACE.cats[id] || id === 'r-for-d' || (id === 'slant-as-height' && t.id !== 'circle')) continue;
+      expect(SPACE.cats[id], `${t.id} ${id}`).toBe(name);
+    }
+    expect(SPACE.cats['r-for-d'].startsWith(CW.CIRCLE.cats['r-for-d'])).toBe(true);
+  });
+});
+
+// The four models of Pythagoras in space (stage2.md Appendix B): 4,000 seeded draws of each.
+describe('Pythagoras in space: the diagnostic and transfer models', () => {
+  const B = {
+    SPACE1: [[3, 33], { 'face-for-space': 100, 'add-edges3': 100, 'no-root': 100 }],
+    SPACE1T: [[3, 33], { 'face-for-space': 100, 'add-edges3': 100 }],
+    SPACE2: [[5, 30], { 'r-for-d': 100, 'add-legs': 100 }],
+    SPACE2T: [[5, 225], { 'add-legs': 100, 'no-half': 100 }],
+  };
+  const { UNIT } = PW;
+  const WORDS = {
+    SPACE1: [PW.space1Text, PW.space1Fig, PW.space1Solution, PW.space1Hint, UNIT.cm],
+    SPACE1T: [PW.stickText, PW.stickFig, PW.stickSolution, PW.stickHint, UNIT.cm],
+    SPACE2: [PW.space2Text, PW.space2Fig, PW.space2Solution, PW.space2Hint, UNIT.cm],
+    SPACE2T: [PW.triText, PW.triFig, PW.triSolution, PW.triHint, UNIT.cm2],
+  };
+  const near = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+  const N = 4000;
+
+  it('the stairs\' models are these four, none with π', () => {
+    expect(PW.STAIR_MODELS).toEqual({ 'space:1': [PW.SPACE1, PW.SPACE1T], 'space:2': [PW.SPACE2, PW.SPACE2T] });
+    for (const m of [PW.SPACE1, PW.SPACE1T, PW.SPACE2, PW.SPACE2T]) expect(m.after).toBeUndefined();
+  });
+
+  it('Appendix B\'s worked models: a few draws by hand', () => {
+    expect(PW.SPACE1.answer({ a: 3, b: 4, c: 12, d: 13 })).toBe(13);
+    expect(PW.SPACE1.bugs['face-for-space']({ a: 3, b: 4, c: 12, d: 13 })).toBe(5);
+    expect(PW.SPACE1.bugs['add-edges3']({ a: 3, b: 4, c: 12, d: 13 })).toBe(19);
+    expect(PW.SPACE2.answer({ r: 3, d: 6, h: 8, rod: 10 })).toBe(10);
+    expect(PW.SPACE2.bugs['r-for-d']({ r: 3, d: 6, h: 8, rod: 10 })).toBeCloseTo(Math.sqrt(73), 9);
+    expect(PW.SPACE2T.answer({ a: 3, b: 4, e: 5, c: 6 })).toBe(15);
+    expect(PW.SPACE2T.bugs['no-half']({ a: 3, b: 4, e: 5, c: 6 })).toBe(30);
+    // never a cube in the box model: a cube's diagonal is never whole
+    const r = seeded(7); for (let i = 0; i < 500; i += 1) { const p = PW.SPACE1.params(r); expect(p.a === p.b && p.b === p.c).toBe(false); }
+  });
+
+  for (const [name, [[lo, hi], rates]] of Object.entries(B)) {
+    it(`${name}: whole answers in ${lo}..${hi}, clean draws, every bug as Appendix B says, every pair told apart`, () => {
+      const m = PW[name]; const r = seeded(name.length * 7919 + 29 + name.charCodeAt(5));
+      const fired = {}; const draws = []; let min = Infinity; let max = -Infinity;
+      for (let i = 0; i < N; i += 1) {
+        const p = m.params(r); const a = m.answer(p); draws.push(p); min = Math.min(min, a); max = Math.max(max, a);
+        expect(Number.isInteger(a), `${name} ${JSON.stringify(p)}`).toBe(true);
+        expect(AW.clean(m, p), `${name} ${JSON.stringify(p)}`).toBe(true);
+        for (const [id, f] of Object.entries(m.bugs)) { const v = f(p); if (v != null && Number.isFinite(v) && !near(v, a)) fired[id] = (fired[id] || 0) + 1; }
+      }
+      expect(min, name).toBeGreaterThanOrEqual(lo); expect(max, name).toBeLessThanOrEqual(hi);
+      expect(Object.keys(m.bugs).sort()).toEqual(Object.keys(rates).sort());
+      for (const [id, want] of Object.entries(rates)) {
+        const rate = (100 * (fired[id] || 0)) / N;
+        expect(Math.abs(rate - want), `${name} ${id}: ${rate.toFixed(1)}% against ${want}%`).toBeLessThanOrEqual(3);
+      }
+      const ids = Object.keys(m.bugs);
+      for (let i = 0; i < ids.length; i += 1) for (let j = i + 1; j < ids.length; j += 1) {
+        const ties = draws.filter((p) => { const x = m.bugs[ids[i]](p); const y = m.bugs[ids[j]](p); return x != null && y != null && near(x, y); }).length;
+        expect(ties / N, `${name}: ${ids[i]} and ${ids[j]}`).toBeLessThan(0.02);
+      }
+      const [text, fig, solution, hint, unit] = WORDS[name];
+      draws.filter((_, i) => i % 40 === 0).forEach((p) => {
+        const words = [text(p), hint(p), ...solution(p)];
+        words.forEach((w) => expect(w, name).not.toMatch(/undefined|NaN/));
+        words.forEach((w) => (w.match(/\$([^$]+)\$/g) || []).forEach((t) => expect(() => katex.renderToString(t.slice(1, -1), { throwOnError: true }), `${name}: ${t}`).not.toThrow()));
+        const last = solution(p).at(-1);
+        expect(last, name).toContain(String(m.answer(p)));
+        expect(last.endsWith(unit), `${name}: ${last}`).toBe(true);
+        const inText = (text(p).match(/\$([^$]+)\$/g) || []).flatMap((t) => (t.match(/\d+(?:\.\d+)?/g) || []).map(Number));
+        expect(inText.some((v) => near(v, m.answer(p))), `${name}: the answer is printed`).toBe(false);
+        const f = fig(p);
+        Object.values(solidLabels(f)).filter((l) => /^\d+(\.\d+)?$/.test(String(l))).forEach((l) => expect(inText, `${name}: ${l}`).toContain(Number(l)));
         expect(figPlain(f), name).toBeTruthy();
       });
     });

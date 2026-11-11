@@ -44,6 +44,8 @@ function importTopic(topic: string): Promise<StairContent[]> {
     case 'circle': return import('./circle').then((m) => m.CIRCLE);
     case 'stats': return import('./stats').then((m) => m.STATS);
     case 'sys': return import('./sys').then((m) => m.SYS);
+    // stage 2 (measurement): Pythagoras in space, ח׳ 8.17
+    case 'space': return import('./space').then((m) => m.SPACE);
     // a topic with no teaching content has nothing to load
     default: return Promise.resolve([]);
   }

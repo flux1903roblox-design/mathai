@@ -357,6 +357,17 @@ export const TOGETHER_DIAG: Record<SkillId, FinalDiag[]> = {
     // the cone carved out of the cylinder of radius 4 and height 9: the cone taken as the whole cylinder leaves 0
     { bugs: { 'no-third': 0 } },
   ],
+  // and Pythagoras in space
+  'space:1': [
+    { model: 'transfer', p: { a: 60, b: 20, c: 90, d: 110 } }, // the crate 60 by 20 by 90: its base's diagonal 63.2; the edges added 170
+    // the cube of edge 4: a face's diagonal 5.7; the edges added 12; the square of the diagonal, not rooted, 48
+    { bugs: { 'face-for-space': 4 * Math.SQRT2, 'add-edges3': 12, 'no-root': 48 } },
+  ],
+  'space:2': [
+    // the pencil case of diameter 5 and height 12: the radius 2.5 for the section's width gives 12.3; the sides added 17
+    { bugs: { 'r-for-d': Math.sqrt(2.5 * 2.5 + 12 * 12), 'add-legs': 17 } },
+    { model: 'transfer', p: { a: 5, b: 12, e: 13, c: 4 } }, // the box 5 by 12, 4 high: the base's diagonal as 5 + 12 gives 34; not halved 52
+  ],
   'eq:1': [
     // −5x = 30, the step chose to divide by −5: 30 : (−5) = −6. The minus of −5 lost: 6
     { bugs: { sign: 6 } },

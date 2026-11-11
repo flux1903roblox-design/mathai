@@ -64,9 +64,9 @@ const TAUGHT = {
 // each stage: a topic stage that lists its stairs removes its unit from S2 (7.6 waits for CLASSROOM-5's signed:7).
 const AFTER = { '7': { S2: 126, S3: 139, S4: 144, S5: 150 }, '8': { S2: 78, S3: 99, S4: 133, S5: 147 } };
 const COMPLETES = {
-  // 7.12 is taught whole by area:1-5 (with coord:4), 7.13 by solid:1-4 and 8.4 by circle:1-4: their parts list their
-  // stairs and wait for no stage
-  S2: ['7.6', '8.17'],
+  // 7.12 is taught whole by area:1-5 (with coord:4), 7.13 by solid:1-4, 8.4 by circle:1-4 and 8.17 by space:1-2: their
+  // parts list their stairs and wait for no stage
+  S2: ['7.6'],
   S3: ['7.15', '7.16', '7.17', '8.6', '8.10', '8.11', '8.16'],
   S4: ['7.11', '8.5', '8.12', '8.13'],
   S5: ['7.9', '7.10', '8.7', '8.9'],
@@ -148,6 +148,12 @@ test('every stair a part lists is one of stage 2\'s; a part with none is a later
   assert.deepEqual(listing('8.4'), ['circle:1', 'circle:2', 'circle:3', 'circle:4']);
   assert.deepEqual(['circle:1', 'circle:2', 'circle:3', 'circle:4'].map((s) => monthIndex(s, '8')), [1, 1, 1, 2]);
   assert.equal(coverage('8', STAGE2).units.find((u) => u.id === '8.4').state, 'yes');
+  // and 8.17 whole by space:1-2, in May, the unit's month
+  assert.deepEqual(listing('8.17'), ['space:1', 'space:2']);
+  assert.deepEqual(['space:1', 'space:2'].map((s) => monthIndex(s, '8')), [8, 8]);
+  assert.equal(coverage('8', STAGE2).units.find((u) => u.id === '8.17').state, 'yes');
+  // with every stage-2 topic listed, the fixture is all of S2 but 7.6's signed:7 (CLASSROOM-5): ז׳ 122, ח׳ 78
+  assert.deepEqual([coverage('7', STAGE2).taught, coverage('8', STAGE2).taught], [122, 78]);
   // one stair can serve several units
   assert.deepEqual(PROGRAMME.units.filter((u) => u.parts.some((p) => p.skills.includes('pyth:1'))).map((u) => u.id), ['7.6', '7.14', '8.3']);
   assert.ok(listing('7.9').includes('line:1'));

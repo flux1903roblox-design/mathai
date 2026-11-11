@@ -23,6 +23,7 @@ export const TOPIC_NAMES = Object.freeze({
   circle: 'מעגל, גליל וחרוט', // stage 2 (measurement): ח׳ 8.4, October and November
   stats: 'סטטיסטיקה',
   sys: 'משוואות ומערכות',
+  space: 'פיתגורס במרחב', // stage 2 (measurement): ח׳ 8.17, May
 });
 
 /** Each stair's name, as its lesson and its teaching content call it. */
@@ -103,6 +104,8 @@ export const STAIR_NAMES = Object.freeze({
   'sys:3': 'השוואת מקדמים',
   'sys:4': 'בעיות עם שני נעלמים',
   'sys:5': 'אי־שוויונות',
+  'space:1': 'אלכסון בקובייה ובתיבה',
+  'space:2': 'משולשים ישרי־זווית בגופים',
 });
 
 /**
@@ -121,7 +124,7 @@ export const stairName = (id) => {
  * The grade each topic is filed under in the app (learn/skills.ts GRADE_OF). Pythagoras stays under ח׳ as the app files
  * it today. (ai spec AI-5)
  */
-export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', circle: '8', stats: '8', sys: '8' });
+export const TOPIC_GRADE = Object.freeze({ frac: '7', signed: '7', coord: '7', angles: '7', expr: '7', area: '7', solid: '7', eq: '7', ratio: '8', pct: '8', line: '8', pyth: '8', circle: '8', stats: '8', sys: '8', space: '8' });
 
 /**
  * Parts of the Ministry's programme for grades 7 and 8 that the app does not teach yet, as Hebrew titles (never topic

@@ -638,7 +638,7 @@ export function netfigWords(f) {
 // and the box's diagonal, the right triangle shaded), 'axial' (a cone's or a cylinder's axial section), 'rod' (a rod
 // across a cylinder's axial section), or a list of them. cubes: unit cubes; cut: 'diagonal' | 'half'; open: no lid;
 // label: a word written under the solid ("1 ליטר").
-const SOLID_KEYS = { box: ['a', 'b', 'c'], cube: ['a'], prism: ['p', 'q', 'r', 'h', 'L'], cylinder: ['r', 'h'], cone: ['r', 'h', 'l'] };
+const SOLID_KEYS = { box: ['a', 'b', 'c', 'd'], cube: ['a', 'd'], prism: ['p', 'q', 'r', 'h', 'L'], cylinder: ['r', 'h'], cone: ['r', 'h', 'l'] };
 /** The lengths a solid figure writes, by key: every length given (labels: true or absent), none, or the texts given. */
 export function solidLabels(f) {
   if (f.labels === false) return {};
@@ -656,6 +656,8 @@ export function prismBase(f) {
   if (f.q != null && f.r != null) return [[0, 0], [f.p, 0], apexOn([0, 0], [f.p, 0], f.q, f.r, [0, 1])];
   return [[0, 0], [f.p, 0], [0, f.q]];
 }
+/** A box's corner in words: 0-3 the front face from the bottom left, 4-7 the same at the back. */
+const cornerWords = (i) => `${[1, 2, 5, 6].includes(i) ? 'הימני' : 'השמאלי'} ${[2, 3, 6, 7].includes(i) ? 'העליון' : 'התחתון'} ${i >= 4 ? 'האחורי' : 'הקדמי'}`;
 const DIAG_WORDS = {
   face: 'אלכסון של הבסיס', space: 'אלכסון התיבה',
   tri: 'המשולש ישר־הזווית שצלעותיו אלכסון הבסיס, המקצוע האנכי שבקצה שלו ואלכסון התיבה',
@@ -676,7 +678,9 @@ export function solidWords(f) {
   if (f.shape === 'cylinder') out.push(`גליל${Object.keys(L).length ? `: ${join([L.r && `רדיוס הבסיס ${L.r}`, L.h && `גובה ${L.h}`])}` : ''}`);
   if (f.shape === 'cone') out.push(`חרוט${Object.keys(L).length ? `: ${join([L.r && `רדיוס הבסיס ${L.r}`, L.h && `גובה ${L.h}`, L.l && `קו יוצר ${L.l}`])}` : ''}`);
   const diags = [].concat(f.diag || []).map((d) => (d === 'axial' ? (f.shape === 'cone' ? 'החתך הצירי: משולש שווה־שוקיים' : 'החתך הצירי: מלבן') : DIAG_WORDS[d])).filter(Boolean);
-  if (diags.length) out.push(`${diags.length > 1 ? 'מסומנים' : 'מסומן'} ${diags.join(' ו')}`);
+  if (diags.length) out.push(`${diags.length > 1 ? 'מסומנים' : 'מסומן'} ${diags.join(' ו')}${L.d ? `, ואורך האלכסון ${L.d}` : ''}`);
+  // segments named by letters: where each runs, corner to corner, and never what it is
+  if (f.segs?.length) out.push(`מסומנים קטעים: ${f.segs.map((s) => `${s.label} מהקודקוד ${cornerWords(s.from)} אל הקודקוד ${cornerWords(s.to)}`).join('; ')}`);
   const fem = f.shape !== 'cylinder' && f.shape !== 'cone';
   if (f.cubes) out.push(`${fem ? 'בנויה' : 'בנוי'} מקוביות שמקצוען 1`);
   if (f.cut === 'diagonal') out.push('חתוכה לאורך אלכסון הבסיס לשתי מנסרות');

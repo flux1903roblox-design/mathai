@@ -27,6 +27,7 @@ import { CATS_PCT } from './content/pct';
 import { CATS_AREA } from './content/area';
 import { CATS_SOLID } from './content/solid';
 import { CATS_CIRCLE } from './content/circle';
+import { CATS_SPACE } from './content/space';
 // @ts-ignore: no Node types in this project
 import { spawnSync } from 'node:child_process';
 // @ts-ignore: no Node types in this project
@@ -130,6 +131,8 @@ describe('meta.gen.ts', () => {
       solid: CATS_SOLID,
       // and its circle, cylinder and cone: content/circle.js names every mistake too
       circle: CATS_CIRCLE,
+      // and Pythagoras in space: content/space.js names every mistake too
+      space: CATS_SPACE,
     };
     expect(Object.keys(NEW_CATS).sort()).toEqual(Object.keys(before).sort());
     for (const t of Object.keys(before)) expect(JSON.stringify(NEW_CATS[t as keyof typeof NEW_CATS]), t).toBe(JSON.stringify(before[t]));

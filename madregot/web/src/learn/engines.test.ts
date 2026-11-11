@@ -111,7 +111,7 @@ describe('grade 8 in school order (percent after ratio, before linear functions)
   it('puts pct after ratio and before line, and keeps the first-day test at 18 questions', async () => {
     expect(TOPIC_ORDER.indexOf('pct')).toBe(TOPIC_ORDER.indexOf('ratio') + 1);
     expect(TOPIC_ORDER.indexOf('pct')).toBeLessThan(TOPIC_ORDER.indexOf('line'));
-    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq', 'ratio', 'pct', 'line', 'pyth', 'circle', 'stats', 'sys']);
+    expect(TOPIC_ORDER).toEqual(['frac', 'signed', 'coord', 'angles', 'expr', 'area', 'solid', 'eq', 'ratio', 'pct', 'line', 'pyth', 'circle', 'stats', 'sys', 'space']);
     // @ts-ignore: plain JS
     const { placementMax } = await import('@/lib/placement.js');
     // @ts-ignore: plain JS
@@ -186,9 +186,29 @@ describe('grade 8 in school order (the circle, the cylinder and the cone in Octo
   });
 });
 
+describe('grade 8 in school order (Pythagoras in space in May, last)', () => {
+  it('puts space last, off the first-day test, every edge pointing back', async () => {
+    expect(TOPIC_ORDER.at(-1)).toBe('space');
+    expect(TOPIC_ORDER.indexOf('space')).toBe(TOPIC_ORDER.indexOf('sys') + 1);
+    expect(STAIRS.space).toBe(2);
+    // @ts-ignore: plain JS
+    const { placementMax } = await import('@/lib/placement.js');
+    // @ts-ignore: plain JS
+    const { topicsFor, placementTopicsFor } = await import('@/content/index.js');
+    expect(topicsFor('8').map((t: { id: string }) => t.id).at(-1)).toBe('space');
+    expect(placementTopicsFor('8').map((t: { id: string }) => t.id)).not.toContain('space');
+    expect(placementMax('8')).toBe(18);
+    // a box's diagonal is two hypotenuses (pyth:1, pyth:2); its faces and edges are ז׳'s boxes (solid:1, evidence only);
+    // the right triangles inside solids lean on the diagonal, the cone (circle:4) and finding a leg (pyth:2)
+    expect(prereqsOf('space:1')).toEqual(['pyth:1', 'pyth:2', 'solid:1']);
+    expect(prereqsOf('space:2')).toEqual(['space:1', 'circle:4', 'pyth:2']);
+    ['space:1', 'space:2'].forEach((id) => prereqsOf(id).forEach((p) => expect(ALL_SKILLS.indexOf(p), `${id} → ${p}`).toBeLessThan(ALL_SKILLS.indexOf(id))));
+  });
+});
+
 describe('the prerequisite graph', () => {
   it('names only real skills and has no cycle', () => {
-    expect(ALL_SKILLS).toHaveLength(75); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year), area:1-5 (ז׳ 7.12), solid:1-4 (ז׳ 7.13) and circle:1-4 (ח׳ 8.4)
+    expect(ALL_SKILLS).toHaveLength(77); // with ratio:1-4 and pct:1-5 (ח׳, the first two units of the year), area:1-5 (ז׳ 7.12), solid:1-4 (ז׳ 7.13), circle:1-4 (ח׳ 8.4) and space:1-2 (ח׳ 8.17)
     ALL_SKILLS.forEach((id) => {
       expect(PREREQS[id], id).toBeDefined();
       prereqsOf(id).forEach((p) => expect(ALL_SKILLS).toContain(p));

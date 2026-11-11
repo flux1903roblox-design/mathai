@@ -132,9 +132,12 @@ describe('every exercise a practice exam prints: its own key, transcribed, is gr
           if (it.form === 'manip') { expect(out.graded).toBe('ai'); continue; }
           forms.add(it.form);
           expect(out, `${t.id}:${level} ${it.form} ${it.answer}`).toMatchObject({ graded: 'key', status: 'correct' });
-          // and another value is wrong (a number one more, or another choice)
+          // and another value is wrong (a number one more, or another choice). A π ≈ 3.14 answer also takes the
+          // calculator's π value, which is above the 3.14 one and one more at a multiple of about 630 (3.14 · 630 =
+          // 1978.2, π · 630 ≈ 1979.2): there the number one less is the wrong one
           if (it.form === 'num' && typeof Number(it.answer) === 'number' && Number.isFinite(Number(it.answer))) {
-            expect(gradeByKey(q(String(Number(it.answer) + 1), 'correct'), it).status, `${t.id}:${level} ${it.answer}`).toBe('wrong');
+            const other = Number(it.answer) + (Number.isFinite(it.pk) ? -1 : 1);
+            expect(gradeByKey(q(String(other), 'correct'), it).status, `${t.id}:${level} ${it.answer}`).toBe('wrong');
           }
         }
       }

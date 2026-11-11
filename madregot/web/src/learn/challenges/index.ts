@@ -19,15 +19,16 @@ import { PYTH_CHALLENGES } from './pyth';
 import { CIRCLE_CHALLENGES } from './circle';
 import { STATS_CHALLENGES } from './stats';
 import { SYS_CHALLENGES } from './sys';
+import { SPACE_CHALLENGES } from './space';
 
 /**
  * Every task, in the order of the topics (TOPIC_ORDER), each topic's tasks in their own order: three per topic, one
  * claim, one error or proof and one real-world (literacy) task each (stage 1's 36, and stage 2's areas and perimeters,
- * boxes and prisms, and the circle, the cylinder and the cone).
+ * boxes and prisms, the circle, the cylinder and the cone, and Pythagoras in space).
  */
 export const CHALLENGES: ChallengeTask[] = [
   ...FRAC_CHALLENGES, ...SIGNED_CHALLENGES, ...COORD_CHALLENGES, ...ANGLES_CHALLENGES, ...EXPR_CHALLENGES, ...AREA_CHALLENGES, ...SOLID_CHALLENGES, ...EQ_CHALLENGES,
-  ...RATIO_CHALLENGES, ...PCT_CHALLENGES, ...LINE_CHALLENGES, ...PYTH_CHALLENGES, ...CIRCLE_CHALLENGES, ...STATS_CHALLENGES, ...SYS_CHALLENGES,
+  ...RATIO_CHALLENGES, ...PCT_CHALLENGES, ...LINE_CHALLENGES, ...PYTH_CHALLENGES, ...CIRCLE_CHALLENGES, ...STATS_CHALLENGES, ...SYS_CHALLENGES, ...SPACE_CHALLENGES,
 ].sort((a, b) => TOPIC_ORDER.indexOf(a.topic) - TOPIC_ORDER.indexOf(b.topic));
 const BY_ID: Record<string, ChallengeTask> = Object.fromEntries(CHALLENGES.map((t) => [t.id, t]));
 

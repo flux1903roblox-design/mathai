@@ -1311,6 +1311,58 @@ export const META: Record<SkillId, StairMeta> = {
     ],
     "transfer": true
   },
+  "space:1": {
+    "title": "אלכסון בקובייה ובתיבה",
+    "misconceptions": [
+      {
+        "id": "face-for-space",
+        "title": "חישבו את אלכסון הפאה במקום את אלכסון התיבה"
+      },
+      {
+        "id": "add-edges3",
+        "title": "חיברו את שלושת המקצועות במקום פיתגורס"
+      },
+      {
+        "id": "no-root",
+        "title": "שכחו להוציא שורש"
+      },
+      {
+        "id": "add-not-sub",
+        "title": "חיברו ריבועים במקום לחסר (כשמחפשים ניצב)"
+      },
+      {
+        "id": "add-legs",
+        "title": "חיברו את הצלעות בלי לרבע"
+      }
+    ],
+    "transfer": true
+  },
+  "space:2": {
+    "title": "משולשים ישרי־זווית בגופים",
+    "misconceptions": [
+      {
+        "id": "r-for-d",
+        "title": "השתמשו ברדיוס במקום בקוטר כצלע של החתך"
+      },
+      {
+        "id": "add-legs",
+        "title": "חיברו את הצלעות בלי לרבע"
+      },
+      {
+        "id": "no-half",
+        "title": "שכחו לחלק ב־2 בשטח המשולש"
+      },
+      {
+        "id": "slant-as-height",
+        "title": "השתמשו בקו היוצר במקום בגובה"
+      },
+      {
+        "id": "no-third",
+        "title": "שכחו לחלק ב־$3$"
+      }
+    ],
+    "transfer": true
+  },
   "stats:1": {
     "title": "שכיח",
     "misconceptions": [
@@ -1543,6 +1595,7 @@ export const NEW_CATS: Partial<Record<TopicId, Record<string, string>>> = {
     "ignore-brackets": "חישבו כאילו אין סוגריים"
   },
   "solid": {},
+  "space": {},
   "stats": {
     "one-middle": "במספר זוגי של נתונים לקחו רק אחד משני האמצעיים",
     "median-position": "כתבו את המקום של החציון ברשימה במקום את הערך שלו",
