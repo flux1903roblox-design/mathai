@@ -10,7 +10,8 @@ import { api, apiBase, hasServer, ApiError } from './api.js';
 import { qaStatus, qaActive } from './qaFixtures.js';
 import { randomHex } from './random.js';
 import { teacherHeaders, previewMode } from './teacher.js';
-import { afterFamilyLink } from './durable/escrow.js';
+import { afterFamilyLink, escrowWith } from './durable/escrow.js';
+import { familyGone } from './durable/vault.js';
 
 /** A random id for this device, made once. The server counts the free questions per device. */
 export function deviceId() {
@@ -69,14 +70,17 @@ const waitsForParent = (status) => status?.state === 'parent_ok_needed';
 
 // What the server said last: GET /api/ai/status, kept up to date by the headers of each answer.
 // `ended` is true for this visit when the device was on a paid tier and is now on the free taste (said once).
-export const useAIStatus = create(() => ({ status: null, loading: false, error: null, ended: false }));
+// `refreshed` counts the status reads that came back: the family summary (familySync.js) waits for the next one after
+// the server said "not now".
+export const useAIStatus = create(() => ({ status: null, loading: false, error: null, ended: false, refreshed: 0 }));
+const fresh = () => ({ refreshed: useAIStatus.getState().refreshed + 1 });
 
 let refreshing = null;
 export async function refreshStatus() {
   // the demo class asks no server: no status, so nothing is offered for sale in it
   if (useApp.getState().profile?.demo === true) { useAIStatus.setState({ status: null, loading: false, error: null }); return null; }
   const qa = qaStatus();
-  if (qa) { useAIStatus.setState({ status: qa.status, loading: false, error: null, ended: !!qa.ended }); return qa.status; }
+  if (qa) { useAIStatus.setState({ status: qa.status, loading: false, error: null, ended: !!qa.ended, ...fresh() }); return qa.status; }
   if (!hasServer()) { useAIStatus.setState({ status: null, loading: false, error: 'no_server' }); return null; }
   if (refreshing) return refreshing;
   useAIStatus.setState({ loading: true, error: null });
@@ -86,7 +90,7 @@ export async function refreshStatus() {
       const { ai, setAI } = useApp.getState();
       const ended = !!ai.lastTier && PAID_TIERS.includes(ai.lastTier) && status.tier === 'free';
       if (status.tier !== ai.lastTier) setAI({ lastTier: status.tier });
-      useAIStatus.setState({ status, loading: false, ...(ended ? { ended: true } : {}) });
+      useAIStatus.setState({ status, loading: false, ...(ended ? { ended: true } : {}), ...fresh() });
       return status;
     } catch (e) {
       if (e.code === 'class_ai_off') { useAIStatus.setState({ status: CLASS_OFF, loading: false, error: null }); return CLASS_OFF; }
@@ -104,9 +108,12 @@ export function refreshIfNewDay() {
   if (s?.resetsAt && !refreshing && Date.now() >= Date.parse(s.resetsAt) && (hasServer() || qaActive())) refreshStatus();
 }
 
-/** X-AI-Linked: 0 means the family-device token is no longer valid (unlinked, or the parent left): forget it. */
+/**
+ * X-AI-Linked: 0 means the family-device token is no longer valid (unlinked, or the parent left): forget it, and when the
+ * family kept this device's backup code, move the backup to a new code at the next sync (durable/vault.js familyGone).
+ */
 function readLinked(res) {
-  if (res.headers.get('X-AI-Linked') === '0' && useApp.getState().ai.familyDevice) useApp.getState().setAI({ familyDevice: null });
+  if (res.headers.get('X-AI-Linked') === '0' && useApp.getState().ai.familyDevice) familyGone(useApp);
 }
 
 /**
@@ -279,6 +286,12 @@ export async function startLink({ fresh = false } = {}) {
 }
 
 /**
+ * The family device as a new link writes it: its AI-only token and the parent's label for it. The summary's notice was
+ * not seen yet and nothing was sent (sharingSeen and lastSent, lib/familySync.js).
+ */
+export const newFamilyDevice = (r) => ({ token: r.deviceToken, label: r.label || '', sharingSeen: null, lastSent: null });
+
+/**
  * Ask once whether a parent claimed the code: 'waiting', 'linked' (the token is saved) or 'expired'. Once linked, the
  * family keeps this device's backup code, or the progress the parent chose to continue from comes here (DURABLE-6,
  * durable/escrow.js): that runs in the background, and `onEscrow({ toast, restored })` hears how it went.
@@ -290,7 +303,8 @@ export async function pollLink({ onEscrow } = {}) {
   try {
     const r = await api('/api/family/link/finish', { method: 'POST', body: { code: p.code, secret: p.secret }, auth: false });
     if (!r.deviceToken) return 'waiting';
-    setAI({ familyDevice: { token: r.deviceToken, label: r.label || '' }, pendingLink: null });
+    // a new link starts fresh: the child is told about the parents' summary again before anything is sent (PARENTS-4)
+    setAI({ familyDevice: newFamilyDevice(r), pendingLink: null });
     afterFamilyLink(r).then((x) => onEscrow?.(x));
     await refreshStatus();
     return 'linked';
@@ -301,14 +315,25 @@ export async function pollLink({ onEscrow } = {}) {
   }
 }
 
-/** This device leaves the family plan (the settings row, and before deleting everything). Never fails the caller. */
+/**
+ * This device leaves the family plan (the settings row, and before deleting everything). The server deletes the link,
+ * the summaries sent to the parents and the code the family kept for this device. When the server could not be reached
+ * (no network, or it answered 5xx) this rejects and nothing changes here: the token stays, so the leave can be tried
+ * again and the summaries are never left behind on the server. Any other answer means the server no longer knows the
+ * token (it already left), and the device forgets it.
+ */
 export async function leaveFamily() {
   const { ai, setAI } = useApp.getState();
   const token = ai.familyDevice?.token;
   if (token && hasServer()) {
-    try { await api('/api/family/devices/leave', { method: 'POST', body: {}, headers: { 'X-Family-Device': token }, auth: false }); } catch { /* forgotten here either way */ }
+    try { await api('/api/family/devices/leave', { method: 'POST', body: {}, headers: { 'X-Family-Device': token }, auth: false }); } catch (e) {
+      if (!(e instanceof ApiError) || e.code === 'network' || !e.status || e.status >= 500) throw e;
+    }
   }
   setAI({ familyDevice: null, pendingLink: null });
+  // the family no longer keeps this device's code (the server deleted it with the link)
+  const b = useApp.getState().backup;
+  if (b?.escrow === 'family' || b?.escrow === 'both') useApp.setState({ backup: { ...b, escrow: escrowWith(b.escrow, 'family', false) } });
   if (hasServer()) await refreshStatus();
 }
 

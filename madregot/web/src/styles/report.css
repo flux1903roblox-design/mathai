@@ -60,3 +60,107 @@
 .share-check input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--brand); }
 .share-actions { display: flex; flex-direction: column; gap: var(--s1); }
 .share-actions .btn { width: 100%; margin-inline: 0; }
+
+/* one day in words (PARENTS-4, ReportView variant "day"): the sharing sheet's "what is sent today" and the rows sent
+   last. A label and its value on one line, the value at the end; a long value (stair names, repairs) wraps under it. */
+.report-dayview { gap: var(--s2); }
+.report-dayview-title { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.report-daylist { margin: 0; display: flex; flex-direction: column; }
+.report-daylist-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px var(--s3); padding: var(--s2) 0; border-top: 1px solid var(--rule); font-size: 16px; line-height: 24px; }
+.report-daylist-row:first-child { border-top: 0; padding-top: 0; }
+.report-daylist-row dt { color: var(--ink-2); }
+.report-daylist-row dd { margin: 0; color: var(--ink); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.report-daylist-row.is-wide { flex-direction: column; }
+.report-daylist-fixes { margin: 0; padding-inline-start: var(--s4); display: flex; flex-direction: column; gap: 2px; font-weight: 600; }
+
+/* the sharing sheet (PARENTS-4, components/SharingSheet.jsx): the state, today's row, the rows sent last, what is never
+   sent, how long it is kept, and the child's switch */
+.sharing-body { display: flex; flex-direction: column; gap: var(--s4); }
+.sharing-status { margin: 0; font-size: 17px; line-height: 26px; font-weight: 700; color: var(--ink); }
+.sharing-sec { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
+.sharing-head { margin: 0; font-size: 17px; line-height: 24px; font-weight: 800; color: var(--ink); }
+.sharing-last { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
+.sharing-last .btn { min-height: 44px; }
+.sharing-rows { display: flex; flex-direction: column; gap: var(--s4); }
+.sharing-rows .report-dayview + .report-dayview { padding-top: var(--s3); border-top: 2px solid var(--rule); }
+.sharing-never, .sharing-kept, .sharing-hint { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.sharing-forget { justify-content: flex-start; text-align: start; font-weight: 600; }
+
+/* the child's sign (ICO standard 11): a quiet pill on the profile that opens the sheet */
+.share-chip { align-self: flex-start; min-height: 44px; margin-top: var(--s2); padding: 0 var(--s4); border: 2px solid var(--brand-line); background: var(--brand-tint); color: var(--brand-d); cursor: pointer; font-family: inherit; }
+.share-chip svg { color: var(--brand-d); }
+.share-chip:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+
+/* the Settings row that opens the sheet, with its state at the end ("שיתוף עם ההורים · פועל"); here, not in the canon's
+   render-blocking sheet, because only Settings has it and Settings loads this file with the sheet */
+.set-row-value { justify-content: space-between; gap: var(--s3); width: 100%; }
+.set-row-state { display: inline-flex; align-items: center; gap: var(--s1); color: var(--ink-2); font-weight: 600; }
+.set-row-state svg { margin-inline-end: 0; flex: none; }
+
+/* ======================================================================= /parents: each device's progress (PARENTS-5, -6)
+   The section heading, then one card per device: its name and last update, the week switch, the same report the child
+   previews, the 8 weeks, and the parent's controls at the bottom. Early states are calm notes in the card. 320px wide. */
+.parents-report { display: flex; flex-direction: column; gap: var(--s4); }
+.parents-report-head { display: flex; flex-direction: column; gap: 2px; }
+.parents-report-title { margin: 0; font-size: 24px; line-height: 30px; font-weight: 800; color: var(--ink); scroll-margin-top: 72px; }
+.parents-report-sub { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink-2); }
+.report-device-wrap { display: flex; flex-direction: column; gap: var(--s4); }
+.report-device { gap: var(--s4); min-width: 0; }
+.report-device-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px var(--s3); }
+.report-device-sync { margin: 0; font-size: 15px; line-height: 22px; color: var(--ink-2); }
+.report-device .report { gap: var(--s3); }
+.report-device .report .card { border-width: 2px; box-shadow: none; }
+.report-week-empty { display: flex; flex-direction: column; gap: 2px; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); }
+.report-week-empty-title { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.report-ended, .report-noplan { line-height: 24px; }
+
+/* the first day: what will come, what never comes, and an example that says it is one */
+.report-device .state-card { padding: var(--s4); text-align: start; align-items: stretch; }
+.report-device .state-card .mascot, .report-device .state-card svg.mascot { align-self: center; }
+.report-device .state-title { font-family: var(--font-ui); font-size: 20px; line-height: 26px; text-align: center; }
+.report-device .state-body { display: flex; flex-direction: column; gap: var(--s2); font-size: 16px; line-height: 24px; color: var(--ink); text-align: start; }
+.report-device .state-body p { margin: 0; }
+.report-state-head { font-weight: 700; }
+.report-state-list { margin: 0; padding-inline-start: var(--s5); display: flex; flex-direction: column; gap: 2px; }
+.report-example { border-top: 2px solid var(--rule); padding-top: var(--s2); }
+.report-example > summary { display: flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--brand-d); cursor: pointer; }
+.report-example[open] > summary { margin-bottom: var(--s2); }
+.report-ribbon { margin: 0; padding: var(--s2) var(--s3); border-radius: 12px; border: 2px dashed var(--brand-line); background: var(--brand-tint); color: var(--brand-d); font-weight: 700; text-align: center; }
+
+/* the Sunday email's switch (PARENTS-7): the label and its hint, the switch beside them; the whole row is the target */
+.report-email { padding-block: var(--s3); }
+.report-email-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 48px; cursor: pointer; }
+.report-email-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.report-email-label { font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.report-email-hint { font-size: 15px; line-height: 22px; color: var(--ink-2); overflow-wrap: anywhere; }
+.report-email-hint bdi { unicode-bidi: isolate; }
+
+/* the 8 weeks: one row a week, newest first: its name, the minutes as a bar with the practice days inside, the minutes */
+.weeks-chart { display: flex; flex-direction: column; gap: var(--s2); }
+/* one grid for all 8 rows (the rows are display: contents; the list is hidden from a screen reader, which reads the
+   table), so the week names, the bars and the minutes line up whatever their length */
+.weeks-bars { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; align-items: center; gap: var(--s2); font-size: 14px; line-height: 20px; }
+.weeks-row { display: contents; }
+.weeks-when { color: var(--ink-2); white-space: nowrap; }
+.weeks-min { color: var(--ink); font-weight: 600; text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.weeks-row .qbar { height: 24px; }
+.weeks-row .qbar > i { background: var(--brand-line); }
+.weeks-row .qbar-text { line-height: 24px; font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .weeks-row .qbar > i { transition: none; } }
+
+/* the parent's controls for the device */
+.report-controls { display: flex; flex-direction: column; border-top: 2px solid var(--rule); padding-top: var(--s3); gap: var(--s2); }
+.report-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s1) var(--s3); }
+.report-control-text { margin: 0; font-size: 16px; line-height: 24px; color: var(--ink); }
+.report-control .btn { min-height: 44px; }
+.report-control-hint { grid-column: 1 / -1; margin: 0; }
+.report-delete { width: 100%; min-height: 48px; padding: 0; }
+
+/* "הסיכום עוזר לכם?" */
+.report-fb { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); }
+.report-fb-ask, .report-fb-thanks { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.report-fb-actions { display: flex; gap: var(--s2); }
+.report-fb-actions .btn { min-height: 44px; min-width: 72px; }
+
+/* the plan's words for parents (Parents.jsx): what the plan holds, before paying */
+.parents-includes { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); line-height: 24px; }

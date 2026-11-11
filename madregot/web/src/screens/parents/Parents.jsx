@@ -22,6 +22,7 @@ import { Button, Field, Sheet } from '@/components/ui.jsx';
 import { ConfirmSheet, LoadingState } from '@/components/Screen.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import ParentsFrame, { NoServerNote } from './ParentsFrame.jsx';
+import FamilyReport from './FamilyReport.jsx';
 
 const RUNNING = ['active', 'past_due', 'canceled'];
 const HERE_KEY = `${STORE_KEY}-here`;
@@ -30,6 +31,36 @@ const addMonths = (d, n) => { const x = new Date(d); const day = x.getDate(); x.
 const planOf = (plans, id) => plans?.plans?.find((p) => p.id === id) || null;
 
 // ---------------------------------------------------------------- what the tutor is, for a parent who is not signed in
+/**
+ * What the plan adds for parents (PARENTS-5, with the Sunday email of PARENTS-7), and the free weekly summary the child
+ * can send without any account (PARENTS-2, PARENTS-6 state 1).
+ */
+export const ABOUT_REPORT = 'רואים מה הילד תרגל: סיכום יומי לכל מכשיר מחובר, וסיכום שבועי במייל אם תבחרו. הילד יודע על כך, רואה מה נשלח, ויכול להפסיק.';
+export const ABOUT_FREE_REPORT = 'גם בלי מנוי: מהאפליקציה של הילד אפשר לשלוח לכם סיכום שבועי בוואטסאפ, בלי חשבון.';
+/** Above the plan's options, so a parent knows before paying what the plan holds and that the child can stop sharing. */
+export const CHECKOUT_REPORT = 'המנוי כולל: סיכום התקדמות לכל מכשיר, ועוזר חכם שמסביר, בודק דפים ומכין תרגילים. הילד רואה מה נשלח אליכם ויכול להפסיק את השיתוף.';
+/**
+ * What is kept about the family (PARENTS-9, TRUST-1's text with the summary sentence merged in, and the progress copy a
+ * linked device keeps so it can move to a new one, DURABLE-6). Every clause matches the code: the account, the plan and
+ * its payments (no card), the devices; the daily summary (codes and counts, 90 days: report.js REPORT_KEEP_DAYS); the
+ * progress copy, which the server can open, so it is never called encrypted; no name asked, no chats kept; the tutor's
+ * messages go to Anthropic. Legal.test.js pins it.
+ */
+export const ABOUT_DATA = [
+  'מה נשמר אצלנו: כתובת המייל שלכם, פרטי המנוי והתשלומים (בלי פרטי כרטיס), והמכשירים שחיברתם.',
+  'במנוי, מכל מכשיר מחובר מגיע סיכום קצר של התרגול, בלי תשובות, שיחות, תמונות או שם, והוא נמחק אחרי 90 יום.',
+  'נשמר גם עותק של ההתקדמות בכל מכשיר מחובר, כדי שאפשר יהיה להעביר אותה למכשיר חדש.',
+  'את השם של הילד לא מבקשים, והשיחות שלו עם העוזר לא נשמרות אצלנו.',
+  'מה שהוא כותב לעוזר נשלח ל־Anthropic בארה״ב כדי לקבל תשובה.',
+];
+export const ABOUT_DATA_LINK = 'כל הפרטים במדיניות הפרטיות';
+/** The parent's unlink sheet, while the report is on: the device's summaries go with it. */
+export const UNLINK_REPORT = 'הסיכומים שהגיעו מהמכשיר הזה יימחקו.';
+/** The parent's unlink sheet, for a device whose code the family keeps: when that progress stays (DURABLE-6). */
+export const UNLINK_KEPT = 'ההתקדמות שלו תישמר כאן כדי להעביר אותה למכשיר חדש, אם השיתוף עם ההורים פועל במכשיר.';
+/** The first-link card (PARENTS-6 state 2): what comes after linking, and that the child is told and can stop. */
+export const FIRST_LINK_REPORT = 'אחרי החיבור יופיע כאן סיכום יומי של התרגול במכשיר. הילד יקבל על כך הודעה, יוכל לראות בדיוק מה נשלח, ויוכל להפסיק.';
+
 function About({ plans }) {
   const f = plans?.limits?.family;
   const month = planOf(plans, 'family_month'); const year = planOf(plans, 'family_year');
@@ -38,17 +69,19 @@ function About({ plans }) {
     <section className="card parents-card parents-about" aria-labelledby="about-title">
       <h2 id="about-title" className="card-title">העוזר החכם של מדרגות · להורים</h2>
       <ul className="parents-list">
+        {plans?.report && <li>{ABOUT_REPORT}</li>}
         <li>מסביר לילד את הטעות שלו, בתרגיל שעל המסך</li>
         <li>בודק דף פתרון מצולם ומראה איפה הטעות</li>
         <li>בודק מבחן שנפתר בבית</li>
         <li>מכין תרגילים חדשים ברמה המתאימה</li>
       </ul>
       <p>חינם תמיד: כל השיעורים והתרגול, ההסברים הכתובים של מדי, ו־{plans?.limits?.free?.tutor ?? 2} שאלות לעוזר החכם ביום. בחינם העוזר עונה בקצרה.</p>
+      <p className="parents-free-report">{ABOUT_FREE_REPORT}</p>
       {f && <p>במנוי: עד {f.tutor} שאלות ביום, {f.check} בדיקות דף, {f.exam} בדיקות מבחן ביום (עד {f.examMonthly} בחודש), {f.generate} סדרות תרגילים, עד {f.devices} מכשירים. בחודש עם שימוש גבוה במיוחד השיחה ממשיכה, ובדיקות הצילום והמבחן נחות עד ה־1 בחודש (שימוש הוגן, מפורט בתקנון).</p>}
       {month && year && <p className="parents-price">{formatAgorot(month.amountAgorot)} לחודש, {vat}<br />או {formatAgorot(year.amountAgorot)} לשנה, {vat}</p>}
       <p>בלי התחייבות. מבטלים כאן באתר בשתי לחיצות. ב־14 הימים הראשונים אפשר לבטל ולקבל את כל הכסף בחזרה.</p>
-      {/* what is kept, as the data map says it (trust spec TRUST-1 §5); the parents lane's summary sentence (PARENTS-9) joins this line */}
-      <p className="muted">מה נשמר אצלנו: כתובת המייל שלכם, פרטי המנוי והתשלומים (בלי פרטי כרטיס) והמכשירים שחיברתם. לא מבקשים את שם הילד, ולא שומרים את השיחות עם העוזר. מה שכותבים לעוזר נשלח ל־Anthropic בארה״ב כדי לקבל תשובה. <Link to="/privacy">כל הפרטים במדיניות הפרטיות</Link></p>
+      {/* what is kept, as the data map says it (trust spec TRUST-1 §5), with the parents lane's summary sentences (PARENTS-9) */}
+      <p className="muted parents-data">{ABOUT_DATA.join(' ')} <Link to="/privacy">{ABOUT_DATA_LINK}</Link></p>
     </section>
   );
 }
@@ -80,18 +113,22 @@ const consentError = (adult) => (!adult ? 'כדי להמשיך צריך לאשר
 const yearLine = (until) => `המנוי לשנה אחת, עד ${until}. הוא לא מתחדש מעצמו ולא נחייב אתכם שוב. 45 ימים לפני הסוף נשלח מייל, ואם תרצו, תחדשו בלחיצה.`;
 
 function Checkout({ plans, linkCode, onError, initial = 'family_month' }) {
-  const [choice, setChoice] = useState(initial);
+  // a plan the payment company cannot sell online here (each plan says so: Grow sells the monthly plan only once it may
+  // stop the standing order) is not offered; the one asked for first, else the other
+  const sold = (id) => { const p = planOf(plans, id); return p && p.online !== false ? p : null; };
+  const other = initial === 'family_year' ? 'family_month' : 'family_year';
+  const [choice, setChoice] = useState(() => (sold(initial) || !sold(other) ? initial : other));
   const [adult, setAdult] = useState(false);
   const [terms, setTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const month = planOf(plans, 'family_month'); const year = planOf(plans, 'family_year');
+  const month = sold('family_month'); const year = sold('family_year');
   const vat = vatLine(plans?.vatMode);
   const exempt = plans?.vatMode === 'exempt';
   const picked = choice === 'family_year' ? year : month;
   const now = new Date().toISOString();
   const next = dateNum(addMonths(new Date(), choice === 'family_year' ? 12 : 1).toISOString());
-  if (!plans?.online) {
+  if (!plans?.online || (!month && !year)) {
     return (
       <p className="parents-note">ההצטרפות באתר עוד לא פתוחה. כתבו אל {plans?.contact ? <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a> : 'מדרגות'} ונפעיל את המנוי לחשבון הזה.</p>
     );
@@ -103,6 +140,7 @@ function Checkout({ plans, linkCode, onError, initial = 'family_month' }) {
   };
   return (
     <div className="parents-checkout stack">
+      {plans?.report && <p className="parents-includes">{CHECKOUT_REPORT}</p>}
       <div className="ob-opts" role="radiogroup" aria-label="מסלול">
         {month && (
           <button type="button" role="radio" aria-checked={choice === 'family_month'} className={clsx('ob-opt', choice === 'family_month' && 'on')} onClick={() => setChoice('family_month')}>
@@ -258,13 +296,16 @@ function CancelSheet({ open, onOpenChange, plan, onCancelled, qa }) {
 
 // ---------------------------------------------------------------- linking a child's device by its code
 const LINK_HOW = 'במכשיר של הילד פותחים אני ← הגדרות ← העוזר החכם ← חיבור למנוי משפחתי, ומקלידים כאן את הקוד שמופיע שם.';
+/** Said before a parent links a device, when the progress report is on (PARENTS-4): the child is told and can stop. */
+export const LINK_TOLD = 'אחרי החיבור תראו כאן סיכום קצר של התרגול במכשיר. הילד יקבל על כך הודעה, יוכל לראות בדיוק מה נשלח, ויוכל להפסיק.';
 // A claimed code: the child's device takes its token when the screen with the code is open on it (it asks every few seconds)
 const LINKED_TEXT = 'קיבלנו את הקוד. המכשיר של הילד יתחבר ברגע שהמסך עם הקוד פתוח בו.';
 const OK_TEXT = 'אישרתם את העוזר החכם, ושלחנו לכם מייל עם הפרטים. המכשיר של הילד יתחבר ברגע שהמסך עם הקוד פתוח בו.';
 
 // ---------------------------------------------------------------- the progress the family keeps (DURABLE-6)
 // Each linked device keeps its backup code with the family; an unlinked device's stays in the account ("התקדמות
-// שמורה"), and a new device can continue from it. The page never sees the code or the progress itself.
+// שמורה") while the child shared with the parents, and a new device can continue from it. A linked device's progress is
+// never offered (it is that device's own; the server refuses it), and the page never sees the code or the progress itself.
 const FRESH = 'fresh';
 const savedLine = (v) => `ההתקדמות נשמרת · עודכנה ${dateNum(v.updatedAt)}`;
 const keptName = (v) => v.label || v.device?.label || 'מכשיר';
@@ -289,7 +330,7 @@ function ContinueFrom({ vaults, value, onChange, id }) {
   );
 }
 
-function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro = `חיבור המכשיר של הילד: ${LINK_HOW.replace('במכשיר של הילד', 'במכשיר שלו')}`, vaults = [], from = '' }) {
+function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro = `חיבור המכשיר של הילד: ${LINK_HOW.replace('במכשיר של הילד', 'במכשיר שלו')}`, vaults = [], from = '', report = false }) {
   const [code, setCode] = useState(initial);
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
@@ -313,7 +354,7 @@ function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro =
   };
   return (
     <form ref={formRef} className="stack parents-link" onSubmit={go} noValidate>
-      <p>{intro}</p>
+      <p>{report ? `${intro} ${LINK_TOLD}` : intro}</p>
       {notice && <p className="parents-note">{notice}</p>}
       <Field label="הקוד מהמכשיר של הילד" id="pl-code">
         <input id="pl-code" className="input mono sub-code" dir="ltr" value={code} maxLength={6} autoCapitalize="characters" autoComplete="off"
@@ -330,7 +371,7 @@ function LinkForm({ onLinked, onFailed, qa, initial = '', notice = null, intro =
 }
 
 // ---------------------------------------------------------------- the plan card with its rows
-function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing, vaults = [], linkFrom = '', onLinkFrom }) {
+function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing, vaults = [], kept = [], linkFrom = '', onLinkFrom }) {
   const p = acct.plan;
   const [open, setOpen] = useState(null); // 'devices' | 'link' | 'payments' | 'card'
   // "להעביר למכשיר חדש" opens the link form with that kept progress chosen
@@ -394,7 +435,7 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing, vau
           </ul>
         )}
         {devices.length < (acct.maxDevices || 3) && <button type="button" className="set-row" aria-expanded={open === 'link'} onClick={() => setOpen(open === 'link' ? null : 'link')}>חיבור מכשיר נוסף</button>}
-        {open === 'link' && <LinkForm qa={qa} vaults={vaults} from={linkFrom} onLinked={() => { toast.success(LINKED_TEXT); setOpen('devices'); onLinkFrom?.(''); onChanged(); }} />}
+        {open === 'link' && <LinkForm qa={qa} vaults={kept} from={linkFrom} report={!!plans?.report} onLinked={() => { toast.success(LINKED_TEXT); setOpen('devices'); onLinkFrom?.(''); onChanged(); }} />}
         {(p.portal || pastDue) && <button type="button" className="set-row" aria-expanded={p.portal ? undefined : open === 'card'} onClick={openPortal}>עדכון אמצעי תשלום</button>}
         {open === 'card' && (
           <p className="parents-note">עדכון אמצעי תשלום נעשה מול חברת הסליקה. כתבו לנו{plans?.contact ? <> אל <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a></> : ''} ונעזור.</p>
@@ -404,7 +445,7 @@ function PlanCard({ acct, plans, qa, onChanged, onCancel, onRenew, renewing, vau
         {open === 'payments' && <Receipts payments={payments} qa={qa} />}
       </div>
       <ConfirmSheet open={!!unlink} onOpenChange={(o) => !o && setUnlink(null)} title="לנתק את המכשיר?" keep="להשאיר מחובר" confirm="כן, לנתק" onConfirm={doUnlink} mood="idle">
-        <p>{plans?.parentOk === false ? `העוזר החכם יחזור ${unlinkName} ל־${plans?.limits?.free?.tutor ?? 2} שאלות ביום.` : `העוזר החכם ${unlinkName} יחכה שוב לאישור שלכם.`} אפשר לחבר אותו שוב בכל זמן.</p>
+        <p>{plans?.parentOk === false ? `העוזר החכם יחזור ${unlinkName} ל־${plans?.limits?.free?.tutor ?? 2} שאלות ביום.` : `העוזר החכם ${unlinkName} יחכה שוב לאישור שלכם.`} אפשר לחבר אותו שוב בכל זמן.{plans?.report ? ` ${UNLINK_REPORT}` : ''}{unlink && vaults.some((v) => v.device?.id === unlink.id) ? ` ${UNLINK_KEPT}` : ''}</p>
       </ConfirmSheet>
     </section>
   );
@@ -738,10 +779,12 @@ export default function Parents({ mode = 'home' }) {
     say({ tone: 'good', text: `${lead} שלחנו אישור למייל. מספר אישור: ${r.reference}.${refund}`, node: <>{lead} שלחנו אישור למייל. מספר אישור: <Reference value={r.reference} />.{refund}</> });
     if (qa) { if (!licence) setAcct({ ...acct, plan: { ...acct.plan, status: r.status, cancelAtPeriodEnd: true } }); } else loadAccount();
   };
+  // only progress kept from a device that is no longer linked can move: a linked device's is its own (the server says 409)
+  const kept = vaults.filter((v) => !v.device);
   const thisDevice = async () => {
     setHereError('');
-    if (vaults.length && !hereFrom) { setHereError(CHOOSE_ERROR); return; }
-    const restoreFrom = vaults.length && hereFrom !== FRESH ? hereFrom : null;
+    if (kept.length && !hereFrom) { setHereError(CHOOSE_ERROR); return; }
+    const restoreFrom = kept.length && hereFrom !== FRESH ? hereFrom : null;
     // the kept progress comes to this device in the background; it says so when it is here
     const onEscrow = (x) => { if (x.toast) (x.restored ? toast.success : toast)(x.toast); };
     try { await linkThisDevice('', { restoreFrom, onEscrow }); flag.set(false); setLinkedHere('plan'); setAcct(null); } catch (e) { say({ tone: 'note', text: e.message }); }
@@ -754,7 +797,6 @@ export default function Parents({ mode = 'home' }) {
     if (params.get('c')) { const next = new URLSearchParams(params); next.delete('c'); setParams(next, { replace: true }); }
     say({ tone: 'good', text: OK_TEXT }); loadAccount();
   };
-  const kept = vaults.filter((v) => !v.device);
   const moveKept = (id) => { setLinkFrom(id); setBanner(null); };
   // a link card of its own (the code from the QR, or the first device) takes the chosen progress; else the plan card's form
   const linkCard = !!plan && !here && !claimed && (!!linkCode || (acct?.devices?.length || 0) === 0);
@@ -829,15 +871,20 @@ export default function Parents({ mode = 'home' }) {
         {acct.billingHold && <p className="parents-warn">יש בירור פתוח על תשלום קודם. כתבו אלינו אל {plans.contact ? <a href={`mailto:${plans.contact}`} dir="ltr">{plans.contact}</a> : 'מדרגות'}.</p>}
         {plans.paywall === false && <section className="card parents-card"><p className="card-title">כרגע העוזר החכם פתוח בלי מנוי.</p></section>}
         {plan && <PlanCard acct={acct} plans={plans} qa={!!qa} onChanged={loadAccount} onCancel={() => setCancelOpen(true)} onRenew={() => setRenewing(true)} renewing={renewing}
-          vaults={vaults} linkFrom={here || linkCard ? '' : linkFrom} onLinkFrom={setLinkFrom} />}
+          vaults={vaults} kept={kept} linkFrom={here || linkCard ? '' : linkFrom} onLinkFrom={setLinkFrom} />}
         {plan?.plan === 'family_year' && plan.status === 'active' && (plan.canRenew || renewAsked) && !orderId && !acct.billingHold && plans.paywall !== false && (
           <RenewYear plan={plan} plans={plans} />
+        )}
+        {/* each device's progress (PARENTS-5), then the progress kept from earlier devices: one order at every width */}
+        {plans.report && (plan || (acct.devices?.length || 0) > 0) && (
+          <FamilyReport plan={plan} devices={acct.devices || []} email={acct.email} reportEmail={!!acct.reportEmail}
+            onReportEmail={(on) => setAcct((a) => (a ? { ...a, reportEmail: on } : a))} qa={qa ? qa.report || 'none' : null} />
         )}
         {plan && kept.length > 0 && <KeptCard kept={kept} qa={!!qa} onMove={(id) => { if (here) { setHereFrom(id); document.getElementById('here-title')?.scrollIntoView({ block: 'start' }); } else moveKept(id); }} onChanged={loadAccount} />}
         {plan && here && (
           <section className="card parents-card" aria-labelledby="here-title">
             <h2 id="here-title" className="card-title">המכשיר הזה</h2>
-            {vaults.length > 0 && <ContinueFrom vaults={vaults} value={hereFrom} onChange={(v) => { setHereError(''); setHereFrom(v); }} id="here-from" />}
+            {kept.length > 0 && <ContinueFrom vaults={kept} value={hereFrom} onChange={(v) => { setHereError(''); setHereFrom(v); }} id="here-from" />}
             {hereError && <p className="form-error" role="alert">{hereError}</p>}
             <Button className="btn-block btn-lg" onClick={thisDevice}>להפעיל את העוזר החכם במכשיר הזה</Button>
           </section>
@@ -845,14 +892,15 @@ export default function Parents({ mode = 'home' }) {
         {plan && !here && linkCode && !claimed && (
           <section className="card parents-card" aria-labelledby="qr-link">
             <h2 id="qr-link" className="card-title">חיבור המכשיר של הילד</h2>
-            <LinkForm qa={!!qa} initial={linkCode} intro="הקוד מהמכשיר של הילד כבר כאן. אפשר לתת למכשיר שם, ואז ללחוץ על חיבור המכשיר."
-              notice="המכשיר שמציג את הקוד הזה יקבל את העוזר החכם דרך המנוי שלכם. חברו רק מכשיר של הילד שלכם." onLinked={linked} onFailed={linkFailed} vaults={vaults} from={linkFrom} />
+            <LinkForm qa={!!qa} initial={linkCode} report={!!plans.report} intro="הקוד מהמכשיר של הילד כבר כאן. אפשר לתת למכשיר שם, ואז ללחוץ על חיבור המכשיר."
+              notice="המכשיר שמציג את הקוד הזה יקבל את העוזר החכם דרך המנוי שלכם. חברו רק מכשיר של הילד שלכם." onLinked={linked} onFailed={linkFailed} vaults={kept} from={linkFrom} />
           </section>
         )}
         {plan && !here && !linkCode && !claimed && (acct.devices?.length || 0) === 0 && (
           <section className="card parents-card" aria-labelledby="first-link">
             <h2 id="first-link" className="card-title">חיבור המכשיר של הילד</h2>
-            <LinkForm qa={!!qa} intro={LINK_HOW} onLinked={linked} vaults={vaults} from={linkFrom} />
+            <LinkForm qa={!!qa} intro={LINK_HOW} onLinked={linked} vaults={kept} from={linkFrom} />
+            {plans.report && <p className="parents-note parents-first-link">{FIRST_LINK_REPORT}</p>}
           </section>
         )}
         {!plan && wantsOk && !claimed && (

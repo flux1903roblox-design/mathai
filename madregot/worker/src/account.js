@@ -1,8 +1,9 @@
 // Parent and teacher accounts: sign-in with a 6-digit code sent by email, no password. Sign-up and sign-in are one flow.
-// The only personal data kept is the email address (the payer's), and only once a code was entered: a pending code is
-// keyed by HMAC(AUTH_SECRET, email), so an address that never signs in is never stored. A session token is stored
-// hashed and sent as X-Account-Token. Sessions are for a parent's or teacher's own browser, never a child's device
-// (those get family-device tokens that work for the AI routes only).
+// The account's personal data is the email address (the payer's), and only once a code was entered: a pending code is
+// keyed by HMAC(AUTH_SECRET, email), so an address that never signs in is never stored. (A family plan also keeps its
+// devices' daily summaries, report.js, and the progress copies' codes, vault.js.) A session token is stored hashed and
+// sent as X-Account-Token. Sessions are for a parent's or teacher's own browser, never a child's device (those get
+// family-device tokens, which reach the AI routes, the device's own summary and its own escrow, never the account).
 import {
   HttpError, body, json, sha256, hmacHex, randomToken, nowIso, addDays, dayOf, safeEqual, netKey, key, take, giveBack,
 } from './util.js';
@@ -160,7 +161,7 @@ async function sessionOf(req, env) {
   if (!/^[a-f0-9]{64}$/.test(token)) return null;
   const hash = await sha256(token);
   const row = await env.DB.prepare(
-    `SELECT s.token_hash, s.account_id, s.last_seen, s.verified_at, a.email, a.billing_hold_at, a.adult_confirmed_at, a.terms_version
+    `SELECT s.token_hash, s.account_id, s.last_seen, s.verified_at, a.email, a.billing_hold_at, a.adult_confirmed_at, a.terms_version, a.report_email_at
      FROM account_sessions s JOIN accounts a ON a.id = s.account_id WHERE s.token_hash = ?`,
   ).bind(hash).first();
   if (!row) return null;
@@ -185,6 +186,7 @@ export async function accountFrom(req, env) {
   return {
     id: s.account_id, email: s.email, tokenHash: s.token_hash, verifiedAt: s.verified_at,
     billingHoldAt: s.billing_hold_at, adultConfirmedAt: s.adult_confirmed_at, termsVersion: s.terms_version,
+    reportEmailAt: s.report_email_at || null,
   };
 }
 

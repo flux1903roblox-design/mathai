@@ -25,6 +25,10 @@ export const WHERE_SAVED = {
   family: 'ההתקדמות נשמרת במכשיר, ועותק שלה נשמר בשרת דרך המנוי המשפחתי, כדי שאפשר יהיה להעביר אותה למכשיר חדש.',
   /** a copy the server could open, with neither a class nor a family plan any more (a student who left the class) */
   serverCopy: 'ההתקדמות נשמרת במכשיר, ועותק שלה נשמר בשרת.',
+  /** a linked device whose parents' summary is on (PARENTS-4), after the sentence about the progress */
+  summaryClause: 'סיכום קצר של התרגול נשלח להורים. בהגדרות אפשר לראות מה בדיוק.',
+  /** the progress on the device, when the summary clause follows (so "רק" is not said of a device that sends one) */
+  device: 'ההתקדמות נשמרת במכשיר הזה.',
 };
 
 const has = (state, kind) => !!state?.backup?.on && !!state.backup.code && (state.backup.escrow === kind || state.backup.escrow === 'both');
@@ -36,10 +40,17 @@ const escrowed = (state) => !!state?.backup?.on && !!state.backup.code && !!stat
 /**
  * The sentence for this state ({ profile, backup }). `server`: the app has a server (default: this build's); `about`: 'numbers' under the
  * learning numbers, else 'progress'. A class student is one signed in to a class (profile.token): only then are the
- * answers sent (store.js recordAnswer).
+ * answers sent (store.js recordAnswer). `summary`: this device is linked and its parents' summary is on (the server's
+ * linked.summary === 'on'): the summary clause follows the sentence.
  */
-export function whereSavedText(state, { server = hasServer(), about = 'progress' } = {}) {
+export function whereSavedText(state, { server = hasServer(), about = 'progress', summary = false } = {}) {
   if (!server) return WHERE_SAVED.noServer;
+  const base = progressText(state, about);
+  if (!summary) return base;
+  return `${base === WHERE_SAVED.solo ? WHERE_SAVED.device : base} ${WHERE_SAVED.summaryClause}`;
+}
+
+function progressText(state, about) {
   const backup = codeBackupOn(state);
   if (state?.profile?.role === 'student' && state.profile.token) {
     const cls = about === 'numbers' ? WHERE_SAVED.classNumbers : WHERE_SAVED.classProgress;

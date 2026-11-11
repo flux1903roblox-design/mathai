@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 import { useApp, STORE_KEY } from './store.js';
 import { api, ApiError } from './api.js';
-import { deviceId, randomHex, refreshStatus } from './account.js';
+import { deviceId, randomHex, refreshStatus, newFamilyDevice } from './account.js';
 import { afterFamilyLink } from './durable/escrow.js';
 
 const KEY = `${STORE_KEY}-parent`;
@@ -196,7 +196,7 @@ export const unlinkDevice = (id) => accountCall(`/api/family/devices/${encodeURI
 export async function linkThisDevice(label, { restoreFrom = null, onEscrow, ...extra } = {}) {
   const body = { ...(label ? { label } : {}), ...extra, ...(restoreFrom ? { restoreFrom } : {}) };
   const r = await accountCall('/api/family/devices/this', { method: 'POST', body, headers: { 'X-Device': deviceId() } });
-  useApp.getState().setAI({ familyDevice: { token: r.deviceToken, label: r.label || '' }, pendingLink: null });
+  useApp.getState().setAI({ familyDevice: newFamilyDevice(r), pendingLink: null });
   clearSession();
   refreshStatus();
   afterFamilyLink(r).then((x) => onEscrow?.(x));
@@ -214,6 +214,21 @@ export async function familyVaults() {
 }
 /** "למחוק": the kept progress goes (the device it came from is not touched). */
 export const deleteFamilyVault = (id) => accountCall(`/api/family/vaults/${encodeURIComponent(id)}/delete`, { method: 'POST', body: {} });
+
+// ---------------------------------------------------------------- the progress report (PARENTS-5)
+/**
+ * Each linked device's daily summaries of the last `days` days (7 to 90): { retentionDays, days, devices: [{ id, label,
+ * linkedAt, lastSeen, sharing, sharingAt, lastSync, days: DaySummary[] }] }. Also after the plan ended, until the purge.
+ */
+export const summary = ({ days = 56 } = {}) => accountCall(`/api/family/summary?days=${encodeURIComponent(days)}`);
+/** The parent's own switch for one device's summary: resolves { sharing } (the state with both switches and the plan). */
+export const setDeviceSharing = (id, on) => accountCall(`/api/family/devices/${encodeURIComponent(id)}/sharing`, { method: 'POST', body: { on: !!on } });
+/** "מחיקת ההיסטוריה של המכשיר": the device's summaries go; the device stays linked. Resolves { ok, deleted }. */
+export const deleteDeviceHistory = (id) => accountCall(`/api/family/devices/${encodeURIComponent(id)}/history/delete`, { method: 'POST', body: {} });
+/** "סיכום שבועי במייל" (PARENTS-7): the parent's switch for the Sunday email. Resolves { reportEmail }. */
+export const setReportEmail = (on) => accountCall('/api/account/report-email', { method: 'POST', body: { on: !!on } });
+/** "הסיכום עוזר לכם?": one answer a week per account (a second one is 429 already_answered). */
+export const reportFeedback = (useful) => accountCall('/api/report/feedback', { method: 'POST', body: { useful: !!useful } });
 
 // ---------------------------------------------------------------- the data
 /** Everything kept about the account, as a file the parent saves. */

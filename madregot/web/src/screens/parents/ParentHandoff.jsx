@@ -13,6 +13,8 @@ import { Button } from '@/components/ui.jsx';
 import Mascot from '@/components/Mascot.jsx';
 import ParentsFrame, { NoServerNote } from './ParentsFrame.jsx';
 
+/** What linking shares, said before the parent links (PARENTS-4). */
+export const HANDOFF_TOLD = 'אם תחברו את המכשיר למנוי, תראו סיכום קצר של התרגול, ובמכשיר תופיע על כך הודעה.';
 const POLL_MS = 5000;
 const POLL_FOR_MS = 15 * 60_000;
 
@@ -21,6 +23,7 @@ export default function ParentHandoff() {
   // plan later needs no new link
   const device = useApp((s) => s.ai.familyDevice);
   const tier = useAIStatus((x) => x.status?.tier);
+  const paywall = useAIStatus((x) => x.status?.paywall === true);
   const linked = !!device;
   const pending = useApp((s) => s.ai.pendingLink);
   const [state, setState] = useState(linked ? 'linked' : 'starting'); // starting | waiting | idle | expired | linked | error
@@ -72,6 +75,8 @@ export default function ParentHandoff() {
       <>
         <section className="card parents-card handoff" aria-labelledby="handoff-title">
           <p id="handoff-title" className="handoff-lead">הורים, סרקו את הקוד בטלפון שלכם. שם תקראו על העוזר החכם ותוכלו לאשר אותו במכשיר הזה, בחינם או עם מנוי.</p>
+          {/* its own line, so the lead can change on its own (PARENTS-4): the child is told before anything is shared */}
+          {paywall && <p className="muted handoff-told">{HANDOFF_TOLD}</p>}
           {state === 'starting' && <p className="muted" role="status">מכינים קוד…</p>}
           {state === 'error' && (
             <>

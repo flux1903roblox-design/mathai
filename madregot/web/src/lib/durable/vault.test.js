@@ -1,8 +1,9 @@
 // The vault's sync engine on the device (DURABLE-5, vault.js), against a fake server in fetch that keeps vaults as the
-// Worker does (compare-and-swap revisions, 409 with the current rev, 404 vault_gone): pull then push, a 409 merged and
-// retried, a vault that was deleted made again, an unchanged copy not sent, offline, a conflict loop that stops,
-// another student's copy never merged, two devices that settle instead of sending each other the same progress, and
-// turning the backup on and off.
+// Worker does (compare-and-swap revisions, 409 with the current rev, 404 vault_gone for an expired vault, 410
+// vault_deleted for one its owner deleted, 401 not_linked for a write with a family token the server let go): pull then
+// push, a 409 merged and retried, an expired vault made again, a deleted one never made again, an unchanged copy not
+// sent, offline, a conflict loop that stops, another student's copy never merged, two devices that settle instead of
+// sending each other the same progress, a device the family let go moving to a new code, and turning the backup on and off.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createStore } from 'zustand/vanilla';
 import { useApp, appState } from '../store.js';
@@ -14,7 +15,7 @@ import { makeCode, isCode } from './code.js';
 import { report } from '../monitor.js';
 import {
   syncVault, createBackup, stopBackup, detachBackup, backupText, agoText, vaultErrorText, openCopy, CONFLICT_LOOPS, BACKUP_TEXT,
-  findVault, adoptCode,
+  findVault, adoptCode, familyGone,
 } from './vault.js';
 import { applyRestored } from './apply.js';
 import { VaultOpenError } from './crypto.js';
@@ -28,8 +29,9 @@ const initial = useApp.getState();
 /** A fake vault server: `vaults` by X-Vault, every call logged. `hooks.post(body, h)` may answer a POST instead. */
 function fakeServer() {
   const vaults = new Map();
+  const deleted = new Set();
   const calls = [];
-  const hooks = {};
+  const hooks = { unlinked: new Set() };
   let clock = 0;
   const reply = (status, data) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
   const fetch = vi.fn(async (url, init = {}) => {
@@ -41,10 +43,14 @@ function fakeServer() {
     if (hooks.down) throw new TypeError('Failed to fetch');
     const id = h['x-vault'];
     const v = vaults.get(id);
-    if (path === '/api/vault/rev' && method === 'GET') return v ? reply(200, { rev: v.rev, updatedAt: v.updatedAt }) : reply(404, { error: 'vault_not_found' });
-    if (path === '/api/vault' && method === 'GET') return v ? reply(200, { rev: v.rev, blob: v.blob, updatedAt: v.updatedAt }) : reply(404, { error: 'vault_not_found' });
+    const missing = () => (deleted.has(id) ? reply(410, { error: 'vault_deleted' }) : reply(404, { error: 'vault_not_found' }));
+    if (path === '/api/vault/rev' && method === 'GET') return v ? reply(200, { rev: v.rev, updatedAt: v.updatedAt }) : missing();
+    if (path === '/api/vault' && method === 'GET') return v ? reply(200, { rev: v.rev, blob: v.blob, updatedAt: v.updatedAt }) : missing();
+    if (path === '/api/vault/escrow' && method === 'POST') return reply(200, { escrow: h.authorization ? 'class' : 'family' });
     if (path === '/api/vault' && method === 'POST') {
+      if (hooks.unlinked.has(h['x-family-device'])) return new Response(JSON.stringify({ error: 'not_linked' }), { status: 401, headers: { 'Content-Type': 'application/json', 'X-AI-Linked': '0' } });
       if (hooks.post) { const r = await hooks.post(body, h); if (r) return r; }
+      if (deleted.has(id)) return reply(410, { error: 'vault_deleted' });
       const updatedAt = new Date(Date.parse(AT) + (clock += 1000)).toISOString();
       if (body.ifRev === null) {
         if (v) return reply(409, { error: 'vault_conflict', rev: v.rev });
@@ -56,10 +62,10 @@ function fakeServer() {
       vaults.set(id, { rev: v.rev + 1, blob: body.blob, updatedAt });
       return reply(200, { rev: v.rev + 1, updatedAt });
     }
-    if (path === '/api/vault/delete' && method === 'POST') { const had = vaults.delete(id); return reply(200, { deleted: had ? 1 : 0 }); }
+    if (path === '/api/vault/delete' && method === 'POST') { const had = vaults.delete(id); deleted.add(id); return reply(200, { deleted: had ? 1 : 0 }); }
     return reply(404, { error: 'not_found' });
   });
-  return { vaults, calls, hooks, fetch, posts: () => calls.filter((c) => c.method === 'POST' && c.path === '/api/vault') };
+  return { vaults, deleted, calls, hooks, fetch, posts: () => calls.filter((c) => c.method === 'POST' && c.path === '/api/vault') };
 }
 
 let server;
@@ -162,6 +168,72 @@ describe('sync', () => {
     expect(await syncVault({ moment: 'boot' })).toBe('pushed');
     expect(server.posts().at(-1).body.ifRev).toBeNull();
     expect(useApp.getState().backup.note).toBe('recreated');
+  });
+
+  it('a stop on one device is never undone by another: device B, same code, turns its backup off (410 vault_deleted)', async () => {
+    const code = makeCode();
+    await remote(code, THERE, 2);
+    // device A: "להפסיק את הגיבוי"
+    const a = createStore(() => ({ ...appState(), ai: { ...initial.ai, apiUrl: API } }));
+    await device(HERE, code, { rev: 2, store: a });
+    await stopBackup({ store: a });
+    expect(server.vaults.size).toBe(0);
+    // device B, every moment: the boot pull and a lesson's push
+    for (const moment of ['boot', 'lesson']) {
+      await device(HERE, code, { rev: 2 });
+      useApp.setState({ days: { ...useApp.getState().days, '2026-11-06': { lessons: 1, xp: 5, q: 3, ok: 3 } } });
+      expect(await syncVault({ moment })).toBe('deleted');
+      expect(server.vaults.size, moment).toBe(0);
+      expect(server.posts().every((c) => c.body.ifRev !== null), 'never made again').toBe(true);
+      expect(useApp.getState().backup).toMatchObject({ on: false, code: null, note: 'deleted' });
+      expect(await syncVault({ moment: 'boot' })).toBe('off');
+    }
+    // a fresh phone with the stopped code gets nothing back
+    await expect(findVault(code)).rejects.toMatchObject({ code: 'vault_deleted' });
+    expect(vaultErrorText({ code: 'vault_deleted' })).toBe('הגיבוי של הקוד הזה נמחק, ולכן אי אפשר לשחזר ממנו.');
+    expect(BACKUP_TEXT.deleted).toContain('נמחק ממכשיר אחר');
+  });
+
+  it('the family let go of this device (401 not_linked on a write): the token is forgotten and the backup moves to a new code', async () => {
+    const code = makeCode();
+    const old = await remote(code, HERE, 3);
+    await device(HERE, code, { rev: 3, escrow: 'family' });
+    useApp.setState({ ai: { ...useApp.getState().ai, familyDevice: { token: 'fd1.old', label: 'הטאבלט' } } });
+    server.hooks.unlinked.add('fd1.old');
+    useApp.setState({ days: { ...useApp.getState().days, '2026-11-06': { lessons: 1, xp: 5, q: 3, ok: 3 } } });
+    expect(await syncVault({ moment: 'lesson' })).toBe('moved');
+    const b = useApp.getState().backup;
+    expect(useApp.getState().ai.familyDevice).toBeNull();
+    expect(b).toMatchObject({ on: true, escrow: null, note: 'moved', moveCode: false, rev: 1 });
+    expect(isCode(b.code) && b.code !== code).toBe(true);
+    expect(b.lookup).not.toBe(old);
+    // the kept copy got nothing new: still rev 3, and nothing more is sent to it
+    expect(server.vaults.get(old).rev).toBe(3);
+    expect(await syncVault({ moment: 'lesson' })).toBe('unchanged');
+    expect(server.calls.filter((c) => c.headers['x-vault'] === old && c.method === 'POST').length).toBe(1);
+    expect(BACKUP_TEXT.moved).toContain('עבר לקוד חדש');
+  });
+
+  it('familyGone (X-AI-Linked: 0 seen elsewhere): the next sync moves first, the class keeps the new code when it kept the old one', async () => {
+    const code = makeCode();
+    const old = await remote(code, HERE, 1);
+    await device(HERE, code, { rev: 1, escrow: 'both' });
+    useApp.setState({ ai: { ...useApp.getState().ai, familyDevice: { token: 'fd1.old', label: 'הטאבלט' } } });
+    familyGone(useApp);
+    expect(useApp.getState().ai.familyDevice).toBeNull();
+    expect(useApp.getState().backup).toMatchObject({ moveCode: true, escrow: 'class' });
+    server.calls.length = 0;
+    expect(await syncVault({ moment: 'boot' })).toBe('moved');
+    expect(server.calls.some((c) => c.headers['x-vault'] === old), 'the old copy is not pulled or pushed').toBe(false);
+    const b = useApp.getState().backup;
+    const esc = server.calls.find((c) => c.path === '/api/vault/escrow');
+    expect(esc.body).toEqual({ code: b.code, lookup: b.lookup });
+    expect(b).toMatchObject({ escrow: 'class', note: 'moved' });
+    // a device whose code the family never kept only forgets the token
+    await device(HERE, code, { rev: 1, escrow: null });
+    useApp.setState({ ai: { ...useApp.getState().ai, familyDevice: { token: 'fd1.x' } } });
+    familyGone(useApp);
+    expect(useApp.getState().backup.moveCode).toBe(false);
   });
 
   it('offline: nothing is sent and the backup waits for the internet; a failed request is the same', async () => {
@@ -436,7 +508,7 @@ describe('what Settings says', () => {
   it('the vault\'s own words for its errors', () => {
     expect(vaultErrorText({ code: 'too_many_tries' })).toBe('היו הרבה ניסיונות מהרשת הזו היום. נסו שוב מחר.');
     expect(vaultErrorText({ code: 'vault_full' })).toBe('אי אפשר ליצור גיבוי בשרת כרגע. אפשר לשמור קובץ גיבוי במקום.');
-    expect(vaultErrorText({ code: 'too_many_vaults' })).toBe('נוצרו היום הרבה גיבויים מהרשת הזו. נסו שוב מחר, או שמרו קובץ.');
+    expect(vaultErrorText({ code: 'too_many_vaults' })).toBe('נוצרו היום הרבה גיבויים מהמכשיר או מהרשת הזו. נסו שוב מחר, או שמרו קובץ.');
     expect(vaultErrorText(new VaultOpenError())).toBe('הגיבוי נמצא, אבל לא הצלחנו לפתוח אותו. בדקו שהקוד נכון עד הסוף.');
   });
 });

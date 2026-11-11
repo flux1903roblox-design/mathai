@@ -151,8 +151,9 @@ export const deviceCountersStmt = (env, dk) => countersStmt(env, DEVICE_COUNTERS
 /**
  * Everything of one family device, children first: its counters, the link codes that made it, the notices and audit
  * rows about it (device_linked:<id>, device.link, device.unlink), its daily summaries for the parents (PARENTS-3,
- * family_daily), and the device row. The device's escrow stays with the account ("התקדמות שמורה", as on an unlink:
- * family.js leaveFamily), without the device id. Bind nothing: the id is bound here.
+ * family_daily), and the device row. The code the family kept for this device (its escrow, DURABLE-6) is deleted too:
+ * a device that leaves by itself takes it along (family.js leaveFamily, the family lane's review rule; only a parent's
+ * unlink may keep it in the account). Bind nothing: the id is bound here.
  */
 export function familyDeviceDeleteStmts(env, id) {
   const stmt = (sql) => env.DB.prepare(sql).bind(id);
@@ -161,7 +162,7 @@ export function familyDeviceDeleteStmts(env, id) {
     stmt('DELETE FROM link_codes WHERE device_id = ?1'),
     stmt('DELETE FROM notices WHERE ref = ?1'),
     stmt("DELETE FROM audit_log WHERE target = 'device:' || ?1 OR actor = 'device:' || ?1"),
-    stmt('UPDATE vault_escrow SET device_id = NULL WHERE device_id = ?1'),
+    stmt('DELETE FROM vault_escrow WHERE device_id = ?1'),
     stmt('DELETE FROM family_daily WHERE device_id = ?1'),
     stmt('DELETE FROM family_devices WHERE id = ?1'),
   ];

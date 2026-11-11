@@ -1,8 +1,10 @@
 // Mocked tutor and parent states for the staging copy, which has no server (VITE_QA_HOOKS=1, or the debug flag on a
 // test device). A link with ?qa-ai=<state> or ?qa-parent=<state> (in the address or after the #) renders that state
 // with no request at all, so every state can be screenshotted. The choice is kept for the visit (sessionStorage).
-//   qa-ai:      free2 | free1 | free0 | family | class | shared | paused | economy | ended
+//   qa-ai:      free2 | free1 | free0 | family | family-off | family-parent-off | class | shared | paused | economy | ended
+//               (family: the parents' summary on; family-off: the child stopped it; family-parent-off: the parents did)
 //   qa-parent:  signed-out | code | plans | confirming | active | refund-window | canceled | past_due | economy | nosrv
+//               report | report-empty | report-off (each device's progress: components/report/qaFamily.js)
 //   qa-teacher: demo (the demo class of TEACHER-15, lib/demo.js: every teacher screen with no request)
 //   qa-report:  week | empty (the weekly summary from a fixed week and clock: components/report/qaWeek.js)
 //   qa-goal:    mid | reached | off   (the class goal of the week, STUDENT-4: shown with or without a class)
@@ -14,9 +16,9 @@ import { qaOn } from './qa.js';
 
 const QA_TEXT = 'זו תשובה לדוגמה של העוזר החכם במצב בדיקה. בגרסה הזו אין שרת, אז שום שאלה לא נשלחה.';
 
-const AI_STATES = ['free2', 'free1', 'free0', 'family', 'class', 'shared', 'paused', 'economy', 'ended'];
+const AI_STATES = ['free2', 'free1', 'free0', 'family', 'family-off', 'family-parent-off', 'class', 'shared', 'paused', 'economy', 'ended'];
 const TEACHER_STATES = ['demo'];
-const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv'];
+const PARENT_STATES = ['signed-out', 'code', 'plans', 'confirming', 'active', 'refund-window', 'canceled', 'past_due', 'economy', 'nosrv', 'report', 'report-empty', 'report-off', 'report-old'];
 const REPORT_STATES = ['week', 'empty'];
 
 function param(name, allowed) {
@@ -72,13 +74,16 @@ export function qaStatus() {
   const all = [...AI_KINDS];
   const S = {
     free2: free(2), free1: free(1), free0: free(0),
-    family: { ...free(0), tier: 'family', kinds: all, groups: { tutor: { left: 27, limit: 30 }, check: { left: 6, limit: 6 }, generate: { left: 5, limit: 5 }, exam: { left: 2, limit: 2, monthLeft: 9 } }, linked: { label: 'הטאבלט' } },
+    family: { ...free(0), tier: 'family', kinds: all, groups: { tutor: { left: 27, limit: 30 }, check: { left: 6, limit: 6 }, generate: { left: 5, limit: 5 }, exam: { left: 2, limit: 2, monthLeft: 9 } }, linked: { label: 'הטאבלט', summary: 'on' } },
     class: { ...free(0), tier: 'class', kinds: all, groups: { tutor: { left: 18, limit: 20 }, check: { left: 3, limit: 3 }, generate: { left: 3, limit: 3 }, exam: { left: 1, limit: 1 } } },
     shared: { ...free(2), shared: 'network' },
     paused: { ...free(2), shared: 'paused' },
-    economy: { ...free(0), tier: 'family', kinds: [...FREE_KINDS], economy: true, groups: groups({ left: 20, limit: 30 }), linked: { label: 'הטאבלט' } },
+    economy: { ...free(0), tier: 'family', kinds: [...FREE_KINDS], economy: true, groups: groups({ left: 20, limit: 30 }), linked: { label: 'הטאבלט', summary: 'on' } },
     ended: free(2),
   };
+  // the parents' summary switched off on the device, or by the parents (PARENTS-4)
+  S['family-off'] = { ...S.family, linked: { label: 'הטאבלט', summary: 'child_off' } };
+  S['family-parent-off'] = { ...S.family, linked: { label: 'הטאבלט', summary: 'parent_off' } };
   return { status: S[s], ended: s === 'ended' };
 }
 
@@ -112,7 +117,7 @@ export function qaReply(kind, input = {}) {
 
 // ---------------------------------------------------------------- the parents page
 const PLANS = {
-  paywall: true, online: true, vatMode: 'included', vatRate: 0.18, currency: 'ILS', termsVersion: '2026-11', checkoutHosts: [],
+  paywall: true, online: true, report: true, vatMode: 'included', vatRate: 0.18, currency: 'ILS', termsVersion: '2026-11', checkoutHosts: [],
   plans: [
     { id: 'family_month', kind: 'family', interval: 'month', amountAgorot: 2990, vatAgorot: 456, renews: true },
     { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: 24900, vatAgorot: 3798, renews: false, termMonths: 12 },
@@ -128,7 +133,7 @@ const plan = (over = {}) => ({
   prorataAgorot: null, canResume: false, portal: true, economy: false, ...over,
 });
 const account = (p) => ({
-  email: 'parent@example.test', billingHold: false, maxDevices: 3, plan: p,
+  email: 'parent@example.test', billingHold: false, maxDevices: 3, plan: p, reportEmail: false,
   devices: p ? [{ id: 'qa00000000000002', label: 'הטאבלט', linkedAt: '2026-11-02T16:00:00Z', lastSeen: '2026-11-10' }] : [],
   usageWeek: { tutor: 23, check: 2, generate: 0, exam: 1 },
   payments: p ? [{ id: 'qa00000000000003', at: '2026-11-10T10:00:00Z', amountAgorot: 2990, kind: 'charge', hasInvoice: true }] : [],
@@ -157,6 +162,12 @@ export function qaParentView() {
     case 'canceled': return { ...base, account: account(plan({ status: 'canceled', cancelAtPeriodEnd: true, cancelRequestedAt: '2026-11-10T09:00:00Z', canResume: true })) };
     case 'past_due': return { ...base, account: account(plan({ status: 'past_due' })) };
     case 'economy': return { ...base, account: account(plan({ economy: true })) };
+    // the progress report (PARENTS-5, PARENTS-6): the account's devices here, their summaries in qaFamily.js
+    case 'report': {
+      const a = account(plan());
+      return { ...base, report: s, account: { ...a, devices: [...a.devices, { id: 'qa00000000000004', label: 'הטלפון', linkedAt: '2026-10-16T18:00:00Z', lastSeen: '2026-11-02' }] } };
+    }
+    case 'report-empty': case 'report-off': case 'report-old': return { ...base, report: s, account: account(plan()) };
     default: return null;
   }
 }

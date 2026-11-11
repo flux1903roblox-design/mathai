@@ -4,8 +4,11 @@
 // medals, and the learning numbers. Settings (details, class, assistant, sound, deleting data) live on /settings. At
 // the bottom, small and quiet, the legal pages and the AI safety statement (trust spec TRUST-2 §7), and the cancel link
 // when the app has a server: a second way there for a returning family (the front page carries the one the law asks for).
+// On a device whose parents' summary is on, a "משותף עם ההורים" chip under the class line is the child's permanent sign
+// (ICO Children's Code, standard 11) and opens what is shared (PARENTS-4).
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings as Gear, Flame, Footprints, Award, CalendarCheck, ChevronLeft, Shirt } from 'lucide-react';
+import { Settings as Gear, Flame, Footprints, Award, CalendarCheck, ChevronLeft, Shirt, Users } from 'lucide-react';
 import { useApp, streakOf } from '@/lib/store.js';
 import { learnDaysTotal } from '@/lib/streak.js';
 import { hasServer } from '@/lib/api.js';
@@ -20,6 +23,23 @@ import MyNumbers from '@/components/learn/MyNumbers.jsx';
 import { qaThrow } from '@/lib/qaFixtures.js';
 import { useReportWeek } from '@/components/report/useReportWeek.js';
 import { he } from '@/learn/report.ts';
+import { useAIStatus } from '@/lib/account.js';
+import SharingSheet from '@/components/SharingSheet.jsx';
+
+/** The sign that the parents see a summary of this device's practice, and the way to see exactly what (PARENTS-4). */
+function ShareChip() {
+  const linked = useApp((s) => !!s.ai.familyDevice?.token);
+  const on = useAIStatus((x) => x.status?.linked?.summary === 'on');
+  const [open, setOpen] = useState(false);
+  // the sheet stays while it is open: stopping the sharing from it takes the chip away, not the sheet
+  if (!linked || (!on && !open)) return null;
+  return (
+    <>
+      {on && <button type="button" className="chip share-chip" onClick={() => setOpen(true)}><Users size={18} aria-hidden="true" />משותף עם ההורים</button>}
+      <SharingSheet open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
 
 /** "הסיכום השבועי": one line about this week, and the way to the summary the child can send a parent (PARENTS-2). */
 function ReportCard() {
@@ -57,6 +77,7 @@ export default function Me() {
       <section className="profile-id" aria-labelledby="profile-name">
         <h1 id="profile-name" className="profile-name">{profile.name || 'אני'}</h1>
         <p className="profile-sub">{profile.className ? `כיתה ${profile.className}` : profile.grade === '8' ? 'כיתה ח׳' : 'כיתה ז׳'}</p>
+        <ShareChip />
         <Link to="/me/madi" className="btn btn-secondary btn-sm profile-madi-btn"><Shirt size={18} aria-hidden="true" />עיצוב מדי</Link>
       </section>
       <section className="section" aria-labelledby="stats-title" data-region="content">

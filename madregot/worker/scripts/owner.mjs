@@ -23,6 +23,12 @@
 //   pilot-report --class C --from D --to D [--consented N] [--pre A --post B] [--json]   pilot-report --class C --list
 //   errors [--days 7]                            the app's error reports of the last days, most frequent first (a table)
 //   reach [--days 28]                            reach counts by week (STUDENT-14), as a table
+//   doctor [--local] [--toml F] [--dev-vars F] [--grow-sandbox]
+//                                                what is still missing to go live (DURABLE-16, src/readiness.js): one line
+//                                                per item with the command that fixes it; exits 1 while anything required
+//                                                is missing. Reads wrangler.toml, the secrets' NAMES (wrangler secret list,
+//                                                or .dev.vars with --local), the migrations not yet applied, and
+//                                                PUBLIC_URL/api/health. It never prints a secret's value.
 //
 // Read-only commands run with --command, so the rows come back (a remote --file runs D1's import, which returns none).
 //
@@ -47,7 +53,7 @@
 // owner finds the ids for --pre and --post.
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -57,6 +63,8 @@ import { cleanEmail } from '../src/account.js';
 import { classAiPolicy, rulesEnv, notSellable } from '../../shared/schoolRules.js';
 import { pilotQueries, pilotReport, pilotText, examListSql, examListText } from './pilot.mjs';
 import { shiftDay, weekOf } from '../src/goal.js';
+import { readiness, formatReadiness } from '../src/readiness.js';
+import { call as growCall, GROW_SANDBOX } from '../src/providers/grow.js';
 
 const DAY = 864e5;
 export class InputError extends Error {}
@@ -532,6 +540,107 @@ export function parseArgs(argv) {
   return { cmd, o };
 }
 
+// ---------------------------------------------------------------- doctor (DURABLE-16)
+/**
+ * The parts of wrangler.toml the doctor reads: the [vars] table (key = "value" lines), database_id and the names of the
+ * [[ratelimits]] bindings. A small reader for this file's shape, not a TOML parser.
+ */
+export function readToml(text) {
+  const vars = {}; const ratelimits = []; let databaseId = ''; let section = '';
+  for (const raw of String(text).split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const head = /^\[\[?([A-Za-z0-9_.]+)\]\]?$/.exec(line);
+    if (head) { section = head[1]; continue; }
+    const kv = /^([A-Za-z0-9_]+)\s*=\s*"((?:[^"\\]|\\.)*)"/.exec(line);
+    if (!kv) continue;
+    if (section === 'vars') vars[kv[1]] = kv[2];
+    else if (section === 'd1_databases' && kv[1] === 'database_id') databaseId = kv[2];
+    else if (section === 'ratelimits' && kv[1] === 'name') ratelimits.push(kv[2]);
+  }
+  return { vars, databaseId, ratelimits };
+}
+/** The NAMES in a .dev.vars file (KEY=value lines). The values are never kept. */
+export const devVarNames = (text) => String(text).split(/\r?\n/).map((l) => /^\s*([A-Z][A-Z0-9_]*)\s*=/.exec(l)?.[1]).filter(Boolean);
+/** The migrations `wrangler d1 migrations list` says are not applied yet (their file names in its output). */
+export const unappliedFrom = (out, inRepo) => (/No migrations to apply/i.test(out) ? [] : inRepo.filter((m) => String(out).includes(m)));
+
+/**
+ * The doctor: { code, out } (exit code and the printout). `deps` are for tests: `exec(args)` runs wrangler and returns its
+ * stdout, `fetch` reaches the health route, `read(path)` and `list(dir)` read files.
+ */
+export async function doctor(o = {}, deps = {}) {
+  const here = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const read = deps.read || ((f) => readFileSync(f, 'utf8'));
+  const list = deps.list || ((d) => readdirSync(d));
+  const exec = deps.exec || ((args) => execFileSync('npx', ['wrangler', ...args], { cwd: here, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+  const fetchFn = deps.fetch || globalThis.fetch;
+  const notes = [];
+  const toml = readToml(read(o.toml ? path.resolve(String(o.toml)) : path.join(here, 'wrangler.toml')));
+  // the secrets' names: from Cloudflare, or from .dev.vars for the local Worker
+  let secrets = [];
+  if (o.local) {
+    const file = o['dev-vars'] ? path.resolve(String(o['dev-vars'])) : path.join(here, '.dev.vars');
+    try { secrets = devVarNames(read(file)); } catch { notes.push(`(אין קובץ ${path.basename(file)}: אין סודות מקומיים)`); }
+  } else {
+    try { secrets = JSON.parse(exec(['secret', 'list', '--format', 'json'])).map((x) => x.name); } catch { notes.push('(לא הצלחנו לקרוא את רשימת הסודות: npx wrangler login)'); }
+  }
+  const inRepo = list(path.join(here, 'migrations')).filter((f) => f.endsWith('.sql')).sort();
+  let applied = [];
+  try { applied = inRepo.filter((m) => !unappliedFrom(exec(['d1', 'migrations', 'list', 'madregot', o.local ? '--local' : '--remote']), inRepo).includes(m)); } catch { notes.push('(לא הצלחנו לבדוק את המיגרציות)'); }
+  // the live server's own answer (booleans only), unless this is the local check
+  let health = null;
+  const url = String(toml.vars.PUBLIC_URL || '').replace(/\/+$/, '');
+  if (url && !o.local && fetchFn) {
+    try { const r = await fetchFn(`${url}/api/health`, { signal: AbortSignal.timeout(10_000) }); health = r.ok ? await r.json() : { ok: false }; } catch { health = null; }
+  } else if (!url) notes.push('(PUBLIC_URL ריק: לא בדקנו את השרת החי)');
+  const vars = o.local ? { ...toml.vars, PUBLIC_URL: toml.vars.PUBLIC_URL || '' } : toml.vars;
+  const r = readiness({ vars, databaseId: toml.databaseId, secrets, migrationsApplied: applied, migrationsInRepo: inRepo, ratelimits: toml.ratelimits, health, local: !!o.local });
+  if (o.local) r.items = r.items.filter((i) => i.id !== 'site:health');
+  const out = [formatReadiness(r), ...notes];
+  // Grow's sandbox, once, on the owner's request (with --local: its keys are in .dev.vars): the host its payment page is
+  // on, for BILLING_CHECKOUT_HOSTS
+  if (o['grow-sandbox'] && o.local && deps.growSandbox) {
+    let devText = '';
+    try { devText = read(o['dev-vars'] ? path.resolve(String(o['dev-vars'])) : path.join(here, '.dev.vars')); } catch { /* no file */ }
+    out.push(await deps.growSandbox(toml.vars, devText));
+  }
+  const ok = r.items.every((i) => i.ok || !i.required);
+  out.push(ok ? 'הכול מוכן.' : 'יש עוד מה להשלים (השורות עם ✗).');
+  return { code: ok ? 0 : 1, out: out.join('\n') };
+}
+
+/** KEY=value lines of .dev.vars as an object, for a call made here (the values are never printed). */
+export function devVarValues(text) {
+  const o = {};
+  for (const line of String(text).split(/\r?\n/)) {
+    const m = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);
+    if (m) o[m[1]] = m[2].replace(/^"(.*)"$/, '$1');
+  }
+  return o;
+}
+/**
+ * `doctor --local --grow-sandbox`: one ₪1 createPaymentProcess on Grow's sandbox with the keys in .dev.vars, marked
+ * `doctor`. Prints the host of the page Grow returns (for BILLING_CHECKOUT_HOSTS); opens nothing, pays nothing.
+ */
+export async function growSandboxCheck(vars, devText, fetchFn = globalThis.fetch) {
+  const env = { ...vars, ...devVarValues(devText), BILLING_MODE: 'test', GROW_API_BASE: '' };
+  if (!env.GROW_USER_ID || !env.GROW_PAGE_CODE_ONCE) return '! תשלום: אין GROW_USER_ID ו־GROW_PAGE_CODE_ONCE ב־.dev.vars, אז לא בדקנו את ה־sandbox של Grow';
+  const prev = globalThis.fetch;
+  globalThis.fetch = fetchFn;
+  try {
+    const base = String(vars.PUBLIC_URL || 'https://example.invalid').replace(/\/+$/, '');
+    const data = await growCall(env, 'createPaymentProcess', {
+      sum: '1.00', description: 'doctor', cField1: 'doctor', successUrl: `${base}/parents`, cancelUrl: `${base}/parents`, notifyUrl: `${base}/api/billing/webhook/grow/doctor`,
+    }, { pageCode: env.GROW_PAGE_CODE_ONCE });
+    const host = new URL(String(data.url)).host;
+    return `✓ תשלום: ה־sandbox של Grow ענה (${GROW_SANDBOX}). דף התשלום נמצא ב־${host} → BILLING_CHECKOUT_HOSTS = "${host}"`;
+  } catch (e) {
+    // Grow's own error text is not printed: it could repeat a value that was sent
+    return `✗ תשלום: ה־sandbox של Grow לא ענה כמו שצריך${e?.method ? ` (${e.method})` : ''}. בדקו את GROW_USER_ID ו־GROW_PAGE_CODE_ONCE ב־.dev.vars`;
+  } finally { globalThis.fetch = prev; }
+}
+
 /** The commands, one line each (printed with no command, or with help). */
 export const HELP = `usage: npm run owner -- <command> [options] [--local]   (without --local: the remote database)
   grant-class --class C --until D --seats N [--invoice R] [--note T] [--trial] [--private-ok]
@@ -554,6 +663,7 @@ export const HELP = `usage: npm run owner -- <command> [options] [--local]   (wi
   errors [--days 7]   the app's error reports of the last days, most frequent first (a table)
   pilot-report --class C --from D --to D [--consented N] [--pre A --post B] [--json]   (or --class C --list)
   reach [--days 28]   reach counts by week (STUDENT-14): counts of named steps only, no person behind any number
+  doctor [--local] [--toml F] [--dev-vars F] [--grow-sandbox]   what is still missing to go live (DURABLE-16), never a secret's value
 Dates are YYYY-MM-DD (Jerusalem).`;
 
 /**
@@ -602,6 +712,12 @@ export async function cli(argv, io = realIo) {
   try {
     const { cmd, o } = parseArgs(argv);
     if (!cmd || cmd === 'help' || cmd === '--help') { io.log(HELP); return 0; }
+    // what is still missing to go live (DURABLE-16): read-only, exits 1 while anything required is missing
+    if (cmd === 'doctor') {
+      const r = await (io.doctor || doctor)(o, { growSandbox: o['grow-sandbox'] ? growSandboxCheck : undefined });
+      io.log(r.out);
+      return r.code;
+    }
     // reach counts by week (STUDENT-14): read-only, counts only
     if (cmd === 'reach') {
       const plan = reachPlan(o);

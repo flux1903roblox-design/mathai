@@ -18,6 +18,8 @@ const m3 = read('../migrations/0003_durable.sql');
 const m6 = read('../migrations/0006_parent_report.sql');
 // The student lane's 0003_student, renumbered 0007 on the main branch (after 0006_parent_report).
 const m7 = read('../migrations/0007_student.sql');
+// The family lane's 0005_vault_guard, renumbered 0008 on the main branch (after 0007_student).
+const m8 = read('../migrations/0008_vault_guard.sql');
 // Structure only: SQLite keeps the comments inside a CREATE statement, and a comment cannot be migrated without an
 // ALTER, so schema.sql may describe a column better than the migration that made it (link_codes.device_hint).
 const objects = (db) => db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
@@ -54,7 +56,7 @@ const withoutAlters = (sql) => sql.replace(/\n, [^\n]*\);/g, '\n);').split('\n')
   .filter((line) => !(line.startsWith('CREATE ') && ALTERS_BASE.some((m) => m.includes(line)))).join('\n');
 
 test('every migration, in name order, on an empty database gives the same tables and indexes as schema.sql', () => {
-  assert.deepEqual(MIGRATIONS.slice(0, 8).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql', '0006_parent_report.sql', '0007_student.sql']);
+  assert.deepEqual(MIGRATIONS.slice(0, 9).map((m) => m.name), ['0000_base.sql', '0001_paid_tutor.sql', '0002_refund_once.sql', '0003_durable.sql', '0004_safety.sql', '0005_teacher.sql', '0006_parent_report.sql', '0007_student.sql', '0008_vault_guard.sql']);
   assert.equal(new Set(MIGRATIONS.map((m) => m.name.slice(0, 4))).size, MIGRATIONS.length, 'each migration number is used once');
   const a = new DatabaseSync(':memory:'); a.exec(schema);
   const b = new DatabaseSync(':memory:'); for (const m of MIGRATIONS) b.exec(m.sql);
@@ -231,4 +233,12 @@ test('0007_student (the student lane\'s 0003_student): the class goal tables run
   assert.throws(() => db.exec("INSERT INTO class_goal_weeks (class_code, week, target) VALUES ('ABCDEF', '2026-11-08', 20)"), /UNIQUE/, 'one target per class and week');
   db.exec("INSERT INTO class_goal_settings (class_code, updated_at) VALUES ('ABCDEF', 'x')");
   assert.equal(db.prepare('SELECT on_flag, target FROM class_goal_settings').get().on_flag, 1, 'on by default, automatic size');
+});
+
+test('0008_vault_guard (the family lane\'s 0005_vault_guard): the tombstone table runs twice and keeps one row per vault hash', () => {
+  const db = new DatabaseSync(':memory:');
+  for (const m of MIGRATIONS.filter((x) => x.name < '0008')) db.exec(m.sql);
+  db.exec(m8); db.exec(m8);
+  db.exec("INSERT INTO vault_tombstones (id_hash, deleted_at) VALUES ('h1', '2026-11-11T00:00:00Z')");
+  assert.throws(() => db.exec("INSERT INTO vault_tombstones (id_hash, deleted_at) VALUES ('h1', '2026-11-12T00:00:00Z')"), /UNIQUE/);
 });

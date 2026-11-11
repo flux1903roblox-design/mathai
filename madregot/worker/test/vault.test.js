@@ -204,7 +204,8 @@ test('the meter is exact after 60 random creates, updates, deletes and over-limi
     const res = await Promise.all(ops.map((f) => f()));
     const codes = new Set(res.map((r) => r.status));
     assert.ok(codes.has(200) && codes.has(409), [...codes].join(','));
-    assert.ok([...codes].every((c) => [200, 404, 409, 503].includes(c)), [...codes].join(','));
+    // 410: a known vault deleted by one op is tombstoned for the creates and updates that come after it
+    assert.ok([...codes].every((c) => [200, 404, 409, 410, 503].includes(c)), [...codes].join(','));
     assert.equal(meter(), sumBytes(), `seed ${seed}`);
     for (const row of rows(h.env, 'SELECT blob, prev_blob, bytes, created_at FROM vaults')) {
       assert.equal(row.bytes, row.blob.length + (row.prev_blob?.length || 0));
@@ -295,12 +296,12 @@ test('delete removes the vault and lowers the meter; forgetVault gives the same 
   assert.deepEqual(await (await del(a)).json(), { deleted: 1 });
   assert.equal(meter(), 250);
   assert.deepEqual(await (await del(a)).json(), { deleted: 0 });
-  assert.equal((await rev(a)).status, 404);
+  assert.equal((await rev(a)).status, 410, 'deleted by its owner: the tombstone says so');
   assert.equal(countOf(h.env, `vault:miss:n:${await netOf(h.env, IP)}`), 2, 'a delete that finds nothing is a miss');
   // TRUST-6's "delete everything" puts these into its one batch
   const req = new Request('https://madregot.test/api/me/forget', { method: 'POST', headers: { 'X-Vault': b } });
   const stmts = await forgetVault(h.env, req);
-  assert.equal(stmts.length, 3, 'the meter, the vault and its escrows (escrow.test.js)');
+  assert.equal(stmts.length, 4, 'the meter, the vault, its escrows (escrow.test.js) and its tombstone');
   await h.env.DB.batch(stmts);
   assert.equal(rows(h.env, 'SELECT * FROM vaults').length, 0);
   assert.equal(meter(), 0);

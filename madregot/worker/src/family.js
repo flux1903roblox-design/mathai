@@ -18,12 +18,18 @@
 // gets the free taste (free:fd:<id>) until the account has a plan, and then the plan's limits with no new link. The
 // purpose goes into the audit row and picks the email (a consent email carries the AI and privacy summary).
 //
-// Escrow (DURABLE-6): each linked device can keep its backup code with the account (vault.js). Unlinking or leaving
-// keeps that escrow in the account (device_id NULL: "התקדמות שמורה"), in the same batch, before the device row goes.
-// The device's daily summaries (PARENTS-3, family_daily) are deleted in that batch too: after the escrow is detached and
+// Escrow (DURABLE-6): each linked device can keep its backup code with the account (vault.js). The escrow is there to
+// move a child's progress to the child's next device, never to give the parent the child's whole record:
+//   - a parent's unlink keeps it in the account (device_id NULL: "התקדמות שמורה") only while the child's own sharing
+//     switch on that device is on (share_child = 1); with it off, the escrow is deleted in the same batch;
+//   - a device that leaves by itself (the child's "ניתוק המכשיר מהמנוי", or "delete everything") deletes its escrow;
+//   - restoreFrom works only for a kept escrow: one whose device is still linked is 409 escrow_in_use, without a code;
+//   - the unlinked device itself moves to a new code at its next write (vault.js answers its stale token 401
+//     not_linked), so the kept copy stops receiving its progress.
+// The device's daily summaries (PARENTS-3, family_daily) are deleted in that batch too: after the escrow is handled and
 // before the device row, explicitly, although the foreign key would cascade.
-// Linking a new device can continue from one: claim (or devices/this) with restoreFrom: <escrow id> of this account;
-// the finish that hands over the token also points the escrow at the new device and returns vault: { code }.
+// Linking a new device can continue from a kept escrow: claim (or devices/this) with restoreFrom: <escrow id> of this
+// account; the finish that hands over the token also points the escrow at the new device and returns vault: { code }.
 // GET /api/family/vaults lists the account's escrows (never the code); POST /api/family/vaults/:id/delete deletes one.
 import {
   HttpError, body, json, sha256, hmacHex, randomToken, randomFrom, CODE_ALPHABET, nowIso, dayOf, netKey, devKey, key, take, limitOrThrow, safeEqual,
@@ -155,15 +161,29 @@ function moveEscrowStmt(env, { escrowId, accountId, deviceId, tokenHash, at }) {
     .bind(deviceId, at, escrowId ?? '', accountId ?? '', tokenHash);
 }
 
-/** restoreFrom on a claim: an escrow id of this account (404 escrow_not_found otherwise), or null when none was asked for. */
+/**
+ * restoreFrom on a claim: a kept escrow id of this account (its device unlinked), or null when none was asked for.
+ * 404 escrow_not_found for an id that is not this account's (or was deleted), 409 escrow_in_use while its device is
+ * still linked: that progress is the device's own, and moving it would hand its code to another device.
+ */
 async function restoreFromOf(env, b, accountId) {
   if (b.restoreFrom == null || b.restoreFrom === '') return null;
   const id = String(b.restoreFrom);
-  const ok = /^[a-f0-9]{16}$/.test(id)
-    && await first(env, "SELECT id FROM vault_escrow WHERE id = ? AND owner_kind = 'account' AND owner_id = ?", id, accountId);
-  if (!ok) throw new HttpError(404, 'escrow_not_found');
+  const row = /^[a-f0-9]{16}$/.test(id)
+    && await first(env, "SELECT id, device_id FROM vault_escrow WHERE id = ? AND owner_kind = 'account' AND owner_id = ?", id, accountId);
+  if (!row) throw new HttpError(404, 'escrow_not_found');
+  if (row.device_id) throw new HttpError(409, 'escrow_in_use');
   return id;
 }
+
+/**
+ * The statements that let a device go (an unlink, a leave, the purge), before its row is deleted: its escrow stays in
+ * the account only when `keep` and the child's sharing switch on it is on; otherwise it is deleted.
+ */
+const releaseEscrowStmts = (env, where, keep, ...args) => [
+  ...(keep ? [env.DB.prepare(`UPDATE vault_escrow SET device_id = NULL WHERE device_id IN (SELECT id FROM family_devices WHERE (${where}) AND share_child = 1)`).bind(...args)] : []),
+  env.DB.prepare(`DELETE FROM vault_escrow WHERE device_id IN (SELECT id FROM family_devices WHERE ${where})`).bind(...args),
+];
 
 /** POST /api/family/devices/leave {} with X-Family-Device: the device unlinks itself (also before "delete all data"). */
 export async function leaveFamily(req, env, cors) {
@@ -173,8 +193,8 @@ export async function leaveFamily(req, env, cors) {
   const dev = await first(env, 'SELECT id, account_id FROM family_devices WHERE token_hash = ?', await sha256(token));
   if (dev) {
     await env.DB.batch([
-      // the device's escrow stays with the account ("התקדמות שמורה"), before the device row goes
-      env.DB.prepare('UPDATE vault_escrow SET device_id = NULL WHERE device_id = ?').bind(dev.id),
+      // the child left: the code the family kept for this device goes too (the device keeps its own backup)
+      ...releaseEscrowStmts(env, 'id = ?', false, dev.id),
       // its daily summaries for the parents go with it (PARENTS-3)
       env.DB.prepare('DELETE FROM family_daily WHERE device_id = ?').bind(dev.id),
       env.DB.prepare('DELETE FROM family_devices WHERE id = ?').bind(dev.id),
@@ -297,8 +317,9 @@ export async function unlinkDevice(id, req, env, cors) {
   const dev = await first(env, 'SELECT id FROM family_devices WHERE id = ? AND account_id = ?', String(id), a.id);
   if (!dev) throw new HttpError(404, 'not_found');
   await env.DB.batch([
-    // the device's escrow stays with the account ("התקדמות שמורה"), before the device row goes
-    env.DB.prepare('UPDATE vault_escrow SET device_id = NULL WHERE device_id = ?').bind(dev.id),
+    // the device's escrow stays with the account ("התקדמות שמורה") while the child shares with the parents, before the
+    // device row goes; with the child's switch off it is deleted
+    ...releaseEscrowStmts(env, 'id = ?', true, dev.id),
     // its daily summaries for the parents go with it (PARENTS-3)
     env.DB.prepare('DELETE FROM family_daily WHERE device_id = ?').bind(dev.id),
     env.DB.prepare('DELETE FROM family_devices WHERE id = ? AND account_id = ?').bind(dev.id, a.id),
@@ -310,7 +331,8 @@ export async function unlinkDevice(id, req, env, cors) {
 
 /**
  * Night-time purge: link codes a day past their expiry, devices that never collected a token, devices unused for a year.
- * A deleted device's escrow stays with the account (device_id NULL), as on an unlink. Its daily summaries go with it:
+ * A deleted device's escrow stays with the account (device_id NULL) as on an unlink, under the same rule (the child's
+ * sharing switch on). Its daily summaries go with it:
  * purge() runs report.js purgeReportSql after this in the same batch, whose orphan sweep removes them (so does the FK).
  */
 export function purgeFamilySql(env, now = new Date()) {
@@ -320,9 +342,9 @@ export function purgeFamilySql(env, now = new Date()) {
   const unused = 'token_hash IS NOT NULL AND last_seen < ?';
   return [
     env.DB.prepare('DELETE FROM link_codes WHERE expires_at < ?').bind(dayAgo),
-    env.DB.prepare(`UPDATE vault_escrow SET device_id = NULL WHERE device_id IN (SELECT id FROM family_devices WHERE ${never})`).bind(dayAgo),
+    ...releaseEscrowStmts(env, never, true, dayAgo),
     env.DB.prepare(`DELETE FROM family_devices WHERE ${never}`).bind(dayAgo),
-    env.DB.prepare(`UPDATE vault_escrow SET device_id = NULL WHERE device_id IN (SELECT id FROM family_devices WHERE ${unused})`).bind(yearAgo),
+    ...releaseEscrowStmts(env, unused, true, yearAgo),
     env.DB.prepare(`DELETE FROM family_devices WHERE ${unused}`).bind(yearAgo),
   ];
 }

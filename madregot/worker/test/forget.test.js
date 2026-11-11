@@ -62,8 +62,8 @@ async function busyFamilyDevice(account, label) {
     .run(`code-${fd.id}`, account, fd.id, at, at, at, at);
   db.prepare("INSERT INTO notices (ref, kind, to_account, params, created_at, sent_at) VALUES (?, 'device_linked:' || ?, ?, '{}', ?, ?)").run(fd.id, fd.id, account, at, at);
   db.prepare("INSERT INTO audit_log (at, actor, action, target, detail) VALUES (?, ?, 'device.link', ?, '{}')").run(at, `account:${account}`, `device:${fd.id}`);
-  // the other lanes' device rows: a day of the parents' report (PARENTS-3) and the family's kept restore code that came
-  // from this device (DURABLE-6: it stays with the account, without the device)
+  // the other lanes' device rows: a day of the parents' report (PARENTS-3) and the restore code the family kept for this
+  // device (DURABLE-6: a device that deletes itself takes it along; family.js leaveFamily does the same)
   db.prepare("INSERT INTO family_daily (device_id, day, minutes, questions, updated_at) VALUES (?, ?, 12, 30, ?)").run(fd.id, at.slice(0, 10), at);
   db.prepare("INSERT INTO vault_escrow (id, vault_id, owner_kind, owner_id, device_id, label, sealed, created_at, updated_at) VALUES (?, ?, 'account', ?, ?, ?, 'sealed', ?, ?)")
     .run(randomBytes(8).toString('hex'), `v${randomBytes(8).toString('hex')}`, account, fd.id, label, at, at);
@@ -103,6 +103,8 @@ test('delete all removes the student, the family device and the install from eve
   await h.ctx.flush();
 
   assert.deepEqual(traces(needles), [], 'no table mentions the student, the family device or the install');
+  assert.deepEqual(rows(h.env, "SELECT label FROM vault_escrow WHERE owner_kind = 'account' AND owner_id = ?", account).map((r) => r.label), ['הטלפון'],
+    "the device's kept code went with it; the other device's stays");
   // what the delete wrote: an audit row that names no student, and the parent's notice, which names no device id
   const audit = one(h.env, "SELECT * FROM audit_log WHERE action = 'student.self_delete'");
   assert.deepEqual({ actor: audit.actor, target: audit.target, detail: audit.detail }, { actor: 'student', target: `class:${cls.code}`, detail: '{}' });

@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useApp } from './store.js';
 import {
   aiAccess, autoAskAllowed, aiHeaders, useAIStatus, gate, useLimitSheet, closeLimitSheet, hasTool, noteLimit, refreshIfNewDay,
-  useAIIntro, needIntro, acceptAIIntro, closeAIIntro, introSeen, refreshStatus, CLASS_OFF, PARENT_OK_NEEDED, LIMIT_ERRORS,
+  useAIIntro, needIntro, acceptAIIntro, closeAIIntro, introSeen, refreshStatus, CLASS_OFF, PARENT_OK_NEEDED, LIMIT_ERRORS, leaveFamily,
 } from './account.js';
+import { BACKUP_DEFAULTS } from './durable/migrations.js';
 import { runAI } from './ai.js';
 
 const groups = (tutor, rest = null) => ({ tutor, check: rest, generate: rest, exam: rest });
@@ -186,6 +187,16 @@ describe('AI calls carry the device and its family link, never the parent sessio
     expect(useLimitSheet.getState()).toMatchObject({ open: true, reason: 'daily_limit', tier: 'family', onMadi });
     expect(aiAccess('explain').state).toBe('used');
   });
+  it('X-AI-Linked: 0 on a device whose code the family kept: the next backup sync moves to a new code', async () => {
+    useApp.getState().setAI({ familyDevice: { token: `fd1.${'f'.repeat(64)}`, label: '' } });
+    useApp.setState({ backup: { ...BACKUP_DEFAULTS, on: true, code: 'ABCDEFGHJKLMNPQR', lookup: 'x', escrow: 'family' } });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ text: 'הסבר' }), { status: 200, headers: { 'Content-Type': 'application/json', 'X-AI-Tier': 'free', 'X-AI-Group': 'tutor', 'X-AI-Left': '1', 'X-AI-Linked': '0' } })));
+    useAIStatus.setState({ status: FREE(2) });
+    await runAI('explain', { question: '1+1' });
+    expect(useApp.getState().ai.familyDevice).toBeNull();
+    expect(useApp.getState().backup).toMatchObject({ moveCode: true, escrow: null });
+    useApp.setState({ backup: { ...BACKUP_DEFAULTS } });
+  });
   it('X-AI-Linked: 0 forgets a family link the server no longer knows', async () => {
     useApp.getState().setAI({ familyDevice: { token: `fd1.${'e'.repeat(64)}`, label: '' } });
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ text: 'הסבר' }), { status: 200, headers: { 'Content-Type': 'application/json', 'X-AI-Tier': 'free', 'X-AI-Group': 'tutor', 'X-AI-Left': '1', 'X-AI-Linked': '0' } })));
@@ -308,5 +319,39 @@ describe('a child alone, on a device no parent has approved (trust spec TRUST-9 
     await runAI('explain', { question: '1+1' });
     await vi.waitFor(() => expect(aiAccess('chat')).toMatchObject({ state: 'free', left: 1 }));
     expect(fetch.mock.calls.some(([u]) => String(u).endsWith('/api/ai/status'))).toBe(true);
+  });
+});
+
+describe('leaveFamily: the device leaves only when the server heard it', () => {
+  const TOKEN = `fd1.${'a'.repeat(64)}`;
+  const answer = (status, body = {}) => vi.fn(async (url) => (String(url).endsWith('/api/ai/status')
+    ? new Response(JSON.stringify(FREE(2)), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    : new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })));
+  beforeEach(() => {
+    useApp.getState().setAI({ familyDevice: { token: TOKEN, label: 'הטאבלט', sharingSeen: 'x', lastSent: null } });
+    useApp.setState({ backup: { ...BACKUP_DEFAULTS, on: true, code: 'ABCDEFGHJKLMNPQR', lookup: 'x', escrow: 'both' } });
+  });
+  afterEach(() => { useApp.setState({ backup: { ...BACKUP_DEFAULTS } }); });
+  it('503 or no network: it rejects, and the token stays so the summaries are never left behind on the server', async () => {
+    vi.stubGlobal('fetch', answer(503, { error: 'server_error' }));
+    await expect(leaveFamily()).rejects.toBeTruthy();
+    expect(useApp.getState().ai.familyDevice?.token).toBe(TOKEN);
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    await expect(leaveFamily()).rejects.toMatchObject({ code: 'network' });
+    expect(useApp.getState().ai.familyDevice?.token).toBe(TOKEN);
+    expect(useApp.getState().backup.escrow).toBe('both');
+  });
+  it('200: the token is forgotten, and the family no longer keeps the code (the class still does)', async () => {
+    const f = answer(200, { ok: true });
+    vi.stubGlobal('fetch', f);
+    await leaveFamily();
+    expect(f.mock.calls[0][0]).toBe('https://api.example.test/api/family/devices/leave');
+    expect(useApp.getState().ai.familyDevice).toBeNull();
+    expect(useApp.getState().backup.escrow).toBe('class');
+  });
+  it('a 4xx (the server no longer knows the token): forgotten here too', async () => {
+    vi.stubGlobal('fetch', answer(400, { error: 'need_device' }));
+    await leaveFamily();
+    expect(useApp.getState().ai.familyDevice).toBeNull();
   });
 });

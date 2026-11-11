@@ -3,11 +3,11 @@
 // wording is the same for child and parent: what the child previews is what the parent sees. No percentage of right
 // answers appears anywhere (accuracy invites grade pressure; passed mastery checks are the honest signal), and the
 // maths in mistake names is plain text, so the report needs no KaTeX.
-import { useId } from 'react';
+import { createContext, useContext, useId } from 'react';
 import clsx from 'clsx';
 import { CalendarCheck, Clock, ListChecks, Flame, Check, Moon } from 'lucide-react';
 import { Stat } from '@/components/ds.jsx';
-import { stairName, misconName, withPrefix } from '@/learn/report.ts';
+import { stairName, misconName, withPrefix, he } from '@/learn/report.ts';
 import { MASTERY_N, MASTERY_NEED } from '@/learn/mastery.ts';
 import { dm, newestFirst } from '@/lib/share.js';
 import '@/styles/report.css';
@@ -54,11 +54,16 @@ function Strip({ week, today }) {
   );
 }
 
+/** The report's own heading level (its title); its sections are one below. 2 on its own screen, deeper inside a card. */
+const Level = createContext(2);
+const H = ({ level, ...rest }) => { const Tag = `h${Math.min(6, Math.max(2, level))}`; return <Tag {...rest} />; };
+
 function Section({ title, children, className }) {
   const id = useId();
+  const level = useContext(Level) + 1;
   return (
     <section className={clsx('card report-sec', className)} aria-labelledby={id}>
-      <h3 id={id} className="report-sec-title">{title}</h3>
+      <H level={level} id={id} className="report-sec-title">{title}</H>
       {children}
     </section>
   );
@@ -84,7 +89,7 @@ function Worked({ week }) {
       {list.length > 0 && (
         <ul className="report-list report-dots">
           {list.slice(0, WORKED_SHOWN).map((s) => <li key={s}><span>{stairName(s)}</span></li>)}
-          {more > 0 && <li className="report-more"><span>{`ועוד ${more}`}</span></li>}
+          {more > 0 && <li className="report-more"><span>{`ועוד ${he.stairs(more)}`}</span></li>}
         </ul>
       )}
       <p className="report-line">{`שלבי לימוד שהושלמו: ${week.stages} · שיעורים ובדיקות: ${week.lessons}`}</p>
@@ -143,18 +148,74 @@ function Help({ week }) {
   );
 }
 
+/** A day's name and date: 'יום חמישי 5.11' ('היום' for today). */
+const dayTitle = (d, today) => (d === today ? `היום, ${dm(d)}` : `יום ${DAY_NAMES[new Date(`${d}T00:00:00Z`).getUTCDay()]} ${dm(d)}`);
+const names = (list) => (list.length ? list.map(stairName).join(', ') : 'אין');
+
+/**
+ * One day's summary (learn/report.ts DaySummary) in words, every field it holds and nothing else: what a linked device
+ * sends its parents for that day (the sharing sheet shows today's, and the rows sent last). Maths in plain text.
+ */
+export function DayView({ day, today }) {
+  const titleId = useId();
+  const fixes = day.fx || [];
+  const rows = [
+    ['דקות על מסכי הלמידה', String(day.m)],
+    ['שאלות שנענו', String(day.q)],
+    ['שיעורים ובדיקות שהסתיימו', String(day.ls)],
+    ['שלבי לימוד שהושלמו', String(day.st)],
+    ['חזרות קצרות שעברו', String(day.rv)],
+    ['מדרגות שתורגלו', names(day.sk || [])],
+    ['עברו בדיקת שליטה', names(day.ma || [])],
+    ['ימים ברצף', String(day.sr)],
+    ['מבחן קרוב', day.ex ? `${withPrefix('ב', dm(day.ex.d))}, ${day.ex.n} מתוך ${day.ex.of} המדרגות שלו בשליטה` : 'אין'],
+  ];
+  return (
+    <article className="report report-dayview" aria-labelledby={titleId} data-variant="day">
+      <h4 id={titleId} className="report-dayview-title">{dayTitle(day.d, today)}</h4>
+      <dl className="report-daylist">
+        {rows.map(([k, v]) => <div key={k} className="report-daylist-row"><dt>{k}</dt><dd>{v}</dd></div>)}
+        <div className="report-daylist-row is-wide">
+          <dt>טעויות שחוזרות</dt>
+          <dd>
+            {fixes.length ? (
+              <ul className="report-daylist-fixes">
+                {fixes.map(([skill, id, state]) => (
+                  <li key={`${state}|${skill}|${id}`}>{`${misconName(skill, id)} (${stairName(skill)}): ${state === 'o' ? 'בתיקון' : 'תוקנה'}`}</li>
+                ))}
+              </ul>
+            ) : 'אין'}
+          </dd>
+        </div>
+      </dl>
+    </article>
+  );
+}
+
 /**
  * One week (learn/report.ts WeekReport) in order: the dates, the 7-day strip, four tiles, mastered, practised,
  * repairs (only if any), an exam ahead (only if any), how to help, and where the report came from.
  * `today`: the day on the device that shows it (marks today on the strip; repairs from another day say their day).
+ * `variant="day"` with `day` (a DaySummary) draws one day instead (DayView). `level`: the heading level of the report's
+ * title (2 on its own screen; deeper inside a /parents device card), its sections one below.
  */
-export default function ReportView({ week, audience = 'child', source = 'local', today }) {
+export default function ReportView({ week, audience = 'child', source = 'local', today, variant = 'week', day, level = 2 }) {
+  if (variant === 'day') return <DayView day={day} today={today} />;
+  return <Level.Provider value={level}><WeekView week={week} audience={audience} source={source} today={today} /></Level.Provider>;
+}
+
+/** On a made-up week (exampleWeek.js, `week.example`): it says so above everything else. */
+export const EXAMPLE_RIBBON = 'דוגמה. אלה לא נתונים של הילד שלכם.';
+
+function WeekView({ week, audience, source, today }) {
   const titleId = useId();
+  const level = useContext(Level);
   return (
-    <article className="report" aria-labelledby={titleId} data-audience={audience} data-source={source}>
+    <article className={clsx('report', week.example && 'is-example')} aria-labelledby={titleId} data-audience={audience} data-source={source}>
+      {week.example && <p className="report-ribbon">{EXAMPLE_RIBBON}</p>}
       <section className="card report-week">
         <header className="report-head">
-          <h2 id={titleId} className="report-title">השבוע במדרגות</h2>
+          <H level={level} id={titleId} className="report-title">השבוע במדרגות</H>
           <p className="report-dates">{weekRange(week)}</p>
         </header>
         <Strip week={week} today={today} />
@@ -170,7 +231,7 @@ export default function ReportView({ week, audience = 'child', source = 'local',
       <Fixes week={week} today={today} />
       {week.exam && <Exam exam={week.exam} />}
       <Help week={week} />
-      <p className="footnote report-note">{SOURCE_NOTE[source] || SOURCE_NOTE.local}</p>
+      {!week.example && <p className="footnote report-note">{SOURCE_NOTE[source] || SOURCE_NOTE.local}</p>}
     </article>
   );
 }

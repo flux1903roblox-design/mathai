@@ -142,6 +142,14 @@ describe('what each step keeps', () => {
     expect(out.workOutbox).toEqual(box);
     expect(migrate(out, 5, fixed)).toEqual(out);
   });
+  it('a linked device keeps when its child saw the parents\' summary notice and what it sent last (PARENTS-4), from v2 on', () => {
+    const fd = { token: `fd1.${'f'.repeat(64)}`, label: 'הטאבלט', sharingSeen: '2026-11-01T09:00:00.000Z', lastSent: { at: '2026-11-04T19:00:00.000Z', days: [{ v: 1, d: '2026-11-04' }] } };
+    for (const [saved, v] of [[v2.state, 2], [v3.state, 3], [v4.state, 4]]) {
+      const out = migrate({ ...clone(saved), ai: { ...clone(saved.ai || {}), familyDevice: fd } }, v, fixed);
+      expect(out.ai.familyDevice).toEqual(fd);
+      expect(validateState(out)).toEqual([]);
+    }
+  });
 });
 
 describe('two builds on one address', () => {

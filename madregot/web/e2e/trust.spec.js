@@ -1188,9 +1188,11 @@ test.describe('privacy lines', () => {
   test('the parents\' page says what is kept, never "only the email", and the email form says where the address goes', async ({ page }) => {
     await fakeServer(page, { parentOk: true }, baseOf());
     await open(page, '#/parents', withServer({ profile: null }));
-    const about = page.getByText(/^מה נשמר אצלנו: כתובת המייל שלכם, פרטי המנוי והתשלומים \(בלי פרטי כרטיס\) והמכשירים שחיברתם\./);
+    // one merged text with the parents lane's PARENTS-9 sentences (Parents.jsx ABOUT_DATA, reportCopy.test.js): the
+    // child's summary and progress copy, and what the child writes to the tutor goes to Anthropic in the US
+    const about = page.getByText(/^מה נשמר אצלנו: כתובת המייל שלכם, פרטי המנוי והתשלומים \(בלי פרטי כרטיס\),? והמכשירים שחיברתם\./);
     await expect(about).toBeVisible();
-    await expect(about).toContainText('מה שכותבים לעוזר נשלח ל־Anthropic בארה״ב כדי לקבל תשובה.');
+    await expect(about).toContainText('לעוזר נשלח ל־Anthropic בארה״ב כדי לקבל תשובה.');
     await expect(about.getByRole('link', { name: 'כל הפרטים במדיניות הפרטיות' })).toHaveAttribute('href', /#\/privacy$/);
     await expect(page.locator('body')).not.toContainText(OLD);
     const form = page.getByRole('region', { name: 'כניסה עם המייל' }).or(page.locator('section[aria-labelledby="signin-title"]'));

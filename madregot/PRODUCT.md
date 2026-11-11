@@ -20,6 +20,8 @@ React + Vite front end (the user's choice). Cloudflare Worker with a D1 database
 
 Daily adaptive practice for the middle-school curriculum, with an AI tutor beside every question. Success means a student practises most days, climbs the levels of each topic, and understands a mistake right after making it, while the teacher knows what to reteach tomorrow.
 
+Parents: a free weekly summary the child sends by WhatsApp or link (no server); in the family plan, a daily synced summary per device (90-day retention, the child notified and able to stop it, the parent able to stop or delete it) and an optional Sunday email.
+
 ## Positioning
 
 Built-in question generators with exact answers drive the practice and decide what is correct. Claude explains, converses and checks handwriting, always grounded in the exact question on screen and the answer the student actually typed. The practice works without the AI, and the AI never invents whether an answer is right for a built-in question.
@@ -47,7 +49,7 @@ Built-in question generators with exact answers drive the practice and decide wh
 - The Anthropic key never reaches student browsers. A personal key stored on one device is allowed only in solo mode.
 - A daily AI limit per student keeps cost predictable.
 - Minors' privacy: a class code plus a short personal code to join, no class roster shown to students, first name and initial in anything other students can see.
-- Undecided: the product name ("מדרגות" is a working name), the default model and daily AI limit per class, whether parents get a view.
+- Undecided: the product name ("מדרגות" is a working name), the default model and daily AI limit per class.
 
 ## Brand Commitments
 

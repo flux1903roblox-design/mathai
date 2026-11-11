@@ -510,11 +510,15 @@ export const appState = (set, get) => ({
       // The next student here gets a new device tag (their XP is counted apart) and no backup; what the browser was
       // asked, and the install hint, belong to the device and stay. The theme chosen for this device (prefs) stays too;
       // Madi's look belongs to the student and goes back to the default; sound goes back to its default, so the next
-      // student's own choice starts unset (soundSet).
+      // student's own choice starts unset (soundSet). The family link stays, but the parents' summary notice was seen by
+      // the last student, not the next one: it shows again before anything is sent, and what was sent is forgotten here
+      // (PARENTS-4). `earlier` remembers that summaries went from this device before, so the next student is told they
+      // stay with the parents.
       signOut: () => {
         const { persistAsked, installHintAt } = get().durable || {};
+        const fd = get().ai?.familyDevice;
         set({
-          ...empty, xpBy: {}, learn: emptyLearn(), look: emptyLook(), classWork: emptyClassWork(), workOutbox: {}, ai: { ...get().ai, pendingLink: null, lastTier: null },
+          ...empty, xpBy: {}, learn: emptyLearn(), look: emptyLook(), classWork: emptyClassWork(), workOutbox: {}, ai: { ...get().ai, pendingLink: null, lastTier: null, familyDevice: fd ? { ...fd, sharingSeen: null, lastSent: null, earlier: !!(fd.lastSent || fd.earlier) } : null },
           prefs: { ...get().prefs, soundSet: false },
           durable: { ...DURABLE_DEFAULTS, persistAsked: persistAsked ?? null, installHintAt: installHintAt ?? null, tag: newTag() }, backup: { ...BACKUP_DEFAULTS },
           // a sign-out clears the progress on purpose, like a reset: another tab still open cannot bring it back

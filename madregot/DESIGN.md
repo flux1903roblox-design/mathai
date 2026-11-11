@@ -320,6 +320,13 @@ Phone first, one column, right to left. Content runs inside a 20px gutter (24px 
 - **Wide screens:** a tab's screen keeps a readable column of at most 880px from 1024px.
 - **Short phones** (under 640px tall): the question and teaching type step down one size and the panels tighten, so the drawing keeps its room.
 
+### Routes outside the tabs
+These open with no tab bar, in the parents' frame (a 56px white bar with "מדרגות • להורים" and no way into the child's app) or as a pushed screen:
+- **`/report`** (a pushed screen on the child's device): "הסיכום השבועי". The week's dates and a strip of its seven days (practice days as brand circles with a check, Shabbat as rest with a moon, never as missed), four stat tiles, then mastered stairs, what was practised, repeated mistakes with "בתיקון" or "תוקן השבוע" tags, an exam ahead and tips for the parent. One primary button opens the share sheet "לשלוח להורים": "זה מה שיישלח:" with the exact message, then WhatsApp as the primary action, the system share where the phone has one, and a copied link. An empty week is מדי idle with a calm line, and nothing to send yet. No price and no plan anywhere on it.
+- **`/r/<payload>`**: the same week, rendered from the link alone for a parent on another phone, with no sign-in and no request to any server. A broken link says so in one line and asks the child to send it again.
+- **`/restore`**: "יש לי קוד גיבוי", reached from the welcome screen and from Settings ("לשחזר מקוד או מקובץ"): the code field, one primary button, then a preview of what comes back before anything is replaced; "יש לי קובץ גיבוי" switches to the backup file on the same screen, and with no server only the file is offered.
+- **`/parents`** (the family plan): the section "ההתקדמות" under the plan card. A switch row for the Sunday email (label, the address in its hint), then one card per device in the order they were linked: its name and last update, the same report the child sees, the 8 weeks as plain bars with a hidden table, and the parent's own switch and "delete history" at the bottom. Every early state has its own words; no percentage right is ever shown.
+
 ## Elevation & Depth
 
 The system is flat. Cards, rows, headers and panels have no soft shadow; depth is the 2px border and the solid lip under pressable things. Soft shadows appear only on layers that float over the page.

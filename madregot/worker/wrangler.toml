@@ -58,12 +58,25 @@ PRICE_FAMILY_YEAR_AGOROT = "24900"
 PRICE_CLASS_SEAT_YEAR_AGOROT = "4900"
 VAT_MODE = "included"
 TERMS_VERSION = "2026-11"
-# Payments: "manual" (the owner grants plans with npm run owner; schools pay by invoice) until a provider is chosen.
-# "test" rehearses the whole flow on a preview Worker (also needs BILLING_MODE "test" and ALLOW_TEST_BILLING "true").
+# Payments: "manual" (the owner grants plans with npm run owner; schools pay by invoice), "grow" (Grow / משולם, the
+# Israeli provider: src/providers/grow.js, SUBSCRIPTION.md "Grow"), or "test", which rehearses the whole flow on a preview
+# Worker (also needs BILLING_MODE "test" and ALLOW_TEST_BILLING "true").
 BILLING_PROVIDER = "manual"
 BILLING_MODE = "live"
-# Hosts the payment page may be on (comma-separated); checkout refuses any other.
+# Hosts the payment page may be on (comma-separated); checkout refuses any other. `npm run owner -- doctor --local
+# --grow-sandbox` prints the host Grow's sandbox page is on.
 BILLING_CHECKOUT_HOSTS = ""
+# Grow: the server API's base, copied from Grow's "live environment" page (ends with /). Empty in test mode uses the
+# sandbox; empty in live mode keeps Grow off (never a guessed live address).
+GROW_API_BASE = ""
+# "on" once Grow has enabled updateDirectDebit for the account: only then is the monthly plan sold online (a cancel
+# must stop the standing order at Grow). Off: the yearly plan and class licences only.
+GROW_DIRECT_DEBIT_API = "off"
+# Grow's callback addresses, comma-separated, copied from its "IP live" list. Empty: not checked (every state is pulled
+# from Grow with our own credentials, so a forged callback changes nothing).
+WEBHOOK_ALLOWED_IPS = ""
+# The payment company's name as the privacy notice and the emails say it, e.g. "Grow (משולם)".
+PAYMENT_PROVIDER_NAME = ""
 # ---- the Ministry of Education's AI rules for schools (trust spec TRUST-11, shared/schoolRules.js) ----
 # "none" until Madregot is in the Ministry's educational catalogue: student AI stays off in every school class, whatever
 # the teacher chooses, and no AI class licence is sold to a school class (a quote request stays open). Private groups
@@ -129,7 +142,12 @@ VAULT_MAX_MB = "200"
 #   BILLING_WEBHOOK_SECRET  verifies a signing provider's webhooks (+ BILLING_WEBHOOK_SECRET_OLD while rotating)
 #   TURNSTILE_SECRET, DEVICE_SECRET   only with FREE_DEVICE_MINT = "turnstile"
 #   VAULT_SECRET            seals the class and family copies of a restore code (openssl rand -hex 32); the vault itself does not need it
+#   GROW_USER_ID            Grow's userId (BILLING_PROVIDER = "grow")
+#   GROW_PAGE_CODE_ONCE     the pageCode of Grow's one-time payment page
+#   GROW_PAGE_CODE_RECURRING  the pageCode of Grow's standing-order (הוראת קבע) page
+#   GROW_API_KEY            Grow's apiKey, only if Grow issued one
 # TEST_WEBHOOK_SECRET belongs in .dev.vars only (the test provider).
+# setup.ps1 / setup.sh make the random ones; `npm run owner -- doctor` lists what is still missing (src/readiness.js).
 
 # Worker logs (trust spec TRUST-1 §3). Cloudflare keeps logs for new Workers by default, and its invocation logs hold
 # every request's address and headers: X-Device, X-Family-Device, X-Teacher-Key, X-Account-Token, the student's
@@ -167,6 +185,19 @@ name = "VAULT_RL"
 namespace_id = "1101"
 simple = { limit = 120, period = 60 }
 
+# The edge limit in front of sign-in codes, verify, class lookup, join and new devices: 20 a minute per network, per
+# location (src/edge.js). A burst filter only: the D1 counters stay the exact limits.
+[[ratelimits]]
+name = "RL_AUTH"
+namespace_id = "7001"
+simple = { limit = 20, period = 60 }
+
+# The AI routes: 30 a minute per caller (its device or credential, never the school's shared address), per location.
+[[ratelimits]]
+name = "RL_AI"
+namespace_id = "7002"
+simple = { limit = 30, period = 60 }
+
 # ---- staging: a second Worker with its own database, for the load test of the Ministry catalogue's technical check
 # (scripts/loadtest.mjs refuses any Worker whose GET /api/health does not say staging: true) and for the checker's test
 # account. Wrangler does not carry [vars] or the database into an environment, so both are written out here. Once:
@@ -175,8 +206,9 @@ simple = { limit = 120, period = 60 }
 #   npx wrangler secret put AUTH_SECRET --env staging     and   npx wrangler secret put IP_HASH_SECRET --env staging
 # Then each time: npm run staging:deploy   (npx wrangler deploy --env staging)
 # No AI key, no email and no payments on staging: the AI, sign-in codes and checkout stay off there. The encrypted
-# backup is on there (VAULT and PARENT_REPORT default to "on"; no VAULT_SECRET, so no escrow) without the VAULT_RL
-# burst filter, which wrangler does not carry into an environment either (the routes work without it).
+# backup is on there (VAULT and PARENT_REPORT default to "on"; no VAULT_SECRET, so no escrow) without the VAULT_RL,
+# RL_AUTH and RL_AI burst filters, which wrangler does not carry into an environment either (the routes work without
+# them: src/edge.js checks nothing with no binding).
 [env.staging]
 name = "madregot-api-staging"
 
@@ -206,6 +238,10 @@ TERMS_VERSION = "2026-11"
 BILLING_PROVIDER = "manual"
 BILLING_MODE = "live"
 BILLING_CHECKOUT_HOSTS = ""
+GROW_API_BASE = ""
+GROW_DIRECT_DEBIT_API = "off"
+WEBHOOK_ALLOWED_IPS = ""
+PAYMENT_PROVIDER_NAME = ""
 MOE_AI_APPROVAL = "none"
 MOE_AI_FROM_GRADE = "7"
 FREE_DEVICE_MINT = "off"

@@ -303,6 +303,15 @@
       "recipients": ["cloudflare"],
       "purgedBy": ["cron.vaultNight"]
     },
+    "vault_tombstones": {
+      "personal": "pseudonymous",
+      "about": ["student", "device"],
+      "fields": ["id_hash", "deleted_at"],
+      "purpose": "A backup its owner deleted (stop the backup, or delete all; DURABLE-5, migration 0008_vault_guard): only the hash the vault was stored under and when it was deleted, so another device that still has the same restore code is told the backup was deleted (410 vault_deleted) instead of making it again. No content, no code, no address.",
+      "retention": "400 days after the deletion, as long as an unused vault is kept (vault.js, the vaults' night); a vault that expired leaves none.",
+      "recipients": ["cloudflare"],
+      "purgedBy": ["cron.vaultNight"]
+    },
     "meters": {
       "personal": "no",
       "about": ["none"],
@@ -317,9 +326,9 @@
       "about": ["student", "parent", "device"],
       "fields": ["id", "vault_id", "owner_kind", "owner_id", "device_id", "label", "sealed", "created_at", "updated_at"],
       "purpose": "A backup's restore code sealed with a Worker secret (DURABLE-6), kept for an identity the user already has: a class student (back with the PIN) or a family account (a new linked device), with the device it came from and an optional label the parent chose. Never shown to a teacher or a parent.",
-      "retention": "With the student, the account or the vault; the device id goes when the device is unlinked or deletes all.",
+      "retention": "With the student, the account or the vault. A family device's copy goes when the device leaves by itself or deletes all, and on the parent's unlink while the child's sharing switch is off; a parent's unlink with the switch on keeps it in the account without the device id.",
       "recipients": ["cloudflare"],
-      "purgedBy": ["cron.purgeIdentitySql", "cron.vaultNight", "forget.studentDeleteStmts", "forget.studentsDeleteSteps", "forget.forgetAccount"]
+      "purgedBy": ["cron.purgeIdentitySql", "cron.vaultNight", "forget.studentDeleteStmts", "forget.studentsDeleteSteps", "forget.familyDeviceDeleteStmts", "forget.forgetAccount"]
     },
     "student_tokens": {
       "personal": "pseudonymous",
@@ -498,6 +507,13 @@
       "holds": "'play' when the app was opened from the Play Store app (?src=play), and nothing else (the student lane's lib/install.js).",
       "purpose": "A store app never offers the browser's install (STUDENT-10); it counts only while the page also runs as an installed app, so the same phone's ordinary browser tab is never taken for the store app.",
       "removedBy": "Delete all, or clearing the browser's data."
+    },
+    "<STORE_KEY>-report-fb-week": {
+      "store": "localStorage",
+      "personal": "no",
+      "holds": "The Sunday of the week the parent last answered \"הסיכום עוזר לכם?\" on /parents in this browser (the family lane's FamilyReport.jsx), and nothing else.",
+      "purpose": "The question is asked at most once a week in this browser; the server counts the answers per month with no account in them.",
+      "removedBy": "The next week's answer replaces it; delete all, or clearing the browser's data."
     },
     "<STORE_KEY>-demo": {
       "store": "sessionStorage",

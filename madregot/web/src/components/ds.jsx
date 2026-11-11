@@ -54,12 +54,14 @@ export function Stat({ value, label, tone = 'brand', icon: Icon }) {
   );
 }
 
-export function StateCard({ kind = 'empty', mood, title, children, action }) {
+/** `level`: the title's heading level where the card sits under a deeper heading (default h2). */
+export function StateCard({ kind = 'empty', mood, title, children, action, level = 2 }) {
   const m = mood || (kind === 'celebrate' ? 'achievement' : kind === 'error' ? 'encouraging' : 'thinking');
+  const Title = `h${Math.min(6, Math.max(2, level))}`;
   return (
     <section className={clsx('state-card', `state-${kind}`)} role={kind === 'error' ? 'alert' : 'status'}>
       <Mascot mood={m} size={kind === 'celebrate' ? 132 : 84} />
-      {title && <h2 className="state-title">{title}</h2>}
+      {title && <Title className="state-title">{title}</Title>}
       {children && <div className="state-body">{children}</div>}
       {action}
     </section>

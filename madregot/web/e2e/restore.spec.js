@@ -155,7 +155,7 @@ test.describe('the backup code', () => {
       : route.fallback()));
     await open(page, '#/settings', withServer());
     await page.getByRole('button', { name: 'ליצור קוד גיבוי' }).click();
-    await expect(page.locator('.save-backup [role="status"]')).toHaveText('נוצרו היום הרבה גיבויים מהרשת הזו. נסו שוב מחר, או שמרו קובץ.');
+    await expect(page.locator('.save-backup [role="status"]')).toHaveText('נוצרו היום הרבה גיבויים מהמכשיר או מהרשת הזו. נסו שוב מחר, או שמרו קובץ.');
     await expect(page.getByRole('dialog', { name: 'קוד הגיבוי שלכם' })).toHaveCount(0);
     await expect(page.locator('.save-backup .save-row dd')).toHaveText('כבוי');
     expect(st.vaults).toEqual({});
@@ -489,6 +489,8 @@ test.describe('the class and the family keep the code', () => {
     const escrowCall = log.find((r) => r.path === '/api/vault/escrow');
     expect(escrowCall.headers.authorization).toBe('Bearer stu_s1_1');
     expect(escrowCall.headers['x-family-device']).toBeUndefined();
+    // the fake has the escrow as soon as the request arrives; the app marks it once the answer is back and saved
+    await expect.poll(async () => (await saved(page)).backup?.escrow).toBe('class');
     expect((await saved(page)).backup).toMatchObject({ on: true, code: kept.code, escrow: 'class' });
 
     // two lessons, then out of view: the vault has them
@@ -559,7 +561,7 @@ test.describe('the class and the family keep the code', () => {
     await expect(pp.getByRole('heading', { name: /המנוי פעיל/ })).toBeVisible();
     const first = pp.locator('section', { has: pp.getByRole('heading', { name: 'חיבור המכשיר של הילד' }) });
     await first.getByLabel('הקוד מהמכשיר של הילד').fill('K7M4QX');
-    await first.getByLabel('איך לקרוא למכשיר? (לא חובה, למשל: הטאבלט)').fill('הטאבלט');
+    await first.getByLabel('איך לקרוא למכשיר? (לא חובה. בלי שם הילד, למשל: הטאבלט)').fill('הטאבלט');
     await expect(first.getByText('להמשיך מההתקדמות של:')).toHaveCount(0); // nothing kept yet: no choice
     await first.getByRole('button', { name: 'חיבור המכשיר' }).click();
     // A collects its token, then the family keeps its code (X-Family-Device, never a class Bearer)
@@ -607,7 +609,7 @@ test.describe('the class and the family keep the code', () => {
     await expect(form.getByRole('radio', { name: /הטאבלט/ })).toHaveAttribute('aria-checked', 'true');
     await expect(form.getByRole('radio', { name: 'להתחיל מחדש' })).toHaveAttribute('aria-checked', 'false');
     await form.getByLabel('הקוד מהמכשיר של הילד').fill('K7M4QX');
-    await form.getByLabel('איך לקרוא למכשיר? (לא חובה, למשל: הטאבלט)').fill('הטלפון החדש');
+    await form.getByLabel('איך לקרוא למכשיר? (לא חובה. בלי שם הילד, למשל: הטאבלט)').fill('הטלפון החדש');
     await form.scrollIntoViewIfNeeded();
     await shot(pp, 'parents-link-continue-from');
     await form.getByRole('button', { name: 'חיבור המכשיר' }).click();
@@ -629,7 +631,8 @@ test.describe('the class and the family keep the code', () => {
   });
 
   test('a family device\'s Settings and profile never say "מוצפן" about the copy the family keeps', async ({ page }) => {
-    await fakeServer(page.context(), {}, baseOf());
+    // a device the server knows (one it does not know moves to a new code: family-guard.spec.js)
+    await fakeServer(page.context(), { plan: livePlanOf(), devices: [{ id: 'd000000000000009', label: 'הטאבלט', token: `fd1.${'f'.repeat(64)}` }] }, baseOf());
     const code = newCode();
     const { lookup } = await derive(code);
     const seed = { ...withServer(), state: { ...withServer().state, ai: { mode: 'server', apiUrl: API, key: '', device: '', familyDevice: { token: `fd1.${'f'.repeat(64)}`, label: 'הטאבלט' } }, backup: { on: true, code, lookup, rev: null, at: null, hash: null, escrow: 'family', state: 'idle' } } };

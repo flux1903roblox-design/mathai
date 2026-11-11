@@ -153,12 +153,12 @@ export const dm = (day) => { const [, m, d] = String(day).split('-').map(Number)
 /** The wa.me address of a message (what the WhatsApp button opens). */
 export const waHref = (text) => `https://wa.me/?text=${encodeURIComponent(text)}`;
 
-/** Up to `max` names, then ' ועוד k'. */
+/** Up to `max` names, then ' ועוד מדרגה אחת' / ' ועוד 3 מדרגות'. */
 function names(list, max) {
   const shown = list.slice(0, Math.max(0, max)).map((s) => stairName(s));
   const more = list.length - shown.length;
   if (!shown.length) return more > 0 ? he.stairs(more) : '';
-  return `${shown.join(', ')}${more > 0 ? ` ועוד ${more}` : ''}`;
+  return `${shown.join(', ')}${more > 0 ? ` ועוד ${he.stairs(more)}` : ''}`;
 }
 
 function compose(week, { name, link, includeFixes }, worked, mastered) {

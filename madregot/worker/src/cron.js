@@ -14,13 +14,17 @@
 // many (errors.js), run the encrypted vaults' night (vault.js: purge vaults unused for 400 days, recompute the size
 // meter, the 70% notice), and queue the owner's daily summary when OWNER_DAILY_SUMMARY = "true". In the 16:00 hour: the
 // teachers' daily help email (help.js helpDigest: a count of new requests, for the owners who turned it on; none on a
-// rest day). Each step runs on its own: one failing step never stops the others.
+// rest day).
+//
+// On Sunday from 07:00 to 20:00 in Jerusalem: queue the parents' weekly email (report.js weeklyQueue; a second run adds
+// nothing), and send it after the other notices with its own flush (flushWeekly), so it never delays a legal notice.
+// Each step runs on its own: one failing step never stops the others.
 import { nowIso, addDays, daysAgo, dayOf, monthOf, hourOf, startOfDayIso, endOfDayIso } from './util.js';
 import { limits } from './entitle.js';
 import { retryCancels, processRefundQueue, prices, vatOf, forgetAccount } from './billing.js';
 import { purgeAccountsSql } from './account.js';
 import { purgeFamilySql } from './family.js';
-import { purgeReportSql } from './report.js';
+import { purgeReportSql, reportOn, feedbackCounts, weeklyQueue, flushWeekly } from './report.js';
 import { providerById } from './providers/index.js';
 import { queueNotices, ownerNotice, ownerAlertUsd } from './spend.js';
 import { flushNotices } from './email.js';
@@ -492,6 +496,8 @@ export async function dailySummary(env, now = new Date()) {
     // the tutor's answers (ai spec AI-3 Design 6), counts only: final answers the guard masked, empty streamed replies,
     // generated exercises code dropped, and generate requests where every exercise was dropped
     quality: await qualityCounts(env, day),
+    // "הסיכום עוזר לכם?" this month so far (PARENTS-5), while the parents' report is on
+    ...(reportOn(env) ? { reportFeedback: await feedbackCounts(env, new Date(now.getTime() - DAY)) } : {}),
     violations: [],
     reach: await reachSummary(env, day),
   };
@@ -539,6 +545,9 @@ export async function run(env, { now = new Date() } = {}) {
   }
   // the teachers' daily help email, counts only (TEACHER-6 §5)
   if (digestHour(now)) await step('helpDigest', () => helpDigest(env, now));
+  // the parents' Sunday email (PARENTS-7): queued every hour of Sunday 07:00-20:00, sent after the other notices
+  await step('weekly', () => weeklyQueue(env, now));
   await step('notices', () => flushNotices(env));
+  await step('weeklySend', () => flushWeekly(env, { now }));
   return report;
 }

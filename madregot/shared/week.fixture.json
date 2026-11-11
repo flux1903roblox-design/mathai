@@ -38,5 +38,23 @@
     "empty": false
   },
   "restDays": ["2026-11-10", "2026-11-14"],
-  "expectedRest": [false, false, true, false, false, false, true]
+  "expectedRest": [false, false, true, false, false, false, true],
+  "stale": {
+    "about": "The device practised up to Monday 2 November (its streak 5, through Shabbat 31 October) and was not opened since; its last summary names an exam on Wednesday the 4th. What the parent's page and the Sunday email show must be what the child's own report shows that day (streakOf): the streak holds while only the day itself is still empty or only a Shabbat lies between, breaks on a missed weekday, and a past exam is not 'ahead'. sentUpTo keeps only the rows up to that day.",
+    "rows": [
+      { "v": 1, "d": "2026-10-29", "m": 5, "q": 8, "ls": 1, "st": 0, "sk": ["coord:1"], "ma": [], "rv": 0, "fx": [], "sr": 2, "ex": null },
+      { "v": 1, "d": "2026-10-30", "m": 5, "q": 8, "ls": 1, "st": 0, "sk": ["coord:1"], "ma": [], "rv": 0, "fx": [], "sr": 3, "ex": null },
+      { "v": 1, "d": "2026-11-01", "m": 5, "q": 8, "ls": 1, "st": 0, "sk": ["coord:1"], "ma": [], "rv": 0, "fx": [], "sr": 4, "ex": null },
+      { "v": 1, "d": "2026-11-02", "m": 5, "q": 8, "ls": 1, "st": 0, "sk": ["coord:1"], "ma": [], "rv": 0, "fx": [], "sr": 5, "ex": { "d": "2026-11-04", "n": 1, "of": 3 } }
+    ],
+    "cases": [
+      { "start": "2026-11-01", "today": "2026-11-03", "streak": 5, "exam": { "d": "2026-11-04", "n": 1, "of": 3 } },
+      { "start": "2026-11-01", "today": "2026-11-04", "streak": 0, "exam": { "d": "2026-11-04", "n": 1, "of": 3 } },
+      { "start": "2026-11-01", "today": "2026-11-05", "streak": 0, "exam": null },
+      { "start": "2026-11-01", "today": "2026-11-07", "streak": 0, "exam": null },
+      { "start": "2026-10-25", "today": "2026-11-05", "streak": 3, "exam": null },
+      { "start": "2026-11-08", "today": "2026-11-09", "streak": 0, "exam": null },
+      { "start": "2026-11-01", "today": "2026-11-01", "sentUpTo": "2026-10-30", "streak": 3, "exam": null }
+    ]
+  }
 }

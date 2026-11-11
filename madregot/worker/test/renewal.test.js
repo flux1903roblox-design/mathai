@@ -50,7 +50,7 @@ const account = async (token) => (await h.call('GET', '/api/account', { headers:
 test('plans: the yearly plan does not renew and runs 12 months; the monthly plan renews', async () => {
   h = await setup();
   const p = plansView(h.env).plans;
-  assert.deepEqual(p.find((x) => x.id === 'family_year'), { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: YEAR, vatAgorot: 3798, renews: false, termMonths: 12 });
+  assert.deepEqual(p.find((x) => x.id === 'family_year'), { id: 'family_year', kind: 'family', interval: 'year', amountAgorot: YEAR, vatAgorot: 3798, renews: false, termMonths: 12, online: true });
   assert.equal(p.find((x) => x.id === 'family_month').renews, true);
   const served = await (await h.call('GET', '/api/billing/plans')).json();
   assert.equal(served.plans.find((x) => x.id === 'family_year').renews, false);

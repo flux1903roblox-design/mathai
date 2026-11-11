@@ -25,11 +25,12 @@ export const CURRENT_VERSION = 6;
 
 /**
  * The tutor on this device: the server (or a personal key, only in builds with VITE_ALLOW_PERSONAL_KEY=1), an anonymous
- * device id, the family-device token (AI only, never the parent's session), a link code waiting for a parent, and the
- * tier the server reported last (to say once that a plan ended). A new store adds introSeen (store.js), which no step
+ * device id, the family-device token (the tutor and the parents' daily summary, never the parent's session) with when
+ * the child saw the summary's notice and what was sent last (lib/familySync.js), a link code waiting for a parent, and
+ * the tier the server reported last (to say once that a plan ended). A new store adds introSeen (store.js), which no step
  * writes: it is read as `=== true`, so a state saved before it existed shows the introduction to the tutor once.
  */
-export const AI_DEFAULTS = Object.freeze({ mode: 'server', apiUrl: '', key: '', device: '', familyDevice: null /* {token, label} */, pendingLink: null /* {code, secret, expiresAt, url} */, lastTier: null });
+export const AI_DEFAULTS = Object.freeze({ mode: 'server', apiUrl: '', key: '', device: '', familyDevice: null /* {token, label, sharingSeen, lastSent} */, pendingLink: null /* {code, secret, expiresAt, url} */, lastTier: null });
 /** This device's save settings: its tag (xpBy), when the browser was asked to keep the data, and the save prompts. */
 export const DURABLE_DEFAULTS = Object.freeze({ tag: null, persistAsked: null, installHintAt: null, nudgeAt: null, nudgeCount: 0, escrowClass: true });
 /**
@@ -38,7 +39,7 @@ export const DURABLE_DEFAULTS = Object.freeze({ tag: null, persistAsked: null, i
  * the sync's state ('idle' | 'offline' | 'error' | 'unavailable' | 'too_big' | 'other_student' | 'gone') and a one-time
  * note for Settings ('recreated').
  */
-export const BACKUP_DEFAULTS = Object.freeze({ on: false, code: null, lookup: null, rev: null, at: null, hash: null, escrow: null, undoUntil: null, forcePush: false, state: null, note: null });
+export const BACKUP_DEFAULTS = Object.freeze({ on: false, code: null, lookup: null, rev: null, at: null, hash: null, escrow: null, undoUntil: null, forcePush: false, moveCode: false, state: null, note: null });
 
 /**
  * Nothing from a teacher yet (and after leaving the class): the last GET /api/class/work of a class student (lib/classWork.js).

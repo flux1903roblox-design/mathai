@@ -351,6 +351,8 @@ CREATE INDEX IF NOT EXISTS audit_target ON audit_log (target);
 --   vaults:       vault:miss:s:<student> | vault:miss:fd:<family device> | vault:miss:n:<net> (lookups that found nothing)
 --                 vault:new:n:<net> (anonymous creates)  vault:new:all  vault:w:<id_hash[0:16]> (writes to one vault)
 --   parents' report: sum:d:<family device> (summary posts a day, 150)  sum:n:<net> (3000)
+--                 fb:report:yes | fb:report:no (YYYY-MM, "הסיכום עוזר לכם?" answers, no account)
+--                 fb:a:<account> (day = the week's Sunday, one answer a week; purged with the daily keys after 35 days)
 --   reach:        metric:n:<net> (reach counts a network may add in a day, STUDENT-14)
 
 -- ---------------------------------------------------------------- the durable lane (migration 0003_durable)
@@ -692,3 +694,12 @@ CREATE TABLE IF NOT EXISTS metrics_daily (
   n INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (day, name)
 );
+
+-- ---------------------------------------------------------------- deleted backups (migration 0008_vault_guard, durable lane)
+-- DURABLE-5 (review): a backup that its owner deleted leaves a tombstone, so another device with the same code is told
+-- it was deleted (410 vault_deleted) instead of making it again. An expired vault leaves none. Kept 400 days (cron.js).
+CREATE TABLE IF NOT EXISTS vault_tombstones (
+  id_hash TEXT PRIMARY KEY,                 -- vaults.id_hash of the deleted vault
+  deleted_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS vault_tombstones_at ON vault_tombstones (deleted_at);
