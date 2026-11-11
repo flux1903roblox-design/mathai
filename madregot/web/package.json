@@ -10,6 +10,7 @@
     "test": "vitest run",
     "lint:colors": "node scripts/check-colors.mjs",
     "test:e2e": "playwright test -c e2e/playwright.config.js",
+    "test:week": "playwright test -c e2e/playwright.config.js --grep @student --project=phone --project=phone-small --project=phone-dark",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

@@ -50,8 +50,9 @@ export default defineConfig({
   projects: [
     { name: 'phone-small', use: phone(320, 568), testIgnore: IOS_ONLY },
     { name: 'phone', use: phone(390, 844), testIgnore: IOS_ONLY },
-    // the same phone in dark mode (STUDENT-2): only the screenshots of visual.spec run here, kept in __screens__/phone-dark/
-    { name: 'phone-dark', use: { ...phone(390, 844), colorScheme: 'dark' }, testMatch: /visual\.spec\.js/ },
+    // the same phone in dark mode (STUDENT-2): the screenshots of visual.spec, kept in __screens__/phone-dark/, and the
+    // student's week (STUDENT-16), whose pictures go to qa-evidence/student/week/phone-dark/
+    { name: 'phone-dark', use: { ...phone(390, 844), colorScheme: 'dark' }, testMatch: /(visual|student-week)\.spec\.js/ },
     { name: 'tablet', use: { viewport: { width: 768, height: 1024 }, deviceScaleFactor: 1 }, testIgnore: IOS_ONLY },
     { name: 'desktop', use: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 }, testIgnore: IOS_ONLY },
     // the iPhone store build (STUDENT-12): its own server, a phone, and service workers allowed so that "none
